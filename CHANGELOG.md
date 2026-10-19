@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.4
+
+- Added a fallback menu-bar icon for crowded menu bars. When macOS parks the real status item off-screen, a small wand icon appears in the free area left of the status items; it opens and closes the same panel and disappears once the real status item is visible. It carries a small state dot for running / waiting.
+- Removed the status item autosave name so a saved off-screen position cannot pin the real item away from the bar.
+- The **Agent Deck: 打开 macOS 菜单栏面板** command remains as a keyboard-only fallback.
+
 ## 1.0.3
 
 - Rebuilt the macOS menu bar as a solid, opaque panel. It no longer uses `NSPopover` or any frosted/translucent material, so text keeps its contrast on macOS 26.

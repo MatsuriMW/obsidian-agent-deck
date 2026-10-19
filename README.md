@@ -30,6 +30,7 @@ The menu bar item is a tiny SwiftUI helper app compiled on first use. It is not 
 - **Rows speak TODOseq.** Each card is tagged with a TODOseq keyword — `DOING`, `WAITING`, `NEEDOK?`, `HITLIMIT!`, `PAUSED`, `ERRORED`, `DONE`, `LATER`, `TODO` — with the same SVG icon and task-state colour TODOseq uses. `DOING` keeps its loader-circle spinning while the panel is open. The header counts `DOING` / `WAITING`, and any `NEEDOK?` session gets an orange reminder.
 - **Cards are card-like.** White surface, 1px border, a soft shadow, a state-coloured rail, the agent's glyph badge, the project and the current step. Hovering lifts the card.
 - **Five at a time.** The first five sessions are visible; the rest are a scroll away. The footer tells you how many sessions are in the list.
+- **Always clickable.** If macOS parks the status item off-screen because the menu bar has no free slot, a small wand icon appears in the free area left of the status items. It opens and closes the same panel, and hides automatically once the real status item is visible.
 - **Primary agents** (up to two) contribute more rows: all live sessions plus recent sessions from the last six hours, up to six per primary by default.
 - **Other agents** contribute only sessions that are currently running, up to three per agent by default. **WorkBuddy is the exception**: its waiting sessions are listed too, because they are part of the daily loop.
 - The header shows all enabled agents as chips, with running and waiting counts, including agents that have no row at the moment.
@@ -40,7 +41,7 @@ The dashboard itself keeps the calmer 1.0.2 palette; only the menu bar uses the 
 
 The first start needs `swiftc` (Xcode Command Line Tools). The plugin compiles `~/.agent-deck/AgentDeckMenuBar.app`, then launches it. It exits when Obsidian exits. The source is included in the plugin bundle, so no separate download is needed. If the menu bar does not appear, open **追踪 → 重启菜单栏** or install the command line tools with `xcode-select --install`.
 
-If the menu bar is full (or Ice has the item in its hidden section), run **Agent Deck: 打开 macOS 菜单栏面板** from the command palette. The panel opens under the menu bar without needing the status item; reveal the item in Ice later if you want it back on the bar.
+If the menu bar is full (or a menu-bar manager such as Ice has the item in its hidden section), look for the small wand icon in the free area left of the status items: it opens and closes the same panel. You can also run **Agent Deck: 打开 macOS 菜单栏面板** from the command palette.
 
 ![Layered model settings](assets/models.png)
 
