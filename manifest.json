@@ -1,0 +1,10 @@
+{
+  "id": "agent-deck",
+  "name": "Agent Deck",
+  "version": "0.1.0",
+  "minAppVersion": "1.4.0",
+  "description": "Track Claude Code, Codex, WorkBuddy and DeepSeek Harness sessions from Obsidian; delegate a task line with model, effort and mode; watch progress inside the trigger button.",
+  "author": "MatsuriMW",
+  "authorUrl": "https://github.com/MatsuriMW",
+  "isDesktopOnly": true
+}
