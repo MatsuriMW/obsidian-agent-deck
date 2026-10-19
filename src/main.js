@@ -517,10 +517,14 @@ export default class AgentDeckPlugin extends Plugin {
           for (const s of recs) if (add(s, true, false) && ++count >= limit) break;
         }
       } else {
+        // Other agents only contribute running sessions, except WorkBuddy:
+        // its waiting sessions are part of the daily loop and should be jumpable
+        // from the menu bar too.
+        const wbWaiting = (state) => agent === "workbuddy" && ["wait", "quiet", "needs-approval"].includes(state);
         const rows = [
-          ...live.filter((x) => x.agent === agent && x.state === "run"),
+          ...live.filter((x) => x.agent === agent && (x.state === "run" || wbWaiting(x.state))),
           ...recent.filter((x) => x.agent === agent && x.state === "run"),
-        ].sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+        ].sort((a, b) => menuRank(a.state) - menuRank(b.state) || (b.lastAt || 0) - (a.lastAt || 0));
         for (const s of rows) if (add(s, false, true) && ++count >= limit) break;
       }
     }

@@ -117,11 +117,15 @@ func openSession(_ session: MenuSession) {
     }
 }
 
+let adSage = Color(red: 0.44, green: 0.53, blue: 0.47)
+let adAmber = Color(red: 0.65, green: 0.54, blue: 0.43)
+let adRose = Color(red: 0.66, green: 0.48, blue: 0.47)
+
 func stateColor(_ state: String) -> Color {
     switch state {
-    case "run": return .green
-    case "wait", "needs-approval": return .orange
-    case "error", "limit": return .red
+    case "run": return adSage
+    case "wait", "needs-approval": return adAmber
+    case "error", "limit": return adRose
     default: return .secondary
     }
 }
@@ -211,7 +215,7 @@ struct DeckView: View {
             HStack(spacing: 9) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(LinearGradient(colors: [Color(red: 0.42, green: 0.48, blue: 1.0), Color(red: 0.62, green: 0.36, blue: 1.0)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .fill(LinearGradient(colors: [Color(red: 0.55, green: 0.53, blue: 0.64), Color(red: 0.68, green: 0.61, blue: 0.66)], startPoint: .topLeading, endPoint: .bottomTrailing))
                     if let img = lucideImage(lucideWandSVG, 13) {
                         Image(nsImage: img)
                             .renderingMode(.template)
@@ -235,11 +239,11 @@ struct DeckView: View {
                 VStack(alignment: .trailing, spacing: 1) {
                     Text("\(model.state.running) 在跑")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundColor(.green)
+                        .foregroundColor(adSage)
                     if model.state.waiting > 0 {
                         Text("\(model.state.waiting) 等你")
                             .font(.system(size: 9.5, weight: .semibold))
-                            .foregroundColor(.orange)
+                            .foregroundColor(adAmber)
                     }
                 }
             }
@@ -253,11 +257,11 @@ struct DeckView: View {
                                 .foregroundColor(a.primary ? .primary : .secondary)
                             Text("\(a.running)")
                                 .font(.system(size: 8.5, weight: .bold))
-                                .foregroundColor(a.running > 0 ? .green : .secondary)
+                                .foregroundColor(a.running > 0 ? adSage : .secondary)
                             if a.waiting > 0 {
                                 Text("· \(a.waiting) 等")
                                     .font(.system(size: 8))
-                                    .foregroundColor(.orange)
+                                    .foregroundColor(adAmber)
                             }
                         }
                         .padding(.horizontal, 5)
@@ -273,7 +277,7 @@ struct DeckView: View {
                 VStack(spacing: 4) {
                     Text("现在没有要显示的会话")
                         .font(.system(size: 11, weight: .semibold))
-                    Text("主力 Agent 的会话会留在这里；其它 Agent 只在正在运行时出现。")
+                    Text("主力 Agent 的会话会留在这里；其它 Agent 只在正在运行时出现，WorkBuddy 的等待会话也列。")
                         .font(.system(size: 9.5))
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
@@ -289,20 +293,21 @@ struct DeckView: View {
                             section("主力 · 全量追踪", primary)
                         }
                         if !others.isEmpty {
-                            section("其它 Agent · 只在跑", others)
+                            section("其它 Agent · 在跑 · WorkBuddy 等你", others)
                         }
                     }
                 }
                 .frame(maxHeight: 430)
             }
             Divider().padding(.vertical, 9)
-            Text("主力全量追踪 · 其它 Agent 只在运行中列出")
+            Text("主力全量 · 其它 Agent 在跑 · WorkBuddy 也列等你")
                 .font(.system(size: 8))
                 .foregroundColor(.secondary)
                 .padding(.bottom, 7)
             HStack(spacing: 8) {
                 Button("打开面板") { openURL("obsidian://agent-deck") }
                     .buttonStyle(.borderedProminent)
+                    .tint(Color(red: 0.45, green: 0.42, blue: 0.57))
                     .controlSize(.small)
                 Button("重新扫描") { openURL("obsidian://agent-deck?do=scan") }
                     .buttonStyle(.bordered)

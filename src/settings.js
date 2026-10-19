@@ -39,7 +39,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     setLucide(brandMark, "wand-sparkles");
     const bt = brand.createDiv({ cls: "ad-brand__text" });
     bt.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
-    bt.createDiv({ cls: "ad-brand__sub", text: "智能体甲板 · v1.0.1" });
+    bt.createDiv({ cls: "ad-brand__sub", text: "智能体甲板 · v1.0.2" });
 
     const nav = containerEl.createDiv({ cls: "ad-set-nav" });
     const dirty = this.draft && JSON.stringify(this.draft) !== JSON.stringify(this.plugin.settings.models);
@@ -655,12 +655,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       r.createSpan({ text: line });
     }
     const meta = c.createDiv({ cls: "ad-about-meta" });
-    meta.createDiv({ text: "版本 1.0.1 · MIT License" });
+    meta.createDiv({ text: "版本 1.0.2 · MIT License" });
     meta.createDiv({ text: "从 Nautilus Spiral（螺旋日程）的 AI 追踪部分拆出；交互参考了小红书 @ZZ.X 的两条帖子。" });
     const btns = c.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, "打开 GitHub 仓库", () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));
     this.bigButton(btns, "复制调试信息", async () => {
-      const text = JSON.stringify({ version: "1.0.1", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
+      const text = JSON.stringify({ version: "1.0.2", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
       await navigator.clipboard.writeText(text);
       new Notice("调试信息已复制");
     });

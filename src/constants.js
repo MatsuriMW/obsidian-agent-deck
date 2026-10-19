@@ -2,7 +2,7 @@
 
 export const PLUGIN_ID = "agent-deck";
 export const PLUGIN_NAME = "Agent Deck";
-export const PLUGIN_VERSION = "1.0.1";
+export const PLUGIN_VERSION = "1.0.2";
 export const USAGE_FILE = "usage.json";
 export const STORE_VERSION = 1;
 
@@ -12,8 +12,8 @@ export const AGENTS = {
     name: "Claude Code",
     short: "Claude",
     glyph: "✳",
-    color: "#d97757",
-    soft: "rgba(217,119,87,.16)",
+    color: "#a86f58",
+    soft: "rgba(168,111,88,.13)",
     kind: "claude",
     where: ["~/.claude/projects", "Claude Code 和 Claude 桌面版里的 Code 会话"],
     deep: "claude",
@@ -24,8 +24,8 @@ export const AGENTS = {
     name: "Codex",
     short: "Codex",
     glyph: "⌘",
-    color: "#6aa6d8",
-    soft: "rgba(106,166,216,.16)",
+    color: "#71899d",
+    soft: "rgba(113,137,157,.13)",
     kind: "codex",
     where: ["~/.codex/sessions", "Codex 桌面版和 codex 命令行"],
     deep: "codex",
@@ -36,8 +36,8 @@ export const AGENTS = {
     name: "WorkBuddy",
     short: "WorkBuddy",
     glyph: "✦",
-    color: "#58b98a",
-    soft: "rgba(88,185,138,.16)",
+    color: "#71917f",
+    soft: "rgba(113,145,127,.13)",
     kind: "workbuddy",
     where: ["~/.workbuddy/projects", "WorkBuddy 桌面版"],
     deep: "workbuddy",
@@ -48,8 +48,8 @@ export const AGENTS = {
     name: "DeepSeek Harness",
     short: "DSH",
     glyph: "◈",
-    color: "#5b6cff",
-    soft: "rgba(91,108,255,.16)",
+    color: "#767fae",
+    soft: "rgba(118,127,174,.13)",
     kind: "dsh",
     where: ["~/.dsh/sessions", "DeepSeek Harness 桌面版、CLI 和通过 ACP 委派的任务"],
     deep: "dsh",

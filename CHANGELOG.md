@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2
+
+- The macOS menu bar now lists WorkBuddy's waiting sessions as well as its running sessions. Other non-primary agents still contribute only running sessions.
+- Lower-saturation, warmer palette across the dashboard, settings and menu-bar popover: muted terracotta / slate / sage / periwinkle agent colours, parchment accents, softer gold stars and calmer status colours.
+- The menu-bar popover uses the same muted palette, including a toned-down primary button.
+
+
 ## 1.0.1
 
 - Delegation is command-driven: removed the per-item "Delegate" trigger. Only lines already bound to a session or delegation show a status/progress pill.

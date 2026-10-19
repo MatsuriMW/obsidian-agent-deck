@@ -27,7 +27,7 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 The menu bar item is a tiny SwiftUI helper app compiled on first use. It is not a second copy of the dashboard: it is the quick "what is running / what needs me" surface.
 
 - **Primary agents** (up to two) contribute more rows: all live sessions plus recent sessions from the last six hours, up to six per primary by default.
-- **Other agents** contribute only sessions that are currently running, up to three per agent by default.
+- **Other agents** contribute only sessions that are currently running, up to three per agent by default. **WorkBuddy is the exception**: its waiting sessions are listed too, because they are part of the daily loop.
 - The header shows all enabled agents as chips, with running and waiting counts, including agents that have no row at the moment.
 - Clicking a row opens the same deeplink as the dashboard. DeepSeek Harness focuses the client and copies the session id; Codex copies `codex resume <id>`.
 - **打开面板** opens the Obsidian dashboard via `obsidian://agent-deck`; **重新扫描** triggers a scan; **隐藏** disables the menu bar from inside the popover.
@@ -80,8 +80,6 @@ The pill is a CodeMirror widget. It only lives on lines that already have a sess
 4. **Done** or **Error**, with an open/retry control.
 
 The options sheet is opened from the command palette (`委派选项…`) or from the chevron on a status pill:
-
-![Delegate options](assets/delegate.png)
 
 ## Installation
 
