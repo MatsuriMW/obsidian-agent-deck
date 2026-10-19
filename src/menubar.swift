@@ -1242,7 +1242,7 @@ private func deckHotKeyHandler(
 ) -> OSStatus {
     guard let userData = userData else { return noErr }
     let delegate = Unmanaged<AppDelegate>.fromOpaque(userData).takeUnretainedValue()
-    DispatchQueue.main.async { delegate.togglePanel() }
+    delegate.showPanel()
     return noErr
 }
 
@@ -1365,6 +1365,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.onShowRequest = { [weak self] in self?.showPanel() }
         model.start()
         refresh()
+        forceDisplay()
         // Write the pid file only after lastShowAt has been recorded, so an
         // Obsidian command that waits for this pid cannot race the listener.
         if !pidPath.isEmpty {
@@ -1521,16 +1522,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func showPanel() {
-        guard !panel.isVisible else { return }
+        if panel.isVisible {
+            // The shortcut always opens/focuses; it never closes the panel.
+            panel.orderFrontRegardless()
+            panel.makeKey()
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
         layoutPanel()
         panel.alphaValue = 1
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
+        // Put the panel on screen before asking macOS to activate the app. The
+        // visual response should not wait for activation.
         panel.orderFrontRegardless()
         forceDisplay()
         model.panelVisible = true
         statusItem.button?.highlight(true)
         installMonitors()
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
     }
 
     func forceDisplay() {

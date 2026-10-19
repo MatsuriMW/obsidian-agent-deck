@@ -1,7 +1,7 @@
 {
   "id": "agent-deck",
   "name": "Agent Deck",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "minAppVersion": "1.4.0",
   "description": "Track Claude Code, Codex, WorkBuddy and DeepSeek Harness from Obsidian; delegate with a command; keep agent status in the macOS menu bar.",
   "author": "MatsuriMW",

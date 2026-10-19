@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.7
+
+- The global shortcut now **opens or focuses** the panel; pressing it again no longer closes an open panel. Use Escape or click outside to close.
+- Reduced wake latency: the panel is ordered on screen before macOS activation, and the data is pre-rendered at launch so the first shortcut feels immediate.
+- The Carbon handler calls the panel directly instead of hopping through the main queue.
+- The shortcut remains customizable; default ⌃⌥⌘D.
+
 ## 1.0.6
 
 - The menu bar shortcut is now customizable in **设置 → 追踪 → 菜单栏快捷键**. Click the field and press a new combination; at least one of ⌃ / ⌥ / ⌘ is required. Default is ⌃⌥⌘D.
