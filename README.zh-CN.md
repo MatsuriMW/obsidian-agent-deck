@@ -30,7 +30,7 @@ Agent Deck 是一个 Obsidian 插件：读本机的 **Claude Code、Codex、Work
 - **任务关键词来自 TODOseq。** 每张卡片右上角标 `DOING`、`WAITING`、`NEEDOK?`、`HITLIMIT!`、`PAUSED`、`ERRORED`、`DONE`、`LATER`、`TODO`，前面配 TODOseq 里同一个 SVG 图标和任务状态色；`DOING` 的 loader-circle 在面板打开时一直转。顶部统计 `DOING` / `WAITING`，有 `NEEDOK?` 会话时会出现橙色提醒条。
 - **卡片就是卡片。** 白底、1px 描边、柔和阴影、左侧状态色轨、Agent 图标徽章、项目名和当前步骤；鼠标悬停时卡片会轻微浮起。
 - **默认五条。** 一眼先看前五个会话，其余向下滑动；底部会写清楚一共多少个。
-- **总有地方可点。** 菜单栏排满、macOS 把状态项放进隐藏区时，菜单栏左侧空位会出现一个小魔杖图标，点它开合面板；真正的状态项回到菜单栏后，它会自动消失。
+- **在右侧，也有快捷键。** 状态项常驻菜单栏右侧；如果 macOS 因为菜单栏排满把它藏起来，按 **⌃⌥⌘D**（Control + Option + Command + D）就能在任意 App 里开合面板，不需要辅助功能权限。
 - **主力 Agent**（最多两个）给更多行：正在跑的、等你的，加上最近六小时内的会话，默认每个主力最多 6 条。
 - **其它 Agent** 只给正在运行的会话，默认每个最多 3 条。**WorkBuddy 例外**：它的等待会话也会列出来，因为那是每天要接着处理的事。
 - 顶部有一排所有已启用 Agent 的小标签，带在跑 / 等你数量；即使某个 Agent 当前没有可列出的会话，它的标签也在。
@@ -41,7 +41,7 @@ Agent Deck 的主面板仍然保留 1.0.2 的低饱和配色；只有 macOS 菜�
 
 第一次启动需要 `swiftc`（Xcode Command Line Tools）。插件会编译 `~/.agent-deck/AgentDeckMenuBar.app` 并启动它；Obsidian 退出时它也会退出。源码已经打包在插件里，不需要另外下载。菜单栏没出现时，到 **追踪 → 重启菜单栏**，或者先运行 `xcode-select --install`。
 
-如果菜单栏已经排满（或者 Ice 把它收进了隐藏区），看状态图标左侧空位里的小魔杖图标：它同样能开合面板。也可以在命令面板里运行 **Agent Deck: 打开 macOS 菜单栏面板**。
+如果菜单栏已经排满（或者 Ice 把它收进了隐藏区），按 **⌃⌥⌘D** 开合面板。也可以在命令面板里运行 **Agent Deck: 打开 macOS 菜单栏面板**。
 
 ![分层模型设置](assets/models.png)
 

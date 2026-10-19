@@ -1,4 +1,4 @@
-/* Agent Deck 1.0.4 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.0.5 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -4390,6 +4390,7 @@ var menubar_default = `// Agent Deck menu bar helper.
 // glass material, which made the old card list washed out and hard to read.
 
 import AppKit
+import Carbon
 import QuartzCore
 import SwiftUI
 import Foundation
@@ -5542,101 +5543,20 @@ struct DeckView: View {
 
 // MARK: - Panel + app
 
-// MARK: - Fallback menu bar icon
-
-/// A normal status item cannot be shown when macOS has no free menu-bar slot.
-/// This small overlay sits in the free area left of the status items and gives
-/// the user a permanent place to click. It is hidden automatically as soon as
-/// the real status item has a visible slot.
-final class FallbackStatusPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
-    override var canBecomeMain: Bool { false }
-}
-
-final class FallbackStatusView: NSView {
-    var onClick: (() -> Void)?
-    var running = 0 { didSet { needsDisplay = true } }
-    var waiting = 0 { didSet { needsDisplay = true } }
-
-    private var hovering = false
-    private var icon: NSImage?
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        icon = lucideImage(lucideWandSVG, 15)
-        wantsLayer = true
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        for area in trackingAreas { removeTrackingArea(area) }
-        addTrackingArea(NSTrackingArea(
-            rect: .zero,
-            options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        ))
-    }
-
-    override func mouseEntered(with event: NSEvent) {
-        hovering = true
-        needsDisplay = true
-    }
-
-    override func mouseExited(with event: NSEvent) {
-        hovering = false
-        needsDisplay = true
-    }
-
-    override func mouseDown(with event: NSEvent) {
-        onClick?()
-    }
-
-    override func draw(_ dirtyRect: NSRect) {
-        if hovering {
-            NSColor.labelColor.withAlphaComponent(0.14).setFill()
-            NSBezierPath(roundedRect: bounds.insetBy(dx: 1, dy: 3), xRadius: 4, yRadius: 4).fill()
-        }
-
-        if let icon = icon {
-            let tinted = icon.deckTinted(NSColor.labelColor)
-            let side: CGFloat = 15
-            tinted.draw(in: NSRect(
-                x: (bounds.width - side) / 2,
-                y: (bounds.height - side) / 2,
-                width: side,
-                height: side
-            ))
-        }
-
-        let badge: NSColor?
-        if waiting > 0 {
-            badge = NSColor(DeckKeywords.waiting.accent)
-        } else if running > 0 {
-            badge = NSColor(DeckKeywords.doing.accent)
-        } else {
-            badge = nil
-        }
-        if let badge = badge {
-            badge.setFill()
-            NSBezierPath(ovalIn: NSRect(x: bounds.maxX - 8, y: bounds.maxY - 9, width: 4.5, height: 4.5)).fill()
-        }
-    }
-}
-
-enum FallbackPlacement {
-    case unknown
-    case visible
-    case hidden
-}
-
 final class DeckPanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+}
+
+private func deckHotKeyHandler(
+    _ callRef: EventHandlerCallRef?,
+    _ event: EventRef?,
+    _ userData: UnsafeMutableRawPointer?
+) -> OSStatus {
+    guard let userData = userData else { return noErr }
+    let delegate = Unmanaged<AppDelegate>.fromOpaque(userData).takeUnretainedValue()
+    DispatchQueue.main.async { delegate.togglePanel() }
+    return noErr
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -5650,10 +5570,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var preview = false
     var monitors: [Any] = []
     var dismissObserver: NSObjectProtocol?
-    var fallbackPanel: FallbackStatusPanel!
-    var fallbackView: FallbackStatusView!
+    var hotKeyRef: EventHotKeyRef?
+    var hotKeyHandler: EventHandlerRef?
 
     let panelWidth: CGFloat = 412
+
+    /// Global shortcut: Control + Option + Command + D. Carbon hotkeys work
+    /// even when the status item is hidden and do not need Accessibility access.
+    func registerGlobalHotKey() {
+        var eventType = EventTypeSpec(
+            eventClass: OSType(kEventClassKeyboard),
+            eventKind: UInt32(kEventHotKeyPressed)
+        )
+        _ = InstallEventHandler(
+            GetApplicationEventTarget(),
+            deckHotKeyHandler,
+            1,
+            &eventType,
+            Unmanaged.passUnretained(self).toOpaque(),
+            &hotKeyHandler
+        )
+        let hotKeyID = EventHotKeyID(signature: OSType(0x41444B31), id: 1)
+        _ = RegisterEventHotKey(
+            UInt32(kVK_ANSI_D),
+            UInt32(controlKey | optionKey | cmdKey),
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &hotKeyRef
+        )
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let args = CommandLine.arguments
@@ -5686,7 +5632,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         hostPanel()
-        if !preview { hostFallbackIcon() }
+        if !preview { registerGlobalHotKey() }
 
         dismissObserver = NotificationCenter.default.addObserver(
             forName: .agentDeckDismiss, object: nil, queue: .main
@@ -5698,9 +5644,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.onShowRequest = { [weak self] in self?.showPanel() }
         model.start()
         refresh()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { [weak self] in
-            self?.updateFallbackVisibility()
-        }
         // Write the pid file only after lastShowAt has been recorded, so an
         // Obsidian command that waits for this pid cannot race the listener.
         if !pidPath.isEmpty {
@@ -5759,77 +5702,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             layoutPanel()
             if resized { forceDisplay() }
         }
-        fallbackView?.running = model.state.running
-        fallbackView?.waiting = model.state.waiting
-        updateFallbackVisibility()
-    }
-
-    func hostFallbackIcon() {
-        let screen = NSScreen.screens.first
-        let height = screen.map { max(22, $0.frame.maxY - $0.visibleFrame.maxY) } ?? 24
-        fallbackPanel = FallbackStatusPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 30, height: height),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        fallbackPanel.level = .statusBar
-        fallbackPanel.isOpaque = false
-        fallbackPanel.backgroundColor = .clear
-        fallbackPanel.hasShadow = false
-        fallbackPanel.hidesOnDeactivate = false
-        fallbackPanel.isMovable = false
-        fallbackPanel.isReleasedWhenClosed = false
-        fallbackPanel.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle]
-
-        fallbackView = FallbackStatusView(frame: NSRect(x: 0, y: 0, width: 30, height: height))
-        fallbackView.onClick = { [weak self] in self?.togglePanel() }
-        fallbackPanel.contentView = fallbackView
-        updateFallbackFrame()
-        fallbackPanel.orderOut(nil)
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(screenParametersChanged),
-            name: NSApplication.didChangeScreenParametersNotification,
-            object: nil
-        )
-    }
-
-    func updateFallbackFrame() {
-        guard let panel = fallbackPanel, let screen = NSScreen.screens.first ?? NSScreen.main else { return }
-        let height = max(22, screen.frame.maxY - screen.visibleFrame.maxY)
-        let width: CGFloat = 30
-        let x = max(420, screen.frame.midX - 230)
-        panel.setFrame(
-            NSRect(x: x, y: screen.frame.maxY - height, width: width, height: height),
-            display: true
-        )
-    }
-
-    func statusItemPlacement() -> FallbackPlacement {
-        guard let button = statusItem.button, let window = button.window else { return .unknown }
-        let rect = window.convertToScreen(button.convert(button.bounds, to: nil))
-        guard rect.width > 2, rect.height > 2 else { return .unknown }
-        guard let screen = NSScreen.screens.first ?? NSScreen.main else { return .unknown }
-        return rect.midY > screen.visibleFrame.maxY - 40 ? .visible : .hidden
-    }
-
-    func updateFallbackVisibility() {
-        guard let fallbackPanel = fallbackPanel else { return }
-        let placement = statusItemPlacement()
-        switch placement {
-        case .visible:
-            fallbackPanel.orderOut(nil)
-        case .hidden:
-            if !fallbackPanel.isVisible { fallbackPanel.orderFrontRegardless() }
-        case .unknown:
-            break
-        }
-    }
-
-    @objc func screenParametersChanged() {
-        updateFallbackFrame()
-        updateFallbackVisibility()
     }
 
     func panelHeightForScreen() -> CGFloat {
@@ -5972,9 +5844,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 return event
             }
             let point = NSEvent.mouseLocation
-            if let fallback = self.fallbackPanel, fallback.isVisible, fallback.frame.contains(point) {
-                return event
-            }
             if let button = self.statusItem.button, let window = button.window {
                 let rect = window.convertToScreen(button.convert(button.bounds, to: nil))
                 if rect.contains(point) { return event }
@@ -6103,7 +5972,7 @@ var MenuBarBridge = class {
     } catch {
     }
     const res = await new Promise((resolve) => {
-      const child = (0, import_child_process2.spawn)("/usr/bin/swiftc", ["-O", "-swift-version", "5", "-framework", "AppKit", "-framework", "SwiftUI", "-o", tmp, this.srcPath], { stdio: ["ignore", "pipe", "pipe"] });
+      const child = (0, import_child_process2.spawn)("/usr/bin/swiftc", ["-O", "-swift-version", "5", "-framework", "AppKit", "-framework", "SwiftUI", "-framework", "Carbon", "-o", tmp, this.srcPath], { stdio: ["ignore", "pipe", "pipe"] });
       let err2 = "";
       const timer = setTimeout(() => {
         try {

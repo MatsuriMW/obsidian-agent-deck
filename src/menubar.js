@@ -96,7 +96,7 @@ export class MenuBarBridge {
     const tmp = this.binPath + ".new";
     try { await fsp.unlink(tmp); } catch { /* none */ }
     const res = await new Promise((resolve) => {
-      const child = spawn("/usr/bin/swiftc", ["-O", "-swift-version", "5", "-framework", "AppKit", "-framework", "SwiftUI", "-o", tmp, this.srcPath], { stdio: ["ignore", "pipe", "pipe"] });
+      const child = spawn("/usr/bin/swiftc", ["-O", "-swift-version", "5", "-framework", "AppKit", "-framework", "SwiftUI", "-framework", "Carbon", "-o", tmp, this.srcPath], { stdio: ["ignore", "pipe", "pipe"] });
       let err = "";
       const timer = setTimeout(() => { try { child.kill("SIGKILL"); } catch { /* gone */ } resolve({ ok: false, err: "编译超过 90 秒" }); }, 90000);
       child.stdout.on("data", () => {});

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.5
+
+- Removed the left-side fallback overlay. The status item stays on the right side of the menu bar.
+- Added a global shortcut, **Control + Option + Command + D**, that opens or closes the panel even when macOS has hidden the status item. It works from any app and does not need Accessibility access.
+- The **Agent Deck: 打开 macOS 菜单栏面板** command remains as a second fallback.
+
 ## 1.0.4
 
 - Added a fallback menu-bar icon for crowded menu bars. When macOS parks the real status item off-screen, a small wand icon appears in the free area left of the status items; it opens and closes the same panel and disappears once the real status item is visible. It carries a small state dot for running / waiting.
