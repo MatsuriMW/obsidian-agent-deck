@@ -2,6 +2,7 @@
 
 import { Modal, Notice, setIcon } from "obsidian";
 import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS, fmtTok } from "./constants.js";
+import { agentIcon, setLucide } from "./icons.js";
 import { blockAt, blockTitle } from "./delegation.js";
 
 export class DelegateOptionsModal extends Modal {
@@ -56,7 +57,7 @@ export class DelegateOptionsModal extends Modal {
       const b = targets.createEl("button", { cls: "ad-target ad-target--sm" + (this.agent === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
-      b.createSpan({ cls: "ad-glyph", text: a.glyph });
+      agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
       b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "桌面版" : "ACP" });
       b.onclick = () => { this.agent = id; this.model = p.defaultModel(id); this.effort = id === "dsh" ? (p.settings.delegate.dsh.effort || "high") : (p.settings.delegate.claude.effort || "high"); this.render(); };
@@ -134,6 +135,8 @@ export class DelegateOptionsModal extends Modal {
     cancel.onclick = () => this.close();
     const go = foot.createEl("button", { cls: "ad-btn ad-btn--cta ad-btn--delegate" });
     go.createSpan({ cls: "ad-btn__fill" });
+    const goIcon = go.createSpan({ cls: "ad-btn__icon" });
+    setLucide(goIcon, "send");
     go.createSpan({ cls: "ad-btn__label", text: "Delegate" });
     go.onclick = async () => {
       go.classList.add("is-busy");

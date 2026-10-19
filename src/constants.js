@@ -2,7 +2,7 @@
 
 export const PLUGIN_ID = "agent-deck";
 export const PLUGIN_NAME = "Agent Deck";
-export const PLUGIN_VERSION = "0.2.0";
+export const PLUGIN_VERSION = "1.0.1";
 export const USAGE_FILE = "usage.json";
 export const STORE_VERSION = 1;
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1
+
+- Delegation is command-driven: removed the per-item "Delegate" trigger. Only lines already bound to a session or delegation show a status/progress pill.
+- Replaced the UI glyphs with Lucide icons (agent, status, tabs, stars, arrows, buttons); running states use a CSS spinner. The macOS menu-bar icon is the Lucide `wand-sparkles` SVG.
+- Fixed `done-to-top` / `journal-tidy` moving `DELEGATED` (and other agent-tracked) blocks that mention 明天 / 后天 / 大后天 into the next day, which made an active delegation look gone.
+- Prevented `journal-tidy` from folding DOING/TODO blocks that fall before the first separator.
+- Removed the duplicated `DELEGATED` blocks that earlier tidy runs had copied into `2026_10_20.md`.
+
+
 ## 0.2.0
 
 - Moved the agent summary out of Obsidian's bottom-right status bar into a native macOS menu bar item.

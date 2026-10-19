@@ -5,9 +5,10 @@ import {
   AGENTS, AGENT_ORDER, MODEL_CATALOG, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS,
   fmtMin, fmtTok, deepMerge, fmtClock,
 } from "./constants.js";
+import { agentIcon, setLucide } from "./icons.js";
 
 const TABS = [
-  ["agents", "Agents", "bot"],
+  ["agents", "Agents", "users"],
   ["delegate", "委派", "send"],
   ["models", "Models", "layers"],
   ["tracking", "追踪", "radar"],
@@ -34,16 +35,20 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const s = this.plugin.settings;
     const head = containerEl.createDiv({ cls: "ad-set-head" });
     const brand = head.createDiv({ cls: "ad-brand" });
-    brand.createSpan({ cls: "ad-brand__mark", text: "◈" });
+    const brandMark = brand.createSpan({ cls: "ad-brand__mark" });
+    setLucide(brandMark, "wand-sparkles");
     const bt = brand.createDiv({ cls: "ad-brand__text" });
     bt.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
-    bt.createDiv({ cls: "ad-brand__sub", text: "智能体甲板 · v0.2.0" });
+    bt.createDiv({ cls: "ad-brand__sub", text: "智能体甲板 · v1.0.1" });
 
     const nav = containerEl.createDiv({ cls: "ad-set-nav" });
     const dirty = this.draft && JSON.stringify(this.draft) !== JSON.stringify(this.plugin.settings.models);
     for (const [id, label, icon] of TABS) {
       const text = id === "models" && dirty ? `${label} ·` : label;
-      const b = nav.createEl("button", { cls: "ad-set-tab" + (this.tab === id ? " is-on" : "") + (id === "models" && dirty ? " is-dirty" : ""), text });
+      const b = nav.createEl("button", { cls: "ad-set-tab" + (this.tab === id ? " is-on" : "") + (id === "models" && dirty ? " is-dirty" : "") });
+      const ic = b.createSpan({ cls: "ad-tabicon" });
+      setLucide(ic, icon);
+      b.createSpan({ text });
       b.onclick = () => { this.tab = id; this.display(); };
     }
     const body = containerEl.createDiv({ cls: "ad-set-body" });
@@ -131,11 +136,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       card.style.setProperty("--ad-agent-soft", a.soft);
       const top = card.createDiv({ cls: "ad-agentcard__top" });
       const mark = top.createDiv({ cls: "ad-agentcard__mark" });
-      mark.createSpan({ cls: "ad-glyph", text: a.glyph });
+      agentIcon(mark.createSpan({ cls: "ad-glyph" }), id);
       const nm = top.createDiv({ cls: "ad-agentcard__name" });
       nm.createDiv({ cls: "ad-agentcard__title", text: a.name });
       nm.createDiv({ cls: "ad-agentcard__where", text: a.where[1] });
-      const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), text: primary ? "★" : "☆" });
+      const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : "") });
+      setLucide(star, primary ? "star" : "star-off");
       star.title = primary ? "取消主力" : "设为主力（最多两个）";
       star.onclick = () => p.togglePrimary(id);
       const stats = card.createDiv({ cls: "ad-agentcard__stats" });
@@ -157,7 +163,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const paths = info.createDiv({ cls: "ad-pathlist" });
     for (const [id, a] of Object.entries(AGENTS)) {
       const r = paths.createDiv({ cls: "ad-pathrow" });
-      r.createSpan({ cls: "ad-glyph", text: a.glyph, attr: { style: `color:${a.color}` } });
+      agentIcon(r.createSpan({ cls: "ad-glyph", attr: { style: `color:${a.color}` } }), id);
       r.createSpan({ cls: "ad-pathrow__name", text: a.name });
       r.createSpan({ cls: "ad-pathrow__path", text: a.where[0] });
       r.createSpan({ cls: "ad-muted", text: p.agentEnabled(id) ? "读" : "不读" });
@@ -180,7 +186,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const b = targetRow.createEl("button", { cls: "ad-target" + (d.target === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
-      b.createSpan({ cls: "ad-glyph", text: a.glyph });
+      agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.name });
       b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "桌面版 / 后台" : "ACP / 自带账号" });
       b.onclick = async () => { d.target = id; await p.saveSettings(); this.display(); };
@@ -312,7 +318,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const b = targetSeg.createEl("button", { cls: "ad-target ad-target--sm" + (target === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
-      b.createSpan({ cls: "ad-glyph", text: a.glyph });
+      agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
       b.onclick = () => { p.settings.delegate.target = id; p.saveSettings(); this.display(); };
     }
@@ -412,7 +418,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const g = list.createDiv({ cls: "ad-modelgroup" });
       const gh = g.createDiv({ cls: "ad-modelgroup__head" });
       const a = AGENTS[agent];
-      gh.createSpan({ cls: "ad-glyph", text: a.glyph, attr: { style: `color:${a.color}` } });
+      agentIcon(gh.createSpan({ cls: "ad-glyph", attr: { style: `color:${a.color}` } }), agent);
       gh.createSpan({ text: a.name });
       gh.createSpan({ cls: "ad-muted", text: `${rows.filter((m) => enabled.has(m.id)).length} of ${rows.length} on` });
       this.groupAction(gh, rows, d, false);
@@ -596,7 +602,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const nautRow = this.row(ui, "关闭螺旋日程右下角的 Agent 汇总", "Agent Deck 接管后，螺旋日程那一格 🤖 会隐藏；它自己的日程状态栏和计时照常。", null);
     this.toggle(nautRow.querySelector(":scope > .ad-row__right"), s.menuBarHideNautilus !== false, (v) => { s.menuBarHideNautilus = v; p.saveSettings(); if (v) p.hideNautilusAgentBar().catch(() => {}); else p.restoreNautilusAgentBar().catch(() => {}); });
     for (const [key, label, desc, fallback] of [
-      ["showEditorPills", "任务行上的委派按钮", "光标停在列表项时，行尾出现「委派」和进度。", true],
+      ["showEditorPills", "任务行上的会话状态按钮", "只有已经绑定会话 / 委派出去的行才显示状态和进度；不再在每个条目上放「委派」按钮。", true],
       ["showRibbonIcon", "左侧栏图标", "点一下打开 Agent Deck。", true],
       ["openDashboardOnStartup", "启动时打开面板", "Obsidian 启动时自动打开 Agent Deck 侧栏。", false],
     ]) {
@@ -649,12 +655,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       r.createSpan({ text: line });
     }
     const meta = c.createDiv({ cls: "ad-about-meta" });
-    meta.createDiv({ text: "版本 0.2.0 · MIT License" });
+    meta.createDiv({ text: "版本 1.0.1 · MIT License" });
     meta.createDiv({ text: "从 Nautilus Spiral（螺旋日程）的 AI 追踪部分拆出；交互参考了小红书 @ZZ.X 的两条帖子。" });
     const btns = c.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, "打开 GitHub 仓库", () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));
     this.bigButton(btns, "复制调试信息", async () => {
-      const text = JSON.stringify({ version: "0.2.0", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
+      const text = JSON.stringify({ version: "1.0.1", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
       await navigator.clipboard.writeText(text);
       new Notice("调试信息已复制");
     });

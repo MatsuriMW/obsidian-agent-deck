@@ -36,7 +36,7 @@ module.exports = __toCommonJS(main_exports);
 var import_fs4 = __toESM(require("fs"), 1);
 var import_path4 = __toESM(require("path"), 1);
 var import_child_process3 = require("child_process");
-var import_obsidian4 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/constants.js
 var STORE_VERSION = 1;
@@ -2742,9 +2742,50 @@ function execCapture(bin, args, { cwd, env, timeout = 1e4 } = {}) {
 }
 
 // src/view.js
+var import_obsidian2 = require("obsidian");
+
+// src/icons.js
 var import_obsidian = require("obsidian");
+var AGENT_ICONS = {
+  claude: "asterisk",
+  codex: "square-terminal",
+  workbuddy: "users",
+  dsh: "brain-circuit"
+};
+var STATE_ICONS = {
+  run: "loader-circle",
+  wait: "hand",
+  quiet: "clock",
+  "needs-approval": "hand",
+  error: "triangle-alert",
+  limit: "triangle-alert",
+  done: "check",
+  cancelled: "circle-x",
+  idle: "circle-dot",
+  recent: "history"
+};
+function setLucide(el, name, cls = "") {
+  if (!el) return el;
+  el.textContent = "";
+  try {
+    (0, import_obsidian.setIcon)(el, name);
+  } catch {
+    el.textContent = "";
+  }
+  el.classList.add("ad-icon");
+  if (cls) el.classList.add(cls);
+  return el;
+}
+function agentIcon(el, agent, cls = "") {
+  return setLucide(el, AGENT_ICONS[agent] || AGENT_ICONS.claude, cls);
+}
+function stateIcon(el, state, cls = "") {
+  return setLucide(el, STATE_ICONS[state] || STATE_ICONS.idle, cls);
+}
+
+// src/view.js
 var VIEW_TYPE = "agent-deck-view";
-var AgentDeckView = class extends import_obsidian.ItemView {
+var AgentDeckView = class extends import_obsidian2.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -2786,16 +2827,17 @@ var AgentDeckView = class extends import_obsidian.ItemView {
     const recent = p.recentSessions({ days: 7, limit: 80 });
     const head = dash.createDiv({ cls: "ad-head" });
     const brand = head.createDiv({ cls: "ad-brand" });
-    brand.createSpan({ cls: "ad-brand__mark", text: "\u25C8" });
+    const brandMark = brand.createSpan({ cls: "ad-brand__mark" });
+    setLucide(brandMark, "wand-sparkles");
     const brandText = brand.createDiv({ cls: "ad-brand__text" });
     brandText.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
     brandText.createDiv({ cls: "ad-brand__sub", text: "\u667A\u80FD\u4F53\u7532\u677F" });
     const actions = head.createDiv({ cls: "ad-head__actions" });
     const scan = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": "\u91CD\u65B0\u626B\u63CF\u672C\u673A\u4F1A\u8BDD" } });
-    (0, import_obsidian.setIcon)(scan, "refresh-cw");
+    setLucide(scan.createSpan({ cls: "ad-iconbtn__icon" }), "refresh-cw");
     scan.onclick = () => p.scanNow(true);
     const gear = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": "\u8BBE\u7F6E" } });
-    (0, import_obsidian.setIcon)(gear, "settings-2");
+    setLucide(gear.createSpan({ cls: "ad-iconbtn__icon" }), "settings-2");
     gear.onclick = () => p.openSettings();
     const hero = dash.createDiv({ cls: "ad-hero" });
     const dateLine = hero.createDiv({ cls: "ad-hero__date" });
@@ -2812,7 +2854,7 @@ var AgentDeckView = class extends import_obsidian.ItemView {
     for (const id of p.primaryAgents()) {
       const a = AGENTS[id];
       const chip = prim.createSpan({ cls: "ad-primary-chip", attr: { style: `--ad-agent:${a.color};--ad-agent-soft:${a.soft}` } });
-      chip.createSpan({ cls: "ad-glyph", text: a.glyph });
+      agentIcon(chip.createSpan({ cls: "ad-glyph" }), id);
       chip.createSpan({ text: a.name });
       chip.createSpan({ cls: "ad-primary-chip__tag", text: "\u5168\u91CF" });
     }
@@ -2903,14 +2945,14 @@ var AgentDeckView = class extends import_obsidian.ItemView {
     card.style.setProperty("--ad-agent-soft", a.soft);
     const top = card.createDiv({ cls: "ad-agentcard__top" });
     const mark = top.createDiv({ cls: "ad-agentcard__mark" });
-    mark.createSpan({ cls: "ad-glyph", text: a.glyph });
+    agentIcon(mark.createSpan({ cls: "ad-glyph" }), id);
     const name = top.createDiv({ cls: "ad-agentcard__name" });
     name.createDiv({ cls: "ad-agentcard__title", text: a.name });
     const live = p.usage.liveSessions({ since: Date.now() - 864e5, limit: 100 }).filter((x) => x.agent === id);
     const running = live.filter((x) => x.state === "run").length;
     name.createDiv({ cls: "ad-agentcard__where", text: running ? `${running} \u4E2A\u5728\u8DD1` : by ? `${by.sessions || 0} \u4E2A\u4F1A\u8BDD` : "\u4ECA\u5929\u8FD8\u6CA1\u52A8" });
     const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? "\u53D6\u6D88\u4E3B\u529B" : "\u8BBE\u4E3A\u4E3B\u529B\uFF08\u6700\u591A\u4E24\u4E2A\uFF09" } });
-    star.textContent = primary ? "\u2605" : "\u2606";
+    setLucide(star, primary ? "star" : "star-off");
     star.onclick = (e) => {
       e.stopPropagation();
       p.togglePrimary(id);
@@ -3001,12 +3043,17 @@ var AgentDeckView = class extends import_obsidian.ItemView {
     if (live) card.addClass("is-live");
     if (wait) card.addClass("is-wait");
     const icon = card.createDiv({ cls: "ad-sess__mark" });
-    icon.createSpan({ cls: "ad-glyph", text: a.glyph });
+    agentIcon(icon.createSpan({ cls: "ad-glyph" }), s.agent);
     const body = card.createDiv({ cls: "ad-sess__body" });
     const titleRow = body.createDiv({ cls: "ad-sess__title" });
     titleRow.createSpan({ cls: "ad-sess__name", text: s.title || truncate(s.text || s.step || s.sid, 60) || s.sid.slice(0, 12) });
     const st = stateChip(s);
-    if (st) titleRow.createSpan({ cls: `ad-state ${st.cls}`, text: st.label });
+    if (st) {
+      const chip = titleRow.createSpan({ cls: `ad-state ${st.cls}` });
+      const sic = chip.createSpan({ cls: "ad-state__icon" + (st.cls === "is-live" ? " ad-spin" : "") });
+      stateIcon(sic, s.state);
+      chip.createSpan({ text: st.label });
+    }
     const sub = body.createDiv({ cls: "ad-sess__sub" });
     sub.createSpan({ text: a.short });
     if (s.cwd) sub.createSpan({ text: "\xB7" });
@@ -3022,7 +3069,7 @@ var AgentDeckView = class extends import_obsidian.ItemView {
       sub.createSpan({ cls: "ad-sess__tok", text: fmtTok(s.tokens) + " tok" });
     }
     const go = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": "\u6253\u5F00\u4F1A\u8BDD" } });
-    go.textContent = "\u2197";
+    setLucide(go.createSpan({ cls: "ad-arrow__icon" }), "arrow-up-right");
     const open = () => p.openSession(s.agent, s.sid, s.app, s);
     go.onclick = (e) => {
       e.stopPropagation();
@@ -3048,20 +3095,19 @@ function stateChip(s) {
   if (st === "needs-approval") return { cls: "is-wait", label: "\u7B49\u4F60\u5141\u8BB8" };
   if (st === "done") return { cls: "is-done", label: "\u5B8C\u6210" };
   if (st === "cancelled") return { cls: "is-quiet", label: "\u5DF2\u53D6\u6D88" };
-  if (st === "error") return { cls: "is-error", label: "\u51FA\u9519" };
   return null;
 }
 
 // src/settings.js
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 var TABS = [
-  ["agents", "Agents", "bot"],
+  ["agents", "Agents", "users"],
   ["delegate", "\u59D4\u6D3E", "send"],
   ["models", "Models", "layers"],
   ["tracking", "\u8FFD\u8E2A", "radar"],
   ["about", "\u5173\u4E8E", "info"]
 ];
-var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
+var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -3086,15 +3132,19 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
     const s = this.plugin.settings;
     const head = containerEl.createDiv({ cls: "ad-set-head" });
     const brand = head.createDiv({ cls: "ad-brand" });
-    brand.createSpan({ cls: "ad-brand__mark", text: "\u25C8" });
+    const brandMark = brand.createSpan({ cls: "ad-brand__mark" });
+    setLucide(brandMark, "wand-sparkles");
     const bt = brand.createDiv({ cls: "ad-brand__text" });
     bt.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
-    bt.createDiv({ cls: "ad-brand__sub", text: "\u667A\u80FD\u4F53\u7532\u677F \xB7 v0.2.0" });
+    bt.createDiv({ cls: "ad-brand__sub", text: "\u667A\u80FD\u4F53\u7532\u677F \xB7 v1.0.1" });
     const nav = containerEl.createDiv({ cls: "ad-set-nav" });
     const dirty = this.draft && JSON.stringify(this.draft) !== JSON.stringify(this.plugin.settings.models);
     for (const [id, label, icon] of TABS) {
       const text = id === "models" && dirty ? `${label} \xB7` : label;
-      const b = nav.createEl("button", { cls: "ad-set-tab" + (this.tab === id ? " is-on" : "") + (id === "models" && dirty ? " is-dirty" : ""), text });
+      const b = nav.createEl("button", { cls: "ad-set-tab" + (this.tab === id ? " is-on" : "") + (id === "models" && dirty ? " is-dirty" : "") });
+      const ic = b.createSpan({ cls: "ad-tabicon" });
+      setLucide(ic, icon);
+      b.createSpan({ text });
       b.onclick = () => {
         this.tab = id;
         this.display();
@@ -3186,11 +3236,12 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
       card.style.setProperty("--ad-agent-soft", a.soft);
       const top = card.createDiv({ cls: "ad-agentcard__top" });
       const mark = top.createDiv({ cls: "ad-agentcard__mark" });
-      mark.createSpan({ cls: "ad-glyph", text: a.glyph });
+      agentIcon(mark.createSpan({ cls: "ad-glyph" }), id);
       const nm = top.createDiv({ cls: "ad-agentcard__name" });
       nm.createDiv({ cls: "ad-agentcard__title", text: a.name });
       nm.createDiv({ cls: "ad-agentcard__where", text: a.where[1] });
-      const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), text: primary ? "\u2605" : "\u2606" });
+      const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : "") });
+      setLucide(star, primary ? "star" : "star-off");
       star.title = primary ? "\u53D6\u6D88\u4E3B\u529B" : "\u8BBE\u4E3A\u4E3B\u529B\uFF08\u6700\u591A\u4E24\u4E2A\uFF09";
       star.onclick = () => p.togglePrimary(id);
       const stats = card.createDiv({ cls: "ad-agentcard__stats" });
@@ -3212,7 +3263,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
     const paths = info.createDiv({ cls: "ad-pathlist" });
     for (const [id, a] of Object.entries(AGENTS)) {
       const r = paths.createDiv({ cls: "ad-pathrow" });
-      r.createSpan({ cls: "ad-glyph", text: a.glyph, attr: { style: `color:${a.color}` } });
+      agentIcon(r.createSpan({ cls: "ad-glyph", attr: { style: `color:${a.color}` } }), id);
       r.createSpan({ cls: "ad-pathrow__name", text: a.name });
       r.createSpan({ cls: "ad-pathrow__path", text: a.where[0] });
       r.createSpan({ cls: "ad-muted", text: p.agentEnabled(id) ? "\u8BFB" : "\u4E0D\u8BFB" });
@@ -3234,7 +3285,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
       const b = targetRow.createEl("button", { cls: "ad-target" + (d.target === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
-      b.createSpan({ cls: "ad-glyph", text: a.glyph });
+      agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.name });
       b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "\u684C\u9762\u7248 / \u540E\u53F0" : "ACP / \u81EA\u5E26\u8D26\u53F7" });
       b.onclick = async () => {
@@ -3292,7 +3343,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
     const test = claude.createDiv({ cls: "ad-btnrow" });
     this.bigButton(test, "\u68C0\u67E5 claude", async () => {
       const r = await p.checkBinary("claude");
-      new import_obsidian2.Notice(r, 6e3);
+      new import_obsidian3.Notice(r, 6e3);
     });
     this.bigButton(test, "\u5728\u7EC8\u7AEF\u91CC\u7EED\u8FD9\u4E2A\u76EE\u5F55", () => p.openTerminalAt(d.claude.cwd || p.vaultPath, "claude"));
     const dsh = this.card(body, "DeepSeek Harness", "\u901A\u8FC7 dsh acp \u5F00\u4E00\u4E2A\u771F\u6B63\u7684 Harness \u4F1A\u8BDD\uFF0C\u53EF\u4EE5\u7528\u6A21\u578B\u548C\u63A8\u7406\u5F3A\u5EA6\u3002\u56DE\u7B54\u5B8C\u4F1A\u5199\u8FDB\u4F1A\u8BDD\u65E5\u5FD7\uFF0C\u4E5F\u4F1A\u88AB\u8FFD\u8E2A\u3002");
@@ -3323,7 +3374,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
     const dtest = dsh.createDiv({ cls: "ad-btnrow" });
     this.bigButton(dtest, "\u68C0\u67E5 dsh", async () => {
       const r = await p.checkBinary("dsh");
-      new import_obsidian2.Notice(r, 6e3);
+      new import_obsidian3.Notice(r, 6e3);
     });
     const prompt = this.card(body, "\u63D0\u793A\u8BCD\u524D\u540E\u7F00", "\u6BCF\u6B21\u59D4\u6D3E\u4F1A\u628A\u8FD9\u4E00\u5757\uFF08\u8FDE\u540C\u5B50\u5757\uFF09\u539F\u6837\u53D1\u8FC7\u53BB\uFF0C\u8FD9\u91CC\u7684\u5185\u5BB9\u52A0\u5728\u524D\u540E\u3002");
     const pre = prompt.createDiv({ cls: "ad-field" });
@@ -3424,7 +3475,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
       const b = targetSeg.createEl("button", { cls: "ad-target ad-target--sm" + (target === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
-      b.createSpan({ cls: "ad-glyph", text: a.glyph });
+      agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
       b.onclick = () => {
         p.settings.delegate.target = id;
@@ -3539,7 +3590,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
       const g = list.createDiv({ cls: "ad-modelgroup" });
       const gh = g.createDiv({ cls: "ad-modelgroup__head" });
       const a = AGENTS[agent];
-      gh.createSpan({ cls: "ad-glyph", text: a.glyph, attr: { style: `color:${a.color}` } });
+      agentIcon(gh.createSpan({ cls: "ad-glyph", attr: { style: `color:${a.color}` } }), agent);
       gh.createSpan({ text: a.name });
       gh.createSpan({ cls: "ad-muted", text: `${rows.filter((m) => enabled.has(m.id)).length} of ${rows.length} on` });
       this.groupAction(gh, rows, d, false);
@@ -3612,7 +3663,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
     const more = right.createEl("button", { cls: "ad-morebtn", text: "\u22EF" });
     more.onclick = (e) => {
       e.stopPropagation();
-      const menu = new import_obsidian2.Menu();
+      const menu = new import_obsidian3.Menu();
       menu.addItem((it) => it.setTitle(pinned ? "Unpin" : "Pin").setIcon(pinned ? "pin-off" : "pin").onClick(() => {
         const i = d.pinned.indexOf(m.id);
         if (pinned && i >= 0) d.pinned.splice(i, 1);
@@ -3711,7 +3762,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
       if (p.settings.delegate.dsh.effort) p.settings.delegate.dsh.effort = p.settings.models.effort;
     }
     p.saveSettings();
-    new import_obsidian2.Notice("Models \u5DF2\u4FDD\u5B58");
+    new import_obsidian3.Notice("Models \u5DF2\u4FDD\u5B58");
     this.display();
   }
   // ---------- Tracking ----------
@@ -3773,7 +3824,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
       });
     });
     for (const [key, label, desc, fallback] of [
-      ["showEditorPills", "\u4EFB\u52A1\u884C\u4E0A\u7684\u59D4\u6D3E\u6309\u94AE", "\u5149\u6807\u505C\u5728\u5217\u8868\u9879\u65F6\uFF0C\u884C\u5C3E\u51FA\u73B0\u300C\u59D4\u6D3E\u300D\u548C\u8FDB\u5EA6\u3002", true],
+      ["showEditorPills", "\u4EFB\u52A1\u884C\u4E0A\u7684\u4F1A\u8BDD\u72B6\u6001\u6309\u94AE", "\u53EA\u6709\u5DF2\u7ECF\u7ED1\u5B9A\u4F1A\u8BDD / \u59D4\u6D3E\u51FA\u53BB\u7684\u884C\u624D\u663E\u793A\u72B6\u6001\u548C\u8FDB\u5EA6\uFF1B\u4E0D\u518D\u5728\u6BCF\u4E2A\u6761\u76EE\u4E0A\u653E\u300C\u59D4\u6D3E\u300D\u6309\u94AE\u3002", true],
       ["showRibbonIcon", "\u5DE6\u4FA7\u680F\u56FE\u6807", "\u70B9\u4E00\u4E0B\u6253\u5F00 Agent Deck\u3002", true],
       ["openDashboardOnStartup", "\u542F\u52A8\u65F6\u6253\u5F00\u9762\u677F", "Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00 Agent Deck \u4FA7\u680F\u3002", false]
     ]) {
@@ -3834,14 +3885,14 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
       r.createSpan({ text: line });
     }
     const meta = c.createDiv({ cls: "ad-about-meta" });
-    meta.createDiv({ text: "\u7248\u672C 0.2.0 \xB7 MIT License" });
+    meta.createDiv({ text: "\u7248\u672C 1.0.1 \xB7 MIT License" });
     meta.createDiv({ text: "\u4ECE Nautilus Spiral\uFF08\u87BA\u65CB\u65E5\u7A0B\uFF09\u7684 AI \u8FFD\u8E2A\u90E8\u5206\u62C6\u51FA\uFF1B\u4EA4\u4E92\u53C2\u8003\u4E86\u5C0F\u7EA2\u4E66 @ZZ.X \u7684\u4E24\u6761\u5E16\u5B50\u3002" });
     const btns = c.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, "\u6253\u5F00 GitHub \u4ED3\u5E93", () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));
     this.bigButton(btns, "\u590D\u5236\u8C03\u8BD5\u4FE1\u606F", async () => {
-      const text = JSON.stringify({ version: "0.2.0", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
+      const text = JSON.stringify({ version: "1.0.1", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
       await navigator.clipboard.writeText(text);
-      new import_obsidian2.Notice("\u8C03\u8BD5\u4FE1\u606F\u5DF2\u590D\u5236");
+      new import_obsidian3.Notice("\u8C03\u8BD5\u4FE1\u606F\u5DF2\u590D\u5236");
     });
   }
 };
@@ -3850,7 +3901,7 @@ function strength(n, dots = false) {
   if (dots) return "\u25CF".repeat(n) + "\u25CB".repeat(5 - n);
   return ["", "Very light", "Light", "Balanced", "Strong", "Deepest"][n] || "Balanced";
 }
-var AddModelModal = class extends import_obsidian2.Modal {
+var AddModelModal = class extends import_obsidian3.Modal {
   constructor(app, plugin, onAdd) {
     super(app);
     this.plugin = plugin;
@@ -3907,7 +3958,7 @@ var AddModelModal = class extends import_obsidian2.Modal {
     const add = bar.createEl("button", { cls: "ad-btn ad-btn--cta", text: "Add" });
     add.onclick = () => {
       const name = this.name.trim() || this.model.trim();
-      if (!name || !this.model.trim()) return new import_obsidian2.Notice("\u663E\u793A\u540D\u548C model \u81F3\u5C11\u586B\u4E00\u4E2A");
+      if (!name || !this.model.trim()) return new import_obsidian3.Notice("\u663E\u793A\u540D\u548C model \u81F3\u5C11\u586B\u4E00\u4E2A");
       const id = `custom-${this.agent}-${this.model.trim().replace(/[^a-z0-9]+/gi, "-")}`;
       const m = {
         id,
@@ -3934,8 +3985,8 @@ var AddModelModal = class extends import_obsidian2.Modal {
 };
 
 // src/dialog.js
-var import_obsidian3 = require("obsidian");
-var DelegateOptionsModal = class extends import_obsidian3.Modal {
+var import_obsidian4 = require("obsidian");
+var DelegateOptionsModal = class extends import_obsidian4.Modal {
   constructor(app, plugin, path5, line) {
     super(app);
     this.plugin = plugin;
@@ -3988,7 +4039,7 @@ var DelegateOptionsModal = class extends import_obsidian3.Modal {
       const b = targets.createEl("button", { cls: "ad-target ad-target--sm" + (this.agent === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
-      b.createSpan({ cls: "ad-glyph", text: a.glyph });
+      agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
       b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "\u684C\u9762\u7248" : "ACP" });
       b.onclick = () => {
@@ -4077,6 +4128,8 @@ var DelegateOptionsModal = class extends import_obsidian3.Modal {
     cancel.onclick = () => this.close();
     const go = foot.createEl("button", { cls: "ad-btn ad-btn--cta ad-btn--delegate" });
     go.createSpan({ cls: "ad-btn__fill" });
+    const goIcon = go.createSpan({ cls: "ad-btn__icon" });
+    setLucide(goIcon, "send");
     go.createSpan({ cls: "ad-btn__label", text: "Delegate" });
     go.onclick = async () => {
       go.classList.add("is-busy");
@@ -4101,7 +4154,7 @@ var DelegateOptionsModal = class extends import_obsidian3.Modal {
         go.classList.remove("is-busy");
         go.removeAttribute("disabled");
         label.textContent = "Delegate";
-        new import_obsidian3.Notice(String(e.message || e), 6e3);
+        new import_obsidian4.Notice(String(e.message || e), 6e3);
       }
     };
   }
@@ -4151,7 +4204,7 @@ var PillWidget = class extends import_view.WidgetType {
     el.appendChild(wave);
     const glyph = document.createElement("span");
     glyph.className = "ad-pill__glyph";
-    glyph.textContent = a.glyph;
+    agentIcon(glyph, agent);
     el.appendChild(glyph);
     const label = document.createElement("span");
     label.className = "ad-pill__label";
@@ -4168,7 +4221,7 @@ var PillWidget = class extends import_view.WidgetType {
       meta.textContent = modelName || (agent === "dsh" ? "DeepSeek" : "Claude");
       const chev = document.createElement("span");
       chev.className = "ad-pill__chev";
-      chev.textContent = "\u2304";
+      setLucide(chev, "chevron-down");
       chev.title = "\u9009\u62E9\u6A21\u578B\u3001\u5F3A\u5EA6\u3001\u6A21\u5F0F";
       chev.addEventListener("mousedown", (e) => {
         e.preventDefault();
@@ -4186,7 +4239,7 @@ var PillWidget = class extends import_view.WidgetType {
       el._adTimer = setInterval(tick, 1e3);
       const cancel = document.createElement("span");
       cancel.className = "ad-pill__cancel";
-      cancel.textContent = "\xD7";
+      setLucide(cancel, "x");
       cancel.title = "\u53D6\u6D88\u8FD9\u6B21\u59D4\u6D3E";
       cancel.addEventListener("mousedown", (e) => {
         e.preventDefault();
@@ -4208,14 +4261,14 @@ var PillWidget = class extends import_view.WidgetType {
       meta.textContent = job && job.result ? truncate(job.result, 28) : session && session.lastText ? truncate(session.lastText, 28) : "\u6253\u5F00\u4F1A\u8BDD";
       const open = document.createElement("span");
       open.className = "ad-pill__open";
-      open.textContent = "\u2197";
+      setLucide(open, "arrow-up-right");
       right.appendChild(open);
     } else if (info.kind === "error") {
       label.textContent = "\u51FA\u9519";
       meta.textContent = truncate(job && job.error || session && session.err || "\u70B9\u51FB\u91CD\u8BD5", 30);
       const retry = document.createElement("span");
       retry.className = "ad-pill__open";
-      retry.textContent = "\u21BB";
+      setLucide(retry, "refresh-cw");
       retry.title = "\u91CD\u65B0\u59D4\u6D3E";
       retry.addEventListener("mousedown", (e) => {
         e.preventDefault();
@@ -4257,7 +4310,6 @@ function buildDecorations(view, plugin) {
   const path5 = info && info.file && info.file.path;
   if (!path5 || !plugin.settings.showEditorPills) return builder.finish();
   const doc = view.state.doc;
-  const cursorLine = doc.lineAt(view.state.selection.main.head).number - 1;
   const map = plugin.lineMap(path5, doc);
   const seen = /* @__PURE__ */ new Set();
   for (const { from, to } of view.visibleRanges) {
@@ -4268,8 +4320,6 @@ function buildDecorations(view, plugin) {
       if (!seen.has(n)) {
         seen.add(n);
         const text = line.text;
-        const bullet = BULLET_RE.test(text);
-        const active = n === cursorLine;
         const job = plugin.jobAtLine(path5, n, text);
         const session = map.sessionByParent.get(n) || null;
         let state = null;
@@ -4284,17 +4334,10 @@ function buildDecorations(view, plugin) {
           else if (st === "wait" || st === "quiet") state = { kind: "waiting", job, session };
           else if (st === "error" || st === "limit") state = { kind: "error", job, session };
           else state = { kind: "bound", job, session };
-        } else if (active && bullet) state = { kind: "idle" };
-        if (state && (active || state.kind !== "idle")) {
-          if (active && bullet && state.kind === "idle") {
-          }
-          if (state.kind === "idle" && !active) {
-          } else {
-            if (state.kind !== "idle" || active) {
-              const widget = new PillWidget(plugin, path5, n, state);
-              builder.add(line.to, line.to, import_view.Decoration.widget({ widget, side: 1, block: false }));
-            }
-          }
+        }
+        if (state) {
+          const widget = new PillWidget(plugin, path5, n, state);
+          builder.add(line.to, line.to, import_view.Decoration.widget({ widget, side: 1, block: false }));
         }
       }
       if (line.to >= to) break;
@@ -4336,7 +4379,389 @@ var import_crypto = __toESM(require("crypto"), 1);
 var import_child_process2 = require("child_process");
 
 // src/menubar.swift
-var menubar_default = '// Agent Deck menu bar helper.\n// Compiled at runtime from the plugin with:\n//   swiftc -O -swift-version 5 -framework AppKit -framework SwiftUI -o AgentDeckMenuBar AgentDeckMenuBar.swift\n// It reads a JSON snapshot written by the Obsidian plugin and shows a small\n// status item with a detailed popover. It never talks to the network.\n\nimport AppKit\nimport SwiftUI\nimport Foundation\nimport Darwin\n\nstruct MenuSession: Decodable, Identifiable {\n    let id: String\n    let agent: String\n    let agentName: String\n    let color: String\n    let glyph: String\n    let title: String\n    let detail: String\n    let state: String\n    let stateLabel: String\n    let primary: Bool\n    let url: String?\n    let copy: String?\n}\n\nstruct MenuAgent: Decodable, Identifiable {\n    let id: String\n    let short: String\n    let name: String\n    let color: String\n    let glyph: String\n    let running: Int\n    let waiting: Int\n    let primary: Bool\n}\n\nstruct MenuState: Decodable {\n    let updatedAt: Double\n    let short: String\n    let summary: String\n    let running: Int\n    let waiting: Int\n    let sessions: [MenuSession]\n    let agents: [MenuAgent]?\n\n    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "\u7B49\u5F85 Agent Deck\u2026", running: 0, waiting: 0, sessions: [], agents: [])\n}\n\nfinal class MenuModel: ObservableObject {\n    @Published var state: MenuState = .empty\n    let statePath: String\n    let parentPid: Int32\n    var timer: Timer?\n    var onUpdate: (() -> Void)?\n\n    init(statePath: String, parentPid: Int32) {\n        self.statePath = statePath\n        self.parentPid = parentPid\n    }\n\n    func start() {\n        reload()\n        let t = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in\n            self?.tick()\n        }\n        RunLoop.main.add(t, forMode: .common)\n        timer = t\n    }\n\n    func tick() {\n        if parentPid > 0 && kill(parentPid, 0) != 0 {\n            NSApp.terminate(nil)\n            return\n        }\n        reload()\n    }\n\n    func reload() {\n        guard let data = try? Data(contentsOf: URL(fileURLWithPath: statePath)),\n              let next = try? JSONDecoder().decode(MenuState.self, from: data) else { return }\n        if next.updatedAt != state.updatedAt {\n            state = next\n            onUpdate?()\n        }\n    }\n}\n\nfunc openURL(_ string: String?) {\n    guard let s = string, let url = URL(string: s) else { return }\n    NSWorkspace.shared.open(url)\n}\n\nfunc openSession(_ session: MenuSession) {\n    if let copy = session.copy, !copy.isEmpty {\n        let pb = NSPasteboard.general\n        pb.clearContents()\n        pb.setString(copy, forType: .string)\n    }\n    if let url = session.url, !url.isEmpty {\n        openURL(url)\n    }\n}\n\nfunc stateColor(_ state: String) -> Color {\n    switch state {\n    case "run": return .green\n    case "wait", "needs-approval": return .orange\n    case "error", "limit": return .red\n    default: return .secondary\n    }\n}\n\nextension Color {\n    init(hex: String) {\n        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)\n        if s.hasPrefix("#") { s.removeFirst() }\n        var value: UInt64 = 0\n        Scanner(string: s).scanHexInt64(&value)\n        let r = Double((value >> 16) & 0xff) / 255.0\n        let g = Double((value >> 8) & 0xff) / 255.0\n        let b = Double(value & 0xff) / 255.0\n        self.init(red: r, green: g, blue: b)\n    }\n}\n\nstruct SessionRowView: View {\n    let session: MenuSession\n\n    var body: some View {\n        Button(action: { openSession(session) }) {\n            HStack(alignment: .top, spacing: 8) {\n                Circle()\n                    .fill(Color(hex: session.color))\n                    .frame(width: 7, height: 7)\n                    .padding(.top, 5)\n                VStack(alignment: .leading, spacing: 2) {\n                    HStack(spacing: 6) {\n                        Text(session.title)\n                            .font(.system(size: 11.5, weight: .semibold))\n                            .lineLimit(1)\n                        Spacer(minLength: 4)\n                        Text(session.stateLabel)\n                            .font(.system(size: 8.5, weight: .bold))\n                            .foregroundColor(stateColor(session.state))\n                    }\n                    Text(session.detail)\n                        .font(.system(size: 9.5))\n                        .foregroundColor(.secondary)\n                        .lineLimit(1)\n                }\n                Image(systemName: "arrow.up.right")\n                    .font(.system(size: 8.5))\n                    .foregroundColor(.secondary)\n                    .padding(.top, 3)\n            }\n            .padding(8)\n            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.07)))\n            .contentShape(Rectangle())\n        }\n        .buttonStyle(.plain)\n    }\n}\n\nstruct DeckView: View {\n    @ObservedObject var model: MenuModel\n\n    @ViewBuilder\n    func section(_ title: String, _ rows: [MenuSession]) -> some View {\n        HStack {\n            Text(title)\n                .font(.system(size: 8.5, weight: .bold))\n                .foregroundColor(.secondary)\n                .textCase(.uppercase)\n            Spacer()\n            Text("\\(rows.count)")\n                .font(.system(size: 8.5, weight: .semibold))\n                .foregroundColor(.secondary)\n        }\n        .padding(.top, 4)\n        .padding(.horizontal, 2)\n        ForEach(rows) { s in\n            SessionRowView(session: s)\n        }\n    }\n\n    var body: some View {\n        VStack(alignment: .leading, spacing: 0) {\n            HStack(spacing: 9) {\n                ZStack {\n                    RoundedRectangle(cornerRadius: 8)\n                        .fill(LinearGradient(colors: [Color(red: 0.42, green: 0.48, blue: 1.0), Color(red: 0.62, green: 0.36, blue: 1.0)], startPoint: .topLeading, endPoint: .bottomTrailing))\n                    Image(systemName: "sparkles")\n                        .font(.system(size: 12, weight: .bold))\n                        .foregroundColor(.white)\n                }\n                .frame(width: 28, height: 28)\n                VStack(alignment: .leading, spacing: 1) {\n                    Text("Agent Deck")\n                        .font(.system(size: 13, weight: .bold))\n                    Text(model.state.summary)\n                        .font(.system(size: 9.5))\n                        .foregroundColor(.secondary)\n                        .lineLimit(1)\n                }\n                Spacer()\n                VStack(alignment: .trailing, spacing: 1) {\n                    Text("\\(model.state.running) \u5728\u8DD1")\n                        .font(.system(size: 10, weight: .semibold))\n                        .foregroundColor(.green)\n                    if model.state.waiting > 0 {\n                        Text("\\(model.state.waiting) \u7B49\u4F60")\n                            .font(.system(size: 9.5, weight: .semibold))\n                            .foregroundColor(.orange)\n                    }\n                }\n            }\n            if let agents = model.state.agents, !agents.isEmpty {\n                HStack(spacing: 5) {\n                    ForEach(agents) { a in\n                        HStack(spacing: 3) {\n                            Circle().fill(Color(hex: a.color)).frame(width: 5, height: 5)\n                            Text(a.short)\n                                .font(.system(size: 8.5, weight: a.primary ? .semibold : .regular))\n                                .foregroundColor(a.primary ? .primary : .secondary)\n                            Text("\\(a.running)")\n                                .font(.system(size: 8.5, weight: .bold))\n                                .foregroundColor(a.running > 0 ? .green : .secondary)\n                            if a.waiting > 0 {\n                                Text("\xB7 \\(a.waiting) \u7B49")\n                                    .font(.system(size: 8))\n                                    .foregroundColor(.orange)\n                            }\n                        }\n                        .padding(.horizontal, 5)\n                        .padding(.vertical, 2)\n                        .background(Capsule().fill(Color.secondary.opacity(a.primary ? 0.12 : 0.06)))\n                    }\n                    Spacer()\n                }\n                .padding(.top, 7)\n            }\n            Divider().padding(.vertical, 9)\n            if model.state.sessions.isEmpty {\n                VStack(spacing: 4) {\n                    Text("\u73B0\u5728\u6CA1\u6709\u8981\u663E\u793A\u7684\u4F1A\u8BDD")\n                        .font(.system(size: 11, weight: .semibold))\n                    Text("\u4E3B\u529B Agent \u7684\u4F1A\u8BDD\u4F1A\u7559\u5728\u8FD9\u91CC\uFF1B\u5176\u5B83 Agent \u53EA\u5728\u6B63\u5728\u8FD0\u884C\u65F6\u51FA\u73B0\u3002")\n                        .font(.system(size: 9.5))\n                        .foregroundColor(.secondary)\n                        .multilineTextAlignment(.center)\n                }\n                .frame(maxWidth: .infinity)\n                .padding(.vertical, 22)\n            } else {\n                let primary = model.state.sessions.filter { $0.primary }\n                let others = model.state.sessions.filter { !$0.primary }\n                ScrollView {\n                    LazyVStack(alignment: .leading, spacing: 5) {\n                        if !primary.isEmpty {\n                            section("\u4E3B\u529B \xB7 \u5168\u91CF\u8FFD\u8E2A", primary)\n                        }\n                        if !others.isEmpty {\n                            section("\u5176\u5B83 Agent \xB7 \u53EA\u5728\u8DD1", others)\n                        }\n                    }\n                }\n                .frame(maxHeight: 430)\n            }\n            Divider().padding(.vertical, 9)\n            Text("\u4E3B\u529B\u5168\u91CF\u8FFD\u8E2A \xB7 \u5176\u5B83 Agent \u53EA\u5728\u8FD0\u884C\u4E2D\u5217\u51FA")\n                .font(.system(size: 8))\n                .foregroundColor(.secondary)\n                .padding(.bottom, 7)\n            HStack(spacing: 8) {\n                Button("\u6253\u5F00\u9762\u677F") { openURL("obsidian://agent-deck") }\n                    .buttonStyle(.borderedProminent)\n                    .controlSize(.small)\n                Button("\u91CD\u65B0\u626B\u63CF") { openURL("obsidian://agent-deck?do=scan") }\n                    .buttonStyle(.bordered)\n                    .controlSize(.small)\n                Spacer()\n                Button("\u9690\u85CF") { openURL("obsidian://agent-deck?do=hide") }\n                    .buttonStyle(.plain)\n                    .font(.system(size: 9))\n                    .foregroundColor(.secondary)\n            }\n        }\n        .padding(14)\n        .frame(width: 390)\n    }\n}\n\nfinal class AppDelegate: NSObject, NSApplicationDelegate {\n    var statusItem: NSStatusItem!\n    var popover: NSPopover!\n    var model: MenuModel!\n    var statePath: String = NSString(string: "~/.agent-deck/menubar.json").expandingTildeInPath\n    var parentPid: Int32 = 0\n    var preview = false\n\n    func applicationDidFinishLaunching(_ notification: Notification) {\n        let args = CommandLine.arguments\n        if let i = args.firstIndex(of: "--state"), i + 1 < args.count { statePath = args[i + 1] }\n        if let i = args.firstIndex(of: "--parent"), i + 1 < args.count { parentPid = Int32(args[i + 1]) ?? 0 }\n        preview = args.contains("--preview")\n        if let i = args.firstIndex(of: "--pidfile"), i + 1 < args.count {\n            try? "\\(getpid())".write(toFile: args[i + 1], atomically: true, encoding: .utf8)\n        }\n\n        model = MenuModel(statePath: statePath, parentPid: parentPid)\n\n        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)\n        if let button = statusItem.button {\n            let image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Agent Deck")\n            image?.isTemplate = true\n            button.image = image\n            button.imagePosition = .imageLeading\n            button.title = " Agent Deck"\n            button.font = NSFont.systemFont(ofSize: 11, weight: .medium)\n            button.target = self\n            button.action = #selector(togglePopover)\n        }\n\n        let host = NSHostingController(rootView: DeckView(model: model))\n        popover = NSPopover()\n        popover.contentViewController = host\n        popover.behavior = .transient\n        popover.animates = true\n        popover.contentSize = NSSize(width: 390, height: 470)\n\n        model.onUpdate = { [weak self] in self?.refresh() }\n        model.start()\n        refresh()\n        if preview {\n            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in\n                self?.showPopover()\n            }\n        }\n    }\n\n    func refresh() {\n        let short = model.state.short.trimmingCharacters(in: .whitespacesAndNewlines)\n        statusItem.button?.title = short.isEmpty ? " Agent Deck" : " " + short\n        if popover != nil {\n            let n = min(model.state.sessions.count, 8)\n            let h = max(240, min(640, 206 + CGFloat(n) * 54 + (n > 0 ? 18 : 0)))\n            popover.contentSize = NSSize(width: 390, height: h)\n        }\n    }\n\n    func showPopover() {\n        guard let button = statusItem.button else { return }\n        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)\n        NSApp.activate(ignoringOtherApps: true)\n    }\n\n    @objc func togglePopover() {\n        if popover.isShown {\n            popover.performClose(nil)\n        } else {\n            showPopover()\n        }\n    }\n}\n\nlet app = NSApplication.shared\nlet delegate = AppDelegate()\napp.delegate = delegate\napp.setActivationPolicy(.accessory)\napp.run()\n';
+var menubar_default = `// Agent Deck menu bar helper.
+// Compiled at runtime from the plugin with:
+//   swiftc -O -swift-version 5 -framework AppKit -framework SwiftUI -o AgentDeckMenuBar AgentDeckMenuBar.swift
+// It reads a JSON snapshot written by the Obsidian plugin and shows a small
+// status item with a detailed popover. It never talks to the network.
+
+import AppKit
+import SwiftUI
+import Foundation
+import Darwin
+
+struct MenuSession: Decodable, Identifiable {
+    let id: String
+    let agent: String
+    let agentName: String
+    let color: String
+    let glyph: String
+    let title: String
+    let detail: String
+    let state: String
+    let stateLabel: String
+    let primary: Bool
+    let url: String?
+    let copy: String?
+}
+
+struct MenuAgent: Decodable, Identifiable {
+    let id: String
+    let short: String
+    let name: String
+    let color: String
+    let glyph: String
+    let running: Int
+    let waiting: Int
+    let primary: Bool
+}
+
+struct MenuState: Decodable {
+    let updatedAt: Double
+    let short: String
+    let summary: String
+    let running: Int
+    let waiting: Int
+    let sessions: [MenuSession]
+    let agents: [MenuAgent]?
+
+    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "\u7B49\u5F85 Agent Deck\u2026", running: 0, waiting: 0, sessions: [], agents: [])
+}
+
+final class MenuModel: ObservableObject {
+    @Published var state: MenuState = .empty
+    let statePath: String
+    let parentPid: Int32
+    var timer: Timer?
+    var onUpdate: (() -> Void)?
+
+    init(statePath: String, parentPid: Int32) {
+        self.statePath = statePath
+        self.parentPid = parentPid
+    }
+
+    func start() {
+        reload()
+        let t = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.tick()
+        }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
+    }
+
+    func tick() {
+        if parentPid > 0 && kill(parentPid, 0) != 0 {
+            NSApp.terminate(nil)
+            return
+        }
+        reload()
+    }
+
+    func reload() {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: statePath)),
+              let next = try? JSONDecoder().decode(MenuState.self, from: data) else { return }
+        if next.updatedAt != state.updatedAt {
+            state = next
+            onUpdate?()
+        }
+    }
+}
+
+func openURL(_ string: String?) {
+    guard let s = string, let url = URL(string: s) else { return }
+    NSWorkspace.shared.open(url)
+}
+
+func openSession(_ session: MenuSession) {
+    if let copy = session.copy, !copy.isEmpty {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(copy, forType: .string)
+    }
+    if let url = session.url, !url.isEmpty {
+        openURL(url)
+    }
+}
+
+func stateColor(_ state: String) -> Color {
+    switch state {
+    case "run": return .green
+    case "wait", "needs-approval": return .orange
+    case "error", "limit": return .red
+    default: return .secondary
+    }
+}
+
+extension Color {
+    init(hex: String) {
+        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.hasPrefix("#") { s.removeFirst() }
+        var value: UInt64 = 0
+        Scanner(string: s).scanHexInt64(&value)
+        let r = Double((value >> 16) & 0xff) / 255.0
+        let g = Double((value >> 8) & 0xff) / 255.0
+        let b = Double(value & 0xff) / 255.0
+        self.init(red: r, green: g, blue: b)
+    }
+}
+
+struct SessionRowView: View {
+    let session: MenuSession
+
+    var body: some View {
+        Button(action: { openSession(session) }) {
+            HStack(alignment: .top, spacing: 8) {
+                Circle()
+                    .fill(Color(hex: session.color))
+                    .frame(width: 7, height: 7)
+                    .padding(.top, 5)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(session.title)
+                            .font(.system(size: 11.5, weight: .semibold))
+                            .lineLimit(1)
+                        Spacer(minLength: 4)
+                        Text(session.stateLabel)
+                            .font(.system(size: 8.5, weight: .bold))
+                            .foregroundColor(stateColor(session.state))
+                    }
+                    Text(session.detail)
+                        .font(.system(size: 9.5))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 8.5))
+                    .foregroundColor(.secondary)
+                    .padding(.top, 3)
+            }
+            .padding(8)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.07)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct DeckView: View {
+    @ObservedObject var model: MenuModel
+
+    @ViewBuilder
+    func section(_ title: String, _ rows: [MenuSession]) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 8.5, weight: .bold))
+                .foregroundColor(.secondary)
+                .textCase(.uppercase)
+            Spacer()
+            Text("\\(rows.count)")
+                .font(.system(size: 8.5, weight: .semibold))
+                .foregroundColor(.secondary)
+        }
+        .padding(.top, 4)
+        .padding(.horizontal, 2)
+        ForEach(rows) { s in
+            SessionRowView(session: s)
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 9) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(LinearGradient(colors: [Color(red: 0.42, green: 0.48, blue: 1.0), Color(red: 0.62, green: 0.36, blue: 1.0)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .frame(width: 28, height: 28)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Agent Deck")
+                        .font(.system(size: 13, weight: .bold))
+                    Text(model.state.summary)
+                        .font(.system(size: 9.5))
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 1) {
+                    Text("\\(model.state.running) \u5728\u8DD1")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(.green)
+                    if model.state.waiting > 0 {
+                        Text("\\(model.state.waiting) \u7B49\u4F60")
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .foregroundColor(.orange)
+                    }
+                }
+            }
+            if let agents = model.state.agents, !agents.isEmpty {
+                HStack(spacing: 5) {
+                    ForEach(agents) { a in
+                        HStack(spacing: 3) {
+                            Circle().fill(Color(hex: a.color)).frame(width: 5, height: 5)
+                            Text(a.short)
+                                .font(.system(size: 8.5, weight: a.primary ? .semibold : .regular))
+                                .foregroundColor(a.primary ? .primary : .secondary)
+                            Text("\\(a.running)")
+                                .font(.system(size: 8.5, weight: .bold))
+                                .foregroundColor(a.running > 0 ? .green : .secondary)
+                            if a.waiting > 0 {
+                                Text("\xB7 \\(a.waiting) \u7B49")
+                                    .font(.system(size: 8))
+                                    .foregroundColor(.orange)
+                            }
+                        }
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(Color.secondary.opacity(a.primary ? 0.12 : 0.06)))
+                    }
+                    Spacer()
+                }
+                .padding(.top, 7)
+            }
+            Divider().padding(.vertical, 9)
+            if model.state.sessions.isEmpty {
+                VStack(spacing: 4) {
+                    Text("\u73B0\u5728\u6CA1\u6709\u8981\u663E\u793A\u7684\u4F1A\u8BDD")
+                        .font(.system(size: 11, weight: .semibold))
+                    Text("\u4E3B\u529B Agent \u7684\u4F1A\u8BDD\u4F1A\u7559\u5728\u8FD9\u91CC\uFF1B\u5176\u5B83 Agent \u53EA\u5728\u6B63\u5728\u8FD0\u884C\u65F6\u51FA\u73B0\u3002")
+                        .font(.system(size: 9.5))
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 22)
+            } else {
+                let primary = model.state.sessions.filter { $0.primary }
+                let others = model.state.sessions.filter { !$0.primary }
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 5) {
+                        if !primary.isEmpty {
+                            section("\u4E3B\u529B \xB7 \u5168\u91CF\u8FFD\u8E2A", primary)
+                        }
+                        if !others.isEmpty {
+                            section("\u5176\u5B83 Agent \xB7 \u53EA\u5728\u8DD1", others)
+                        }
+                    }
+                }
+                .frame(maxHeight: 430)
+            }
+            Divider().padding(.vertical, 9)
+            Text("\u4E3B\u529B\u5168\u91CF\u8FFD\u8E2A \xB7 \u5176\u5B83 Agent \u53EA\u5728\u8FD0\u884C\u4E2D\u5217\u51FA")
+                .font(.system(size: 8))
+                .foregroundColor(.secondary)
+                .padding(.bottom, 7)
+            HStack(spacing: 8) {
+                Button("\u6253\u5F00\u9762\u677F") { openURL("obsidian://agent-deck") }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                Button("\u91CD\u65B0\u626B\u63CF") { openURL("obsidian://agent-deck?do=scan") }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                Spacer()
+                Button("\u9690\u85CF") { openURL("obsidian://agent-deck?do=hide") }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 9))
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(14)
+        .frame(width: 390)
+    }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    var statusItem: NSStatusItem!
+    var popover: NSPopover!
+    var model: MenuModel!
+    var statePath: String = NSString(string: "~/.agent-deck/menubar.json").expandingTildeInPath
+    var parentPid: Int32 = 0
+    var preview = false
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--state"), i + 1 < args.count { statePath = args[i + 1] }
+        if let i = args.firstIndex(of: "--parent"), i + 1 < args.count { parentPid = Int32(args[i + 1]) ?? 0 }
+        preview = args.contains("--preview")
+        if let i = args.firstIndex(of: "--pidfile"), i + 1 < args.count {
+            try? "\\(getpid())".write(toFile: args[i + 1], atomically: true, encoding: .utf8)
+        }
+
+        model = MenuModel(statePath: statePath, parentPid: parentPid)
+
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = statusItem.button {
+            // Lucide "wand-sparkles", rendered as a template image so it follows
+            // the menu bar's light/dark appearance.
+            let lucide = """
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>
+            """
+            if let data = lucide.data(using: .utf8), let image = NSImage(data: data) {
+                image.isTemplate = true
+                image.size = NSSize(width: 18, height: 18)
+                button.image = image
+            } else {
+                let image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Agent Deck")
+                image?.isTemplate = true
+                button.image = image
+            }
+            button.imagePosition = .imageLeading
+            button.title = " Agent Deck"
+            button.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+            button.target = self
+            button.action = #selector(togglePopover)
+        }
+
+        let host = NSHostingController(rootView: DeckView(model: model))
+        popover = NSPopover()
+        popover.contentViewController = host
+        popover.behavior = .transient
+        popover.animates = true
+        popover.contentSize = NSSize(width: 390, height: 470)
+
+        model.onUpdate = { [weak self] in self?.refresh() }
+        model.start()
+        refresh()
+        if preview {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+                self?.showPopover()
+            }
+        }
+    }
+
+    func refresh() {
+        let short = model.state.short.trimmingCharacters(in: .whitespacesAndNewlines)
+        statusItem.button?.title = short.isEmpty ? " Agent Deck" : " " + short
+        if popover != nil {
+            let n = min(model.state.sessions.count, 8)
+            let h = max(240, min(640, 206 + CGFloat(n) * 54 + (n > 0 ? 18 : 0)))
+            popover.contentSize = NSSize(width: 390, height: h)
+        }
+    }
+
+    func showPopover() {
+        guard let button = statusItem.button else { return }
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc func togglePopover() {
+        if popover.isShown {
+            popover.performClose(nil)
+        } else {
+            showPopover()
+        }
+    }
+}
+
+let app = NSApplication.shared
+let delegate = AppDelegate()
+app.delegate = delegate
+app.setActivationPolicy(.accessory)
+app.run()
+`;
 
 // src/menubar.js
 var fsp3 = import_fs3.default.promises;
@@ -4531,7 +4956,7 @@ var MenuBarBridge = class {
 
 // src/main.js
 var fsp4 = import_fs4.default.promises;
-var AgentDeckPlugin = class extends import_obsidian4.Plugin {
+var AgentDeckPlugin = class extends import_obsidian5.Plugin {
   async onload() {
     const data = await this.loadData();
     this.settings = deepMerge(DEFAULTS, data || {});
@@ -4549,7 +4974,7 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     this.store = new UsageStore(this, this.settings);
     await this.store.load(this.usageFile);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
-    this.editorInfoField = import_obsidian4.editorInfoField;
+    this.editorInfoField = import_obsidian5.editorInfoField;
     this.delegator = new Delegator(this);
     this.menubar = new MenuBarBridge(this);
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
@@ -4673,7 +5098,7 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
       this.store.prune();
       await this.store.save();
       this.refreshUI();
-      if (force) new import_obsidian4.Notice(`Agent Deck\uFF1A\u8BFB\u5230 ${this.usage.files.size} \u4E2A\u65E5\u5FD7\uFF0C${touched.size} \u5929\u6709\u5185\u5BB9`, 4e3);
+      if (force) new import_obsidian5.Notice(`Agent Deck\uFF1A\u8BFB\u5230 ${this.usage.files.size} \u4E2A\u65E5\u5FD7\uFF0C${touched.size} \u5929\u6709\u5185\u5BB9`, 4e3);
     } catch (e) {
       console.error("[agent-deck] scan", e);
       this.notice("\u626B\u63CF\u4F1A\u8BDD\u5931\u8D25\uFF1A" + (e && e.message || e), 8e3);
@@ -4689,7 +5114,7 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     this.usage.titles.clear();
     await this.store.save();
     await this.scanNow(true);
-    new import_obsidian4.Notice("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97");
+    new import_obsidian5.Notice("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97");
   }
   async importNautilus(manual = false) {
     const dir = import_path4.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
@@ -4697,14 +5122,14 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     try {
       raw = await fsp4.readFile(import_path4.default.join(dir, "ai-usage.json"), "utf8");
     } catch {
-      if (manual) new import_obsidian4.Notice("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json");
+      if (manual) new import_obsidian5.Notice("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json");
       return;
     }
     let src;
     try {
       src = JSON.parse(raw);
     } catch {
-      if (manual) new import_obsidian4.Notice("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25");
+      if (manual) new import_obsidian5.Notice("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25");
       return;
     }
     const days = src.days || {};
@@ -4722,7 +5147,7 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     }
     this.store.imported = { ...this.store.imported || {}, nautilus: Date.now() };
     await this.store.save();
-    if (manual || added) new import_obsidian4.Notice(`Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 ${added} \u5929\u5386\u53F2`);
+    if (manual || added) new import_obsidian5.Notice(`Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 ${added} \u5929\u5386\u53F2`);
     this.refreshUI();
   }
   recoverJobs() {
@@ -4829,12 +5254,12 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     await this.saveSettings();
     this.scanNow(true);
     this.refreshUI();
-    new import_obsidian4.Notice(`Agent Deck \u4E3B\u529B\uFF1A${this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ")}`);
+    new import_obsidian5.Notice(`Agent Deck \u4E3B\u529B\uFF1A${this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ")}`);
   }
   async setAgentEnabled(agent, on) {
     var _a;
     if (this.isPrimary(agent) && !on) {
-      new import_obsidian4.Notice("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389");
+      new import_obsidian5.Notice("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389");
       return;
     }
     ((_a = this.settings).agents || (_a.agents = {}))[agent] = !!on;
@@ -4982,12 +5407,12 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
   }
   // ---------- editor actions ----------
   activeEditor() {
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
     if (!view || !view.file) return null;
     return { view, editor: view.editor, file: view.file };
   }
   async delegateFromEditor(editor, agent) {
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
     if (!view || !view.file) return this.notice("\u5148\u6253\u5F00\u4E00\u7BC7\u7B14\u8BB0");
     const line = editor.getCursor().line;
     try {
@@ -4999,7 +5424,7 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
   async delegateAtLine(path5, line) {
     const file = this.app.vault.getAbstractFileByPath(path5);
     if (!file) return this.notice("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0");
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
     const lines = view && view.file && view.file.path === path5 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     await this.delegator.delegate({ file, lines, line, agent: this.defaultTarget() });
   }
@@ -5195,7 +5620,7 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
   // ---------- misc ----------
   notice(msg, ms) {
     try {
-      new import_obsidian4.Notice(msg, ms);
+      new import_obsidian5.Notice(msg, ms);
     } catch {
       console.log("[agent-deck]", msg);
     }
@@ -5209,7 +5634,7 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     return await this.app.vault.read(file);
   }
   async writeNote(path5, text) {
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
     if (view && view.file && view.file.path === path5) {
       const ed = view.editor;
       const line = clamp(ed.getCursor().line, 0, Math.max(0, ed.lineCount() - 1));

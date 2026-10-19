@@ -2,7 +2,7 @@
 
 > Track every agent. Delegate from the line you are already looking at.
 
-Agent Deck is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy and DeepSeek Harness**, shows what each agent is doing now, and lets you delegate a task block from the editor. The trigger button on the task line turns into the progress surface: the fill moves with the session, the label changes from **Delegate** to **Delegating**, and a cancel control appears next to it.
+Agent Deck is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy and DeepSeek Harness**, shows what each agent is doing now, and tracks delegated tasks from the editor. Delegation itself stays command-driven: Agent Deck does not put a trigger on every list item. Once a line is bound to a session, the line-end pill becomes the progress surface: the fill moves with the session, the label changes to **Delegating**, and a cancel control appears next to it.
 
 It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), extracted into a standalone plugin and extended with a second primary agent, DeepSeek Harness, model/effort/mode selection, and a layered model picker.
 
@@ -12,11 +12,12 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 
 - **A dashboard for the agents on this Mac.** Running, waiting and quiet sessions for Claude Code, Codex, WorkBuddy and DeepSeek Harness, with project, last step, elapsed time and tokens. Click a row to open that session in its client.
 - **Two primary agents, full history.** Pick up to two agents as primaries. They are read in full (all history, cross-day catch-up); every other enabled agent is only read for sessions that moved today.
-- **Delegation from the task line.** Put the cursor on a list item; a small **Delegate** pill appears at the end of the line. Click it to delegate with the current defaults, or click the chevron for model, effort, permission mode and working directory.
-- **Progress lives inside the button.** While the job runs the pill fills and shows the elapsed clock; the `×` cancels it. When the agent answers, the pill becomes **Done** and the result is written under the task as one `💬` line.
+- **Command-driven delegation.** Use `Agent Deck: 委派光标所在块…` or your existing **块去向 → 委派给 Claude** shortcut. Agent Deck does not put a **Delegate** button on every list item. The options sheet is still available from `Agent Deck: 委派选项…` when you want model, effort, permission mode or a working directory that differs from the defaults.
+- **Progress only on bound lines.** A line with a `🔗` session or a running delegation gets a line-end pill. While the job runs the pill fills and shows the elapsed clock; the `×` cancels it. When the agent answers, the pill becomes **Done** and the result is written under the task as one `💬` line. Lines with no session stay clean.
 - **Note-native records.** Delegation writes a `🔗` line under the task and changes the status to `DELEGATED`; the line is the source of truth. Delete the `🔗` line to unbind.
 - **Layered model settings.** A global default model, a default effort slider, capability tags, search/filter, enable switches, pinned order, per-row menu, and task models. Changes sit in an **Unsaved changes** bar until you save them.
 - **Local only.** Everything is read from `~/.claude`, `~/.codex`, `~/.workbuddy` and `~/.dsh`. Nothing is uploaded. The plugin stores its own aggregate in `usage.json` next to the plugin, so history survives log rotation.
+- **Lucide icons throughout.** Agent, status, tool and window icons are Lucide; running states use a CSS spinner.
 - **The agent summary lives in the macOS menu bar.** Obsidian's bottom-right status bar no longer carries the agent session summary. A small status item shows an icon plus something like `2 跑 · 1 等`; click it for a detailed popover with session rows you can jump from.
 
 ![macOS menu bar](assets/menubar.png)
@@ -69,19 +70,16 @@ Codex and WorkBuddy are tracked read-only. Codex has no session URL, so the dash
 | DeepSeek Harness | `dsh://open` | Opens the client; the desktop build does not expose a per-session URL yet. Agent Deck copies the session id to the clipboard so you can find it in the sidebar. |
 | Codex | none | Copies `codex resume <id>` |
 
-## The progress button
+## The status pill
 
-![Delegate button on a task line](assets/button.png)
+The pill is a CodeMirror widget. It only lives on lines that already have a session or delegation, not on every list item, and it has four states:
 
-The pill is a CodeMirror widget. It only lives in the editor, not in the note, and it has five states:
+1. **Starting**, while the session is being created.
+2. **Delegating**, with a liquid fill, elapsed time and `×`.
+3. **Waiting / needs approval**, with a slow glow.
+4. **Done** or **Error**, with an open/retry control.
 
-1. **Delegate** (dashed border), with the current model name.
-2. **Starting**, while the session is being created.
-3. **Delegating**, with a liquid fill, elapsed time and `×`.
-4. **Waiting / needs approval**, with a slow glow.
-5. **Done** or **Error**, with an open/retry control.
-
-Clicking the chevron opens the options sheet:
+The options sheet is opened from the command palette (`委派选项…`) or from the chevron on a status pill:
 
 ![Delegate options](assets/delegate.png)
 

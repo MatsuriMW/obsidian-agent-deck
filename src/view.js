@@ -2,6 +2,7 @@
 
 import { ItemView, Menu, setIcon } from "obsidian";
 import { AGENTS, AGENT_ORDER, fmtKey, fmtMin, fmtTok, fmtClock, fmtDur, timeAgo, truncate, unionSegs, dayKeyToday, esc } from "./constants.js";
+import { agentIcon, setLucide, stateIcon } from "./icons.js";
 
 export const VIEW_TYPE = "agent-deck-view";
 
@@ -50,16 +51,17 @@ export class AgentDeckView extends ItemView {
     // Header
     const head = dash.createDiv({ cls: "ad-head" });
     const brand = head.createDiv({ cls: "ad-brand" });
-    brand.createSpan({ cls: "ad-brand__mark", text: "◈" });
+    const brandMark = brand.createSpan({ cls: "ad-brand__mark" });
+    setLucide(brandMark, "wand-sparkles");
     const brandText = brand.createDiv({ cls: "ad-brand__text" });
     brandText.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
     brandText.createDiv({ cls: "ad-brand__sub", text: "智能体甲板" });
     const actions = head.createDiv({ cls: "ad-head__actions" });
     const scan = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": "重新扫描本机会话" } });
-    setIcon(scan, "refresh-cw");
+    setLucide(scan.createSpan({ cls: "ad-iconbtn__icon" }), "refresh-cw");
     scan.onclick = () => p.scanNow(true);
     const gear = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": "设置" } });
-    setIcon(gear, "settings-2");
+    setLucide(gear.createSpan({ cls: "ad-iconbtn__icon" }), "settings-2");
     gear.onclick = () => p.openSettings();
 
     // Hero
@@ -78,7 +80,7 @@ export class AgentDeckView extends ItemView {
     for (const id of p.primaryAgents()) {
       const a = AGENTS[id];
       const chip = prim.createSpan({ cls: "ad-primary-chip", attr: { style: `--ad-agent:${a.color};--ad-agent-soft:${a.soft}` } });
-      chip.createSpan({ cls: "ad-glyph", text: a.glyph });
+      agentIcon(chip.createSpan({ cls: "ad-glyph" }), id);
       chip.createSpan({ text: a.name });
       chip.createSpan({ cls: "ad-primary-chip__tag", text: "全量" });
     }
@@ -170,14 +172,14 @@ export class AgentDeckView extends ItemView {
     card.style.setProperty("--ad-agent-soft", a.soft);
     const top = card.createDiv({ cls: "ad-agentcard__top" });
     const mark = top.createDiv({ cls: "ad-agentcard__mark" });
-    mark.createSpan({ cls: "ad-glyph", text: a.glyph });
+    agentIcon(mark.createSpan({ cls: "ad-glyph" }), id);
     const name = top.createDiv({ cls: "ad-agentcard__name" });
     name.createDiv({ cls: "ad-agentcard__title", text: a.name });
     const live = p.usage.liveSessions({ since: Date.now() - 86400000, limit: 100 }).filter((x) => x.agent === id);
     const running = live.filter((x) => x.state === "run").length;
     name.createDiv({ cls: "ad-agentcard__where", text: running ? `${running} 个在跑` : (by ? `${by.sessions || 0} 个会话` : "今天还没动") });
     const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? "取消主力" : "设为主力（最多两个）" } });
-    star.textContent = primary ? "★" : "☆";
+    setLucide(star, primary ? "star" : "star-off");
     star.onclick = (e) => { e.stopPropagation(); p.togglePrimary(id); };
     const stats = card.createDiv({ cls: "ad-agentcard__stats" });
     stats.createSpan({ text: fmtMin(by ? by.wall : 0) });
@@ -262,12 +264,17 @@ export class AgentDeckView extends ItemView {
     if (live) card.addClass("is-live");
     if (wait) card.addClass("is-wait");
     const icon = card.createDiv({ cls: "ad-sess__mark" });
-    icon.createSpan({ cls: "ad-glyph", text: a.glyph });
+    agentIcon(icon.createSpan({ cls: "ad-glyph" }), s.agent);
     const body = card.createDiv({ cls: "ad-sess__body" });
     const titleRow = body.createDiv({ cls: "ad-sess__title" });
     titleRow.createSpan({ cls: "ad-sess__name", text: s.title || truncate(s.text || s.step || s.sid, 60) || s.sid.slice(0, 12) });
     const st = stateChip(s);
-    if (st) titleRow.createSpan({ cls: `ad-state ${st.cls}`, text: st.label });
+    if (st) {
+      const chip = titleRow.createSpan({ cls: `ad-state ${st.cls}` });
+      const sic = chip.createSpan({ cls: "ad-state__icon" + (st.cls === "is-live" ? " ad-spin" : "") });
+      stateIcon(sic, s.state);
+      chip.createSpan({ text: st.label });
+    }
     const sub = body.createDiv({ cls: "ad-sess__sub" });
     sub.createSpan({ text: a.short });
     if (s.cwd) sub.createSpan({ text: "·" });
@@ -277,7 +284,7 @@ export class AgentDeckView extends ItemView {
     sub.createSpan({ text: timeAgo(s.lastAt) });
     if (s.tokens) { sub.createSpan({ text: "·" }); sub.createSpan({ cls: "ad-sess__tok", text: fmtTok(s.tokens) + " tok" }); }
     const go = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": "打开会话" } });
-    go.textContent = "↗";
+    setLucide(go.createSpan({ cls: "ad-arrow__icon" }), "arrow-up-right");
     const open = () => p.openSession(s.agent, s.sid, s.app, s);
     go.onclick = (e) => { e.stopPropagation(); open(); };
     card.onclick = open;
@@ -302,6 +309,5 @@ function stateChip(s) {
   if (st === "needs-approval") return { cls: "is-wait", label: "等你允许" };
   if (st === "done") return { cls: "is-done", label: "完成" };
   if (st === "cancelled") return { cls: "is-quiet", label: "已取消" };
-  if (st === "error") return { cls: "is-error", label: "出错" };
   return null;
 }

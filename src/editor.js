@@ -1,12 +1,13 @@
 // Agent Deck — the delegate button that lives on the task line.
 //
-// A CodeMirror widget at the end of the active list item. While a delegation is
+// A CodeMirror widget at the end of a bound/delegated line. While a delegation is
 // running the button itself becomes the progress surface: a liquid fill plus an
 // elapsed clock and a cancel control. Bound sessions get a compact status pill.
 
 import { Decoration, WidgetType, ViewPlugin, EditorView } from "@codemirror/view";
 import { RangeSetBuilder, StateEffect } from "@codemirror/state";
 import { BULLET_RE, findLink, blockAt } from "./delegation.js";
+import { agentIcon, setLucide } from "./icons.js";
 import { AGENTS, fmtDur, fmtTok, truncate } from "./constants.js";
 
 export const refreshEffect = StateEffect.define();
@@ -49,7 +50,7 @@ class PillWidget extends WidgetType {
 
     const glyph = document.createElement("span");
     glyph.className = "ad-pill__glyph";
-    glyph.textContent = a.glyph;
+    agentIcon(glyph, agent);
     el.appendChild(glyph);
 
     const label = document.createElement("span");
@@ -70,7 +71,7 @@ class PillWidget extends WidgetType {
       meta.textContent = modelName || (agent === "dsh" ? "DeepSeek" : "Claude");
       const chev = document.createElement("span");
       chev.className = "ad-pill__chev";
-      chev.textContent = "⌄";
+      setLucide(chev, "chevron-down");
       chev.title = "选择模型、强度、模式";
       chev.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.openDelegateModal(this.path, this.line); });
       right.appendChild(chev);
@@ -82,7 +83,7 @@ class PillWidget extends WidgetType {
       el._adTimer = setInterval(tick, 1000);
       const cancel = document.createElement("span");
       cancel.className = "ad-pill__cancel";
-      cancel.textContent = "×";
+      setLucide(cancel, "x");
       cancel.title = "取消这次委派";
       cancel.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.cancelJob(job && job.id); });
       right.appendChild(cancel);
@@ -100,14 +101,14 @@ class PillWidget extends WidgetType {
       meta.textContent = job && job.result ? truncate(job.result, 28) : (session && session.lastText ? truncate(session.lastText, 28) : "打开会话");
       const open = document.createElement("span");
       open.className = "ad-pill__open";
-      open.textContent = "↗";
+      setLucide(open, "arrow-up-right");
       right.appendChild(open);
     } else if (info.kind === "error") {
       label.textContent = "出错";
       meta.textContent = truncate((job && job.error) || (session && session.err) || "点击重试", 30);
       const retry = document.createElement("span");
       retry.className = "ad-pill__open";
-      retry.textContent = "↻";
+      setLucide(retry, "refresh-cw");
       retry.title = "重新委派";
       retry.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.openDelegateModal(this.path, this.line); });
       right.appendChild(retry);
@@ -144,7 +145,6 @@ function buildDecorations(view, plugin) {
   const path = info && info.file && info.file.path;
   if (!path || !plugin.settings.showEditorPills) return builder.finish();
   const doc = view.state.doc;
-  const cursorLine = doc.lineAt(view.state.selection.main.head).number - 1;
   const map = plugin.lineMap(path, doc);
   const seen = new Set();
   for (const { from, to } of view.visibleRanges) {
@@ -155,8 +155,6 @@ function buildDecorations(view, plugin) {
       if (!seen.has(n)) {
         seen.add(n);
         const text = line.text;
-        const bullet = BULLET_RE.test(text);
-        const active = n === cursorLine;
         const job = plugin.jobAtLine(path, n, text);
         const session = map.sessionByParent.get(n) || null;
         let state = null;
@@ -171,18 +169,10 @@ function buildDecorations(view, plugin) {
           else if (st === "wait" || st === "quiet") state = { kind: "waiting", job, session };
           else if (st === "error" || st === "limit") state = { kind: "error", job, session };
           else state = { kind: "bound", job, session };
-        } else if (active && bullet) state = { kind: "idle" };
-        if (state && (active || state.kind !== "idle")) {
-          if (active && bullet && state.kind === "idle") {
-            // only the cursor line gets the ghost trigger
-          }
-          if (state.kind === "idle" && !active) { /* skip */ }
-          else {
-            if (state.kind !== "idle" || active) {
-              const widget = new PillWidget(plugin, path, n, state);
-              builder.add(line.to, line.to, Decoration.widget({ widget, side: 1, block: false }));
-            }
-          }
+        }
+        if (state) {
+          const widget = new PillWidget(plugin, path, n, state);
+          builder.add(line.to, line.to, Decoration.widget({ widget, side: 1, block: false }));
         }
       }
       if (line.to >= to) break;

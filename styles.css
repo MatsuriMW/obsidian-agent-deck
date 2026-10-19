@@ -44,6 +44,7 @@
 }
 .ad-linkbtn:hover { background: var(--background-modifier-hover); color: var(--ad-ink); }
 .ad-iconbtn {
+  font-size: 14px;
   appearance: none;
   border: 1px solid var(--ad-line);
   background: var(--background-primary);
@@ -58,7 +59,7 @@
   transition: transform .16s ease, background .16s ease, color .16s ease;
 }
 .ad-iconbtn:hover { transform: translateY(-1px); background: var(--background-modifier-hover); color: var(--ad-ink); }
-.ad-iconbtn svg { width: 14px; height: 14px; }
+.ad-iconbtn svg { width: 14px !important; height: 14px !important; }
 
 .ad-btn {
   appearance: none;
@@ -304,7 +305,7 @@
 .ad-state.is-quiet { color: var(--ad-muted); background: var(--background-modifier-hover); }
 .ad-state.is-error { color: var(--ad-bad); background: color-mix(in srgb, var(--ad-bad) 14%, transparent); }
 .ad-state.is-done { color: var(--ad-good); background: color-mix(in srgb, var(--ad-good) 12%, transparent); }
-.ad-arrow { appearance: none; border: 0; background: transparent; color: var(--ad-faint); font-size: 15px; cursor: pointer; border-radius: 7px; width: 22px; height: 22px; }
+.ad-arrow { appearance: none; border: 0; background: transparent; color: var(--ad-muted); font-size: 14px; cursor: pointer; border-radius: 7px; width: 22px; height: 22px; }
 .ad-arrow:hover { color: var(--ad-ink); background: var(--background-modifier-hover); }
 
 .ad-agentgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -608,3 +609,35 @@
   .ad-sec--recent .ad-search { max-width: 100%; width: 100%; margin-left: 0; }
   .ad-effort { width: 180px; }
 }
+
+/* ---------- Lucide icons ---------- */
+.ad-icon { display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
+.ad-icon svg { width: 1em; height: 1em; stroke-width: 2; }
+.ad-glyph { display: inline-flex; align-items: center; justify-content: center; width: 1em; height: 1em; flex: none; }
+.ad-glyph svg { width: 1em; height: 1em; }
+.ad-brand__mark .ad-icon svg, .ad-brand__mark svg { width: 17px; height: 17px; }
+.ad-agentcard__mark .ad-glyph svg, .ad-agentcard__mark svg { width: 13px; height: 13px; }
+.ad-sess__mark .ad-glyph svg, .ad-sess__mark svg { width: 12px; height: 12px; }
+.ad-primary-chip .ad-glyph svg, .ad-primary-chip svg { width: 11px; height: 11px; }
+.ad-target .ad-glyph svg, .ad-target svg { width: 14px; height: 14px; }
+.ad-pathrow .ad-glyph svg, .ad-pathrow svg { width: 12px; height: 12px; }
+.ad-pill__glyph svg { width: 12px; height: 12px; }
+.ad-pill__chev svg, .ad-pill__cancel svg, .ad-pill__open svg { width: 11px; height: 11px; }
+.ad-star svg { width: 14px !important; height: 14px !important; }
+.ad-arrow svg { width: 14px !important; height: 14px !important; }
+.ad-state__icon { display: inline-flex; align-items: center; }
+.ad-state__icon svg { width: 10px; height: 10px; }
+.ad-state { display: inline-flex; align-items: center; gap: 3px; }
+.ad-tabicon { display: inline-flex; align-items: center; margin-right: 5px; }
+.ad-tabicon svg { width: 14px; height: 14px; }
+.ad-btn__icon { display: inline-flex; align-items: center; margin-right: 5px; }
+.ad-btn__icon svg { width: 13px; height: 13px; }
+.ad-spin svg { animation: ad-spin 1.2s linear infinite; }
+@keyframes ad-spin { to { transform: rotate(360deg); } }
+.ad-star { display: inline-flex; align-items: center; justify-content: center; }
+.ad-pill__chev, .ad-pill__cancel, .ad-pill__open { display: inline-flex; align-items: center; justify-content: center; }
+@media (prefers-reduced-motion: reduce) { .ad-spin svg { animation: none !important; } }
+.ad-iconbtn__icon { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.ad-iconbtn__icon svg { width: 15px !important; height: 15px !important; stroke-width: 2; }
+.ad-arrow__icon { display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); }
+.ad-arrow__icon svg { width: 14px !important; height: 14px !important; stroke-width: 2; }
