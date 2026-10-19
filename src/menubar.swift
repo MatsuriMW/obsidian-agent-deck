@@ -569,6 +569,7 @@ private extension NSImage {
 // MARK: - Agents
 
 struct AgentStyle {
+    let id: String
     let color: Color
     let tint: Color
     let glyph: String
@@ -580,24 +581,28 @@ enum DeckAgents {
         switch id {
         case "claude":
             return AgentStyle(
+                id: "claude",
                 color: .solid("#D97757", "#F09475"),
                 tint: .solid("#FBECE4", "#39251E"),
                 glyph: "✳", short: "Claude"
             )
         case "codex":
             return AgentStyle(
+                id: "codex",
                 color: .solid("#4C82C3", "#7FB2E8"),
                 tint: .solid("#EAF1F9", "#1E2C3B"),
                 glyph: "⌘", short: "Codex"
             )
         case "workbuddy":
             return AgentStyle(
+                id: "workbuddy",
                 color: .solid("#1C9A78", "#46C9A3"),
                 tint: .solid("#E6F5EF", "#1B332B"),
                 glyph: "✦", short: "WorkBuddy"
             )
         case "dsh":
             return AgentStyle(
+                id: "dsh",
                 color: .solid("#4A66E8", "#7F95FF"),
                 tint: .solid("#EAEDFF", "#232744"),
                 glyph: "◈", short: "DSH"
@@ -605,6 +610,7 @@ enum DeckAgents {
         default:
             let base = Color(hex: fallbackColor)
             return AgentStyle(
+                id: id,
                 color: base,
                 tint: base.opacity(0.14),
                 glyph: fallbackGlyph.isEmpty ? "•" : fallbackGlyph,
@@ -622,6 +628,16 @@ enum DeckAgents {
     }
 }
 
+// 官方 App 图标：插件启动时把 PNG 写到 ~/.agent-deck/agents/，这里按 id 读
+private let deckAgentIcons = NSCache<NSString, NSImage>()
+func agentAppIcon(_ id: String) -> NSImage? {
+    if let cached = deckAgentIcons.object(forKey: id as NSString) { return cached }
+    let path = (NSHomeDirectory() as NSString).appendingPathComponent(".agent-deck/agents/\(id).png")
+    guard let image = NSImage(contentsOfFile: path) else { return nil }
+    deckAgentIcons.setObject(image, forKey: id as NSString)
+    return image
+}
+
 // MARK: - Shared atoms
 
 struct Hairline: View {
@@ -637,16 +653,25 @@ struct AgentBadge: View {
     var size: CGFloat = 26
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                .fill(style.tint)
-            RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                .strokeBorder(style.color.opacity(0.35), lineWidth: 1)
-            Text(style.glyph)
-                .font(.system(size: size * 0.44, weight: .bold))
-                .foregroundColor(style.color)
+        if let image = agentAppIcon(style.id) {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: size * 0.82, height: size * 0.82)
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous))
+                .frame(width: size, height: size)
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
+                    .fill(style.tint)
+                RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
+                    .strokeBorder(style.color.opacity(0.35), lineWidth: 1)
+                Text(style.glyph)
+                    .font(.system(size: size * 0.44, weight: .bold))
+                    .foregroundColor(style.color)
+            }
+            .frame(width: size, height: size)
         }
-        .frame(width: size, height: size)
     }
 }
 
@@ -703,9 +728,17 @@ struct AgentPill: View {
     var body: some View {
         let style = DeckAgents.style(for: agent)
         HStack(spacing: 4) {
-            Text(style.glyph)
-                .font(.system(size: 9.5, weight: .bold))
-                .foregroundColor(style.color)
+            if let image = agentAppIcon(agent.id) {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 12, height: 12)
+                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+            } else {
+                Text(style.glyph)
+                    .font(.system(size: 9.5, weight: .bold))
+                    .foregroundColor(style.color)
+            }
             Text(agent.short.isEmpty ? style.short : agent.short)
                 .font(.system(size: 9.5, weight: agent.primary ? .bold : .semibold))
                 .foregroundColor(DeckPalette.ink)

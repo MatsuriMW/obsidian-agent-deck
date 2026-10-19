@@ -11,6 +11,7 @@ import os from "os";
 import crypto from "crypto";
 import { execFile, spawn } from "child_process";
 import source from "./menubar.swift";
+import { agentImageBuffer } from "./agent-assets.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -69,8 +70,21 @@ export class MenuBarBridge {
     return this.starting;
   }
 
+  // 官方 App 图标给 SwiftUI 用：和 main.js 里嵌的是同一份 PNG
+  writeAgentIcons() {
+    const dir = path.join(this.dir, "agents");
+    try { fs.mkdirSync(dir, { recursive: true }); } catch { return; }
+    for (const id of ["claude", "codex", "workbuddy", "dsh"]) {
+      try {
+        const buf = agentImageBuffer(id);
+        if (buf) fs.writeFileSync(path.join(dir, `${id}.png`), buf);
+      } catch { /* 图标写不出去就退回字形 */ }
+    }
+  }
+
   async _start() {
     await fsp.mkdir(this.dir, { recursive: true });
+    this.writeAgentIcons();
     const hash = crypto.createHash("sha256").update(source).digest("hex").slice(0, 16);
     let oldHash = "";
     try { oldHash = (await fsp.readFile(this.hashPath, "utf8")).trim(); } catch { /* first run */ }

@@ -300,6 +300,14 @@
 .ad-sess__cwd, .ad-sess__step { overflow: hidden; text-overflow: ellipsis; }
 .ad-sess__step { color: var(--ad-faint); }
 .ad-sess__tok { color: var(--ad-agent); }
+.ad-sess.is-child { margin-left: 18px; }
+.ad-sess.is-child::before { opacity: .45; }
+.ad-sess__kin { display: flex; align-items: center; gap: 4px; margin-top: 3px; color: var(--ad-faint); font-size: 10px; white-space: nowrap; overflow: hidden; }
+.ad-sess__kinmark { color: var(--ad-agent); opacity: .75; font-size: 11px; line-height: 1; }
+.ad-sess__kintitle { overflow: hidden; text-overflow: ellipsis; }
+.ad-side { display: inline-flex; align-items: center; gap: 3px; flex: none; font-size: 9px; font-weight: 700; letter-spacing: .03em; padding: 1px 6px; border-radius: 999px; color: var(--ad-agent); background: var(--ad-agent-soft); }
+.ad-side__icon { display: inline-flex; width: 10px; height: 10px; }
+.ad-side__icon svg { width: 10px; height: 10px; }
 .ad-state { font-size: 9px; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border-radius: 999px; flex: none; }
 .ad-state.is-live { color: var(--ad-good); background: color-mix(in srgb, var(--ad-good) 14%, transparent); animation: ad-pulse 1.8s ease-in-out infinite; }
 .ad-state.is-wait { color: var(--ad-warn); background: color-mix(in srgb, var(--ad-warn) 14%, transparent); }
@@ -618,6 +626,15 @@
 .ad-icon svg { width: 1em; height: 1em; stroke-width: 2; }
 .ad-glyph { display: inline-flex; align-items: center; justify-content: center; width: 1em; height: 1em; flex: none; }
 .ad-glyph svg { width: 1em; height: 1em; }
+.ad-agentimg { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: 24%; -webkit-user-drag: none; }
+.ad-glyph--img { overflow: hidden; border-radius: 24%; }
+.ad-agentcard__mark .ad-glyph { width: 20px; height: 20px; }
+.ad-sess__mark .ad-glyph { width: 18px; height: 18px; }
+.ad-primary-chip .ad-glyph { width: 13px; height: 13px; }
+.ad-target .ad-glyph { width: 16px; height: 16px; }
+.ad-pathrow .ad-glyph { width: 13px; height: 13px; }
+.ad-pill__glyph { width: 14px; height: 14px; display: inline-flex; }
+.ad-pill__glyph .ad-agentimg { width: 13px; height: 13px; }
 .ad-brand__mark .ad-icon svg, .ad-brand__mark svg { width: 17px; height: 17px; }
 .ad-agentcard__mark .ad-glyph svg, .ad-agentcard__mark svg { width: 13px; height: 13px; }
 .ad-sess__mark .ad-glyph svg, .ad-sess__mark svg { width: 12px; height: 12px; }

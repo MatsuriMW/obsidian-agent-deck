@@ -1,4 +1,4 @@
-/* Agent Deck 1.0.9 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.1.1 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -33,10 +33,10 @@ __export(main_exports, {
   default: () => AgentDeckPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_fs4 = __toESM(require("fs"), 1);
-var import_path4 = __toESM(require("path"), 1);
-var import_child_process3 = require("child_process");
-var import_obsidian5 = require("obsidian");
+var import_fs5 = __toESM(require("fs"), 1);
+var import_path5 = __toESM(require("path"), 1);
+var import_child_process5 = require("child_process");
+var import_obsidian7 = require("obsidian");
 
 // src/constants.js
 var STORE_VERSION = 1;
@@ -241,6 +241,24 @@ var DEFAULTS = {
   pollSeconds: 20,
   idleMinutes: 5,
   fullHistoryDays: 14,
+  // Claude desktop session list: identifies side chats (spawnedFrom) and archive state.
+  claudeDesktop: true,
+  hideArchived: true,
+  // Human–AI journal: sessions written back into the daily note.
+  journalFolder: "\u65E5\u8BB0",
+  journalSync: true,
+  resultBack: true,
+  agentKw: true,
+  kidBlocks: true,
+  autoLog: false,
+  autoLogEvery: 20,
+  autoLogIdle: 40,
+  autoLogModel: "haiku",
+  autoLogPath: "",
+  autoLogArchiveDone: true,
+  autoLogNotify: true,
+  autoLogState: {},
+  workLog: {},
   showStatusBar: false,
   showMenuBar: true,
   menuBarPrimaryLimit: 6,
@@ -327,6 +345,15 @@ function dayKey(ms, cfg = {}) {
 function dayKeyToday(cfg = {}) {
   return dayKey(Date.now(), cfg);
 }
+function startOfDay(ms, cfg = {}) {
+  const cutoff = Number.isFinite(cfg.dayCutoff) ? cfg.dayCutoff : 8;
+  const d = new Date(ms - cutoff * 36e5);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() + cutoff * 36e5;
+}
+function dayMinute(ms, cfg = {}) {
+  const start = startOfDay(ms, cfg);
+  return Math.round((ms - start) / 6e4);
+}
 function fmtTok(n) {
   n = Number(n) || 0;
   if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
@@ -373,6 +400,7 @@ function unionSegs(segs) {
 var import_fs = __toESM(require("fs"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_os = __toESM(require("os"), 1);
+var import_child_process = require("child_process");
 
 // node_modules/fzstd/esm/index.mjs
 var ab = ArrayBuffer;
@@ -1058,6 +1086,13 @@ var AgentUsage = class {
     this.titles = /* @__PURE__ */ new Map();
     this.codexIndexAt = 0;
     this.archived = /* @__PURE__ */ new Set();
+    this.desk = /* @__PURE__ */ new Map();
+    this.deskBySid = /* @__PURE__ */ new Map();
+    this.deskByLocal = /* @__PURE__ */ new Map();
+    this.archivedClaude = /* @__PURE__ */ new Set();
+    this.sideChats = /* @__PURE__ */ new Map();
+    this.subs = /* @__PURE__ */ new Map();
+    this.sideAt = 0;
     this.errors = [];
     this.lastScan = 0;
   }
@@ -1128,6 +1163,9 @@ var AgentUsage = class {
     }
     await this.readCodexTitles();
     await this.readCodexArchived();
+    await this.readClaudeDesktop();
+    await this.readClaudeSideChats();
+    this.applyClaudeDesktop();
     this.lastScan = Date.now();
     return touched;
   }
@@ -1177,12 +1215,150 @@ var AgentUsage = class {
     } catch {
     }
   }
+  // ----- Claude desktop session index -----
+  // 桌面版给每个会话存一份 claude-code-sessions/<账号>/<组织>/local_*.json。
+  // 侧栏里看着同一级的两个会话，如果是后者从前者开出来的，只有这里有线索：
+  // spawnedFrom.sessionId 是母会话的 local_ 号；归档也只是把 isArchived 设成 true，
+  // ~/.claude/projects 里的 .jsonl 照旧。sid 用 cliSessionId，和 .jsonl 同名。
+  deskRoots() {
+    const h = home();
+    const base = process.platform === "darwin" ? import_path.default.join(h, "Library/Application Support") : process.platform === "win32" ? process.env.APPDATA || import_path.default.join(h, "AppData/Roaming") : process.env.XDG_CONFIG_HOME || import_path.default.join(h, ".config");
+    return [import_path.default.join(base, "Claude", "claude-code-sessions")];
+  }
+  async readClaudeDesktop() {
+    this.deskBySid.clear();
+    this.deskByLocal.clear();
+    this.archivedClaude.clear();
+    if (this.settings.claudeDesktop === false || !this.enabled("claude")) return;
+    const cutoff = Date.now() - 7 * 864e5;
+    const walk = async (dir, depth) => {
+      let ents;
+      try {
+        ents = await fsp.readdir(dir, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of ents) {
+        const p = import_path.default.join(dir, e.name);
+        if (e.isDirectory()) {
+          if (depth < 3) await walk(p, depth + 1);
+          continue;
+        }
+        if (!e.isFile() || !/^local_.*\.json$/.test(e.name)) continue;
+        let st;
+        try {
+          st = await fsp.stat(p);
+        } catch {
+          continue;
+        }
+        if (st.mtimeMs < cutoff) continue;
+        let d = this.desk.get(p);
+        if (!d || d.mtime !== st.mtimeMs) {
+          let raw;
+          try {
+            raw = JSON.parse(await fsp.readFile(p, "utf8"));
+          } catch {
+            continue;
+          }
+          d = {
+            mtime: st.mtimeMs,
+            sid: String(raw.cliSessionId || ""),
+            local: String(raw.sessionId || e.name.replace(/\.json$/, "")),
+            title: String(raw.title || ""),
+            parentLocal: String(raw.spawnedFrom && raw.spawnedFrom.sessionId || ""),
+            created: +raw.createdAt || 0,
+            active: +raw.lastActivityAt || +raw.createdAt || 0,
+            archived: raw.isArchived === true,
+            parentSid: "",
+            parentTitle: ""
+          };
+          this.desk.set(p, d);
+        }
+        if (!d.sid) continue;
+        this.deskBySid.set(d.sid, d);
+        this.deskByLocal.set(d.local, d);
+      }
+    };
+    for (const root of this.deskRoots()) await walk(root, 0);
+    for (const d of this.deskBySid.values()) {
+      const par = d.parentLocal ? this.deskByLocal.get(d.parentLocal) : null;
+      d.parentSid = par ? par.sid : "";
+      d.parentTitle = par ? par.title : "";
+      if (d.archived) this.archivedClaude.add(d.sid);
+    }
+    for (const [p, d] of this.desk) if (!this.deskBySid.has(d.sid)) this.desk.delete(p);
+  }
+  // 开着的 side chat：桌面版给每个 side chat 起一个 claude 子进程，参数里带
+  // --fork-session --no-session-persistence --resume <母会话 sid>；进程不在就是关了。
+  readClaudeSideChats() {
+    if (this.settings.claudeDesktop === false || !this.enabled("claude") || process.platform === "win32") {
+      this.sideChats.clear();
+      return Promise.resolve(this.sideChats);
+    }
+    if (Date.now() - this.sideAt < 1e4) return Promise.resolve(this.sideChats);
+    this.sideAt = Date.now();
+    return new Promise((resolve) => {
+      (0, import_child_process.execFile)("ps", ["-axo", "pid=,etime=,command="], { maxBuffer: 16 << 20 }, (err2, text) => {
+        const out = /* @__PURE__ */ new Map();
+        if (!err2) for (const line of String(text).split("\n")) {
+          if (!line.includes("--fork-session") || !line.includes("--no-session-persistence")) continue;
+          if (line.includes("disclaimer")) continue;
+          const m = /--resume[= ]([0-9a-f]{8}-[0-9a-f-]{27})/.exec(line);
+          if (!m) continue;
+          const [pid, et] = line.trim().split(/\s+/);
+          const t = /^(?:(\d+)-)?(?:(\d+):)?(\d+):(\d+)$/.exec(et || "");
+          const age = t ? ((+t[1] || 0) * 86400 + (+t[2] || 0) * 3600 + +t[3] * 60 + +t[4]) * 1e3 : 0;
+          if (!out.has(m[1])) out.set(m[1], []);
+          out.get(m[1]).push({ pid: +pid, since: Date.now() - age });
+        }
+        this.sideChats = out;
+        resolve(out);
+      });
+    });
+  }
+  // 把桌面版清单和 side chat 状态贴到会话索引上：parentSid / parentTitle 是母子关系，
+  // archived 是桌面版里归档了，sideChats / sideSince 是正开着的 side chat 数和最早那个的开始时间。
+  applyClaudeDesktop() {
+    for (const m of this.meta.values()) {
+      if (m.agent !== "claude") continue;
+      m.deskTitle = "";
+      m.parentSid = "";
+      m.parentTitle = "";
+      m.archived = false;
+      m.sideChats = 0;
+      m.sideSince = 0;
+    }
+    for (const d of this.deskBySid.values()) {
+      const m = this.meta.get(d.sid);
+      if (!m) continue;
+      m.deskTitle = d.title;
+      if (!m.title && d.title) m.title = d.title;
+      m.parentSid = d.parentSid || "";
+      m.parentTitle = d.parentTitle || "";
+      m.archived = d.archived === true;
+      if (d.created && !m.startedAt) m.startedAt = d.created;
+    }
+    for (const [sid, list] of this.sideChats) {
+      const m = this.meta.get(sid);
+      if (!m || !list.length) continue;
+      const since = list.map((x) => x.since || 0).filter(Boolean);
+      m.sideChats = list.length;
+      m.sideSince = since.length ? Math.min(...since) : 0;
+    }
+  }
+  // 归档 = 做完：桌面版里归档的、Codex archived_sessions 里的都可以从会话列表里收起来
+  hidden(sid) {
+    if (this.settings.hideArchived === false) return false;
+    return this.archivedClaude.has(sid) || this.archived.has(sid);
+  }
   // ----- file caches -----
   ensureFile(p, agent) {
     let fc = this.files.get(p);
     if (!fc) {
       const base = import_path.default.basename(p).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
-      const sid = base.startsWith("session-") ? base : (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
+      const flat = p.replace(/\\/g, "/");
+      const sm = /([0-9a-f]{8}-[0-9a-f-]{27})\/subagents\/agent-([^/]+)\.jsonl$/.exec(flat);
+      const sid = sm ? sm[1] : base.startsWith("session-") ? base : (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
       fc = {
         path: p,
         agent,
@@ -1199,7 +1375,9 @@ var AgentUsage = class {
         titles: /* @__PURE__ */ new Map(),
         live: null,
         zstd: p.endsWith(".zstd") || p.endsWith(".zst"),
-        sub: ""
+        sub: sm ? sm[2] : "",
+        parentSid: sm ? sm[1] : "",
+        metaRead: false
       };
       this.files.set(p, fc);
     }
@@ -1237,6 +1415,11 @@ var AgentUsage = class {
   // ----- JSONL agents -----
   async readJsonl(p, agent, st, touched) {
     const fc = this.ensureFile(p, agent);
+    if (fc.sub && !fc.metaRead) {
+      fc.metaRead = true;
+      this.readSubMeta(p, fc).catch(() => {
+      });
+    }
     if (st.size < fc.size) {
       fc.size = 0;
       fc.offset = 0;
@@ -1270,12 +1453,95 @@ var AgentUsage = class {
   }
   ingestJsonl(line, fc, touched) {
     if (!line) return;
+    if (fc.agent === "claude" && fc.sub) this.subLine(fc, line);
     if (fc.agent === "claude") return this.ingestClaude(line, fc, touched);
     if (fc.agent === "codex") return this.ingestCodex(line, fc, touched);
     if (fc.agent === "workbuddy") return this.ingestWorkbuddy(line, fc, touched);
   }
+  // ---- Claude Code subagents ----
+  // 会话派一个 subagent，日志另起一个文件：<会话号>/subagents/agent-<agentId>.jsonl，
+  // 旁边的 .meta.json 写着 { description, agentType, requestShape }。每个子代理单独记一份，
+  // 给日记里的「🤖 子代理」子块用；跑完 / 出错 / 被停也看父会话收到的 <task-notification>。
+  subOf(sid, id) {
+    let m = this.subs.get(sid);
+    if (!m) this.subs.set(sid, m = /* @__PURE__ */ new Map());
+    let r = m.get(id);
+    if (!r) m.set(id, r = { id, desc: "", type: "", bg: false, start: 0, at: 0, state: "run", step: "", last: "", end: "", endAt: 0, tok: /* @__PURE__ */ new Map() });
+    return r;
+  }
+  subsOf(sid) {
+    return [...(this.subs.get(sid) || /* @__PURE__ */ new Map()).values()].filter((r) => r.start).sort((a, b) => a.start - b.start);
+  }
+  async readSubMeta(p, fc) {
+    try {
+      const m = JSON.parse(await fsp.readFile(p.replace(/\.jsonl$/, ".meta.json"), "utf8"));
+      const r = this.subOf(fc.parentSid, fc.sub);
+      r.desc = String(m.description || "");
+      r.type = String(m.agentType || "");
+      r.bg = m.requestShape === "background";
+    } catch {
+    }
+  }
+  subLine(fc, line) {
+    if (line.indexOf('"isSidechain":true') < 0) return;
+    let d;
+    try {
+      d = JSON.parse(line);
+    } catch {
+      return;
+    }
+    const ms = Date.parse(d.timestamp);
+    if (!ms) return;
+    const r = this.subOf(fc.parentSid, fc.sub);
+    if (!r.start || ms < r.start) r.start = ms;
+    if (ms < r.at) return;
+    r.at = ms;
+    if (r.end && ms > r.endAt) r.end = "";
+    const c = d.message && d.message.content;
+    if (d.type === "user") {
+      if (!r.end && !r.handed) r.state = "run";
+      return;
+    }
+    const stop = d.message && d.message.stop_reason;
+    const tools = (Array.isArray(c) ? c : []).filter((b) => b && b.type === "tool_use");
+    if (tools.length) r.handed = tools.some((b) => b.name === "SubagentHandback");
+    if (!r.end) r.state = r.handed || stop === "end_turn" || stop === "stop_sequence" ? "done" : "run";
+    for (const b of tools) if (b.name !== "SubagentHandback") r.step = stepText(b.name, b.input);
+    const hb = tools.find((b) => b.name === "SubagentHandback");
+    const said = (Array.isArray(c) ? c : []).filter((b) => b && b.type === "text").map((b) => b.text || "").join("\n").trim();
+    if (hb && hb.input) r.last = String(hb.input.message || hb.input.report || hb.input.result || "");
+    else if (said && !r.handed) r.last = said;
+    const u = d.message && d.message.usage;
+    if (u && d.message.id) r.tok.set(d.message.id, (u.output_tokens || 0) + (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0));
+  }
+  // 父会话收到的「后台任务结束了」：只管 subagent 的（后台命令也发这种通知，没有对应子代理的不管）
+  subNotice(sid, text, ms) {
+    const id = (/<task-id>([^<]+)<\/task-id>/.exec(text) || [])[1], st = (/<status>([^<]+)<\/status>/.exec(text) || [])[1];
+    if (!id || !st) return;
+    const known = this.subs.get(sid) && this.subs.get(sid).get(id), sum = /<summary>Agent "([^"]*)"/.exec(text);
+    if (!known && !sum) return;
+    const r = this.subOf(sid, id);
+    if (!r.desc && sum) r.desc = sum[1];
+    if (!r.start) r.start = ms;
+    if (ms < r.endAt) return;
+    r.end = st;
+    r.endAt = ms;
+    r.at = Math.max(r.at, ms);
+    r.state = st === "completed" ? "done" : "fail";
+  }
   // ---- Claude Code ----
   ingestClaude(line, fc, touched) {
+    if (line.indexOf("<task-notification>") >= 0 && line.indexOf('"type":"user"') < 0 && line.indexOf('"isSidechain":true') < 0) {
+      let q;
+      try {
+        q = JSON.parse(line);
+      } catch {
+        return;
+      }
+      const text = q.type === "queue-operation" && q.operation === "enqueue" ? q.content : q.attachment && q.attachment.type === "queued_command" ? q.attachment.prompt : "";
+      if (typeof text === "string" && text.startsWith("<task-notification>") && q.sessionId) this.subNotice(q.sessionId, text, Date.parse(q.timestamp) || 0);
+      return;
+    }
     if (line.indexOf('"type":"assistant"') < 0 && line.indexOf('"type":"user"') < 0 && line.indexOf('"type":"custom-title"') < 0 && line.indexOf('"type":"last-prompt"') < 0) return;
     let d;
     try {
@@ -1713,10 +1979,11 @@ var AgentUsage = class {
       if (!v || !v.at || v.at < since) continue;
       const sid = fc.sid;
       if (seen.has(sid)) continue;
-      seen.add(sid);
       const meta = this.meta.get(sid) || {};
       const live = cleanLive({ ...v }, Date.now());
       if (live.quiet && live.state === "run") live.state = "quiet";
+      if (this.hidden(sid) && !["run", "running", "starting"].includes(live.state)) continue;
+      seen.add(sid);
       out.push({ ...meta, ...live, sid, agent: fc.agent, cwd: v.cwd || fc.cwd, app: v.app || fc.app, title: v.title || meta.title || this.titles.get(sid) || "", model: v.model || meta.model || "", tokens: (meta.out || 0) + (meta.fresh || 0), lastAt: v.at });
     }
     return out.sort((a, b) => b.lastAt - a.lastAt).slice(0, limit);
@@ -1726,6 +1993,7 @@ var AgentUsage = class {
     for (const m of this.meta.values()) {
       if (!m.lastAt || m.lastAt < since) continue;
       if (agent && m.agent !== agent) continue;
+      if (this.hidden(m.sid) && !["run", "running", "starting"].includes(m.state)) continue;
       out.push({ ...m, title: m.title || this.titles.get(m.sid) || "", tokens: (m.out || 0) + (m.fresh || 0) });
     }
     return out.sort((a, b) => b.lastAt - a.lastAt).slice(0, limit);
@@ -1830,7 +2098,7 @@ var UsageStore = class {
 var import_fs2 = __toESM(require("fs"), 1);
 var import_path2 = __toESM(require("path"), 1);
 var import_os2 = __toESM(require("os"), 1);
-var import_child_process = require("child_process");
+var import_child_process2 = require("child_process");
 var fsp2 = import_fs2.default.promises;
 var home2 = () => import_os2.default.homedir();
 var norm2 = (p) => String(p || "").replace(/^~(?=\/)/, home2());
@@ -1954,7 +2222,7 @@ function openExternal(url) {
   } catch {
   }
   try {
-    (0, import_child_process.execFile)("/usr/bin/open", [url], () => {
+    (0, import_child_process2.execFile)("/usr/bin/open", [url], () => {
     });
     return true;
   } catch {
@@ -1967,7 +2235,7 @@ function openTerminal(command) {
 activate
 do script ${JSON.stringify(command)}
 end tell`;
-    (0, import_child_process.execFile)("/usr/bin/osascript", ["-e", script], () => {
+    (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], () => {
     });
     return true;
   } catch {
@@ -2078,7 +2346,7 @@ var ClaudeRunner = class {
     const sid = require("crypto").randomUUID();
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = `${bin} ${args2.slice(0, -2).join(" ")} \u2026`;
-    const child = (0, import_child_process.spawn)(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    const child = (0, import_child_process2.spawn)(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.fallbackStarted = true;
     this.job.sessionId = sid;
@@ -2151,7 +2419,7 @@ var ClaudeRunner = class {
     clearTimeout(this.pollTimer);
     if (this.short) {
       const bin = findClaudeBinary(this.d.settings.delegate.claude.path || "");
-      (0, import_child_process.execFile)(bin, ["stop", this.short], { env: cleanEnv() }, () => {
+      (0, import_child_process2.execFile)(bin, ["stop", this.short], { env: cleanEnv() }, () => {
       });
     }
     if (this.child) {
@@ -2206,7 +2474,7 @@ var DshRunner = class {
     const model = opts.model || cfg.model || "deepseek-v4-pro";
     const effort = opts.effort || cfg.effort || "high";
     this.job.command = `${bin} acp`;
-    const child = (0, import_child_process.spawn)(bin, ["acp"], { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    const child = (0, import_child_process2.spawn)(bin, ["acp"], { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -2517,8 +2785,8 @@ ${body}`, 12e3);
   }
   async writeLink(job, sid) {
     if (!this.C.writeLink) return;
-    const path5 = job.path;
-    const text = await this.plugin.readNote(path5);
+    const path6 = job.path;
+    const text = await this.plugin.readNote(path6);
     const lines = text.split("\n");
     let at = lines.findIndex((l) => l === job.lineText);
     if (at < 0) at = lines.findIndex((l) => blockTitle({ text: l }) && l.includes(truncate(job.name, 20)));
@@ -2530,7 +2798,7 @@ ${body}`, 12e3);
     const link = linkLine(indent, job.agent, job.name, sid);
     lines.splice(block.start + 1, 0, link);
     if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
-    await this.plugin.writeNote(path5, lines.join("\n"));
+    await this.plugin.writeNote(path6, lines.join("\n"));
     job.line = block.start;
     job.lineText = lines[block.start];
     job.linkLineText = link;
@@ -2661,14 +2929,14 @@ ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
     this.refreshUI();
     return true;
   }
-  cancelForLine(path5, lineText) {
+  cancelForLine(path6, lineText) {
     for (const job of Object.values(this.jobs)) {
-      if (job.path === path5 && (job.lineText === lineText || job.line === lineText) && ["starting", "running", "needs-approval"].includes(job.state)) return job;
+      if (job.path === path6 && (job.lineText === lineText || job.line === lineText) && ["starting", "running", "needs-approval"].includes(job.state)) return job;
     }
     return null;
   }
-  jobsFor(path5) {
-    return Object.values(this.jobs).filter((j) => j.path === path5 && j.state !== "cancelled").sort((a, b) => b.startedAt - a.startedAt);
+  jobsFor(path6) {
+    return Object.values(this.jobs).filter((j) => j.path === path6 && j.state !== "cancelled").sort((a, b) => b.startedAt - a.startedAt);
   }
   jobForSession(sid) {
     return Object.values(this.jobs).find((j) => j.sessionId === sid);
@@ -2698,7 +2966,7 @@ function spawnCapture(bin, args, { cwd, env, timeout = 3e4 }) {
     let out = "", err2 = "", done = false;
     let child;
     try {
-      child = (0, import_child_process.spawn)(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+      child = (0, import_child_process2.spawn)(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
     } catch (e) {
       return resolve({ ok: false, out: "", err: String(e && e.message || e) });
     }
@@ -2736,7 +3004,7 @@ function spawnCapture(bin, args, { cwd, env, timeout = 3e4 }) {
 }
 function execCapture(bin, args, { cwd, env, timeout = 1e4 } = {}) {
   return new Promise((resolve) => {
-    (0, import_child_process.execFile)(bin, args, { cwd, env, timeout, maxBuffer: 8 * 1024 * 1024 }, (err2, out, errOut) => {
+    (0, import_child_process2.execFile)(bin, args, { cwd, env, timeout, maxBuffer: 8 * 1024 * 1024 }, (err2, out, errOut) => {
       resolve({ ok: !err2, out: String(out || ""), err: String(errOut || err2 && err2.message || "") });
     });
   });
@@ -2747,6 +3015,28 @@ var import_obsidian2 = require("obsidian");
 
 // src/icons.js
 var import_obsidian = require("obsidian");
+
+// assets/agents/claude.png
+var claude_default = "data:image/png;base64,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";
+
+// assets/agents/codex.png
+var codex_default = "data:image/png;base64,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";
+
+// assets/agents/workbuddy.png
+var workbuddy_default = "data:image/png;base64,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";
+
+// assets/agents/dsh.png
+var dsh_default = "data:image/png;base64,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";
+
+// src/agent-assets.js
+var AGENT_IMAGES = { claude: claude_default, codex: codex_default, workbuddy: workbuddy_default, dsh: dsh_default };
+function agentImageBuffer(id) {
+  const uri = AGENT_IMAGES[id];
+  if (!uri) return null;
+  return Buffer.from(uri.slice(uri.indexOf(",") + 1), "base64");
+}
+
+// src/icons.js
 var AGENT_ICONS = {
   claude: "asterisk",
   codex: "square-terminal",
@@ -2778,7 +3068,19 @@ function setLucide(el, name, cls = "") {
   return el;
 }
 function agentIcon(el, agent, cls = "") {
-  return setLucide(el, AGENT_ICONS[agent] || AGENT_ICONS.claude, cls);
+  if (!el) return el;
+  const src = AGENT_IMAGES[agent];
+  if (!src) return setLucide(el, AGENT_ICONS[agent] || AGENT_ICONS.claude, cls);
+  el.textContent = "";
+  const img = el.ownerDocument.createElement("img");
+  img.src = src;
+  img.alt = "";
+  img.decoding = "async";
+  img.draggable = false;
+  img.className = "ad-agentimg" + (cls ? ` ${cls}` : "");
+  el.appendChild(img);
+  el.classList.add("ad-icon", "ad-glyph--img");
+  return el;
 }
 function stateIcon(el, state, cls = "") {
   return setLucide(el, STATE_ICONS[state] || STATE_ICONS.idle, cls);
@@ -3039,6 +3341,8 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const card = parent.createDiv({ cls: `ad-sess ${compact ? "is-now" : ""}` });
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
+    const child = !!s.parentSid;
+    if (child) card.addClass("is-child");
     const live = ["run", "starting", "running"].includes(s.state);
     const wait = ["wait", "quiet", "needs-approval"].includes(s.state);
     if (live) card.addClass("is-live");
@@ -3055,6 +3359,12 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       stateIcon(sic, s.state);
       chip.createSpan({ text: st.label });
     }
+    if (s.sideChats) {
+      const sc = titleRow.createSpan({ cls: "ad-side" });
+      setLucide(sc.createSpan({ cls: "ad-side__icon" }), "message-square");
+      sc.createSpan({ text: s.sideChats > 1 ? `side chat \xD7${s.sideChats}` : "side chat" });
+      sc.title = "\u8FD9\u4E2A\u4F1A\u8BDD\u6B63\u5F00\u7740 side chat" + (s.sideSince ? `\uFF08${timeAgo(s.sideSince)}\u5F00\u7684\uFF09` : "");
+    }
     const sub = body.createDiv({ cls: "ad-sess__sub" });
     sub.createSpan({ text: a.short });
     if (s.cwd) sub.createSpan({ text: "\xB7" });
@@ -3068,6 +3378,12 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     if (s.tokens) {
       sub.createSpan({ text: "\xB7" });
       sub.createSpan({ cls: "ad-sess__tok", text: fmtTok(s.tokens) + " tok" });
+    }
+    if (child) {
+      const kin = body.createDiv({ cls: "ad-sess__kin" });
+      kin.createSpan({ cls: "ad-sess__kinmark", text: "\u21B3" });
+      kin.createSpan({ cls: "ad-sess__kintitle", text: `\u4ECE\u300C${truncate(s.parentTitle || "\u6BCD\u4F1A\u8BDD", 24)}\u300D\u5F00\u51FA` });
+      if (s.deskTitle && s.deskTitle !== s.title) kin.title = `\u684C\u9762\u7248\u91CC\u7684\u6807\u9898\uFF1A${s.deskTitle}`;
     }
     const go = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": "\u6253\u5F00\u4F1A\u8BDD" } });
     setLucide(go.createSpan({ cls: "ad-arrow__icon" }), "arrow-up-right");
@@ -3275,7 +3591,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       const state = p.agentEnabled(id) ? "\u8FFD\u8E2A\u4E2D" : "\u5DF2\u5173\u95ED";
       this.toggle(foot, enabled, (v) => p.setAgentEnabled(id, v), primary);
       foot.createSpan({ cls: "ad-muted", text: primary ? "\u4E3B\u529B\uFF08\u5168\u91CF\uFF09" : state });
-      const path5 = card.createDiv({ cls: "ad-set-path", text: a.where[0] });
+      const path6 = card.createDiv({ cls: "ad-set-path", text: a.where[0] });
     }
     const bar = body.createDiv({ cls: "ad-btnrow" });
     this.bigButton(bar, "\u7ACB\u5373\u626B\u63CF", () => p.scanNow(true), "mod-cta");
@@ -3814,6 +4130,64 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
       p.scanNow(true);
     });
+    const desk = this.card(body, "Claude \u684C\u9762\u7248", "\u684C\u9762\u7248\u7ED9\u6BCF\u4E2A\u4F1A\u8BDD\u5B58\u4E00\u4EFD\u6E05\u5355\uFF08claude-code-sessions/<\u8D26\u53F7>/<\u7EC4\u7EC7>/local_*.json\uFF09\u3002\u4FA7\u680F\u91CC\u770B\u7740\u540C\u7EA7\u3001\u5176\u5B9E\u662F\u300C\u4ECE\u67D0\u4E2A\u4F1A\u8BDD\u5F00\u51FA\u6765\u300D\u7684 side chat\uFF0C\u53EA\u6709\u8FD9\u4EFD\u6E05\u5355\u91CC\u7684 spawnedFrom \u8BB0\u5F97\uFF1B\u7EC8\u7AEF\u91CC\u7684 claude \u6CA1\u6709\u8FD9\u4E00\u9879\u3002");
+    const d1 = this.row(desk, "\u8BC6\u522B side chat \u548C\u6BCD\u5B50\u5173\u7CFB", "\u5B50\u4F1A\u8BDD\u5728\u9762\u677F\u91CC\u7F29\u8FDB\uFF0C\u6807\u51FA\u4ECE\u54EA\u4E2A\u4F1A\u8BDD\u5F00\u51FA\uFF1B\u987A\u624B\u770B\u6709\u54EA\u4E9B\u4F1A\u8BDD\u6B63\u5F00\u7740 side chat\u3002", null);
+    this.toggle(d1.querySelector(":scope > .ad-row__right"), s.claudeDesktop !== false, (v) => {
+      s.claudeDesktop = v;
+      p.saveSettings();
+      p.scanNow(true);
+    });
+    const d2 = this.row(desk, "\u5F52\u6863\u7684\u4F1A\u8BDD\u4E0D\u518D\u5217\u51FA", "\u684C\u9762\u7248\u91CC\u5F52\u6863 = \u505A\u5B8C\uFF1A\u5F52\u6863\u7684\u4F1A\u8BDD\u4ECE\u300C\u73B0\u5728\u300D\u548C\u300C\u6700\u8FD1\u7684\u4F1A\u8BDD\u300D\u91CC\u6536\u8D77\u6765\uFF0C\u5386\u53F2\u7528\u91CF\u7167\u65E7\u4FDD\u7559\u3002", null);
+    this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => {
+      s.hideArchived = v;
+      p.saveSettings();
+      p.refreshUI();
+    });
+    const jr = this.card(body, "\u81EA\u52A8\u8BB0\u65E5\u8BB0\uFF08\u4EBA\u673A\u5171\u5199\uFF09", "\u628A Agent \u4F1A\u8BDD\u5199\u56DE\u4ECA\u5929\u7684\u65E5\u8BB0\uFF1A\u65B0\u4F1A\u8BDD\u8BB0\u6210 DOING\uFF0C\u505C\u4E86\u4E00\u9635\u6539\u6210 PAUSED \u5E76\u628A\u5B9E\u9645\u65F6\u6BB5\u5199\u5728\u4E0B\u9762\uFF0C\u684C\u9762\u7248\u6216 Codex \u91CC\u5F52\u6863\u4E86\u8BB0\u6210 DONE\u3002\u540D\u5B57\u548C\u300C\u63A5\u5728\u54EA\u4E00\u884C\u300D\u95EE\u672C\u673A\u7684 claude \u547D\u4EE4\u884C\u3002\u53EA\u6539\u5B83\u81EA\u5DF1\u8BB0\u7740\u7684\u90A3\u51E0\u884C\uFF0C\u4F60\u624B\u6539\u8FC7\u7684\u72B6\u6001\u4E0D\u4F1A\u88AB\u4ED6\u63B0\u56DE\u53BB\u3002");
+    const jf = this.row(jr, "\u65E5\u8BB0\u76EE\u5F55", "\u4ECA\u5929\u7684\u65E5\u8BB0\u662F\u300C\u76EE\u5F55/YYYY_MM_DD.md\u300D\uFF0C\u548C\u87BA\u65CB\u65E5\u7A0B\u7684\u9ED8\u8BA4\u4E00\u81F4\u3002", null);
+    this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "\u65E5\u8BB0", "\u65E5\u8BB0", (v) => {
+      s.journalFolder = v.trim() || "\u65E5\u8BB0";
+      p.saveSettings();
+    });
+    const ja = this.row(jr, "\u81EA\u52A8\u6574\u7406\u8FDB\u65E5\u8BB0", "\u6BCF\u9694\u4E00\u9635\u626B\u4E00\u904D\u4ECA\u5929\u5F00\u7740\u7684\u4F1A\u8BDD\uFF1B\u81EA\u52A8\u5173\u7740\u4E5F\u53EF\u4EE5\u7528\u547D\u4EE4\u300C\u6574\u7406 Agent \u4F1A\u8BDD\u8FDB\u4ECA\u5929\u7684\u65E5\u8BB0\u300D\u624B\u52A8\u8DD1\u3002", null);
+    this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => {
+      s.autoLog = v;
+      p.saveSettings();
+    });
+    const je = this.row(jr, "\u6BCF\u9694\u51E0\u5206\u949F", "\u81EA\u52A8\u6574\u7406\u7684\u95F4\u9694\uFF0C\u6700\u5C11 5 \u5206\u949F\u3002", null);
+    this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => {
+      s.autoLogEvery = v;
+      p.saveSettings();
+    });
+    const jm = this.row(jr, "\u6574\u7406\u7528\u7684\u6A21\u578B", "\u4F20\u7ED9 claude \u547D\u4EE4\u884C\u7684 --model\uFF1B\u9ED8\u8BA4 haiku\uFF0C\u5FEB\u4E14\u4FBF\u5B9C\u3002", null);
+    this.textInput(jm.querySelector(":scope > .ad-row__right"), s.autoLogModel || "haiku", "haiku", (v) => {
+      s.autoLogModel = v.trim() || "haiku";
+      p.saveSettings();
+    });
+    const jd = this.row(jr, "\u5F52\u6863\u7684\u4F1A\u8BDD\u8BB0\u6210 DONE", "\u4F60\u5728 Claude \u684C\u9762\u7248\u6216 Codex \u91CC\u5F52\u6863\u4E00\u4E2A\u4F1A\u8BDD = \u8FD9\u4EF6\u4E8B\u505A\u5B8C\u4E86\uFF0C\u5B83\u90A3\u4E00\u884C\u8BB0\u6210 DONE\u3002\u684C\u9762\u7248\u5F00\u4E86\u81EA\u52A8\u5F52\u6863\u7684\u8BDD\u5C31\u5173\u6389\u8FD9\u4E2A\u3002", null);
+    this.toggle(jd.querySelector(":scope > .ad-row__right"), s.autoLogArchiveDone !== false, (v) => {
+      s.autoLogArchiveDone = v;
+      p.saveSettings();
+    });
+    const js = this.row(jr, "\u56DE\u5199\u65E5\u8BB0", "\u65E5\u8BB0\u91CC \u{1F517} \u7ED1\u7740\u7684\u4F1A\u8BDD\uFF1A\u7B54\u5B8C\u5199 \u{1F4AC}\uFF0C\u72B6\u6001\u8DDF\u7740\u4F1A\u8BDD\u5207\uFF0C\u5F52\u6863\u8BB0 DONE\uFF0C\u5B50\u4F1A\u8BDD\u548C\u5F00\u7740\u7684 side chat \u5199\u6210\u5B50\u5757\u3002\u87BA\u65CB\u65E5\u7A0B\u7684 AI \u8FFD\u8E2A\u8FD8\u5F00\u7740\u65F6\u5148\u4E0D\u5199\uFF0C\u514D\u5F97\u4E24\u5957\u5199\u6CD5\u6253\u67B6\u3002", null);
+    this.toggle(js.querySelector(":scope > .ad-row__right"), s.journalSync !== false, (v) => {
+      s.journalSync = v;
+      p.saveSettings();
+    });
+    for (const [key, label, desc] of [
+      ["resultBack", "\u4F1A\u8BDD\u7ED3\u8BBA\u5199\u56DE\uFF08\u{1F4AC}\uFF09", "\u4F1A\u8BDD\u7B54\u5B8C\u4E00\u8F6E\u6216\u5F52\u6863\u65F6\uFF0C\u628A\u6700\u540E\u90A3\u6761\u56DE\u590D\u5199\u6210\u4EFB\u52A1\u4E0B\u9762\u7684\u4E00\u884C\u3002"],
+      ["agentKw", "\u72B6\u6001\u5173\u952E\u8BCD\u8DDF\u7740\u4F1A\u8BDD", "\u5728 DOING / TOREVIEW / NEEDOK / ERRORED / HITLIMIT \u4E4B\u95F4\u8DDF\u7740\u4F1A\u8BDD\u5207\uFF1B\u4F60\u6539\u6210\u522B\u7684\u5C31\u4E0D\u78B0\u3002"],
+      ["kidBlocks", "\u5B50\u4F1A\u8BDD\u548C side chat \u5B50\u5757", "\u684C\u9762\u7248\u91CC\u5F00\u51FA\u6765\u7684\u5B50\u4F1A\u8BDD\u3001\u5F00\u7740\u7684 side chat \u5199\u6210\u7F29\u8FDB\u5B50\u5757\u3002"]
+    ]) {
+      const row = this.row(jr, label, desc, null);
+      this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] !== false, (v) => {
+        s[key] = v;
+        p.saveSettings();
+      });
+    }
+    const jbtn = jr.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(jbtn, "\u73B0\u5728\u6574\u7406\u4E00\u6B21", () => p.autoLog.logNow());
+    jr.createDiv({ cls: "ad-hint", text: "\u53EA\u8BB0 Claude Code / Codex / WorkBuddy\uFF1B\u6A21\u578B\u95EE\u4E0D\u5230\u65F6\u624B\u52A8\u6574\u7406\u4F1A\u7528\u4F1A\u8BDD\u6807\u9898\u5148\u8BB0\u4E0A\uFF0C\u81EA\u52A8\u6574\u7406\u7B49\u4E0B\u4E00\u8F6E\u3002\u5199\u5165\u524D\u4F1A\u6838\u5BF9\u65E5\u8BB0\u6CA1\u88AB\u540C\u65F6\u6539\u8FC7\uFF0C\u6B63\u5728\u7528\u8F93\u5165\u6CD5\u6253\u5B57\u7684\u90A3\u4E00\u4E0B\u4E0D\u5199\u3002" });
     const ui = this.card(body, "\u754C\u9762");
     const mb = this.row(ui, "macOS \u83DC\u5355\u680F", "\u5728\u7CFB\u7EDF\u6700\u4E0A\u65B9\u663E\u793A\u4E00\u4E2A\u5C0F\u56FE\u6807\u548C\u4E00\u4E32\u7B80\u77ED\u8BF4\u660E\uFF1B\u70B9\u5F00\u662F\u4F1A\u8BDD\u8BE6\u60C5\u548C\u8DF3\u8F6C\u3002Obsidian \u53F3\u4E0B\u89D2\u4E0D\u518D\u663E\u793A Agent \u6C47\u603B\u3002\u7B2C\u4E00\u6B21\u542F\u52A8\u4F1A\u7F16\u8BD1\u4E00\u4E2A Swift \u5C0F\u52A9\u624B\uFF0C\u9700\u8981 Xcode Command Line Tools\u3002", null);
     this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => {
@@ -3928,10 +4302,10 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     stats.createSpan({ text: `${p.usage.meta.size} \u4E2A\u4F1A\u8BDD\u7D22\u5F15` });
     stats.createSpan({ cls: "ad-dot", text: "\xB7" });
     stats.createSpan({ text: `${p.usage.files.size} \u4E2A\u65E5\u5FD7\u6587\u4EF6` });
-    const naut = this.card(body, "\u548C\u87BA\u65CB\u65E5\u7A0B\u5E76\u5B58", "\u87BA\u65CB\u65E5\u7A0B\u4E5F\u4F1A\u8BFB\u540C\u4E00\u6279 \u{1F517} \u4F1A\u8BDD\u3001\u6539\u4EFB\u52A1\u72B6\u6001\u3001\u5199 \u{1F4AC}\u3002\u7528 Agent Deck \u63A5\u7BA1\u540E\uFF0C\u53EF\u4EE5\u628A\u5B83\u7684 AI \u90E8\u5206\u5173\u6389\uFF0C\u65E5\u7A0B\u672C\u8EAB\u4E0D\u52A8\u3002");
+    const naut = this.card(body, "\u548C\u87BA\u65CB\u65E5\u7A0B\u5E76\u5B58", "\u87BA\u65CB\u65E5\u7A0B\u4E5F\u4F1A\u8BFB\u540C\u4E00\u6279 \u{1F517} \u4F1A\u8BDD\u3001\u6539\u4EFB\u52A1\u72B6\u6001\u3001\u5199 \u{1F4AC}\u3002\u7528 Agent Deck \u63A5\u7BA1\u540E\uFF0C\u53EF\u4EE5\u53EA\u5173\u6389\u5B83\u7684 AI \u5199\u5165\uFF0C\u65E5\u7A0B\u548C\u5B83\u7684\u8FFD\u8E2A\u5C55\u793A\u7167\u6837\u5728\u3002");
     const nbtn = naut.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(nbtn, "\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u91CC\u7684 AI \u8FFD\u8E2A", () => p.pauseNautilus(), "mod-warning");
-    naut.createDiv({ cls: "ad-hint", text: "\u4F1A\u5148\u5907\u4EFD\u87BA\u65CB\u65E5\u7A0B\u7684 data.json\u3002\u5199\u5165\u540E\u8BF7\u5728 Obsidian \u8BBE\u7F6E\u91CC\u91CD\u65B0\u52A0\u8F7D\u87BA\u65CB\u65E5\u7A0B\uFF08\u6216\u91CD\u542F Obsidian\uFF09\uFF1BAgent Deck \u4E0D\u4F1A\u81EA\u52A8\u542F\u505C\u5176\u5B83\u63D2\u4EF6\u3002" });
+    this.bigButton(nbtn, "\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u91CC\u7684 AI \u5199\u5165", () => p.pauseNautilus(), "mod-warning");
+    naut.createDiv({ cls: "ad-hint", text: "\u53EA\u5173\u81EA\u52A8\u8BB0\u65E5\u8BB0\u3001\u72B6\u6001\u5199\u56DE\u3001\u{1F4AC} \u548C\u5B50\u5757\u5199\u5165\uFF1B\u87BA\u65CB\u81EA\u5DF1\u7684 Agent \u8FFD\u8E2A\u5C55\u793A\u4FDD\u7559\u3002\u4F1A\u5148\u5907\u4EFD\u5B83\u7684 data.json\u3002\u5199\u5165\u540E\u8BF7\u5728 Obsidian \u8BBE\u7F6E\u91CC\u91CD\u65B0\u52A0\u8F7D\u87BA\u65CB\u65E5\u7A0B\uFF08\u6216\u91CD\u542F Obsidian\uFF09\uFF1BAgent Deck \u4E0D\u4F1A\u81EA\u52A8\u542F\u505C\u5176\u5B83\u63D2\u4EF6\u3002" });
     const links = this.card(body, "\u70B9\u51FB\u4F1A\u8BDD\u65F6\u6253\u5F00\u54EA\u513F", "Claude Code \u7528 claude://resume \u56DE\u5230\u684C\u9762\u7248\uFF1BWorkBuddy \u7528 workbuddy://chat/<\u4F1A\u8BDD\u53F7>\uFF1BDeepSeek Harness \u76EE\u524D\u53EA\u6709 dsh://open\uFF08\u805A\u7126\u5BA2\u6237\u7AEF\uFF09\uFF0C\u63D2\u4EF6\u4F1A\u628A\u4F1A\u8BDD\u53F7\u590D\u5236\u5230\u526A\u8D34\u677F\uFF0C\u65B9\u4FBF\u4F60\u5728\u4FA7\u680F\u91CC\u627E\u3002Codex \u6CA1\u6709 URL\uFF0C\u4F1A\u590D\u5236 codex resume \u547D\u4EE4\u3002");
     links.createDiv({ cls: "ad-hint", text: "\u8FD9\u4E9B\u662F\u5BA2\u6237\u7AEF\u81EA\u5DF1\u7684 URL scheme\uFF0C\u63D2\u4EF6\u4E0D\u8BFB\u4E5F\u4E0D\u53D1\u4EFB\u4F55\u7F51\u7EDC\u8BF7\u6C42\u3002" });
   }
@@ -4056,10 +4430,10 @@ var AddModelModal = class extends import_obsidian3.Modal {
 // src/dialog.js
 var import_obsidian4 = require("obsidian");
 var DelegateOptionsModal = class extends import_obsidian4.Modal {
-  constructor(app, plugin, path5, line) {
+  constructor(app, plugin, path6, line) {
     super(app);
     this.plugin = plugin;
-    this.path = path5;
+    this.path = path6;
     this.line = line;
     this.agent = plugin.defaultTarget();
     this.model = plugin.defaultModel(this.agent);
@@ -4241,10 +4615,10 @@ function sigFor(x) {
   return [x.kind, x.job && x.job.id, x.job && x.job.state, x.session && x.session.sid, x.session && x.session.state, x.session && x.session.step, x.session && x.session.tokens, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
 }
 var PillWidget = class extends import_view.WidgetType {
-  constructor(plugin, path5, line, info) {
+  constructor(plugin, path6, line, info) {
     super();
     this.plugin = plugin;
-    this.path = path5;
+    this.path = path6;
     this.line = line;
     this.info = info;
     this.sig = sigFor(info);
@@ -4376,10 +4750,10 @@ var PillWidget = class extends import_view.WidgetType {
 function buildDecorations(view, plugin) {
   const builder = new import_state.RangeSetBuilder();
   const info = view.state.field(plugin.editorInfoField, false);
-  const path5 = info && info.file && info.file.path;
-  if (!path5 || !plugin.settings.showEditorPills) return builder.finish();
+  const path6 = info && info.file && info.file.path;
+  if (!path6 || !plugin.settings.showEditorPills) return builder.finish();
   const doc = view.state.doc;
-  const map = plugin.lineMap(path5, doc);
+  const map = plugin.lineMap(path6, doc);
   const seen = /* @__PURE__ */ new Set();
   for (const { from, to } of view.visibleRanges) {
     let pos = from;
@@ -4389,7 +4763,7 @@ function buildDecorations(view, plugin) {
       if (!seen.has(n)) {
         seen.add(n);
         const text = line.text;
-        const job = plugin.jobAtLine(path5, n, text);
+        const job = plugin.jobAtLine(path6, n, text);
         const session = map.sessionByParent.get(n) || null;
         let state = null;
         if (job && ["starting", "running"].includes(job.state)) state = { kind: job.state === "starting" ? "starting" : "running", job };
@@ -4405,7 +4779,7 @@ function buildDecorations(view, plugin) {
           else state = { kind: "bound", job, session };
         }
         if (state) {
-          const widget = new PillWidget(plugin, path5, n, state);
+          const widget = new PillWidget(plugin, path6, n, state);
           builder.add(line.to, line.to, import_view.Decoration.widget({ widget, side: 1, block: false }));
         }
       }
@@ -4445,7 +4819,7 @@ var import_fs3 = __toESM(require("fs"), 1);
 var import_path3 = __toESM(require("path"), 1);
 var import_os3 = __toESM(require("os"), 1);
 var import_crypto = __toESM(require("crypto"), 1);
-var import_child_process2 = require("child_process");
+var import_child_process3 = require("child_process");
 
 // src/menubar.swift
 var menubar_default = `// Agent Deck menu bar helper.
@@ -5019,6 +5393,7 @@ private extension NSImage {
 // MARK: - Agents
 
 struct AgentStyle {
+    let id: String
     let color: Color
     let tint: Color
     let glyph: String
@@ -5030,24 +5405,28 @@ enum DeckAgents {
         switch id {
         case "claude":
             return AgentStyle(
+                id: "claude",
                 color: .solid("#D97757", "#F09475"),
                 tint: .solid("#FBECE4", "#39251E"),
                 glyph: "\u2733", short: "Claude"
             )
         case "codex":
             return AgentStyle(
+                id: "codex",
                 color: .solid("#4C82C3", "#7FB2E8"),
                 tint: .solid("#EAF1F9", "#1E2C3B"),
                 glyph: "\u2318", short: "Codex"
             )
         case "workbuddy":
             return AgentStyle(
+                id: "workbuddy",
                 color: .solid("#1C9A78", "#46C9A3"),
                 tint: .solid("#E6F5EF", "#1B332B"),
                 glyph: "\u2726", short: "WorkBuddy"
             )
         case "dsh":
             return AgentStyle(
+                id: "dsh",
                 color: .solid("#4A66E8", "#7F95FF"),
                 tint: .solid("#EAEDFF", "#232744"),
                 glyph: "\u25C8", short: "DSH"
@@ -5055,6 +5434,7 @@ enum DeckAgents {
         default:
             let base = Color(hex: fallbackColor)
             return AgentStyle(
+                id: id,
                 color: base,
                 tint: base.opacity(0.14),
                 glyph: fallbackGlyph.isEmpty ? "\u2022" : fallbackGlyph,
@@ -5072,6 +5452,16 @@ enum DeckAgents {
     }
 }
 
+// \u5B98\u65B9 App \u56FE\u6807\uFF1A\u63D2\u4EF6\u542F\u52A8\u65F6\u628A PNG \u5199\u5230 ~/.agent-deck/agents/\uFF0C\u8FD9\u91CC\u6309 id \u8BFB
+private let deckAgentIcons = NSCache<NSString, NSImage>()
+func agentAppIcon(_ id: String) -> NSImage? {
+    if let cached = deckAgentIcons.object(forKey: id as NSString) { return cached }
+    let path = (NSHomeDirectory() as NSString).appendingPathComponent(".agent-deck/agents/\\(id).png")
+    guard let image = NSImage(contentsOfFile: path) else { return nil }
+    deckAgentIcons.setObject(image, forKey: id as NSString)
+    return image
+}
+
 // MARK: - Shared atoms
 
 struct Hairline: View {
@@ -5087,16 +5477,25 @@ struct AgentBadge: View {
     var size: CGFloat = 26
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                .fill(style.tint)
-            RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                .strokeBorder(style.color.opacity(0.35), lineWidth: 1)
-            Text(style.glyph)
-                .font(.system(size: size * 0.44, weight: .bold))
-                .foregroundColor(style.color)
+        if let image = agentAppIcon(style.id) {
+            Image(nsImage: image)
+                .resizable()
+                .interpolation(.high)
+                .frame(width: size * 0.82, height: size * 0.82)
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous))
+                .frame(width: size, height: size)
+        } else {
+            ZStack {
+                RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
+                    .fill(style.tint)
+                RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
+                    .strokeBorder(style.color.opacity(0.35), lineWidth: 1)
+                Text(style.glyph)
+                    .font(.system(size: size * 0.44, weight: .bold))
+                    .foregroundColor(style.color)
+            }
+            .frame(width: size, height: size)
         }
-        .frame(width: size, height: size)
     }
 }
 
@@ -5153,9 +5552,17 @@ struct AgentPill: View {
     var body: some View {
         let style = DeckAgents.style(for: agent)
         HStack(spacing: 4) {
-            Text(style.glyph)
-                .font(.system(size: 9.5, weight: .bold))
-                .foregroundColor(style.color)
+            if let image = agentAppIcon(agent.id) {
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.high)
+                    .frame(width: 12, height: 12)
+                    .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
+            } else {
+                Text(style.glyph)
+                    .font(.system(size: 9.5, weight: .bold))
+                    .foregroundColor(style.color)
+            }
             Text(agent.short.isEmpty ? style.short : agent.short)
                 .font(.system(size: 9.5, weight: agent.primary ? .bold : .semibold))
                 .foregroundColor(DeckPalette.ink)
@@ -6124,8 +6531,25 @@ var MenuBarBridge = class {
     });
     return this.starting;
   }
+  // 官方 App 图标给 SwiftUI 用：和 main.js 里嵌的是同一份 PNG
+  writeAgentIcons() {
+    const dir = import_path3.default.join(this.dir, "agents");
+    try {
+      import_fs3.default.mkdirSync(dir, { recursive: true });
+    } catch {
+      return;
+    }
+    for (const id of ["claude", "codex", "workbuddy", "dsh"]) {
+      try {
+        const buf = agentImageBuffer(id);
+        if (buf) import_fs3.default.writeFileSync(import_path3.default.join(dir, `${id}.png`), buf);
+      } catch {
+      }
+    }
+  }
   async _start() {
     await fsp3.mkdir(this.dir, { recursive: true });
+    this.writeAgentIcons();
     const hash = import_crypto.default.createHash("sha256").update(menubar_default).digest("hex").slice(0, 16);
     let oldHash = "";
     try {
@@ -6156,7 +6580,7 @@ var MenuBarBridge = class {
     } catch {
     }
     const res = await new Promise((resolve) => {
-      const child = (0, import_child_process2.spawn)("/usr/bin/swiftc", ["-O", "-swift-version", "5", "-framework", "AppKit", "-framework", "SwiftUI", "-framework", "Carbon", "-o", tmp, this.srcPath], { stdio: ["ignore", "pipe", "pipe"] });
+      const child = (0, import_child_process3.spawn)("/usr/bin/swiftc", ["-O", "-swift-version", "5", "-framework", "AppKit", "-framework", "SwiftUI", "-framework", "Carbon", "-o", tmp, this.srcPath], { stdio: ["ignore", "pipe", "pipe"] });
       let err2 = "";
       const timer = setTimeout(() => {
         try {
@@ -6196,7 +6620,7 @@ var MenuBarBridge = class {
     this.killExisting();
     const args = ["-n", "-g", this.appPath, "--args", "--state", this.statePath, "--parent", String(process.pid), "--pidfile", this.pidPath];
     try {
-      (0, import_child_process2.execFile)("/usr/bin/open", args, () => {
+      (0, import_child_process3.execFile)("/usr/bin/open", args, () => {
       });
     } catch (e) {
       console.error("[agent-deck] launch menu bar", e);
@@ -6214,7 +6638,7 @@ var MenuBarBridge = class {
     } catch {
     }
     try {
-      (0, import_child_process2.execFile)("/usr/bin/pkill", ["-f", this.binPath], () => {
+      (0, import_child_process3.execFile)("/usr/bin/pkill", ["-f", this.binPath], () => {
       });
     } catch {
     }
@@ -6260,9 +6684,1245 @@ var MenuBarBridge = class {
   }
 };
 
+// src/autolog.js
+var import_obsidian5 = require("obsidian");
+
+// src/journal.js
+var LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
+var STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
+var CHECKBOX_RE = /^\[([ xX\/\-])\]\s*/;
+var KEYWORD_RE = /^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)\s*/;
+var AGENT_KW_RE = /^(TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)$/;
+var OPEN_KWS = ["TODO", "LATER", "NOW", "WAITING", "WAIT", "TODOFORAI", "TODO4AI", "TODO2AI", "TODOTOAI"];
+var DONE_KWS = ["DONE", "CANCELED", "CANCELLED", "FAILED"];
+var RESULT_RE2 = /^\s*[-*+]\s+💬/;
+var CLOCK_RE = /^\s*[-*+]\s+⏱/;
+var KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
+var AUTO_MARK = "\u{1F916} ";
+var pad2 = (n) => String(n).padStart(2, "0");
+var clock = (t) => `${pad2(Math.floor(t / 60) % 24)}:${pad2(Math.round(t % 60))}`;
+var durTag = (m) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? m % 60 + "m" : ""}` : `${Math.max(1, Math.round(m))}m`;
+var width = (line) => {
+  let w = 0;
+  for (const c of (/^\s*/.exec(line) || [""])[0]) w += c === "	" ? 4 : 1;
+  return w;
+};
+var workKey = (label) => String(label || "").replace(/\s*←\s*\S+\s*$/, "").trim();
+function splitTask(raw) {
+  const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(.*)$/.exec(raw);
+  if (!m) return null;
+  let [, prefix, rest] = m;
+  const st = STAMP_RE.exec(rest);
+  if (st) {
+    prefix += st[0];
+    rest = rest.slice(st[0].length);
+  }
+  const cb = CHECKBOX_RE.exec(rest);
+  if (cb) rest = rest.slice(cb[0].length);
+  const kw = KEYWORD_RE.exec(rest);
+  if (kw) rest = rest.slice(kw[0].length);
+  const pr = kw && /^\[#[ABC]\]\s*/.exec(rest);
+  if (pr) rest = rest.slice(pr[0].length);
+  let since = null;
+  const t = kw && /^(\d{1,2})[:：](\d{2})(?![\d:：]|\s*[-–~～到至])\s*/.exec(rest);
+  if (t) {
+    since = `${pad2(+t[1])}:${t[2]}`;
+    rest = rest.slice(t[0].length);
+  }
+  if (pr) rest = `${pr[0].trim()} ${rest}`;
+  return { prefix, rest, since, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
+}
+function kwLine(raw) {
+  let s = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s+/, "").replace(STAMP_RE, "");
+  let kw = "";
+  const cb = CHECKBOX_RE.exec(s);
+  if (cb) {
+    kw = cb[1] === " " ? "TODO" : cb[1] === "/" ? "DOING" : cb[1] === "-" ? "CANCELLED" : "DONE";
+    s = s.slice(cb[0].length);
+  }
+  const m = /^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)(?=\s|$)\s*/.exec(s);
+  if (m) {
+    kw = m[1];
+    s = s.slice(m[0].length);
+  }
+  s = s.replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
+  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || s.startsWith("\u{1F4AC}") || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
+  return { kw, body: s };
+}
+function parseLink(line) {
+  const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
+  if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
+  const b = /^\s*[-*+]\s+🔗.*`([0-9a-f-]{36})`/.exec(line);
+  return b ? { agent: "claude", sid: b[1], title: "" } : null;
+}
+function linkLine2(indent, agent, title, sid) {
+  const safe = String(title || "").replace(/[\[\]]/g, " ").trim();
+  if (agent === "claude") return `${indent}- \u{1F517} [Claude\uFF1A${safe}](claude://resume?session=${sid})`;
+  if (agent === "dsh") return `${indent}- \u{1F517} [DeepSeek Harness\uFF1A${safe}](dsh://open) \`${sid}\``;
+  return `${indent}- \u{1F517} ${agent}\uFF1A${safe} \`${sid}\``;
+}
+function markOwner(lines, i) {
+  const ind = width(lines[i]);
+  for (let j = i - 1; j >= 0; j--) if (lines[j].trim() && LIST_RE.test(lines[j]) && width(lines[j]) < ind) return j;
+  return -1;
+}
+function childMark(lines, n, pick) {
+  const base = width(lines[n]);
+  for (let i = n + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) <= base) break;
+    const l = pick(lines[i]);
+    if (l) return { line: i, ...l };
+  }
+  return null;
+}
+var linkUnder = (lines, n) => childMark(lines, n, parseLink);
+var resultUnder = (lines, n) => childMark(lines, n, (l) => RESULT_RE2.test(l) ? {} : null);
+function resultText(raw, max = 200) {
+  let t = String(raw || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/^\s*\|?[\s:|-]{3,}\|?\s*$/gm, " ").replace(/\d{12,}/g, "\u2026").replace(/\s+/g, " ").trim();
+  const cap = Math.max(40, +max || 200);
+  if ([...t].length > cap) {
+    const cut = [...t].slice(0, cap).join("");
+    const stop = Math.max(...["\u3002", "\uFF01", "\uFF1F", "\uFF1B", ". ", "! ", "? "].map((c) => cut.lastIndexOf(c)));
+    t = (stop > cap * 0.5 ? cut.slice(0, stop + 1) : cut).trim() + "\u2026";
+  }
+  return t.replace(/\[\[/g, "\\[\\[").replace(/(^|[^\w&\\])#(?=[^\s#])/g, "$1\\#").replace(/==/g, "\\=\\=").replace(/%%/g, "\\%\\%").replace(/\$/g, "\\$").replace(/</g, "\\<").replace(/\s\^(?=[A-Za-z0-9-]+$)/, " \\^");
+}
+function resultInto(text, sid, said) {
+  if (!said || !text.includes(sid)) return text;
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => {
+    const k = parseLink(l);
+    return k && k.sid === sid;
+  });
+  const n = at < 0 ? -1 : markOwner(lines, at);
+  if (n < 0) return text;
+  const line = `${/^\s*/.exec(lines[at])[0]}- \u{1F4AC} ${said}`;
+  const had = resultUnder(lines, n);
+  if (had) {
+    if (lines[had.line] === line) return text;
+    lines[had.line] = line;
+  } else lines.splice(at + 1, 0, line);
+  return lines.join("\n");
+}
+function diffLines(before, after) {
+  const a = before.split("\n"), b = after.split("\n");
+  let s = 0;
+  while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let ea = a.length, eb = b.length;
+  while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) {
+    ea--;
+    eb--;
+  }
+  if (s === ea && s === eb) return null;
+  const mid = b.slice(s, eb);
+  if (ea < a.length) return { from: { line: s, ch: 0 }, to: { line: ea, ch: 0 }, text: mid.map((l) => l + "\n").join("") };
+  const end = { line: a.length - 1, ch: a[a.length - 1].length };
+  if (s > 0) return { from: { line: s - 1, ch: a[s - 1].length }, to: end, text: mid.map((l) => "\n" + l).join("") };
+  return { from: { line: 0, ch: 0 }, to: end, text: mid.join("\n") };
+}
+function taskItems(text) {
+  const out = [];
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (!LIST_RE.test(lines[i])) continue;
+    const k = kwLine(lines[i]);
+    if (!k) continue;
+    const st = DONE_KWS.includes(k.kw) ? "done" : /^(DOING|NOW|IN-PROGRESS)$/.test(k.kw) || AGENT_KW_RE.test(k.kw) ? "doing" : /^(PAUSED|SUSPENDED|WAITING|WAIT)$/.test(k.kw) ? "paused" : "open";
+    out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), indent: width(lines[i]), state: st });
+  }
+  return out;
+}
+function findTask(text, key) {
+  const hits = taskItems(text).filter((i) => i.key === key);
+  return hits.find((i) => i.state === "open") || hits[0] || null;
+}
+function openTasks(text) {
+  return taskItems(text).filter((i) => i.state !== "done").map((i) => ({
+    label: i.body,
+    doing: i.state === "doing",
+    paused: i.kw === "PAUSED" || i.kw === "SUSPENDED",
+    line: i.line
+  }));
+}
+function linkMap(text) {
+  const out = /* @__PURE__ */ new Map();
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const l = parseLink(lines[i]);
+    if (!l) continue;
+    const n = markOwner(lines, i);
+    const k = n >= 0 ? kwLine(lines[n]) : null;
+    if (k) out.set(l.sid, workKey(k.body));
+  }
+  return out;
+}
+function parseKid(line) {
+  const m = KID_LINK_RE.exec(line);
+  return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2] } : null;
+}
+function kidUnder(lines, n) {
+  return childMark(lines, n, parseKid);
+}
+function kidIdent(line) {
+  const c = parseKid(line);
+  if (c) return { ...c, open: true };
+  const m = /^\s*[-*+]\s+⏱.*·\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`\s*$/.exec(line);
+  return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2], open: false } : null;
+}
+var kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(/^\s*(?:\d+[.)、]\s*)?(?:(?:TODO|DOING|LATER|NOW|WAITING|WAIT|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+)?(?:\d{1,2}[:：]\d{2}\s*)?/, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
+function kidMatch(body, desc) {
+  const a = kidNorm(body), d = kidNorm(desc);
+  if (a.length < 4 || d.length < 4) return false;
+  return a.startsWith(d) || d.startsWith(a) || a.length >= 8 && d.length >= 8 && a.slice(0, 8) === d.slice(0, 8);
+}
+
+// src/llm.js
+var import_fs4 = __toESM(require("fs"), 1);
+var import_os4 = __toESM(require("os"), 1);
+var import_path4 = __toESM(require("path"), 1);
+var import_child_process4 = require("child_process");
+var home4 = () => import_os4.default.homedir();
+function workDir() {
+  const dir = import_path4.default.join(import_os4.default.tmpdir(), "agent-deck-autolog");
+  try {
+    import_fs4.default.mkdirSync(dir, { recursive: true });
+  } catch {
+  }
+  return dir;
+}
+function judgeBin(configured = "") {
+  const c = String(configured || "").trim();
+  if (c) return c.replace(/^~(?=\/)/, home4());
+  const spots = [import_path4.default.join(home4(), ".local/bin/claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", "/usr/bin/claude"];
+  return spots.find((p) => {
+    try {
+      return import_fs4.default.existsSync(p);
+    } catch {
+      return false;
+    }
+  }) || "claude";
+}
+function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 120, system = "" } = {}) {
+  return new Promise((resolve, reject) => {
+    const cwd = workDir();
+    const args = ["-p", "--output-format", "json", "--no-session-persistence", "--strict-mcp-config", "--setting-sources", "project", "--tools", "", "--system-prompt", system || "\u4F60\u662F\u4E00\u4E2A\u53EA\u8F93\u51FA JSON \u7684\u6574\u7406\u52A9\u624B\u3002"];
+    if (model) args.push("--model", model);
+    const env = { ...process.env, PATH: [import_path4.default.join(home4(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", process.env.PATH || ""].join(":") };
+    let child;
+    try {
+      child = (0, import_child_process4.spawn)(bin, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
+    } catch (e) {
+      return reject(new Error(`\u542F\u52A8 claude \u5931\u8D25\uFF1A${e.message}`));
+    }
+    let out = "", err2 = "";
+    child.stdout.on("data", (d) => {
+      out += d;
+    });
+    child.stderr.on("data", (d) => {
+      err2 += d;
+    });
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error(`claude \u7B49\u4E86 ${timeout} \u79D2\u6CA1\u56DE\u6765`));
+    }, timeout * 1e3);
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      reject(new Error(`\u542F\u52A8 claude \u5931\u8D25\uFF1A${e.message}`));
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      let d;
+      try {
+        d = JSON.parse(out);
+      } catch {
+        return reject(new Error((err2 || out || `claude \u9000\u51FA\u7801 ${code}`).trim().slice(0, 300)));
+      }
+      if (d.is_error) return reject(new Error(String(d.result || "claude \u8FD4\u56DE\u9519\u8BEF").slice(0, 300)));
+      resolve(String(d.result || ""));
+    });
+    child.stdin.end(prompt);
+  });
+}
+function safeLabel(s, max = 40) {
+  const t = String(s || "").replace(/[\r\n←`*=~[\]|]/g, " ").replace(/^\s*(?:[-*+]\s+)?(?:TODO|DOING|DONE|SUSPENDED|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+/i, "").replace(/(\d)[:：](\d)/g, "$1.$2").replace(/\s+/g, " ").replace(/[。；;，,\s]+$/, "").trim();
+  const chars = [...t];
+  return (chars.length > max ? chars.slice(0, max).join("").trim() + "\u2026" : t).slice(0, max + 1);
+}
+
+// src/autolog.js
+var AGENTS_FOR_JOURNAL = ["claude", "codex", "workbuddy", "dsh"];
+var AGENT_NAMES = { claude: "Claude", codex: "Codex", workbuddy: "WorkBuddy", dsh: "DSH" };
+var AutoLog = class {
+  constructor(plugin) {
+    this.p = plugin;
+    this._busy = false;
+    this._at = Date.now();
+    this._err = "";
+    this._cache = /* @__PURE__ */ new Map();
+  }
+  get cfg() {
+    return this.p.settings;
+  }
+  get usage() {
+    return this.p.usage;
+  }
+  dayKey() {
+    return dayKeyToday(this.cfg);
+  }
+  nowMin() {
+    return (Date.now() - startOfDay(Date.now(), this.cfg)) / 6e4;
+  }
+  journalPath(day) {
+    return `${this.cfg.journalFolder || "\u65E5\u8BB0"}/${day}.md`;
+  }
+  journalFile(day) {
+    const f = this.p.app.vault.getAbstractFileByPath(this.journalPath(day));
+    return f && f.extension === "md" ? f : null;
+  }
+  viewFor(file) {
+    let view = null;
+    this.p.app.workspace.iterateAllLeaves((leaf) => {
+      const v = leaf.view;
+      if (!view && v instanceof import_obsidian5.MarkdownView && v.file && v.file.path === file.path && v.getMode && v.getMode() === "source") view = v;
+    });
+    return view;
+  }
+  async read(file) {
+    const v = this.viewFor(file);
+    return v ? v.editor.getValue() : this.p.app.vault.read(file);
+  }
+  // 只改前后不一样的那几行；这期间日记被改过就不写，返回 false
+  async write(file, base, next) {
+    if (base === next) return true;
+    const v = this.viewFor(file);
+    if (v) {
+      if (v.editor.getValue() !== base) return false;
+      const change = diffLines(base, next);
+      if (change) v.editor.transaction({ changes: [change] });
+      return true;
+    }
+    let ok = false;
+    await this.p.app.vault.process(file, (cur) => {
+      ok = cur === base;
+      return ok ? next : cur;
+    });
+    return ok;
+  }
+  // 新写一块：装了「任务归位」就按状态进分区，没装就接在最后
+  placeBlock(text, blockLines) {
+    const core = this.p.app.plugins?.plugins?.["done-to-top"]?.core;
+    if (core && core.addBlock) {
+      try {
+        return core.addBlock(text, blockLines);
+      } catch {
+      }
+    }
+    return `${text.replace(/\s*$/, "")}
+${blockLines.join("\n")}
+`;
+  }
+  state(day) {
+    var _a;
+    const all = (_a = this.cfg).autoLogState || (_a.autoLogState = {});
+    return all[day] || (all[day] = {});
+  }
+  archived() {
+    const out = /* @__PURE__ */ new Set();
+    if (this.cfg.autoLogArchiveDone === false) return out;
+    for (const sid of this.usage.archivedClaude || []) out.add(sid);
+    for (const sid of this.usage.archived || []) out.add(sid);
+    return out;
+  }
+  autoParked(rec, cur) {
+    return cur === "paused" && !!rec && !!rec.autoPaused;
+  }
+  hasChildren(text, line) {
+    const lines = text.split("\n");
+    const base = width(lines[line]);
+    for (let i = line + 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      return width(lines[i]) > base;
+    }
+    return false;
+  }
+  // 这一行现在改写成什么状态
+  autoLine(text, rec, x, status) {
+    const found = findTask(text, rec.key);
+    const segs = x && x.segs || [];
+    const first = segs.length ? segs[0][0] : 0;
+    const last = segs.length ? segs[segs.length - 1][1] : first;
+    const done = (body2) => `DONE ${x ? clock(last) + " " : ""}${body2}`;
+    if (!found) {
+      if (!rec.fresh) return { text, gone: true };
+      const line = status === "doing" ? `- DOING ${clock(first)} ${rec.label}` : status === "done" ? `- ${done(rec.label)}` : `- PAUSED ${rec.label}`;
+      return { text: this.placeBlock(text, [line]) };
+    }
+    const lines = text.split("\n");
+    const raw = lines[found.line];
+    const p = splitTask(raw);
+    if (!p) return { text };
+    const body = rec.created ? rec.label : p.rest.replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
+    const since = rec.created ? clock(first) : segs.length ? clock(first) : p.since || clock(first);
+    const next = status === "doing" ? `${p.prefix}DOING ${since} ${body}`.trimEnd() : status === "done" ? (p.prefix + done(body)).trimEnd() : `${p.prefix}PAUSED ${body}`.trimEnd();
+    if (next === raw) return { text };
+    lines[found.line] = next;
+    return { text: lines.join("\n") };
+  }
+  // 实际时段写在那一行下面第一个 ⏱ 子项里；绑着的会话不用再留 🔗 行，会话号写进 ⏱ 末尾
+  autoClock(text, key, segs, who, tok = 0, sid = "") {
+    const found = findTask(text, key);
+    if (!found || !segs.length) return text;
+    const lines = text.split("\n");
+    const at = found.line;
+    const shown = [];
+    for (const [a, b] of segs) {
+      const prev = shown[shown.length - 1];
+      if (prev && a - prev[1] <= 10) prev[1] = Math.max(prev[1], b);
+      else shown.push([a, b]);
+    }
+    const total = Math.round(segs.reduce((n, [a, b]) => n + b - a, 0));
+    const indent = (/^\s*/.exec(lines[at]) || [""])[0] + "	";
+    const line = `${indent}- \u23F1 ${shown.length > 8 ? "\u2026 " : ""}${shown.slice(-8).map(([a, b]) => `${clock(a)}\u2013${clock(b)}`).join("\u3001")} \xB7 \u5171 ${durTag(total)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""}${who ? " \xB7 " + who : ""}`;
+    if (sid) {
+      const l = linkUnder(lines, at);
+      if (l && l.sid === sid) lines.splice(l.line, 1);
+    }
+    const base = width(lines[at]);
+    for (let i = at + 1; i < lines.length; i++) {
+      if (lines[i].trim() && width(lines[i]) <= base) break;
+      if (CLOCK_RE.test(lines[i])) {
+        if (lines[i] === line) return text;
+        lines[i] = line;
+        return lines.join("\n");
+      }
+    }
+    lines.splice(at + 1, 0, line);
+    return lines.join("\n");
+  }
+  // 让本机的小模型看一眼这几个会话：起名字、对上日记里哪一行
+  async ask(items, open, fallback = false) {
+    const blocks = items.map(({ x, active }, i) => {
+      const meta = this.usage.meta.get(x.sid) || {};
+      const last = String(meta.lastText || "").replace(/\d{12,}/g, "\u2026").replace(/\s+/g, " ").trim().slice(-700);
+      return [
+        `#s${i + 1} [${AGENT_NAMES[x.agent] || x.agent}] \u6807\u9898\uFF1A${x.title || "\uFF08\u6CA1\u6709\uFF09"}\uFF1B\u7D2F\u8BA1 ${x.min} \u5206\u949F\uFF1B\u73B0\u5728\uFF1A${active ? "\u8FD8\u5728\u8FDB\u884C" : "\u5DF2\u7ECF\u505C\u4E86"}`,
+        x.text ? `\u5F00\u5934\u8BF4\u7684\uFF1A${String(x.text).replace(/\d{12,}/g, "\u2026").slice(0, 200)}` : "",
+        last ? `\u6700\u540E\u4E00\u6761\u56DE\u590D\u7684\u7ED3\u5C3E\uFF1A${last}` : ""
+      ].filter(Boolean).join("\n");
+    });
+    const prompt = [
+      "\u4E0B\u9762\u662F\u7528\u6237\u4ECA\u5929\u548C AI \u52A9\u624B\u7684\u51E0\u4E2A\u5DE5\u4F5C\u4F1A\u8BDD\uFF0C\u4EE5\u53CA\u4ED6\u4ECA\u5929\u65E5\u8BB0\u91CC\u8FD8\u6CA1\u505A\u5B8C\u7684\u4EFB\u52A1\u884C\u3002\u8BF7\u628A\u6BCF\u4E2A\u4F1A\u8BDD\u6574\u7406\u6210\u4E00\u6761\u4EFB\u52A1\u8BB0\u5F55\u3002",
+      "",
+      "\u3010\u65E5\u8BB0\u91CC\u8FD8\u6CA1\u505A\u5B8C\u7684\u4EFB\u52A1\u884C\u3011\uFF08\u7F16\u53F7: \u72B6\u6001 \u6587\u5B57\uFF09",
+      open.length ? open.map((i, n) => `${n + 1}: ${i.doing ? "DOING" : i.paused ? "PAUSED" : "TODO"} ${workKey(i.label)}`).join("\n") : "\uFF08\u6CA1\u6709\uFF09",
+      "",
+      "\u3010\u4F1A\u8BDD\u3011",
+      blocks.join("\n\n"),
+      "",
+      "\u53EA\u8F93\u51FA\u4E00\u4E2A JSON \u6570\u7EC4\uFF0C\u6BCF\u4E2A\u4F1A\u8BDD\u4E00\u9879\uFF0C\u4E0D\u8981\u89E3\u91CA\u3001\u4E0D\u8981\u4EE3\u7801\u5757\uFF1A",
+      '[{"id":"s1","label":"\u2026","match":null,"done":false,"todos":[],"skip":false}]',
+      "\u5B57\u6BB5\uFF1A",
+      "- label\uFF1A\u8FD9\u4EF6\u4E8B\u662F\u4EC0\u4E48\uFF0C\u4E0D\u8D85\u8FC7 20 \u4E2A\u5B57\u7684\u4E2D\u6587\u77ED\u8BED\uFF08\u52A8\u8BCD\u5F00\u5934\uFF09\uFF0C\u4E0D\u8981\u5E26\u65F6\u95F4\u3001\u65F6\u957F\u3001\u72B6\u6001\u8BCD\u548C\u6807\u70B9\u7ED3\u5C3E\u3002",
+      "- match\uFF1A\u53EA\u6709\u5F53\u4E0A\u9762\u67D0\u4E00\u884C\u5199\u7684\u5C31\u662F\u300C\u8FD9\u4E2A\u4F1A\u8BDD\u91CC AI \u5728\u66FF\u7528\u6237\u505A\u7684\u90A3\u4EF6\u5DE5\u4F5C\u672C\u8EAB\u300D\u65F6\uFF0C\u624D\u586B\u90A3\u4E00\u884C\u7684\u7F16\u53F7\u3002\u90A3\u4E00\u884C\u5982\u679C\u662F\u7559\u7ED9\u7528\u6237\u672C\u4EBA\u7684\u52A8\u4F5C\uFF08\u770B\u4E00\u773C\u3001\u770B\u6548\u679C\u3001\u786E\u8BA4\u3001\u62CD\u677F\u3001\u81EA\u5DF1\u8DD1\u547D\u4EE4\u3001\u53D1\u51FA\u53BB\u3001\u9605\u8BFB\u4E4B\u7C7B\uFF09\uFF0C\u54EA\u6015\u8BDD\u9898\u4E00\u6837\u4E5F\u4E0D\u80FD\u5339\u914D\uFF0C\u586B null\u3002\u62FF\u4E0D\u51C6\u4E00\u5F8B\u586B null\u3002",
+      "- done\uFF1A\u53EA\u5BF9\u5DF2\u7ECF\u505C\u4E86\u7684\u4F1A\u8BDD\u6709\u610F\u4E49\u3002\u6700\u540E\u7684\u56DE\u590D\u660E\u786E\u8868\u660E\u8FD9\u4EF6\u4E8B\u6574\u4E2A\u505A\u5B8C\u4E86\uFF0C\u586B true\uFF1B\u505A\u5230\u4E00\u534A\u3001\u8FD8\u5728\u7B49\u7528\u6237\u3001\u62A5\u9519\u6CA1\u89E3\u51B3\u3001\u8BF4\u4E86\u4EE5\u540E\u518D\u7EE7\u7EED\uFF0C\u90FD\u586B false\u3002",
+      "- todos\uFF1A\u53EA\u5728\u4F1A\u8BDD\u5DF2\u7ECF\u505C\u4E86\u65F6\u586B\u3002\u56DE\u590D\u91CC\u660E\u786E\u8BF4\u4E86\u8981\u7528\u6237\u672C\u4EBA\u53BB\u505A\u6216\u62CD\u677F\u7684\u4E8B\uFF0C\u6BCF\u6761\u4E0D\u8D85\u8FC7 30 \u4E2A\u5B57\uFF0C\u6700\u591A 1 \u6761\uFF0C\u53EA\u5217\u4E0D\u505A\u5C31\u5361\u4F4F\u7684\u90A3\u4E00\u4EF6\uFF1B\u6CA1\u6709\u5C31\u662F\u7A7A\u6570\u7EC4\u3002\u4E0A\u9762\u4EFB\u52A1\u884C\u91CC\u5DF2\u7ECF\u6709\u610F\u601D\u76F8\u540C\u7684\u5C31\u4E0D\u8981\u518D\u5217\u3002",
+      "- skip\uFF1A\u4E00\u4E24\u53E5\u95F2\u804A\u6216\u95EE\u7B54\u3001\u6CA1\u6709\u5B9E\u9645\u505A\u4E8B\u7684\u4F1A\u8BDD\u586B true\u3002"
+    ].join("\n");
+    const out = /* @__PURE__ */ new Map();
+    let raw = "";
+    try {
+      raw = await runClaude(prompt, { bin: judgeBin(this.cfg.autoLogPath || this.cfg.delegate?.claude?.path || ""), model: this.cfg.autoLogModel || "haiku" });
+    } catch (e) {
+      this._err = String(e.message || e);
+      if (fallback) for (const { x } of items) {
+        const label = safeLabel(x.title || (x.text || "").split(" / ")[0]);
+        if (label) out.set(x.sid, { label, matchKey: null, done: false, todos: [], skip: false });
+      }
+      return out;
+    }
+    try {
+      const arr = JSON.parse(raw.slice(raw.indexOf("["), raw.lastIndexOf("]") + 1));
+      for (const a of arr) {
+        const sid = items[Number(String(a.id).replace(/^s/, "")) - 1]?.x.sid;
+        if (!sid) continue;
+        const label = safeLabel(a.label);
+        const m = Number.isInteger(a.match) && open[a.match - 1] ? open[a.match - 1] : null;
+        out.set(sid, {
+          label,
+          matchKey: m ? workKey(m.label) : null,
+          done: a.done === true,
+          todos: (Array.isArray(a.todos) ? a.todos : []).map((t) => safeLabel(t, 50)).filter(Boolean).slice(0, 1),
+          skip: !!a.skip || !label && !m
+        });
+      }
+      this._err = "";
+    } catch (e) {
+      this._err = "\u6A21\u578B\u56DE\u7684\u4E0D\u662F JSON";
+      if (fallback) for (const { x } of items) {
+        const label = safeLabel(x.title || (x.text || "").split(" / ")[0]);
+        if (label) out.set(x.sid, { label, matchKey: null, done: false, todos: [], skip: false });
+      }
+    }
+    return out;
+  }
+  async run({ dry = false, fallback = false } = {}) {
+    var _a, _b;
+    const report = { asked: 0, changes: [], error: "" };
+    if (this._busy) return report;
+    this._busy = true;
+    let day = "", snap = null, file = null;
+    try {
+      if (this.p.nautilusOwnsAi && this.p.nautilusOwnsAi()) {
+        report.error = "\u87BA\u65CB\u65E5\u7A0B\u7684 AI \u8FFD\u8E2A\u8FD8\u5F00\u7740\uFF0C\u5148\u5728\u8BBE\u7F6E\u91CC\u505C\u7528\u5B83";
+        return report;
+      }
+      day = this.dayKey();
+      file = this.journalFile(day);
+      if (!file) {
+        report.error = `\u4ECA\u5929\u7684\u65E5\u8BB0 ${this.journalPath(day)} \u8FD8\u6CA1\u5EFA`;
+        return report;
+      }
+      const data = this.usage.summary(day);
+      if (!data || !data.list || !data.list.length) return report;
+      const idle = Math.max(5, this.cfg.autoLogIdle || 40);
+      const now = this.nowMin();
+      const st = this.state(day);
+      snap = JSON.stringify(st);
+      const arch = this.archived();
+      const base = await this.read(file);
+      const linked = linkMap(base);
+      const todo = [], live = [];
+      for (const x of data.list) {
+        if (!x.segs || !x.segs.length) continue;
+        if (!AGENTS_FOR_JOURNAL.includes(x.agent)) continue;
+        if (linked.has(x.sid)) continue;
+        const last = x.segs[x.segs.length - 1][1];
+        const active = now - last <= idle;
+        const rec = st[x.sid];
+        if (rec && (rec.skip || rec.gone)) continue;
+        if (!rec) {
+          if (x.min < 3 && !arch.has(x.sid)) continue;
+          todo.push({ x, active, fresh: true });
+        } else if (rec.status === "doing" && !active && !rec.asked && !arch.has(x.sid)) todo.push({ x, active, rec });
+        else live.push({ x, active, rec });
+      }
+      const ask = todo.slice(0, 8);
+      let ans = /* @__PURE__ */ new Map();
+      if (ask.length) {
+        const open = openTasks(base).filter((i) => !this.hasChildren(base, i.line)).slice(0, 60);
+        ans = await this.ask(ask, open, fallback);
+        report.asked = ask.length;
+        report.error = this._err || "";
+      }
+      const text0 = base;
+      let text = text0;
+      const digest = { doing: [], paused: [], done: [], archived: [], todo: [] };
+      const clocks = /* @__PURE__ */ new Set();
+      const work = (_b = (_a = this.cfg).workLog || (_a.workLog = {}))[day] || (_b[day] = {});
+      for (const { x, active, fresh } of [...ask, ...todo.slice(8), ...live]) {
+        const a = ans.get(x.sid);
+        const last = x.segs[x.segs.length - 1][1];
+        let rec = st[x.sid];
+        if (fresh) {
+          if (!a) continue;
+          if (a.skip) {
+            st[x.sid] = { skip: true };
+            continue;
+          }
+          let m = a.matchKey ? taskItems(text).find((i) => i.state === "open" && i.key === a.matchKey) : null;
+          if (m && !active && m.state !== "doing" && m.state !== "paused") m = null;
+          if (!m && !a.label) {
+            st[x.sid] = { skip: true };
+            continue;
+          }
+          const label = m ? m.body : AUTO_MARK + a.label;
+          rec = st[x.sid] = { key: workKey(label), label, created: !m, agent: x.agent, status: m ? m.state : null, fresh: !m };
+        }
+        rec.min = x.min;
+        if (a) rec.asked = !active;
+        if (active) delete rec.asked;
+        const found = findTask(text, rec.key);
+        if (!found && !rec.fresh) {
+          rec.gone = true;
+          report.changes.push(`\u4E0D\u518D\u7BA1\uFF1A${rec.label}\uFF08\u8FD9\u4E00\u884C\u6CA1\u4E86\uFF09`);
+          continue;
+        }
+        const cur = found ? found.state : null;
+        if (cur === "done") {
+          if (rec.status !== "done") clocks.add(rec.key);
+          rec.status = "done";
+          continue;
+        }
+        if (rec.status && cur !== rec.status && cur) {
+          if (cur === "doing") rec.hold = Date.now() + 2 * 36e5;
+          else rec.parkedAt = last;
+          rec.status = cur;
+          delete rec.autoPaused;
+        }
+        const name = workKey(rec.label).replace(AUTO_MARK, "");
+        if (arch.has(x.sid) && (fresh || cur === "doing" || this.autoParked(rec, cur))) {
+          text = this.autoLine(text, rec, x, "done").text;
+          rec.status = "done";
+          delete rec.fresh;
+          delete rec.parkedAt;
+          delete rec.hold;
+          delete rec.autoPaused;
+          clocks.add(rec.key);
+          digest.archived.push(`${name}\uFF08${x.min}m\uFF09`);
+          report.changes.push(`DONE\uFF08\u5DF2\u5F52\u6863\uFF09\uFF1A${rec.label}\uFF08${x.min}m\uFF09`);
+          continue;
+        }
+        if (active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
+          text = this.autoLine(text, rec, x, "doing").text;
+          rec.status = "doing";
+          delete rec.parkedAt;
+          delete rec.fresh;
+          delete rec.autoPaused;
+          digest.doing.push(name);
+          report.changes.push(`DOING\uFF1A${rec.label}`);
+        } else if (!active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
+          text = this.autoLine(text, rec, x, "paused").text;
+          rec.status = "paused";
+          rec.autoPaused = true;
+          rec.parkedAt = last;
+          delete rec.fresh;
+          clocks.add(rec.key);
+          digest.paused.push(`${name}\uFF08${x.min}m\uFF09`);
+          report.changes.push(`PAUSED\uFF1A${rec.label}\uFF08${x.min}m\uFF09`);
+        }
+        if (a && !active && a.done && !rec.doneHint) {
+          rec.doneHint = true;
+          digest.done.push(`${name}\uFF08${x.min}m\uFF09`);
+          report.changes.push(`\u770B\u7740\u505A\u5B8C\u4E86\uFF1A${rec.label}`);
+        }
+        if (a && !active && a.todos.length && !rec.todosAdded) {
+          const have = taskItems(text).map((i) => i.key);
+          for (const t of a.todos) {
+            if (have.some((k) => k.includes(t))) continue;
+            text = this.placeBlock(text, [`- TODO ${AUTO_MARK}${t}`]);
+            digest.todo.push(t);
+            report.changes.push(`TODO\uFF1A${t}`);
+          }
+          rec.todosAdded = true;
+        }
+      }
+      const byKey = /* @__PURE__ */ new Map(), who = /* @__PURE__ */ new Map(), toks = /* @__PURE__ */ new Map(), sids = /* @__PURE__ */ new Map();
+      for (const x of data.list) {
+        const rec = st[x.sid];
+        if (!rec || rec.skip || rec.gone || !rec.key) continue;
+        toks.set(rec.key, (toks.get(rec.key) || 0) + (x.out || 0) + (x.fresh || 0));
+        (sids.get(rec.key) || sids.set(rec.key, []).get(rec.key)).push(x.agent === "claude" ? x.sid : "");
+        (byKey.get(rec.key) || byKey.set(rec.key, []).get(rec.key)).push(...x.segs);
+        (who.get(rec.key) || who.set(rec.key, /* @__PURE__ */ new Set()).get(rec.key)).add(AGENT_NAMES[x.agent] || x.agent);
+      }
+      const merged = /* @__PURE__ */ new Map();
+      for (const [k, segs] of byKey) merged.set(k, mergeSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
+      for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "");
+      report.diff = diffLines(base, text);
+      if (dry) {
+        this.cfg.autoLogState[day] = JSON.parse(snap);
+        return report;
+      }
+      if (!await this.write(file, base, text)) {
+        this.cfg.autoLogState[day] = JSON.parse(snap);
+        report.error = "\u65E5\u8BB0\u6B63\u5728\u88AB\u6539\uFF0C\u8FD9\u4E00\u8F6E\u6CA1\u5199";
+        return report;
+      }
+      for (const [k, segs] of merged) work[k] = segs;
+      await this.archivePast(arch, day);
+      for (const k of Object.keys(this.cfg.autoLogState).sort().slice(0, -4)) delete this.cfg.autoLogState[k];
+      await this.p.saveSettings();
+      if (this.cfg.autoLogNotify !== false) this.digest(digest, idle, file);
+      return report;
+    } catch (e) {
+      console.error("[agent-deck] \u81EA\u52A8\u8BB0\u65E5\u8BB0\u5931\u8D25", e);
+      if (snap && day) this.cfg.autoLogState[day] = JSON.parse(snap);
+      report.error = String(e.message || e);
+      return report;
+    } finally {
+      this._busy = false;
+    }
+  }
+  // 前几天记下、还挂着的行：会话归档了，就在它当天的日记里补成 DONE。
+  // 你自己改成 TODO / PAUSED 的不动；日记正好被改过就跳过这一天。
+  async archivePast(arch, today) {
+    if (!arch.size) return [];
+    const out = [];
+    for (const day of Object.keys(this.cfg.autoLogState || {})) {
+      if (day === today) continue;
+      const file = this.journalFile(day);
+      if (!file) continue;
+      const st = this.cfg.autoLogState[day] || {};
+      const hits = Object.entries(st).filter(([sid, r]) => arch.has(sid) && r.key && !r.skip && !r.gone && (r.status === "doing" || this.autoParked(r, r.status)));
+      if (!hits.length) continue;
+      const base = await this.read(file);
+      let text = base;
+      const before = new Map(hits.map(([sid, rec]) => [sid, { status: rec.status, autoPaused: rec.autoPaused, gone: rec.gone }]));
+      const list = (this.usage.summary(day) || {}).list || [];
+      for (const [sid, rec] of hits) {
+        const found = findTask(text, rec.key);
+        if (!found) {
+          rec.gone = true;
+          continue;
+        }
+        if (found.state !== "doing" && !this.autoParked(rec, found.state)) {
+          rec.status = found.state;
+          delete rec.autoPaused;
+          continue;
+        }
+        const x = list.find((s) => s.sid === sid && s.segs && s.segs.length) || null;
+        text = this.autoLine(text, rec, x, "done").text;
+        if (x) text = this.autoClock(text, rec.key, x.segs, AGENT_NAMES[x.agent] || x.agent, (x.out || 0) + (x.fresh || 0), x.agent === "claude" ? x.sid : "");
+        rec.status = "done";
+        delete rec.autoPaused;
+        out.push(rec.label);
+      }
+      if (text !== base && !await this.write(file, base, text)) {
+        for (const [sid, rec] of hits) {
+          const b = before.get(sid);
+          if (!b) continue;
+          rec.status = b.status;
+          if (b.autoPaused === void 0) delete rec.autoPaused;
+          else rec.autoPaused = b.autoPaused;
+          if (b.gone === void 0) delete rec.gone;
+          else rec.gone = b.gone;
+        }
+        continue;
+      }
+    }
+    return out;
+  }
+  digest(d, idle, file) {
+    const sec = (head, list) => list.length ? `**${head}\uFF08${list.length} \u4EF6\uFF09**
+${list.map((s) => "\xB7 " + s).join("\n")}` : "";
+    const parts = [
+      sec("\u25B6 \u5728\u505A", d.doing),
+      sec(`\u23F8 ${idle} \u5206\u949F\u6CA1\u52A8\uFF0C\u5148\u6682\u505C\u4E86`, d.paused),
+      sec("\u{1F4E6} \u4F1A\u8BDD\u5F52\u6863\u4E86\uFF0C\u8BB0\u6210\u505A\u5B8C", d.archived),
+      sec("\u2705 \u770B\u7740\u50CF\u662F\u505A\u5B8C\u4E86\uFF0C\u8981\u6807 DONE \u81EA\u5DF1\u6539\u4E00\u4E0B", d.done),
+      sec("\u{1F4CC} \u8BB0\u4E86\u8981\u4F60\u505A\u7684", d.todo)
+    ].filter(Boolean);
+    if (!parts.length) return;
+    new import_obsidian5.Notice(`\u{1F916} \u6574\u7406\u4E86\u65E5\u8BB0
+${parts.join("\n\n")}`, 9e3);
+  }
+  // 手动整理：一轮最多问 8 个，接着问到问完
+  async logNow() {
+    const changes = [];
+    let error = "";
+    for (let round = 0; round < 5; round++) {
+      const r = await this.run({ fallback: true });
+      changes.push(...r.changes);
+      error = r.error || "";
+      if (error || r.asked < 8) break;
+    }
+    this._at = Date.now();
+    const msg = error && !changes.length ? `\u6CA1\u6574\u7406\u6210\uFF1A${error}` : changes.length ? `\u6574\u7406\u8FDB\u65E5\u8BB0\u4E86\uFF1A
+${changes.join("\n")}${error ? `
+\uFF08\u6A21\u578B\u6CA1\u95EE\u5230\uFF0C\u65B0\u4F1A\u8BDD\u5148\u7528\u5B83\u81EA\u5DF1\u7684\u6807\u9898\u8BB0\u7684\uFF1A${error}\uFF09` : ""}` : "\u6CA1\u6709\u8981\u6539\u7684\uFF1A\u4F1A\u8BDD\u90FD\u5DF2\u7ECF\u8BB0\u8FC7\u4E86\uFF0C\u6216\u8005\u8FD8\u592A\u77ED\uFF08\u4E0D\u5230 3 \u5206\u949F\uFF09";
+    new import_obsidian5.Notice(msg, 9e3);
+    this.p.refreshUI();
+    return { changes, error };
+  }
+  tick() {
+    if (!this.cfg.autoLog) return;
+    if (Date.now() - this._at < Math.max(5, this.cfg.autoLogEvery || 20) * 6e4) return;
+    this._at = Date.now();
+    this.p.scanNow(false).catch(() => {
+    }).then(() => this.run().catch((e) => console.error("[agent-deck] autolog", e)));
+  }
+};
+function mergeSegs(segs) {
+  const out = [];
+  for (const [a, b] of [...segs].sort((x, y) => x[0] - y[0])) {
+    const last = out[out.length - 1];
+    if (last && a <= last[1]) last[1] = Math.max(last[1], b);
+    else out.push([a, b]);
+  }
+  return out;
+}
+
+// src/sync.js
+var import_obsidian6 = require("obsidian");
+var STATE_KW = { wait: "TOREVIEW", quiet: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" };
+var JournalSync = class {
+  constructor(plugin) {
+    this.p = plugin;
+    this._busy = false;
+    this._at = 0;
+  }
+  get usage() {
+    return this.p.usage;
+  }
+  get cfg() {
+    return this.p.settings;
+  }
+  archived(sid) {
+    if (this.cfg.autoLogArchiveDone === false) return false;
+    return this.usage.archivedClaude && this.usage.archivedClaude.has(sid) || this.usage.archived && this.usage.archived.has(sid);
+  }
+  dayList() {
+    const day = dayKeyToday(this.cfg);
+    const data = this.usage.summary(day);
+    return data && data.list || [];
+  }
+  segmentsFor(sid) {
+    const x = this.dayList().find((s) => s.sid === sid);
+    return x ? { segs: x.segs || [], out: x.out || 0, fresh: x.fresh || 0, agent: x.agent } : null;
+  }
+  // 开着的笔记里所有带 🔗 的编辑器
+  openViews() {
+    const out = [];
+    this.p.app.workspace.iterateAllLeaves((leaf) => {
+      const v = leaf.view;
+      if (v instanceof import_obsidian6.MarkdownView && v.file && v.editor && v.editor.cm) {
+        try {
+          if (v.editor.cm.state.doc.toString().includes("\u{1F517}")) out.push(v);
+        } catch {
+        }
+      }
+    });
+    return out;
+  }
+  isOpen(file) {
+    return this.openViews().some((v) => v.file.path === file.path);
+  }
+  todayJournal() {
+    const f = this.p.app.vault.getAbstractFileByPath(`${this.cfg.journalFolder || "\u65E5\u8BB0"}/${dayKeyToday(this.cfg)}.md`);
+    return f && f.extension === "md" ? f : null;
+  }
+  replace(view, before, after) {
+    const cm = view.editor.cm;
+    const change = diffLines(before, after);
+    if (change) {
+      try {
+        view.editor.transaction({ changes: [change] });
+        return true;
+      } catch {
+      }
+    }
+    return false;
+  }
+  async run({ force = false } = {}) {
+    if (this._busy) return;
+    if (!force && Date.now() - this._at < 8e3) return;
+    this._at = Date.now();
+    if (this.cfg.journalSync === false) return;
+    if (this.p.nautilusOwnsAi && this.p.nautilusOwnsAi()) {
+      if (!this._warned) {
+        this._warned = true;
+        console.info("[agent-deck] \u87BA\u65CB\u65E5\u7A0B\u7684 AI \u8FFD\u8E2A\u8FD8\u5F00\u7740\uFF0C\u56DE\u5199\u5148\u505C\u7740");
+      }
+      return;
+    }
+    this._busy = true;
+    try {
+      for (const view of this.openViews()) {
+        const cm = view.editor.cm;
+        if (!cm || !cm.dom.isConnected || cm.composing) continue;
+        const text = cm.state.doc.toString();
+        let next = text;
+        if (this.cfg.resultBack !== false) next = this.results(next);
+        if (this.cfg.agentKw !== false) next = this.keywords(next);
+        if (this.cfg.kidBlocks !== false) {
+          next = this.spawnAll(next);
+          next = this.subsIntoAll(next);
+          next = this.sides(next);
+        }
+        if (next !== text) this.replace(view, text, next);
+      }
+      const file = this.todayJournal();
+      if (file && !this.isOpen(file)) {
+        const text = await this.p.app.vault.read(file);
+        let next = this.spawnAll(text);
+        next = this.sides(next);
+        if (next !== text) await this.p.app.vault.process(file, (cur) => cur === text ? next : cur);
+      }
+    } catch (e) {
+      console.error("[agent-deck] \u4F1A\u8BDD\u56DE\u5199\u65E5\u8BB0\u5931\u8D25", e);
+    } finally {
+      this._busy = false;
+    }
+  }
+  // 答完一轮或者归档了：把会话最后说的话写成 💬
+  results(text) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const line of text.split("\n")) {
+      const k = parseLink(line);
+      if (k && !seen.has(k.sid)) seen.add(k.sid);
+    }
+    let out = text;
+    for (const sid of seen) {
+      const m = this.usage.meta.get(sid);
+      if (!m) continue;
+      const waiting = m.state === "wait" || m.state === "quiet";
+      if (!waiting && !this.archived(sid)) continue;
+      const said = String(m.lastText || "").trim();
+      if (!said) continue;
+      out = resultInto(out, sid, resultText(said, this.cfg.resultMax || 200));
+    }
+    return out;
+  }
+  // 关键词跟着会话走：只在 DOING 和中间态之间切，你改成别的就不碰
+  keywords(text) {
+    let out = text;
+    const lines = () => out.split("\n");
+    for (let at = lines().length - 1; at >= 0; at--) {
+      const line = lines()[at];
+      const k = parseLink(line);
+      if (!k) continue;
+      const ls = lines();
+      const n = markOwner(ls, at);
+      if (n < 0) continue;
+      const cur = kwLine(ls[n]);
+      if (!cur) continue;
+      if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || AGENT_KW_RE.test(cur.kw) || !cur.kw)) continue;
+      if (this.archived(k.sid)) {
+        if (cur.kw === "DOING" || cur.kw === "DELEGATED" || AGENT_KW_RE.test(cur.kw)) out = this.finish(out, k.sid, at);
+        continue;
+      }
+      const m = this.usage.meta.get(k.sid);
+      if (!m) continue;
+      const want = m.state === "run" ? cur.kw === "DELEGATED" ? "DELEGATED" : "DOING" : STATE_KW[m.state];
+      if (!want || want === cur.kw) continue;
+      const p = splitTask(ls[n]);
+      if (!p) continue;
+      const nextLine = `${p.prefix}${want} ${p.since ? p.since + " " : ""}${p.rest}`.trimEnd();
+      if (nextLine !== ls[n]) {
+        ls[n] = nextLine;
+        out = ls.join("\n");
+      }
+    }
+    return out;
+  }
+  // 归档 = 做完：DONE + 实际时段，收掉 🔗 行
+  finish(text, sid, linkAt) {
+    const lines = text.split("\n");
+    const at = typeof linkAt === "number" ? linkAt : lines.findIndex((l) => {
+      const k = parseLink(l);
+      return k && k.sid === sid;
+    });
+    if (at < 0) return text;
+    const n = markOwner(lines, at);
+    if (n < 0) return text;
+    const p = splitTask(lines[n]);
+    if (!p) return text;
+    const meta = this.usage.meta.get(sid) || {};
+    const last = meta.lastAt ? dayMinute(meta.lastAt, this.cfg) : null;
+    const body = p.rest.replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
+    lines[n] = `${p.prefix}DONE ${last != null ? clock(last) + " " : ""}${body}`.trimEnd();
+    const info = this.segmentsFor(sid);
+    if (info && info.segs.length) {
+      const base = width(lines[n]);
+      for (let i = n + 1; i < lines.length; i++) {
+        if (lines[i].trim() && width(lines[i]) <= base) break;
+        if (CLOCK_RE.test(lines[i])) {
+          lines.splice(i, 1);
+          break;
+        }
+      }
+      const shown = [];
+      for (const [a, b] of info.segs) {
+        const prev = shown[shown.length - 1];
+        if (prev && a - prev[1] <= 10) prev[1] = Math.max(prev[1], b);
+        else shown.push([a, b]);
+      }
+      const total = Math.round(info.segs.reduce((s, [a, b]) => s + b - a, 0));
+      const indent = (/^\s*/.exec(lines[n]) || [""])[0] + "	";
+      const who = { claude: "Claude", codex: "Codex", workbuddy: "WorkBuddy", dsh: "DSH" }[info.agent] || info.agent;
+      const tok = (info.out || 0) + (info.fresh || 0);
+      const clock2 = `${indent}- \u23F1 ${shown.slice(-8).map(([a, b]) => `${clock(a)}\u2013${clock(b)}`).join("\u3001")} \xB7 \u5171 ${durTag(total)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""}${who ? " \xB7 " + who : ""}`;
+      lines.splice(n + 1, 0, clock2);
+    }
+    const link = linkUnder(lines, n);
+    if (link && link.sid === sid) lines.splice(link.line, 1);
+    return lines.join("\n");
+  }
+  // 一篇笔记里所有绑着的 Claude 会话开出来的子会话都挂上；新挂上的继续往下挂
+  spawnAll(text) {
+    const desk = this.usage.deskBySid;
+    if (!desk || !desk.size || !text.includes("\u{1F517}")) return text;
+    const q = [], seen = /* @__PURE__ */ new Set();
+    const scan = (t) => {
+      for (const line of t.split("\n")) {
+        const k = parseLink(line);
+        if (k && !seen.has(k.sid)) {
+          seen.add(k.sid);
+          q.push(k.sid);
+        }
+      }
+    };
+    scan(text);
+    for (let i = 0; i < q.length && i < 200; i++) {
+      const next = this.spawnInto(text, q[i]);
+      if (next !== text) {
+        text = next;
+        scan(text);
+      }
+    }
+    return text;
+  }
+  spawnInto(text, sid) {
+    const me = this.usage.deskBySid.get(sid);
+    if (!me || !text.includes(sid)) return text;
+    const today = dayKeyToday(this.cfg);
+    const spawned = [...this.usage.deskBySid.values()].filter((d) => d.parentSid === sid && (dayKey(d.created, this.cfg) === today || dayKey(d.active, this.cfg) === today)).sort((a, b) => a.created - b.created);
+    if (!spawned.length) return text;
+    const lines = text.split("\n");
+    const step = () => {
+      const todo = spawned.filter((d2) => !lines.some((l) => {
+        const k = parseLink(l);
+        return k && k.sid === d2.sid;
+      }));
+      if (!todo.length) return false;
+      const at = lines.findIndex((l) => {
+        const k = parseLink(l);
+        return k && k.sid === sid;
+      });
+      const n = at < 0 ? -1 : markOwner(lines, at);
+      if (n < 0) return false;
+      const base = width(lines[n]), kidW = width(lines[at]), kidInd = (/^\s*/.exec(lines[at]) || [""])[0];
+      const unit = kidInd.includes("	") ? "	" : " ".repeat(Math.max(2, kidW - base));
+      let end = n;
+      for (let i = n + 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        if (width(lines[i]) <= base) break;
+        end = i;
+      }
+      const kids = [];
+      for (let i = n + 1; i <= end; i++) if (width(lines[i]) === kidW && LIST_RE.test(lines[i]) && !/^\s*[-*+]\s+(?:🔗|⏱|💬|🤖\s*(?:子代理|side chat))/.test(lines[i])) kids.push(i);
+      const d = todo[0];
+      const name = String(d.title || "").trim() || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD";
+      const mine = kids.find((i) => {
+        const kl = kwLine(lines[i]);
+        return kl && !DONE_KWS.includes(kl.kw) && !linkUnder(lines, i) && !kidUnder(lines, i) && kidMatch(kl.body, name);
+      });
+      if (mine != null) {
+        const c2 = childMark(lines, mine, () => ({}));
+        const ind = c2 ? (/^\s*/.exec(lines[c2.line]) || [""])[0] : (/^\s*/.exec(lines[mine]) || [""])[0] + unit;
+        const pt = splitTask(lines[mine]);
+        if (pt && !pt.cb && (OPEN_KWS.includes(pt.kw || "") || !pt.kw && this.kidTodos(lines, mine))) lines[mine] = `${pt.prefix}DOING ${this.hm(d.created)} ${pt.rest}`.trimEnd();
+        lines.splice(mine + 1, 0, linkLine2(ind, "claude", name, d.sid));
+        return true;
+      }
+      lines.splice(
+        end + 1,
+        0,
+        `${kidInd}- DOING ${this.hm(d.created)} ${AUTO_MARK}${resultText(name, 60)}`,
+        linkLine2(kidInd + unit, "claude", name, d.sid)
+      );
+      return true;
+    };
+    let changed = false;
+    for (let i = 0; i < 40 && step(); i++) changed = true;
+    return changed ? lines.join("\n") : text;
+  }
+  kidTodos(lines, n) {
+    const base = width(lines[n]);
+    for (let i = n + 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      return width(lines[i]) > base;
+    }
+    return false;
+  }
+  hm(ms) {
+    const d = new Date(ms);
+    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  }
+  // subagent：会话派出去的子代理，写成「🤖 子代理」子块；跑完换成 DONE / FAILED + ⏱ + 💬
+  subsIntoAll(text) {
+    if (!this.usage.subs || !this.usage.subs.size || !text.includes("\u{1F517}")) return text;
+    const sids = [];
+    for (const line of text.split("\n")) {
+      const k = parseLink(line);
+      if (k && this.usage.subs.has(k.sid)) sids.push(k.sid);
+    }
+    for (const sid of sids) text = this.subsInto(text, sid);
+    return text;
+  }
+  kidState(r, parentWait) {
+    const quiet = (Date.now() - (r.at || r.start || 0)) / 6e4;
+    if (r.state === "done") return { st: "done", kw: "DONE" };
+    if (r.state === "fail") return { st: "fail", kw: r.end === "failed" ? "FAILED" : "CANCELLED" };
+    if (quiet <= 5) return { st: "run", kw: "DOING" };
+    if (!r.bg && parentWait) return { st: "fail", kw: "CANCELLED" };
+    return { st: "quiet", kw: "DOING" };
+  }
+  kidTok(r) {
+    return [...(r.tok || /* @__PURE__ */ new Map()).values()].reduce((n, v) => n + v, 0);
+  }
+  finishKid(indent, r) {
+    const tok = this.kidTok(r);
+    const min = Math.max(1, Math.round(((r.at || r.start) - r.start) / 6e4));
+    const out = [`${indent}- \u23F1 ${this.hm(r.start)}\u2013${this.hm(r.at || r.start)} \xB7 \u5171 ${durTag(min)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""} \xB7 \u5B50\u4EE3\u7406 \`${r.id.slice(0, 8)}\``];
+    const said = String(r.last || "").trim();
+    if (said) out.push(`${indent}- \u{1F4AC} ${resultText(said, this.cfg.resultMax || 200)}`);
+    return out;
+  }
+  subsInto(text, sid) {
+    const parent = this.usage.meta.get(sid) || {};
+    const parentWait = parent.state !== "run";
+    const today = dayKeyToday(this.cfg);
+    const subs = this.usage.subsOf(sid).filter((r) => (r.desc || r.type) && dayKey(r.start, this.cfg) === today);
+    if (!subs.length) return text;
+    const lines = text.split("\n");
+    const step = () => {
+      const at = lines.findIndex((l) => {
+        const k = parseLink(l);
+        return k && k.sid === sid;
+      });
+      const n = at < 0 ? -1 : markOwner(lines, at);
+      if (n < 0) return false;
+      const base = width(lines[n]), kidW = width(lines[at]), kidInd = (/^\s*/.exec(lines[at]) || [""])[0];
+      const unit = kidInd.includes("	") ? "	" : " ".repeat(Math.max(2, kidW - base));
+      let end = n;
+      for (let i = n + 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        if (width(lines[i]) <= base) break;
+        end = i;
+      }
+      const kids = [];
+      for (let i = n + 1; i <= end; i++) {
+        if (width(lines[i]) !== kidW || !LIST_RE.test(lines[i])) continue;
+        if (/^\s*[-*+]\s+(?:🔗|⏱|💬|🤖\s*(?:子代理|side chat))/.test(lines[i])) continue;
+        kids.push(i);
+      }
+      const known = /* @__PURE__ */ new Map(), claimed = /* @__PURE__ */ new Set();
+      for (const k of kids) {
+        const mark = childMark(lines, k, (l) => {
+          const id = kidIdent(l);
+          return id && id.kind === "sub" ? id : null;
+        });
+        if (mark) {
+          known.set(String(mark.id), { block: k, mark: mark.line, open: !!mark.open });
+          claimed.add(k);
+        }
+      }
+      const setKw = (k, kw, time) => {
+        const pt = splitTask(lines[k]);
+        if (pt) lines[k] = `${pt.prefix}${kw} ${time} ${pt.rest}`.trimEnd();
+      };
+      for (const r of subs) {
+        const id = r.id.slice(0, 8), k = this.kidState(r, parentWait), over = k.st === "done" || k.st === "fail";
+        const had = known.get(id);
+        if (had) {
+          if (!had.open) continue;
+          if (over) {
+            const ind = (/^\s*/.exec(lines[had.block]) || [""])[0];
+            setKw(had.block, k.kw, this.hm(r.at || r.start));
+            const mark = parseKid(lines[had.mark]);
+            if (mark) lines[had.mark] = `${ind}	- \u23F1 ${this.hm(r.start)}\u2013${this.hm(r.at || r.start)} \xB7 \u5171 ${durTag(Math.max(1, Math.round(((r.at || r.start) - r.start) / 6e4)))}${this.kidTok(r) ? ` \xB7 ${fmtTok(this.kidTok(r))} tok` : ""} \xB7 \u5B50\u4EE3\u7406 \`${id}\``;
+            const said = String(r.last || "").trim();
+            if (said) lines.splice(had.mark + 1, 0, `${ind}	- \u{1F4AC} ${resultText(said, this.cfg.resultMax || 200)}`);
+            return true;
+          }
+          continue;
+        }
+        const mine = kids.find((i) => {
+          if (claimed.has(i)) return false;
+          const kl = kwLine(lines[i]);
+          return kl && !DONE_KWS.includes(kl.kw) && !linkUnder(lines, i) && kidMatch(kl.body, r.desc || r.type);
+        });
+        if (mine != null) {
+          claimed.add(mine);
+          const ind = (/^\s*/.exec(lines[mine]) || [""])[0];
+          if (over) {
+            setKw(mine, k.kw, this.hm(r.at || r.start));
+            lines.splice(mine + 1, 0, ...this.finishKid(ind, r));
+          } else {
+            const pt = splitTask(lines[mine]);
+            setKw(mine, "DOING", pt && pt.kw === "DOING" && pt.since ? pt.since : this.hm(r.start));
+            lines.splice(mine + 1, 0, `${ind}	- \u{1F517} \u5B50\u4EE3\u7406 \`${id}\``);
+          }
+          return true;
+        }
+        const name = resultText(r.desc || r.type || "subagent", 60);
+        if (over) {
+          lines.splice(end + 1, 0, `${kidInd}- ${k.kw} ${this.hm(r.at || r.start)} ${AUTO_MARK}${name}`, ...this.finishKid(kidInd + unit, r));
+        } else {
+          lines.splice(end + 1, 0, `${kidInd}- DOING ${this.hm(r.start)} ${AUTO_MARK}${name}`, `${kidInd}${unit}- \u{1F517} \u5B50\u4EE3\u7406 \`${id}\``);
+        }
+        return true;
+      }
+      return false;
+    };
+    let changed = false;
+    for (let i = 0; i < 40 && step(); i++) changed = true;
+    return changed ? lines.join("\n") : text;
+  }
+  // side chat：开着的写成子块，进程没了记成 DONE + ⏱
+  sides(text) {
+    if (!this.usage.sideChats) return text;
+    const sids = new Set(this.usage.sideChats.keys());
+    for (const line of text.split("\n")) {
+      const k = parseLink(line);
+      if (k) sids.add(k.sid);
+    }
+    for (const sid of sids) if (text.includes(sid)) text = this.sideInto(text, sid);
+    return text;
+  }
+  sideInto(text, sid) {
+    const lines = text.split("\n");
+    const at = lines.findIndex((l) => {
+      const k = parseLink(l);
+      return k && k.sid === sid;
+    });
+    if (at < 0) return text;
+    const n = markOwner(lines, at);
+    if (n < 0) return text;
+    const base = width(lines[n]), kidW = width(lines[at]), kidInd = (/^\s*/.exec(lines[at]) || [""])[0];
+    const unit = kidInd.includes("	") ? "	" : " ".repeat(Math.max(2, kidW - base));
+    let end = n;
+    for (let i = n + 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      if (width(lines[i]) <= base) break;
+      end = i;
+    }
+    const known = /* @__PURE__ */ new Map();
+    for (let i = n + 1; i <= end; i++) {
+      if (width(lines[i]) !== kidW || !LIST_RE.test(lines[i])) continue;
+      if (/^\s*[-*+]\s+(?:🔗|⏱|💬|🤖\s*(?:子代理|side chat))/.test(lines[i])) continue;
+      const mark = kidUnder(lines, i);
+      if (mark && mark.kind === "side") known.set(String(mark.id), { block: i, mark: mark.line, ...mark });
+    }
+    const open = (this.usage.sideChats.get(sid) || []).map((s) => String(s.pid));
+    let changed = false;
+    for (const s of this.usage.sideChats.get(sid) || []) {
+      if (known.has(String(s.pid))) continue;
+      const min = dayMinute(s.since || Date.now(), this.cfg);
+      lines.splice(
+        end + 1,
+        0,
+        `${kidInd}- DOING ${clock(min)} ${AUTO_MARK}side chat`,
+        `${kidInd}${unit}- \u{1F517} side chat \`pid ${s.pid}\``
+      );
+      changed = true;
+      end += 2;
+    }
+    for (const c of known.values()) {
+      if (open.includes(String(c.id))) continue;
+      const cur = splitTask(lines[c.block]);
+      const from = cur && cur.since ? cur.since : null;
+      const nowMin = dayMinute(Date.now(), this.cfg);
+      let mins = 1;
+      if (from) {
+        const [h, m] = from.split(":").map(Number);
+        let start = h * 60 + m;
+        if (start > nowMin) start -= 1440;
+        mins = Math.max(1, nowMin - start);
+      }
+      lines[c.block] = `${cur ? cur.prefix : ""}DONE ${clock(nowMin)} ${cur ? cur.rest : "side chat"}`.trimEnd();
+      lines[c.mark] = `${kidInd}${unit}- \u23F1 ${from || clock(nowMin - mins)}\u2013${clock(nowMin)} \xB7 \u5171 ${durTag(mins)} \xB7 side chat \`pid ${c.id}\``;
+      changed = true;
+    }
+    return changed ? lines.join("\n") : text;
+  }
+};
+
 // src/main.js
-var fsp4 = import_fs4.default.promises;
-var AgentDeckPlugin = class extends import_obsidian5.Plugin {
+var fsp4 = import_fs5.default.promises;
+var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   async onload() {
     const data = await this.loadData();
     this.settings = deepMerge(DEFAULTS, data || {});
@@ -6275,14 +7935,16 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
     this._lineMaps = {};
     this.vaultPath = this.app.vault.adapter.getBasePath ? this.app.vault.adapter.getBasePath() : "";
     this.manifestDir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
-    this.pluginDir = import_path4.default.join(this.vaultPath, this.manifestDir);
-    this.usageFile = import_path4.default.join(this.pluginDir, "usage.json");
+    this.pluginDir = import_path5.default.join(this.vaultPath, this.manifestDir);
+    this.usageFile = import_path5.default.join(this.pluginDir, "usage.json");
     this.store = new UsageStore(this, this.settings);
     await this.store.load(this.usageFile);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
-    this.editorInfoField = import_obsidian5.editorInfoField;
+    this.editorInfoField = import_obsidian7.editorInfoField;
     this.delegator = new Delegator(this);
     this.menubar = new MenuBarBridge(this);
+    this.autoLog = new AutoLog(this);
+    this.journalSync = new JournalSync(this);
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
@@ -6312,10 +7974,12 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
     this.addCommand({ id: "delegate-options", name: "\u59D4\u6D3E\u9009\u9879\u2026\uFF08\u6A21\u578B\u3001\u5F3A\u5EA6\u3001\u6A21\u5F0F\uFF09", editorCallback: (editor, view) => this.openModalFor(editor, view) });
     this.addCommand({ id: "open-session-line", name: "\u6253\u5F00\u5149\u6807\u8FD9\u4E00\u884C\u7ED1\u5B9A\u7684\u4F1A\u8BDD", editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
     this.addCommand({ id: "scan-now", name: "\u91CD\u65B0\u626B\u63CF\u672C\u673A Agent \u4F1A\u8BDD", callback: () => this.scanNow(true) });
+    this.addCommand({ id: "log-journal", name: "\u6574\u7406 Agent \u4F1A\u8BDD\u8FDB\u4ECA\u5929\u7684\u65E5\u8BB0", callback: () => this.autoLog.logNow() });
     this.addCommand({ id: "import-nautilus", name: "\u5BFC\u5165\u87BA\u65CB\u65E5\u7A0B\u7684\u5386\u53F2\u7528\u91CF", callback: () => this.importNautilus(true) });
     this.addCommand({ id: "clean-jobs", name: "\u6E05\u7406\u5DF2\u7ED3\u675F\u7684\u59D4\u6D3E\u8BB0\u5F55", callback: () => this.cleanJobs() });
     this.registerObsidianProtocolHandler("agent-deck", async (params) => {
       if (params && params.do === "scan") return this.scanNow(true);
+      if (params && params.do === "log") return this.autoLog.logNow();
       if (params && params.do === "hide") {
         this.settings.showMenuBar = false;
         await this.saveSettings();
@@ -6331,6 +7995,7 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
       if (this.settings.menuBarHideNautilus !== false) setTimeout(() => this.hideNautilusAgentBar().catch(() => {
       }), 2500);
       this.scheduleScan();
+      this.registerInterval(window.setInterval(() => this.autoLog.tick(), 60 * 1e3));
       setTimeout(() => this.scanNow(false), 1200);
       if (this.settings.importNautilus !== false && !this.store.imported?.nautilus) {
         setTimeout(() => this.importNautilus(false).catch(() => {
@@ -6419,7 +8084,8 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
       this.store.prune();
       await this.store.save();
       this.refreshUI();
-      if (force) new import_obsidian5.Notice(`Agent Deck\uFF1A\u8BFB\u5230 ${this.usage.files.size} \u4E2A\u65E5\u5FD7\uFF0C${touched.size} \u5929\u6709\u5185\u5BB9`, 4e3);
+      this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
+      if (force) new import_obsidian7.Notice(`Agent Deck\uFF1A\u8BFB\u5230 ${this.usage.files.size} \u4E2A\u65E5\u5FD7\uFF0C${touched.size} \u5929\u6709\u5185\u5BB9`, 4e3);
     } catch (e) {
       console.error("[agent-deck] scan", e);
       this.notice("\u626B\u63CF\u4F1A\u8BDD\u5931\u8D25\uFF1A" + (e && e.message || e), 8e3);
@@ -6435,22 +8101,22 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
     this.usage.titles.clear();
     await this.store.save();
     await this.scanNow(true);
-    new import_obsidian5.Notice("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97");
+    new import_obsidian7.Notice("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97");
   }
   async importNautilus(manual = false) {
-    const dir = import_path4.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
+    const dir = import_path5.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
     let raw;
     try {
-      raw = await fsp4.readFile(import_path4.default.join(dir, "ai-usage.json"), "utf8");
+      raw = await fsp4.readFile(import_path5.default.join(dir, "ai-usage.json"), "utf8");
     } catch {
-      if (manual) new import_obsidian5.Notice("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json");
+      if (manual) new import_obsidian7.Notice("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json");
       return;
     }
     let src;
     try {
       src = JSON.parse(raw);
     } catch {
-      if (manual) new import_obsidian5.Notice("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25");
+      if (manual) new import_obsidian7.Notice("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25");
       return;
     }
     const days = src.days || {};
@@ -6468,7 +8134,7 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
     }
     this.store.imported = { ...this.store.imported || {}, nautilus: Date.now() };
     await this.store.save();
-    if (manual || added) new import_obsidian5.Notice(`Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 ${added} \u5929\u5386\u53F2`);
+    if (manual || added) new import_obsidian7.Notice(`Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 ${added} \u5929\u5386\u53F2`);
     this.refreshUI();
   }
   recoverJobs() {
@@ -6575,12 +8241,12 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
     await this.saveSettings();
     this.scanNow(true);
     this.refreshUI();
-    new import_obsidian5.Notice(`Agent Deck \u4E3B\u529B\uFF1A${this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ")}`);
+    new import_obsidian7.Notice(`Agent Deck \u4E3B\u529B\uFF1A${this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ")}`);
   }
   async setAgentEnabled(agent, on) {
     var _a;
     if (this.isPrimary(agent) && !on) {
-      new import_obsidian5.Notice("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389");
+      new import_obsidian7.Notice("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389");
       return;
     }
     ((_a = this.settings).agents || (_a.agents = {}))[agent] = !!on;
@@ -6683,8 +8349,8 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
     return parts.filter(Boolean).join("\n");
   }
   // ---------- note line map ----------
-  lineMap(path5, doc) {
-    const cached = this._lineMaps[path5];
+  lineMap(path6, doc) {
+    const cached = this._lineMaps[path6];
     if (cached && cached.doc === doc) return cached.map;
     const lines = doc.toString().split("\n");
     const sessionByParent = /* @__PURE__ */ new Map();
@@ -6715,11 +8381,11 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
       sessionByParent.set(parent, session);
     }
     const map = { doc, lines, sessionByParent, linkByLine, parentByLine };
-    this._lineMaps[path5] = { doc, map };
+    this._lineMaps[path6] = { doc, map };
     return map;
   }
-  jobAtLine(path5, line, text) {
-    const jobs = Object.values(this.jobs).filter((j) => j.path === path5);
+  jobAtLine(path6, line, text) {
+    const jobs = Object.values(this.jobs).filter((j) => j.path === path6);
     let best = null;
     for (const j of jobs) {
       if (j.lineText === text || j.line === line && j.lineText === text) best = j;
@@ -6728,12 +8394,12 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
   }
   // ---------- editor actions ----------
   activeEditor() {
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
     if (!view || !view.file) return null;
     return { view, editor: view.editor, file: view.file };
   }
   async delegateFromEditor(editor, agent) {
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
     if (!view || !view.file) return this.notice("\u5148\u6253\u5F00\u4E00\u7BC7\u7B14\u8BB0");
     const line = editor.getCursor().line;
     try {
@@ -6742,15 +8408,15 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
       this.notice(String(e.message || e), 8e3);
     }
   }
-  async delegateAtLine(path5, line) {
-    const file = this.app.vault.getAbstractFileByPath(path5);
+  async delegateAtLine(path6, line) {
+    const file = this.app.vault.getAbstractFileByPath(path6);
     if (!file) return this.notice("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0");
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
-    const lines = view && view.file && view.file.path === path5 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
+    const lines = view && view.file && view.file.path === path6 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     await this.delegator.delegate({ file, lines, line, agent: this.defaultTarget() });
   }
-  openDelegateModal(path5, line) {
-    new DelegateOptionsModal(this.app, this, path5, line).open();
+  openDelegateModal(path6, line) {
+    new DelegateOptionsModal(this.app, this, path6, line).open();
   }
   openModalFor(editor, view) {
     if (!view || !view.file) return this.notice("\u5148\u6253\u5F00\u4E00\u7BC7\u7B14\u8BB0");
@@ -6758,12 +8424,12 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
   }
   openSessionForEditor(editor, view) {
     if (!view || !view.file) return;
-    const path5 = view.file.path, line = editor.getCursor().line;
-    const map = this.lineMap(path5, editor.cm.state.doc);
+    const path6 = view.file.path, line = editor.getCursor().line;
+    const map = this.lineMap(path6, editor.cm.state.doc);
     let s = map.sessionByParent.get(line);
     if (!s) {
       const text = editor.getLine(line);
-      const job = this.jobAtLine(path5, line, text);
+      const job = this.jobAtLine(path6, line, text);
       if (job) return this.openJob(job.id);
     }
     if (!s) return this.notice("\u8FD9\u4E00\u884C\u4E0B\u9762\u6CA1\u6709 \u{1F517} \u7ED1\u5B9A");
@@ -6799,8 +8465,8 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
         agentShort: a.short,
         color: a.color,
         glyph: a.glyph,
-        title: truncate(s.title || (s.text || "").split(" / ")[0] || s.step || s.sid, 64),
-        detail: `${a.short} ${where} \xB7 ${projectName(s.cwd)}${s.step ? " \xB7 " + truncate(s.step, 32) : ""} \xB7 ${timeAgo(s.lastAt)}`,
+        title: (s.parentSid ? "\u21B3 " : "") + truncate(s.title || (s.text || "").split(" / ")[0] || s.step || s.sid, 64),
+        detail: `${a.short} ${where} \xB7 ${projectName(s.cwd)}${s.step ? " \xB7 " + truncate(s.step, 32) : ""}${s.sideChats ? " \xB7 side chat \xD7" + s.sideChats : ""} \xB7 ${timeAgo(s.lastAt)}`,
         project: projectName(s.cwd),
         step: s.step ? truncate(s.step, 40) : "",
         ago: timeAgo(s.lastAt),
@@ -6873,7 +8539,7 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
     };
   }
   async restoreNautilusAgentBar() {
-    const p = import_path4.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    const p = import_path5.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     try {
       const data = JSON.parse(await fsp4.readFile(p, "utf8"));
       if (data.agentStatus !== true) {
@@ -6898,7 +8564,7 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
   }
   async hideNautilusAgentBar() {
     if (this.settings.menuBarHideNautilus === false) return;
-    const p = import_path4.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    const p = import_path5.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     let data = null;
     try {
       data = JSON.parse(await fsp4.readFile(p, "utf8"));
@@ -6960,7 +8626,7 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
   // ---------- misc ----------
   notice(msg, ms) {
     try {
-      new import_obsidian5.Notice(msg, ms);
+      new import_obsidian7.Notice(msg, ms);
     } catch {
       console.log("[agent-deck]", msg);
     }
@@ -6968,14 +8634,14 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
   openExternal(url) {
     return openExternal(url);
   }
-  async readNote(path5) {
-    const file = this.app.vault.getAbstractFileByPath(path5);
-    if (!file) throw new Error("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A" + path5);
+  async readNote(path6) {
+    const file = this.app.vault.getAbstractFileByPath(path6);
+    if (!file) throw new Error("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A" + path6);
     return await this.app.vault.read(file);
   }
-  async writeNote(path5, text) {
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
-    if (view && view.file && view.file.path === path5) {
+  async writeNote(path6, text) {
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
+    if (view && view.file && view.file.path === path6) {
       const ed = view.editor;
       const line = clamp(ed.getCursor().line, 0, Math.max(0, ed.lineCount() - 1));
       ed.setValue(text);
@@ -6985,14 +8651,14 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
       }
       return;
     }
-    const file = this.app.vault.getAbstractFileByPath(path5);
-    if (!file) throw new Error("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A" + path5);
+    const file = this.app.vault.getAbstractFileByPath(path6);
+    if (!file) throw new Error("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A" + path6);
     await this.app.vault.process(file, () => text);
   }
   async checkBinary(kind) {
     const bin = kind === "dsh" ? findDshBinary() : findClaudeBinary(this.settings.delegate?.claude?.path || "");
     return await new Promise((resolve) => {
-      (0, import_child_process3.execFile)(bin, ["--version"], { timeout: 1e4, env: process.env }, (err2, out, errOut) => {
+      (0, import_child_process5.execFile)(bin, ["--version"], { timeout: 1e4, env: process.env }, (err2, out, errOut) => {
         if (err2) resolve(`${kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A${String(err2.message || err2)}
 ${String(errOut || "").slice(0, 300)}`);
         else resolve(`${kind}\uFF1A${String(out || "").trim()}`);
@@ -7005,14 +8671,14 @@ activate
 do script ${JSON.stringify(`cd ${JSON.stringify(cwd)} && ${cmd}`)}
 end tell`;
     try {
-      (0, import_child_process3.execFile)("/usr/bin/osascript", ["-e", script], () => {
+      (0, import_child_process5.execFile)("/usr/bin/osascript", ["-e", script], () => {
       });
     } catch (e) {
       this.notice(String(e.message || e));
     }
   }
   async pauseNautilus() {
-    const p = import_path4.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    const p = import_path5.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     let data;
     try {
       data = JSON.parse(await fsp4.readFile(p, "utf8"));
@@ -7025,21 +8691,26 @@ end tell`;
       await fsp4.copyFile(p, backup);
     } catch {
     }
-    data.showAi = false;
     data.autoLog = false;
     data.autoLogArchiveDone = false;
     data.agentKw = false;
-    data.agentStatus = false;
-    data.agentAlert = false;
     data.resultBack = false;
-    data.lineProgress = false;
     try {
       await fsp4.writeFile(p, JSON.stringify(data, null, 1), "utf8");
     } catch (e) {
       this.notice("\u5199\u5165\u87BA\u65CB\u65E5\u7A0B\u8BBE\u7F6E\u5931\u8D25\uFF1A" + (e && e.message || e));
       return;
     }
-    this.notice(`\u5DF2\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u7684 AI \u8FFD\u8E2A\uFF08\u539F\u8BBE\u7F6E\u5907\u4EFD\u5728 ${import_path4.default.basename(backup)}\uFF09\u3002\u8BF7\u5728 Obsidian \u8BBE\u7F6E\u91CC\u91CD\u65B0\u52A0\u8F7D\u87BA\u65CB\u65E5\u7A0B\uFF0C\u6216\u91CD\u542F Obsidian\uFF0C\u8BA9\u5B83\u91CD\u65B0\u8BFB\u53D6\u8BBE\u7F6E\u3002`, 1e4);
+    this.notice(`\u5DF2\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u7684 AI \u5199\u5165\uFF08\u539F\u8BBE\u7F6E\u5907\u4EFD\u5728 ${import_path5.default.basename(backup)}\uFF09\uFF1A\u81EA\u52A8\u8BB0\u65E5\u8BB0\u3001\u72B6\u6001\u5199\u56DE\u3001\u{1F4AC} \u548C\u5B50\u5757\u90FD\u4E0D\u518D\u5199\uFF1B\u5B83\u7684 Agent \u8FFD\u8E2A\u5C55\u793A\u7167\u5E38\u3002\u8BF7\u5728 Obsidian \u8BBE\u7F6E\u91CC\u91CD\u65B0\u52A0\u8F7D\u87BA\u65CB\u65E5\u7A0B\uFF0C\u6216\u91CD\u542F Obsidian\u3002`, 1e4);
+  }
+  // 螺旋日程的「写日记」还开着的时候，不让 Agent Deck 也改日记：两套写法会打架。
+  // 只看会写笔记的那几个开关；showAi / agentStatus / lineProgress 是它的追踪展示，留着不碍事。
+  nautilusOwnsAi() {
+    const n = this.app.plugins?.plugins?.["nautilus-spiral"];
+    const s = n && n.settings;
+    if (!s) return false;
+    if (s.showAi === false) return false;
+    return s.resultBack !== false || s.agentKw !== false || s.autoLog === true;
   }
   openPluginDir() {
     try {

@@ -23,6 +23,8 @@ import { AgentDeckSettingsTab } from "./settings.js";
 import { DelegateOptionsModal } from "./dialog.js";
 import { createEditorExtension, dispatchRefresh } from "./editor.js";
 import { MenuBarBridge } from "./menubar.js";
+import { AutoLog } from "./autolog.js";
+import { JournalSync } from "./sync.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -49,6 +51,8 @@ export default class AgentDeckPlugin extends Plugin {
     this.editorInfoField = editorInfoField;
     this.delegator = new Delegator(this);
     this.menubar = new MenuBarBridge(this);
+    this.autoLog = new AutoLog(this);
+    this.journalSync = new JournalSync(this);
 
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
@@ -81,11 +85,13 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "delegate-options", name: "委派选项…（模型、强度、模式）", editorCallback: (editor, view) => this.openModalFor(editor, view) });
     this.addCommand({ id: "open-session-line", name: "打开光标这一行绑定的会话", editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
     this.addCommand({ id: "scan-now", name: "重新扫描本机 Agent 会话", callback: () => this.scanNow(true) });
+    this.addCommand({ id: "log-journal", name: "整理 Agent 会话进今天的日记", callback: () => this.autoLog.logNow() });
     this.addCommand({ id: "import-nautilus", name: "导入螺旋日程的历史用量", callback: () => this.importNautilus(true) });
     this.addCommand({ id: "clean-jobs", name: "清理已结束的委派记录", callback: () => this.cleanJobs() });
 
     this.registerObsidianProtocolHandler("agent-deck", async (params) => {
       if (params && params.do === "scan") return this.scanNow(true);
+      if (params && params.do === "log") return this.autoLog.logNow();
       if (params && params.do === "hide") {
         this.settings.showMenuBar = false;
         await this.saveSettings();
@@ -101,6 +107,7 @@ export default class AgentDeckPlugin extends Plugin {
       if (this.settings.showMenuBar !== false) this.menubar.start().catch((e) => console.error("[agent-deck] menubar", e));
       if (this.settings.menuBarHideNautilus !== false) setTimeout(() => this.hideNautilusAgentBar().catch(() => {}), 2500);
       this.scheduleScan();
+      this.registerInterval(window.setInterval(() => this.autoLog.tick(), 60 * 1000));
       setTimeout(() => this.scanNow(false), 1200);
       if (this.settings.importNautilus !== false && !this.store.imported?.nautilus) {
         setTimeout(() => this.importNautilus(false).catch(() => {}), 3500);
@@ -176,6 +183,7 @@ export default class AgentDeckPlugin extends Plugin {
       this.store.prune();
       await this.store.save();
       this.refreshUI();
+      this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
       if (force) new Notice(`Agent Deck：读到 ${this.usage.files.size} 个日志，${touched.size} 天有内容`, 4000);
     } catch (e) {
       console.error("[agent-deck] scan", e);
@@ -509,8 +517,8 @@ export default class AgentDeckPlugin extends Plugin {
       out.push({
         id: `${agent}:${s.sid}`,
         agent, agentName: a.name, agentShort: a.short, color: a.color, glyph: a.glyph,
-        title: truncate(s.title || (s.text || "").split(" / ")[0] || s.step || s.sid, 64),
-        detail: `${a.short} ${where} · ${projectName(s.cwd)}${s.step ? " · " + truncate(s.step, 32) : ""} · ${timeAgo(s.lastAt)}`,
+        title: (s.parentSid ? "↳ " : "") + truncate(s.title || (s.text || "").split(" / ")[0] || s.step || s.sid, 64),
+        detail: `${a.short} ${where} · ${projectName(s.cwd)}${s.step ? " · " + truncate(s.step, 32) : ""}${s.sideChats ? " · side chat ×" + s.sideChats : ""} · ${timeAgo(s.lastAt)}`,
         project: projectName(s.cwd),
         step: s.step ? truncate(s.step, 40) : "",
         ago: timeAgo(s.lastAt),
@@ -676,17 +684,24 @@ export default class AgentDeckPlugin extends Plugin {
     catch { this.notice("没有找到螺旋日程的 data.json"); return; }
     const backup = p + `.agent-deck-backup-${Date.now()}`;
     try { await fsp.copyFile(p, backup); } catch { /* backup best-effort */ }
-    data.showAi = false;
+    // 只关写日记的那几项；showAi / agentStatus / lineProgress 是螺旋自己的追踪展示，留着。
     data.autoLog = false;
     data.autoLogArchiveDone = false;
     data.agentKw = false;
-    data.agentStatus = false;
-    data.agentAlert = false;
     data.resultBack = false;
-    data.lineProgress = false;
     try { await fsp.writeFile(p, JSON.stringify(data, null, 1), "utf8"); }
     catch (e) { this.notice("写入螺旋日程设置失败：" + (e && e.message || e)); return; }
-    this.notice(`已停用螺旋日程的 AI 追踪（原设置备份在 ${path.basename(backup)}）。请在 Obsidian 设置里重新加载螺旋日程，或重启 Obsidian，让它重新读取设置。`, 10000);
+    this.notice(`已停用螺旋日程的 AI 写入（原设置备份在 ${path.basename(backup)}）：自动记日记、状态写回、💬 和子块都不再写；它的 Agent 追踪展示照常。请在 Obsidian 设置里重新加载螺旋日程，或重启 Obsidian。`, 10000);
+  }
+
+  // 螺旋日程的「写日记」还开着的时候，不让 Agent Deck 也改日记：两套写法会打架。
+  // 只看会写笔记的那几个开关；showAi / agentStatus / lineProgress 是它的追踪展示，留着不碍事。
+  nautilusOwnsAi() {
+    const n = this.app.plugins?.plugins?.["nautilus-spiral"];
+    const s = n && n.settings;
+    if (!s) return false;
+    if (s.showAi === false) return false;
+    return s.resultBack !== false || s.agentKw !== false || s.autoLog === true;
   }
 
   openPluginDir() {

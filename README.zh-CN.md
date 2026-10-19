@@ -10,18 +10,33 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 
 它从[螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 里「人机协作 / AI 追踪」那一半拆出来，补上了第二个主力 Agent、DeepSeek Harness 的 ACP 委派、模型 / 强度 / 权限模式选择、分层的模型设置页，以及一块可读性更高的 SwiftUI 菜单栏面板。
 
+## 推荐：和螺旋日程一起用
+
+两个插件是配套的两半，建议一起装：
+
+| 插件 | 负责 |
+|---|---|
+| [螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) | 日记和日程本身：螺旋排程、计时、容量、回顾，以及 Agent 的追踪展示（内圈细线、状态栏、进度条、`🔗` 绑定） |
+| Agent Deck | AI 写入那一半：自动记日记、状态写回、`💬`、桌面版子会话 / side chat / subagent 子块、归档 → `DONE`；以及从任务行委派 |
+
+交接只要一步：在 Agent Deck 的 **设置 → 追踪 → 停用螺旋日程里的 AI 写入**，然后重新加载螺旋日程。螺旋只停 AI 写入，日程、螺旋和追踪展示照常；写日记交给 Agent Deck。只装 Agent Deck 也能用，只是少了螺旋的排程和展示。
+
 ![Agent Deck 设置](assets/agents.png)
 
 ## 功能
 
 - **本机 Agent 面板**：Claude Code、Codex、WorkBuddy、DeepSeek Harness 的在跑、等你、安静会话，带项目、最近一步、时长和 token。点一行用 deeplink 回到那个会话。
+- **Claude 桌面版的 side chat**：桌面版里从一个会话开出来的会话，侧栏里看着和它同级。Agent Deck 读 `claude-code-sessions/**/local_*.json` 里的 `spawnedFrom` 认出母子关系，把子会话缩进一层、标出从哪个会话开出；正开着 side chat 的会话带一个标签，菜单栏里也会写 `side chat ×N`。桌面版里归档的会话不再列在「现在」和「最近的会话」里。
+- **人机共写：自动记日记**：读今天 Claude / Codex / WorkBuddy / DeepSeek Harness 的会话，用本机 `claude -p` 起名、对上日记里已有的任务行，接不上就新写一行 `DOING HH:MM 🤖 …`；停了一阵改 `PAUSED` 并写 `⏱` 时段；桌面版 / Codex 里归档记 `DONE`；前几天还挂着的行补记。设置 → 追踪里打开，或跑命令「整理 Agent 会话进今天的日记」。
+- **回写日记**：`🔗` 绑着的会话答完一轮或归档写 `💬`；状态关键词跟着会话切；桌面版子会话、开着的 side chat、Claude Code 的 subagent 写成缩进子块。
+- **和螺旋日程分工**：这些 AI 写入原来在螺旋里，现在归 Agent Deck；螺旋只保留追踪展示。螺旋的 AI 追踪还开着时 Agent Deck 不写日记，点「停用螺旋日程里的 AI 追踪」并重载螺旋后完全接管。
 - **最多两个主力 Agent**：主力全量读（全部历史、跨天补记）；其它开着的只读今天有动静的会话。
 - **命令驱动委派**：用 `Agent Deck: 委派光标所在块…`，或者继续用你原来的 **块去向 → 委派给 Claude** 快捷键。Agent Deck 不会在每个列表项上放「委派」按钮。需要临时改模型、强度、权限模式、工作目录时，用 `Agent Deck: 委派选项…`。
 - **进度只长在绑定了会话的行上**：有 `🔗` 或正在委派的行，行尾才出现状态 pill。委派中 pill 自己填充、显示已用时间，旁边有 `×` 取消。答完变成「完成」，结果写成任务下面一行 `💬`。没有会话的行保持干净。
 - **记录留在笔记里**：委派会写一行 `🔗`，状态改成 `DELEGATED`。删掉 `🔗` 就是解绑。
 - **分层模型设置**：默认模型、默认强度滑杆、能力标签、搜索筛选、启用开关、置顶排序、每行菜单、任务模型。改动先放在「Unsaved changes」条里，点保存才落盘。
-- **只读本机**：只读 `~/.claude`、`~/.codex`、`~/.workbuddy`、`~/.dsh`，不上传。插件目录里的 `usage.json` 存按天的汇总，日志被轮转掉历史还在。
-- **全站 Lucide 图标**：Agent、状态、工具和窗口图标都换成 Lucide；正在跑的图标用 CSS 旋转。
+- **只读本机**：只读 `~/.claude`、`~/.codex`、`~/.workbuddy`、`~/.dsh`，以及 Claude 桌面版的会话清单 `~/Library/Application Support/Claude/claude-code-sessions`，不上传。插件目录里的 `usage.json` 存按天的汇总，日志被轮转掉历史还在。
+- **官方 App 图标**：Claude、Codex、WorkBuddy、DeepSeek Harness 四个 Agent 用各自 App 的 icon（面板、会话行、状态 pill、设置页和菜单栏一致）；状态、工具和窗口图标仍是 Lucide，正在跑的图标用 CSS 旋转。
 - **Agent 汇总搬到 macOS 菜单栏**：Obsidian 右下角不再显示 Agent 会话汇总。系统最上方只留一个小图标和一串短说明，比如 `2 跑 · 1 等`；点开是一块纯色面板，任务卡片可以直接跳会话。
 
 ![macOS 菜单栏](assets/menubar.png)
@@ -48,6 +63,20 @@ Agent Deck 的主面板仍然保留 1.0.2 的低饱和配色；只有 macOS 菜�
 如果菜单栏已经排满（或者 Ice 把它收进了隐藏区），按 **⌃⌥⌘D** 打开或聚焦面板（再按一次不会关闭，用 Esc 或点面板外面关闭）。也可以在命令面板里运行 **Agent Deck: 打开 macOS 菜单栏面板**。
 
 ![分层模型设置](assets/models.png)
+
+## 人机共写：会话写回日记
+
+你在日记里写任务，是预计；Agent 的会话日志是自己会写的实际记录。打开「自动记日记」以后，Agent Deck 每隔一阵看一眼今天开着的会话，替你把状态和用时补上：
+
+- **在动** → 那一行改成 `DOING`；日记里没有对应的行，就新写一行 `- DOING 00:45 🤖 优化配色`。名字和「接在哪一行」问本机的 `claude -p`；对不上就新写。
+- **停了一阵**（默认 40 分钟）→ 改成 `PAUSED`，实际时段写在下面：`- ⏱ 00:45–01:20、04:02–04:24 · 共 52m · Claude`。
+- **归档** → 改成 `DONE 19:20 …`，前几天记下、还挂着的行也在当天日记里补上。
+- **不猜 DONE**：机器只在 `DOING` / `PAUSED` 之间切；你觉得做完了自己改，或者去桌面版里归档。模型说「看着做完了」只在提醒里提一句。
+- **绑定会话的回写**：`🔗` 行绑着的会话答完一轮写 `💬`；停在权限提示上写 `NEEDOK`，等你回复写 `TOREVIEW`，报错 `ERRORED`，限额 `HITLIMIT`；归档记 `DONE` + `⏱`。
+- **子块**：桌面版里从绑定会话开出来的会话按 `spawnedFrom` 缩进挂成子块；开着的 side chat 一个子块；Claude Code 的 subagent 读 `<会话号>/subagents/agent-*.jsonl`，在跑画 `🤖 子代理`，跑完换 `DONE` / `FAILED` + `⏱` + `💬`。
+- **分工**：这些写入原来在螺旋日程里，现在归 Agent Deck；螺旋只保留追踪展示。螺旋的 AI 追踪还开着时 Agent Deck 不写日记，点「停用螺旋日程里的 AI 追踪」并重载螺旋后完全接管。
+
+写入按行做、不进撤销记录；正在用输入法打字的那一下不写，等下一轮；这期间日记被别处改过就放弃这一轮。
 
 ## 委派到哪儿
 
@@ -125,7 +154,11 @@ npm run build
 
 Agent Deck 认同一套 `🔗` 行。两个插件都开着时，螺旋日程也会看到 Claude 会话，可能把 `DELEGATED` 改成 `TOREVIEW`。
 
-Agent Deck 会自动隐藏螺旋日程右下角的 🤖 Agent 汇总；它自己的日程状态栏和计时照常。用 **追踪 → 停用螺旋日程里的 AI 追踪** 可以进一步关掉它的 AI 面板、自动记日记、状态写回和 `💬` 写回，日程本身不动。改之前会在旁边备份一份螺旋日程的 `data.json`。写入后请在 Obsidian 设置里重新加载螺旋日程（或重启 Obsidian），让它重新读取设置；Agent Deck 不会自动启停别的插件。🤖 那一项也可以在同一个设置页恢复。
+人机共写的 AI 写入（自动记日记、状态写回、`💬`、子会话 / side chat / subagent 子块、归档 → `DONE`）现在只在 Agent Deck 里做。只要螺旋的 AI 追踪还开着（`showAi` / `resultBack` / `agentKw` / `autoLog`），Agent Deck 就不碰日记，避免两套写法互相覆盖。
+
+要完成交接：用 **追踪 → 停用螺旋日程里的 AI 追踪**，然后到 Obsidian 设置里重新加载螺旋日程（或重启 Obsidian）。它会关掉螺旋的 AI 面板、自动记日记、状态写回和 `💬` 写回，日程、螺旋、计时这些照常；改之前会在旁边备份一份螺旋日程的 `data.json`。Agent Deck 不会自动启停别的插件。🤖 那一项也可以在同一个设置页恢复。
+
+Agent Deck 会自动隐藏螺旋日程右下角的 🤖 Agent 汇总。
 
 如果你在用 **块去向（done-to-top）** 和 **日记整理（journal-tidy）**，请更新到 **done-to-top 1.17.3+** 和 **journal-tidy 1.9.1+**。这两个版本会让带「明天 / 后天 / 大后天」的 `DELEGATED` 块留在今天的 DOING 区，不会搬到明天的日记；也不会再折叠第一条分割线之前的 DOING / TODO 块。
 

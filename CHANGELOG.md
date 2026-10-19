@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.1.1
+
+- 四个 Agent 换成各自官方 App 的 icon：Claude（`Claude.app`）、Codex（`ChatGPT.app` 里的 Codex 图标）、WorkBuddy（`WorkBuddy.app`）、DeepSeek Harness（`DeepSeek Harness.app`）。面板的 Agent 卡片、会话行、状态 pill、设置页和 macOS 菜单栏用同一套图；读不到图时退回原来的 Lucide 字形。
+- 图标以 PNG 编进 `main.js`，菜单栏助手从 `~/.agent-deck/agents/` 读同一份，不需要额外下载资源。
+
+## 1.1.0
+
+- **人机共写的 AI 流程从螺旋日程搬进 Agent Deck。** 会话到日记行的那一半不再依赖螺旋：自动记日记、状态写回、`💬` 结果、subagent / side chat / 桌面版子会话的子块、归档 → `DONE`，都在这里做；螺旋只保留追踪展示。设置 → 追踪新增「自动记日记」一节，命令面板新增「整理 Agent 会话进今天的日记」。
+- **自动记日记**：读今天 Claude Code / Codex / WorkBuddy / DeepSeek Harness 的会话，用本机的 `claude -p` 起名、对上日记里已有的任务行，接不上就新写一行 `DOING HH:MM 🤖 …`；停了一阵改成 `PAUSED` 并把 `⏱` 时段写在下面；桌面版 / Codex 里归档记成 `DONE`；前几天还挂着的行在归档后补成 `DONE`。机器不在 `DOING` / `PAUSED` 之外猜状态。
+- **回写日记**：`🔗` 绑着的会话答完一轮或归档写 `💬`；状态关键词跟着会话在 `DOING` / `TOREVIEW` / `NEEDOK` / `ERRORED` / `HITLIMIT` 之间切；归档记 `DONE` + `⏱` 并收掉 `🔗` 行。
+- **子块**：桌面版里从绑定会话开出来的子会话写成缩进子块（读 `spawnedFrom`）；开着的 side chat 一个子块，进程退出记 `DONE` + `⏱`；Claude Code 派出去的 subagent 读 `<会话号>/subagents/agent-*.jsonl` 和 `.meta.json`，在跑的画 `🤖 子代理`，跑完换 `DONE` / `FAILED` + `⏱` + `💬`。
+- **两套不打架**：螺旋日程的 AI 追踪还开着（`showAi` / `resultBack` / `agentKw` / `autoLog`）时，Agent Deck 暂不写日记，只做追踪；在 Agent Deck 里点「停用螺旋日程里的 AI 追踪」并重载螺旋后，写入完全交给 Agent Deck。
+- 关闭开关：`回写日记`、`会话结论写回`、`状态关键词跟着会话`、`子会话和 side chat 子块`，都在「自动记日记」一节里。
+
+## 1.0.10
+
+- **Claude 桌面版的 side chat 找回来了。** 读 `claude-code-sessions/**/local_*.json` 里的 `spawnedFrom.sessionId`：侧栏里看着同级、其实是「从某个会话开出来」的会话，在面板里缩进一层并标出 `↳ 从「母会话」开出`；菜单栏标题前面加 `↳`。
+- 正开着 side chat 的会话带一个 `side chat` 标签（看 `claude --fork-session --no-session-persistence --resume <sid>` 进程），菜单栏详情里也会写 `side chat ×N`。
+- 桌面版里归档的会话不再出现在「现在」和「最近的会话」里；Codex 的 `archived_sessions` 之前只是读了没用上，这次一起生效。
+- 设置 → 追踪新增「Claude 桌面版」一节：可以关掉 side chat 识别，或让归档的会话重新列出来。
+
 ## 1.0.9
 
 - Releases are now built by GitHub Actions from the tagged commit, with build provenance attestations for `main.js`, `manifest.json` and `styles.css`. Verify with `gh attestation verify main.js --repo MatsuriMW/obsidian-agent-deck`.

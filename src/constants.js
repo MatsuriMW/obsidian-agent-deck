@@ -2,7 +2,7 @@
 
 export const PLUGIN_ID = "agent-deck";
 export const PLUGIN_NAME = "Agent Deck";
-export const PLUGIN_VERSION = "1.0.2";
+export const PLUGIN_VERSION = "1.1.1";
 export const USAGE_FILE = "usage.json";
 export const STORE_VERSION = 1;
 
@@ -216,6 +216,24 @@ export const DEFAULTS = {
   pollSeconds: 20,
   idleMinutes: 5,
   fullHistoryDays: 14,
+  // Claude desktop session list: identifies side chats (spawnedFrom) and archive state.
+  claudeDesktop: true,
+  hideArchived: true,
+  // Human–AI journal: sessions written back into the daily note.
+  journalFolder: "日记",
+  journalSync: true,
+  resultBack: true,
+  agentKw: true,
+  kidBlocks: true,
+  autoLog: false,
+  autoLogEvery: 20,
+  autoLogIdle: 40,
+  autoLogModel: "haiku",
+  autoLogPath: "",
+  autoLogArchiveDone: true,
+  autoLogNotify: true,
+  autoLogState: {},
+  workLog: {},
   showStatusBar: false,
   showMenuBar: true,
   menuBarPrimaryLimit: 6,

@@ -259,6 +259,8 @@ export class AgentDeckView extends ItemView {
     const card = parent.createDiv({ cls: `ad-sess ${compact ? "is-now" : ""}` });
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
+    const child = !!s.parentSid;
+    if (child) card.addClass("is-child");
     const live = ["run", "starting", "running"].includes(s.state);
     const wait = ["wait", "quiet", "needs-approval"].includes(s.state);
     if (live) card.addClass("is-live");
@@ -275,6 +277,12 @@ export class AgentDeckView extends ItemView {
       stateIcon(sic, s.state);
       chip.createSpan({ text: st.label });
     }
+    if (s.sideChats) {
+      const sc = titleRow.createSpan({ cls: "ad-side" });
+      setLucide(sc.createSpan({ cls: "ad-side__icon" }), "message-square");
+      sc.createSpan({ text: s.sideChats > 1 ? `side chat ×${s.sideChats}` : "side chat" });
+      sc.title = "这个会话正开着 side chat" + (s.sideSince ? `（${timeAgo(s.sideSince)}开的）` : "");
+    }
     const sub = body.createDiv({ cls: "ad-sess__sub" });
     sub.createSpan({ text: a.short });
     if (s.cwd) sub.createSpan({ text: "·" });
@@ -283,6 +291,12 @@ export class AgentDeckView extends ItemView {
     sub.createSpan({ text: "·" });
     sub.createSpan({ text: timeAgo(s.lastAt) });
     if (s.tokens) { sub.createSpan({ text: "·" }); sub.createSpan({ cls: "ad-sess__tok", text: fmtTok(s.tokens) + " tok" }); }
+    if (child) {
+      const kin = body.createDiv({ cls: "ad-sess__kin" });
+      kin.createSpan({ cls: "ad-sess__kinmark", text: "↳" });
+      kin.createSpan({ cls: "ad-sess__kintitle", text: `从「${truncate(s.parentTitle || "母会话", 24)}」开出` });
+      if (s.deskTitle && s.deskTitle !== s.title) kin.title = `桌面版里的标题：${s.deskTitle}`;
+    }
     const go = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": "打开会话" } });
     setLucide(go.createSpan({ cls: "ad-arrow__icon" }), "arrow-up-right");
     const open = () => p.openSession(s.agent, s.sid, s.app, s);

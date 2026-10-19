@@ -610,6 +610,37 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const r4 = this.row(c, "主力读多少天历史", "只影响主力；非主力只读今天。", null);
     this.numberInput(r4.querySelector(":scope > .ad-row__right"), s.fullHistoryDays, 1, 365, (v) => { s.fullHistoryDays = v; p.saveSettings(); p.scanNow(true); });
 
+    const desk = this.card(body, "Claude 桌面版", "桌面版给每个会话存一份清单（claude-code-sessions/<账号>/<组织>/local_*.json）。侧栏里看着同级、其实是「从某个会话开出来」的 side chat，只有这份清单里的 spawnedFrom 记得；终端里的 claude 没有这一项。");
+    const d1 = this.row(desk, "识别 side chat 和母子关系", "子会话在面板里缩进，标出从哪个会话开出；顺手看有哪些会话正开着 side chat。", null);
+    this.toggle(d1.querySelector(":scope > .ad-row__right"), s.claudeDesktop !== false, (v) => { s.claudeDesktop = v; p.saveSettings(); p.scanNow(true); });
+    const d2 = this.row(desk, "归档的会话不再列出", "桌面版里归档 = 做完：归档的会话从「现在」和「最近的会话」里收起来，历史用量照旧保留。", null);
+    this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => { s.hideArchived = v; p.saveSettings(); p.refreshUI(); });
+
+    const jr = this.card(body, "自动记日记（人机共写）", "把 Agent 会话写回今天的日记：新会话记成 DOING，停了一阵改成 PAUSED 并把实际时段写在下面，桌面版或 Codex 里归档了记成 DONE。名字和「接在哪一行」问本机的 claude 命令行。只改它自己记着的那几行，你手改过的状态不会被他掰回去。");
+    const jf = this.row(jr, "日记目录", "今天的日记是「目录/YYYY_MM_DD.md」，和螺旋日程的默认一致。", null);
+    this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "日记", "日记", (v) => { s.journalFolder = v.trim() || "日记"; p.saveSettings(); });
+    const ja = this.row(jr, "自动整理进日记", "每隔一阵扫一遍今天开着的会话；自动关着也可以用命令「整理 Agent 会话进今天的日记」手动跑。", null);
+    this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => { s.autoLog = v; p.saveSettings(); });
+    const je = this.row(jr, "每隔几分钟", "自动整理的间隔，最少 5 分钟。", null);
+    this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => { s.autoLogEvery = v; p.saveSettings(); });
+    const jm = this.row(jr, "整理用的模型", "传给 claude 命令行的 --model；默认 haiku，快且便宜。", null);
+    this.textInput(jm.querySelector(":scope > .ad-row__right"), s.autoLogModel || "haiku", "haiku", (v) => { s.autoLogModel = v.trim() || "haiku"; p.saveSettings(); });
+    const jd = this.row(jr, "归档的会话记成 DONE", "你在 Claude 桌面版或 Codex 里归档一个会话 = 这件事做完了，它那一行记成 DONE。桌面版开了自动归档的话就关掉这个。", null);
+    this.toggle(jd.querySelector(":scope > .ad-row__right"), s.autoLogArchiveDone !== false, (v) => { s.autoLogArchiveDone = v; p.saveSettings(); });
+    const js = this.row(jr, "回写日记", "日记里 🔗 绑着的会话：答完写 💬，状态跟着会话切，归档记 DONE，子会话和开着的 side chat 写成子块。螺旋日程的 AI 追踪还开着时先不写，免得两套写法打架。", null);
+    this.toggle(js.querySelector(":scope > .ad-row__right"), s.journalSync !== false, (v) => { s.journalSync = v; p.saveSettings(); });
+    for (const [key, label, desc] of [
+      ["resultBack", "会话结论写回（💬）", "会话答完一轮或归档时，把最后那条回复写成任务下面的一行。"],
+      ["agentKw", "状态关键词跟着会话", "在 DOING / TOREVIEW / NEEDOK / ERRORED / HITLIMIT 之间跟着会话切；你改成别的就不碰。"],
+      ["kidBlocks", "子会话和 side chat 子块", "桌面版里开出来的子会话、开着的 side chat 写成缩进子块。"],
+    ]) {
+      const row = this.row(jr, label, desc, null);
+      this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] !== false, (v) => { s[key] = v; p.saveSettings(); });
+    }
+    const jbtn = jr.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(jbtn, "现在整理一次", () => p.autoLog.logNow());
+    jr.createDiv({ cls: "ad-hint", text: "只记 Claude Code / Codex / WorkBuddy；模型问不到时手动整理会用会话标题先记上，自动整理等下一轮。写入前会核对日记没被同时改过，正在用输入法打字的那一下不写。" });
+
     const ui = this.card(body, "界面");
     const mb = this.row(ui, "macOS 菜单栏", "在系统最上方显示一个小图标和一串简短说明；点开是会话详情和跳转。Obsidian 右下角不再显示 Agent 汇总。第一次启动会编译一个 Swift 小助手，需要 Xcode Command Line Tools。", null);
     this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => { s.showMenuBar = v; p.saveSettings(); p.applyUiSettings(); });
@@ -691,10 +722,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     stats.createSpan({ cls: "ad-dot", text: "·" });
     stats.createSpan({ text: `${p.usage.files.size} 个日志文件` });
 
-    const naut = this.card(body, "和螺旋日程并存", "螺旋日程也会读同一批 🔗 会话、改任务状态、写 💬。用 Agent Deck 接管后，可以把它的 AI 部分关掉，日程本身不动。");
+    const naut = this.card(body, "和螺旋日程并存", "螺旋日程也会读同一批 🔗 会话、改任务状态、写 💬。用 Agent Deck 接管后，可以只关掉它的 AI 写入，日程和它的追踪展示照样在。");
     const nbtn = naut.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(nbtn, "停用螺旋日程里的 AI 追踪", () => p.pauseNautilus(), "mod-warning");
-    naut.createDiv({ cls: "ad-hint", text: "会先备份螺旋日程的 data.json。写入后请在 Obsidian 设置里重新加载螺旋日程（或重启 Obsidian）；Agent Deck 不会自动启停其它插件。" });
+    this.bigButton(nbtn, "停用螺旋日程里的 AI 写入", () => p.pauseNautilus(), "mod-warning");
+    naut.createDiv({ cls: "ad-hint", text: "只关自动记日记、状态写回、💬 和子块写入；螺旋自己的 Agent 追踪展示保留。会先备份它的 data.json。写入后请在 Obsidian 设置里重新加载螺旋日程（或重启 Obsidian）；Agent Deck 不会自动启停其它插件。" });
 
     const links = this.card(body, "点击会话时打开哪儿", "Claude Code 用 claude://resume 回到桌面版；WorkBuddy 用 workbuddy://chat/<会话号>；DeepSeek Harness 目前只有 dsh://open（聚焦客户端），插件会把会话号复制到剪贴板，方便你在侧栏里找。Codex 没有 URL，会复制 codex resume 命令。");
     links.createDiv({ cls: "ad-hint", text: "这些是客户端自己的 URL scheme，插件不读也不发任何网络请求。" });
