@@ -37,7 +37,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     brand.createSpan({ cls: "ad-brand__mark", text: "◈" });
     const bt = brand.createDiv({ cls: "ad-brand__text" });
     bt.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
-    bt.createDiv({ cls: "ad-brand__sub", text: "智能体甲板 · v0.1.0" });
+    bt.createDiv({ cls: "ad-brand__sub", text: "智能体甲板 · v0.2.0" });
 
     const nav = containerEl.createDiv({ cls: "ad-set-nav" });
     const dirty = this.draft && JSON.stringify(this.draft) !== JSON.stringify(this.plugin.settings.models);
@@ -581,8 +581,21 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.numberInput(r4.querySelector(":scope > .ad-row__right"), s.fullHistoryDays, 1, 365, (v) => { s.fullHistoryDays = v; p.saveSettings(); p.scanNow(true); });
 
     const ui = this.card(body, "界面");
+    const mb = this.row(ui, "macOS 菜单栏", "在系统最上方显示一个小图标和一串简短说明；点开是会话详情和跳转。Obsidian 右下角不再显示 Agent 汇总。第一次启动会编译一个 Swift 小助手，需要 Xcode Command Line Tools。", null);
+    this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => { s.showMenuBar = v; p.saveSettings(); p.applyUiSettings(); });
+    for (const [key, label, desc, min, max] of [
+      ["menuBarPrimaryLimit", "菜单栏：主力最多几个", "主力 Agent 全量追踪，所以可以多放几个会话。", 3, 12],
+      ["menuBarOtherLimit", "菜单栏：其它 Agent 最多几个", "其它 Agent 只显示正在运行的会话。", 1, 6],
+    ]) {
+      const row = this.row(ui, label, desc, null);
+      this.numberInput(row.querySelector(":scope > .ad-row__right"), s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => { s[key] = v; p.saveSettings(); p.refreshUI(); });
+    }
+    const mbbtn = this.row(ui, "菜单栏助手", "如果菜单栏没出现，或者改完设置想立刻重开。", null);
+    const mbrestart = mbbtn.querySelector(":scope > .ad-row__right").createEl("button", { cls: "ad-btn", text: "重启菜单栏" });
+    mbrestart.onclick = () => p.menubar?.restart();
+    const nautRow = this.row(ui, "关闭螺旋日程右下角的 Agent 汇总", "Agent Deck 接管后，螺旋日程那一格 🤖 会隐藏；它自己的日程状态栏和计时照常。", null);
+    this.toggle(nautRow.querySelector(":scope > .ad-row__right"), s.menuBarHideNautilus !== false, (v) => { s.menuBarHideNautilus = v; p.saveSettings(); if (v) p.hideNautilusAgentBar().catch(() => {}); else p.restoreNautilusAgentBar().catch(() => {}); });
     for (const [key, label, desc, fallback] of [
-      ["showStatusBar", "状态栏", "右下角显示几个在跑、几个等你。", true],
       ["showEditorPills", "任务行上的委派按钮", "光标停在列表项时，行尾出现「委派」和进度。", true],
       ["showRibbonIcon", "左侧栏图标", "点一下打开 Agent Deck。", true],
       ["openDashboardOnStartup", "启动时打开面板", "Obsidian 启动时自动打开 Agent Deck 侧栏。", false],
@@ -597,6 +610,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
     const data = this.card(body, "数据", "usage.json 存在插件目录里；日志删了历史还在。");
     const btn = data.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(btn, "重新启动菜单栏助手", () => p.menubar?.restart());
     this.bigButton(btn, "重新计算全部历史", () => p.rebuildUsage(), "mod-warning");
     this.bigButton(btn, "打开插件目录", () => p.openPluginDir());
     this.bigButton(btn, "导入螺旋日程的历史", () => p.importNautilus());
@@ -635,12 +649,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       r.createSpan({ text: line });
     }
     const meta = c.createDiv({ cls: "ad-about-meta" });
-    meta.createDiv({ text: "版本 0.1.0 · MIT License" });
+    meta.createDiv({ text: "版本 0.2.0 · MIT License" });
     meta.createDiv({ text: "从 Nautilus Spiral（螺旋日程）的 AI 追踪部分拆出；交互参考了小红书 @ZZ.X 的两条帖子。" });
     const btns = c.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, "打开 GitHub 仓库", () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));
     this.bigButton(btns, "复制调试信息", async () => {
-      const text = JSON.stringify({ version: "0.1.0", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
+      const text = JSON.stringify({ version: "0.2.0", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
       await navigator.clipboard.writeText(text);
       new Notice("调试信息已复制");
     });

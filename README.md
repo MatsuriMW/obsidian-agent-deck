@@ -6,7 +6,7 @@ Agent Deck is an Obsidian plugin that reads the local session logs of **Claude C
 
 It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), extracted into a standalone plugin and extended with a second primary agent, DeepSeek Harness, model/effort/mode selection, and a layered model picker.
 
-![Agent Deck dashboard](assets/dashboard.png)
+![Agent Deck settings](assets/agents.png)
 
 ## What it does
 
@@ -17,6 +17,21 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 - **Note-native records.** Delegation writes a `🔗` line under the task and changes the status to `DELEGATED`; the line is the source of truth. Delete the `🔗` line to unbind.
 - **Layered model settings.** A global default model, a default effort slider, capability tags, search/filter, enable switches, pinned order, per-row menu, and task models. Changes sit in an **Unsaved changes** bar until you save them.
 - **Local only.** Everything is read from `~/.claude`, `~/.codex`, `~/.workbuddy` and `~/.dsh`. Nothing is uploaded. The plugin stores its own aggregate in `usage.json` next to the plugin, so history survives log rotation.
+- **The agent summary lives in the macOS menu bar.** Obsidian's bottom-right status bar no longer carries the agent session summary. A small status item shows an icon plus something like `2 跑 · 1 等`; click it for a detailed popover with session rows you can jump from.
+
+![macOS menu bar](assets/menubar.png)
+
+## macOS menu bar
+
+The menu bar item is a tiny SwiftUI helper app compiled on first use. It is not a second copy of the dashboard: it is the quick "what is running / what needs me" surface.
+
+- **Primary agents** (up to two) contribute more rows: all live sessions plus recent sessions from the last six hours, up to six per primary by default.
+- **Other agents** contribute only sessions that are currently running, up to three per agent by default.
+- The header shows all enabled agents as chips, with running and waiting counts, including agents that have no row at the moment.
+- Clicking a row opens the same deeplink as the dashboard. DeepSeek Harness focuses the client and copies the session id; Codex copies `codex resume <id>`.
+- **打开面板** opens the Obsidian dashboard via `obsidian://agent-deck`; **重新扫描** triggers a scan; **隐藏** disables the menu bar from inside the popover.
+
+The first start needs `swiftc` (Xcode Command Line Tools). The plugin compiles `~/.agent-deck/AgentDeckMenuBar.app`, then launches it. It exits when Obsidian exits. The source is included in the plugin bundle, so no separate download is needed. If the menu bar does not appear, open **追踪 → 重启菜单栏** or install the command line tools with `xcode-select --install`.
 
 ![Layered model settings](assets/models.png)
 
@@ -91,17 +106,17 @@ npm run build
 
 ## Settings
 
-![Agent settings](assets/agents.png)
-
 - **Agents**: enable each agent, pick up to two primaries, scan now, import Nautilus Spiral history.
 - **委派**: default target, models, effort, permission mode, working directory, prompt prefix/suffix, write-back rules, trust fallback.
 - **Models**: the layered picker shown above.
-- **追踪**: day cutoff, polling interval, idle threshold, history depth, UI switches, rebuild, import, and a one-click **pause Nautilus Spiral's AI tracking** action.
+- **追踪**: day cutoff, polling interval, idle threshold, history depth, macOS menu bar toggle and row limits, UI switches, rebuild, import, and a one-click **pause Nautilus Spiral's AI tracking** action.
 - **关于**: version, license and debug info.
 
 ## Compatibility with Nautilus Spiral
 
-Agent Deck understands the same `🔗` line as Nautilus Spiral. If both plugins are on, Nautilus will also see the Claude sessions and may rewrite `DELEGATED` to `TOREVIEW`. Use **追踪 → 停用螺旋日程里的 AI 追踪** to turn off Nautilus's AI panel, automatic journal logging, agent status bar, status writing and `💬` writing while keeping the planner. A backup of Nautilus's `data.json` is written next to it first.
+Agent Deck understands the same `🔗` line as Nautilus Spiral. If both plugins are on, Nautilus will also see the Claude sessions and may rewrite `DELEGATED` to `TOREVIEW`.
+
+Agent Deck hides Nautilus's 🤖 agent status item automatically (the planner's own status bar and timer stay). Use **追踪 → 停用螺旋日程里的 AI 追踪** to also turn off its AI panel, automatic journal logging, status writing and `💬` writing while keeping the planner. The Nautilus settings are backed up first. The 🤖 toggle can be reversed from the same page.
 
 ## Privacy
 
@@ -109,6 +124,7 @@ Agent Deck understands the same `🔗` line as Nautilus Spiral. If both plugins 
 - No network requests are made by the tracking code.
 - Delegation starts local CLI processes (`claude`, `dsh`) owned by the user.
 - `usage.json` stores only aggregate per-day numbers and session summaries, not full conversations.
+- The menu bar helper reads `~/.agent-deck/menubar.json` and makes no network requests.
 
 ## Credits
 

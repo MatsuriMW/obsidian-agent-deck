@@ -6,7 +6,7 @@ Agent Deck 是一个 Obsidian 插件：读本机的 **Claude Code、Codex、Work
 
 它是[螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 里「人机协作 / AI 追踪」那一半拆出来的独立插件，并补上了第二个主力 Agent、DeepSeek Harness、模型 / 强度 / 权限模式选择，以及分层的模型设置页。
 
-![Agent Deck 面板](assets/dashboard.png)
+![Agent Deck 设置](assets/agents.png)
 
 ## 功能
 
@@ -17,6 +17,21 @@ Agent Deck 是一个 Obsidian 插件：读本机的 **Claude Code、Codex、Work
 - **记录留在笔记里**：委派会写一行 `🔗`，状态改成 `DELEGATED`。删掉 `🔗` 就是解绑。
 - **分层模型设置**：默认模型、默认强度滑杆、能力标签、搜索筛选、启用开关、置顶排序、每行菜单、任务模型。改动先放在「Unsaved changes」条里，点保存才落盘。
 - **只读本机**：只读 `~/.claude`、`~/.codex`、`~/.workbuddy`、`~/.dsh`，不上传。插件目录里的 `usage.json` 存按天的汇总，日志被轮转掉历史还在。
+- **Agent 汇总搬到 macOS 菜单栏**：Obsidian 右下角不再显示 Agent 会话汇总。系统最上方只留一个小图标和一串短说明，比如 `2 跑 · 1 等`；点开是详细页，可以直接跳会话。
+
+![macOS 菜单栏](assets/menubar.png)
+
+## macOS 菜单栏
+
+菜单栏是一个很小的 SwiftUI 助手，第一次运行时编译。它不是面板的复制，而是「现在谁在跑、谁在等我」的快速入口。
+
+- **主力 Agent**（最多两个）给更多行：正在跑的、等你的，加上最近六小时内的会话，默认每个主力最多 6 条。
+- **其它 Agent** 只给正在运行的会话，默认每个最多 3 条。
+- 顶部有一排所有已启用 Agent 的小标签，带在跑 / 等你数量；即使某个 Agent 当前没有可列出的会话，它的标签也在。
+- 点一行和面板里的跳转一样：Claude Code / WorkBuddy 直接打开会话；DeepSeek Harness 聚焦客户端并复制会话号；Codex 复制 `codex resume <id>`。
+- **打开面板** 走 `obsidian://agent-deck`；**重新扫描** 立刻扫一遍；**隐藏** 从菜单栏里直接关掉。
+
+第一次启动需要 `swiftc`（Xcode Command Line Tools）。插件会编译 `~/.agent-deck/AgentDeckMenuBar.app` 并启动它；Obsidian 退出时它也会退出。源码已经打包在插件里，不需要另外下载。菜单栏没出现时，到 **追踪 → 重启菜单栏**，或者先运行 `xcode-select --install`。
 
 ![分层模型设置](assets/models.png)
 
@@ -91,17 +106,17 @@ npm run build
 
 ## 设置
 
-![Agent 设置](assets/agents.png)
-
 - **Agents**：开关每个 Agent、选最多两个主力、立即扫描、导入螺旋日程历史。
 - **委派**：默认目标、模型、强度、权限模式、工作目录、提示词前后缀、写回规则、信任回退。
 - **Models**：上面那个分层模型页。
-- **追踪**：日记分界、轮询间隔、安静阈值、历史天数、界面开关、重算、导入，以及一键「停用螺旋日程里的 AI 追踪」。
+- **追踪**：日记分界、轮询间隔、安静阈值、历史天数、macOS 菜单栏开关和条数、界面开关、重算、导入，以及一键「停用螺旋日程里的 AI 追踪」。
 - **关于**：版本、许可证、调试信息。
 
 ## 和螺旋日程并存
 
-Agent Deck 认同一套 `🔗` 行。两个插件都开着时，螺旋日程也会看到 Claude 会话，可能把 `DELEGATED` 改成 `TOREVIEW`。用 **追踪 → 停用螺旋日程里的 AI 追踪** 可以关掉螺旋日程的 AI 面板、自动记日记、状态栏 Agent 汇总、状态写回和 `💬` 写回，日程本身不动。改之前会在旁边备份一份螺旋日程的 `data.json`。
+Agent Deck 认同一套 `🔗` 行。两个插件都开着时，螺旋日程也会看到 Claude 会话，可能把 `DELEGATED` 改成 `TOREVIEW`。
+
+Agent Deck 会自动隐藏螺旋日程右下角的 🤖 Agent 汇总；它自己的日程状态栏和计时照常。用 **追踪 → 停用螺旋日程里的 AI 追踪** 可以进一步关掉它的 AI 面板、自动记日记、状态写回和 `💬` 写回，日程本身不动。改之前会在旁边备份一份螺旋日程的 `data.json`；🤖 那一项也可以在同一个设置页恢复。
 
 ## 隐私
 
@@ -109,6 +124,7 @@ Agent Deck 认同一套 `🔗` 行。两个插件都开着时，螺旋日程也�
 - 追踪部分不发任何网络请求。
 - 委派只是启动本机的 `claude` / `dsh` 进程。
 - `usage.json` 只存按天的汇总和会话摘要，不存完整对话。
+- 菜单栏助手只读 `~/.agent-deck/menubar.json`，不发网络请求。
 
 ## 致谢
 

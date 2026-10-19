@@ -2,7 +2,7 @@
 
 export const PLUGIN_ID = "agent-deck";
 export const PLUGIN_NAME = "Agent Deck";
-export const PLUGIN_VERSION = "0.1.0";
+export const PLUGIN_VERSION = "0.2.0";
 export const USAGE_FILE = "usage.json";
 export const STORE_VERSION = 1;
 
@@ -216,7 +216,12 @@ export const DEFAULTS = {
   pollSeconds: 20,
   idleMinutes: 5,
   fullHistoryDays: 14,
-  showStatusBar: true,
+  showStatusBar: false,
+  showMenuBar: true,
+  menuBarPrimaryLimit: 6,
+  menuBarOtherLimit: 3,
+  menuBarHideNautilus: true,
+  menuBarMigrated: false,
   showEditorPills: true,
   showRibbonIcon: true,
   openDashboardOnStartup: false,

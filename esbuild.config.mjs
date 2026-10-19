@@ -12,6 +12,7 @@ const options = {
   platform: "node",
   target: "es2020",
   external: ["obsidian", "@codemirror/view", "@codemirror/state", "@codemirror/language"],
+  loader: { ".swift": "text" },
   banner: { js: banner },
   footer: { js: "module.exports = module.exports.default;" },
   logLevel: "info",

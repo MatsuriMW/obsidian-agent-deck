@@ -33,9 +33,9 @@ __export(main_exports, {
   default: () => AgentDeckPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_fs3 = __toESM(require("fs"), 1);
-var import_path3 = __toESM(require("path"), 1);
-var import_child_process2 = require("child_process");
+var import_fs4 = __toESM(require("fs"), 1);
+var import_path4 = __toESM(require("path"), 1);
+var import_child_process3 = require("child_process");
 var import_obsidian4 = require("obsidian");
 
 // src/constants.js
@@ -241,7 +241,12 @@ var DEFAULTS = {
   pollSeconds: 20,
   idleMinutes: 5,
   fullHistoryDays: 14,
-  showStatusBar: true,
+  showStatusBar: false,
+  showMenuBar: true,
+  menuBarPrimaryLimit: 6,
+  menuBarOtherLimit: 3,
+  menuBarHideNautilus: true,
+  menuBarMigrated: false,
   showEditorPills: true,
   showRibbonIcon: true,
   openDashboardOnStartup: false,
@@ -1968,6 +1973,14 @@ end tell`;
     return false;
   }
 }
+function sessionDeepLink(agent, sid) {
+  if (!sid) return "";
+  if (agent === "claude") return `claude://resume?session=${sid}`;
+  if (agent === "workbuddy") return `workbuddy://chat/${encodeURIComponent(sid)}`;
+  if (agent === "dsh") return "dsh://open";
+  if (agent === "codex") return "";
+  return "";
+}
 function openSession(plugin, agent, sid, app = "") {
   if (!sid) {
     plugin.notice("\u8FD9\u4E2A\u4F1A\u8BDD\u8FD8\u6CA1\u6709\u4F1A\u8BDD\u53F7\uFF0C\u7A0D\u7B49\u4E00\u79D2\u518D\u70B9");
@@ -2503,8 +2516,8 @@ ${body}`, 12e3);
   }
   async writeLink(job, sid) {
     if (!this.C.writeLink) return;
-    const path4 = job.path;
-    const text = await this.plugin.readNote(path4);
+    const path5 = job.path;
+    const text = await this.plugin.readNote(path5);
     const lines = text.split("\n");
     let at = lines.findIndex((l) => l === job.lineText);
     if (at < 0) at = lines.findIndex((l) => blockTitle({ text: l }) && l.includes(truncate(job.name, 20)));
@@ -2516,7 +2529,7 @@ ${body}`, 12e3);
     const link = linkLine(indent, job.agent, job.name, sid);
     lines.splice(block.start + 1, 0, link);
     if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
-    await this.plugin.writeNote(path4, lines.join("\n"));
+    await this.plugin.writeNote(path5, lines.join("\n"));
     job.line = block.start;
     job.lineText = lines[block.start];
     job.linkLineText = link;
@@ -2647,14 +2660,14 @@ ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
     this.refreshUI();
     return true;
   }
-  cancelForLine(path4, lineText) {
+  cancelForLine(path5, lineText) {
     for (const job of Object.values(this.jobs)) {
-      if (job.path === path4 && (job.lineText === lineText || job.line === lineText) && ["starting", "running", "needs-approval"].includes(job.state)) return job;
+      if (job.path === path5 && (job.lineText === lineText || job.line === lineText) && ["starting", "running", "needs-approval"].includes(job.state)) return job;
     }
     return null;
   }
-  jobsFor(path4) {
-    return Object.values(this.jobs).filter((j) => j.path === path4 && j.state !== "cancelled").sort((a, b) => b.startedAt - a.startedAt);
+  jobsFor(path5) {
+    return Object.values(this.jobs).filter((j) => j.path === path5 && j.state !== "cancelled").sort((a, b) => b.startedAt - a.startedAt);
   }
   jobForSession(sid) {
     return Object.values(this.jobs).find((j) => j.sessionId === sid);
@@ -3076,7 +3089,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
     brand.createSpan({ cls: "ad-brand__mark", text: "\u25C8" });
     const bt = brand.createDiv({ cls: "ad-brand__text" });
     bt.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
-    bt.createDiv({ cls: "ad-brand__sub", text: "\u667A\u80FD\u4F53\u7532\u677F \xB7 v0.1.0" });
+    bt.createDiv({ cls: "ad-brand__sub", text: "\u667A\u80FD\u4F53\u7532\u677F \xB7 v0.2.0" });
     const nav = containerEl.createDiv({ cls: "ad-set-nav" });
     const dirty = this.draft && JSON.stringify(this.draft) !== JSON.stringify(this.plugin.settings.models);
     for (const [id, label, icon] of TABS) {
@@ -3190,7 +3203,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
       const state = p.agentEnabled(id) ? "\u8FFD\u8E2A\u4E2D" : "\u5DF2\u5173\u95ED";
       this.toggle(foot, enabled, (v) => p.setAgentEnabled(id, v), primary);
       foot.createSpan({ cls: "ad-muted", text: primary ? "\u4E3B\u529B\uFF08\u5168\u91CF\uFF09" : state });
-      const path4 = card.createDiv({ cls: "ad-set-path", text: a.where[0] });
+      const path5 = card.createDiv({ cls: "ad-set-path", text: a.where[0] });
     }
     const bar = body.createDiv({ cls: "ad-btnrow" });
     this.bigButton(bar, "\u7ACB\u5373\u626B\u63CF", () => p.scanNow(true), "mod-cta");
@@ -3730,8 +3743,36 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
       p.scanNow(true);
     });
     const ui = this.card(body, "\u754C\u9762");
+    const mb = this.row(ui, "macOS \u83DC\u5355\u680F", "\u5728\u7CFB\u7EDF\u6700\u4E0A\u65B9\u663E\u793A\u4E00\u4E2A\u5C0F\u56FE\u6807\u548C\u4E00\u4E32\u7B80\u77ED\u8BF4\u660E\uFF1B\u70B9\u5F00\u662F\u4F1A\u8BDD\u8BE6\u60C5\u548C\u8DF3\u8F6C\u3002Obsidian \u53F3\u4E0B\u89D2\u4E0D\u518D\u663E\u793A Agent \u6C47\u603B\u3002\u7B2C\u4E00\u6B21\u542F\u52A8\u4F1A\u7F16\u8BD1\u4E00\u4E2A Swift \u5C0F\u52A9\u624B\uFF0C\u9700\u8981 Xcode Command Line Tools\u3002", null);
+    this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => {
+      s.showMenuBar = v;
+      p.saveSettings();
+      p.applyUiSettings();
+    });
+    for (const [key, label, desc, min, max] of [
+      ["menuBarPrimaryLimit", "\u83DC\u5355\u680F\uFF1A\u4E3B\u529B\u6700\u591A\u51E0\u4E2A", "\u4E3B\u529B Agent \u5168\u91CF\u8FFD\u8E2A\uFF0C\u6240\u4EE5\u53EF\u4EE5\u591A\u653E\u51E0\u4E2A\u4F1A\u8BDD\u3002", 3, 12],
+      ["menuBarOtherLimit", "\u83DC\u5355\u680F\uFF1A\u5176\u5B83 Agent \u6700\u591A\u51E0\u4E2A", "\u5176\u5B83 Agent \u53EA\u663E\u793A\u6B63\u5728\u8FD0\u884C\u7684\u4F1A\u8BDD\u3002", 1, 6]
+    ]) {
+      const row = this.row(ui, label, desc, null);
+      this.numberInput(row.querySelector(":scope > .ad-row__right"), s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => {
+        s[key] = v;
+        p.saveSettings();
+        p.refreshUI();
+      });
+    }
+    const mbbtn = this.row(ui, "\u83DC\u5355\u680F\u52A9\u624B", "\u5982\u679C\u83DC\u5355\u680F\u6CA1\u51FA\u73B0\uFF0C\u6216\u8005\u6539\u5B8C\u8BBE\u7F6E\u60F3\u7ACB\u523B\u91CD\u5F00\u3002", null);
+    const mbrestart = mbbtn.querySelector(":scope > .ad-row__right").createEl("button", { cls: "ad-btn", text: "\u91CD\u542F\u83DC\u5355\u680F" });
+    mbrestart.onclick = () => p.menubar?.restart();
+    const nautRow = this.row(ui, "\u5173\u95ED\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B", "Agent Deck \u63A5\u7BA1\u540E\uFF0C\u87BA\u65CB\u65E5\u7A0B\u90A3\u4E00\u683C \u{1F916} \u4F1A\u9690\u85CF\uFF1B\u5B83\u81EA\u5DF1\u7684\u65E5\u7A0B\u72B6\u6001\u680F\u548C\u8BA1\u65F6\u7167\u5E38\u3002", null);
+    this.toggle(nautRow.querySelector(":scope > .ad-row__right"), s.menuBarHideNautilus !== false, (v) => {
+      s.menuBarHideNautilus = v;
+      p.saveSettings();
+      if (v) p.hideNautilusAgentBar().catch(() => {
+      });
+      else p.restoreNautilusAgentBar().catch(() => {
+      });
+    });
     for (const [key, label, desc, fallback] of [
-      ["showStatusBar", "\u72B6\u6001\u680F", "\u53F3\u4E0B\u89D2\u663E\u793A\u51E0\u4E2A\u5728\u8DD1\u3001\u51E0\u4E2A\u7B49\u4F60\u3002", true],
       ["showEditorPills", "\u4EFB\u52A1\u884C\u4E0A\u7684\u59D4\u6D3E\u6309\u94AE", "\u5149\u6807\u505C\u5728\u5217\u8868\u9879\u65F6\uFF0C\u884C\u5C3E\u51FA\u73B0\u300C\u59D4\u6D3E\u300D\u548C\u8FDB\u5EA6\u3002", true],
       ["showRibbonIcon", "\u5DE6\u4FA7\u680F\u56FE\u6807", "\u70B9\u4E00\u4E0B\u6253\u5F00 Agent Deck\u3002", true],
       ["openDashboardOnStartup", "\u542F\u52A8\u65F6\u6253\u5F00\u9762\u677F", "Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00 Agent Deck \u4FA7\u680F\u3002", false]
@@ -3757,6 +3798,7 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
     });
     const data = this.card(body, "\u6570\u636E", "usage.json \u5B58\u5728\u63D2\u4EF6\u76EE\u5F55\u91CC\uFF1B\u65E5\u5FD7\u5220\u4E86\u5386\u53F2\u8FD8\u5728\u3002");
     const btn = data.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(btn, "\u91CD\u65B0\u542F\u52A8\u83DC\u5355\u680F\u52A9\u624B", () => p.menubar?.restart());
     this.bigButton(btn, "\u91CD\u65B0\u8BA1\u7B97\u5168\u90E8\u5386\u53F2", () => p.rebuildUsage(), "mod-warning");
     this.bigButton(btn, "\u6253\u5F00\u63D2\u4EF6\u76EE\u5F55", () => p.openPluginDir());
     this.bigButton(btn, "\u5BFC\u5165\u87BA\u65CB\u65E5\u7A0B\u7684\u5386\u53F2", () => p.importNautilus());
@@ -3792,12 +3834,12 @@ var AgentDeckSettingsTab = class extends import_obsidian2.PluginSettingTab {
       r.createSpan({ text: line });
     }
     const meta = c.createDiv({ cls: "ad-about-meta" });
-    meta.createDiv({ text: "\u7248\u672C 0.1.0 \xB7 MIT License" });
+    meta.createDiv({ text: "\u7248\u672C 0.2.0 \xB7 MIT License" });
     meta.createDiv({ text: "\u4ECE Nautilus Spiral\uFF08\u87BA\u65CB\u65E5\u7A0B\uFF09\u7684 AI \u8FFD\u8E2A\u90E8\u5206\u62C6\u51FA\uFF1B\u4EA4\u4E92\u53C2\u8003\u4E86\u5C0F\u7EA2\u4E66 @ZZ.X \u7684\u4E24\u6761\u5E16\u5B50\u3002" });
     const btns = c.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, "\u6253\u5F00 GitHub \u4ED3\u5E93", () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));
     this.bigButton(btns, "\u590D\u5236\u8C03\u8BD5\u4FE1\u606F", async () => {
-      const text = JSON.stringify({ version: "0.1.0", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
+      const text = JSON.stringify({ version: "0.2.0", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
       await navigator.clipboard.writeText(text);
       new import_obsidian2.Notice("\u8C03\u8BD5\u4FE1\u606F\u5DF2\u590D\u5236");
     });
@@ -3894,10 +3936,10 @@ var AddModelModal = class extends import_obsidian2.Modal {
 // src/dialog.js
 var import_obsidian3 = require("obsidian");
 var DelegateOptionsModal = class extends import_obsidian3.Modal {
-  constructor(app, plugin, path4, line) {
+  constructor(app, plugin, path5, line) {
     super(app);
     this.plugin = plugin;
-    this.path = path4;
+    this.path = path5;
     this.line = line;
     this.agent = plugin.defaultTarget();
     this.model = plugin.defaultModel(this.agent);
@@ -4077,10 +4119,10 @@ function sigFor(x) {
   return [x.kind, x.job && x.job.id, x.job && x.job.state, x.session && x.session.sid, x.session && x.session.state, x.session && x.session.step, x.session && x.session.tokens, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
 }
 var PillWidget = class extends import_view.WidgetType {
-  constructor(plugin, path4, line, info) {
+  constructor(plugin, path5, line, info) {
     super();
     this.plugin = plugin;
-    this.path = path4;
+    this.path = path5;
     this.line = line;
     this.info = info;
     this.sig = sigFor(info);
@@ -4096,8 +4138,8 @@ var PillWidget = class extends import_view.WidgetType {
     el.setAttribute("contenteditable", "false");
     el.dataset.line = String(this.line);
     const job = info.job;
-    const session2 = info.session;
-    const agent = job && job.agent || session2 && session2.agent || p.defaultTarget();
+    const session = info.session;
+    const agent = job && job.agent || session && session.agent || p.defaultTarget();
     const a = AGENTS[agent] || AGENTS.claude;
     el.style.setProperty("--ad-agent", a.color);
     el.style.setProperty("--ad-agent-soft", a.soft);
@@ -4120,7 +4162,7 @@ var PillWidget = class extends import_view.WidgetType {
     const right = document.createElement("span");
     right.className = "ad-pill__right";
     el.appendChild(right);
-    const modelName = job && p.modelLabel(job.model) || session2 && p.modelLabel(session2.model) || "";
+    const modelName = job && p.modelLabel(job.model) || session && p.modelLabel(session.model) || "";
     if (info.kind === "idle") {
       label.textContent = "\u59D4\u6D3E";
       meta.textContent = modelName || (agent === "dsh" ? "DeepSeek" : "Claude");
@@ -4163,14 +4205,14 @@ var PillWidget = class extends import_view.WidgetType {
       el.classList.add("is-pulse");
     } else if (info.kind === "done") {
       label.textContent = "\u5B8C\u6210";
-      meta.textContent = job && job.result ? truncate(job.result, 28) : session2 && session2.lastText ? truncate(session2.lastText, 28) : "\u6253\u5F00\u4F1A\u8BDD";
+      meta.textContent = job && job.result ? truncate(job.result, 28) : session && session.lastText ? truncate(session.lastText, 28) : "\u6253\u5F00\u4F1A\u8BDD";
       const open = document.createElement("span");
       open.className = "ad-pill__open";
       open.textContent = "\u2197";
       right.appendChild(open);
     } else if (info.kind === "error") {
       label.textContent = "\u51FA\u9519";
-      meta.textContent = truncate(job && job.error || session2 && session2.err || "\u70B9\u51FB\u91CD\u8BD5", 30);
+      meta.textContent = truncate(job && job.error || session && session.err || "\u70B9\u51FB\u91CD\u8BD5", 30);
       const retry = document.createElement("span");
       retry.className = "ad-pill__open";
       retry.textContent = "\u21BB";
@@ -4183,12 +4225,12 @@ var PillWidget = class extends import_view.WidgetType {
       right.appendChild(retry);
     } else {
       label.textContent = "\u4F1A\u8BDD";
-      meta.textContent = session2 && session2.step ? truncate(session2.step, 26) : "";
+      meta.textContent = session && session.step ? truncate(session.step, 26) : "";
     }
-    if (session2 && session2.tokens) {
+    if (session && session.tokens) {
       const tok = document.createElement("span");
       tok.className = "ad-pill__tok";
-      tok.textContent = fmtTok(session2.tokens);
+      tok.textContent = fmtTok(session.tokens);
       right.appendChild(tok);
     }
     el.addEventListener("mousedown", (e) => {
@@ -4197,7 +4239,7 @@ var PillWidget = class extends import_view.WidgetType {
       e.stopPropagation();
       if (info.kind === "idle") p.delegateAtLine(this.path, this.line).catch((err2) => p.notice(String(err2.message || err2)));
       else if (info.kind === "error") p.openDelegateModal(this.path, this.line);
-      else p.openJob(job && job.id, session2 && session2.sid);
+      else p.openJob(job && job.id, session && session.sid);
     });
     el.title = p.pillTitle(info);
     return el;
@@ -4212,11 +4254,11 @@ var PillWidget = class extends import_view.WidgetType {
 function buildDecorations(view, plugin) {
   const builder = new import_state.RangeSetBuilder();
   const info = view.state.field(plugin.editorInfoField, false);
-  const path4 = info && info.file && info.file.path;
-  if (!path4 || !plugin.settings.showEditorPills) return builder.finish();
+  const path5 = info && info.file && info.file.path;
+  if (!path5 || !plugin.settings.showEditorPills) return builder.finish();
   const doc = view.state.doc;
   const cursorLine = doc.lineAt(view.state.selection.main.head).number - 1;
-  const map = plugin.lineMap(path4, doc);
+  const map = plugin.lineMap(path5, doc);
   const seen = /* @__PURE__ */ new Set();
   for (const { from, to } of view.visibleRanges) {
     let pos = from;
@@ -4228,20 +4270,20 @@ function buildDecorations(view, plugin) {
         const text = line.text;
         const bullet = BULLET_RE.test(text);
         const active = n === cursorLine;
-        const job = plugin.jobAtLine(path4, n, text);
-        const session2 = map.sessionByParent.get(n) || null;
+        const job = plugin.jobAtLine(path5, n, text);
+        const session = map.sessionByParent.get(n) || null;
         let state = null;
         if (job && ["starting", "running"].includes(job.state)) state = { kind: job.state === "starting" ? "starting" : "running", job };
-        else if (job && job.state === "needs-approval") state = { kind: "needs-approval", job, session: session2 };
-        else if (job && job.state === "done") state = { kind: "done", job, session: session2 };
-        else if (job && job.state === "error") state = { kind: "error", job, session: session2 };
+        else if (job && job.state === "needs-approval") state = { kind: "needs-approval", job, session };
+        else if (job && job.state === "done") state = { kind: "done", job, session };
+        else if (job && job.state === "error") state = { kind: "error", job, session };
         else if (job && job.state === "cancelled") state = null;
-        else if (session2) {
-          const st = session2.state || "idle";
-          if (st === "run") state = { kind: "running", job, session: session2 };
-          else if (st === "wait" || st === "quiet") state = { kind: "waiting", job, session: session2 };
-          else if (st === "error" || st === "limit") state = { kind: "error", job, session: session2 };
-          else state = { kind: "bound", job, session: session2 };
+        else if (session) {
+          const st = session.state || "idle";
+          if (st === "run") state = { kind: "running", job, session };
+          else if (st === "wait" || st === "quiet") state = { kind: "waiting", job, session };
+          else if (st === "error" || st === "limit") state = { kind: "error", job, session };
+          else state = { kind: "bound", job, session };
         } else if (active && bullet) state = { kind: "idle" };
         if (state && (active || state.kind !== "idle")) {
           if (active && bullet && state.kind === "idle") {
@@ -4249,7 +4291,7 @@ function buildDecorations(view, plugin) {
           if (state.kind === "idle" && !active) {
           } else {
             if (state.kind !== "idle" || active) {
-              const widget = new PillWidget(plugin, path4, n, state);
+              const widget = new PillWidget(plugin, path5, n, state);
               builder.add(line.to, line.to, import_view.Decoration.widget({ widget, side: 1, block: false }));
             }
           }
@@ -4286,8 +4328,209 @@ async function dispatchRefresh(plugin) {
   });
 }
 
-// src/main.js
+// src/menubar.js
+var import_fs3 = __toESM(require("fs"), 1);
+var import_path3 = __toESM(require("path"), 1);
+var import_os3 = __toESM(require("os"), 1);
+var import_crypto = __toESM(require("crypto"), 1);
+var import_child_process2 = require("child_process");
+
+// src/menubar.swift
+var menubar_default = '// Agent Deck menu bar helper.\n// Compiled at runtime from the plugin with:\n//   swiftc -O -swift-version 5 -framework AppKit -framework SwiftUI -o AgentDeckMenuBar AgentDeckMenuBar.swift\n// It reads a JSON snapshot written by the Obsidian plugin and shows a small\n// status item with a detailed popover. It never talks to the network.\n\nimport AppKit\nimport SwiftUI\nimport Foundation\nimport Darwin\n\nstruct MenuSession: Decodable, Identifiable {\n    let id: String\n    let agent: String\n    let agentName: String\n    let color: String\n    let glyph: String\n    let title: String\n    let detail: String\n    let state: String\n    let stateLabel: String\n    let primary: Bool\n    let url: String?\n    let copy: String?\n}\n\nstruct MenuAgent: Decodable, Identifiable {\n    let id: String\n    let short: String\n    let name: String\n    let color: String\n    let glyph: String\n    let running: Int\n    let waiting: Int\n    let primary: Bool\n}\n\nstruct MenuState: Decodable {\n    let updatedAt: Double\n    let short: String\n    let summary: String\n    let running: Int\n    let waiting: Int\n    let sessions: [MenuSession]\n    let agents: [MenuAgent]?\n\n    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "\u7B49\u5F85 Agent Deck\u2026", running: 0, waiting: 0, sessions: [], agents: [])\n}\n\nfinal class MenuModel: ObservableObject {\n    @Published var state: MenuState = .empty\n    let statePath: String\n    let parentPid: Int32\n    var timer: Timer?\n    var onUpdate: (() -> Void)?\n\n    init(statePath: String, parentPid: Int32) {\n        self.statePath = statePath\n        self.parentPid = parentPid\n    }\n\n    func start() {\n        reload()\n        let t = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in\n            self?.tick()\n        }\n        RunLoop.main.add(t, forMode: .common)\n        timer = t\n    }\n\n    func tick() {\n        if parentPid > 0 && kill(parentPid, 0) != 0 {\n            NSApp.terminate(nil)\n            return\n        }\n        reload()\n    }\n\n    func reload() {\n        guard let data = try? Data(contentsOf: URL(fileURLWithPath: statePath)),\n              let next = try? JSONDecoder().decode(MenuState.self, from: data) else { return }\n        if next.updatedAt != state.updatedAt {\n            state = next\n            onUpdate?()\n        }\n    }\n}\n\nfunc openURL(_ string: String?) {\n    guard let s = string, let url = URL(string: s) else { return }\n    NSWorkspace.shared.open(url)\n}\n\nfunc openSession(_ session: MenuSession) {\n    if let copy = session.copy, !copy.isEmpty {\n        let pb = NSPasteboard.general\n        pb.clearContents()\n        pb.setString(copy, forType: .string)\n    }\n    if let url = session.url, !url.isEmpty {\n        openURL(url)\n    }\n}\n\nfunc stateColor(_ state: String) -> Color {\n    switch state {\n    case "run": return .green\n    case "wait", "needs-approval": return .orange\n    case "error", "limit": return .red\n    default: return .secondary\n    }\n}\n\nextension Color {\n    init(hex: String) {\n        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)\n        if s.hasPrefix("#") { s.removeFirst() }\n        var value: UInt64 = 0\n        Scanner(string: s).scanHexInt64(&value)\n        let r = Double((value >> 16) & 0xff) / 255.0\n        let g = Double((value >> 8) & 0xff) / 255.0\n        let b = Double(value & 0xff) / 255.0\n        self.init(red: r, green: g, blue: b)\n    }\n}\n\nstruct SessionRowView: View {\n    let session: MenuSession\n\n    var body: some View {\n        Button(action: { openSession(session) }) {\n            HStack(alignment: .top, spacing: 8) {\n                Circle()\n                    .fill(Color(hex: session.color))\n                    .frame(width: 7, height: 7)\n                    .padding(.top, 5)\n                VStack(alignment: .leading, spacing: 2) {\n                    HStack(spacing: 6) {\n                        Text(session.title)\n                            .font(.system(size: 11.5, weight: .semibold))\n                            .lineLimit(1)\n                        Spacer(minLength: 4)\n                        Text(session.stateLabel)\n                            .font(.system(size: 8.5, weight: .bold))\n                            .foregroundColor(stateColor(session.state))\n                    }\n                    Text(session.detail)\n                        .font(.system(size: 9.5))\n                        .foregroundColor(.secondary)\n                        .lineLimit(1)\n                }\n                Image(systemName: "arrow.up.right")\n                    .font(.system(size: 8.5))\n                    .foregroundColor(.secondary)\n                    .padding(.top, 3)\n            }\n            .padding(8)\n            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.07)))\n            .contentShape(Rectangle())\n        }\n        .buttonStyle(.plain)\n    }\n}\n\nstruct DeckView: View {\n    @ObservedObject var model: MenuModel\n\n    @ViewBuilder\n    func section(_ title: String, _ rows: [MenuSession]) -> some View {\n        HStack {\n            Text(title)\n                .font(.system(size: 8.5, weight: .bold))\n                .foregroundColor(.secondary)\n                .textCase(.uppercase)\n            Spacer()\n            Text("\\(rows.count)")\n                .font(.system(size: 8.5, weight: .semibold))\n                .foregroundColor(.secondary)\n        }\n        .padding(.top, 4)\n        .padding(.horizontal, 2)\n        ForEach(rows) { s in\n            SessionRowView(session: s)\n        }\n    }\n\n    var body: some View {\n        VStack(alignment: .leading, spacing: 0) {\n            HStack(spacing: 9) {\n                ZStack {\n                    RoundedRectangle(cornerRadius: 8)\n                        .fill(LinearGradient(colors: [Color(red: 0.42, green: 0.48, blue: 1.0), Color(red: 0.62, green: 0.36, blue: 1.0)], startPoint: .topLeading, endPoint: .bottomTrailing))\n                    Image(systemName: "sparkles")\n                        .font(.system(size: 12, weight: .bold))\n                        .foregroundColor(.white)\n                }\n                .frame(width: 28, height: 28)\n                VStack(alignment: .leading, spacing: 1) {\n                    Text("Agent Deck")\n                        .font(.system(size: 13, weight: .bold))\n                    Text(model.state.summary)\n                        .font(.system(size: 9.5))\n                        .foregroundColor(.secondary)\n                        .lineLimit(1)\n                }\n                Spacer()\n                VStack(alignment: .trailing, spacing: 1) {\n                    Text("\\(model.state.running) \u5728\u8DD1")\n                        .font(.system(size: 10, weight: .semibold))\n                        .foregroundColor(.green)\n                    if model.state.waiting > 0 {\n                        Text("\\(model.state.waiting) \u7B49\u4F60")\n                            .font(.system(size: 9.5, weight: .semibold))\n                            .foregroundColor(.orange)\n                    }\n                }\n            }\n            if let agents = model.state.agents, !agents.isEmpty {\n                HStack(spacing: 5) {\n                    ForEach(agents) { a in\n                        HStack(spacing: 3) {\n                            Circle().fill(Color(hex: a.color)).frame(width: 5, height: 5)\n                            Text(a.short)\n                                .font(.system(size: 8.5, weight: a.primary ? .semibold : .regular))\n                                .foregroundColor(a.primary ? .primary : .secondary)\n                            Text("\\(a.running)")\n                                .font(.system(size: 8.5, weight: .bold))\n                                .foregroundColor(a.running > 0 ? .green : .secondary)\n                            if a.waiting > 0 {\n                                Text("\xB7 \\(a.waiting) \u7B49")\n                                    .font(.system(size: 8))\n                                    .foregroundColor(.orange)\n                            }\n                        }\n                        .padding(.horizontal, 5)\n                        .padding(.vertical, 2)\n                        .background(Capsule().fill(Color.secondary.opacity(a.primary ? 0.12 : 0.06)))\n                    }\n                    Spacer()\n                }\n                .padding(.top, 7)\n            }\n            Divider().padding(.vertical, 9)\n            if model.state.sessions.isEmpty {\n                VStack(spacing: 4) {\n                    Text("\u73B0\u5728\u6CA1\u6709\u8981\u663E\u793A\u7684\u4F1A\u8BDD")\n                        .font(.system(size: 11, weight: .semibold))\n                    Text("\u4E3B\u529B Agent \u7684\u4F1A\u8BDD\u4F1A\u7559\u5728\u8FD9\u91CC\uFF1B\u5176\u5B83 Agent \u53EA\u5728\u6B63\u5728\u8FD0\u884C\u65F6\u51FA\u73B0\u3002")\n                        .font(.system(size: 9.5))\n                        .foregroundColor(.secondary)\n                        .multilineTextAlignment(.center)\n                }\n                .frame(maxWidth: .infinity)\n                .padding(.vertical, 22)\n            } else {\n                let primary = model.state.sessions.filter { $0.primary }\n                let others = model.state.sessions.filter { !$0.primary }\n                ScrollView {\n                    LazyVStack(alignment: .leading, spacing: 5) {\n                        if !primary.isEmpty {\n                            section("\u4E3B\u529B \xB7 \u5168\u91CF\u8FFD\u8E2A", primary)\n                        }\n                        if !others.isEmpty {\n                            section("\u5176\u5B83 Agent \xB7 \u53EA\u5728\u8DD1", others)\n                        }\n                    }\n                }\n                .frame(maxHeight: 430)\n            }\n            Divider().padding(.vertical, 9)\n            Text("\u4E3B\u529B\u5168\u91CF\u8FFD\u8E2A \xB7 \u5176\u5B83 Agent \u53EA\u5728\u8FD0\u884C\u4E2D\u5217\u51FA")\n                .font(.system(size: 8))\n                .foregroundColor(.secondary)\n                .padding(.bottom, 7)\n            HStack(spacing: 8) {\n                Button("\u6253\u5F00\u9762\u677F") { openURL("obsidian://agent-deck") }\n                    .buttonStyle(.borderedProminent)\n                    .controlSize(.small)\n                Button("\u91CD\u65B0\u626B\u63CF") { openURL("obsidian://agent-deck?do=scan") }\n                    .buttonStyle(.bordered)\n                    .controlSize(.small)\n                Spacer()\n                Button("\u9690\u85CF") { openURL("obsidian://agent-deck?do=hide") }\n                    .buttonStyle(.plain)\n                    .font(.system(size: 9))\n                    .foregroundColor(.secondary)\n            }\n        }\n        .padding(14)\n        .frame(width: 390)\n    }\n}\n\nfinal class AppDelegate: NSObject, NSApplicationDelegate {\n    var statusItem: NSStatusItem!\n    var popover: NSPopover!\n    var model: MenuModel!\n    var statePath: String = NSString(string: "~/.agent-deck/menubar.json").expandingTildeInPath\n    var parentPid: Int32 = 0\n    var preview = false\n\n    func applicationDidFinishLaunching(_ notification: Notification) {\n        let args = CommandLine.arguments\n        if let i = args.firstIndex(of: "--state"), i + 1 < args.count { statePath = args[i + 1] }\n        if let i = args.firstIndex(of: "--parent"), i + 1 < args.count { parentPid = Int32(args[i + 1]) ?? 0 }\n        preview = args.contains("--preview")\n        if let i = args.firstIndex(of: "--pidfile"), i + 1 < args.count {\n            try? "\\(getpid())".write(toFile: args[i + 1], atomically: true, encoding: .utf8)\n        }\n\n        model = MenuModel(statePath: statePath, parentPid: parentPid)\n\n        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)\n        if let button = statusItem.button {\n            let image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Agent Deck")\n            image?.isTemplate = true\n            button.image = image\n            button.imagePosition = .imageLeading\n            button.title = " Agent Deck"\n            button.font = NSFont.systemFont(ofSize: 11, weight: .medium)\n            button.target = self\n            button.action = #selector(togglePopover)\n        }\n\n        let host = NSHostingController(rootView: DeckView(model: model))\n        popover = NSPopover()\n        popover.contentViewController = host\n        popover.behavior = .transient\n        popover.animates = true\n        popover.contentSize = NSSize(width: 390, height: 470)\n\n        model.onUpdate = { [weak self] in self?.refresh() }\n        model.start()\n        refresh()\n        if preview {\n            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in\n                self?.showPopover()\n            }\n        }\n    }\n\n    func refresh() {\n        let short = model.state.short.trimmingCharacters(in: .whitespacesAndNewlines)\n        statusItem.button?.title = short.isEmpty ? " Agent Deck" : " " + short\n        if popover != nil {\n            let n = min(model.state.sessions.count, 8)\n            let h = max(240, min(640, 206 + CGFloat(n) * 54 + (n > 0 ? 18 : 0)))\n            popover.contentSize = NSSize(width: 390, height: h)\n        }\n    }\n\n    func showPopover() {\n        guard let button = statusItem.button else { return }\n        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)\n        NSApp.activate(ignoringOtherApps: true)\n    }\n\n    @objc func togglePopover() {\n        if popover.isShown {\n            popover.performClose(nil)\n        } else {\n            showPopover()\n        }\n    }\n}\n\nlet app = NSApplication.shared\nlet delegate = AppDelegate()\napp.delegate = delegate\napp.setActivationPolicy(.accessory)\napp.run()\n';
+
+// src/menubar.js
 var fsp3 = import_fs3.default.promises;
+var home3 = () => import_os3.default.homedir();
+var INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleName</key><string>AgentDeckMenuBar</string>
+<key>CFBundleDisplayName</key><string>Agent Deck</string>
+<key>CFBundleIdentifier</key><string>com.matsurimw.agentdeck.menubar</string>
+<key>CFBundleExecutable</key><string>AgentDeckMenuBar</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleVersion</key><string>0.2.0</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
+<key>LSUIElement</key><true/>
+<key>LSMinimumSystemVersion</key><string>13.0</string>
+<key>NSHighResolutionCapable</key><true/>
+</dict></plist>
+`;
+var MenuBarBridge = class {
+  constructor(plugin) {
+    this.plugin = plugin;
+    this.dir = import_path3.default.join(home3(), ".agent-deck");
+    this.appPath = import_path3.default.join(this.dir, "AgentDeckMenuBar.app");
+    this.binPath = import_path3.default.join(this.appPath, "Contents", "MacOS", "AgentDeckMenuBar");
+    this.infoPath = import_path3.default.join(this.appPath, "Contents", "Info.plist");
+    this.srcPath = import_path3.default.join(this.dir, "AgentDeckMenuBar.swift");
+    this.statePath = import_path3.default.join(this.dir, "menubar.json");
+    this.pidPath = import_path3.default.join(this.dir, "menubar.pid");
+    this.hashPath = import_path3.default.join(this.dir, "menubar.sha");
+    this.timer = null;
+    this.lastJson = "";
+    this.disabled = false;
+    this.starting = null;
+  }
+  get enabled() {
+    return process.platform === "darwin" && this.plugin.settings.showMenuBar !== false;
+  }
+  isAlive() {
+    try {
+      const pid = Number(import_fs3.default.readFileSync(this.pidPath, "utf8").trim());
+      if (pid > 0) {
+        process.kill(pid, 0);
+        return true;
+      }
+    } catch {
+    }
+    return false;
+  }
+  async start() {
+    if (!this.enabled) return;
+    if (this.timer && this.isAlive()) {
+      this.update(true);
+      return;
+    }
+    if (this.starting) return this.starting;
+    this.starting = this._start().catch((e) => {
+      console.error("[agent-deck] menu bar", e);
+      this.plugin.notice("macOS \u83DC\u5355\u680F\u542F\u52A8\u5931\u8D25\uFF1A" + (e && e.message || e), 12e3);
+    }).finally(() => {
+      this.starting = null;
+    });
+    return this.starting;
+  }
+  async _start() {
+    await fsp3.mkdir(this.dir, { recursive: true });
+    const hash = import_crypto.default.createHash("sha256").update(menubar_default).digest("hex").slice(0, 16);
+    let oldHash = "";
+    try {
+      oldHash = (await fsp3.readFile(this.hashPath, "utf8")).trim();
+    } catch {
+    }
+    const hasBinary = import_fs3.default.existsSync(this.binPath);
+    if (!hasBinary || oldHash !== hash) {
+      await this.compile(hash);
+    }
+    this.update(true);
+    this.launch();
+    clearInterval(this.timer);
+    this.timer = setInterval(() => this.update(), 1800);
+  }
+  async compile(hash) {
+    if (!import_fs3.default.existsSync("/usr/bin/swiftc")) {
+      throw new Error("\u627E\u4E0D\u5230 /usr/bin/swiftc\u3002\u5B89\u88C5 Xcode Command Line Tools\uFF08xcode-select --install\uFF09\u540E\u518D\u8BD5\u3002");
+    }
+    this.plugin.notice("\u6B63\u5728\u51C6\u5907 macOS \u83DC\u5355\u680F\uFF08\u7B2C\u4E00\u6B21\u8981\u7F16\u8BD1\u4E00\u4E2A\u5C0F\u52A9\u624B\uFF0C\u7EA6\u51E0\u79D2\uFF09\u2026", 6e3);
+    this.killExisting();
+    await fsp3.mkdir(import_path3.default.join(this.appPath, "Contents", "MacOS"), { recursive: true });
+    await fsp3.writeFile(this.srcPath, menubar_default, "utf8");
+    await fsp3.writeFile(this.infoPath, INFO_PLIST, "utf8");
+    const tmp = this.binPath + ".new";
+    try {
+      await fsp3.unlink(tmp);
+    } catch {
+    }
+    const res = await new Promise((resolve) => {
+      const child = (0, import_child_process2.spawn)("/usr/bin/swiftc", ["-O", "-swift-version", "5", "-framework", "AppKit", "-framework", "SwiftUI", "-o", tmp, this.srcPath], { stdio: ["ignore", "pipe", "pipe"] });
+      let err2 = "";
+      const timer = setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+        }
+        resolve({ ok: false, err: "\u7F16\u8BD1\u8D85\u8FC7 90 \u79D2" });
+      }, 9e4);
+      child.stdout.on("data", () => {
+      });
+      child.stderr.on("data", (b) => {
+        err2 += b.toString();
+        if (err2.length > 8e3) err2 = err2.slice(-8e3);
+      });
+      child.on("error", (e) => {
+        clearTimeout(timer);
+        resolve({ ok: false, err: String(e && e.message || e) });
+      });
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        resolve({ ok: code === 0, err: err2 });
+      });
+    });
+    if (!res.ok) {
+      this.disabled = true;
+      throw new Error((res.err || "swiftc \u7F16\u8BD1\u5931\u8D25").slice(0, 700));
+    }
+    try {
+      await fsp3.unlink(this.binPath);
+    } catch {
+    }
+    await fsp3.rename(tmp, this.binPath);
+    await fsp3.writeFile(this.hashPath, hash, "utf8");
+  }
+  launch() {
+    this.lastLaunch = Date.now();
+    this.killExisting();
+    const args = ["-n", "-g", this.appPath, "--args", "--state", this.statePath, "--parent", String(process.pid), "--pidfile", this.pidPath];
+    try {
+      (0, import_child_process2.execFile)("/usr/bin/open", args, () => {
+      });
+    } catch (e) {
+      console.error("[agent-deck] launch menu bar", e);
+    }
+  }
+  killExisting() {
+    try {
+      const pid = Number(import_fs3.default.readFileSync(this.pidPath, "utf8").trim());
+      if (pid > 0) {
+        try {
+          process.kill(pid, "SIGTERM");
+        } catch {
+        }
+      }
+    } catch {
+    }
+    try {
+      (0, import_child_process2.execFile)("/usr/bin/pkill", ["-f", this.binPath], () => {
+      });
+    } catch {
+    }
+    try {
+      import_fs3.default.unlinkSync(this.pidPath);
+    } catch {
+    }
+  }
+  update(force = false) {
+    if (!this.enabled || this.disabled) return;
+    try {
+      const state = this.plugin.buildMenuBarState();
+      const json = JSON.stringify(state);
+      if (!force && json === this.lastJson) return;
+      this.lastJson = json;
+      const tmp = this.statePath + ".tmp";
+      import_fs3.default.mkdirSync(this.dir, { recursive: true });
+      import_fs3.default.writeFileSync(tmp, json, "utf8");
+      import_fs3.default.renameSync(tmp, this.statePath);
+      if (this.timer && !this.isAlive() && Date.now() - (this.lastLaunch || 0) > 1e4) this.launch();
+    } catch (e) {
+      console.error("[agent-deck] menu bar state", e);
+    }
+  }
+  stop() {
+    clearInterval(this.timer);
+    this.timer = null;
+    this.killExisting();
+  }
+  async restart() {
+    this.stop();
+    this.disabled = false;
+    this.lastJson = "";
+    await this.start();
+  }
+};
+
+// src/main.js
+var fsp4 = import_fs4.default.promises;
 var AgentDeckPlugin = class extends import_obsidian4.Plugin {
   async onload() {
     const data = await this.loadData();
@@ -4301,19 +4544,19 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     this._lineMaps = {};
     this.vaultPath = this.app.vault.adapter.getBasePath ? this.app.vault.adapter.getBasePath() : "";
     this.manifestDir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
-    this.pluginDir = import_path3.default.join(this.vaultPath, this.manifestDir);
-    this.usageFile = import_path3.default.join(this.pluginDir, "usage.json");
+    this.pluginDir = import_path4.default.join(this.vaultPath, this.manifestDir);
+    this.usageFile = import_path4.default.join(this.pluginDir, "usage.json");
     this.store = new UsageStore(this, this.settings);
     await this.store.load(this.usageFile);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
     this.editorInfoField = import_obsidian4.editorInfoField;
     this.delegator = new Delegator(this);
+    this.menubar = new MenuBarBridge(this);
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
     this.registerEditorExtension(createEditorExtension(this));
     this.setupRibbon();
-    this.setupStatusBar();
     this.addCommand({ id: "open-dashboard", name: "\u6253\u5F00 Agent Deck \u9762\u677F", callback: () => this.activateView() });
     this.addCommand({ id: "open-settings", name: "\u6253\u5F00 Agent Deck \u8BBE\u7F6E", callback: () => this.openSettings() });
     this.addCommand({ id: "open-models", name: "\u6253\u5F00 Agent Deck \u7684 Models \u8BBE\u7F6E", callback: () => this.openSettings("models") });
@@ -4325,8 +4568,22 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     this.addCommand({ id: "scan-now", name: "\u91CD\u65B0\u626B\u63CF\u672C\u673A Agent \u4F1A\u8BDD", callback: () => this.scanNow(true) });
     this.addCommand({ id: "import-nautilus", name: "\u5BFC\u5165\u87BA\u65CB\u65E5\u7A0B\u7684\u5386\u53F2\u7528\u91CF", callback: () => this.importNautilus(true) });
     this.addCommand({ id: "clean-jobs", name: "\u6E05\u7406\u5DF2\u7ED3\u675F\u7684\u59D4\u6D3E\u8BB0\u5F55", callback: () => this.cleanJobs() });
+    this.registerObsidianProtocolHandler("agent-deck", async (params) => {
+      if (params && params.do === "scan") return this.scanNow(true);
+      if (params && params.do === "hide") {
+        this.settings.showMenuBar = false;
+        await this.saveSettings();
+        this.menubar?.stop();
+        this.notice("\u5DF2\u9690\u85CF macOS \u83DC\u5355\u680F\uFF1B\u53EF\u5728 Agent Deck \u2192 \u8FFD\u8E2A \u91CC\u91CD\u65B0\u6253\u5F00", 8e3);
+        return;
+      }
+      return this.activateView();
+    });
     this.app.workspace.onLayoutReady(async () => {
       if (this.settings.openDashboardOnStartup) this.activateView();
+      if (this.settings.showMenuBar !== false) this.menubar.start().catch((e) => console.error("[agent-deck] menubar", e));
+      if (this.settings.menuBarHideNautilus !== false) setTimeout(() => this.hideNautilusAgentBar().catch(() => {
+      }), 2500);
       this.scheduleScan();
       setTimeout(() => this.scanNow(false), 1200);
       if (this.settings.importNautilus !== false && !this.store.imported?.nautilus) {
@@ -4339,6 +4596,7 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
   onunload() {
     clearInterval(this._scanTimer);
     clearTimeout(this._refreshTimer);
+    this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
       try {
         if (runner.constructor && runner.constructor.name === "DshRunner") runner.cancel();
@@ -4347,10 +4605,6 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     }
     for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) try {
       leaf.detach();
-    } catch {
-    }
-    try {
-      this.statusEl?.remove();
     } catch {
     }
     try {
@@ -4367,27 +4621,10 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     if (this.settings.showRibbonIcon === false) return;
     this.ribbonEl = this.addRibbonIcon("gauge", "Agent Deck", () => this.activateView());
   }
-  setupStatusBar() {
-    if (this.statusEl) {
-      this.statusEl.remove();
-      this.statusEl = null;
-    }
-    if (this.settings.showStatusBar === false) return;
-    this.statusEl = this.addStatusBarItem();
-    this.statusEl.addClass("ad-statusbar");
-    this.statusEl.setText("\u25C8 Agent Deck");
-    this.statusEl.onclick = (e) => {
-      if (e.altKey) {
-        const waiting = this.liveSessions({ hours: 24 }).find((x) => ["wait", "quiet", "needs-approval"].includes(x.state));
-        if (waiting) return this.openSession(waiting.agent, waiting.sid, waiting.app, waiting);
-      }
-      this.activateView();
-    };
-  }
   applyUiSettings() {
     this.setupRibbon();
-    this.setupStatusBar();
-    this.updateStatusBar();
+    if (this.settings.showMenuBar !== false) this.menubar?.start().catch((e) => console.error("[agent-deck] menubar", e));
+    else this.menubar?.stop();
     this.refreshUI();
   }
   async activateView() {
@@ -4435,7 +4672,6 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
       this.store.merge(touched, this.usage);
       this.store.prune();
       await this.store.save();
-      this.updateStatusBar();
       this.refreshUI();
       if (force) new import_obsidian4.Notice(`Agent Deck\uFF1A\u8BFB\u5230 ${this.usage.files.size} \u4E2A\u65E5\u5FD7\uFF0C${touched.size} \u5929\u6709\u5185\u5BB9`, 4e3);
     } catch (e) {
@@ -4456,10 +4692,10 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     new import_obsidian4.Notice("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97");
   }
   async importNautilus(manual = false) {
-    const dir = import_path3.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
+    const dir = import_path4.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
     let raw;
     try {
-      raw = await fsp3.readFile(import_path3.default.join(dir, "ai-usage.json"), "utf8");
+      raw = await fsp4.readFile(import_path4.default.join(dir, "ai-usage.json"), "utf8");
     } catch {
       if (manual) new import_obsidian4.Notice("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json");
       return;
@@ -4664,18 +4900,19 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     const out = [...bySid.values()].filter((x) => (x.lastAt || 0) >= since);
     return out.sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).slice(0, limit);
   }
-  openSession(agent, sid, app, session2) {
-    return openSession(this, agent, sid, app, session2);
+  openSession(agent, sid, app, session) {
+    return openSession(this, agent, sid, app, session);
   }
   openJob(jobId, sid) {
     const job = jobId ? this.jobs[jobId] : null;
-    const agent = job ? job.agent : (this.usage.meta.get(sid) || {}).agent || "claude";
     const sessionId = job && job.sessionId || sid;
     if (!sessionId) {
       this.notice("\u4F1A\u8BDD\u8FD8\u6CA1\u6709\u4F1A\u8BDD\u53F7\uFF0C\u7A0D\u7B49\u4E00\u79D2\u518D\u70B9");
       return;
     }
-    return openSession(this, agent, sessionId, job?.app || (this.usage.meta.get(sessionId) || {}).app || "", session);
+    const meta = this.usage.meta.get(sessionId) || null;
+    const agent = job ? job.agent : meta && meta.agent || "claude";
+    return openSession(this, agent, sessionId, job && job.app || meta && meta.app || "", meta);
   }
   jobProgress(job) {
     if (!job || !job.sessionId) return null;
@@ -4700,8 +4937,8 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     return parts.filter(Boolean).join("\n");
   }
   // ---------- note line map ----------
-  lineMap(path4, doc) {
-    const cached = this._lineMaps[path4];
+  lineMap(path5, doc) {
+    const cached = this._lineMaps[path5];
     if (cached && cached.doc === doc) return cached.map;
     const lines = doc.toString().split("\n");
     const sessionByParent = /* @__PURE__ */ new Map();
@@ -4726,17 +4963,17 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
       const meta = this.usage.meta.get(parsed.sid) || { sid: parsed.sid, agent: parsed.agent, state: "idle", title: "", tokens: 0, lastAt: 0 };
       const live = this.usage.liveSessions({ since: Date.now() - 864e5, limit: 200 }).find((x) => x.sid === parsed.sid);
       const job = Object.values(this.jobs).find((j) => j.sessionId === parsed.sid);
-      const session2 = { ...meta, ...live || {}, agent: parsed.agent || meta.agent, job };
+      const session = { ...meta, ...live || {}, agent: parsed.agent || meta.agent, job };
       parentByLine.set(i, parent);
       linkByLine.set(i, { ...parsed, parent });
-      sessionByParent.set(parent, session2);
+      sessionByParent.set(parent, session);
     }
     const map = { doc, lines, sessionByParent, linkByLine, parentByLine };
-    this._lineMaps[path4] = { doc, map };
+    this._lineMaps[path5] = { doc, map };
     return map;
   }
-  jobAtLine(path4, line, text) {
-    const jobs = Object.values(this.jobs).filter((j) => j.path === path4);
+  jobAtLine(path5, line, text) {
+    const jobs = Object.values(this.jobs).filter((j) => j.path === path5);
     let best = null;
     for (const j of jobs) {
       if (j.lineText === text || j.line === line && j.lineText === text) best = j;
@@ -4759,15 +4996,15 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
       this.notice(String(e.message || e), 8e3);
     }
   }
-  async delegateAtLine(path4, line) {
-    const file = this.app.vault.getAbstractFileByPath(path4);
+  async delegateAtLine(path5, line) {
+    const file = this.app.vault.getAbstractFileByPath(path5);
     if (!file) return this.notice("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0");
     const view = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
-    const lines = view && view.file && view.file.path === path4 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
+    const lines = view && view.file && view.file.path === path5 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     await this.delegator.delegate({ file, lines, line, agent: this.defaultTarget() });
   }
-  openDelegateModal(path4, line) {
-    new DelegateOptionsModal(this.app, this, path4, line).open();
+  openDelegateModal(path5, line) {
+    new DelegateOptionsModal(this.app, this, path5, line).open();
   }
   openModalFor(editor, view) {
     if (!view || !view.file) return this.notice("\u5148\u6253\u5F00\u4E00\u7BC7\u7B14\u8BB0");
@@ -4775,12 +5012,12 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
   }
   openSessionForEditor(editor, view) {
     if (!view || !view.file) return;
-    const path4 = view.file.path, line = editor.getCursor().line;
-    const map = this.lineMap(path4, editor.cm.state.doc);
+    const path5 = view.file.path, line = editor.getCursor().line;
+    const map = this.lineMap(path5, editor.cm.state.doc);
     let s = map.sessionByParent.get(line);
     if (!s) {
       const text = editor.getLine(line);
-      const job = this.jobAtLine(path4, line, text);
+      const job = this.jobAtLine(path5, line, text);
       if (job) return this.openJob(job.id);
     }
     if (!s) return this.notice("\u8FD9\u4E00\u884C\u4E0B\u9762\u6CA1\u6709 \u{1F517} \u7ED1\u5B9A");
@@ -4790,6 +5027,152 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
     if (!id) return;
     this.delegator.cancel(id);
     this.refreshUI();
+  }
+  // ---------- macOS menu bar ----------
+  buildMenuBarState() {
+    const cfg = this.settings;
+    const today = this.store.get(dayKeyToday(cfg));
+    const live = this.liveSessions({ hours: 6 });
+    const recent = this.recentSessions({ days: 1, limit: 120 });
+    const primaries = this.primaryAgents();
+    const out = [];
+    const seen = /* @__PURE__ */ new Set();
+    const add = (s, primary, isLive) => {
+      if (!s || !s.sid || seen.has(s.sid)) return false;
+      const agent = AGENTS[s.agent] ? s.agent : "claude";
+      const a = AGENTS[agent];
+      const state = isLive ? s.state || "idle" : "recent";
+      const where = agent === "claude" ? s.app === "cli" ? "\u7EC8\u7AEF" : "\u684C\u9762\u7248" : agent === "codex" ? s.app === "desktop" ? "\u684C\u9762\u7248" : "CLI" : agent === "workbuddy" ? "\u684C\u9762\u7248" : "Harness";
+      const url = sessionDeepLink(agent, s.sid);
+      seen.add(s.sid);
+      out.push({
+        id: `${agent}:${s.sid}`,
+        agent,
+        agentName: a.name,
+        color: a.color,
+        glyph: a.glyph,
+        title: truncate(s.title || (s.text || "").split(" / ")[0] || s.step || s.sid, 64),
+        detail: `${a.short} ${where} \xB7 ${projectName(s.cwd)}${s.step ? " \xB7 " + truncate(s.step, 32) : ""} \xB7 ${timeAgo(s.lastAt)}`,
+        state,
+        stateLabel: menuStateLabel(state),
+        primary: !!primary,
+        url: agent === "dsh" ? "dsh://open" : url,
+        copy: agent === "dsh" ? s.sid : agent === "codex" ? `codex resume ${s.sid}` : "",
+        _at: s.lastAt || 0
+      });
+      return true;
+    };
+    for (const agent of AGENT_ORDER) {
+      if (!this.agentEnabled(agent)) continue;
+      const primary = primaries.includes(agent);
+      const limit = Math.max(1, Number(primary ? cfg.menuBarPrimaryLimit : cfg.menuBarOtherLimit) || (primary ? 8 : 3));
+      let count = 0;
+      if (primary) {
+        const lives = live.filter((x) => x.agent === agent).sort((a, b) => menuRank(a.state) - menuRank(b.state) || (b.lastAt || 0) - (a.lastAt || 0));
+        for (const s of lives) if (add(s, true, true) && ++count >= limit) break;
+        if (count < limit) {
+          const cutoff = Date.now() - 6 * 36e5;
+          const recs = recent.filter((x) => x.agent === agent && (x.lastAt || 0) >= cutoff).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+          for (const s of recs) if (add(s, true, false) && ++count >= limit) break;
+        }
+      } else {
+        const rows = [
+          ...live.filter((x) => x.agent === agent && x.state === "run"),
+          ...recent.filter((x) => x.agent === agent && x.state === "run")
+        ].sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
+        for (const s of rows) if (add(s, false, true) && ++count >= limit) break;
+      }
+    }
+    out.sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0) || menuRank(a.state) - menuRank(b.state) || (b._at || 0) - (a._at || 0));
+    for (const row of out) delete row._at;
+    const running = out.filter((x) => x.state === "run").length;
+    const waiting = out.filter((x) => ["wait", "quiet", "needs-approval"].includes(x.state)).length;
+    const short = running && waiting ? `${running} \u8DD1 \xB7 ${waiting} \u7B49` : running ? `${running} \u5728\u8DD1` : waiting ? `${waiting} \u7B49\u4F60` : "\u7A7A\u95F2";
+    const summary = [];
+    if (today) summary.push(`\u4ECA\u5929 ${fmtMin(today.wall)} \xB7 ${fmtTok(today.out)} tok`);
+    summary.push(`${running} \u4E2A\u5728\u8DD1`);
+    if (waiting) summary.push(`${waiting} \u4E2A\u7B49\u4F60`);
+    const agents = AGENT_ORDER.filter((x) => this.agentEnabled(x)).map((x) => {
+      const rows = live.filter((s) => s.agent === x);
+      return {
+        id: x,
+        short: AGENTS[x].short,
+        name: AGENTS[x].name,
+        color: AGENTS[x].color,
+        glyph: AGENTS[x].glyph,
+        running: rows.filter((s) => s.state === "run").length,
+        waiting: rows.filter((s) => ["wait", "quiet", "needs-approval"].includes(s.state)).length,
+        primary: primaries.includes(x)
+      };
+    });
+    return { updatedAt: Date.now(), short, summary: summary.join(" \xB7 "), running, waiting, agents, sessions: out };
+  }
+  async restoreNautilusAgentBar() {
+    const p = import_path4.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    try {
+      const data = JSON.parse(await fsp4.readFile(p, "utf8"));
+      if (data.agentStatus !== true) {
+        data.agentStatus = true;
+        await fsp4.writeFile(p, JSON.stringify(data, null, 1), "utf8");
+      }
+    } catch {
+    }
+    const naut = this.app.plugins && this.app.plugins.plugins && this.app.plugins.plugins["nautilus-spiral"];
+    if (naut && naut.settings) {
+      naut.settings.agentStatus = true;
+      try {
+        await naut.saveData?.(naut.settings);
+      } catch {
+      }
+      try {
+        naut.tickAgents?.();
+      } catch {
+      }
+    }
+    this.notice("\u5DF2\u6062\u590D\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B", 6e3);
+  }
+  async hideNautilusAgentBar() {
+    if (this.settings.menuBarHideNautilus === false) return;
+    const p = import_path4.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    let data = null;
+    try {
+      data = JSON.parse(await fsp4.readFile(p, "utf8"));
+    } catch {
+    }
+    let changed = false;
+    if (data && data.agentStatus !== false) {
+      try {
+        await fsp4.copyFile(p, p + `.agent-deck-backup-${Date.now()}`);
+      } catch {
+      }
+      data.agentStatus = false;
+      try {
+        await fsp4.writeFile(p, JSON.stringify(data, null, 1), "utf8");
+        changed = true;
+      } catch {
+      }
+    }
+    const naut = this.app.plugins && this.app.plugins.plugins && this.app.plugins.plugins["nautilus-spiral"];
+    if (naut && naut.settings) {
+      if (naut.settings.agentStatus !== false) changed = true;
+      naut.settings.agentStatus = false;
+      try {
+        await naut.saveData?.(naut.settings);
+      } catch {
+      }
+      try {
+        naut.tickAgents?.();
+      } catch {
+      }
+    }
+    if (changed && !this.settings.menuBarMigrated) {
+      this.settings.menuBarMigrated = true;
+      await this.saveSettings();
+      this.notice("\u5DF2\u628A\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B\u79FB\u5230 macOS \u83DC\u5355\u680F\uFF1B\u87BA\u65CB\u65E5\u7A0B\u7684 Agent \u6C47\u603B\u4E5F\u5DF2\u5173\u95ED\u3002", 9e3);
+    } else if (!this.settings.menuBarMigrated) {
+      this.settings.menuBarMigrated = true;
+      await this.saveSettings();
+    }
   }
   // ---------- ui refresh ----------
   refreshUI() {
@@ -4806,21 +5189,8 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
         dispatchRefresh(this);
       } catch {
       }
-      this.updateStatusBar();
+      this.menubar?.update();
     }, 120);
-  }
-  updateStatusBar() {
-    if (!this.statusEl) return;
-    const live = this.liveSessions({ hours: 6 });
-    const running = live.filter((x) => x.state === "run").length;
-    const waiting = live.filter((x) => ["wait", "quiet", "needs-approval"].includes(x.state)).length;
-    if (running || waiting) {
-      this.statusEl.setText(`\u25C8 ${running} \u5728\u8DD1${waiting ? ` \xB7 ${waiting} \u7B49\u4F60` : ""}`);
-      this.statusEl.setAttr("aria-label", `Agent Deck\uFF1A${running} \u4E2A\u5728\u8DD1\uFF0C${waiting} \u4E2A\u7B49\u4F60\u3002\u5355\u51FB\u6253\u5F00\u9762\u677F\uFF0C\u2325 \u5355\u51FB\u6253\u5F00\u7B49\u4F60\u7684\u4F1A\u8BDD`);
-    } else {
-      const today = this.store.get(dayKeyToday(this.settings));
-      this.statusEl.setText(`\u25C8 ${today ? fmtMin(today.wall) : "\u4ECA\u65E5 0m"}`);
-    }
   }
   // ---------- misc ----------
   notice(msg, ms) {
@@ -4833,14 +5203,14 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
   openExternal(url) {
     return openExternal(url);
   }
-  async readNote(path4) {
-    const file = this.app.vault.getAbstractFileByPath(path4);
-    if (!file) throw new Error("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A" + path4);
+  async readNote(path5) {
+    const file = this.app.vault.getAbstractFileByPath(path5);
+    if (!file) throw new Error("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A" + path5);
     return await this.app.vault.read(file);
   }
-  async writeNote(path4, text) {
+  async writeNote(path5, text) {
     const view = this.app.workspace.getActiveViewOfType(import_obsidian4.MarkdownView);
-    if (view && view.file && view.file.path === path4) {
+    if (view && view.file && view.file.path === path5) {
       const ed = view.editor;
       const line = clamp(ed.getCursor().line, 0, Math.max(0, ed.lineCount() - 1));
       ed.setValue(text);
@@ -4850,14 +5220,14 @@ var AgentDeckPlugin = class extends import_obsidian4.Plugin {
       }
       return;
     }
-    const file = this.app.vault.getAbstractFileByPath(path4);
-    if (!file) throw new Error("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A" + path4);
+    const file = this.app.vault.getAbstractFileByPath(path5);
+    if (!file) throw new Error("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A" + path5);
     await this.app.vault.process(file, () => text);
   }
   async checkBinary(kind) {
     const bin = kind === "dsh" ? findDshBinary() : findClaudeBinary(this.settings.delegate?.claude?.path || "");
     return await new Promise((resolve) => {
-      (0, import_child_process2.execFile)(bin, ["--version"], { timeout: 1e4, env: process.env }, (err2, out, errOut) => {
+      (0, import_child_process3.execFile)(bin, ["--version"], { timeout: 1e4, env: process.env }, (err2, out, errOut) => {
         if (err2) resolve(`${kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A${String(err2.message || err2)}
 ${String(errOut || "").slice(0, 300)}`);
         else resolve(`${kind}\uFF1A${String(out || "").trim()}`);
@@ -4870,24 +5240,24 @@ activate
 do script ${JSON.stringify(`cd ${JSON.stringify(cwd)} && ${cmd}`)}
 end tell`;
     try {
-      (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], () => {
+      (0, import_child_process3.execFile)("/usr/bin/osascript", ["-e", script], () => {
       });
     } catch (e) {
       this.notice(String(e.message || e));
     }
   }
   async pauseNautilus() {
-    const p = import_path3.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    const p = import_path4.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     let data;
     try {
-      data = JSON.parse(await fsp3.readFile(p, "utf8"));
+      data = JSON.parse(await fsp4.readFile(p, "utf8"));
     } catch {
       this.notice("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 data.json");
       return;
     }
     const backup = p + `.agent-deck-backup-${Date.now()}`;
     try {
-      await fsp3.copyFile(p, backup);
+      await fsp4.copyFile(p, backup);
     } catch {
     }
     data.showAi = false;
@@ -4899,12 +5269,12 @@ end tell`;
     data.resultBack = false;
     data.lineProgress = false;
     try {
-      await fsp3.writeFile(p, JSON.stringify(data, null, 1), "utf8");
+      await fsp4.writeFile(p, JSON.stringify(data, null, 1), "utf8");
     } catch (e) {
       this.notice("\u5199\u5165\u87BA\u65CB\u65E5\u7A0B\u8BBE\u7F6E\u5931\u8D25\uFF1A" + (e && e.message || e));
       return;
     }
-    this.notice(`\u5DF2\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u7684 AI \u8FFD\u8E2A\uFF08\u539F\u8BBE\u7F6E\u5907\u4EFD\u5728 ${import_path3.default.basename(backup)}\uFF09\u3002\u91CD\u65B0\u52A0\u8F7D\u87BA\u65CB\u65E5\u7A0B\u6216\u91CD\u542F Obsidian \u540E\u751F\u6548\u3002`, 1e4);
+    this.notice(`\u5DF2\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u7684 AI \u8FFD\u8E2A\uFF08\u539F\u8BBE\u7F6E\u5907\u4EFD\u5728 ${import_path4.default.basename(backup)}\uFF09\u3002\u91CD\u65B0\u52A0\u8F7D\u87BA\u65CB\u65E5\u7A0B\u6216\u91CD\u542F Obsidian \u540E\u751F\u6548\u3002`, 1e4);
     try {
       if (this.app.plugins && this.app.plugins.disablePlugin && this.app.plugins.enablePlugin) {
         await this.app.plugins.disablePlugin("nautilus-spiral");
@@ -4922,6 +5292,12 @@ end tell`;
     openExternal("file://" + this.pluginDir);
   }
 };
+function menuStateLabel(state) {
+  return { run: "\u5728\u8DD1", wait: "\u7B49\u4F60", quiet: "\u5B89\u9759", "needs-approval": "\u7B49\u4F60\u5141\u8BB8", error: "\u51FA\u9519", limit: "\u9650\u989D", recent: "\u6700\u8FD1", done: "\u5B8C\u6210", idle: "\u7A7A\u95F2" }[state] || "\u7A7A\u95F2";
+}
+function menuRank(state) {
+  return { run: 0, "needs-approval": 1, wait: 2, quiet: 3, error: 4, limit: 4, recent: 5, done: 6, idle: 7 }[state] ?? 7;
+}
 function parseLinkLine(line) {
   let agent = "claude";
   let sid = "";

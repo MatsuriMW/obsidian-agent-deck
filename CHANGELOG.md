@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- Moved the agent summary out of Obsidian's bottom-right status bar into a native macOS menu bar item.
+- The menu bar item shows a compact icon + short text; clicking it opens a detailed SwiftUI popover with session rows and deeplinks.
+- Primary agents show more sessions (default 6 each); other agents show only running sessions (default 3 each).
+- The helper is compiled on first use with `swiftc` and exits when Obsidian quits.
+- Agent Deck no longer creates an Obsidian status bar item.
+- Nautilus Spiral's 🤖 agent status item is hidden while Agent Deck owns the menu bar; its planner status bar is untouched.
+
+
 ## 0.1.0
 
 - Extracted the AI/agent tracking from Nautilus Spiral into a standalone plugin.
