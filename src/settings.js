@@ -7,6 +7,30 @@ import {
 } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 
+const HOTKEY_MOD_SYMBOL = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘", ctrl: "⌃", alt: "⌥", cmd: "⌘" };
+
+function hotkeyDisplay(spec) {
+  const parts = String(spec || DEFAULTS.menuBarHotkey).split("+").map((x) => x.trim()).filter(Boolean);
+  return parts.map((p) => HOTKEY_MOD_SYMBOL[p.toLowerCase()] || p.toUpperCase()).join("");
+}
+
+function hotkeyKeyFromEvent(event) {
+  const key = String(event.key || "");
+  if (/^[a-zA-Z]$/.test(key)) return key.toUpperCase();
+  if (/^[0-9]$/.test(key)) return key;
+  if (/^F([1-9]|1[0-2])$/i.test(key)) return key.toUpperCase();
+  return null;
+}
+
+function hotkeySpecFromEvent(event, key) {
+  const mods = [];
+  if (event.ctrlKey) mods.push("control");
+  if (event.altKey) mods.push("option");
+  if (event.shiftKey) mods.push("shift");
+  if (event.metaKey) mods.push("command");
+  return [...mods, key].join("+");
+}
+
 const TABS = [
   ["agents", "Agents", "users"],
   ["delegate", "委派", "send"],
@@ -596,6 +620,45 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const row = this.row(ui, label, desc, null);
       this.numberInput(row.querySelector(":scope > .ad-row__right"), s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => { s[key] = v; p.saveSettings(); p.refreshUI(); });
     }
+    const hkRow = this.row(ui, "菜单栏快捷键", "菜单栏被 macOS 藏起来时，用这个组合在任意 App 开合面板。点一下输入框，再按新的组合；至少包含 ⌃ / ⌥ / ⌘ 之一。如果没反应，可能被别的 App 占用，换一个组合试试。", null);
+    const hkRight = hkRow.querySelector(":scope > .ad-row__right");
+    const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": "菜单栏快捷键" } });
+    hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+    hkInput.addEventListener("focus", () => {
+      hkInput.value = "按下组合键…";
+      hkInput.classList.add("is-capturing");
+    });
+    hkInput.addEventListener("blur", () => {
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+      hkInput.classList.remove("is-capturing");
+    });
+    hkInput.addEventListener("input", () => {
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+    });
+    hkInput.addEventListener("keydown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "Escape") { hkInput.blur(); return; }
+      if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
+      const key = hotkeyKeyFromEvent(event);
+      if (!key) { hkInput.value = "只支持 A–Z / 0–9 / F1–F12"; return; }
+      if (!event.ctrlKey && !event.altKey && !event.metaKey) { hkInput.value = "至少加 ⌃ / ⌥ / ⌘"; return; }
+      s.menuBarHotkey = hotkeySpecFromEvent(event, key);
+      p.saveSettings();
+      p.menubar?.update(true);
+      new Notice("菜单栏快捷键已保存，约 2 秒内生效");
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+      hkInput.classList.remove("is-capturing");
+      hkInput.blur();
+    }, true);
+    const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: "默认" });
+    hkReset.onclick = () => {
+      s.menuBarHotkey = DEFAULTS.menuBarHotkey;
+      p.saveSettings();
+      p.menubar?.update(true);
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+    };
+
     const mbbtn = this.row(ui, "菜单栏助手", "如果菜单栏没出现，或者改完设置想立刻重开。", null);
     const mbrestart = mbbtn.querySelector(":scope > .ad-row__right").createEl("button", { cls: "ad-btn", text: "重启菜单栏" });
     mbrestart.onclick = () => p.menubar?.restart();

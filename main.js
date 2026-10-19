@@ -1,4 +1,4 @@
-/* Agent Deck 1.0.5 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.0.6 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -245,6 +245,7 @@ var DEFAULTS = {
   showMenuBar: true,
   menuBarPrimaryLimit: 6,
   menuBarOtherLimit: 3,
+  menuBarHotkey: "control+option+command+D",
   menuBarHideNautilus: true,
   menuBarMigrated: false,
   showEditorPills: true,
@@ -3100,6 +3101,26 @@ function stateChip(s) {
 
 // src/settings.js
 var import_obsidian3 = require("obsidian");
+var HOTKEY_MOD_SYMBOL = { control: "\u2303", option: "\u2325", shift: "\u21E7", command: "\u2318", ctrl: "\u2303", alt: "\u2325", cmd: "\u2318" };
+function hotkeyDisplay(spec) {
+  const parts = String(spec || DEFAULTS.menuBarHotkey).split("+").map((x) => x.trim()).filter(Boolean);
+  return parts.map((p) => HOTKEY_MOD_SYMBOL[p.toLowerCase()] || p.toUpperCase()).join("");
+}
+function hotkeyKeyFromEvent(event) {
+  const key = String(event.key || "");
+  if (/^[a-zA-Z]$/.test(key)) return key.toUpperCase();
+  if (/^[0-9]$/.test(key)) return key;
+  if (/^F([1-9]|1[0-2])$/i.test(key)) return key.toUpperCase();
+  return null;
+}
+function hotkeySpecFromEvent(event, key) {
+  const mods = [];
+  if (event.ctrlKey) mods.push("control");
+  if (event.altKey) mods.push("option");
+  if (event.shiftKey) mods.push("shift");
+  if (event.metaKey) mods.push("command");
+  return [...mods, key].join("+");
+}
 var TABS = [
   ["agents", "Agents", "users"],
   ["delegate", "\u59D4\u6D3E", "send"],
@@ -3811,6 +3832,53 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
         p.refreshUI();
       });
     }
+    const hkRow = this.row(ui, "\u83DC\u5355\u680F\u5FEB\u6377\u952E", "\u83DC\u5355\u680F\u88AB macOS \u85CF\u8D77\u6765\u65F6\uFF0C\u7528\u8FD9\u4E2A\u7EC4\u5408\u5728\u4EFB\u610F App \u5F00\u5408\u9762\u677F\u3002\u70B9\u4E00\u4E0B\u8F93\u5165\u6846\uFF0C\u518D\u6309\u65B0\u7684\u7EC4\u5408\uFF1B\u81F3\u5C11\u5305\u542B \u2303 / \u2325 / \u2318 \u4E4B\u4E00\u3002\u5982\u679C\u6CA1\u53CD\u5E94\uFF0C\u53EF\u80FD\u88AB\u522B\u7684 App \u5360\u7528\uFF0C\u6362\u4E00\u4E2A\u7EC4\u5408\u8BD5\u8BD5\u3002", null);
+    const hkRight = hkRow.querySelector(":scope > .ad-row__right");
+    const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": "\u83DC\u5355\u680F\u5FEB\u6377\u952E" } });
+    hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+    hkInput.addEventListener("focus", () => {
+      hkInput.value = "\u6309\u4E0B\u7EC4\u5408\u952E\u2026";
+      hkInput.classList.add("is-capturing");
+    });
+    hkInput.addEventListener("blur", () => {
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+      hkInput.classList.remove("is-capturing");
+    });
+    hkInput.addEventListener("input", () => {
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+    });
+    hkInput.addEventListener("keydown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "Escape") {
+        hkInput.blur();
+        return;
+      }
+      if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
+      const key = hotkeyKeyFromEvent(event);
+      if (!key) {
+        hkInput.value = "\u53EA\u652F\u6301 A\u2013Z / 0\u20139 / F1\u2013F12";
+        return;
+      }
+      if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+        hkInput.value = "\u81F3\u5C11\u52A0 \u2303 / \u2325 / \u2318";
+        return;
+      }
+      s.menuBarHotkey = hotkeySpecFromEvent(event, key);
+      p.saveSettings();
+      p.menubar?.update(true);
+      new import_obsidian3.Notice("\u83DC\u5355\u680F\u5FEB\u6377\u952E\u5DF2\u4FDD\u5B58\uFF0C\u7EA6 2 \u79D2\u5185\u751F\u6548");
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+      hkInput.classList.remove("is-capturing");
+      hkInput.blur();
+    }, true);
+    const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: "\u9ED8\u8BA4" });
+    hkReset.onclick = () => {
+      s.menuBarHotkey = DEFAULTS.menuBarHotkey;
+      p.saveSettings();
+      p.menubar?.update(true);
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+    };
     const mbbtn = this.row(ui, "\u83DC\u5355\u680F\u52A9\u624B", "\u5982\u679C\u83DC\u5355\u680F\u6CA1\u51FA\u73B0\uFF0C\u6216\u8005\u6539\u5B8C\u8BBE\u7F6E\u60F3\u7ACB\u523B\u91CD\u5F00\u3002", null);
     const mbrestart = mbbtn.querySelector(":scope > .ad-row__right").createEl("button", { cls: "ad-btn", text: "\u91CD\u542F\u83DC\u5355\u680F" });
     mbrestart.onclick = () => p.menubar?.restart();
@@ -4526,12 +4594,13 @@ struct MenuState: Decodable {
     let short: String
     let summary: String
     let usage: String?
+    let hotkey: String?
     let running: Int
     let waiting: Int
     let sessions: [MenuSession]
     let agents: [MenuAgent]?
 
-    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "\u7B49\u5F85 Agent Deck\u2026", usage: nil, running: 0, waiting: 0, sessions: [], agents: [])
+    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "\u7B49\u5F85 Agent Deck\u2026", usage: nil, hotkey: nil, running: 0, waiting: 0, sessions: [], agents: [])
 
     var needsApproval: Int {
         sessions.filter { $0.state == "needs-approval" }.count
@@ -5548,6 +5617,73 @@ final class DeckPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+struct DeckHotKey {
+    static let defaultSpec = "control+option+command+D"
+
+    let canonical: String
+    let keyCode: UInt32
+    let modifiers: UInt32
+
+    static func parse(_ raw: String?) -> DeckHotKey? {
+        guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
+        var modifiers: UInt32 = 0
+        var keyName: String?
+
+        for token in raw.split(separator: "+") {
+            let token = token.trimmingCharacters(in: .whitespaces).lowercased()
+            switch token {
+            case "control", "ctrl", "\u2303":
+                modifiers |= UInt32(controlKey)
+            case "option", "alt", "\u2325":
+                modifiers |= UInt32(optionKey)
+            case "shift", "\u21E7":
+                modifiers |= UInt32(shiftKey)
+            case "command", "cmd", "\u2318":
+                modifiers |= UInt32(cmdKey)
+            default:
+                if !token.isEmpty { keyName = token.uppercased() }
+            }
+        }
+
+        guard let keyName = keyName, let keyCode = keyCodes[keyName] else { return nil }
+        let required = UInt32(controlKey | optionKey | cmdKey)
+        guard modifiers & required != 0 else { return nil }
+
+        var parts: [String] = []
+        if modifiers & UInt32(controlKey) != 0 { parts.append("control") }
+        if modifiers & UInt32(optionKey) != 0 { parts.append("option") }
+        if modifiers & UInt32(shiftKey) != 0 { parts.append("shift") }
+        if modifiers & UInt32(cmdKey) != 0 { parts.append("command") }
+        parts.append(keyName)
+
+        return DeckHotKey(
+            canonical: parts.joined(separator: "+"),
+            keyCode: keyCode,
+            modifiers: modifiers
+        )
+    }
+
+    private static let keyCodes: [String: UInt32] = [
+        "A": UInt32(kVK_ANSI_A), "B": UInt32(kVK_ANSI_B), "C": UInt32(kVK_ANSI_C),
+        "D": UInt32(kVK_ANSI_D), "E": UInt32(kVK_ANSI_E), "F": UInt32(kVK_ANSI_F),
+        "G": UInt32(kVK_ANSI_G), "H": UInt32(kVK_ANSI_H), "I": UInt32(kVK_ANSI_I),
+        "J": UInt32(kVK_ANSI_J), "K": UInt32(kVK_ANSI_K), "L": UInt32(kVK_ANSI_L),
+        "M": UInt32(kVK_ANSI_M), "N": UInt32(kVK_ANSI_N), "O": UInt32(kVK_ANSI_O),
+        "P": UInt32(kVK_ANSI_P), "Q": UInt32(kVK_ANSI_Q), "R": UInt32(kVK_ANSI_R),
+        "S": UInt32(kVK_ANSI_S), "T": UInt32(kVK_ANSI_T), "U": UInt32(kVK_ANSI_U),
+        "V": UInt32(kVK_ANSI_V), "W": UInt32(kVK_ANSI_W), "X": UInt32(kVK_ANSI_X),
+        "Y": UInt32(kVK_ANSI_Y), "Z": UInt32(kVK_ANSI_Z),
+        "0": UInt32(kVK_ANSI_0), "1": UInt32(kVK_ANSI_1), "2": UInt32(kVK_ANSI_2),
+        "3": UInt32(kVK_ANSI_3), "4": UInt32(kVK_ANSI_4), "5": UInt32(kVK_ANSI_5),
+        "6": UInt32(kVK_ANSI_6), "7": UInt32(kVK_ANSI_7), "8": UInt32(kVK_ANSI_8),
+        "9": UInt32(kVK_ANSI_9),
+        "F1": UInt32(kVK_F1), "F2": UInt32(kVK_F2), "F3": UInt32(kVK_F3),
+        "F4": UInt32(kVK_F4), "F5": UInt32(kVK_F5), "F6": UInt32(kVK_F6),
+        "F7": UInt32(kVK_F7), "F8": UInt32(kVK_F8), "F9": UInt32(kVK_F9),
+        "F10": UInt32(kVK_F10), "F11": UInt32(kVK_F11), "F12": UInt32(kVK_F12),
+    ]
+}
+
 private func deckHotKeyHandler(
     _ callRef: EventHandlerCallRef?,
     _ event: EventRef?,
@@ -5572,12 +5708,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var dismissObserver: NSObjectProtocol?
     var hotKeyRef: EventHotKeyRef?
     var hotKeyHandler: EventHandlerRef?
+    var currentHotKey = ""
+    var hotKeySequence: UInt32 = 1
 
     let panelWidth: CGFloat = 412
 
-    /// Global shortcut: Control + Option + Command + D. Carbon hotkeys work
-    /// even when the status item is hidden and do not need Accessibility access.
-    func registerGlobalHotKey() {
+    /// Carbon hotkeys work even when the status item is hidden and do not need
+    /// Accessibility access. The plugin sends the user's choice in menubar.json.
+    func installHotKeyHandler() {
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
@@ -5590,15 +5728,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Unmanaged.passUnretained(self).toOpaque(),
             &hotKeyHandler
         )
-        let hotKeyID = EventHotKeyID(signature: OSType(0x41444B31), id: 1)
-        _ = RegisterEventHotKey(
-            UInt32(kVK_ANSI_D),
-            UInt32(controlKey | optionKey | cmdKey),
+        applyHotKey(DeckHotKey.defaultSpec)
+    }
+
+    func applyHotKey(_ raw: String?) {
+        guard let spec = DeckHotKey.parse(raw) ?? DeckHotKey.parse(DeckHotKey.defaultSpec) else { return }
+        if spec.canonical == currentHotKey, hotKeyRef != nil { return }
+
+        hotKeySequence += 1
+        let hotKeyID = EventHotKeyID(signature: OSType(0x41444B31), id: hotKeySequence)
+        var newRef: EventHotKeyRef?
+        let status = RegisterEventHotKey(
+            spec.keyCode,
+            spec.modifiers,
             hotKeyID,
             GetApplicationEventTarget(),
             0,
-            &hotKeyRef
+            &newRef
         )
+
+        if status == noErr, let newRef = newRef {
+            if let oldRef = hotKeyRef { UnregisterEventHotKey(oldRef) }
+            hotKeyRef = newRef
+            currentHotKey = spec.canonical
+            return
+        }
+
+        // The requested combination is taken. Keep the previous shortcut if we
+        // have one; otherwise fall back to the default.
+        if hotKeyRef == nil, let fallback = DeckHotKey.parse(DeckHotKey.defaultSpec), fallback.canonical != spec.canonical {
+            hotKeySequence += 1
+            let fallbackID = EventHotKeyID(signature: OSType(0x41444B31), id: hotKeySequence)
+            _ = RegisterEventHotKey(
+                fallback.keyCode,
+                fallback.modifiers,
+                fallbackID,
+                GetApplicationEventTarget(),
+                0,
+                &hotKeyRef
+            )
+            currentHotKey = fallback.canonical
+        }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -5632,7 +5802,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         hostPanel()
-        if !preview { registerGlobalHotKey() }
+        if !preview { installHotKeyHandler() }
 
         dismissObserver = NotificationCenter.default.addObserver(
             forName: .agentDeckDismiss, object: nil, queue: .main
@@ -5701,6 +5871,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if panel.isVisible {
             layoutPanel()
             if resized { forceDisplay() }
+        }
+        if hotKeyHandler != nil {
+            applyHotKey(model.state.hotkey)
         }
     }
 
@@ -6676,7 +6849,17 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
         primary: primaries.includes(x)
       };
     });
-    return { updatedAt: Date.now(), short, summary: summary.join(" \xB7 "), usage, running, waiting, agents, sessions: out };
+    return {
+      updatedAt: Date.now(),
+      short,
+      summary: summary.join(" \xB7 "),
+      usage,
+      hotkey: cfg.menuBarHotkey || "control+option+command+D",
+      running,
+      waiting,
+      agents,
+      sessions: out
+    };
   }
   async restoreNautilusAgentBar() {
     const p = import_path4.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");

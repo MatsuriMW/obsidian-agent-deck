@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.6
+
+- The menu bar shortcut is now customizable in **设置 → 追踪 → 菜单栏快捷键**. Click the field and press a new combination; at least one of ⌃ / ⌥ / ⌘ is required. Default is ⌃⌥⌘D.
+- The chosen shortcut is sent to the helper in `menubar.json` and re-registered live; the old combination is released.
+- The shortcut still opens/closes the panel from any app when macOS has hidden the status item.
+
 ## 1.0.5
 
 - Removed the left-side fallback overlay. The status item stays on the right side of the menu bar.

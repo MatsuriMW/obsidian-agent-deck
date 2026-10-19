@@ -567,7 +567,11 @@ export default class AgentDeckPlugin extends Plugin {
         primary: primaries.includes(x),
       };
     });
-    return { updatedAt: Date.now(), short, summary: summary.join(" · "), usage, running, waiting, agents, sessions: out };
+    return {
+      updatedAt: Date.now(), short, summary: summary.join(" · "), usage,
+      hotkey: cfg.menuBarHotkey || "control+option+command+D",
+      running, waiting, agents, sessions: out,
+    };
   }
 
   async restoreNautilusAgentBar() {

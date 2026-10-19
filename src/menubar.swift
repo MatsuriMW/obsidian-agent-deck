@@ -145,12 +145,13 @@ struct MenuState: Decodable {
     let short: String
     let summary: String
     let usage: String?
+    let hotkey: String?
     let running: Int
     let waiting: Int
     let sessions: [MenuSession]
     let agents: [MenuAgent]?
 
-    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "等待 Agent Deck…", usage: nil, running: 0, waiting: 0, sessions: [], agents: [])
+    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "等待 Agent Deck…", usage: nil, hotkey: nil, running: 0, waiting: 0, sessions: [], agents: [])
 
     var needsApproval: Int {
         sessions.filter { $0.state == "needs-approval" }.count
@@ -1167,6 +1168,73 @@ final class DeckPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+struct DeckHotKey {
+    static let defaultSpec = "control+option+command+D"
+
+    let canonical: String
+    let keyCode: UInt32
+    let modifiers: UInt32
+
+    static func parse(_ raw: String?) -> DeckHotKey? {
+        guard let raw = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
+        var modifiers: UInt32 = 0
+        var keyName: String?
+
+        for token in raw.split(separator: "+") {
+            let token = token.trimmingCharacters(in: .whitespaces).lowercased()
+            switch token {
+            case "control", "ctrl", "⌃":
+                modifiers |= UInt32(controlKey)
+            case "option", "alt", "⌥":
+                modifiers |= UInt32(optionKey)
+            case "shift", "⇧":
+                modifiers |= UInt32(shiftKey)
+            case "command", "cmd", "⌘":
+                modifiers |= UInt32(cmdKey)
+            default:
+                if !token.isEmpty { keyName = token.uppercased() }
+            }
+        }
+
+        guard let keyName = keyName, let keyCode = keyCodes[keyName] else { return nil }
+        let required = UInt32(controlKey | optionKey | cmdKey)
+        guard modifiers & required != 0 else { return nil }
+
+        var parts: [String] = []
+        if modifiers & UInt32(controlKey) != 0 { parts.append("control") }
+        if modifiers & UInt32(optionKey) != 0 { parts.append("option") }
+        if modifiers & UInt32(shiftKey) != 0 { parts.append("shift") }
+        if modifiers & UInt32(cmdKey) != 0 { parts.append("command") }
+        parts.append(keyName)
+
+        return DeckHotKey(
+            canonical: parts.joined(separator: "+"),
+            keyCode: keyCode,
+            modifiers: modifiers
+        )
+    }
+
+    private static let keyCodes: [String: UInt32] = [
+        "A": UInt32(kVK_ANSI_A), "B": UInt32(kVK_ANSI_B), "C": UInt32(kVK_ANSI_C),
+        "D": UInt32(kVK_ANSI_D), "E": UInt32(kVK_ANSI_E), "F": UInt32(kVK_ANSI_F),
+        "G": UInt32(kVK_ANSI_G), "H": UInt32(kVK_ANSI_H), "I": UInt32(kVK_ANSI_I),
+        "J": UInt32(kVK_ANSI_J), "K": UInt32(kVK_ANSI_K), "L": UInt32(kVK_ANSI_L),
+        "M": UInt32(kVK_ANSI_M), "N": UInt32(kVK_ANSI_N), "O": UInt32(kVK_ANSI_O),
+        "P": UInt32(kVK_ANSI_P), "Q": UInt32(kVK_ANSI_Q), "R": UInt32(kVK_ANSI_R),
+        "S": UInt32(kVK_ANSI_S), "T": UInt32(kVK_ANSI_T), "U": UInt32(kVK_ANSI_U),
+        "V": UInt32(kVK_ANSI_V), "W": UInt32(kVK_ANSI_W), "X": UInt32(kVK_ANSI_X),
+        "Y": UInt32(kVK_ANSI_Y), "Z": UInt32(kVK_ANSI_Z),
+        "0": UInt32(kVK_ANSI_0), "1": UInt32(kVK_ANSI_1), "2": UInt32(kVK_ANSI_2),
+        "3": UInt32(kVK_ANSI_3), "4": UInt32(kVK_ANSI_4), "5": UInt32(kVK_ANSI_5),
+        "6": UInt32(kVK_ANSI_6), "7": UInt32(kVK_ANSI_7), "8": UInt32(kVK_ANSI_8),
+        "9": UInt32(kVK_ANSI_9),
+        "F1": UInt32(kVK_F1), "F2": UInt32(kVK_F2), "F3": UInt32(kVK_F3),
+        "F4": UInt32(kVK_F4), "F5": UInt32(kVK_F5), "F6": UInt32(kVK_F6),
+        "F7": UInt32(kVK_F7), "F8": UInt32(kVK_F8), "F9": UInt32(kVK_F9),
+        "F10": UInt32(kVK_F10), "F11": UInt32(kVK_F11), "F12": UInt32(kVK_F12),
+    ]
+}
+
 private func deckHotKeyHandler(
     _ callRef: EventHandlerCallRef?,
     _ event: EventRef?,
@@ -1191,12 +1259,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var dismissObserver: NSObjectProtocol?
     var hotKeyRef: EventHotKeyRef?
     var hotKeyHandler: EventHandlerRef?
+    var currentHotKey = ""
+    var hotKeySequence: UInt32 = 1
 
     let panelWidth: CGFloat = 412
 
-    /// Global shortcut: Control + Option + Command + D. Carbon hotkeys work
-    /// even when the status item is hidden and do not need Accessibility access.
-    func registerGlobalHotKey() {
+    /// Carbon hotkeys work even when the status item is hidden and do not need
+    /// Accessibility access. The plugin sends the user's choice in menubar.json.
+    func installHotKeyHandler() {
         var eventType = EventTypeSpec(
             eventClass: OSType(kEventClassKeyboard),
             eventKind: UInt32(kEventHotKeyPressed)
@@ -1209,15 +1279,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Unmanaged.passUnretained(self).toOpaque(),
             &hotKeyHandler
         )
-        let hotKeyID = EventHotKeyID(signature: OSType(0x41444B31), id: 1)
-        _ = RegisterEventHotKey(
-            UInt32(kVK_ANSI_D),
-            UInt32(controlKey | optionKey | cmdKey),
+        applyHotKey(DeckHotKey.defaultSpec)
+    }
+
+    func applyHotKey(_ raw: String?) {
+        guard let spec = DeckHotKey.parse(raw) ?? DeckHotKey.parse(DeckHotKey.defaultSpec) else { return }
+        if spec.canonical == currentHotKey, hotKeyRef != nil { return }
+
+        hotKeySequence += 1
+        let hotKeyID = EventHotKeyID(signature: OSType(0x41444B31), id: hotKeySequence)
+        var newRef: EventHotKeyRef?
+        let status = RegisterEventHotKey(
+            spec.keyCode,
+            spec.modifiers,
             hotKeyID,
             GetApplicationEventTarget(),
             0,
-            &hotKeyRef
+            &newRef
         )
+
+        if status == noErr, let newRef = newRef {
+            if let oldRef = hotKeyRef { UnregisterEventHotKey(oldRef) }
+            hotKeyRef = newRef
+            currentHotKey = spec.canonical
+            return
+        }
+
+        // The requested combination is taken. Keep the previous shortcut if we
+        // have one; otherwise fall back to the default.
+        if hotKeyRef == nil, let fallback = DeckHotKey.parse(DeckHotKey.defaultSpec), fallback.canonical != spec.canonical {
+            hotKeySequence += 1
+            let fallbackID = EventHotKeyID(signature: OSType(0x41444B31), id: hotKeySequence)
+            _ = RegisterEventHotKey(
+                fallback.keyCode,
+                fallback.modifiers,
+                fallbackID,
+                GetApplicationEventTarget(),
+                0,
+                &hotKeyRef
+            )
+            currentHotKey = fallback.canonical
+        }
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -1251,7 +1353,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         hostPanel()
-        if !preview { registerGlobalHotKey() }
+        if !preview { installHotKeyHandler() }
 
         dismissObserver = NotificationCenter.default.addObserver(
             forName: .agentDeckDismiss, object: nil, queue: .main
@@ -1320,6 +1422,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if panel.isVisible {
             layoutPanel()
             if resized { forceDisplay() }
+        }
+        if hotKeyHandler != nil {
+            applyHotKey(model.state.hotkey)
         }
     }
 

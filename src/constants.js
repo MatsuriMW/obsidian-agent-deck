@@ -220,6 +220,7 @@ export const DEFAULTS = {
   showMenuBar: true,
   menuBarPrimaryLimit: 6,
   menuBarOtherLimit: 3,
+  menuBarHotkey: "control+option+command+D",
   menuBarHideNautilus: true,
   menuBarMigrated: false,
   showEditorPills: true,

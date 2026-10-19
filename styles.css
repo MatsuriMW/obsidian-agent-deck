@@ -436,6 +436,8 @@
 .ad-row__desc { font-size: 10px; color: var(--ad-muted); margin-top: 2px; line-height: 1.45; }
 .ad-row__right { display: flex; align-items: center; gap: 6px; flex: none; }
 .ad-row__value { font-size: 11px; color: var(--ad-muted); font-variant-numeric: tabular-nums; }
+.ad-settings .ad-hotkey { width: 148px; text-align: center; font-family: var(--ad-figure); font-size: 11px; letter-spacing: .04em; }
+.ad-settings .ad-hotkey.is-capturing { border-color: var(--interactive-accent); color: var(--interactive-accent); }
 .ad-set-agents { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
 .ad-agentcard.is-set { padding: 12px; }
 .ad-set-path { margin-top: 6px; font-size: 9px; color: var(--ad-faint); font-family: var(--ad-figure); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
