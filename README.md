@@ -116,6 +116,8 @@ Agent Deck understands the same `🔗` line as Nautilus Spiral. If both plugins 
 
 Agent Deck hides Nautilus's 🤖 agent status item automatically (the planner's own status bar and timer stay). Use **追踪 → 停用螺旋日程里的 AI 追踪** to also turn off its AI panel, automatic journal logging, status writing and `💬` writing while keeping the planner. The Nautilus settings are backed up first. The 🤖 toggle can be reversed from the same page.
 
+If you use **done-to-top** and **journal-tidy**, update to **done-to-top 1.17.2+** and **journal-tidy 1.9.1+**. Those versions keep a `DELEGATED` block that mentions 明天 / 后天 / 大后天 in today's DOING area instead of moving it to the next day, and do not fold DOING/TODO blocks before the first separator.
+
 ## Privacy
 
 - Session logs are read locally with Node's `fs`.
