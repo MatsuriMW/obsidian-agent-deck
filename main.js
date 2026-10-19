@@ -1,4 +1,4 @@
-/* Agent Deck 1.0.8 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.0.9 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;

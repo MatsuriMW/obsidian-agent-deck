@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.9
+
+- Releases are now built by GitHub Actions from the tagged commit, with build provenance attestations for `main.js`, `manifest.json` and `styles.css`. Verify with `gh attestation verify main.js --repo MatsuriMW/obsidian-agent-deck`.
+- Added the release workflow (`.github/workflows/release.yml`) and a Chinese README introduction refresh.
+- No plugin behavior changes from 1.0.8.
+
 ## 1.0.8
 
 - **Marketplace review fix:** the manifest description no longer contains the word "Obsidian".

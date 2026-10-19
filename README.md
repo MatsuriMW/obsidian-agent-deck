@@ -2,6 +2,8 @@
 
 > Track every agent. Delegate from the line you are already looking at.
 
+[中文](README.zh-CN.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)
+
 Agent Deck is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy and DeepSeek Harness**, shows what each agent is doing now, and tracks delegated tasks from the editor. Delegation itself stays command-driven: Agent Deck does not put a trigger on every list item. Once a line is bound to a session, the line-end pill becomes the progress surface: the fill moves with the session, the label changes to **Delegating**, and a cancel control appears next to it.
 
 It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), extracted into a standalone plugin and extended with a second primary agent, DeepSeek Harness, model/effort/mode selection, and a layered model picker.
@@ -41,7 +43,7 @@ The dashboard itself keeps the calmer 1.0.2 palette; only the menu bar uses the 
 
 The first start needs `swiftc` (Xcode Command Line Tools). The plugin compiles `~/.agent-deck/AgentDeckMenuBar.app`, then launches it. It exits when Obsidian exits. The source is included in the plugin bundle, so no separate download is needed. If the menu bar does not appear, open **追踪 → 重启菜单栏** or install the command line tools with `xcode-select --install`.
 
-If the menu bar is full (or a menu-bar manager such as Ice has the item in its hidden section), press **⌃⌥⌘D** to open or close the panel. You can also run **Agent Deck: 打开 macOS 菜单栏面板** from the command palette.
+If the menu bar is full (or a menu-bar manager such as Ice has the item in its hidden section), press **⌃⌥⌘D** to open or focus the panel (a second press leaves it open; Escape or a click outside closes it). You can also run **Agent Deck: 打开 macOS 菜单栏面板** from the command palette.
 
 ![Layered model settings](assets/models.png)
 
@@ -132,6 +134,14 @@ If you use **done-to-top** and **journal-tidy**, update to **done-to-top 1.17.3+
 - Delegation starts local CLI processes (`claude`, `dsh`) owned by the user.
 - `usage.json` stores only aggregate per-day numbers and session summaries, not full conversations.
 - The menu bar helper reads `~/.agent-deck/menubar.json` and makes no network requests.
+
+## Release provenance
+
+Releases are built by GitHub Actions from the tagged commit. `main.js`, `manifest.json` and `styles.css` carry build provenance attestations:
+
+```bash
+gh attestation verify main.js --repo MatsuriMW/obsidian-agent-deck
+```
 
 ## Credits
 

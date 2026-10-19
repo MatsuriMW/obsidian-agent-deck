@@ -1,10 +1,14 @@
 # Agent Deck（智能体甲板）
 
-> 追踪每个 Agent，在你正在看的那一行直接委派。
+> 一个面板看清本机所有 AI Agent：谁在跑、谁在等你、刚才那步到哪了；需要时从正在写的任务行直接委派。
 
-Agent Deck 是一个 Obsidian 插件：读本机的 **Claude Code、Codex、WorkBuddy、DeepSeek Harness** 会话日志，显示每个 Agent 现在在做什么，并跟踪从编辑器委派出去的任务。委派本身走命令：Agent Deck 不会在每个列表项上放一个触发按钮。只有当一行已经绑定了会话，行尾的状态 pill 才变成进度条：填充跟着会话走，文案变成「委派中」，右边出现取消。
+[English](README.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)
 
-它是[螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 里「人机协作 / AI 追踪」那一半拆出来的独立插件，并补上了第二个主力 Agent、DeepSeek Harness、模型 / 强度 / 权限模式选择，以及分层的模型设置页。
+Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、DeepSeek Harness** 四类 Agent 会话收进同一张「甲板」：主力 Agent 全量追踪，其它 Agent 只看正在跑的；在跑、等你、安静、需要你确认、额度用完、出错停下这些状态用 TODOseq 的任务关键词和颜色标出来，点一行就回到对应客户端。
+
+委派保持命令驱动：不在每个列表项上放按钮；任务行绑定了会话后，行尾的 pill 才变成进度条，完成后把结果写回笔记。macOS 菜单栏还有一块常驻的纯色面板，菜单栏被系统藏起来时可以用自定义全局快捷键唤起。
+
+它从[螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 里「人机协作 / AI 追踪」那一半拆出来，补上了第二个主力 Agent、DeepSeek Harness 的 ACP 委派、模型 / 强度 / 权限模式选择、分层的模型设置页，以及一块可读性更高的 SwiftUI 菜单栏面板。
 
 ![Agent Deck 设置](assets/agents.png)
 
@@ -41,7 +45,7 @@ Agent Deck 的主面板仍然保留 1.0.2 的低饱和配色；只有 macOS 菜�
 
 第一次启动需要 `swiftc`（Xcode Command Line Tools）。插件会编译 `~/.agent-deck/AgentDeckMenuBar.app` 并启动它；Obsidian 退出时它也会退出。源码已经打包在插件里，不需要另外下载。菜单栏没出现时，到 **追踪 → 重启菜单栏**，或者先运行 `xcode-select --install`。
 
-如果菜单栏已经排满（或者 Ice 把它收进了隐藏区），按 **⌃⌥⌘D** 开合面板。也可以在命令面板里运行 **Agent Deck: 打开 macOS 菜单栏面板**。
+如果菜单栏已经排满（或者 Ice 把它收进了隐藏区），按 **⌃⌥⌘D** 打开或聚焦面板（再按一次不会关闭，用 Esc 或点面板外面关闭）。也可以在命令面板里运行 **Agent Deck: 打开 macOS 菜单栏面板**。
 
 ![分层模型设置](assets/models.png)
 
@@ -132,6 +136,14 @@ Agent Deck 会自动隐藏螺旋日程右下角的 🤖 Agent 汇总；它自己
 - 委派只是启动本机的 `claude` / `dsh` 进程。
 - `usage.json` 只存按天的汇总和会话摘要，不存完整对话。
 - 菜单栏助手只读 `~/.agent-deck/menubar.json`，不发网络请求。
+
+## 发布与校验
+
+Release 由 GitHub Actions 从对应 tag 构建；`main.js`、`manifest.json`、`styles.css` 带 build provenance attestation，可以用 GitHub CLI 校验：
+
+```bash
+gh attestation verify main.js --repo MatsuriMW/obsidian-agent-deck
+```
 
 ## 致谢
 
