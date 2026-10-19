@@ -694,6 +694,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const naut = this.card(body, "和螺旋日程并存", "螺旋日程也会读同一批 🔗 会话、改任务状态、写 💬。用 Agent Deck 接管后，可以把它的 AI 部分关掉，日程本身不动。");
     const nbtn = naut.createDiv({ cls: "ad-btnrow" });
     this.bigButton(nbtn, "停用螺旋日程里的 AI 追踪", () => p.pauseNautilus(), "mod-warning");
+    naut.createDiv({ cls: "ad-hint", text: "会先备份螺旋日程的 data.json。写入后请在 Obsidian 设置里重新加载螺旋日程（或重启 Obsidian）；Agent Deck 不会自动启停其它插件。" });
 
     const links = this.card(body, "点击会话时打开哪儿", "Claude Code 用 claude://resume 回到桌面版；WorkBuddy 用 workbuddy://chat/<会话号>；DeepSeek Harness 目前只有 dsh://open（聚焦客户端），插件会把会话号复制到剪贴板，方便你在侧栏里找。Codex 没有 URL，会复制 codex resume 命令。");
     links.createDiv({ cls: "ad-hint", text: "这些是客户端自己的 URL scheme，插件不读也不发任何网络请求。" });

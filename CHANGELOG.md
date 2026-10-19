@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.8
+
+- **Marketplace review fix:** the manifest description no longer contains the word "Obsidian".
+- **Marketplace review fix:** removed the programmatic `disablePlugin` / `enablePlugin` calls used by the Nautilus Spiral pause action. The action now only backs up and writes Nautilus's settings and asks the user to reload it from Obsidian's settings (or restart Obsidian). Agent Deck never enables or disables another plugin.
+
 ## 1.0.7
 
 - The global shortcut now **opens or focuses** the panel; pressing it again no longer closes an open panel. Use Escape or click outside to close.

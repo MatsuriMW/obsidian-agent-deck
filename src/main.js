@@ -686,13 +686,7 @@ export default class AgentDeckPlugin extends Plugin {
     data.lineProgress = false;
     try { await fsp.writeFile(p, JSON.stringify(data, null, 1), "utf8"); }
     catch (e) { this.notice("写入螺旋日程设置失败：" + (e && e.message || e)); return; }
-    this.notice(`已停用螺旋日程的 AI 追踪（原设置备份在 ${path.basename(backup)}）。重新加载螺旋日程或重启 Obsidian 后生效。`, 10000);
-    try {
-      if (this.app.plugins && this.app.plugins.disablePlugin && this.app.plugins.enablePlugin) {
-        await this.app.plugins.disablePlugin("nautilus-spiral");
-        await this.app.plugins.enablePlugin("nautilus-spiral");
-      }
-    } catch { /* user can reload manually */ }
+    this.notice(`已停用螺旋日程的 AI 追踪（原设置备份在 ${path.basename(backup)}）。请在 Obsidian 设置里重新加载螺旋日程，或重启 Obsidian，让它重新读取设置。`, 10000);
   }
 
   openPluginDir() {

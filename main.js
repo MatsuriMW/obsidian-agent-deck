@@ -1,4 +1,4 @@
-/* Agent Deck 1.0.7 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.0.8 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -3931,6 +3931,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     const naut = this.card(body, "\u548C\u87BA\u65CB\u65E5\u7A0B\u5E76\u5B58", "\u87BA\u65CB\u65E5\u7A0B\u4E5F\u4F1A\u8BFB\u540C\u4E00\u6279 \u{1F517} \u4F1A\u8BDD\u3001\u6539\u4EFB\u52A1\u72B6\u6001\u3001\u5199 \u{1F4AC}\u3002\u7528 Agent Deck \u63A5\u7BA1\u540E\uFF0C\u53EF\u4EE5\u628A\u5B83\u7684 AI \u90E8\u5206\u5173\u6389\uFF0C\u65E5\u7A0B\u672C\u8EAB\u4E0D\u52A8\u3002");
     const nbtn = naut.createDiv({ cls: "ad-btnrow" });
     this.bigButton(nbtn, "\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u91CC\u7684 AI \u8FFD\u8E2A", () => p.pauseNautilus(), "mod-warning");
+    naut.createDiv({ cls: "ad-hint", text: "\u4F1A\u5148\u5907\u4EFD\u87BA\u65CB\u65E5\u7A0B\u7684 data.json\u3002\u5199\u5165\u540E\u8BF7\u5728 Obsidian \u8BBE\u7F6E\u91CC\u91CD\u65B0\u52A0\u8F7D\u87BA\u65CB\u65E5\u7A0B\uFF08\u6216\u91CD\u542F Obsidian\uFF09\uFF1BAgent Deck \u4E0D\u4F1A\u81EA\u52A8\u542F\u505C\u5176\u5B83\u63D2\u4EF6\u3002" });
     const links = this.card(body, "\u70B9\u51FB\u4F1A\u8BDD\u65F6\u6253\u5F00\u54EA\u513F", "Claude Code \u7528 claude://resume \u56DE\u5230\u684C\u9762\u7248\uFF1BWorkBuddy \u7528 workbuddy://chat/<\u4F1A\u8BDD\u53F7>\uFF1BDeepSeek Harness \u76EE\u524D\u53EA\u6709 dsh://open\uFF08\u805A\u7126\u5BA2\u6237\u7AEF\uFF09\uFF0C\u63D2\u4EF6\u4F1A\u628A\u4F1A\u8BDD\u53F7\u590D\u5236\u5230\u526A\u8D34\u677F\uFF0C\u65B9\u4FBF\u4F60\u5728\u4FA7\u680F\u91CC\u627E\u3002Codex \u6CA1\u6709 URL\uFF0C\u4F1A\u590D\u5236 codex resume \u547D\u4EE4\u3002");
     links.createDiv({ cls: "ad-hint", text: "\u8FD9\u4E9B\u662F\u5BA2\u6237\u7AEF\u81EA\u5DF1\u7684 URL scheme\uFF0C\u63D2\u4EF6\u4E0D\u8BFB\u4E5F\u4E0D\u53D1\u4EFB\u4F55\u7F51\u7EDC\u8BF7\u6C42\u3002" });
   }
@@ -7038,14 +7039,7 @@ end tell`;
       this.notice("\u5199\u5165\u87BA\u65CB\u65E5\u7A0B\u8BBE\u7F6E\u5931\u8D25\uFF1A" + (e && e.message || e));
       return;
     }
-    this.notice(`\u5DF2\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u7684 AI \u8FFD\u8E2A\uFF08\u539F\u8BBE\u7F6E\u5907\u4EFD\u5728 ${import_path4.default.basename(backup)}\uFF09\u3002\u91CD\u65B0\u52A0\u8F7D\u87BA\u65CB\u65E5\u7A0B\u6216\u91CD\u542F Obsidian \u540E\u751F\u6548\u3002`, 1e4);
-    try {
-      if (this.app.plugins && this.app.plugins.disablePlugin && this.app.plugins.enablePlugin) {
-        await this.app.plugins.disablePlugin("nautilus-spiral");
-        await this.app.plugins.enablePlugin("nautilus-spiral");
-      }
-    } catch {
-    }
+    this.notice(`\u5DF2\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u7684 AI \u8FFD\u8E2A\uFF08\u539F\u8BBE\u7F6E\u5907\u4EFD\u5728 ${import_path4.default.basename(backup)}\uFF09\u3002\u8BF7\u5728 Obsidian \u8BBE\u7F6E\u91CC\u91CD\u65B0\u52A0\u8F7D\u87BA\u65CB\u65E5\u7A0B\uFF0C\u6216\u91CD\u542F Obsidian\uFF0C\u8BA9\u5B83\u91CD\u65B0\u8BFB\u53D6\u8BBE\u7F6E\u3002`, 1e4);
   }
   openPluginDir() {
     try {
