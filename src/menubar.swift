@@ -9,6 +9,21 @@ import SwiftUI
 import Foundation
 import Darwin
 
+let lucideWandSVG = """
+<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>
+"""
+
+let lucideArrowSVG = """
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+"""
+
+func lucideImage(_ svg: String, _ size: CGFloat) -> NSImage? {
+    guard let data = svg.data(using: .utf8), let image = NSImage(data: data) else { return nil }
+    image.isTemplate = true
+    image.size = NSSize(width: size, height: size)
+    return image
+}
+
 struct MenuSession: Decodable, Identifiable {
     let id: String
     let agent: String
@@ -149,10 +164,17 @@ struct SessionRowView: View {
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
-                Image(systemName: "arrow.up.right")
-                    .font(.system(size: 8.5))
-                    .foregroundColor(.secondary)
-                    .padding(.top, 3)
+                if let img = lucideImage(lucideArrowSVG, 9) {
+                    Image(nsImage: img)
+                        .renderingMode(.template)
+                        .foregroundColor(.secondary)
+                        .padding(.top, 3)
+                } else {
+                    Image(systemName: "arrow.up.right")
+                        .font(.system(size: 8.5))
+                        .foregroundColor(.secondary)
+                        .padding(.top, 3)
+                }
             }
             .padding(8)
             .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.07)))
@@ -190,9 +212,15 @@ struct DeckView: View {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(LinearGradient(colors: [Color(red: 0.42, green: 0.48, blue: 1.0), Color(red: 0.62, green: 0.36, blue: 1.0)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundColor(.white)
+                    if let img = lucideImage(lucideWandSVG, 13) {
+                        Image(nsImage: img)
+                            .renderingMode(.template)
+                            .foregroundColor(.white)
+                    } else {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(.white)
+                    }
                 }
                 .frame(width: 28, height: 28)
                 VStack(alignment: .leading, spacing: 1) {
@@ -312,14 +340,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
-            // Lucide "wand-sparkles", rendered as a template image so it follows
-            // the menu bar's light/dark appearance.
-            let lucide = """
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>
-            """
-            if let data = lucide.data(using: .utf8), let image = NSImage(data: data) {
-                image.isTemplate = true
-                image.size = NSSize(width: 18, height: 18)
+            if let image = lucideImage(lucideWandSVG, 18) {
                 button.image = image
             } else {
                 let image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Agent Deck")
