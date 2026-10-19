@@ -72,7 +72,7 @@ Your task lines are the plan; the agent session logs are the record of what actu
 - **Bound lines** get `💬` when the session answers, their keyword follows the session, and archiving writes `DONE` + `⏱`.
 - **Nested blocks**: desktop child sessions (from `spawnedFrom`), open side chats, and Claude Code subagents (`<session>/subagents/agent-*.jsonl`) become indented blocks with their own status.
 
-Writes are line-level, stay out of undo history, skip while an IME composition is active, and abort if the note changed in the meantime. These writes used to live in Nautilus Spiral; now Agent Deck owns them, and Nautilus keeps the tracking display. While Nautilus's AI tracking is still on, Agent Deck stays out of the note — use **停用螺旋日程里的 AI 追踪** and reload Nautilus to complete the handoff.
+Writes are line-level, stay out of undo history, skip while an IME composition is active, and abort if the note changed in the meantime. These writes used to live in Nautilus Spiral; now Agent Deck owns them, and Nautilus keeps the tracking display. While Nautilus's write flags are still on, Agent Deck stays out of the note — use **停用螺旋日程里的 AI 写入** and reload Nautilus to complete the handoff.
 
 ## Delegate targets
 
