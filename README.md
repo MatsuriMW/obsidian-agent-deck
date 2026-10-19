@@ -18,7 +18,7 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 - **Layered model settings.** A global default model, a default effort slider, capability tags, search/filter, enable switches, pinned order, per-row menu, and task models. Changes sit in an **Unsaved changes** bar until you save them.
 - **Local only.** Everything is read from `~/.claude`, `~/.codex`, `~/.workbuddy` and `~/.dsh`. Nothing is uploaded. The plugin stores its own aggregate in `usage.json` next to the plugin, so history survives log rotation.
 - **Lucide icons throughout.** Agent, status, tool and window icons are Lucide; running states use a CSS spinner.
-- **The agent summary lives in the macOS menu bar.** Obsidian's bottom-right status bar no longer carries the agent session summary. A small status item shows an icon plus something like `2 跑 · 1 等`; click it for a detailed popover with session rows you can jump from.
+- **The agent summary lives in the macOS menu bar.** Obsidian's bottom-right status bar no longer carries the agent session summary. A small status item shows an icon plus something like `2 跑 · 1 等`; click it for a solid, opaque panel of task cards you can jump from.
 
 ![macOS menu bar](assets/menubar.png)
 
@@ -26,13 +26,21 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 
 The menu bar item is a tiny SwiftUI helper app compiled on first use. It is not a second copy of the dashboard: it is the quick "what is running / what needs me" surface.
 
+- **Solid, not glassy.** The panel is a borderless window with opaque surfaces. There is no `NSPopover`, no vibrancy and no frosted material, so text keeps its contrast on macOS 26. The light background is a near-white tint of the current Obsidian theme, and dark mode has its own solid palette.
+- **Rows speak TODOseq.** Each card is tagged with a TODOseq keyword — `DOING`, `WAITING`, `NEEDOK?`, `HITLIMIT!`, `PAUSED`, `ERRORED`, `DONE`, `LATER`, `TODO` — with the same SVG icon and task-state colour TODOseq uses. `DOING` keeps its loader-circle spinning while the panel is open. The header counts `DOING` / `WAITING`, and any `NEEDOK?` session gets an orange reminder.
+- **Cards are card-like.** White surface, 1px border, a soft shadow, a state-coloured rail, the agent's glyph badge, the project and the current step. Hovering lifts the card.
+- **Five at a time.** The first five sessions are visible; the rest are a scroll away. The footer tells you how many sessions are in the list.
 - **Primary agents** (up to two) contribute more rows: all live sessions plus recent sessions from the last six hours, up to six per primary by default.
 - **Other agents** contribute only sessions that are currently running, up to three per agent by default. **WorkBuddy is the exception**: its waiting sessions are listed too, because they are part of the daily loop.
 - The header shows all enabled agents as chips, with running and waiting counts, including agents that have no row at the moment.
 - Clicking a row opens the same deeplink as the dashboard. DeepSeek Harness focuses the client and copies the session id; Codex copies `codex resume <id>`.
-- **打开面板** opens the Obsidian dashboard via `obsidian://agent-deck`; **重新扫描** triggers a scan; **隐藏** disables the menu bar from inside the popover.
+- **打开面板** opens the Obsidian dashboard via `obsidian://agent-deck`; **重新扫描** triggers a scan; **隐藏** disables the menu bar from inside the panel.
+
+The dashboard itself keeps the calmer 1.0.2 palette; only the menu bar uses the vivid task-state colours.
 
 The first start needs `swiftc` (Xcode Command Line Tools). The plugin compiles `~/.agent-deck/AgentDeckMenuBar.app`, then launches it. It exits when Obsidian exits. The source is included in the plugin bundle, so no separate download is needed. If the menu bar does not appear, open **追踪 → 重启菜单栏** or install the command line tools with `xcode-select --install`.
+
+If the menu bar is full (or Ice has the item in its hidden section), run **Agent Deck: 打开 macOS 菜单栏面板** from the command palette. The panel opens under the menu bar without needing the status item; reveal the item in Ice later if you want it back on the bar.
 
 ![Layered model settings](assets/models.png)
 

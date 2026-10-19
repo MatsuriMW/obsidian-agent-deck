@@ -2,7 +2,8 @@ import esbuild from "esbuild";
 import fs from "fs";
 
 const watch = process.argv.includes("--watch");
-const banner = `/* Agent Deck 0.1.0 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */`;
+const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+const banner = `/* Agent Deck ${pkg.version} — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */`;
 
 const options = {
   entryPoints: ["src/main.js"],

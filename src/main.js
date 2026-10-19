@@ -58,6 +58,21 @@ export default class AgentDeckPlugin extends Plugin {
     this.setupRibbon();
 
     this.addCommand({ id: "open-dashboard", name: "打开 Agent Deck 面板", callback: () => this.activateView() });
+    this.addCommand({
+      id: "open-menubar-panel",
+      name: "打开 macOS 菜单栏面板",
+      callback: async () => {
+        if (this.settings.showMenuBar === false) return this.notice("macOS 菜单栏已关闭，请先在「追踪」里打开");
+        await this.menubar.start();
+        const started = Date.now();
+        const wait = setInterval(() => {
+          if (this.menubar.isAlive() || Date.now() - started > 15000) {
+            clearInterval(wait);
+            this.menubar.show();
+          }
+        }, 300);
+      },
+    });
     this.addCommand({ id: "open-settings", name: "打开 Agent Deck 设置", callback: () => this.openSettings() });
     this.addCommand({ id: "open-models", name: "打开 Agent Deck 的 Models 设置", callback: () => this.openSettings("models") });
     this.addCommand({ id: "delegate-current", name: "委派光标所在块（默认 Agent）", editorCallback: (editor) => this.delegateFromEditor(editor) });
@@ -487,14 +502,19 @@ export default class AgentDeckPlugin extends Plugin {
       const agent = AGENTS[s.agent] ? s.agent : "claude";
       const a = AGENTS[agent];
       const state = isLive ? (s.state || "idle") : "recent";
+      const kw = menuKeyword(state);
       const where = agent === "claude" ? (s.app === "cli" ? "终端" : "桌面版") : agent === "codex" ? (s.app === "desktop" ? "桌面版" : "CLI") : agent === "workbuddy" ? "桌面版" : "Harness";
       const url = sessionDeepLink(agent, s.sid);
       seen.add(s.sid);
       out.push({
         id: `${agent}:${s.sid}`,
-        agent, agentName: a.name, color: a.color, glyph: a.glyph,
+        agent, agentName: a.name, agentShort: a.short, color: a.color, glyph: a.glyph,
         title: truncate(s.title || (s.text || "").split(" / ")[0] || s.step || s.sid, 64),
         detail: `${a.short} ${where} · ${projectName(s.cwd)}${s.step ? " · " + truncate(s.step, 32) : ""} · ${timeAgo(s.lastAt)}`,
+        project: projectName(s.cwd),
+        step: s.step ? truncate(s.step, 40) : "",
+        ago: timeAgo(s.lastAt),
+        keyword: kw.id, keywordLabel: kw.zh,
         state, stateLabel: menuStateLabel(state), primary: !!primary,
         url: agent === "dsh" ? "dsh://open" : url,
         copy: agent === "dsh" ? s.sid : (agent === "codex" ? `codex resume ${s.sid}` : ""),
@@ -537,6 +557,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (today) summary.push(`今天 ${fmtMin(today.wall)} · ${fmtTok(today.out)} tok`);
     summary.push(`${running} 个在跑`);
     if (waiting) summary.push(`${waiting} 个等你`);
+    const usage = today ? `今天 ${fmtMin(today.wall)} · ${fmtTok(today.out)} tok` : "今天还没有用量记录";
     const agents = AGENT_ORDER.filter((x) => this.agentEnabled(x)).map((x) => {
       const rows = live.filter((s) => s.agent === x);
       return {
@@ -546,7 +567,7 @@ export default class AgentDeckPlugin extends Plugin {
         primary: primaries.includes(x),
       };
     });
-    return { updatedAt: Date.now(), short, summary: summary.join(" · "), running, waiting, agents, sessions: out };
+    return { updatedAt: Date.now(), short, summary: summary.join(" · "), usage, running, waiting, agents, sessions: out };
   }
 
   async restoreNautilusAgentBar() {
@@ -681,6 +702,23 @@ export default class AgentDeckPlugin extends Plugin {
 
 function menuStateLabel(state) {
   return ({ run: "在跑", wait: "等你", quiet: "安静", "needs-approval": "等你允许", error: "出错", limit: "限额", recent: "最近", done: "完成", idle: "空闲" })[state] || "空闲";
+}
+
+// The menu bar speaks TODOseq's keyword language instead of a separate status
+// vocabulary: DOING / WAITING / NEEDOK? / HITLIMIT! map onto the same colours
+// the todo panel uses.
+function menuKeyword(state) {
+  return ({
+    run: { id: "DOING", zh: "在跑" },
+    wait: { id: "WAITING", zh: "等你" },
+    quiet: { id: "PAUSED", zh: "安静" },
+    "needs-approval": { id: "NEEDOK", zh: "等你" },
+    error: { id: "ERRORED", zh: "出错" },
+    limit: { id: "HITLIMIT", zh: "限额" },
+    done: { id: "DONE", zh: "完成" },
+    recent: { id: "LATER", zh: "最近" },
+    idle: { id: "TODO", zh: "空闲" },
+  })[state] || { id: "TODO", zh: "空闲" };
 }
 
 function menuRank(state) {

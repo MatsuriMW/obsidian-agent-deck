@@ -1,6 +1,6 @@
 {
   "name": "obsidian-agent-deck",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Track Claude Code, Codex, WorkBuddy and DeepSeek Harness from Obsidian; delegate from a task line and watch progress inside the button.",
   "scripts": {
     "build": "node esbuild.config.mjs",

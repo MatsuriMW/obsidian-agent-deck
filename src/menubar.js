@@ -131,6 +131,15 @@ export class MenuBarBridge {
     try { fs.unlinkSync(this.pidPath); } catch { /* none */ }
   }
 
+  show() {
+    try {
+      fs.mkdirSync(this.dir, { recursive: true });
+      fs.writeFileSync(path.join(this.dir, "show-panel"), String(Date.now()), "utf8");
+    } catch (e) {
+      console.error("[agent-deck] menu bar show", e);
+    }
+  }
+
   update(force = false) {
     if (!this.enabled || this.disabled) return;
     try {

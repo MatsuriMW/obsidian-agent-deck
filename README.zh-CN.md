@@ -18,7 +18,7 @@ Agent Deck 是一个 Obsidian 插件：读本机的 **Claude Code、Codex、Work
 - **分层模型设置**：默认模型、默认强度滑杆、能力标签、搜索筛选、启用开关、置顶排序、每行菜单、任务模型。改动先放在「Unsaved changes」条里，点保存才落盘。
 - **只读本机**：只读 `~/.claude`、`~/.codex`、`~/.workbuddy`、`~/.dsh`，不上传。插件目录里的 `usage.json` 存按天的汇总，日志被轮转掉历史还在。
 - **全站 Lucide 图标**：Agent、状态、工具和窗口图标都换成 Lucide；正在跑的图标用 CSS 旋转。
-- **Agent 汇总搬到 macOS 菜单栏**：Obsidian 右下角不再显示 Agent 会话汇总。系统最上方只留一个小图标和一串短说明，比如 `2 跑 · 1 等`；点开是详细页，可以直接跳会话。
+- **Agent 汇总搬到 macOS 菜单栏**：Obsidian 右下角不再显示 Agent 会话汇总。系统最上方只留一个小图标和一串短说明，比如 `2 跑 · 1 等`；点开是一块纯色面板，任务卡片可以直接跳会话。
 
 ![macOS 菜单栏](assets/menubar.png)
 
@@ -26,13 +26,21 @@ Agent Deck 是一个 Obsidian 插件：读本机的 **Claude Code、Codex、Work
 
 菜单栏是一个很小的 SwiftUI 助手，第一次运行时编译。它不是面板的复制，而是「现在谁在跑、谁在等我」的快速入口。
 
+- **纯色，不毛玻璃。** 面板是一个无边框窗口，所有表面都是不透明颜色：没有 `NSPopover`、没有 vibrancy、没有磨砂材质，在 macOS 26 上文字对比度不会被玻璃效果吃掉。浅色背景是接近 Obsidian 主题色的浅底，深色模式也有独立的纯色配色。
+- **任务关键词来自 TODOseq。** 每张卡片右上角标 `DOING`、`WAITING`、`NEEDOK?`、`HITLIMIT!`、`PAUSED`、`ERRORED`、`DONE`、`LATER`、`TODO`，前面配 TODOseq 里同一个 SVG 图标和任务状态色；`DOING` 的 loader-circle 在面板打开时一直转。顶部统计 `DOING` / `WAITING`，有 `NEEDOK?` 会话时会出现橙色提醒条。
+- **卡片就是卡片。** 白底、1px 描边、柔和阴影、左侧状态色轨、Agent 图标徽章、项目名和当前步骤；鼠标悬停时卡片会轻微浮起。
+- **默认五条。** 一眼先看前五个会话，其余向下滑动；底部会写清楚一共多少个。
 - **主力 Agent**（最多两个）给更多行：正在跑的、等你的，加上最近六小时内的会话，默认每个主力最多 6 条。
 - **其它 Agent** 只给正在运行的会话，默认每个最多 3 条。**WorkBuddy 例外**：它的等待会话也会列出来，因为那是每天要接着处理的事。
 - 顶部有一排所有已启用 Agent 的小标签，带在跑 / 等你数量；即使某个 Agent 当前没有可列出的会话，它的标签也在。
 - 点一行和面板里的跳转一样：Claude Code / WorkBuddy 直接打开会话；DeepSeek Harness 聚焦客户端并复制会话号；Codex 复制 `codex resume <id>`。
 - **打开面板** 走 `obsidian://agent-deck`；**重新扫描** 立刻扫一遍；**隐藏** 从菜单栏里直接关掉。
 
+Agent Deck 的主面板仍然保留 1.0.2 的低饱和配色；只有 macOS 菜单栏用了这套更醒目的任务状态色。
+
 第一次启动需要 `swiftc`（Xcode Command Line Tools）。插件会编译 `~/.agent-deck/AgentDeckMenuBar.app` 并启动它；Obsidian 退出时它也会退出。源码已经打包在插件里，不需要另外下载。菜单栏没出现时，到 **追踪 → 重启菜单栏**，或者先运行 `xcode-select --install`。
+
+如果菜单栏已经排满（或者 Ice 把它收进了隐藏区），在命令面板里运行 **Agent Deck: 打开 macOS 菜单栏面板**。面板会直接开在菜单栏下面，不依赖那个状态项；之后可以在 Ice 里把状态项拖回可见区。
 
 ![分层模型设置](assets/models.png)
 

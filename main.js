@@ -1,4 +1,4 @@
-/* Agent Deck 0.1.0 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.0.3 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -4379,7 +4379,1463 @@ var import_crypto = __toESM(require("crypto"), 1);
 var import_child_process2 = require("child_process");
 
 // src/menubar.swift
-var menubar_default = '// Agent Deck menu bar helper.\n// Compiled at runtime from the plugin with:\n//   swiftc -O -swift-version 5 -framework AppKit -framework SwiftUI -o AgentDeckMenuBar AgentDeckMenuBar.swift\n// It reads a JSON snapshot written by the Obsidian plugin and shows a small\n// status item with a detailed popover. It never talks to the network.\n\nimport AppKit\nimport SwiftUI\nimport Foundation\nimport Darwin\n\nlet lucideWandSVG = """\n<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>\n"""\n\nlet lucideArrowSVG = """\n<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>\n"""\n\nfunc lucideImage(_ svg: String, _ size: CGFloat) -> NSImage? {\n    guard let data = svg.data(using: .utf8), let image = NSImage(data: data) else { return nil }\n    image.isTemplate = true\n    image.size = NSSize(width: size, height: size)\n    return image\n}\n\nstruct MenuSession: Decodable, Identifiable {\n    let id: String\n    let agent: String\n    let agentName: String\n    let color: String\n    let glyph: String\n    let title: String\n    let detail: String\n    let state: String\n    let stateLabel: String\n    let primary: Bool\n    let url: String?\n    let copy: String?\n}\n\nstruct MenuAgent: Decodable, Identifiable {\n    let id: String\n    let short: String\n    let name: String\n    let color: String\n    let glyph: String\n    let running: Int\n    let waiting: Int\n    let primary: Bool\n}\n\nstruct MenuState: Decodable {\n    let updatedAt: Double\n    let short: String\n    let summary: String\n    let running: Int\n    let waiting: Int\n    let sessions: [MenuSession]\n    let agents: [MenuAgent]?\n\n    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "\u7B49\u5F85 Agent Deck\u2026", running: 0, waiting: 0, sessions: [], agents: [])\n}\n\nfinal class MenuModel: ObservableObject {\n    @Published var state: MenuState = .empty\n    let statePath: String\n    let parentPid: Int32\n    var timer: Timer?\n    var onUpdate: (() -> Void)?\n\n    init(statePath: String, parentPid: Int32) {\n        self.statePath = statePath\n        self.parentPid = parentPid\n    }\n\n    func start() {\n        reload()\n        let t = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in\n            self?.tick()\n        }\n        RunLoop.main.add(t, forMode: .common)\n        timer = t\n    }\n\n    func tick() {\n        if parentPid > 0 && kill(parentPid, 0) != 0 {\n            NSApp.terminate(nil)\n            return\n        }\n        reload()\n    }\n\n    func reload() {\n        guard let data = try? Data(contentsOf: URL(fileURLWithPath: statePath)),\n              let next = try? JSONDecoder().decode(MenuState.self, from: data) else { return }\n        if next.updatedAt != state.updatedAt {\n            state = next\n            onUpdate?()\n        }\n    }\n}\n\nfunc openURL(_ string: String?) {\n    guard let s = string, let url = URL(string: s) else { return }\n    NSWorkspace.shared.open(url)\n}\n\nfunc openSession(_ session: MenuSession) {\n    if let copy = session.copy, !copy.isEmpty {\n        let pb = NSPasteboard.general\n        pb.clearContents()\n        pb.setString(copy, forType: .string)\n    }\n    if let url = session.url, !url.isEmpty {\n        openURL(url)\n    }\n}\n\nlet adSage = Color(red: 0.44, green: 0.53, blue: 0.47)\nlet adAmber = Color(red: 0.65, green: 0.54, blue: 0.43)\nlet adRose = Color(red: 0.66, green: 0.48, blue: 0.47)\n\nfunc stateColor(_ state: String) -> Color {\n    switch state {\n    case "run": return adSage\n    case "wait", "needs-approval": return adAmber\n    case "error", "limit": return adRose\n    default: return .secondary\n    }\n}\n\nextension Color {\n    init(hex: String) {\n        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)\n        if s.hasPrefix("#") { s.removeFirst() }\n        var value: UInt64 = 0\n        Scanner(string: s).scanHexInt64(&value)\n        let r = Double((value >> 16) & 0xff) / 255.0\n        let g = Double((value >> 8) & 0xff) / 255.0\n        let b = Double(value & 0xff) / 255.0\n        self.init(red: r, green: g, blue: b)\n    }\n}\n\nstruct SessionRowView: View {\n    let session: MenuSession\n\n    var body: some View {\n        Button(action: { openSession(session) }) {\n            HStack(alignment: .top, spacing: 8) {\n                Circle()\n                    .fill(Color(hex: session.color))\n                    .frame(width: 7, height: 7)\n                    .padding(.top, 5)\n                VStack(alignment: .leading, spacing: 2) {\n                    HStack(spacing: 6) {\n                        Text(session.title)\n                            .font(.system(size: 11.5, weight: .semibold))\n                            .lineLimit(1)\n                        Spacer(minLength: 4)\n                        Text(session.stateLabel)\n                            .font(.system(size: 8.5, weight: .bold))\n                            .foregroundColor(stateColor(session.state))\n                    }\n                    Text(session.detail)\n                        .font(.system(size: 9.5))\n                        .foregroundColor(.secondary)\n                        .lineLimit(1)\n                }\n                if let img = lucideImage(lucideArrowSVG, 9) {\n                    Image(nsImage: img)\n                        .renderingMode(.template)\n                        .foregroundColor(.secondary)\n                        .padding(.top, 3)\n                } else {\n                    Image(systemName: "arrow.up.right")\n                        .font(.system(size: 8.5))\n                        .foregroundColor(.secondary)\n                        .padding(.top, 3)\n                }\n            }\n            .padding(8)\n            .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.07)))\n            .contentShape(Rectangle())\n        }\n        .buttonStyle(.plain)\n    }\n}\n\nstruct DeckView: View {\n    @ObservedObject var model: MenuModel\n\n    @ViewBuilder\n    func section(_ title: String, _ rows: [MenuSession]) -> some View {\n        HStack {\n            Text(title)\n                .font(.system(size: 8.5, weight: .bold))\n                .foregroundColor(.secondary)\n                .textCase(.uppercase)\n            Spacer()\n            Text("\\(rows.count)")\n                .font(.system(size: 8.5, weight: .semibold))\n                .foregroundColor(.secondary)\n        }\n        .padding(.top, 4)\n        .padding(.horizontal, 2)\n        ForEach(rows) { s in\n            SessionRowView(session: s)\n        }\n    }\n\n    var body: some View {\n        VStack(alignment: .leading, spacing: 0) {\n            HStack(spacing: 9) {\n                ZStack {\n                    RoundedRectangle(cornerRadius: 8)\n                        .fill(LinearGradient(colors: [Color(red: 0.55, green: 0.53, blue: 0.64), Color(red: 0.68, green: 0.61, blue: 0.66)], startPoint: .topLeading, endPoint: .bottomTrailing))\n                    if let img = lucideImage(lucideWandSVG, 13) {\n                        Image(nsImage: img)\n                            .renderingMode(.template)\n                            .foregroundColor(.white)\n                    } else {\n                        Image(systemName: "sparkles")\n                            .font(.system(size: 12, weight: .bold))\n                            .foregroundColor(.white)\n                    }\n                }\n                .frame(width: 28, height: 28)\n                VStack(alignment: .leading, spacing: 1) {\n                    Text("Agent Deck")\n                        .font(.system(size: 13, weight: .bold))\n                    Text(model.state.summary)\n                        .font(.system(size: 9.5))\n                        .foregroundColor(.secondary)\n                        .lineLimit(1)\n                }\n                Spacer()\n                VStack(alignment: .trailing, spacing: 1) {\n                    Text("\\(model.state.running) \u5728\u8DD1")\n                        .font(.system(size: 10, weight: .semibold))\n                        .foregroundColor(adSage)\n                    if model.state.waiting > 0 {\n                        Text("\\(model.state.waiting) \u7B49\u4F60")\n                            .font(.system(size: 9.5, weight: .semibold))\n                            .foregroundColor(adAmber)\n                    }\n                }\n            }\n            if let agents = model.state.agents, !agents.isEmpty {\n                HStack(spacing: 5) {\n                    ForEach(agents) { a in\n                        HStack(spacing: 3) {\n                            Circle().fill(Color(hex: a.color)).frame(width: 5, height: 5)\n                            Text(a.short)\n                                .font(.system(size: 8.5, weight: a.primary ? .semibold : .regular))\n                                .foregroundColor(a.primary ? .primary : .secondary)\n                            Text("\\(a.running)")\n                                .font(.system(size: 8.5, weight: .bold))\n                                .foregroundColor(a.running > 0 ? adSage : .secondary)\n                            if a.waiting > 0 {\n                                Text("\xB7 \\(a.waiting) \u7B49")\n                                    .font(.system(size: 8))\n                                    .foregroundColor(adAmber)\n                            }\n                        }\n                        .padding(.horizontal, 5)\n                        .padding(.vertical, 2)\n                        .background(Capsule().fill(Color.secondary.opacity(a.primary ? 0.12 : 0.06)))\n                    }\n                    Spacer()\n                }\n                .padding(.top, 7)\n            }\n            Divider().padding(.vertical, 9)\n            if model.state.sessions.isEmpty {\n                VStack(spacing: 4) {\n                    Text("\u73B0\u5728\u6CA1\u6709\u8981\u663E\u793A\u7684\u4F1A\u8BDD")\n                        .font(.system(size: 11, weight: .semibold))\n                    Text("\u4E3B\u529B Agent \u7684\u4F1A\u8BDD\u4F1A\u7559\u5728\u8FD9\u91CC\uFF1B\u5176\u5B83 Agent \u53EA\u5728\u6B63\u5728\u8FD0\u884C\u65F6\u51FA\u73B0\uFF0CWorkBuddy \u7684\u7B49\u5F85\u4F1A\u8BDD\u4E5F\u5217\u3002")\n                        .font(.system(size: 9.5))\n                        .foregroundColor(.secondary)\n                        .multilineTextAlignment(.center)\n                }\n                .frame(maxWidth: .infinity)\n                .padding(.vertical, 22)\n            } else {\n                let primary = model.state.sessions.filter { $0.primary }\n                let others = model.state.sessions.filter { !$0.primary }\n                ScrollView {\n                    LazyVStack(alignment: .leading, spacing: 5) {\n                        if !primary.isEmpty {\n                            section("\u4E3B\u529B \xB7 \u5168\u91CF\u8FFD\u8E2A", primary)\n                        }\n                        if !others.isEmpty {\n                            section("\u5176\u5B83 Agent \xB7 \u5728\u8DD1 \xB7 WorkBuddy \u7B49\u4F60", others)\n                        }\n                    }\n                }\n                .frame(maxHeight: 430)\n            }\n            Divider().padding(.vertical, 9)\n            Text("\u4E3B\u529B\u5168\u91CF \xB7 \u5176\u5B83 Agent \u5728\u8DD1 \xB7 WorkBuddy \u4E5F\u5217\u7B49\u4F60")\n                .font(.system(size: 8))\n                .foregroundColor(.secondary)\n                .padding(.bottom, 7)\n            HStack(spacing: 8) {\n                Button("\u6253\u5F00\u9762\u677F") { openURL("obsidian://agent-deck") }\n                    .buttonStyle(.borderedProminent)\n                    .tint(Color(red: 0.45, green: 0.42, blue: 0.57))\n                    .controlSize(.small)\n                Button("\u91CD\u65B0\u626B\u63CF") { openURL("obsidian://agent-deck?do=scan") }\n                    .buttonStyle(.bordered)\n                    .controlSize(.small)\n                Spacer()\n                Button("\u9690\u85CF") { openURL("obsidian://agent-deck?do=hide") }\n                    .buttonStyle(.plain)\n                    .font(.system(size: 9))\n                    .foregroundColor(.secondary)\n            }\n        }\n        .padding(14)\n        .frame(width: 390)\n    }\n}\n\nfinal class AppDelegate: NSObject, NSApplicationDelegate {\n    var statusItem: NSStatusItem!\n    var popover: NSPopover!\n    var model: MenuModel!\n    var statePath: String = NSString(string: "~/.agent-deck/menubar.json").expandingTildeInPath\n    var parentPid: Int32 = 0\n    var preview = false\n\n    func applicationDidFinishLaunching(_ notification: Notification) {\n        let args = CommandLine.arguments\n        if let i = args.firstIndex(of: "--state"), i + 1 < args.count { statePath = args[i + 1] }\n        if let i = args.firstIndex(of: "--parent"), i + 1 < args.count { parentPid = Int32(args[i + 1]) ?? 0 }\n        preview = args.contains("--preview")\n        if let i = args.firstIndex(of: "--pidfile"), i + 1 < args.count {\n            try? "\\(getpid())".write(toFile: args[i + 1], atomically: true, encoding: .utf8)\n        }\n\n        model = MenuModel(statePath: statePath, parentPid: parentPid)\n\n        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)\n        if let button = statusItem.button {\n            if let image = lucideImage(lucideWandSVG, 18) {\n                button.image = image\n            } else {\n                let image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Agent Deck")\n                image?.isTemplate = true\n                button.image = image\n            }\n            button.imagePosition = .imageLeading\n            button.title = " Agent Deck"\n            button.font = NSFont.systemFont(ofSize: 11, weight: .medium)\n            button.target = self\n            button.action = #selector(togglePopover)\n        }\n\n        let host = NSHostingController(rootView: DeckView(model: model))\n        popover = NSPopover()\n        popover.contentViewController = host\n        popover.behavior = .transient\n        popover.animates = true\n        popover.contentSize = NSSize(width: 390, height: 470)\n\n        model.onUpdate = { [weak self] in self?.refresh() }\n        model.start()\n        refresh()\n        if preview {\n            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in\n                self?.showPopover()\n            }\n        }\n    }\n\n    func refresh() {\n        let short = model.state.short.trimmingCharacters(in: .whitespacesAndNewlines)\n        statusItem.button?.title = short.isEmpty ? " Agent Deck" : " " + short\n        if popover != nil {\n            let n = min(model.state.sessions.count, 8)\n            let h = max(240, min(640, 206 + CGFloat(n) * 54 + (n > 0 ? 18 : 0)))\n            popover.contentSize = NSSize(width: 390, height: h)\n        }\n    }\n\n    func showPopover() {\n        guard let button = statusItem.button else { return }\n        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)\n        NSApp.activate(ignoringOtherApps: true)\n    }\n\n    @objc func togglePopover() {\n        if popover.isShown {\n            popover.performClose(nil)\n        } else {\n            showPopover()\n        }\n    }\n}\n\nlet app = NSApplication.shared\nlet delegate = AppDelegate()\napp.delegate = delegate\napp.setActivationPolicy(.accessory)\napp.run()\n';
+var menubar_default = `// Agent Deck menu bar helper.
+// Compiled at runtime from the plugin with:
+//   swiftc -O -swift-version 5 -framework AppKit -framework SwiftUI -o AgentDeckMenuBar AgentDeckMenuBar.swift
+// It reads a JSON snapshot written by the Obsidian plugin and shows a small
+// status item with a detailed panel. It never talks to the network.
+//
+// The panel is a borderless NSPanel with opaque, solid surfaces. It deliberately
+// avoids NSPopover / NSVisualEffectView: macOS 26 renders those with a strong
+// glass material, which made the old card list washed out and hard to read.
+
+import AppKit
+import QuartzCore
+import SwiftUI
+import Foundation
+import Darwin
+
+let lucideWandSVG = """
+<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72"/><path d="m14 7 3 3"/><path d="M5 6v4"/><path d="M19 14v4"/><path d="M10 2v2"/><path d="M7 8H3"/><path d="M21 16h-4"/><path d="M11 3H9"/></svg>
+"""
+
+let lucideArrowSVG = """
+<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+"""
+
+func lucideImage(_ svg: String, _ size: CGFloat) -> NSImage? {
+    guard let data = svg.data(using: .utf8), let image = NSImage(data: data) else { return nil }
+    image.isTemplate = true
+    image.size = NSSize(width: size, height: size)
+    return image
+}
+
+// The exact icons TODOseq puts before a task keyword. Paths and stroke widths
+// are copied from its local patch so the menu bar reads as the same language:
+// TODO = dashed circle, DOING = loader-circle (spins), DONE = circle-check,
+// PAUSED = pause, WAITING = hourglass, NEEDOK = hand, ERRORED = badge-alert,
+// HITLIMIT = gauge.
+enum TsqIcons {
+    private static func wrap(_ body: String) -> String {
+        """
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">\\(body)</svg>
+        """
+    }
+
+    static let todo = wrap("""
+    <path d="M10.1 2.182a10 10 0 0 1 3.8 0"/><path d="M17.609 3.721a10 10 0 0 1 2.69 2.7"/><path d="M21.818 10.1a10 10 0 0 1 0 3.8"/><path d="M20.279 17.609a10 10 0 0 1-2.7 2.69"/><path d="M13.9 21.818a10 10 0 0 1-3.8 0"/><path d="M6.391 20.279a10 10 0 0 1-2.69-2.7"/><path d="M2.182 13.9a10 10 0 0 1 0-3.8"/><path d="M3.721 6.391a10 10 0 0 1 2.7-2.69"/>
+    """)
+
+    static let doing = wrap(#"<path d="M21 12a9 9 0 1 1-6.219-8.56"/>"#)
+
+    static let done = wrap(#"<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>"#)
+
+    static let paused = wrap(#"<rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>"#)
+
+    static let waiting = wrap("""
+    <path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>
+    """)
+
+    static let needok = wrap("""
+    <path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>
+    """)
+
+    static let errored = wrap("""
+    <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>
+    """)
+
+    static let hitlimit = wrap(#"<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>"#)
+}
+
+// MARK: - Snapshot
+
+struct MenuSession: Decodable, Identifiable {
+    let id: String
+    let agent: String
+    let agentName: String
+    let agentShort: String?
+    let color: String
+    let glyph: String
+    let title: String
+    let detail: String
+    let state: String
+    let stateLabel: String
+    let primary: Bool
+    let url: String?
+    let copy: String?
+    let keyword: String?
+    let keywordLabel: String?
+    let project: String?
+    let step: String?
+    let ago: String?
+
+    var keywordCode: String {
+        if let keyword = keyword, !keyword.isEmpty { return keyword }
+        return DeckKeywords.code(for: state)
+    }
+
+    var keywordZh: String {
+        if let label = keywordLabel, !label.isEmpty { return label }
+        return DeckKeywords.style(for: keywordCode).zh
+    }
+
+    // WorkBuddy sometimes stores a bare XML-wrapped tool prompt as the title.
+    var displayTitle: String {
+        var text = title
+        for tag in ["<user_query>", "</user_query>", "<user_request>", "</user_request>"] {
+            text = text.replacingOccurrences(of: tag, with: "")
+        }
+        if let open = text.firstIndex(of: "<"), let close = text[open...].firstIndex(of: ">") {
+            text.removeSubrange(open...close)
+        }
+        text = text.replacingOccurrences(of: "\\n", with: " ")
+        text = text.split(separator: " ").joined(separator: " ")
+        return text.isEmpty ? title : text
+    }
+
+    var hasStructuredMeta: Bool {
+        (project?.isEmpty == false) || (step?.isEmpty == false) || (ago?.isEmpty == false)
+    }
+
+    var shortAgent: String {
+        if let s = agentShort, !s.isEmpty { return s }
+        switch agent {
+        case "claude": return "Claude"
+        case "codex": return "Codex"
+        case "workbuddy": return "WorkBuddy"
+        case "dsh": return "DSH"
+        default: return agentName
+        }
+    }
+}
+
+struct MenuAgent: Decodable, Identifiable {
+    let id: String
+    let short: String
+    let name: String
+    let color: String
+    let glyph: String
+    let running: Int
+    let waiting: Int
+    let primary: Bool
+}
+
+struct MenuState: Decodable {
+    let updatedAt: Double
+    let short: String
+    let summary: String
+    let usage: String?
+    let running: Int
+    let waiting: Int
+    let sessions: [MenuSession]
+    let agents: [MenuAgent]?
+
+    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "\u7B49\u5F85 Agent Deck\u2026", usage: nil, running: 0, waiting: 0, sessions: [], agents: [])
+
+    var needsApproval: Int {
+        sessions.filter { $0.state == "needs-approval" }.count
+    }
+
+    var usageLine: String {
+        if let usage = usage, !usage.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return usage
+        }
+        let parts = summary
+            .split(separator: "\xB7")
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !$0.contains("\u5728\u8DD1") && !$0.contains("\u7B49\u4F60") }
+        if parts.isEmpty {
+            return summary.isEmpty ? "\u7B49\u5F85 Agent Deck\u2026" : summary
+        }
+        return parts.joined(separator: " \xB7 ")
+    }
+}
+
+final class MenuModel: ObservableObject {
+    @Published var state: MenuState = .empty
+    @Published var panelVisible = false
+    let statePath: String
+    let showPath: String
+    let parentPid: Int32
+    var timer: Timer?
+    var onUpdate: (() -> Void)?
+    var onShowRequest: (() -> Void)?
+    private var lastShowAt = Date().timeIntervalSince1970
+
+    init(statePath: String, parentPid: Int32) {
+        self.statePath = statePath
+        self.showPath = URL(fileURLWithPath: statePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("show-panel").path
+        self.parentPid = parentPid
+    }
+
+    func start() {
+        lastShowAt = Date().timeIntervalSince1970
+        reload()
+        let t = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.tick()
+        }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
+    }
+
+    func tick() {
+        if parentPid > 0 && kill(parentPid, 0) != 0 {
+            NSApp.terminate(nil)
+            return
+        }
+        reload()
+        checkShowRequest()
+    }
+
+    func checkShowRequest() {
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: showPath),
+              let date = attributes[.modificationDate] as? Date else { return }
+        let stamp = date.timeIntervalSince1970
+        if stamp > lastShowAt {
+            lastShowAt = stamp
+            onShowRequest?()
+        }
+    }
+
+    func reload() {
+        guard let data = try? Data(contentsOf: URL(fileURLWithPath: statePath)),
+              let next = try? JSONDecoder().decode(MenuState.self, from: data) else { return }
+        if next.updatedAt != state.updatedAt {
+            state = next
+            onUpdate?()
+        }
+    }
+}
+
+// MARK: - Actions
+
+extension Notification.Name {
+    static let agentDeckDismiss = Notification.Name("AgentDeckDismissPanel")
+}
+
+func openURL(_ string: String?) {
+    guard let s = string, let url = URL(string: s) else { return }
+    NSWorkspace.shared.open(url)
+}
+
+func dismissThen(_ action: () -> Void) {
+    action()
+    NotificationCenter.default.post(name: .agentDeckDismiss, object: nil)
+}
+
+func adOpen(_ string: String) {
+    dismissThen { openURL(string) }
+}
+
+func openSession(_ session: MenuSession) {
+    dismissThen {
+        if let copy = session.copy, !copy.isEmpty {
+            let pb = NSPasteboard.general
+            pb.clearContents()
+            pb.setString(copy, forType: .string)
+        }
+        if let url = session.url, !url.isEmpty {
+            openURL(url)
+        }
+    }
+}
+
+// MARK: - Palette
+
+extension NSColor {
+    convenience init(hex: String) {
+        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.hasPrefix("#") { s.removeFirst() }
+        var value: UInt64 = 0
+        Scanner(string: s).scanHexInt64(&value)
+        let r = CGFloat((value >> 16) & 0xff) / 255.0
+        let g = CGFloat((value >> 8) & 0xff) / 255.0
+        let b = CGFloat(value & 0xff) / 255.0
+        self.init(srgbRed: r, green: g, blue: b, alpha: 1)
+    }
+}
+
+extension Color {
+    init(hex: String) {
+        self.init(nsColor: NSColor(hex: hex))
+    }
+
+    /// Opaque colour that still follows light / dark appearance. The solid
+    /// surfaces are the whole point here: no material, no vibrancy.
+    static func solid(_ light: String, _ dark: String) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor(hex: isDark ? dark : light)
+        })
+    }
+}
+
+enum DeckPalette {
+    // Solid, near-white surfaces with a slight lavender tint so the panel sits
+    // next to the light Obsidian theme instead of reading as parchment.
+    static let panel = Color.solid("#F6F5FA", "#17161B")
+    static let header = Color.solid("#EFEDF5", "#1E1D23")
+    static let panelBorder = Color.solid("#D8D4E1", "#3A3742")
+
+    static let card = Color.solid("#FFFFFF", "#242229")
+    static let cardHover = Color.solid("#FDFCFF", "#2B2831")
+    static let cardBorder = Color.solid("#E4E1EB", "#3A3742")
+    static let cardBorderHover = Color.solid("#C9C4D6", "#595367")
+
+    static let ink = Color.solid("#1B1A22", "#F6F3FA")
+    static let secondary = Color.solid("#5F5C6B", "#B5B0BF")
+    static let tertiary = Color.solid("#85818F", "#8C8896")
+    static let divider = Color.solid("#E3E0EA", "#322F39")
+    static let pill = Color.solid("#E7E4EE", "#2D2A33")
+    static let brand = Color.solid("#4E43C8", "#7C6DFF")
+    static let brandHover = Color.solid("#5B50D8", "#8E81FF")
+    static let brandInk = Color.solid("#FFFFFF", "#171512")
+}
+
+// MARK: - TODOseq keywords
+
+/// The keyword palette is lifted from the TODOseq plugin's local patch:
+/// https://github.com/.../todoseq/styles.css ("\u5173\u952E\u8BCD\u6309\u72B6\u6001\u4E0A\u8272").
+/// Accent is the original colour; ink is a darkened variant for chip text so
+/// small labels keep a readable contrast on the pale solid chip background.
+struct KeywordStyle {
+    let code: String
+    let zh: String
+    let accent: Color
+    let ink: Color
+    let tint: Color
+    let icon: String
+    let spins: Bool
+}
+
+enum DeckKeywords {
+    static let doing = KeywordStyle(
+        code: "DOING", zh: "\u5728\u8DD1",
+        accent: .solid("#C8635F", "#FF938B"),
+        ink: .solid("#A34C48", "#FFB3AC"),
+        tint: .solid("#F9E7E5", "#37211F"),
+        icon: TsqIcons.doing, spins: true
+    )
+
+    static let needok = KeywordStyle(
+        code: "NEEDOK?", zh: "\u7B49\u4F60",
+        accent: .solid("#BF7A45", "#F2A66B"),
+        ink: .solid("#96582B", "#FFC79A"),
+        tint: .solid("#FBEDE1", "#3A281C"),
+        icon: TsqIcons.needok, spins: false
+    )
+
+    static let waiting = KeywordStyle(
+        code: "WAITING", zh: "\u7B49\u4F60",
+        accent: .solid("#8F7FB6", "#BFAEEA"),
+        ink: .solid("#6A5B92", "#D9CEFF"),
+        tint: .solid("#F0EBF8", "#2A2438"),
+        icon: TsqIcons.waiting, spins: false
+    )
+
+    static let paused = KeywordStyle(
+        code: "PAUSED", zh: "\u5B89\u9759",
+        accent: .solid("#B39A3E", "#E4CB6A"),
+        ink: .solid("#846F22", "#F2DF9B"),
+        tint: .solid("#F7F0D9", "#332C18"),
+        icon: TsqIcons.paused, spins: false
+    )
+
+    static let errored = KeywordStyle(
+        code: "ERRORED", zh: "\u51FA\u9519",
+        accent: .solid("#93606B", "#E18C99"),
+        ink: .solid("#70414B", "#F5B5BE"),
+        tint: .solid("#F5E7E9", "#37222A"),
+        icon: TsqIcons.errored, spins: false
+    )
+
+    static let hitlimit = KeywordStyle(
+        code: "HITLIMIT!", zh: "\u9650\u989D",
+        accent: .solid("#8A5A8C", "#CE93D2"),
+        ink: .solid("#673A69", "#E8B9EB"),
+        tint: .solid("#F4E8F4", "#332236"),
+        icon: TsqIcons.hitlimit, spins: false
+    )
+
+    static let done = KeywordStyle(
+        code: "DONE", zh: "\u5B8C\u6210",
+        accent: .solid("#629C7F", "#83C9A5"),
+        ink: .solid("#43705A", "#B1E5C9"),
+        tint: .solid("#E8F3EC", "#1D3328"),
+        icon: TsqIcons.done, spins: false
+    )
+
+    static let later = KeywordStyle(
+        code: "LATER", zh: "\u6700\u8FD1",
+        accent: .solid("#5C86B4", "#8FB8E8"),
+        ink: .solid("#40658D", "#C2DFFF"),
+        tint: .solid("#E9F0F9", "#1E2A38"),
+        icon: TsqIcons.todo, spins: false
+    )
+
+    static let todo = KeywordStyle(
+        code: "TODO", zh: "\u7A7A\u95F2",
+        accent: .solid("#5C86B4", "#8FB8E8"),
+        ink: .solid("#40658D", "#C2DFFF"),
+        tint: .solid("#E9F0F9", "#1E2A38"),
+        icon: TsqIcons.todo, spins: false
+    )
+
+    static func code(for state: String) -> String {
+        switch state {
+        case "run": return "DOING"
+        case "needs-approval": return "NEEDOK"
+        case "wait": return "WAITING"
+        case "quiet": return "PAUSED"
+        case "error": return "ERRORED"
+        case "limit": return "HITLIMIT"
+        case "done": return "DONE"
+        case "recent": return "LATER"
+        default: return "TODO"
+        }
+    }
+
+    static func style(for code: String) -> KeywordStyle {
+        let base = code
+            .uppercased()
+            .trimmingCharacters(in: CharacterSet(charactersIn: "?! "))
+        switch base {
+        case "DOING", "NOW", "IN-PROGRESS": return doing
+        case "NEEDOK": return needok
+        case "WAITING", "WAIT": return waiting
+        case "PAUSED", "SUSPENDED": return paused
+        case "ERRORED", "FAILED": return errored
+        case "HITLIMIT": return hitlimit
+        case "DONE": return done
+        case "LATER", "DELEGATED", "QUEUED", "TOREVIEW": return later
+        case "TODO": return todo
+        default: return todo
+        }
+    }
+}
+
+// MARK: - Keyword glyph
+
+private struct DeckPanelVisibleKey: EnvironmentKey {
+    static let defaultValue = true
+}
+
+extension EnvironmentValues {
+    var deckPanelVisible: Bool {
+        get { self[DeckPanelVisibleKey.self] }
+        set { self[DeckPanelVisibleKey.self] = newValue }
+    }
+}
+
+/// Renders the same SVG TODOseq puts in front of a keyword. DOING keeps
+/// spinning, but only while the panel is actually on screen. The rotation runs
+/// on a CALayer so SwiftUI is not re-rendered 30 times a second.
+struct KeywordGlyph: View {
+    let style: KeywordStyle
+    var size: CGFloat = 11
+    var active: Bool = true
+
+    @Environment(\\.deckPanelVisible) private var panelVisible
+
+    var body: some View {
+        if style.spins, panelVisible, active, let image = lucideImage(style.icon, size) {
+            SpinningKeywordGlyph(image: image, color: NSColor(style.accent))
+                .frame(width: size, height: size)
+        } else {
+            KeywordGlyphImage(style: style, size: size, active: active)
+        }
+    }
+}
+
+private struct KeywordGlyphImage: View {
+    let style: KeywordStyle
+    let size: CGFloat
+    let active: Bool
+
+    var body: some View {
+        Group {
+            if let image = lucideImage(style.icon, size) {
+                Image(nsImage: image)
+                    .renderingMode(.template)
+                    .resizable()
+                    .frame(width: size, height: size)
+            } else {
+                Circle()
+                    .frame(width: size * 0.7, height: size * 0.7)
+            }
+        }
+        .foregroundColor(active ? style.accent : DeckPalette.tertiary)
+    }
+}
+
+private struct SpinningKeywordGlyph: NSViewRepresentable {
+    let image: NSImage
+    let color: NSColor
+
+    func makeNSView(context: Context) -> SpinnerView {
+        let view = SpinnerView()
+        view.configure(image: image, color: color)
+        return view
+    }
+
+    func updateNSView(_ view: SpinnerView, context: Context) {
+        view.configure(image: image, color: color)
+    }
+}
+
+private final class SpinnerView: NSView {
+    private let spinLayer = CALayer()
+    private var tinted: NSImage?
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        spinLayer.contentsGravity = .resizeAspect
+        spinLayer.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        layer?.addSublayer(spinLayer)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    func configure(image: NSImage, color: NSColor) {
+        tinted = image.deckTinted(color)
+        needsLayout = true
+    }
+
+    override func layout() {
+        super.layout()
+        guard bounds.width > 0, bounds.height > 0 else { return }
+        spinLayer.bounds = bounds
+        spinLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        spinLayer.contentsScale = window?.backingScaleFactor ?? 2
+        if let tinted = tinted, let cg = tinted.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            spinLayer.contents = cg
+        }
+        if spinLayer.animation(forKey: "deck-spin") == nil {
+            let spin = CABasicAnimation(keyPath: "transform.rotation.z")
+            spin.fromValue = 0.0
+            spin.toValue = Double.pi * 2
+            spin.duration = 0.8
+            spin.repeatCount = .infinity
+            spin.timingFunction = CAMediaTimingFunction(name: .linear)
+            spinLayer.add(spin, forKey: "deck-spin")
+        }
+    }
+}
+
+private extension NSImage {
+    func deckTinted(_ color: NSColor) -> NSImage {
+        let scale: CGFloat = 3
+        let target = NSSize(
+            width: max(1, size.width * scale),
+            height: max(1, size.height * scale)
+        )
+        return NSImage(size: target, flipped: false) { rect in
+            self.draw(in: rect)
+            guard let context = NSGraphicsContext.current else { return true }
+            context.saveGraphicsState()
+            context.compositingOperation = .sourceAtop
+            color.setFill()
+            NSBezierPath(rect: rect).fill()
+            context.restoreGraphicsState()
+            return true
+        }
+    }
+}
+
+// MARK: - Agents
+
+struct AgentStyle {
+    let color: Color
+    let tint: Color
+    let glyph: String
+    let short: String
+}
+
+enum DeckAgents {
+    static func style(id: String, fallbackColor: String, fallbackGlyph: String, fallbackShort: String) -> AgentStyle {
+        switch id {
+        case "claude":
+            return AgentStyle(
+                color: .solid("#D97757", "#F09475"),
+                tint: .solid("#FBECE4", "#39251E"),
+                glyph: "\u2733", short: "Claude"
+            )
+        case "codex":
+            return AgentStyle(
+                color: .solid("#4C82C3", "#7FB2E8"),
+                tint: .solid("#EAF1F9", "#1E2C3B"),
+                glyph: "\u2318", short: "Codex"
+            )
+        case "workbuddy":
+            return AgentStyle(
+                color: .solid("#1C9A78", "#46C9A3"),
+                tint: .solid("#E6F5EF", "#1B332B"),
+                glyph: "\u2726", short: "WorkBuddy"
+            )
+        case "dsh":
+            return AgentStyle(
+                color: .solid("#4A66E8", "#7F95FF"),
+                tint: .solid("#EAEDFF", "#232744"),
+                glyph: "\u25C8", short: "DSH"
+            )
+        default:
+            let base = Color(hex: fallbackColor)
+            return AgentStyle(
+                color: base,
+                tint: base.opacity(0.14),
+                glyph: fallbackGlyph.isEmpty ? "\u2022" : fallbackGlyph,
+                short: fallbackShort.isEmpty ? id : fallbackShort
+            )
+        }
+    }
+
+    static func style(for session: MenuSession) -> AgentStyle {
+        style(id: session.agent, fallbackColor: session.color, fallbackGlyph: session.glyph, fallbackShort: session.shortAgent)
+    }
+
+    static func style(for agent: MenuAgent) -> AgentStyle {
+        style(id: agent.id, fallbackColor: agent.color, fallbackGlyph: agent.glyph, fallbackShort: agent.short)
+    }
+}
+
+// MARK: - Shared atoms
+
+struct Hairline: View {
+    var body: some View {
+        Rectangle()
+            .fill(DeckPalette.divider)
+            .frame(height: 1)
+    }
+}
+
+struct AgentBadge: View {
+    let style: AgentStyle
+    var size: CGFloat = 26
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
+                .fill(style.tint)
+            RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
+                .strokeBorder(style.color.opacity(0.35), lineWidth: 1)
+            Text(style.glyph)
+                .font(.system(size: size * 0.44, weight: .bold))
+                .foregroundColor(style.color)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+struct KeywordChip: View {
+    let style: KeywordStyle
+
+    var body: some View {
+        HStack(spacing: 4) {
+            KeywordGlyph(style: style, size: 11)
+            Text(style.code)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .kerning(0.15)
+        }
+        .foregroundColor(style.ink)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2.5)
+        .background(
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(style.tint)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .strokeBorder(style.accent.opacity(0.55), lineWidth: 1)
+        )
+        .help("\\(style.code) \xB7 \\(style.zh)")
+        .fixedSize()
+    }
+}
+
+// MARK: - Header
+
+struct StatBlock: View {
+    let label: String
+    let value: Int
+    let style: KeywordStyle
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 0) {
+            Text(label)
+                .font(.system(size: 7.5, weight: .bold, design: .monospaced))
+                .kerning(0.7)
+                .foregroundColor(style.accent)
+            Text("\\(value)")
+                .font(.system(size: 19, weight: .bold, design: .rounded).monospacedDigit())
+                .foregroundColor(value > 0 ? style.ink : DeckPalette.tertiary)
+        }
+        .frame(minWidth: 40, alignment: .trailing)
+    }
+}
+
+struct AgentPill: View {
+    let agent: MenuAgent
+
+    var body: some View {
+        let style = DeckAgents.style(for: agent)
+        HStack(spacing: 4) {
+            Text(style.glyph)
+                .font(.system(size: 9.5, weight: .bold))
+                .foregroundColor(style.color)
+            Text(agent.short.isEmpty ? style.short : agent.short)
+                .font(.system(size: 9.5, weight: agent.primary ? .bold : .semibold))
+                .foregroundColor(DeckPalette.ink)
+                .lineLimit(1)
+            Spacer(minLength: 3)
+            HStack(spacing: 2) {
+                KeywordGlyph(style: DeckKeywords.doing, size: 10, active: agent.running > 0)
+                Text("\\(agent.running)")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(agent.running > 0 ? DeckKeywords.doing.accent : DeckPalette.tertiary)
+            }
+            HStack(spacing: 2) {
+                KeywordGlyph(style: DeckKeywords.waiting, size: 10, active: agent.waiting > 0)
+                Text("\\(agent.waiting)")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundColor(agent.waiting > 0 ? DeckKeywords.waiting.accent : DeckPalette.tertiary)
+            }
+        }
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3.5)
+        .frame(maxWidth: .infinity)
+        .background(Capsule(style: .continuous).fill(style.tint))
+        .overlay(
+            Capsule(style: .continuous)
+                .strokeBorder(style.color.opacity(agent.primary ? 0.42 : 0.24), lineWidth: 1)
+        )
+        .help("\u8DD1 \\(agent.running) \xB7 \u7B49 \\(agent.waiting)")
+    }
+}
+
+struct HeaderBlock: View {
+    let state: MenuState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(alignment: .top, spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                        .fill(DeckPalette.brand)
+                    if let image = lucideImage(lucideWandSVG, 15) {
+                        Image(nsImage: image)
+                            .renderingMode(.template)
+                            .foregroundColor(.white)
+                    } else {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+                }
+                .frame(width: 30, height: 30)
+                .shadow(color: DeckPalette.brand.opacity(0.35), radius: 6, x: 0, y: 2)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Agent Deck")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(DeckPalette.ink)
+                    Text(state.usageLine)
+                        .font(.system(size: 10.5, weight: .medium).monospacedDigit())
+                        .foregroundColor(DeckPalette.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer(minLength: 6)
+
+                HStack(alignment: .top, spacing: 12) {
+                    StatBlock(label: "DOING", value: state.running, style: DeckKeywords.doing)
+                    StatBlock(label: "WAITING", value: state.waiting, style: DeckKeywords.waiting)
+                }
+            }
+
+            if state.needsApproval > 0 {
+                HStack(spacing: 5) {
+                    KeywordGlyph(style: DeckKeywords.needok, size: 10)
+                    Text("\\(state.needsApproval) \u4E2A NEEDOK? \u9700\u8981\u4F60\u5141\u8BB8")
+                        .font(.system(size: 9.5, weight: .semibold))
+                }
+                .foregroundColor(DeckKeywords.needok.ink)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule(style: .continuous).fill(DeckKeywords.needok.tint)
+                )
+                .overlay(
+                    Capsule(style: .continuous)
+                        .strokeBorder(DeckKeywords.needok.accent.opacity(0.5), lineWidth: 1)
+                )
+            }
+
+            if let agents = state.agents, !agents.isEmpty {
+                LazyVGrid(
+                    columns: [
+                        GridItem(.flexible(), spacing: 5),
+                        GridItem(.flexible(), spacing: 5),
+                    ],
+                    spacing: 5
+                ) {
+                    ForEach(agents) { AgentPill(agent: $0) }
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 13)
+        .padding(.bottom, 11)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DeckPalette.header)
+    }
+}
+
+// MARK: - Session list
+
+struct SectionHeader: View {
+    let title: String
+    let subtitle: String
+    let count: Int
+
+    var body: some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                .fill(DeckPalette.brand)
+                .frame(width: 3, height: 11)
+            Text(title)
+                .font(.system(size: 9.5, weight: .bold))
+                .kerning(0.6)
+                .foregroundColor(DeckPalette.secondary)
+            if !subtitle.isEmpty {
+                Text(subtitle)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(DeckPalette.tertiary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            Text("\\(count)")
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundColor(DeckPalette.secondary)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 1)
+                .background(Capsule(style: .continuous).fill(DeckPalette.pill))
+        }
+        .padding(.horizontal, 2)
+        .padding(.top, 2)
+    }
+}
+
+struct MetaText: View {
+    let session: MenuSession
+    let agent: AgentStyle
+
+    var body: some View {
+        HStack(spacing: 4) {
+            if session.hasStructuredMeta {
+                Text(session.shortAgent)
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundColor(agent.color)
+                if let project = session.project, !project.isEmpty {
+                    Text("\xB7")
+                        .foregroundColor(DeckPalette.tertiary)
+                    Text(project)
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundColor(DeckPalette.secondary)
+                        .lineLimit(1)
+                        .layoutPriority(1)
+                }
+                if let step = session.step, !step.isEmpty {
+                    Text("\xB7")
+                        .foregroundColor(DeckPalette.tertiary)
+                    Text(step)
+                        .font(.system(size: 10))
+                        .foregroundColor(DeckPalette.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                Spacer(minLength: 4)
+                if let ago = session.ago, !ago.isEmpty {
+                    Text(ago)
+                        .font(.system(size: 9.5, weight: .medium).monospacedDigit())
+                        .foregroundColor(DeckPalette.tertiary)
+                        .lineLimit(1)
+                        .fixedSize(horizontal: true, vertical: false)
+                        .layoutPriority(2)
+                }
+            } else {
+                Text(session.detail)
+                    .font(.system(size: 10))
+                    .foregroundColor(DeckPalette.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+            }
+            if let image = lucideImage(lucideArrowSVG, 9) {
+                Image(nsImage: image)
+                    .renderingMode(.template)
+                    .foregroundColor(DeckPalette.tertiary)
+            } else {
+                Image(systemName: "arrow.up.right")
+                    .font(.system(size: 8, weight: .semibold))
+                    .foregroundColor(DeckPalette.tertiary)
+            }
+        }
+    }
+}
+
+struct SessionCardView: View {
+    let session: MenuSession
+    @State private var hovering = false
+
+    var body: some View {
+        let agent = DeckAgents.style(for: session)
+        let keyword = DeckKeywords.style(for: session.keywordCode)
+        Button(action: { openSession(session) }) {
+            HStack(alignment: .center, spacing: 9) {
+                AgentBadge(style: agent)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 6) {
+                        Text(session.displayTitle)
+                            .font(.system(size: 12.5, weight: .semibold))
+                            .foregroundColor(DeckPalette.ink)
+                            .lineLimit(1)
+                            .help(session.title)
+                        Spacer(minLength: 4)
+                        KeywordChip(style: keyword)
+                    }
+                    MetaText(session: session, agent: agent)
+                }
+            }
+            .padding(.leading, 12)
+            .padding(.trailing, 10)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(hovering ? DeckPalette.cardHover : DeckPalette.card)
+            )
+            .overlay(alignment: .leading) {
+                Rectangle()
+                    .fill(keyword.accent)
+                    .frame(width: 3)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(hovering ? DeckPalette.cardBorderHover : DeckPalette.cardBorder, lineWidth: 1)
+            )
+            .shadow(
+                color: Color.black.opacity(hovering ? 0.18 : 0.10),
+                radius: hovering ? 8 : 5,
+                x: 0,
+                y: hovering ? 4 : 2
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { inside in
+            withAnimation(.easeOut(duration: 0.12)) { hovering = inside }
+        }
+    }
+}
+
+struct EmptyState: View {
+    var body: some View {
+        VStack(spacing: 9) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(DeckKeywords.todo.tint)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(DeckKeywords.todo.accent.opacity(0.35), lineWidth: 1)
+                Image(systemName: "checklist")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(DeckKeywords.todo.accent)
+            }
+            .frame(width: 40, height: 40)
+
+            HStack(spacing: 5) {
+                KeywordChip(style: DeckKeywords.todo)
+                Text("\u73B0\u5728\u6CA1\u6709\u8981\u663E\u793A\u7684\u4F1A\u8BDD")
+                    .font(.system(size: 12.5, weight: .bold))
+                    .foregroundColor(DeckPalette.ink)
+            }
+            Text("\u4E3B\u529B Agent \u7684\u4F1A\u8BDD\u4F1A\u7559\u5728\u8FD9\u91CC\uFF1B\u5176\u5B83 Agent \u53EA\u5728\u6B63\u5728\u8FD0\u884C\u65F6\u51FA\u73B0\uFF0CWorkBuddy \u7684\u7B49\u5F85\u4F1A\u8BDD\u4E5F\u5217\u3002")
+                .font(.system(size: 10))
+                .foregroundColor(DeckPalette.secondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(2)
+                .frame(maxWidth: 300)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 26)
+    }
+}
+
+struct SessionListView: View {
+    let state: MenuState
+
+    var body: some View {
+        let primary = state.sessions.filter { $0.primary }
+        let others = state.sessions.filter { !$0.primary }
+
+        ScrollView(.vertical, showsIndicators: true) {
+            LazyVStack(alignment: .leading, spacing: 8) {
+                if !primary.isEmpty {
+                    SectionHeader(title: "\u4E3B\u529B AGENT", subtitle: "\u5168\u91CF\u8FFD\u8E2A", count: primary.count)
+                    ForEach(primary) { SessionCardView(session: $0) }
+                }
+                if !others.isEmpty {
+                    SectionHeader(title: "\u5176\u5B83 AGENT", subtitle: "\u5728\u8DD1 \xB7 WorkBuddy \u7B49\u4F60", count: others.count)
+                        .padding(.top, 4)
+                    ForEach(others) { SessionCardView(session: $0) }
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 11)
+            .padding(.bottom, 14)
+        }
+        .scrollIndicators(.visible)
+    }
+}
+
+// MARK: - Footer
+
+enum FooterKind {
+    case primary
+    case secondary
+    case quiet
+}
+
+struct FooterButton: View {
+    let title: String
+    let kind: FooterKind
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: kind == .quiet ? 9.5 : 10.5, weight: .semibold))
+                .foregroundColor(foreground)
+                .padding(.horizontal, kind == .quiet ? 6 : 10)
+                .padding(.vertical, kind == .quiet ? 4 : 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(background)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .strokeBorder(border, lineWidth: 1)
+                )
+                .shadow(
+                    color: kind == .primary ? DeckPalette.brand.opacity(0.32) : .clear,
+                    radius: 5,
+                    x: 0,
+                    y: 2
+                )
+                .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { inside in
+            withAnimation(.easeOut(duration: 0.1)) { hovering = inside }
+        }
+    }
+
+    private var foreground: Color {
+        switch kind {
+        case .primary:
+            return DeckPalette.brandInk
+        case .secondary:
+            return DeckPalette.ink
+        case .quiet:
+            return hovering ? DeckPalette.ink : DeckPalette.secondary
+        }
+    }
+
+    private var background: Color {
+        switch kind {
+        case .primary:
+            return hovering ? DeckPalette.brandHover : DeckPalette.brand
+        case .secondary:
+            return hovering ? DeckPalette.cardHover : DeckPalette.card
+        case .quiet:
+            return hovering ? DeckPalette.pill : .clear
+        }
+    }
+
+    private var border: Color {
+        switch kind {
+        case .primary:
+            return .clear
+        case .secondary:
+            return hovering ? DeckPalette.cardBorderHover : DeckPalette.cardBorder
+        case .quiet:
+            return .clear
+        }
+    }
+}
+
+struct FooterBlock: View {
+    let sessionCount: Int
+
+    private var hint: String {
+        if sessionCount == 0 { return "\u7B49\u5F85 Agent \u4F1A\u8BDD" }
+        return sessionCount > 5 ? "\u5171 \\(sessionCount) \u4E2A \xB7 \u5411\u4E0B\u6ED1\u52A8" : "\u70B9\u51FB\u5361\u7247\u8DF3\u8F6C"
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(hint)
+                .font(.system(size: 9))
+                .foregroundColor(DeckPalette.tertiary)
+                .lineLimit(1)
+            FooterButton(title: "\u6253\u5F00\u9762\u677F", kind: .primary) {
+                adOpen("obsidian://agent-deck")
+            }
+            FooterButton(title: "\u91CD\u65B0\u626B\u63CF", kind: .secondary) {
+                adOpen("obsidian://agent-deck?do=scan")
+            }
+            Spacer(minLength: 4)
+            FooterButton(title: "\u9690\u85CF", kind: .quiet) {
+                adOpen("obsidian://agent-deck?do=hide")
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity)
+        .background(DeckPalette.header)
+    }
+}
+
+// MARK: - Root
+
+struct DeckView: View {
+    @ObservedObject var model: MenuModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HeaderBlock(state: model.state)
+            Hairline()
+            if model.state.sessions.isEmpty {
+                EmptyState()
+            } else {
+                SessionListView(state: model.state)
+                    .frame(maxHeight: .infinity)
+            }
+            Hairline()
+            FooterBlock(sessionCount: model.state.sessions.count)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(DeckPalette.panel)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(DeckPalette.panelBorder, lineWidth: 1)
+        )
+        .environment(\\.deckPanelVisible, model.panelVisible)
+    }
+}
+
+// MARK: - Panel + app
+
+final class DeckPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+}
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    var statusItem: NSStatusItem!
+    var panel: DeckPanel!
+    var model: MenuModel!
+    var hosting: NSHostingView<DeckView>!
+    var container: NSView!
+    var statePath: String = NSString(string: "~/.agent-deck/menubar.json").expandingTildeInPath
+    var parentPid: Int32 = 0
+    var preview = false
+    var monitors: [Any] = []
+    var dismissObserver: NSObjectProtocol?
+
+    let panelWidth: CGFloat = 412
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        let args = CommandLine.arguments
+        if let i = args.firstIndex(of: "--state"), i + 1 < args.count { statePath = args[i + 1] }
+        if let i = args.firstIndex(of: "--parent"), i + 1 < args.count { parentPid = Int32(args[i + 1]) ?? 0 }
+        if let i = args.firstIndex(of: "--appearance"), i + 1 < args.count {
+            NSApp.appearance = NSAppearance(named: args[i + 1] == "dark" ? .darkAqua : .aqua)
+        }
+        preview = args.contains("--preview")
+        var pidPath = ""
+        if let i = args.firstIndex(of: "--pidfile"), i + 1 < args.count { pidPath = args[i + 1] }
+
+        model = MenuModel(statePath: statePath, parentPid: parentPid)
+
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem.autosaveName = "AgentDeckMenuBar"
+        statusItem.isVisible = true
+        if let button = statusItem.button {
+            if let image = lucideImage(lucideWandSVG, 18) {
+                button.image = image
+            } else {
+                let image = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Agent Deck")
+                image?.isTemplate = true
+                button.image = image
+            }
+            button.imagePosition = .imageLeading
+            button.title = " Agent Deck"
+            button.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+            button.target = self
+            button.action = #selector(togglePanel)
+        }
+
+        hostPanel()
+
+        dismissObserver = NotificationCenter.default.addObserver(
+            forName: .agentDeckDismiss, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.hidePanel()
+        }
+
+        model.onUpdate = { [weak self] in self?.refresh() }
+        model.onShowRequest = { [weak self] in self?.showPanel() }
+        model.start()
+        refresh()
+        // Write the pid file only after lastShowAt has been recorded, so an
+        // Obsidian command that waits for this pid cannot race the listener.
+        if !pidPath.isEmpty {
+            try? "\\(getpid())".write(toFile: pidPath, atomically: true, encoding: .utf8)
+        }
+
+        if preview {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+                self?.showPanel()
+            }
+        }
+    }
+
+    func hostPanel() {
+        let root = DeckView(model: model)
+        hosting = NSHostingView(rootView: root)
+        hosting.wantsLayer = true
+        hosting.autoresizingMask = [.width, .height]
+
+        // A plain container keeps NSHostingView's intrinsic height from
+        // resizing the borderless window (maxHeight: .infinity otherwise asks
+        // for the whole screen).
+        container = NSView(frame: NSRect(x: 0, y: 0, width: panelWidth, height: 500))
+        container.wantsLayer = true
+        hosting.frame = container.bounds
+        container.addSubview(hosting)
+
+        panel = DeckPanel(
+            contentRect: NSRect(x: 0, y: 0, width: panelWidth, height: 500),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.contentView = container
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = true
+        panel.hidesOnDeactivate = false
+        panel.isMovable = false
+        panel.isReleasedWhenClosed = false
+        panel.isFloatingPanel = true
+        panel.level = .statusBar
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+    }
+
+    func refresh() {
+        let short = model.state.short.trimmingCharacters(in: .whitespacesAndNewlines)
+        statusItem.button?.title = short.isEmpty ? " Agent Deck" : " " + short
+
+        let height = panelHeightForScreen()
+        let resized = abs(panel.frame.height - height) > 0.5
+        if resized {
+            panel.setContentSize(NSSize(width: panelWidth, height: height))
+        }
+        if panel.isVisible {
+            layoutPanel()
+            if resized { forceDisplay() }
+        }
+    }
+
+    func panelHeightForScreen() -> CGFloat {
+        let desired = desiredHeight()
+        if let screen = statusItem.button?.window?.screen ?? NSScreen.main {
+            return min(desired, screen.visibleFrame.height - 16)
+        }
+        return desired
+    }
+
+    /// Keep this roughly in sync with the SwiftUI blocks above: a fixed header,
+    /// a scrollable card area and a fixed footer. At most five cards are shown
+    /// before scrolling; the body ends exactly at the fifth card so a sixth card
+    /// never peeks through, while its shadow still has a little room.
+    func desiredHeight() -> CGFloat {
+        let sessions = model.state.sessions
+        if sessions.isEmpty { return 300 }
+
+        let shown = min(5, sessions.count)
+        let prefix = sessions.prefix(shown)
+        let hasPrimary = prefix.contains { $0.primary }
+        let hasOthers = prefix.contains { !$0.primary }
+
+        let agentRows = max(1, ((model.state.agents?.count ?? 0) + 1) / 2)
+        let headerBlock: CGFloat = 85 + CGFloat(agentRows - 1) * 23 + (model.state.needsApproval > 0 ? 29 : 0)
+        let footer: CGFloat = 49
+
+        var sectionHeaders: CGFloat = 0
+        if hasPrimary { sectionHeaders += 15 }
+        if hasOthers { sectionHeaders += hasPrimary ? 19 : 15 }
+
+        // LazyVStack spacing sits between every block: headers, cards, headers.
+        let sections = (hasPrimary ? 1 : 0) + (hasOthers ? 1 : 0)
+        let gaps = sections + shown - 1
+        let body = 11 + sectionHeaders + CGFloat(gaps) * 8 + CGFloat(shown) * 58 + 2
+        return headerBlock + body + footer + 2
+    }
+
+    func layoutPanel() {
+        let size = panel.frame.size
+
+        // Preview builds are used for screenshots and can be launched while the
+        // menu bar is crowded (the status item's window may not be on screen).
+        if preview, let screen = NSScreen.main {
+            let x = screen.frame.midX - size.width / 2
+            let y = screen.frame.maxY - size.height - 42
+            panel.setFrame(NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height), display: true)
+            return
+        }
+
+        guard let button = statusItem.button else { return }
+        let screen = button.window?.screen ?? NSScreen.main
+        let visible = screen?.visibleFrame
+
+        // A status item hidden by a menu-bar manager lives in a tiny off-screen
+        // window at (0, -22). Its frame is non-empty, so also check that it is
+        // actually up in the menu bar before trusting it.
+        var anchorX: CGFloat?
+        var anchorTop: CGFloat?
+        if let window = button.window {
+            let rect = window.convertToScreen(button.convert(button.bounds, to: nil))
+            let nearMenuBar = visible.map { rect.midY > $0.maxY - 40 && rect.midX > $0.minX && rect.midX < $0.maxX } ?? true
+            if rect.width > 2, rect.height > 2, nearMenuBar {
+                anchorX = rect.midX
+                anchorTop = rect.minY
+            }
+        }
+
+        // Fall back to the click position. If the accessibility click did not
+        // move the pointer (or the item is hidden), use the top-right corner.
+        if anchorX == nil {
+            let mouse = NSEvent.mouseLocation
+            if let visible = visible, mouse.y > visible.maxY - 40, mouse.x > visible.minX, mouse.x < visible.maxX {
+                anchorX = mouse.x
+            } else if let visible = visible {
+                anchorX = visible.maxX - 120
+            }
+        }
+        if anchorTop == nil { anchorTop = visible?.maxY }
+
+        guard let ax = anchorX, let top = anchorTop else { return }
+        var x = ax - size.width / 2
+        var y = top - size.height - 6
+        if let visible = visible {
+            x = min(max(x, visible.minX + 8), visible.maxX - size.width - 8)
+            if y < visible.minY + 8 { y = visible.minY + 8 }
+            if y + size.height > visible.maxY - 4 { y = visible.maxY - 4 - size.height }
+        }
+        panel.setFrame(
+            NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height),
+            display: true
+        )
+    }
+
+    func showPanel() {
+        guard !panel.isVisible else { return }
+        layoutPanel()
+        panel.alphaValue = 1
+        NSApp.activate(ignoringOtherApps: true)
+        panel.makeKeyAndOrderFront(nil)
+        panel.orderFrontRegardless()
+        forceDisplay()
+        model.panelVisible = true
+        statusItem.button?.highlight(true)
+        installMonitors()
+    }
+
+    func forceDisplay() {
+        hosting.frame = container.bounds
+        hosting.needsLayout = true
+        hosting.layoutSubtreeIfNeeded()
+        panel.displayIfNeeded()
+    }
+
+    func hidePanel() {
+        guard panel.isVisible else { return }
+        model.panelVisible = false
+        removeMonitors()
+        statusItem.button?.highlight(false)
+        panel.orderOut(nil)
+        panel.alphaValue = 1
+    }
+
+    func installMonitors() {
+        removeMonitors()
+        let global = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        ) { [weak self] _ in
+            DispatchQueue.main.async { self?.hidePanel() }
+        }
+        let local = NSEvent.addLocalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown, .keyDown]
+        ) { [weak self] event in
+            guard let self = self else { return event }
+            if event.type == .keyDown {
+                if event.keyCode == 53 {
+                    self.hidePanel()
+                    return nil
+                }
+                return event
+            }
+            let point = NSEvent.mouseLocation
+            if let button = self.statusItem.button, let window = button.window {
+                let rect = window.convertToScreen(button.convert(button.bounds, to: nil))
+                if rect.contains(point) { return event }
+            }
+            if !self.panel.frame.contains(point) { self.hidePanel() }
+            return event
+        }
+        monitors = [global, local].compactMap { $0 }
+    }
+
+    func removeMonitors() {
+        for monitor in monitors {
+            NSEvent.removeMonitor(monitor)
+        }
+        monitors.removeAll()
+    }
+
+    @objc func togglePanel() {
+        if panel.isVisible {
+            hidePanel()
+        } else {
+            showPanel()
+        }
+    }
+}
+
+let app = NSApplication.shared
+let delegate = AppDelegate()
+app.delegate = delegate
+app.setActivationPolicy(.accessory)
+app.run()
+`;
 
 // src/menubar.js
 var fsp3 = import_fs3.default.promises;
@@ -4543,6 +5999,14 @@ var MenuBarBridge = class {
     } catch {
     }
   }
+  show() {
+    try {
+      import_fs3.default.mkdirSync(this.dir, { recursive: true });
+      import_fs3.default.writeFileSync(import_path3.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
+    } catch (e) {
+      console.error("[agent-deck] menu bar show", e);
+    }
+  }
   update(force = false) {
     if (!this.enabled || this.disabled) return;
     try {
@@ -4601,6 +6065,21 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
     this.registerEditorExtension(createEditorExtension(this));
     this.setupRibbon();
     this.addCommand({ id: "open-dashboard", name: "\u6253\u5F00 Agent Deck \u9762\u677F", callback: () => this.activateView() });
+    this.addCommand({
+      id: "open-menubar-panel",
+      name: "\u6253\u5F00 macOS \u83DC\u5355\u680F\u9762\u677F",
+      callback: async () => {
+        if (this.settings.showMenuBar === false) return this.notice("macOS \u83DC\u5355\u680F\u5DF2\u5173\u95ED\uFF0C\u8BF7\u5148\u5728\u300C\u8FFD\u8E2A\u300D\u91CC\u6253\u5F00");
+        await this.menubar.start();
+        const started = Date.now();
+        const wait = setInterval(() => {
+          if (this.menubar.isAlive() || Date.now() - started > 15e3) {
+            clearInterval(wait);
+            this.menubar.show();
+          }
+        }, 300);
+      }
+    });
     this.addCommand({ id: "open-settings", name: "\u6253\u5F00 Agent Deck \u8BBE\u7F6E", callback: () => this.openSettings() });
     this.addCommand({ id: "open-models", name: "\u6253\u5F00 Agent Deck \u7684 Models \u8BBE\u7F6E", callback: () => this.openSettings("models") });
     this.addCommand({ id: "delegate-current", name: "\u59D4\u6D3E\u5149\u6807\u6240\u5728\u5757\uFF08\u9ED8\u8BA4 Agent\uFF09", editorCallback: (editor) => this.delegateFromEditor(editor) });
@@ -5085,6 +6564,7 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
       const agent = AGENTS[s.agent] ? s.agent : "claude";
       const a = AGENTS[agent];
       const state = isLive ? s.state || "idle" : "recent";
+      const kw = menuKeyword(state);
       const where = agent === "claude" ? s.app === "cli" ? "\u7EC8\u7AEF" : "\u684C\u9762\u7248" : agent === "codex" ? s.app === "desktop" ? "\u684C\u9762\u7248" : "CLI" : agent === "workbuddy" ? "\u684C\u9762\u7248" : "Harness";
       const url = sessionDeepLink(agent, s.sid);
       seen.add(s.sid);
@@ -5092,10 +6572,16 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
         id: `${agent}:${s.sid}`,
         agent,
         agentName: a.name,
+        agentShort: a.short,
         color: a.color,
         glyph: a.glyph,
         title: truncate(s.title || (s.text || "").split(" / ")[0] || s.step || s.sid, 64),
         detail: `${a.short} ${where} \xB7 ${projectName(s.cwd)}${s.step ? " \xB7 " + truncate(s.step, 32) : ""} \xB7 ${timeAgo(s.lastAt)}`,
+        project: projectName(s.cwd),
+        step: s.step ? truncate(s.step, 40) : "",
+        ago: timeAgo(s.lastAt),
+        keyword: kw.id,
+        keywordLabel: kw.zh,
         state,
         stateLabel: menuStateLabel(state),
         primary: !!primary,
@@ -5136,6 +6622,7 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
     if (today) summary.push(`\u4ECA\u5929 ${fmtMin(today.wall)} \xB7 ${fmtTok(today.out)} tok`);
     summary.push(`${running} \u4E2A\u5728\u8DD1`);
     if (waiting) summary.push(`${waiting} \u4E2A\u7B49\u4F60`);
+    const usage = today ? `\u4ECA\u5929 ${fmtMin(today.wall)} \xB7 ${fmtTok(today.out)} tok` : "\u4ECA\u5929\u8FD8\u6CA1\u6709\u7528\u91CF\u8BB0\u5F55";
     const agents = AGENT_ORDER.filter((x) => this.agentEnabled(x)).map((x) => {
       const rows = live.filter((s) => s.agent === x);
       return {
@@ -5149,7 +6636,7 @@ var AgentDeckPlugin = class extends import_obsidian5.Plugin {
         primary: primaries.includes(x)
       };
     });
-    return { updatedAt: Date.now(), short, summary: summary.join(" \xB7 "), running, waiting, agents, sessions: out };
+    return { updatedAt: Date.now(), short, summary: summary.join(" \xB7 "), usage, running, waiting, agents, sessions: out };
   }
   async restoreNautilusAgentBar() {
     const p = import_path4.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
@@ -5338,6 +6825,19 @@ end tell`;
 };
 function menuStateLabel(state) {
   return { run: "\u5728\u8DD1", wait: "\u7B49\u4F60", quiet: "\u5B89\u9759", "needs-approval": "\u7B49\u4F60\u5141\u8BB8", error: "\u51FA\u9519", limit: "\u9650\u989D", recent: "\u6700\u8FD1", done: "\u5B8C\u6210", idle: "\u7A7A\u95F2" }[state] || "\u7A7A\u95F2";
+}
+function menuKeyword(state) {
+  return {
+    run: { id: "DOING", zh: "\u5728\u8DD1" },
+    wait: { id: "WAITING", zh: "\u7B49\u4F60" },
+    quiet: { id: "PAUSED", zh: "\u5B89\u9759" },
+    "needs-approval": { id: "NEEDOK", zh: "\u7B49\u4F60" },
+    error: { id: "ERRORED", zh: "\u51FA\u9519" },
+    limit: { id: "HITLIMIT", zh: "\u9650\u989D" },
+    done: { id: "DONE", zh: "\u5B8C\u6210" },
+    recent: { id: "LATER", zh: "\u6700\u8FD1" },
+    idle: { id: "TODO", zh: "\u7A7A\u95F2" }
+  }[state] || { id: "TODO", zh: "\u7A7A\u95F2" };
 }
 function menuRank(state) {
   return { run: 0, "needs-approval": 1, wait: 2, quiet: 3, error: 4, limit: 4, recent: 5, done: 6, idle: 7 }[state] ?? 7;
