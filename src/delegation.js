@@ -138,8 +138,8 @@ const TERN_SESSION = "Agent Deck";   // 委派出去的会话都开在 Tern 里�
 const osa = (script) => new Promise((resolve) => execFile("/usr/bin/osascript", ["-e", script], { timeout: 8000 }, (err, out) => resolve(err ? null : String(out || "").trim())));
 const run = (bin, args) => new Promise((resolve) => execFile(bin, args, { timeout: 8000, maxBuffer: 8 << 20 }, (err, out) => resolve(err ? "" : String(out || ""))));
 
-// 设置里的「主力终端」：auto = 装了 Warp 用 Warp，否则系统终端
-export function pickTerminal(which = "auto") {
+// 设置里的「主力终端」：默认系统终端；auto = 装了 Warp 用 Warp，否则系统终端
+export function pickTerminal(which = "terminal") {
   if (which === "warp" || which === "iterm" || which === "terminal" || which === "tern") return which;
   return appInstalled("Warp.app") ? "warp" : "terminal";
 }
@@ -319,8 +319,8 @@ function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
   focusCliSession(agent, sid).then((how) => {
     if (how === "tab") return;
     if (how === "app") return plugin.notice("已切到 Warp");
-    openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto", AGENTS[agent]?.short || "Claude");
-  }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto"));
+    openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "terminal", AGENTS[agent]?.short || "Claude");
+  }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "terminal"));
   return true;
 }
 
@@ -863,7 +863,7 @@ export class Delegator {
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    openTerminal(`${bin}${extra} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
+    openTerminal(`${bin}${extra} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "terminal", truncate(name, 24), { background: true });
     this.plugin.notice(pickTerminal(this.plugin.settings.cliTerminal) === "tern" ? `已交给 Tern 里的 ${AGENTS[agent]?.name || agent}` : `已在终端里开 ${AGENTS[agent]?.name || agent}`, 6000);
     this.plugin.refreshUI();
     return job;

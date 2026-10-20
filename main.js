@@ -1,4 +1,4 @@
-/* Agent Deck 1.2.1 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.2.2 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -252,8 +252,8 @@ var DEFAULTS = {
   dragGrip: true,
   cliOpen: "terminal",
   // 终端里起的 Claude Code 会话点开时：terminal 回终端 / desktop 走桌面版
-  cliTerminal: "auto",
-  // 主力终端：auto（装了 Warp 用 Warp，否则系统终端）/ terminal / iterm / warp / tern
+  cliTerminal: "terminal",
+  // 主力终端：默认 macOS 系统终端；auto（装了 Warp 用 Warp，否则系统终端）/ iterm / warp / tern
   delegateInTerminal: false,
   // 拖到 Claude Code / Codex 上默认在主力终端里开交互式会话（按住 ⌘ 反过来）
   yieldToNautilus: true,
@@ -2657,7 +2657,7 @@ var TERN_BIN = "/Applications/Tern.app/Contents/MacOS/tern";
 var TERN_SESSION = "Agent Deck";
 var osa = (script) => new Promise((resolve) => (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], { timeout: 8e3 }, (err2, out) => resolve(err2 ? null : String(out || "").trim())));
 var run = (bin, args) => new Promise((resolve) => (0, import_child_process2.execFile)(bin, args, { timeout: 8e3, maxBuffer: 8 << 20 }, (err2, out) => resolve(err2 ? "" : String(out || ""))));
-function pickTerminal(which = "auto") {
+function pickTerminal(which = "terminal") {
   if (which === "warp" || which === "iterm" || which === "terminal" || which === "tern") return which;
   return appInstalled("Warp.app") ? "warp" : "terminal";
 }
@@ -2905,8 +2905,8 @@ function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
   focusCliSession(agent, sid).then((how) => {
     if (how === "tab") return;
     if (how === "app") return plugin.notice("\u5DF2\u5207\u5230 Warp");
-    openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto", AGENTS[agent]?.short || "Claude");
-  }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto"));
+    openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "terminal", AGENTS[agent]?.short || "Claude");
+  }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "terminal"));
   return true;
 }
 function openSession(plugin, agent, sid, app = "", session = null) {
@@ -3517,7 +3517,7 @@ ${body}`, 12e3);
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    openTerminal(`${bin}${extra} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
+    openTerminal(`${bin}${extra} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "terminal", truncate(name, 24), { background: true });
     this.plugin.notice(pickTerminal(this.plugin.settings.cliTerminal) === "tern" ? `\u5DF2\u4EA4\u7ED9 Tern \u91CC\u7684 ${AGENTS[agent]?.name || agent}` : `\u5DF2\u5728\u7EC8\u7AEF\u91CC\u5F00 ${AGENTS[agent]?.name || agent}`, 6e3);
     this.plugin.refreshUI();
     return job;
@@ -5403,8 +5403,8 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
       this.display();
     });
-    const dt = this.row(desk, "\u4E3B\u529B\u7EC8\u7AEF", "resume\u3001\u6309\u4F4F \u2318 \u62D6\u5230 Claude Code / Codex \u4E0A\u59D4\u6D3E\u65F6\uFF0C\u5728\u54EA\u4E2A\u7EC8\u7AEF\u91CC\u5F00\u65B0\u6807\u7B7E\u3002\u81EA\u52A8 = \u88C5\u4E86 Warp \u7528 Warp\uFF0C\u5426\u5219\u7CFB\u7EDF\u7EC8\u7AEF\u3002", null);
-    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "\u81EA\u52A8" }, { id: "terminal", label: "\u7CFB\u7EDF\u7EC8\u7AEF" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }], s.cliTerminal || "auto", (v) => {
+    const dt = this.row(desk, "\u4E3B\u529B\u7EC8\u7AEF", "resume\u3001\u6309\u4F4F \u2318 \u62D6\u5230 Claude Code / Codex \u4E0A\u59D4\u6D3E\u65F6\uFF0C\u5728\u54EA\u4E2A\u7EC8\u7AEF\u91CC\u5F00\u65B0\u6807\u7B7E\u3002\u9ED8\u8BA4\u7CFB\u7EDF\u7EC8\u7AEF\uFF1B\u81EA\u52A8 = \u88C5\u4E86 Warp \u7528 Warp\uFF0C\u5426\u5219\u7CFB\u7EDF\u7EC8\u7AEF\u3002", null);
+    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "\u81EA\u52A8" }, { id: "terminal", label: "\u7CFB\u7EDF\u7EC8\u7AEF" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }], s.cliTerminal || "terminal", (v) => {
       s.cliTerminal = v;
       p.saveSettings();
       this.display();

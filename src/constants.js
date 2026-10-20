@@ -227,7 +227,7 @@ export const DEFAULTS = {
   kidBlocks: true,
   dragGrip: true,
   cliOpen: "terminal",     // 终端里起的 Claude Code 会话点开时：terminal 回终端 / desktop 走桌面版
-  cliTerminal: "auto",     // 主力终端：auto（装了 Warp 用 Warp，否则系统终端）/ terminal / iterm / warp / tern
+  cliTerminal: "terminal", // 主力终端：默认 macOS 系统终端；auto（装了 Warp 用 Warp，否则系统终端）/ iterm / warp / tern
   delegateInTerminal: false,  // 拖到 Claude Code / Codex 上默认在主力终端里开交互式会话（按住 ⌘ 反过来）
   yieldToNautilus: true,   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,

@@ -1,7 +1,9 @@
 # Changelog
 
-## 未发布
+## 1.2.2
 
+- **主力终端默认是 macOS 系统终端**（设置里可以改成自动 / iTerm2 / Warp / Tern）。
+- ⚠️ **已知问题**：委派到 Agent 的命令行（在终端里开 `claude` / `codex`）还有 bug，目前只在 Tern + Claude Code 上实测跑通；系统终端、iTerm2、Warp 和 Codex 命令行没完整测过。
 - **终端里还开着的会话，点开就切过去。** Claude Code（读 `~/.claude/sessions/<pid>.json`）和 Codex 命令行（看哪个带 tty 的 codex 进程开着这个会话的 rollout 文件）的会话还在跑时，点开不再 resume，而是找到它的 tty、顺着父进程认出是哪个终端：系统终端、iTerm2 选中那个标签并把窗口提到最前，Tern 用它的命令行（`tern ls` / `tern process` 对上进程，`tern focus` 切过去）；Warp 没有脚本接口，只能叫到前台。进程已经退出才在新标签里 resume。
 - **按住 ⌘ 拖到 Claude Code / Codex 上 = 在终端里委派。** 在主力终端里新开一个标签跑交互式的 `claude` / `codex`，任务直接当第一句发出去；会话一出现照交接的办法绑回这一项（只认命令行会话）。拖动时卡片提示跟着 ⌘ 换。设置里可以改成不按 ⌘ 就在终端里开（按 ⌘ 反过来）。主力终端是 Tern 时放进它单独的「Agent Deck」会话后台跑，不抢显示、不叫到前台；Claude Code 换到信任过的目录起、库用 `--add-dir` 加进去、带上设置里的权限模式，任务不会停在信任提示上。
 - **设置 → 主力终端**：自动（装了 Warp 用 Warp）/ 系统终端 / iTerm2 / Warp / Tern（`tern new tab`），resume 和终端委派都在这里开新标签。

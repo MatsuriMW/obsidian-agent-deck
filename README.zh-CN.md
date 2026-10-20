@@ -32,7 +32,7 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 | 最近 14 天 | 按 Agent 堆叠的每天协作分钟，悬停看具体数字 |
 | 最近的会话 | 最近 7 天的会话，可以按状态、Agent 筛选，按标题、项目、最近一步搜索 |
 
-**点会话打开到哪儿**：Claude Code 桌面版会话走 `claude://resume`，Codex 桌面版走 `codex://threads/<id>`，WorkBuddy 走 `workbuddy://chat/<id>`；DeepSeek Harness 只能聚焦客户端，会话号复制到剪贴板。**终端里的 Claude Code / Codex 会话**还开着时，切到跑它的那个终端标签（系统终端、iTerm2、Tern 能选中标签；Warp 没有脚本接口，只能叫到前台），进程退出了才在主力终端里新开标签 resume。设置 → 追踪 → Claude 桌面版里可以改成都走桌面版、选主力终端。
+**点会话打开到哪儿**：Claude Code 桌面版会话走 `claude://resume`，Codex 桌面版走 `codex://threads/<id>`，WorkBuddy 走 `workbuddy://chat/<id>`；DeepSeek Harness 只能聚焦客户端，会话号复制到剪贴板。**终端里的 Claude Code / Codex 会话**还开着时，切到跑它的那个终端标签（系统终端、iTerm2、Tern 能选中标签；Warp 没有脚本接口，只能叫到前台），进程退出了才在主力终端里新开标签 resume。主力终端默认是 macOS 系统终端；设置 → 追踪 → Claude 桌面版里可以改成 iTerm2 / Warp / Tern，或者都走桌面版。
 
 ### 拖拽：绑定和委派
 
@@ -53,6 +53,7 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 - **一对一**：一个会话只绑一处。拖到别的项上等于换绑；自动记日记先替它写过的「🤖 …」那一项会一起收掉，时间和状态并到你拖到的那一项上。日记里本来写着的任务和 Agent 跑的那件事其实是同一件时，拖一下就合到一起。
 - **从哪儿拖**：面板开着时，光标所在的列表项尾巴上有一个小把手 ⠿，拖它；选中一段文字直接拖也行。拖的时候 Agent 卡片变成虚线框，悬停的那张写着松手会发生什么。
 - **拖进笔记时**目标行高亮，右边标着「绑定到这一项 / 在这里新建一项」；标题、代码块、表格上不接。
+- **⚠️ 已知问题：委派到 Agent 的命令行（在终端里开 `claude` / `codex`）还有 bug。** 目前只在 Tern + Claude Code 上实测跑通过；系统终端、iTerm2、Warp 和 Codex 命令行还没完整测过，可能出现会话没有自动绑回这一项、Codex 在没信任过的目录里停在确认提示上等情况。后台委派（不按 ⌘ 拖到 Claude Code / DeepSeek Harness 上）不受影响。
 - **不会再委派的条目**：Agent 记的（🤖 开头）、已经绑着会话的、下面有 ⏱ 用时记录的。拖上去只提示原因。
 - **和螺旋日程一起用**：螺旋日程在任务行下面画了会话进度行时，行尾不再画 pill，🔗 链接放淡、不可点，点螺旋的进度行打开会话。设置里可以关掉这个让位。
 

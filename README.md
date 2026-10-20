@@ -30,7 +30,7 @@ The plugin keeps explanatory text out of its UI; this section is the manual, and
 | 最近 14 天 | Daily collaboration minutes stacked by agent; hover for numbers |
 | 最近的会话 | Sessions from the last 7 days, filterable by state and agent, searchable by title, project and last step |
 
-**Where a click opens a session.** Claude Code desktop sessions use `claude://resume`, Codex desktop `codex://threads/<id>`, WorkBuddy `workbuddy://chat/<id>`; DeepSeek Harness can only be focused, so the session id goes to the clipboard. **Claude Code / Codex sessions running in a terminal** switch to the terminal tab that runs them (Terminal, iTerm2 and Tern select the tab; Warp has no scripting interface, so it is only brought forward); only when the process has exited is a new tab opened to resume. Settings → Tracking → Claude desktop lets you send them to the desktop app instead and pick your terminal.
+**Where a click opens a session.** Claude Code desktop sessions use `claude://resume`, Codex desktop `codex://threads/<id>`, WorkBuddy `workbuddy://chat/<id>`; DeepSeek Harness can only be focused, so the session id goes to the clipboard. **Claude Code / Codex sessions running in a terminal** switch to the terminal tab that runs them (Terminal, iTerm2 and Tern select the tab; Warp has no scripting interface, so it is only brought forward); only when the process has exited is a new tab opened to resume. The terminal is macOS Terminal by default; Settings → Tracking → Claude desktop lets you pick iTerm2, Warp or Tern, or send them to the desktop app instead.
 
 ### Drag: bind and delegate
 
@@ -51,6 +51,7 @@ Pin Agent Deck to a sidebar and drag between the note and the panel:
 - **One-to-one.** A session is bound in one place. Dropping it elsewhere moves the binding; an auto-logged `🤖 …` line written for that session earlier is removed, so a task you already wrote and the agent's run of it merge into one line.
 - **Where to drag from.** While the panel is open, the list item under the cursor shows a small grip ⠿ at its end; drag that, or drag a text selection. Agent cards turn dashed while you drag, and the hovered one says what dropping will do.
 - **Dropping into a note** highlights the target line and labels it (bind / new item); headings, code blocks and tables don't accept drops.
+- **⚠️ Known issue: delegating to an agent's CLI (opening `claude` / `codex` in a terminal) is still buggy.** It has only been verified end to end with Tern + Claude Code; Terminal, iTerm2, Warp and the Codex CLI are not fully tested, so the session may not be bound back to the item, or Codex may stop at its folder-trust prompt. Background delegation (a plain drop on Claude Code / DeepSeek Harness) is not affected.
 - **Items that are not delegated**: agent-written ones (🤖), items already bound to a session, and items with a ⏱ record. Dropping them only says why.
 - **With Nautilus Spiral**: when Nautilus draws its session progress line under a task, Agent Deck draws no pill there and the `🔗` link is dimmed and not clickable; click Nautilus's progress line to open the session. This can be turned off in the settings.
 
