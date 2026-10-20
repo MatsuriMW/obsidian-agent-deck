@@ -134,6 +134,7 @@ export function openExternal(url) {
 const appInstalled = (name) => ["/Applications", path.join(home(), "Applications")].some((d) => fs.existsSync(path.join(d, name)));
 const TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable", tern: "so.stencil.tern" };
 const TERN_BIN = "/Applications/Tern.app/Contents/MacOS/tern";
+const TERN_SESSION = "Agent Deck";   // 委派出去的会话都开在 Tern 里这个会话下
 const osa = (script) => new Promise((resolve) => execFile("/usr/bin/osascript", ["-e", script], { timeout: 8000 }, (err, out) => resolve(err ? null : String(out || "").trim())));
 const run = (bin, args) => new Promise((resolve) => execFile(bin, args, { timeout: 8000, maxBuffer: 8 << 20 }, (err, out) => resolve(err ? "" : String(out || ""))));
 
@@ -143,7 +144,7 @@ export function pickTerminal(which = "auto") {
   return appInstalled("Warp.app") ? "warp" : "terminal";
 }
 
-export function openTerminal(command, cwd = "", which = "auto", title = "Claude") {
+export function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
   const dir = cwd && fs.existsSync(cwd) ? cwd : home();
   const term = pickTerminal(which);
   // Warp 没有「执行一条命令」的 URL；它认启动配置：写一份 yaml（目录 + 命令），用 warp://launch/<名字> 打开就是新标签里跑
@@ -159,13 +160,22 @@ export function openTerminal(command, cwd = "", which = "auto", title = "Claude"
       return openExternal("warp://launch/agent-deck-resume");
     } catch { /* fall back to Terminal */ }
   }
-  // Tern 有命令行：tern new tab 在当前窗口开一个标签跑命令；跑完回到 shell，标签留着。Tern 没开就开一个窗口跑
+  // Tern 有命令行：委派（background）放进单独的「Agent Deck」会话里开标签跑，不抢你正看着的会话、也不把 Tern 叫到前台；
+  // resume 这类你点出来的，开在正显示的会话里并叫到前台。跑完回到 shell，标签留着。Tern 没在跑先起守护进程再试，还不行就开个窗口
   if (term === "tern" && fs.existsSync(TERN_BIN)) {
     const launch = ["--cwd", dir, "--", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`];
-    execFile(TERN_BIN, ["new", "tab", ...launch], { timeout: 8000 }, (err) => {
-      if (err) { try { spawn(TERN_BIN, ["-e", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`], { cwd: dir, detached: true, stdio: "ignore" }).unref(); } catch { /* not runnable */ } }
-      execFile("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern], () => {});
-    });
+    (async () => {
+      const tryOnce = async () => {
+        if (!background) return (await run(TERN_BIN, ["new", "tab", "--json", ...launch])) !== "";
+        let has = false;
+        try { has = (JSON.parse(await run(TERN_BIN, ["ls", "--json"]) || "{}").sessions || []).some((x) => x.name === TERN_SESSION); } catch { /* not running */ }
+        return (await run(TERN_BIN, has ? ["new", "tab", TERN_SESSION, "--json", ...launch] : ["new", "session", TERN_SESSION, "--json", ...launch])) !== "";
+      };
+      let ok = await tryOnce();
+      if (!ok) { await run(TERN_BIN, ["daemon", "--login"]); ok = await tryOnce(); }
+      if (!ok) { try { spawn(TERN_BIN, ["-e", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`], { cwd: dir, detached: true, stdio: "ignore" }).unref(); } catch { /* not runnable */ } return; }
+      if (!background) execFile("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern], () => {});
+    })();
     return true;
   }
   const line = JSON.stringify(`cd ${JSON.stringify(dir)} && ${command}`);
@@ -826,7 +836,18 @@ export class Delegator {
     const title = blockTitle(block) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
-    const cwd = norm(opts.cwd || (agent === "claude" ? this.C.claude.cwd : "") || this.vaultPath);
+    let cwd = norm(opts.cwd || (agent === "claude" ? this.C.claude.cwd : "") || this.vaultPath);
+    // 交互式 claude 在没信任过的目录里会先停在信任提示上，任务就不会自己跑：和后台委派一样换到信任过的目录，库用 --add-dir 加进去
+    let extra = "";
+    if (agent === "claude") {
+      const cfg = this.C.claude || {};
+      if (cfg.autoTrustedCwd !== false && !opts.cwd && !cfg.cwd) {
+        const trusted = await findTrustedDir(this.vaultPath);
+        if (trusted) cwd = trusted;
+      }
+      if (this.vaultPath && cwd !== this.vaultPath) extra += ` --add-dir ${JSON.stringify(this.vaultPath)}`;
+      if (cfg.permission) extra += ` --permission-mode ${cfg.permission}`;
+    }
     // 任务文字放进临时文件，命令里用 "$(cat …)" 取：多行、引号都不用转义
     const dir = path.join(os.tmpdir(), "agent-deck");
     await fsp.mkdir(dir, { recursive: true });
@@ -842,8 +863,8 @@ export class Delegator {
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    openTerminal(`${bin} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24));
-    this.plugin.notice(`已在终端里开 ${AGENTS[agent]?.name || agent}`, 8000);
+    openTerminal(`${bin}${extra} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
+    this.plugin.notice(pickTerminal(this.plugin.settings.cliTerminal) === "tern" ? `已交给 Tern 里的 ${AGENTS[agent]?.name || agent}` : `已在终端里开 ${AGENTS[agent]?.name || agent}`, 6000);
     this.plugin.refreshUI();
     return job;
   }

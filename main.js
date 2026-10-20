@@ -2654,13 +2654,14 @@ function openExternal(url) {
 var appInstalled = (name) => ["/Applications", import_path2.default.join(home2(), "Applications")].some((d) => import_fs2.default.existsSync(import_path2.default.join(d, name)));
 var TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable", tern: "so.stencil.tern" };
 var TERN_BIN = "/Applications/Tern.app/Contents/MacOS/tern";
+var TERN_SESSION = "Agent Deck";
 var osa = (script) => new Promise((resolve) => (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], { timeout: 8e3 }, (err2, out) => resolve(err2 ? null : String(out || "").trim())));
 var run = (bin, args) => new Promise((resolve) => (0, import_child_process2.execFile)(bin, args, { timeout: 8e3, maxBuffer: 8 << 20 }, (err2, out) => resolve(err2 ? "" : String(out || ""))));
 function pickTerminal(which = "auto") {
   if (which === "warp" || which === "iterm" || which === "terminal" || which === "tern") return which;
   return appInstalled("Warp.app") ? "warp" : "terminal";
 }
-function openTerminal(command, cwd = "", which = "auto", title = "Claude") {
+function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
   const dir = cwd && import_fs2.default.existsSync(cwd) ? cwd : home2();
   const term = pickTerminal(which);
   if (term === "warp") {
@@ -2686,16 +2687,31 @@ function openTerminal(command, cwd = "", which = "auto", title = "Claude") {
   }
   if (term === "tern" && import_fs2.default.existsSync(TERN_BIN)) {
     const launch = ["--cwd", dir, "--", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`];
-    (0, import_child_process2.execFile)(TERN_BIN, ["new", "tab", ...launch], { timeout: 8e3 }, (err2) => {
-      if (err2) {
+    (async () => {
+      const tryOnce = async () => {
+        if (!background) return await run(TERN_BIN, ["new", "tab", "--json", ...launch]) !== "";
+        let has = false;
+        try {
+          has = (JSON.parse(await run(TERN_BIN, ["ls", "--json"]) || "{}").sessions || []).some((x) => x.name === TERN_SESSION);
+        } catch {
+        }
+        return await run(TERN_BIN, has ? ["new", "tab", TERN_SESSION, "--json", ...launch] : ["new", "session", TERN_SESSION, "--json", ...launch]) !== "";
+      };
+      let ok = await tryOnce();
+      if (!ok) {
+        await run(TERN_BIN, ["daemon", "--login"]);
+        ok = await tryOnce();
+      }
+      if (!ok) {
         try {
           (0, import_child_process2.spawn)(TERN_BIN, ["-e", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`], { cwd: dir, detached: true, stdio: "ignore" }).unref();
         } catch {
         }
+        return;
       }
-      (0, import_child_process2.execFile)("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern], () => {
+      if (!background) (0, import_child_process2.execFile)("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern], () => {
       });
-    });
+    })();
     return true;
   }
   const line = JSON.stringify(`cd ${JSON.stringify(dir)} && ${command}`);
@@ -3462,7 +3478,17 @@ ${body}`, 12e3);
     const title = blockTitle(block) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
-    const cwd = norm2(opts.cwd || (agent === "claude" ? this.C.claude.cwd : "") || this.vaultPath);
+    let cwd = norm2(opts.cwd || (agent === "claude" ? this.C.claude.cwd : "") || this.vaultPath);
+    let extra = "";
+    if (agent === "claude") {
+      const cfg = this.C.claude || {};
+      if (cfg.autoTrustedCwd !== false && !opts.cwd && !cfg.cwd) {
+        const trusted = await findTrustedDir(this.vaultPath);
+        if (trusted) cwd = trusted;
+      }
+      if (this.vaultPath && cwd !== this.vaultPath) extra += ` --add-dir ${JSON.stringify(this.vaultPath)}`;
+      if (cfg.permission) extra += ` --permission-mode ${cfg.permission}`;
+    }
     const dir = import_path2.default.join(import_os2.default.tmpdir(), "agent-deck");
     await fsp2.mkdir(dir, { recursive: true });
     const taskFile = import_path2.default.join(dir, `task-${Date.now().toString(36)}.txt`);
@@ -3491,8 +3517,8 @@ ${body}`, 12e3);
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    openTerminal(`${bin} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24));
-    this.plugin.notice(`\u5DF2\u5728\u7EC8\u7AEF\u91CC\u5F00 ${AGENTS[agent]?.name || agent}`, 8e3);
+    openTerminal(`${bin}${extra} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
+    this.plugin.notice(pickTerminal(this.plugin.settings.cliTerminal) === "tern" ? `\u5DF2\u4EA4\u7ED9 Tern \u91CC\u7684 ${AGENTS[agent]?.name || agent}` : `\u5DF2\u5728\u7EC8\u7AEF\u91CC\u5F00 ${AGENTS[agent]?.name || agent}`, 6e3);
     this.plugin.refreshUI();
     return job;
   }
