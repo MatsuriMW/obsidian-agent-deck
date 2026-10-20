@@ -4,6 +4,14 @@
 
 [English](README.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)
 
+Agent Deck 把散在各个客户端里的 AI Agent 会话收到 Obsidian 里的一张甲板上：哪个 Agent 在干活、哪个在等你、做到了哪一步，抬眼就能看到；要派活，就从笔记里正在写的那一行派出去，进度和结果再回到这一行。人写的计划和 Agent 跑的活，最后落在同一份日记里。
+
+<p align="center">
+  <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4"><img src="assets/demo.gif" width="800" alt="Agent Deck 演示：会话卡片拖到日记里的任务上绑定，任务拖到 Agent 上委派，状态和结论写回日记"></a>
+</p>
+
+<p align="center">25 秒演示 · 点图看 <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4">4K60 有声版</a> ｜ 国内可看：<a href="https://matsuri.site/demo/agent-deck/">matsuri.site/demo/agent-deck</a></p>
+
 Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、DeepSeek Harness** 四类 Agent 会话收进同一张「甲板」：主力 Agent 全量追踪，其它 Agent 只看正在跑的；在跑、等你、安静、需要你确认、额度用完、出错停下这些状态用 TODOseq 的任务关键词和颜色标出来，点一行就回到对应客户端。
 
 笔记和面板之间可以直接拖：会话卡片拖到笔记里的一项上，就把会话绑给它；笔记里的一项拖到某个 Agent 上，就是委派。列表项上不常驻按钮；任务行绑定了会话后，行尾的 pill 才变成进度条，完成后把结果写回笔记。macOS 菜单栏还有一块常驻的纯色面板，菜单栏被系统藏起来时可以用自定义全局快捷键唤起。
@@ -54,7 +62,7 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 - **回写日记**：`🔗` 绑着的会话答完一轮或归档写 `💬`；状态关键词跟着会话切；桌面版子会话、开着的 side chat、Claude Code 的 subagent 写成缩进子块。
 - **和螺旋日程分工**：这些 AI 写入原来在螺旋里，现在归 Agent Deck；螺旋只保留追踪展示。螺旋的 AI 追踪还开着时 Agent Deck 不写日记，点「停用螺旋日程里的 AI 写入」并重载螺旋后完全接管。
 - **最多两个主力 Agent**：主力全量读（全部历史、跨天补记）；其它开着的只读今天有动静的会话。
-- **拖拽或命令委派**：把一项拖到某个 Agent 卡片上；或者用 `Agent Deck: 委派光标所在块…`、你原来的 **块去向 → 委派给 Claude** 快捷键。Agent Deck 不会在每个列表项上放「委派」按钮。需要临时改模型、强度、权限模式、工作目录时，用 `Agent Deck: 委派选项…`。
+- **委派只有两个入口**：把笔记里人写的一项拖到面板的某个 Agent 卡片上；或者用 **块去向 → 委派给 Claude**（⌥⌘D）。日记里已有的条目、Agent 记的条目（🤖）、面板里的会话卡片之间怎么拖都只是绑定，不开新会话。Agent Deck 不在列表项上放「委派」按钮，命令面板里也没有委派命令。模型、强度、权限模式、工作目录用设置里的默认值；委派失败时点状态 pill 上的「重试」可以临时改。
 - **进度只长在绑定了会话的行上**：有 `🔗` 或正在委派的行，行尾才出现状态 pill。委派中 pill 自己填充、显示已用时间，旁边有 `×` 取消。答完变成「完成」，结果写成任务下面一行 `💬`。没有会话的行保持干净。
 - **记录留在笔记里**：委派会写一行 `🔗`，状态改成 `DELEGATED`；拖拽绑定也是一行 `🔗`。删掉 `🔗` 就是解绑。
 - **分层模型设置**：默认模型、默认强度滑杆、能力标签、搜索筛选、启用开关、置顶排序、每行菜单、任务模型。改动先放在「Unsaved changes」条里，点保存才落盘。
@@ -146,7 +154,7 @@ Codex 会话用 `codex://threads/<id>` 在桌面版打开（同时把 `codex res
 3. **等你 / 等你允许**，缓慢呼吸。
 4. **完成 / 出错**，带打开或重试。
 
-参数面板从命令面板的「委派选项…」打开，也可以点状态 pill 上的 ⌄：
+委派失败时，点状态 pill 上的「重试」打开参数面板：
 
 ## 安装
 

@@ -210,7 +210,14 @@ export class AgentUsage {
       const db = new Set();
       try {
         const states = (await fsp.readdir(codex)).filter((f) => /^state_\d+\.sqlite$/.test(f)).sort();
-        if (states.length) for (const id of await sqliteColumn(path.join(codex, states[states.length - 1]), "select id from threads where archived = 1")) db.add(id);
+        if (states.length) {
+          const st = path.join(codex, states[states.length - 1]);
+          for (const id of await sqliteColumn(st, "select id from threads where archived = 1")) db.add(id);
+          // 会话标题也在这张表里：session_index.jsonl 没收的（桌面版的、老的）从这里补
+          for (const row of await sqliteColumn(st, "select id || char(9) || replace(replace(title, char(10), ' '), char(9), ' ') from threads where title != '' and updated_at > strftime('%s','now') - 30*86400")) {
+            const i = row.indexOf("\t"); if (i > 0 && !this.titles.has(row.slice(0, i))) this.titles.set(row.slice(0, i), row.slice(i + 1).slice(0, 120));
+          }
+        }
       } catch { /* no codex state */ }
       for (const id of await sqliteColumn(path.join(home(), ".workbuddy/workbuddy.db"), "select id from sessions where status = 'archived' or deleted_at is not null")) db.add(id);
       try {
@@ -577,7 +584,11 @@ export class AgentUsage {
       fc.sid = p.id || fc.sid;
       fc.cwd = p.cwd || fc.cwd;
       fc.app = p.originator || fc.app || "codex";
-      if (p.thread_source === "subagent" && p.parent_thread_id) fc.sid = String(p.parent_thread_id);
+      // 子代理：parent_thread_id，或 source.subagent.thread_spawn.parent_thread_id（Magpie 也这么认）。
+      // 它自己是一个会话，列在母会话下面（以前并进母会话、看不到）
+      const spawn = p.source && typeof p.source === "object" && p.source.subagent && p.source.subagent.thread_spawn;
+      const parent = p.parent_thread_id || (spawn && spawn.parent_thread_id) || "";
+      if (parent && parent !== fc.sid) { fc.parentSid = String(parent); this.noteMeta(fc, fc.sid, { parentSid: fc.parentSid }); }
       return;
     }
     if (d.type === "turn_context") { if (p.model) fc.model = p.model; return; }
@@ -677,22 +688,41 @@ export class AgentUsage {
   async readDsh(p, st, touched) {
     const fc = this.ensureFile(p, "dsh");
     if (fc.mtime === st.mtimeMs && fc.size === st.size) return;
-    fc.mtime = st.mtimeMs;
-    fc.size = st.size;
-    const raw = await fsp.readFile(p);
-    const bytes = decompress(raw);
-    const text = Buffer.from(bytes).toString("utf8");
-    // A compressed session is re-read whole. Reset this file's contribution.
-    fc.days = new Map();
-    fc.msgs = new Map();
-    fc.titles = new Map();
-    fc.live = null;
-    fc.tot = null;
-    const lines = text.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      this.ingestDsh(lines[i], fc, touched);
-      if (i % 2000 === 1999) await new Promise((r) => setImmediate(r));
-    }
+    // DSH 一批一批往文件末尾追加 zstd 帧：文件只是长了，就从上次读完的整帧接着解压，不用整个文件重解一遍
+    // （Magpie 的做法）。文件变短、开头变了（被改写或换了一份），才整个重读。半截帧解不开就等下一轮。
+    const fd = await fsp.open(p, "r");
+    try {
+      const head = Buffer.alloc(Math.min(64, st.size));
+      await fd.read(head, 0, head.length, 0);
+      const headHex = head.toString("hex");
+      const grown = fc.zOff > 0 && st.size >= fc.zOff && fc.zHead === headHex;
+      const from = grown ? fc.zOff : 0;
+      const raw = Buffer.alloc(st.size - from);
+      await fd.read(raw, 0, raw.length, from);
+      // 末尾那一帧可能正写到一半：解到最后一个完整的帧为止，剩下的下一轮接着读
+      let bytes = null, used = raw.length;
+      try { bytes = decompress(raw); }
+      catch {
+        for (let i = raw.length - 4; i > 0 && !bytes; i--) {
+          if (raw[i] !== 0x28 || raw[i + 1] !== 0xb5 || raw[i + 2] !== 0x2f || raw[i + 3] !== 0xfd) continue;
+          try { bytes = decompress(raw.subarray(0, i)); used = i; } catch { /* an earlier frame */ }
+        }
+        if (!bytes) return;
+      }
+      if (!grown) { fc.days = new Map(); fc.msgs = new Map(); fc.titles = new Map(); fc.live = null; fc.tot = null; fc.zCarry = ""; }
+      fc.mtime = used === raw.length ? st.mtimeMs : 0;   // 没读完：下一轮还要来
+      fc.size = from + used;
+      fc.zOff = from + used;
+      fc.zHead = headHex;
+      const text = (fc.zCarry || "") + Buffer.from(bytes).toString("utf8");
+      const cut = text.lastIndexOf("\n");
+      fc.zCarry = cut < 0 ? text : text.slice(cut + 1);
+      const lines = cut < 0 ? [] : text.slice(0, cut).split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        this.ingestDsh(lines[i], fc, touched);
+        if (i % 2000 === 1999) await new Promise((r) => setImmediate(r));
+      }
+    } finally { await fd.close(); }
   }
 
   ingestDsh(line, fc, touched) {
@@ -706,7 +736,8 @@ export class AgentUsage {
       fc.cwd = d.cwd || fc.cwd;
       fc.app = "dsh";
       fc.createdAt = d.createdAt || fc.createdAt;
-      const m = this.noteMeta(fc, fc.sid, { cwd: fc.cwd, app: "dsh", lastAt: Math.max(ms || d.createdAt || 0, this.meta.get(fc.sid)?.lastAt || 0) });
+      if (d.parentSession) fc.parentSid = String(d.parentSession);   // 子代理（delegationDepth ≥ 1）挂在母会话下面
+      const m = this.noteMeta(fc, fc.sid, { cwd: fc.cwd, app: "dsh", lastAt: Math.max(ms || d.createdAt || 0, this.meta.get(fc.sid)?.lastAt || 0), ...(fc.parentSid ? { parentSid: fc.parentSid } : {}) });
       return;
     }
     if (!ms) return;
@@ -877,6 +908,7 @@ export class AgentUsage {
       // 归档了的不再当成待办；真要还在跑就留着
       if (this.hidden(sid) && !["run", "running", "starting"].includes(live.state)) continue;
       seen.add(sid);
+      if (meta.parentSid && !meta.parentTitle) { const pm = this.meta.get(meta.parentSid); if (pm) meta.parentTitle = pm.title || this.titles.get(pm.sid) || ""; }
       out.push({ ...meta, ...live, sid, agent: fc.agent, cwd: v.cwd || fc.cwd, app: v.app || fc.app, title: v.title || meta.title || this.titles.get(sid) || "", model: v.model || meta.model || "", tokens: (meta.out || 0) + (meta.fresh || 0), lastAt: v.at });
     }
     return out.sort((a, b) => b.lastAt - a.lastAt).slice(0, limit);
@@ -888,6 +920,7 @@ export class AgentUsage {
       if (!m.lastAt || m.lastAt < since) continue;
       if (agent && m.agent !== agent) continue;
       if (this.hidden(m.sid) && !["run", "running", "starting"].includes(m.state)) continue;
+      if (m.parentSid && !m.parentTitle) { const pm = this.meta.get(m.parentSid); if (pm) m.parentTitle = pm.title || this.titles.get(pm.sid) || ""; }
       out.push({ ...m, title: m.title || this.titles.get(m.sid) || "", tokens: (m.out || 0) + (m.fresh || 0) });
     }
     return out.sort((a, b) => b.lastAt - a.lastAt).slice(0, limit);

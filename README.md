@@ -4,6 +4,14 @@
 
 [中文](README.zh-CN.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)
 
+Agent Deck gathers the AI agent sessions scattered across separate clients onto one deck inside Obsidian: which agent is working, which one is waiting for you, and how far each has got, at a glance. To hand off work, delegate from the line you are writing; progress and the result come back to that same line. What you planned and what the agents did end up in the same journal.
+
+<p align="center">
+  <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4"><img src="assets/demo.gif" width="800" alt="Agent Deck demo: a session card dropped on a journal task binds it, a task dropped on an agent delegates it, status and the answer are written back"></a>
+</p>
+
+<p align="center">25-second demo (Chinese captions) · click for the <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4">4K60 version with sound</a></p>
+
 Agent Deck is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy and DeepSeek Harness**, shows what each agent is doing now, and tracks delegated tasks from the editor. Notes and the panel talk by drag and drop: drop a session card on a list item to bind it, drop a list item on an agent to delegate it. Agent Deck does not put a trigger on every list item. Once a line is bound to a session, the line-end pill becomes the progress surface: the fill moves with the session, the label changes to **Delegating**, and a cancel control appears next to it.
 
 It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), extracted into a standalone plugin and extended with a second primary agent, DeepSeek Harness, model/effort/mode selection, and a layered model picker.
@@ -51,7 +59,7 @@ To hand over: open **Settings → 追踪 → 停用螺旋日程里的 AI 写入*
 - **Human–AI journal, moved in.** The AI half of Nautilus Spiral's journal flow now lives here: sessions are recorded into today's note (a local `claude -p` names them and matches existing task lines), status and elapsed time are written back, `💬` carries the last reply, child sessions / side chats / Claude Code subagents become nested blocks, and archiving a session marks its line `DONE`. Nautilus keeps the tracking display.
 - **Write-back on bound lines.** A bound `🔗` session gets `💬`, its keyword follows the session (`DOING` / `TOREVIEW` / `NEEDOK` / `ERRORED` / `HITLIMIT`), and archiving writes `DONE` + `⏱` and retires the `🔗` line. While Nautilus's own AI tracking is still enabled Agent Deck stays out of the note, so the two never fight over the same lines.
 - **Two primary agents, full history.** Pick up to two agents as primaries. They are read in full (all history, cross-day catch-up); every other enabled agent is only read for sessions that moved today.
-- **Drag or command delegation.** Drop an item on an agent card, or use `Agent Deck: 委派光标所在块…` or your existing **块去向 → 委派给 Claude** shortcut. Agent Deck does not put a **Delegate** button on every list item. The options sheet is still available from `Agent Deck: 委派选项…` when you want model, effort, permission mode or a working directory that differs from the defaults.
+- **Two ways to delegate, no more.** Drop a list item you wrote onto an agent card in the panel, or use **块去向 → 委派给 Claude** (⌥⌘D). Anything between existing note items, agent-written items (🤖) and session cards is a binding, never a new session. There is no Delegate button on list items and no delegate command in the palette. Model, effort, permission mode and working directory come from the settings; when a delegation fails, **Retry** on its status pill opens the options sheet.
 - **Progress only on bound lines.** A line with a `🔗` session or a running delegation gets a line-end pill. While the job runs the pill fills and shows the elapsed clock; the `×` cancels it. When the agent answers, the pill becomes **Done** and the result is written under the task as one `💬` line. Lines with no session stay clean.
 - **Note-native records.** Delegation writes a `🔗` line under the task and changes the status to `DELEGATED`; the line is the source of truth. Delete the `🔗` line to unbind.
 - **Layered model settings.** A global default model, a default effort slider, capability tags, search/filter, enable switches, pinned order, per-row menu, and task models. Changes sit in an **Unsaved changes** bar until you save them.
@@ -142,7 +150,7 @@ The pill is a CodeMirror widget. It only lives on lines that already have a sess
 3. **Waiting / needs approval**, with a slow glow.
 4. **Done** or **Error**, with an open/retry control.
 
-The options sheet is opened from the command palette (`委派选项…`) or from the chevron on a status pill:
+When a delegation fails, **Retry** on its status pill opens the options sheet:
 
 ## Installation
 

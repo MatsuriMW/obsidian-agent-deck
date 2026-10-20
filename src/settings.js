@@ -613,6 +613,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const desk = this.card(body, "Claude 桌面版", "桌面版给每个会话存一份清单（claude-code-sessions/<账号>/<组织>/local_*.json）。侧栏里看着同级、其实是「从某个会话开出来」的 side chat，只有这份清单里的 spawnedFrom 记得；终端里的 claude 没有这一项。");
     const d1 = this.row(desk, "识别 side chat 和母子关系", "子会话在面板里缩进，标出从哪个会话开出；顺手看有哪些会话正开着 side chat。", null);
     this.toggle(d1.querySelector(":scope > .ad-row__right"), s.claudeDesktop !== false, (v) => { s.claudeDesktop = v; p.saveSettings(); p.scanNow(true); });
+    const dc = this.row(desk, "终端里的会话点开到哪儿", "终端里起的 Claude Code 会话：回终端接着聊（新标签里 cd 到会话目录，跑 claude --resume），或者也在桌面版打开。装了 Warp 默认用 Warp。", null);
+    this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: "终端" }, { id: "desktop", label: "桌面版" }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => { s.cliOpen = v; p.saveSettings(); this.display(); });
     const d2 = this.row(desk, "归档的会话不再列出", "桌面版里归档 = 做完：归档的会话从「现在」和「最近的会话」里收起来，历史用量照旧保留。", null);
     this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => { s.hideArchived = v; p.saveSettings(); p.refreshUI(); });
 

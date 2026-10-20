@@ -291,11 +291,19 @@ export class AgentDeckView extends ItemView {
       const title = s.title || truncate(s.text || s.step || s.sid, 60);
       e.dataTransfer.setData(SESSION_MIME, JSON.stringify({ agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" }));
       e.dataTransfer.setData("text/plain", title);
-      e.dataTransfer.effectAllowed = "copyLink";
+      e.dataTransfer.effectAllowed = "all";   // 按住 ⌘ 拖（在下面新建）时 macOS 会换拖放效果，都放行
       card.addClass("is-dragging");
       document.body.classList.add("ad-dragging-session");
     });
     card.addEventListener("dragend", () => { card.removeClass("is-dragging"); document.body.classList.remove("ad-dragging-session"); });
+    // 笔记里的一项拖到会话卡片上：绑定，不委派
+    card.addEventListener("dragover", (e) => { if (!p.acceptsItemDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "link"; card.addClass("is-drop"); });
+    card.addEventListener("dragleave", (e) => { if (!card.contains(e.relatedTarget)) card.removeClass("is-drop"); });
+    card.addEventListener("drop", (e) => {
+      if (!p.acceptsItemDrag(e)) return;
+      e.preventDefault(); card.removeClass("is-drop");
+      p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title: s.title || truncate(s.text || s.step || s.sid, 60), app: s.app || "", state: s.state || "" });
+    });
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     const child = !!s.parentSid;
@@ -315,6 +323,14 @@ export class AgentDeckView extends ItemView {
       const sic = chip.createSpan({ cls: "ad-state__icon" + (st.cls === "is-live" ? " ad-spin" : "") });
       stateIcon(sic, s.state);
       chip.createSpan({ text: st.label });
+    }
+    // 会话派出去的 subagent：终端里和桌面版里一样写在 <会话>/subagents/ 下，在跑的数一下
+    const subs = p.usage.subsOf ? p.usage.subsOf(s.sid).filter((r) => r.state !== "done" && r.state !== "fail" && Date.now() - (r.at || r.start || 0) < 5 * 60e3) : [];
+    if (subs.length) {
+      const sb = titleRow.createSpan({ cls: "ad-side" });
+      setLucide(sb.createSpan({ cls: "ad-side__icon" }), "bot");
+      sb.createSpan({ text: subs.length > 1 ? `子代理 ×${subs.length}` : "子代理" });
+      sb.title = subs.map((r) => r.desc || r.type || "subagent").join("\n");
     }
     if (s.sideChats) {
       const sc = titleRow.createSpan({ cls: "ad-side" });
@@ -343,7 +359,7 @@ export class AgentDeckView extends ItemView {
     card.onclick = open;
     card.title = "点击打开会话 · 拖到笔记里的一项上绑定，拖到空行上新建一项";
     if (s.agent === "dsh") card.title += "\nDeepSeek Harness 当前只提供 dsh://open（聚焦客户端），会话号会复制到剪贴板";
-    if (s.agent === "claude" && s.app === "cli") card.title += "\n终端里的 Claude Code：会尝试在 Claude 桌面版打开，也可在设置里改成终端";
+    if (s.agent === "claude" && s.app === "cli") card.title += p.settings.cliOpen === "desktop" ? "\n终端里的 Claude Code：在 Claude 桌面版打开（设置里可以改回终端）" : "\n终端里的 Claude Code：在终端新标签里 claude --resume 接着聊";
   }
 
   // 刚委派出去的会话有了会话号：卡片从它的 Agent 卡片飞进「现在」

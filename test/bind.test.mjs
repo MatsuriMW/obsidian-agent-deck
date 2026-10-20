@@ -61,4 +61,12 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
   const L = r.text.split("\n");
   check("blank before paragraph kept", L[1] === "2. DOING 20:10 🤖 卡片搬迁" && L[3] === "" && L[4] === "一段话", r.text);
 }
+{ // ⌘ 拖：不绑这一项，在它（连同子项）下面新建一项
+  const t = "- 做完卡片搬迁的功能\n\t- 子项\n- 别的\n";
+  const r = J.bindInto(t, 0, S(), { below: true });
+  const L = r.text.split("\n");
+  check("cmd-drop inserts after the block", L[0] === "- 做完卡片搬迁的功能" && L[1] === "\t- 子项" && L[2] === "- DOING 20:10 🤖 卡片搬迁" && /^\t- 🔗/.test(L[3]) && L[4] === "- 别的", r.text);
+  const o = J.bindInto("1. 第一件\n2. 第二件\n", 0, S({ state: "wait" }), { below: true });
+  check("cmd-drop numbers on", o.text.split("\n")[1] === "2. TOREVIEW 20:10 🤖 卡片搬迁", o.text);
+}
 process.exit(fail ? 1 : 0);

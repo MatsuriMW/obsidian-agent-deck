@@ -20,7 +20,7 @@ export const refreshEffect = StateEffect.define();
 export const SESSION_MIME = "application/x-agent-deck-session";
 export const ITEM_MIME = "application/x-agent-deck-item";
 
-const DROP_LABEL = { bind: "绑定到这一项", fill: "在这里新建一项", new: "在这里新建一项", below: "在下面新建一项" };
+const DROP_LABEL = { bind: "绑定到这一项 · 按住 ⌘ 在下面新建", fill: "在这里新建一项", new: "在这里新建一项", below: "在下面新建一项", after: "在这一项下面新建" };
 const setDrop = StateEffect.define();
 const dropField = StateField.define({
   create: () => Decoration.none,
@@ -43,13 +43,13 @@ function dropTarget(view, e) {
   const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }, false);
   if (pos == null) return null;
   const n = view.state.doc.lineAt(pos).number - 1;
-  return J.dropKind(view.state.doc.toString().split("\n"), n);
+  return J.dropKind(view.state.doc.toString().split("\n"), n, !!e.metaKey);   // 按住 ⌘：在下面新建一项，不绑这一项
 }
 
 function dndHandlers(plugin) {
   let last = "";
   const show = (view, t) => {
-    const key = t ? `${t.line}:${t.kind}` : "";
+    const key = t ? `${t.line}:${t.kind}` : "";   // ⌘ 按下 / 松开时 kind 变了，提示跟着换
     if (key === last) return;
     last = key;
     view.dispatch({ effects: setDrop.of(t) });
@@ -76,7 +76,7 @@ function dndHandlers(plugin) {
       show(view, null);
       let data = null;
       try { data = JSON.parse(e.dataTransfer.getData(SESSION_MIME)); } catch { /* bad payload */ }
-      if (data && t) plugin.bindSessionAt(view, t.line, data);
+      if (data && t) plugin.bindSessionAt(view, t.line, data, { below: !!e.metaKey });
       else if (data) plugin.notice("这一行放不了会话：拖到列表项、空的列表项或空行上");
       return true;
     },

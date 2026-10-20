@@ -238,9 +238,17 @@ export function kwForState(state) {
 //   fill  空的列表项（「- 」「1. 」）→ 就在这一项写上会话
 //   new   空行 → 在这儿新建一项
 //   below 不是列表的一段文字 → 在它下面新建一项
-export function dropKind(lines, at) {
+export function dropKind(lines, at, below = false) {
   if (at < 0 || at >= lines.length) return null;
   const raw = lines[at];
+  // 按住 ⌘ 拖：不绑到这一项，在它（连同子项）下面新建一项
+  if (below) {
+    if (/^\s*(?:#|```|~~~|\|)/.test(raw)) return null;
+    const n = MARKER_RE.test(raw) ? markOwner(lines, at) : at;
+    if (n < 0) return null;
+    if (!raw.trim()) return { kind: "new", line: at };
+    return { kind: "after", line: n };
+  }
   if (MARKER_RE.test(raw)) {
     const n = markOwner(lines, at);
     return n >= 0 ? { kind: "bind", line: n } : null;
@@ -268,9 +276,9 @@ export function childIndent(lines, n) {
 //   · 一个会话只绑一处：别处已有的 🔗 先摘掉；自动记日记替它新写过的「🤖 …」那一项（dropKey）一起收掉
 //   · 原文不动，只在前面换上状态关键词（TODO / 没写关键词的 → DOING / TOREVIEW …；DONE、PAUSED 这些你定的不碰）
 // 返回 { text, line, kind } 或 { text, error }
-export function bindInto(text, at, s) {
+export function bindInto(text, at, s, { below = false } = {}) {
   let lines = text.split("\n");
-  const target = dropKind(lines, at);
+  const target = dropKind(lines, at, below);
   if (!target) return { text, error: "这一行放不了会话：拖到列表项、空的列表项或空行上" };
   let n = target.line;
   if (target.kind === "bind") {
@@ -319,6 +327,22 @@ export function bindInto(text, at, s) {
   }
 
   let prefix;
+  if (target.kind === "after") {
+    // 和这一项同级，接在它的子项后面；有序列表接着编号
+    const base = width(lines[n]);
+    let end = n;
+    for (let i = n + 1; i < lines.length; i++) {
+      if (!lines[i].trim()) { const j = lines.findIndex((l, k) => k > i && l.trim()); if (j > 0 && width(lines[j]) > base) continue; break; }
+      if (width(lines[i]) <= base) break;
+      end = i;
+    }
+    const pm = /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[n]);
+    prefix = !pm ? "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
+    const item = `${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " ");
+    const lead = (/^\s*/.exec(item) || [""])[0];
+    lines.splice(end + 1, 0, item, linkLine(lead + (lead && !lead.includes("\t") ? "    " : "\t"), s.agent, title, s.sid));
+    return { text: lines.join("\n"), line: end + 1, kind: "after" };
+  }
   if (target.kind === "fill") prefix = EMPTY_ITEM_RE.exec(lines[n])[1] + " ";
   else {
     // 空行 / 段落：照着上面最近那一项的缩进和列表符号接着写；上面没有列表就用「- 」

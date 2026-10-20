@@ -17,7 +17,7 @@ import {
   timeAgo, truncate, unionSegs, clamp,
 } from "./constants.js";
 import { AgentUsage, UsageStore, projectName } from "./readers.js";
-import { Delegator, blockAt, blockTitle, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findLink, statusOf, sessionDeepLink, openAgentApp } from "./delegation.js";
+import { Delegator, blockAt, blockTitle, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findLink, statusOf, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { AgentDeckSettingsTab } from "./settings.js";
 import { DelegateOptionsModal } from "./dialog.js";
@@ -81,10 +81,8 @@ export default class AgentDeckPlugin extends Plugin {
     });
     this.addCommand({ id: "open-settings", name: "打开 Agent Deck 设置", callback: () => this.openSettings() });
     this.addCommand({ id: "open-models", name: "打开 Agent Deck 的 Models 设置", callback: () => this.openSettings("models") });
-    this.addCommand({ id: "delegate-current", name: "委派光标所在块（默认 Agent）", editorCallback: (editor) => this.delegateFromEditor(editor) });
-    this.addCommand({ id: "delegate-current-claude", name: "委派光标所在块 → Claude Code", editorCallback: (editor) => this.delegateFromEditor(editor, "claude") });
-    this.addCommand({ id: "delegate-current-dsh", name: "委派光标所在块 → DeepSeek Harness", editorCallback: (editor) => this.delegateFromEditor(editor, "dsh") });
-    this.addCommand({ id: "delegate-options", name: "委派选项…（模型、强度、模式）", editorCallback: (editor, view) => this.openModalFor(editor, view) });
+    // 委派只有两个入口：笔记里人写的一项拖到面板的 Agent 卡片上，或者块去向的「委派给 Claude」（⌥⌘D）。
+    // Agent Deck 不再在命令面板里放委派命令；委派失败后状态 pill 上的「重试」还在
     this.addCommand({ id: "open-session-line", name: "打开光标这一行绑定的会话", editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
     this.addCommand({ id: "scan-now", name: "重新扫描本机 Agent 会话", callback: () => this.scanNow(true) });
     this.addCommand({ id: "log-journal", name: "整理 Agent 会话进今天的日记", callback: () => this.autoLog.logNow() });
@@ -94,6 +92,8 @@ export default class AgentDeckPlugin extends Plugin {
     this.registerObsidianProtocolHandler("agent-deck", async (params) => {
       if (params && params.do === "scan") return this.scanNow(true);
       if (params && params.do === "log") return this.autoLog.logNow();
+      // 菜单栏里点命令行会话：交回插件，在终端里接着聊
+      if (params && params.do === "open" && params.sid) { const m = this.usage.meta.get(params.sid) || {}; return this.openSession(params.agent || m.agent || "claude", params.sid, m.app || params.app || "", m); }
       if (params && params.do === "hide") {
         this.settings.showMenuBar = false;
         await this.saveSettings();
@@ -474,7 +474,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   // 面板里的会话卡片拖到了笔记第 line 行上
-  bindSessionAt(cm, line, data) {
+  bindSessionAt(cm, line, data, { below = false } = {}) {
     let view = null;
     this.app.workspace.iterateAllLeaves((leaf) => { const v = leaf.view; if (!view && v instanceof MarkdownView && v.editor && v.editor.cm === cm) view = v; });
     if (!view || !data || !data.sid) return;
@@ -493,7 +493,7 @@ export default class AgentDeckPlugin extends Plugin {
       title: data.title || meta.title || (meta.text || "").split(" / ")[0] || sid.slice(0, 8),
       state: (live && live.state) || meta.state || "idle", since,
       dropKey: rec && rec.created && rec.key ? rec.key : null,
-    });
+    }, { below });
     if (res.error) return this.notice(res.error, 6000);
     const change = J.diffLines(text, res.text);
     if (change) view.editor.transaction({ changes: [change] });
@@ -540,6 +540,11 @@ export default class AgentDeckPlugin extends Plugin {
     const lines = view ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
     if (line < 0) return this.notice("这一行刚改过，重新拖一次");
+    // 只有人写的文字条目拖到 Agent 上才委派；Agent 写的（🤖）、已经绑着会话的，拖过来不再开新会话
+    const block = blockAt(lines, line), k = J.kwLine(lines[line]);
+    if (k && k.body.startsWith(J.AUTO_MARK.trim())) return this.notice("这一项是 Agent 记的，已经由机器追踪，不再委派");
+    if (block && findLink(lines, block)) return this.notice("这一项已经绑着会话了，不再委派；要换会话，把会话卡片拖到它上面");
+    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => J.CLOCK_RE.test(l))) return this.notice("这一项已经有 Agent 的用时记录，不再委派");
     this._flyArmed = { agent, at: Date.now() };
     try {
       const opts = { file, lines, line, agent };
@@ -547,6 +552,20 @@ export default class AgentDeckPlugin extends Plugin {
       else await this.delegator.handoff(opts);
     } catch (e) { this.notice(String(e.message || e), 8000); }
     this.refreshUI();
+  }
+
+  // 笔记里的一项拖到面板的会话卡片上：把这个会话绑给它（和卡片拖到条目上一样，不委派）
+  async bindItemToSession(item, data) {
+    this._dragItem = null;
+    if (!item || !item.path || !data || !data.sid) return;
+    const view = this.viewForPath(item.path);
+    if (view) {
+      const lines = view.editor.getValue().split("\n");
+      const line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
+      if (line < 0) return this.notice("这一行刚改过，重新拖一次");
+      return this.bindSessionAt(view.editor.cm, line, data);
+    }
+    this.notice("先把这篇笔记打开再拖");
   }
 
   // 委派出去的会话有了会话号（客户端里能打开了）：下一次画面板时，卡片从 Agents 飞进「现在」
@@ -628,7 +647,7 @@ export default class AgentDeckPlugin extends Plugin {
       const a = AGENTS[agent];
       const state = isLive ? (s.state || "idle") : "recent";
       const kw = menuKeyword(state);
-      const where = agent === "claude" ? (s.app === "cli" ? "终端" : "桌面版") : agent === "codex" ? (s.app === "desktop" ? "桌面版" : "CLI") : agent === "workbuddy" ? "桌面版" : "Harness";
+      const where = agent === "claude" ? (s.app === "cli" ? "终端" : "桌面版") : agent === "codex" ? (isCodexDesktop(s.app) ? "桌面版" : "CLI") : agent === "workbuddy" ? "桌面版" : "Harness";
       const url = sessionDeepLink(agent, s.sid);
       seen.add(s.sid);
       out.push({
@@ -641,7 +660,7 @@ export default class AgentDeckPlugin extends Plugin {
         ago: timeAgo(s.lastAt),
         keyword: kw.id, keywordLabel: kw.zh,
         state, stateLabel: menuStateLabel(state), primary: !!primary,
-        url: agent === "dsh" ? "dsh://open" : url,
+        url: agent === "dsh" ? "dsh://open" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
         copy: agent === "dsh" ? s.sid : (agent === "codex" ? `codex resume ${s.sid}` : ""),
         _at: s.lastAt || 0,
       });

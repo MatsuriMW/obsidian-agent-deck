@@ -131,12 +131,36 @@ export function openExternal(url) {
   try { execFile("/usr/bin/open", [url], () => {}); return true; } catch { return false; }
 }
 
-export function openTerminal(command) {
+export function openTerminal(command, cwd = "", which = "auto") {
+  const dir = cwd && fs.existsSync(cwd) ? cwd : home();
+  const warp = ["/Applications/Warp.app", path.join(home(), "Applications/Warp.app")].some((p) => fs.existsSync(p));
+  // Warp 没有「执行一条命令」的 URL；它认启动配置：写一份 yaml（目录 + 命令），用 warp://launch/<名字> 打开就是新标签里跑
+  if ((which === "auto" && warp) || which === "warp") {
+    try {
+      const d = path.join(home(), ".warp/launch_configurations");
+      fs.mkdirSync(d, { recursive: true });
+      const q = (s) => JSON.stringify(String(s));
+      fs.writeFileSync(path.join(d, "agent-deck-resume.yaml"), [
+        "---", "name: agent-deck-resume", "windows:", "  - tabs:", "      - title: Claude", "        layout:",
+        `          cwd: ${q(dir)}`, "          commands:", `            - exec: ${q(command)}`, "",
+      ].join("\n"));
+      return openExternal("warp://launch/agent-deck-resume");
+    } catch { /* fall back to Terminal */ }
+  }
   try {
-    const script = `tell application "Terminal"\nactivate\ndo script ${JSON.stringify(command)}\nend tell`;
+    const script = `tell application "Terminal"\nactivate\ndo script ${JSON.stringify(`cd ${JSON.stringify(dir)} && ${command}`)}\nend tell`;
     execFile("/usr/bin/osascript", ["-e", script], () => {});
     return true;
   } catch { return false; }
+}
+
+// Codex 会话的 originator：桌面版 / IDE 插件里起的才有会话页可跳；codex_cli_rs、codex_exec 是命令行
+export const isCodexDesktop = (app) => /desktop|vscode|app|ide/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
+// 命令行会话（Claude Code 终端版、Codex 命令行）：点开回终端，而不是交给桌面版
+export function isCliSession(agent, app) {
+  if (agent === "claude") return app === "cli";
+  if (agent === "codex") return !isCodexDesktop(app);
+  return false;
 }
 
 export function sessionDeepLink(agent, sid) {
@@ -173,19 +197,24 @@ export function copyText(text) {
   try { navigator.clipboard.writeText(text); return true; } catch { return false; }
 }
 
-export function openSession(plugin, agent, sid, app = "") {
+export function openSession(plugin, agent, sid, app = "", session = null) {
   if (!sid) { plugin.notice("这个会话还没有会话号，稍等一秒再点"); return false; }
   if (agent === "claude") {
-    if (app === "cli") {
-      const cmd = `claude --resume ${sid}`;
-      if (plugin.settings.delegate?.claude?.terminalInsteadOfDesktop) return openTerminal(cmd);
+    // 终端里起的会话默认回终端接着聊（cd 到会话原来的目录，claude --resume）；设置里可以改成也走桌面版
+    if (app === "cli" && plugin.settings.cliOpen !== "desktop") {
+      const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
+      return openTerminal(`claude --resume ${sid}`, cwd, plugin.settings.cliTerminal || "auto");
     }
     openExternal(`claude://resume?session=${sid}`);
     return true;
   }
   if (agent === "workbuddy") { openExternal(`workbuddy://chat/${encodeURIComponent(sid)}`); return true; }
   if (agent === "codex") {
-    // Codex 桌面版认 codex://threads/<id>；命令行开的会话也能打开。恢复命令顺手放进剪贴板，终端里也能接着用
+    // 命令行里起的（codex / codex exec）回终端 codex resume；桌面版里的用 codex://threads/<id> 回桌面版
+    const meta = session || (plugin.usage && plugin.usage.meta.get(sid)) || {};
+    if (!isCodexDesktop(app || meta.app) && plugin.settings.cliOpen !== "desktop") {
+      return openTerminal(`codex resume ${sid}`, meta.cwd || "", plugin.settings.cliTerminal || "auto");
+    }
     openExternal(`codex://threads/${sid}`);
     copyText(`codex resume ${sid}`);
     return true;

@@ -225,7 +225,9 @@ export const DEFAULTS = {
   resultBack: true,
   agentKw: true,
   kidBlocks: true,
-  dragGrip: true,          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
+  dragGrip: true,
+  cliOpen: "terminal",     // 终端里起的 Claude Code 会话点开时：terminal 回终端 / desktop 走桌面版
+  cliTerminal: "auto",     // auto：装了 Warp 用 Warp，否则系统终端；warp / terminal 指定          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
   autoLogEvery: 20,
   autoLogIdle: 40,

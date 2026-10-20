@@ -1,4 +1,4 @@
-/* Agent Deck 1.2.0 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.2.1 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -250,7 +250,10 @@ var DEFAULTS = {
   agentKw: true,
   kidBlocks: true,
   dragGrip: true,
-  // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
+  cliOpen: "terminal",
+  // 终端里起的 Claude Code 会话点开时：terminal 回终端 / desktop 走桌面版
+  cliTerminal: "auto",
+  // auto：装了 Warp 用 Warp，否则系统终端；warp / terminal 指定          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
   autoLogEvery: 20,
   autoLogIdle: 40,
@@ -1225,7 +1228,14 @@ var AgentUsage = class {
       const db = /* @__PURE__ */ new Set();
       try {
         const states = (await fsp.readdir(codex)).filter((f) => /^state_\d+\.sqlite$/.test(f)).sort();
-        if (states.length) for (const id of await sqliteColumn(import_path.default.join(codex, states[states.length - 1]), "select id from threads where archived = 1")) db.add(id);
+        if (states.length) {
+          const st = import_path.default.join(codex, states[states.length - 1]);
+          for (const id of await sqliteColumn(st, "select id from threads where archived = 1")) db.add(id);
+          for (const row of await sqliteColumn(st, "select id || char(9) || replace(replace(title, char(10), ' '), char(9), ' ') from threads where title != '' and updated_at > strftime('%s','now') - 30*86400")) {
+            const i = row.indexOf("	");
+            if (i > 0 && !this.titles.has(row.slice(0, i))) this.titles.set(row.slice(0, i), row.slice(i + 1).slice(0, 120));
+          }
+        }
       } catch {
       }
       for (const id of await sqliteColumn(import_path.default.join(home(), ".workbuddy/workbuddy.db"), "select id from sessions where status = 'archived' or deleted_at is not null")) db.add(id);
@@ -1641,7 +1651,12 @@ var AgentUsage = class {
       fc.sid = p.id || fc.sid;
       fc.cwd = p.cwd || fc.cwd;
       fc.app = p.originator || fc.app || "codex";
-      if (p.thread_source === "subagent" && p.parent_thread_id) fc.sid = String(p.parent_thread_id);
+      const spawn4 = p.source && typeof p.source === "object" && p.source.subagent && p.source.subagent.thread_spawn;
+      const parent = p.parent_thread_id || spawn4 && spawn4.parent_thread_id || "";
+      if (parent && parent !== fc.sid) {
+        fc.parentSid = String(parent);
+        this.noteMeta(fc, fc.sid, { parentSid: fc.parentSid });
+      }
       return;
     }
     if (d.type === "turn_context") {
@@ -1762,20 +1777,51 @@ var AgentUsage = class {
   async readDsh(p, st, touched) {
     const fc = this.ensureFile(p, "dsh");
     if (fc.mtime === st.mtimeMs && fc.size === st.size) return;
-    fc.mtime = st.mtimeMs;
-    fc.size = st.size;
-    const raw = await fsp.readFile(p);
-    const bytes = decompress(raw);
-    const text = Buffer.from(bytes).toString("utf8");
-    fc.days = /* @__PURE__ */ new Map();
-    fc.msgs = /* @__PURE__ */ new Map();
-    fc.titles = /* @__PURE__ */ new Map();
-    fc.live = null;
-    fc.tot = null;
-    const lines = text.split("\n");
-    for (let i = 0; i < lines.length; i++) {
-      this.ingestDsh(lines[i], fc, touched);
-      if (i % 2e3 === 1999) await new Promise((r) => setImmediate(r));
+    const fd = await fsp.open(p, "r");
+    try {
+      const head = Buffer.alloc(Math.min(64, st.size));
+      await fd.read(head, 0, head.length, 0);
+      const headHex = head.toString("hex");
+      const grown = fc.zOff > 0 && st.size >= fc.zOff && fc.zHead === headHex;
+      const from = grown ? fc.zOff : 0;
+      const raw = Buffer.alloc(st.size - from);
+      await fd.read(raw, 0, raw.length, from);
+      let bytes = null, used = raw.length;
+      try {
+        bytes = decompress(raw);
+      } catch {
+        for (let i = raw.length - 4; i > 0 && !bytes; i--) {
+          if (raw[i] !== 40 || raw[i + 1] !== 181 || raw[i + 2] !== 47 || raw[i + 3] !== 253) continue;
+          try {
+            bytes = decompress(raw.subarray(0, i));
+            used = i;
+          } catch {
+          }
+        }
+        if (!bytes) return;
+      }
+      if (!grown) {
+        fc.days = /* @__PURE__ */ new Map();
+        fc.msgs = /* @__PURE__ */ new Map();
+        fc.titles = /* @__PURE__ */ new Map();
+        fc.live = null;
+        fc.tot = null;
+        fc.zCarry = "";
+      }
+      fc.mtime = used === raw.length ? st.mtimeMs : 0;
+      fc.size = from + used;
+      fc.zOff = from + used;
+      fc.zHead = headHex;
+      const text = (fc.zCarry || "") + Buffer.from(bytes).toString("utf8");
+      const cut = text.lastIndexOf("\n");
+      fc.zCarry = cut < 0 ? text : text.slice(cut + 1);
+      const lines = cut < 0 ? [] : text.slice(0, cut).split("\n");
+      for (let i = 0; i < lines.length; i++) {
+        this.ingestDsh(lines[i], fc, touched);
+        if (i % 2e3 === 1999) await new Promise((r) => setImmediate(r));
+      }
+    } finally {
+      await fd.close();
     }
   }
   ingestDsh(line, fc, touched) {
@@ -1793,7 +1839,8 @@ var AgentUsage = class {
       fc.cwd = d.cwd || fc.cwd;
       fc.app = "dsh";
       fc.createdAt = d.createdAt || fc.createdAt;
-      const m = this.noteMeta(fc, fc.sid, { cwd: fc.cwd, app: "dsh", lastAt: Math.max(ms || d.createdAt || 0, this.meta.get(fc.sid)?.lastAt || 0) });
+      if (d.parentSession) fc.parentSid = String(d.parentSession);
+      const m = this.noteMeta(fc, fc.sid, { cwd: fc.cwd, app: "dsh", lastAt: Math.max(ms || d.createdAt || 0, this.meta.get(fc.sid)?.lastAt || 0), ...fc.parentSid ? { parentSid: fc.parentSid } : {} });
       return;
     }
     if (!ms) return;
@@ -2008,6 +2055,10 @@ var AgentUsage = class {
       if (live.quiet && live.state === "run") live.state = "quiet";
       if (this.hidden(sid) && !["run", "running", "starting"].includes(live.state)) continue;
       seen.add(sid);
+      if (meta.parentSid && !meta.parentTitle) {
+        const pm = this.meta.get(meta.parentSid);
+        if (pm) meta.parentTitle = pm.title || this.titles.get(pm.sid) || "";
+      }
       out.push({ ...meta, ...live, sid, agent: fc.agent, cwd: v.cwd || fc.cwd, app: v.app || fc.app, title: v.title || meta.title || this.titles.get(sid) || "", model: v.model || meta.model || "", tokens: (meta.out || 0) + (meta.fresh || 0), lastAt: v.at });
     }
     return out.sort((a, b) => b.lastAt - a.lastAt).slice(0, limit);
@@ -2018,6 +2069,10 @@ var AgentUsage = class {
       if (!m.lastAt || m.lastAt < since) continue;
       if (agent && m.agent !== agent) continue;
       if (this.hidden(m.sid) && !["run", "running", "starting"].includes(m.state)) continue;
+      if (m.parentSid && !m.parentTitle) {
+        const pm = this.meta.get(m.parentSid);
+        if (pm) m.parentTitle = pm.title || this.titles.get(pm.sid) || "";
+      }
       out.push({ ...m, title: m.title || this.titles.get(m.sid) || "", tokens: (m.out || 0) + (m.fresh || 0) });
     }
     return out.sort((a, b) => b.lastAt - a.lastAt).slice(0, limit);
@@ -2341,9 +2396,16 @@ var MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬)/;
 function kwForState(state) {
   return { run: "DOING", running: "DOING", starting: "DOING", wait: "TOREVIEW", quiet: "TOREVIEW", idle: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" }[state] || "DOING";
 }
-function dropKind(lines, at) {
+function dropKind(lines, at, below = false) {
   if (at < 0 || at >= lines.length) return null;
   const raw = lines[at];
+  if (below) {
+    if (/^\s*(?:#|```|~~~|\|)/.test(raw)) return null;
+    const n = MARKER_RE.test(raw) ? markOwner(lines, at) : at;
+    if (n < 0) return null;
+    if (!raw.trim()) return { kind: "new", line: at };
+    return { kind: "after", line: n };
+  }
   if (MARKER_RE.test(raw)) {
     const n = markOwner(lines, at);
     return n >= 0 ? { kind: "bind", line: n } : null;
@@ -2364,9 +2426,9 @@ function childIndent(lines, n) {
   const lead = (/^\s*/.exec(lines[n]) || [""])[0];
   return lead + (lead && !lead.includes("	") ? "    " : "	");
 }
-function bindInto(text, at, s) {
+function bindInto(text, at, s, { below = false } = {}) {
   let lines = text.split("\n");
-  const target = dropKind(lines, at);
+  const target = dropKind(lines, at, below);
   if (!target) return { text, error: "\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A" };
   let n = target.line;
   if (target.kind === "bind") {
@@ -2414,6 +2476,25 @@ function bindInto(text, at, s) {
     return { text: lines.join("\n"), line: n, kind: "bind" };
   }
   let prefix;
+  if (target.kind === "after") {
+    const base = width(lines[n]);
+    let end = n;
+    for (let i = n + 1; i < lines.length; i++) {
+      if (!lines[i].trim()) {
+        const j = lines.findIndex((l, k) => k > i && l.trim());
+        if (j > 0 && width(lines[j]) > base) continue;
+        break;
+      }
+      if (width(lines[i]) <= base) break;
+      end = i;
+    }
+    const pm = /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[n]);
+    prefix = !pm ? "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
+    const item2 = `${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " ");
+    const lead2 = (/^\s*/.exec(item2) || [""])[0];
+    lines.splice(end + 1, 0, item2, linkLine(lead2 + (lead2 && !lead2.includes("	") ? "    " : "	"), s.agent, title, s.sid));
+    return { text: lines.join("\n"), line: end + 1, kind: "after" };
+  }
   if (target.kind === "fill") prefix = EMPTY_ITEM_RE.exec(lines[n])[1] + " ";
   else {
     let prev = -1;
@@ -2566,11 +2647,34 @@ function openExternal(url) {
     return false;
   }
 }
-function openTerminal(command) {
+function openTerminal(command, cwd = "", which = "auto") {
+  const dir = cwd && import_fs2.default.existsSync(cwd) ? cwd : home2();
+  const warp = ["/Applications/Warp.app", import_path2.default.join(home2(), "Applications/Warp.app")].some((p) => import_fs2.default.existsSync(p));
+  if (which === "auto" && warp || which === "warp") {
+    try {
+      const d = import_path2.default.join(home2(), ".warp/launch_configurations");
+      import_fs2.default.mkdirSync(d, { recursive: true });
+      const q = (s) => JSON.stringify(String(s));
+      import_fs2.default.writeFileSync(import_path2.default.join(d, "agent-deck-resume.yaml"), [
+        "---",
+        "name: agent-deck-resume",
+        "windows:",
+        "  - tabs:",
+        "      - title: Claude",
+        "        layout:",
+        `          cwd: ${q(dir)}`,
+        "          commands:",
+        `            - exec: ${q(command)}`,
+        ""
+      ].join("\n"));
+      return openExternal("warp://launch/agent-deck-resume");
+    } catch {
+    }
+  }
   try {
     const script = `tell application "Terminal"
 activate
-do script ${JSON.stringify(command)}
+do script ${JSON.stringify(`cd ${JSON.stringify(dir)} && ${command}`)}
 end tell`;
     (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], () => {
     });
@@ -2578,6 +2682,12 @@ end tell`;
   } catch {
     return false;
   }
+}
+var isCodexDesktop = (app) => /desktop|vscode|app|ide/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
+function isCliSession(agent, app) {
+  if (agent === "claude") return app === "cli";
+  if (agent === "codex") return !isCodexDesktop(app);
+  return false;
 }
 function sessionDeepLink(agent, sid) {
   if (!sid) return "";
@@ -2616,15 +2726,15 @@ function copyText(text) {
     return false;
   }
 }
-function openSession(plugin, agent, sid, app = "") {
+function openSession(plugin, agent, sid, app = "", session = null) {
   if (!sid) {
     plugin.notice("\u8FD9\u4E2A\u4F1A\u8BDD\u8FD8\u6CA1\u6709\u4F1A\u8BDD\u53F7\uFF0C\u7A0D\u7B49\u4E00\u79D2\u518D\u70B9");
     return false;
   }
   if (agent === "claude") {
-    if (app === "cli") {
-      const cmd = `claude --resume ${sid}`;
-      if (plugin.settings.delegate?.claude?.terminalInsteadOfDesktop) return openTerminal(cmd);
+    if (app === "cli" && plugin.settings.cliOpen !== "desktop") {
+      const cwd = session && session.cwd || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
+      return openTerminal(`claude --resume ${sid}`, cwd, plugin.settings.cliTerminal || "auto");
     }
     openExternal(`claude://resume?session=${sid}`);
     return true;
@@ -2634,6 +2744,10 @@ function openSession(plugin, agent, sid, app = "") {
     return true;
   }
   if (agent === "codex") {
+    const meta = session || plugin.usage && plugin.usage.meta.get(sid) || {};
+    if (!isCodexDesktop(app || meta.app) && plugin.settings.cliOpen !== "desktop") {
+      return openTerminal(`codex resume ${sid}`, meta.cwd || "", plugin.settings.cliTerminal || "auto");
+    }
     openExternal(`codex://threads/${sid}`);
     copyText(`codex resume ${sid}`);
     return true;
@@ -3528,7 +3642,7 @@ var import_state = require("@codemirror/state");
 var refreshEffect = import_state.StateEffect.define();
 var SESSION_MIME = "application/x-agent-deck-session";
 var ITEM_MIME = "application/x-agent-deck-item";
-var DROP_LABEL = { bind: "\u7ED1\u5B9A\u5230\u8FD9\u4E00\u9879", fill: "\u5728\u8FD9\u91CC\u65B0\u5EFA\u4E00\u9879", new: "\u5728\u8FD9\u91CC\u65B0\u5EFA\u4E00\u9879", below: "\u5728\u4E0B\u9762\u65B0\u5EFA\u4E00\u9879" };
+var DROP_LABEL = { bind: "\u7ED1\u5B9A\u5230\u8FD9\u4E00\u9879 \xB7 \u6309\u4F4F \u2318 \u5728\u4E0B\u9762\u65B0\u5EFA", fill: "\u5728\u8FD9\u91CC\u65B0\u5EFA\u4E00\u9879", new: "\u5728\u8FD9\u91CC\u65B0\u5EFA\u4E00\u9879", below: "\u5728\u4E0B\u9762\u65B0\u5EFA\u4E00\u9879", after: "\u5728\u8FD9\u4E00\u9879\u4E0B\u9762\u65B0\u5EFA" };
 var setDrop = import_state.StateEffect.define();
 var dropField = import_state.StateField.define({
   create: () => import_view.Decoration.none,
@@ -3552,7 +3666,7 @@ function dropTarget(view, e) {
   const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }, false);
   if (pos == null) return null;
   const n = view.state.doc.lineAt(pos).number - 1;
-  return dropKind(view.state.doc.toString().split("\n"), n);
+  return dropKind(view.state.doc.toString().split("\n"), n, !!e.metaKey);
 }
 function dndHandlers(plugin) {
   let last = "";
@@ -3587,7 +3701,7 @@ function dndHandlers(plugin) {
         data = JSON.parse(e.dataTransfer.getData(SESSION_MIME));
       } catch {
       }
-      if (data && t) plugin.bindSessionAt(view, t.line, data);
+      if (data && t) plugin.bindSessionAt(view, t.line, data, { below: !!e.metaKey });
       else if (data) plugin.notice("\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A");
       return true;
     },
@@ -4149,13 +4263,28 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       const title = s.title || truncate(s.text || s.step || s.sid, 60);
       e.dataTransfer.setData(SESSION_MIME, JSON.stringify({ agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" }));
       e.dataTransfer.setData("text/plain", title);
-      e.dataTransfer.effectAllowed = "copyLink";
+      e.dataTransfer.effectAllowed = "all";
       card.addClass("is-dragging");
       document.body.classList.add("ad-dragging-session");
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
       document.body.classList.remove("ad-dragging-session");
+    });
+    card.addEventListener("dragover", (e) => {
+      if (!p.acceptsItemDrag(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "link";
+      card.addClass("is-drop");
+    });
+    card.addEventListener("dragleave", (e) => {
+      if (!card.contains(e.relatedTarget)) card.removeClass("is-drop");
+    });
+    card.addEventListener("drop", (e) => {
+      if (!p.acceptsItemDrag(e)) return;
+      e.preventDefault();
+      card.removeClass("is-drop");
+      p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title: s.title || truncate(s.text || s.step || s.sid, 60), app: s.app || "", state: s.state || "" });
     });
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
@@ -4176,6 +4305,13 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       const sic = chip.createSpan({ cls: "ad-state__icon" + (st.cls === "is-live" ? " ad-spin" : "") });
       stateIcon(sic, s.state);
       chip.createSpan({ text: st.label });
+    }
+    const subs = p.usage.subsOf ? p.usage.subsOf(s.sid).filter((r) => r.state !== "done" && r.state !== "fail" && Date.now() - (r.at || r.start || 0) < 5 * 6e4) : [];
+    if (subs.length) {
+      const sb = titleRow.createSpan({ cls: "ad-side" });
+      setLucide(sb.createSpan({ cls: "ad-side__icon" }), "bot");
+      sb.createSpan({ text: subs.length > 1 ? `\u5B50\u4EE3\u7406 \xD7${subs.length}` : "\u5B50\u4EE3\u7406" });
+      sb.title = subs.map((r) => r.desc || r.type || "subagent").join("\n");
     }
     if (s.sideChats) {
       const sc = titleRow.createSpan({ cls: "ad-side" });
@@ -4213,7 +4349,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     card.onclick = open;
     card.title = "\u70B9\u51FB\u6253\u5F00\u4F1A\u8BDD \xB7 \u62D6\u5230\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u4E0A\u7ED1\u5B9A\uFF0C\u62D6\u5230\u7A7A\u884C\u4E0A\u65B0\u5EFA\u4E00\u9879";
     if (s.agent === "dsh") card.title += "\nDeepSeek Harness \u5F53\u524D\u53EA\u63D0\u4F9B dsh://open\uFF08\u805A\u7126\u5BA2\u6237\u7AEF\uFF09\uFF0C\u4F1A\u8BDD\u53F7\u4F1A\u590D\u5236\u5230\u526A\u8D34\u677F";
-    if (s.agent === "claude" && s.app === "cli") card.title += "\n\u7EC8\u7AEF\u91CC\u7684 Claude Code\uFF1A\u4F1A\u5C1D\u8BD5\u5728 Claude \u684C\u9762\u7248\u6253\u5F00\uFF0C\u4E5F\u53EF\u5728\u8BBE\u7F6E\u91CC\u6539\u6210\u7EC8\u7AEF";
+    if (s.agent === "claude" && s.app === "cli") card.title += p.settings.cliOpen === "desktop" ? "\n\u7EC8\u7AEF\u91CC\u7684 Claude Code\uFF1A\u5728 Claude \u684C\u9762\u7248\u6253\u5F00\uFF08\u8BBE\u7F6E\u91CC\u53EF\u4EE5\u6539\u56DE\u7EC8\u7AEF\uFF09" : "\n\u7EC8\u7AEF\u91CC\u7684 Claude Code\uFF1A\u5728\u7EC8\u7AEF\u65B0\u6807\u7B7E\u91CC claude --resume \u63A5\u7740\u804A";
   }
   // 刚委派出去的会话有了会话号：卡片从它的 Agent 卡片飞进「现在」
   playFly(dash) {
@@ -5007,6 +5143,12 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       s.claudeDesktop = v;
       p.saveSettings();
       p.scanNow(true);
+    });
+    const dc = this.row(desk, "\u7EC8\u7AEF\u91CC\u7684\u4F1A\u8BDD\u70B9\u5F00\u5230\u54EA\u513F", "\u7EC8\u7AEF\u91CC\u8D77\u7684 Claude Code \u4F1A\u8BDD\uFF1A\u56DE\u7EC8\u7AEF\u63A5\u7740\u804A\uFF08\u65B0\u6807\u7B7E\u91CC cd \u5230\u4F1A\u8BDD\u76EE\u5F55\uFF0C\u8DD1 claude --resume\uFF09\uFF0C\u6216\u8005\u4E5F\u5728\u684C\u9762\u7248\u6253\u5F00\u3002\u88C5\u4E86 Warp \u9ED8\u8BA4\u7528 Warp\u3002", null);
+    this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: "\u7EC8\u7AEF" }, { id: "desktop", label: "\u684C\u9762\u7248" }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => {
+      s.cliOpen = v;
+      p.saveSettings();
+      this.display();
     });
     const d2 = this.row(desk, "\u5F52\u6863\u7684\u4F1A\u8BDD\u4E0D\u518D\u5217\u51FA", "\u684C\u9762\u7248\u91CC\u5F52\u6863 = \u505A\u5B8C\uFF1A\u5F52\u6863\u7684\u4F1A\u8BDD\u4ECE\u300C\u73B0\u5728\u300D\u548C\u300C\u6700\u8FD1\u7684\u4F1A\u8BDD\u300D\u91CC\u6536\u8D77\u6765\uFF0C\u5386\u53F2\u7528\u91CF\u7167\u65E7\u4FDD\u7559\u3002", null);
     this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => {
@@ -8448,10 +8590,6 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     });
     this.addCommand({ id: "open-settings", name: "\u6253\u5F00 Agent Deck \u8BBE\u7F6E", callback: () => this.openSettings() });
     this.addCommand({ id: "open-models", name: "\u6253\u5F00 Agent Deck \u7684 Models \u8BBE\u7F6E", callback: () => this.openSettings("models") });
-    this.addCommand({ id: "delegate-current", name: "\u59D4\u6D3E\u5149\u6807\u6240\u5728\u5757\uFF08\u9ED8\u8BA4 Agent\uFF09", editorCallback: (editor) => this.delegateFromEditor(editor) });
-    this.addCommand({ id: "delegate-current-claude", name: "\u59D4\u6D3E\u5149\u6807\u6240\u5728\u5757 \u2192 Claude Code", editorCallback: (editor) => this.delegateFromEditor(editor, "claude") });
-    this.addCommand({ id: "delegate-current-dsh", name: "\u59D4\u6D3E\u5149\u6807\u6240\u5728\u5757 \u2192 DeepSeek Harness", editorCallback: (editor) => this.delegateFromEditor(editor, "dsh") });
-    this.addCommand({ id: "delegate-options", name: "\u59D4\u6D3E\u9009\u9879\u2026\uFF08\u6A21\u578B\u3001\u5F3A\u5EA6\u3001\u6A21\u5F0F\uFF09", editorCallback: (editor, view) => this.openModalFor(editor, view) });
     this.addCommand({ id: "open-session-line", name: "\u6253\u5F00\u5149\u6807\u8FD9\u4E00\u884C\u7ED1\u5B9A\u7684\u4F1A\u8BDD", editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
     this.addCommand({ id: "scan-now", name: "\u91CD\u65B0\u626B\u63CF\u672C\u673A Agent \u4F1A\u8BDD", callback: () => this.scanNow(true) });
     this.addCommand({ id: "log-journal", name: "\u6574\u7406 Agent \u4F1A\u8BDD\u8FDB\u4ECA\u5929\u7684\u65E5\u8BB0", callback: () => this.autoLog.logNow() });
@@ -8460,6 +8598,10 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     this.registerObsidianProtocolHandler("agent-deck", async (params) => {
       if (params && params.do === "scan") return this.scanNow(true);
       if (params && params.do === "log") return this.autoLog.logNow();
+      if (params && params.do === "open" && params.sid) {
+        const m = this.usage.meta.get(params.sid) || {};
+        return this.openSession(params.agent || m.agent || "claude", params.sid, m.app || params.app || "", m);
+      }
       if (params && params.do === "hide") {
         this.settings.showMenuBar = false;
         await this.saveSettings();
@@ -8902,7 +9044,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     return found;
   }
   // 面板里的会话卡片拖到了笔记第 line 行上
-  bindSessionAt(cm, line, data) {
+  bindSessionAt(cm, line, data, { below = false } = {}) {
     let view = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
@@ -8926,7 +9068,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       state: live && live.state || meta.state || "idle",
       since,
       dropKey: rec && rec.created && rec.key ? rec.key : null
-    });
+    }, { below });
     if (res.error) return this.notice(res.error, 6e3);
     const change = diffLines(text, res.text);
     if (change) view.editor.transaction({ changes: [change] });
@@ -8975,6 +9117,10 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     const lines = view ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
     if (line < 0) return this.notice("\u8FD9\u4E00\u884C\u521A\u6539\u8FC7\uFF0C\u91CD\u65B0\u62D6\u4E00\u6B21");
+    const block = blockAt(lines, line), k = kwLine(lines[line]);
+    if (k && k.body.startsWith(AUTO_MARK.trim())) return this.notice("\u8FD9\u4E00\u9879\u662F Agent \u8BB0\u7684\uFF0C\u5DF2\u7ECF\u7531\u673A\u5668\u8FFD\u8E2A\uFF0C\u4E0D\u518D\u59D4\u6D3E");
+    if (block && findLink(lines, block)) return this.notice("\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\u4E86\uFF0C\u4E0D\u518D\u59D4\u6D3E\uFF1B\u8981\u6362\u4F1A\u8BDD\uFF0C\u628A\u4F1A\u8BDD\u5361\u7247\u62D6\u5230\u5B83\u4E0A\u9762");
+    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => CLOCK_RE.test(l))) return this.notice("\u8FD9\u4E00\u9879\u5DF2\u7ECF\u6709 Agent \u7684\u7528\u65F6\u8BB0\u5F55\uFF0C\u4E0D\u518D\u59D4\u6D3E");
     this._flyArmed = { agent, at: Date.now() };
     try {
       const opts = { file, lines, line, agent };
@@ -8984,6 +9130,19 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       this.notice(String(e.message || e), 8e3);
     }
     this.refreshUI();
+  }
+  // 笔记里的一项拖到面板的会话卡片上：把这个会话绑给它（和卡片拖到条目上一样，不委派）
+  async bindItemToSession(item, data) {
+    this._dragItem = null;
+    if (!item || !item.path || !data || !data.sid) return;
+    const view = this.viewForPath(item.path);
+    if (view) {
+      const lines = view.editor.getValue().split("\n");
+      const line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
+      if (line < 0) return this.notice("\u8FD9\u4E00\u884C\u521A\u6539\u8FC7\uFF0C\u91CD\u65B0\u62D6\u4E00\u6B21");
+      return this.bindSessionAt(view.editor.cm, line, data);
+    }
+    this.notice("\u5148\u628A\u8FD9\u7BC7\u7B14\u8BB0\u6253\u5F00\u518D\u62D6");
   }
   // 委派出去的会话有了会话号（客户端里能打开了）：下一次画面板时，卡片从 Agents 飞进「现在」
   flyFromAgent(job) {
@@ -9059,7 +9218,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       const a = AGENTS[agent];
       const state = isLive ? s.state || "idle" : "recent";
       const kw = menuKeyword(state);
-      const where = agent === "claude" ? s.app === "cli" ? "\u7EC8\u7AEF" : "\u684C\u9762\u7248" : agent === "codex" ? s.app === "desktop" ? "\u684C\u9762\u7248" : "CLI" : agent === "workbuddy" ? "\u684C\u9762\u7248" : "Harness";
+      const where = agent === "claude" ? s.app === "cli" ? "\u7EC8\u7AEF" : "\u684C\u9762\u7248" : agent === "codex" ? isCodexDesktop(s.app) ? "\u684C\u9762\u7248" : "CLI" : agent === "workbuddy" ? "\u684C\u9762\u7248" : "Harness";
       const url = sessionDeepLink(agent, s.sid);
       seen.add(s.sid);
       out.push({
@@ -9079,7 +9238,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
         state,
         stateLabel: menuStateLabel(state),
         primary: !!primary,
-        url: agent === "dsh" ? "dsh://open" : url,
+        url: agent === "dsh" ? "dsh://open" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
         copy: agent === "dsh" ? s.sid : agent === "codex" ? `codex resume ${s.sid}` : "",
         _at: s.lastAt || 0
       });

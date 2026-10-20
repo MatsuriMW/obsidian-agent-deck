@@ -676,7 +676,8 @@
 }
 .markdown-source-view .cm-line.ad-drop-line--new,
 .markdown-source-view .cm-line.ad-drop-line--fill { box-shadow: inset 0 -2px 0 var(--interactive-accent); }
-.markdown-source-view .cm-line.ad-drop-line--below { background: transparent; box-shadow: inset 0 -2px 0 var(--interactive-accent); }
+.markdown-source-view .cm-line.ad-drop-line--below,
+.markdown-source-view .cm-line.ad-drop-line--after { background: transparent; box-shadow: inset 0 -2px 0 var(--interactive-accent); }
 .markdown-source-view .cm-line.ad-drop-line::after {
   content: attr(data-ad-drop);
   position: absolute;
@@ -752,6 +753,8 @@ body.ad-dragging-item .ad-agentcard { border-style: dashed; border-color: color-
 /* 会话卡片：可以拖 */
 .ad-sess[draggable="true"] { cursor: grab; }
 .ad-sess.is-dragging { opacity: .45; }
+body.ad-dragging-item .ad-sess { border-style: dashed; }
+.ad-sess.is-drop { border-style: solid; border-color: var(--ad-agent); background: linear-gradient(90deg, var(--ad-agent-soft), transparent 70%), var(--ad-surface); }
 body.ad-dragging-session .markdown-source-view .cm-content { outline: 1px dashed color-mix(in srgb, var(--interactive-accent) 35%, transparent); outline-offset: 4px; border-radius: 6px; }
 
 /* 委派出去的会话飞进「现在」 */
