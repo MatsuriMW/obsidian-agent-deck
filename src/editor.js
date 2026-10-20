@@ -252,6 +252,8 @@ class PillWidget extends WidgetType {
   ignoreEvent() { return true; }
 }
 
+const quietLink = Decoration.line({ class: "ad-link-quiet", attributes: { title: "点上面螺旋日程的进度行打开这个会话" } });
+
 function buildDecorations(view, plugin) {
   const builder = new RangeSetBuilder();
   const info = view.state.field(plugin.editorInfoField, false);
@@ -273,6 +275,10 @@ function buildDecorations(view, plugin) {
         const text = line.text;
         const job = plugin.jobAtLine(path, n, text);
         const session = map.sessionByParent.get(n) || null;
+        // 螺旋日程已经在这一项下面画了进度行（点它就打开会话）：🔗 链接放淡、不可点，行尾也不画 pill
+        const link = map.linkByLine.get(n);
+        if (link && map.sessionByParent.get(link.parent) && plugin.nautilusOwnsLine(map.lines[link.parent] || "")) builder.add(line.from, line.from, quietLink);
+        if (session && plugin.nautilusOwnsLine(text)) { if (line.to >= to) break; pos = line.to + 1; continue; }
         let state = null;
         if (job && ["starting", "running"].includes(job.state)) state = { kind: job.state === "starting" ? "starting" : "running", job };
         else if (job && job.state === "needs-approval") state = { kind: "needs-approval", job, session };

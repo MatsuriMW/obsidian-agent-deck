@@ -174,20 +174,28 @@ export class AgentDeckView extends ItemView {
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     // 笔记里的一项拖上来 = 委派给它
+    // 按住 ⌘：Claude Code / Codex 改在终端里开交互式会话
     const handoff = id === "codex" || id === "workbuddy";
-    card.setAttr("data-drop-hint", handoff ? `交给 ${a.short}：复制任务并打开客户端` : `委派给 ${a.short}`);
+    const cliCapable = id === "claude" || id === "codex";
+    const hint = handoff ? `交给 ${a.short}：复制任务并打开客户端` : `委派给 ${a.short}`;
+    const hintFor = (meta) => (meta && cliCapable ? `在终端里开 ${a.short}，任务直接发出去` : hint + (cliCapable ? " · 按住 ⌘ 在终端里开" : ""));
+    card.setAttr("data-drop-hint", hintFor(false));
     card.addEventListener("dragover", (e) => {
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
       card.addClass("is-drop");
+      card.toggleClass("is-cli", !!e.metaKey && cliCapable);
+      card.setAttr("data-drop-hint", hintFor(e.metaKey));
     });
-    card.addEventListener("dragleave", (e) => { if (!card.contains(e.relatedTarget)) card.removeClass("is-drop"); });
+    card.addEventListener("dragleave", (e) => { if (!card.contains(e.relatedTarget)) { card.removeClass("is-drop"); card.removeClass("is-cli"); card.setAttr("data-drop-hint", hintFor(false)); } });
     card.addEventListener("drop", (e) => {
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       card.removeClass("is-drop");
-      p.delegateDrop(id, p.readItemDrag(e));
+      card.removeClass("is-cli");
+      card.setAttr("data-drop-hint", hintFor(false));
+      p.delegateDrop(id, p.readItemDrag(e), null, { cli: !!e.metaKey && cliCapable });
     });
     const top = card.createDiv({ cls: "ad-agentcard__top" });
     const mark = top.createEl("button", { cls: "ad-agentcard__mark", attr: { "aria-label": `打开 ${a.name}` } });
@@ -210,7 +218,7 @@ export class AgentDeckView extends ItemView {
     for (const job of Object.values(p.jobs).filter((j) => j.agent === id && j.handoff && j.state === "starting" && !j.sessionId)) {
       const row = card.createDiv({ cls: "ad-handoff" });
       setLucide(row.createSpan({ cls: "ad-handoff__icon ad-spin" }), "loader-circle");
-      row.createSpan({ cls: "ad-handoff__text", text: `等你在 ${a.short} 里发出：${truncate(job.name, 18)}` });
+      row.createSpan({ cls: "ad-handoff__text", text: job.cli ? `终端里开着，等会话出现：${truncate(job.name, 16)}` : `等你在 ${a.short} 里发出：${truncate(job.name, 18)}` });
       const x = row.createEl("button", { cls: "ad-handoff__x", attr: { "aria-label": "不等了" } });
       setLucide(x, "x");
       x.onclick = (e) => { e.stopPropagation(); p.cancelJob(job.id); };

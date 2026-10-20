@@ -253,7 +253,9 @@ var DEFAULTS = {
   cliOpen: "terminal",
   // 终端里起的 Claude Code 会话点开时：terminal 回终端 / desktop 走桌面版
   cliTerminal: "auto",
-  // auto：装了 Warp 用 Warp，否则系统终端；warp / terminal 指定          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
+  // 主力终端：auto（装了 Warp 用 Warp，否则系统终端）/ terminal / iterm / warp
+  yieldToNautilus: true,
+  // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
   autoLogEvery: 20,
   autoLogIdle: 40,
@@ -2647,10 +2649,18 @@ function openExternal(url) {
     return false;
   }
 }
-function openTerminal(command, cwd = "", which = "auto") {
+var appInstalled = (name) => ["/Applications", import_path2.default.join(home2(), "Applications")].some((d) => import_fs2.default.existsSync(import_path2.default.join(d, name)));
+var TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable" };
+var osa = (script) => new Promise((resolve) => (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], { timeout: 8e3 }, (err2, out) => resolve(err2 ? null : String(out || "").trim())));
+var run = (bin, args) => new Promise((resolve) => (0, import_child_process2.execFile)(bin, args, { timeout: 8e3, maxBuffer: 8 << 20 }, (err2, out) => resolve(err2 ? "" : String(out || ""))));
+function pickTerminal(which = "auto") {
+  if (which === "warp" || which === "iterm" || which === "terminal") return which;
+  return appInstalled("Warp.app") ? "warp" : "terminal";
+}
+function openTerminal(command, cwd = "", which = "auto", title = "Claude") {
   const dir = cwd && import_fs2.default.existsSync(cwd) ? cwd : home2();
-  const warp = ["/Applications/Warp.app", import_path2.default.join(home2(), "Applications/Warp.app")].some((p) => import_fs2.default.existsSync(p));
-  if (which === "auto" && warp || which === "warp") {
+  const term = pickTerminal(which);
+  if (term === "warp") {
     try {
       const d = import_path2.default.join(home2(), ".warp/launch_configurations");
       import_fs2.default.mkdirSync(d, { recursive: true });
@@ -2660,7 +2670,7 @@ function openTerminal(command, cwd = "", which = "auto") {
         "name: agent-deck-resume",
         "windows:",
         "  - tabs:",
-        "      - title: Claude",
+        `      - title: ${q(title)}`,
         "        layout:",
         `          cwd: ${q(dir)}`,
         "          commands:",
@@ -2671,17 +2681,123 @@ function openTerminal(command, cwd = "", which = "auto") {
     } catch {
     }
   }
-  try {
-    const script = `tell application "Terminal"
+  const line = JSON.stringify(`cd ${JSON.stringify(dir)} && ${command}`);
+  const script = term === "iterm" ? `tell application "iTerm2"
 activate
-do script ${JSON.stringify(`cd ${JSON.stringify(dir)} && ${command}`)}
+if (count of windows) = 0 then
+create window with default profile
+else
+tell current window to create tab with default profile
+end if
+tell current session of current window to write text ${line}
+end tell` : `tell application "Terminal"
+activate
+do script ${line}
 end tell`;
+  try {
     (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], () => {
     });
     return true;
   } catch {
     return false;
   }
+}
+async function cliProcess(agent, sid) {
+  if (!sid) return null;
+  let pid = 0;
+  if (agent === "claude") {
+    const dir = import_path2.default.join(home2(), ".claude/sessions");
+    let names = [];
+    try {
+      names = (await fsp2.readdir(dir)).filter((n) => /^\d+\.json$/.test(n));
+    } catch {
+      return null;
+    }
+    for (const n of names) {
+      try {
+        const j = JSON.parse(await fsp2.readFile(import_path2.default.join(dir, n), "utf8"));
+        if (j.sessionId === sid && (j.entrypoint || "cli") === "cli") {
+          pid = Number(j.pid) || Number(n.split(".")[0]);
+          break;
+        }
+      } catch {
+      }
+    }
+  } else if (agent === "codex") {
+    const ps = await run("/bin/ps", ["-ax", "-o", "pid=,tty=,command="]);
+    const cands = ps.split("\n").map((l) => /^\s*(\d+)\s+(\S+)\s+(.*)$/.exec(l)).filter((m) => m && m[2] !== "??" && /(^|\/)codex(\s|$)/.test(m[3]) && !/app-server|exec\b/.test(m[3]));
+    for (const m of cands) {
+      const files = await run("/usr/sbin/lsof", ["-p", m[1], "-Fn"]);
+      if (files.includes(sid)) {
+        pid = Number(m[1]);
+        break;
+      }
+    }
+  }
+  if (!pid) return null;
+  try {
+    process.kill(pid, 0);
+  } catch {
+    return null;
+  }
+  const tty = (await run("/bin/ps", ["-o", "tty=", "-p", String(pid)])).trim();
+  if (!tty || tty === "??") return null;
+  return { pid, tty: `/dev/${tty}`, host: await terminalHost(pid) };
+}
+async function terminalHost(pid) {
+  for (let i = 0, p = pid; i < 12 && p > 1; i++) {
+    const out = (await run("/bin/ps", ["-o", "ppid=,comm=", "-p", String(p)])).trim();
+    const m = /^(\d+)\s+(.*)$/.exec(out);
+    if (!m) break;
+    if (/Warp\.app/i.test(m[2])) return "warp";
+    if (/iTerm/i.test(m[2])) return "iterm";
+    if (/Terminal\.app/i.test(m[2])) return "terminal";
+    p = Number(m[1]);
+  }
+  return "";
+}
+async function focusCliSession(agent, sid) {
+  const proc = await cliProcess(agent, sid);
+  if (!proc) return "";
+  const tty = JSON.stringify(proc.tty);
+  if (proc.host === "terminal") {
+    const ok = await osa(`tell application "Terminal"
+repeat with w in windows
+repeat with t in tabs of w
+if tty of t is ${tty} then
+set selected of t to true
+set index of w to 1
+activate
+return "ok"
+end if
+end repeat
+end repeat
+end tell
+return ""`);
+    if (ok === "ok") return "tab";
+  } else if (proc.host === "iterm") {
+    const ok = await osa(`tell application "iTerm2"
+repeat with w in windows
+repeat with t in tabs of w
+repeat with s in sessions of t
+if tty of s is ${tty} then
+select w
+tell t to select
+tell s to select
+activate
+return "ok"
+end if
+end repeat
+end repeat
+end repeat
+end tell
+return ""`);
+    if (ok === "ok") return "tab";
+  }
+  const bundle = TERMINAL_BUNDLE[proc.host];
+  if (!bundle) return "";
+  await run("/usr/bin/open", ["-b", bundle]);
+  return "app";
 }
 var isCodexDesktop = (app) => /desktop|vscode|app|ide/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
 function isCliSession(agent, app) {
@@ -2726,6 +2842,14 @@ function copyText(text) {
     return false;
   }
 }
+function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
+  focusCliSession(agent, sid).then((how) => {
+    if (how === "tab") return;
+    if (how === "app") return plugin.notice("Warp \u6CA1\u6709\u6309\u6807\u7B7E\u8DF3\u8F6C\u7684\u63A5\u53E3\uFF1A\u5DF2\u5207\u5230 Warp\uFF0C\u4F1A\u8BDD\u5728\u8DD1\u5B83\u7684\u90A3\u4E2A\u6807\u7B7E\u91CC");
+    openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto", AGENTS[agent]?.short || "Claude");
+  }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto"));
+  return true;
+}
 function openSession(plugin, agent, sid, app = "", session = null) {
   if (!sid) {
     plugin.notice("\u8FD9\u4E2A\u4F1A\u8BDD\u8FD8\u6CA1\u6709\u4F1A\u8BDD\u53F7\uFF0C\u7A0D\u7B49\u4E00\u79D2\u518D\u70B9");
@@ -2734,7 +2858,7 @@ function openSession(plugin, agent, sid, app = "", session = null) {
   if (agent === "claude") {
     if (app === "cli" && plugin.settings.cliOpen !== "desktop") {
       const cwd = session && session.cwd || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
-      return openTerminal(`claude --resume ${sid}`, cwd, plugin.settings.cliTerminal || "auto");
+      return focusOrResume(plugin, agent, sid, `claude --resume ${sid}`, cwd);
     }
     openExternal(`claude://resume?session=${sid}`);
     return true;
@@ -2746,7 +2870,7 @@ function openSession(plugin, agent, sid, app = "", session = null) {
   if (agent === "codex") {
     const meta = session || plugin.usage && plugin.usage.meta.get(sid) || {};
     if (!isCodexDesktop(app || meta.app) && plugin.settings.cliOpen !== "desktop") {
-      return openTerminal(`codex resume ${sid}`, meta.cwd || "", plugin.settings.cliTerminal || "auto");
+      return focusOrResume(plugin, agent, sid, `codex resume ${sid}`, meta.cwd || "");
     }
     openExternal(`codex://threads/${sid}`);
     copyText(`codex resume ${sid}`);
@@ -3282,6 +3406,55 @@ ${body}`, 12e3);
     this.plugin.refreshUI();
     return job;
   }
+  // 按住 ⌘ 拖到 Claude Code / Codex 上：在主力终端里新开一个标签跑交互式的 claude / codex，任务直接当第一句发出去。
+  // 进程是你的终端开的，不归插件管；会话一出现照交接的办法认领、绑回这一行。
+  async handoffCli(opts) {
+    this.refreshSettings();
+    const agent = opts.agent;
+    const file = opts.file;
+    if (!file) throw new Error("\u6CA1\u6709\u5F53\u524D\u7B14\u8BB0");
+    const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
+    const block = opts.block || blockAt(lines, opts.line);
+    if (!block) throw new Error("\u8981\u62D6\u4E00\u4E2A\u5217\u8868\u9879");
+    if (hasLink(lines, block) >= 0) throw new Error("\u8FD9\u4E00\u5757\u4E0B\u9762\u5DF2\u7ECF\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u53D1\u5148\u5220\u6389\u90A3\u4E00\u884C");
+    const title = blockTitle(block) || "Agent Deck task";
+    const name = truncate(title, this.C.nameMax || 56);
+    const prompt = this.buildPrompt({ ...opts, block, file, title });
+    const cwd = norm2(opts.cwd || (agent === "claude" ? this.C.claude.cwd : "") || this.vaultPath);
+    const dir = import_path2.default.join(import_os2.default.tmpdir(), "agent-deck");
+    await fsp2.mkdir(dir, { recursive: true });
+    const taskFile = import_path2.default.join(dir, `task-${Date.now().toString(36)}.txt`);
+    await fsp2.writeFile(taskFile, prompt, "utf8");
+    const bin = agent === "codex" ? "codex" : "claude";
+    const job = {
+      id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      agent,
+      name,
+      path: file.path,
+      line: block.start,
+      lineText: lines[block.start],
+      blockText: block.text.slice(0, 6e3),
+      prompt: prompt.slice(0, 12e3),
+      originalLine: lines[block.start],
+      startedAt: Date.now(),
+      state: "starting",
+      handoff: true,
+      cli: true,
+      app: agent === "claude" ? "cli" : "codex_cli_rs",
+      step: `\u5728\u7EC8\u7AEF\u91CC\u5F00 ${AGENTS[agent]?.name || agent}`,
+      cwd,
+      sessionId: "",
+      linkWritten: false,
+      resultWritten: false
+    };
+    this.jobs[job.id] = job;
+    this.plugin.saveJobs();
+    openTerminal(`${bin} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24));
+    this.plugin.notice(`\u5DF2\u5728\u7EC8\u7AEF\u91CC\u5F00 ${AGENTS[agent]?.name || agent}\uFF0C\u4EFB\u52A1\u76F4\u63A5\u53D1\u51FA\u53BB\u4E86\u3002
+\u4F1A\u8BDD\u4E00\u51FA\u73B0\uFF0CAgent Deck \u4F1A\u628A\u5B83\u7ED1\u56DE\u300C${name}\u300D\u3002`, 8e3);
+    this.plugin.refreshUI();
+    return job;
+  }
   // 每轮扫描后调用：交接中的任务认领新会话；半小时没等到就作罢
   resolveHandoffs(usage) {
     const waiting = Object.values(this.jobs).filter((j) => j.handoff && j.state === "starting" && !j.sessionId);
@@ -3301,6 +3474,7 @@ ${body}`, 12e3);
       let best = null;
       for (const m of usage.meta.values()) {
         if (m.agent !== job.agent || taken.has(m.sid) || (m.lastAt || 0) < job.startedAt - 5e3) continue;
+        if (job.cli && !isCliSession(m.agent, m.app)) continue;
         const t = norm3(m.text || m.title);
         if (!t || !(t.includes(head) || t.startsWith(promptHead.slice(0, 16)))) continue;
         if (!best || (m.lastAt || 0) < (best.lastAt || 0)) best = m;
@@ -3888,6 +4062,7 @@ var PillWidget = class extends import_view.WidgetType {
     return true;
   }
 };
+var quietLink = import_view.Decoration.line({ class: "ad-link-quiet", attributes: { title: "\u70B9\u4E0A\u9762\u87BA\u65CB\u65E5\u7A0B\u7684\u8FDB\u5EA6\u884C\u6253\u5F00\u8FD9\u4E2A\u4F1A\u8BDD" } });
 function buildDecorations(view, plugin) {
   const builder = new import_state.RangeSetBuilder();
   const info = view.state.field(plugin.editorInfoField, false);
@@ -3908,6 +4083,13 @@ function buildDecorations(view, plugin) {
         const text = line.text;
         const job = plugin.jobAtLine(path6, n, text);
         const session = map.sessionByParent.get(n) || null;
+        const link = map.linkByLine.get(n);
+        if (link && map.sessionByParent.get(link.parent) && plugin.nautilusOwnsLine(map.lines[link.parent] || "")) builder.add(line.from, line.from, quietLink);
+        if (session && plugin.nautilusOwnsLine(text)) {
+          if (line.to >= to) break;
+          pos = line.to + 1;
+          continue;
+        }
         let state = null;
         if (job && ["starting", "running"].includes(job.state)) state = { kind: job.state === "starting" ? "starting" : "running", job };
         else if (job && job.state === "needs-approval") state = { kind: "needs-approval", job, session };
@@ -4133,21 +4315,32 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     const handoff = id === "codex" || id === "workbuddy";
-    card.setAttr("data-drop-hint", handoff ? `\u4EA4\u7ED9 ${a.short}\uFF1A\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF` : `\u59D4\u6D3E\u7ED9 ${a.short}`);
+    const cliCapable = id === "claude" || id === "codex";
+    const hint = handoff ? `\u4EA4\u7ED9 ${a.short}\uFF1A\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF` : `\u59D4\u6D3E\u7ED9 ${a.short}`;
+    const hintFor = (meta) => meta && cliCapable ? `\u5728\u7EC8\u7AEF\u91CC\u5F00 ${a.short}\uFF0C\u4EFB\u52A1\u76F4\u63A5\u53D1\u51FA\u53BB` : hint + (cliCapable ? " \xB7 \u6309\u4F4F \u2318 \u5728\u7EC8\u7AEF\u91CC\u5F00" : "");
+    card.setAttr("data-drop-hint", hintFor(false));
     card.addEventListener("dragover", (e) => {
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
       card.addClass("is-drop");
+      card.toggleClass("is-cli", !!e.metaKey && cliCapable);
+      card.setAttr("data-drop-hint", hintFor(e.metaKey));
     });
     card.addEventListener("dragleave", (e) => {
-      if (!card.contains(e.relatedTarget)) card.removeClass("is-drop");
+      if (!card.contains(e.relatedTarget)) {
+        card.removeClass("is-drop");
+        card.removeClass("is-cli");
+        card.setAttr("data-drop-hint", hintFor(false));
+      }
     });
     card.addEventListener("drop", (e) => {
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       card.removeClass("is-drop");
-      p.delegateDrop(id, p.readItemDrag(e));
+      card.removeClass("is-cli");
+      card.setAttr("data-drop-hint", hintFor(false));
+      p.delegateDrop(id, p.readItemDrag(e), null, { cli: !!e.metaKey && cliCapable });
     });
     const top = card.createDiv({ cls: "ad-agentcard__top" });
     const mark = top.createEl("button", { cls: "ad-agentcard__mark", attr: { "aria-label": `\u6253\u5F00 ${a.name}` } });
@@ -4176,7 +4369,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     for (const job of Object.values(p.jobs).filter((j) => j.agent === id && j.handoff && j.state === "starting" && !j.sessionId)) {
       const row = card.createDiv({ cls: "ad-handoff" });
       setLucide(row.createSpan({ cls: "ad-handoff__icon ad-spin" }), "loader-circle");
-      row.createSpan({ cls: "ad-handoff__text", text: `\u7B49\u4F60\u5728 ${a.short} \u91CC\u53D1\u51FA\uFF1A${truncate(job.name, 18)}` });
+      row.createSpan({ cls: "ad-handoff__text", text: job.cli ? `\u7EC8\u7AEF\u91CC\u5F00\u7740\uFF0C\u7B49\u4F1A\u8BDD\u51FA\u73B0\uFF1A${truncate(job.name, 16)}` : `\u7B49\u4F60\u5728 ${a.short} \u91CC\u53D1\u51FA\uFF1A${truncate(job.name, 18)}` });
       const x = row.createEl("button", { cls: "ad-handoff__x", attr: { "aria-label": "\u4E0D\u7B49\u4E86" } });
       setLucide(x, "x");
       x.onclick = (e) => {
@@ -5144,11 +5337,23 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
       p.scanNow(true);
     });
-    const dc = this.row(desk, "\u7EC8\u7AEF\u91CC\u7684\u4F1A\u8BDD\u70B9\u5F00\u5230\u54EA\u513F", "\u7EC8\u7AEF\u91CC\u8D77\u7684 Claude Code \u4F1A\u8BDD\uFF1A\u56DE\u7EC8\u7AEF\u63A5\u7740\u804A\uFF08\u65B0\u6807\u7B7E\u91CC cd \u5230\u4F1A\u8BDD\u76EE\u5F55\uFF0C\u8DD1 claude --resume\uFF09\uFF0C\u6216\u8005\u4E5F\u5728\u684C\u9762\u7248\u6253\u5F00\u3002\u88C5\u4E86 Warp \u9ED8\u8BA4\u7528 Warp\u3002", null);
+    const dc = this.row(desk, "\u7EC8\u7AEF\u91CC\u7684\u4F1A\u8BDD\u70B9\u5F00\u5230\u54EA\u513F", "\u7EC8\u7AEF\u91CC\u8D77\u7684 Claude Code / Codex \u4F1A\u8BDD\uFF1A\u8FD8\u5F00\u7740\u5C31\u5207\u5230\u8DD1\u5B83\u7684\u90A3\u4E2A\u7EC8\u7AEF\u6807\u7B7E\uFF08\u7CFB\u7EDF\u7EC8\u7AEF\u3001iTerm2 \u80FD\u5207\u5230\u6807\u7B7E\uFF1BWarp \u6CA1\u6709\u811A\u672C\u63A5\u53E3\uFF0C\u53EA\u80FD\u53EB\u5230\u524D\u53F0\uFF09\uFF0C\u5173\u4E86\u624D\u5728\u65B0\u6807\u7B7E\u91CC cd \u5230\u4F1A\u8BDD\u76EE\u5F55 resume\u3002\u4E5F\u53EF\u4EE5\u6539\u6210\u5728\u684C\u9762\u7248\u6253\u5F00\u3002", null);
     this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: "\u7EC8\u7AEF" }, { id: "desktop", label: "\u684C\u9762\u7248" }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => {
       s.cliOpen = v;
       p.saveSettings();
       this.display();
+    });
+    const dt = this.row(desk, "\u4E3B\u529B\u7EC8\u7AEF", "resume\u3001\u6309\u4F4F \u2318 \u62D6\u5230 Claude Code / Codex \u4E0A\u59D4\u6D3E\u65F6\uFF0C\u5728\u54EA\u4E2A\u7EC8\u7AEF\u91CC\u5F00\u65B0\u6807\u7B7E\u3002\u81EA\u52A8 = \u88C5\u4E86 Warp \u7528 Warp\uFF0C\u5426\u5219\u7CFB\u7EDF\u7EC8\u7AEF\u3002", null);
+    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "\u81EA\u52A8" }, { id: "terminal", label: "\u7CFB\u7EDF\u7EC8\u7AEF" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }], s.cliTerminal || "auto", (v) => {
+      s.cliTerminal = v;
+      p.saveSettings();
+      this.display();
+    });
+    const dn = this.row(desk, "\u6709\u87BA\u65CB\u65E5\u7A0B\u7684\u8FDB\u5EA6\u884C\u65F6\u8BA9\u7ED9\u5B83", "\u87BA\u65CB\u65E5\u7A0B\u5728\u4EFB\u52A1\u884C\u4E0B\u9762\u753B\u4E86\u4F1A\u8BDD\u8FDB\u5EA6\u884C\u65F6\uFF0C\u884C\u5C3E\u4E0D\u518D\u753B pill\uFF0C\u{1F517} \u94FE\u63A5\u653E\u6DE1\u3001\u4E0D\u53EF\u70B9\uFF1B\u70B9\u8FDB\u5EA6\u884C\u6253\u5F00\u4F1A\u8BDD\uFF08\u547D\u4EE4\u884C\u4F1A\u8BDD\u5207\u5230\u5B83\u7684\u7EC8\u7AEF\u6807\u7B7E\uFF09\u3002", null);
+    this.toggle(dn.querySelector(":scope > .ad-row__right"), s.yieldToNautilus !== false, (v) => {
+      s.yieldToNautilus = v;
+      p.saveSettings();
+      p.refreshUI();
     });
     const d2 = this.row(desk, "\u5F52\u6863\u7684\u4F1A\u8BDD\u4E0D\u518D\u5217\u51FA", "\u684C\u9762\u7248\u91CC\u5F52\u6863 = \u505A\u5B8C\uFF1A\u5F52\u6863\u7684\u4F1A\u8BDD\u4ECE\u300C\u73B0\u5728\u300D\u548C\u300C\u6700\u8FD1\u7684\u4F1A\u8BDD\u300D\u91CC\u6536\u8D77\u6765\uFF0C\u5386\u53F2\u7528\u91CF\u7167\u65E7\u4FDD\u7559\u3002", null);
     this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => {
@@ -8543,6 +8748,7 @@ var JournalSync = class {
 
 // src/main.js
 var fsp4 = import_fs5.default.promises;
+var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
 var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   async onload() {
     const data = await this.loadData();
@@ -8945,6 +9151,19 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   openSession(agent, sid, app, session) {
     return openSession(this, agent, sid, app, session);
   }
+  // 给别的插件用（螺旋日程的进度行）：只给会话号，按 Agent Deck 的规矩打开——命令行会话切到它的终端标签
+  openSessionBySid(sid, agent = "") {
+    const m = sid && this.usage.meta.get(sid) || {};
+    return this.openSession(m.agent || agent || "claude", sid, m.app || "", m);
+  }
+  // 螺旋日程在这一行下面画了进度行（它开着「任务行下面的进度条」和 AI 追踪），这一行就不再画 pill、🔗 链接也不可点，
+  // 免得同一个会话有三个入口
+  nautilusOwnsLine(text) {
+    const n = this.app.plugins && this.app.plugins.plugins && this.app.plugins.plugins["nautilus-spiral"];
+    if (!n || !n.settings || this.settings.yieldToNautilus === false) return false;
+    if (n.settings.lineProgress === false || n.settings.showAi === false) return false;
+    return NAUTILUS_LINE_RE.test(text);
+  }
   openJob(jobId, sid) {
     const job = jobId ? this.jobs[jobId] : null;
     const sessionId = job && job.sessionId || sid;
@@ -9108,7 +9327,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     return this._dragItem && Date.now() - this._dragItem.at < 12e4 ? this._dragItem : null;
   }
   // 笔记里的一项拖到了某个 Agent 卡片上：Claude / DSH 后台直接跑，Codex / WorkBuddy 打开客户端交接
-  async delegateDrop(agent, item, fromEl) {
+  async delegateDrop(agent, item, fromEl, { cli = false } = {}) {
     this._dragItem = null;
     if (!item || !item.path) return this.notice("\u6CA1\u8BA4\u51FA\u62D6\u7684\u662F\u54EA\u4E00\u9879\uFF1B\u4ECE\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u7684\u628A\u624B\u62D6");
     const file = this.app.vault.getAbstractFileByPath(item.path);
@@ -9124,7 +9343,8 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     this._flyArmed = { agent, at: Date.now() };
     try {
       const opts = { file, lines, line, agent };
-      if (agent === "claude" || agent === "dsh") await this.delegator.delegate(opts);
+      if (cli && (agent === "claude" || agent === "codex")) await this.delegator.handoffCli(opts);
+      else if (agent === "claude" || agent === "dsh") await this.delegator.delegate(opts);
       else await this.delegator.handoff(opts);
     } catch (e) {
       this.notice(String(e.message || e), 8e3);

@@ -29,6 +29,8 @@ import * as J from "./journal.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
+// 螺旋日程画进度行的那些行（照抄它的 AGENT_LINE_RE）
+const NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
 
 export default class AgentDeckPlugin extends Plugin {
   async onload() {
@@ -383,6 +385,21 @@ export default class AgentDeckPlugin extends Plugin {
     return openSessionRaw(this, agent, sid, app, session);
   }
 
+  // 给别的插件用（螺旋日程的进度行）：只给会话号，按 Agent Deck 的规矩打开——命令行会话切到它的终端标签
+  openSessionBySid(sid, agent = "") {
+    const m = (sid && this.usage.meta.get(sid)) || {};
+    return this.openSession(m.agent || agent || "claude", sid, m.app || "", m);
+  }
+
+  // 螺旋日程在这一行下面画了进度行（它开着「任务行下面的进度条」和 AI 追踪），这一行就不再画 pill、🔗 链接也不可点，
+  // 免得同一个会话有三个入口
+  nautilusOwnsLine(text) {
+    const n = this.app.plugins && this.app.plugins.plugins && this.app.plugins.plugins["nautilus-spiral"];
+    if (!n || !n.settings || this.settings.yieldToNautilus === false) return false;
+    if (n.settings.lineProgress === false || n.settings.showAi === false) return false;
+    return NAUTILUS_LINE_RE.test(text);
+  }
+
   openJob(jobId, sid) {
     const job = jobId ? this.jobs[jobId] : null;
     const sessionId = (job && job.sessionId) || sid;
@@ -531,7 +548,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   // 笔记里的一项拖到了某个 Agent 卡片上：Claude / DSH 后台直接跑，Codex / WorkBuddy 打开客户端交接
-  async delegateDrop(agent, item, fromEl) {
+  async delegateDrop(agent, item, fromEl, { cli = false } = {}) {
     this._dragItem = null;
     if (!item || !item.path) return this.notice("没认出拖的是哪一项；从列表项尾巴上的把手拖");
     const file = this.app.vault.getAbstractFileByPath(item.path);
@@ -548,7 +565,9 @@ export default class AgentDeckPlugin extends Plugin {
     this._flyArmed = { agent, at: Date.now() };
     try {
       const opts = { file, lines, line, agent };
-      if (agent === "claude" || agent === "dsh") await this.delegator.delegate(opts);
+      // 按住 ⌘ 松手：Claude Code / Codex 在终端里开交互式会话，而不是后台跑 / 交给桌面版
+      if (cli && (agent === "claude" || agent === "codex")) await this.delegator.handoffCli(opts);
+      else if (agent === "claude" || agent === "dsh") await this.delegator.delegate(opts);
       else await this.delegator.handoff(opts);
     } catch (e) { this.notice(String(e.message || e), 8000); }
     this.refreshUI();

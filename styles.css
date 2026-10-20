@@ -765,3 +765,8 @@ body.ad-dragging-session .markdown-source-view .cm-content { outline: 1px dashed
 @media (prefers-reduced-motion: reduce) {
   .ad-sess.is-landed, .ad-agentcard.is-drop { animation: none !important; transform: none !important; }
 }
+
+/* 螺旋日程的进度行管着打开会话时：🔗 行放淡、不可点（点到的是这一行本身，照常放光标编辑） */
+.ad-link-quiet { opacity: .55; }
+.ad-link-quiet .cm-link, .ad-link-quiet .cm-url, .ad-link-quiet .cm-underline, .ad-link-quiet a, .ad-link-quiet .external-link { pointer-events: none; cursor: text; }
+.ad-link-quiet .external-link { display: none; }
