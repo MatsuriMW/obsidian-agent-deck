@@ -71,7 +71,7 @@ export class AgentDeckView extends ItemView {
     const now = new Date();
     const wd = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][now.getDay()];
     dateLine.createSpan({ text: `${now.getMonth() + 1} 月 ${now.getDate()} 日 · ${wd}` });
-    dateLine.createSpan({ cls: "ad-hero__hint", text: today ? "今天的协作记录" : "今天还没有会话" });
+    if (!today) dateLine.createSpan({ cls: "ad-hero__hint", text: "今天还没有会话" });
     const nums = hero.createDiv({ cls: "ad-hero__nums" });
     this.num(nums, String(live.filter((x) => ["run", "running"].includes(x.state)).length), "在跑", "is-live");
     this.num(nums, fmtMin(today ? today.wall : 0), "协作时长", "");
@@ -83,28 +83,27 @@ export class AgentDeckView extends ItemView {
       const chip = prim.createSpan({ cls: "ad-primary-chip", attr: { style: `--ad-agent:${a.color};--ad-agent-soft:${a.soft}` } });
       agentIcon(chip.createSpan({ cls: "ad-glyph" }), id);
       chip.createSpan({ text: a.name });
-      chip.createSpan({ cls: "ad-primary-chip__tag", text: "全量" });
     }
-    if (!p.primaryAgents().length) prim.createSpan({ cls: "ad-muted", text: "在设置里选 1–2 个" });
+    if (!p.primaryAgents().length) prim.createSpan({ cls: "ad-muted", text: "—" });
 
     // Now
     const nowSec = dash.createDiv({ cls: "ad-sec ad-sec--now" });
     const nowHead = this.secHead(nowSec, "现在", `${running.length} 个在跑 · ${waiting.length} 个等你`);
     const nowList = nowSec.createDiv({ cls: "ad-nowlist" });
     const nowItems = [...running, ...waiting].slice(0, 6);
-    if (!nowItems.length) this.empty(nowList, "现在没有在跑的会话", "把笔记里的一项拖到下面的 Agent 上委派，或者等下一次扫描。");
+    if (!nowItems.length) this.empty(nowList, "现在没有在跑的会话");
     for (const s of nowItems) this.sessionCard(nowList, s, true);
 
     // Agents
     const agentsSec = dash.createDiv({ cls: "ad-sec" });
-    this.secHead(agentsSec, "Agents", "点图标打开客户端 · 把笔记里的一项拖上来委派", () => p.openSettings());
+    this.secHead(agentsSec, "Agents", "", () => p.openSettings());
     const grid = agentsSec.createDiv({ cls: "ad-agentgrid" });
     for (const id of AGENT_ORDER) this.agentCard(grid, id, today);
 
     // Usage
     if (p.settings.ui.showUsageBars !== false) {
       const usageSec = dash.createDiv({ cls: "ad-sec" });
-      this.secHead(usageSec, "最近 14 天", "按 Agent 堆叠的协作分钟");
+      this.secHead(usageSec, "最近 14 天");
       this.usageBars(usageSec);
     }
 
@@ -141,7 +140,7 @@ export class AgentDeckView extends ItemView {
       const q = this.search.toLowerCase();
       rows = rows.filter((x) => `${x.title} ${x.cwd} ${x.text} ${x.step}`.toLowerCase().includes(q));
     }
-    if (!rows.length) return this.empty(list, "没有符合条件的会话", "试试别的筛选，或者点右上角重新扫描。");
+    if (!rows.length) return this.empty(list, "没有符合条件的会话");
     for (const s of rows) this.sessionCard(list, s, false);
   }
 
@@ -177,8 +176,8 @@ export class AgentDeckView extends ItemView {
     // 按住 ⌘：Claude Code / Codex 改在终端里开交互式会话
     const handoff = id === "codex" || id === "workbuddy";
     const cliCapable = id === "claude" || id === "codex";
-    const hint = handoff ? `交给 ${a.short}：复制任务并打开客户端` : `委派给 ${a.short}`;
-    const hintFor = (meta) => (meta && cliCapable ? `在终端里开 ${a.short}，任务直接发出去` : hint + (cliCapable ? " · 按住 ⌘ 在终端里开" : ""));
+    const hint = handoff ? `交给 ${a.short}` : `委派给 ${a.short}`;
+    const hintFor = (meta) => (meta && cliCapable ? `在终端里开 ${a.short}` : hint);
     card.setAttr("data-drop-hint", hintFor(false));
     card.addEventListener("dragover", (e) => {
       if (!p.acceptsItemDrag(e)) return;
@@ -218,7 +217,7 @@ export class AgentDeckView extends ItemView {
     for (const job of Object.values(p.jobs).filter((j) => j.agent === id && j.handoff && j.state === "starting" && !j.sessionId)) {
       const row = card.createDiv({ cls: "ad-handoff" });
       setLucide(row.createSpan({ cls: "ad-handoff__icon ad-spin" }), "loader-circle");
-      row.createSpan({ cls: "ad-handoff__text", text: job.cli ? `终端里开着，等会话出现：${truncate(job.name, 16)}` : `等你在 ${a.short} 里发出：${truncate(job.name, 18)}` });
+      row.createSpan({ cls: "ad-handoff__text", text: job.cli ? `等终端里的会话：${truncate(job.name, 16)}` : `等你在 ${a.short} 里发出：${truncate(job.name, 18)}` });
       const x = row.createEl("button", { cls: "ad-handoff__x", attr: { "aria-label": "不等了" } });
       setLucide(x, "x");
       x.onclick = (e) => { e.stopPropagation(); p.cancelJob(job.id); };
@@ -344,7 +343,7 @@ export class AgentDeckView extends ItemView {
       const sc = titleRow.createSpan({ cls: "ad-side" });
       setLucide(sc.createSpan({ cls: "ad-side__icon" }), "message-square");
       sc.createSpan({ text: s.sideChats > 1 ? `side chat ×${s.sideChats}` : "side chat" });
-      sc.title = "这个会话正开着 side chat" + (s.sideSince ? `（${timeAgo(s.sideSince)}开的）` : "");
+      if (s.sideSince) sc.title = `${timeAgo(s.sideSince)}开的`;
     }
     const sub = body.createDiv({ cls: "ad-sess__sub" });
     sub.createSpan({ text: a.short });
@@ -365,9 +364,6 @@ export class AgentDeckView extends ItemView {
     const open = () => p.openSession(s.agent, s.sid, s.app, s);
     go.onclick = (e) => { e.stopPropagation(); open(); };
     card.onclick = open;
-    card.title = "点击打开会话 · 拖到笔记里的一项上绑定，拖到空行上新建一项";
-    if (s.agent === "dsh") card.title += "\nDeepSeek Harness 当前只提供 dsh://open（聚焦客户端），会话号会复制到剪贴板";
-    if (s.agent === "claude" && s.app === "cli") card.title += p.settings.cliOpen === "desktop" ? "\n终端里的 Claude Code：在 Claude 桌面版打开（设置里可以改回终端）" : "\n终端里的 Claude Code：在终端新标签里 claude --resume 接着聊";
   }
 
   // 刚委派出去的会话有了会话号：卡片从它的 Agent 卡片飞进「现在」
@@ -419,7 +415,7 @@ export class AgentDeckView extends ItemView {
   empty(parent, title, sub) {
     const e = parent.createDiv({ cls: "ad-empty" });
     e.createDiv({ cls: "ad-empty__title", text: title });
-    e.createDiv({ cls: "ad-empty__sub", text: sub });
+    if (sub) e.createDiv({ cls: "ad-empty__sub", text: sub });
   }
 }
 

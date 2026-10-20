@@ -2,9 +2,10 @@
 
 ## 未发布
 
-- **终端里还开着的会话，点开就切过去。** Claude Code（读 `~/.claude/sessions/<pid>.json`）和 Codex 命令行（看哪个带 tty 的 codex 进程开着这个会话的 rollout 文件）的会话还在跑时，点开不再 resume，而是找到它的 tty、顺着父进程认出是哪个终端：系统终端、iTerm2 选中那个标签并把窗口提到最前；Warp 没有脚本接口，只能叫到前台。进程已经退出才在新标签里 resume。
+- **终端里还开着的会话，点开就切过去。** Claude Code（读 `~/.claude/sessions/<pid>.json`）和 Codex 命令行（看哪个带 tty 的 codex 进程开着这个会话的 rollout 文件）的会话还在跑时，点开不再 resume，而是找到它的 tty、顺着父进程认出是哪个终端：系统终端、iTerm2 选中那个标签并把窗口提到最前，Tern 用它的命令行（`tern ls` / `tern process` 对上进程，`tern focus` 切过去）；Warp 没有脚本接口，只能叫到前台。进程已经退出才在新标签里 resume。
 - **按住 ⌘ 拖到 Claude Code / Codex 上 = 在终端里委派。** 在主力终端里新开一个标签跑交互式的 `claude` / `codex`，任务直接当第一句发出去；会话一出现照交接的办法绑回这一项（只认命令行会话）。拖动时卡片提示跟着 ⌘ 换。
-- **设置 → 主力终端**：自动（装了 Warp 用 Warp）/ 系统终端 / iTerm2 / Warp，resume 和终端委派都在这里开新标签。
+- **设置 → 主力终端**：自动（装了 Warp 用 Warp）/ 系统终端 / iTerm2 / Warp / Tern（`tern new tab`），resume 和终端委派都在这里开新标签。
+- **运行界面上不再放说明文字。** 面板副标题、空状态的提示、卡片悬停说明、拖放提示、pill 上的「点击打开」之类都删了，通知只说结果；怎么操作写进 README「操作指南」和设置 → 关于。
 - **有螺旋日程的进度行时让给它。** 螺旋日程在任务行下面画了会话进度行，这一行就不再画 pill，🔗 链接放淡、不可点；点进度行（螺旋日程那边改成单击）交给 Agent Deck 打开。新增 `openSessionBySid()` 给别的插件调用。设置里可以关掉。
 ## 1.2.1
 

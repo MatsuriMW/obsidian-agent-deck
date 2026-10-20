@@ -132,13 +132,14 @@ export function openExternal(url) {
 }
 
 const appInstalled = (name) => ["/Applications", path.join(home(), "Applications")].some((d) => fs.existsSync(path.join(d, name)));
-const TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable" };
+const TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable", tern: "so.stencil.tern" };
+const TERN_BIN = "/Applications/Tern.app/Contents/MacOS/tern";
 const osa = (script) => new Promise((resolve) => execFile("/usr/bin/osascript", ["-e", script], { timeout: 8000 }, (err, out) => resolve(err ? null : String(out || "").trim())));
 const run = (bin, args) => new Promise((resolve) => execFile(bin, args, { timeout: 8000, maxBuffer: 8 << 20 }, (err, out) => resolve(err ? "" : String(out || ""))));
 
 // 设置里的「主力终端」：auto = 装了 Warp 用 Warp，否则系统终端
 export function pickTerminal(which = "auto") {
-  if (which === "warp" || which === "iterm" || which === "terminal") return which;
+  if (which === "warp" || which === "iterm" || which === "terminal" || which === "tern") return which;
   return appInstalled("Warp.app") ? "warp" : "terminal";
 }
 
@@ -157,6 +158,15 @@ export function openTerminal(command, cwd = "", which = "auto", title = "Claude"
       ].join("\n"));
       return openExternal("warp://launch/agent-deck-resume");
     } catch { /* fall back to Terminal */ }
+  }
+  // Tern 有命令行：tern new tab 在当前窗口开一个标签跑命令；跑完回到 shell，标签留着。Tern 没开就开一个窗口跑
+  if (term === "tern" && fs.existsSync(TERN_BIN)) {
+    const launch = ["--cwd", dir, "--", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`];
+    execFile(TERN_BIN, ["new", "tab", ...launch], { timeout: 8000 }, (err) => {
+      if (err) { try { spawn(TERN_BIN, ["-e", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`], { cwd: dir, detached: true, stdio: "ignore" }).unref(); } catch { /* not runnable */ } }
+      execFile("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern], () => {});
+    });
+    return true;
   }
   const line = JSON.stringify(`cd ${JSON.stringify(dir)} && ${command}`);
   const script = term === "iterm"
@@ -203,6 +213,7 @@ async function terminalHost(pid) {
     const m = /^(\d+)\s+(.*)$/.exec(out);
     if (!m) break;
     if (/Warp\.app/i.test(m[2])) return "warp";
+    if (/Tern\.app|(^|\/)tern$/.test(m[2])) return "tern";
     if (/iTerm/i.test(m[2])) return "iterm";
     if (/Terminal\.app/i.test(m[2])) return "terminal";
     p = Number(m[1]);
@@ -222,6 +233,28 @@ export async function focusCliSession(agent, sid) {
   } else if (proc.host === "iterm") {
     const ok = await osa(`tell application "iTerm2"\nrepeat with w in windows\nrepeat with t in tabs of w\nrepeat with s in sessions of t\nif tty of s is ${tty} then\nselect w\ntell t to select\ntell s to select\nactivate\nreturn "ok"\nend if\nend repeat\nend repeat\nend repeat\nend tell\nreturn ""`);
     if (ok === "ok") return "tab";
+  } else if (proc.host === "tern" && fs.existsSync(TERN_BIN)) {
+    // Tern：tern ls 列出块，tern process 给出每个块的 shell 和前台进程，和会话进程的祖先链对上就 tern focus 那个块
+    const chain = new Set([proc.pid]);
+    for (let i = 0, p = proc.pid; i < 12 && p > 1; i++) {
+      p = Number((await run("/bin/ps", ["-o", "ppid=", "-p", String(p)])).trim()) || 0;
+      if (p) chain.add(p);
+    }
+    let blocks = [];
+    try {
+      const ls = JSON.parse(await run(TERN_BIN, ["ls", "--json"]) || "{}");
+      for (const se of ls.sessions || []) for (const tab of se.tabs || []) for (const b of tab.blocks || []) if (b.live) blocks.push(b.id);
+    } catch { /* tern not answering */ }
+    for (const id of blocks) {
+      let pr = null;
+      try { pr = JSON.parse(await run(TERN_BIN, ["process", String(id), "--json"]) || "null"); } catch { /* skip */ }
+      if (!pr) continue;
+      if (chain.has(pr.foreground && pr.foreground.pid) || chain.has(pr.child && pr.child.pid)) {
+        await run(TERN_BIN, ["focus", String(id)]);
+        await run("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern]);
+        return "tab";
+      }
+    }
   }
   const bundle = TERMINAL_BUNDLE[proc.host];
   if (!bundle) return "";
@@ -275,7 +308,7 @@ export function copyText(text) {
 function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
   focusCliSession(agent, sid).then((how) => {
     if (how === "tab") return;
-    if (how === "app") return plugin.notice("Warp 没有按标签跳转的接口：已切到 Warp，会话在跑它的那个标签里");
+    if (how === "app") return plugin.notice("已切到 Warp");
     openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto", AGENTS[agent]?.short || "Claude");
   }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto"));
   return true;
@@ -774,7 +807,7 @@ export class Delegator {
     this.plugin.saveJobs();
     copyText(prompt);
     await openAgentApp(agent);
-    this.plugin.notice(`📋 任务已复制，${AGENTS[agent]?.name || agent} 已打开：新建对话、粘贴发出去。\n会话一出现，Agent Deck 会把它绑回「${name}」。`, 10000);
+    this.plugin.notice(`📋 任务已复制，粘贴到 ${AGENTS[agent]?.name || agent} 里发出`, 10000);
     this.plugin.refreshUI();
     return job;
   }
@@ -810,7 +843,7 @@ export class Delegator {
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     openTerminal(`${bin} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24));
-    this.plugin.notice(`已在终端里开 ${AGENTS[agent]?.name || agent}，任务直接发出去了。\n会话一出现，Agent Deck 会把它绑回「${name}」。`, 8000);
+    this.plugin.notice(`已在终端里开 ${AGENTS[agent]?.name || agent}`, 8000);
     this.plugin.refreshUI();
     return job;
   }
@@ -896,7 +929,7 @@ export class Delegator {
     try { if (job._linkPromise) await job._linkPromise; } catch { /* link failed */ }
     this.refreshUI();
     const agent = AGENTS[job.agent];
-    this.plugin.notice(`✅ ${agent ? agent.name : job.agent} 做完了一轮：${job.name}\n点任务行旁边的按钮可以在客户端里打开会话`, 8000);
+    this.plugin.notice(`✅ ${agent ? agent.name : job.agent} 做完了一轮：${job.name}`, 8000);
     if (this.C.claude.openDesktop === true && job.agent === "claude" && job.sessionId) openSession(this.plugin, "claude", job.sessionId);
     if (this.settings.autoWriteResult && job.linkWritten) {
       try { await this.writeResult(job); } catch (e) { console.error("[agent-deck] writeResult", e); }

@@ -16,7 +16,24 @@ Agent Deck is an Obsidian plugin that reads the local session logs of **Claude C
 
 It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), extracted into a standalone plugin and extended with a second primary agent, DeepSeek Harness, model/effort/mode selection, and a layered model picker.
 
-## Note ⇄ panel: drag to bind, drag to delegate
+## How to use it
+
+The plugin keeps explanatory text out of its UI; this section is the manual, and the switches live in the settings.
+
+### The panel
+
+| Area | What it shows / what you can do |
+|---|---|
+| Top numbers | Sessions running today, collaboration time, output tokens. After **主力** are your 1–2 primary agents: their full history is read; other agents only for sessions that moved today |
+| 现在 (Now) | Running and waiting sessions, up to six. Click a card to open the session; drag it into a note to bind it (see below) |
+| Agents | One card per agent: click the icon to bring the client forward, ⭐ to make it primary, toggle tracking, **扫描** to rescan. Drop a note item on a card to delegate |
+| 最近 14 天 | Daily collaboration minutes stacked by agent; hover for numbers |
+| 最近的会话 | Sessions from the last 7 days, filterable by state and agent, searchable by title, project and last step |
+
+**Where a click opens a session.** Claude Code desktop sessions use `claude://resume`, Codex desktop `codex://threads/<id>`, WorkBuddy `workbuddy://chat/<id>`; DeepSeek Harness can only be focused, so the session id goes to the clipboard. **Claude Code / Codex sessions running in a terminal** switch to the terminal tab that runs them (Terminal, iTerm2 and Tern select the tab; Warp has no scripting interface, so it is only brought forward); only when the process has exited is a new tab opened to resume. Settings → Tracking → Claude desktop lets you send them to the desktop app instead and pick your terminal.
+
+### Drag: bind and delegate
+
 
 Pin Agent Deck to a sidebar and drag between the note and the panel:
 
@@ -25,13 +42,17 @@ Pin Agent Deck to a sidebar and drag between the note and the panel:
 | A session card from **现在** → a list item with text (ordered or unordered) | The text stays; the line gets the session's keyword (`DOING` / `TOREVIEW` / `NEEDOK` …) and a `🔗` child. From then on `💬`, status and `⏱` follow the session |
 | A session card → an empty line, an empty item (`- `), or a paragraph | A new item `DOING 20:05 🤖 session title` is created there and bound, following the list's indent and numbering |
 | A list item → an agent card | Delegation. Claude Code and DeepSeek Harness start a session in the background. Codex and WorkBuddy have no CLI that can start a session, so the task goes to the clipboard and the client comes to the front; you paste and send, and Agent Deck binds the new session back to the item once it appears |
+| ⌘-drag a session card onto an item | Leaves the item alone and creates a new bound item below it (and its children) |
+| ⌘-drag an item onto Claude Code / Codex | Opens a new tab in your terminal running interactive `claude` / `codex` with the task as the first message; the session is bound back once it appears |
+| An item → a session card in the panel | Binds that session to the item, no delegation |
 | A delegated session gets its id | Its card flies from the agent card into **现在** |
 | You archive the session in its client | The item becomes `DONE` + `⏱` and the `🔗` line is retired |
 
 - **One-to-one.** A session is bound in one place. Dropping it elsewhere moves the binding; an auto-logged `🤖 …` line written for that session earlier is removed, so a task you already wrote and the agent's run of it merge into one line.
 - **Where to drag from.** While the panel is open, the list item under the cursor shows a small grip ⠿ at its end; drag that, or drag a text selection. Agent cards turn dashed while you drag, and the hovered one says what dropping will do.
 - **Dropping into a note** highlights the target line and labels it (bind / new item); headings, code blocks and tables don't accept drops.
-- Click an agent card's app icon to bring that client to the front.
+- **Items that are not delegated**: agent-written ones (🤖), items already bound to a session, and items with a ⏱ record. Dropping them only says why.
+- **With Nautilus Spiral**: when Nautilus draws its session progress line under a task, Agent Deck draws no pill there and the `🔗` link is dimmed and not clickable; click Nautilus's progress line to open the session. This can be turned off in the settings.
 
 | | |
 |---|---|

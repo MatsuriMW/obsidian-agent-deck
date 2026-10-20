@@ -203,7 +203,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   renderDelegate(body) {
     const p = this.plugin;
     const d = p.settings.delegate;
-    this.card(body, "默认委派到", "任务行上的按钮会直接用这里的设置。点按钮右边的 ⌄ 可以临时改参数。");
+    this.card(body, "默认委派到", "把笔记里的一项拖到 Claude Code / DeepSeek Harness 卡片上时，用这里的设置在后台开会话。委派失败时点状态 pill 上的「重试」可以临时改参数。");
     const targetRow = body.createDiv({ cls: "ad-targetpick" });
     for (const id of ["claude", "dsh"]) {
       const a = AGENTS[id];
@@ -613,10 +613,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const desk = this.card(body, "Claude 桌面版", "桌面版给每个会话存一份清单（claude-code-sessions/<账号>/<组织>/local_*.json）。侧栏里看着同级、其实是「从某个会话开出来」的 side chat，只有这份清单里的 spawnedFrom 记得；终端里的 claude 没有这一项。");
     const d1 = this.row(desk, "识别 side chat 和母子关系", "子会话在面板里缩进，标出从哪个会话开出；顺手看有哪些会话正开着 side chat。", null);
     this.toggle(d1.querySelector(":scope > .ad-row__right"), s.claudeDesktop !== false, (v) => { s.claudeDesktop = v; p.saveSettings(); p.scanNow(true); });
-    const dc = this.row(desk, "终端里的会话点开到哪儿", "终端里起的 Claude Code / Codex 会话：还开着就切到跑它的那个终端标签（系统终端、iTerm2 能切到标签；Warp 没有脚本接口，只能叫到前台），关了才在新标签里 cd 到会话目录 resume。也可以改成在桌面版打开。", null);
+    const dc = this.row(desk, "终端里的会话点开到哪儿", "终端里起的 Claude Code / Codex 会话：还开着就切到跑它的那个终端标签（系统终端、iTerm2、Tern 能切到标签；Warp 没有脚本接口，只能叫到前台），关了才在新标签里 cd 到会话目录 resume。也可以改成在桌面版打开。", null);
     this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: "终端" }, { id: "desktop", label: "桌面版" }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => { s.cliOpen = v; p.saveSettings(); this.display(); });
     const dt = this.row(desk, "主力终端", "resume、按住 ⌘ 拖到 Claude Code / Codex 上委派时，在哪个终端里开新标签。自动 = 装了 Warp 用 Warp，否则系统终端。", null);
-    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "自动" }, { id: "terminal", label: "系统终端" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }], s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
+    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "自动" }, { id: "terminal", label: "系统终端" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }], s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
     const dn = this.row(desk, "有螺旋日程的进度行时让给它", "螺旋日程在任务行下面画了会话进度行时，行尾不再画 pill，🔗 链接放淡、不可点；点进度行打开会话（命令行会话切到它的终端标签）。", null);
     this.toggle(dn.querySelector(":scope > .ad-row__right"), s.yieldToNautilus !== false, (v) => { s.yieldToNautilus = v; p.saveSettings(); p.refreshUI(); });
     const d2 = this.row(desk, "归档的会话不再列出", "桌面版里归档 = 做完：归档的会话从「现在」和「最近的会话」里收起来，历史用量照旧保留。", null);
@@ -734,7 +734,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.bigButton(nbtn, "停用螺旋日程里的 AI 写入", () => p.pauseNautilus(), "mod-warning");
     naut.createDiv({ cls: "ad-hint", text: "只关自动记日记、状态写回、💬 和子块写入；螺旋自己的 Agent 追踪展示保留。会先备份它的 data.json。写入后请在 Obsidian 设置里重新加载螺旋日程（或重启 Obsidian）；Agent Deck 不会自动启停其它插件。" });
 
-    const links = this.card(body, "点击会话时打开哪儿", "Claude Code 用 claude://resume 回到桌面版；WorkBuddy 用 workbuddy://chat/<会话号>；DeepSeek Harness 目前只有 dsh://open（聚焦客户端），插件会把会话号复制到剪贴板，方便你在侧栏里找。Codex 没有 URL，会复制 codex resume 命令。");
+    const links = this.card(body, "点击会话时打开哪儿", "Claude Code 桌面版会话用 claude://resume；Codex 桌面版用 codex://threads/<会话号>；WorkBuddy 用 workbuddy://chat/<会话号>；DeepSeek Harness 只有 dsh://open（聚焦客户端），会话号会复制到剪贴板。终端里的 Claude Code / Codex 会话：还开着就切到那个终端标签，关了才 resume（见「追踪 → Claude 桌面版」）。");
     links.createDiv({ cls: "ad-hint", text: "这些是客户端自己的 URL scheme，插件不读也不发任何网络请求。" });
   }
 
@@ -742,22 +742,23 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   renderAbout(body) {
     const p = this.plugin;
     const c = this.card(body, "Agent Deck", "智能体甲板 · 在 Obsidian 里追踪和委派 AI Agent。");
-    c.createDiv({ cls: "ad-about-p", text: "把螺旋日程里的人机协作追踪拆出来，做成一个独立插件：读本机的 Claude Code、Codex、WorkBuddy 和 DeepSeek Harness 会话日志，画出在跑、等你、安静，算时长和 token，并且可以从任务行直接委派。" });
+    c.createDiv({ cls: "ad-about-p", text: "读本机 Claude Code、Codex、WorkBuddy、DeepSeek Harness 的会话日志，在面板里看谁在跑、谁在等你；从笔记里派活，进度和结果写回笔记。怎么操作：" });
     const list = c.createDiv({ cls: "ad-about-list" });
     for (const line of [
-      "最多两个主力 Agent 全量追踪，其余只读今天。",
-      "Claude Code 委派支持模型、强度、plan / auto / acceptEdits 权限模式。",
-      "DeepSeek Harness 通过 dsh acp 开真正的会话，支持模型和推理强度。",
-      "任务行上的按钮就是进度条：委派中沿按钮背景推进，可取消。",
-      "模型设置分层：默认模型、默认强度、能力标签、搜索筛选、置顶排序、任务模型。",
-      "点会话用 deeplink 打开客户端；Claude Code、WorkBuddy 已实现，DeepSeek Harness 目前聚焦客户端并复制会话号。",
+      "点会话卡片：打开这个会话。点 Agent 卡片上的图标：把客户端叫到前台。⭐ 设主力（最多两个，全部历史都读）。",
+      "会话卡片拖到笔记里有字的一项上：绑定（原文不动，下面写 🔗）；拖到空行或空的列表项上：在那儿新建一项并绑上。按住 ⌘ 拖：在这一项下面新建。",
+      "笔记里的一项（光标行尾巴上的把手 ⠿，或选中文字）拖到 Agent 卡片上：委派。Claude Code / DeepSeek Harness 后台跑；Codex / WorkBuddy 复制任务、打开客户端，你发出后自动绑回。",
+      "按住 ⌘ 拖到 Claude Code / Codex 上：在主力终端里新开标签跑交互式会话，任务直接发出去。",
+      "Agent 记的条目（🤖）、已经绑着会话的、有 ⏱ 记录的不会再委派。",
+      "笔记里的一项拖到面板的会话卡片上：把这个会话绑给它。在客户端里归档会话：这一项记 DONE + ⏱。",
+      "行尾 pill 是进度：委派中可以 × 取消，出错可以重试。和螺旋日程一起用时，pill 让给螺旋的进度行，点进度行打开会话。",
     ]) {
       const r = list.createDiv({ cls: "ad-about-li" });
       r.createSpan({ cls: "ad-about-dot", text: "·" });
       r.createSpan({ text: line });
     }
     const meta = c.createDiv({ cls: "ad-about-meta" });
-    meta.createDiv({ text: "版本 1.0.2 · MIT License" });
+    meta.createDiv({ text: `版本 ${p.manifest.version} · MIT License` });
     meta.createDiv({ text: "从 Nautilus Spiral（螺旋日程）的 AI 追踪部分拆出；交互参考了小红书 @ZZ.X 的两条帖子。" });
     const btns = c.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, "打开 GitHub 仓库", () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));

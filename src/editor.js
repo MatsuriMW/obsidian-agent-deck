@@ -20,7 +20,7 @@ export const refreshEffect = StateEffect.define();
 export const SESSION_MIME = "application/x-agent-deck-session";
 export const ITEM_MIME = "application/x-agent-deck-item";
 
-const DROP_LABEL = { bind: "绑定到这一项 · 按住 ⌘ 在下面新建", fill: "在这里新建一项", new: "在这里新建一项", below: "在下面新建一项", after: "在这一项下面新建" };
+const DROP_LABEL = { bind: "绑定", fill: "新建一项", new: "新建一项", below: "在下面新建", after: "在下面新建" };
 const setDrop = StateEffect.define();
 const dropField = StateField.define({
   create: () => Decoration.none,
@@ -109,7 +109,6 @@ class GripWidget extends WidgetType {
     el.className = "ad-grip";
     el.setAttribute("contenteditable", "false");
     el.draggable = true;
-    el.title = "拖到 Agent Deck 里的某个 Agent 上，委派这一项";
     setLucide(el, "grip-vertical");
     el.addEventListener("mousedown", (e) => e.stopPropagation());
     el.addEventListener("dragstart", (e) => {
@@ -185,7 +184,6 @@ class PillWidget extends WidgetType {
       const chev = document.createElement("span");
       chev.className = "ad-pill__chev";
       setLucide(chev, "chevron-down");
-      chev.title = "选择模型、强度、模式";
       chev.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.openDelegateModal(this.path, this.line); });
       right.appendChild(chev);
     } else if (info.kind === "running" || info.kind === "starting") {
@@ -197,7 +195,7 @@ class PillWidget extends WidgetType {
       const cancel = document.createElement("span");
       cancel.className = "ad-pill__cancel";
       setLucide(cancel, "x");
-      cancel.title = "取消这次委派";
+      cancel.title = "取消";
       cancel.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.cancelJob(job && job.id); });
       right.appendChild(cancel);
       const progress = p.jobProgress(job);
@@ -207,22 +205,21 @@ class PillWidget extends WidgetType {
       }
     } else if (info.kind === "waiting" || info.kind === "needs-approval") {
       label.textContent = info.kind === "needs-approval" ? "等你允许" : "等你";
-      meta.textContent = info.kind === "needs-approval" ? "打开客户端处理" : "点击打开";
       el.classList.add("is-pulse");
     } else if (info.kind === "done") {
       label.textContent = "完成";
-      meta.textContent = job && job.result ? truncate(job.result, 28) : (session && session.lastText ? truncate(session.lastText, 28) : "打开会话");
+      meta.textContent = job && job.result ? truncate(job.result, 28) : (session && session.lastText ? truncate(session.lastText, 28) : "");
       const open = document.createElement("span");
       open.className = "ad-pill__open";
       setLucide(open, "arrow-up-right");
       right.appendChild(open);
     } else if (info.kind === "error") {
       label.textContent = "出错";
-      meta.textContent = truncate((job && job.error) || (session && session.err) || "点击重试", 30);
+      meta.textContent = truncate((job && job.error) || (session && session.err) || "", 30);
       const retry = document.createElement("span");
       retry.className = "ad-pill__open";
       setLucide(retry, "refresh-cw");
-      retry.title = "重新委派";
+      retry.title = "重试";
       retry.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.openDelegateModal(this.path, this.line); });
       right.appendChild(retry);
     } else {
@@ -252,7 +249,7 @@ class PillWidget extends WidgetType {
   ignoreEvent() { return true; }
 }
 
-const quietLink = Decoration.line({ class: "ad-link-quiet", attributes: { title: "点上面螺旋日程的进度行打开这个会话" } });
+const quietLink = Decoration.line({ class: "ad-link-quiet" });
 
 function buildDecorations(view, plugin) {
   const builder = new RangeSetBuilder();

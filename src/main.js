@@ -418,7 +418,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   pillTitle(info) {
     if (!info) return "";
-    if (info.kind === "idle") return "委派这一块；⌄ 选模型、强度、模式";
+    if (info.kind === "idle") return "";
     const job = info.job, s = info.session;
     const parts = [];
     if (job) { parts.push(`${AGENTS[job.agent]?.name || job.agent} · ${job.name}`); if (job.step) parts.push(job.step); if (job.error) parts.push(job.error); }
@@ -550,7 +550,7 @@ export default class AgentDeckPlugin extends Plugin {
   // 笔记里的一项拖到了某个 Agent 卡片上：Claude / DSH 后台直接跑，Codex / WorkBuddy 打开客户端交接
   async delegateDrop(agent, item, fromEl, { cli = false } = {}) {
     this._dragItem = null;
-    if (!item || !item.path) return this.notice("没认出拖的是哪一项；从列表项尾巴上的把手拖");
+    if (!item || !item.path) return this.notice("没认出拖的是哪一项");
     const file = this.app.vault.getAbstractFileByPath(item.path);
     if (!file) return this.notice("找不到这篇笔记");
     const view = this.viewForPath(item.path);
@@ -559,9 +559,9 @@ export default class AgentDeckPlugin extends Plugin {
     if (line < 0) return this.notice("这一行刚改过，重新拖一次");
     // 只有人写的文字条目拖到 Agent 上才委派；Agent 写的（🤖）、已经绑着会话的，拖过来不再开新会话
     const block = blockAt(lines, line), k = J.kwLine(lines[line]);
-    if (k && k.body.startsWith(J.AUTO_MARK.trim())) return this.notice("这一项是 Agent 记的，已经由机器追踪，不再委派");
-    if (block && findLink(lines, block)) return this.notice("这一项已经绑着会话了，不再委派；要换会话，把会话卡片拖到它上面");
-    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => J.CLOCK_RE.test(l))) return this.notice("这一项已经有 Agent 的用时记录，不再委派");
+    if (k && k.body.startsWith(J.AUTO_MARK.trim())) return this.notice("Agent 记的条目不委派");
+    if (block && findLink(lines, block)) return this.notice("已经绑着会话，不委派");
+    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => J.CLOCK_RE.test(l))) return this.notice("已有用时记录，不委派");
     this._flyArmed = { agent, at: Date.now() };
     try {
       const opts = { file, lines, line, agent };

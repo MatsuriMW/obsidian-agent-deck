@@ -253,7 +253,7 @@ var DEFAULTS = {
   cliOpen: "terminal",
   // 终端里起的 Claude Code 会话点开时：terminal 回终端 / desktop 走桌面版
   cliTerminal: "auto",
-  // 主力终端：auto（装了 Warp 用 Warp，否则系统终端）/ terminal / iterm / warp
+  // 主力终端：auto（装了 Warp 用 Warp，否则系统终端）/ terminal / iterm / warp / tern
   yieldToNautilus: true,
   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
@@ -2650,11 +2650,12 @@ function openExternal(url) {
   }
 }
 var appInstalled = (name) => ["/Applications", import_path2.default.join(home2(), "Applications")].some((d) => import_fs2.default.existsSync(import_path2.default.join(d, name)));
-var TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable" };
+var TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable", tern: "so.stencil.tern" };
+var TERN_BIN = "/Applications/Tern.app/Contents/MacOS/tern";
 var osa = (script) => new Promise((resolve) => (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], { timeout: 8e3 }, (err2, out) => resolve(err2 ? null : String(out || "").trim())));
 var run = (bin, args) => new Promise((resolve) => (0, import_child_process2.execFile)(bin, args, { timeout: 8e3, maxBuffer: 8 << 20 }, (err2, out) => resolve(err2 ? "" : String(out || ""))));
 function pickTerminal(which = "auto") {
-  if (which === "warp" || which === "iterm" || which === "terminal") return which;
+  if (which === "warp" || which === "iterm" || which === "terminal" || which === "tern") return which;
   return appInstalled("Warp.app") ? "warp" : "terminal";
 }
 function openTerminal(command, cwd = "", which = "auto", title = "Claude") {
@@ -2680,6 +2681,20 @@ function openTerminal(command, cwd = "", which = "auto", title = "Claude") {
       return openExternal("warp://launch/agent-deck-resume");
     } catch {
     }
+  }
+  if (term === "tern" && import_fs2.default.existsSync(TERN_BIN)) {
+    const launch = ["--cwd", dir, "--", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`];
+    (0, import_child_process2.execFile)(TERN_BIN, ["new", "tab", ...launch], { timeout: 8e3 }, (err2) => {
+      if (err2) {
+        try {
+          (0, import_child_process2.spawn)(TERN_BIN, ["-e", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`], { cwd: dir, detached: true, stdio: "ignore" }).unref();
+        } catch {
+        }
+      }
+      (0, import_child_process2.execFile)("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern], () => {
+      });
+    });
+    return true;
   }
   const line = JSON.stringify(`cd ${JSON.stringify(dir)} && ${command}`);
   const script = term === "iterm" ? `tell application "iTerm2"
@@ -2750,6 +2765,7 @@ async function terminalHost(pid) {
     const m = /^(\d+)\s+(.*)$/.exec(out);
     if (!m) break;
     if (/Warp\.app/i.test(m[2])) return "warp";
+    if (/Tern\.app|(^|\/)tern$/.test(m[2])) return "tern";
     if (/iTerm/i.test(m[2])) return "iterm";
     if (/Terminal\.app/i.test(m[2])) return "terminal";
     p = Number(m[1]);
@@ -2793,6 +2809,31 @@ end repeat
 end tell
 return ""`);
     if (ok === "ok") return "tab";
+  } else if (proc.host === "tern" && import_fs2.default.existsSync(TERN_BIN)) {
+    const chain = /* @__PURE__ */ new Set([proc.pid]);
+    for (let i = 0, p = proc.pid; i < 12 && p > 1; i++) {
+      p = Number((await run("/bin/ps", ["-o", "ppid=", "-p", String(p)])).trim()) || 0;
+      if (p) chain.add(p);
+    }
+    let blocks = [];
+    try {
+      const ls = JSON.parse(await run(TERN_BIN, ["ls", "--json"]) || "{}");
+      for (const se of ls.sessions || []) for (const tab of se.tabs || []) for (const b of tab.blocks || []) if (b.live) blocks.push(b.id);
+    } catch {
+    }
+    for (const id of blocks) {
+      let pr = null;
+      try {
+        pr = JSON.parse(await run(TERN_BIN, ["process", String(id), "--json"]) || "null");
+      } catch {
+      }
+      if (!pr) continue;
+      if (chain.has(pr.foreground && pr.foreground.pid) || chain.has(pr.child && pr.child.pid)) {
+        await run(TERN_BIN, ["focus", String(id)]);
+        await run("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern]);
+        return "tab";
+      }
+    }
   }
   const bundle = TERMINAL_BUNDLE[proc.host];
   if (!bundle) return "";
@@ -2845,7 +2886,7 @@ function copyText(text) {
 function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
   focusCliSession(agent, sid).then((how) => {
     if (how === "tab") return;
-    if (how === "app") return plugin.notice("Warp \u6CA1\u6709\u6309\u6807\u7B7E\u8DF3\u8F6C\u7684\u63A5\u53E3\uFF1A\u5DF2\u5207\u5230 Warp\uFF0C\u4F1A\u8BDD\u5728\u8DD1\u5B83\u7684\u90A3\u4E2A\u6807\u7B7E\u91CC");
+    if (how === "app") return plugin.notice("\u5DF2\u5207\u5230 Warp");
     openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto", AGENTS[agent]?.short || "Claude");
   }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto"));
   return true;
@@ -3401,8 +3442,7 @@ ${body}`, 12e3);
     this.plugin.saveJobs();
     copyText(prompt);
     await openAgentApp(agent);
-    this.plugin.notice(`\u{1F4CB} \u4EFB\u52A1\u5DF2\u590D\u5236\uFF0C${AGENTS[agent]?.name || agent} \u5DF2\u6253\u5F00\uFF1A\u65B0\u5EFA\u5BF9\u8BDD\u3001\u7C98\u8D34\u53D1\u51FA\u53BB\u3002
-\u4F1A\u8BDD\u4E00\u51FA\u73B0\uFF0CAgent Deck \u4F1A\u628A\u5B83\u7ED1\u56DE\u300C${name}\u300D\u3002`, 1e4);
+    this.plugin.notice(`\u{1F4CB} \u4EFB\u52A1\u5DF2\u590D\u5236\uFF0C\u7C98\u8D34\u5230 ${AGENTS[agent]?.name || agent} \u91CC\u53D1\u51FA`, 1e4);
     this.plugin.refreshUI();
     return job;
   }
@@ -3450,8 +3490,7 @@ ${body}`, 12e3);
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     openTerminal(`${bin} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24));
-    this.plugin.notice(`\u5DF2\u5728\u7EC8\u7AEF\u91CC\u5F00 ${AGENTS[agent]?.name || agent}\uFF0C\u4EFB\u52A1\u76F4\u63A5\u53D1\u51FA\u53BB\u4E86\u3002
-\u4F1A\u8BDD\u4E00\u51FA\u73B0\uFF0CAgent Deck \u4F1A\u628A\u5B83\u7ED1\u56DE\u300C${name}\u300D\u3002`, 8e3);
+    this.plugin.notice(`\u5DF2\u5728\u7EC8\u7AEF\u91CC\u5F00 ${AGENTS[agent]?.name || agent}`, 8e3);
     this.plugin.refreshUI();
     return job;
   }
@@ -3535,8 +3574,7 @@ ${body}`, 12e3);
     }
     this.refreshUI();
     const agent = AGENTS[job.agent];
-    this.plugin.notice(`\u2705 ${agent ? agent.name : job.agent} \u505A\u5B8C\u4E86\u4E00\u8F6E\uFF1A${job.name}
-\u70B9\u4EFB\u52A1\u884C\u65C1\u8FB9\u7684\u6309\u94AE\u53EF\u4EE5\u5728\u5BA2\u6237\u7AEF\u91CC\u6253\u5F00\u4F1A\u8BDD`, 8e3);
+    this.plugin.notice(`\u2705 ${agent ? agent.name : job.agent} \u505A\u5B8C\u4E86\u4E00\u8F6E\uFF1A${job.name}`, 8e3);
     if (this.C.claude.openDesktop === true && job.agent === "claude" && job.sessionId) openSession(this.plugin, "claude", job.sessionId);
     if (this.settings.autoWriteResult && job.linkWritten) {
       try {
@@ -3816,7 +3854,7 @@ var import_state = require("@codemirror/state");
 var refreshEffect = import_state.StateEffect.define();
 var SESSION_MIME = "application/x-agent-deck-session";
 var ITEM_MIME = "application/x-agent-deck-item";
-var DROP_LABEL = { bind: "\u7ED1\u5B9A\u5230\u8FD9\u4E00\u9879 \xB7 \u6309\u4F4F \u2318 \u5728\u4E0B\u9762\u65B0\u5EFA", fill: "\u5728\u8FD9\u91CC\u65B0\u5EFA\u4E00\u9879", new: "\u5728\u8FD9\u91CC\u65B0\u5EFA\u4E00\u9879", below: "\u5728\u4E0B\u9762\u65B0\u5EFA\u4E00\u9879", after: "\u5728\u8FD9\u4E00\u9879\u4E0B\u9762\u65B0\u5EFA" };
+var DROP_LABEL = { bind: "\u7ED1\u5B9A", fill: "\u65B0\u5EFA\u4E00\u9879", new: "\u65B0\u5EFA\u4E00\u9879", below: "\u5728\u4E0B\u9762\u65B0\u5EFA", after: "\u5728\u4E0B\u9762\u65B0\u5EFA" };
 var setDrop = import_state.StateEffect.define();
 var dropField = import_state.StateField.define({
   create: () => import_view.Decoration.none,
@@ -3908,7 +3946,6 @@ var GripWidget = class extends import_view.WidgetType {
     el.className = "ad-grip";
     el.setAttribute("contenteditable", "false");
     el.draggable = true;
-    el.title = "\u62D6\u5230 Agent Deck \u91CC\u7684\u67D0\u4E2A Agent \u4E0A\uFF0C\u59D4\u6D3E\u8FD9\u4E00\u9879";
     setLucide(el, "grip-vertical");
     el.addEventListener("mousedown", (e) => e.stopPropagation());
     el.addEventListener("dragstart", (e) => {
@@ -3980,7 +4017,6 @@ var PillWidget = class extends import_view.WidgetType {
       const chev = document.createElement("span");
       chev.className = "ad-pill__chev";
       setLucide(chev, "chevron-down");
-      chev.title = "\u9009\u62E9\u6A21\u578B\u3001\u5F3A\u5EA6\u3001\u6A21\u5F0F";
       chev.addEventListener("mousedown", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -3998,7 +4034,7 @@ var PillWidget = class extends import_view.WidgetType {
       const cancel = document.createElement("span");
       cancel.className = "ad-pill__cancel";
       setLucide(cancel, "x");
-      cancel.title = "\u53D6\u6D88\u8FD9\u6B21\u59D4\u6D3E";
+      cancel.title = "\u53D6\u6D88";
       cancel.addEventListener("mousedown", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -4012,22 +4048,21 @@ var PillWidget = class extends import_view.WidgetType {
       }
     } else if (info.kind === "waiting" || info.kind === "needs-approval") {
       label.textContent = info.kind === "needs-approval" ? "\u7B49\u4F60\u5141\u8BB8" : "\u7B49\u4F60";
-      meta.textContent = info.kind === "needs-approval" ? "\u6253\u5F00\u5BA2\u6237\u7AEF\u5904\u7406" : "\u70B9\u51FB\u6253\u5F00";
       el.classList.add("is-pulse");
     } else if (info.kind === "done") {
       label.textContent = "\u5B8C\u6210";
-      meta.textContent = job && job.result ? truncate(job.result, 28) : session && session.lastText ? truncate(session.lastText, 28) : "\u6253\u5F00\u4F1A\u8BDD";
+      meta.textContent = job && job.result ? truncate(job.result, 28) : session && session.lastText ? truncate(session.lastText, 28) : "";
       const open = document.createElement("span");
       open.className = "ad-pill__open";
       setLucide(open, "arrow-up-right");
       right.appendChild(open);
     } else if (info.kind === "error") {
       label.textContent = "\u51FA\u9519";
-      meta.textContent = truncate(job && job.error || session && session.err || "\u70B9\u51FB\u91CD\u8BD5", 30);
+      meta.textContent = truncate(job && job.error || session && session.err || "", 30);
       const retry = document.createElement("span");
       retry.className = "ad-pill__open";
       setLucide(retry, "refresh-cw");
-      retry.title = "\u91CD\u65B0\u59D4\u6D3E";
+      retry.title = "\u91CD\u8BD5";
       retry.addEventListener("mousedown", (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -4062,7 +4097,7 @@ var PillWidget = class extends import_view.WidgetType {
     return true;
   }
 };
-var quietLink = import_view.Decoration.line({ class: "ad-link-quiet", attributes: { title: "\u70B9\u4E0A\u9762\u87BA\u65CB\u65E5\u7A0B\u7684\u8FDB\u5EA6\u884C\u6253\u5F00\u8FD9\u4E2A\u4F1A\u8BDD" } });
+var quietLink = import_view.Decoration.line({ class: "ad-link-quiet" });
 function buildDecorations(view, plugin) {
   const builder = new import_state.RangeSetBuilder();
   const info = view.state.field(plugin.editorInfoField, false);
@@ -4213,7 +4248,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const now = /* @__PURE__ */ new Date();
     const wd = ["\u5468\u65E5", "\u5468\u4E00", "\u5468\u4E8C", "\u5468\u4E09", "\u5468\u56DB", "\u5468\u4E94", "\u5468\u516D"][now.getDay()];
     dateLine.createSpan({ text: `${now.getMonth() + 1} \u6708 ${now.getDate()} \u65E5 \xB7 ${wd}` });
-    dateLine.createSpan({ cls: "ad-hero__hint", text: today ? "\u4ECA\u5929\u7684\u534F\u4F5C\u8BB0\u5F55" : "\u4ECA\u5929\u8FD8\u6CA1\u6709\u4F1A\u8BDD" });
+    if (!today) dateLine.createSpan({ cls: "ad-hero__hint", text: "\u4ECA\u5929\u8FD8\u6CA1\u6709\u4F1A\u8BDD" });
     const nums = hero.createDiv({ cls: "ad-hero__nums" });
     this.num(nums, String(live.filter((x) => ["run", "running"].includes(x.state)).length), "\u5728\u8DD1", "is-live");
     this.num(nums, fmtMin(today ? today.wall : 0), "\u534F\u4F5C\u65F6\u957F", "");
@@ -4225,22 +4260,21 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       const chip = prim.createSpan({ cls: "ad-primary-chip", attr: { style: `--ad-agent:${a.color};--ad-agent-soft:${a.soft}` } });
       agentIcon(chip.createSpan({ cls: "ad-glyph" }), id);
       chip.createSpan({ text: a.name });
-      chip.createSpan({ cls: "ad-primary-chip__tag", text: "\u5168\u91CF" });
     }
-    if (!p.primaryAgents().length) prim.createSpan({ cls: "ad-muted", text: "\u5728\u8BBE\u7F6E\u91CC\u9009 1\u20132 \u4E2A" });
+    if (!p.primaryAgents().length) prim.createSpan({ cls: "ad-muted", text: "\u2014" });
     const nowSec = dash.createDiv({ cls: "ad-sec ad-sec--now" });
     const nowHead = this.secHead(nowSec, "\u73B0\u5728", `${running.length} \u4E2A\u5728\u8DD1 \xB7 ${waiting.length} \u4E2A\u7B49\u4F60`);
     const nowList = nowSec.createDiv({ cls: "ad-nowlist" });
     const nowItems = [...running, ...waiting].slice(0, 6);
-    if (!nowItems.length) this.empty(nowList, "\u73B0\u5728\u6CA1\u6709\u5728\u8DD1\u7684\u4F1A\u8BDD", "\u628A\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u62D6\u5230\u4E0B\u9762\u7684 Agent \u4E0A\u59D4\u6D3E\uFF0C\u6216\u8005\u7B49\u4E0B\u4E00\u6B21\u626B\u63CF\u3002");
+    if (!nowItems.length) this.empty(nowList, "\u73B0\u5728\u6CA1\u6709\u5728\u8DD1\u7684\u4F1A\u8BDD");
     for (const s of nowItems) this.sessionCard(nowList, s, true);
     const agentsSec = dash.createDiv({ cls: "ad-sec" });
-    this.secHead(agentsSec, "Agents", "\u70B9\u56FE\u6807\u6253\u5F00\u5BA2\u6237\u7AEF \xB7 \u628A\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u62D6\u4E0A\u6765\u59D4\u6D3E", () => p.openSettings());
+    this.secHead(agentsSec, "Agents", "", () => p.openSettings());
     const grid = agentsSec.createDiv({ cls: "ad-agentgrid" });
     for (const id of AGENT_ORDER) this.agentCard(grid, id, today);
     if (p.settings.ui.showUsageBars !== false) {
       const usageSec = dash.createDiv({ cls: "ad-sec" });
-      this.secHead(usageSec, "\u6700\u8FD1 14 \u5929", "\u6309 Agent \u5806\u53E0\u7684\u534F\u4F5C\u5206\u949F");
+      this.secHead(usageSec, "\u6700\u8FD1 14 \u5929");
       this.usageBars(usageSec);
     }
     const recSec = dash.createDiv({ cls: "ad-sec ad-sec--recent" });
@@ -4285,7 +4319,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       const q = this.search.toLowerCase();
       rows = rows.filter((x) => `${x.title} ${x.cwd} ${x.text} ${x.step}`.toLowerCase().includes(q));
     }
-    if (!rows.length) return this.empty(list, "\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684\u4F1A\u8BDD", "\u8BD5\u8BD5\u522B\u7684\u7B5B\u9009\uFF0C\u6216\u8005\u70B9\u53F3\u4E0A\u89D2\u91CD\u65B0\u626B\u63CF\u3002");
+    if (!rows.length) return this.empty(list, "\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684\u4F1A\u8BDD");
     for (const s of rows) this.sessionCard(list, s, false);
   }
   secHead(parent, title, sub, action) {
@@ -4316,8 +4350,8 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     card.style.setProperty("--ad-agent-soft", a.soft);
     const handoff = id === "codex" || id === "workbuddy";
     const cliCapable = id === "claude" || id === "codex";
-    const hint = handoff ? `\u4EA4\u7ED9 ${a.short}\uFF1A\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF` : `\u59D4\u6D3E\u7ED9 ${a.short}`;
-    const hintFor = (meta) => meta && cliCapable ? `\u5728\u7EC8\u7AEF\u91CC\u5F00 ${a.short}\uFF0C\u4EFB\u52A1\u76F4\u63A5\u53D1\u51FA\u53BB` : hint + (cliCapable ? " \xB7 \u6309\u4F4F \u2318 \u5728\u7EC8\u7AEF\u91CC\u5F00" : "");
+    const hint = handoff ? `\u4EA4\u7ED9 ${a.short}` : `\u59D4\u6D3E\u7ED9 ${a.short}`;
+    const hintFor = (meta) => meta && cliCapable ? `\u5728\u7EC8\u7AEF\u91CC\u5F00 ${a.short}` : hint;
     card.setAttr("data-drop-hint", hintFor(false));
     card.addEventListener("dragover", (e) => {
       if (!p.acceptsItemDrag(e)) return;
@@ -4369,7 +4403,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     for (const job of Object.values(p.jobs).filter((j) => j.agent === id && j.handoff && j.state === "starting" && !j.sessionId)) {
       const row = card.createDiv({ cls: "ad-handoff" });
       setLucide(row.createSpan({ cls: "ad-handoff__icon ad-spin" }), "loader-circle");
-      row.createSpan({ cls: "ad-handoff__text", text: job.cli ? `\u7EC8\u7AEF\u91CC\u5F00\u7740\uFF0C\u7B49\u4F1A\u8BDD\u51FA\u73B0\uFF1A${truncate(job.name, 16)}` : `\u7B49\u4F60\u5728 ${a.short} \u91CC\u53D1\u51FA\uFF1A${truncate(job.name, 18)}` });
+      row.createSpan({ cls: "ad-handoff__text", text: job.cli ? `\u7B49\u7EC8\u7AEF\u91CC\u7684\u4F1A\u8BDD\uFF1A${truncate(job.name, 16)}` : `\u7B49\u4F60\u5728 ${a.short} \u91CC\u53D1\u51FA\uFF1A${truncate(job.name, 18)}` });
       const x = row.createEl("button", { cls: "ad-handoff__x", attr: { "aria-label": "\u4E0D\u7B49\u4E86" } });
       setLucide(x, "x");
       x.onclick = (e) => {
@@ -4510,7 +4544,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       const sc = titleRow.createSpan({ cls: "ad-side" });
       setLucide(sc.createSpan({ cls: "ad-side__icon" }), "message-square");
       sc.createSpan({ text: s.sideChats > 1 ? `side chat \xD7${s.sideChats}` : "side chat" });
-      sc.title = "\u8FD9\u4E2A\u4F1A\u8BDD\u6B63\u5F00\u7740 side chat" + (s.sideSince ? `\uFF08${timeAgo(s.sideSince)}\u5F00\u7684\uFF09` : "");
+      if (s.sideSince) sc.title = `${timeAgo(s.sideSince)}\u5F00\u7684`;
     }
     const sub = body.createDiv({ cls: "ad-sess__sub" });
     sub.createSpan({ text: a.short });
@@ -4540,9 +4574,6 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       open();
     };
     card.onclick = open;
-    card.title = "\u70B9\u51FB\u6253\u5F00\u4F1A\u8BDD \xB7 \u62D6\u5230\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u4E0A\u7ED1\u5B9A\uFF0C\u62D6\u5230\u7A7A\u884C\u4E0A\u65B0\u5EFA\u4E00\u9879";
-    if (s.agent === "dsh") card.title += "\nDeepSeek Harness \u5F53\u524D\u53EA\u63D0\u4F9B dsh://open\uFF08\u805A\u7126\u5BA2\u6237\u7AEF\uFF09\uFF0C\u4F1A\u8BDD\u53F7\u4F1A\u590D\u5236\u5230\u526A\u8D34\u677F";
-    if (s.agent === "claude" && s.app === "cli") card.title += p.settings.cliOpen === "desktop" ? "\n\u7EC8\u7AEF\u91CC\u7684 Claude Code\uFF1A\u5728 Claude \u684C\u9762\u7248\u6253\u5F00\uFF08\u8BBE\u7F6E\u91CC\u53EF\u4EE5\u6539\u56DE\u7EC8\u7AEF\uFF09" : "\n\u7EC8\u7AEF\u91CC\u7684 Claude Code\uFF1A\u5728\u7EC8\u7AEF\u65B0\u6807\u7B7E\u91CC claude --resume \u63A5\u7740\u804A";
   }
   // 刚委派出去的会话有了会话号：卡片从它的 Agent 卡片飞进「现在」
   playFly(dash) {
@@ -4599,7 +4630,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
   empty(parent, title, sub) {
     const e = parent.createDiv({ cls: "ad-empty" });
     e.createDiv({ cls: "ad-empty__title", text: title });
-    e.createDiv({ cls: "ad-empty__sub", text: sub });
+    if (sub) e.createDiv({ cls: "ad-empty__sub", text: sub });
   }
 };
 function stateChip(s) {
@@ -4815,7 +4846,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
   renderDelegate(body) {
     const p = this.plugin;
     const d = p.settings.delegate;
-    this.card(body, "\u9ED8\u8BA4\u59D4\u6D3E\u5230", "\u4EFB\u52A1\u884C\u4E0A\u7684\u6309\u94AE\u4F1A\u76F4\u63A5\u7528\u8FD9\u91CC\u7684\u8BBE\u7F6E\u3002\u70B9\u6309\u94AE\u53F3\u8FB9\u7684 \u2304 \u53EF\u4EE5\u4E34\u65F6\u6539\u53C2\u6570\u3002");
+    this.card(body, "\u9ED8\u8BA4\u59D4\u6D3E\u5230", "\u628A\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u62D6\u5230 Claude Code / DeepSeek Harness \u5361\u7247\u4E0A\u65F6\uFF0C\u7528\u8FD9\u91CC\u7684\u8BBE\u7F6E\u5728\u540E\u53F0\u5F00\u4F1A\u8BDD\u3002\u59D4\u6D3E\u5931\u8D25\u65F6\u70B9\u72B6\u6001 pill \u4E0A\u7684\u300C\u91CD\u8BD5\u300D\u53EF\u4EE5\u4E34\u65F6\u6539\u53C2\u6570\u3002");
     const targetRow = body.createDiv({ cls: "ad-targetpick" });
     for (const id of ["claude", "dsh"]) {
       const a = AGENTS[id];
@@ -5337,14 +5368,14 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
       p.scanNow(true);
     });
-    const dc = this.row(desk, "\u7EC8\u7AEF\u91CC\u7684\u4F1A\u8BDD\u70B9\u5F00\u5230\u54EA\u513F", "\u7EC8\u7AEF\u91CC\u8D77\u7684 Claude Code / Codex \u4F1A\u8BDD\uFF1A\u8FD8\u5F00\u7740\u5C31\u5207\u5230\u8DD1\u5B83\u7684\u90A3\u4E2A\u7EC8\u7AEF\u6807\u7B7E\uFF08\u7CFB\u7EDF\u7EC8\u7AEF\u3001iTerm2 \u80FD\u5207\u5230\u6807\u7B7E\uFF1BWarp \u6CA1\u6709\u811A\u672C\u63A5\u53E3\uFF0C\u53EA\u80FD\u53EB\u5230\u524D\u53F0\uFF09\uFF0C\u5173\u4E86\u624D\u5728\u65B0\u6807\u7B7E\u91CC cd \u5230\u4F1A\u8BDD\u76EE\u5F55 resume\u3002\u4E5F\u53EF\u4EE5\u6539\u6210\u5728\u684C\u9762\u7248\u6253\u5F00\u3002", null);
+    const dc = this.row(desk, "\u7EC8\u7AEF\u91CC\u7684\u4F1A\u8BDD\u70B9\u5F00\u5230\u54EA\u513F", "\u7EC8\u7AEF\u91CC\u8D77\u7684 Claude Code / Codex \u4F1A\u8BDD\uFF1A\u8FD8\u5F00\u7740\u5C31\u5207\u5230\u8DD1\u5B83\u7684\u90A3\u4E2A\u7EC8\u7AEF\u6807\u7B7E\uFF08\u7CFB\u7EDF\u7EC8\u7AEF\u3001iTerm2\u3001Tern \u80FD\u5207\u5230\u6807\u7B7E\uFF1BWarp \u6CA1\u6709\u811A\u672C\u63A5\u53E3\uFF0C\u53EA\u80FD\u53EB\u5230\u524D\u53F0\uFF09\uFF0C\u5173\u4E86\u624D\u5728\u65B0\u6807\u7B7E\u91CC cd \u5230\u4F1A\u8BDD\u76EE\u5F55 resume\u3002\u4E5F\u53EF\u4EE5\u6539\u6210\u5728\u684C\u9762\u7248\u6253\u5F00\u3002", null);
     this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: "\u7EC8\u7AEF" }, { id: "desktop", label: "\u684C\u9762\u7248" }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => {
       s.cliOpen = v;
       p.saveSettings();
       this.display();
     });
     const dt = this.row(desk, "\u4E3B\u529B\u7EC8\u7AEF", "resume\u3001\u6309\u4F4F \u2318 \u62D6\u5230 Claude Code / Codex \u4E0A\u59D4\u6D3E\u65F6\uFF0C\u5728\u54EA\u4E2A\u7EC8\u7AEF\u91CC\u5F00\u65B0\u6807\u7B7E\u3002\u81EA\u52A8 = \u88C5\u4E86 Warp \u7528 Warp\uFF0C\u5426\u5219\u7CFB\u7EDF\u7EC8\u7AEF\u3002", null);
-    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "\u81EA\u52A8" }, { id: "terminal", label: "\u7CFB\u7EDF\u7EC8\u7AEF" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }], s.cliTerminal || "auto", (v) => {
+    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "\u81EA\u52A8" }, { id: "terminal", label: "\u7CFB\u7EDF\u7EC8\u7AEF" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }], s.cliTerminal || "auto", (v) => {
       s.cliTerminal = v;
       p.saveSettings();
       this.display();
@@ -5525,29 +5556,30 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     const nbtn = naut.createDiv({ cls: "ad-btnrow" });
     this.bigButton(nbtn, "\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u91CC\u7684 AI \u5199\u5165", () => p.pauseNautilus(), "mod-warning");
     naut.createDiv({ cls: "ad-hint", text: "\u53EA\u5173\u81EA\u52A8\u8BB0\u65E5\u8BB0\u3001\u72B6\u6001\u5199\u56DE\u3001\u{1F4AC} \u548C\u5B50\u5757\u5199\u5165\uFF1B\u87BA\u65CB\u81EA\u5DF1\u7684 Agent \u8FFD\u8E2A\u5C55\u793A\u4FDD\u7559\u3002\u4F1A\u5148\u5907\u4EFD\u5B83\u7684 data.json\u3002\u5199\u5165\u540E\u8BF7\u5728 Obsidian \u8BBE\u7F6E\u91CC\u91CD\u65B0\u52A0\u8F7D\u87BA\u65CB\u65E5\u7A0B\uFF08\u6216\u91CD\u542F Obsidian\uFF09\uFF1BAgent Deck \u4E0D\u4F1A\u81EA\u52A8\u542F\u505C\u5176\u5B83\u63D2\u4EF6\u3002" });
-    const links = this.card(body, "\u70B9\u51FB\u4F1A\u8BDD\u65F6\u6253\u5F00\u54EA\u513F", "Claude Code \u7528 claude://resume \u56DE\u5230\u684C\u9762\u7248\uFF1BWorkBuddy \u7528 workbuddy://chat/<\u4F1A\u8BDD\u53F7>\uFF1BDeepSeek Harness \u76EE\u524D\u53EA\u6709 dsh://open\uFF08\u805A\u7126\u5BA2\u6237\u7AEF\uFF09\uFF0C\u63D2\u4EF6\u4F1A\u628A\u4F1A\u8BDD\u53F7\u590D\u5236\u5230\u526A\u8D34\u677F\uFF0C\u65B9\u4FBF\u4F60\u5728\u4FA7\u680F\u91CC\u627E\u3002Codex \u6CA1\u6709 URL\uFF0C\u4F1A\u590D\u5236 codex resume \u547D\u4EE4\u3002");
+    const links = this.card(body, "\u70B9\u51FB\u4F1A\u8BDD\u65F6\u6253\u5F00\u54EA\u513F", "Claude Code \u684C\u9762\u7248\u4F1A\u8BDD\u7528 claude://resume\uFF1BCodex \u684C\u9762\u7248\u7528 codex://threads/<\u4F1A\u8BDD\u53F7>\uFF1BWorkBuddy \u7528 workbuddy://chat/<\u4F1A\u8BDD\u53F7>\uFF1BDeepSeek Harness \u53EA\u6709 dsh://open\uFF08\u805A\u7126\u5BA2\u6237\u7AEF\uFF09\uFF0C\u4F1A\u8BDD\u53F7\u4F1A\u590D\u5236\u5230\u526A\u8D34\u677F\u3002\u7EC8\u7AEF\u91CC\u7684 Claude Code / Codex \u4F1A\u8BDD\uFF1A\u8FD8\u5F00\u7740\u5C31\u5207\u5230\u90A3\u4E2A\u7EC8\u7AEF\u6807\u7B7E\uFF0C\u5173\u4E86\u624D resume\uFF08\u89C1\u300C\u8FFD\u8E2A \u2192 Claude \u684C\u9762\u7248\u300D\uFF09\u3002");
     links.createDiv({ cls: "ad-hint", text: "\u8FD9\u4E9B\u662F\u5BA2\u6237\u7AEF\u81EA\u5DF1\u7684 URL scheme\uFF0C\u63D2\u4EF6\u4E0D\u8BFB\u4E5F\u4E0D\u53D1\u4EFB\u4F55\u7F51\u7EDC\u8BF7\u6C42\u3002" });
   }
   // ---------- About ----------
   renderAbout(body) {
     const p = this.plugin;
     const c = this.card(body, "Agent Deck", "\u667A\u80FD\u4F53\u7532\u677F \xB7 \u5728 Obsidian \u91CC\u8FFD\u8E2A\u548C\u59D4\u6D3E AI Agent\u3002");
-    c.createDiv({ cls: "ad-about-p", text: "\u628A\u87BA\u65CB\u65E5\u7A0B\u91CC\u7684\u4EBA\u673A\u534F\u4F5C\u8FFD\u8E2A\u62C6\u51FA\u6765\uFF0C\u505A\u6210\u4E00\u4E2A\u72EC\u7ACB\u63D2\u4EF6\uFF1A\u8BFB\u672C\u673A\u7684 Claude Code\u3001Codex\u3001WorkBuddy \u548C DeepSeek Harness \u4F1A\u8BDD\u65E5\u5FD7\uFF0C\u753B\u51FA\u5728\u8DD1\u3001\u7B49\u4F60\u3001\u5B89\u9759\uFF0C\u7B97\u65F6\u957F\u548C token\uFF0C\u5E76\u4E14\u53EF\u4EE5\u4ECE\u4EFB\u52A1\u884C\u76F4\u63A5\u59D4\u6D3E\u3002" });
+    c.createDiv({ cls: "ad-about-p", text: "\u8BFB\u672C\u673A Claude Code\u3001Codex\u3001WorkBuddy\u3001DeepSeek Harness \u7684\u4F1A\u8BDD\u65E5\u5FD7\uFF0C\u5728\u9762\u677F\u91CC\u770B\u8C01\u5728\u8DD1\u3001\u8C01\u5728\u7B49\u4F60\uFF1B\u4ECE\u7B14\u8BB0\u91CC\u6D3E\u6D3B\uFF0C\u8FDB\u5EA6\u548C\u7ED3\u679C\u5199\u56DE\u7B14\u8BB0\u3002\u600E\u4E48\u64CD\u4F5C\uFF1A" });
     const list = c.createDiv({ cls: "ad-about-list" });
     for (const line of [
-      "\u6700\u591A\u4E24\u4E2A\u4E3B\u529B Agent \u5168\u91CF\u8FFD\u8E2A\uFF0C\u5176\u4F59\u53EA\u8BFB\u4ECA\u5929\u3002",
-      "Claude Code \u59D4\u6D3E\u652F\u6301\u6A21\u578B\u3001\u5F3A\u5EA6\u3001plan / auto / acceptEdits \u6743\u9650\u6A21\u5F0F\u3002",
-      "DeepSeek Harness \u901A\u8FC7 dsh acp \u5F00\u771F\u6B63\u7684\u4F1A\u8BDD\uFF0C\u652F\u6301\u6A21\u578B\u548C\u63A8\u7406\u5F3A\u5EA6\u3002",
-      "\u4EFB\u52A1\u884C\u4E0A\u7684\u6309\u94AE\u5C31\u662F\u8FDB\u5EA6\u6761\uFF1A\u59D4\u6D3E\u4E2D\u6CBF\u6309\u94AE\u80CC\u666F\u63A8\u8FDB\uFF0C\u53EF\u53D6\u6D88\u3002",
-      "\u6A21\u578B\u8BBE\u7F6E\u5206\u5C42\uFF1A\u9ED8\u8BA4\u6A21\u578B\u3001\u9ED8\u8BA4\u5F3A\u5EA6\u3001\u80FD\u529B\u6807\u7B7E\u3001\u641C\u7D22\u7B5B\u9009\u3001\u7F6E\u9876\u6392\u5E8F\u3001\u4EFB\u52A1\u6A21\u578B\u3002",
-      "\u70B9\u4F1A\u8BDD\u7528 deeplink \u6253\u5F00\u5BA2\u6237\u7AEF\uFF1BClaude Code\u3001WorkBuddy \u5DF2\u5B9E\u73B0\uFF0CDeepSeek Harness \u76EE\u524D\u805A\u7126\u5BA2\u6237\u7AEF\u5E76\u590D\u5236\u4F1A\u8BDD\u53F7\u3002"
+      "\u70B9\u4F1A\u8BDD\u5361\u7247\uFF1A\u6253\u5F00\u8FD9\u4E2A\u4F1A\u8BDD\u3002\u70B9 Agent \u5361\u7247\u4E0A\u7684\u56FE\u6807\uFF1A\u628A\u5BA2\u6237\u7AEF\u53EB\u5230\u524D\u53F0\u3002\u2B50 \u8BBE\u4E3B\u529B\uFF08\u6700\u591A\u4E24\u4E2A\uFF0C\u5168\u90E8\u5386\u53F2\u90FD\u8BFB\uFF09\u3002",
+      "\u4F1A\u8BDD\u5361\u7247\u62D6\u5230\u7B14\u8BB0\u91CC\u6709\u5B57\u7684\u4E00\u9879\u4E0A\uFF1A\u7ED1\u5B9A\uFF08\u539F\u6587\u4E0D\u52A8\uFF0C\u4E0B\u9762\u5199 \u{1F517}\uFF09\uFF1B\u62D6\u5230\u7A7A\u884C\u6216\u7A7A\u7684\u5217\u8868\u9879\u4E0A\uFF1A\u5728\u90A3\u513F\u65B0\u5EFA\u4E00\u9879\u5E76\u7ED1\u4E0A\u3002\u6309\u4F4F \u2318 \u62D6\uFF1A\u5728\u8FD9\u4E00\u9879\u4E0B\u9762\u65B0\u5EFA\u3002",
+      "\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\uFF08\u5149\u6807\u884C\u5C3E\u5DF4\u4E0A\u7684\u628A\u624B \u283F\uFF0C\u6216\u9009\u4E2D\u6587\u5B57\uFF09\u62D6\u5230 Agent \u5361\u7247\u4E0A\uFF1A\u59D4\u6D3E\u3002Claude Code / DeepSeek Harness \u540E\u53F0\u8DD1\uFF1BCodex / WorkBuddy \u590D\u5236\u4EFB\u52A1\u3001\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u4F60\u53D1\u51FA\u540E\u81EA\u52A8\u7ED1\u56DE\u3002",
+      "\u6309\u4F4F \u2318 \u62D6\u5230 Claude Code / Codex \u4E0A\uFF1A\u5728\u4E3B\u529B\u7EC8\u7AEF\u91CC\u65B0\u5F00\u6807\u7B7E\u8DD1\u4EA4\u4E92\u5F0F\u4F1A\u8BDD\uFF0C\u4EFB\u52A1\u76F4\u63A5\u53D1\u51FA\u53BB\u3002",
+      "Agent \u8BB0\u7684\u6761\u76EE\uFF08\u{1F916}\uFF09\u3001\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\u7684\u3001\u6709 \u23F1 \u8BB0\u5F55\u7684\u4E0D\u4F1A\u518D\u59D4\u6D3E\u3002",
+      "\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u62D6\u5230\u9762\u677F\u7684\u4F1A\u8BDD\u5361\u7247\u4E0A\uFF1A\u628A\u8FD9\u4E2A\u4F1A\u8BDD\u7ED1\u7ED9\u5B83\u3002\u5728\u5BA2\u6237\u7AEF\u91CC\u5F52\u6863\u4F1A\u8BDD\uFF1A\u8FD9\u4E00\u9879\u8BB0 DONE + \u23F1\u3002",
+      "\u884C\u5C3E pill \u662F\u8FDB\u5EA6\uFF1A\u59D4\u6D3E\u4E2D\u53EF\u4EE5 \xD7 \u53D6\u6D88\uFF0C\u51FA\u9519\u53EF\u4EE5\u91CD\u8BD5\u3002\u548C\u87BA\u65CB\u65E5\u7A0B\u4E00\u8D77\u7528\u65F6\uFF0Cpill \u8BA9\u7ED9\u87BA\u65CB\u7684\u8FDB\u5EA6\u884C\uFF0C\u70B9\u8FDB\u5EA6\u884C\u6253\u5F00\u4F1A\u8BDD\u3002"
     ]) {
       const r = list.createDiv({ cls: "ad-about-li" });
       r.createSpan({ cls: "ad-about-dot", text: "\xB7" });
       r.createSpan({ text: line });
     }
     const meta = c.createDiv({ cls: "ad-about-meta" });
-    meta.createDiv({ text: "\u7248\u672C 1.0.2 \xB7 MIT License" });
+    meta.createDiv({ text: `\u7248\u672C ${p.manifest.version} \xB7 MIT License` });
     meta.createDiv({ text: "\u4ECE Nautilus Spiral\uFF08\u87BA\u65CB\u65E5\u7A0B\uFF09\u7684 AI \u8FFD\u8E2A\u90E8\u5206\u62C6\u51FA\uFF1B\u4EA4\u4E92\u53C2\u8003\u4E86\u5C0F\u7EA2\u4E66 @ZZ.X \u7684\u4E24\u6761\u5E16\u5B50\u3002" });
     const btns = c.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, "\u6253\u5F00 GitHub \u4ED3\u5E93", () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));
@@ -9183,7 +9215,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   }
   pillTitle(info) {
     if (!info) return "";
-    if (info.kind === "idle") return "\u59D4\u6D3E\u8FD9\u4E00\u5757\uFF1B\u2304 \u9009\u6A21\u578B\u3001\u5F3A\u5EA6\u3001\u6A21\u5F0F";
+    if (info.kind === "idle") return "";
     const job = info.job, s = info.session;
     const parts = [];
     if (job) {
@@ -9329,7 +9361,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   // 笔记里的一项拖到了某个 Agent 卡片上：Claude / DSH 后台直接跑，Codex / WorkBuddy 打开客户端交接
   async delegateDrop(agent, item, fromEl, { cli = false } = {}) {
     this._dragItem = null;
-    if (!item || !item.path) return this.notice("\u6CA1\u8BA4\u51FA\u62D6\u7684\u662F\u54EA\u4E00\u9879\uFF1B\u4ECE\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u7684\u628A\u624B\u62D6");
+    if (!item || !item.path) return this.notice("\u6CA1\u8BA4\u51FA\u62D6\u7684\u662F\u54EA\u4E00\u9879");
     const file = this.app.vault.getAbstractFileByPath(item.path);
     if (!file) return this.notice("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0");
     const view = this.viewForPath(item.path);
@@ -9337,9 +9369,9 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
     if (line < 0) return this.notice("\u8FD9\u4E00\u884C\u521A\u6539\u8FC7\uFF0C\u91CD\u65B0\u62D6\u4E00\u6B21");
     const block = blockAt(lines, line), k = kwLine(lines[line]);
-    if (k && k.body.startsWith(AUTO_MARK.trim())) return this.notice("\u8FD9\u4E00\u9879\u662F Agent \u8BB0\u7684\uFF0C\u5DF2\u7ECF\u7531\u673A\u5668\u8FFD\u8E2A\uFF0C\u4E0D\u518D\u59D4\u6D3E");
-    if (block && findLink(lines, block)) return this.notice("\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\u4E86\uFF0C\u4E0D\u518D\u59D4\u6D3E\uFF1B\u8981\u6362\u4F1A\u8BDD\uFF0C\u628A\u4F1A\u8BDD\u5361\u7247\u62D6\u5230\u5B83\u4E0A\u9762");
-    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => CLOCK_RE.test(l))) return this.notice("\u8FD9\u4E00\u9879\u5DF2\u7ECF\u6709 Agent \u7684\u7528\u65F6\u8BB0\u5F55\uFF0C\u4E0D\u518D\u59D4\u6D3E");
+    if (k && k.body.startsWith(AUTO_MARK.trim())) return this.notice("Agent \u8BB0\u7684\u6761\u76EE\u4E0D\u59D4\u6D3E");
+    if (block && findLink(lines, block)) return this.notice("\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\uFF0C\u4E0D\u59D4\u6D3E");
+    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => CLOCK_RE.test(l))) return this.notice("\u5DF2\u6709\u7528\u65F6\u8BB0\u5F55\uFF0C\u4E0D\u59D4\u6D3E");
     this._flyArmed = { agent, at: Date.now() };
     try {
       const opts = { file, lines, line, agent };
