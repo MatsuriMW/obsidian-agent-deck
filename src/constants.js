@@ -2,7 +2,7 @@
 
 export const PLUGIN_ID = "agent-deck";
 export const PLUGIN_NAME = "Agent Deck";
-export const PLUGIN_VERSION = "1.1.1";
+export const PLUGIN_VERSION = "1.2.0";
 export const USAGE_FILE = "usage.json";
 export const STORE_VERSION = 1;
 
@@ -225,6 +225,7 @@ export const DEFAULTS = {
   resultBack: true,
   agentKw: true,
   kidBlocks: true,
+  dragGrip: true,          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
   autoLogEvery: 20,
   autoLogIdle: 40,

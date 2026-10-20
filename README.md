@@ -4,9 +4,32 @@
 
 [中文](README.zh-CN.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)
 
-Agent Deck is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy and DeepSeek Harness**, shows what each agent is doing now, and tracks delegated tasks from the editor. Delegation itself stays command-driven: Agent Deck does not put a trigger on every list item. Once a line is bound to a session, the line-end pill becomes the progress surface: the fill moves with the session, the label changes to **Delegating**, and a cancel control appears next to it.
+Agent Deck is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy and DeepSeek Harness**, shows what each agent is doing now, and tracks delegated tasks from the editor. Notes and the panel talk by drag and drop: drop a session card on a list item to bind it, drop a list item on an agent to delegate it. Agent Deck does not put a trigger on every list item. Once a line is bound to a session, the line-end pill becomes the progress surface: the fill moves with the session, the label changes to **Delegating**, and a cancel control appears next to it.
 
 It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), extracted into a standalone plugin and extended with a second primary agent, DeepSeek Harness, model/effort/mode selection, and a layered model picker.
+
+## Note ⇄ panel: drag to bind, drag to delegate
+
+Pin Agent Deck to a sidebar and drag between the note and the panel:
+
+| Drag | Result |
+|---|---|
+| A session card from **现在** → a list item with text (ordered or unordered) | The text stays; the line gets the session's keyword (`DOING` / `TOREVIEW` / `NEEDOK` …) and a `🔗` child. From then on `💬`, status and `⏱` follow the session |
+| A session card → an empty line, an empty item (`- `), or a paragraph | A new item `DOING 20:05 🤖 session title` is created there and bound, following the list's indent and numbering |
+| A list item → an agent card | Delegation. Claude Code and DeepSeek Harness start a session in the background. Codex and WorkBuddy have no CLI that can start a session, so the task goes to the clipboard and the client comes to the front; you paste and send, and Agent Deck binds the new session back to the item once it appears |
+| A delegated session gets its id | Its card flies from the agent card into **现在** |
+| You archive the session in its client | The item becomes `DONE` + `⏱` and the `🔗` line is retired |
+
+- **One-to-one.** A session is bound in one place. Dropping it elsewhere moves the binding; an auto-logged `🤖 …` line written for that session earlier is removed, so a task you already wrote and the agent's run of it merge into one line.
+- **Where to drag from.** While the panel is open, the list item under the cursor shows a small grip ⠿ at its end; drag that, or drag a text selection. Agent cards turn dashed while you drag, and the hovered one says what dropping will do.
+- **Dropping into a note** highlights the target line and labels it (bind / new item); headings, code blocks and tables don't accept drops.
+- Click an agent card's app icon to bring that client to the front.
+
+| | |
+|---|---|
+| ![Session card dropped on an item](assets/demo/01-drag-session-onto-item.jpg) | ![Bound](assets/demo/02-bound.jpg) |
+| ![Item dropped on Codex](assets/demo/03-drag-item-onto-agent.jpg) | ![Waiting for you to send it](assets/demo/04-handoff-waiting.jpg) |
+| ![Card flies into 现在](assets/demo/05-card-flies-into-now.jpg) | ![Archived → DONE](assets/demo/06-archived-done.jpg) |
 
 ## Recommended: use it with Nautilus Spiral
 
@@ -24,11 +47,11 @@ To hand over: open **Settings → 追踪 → 停用螺旋日程里的 AI 写入*
 ## What it does
 
 - **A dashboard for the agents on this Mac.** Running, waiting and quiet sessions for Claude Code, Codex, WorkBuddy and DeepSeek Harness, with project, last step, elapsed time and tokens. Click a row to open that session in its client.
-- **Claude desktop side chats.** In the Claude desktop app a session can spawn another session that looks like a sibling in the sidebar. Agent Deck reads `spawnedFrom` from `claude-code-sessions/**/local_*.json`, indents the child under its parent, and labels the relationship; a session with an open side chat gets a badge, and the menu bar adds `side chat ×N`. Sessions archived in the desktop app drop out of the live lists.
+- **Claude desktop side chats.** In the Claude desktop app a session can spawn another session that looks like a sibling in the sidebar. Agent Deck reads `spawnedFrom` from `claude-code-sessions/**/local_*.json`, indents the child under its parent, and labels the relationship; a session with an open side chat gets a badge, and the menu bar adds `side chat ×N`. Archived sessions drop out of **现在** and the recent list for every client: Claude desktop (`isArchived`), Codex (`threads.archived` in `state_*.sqlite`, plus the older `archived_sessions/`), WorkBuddy (`sessions.status` in `workbuddy.db`) and DeepSeek Harness (`archivedSessionIds` in `storages/workspace.json`).
 - **Human–AI journal, moved in.** The AI half of Nautilus Spiral's journal flow now lives here: sessions are recorded into today's note (a local `claude -p` names them and matches existing task lines), status and elapsed time are written back, `💬` carries the last reply, child sessions / side chats / Claude Code subagents become nested blocks, and archiving a session marks its line `DONE`. Nautilus keeps the tracking display.
 - **Write-back on bound lines.** A bound `🔗` session gets `💬`, its keyword follows the session (`DOING` / `TOREVIEW` / `NEEDOK` / `ERRORED` / `HITLIMIT`), and archiving writes `DONE` + `⏱` and retires the `🔗` line. While Nautilus's own AI tracking is still enabled Agent Deck stays out of the note, so the two never fight over the same lines.
 - **Two primary agents, full history.** Pick up to two agents as primaries. They are read in full (all history, cross-day catch-up); every other enabled agent is only read for sessions that moved today.
-- **Command-driven delegation.** Use `Agent Deck: 委派光标所在块…` or your existing **块去向 → 委派给 Claude** shortcut. Agent Deck does not put a **Delegate** button on every list item. The options sheet is still available from `Agent Deck: 委派选项…` when you want model, effort, permission mode or a working directory that differs from the defaults.
+- **Drag or command delegation.** Drop an item on an agent card, or use `Agent Deck: 委派光标所在块…` or your existing **块去向 → 委派给 Claude** shortcut. Agent Deck does not put a **Delegate** button on every list item. The options sheet is still available from `Agent Deck: 委派选项…` when you want model, effort, permission mode or a working directory that differs from the defaults.
 - **Progress only on bound lines.** A line with a `🔗` session or a running delegation gets a line-end pill. While the job runs the pill fills and shows the elapsed clock; the `×` cancels it. When the agent answers, the pill becomes **Done** and the result is written under the task as one `💬` line. Lines with no session stay clean.
 - **Note-native records.** Delegation writes a `🔗` line under the task and changes the status to `DELEGATED`; the line is the source of truth. Delete the `🔗` line to unbind.
 - **Layered model settings.** A global default model, a default effort slider, capability tags, search/filter, enable switches, pinned order, per-row menu, and task models. Changes sit in an **Unsaved changes** bar until you save them.
@@ -50,7 +73,7 @@ The menu bar item is a tiny SwiftUI helper app compiled on first use. It is not 
 - **Primary agents** (up to two) contribute more rows: all live sessions plus recent sessions from the last six hours, up to six per primary by default.
 - **Other agents** contribute only sessions that are currently running, up to three per agent by default. **WorkBuddy is the exception**: its waiting sessions are listed too, because they are part of the daily loop.
 - The header shows all enabled agents as chips, with running and waiting counts, including agents that have no row at the moment.
-- Clicking a row opens the same deeplink as the dashboard. DeepSeek Harness focuses the client and copies the session id; Codex copies `codex resume <id>`.
+- Clicking a row opens the same deeplink as the dashboard. DeepSeek Harness focuses the client and copies the session id; Codex opens `codex://threads/<id>` and copies `codex resume <id>`.
 - **打开面板** opens the Obsidian dashboard via `obsidian://agent-deck`; **重新扫描** triggers a scan; **隐藏** disables the menu bar from inside the panel.
 
 The dashboard itself keeps the calmer 1.0.2 palette; only the menu bar uses the vivid task-state colours.
@@ -97,7 +120,9 @@ ACP does not expose Claude-style plan/auto permission modes. Instead the plugin 
 
 ### Codex and WorkBuddy
 
-Codex and WorkBuddy are tracked read-only. Codex has no session URL, so the dashboard copies `codex resume <id>`. WorkBuddy opens with `workbuddy://chat/<id>`.
+Codex and WorkBuddy have no CLI that can start a session, so they use a client hand-off: drop an item on their card, the task text (with your delegation prefix/suffix) goes to the clipboard and the client comes to the front; start a chat, paste, send. On each scan Agent Deck looks for a new session of that agent whose opening matches, writes `🔗` under the item, marks it `DELEGATED`, and flies the card into **现在**. While it waits, the agent card shows a "waiting for you to send" row with an `×`; it gives up after 30 minutes.
+
+Codex sessions open in the desktop app with `codex://threads/<id>` (and `codex resume <id>` is copied too). WorkBuddy opens with `workbuddy://chat/<id>`.
 
 ## Deep links
 
@@ -106,7 +131,7 @@ Codex and WorkBuddy are tracked read-only. Codex has no session URL, so the dash
 | Claude Code | `claude://resume?session=<id>` | Works |
 | WorkBuddy | `workbuddy://chat/<id>` | Works |
 | DeepSeek Harness | `dsh://open` | Opens the client; the desktop build does not expose a per-session URL yet. Agent Deck copies the session id to the clipboard so you can find it in the sidebar. |
-| Codex | none | Copies `codex resume <id>` |
+| Codex | `codex://threads/<id>` | Works; also copies `codex resume <id>` |
 
 ## The status pill
 

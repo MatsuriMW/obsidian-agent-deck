@@ -24,7 +24,12 @@ export const KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s
 export const AUTO_MARK = "🤖 ";
 
 const pad = (n) => String(n).padStart(2, "0");
-export const clock = (t) => `${pad(Math.floor(t / 60) % 24)}:${pad(Math.round(t % 60))}`;
+// 会话时段存的是「从日记分界（设置里的 dayCutoff，默认早上 8 点）起算的分钟数」，写成钟点要把分界加回来。
+// 插件加载、改设置时 setDayOffset(dayCutoff * 60)；测试里不设就是 0，从零点算
+let DAY_OFFSET = 0;
+export const setDayOffset = (min) => { DAY_OFFSET = Number(min) || 0; };
+export const dayOffset = () => DAY_OFFSET;
+export const clock = (t) => { const m = Math.round(t + DAY_OFFSET); return `${pad(Math.floor(((m % 1440) + 1440) % 1440 / 60))}:${pad(((m % 60) + 60) % 60)}`; };
 export const durTag = (m) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? (m % 60) + "m" : ""}` : `${Math.max(1, Math.round(m))}m`);
 export const width = (line) => { let w = 0; for (const c of (/^\s*/.exec(line) || [""])[0]) w += c === "\t" ? 4 : 1; return w; };
 
@@ -66,14 +71,20 @@ export function kwLine(raw) {
 export function parseLink(line) {
   const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
-  const b = /^\s*[-*+]\s+🔗.*`([0-9a-f-]{36})`/.exec(line);
-  return b ? { agent: "claude", sid: b[1], title: "" } : null;
+  const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
+  if (d) return d[2] ? { agent: "codex", sid: d[3], title: d[1] || "" } : { agent: "workbuddy", sid: decodeURIComponent(d[6]), title: d[4] || "" };
+  const b = /^\s*[-*+]\s+🔗.*`((?:session-)?[0-9a-f-]{36})`/.exec(line);
+  if (!b) return null;
+  const agent = /DeepSeek Harness|dsh:\/\//.test(line) ? "dsh" : /Codex[：:]/.test(line) ? "codex" : /WorkBuddy[：:]/.test(line) ? "workbuddy" : "claude";
+  return { agent, sid: b[1], title: "" };
 }
 
 export function linkLine(indent, agent, title, sid) {
-  const safe = String(title || "").replace(/[\[\]]/g, " ").trim();
+  const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
   if (agent === "claude") return `${indent}- 🔗 [Claude：${safe}](claude://resume?session=${sid})`;
   if (agent === "dsh") return `${indent}- 🔗 [DeepSeek Harness：${safe}](dsh://open) \`${sid}\``;
+  if (agent === "codex") return `${indent}- 🔗 [Codex：${safe}](codex://threads/${sid})`;
+  if (agent === "workbuddy") return `${indent}- 🔗 [WorkBuddy：${safe}](workbuddy://chat/${encodeURIComponent(sid)})`;
   return `${indent}- 🔗 ${agent}：${safe} \`${sid}\``;
 }
 
@@ -210,4 +221,118 @@ export function kidMatch(body, desc) {
   const a = kidNorm(body), d = kidNorm(desc);
   if (a.length < 4 || d.length < 4) return false;
   return a.startsWith(d) || d.startsWith(a) || (a.length >= 8 && d.length >= 8 && a.slice(0, 8) === d.slice(0, 8));
+}
+
+// ---------- 拖拽绑定：面板里的会话卡片拖到笔记某一行上 ----------
+
+const EMPTY_ITEM_RE = /^(\s*(?:[-*+]|\d+[.)]))\s*$/;
+const MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬)/;
+
+// 会话现在的状态 → 任务行上的关键词（和回写那一半同一套）
+export function kwForState(state) {
+  return ({ run: "DOING", running: "DOING", starting: "DOING", wait: "TOREVIEW", quiet: "TOREVIEW", idle: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" })[state] || "DOING";
+}
+
+// 拖到第 at 行会发生什么：
+//   bind  这一行是有字的列表项 → 会话绑到它下面（拖到 🔗 / ⏱ / 💬 记号行上，算它的母项）
+//   fill  空的列表项（「- 」「1. 」）→ 就在这一项写上会话
+//   new   空行 → 在这儿新建一项
+//   below 不是列表的一段文字 → 在它下面新建一项
+export function dropKind(lines, at) {
+  if (at < 0 || at >= lines.length) return null;
+  const raw = lines[at];
+  if (MARKER_RE.test(raw)) {
+    const n = markOwner(lines, at);
+    return n >= 0 ? { kind: "bind", line: n } : null;
+  }
+  if (EMPTY_ITEM_RE.test(raw)) return { kind: "fill", line: at };
+  if (!raw.trim()) return { kind: "new", line: at };
+  if (LIST_RE.test(raw)) return kwLine(raw) ? { kind: "bind", line: at } : null;
+  if (/^\s*(?:#|```|~~~|\||>|---)/.test(raw)) return null;   // 标题、代码块、表格、引用、分隔线上不放
+  return { kind: "below", line: at };
+}
+
+// 这一项的子项用多深的缩进：已经有子项就跟着它，没有就用 tab（和委派写 🔗 的习惯一样）
+export function childIndent(lines, n) {
+  const base = width(lines[n]);
+  for (let i = n + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) > base) return (/^\s*/.exec(lines[i]) || [""])[0];
+    break;
+  }
+  const lead = (/^\s*/.exec(lines[n]) || [""])[0];
+  return lead + (lead && !lead.includes("\t") ? "    " : "\t");
+}
+
+// 把会话 s 绑到第 at 行（或在那儿新建一项）。s = { sid, agent, title, state, since, dropKey }
+//   · 一个会话只绑一处：别处已有的 🔗 先摘掉；自动记日记替它新写过的「🤖 …」那一项（dropKey）一起收掉
+//   · 原文不动，只在前面换上状态关键词（TODO / 没写关键词的 → DOING / TOREVIEW …；DONE、PAUSED 这些你定的不碰）
+// 返回 { text, line, kind } 或 { text, error }
+export function bindInto(text, at, s) {
+  let lines = text.split("\n");
+  const target = dropKind(lines, at);
+  if (!target) return { text, error: "这一行放不了会话：拖到列表项、空的列表项或空行上" };
+  let n = target.line;
+  if (target.kind === "bind") {
+    const had = linkUnder(lines, n);
+    if (had && had.sid === s.sid) return { text, error: "这一项已经绑着这个会话了" };
+    if (had) return { text, error: "这一项已经绑着另一个会话；先删掉它下面的 🔗 行" };
+  }
+  const want = kwForState(s.state);
+  const since = s.since || "";
+  const title = resultText(s.title || "没起名的会话", 60);
+
+  // 先把这个会话在别处的痕迹收掉，再按内容重新找回目标行
+  const anchor = lines[n];
+  const drop = (i) => { lines.splice(i, 1); if (i < n) n--; };
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const k = parseLink(lines[i]);
+    if (k && k.sid === s.sid) drop(i);
+  }
+  if (s.dropKey) {
+    const hit = taskItems(lines.join("\n")).find((t) => t.key === s.dropKey && t.body.startsWith(AUTO_MARK.trim()) && t.line !== n);
+    if (hit) {
+      const base = width(lines[hit.line]);
+      let end = hit.line, own = true;
+      for (let i = hit.line + 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        if (width(lines[i]) <= base) break;
+        if (!MARKER_RE.test(lines[i])) own = false;
+        end = i;
+      }
+      if (own) for (let i = end; i >= hit.line; i--) drop(i);
+    }
+  }
+  if (lines[n] !== anchor) {
+    const back = lines.indexOf(anchor);
+    if (back < 0) return { text, error: "笔记在拖的时候变了，再拖一次" };
+    n = back;
+  }
+
+  if (target.kind === "bind") {
+    const p = splitTask(lines[n]);
+    if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
+      lines[n] = `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
+    }
+    lines.splice(n + 1, 0, linkLine(childIndent(lines, n), s.agent, title, s.sid));
+    return { text: lines.join("\n"), line: n, kind: "bind" };
+  }
+
+  let prefix;
+  if (target.kind === "fill") prefix = EMPTY_ITEM_RE.exec(lines[n])[1] + " ";
+  else {
+    // 空行 / 段落：照着上面最近那一项的缩进和列表符号接着写；上面没有列表就用「- 」
+    let prev = -1;
+    for (let i = (target.kind === "below" ? n : n - 1); i >= 0; i--) { if (lines[i].trim()) { prev = i; break; } }
+    const pm = prev >= 0 ? /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[prev]) : null;
+    prefix = !pm || MARKER_RE.test(lines[prev]) ? (pm ? (/^\s*/.exec(lines[markOwner(lines, prev)] || "") || [""])[0] + "- " : "- ")
+      : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
+  }
+  const item = `${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " ");
+  if (target.kind === "below") { lines.splice(n + 1, 0, item); n = n + 1; }
+  else if (target.kind === "new" && lines[n + 1] && lines[n + 1].trim() && !LIST_RE.test(lines[n + 1])) lines.splice(n, 0, item);   // 空行下面紧接一段文字：空行留着，不然那段会变成这一项的续行
+  else lines[n] = item;
+  const lead = (/^\s*/.exec(item) || [""])[0];
+  lines.splice(n + 1, 0, linkLine(lead + (lead && !lead.includes("\t") ? "    " : "\t"), s.agent, title, s.sid));
+  return { text: lines.join("\n"), line: n, kind: target.kind };
 }

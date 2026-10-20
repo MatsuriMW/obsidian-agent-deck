@@ -192,14 +192,35 @@ export class AgentUsage {
     } catch { /* no index */ }
   }
 
+  // 桌面版以外几家的「归档」各记在各的地方，每轮重读一遍（取消归档也能跟上）：
+  //   Codex：老版本把日志挪进 archived_sessions/，新版在 state_*.sqlite 的 threads.archived
+  //   WorkBuddy：workbuddy.db 的 sessions.status = 'archived'（删掉的有 deleted_at）
+  //   DeepSeek Harness：storages/workspace.json 的 global.archivedSessionIds
   async readCodexArchived() {
-    const dir = path.join(process.env.CODEX_HOME || path.join(home(), ".codex"), "archived_sessions");
+    const out = new Set();
+    const codex = process.env.CODEX_HOME || path.join(home(), ".codex");
     try {
-      for (const f of await fsp.readdir(dir)) {
+      for (const f of await fsp.readdir(path.join(codex, "archived_sessions"))) {
         const m = /([0-9a-f]{8}-[0-9a-f-]{27})\.jsonl$/.exec(f);
-        if (m) this.archived.add(m[1]);
+        if (m) out.add(m[1]);
       }
     } catch { /* none */ }
+    if (Date.now() - (this._dbAt || 0) > 15000 || !this._dbArchived) {
+      this._dbAt = Date.now();
+      const db = new Set();
+      try {
+        const states = (await fsp.readdir(codex)).filter((f) => /^state_\d+\.sqlite$/.test(f)).sort();
+        if (states.length) for (const id of await sqliteColumn(path.join(codex, states[states.length - 1]), "select id from threads where archived = 1")) db.add(id);
+      } catch { /* no codex state */ }
+      for (const id of await sqliteColumn(path.join(home(), ".workbuddy/workbuddy.db"), "select id from sessions where status = 'archived' or deleted_at is not null")) db.add(id);
+      try {
+        const ws = JSON.parse(await fsp.readFile(path.join(home(), ".dsh/storages/workspace.json"), "utf8"));
+        for (const id of (ws && ws.global && ws.global.archivedSessionIds) || []) db.add(String(id));
+      } catch { /* no harness */ }
+      this._dbArchived = db;
+    }
+    for (const id of this._dbArchived) out.add(id);
+    this.archived = out;
   }
 
   // ----- Claude desktop session index -----
@@ -966,3 +987,14 @@ export class UsageStore {
 }
 
 export { dayKey };
+
+// 查一列（只跑 select）：macOS 自带 /usr/bin/sqlite3。不加 -readonly：WAL 模式的库（Codex）只读打不开。查不到返回空数组。
+function sqliteColumn(db, sql) {
+  return new Promise((resolve) => {
+    if (!fs.existsSync(db)) return resolve([]);
+    execFile("/usr/bin/sqlite3", ["-noheader", db, sql], { timeout: 5000, maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
+      if (err) return resolve([]);
+      resolve(String(out || "").split("\n").map((s) => s.trim()).filter(Boolean));
+    });
+  });
+}

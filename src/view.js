@@ -3,6 +3,7 @@
 import { ItemView, Menu, setIcon } from "obsidian";
 import { AGENTS, AGENT_ORDER, fmtKey, fmtMin, fmtTok, fmtClock, fmtDur, timeAgo, truncate, unionSegs, dayKeyToday, esc } from "./constants.js";
 import { agentIcon, setLucide, stateIcon } from "./icons.js";
+import { SESSION_MIME } from "./editor.js";
 
 export const VIEW_TYPE = "agent-deck-view";
 
@@ -91,12 +92,12 @@ export class AgentDeckView extends ItemView {
     const nowHead = this.secHead(nowSec, "现在", `${running.length} 个在跑 · ${waiting.length} 个等你`);
     const nowList = nowSec.createDiv({ cls: "ad-nowlist" });
     const nowItems = [...running, ...waiting].slice(0, 6);
-    if (!nowItems.length) this.empty(nowList, "现在没有在跑的会话", "从任务行点「委派」，或者等下一次扫描。");
+    if (!nowItems.length) this.empty(nowList, "现在没有在跑的会话", "把笔记里的一项拖到下面的 Agent 上委派，或者等下一次扫描。");
     for (const s of nowItems) this.sessionCard(nowList, s, true);
 
     // Agents
     const agentsSec = dash.createDiv({ cls: "ad-sec" });
-    this.secHead(agentsSec, "Agents", "点星标切换主力（最多两个）", () => p.openSettings());
+    this.secHead(agentsSec, "Agents", "点图标打开客户端 · 把笔记里的一项拖上来委派", () => p.openSettings());
     const grid = agentsSec.createDiv({ cls: "ad-agentgrid" });
     for (const id of AGENT_ORDER) this.agentCard(grid, id, today);
 
@@ -123,6 +124,7 @@ export class AgentDeckView extends ItemView {
     this.renderSessions(recSec);
 
     root.scrollTop = this._scroll;
+    this.playFly(dash);
     if (searchWasFocused) { const i = root.querySelector(".ad-search__input"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   }
 
@@ -168,11 +170,29 @@ export class AgentDeckView extends ItemView {
     const primary = p.isPrimary(id);
     const by = (today && today.by && today.by[id]) || null;
     const card = parent.createDiv({ cls: `ad-agentcard ${enabled ? "" : "is-off"} ${primary ? "is-primary" : ""}` });
+    card.dataset.agent = id;
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
+    // 笔记里的一项拖上来 = 委派给它
+    const handoff = id === "codex" || id === "workbuddy";
+    card.setAttr("data-drop-hint", handoff ? `交给 ${a.short}：复制任务并打开客户端` : `委派给 ${a.short}`);
+    card.addEventListener("dragover", (e) => {
+      if (!p.acceptsItemDrag(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      card.addClass("is-drop");
+    });
+    card.addEventListener("dragleave", (e) => { if (!card.contains(e.relatedTarget)) card.removeClass("is-drop"); });
+    card.addEventListener("drop", (e) => {
+      if (!p.acceptsItemDrag(e)) return;
+      e.preventDefault();
+      card.removeClass("is-drop");
+      p.delegateDrop(id, p.readItemDrag(e));
+    });
     const top = card.createDiv({ cls: "ad-agentcard__top" });
-    const mark = top.createDiv({ cls: "ad-agentcard__mark" });
+    const mark = top.createEl("button", { cls: "ad-agentcard__mark", attr: { "aria-label": `打开 ${a.name}` } });
     agentIcon(mark.createSpan({ cls: "ad-glyph" }), id);
+    mark.onclick = (e) => { e.stopPropagation(); p.openAgentApp(id); };
     const name = top.createDiv({ cls: "ad-agentcard__name" });
     name.createDiv({ cls: "ad-agentcard__title", text: a.name });
     const live = p.usage.liveSessions({ since: Date.now() - 86400000, limit: 100 }).filter((x) => x.agent === id);
@@ -187,6 +207,14 @@ export class AgentDeckView extends ItemView {
     stats.createSpan({ text: fmtTok(by ? by.out : 0) + " tok" });
     const spark = card.createDiv({ cls: "ad-spark" });
     if (p.settings.ui.showSparkline !== false) this.sparkline(spark, id);
+    for (const job of Object.values(p.jobs).filter((j) => j.agent === id && j.handoff && j.state === "starting" && !j.sessionId)) {
+      const row = card.createDiv({ cls: "ad-handoff" });
+      setLucide(row.createSpan({ cls: "ad-handoff__icon ad-spin" }), "loader-circle");
+      row.createSpan({ cls: "ad-handoff__text", text: `等你在 ${a.short} 里发出：${truncate(job.name, 18)}` });
+      const x = row.createEl("button", { cls: "ad-handoff__x", attr: { "aria-label": "不等了" } });
+      setLucide(x, "x");
+      x.onclick = (e) => { e.stopPropagation(); p.cancelJob(job.id); };
+    }
     const foot = card.createDiv({ cls: "ad-agentcard__foot" });
     const toggle = foot.createEl("button", { cls: "ad-minitoggle" + (enabled ? " is-on" : ""), text: enabled ? "追踪中" : "已关闭" });
     toggle.onclick = (e) => { e.stopPropagation(); p.setAgentEnabled(id, !enabled); };
@@ -257,6 +285,17 @@ export class AgentDeckView extends ItemView {
     const p = this.plugin;
     const a = AGENTS[s.agent] || AGENTS.claude;
     const card = parent.createDiv({ cls: `ad-sess ${compact ? "is-now" : ""}` });
+    card.dataset.sid = s.sid;
+    card.draggable = true;
+    card.addEventListener("dragstart", (e) => {
+      const title = s.title || truncate(s.text || s.step || s.sid, 60);
+      e.dataTransfer.setData(SESSION_MIME, JSON.stringify({ agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" }));
+      e.dataTransfer.setData("text/plain", title);
+      e.dataTransfer.effectAllowed = "copyLink";
+      card.addClass("is-dragging");
+      document.body.classList.add("ad-dragging-session");
+    });
+    card.addEventListener("dragend", () => { card.removeClass("is-dragging"); document.body.classList.remove("ad-dragging-session"); });
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     const child = !!s.parentSid;
@@ -302,8 +341,55 @@ export class AgentDeckView extends ItemView {
     const open = () => p.openSession(s.agent, s.sid, s.app, s);
     go.onclick = (e) => { e.stopPropagation(); open(); };
     card.onclick = open;
-    if (s.agent === "dsh") card.title = "DeepSeek Harness 当前只提供 dsh://open（聚焦客户端），会话号会复制到剪贴板";
-    if (s.agent === "claude" && s.app === "cli") card.title = "终端里的 Claude Code：会尝试在 Claude 桌面版打开，也可在设置里改成终端";
+    card.title = "点击打开会话 · 拖到笔记里的一项上绑定，拖到空行上新建一项";
+    if (s.agent === "dsh") card.title += "\nDeepSeek Harness 当前只提供 dsh://open（聚焦客户端），会话号会复制到剪贴板";
+    if (s.agent === "claude" && s.app === "cli") card.title += "\n终端里的 Claude Code：会尝试在 Claude 桌面版打开，也可在设置里改成终端";
+  }
+
+  // 刚委派出去的会话有了会话号：卡片从它的 Agent 卡片飞进「现在」
+  playFly(dash) {
+    // 飞行途中面板重画了：新画出来的目标卡片也先藏着，等影子落地
+    const flying = this.plugin._flying;
+    if (flying && Date.now() < flying.until) {
+      const t = dash.querySelector(`.ad-nowlist .ad-sess[data-sid="${CSS.escape(flying.sid)}"]`);
+      if (t) { t.style.opacity = "0"; flying.target = t; }
+    }
+    const fly = this.plugin._fly;
+    if (!fly) return;
+    if (Date.now() - fly.at > 10000) { this.plugin._fly = null; return; }
+    const target = dash.querySelector(`.ad-nowlist .ad-sess[data-sid="${CSS.escape(fly.sid)}"]`);
+    const from = dash.querySelector(`.ad-agentcard[data-agent="${fly.agent}"]`);
+    if (!target || !from) return;   // 还没进「现在」：等下一次画
+    this.plugin._fly = null;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) { target.addClass("is-landed"); return; }
+    requestAnimationFrame(() => {
+      const a = from.getBoundingClientRect(), b = target.getBoundingClientRect();
+      if (!a.width || !b.width) return;
+      // 影子挂在 body 上，外面包一层 ad-view：卡片的配色变量都定义在 .ad-view 上
+      const layer = document.body.createDiv({ cls: "ad-view ad-fly-layer" });
+      const ghost = target.cloneNode(true);
+      ghost.classList.add("ad-fly-ghost");
+      Object.assign(ghost.style, { position: "fixed", left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px`, margin: "0", zIndex: "9999", pointerEvents: "none", transformOrigin: "top left" });
+      layer.appendChild(ghost);
+      target.style.opacity = "0";
+      const flying = this.plugin._flying = { sid: fly.sid, until: Date.now() + 3000, target };
+      const sx = a.width / b.width, sy = a.height / b.height;
+      const dx = a.left - b.left, dy = a.top - b.top;
+      const anim = ghost.animate([
+        { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: 0.35 },
+        { transform: `translate(${dx * 0.12}px, ${Math.min(-10, dy * 0.12)}px) scale(1.03)`, opacity: 1, offset: 0.62 },
+        { transform: "none", opacity: 1 },
+      ], { duration: 760, easing: "cubic-bezier(.22,.9,.24,1)" });
+      const done = () => {
+        layer.remove();
+        const t = flying.target || target;
+        t.style.opacity = "";
+        t.addClass("is-landed");
+        if (this.plugin._flying === flying) this.plugin._flying = null;
+      };
+      anim.onfinish = done;
+      anim.oncancel = done;
+    });
   }
 
   empty(parent, title, sub) {

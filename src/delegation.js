@@ -10,6 +10,7 @@ import path from "path";
 import os from "os";
 import { spawn, execFile } from "child_process";
 import { AGENTS, AGENT_SHORT, DEFAULTS, clamp, deepMerge, fmtTok, truncate } from "./constants.js";
+import * as J from "./journal.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -54,8 +55,9 @@ export function findLink(lines, block) {
   if (at < 0) return null;
   const m = /claude:\/\/resume\?session=([0-9a-f-]{20,})/i.exec(lines[at]);
   const wb = /workbuddy:\/\/chat\/([^\s)\]]+)/i.exec(lines[at]);
+  const cx = /codex:\/\/threads\/([0-9a-f-]{36})/i.exec(lines[at]);
   const back = /`([0-9a-f-]{16,}|session-[0-9a-f-]{20,})`/i.exec(lines[at]);
-  return { line: at, sid: (m && m[1]) || (wb && decodeURIComponent(wb[1])) || (back && back[1]) || "", raw: lines[at] };
+  return { line: at, sid: (m && m[1]) || (cx && cx[1]) || (wb && decodeURIComponent(wb[1])) || (back && back[1]) || "", raw: lines[at] };
 }
 
 export function statusOf(line) {
@@ -73,10 +75,7 @@ export function markDelegated(line) {
 }
 
 export function linkLine(indent, agent, name, sid) {
-  const safe = String(name || "").replace(/[\[\]()`]+/g, " ").slice(0, 48);
-  if (agent === "claude") return `${indent}- 🔗 [Claude：${safe}](claude://resume?session=${sid})`;
-  if (agent === "dsh") return `${indent}- 🔗 [DeepSeek Harness：${safe}](dsh://open) \`${sid}\``;
-  return `${indent}- 🔗 ${AGENT_SHORT(agent)}：${safe} \`${sid}\``;
+  return J.linkLine(indent, agent, String(name || "").slice(0, 48), sid);
 }
 
 export function findDshBinary() {
@@ -145,8 +144,33 @@ export function sessionDeepLink(agent, sid) {
   if (agent === "claude") return `claude://resume?session=${sid}`;
   if (agent === "workbuddy") return `workbuddy://chat/${encodeURIComponent(sid)}`;
   if (agent === "dsh") return "dsh://open";
-  if (agent === "codex") return "";
+  if (agent === "codex") return `codex://threads/${sid}`;
   return "";
+}
+
+// 点 Agent 卡片上的 App 图标：把那个客户端叫到前台。按 bundle id 找，App 改名、挪位置都不影响；
+// 找不到再退回各家自己的 URL scheme
+export const AGENT_APPS = {
+  claude: { bundle: "com.anthropic.claudefordesktop", url: "claude://" },
+  codex: { bundle: "com.openai.codex", url: "codex://launch" },
+  workbuddy: { bundle: "com.tencent.workbuddy.mac", url: "workbuddy://home" },
+  dsh: { bundle: "com.deepseek.dsh", url: "dsh://open" },
+};
+
+export function openAgentApp(agent) {
+  const app = AGENT_APPS[agent];
+  if (!app) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    execFile("/usr/bin/open", ["-b", app.bundle], (err) => {
+      if (!err) return resolve(true);
+      resolve(openExternal(app.url));
+    });
+  });
+}
+
+export function copyText(text) {
+  try { require("electron").clipboard.writeText(text); return true; } catch { /* not electron */ }
+  try { navigator.clipboard.writeText(text); return true; } catch { return false; }
 }
 
 export function openSession(plugin, agent, sid, app = "") {
@@ -161,9 +185,10 @@ export function openSession(plugin, agent, sid, app = "") {
   }
   if (agent === "workbuddy") { openExternal(`workbuddy://chat/${encodeURIComponent(sid)}`); return true; }
   if (agent === "codex") {
-    plugin.notice("Codex 没有自己的会话 URL，已复制恢复命令");
-    try { navigator.clipboard.writeText(`codex resume ${sid}`); } catch { /* clipboard */ }
-    return false;
+    // Codex 桌面版认 codex://threads/<id>；命令行开的会话也能打开。恢复命令顺手放进剪贴板，终端里也能接着用
+    openExternal(`codex://threads/${sid}`);
+    copyText(`codex resume ${sid}`);
+    return true;
   }
   if (agent === "dsh") {
     // The desktop build currently only exposes dsh://open (focus the client). Keep the
@@ -611,6 +636,66 @@ export class Delegator {
     return job;
   }
 
+  // Codex / WorkBuddy 没有能起会话的命令行接口：任务文字放进剪贴板、把客户端叫到前台，你粘贴发出去。
+  // 之后每轮扫描找这个 Agent 新出现、开头对得上的会话，找到就绑回这一行（🔗 + DELEGATED），面板里的卡片飞进「现在」。
+  async handoff(opts) {
+    this.refreshSettings();
+    const agent = opts.agent;
+    const file = opts.file;
+    if (!file) throw new Error("没有当前笔记");
+    const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
+    const block = opts.block || blockAt(lines, opts.line);
+    if (!block) throw new Error("要拖一个列表项");
+    if (hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
+    const title = blockTitle(block) || "Agent Deck task";
+    const name = truncate(title, this.C.nameMax || 56);
+    const prompt = this.buildPrompt({ ...opts, block, file, title });
+    const job = {
+      id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      agent, name, path: file.path, line: block.start, lineText: lines[block.start],
+      blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
+      startedAt: Date.now(), state: "starting", handoff: true, step: `等你在 ${AGENTS[agent]?.name || agent} 里发出去`,
+      cwd: this.vaultPath, sessionId: "", linkWritten: false, resultWritten: false,
+    };
+    this.jobs[job.id] = job;
+    this.plugin.saveJobs();
+    copyText(prompt);
+    await openAgentApp(agent);
+    this.plugin.notice(`📋 任务已复制，${AGENTS[agent]?.name || agent} 已打开：新建对话、粘贴发出去。\n会话一出现，Agent Deck 会把它绑回「${name}」。`, 10000);
+    this.plugin.refreshUI();
+    return job;
+  }
+
+  // 每轮扫描后调用：交接中的任务认领新会话；半小时没等到就作罢
+  resolveHandoffs(usage) {
+    const waiting = Object.values(this.jobs).filter((j) => j.handoff && j.state === "starting" && !j.sessionId);
+    if (!waiting.length) return;
+    const taken = new Set(Object.values(this.jobs).map((j) => j.sessionId).filter(Boolean));
+    const norm = (s) => String(s || "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
+    for (const job of waiting) {
+      if (Date.now() - job.startedAt > 30 * 60000) {
+        job.state = "cancelled";
+        job.error = "半小时里没在客户端看到这个任务的新会话";
+        job.endedAt = Date.now();
+        this.saveJobs();
+        continue;
+      }
+      const head = norm(job.name).slice(0, 10);
+      const promptHead = norm(job.prompt).slice(0, 24);
+      let best = null;
+      for (const m of usage.meta.values()) {
+        if (m.agent !== job.agent || taken.has(m.sid) || (m.lastAt || 0) < job.startedAt - 5000) continue;
+        const t = norm(m.text || m.title);
+        if (!t || !(t.includes(head) || t.startsWith(promptHead.slice(0, 16)))) continue;
+        if (!best || (m.lastAt || 0) < (best.lastAt || 0)) best = m;
+      }
+      if (!best) continue;
+      taken.add(best.sid);
+      job.app = best.app || "";
+      this.onSession(job, best.sid);
+    }
+  }
+
   buildPrompt(opts) {
     const c = this.C;
     const parts = [];
@@ -624,7 +709,10 @@ export class Delegator {
 
   onSession(job, sid) {
     job.sessionId = sid;
-    job.state = "running";
+    // 交接来的会话不归 Agent Deck 管进程：绑上之后状态全看会话日志
+    job.state = job.handoff ? "bound" : "running";
+    this.plugin.markBound?.(sid);
+    this.plugin.flyFromAgent?.(job);
     this.saveJobs();
     if (job.linkWritten) return;
     job.linkWritten = true;

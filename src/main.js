@@ -17,14 +17,15 @@ import {
   timeAgo, truncate, unionSegs, clamp,
 } from "./constants.js";
 import { AgentUsage, UsageStore, projectName } from "./readers.js";
-import { Delegator, blockAt, blockTitle, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findLink, statusOf, sessionDeepLink } from "./delegation.js";
+import { Delegator, blockAt, blockTitle, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findLink, statusOf, sessionDeepLink, openAgentApp } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { AgentDeckSettingsTab } from "./settings.js";
 import { DelegateOptionsModal } from "./dialog.js";
-import { createEditorExtension, dispatchRefresh } from "./editor.js";
+import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
 import { MenuBarBridge } from "./menubar.js";
 import { AutoLog } from "./autolog.js";
 import { JournalSync } from "./sync.js";
+import * as J from "./journal.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -37,6 +38,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.settings.primaryAgents = this.settings.primaryAgents.filter((x) => AGENTS[x]).slice(0, 2);
     if (!this.settings.primaryAgents.length) this.settings.primaryAgents = ["claude"];
     this.settings.jobs = this.settings.jobs && typeof this.settings.jobs === "object" ? this.settings.jobs : {};
+    J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 8) * 60);
     this.jobs = this.settings.jobs;
     this.views = new Set();
     this._lineMaps = {};
@@ -123,7 +125,7 @@ export default class AgentDeckPlugin extends Plugin {
     for (const runner of this.delegator?.runners?.values?.() || []) {
       try { if (runner.constructor && runner.constructor.name === "DshRunner") runner.cancel(); } catch { /* already gone */ }
     }
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) try { leaf.detach(); } catch { /* gone */ }
+    // 面板不在这里 detach：固定在侧栏的位置要留着，重载 / 更新插件后原地回来
     try { this.ribbonEl?.remove(); } catch { /* gone */ }
   }
 
@@ -182,6 +184,7 @@ export default class AgentDeckPlugin extends Plugin {
       this.store.merge(touched, this.usage);
       this.store.prune();
       await this.store.save();
+      this.delegator.resolveHandoffs(this.usage);
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
       if (force) new Notice(`Agent Deck：读到 ${this.usage.files.size} 个日志，${touched.size} 天有内容`, 4000);
@@ -236,6 +239,7 @@ export default class AgentDeckPlugin extends Plugin {
         continue;
       }
       if (!["starting", "running", "needs-approval"].includes(job.state)) continue;
+      if (job.handoff) continue;   // 交接中的任务不归插件进程管，扫描时照样认领
       if (this.delegator.runners.has(job.id)) continue;
       const meta = job.sessionId ? this.usage.meta.get(job.sessionId) : null;
       if (meta && meta.lastAt) {
@@ -264,6 +268,7 @@ export default class AgentDeckPlugin extends Plugin {
   // ---------- settings ----------
   async saveSettings() {
     this.settings.jobs = this.jobs;
+    J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 8) * 60);
     await this.saveData(this.settings);
   }
 
@@ -334,10 +339,10 @@ export default class AgentDeckPlugin extends Plugin {
     const list = this.usage.liveSessions({ since, limit: 100 }).filter((x) => this.agentEnabled(x.agent));
     const seen = new Set(list.map((x) => x.sid));
     for (const job of Object.values(this.jobs)) {
-      if (!["starting", "running", "needs-approval"].includes(job.state)) continue;
-      if (job.sessionId && seen.has(job.sessionId)) continue;
-      if (!job.sessionId && seen.has(job.id)) continue;
-      const sid = job.sessionId || job.id;
+      if (!["running", "needs-approval"].includes(job.state)) continue;
+      if (!job.sessionId || seen.has(job.sessionId)) continue;
+      if (this.usage.hidden(job.sessionId)) continue;
+      const sid = job.sessionId;
       list.push({
         sid, agent: job.agent, title: job.name, text: job.blockText, cwd: job.cwd || this.vaultPath,
         app: "", state: job.state === "needs-approval" ? "needs-approval" : "run", step: job.step || "正在启动会话…",
@@ -355,7 +360,11 @@ export default class AgentDeckPlugin extends Plugin {
     for (const job of Object.values(this.jobs)) {
       const sid = job.sessionId || job.id;
       if (!this.agentEnabled(job.agent)) continue;
+      // 归档了的会话不回到列表里；交接还没认领到会话的不算会话
+      if (job.sessionId && this.usage.hidden(job.sessionId)) { bySid.delete(sid); continue; }
+      if (job.handoff && !job.sessionId) continue;
       const cur = bySid.get(sid);
+      if (job.state === "bound") { if (cur) bySid.set(sid, { ...cur, job }); continue; }
       const row = {
         ...(cur || {}), sid, agent: job.agent, title: job.name || (cur && cur.title) || "",
         text: (cur && cur.text) || job.blockText || "", cwd: job.cwd || (cur && cur.cwd) || this.vaultPath,
@@ -441,6 +450,114 @@ export default class AgentDeckPlugin extends Plugin {
       if (j.lineText === text || (j.line === line && j.lineText === text)) best = j;
     }
     return best;
+  }
+
+  // ---------- drag and drop ----------
+  // 一个会话绑到了日记里（拖拽、委派、归档收尾）：告诉自动记日记别再替它新写一行
+  markBound(sid) {
+    if (!sid) return;
+    const day = dayKeyToday(this.settings);
+    const st = ((this.settings.autoLogState ||= {})[day] ||= {});
+    if (st[sid] && st[sid].bound) return;
+    st[sid] = { ...(st[sid] || {}), skip: true, bound: true };
+    this.saveSettings().catch(() => {});
+  }
+
+  // 编辑器里找打开着这篇笔记的那个 MarkdownView（不一定是当前激活的：拖拽时焦点常在面板上）
+  viewForPath(path) {
+    let found = null;
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const v = leaf.view;
+      if (!found && v instanceof MarkdownView && v.file && v.file.path === path && v.editor) found = v;
+    });
+    return found;
+  }
+
+  // 面板里的会话卡片拖到了笔记第 line 行上
+  bindSessionAt(cm, line, data) {
+    let view = null;
+    this.app.workspace.iterateAllLeaves((leaf) => { const v = leaf.view; if (!view && v instanceof MarkdownView && v.editor && v.editor.cm === cm) view = v; });
+    if (!view || !data || !data.sid) return;
+    const sid = data.sid;
+    const meta = this.usage.meta.get(sid) || {};
+    const live = this.liveSessions({ hours: 24 }).find((x) => x.sid === sid);
+    const day = dayKeyToday(this.settings);
+    const rec = ((this.settings.autoLogState || {})[day] || {})[sid];
+    const daySess = ((this.usage.summary(day) || {}).list || []).find((x) => x.sid === sid);
+    const first = daySess && daySess.segs && daySess.segs.length ? daySess.segs[0][0] : null;
+    const now = new Date();
+    const since = first != null ? J.clock(first) : `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const text = cm.state.doc.toString();
+    const res = J.bindInto(text, line, {
+      sid, agent: data.agent || meta.agent || "claude",
+      title: data.title || meta.title || (meta.text || "").split(" / ")[0] || sid.slice(0, 8),
+      state: (live && live.state) || meta.state || "idle", since,
+      dropKey: rec && rec.created && rec.key ? rec.key : null,
+    });
+    if (res.error) return this.notice(res.error, 6000);
+    const change = J.diffLines(text, res.text);
+    if (change) view.editor.transaction({ changes: [change] });
+    this.markBound(sid);
+    const a = AGENTS[data.agent] || AGENTS.claude;
+    this.notice(res.kind === "bind" ? `🔗 已绑定：${a.short} 会话的状态、💬、⏱ 和归档都会跟着这一项走` : `🔗 新建了一项并绑上 ${a.short} 会话`, 5000);
+    setTimeout(() => this.journalSync.run({ force: true }).catch(() => {}), 300);
+    this.refreshUI();
+  }
+
+  // 编辑器里开始拖一项（把手或选中的文字）：记下来源，拖到 Agent 卡片上时用
+  noteDragItem(src) {
+    const item = this._dragItem = { ...src, at: Date.now() };
+    document.body.classList.add("ad-dragging-item");
+    const off = (e) => {
+      document.body.classList.remove("ad-dragging-item");
+      document.removeEventListener("dragend", off, true);
+      document.removeEventListener("drop", off, true);
+      // drop 先于卡片自己的 drop 处理（捕获阶段），来源要留给它读；拖完（dragend）再清
+      if (e && e.type === "dragend") setTimeout(() => { if (this._dragItem && this._dragItem.at === item.at) this._dragItem = null; }, 0);
+    };
+    document.addEventListener("dragend", off, true);
+    document.addEventListener("drop", off, true);
+  }
+
+  acceptsItemDrag(e) {
+    const types = e.dataTransfer ? [...e.dataTransfer.types] : [];
+    if (types.includes(ITEM_MIME)) return true;
+    return types.includes("text/plain") && this._dragItem && Date.now() - this._dragItem.at < 120000;
+  }
+
+  readItemDrag(e) {
+    try { const raw = e.dataTransfer.getData(ITEM_MIME); if (raw) return JSON.parse(raw); } catch { /* fall back */ }
+    return this._dragItem && Date.now() - this._dragItem.at < 120000 ? this._dragItem : null;
+  }
+
+  // 笔记里的一项拖到了某个 Agent 卡片上：Claude / DSH 后台直接跑，Codex / WorkBuddy 打开客户端交接
+  async delegateDrop(agent, item, fromEl) {
+    this._dragItem = null;
+    if (!item || !item.path) return this.notice("没认出拖的是哪一项；从列表项尾巴上的把手拖");
+    const file = this.app.vault.getAbstractFileByPath(item.path);
+    if (!file) return this.notice("找不到这篇笔记");
+    const view = this.viewForPath(item.path);
+    const lines = view ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
+    let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
+    if (line < 0) return this.notice("这一行刚改过，重新拖一次");
+    this._flyArmed = { agent, at: Date.now() };
+    try {
+      const opts = { file, lines, line, agent };
+      if (agent === "claude" || agent === "dsh") await this.delegator.delegate(opts);
+      else await this.delegator.handoff(opts);
+    } catch (e) { this.notice(String(e.message || e), 8000); }
+    this.refreshUI();
+  }
+
+  // 委派出去的会话有了会话号（客户端里能打开了）：下一次画面板时，卡片从 Agents 飞进「现在」
+  flyFromAgent(job) {
+    if (!job || !job.sessionId) return;
+    this._fly = { agent: job.agent, sid: job.sessionId, at: Date.now() };
+    this.refreshUI();
+  }
+
+  openAgentApp(agent) {
+    return openAgentApp(agent).then((ok) => { if (!ok) this.notice(`没打开 ${AGENTS[agent]?.name || agent}：本机好像没装`); });
   }
 
   // ---------- editor actions ----------
@@ -643,18 +760,19 @@ export default class AgentDeckPlugin extends Plugin {
   openExternal(url) { return openExternalRaw(url); }
 
   async readNote(path) {
+    const view = this.viewForPath(path);
+    if (view) return view.editor.getValue();
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!file) throw new Error("找不到笔记：" + path);
     return await this.app.vault.read(file);
   }
 
   async writeNote(path, text) {
-    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (view && view.file && view.file.path === path) {
-      const ed = view.editor;
-      const line = clamp(ed.getCursor().line, 0, Math.max(0, ed.lineCount() - 1));
-      ed.setValue(text);
-      try { ed.setCursor({ line: Math.min(line, ed.lineCount() - 1), ch: 0 }); } catch { /* cursor */ }
+    // 开着的笔记按行改一处，不整篇 setValue：光标、折叠、撤销记录都留着
+    const view = this.viewForPath(path);
+    if (view) {
+      const change = J.diffLines(view.editor.getValue(), text);
+      if (change) view.editor.transaction({ changes: [change] });
       return;
     }
     const file = this.app.vault.getAbstractFileByPath(path);
@@ -744,6 +862,7 @@ function parseLinkLine(line) {
   let m = /claude:\/\/resume\?session=([0-9a-f-]{20,})/i.exec(line);
   if (m) { sid = m[1]; agent = "claude"; }
   else if ((m = /workbuddy:\/\/chat\/([^\s)\]]+)/i.exec(line))) { sid = decodeURIComponent(m[1]); agent = "workbuddy"; }
+  else if ((m = /codex:\/\/threads\/([0-9a-f-]{36})/i.exec(line))) { sid = m[1]; agent = "codex"; }
   else if ((m = /`(session-[0-9a-f-]{20,}|[0-9a-f]{8}-[0-9a-f-]{27})`/i.exec(line))) { sid = m[1]; agent = /dsh|deepseek|harness/i.test(line) ? "dsh" : "claude"; }
   else if ((m = /`([0-9a-f]{8}-[0-9a-f-]{27})`/i.exec(line))) { sid = m[1]; agent = "dsh"; }
   else if ((m = /codex\s+resume\s+([0-9a-f-]{20,})/i.exec(line))) { sid = m[1]; agent = "codex"; }

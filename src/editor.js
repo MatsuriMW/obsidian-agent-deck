@@ -3,14 +3,127 @@
 // A CodeMirror widget at the end of a bound/delegated line. While a delegation is
 // running the button itself becomes the progress surface: a liquid fill plus an
 // elapsed clock and a cancel control. Bound sessions get a compact status pill.
+//
+// Drag and drop between the note and the panel also lives here:
+//   · a session card dropped on a line binds it (🔗 child) or starts a new item there;
+//     the target line is highlighted while dragging, with what will happen;
+//   · the line under the cursor gets a small grip — drag it onto an agent card to delegate.
 
 import { Decoration, WidgetType, ViewPlugin, EditorView } from "@codemirror/view";
-import { RangeSetBuilder, StateEffect } from "@codemirror/state";
+import { RangeSetBuilder, StateEffect, StateField, Prec } from "@codemirror/state";
 import { BULLET_RE, findLink, blockAt } from "./delegation.js";
+import * as J from "./journal.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { AGENTS, fmtDur, fmtTok, truncate } from "./constants.js";
 
 export const refreshEffect = StateEffect.define();
+export const SESSION_MIME = "application/x-agent-deck-session";
+export const ITEM_MIME = "application/x-agent-deck-item";
+
+const DROP_LABEL = { bind: "绑定到这一项", fill: "在这里新建一项", new: "在这里新建一项", below: "在下面新建一项" };
+const setDrop = StateEffect.define();
+const dropField = StateField.define({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    deco = deco.map(tr.changes);
+    for (const e of tr.effects) {
+      if (!e.is(setDrop)) continue;
+      if (!e.value) { deco = Decoration.none; continue; }
+      const line = tr.state.doc.line(e.value.line + 1);
+      deco = Decoration.set([Decoration.line({ class: `ad-drop-line ad-drop-line--${e.value.kind}`, attributes: { "data-ad-drop": DROP_LABEL[e.value.kind] || "" } }).range(line.from)]);
+    }
+    return deco;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+const hasType = (e, type) => !!(e.dataTransfer && [...e.dataTransfer.types].includes(type));
+
+function dropTarget(view, e) {
+  const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }, false);
+  if (pos == null) return null;
+  const n = view.state.doc.lineAt(pos).number - 1;
+  return J.dropKind(view.state.doc.toString().split("\n"), n);
+}
+
+function dndHandlers(plugin) {
+  let last = "";
+  const show = (view, t) => {
+    const key = t ? `${t.line}:${t.kind}` : "";
+    if (key === last) return;
+    last = key;
+    view.dispatch({ effects: setDrop.of(t) });
+  };
+  return Prec.highest(EditorView.domEventHandlers({
+    dragover(e, view) {
+      if (!hasType(e, SESSION_MIME)) return false;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "link";
+      show(view, dropTarget(view, e));
+      return true;
+    },
+    dragleave(e, view) {
+      if (!hasType(e, SESSION_MIME)) return false;
+      if (e.relatedTarget && view.dom.contains(e.relatedTarget)) return false;
+      show(view, null);
+      return false;
+    },
+    drop(e, view) {
+      if (!hasType(e, SESSION_MIME)) return false;
+      e.preventDefault();
+      e.stopPropagation();
+      const t = dropTarget(view, e);
+      show(view, null);
+      let data = null;
+      try { data = JSON.parse(e.dataTransfer.getData(SESSION_MIME)); } catch { /* bad payload */ }
+      if (data && t) plugin.bindSessionAt(view, t.line, data);
+      else if (data) plugin.notice("这一行放不了会话：拖到列表项、空的列表项或空行上");
+      return true;
+    },
+    // 选中一段文字拖出去：记下它从哪一行来，拖到 Agent 卡片上也能委派
+    dragstart(e, view) {
+      const sel = view.state.selection.main;
+      if (sel.empty) return false;
+      const info = view.state.field(plugin.editorInfoField, false);
+      const path = info && info.file && info.file.path;
+      if (!path) return false;
+      const n = view.state.doc.lineAt(sel.from).number - 1;
+      plugin.noteDragItem({ path, line: n, lineText: view.state.doc.line(n + 1).text });
+      return false;
+    },
+  }));
+}
+
+// 光标所在的列表项尾巴上的小把手：拖到面板里的 Agent 卡片上就是委派
+class GripWidget extends WidgetType {
+  constructor(plugin, path, line, text) {
+    super();
+    this.plugin = plugin;
+    this.path = path;
+    this.line = line;
+    this.text = text;
+  }
+  eq(o) { return o.path === this.path && o.line === this.line && o.text === this.text; }
+  toDOM() {
+    const el = document.createElement("span");
+    el.className = "ad-grip";
+    el.setAttribute("contenteditable", "false");
+    el.draggable = true;
+    el.title = "拖到 Agent Deck 里的某个 Agent 上，委派这一项";
+    setLucide(el, "grip-vertical");
+    el.addEventListener("mousedown", (e) => e.stopPropagation());
+    el.addEventListener("dragstart", (e) => {
+      const item = { path: this.path, line: this.line, lineText: this.text };
+      e.dataTransfer.setData(ITEM_MIME, JSON.stringify(item));
+      e.dataTransfer.setData("text/plain", this.text.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""));
+      e.dataTransfer.effectAllowed = "copy";
+      this.plugin.noteDragItem(item);
+      e.stopPropagation();
+    });
+    return el;
+  }
+  ignoreEvent() { return true; }
+}
 
 function sigFor(x) {
   if (!x) return "none";
@@ -147,6 +260,9 @@ function buildDecorations(view, plugin) {
   const doc = view.state.doc;
   const map = plugin.lineMap(path, doc);
   const seen = new Set();
+  const sel = view.state.selection.main;
+  // 把手只放在最近用过的那个编辑器的光标行上：点到侧栏面板里再回来拖，它还在
+  const cursorLine = plugin._lastEditor === view && sel.empty ? doc.lineAt(sel.head).number - 1 : -1;
   for (const { from, to } of view.visibleRanges) {
     let pos = from;
     while (pos <= to) {
@@ -173,6 +289,8 @@ function buildDecorations(view, plugin) {
         if (state) {
           const widget = new PillWidget(plugin, path, n, state);
           builder.add(line.to, line.to, Decoration.widget({ widget, side: 1, block: false }));
+        } else if (n === cursorLine && plugin.views.size && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && J.kwLine(text)) {
+          builder.add(line.to, line.to, Decoration.widget({ widget: new GripWidget(plugin, path, n, text), side: 1, block: false }));
         }
       }
       if (line.to >= to) break;
@@ -184,13 +302,18 @@ function buildDecorations(view, plugin) {
 
 export function createEditorExtension(plugin) {
   const pluginClass = class {
-    constructor(view) { this.decorations = buildDecorations(view, plugin); }
+    constructor(view) { if (view.hasFocus) plugin._lastEditor = view; this.decorations = buildDecorations(view, plugin); }
     update(update) {
+      if (update.focusChanged && update.view.hasFocus && plugin._lastEditor !== update.view) {
+        const prev = plugin._lastEditor;
+        plugin._lastEditor = update.view;
+        if (prev && prev !== update.view) { try { prev.dispatch({ effects: refreshEffect.of(null) }); } catch { /* closed */ } }
+      }
       const refresh = update.transactions.some((tr) => tr.effects.some((e) => e.is(refreshEffect)));
-      if (update.docChanged || update.selectionSet || update.viewportChanged || refresh) this.decorations = buildDecorations(update.view, plugin);
+      if (update.docChanged || update.selectionSet || update.viewportChanged || update.focusChanged || refresh) this.decorations = buildDecorations(update.view, plugin);
     }
   };
-  return ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations });
+  return [ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin)];
 }
 
 export async function dispatchRefresh(plugin) {

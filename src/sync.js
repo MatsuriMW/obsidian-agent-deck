@@ -7,7 +7,7 @@
 //   · 会话在桌面版里开出来的子会话 → 缩进写成子块，各带自己的 🔗
 //   · 开着的 side chat → 一个子块；进程没了 → DONE + ⏱
 //
-// 只动开着的笔记（今天的日记没开着的话，子会话那部分直接改文件）。改动按行做，
+// 只动开着的笔记；今天的日记没开着的话直接改文件。改动按行做，
 // 不进撤销记录；正在用输入法打字的那一下不写，等下一轮。
 
 import { MarkdownView } from "obsidian";
@@ -93,8 +93,12 @@ export class JournalSync {
       }
       const file = this.todayJournal();
       if (file && !this.isOpen(file)) {
+        // 今天的日记没开着也要跟上：客户端里归档了，这边照样记 DONE
         const text = await this.p.app.vault.read(file);
-        let next = this.spawnAll(text);
+        let next = text;
+        if (this.cfg.resultBack !== false) next = this.results(next);
+        if (this.cfg.agentKw !== false) next = this.keywords(next);
+        next = this.spawnAll(next);
         next = this.sides(next);
         if (next !== text) await this.p.app.vault.process(file, (cur) => (cur === text ? next : cur));
       }
@@ -191,9 +195,10 @@ export class JournalSync {
       const clock = `${indent}- ⏱ ${shown.slice(-8).map(([a, b]) => `${J.clock(a)}–${J.clock(b)}`).join("、")} · 共 ${J.durTag(total)}${tok ? ` · ${fmtTok(tok)} tok` : ""}${who ? " · " + who : ""}`;
       lines.splice(n + 1, 0, clock);
     }
-    // 收掉这一项的 🔗 行
+    // 收掉这一项的 🔗 行；记一笔「绑过」，自动记日记就不会在 🔗 没了之后再替它新写一行
     const link = J.linkUnder(lines, n);
     if (link && link.sid === sid) lines.splice(link.line, 1);
+    this.p.markBound?.(sid);
     return lines.join("\n");
   }
 
@@ -426,7 +431,8 @@ export class JournalSync {
       let mins = 1;
       if (from) {
         const [h, m] = from.split(":").map(Number);
-        let start = h * 60 + m;
+        let start = h * 60 + m - J.dayOffset();
+        if (start < 0) start += 1440;
         if (start > nowMin) start -= 1440;
         mins = Math.max(1, nowMin - start);
       }

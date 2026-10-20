@@ -1,4 +1,4 @@
-/* Agent Deck 1.1.1 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.2.0 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -91,7 +91,6 @@ var AGENTS = {
   }
 };
 var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh"];
-var AGENT_SHORT = (id) => AGENTS[id] ? AGENTS[id].short : id || "Agent";
 var MODEL_CATALOG = [
   {
     id: "claude-opus-5",
@@ -250,6 +249,8 @@ var DEFAULTS = {
   resultBack: true,
   agentKw: true,
   kidBlocks: true,
+  dragGrip: true,
+  // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
   autoLogEvery: 20,
   autoLogIdle: 40,
@@ -1205,15 +1206,38 @@ var AgentUsage = class {
     } catch {
     }
   }
+  // 桌面版以外几家的「归档」各记在各的地方，每轮重读一遍（取消归档也能跟上）：
+  //   Codex：老版本把日志挪进 archived_sessions/，新版在 state_*.sqlite 的 threads.archived
+  //   WorkBuddy：workbuddy.db 的 sessions.status = 'archived'（删掉的有 deleted_at）
+  //   DeepSeek Harness：storages/workspace.json 的 global.archivedSessionIds
   async readCodexArchived() {
-    const dir = import_path.default.join(process.env.CODEX_HOME || import_path.default.join(home(), ".codex"), "archived_sessions");
+    const out = /* @__PURE__ */ new Set();
+    const codex = process.env.CODEX_HOME || import_path.default.join(home(), ".codex");
     try {
-      for (const f of await fsp.readdir(dir)) {
+      for (const f of await fsp.readdir(import_path.default.join(codex, "archived_sessions"))) {
         const m = /([0-9a-f]{8}-[0-9a-f-]{27})\.jsonl$/.exec(f);
-        if (m) this.archived.add(m[1]);
+        if (m) out.add(m[1]);
       }
     } catch {
     }
+    if (Date.now() - (this._dbAt || 0) > 15e3 || !this._dbArchived) {
+      this._dbAt = Date.now();
+      const db = /* @__PURE__ */ new Set();
+      try {
+        const states = (await fsp.readdir(codex)).filter((f) => /^state_\d+\.sqlite$/.test(f)).sort();
+        if (states.length) for (const id of await sqliteColumn(import_path.default.join(codex, states[states.length - 1]), "select id from threads where archived = 1")) db.add(id);
+      } catch {
+      }
+      for (const id of await sqliteColumn(import_path.default.join(home(), ".workbuddy/workbuddy.db"), "select id from sessions where status = 'archived' or deleted_at is not null")) db.add(id);
+      try {
+        const ws = JSON.parse(await fsp.readFile(import_path.default.join(home(), ".dsh/storages/workspace.json"), "utf8"));
+        for (const id of ws && ws.global && ws.global.archivedSessionIds || []) db.add(String(id));
+      } catch {
+      }
+      this._dbArchived = db;
+    }
+    for (const id of this._dbArchived) out.add(id);
+    this.archived = out;
   }
   // ----- Claude desktop session index -----
   // 桌面版给每个会话存一份 claude-code-sessions/<账号>/<组织>/local_*.json。
@@ -2093,18 +2117,333 @@ var UsageStore = class {
     return out;
   }
 };
+function sqliteColumn(db, sql) {
+  return new Promise((resolve) => {
+    if (!import_fs.default.existsSync(db)) return resolve([]);
+    (0, import_child_process.execFile)("/usr/bin/sqlite3", ["-noheader", db, sql], { timeout: 5e3, maxBuffer: 4 * 1024 * 1024 }, (err2, out) => {
+      if (err2) return resolve([]);
+      resolve(String(out || "").split("\n").map((s) => s.trim()).filter(Boolean));
+    });
+  });
+}
 
 // src/delegation.js
 var import_fs2 = __toESM(require("fs"), 1);
 var import_path2 = __toESM(require("path"), 1);
 var import_os2 = __toESM(require("os"), 1);
 var import_child_process2 = require("child_process");
+
+// src/journal.js
+var LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
+var STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
+var CHECKBOX_RE = /^\[([ xX\/\-])\]\s*/;
+var KEYWORD_RE = /^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)\s*/;
+var AGENT_KW_RE = /^(TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)$/;
+var OPEN_KWS = ["TODO", "LATER", "NOW", "WAITING", "WAIT", "TODOFORAI", "TODO4AI", "TODO2AI", "TODOTOAI"];
+var DONE_KWS = ["DONE", "CANCELED", "CANCELLED", "FAILED"];
+var RESULT_RE = /^\s*[-*+]\s+💬/;
+var CLOCK_RE = /^\s*[-*+]\s+⏱/;
+var KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
+var AUTO_MARK = "\u{1F916} ";
+var pad2 = (n) => String(n).padStart(2, "0");
+var DAY_OFFSET = 0;
+var setDayOffset = (min) => {
+  DAY_OFFSET = Number(min) || 0;
+};
+var dayOffset = () => DAY_OFFSET;
+var clock = (t) => {
+  const m = Math.round(t + DAY_OFFSET);
+  return `${pad2(Math.floor((m % 1440 + 1440) % 1440 / 60))}:${pad2((m % 60 + 60) % 60)}`;
+};
+var durTag = (m) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? m % 60 + "m" : ""}` : `${Math.max(1, Math.round(m))}m`;
+var width = (line) => {
+  let w = 0;
+  for (const c of (/^\s*/.exec(line) || [""])[0]) w += c === "	" ? 4 : 1;
+  return w;
+};
+var workKey = (label) => String(label || "").replace(/\s*←\s*\S+\s*$/, "").trim();
+function splitTask(raw) {
+  const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(.*)$/.exec(raw);
+  if (!m) return null;
+  let [, prefix, rest] = m;
+  const st = STAMP_RE.exec(rest);
+  if (st) {
+    prefix += st[0];
+    rest = rest.slice(st[0].length);
+  }
+  const cb = CHECKBOX_RE.exec(rest);
+  if (cb) rest = rest.slice(cb[0].length);
+  const kw = KEYWORD_RE.exec(rest);
+  if (kw) rest = rest.slice(kw[0].length);
+  const pr = kw && /^\[#[ABC]\]\s*/.exec(rest);
+  if (pr) rest = rest.slice(pr[0].length);
+  let since = null;
+  const t = kw && /^(\d{1,2})[:：](\d{2})(?![\d:：]|\s*[-–~～到至])\s*/.exec(rest);
+  if (t) {
+    since = `${pad2(+t[1])}:${t[2]}`;
+    rest = rest.slice(t[0].length);
+  }
+  if (pr) rest = `${pr[0].trim()} ${rest}`;
+  return { prefix, rest, since, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
+}
+function kwLine(raw) {
+  let s = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s+/, "").replace(STAMP_RE, "");
+  let kw = "";
+  const cb = CHECKBOX_RE.exec(s);
+  if (cb) {
+    kw = cb[1] === " " ? "TODO" : cb[1] === "/" ? "DOING" : cb[1] === "-" ? "CANCELLED" : "DONE";
+    s = s.slice(cb[0].length);
+  }
+  const m = /^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)(?=\s|$)\s*/.exec(s);
+  if (m) {
+    kw = m[1];
+    s = s.slice(m[0].length);
+  }
+  s = s.replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
+  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || s.startsWith("\u{1F4AC}") || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
+  return { kw, body: s };
+}
+function parseLink(line) {
+  const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
+  if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
+  const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
+  if (d) return d[2] ? { agent: "codex", sid: d[3], title: d[1] || "" } : { agent: "workbuddy", sid: decodeURIComponent(d[6]), title: d[4] || "" };
+  const b = /^\s*[-*+]\s+🔗.*`((?:session-)?[0-9a-f-]{36})`/.exec(line);
+  if (!b) return null;
+  const agent = /DeepSeek Harness|dsh:\/\//.test(line) ? "dsh" : /Codex[：:]/.test(line) ? "codex" : /WorkBuddy[：:]/.test(line) ? "workbuddy" : "claude";
+  return { agent, sid: b[1], title: "" };
+}
+function linkLine(indent, agent, title, sid) {
+  const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
+  if (agent === "claude") return `${indent}- \u{1F517} [Claude\uFF1A${safe}](claude://resume?session=${sid})`;
+  if (agent === "dsh") return `${indent}- \u{1F517} [DeepSeek Harness\uFF1A${safe}](dsh://open) \`${sid}\``;
+  if (agent === "codex") return `${indent}- \u{1F517} [Codex\uFF1A${safe}](codex://threads/${sid})`;
+  if (agent === "workbuddy") return `${indent}- \u{1F517} [WorkBuddy\uFF1A${safe}](workbuddy://chat/${encodeURIComponent(sid)})`;
+  return `${indent}- \u{1F517} ${agent}\uFF1A${safe} \`${sid}\``;
+}
+function markOwner(lines, i) {
+  const ind = width(lines[i]);
+  for (let j = i - 1; j >= 0; j--) if (lines[j].trim() && LIST_RE.test(lines[j]) && width(lines[j]) < ind) return j;
+  return -1;
+}
+function childMark(lines, n, pick) {
+  const base = width(lines[n]);
+  for (let i = n + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) <= base) break;
+    const l = pick(lines[i]);
+    if (l) return { line: i, ...l };
+  }
+  return null;
+}
+var linkUnder = (lines, n) => childMark(lines, n, parseLink);
+var resultUnder = (lines, n) => childMark(lines, n, (l) => RESULT_RE.test(l) ? {} : null);
+function resultText(raw, max = 200) {
+  let t = String(raw || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/^\s*\|?[\s:|-]{3,}\|?\s*$/gm, " ").replace(/\d{12,}/g, "\u2026").replace(/\s+/g, " ").trim();
+  const cap = Math.max(40, +max || 200);
+  if ([...t].length > cap) {
+    const cut = [...t].slice(0, cap).join("");
+    const stop = Math.max(...["\u3002", "\uFF01", "\uFF1F", "\uFF1B", ". ", "! ", "? "].map((c) => cut.lastIndexOf(c)));
+    t = (stop > cap * 0.5 ? cut.slice(0, stop + 1) : cut).trim() + "\u2026";
+  }
+  return t.replace(/\[\[/g, "\\[\\[").replace(/(^|[^\w&\\])#(?=[^\s#])/g, "$1\\#").replace(/==/g, "\\=\\=").replace(/%%/g, "\\%\\%").replace(/\$/g, "\\$").replace(/</g, "\\<").replace(/\s\^(?=[A-Za-z0-9-]+$)/, " \\^");
+}
+function resultInto(text, sid, said) {
+  if (!said || !text.includes(sid)) return text;
+  const lines = text.split("\n");
+  const at = lines.findIndex((l) => {
+    const k = parseLink(l);
+    return k && k.sid === sid;
+  });
+  const n = at < 0 ? -1 : markOwner(lines, at);
+  if (n < 0) return text;
+  const line = `${/^\s*/.exec(lines[at])[0]}- \u{1F4AC} ${said}`;
+  const had = resultUnder(lines, n);
+  if (had) {
+    if (lines[had.line] === line) return text;
+    lines[had.line] = line;
+  } else lines.splice(at + 1, 0, line);
+  return lines.join("\n");
+}
+function diffLines(before, after) {
+  const a = before.split("\n"), b = after.split("\n");
+  let s = 0;
+  while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let ea = a.length, eb = b.length;
+  while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) {
+    ea--;
+    eb--;
+  }
+  if (s === ea && s === eb) return null;
+  const mid = b.slice(s, eb);
+  if (ea < a.length) return { from: { line: s, ch: 0 }, to: { line: ea, ch: 0 }, text: mid.map((l) => l + "\n").join("") };
+  const end = { line: a.length - 1, ch: a[a.length - 1].length };
+  if (s > 0) return { from: { line: s - 1, ch: a[s - 1].length }, to: end, text: mid.map((l) => "\n" + l).join("") };
+  return { from: { line: 0, ch: 0 }, to: end, text: mid.join("\n") };
+}
+function taskItems(text) {
+  const out = [];
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (!LIST_RE.test(lines[i])) continue;
+    const k = kwLine(lines[i]);
+    if (!k) continue;
+    const st = DONE_KWS.includes(k.kw) ? "done" : /^(DOING|NOW|IN-PROGRESS)$/.test(k.kw) || AGENT_KW_RE.test(k.kw) ? "doing" : /^(PAUSED|SUSPENDED|WAITING|WAIT)$/.test(k.kw) ? "paused" : "open";
+    out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), indent: width(lines[i]), state: st });
+  }
+  return out;
+}
+function findTask(text, key) {
+  const hits = taskItems(text).filter((i) => i.key === key);
+  return hits.find((i) => i.state === "open") || hits[0] || null;
+}
+function openTasks(text) {
+  return taskItems(text).filter((i) => i.state !== "done").map((i) => ({
+    label: i.body,
+    doing: i.state === "doing",
+    paused: i.kw === "PAUSED" || i.kw === "SUSPENDED",
+    line: i.line
+  }));
+}
+function linkMap(text) {
+  const out = /* @__PURE__ */ new Map();
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const l = parseLink(lines[i]);
+    if (!l) continue;
+    const n = markOwner(lines, i);
+    const k = n >= 0 ? kwLine(lines[n]) : null;
+    if (k) out.set(l.sid, workKey(k.body));
+  }
+  return out;
+}
+function parseKid(line) {
+  const m = KID_LINK_RE.exec(line);
+  return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2] } : null;
+}
+function kidUnder(lines, n) {
+  return childMark(lines, n, parseKid);
+}
+function kidIdent(line) {
+  const c = parseKid(line);
+  if (c) return { ...c, open: true };
+  const m = /^\s*[-*+]\s+⏱.*·\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`\s*$/.exec(line);
+  return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2], open: false } : null;
+}
+var kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(/^\s*(?:\d+[.)、]\s*)?(?:(?:TODO|DOING|LATER|NOW|WAITING|WAIT|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+)?(?:\d{1,2}[:：]\d{2}\s*)?/, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
+function kidMatch(body, desc) {
+  const a = kidNorm(body), d = kidNorm(desc);
+  if (a.length < 4 || d.length < 4) return false;
+  return a.startsWith(d) || d.startsWith(a) || a.length >= 8 && d.length >= 8 && a.slice(0, 8) === d.slice(0, 8);
+}
+var EMPTY_ITEM_RE = /^(\s*(?:[-*+]|\d+[.)]))\s*$/;
+var MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬)/;
+function kwForState(state) {
+  return { run: "DOING", running: "DOING", starting: "DOING", wait: "TOREVIEW", quiet: "TOREVIEW", idle: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" }[state] || "DOING";
+}
+function dropKind(lines, at) {
+  if (at < 0 || at >= lines.length) return null;
+  const raw = lines[at];
+  if (MARKER_RE.test(raw)) {
+    const n = markOwner(lines, at);
+    return n >= 0 ? { kind: "bind", line: n } : null;
+  }
+  if (EMPTY_ITEM_RE.test(raw)) return { kind: "fill", line: at };
+  if (!raw.trim()) return { kind: "new", line: at };
+  if (LIST_RE.test(raw)) return kwLine(raw) ? { kind: "bind", line: at } : null;
+  if (/^\s*(?:#|```|~~~|\||>|---)/.test(raw)) return null;
+  return { kind: "below", line: at };
+}
+function childIndent(lines, n) {
+  const base = width(lines[n]);
+  for (let i = n + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) > base) return (/^\s*/.exec(lines[i]) || [""])[0];
+    break;
+  }
+  const lead = (/^\s*/.exec(lines[n]) || [""])[0];
+  return lead + (lead && !lead.includes("	") ? "    " : "	");
+}
+function bindInto(text, at, s) {
+  let lines = text.split("\n");
+  const target = dropKind(lines, at);
+  if (!target) return { text, error: "\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A" };
+  let n = target.line;
+  if (target.kind === "bind") {
+    const had = linkUnder(lines, n);
+    if (had && had.sid === s.sid) return { text, error: "\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u8FD9\u4E2A\u4F1A\u8BDD\u4E86" };
+    if (had) return { text, error: "\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u53E6\u4E00\u4E2A\u4F1A\u8BDD\uFF1B\u5148\u5220\u6389\u5B83\u4E0B\u9762\u7684 \u{1F517} \u884C" };
+  }
+  const want = kwForState(s.state);
+  const since = s.since || "";
+  const title = resultText(s.title || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD", 60);
+  const anchor = lines[n];
+  const drop = (i) => {
+    lines.splice(i, 1);
+    if (i < n) n--;
+  };
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const k = parseLink(lines[i]);
+    if (k && k.sid === s.sid) drop(i);
+  }
+  if (s.dropKey) {
+    const hit = taskItems(lines.join("\n")).find((t) => t.key === s.dropKey && t.body.startsWith(AUTO_MARK.trim()) && t.line !== n);
+    if (hit) {
+      const base = width(lines[hit.line]);
+      let end = hit.line, own = true;
+      for (let i = hit.line + 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        if (width(lines[i]) <= base) break;
+        if (!MARKER_RE.test(lines[i])) own = false;
+        end = i;
+      }
+      if (own) for (let i = end; i >= hit.line; i--) drop(i);
+    }
+  }
+  if (lines[n] !== anchor) {
+    const back = lines.indexOf(anchor);
+    if (back < 0) return { text, error: "\u7B14\u8BB0\u5728\u62D6\u7684\u65F6\u5019\u53D8\u4E86\uFF0C\u518D\u62D6\u4E00\u6B21" };
+    n = back;
+  }
+  if (target.kind === "bind") {
+    const p = splitTask(lines[n]);
+    if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
+      lines[n] = `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
+    }
+    lines.splice(n + 1, 0, linkLine(childIndent(lines, n), s.agent, title, s.sid));
+    return { text: lines.join("\n"), line: n, kind: "bind" };
+  }
+  let prefix;
+  if (target.kind === "fill") prefix = EMPTY_ITEM_RE.exec(lines[n])[1] + " ";
+  else {
+    let prev = -1;
+    for (let i = target.kind === "below" ? n : n - 1; i >= 0; i--) {
+      if (lines[i].trim()) {
+        prev = i;
+        break;
+      }
+    }
+    const pm = prev >= 0 ? /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[prev]) : null;
+    prefix = !pm || MARKER_RE.test(lines[prev]) ? pm ? (/^\s*/.exec(lines[markOwner(lines, prev)] || "") || [""])[0] + "- " : "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
+  }
+  const item = `${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " ");
+  if (target.kind === "below") {
+    lines.splice(n + 1, 0, item);
+    n = n + 1;
+  } else if (target.kind === "new" && lines[n + 1] && lines[n + 1].trim() && !LIST_RE.test(lines[n + 1])) lines.splice(n, 0, item);
+  else lines[n] = item;
+  const lead = (/^\s*/.exec(item) || [""])[0];
+  lines.splice(n + 1, 0, linkLine(lead + (lead && !lead.includes("	") ? "    " : "	"), s.agent, title, s.sid));
+  return { text: lines.join("\n"), line: n, kind: target.kind };
+}
+
+// src/delegation.js
 var fsp2 = import_fs2.default.promises;
 var home2 = () => import_os2.default.homedir();
 var norm2 = (p) => String(p || "").replace(/^~(?=\/)/, home2());
 var BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 var LINK_RE = /^\s*[-*+]\s+🔗/;
-var RESULT_RE = /^\s*[-*+]\s+💬/;
+var RESULT_RE2 = /^\s*[-*+]\s+💬/;
 var STATUS_RE = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|IN-PROGRESS|SUSPENDED|CANCELED|CANCELLED|FAILED|DONE)(?=\s|$)/i;
 function blockAt(lines, at) {
   if (at < 0 || at >= lines.length) return null;
@@ -2138,8 +2477,9 @@ function findLink(lines, block) {
   if (at < 0) return null;
   const m = /claude:\/\/resume\?session=([0-9a-f-]{20,})/i.exec(lines[at]);
   const wb = /workbuddy:\/\/chat\/([^\s)\]]+)/i.exec(lines[at]);
+  const cx = /codex:\/\/threads\/([0-9a-f-]{36})/i.exec(lines[at]);
   const back = /`([0-9a-f-]{16,}|session-[0-9a-f-]{20,})`/i.exec(lines[at]);
-  return { line: at, sid: m && m[1] || wb && decodeURIComponent(wb[1]) || back && back[1] || "", raw: lines[at] };
+  return { line: at, sid: m && m[1] || cx && cx[1] || wb && decodeURIComponent(wb[1]) || back && back[1] || "", raw: lines[at] };
 }
 function markDelegated(line) {
   const m = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(.*)$/.exec(line || "");
@@ -2149,11 +2489,8 @@ function markDelegated(line) {
   if (s) return line.replace(s[2], "DELEGATED");
   return `${m[1]}DELEGATED ${rest}`;
 }
-function linkLine(indent, agent, name, sid) {
-  const safe = String(name || "").replace(/[\[\]()`]+/g, " ").slice(0, 48);
-  if (agent === "claude") return `${indent}- \u{1F517} [Claude\uFF1A${safe}](claude://resume?session=${sid})`;
-  if (agent === "dsh") return `${indent}- \u{1F517} [DeepSeek Harness\uFF1A${safe}](dsh://open) \`${sid}\``;
-  return `${indent}- \u{1F517} ${AGENT_SHORT(agent)}\uFF1A${safe} \`${sid}\``;
+function linkLine2(indent, agent, name, sid) {
+  return linkLine(indent, agent, String(name || "").slice(0, 48), sid);
 }
 function findDshBinary() {
   const candidates = [
@@ -2247,8 +2584,37 @@ function sessionDeepLink(agent, sid) {
   if (agent === "claude") return `claude://resume?session=${sid}`;
   if (agent === "workbuddy") return `workbuddy://chat/${encodeURIComponent(sid)}`;
   if (agent === "dsh") return "dsh://open";
-  if (agent === "codex") return "";
+  if (agent === "codex") return `codex://threads/${sid}`;
   return "";
+}
+var AGENT_APPS = {
+  claude: { bundle: "com.anthropic.claudefordesktop", url: "claude://" },
+  codex: { bundle: "com.openai.codex", url: "codex://launch" },
+  workbuddy: { bundle: "com.tencent.workbuddy.mac", url: "workbuddy://home" },
+  dsh: { bundle: "com.deepseek.dsh", url: "dsh://open" }
+};
+function openAgentApp(agent) {
+  const app = AGENT_APPS[agent];
+  if (!app) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    (0, import_child_process2.execFile)("/usr/bin/open", ["-b", app.bundle], (err2) => {
+      if (!err2) return resolve(true);
+      resolve(openExternal(app.url));
+    });
+  });
+}
+function copyText(text) {
+  try {
+    require("electron").clipboard.writeText(text);
+    return true;
+  } catch {
+  }
+  try {
+    navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
 }
 function openSession(plugin, agent, sid, app = "") {
   if (!sid) {
@@ -2268,12 +2634,9 @@ function openSession(plugin, agent, sid, app = "") {
     return true;
   }
   if (agent === "codex") {
-    plugin.notice("Codex \u6CA1\u6709\u81EA\u5DF1\u7684\u4F1A\u8BDD URL\uFF0C\u5DF2\u590D\u5236\u6062\u590D\u547D\u4EE4");
-    try {
-      navigator.clipboard.writeText(`codex resume ${sid}`);
-    } catch {
-    }
-    return false;
+    openExternal(`codex://threads/${sid}`);
+    copyText(`codex resume ${sid}`);
+    return true;
   }
   if (agent === "dsh") {
     openExternal("dsh://open");
@@ -2763,6 +3126,77 @@ ${body}`, 12e3);
     }
     return job;
   }
+  // Codex / WorkBuddy 没有能起会话的命令行接口：任务文字放进剪贴板、把客户端叫到前台，你粘贴发出去。
+  // 之后每轮扫描找这个 Agent 新出现、开头对得上的会话，找到就绑回这一行（🔗 + DELEGATED），面板里的卡片飞进「现在」。
+  async handoff(opts) {
+    this.refreshSettings();
+    const agent = opts.agent;
+    const file = opts.file;
+    if (!file) throw new Error("\u6CA1\u6709\u5F53\u524D\u7B14\u8BB0");
+    const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
+    const block = opts.block || blockAt(lines, opts.line);
+    if (!block) throw new Error("\u8981\u62D6\u4E00\u4E2A\u5217\u8868\u9879");
+    if (hasLink(lines, block) >= 0) throw new Error("\u8FD9\u4E00\u5757\u4E0B\u9762\u5DF2\u7ECF\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u53D1\u5148\u5220\u6389\u90A3\u4E00\u884C");
+    const title = blockTitle(block) || "Agent Deck task";
+    const name = truncate(title, this.C.nameMax || 56);
+    const prompt = this.buildPrompt({ ...opts, block, file, title });
+    const job = {
+      id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      agent,
+      name,
+      path: file.path,
+      line: block.start,
+      lineText: lines[block.start],
+      blockText: block.text.slice(0, 6e3),
+      prompt: prompt.slice(0, 12e3),
+      originalLine: lines[block.start],
+      startedAt: Date.now(),
+      state: "starting",
+      handoff: true,
+      step: `\u7B49\u4F60\u5728 ${AGENTS[agent]?.name || agent} \u91CC\u53D1\u51FA\u53BB`,
+      cwd: this.vaultPath,
+      sessionId: "",
+      linkWritten: false,
+      resultWritten: false
+    };
+    this.jobs[job.id] = job;
+    this.plugin.saveJobs();
+    copyText(prompt);
+    await openAgentApp(agent);
+    this.plugin.notice(`\u{1F4CB} \u4EFB\u52A1\u5DF2\u590D\u5236\uFF0C${AGENTS[agent]?.name || agent} \u5DF2\u6253\u5F00\uFF1A\u65B0\u5EFA\u5BF9\u8BDD\u3001\u7C98\u8D34\u53D1\u51FA\u53BB\u3002
+\u4F1A\u8BDD\u4E00\u51FA\u73B0\uFF0CAgent Deck \u4F1A\u628A\u5B83\u7ED1\u56DE\u300C${name}\u300D\u3002`, 1e4);
+    this.plugin.refreshUI();
+    return job;
+  }
+  // 每轮扫描后调用：交接中的任务认领新会话；半小时没等到就作罢
+  resolveHandoffs(usage) {
+    const waiting = Object.values(this.jobs).filter((j) => j.handoff && j.state === "starting" && !j.sessionId);
+    if (!waiting.length) return;
+    const taken = new Set(Object.values(this.jobs).map((j) => j.sessionId).filter(Boolean));
+    const norm3 = (s) => String(s || "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
+    for (const job of waiting) {
+      if (Date.now() - job.startedAt > 30 * 6e4) {
+        job.state = "cancelled";
+        job.error = "\u534A\u5C0F\u65F6\u91CC\u6CA1\u5728\u5BA2\u6237\u7AEF\u770B\u5230\u8FD9\u4E2A\u4EFB\u52A1\u7684\u65B0\u4F1A\u8BDD";
+        job.endedAt = Date.now();
+        this.saveJobs();
+        continue;
+      }
+      const head = norm3(job.name).slice(0, 10);
+      const promptHead = norm3(job.prompt).slice(0, 24);
+      let best = null;
+      for (const m of usage.meta.values()) {
+        if (m.agent !== job.agent || taken.has(m.sid) || (m.lastAt || 0) < job.startedAt - 5e3) continue;
+        const t = norm3(m.text || m.title);
+        if (!t || !(t.includes(head) || t.startsWith(promptHead.slice(0, 16)))) continue;
+        if (!best || (m.lastAt || 0) < (best.lastAt || 0)) best = m;
+      }
+      if (!best) continue;
+      taken.add(best.sid);
+      job.app = best.app || "";
+      this.onSession(job, best.sid);
+    }
+  }
   buildPrompt(opts) {
     const c = this.C;
     const parts = [];
@@ -2776,7 +3210,9 @@ ${body}`, 12e3);
   }
   onSession(job, sid) {
     job.sessionId = sid;
-    job.state = "running";
+    job.state = job.handoff ? "bound" : "running";
+    this.plugin.markBound?.(sid);
+    this.plugin.flyFromAgent?.(job);
     this.saveJobs();
     if (job.linkWritten) return;
     job.linkWritten = true;
@@ -2795,7 +3231,7 @@ ${body}`, 12e3);
     if (!block) return;
     if (hasLink(lines, block) >= 0) return;
     const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "	";
-    const link = linkLine(indent, job.agent, job.name, sid);
+    const link = linkLine2(indent, job.agent, job.name, sid);
     lines.splice(block.start + 1, 0, link);
     if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
     await this.plugin.writeNote(path6, lines.join("\n"));
@@ -2902,7 +3338,7 @@ ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
     if (!block) return;
     const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "	";
     let resultAt = -1;
-    for (let i = block.start + 1; i <= block.end; i++) if (RESULT_RE.test(lines[i])) {
+    for (let i = block.start + 1; i <= block.end; i++) if (RESULT_RE2.test(lines[i])) {
       resultAt = i;
       break;
     }
@@ -3086,6 +3522,340 @@ function stateIcon(el, state, cls = "") {
   return setLucide(el, STATE_ICONS[state] || STATE_ICONS.idle, cls);
 }
 
+// src/editor.js
+var import_view = require("@codemirror/view");
+var import_state = require("@codemirror/state");
+var refreshEffect = import_state.StateEffect.define();
+var SESSION_MIME = "application/x-agent-deck-session";
+var ITEM_MIME = "application/x-agent-deck-item";
+var DROP_LABEL = { bind: "\u7ED1\u5B9A\u5230\u8FD9\u4E00\u9879", fill: "\u5728\u8FD9\u91CC\u65B0\u5EFA\u4E00\u9879", new: "\u5728\u8FD9\u91CC\u65B0\u5EFA\u4E00\u9879", below: "\u5728\u4E0B\u9762\u65B0\u5EFA\u4E00\u9879" };
+var setDrop = import_state.StateEffect.define();
+var dropField = import_state.StateField.define({
+  create: () => import_view.Decoration.none,
+  update(deco, tr) {
+    deco = deco.map(tr.changes);
+    for (const e of tr.effects) {
+      if (!e.is(setDrop)) continue;
+      if (!e.value) {
+        deco = import_view.Decoration.none;
+        continue;
+      }
+      const line = tr.state.doc.line(e.value.line + 1);
+      deco = import_view.Decoration.set([import_view.Decoration.line({ class: `ad-drop-line ad-drop-line--${e.value.kind}`, attributes: { "data-ad-drop": DROP_LABEL[e.value.kind] || "" } }).range(line.from)]);
+    }
+    return deco;
+  },
+  provide: (f) => import_view.EditorView.decorations.from(f)
+});
+var hasType = (e, type) => !!(e.dataTransfer && [...e.dataTransfer.types].includes(type));
+function dropTarget(view, e) {
+  const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }, false);
+  if (pos == null) return null;
+  const n = view.state.doc.lineAt(pos).number - 1;
+  return dropKind(view.state.doc.toString().split("\n"), n);
+}
+function dndHandlers(plugin) {
+  let last = "";
+  const show = (view, t) => {
+    const key = t ? `${t.line}:${t.kind}` : "";
+    if (key === last) return;
+    last = key;
+    view.dispatch({ effects: setDrop.of(t) });
+  };
+  return import_state.Prec.highest(import_view.EditorView.domEventHandlers({
+    dragover(e, view) {
+      if (!hasType(e, SESSION_MIME)) return false;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "link";
+      show(view, dropTarget(view, e));
+      return true;
+    },
+    dragleave(e, view) {
+      if (!hasType(e, SESSION_MIME)) return false;
+      if (e.relatedTarget && view.dom.contains(e.relatedTarget)) return false;
+      show(view, null);
+      return false;
+    },
+    drop(e, view) {
+      if (!hasType(e, SESSION_MIME)) return false;
+      e.preventDefault();
+      e.stopPropagation();
+      const t = dropTarget(view, e);
+      show(view, null);
+      let data = null;
+      try {
+        data = JSON.parse(e.dataTransfer.getData(SESSION_MIME));
+      } catch {
+      }
+      if (data && t) plugin.bindSessionAt(view, t.line, data);
+      else if (data) plugin.notice("\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A");
+      return true;
+    },
+    // 选中一段文字拖出去：记下它从哪一行来，拖到 Agent 卡片上也能委派
+    dragstart(e, view) {
+      const sel = view.state.selection.main;
+      if (sel.empty) return false;
+      const info = view.state.field(plugin.editorInfoField, false);
+      const path6 = info && info.file && info.file.path;
+      if (!path6) return false;
+      const n = view.state.doc.lineAt(sel.from).number - 1;
+      plugin.noteDragItem({ path: path6, line: n, lineText: view.state.doc.line(n + 1).text });
+      return false;
+    }
+  }));
+}
+var GripWidget = class extends import_view.WidgetType {
+  constructor(plugin, path6, line, text) {
+    super();
+    this.plugin = plugin;
+    this.path = path6;
+    this.line = line;
+    this.text = text;
+  }
+  eq(o) {
+    return o.path === this.path && o.line === this.line && o.text === this.text;
+  }
+  toDOM() {
+    const el = document.createElement("span");
+    el.className = "ad-grip";
+    el.setAttribute("contenteditable", "false");
+    el.draggable = true;
+    el.title = "\u62D6\u5230 Agent Deck \u91CC\u7684\u67D0\u4E2A Agent \u4E0A\uFF0C\u59D4\u6D3E\u8FD9\u4E00\u9879";
+    setLucide(el, "grip-vertical");
+    el.addEventListener("mousedown", (e) => e.stopPropagation());
+    el.addEventListener("dragstart", (e) => {
+      const item = { path: this.path, line: this.line, lineText: this.text };
+      e.dataTransfer.setData(ITEM_MIME, JSON.stringify(item));
+      e.dataTransfer.setData("text/plain", this.text.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""));
+      e.dataTransfer.effectAllowed = "copy";
+      this.plugin.noteDragItem(item);
+      e.stopPropagation();
+    });
+    return el;
+  }
+  ignoreEvent() {
+    return true;
+  }
+};
+function sigFor(x) {
+  if (!x) return "none";
+  return [x.kind, x.job && x.job.id, x.job && x.job.state, x.session && x.session.sid, x.session && x.session.state, x.session && x.session.step, x.session && x.session.tokens, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
+}
+var PillWidget = class extends import_view.WidgetType {
+  constructor(plugin, path6, line, info) {
+    super();
+    this.plugin = plugin;
+    this.path = path6;
+    this.line = line;
+    this.info = info;
+    this.sig = sigFor(info);
+  }
+  eq(other) {
+    return other.path === this.path && other.line === this.line && other.sig === this.sig;
+  }
+  toDOM(view) {
+    const p = this.plugin;
+    const info = this.info;
+    const el = document.createElement("span");
+    el.className = `ad-pill ad-pill--${info.kind}`;
+    el.setAttribute("contenteditable", "false");
+    el.dataset.line = String(this.line);
+    const job = info.job;
+    const session = info.session;
+    const agent = job && job.agent || session && session.agent || p.defaultTarget();
+    const a = AGENTS[agent] || AGENTS.claude;
+    el.style.setProperty("--ad-agent", a.color);
+    el.style.setProperty("--ad-agent-soft", a.soft);
+    const fill2 = document.createElement("span");
+    fill2.className = "ad-pill__fill";
+    el.appendChild(fill2);
+    const wave = document.createElement("span");
+    wave.className = "ad-pill__wave";
+    el.appendChild(wave);
+    const glyph = document.createElement("span");
+    glyph.className = "ad-pill__glyph";
+    agentIcon(glyph, agent);
+    el.appendChild(glyph);
+    const label = document.createElement("span");
+    label.className = "ad-pill__label";
+    el.appendChild(label);
+    const meta = document.createElement("span");
+    meta.className = "ad-pill__meta";
+    el.appendChild(meta);
+    const right = document.createElement("span");
+    right.className = "ad-pill__right";
+    el.appendChild(right);
+    const modelName = job && p.modelLabel(job.model) || session && p.modelLabel(session.model) || "";
+    if (info.kind === "idle") {
+      label.textContent = "\u59D4\u6D3E";
+      meta.textContent = modelName || (agent === "dsh" ? "DeepSeek" : "Claude");
+      const chev = document.createElement("span");
+      chev.className = "ad-pill__chev";
+      setLucide(chev, "chevron-down");
+      chev.title = "\u9009\u62E9\u6A21\u578B\u3001\u5F3A\u5EA6\u3001\u6A21\u5F0F";
+      chev.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        p.openDelegateModal(this.path, this.line);
+      });
+      right.appendChild(chev);
+    } else if (info.kind === "running" || info.kind === "starting") {
+      label.textContent = info.kind === "starting" ? "\u51C6\u5907\u4E2D" : "\u59D4\u6D3E\u4E2D";
+      const start = job && job.startedAt || Date.now();
+      const tick = () => {
+        meta.textContent = fmtDur(Date.now() - start);
+      };
+      tick();
+      el._adTimer = setInterval(tick, 1e3);
+      const cancel = document.createElement("span");
+      cancel.className = "ad-pill__cancel";
+      setLucide(cancel, "x");
+      cancel.title = "\u53D6\u6D88\u8FD9\u6B21\u59D4\u6D3E";
+      cancel.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        p.cancelJob(job && job.id);
+      });
+      right.appendChild(cancel);
+      const progress = p.jobProgress(job);
+      if (progress && progress.total) {
+        el.style.setProperty("--ad-p", `${Math.round(progress.done / progress.total * 100)}%`);
+        el.classList.add("is-determinate");
+      }
+    } else if (info.kind === "waiting" || info.kind === "needs-approval") {
+      label.textContent = info.kind === "needs-approval" ? "\u7B49\u4F60\u5141\u8BB8" : "\u7B49\u4F60";
+      meta.textContent = info.kind === "needs-approval" ? "\u6253\u5F00\u5BA2\u6237\u7AEF\u5904\u7406" : "\u70B9\u51FB\u6253\u5F00";
+      el.classList.add("is-pulse");
+    } else if (info.kind === "done") {
+      label.textContent = "\u5B8C\u6210";
+      meta.textContent = job && job.result ? truncate(job.result, 28) : session && session.lastText ? truncate(session.lastText, 28) : "\u6253\u5F00\u4F1A\u8BDD";
+      const open = document.createElement("span");
+      open.className = "ad-pill__open";
+      setLucide(open, "arrow-up-right");
+      right.appendChild(open);
+    } else if (info.kind === "error") {
+      label.textContent = "\u51FA\u9519";
+      meta.textContent = truncate(job && job.error || session && session.err || "\u70B9\u51FB\u91CD\u8BD5", 30);
+      const retry = document.createElement("span");
+      retry.className = "ad-pill__open";
+      setLucide(retry, "refresh-cw");
+      retry.title = "\u91CD\u65B0\u59D4\u6D3E";
+      retry.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        p.openDelegateModal(this.path, this.line);
+      });
+      right.appendChild(retry);
+    } else {
+      label.textContent = "\u4F1A\u8BDD";
+      meta.textContent = session && session.step ? truncate(session.step, 26) : "";
+    }
+    if (session && session.tokens) {
+      const tok = document.createElement("span");
+      tok.className = "ad-pill__tok";
+      tok.textContent = fmtTok(session.tokens);
+      right.appendChild(tok);
+    }
+    el.addEventListener("mousedown", (e) => {
+      if (e.target.closest(".ad-pill__cancel, .ad-pill__chev, .ad-pill__open")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (info.kind === "idle") p.delegateAtLine(this.path, this.line).catch((err2) => p.notice(String(err2.message || err2)));
+      else if (info.kind === "error") p.openDelegateModal(this.path, this.line);
+      else p.openJob(job && job.id, session && session.sid);
+    });
+    el.title = p.pillTitle(info);
+    return el;
+  }
+  destroy(dom) {
+    if (dom._adTimer) clearInterval(dom._adTimer);
+  }
+  ignoreEvent() {
+    return true;
+  }
+};
+function buildDecorations(view, plugin) {
+  const builder = new import_state.RangeSetBuilder();
+  const info = view.state.field(plugin.editorInfoField, false);
+  const path6 = info && info.file && info.file.path;
+  if (!path6 || !plugin.settings.showEditorPills) return builder.finish();
+  const doc = view.state.doc;
+  const map = plugin.lineMap(path6, doc);
+  const seen = /* @__PURE__ */ new Set();
+  const sel = view.state.selection.main;
+  const cursorLine = plugin._lastEditor === view && sel.empty ? doc.lineAt(sel.head).number - 1 : -1;
+  for (const { from, to } of view.visibleRanges) {
+    let pos = from;
+    while (pos <= to) {
+      const line = doc.lineAt(pos);
+      const n = line.number - 1;
+      if (!seen.has(n)) {
+        seen.add(n);
+        const text = line.text;
+        const job = plugin.jobAtLine(path6, n, text);
+        const session = map.sessionByParent.get(n) || null;
+        let state = null;
+        if (job && ["starting", "running"].includes(job.state)) state = { kind: job.state === "starting" ? "starting" : "running", job };
+        else if (job && job.state === "needs-approval") state = { kind: "needs-approval", job, session };
+        else if (job && job.state === "done") state = { kind: "done", job, session };
+        else if (job && job.state === "error") state = { kind: "error", job, session };
+        else if (job && job.state === "cancelled") state = null;
+        else if (session) {
+          const st = session.state || "idle";
+          if (st === "run") state = { kind: "running", job, session };
+          else if (st === "wait" || st === "quiet") state = { kind: "waiting", job, session };
+          else if (st === "error" || st === "limit") state = { kind: "error", job, session };
+          else state = { kind: "bound", job, session };
+        }
+        if (state) {
+          const widget = new PillWidget(plugin, path6, n, state);
+          builder.add(line.to, line.to, import_view.Decoration.widget({ widget, side: 1, block: false }));
+        } else if (n === cursorLine && plugin.views.size && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && kwLine(text)) {
+          builder.add(line.to, line.to, import_view.Decoration.widget({ widget: new GripWidget(plugin, path6, n, text), side: 1, block: false }));
+        }
+      }
+      if (line.to >= to) break;
+      pos = line.to + 1;
+    }
+  }
+  return builder.finish();
+}
+function createEditorExtension(plugin) {
+  const pluginClass = class {
+    constructor(view) {
+      if (view.hasFocus) plugin._lastEditor = view;
+      this.decorations = buildDecorations(view, plugin);
+    }
+    update(update) {
+      if (update.focusChanged && update.view.hasFocus && plugin._lastEditor !== update.view) {
+        const prev = plugin._lastEditor;
+        plugin._lastEditor = update.view;
+        if (prev && prev !== update.view) {
+          try {
+            prev.dispatch({ effects: refreshEffect.of(null) });
+          } catch {
+          }
+        }
+      }
+      const refresh = update.transactions.some((tr) => tr.effects.some((e) => e.is(refreshEffect)));
+      if (update.docChanged || update.selectionSet || update.viewportChanged || update.focusChanged || refresh) this.decorations = buildDecorations(update.view, plugin);
+    }
+  };
+  return [import_view.ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin)];
+}
+async function dispatchRefresh(plugin) {
+  plugin.app.workspace.iterateAllLeaves((leaf) => {
+    const view = leaf.view;
+    const cm = view && view.editor && view.editor.cm;
+    if (cm) {
+      try {
+        cm.dispatch({ effects: refreshEffect.of(null) });
+      } catch {
+      }
+    }
+  });
+}
+
 // src/view.js
 var VIEW_TYPE = "agent-deck-view";
 var AgentDeckView = class extends import_obsidian2.ItemView {
@@ -3166,10 +3936,10 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const nowHead = this.secHead(nowSec, "\u73B0\u5728", `${running.length} \u4E2A\u5728\u8DD1 \xB7 ${waiting.length} \u4E2A\u7B49\u4F60`);
     const nowList = nowSec.createDiv({ cls: "ad-nowlist" });
     const nowItems = [...running, ...waiting].slice(0, 6);
-    if (!nowItems.length) this.empty(nowList, "\u73B0\u5728\u6CA1\u6709\u5728\u8DD1\u7684\u4F1A\u8BDD", "\u4ECE\u4EFB\u52A1\u884C\u70B9\u300C\u59D4\u6D3E\u300D\uFF0C\u6216\u8005\u7B49\u4E0B\u4E00\u6B21\u626B\u63CF\u3002");
+    if (!nowItems.length) this.empty(nowList, "\u73B0\u5728\u6CA1\u6709\u5728\u8DD1\u7684\u4F1A\u8BDD", "\u628A\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u62D6\u5230\u4E0B\u9762\u7684 Agent \u4E0A\u59D4\u6D3E\uFF0C\u6216\u8005\u7B49\u4E0B\u4E00\u6B21\u626B\u63CF\u3002");
     for (const s of nowItems) this.sessionCard(nowList, s, true);
     const agentsSec = dash.createDiv({ cls: "ad-sec" });
-    this.secHead(agentsSec, "Agents", "\u70B9\u661F\u6807\u5207\u6362\u4E3B\u529B\uFF08\u6700\u591A\u4E24\u4E2A\uFF09", () => p.openSettings());
+    this.secHead(agentsSec, "Agents", "\u70B9\u56FE\u6807\u6253\u5F00\u5BA2\u6237\u7AEF \xB7 \u628A\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u62D6\u4E0A\u6765\u59D4\u6D3E", () => p.openSettings());
     const grid = agentsSec.createDiv({ cls: "ad-agentgrid" });
     for (const id of AGENT_ORDER) this.agentCard(grid, id, today);
     if (p.settings.ui.showUsageBars !== false) {
@@ -3197,6 +3967,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     recSec._list = recSec.createDiv({ cls: "ad-sessionlist" });
     this.renderSessions(recSec);
     root.scrollTop = this._scroll;
+    this.playFly(dash);
     if (searchWasFocused) {
       const i = root.querySelector(".ad-search__input");
       if (i) {
@@ -3244,11 +4015,33 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const primary = p.isPrimary(id);
     const by = today && today.by && today.by[id] || null;
     const card = parent.createDiv({ cls: `ad-agentcard ${enabled ? "" : "is-off"} ${primary ? "is-primary" : ""}` });
+    card.dataset.agent = id;
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
+    const handoff = id === "codex" || id === "workbuddy";
+    card.setAttr("data-drop-hint", handoff ? `\u4EA4\u7ED9 ${a.short}\uFF1A\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF` : `\u59D4\u6D3E\u7ED9 ${a.short}`);
+    card.addEventListener("dragover", (e) => {
+      if (!p.acceptsItemDrag(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      card.addClass("is-drop");
+    });
+    card.addEventListener("dragleave", (e) => {
+      if (!card.contains(e.relatedTarget)) card.removeClass("is-drop");
+    });
+    card.addEventListener("drop", (e) => {
+      if (!p.acceptsItemDrag(e)) return;
+      e.preventDefault();
+      card.removeClass("is-drop");
+      p.delegateDrop(id, p.readItemDrag(e));
+    });
     const top = card.createDiv({ cls: "ad-agentcard__top" });
-    const mark = top.createDiv({ cls: "ad-agentcard__mark" });
+    const mark = top.createEl("button", { cls: "ad-agentcard__mark", attr: { "aria-label": `\u6253\u5F00 ${a.name}` } });
     agentIcon(mark.createSpan({ cls: "ad-glyph" }), id);
+    mark.onclick = (e) => {
+      e.stopPropagation();
+      p.openAgentApp(id);
+    };
     const name = top.createDiv({ cls: "ad-agentcard__name" });
     name.createDiv({ cls: "ad-agentcard__title", text: a.name });
     const live = p.usage.liveSessions({ since: Date.now() - 864e5, limit: 100 }).filter((x) => x.agent === id);
@@ -3266,6 +4059,17 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     stats.createSpan({ text: fmtTok(by ? by.out : 0) + " tok" });
     const spark = card.createDiv({ cls: "ad-spark" });
     if (p.settings.ui.showSparkline !== false) this.sparkline(spark, id);
+    for (const job of Object.values(p.jobs).filter((j) => j.agent === id && j.handoff && j.state === "starting" && !j.sessionId)) {
+      const row = card.createDiv({ cls: "ad-handoff" });
+      setLucide(row.createSpan({ cls: "ad-handoff__icon ad-spin" }), "loader-circle");
+      row.createSpan({ cls: "ad-handoff__text", text: `\u7B49\u4F60\u5728 ${a.short} \u91CC\u53D1\u51FA\uFF1A${truncate(job.name, 18)}` });
+      const x = row.createEl("button", { cls: "ad-handoff__x", attr: { "aria-label": "\u4E0D\u7B49\u4E86" } });
+      setLucide(x, "x");
+      x.onclick = (e) => {
+        e.stopPropagation();
+        p.cancelJob(job.id);
+      };
+    }
     const foot = card.createDiv({ cls: "ad-agentcard__foot" });
     const toggle = foot.createEl("button", { cls: "ad-minitoggle" + (enabled ? " is-on" : ""), text: enabled ? "\u8FFD\u8E2A\u4E2D" : "\u5DF2\u5173\u95ED" });
     toggle.onclick = (e) => {
@@ -3339,6 +4143,20 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const p = this.plugin;
     const a = AGENTS[s.agent] || AGENTS.claude;
     const card = parent.createDiv({ cls: `ad-sess ${compact ? "is-now" : ""}` });
+    card.dataset.sid = s.sid;
+    card.draggable = true;
+    card.addEventListener("dragstart", (e) => {
+      const title = s.title || truncate(s.text || s.step || s.sid, 60);
+      e.dataTransfer.setData(SESSION_MIME, JSON.stringify({ agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" }));
+      e.dataTransfer.setData("text/plain", title);
+      e.dataTransfer.effectAllowed = "copyLink";
+      card.addClass("is-dragging");
+      document.body.classList.add("ad-dragging-session");
+    });
+    card.addEventListener("dragend", () => {
+      card.removeClass("is-dragging");
+      document.body.classList.remove("ad-dragging-session");
+    });
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     const child = !!s.parentSid;
@@ -3393,8 +4211,61 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       open();
     };
     card.onclick = open;
-    if (s.agent === "dsh") card.title = "DeepSeek Harness \u5F53\u524D\u53EA\u63D0\u4F9B dsh://open\uFF08\u805A\u7126\u5BA2\u6237\u7AEF\uFF09\uFF0C\u4F1A\u8BDD\u53F7\u4F1A\u590D\u5236\u5230\u526A\u8D34\u677F";
-    if (s.agent === "claude" && s.app === "cli") card.title = "\u7EC8\u7AEF\u91CC\u7684 Claude Code\uFF1A\u4F1A\u5C1D\u8BD5\u5728 Claude \u684C\u9762\u7248\u6253\u5F00\uFF0C\u4E5F\u53EF\u5728\u8BBE\u7F6E\u91CC\u6539\u6210\u7EC8\u7AEF";
+    card.title = "\u70B9\u51FB\u6253\u5F00\u4F1A\u8BDD \xB7 \u62D6\u5230\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u4E0A\u7ED1\u5B9A\uFF0C\u62D6\u5230\u7A7A\u884C\u4E0A\u65B0\u5EFA\u4E00\u9879";
+    if (s.agent === "dsh") card.title += "\nDeepSeek Harness \u5F53\u524D\u53EA\u63D0\u4F9B dsh://open\uFF08\u805A\u7126\u5BA2\u6237\u7AEF\uFF09\uFF0C\u4F1A\u8BDD\u53F7\u4F1A\u590D\u5236\u5230\u526A\u8D34\u677F";
+    if (s.agent === "claude" && s.app === "cli") card.title += "\n\u7EC8\u7AEF\u91CC\u7684 Claude Code\uFF1A\u4F1A\u5C1D\u8BD5\u5728 Claude \u684C\u9762\u7248\u6253\u5F00\uFF0C\u4E5F\u53EF\u5728\u8BBE\u7F6E\u91CC\u6539\u6210\u7EC8\u7AEF";
+  }
+  // 刚委派出去的会话有了会话号：卡片从它的 Agent 卡片飞进「现在」
+  playFly(dash) {
+    const flying = this.plugin._flying;
+    if (flying && Date.now() < flying.until) {
+      const t = dash.querySelector(`.ad-nowlist .ad-sess[data-sid="${CSS.escape(flying.sid)}"]`);
+      if (t) {
+        t.style.opacity = "0";
+        flying.target = t;
+      }
+    }
+    const fly = this.plugin._fly;
+    if (!fly) return;
+    if (Date.now() - fly.at > 1e4) {
+      this.plugin._fly = null;
+      return;
+    }
+    const target = dash.querySelector(`.ad-nowlist .ad-sess[data-sid="${CSS.escape(fly.sid)}"]`);
+    const from = dash.querySelector(`.ad-agentcard[data-agent="${fly.agent}"]`);
+    if (!target || !from) return;
+    this.plugin._fly = null;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      target.addClass("is-landed");
+      return;
+    }
+    requestAnimationFrame(() => {
+      const a = from.getBoundingClientRect(), b = target.getBoundingClientRect();
+      if (!a.width || !b.width) return;
+      const layer = document.body.createDiv({ cls: "ad-view ad-fly-layer" });
+      const ghost = target.cloneNode(true);
+      ghost.classList.add("ad-fly-ghost");
+      Object.assign(ghost.style, { position: "fixed", left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px`, margin: "0", zIndex: "9999", pointerEvents: "none", transformOrigin: "top left" });
+      layer.appendChild(ghost);
+      target.style.opacity = "0";
+      const flying2 = this.plugin._flying = { sid: fly.sid, until: Date.now() + 3e3, target };
+      const sx = a.width / b.width, sy = a.height / b.height;
+      const dx = a.left - b.left, dy = a.top - b.top;
+      const anim = ghost.animate([
+        { transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})`, opacity: 0.35 },
+        { transform: `translate(${dx * 0.12}px, ${Math.min(-10, dy * 0.12)}px) scale(1.03)`, opacity: 1, offset: 0.62 },
+        { transform: "none", opacity: 1 }
+      ], { duration: 760, easing: "cubic-bezier(.22,.9,.24,1)" });
+      const done = () => {
+        layer.remove();
+        const t = flying2.target || target;
+        t.style.opacity = "";
+        t.addClass("is-landed");
+        if (this.plugin._flying === flying2) this.plugin._flying = null;
+      };
+      anim.onfinish = done;
+      anim.oncancel = done;
+    });
   }
   empty(parent, title, sub) {
     const e = parent.createDiv({ cls: "ad-empty" });
@@ -4267,6 +5138,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     });
     for (const [key, label, desc, fallback] of [
       ["showEditorPills", "\u4EFB\u52A1\u884C\u4E0A\u7684\u4F1A\u8BDD\u72B6\u6001\u6309\u94AE", "\u53EA\u6709\u5DF2\u7ECF\u7ED1\u5B9A\u4F1A\u8BDD / \u59D4\u6D3E\u51FA\u53BB\u7684\u884C\u624D\u663E\u793A\u72B6\u6001\u548C\u8FDB\u5EA6\uFF1B\u4E0D\u518D\u5728\u6BCF\u4E2A\u6761\u76EE\u4E0A\u653E\u300C\u59D4\u6D3E\u300D\u6309\u94AE\u3002", true],
+      ["dragGrip", "\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u7684\u62D6\u62FD\u628A\u624B", "\u9762\u677F\u5F00\u7740\u65F6\uFF0C\u5149\u6807\u6240\u5728\u7684\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u51FA\u4E00\u4E2A\u5C0F\u628A\u624B\uFF0C\u62D6\u5230\u67D0\u4E2A Agent \u5361\u7247\u4E0A\u5C31\u662F\u59D4\u6D3E\u3002\u9009\u4E2D\u6587\u5B57\u76F4\u63A5\u62D6\u4E5F\u884C\u3002", true],
       ["showRibbonIcon", "\u5DE6\u4FA7\u680F\u56FE\u6807", "\u70B9\u4E00\u4E0B\u6253\u5F00 Agent Deck\u3002", true],
       ["openDashboardOnStartup", "\u542F\u52A8\u65F6\u6253\u5F00\u9762\u677F", "Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00 Agent Deck \u4FA7\u680F\u3002", false]
     ]) {
@@ -4605,214 +5477,6 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
     this.contentEl.empty();
   }
 };
-
-// src/editor.js
-var import_view = require("@codemirror/view");
-var import_state = require("@codemirror/state");
-var refreshEffect = import_state.StateEffect.define();
-function sigFor(x) {
-  if (!x) return "none";
-  return [x.kind, x.job && x.job.id, x.job && x.job.state, x.session && x.session.sid, x.session && x.session.state, x.session && x.session.step, x.session && x.session.tokens, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
-}
-var PillWidget = class extends import_view.WidgetType {
-  constructor(plugin, path6, line, info) {
-    super();
-    this.plugin = plugin;
-    this.path = path6;
-    this.line = line;
-    this.info = info;
-    this.sig = sigFor(info);
-  }
-  eq(other) {
-    return other.path === this.path && other.line === this.line && other.sig === this.sig;
-  }
-  toDOM(view) {
-    const p = this.plugin;
-    const info = this.info;
-    const el = document.createElement("span");
-    el.className = `ad-pill ad-pill--${info.kind}`;
-    el.setAttribute("contenteditable", "false");
-    el.dataset.line = String(this.line);
-    const job = info.job;
-    const session = info.session;
-    const agent = job && job.agent || session && session.agent || p.defaultTarget();
-    const a = AGENTS[agent] || AGENTS.claude;
-    el.style.setProperty("--ad-agent", a.color);
-    el.style.setProperty("--ad-agent-soft", a.soft);
-    const fill2 = document.createElement("span");
-    fill2.className = "ad-pill__fill";
-    el.appendChild(fill2);
-    const wave = document.createElement("span");
-    wave.className = "ad-pill__wave";
-    el.appendChild(wave);
-    const glyph = document.createElement("span");
-    glyph.className = "ad-pill__glyph";
-    agentIcon(glyph, agent);
-    el.appendChild(glyph);
-    const label = document.createElement("span");
-    label.className = "ad-pill__label";
-    el.appendChild(label);
-    const meta = document.createElement("span");
-    meta.className = "ad-pill__meta";
-    el.appendChild(meta);
-    const right = document.createElement("span");
-    right.className = "ad-pill__right";
-    el.appendChild(right);
-    const modelName = job && p.modelLabel(job.model) || session && p.modelLabel(session.model) || "";
-    if (info.kind === "idle") {
-      label.textContent = "\u59D4\u6D3E";
-      meta.textContent = modelName || (agent === "dsh" ? "DeepSeek" : "Claude");
-      const chev = document.createElement("span");
-      chev.className = "ad-pill__chev";
-      setLucide(chev, "chevron-down");
-      chev.title = "\u9009\u62E9\u6A21\u578B\u3001\u5F3A\u5EA6\u3001\u6A21\u5F0F";
-      chev.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        p.openDelegateModal(this.path, this.line);
-      });
-      right.appendChild(chev);
-    } else if (info.kind === "running" || info.kind === "starting") {
-      label.textContent = info.kind === "starting" ? "\u51C6\u5907\u4E2D" : "\u59D4\u6D3E\u4E2D";
-      const start = job && job.startedAt || Date.now();
-      const tick = () => {
-        meta.textContent = fmtDur(Date.now() - start);
-      };
-      tick();
-      el._adTimer = setInterval(tick, 1e3);
-      const cancel = document.createElement("span");
-      cancel.className = "ad-pill__cancel";
-      setLucide(cancel, "x");
-      cancel.title = "\u53D6\u6D88\u8FD9\u6B21\u59D4\u6D3E";
-      cancel.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        p.cancelJob(job && job.id);
-      });
-      right.appendChild(cancel);
-      const progress = p.jobProgress(job);
-      if (progress && progress.total) {
-        el.style.setProperty("--ad-p", `${Math.round(progress.done / progress.total * 100)}%`);
-        el.classList.add("is-determinate");
-      }
-    } else if (info.kind === "waiting" || info.kind === "needs-approval") {
-      label.textContent = info.kind === "needs-approval" ? "\u7B49\u4F60\u5141\u8BB8" : "\u7B49\u4F60";
-      meta.textContent = info.kind === "needs-approval" ? "\u6253\u5F00\u5BA2\u6237\u7AEF\u5904\u7406" : "\u70B9\u51FB\u6253\u5F00";
-      el.classList.add("is-pulse");
-    } else if (info.kind === "done") {
-      label.textContent = "\u5B8C\u6210";
-      meta.textContent = job && job.result ? truncate(job.result, 28) : session && session.lastText ? truncate(session.lastText, 28) : "\u6253\u5F00\u4F1A\u8BDD";
-      const open = document.createElement("span");
-      open.className = "ad-pill__open";
-      setLucide(open, "arrow-up-right");
-      right.appendChild(open);
-    } else if (info.kind === "error") {
-      label.textContent = "\u51FA\u9519";
-      meta.textContent = truncate(job && job.error || session && session.err || "\u70B9\u51FB\u91CD\u8BD5", 30);
-      const retry = document.createElement("span");
-      retry.className = "ad-pill__open";
-      setLucide(retry, "refresh-cw");
-      retry.title = "\u91CD\u65B0\u59D4\u6D3E";
-      retry.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        p.openDelegateModal(this.path, this.line);
-      });
-      right.appendChild(retry);
-    } else {
-      label.textContent = "\u4F1A\u8BDD";
-      meta.textContent = session && session.step ? truncate(session.step, 26) : "";
-    }
-    if (session && session.tokens) {
-      const tok = document.createElement("span");
-      tok.className = "ad-pill__tok";
-      tok.textContent = fmtTok(session.tokens);
-      right.appendChild(tok);
-    }
-    el.addEventListener("mousedown", (e) => {
-      if (e.target.closest(".ad-pill__cancel, .ad-pill__chev, .ad-pill__open")) return;
-      e.preventDefault();
-      e.stopPropagation();
-      if (info.kind === "idle") p.delegateAtLine(this.path, this.line).catch((err2) => p.notice(String(err2.message || err2)));
-      else if (info.kind === "error") p.openDelegateModal(this.path, this.line);
-      else p.openJob(job && job.id, session && session.sid);
-    });
-    el.title = p.pillTitle(info);
-    return el;
-  }
-  destroy(dom) {
-    if (dom._adTimer) clearInterval(dom._adTimer);
-  }
-  ignoreEvent() {
-    return true;
-  }
-};
-function buildDecorations(view, plugin) {
-  const builder = new import_state.RangeSetBuilder();
-  const info = view.state.field(plugin.editorInfoField, false);
-  const path6 = info && info.file && info.file.path;
-  if (!path6 || !plugin.settings.showEditorPills) return builder.finish();
-  const doc = view.state.doc;
-  const map = plugin.lineMap(path6, doc);
-  const seen = /* @__PURE__ */ new Set();
-  for (const { from, to } of view.visibleRanges) {
-    let pos = from;
-    while (pos <= to) {
-      const line = doc.lineAt(pos);
-      const n = line.number - 1;
-      if (!seen.has(n)) {
-        seen.add(n);
-        const text = line.text;
-        const job = plugin.jobAtLine(path6, n, text);
-        const session = map.sessionByParent.get(n) || null;
-        let state = null;
-        if (job && ["starting", "running"].includes(job.state)) state = { kind: job.state === "starting" ? "starting" : "running", job };
-        else if (job && job.state === "needs-approval") state = { kind: "needs-approval", job, session };
-        else if (job && job.state === "done") state = { kind: "done", job, session };
-        else if (job && job.state === "error") state = { kind: "error", job, session };
-        else if (job && job.state === "cancelled") state = null;
-        else if (session) {
-          const st = session.state || "idle";
-          if (st === "run") state = { kind: "running", job, session };
-          else if (st === "wait" || st === "quiet") state = { kind: "waiting", job, session };
-          else if (st === "error" || st === "limit") state = { kind: "error", job, session };
-          else state = { kind: "bound", job, session };
-        }
-        if (state) {
-          const widget = new PillWidget(plugin, path6, n, state);
-          builder.add(line.to, line.to, import_view.Decoration.widget({ widget, side: 1, block: false }));
-        }
-      }
-      if (line.to >= to) break;
-      pos = line.to + 1;
-    }
-  }
-  return builder.finish();
-}
-function createEditorExtension(plugin) {
-  const pluginClass = class {
-    constructor(view) {
-      this.decorations = buildDecorations(view, plugin);
-    }
-    update(update) {
-      const refresh = update.transactions.some((tr) => tr.effects.some((e) => e.is(refreshEffect)));
-      if (update.docChanged || update.selectionSet || update.viewportChanged || refresh) this.decorations = buildDecorations(update.view, plugin);
-    }
-  };
-  return import_view.ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations });
-}
-async function dispatchRefresh(plugin) {
-  plugin.app.workspace.iterateAllLeaves((leaf) => {
-    const view = leaf.view;
-    const cm = view && view.editor && view.editor.cm;
-    if (cm) {
-      try {
-        cm.dispatch({ effects: refreshEffect.of(null) });
-      } catch {
-      }
-    }
-  });
-}
 
 // src/menubar.js
 var import_fs3 = __toESM(require("fs"), 1);
@@ -6687,196 +7351,6 @@ var MenuBarBridge = class {
 // src/autolog.js
 var import_obsidian5 = require("obsidian");
 
-// src/journal.js
-var LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
-var STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
-var CHECKBOX_RE = /^\[([ xX\/\-])\]\s*/;
-var KEYWORD_RE = /^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)\s*/;
-var AGENT_KW_RE = /^(TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)$/;
-var OPEN_KWS = ["TODO", "LATER", "NOW", "WAITING", "WAIT", "TODOFORAI", "TODO4AI", "TODO2AI", "TODOTOAI"];
-var DONE_KWS = ["DONE", "CANCELED", "CANCELLED", "FAILED"];
-var RESULT_RE2 = /^\s*[-*+]\s+💬/;
-var CLOCK_RE = /^\s*[-*+]\s+⏱/;
-var KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
-var AUTO_MARK = "\u{1F916} ";
-var pad2 = (n) => String(n).padStart(2, "0");
-var clock = (t) => `${pad2(Math.floor(t / 60) % 24)}:${pad2(Math.round(t % 60))}`;
-var durTag = (m) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? m % 60 + "m" : ""}` : `${Math.max(1, Math.round(m))}m`;
-var width = (line) => {
-  let w = 0;
-  for (const c of (/^\s*/.exec(line) || [""])[0]) w += c === "	" ? 4 : 1;
-  return w;
-};
-var workKey = (label) => String(label || "").replace(/\s*←\s*\S+\s*$/, "").trim();
-function splitTask(raw) {
-  const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(.*)$/.exec(raw);
-  if (!m) return null;
-  let [, prefix, rest] = m;
-  const st = STAMP_RE.exec(rest);
-  if (st) {
-    prefix += st[0];
-    rest = rest.slice(st[0].length);
-  }
-  const cb = CHECKBOX_RE.exec(rest);
-  if (cb) rest = rest.slice(cb[0].length);
-  const kw = KEYWORD_RE.exec(rest);
-  if (kw) rest = rest.slice(kw[0].length);
-  const pr = kw && /^\[#[ABC]\]\s*/.exec(rest);
-  if (pr) rest = rest.slice(pr[0].length);
-  let since = null;
-  const t = kw && /^(\d{1,2})[:：](\d{2})(?![\d:：]|\s*[-–~～到至])\s*/.exec(rest);
-  if (t) {
-    since = `${pad2(+t[1])}:${t[2]}`;
-    rest = rest.slice(t[0].length);
-  }
-  if (pr) rest = `${pr[0].trim()} ${rest}`;
-  return { prefix, rest, since, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
-}
-function kwLine(raw) {
-  let s = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s+/, "").replace(STAMP_RE, "");
-  let kw = "";
-  const cb = CHECKBOX_RE.exec(s);
-  if (cb) {
-    kw = cb[1] === " " ? "TODO" : cb[1] === "/" ? "DOING" : cb[1] === "-" ? "CANCELLED" : "DONE";
-    s = s.slice(cb[0].length);
-  }
-  const m = /^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)(?=\s|$)\s*/.exec(s);
-  if (m) {
-    kw = m[1];
-    s = s.slice(m[0].length);
-  }
-  s = s.replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
-  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || s.startsWith("\u{1F4AC}") || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
-  return { kw, body: s };
-}
-function parseLink(line) {
-  const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
-  if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
-  const b = /^\s*[-*+]\s+🔗.*`([0-9a-f-]{36})`/.exec(line);
-  return b ? { agent: "claude", sid: b[1], title: "" } : null;
-}
-function linkLine2(indent, agent, title, sid) {
-  const safe = String(title || "").replace(/[\[\]]/g, " ").trim();
-  if (agent === "claude") return `${indent}- \u{1F517} [Claude\uFF1A${safe}](claude://resume?session=${sid})`;
-  if (agent === "dsh") return `${indent}- \u{1F517} [DeepSeek Harness\uFF1A${safe}](dsh://open) \`${sid}\``;
-  return `${indent}- \u{1F517} ${agent}\uFF1A${safe} \`${sid}\``;
-}
-function markOwner(lines, i) {
-  const ind = width(lines[i]);
-  for (let j = i - 1; j >= 0; j--) if (lines[j].trim() && LIST_RE.test(lines[j]) && width(lines[j]) < ind) return j;
-  return -1;
-}
-function childMark(lines, n, pick) {
-  const base = width(lines[n]);
-  for (let i = n + 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    if (width(lines[i]) <= base) break;
-    const l = pick(lines[i]);
-    if (l) return { line: i, ...l };
-  }
-  return null;
-}
-var linkUnder = (lines, n) => childMark(lines, n, parseLink);
-var resultUnder = (lines, n) => childMark(lines, n, (l) => RESULT_RE2.test(l) ? {} : null);
-function resultText(raw, max = 200) {
-  let t = String(raw || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/^\s*\|?[\s:|-]{3,}\|?\s*$/gm, " ").replace(/\d{12,}/g, "\u2026").replace(/\s+/g, " ").trim();
-  const cap = Math.max(40, +max || 200);
-  if ([...t].length > cap) {
-    const cut = [...t].slice(0, cap).join("");
-    const stop = Math.max(...["\u3002", "\uFF01", "\uFF1F", "\uFF1B", ". ", "! ", "? "].map((c) => cut.lastIndexOf(c)));
-    t = (stop > cap * 0.5 ? cut.slice(0, stop + 1) : cut).trim() + "\u2026";
-  }
-  return t.replace(/\[\[/g, "\\[\\[").replace(/(^|[^\w&\\])#(?=[^\s#])/g, "$1\\#").replace(/==/g, "\\=\\=").replace(/%%/g, "\\%\\%").replace(/\$/g, "\\$").replace(/</g, "\\<").replace(/\s\^(?=[A-Za-z0-9-]+$)/, " \\^");
-}
-function resultInto(text, sid, said) {
-  if (!said || !text.includes(sid)) return text;
-  const lines = text.split("\n");
-  const at = lines.findIndex((l) => {
-    const k = parseLink(l);
-    return k && k.sid === sid;
-  });
-  const n = at < 0 ? -1 : markOwner(lines, at);
-  if (n < 0) return text;
-  const line = `${/^\s*/.exec(lines[at])[0]}- \u{1F4AC} ${said}`;
-  const had = resultUnder(lines, n);
-  if (had) {
-    if (lines[had.line] === line) return text;
-    lines[had.line] = line;
-  } else lines.splice(at + 1, 0, line);
-  return lines.join("\n");
-}
-function diffLines(before, after) {
-  const a = before.split("\n"), b = after.split("\n");
-  let s = 0;
-  while (s < a.length && s < b.length && a[s] === b[s]) s++;
-  let ea = a.length, eb = b.length;
-  while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) {
-    ea--;
-    eb--;
-  }
-  if (s === ea && s === eb) return null;
-  const mid = b.slice(s, eb);
-  if (ea < a.length) return { from: { line: s, ch: 0 }, to: { line: ea, ch: 0 }, text: mid.map((l) => l + "\n").join("") };
-  const end = { line: a.length - 1, ch: a[a.length - 1].length };
-  if (s > 0) return { from: { line: s - 1, ch: a[s - 1].length }, to: end, text: mid.map((l) => "\n" + l).join("") };
-  return { from: { line: 0, ch: 0 }, to: end, text: mid.join("\n") };
-}
-function taskItems(text) {
-  const out = [];
-  const lines = text.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    if (!LIST_RE.test(lines[i])) continue;
-    const k = kwLine(lines[i]);
-    if (!k) continue;
-    const st = DONE_KWS.includes(k.kw) ? "done" : /^(DOING|NOW|IN-PROGRESS)$/.test(k.kw) || AGENT_KW_RE.test(k.kw) ? "doing" : /^(PAUSED|SUSPENDED|WAITING|WAIT)$/.test(k.kw) ? "paused" : "open";
-    out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), indent: width(lines[i]), state: st });
-  }
-  return out;
-}
-function findTask(text, key) {
-  const hits = taskItems(text).filter((i) => i.key === key);
-  return hits.find((i) => i.state === "open") || hits[0] || null;
-}
-function openTasks(text) {
-  return taskItems(text).filter((i) => i.state !== "done").map((i) => ({
-    label: i.body,
-    doing: i.state === "doing",
-    paused: i.kw === "PAUSED" || i.kw === "SUSPENDED",
-    line: i.line
-  }));
-}
-function linkMap(text) {
-  const out = /* @__PURE__ */ new Map();
-  const lines = text.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const l = parseLink(lines[i]);
-    if (!l) continue;
-    const n = markOwner(lines, i);
-    const k = n >= 0 ? kwLine(lines[n]) : null;
-    if (k) out.set(l.sid, workKey(k.body));
-  }
-  return out;
-}
-function parseKid(line) {
-  const m = KID_LINK_RE.exec(line);
-  return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2] } : null;
-}
-function kidUnder(lines, n) {
-  return childMark(lines, n, parseKid);
-}
-function kidIdent(line) {
-  const c = parseKid(line);
-  if (c) return { ...c, open: true };
-  const m = /^\s*[-*+]\s+⏱.*·\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`\s*$/.exec(line);
-  return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2], open: false } : null;
-}
-var kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(/^\s*(?:\d+[.)、]\s*)?(?:(?:TODO|DOING|LATER|NOW|WAITING|WAIT|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+)?(?:\d{1,2}[:：]\d{2}\s*)?/, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
-function kidMatch(body, desc) {
-  const a = kidNorm(body), d = kidNorm(desc);
-  if (a.length < 4 || d.length < 4) return false;
-  return a.startsWith(d) || d.startsWith(a) || a.length >= 8 && d.length >= 8 && a.slice(0, 8) === d.slice(0, 8);
-}
-
 // src/llm.js
 var import_fs4 = __toESM(require("fs"), 1);
 var import_os4 = __toESM(require("os"), 1);
@@ -7535,7 +8009,10 @@ var JournalSync = class {
       const file = this.todayJournal();
       if (file && !this.isOpen(file)) {
         const text = await this.p.app.vault.read(file);
-        let next = this.spawnAll(text);
+        let next = text;
+        if (this.cfg.resultBack !== false) next = this.results(next);
+        if (this.cfg.agentKw !== false) next = this.keywords(next);
+        next = this.spawnAll(next);
         next = this.sides(next);
         if (next !== text) await this.p.app.vault.process(file, (cur) => cur === text ? next : cur);
       }
@@ -7637,6 +8114,7 @@ var JournalSync = class {
     }
     const link = linkUnder(lines, n);
     if (link && link.sid === sid) lines.splice(link.line, 1);
+    this.p.markBound?.(sid);
     return lines.join("\n");
   }
   // 一篇笔记里所有绑着的 Claude 会话开出来的子会话都挂上；新挂上的继续往下挂
@@ -7703,14 +8181,14 @@ var JournalSync = class {
         const ind = c2 ? (/^\s*/.exec(lines[c2.line]) || [""])[0] : (/^\s*/.exec(lines[mine]) || [""])[0] + unit;
         const pt = splitTask(lines[mine]);
         if (pt && !pt.cb && (OPEN_KWS.includes(pt.kw || "") || !pt.kw && this.kidTodos(lines, mine))) lines[mine] = `${pt.prefix}DOING ${this.hm(d.created)} ${pt.rest}`.trimEnd();
-        lines.splice(mine + 1, 0, linkLine2(ind, "claude", name, d.sid));
+        lines.splice(mine + 1, 0, linkLine(ind, "claude", name, d.sid));
         return true;
       }
       lines.splice(
         end + 1,
         0,
         `${kidInd}- DOING ${this.hm(d.created)} ${AUTO_MARK}${resultText(name, 60)}`,
-        linkLine2(kidInd + unit, "claude", name, d.sid)
+        linkLine(kidInd + unit, "claude", name, d.sid)
       );
       return true;
     };
@@ -7908,7 +8386,8 @@ var JournalSync = class {
       let mins = 1;
       if (from) {
         const [h, m] = from.split(":").map(Number);
-        let start = h * 60 + m;
+        let start = h * 60 + m - dayOffset();
+        if (start < 0) start += 1440;
         if (start > nowMin) start -= 1440;
         mins = Math.max(1, nowMin - start);
       }
@@ -7930,6 +8409,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     this.settings.primaryAgents = this.settings.primaryAgents.filter((x) => AGENTS[x]).slice(0, 2);
     if (!this.settings.primaryAgents.length) this.settings.primaryAgents = ["claude"];
     this.settings.jobs = this.settings.jobs && typeof this.settings.jobs === "object" ? this.settings.jobs : {};
+    setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 8) * 60);
     this.jobs = this.settings.jobs;
     this.views = /* @__PURE__ */ new Set();
     this._lineMaps = {};
@@ -8014,10 +8494,6 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       } catch {
       }
     }
-    for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) try {
-      leaf.detach();
-    } catch {
-    }
     try {
       this.ribbonEl?.remove();
     } catch {
@@ -8083,6 +8559,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       this.store.merge(touched, this.usage);
       this.store.prune();
       await this.store.save();
+      this.delegator.resolveHandoffs(this.usage);
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
       if (force) new import_obsidian7.Notice(`Agent Deck\uFF1A\u8BFB\u5230 ${this.usage.files.size} \u4E2A\u65E5\u5FD7\uFF0C${touched.size} \u5929\u6709\u5185\u5BB9`, 4e3);
@@ -8144,6 +8621,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
         continue;
       }
       if (!["starting", "running", "needs-approval"].includes(job.state)) continue;
+      if (job.handoff) continue;
       if (this.delegator.runners.has(job.id)) continue;
       const meta = job.sessionId ? this.usage.meta.get(job.sessionId) : null;
       if (meta && meta.lastAt) {
@@ -8171,6 +8649,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   // ---------- settings ----------
   async saveSettings() {
     this.settings.jobs = this.jobs;
+    setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 8) * 60);
     await this.saveData(this.settings);
   }
   saveJobs() {
@@ -8260,10 +8739,10 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     const list = this.usage.liveSessions({ since, limit: 100 }).filter((x) => this.agentEnabled(x.agent));
     const seen = new Set(list.map((x) => x.sid));
     for (const job of Object.values(this.jobs)) {
-      if (!["starting", "running", "needs-approval"].includes(job.state)) continue;
-      if (job.sessionId && seen.has(job.sessionId)) continue;
-      if (!job.sessionId && seen.has(job.id)) continue;
-      const sid = job.sessionId || job.id;
+      if (!["running", "needs-approval"].includes(job.state)) continue;
+      if (!job.sessionId || seen.has(job.sessionId)) continue;
+      if (this.usage.hidden(job.sessionId)) continue;
+      const sid = job.sessionId;
       list.push({
         sid,
         agent: job.agent,
@@ -8289,7 +8768,16 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     for (const job of Object.values(this.jobs)) {
       const sid = job.sessionId || job.id;
       if (!this.agentEnabled(job.agent)) continue;
+      if (job.sessionId && this.usage.hidden(job.sessionId)) {
+        bySid.delete(sid);
+        continue;
+      }
+      if (job.handoff && !job.sessionId) continue;
       const cur = bySid.get(sid);
+      if (job.state === "bound") {
+        if (cur) bySid.set(sid, { ...cur, job });
+        continue;
+      }
       const row = {
         ...cur || {},
         sid,
@@ -8391,6 +8879,122 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       if (j.lineText === text || j.line === line && j.lineText === text) best = j;
     }
     return best;
+  }
+  // ---------- drag and drop ----------
+  // 一个会话绑到了日记里（拖拽、委派、归档收尾）：告诉自动记日记别再替它新写一行
+  markBound(sid) {
+    var _a, _b;
+    if (!sid) return;
+    const day = dayKeyToday(this.settings);
+    const st = (_b = (_a = this.settings).autoLogState || (_a.autoLogState = {}))[day] || (_b[day] = {});
+    if (st[sid] && st[sid].bound) return;
+    st[sid] = { ...st[sid] || {}, skip: true, bound: true };
+    this.saveSettings().catch(() => {
+    });
+  }
+  // 编辑器里找打开着这篇笔记的那个 MarkdownView（不一定是当前激活的：拖拽时焦点常在面板上）
+  viewForPath(path6) {
+    let found = null;
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const v = leaf.view;
+      if (!found && v instanceof import_obsidian7.MarkdownView && v.file && v.file.path === path6 && v.editor) found = v;
+    });
+    return found;
+  }
+  // 面板里的会话卡片拖到了笔记第 line 行上
+  bindSessionAt(cm, line, data) {
+    let view = null;
+    this.app.workspace.iterateAllLeaves((leaf) => {
+      const v = leaf.view;
+      if (!view && v instanceof import_obsidian7.MarkdownView && v.editor && v.editor.cm === cm) view = v;
+    });
+    if (!view || !data || !data.sid) return;
+    const sid = data.sid;
+    const meta = this.usage.meta.get(sid) || {};
+    const live = this.liveSessions({ hours: 24 }).find((x) => x.sid === sid);
+    const day = dayKeyToday(this.settings);
+    const rec = ((this.settings.autoLogState || {})[day] || {})[sid];
+    const daySess = ((this.usage.summary(day) || {}).list || []).find((x) => x.sid === sid);
+    const first = daySess && daySess.segs && daySess.segs.length ? daySess.segs[0][0] : null;
+    const now = /* @__PURE__ */ new Date();
+    const since = first != null ? clock(first) : `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const text = cm.state.doc.toString();
+    const res = bindInto(text, line, {
+      sid,
+      agent: data.agent || meta.agent || "claude",
+      title: data.title || meta.title || (meta.text || "").split(" / ")[0] || sid.slice(0, 8),
+      state: live && live.state || meta.state || "idle",
+      since,
+      dropKey: rec && rec.created && rec.key ? rec.key : null
+    });
+    if (res.error) return this.notice(res.error, 6e3);
+    const change = diffLines(text, res.text);
+    if (change) view.editor.transaction({ changes: [change] });
+    this.markBound(sid);
+    const a = AGENTS[data.agent] || AGENTS.claude;
+    this.notice(res.kind === "bind" ? `\u{1F517} \u5DF2\u7ED1\u5B9A\uFF1A${a.short} \u4F1A\u8BDD\u7684\u72B6\u6001\u3001\u{1F4AC}\u3001\u23F1 \u548C\u5F52\u6863\u90FD\u4F1A\u8DDF\u7740\u8FD9\u4E00\u9879\u8D70` : `\u{1F517} \u65B0\u5EFA\u4E86\u4E00\u9879\u5E76\u7ED1\u4E0A ${a.short} \u4F1A\u8BDD`, 5e3);
+    setTimeout(() => this.journalSync.run({ force: true }).catch(() => {
+    }), 300);
+    this.refreshUI();
+  }
+  // 编辑器里开始拖一项（把手或选中的文字）：记下来源，拖到 Agent 卡片上时用
+  noteDragItem(src) {
+    const item = this._dragItem = { ...src, at: Date.now() };
+    document.body.classList.add("ad-dragging-item");
+    const off = (e) => {
+      document.body.classList.remove("ad-dragging-item");
+      document.removeEventListener("dragend", off, true);
+      document.removeEventListener("drop", off, true);
+      if (e && e.type === "dragend") setTimeout(() => {
+        if (this._dragItem && this._dragItem.at === item.at) this._dragItem = null;
+      }, 0);
+    };
+    document.addEventListener("dragend", off, true);
+    document.addEventListener("drop", off, true);
+  }
+  acceptsItemDrag(e) {
+    const types = e.dataTransfer ? [...e.dataTransfer.types] : [];
+    if (types.includes(ITEM_MIME)) return true;
+    return types.includes("text/plain") && this._dragItem && Date.now() - this._dragItem.at < 12e4;
+  }
+  readItemDrag(e) {
+    try {
+      const raw = e.dataTransfer.getData(ITEM_MIME);
+      if (raw) return JSON.parse(raw);
+    } catch {
+    }
+    return this._dragItem && Date.now() - this._dragItem.at < 12e4 ? this._dragItem : null;
+  }
+  // 笔记里的一项拖到了某个 Agent 卡片上：Claude / DSH 后台直接跑，Codex / WorkBuddy 打开客户端交接
+  async delegateDrop(agent, item, fromEl) {
+    this._dragItem = null;
+    if (!item || !item.path) return this.notice("\u6CA1\u8BA4\u51FA\u62D6\u7684\u662F\u54EA\u4E00\u9879\uFF1B\u4ECE\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u7684\u628A\u624B\u62D6");
+    const file = this.app.vault.getAbstractFileByPath(item.path);
+    if (!file) return this.notice("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0");
+    const view = this.viewForPath(item.path);
+    const lines = view ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
+    let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
+    if (line < 0) return this.notice("\u8FD9\u4E00\u884C\u521A\u6539\u8FC7\uFF0C\u91CD\u65B0\u62D6\u4E00\u6B21");
+    this._flyArmed = { agent, at: Date.now() };
+    try {
+      const opts = { file, lines, line, agent };
+      if (agent === "claude" || agent === "dsh") await this.delegator.delegate(opts);
+      else await this.delegator.handoff(opts);
+    } catch (e) {
+      this.notice(String(e.message || e), 8e3);
+    }
+    this.refreshUI();
+  }
+  // 委派出去的会话有了会话号（客户端里能打开了）：下一次画面板时，卡片从 Agents 飞进「现在」
+  flyFromAgent(job) {
+    if (!job || !job.sessionId) return;
+    this._fly = { agent: job.agent, sid: job.sessionId, at: Date.now() };
+    this.refreshUI();
+  }
+  openAgentApp(agent) {
+    return openAgentApp(agent).then((ok) => {
+      if (!ok) this.notice(`\u6CA1\u6253\u5F00 ${AGENTS[agent]?.name || agent}\uFF1A\u672C\u673A\u597D\u50CF\u6CA1\u88C5`);
+    });
   }
   // ---------- editor actions ----------
   activeEditor() {
@@ -8635,20 +9239,17 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     return openExternal(url);
   }
   async readNote(path6) {
+    const view = this.viewForPath(path6);
+    if (view) return view.editor.getValue();
     const file = this.app.vault.getAbstractFileByPath(path6);
     if (!file) throw new Error("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A" + path6);
     return await this.app.vault.read(file);
   }
   async writeNote(path6, text) {
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
-    if (view && view.file && view.file.path === path6) {
-      const ed = view.editor;
-      const line = clamp(ed.getCursor().line, 0, Math.max(0, ed.lineCount() - 1));
-      ed.setValue(text);
-      try {
-        ed.setCursor({ line: Math.min(line, ed.lineCount() - 1), ch: 0 });
-      } catch {
-      }
+    const view = this.viewForPath(path6);
+    if (view) {
+      const change = diffLines(view.editor.getValue(), text);
+      if (change) view.editor.transaction({ changes: [change] });
       return;
     }
     const file = this.app.vault.getAbstractFileByPath(path6);
@@ -8750,6 +9351,9 @@ function parseLinkLine(line) {
   } else if (m = /workbuddy:\/\/chat\/([^\s)\]]+)/i.exec(line)) {
     sid = decodeURIComponent(m[1]);
     agent = "workbuddy";
+  } else if (m = /codex:\/\/threads\/([0-9a-f-]{36})/i.exec(line)) {
+    sid = m[1];
+    agent = "codex";
   } else if (m = /`(session-[0-9a-f-]{20,}|[0-9a-f]{8}-[0-9a-f-]{27})`/i.exec(line)) {
     sid = m[1];
     agent = /dsh|deepseek|harness/i.test(line) ? "dsh" : "claude";

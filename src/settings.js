@@ -697,6 +697,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.toggle(nautRow.querySelector(":scope > .ad-row__right"), s.menuBarHideNautilus !== false, (v) => { s.menuBarHideNautilus = v; p.saveSettings(); if (v) p.hideNautilusAgentBar().catch(() => {}); else p.restoreNautilusAgentBar().catch(() => {}); });
     for (const [key, label, desc, fallback] of [
       ["showEditorPills", "任务行上的会话状态按钮", "只有已经绑定会话 / 委派出去的行才显示状态和进度；不再在每个条目上放「委派」按钮。", true],
+      ["dragGrip", "列表项尾巴上的拖拽把手", "面板开着时，光标所在的列表项尾巴上出一个小把手，拖到某个 Agent 卡片上就是委派。选中文字直接拖也行。", true],
       ["showRibbonIcon", "左侧栏图标", "点一下打开 Agent Deck。", true],
       ["openDashboardOnStartup", "启动时打开面板", "Obsidian 启动时自动打开 Agent Deck 侧栏。", false],
     ]) {

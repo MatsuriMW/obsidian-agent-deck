@@ -665,3 +665,100 @@
 /* Obsidian's mod-cta is vivid by default; keep the deck's muted accent. */
 .ad-btn.mod-cta { background: var(--ad-accent); color: var(--text-on-accent); border-color: transparent; }
 .ad-btn.mod-cta:hover { background: color-mix(in srgb, var(--ad-accent) 88%, #000); }
+
+/* ---------- drag and drop: note ⇄ panel ---------- */
+/* 会话卡片拖进笔记：目标行高亮，右边写着松手会发生什么 */
+.markdown-source-view .cm-line.ad-drop-line {
+  position: relative;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+  box-shadow: inset 2px 0 0 var(--interactive-accent);
+}
+.markdown-source-view .cm-line.ad-drop-line--new,
+.markdown-source-view .cm-line.ad-drop-line--fill { box-shadow: inset 0 -2px 0 var(--interactive-accent); }
+.markdown-source-view .cm-line.ad-drop-line--below { background: transparent; box-shadow: inset 0 -2px 0 var(--interactive-accent); }
+.markdown-source-view .cm-line.ad-drop-line::after {
+  content: attr(data-ad-drop);
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-on-accent);
+  background: var(--interactive-accent);
+  text-indent: 0;
+  white-space: nowrap;
+  width: max-content;
+  max-width: none;
+  box-sizing: content-box;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
+/* 光标所在的列表项尾巴上的拖拽把手 */
+.ad-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  vertical-align: -3px;
+  border-radius: 5px;
+  color: var(--text-faint);
+  cursor: grab;
+  opacity: .55;
+  transition: opacity .15s ease, background .15s ease, color .15s ease;
+}
+.ad-grip svg { width: 13px; height: 13px; }
+.ad-grip:hover { opacity: 1; color: var(--text-normal); background: var(--background-modifier-hover); }
+.ad-grip:active { cursor: grabbing; }
+
+/* Agent 卡片接住拖来的一项 */
+.ad-agentcard__mark { appearance: none; border: 0; padding: 0; cursor: pointer; transition: transform .14s ease, box-shadow .14s ease; }
+.ad-agentcard__mark:hover { transform: scale(1.08); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ad-agent) 28%, transparent); }
+body.ad-dragging-item .ad-agentcard { border-style: dashed; border-color: color-mix(in srgb, var(--ad-agent) 45%, var(--ad-line)); }
+.ad-agentcard.is-drop {
+  border-style: solid;
+  border-color: var(--ad-agent);
+  background: linear-gradient(180deg, var(--ad-agent-soft), transparent 80%), var(--ad-surface);
+  transform: translateY(-2px) scale(1.015);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--ad-agent) 22%, transparent);
+}
+.ad-agentcard.is-drop::before {
+  content: attr(data-drop-hint);
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  z-index: 2;
+  padding: 3px 6px;
+  border-radius: 7px;
+  font-size: 10px;
+  text-align: center;
+  color: #fff;
+  background: var(--ad-agent);
+}
+.ad-agentcard { position: relative; }
+.ad-handoff { display: flex; align-items: center; gap: 5px; margin-top: 6px; padding: 4px 6px; border-radius: 7px; font-size: 10px; color: var(--ad-agent); background: var(--ad-agent-soft); }
+.ad-handoff__icon { font-size: 11px; flex: none; }
+.ad-handoff__text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ad-handoff__x { appearance: none; border: 0; background: transparent; padding: 0; color: inherit; cursor: pointer; font-size: 11px; opacity: .7; box-shadow: none; }
+.ad-handoff__x:hover { opacity: 1; }
+
+/* 会话卡片：可以拖 */
+.ad-sess[draggable="true"] { cursor: grab; }
+.ad-sess.is-dragging { opacity: .45; }
+body.ad-dragging-session .markdown-source-view .cm-content { outline: 1px dashed color-mix(in srgb, var(--interactive-accent) 35%, transparent); outline-offset: 4px; border-radius: 6px; }
+
+/* 委派出去的会话飞进「现在」 */
+.ad-fly-layer { position: fixed; left: 0; top: 0; width: 0; height: 0; padding: 0; margin: 0; overflow: visible; background: transparent; z-index: 9999; pointer-events: none; }
+.ad-fly-ghost { background: var(--background-primary); box-shadow: 0 14px 34px rgba(40, 32, 26, .22); border-radius: 10px; will-change: transform, opacity; }
+@keyframes ad-land { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ad-agent) 45%, transparent); } 100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--ad-agent) 0%, transparent); } }
+.ad-sess.is-landed { animation: ad-land .9s ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  .ad-sess.is-landed, .ad-agentcard.is-drop { animation: none !important; transform: none !important; }
+}

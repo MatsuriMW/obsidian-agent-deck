@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.0
+
+- **笔记 ⇄ 面板拖拽。** 「现在」里的会话卡片拖到笔记里有字的一项上，原文不动、前面换上会话的状态关键词，下面写 `🔗` 子块，之后 `💬` / 状态 / `⏱` / 归档都跟着会话走；拖到空行、空的列表项或一段文字上，就在那儿新建一项并绑上（接着上面列表的缩进和编号）。拖动时目标行高亮并标出「绑定到这一项 / 在这里新建一项」。
+- **一对一绑定。** 一个会话只绑一处：换个地方拖等于换绑；自动记日记先替它写过的「🤖 …」一项会一起收掉，日记里原有的任务和 Agent 跑的那件事合成一行。绑过的会话登记下来，归档收掉 `🔗` 之后自动记日记不会再替它新写一行。
+- **拖到 Agent 上委派。** 面板开着时，光标所在的列表项尾巴上有一个拖拽把手（选中文字直接拖也行），拖到 Agents 里的某张卡片上：Claude Code / DeepSeek Harness 照旧后台开会话；Codex / WorkBuddy 走「打开客户端交接」——任务放进剪贴板、客户端叫到前台，你粘贴发出后，Agent Deck 认出新会话自动绑回这一项（`DELEGATED` + `🔗`），半小时没等到自动作罢。
+- **卡片飞进「现在」。** 委派出去的会话一有会话号，卡片从对应的 Agent 卡片飞进「现在」；系统开了「减少动态效果」时只闪一下。
+- **点 App 图标打开客户端。** Agents 区每张卡片的图标可以点，按 bundle id 把 Claude / Codex / WorkBuddy / DeepSeek Harness 叫到前台。
+- **四家的归档都认。** 新读 Codex `state_*.sqlite` 的 `threads.archived`、WorkBuddy `workbuddy.db` 的 `sessions.status`、DeepSeek Harness `workspace.json` 的 `archivedSessionIds`；已归档的不再出现在「现在」和「最近的会话」，委派记录也不会把它们带回来。取消归档也能跟上。在客户端里归档 → 笔记里那一项记 `DONE` + `⏱`；今天的日记没开着也照样改。
+- **Codex deeplink。** Codex 会话用 `codex://threads/<id>` 在桌面版打开（面板、菜单栏、状态 pill 都是），恢复命令仍复制到剪贴板；Codex / WorkBuddy 的 `🔗` 行写成可点的链接。
+- **修：日记里的时间早了 8 小时。** 时段按「日记分界（默认 8 点）起的分钟数」存，写成钟点时漏加了分界，自动记日记和归档收尾写的 `DOING HH:MM` / `⏱` 都早了 `dayCutoff` 小时。
+- **修：重载插件后侧栏面板消失。** 卸载时不再 detach 面板，固定在侧栏的位置留着。
+- 写回开着的笔记时按行改一处，不再整篇 `setValue`，光标、折叠和撤销记录都留着。
+- 设置 → 界面新增「列表项尾巴上的拖拽把手」开关。
+
 ## 1.1.1
 
 - 四个 Agent 换成各自官方 App 的 icon：Claude（`Claude.app`）、Codex（`ChatGPT.app` 里的 Codex 图标）、WorkBuddy（`WorkBuddy.app`）、DeepSeek Harness（`DeepSeek Harness.app`）。面板的 Agent 卡片、会话行、状态 pill、设置页和 macOS 菜单栏用同一套图；读不到图时退回原来的 Lucide 字形。

@@ -1,9 +1,9 @@
 {
   "id": "agent-deck",
   "name": "Agent Deck",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "minAppVersion": "1.4.0",
-  "description": "Track Claude Code, Codex, WorkBuddy and DeepSeek Harness; delegate with a command; keep agent status in the macOS menu bar.",
+  "description": "Track Claude Code, Codex, WorkBuddy and DeepSeek Harness; drag sessions onto note items and items onto agents; keep agent status in the macOS menu bar.",
   "author": "MatsuriMW",
   "authorUrl": "https://github.com/MatsuriMW",
   "isDesktopOnly": true
