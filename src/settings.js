@@ -617,6 +617,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: "终端" }, { id: "desktop", label: "桌面版" }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => { s.cliOpen = v; p.saveSettings(); this.display(); });
     const dt = this.row(desk, "主力终端", "resume、按住 ⌘ 拖到 Claude Code / Codex 上委派时，在哪个终端里开新标签。自动 = 装了 Warp 用 Warp，否则系统终端。", null);
     this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "自动" }, { id: "terminal", label: "系统终端" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }], s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
+    const dd = this.row(desk, "拖到 Claude Code / Codex 上默认在终端里开", "开着：笔记里的一项拖到 Claude Code / Codex 卡片上，在主力终端里新开标签跑交互式会话；按住 ⌘ 拖才走后台（Claude Code）/ 交给桌面版（Codex）。关着则反过来。", null);
+    this.toggle(dd.querySelector(":scope > .ad-row__right"), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
     const dn = this.row(desk, "有螺旋日程的进度行时让给它", "螺旋日程在任务行下面画了会话进度行时，行尾不再画 pill，🔗 链接放淡、不可点；点进度行打开会话（命令行会话切到它的终端标签）。", null);
     this.toggle(dn.querySelector(":scope > .ad-row__right"), s.yieldToNautilus !== false, (v) => { s.yieldToNautilus = v; p.saveSettings(); p.refreshUI(); });
     const d2 = this.row(desk, "归档的会话不再列出", "桌面版里归档 = 做完：归档的会话从「现在」和「最近的会话」里收起来，历史用量照旧保留。", null);

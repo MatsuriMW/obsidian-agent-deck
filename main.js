@@ -254,6 +254,8 @@ var DEFAULTS = {
   // 终端里起的 Claude Code 会话点开时：terminal 回终端 / desktop 走桌面版
   cliTerminal: "auto",
   // 主力终端：auto（装了 Warp 用 Warp，否则系统终端）/ terminal / iterm / warp / tern
+  delegateInTerminal: false,
+  // 拖到 Claude Code / Codex 上默认在主力终端里开交互式会话（按住 ⌘ 反过来）
   yieldToNautilus: true,
   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
@@ -4351,14 +4353,15 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const handoff = id === "codex" || id === "workbuddy";
     const cliCapable = id === "claude" || id === "codex";
     const hint = handoff ? `\u4EA4\u7ED9 ${a.short}` : `\u59D4\u6D3E\u7ED9 ${a.short}`;
-    const hintFor = (meta) => meta && cliCapable ? `\u5728\u7EC8\u7AEF\u91CC\u5F00 ${a.short}` : hint;
+    const toTerm = (meta) => cliCapable && !!meta !== !!p.settings.delegateInTerminal;
+    const hintFor = (meta) => toTerm(meta) ? `\u5728\u7EC8\u7AEF\u91CC\u5F00 ${a.short}` : hint;
     card.setAttr("data-drop-hint", hintFor(false));
     card.addEventListener("dragover", (e) => {
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
       card.addClass("is-drop");
-      card.toggleClass("is-cli", !!e.metaKey && cliCapable);
+      card.toggleClass("is-cli", toTerm(e.metaKey));
       card.setAttr("data-drop-hint", hintFor(e.metaKey));
     });
     card.addEventListener("dragleave", (e) => {
@@ -4374,7 +4377,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       card.removeClass("is-drop");
       card.removeClass("is-cli");
       card.setAttr("data-drop-hint", hintFor(false));
-      p.delegateDrop(id, p.readItemDrag(e), null, { cli: !!e.metaKey && cliCapable });
+      p.delegateDrop(id, p.readItemDrag(e), null, { cli: toTerm(e.metaKey) });
     });
     const top = card.createDiv({ cls: "ad-agentcard__top" });
     const mark = top.createEl("button", { cls: "ad-agentcard__mark", attr: { "aria-label": `\u6253\u5F00 ${a.name}` } });
@@ -5379,6 +5382,12 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       s.cliTerminal = v;
       p.saveSettings();
       this.display();
+    });
+    const dd = this.row(desk, "\u62D6\u5230 Claude Code / Codex \u4E0A\u9ED8\u8BA4\u5728\u7EC8\u7AEF\u91CC\u5F00", "\u5F00\u7740\uFF1A\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u62D6\u5230 Claude Code / Codex \u5361\u7247\u4E0A\uFF0C\u5728\u4E3B\u529B\u7EC8\u7AEF\u91CC\u65B0\u5F00\u6807\u7B7E\u8DD1\u4EA4\u4E92\u5F0F\u4F1A\u8BDD\uFF1B\u6309\u4F4F \u2318 \u62D6\u624D\u8D70\u540E\u53F0\uFF08Claude Code\uFF09/ \u4EA4\u7ED9\u684C\u9762\u7248\uFF08Codex\uFF09\u3002\u5173\u7740\u5219\u53CD\u8FC7\u6765\u3002", null);
+    this.toggle(dd.querySelector(":scope > .ad-row__right"), !!s.delegateInTerminal, (v) => {
+      s.delegateInTerminal = v;
+      p.saveSettings();
+      p.refreshUI();
     });
     const dn = this.row(desk, "\u6709\u87BA\u65CB\u65E5\u7A0B\u7684\u8FDB\u5EA6\u884C\u65F6\u8BA9\u7ED9\u5B83", "\u87BA\u65CB\u65E5\u7A0B\u5728\u4EFB\u52A1\u884C\u4E0B\u9762\u753B\u4E86\u4F1A\u8BDD\u8FDB\u5EA6\u884C\u65F6\uFF0C\u884C\u5C3E\u4E0D\u518D\u753B pill\uFF0C\u{1F517} \u94FE\u63A5\u653E\u6DE1\u3001\u4E0D\u53EF\u70B9\uFF1B\u70B9\u8FDB\u5EA6\u884C\u6253\u5F00\u4F1A\u8BDD\uFF08\u547D\u4EE4\u884C\u4F1A\u8BDD\u5207\u5230\u5B83\u7684\u7EC8\u7AEF\u6807\u7B7E\uFF09\u3002", null);
     this.toggle(dn.querySelector(":scope > .ad-row__right"), s.yieldToNautilus !== false, (v) => {

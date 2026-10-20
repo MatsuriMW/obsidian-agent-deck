@@ -177,14 +177,16 @@ export class AgentDeckView extends ItemView {
     const handoff = id === "codex" || id === "workbuddy";
     const cliCapable = id === "claude" || id === "codex";
     const hint = handoff ? `交给 ${a.short}` : `委派给 ${a.short}`;
-    const hintFor = (meta) => (meta && cliCapable ? `在终端里开 ${a.short}` : hint);
+    // 设置里「默认在终端里委派」开着时反过来：不按 ⌘ 在终端里开，按住 ⌘ 走原来的后台 / 客户端
+    const toTerm = (meta) => cliCapable && (!!meta !== !!p.settings.delegateInTerminal);
+    const hintFor = (meta) => (toTerm(meta) ? `在终端里开 ${a.short}` : hint);
     card.setAttr("data-drop-hint", hintFor(false));
     card.addEventListener("dragover", (e) => {
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
       card.addClass("is-drop");
-      card.toggleClass("is-cli", !!e.metaKey && cliCapable);
+      card.toggleClass("is-cli", toTerm(e.metaKey));
       card.setAttr("data-drop-hint", hintFor(e.metaKey));
     });
     card.addEventListener("dragleave", (e) => { if (!card.contains(e.relatedTarget)) { card.removeClass("is-drop"); card.removeClass("is-cli"); card.setAttr("data-drop-hint", hintFor(false)); } });
@@ -194,7 +196,7 @@ export class AgentDeckView extends ItemView {
       card.removeClass("is-drop");
       card.removeClass("is-cli");
       card.setAttr("data-drop-hint", hintFor(false));
-      p.delegateDrop(id, p.readItemDrag(e), null, { cli: !!e.metaKey && cliCapable });
+      p.delegateDrop(id, p.readItemDrag(e), null, { cli: toTerm(e.metaKey) });
     });
     const top = card.createDiv({ cls: "ad-agentcard__top" });
     const mark = top.createEl("button", { cls: "ad-agentcard__mark", attr: { "aria-label": `打开 ${a.name}` } });
