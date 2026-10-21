@@ -25,7 +25,7 @@ The plugin keeps explanatory text out of its UI; this section is the manual, and
 | Area | What it shows / what you can do |
 |---|---|
 | Top numbers | Sessions running today, collaboration time, output tokens. After **主力** are your 1–2 primary agents: their full history is read; other agents only for sessions that moved today |
-| 现在 (Now) | Running and waiting sessions, up to six. Click a card to open the session; drag it into a note to bind it (see below) |
+| 现在 (Now) | Running and waiting sessions, up to six. Click a card to open the session; drag it into a note to bind it (see below); drag it up or down within the list to reorder (new sessions go on top); the × on a card (or right-click) removes it from 现在 |
 | Agents | One card per agent: click the icon to bring the client forward, ⭐ to make it primary, toggle tracking, **扫描** to rescan. Drop a note item on a card to delegate |
 | 最近 14 天 | Daily collaboration minutes stacked by agent; hover for numbers |
 | 最近的会话 | Sessions from the last 7 days, filterable by state and agent, searchable by title, project and last step |
