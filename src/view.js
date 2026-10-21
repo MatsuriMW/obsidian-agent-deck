@@ -3,6 +3,7 @@
 import { ItemView, Menu, setIcon } from "obsidian";
 import { AGENTS, AGENT_ORDER, fmtKey, fmtMin, fmtTok, fmtClock, fmtDur, timeAgo, truncate, unionSegs, dayKeyToday, esc } from "./constants.js";
 import { agentIcon, setLucide, stateIcon } from "./icons.js";
+import { lattice } from "./lattice.js";
 import { SESSION_MIME } from "./editor.js";
 
 export const VIEW_TYPE = "agent-deck-view";
@@ -273,7 +274,7 @@ export class AgentDeckView extends ItemView {
     if (p.settings.ui.showSparkline !== false) this.sparkline(spark, id);
     for (const job of Object.values(p.jobs).filter((j) => j.agent === id && j.handoff && j.state === "starting" && !j.sessionId)) {
       const row = card.createDiv({ cls: "ad-handoff" });
-      setLucide(row.createSpan({ cls: "ad-handoff__icon ad-spin" }), "loader-circle");
+      lattice(row.createSpan({ cls: "ad-handoff__icon" }), "ripple");
       row.createSpan({ cls: "ad-handoff__text", text: job.cli ? `等终端里的会话：${truncate(job.name, 16)}` : `等你在 ${a.short} 里发出：${truncate(job.name, 18)}` });
       const x = row.createEl("button", { cls: "ad-handoff__x", attr: { "aria-label": "不等了" } });
       setLucide(x, "x");
@@ -392,8 +393,9 @@ export class AgentDeckView extends ItemView {
     const st = stateChip(s);
     if (st) {
       const chip = titleRow.createSpan({ cls: `ad-state ${st.cls}` });
-      const sic = chip.createSpan({ cls: "ad-state__icon" + (st.cls === "is-live" ? " ad-spin" : "") });
-      stateIcon(sic, s.state);
+      const sic = chip.createSpan({ cls: "ad-state__icon" });
+      if (st.cls === "is-live") lattice(sic, "orbit");
+      else stateIcon(sic, s.state);
       chip.createSpan({ text: st.label });
     }
     // 会话派出去的 subagent：终端里和桌面版里一样写在 <会话>/subagents/ 下，在跑的数一下

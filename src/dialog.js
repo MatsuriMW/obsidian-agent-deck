@@ -3,6 +3,7 @@
 import { Modal, Notice, setIcon } from "obsidian";
 import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS, fmtTok } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
+import { lattice } from "./lattice.js";
 import { blockAt, blockTitle } from "./delegation.js";
 
 export class DelegateOptionsModal extends Modal {
@@ -143,6 +144,8 @@ export class DelegateOptionsModal extends Modal {
       go.setAttr("disabled", "true");
       const label = go.querySelector(".ad-btn__label");
       label.textContent = "Delegating";
+      goIcon.textContent = "";
+      lattice(goIcon, "orbit");
       try {
         const job = await p.delegator.delegate({
           file: this.file,
@@ -160,6 +163,7 @@ export class DelegateOptionsModal extends Modal {
       } catch (e) {
         go.classList.remove("is-busy");
         go.removeAttribute("disabled");
+        setLucide(goIcon, "send");
         label.textContent = "Delegate";
         new Notice(String(e.message || e), 6000);
       }

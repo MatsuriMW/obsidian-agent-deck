@@ -14,6 +14,7 @@ import { RangeSetBuilder, StateEffect, StateField, Prec } from "@codemirror/stat
 import { BULLET_RE, findLink, blockAt } from "./delegation.js";
 import * as J from "./journal.js";
 import { agentIcon, setLucide } from "./icons.js";
+import { lattice } from "./lattice.js";
 import { AGENTS, fmtDur, fmtTok, truncate } from "./constants.js";
 
 export const refreshEffect = StateEffect.define();
@@ -188,6 +189,9 @@ class PillWidget extends WidgetType {
       right.appendChild(chev);
     } else if (info.kind === "running" || info.kind === "starting") {
       label.textContent = info.kind === "starting" ? "准备中" : "委派中";
+      // 等待态：Agent 图标换成点阵，准备中绕圈、委派中蛇形走，两段一眼能分开
+      glyph.textContent = "";
+      lattice(glyph, info.kind === "starting" ? "orbit" : "snake");
       const start = (job && job.startedAt) || Date.now();
       const tick = () => { meta.textContent = fmtDur(Date.now() - start); };
       tick();

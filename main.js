@@ -3876,6 +3876,34 @@ function stateIcon(el, state, cls = "") {
   return setLucide(el, STATE_ICONS[state] || STATE_ICONS.idle, cls);
 }
 
+// src/lattice.js
+var PATTERNS = {
+  orbit: { cells: [0, 1, 2, 7, null, 3, 6, 5, 4], loop: 8, scale: 1.2, lit: 0.62 },
+  ripple: { cells: [2, 1, 2, 1, 0, 1, 2, 1, 2], loop: 4.8, scale: 1.5, lit: 0.62 },
+  snake: { cells: [0, 1, 2, 5, 4, 3, 6, 7, 8], loop: 9, scale: 1, lit: 0.35 },
+  arrow: { cells: [1, 2, 3, 0, 1, 2, 1, 2, 3], loop: 7.2, scale: 1, lit: 0.62 }
+};
+function lattice(parent, pattern = "orbit", { step = 90, cls = "" } = {}) {
+  const pat = PATTERNS[pattern] || PATTERNS.orbit;
+  const d = step * pat.scale;
+  const el = document.createElement("span");
+  el.className = "ad-lattice" + (cls ? " " + cls : "");
+  el.setAttribute("aria-hidden", "true");
+  el.style.setProperty("--ad-ll-cycle", `${Math.round(pat.loop * d)}ms`);
+  for (const unit of pat.cells) {
+    const c = document.createElement("span");
+    c.className = "ad-lattice__cell";
+    if (unit == null) c.dataset.hole = "";
+    else {
+      c.style.animationDelay = `${Math.round(unit * d)}ms`;
+      if (pat.lit !== 0.62) c.dataset.lit = String(Math.round(pat.lit * 100));
+    }
+    el.appendChild(c);
+  }
+  parent.appendChild(el);
+  return el;
+}
+
 // src/editor.js
 var import_view = require("@codemirror/view");
 var import_state = require("@codemirror/state");
@@ -4053,6 +4081,8 @@ var PillWidget = class extends import_view.WidgetType {
       right.appendChild(chev);
     } else if (info.kind === "running" || info.kind === "starting") {
       label.textContent = info.kind === "starting" ? "\u51C6\u5907\u4E2D" : "\u59D4\u6D3E\u4E2D";
+      glyph.textContent = "";
+      lattice(glyph, info.kind === "starting" ? "orbit" : "snake");
       const start = job && job.startedAt || Date.now();
       const tick = () => {
         meta.textContent = fmtDur(Date.now() - start);
@@ -4243,6 +4273,10 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     this.plugin.views.delete(this);
   }
   render() {
+    if (this._dragSid) {
+      this._pendingRender = true;
+      return;
+    }
     const root = this.contentEl;
     this._scroll = root.scrollTop || this._scroll;
     const focused = document.activeElement;
@@ -4293,9 +4327,10 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const nowSec = dash.createDiv({ cls: "ad-sec ad-sec--now" });
     const nowHead = this.secHead(nowSec, "\u73B0\u5728", `${running.length} \u4E2A\u5728\u8DD1 \xB7 ${waiting.length} \u4E2A\u7B49\u4F60`);
     const nowList = nowSec.createDiv({ cls: "ad-nowlist" });
-    const nowItems = [...running, ...waiting].slice(0, 6);
+    const nowItems = this.nowOrdered([...running, ...waiting]).slice(0, 6);
     if (!nowItems.length) this.empty(nowList, "\u73B0\u5728\u6CA1\u6709\u5728\u8DD1\u7684\u4F1A\u8BDD");
     for (const s of nowItems) this.sessionCard(nowList, s, true);
+    this.nowReorder(nowList);
     const agentsSec = dash.createDiv({ cls: "ad-sec" });
     this.secHead(agentsSec, "Agents", "", () => p.openSettings());
     const grid = agentsSec.createDiv({ cls: "ad-agentgrid" });
@@ -4333,6 +4368,52 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
         i.setSelectionRange(i.value.length, i.value.length);
       }
     }
+  }
+  // 「现在」：去掉移除过的，按拖出来的顺序排；没排过的（新来的）放最上面
+  nowOrdered(items) {
+    const st = this.plugin.settings;
+    const hidden = st.nowHidden || {};
+    const order = st.nowOrder || [];
+    return items.filter((x) => !hidden[x.sid]).map((x, i) => ({ x, i, k: order.indexOf(x.sid) })).sort((a, b) => {
+      if (a.k < 0 && b.k < 0) return a.i - b.i;
+      if (a.k < 0) return -1;
+      if (b.k < 0) return 1;
+      return a.k - b.k;
+    }).map((o) => o.x);
+  }
+  nowReorder(list) {
+    list.addEventListener("dragover", (e) => {
+      const dragged = this._dragSid && list.querySelector(`.ad-sess[data-sid="${CSS.escape(this._dragSid)}"]`);
+      if (!dragged) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const after = [...list.querySelectorAll(".ad-sess:not(.is-dragging)")].find((el) => {
+        const r = el.getBoundingClientRect();
+        return e.clientY < r.top + r.height / 2;
+      });
+      if (after) {
+        if (dragged.nextSibling !== after) list.insertBefore(dragged, after);
+      } else if (list.lastChild !== dragged) list.appendChild(dragged);
+    });
+    list.addEventListener("drop", (e) => {
+      if (!this._dragSid) return;
+      e.preventDefault();
+      this._nowDropped = true;
+      const sids = [...list.querySelectorAll(".ad-sess")].map((el) => el.dataset.sid);
+      const rest = (this.plugin.settings.nowOrder || []).filter((x) => !sids.includes(x));
+      this.plugin.settings.nowOrder = [...sids, ...rest].slice(0, 60);
+      this.plugin.saveSettings();
+    });
+  }
+  removeFromNow(sid) {
+    const st = this.plugin.settings;
+    const cutoff = Date.now() - 3 * 864e5;
+    const hidden = Object.fromEntries(Object.entries(st.nowHidden || {}).filter(([, at]) => at > cutoff));
+    hidden[sid] = Date.now();
+    st.nowHidden = hidden;
+    st.nowOrder = (st.nowOrder || []).filter((x) => x !== sid);
+    this.plugin.saveSettings();
+    this.render();
   }
   renderSessions(sec) {
     const list = sec._list || sec.querySelector(".ad-sessionlist");
@@ -4431,7 +4512,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     if (p.settings.ui.showSparkline !== false) this.sparkline(spark, id);
     for (const job of Object.values(p.jobs).filter((j) => j.agent === id && j.handoff && j.state === "starting" && !j.sessionId)) {
       const row = card.createDiv({ cls: "ad-handoff" });
-      setLucide(row.createSpan({ cls: "ad-handoff__icon ad-spin" }), "loader-circle");
+      lattice(row.createSpan({ cls: "ad-handoff__icon" }), "ripple");
       row.createSpan({ cls: "ad-handoff__text", text: job.cli ? `\u7B49\u7EC8\u7AEF\u91CC\u7684\u4F1A\u8BDD\uFF1A${truncate(job.name, 16)}` : `\u7B49\u4F60\u5728 ${a.short} \u91CC\u53D1\u51FA\uFF1A${truncate(job.name, 18)}` });
       const x = row.createEl("button", { cls: "ad-handoff__x", attr: { "aria-label": "\u4E0D\u7B49\u4E86" } });
       setLucide(x, "x");
@@ -4522,10 +4603,20 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       e.dataTransfer.effectAllowed = "all";
       card.addClass("is-dragging");
       document.body.classList.add("ad-dragging-session");
+      if (compact) {
+        this._dragSid = s.sid;
+        this._nowDropped = false;
+      }
     });
     card.addEventListener("dragend", () => {
       card.removeClass("is-dragging");
       document.body.classList.remove("ad-dragging-session");
+      if (!compact) return;
+      this._dragSid = null;
+      if (this._pendingRender || !this._nowDropped) {
+        this._pendingRender = false;
+        this.render();
+      }
     });
     card.addEventListener("dragover", (e) => {
       if (!p.acceptsItemDrag(e)) return;
@@ -4558,8 +4649,9 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const st = stateChip(s);
     if (st) {
       const chip = titleRow.createSpan({ cls: `ad-state ${st.cls}` });
-      const sic = chip.createSpan({ cls: "ad-state__icon" + (st.cls === "is-live" ? " ad-spin" : "") });
-      stateIcon(sic, s.state);
+      const sic = chip.createSpan({ cls: "ad-state__icon" });
+      if (st.cls === "is-live") lattice(sic, "orbit");
+      else stateIcon(sic, s.state);
       chip.createSpan({ text: st.label });
     }
     const subs = p.usage.subsOf ? p.usage.subsOf(s.sid).filter((r) => r.state !== "done" && r.state !== "fail" && Date.now() - (r.at || r.start || 0) < 5 * 6e4) : [];
@@ -4594,6 +4686,22 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       kin.createSpan({ cls: "ad-sess__kinmark", text: "\u21B3" });
       kin.createSpan({ cls: "ad-sess__kintitle", text: `\u4ECE\u300C${truncate(s.parentTitle || "\u6BCD\u4F1A\u8BDD", 24)}\u300D\u5F00\u51FA` });
       if (s.deskTitle && s.deskTitle !== s.title) kin.title = `\u684C\u9762\u7248\u91CC\u7684\u6807\u9898\uFF1A${s.deskTitle}`;
+    }
+    if (compact) {
+      card.addClass("has-x");
+      const x = card.createEl("button", { cls: "ad-arrow ad-sess__x", attr: { "aria-label": "\u4ECE\u300C\u73B0\u5728\u300D\u79FB\u9664" } });
+      setLucide(x.createSpan({ cls: "ad-arrow__icon" }), "x");
+      x.onclick = (e) => {
+        e.stopPropagation();
+        this.removeFromNow(s.sid);
+      };
+      card.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const m = new import_obsidian2.Menu();
+        m.addItem((i) => i.setTitle("\u6253\u5F00\u4F1A\u8BDD").setIcon("arrow-up-right").onClick(() => p.openSession(s.agent, s.sid, s.app, s)));
+        m.addItem((i) => i.setTitle("\u4ECE\u300C\u73B0\u5728\u300D\u79FB\u9664").setIcon("x").onClick(() => this.removeFromNow(s.sid)));
+        m.showAtMouseEvent(e);
+      });
     }
     const go = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": "\u6253\u5F00\u4F1A\u8BDD" } });
     setLucide(go.createSpan({ cls: "ad-arrow__icon" }), "arrow-up-right");
@@ -5865,6 +5973,8 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
       go.setAttr("disabled", "true");
       const label = go.querySelector(".ad-btn__label");
       label.textContent = "Delegating";
+      goIcon.textContent = "";
+      lattice(goIcon, "orbit");
       try {
         const job = await p.delegator.delegate({
           file: this.file,
@@ -5882,6 +5992,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
       } catch (e) {
         go.classList.remove("is-busy");
         go.removeAttribute("disabled");
+        setLucide(goIcon, "send");
         label.textContent = "Delegate";
         new import_obsidian4.Notice(String(e.message || e), 6e3);
       }

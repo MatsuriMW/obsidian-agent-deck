@@ -775,3 +775,18 @@ body.ad-dragging-session .markdown-source-view .cm-content { outline: 1px dashed
 .ad-link-quiet { opacity: .55; }
 .ad-link-quiet .cm-link, .ad-link-quiet .cm-url, .ad-link-quiet .cm-underline, .ad-link-quiet a, .ad-link-quiet .external-link { pointer-events: none; cursor: text; }
 .ad-link-quiet .external-link { display: none; }
+
+/* Lattice loader（移植自 React Bits，见 src/lattice.js）：等待态的点阵，颜色跟 currentColor */
+.ad-lattice { --ad-ll-cell: 3px; --ad-ll-gap: 1px; --ad-ll-idle: .28; display: inline-grid; grid-template-columns: repeat(3, var(--ad-ll-cell)); gap: var(--ad-ll-gap); flex: none; vertical-align: middle; }
+.ad-lattice__cell { width: var(--ad-ll-cell); height: var(--ad-ll-cell); border-radius: 50%; background: currentColor; opacity: var(--ad-ll-idle); animation: ad-ll-on var(--ad-ll-cycle) cubic-bezier(.77, 0, .175, 1) infinite; }
+.ad-lattice__cell[data-lit="35"] { animation-name: ad-ll-on-35; }
+.ad-lattice__cell[data-hole] { animation: none; opacity: calc(var(--ad-ll-idle) * .47); }
+@keyframes ad-ll-on { 0%, 100% { opacity: var(--ad-ll-idle); } 18%, 42% { opacity: 1; } 62% { opacity: var(--ad-ll-idle); } }
+@keyframes ad-ll-on-35 { 0%, 100% { opacity: var(--ad-ll-idle); } 10%, 24% { opacity: 1; } 35% { opacity: var(--ad-ll-idle); } }
+.ad-pill__glyph .ad-lattice { --ad-ll-cell: 3.5px; margin: auto; }
+.ad-btn__icon .ad-lattice { --ad-ll-cell: 3.5px; --ad-ll-idle: .3; }
+.ad-handoff__icon .ad-lattice { color: var(--ad-agent, currentColor); }
+.ad-state__icon .ad-lattice { --ad-ll-cell: 2.5px; --ad-ll-gap: .5px; margin-right: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  .ad-lattice__cell { animation-delay: 0ms !important; animation-duration: 1400ms !important; }
+}
