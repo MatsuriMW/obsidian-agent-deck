@@ -33,6 +33,8 @@ export class AgentDeckView extends ItemView {
   }
 
   render() {
+    // 正在拖「现在」里的卡片排序：重画会把拖着的卡片换掉，等松手再画
+    if (this._dragSid) { this._pendingRender = true; return; }
     const root = this.contentEl;
     this._scroll = root.scrollTop || this._scroll;
     const focused = document.activeElement;
@@ -90,9 +92,10 @@ export class AgentDeckView extends ItemView {
     const nowSec = dash.createDiv({ cls: "ad-sec ad-sec--now" });
     const nowHead = this.secHead(nowSec, "现在", `${running.length} 个在跑 · ${waiting.length} 个等你`);
     const nowList = nowSec.createDiv({ cls: "ad-nowlist" });
-    const nowItems = [...running, ...waiting].slice(0, 6);
+    const nowItems = this.nowOrdered([...running, ...waiting]).slice(0, 6);
     if (!nowItems.length) this.empty(nowList, "现在没有在跑的会话");
     for (const s of nowItems) this.sessionCard(nowList, s, true);
+    this.nowReorder(nowList);
 
     // Agents
     const agentsSec = dash.createDiv({ cls: "ad-sec" });
@@ -125,6 +128,58 @@ export class AgentDeckView extends ItemView {
     root.scrollTop = this._scroll;
     this.playFly(dash);
     if (searchWasFocused) { const i = root.querySelector(".ad-search__input"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+  }
+
+  // 「现在」：去掉移除过的，按拖出来的顺序排；没排过的（新来的）放最上面
+  nowOrdered(items) {
+    const st = this.plugin.settings;
+    const hidden = st.nowHidden || {};
+    const order = st.nowOrder || [];
+    return items
+      .filter((x) => !hidden[x.sid])
+      .map((x, i) => ({ x, i, k: order.indexOf(x.sid) }))
+      .sort((a, b) => {
+        if (a.k < 0 && b.k < 0) return a.i - b.i;
+        if (a.k < 0) return -1;
+        if (b.k < 0) return 1;
+        return a.k - b.k;
+      })
+      .map((o) => o.x);
+  }
+
+  nowReorder(list) {
+    list.addEventListener("dragover", (e) => {
+      const dragged = this._dragSid && list.querySelector(`.ad-sess[data-sid="${CSS.escape(this._dragSid)}"]`);
+      if (!dragged) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      const after = [...list.querySelectorAll(".ad-sess:not(.is-dragging)")].find((el) => {
+        const r = el.getBoundingClientRect();
+        return e.clientY < r.top + r.height / 2;
+      });
+      if (after) { if (dragged.nextSibling !== after) list.insertBefore(dragged, after); }
+      else if (list.lastChild !== dragged) list.appendChild(dragged);
+    });
+    list.addEventListener("drop", (e) => {
+      if (!this._dragSid) return;
+      e.preventDefault();
+      this._nowDropped = true;
+      const sids = [...list.querySelectorAll(".ad-sess")].map((el) => el.dataset.sid);
+      const rest = (this.plugin.settings.nowOrder || []).filter((x) => !sids.includes(x));
+      this.plugin.settings.nowOrder = [...sids, ...rest].slice(0, 60);
+      this.plugin.saveSettings();
+    });
+  }
+
+  removeFromNow(sid) {
+    const st = this.plugin.settings;
+    const cutoff = Date.now() - 3 * 86400000;
+    const hidden = Object.fromEntries(Object.entries(st.nowHidden || {}).filter(([, at]) => at > cutoff));
+    hidden[sid] = Date.now();
+    st.nowHidden = hidden;
+    st.nowOrder = (st.nowOrder || []).filter((x) => x !== sid);
+    this.plugin.saveSettings();
+    this.render();
   }
 
   renderSessions(sec) {
@@ -303,8 +358,16 @@ export class AgentDeckView extends ItemView {
       e.dataTransfer.effectAllowed = "all";   // 按住 ⌘ 拖（在下面新建）时 macOS 会换拖放效果，都放行
       card.addClass("is-dragging");
       document.body.classList.add("ad-dragging-session");
+      if (compact) { this._dragSid = s.sid; this._nowDropped = false; }
     });
-    card.addEventListener("dragend", () => { card.removeClass("is-dragging"); document.body.classList.remove("ad-dragging-session"); });
+    card.addEventListener("dragend", () => {
+      card.removeClass("is-dragging");
+      document.body.classList.remove("ad-dragging-session");
+      if (!compact) return;
+      this._dragSid = null;
+      // 拖到笔记里或半路放弃：卡片回原位；在列表里放下的顺序已经存了
+      if (this._pendingRender || !this._nowDropped) { this._pendingRender = false; this.render(); }
+    });
     // 笔记里的一项拖到会话卡片上：绑定，不委派
     card.addEventListener("dragover", (e) => { if (!p.acceptsItemDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "link"; card.addClass("is-drop"); });
     card.addEventListener("dragleave", (e) => { if (!card.contains(e.relatedTarget)) card.removeClass("is-drop"); });
@@ -360,6 +423,19 @@ export class AgentDeckView extends ItemView {
       kin.createSpan({ cls: "ad-sess__kinmark", text: "↳" });
       kin.createSpan({ cls: "ad-sess__kintitle", text: `从「${truncate(s.parentTitle || "母会话", 24)}」开出` });
       if (s.deskTitle && s.deskTitle !== s.title) kin.title = `桌面版里的标题：${s.deskTitle}`;
+    }
+    if (compact) {
+      card.addClass("has-x");
+      const x = card.createEl("button", { cls: "ad-arrow ad-sess__x", attr: { "aria-label": "从「现在」移除" } });
+      setLucide(x.createSpan({ cls: "ad-arrow__icon" }), "x");
+      x.onclick = (e) => { e.stopPropagation(); this.removeFromNow(s.sid); };
+      card.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const m = new Menu();
+        m.addItem((i) => i.setTitle("打开会话").setIcon("arrow-up-right").onClick(() => p.openSession(s.agent, s.sid, s.app, s)));
+        m.addItem((i) => i.setTitle("从「现在」移除").setIcon("x").onClick(() => this.removeFromNow(s.sid)));
+        m.showAtMouseEvent(e);
+      });
     }
     const go = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": "打开会话" } });
     setLucide(go.createSpan({ cls: "ad-arrow__icon" }), "arrow-up-right");

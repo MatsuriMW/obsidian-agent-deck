@@ -316,6 +316,11 @@
 .ad-state.is-done { color: var(--ad-good); background: color-mix(in srgb, var(--ad-good) 12%, transparent); }
 .ad-arrow { appearance: none; border: 0; background: transparent; color: var(--ad-muted); font-size: 14px; cursor: pointer; border-radius: 7px; width: 22px; height: 22px; }
 .ad-arrow:hover { color: var(--ad-ink); background: var(--background-modifier-hover); }
+.ad-sess.has-x { grid-template-columns: 24px minmax(0, 1fr) 22px 22px; }
+.ad-sess__x { opacity: 0; transition: opacity .12s ease; }
+.ad-sess:hover .ad-sess__x, .ad-sess__x:focus-visible { opacity: 1; }
+.ad-sess__x:hover .ad-arrow__icon { color: var(--ad-bad); }
+.ad-nowlist .ad-sess.is-dragging { opacity: .35; transform: none; }
 
 .ad-agentgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .ad-agentcard {
