@@ -11,10 +11,10 @@
 // 不进撤销记录；正在用输入法打字的那一下不写，等下一轮。
 
 import { MarkdownView } from "obsidian";
-import { dayKey, dayKeyToday, dayMinute, fmtTok } from "./constants.js";
+import { AGENTS, dayKey, dayKeyToday, dayMinute, fmtTok, fmtClock } from "./constants.js";
 import * as J from "./journal.js";
 
-const STATE_KW = { wait: "TOREVIEW", quiet: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" };
+const STATE_KW = J.STATE_KW;
 
 export class JournalSync {
   constructor(plugin) {
@@ -182,18 +182,8 @@ export class JournalSync {
         if (lines[i].trim() && J.width(lines[i]) <= base) break;
         if (J.CLOCK_RE.test(lines[i])) { lines.splice(i, 1); break; }
       }
-      const shown = [];
-      for (const [a, b] of info.segs) {
-        const prev = shown[shown.length - 1];
-        if (prev && a - prev[1] <= 10) prev[1] = Math.max(prev[1], b);
-        else shown.push([a, b]);
-      }
-      const total = Math.round(info.segs.reduce((s, [a, b]) => s + b - a, 0));
-      const indent = (/^\s*/.exec(lines[n]) || [""])[0] + "\t";
-      const who = { claude: "Claude", codex: "Codex", workbuddy: "WorkBuddy", dsh: "DSH" }[info.agent] || info.agent;
-      const tok = (info.out || 0) + (info.fresh || 0);
-      const clock = `${indent}- ⏱ ${shown.slice(-8).map(([a, b]) => `${J.clock(a)}–${J.clock(b)}`).join("、")} · 共 ${J.durTag(total)}${tok ? ` · ${fmtTok(tok)} tok` : ""}${who ? " · " + who : ""}`;
-      lines.splice(n + 1, 0, clock);
+      const who = AGENTS[info.agent]?.short || info.agent;
+      lines.splice(n + 1, 0, J.clockLine((/^\s*/.exec(lines[n]) || [""])[0] + "\t", info.segs, who, (info.out || 0) + (info.fresh || 0)));
     }
     // 收掉这一项的 🔗 行；记一笔「绑过」，自动记日记就不会在 🔗 没了之后再替它新写一行
     const link = J.linkUnder(lines, n);
@@ -247,12 +237,12 @@ export class JournalSync {
         const c2 = J.childMark(lines, mine, () => ({}));
         const ind = c2 ? (/^\s*/.exec(lines[c2.line]) || [""])[0] : (/^\s*/.exec(lines[mine]) || [""])[0] + unit;
         const pt = J.splitTask(lines[mine]);
-        if (pt && !pt.cb && (J.OPEN_KWS.includes(pt.kw || "") || (!pt.kw && this.kidTodos(lines, mine)))) lines[mine] = `${pt.prefix}DOING ${this.hm(d.created)} ${pt.rest}`.trimEnd();
+        if (pt && !pt.cb && (J.OPEN_KWS.includes(pt.kw || "") || (!pt.kw && this.kidTodos(lines, mine)))) lines[mine] = `${pt.prefix}DOING ${fmtClock(d.created)} ${pt.rest}`.trimEnd();
         lines.splice(mine + 1, 0, J.linkLine(ind, "claude", name, d.sid));
         return true;
       }
       lines.splice(end + 1, 0,
-        `${kidInd}- DOING ${this.hm(d.created)} ${J.AUTO_MARK}${J.resultText(name, 60)}`,
+        `${kidInd}- DOING ${fmtClock(d.created)} ${J.AUTO_MARK}${J.resultText(name, 60)}`,
         J.linkLine(kidInd + unit, "claude", name, d.sid));
       return true;
     };
@@ -270,10 +260,6 @@ export class JournalSync {
     return false;
   }
 
-  hm(ms) {
-    const d = new Date(ms);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-  }
 
   // subagent：会话派出去的子代理，写成「🤖 子代理」子块；跑完换成 DONE / FAILED + ⏱ + 💬
   subsIntoAll(text) {
@@ -301,7 +287,7 @@ export class JournalSync {
   finishKid(indent, r) {
     const tok = this.kidTok(r);
     const min = Math.max(1, Math.round(((r.at || r.start) - r.start) / 60e3));
-    const out = [`${indent}- ⏱ ${this.hm(r.start)}–${this.hm(r.at || r.start)} · 共 ${J.durTag(min)}${tok ? ` · ${fmtTok(tok)} tok` : ""} · 子代理 \`${r.id.slice(0, 8)}\``];
+    const out = [`${indent}- ⏱ ${fmtClock(r.start)}–${fmtClock(r.at || r.start)} · 共 ${J.durTag(min)}${tok ? ` · ${fmtTok(tok)} tok` : ""} · 子代理 \`${r.id.slice(0, 8)}\``];
     const said = String(r.last || "").trim();
     if (said) out.push(`${indent}- 💬 ${J.resultText(said, this.cfg.resultMax || 200)}`);
     return out;
@@ -344,9 +330,9 @@ export class JournalSync {
           if (!had.open) continue;
           if (over) {
             const ind = (/^\s*/.exec(lines[had.block]) || [""])[0];
-            setKw(had.block, k.kw, this.hm(r.at || r.start));
+            setKw(had.block, k.kw, fmtClock(r.at || r.start));
             const mark = J.parseKid(lines[had.mark]);
-            if (mark) lines[had.mark] = `${ind}\t- ⏱ ${this.hm(r.start)}–${this.hm(r.at || r.start)} · 共 ${J.durTag(Math.max(1, Math.round(((r.at || r.start) - r.start) / 60e3)))}${this.kidTok(r) ? ` · ${fmtTok(this.kidTok(r))} tok` : ""} · 子代理 \`${id}\``;
+            if (mark) lines[had.mark] = `${ind}\t- ⏱ ${fmtClock(r.start)}–${fmtClock(r.at || r.start)} · 共 ${J.durTag(Math.max(1, Math.round(((r.at || r.start) - r.start) / 60e3)))}${this.kidTok(r) ? ` · ${fmtTok(this.kidTok(r))} tok` : ""} · 子代理 \`${id}\``;
             const said = String(r.last || "").trim();
             if (said) lines.splice(had.mark + 1, 0, `${ind}\t- 💬 ${J.resultText(said, this.cfg.resultMax || 200)}`);
             return true;
@@ -362,20 +348,20 @@ export class JournalSync {
           claimed.add(mine);
           const ind = (/^\s*/.exec(lines[mine]) || [""])[0];
           if (over) {
-            setKw(mine, k.kw, this.hm(r.at || r.start));
+            setKw(mine, k.kw, fmtClock(r.at || r.start));
             lines.splice(mine + 1, 0, ...this.finishKid(ind, r));
           } else {
             const pt = J.splitTask(lines[mine]);
-            setKw(mine, "DOING", pt && pt.kw === "DOING" && pt.since ? pt.since : this.hm(r.start));
+            setKw(mine, "DOING", pt && pt.kw === "DOING" && pt.since ? pt.since : fmtClock(r.start));
             lines.splice(mine + 1, 0, `${ind}\t- 🔗 子代理 \`${id}\``);
           }
           return true;
         }
         const name = J.resultText(r.desc || r.type || "subagent", 60);
         if (over) {
-          lines.splice(end + 1, 0, `${kidInd}- ${k.kw} ${this.hm(r.at || r.start)} ${J.AUTO_MARK}${name}`, ...this.finishKid(kidInd + unit, r));
+          lines.splice(end + 1, 0, `${kidInd}- ${k.kw} ${fmtClock(r.at || r.start)} ${J.AUTO_MARK}${name}`, ...this.finishKid(kidInd + unit, r));
         } else {
-          lines.splice(end + 1, 0, `${kidInd}- DOING ${this.hm(r.start)} ${J.AUTO_MARK}${name}`, `${kidInd}${unit}- 🔗 子代理 \`${id}\``);
+          lines.splice(end + 1, 0, `${kidInd}- DOING ${fmtClock(r.start)} ${J.AUTO_MARK}${name}`, `${kidInd}${unit}- 🔗 子代理 \`${id}\``);
         }
         return true;
       }

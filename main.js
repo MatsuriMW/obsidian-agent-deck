@@ -1,4 +1,4 @@
-/* Agent Deck 1.2.3 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.2.4 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -238,7 +238,6 @@ var DEFAULTS = {
   // 0 = no cutoff; otherwise the hour at which a new journal day begins.
   dayCutoff: 8,
   pollSeconds: 20,
-  idleMinutes: 5,
   fullHistoryDays: 14,
   // Claude desktop session list: identifies side chats (spawnedFrom) and archive state.
   claudeDesktop: true,
@@ -267,7 +266,6 @@ var DEFAULTS = {
   autoLogNotify: true,
   autoLogState: {},
   workLog: {},
-  showStatusBar: false,
   showMenuBar: true,
   menuBarPrimaryLimit: 6,
   menuBarOtherLimit: 3,
@@ -278,7 +276,6 @@ var DEFAULTS = {
   showRibbonIcon: true,
   openDashboardOnStartup: false,
   autoWriteResult: true,
-  autoStatus: true,
   resultMax: 240,
   importNautilus: true,
   // Delegation
@@ -315,11 +312,9 @@ var DEFAULTS = {
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
     defaultByAgent: { claude: "claude-sonnet-5", dsh: "deepseek-v4-pro" },
-    taskModels: { delegate: "auto", naming: "auto", summary: "auto" },
     effort: "high"
   },
   ui: {
-    density: "comfortable",
     showSparkline: true,
     showUsageBars: true
   },
@@ -381,6 +376,10 @@ function fmtDur(ms) {
   const m = Math.floor(s / 60);
   if (m < 60) return m + "m";
   return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+function fmtClock(ms) {
+  const d = new Date(ms);
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 function timeAgo(ms) {
   if (!ms) return "";
@@ -1157,7 +1156,7 @@ var AgentUsage = class {
         }
         const fc = this.files.get(p);
         if (!fc && st.mtimeMs < floor && !this.isPrimary(agent)) continue;
-        if (fc && st.size === fc.size && st.mtimeMs === fc.mtimeMs) continue;
+        if (fc && st.size === fc.size && st.mtimeMs === fc.mtime) continue;
         try {
           if (agent === "dsh") await this.readDsh(p, st, touched);
           else await this.readJsonl(p, agent, st, touched);
@@ -1432,7 +1431,7 @@ var AgentUsage = class {
     const day = this.dayFor(fc, key);
     let s = day.sess.get(sid);
     if (!s) day.sess.set(sid, s = { proj: projectName(cwd), cwd: cwd || "", app: app || "", agent: fc.agent, ts: [], text: "" });
-    if (s.ts.length < MAX_TS) s.ts.push(dayMinuteCfg(ms, this.cfg));
+    if (s.ts.length < MAX_TS) s.ts.push(dayMinute(ms, this.cfg));
     return { key, day, s };
   }
   liveOf(fc, sid, ms) {
@@ -1986,6 +1985,7 @@ var AgentUsage = class {
     res.wall = Math.round(res.segs.reduce((n, [a, b]) => n + b - a, 0));
     const seen = /* @__PURE__ */ new Set();
     for (const fc of this.files.values()) {
+      if (!fc.days.has(key)) continue;
       for (const [id, m] of fc.msgs) {
         if (m.key !== key || seen.has(id)) continue;
         seen.add(id);
@@ -2082,12 +2082,6 @@ var AgentUsage = class {
     return out.sort((a, b) => b.lastAt - a.lastAt).slice(0, limit);
   }
 };
-function dayMinuteCfg(ms, cfg) {
-  const cutoff = Number.isFinite(cfg.dayCutoff) ? cfg.dayCutoff : 8;
-  const d = new Date(ms - cutoff * 36e5);
-  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() + cutoff * 36e5;
-  return Math.round((ms - start) / 6e4);
-}
 var UsageStore = class {
   constructor(plugin, cfg = {}) {
     this.plugin = plugin;
@@ -2153,27 +2147,12 @@ var UsageStore = class {
   }
   prune(days = 120) {
     const cutoff = dayKey(Date.now() - days * 864e5, this.cfg);
-    for (const k of Object.keys(this.days)) if (k < cutoff) delete this.days[k];
-  }
-  totals(days = 1) {
-    var _a;
-    const out = { wall: 0, out: 0, fresh: 0, cached: 0, sessions: 0, prompts: 0, calls: 0, by: {} };
-    const now = Date.now();
-    for (let i = 0; i < days; i++) {
-      const key = dayKey(now - i * 864e5, this.cfg);
-      const d = this.days[key];
-      if (!d) continue;
-      for (const k of ["wall", "out", "fresh", "cached", "sessions", "prompts", "calls"]) out[k] += d[k] || 0;
-      for (const [a, v] of Object.entries(d.by || {})) {
-        const g = (_a = out.by)[a] || (_a[a] = { wall: 0, out: 0, agent: 0, sessions: 0, segs: [] });
-        g.wall += v.wall || 0;
-        g.out += v.out || 0;
-        g.agent += v.agent || 0;
-        g.sessions += v.sessions || 0;
-        g.segs.push(...v.segs || []);
-      }
+    let gone = false;
+    for (const k of Object.keys(this.days)) if (k < cutoff) {
+      delete this.days[k];
+      gone = true;
     }
-    return out;
+    if (gone) this.queueSave();
   }
 };
 function sqliteColumn(db, sql) {
@@ -2196,15 +2175,17 @@ var import_child_process2 = require("child_process");
 var LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 var STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
 var CHECKBOX_RE = /^\[([ xX\/\-])\]\s*/;
-var KEYWORD_RE = /^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)\s*/;
+var TASK_KWS = "TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED";
+var KEYWORD_RE = new RegExp(`^(${TASK_KWS})\\s*`);
+var KW_WORD_RE = new RegExp(`^(${TASK_KWS})(?=\\s|$)\\s*`);
 var AGENT_KW_RE = /^(TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)$/;
 var OPEN_KWS = ["TODO", "LATER", "NOW", "WAITING", "WAIT", "TODOFORAI", "TODO4AI", "TODO2AI", "TODOTOAI"];
 var DONE_KWS = ["DONE", "CANCELED", "CANCELLED", "FAILED"];
+var LINK_RE = /^\s*[-*+]\s+🔗/;
 var RESULT_RE = /^\s*[-*+]\s+💬/;
 var CLOCK_RE = /^\s*[-*+]\s+⏱/;
 var KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
 var AUTO_MARK = "\u{1F916} ";
-var pad2 = (n) => String(n).padStart(2, "0");
 var DAY_OFFSET = 0;
 var setDayOffset = (min) => {
   DAY_OFFSET = Number(min) || 0;
@@ -2212,8 +2193,18 @@ var setDayOffset = (min) => {
 var dayOffset = () => DAY_OFFSET;
 var clock = (t) => {
   const m = Math.round(t + DAY_OFFSET);
-  return `${pad2(Math.floor((m % 1440 + 1440) % 1440 / 60))}:${pad2((m % 60 + 60) % 60)}`;
+  return `${pad(Math.floor((m % 1440 + 1440) % 1440 / 60))}:${pad((m % 60 + 60) % 60)}`;
 };
+function clockLine(indent, segs, who, tok = 0, ellipsis = false) {
+  const shown = [];
+  for (const [a, b] of segs) {
+    const prev = shown[shown.length - 1];
+    if (prev && a - prev[1] <= 10) prev[1] = Math.max(prev[1], b);
+    else shown.push([a, b]);
+  }
+  const total = Math.round(segs.reduce((n, [a, b]) => n + b - a, 0));
+  return `${indent}- \u23F1 ${ellipsis && shown.length > 8 ? "\u2026 " : ""}${shown.slice(-8).map(([a, b]) => `${clock(a)}\u2013${clock(b)}`).join("\u3001")} \xB7 \u5171 ${durTag(total)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""}${who ? " \xB7 " + who : ""}`;
+}
 var durTag = (m) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? m % 60 + "m" : ""}` : `${Math.max(1, Math.round(m))}m`;
 var width = (line) => {
   let w = 0;
@@ -2239,7 +2230,7 @@ function splitTask(raw) {
   let since = null;
   const t = kw && /^(\d{1,2})[:：](\d{2})(?![\d:：]|\s*[-–~～到至])\s*/.exec(rest);
   if (t) {
-    since = `${pad2(+t[1])}:${t[2]}`;
+    since = `${pad(+t[1])}:${t[2]}`;
     rest = rest.slice(t[0].length);
   }
   if (pr) rest = `${pr[0].trim()} ${rest}`;
@@ -2253,7 +2244,7 @@ function kwLine(raw) {
     kw = cb[1] === " " ? "TODO" : cb[1] === "/" ? "DOING" : cb[1] === "-" ? "CANCELLED" : "DONE";
     s = s.slice(cb[0].length);
   }
-  const m = /^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)(?=\s|$)\s*/.exec(s);
+  const m = KW_WORD_RE.exec(s);
   if (m) {
     kw = m[1];
     s = s.slice(m[0].length);
@@ -2397,8 +2388,9 @@ function kidMatch(body, desc) {
 }
 var EMPTY_ITEM_RE = /^(\s*(?:[-*+]|\d+[.)]))\s*$/;
 var MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬)/;
+var STATE_KW = { wait: "TOREVIEW", quiet: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" };
 function kwForState(state) {
-  return { run: "DOING", running: "DOING", starting: "DOING", wait: "TOREVIEW", quiet: "TOREVIEW", idle: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" }[state] || "DOING";
+  return { run: "DOING", running: "DOING", starting: "DOING", idle: "TOREVIEW", ...STATE_KW }[state] || "DOING";
 }
 function dropKind(lines, at, below = false) {
   if (at < 0 || at >= lines.length) return null;
@@ -2527,9 +2519,10 @@ var fsp2 = import_fs2.default.promises;
 var home2 = () => import_os2.default.homedir();
 var norm2 = (p) => String(p || "").replace(/^~(?=\/)/, home2());
 var BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
-var LINK_RE = /^\s*[-*+]\s+🔗/;
-var RESULT_RE2 = /^\s*[-*+]\s+💬/;
-var STATUS_RE = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|IN-PROGRESS|SUSPENDED|CANCELED|CANCELLED|FAILED|DONE)(?=\s|$)/i;
+var LINK_RE2 = LINK_RE;
+var RESULT_RE2 = RESULT_RE;
+var STATUS_RE = new RegExp(`^(\\s*(?:[-*+]|\\d+[.)])\\s+(?:\\*\\*\\d{1,2}[:\uFF1A]\\d{2}\\*\\*\\s*)?)(${TASK_KWS})(?=\\s|$)`, "i");
+var TITLE_KW_RE = new RegExp(`^(${TASK_KWS})\\s+`, "i");
 function blockAt(lines, at) {
   if (at < 0 || at >= lines.length) return null;
   const m = BULLET_RE.exec(lines[at]);
@@ -2551,10 +2544,10 @@ function blockAt(lines, at) {
 function blockTitle(block) {
   if (!block) return "";
   const first = block.text.split("\n")[0] || "";
-  return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "").replace(/^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|IN-PROGRESS|SUSPENDED|CANCELED|CANCELLED|FAILED|DONE)\s+/i, "").replace(/[#*_`>[\]]/g, "").trim();
+  return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "").replace(TITLE_KW_RE, "").replace(/[#*_`>[\]]/g, "").trim();
 }
 function hasLink(lines, block) {
-  for (let i = block.start + 1; i <= block.end; i++) if (LINK_RE.test(lines[i])) return i;
+  for (let i = block.start + 1; i <= block.end; i++) if (LINK_RE2.test(lines[i])) return i;
   return -1;
 }
 function findLink(lines, block) {
@@ -2973,7 +2966,7 @@ var ClaudeRunner = class {
       }
     }
     const model = opts.model || cfg.model || "claude-sonnet-5";
-    const modelCli = model.startsWith("claude-") ? model === "claude-opus-5" ? "opus" : model === "claude-sonnet-5" ? "sonnet" : model === "claude-haiku-5-5" ? "haiku" : model === "claude-fable" ? "fable" : model : model;
+    const modelCli = claudeCli(model);
     const effort = opts.effort || cfg.effort || "high";
     const permission = opts.permission || cfg.permission || "auto";
     const addVault = cfg.addVault !== false && d.vaultPath && d.vaultPath !== cwd;
@@ -3067,7 +3060,7 @@ var ClaudeRunner = class {
   commonArgs() {
     const cfg = this.d.settings.delegate.claude;
     const model = this.job.model || cfg.model || "claude-sonnet-5";
-    const modelCli = model.startsWith("claude-") ? model === "claude-opus-5" ? "opus" : model === "claude-sonnet-5" ? "sonnet" : model === "claude-haiku-5-5" ? "haiku" : model === "claude-fable" ? "fable" : model : model;
+    const modelCli = claudeCli(model);
     const addVault = cfg.addVault !== false && this.d.vaultPath && this.d.vaultPath !== (this.job.cwd || cfg.cwd);
     const out = ["--model", modelCli, "--effort", this.job.effort || cfg.effort || "high", "--permission-mode", this.job.permission || cfg.permission || "auto", "-n", this.job.name];
     if (addVault) out.push("--add-dir", this.d.vaultPath);
@@ -3235,7 +3228,7 @@ var DshRunner = class {
         this.job.contextUsed = u.used;
         this.job.contextSize = u.size;
       }
-      this.d.saveJobs();
+      this.d.saveJobsSoon();
       this.d.refreshUI();
       return;
     }
@@ -3334,14 +3327,10 @@ var DshRunner = class {
     this.d.refreshUI();
   }
 };
+var claudeCli = (model) => MODEL_CATALOG.find((m) => m.agent === "claude" && m.id === model)?.cli || model;
 function resolveDshModel(id) {
-  const staticMap = {
-    "deepseek-v4-pro": '["deepseek-account","deepseek-v4-pro"]',
-    "deepseek-v41-flash": '["deepseek-account","deepseek-flash"]',
-    "deepseek-v4-flash": '["deepseek-official","deepseek-v4-flash"]',
-    "deepseek-v4-pro-official": '["deepseek-official","deepseek-v4-pro"]'
-  };
-  if (staticMap[id]) return { value: staticMap[id] };
+  const m = MODEL_CATALOG.find((x) => x.agent === "dsh" && x.id === id);
+  if (m) return { value: m.value };
   if (String(id || "").startsWith("[")) return { value: id };
   return null;
 }
@@ -3370,9 +3359,6 @@ ${body}`, 12e3);
   }
   get C() {
     return this.settings.delegate || DEFAULTS.delegate;
-  }
-  defaultTarget() {
-    return this.C.target === "dsh" ? "dsh" : "claude";
   }
   defaultModel(agent) {
     const a = this.C[agent] || {};
@@ -3719,25 +3705,16 @@ ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
     this.refreshUI();
     return true;
   }
-  cancelForLine(path6, lineText) {
-    for (const job of Object.values(this.jobs)) {
-      if (job.path === path6 && (job.lineText === lineText || job.line === lineText) && ["starting", "running", "needs-approval"].includes(job.state)) return job;
-    }
-    return null;
-  }
-  jobsFor(path6) {
-    return Object.values(this.jobs).filter((j) => j.path === path6 && j.state !== "cancelled").sort((a, b) => b.startedAt - a.startedAt);
-  }
-  jobForSession(sid) {
-    return Object.values(this.jobs).find((j) => j.sessionId === sid);
+  saveJobsSoon() {
+    if (this._saveT) return;
+    this._saveT = setTimeout(() => {
+      this._saveT = null;
+      this.saveJobs();
+    }, 1500);
   }
   saveJobs() {
-    const clean = {};
-    for (const [id, job] of Object.entries(this.jobs)) {
-      const { _linkPromise, ...rest } = job;
-      clean[id] = rest;
-    }
-    this.plugin.settings.jobs = clean;
+    clearTimeout(this._saveT);
+    this._saveT = null;
     this.plugin.saveSettings();
   }
   refreshUI() {
@@ -4841,7 +4818,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     setLucide(brandMark, "wand-sparkles");
     const bt = brand.createDiv({ cls: "ad-brand__text" });
     bt.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
-    bt.createDiv({ cls: "ad-brand__sub", text: "\u667A\u80FD\u4F53\u7532\u677F \xB7 v1.0.2" });
+    bt.createDiv({ cls: "ad-brand__sub", text: `\u667A\u80FD\u4F53\u7532\u677F \xB7 v${this.plugin.manifest.version}` });
     const nav = containerEl.createDiv({ cls: "ad-set-nav" });
     const dirty = this.draft && JSON.stringify(this.draft) !== JSON.stringify(this.plugin.settings.models);
     for (const [id, label, icon] of TABS) {
@@ -5305,29 +5282,6 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       list.createDiv({ cls: "ad-empty ad-empty--small", text: "\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684\u6A21\u578B" });
     }
     const note = picker.createDiv({ cls: "ad-models-note", text: "Pinned models show first. Reorder from the row menu or with Alt + \u2191/\u2193." });
-    const tasks = body.createDiv({ cls: "ad-models-card" });
-    const th = tasks.createDiv({ cls: "ad-models-sec" });
-    th.createSpan({ cls: "ad-kicker", text: "Task models" });
-    th.createSpan({ cls: "ad-models-sec__sub", text: "Smaller jobs that run behind a delegation." });
-    for (const [id, label, desc] of [
-      ["delegate", "Delegation", "Default for a task delegated from the editor."],
-      ["naming", "Chat titles", "Used when the agent names a session it opened."],
-      ["summary", "Summaries", "Used for the one-line result written under a task."]
-    ]) {
-      const row = tasks.createDiv({ cls: "ad-taskrow" });
-      const left = row.createDiv({ cls: "ad-taskrow__left" });
-      left.createDiv({ cls: "ad-taskrow__name", text: label });
-      left.createDiv({ cls: "ad-taskrow__desc", text: desc });
-      const sel = row.createEl("select", { cls: "ad-select ad-select--sm" });
-      sel.createEl("option", { text: "Auto", attr: { value: "auto" } });
-      for (const m of models) sel.createEl("option", { text: m.name, attr: { value: m.id } });
-      sel.value = d.taskModels?.[id] || "auto";
-      sel.onchange = () => {
-        d.taskModels = { ...d.taskModels || {}, [id]: sel.value };
-        this.display();
-      };
-    }
-    const foot = tasks.createDiv({ cls: "ad-models-note", text: "Auto lets the chosen agent decide. The model picker above is shared by both Claude Code and DeepSeek Harness." });
   }
   groupAction(head, rows, d, pinned) {
     const allOn = rows.every((m) => d.enabled.includes(m.id));
@@ -5486,11 +5440,6 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       s.pollSeconds = v;
       p.saveSettings();
       p.scheduleScan();
-    });
-    const r3 = this.row(c, "\u591A\u4E45\u6CA1\u52A8\u7B97\u5B89\u9759", "\u548C\u4E0B\u4E00\u6BB5\u4E4B\u95F4\u8D85\u8FC7\u8FD9\u4E48\u591A\u5206\u949F\uFF0C\u5C31\u4E0D\u7B97\u540C\u4E00\u6BB5\u8FDE\u7EED\u5DE5\u4F5C\u3002", null);
-    this.numberInput(r3.querySelector(":scope > .ad-row__right"), s.idleMinutes, 1, 120, (v) => {
-      s.idleMinutes = v;
-      p.saveSettings();
     });
     const r4 = this.row(c, "\u4E3B\u529B\u8BFB\u591A\u5C11\u5929\u5386\u53F2", "\u53EA\u5F71\u54CD\u4E3B\u529B\uFF1B\u975E\u4E3B\u529B\u53EA\u8BFB\u4ECA\u5929\u3002", null);
     this.numberInput(r4.querySelector(":scope > .ad-row__right"), s.fullHistoryDays, 1, 365, (v) => {
@@ -7847,10 +7796,11 @@ var MenuBarBridge = class {
   update(force = false) {
     if (!this.enabled || this.disabled) return;
     try {
-      const state = this.plugin.buildMenuBarState();
-      const json = JSON.stringify(state);
-      if (!force && json === this.lastJson) return;
-      this.lastJson = json;
+      const { updatedAt, ...rest } = this.plugin.buildMenuBarState();
+      const body = JSON.stringify(rest);
+      if (!force && body === this.lastJson) return;
+      this.lastJson = body;
+      const json = JSON.stringify({ updatedAt, ...rest });
       const tmp = this.statePath + ".tmp";
       import_fs3.default.mkdirSync(this.dir, { recursive: true });
       import_fs3.default.writeFileSync(tmp, json, "utf8");
@@ -7889,18 +7839,6 @@ function workDir() {
   } catch {
   }
   return dir;
-}
-function judgeBin(configured = "") {
-  const c = String(configured || "").trim();
-  if (c) return c.replace(/^~(?=\/)/, home4());
-  const spots = [import_path4.default.join(home4(), ".local/bin/claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", "/usr/bin/claude"];
-  return spots.find((p) => {
-    try {
-      return import_fs4.default.existsSync(p);
-    } catch {
-      return false;
-    }
-  }) || "claude";
 }
 function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 120, system = "" } = {}) {
   return new Promise((resolve, reject) => {
@@ -7950,15 +7888,13 @@ function safeLabel(s, max = 40) {
 }
 
 // src/autolog.js
-var AGENTS_FOR_JOURNAL = ["claude", "codex", "workbuddy", "dsh"];
-var AGENT_NAMES = { claude: "Claude", codex: "Codex", workbuddy: "WorkBuddy", dsh: "DSH" };
+var agentName = (id) => AGENTS[id]?.short || id;
 var AutoLog = class {
   constructor(plugin) {
     this.p = plugin;
     this._busy = false;
     this._at = Date.now();
     this._err = "";
-    this._cache = /* @__PURE__ */ new Map();
   }
   get cfg() {
     return this.p.settings;
@@ -8074,15 +8010,7 @@ ${blockLines.join("\n")}
     if (!found || !segs.length) return text;
     const lines = text.split("\n");
     const at = found.line;
-    const shown = [];
-    for (const [a, b] of segs) {
-      const prev = shown[shown.length - 1];
-      if (prev && a - prev[1] <= 10) prev[1] = Math.max(prev[1], b);
-      else shown.push([a, b]);
-    }
-    const total = Math.round(segs.reduce((n, [a, b]) => n + b - a, 0));
-    const indent = (/^\s*/.exec(lines[at]) || [""])[0] + "	";
-    const line = `${indent}- \u23F1 ${shown.length > 8 ? "\u2026 " : ""}${shown.slice(-8).map(([a, b]) => `${clock(a)}\u2013${clock(b)}`).join("\u3001")} \xB7 \u5171 ${durTag(total)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""}${who ? " \xB7 " + who : ""}`;
+    const line = clockLine((/^\s*/.exec(lines[at]) || [""])[0] + "	", segs, who, tok, true);
     if (sid) {
       const l = linkUnder(lines, at);
       if (l && l.sid === sid) lines.splice(l.line, 1);
@@ -8105,7 +8033,7 @@ ${blockLines.join("\n")}
       const meta = this.usage.meta.get(x.sid) || {};
       const last = String(meta.lastText || "").replace(/\d{12,}/g, "\u2026").replace(/\s+/g, " ").trim().slice(-700);
       return [
-        `#s${i + 1} [${AGENT_NAMES[x.agent] || x.agent}] \u6807\u9898\uFF1A${x.title || "\uFF08\u6CA1\u6709\uFF09"}\uFF1B\u7D2F\u8BA1 ${x.min} \u5206\u949F\uFF1B\u73B0\u5728\uFF1A${active ? "\u8FD8\u5728\u8FDB\u884C" : "\u5DF2\u7ECF\u505C\u4E86"}`,
+        `#s${i + 1} [${agentName(x.agent)}] \u6807\u9898\uFF1A${x.title || "\uFF08\u6CA1\u6709\uFF09"}\uFF1B\u7D2F\u8BA1 ${x.min} \u5206\u949F\uFF1B\u73B0\u5728\uFF1A${active ? "\u8FD8\u5728\u8FDB\u884C" : "\u5DF2\u7ECF\u505C\u4E86"}`,
         x.text ? `\u5F00\u5934\u8BF4\u7684\uFF1A${String(x.text).replace(/\d{12,}/g, "\u2026").slice(0, 200)}` : "",
         last ? `\u6700\u540E\u4E00\u6761\u56DE\u590D\u7684\u7ED3\u5C3E\uFF1A${last}` : ""
       ].filter(Boolean).join("\n");
@@ -8131,7 +8059,7 @@ ${blockLines.join("\n")}
     const out = /* @__PURE__ */ new Map();
     let raw = "";
     try {
-      raw = await runClaude(prompt, { bin: judgeBin(this.cfg.autoLogPath || this.cfg.delegate?.claude?.path || ""), model: this.cfg.autoLogModel || "haiku" });
+      raw = await runClaude(prompt, { bin: findClaudeBinary(this.cfg.autoLogPath || this.cfg.delegate?.claude?.path || ""), model: this.cfg.autoLogModel || "haiku" });
     } catch (e) {
       this._err = String(e.message || e);
       if (fallback) for (const { x } of items) {
@@ -8194,7 +8122,7 @@ ${blockLines.join("\n")}
       const todo = [], live = [];
       for (const x of data.list) {
         if (!x.segs || !x.segs.length) continue;
-        if (!AGENTS_FOR_JOURNAL.includes(x.agent)) continue;
+        if (!AGENT_ORDER.includes(x.agent)) continue;
         if (linked.has(x.sid)) continue;
         const last = x.segs[x.segs.length - 1][1];
         const active = now - last <= idle;
@@ -8313,10 +8241,10 @@ ${blockLines.join("\n")}
         toks.set(rec.key, (toks.get(rec.key) || 0) + (x.out || 0) + (x.fresh || 0));
         (sids.get(rec.key) || sids.set(rec.key, []).get(rec.key)).push(x.agent === "claude" ? x.sid : "");
         (byKey.get(rec.key) || byKey.set(rec.key, []).get(rec.key)).push(...x.segs);
-        (who.get(rec.key) || who.set(rec.key, /* @__PURE__ */ new Set()).get(rec.key)).add(AGENT_NAMES[x.agent] || x.agent);
+        (who.get(rec.key) || who.set(rec.key, /* @__PURE__ */ new Set()).get(rec.key)).add(agentName(x.agent));
       }
       const merged = /* @__PURE__ */ new Map();
-      for (const [k, segs] of byKey) merged.set(k, mergeSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
+      for (const [k, segs] of byKey) merged.set(k, unionSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
       for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "");
       report.diff = diffLines(base, text);
       if (dry) {
@@ -8372,7 +8300,7 @@ ${blockLines.join("\n")}
         }
         const x = list.find((s) => s.sid === sid && s.segs && s.segs.length) || null;
         text = this.autoLine(text, rec, x, "done").text;
-        if (x) text = this.autoClock(text, rec.key, x.segs, AGENT_NAMES[x.agent] || x.agent, (x.out || 0) + (x.fresh || 0), x.agent === "claude" ? x.sid : "");
+        if (x) text = this.autoClock(text, rec.key, x.segs, agentName(x.agent), (x.out || 0) + (x.fresh || 0), x.agent === "claude" ? x.sid : "");
         rec.status = "done";
         delete rec.autoPaused;
         out.push(rec.label);
@@ -8432,19 +8360,10 @@ ${changes.join("\n")}${error ? `
     }).then(() => this.run().catch((e) => console.error("[agent-deck] autolog", e)));
   }
 };
-function mergeSegs(segs) {
-  const out = [];
-  for (const [a, b] of [...segs].sort((x, y) => x[0] - y[0])) {
-    const last = out[out.length - 1];
-    if (last && a <= last[1]) last[1] = Math.max(last[1], b);
-    else out.push([a, b]);
-  }
-  return out;
-}
 
 // src/sync.js
 var import_obsidian6 = require("obsidian");
-var STATE_KW = { wait: "TOREVIEW", quiet: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" };
+var STATE_KW2 = STATE_KW;
 var JournalSync = class {
   constructor(plugin) {
     this.p = plugin;
@@ -8586,7 +8505,7 @@ var JournalSync = class {
       }
       const m = this.usage.meta.get(k.sid);
       if (!m) continue;
-      const want = m.state === "run" ? cur.kw === "DELEGATED" ? "DELEGATED" : "DOING" : STATE_KW[m.state];
+      const want = m.state === "run" ? cur.kw === "DELEGATED" ? "DELEGATED" : "DOING" : STATE_KW2[m.state];
       if (!want || want === cur.kw) continue;
       const p = splitTask(ls[n]);
       if (!p) continue;
@@ -8624,18 +8543,8 @@ var JournalSync = class {
           break;
         }
       }
-      const shown = [];
-      for (const [a, b] of info.segs) {
-        const prev = shown[shown.length - 1];
-        if (prev && a - prev[1] <= 10) prev[1] = Math.max(prev[1], b);
-        else shown.push([a, b]);
-      }
-      const total = Math.round(info.segs.reduce((s, [a, b]) => s + b - a, 0));
-      const indent = (/^\s*/.exec(lines[n]) || [""])[0] + "	";
-      const who = { claude: "Claude", codex: "Codex", workbuddy: "WorkBuddy", dsh: "DSH" }[info.agent] || info.agent;
-      const tok = (info.out || 0) + (info.fresh || 0);
-      const clock2 = `${indent}- \u23F1 ${shown.slice(-8).map(([a, b]) => `${clock(a)}\u2013${clock(b)}`).join("\u3001")} \xB7 \u5171 ${durTag(total)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""}${who ? " \xB7 " + who : ""}`;
-      lines.splice(n + 1, 0, clock2);
+      const who = AGENTS[info.agent]?.short || info.agent;
+      lines.splice(n + 1, 0, clockLine((/^\s*/.exec(lines[n]) || [""])[0] + "	", info.segs, who, (info.out || 0) + (info.fresh || 0)));
     }
     const link = linkUnder(lines, n);
     if (link && link.sid === sid) lines.splice(link.line, 1);
@@ -8705,14 +8614,14 @@ var JournalSync = class {
         const c2 = childMark(lines, mine, () => ({}));
         const ind = c2 ? (/^\s*/.exec(lines[c2.line]) || [""])[0] : (/^\s*/.exec(lines[mine]) || [""])[0] + unit;
         const pt = splitTask(lines[mine]);
-        if (pt && !pt.cb && (OPEN_KWS.includes(pt.kw || "") || !pt.kw && this.kidTodos(lines, mine))) lines[mine] = `${pt.prefix}DOING ${this.hm(d.created)} ${pt.rest}`.trimEnd();
+        if (pt && !pt.cb && (OPEN_KWS.includes(pt.kw || "") || !pt.kw && this.kidTodos(lines, mine))) lines[mine] = `${pt.prefix}DOING ${fmtClock(d.created)} ${pt.rest}`.trimEnd();
         lines.splice(mine + 1, 0, linkLine(ind, "claude", name, d.sid));
         return true;
       }
       lines.splice(
         end + 1,
         0,
-        `${kidInd}- DOING ${this.hm(d.created)} ${AUTO_MARK}${resultText(name, 60)}`,
+        `${kidInd}- DOING ${fmtClock(d.created)} ${AUTO_MARK}${resultText(name, 60)}`,
         linkLine(kidInd + unit, "claude", name, d.sid)
       );
       return true;
@@ -8728,10 +8637,6 @@ var JournalSync = class {
       return width(lines[i]) > base;
     }
     return false;
-  }
-  hm(ms) {
-    const d = new Date(ms);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   }
   // subagent：会话派出去的子代理，写成「🤖 子代理」子块；跑完换成 DONE / FAILED + ⏱ + 💬
   subsIntoAll(text) {
@@ -8758,7 +8663,7 @@ var JournalSync = class {
   finishKid(indent, r) {
     const tok = this.kidTok(r);
     const min = Math.max(1, Math.round(((r.at || r.start) - r.start) / 6e4));
-    const out = [`${indent}- \u23F1 ${this.hm(r.start)}\u2013${this.hm(r.at || r.start)} \xB7 \u5171 ${durTag(min)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""} \xB7 \u5B50\u4EE3\u7406 \`${r.id.slice(0, 8)}\``];
+    const out = [`${indent}- \u23F1 ${fmtClock(r.start)}\u2013${fmtClock(r.at || r.start)} \xB7 \u5171 ${durTag(min)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""} \xB7 \u5B50\u4EE3\u7406 \`${r.id.slice(0, 8)}\``];
     const said = String(r.last || "").trim();
     if (said) out.push(`${indent}- \u{1F4AC} ${resultText(said, this.cfg.resultMax || 200)}`);
     return out;
@@ -8813,9 +8718,9 @@ var JournalSync = class {
           if (!had.open) continue;
           if (over) {
             const ind = (/^\s*/.exec(lines[had.block]) || [""])[0];
-            setKw(had.block, k.kw, this.hm(r.at || r.start));
+            setKw(had.block, k.kw, fmtClock(r.at || r.start));
             const mark = parseKid(lines[had.mark]);
-            if (mark) lines[had.mark] = `${ind}	- \u23F1 ${this.hm(r.start)}\u2013${this.hm(r.at || r.start)} \xB7 \u5171 ${durTag(Math.max(1, Math.round(((r.at || r.start) - r.start) / 6e4)))}${this.kidTok(r) ? ` \xB7 ${fmtTok(this.kidTok(r))} tok` : ""} \xB7 \u5B50\u4EE3\u7406 \`${id}\``;
+            if (mark) lines[had.mark] = `${ind}	- \u23F1 ${fmtClock(r.start)}\u2013${fmtClock(r.at || r.start)} \xB7 \u5171 ${durTag(Math.max(1, Math.round(((r.at || r.start) - r.start) / 6e4)))}${this.kidTok(r) ? ` \xB7 ${fmtTok(this.kidTok(r))} tok` : ""} \xB7 \u5B50\u4EE3\u7406 \`${id}\``;
             const said = String(r.last || "").trim();
             if (said) lines.splice(had.mark + 1, 0, `${ind}	- \u{1F4AC} ${resultText(said, this.cfg.resultMax || 200)}`);
             return true;
@@ -8831,20 +8736,20 @@ var JournalSync = class {
           claimed.add(mine);
           const ind = (/^\s*/.exec(lines[mine]) || [""])[0];
           if (over) {
-            setKw(mine, k.kw, this.hm(r.at || r.start));
+            setKw(mine, k.kw, fmtClock(r.at || r.start));
             lines.splice(mine + 1, 0, ...this.finishKid(ind, r));
           } else {
             const pt = splitTask(lines[mine]);
-            setKw(mine, "DOING", pt && pt.kw === "DOING" && pt.since ? pt.since : this.hm(r.start));
+            setKw(mine, "DOING", pt && pt.kw === "DOING" && pt.since ? pt.since : fmtClock(r.start));
             lines.splice(mine + 1, 0, `${ind}	- \u{1F517} \u5B50\u4EE3\u7406 \`${id}\``);
           }
           return true;
         }
         const name = resultText(r.desc || r.type || "subagent", 60);
         if (over) {
-          lines.splice(end + 1, 0, `${kidInd}- ${k.kw} ${this.hm(r.at || r.start)} ${AUTO_MARK}${name}`, ...this.finishKid(kidInd + unit, r));
+          lines.splice(end + 1, 0, `${kidInd}- ${k.kw} ${fmtClock(r.at || r.start)} ${AUTO_MARK}${name}`, ...this.finishKid(kidInd + unit, r));
         } else {
-          lines.splice(end + 1, 0, `${kidInd}- DOING ${this.hm(r.start)} ${AUTO_MARK}${name}`, `${kidInd}${unit}- \u{1F517} \u5B50\u4EE3\u7406 \`${id}\``);
+          lines.splice(end + 1, 0, `${kidInd}- DOING ${fmtClock(r.start)} ${AUTO_MARK}${name}`, `${kidInd}${unit}- \u{1F517} \u5B50\u4EE3\u7406 \`${id}\``);
         }
         return true;
       }
@@ -9011,6 +8916,11 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     });
   }
   onunload() {
+    if (this.store?.dirty) {
+      clearTimeout(this.store.saveTimer);
+      this.store.save().catch(() => {
+      });
+    }
     clearInterval(this._scanTimer);
     clearTimeout(this._refreshTimer);
     this.menubar?.stop();
@@ -9084,7 +8994,6 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       this.store.cfg = this.settings;
       this.store.merge(touched, this.usage);
       this.store.prune();
-      await this.store.save();
       this.delegator.resolveHandoffs(this.usage);
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
@@ -9382,7 +9291,6 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     const lines = doc.toString().split("\n");
     const sessionByParent = /* @__PURE__ */ new Map();
     const linkByLine = /* @__PURE__ */ new Map();
-    const parentByLine = /* @__PURE__ */ new Map();
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!/^\s*[-*+]\s+🔗/.test(line)) continue;
@@ -9403,11 +9311,10 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       const live = this.usage.liveSessions({ since: Date.now() - 864e5, limit: 200 }).find((x) => x.sid === parsed.sid);
       const job = Object.values(this.jobs).find((j) => j.sessionId === parsed.sid);
       const session = { ...meta, ...live || {}, agent: parsed.agent || meta.agent, job };
-      parentByLine.set(i, parent);
       linkByLine.set(i, { ...parsed, parent });
       sessionByParent.set(parent, session);
     }
-    const map = { doc, lines, sessionByParent, linkByLine, parentByLine };
+    const map = { doc, lines, sessionByParent, linkByLine };
     this._lineMaps[path6] = { doc, map };
     return map;
   }
@@ -9456,7 +9363,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     const daySess = ((this.usage.summary(day) || {}).list || []).find((x) => x.sid === sid);
     const first = daySess && daySess.segs && daySess.segs.length ? daySess.segs[0][0] : null;
     const now = /* @__PURE__ */ new Date();
-    const since = first != null ? clock(first) : `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const since = first != null ? clock(first) : fmtClock(now.getTime());
     const text = cm.state.doc.toString();
     const res = bindInto(text, line, {
       sid,
@@ -9518,7 +9425,6 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     if (k && k.body.startsWith(AUTO_MARK.trim())) return this.notice("Agent \u8BB0\u7684\u6761\u76EE\u4E0D\u59D4\u6D3E");
     if (block && findLink(lines, block)) return this.notice("\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\uFF0C\u4E0D\u59D4\u6D3E");
     if (block && lines.slice(block.start + 1, block.end + 1).some((l) => CLOCK_RE.test(l))) return this.notice("\u5DF2\u6709\u7528\u65F6\u8BB0\u5F55\uFF0C\u4E0D\u59D4\u6D3E");
-    this._flyArmed = { agent, at: Date.now() };
     try {
       const opts = { file, lines, line, agent };
       if (cli && (agent === "claude" || agent === "codex")) await this.delegator.handoffCli(opts);
@@ -9554,21 +9460,6 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     });
   }
   // ---------- editor actions ----------
-  activeEditor() {
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
-    if (!view || !view.file) return null;
-    return { view, editor: view.editor, file: view.file };
-  }
-  async delegateFromEditor(editor, agent) {
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
-    if (!view || !view.file) return this.notice("\u5148\u6253\u5F00\u4E00\u7BC7\u7B14\u8BB0");
-    const line = editor.getCursor().line;
-    try {
-      await this.delegator.delegate({ file: view.file, lines: editor.getValue().split("\n"), line, agent: agent || this.defaultTarget() });
-    } catch (e) {
-      this.notice(String(e.message || e), 8e3);
-    }
-  }
   async delegateAtLine(path6, line) {
     const file = this.app.vault.getAbstractFileByPath(path6);
     if (!file) return this.notice("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0");
@@ -9578,10 +9469,6 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   }
   openDelegateModal(path6, line) {
     new DelegateOptionsModal(this.app, this, path6, line).open();
-  }
-  openModalFor(editor, view) {
-    if (!view || !view.file) return this.notice("\u5148\u6253\u5F00\u4E00\u7BC7\u7B14\u8BB0");
-    this.openDelegateModal(view.file.path, editor.getCursor().line);
   }
   openSessionForEditor(editor, view) {
     if (!view || !view.file) return;

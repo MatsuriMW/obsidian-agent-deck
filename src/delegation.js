@@ -9,7 +9,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { spawn, execFile } from "child_process";
-import { AGENTS, AGENT_SHORT, DEFAULTS, clamp, deepMerge, fmtTok, truncate } from "./constants.js";
+import { AGENTS, DEFAULTS, MODEL_CATALOG, clamp, truncate } from "./constants.js";
 import * as J from "./journal.js";
 
 const fsp = fs.promises;
@@ -17,9 +17,10 @@ const home = () => os.homedir();
 const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
 
 export const BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
-export const LINK_RE = /^\s*[-*+]\s+🔗/;
-export const RESULT_RE = /^\s*[-*+]\s+💬/;
-export const STATUS_RE = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|IN-PROGRESS|SUSPENDED|CANCELED|CANCELLED|FAILED|DONE)(?=\s|$)/i;
+export const LINK_RE = J.LINK_RE;
+export const RESULT_RE = J.RESULT_RE;
+export const STATUS_RE = new RegExp(`^(\\s*(?:[-*+]|\\d+[.)])\\s+(?:\\*\\*\\d{1,2}[:：]\\d{2}\\*\\*\\s*)?)(${J.TASK_KWS})(?=\\s|$)`, "i");
+const TITLE_KW_RE = new RegExp(`^(${J.TASK_KWS})\\s+`, "i");
 
 export function blockAt(lines, at) {
   if (at < 0 || at >= lines.length) return null;
@@ -41,7 +42,7 @@ export function blockTitle(block) {
   if (!block) return "";
   const first = block.text.split("\n")[0] || "";
   return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "")
-    .replace(/^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|IN-PROGRESS|SUSPENDED|CANCELED|CANCELLED|FAILED|DONE)\s+/i, "")
+    .replace(TITLE_KW_RE, "")
     .replace(/[#*_`>[\]]/g, "").trim();
 }
 
@@ -386,7 +387,7 @@ class ClaudeRunner {
       }
     }
     const model = opts.model || cfg.model || "claude-sonnet-5";
-    const modelCli = model.startsWith("claude-") ? (model === "claude-opus-5" ? "opus" : model === "claude-sonnet-5" ? "sonnet" : model === "claude-haiku-5-5" ? "haiku" : model === "claude-fable" ? "fable" : model) : model;
+    const modelCli = claudeCli(model);
     const effort = opts.effort || cfg.effort || "high";
     const permission = opts.permission || cfg.permission || "auto";
     const addVault = cfg.addVault !== false && d.vaultPath && d.vaultPath !== cwd;
@@ -480,7 +481,7 @@ class ClaudeRunner {
   commonArgs() {
     const cfg = this.d.settings.delegate.claude;
     const model = this.job.model || cfg.model || "claude-sonnet-5";
-    const modelCli = model.startsWith("claude-") ? (model === "claude-opus-5" ? "opus" : model === "claude-sonnet-5" ? "sonnet" : model === "claude-haiku-5-5" ? "haiku" : model === "claude-fable" ? "fable" : model) : model;
+    const modelCli = claudeCli(model);
     const addVault = cfg.addVault !== false && this.d.vaultPath && this.d.vaultPath !== (this.job.cwd || cfg.cwd);
     const out = ["--model", modelCli, "--effort", this.job.effort || cfg.effort || "high", "--permission-mode", this.job.permission || cfg.permission || "auto", "-n", this.job.name];
     if (addVault) out.push("--add-dir", this.d.vaultPath);
@@ -632,7 +633,7 @@ class DshRunner {
         this.job.contextUsed = u.used;
         this.job.contextSize = u.size;
       }
-      this.d.saveJobs();
+      this.d.saveJobsSoon();
       this.d.refreshUI();
       return;
     }
@@ -711,15 +712,12 @@ class DshRunner {
   }
 }
 
+// 内置模型在命令行里的名字（opus / sonnet …）；不在目录里的原样传
+const claudeCli = (model) => MODEL_CATALOG.find((m) => m.agent === "claude" && m.id === model)?.cli || model;
+
 export function resolveDshModel(id) {
-  // dynamic import would be circular; the catalog is passed through settings if custom
-  const staticMap = {
-    "deepseek-v4-pro": "[\"deepseek-account\",\"deepseek-v4-pro\"]",
-    "deepseek-v41-flash": "[\"deepseek-account\",\"deepseek-flash\"]",
-    "deepseek-v4-flash": "[\"deepseek-official\",\"deepseek-v4-flash\"]",
-    "deepseek-v4-pro-official": "[\"deepseek-official\",\"deepseek-v4-pro\"]",
-  };
-  if (staticMap[id]) return { value: staticMap[id] };
+  const m = MODEL_CATALOG.find((x) => x.agent === "dsh" && x.id === id);
+  if (m) return { value: m.value };
   if (String(id || "").startsWith("[")) return { value: id };
   return null;
 }
@@ -747,8 +745,6 @@ export class Delegator {
   notify({ title, body }) { this.plugin.notice(`${title}\n${body}`, 12000); }
 
   get C() { return this.settings.delegate || DEFAULTS.delegate; }
-
-  defaultTarget() { return this.C.target === "dsh" ? "dsh" : "claude"; }
 
   defaultModel(agent) {
     const a = this.C[agent] || {};
@@ -1047,28 +1043,13 @@ export class Delegator {
     return true;
   }
 
-  cancelForLine(path, lineText) {
-    for (const job of Object.values(this.jobs)) {
-      if (job.path === path && (job.lineText === lineText || job.line === lineText) && ["starting", "running", "needs-approval"].includes(job.state)) return job;
-    }
-    return null;
-  }
-
-  jobsFor(path) {
-    return Object.values(this.jobs).filter((j) => j.path === path && j.state !== "cancelled").sort((a, b) => b.startedAt - a.startedAt);
-  }
-
-  jobForSession(sid) {
-    return Object.values(this.jobs).find((j) => j.sessionId === sid);
+  saveJobsSoon() {
+    if (this._saveT) return;
+    this._saveT = setTimeout(() => { this._saveT = null; this.saveJobs(); }, 1500);
   }
 
   saveJobs() {
-    const clean = {};
-    for (const [id, job] of Object.entries(this.jobs)) {
-      const { _linkPromise, ...rest } = job;
-      clean[id] = rest;
-    }
-    this.plugin.settings.jobs = clean;
+    clearTimeout(this._saveT); this._saveT = null;
     this.plugin.saveSettings();
   }
 

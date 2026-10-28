@@ -11,7 +11,7 @@
 
 import { Decoration, WidgetType, ViewPlugin, EditorView } from "@codemirror/view";
 import { RangeSetBuilder, StateEffect, StateField, Prec } from "@codemirror/state";
-import { BULLET_RE, findLink, blockAt } from "./delegation.js";
+import { BULLET_RE } from "./delegation.js";
 import * as J from "./journal.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";

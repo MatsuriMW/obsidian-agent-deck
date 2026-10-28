@@ -157,10 +157,11 @@ export class MenuBarBridge {
   update(force = false) {
     if (!this.enabled || this.disabled) return;
     try {
-      const state = this.plugin.buildMenuBarState();
-      const json = JSON.stringify(state);
-      if (!force && json === this.lastJson) return;
-      this.lastJson = json;
+      const { updatedAt, ...rest } = this.plugin.buildMenuBarState();
+      const body = JSON.stringify(rest);
+      if (!force && body === this.lastJson) return;
+      this.lastJson = body;
+      const json = JSON.stringify({ updatedAt, ...rest });
       const tmp = this.statePath + ".tmp";
       fs.mkdirSync(this.dir, { recursive: true });
       fs.writeFileSync(tmp, json, "utf8");

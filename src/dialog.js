@@ -1,7 +1,7 @@
 // Agent Deck — the per-delegation options sheet.
 
-import { Modal, Notice, setIcon } from "obsidian";
-import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS, fmtTok } from "./constants.js";
+import { Modal, Notice } from "obsidian";
+import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { blockAt, blockTitle } from "./delegation.js";

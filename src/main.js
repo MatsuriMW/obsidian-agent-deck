@@ -9,15 +9,13 @@ import path from "path";
 import os from "os";
 import { execFile } from "child_process";
 import {
-  Plugin, Notice, MarkdownView, Menu, setIcon, editorInfoField,
+  Plugin, Notice, MarkdownView, editorInfoField,
 } from "obsidian";
 import {
-  PLUGIN_VERSION, AGENTS, AGENT_ORDER, DEFAULTS, MODEL_CATALOG, EFFORTS,
-  deepMerge, dayKey, dayKeyToday, fmtKey, fmtMin, fmtTok, fmtClock, fmtDur,
-  timeAgo, truncate, unionSegs, clamp,
+  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp,
 } from "./constants.js";
 import { AgentUsage, UsageStore, projectName } from "./readers.js";
-import { Delegator, blockAt, blockTitle, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findLink, statusOf, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
+import { Delegator, blockAt, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { AgentDeckSettingsTab } from "./settings.js";
 import { DelegateOptionsModal } from "./dialog.js";
@@ -121,6 +119,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   onunload() {
+    if (this.store?.dirty) { clearTimeout(this.store.saveTimer); this.store.save().catch(() => {}); }
     clearInterval(this._scanTimer);
     clearTimeout(this._refreshTimer);
     this.menubar?.stop();
@@ -185,7 +184,6 @@ export default class AgentDeckPlugin extends Plugin {
       this.store.cfg = this.settings;
       this.store.merge(touched, this.usage);
       this.store.prune();
-      await this.store.save();
       this.delegator.resolveHandoffs(this.usage);
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
@@ -433,7 +431,6 @@ export default class AgentDeckPlugin extends Plugin {
     const lines = doc.toString().split("\n");
     const sessionByParent = new Map();
     const linkByLine = new Map();
-    const parentByLine = new Map();
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!/^\s*[-*+]\s+🔗/.test(line)) continue;
@@ -451,11 +448,10 @@ export default class AgentDeckPlugin extends Plugin {
       const live = this.usage.liveSessions({ since: Date.now() - 86400000, limit: 200 }).find((x) => x.sid === parsed.sid);
       const job = Object.values(this.jobs).find((j) => j.sessionId === parsed.sid);
       const session = { ...meta, ...(live || {}), agent: parsed.agent || meta.agent, job };
-      parentByLine.set(i, parent);
       linkByLine.set(i, { ...parsed, parent });
       sessionByParent.set(parent, session);
     }
-    const map = { doc, lines, sessionByParent, linkByLine, parentByLine };
+    const map = { doc, lines, sessionByParent, linkByLine };
     this._lineMaps[path] = { doc, map };
     return map;
   }
@@ -503,7 +499,7 @@ export default class AgentDeckPlugin extends Plugin {
     const daySess = ((this.usage.summary(day) || {}).list || []).find((x) => x.sid === sid);
     const first = daySess && daySess.segs && daySess.segs.length ? daySess.segs[0][0] : null;
     const now = new Date();
-    const since = first != null ? J.clock(first) : `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    const since = first != null ? J.clock(first) : fmtClock(now.getTime());
     const text = cm.state.doc.toString();
     const res = J.bindInto(text, line, {
       sid, agent: data.agent || meta.agent || "claude",
@@ -562,7 +558,6 @@ export default class AgentDeckPlugin extends Plugin {
     if (k && k.body.startsWith(J.AUTO_MARK.trim())) return this.notice("Agent 记的条目不委派");
     if (block && findLink(lines, block)) return this.notice("已经绑着会话，不委派");
     if (block && lines.slice(block.start + 1, block.end + 1).some((l) => J.CLOCK_RE.test(l))) return this.notice("已有用时记录，不委派");
-    this._flyArmed = { agent, at: Date.now() };
     try {
       const opts = { file, lines, line, agent };
       // 按住 ⌘ 松手：Claude Code / Codex 在终端里开交互式会话，而不是后台跑 / 交给桌面版
@@ -599,21 +594,6 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   // ---------- editor actions ----------
-  activeEditor() {
-    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!view || !view.file) return null;
-    return { view, editor: view.editor, file: view.file };
-  }
-
-  async delegateFromEditor(editor, agent) {
-    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-    if (!view || !view.file) return this.notice("先打开一篇笔记");
-    const line = editor.getCursor().line;
-    try {
-      await this.delegator.delegate({ file: view.file, lines: editor.getValue().split("\n"), line, agent: agent || this.defaultTarget() });
-    } catch (e) { this.notice(String(e.message || e), 8000); }
-  }
-
   async delegateAtLine(path, line) {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!file) return this.notice("找不到这篇笔记");
@@ -626,10 +606,6 @@ export default class AgentDeckPlugin extends Plugin {
     new DelegateOptionsModal(this.app, this, path, line).open();
   }
 
-  openModalFor(editor, view) {
-    if (!view || !view.file) return this.notice("先打开一篇笔记");
-    this.openDelegateModal(view.file.path, editor.getCursor().line);
-  }
 
   openSessionForEditor(editor, view) {
     if (!view || !view.file) return;

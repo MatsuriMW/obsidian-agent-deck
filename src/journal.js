@@ -5,10 +5,15 @@
 // without touching the rest of the note. Everything in this file is pure: it
 // takes text in and returns text out, so it can be tested without Obsidian.
 
+import { pad, fmtTok } from "./constants.js";
+
 export const LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 export const STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
 export const CHECKBOX_RE = /^\[([ xX\/\-])\]\s*/;
-export const KEYWORD_RE = /^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)\s*/;
+// 任务关键词，长的在前（TODOFORAI 在 TODO 前、WAITING 在 WAIT 前）：KEYWORD_RE 不带前瞻，靠这个顺序
+export const TASK_KWS = "TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED";
+export const KEYWORD_RE = new RegExp(`^(${TASK_KWS})\\s*`);
+const KW_WORD_RE = new RegExp(`^(${TASK_KWS})(?=\\s|$)\\s*`);
 
 // TOREVIEW / NEEDOK / … are the states an agent session switches a line through.
 // A line only flips between DOING and these; anything else is the user's.
@@ -23,13 +28,23 @@ export const CLOCK_RE = /^\s*[-*+]\s+⏱/;
 export const KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
 export const AUTO_MARK = "🤖 ";
 
-const pad = (n) => String(n).padStart(2, "0");
 // 会话时段存的是「从日记分界（设置里的 dayCutoff，默认早上 8 点）起算的分钟数」，写成钟点要把分界加回来。
 // 插件加载、改设置时 setDayOffset(dayCutoff * 60)；测试里不设就是 0，从零点算
 let DAY_OFFSET = 0;
 export const setDayOffset = (min) => { DAY_OFFSET = Number(min) || 0; };
 export const dayOffset = () => DAY_OFFSET;
 export const clock = (t) => { const m = Math.round(t + DAY_OFFSET); return `${pad(Math.floor(((m % 1440) + 1440) % 1440 / 60))}:${pad(((m % 60) + 60) % 60)}`; };
+// ⏱ 行：间隔不超过 10 分钟的时段并成一段，只写最后 8 段（ellipsis 时前面标「… 」），后面是总时长、token、哪个 Agent
+export function clockLine(indent, segs, who, tok = 0, ellipsis = false) {
+  const shown = [];
+  for (const [a, b] of segs) {
+    const prev = shown[shown.length - 1];
+    if (prev && a - prev[1] <= 10) prev[1] = Math.max(prev[1], b);
+    else shown.push([a, b]);
+  }
+  const total = Math.round(segs.reduce((n, [a, b]) => n + b - a, 0));
+  return `${indent}- ⏱ ${ellipsis && shown.length > 8 ? "… " : ""}${shown.slice(-8).map(([a, b]) => `${clock(a)}–${clock(b)}`).join("、")} · 共 ${durTag(total)}${tok ? ` · ${fmtTok(tok)} tok` : ""}${who ? " · " + who : ""}`;
+}
 export const durTag = (m) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? (m % 60) + "m" : ""}` : `${Math.max(1, Math.round(m))}m`);
 export const width = (line) => { let w = 0; for (const c of (/^\s*/.exec(line) || [""])[0]) w += c === "\t" ? 4 : 1; return w; };
 
@@ -61,7 +76,7 @@ export function kwLine(raw) {
   let kw = "";
   const cb = CHECKBOX_RE.exec(s);
   if (cb) { kw = cb[1] === " " ? "TODO" : cb[1] === "/" ? "DOING" : cb[1] === "-" ? "CANCELLED" : "DONE"; s = s.slice(cb[0].length); }
-  const m = /^(TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)(?=\s|$)\s*/.exec(s);
+  const m = KW_WORD_RE.exec(s);
   if (m) { kw = m[1]; s = s.slice(m[0].length); }
   s = s.replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
   if (!s || s.startsWith("⏱") || s.startsWith("🔗") || s.startsWith("💬") || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
@@ -228,9 +243,11 @@ export function kidMatch(body, desc) {
 const EMPTY_ITEM_RE = /^(\s*(?:[-*+]|\d+[.)]))\s*$/;
 const MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬)/;
 
+// 会话停下来的几种状态 → 任务行上的关键词；回写（sync.js）只认这几种，idle 不写
+export const STATE_KW = { wait: "TOREVIEW", quiet: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" };
 // 会话现在的状态 → 任务行上的关键词（和回写那一半同一套）
 export function kwForState(state) {
-  return ({ run: "DOING", running: "DOING", starting: "DOING", wait: "TOREVIEW", quiet: "TOREVIEW", idle: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" })[state] || "DOING";
+  return ({ run: "DOING", running: "DOING", starting: "DOING", idle: "TOREVIEW", ...STATE_KW })[state] || "DOING";
 }
 
 // 拖到第 at 行会发生什么：

@@ -1,14 +1,12 @@
 // Agent Deck — the sidebar dashboard.
 
-import { ItemView, Menu, setIcon } from "obsidian";
-import { AGENTS, AGENT_ORDER, fmtKey, fmtMin, fmtTok, fmtClock, fmtDur, timeAgo, truncate, unionSegs, dayKeyToday, esc } from "./constants.js";
+import { ItemView, Menu } from "obsidian";
+import { AGENTS, AGENT_ORDER, fmtMin, fmtTok, timeAgo, truncate, dayKeyToday } from "./constants.js";
 import { agentIcon, setLucide, stateIcon } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { SESSION_MIME } from "./editor.js";
 
 export const VIEW_TYPE = "agent-deck-view";
-
-const STATE_LABEL = { run: "在跑", wait: "等你", idle: "安静", error: "出错", limit: "限额", done: "完成", starting: "准备中", running: "在跑", "needs-approval": "等你允许", cancelled: "已取消" };
 
 export class AgentDeckView extends ItemView {
   constructor(leaf, plugin) {

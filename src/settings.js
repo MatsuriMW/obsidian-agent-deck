@@ -1,9 +1,8 @@
 // Agent Deck — settings, including the layered Models page.
 
-import { App, PluginSettingTab, Setting, Notice, Modal, Menu, setIcon } from "obsidian";
+import { App, PluginSettingTab, Notice, Modal, Menu } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, MODEL_CATALOG, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS,
-  fmtMin, fmtTok, deepMerge, fmtClock,
+  AGENTS, AGENT_ORDER, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS, fmtTok, deepMerge,
 } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 
@@ -63,7 +62,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     setLucide(brandMark, "wand-sparkles");
     const bt = brand.createDiv({ cls: "ad-brand__text" });
     bt.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
-    bt.createDiv({ cls: "ad-brand__sub", text: "智能体甲板 · v1.0.2" });
+    bt.createDiv({ cls: "ad-brand__sub", text: `智能体甲板 · v${this.plugin.manifest.version}` });
 
     const nav = containerEl.createDiv({ cls: "ad-set-nav" });
     const dirty = this.draft && JSON.stringify(this.draft) !== JSON.stringify(this.plugin.settings.models);
@@ -452,28 +451,6 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       list.createDiv({ cls: "ad-empty ad-empty--small", text: "没有符合条件的模型" });
     }
     const note = picker.createDiv({ cls: "ad-models-note", text: "Pinned models show first. Reorder from the row menu or with Alt + ↑/↓." });
-
-    // Task models
-    const tasks = body.createDiv({ cls: "ad-models-card" });
-    const th = tasks.createDiv({ cls: "ad-models-sec" });
-    th.createSpan({ cls: "ad-kicker", text: "Task models" });
-    th.createSpan({ cls: "ad-models-sec__sub", text: "Smaller jobs that run behind a delegation." });
-    for (const [id, label, desc] of [
-      ["delegate", "Delegation", "Default for a task delegated from the editor."],
-      ["naming", "Chat titles", "Used when the agent names a session it opened."],
-      ["summary", "Summaries", "Used for the one-line result written under a task."],
-    ]) {
-      const row = tasks.createDiv({ cls: "ad-taskrow" });
-      const left = row.createDiv({ cls: "ad-taskrow__left" });
-      left.createDiv({ cls: "ad-taskrow__name", text: label });
-      left.createDiv({ cls: "ad-taskrow__desc", text: desc });
-      const sel = row.createEl("select", { cls: "ad-select ad-select--sm" });
-      sel.createEl("option", { text: "Auto", attr: { value: "auto" } });
-      for (const m of models) sel.createEl("option", { text: m.name, attr: { value: m.id } });
-      sel.value = d.taskModels?.[id] || "auto";
-      sel.onchange = () => { d.taskModels = { ...(d.taskModels || {}), [id]: sel.value }; this.display(); };
-    }
-    const foot = tasks.createDiv({ cls: "ad-models-note", text: "Auto lets the chosen agent decide. The model picker above is shared by both Claude Code and DeepSeek Harness." });
   }
 
   groupAction(head, rows, d, pinned) {
@@ -605,8 +582,6 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const cut = this.numberInput(r1.querySelector(":scope > .ad-row__right"), s.dayCutoff, 0, 12, (v) => { s.dayCutoff = v; p.saveSettings(); p.scheduleScan(); });
     const r2 = this.row(c, "每隔几秒扫描", "本机日志的轮询间隔。会话少的时候 20–30 秒就够。", null);
     this.numberInput(r2.querySelector(":scope > .ad-row__right"), s.pollSeconds, 5, 300, (v) => { s.pollSeconds = v; p.saveSettings(); p.scheduleScan(); });
-    const r3 = this.row(c, "多久没动算安静", "和下一段之间超过这么多分钟，就不算同一段连续工作。", null);
-    this.numberInput(r3.querySelector(":scope > .ad-row__right"), s.idleMinutes, 1, 120, (v) => { s.idleMinutes = v; p.saveSettings(); });
     const r4 = this.row(c, "主力读多少天历史", "只影响主力；非主力只读今天。", null);
     this.numberInput(r4.querySelector(":scope > .ad-row__right"), s.fullHistoryDays, 1, 365, (v) => { s.fullHistoryDays = v; p.saveSettings(); p.scanNow(true); });
 

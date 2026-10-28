@@ -9,12 +9,12 @@
 // 状态记在 settings.autoLogState：{ 日记日: { 会话号: { key, label, status, … } } }。
 
 import { Notice, MarkdownView } from "obsidian";
-import { dayKeyToday, startOfDay, fmtTok } from "./constants.js";
+import { AGENTS, AGENT_ORDER, dayKeyToday, startOfDay, unionSegs } from "./constants.js";
 import * as J from "./journal.js";
-import { runClaude, judgeBin, safeLabel } from "./llm.js";
+import { runClaude, safeLabel } from "./llm.js";
+import { findClaudeBinary } from "./delegation.js";
 
-const AGENTS_FOR_JOURNAL = ["claude", "codex", "workbuddy", "dsh"];
-const AGENT_NAMES = { claude: "Claude", codex: "Codex", workbuddy: "WorkBuddy", dsh: "DSH" };
+const agentName = (id) => AGENTS[id]?.short || id;
 
 export class AutoLog {
   constructor(plugin) {
@@ -22,7 +22,6 @@ export class AutoLog {
     this._busy = false;
     this._at = Date.now();
     this._err = "";
-    this._cache = new Map();
   }
 
   get cfg() { return this.p.settings; }
@@ -134,15 +133,7 @@ export class AutoLog {
     if (!found || !segs.length) return text;
     const lines = text.split("\n");
     const at = found.line;
-    const shown = [];
-    for (const [a, b] of segs) {
-      const prev = shown[shown.length - 1];
-      if (prev && a - prev[1] <= 10) prev[1] = Math.max(prev[1], b);
-      else shown.push([a, b]);
-    }
-    const total = Math.round(segs.reduce((n, [a, b]) => n + b - a, 0));
-    const indent = (/^\s*/.exec(lines[at]) || [""])[0] + "\t";
-    const line = `${indent}- ⏱ ${shown.length > 8 ? "… " : ""}${shown.slice(-8).map(([a, b]) => `${J.clock(a)}–${J.clock(b)}`).join("、")} · 共 ${J.durTag(total)}${tok ? ` · ${fmtTok(tok)} tok` : ""}${who ? " · " + who : ""}`;
+    const line = J.clockLine((/^\s*/.exec(lines[at]) || [""])[0] + "\t", segs, who, tok, true);
     if (sid) { const l = J.linkUnder(lines, at); if (l && l.sid === sid) lines.splice(l.line, 1); }
     const base = J.width(lines[at]);
     for (let i = at + 1; i < lines.length; i++) {
@@ -162,7 +153,7 @@ export class AutoLog {
     const blocks = items.map(({ x, active }, i) => {
       const meta = this.usage.meta.get(x.sid) || {};
       const last = String(meta.lastText || "").replace(/\d{12,}/g, "…").replace(/\s+/g, " ").trim().slice(-700);
-      return [`#s${i + 1} [${AGENT_NAMES[x.agent] || x.agent}] 标题：${x.title || "（没有）"}；累计 ${x.min} 分钟；现在：${active ? "还在进行" : "已经停了"}`,
+      return [`#s${i + 1} [${agentName(x.agent)}] 标题：${x.title || "（没有）"}；累计 ${x.min} 分钟；现在：${active ? "还在进行" : "已经停了"}`,
         x.text ? `开头说的：${String(x.text).replace(/\d{12,}/g, "…").slice(0, 200)}` : "",
         last ? `最后一条回复的结尾：${last}` : ""].filter(Boolean).join("\n");
     });
@@ -186,7 +177,7 @@ export class AutoLog {
     ].join("\n");
     const out = new Map();
     let raw = "";
-    try { raw = await runClaude(prompt, { bin: judgeBin(this.cfg.autoLogPath || this.cfg.delegate?.claude?.path || ""), model: this.cfg.autoLogModel || "haiku" }); }
+    try { raw = await runClaude(prompt, { bin: findClaudeBinary(this.cfg.autoLogPath || this.cfg.delegate?.claude?.path || ""), model: this.cfg.autoLogModel || "haiku" }); }
     catch (e) {
       this._err = String(e.message || e);
       if (fallback) for (const { x } of items) {
@@ -243,7 +234,7 @@ export class AutoLog {
       const todo = [], live = [];
       for (const x of data.list) {
         if (!x.segs || !x.segs.length) continue;
-        if (!AGENTS_FOR_JOURNAL.includes(x.agent)) continue;
+        if (!AGENT_ORDER.includes(x.agent)) continue;
         if (linked.has(x.sid)) continue;   // 日记里用 🔗 绑好的，交给回写那一半
         const last = x.segs[x.segs.length - 1][1];
         const active = now - last <= idle;
@@ -340,10 +331,10 @@ export class AutoLog {
         toks.set(rec.key, (toks.get(rec.key) || 0) + (x.out || 0) + (x.fresh || 0));
         (sids.get(rec.key) || sids.set(rec.key, []).get(rec.key)).push(x.agent === "claude" ? x.sid : "");
         (byKey.get(rec.key) || byKey.set(rec.key, []).get(rec.key)).push(...x.segs);
-        (who.get(rec.key) || who.set(rec.key, new Set()).get(rec.key)).add(AGENT_NAMES[x.agent] || x.agent);
+        (who.get(rec.key) || who.set(rec.key, new Set()).get(rec.key)).add(agentName(x.agent));
       }
       const merged = new Map();
-      for (const [k, segs] of byKey) merged.set(k, mergeSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
+      for (const [k, segs] of byKey) merged.set(k, unionSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
       for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "");
       report.diff = J.diffLines(base, text);
       if (dry) { this.cfg.autoLogState[day] = JSON.parse(snap); return report; }
@@ -388,7 +379,7 @@ export class AutoLog {
         if (found.state !== "doing" && !this.autoParked(rec, found.state)) { rec.status = found.state; delete rec.autoPaused; continue; }
         const x = list.find((s) => s.sid === sid && s.segs && s.segs.length) || null;
         text = this.autoLine(text, rec, x, "done").text;
-        if (x) text = this.autoClock(text, rec.key, x.segs, AGENT_NAMES[x.agent] || x.agent, (x.out || 0) + (x.fresh || 0), x.agent === "claude" ? x.sid : "");
+        if (x) text = this.autoClock(text, rec.key, x.segs, agentName(x.agent), (x.out || 0) + (x.fresh || 0), x.agent === "claude" ? x.sid : "");
         rec.status = "done"; delete rec.autoPaused;
         out.push(rec.label);
       }
@@ -445,14 +436,4 @@ export class AutoLog {
     this._at = Date.now();
     this.p.scanNow(false).catch(() => {}).then(() => this.run().catch((e) => console.error("[agent-deck] autolog", e)));
   }
-}
-
-function mergeSegs(segs) {
-  const out = [];
-  for (const [a, b] of [...segs].sort((x, y) => x[0] - y[0])) {
-    const last = out[out.length - 1];
-    if (last && a <= last[1]) last[1] = Math.max(last[1], b);
-    else out.push([a, b]);
-  }
-  return out;
 }

@@ -1,9 +1,5 @@
 // Agent Deck — shared constants and small helpers.
 
-export const PLUGIN_ID = "agent-deck";
-export const PLUGIN_NAME = "Agent Deck";
-export const PLUGIN_VERSION = "1.2.0";
-export const USAGE_FILE = "usage.json";
 export const STORE_VERSION = 1;
 
 export const AGENTS = {
@@ -59,7 +55,6 @@ export const AGENTS = {
 
 export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh"];
 
-export const AGENT_LABEL = (id) => (AGENTS[id] ? AGENTS[id].name : id || "Agent");
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
 // Models shown in the layered picker. `cli` is what Claude Code receives;
@@ -214,7 +209,6 @@ export const DEFAULTS = {
   // 0 = no cutoff; otherwise the hour at which a new journal day begins.
   dayCutoff: 8,
   pollSeconds: 20,
-  idleMinutes: 5,
   fullHistoryDays: 14,
   // Claude desktop session list: identifies side chats (spawnedFrom) and archive state.
   claudeDesktop: true,
@@ -239,7 +233,6 @@ export const DEFAULTS = {
   autoLogNotify: true,
   autoLogState: {},
   workLog: {},
-  showStatusBar: false,
   showMenuBar: true,
   menuBarPrimaryLimit: 6,
   menuBarOtherLimit: 3,
@@ -250,7 +243,6 @@ export const DEFAULTS = {
   showRibbonIcon: true,
   openDashboardOnStartup: false,
   autoWriteResult: true,
-  autoStatus: true,
   resultMax: 240,
   importNautilus: true,
   // Delegation
@@ -287,11 +279,9 @@ export const DEFAULTS = {
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
     defaultByAgent: { claude: "claude-sonnet-5", dsh: "deepseek-v4-pro" },
-    taskModels: { delegate: "auto", naming: "auto", summary: "auto" },
     effort: "high",
   },
   ui: {
-    density: "comfortable",
     showSparkline: true,
     showUsageBars: true,
   },
@@ -354,10 +344,6 @@ export function fmtClock(ms) {
   const d = new Date(ms);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-export function fmtDate(ms) {
-  const d = new Date(ms);
-  return `${d.getMonth() + 1}月${d.getDate()}日`;
-}
 export function timeAgo(ms) {
   if (!ms) return "";
   const s = Math.max(0, (Date.now() - ms) / 1000);
@@ -376,12 +362,4 @@ export function unionSegs(segs) {
     else out.push([a, b]);
   }
   return out;
-}
-export function unionMin(segs) {
-  return unionSegs(segs).reduce((n, [a, b]) => n + (b - a), 0);
-}
-export function relTime(ms) {
-  const d = new Date(ms), now = new Date();
-  const same = d.toDateString() === now.toDateString();
-  return same ? fmtClock(ms) : `${d.getMonth() + 1}/${d.getDate()} ${fmtClock(ms)}`;
 }

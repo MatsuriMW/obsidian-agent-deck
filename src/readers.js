@@ -10,8 +10,7 @@ import os from "os";
 import { execFile } from "child_process";
 import { decompress } from "fzstd";
 import {
-  AGENTS, AGENT_ORDER, dayKey, dayKeyToday, deepMerge, fmtTok,
-  unionSegs, unionMin, clamp,
+  AGENTS, dayKey, dayKeyToday, dayMinute, unionSegs, clamp,
 } from "./constants.js";
 
 const fsp = fs.promises;
@@ -142,7 +141,7 @@ export class AgentUsage {
         try { st = await fsp.stat(p); } catch { continue; }
         const fc = this.files.get(p);
         if (!fc && st.mtimeMs < floor && !this.isPrimary(agent)) continue;
-        if (fc && st.size === fc.size && st.mtimeMs === fc.mtimeMs) continue;
+        if (fc && st.size === fc.size && st.mtimeMs === fc.mtime) continue;
         try {
           if (agent === "dsh") await this.readDsh(p, st, touched);
           else await this.readJsonl(p, agent, st, touched);
@@ -387,7 +386,7 @@ export class AgentUsage {
     const day = this.dayFor(fc, key);
     let s = day.sess.get(sid);
     if (!s) day.sess.set(sid, s = { proj: projectName(cwd), cwd: cwd || "", app: app || "", agent: fc.agent, ts: [], text: "" });
-    if (s.ts.length < MAX_TS) s.ts.push(dayMinuteCfg(ms, this.cfg));
+    if (s.ts.length < MAX_TS) s.ts.push(dayMinute(ms, this.cfg));
     return { key, day, s };
   }
 
@@ -854,6 +853,7 @@ export class AgentUsage {
     res.wall = Math.round(res.segs.reduce((n, [a, b]) => n + b - a, 0));
     const seen = new Set();
     for (const fc of this.files.values()) {
+      if (!fc.days.has(key)) continue;
       for (const [id, m] of fc.msgs) {
         if (m.key !== key || seen.has(id)) continue;
         seen.add(id);
@@ -927,14 +927,6 @@ export class AgentUsage {
   }
 }
 
-// minute-of-day helper that uses cfg.dayCutoff (kept local to avoid a circular import)
-function dayMinuteCfg(ms, cfg) {
-  const cutoff = Number.isFinite(cfg.dayCutoff) ? cfg.dayCutoff : 8;
-  const d = new Date(ms - cutoff * 3600e3);
-  const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() + cutoff * 3600e3;
-  return Math.round((ms - start) / 60000);
-}
-
 // ----- usage store -----
 export class UsageStore {
   constructor(plugin, cfg = {}) {
@@ -999,27 +991,12 @@ export class UsageStore {
 
   prune(days = 120) {
     const cutoff = dayKey(Date.now() - days * 86400000, this.cfg);
-    for (const k of Object.keys(this.days)) if (k < cutoff) delete this.days[k];
-  }
-
-  totals(days = 1) {
-    const out = { wall: 0, out: 0, fresh: 0, cached: 0, sessions: 0, prompts: 0, calls: 0, by: {} };
-    const now = Date.now();
-    for (let i = 0; i < days; i++) {
-      const key = dayKey(now - i * 86400000, this.cfg);
-      const d = this.days[key];
-      if (!d) continue;
-      for (const k of ["wall", "out", "fresh", "cached", "sessions", "prompts", "calls"]) out[k] += d[k] || 0;
-      for (const [a, v] of Object.entries(d.by || {})) {
-        const g = (out.by[a] ||= { wall: 0, out: 0, agent: 0, sessions: 0, segs: [] });
-        g.wall += v.wall || 0; g.out += v.out || 0; g.agent += v.agent || 0; g.sessions += v.sessions || 0; g.segs.push(...(v.segs || []));
-      }
-    }
-    return out;
+    let gone = false;
+    for (const k of Object.keys(this.days)) if (k < cutoff) { delete this.days[k]; gone = true; }
+    if (gone) this.queueSave();
   }
 }
 
-export { dayKey };
 
 // 查一列（只跑 select）：macOS 自带 /usr/bin/sqlite3。不加 -readonly：WAL 模式的库（Codex）只读打不开。查不到返回空数组。
 function sqliteColumn(db, sql) {

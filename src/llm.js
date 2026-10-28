@@ -17,13 +17,6 @@ function workDir() {
   return dir;
 }
 
-export function judgeBin(configured = "") {
-  const c = String(configured || "").trim();
-  if (c) return c.replace(/^~(?=\/)/, home());
-  const spots = [path.join(home(), ".local/bin/claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", "/usr/bin/claude"];
-  return spots.find((p) => { try { return fs.existsSync(p); } catch { return false; } }) || "claude";
-}
-
 // 一问一答：-p 打完就退，不写会话记录（否则它自己也会被追踪成一个会话），
 // 不加载 MCP、个人设置里的钩子和插件；返回它说的那段文字
 export function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 120, system = "" } = {}) {
