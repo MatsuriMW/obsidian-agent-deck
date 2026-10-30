@@ -225,6 +225,10 @@ Releases are built by GitHub Actions from the tagged commit. `main.js`, `manifes
 gh attestation verify main.js --repo MatsuriMW/obsidian-agent-deck
 ```
 
+## Feedback and updates
+
+To follow new features, send feedback or keep up with progress, follow me on Twitter: [@Matsurimywaifu](https://x.com/Matsurimywaifu).
+
 ## Credits
 
 - Extracted from [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), which remains the planner.

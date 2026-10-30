@@ -233,6 +233,10 @@ Release 由 GitHub Actions 从对应 tag 构建；`main.js`、`manifest.json`、
 gh attestation verify main.js --repo MatsuriMW/obsidian-agent-deck
 ```
 
+## 反馈与后续
+
+想追踪后续功能、反馈问题、关注后续进展，欢迎关注我的 Twitter：[@Matsurimywaifu](https://x.com/Matsurimywaifu)。
+
 ## 致谢
 
 - 从[螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 拆出，日程仍然是它。
