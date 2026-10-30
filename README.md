@@ -16,6 +16,25 @@ Agent Deck is an Obsidian plugin that reads the local session logs of **Claude C
 
 It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), extracted into a standalone plugin and extended with a second primary agent, DeepSeek Harness, model/effort/mode selection, and a layered model picker.
 
+**Contents**
+
+- [How to use it](#how-to-use-it)
+- [Recommended: use it with Nautilus Spiral](#recommended-use-it-with-nautilus-spiral)
+- [What it does](#what-it-does)
+- [macOS menu bar](#macos-menu-bar)
+- [Human–AI journal](#humanai-journal)
+- [Delegate targets](#delegate-targets)
+- [Deep links](#deep-links)
+- [The status pill](#the-status-pill)
+- [Installation](#installation)
+- [Settings](#settings)
+- [Compatibility with Nautilus Spiral](#compatibility-with-nautilus-spiral)
+- [Privacy](#privacy)
+- [Release provenance](#release-provenance)
+- [Feedback and updates](#feedback-and-updates)
+- [Credits](#credits)
+- [License](#license)
+
 ## How to use it
 
 The plugin keeps explanatory text out of its UI; this section is the manual, and the switches live in the settings.
