@@ -1,5 +1,7 @@
 // Agent Deck — shared constants and small helpers.
 
+import { t } from "./i18n.js";
+
 export const STORE_VERSION = 1;
 
 export const AGENTS = {
@@ -11,7 +13,7 @@ export const AGENTS = {
     color: "#a86f58",
     soft: "rgba(168,111,88,.13)",
     kind: "claude",
-    where: ["~/.claude/projects", "Claude Code 和 Claude 桌面版里的 Code 会话"],
+    where: ["~/.claude/projects", t("Claude Code 和 Claude 桌面版里的 Code 会话")],
     deep: "claude",
     desktopOnly: true,
   },
@@ -23,7 +25,7 @@ export const AGENTS = {
     color: "#71899d",
     soft: "rgba(113,137,157,.13)",
     kind: "codex",
-    where: ["~/.codex/sessions", "Codex 桌面版和 codex 命令行"],
+    where: ["~/.codex/sessions", t("Codex 桌面版和 codex 命令行")],
     deep: "codex",
     desktopOnly: true,
   },
@@ -35,7 +37,7 @@ export const AGENTS = {
     color: "#71917f",
     soft: "rgba(113,145,127,.13)",
     kind: "workbuddy",
-    where: ["~/.workbuddy/projects", "WorkBuddy 桌面版"],
+    where: ["~/.workbuddy/projects", t("WorkBuddy 桌面版")],
     deep: "workbuddy",
     desktopOnly: true,
   },
@@ -47,7 +49,7 @@ export const AGENTS = {
     color: "#767fae",
     soft: "rgba(118,127,174,.13)",
     kind: "dsh",
-    where: ["~/.dsh/sessions", "DeepSeek Harness 桌面版、CLI 和通过 ACP 委派的任务"],
+    where: ["~/.dsh/sessions", t("DeepSeek Harness 桌面版、CLI 和通过 ACP 委派的任务")],
     deep: "dsh",
     desktopOnly: true,
   },
@@ -347,10 +349,10 @@ export function fmtClock(ms) {
 export function timeAgo(ms) {
   if (!ms) return "";
   const s = Math.max(0, (Date.now() - ms) / 1000);
-  if (s < 45) return "刚刚";
-  if (s < 3600) return Math.round(s / 60) + " 分钟前";
-  if (s < 86400) return Math.round(s / 3600) + " 小时前";
-  return Math.round(s / 86400) + " 天前";
+  if (s < 45) return t("刚刚");
+  if (s < 3600) return t("{n} 分钟前", { n: Math.round(s / 60) });
+  if (s < 86400) return t("{n} 小时前", { n: Math.round(s / 3600) });
+  return t("{n} 天前", { n: Math.round(s / 86400) });
 }
 export function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 export function truncate(s, n = 80) { s = String(s == null ? "" : s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; }

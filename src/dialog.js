@@ -5,6 +5,7 @@ import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { blockAt, blockTitle } from "./delegation.js";
+import { t } from "./i18n.js";
 
 export class DelegateOptionsModal extends Modal {
   constructor(app, plugin, path, line) {
@@ -27,13 +28,13 @@ export class DelegateOptionsModal extends Modal {
     contentEl.addClass("ad-modal");
     contentEl.addClass("ad-delegate");
     const file = this.app.vault.getAbstractFileByPath(this.path);
-    if (!file) { contentEl.createDiv({ text: "找不到这篇笔记" }); return; }
+    if (!file) { contentEl.createDiv({ text: t("找不到这篇笔记") }); return; }
     this.file = file;
     const text = await this.app.vault.read(file);
     const lines = text.split("\n");
     this.block = blockAt(lines, this.line);
     this.lines = lines;
-    if (!this.block) { contentEl.createDiv({ text: "光标要放在一个列表项里" }); return; }
+    if (!this.block) { contentEl.createDiv({ text: t("光标要放在一个列表项里") }); return; }
     this.render();
   }
 
@@ -60,7 +61,7 @@ export class DelegateOptionsModal extends Modal {
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
-      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "桌面版" : "ACP" });
+      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? t("桌面版") : "ACP" });
       b.onclick = () => { this.agent = id; this.model = p.defaultModel(id); this.effort = id === "dsh" ? (p.settings.delegate.dsh.effort || "high") : (p.settings.delegate.claude.effort || "high"); this.render(); };
     }
 
@@ -114,7 +115,7 @@ export class DelegateOptionsModal extends Modal {
       const b = row.createEl("button", { cls: "ad-switch" + (p.settings.delegate.dsh.autoApprove ? " is-on" : "") });
       b.createSpan({ cls: "ad-switch__knob" });
       b.onclick = () => { p.settings.delegate.dsh.autoApprove = !p.settings.delegate.dsh.autoApprove; p.saveSettings(); this.render(); };
-      af.createDiv({ cls: "ad-hint", text: "ACP 模式没有 plan/auto 这个切换；关掉自动允许时，Harness 的权限请求会被拒绝并提醒你。" });
+      af.createDiv({ cls: "ad-hint", text: t("ACP 模式没有 plan/auto 这个切换；关掉自动允许时，Harness 的权限请求会被拒绝并提醒你。") });
     }
 
     // Working directory
@@ -122,12 +123,12 @@ export class DelegateOptionsModal extends Modal {
     cf.createDiv({ cls: "ad-field__label", text: "Working directory" });
     const cwd = cf.createEl("input", { cls: "ad-input", attr: { placeholder: p.vaultPath, value: this.cwd } });
     cwd.oninput = () => { this.cwd = cwd.value; };
-    cf.createDiv({ cls: "ad-hint", text: "留空 = 插件设置里的目录（默认是库根目录）。" });
+    cf.createDiv({ cls: "ad-hint", text: t("留空 = 插件设置里的目录（默认是库根目录）。") });
 
     // Suffix
     const sf = contentEl.createDiv({ cls: "ad-field" });
     sf.createDiv({ cls: "ad-field__label", text: "Prompt suffix" });
-    const ta = sf.createEl("textarea", { cls: "ad-textarea", attr: { rows: "2", placeholder: "加在这次委派最后的话" } });
+    const ta = sf.createEl("textarea", { cls: "ad-textarea", attr: { rows: "2", placeholder: t("加在这次委派最后的话") } });
     ta.value = this.suffix;
     ta.oninput = () => { this.suffix = ta.value; };
 
