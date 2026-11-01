@@ -12,6 +12,7 @@ import crypto from "crypto";
 import { execFile, spawn } from "child_process";
 import source from "./menubar.swift";
 import { agentImageBuffer } from "./agent-assets.js";
+import { t } from "./i18n.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -65,7 +66,7 @@ export class MenuBarBridge {
     if (this.starting) return this.starting;
     this.starting = this._start().catch((e) => {
       console.error("[agent-deck] menu bar", e);
-      this.plugin.notice("macOS 菜单栏启动失败：" + (e && e.message || e), 12000);
+      this.plugin.notice(t("macOS 菜单栏启动失败：") + (e && e.message || e), 12000);
     }).finally(() => { this.starting = null; });
     return this.starting;
   }
@@ -100,9 +101,9 @@ export class MenuBarBridge {
 
   async compile(hash) {
     if (!fs.existsSync("/usr/bin/swiftc")) {
-      throw new Error("找不到 /usr/bin/swiftc。安装 Xcode Command Line Tools（xcode-select --install）后再试。");
+      throw new Error(t("找不到 /usr/bin/swiftc。安装 Xcode Command Line Tools（xcode-select --install）后再试。"));
     }
-    this.plugin.notice("正在准备 macOS 菜单栏（第一次要编译一个小助手，约几秒）…", 6000);
+    this.plugin.notice(t("正在准备 macOS 菜单栏（第一次要编译一个小助手，约几秒）…"), 6000);
     this.killExisting();
     await fsp.mkdir(path.join(this.appPath, "Contents", "MacOS"), { recursive: true });
     await fsp.writeFile(this.srcPath, source, "utf8");
@@ -112,7 +113,7 @@ export class MenuBarBridge {
     const res = await new Promise((resolve) => {
       const child = spawn("/usr/bin/swiftc", ["-O", "-swift-version", "5", "-framework", "AppKit", "-framework", "SwiftUI", "-framework", "Carbon", "-o", tmp, this.srcPath], { stdio: ["ignore", "pipe", "pipe"] });
       let err = "";
-      const timer = setTimeout(() => { try { child.kill("SIGKILL"); } catch { /* gone */ } resolve({ ok: false, err: "编译超过 90 秒" }); }, 90000);
+      const timer = setTimeout(() => { try { child.kill("SIGKILL"); } catch { /* gone */ } resolve({ ok: false, err: t("编译超过 90 秒") }); }, 90000);
       child.stdout.on("data", () => {});
       child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 8000) err = err.slice(-8000); });
       child.on("error", (e) => { clearTimeout(timer); resolve({ ok: false, err: String(e && e.message || e) }); });
@@ -120,7 +121,7 @@ export class MenuBarBridge {
     });
     if (!res.ok) {
       this.disabled = true;
-      throw new Error((res.err || "swiftc 编译失败").slice(0, 700));
+      throw new Error((res.err || t("swiftc 编译失败")).slice(0, 700));
     }
     try { await fsp.unlink(this.binPath); } catch { /* none */ }
     await fsp.rename(tmp, this.binPath);

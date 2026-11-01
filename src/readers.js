@@ -9,6 +9,7 @@ import path from "path";
 import os from "os";
 import { execFile } from "child_process";
 import { decompress } from "fzstd";
+import { t } from "./i18n.js";
 import {
   AGENTS, dayKey, dayKeyToday, dayMinute, unionSegs, clamp,
 } from "./constants.js";
@@ -44,16 +45,16 @@ export function stepText(name, input) {
   const n = String(name || "");
   const base = (x) => String(x || "").split("/").pop();
   const cut = (x) => { x = String(x || "").replace(/\s+/g, " ").trim(); return x.length > 34 ? x.slice(0, 33) + "…" : x; };
-  if (/^(bash|shell|local_shell_call|exec_command|shell_command)$/i.test(n)) return cut(i.description || (Array.isArray(i.command) ? i.command[i.command.length - 1] : i.command || i.cmd) || "跑命令");
-  if (/^(edit|multiedit|notebookedit|apply_patch|str_replace_editor)$/i.test(n)) return cut(`改 ${base(i.file_path || i.notebook_path || i.path) || "文件"}`);
-  if (/^(write|create_file)$/i.test(n)) return cut(`写 ${base(i.file_path || i.path)}`);
-  if (/^(read|view)$/i.test(n)) return cut(`读 ${base(i.file_path || i.path)}`);
-  if (/^(grep|glob|search)$/i.test(n)) return cut(`找 ${i.pattern || i.query || ""}`);
-  if (/^(agent|task|subagent)$/i.test(n)) return cut(`派出去：${i.description || ""}`);
-  if (/^(websearch|web_search)$/i.test(n)) return cut(`搜 ${i.query || ""}`);
-  if (/^(webfetch|web_fetch)$/i.test(n)) return "读网页";
-  if (n === "Skill") return cut(`用技能 ${i.skill || ""}`);
-  if (/^todo/.test(n)) return "整理待办";
+  if (/^(bash|shell|local_shell_call|exec_command|shell_command)$/i.test(n)) return cut(i.description || (Array.isArray(i.command) ? i.command[i.command.length - 1] : i.command || i.cmd) || t("跑命令"));
+  if (/^(edit|multiedit|notebookedit|apply_patch|str_replace_editor)$/i.test(n)) return cut(t("改 {file}", { file: base(i.file_path || i.notebook_path || i.path) || t("文件") }));
+  if (/^(write|create_file)$/i.test(n)) return cut(t("写 {file}", { file: base(i.file_path || i.path) }));
+  if (/^(read|view)$/i.test(n)) return cut(t("读 {file}", { file: base(i.file_path || i.path) }));
+  if (/^(grep|glob|search)$/i.test(n)) return cut(t("找 {pattern}", { pattern: i.pattern || i.query || "" }));
+  if (/^(agent|task|subagent)$/i.test(n)) return cut(t("派出去：{desc}", { desc: i.description || "" }));
+  if (/^(websearch|web_search)$/i.test(n)) return cut(t("搜 {query}", { query: i.query || "" }));
+  if (/^(webfetch|web_fetch)$/i.test(n)) return t("读网页");
+  if (n === "Skill") return cut(t("用技能 {skill}", { skill: i.skill || "" }));
+  if (/^todo/.test(n)) return t("整理待办");
   return cut(n.startsWith("mcp__") ? n.split("__").pop() : n);
 }
 

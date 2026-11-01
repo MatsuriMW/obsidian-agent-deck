@@ -23,6 +23,14 @@ let lucideArrowSVG = """
 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
 """
 
+// The plugin writes "lang" in menubar.json. Chinese keeps the original
+// wording; every other locale gets the English side of each ternary.
+enum DeckLang {
+    static var zh = false
+}
+
+func tr(_ zh: String, _ en: String) -> String { DeckLang.zh ? zh : en }
+
 func lucideImage(_ svg: String, _ size: CGFloat) -> NSImage? {
     guard let data = svg.data(using: .utf8), let image = NSImage(data: data) else { return nil }
     image.isTemplate = true
@@ -96,7 +104,7 @@ struct MenuSession: Decodable, Identifiable {
 
     var keywordZh: String {
         if let label = keywordLabel, !label.isEmpty { return label }
-        return DeckKeywords.style(for: keywordCode).zh
+        return DeckKeywords.style(for: keywordCode).label
     }
 
     // WorkBuddy sometimes stores a bare XML-wrapped tool prompt as the title.
@@ -142,6 +150,7 @@ struct MenuAgent: Decodable, Identifiable {
 
 struct MenuState: Decodable {
     let updatedAt: Double
+    let lang: String?
     let short: String
     let summary: String
     let usage: String?
@@ -151,7 +160,11 @@ struct MenuState: Decodable {
     let sessions: [MenuSession]
     let agents: [MenuAgent]?
 
-    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "等待 Agent Deck…", usage: nil, hotkey: nil, running: 0, waiting: 0, sessions: [], agents: [])
+    var isZh: Bool { lang != "en" }
+
+    static var empty: MenuState {
+        MenuState(updatedAt: 0, lang: nil, short: "Agent Deck", summary: tr("等待 Agent Deck…", "Waiting for Agent Deck…"), usage: nil, hotkey: nil, running: 0, waiting: 0, sessions: [], agents: [])
+    }
 
     var needsApproval: Int {
         sessions.filter { $0.state == "needs-approval" }.count
@@ -164,9 +177,9 @@ struct MenuState: Decodable {
         let parts = summary
             .split(separator: "·")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty && !$0.contains("在跑") && !$0.contains("等你") }
+            .filter { !$0.isEmpty && !$0.contains(tr("在跑", "running")) && !$0.contains(tr("等你", "waiting")) }
         if parts.isEmpty {
-            return summary.isEmpty ? "等待 Agent Deck…" : summary
+            return summary.isEmpty ? tr("等待 Agent Deck…", "Waiting for Agent Deck…") : summary
         }
         return parts.joined(separator: " · ")
     }
@@ -223,6 +236,7 @@ final class MenuModel: ObservableObject {
     func reload() {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: statePath)),
               let next = try? JSONDecoder().decode(MenuState.self, from: data) else { return }
+        DeckLang.zh = next.isZh
         if next.updatedAt != state.updatedAt {
             state = next
             onUpdate?()
@@ -324,16 +338,19 @@ enum DeckPalette {
 struct KeywordStyle {
     let code: String
     let zh: String
+    let en: String
     let accent: Color
     let ink: Color
     let tint: Color
     let icon: String
     let spins: Bool
+
+    var label: String { DeckLang.zh ? zh : en }
 }
 
 enum DeckKeywords {
     static let doing = KeywordStyle(
-        code: "DOING", zh: "在跑",
+        code: "DOING", zh: "在跑", en: "running",
         accent: .solid("#C8635F", "#FF938B"),
         ink: .solid("#A34C48", "#FFB3AC"),
         tint: .solid("#F9E7E5", "#37211F"),
@@ -341,7 +358,7 @@ enum DeckKeywords {
     )
 
     static let needok = KeywordStyle(
-        code: "NEEDOK?", zh: "等你",
+        code: "NEEDOK?", zh: "等你", en: "waiting",
         accent: .solid("#BF7A45", "#F2A66B"),
         ink: .solid("#96582B", "#FFC79A"),
         tint: .solid("#FBEDE1", "#3A281C"),
@@ -349,7 +366,7 @@ enum DeckKeywords {
     )
 
     static let waiting = KeywordStyle(
-        code: "WAITING", zh: "等你",
+        code: "WAITING", zh: "等你", en: "waiting",
         accent: .solid("#8F7FB6", "#BFAEEA"),
         ink: .solid("#6A5B92", "#D9CEFF"),
         tint: .solid("#F0EBF8", "#2A2438"),
@@ -357,7 +374,7 @@ enum DeckKeywords {
     )
 
     static let paused = KeywordStyle(
-        code: "PAUSED", zh: "安静",
+        code: "PAUSED", zh: "安静", en: "idle",
         accent: .solid("#B39A3E", "#E4CB6A"),
         ink: .solid("#846F22", "#F2DF9B"),
         tint: .solid("#F7F0D9", "#332C18"),
@@ -365,7 +382,7 @@ enum DeckKeywords {
     )
 
     static let errored = KeywordStyle(
-        code: "ERRORED", zh: "出错",
+        code: "ERRORED", zh: "出错", en: "error",
         accent: .solid("#93606B", "#E18C99"),
         ink: .solid("#70414B", "#F5B5BE"),
         tint: .solid("#F5E7E9", "#37222A"),
@@ -373,7 +390,7 @@ enum DeckKeywords {
     )
 
     static let hitlimit = KeywordStyle(
-        code: "HITLIMIT!", zh: "限额",
+        code: "HITLIMIT!", zh: "限额", en: "limit",
         accent: .solid("#8A5A8C", "#CE93D2"),
         ink: .solid("#673A69", "#E8B9EB"),
         tint: .solid("#F4E8F4", "#332236"),
@@ -381,7 +398,7 @@ enum DeckKeywords {
     )
 
     static let done = KeywordStyle(
-        code: "DONE", zh: "完成",
+        code: "DONE", zh: "完成", en: "done",
         accent: .solid("#629C7F", "#83C9A5"),
         ink: .solid("#43705A", "#B1E5C9"),
         tint: .solid("#E8F3EC", "#1D3328"),
@@ -389,7 +406,7 @@ enum DeckKeywords {
     )
 
     static let later = KeywordStyle(
-        code: "LATER", zh: "最近",
+        code: "LATER", zh: "最近", en: "recent",
         accent: .solid("#5C86B4", "#8FB8E8"),
         ink: .solid("#40658D", "#C2DFFF"),
         tint: .solid("#E9F0F9", "#1E2A38"),
@@ -397,7 +414,7 @@ enum DeckKeywords {
     )
 
     static let todo = KeywordStyle(
-        code: "TODO", zh: "空闲",
+        code: "TODO", zh: "空闲", en: "idle",
         accent: .solid("#5C86B4", "#8FB8E8"),
         ink: .solid("#40658D", "#C2DFFF"),
         tint: .solid("#E9F0F9", "#1E2A38"),
@@ -696,7 +713,7 @@ struct KeywordChip: View {
             RoundedRectangle(cornerRadius: 5, style: .continuous)
                 .strokeBorder(style.accent.opacity(0.55), lineWidth: 1)
         )
-        .help("\(style.code) · \(style.zh)")
+        .help("\(style.code) · \(style.label)")
         .fixedSize()
     }
 }
@@ -765,7 +782,7 @@ struct AgentPill: View {
             Capsule(style: .continuous)
                 .strokeBorder(style.color.opacity(agent.primary ? 0.42 : 0.24), lineWidth: 1)
         )
-        .help("跑 \(agent.running) · 等 \(agent.waiting)")
+        .help(tr("跑 \(agent.running) · 等 \(agent.waiting)", "\(agent.running) running · \(agent.waiting) waiting"))
     }
 }
 
@@ -812,7 +829,7 @@ struct HeaderBlock: View {
             if state.needsApproval > 0 {
                 HStack(spacing: 5) {
                     KeywordGlyph(style: DeckKeywords.needok, size: 10)
-                    Text("\(state.needsApproval) 个 NEEDOK? 需要你允许")
+                    Text(tr("\(state.needsApproval) 个 NEEDOK? 需要你允许", "\(state.needsApproval) NEEDOK? need your approval"))
                         .font(.system(size: 9.5, weight: .semibold))
                 }
                 .foregroundColor(DeckKeywords.needok.ink)
@@ -1011,11 +1028,11 @@ struct EmptyState: View {
 
             HStack(spacing: 5) {
                 KeywordChip(style: DeckKeywords.todo)
-                Text("现在没有要显示的会话")
+                Text(tr("现在没有要显示的会话", "No sessions to show right now"))
                     .font(.system(size: 12.5, weight: .bold))
                     .foregroundColor(DeckPalette.ink)
             }
-            Text("主力 Agent 的会话会留在这里；其它 Agent 只在正在运行时出现，WorkBuddy 的等待会话也列。")
+            Text(tr("主力 Agent 的会话会留在这里；其它 Agent 只在正在运行时出现，WorkBuddy 的等待会话也列。", "Primary agent sessions stay here; other agents appear only while running, and WorkBuddy's waiting sessions are listed too."))
                 .font(.system(size: 10))
                 .foregroundColor(DeckPalette.secondary)
                 .multilineTextAlignment(.center)
@@ -1039,11 +1056,11 @@ struct SessionListView: View {
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(alignment: .leading, spacing: 8) {
                 if !primary.isEmpty {
-                    SectionHeader(title: "主力 AGENT", subtitle: "全量追踪", count: primary.count)
+                    SectionHeader(title: tr("主力 AGENT", "PRIMARY AGENTS"), subtitle: tr("全量追踪", "full history"), count: primary.count)
                     ForEach(primary) { SessionCardView(session: $0) }
                 }
                 if !others.isEmpty {
-                    SectionHeader(title: "其它 AGENT", subtitle: "在跑 · WorkBuddy 等你", count: others.count)
+                    SectionHeader(title: tr("其它 AGENT", "OTHER AGENTS"), subtitle: tr("在跑 · WorkBuddy 等你", "running · WorkBuddy waiting"), count: others.count)
                         .padding(.top, 4)
                     ForEach(others) { SessionCardView(session: $0) }
                 }
@@ -1137,8 +1154,8 @@ struct FooterBlock: View {
     let sessionCount: Int
 
     private var hint: String {
-        if sessionCount == 0 { return "等待 Agent 会话" }
-        return sessionCount > 5 ? "共 \(sessionCount) 个 · 向下滑动" : "点击卡片跳转"
+        if sessionCount == 0 { return tr("等待 Agent 会话", "Waiting for agent sessions") }
+        return sessionCount > 5 ? tr("共 \(sessionCount) 个 · 向下滑动", "\(sessionCount) total · scroll down") : tr("点击卡片跳转", "Click a card to jump")
     }
 
     var body: some View {
@@ -1147,14 +1164,14 @@ struct FooterBlock: View {
                 .font(.system(size: 9))
                 .foregroundColor(DeckPalette.tertiary)
                 .lineLimit(1)
-            FooterButton(title: "打开面板", kind: .primary) {
+            FooterButton(title: tr("打开面板", "Open panel"), kind: .primary) {
                 adOpen("obsidian://agent-deck")
             }
-            FooterButton(title: "重新扫描", kind: .secondary) {
+            FooterButton(title: tr("重新扫描", "Rescan"), kind: .secondary) {
                 adOpen("obsidian://agent-deck?do=scan")
             }
             Spacer(minLength: 4)
-            FooterButton(title: "隐藏", kind: .quiet) {
+            FooterButton(title: tr("隐藏", "Hide"), kind: .quiet) {
                 adOpen("obsidian://agent-deck?do=hide")
             }
         }

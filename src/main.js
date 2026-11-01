@@ -14,6 +14,7 @@ import {
 import {
   AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp,
 } from "./constants.js";
+import { t, isZh } from "./i18n.js";
 import { AgentUsage, UsageStore, projectName } from "./readers.js";
 import { Delegator, blockAt, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
@@ -63,12 +64,12 @@ export default class AgentDeckPlugin extends Plugin {
 
     this.setupRibbon();
 
-    this.addCommand({ id: "open-dashboard", name: "打开 Agent Deck 面板", callback: () => this.activateView() });
+    this.addCommand({ id: "open-dashboard", name: t("打开 Agent Deck 面板"), callback: () => this.activateView() });
     this.addCommand({
       id: "open-menubar-panel",
-      name: "打开 macOS 菜单栏面板",
+      name: t("打开 macOS 菜单栏面板"),
       callback: async () => {
-        if (this.settings.showMenuBar === false) return this.notice("macOS 菜单栏已关闭，请先在「追踪」里打开");
+        if (this.settings.showMenuBar === false) return this.notice(t("macOS 菜单栏已关闭，请先在「追踪」里打开"));
         await this.menubar.start();
         const started = Date.now();
         const wait = setInterval(() => {
@@ -79,15 +80,15 @@ export default class AgentDeckPlugin extends Plugin {
         }, 300);
       },
     });
-    this.addCommand({ id: "open-settings", name: "打开 Agent Deck 设置", callback: () => this.openSettings() });
-    this.addCommand({ id: "open-models", name: "打开 Agent Deck 的 Models 设置", callback: () => this.openSettings("models") });
+    this.addCommand({ id: "open-settings", name: t("打开 Agent Deck 设置"), callback: () => this.openSettings() });
+    this.addCommand({ id: "open-models", name: t("打开 Agent Deck 的 Models 设置"), callback: () => this.openSettings("models") });
     // 委派只有两个入口：笔记里人写的一项拖到面板的 Agent 卡片上，或者块去向的「委派给 Claude」（⌥⌘D）。
     // Agent Deck 不再在命令面板里放委派命令；委派失败后状态 pill 上的「重试」还在
-    this.addCommand({ id: "open-session-line", name: "打开光标这一行绑定的会话", editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
-    this.addCommand({ id: "scan-now", name: "重新扫描本机 Agent 会话", callback: () => this.scanNow(true) });
-    this.addCommand({ id: "log-journal", name: "整理 Agent 会话进今天的日记", callback: () => this.autoLog.logNow() });
-    this.addCommand({ id: "import-nautilus", name: "导入螺旋日程的历史用量", callback: () => this.importNautilus(true) });
-    this.addCommand({ id: "clean-jobs", name: "清理已结束的委派记录", callback: () => this.cleanJobs() });
+    this.addCommand({ id: "open-session-line", name: t("打开光标这一行绑定的会话"), editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
+    this.addCommand({ id: "scan-now", name: t("重新扫描本机 Agent 会话"), callback: () => this.scanNow(true) });
+    this.addCommand({ id: "log-journal", name: t("整理 Agent 会话进今天的日记"), callback: () => this.autoLog.logNow() });
+    this.addCommand({ id: "import-nautilus", name: t("导入螺旋日程的历史用量"), callback: () => this.importNautilus(true) });
+    this.addCommand({ id: "clean-jobs", name: t("清理已结束的委派记录"), callback: () => this.cleanJobs() });
 
     this.registerObsidianProtocolHandler("agent-deck", async (params) => {
       if (params && params.do === "scan") return this.scanNow(true);
@@ -98,7 +99,7 @@ export default class AgentDeckPlugin extends Plugin {
         this.settings.showMenuBar = false;
         await this.saveSettings();
         this.menubar?.stop();
-        this.notice("已隐藏 macOS 菜单栏；可在 Agent Deck → 追踪 里重新打开", 8000);
+        this.notice(t("已隐藏 macOS 菜单栏；可在 Agent Deck → 追踪 里重新打开"), 8000);
         return;
       }
       return this.activateView();
@@ -187,10 +188,10 @@ export default class AgentDeckPlugin extends Plugin {
       this.delegator.resolveHandoffs(this.usage);
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
-      if (force) new Notice(`Agent Deck：读到 ${this.usage.files.size} 个日志，${touched.size} 天有内容`, 4000);
+      if (force) new Notice(t("Agent Deck：读到 {files} 个日志，{days} 天有内容", { files: this.usage.files.size, days: touched.size }), 4000);
     } catch (e) {
       console.error("[agent-deck] scan", e);
-      this.notice("扫描会话失败：" + (e && e.message || e), 8000);
+      this.notice(t("扫描会话失败：") + (e && e.message || e), 8000);
     } finally {
       this._scanning = false;
     }
@@ -204,15 +205,15 @@ export default class AgentDeckPlugin extends Plugin {
     this.usage.titles.clear();
     await this.store.save();
     await this.scanNow(true);
-    new Notice("Agent Deck：历史已重算");
+    new Notice(t("Agent Deck：历史已重算"));
   }
 
   async importNautilus(manual = false) {
     const dir = path.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
     let raw;
-    try { raw = await fsp.readFile(path.join(dir, "ai-usage.json"), "utf8"); } catch { if (manual) new Notice("没有找到螺旋日程的 ai-usage.json"); return; }
+    try { raw = await fsp.readFile(path.join(dir, "ai-usage.json"), "utf8"); } catch { if (manual) new Notice(t("没有找到螺旋日程的 ai-usage.json")); return; }
     let src;
-    try { src = JSON.parse(raw); } catch { if (manual) new Notice("螺旋日程的 ai-usage.json 解析失败"); return; }
+    try { src = JSON.parse(raw); } catch { if (manual) new Notice(t("螺旋日程的 ai-usage.json 解析失败")); return; }
     const days = src.days || {};
     let added = 0;
     for (const [key, day] of Object.entries(days)) {
@@ -228,7 +229,7 @@ export default class AgentDeckPlugin extends Plugin {
     }
     this.store.imported = { ...(this.store.imported || {}), nautilus: Date.now() };
     await this.store.save();
-    if (manual || added) new Notice(`Agent Deck：从螺旋日程导入 ${added} 天历史`);
+    if (manual || added) new Notice(t("Agent Deck：从螺旋日程导入 {n} 天历史", { n: added }));
     this.refreshUI();
   }
 
@@ -250,7 +251,7 @@ export default class AgentDeckPlugin extends Plugin {
         if (job.state === "done") this.delegator.writeResult(job).catch(() => {});
       } else if (Date.now() - (job.startedAt || 0) > 60000) {
         job.state = "error";
-        job.error = "插件重载后没有接上这个会话";
+        job.error = t("插件重载后没有接上这个会话");
         job.endedAt = Date.now();
         this.saveJobs();
       }
@@ -322,11 +323,11 @@ export default class AgentDeckPlugin extends Plugin {
     await this.saveSettings();
     this.scanNow(true);
     this.refreshUI();
-    new Notice(`Agent Deck 主力：${this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ")}`);
+    new Notice(t("Agent Deck 主力：{list}", { list: this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ") }));
   }
 
   async setAgentEnabled(agent, on) {
-    if (this.isPrimary(agent) && !on) { new Notice("主力 Agent 不能关掉；先把主力换掉"); return; }
+    if (this.isPrimary(agent) && !on) { new Notice(t("主力 Agent 不能关掉；先把主力换掉")); return; }
     (this.settings.agents ||= {})[agent] = !!on;
     await this.saveSettings();
     this.scanNow(true);
@@ -345,7 +346,7 @@ export default class AgentDeckPlugin extends Plugin {
       const sid = job.sessionId;
       list.push({
         sid, agent: job.agent, title: job.name, text: job.blockText, cwd: job.cwd || this.vaultPath,
-        app: "", state: job.state === "needs-approval" ? "needs-approval" : "run", step: job.step || "正在启动会话…",
+        app: "", state: job.state === "needs-approval" ? "needs-approval" : "run", step: job.step || t("正在启动会话…"),
         lastAt: job.endedAt || job.startedAt, tokens: job.tokens || 0, job, model: job.model,
       });
       seen.add(sid);
@@ -401,7 +402,7 @@ export default class AgentDeckPlugin extends Plugin {
   openJob(jobId, sid) {
     const job = jobId ? this.jobs[jobId] : null;
     const sessionId = (job && job.sessionId) || sid;
-    if (!sessionId) { this.notice("会话还没有会话号，稍等一秒再点"); return; }
+    if (!sessionId) { this.notice(t("会话还没有会话号，稍等一秒再点")); return; }
     const meta = this.usage.meta.get(sessionId) || null;
     const agent = job ? job.agent : (meta && meta.agent) || "claude";
     return openSessionRaw(this, agent, sessionId, (job && job.app) || (meta && meta.app) || "", meta);
@@ -512,7 +513,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (change) view.editor.transaction({ changes: [change] });
     this.markBound(sid);
     const a = AGENTS[data.agent] || AGENTS.claude;
-    this.notice(res.kind === "bind" ? `🔗 已绑定：${a.short} 会话的状态、💬、⏱ 和归档都会跟着这一项走` : `🔗 新建了一项并绑上 ${a.short} 会话`, 5000);
+    this.notice(res.kind === "bind" ? t("🔗 已绑定：{agent} 会话的状态、💬、⏱ 和归档都会跟着这一项走", { agent: a.short }) : t("🔗 新建了一项并绑上 {agent} 会话", { agent: a.short }), 5000);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {}), 300);
     this.refreshUI();
   }
@@ -546,18 +547,18 @@ export default class AgentDeckPlugin extends Plugin {
   // 笔记里的一项拖到了某个 Agent 卡片上：Claude / DSH 后台直接跑，Codex / WorkBuddy 打开客户端交接
   async delegateDrop(agent, item, fromEl, { cli = false } = {}) {
     this._dragItem = null;
-    if (!item || !item.path) return this.notice("没认出拖的是哪一项");
+    if (!item || !item.path) return this.notice(t("没认出拖的是哪一项"));
     const file = this.app.vault.getAbstractFileByPath(item.path);
-    if (!file) return this.notice("找不到这篇笔记");
+    if (!file) return this.notice(t("找不到这篇笔记"));
     const view = this.viewForPath(item.path);
     const lines = view ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
-    if (line < 0) return this.notice("这一行刚改过，重新拖一次");
+    if (line < 0) return this.notice(t("这一行刚改过，重新拖一次"));
     // 只有人写的文字条目拖到 Agent 上才委派；Agent 写的（🤖）、已经绑着会话的，拖过来不再开新会话
     const block = blockAt(lines, line), k = J.kwLine(lines[line]);
-    if (k && k.body.startsWith(J.AUTO_MARK.trim())) return this.notice("Agent 记的条目不委派");
-    if (block && findLink(lines, block)) return this.notice("已经绑着会话，不委派");
-    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => J.CLOCK_RE.test(l))) return this.notice("已有用时记录，不委派");
+    if (k && k.body.startsWith(J.AUTO_MARK.trim())) return this.notice(t("Agent 记的条目不委派"));
+    if (block && findLink(lines, block)) return this.notice(t("已经绑着会话，不委派"));
+    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => J.CLOCK_RE.test(l))) return this.notice(t("已有用时记录，不委派"));
     try {
       const opts = { file, lines, line, agent };
       // 按住 ⌘ 松手：Claude Code / Codex 在终端里开交互式会话，而不是后台跑 / 交给桌面版
@@ -576,10 +577,10 @@ export default class AgentDeckPlugin extends Plugin {
     if (view) {
       const lines = view.editor.getValue().split("\n");
       const line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
-      if (line < 0) return this.notice("这一行刚改过，重新拖一次");
+      if (line < 0) return this.notice(t("这一行刚改过，重新拖一次"));
       return this.bindSessionAt(view.editor.cm, line, data);
     }
-    this.notice("先把这篇笔记打开再拖");
+    this.notice(t("先把这篇笔记打开再拖"));
   }
 
   // 委派出去的会话有了会话号（客户端里能打开了）：下一次画面板时，卡片从 Agents 飞进「现在」
@@ -590,13 +591,13 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   openAgentApp(agent) {
-    return openAgentApp(agent).then((ok) => { if (!ok) this.notice(`没打开 ${AGENTS[agent]?.name || agent}：本机好像没装`); });
+    return openAgentApp(agent).then((ok) => { if (!ok) this.notice(t("没打开 {name}：本机好像没装", { name: AGENTS[agent]?.name || agent })); });
   }
 
   // ---------- editor actions ----------
   async delegateAtLine(path, line) {
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!file) return this.notice("找不到这篇笔记");
+    if (!file) return this.notice(t("找不到这篇笔记"));
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);
     const lines = view && view.file && view.file.path === path ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     await this.delegator.delegate({ file, lines, line, agent: this.defaultTarget() });
@@ -617,7 +618,7 @@ export default class AgentDeckPlugin extends Plugin {
       const job = this.jobAtLine(path, line, text);
       if (job) return this.openJob(job.id);
     }
-    if (!s) return this.notice("这一行下面没有 🔗 绑定");
+    if (!s) return this.notice(t("这一行下面没有 🔗 绑定"));
     return this.openSession(s.agent, s.sid, s.app, s);
   }
 
@@ -642,7 +643,7 @@ export default class AgentDeckPlugin extends Plugin {
       const a = AGENTS[agent];
       const state = isLive ? (s.state || "idle") : "recent";
       const kw = menuKeyword(state);
-      const where = agent === "claude" ? (s.app === "cli" ? "终端" : "桌面版") : agent === "codex" ? (isCodexDesktop(s.app) ? "桌面版" : "CLI") : agent === "workbuddy" ? "桌面版" : "Harness";
+      const where = agent === "claude" ? (s.app === "cli" ? t("终端") : t("桌面版")) : agent === "codex" ? (isCodexDesktop(s.app) ? t("桌面版") : "CLI") : agent === "workbuddy" ? t("桌面版") : "Harness";
       const url = sessionDeepLink(agent, s.sid);
       seen.add(s.sid);
       out.push({
@@ -691,12 +692,12 @@ export default class AgentDeckPlugin extends Plugin {
     for (const row of out) delete row._at;
     const running = out.filter((x) => x.state === "run").length;
     const waiting = out.filter((x) => ["wait", "quiet", "needs-approval"].includes(x.state)).length;
-    const short = running && waiting ? `${running} 跑 · ${waiting} 等` : running ? `${running} 在跑` : waiting ? `${waiting} 等你` : "空闲";
+    const short = running && waiting ? t("{n} 跑 · {m} 等", { n: running, m: waiting }) : running ? t("{n} 个在跑", { n: running }) : waiting ? t("{n} 个等你", { n: waiting }) : t("空闲");
     const summary = [];
-    if (today) summary.push(`今天 ${fmtMin(today.wall)} · ${fmtTok(today.out)} tok`);
-    summary.push(`${running} 个在跑`);
-    if (waiting) summary.push(`${waiting} 个等你`);
-    const usage = today ? `今天 ${fmtMin(today.wall)} · ${fmtTok(today.out)} tok` : "今天还没有用量记录";
+    if (today) summary.push(t("今天 {time} · {tok} tok", { time: fmtMin(today.wall), tok: fmtTok(today.out) }));
+    summary.push(t("{n} 个在跑", { n: running }));
+    if (waiting) summary.push(t("{n} 个等你", { n: waiting }));
+    const usage = today ? t("今天 {time} · {tok} tok", { time: fmtMin(today.wall), tok: fmtTok(today.out) }) : t("今天还没有用量记录");
     const agents = AGENT_ORDER.filter((x) => this.agentEnabled(x)).map((x) => {
       const rows = live.filter((s) => s.agent === x);
       return {
@@ -707,7 +708,7 @@ export default class AgentDeckPlugin extends Plugin {
       };
     });
     return {
-      updatedAt: Date.now(), short, summary: summary.join(" · "), usage,
+      updatedAt: Date.now(), lang: isZh ? "zh" : "en", short, summary: summary.join(" · "), usage,
       hotkey: cfg.menuBarHotkey || "control+option+command+D",
       running, waiting, agents, sessions: out,
     };
@@ -728,7 +729,7 @@ export default class AgentDeckPlugin extends Plugin {
       try { await naut.saveData?.(naut.settings); } catch { /* best-effort */ }
       try { naut.tickAgents?.(); } catch { /* best-effort */ }
     }
-    this.notice("已恢复螺旋日程右下角的 Agent 汇总", 6000);
+    this.notice(t("已恢复螺旋日程右下角的 Agent 汇总"), 6000);
   }
 
   async hideNautilusAgentBar() {
@@ -752,7 +753,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (changed && !this.settings.menuBarMigrated) {
       this.settings.menuBarMigrated = true;
       await this.saveSettings();
-      this.notice("已把右下角的 Agent 汇总移到 macOS 菜单栏；螺旋日程的 Agent 汇总也已关闭。", 9000);
+      this.notice(t("已把右下角的 Agent 汇总移到 macOS 菜单栏；螺旋日程的 Agent 汇总也已关闭。"), 9000);
     } else if (!this.settings.menuBarMigrated) {
       this.settings.menuBarMigrated = true;
       await this.saveSettings();
@@ -777,7 +778,7 @@ export default class AgentDeckPlugin extends Plugin {
     const view = this.viewForPath(path);
     if (view) return view.editor.getValue();
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!file) throw new Error("找不到笔记：" + path);
+    if (!file) throw new Error(t("找不到笔记：") + path);
     return await this.app.vault.read(file);
   }
 
@@ -790,7 +791,7 @@ export default class AgentDeckPlugin extends Plugin {
       return;
     }
     const file = this.app.vault.getAbstractFileByPath(path);
-    if (!file) throw new Error("找不到笔记：" + path);
+    if (!file) throw new Error(t("找不到笔记：") + path);
     await this.app.vault.process(file, () => text);
   }
 
@@ -798,8 +799,8 @@ export default class AgentDeckPlugin extends Plugin {
     const bin = kind === "dsh" ? findDshBinary() : findClaudeBinary(this.settings.delegate?.claude?.path || "");
     return await new Promise((resolve) => {
       execFile(bin, ["--version"], { timeout: 10000, env: process.env }, (err, out, errOut) => {
-        if (err) resolve(`${kind} 没找到或不能运行：${String(err.message || err)}\n${String(errOut || "").slice(0, 300)}`);
-        else resolve(`${kind}：${String(out || "").trim()}`);
+        if (err) resolve(t("{kind} 没找到或不能运行：{msg}\n{err}", { kind, msg: String(err.message || err), err: String(errOut || "").slice(0, 300) }));
+        else resolve(t("{kind}：{out}", { kind, out: String(out || "").trim() }));
       });
     });
   }
@@ -813,7 +814,7 @@ export default class AgentDeckPlugin extends Plugin {
     const p = path.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     let data;
     try { data = JSON.parse(await fsp.readFile(p, "utf8")); }
-    catch { this.notice("没有找到螺旋日程的 data.json"); return; }
+    catch { this.notice(t("没有找到螺旋日程的 data.json")); return; }
     const backup = p + `.agent-deck-backup-${Date.now()}`;
     try { await fsp.copyFile(p, backup); } catch { /* backup best-effort */ }
     // 只关写日记的那几项；showAi / agentStatus / lineProgress 是螺旋自己的追踪展示，留着。
@@ -822,8 +823,8 @@ export default class AgentDeckPlugin extends Plugin {
     data.agentKw = false;
     data.resultBack = false;
     try { await fsp.writeFile(p, JSON.stringify(data, null, 1), "utf8"); }
-    catch (e) { this.notice("写入螺旋日程设置失败：" + (e && e.message || e)); return; }
-    this.notice(`已停用螺旋日程的 AI 写入（原设置备份在 ${path.basename(backup)}）：自动记日记、状态写回、💬 和子块都不再写；它的 Agent 追踪展示照常。请在 Obsidian 设置里重新加载螺旋日程，或重启 Obsidian。`, 10000);
+    catch (e) { this.notice(t("写入螺旋日程设置失败：") + (e && e.message || e)); return; }
+    this.notice(t("已停用螺旋日程的 AI 写入（原设置备份在 {file}）：自动记日记、状态写回、💬 和子块都不再写；它的 Agent 追踪展示照常。请在 Obsidian 设置里重新加载螺旋日程，或重启 Obsidian。", { file: path.basename(backup) }), 10000);
   }
 
   // 螺旋日程的「写日记」还开着的时候，不让 Agent Deck 也改日记：两套写法会打架。
@@ -846,7 +847,7 @@ export default class AgentDeckPlugin extends Plugin {
 }
 
 function menuStateLabel(state) {
-  return ({ run: "在跑", wait: "等你", quiet: "安静", "needs-approval": "等你允许", error: "出错", limit: "限额", recent: "最近", done: "完成", idle: "空闲" })[state] || "空闲";
+  return ({ run: t("在跑"), wait: t("等你"), quiet: t("安静"), "needs-approval": t("等你允许"), error: t("出错"), limit: t("限额"), recent: t("最近"), done: t("完成"), idle: t("空闲") })[state] || t("空闲");
 }
 
 // The menu bar speaks TODOseq's keyword language instead of a separate status
@@ -854,16 +855,16 @@ function menuStateLabel(state) {
 // the todo panel uses.
 function menuKeyword(state) {
   return ({
-    run: { id: "DOING", zh: "在跑" },
-    wait: { id: "WAITING", zh: "等你" },
-    quiet: { id: "PAUSED", zh: "安静" },
-    "needs-approval": { id: "NEEDOK", zh: "等你" },
-    error: { id: "ERRORED", zh: "出错" },
-    limit: { id: "HITLIMIT", zh: "限额" },
-    done: { id: "DONE", zh: "完成" },
-    recent: { id: "LATER", zh: "最近" },
-    idle: { id: "TODO", zh: "空闲" },
-  })[state] || { id: "TODO", zh: "空闲" };
+    run: { id: "DOING", zh: t("在跑") },
+    wait: { id: "WAITING", zh: t("等你") },
+    quiet: { id: "PAUSED", zh: t("安静") },
+    "needs-approval": { id: "NEEDOK", zh: t("等你") },
+    error: { id: "ERRORED", zh: t("出错") },
+    limit: { id: "HITLIMIT", zh: t("限额") },
+    done: { id: "DONE", zh: t("完成") },
+    recent: { id: "LATER", zh: t("最近") },
+    idle: { id: "TODO", zh: t("空闲") },
+  })[state] || { id: "TODO", zh: t("空闲") };
 }
 
 function menuRank(state) {

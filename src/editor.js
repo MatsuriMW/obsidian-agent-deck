@@ -16,12 +16,13 @@ import * as J from "./journal.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { AGENTS, fmtDur, fmtTok, truncate } from "./constants.js";
+import { t } from "./i18n.js";
 
 export const refreshEffect = StateEffect.define();
 export const SESSION_MIME = "application/x-agent-deck-session";
 export const ITEM_MIME = "application/x-agent-deck-item";
 
-const DROP_LABEL = { bind: "绑定", fill: "新建一项", new: "新建一项", below: "在下面新建", after: "在下面新建" };
+const DROP_LABEL = { bind: t("绑定"), fill: t("新建一项"), new: t("新建一项"), below: t("在下面新建"), after: t("在下面新建") };
 const setDrop = StateEffect.define();
 const dropField = StateField.define({
   create: () => Decoration.none,
@@ -73,12 +74,12 @@ function dndHandlers(plugin) {
       if (!hasType(e, SESSION_MIME)) return false;
       e.preventDefault();
       e.stopPropagation();
-      const t = dropTarget(view, e);
+      const target = dropTarget(view, e);
       show(view, null);
       let data = null;
       try { data = JSON.parse(e.dataTransfer.getData(SESSION_MIME)); } catch { /* bad payload */ }
-      if (data && t) plugin.bindSessionAt(view, t.line, data, { below: !!e.metaKey });
-      else if (data) plugin.notice("这一行放不了会话：拖到列表项、空的列表项或空行上");
+      if (data && target) plugin.bindSessionAt(view, target.line, data, { below: !!e.metaKey });
+      else if (data) plugin.notice(t("这一行放不了会话：拖到列表项、空的列表项或空行上"));
       return true;
     },
     // 选中一段文字拖出去：记下它从哪一行来，拖到 Agent 卡片上也能委派
@@ -180,7 +181,7 @@ class PillWidget extends WidgetType {
 
     const modelName = (job && p.modelLabel(job.model)) || (session && p.modelLabel(session.model)) || "";
     if (info.kind === "idle") {
-      label.textContent = "委派";
+      label.textContent = t("委派");
       meta.textContent = modelName || (agent === "dsh" ? "DeepSeek" : "Claude");
       const chev = document.createElement("span");
       chev.className = "ad-pill__chev";
@@ -188,7 +189,7 @@ class PillWidget extends WidgetType {
       chev.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.openDelegateModal(this.path, this.line); });
       right.appendChild(chev);
     } else if (info.kind === "running" || info.kind === "starting") {
-      label.textContent = info.kind === "starting" ? "准备中" : "委派中";
+      label.textContent = info.kind === "starting" ? t("准备中") : t("委派中");
       // 等待态：Agent 图标换成点阵，准备中绕圈、委派中蛇形走，两段一眼能分开
       glyph.textContent = "";
       lattice(glyph, info.kind === "starting" ? "orbit" : "snake");
@@ -199,7 +200,7 @@ class PillWidget extends WidgetType {
       const cancel = document.createElement("span");
       cancel.className = "ad-pill__cancel";
       setLucide(cancel, "x");
-      cancel.title = "取消";
+      cancel.title = t("取消");
       cancel.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.cancelJob(job && job.id); });
       right.appendChild(cancel);
       const progress = p.jobProgress(job);
@@ -208,26 +209,26 @@ class PillWidget extends WidgetType {
         el.classList.add("is-determinate");
       }
     } else if (info.kind === "waiting" || info.kind === "needs-approval") {
-      label.textContent = info.kind === "needs-approval" ? "等你允许" : "等你";
+      label.textContent = info.kind === "needs-approval" ? t("等你允许") : t("等你");
       el.classList.add("is-pulse");
     } else if (info.kind === "done") {
-      label.textContent = "完成";
+      label.textContent = t("完成");
       meta.textContent = job && job.result ? truncate(job.result, 28) : (session && session.lastText ? truncate(session.lastText, 28) : "");
       const open = document.createElement("span");
       open.className = "ad-pill__open";
       setLucide(open, "arrow-up-right");
       right.appendChild(open);
     } else if (info.kind === "error") {
-      label.textContent = "出错";
+      label.textContent = t("出错");
       meta.textContent = truncate((job && job.error) || (session && session.err) || "", 30);
       const retry = document.createElement("span");
       retry.className = "ad-pill__open";
       setLucide(retry, "refresh-cw");
-      retry.title = "重试";
+      retry.title = t("重试");
       retry.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.openDelegateModal(this.path, this.line); });
       right.appendChild(retry);
     } else {
-      label.textContent = "会话";
+      label.textContent = t("会话");
       meta.textContent = session && session.step ? truncate(session.step, 26) : "";
     }
 

@@ -6,6 +6,7 @@
 // takes text in and returns text out, so it can be tested without Obsidian.
 
 import { pad, fmtTok } from "./constants.js";
+import { t } from "./i18n.js";
 
 export const LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 export const STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
@@ -296,12 +297,12 @@ export function childIndent(lines, n) {
 export function bindInto(text, at, s, { below = false } = {}) {
   let lines = text.split("\n");
   const target = dropKind(lines, at, below);
-  if (!target) return { text, error: "这一行放不了会话：拖到列表项、空的列表项或空行上" };
+  if (!target) return { text, error: t("这一行放不了会话：拖到列表项、空的列表项或空行上") };
   let n = target.line;
   if (target.kind === "bind") {
     const had = linkUnder(lines, n);
-    if (had && had.sid === s.sid) return { text, error: "这一项已经绑着这个会话了" };
-    if (had) return { text, error: "这一项已经绑着另一个会话；先删掉它下面的 🔗 行" };
+    if (had && had.sid === s.sid) return { text, error: t("这一项已经绑着这个会话了") };
+    if (had) return { text, error: t("这一项已经绑着另一个会话；先删掉它下面的 🔗 行") };
   }
   const want = kwForState(s.state);
   const since = s.since || "";
@@ -330,7 +331,7 @@ export function bindInto(text, at, s, { below = false } = {}) {
   }
   if (lines[n] !== anchor) {
     const back = lines.indexOf(anchor);
-    if (back < 0) return { text, error: "笔记在拖的时候变了，再拖一次" };
+    if (back < 0) return { text, error: t("笔记在拖的时候变了，再拖一次") };
     n = back;
   }
 

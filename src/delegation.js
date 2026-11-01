@@ -11,6 +11,7 @@ import os from "os";
 import { spawn, execFile } from "child_process";
 import { AGENTS, DEFAULTS, MODEL_CATALOG, clamp, truncate } from "./constants.js";
 import * as J from "./journal.js";
+import { t } from "./i18n.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -319,14 +320,14 @@ export function copyText(text) {
 function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
   focusCliSession(agent, sid).then((how) => {
     if (how === "tab") return;
-    if (how === "app") return plugin.notice("已切到 Warp");
+    if (how === "app") return plugin.notice(t("已切到 Warp"));
     openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "terminal", AGENTS[agent]?.short || "Claude");
   }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "terminal"));
   return true;
 }
 
 export function openSession(plugin, agent, sid, app = "", session = null) {
-  if (!sid) { plugin.notice("这个会话还没有会话号，稍等一秒再点"); return false; }
+  if (!sid) { plugin.notice(t("这个会话还没有会话号，稍等一秒再点")); return false; }
   if (agent === "claude") {
     // 终端里起的会话：还开着就切到那个终端标签；关了才在新标签里 cd 到会话原来的目录 claude --resume。设置里可以改成走桌面版
     if (app === "cli" && plugin.settings.cliOpen !== "desktop") {
@@ -352,7 +353,7 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     // session id on the clipboard and say so, instead of pretending to deep-link a row.
     openExternal("dsh://open");
     try { navigator.clipboard.writeText(sid); } catch { /* clipboard */ }
-    plugin.notice(`已打开 DeepSeek Harness；会话号已复制（${sid.slice(0, 8)}…）`);
+    plugin.notice(t("已打开 DeepSeek Harness；会话号已复制（{sid}…）", { sid: sid.slice(0, 8) }));
     return true;
   }
   return false;
@@ -382,7 +383,7 @@ class ClaudeRunner {
         this.job.cwd = cwd;
         if (!d._trustNoticeAt || Date.now() - d._trustNoticeAt > 10 * 60000) {
           d._trustNoticeAt = Date.now();
-          d.notice(`Claude Code 没有信任库目录，改在 ${cwd} 里跑；库已经用 --add-dir 加进去了。`);
+          d.notice(t("Claude Code 没有信任库目录，改在 {cwd} 里跑；库已经用 --add-dir 加进去了。", { cwd }));
         }
       }
     }
@@ -440,11 +441,11 @@ class ClaudeRunner {
     child.on("exit", (code) => {
       if (this.finished) return;
       if (code === 0) this.done();
-      else this.fail(err.trim() || `claude 退出码 ${code}`);
+      else this.fail(err.trim() || t("{bin} 退出码 {code}", { bin: "claude", code }));
     });
     this.d.saveJobs();
     this.d.onSession(this.job, sid);
-    this.d.notice?.("Claude 后台服务没起来，已改用无头会话（答完可以点任务行打开）");
+    this.d.notice?.(t("Claude 后台服务没起来，已改用无头会话（答完可以点任务行打开）"));
     return true;
   }
 
@@ -558,13 +559,13 @@ class DshRunner {
     child.on("error", (e) => this.fail(String(e && e.message || e)));
     child.on("exit", (code) => {
       if (this.finished) return;
-      if (code !== 0) this.fail(err.trim() || `dsh acp 退出码 ${code}`);
+      if (code !== 0) this.fail(err.trim() || t("dsh acp 退出码 {code}", { code }));
     });
     try {
       const init = await this.request("initialize", { protocolVersion: 1, clientCapabilities: {} }, 30000);
       const made = await this.request("session/new", { cwd, mcpServers: [] }, 60000);
       this.sessionId = made && (made.sessionId || made.session_id);
-      if (!this.sessionId) throw new Error("DeepSeek Harness 没有返回会话号");
+      if (!this.sessionId) throw new Error(t("DeepSeek Harness 没有返回会话号"));
       this.job.sessionId = this.sessionId;
       this.job.state = "running";
       this.d.saveJobs();
@@ -580,7 +581,7 @@ class DshRunner {
         const e = dshEffort(effort);
         if (e) { try { await this.request("session/set_config_option", { sessionId: this.sessionId, configId: "reasoning_effort", value: e }, 15000); } catch { /* keep default */ } }
       }
-      this.timer = setTimeout(() => this.fail("委派超过 30 分钟没有结束"), 30 * 60000);
+      this.timer = setTimeout(() => this.fail(t("委派超过 30 分钟没有结束")), 30 * 60000);
       this.request("session/prompt", { sessionId: this.sessionId, prompt: [{ type: "text", text: opts.prompt }] }, 31 * 60000)
         .then((r) => this.done(r))
         .catch((e) => this.fail(e && e.message || String(e)));
@@ -643,9 +644,9 @@ class DshRunner {
         this.respond(msg.id, { outcome: { outcome: "selected", optionId: "allow-once" } });
       } else {
         this.job.state = "needs-approval";
-        this.job.step = "等你允许一次工具调用";
+        this.job.step = t("等你允许一次工具调用");
         this.d.saveJobs();
-        this.d.notify({ title: "DeepSeek Harness 需要你允许", body: `「${this.job.name}」停在了一次工具调用上。到设置里打开「自动允许」后重试，或者在 Harness 里手动继续。`, job: this.job });
+        this.d.notify({ title: t("DeepSeek Harness 需要你允许"), body: t("「{name}」停在了一次工具调用上。到设置里打开「自动允许」后重试，或者在 Harness 里手动继续。", { name: this.job.name }), job: this.job });
         this.respond(msg.id, { outcome: { outcome: "selected", optionId: "reject-once" } });
       }
       return;
@@ -662,7 +663,7 @@ class DshRunner {
   request(method, params, timeout = 20000) {
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`${method} 超时`)); }, timeout);
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(t("{method} 超时", { method }))); }, timeout);
       this.pending.set(id, { resolve, reject, timer });
       this.send({ jsonrpc: "2.0", id, method, params });
     });
@@ -755,11 +756,11 @@ export class Delegator {
     this.refreshSettings();
     const agent = opts.agent === "dsh" ? "dsh" : "claude";
     const file = opts.file;
-    if (!file) throw new Error("没有当前笔记");
+    if (!file) throw new Error(t("没有当前笔记"));
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
-    if (!block) throw new Error("光标要放在一个列表项里");
-    if (hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
+    if (!block) throw new Error(t("光标要放在一个列表项里"));
+    if (hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
     const title = blockTitle(block) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
@@ -777,7 +778,7 @@ export class Delegator {
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     this.plugin.refreshUI();
-    this.plugin.notice(`🛫 正在委派给 ${agent === "dsh" ? "DeepSeek Harness" : "Claude Code"}：${name}`);
+    this.plugin.notice(t("🛫 正在委派给 {agent}：{name}", { agent: agent === "dsh" ? "DeepSeek Harness" : "Claude Code", name }));
     const runner = agent === "dsh" ? new DshRunner(this, job) : new ClaudeRunner(this, job);
     this.runners.set(job.id, runner);
     try {
@@ -794,11 +795,11 @@ export class Delegator {
     this.refreshSettings();
     const agent = opts.agent;
     const file = opts.file;
-    if (!file) throw new Error("没有当前笔记");
+    if (!file) throw new Error(t("没有当前笔记"));
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
-    if (!block) throw new Error("要拖一个列表项");
-    if (hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
+    if (!block) throw new Error(t("要拖一个列表项"));
+    if (hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
     const title = blockTitle(block) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
@@ -806,14 +807,14 @@ export class Delegator {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent, name, path: file.path, line: block.start, lineText: lines[block.start],
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
-      startedAt: Date.now(), state: "starting", handoff: true, step: `等你在 ${AGENTS[agent]?.name || agent} 里发出去`,
+      startedAt: Date.now(), state: "starting", handoff: true, step: t("等你在 {agent} 里发出去", { agent: AGENTS[agent]?.name || agent }),
       cwd: this.vaultPath, sessionId: "", linkWritten: false, resultWritten: false,
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     copyText(prompt);
     await openAgentApp(agent);
-    this.plugin.notice(`📋 任务已复制，粘贴到 ${AGENTS[agent]?.name || agent} 里发出`, 10000);
+    this.plugin.notice(t("📋 任务已复制，粘贴到 {agent} 里发出", { agent: AGENTS[agent]?.name || agent }), 10000);
     this.plugin.refreshUI();
     return job;
   }
@@ -824,11 +825,11 @@ export class Delegator {
     this.refreshSettings();
     const agent = opts.agent;
     const file = opts.file;
-    if (!file) throw new Error("没有当前笔记");
+    if (!file) throw new Error(t("没有当前笔记"));
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
-    if (!block) throw new Error("要拖一个列表项");
-    if (hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
+    if (!block) throw new Error(t("要拖一个列表项"));
+    if (hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
     const title = blockTitle(block) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
@@ -855,12 +856,12 @@ export class Delegator {
       agent, name, path: file.path, line: block.start, lineText: lines[block.start],
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
       startedAt: Date.now(), state: "starting", handoff: true, cli: true, app: agent === "claude" ? "cli" : "codex_cli_rs",
-      step: `在终端里开 ${AGENTS[agent]?.name || agent}`, cwd, sessionId: "", linkWritten: false, resultWritten: false,
+      step: t("在终端里开 {agent}", { agent: AGENTS[agent]?.name || agent }), cwd, sessionId: "", linkWritten: false, resultWritten: false,
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     openTerminal(`${bin}${extra} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "terminal", truncate(name, 24), { background: true });
-    this.plugin.notice(pickTerminal(this.plugin.settings.cliTerminal) === "tern" ? `已交给 Tern 里的 ${AGENTS[agent]?.name || agent}` : `已在终端里开 ${AGENTS[agent]?.name || agent}`, 6000);
+    this.plugin.notice(pickTerminal(this.plugin.settings.cliTerminal) === "tern" ? t("已交给 Tern 里的 {agent}", { agent: AGENTS[agent]?.name || agent }) : t("已在终端里开 {agent}", { agent: AGENTS[agent]?.name || agent }), 6000);
     this.plugin.refreshUI();
     return job;
   }
@@ -874,7 +875,7 @@ export class Delegator {
     for (const job of waiting) {
       if (Date.now() - job.startedAt > 30 * 60000) {
         job.state = "cancelled";
-        job.error = "半小时里没在客户端看到这个任务的新会话";
+        job.error = t("半小时里没在客户端看到这个任务的新会话");
         job.endedAt = Date.now();
         this.saveJobs();
         continue;
@@ -946,7 +947,7 @@ export class Delegator {
     try { if (job._linkPromise) await job._linkPromise; } catch { /* link failed */ }
     this.refreshUI();
     const agent = AGENTS[job.agent];
-    this.plugin.notice(`✅ ${agent ? agent.name : job.agent} 做完了一轮：${job.name}`, 8000);
+    this.plugin.notice(t("✅ {agent} 做完了一轮：{name}", { agent: agent ? agent.name : job.agent, name: job.name }), 8000);
     if (this.C.claude.openDesktop === true && job.agent === "claude" && job.sessionId) openSession(this.plugin, "claude", job.sessionId);
     if (this.settings.autoWriteResult && job.linkWritten) {
       try { await this.writeResult(job); } catch (e) { console.error("[agent-deck] writeResult", e); }
@@ -958,11 +959,11 @@ export class Delegator {
     this.refreshUI();
     const err = String(job.error || "");
     if (/not trusted/i.test(err)) {
-      this.plugin.notice(`Claude Code 不信任这个工作目录：\n${job.cwd}\n\n在终端里 cd 到那儿运行一次 claude，接受信任提示；或者在「委派」设置里把工作目录换成一个已经信任的目录。\n（这次没有真正跑起来，已经把 🔗 和 DELEGATED 撤回）`, 16000);
+      this.plugin.notice(t("Claude Code 不信任这个工作目录：\n{cwd}\n\n在终端里 cd 到那儿运行一次 claude，接受信任提示；或者在「委派」设置里把工作目录换成一个已经信任的目录。\n（这次没有真正跑起来，已经把 🔗 和 DELEGATED 撤回）", { cwd: job.cwd }), 16000);
     } else if (/unknown option|invalid option|unrecognized/i.test(err)) {
-      this.plugin.notice(`Claude Code 不认识传过去的参数：\n${err.slice(0, 300)}\n\n把「委派 → 额外参数」清空，或检查 claude --help。`, 12000);
+      this.plugin.notice(t("Claude Code 不认识传过去的参数：\n{err}\n\n把「委派 → 额外参数」清空，或检查 claude --help。", { err: err.slice(0, 300) }), 12000);
     } else {
-      this.plugin.notice(`⚠️ ${job.agent === "dsh" ? "DeepSeek Harness" : "Claude Code"} 没跑完：${job.name}\n${err || "详情见控制台"}`, 10000);
+      this.plugin.notice(t("⚠️ {agent} 没跑完：{name}\n{err}", { agent: job.agent === "dsh" ? "DeepSeek Harness" : "Claude Code", name: job.name, err: err || t("详情见控制台") }), 10000);
     }
     if (job.linkWritten && Date.now() - (job.startedAt || 0) < 12000 && /not trusted|unknown option|invalid option|unrecognized|ENOENT/i.test(err)) {
       this.removeLink(job).catch(() => {});
@@ -1073,7 +1074,7 @@ function spawnCapture(bin, args, { cwd, env, timeout = 30000 }) {
     let child;
     try { child = spawn(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }); }
     catch (e) { return resolve({ ok: false, out: "", err: String(e && e.message || e) }); }
-    const timer = setTimeout(() => { if (!done) { done = true; try { child.kill("SIGTERM"); } catch { /* gone */ } resolve({ ok: false, out, err: err || "超时" }); } }, timeout);
+    const timer = setTimeout(() => { if (!done) { done = true; try { child.kill("SIGTERM"); } catch { /* gone */ } resolve({ ok: false, out, err: err || t("超时") }); } }, timeout);
     child.stdout.on("data", (b) => { out += b.toString(); if (out.length > 20000) out = out.slice(-20000); });
     child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 10000) err = err.slice(-10000); });
     child.on("error", (e) => { if (done) return; done = true; clearTimeout(timer); resolve({ ok: false, out, err: String(e && e.message || e) }); });

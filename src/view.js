@@ -5,6 +5,7 @@ import { AGENTS, AGENT_ORDER, fmtMin, fmtTok, timeAgo, truncate, dayKeyToday } f
 import { agentIcon, setLucide, stateIcon } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { SESSION_MIME } from "./editor.js";
+import { t } from "./i18n.js";
 
 export const VIEW_TYPE = "agent-deck-view";
 
@@ -57,12 +58,12 @@ export class AgentDeckView extends ItemView {
     setLucide(brandMark, "wand-sparkles");
     const brandText = brand.createDiv({ cls: "ad-brand__text" });
     brandText.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
-    brandText.createDiv({ cls: "ad-brand__sub", text: "智能体甲板" });
+    brandText.createDiv({ cls: "ad-brand__sub", text: t("智能体甲板") });
     const actions = head.createDiv({ cls: "ad-head__actions" });
-    const scan = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": "重新扫描本机会话" } });
+    const scan = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("重新扫描本机会话") } });
     setLucide(scan.createSpan({ cls: "ad-iconbtn__icon" }), "refresh-cw");
     scan.onclick = () => p.scanNow(true);
-    const gear = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": "设置" } });
+    const gear = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("设置") } });
     setLucide(gear.createSpan({ cls: "ad-iconbtn__icon" }), "settings-2");
     gear.onclick = () => p.openSettings();
 
@@ -70,15 +71,15 @@ export class AgentDeckView extends ItemView {
     const hero = dash.createDiv({ cls: "ad-hero" });
     const dateLine = hero.createDiv({ cls: "ad-hero__date" });
     const now = new Date();
-    const wd = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][now.getDay()];
-    dateLine.createSpan({ text: `${now.getMonth() + 1} 月 ${now.getDate()} 日 · ${wd}` });
-    if (!today) dateLine.createSpan({ cls: "ad-hero__hint", text: "今天还没有会话" });
+    const wd = t(["周日", "周一", "周二", "周三", "周四", "周五", "周六"][now.getDay()]);
+    dateLine.createSpan({ text: t("{m} 月 {d} 日 · {wd}", { m: now.getMonth() + 1, d: now.getDate(), wd }) });
+    if (!today) dateLine.createSpan({ cls: "ad-hero__hint", text: t("今天还没有会话") });
     const nums = hero.createDiv({ cls: "ad-hero__nums" });
-    this.num(nums, String(live.filter((x) => ["run", "running"].includes(x.state)).length), "在跑", "is-live");
-    this.num(nums, fmtMin(today ? today.wall : 0), "协作时长", "");
-    this.num(nums, fmtTok(today ? today.out : 0), "产出 token", "");
+    this.num(nums, String(live.filter((x) => ["run", "running"].includes(x.state)).length), t("在跑"), "is-live");
+    this.num(nums, fmtMin(today ? today.wall : 0), t("协作时长"), "");
+    this.num(nums, fmtTok(today ? today.out : 0), t("产出 token"), "");
     const prim = hero.createDiv({ cls: "ad-hero__primaries" });
-    prim.createSpan({ cls: "ad-kicker", text: "主力" });
+    prim.createSpan({ cls: "ad-kicker", text: t("主力") });
     for (const id of p.primaryAgents()) {
       const a = AGENTS[id];
       const chip = prim.createSpan({ cls: "ad-primary-chip", attr: { style: `--ad-agent:${a.color};--ad-agent-soft:${a.soft}` } });
@@ -89,10 +90,10 @@ export class AgentDeckView extends ItemView {
 
     // Now
     const nowSec = dash.createDiv({ cls: "ad-sec ad-sec--now" });
-    const nowHead = this.secHead(nowSec, "现在", `${running.length} 个在跑 · ${waiting.length} 个等你`);
+    const nowHead = this.secHead(nowSec, t("现在"), t("{n} 个在跑 · {m} 个等你", { n: running.length, m: waiting.length }));
     const nowList = nowSec.createDiv({ cls: "ad-nowlist" });
     const nowItems = this.nowOrdered([...running, ...waiting]).slice(0, 6);
-    if (!nowItems.length) this.empty(nowList, "现在没有在跑的会话");
+    if (!nowItems.length) this.empty(nowList, t("现在没有在跑的会话"));
     for (const s of nowItems) this.sessionCard(nowList, s, true);
     this.nowReorder(nowList);
 
@@ -105,21 +106,21 @@ export class AgentDeckView extends ItemView {
     // Usage
     if (p.settings.ui.showUsageBars !== false) {
       const usageSec = dash.createDiv({ cls: "ad-sec" });
-      this.secHead(usageSec, "最近 14 天");
+      this.secHead(usageSec, t("最近 14 天"));
       this.usageBars(usageSec);
     }
 
     // Recent
     const recSec = dash.createDiv({ cls: "ad-sec ad-sec--recent" });
-    const recHead = this.secHead(recSec, "最近的会话", `${recent.length} 个 · 最近 7 天`);
+    const recHead = this.secHead(recSec, t("最近的会话"), t("{n} 个 · 最近 7 天", { n: recent.length }));
     const filters = recHead.createDiv({ cls: "ad-filters" });
-    for (const [id, label] of [["all", "全部"], ["live", "在跑"], ["wait", "等你"], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"]]) {
+    for (const [id, label] of [["all", t("全部")], ["live", t("在跑")], ["wait", t("等你")], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"]]) {
       const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
       b.onclick = () => { this.filter = id; this.render(); };
     }
     const search = recHead.createDiv({ cls: "ad-search" });
     search.createSpan({ cls: "ad-search__icon", text: "⌕" });
-    const input = search.createEl("input", { cls: "ad-search__input", attr: { placeholder: "搜标题、项目、第一步…", value: this.search } });
+    const input = search.createEl("input", { cls: "ad-search__input", attr: { placeholder: t("搜标题、项目、第一步…"), value: this.search } });
     input.oninput = () => { this.search = input.value; this.renderSessions(recSec); };
     recSec._list = recSec.createDiv({ cls: "ad-sessionlist" });
     this.renderSessions(recSec);
@@ -194,17 +195,17 @@ export class AgentDeckView extends ItemView {
       const q = this.search.toLowerCase();
       rows = rows.filter((x) => `${x.title} ${x.cwd} ${x.text} ${x.step}`.toLowerCase().includes(q));
     }
-    if (!rows.length) return this.empty(list, "没有符合条件的会话");
+    if (!rows.length) return this.empty(list, t("没有符合条件的会话"));
     for (const s of rows) this.sessionCard(list, s, false);
   }
 
   secHead(parent, title, sub, action) {
     const h = parent.createDiv({ cls: "ad-sechead" });
-    const t = h.createDiv({ cls: "ad-sechead__title" });
-    t.createSpan({ text: title });
-    if (sub) t.createSpan({ cls: "ad-sechead__sub", text: sub });
+    const titleEl = h.createDiv({ cls: "ad-sechead__title" });
+    titleEl.createSpan({ text: title });
+    if (sub) titleEl.createSpan({ cls: "ad-sechead__sub", text: sub });
     if (action) {
-      const b = h.createEl("button", { cls: "ad-linkbtn", text: "管理" });
+      const b = h.createEl("button", { cls: "ad-linkbtn", text: t("管理") });
       b.onclick = action;
     }
     return h;
@@ -230,10 +231,10 @@ export class AgentDeckView extends ItemView {
     // 按住 ⌘：Claude Code / Codex 改在终端里开交互式会话
     const handoff = id === "codex" || id === "workbuddy";
     const cliCapable = id === "claude" || id === "codex";
-    const hint = handoff ? `交给 ${a.short}` : `委派给 ${a.short}`;
+    const hint = handoff ? t("交给 {name}", { name: a.short }) : t("委派给 {name}", { name: a.short });
     // 设置里「默认在终端里委派」开着时反过来：不按 ⌘ 在终端里开，按住 ⌘ 走原来的后台 / 客户端
     const toTerm = (meta) => cliCapable && (!!meta !== !!p.settings.delegateInTerminal);
-    const hintFor = (meta) => (toTerm(meta) ? `在终端里开 ${a.short}` : hint);
+    const hintFor = (meta) => (toTerm(meta) ? t("在终端里开 {name}", { name: a.short }) : hint);
     card.setAttr("data-drop-hint", hintFor(false));
     card.addEventListener("dragover", (e) => {
       if (!p.acceptsItemDrag(e)) return;
@@ -253,15 +254,15 @@ export class AgentDeckView extends ItemView {
       p.delegateDrop(id, p.readItemDrag(e), null, { cli: toTerm(e.metaKey) });
     });
     const top = card.createDiv({ cls: "ad-agentcard__top" });
-    const mark = top.createEl("button", { cls: "ad-agentcard__mark", attr: { "aria-label": `打开 ${a.name}` } });
+    const mark = top.createEl("button", { cls: "ad-agentcard__mark", attr: { "aria-label": t("打开 {name}", { name: a.name }) } });
     agentIcon(mark.createSpan({ cls: "ad-glyph" }), id);
     mark.onclick = (e) => { e.stopPropagation(); p.openAgentApp(id); };
     const name = top.createDiv({ cls: "ad-agentcard__name" });
     name.createDiv({ cls: "ad-agentcard__title", text: a.name });
     const live = p.usage.liveSessions({ since: Date.now() - 86400000, limit: 100 }).filter((x) => x.agent === id);
     const running = live.filter((x) => x.state === "run").length;
-    name.createDiv({ cls: "ad-agentcard__where", text: running ? `${running} 个在跑` : (by ? `${by.sessions || 0} 个会话` : "今天还没动") });
-    const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? "取消主力" : "设为主力（最多两个）" } });
+    name.createDiv({ cls: "ad-agentcard__where", text: running ? t("{n} 个在跑", { n: running }) : (by ? t("{n} 个会话", { n: by.sessions || 0 }) : t("今天还没动")) });
+    const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? t("取消主力") : t("设为主力（最多两个）") } });
     setLucide(star, primary ? "star" : "star-off");
     star.onclick = (e) => { e.stopPropagation(); p.togglePrimary(id); };
     const stats = card.createDiv({ cls: "ad-agentcard__stats" });
@@ -273,15 +274,15 @@ export class AgentDeckView extends ItemView {
     for (const job of Object.values(p.jobs).filter((j) => j.agent === id && j.handoff && j.state === "starting" && !j.sessionId)) {
       const row = card.createDiv({ cls: "ad-handoff" });
       lattice(row.createSpan({ cls: "ad-handoff__icon" }), "ripple");
-      row.createSpan({ cls: "ad-handoff__text", text: job.cli ? `等终端里的会话：${truncate(job.name, 16)}` : `等你在 ${a.short} 里发出：${truncate(job.name, 18)}` });
-      const x = row.createEl("button", { cls: "ad-handoff__x", attr: { "aria-label": "不等了" } });
+      row.createSpan({ cls: "ad-handoff__text", text: job.cli ? t("等终端里的会话：{name}", { name: truncate(job.name, 16) }) : t("等你在 {name} 里发出：{title}", { name: a.short, title: truncate(job.name, 18) }) });
+      const x = row.createEl("button", { cls: "ad-handoff__x", attr: { "aria-label": t("不等了") } });
       setLucide(x, "x");
       x.onclick = (e) => { e.stopPropagation(); p.cancelJob(job.id); };
     }
     const foot = card.createDiv({ cls: "ad-agentcard__foot" });
-    const toggle = foot.createEl("button", { cls: "ad-minitoggle" + (enabled ? " is-on" : ""), text: enabled ? "追踪中" : "已关闭" });
+    const toggle = foot.createEl("button", { cls: "ad-minitoggle" + (enabled ? " is-on" : ""), text: enabled ? t("追踪中") : t("已关闭") });
     toggle.onclick = (e) => { e.stopPropagation(); p.setAgentEnabled(id, !enabled); };
-    const open = foot.createEl("button", { cls: "ad-linkbtn", text: "扫描" });
+    const open = foot.createEl("button", { cls: "ad-linkbtn", text: t("扫描") });
     open.onclick = (e) => { e.stopPropagation(); p.scanNow(true); };
   }
 
@@ -401,14 +402,14 @@ export class AgentDeckView extends ItemView {
     if (subs.length) {
       const sb = titleRow.createSpan({ cls: "ad-side" });
       setLucide(sb.createSpan({ cls: "ad-side__icon" }), "bot");
-      sb.createSpan({ text: subs.length > 1 ? `子代理 ×${subs.length}` : "子代理" });
+      sb.createSpan({ text: subs.length > 1 ? t("子代理 ×{n}", { n: subs.length }) : t("子代理") });
       sb.title = subs.map((r) => r.desc || r.type || "subagent").join("\n");
     }
     if (s.sideChats) {
       const sc = titleRow.createSpan({ cls: "ad-side" });
       setLucide(sc.createSpan({ cls: "ad-side__icon" }), "message-square");
       sc.createSpan({ text: s.sideChats > 1 ? `side chat ×${s.sideChats}` : "side chat" });
-      if (s.sideSince) sc.title = `${timeAgo(s.sideSince)}开的`;
+      if (s.sideSince) sc.title = t("{ago}开的", { ago: timeAgo(s.sideSince) });
     }
     const sub = body.createDiv({ cls: "ad-sess__sub" });
     sub.createSpan({ text: a.short });
@@ -421,23 +422,23 @@ export class AgentDeckView extends ItemView {
     if (child) {
       const kin = body.createDiv({ cls: "ad-sess__kin" });
       kin.createSpan({ cls: "ad-sess__kinmark", text: "↳" });
-      kin.createSpan({ cls: "ad-sess__kintitle", text: `从「${truncate(s.parentTitle || "母会话", 24)}」开出` });
-      if (s.deskTitle && s.deskTitle !== s.title) kin.title = `桌面版里的标题：${s.deskTitle}`;
+      kin.createSpan({ cls: "ad-sess__kintitle", text: t("从「{title}」开出", { title: truncate(s.parentTitle || t("母会话"), 24) }) });
+      if (s.deskTitle && s.deskTitle !== s.title) kin.title = t("桌面版里的标题：{title}", { title: s.deskTitle });
     }
     if (compact) {
       card.addClass("has-x");
-      const x = card.createEl("button", { cls: "ad-arrow ad-sess__x", attr: { "aria-label": "从「现在」移除" } });
+      const x = card.createEl("button", { cls: "ad-arrow ad-sess__x", attr: { "aria-label": t("从「现在」移除") } });
       setLucide(x.createSpan({ cls: "ad-arrow__icon" }), "x");
       x.onclick = (e) => { e.stopPropagation(); this.removeFromNow(s.sid); };
       card.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         const m = new Menu();
-        m.addItem((i) => i.setTitle("打开会话").setIcon("arrow-up-right").onClick(() => p.openSession(s.agent, s.sid, s.app, s)));
-        m.addItem((i) => i.setTitle("从「现在」移除").setIcon("x").onClick(() => this.removeFromNow(s.sid)));
+        m.addItem((i) => i.setTitle(t("打开会话")).setIcon("arrow-up-right").onClick(() => p.openSession(s.agent, s.sid, s.app, s)));
+        m.addItem((i) => i.setTitle(t("从「现在」移除")).setIcon("x").onClick(() => this.removeFromNow(s.sid)));
         m.showAtMouseEvent(e);
       });
     }
-    const go = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": "打开会话" } });
+    const go = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": t("打开会话") } });
     setLucide(go.createSpan({ cls: "ad-arrow__icon" }), "arrow-up-right");
     const open = () => p.openSession(s.agent, s.sid, s.app, s);
     go.onclick = (e) => { e.stopPropagation(); open(); };
@@ -499,13 +500,13 @@ export class AgentDeckView extends ItemView {
 
 function stateChip(s) {
   const st = s.state || "idle";
-  if (st === "run") return { cls: "is-live", label: "在跑" };
-  if (st === "wait") return { cls: "is-wait", label: "等你" };
-  if (st === "quiet") return { cls: "is-quiet", label: "安静" };
-  if (st === "error") return { cls: "is-error", label: "出错" };
-  if (st === "limit") return { cls: "is-error", label: "限额" };
-  if (st === "needs-approval") return { cls: "is-wait", label: "等你允许" };
-  if (st === "done") return { cls: "is-done", label: "完成" };
-  if (st === "cancelled") return { cls: "is-quiet", label: "已取消" };
+  if (st === "run") return { cls: "is-live", label: t("在跑") };
+  if (st === "wait") return { cls: "is-wait", label: t("等你") };
+  if (st === "quiet") return { cls: "is-quiet", label: t("安静") };
+  if (st === "error") return { cls: "is-error", label: t("出错") };
+  if (st === "limit") return { cls: "is-error", label: t("限额") };
+  if (st === "needs-approval") return { cls: "is-wait", label: t("等你允许") };
+  if (st === "done") return { cls: "is-done", label: t("完成") };
+  if (st === "cancelled") return { cls: "is-quiet", label: t("已取消") };
   return null;
 }
