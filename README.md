@@ -12,7 +12,7 @@ Agent Deck gathers the AI agent sessions scattered across separate clients onto 
 
 <p align="center">25-second demo (Chinese captions) · click for the <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4">4K60 version with sound</a></p>
 
-Agent Deck is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy and DeepSeek Harness**, shows what each agent is doing now, and tracks delegated tasks from the editor. Notes and the panel talk by drag and drop: drop a session card on a list item to bind it, drop a list item on an agent to delegate it. Agent Deck does not put a trigger on every list item. Once a line is bound to a session, the line-end pill becomes the progress surface: the fill moves with the session, the label changes to **Delegating**, and a cancel control appears next to it.
+Agent Deck is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy and DeepSeek Harness**, shows what each agent is doing now, and tracks delegated tasks from the editor. Notes and the panel talk by drag and drop: drop a session card on a list item to bind it, drop a list item on an agent to delegate it. Only the line under the cursor gets a small paper-plane grip: click it to send the item with its children to your primary agent after a confirm, double-click or ⌘-click to pick the agent. Once a line is bound to a session, the line-end pill becomes the progress surface: the fill moves with the session, the label changes to **Delegating**, and a cancel control appears next to it.
 
 It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), extracted into a standalone plugin and extended with a second primary agent, DeepSeek Harness, model/effort/mode selection, and a layered model picker.
 
@@ -60,7 +60,7 @@ Pin Agent Deck to a sidebar and drag between the note and the panel:
 |---|---|
 | A session card from **现在** → a list item with text (ordered or unordered) | The text stays; the line gets the session's keyword (`DOING` / `TOREVIEW` / `NEEDOK` …) and a `🔗` child. From then on `💬`, status and `⏱` follow the session |
 | A session card → an empty line, an empty item (`- `), or a paragraph | A new item `DOING 20:05 🤖 session title` is created there and bound, following the list's indent and numbering |
-| A list item → an agent card | Delegation. Claude Code and DeepSeek Harness start a session in the background. Codex and WorkBuddy have no CLI that can start a session, so the task goes to the clipboard and the client comes to the front; you paste and send, and Agent Deck binds the new session back to the item once it appears |
+| A list item → an agent card | Delegation. Claude Code and DeepSeek Harness start a session in the background (default model Opus 5.5, configurable in the settings); when Claude Code finishes its first turn the session opens in the Claude desktop app, where you carry on. Codex and WorkBuddy have no CLI that can start a session, so the task goes to the clipboard and the client comes to the front; you paste and send, and Agent Deck binds the new session back to the item once it appears |
 | ⌘-drag a session card onto an item | Leaves the item alone and creates a new bound item below it (and its children) |
 | ⌘-drag an item onto Claude Code / Codex | Opens a new tab in your terminal running interactive `claude` / `codex` with the task as the first message; the session is bound back once it appears. With **open in terminal by default** on in the settings, it is the other way round. With Tern as your terminal the task runs in a separate background Tern session named "Agent Deck", so the session you are looking at stays put and Tern does not come forward; Claude Code starts in a trusted directory (the vault added with `--add-dir`) so it never stops at the trust prompt |
 | An item → a session card in the panel | Binds that session to the item, no delegation |
@@ -68,9 +68,10 @@ Pin Agent Deck to a sidebar and drag between the note and the panel:
 | You archive the session in its client | The item becomes `DONE` + `⏱` and the `🔗` line is retired |
 
 - **One-to-one.** A session is bound in one place. Dropping it elsewhere moves the binding; an auto-logged `🤖 …` line written for that session earlier is removed, so a task you already wrote and the agent's run of it merge into one line.
-- **Where to drag from.** While the panel is open, the list item under the cursor shows a small grip ⠿ at its end; drag that, or drag a text selection. Agent cards turn dashed while you drag, and the hovered one says what dropping will do.
+- **The grip ⠿.** The list item under the cursor shows a small grip at its end. **Click** it, confirm, and the item with its children goes to the default delegate (your primary agent) as one message; the item then turns `DELEGATED`. **Double-click** or **⌘-click** to pick the agent (Claude Code, Codex, WorkBuddy, DeepSeek Harness), which works the same as dropping on that card; **drag** it onto an agent card in the sidebar, or drag a text selection. Agent cards turn dashed while you drag, and the hovered one says what dropping will do.
 - **Dropping into a note** highlights the target line and labels it (bind / new item); headings, code blocks and tables don't accept drops.
 - **⚠️ Known issue: delegating to an agent's CLI (opening `claude` / `codex` in a terminal) is still buggy.** It has only been verified end to end with Tern + Claude Code; Terminal, iTerm2, Warp and the Codex CLI are not fully tested, so the session may not be bound back to the item, or Codex may stop at its folder-trust prompt. Background delegation (a plain drop on Claude Code / DeepSeek Harness) is not affected.
+- **Confirm before acting.** Every delegated message ends with one extra line (not written into the note): ask first if anything is unclear, otherwise state the plan and wait for your go-ahead before changing anything. Turn it off under Settings → prompt prefix/suffix.
 - **Items that are not delegated**: agent-written ones (🤖), items already bound to a session, and items with a ⏱ record. Dropping them only says why.
 - **With Nautilus Spiral**: when Nautilus draws its session progress line under a task, Agent Deck draws no pill there and the `🔗` link is dimmed and not clickable; click Nautilus's progress line to open the session. This can be turned off in the settings.
 
@@ -106,13 +107,13 @@ To hand over: open **Settings → 追踪 → 停用螺旋日程里的 AI 写入*
 - **Layered model settings.** A global default model, a default effort slider, capability tags, search/filter, enable switches, pinned order and a per-row menu. Changes sit in an **Unsaved changes** bar until you save them.
 - **Local only.** Everything is read from `~/.claude`, `~/.codex`, `~/.workbuddy`, `~/.dsh` and the Claude desktop session list under `~/Library/Application Support/Claude/claude-code-sessions`. Nothing is uploaded. The plugin stores its own aggregate in `usage.json` next to the plugin, so history survives log rotation.
 - **Official app icons.** Claude, Codex, WorkBuddy and DeepSeek Harness use the icons of their own apps in the dashboard, session rows, pills, settings and menu bar; status, tool and window icons stay Lucide, and running states use a CSS spinner.
-- **The agent summary lives in the macOS menu bar.** Obsidian's bottom-right status bar no longer carries the agent session summary. A small status item shows an icon plus something like `2 跑 · 1 等`; click it for a solid, opaque panel of task cards you can jump from.
+- **The agent summary lives in the macOS menu bar.** Obsidian's bottom-right status bar no longer carries the agent session summary. The status item is just an icon; click it for a solid, opaque panel of task cards you can jump from.
 
 ![macOS menu bar](assets/menubar.png)
 
 ## macOS menu bar
 
-The menu bar item is a tiny SwiftUI helper app compiled on first use. It is not a second copy of the dashboard: it is the quick "what is running / what needs me" surface.
+The menu bar item is a tiny SwiftUI helper app compiled on first use; in the bar itself it is just an icon. It is not a second copy of the dashboard: it is the quick "what is running / what needs me" surface.
 
 - **Solid, not glassy.** The panel is a borderless window with opaque surfaces. There is no `NSPopover`, no vibrancy and no frosted material, so text keeps its contrast on macOS 26. The light background is a near-white tint of the current Obsidian theme, and dark mode has its own solid palette.
 - **Rows speak TODOseq.** Each card is tagged with a TODOseq keyword — `DOING`, `WAITING`, `NEEDOK?`, `HITLIMIT!`, `PAUSED`, `ERRORED`, `DONE`, `LATER`, `TODO` — with the same SVG icon and task-state colour TODOseq uses. `DOING` keeps its loader-circle spinning while the panel is open. The header counts `DOING` / `WAITING`, and any `NEEDOK?` session gets an orange reminder.
@@ -152,18 +153,20 @@ Writes are line-level, stay out of undo history, skip while an IME composition i
 
 Agent Deck starts a headless Claude Code session with:
 
-- `--model` (Opus 5, Sonnet 5, Haiku 5.5, Fable, or a custom alias)
+- `--model` (Opus 5.5 by default; Opus 5, Sonnet 5, Haiku 5.5, Fable, or a custom alias)
 - `--effort` (low, medium, high, xhigh, max)
 - `--permission-mode` (`plan`, `auto`, `acceptEdits`, `manual`)
 - `-n` for the session name, `--add-dir` for the vault
 
-The first turn runs in the background. The session can then be reopened in the Claude desktop app with `claude://resume?session=<id>`.
+The task starts right away; there is no input box to confirm. When the first turn finishes, the session opens in the Claude desktop app through `claude://resume?session=<id>` (the app imports the CLI session) and you carry on there. **委派 → 完成后自动在桌面版打开** turns that off; the line's pill still opens it.
+
+Every delegated message, to any agent, ends with one extra line that is not written into the note: if anything is unclear, ask first; otherwise restate the plan and wait for your go-ahead before changing files or running commands. Turn it off with **提示词前后缀 → 动手前先确认**.
 
 If Claude Code has never trusted the vault, the plugin reads `~/.claude.json` and starts in a directory that Claude already trusts, adding the vault with `--add-dir`. This behaviour can be turned off in **委派 → 库没被信任时自动换个目录**.
 
 ### DeepSeek Harness
 
-Agent Deck speaks ACP (Agent Client Protocol) to `dsh acp`. It creates a real Harness session, selects the model and `reasoning_effort`, sends the prompt, and follows the `session/update` stream. The session is persisted in `~/.dsh/sessions`, so it also appears in the dashboard afterwards.
+Agent Deck speaks ACP (Agent Client Protocol) to `dsh acp`. It creates a real Harness session, selects the model and `reasoning_effort`, sends the prompt, and follows the `session/update` stream. The task starts right away and the answer is written back as `💬`. The session is persisted in `~/.dsh/sessions`, so it also appears in the dashboard afterwards. The Harness client itself only lists its default workspace, so a session started from the vault does not show up in the client's sidebar, and `dsh://open` can only bring the client forward.
 
 ACP does not expose Claude-style plan/auto permission modes. Instead the plugin can auto-approve one-shot tool permissions, or reject them and notify you.
 

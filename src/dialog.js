@@ -4,7 +4,8 @@ import { Modal, Notice } from "obsidian";
 import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
-import { blockAt, blockTitle } from "./delegation.js";
+import { blockAt, blockTitle, BULLET_RE } from "./delegation.js";
+import { kwLine } from "./journal.js";
 
 export class DelegateOptionsModal extends Modal {
   constructor(app, plugin, path, line) {
@@ -171,4 +172,70 @@ export class DelegateOptionsModal extends Modal {
   }
 
   onClose() { this.contentEl.empty(); }
+}
+
+// 把手单击后的确认：看一眼要发出去的整块，再发给主力
+export class ConfirmSendModal extends Modal {
+  constructor(app, { agent, text, path, where }, onSend) {
+    super(app);
+    this.agent = agent;
+    this.text = text;
+    this.path = path;
+    this.where = where;
+    this.onSend = onSend;
+  }
+
+  onOpen() {
+    const { contentEl, modalEl } = this;
+    const a = AGENTS[this.agent] || AGENTS.claude;
+    modalEl.addClass("ad-send-modal");
+    contentEl.addClass("ad-modal", "ad-send");
+    contentEl.style.setProperty("--ad-agent", a.color);
+    contentEl.style.setProperty("--ad-agent-soft", a.soft);
+
+    const head = contentEl.createDiv({ cls: "ad-send__head" });
+    agentIcon(head.createSpan({ cls: "ad-send__mark" }), this.agent);
+    const tt = head.createDiv({ cls: "ad-send__titles" });
+    tt.createDiv({ cls: "ad-send__title", text: `发给 ${a.name}` });
+    tt.createDiv({ cls: "ad-send__sub", text: this.where });
+
+    // 要发出去的整块：按缩进画成一张小卡片，第一行是标题
+    const card = contentEl.createDiv({ cls: "ad-send__card" });
+    const lines = this.text.split("\n").filter((l) => l.trim());
+    const base = lines.length ? indentOf(lines[0]) : 0;
+    lines.forEach((raw, i) => {
+      const m = BULLET_RE.exec(raw);
+      const k = kwLine(raw);
+      const body = k ? k.body : (m ? m[3] : raw.trim());
+      const row = card.createDiv({ cls: "ad-send__line" + (i === 0 ? " is-title" : "") });
+      row.style.setProperty("--lvl", String(Math.max(0, indentOf(raw) - base)));
+      row.createSpan({ cls: "ad-send__dot" });
+      if (i === 0 && k && k.kw) row.createSpan({ cls: "ad-send__kw", text: k.kw });
+      row.createSpan({ cls: "ad-send__text", text: body });
+    });
+    const more = lines.length - 1;
+    const meta = contentEl.createDiv({ cls: "ad-send__meta" });
+    meta.createSpan({ text: more > 0 ? `连同 ${more} 行子块，作为一条消息` : "作为一条消息" });
+    meta.createSpan({ cls: "ad-send__path", text: this.path });
+
+    const foot = contentEl.createDiv({ cls: "ad-send__foot" });
+    const keys = foot.createDiv({ cls: "ad-send__keys" });
+    keys.createEl("kbd", { text: "↵" }); keys.createSpan({ text: "发送" });
+    keys.createEl("kbd", { text: "esc" }); keys.createSpan({ text: "取消" });
+    const btns = foot.createDiv({ cls: "ad-send__btns" });
+    btns.createEl("button", { cls: "ad-btn ad-btn--ghost", text: "取消" }).onclick = () => this.close();
+    const go = btns.createEl("button", { cls: "ad-btn ad-send__go" });
+    setLucide(go.createSpan({ cls: "ad-btn__icon" }), "send");
+    go.createSpan({ text: "发送" });
+    go.onclick = () => { this.close(); this.onSend(); };
+    setTimeout(() => go.focus(), 0);   // 回车直接发
+  }
+
+  onClose() { this.contentEl.empty(); }
+}
+
+// 缩进层级：一个 tab 或两个空格算一层
+function indentOf(line) {
+  const ws = (line.match(/^[ \t]*/) || [""])[0];
+  return ws.replace(/\t/g, "  ").length / 2;
 }

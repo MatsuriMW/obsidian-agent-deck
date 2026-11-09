@@ -9,7 +9,7 @@ import path from "path";
 import os from "os";
 import { execFile } from "child_process";
 import {
-  Plugin, Notice, MarkdownView, editorInfoField,
+  Plugin, Notice, MarkdownView, Menu, editorInfoField,
 } from "obsidian";
 import {
   AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp,
@@ -18,7 +18,8 @@ import { AgentUsage, UsageStore, projectName } from "./readers.js";
 import { Delegator, blockAt, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { AgentDeckSettingsTab } from "./settings.js";
-import { DelegateOptionsModal } from "./dialog.js";
+import { DelegateOptionsModal, ConfirmSendModal } from "./dialog.js";
+import { agentIcon } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
 import { MenuBarBridge } from "./menubar.js";
 import { AutoLog } from "./autolog.js";
@@ -305,7 +306,7 @@ export default class AgentDeckPlugin extends Plugin {
   defaultTarget() { return this.settings.delegate?.target === "dsh" ? "dsh" : "claude"; }
   defaultModel(agent) {
     if (agent === "dsh") return this.settings.delegate?.dsh?.model || this.settings.models?.defaultByAgent?.dsh || "deepseek-v4-pro";
-    return this.settings.delegate?.claude?.model || this.settings.models?.defaultByAgent?.claude || "claude-sonnet-5";
+    return this.settings.delegate?.claude?.model || this.settings.models?.defaultByAgent?.claude || "claude-opus-5-5";
   }
 
   async togglePrimary(agent) {
@@ -544,28 +545,61 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   // 笔记里的一项拖到了某个 Agent 卡片上：Claude / DSH 后台直接跑，Codex / WorkBuddy 打开客户端交接
-  async delegateDrop(agent, item, fromEl, { cli = false } = {}) {
-    this._dragItem = null;
-    if (!item || !item.path) return this.notice("没认出拖的是哪一项");
+  // 这一项能不能委派：能就给出笔记、行和整块，不能就给出原因
+  async delegateTarget(item) {
+    if (!item || !item.path) return { error: "没认出拖的是哪一项" };
     const file = this.app.vault.getAbstractFileByPath(item.path);
-    if (!file) return this.notice("找不到这篇笔记");
+    if (!file) return { error: "找不到这篇笔记" };
     const view = this.viewForPath(item.path);
     const lines = view ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
-    if (line < 0) return this.notice("这一行刚改过，重新拖一次");
-    // 只有人写的文字条目拖到 Agent 上才委派；Agent 写的（🤖）、已经绑着会话的，拖过来不再开新会话
+    if (line < 0) return { error: "这一行刚改过，重新来一次" };
+    // 只有人写的文字条目才委派；Agent 写的（🤖）、已经绑着会话的，不再开新会话
     const block = blockAt(lines, line), k = J.kwLine(lines[line]);
-    if (k && k.body.startsWith(J.AUTO_MARK.trim())) return this.notice("Agent 记的条目不委派");
-    if (block && findLink(lines, block)) return this.notice("已经绑着会话，不委派");
-    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => J.CLOCK_RE.test(l))) return this.notice("已有用时记录，不委派");
+    if (k && k.body.startsWith(J.AUTO_MARK.trim())) return { error: "Agent 记的条目不委派" };
+    if (block && findLink(lines, block)) return { error: "已经绑着会话，不委派" };
+    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => J.CLOCK_RE.test(l))) return { error: "已有用时记录，不委派" };
+    return { file, lines, line, block };
+  }
+
+  async delegateDrop(agent, item, fromEl, { cli = false } = {}) {
+    this._dragItem = null;
+    const t = await this.delegateTarget(item);
+    if (t.error) return this.notice(t.error);
+    const { file, lines, line } = t;
     try {
       const opts = { file, lines, line, agent };
-      // 按住 ⌘ 松手：Claude Code / Codex 在终端里开交互式会话，而不是后台跑 / 交给桌面版
+      // 按住 ⌘ 松手：Claude Code / Codex 在终端里开交互式会话；不按：Claude Code / DeepSeek Harness 后台直接开跑
+      // （Claude Code 答完一轮自动在桌面版打开，见设置「完成后自动在桌面版打开」）
       if (cli && (agent === "claude" || agent === "codex")) await this.delegator.handoffCli(opts);
       else if (agent === "claude" || agent === "dsh") await this.delegator.delegate(opts);
       else await this.delegator.handoff(opts);
     } catch (e) { this.notice(String(e.message || e), 8000); }
     this.refreshUI();
+  }
+
+  // 把手单击：先确认，再把这一项连同子块发给主力（委派的默认目标）
+  async gripSend(item) {
+    const t = await this.delegateTarget(item);
+    if (t.error) return this.notice(t.error);
+    const agent = this.defaultTarget();
+    const where = agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "后台开跑 · 答完在桌面版打开" : "后台新会话";
+    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where }, () => this.delegateDrop(agent, item)).open();
+  }
+
+  // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样
+  gripPick(item, e) {
+    const main = this.defaultTarget();
+    const menu = new Menu();
+    for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x))) {
+      menu.addItem((mi) => {
+        mi.setTitle(AGENTS[id].name + (id === main ? " · 主力" : ""));
+        mi.setIcon("bot");
+        if (mi.iconEl) agentIcon(mi.iconEl, id);
+        mi.onClick(() => this.delegateDrop(id, item));
+      });
+    }
+    menu.showAtMouseEvent(e);
   }
 
   // 笔记里的一项拖到面板的会话卡片上：把这个会话绑给它（和卡片拖到条目上一样，不委派）

@@ -7,7 +7,9 @@
 // Drag and drop between the note and the panel also lives here:
 //   · a session card dropped on a line binds it (🔗 child) or starts a new item there;
 //     the target line is highlighted while dragging, with what will happen;
-//   · the line under the cursor gets a small grip — drag it onto an agent card to delegate.
+//   · the line under the cursor gets a small grip: click sends the item (with its
+//     children) to the primary agent after a confirm, double-click or ⌘-click picks the agent, drag it onto an
+//     agent card to delegate.
 
 import { Decoration, WidgetType, ViewPlugin, EditorView } from "@codemirror/view";
 import { RangeSetBuilder, StateEffect, StateField, Prec } from "@codemirror/state";
@@ -95,7 +97,7 @@ function dndHandlers(plugin) {
   }));
 }
 
-// 光标所在的列表项尾巴上的小把手：拖到面板里的 Agent 卡片上就是委派
+// 光标所在的列表项尾巴上的小把手：单击确认后连同子块发给主力，双击或 ⌘ 单击选 Agent，拖到面板里的 Agent 卡片上也是委派
 class GripWidget extends WidgetType {
   constructor(plugin, path, line, text) {
     super();
@@ -110,10 +112,29 @@ class GripWidget extends WidgetType {
     el.className = "ad-grip";
     el.setAttribute("contenteditable", "false");
     el.draggable = true;
-    setLucide(el, "grip-vertical");
+    setLucide(el, "send");
+    const main = AGENTS[this.plugin.defaultTarget()] || AGENTS.claude;
+    el.setAttribute("aria-label", `单击发给 ${main.short} · 双击或 ⌘ 单击选 Agent · 拖到侧栏的 Agent 上委派`);
+    const item = { path: this.path, line: this.line, lineText: this.text };
+    // 单击要等一下看是不是双击，免得双击时先把任务发给了主力
+    let clickTimer = null;
     el.addEventListener("mousedown", (e) => e.stopPropagation());
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.detail > 1) return;
+      clearTimeout(clickTimer);
+      if (e.metaKey) return this.plugin.gripPick(item, e);
+      clickTimer = setTimeout(() => this.plugin.gripSend(item), 260);
+    });
+    el.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      clearTimeout(clickTimer);
+      this.plugin.gripPick(item, e);
+    });
     el.addEventListener("dragstart", (e) => {
-      const item = { path: this.path, line: this.line, lineText: this.text };
+      clearTimeout(clickTimer);
       e.dataTransfer.setData(ITEM_MIME, JSON.stringify(item));
       e.dataTransfer.setData("text/plain", this.text.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""));
       e.dataTransfer.effectAllowed = "copy";
@@ -296,7 +317,7 @@ function buildDecorations(view, plugin) {
         if (state) {
           const widget = new PillWidget(plugin, path, n, state);
           builder.add(line.to, line.to, Decoration.widget({ widget, side: 1, block: false }));
-        } else if (n === cursorLine && plugin.views.size && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && J.kwLine(text)) {
+        } else if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && J.kwLine(text)) {
           builder.add(line.to, line.to, Decoration.widget({ widget: new GripWidget(plugin, path, n, text), side: 1, block: false }));
         }
       }

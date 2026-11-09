@@ -14,7 +14,7 @@ Agent Deck 把散在各个客户端里的 AI Agent 会话收到 Obsidian 里的�
 
 Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、DeepSeek Harness** 四类 Agent 会话收进同一张「甲板」：主力 Agent 全量追踪，其它 Agent 只看正在跑的；在跑、等你、安静、需要你确认、额度用完、出错停下这些状态用 TODOseq 的任务关键词和颜色标出来，点一行就回到对应客户端。
 
-笔记和面板之间可以直接拖：会话卡片拖到笔记里的一项上，就把会话绑给它；笔记里的一项拖到某个 Agent 上，就是委派。列表项上不常驻按钮；任务行绑定了会话后，行尾的 pill 才变成进度条，完成后把结果写回笔记。macOS 菜单栏还有一块常驻的纯色面板，菜单栏被系统藏起来时可以用自定义全局快捷键唤起。
+笔记和面板之间可以直接拖：会话卡片拖到笔记里的一项上，就把会话绑给它；笔记里的一项拖到某个 Agent 上，就是委派。只有光标所在的那一项尾巴上有个纸飞机把手：单击确认后连同子块发给主力，双击或 ⌘ 单击选发给哪个 Agent。任务行绑定了会话后，行尾的 pill 才变成进度条，完成后把结果写回笔记。macOS 菜单栏还有一块常驻的纯色面板，菜单栏被系统藏起来时可以用自定义全局快捷键唤起。
 
 它从[螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 里「人机协作 / AI 追踪」那一半拆出来，补上了第二个主力 Agent、DeepSeek Harness 的 ACP 委派、模型 / 强度 / 权限模式选择、分层的模型设置页，以及一块可读性更高的 SwiftUI 菜单栏面板。
 
@@ -62,7 +62,7 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 |---|---|
 | 「现在」里的会话卡片 → 笔记里有字的一项（有序 / 无序列表都行） | 原文不动，前面换上会话的状态关键词（`DOING` / `TOREVIEW` / `NEEDOK` …），下面多一行 `🔗` 子块。之后 `💬`、状态、`⏱` 都跟着会话走 |
 | 会话卡片 → 空行、空的列表项「- 」、或一段文字上 | 在那儿新建一项 `DOING 20:05 🤖 会话标题` 并绑上；接着上面列表的缩进和编号 |
-| 笔记里的一项 → Agents 里的某个 Agent | 委派。Claude Code、DeepSeek Harness 直接在后台开会话；Codex、WorkBuddy 没有能起会话的命令行，任务文字放进剪贴板、客户端叫到前台，你粘贴发出去，Agent Deck 认出新会话后自动绑回这一项 |
+| 笔记里的一项 → Agents 里的某个 Agent | 委派。Claude Code、DeepSeek Harness 直接在后台开会话（默认模型 Opus 5.5，设置里可改）；Claude Code 答完一轮自动在桌面版打开，接着在桌面版里聊；Codex、WorkBuddy 没有能起会话的命令行，任务文字放进剪贴板、客户端叫到前台，你粘贴发出去，Agent Deck 认出新会话后自动绑回这一项 |
 | 按住 ⌘ 把会话卡片拖到一项上 | 不绑这一项，在它（连同子项）下面新建一条并绑上 |
 | 按住 ⌘ 把一项拖到 Claude Code / Codex 上 | 在主力终端里新开标签跑交互式的 `claude` / `codex`，任务直接当第一句发出去；会话一出现自动绑回这一项。设置里开了「默认在终端里开」就反过来：不按 ⌘ 是终端，按 ⌘ 是后台 / 桌面版。主力终端是 Tern 时，任务放进 Tern 里单独的「Agent Deck」会话在后台跑，不切走你正看着的会话、也不把 Tern 叫到前台；Claude Code 在信任过的目录里起（库用 `--add-dir` 加进去），不会卡在信任提示上 |
 | 笔记里的一项 → 面板里的某张会话卡片 | 把这个会话绑给它，不委派 |
@@ -70,9 +70,10 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 | 在客户端里归档这个会话 | 笔记里那一项自动记 `DONE` + `⏱`，收掉 `🔗` |
 
 - **一对一**：一个会话只绑一处。拖到别的项上等于换绑；自动记日记先替它写过的「🤖 …」那一项会一起收掉，时间和状态并到你拖到的那一项上。日记里本来写着的任务和 Agent 跑的那件事其实是同一件时，拖一下就合到一起。
-- **从哪儿拖**：面板开着时，光标所在的列表项尾巴上有一个小把手 ⠿，拖它；选中一段文字直接拖也行。拖的时候 Agent 卡片变成虚线框，悬停的那张写着松手会发生什么。
+- **小把手 ⠿**：光标所在的列表项尾巴上有一个小把手。**单击**：先弹确认框，确认后这一项连同子块作为一条消息发给委派的默认 Agent（主力），条目随后变成 `DELEGATED`；**双击**或 **⌘ 单击**：弹出 Agent 列表（Claude Code、Codex、WorkBuddy、DeepSeek Harness），选哪个发给哪个，效果和拖到那张卡片上一样；**按住拖**：拖到侧栏的 Agent 卡片上委派，选中一段文字直接拖也行。拖的时候 Agent 卡片变成虚线框，悬停的那张写着松手会发生什么。
 - **拖进笔记时**目标行高亮，右边标着「绑定到这一项 / 在这里新建一项」；标题、代码块、表格上不接。
 - **⚠️ 已知问题：委派到 Agent 的命令行（在终端里开 `claude` / `codex`）还有 bug。** 目前只在 Tern + Claude Code 上实测跑通过；系统终端、iTerm2、Warp 和 Codex 命令行还没完整测过，可能出现会话没有自动绑回这一项、Codex 在没信任过的目录里停在确认提示上等情况。后台委派（不按 ⌘ 拖到 Claude Code / DeepSeek Harness 上）不受影响。
+- **动手前先确认**：每条委派消息末尾会追加一句（笔记里看不到）：有疑问先问，都清楚了先说打算，等你确认再动手。设置 → 提示词前后缀里可以关掉。
 - **不会再委派的条目**：Agent 记的（🤖 开头）、已经绑着会话的、下面有 ⏱ 用时记录的。拖上去只提示原因。
 - **和螺旋日程一起用**：螺旋日程在任务行下面画了会话进度行时，行尾不再画 pill，🔗 链接放淡、不可点，点螺旋的进度行打开会话。设置里可以关掉这个让位。
 
@@ -109,13 +110,13 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 - **分层模型设置**：默认模型、默认强度滑杆、能力标签、搜索筛选、启用开关、置顶排序、每行菜单、任务模型。改动先放在「Unsaved changes」条里，点保存才落盘。
 - **只读本机**：只读 `~/.claude`、`~/.codex`、`~/.workbuddy`、`~/.dsh`，以及 Claude 桌面版的会话清单 `~/Library/Application Support/Claude/claude-code-sessions`，不上传。插件目录里的 `usage.json` 存按天的汇总，日志被轮转掉历史还在。
 - **官方 App 图标**：Claude、Codex、WorkBuddy、DeepSeek Harness 四个 Agent 用各自 App 的 icon（面板、会话行、状态 pill、设置页和菜单栏一致）；状态、工具和窗口图标仍是 Lucide，正在跑的图标用 CSS 旋转。
-- **Agent 汇总搬到 macOS 菜单栏**：Obsidian 右下角不再显示 Agent 会话汇总。系统最上方只留一个小图标和一串短说明，比如 `2 跑 · 1 等`；点开是一块纯色面板，任务卡片可以直接跳会话。
+- **Agent 汇总搬到 macOS 菜单栏**：Obsidian 右下角不再显示 Agent 会话汇总。系统最上方只留一个小图标；点开是一块纯色面板，任务卡片可以直接跳会话。
 
 ![macOS 菜单栏](assets/menubar.png)
 
 ## macOS 菜单栏
 
-菜单栏是一个很小的 SwiftUI 助手，第一次运行时编译。它不是面板的复制，而是「现在谁在跑、谁在等我」的快速入口。
+菜单栏是一个很小的 SwiftUI 助手，第一次运行时编译；菜单栏上只显示一个图标。它不是面板的复制，而是「现在谁在跑、谁在等我」的快速入口。
 
 - **纯色，不毛玻璃。** 面板是一个无边框窗口，所有表面都是不透明颜色：没有 `NSPopover`、没有 vibrancy、没有磨砂材质，在 macOS 26 上文字对比度不会被玻璃效果吃掉。浅色背景是接近 Obsidian 主题色的浅底，深色模式也有独立的纯色配色。
 - **任务关键词来自 TODOseq。** 每张卡片右上角标 `DOING`、`WAITING`、`NEEDOK?`、`HITLIMIT!`、`PAUSED`、`ERRORED`、`DONE`、`LATER`、`TODO`，前面配 TODOseq 里同一个 SVG 图标和任务状态色；`DOING` 的 loader-circle 在面板打开时一直转。顶部统计 `DOING` / `WAITING`，有 `NEEDOK?` 会话时会出现橙色提醒条。
@@ -156,18 +157,20 @@ Agent Deck 的主面板仍然保留 1.0.2 的低饱和配色；只有 macOS 菜�
 
 Agent Deck 用无头方式起一个 Claude Code 会话，把下面这些参数传过去：
 
-- `--model`（Opus 5、Sonnet 5、Haiku 5.5、Fable，或自定义别名）
+- `--model`（默认 Opus 5.5；也可以选 Opus 5、Sonnet 5、Haiku 5.5、Fable，或自定义别名）
 - `--effort`（low、medium、high、xhigh、max）
 - `--permission-mode`（`plan`、`auto`、`acceptEdits`、`manual`）
 - `-n` 会话名，`--add-dir` 把库加进可读目录
 
-第一轮在后台跑完以后，可以用 `claude://resume?session=<id>` 在 Claude 桌面版里接着聊。
+任务直接开跑，不会停在输入框里等你按回车。第一轮答完，会话自动用 `claude://resume?session=<id>` 在 Claude 桌面版里打开（桌面版把命令行会话导入进来），接着在桌面版里聊。「委派 → 完成后自动在桌面版打开」可以关掉，关掉后点任务行的 pill 也能打开。
+
+发给任何 Agent 的委派消息，末尾都会追加一句（笔记里看不到）：有不清楚的先问；都清楚了先复述打算，等你确认再改文件、跑命令。「提示词前后缀 → 动手前先确认」可以关掉。
 
 如果 Claude Code 没信任过这个库，插件会读 `~/.claude.json`，找一个已经信任的目录当工作目录，再用 `--add-dir` 把库加进去。可以在「委派 → 库没被信任时自动换个目录」关掉。
 
 ### DeepSeek Harness
 
-通过 `dsh acp` 走 ACP（Agent Client Protocol）：建真正的 Harness 会话，选模型和 `reasoning_effort`，发 prompt，跟 `session/update` 流。会话落在 `~/.dsh/sessions`，所以面板里也能追踪到。
+通过 `dsh acp` 走 ACP（Agent Client Protocol）：建真正的 Harness 会话，选模型和 `reasoning_effort`，发 prompt，跟 `session/update` 流。任务直接开跑，答完把结论写回 `💬`。会话落在 `~/.dsh/sessions`，所以面板里也能追踪到。但 Harness 客户端侧栏只列默认工作区，从库里起的会话在客户端里看不到；`dsh://open` 也只能把客户端叫到前台。
 
 ACP 没有 Claude 那套 plan/auto 权限模式；插件可以选择自动允许一次工具调用，或者拒绝并在通知里提醒你。
 

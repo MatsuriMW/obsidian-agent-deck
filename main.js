@@ -1,4 +1,4 @@
-/* Agent Deck 1.2.4 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.2.5 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -92,6 +92,20 @@ var AGENTS = {
 };
 var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh"];
 var MODEL_CATALOG = [
+  {
+    id: "claude-opus-5-5",
+    agent: "claude",
+    name: "Opus 5.5",
+    cli: "claude-opus-5-5",
+    value: "claude-opus-5-5",
+    provider: "Claude",
+    context: "1M",
+    strength: 5,
+    speed: 2,
+    tags: ["Reasoning", "Vision"],
+    cost: "High cost",
+    note: "The default: the strongest Claude for delegated work."
+  },
   {
     id: "claude-opus-5",
     agent: "claude",
@@ -282,7 +296,7 @@ var DEFAULTS = {
   delegate: {
     target: "claude",
     claude: {
-      model: "claude-sonnet-5",
+      model: "claude-opus-5-5",
       effort: "high",
       permission: "auto",
       cwd: "",
@@ -302,16 +316,18 @@ var DEFAULTS = {
     promptPrefix: "",
     promptSuffix: "",
     markStatus: true,
+    confirmFirst: true,
+    // 委派消息末尾追加「先确认再动手」
     writeLink: true,
     nameMax: 56
   },
   // Model picker state
   models: {
     enabled: MODEL_CATALOG.map((m) => m.id),
-    pinned: ["claude-opus-5", "claude-sonnet-5", "deepseek-v4-pro"],
+    pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-sonnet-5", dsh: "deepseek-v4-pro" },
+    defaultByAgent: { claude: "claude-opus-5-5", dsh: "deepseek-v4-pro" },
     effort: "high"
   },
   ui: {
@@ -2518,6 +2534,7 @@ function bindInto(text, at, s, { below = false } = {}) {
 var fsp2 = import_fs2.default.promises;
 var home2 = () => import_os2.default.homedir();
 var norm2 = (p) => String(p || "").replace(/^~(?=\/)/, home2());
+var CONFIRM_FIRST = "\u5148\u522B\u52A8\u624B\u3002\u628A\u4E0A\u9762\u7684\u4EFB\u52A1\u8BFB\u900F\uFF1A\u6709\u4E0D\u6E05\u695A\u3001\u6709\u6B67\u4E49\u6216\u9700\u8981\u6211\u62CD\u677F\u7684\u5730\u65B9\uFF0C\u5148\u5217\u51FA\u6765\u95EE\u6211\uFF1B\u90FD\u6E05\u695A\u4E86\uFF0C\u5C31\u7528\u51E0\u53E5\u8BDD\u590D\u8FF0\u4F60\u7684\u7406\u89E3\u548C\u6253\u7B97\u600E\u4E48\u505A\uFF0C\u7B49\u6211\u786E\u8BA4\u540E\u518D\u52A8\u624B\u3002\u8FD9\u4E00\u8F6E\u4E0D\u8981\u6539\u6587\u4EF6\uFF0C\u4E5F\u4E0D\u8981\u8DD1\u6709\u526F\u4F5C\u7528\u7684\u547D\u4EE4\u3002";
 var BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 var LINK_RE2 = LINK_RE;
 var RESULT_RE2 = RESULT_RE;
@@ -2965,7 +2982,7 @@ var ClaudeRunner = class {
         }
       }
     }
-    const model = opts.model || cfg.model || "claude-sonnet-5";
+    const model = opts.model || cfg.model || "claude-opus-5-5";
     const modelCli = claudeCli(model);
     const effort = opts.effort || cfg.effort || "high";
     const permission = opts.permission || cfg.permission || "auto";
@@ -3025,7 +3042,7 @@ var ClaudeRunner = class {
     });
     this.d.saveJobs();
     this.d.onSession(this.job, sid);
-    this.d.notice?.("Claude \u540E\u53F0\u670D\u52A1\u6CA1\u8D77\u6765\uFF0C\u5DF2\u6539\u7528\u65E0\u5934\u4F1A\u8BDD\uFF08\u7B54\u5B8C\u53EF\u4EE5\u70B9\u4EFB\u52A1\u884C\u6253\u5F00\uFF09");
+    if (this.d.C.claude.useBackground === true) this.d.notice?.("Claude \u540E\u53F0\u670D\u52A1\u6CA1\u8D77\u6765\uFF0C\u5DF2\u6539\u7528\u65E0\u5934\u4F1A\u8BDD\uFF08\u7B54\u5B8C\u53EF\u4EE5\u70B9\u4EFB\u52A1\u884C\u6253\u5F00\uFF09");
     return true;
   }
   async watchAgents() {
@@ -3059,7 +3076,7 @@ var ClaudeRunner = class {
   }
   commonArgs() {
     const cfg = this.d.settings.delegate.claude;
-    const model = this.job.model || cfg.model || "claude-sonnet-5";
+    const model = this.job.model || cfg.model || "claude-opus-5-5";
     const modelCli = claudeCli(model);
     const addVault = cfg.addVault !== false && this.d.vaultPath && this.d.vaultPath !== (this.job.cwd || cfg.cwd);
     const out = ["--model", modelCli, "--effort", this.job.effort || cfg.effort || "high", "--permission-mode", this.job.permission || cfg.permission || "auto", "-n", this.job.name];
@@ -3362,7 +3379,7 @@ ${body}`, 12e3);
   }
   defaultModel(agent) {
     const a = this.C[agent] || {};
-    return a.model || (agent === "dsh" ? "deepseek-v4-pro" : "claude-sonnet-5");
+    return a.model || (agent === "dsh" ? "deepseek-v4-pro" : "claude-opus-5-5");
   }
   async delegate(opts) {
     this.refreshSettings();
@@ -3547,6 +3564,7 @@ ${body}`, 12e3);
     else if (c.promptSuffix && c.promptSuffix.trim()) parts.push(c.promptSuffix.trim());
     if (opts.file) parts.push(`
 \uFF08\u6765\u81EA Obsidian\uFF1A${opts.file.path}\uFF09`);
+    if (c.confirmFirst !== false) parts.push(CONFIRM_FIRST);
     return parts.join("\n\n");
   }
   onSession(job, sid) {
@@ -3979,10 +3997,28 @@ var GripWidget = class extends import_view.WidgetType {
     el.className = "ad-grip";
     el.setAttribute("contenteditable", "false");
     el.draggable = true;
-    setLucide(el, "grip-vertical");
+    setLucide(el, "send");
+    const main = AGENTS[this.plugin.defaultTarget()] || AGENTS.claude;
+    el.setAttribute("aria-label", `\u5355\u51FB\u53D1\u7ED9 ${main.short} \xB7 \u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009 Agent \xB7 \u62D6\u5230\u4FA7\u680F\u7684 Agent \u4E0A\u59D4\u6D3E`);
+    const item = { path: this.path, line: this.line, lineText: this.text };
+    let clickTimer = null;
     el.addEventListener("mousedown", (e) => e.stopPropagation());
+    el.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.detail > 1) return;
+      clearTimeout(clickTimer);
+      if (e.metaKey) return this.plugin.gripPick(item, e);
+      clickTimer = setTimeout(() => this.plugin.gripSend(item), 260);
+    });
+    el.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      clearTimeout(clickTimer);
+      this.plugin.gripPick(item, e);
+    });
     el.addEventListener("dragstart", (e) => {
-      const item = { path: this.path, line: this.line, lineText: this.text };
+      clearTimeout(clickTimer);
       e.dataTransfer.setData(ITEM_MIME, JSON.stringify(item));
       e.dataTransfer.setData("text/plain", this.text.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""));
       e.dataTransfer.effectAllowed = "copy";
@@ -4176,7 +4212,7 @@ function buildDecorations(view, plugin) {
         if (state) {
           const widget = new PillWidget(plugin, path6, n, state);
           builder.add(line.to, line.to, import_view.Decoration.widget({ widget, side: 1, block: false }));
-        } else if (n === cursorLine && plugin.views.size && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && kwLine(text)) {
+        } else if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && kwLine(text)) {
           builder.add(line.to, line.to, import_view.Decoration.widget({ widget: new GripWidget(plugin, path6, n, text), side: 1, block: false }));
         }
       }
@@ -5075,6 +5111,11 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       d.promptSuffix = sufTa.value;
       p.saveSettings();
     };
+    const rc = this.row(prompt, "\u52A8\u624B\u524D\u5148\u786E\u8BA4", "\u5728\u6700\u540E\u518D\u8FFD\u52A0\u4E00\u53E5\uFF08\u7B14\u8BB0\u91CC\u770B\u4E0D\u5230\uFF09\uFF1A\u6709\u7591\u95EE\u5148\u95EE\uFF0C\u90FD\u6E05\u695A\u4E86\u5148\u8BF4\u6253\u7B97\uFF0C\u7B49\u4F60\u786E\u8BA4\u518D\u52A8\u624B\u3002", null);
+    this.toggle(rc.querySelector(":scope > .ad-row__right"), d.confirmFirst !== false, (v) => {
+      d.confirmFirst = v;
+      p.saveSettings();
+    });
     const beh = this.card(body, "\u5199\u56DE\u7B14\u8BB0", "\u59D4\u6D3E\u5F00\u59CB\u540E\uFF0C\u5728\u4EFB\u52A1\u4E0B\u9762\u5199\u4E00\u884C \u{1F517}\uFF1B\u5B8C\u6210\u540E\u5199\u4E00\u884C \u{1F4AC}\u3002");
     const r1 = this.row(beh, "\u628A\u72B6\u6001\u6539\u6210 DELEGATED", "\u4FDD\u7559\u539F\u6765\u7684\u65F6\u523B\u548C\u4F18\u5148\u7EA7\u3002", null);
     this.toggle(r1.querySelector(":scope > .ad-row__right"), d.markStatus !== false, (v) => {
@@ -5133,7 +5174,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     if (!this.draft.pinned) this.draft.pinned = [];
     if (!this.draft.order) this.draft.order = [];
     if (!this.draft.custom) this.draft.custom = [];
-    if (!this.draft.defaultByAgent) this.draft.defaultByAgent = { claude: "claude-sonnet-5", dsh: "deepseek-v4-pro" };
+    if (!this.draft.defaultByAgent) this.draft.defaultByAgent = { claude: "claude-opus-5-5", dsh: "deepseek-v4-pro" };
     return this.draft;
   }
   renderModels(body) {
@@ -5143,7 +5184,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     const models = p.allModels(d.custom);
     const enabled = new Set(d.enabled);
     const byId = new Map(models.map((m) => [m.id, m]));
-    const defaultId = d.defaultByAgent[target] || (target === "dsh" ? "deepseek-v4-pro" : "claude-sonnet-5");
+    const defaultId = d.defaultByAgent[target] || (target === "dsh" ? "deepseek-v4-pro" : "claude-opus-5-5");
     const def = byId.get(defaultId) || models.find((m) => m.agent === target) || models[0];
     const intro = body.createDiv({ cls: "ad-models-intro" });
     intro.createDiv({ cls: "ad-models-title", text: "Models" });
@@ -5608,7 +5649,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     });
     for (const [key, label, desc, fallback] of [
       ["showEditorPills", "\u4EFB\u52A1\u884C\u4E0A\u7684\u4F1A\u8BDD\u72B6\u6001\u6309\u94AE", "\u53EA\u6709\u5DF2\u7ECF\u7ED1\u5B9A\u4F1A\u8BDD / \u59D4\u6D3E\u51FA\u53BB\u7684\u884C\u624D\u663E\u793A\u72B6\u6001\u548C\u8FDB\u5EA6\uFF1B\u4E0D\u518D\u5728\u6BCF\u4E2A\u6761\u76EE\u4E0A\u653E\u300C\u59D4\u6D3E\u300D\u6309\u94AE\u3002", true],
-      ["dragGrip", "\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u7684\u62D6\u62FD\u628A\u624B", "\u9762\u677F\u5F00\u7740\u65F6\uFF0C\u5149\u6807\u6240\u5728\u7684\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u51FA\u4E00\u4E2A\u5C0F\u628A\u624B\uFF0C\u62D6\u5230\u67D0\u4E2A Agent \u5361\u7247\u4E0A\u5C31\u662F\u59D4\u6D3E\u3002\u9009\u4E2D\u6587\u5B57\u76F4\u63A5\u62D6\u4E5F\u884C\u3002", true],
+      ["dragGrip", "\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u7684\u628A\u624B", "\u5149\u6807\u6240\u5728\u7684\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u51FA\u4E00\u4E2A\u5C0F\u628A\u624B\uFF1A\u5355\u51FB\u786E\u8BA4\u540E\u8FDE\u540C\u5B50\u5757\u53D1\u7ED9\u4E3B\u529B\uFF0C\u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009\u53D1\u7ED9\u54EA\u4E2A Agent\uFF0C\u62D6\u5230\u4FA7\u680F\u7684 Agent \u5361\u7247\u4E0A\u4E5F\u662F\u59D4\u6D3E\u3002\u9009\u4E2D\u6587\u5B57\u76F4\u63A5\u62D6\u4E5F\u884C\u3002", true],
       ["showRibbonIcon", "\u5DE6\u4FA7\u680F\u56FE\u6807", "\u70B9\u4E00\u4E0B\u6253\u5F00 Agent Deck\u3002", true],
       ["openDashboardOnStartup", "\u542F\u52A8\u65F6\u6253\u5F00\u9762\u677F", "Obsidian \u542F\u52A8\u65F6\u81EA\u52A8\u6253\u5F00 Agent Deck \u4FA7\u680F\u3002", false]
     ]) {
@@ -5951,6 +5992,69 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
     this.contentEl.empty();
   }
 };
+var ConfirmSendModal = class extends import_obsidian4.Modal {
+  constructor(app, { agent, text, path: path6, where }, onSend) {
+    super(app);
+    this.agent = agent;
+    this.text = text;
+    this.path = path6;
+    this.where = where;
+    this.onSend = onSend;
+  }
+  onOpen() {
+    const { contentEl, modalEl } = this;
+    const a = AGENTS[this.agent] || AGENTS.claude;
+    modalEl.addClass("ad-send-modal");
+    contentEl.addClass("ad-modal", "ad-send");
+    contentEl.style.setProperty("--ad-agent", a.color);
+    contentEl.style.setProperty("--ad-agent-soft", a.soft);
+    const head = contentEl.createDiv({ cls: "ad-send__head" });
+    agentIcon(head.createSpan({ cls: "ad-send__mark" }), this.agent);
+    const tt = head.createDiv({ cls: "ad-send__titles" });
+    tt.createDiv({ cls: "ad-send__title", text: `\u53D1\u7ED9 ${a.name}` });
+    tt.createDiv({ cls: "ad-send__sub", text: this.where });
+    const card = contentEl.createDiv({ cls: "ad-send__card" });
+    const lines = this.text.split("\n").filter((l) => l.trim());
+    const base = lines.length ? indentOf(lines[0]) : 0;
+    lines.forEach((raw, i) => {
+      const m = BULLET_RE.exec(raw);
+      const k = kwLine(raw);
+      const body = k ? k.body : m ? m[3] : raw.trim();
+      const row = card.createDiv({ cls: "ad-send__line" + (i === 0 ? " is-title" : "") });
+      row.style.setProperty("--lvl", String(Math.max(0, indentOf(raw) - base)));
+      row.createSpan({ cls: "ad-send__dot" });
+      if (i === 0 && k && k.kw) row.createSpan({ cls: "ad-send__kw", text: k.kw });
+      row.createSpan({ cls: "ad-send__text", text: body });
+    });
+    const more = lines.length - 1;
+    const meta = contentEl.createDiv({ cls: "ad-send__meta" });
+    meta.createSpan({ text: more > 0 ? `\u8FDE\u540C ${more} \u884C\u5B50\u5757\uFF0C\u4F5C\u4E3A\u4E00\u6761\u6D88\u606F` : "\u4F5C\u4E3A\u4E00\u6761\u6D88\u606F" });
+    meta.createSpan({ cls: "ad-send__path", text: this.path });
+    const foot = contentEl.createDiv({ cls: "ad-send__foot" });
+    const keys = foot.createDiv({ cls: "ad-send__keys" });
+    keys.createEl("kbd", { text: "\u21B5" });
+    keys.createSpan({ text: "\u53D1\u9001" });
+    keys.createEl("kbd", { text: "esc" });
+    keys.createSpan({ text: "\u53D6\u6D88" });
+    const btns = foot.createDiv({ cls: "ad-send__btns" });
+    btns.createEl("button", { cls: "ad-btn ad-btn--ghost", text: "\u53D6\u6D88" }).onclick = () => this.close();
+    const go = btns.createEl("button", { cls: "ad-btn ad-send__go" });
+    setLucide(go.createSpan({ cls: "ad-btn__icon" }), "send");
+    go.createSpan({ text: "\u53D1\u9001" });
+    go.onclick = () => {
+      this.close();
+      this.onSend();
+    };
+    setTimeout(() => go.focus(), 0);
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+function indentOf(line) {
+  const ws = (line.match(/^[ \t]*/) || [""])[0];
+  return ws.replace(/\t/g, "  ").length / 2;
+}
 
 // src/menubar.js
 var import_fs3 = __toESM(require("fs"), 1);
@@ -7340,9 +7444,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 image?.isTemplate = true
                 button.image = image
             }
-            button.imagePosition = .imageLeading
-            button.title = " Agent Deck"
-            button.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+            button.imagePosition = .imageOnly
+            button.title = ""
+            button.toolTip = "Agent Deck"
             button.target = self
             button.action = #selector(togglePanel)
         }
@@ -7407,9 +7511,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func refresh() {
-        let short = model.state.short.trimmingCharacters(in: .whitespacesAndNewlines)
-        statusItem.button?.title = short.isEmpty ? " Agent Deck" : " " + short
-
         let height = panelHeightForScreen()
         let resized = abs(panel.frame.height - height) > 0.5
         if resized {
@@ -9138,7 +9239,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   }
   defaultModel(agent) {
     if (agent === "dsh") return this.settings.delegate?.dsh?.model || this.settings.models?.defaultByAgent?.dsh || "deepseek-v4-pro";
-    return this.settings.delegate?.claude?.model || this.settings.models?.defaultByAgent?.claude || "claude-sonnet-5";
+    return this.settings.delegate?.claude?.model || this.settings.models?.defaultByAgent?.claude || "claude-opus-5-5";
   }
   async togglePrimary(agent) {
     var _a;
@@ -9412,19 +9513,26 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     return this._dragItem && Date.now() - this._dragItem.at < 12e4 ? this._dragItem : null;
   }
   // 笔记里的一项拖到了某个 Agent 卡片上：Claude / DSH 后台直接跑，Codex / WorkBuddy 打开客户端交接
-  async delegateDrop(agent, item, fromEl, { cli = false } = {}) {
-    this._dragItem = null;
-    if (!item || !item.path) return this.notice("\u6CA1\u8BA4\u51FA\u62D6\u7684\u662F\u54EA\u4E00\u9879");
+  // 这一项能不能委派：能就给出笔记、行和整块，不能就给出原因
+  async delegateTarget(item) {
+    if (!item || !item.path) return { error: "\u6CA1\u8BA4\u51FA\u62D6\u7684\u662F\u54EA\u4E00\u9879" };
     const file = this.app.vault.getAbstractFileByPath(item.path);
-    if (!file) return this.notice("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0");
+    if (!file) return { error: "\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0" };
     const view = this.viewForPath(item.path);
     const lines = view ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
-    if (line < 0) return this.notice("\u8FD9\u4E00\u884C\u521A\u6539\u8FC7\uFF0C\u91CD\u65B0\u62D6\u4E00\u6B21");
+    if (line < 0) return { error: "\u8FD9\u4E00\u884C\u521A\u6539\u8FC7\uFF0C\u91CD\u65B0\u6765\u4E00\u6B21" };
     const block = blockAt(lines, line), k = kwLine(lines[line]);
-    if (k && k.body.startsWith(AUTO_MARK.trim())) return this.notice("Agent \u8BB0\u7684\u6761\u76EE\u4E0D\u59D4\u6D3E");
-    if (block && findLink(lines, block)) return this.notice("\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\uFF0C\u4E0D\u59D4\u6D3E");
-    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => CLOCK_RE.test(l))) return this.notice("\u5DF2\u6709\u7528\u65F6\u8BB0\u5F55\uFF0C\u4E0D\u59D4\u6D3E");
+    if (k && k.body.startsWith(AUTO_MARK.trim())) return { error: "Agent \u8BB0\u7684\u6761\u76EE\u4E0D\u59D4\u6D3E" };
+    if (block && findLink(lines, block)) return { error: "\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\uFF0C\u4E0D\u59D4\u6D3E" };
+    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => CLOCK_RE.test(l))) return { error: "\u5DF2\u6709\u7528\u65F6\u8BB0\u5F55\uFF0C\u4E0D\u59D4\u6D3E" };
+    return { file, lines, line, block };
+  }
+  async delegateDrop(agent, item, fromEl, { cli = false } = {}) {
+    this._dragItem = null;
+    const t = await this.delegateTarget(item);
+    if (t.error) return this.notice(t.error);
+    const { file, lines, line } = t;
     try {
       const opts = { file, lines, line, agent };
       if (cli && (agent === "claude" || agent === "codex")) await this.delegator.handoffCli(opts);
@@ -9434,6 +9542,28 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       this.notice(String(e.message || e), 8e3);
     }
     this.refreshUI();
+  }
+  // 把手单击：先确认，再把这一项连同子块发给主力（委派的默认目标）
+  async gripSend(item) {
+    const t = await this.delegateTarget(item);
+    if (t.error) return this.notice(t.error);
+    const agent = this.defaultTarget();
+    const where = agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "\u540E\u53F0\u5F00\u8DD1 \xB7 \u7B54\u5B8C\u5728\u684C\u9762\u7248\u6253\u5F00" : "\u540E\u53F0\u65B0\u4F1A\u8BDD";
+    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where }, () => this.delegateDrop(agent, item)).open();
+  }
+  // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样
+  gripPick(item, e) {
+    const main = this.defaultTarget();
+    const menu = new import_obsidian7.Menu();
+    for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x))) {
+      menu.addItem((mi) => {
+        mi.setTitle(AGENTS[id].name + (id === main ? " \xB7 \u4E3B\u529B" : ""));
+        mi.setIcon("bot");
+        if (mi.iconEl) agentIcon(mi.iconEl, id);
+        mi.onClick(() => this.delegateDrop(id, item));
+      });
+    }
+    menu.showAtMouseEvent(e);
   }
   // 笔记里的一项拖到面板的会话卡片上：把这个会话绑给它（和卡片拖到条目上一样，不委派）
   async bindItemToSession(item, data) {

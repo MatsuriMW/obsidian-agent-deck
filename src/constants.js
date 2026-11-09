@@ -61,6 +61,20 @@ export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent
 // `value` is what the DeepSeek Harness ACP config option receives.
 export const MODEL_CATALOG = [
   {
+    id: "claude-opus-5-5",
+    agent: "claude",
+    name: "Opus 5.5",
+    cli: "claude-opus-5-5",
+    value: "claude-opus-5-5",
+    provider: "Claude",
+    context: "1M",
+    strength: 5,
+    speed: 2,
+    tags: ["Reasoning", "Vision"],
+    cost: "High cost",
+    note: "The default: the strongest Claude for delegated work.",
+  },
+  {
     id: "claude-opus-5",
     agent: "claude",
     name: "Opus 5",
@@ -249,7 +263,7 @@ export const DEFAULTS = {
   delegate: {
     target: "claude",
     claude: {
-      model: "claude-sonnet-5",
+      model: "claude-opus-5-5",
       effort: "high",
       permission: "auto",
       cwd: "",
@@ -269,16 +283,17 @@ export const DEFAULTS = {
     promptPrefix: "",
     promptSuffix: "",
     markStatus: true,
+    confirmFirst: true,   // 委派消息末尾追加「先确认再动手」
     writeLink: true,
     nameMax: 56,
   },
   // Model picker state
   models: {
     enabled: MODEL_CATALOG.map((m) => m.id),
-    pinned: ["claude-opus-5", "claude-sonnet-5", "deepseek-v4-pro"],
+    pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-sonnet-5", dsh: "deepseek-v4-pro" },
+    defaultByAgent: { claude: "claude-opus-5-5", dsh: "deepseek-v4-pro" },
     effort: "high",
   },
   ui: {

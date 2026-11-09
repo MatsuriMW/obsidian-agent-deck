@@ -1378,9 +1378,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 image?.isTemplate = true
                 button.image = image
             }
-            button.imagePosition = .imageLeading
-            button.title = " Agent Deck"
-            button.font = NSFont.systemFont(ofSize: 11, weight: .medium)
+            button.imagePosition = .imageOnly
+            button.title = ""
+            button.toolTip = "Agent Deck"
             button.target = self
             button.action = #selector(togglePanel)
         }
@@ -1445,9 +1445,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func refresh() {
-        let short = model.state.short.trimmingCharacters(in: .whitespacesAndNewlines)
-        statusItem.button?.title = short.isEmpty ? " Agent Deck" : " " + short
-
         let height = panelHeightForScreen()
         let resized = abs(panel.frame.height - height) > 0.5
         if resized {

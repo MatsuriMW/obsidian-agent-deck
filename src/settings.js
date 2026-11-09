@@ -262,6 +262,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const sufTa = suf.createEl("textarea", { cls: "ad-textarea", attr: { placeholder: "例如：做完把改动文件列出来。", rows: "2" } });
     sufTa.value = d.promptSuffix || "";
     sufTa.onchange = () => { d.promptSuffix = sufTa.value; p.saveSettings(); };
+    const rc = this.row(prompt, "动手前先确认", "在最后再追加一句（笔记里看不到）：有疑问先问，都清楚了先说打算，等你确认再动手。", null);
+    this.toggle(rc.querySelector(":scope > .ad-row__right"), d.confirmFirst !== false, (v) => { d.confirmFirst = v; p.saveSettings(); });
 
     // Behaviour
     const beh = this.card(body, "写回笔记", "委派开始后，在任务下面写一行 🔗；完成后写一行 💬。");
@@ -313,7 +315,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     if (!this.draft.pinned) this.draft.pinned = [];
     if (!this.draft.order) this.draft.order = [];
     if (!this.draft.custom) this.draft.custom = [];
-    if (!this.draft.defaultByAgent) this.draft.defaultByAgent = { claude: "claude-sonnet-5", dsh: "deepseek-v4-pro" };
+    if (!this.draft.defaultByAgent) this.draft.defaultByAgent = { claude: "claude-opus-5-5", dsh: "deepseek-v4-pro" };
     return this.draft;
   }
 
@@ -324,7 +326,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const models = p.allModels(d.custom);
     const enabled = new Set(d.enabled);
     const byId = new Map(models.map((m) => [m.id, m]));
-    const defaultId = d.defaultByAgent[target] || (target === "dsh" ? "deepseek-v4-pro" : "claude-sonnet-5");
+    const defaultId = d.defaultByAgent[target] || (target === "dsh" ? "deepseek-v4-pro" : "claude-opus-5-5");
     const def = byId.get(defaultId) || models.find((m) => m.agent === target) || models[0];
 
     const intro = body.createDiv({ cls: "ad-models-intro" });
@@ -680,7 +682,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.toggle(nautRow.querySelector(":scope > .ad-row__right"), s.menuBarHideNautilus !== false, (v) => { s.menuBarHideNautilus = v; p.saveSettings(); if (v) p.hideNautilusAgentBar().catch(() => {}); else p.restoreNautilusAgentBar().catch(() => {}); });
     for (const [key, label, desc, fallback] of [
       ["showEditorPills", "任务行上的会话状态按钮", "只有已经绑定会话 / 委派出去的行才显示状态和进度；不再在每个条目上放「委派」按钮。", true],
-      ["dragGrip", "列表项尾巴上的拖拽把手", "面板开着时，光标所在的列表项尾巴上出一个小把手，拖到某个 Agent 卡片上就是委派。选中文字直接拖也行。", true],
+      ["dragGrip", "列表项尾巴上的把手", "光标所在的列表项尾巴上出一个小把手：单击确认后连同子块发给主力，双击或 ⌘ 单击选发给哪个 Agent，拖到侧栏的 Agent 卡片上也是委派。选中文字直接拖也行。", true],
       ["showRibbonIcon", "左侧栏图标", "点一下打开 Agent Deck。", true],
       ["openDashboardOnStartup", "启动时打开面板", "Obsidian 启动时自动打开 Agent Deck 侧栏。", false],
     ]) {

@@ -722,6 +722,7 @@
 .ad-grip svg { width: 13px; height: 13px; }
 .ad-grip:hover { opacity: 1; color: var(--text-normal); background: var(--background-modifier-hover); }
 .ad-grip:active { cursor: grabbing; }
+.menu-item-icon.ad-glyph--img { width: 16px; height: 16px; }
 
 /* Agent 卡片接住拖来的一项 */
 .ad-agentcard__mark { appearance: none; border: 0; padding: 0; cursor: pointer; transition: transform .14s ease, box-shadow .14s ease; }
@@ -790,3 +791,33 @@ body.ad-dragging-session .markdown-source-view .cm-content { outline: 1px dashed
 @media (prefers-reduced-motion: reduce) {
   .ad-lattice__cell { animation-delay: 0ms !important; animation-duration: 1400ms !important; }
 }
+
+/* 把手单击后的发送确认框 */
+.modal.ad-send-modal { width: min(460px, 92vw); padding: 0; border-radius: 16px; overflow: hidden; }
+.modal.ad-send-modal .modal-close-button { top: 14px; right: 14px; }
+.ad-send { width: auto; padding: 20px 20px 0; max-height: 80vh; }
+.ad-send__head { display: flex; align-items: center; gap: 12px; padding-right: 24px; }
+.ad-send__mark { width: 36px; height: 36px; flex: none; border-radius: 10px; box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 0 0 1px var(--ad-line); overflow: hidden; }
+.ad-send__title { font-size: 16px; font-weight: 700; letter-spacing: -.01em; color: var(--ad-ink); }
+.ad-send__sub { font-size: 11.5px; color: var(--ad-muted); margin-top: 2px; }
+.ad-send__card {
+  margin-top: 16px; padding: 12px 14px; max-height: 240px; overflow: auto;
+  border: 1px solid var(--ad-line); border-left: 3px solid var(--ad-agent);
+  border-radius: 12px; background: var(--ad-agent-soft);
+}
+.ad-send__line { display: flex; align-items: baseline; gap: 8px; padding-left: calc(var(--lvl, 0) * 16px); font-size: 13px; line-height: 1.6; color: var(--ad-muted); }
+.ad-send__line + .ad-send__line { margin-top: 2px; }
+.ad-send__line.is-title { color: var(--ad-ink); font-weight: 600; font-size: 14px; }
+.ad-send__dot { width: 5px; height: 5px; flex: none; border-radius: 50%; background: currentColor; opacity: .45; transform: translateY(-2px); }
+.ad-send__kw { flex: none; font-family: var(--ad-figure); font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 5px; background: var(--background-primary); border: 1px solid var(--ad-line); color: var(--ad-muted); }
+.ad-send__text { min-width: 0; overflow-wrap: anywhere; }
+.ad-send__meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 11px; color: var(--ad-faint); }
+.ad-send__path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ad-send__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px -20px 0; padding: 12px 20px; border-top: 1px solid var(--ad-line); background: var(--ad-surface); }
+.ad-send__keys { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ad-faint); }
+.ad-send__keys kbd { font-family: var(--ad-figure); font-size: 10px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--ad-line); background: var(--background-primary); color: var(--ad-muted); }
+.ad-send__keys span + kbd { margin-left: 6px; }
+.ad-send__btns { display: flex; gap: 8px; }
+.ad-btn.ad-send__go { background: var(--ad-agent); color: #fff; border-color: transparent; }
+.ad-btn.ad-send__go:hover { filter: brightness(1.06); background: var(--ad-agent); }
+.ad-btn.ad-send__go:focus-visible { box-shadow: 0 0 0 3px var(--ad-agent-soft); }

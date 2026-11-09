@@ -16,6 +16,9 @@ const fsp = fs.promises;
 const home = () => os.homedir();
 const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
 
+// 追加在每条委派消息末尾（笔记里看不到）：先弄懂、有疑问先问，说清打算后等用户点头再动手
+export const CONFIRM_FIRST = "先别动手。把上面的任务读透：有不清楚、有歧义或需要我拍板的地方，先列出来问我；都清楚了，就用几句话复述你的理解和打算怎么做，等我确认后再动手。这一轮不要改文件，也不要跑有副作用的命令。";
+
 export const BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 export const LINK_RE = J.LINK_RE;
 export const RESULT_RE = J.RESULT_RE;
@@ -386,7 +389,7 @@ class ClaudeRunner {
         }
       }
     }
-    const model = opts.model || cfg.model || "claude-sonnet-5";
+    const model = opts.model || cfg.model || "claude-opus-5-5";
     const modelCli = claudeCli(model);
     const effort = opts.effort || cfg.effort || "high";
     const permission = opts.permission || cfg.permission || "auto";
@@ -444,7 +447,7 @@ class ClaudeRunner {
     });
     this.d.saveJobs();
     this.d.onSession(this.job, sid);
-    this.d.notice?.("Claude 后台服务没起来，已改用无头会话（答完可以点任务行打开）");
+    if (this.d.C.claude.useBackground === true) this.d.notice?.("Claude 后台服务没起来，已改用无头会话（答完可以点任务行打开）");
     return true;
   }
 
@@ -480,7 +483,7 @@ class ClaudeRunner {
 
   commonArgs() {
     const cfg = this.d.settings.delegate.claude;
-    const model = this.job.model || cfg.model || "claude-sonnet-5";
+    const model = this.job.model || cfg.model || "claude-opus-5-5";
     const modelCli = claudeCli(model);
     const addVault = cfg.addVault !== false && this.d.vaultPath && this.d.vaultPath !== (this.job.cwd || cfg.cwd);
     const out = ["--model", modelCli, "--effort", this.job.effort || cfg.effort || "high", "--permission-mode", this.job.permission || cfg.permission || "auto", "-n", this.job.name];
@@ -748,7 +751,7 @@ export class Delegator {
 
   defaultModel(agent) {
     const a = this.C[agent] || {};
-    return a.model || (agent === "dsh" ? "deepseek-v4-pro" : "claude-sonnet-5");
+    return a.model || (agent === "dsh" ? "deepseek-v4-pro" : "claude-opus-5-5");
   }
 
   async delegate(opts) {
@@ -904,6 +907,7 @@ export class Delegator {
     if (opts.promptSuffix && opts.promptSuffix.trim()) parts.push(opts.promptSuffix.trim());
     else if (c.promptSuffix && c.promptSuffix.trim()) parts.push(c.promptSuffix.trim());
     if (opts.file) parts.push(`\n（来自 Obsidian：${opts.file.path}）`);
+    if (c.confirmFirst !== false) parts.push(CONFIRM_FIRST);
     return parts.join("\n\n");
   }
 
