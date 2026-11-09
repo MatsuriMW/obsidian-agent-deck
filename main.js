@@ -1,4 +1,4 @@
-/* Agent Deck 1.2.6 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.2.7 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -265,8 +265,8 @@ var DEFAULTS = {
   dragGrip: true,
   cliOpen: "terminal",
   // 终端里起的 Claude Code 会话点开时：terminal 回终端 / desktop 走桌面版
-  cliTerminal: "terminal",
-  // 主力终端：默认 macOS 系统终端；auto（装了 Warp 用 Warp，否则系统终端）/ iterm / warp / tern
+  cliTerminal: "auto",
+  // 主力终端：auto 按这台电脑的情况挑（见 delegation.js pickTerminal）/ terminal / iterm / warp / tern / herdr
   delegateInTerminal: false,
   // 拖到 Claude Code / Codex 上默认在主力终端里开交互式会话（按住 ⌘ 反过来）
   yieldToNautilus: true,
@@ -2673,18 +2673,70 @@ function openExternal(url) {
   }
 }
 var appInstalled = (name) => ["/Applications", import_path2.default.join(home2(), "Applications")].some((d) => import_fs2.default.existsSync(import_path2.default.join(d, name)));
-var TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable", tern: "so.stencil.tern" };
+var TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable", tern: "so.stencil.tern", herdr: "dev.herdr.app" };
+var TERMINAL_APP = { herdr: "Herdr.app", tern: "Tern.app", iterm: "iTerm.app", warp: "Warp.app", terminal: "Terminal.app" };
+var TERMINAL_ORDER = ["herdr", "tern", "iterm", "warp", "terminal"];
+var HERDR_SPACE = "spagentdeck";
+var findBin = (name) => [import_path2.default.join(home2(), ".local/bin", name), `/opt/homebrew/bin/${name}`, `/usr/local/bin/${name}`].find((p) => import_fs2.default.existsSync(p)) || "";
 var TERN_BIN = "/Applications/Tern.app/Contents/MacOS/tern";
 var TERN_SESSION = "Agent Deck";
 var osa = (script) => new Promise((resolve) => (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], { timeout: 8e3 }, (err2, out) => resolve(err2 ? null : String(out || "").trim())));
 var run = (bin, args) => new Promise((resolve) => (0, import_child_process2.execFile)(bin, args, { timeout: 8e3, maxBuffer: 8 << 20 }, (err2, out) => resolve(err2 ? "" : String(out || ""))));
-function pickTerminal(which = "terminal") {
-  if (which === "warp" || which === "iterm" || which === "terminal" || which === "tern") return which;
-  return appInstalled("Warp.app") ? "warp" : "terminal";
+var DETECTED_FILE = () => import_path2.default.join(home2(), ".agent-deck", "terminal.json");
+var usable = (t) => t === "terminal" || appInstalled(TERMINAL_APP[t]) && (t !== "herdr" || !!findBin("hc"));
+async function pickTerminal(which = "auto") {
+  if (TERMINAL_APP[which]) return usable(which) ? which : "terminal";
+  const ps = await run("/bin/ps", ["-ax", "-o", "pid=,tty=,comm="]);
+  const count = {};
+  for (const l of ps.split("\n")) {
+    const m = /^\s*(\d+)\s+(\S+)\s+(.*)$/.exec(l);
+    if (!m || m[2] === "??" || !/(^|\/)(claude|codex)$/.test(m[3])) continue;
+    const host = await terminalHost(Number(m[1]));
+    if (host && usable(host)) count[host] = (count[host] || 0) + 1;
+  }
+  const seen = TERMINAL_ORDER.filter((t) => count[t]).sort((a, b) => count[b] - count[a])[0];
+  if (seen) {
+    try {
+      await fsp2.mkdir(import_path2.default.dirname(DETECTED_FILE()), { recursive: true });
+      await fsp2.writeFile(DETECTED_FILE(), JSON.stringify({ terminal: seen, at: Date.now() }));
+    } catch {
+    }
+    return seen;
+  }
+  try {
+    const t = JSON.parse(await fsp2.readFile(DETECTED_FILE(), "utf8")).terminal;
+    if (TERMINAL_APP[t] && usable(t)) return t;
+  } catch {
+  }
+  const open = TERMINAL_ORDER.find((t) => usable(t) && ps.includes(`/${TERMINAL_APP[t]}/`));
+  if (open) return open;
+  return TERMINAL_ORDER.find(usable) || "terminal";
 }
-function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
+var TERMINAL_NAME = { herdr: "Herdr", tern: "Tern", iterm: "iTerm2", warp: "Warp", terminal: "\u7CFB\u7EDF\u7EC8\u7AEF" };
+async function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
   const dir = cwd && import_fs2.default.existsSync(cwd) ? cwd : home2();
-  const term = pickTerminal(which);
+  const term = await pickTerminal(which);
+  if (term === "herdr") {
+    const hc = findBin("hc"), app = findBin("herdr-app");
+    const tab = `tbagentdeck${Date.now().toString(36)}`;
+    const out = await run(hc, ["run", "--bg", "--keep", "--no-parent", "--json", "--cwd", dir, "--label", `herdr.space=${HERDR_SPACE}`, "--label", `herdr.tab=${tab}`, "--", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`]);
+    let addr = "";
+    try {
+      addr = JSON.parse(out).address || "";
+    } catch {
+    }
+    if (addr) {
+      if (app) {
+        for (let i = 0; i < 15 && !(await run(app, ["ls"])).includes(tab); i++) await new Promise((r) => setTimeout(r, 300));
+        await run(app, ["do", "space.rename", "--id", HERDR_SPACE, "--name", "Agent Deck"]);
+        await run(app, ["do", "tab.rename", "--id", tab, "--name", title]);
+        if (!background) await run(app, ["do", "pane.focus", "--terminal", addr]);
+      }
+      if (!background) await run("/usr/bin/open", ["-b", TERMINAL_BUNDLE.herdr]);
+      return term;
+    }
+    return openTerminal(command, cwd, "terminal", title, { background });
+  }
   if (term === "warp") {
     try {
       const d = import_path2.default.join(home2(), ".warp/launch_configurations");
@@ -2702,7 +2754,8 @@ function openTerminal(command, cwd = "", which = "auto", title = "Claude", { bac
         `            - exec: ${q(command)}`,
         ""
       ].join("\n"));
-      return openExternal("warp://launch/agent-deck-resume");
+      openExternal("warp://launch/agent-deck-resume");
+      return term;
     } catch {
     }
   }
@@ -2733,7 +2786,7 @@ function openTerminal(command, cwd = "", which = "auto", title = "Claude", { bac
       if (!background) (0, import_child_process2.execFile)("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern], () => {
       });
     })();
-    return true;
+    return term;
   }
   const line = JSON.stringify(`cd ${JSON.stringify(dir)} && ${command}`);
   const script = term === "iterm" ? `tell application "iTerm2"
@@ -2751,9 +2804,9 @@ end tell`;
   try {
     (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], () => {
     });
-    return true;
+    return term === "iterm" ? "iterm" : "terminal";
   } catch {
-    return false;
+    return "";
   }
 }
 async function cliProcess(agent, sid) {
@@ -2803,6 +2856,7 @@ async function terminalHost(pid) {
     const out = (await run("/bin/ps", ["-o", "ppid=,comm=", "-p", String(p)])).trim();
     const m = /^(\d+)\s+(.*)$/.exec(out);
     if (!m) break;
+    if (/(^|\/)herdr-core$|Herdr\.app/.test(m[2])) return "herdr";
     if (/Warp\.app/i.test(m[2])) return "warp";
     if (/Tern\.app|(^|\/)tern$/.test(m[2])) return "tern";
     if (/iTerm/i.test(m[2])) return "iterm";
@@ -2874,6 +2928,30 @@ return ""`);
       }
     }
   }
+  if (proc.host === "herdr" && findBin("hc")) {
+    const hc = findBin("hc"), app = findBin("herdr-app");
+    const chain = /* @__PURE__ */ new Set([proc.pid]);
+    for (let i = 0, p = proc.pid; i < 12 && p > 1; i++) {
+      p = Number((await run("/bin/ps", ["-o", "ppid=", "-p", String(p)])).trim()) || 0;
+      if (p) chain.add(p);
+    }
+    let list = [];
+    try {
+      list = (JSON.parse(await run(hc, ["ls", "--json"]) || "{}").terminals || []).filter((t) => t.state === "live");
+    } catch {
+    }
+    for (const t of list) {
+      let g = null;
+      try {
+        g = JSON.parse(await run(hc, ["get", t.address, "--json"]) || "null");
+      } catch {
+      }
+      if (!g || !(chain.has(g.pid) || chain.has(g.foreground && g.foreground.pid))) continue;
+      if (app) await run(app, ["do", g.labels && g.labels["herdr.space"] ? "pane.focus" : "terminal.keep", "--terminal", t.address]);
+      await run("/usr/bin/open", ["-b", TERMINAL_BUNDLE.herdr]);
+      return "tab";
+    }
+  }
   const bundle = TERMINAL_BUNDLE[proc.host];
   if (!bundle) return "";
   await run("/usr/bin/open", ["-b", bundle]);
@@ -2926,8 +3004,8 @@ function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
   focusCliSession(agent, sid).then((how) => {
     if (how === "tab") return;
     if (how === "app") return plugin.notice("\u5DF2\u5207\u5230 Warp");
-    openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "terminal", AGENTS[agent]?.short || "Claude");
-  }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "terminal"));
+    openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto", AGENTS[agent]?.short || "Claude");
+  }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto"));
   return true;
 }
 function openSession(plugin, agent, sid, app = "", session = null) {
@@ -3534,8 +3612,8 @@ ${body}`, 12e3);
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    openTerminal(`${bin}${extra} -- "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "terminal", truncate(name, 24), { background: true });
-    this.plugin.notice(pickTerminal(this.plugin.settings.cliTerminal) === "tern" ? `\u5DF2\u4EA4\u7ED9 Tern \u91CC\u7684 ${AGENTS[agent]?.name || agent}` : `\u5DF2\u5728\u7EC8\u7AEF\u91CC\u5F00 ${AGENTS[agent]?.name || agent}`, 6e3);
+    const term = await openTerminal(`${bin}${extra} -- "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
+    this.plugin.notice(`\u5DF2\u5728 ${TERMINAL_NAME[term] || "\u7EC8\u7AEF"} \u91CC\u5F00 ${AGENTS[agent]?.name || agent}`, 6e3);
     this.plugin.refreshUI();
     return job;
   }
@@ -5509,14 +5587,14 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
       p.scanNow(true);
     });
-    const dc = this.row(desk, "\u7EC8\u7AEF\u91CC\u7684\u4F1A\u8BDD\u70B9\u5F00\u5230\u54EA\u513F", "\u7EC8\u7AEF\u91CC\u8D77\u7684 Claude Code / Codex \u4F1A\u8BDD\uFF1A\u8FD8\u5F00\u7740\u5C31\u5207\u5230\u8DD1\u5B83\u7684\u90A3\u4E2A\u7EC8\u7AEF\u6807\u7B7E\uFF08\u7CFB\u7EDF\u7EC8\u7AEF\u3001iTerm2\u3001Tern \u80FD\u5207\u5230\u6807\u7B7E\uFF1BWarp \u6CA1\u6709\u811A\u672C\u63A5\u53E3\uFF0C\u53EA\u80FD\u53EB\u5230\u524D\u53F0\uFF09\uFF0C\u5173\u4E86\u624D\u5728\u65B0\u6807\u7B7E\u91CC cd \u5230\u4F1A\u8BDD\u76EE\u5F55 resume\u3002\u4E5F\u53EF\u4EE5\u6539\u6210\u5728\u684C\u9762\u7248\u6253\u5F00\u3002", null);
+    const dc = this.row(desk, "\u7EC8\u7AEF\u91CC\u7684\u4F1A\u8BDD\u70B9\u5F00\u5230\u54EA\u513F", "\u7EC8\u7AEF\u91CC\u8D77\u7684 Claude Code / Codex \u4F1A\u8BDD\uFF1A\u8FD8\u5F00\u7740\u5C31\u5207\u5230\u8DD1\u5B83\u7684\u90A3\u4E2A\u7EC8\u7AEF\u6807\u7B7E\uFF08\u7CFB\u7EDF\u7EC8\u7AEF\u3001iTerm2\u3001Tern\u3001Herdr \u80FD\u5207\u5230\u6807\u7B7E\uFF1BWarp \u6CA1\u6709\u811A\u672C\u63A5\u53E3\uFF0C\u53EA\u80FD\u53EB\u5230\u524D\u53F0\uFF09\uFF0C\u5173\u4E86\u624D\u5728\u65B0\u6807\u7B7E\u91CC cd \u5230\u4F1A\u8BDD\u76EE\u5F55 resume\u3002\u4E5F\u53EF\u4EE5\u6539\u6210\u5728\u684C\u9762\u7248\u6253\u5F00\u3002", null);
     this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: "\u7EC8\u7AEF" }, { id: "desktop", label: "\u684C\u9762\u7248" }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => {
       s.cliOpen = v;
       p.saveSettings();
       this.display();
     });
-    const dt = this.row(desk, "\u4E3B\u529B\u7EC8\u7AEF", "resume\u3001\u6309\u4F4F \u2318 \u62D6\u5230 Claude Code / Codex \u4E0A\u59D4\u6D3E\u65F6\uFF0C\u5728\u54EA\u4E2A\u7EC8\u7AEF\u91CC\u5F00\u65B0\u6807\u7B7E\u3002\u9ED8\u8BA4\u7CFB\u7EDF\u7EC8\u7AEF\uFF1B\u81EA\u52A8 = \u88C5\u4E86 Warp \u7528 Warp\uFF0C\u5426\u5219\u7CFB\u7EDF\u7EC8\u7AEF\u3002", null);
-    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "\u81EA\u52A8" }, { id: "terminal", label: "\u7CFB\u7EDF\u7EC8\u7AEF" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }], s.cliTerminal || "terminal", (v) => {
+    const dt = this.row(desk, "\u4E3B\u529B\u7EC8\u7AEF", "resume\u3001\u6309\u4F4F \u2318 \u62D6\u5230 Claude Code / Codex \u4E0A\u59D4\u6D3E\u65F6\uFF0C\u5728\u54EA\u4E2A\u7EC8\u7AEF\u91CC\u5F00\u65B0\u6807\u7B7E\u3002\u81EA\u52A8\uFF08\u9ED8\u8BA4\uFF09\u6309\u8FD9\u53F0\u7535\u8111\u6311\uFF1A\u773C\u4E0B\u7684 claude / codex \u547D\u4EE4\u884C\u4F1A\u8BDD\u5F00\u5728\u54EA\u4E2A\u7EC8\u7AEF\u5C31\u7528\u54EA\u4E2A\uFF0C\u6CA1\u6709\u5C31\u7528\u4E0A\u6B21\u8BA4\u51FA\u7684\uFF0C\u518D\u6CA1\u6709\u5C31\u770B\u5F00\u7740\u7684\u3001\u88C5\u4E86\u7684\uFF08Herdr \u2192 Tern \u2192 iTerm2 \u2192 Warp \u2192 \u7CFB\u7EDF\u7EC8\u7AEF\uFF09\u3002", null);
+    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "\u81EA\u52A8" }, { id: "terminal", label: "\u7CFB\u7EDF\u7EC8\u7AEF" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => {
       s.cliTerminal = v;
       p.saveSettings();
       this.display();

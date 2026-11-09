@@ -590,10 +590,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const desk = this.card(body, "Claude 桌面版", "桌面版给每个会话存一份清单（claude-code-sessions/<账号>/<组织>/local_*.json）。侧栏里看着同级、其实是「从某个会话开出来」的 side chat，只有这份清单里的 spawnedFrom 记得；终端里的 claude 没有这一项。");
     const d1 = this.row(desk, "识别 side chat 和母子关系", "子会话在面板里缩进，标出从哪个会话开出；顺手看有哪些会话正开着 side chat。", null);
     this.toggle(d1.querySelector(":scope > .ad-row__right"), s.claudeDesktop !== false, (v) => { s.claudeDesktop = v; p.saveSettings(); p.scanNow(true); });
-    const dc = this.row(desk, "终端里的会话点开到哪儿", "终端里起的 Claude Code / Codex 会话：还开着就切到跑它的那个终端标签（系统终端、iTerm2、Tern 能切到标签；Warp 没有脚本接口，只能叫到前台），关了才在新标签里 cd 到会话目录 resume。也可以改成在桌面版打开。", null);
+    const dc = this.row(desk, "终端里的会话点开到哪儿", "终端里起的 Claude Code / Codex 会话：还开着就切到跑它的那个终端标签（系统终端、iTerm2、Tern、Herdr 能切到标签；Warp 没有脚本接口，只能叫到前台），关了才在新标签里 cd 到会话目录 resume。也可以改成在桌面版打开。", null);
     this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: "终端" }, { id: "desktop", label: "桌面版" }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => { s.cliOpen = v; p.saveSettings(); this.display(); });
-    const dt = this.row(desk, "主力终端", "resume、按住 ⌘ 拖到 Claude Code / Codex 上委派时，在哪个终端里开新标签。默认系统终端；自动 = 装了 Warp 用 Warp，否则系统终端。", null);
-    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "自动" }, { id: "terminal", label: "系统终端" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }], s.cliTerminal || "terminal", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
+    const dt = this.row(desk, "主力终端", "resume、按住 ⌘ 拖到 Claude Code / Codex 上委派时，在哪个终端里开新标签。自动（默认）按这台电脑挑：眼下的 claude / codex 命令行会话开在哪个终端就用哪个，没有就用上次认出的，再没有就看开着的、装了的（Herdr → Tern → iTerm2 → Warp → 系统终端）。", null);
+    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: "自动" }, { id: "terminal", label: "系统终端" }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
     const dd = this.row(desk, "拖到 Claude Code / Codex 上默认在终端里开", "开着：笔记里的一项拖到 Claude Code / Codex 卡片上，在主力终端里新开标签跑交互式会话；按住 ⌘ 拖才走后台（Claude Code）/ 交给桌面版（Codex）。关着则反过来。", null);
     this.toggle(dd.querySelector(":scope > .ad-row__right"), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
     const dn = this.row(desk, "有螺旋日程的进度行时让给它", "螺旋日程在任务行下面画了会话进度行时，行尾不再画 pill，🔗 链接放淡、不可点；点进度行打开会话（命令行会话切到它的终端标签）。", null);

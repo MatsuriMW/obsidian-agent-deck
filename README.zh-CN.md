@@ -51,7 +51,7 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 | 最近 14 天 | 按 Agent 堆叠的每天协作分钟，悬停看具体数字 |
 | 最近的会话 | 最近 7 天的会话，可以按状态、Agent 筛选，按标题、项目、最近一步搜索 |
 
-**点会话打开到哪儿**：Claude Code 桌面版会话走 `claude://resume`，Codex 桌面版走 `codex://threads/<id>`，WorkBuddy 走 `workbuddy://chat/<id>`；DeepSeek Harness 只能聚焦客户端，会话号复制到剪贴板。**终端里的 Claude Code / Codex 会话**还开着时，切到跑它的那个终端标签（系统终端、iTerm2、Tern 能选中标签；Warp 没有脚本接口，只能叫到前台），进程退出了才在主力终端里新开标签 resume。主力终端默认是 macOS 系统终端；设置 → 追踪 → Claude 桌面版里可以改成 iTerm2 / Warp / Tern，或者都走桌面版。
+**点会话打开到哪儿**：Claude Code 桌面版会话走 `claude://resume`，Codex 桌面版走 `codex://threads/<id>`，WorkBuddy 走 `workbuddy://chat/<id>`；DeepSeek Harness 只能聚焦客户端，会话号复制到剪贴板。**终端里的 Claude Code / Codex 会话**还开着时，切到跑它的那个终端标签（系统终端、iTerm2、Tern、Herdr 能选中标签；Warp 没有脚本接口，只能叫到前台），进程退出了才在主力终端里新开标签 resume。主力终端默认「自动」，按这台电脑挑：眼下的 `claude` / `codex` 命令行会话多半开在哪个终端就用哪个（认出来记在 `~/.agent-deck/terminal.json`），没有就用上次认出的，再没有就看开着的、装了的，先后是 Herdr → Tern → iTerm2 → Warp → 系统终端。设置 → 追踪 → Claude 桌面版里可以固定成某一个，或者都走桌面版。
 
 ### 拖拽：绑定和委派
 
@@ -64,7 +64,7 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 | 会话卡片 → 空行、空的列表项「- 」、或一段文字上 | 在那儿新建一项 `DOING 20:05 🤖 会话标题` 并绑上；接着上面列表的缩进和编号 |
 | 笔记里的一项 → Agents 里的某个 Agent | 委派。Claude Code、DeepSeek Harness 直接在后台开会话（默认模型 Opus 5.5，设置里可改）；Claude Code 答完一轮自动在桌面版打开，接着在桌面版里聊；Codex、WorkBuddy 没有能起会话的命令行，任务文字放进剪贴板、客户端叫到前台，你粘贴发出去，Agent Deck 认出新会话后自动绑回这一项 |
 | 按住 ⌘ 把会话卡片拖到一项上 | 不绑这一项，在它（连同子项）下面新建一条并绑上 |
-| 按住 ⌘ 把一项拖到 Claude Code / Codex 上 | 在主力终端里新开标签跑交互式的 `claude` / `codex`，任务直接当第一句发出去；会话一出现自动绑回这一项。设置里开了「默认在终端里开」就反过来：不按 ⌘ 是终端，按 ⌘ 是后台 / 桌面版。主力终端是 Tern 时，任务放进 Tern 里单独的「Agent Deck」会话在后台跑，不切走你正看着的会话、也不把 Tern 叫到前台；Claude Code 在信任过的目录里起（库用 `--add-dir` 加进去），不会卡在信任提示上 |
+| 按住 ⌘ 把一项拖到 Claude Code / Codex 上 | 在主力终端里新开标签跑交互式的 `claude` / `codex`，任务直接当第一句发出去；会话一出现自动绑回这一项。设置里开了「默认在终端里开」就反过来：不按 ⌘ 是终端，按 ⌘ 是后台 / 桌面版。主力终端是 Tern 或 Herdr 时，任务放进单独的「Agent Deck」会话（Herdr 里是「Agent Deck」空间）在后台跑，不把终端叫到前台；Claude Code 在信任过的目录里起（库用 `--add-dir` 加进去），不会卡在信任提示上 |
 | 笔记里的一项 → 面板里的某张会话卡片 | 把这个会话绑给它，不委派 |
 | 委派出去的会话有了会话号 | 卡片从它的 Agent 卡片飞进「现在」 |
 | 在客户端里归档这个会话 | 笔记里那一项自动记 `DONE` + `⏱`，收掉 `🔗` |
@@ -72,7 +72,7 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 - **一对一**：一个会话只绑一处。拖到别的项上等于换绑；自动记日记先替它写过的「🤖 …」那一项会一起收掉，时间和状态并到你拖到的那一项上。日记里本来写着的任务和 Agent 跑的那件事其实是同一件时，拖一下就合到一起。
 - **小把手 ⠿**：光标所在的列表项尾巴上有一个小把手。**单击**：先弹确认框，确认后这一项连同子块作为一条消息发给委派的默认 Agent（主力），条目随后变成 `DELEGATED`；**双击**或 **⌘ 单击**：弹出 Agent 列表（Claude Code、Codex、WorkBuddy、DeepSeek Harness），选哪个发给哪个，效果和拖到那张卡片上一样；**按住拖**：拖到侧栏的 Agent 卡片上委派，选中一段文字直接拖也行。拖的时候 Agent 卡片变成虚线框，悬停的那张写着松手会发生什么。
 - **拖进笔记时**目标行高亮，右边标着「绑定到这一项 / 在这里新建一项」；标题、代码块、表格上不接。
-- **⚠️ 终端委派只在 Tern 上实测过。** 在终端里开 `claude` / `codex`，Claude Code 和 Codex 命令行在 Tern 上都已跑通、能绑回这一项；系统终端、iTerm2、Warp 还没实测。Codex 和 Claude Code 一样：库没被信任时换到一个信任过的目录起，库用 `--add-dir` 加进去，不会停在信任提示上。后台委派（不按 ⌘ 拖到 Claude Code / DeepSeek Harness 上）不受影响。
+- **⚠️ 终端委派只在 Tern 和 Herdr 上实测过。** 在终端里开 `claude` / `codex`，Claude Code 和 Codex 命令行在 Tern、Herdr 上都已跑通、能绑回这一项，点会话也能切回那个标签；系统终端、iTerm2、Warp 还没实测。Codex 和 Claude Code 一样：库没被信任时换到一个信任过的目录起，库用 `--add-dir` 加进去，不会停在信任提示上。后台委派（不按 ⌘ 拖到 Claude Code / DeepSeek Harness 上）不受影响。
 - **动手前先确认**：每条委派消息末尾会追加一句（笔记里看不到）：有疑问先问，都清楚了先说打算，等你确认再动手。设置 → 提示词前后缀里可以关掉。
 - **不会再委派的条目**：Agent 记的（🤖 开头）、已经绑着会话的、下面有 ⏱ 用时记录的。拖上去只提示原因。
 - **和螺旋日程一起用**：螺旋日程在任务行下面画了会话进度行时，行尾不再画 pill，🔗 链接放淡、不可点，点螺旋的进度行打开会话。设置里可以关掉这个让位。

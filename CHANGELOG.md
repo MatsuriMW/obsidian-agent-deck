@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.7
+
+- **支持 Herdr 当终端。** 按住 ⌘ 拖到 Claude Code / Codex 上时，用 `hc` 起终端、带上 Herdr 的空间和标签记号，任务出现在 Herdr 里单独的「Agent Deck」空间、标签名是任务标题，不把 Herdr 叫到前台；resume 这类你点出来的会切过去。点 Herdr 里正开着的命令行会话，切到它所在的标签（没有标签的先给它一个）。
+- **主力终端默认「自动」，按这台电脑挑。** 眼下的 `claude` / `codex` 命令行会话多半开在哪个终端就用哪个，认出来记在 `~/.agent-deck/terminal.json`；没有就用上次认出的，再没有就看开着的、装了的，先后是 Herdr → Tern → iTerm2 → Warp → 系统终端。设置里照样可以固定成某一个（新加了 Herdr）。
+- 委派后的通知写明开在哪个终端里。
+
 ## 1.2.6
 
 把发到每个 Agent 的路径都实测了一遍（Claude Code 后台、DeepSeek Harness、Codex 桌面版、WorkBuddy、Claude Code 命令行、Codex 命令行），修了三处跑不通的：
