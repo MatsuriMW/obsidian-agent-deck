@@ -1,4 +1,4 @@
-/* Agent Deck 1.2.5 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.2.6 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1067,6 +1067,7 @@ function isPromptText(text) {
   if (/^<(command-|local-command|system-reminder|task-notification|ci-monitor|environment_context)/.test(s)) return false;
   if (/^\[Request interrupted/.test(s)) return false;
   if (/^You are an AI agent powered by/.test(s)) return false;
+  if (/^# AGENTS\.md instructions|^<(user_instructions|external_codex_)/.test(s)) return false;
   return true;
 }
 function stepText(name, input) {
@@ -2614,25 +2615,35 @@ function findClaudeBinary(configured = "") {
   }
   return "claude";
 }
+function pickTrusted(list, vaultPath) {
+  if (list.includes(vaultPath)) return vaultPath;
+  const isDir = (p) => {
+    try {
+      return import_fs2.default.statSync(p).isDirectory();
+    } catch {
+      return false;
+    }
+  };
+  const trusted = list.filter((p) => isDir(p) && !/^\/(private\/)?(tmp|var)\//.test(p));
+  const notAncestor = trusted.filter((p) => p !== vaultPath && !String(vaultPath).startsWith(p.replace(/\/+$/, "") + "/"));
+  notAncestor.sort((a, b) => a.length - b.length);
+  if (notAncestor.length) return notAncestor[0];
+  trusted.sort((a, b) => a.length - b.length);
+  return trusted[0] || vaultPath;
+}
 async function findTrustedDir(vaultPath) {
-  const h = home2();
   try {
-    const cfg = JSON.parse(await fsp2.readFile(import_path2.default.join(h, ".claude.json"), "utf8"));
-    const projects = cfg.projects || {};
-    const isDir = (p) => {
-      try {
-        return import_fs2.default.statSync(p).isDirectory();
-      } catch {
-        return false;
-      }
-    };
-    if (projects[vaultPath] && projects[vaultPath].hasTrustDialogAccepted) return vaultPath;
-    const trusted = Object.keys(projects).filter((p) => projects[p] && projects[p].hasTrustDialogAccepted && isDir(p));
-    const notAncestor = trusted.filter((p) => p !== vaultPath && !String(vaultPath).startsWith(p.replace(/\/+$/, "") + "/"));
-    notAncestor.sort((a, b) => a.length - b.length);
-    if (notAncestor.length) return notAncestor[0];
-    trusted.sort((a, b) => a.length - b.length);
-    return trusted[0] || vaultPath;
+    const projects = JSON.parse(await fsp2.readFile(import_path2.default.join(home2(), ".claude.json"), "utf8")).projects || {};
+    return pickTrusted(Object.keys(projects).filter((p) => projects[p] && projects[p].hasTrustDialogAccepted), vaultPath);
+  } catch {
+    return vaultPath;
+  }
+}
+async function findCodexTrustedDir(vaultPath) {
+  try {
+    const toml = await fsp2.readFile(import_path2.default.join(process.env.CODEX_HOME || import_path2.default.join(home2(), ".codex"), "config.toml"), "utf8");
+    const list = [...toml.matchAll(/^\[projects\."([^"]+)"\]\s*\n\s*trust_level\s*=\s*"trusted"/gm)].map((m) => m[1]);
+    return pickTrusted(list, vaultPath);
   } catch {
     return vaultPath;
   }
@@ -3491,6 +3502,9 @@ ${body}`, 12e3);
       }
       if (this.vaultPath && cwd !== this.vaultPath) extra += ` --add-dir ${JSON.stringify(this.vaultPath)}`;
       if (cfg.permission) extra += ` --permission-mode ${cfg.permission}`;
+    } else if (agent === "codex" && !opts.cwd) {
+      cwd = await findCodexTrustedDir(this.vaultPath);
+      if (this.vaultPath && cwd !== this.vaultPath) extra += ` -C ${JSON.stringify(cwd)} --add-dir ${JSON.stringify(this.vaultPath)}`;
     }
     const dir = import_path2.default.join(import_os2.default.tmpdir(), "agent-deck");
     await fsp2.mkdir(dir, { recursive: true });
@@ -3520,7 +3534,7 @@ ${body}`, 12e3);
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    openTerminal(`${bin}${extra} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "terminal", truncate(name, 24), { background: true });
+    openTerminal(`${bin}${extra} -- "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "terminal", truncate(name, 24), { background: true });
     this.plugin.notice(pickTerminal(this.plugin.settings.cliTerminal) === "tern" ? `\u5DF2\u4EA4\u7ED9 Tern \u91CC\u7684 ${AGENTS[agent]?.name || agent}` : `\u5DF2\u5728\u7EC8\u7AEF\u91CC\u5F00 ${AGENTS[agent]?.name || agent}`, 6e3);
     this.plugin.refreshUI();
     return job;

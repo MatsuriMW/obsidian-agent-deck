@@ -101,21 +101,34 @@ export function findClaudeBinary(configured = "") {
   return "claude";
 }
 
+// 从已信任的目录里挑一个当工作目录：库本身信任过就用库
+function pickTrusted(list, vaultPath) {
+  if (list.includes(vaultPath)) return vaultPath;
+  const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
+  // 临时目录随时会被清掉，不用
+  const trusted = list.filter((p) => isDir(p) && !/^\/(private\/)?(tmp|var)\//.test(p));
+  // Prefer a trusted directory that is not an ancestor of the vault, so a task
+  // never starts writing in the middle of the user's home directory.
+  const notAncestor = trusted.filter((p) => p !== vaultPath && !String(vaultPath).startsWith(p.replace(/\/+$/, "") + "/"));
+  notAncestor.sort((a, b) => a.length - b.length);
+  if (notAncestor.length) return notAncestor[0];
+  trusted.sort((a, b) => a.length - b.length);
+  return trusted[0] || vaultPath;
+}
+
 export async function findTrustedDir(vaultPath) {
-  const h = home();
   try {
-    const cfg = JSON.parse(await fsp.readFile(path.join(h, ".claude.json"), "utf8"));
-    const projects = cfg.projects || {};
-    const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
-    if (projects[vaultPath] && projects[vaultPath].hasTrustDialogAccepted) return vaultPath;
-    const trusted = Object.keys(projects).filter((p) => projects[p] && projects[p].hasTrustDialogAccepted && isDir(p));
-    // Prefer a trusted directory that is not an ancestor of the vault, so a task
-    // never starts writing in the middle of the user's home directory.
-    const notAncestor = trusted.filter((p) => p !== vaultPath && !String(vaultPath).startsWith(p.replace(/\/+$/, "") + "/"));
-    notAncestor.sort((a, b) => a.length - b.length);
-    if (notAncestor.length) return notAncestor[0];
-    trusted.sort((a, b) => a.length - b.length);
-    return trusted[0] || vaultPath;
+    const projects = JSON.parse(await fsp.readFile(path.join(home(), ".claude.json"), "utf8")).projects || {};
+    return pickTrusted(Object.keys(projects).filter((p) => projects[p] && projects[p].hasTrustDialogAccepted), vaultPath);
+  } catch { return vaultPath; }
+}
+
+// Codex 的信任记录在 config.toml 的 [projects."目录"] trust_level = "trusted"
+export async function findCodexTrustedDir(vaultPath) {
+  try {
+    const toml = await fsp.readFile(path.join(process.env.CODEX_HOME || path.join(home(), ".codex"), "config.toml"), "utf8");
+    const list = [...toml.matchAll(/^\[projects\."([^"]+)"\]\s*\n\s*trust_level\s*=\s*"trusted"/gm)].map((m) => m[1]);
+    return pickTrusted(list, vaultPath);
   } catch { return vaultPath; }
 }
 
@@ -846,6 +859,10 @@ export class Delegator {
       }
       if (this.vaultPath && cwd !== this.vaultPath) extra += ` --add-dir ${JSON.stringify(this.vaultPath)}`;
       if (cfg.permission) extra += ` --permission-mode ${cfg.permission}`;
+    } else if (agent === "codex" && !opts.cwd) {
+      // 交互式 codex 在没信任过的目录里也会停在信任提示上：同样换到信任过的目录，库用 --add-dir 加进去
+      cwd = await findCodexTrustedDir(this.vaultPath);
+      if (this.vaultPath && cwd !== this.vaultPath) extra += ` -C ${JSON.stringify(cwd)} --add-dir ${JSON.stringify(this.vaultPath)}`;
     }
     // 任务文字放进临时文件，命令里用 "$(cat …)" 取：多行、引号都不用转义
     const dir = path.join(os.tmpdir(), "agent-deck");
@@ -862,7 +879,8 @@ export class Delegator {
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    openTerminal(`${bin}${extra} "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "terminal", truncate(name, 24), { background: true });
+    // 任务前面加 --：任务常以「- TODO」开头，不加会被当成命令行参数（unknown option）
+    openTerminal(`${bin}${extra} -- "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "terminal", truncate(name, 24), { background: true });
     this.plugin.notice(pickTerminal(this.plugin.settings.cliTerminal) === "tern" ? `已交给 Tern 里的 ${AGENTS[agent]?.name || agent}` : `已在终端里开 ${AGENTS[agent]?.name || agent}`, 6000);
     this.plugin.refreshUI();
     return job;

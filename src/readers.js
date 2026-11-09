@@ -36,6 +36,8 @@ export function isPromptText(text) {
   if (/^<(command-|local-command|system-reminder|task-notification|ci-monitor|environment_context)/.test(s)) return false;
   if (/^\[Request interrupted/.test(s)) return false;
   if (/^You are an AI agent powered by/.test(s)) return false;
+  // 新版 Codex 会把 AGENTS.md、打开的页面这些上下文当成用户消息塞在最前面，不是任务本身
+  if (/^# AGENTS\.md instructions|^<(user_instructions|external_codex_)/.test(s)) return false;
   return true;
 }
 

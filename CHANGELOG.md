@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.6
+
+把发到每个 Agent 的路径都实测了一遍（Claude Code 后台、DeepSeek Harness、Codex 桌面版、WorkBuddy、Claude Code 命令行、Codex 命令行），修了三处跑不通的：
+
+- **Codex 桌面版的会话认不出来。** 新版 Codex 会把 AGENTS.md、打开的页面这些上下文当成第一条用户消息写进会话，交接时拿它比对任务开头就对不上，任务一直停在「等你在 Codex 里发出去」。现在读会话时跳过这类消息。
+- **在终端里委派（按住 ⌘ 拖）起不来。** 任务以「- TODO」开头，被 `claude` / `codex` 当成命令行参数，报 `unknown option`。现在任务前面加 `--`。
+- **Codex 命令行停在信任提示上。** 和 Claude Code 一样：库没被 Codex 信任过时，换到一个信任过的目录起（读 `~/.codex/config.toml`），库用 `--add-dir` 加进去。挑目录时跳过临时目录。
+
+终端委派目前只在 Tern 上实测过，系统终端、iTerm2、Warp 还没测。
+
 ## 1.2.5
 
 - **列表项尾巴上的把手换成纸飞机，点一下就能委派。** 光标所在的列表项尾巴上一直有它（不再要求面板开着）：
