@@ -182,6 +182,7 @@ final class MenuModel: ObservableObject {
     var onUpdate: (() -> Void)?
     var onShowRequest: (() -> Void)?
     private var lastShowAt = Date().timeIntervalSince1970
+    private var lastStateMtime: Date?
 
     init(statePath: String, parentPid: Int32) {
         self.statePath = statePath
@@ -221,6 +222,10 @@ final class MenuModel: ObservableObject {
     }
 
     func reload() {
+        // 文件没动就不读不解码；插件只在状态变了时才重写它
+        let mtime = (try? FileManager.default.attributesOfItem(atPath: statePath))?[.modificationDate] as? Date
+        if let mtime = mtime, mtime == lastStateMtime { return }
+        lastStateMtime = mtime
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: statePath)),
               let next = try? JSONDecoder().decode(MenuState.self, from: data) else { return }
         if next.updatedAt != state.updatedAt {
@@ -1275,7 +1280,8 @@ private func deckHotKeyHandler(
 ) -> OSStatus {
     guard let userData = userData else { return noErr }
     let delegate = Unmanaged<AppDelegate>.fromOpaque(userData).takeUnretainedValue()
-    delegate.showPanel()
+    // 快捷键按一下开、再按一下收
+    delegate.togglePanel()
     return noErr
 }
 
@@ -1553,7 +1559,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showPanel() {
         if panel.isVisible {
-            // The shortcut always opens/focuses; it never closes the panel.
+            // An explicit show request (the Obsidian command) only opens/focuses.
             panel.orderFrontRegardless()
             panel.makeKey()
             NSApp.activate(ignoringOtherApps: true)

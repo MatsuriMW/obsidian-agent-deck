@@ -63,9 +63,13 @@ export class MenuBarBridge {
     if (!this.enabled) return;
     if (this.timer && this.isAlive()) { this.update(true); return; }
     if (this.starting) return this.starting;
-    this.starting = this._start().catch((e) => {
+    this.starting = this._start().catch(async (e) => {
       console.error("[agent-deck] menu bar", e);
-      this.plugin.notice("macOS 菜单栏启动失败：" + (e && e.message || e), 12000);
+      // 起不来就把开关一起关掉，免得设置里亮着、菜单栏却没有图标
+      this.plugin.settings.showMenuBar = false;
+      this.plugin.settingTab?.mbSwitch?.setOn(false);
+      try { await this.plugin.saveSettings(); } catch { /* 下次再存 */ }
+      this.plugin.notice("macOS 菜单栏启动失败，已把开关关上：" + (e && e.message || e), 12000);
     }).finally(() => { this.starting = null; });
     return this.starting;
   }
@@ -83,6 +87,8 @@ export class MenuBarBridge {
   }
 
   async _start() {
+    // 上次编译失败留下的 disabled 会让 update() 永远不写状态；重新打开开关就重新试
+    this.disabled = false;
     await fsp.mkdir(this.dir, { recursive: true });
     this.writeAgentIcons();
     const hash = crypto.createHash("sha256").update(source).digest("hex").slice(0, 16);
@@ -92,6 +98,8 @@ export class MenuBarBridge {
     if (!hasBinary || oldHash !== hash) {
       await this.compile(hash);
     }
+    // 编译要几秒；这期间开关被关掉的话，别再把助手拉起来
+    if (!this.enabled) return;
     this.update(true);
     this.launch();
     clearInterval(this.timer);
@@ -103,7 +111,7 @@ export class MenuBarBridge {
       throw new Error("找不到 /usr/bin/swiftc。安装 Xcode Command Line Tools（xcode-select --install）后再试。");
     }
     this.plugin.notice("正在准备 macOS 菜单栏（第一次要编译一个小助手，约几秒）…", 6000);
-    this.killExisting();
+    await new Promise((resolve) => this.killExisting(resolve));
     await fsp.mkdir(path.join(this.appPath, "Contents", "MacOS"), { recursive: true });
     await fsp.writeFile(this.srcPath, source, "utf8");
     await fsp.writeFile(this.infoPath, INFO_PLIST, "utf8");
@@ -129,20 +137,25 @@ export class MenuBarBridge {
 
   launch() {
     this.lastLaunch = Date.now();
-    this.killExisting();
     const args = ["-n", "-g", this.appPath, "--args", "--state", this.statePath, "--parent", String(process.pid), "--pidfile", this.pidPath];
-    try { execFile("/usr/bin/open", args, () => {}); } catch (e) { console.error("[agent-deck] launch menu bar", e); }
+    // 等 pkill 跑完再 open：两个都是异步的，抢跑时 pkill 会把刚起来的新助手一起杀掉，图标就没了
+    this.killExisting(() => {
+      if (!this.enabled) return;
+      try { execFile("/usr/bin/open", args, () => {}); } catch (e) { console.error("[agent-deck] launch menu bar", e); }
+    });
   }
 
-  killExisting() {
+  killExisting(done) {
     try {
       const pid = Number(fs.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) { try { process.kill(pid, "SIGTERM"); } catch { /* gone */ } }
     } catch { /* no pid */ }
     // A plugin reload can leave an older helper behind even when the pid file
     // already points at the newest one. Kill every helper using this exact binary.
-    try { execFile("/usr/bin/pkill", ["-f", this.binPath], () => {}); } catch { /* pkill missing */ }
     try { fs.unlinkSync(this.pidPath); } catch { /* none */ }
+    // 只认助手本身（路径后面跟空格或结尾）：不加边界的话，编译时 swiftc 的 -o …AgentDeckMenuBar.new 也会被匹配、被杀
+    const pattern = this.binPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "( |$)";
+    try { execFile("/usr/bin/pkill", ["-f", pattern], () => done && done()); } catch { done && done(); }
   }
 
   show() {
@@ -157,6 +170,8 @@ export class MenuBarBridge {
   update(force = false) {
     if (!this.enabled || this.disabled) return;
     try {
+      // 助手被杀或崩了就拉回来。以前这句在「状态没变就返回」之后，空闲时图标消失了也不会补
+      if (this.timer && !this.isAlive() && Date.now() - (this.lastLaunch || 0) > 10000) this.launch();
       const { updatedAt, ...rest } = this.plugin.buildMenuBarState();
       const body = JSON.stringify(rest);
       if (!force && body === this.lastJson) return;
@@ -166,7 +181,6 @@ export class MenuBarBridge {
       fs.mkdirSync(this.dir, { recursive: true });
       fs.writeFileSync(tmp, json, "utf8");
       fs.renameSync(tmp, this.statePath);
-      if (this.timer && !this.isAlive() && Date.now() - (this.lastLaunch || 0) > 10000) this.launch();
     } catch (e) { console.error("[agent-deck] menu bar state", e); }
   }
 

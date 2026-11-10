@@ -112,7 +112,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   toggle(parent, value, onChange, disabled = false) {
     const b = parent.createEl("button", { cls: "ad-switch" + (value ? " is-on" : "") + (disabled ? " is-disabled" : ""), attr: { role: "switch", "aria-checked": String(!!value) } });
     b.createSpan({ cls: "ad-switch__knob" });
-    if (!disabled) b.onclick = () => onChange(!value);
+    // 状态记在按钮自己身上：点一下马上换样子，下一次点发的是新值（以前一直发创建时的反值，第二下就像点不动）
+    let on = !!value;
+    b.setOn = (v) => { on = !!v; b.classList.toggle("is-on", on); b.setAttribute("aria-checked", String(on)); };
+    if (!disabled) b.onclick = () => { b.setOn(!on); onChange(on); };
     return b;
   }
 
@@ -628,7 +631,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
     const ui = this.card(body, "界面");
     const mb = this.row(ui, "macOS 菜单栏", "在系统最上方显示一个小图标和一串简短说明；点开是会话详情和跳转。Obsidian 右下角不再显示 Agent 汇总。第一次启动会编译一个 Swift 小助手，需要 Xcode Command Line Tools。", null);
-    this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => { s.showMenuBar = v; p.saveSettings(); p.applyUiSettings(); });
+    // 菜单栏里点「隐藏」、助手起不来时，插件用 mbSwitch.setOn 把这里拨回去
+    this.mbSwitch = this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => { s.showMenuBar = v; p.saveSettings(); p.applyUiSettings(); });
     for (const [key, label, desc, min, max] of [
       ["menuBarPrimaryLimit", "菜单栏：主力最多几个", "主力 Agent 全量追踪，所以可以多放几个会话。", 3, 12],
       ["menuBarOtherLimit", "菜单栏：其它 Agent 最多几个", "其它 Agent 只显示正在运行的会话。", 1, 6],

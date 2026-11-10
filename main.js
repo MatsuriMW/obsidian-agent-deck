@@ -1,4 +1,4 @@
-/* Agent Deck 1.2.7 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.2.8 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -5001,7 +5001,16 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
   toggle(parent, value, onChange, disabled = false) {
     const b = parent.createEl("button", { cls: "ad-switch" + (value ? " is-on" : "") + (disabled ? " is-disabled" : ""), attr: { role: "switch", "aria-checked": String(!!value) } });
     b.createSpan({ cls: "ad-switch__knob" });
-    if (!disabled) b.onclick = () => onChange(!value);
+    let on = !!value;
+    b.setOn = (v) => {
+      on = !!v;
+      b.classList.toggle("is-on", on);
+      b.setAttribute("aria-checked", String(on));
+    };
+    if (!disabled) b.onclick = () => {
+      b.setOn(!on);
+      onChange(on);
+    };
     return b;
   }
   segmented(parent, options, value, onChange, cls = "") {
@@ -5664,7 +5673,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     jr.createDiv({ cls: "ad-hint", text: "\u53EA\u8BB0 Claude Code / Codex / WorkBuddy\uFF1B\u6A21\u578B\u95EE\u4E0D\u5230\u65F6\u624B\u52A8\u6574\u7406\u4F1A\u7528\u4F1A\u8BDD\u6807\u9898\u5148\u8BB0\u4E0A\uFF0C\u81EA\u52A8\u6574\u7406\u7B49\u4E0B\u4E00\u8F6E\u3002\u5199\u5165\u524D\u4F1A\u6838\u5BF9\u65E5\u8BB0\u6CA1\u88AB\u540C\u65F6\u6539\u8FC7\uFF0C\u6B63\u5728\u7528\u8F93\u5165\u6CD5\u6253\u5B57\u7684\u90A3\u4E00\u4E0B\u4E0D\u5199\u3002" });
     const ui = this.card(body, "\u754C\u9762");
     const mb = this.row(ui, "macOS \u83DC\u5355\u680F", "\u5728\u7CFB\u7EDF\u6700\u4E0A\u65B9\u663E\u793A\u4E00\u4E2A\u5C0F\u56FE\u6807\u548C\u4E00\u4E32\u7B80\u77ED\u8BF4\u660E\uFF1B\u70B9\u5F00\u662F\u4F1A\u8BDD\u8BE6\u60C5\u548C\u8DF3\u8F6C\u3002Obsidian \u53F3\u4E0B\u89D2\u4E0D\u518D\u663E\u793A Agent \u6C47\u603B\u3002\u7B2C\u4E00\u6B21\u542F\u52A8\u4F1A\u7F16\u8BD1\u4E00\u4E2A Swift \u5C0F\u52A9\u624B\uFF0C\u9700\u8981 Xcode Command Line Tools\u3002", null);
-    this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => {
+    this.mbSwitch = this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => {
       s.showMenuBar = v;
       p.saveSettings();
       p.applyUiSettings();
@@ -6340,6 +6349,7 @@ final class MenuModel: ObservableObject {
     var onUpdate: (() -> Void)?
     var onShowRequest: (() -> Void)?
     private var lastShowAt = Date().timeIntervalSince1970
+    private var lastStateMtime: Date?
 
     init(statePath: String, parentPid: Int32) {
         self.statePath = statePath
@@ -6379,6 +6389,10 @@ final class MenuModel: ObservableObject {
     }
 
     func reload() {
+        // \u6587\u4EF6\u6CA1\u52A8\u5C31\u4E0D\u8BFB\u4E0D\u89E3\u7801\uFF1B\u63D2\u4EF6\u53EA\u5728\u72B6\u6001\u53D8\u4E86\u65F6\u624D\u91CD\u5199\u5B83
+        let mtime = (try? FileManager.default.attributesOfItem(atPath: statePath))?[.modificationDate] as? Date
+        if let mtime = mtime, mtime == lastStateMtime { return }
+        lastStateMtime = mtime
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: statePath)),
               let next = try? JSONDecoder().decode(MenuState.self, from: data) else { return }
         if next.updatedAt != state.updatedAt {
@@ -7433,7 +7447,8 @@ private func deckHotKeyHandler(
 ) -> OSStatus {
     guard let userData = userData else { return noErr }
     let delegate = Unmanaged<AppDelegate>.fromOpaque(userData).takeUnretainedValue()
-    delegate.showPanel()
+    // \u5FEB\u6377\u952E\u6309\u4E00\u4E0B\u5F00\u3001\u518D\u6309\u4E00\u4E0B\u6536
+    delegate.togglePanel()
     return noErr
 }
 
@@ -7711,7 +7726,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func showPanel() {
         if panel.isVisible {
-            // The shortcut always opens/focuses; it never closes the panel.
+            // An explicit show request (the Obsidian command) only opens/focuses.
             panel.orderFrontRegardless()
             panel.makeKey()
             NSApp.activate(ignoringOtherApps: true)
@@ -7854,9 +7869,15 @@ var MenuBarBridge = class {
       return;
     }
     if (this.starting) return this.starting;
-    this.starting = this._start().catch((e) => {
+    this.starting = this._start().catch(async (e) => {
       console.error("[agent-deck] menu bar", e);
-      this.plugin.notice("macOS \u83DC\u5355\u680F\u542F\u52A8\u5931\u8D25\uFF1A" + (e && e.message || e), 12e3);
+      this.plugin.settings.showMenuBar = false;
+      this.plugin.settingTab?.mbSwitch?.setOn(false);
+      try {
+        await this.plugin.saveSettings();
+      } catch {
+      }
+      this.plugin.notice("macOS \u83DC\u5355\u680F\u542F\u52A8\u5931\u8D25\uFF0C\u5DF2\u628A\u5F00\u5173\u5173\u4E0A\uFF1A" + (e && e.message || e), 12e3);
     }).finally(() => {
       this.starting = null;
     });
@@ -7879,6 +7900,7 @@ var MenuBarBridge = class {
     }
   }
   async _start() {
+    this.disabled = false;
     await fsp3.mkdir(this.dir, { recursive: true });
     this.writeAgentIcons();
     const hash = import_crypto.default.createHash("sha256").update(menubar_default).digest("hex").slice(0, 16);
@@ -7891,6 +7913,7 @@ var MenuBarBridge = class {
     if (!hasBinary || oldHash !== hash) {
       await this.compile(hash);
     }
+    if (!this.enabled) return;
     this.update(true);
     this.launch();
     clearInterval(this.timer);
@@ -7901,7 +7924,7 @@ var MenuBarBridge = class {
       throw new Error("\u627E\u4E0D\u5230 /usr/bin/swiftc\u3002\u5B89\u88C5 Xcode Command Line Tools\uFF08xcode-select --install\uFF09\u540E\u518D\u8BD5\u3002");
     }
     this.plugin.notice("\u6B63\u5728\u51C6\u5907 macOS \u83DC\u5355\u680F\uFF08\u7B2C\u4E00\u6B21\u8981\u7F16\u8BD1\u4E00\u4E2A\u5C0F\u52A9\u624B\uFF0C\u7EA6\u51E0\u79D2\uFF09\u2026", 6e3);
-    this.killExisting();
+    await new Promise((resolve) => this.killExisting(resolve));
     await fsp3.mkdir(import_path3.default.join(this.appPath, "Contents", "MacOS"), { recursive: true });
     await fsp3.writeFile(this.srcPath, menubar_default, "utf8");
     await fsp3.writeFile(this.infoPath, INFO_PLIST, "utf8");
@@ -7948,16 +7971,18 @@ var MenuBarBridge = class {
   }
   launch() {
     this.lastLaunch = Date.now();
-    this.killExisting();
     const args = ["-n", "-g", this.appPath, "--args", "--state", this.statePath, "--parent", String(process.pid), "--pidfile", this.pidPath];
-    try {
-      (0, import_child_process3.execFile)("/usr/bin/open", args, () => {
-      });
-    } catch (e) {
-      console.error("[agent-deck] launch menu bar", e);
-    }
+    this.killExisting(() => {
+      if (!this.enabled) return;
+      try {
+        (0, import_child_process3.execFile)("/usr/bin/open", args, () => {
+        });
+      } catch (e) {
+        console.error("[agent-deck] launch menu bar", e);
+      }
+    });
   }
-  killExisting() {
+  killExisting(done) {
     try {
       const pid = Number(import_fs3.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
@@ -7969,13 +7994,14 @@ var MenuBarBridge = class {
     } catch {
     }
     try {
-      (0, import_child_process3.execFile)("/usr/bin/pkill", ["-f", this.binPath], () => {
-      });
-    } catch {
-    }
-    try {
       import_fs3.default.unlinkSync(this.pidPath);
     } catch {
+    }
+    const pattern = this.binPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "( |$)";
+    try {
+      (0, import_child_process3.execFile)("/usr/bin/pkill", ["-f", pattern], () => done && done());
+    } catch {
+      done && done();
     }
   }
   show() {
@@ -7989,6 +8015,7 @@ var MenuBarBridge = class {
   update(force = false) {
     if (!this.enabled || this.disabled) return;
     try {
+      if (this.timer && !this.isAlive() && Date.now() - (this.lastLaunch || 0) > 1e4) this.launch();
       const { updatedAt, ...rest } = this.plugin.buildMenuBarState();
       const body = JSON.stringify(rest);
       if (!force && body === this.lastJson) return;
@@ -7998,7 +8025,6 @@ var MenuBarBridge = class {
       import_fs3.default.mkdirSync(this.dir, { recursive: true });
       import_fs3.default.writeFileSync(tmp, json, "utf8");
       import_fs3.default.renameSync(tmp, this.statePath);
-      if (this.timer && !this.isAlive() && Date.now() - (this.lastLaunch || 0) > 1e4) this.launch();
     } catch (e) {
       console.error("[agent-deck] menu bar state", e);
     }
@@ -9088,6 +9114,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
         this.settings.showMenuBar = false;
         await this.saveSettings();
         this.menubar?.stop();
+        this.settingTab?.mbSwitch?.setOn(false);
         this.notice("\u5DF2\u9690\u85CF macOS \u83DC\u5355\u680F\uFF1B\u53EF\u5728 Agent Deck \u2192 \u8FFD\u8E2A \u91CC\u91CD\u65B0\u6253\u5F00", 8e3);
         return;
       }

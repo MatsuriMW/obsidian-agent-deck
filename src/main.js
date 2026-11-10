@@ -99,6 +99,7 @@ export default class AgentDeckPlugin extends Plugin {
         this.settings.showMenuBar = false;
         await this.saveSettings();
         this.menubar?.stop();
+        this.settingTab?.mbSwitch?.setOn(false);
         this.notice("已隐藏 macOS 菜单栏；可在 Agent Deck → 追踪 里重新打开", 8000);
         return;
       }
