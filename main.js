@@ -1,4 +1,4 @@
-/* Agent Deck 1.2.8 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.2.9 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -6305,6 +6305,13 @@ struct MenuAgent: Decodable, Identifiable {
     let running: Int
     let waiting: Int
     let primary: Bool
+    let today: String?
+}
+
+/// One number in the panel header (label above, value below). The plugin decides which ones to send.
+struct MenuStat: Decodable {
+    let label: String
+    let value: String
 }
 
 struct MenuState: Decodable {
@@ -6317,8 +6324,9 @@ struct MenuState: Decodable {
     let waiting: Int
     let sessions: [MenuSession]
     let agents: [MenuAgent]?
+    let stats: [MenuStat]?
 
-    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "\u7B49\u5F85 Agent Deck\u2026", usage: nil, hotkey: nil, running: 0, waiting: 0, sessions: [], agents: [])
+    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "\u7B49\u5F85 Agent Deck\u2026", usage: nil, hotkey: nil, running: 0, waiting: 0, sessions: [], agents: [], stats: nil)
 
     var needsApproval: Int {
         sessions.filter { $0.state == "needs-approval" }.count
@@ -6466,25 +6474,24 @@ extension Color {
 }
 
 enum DeckPalette {
-    // Solid, near-white surfaces with a slight lavender tint so the panel sits
-    // next to the light Obsidian theme instead of reading as parchment.
-    static let panel = Color.solid("#F6F5FA", "#17161B")
-    static let header = Color.solid("#EFEDF5", "#1E1D23")
-    static let panelBorder = Color.solid("#D8D4E1", "#3A3742")
+    // Same language as the plugin panel in Obsidian (styles.css): warm neutral
+    // surfaces, and the one accent is the plugin's muted --ad-accent (#746d94).
+    // No saturated violet: next to the Obsidian window it read as a different app.
+    static let panel = Color.solid("#F7F6F3", "#1A1917")
+    static let header = Color.solid("#F0EEEA", "#201F1D")
+    static let panelBorder = Color.solid("#DDD9D2", "#3A3835")
 
-    static let card = Color.solid("#FFFFFF", "#242229")
-    static let cardHover = Color.solid("#FDFCFF", "#2B2831")
-    static let cardBorder = Color.solid("#E4E1EB", "#3A3742")
-    static let cardBorderHover = Color.solid("#C9C4D6", "#595367")
+    static let card = Color.solid("#FFFFFF", "#252421")
+    static let cardHover = Color.solid("#FDFCFA", "#2C2A27")
+    static let cardBorder = Color.solid("#E6E3DD", "#3A3835")
+    static let cardBorderHover = Color.solid("#CCC7BE", "#59554F")
 
-    static let ink = Color.solid("#1B1A22", "#F6F3FA")
-    static let secondary = Color.solid("#5F5C6B", "#B5B0BF")
-    static let tertiary = Color.solid("#85818F", "#8C8896")
-    static let divider = Color.solid("#E3E0EA", "#322F39")
-    static let pill = Color.solid("#E7E4EE", "#2D2A33")
-    static let brand = Color.solid("#4E43C8", "#7C6DFF")
-    static let brandHover = Color.solid("#5B50D8", "#8E81FF")
-    static let brandInk = Color.solid("#FFFFFF", "#171512")
+    static let ink = Color.solid("#1F1E1C", "#F4F2EE")
+    static let secondary = Color.solid("#625F59", "#B6B2AA")
+    static let tertiary = Color.solid("#89857D", "#8D8980")
+    static let divider = Color.solid("#E5E2DB", "#33312E")
+    static let pill = Color.solid("#EAE7E1", "#2E2C29")
+    static let brand = Color.solid("#746D94", "#9C95BD")
 }
 
 // MARK: - TODOseq keywords
@@ -6754,29 +6761,29 @@ enum DeckAgents {
         case "claude":
             return AgentStyle(
                 id: "claude",
-                color: .solid("#D97757", "#F09475"),
-                tint: .solid("#FBECE4", "#39251E"),
+                color: .solid("#A86F58", "#D49A84"),
+                tint: .solid("#F5EAE4", "#35261F"),
                 glyph: "\u2733", short: "Claude"
             )
         case "codex":
             return AgentStyle(
                 id: "codex",
-                color: .solid("#4C82C3", "#7FB2E8"),
-                tint: .solid("#EAF1F9", "#1E2C3B"),
+                color: .solid("#71899D", "#9DB5C9"),
+                tint: .solid("#E9EEF2", "#222B33"),
                 glyph: "\u2318", short: "Codex"
             )
         case "workbuddy":
             return AgentStyle(
                 id: "workbuddy",
-                color: .solid("#1C9A78", "#46C9A3"),
-                tint: .solid("#E6F5EF", "#1B332B"),
+                color: .solid("#71917F", "#9CBDAA"),
+                tint: .solid("#E8F0EB", "#212E27"),
                 glyph: "\u2726", short: "WorkBuddy"
             )
         case "dsh":
             return AgentStyle(
                 id: "dsh",
-                color: .solid("#4A66E8", "#7F95FF"),
-                tint: .solid("#EAEDFF", "#232744"),
+                color: .solid("#767FAE", "#A2ABD6"),
+                tint: .solid("#EAECF4", "#25283A"),
                 glyph: "\u25C8", short: "DSH"
             )
         default:
@@ -6915,6 +6922,12 @@ struct AgentPill: View {
                 .font(.system(size: 9.5, weight: agent.primary ? .bold : .semibold))
                 .foregroundColor(DeckPalette.ink)
                 .lineLimit(1)
+            if let today = agent.today, !today.isEmpty {
+                Text(today)
+                    .font(.system(size: 8.5, weight: .medium).monospacedDigit())
+                    .foregroundColor(DeckPalette.secondary)
+                    .lineLimit(1)
+            }
             Spacer(minLength: 3)
             HStack(spacing: 2) {
                 KeywordGlyph(style: DeckKeywords.doing, size: 10, active: agent.running > 0)
@@ -6947,30 +6960,32 @@ struct HeaderBlock: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(alignment: .top, spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
-                        .fill(DeckPalette.brand)
-                    if let image = lucideImage(lucideWandSVG, 15) {
-                        Image(nsImage: image)
-                            .renderingMode(.template)
-                            .foregroundColor(.white)
-                    } else {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundColor(.white)
+                // No app icon or name here: the panel hangs from the menu bar icon,
+                // so the header starts straight with today's numbers.
+                if let stats = state.stats, !stats.isEmpty {
+                    HStack(alignment: .top, spacing: 14) {
+                        ForEach(Array(stats.enumerated()), id: \\.offset) { _, stat in
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(stat.label)
+                                    .font(.system(size: 8.5, weight: .semibold))
+                                    .foregroundColor(DeckPalette.tertiary)
+                                    .lineLimit(1)
+                                    .fixedSize()
+                                Text(stat.value)
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded).monospacedDigit())
+                                    .foregroundColor(DeckPalette.ink)
+                                    .lineLimit(1)
+                                    .fixedSize()
+                            }
+                        }
                     }
-                }
-                .frame(width: 30, height: 30)
-                .shadow(color: DeckPalette.brand.opacity(0.35), radius: 6, x: 0, y: 2)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Agent Deck")
-                        .font(.system(size: 15, weight: .bold))
-                        .foregroundColor(DeckPalette.ink)
+                    .padding(.top, 1)
+                } else {
                     Text(state.usageLine)
-                        .font(.system(size: 10.5, weight: .medium).monospacedDigit())
-                        .foregroundColor(DeckPalette.secondary)
+                        .font(.system(size: 12.5, weight: .semibold).monospacedDigit())
+                        .foregroundColor(DeckPalette.ink)
                         .lineLimit(1)
+                        .padding(.top, 2)
                 }
 
                 Spacer(minLength: 6)
@@ -7257,12 +7272,6 @@ struct FooterButton: View {
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .strokeBorder(border, lineWidth: 1)
                 )
-                .shadow(
-                    color: kind == .primary ? DeckPalette.brand.opacity(0.32) : .clear,
-                    radius: 5,
-                    x: 0,
-                    y: 2
-                )
                 .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -7273,9 +7282,7 @@ struct FooterButton: View {
 
     private var foreground: Color {
         switch kind {
-        case .primary:
-            return DeckPalette.brandInk
-        case .secondary:
+        case .primary, .secondary:
             return DeckPalette.ink
         case .quiet:
             return hovering ? DeckPalette.ink : DeckPalette.secondary
@@ -7284,10 +7291,12 @@ struct FooterButton: View {
 
     private var background: Color {
         switch kind {
+        // Buttons stay in the panel's own neutrals: the primary one is a shade
+        // darker than the background, the secondary one is an outline.
         case .primary:
-            return hovering ? DeckPalette.brandHover : DeckPalette.brand
+            return hovering ? DeckPalette.cardBorder : DeckPalette.pill
         case .secondary:
-            return hovering ? DeckPalette.cardHover : DeckPalette.card
+            return hovering ? DeckPalette.card : .clear
         case .quiet:
             return hovering ? DeckPalette.pill : .clear
         }
@@ -9810,8 +9819,22 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     summary.push(`${running} \u4E2A\u5728\u8DD1`);
     if (waiting) summary.push(`${waiting} \u4E2A\u7B49\u4F60`);
     const usage = today ? `\u4ECA\u5929 ${fmtMin(today.wall)} \xB7 ${fmtTok(today.out)} tok` : "\u4ECA\u5929\u8FD8\u6CA1\u6709\u7528\u91CF\u8BB0\u5F55";
+    const stats = [];
+    if (today) {
+      stats.push({ label: "\u534F\u4F5C", value: fmtMin(today.wall) }, { label: "\u4EA7\u51FA", value: `${fmtTok(today.out)} tok` }, { label: "\u4F1A\u8BDD", value: String(today.sessions || 0) });
+      const prev = [];
+      for (let i = 1; i <= 7; i++) {
+        const d = this.store.get(dayKey(Date.now() - i * 864e5, cfg));
+        if (d && d.wall) prev.push(d.wall);
+      }
+      if (prev.length >= 3) {
+        const pct = Math.round((today.wall / (prev.reduce((a, b) => a + b, 0) / prev.length) - 1) * 100);
+        stats.push({ label: "\u8F83 7 \u65E5\u5747", value: `${pct >= 0 ? "+" : ""}${pct}%` });
+      }
+    }
     const agents = AGENT_ORDER.filter((x) => this.agentEnabled(x)).map((x) => {
       const rows = live.filter((s) => s.agent === x);
+      const mine = today && today.by && today.by[x];
       return {
         id: x,
         short: AGENTS[x].short,
@@ -9820,7 +9843,8 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
         glyph: AGENTS[x].glyph,
         running: rows.filter((s) => s.state === "run").length,
         waiting: rows.filter((s) => ["wait", "quiet", "needs-approval"].includes(s.state)).length,
-        primary: primaries.includes(x)
+        primary: primaries.includes(x),
+        today: mine && mine.wall ? fmtMin(mine.wall) : ""
       };
     });
     return {
@@ -9831,6 +9855,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       hotkey: cfg.menuBarHotkey || "control+option+command+D",
       running,
       waiting,
+      stats,
       agents,
       sessions: out
     };

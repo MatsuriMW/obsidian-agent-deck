@@ -116,17 +116,18 @@ To hand over: open **Settings → 追踪 → 停用螺旋日程里的 AI 写入*
 The menu bar item is a tiny SwiftUI helper app compiled on first use; in the bar itself it is just an icon. It is not a second copy of the dashboard: it is the quick "what is running / what needs me" surface.
 
 - **Solid, not glassy.** The panel is a borderless window with opaque surfaces. There is no `NSPopover`, no vibrancy and no frosted material, so text keeps its contrast on macOS 26. The light background is a near-white tint of the current Obsidian theme, and dark mode has its own solid palette.
-- **Rows speak TODOseq.** Each card is tagged with a TODOseq keyword — `DOING`, `WAITING`, `NEEDOK?`, `HITLIMIT!`, `PAUSED`, `ERRORED`, `DONE`, `LATER`, `TODO` — with the same SVG icon and task-state colour TODOseq uses. `DOING` keeps its loader-circle spinning while the panel is open. The header counts `DOING` / `WAITING`, and any `NEEDOK?` session gets an orange reminder.
+- **Rows speak TODOseq.** Each card is tagged with a TODOseq keyword — `DOING`, `WAITING`, `NEEDOK?`, `HITLIMIT!`, `PAUSED`, `ERRORED`, `DONE`, `LATER`, `TODO` — with the same SVG icon and task-state colour TODOseq uses. `DOING` keeps its loader-circle spinning while the panel is open. The right side of the header counts `DOING` / `WAITING`, and any `NEEDOK?` session gets an orange reminder.
+- **The header is today's numbers.** Four figures on the left: collaboration time, output tokens, session count, and how today compares with the average of the previous seven days (hidden when fewer than three of those days have usage). There is no icon or product name: the panel already hangs from the menu bar icon.
 - **Cards are card-like.** White surface, 1px border, a soft shadow, a state-coloured rail, the agent's glyph badge, the project and the current step. Hovering lifts the card.
 - **Five at a time.** The first five sessions are visible; the rest are a scroll away. The footer tells you how many sessions are in the list.
 - **Right side, plus a shortcut.** The status item stays in the right side of the menu bar. If macOS hides it because the bar is full, press **⌃⌥⌘D** (Control + Option + Command + D) to open the panel from any app; press it again to close it. Escape or a click outside also closes it. The shortcut can be changed in **Settings → 追踪 → 菜单栏快捷键**; no Accessibility permission is needed.
 - **Primary agents** (up to two) contribute more rows: all live sessions plus recent sessions from the last six hours, up to six per primary by default.
 - **Other agents** contribute only sessions that are currently running, up to three per agent by default. **WorkBuddy is the exception**: its waiting sessions are listed too, because they are part of the daily loop.
-- The header shows all enabled agents as chips, with running and waiting counts, including agents that have no row at the moment.
+- The header shows all enabled agents as chips, with today's time and running and waiting counts, including agents that have no row at the moment.
 - Clicking a row opens the same deeplink as the dashboard. DeepSeek Harness focuses the client and copies the session id; Codex opens `codex://threads/<id>` and copies `codex resume <id>`.
 - **打开面板** opens the Obsidian dashboard via `obsidian://agent-deck`; **重新扫描** triggers a scan; **隐藏** disables the menu bar from inside the panel.
 
-The dashboard itself keeps the calmer 1.0.2 palette; only the menu bar uses the vivid task-state colours.
+The menu bar panel shares the dashboard's low-saturation palette: warm neutral surfaces, the muted violet-grey accent (`--ad-accent`), the same agent colours, and neutral footer buttons. Task-state colours follow TODOseq.
 
 The first start needs `swiftc` (Xcode Command Line Tools). The plugin compiles `~/.agent-deck/AgentDeckMenuBar.app`, then launches it. It exits when Obsidian exits. The source is included in the plugin bundle, so no separate download is needed. If the menu bar does not appear, open **追踪 → 重启菜单栏** or install the command line tools with `xcode-select --install`.
 

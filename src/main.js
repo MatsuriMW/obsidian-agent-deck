@@ -12,7 +12,7 @@ import {
   Plugin, Notice, MarkdownView, Menu, editorInfoField,
 } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp,
+  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp,
 } from "./constants.js";
 import { AgentUsage, UsageStore, projectName } from "./readers.js";
 import { Delegator, blockAt, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
@@ -732,19 +732,32 @@ export default class AgentDeckPlugin extends Plugin {
     summary.push(`${running} 个在跑`);
     if (waiting) summary.push(`${waiting} 个等你`);
     const usage = today ? `今天 ${fmtMin(today.wall)} · ${fmtTok(today.out)} tok` : "今天还没有用量记录";
+    // 面板页头的几项数字：今天的协作时长、产出、会话数，再加一项「比前 7 天有用量的日子平均多还是少」
+    const stats = [];
+    if (today) {
+      stats.push({ label: "协作", value: fmtMin(today.wall) }, { label: "产出", value: `${fmtTok(today.out)} tok` }, { label: "会话", value: String(today.sessions || 0) });
+      const prev = [];
+      for (let i = 1; i <= 7; i++) { const d = this.store.get(dayKey(Date.now() - i * 864e5, cfg)); if (d && d.wall) prev.push(d.wall); }
+      if (prev.length >= 3) {
+        const pct = Math.round((today.wall / (prev.reduce((a, b) => a + b, 0) / prev.length) - 1) * 100);
+        stats.push({ label: "较 7 日均", value: `${pct >= 0 ? "+" : ""}${pct}%` });
+      }
+    }
     const agents = AGENT_ORDER.filter((x) => this.agentEnabled(x)).map((x) => {
       const rows = live.filter((s) => s.agent === x);
+      const mine = today && today.by && today.by[x];
       return {
         id: x, short: AGENTS[x].short, name: AGENTS[x].name, color: AGENTS[x].color, glyph: AGENTS[x].glyph,
         running: rows.filter((s) => s.state === "run").length,
         waiting: rows.filter((s) => ["wait", "quiet", "needs-approval"].includes(s.state)).length,
         primary: primaries.includes(x),
+        today: mine && mine.wall ? fmtMin(mine.wall) : "",
       };
     });
     return {
       updatedAt: Date.now(), short, summary: summary.join(" · "), usage,
       hotkey: cfg.menuBarHotkey || "control+option+command+D",
-      running, waiting, agents, sessions: out,
+      running, waiting, stats, agents, sessions: out,
     };
   }
 
