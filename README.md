@@ -43,11 +43,12 @@ The plugin keeps explanatory text out of its UI; this section is the manual, and
 
 | Area | What it shows / what you can do |
 |---|---|
-| Top numbers | Sessions running today, collaboration time, output tokens. After **主力** are your 1–2 primary agents: their full history is read; other agents only for sessions that moved today |
+| Top bar | Session search (title, project, last step; filters 最近的会话), rescan, settings |
+| Today card | Collaboration time (vs the 7-day average), output tokens (calls), sessions (prompts); a timeline of when each agent worked today; the three projects that took the most time |
 | 现在 (Now) | Running and waiting sessions, up to six. Click a card to open the session; drag it into a note to bind it (see below); drag it up or down within the list to reorder (new sessions go on top); the × on a card (or right-click) removes it from 现在 |
-| Agents | One card per agent: click the icon to bring the client forward, ⭐ to make it primary, toggle tracking, **扫描** to rescan. Drop a note item on a card to delegate |
+| Agents | One card per agent: click the icon to bring the client forward, ⭐ to make it primary (1–2 primary agents: their full history is read; other agents only for sessions that moved today), toggle tracking, **扫描** to rescan. Drop a note item on a card to delegate |
 | 最近 14 天 | Daily collaboration minutes stacked by agent; hover for numbers |
-| 最近的会话 | Sessions from the last 7 days, filterable by state and agent, searchable by title, project and last step |
+| 最近的会话 | Sessions from the last 7 days, filterable by state and agent; the search box at the top narrows it |
 
 **Where a click opens a session.** Claude Code desktop sessions use `claude://resume`, Codex desktop `codex://threads/<id>`, WorkBuddy `workbuddy://chat/<id>`; DeepSeek Harness can only be focused, so the session id goes to the clipboard. **Claude Code / Codex sessions running in a terminal** switch to the terminal tab that runs them (Terminal, iTerm2, Tern and Herdr select the tab; Warp has no scripting interface, so it is only brought forward); only when the process has exited is a new tab opened to resume. The terminal is **Auto** by default, chosen per machine: the terminal most of your running `claude` / `codex` CLI sessions live in (remembered in `~/.agent-deck/terminal.json`), else the last one recognised, else one that is open, else one that is installed, in the order Herdr → Tern → iTerm2 → Warp → Terminal. Settings → Tracking → Claude desktop lets you pin one, or send them to the desktop app instead.
 

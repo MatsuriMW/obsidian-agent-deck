@@ -1,7 +1,7 @@
 // Agent Deck — the sidebar dashboard.
 
 import { ItemView, Menu } from "obsidian";
-import { AGENTS, AGENT_ORDER, fmtMin, fmtTok, timeAgo, truncate, dayKeyToday } from "./constants.js";
+import { AGENTS, AGENT_ORDER, fmtMin, fmtTok, timeAgo, truncate, dayKey, dayKeyToday, dayMinute, startOfDay } from "./constants.js";
 import { agentIcon, setLucide, stateIcon } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { SESSION_MIME } from "./editor.js";
@@ -50,14 +50,11 @@ export class AgentDeckView extends ItemView {
     const waiting = live.filter((x) => ["wait", "quiet", "needs-approval"].includes(x.state));
     const recent = p.recentSessions({ days: 7, limit: 80 });
 
-    // Header
+    // Header：会话搜索 + 两个按钮
     const head = dash.createDiv({ cls: "ad-head" });
-    const brand = head.createDiv({ cls: "ad-brand" });
-    const brandMark = brand.createSpan({ cls: "ad-brand__mark" });
-    setLucide(brandMark, "wand-sparkles");
-    const brandText = brand.createDiv({ cls: "ad-brand__text" });
-    brandText.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
-    brandText.createDiv({ cls: "ad-brand__sub", text: "智能体甲板" });
+    const search = head.createDiv({ cls: "ad-search" });
+    setLucide(search.createSpan({ cls: "ad-search__icon" }), "search");
+    const input = search.createEl("input", { cls: "ad-search__input", attr: { placeholder: "搜会话：标题、项目、第一步…", value: this.search } });
     const actions = head.createDiv({ cls: "ad-head__actions" });
     const scan = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": "重新扫描本机会话" } });
     setLucide(scan.createSpan({ cls: "ad-iconbtn__icon" }), "refresh-cw");
@@ -66,26 +63,18 @@ export class AgentDeckView extends ItemView {
     setLucide(gear.createSpan({ cls: "ad-iconbtn__icon" }), "settings-2");
     gear.onclick = () => p.openSettings();
 
-    // Hero
+    // Hero：今天的数字 + 时间轴 + 花时间最多的项目
     const hero = dash.createDiv({ cls: "ad-hero" });
-    const dateLine = hero.createDiv({ cls: "ad-hero__date" });
-    const now = new Date();
-    const wd = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][now.getDay()];
-    dateLine.createSpan({ text: `${now.getMonth() + 1} 月 ${now.getDate()} 日 · ${wd}` });
-    if (!today) dateLine.createSpan({ cls: "ad-hero__hint", text: "今天还没有会话" });
     const nums = hero.createDiv({ cls: "ad-hero__nums" });
-    this.num(nums, String(live.filter((x) => ["run", "running"].includes(x.state)).length), "在跑", "is-live");
-    this.num(nums, fmtMin(today ? today.wall : 0), "协作时长", "");
-    this.num(nums, fmtTok(today ? today.out : 0), "产出 token", "");
-    const prim = hero.createDiv({ cls: "ad-hero__primaries" });
-    prim.createSpan({ cls: "ad-kicker", text: "主力" });
-    for (const id of p.primaryAgents()) {
-      const a = AGENTS[id];
-      const chip = prim.createSpan({ cls: "ad-primary-chip", attr: { style: `--ad-agent:${a.color};--ad-agent-soft:${a.soft}` } });
-      agentIcon(chip.createSpan({ cls: "ad-glyph" }), id);
-      chip.createSpan({ text: a.name });
+    this.num(nums, fmtMin(today ? today.wall : 0), "协作时长", this.vsWeek(today));
+    this.num(nums, fmtTok(today ? today.out : 0), "产出 token", today && today.calls ? `${today.calls} 次调用` : "");
+    this.num(nums, String(today ? today.sessions || 0 : 0), "会话", today && today.prompts ? `${today.prompts} 次提问` : "");
+    if (today && today.wall) {
+      this.dayTimeline(hero, today);
+      this.topProjects(hero, today);
+    } else {
+      hero.createDiv({ cls: "ad-hero__hint", text: "今天还没有会话" });
     }
-    if (!p.primaryAgents().length) prim.createSpan({ cls: "ad-muted", text: "—" });
 
     // Now
     const nowSec = dash.createDiv({ cls: "ad-sec ad-sec--now" });
@@ -117,9 +106,6 @@ export class AgentDeckView extends ItemView {
       const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
       b.onclick = () => { this.filter = id; this.render(); };
     }
-    const search = recHead.createDiv({ cls: "ad-search" });
-    search.createSpan({ cls: "ad-search__icon", text: "⌕" });
-    const input = search.createEl("input", { cls: "ad-search__input", attr: { placeholder: "搜标题、项目、第一步…", value: this.search } });
     input.oninput = () => { this.search = input.value; this.renderSessions(recSec); };
     recSec._list = recSec.createDiv({ cls: "ad-sessionlist" });
     this.renderSessions(recSec);
@@ -210,10 +196,68 @@ export class AgentDeckView extends ItemView {
     return h;
   }
 
-  num(parent, value, label, cls) {
-    const box = parent.createDiv({ cls: `ad-num ${cls || ""}` });
+  num(parent, value, label, sub) {
+    const box = parent.createDiv({ cls: "ad-num" });
     box.createDiv({ cls: "ad-num__v", text: value });
     box.createDiv({ cls: "ad-num__l", text: label });
+    if (sub) box.createDiv({ cls: "ad-num__sub", text: sub });
+  }
+
+  // 今天的协作时长比前 7 天里有用量的日子平均多还是少（有 3 天以上才算）
+  vsWeek(today) {
+    if (!today || !today.wall) return "";
+    const p = this.plugin;
+    const prev = [];
+    for (let i = 1; i <= 7; i++) { const d = p.store.get(dayKey(Date.now() - i * 864e5, p.settings)); if (d && d.wall) prev.push(d.wall); }
+    if (prev.length < 3) return "";
+    const pct = Math.round((today.wall / (prev.reduce((a, b) => a + b, 0) / prev.length) - 1) * 100);
+    return `较 7 日均 ${pct >= 0 ? "+" : ""}${pct}%`;
+  }
+
+  // 今天哪几段在用：从第一段所在的整点画到现在，每个 Agent 一条
+  dayTimeline(parent, today) {
+    const p = this.plugin;
+    const start = startOfDay(Date.now(), p.settings);
+    const nowMin = dayMinute(Date.now(), p.settings);
+    const first = Math.min(...(today.segs || []).map((s) => s[0]), nowMin);
+    const from = Math.floor(first / 60) * 60;
+    const to = Math.max(Math.ceil(nowMin / 60) * 60, from + 180);
+    const span = to - from;
+    const clock = (m) => { const d = new Date(start + m * 60000); return `${d.getHours()}:${String(d.getMinutes()).padStart(2, "0")}`; };
+    const box = parent.createDiv({ cls: "ad-day" });
+    const lanes = AGENT_ORDER.filter((id) => today.by && today.by[id] && (today.by[id].segs || []).length);
+    for (const id of lanes) {
+      const a = AGENTS[id];
+      const lane = box.createDiv({ cls: "ad-day__lane", attr: { "aria-label": `${a.name} ${fmtMin(today.by[id].wall)}` } });
+      for (const [s, e] of today.by[id].segs) {
+        const seg = lane.createDiv({ cls: "ad-day__seg" });
+        seg.style.left = `${((s - from) / span) * 100}%`;
+        seg.style.width = `${(Math.max(e - s, 2) / span) * 100}%`;
+        seg.style.background = a.color;
+        seg.title = `${a.name} ${clock(s)}–${clock(e)}`;
+      }
+    }
+    const now = box.createDiv({ cls: "ad-day__now" });
+    now.style.left = `${((nowMin - from) / span) * 100}%`;
+    const ticks = box.createDiv({ cls: "ad-day__ticks" });
+    ticks.createSpan({ text: clock(from) });
+    ticks.createSpan({ text: clock(Math.round((from + to) / 2)) });
+    ticks.createSpan({ text: "现在" });
+  }
+
+  // 今天花时间最多的三个项目
+  topProjects(parent, today) {
+    const rows = Object.entries(today.proj || {}).filter(([, v]) => v.min >= 1).sort((a, b) => b[1].min - a[1].min).slice(0, 3);
+    if (!rows.length) return;
+    const max = rows[0][1].min;
+    const box = parent.createDiv({ cls: "ad-projs" });
+    for (const [name, v] of rows) {
+      const row = box.createDiv({ cls: "ad-proj" });
+      row.createSpan({ cls: "ad-proj__name", text: name || "—" });
+      const bar = row.createDiv({ cls: "ad-proj__bar" });
+      bar.createDiv({ cls: "ad-proj__fill" }).style.width = `${(v.min / max) * 100}%`;
+      row.createSpan({ cls: "ad-proj__min", text: fmtMin(v.min) });
+    }
   }
 
   agentCard(parent, id, today) {
