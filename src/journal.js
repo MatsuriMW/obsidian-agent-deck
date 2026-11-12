@@ -727,3 +727,14 @@ export function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
     dstBlockId: pd.blockId || "",
   };
 }
+
+// 找出今天日记里实际在运行的任务，等待回复的会话不算正在运行。
+export function runningTaskLines(text, sessionByParent, jobs = []) {
+  const lines = text.split("\n");
+  return taskItems(text).filter((task) => {
+    if (task.state === "done") return false;
+    if (sessionByParent.get(task.line)?.state === "run") return true;
+    return jobs.some((job) => ["starting", "running"].includes(job.state) &&
+      ((task.blockId && job.blockId === task.blockId) || job.lineText === lines[task.line]));
+  });
+}

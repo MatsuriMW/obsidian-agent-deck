@@ -124,7 +124,7 @@ The menu bar item is a tiny SwiftUI helper app compiled on first use; in the bar
 - **Right side, plus a shortcut.** The status item stays in the right side of the menu bar. If macOS hides it because the bar is full, press **⌃⌥⌘D** (Control + Option + Command + D) to open the panel from any app; press it again to close it. Escape or a click outside also closes it. The shortcut can be changed in **Settings → 追踪 → 菜单栏快捷键**; no Accessibility permission is needed.
 - **Primary agents** (up to two) contribute more rows: all live sessions plus recent sessions from the last six hours, up to six per primary by default.
 - **Other agents** contribute only sessions that are currently running, up to three per agent by default. **WorkBuddy is the exception**: its waiting sessions are listed too, because they are part of the daily loop.
-- The header shows all enabled agents as chips, with today's time and running and waiting counts, including agents that have no row at the moment.
+- The header defaults to primary agents and agents currently running tasks. Idle primaries stay visible; other agents disappear when they stop running. Settings → Tracking → menu-bar agent scope can restore all enabled agents (`menuBarAgentScope: all`).
 - Clicking a row opens the same deeplink as the dashboard. DeepSeek Harness focuses the client and copies the session id; Codex opens `codex://threads/<id>` and copies `codex resume <id>`.
 - **打开面板** opens the Obsidian dashboard via `obsidian://agent-deck`; **重新扫描** triggers a scan; **隐藏** disables the menu bar from inside the panel.
 
@@ -154,7 +154,7 @@ Agents lets you select the default model and delegation target for Claude, Codex
 
 Journal detail (`autoLogDetail`) defaults to `brief`: one latest conclusion, about 45 characters, with no per-turn user prompts or step rows. `standard` keeps per-turn conclusions and steps; `detailed` also keeps follow-up prompts. On the next write-back, the selected detail level also updates existing direct AI records. Required user TODOs and nested task notes are preserved.
 
-AI record display (`aiRecordDisplay`) defaults to `collapsed`. Choose `expanded` or `latest5` to show records expanded or only show the latest five. The editor and reading view hide records without deleting their source text; manual notes and child tasks remain visible.
+AI record display (`aiRecordDisplay`) defaults to `collapsed`. Choose `expanded` or `latest5` to show records expanded or only show the latest five. Record controls sit at the end of the task line with a compact chevron and count, with muted detail text. Agent Deck block IDs (`^ad-…`) are hidden in the editor and reading view while remaining unchanged in Markdown; no zero-width characters are inserted. The editor and reading view hide records without deleting their source text; manual notes and child tasks remain visible.
 
 Journal settings are stored explicitly as `autoLogEvery` (20 min), `autoLogStartDelay` (1 min), `autoLogMinMinutes` (3 min; 0 disables the threshold), `autoLogIdle` (40 min), `autoLogBatch` (8), `autoLogAgents`, `autoLogProvider` (`claude` / `codex`), `autoLogModel`, `autoLogEffort` (`low`), `autoLogTimeout` (120 s), `autoLogFallback` (true), `autoLogPath`, `autoLogKw`, `autoLogArchiveDone`, `autoLogNotify`, `roundPolish`, `roundPolishModel` (empty reuses the naming model), and `roundPolishTimeout` (30 s). The journal must already exist. The first run still applies the activity threshold; ineligible sessions wait until a later run. Live write-back follows `pollSeconds` (20 s by default).
 
@@ -227,6 +227,8 @@ npm run build
 `npm run build` writes `main.js` with esbuild. The only runtime dependency is `fzstd`, used to read DeepSeek Harness's zstd-compressed session logs.
 
 ## Settings
+
+**Ctrl + Alt + J** jumps to a running Agent project in today's journal. Repeated presses cycle through running projects; waiting and finished sessions are excluded. Customize “Agent Deck: 跳转到日记中正在运行的项目” in Obsidian's hotkey settings.
 
 - **Agents**: enable each agent, pick up to two primaries, scan now, import Nautilus Spiral history.
 - **委派**: default target, models, effort, permission mode, working directory, prompt prefix/suffix, write-back rules, trust fallback.

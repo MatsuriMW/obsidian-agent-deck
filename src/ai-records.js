@@ -16,7 +16,7 @@ export function aiRecordGroups(text, trackedIds = new Set()) {
     }
     if (!records.length) continue;
     const tracked = task.blockId?.startsWith("ad-") || trackedIds.has(task.blockId) || task.body.startsWith("🤖") || records.some((i) => J.parseLink(lines[i]));
-    if (tracked) out.push({ key: task.blockId || `${task.line}:${task.key}`, records });
+    if (tracked) out.push({ key: task.blockId || `${task.line}:${task.key}`, line: task.line, records });
   }
   return out;
 }
@@ -29,4 +29,22 @@ export function recordRuns(records) {
     else runs.push({ from: n, to: n });
   }
   return runs;
+}
+
+// 块 ID 留在 Markdown 中，仅返回要在编辑器隐藏的字符范围。
+export function adBlockIdRanges(text) {
+  const out = [];
+  let offset = 0, fence = "", fenceLength = 0;
+  for (const line of text.split("\n")) {
+    const marker = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+    if (marker) {
+      if (!fence) { fence = marker[1][0]; fenceLength = marker[1].length; }
+      else if (marker[1][0] === fence && marker[1].length >= fenceLength && !marker[2].trim()) fence = "";
+    } else if (!fence) {
+      const id = /(?:[ \t]+|^)\^ad-[a-z0-9-]+[ \t]*$/i.exec(line);
+      if (id) out.push({ from: offset + id.index, to: offset + line.length });
+    }
+    offset += line.length + 1;
+  }
+  return out;
 }

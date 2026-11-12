@@ -12,7 +12,7 @@ import {
   Plugin, Notice, MarkdownView, MarkdownRenderChild, Menu, editorInfoField,
 } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp,
+  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp, visibleMenuAgents,
 } from "./constants.js";
 import { AgentUsage, UsageStore, projectName } from "./readers.js";
 import { Delegator, blockAt, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
@@ -93,6 +93,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "open-session-line", name: "打开光标这一行绑定的会话", editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
     this.addCommand({ id: "merge-task-line", name: "把当前任务条目与笔记里另一条绑定/合并", editorCallback: (editor, view) => this.openMergeTaskForEditor(editor, view) });
     this.addCommand({ id: "scan-now", name: "重新扫描本机 Agent 会话", callback: () => this.scanNow(true) });
+    this.addCommand({ id: "jump-running-project", name: "跳转到日记中正在运行的项目", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "J" }], callback: () => this.jumpRunningProject() });
     this.addCommand({ id: "log-journal", name: "整理 Agent 会话进今天的日记", callback: () => this.autoLog.logNow() });
     this.addCommand({ id: "import-nautilus", name: "导入螺旋日程的历史用量", callback: () => this.importNautilus(true) });
     this.addCommand({ id: "clean-jobs", name: "清理已结束的委派记录", callback: () => this.cleanJobs() });
@@ -788,6 +789,28 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
 
+  async jumpRunningProject() {
+    const file = this.journalSync.todayJournal();
+    if (!file) return this.notice("今天的日记还没有创建");
+    const text = await this.readNote(file.path);
+    const map = this.lineMap(file.path, text);
+    const tasks = J.runningTaskLines(text, map.sessionByParent, Object.values(this.jobs).filter((job) => job.path === file.path));
+    if (!tasks.length) return this.notice("今天日记里还没有正在运行的 Agent 项目");
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    const current = view?.file?.path === file.path ? view.editor?.getCursor().line : -1;
+    const index = tasks.findIndex((task) => task.line === current);
+    const target = tasks[(index + 1) % tasks.length];
+    const leaf = this.app.workspace.getLeaf(false);
+    await leaf.openFile(file, { active: true, eState: { line: target.line } });
+    leaf.view.setEphemeralState?.({ line: target.line, focus: true });
+    const editor = leaf.view.editor;
+    if (editor) {
+      editor.setCursor({ line: target.line, ch: 0 });
+      editor.scrollIntoView({ from: { line: target.line, ch: 0 }, to: { line: target.line, ch: 0 } }, true);
+      editor.focus();
+    }
+  }
+
   openSessionForEditor(editor, view) {
     if (!view || !view.file) return;
     const path = view.file.path, line = editor.getCursor().line;
@@ -823,7 +846,7 @@ export default class AgentDeckPlugin extends Plugin {
       const a = AGENTS[agent];
       const state = isLive ? (s.state || "idle") : "recent";
       const kw = menuKeyword(state);
-      const where = agent === "codex" ? "终端新会话 · 使用默认模型" : agent === "claude" ? (s.app === "cli" ? "终端" : "桌面版") : agent === "codex" ? (isCodexDesktop(s.app) ? "桌面版" : "CLI") : agent === "workbuddy" ? "桌面版" : agent === "antigravity" ? "IDE" : "Harness";
+      const where = agent === "claude" ? (s.app === "cli" ? "终端" : "桌面版") : agent === "codex" ? (isCodexDesktop(s.app) ? "桌面版" : "CLI") : agent === "workbuddy" ? "桌面版" : agent === "antigravity" ? "IDE" : "Harness";
       const url = sessionDeepLink(agent, s.sid);
       const prog = this.sessionProgressText(s);
       const stepStr = [prog, s.step ? truncate(s.step, 30) : ""].filter(Boolean).join(" · ");
@@ -862,7 +885,7 @@ export default class AgentDeckPlugin extends Plugin {
         // Other agents only contribute running sessions, except WorkBuddy:
         // its waiting sessions are part of the daily loop and should be jumpable
         // from the menu bar too.
-        const wbWaiting = (state) => agent === "workbuddy" && ["wait", "quiet", "needs-approval"].includes(state);
+        const wbWaiting = (state) => cfg.menuBarAgentScope === "all" && agent === "workbuddy" && ["wait", "quiet", "needs-approval"].includes(state);
         const rows = [
           ...live.filter((x) => x.agent === agent && (x.state === "run" || wbWaiting(x.state))),
           ...recent.filter((x) => x.agent === agent && x.state === "run"),
@@ -905,7 +928,7 @@ export default class AgentDeckPlugin extends Plugin {
     return {
       updatedAt: Date.now(), short, summary: summary.join(" · "), usage,
       hotkey: cfg.menuBarHotkey || "control+option+command+D",
-      running, waiting, stats, agents, sessions: out,
+      running, waiting, stats, agents: visibleMenuAgents(agents, cfg.menuBarAgentScope), sessions: out,
     };
   }
 

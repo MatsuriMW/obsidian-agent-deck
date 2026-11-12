@@ -285,6 +285,7 @@ export const DEFAULTS = {
   autoLogState: {},
   workLog: {},
   showMenuBar: true,
+  menuBarAgentScope: "primary-running",
   menuBarPrimaryLimit: 6,
   menuBarOtherLimit: 3,
   menuBarHotkey: "control+option+command+D",
@@ -418,4 +419,8 @@ export function unionSegs(segs) {
     else out.push([a, b]);
   }
   return out;
+}
+
+export function visibleMenuAgents(agents, scope = "primary-running") {
+  return agents.filter((agent) => scope === "all" || agent.primary || agent.running > 0);
 }

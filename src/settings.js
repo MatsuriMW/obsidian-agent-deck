@@ -706,6 +706,9 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const mb = this.row(ui, "macOS 菜单栏", "在系统最上方显示一个小图标和一串简短说明；点开是会话详情和跳转。Obsidian 右下角不再显示 Agent 汇总。第一次启动会编译一个 Swift 小助手，需要 Xcode Command Line Tools。", null);
     // 菜单栏里点「隐藏」、助手起不来时，插件用 mbSwitch.setOn 把这里拨回去
     this.mbSwitch = this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => { s.showMenuBar = v; p.saveSettings(); p.applyUiSettings(); });
+    this.row(ui, "跳转到正在运行的项目", "默认 Ctrl + Alt + J；多个项目时连续按依次跳转。在 Obsidian 设置 → 快捷键中搜索“Agent Deck: 跳转到日记中正在运行的项目”可自定义。", "⌃⌥J");
+    const ma = this.row(ui, "菜单栏显示哪些 Agent", "默认只展示主力和当前正在运行任务的 Agent；其余等待或空闲的 Agent 收起。可以改为显示全部已启用的 Agent。", null);
+    this.segmented(ma.querySelector(":scope > .ad-row__right"), [{ id: "primary-running", label: "主力与在跑的" }, { id: "all", label: "全部已启用" }], s.menuBarAgentScope || "primary-running", (v) => { s.menuBarAgentScope = v; p.saveSettings(); p.menubar?.update(true); this.display(); });
     for (const [key, label, desc, min, max] of [
       ["menuBarPrimaryLimit", "菜单栏：主力最多几个", "主力 Agent 全量追踪，所以可以多放几个会话。", 3, 12],
       ["menuBarOtherLimit", "菜单栏：其它 Agent 最多几个", "其它 Agent 只显示正在运行的会话。", 1, 6],
