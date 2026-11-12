@@ -17,6 +17,7 @@ import { BULLET_RE } from "./delegation.js";
 import * as J from "./journal.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
+import { aiRecordDisplayExtension } from "./record-display.js";
 import { AGENTS, fmtDur, fmtTok, truncate } from "./constants.js";
 
 export const refreshEffect = StateEffect.define();
@@ -391,7 +392,7 @@ export function createEditorExtension(plugin) {
       if (update.docChanged || update.selectionSet || update.viewportChanged || update.focusChanged || refresh) this.decorations = buildDecorations(update.view, plugin);
     }
   };
-  return [ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin)];
+  return [ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin), aiRecordDisplayExtension(plugin, refreshEffect)];
 }
 
 export async function dispatchRefresh(plugin) {

@@ -262,6 +262,8 @@ export const DEFAULTS = {
   delegateInTerminal: false,  // 拖到 Claude Code / Codex 上默认在主力终端里开交互式会话（按住 ⌘ 反过来）
   yieldToNautilus: true,   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
+  aiRecordDisplay: "collapsed", // collapsed 默认折叠 / expanded 默认展开 / latest5 只显示最新五条
+  autoLogDetail: "brief",   // brief 最新一句结论 / standard 每轮结论 / detailed 每轮提问和结论
   autoLogEvery: 20,        // 自动整理间隔（分钟）
   autoLogStartDelay: 1,    // 插件启动后第几分钟先整理一次，不用等满一个间隔
   autoLogMinMinutes: 3,    // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）

@@ -152,6 +152,10 @@ Writes are line-level, stay out of undo history, skip while an IME composition i
 
 Agents lets you select the default model and delegation target for Claude, Codex and DSH; primary stars separately control history tracking. Models supports adding and editing model names, CLI identifiers, DSH provider routes, context and tags, plus independent defaults and reasoning effort per agent. WorkBuddy and Antigravity model selection remains in their clients. Model availability depends on the signed-in account.
 
+Journal detail (`autoLogDetail`) defaults to `brief`: one latest conclusion, about 45 characters, with no per-turn user prompts or step rows. `standard` keeps per-turn conclusions and steps; `detailed` also keeps follow-up prompts. On the next write-back, the selected detail level also updates existing direct AI records. Required user TODOs and nested task notes are preserved.
+
+AI record display (`aiRecordDisplay`) defaults to `collapsed`. Choose `expanded` or `latest5` to show records expanded or only show the latest five. The editor and reading view hide records without deleting their source text; manual notes and child tasks remain visible.
+
 Journal settings are stored explicitly as `autoLogEvery` (20 min), `autoLogStartDelay` (1 min), `autoLogMinMinutes` (3 min; 0 disables the threshold), `autoLogIdle` (40 min), `autoLogBatch` (8), `autoLogAgents`, `autoLogProvider` (`claude` / `codex`), `autoLogModel`, `autoLogEffort` (`low`), `autoLogTimeout` (120 s), `autoLogFallback` (true), `autoLogPath`, `autoLogKw`, `autoLogArchiveDone`, `autoLogNotify`, `roundPolish`, `roundPolishModel` (empty reuses the naming model), and `roundPolishTimeout` (30 s). The journal must already exist. The first run still applies the activity threshold; ineligible sessions wait until a later run. Live write-back follows `pollSeconds` (20 s by default).
 
 ## Delegate targets

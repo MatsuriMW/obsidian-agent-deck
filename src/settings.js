@@ -640,6 +640,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "日记", "日记", (v) => { s.journalFolder = v.trim() || "日记"; p.saveSettings(); });
     const ja = this.row(jr, "自动整理进日记", "每隔一阵扫一遍今天开着的会话；自动关着也可以用命令「整理 Agent 会话进今天的日记」手动跑。", null);
     this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => { s.autoLog = v; p.saveSettings(); });
+    const jdetail = this.row(jr, "自动日志详细程度", "简略：只留最新一句结论（约 45 字），不逐轮记提问和步骤；标准：保留每轮结论与步骤；详细：再记录每轮提问。需要你处理的待办、实际用时和手写内容保留。切换后在下次写回时整理本任务的自动记录。", null);
+    this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: "简略（默认）" }, { id: "standard", label: "标准" }, { id: "detailed", label: "详细" }], s.autoLogDetail || "brief", (v) => { s.autoLogDetail = v; p.saveSettings(); this.display(); });
+    const jdisplay = this.row(jr, "AI 记录显示方式", "默认折叠：点按钮展开；默认展开：点按钮折叠；最新 5 条：隐藏更早的记录，原文仍保留。只影响任务下的 AI 记录，手写笔记与子任务照常显示。", null);
+    this.segmented(jdisplay.querySelector(":scope > .ad-row__right"), [{ id: "collapsed", label: "默认折叠" }, { id: "expanded", label: "默认展开" }, { id: "latest5", label: "最新 5 条" }], s.aiRecordDisplay || "collapsed", (v) => { s.aiRecordDisplay = v; p.saveSettings(); p.refreshUI(); this.display(); });
     const je = this.row(jr, "每隔几分钟", "自动整理的间隔，最少 5 分钟。", null);
     this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => { s.autoLogEvery = v; p.saveSettings(); });
     const jst = this.row(jr, "启动后第几分钟先整理一次", "Obsidian 刚打开时不用等满一个间隔，到这个时候先跑一次；之后按上面的间隔。", null);

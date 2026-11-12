@@ -344,6 +344,7 @@ export class AutoLog {
         const taskTodo = x.agent === "claude" ? (meta.todo || null) : null;
         if (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo) {
           const synced = J.syncSessionEntry(text, {
+            detail: this.cfg.autoLogDetail,
             sid: x.sid,
             blockId: rec.blockId || "",
             key: rec.key,

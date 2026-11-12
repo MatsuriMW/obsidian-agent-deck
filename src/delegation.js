@@ -1121,6 +1121,7 @@ export class Delegator {
     if (!said) return;
     const text = await this.plugin.readNote(job.path);
     const synced = J.syncSessionEntry(text, {
+      detail: this.settings.autoLogDetail,
       sid: job.sessionId || "",
       blockId: job.blockId || "",
       key: J.workKey(job.name || ""),
@@ -1129,8 +1130,8 @@ export class Delegator {
       taskTodo: job.agent === "claude" && meta ? meta.todo : null,
       ensureId: true,
     });
-    if (synced.text !== text) {
-      await this.plugin.writeNote(job.path, synced.text);
+    if (synced.line >= 0) {
+      if (synced.text !== text) await this.plugin.writeNote(job.path, synced.text);
       if (synced.blockId) job.blockId = synced.blockId;
       job.resultWritten = true;
       this.saveJobs();
@@ -1144,7 +1145,8 @@ export class Delegator {
     const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "\t";
     let resultAt = -1;
     for (let i = block.start + 1; i <= block.end; i++) if (RESULT_RE.test(lines[i])) { resultAt = i; break; }
-    const line = `${indent}- 💬 ${said}`;
+    const conclusion = this.settings.autoLogDetail === "standard" || this.settings.autoLogDetail === "detailed" ? said : J.oneSentenceConclusion(said, 45);
+    const line = `${indent}- 💬 ${conclusion}`;
     if (resultAt >= 0) lines[resultAt] = line;
     else {
       const link = findLink(lines, block);

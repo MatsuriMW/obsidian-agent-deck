@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {aiRecordGroups, recordRuns} from '../src/ai-records.js';
+const text = '- DOING 任务 ^ad-abc123\n\t- 💬 1\n\t- 手写笔记\n\t- 💬 2\n\t- 📋 3\n\t- ❓ 4\n\t- 💬 5\n\t- 💬 6\n\t- TODO 用户任务\n\t\t- 💬 用户的嵌套记录\n- 别的任务\n\t- 💬 不属于 Agent\n';
+const groups=aiRecordGroups(text);
+assert.equal(groups.length,1);
+assert.deepEqual(groups[0].records,[1,3,4,5,6,7]);
+assert.deepEqual(recordRuns(groups[0].records),[{from:1,to:1},{from:3,to:7}]);
+assert.deepEqual(groups[0].records.slice(-5),[3,4,5,6,7]);
+assert.deepEqual(recordRuns(groups[0].records.slice(0,-5)),[{from:1,to:1}]);
+assert.equal(aiRecordGroups('- DOING 改名 ^nw-abc\n\t- 💬 结果',new Set(['nw-abc'])).length,1);
+console.log('PASS AI folding groups exclude manual notes and nested tasks; latest five preserves all records');

@@ -1,4 +1,4 @@
-/* Agent Deck 1.3.0 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.3.1 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -295,6 +295,10 @@ var DEFAULTS = {
   yieldToNautilus: true,
   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
+  aiRecordDisplay: "collapsed",
+  // collapsed 默认折叠 / expanded 默认展开 / latest5 只显示最新五条
+  autoLogDetail: "brief",
+  // brief 最新一句结论 / standard 每轮结论 / detailed 每轮提问和结论
   autoLogEvery: 20,
   // 自动整理间隔（分钟）
   autoLogStartDelay: 1,
@@ -2751,7 +2755,7 @@ function oneSentenceConclusion(raw, max = 90) {
   if (sentMatch) pick = sentMatch[1];
   return resultText(pick, max);
 }
-function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true } = {}) {
+function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief" } = {}) {
   let lines = text.split("\n");
   let n = -1, linkAt = -1;
   if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
@@ -2773,8 +2777,10 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
     lines[n] = eb.line;
     activeBlockId = eb.blockId;
   }
+  const mode = ["standard", "detailed"].includes(detail) ? detail : "brief";
   const base = width(lines[n]);
   const ind = linkAt >= 0 ? /^\s*/.exec(lines[linkAt])[0] : childIndent(lines, n);
+  const childWidth = width(ind);
   const childSpan = () => {
     let end = n;
     for (let i = n + 1; i < lines.length; i++) {
@@ -2787,7 +2793,7 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
   const upsertChild = (prefixRe, newLine, afterAnchor = -1) => {
     const end = childSpan();
     for (let i = n + 1; i <= end; i++) {
-      if (width(lines[i]) > base && prefixRe.test(lines[i])) {
+      if (width(lines[i]) === childWidth && prefixRe.test(lines[i])) {
         if (lines[i] !== newLine) lines[i] = newLine;
         return i;
       }
@@ -2796,15 +2802,27 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
     lines.splice(insertAt, 0, newLine);
     return insertAt;
   };
-  if (taskTodo && taskTodo.total > 0) {
+  const previousConclusion = lines.slice(n + 1, childSpan() + 1).filter((line) => width(line) === childWidth && /^\s*[-*+]\s+💬\s+/.test(line)).slice(-1)[0]?.replace(/^\s*[-*+]\s+💬\s+(?:第\d+轮[：:]\s*)?/, "") || "";
+  for (let i = childSpan(); i > n; i--) {
+    if (width(lines[i]) !== childWidth) continue;
+    const question = /^\s*[-*+]\s+❓\s*第\d+轮[：:]/.test(lines[i]);
+    const history = /^\s*[-*+]\s+💬\s*第\d+轮[：:]/.test(lines[i]);
+    const progress = /^\s*[-*+]\s+📋\s+/.test(lines[i]);
+    if (mode !== "detailed" && question || mode === "brief" && (history || progress)) {
+      lines.splice(i, 1);
+      if (i < linkAt) linkAt--;
+    }
+  }
+  if (mode !== "brief" && taskTodo && taskTodo.total > 0) {
     const stepPart = taskTodo.cur ? ` \xB7 ${resultText(taskTodo.cur, 48)}` : taskTodo.done >= taskTodo.total ? " \xB7 \u5DF2\u5168\u90E8\u5B8C\u6210" : "";
     const planLine = `${ind}- \u{1F4CB} \u6B65\u9AA4 ${taskTodo.done}/${taskTodo.total}${stepPart}`;
     upsertChild(/^\s*[-*+]\s+📋\s+/, planLine, linkAt >= 0 ? linkAt : n);
   }
   const validRounds = Array.isArray(rounds) ? rounds.filter((r) => r && (r.ask || r.said || r.summary)) : [];
-  if (validRounds.length <= 1) {
-    const r0 = validRounds[0];
-    const msg = r0 && r0.summary || said || (r0 && r0.said ? oneSentenceConclusion(r0.said, 90) : "");
+  if (mode === "brief" || validRounds.length <= 1) {
+    const r0 = mode === "brief" ? validRounds.filter((r) => r.summary || r.said).slice(-1)[0] : validRounds[0];
+    const raw = r0 && r0.summary || said || r0 && r0.said || (mode === "brief" ? previousConclusion : "");
+    const msg = raw ? oneSentenceConclusion(raw, mode === "brief" ? 45 : 90) : "";
     if (msg) {
       upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- \u{1F4AC} ${msg}`, linkAt >= 0 ? linkAt : n);
     }
@@ -2818,7 +2836,7 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
     for (let idx = 1; idx < validRounds.length; idx++) {
       const r = validRounds[idx];
       const rn = r.n || idx + 1;
-      if (r.ask) {
+      if (mode === "detailed" && r.ask) {
         const qText = resultText(r.ask, 72);
         if (qText) anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+\u2753\\s*\u7B2C${rn}\u8F6E[\uFF1A:]`), `${ind}- \u2753 \u7B2C${rn}\u8F6E\uFF1A${qText}`, anchor);
       }
@@ -4441,6 +4459,7 @@ ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
     if (!said) return;
     const text = await this.plugin.readNote(job.path);
     const synced = syncSessionEntry(text, {
+      detail: this.settings.autoLogDetail,
       sid: job.sessionId || "",
       blockId: job.blockId || "",
       key: workKey(job.name || ""),
@@ -4449,8 +4468,8 @@ ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
       taskTodo: job.agent === "claude" && meta ? meta.todo : null,
       ensureId: true
     });
-    if (synced.text !== text) {
-      await this.plugin.writeNote(job.path, synced.text);
+    if (synced.line >= 0) {
+      if (synced.text !== text) await this.plugin.writeNote(job.path, synced.text);
       if (synced.blockId) job.blockId = synced.blockId;
       job.resultWritten = true;
       this.saveJobs();
@@ -4467,7 +4486,8 @@ ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
       resultAt = i;
       break;
     }
-    const line = `${indent}- \u{1F4AC} ${said}`;
+    const conclusion = this.settings.autoLogDetail === "standard" || this.settings.autoLogDetail === "detailed" ? said : oneSentenceConclusion(said, 45);
+    const line = `${indent}- \u{1F4AC} ${conclusion}`;
     if (resultAt >= 0) lines[resultAt] = line;
     else {
       const link = findLink(lines, block);
@@ -4671,29 +4691,178 @@ function lattice(parent, pattern = "orbit", { step = 90, cls = "" } = {}) {
 }
 
 // src/editor.js
+var import_view2 = require("@codemirror/view");
+var import_state2 = require("@codemirror/state");
+
+// src/record-display.js
 var import_view = require("@codemirror/view");
 var import_state = require("@codemirror/state");
-var refreshEffect = import_state.StateEffect.define();
+
+// src/ai-records.js
+var AI_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
+function aiRecordGroups(text, trackedIds2 = /* @__PURE__ */ new Set()) {
+  const lines = text.split("\n"), out = [];
+  for (const task of taskItems(text)) {
+    if (AI_RECORD_RE.test(lines[task.line])) continue;
+    const indent = width(childIndent(lines, task.line));
+    const records = [];
+    for (let i = task.line + 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      const w = width(lines[i]);
+      if (w <= task.indent) break;
+      if (w === indent && AI_RECORD_RE.test(lines[i])) records.push(i);
+    }
+    if (!records.length) continue;
+    const tracked = task.blockId?.startsWith("ad-") || trackedIds2.has(task.blockId) || task.body.startsWith("\u{1F916}") || records.some((i) => parseLink(lines[i]));
+    if (tracked) out.push({ key: task.blockId || `${task.line}:${task.key}`, records });
+  }
+  return out;
+}
+function recordRuns(records) {
+  const runs = [];
+  for (const n of records) {
+    const last = runs[runs.length - 1];
+    if (last && last.to + 1 === n) last.to = n;
+    else runs.push({ from: n, to: n });
+  }
+  return runs;
+}
+
+// src/record-display.js
+var toggleRecords = import_state.StateEffect.define();
+var modeFor = (plugin) => plugin.settings.aiRecordDisplay || "collapsed";
+function trackedIds(plugin) {
+  const ids = /* @__PURE__ */ new Set();
+  for (const day of Object.values(plugin.settings.autoLogState || {})) for (const rec of Object.values(day || {})) if (rec?.blockId) ids.add(rec.blockId);
+  for (const rec of Object.values(plugin.settings.taskBindings || {})) if (rec?.blockId) ids.add(rec.blockId);
+  return ids;
+}
+var RecordsToggle = class extends import_view.WidgetType {
+  constructor(key, count, open, limited = false) {
+    super();
+    Object.assign(this, { key, count, open, limited });
+  }
+  eq(other) {
+    return other.key === this.key && other.count === this.count && other.open === this.open && other.limited === this.limited;
+  }
+  toDOM(view) {
+    const el = view.dom.ownerDocument.createElement(this.limited ? "span" : "button");
+    el.className = "ad-records-toggle";
+    el.textContent = this.limited ? `\u5DF2\u9690\u85CF\u66F4\u65E9\u7684 ${this.count} \u6761 AI \u8BB0\u5F55` : `AI \u8BB0\u5F55 \xB7 ${this.count} \u6761 \xB7 ${this.open ? "\u6298\u53E0" : "\u5C55\u5F00"}`;
+    if (!this.limited) {
+      el.type = "button";
+      el.setAttribute("aria-expanded", String(this.open));
+      el.onclick = (e) => {
+        e.preventDefault();
+        view.dispatch({ effects: toggleRecords.of(this.key), selection: { anchor: Math.max(0, view.posAtDOM(el) - 1) } });
+      };
+    }
+    return el;
+  }
+  ignoreEvent() {
+    return true;
+  }
+};
+function aiRecordDisplayExtension(plugin, refreshEffect2) {
+  const build = (state, mode, toggled) => {
+    const ranges = [], doc = state.doc;
+    for (const group of aiRecordGroups(doc.toString(), trackedIds(plugin))) {
+      const open = mode === "expanded" ? !toggled.has(group.key) : toggled.has(group.key);
+      const hidden = mode === "latest5" ? group.records.slice(0, -5) : open ? [] : group.records;
+      if (!hidden.length) {
+        if (mode !== "latest5") ranges.push(import_view.Decoration.widget({ widget: new RecordsToggle(group.key, group.records.length, true), block: true, side: -1 }).range(doc.line(group.records[0] + 1).from));
+        continue;
+      }
+      for (const run2 of recordRuns(hidden)) {
+        const from = doc.line(run2.from + 1).from, to = doc.line(run2.to + 1).to;
+        if (state.selection.ranges.some((s) => s.from <= to && s.to >= from)) continue;
+        ranges.push(import_view.Decoration.replace({ widget: new RecordsToggle(group.key, run2.to - run2.from + 1, false, mode === "latest5"), block: true }).range(from, to));
+      }
+    }
+    return import_view.Decoration.set(ranges, true);
+  };
+  const field = import_state.StateField.define({
+    create(state) {
+      const mode = modeFor(plugin), toggled = /* @__PURE__ */ new Set();
+      return { mode, toggled, decorations: build(state, mode, toggled) };
+    },
+    update(value, tr) {
+      const mode = modeFor(plugin);
+      let toggled = mode === value.mode ? value.toggled : /* @__PURE__ */ new Set();
+      let changed = mode !== value.mode;
+      for (const e of tr.effects) {
+        if (e.is(refreshEffect2)) changed = true;
+        if (e.is(toggleRecords)) {
+          toggled = new Set(toggled);
+          if (toggled.has(e.value)) toggled.delete(e.value);
+          else toggled.add(e.value);
+          changed = true;
+        }
+      }
+      return changed || tr.docChanged || tr.selection ? { mode, toggled, decorations: build(tr.state, mode, toggled) } : value;
+    },
+    provide: (f) => import_view.EditorView.decorations.from(f, (v) => v.decorations)
+  });
+  return field;
+}
+function renderAIRecords(el, plugin) {
+  const mode = modeFor(plugin), ids = trackedIds(plugin), cleanups = [];
+  for (const list of el.querySelectorAll("li > ul, li > ol")) {
+    if (list.dataset.adRecords) continue;
+    const parent = list.parentElement;
+    const own = [...parent.childNodes].filter((n) => n !== list && n.nodeName !== "UL" && n.nodeName !== "OL").map((n) => n.textContent).join("");
+    const records = [...list.children].filter((li) => /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/.test(li.textContent.trim()));
+    const bound = records.some((li) => /^🔗\s/.test(li.textContent.trim()));
+    if (!records.length || !(bound || own.includes("\u{1F916}") || parent.id?.startsWith("ad-") || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
+    list.dataset.adRecords = "true";
+    const button = list.ownerDocument.createElement("button");
+    button.className = "ad-records-toggle";
+    let open = mode === "expanded";
+    const update = () => {
+      records.forEach((li, i) => {
+        li.classList.toggle("ad-record-hidden", mode === "latest5" ? i < records.length - 5 : !open);
+      });
+      button.textContent = mode === "latest5" ? `AI \u8BB0\u5F55 \xB7 \u4EC5\u5C55\u793A\u6700\u65B0 ${Math.min(5, records.length)} \u6761` : `AI \u8BB0\u5F55 \xB7 ${records.length} \u6761 \xB7 ${open ? "\u6298\u53E0" : "\u5C55\u5F00"}`;
+      button.setAttribute("aria-expanded", String(open));
+    };
+    button.onclick = () => {
+      open = !open;
+      update();
+    };
+    button.disabled = mode === "latest5";
+    parent.insertBefore(button, list);
+    update();
+    cleanups.push(() => {
+      records.forEach((li) => li.classList.remove("ad-record-hidden"));
+      button.remove();
+      delete list.dataset.adRecords;
+    });
+  }
+  return () => cleanups.forEach((cleanup) => cleanup());
+}
+
+// src/editor.js
+var refreshEffect = import_state2.StateEffect.define();
 var SESSION_MIME = "application/x-agent-deck-session";
 var ITEM_MIME = "application/x-agent-deck-item";
 var DROP_LABEL = { bind: "\u7ED1\u5B9A", fill: "\u65B0\u5EFA\u4E00\u9879", new: "\u65B0\u5EFA\u4E00\u9879", below: "\u5728\u4E0B\u9762\u65B0\u5EFA", after: "\u5728\u4E0B\u9762\u65B0\u5EFA", merge: "\u5408\u5E76\u5230\u8FD9\u4E00\u9879" };
-var setDrop = import_state.StateEffect.define();
-var dropField = import_state.StateField.define({
-  create: () => import_view.Decoration.none,
+var setDrop = import_state2.StateEffect.define();
+var dropField = import_state2.StateField.define({
+  create: () => import_view2.Decoration.none,
   update(deco, tr) {
     deco = deco.map(tr.changes);
     for (const e of tr.effects) {
       if (!e.is(setDrop)) continue;
       if (!e.value) {
-        deco = import_view.Decoration.none;
+        deco = import_view2.Decoration.none;
         continue;
       }
       const line = tr.state.doc.line(e.value.line + 1);
-      deco = import_view.Decoration.set([import_view.Decoration.line({ class: `ad-drop-line ad-drop-line--${e.value.kind}`, attributes: { "data-ad-drop": DROP_LABEL[e.value.kind] || "" } }).range(line.from)]);
+      deco = import_view2.Decoration.set([import_view2.Decoration.line({ class: `ad-drop-line ad-drop-line--${e.value.kind}`, attributes: { "data-ad-drop": DROP_LABEL[e.value.kind] || "" } }).range(line.from)]);
     }
     return deco;
   },
-  provide: (f) => import_view.EditorView.decorations.from(f)
+  provide: (f) => import_view2.EditorView.decorations.from(f)
 });
 var hasType = (e, type) => !!(e.dataTransfer && [...e.dataTransfer.types].includes(type));
 function dropTarget(view, e) {
@@ -4724,7 +4893,7 @@ function dndHandlers(plugin) {
     last = key;
     view.dispatch({ effects: setDrop.of(t) });
   };
-  return import_state.Prec.highest(import_view.EditorView.domEventHandlers({
+  return import_state2.Prec.highest(import_view2.EditorView.domEventHandlers({
     dragover(e, view) {
       if (hasType(e, SESSION_MIME)) {
         e.preventDefault();
@@ -4791,7 +4960,7 @@ function dndHandlers(plugin) {
     }
   }));
 }
-var GripWidget = class extends import_view.WidgetType {
+var GripWidget = class extends import_view2.WidgetType {
   constructor(plugin, path6, line, text) {
     super();
     this.plugin = plugin;
@@ -4847,7 +5016,7 @@ function sigFor(x) {
   const td = s && s.todo;
   return [x.kind, x.job && x.job.id, x.job && x.job.state, s && s.sid, s && s.state, s && s.step, s && s.turns, s && s.tokens, td && `${td.done}/${td.total}:${td.cur || ""}`, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
 }
-var PillWidget = class extends import_view.WidgetType {
+var PillWidget = class extends import_view2.WidgetType {
   constructor(plugin, path6, line, info) {
     super();
     this.plugin = plugin;
@@ -4988,9 +5157,9 @@ var PillWidget = class extends import_view.WidgetType {
     return true;
   }
 };
-var quietLink = import_view.Decoration.line({ class: "ad-link-quiet" });
+var quietLink = import_view2.Decoration.line({ class: "ad-link-quiet" });
 function buildDecorations(view, plugin) {
-  const builder = new import_state.RangeSetBuilder();
+  const builder = new import_state2.RangeSetBuilder();
   const info = view.state.field(plugin.editorInfoField, false);
   const path6 = info && info.file && info.file.path;
   if (!path6 || !plugin.settings.showEditorPills) return builder.finish();
@@ -5031,10 +5200,10 @@ function buildDecorations(view, plugin) {
         }
         if (state) {
           const widget = new PillWidget(plugin, path6, n, state);
-          builder.add(line.to, line.to, import_view.Decoration.widget({ widget, side: 1, block: false }));
+          builder.add(line.to, line.to, import_view2.Decoration.widget({ widget, side: 1, block: false }));
         }
         if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && kwLine(text)) {
-          builder.add(line.to, line.to, import_view.Decoration.widget({ widget: new GripWidget(plugin, path6, n, text), side: 1, block: false }));
+          builder.add(line.to, line.to, import_view2.Decoration.widget({ widget: new GripWidget(plugin, path6, n, text), side: 1, block: false }));
         }
       }
       if (line.to >= to) break;
@@ -5064,7 +5233,7 @@ function createEditorExtension(plugin) {
       if (update.docChanged || update.selectionSet || update.viewportChanged || update.focusChanged || refresh) this.decorations = buildDecorations(update.view, plugin);
     }
   };
-  return [import_view.ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin)];
+  return [import_view2.ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin), aiRecordDisplayExtension(plugin, refreshEffect)];
 }
 async function dispatchRefresh(plugin) {
   plugin.app.workspace.iterateAllLeaves((leaf) => {
@@ -6475,6 +6644,19 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => {
       s.autoLog = v;
       p.saveSettings();
+    });
+    const jdetail = this.row(jr, "\u81EA\u52A8\u65E5\u5FD7\u8BE6\u7EC6\u7A0B\u5EA6", "\u7B80\u7565\uFF1A\u53EA\u7559\u6700\u65B0\u4E00\u53E5\u7ED3\u8BBA\uFF08\u7EA6 45 \u5B57\uFF09\uFF0C\u4E0D\u9010\u8F6E\u8BB0\u63D0\u95EE\u548C\u6B65\u9AA4\uFF1B\u6807\u51C6\uFF1A\u4FDD\u7559\u6BCF\u8F6E\u7ED3\u8BBA\u4E0E\u6B65\u9AA4\uFF1B\u8BE6\u7EC6\uFF1A\u518D\u8BB0\u5F55\u6BCF\u8F6E\u63D0\u95EE\u3002\u9700\u8981\u4F60\u5904\u7406\u7684\u5F85\u529E\u3001\u5B9E\u9645\u7528\u65F6\u548C\u624B\u5199\u5185\u5BB9\u4FDD\u7559\u3002\u5207\u6362\u540E\u5728\u4E0B\u6B21\u5199\u56DE\u65F6\u6574\u7406\u672C\u4EFB\u52A1\u7684\u81EA\u52A8\u8BB0\u5F55\u3002", null);
+    this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: "\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09" }, { id: "standard", label: "\u6807\u51C6" }, { id: "detailed", label: "\u8BE6\u7EC6" }], s.autoLogDetail || "brief", (v) => {
+      s.autoLogDetail = v;
+      p.saveSettings();
+      this.display();
+    });
+    const jdisplay = this.row(jr, "AI \u8BB0\u5F55\u663E\u793A\u65B9\u5F0F", "\u9ED8\u8BA4\u6298\u53E0\uFF1A\u70B9\u6309\u94AE\u5C55\u5F00\uFF1B\u9ED8\u8BA4\u5C55\u5F00\uFF1A\u70B9\u6309\u94AE\u6298\u53E0\uFF1B\u6700\u65B0 5 \u6761\uFF1A\u9690\u85CF\u66F4\u65E9\u7684\u8BB0\u5F55\uFF0C\u539F\u6587\u4ECD\u4FDD\u7559\u3002\u53EA\u5F71\u54CD\u4EFB\u52A1\u4E0B\u7684 AI \u8BB0\u5F55\uFF0C\u624B\u5199\u7B14\u8BB0\u4E0E\u5B50\u4EFB\u52A1\u7167\u5E38\u663E\u793A\u3002", null);
+    this.segmented(jdisplay.querySelector(":scope > .ad-row__right"), [{ id: "collapsed", label: "\u9ED8\u8BA4\u6298\u53E0" }, { id: "expanded", label: "\u9ED8\u8BA4\u5C55\u5F00" }, { id: "latest5", label: "\u6700\u65B0 5 \u6761" }], s.aiRecordDisplay || "collapsed", (v) => {
+      s.aiRecordDisplay = v;
+      p.saveSettings();
+      p.refreshUI();
+      this.display();
     });
     const je = this.row(jr, "\u6BCF\u9694\u51E0\u5206\u949F", "\u81EA\u52A8\u6574\u7406\u7684\u95F4\u9694\uFF0C\u6700\u5C11 5 \u5206\u949F\u3002", null);
     this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => {
@@ -9474,6 +9656,7 @@ ${blockLines.join("\n")}
         const taskTodo = x.agent === "claude" ? meta.todo || null : null;
         if (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo) {
           const synced = syncSessionEntry(text, {
+            detail: this.cfg.autoLogDetail,
             sid: x.sid,
             blockId: rec.blockId || "",
             key: rec.key,
@@ -9794,6 +9977,7 @@ var JournalSync = class {
       const taskTodo = m.agent === "claude" ? m.todo || null : null;
       if (!summary && !taskTodo && rounds.length <= 1) continue;
       const synced = syncSessionEntry(out, {
+        detail: this.cfg.autoLogDetail,
         sid,
         blockId: info.blockId || daySt[sid] && daySt[sid].blockId || "",
         key: info.key || daySt[sid] && daySt[sid].key || "",
@@ -10211,6 +10395,11 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
     this.registerEditorExtension(createEditorExtension(this));
+    this.registerMarkdownPostProcessor((el, ctx) => {
+      const child = new import_obsidian7.MarkdownRenderChild(el);
+      child.onunload = renderAIRecords(el, this);
+      ctx.addChild(child);
+    });
     this.setupRibbon();
     this.addCommand({ id: "open-dashboard", name: "\u6253\u5F00 Agent Deck \u9762\u677F", callback: () => this.activateView() });
     this.addCommand({

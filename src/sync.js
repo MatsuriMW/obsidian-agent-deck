@@ -174,6 +174,7 @@ export class JournalSync {
       const taskTodo = m.agent === "claude" ? (m.todo || null) : null;
       if (!summary && !taskTodo && rounds.length <= 1) continue;
       const synced = J.syncSessionEntry(out, {
+        detail: this.cfg.autoLogDetail,
         sid,
         blockId: info.blockId || (daySt[sid] && daySt[sid].blockId) || "",
         key: info.key || (daySt[sid] && daySt[sid].key) || "",

@@ -821,3 +821,6 @@ body.ad-dragging-session .markdown-source-view .cm-content { outline: 1px dashed
 .ad-btn.ad-send__go { background: var(--ad-agent); color: #fff; border-color: transparent; }
 .ad-btn.ad-send__go:hover { filter: brightness(1.06); background: var(--ad-agent); }
 .ad-btn.ad-send__go:focus-visible { box-shadow: 0 0 0 3px var(--ad-agent-soft); }
+
+.ad-records-toggle { display: inline-block; margin: 2px 0 2px 1.5em; padding: 2px 7px; border: 1px solid var(--background-modifier-border); border-radius: 5px; background: var(--background-secondary); color: var(--text-muted); font: inherit; font-size: var(--font-smaller); cursor: pointer; }
+.ad-record-hidden { display: none !important; }

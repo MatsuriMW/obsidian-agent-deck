@@ -152,6 +152,8 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 - **子块**：桌面版里从绑定会话开出来的会话按 `spawnedFrom` 缩进挂成子块；开着的 side chat 一个子块；Claude Code 的 subagent 读 `<会话号>/subagents/agent-*.jsonl`，在跑画 `🤖 子代理`，跑完换 `DONE` / `FAILED` + `⏱` + `💬`。
 - **分工**：这些写入原来在螺旋日程里，现在归 Agent Deck；螺旋只保留追踪展示。螺旋的 AI 追踪还开着时 Agent Deck 不写日记，点「停用螺旋日程里的 AI 写入」并重载螺旋后完全接管。
 
+默认使用简略日志，只保留最新一句结论，不逐轮记录用户输入。任务下面的 AI 记录默认折叠，点“AI 记录”按钮展开。可分别切换日志详细程度和显示方式；“最新 5 条”只隐藏更早记录，原文仍保留。切换日志详细程度后，下次写回会整理本任务已有的直属自动记录。
+
 写入按行做、不进撤销记录；正在用输入法打字的那一下不写，等下一轮；这期间日记被别处改过就放弃这一轮。
 
 自动记日记的各项配置如下，均可在设置页修改：
@@ -159,6 +161,8 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 | 配置字段 | 默认值 | 用途 |
 |---|---|---|
 | `autoLog` | `false` | 是否自动整理；关闭后仍可手动整理 |
+| `autoLogDetail` | `brief` | 日志详细程度：简略只留最新一句结论（约 45 字）；标准保留各轮结论与步骤；详细再记录各轮提问 |
+| `aiRecordDisplay` | `collapsed` | AI 记录显示方式：默认折叠、默认展开（`expanded`）、只展示最新 5 条（`latest5`）；只改变显示，不删除正文 |
 | `autoLogEvery` | `20` 分钟 | 后续整理间隔，可设 5～240 分钟 |
 | `autoLogStartDelay` | `1` 分钟 | 插件启动后首次整理的等待时间，可设 1～240 分钟 |
 | `autoLogMinMinutes` | `3` 分钟 | 新会话累计活跃时长门槛；0 表示有活动就记，已归档会话不受此限制 |

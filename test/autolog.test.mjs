@@ -149,5 +149,19 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   check("archived short session bypasses threshold and records DONE", /- DONE .*归档测试/.test(p.journal) && p.journal.includes("⏱"), p.journal);
 }
 
+
+{ // 后台实时写回同样使用所选详细程度，不能只在首次建项生效
+  const sid = "detail-sync";
+  const p = fakePlugin("",[],{[sid]:{agent:"codex",state:"wait",rounds:[{n:1,ask:"最初要求",said:"完成基础功能。"},{n:2,ask:"追加的用户要求",said:"完成新增配置。"}]}});
+  p.settings.autoLogState={[p.day]:{[sid]:{key:"任务",blockId:"ad-detail",status:"doing"}}};
+  const js = new JournalSync(p);
+  const text = "- DOING 任务 ^ad-detail\n";
+  let out = js.results(text);
+  check("live sync defaults to one conclusion without user prompts", out.includes("💬 完成新增配置。") && !out.includes("用户要求") && (out.match(/💬/g)||[]).length===1,out);
+  p.settings.autoLogDetail="detailed";
+  out=js.results(text);
+  check("live sync honors detailed setting", out.includes("❓ 第2轮：追加的用户要求"),out);
+}
+
 if (fail) { console.log(`${fail} failed`); process.exit(1); }
 console.log("all passed");

@@ -9,7 +9,7 @@ import path from "path";
 import os from "os";
 import { execFile } from "child_process";
 import {
-  Plugin, Notice, MarkdownView, Menu, editorInfoField,
+  Plugin, Notice, MarkdownView, MarkdownRenderChild, Menu, editorInfoField,
 } from "obsidian";
 import {
   AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp,
@@ -22,6 +22,7 @@ import { DelegateOptionsModal, ConfirmSendModal } from "./dialog.js";
 import { agentIcon } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
 import { MenuBarBridge } from "./menubar.js";
+import { renderAIRecords } from "./record-display.js";
 import { AutoLog } from "./autolog.js";
 import { JournalSync } from "./sync.js";
 import * as J from "./journal.js";
@@ -61,6 +62,11 @@ export default class AgentDeckPlugin extends Plugin {
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
     this.registerEditorExtension(createEditorExtension(this));
+    this.registerMarkdownPostProcessor((el, ctx) => {
+      const child = new MarkdownRenderChild(el);
+      child.onunload = renderAIRecords(el, this);
+      ctx.addChild(child);
+    });
 
     this.setupRibbon();
 
