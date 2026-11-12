@@ -5,6 +5,7 @@ import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { blockAt, blockTitle, BULLET_RE } from "./delegation.js";
+import { mentionOptions } from "./task-mentions.js";
 import { kwLine } from "./journal.js";
 
 export class DelegateOptionsModal extends Modal {
@@ -30,11 +31,17 @@ export class DelegateOptionsModal extends Modal {
     const file = this.app.vault.getAbstractFileByPath(this.path);
     if (!file) { contentEl.createDiv({ text: "找不到这篇笔记" }); return; }
     this.file = file;
-    const text = await this.app.vault.read(file);
+    const text = await this.plugin.readNote(file.path);
     const lines = text.split("\n");
     this.block = blockAt(lines, this.line);
     this.lines = lines;
     if (!this.block) { contentEl.createDiv({ text: "光标要放在一个列表项里" }); return; }
+    try {
+      const selected = mentionOptions(this.plugin, { block: this.block, agent: this.agent });
+      this.agent = selected.agent;
+      this.model = selected.model || this.plugin.defaultModel(this.agent);
+      this.effort = selected.effort || this.plugin.settings.delegate[this.agent]?.effort || "high";
+    } catch (e) { new Notice(e.message); this.close(); return; }
     this.render();
   }
 
@@ -149,6 +156,7 @@ export class DelegateOptionsModal extends Modal {
       lattice(goIcon, "orbit");
       try {
         const job = await p.delegator.delegate({
+          ignoreMention: true,
           file: this.file,
           lines: this.lines,
           block: this.block,

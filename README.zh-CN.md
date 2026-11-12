@@ -1,5 +1,21 @@
 # Agent Deck（智能体甲板）
 
+## 任务行选择 Agent 与 Dreaming（1.4.0）
+
+写列表任务时输入 `@`，选择 Agent。继续输入 `/` 选择模型，再输入 `/` 选择推理强度，例如：
+
+```markdown
+- TODO 分析这份材料 @codex/gpt-6.1-sol/high
+```
+
+选择保留在这一行，之后点击纸飞机或拖拽派发时生效。父任务与子任务各自选择。详细委派窗口会读取任务行的选择，窗口内修改只影响本次委派。模型来自现有 Models 列表，自定义模型也可选择。WorkBuddy 与 Antigravity 使用客户端交接，模型和强度在客户端设置。
+
+设置中的 **Dreaming** 页支持“现在 Dream 一次”和“每天自动整理”。材料来自最近十四天的日记，以及已有委派任务对应笔记。每次输入有长度上限；AI 记录须已写进笔记，未落笔记的会话不在此范围内。整理沿用“追踪”中的 CLI、模型与登录，材料会发送给该 CLI 使用的模型服务。自动整理仅在插件运行时每二十四小时检查，默认关闭。
+
+长期记忆默认保存在 `Agent Deck/长期记忆.md`。每条包含类型、来源笔记和整理时间，可以直接修改或删除。“导出长期记忆 Markdown 副本”会在 `Agent Deck/Exports/` 生成普通 `.md` 文件；你可以从库文件夹复制出去。重复运行相同材料不会再次调用模型。
+
+开启“同步到 Telegram Companion 陪伴档案”后，Dream 完成时读取 Companion 中配置的档案路径，并更新 Agent Deck 专属区段。插件未启用或档案未创建时保留本地记忆，可稍后再 Dream 以重试。同步不会覆盖手写内容，也不会直接发 Telegram 消息。此选项默认关闭。LLM Wiki 自动摄入与有序任务强制 handoff 属于大纲日志 App 的后续规划，本版本尚未提供。
+
 > 一个面板看清本机所有 AI Agent：谁在跑、谁在等你、刚才那步到哪了；需要时从正在写的任务行直接委派。
 
 [English](README.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)

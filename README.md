@@ -1,5 +1,21 @@
 # Agent Deck（智能体甲板）
 
+## Task mentions and Dreaming (1.4.0)
+
+Type `@` in a list task to choose an agent. Type `/` to choose its model, then `/` again for reasoning effort:
+
+```markdown
+- TODO Review this material @codex/gpt-6.1-sol/high
+```
+
+The selection stays on that task line and is read when you send or drag it. Child tasks have independent selections. The detailed delegation dialog starts from the mention; changes in the dialog apply only to that dispatch. Custom models in Models are included. WorkBuddy and Antigravity use client handoff, with model and effort configured in the client.
+
+The new **Dreaming** settings page offers a manual run and an optional daily run. It reads the last fourteen journal days and notes attached to tracked delegation jobs, within a bounded input budget. AI records must already be written to notes. It reuses the journal model CLI, model and login; material goes to that CLI's model provider. Automatic runs require the plugin to be running and are disabled by default.
+
+Memories are editable Markdown at `Agent Deck/长期记忆.md`, with source-note links, types and generation timestamps. The export command creates an independent `.md` copy in `Agent Deck/Exports/`, ready to copy out of the vault. Unchanged evidence does not invoke the model again.
+
+Optional Telegram Companion synchronization reads the profile path from the running Companion plugin and updates only an Agent Deck section. Existing profile text is preserved, and no Telegram message is sent. If Companion is unavailable or its profile has not been created, the local memory remains available; run Dreaming again to retry. Synchronization is disabled by default. Automatic LLM Wiki ingestion and mandatory handoff for ordered tasks remain planned for the outline journal app.
+
 > Track every agent. Delegate from the line you are already looking at.
 
 [中文](README.zh-CN.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)

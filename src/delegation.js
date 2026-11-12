@@ -11,6 +11,7 @@ import os from "os";
 import { spawn, execFile } from "child_process";
 import { AGENTS, DEFAULTS, MODEL_CATALOG, clamp, truncate } from "./constants.js";
 import * as J from "./journal.js";
+import { mentionOptions, stripTaskMention } from "./task-mentions.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -43,7 +44,7 @@ export function blockAt(lines, at) {
 
 export function blockTitle(block) {
   if (!block) return "";
-  const first = J.stripBlockId(block.text.split("\n")[0] || "");
+  const first = J.stripBlockId(stripTaskMention(block.text).split("\n")[0] || "");
   return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "")
     .replace(TITLE_KW_RE, "")
     .replace(/[#*_`>[\]]/g, "").trim();
@@ -669,14 +670,16 @@ class DshRunner {
       this.d.onSession(this.job, this.sessionId);
       // model + effort, when the Harness advertises them
       const options = (made.configOptions || []).map((x) => x.id);
+      if (opts.model && !options.includes("model")) throw new Error("Harness 未提供模型选择，无法使用指定模型");
+      if (opts.effort && !options.includes("reasoning_effort")) throw new Error("Harness 未提供推理强度选择，无法使用指定强度");
       if (options.includes("model")) {
         const custom = this.d.plugin && this.d.plugin.modelById ? this.d.plugin.modelById(model) : null;
         const m = (custom && custom.value) ? { value: custom.value } : resolveDshModel(model);
-        if (m) { try { await this.request("session/set_config_option", { sessionId: this.sessionId, configId: "model", value: m.value }, 15000); } catch { /* keep default */ } }
+        if (m) { try { await this.request("session/set_config_option", { sessionId: this.sessionId, configId: "model", value: m.value }, 15000); } catch (e) { if (opts.model) throw e; } }
       }
       if (options.includes("reasoning_effort")) {
         const e = dshEffort(effort);
-        if (e) { try { await this.request("session/set_config_option", { sessionId: this.sessionId, configId: "reasoning_effort", value: e }, 15000); } catch { /* keep default */ } }
+        if (e) { try { await this.request("session/set_config_option", { sessionId: this.sessionId, configId: "reasoning_effort", value: e }, 15000); } catch (e) { if (opts.effort) throw e; } }
       }
       this.timer = setTimeout(() => this.fail("委派超过 30 分钟没有结束"), 30 * 60000);
       this.request("session/prompt", { sessionId: this.sessionId, prompt: [{ type: "text", text: opts.prompt }] }, 31 * 60000)
@@ -862,6 +865,8 @@ export class Delegator {
 
   async delegate(opts) {
     this.refreshSettings();
+    opts = mentionOptions(this.plugin, opts);
+    if (!["claude", "codex", "dsh"].includes(opts.agent)) return this.handoff(opts);
     if (opts.agent === "codex") return this.handoffCli(opts);
     const agent = opts.agent === "dsh" ? "dsh" : "claude";
     const file = opts.file;
@@ -902,6 +907,8 @@ export class Delegator {
   // 之后每轮扫描找这个 Agent 新出现、开头对得上的会话，找到就绑回这一行（🔗 + DELEGATED），面板里的卡片飞进「现在」。
   async handoff(opts) {
     this.refreshSettings();
+    opts = mentionOptions(this.plugin, opts);
+    if (["claude", "codex", "dsh"].includes(opts.agent)) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error("没有当前笔记");
@@ -932,6 +939,8 @@ export class Delegator {
   // 进程是你的终端开的，不归插件管；会话一出现照交接的办法认领、绑回这一行。
   async handoffCli(opts) {
     this.refreshSettings();
+    opts = mentionOptions(this.plugin, opts);
+    if (!["claude", "codex"].includes(opts.agent)) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error("没有当前笔记");
@@ -1019,7 +1028,7 @@ export class Delegator {
     const c = this.C;
     const parts = [];
     if (c.promptPrefix && c.promptPrefix.trim()) parts.push(c.promptPrefix.trim());
-    parts.push(opts.block.text.trim());
+    parts.push(stripTaskMention(opts.block.text).trim());
     if (opts.promptSuffix && opts.promptSuffix.trim()) parts.push(opts.promptSuffix.trim());
     else if (c.promptSuffix && c.promptSuffix.trim()) parts.push(c.promptSuffix.trim());
     if (opts.file) parts.push(`\n（来自 Obsidian：${opts.file.path}）`);

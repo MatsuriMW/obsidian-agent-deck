@@ -27,6 +27,9 @@ import { renderAIRecords } from "./record-display.js";
 import { AutoLog } from "./autolog.js";
 import { JournalSync } from "./sync.js";
 import * as J from "./journal.js";
+import { mentionOptions } from "./task-mentions.js";
+import { Dreaming } from "./dream.js";
+import { TaskAgentSuggest } from "./mention-suggest.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -59,12 +62,14 @@ export default class AgentDeckPlugin extends Plugin {
     this.delegator = new Delegator(this);
     this.menubar = new MenuBarBridge(this);
     this.autoLog = new AutoLog(this);
+    this.dreaming = new Dreaming(this);
     this.journalSync = new JournalSync(this);
 
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
     this.registerEditorExtension(createEditorExtension(this));
+    this.registerEditorSuggest(new TaskAgentSuggest(this));
     this.registerMarkdownPostProcessor((el, ctx) => {
       const child = new MarkdownRenderChild(el);
       child.onunload = renderAIRecords(el, this);
@@ -98,6 +103,8 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "scan-now", name: "重新扫描本机 Agent 会话", callback: () => this.scanNow(true) });
     this.addCommand({ id: "jump-running-project", name: "跳转到日记中正在运行的项目", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "J" }], callback: () => this.jumpRunningProject() });
     this.addCommand({ id: "log-journal", name: "整理 Agent 会话进今天的日记", callback: () => this.autoLog.logNow() });
+    this.addCommand({ id: "dream-now", name: "Dreaming：整理 AI 记录与用户日志为长期记忆", callback: () => this.dreaming.run() });
+    this.addCommand({ id: "dream-export", name: "Dreaming：导出长期记忆 Markdown 副本", callback: () => this.dreaming.exportMemory() });
     this.addCommand({ id: "import-nautilus", name: "导入螺旋日程的历史用量", callback: () => this.importNautilus(true) });
     this.addCommand({ id: "clean-jobs", name: "清理已结束的委派记录", callback: () => this.cleanJobs() });
 
@@ -124,6 +131,7 @@ export default class AgentDeckPlugin extends Plugin {
       if (this.settings.menuBarHideNautilus !== false) setTimeout(() => this.hideNautilusAgentBar().catch(() => {}), 2500);
       this.scheduleScan();
       this.registerInterval(window.setInterval(() => this.autoLog.tick(), 60 * 1000));
+      this.registerInterval(window.setInterval(() => this.dreaming.tick().catch((e) => console.error("[agent-deck] dream", e)), 60 * 1000));
       setTimeout(() => this.scanNow(false), 1200);
       if (this.settings.importNautilus !== false && !this.store.imported?.nautilus) {
         setTimeout(() => this.importNautilus(false).catch(() => {}), 3500);
@@ -699,7 +707,8 @@ export default class AgentDeckPlugin extends Plugin {
     if (t.error) return this.notice(t.error);
     const { file, lines, line } = t;
     try {
-      const opts = { file, lines, line, agent };
+      const opts = mentionOptions(this, { file, lines, line, agent });
+      agent = opts.agent;
       // 按住 ⌘ 松手：Claude Code / Codex 在终端里开交互式会话；不按：Claude Code / DeepSeek Harness 后台直接开跑
       // （Claude Code 答完一轮自动在桌面版打开，见设置「完成后自动在桌面版打开」）
       if (cli && (agent === "claude" || agent === "codex")) await this.delegator.handoffCli(opts);
@@ -720,9 +729,12 @@ export default class AgentDeckPlugin extends Plugin {
       }
       return this.notice(t.error);
     }
-    const agent = this.defaultTarget();
-    const where = agent === "codex" ? "终端新会话 · 使用默认模型" : agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "后台开跑 · 答完在桌面版打开" : "后台新会话";
-    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where }, () => this.delegateDrop(agent, item, null, { cli: agent === "codex" })).open();
+    let selected;
+    try { selected = mentionOptions(this, { lines: t.lines, line: t.line, agent: this.defaultTarget() }); }
+    catch (e) { return this.notice(e.message); }
+    const agent = selected.agent;
+    const where = agent === "codex" ? "终端新会话" : !["claude", "dsh"].includes(agent) ? "客户端交接" : agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "后台开跑 · 答完在桌面版打开" : "后台新会话";
+    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where: `${selected.model || this.defaultModel(agent) || "客户端模型"} · ${selected.effort || this.settings.delegate[agent]?.effort || "客户端强度"} · ${where}` }, () => this.delegateDrop(agent, item, null, { cli: agent === "codex" })).open();
   }
 
   // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样；同时提供「合并到已有条目」
