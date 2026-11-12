@@ -18,6 +18,7 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 
 **Contents**
 
+- [Supported agents](#supported-agents)
 - [How to use it](#how-to-use-it)
 - [Recommended: use it with Nautilus Spiral](#recommended-use-it-with-nautilus-spiral)
 - [What it does](#what-it-does)
@@ -34,6 +35,22 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 - [Feedback and updates](#feedback-and-updates)
 - [Credits](#credits)
 - [License](#license)
+
+## Supported agents
+
+The current version tracks these five agents through their local session logs:
+
+| Agent | Main log source | Progress | Delegation |
+|---|---|---|---|
+| Claude Code | `~/.claude/projects` and Code sessions in the Claude desktop app | TaskCreate / TaskUpdate / TodoWrite steps when available; conversation turns otherwise | Background CLI or interactive terminal |
+| Codex | `~/.codex/sessions`, `archived_sessions` and session indexes | Conversation turns | Terminal CLI with model and effort selection, or desktop clipboard handoff |
+| WorkBuddy | `~/.workbuddy/projects`, combined with `workbuddy.db` metadata | Conversation turns | Open the client and copy the task for you to paste and send |
+| DeepSeek Harness (DSH) | zstd logs under `~/.dsh/sessions` and the local usage statistics interface | Conversation turns | Background ACP with model and effort selection |
+| Antigravity | `~/.gemini/antigravity/brain/<session-id>/.system_generated/logs/transcript.jsonl` | Conversation turns, planner replies and tool actions | Open the client and copy the task for you to paste and send |
+
+All five can bind to journal tasks, create automatic entries and write conclusions back. State and token data depend on the fields each client actually logs. Archive detection is integrated for Claude, Codex, WorkBuddy and DSH; Antigravity archive detection is not currently guaranteed. Clicking an Antigravity or DSH session opens the client and copies the session ID rather than jumping directly to that conversation.
+
+Models can be added or edited in Models. Adding a model does not add another agent log reader. The plugin is developed and verified on macOS; client paths and navigation on other systems are unverified.
 
 ## How to use it
 
@@ -97,7 +114,7 @@ To hand over: open **Settings → 追踪 → 停用螺旋日程里的 AI 写入*
 
 ## What it does
 
-- **A dashboard for the agents on this Mac.** Running, waiting and quiet sessions for Claude Code, Codex, WorkBuddy and DeepSeek Harness, with project, last step, elapsed time and tokens. Click a row to open that session in its client.
+- **A dashboard for the agents on this Mac.** Running, waiting and quiet sessions for Claude Code, Codex, WorkBuddy, DeepSeek Harness and Antigravity, with project, last step, elapsed time and tokens. Click a row to open that session in its client.
 - **Claude desktop side chats.** In the Claude desktop app a session can spawn another session that looks like a sibling in the sidebar. Agent Deck reads `spawnedFrom` from `claude-code-sessions/**/local_*.json`, indents the child under its parent, and labels the relationship; a session with an open side chat gets a badge, and the menu bar adds `side chat ×N`. Archived sessions drop out of **现在** and the recent list for every client: Claude desktop (`isArchived`), Codex (`threads.archived` in `state_*.sqlite`, plus the older `archived_sessions/`), WorkBuddy (`sessions.status` in `workbuddy.db`) and DeepSeek Harness (`archivedSessionIds` in `storages/workspace.json`).
 - **Human–AI journal, moved in.** The AI half of Nautilus Spiral's journal flow now lives here: sessions are recorded into today's note (the selected local Claude / Codex CLI names them and matches existing task lines), status and elapsed time are written back, `💬` carries the last reply, child sessions / side chats / Claude Code subagents become nested blocks, and archiving a session marks its line `DONE`. Nautilus keeps the tracking display.
 - **Write-back on bound lines.** A bound `🔗` session gets `💬`, its keyword follows the session (`DOING` / `TOREVIEW` / `NEEDOK` / `ERRORED` / `HITLIMIT`), and archiving writes `DONE` + `⏱` and retires the `🔗` line. While Nautilus's own AI tracking is still enabled Agent Deck stays out of the note, so the two never fight over the same lines.
@@ -106,8 +123,8 @@ To hand over: open **Settings → 追踪 → 停用螺旋日程里的 AI 写入*
 - **Progress only on bound lines.** A line with a `🔗` session or a running delegation gets a line-end pill. While the job runs the pill fills and shows the elapsed clock; the `×` cancels it. When the agent answers, the pill becomes **Done** and the result is written under the task as one `💬` line. Lines with no session stay clean.
 - **Note-native records.** Delegation writes a `🔗` line under the task and changes the status to `DELEGATED`; the line is the source of truth. Delete the `🔗` line to unbind.
 - **Layered model settings.** A global default model, a default effort slider, capability tags, search/filter, enable switches, pinned order and a per-row menu. Changes sit in an **Unsaved changes** bar until you save them.
-- **Local only.** Everything is read from `~/.claude`, `~/.codex`, `~/.workbuddy`, `~/.dsh` and the Claude desktop session list under `~/Library/Application Support/Claude/claude-code-sessions`. Nothing is uploaded. The plugin stores its own aggregate in `usage.json` next to the plugin, so history survives log rotation.
-- **Official app icons.** Claude, Codex, WorkBuddy and DeepSeek Harness use the icons of their own apps in the dashboard, session rows, pills, settings and menu bar; status, tool and window icons stay Lucide, and running states use a CSS spinner.
+- **Local only.** Everything is read from `~/.claude`, `~/.codex`, `~/.workbuddy`, `~/.dsh`, `~/.gemini/antigravity/brain` and the Claude desktop session list under `~/Library/Application Support/Claude/claude-code-sessions`. Nothing is uploaded. The plugin stores its own aggregate in `usage.json` next to the plugin, so history survives log rotation.
+- **Official app icons.** The dashboard, session rows, pills and settings use agent icons; the menu bar falls back to a glyph when an icon is unavailable; status, tool and window icons stay Lucide, and running states use a CSS spinner.
 - **The agent summary lives in the macOS menu bar.** Obsidian's bottom-right status bar no longer carries the agent session summary. The status item is just an icon; click it for a solid, opaque panel of task cards you can jump from.
 
 ![macOS menu bar](assets/menubar.png)
@@ -123,7 +140,7 @@ The menu bar item is a tiny SwiftUI helper app compiled on first use; in the bar
 - **Five at a time.** The first five sessions are visible; the rest are a scroll away. The footer tells you how many sessions are in the list.
 - **Right side, plus a shortcut.** The status item stays in the right side of the menu bar. If macOS hides it because the bar is full, press **⌃⌥⌘D** (Control + Option + Command + D) to open the panel from any app; press it again to close it. Escape or a click outside also closes it. The shortcut can be changed in **Settings → 追踪 → 菜单栏快捷键**; no Accessibility permission is needed.
 - **Primary agents** (up to two) contribute more rows: all live sessions plus recent sessions from the last six hours, up to six per primary by default.
-- **Other agents** contribute only sessions that are currently running, up to three per agent by default. **WorkBuddy is the exception**: its waiting sessions are listed too, because they are part of the daily loop.
+- **Other agents** contribute only sessions that are currently running, up to three per agent by default. In the all-enabled scope, WorkBuddy waiting sessions can also be listed.
 - The header defaults to primary agents and agents currently running tasks. Idle primaries stay visible; other agents disappear when they stop running. Settings → Tracking → menu-bar agent scope can restore all enabled agents (`menuBarAgentScope: all`).
 - Clicking a row opens the same deeplink as the dashboard. DeepSeek Harness focuses the client and copies the session id; Codex opens `codex://threads/<id>` and copies `codex resume <id>`.
 - **打开面板** opens the Obsidian dashboard via `obsidian://agent-deck`; **重新扫描** triggers a scan; **隐藏** disables the menu bar from inside the panel.
@@ -195,6 +212,7 @@ Codex sessions open in the desktop app with `codex://threads/<id>` (and `codex r
 | WorkBuddy | `workbuddy://chat/<id>` | Works |
 | DeepSeek Harness | `dsh://open` | Opens the client; the desktop build does not expose a per-session URL yet. Agent Deck copies the session id to the clipboard so you can find it in the sidebar. |
 | Codex | `codex://threads/<id>` | Works; also copies `codex resume <id>` |
+| Antigravity | `antigravity://` | Opens the client and copies the session ID; no direct conversation navigation |
 
 ## The status pill
 
