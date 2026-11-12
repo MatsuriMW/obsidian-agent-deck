@@ -22,6 +22,7 @@ import { DelegateOptionsModal, ConfirmSendModal } from "./dialog.js";
 import { agentIcon } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
 import { MenuBarBridge } from "./menubar.js";
+import { integrateRecordFolding } from "./fold-integration.js";
 import { renderAIRecords } from "./record-display.js";
 import { AutoLog } from "./autolog.js";
 import { JournalSync } from "./sync.js";
@@ -115,6 +116,7 @@ export default class AgentDeckPlugin extends Plugin {
     });
 
     this.app.workspace.onLayoutReady(async () => {
+      integrateRecordFolding(this);
       if (this.settings.openDashboardOnStartup) this.activateView();
       if (this.settings.showMenuBar !== false) this.menubar.start().catch((e) => console.error("[agent-deck] menubar", e));
       if (this.settings.menuBarHideNautilus !== false) setTimeout(() => this.hideNautilusAgentBar().catch(() => {}), 2500);
@@ -129,6 +131,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   onunload() {
+    if (this.journalSync) this.journalSync._stopped = true;
     if (this.store?.dirty) { clearTimeout(this.store.saveTimer); this.store.save().catch(() => {}); }
     clearInterval(this._scanTimer);
     clearTimeout(this._refreshTimer);

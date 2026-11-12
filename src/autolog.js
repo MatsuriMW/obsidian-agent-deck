@@ -232,9 +232,9 @@ export class AutoLog {
     return out;
   }
 
-  async run({ dry = false, fallback = false } = {}) {
+  async run({ dry = false, fallback = false, manual = false } = {}) {
     const report = { asked: 0, changes: [], error: "" };
-    if (this._busy) return report;
+    if (this._busy || (this.cfg.journalAutoWrite === false && !manual)) return report;
     this._busy = true;
     let day = "", snap = null, file = null;
     try {
@@ -274,6 +274,7 @@ export class AutoLog {
         report.asked = ask.length;
         report.error = this._err || "";
       }
+      if (this.cfg.journalAutoWrite === false && !manual) return report;
       const text0 = base;
       let text = text0;
       const digest = { doing: [], paused: [], done: [], archived: [], todo: [] };
@@ -342,8 +343,10 @@ export class AutoLog {
         if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
         const pendingTodos = (a && !active && Array.isArray(a.todos) && !rec.todosAdded) ? a.todos : [];
         const taskTodo = x.agent === "claude" ? (meta.todo || null) : null;
-        if (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo) {
+        if ((this.cfg.autoLogGranularity !== "paused" || !active || arch.has(x.sid)) && (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo)) {
           const synced = J.syncSessionEntry(text, {
+            granularity: this.cfg.autoLogGranularity,
+            compact: this.cfg.autoLogSummaries?.[day]?.[x.sid],
             detail: this.cfg.autoLogDetail,
             sid: x.sid,
             blockId: rec.blockId || "",
@@ -456,7 +459,7 @@ export class AutoLog {
     const changes = [];
     let error = "";
     for (let round = 0; round < 5; round++) {
-      const r = await this.run({ fallback: true });
+      const r = await this.run({ fallback: true, manual: true });
       changes.push(...r.changes);
       error = r.error || "";
       if (error || r.asked < this.batch) break;
@@ -472,7 +475,7 @@ export class AutoLog {
 
   // 每分钟看一眼：启动后先等 autoLogStartDelay 分钟整理一次，之后每 autoLogEvery 分钟一次
   tick() {
-    if (!this.cfg.autoLog) return;
+    if (!this.cfg.autoLog || this.cfg.journalAutoWrite === false) return;
     const wait = this._at ? Math.max(5, num(this.cfg.autoLogEvery, 20)) : Math.max(1, num(this.cfg.autoLogStartDelay, 1));
     if (Date.now() - (this._at || this._born) < wait * 60e3) return;
     this._at = Date.now();

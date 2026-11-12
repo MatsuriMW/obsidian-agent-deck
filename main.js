@@ -1,4 +1,4 @@
-/* Agent Deck 1.3.2 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.3.3 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -36,7 +36,7 @@ module.exports = __toCommonJS(main_exports);
 var import_fs5 = __toESM(require("fs"), 1);
 var import_path5 = __toESM(require("path"), 1);
 var import_child_process5 = require("child_process");
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 
 // src/constants.js
 var STORE_VERSION = 1;
@@ -281,6 +281,8 @@ var DEFAULTS = {
   hideArchived: true,
   // Human–AI journal: sessions written back into the daily note.
   journalFolder: "\u65E5\u8BB0",
+  journalAutoWrite: true,
+  // 自动建项、结论和状态回写总开关；手动整理仍可用
   journalSync: true,
   resultBack: true,
   agentKw: true,
@@ -297,6 +299,11 @@ var DEFAULTS = {
   autoLog: false,
   aiRecordDisplay: "collapsed",
   // collapsed 默认折叠 / expanded 默认展开 / latest5 只显示最新五条
+  autoLogGranularity: "latest",
+  // latest 最新进展 / round 每轮 / paused 停歇或归档
+  autoLogMerge: false,
+  autoLogMergeThreshold: 10,
+  autoLogSummaries: {},
   autoLogDetail: "brief",
   // brief 最新一句结论 / standard 每轮结论 / detailed 每轮提问和结论
   autoLogEvery: 20,
@@ -2759,7 +2766,7 @@ function oneSentenceConclusion(raw, max = 90) {
   if (sentMatch) pick = sentMatch[1];
   return resultText(pick, max);
 }
-function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief" } = {}) {
+function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", granularity = "", compact = null } = {}) {
   let lines = text.split("\n");
   let n = -1, linkAt = -1;
   if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
@@ -2782,6 +2789,7 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
     activeBlockId = eb.blockId;
   }
   const mode = ["standard", "detailed"].includes(detail) ? detail : "brief";
+  const roundLog = granularity ? granularity === "round" : mode !== "brief";
   const base = width(lines[n]);
   const ind = linkAt >= 0 ? /^\s*/.exec(lines[linkAt])[0] : childIndent(lines, n);
   const childWidth = width(ind);
@@ -2812,7 +2820,9 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
     const question = /^\s*[-*+]\s+❓\s*第\d+轮[：:]/.test(lines[i]);
     const history = /^\s*[-*+]\s+💬\s*第\d+轮[：:]/.test(lines[i]);
     const progress = /^\s*[-*+]\s+📋\s+/.test(lines[i]);
-    if (mode !== "detailed" && question || mode === "brief" && (history || progress)) {
+    const roundNumber = /(?:💬|❓)\s*第(\d+)轮[：:]/.exec(lines[i]);
+    const merged = compact?.text && roundNumber && +roundNumber[1] <= compact.through;
+    if (merged || (!roundLog || mode !== "detailed") && question || !roundLog && history || mode === "brief" && progress) {
       lines.splice(i, 1);
       if (i < linkAt) linkAt--;
     }
@@ -2822,17 +2832,19 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
     const planLine = `${ind}- \u{1F4CB} \u6B65\u9AA4 ${taskTodo.done}/${taskTodo.total}${stepPart}`;
     upsertChild(/^\s*[-*+]\s+📋\s+/, planLine, linkAt >= 0 ? linkAt : n);
   }
-  const validRounds = Array.isArray(rounds) ? rounds.filter((r) => r && (r.ask || r.said || r.summary)) : [];
-  if (mode === "brief" || validRounds.length <= 1) {
-    const r0 = mode === "brief" ? validRounds.filter((r) => r.summary || r.said).slice(-1)[0] : validRounds[0];
+  let validRounds = Array.isArray(rounds) ? rounds.filter((r) => r && (r.ask || r.said || r.summary)) : [];
+  if (compact?.text) validRounds = [{ n: 0, summary: `\u7D2F\u8BA1\u603B\u7ED3\uFF1A${compact.text}` }, ...validRounds.filter((r) => r.n > compact.through)];
+  if (!roundLog || validRounds.length <= 1) {
+    const r0 = !roundLog ? validRounds.filter((r) => r.summary || r.said).slice(-1)[0] : validRounds[0];
     const raw = r0 && r0.summary || said || r0 && r0.said || (mode === "brief" ? previousConclusion : "");
-    const msg = raw ? oneSentenceConclusion(raw, mode === "brief" ? 45 : 90) : "";
+    const msg = raw ? r0?.n === 0 ? resultText(raw, 170) : oneSentenceConclusion(raw, mode === "brief" ? 45 : 90) : "";
     if (msg) {
       upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- \u{1F4AC} ${msg}`, linkAt >= 0 ? linkAt : n);
     }
   } else {
     const r1 = validRounds[0];
-    const msg1 = r1.summary || (r1.said ? oneSentenceConclusion(r1.said, 90) : said);
+    const raw1 = r1.summary || r1.said || said;
+    const msg1 = r1.n === 0 ? resultText(raw1, 170) : oneSentenceConclusion(raw1, mode === "brief" ? 45 : 90);
     let anchor = linkAt >= 0 ? linkAt : n;
     if (msg1) {
       anchor = upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- \u{1F4AC} ${msg1}`, anchor);
@@ -2844,7 +2856,7 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
         const qText = resultText(r.ask, 72);
         if (qText) anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+\u2753\\s*\u7B2C${rn}\u8F6E[\uFF1A:]`), `${ind}- \u2753 \u7B2C${rn}\u8F6E\uFF1A${qText}`, anchor);
       }
-      const rConclusion = r.summary || (r.said ? oneSentenceConclusion(r.said, 90) : "");
+      const rConclusion = oneSentenceConclusion(r.summary || r.said || "", mode === "brief" ? 45 : 90);
       if (rConclusion) {
         anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+\u{1F4AC}\\s*\u7B2C${rn}\u8F6E[\uFF1A:]`), `${ind}- \u{1F4AC} \u7B2C${rn}\u8F6E\uFF1A${rConclusion}`, anchor);
       }
@@ -4463,14 +4475,17 @@ ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
     }
   }
   async writeResult(job) {
-    if (job.resultWritten) return;
+    if (job.resultWritten || this.settings.journalAutoWrite === false) return;
     let said = job.result || job.lastText || "";
     const meta = this.plugin.usage && this.plugin.usage.meta.get(job.sessionId);
     if (!said) said = meta && (meta.lastText || "");
     said = oneSentenceConclusion(said, clamp(Number(this.settings.resultMax) || 120, 40, 2e3));
     if (!said) return;
     const text = await this.plugin.readNote(job.path);
+    if (this.settings.journalAutoWrite === false) return;
     const synced = syncSessionEntry(text, {
+      granularity: this.settings.autoLogGranularity,
+      compact: this.settings.autoLogSummaries?.[job.path.split("/").pop().replace(/\.md$/, "")]?.[job.sessionId],
       detail: this.settings.autoLogDetail,
       sid: job.sessionId || "",
       blockId: job.blockId || "",
@@ -4708,6 +4723,30 @@ var import_state2 = require("@codemirror/state");
 
 // src/record-display.js
 var import_view = require("@codemirror/view");
+var import_language = require("@codemirror/language");
+
+// src/fold-actions.js
+var RECORD_FOLD_COMMANDS = {
+  "editor:toggle-fold": { open: null },
+  "editor:fold-more": { open: false },
+  "editor:fold-less": { open: true },
+  "editor:fold-all": { open: false, all: true },
+  "editor:unfold-all": { open: true, all: true },
+  "bullet:fold": { open: false },
+  "bullet:unfold": { open: true },
+  "logseq-style-fold:toggle-fold": { open: null },
+  "logseq-style-fold:collapse-all": { open: false, all: true },
+  "logseq-style-fold:expand-all": { open: true, all: true }
+};
+function foldTargets(groups, line, all = false) {
+  if (all) return groups;
+  return groups.filter((g) => g.line <= line && g.records[g.records.length - 1] >= line).slice(-1);
+}
+function recordsAreOpen(mode, toggled, key) {
+  return mode === "collapsed" ? toggled.has(key) : !toggled.has(key);
+}
+
+// src/record-display.js
 var import_state = require("@codemirror/state");
 
 // src/ai-records.js
@@ -4760,6 +4799,7 @@ function adBlockIdRanges(text) {
 
 // src/record-display.js
 var toggleRecords = import_state.StateEffect.define();
+var setRecordsOpenEffect = import_state.StateEffect.define();
 var modeFor = (plugin) => plugin.settings.aiRecordDisplay || "collapsed";
 function trackedIds(plugin) {
   const ids = /* @__PURE__ */ new Set();
@@ -4818,8 +4858,8 @@ function aiRecordDisplayExtension(plugin, refreshEffect2) {
     for (const { from, to } of adBlockIdRanges(text)) ranges.push(import_view.Decoration.replace({}).range(from, to));
     for (const group of aiRecordGroups(text, trackedIds(plugin))) {
       for (const n of group.records) ranges.push(import_view.Decoration.line({ class: "ad-record-line" }).range(doc.line(n + 1).from));
-      const open = mode === "expanded" ? !toggled.has(group.key) : toggled.has(group.key);
-      const hidden = mode === "latest5" ? group.records.slice(0, -5) : open ? [] : group.records;
+      const open = recordsAreOpen(mode, toggled, group.key);
+      const hidden = !open ? group.records : mode === "latest5" ? group.records.slice(0, -5) : [];
       ranges.push(import_view.Decoration.widget({ widget: new RecordsToggle(group.key, group.records.length, open, mode === "latest5"), side: 2 }).range(doc.line(group.line + 1).to));
       for (const run2 of recordRuns(hidden)) {
         const from = Math.max(0, doc.line(run2.from + 1).from - 1), to = doc.line(run2.to + 1).to;
@@ -4838,7 +4878,20 @@ function aiRecordDisplayExtension(plugin, refreshEffect2) {
       const mode = modeFor(plugin);
       let toggled = mode === value.mode ? value.toggled : /* @__PURE__ */ new Set();
       let changed = mode !== value.mode;
+      const setOpen = (keys, open) => {
+        toggled = new Set(toggled);
+        for (const key of keys) {
+          if (open !== (mode !== "collapsed")) toggled.add(key);
+          else toggled.delete(key);
+        }
+        changed = true;
+      };
       for (const e of tr.effects) {
+        if (e.is(setRecordsOpenEffect)) setOpen(e.value.keys, e.value.open);
+        if (e.is(import_language.foldEffect) || e.is(import_language.unfoldEffect)) {
+          const groups = aiRecordGroups(tr.state.doc.toString(), trackedIds(plugin));
+          setOpen(groups.filter((g) => tr.state.doc.line(g.line + 1).to >= e.value.from && tr.state.doc.line(g.line + 1).from <= e.value.to).map((g) => g.key), e.is(import_language.unfoldEffect));
+        }
         if (e.is(refreshEffect2)) changed = true;
         if (e.is(toggleRecords)) {
           toggled = new Set(toggled);
@@ -4851,6 +4904,8 @@ function aiRecordDisplayExtension(plugin, refreshEffect2) {
     },
     provide: (f) => [import_view.EditorView.decorations.from(f, (v) => v.decorations), import_view.EditorView.atomicRanges.of((view) => view.state.field(f).decorations)]
   });
+  plugin.aiRecordDisplayField = field;
+  plugin.recordTrackedIds = () => trackedIds(plugin);
   return field;
 }
 function renderAIRecords(el, plugin) {
@@ -6700,6 +6755,11 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.refreshUI();
     });
     const jr = this.card(body, "\u81EA\u52A8\u8BB0\u65E5\u8BB0\uFF08\u4EBA\u673A\u5171\u5199\uFF09", "\u628A Agent \u4F1A\u8BDD\u5199\u56DE\u4ECA\u5929\u7684\u65E5\u8BB0\uFF1A\u65B0\u4F1A\u8BDD\u8BB0\u6210 DOING\uFF0C\u505C\u4E86\u4E00\u9635\u6539\u6210 PAUSED \u5E76\u628A\u5B9E\u9645\u65F6\u6BB5\u5199\u5728\u4E0B\u9762\uFF0C\u684C\u9762\u7248\u6216 Codex \u91CC\u5F52\u6863\u4E86\u8BB0\u6210 DONE\u3002\u540D\u5B57\u548C\u300C\u63A5\u5728\u54EA\u4E00\u884C\u300D\u53EF\u7531\u672C\u673A Claude \u6216 Codex CLI \u6574\u7406\u3002\u53EA\u6539\u5B83\u81EA\u5DF1\u8BB0\u7740\u7684\u90A3\u51E0\u884C\uFF0C\u4F60\u624B\u6539\u8FC7\u7684\u72B6\u6001\u4E0D\u4F1A\u88AB\u4ED6\u63B0\u56DE\u53BB\u3002");
+    const master = this.row(jr, "\u81EA\u52A8\u8BB0\u5F55\u5230\u65E5\u8BB0\uFF08\u603B\u5F00\u5173\uFF09", "\u7531 Agent Deck \u8D1F\u8D23\u3002\u5173\u95ED\u540E\u4E0D\u518D\u81EA\u52A8\u5EFA\u9879\u3001\u7EED\u5199\u7ED3\u8BBA\u6216\u66F4\u65B0\u4EFB\u52A1\u72B6\u6001\uFF1B\u4F1A\u8BDD\u8FFD\u8E2A\u7167\u5E38\uFF0C\u4ECD\u53EF\u70B9\u201C\u73B0\u5728\u6574\u7406\u4E00\u6B21\u201D\u624B\u52A8\u6574\u7406\u3002", null);
+    this.toggle(master.querySelector(":scope > .ad-row__right"), s.journalAutoWrite !== false, (v) => {
+      s.journalAutoWrite = v;
+      p.saveSettings();
+    });
     const jf = this.row(jr, "\u65E5\u8BB0\u76EE\u5F55", "\u4ECA\u5929\u7684\u65E5\u8BB0\u662F\u300C\u76EE\u5F55/YYYY_MM_DD.md\u300D\uFF0C\u548C\u87BA\u65CB\u65E5\u7A0B\u7684\u9ED8\u8BA4\u4E00\u81F4\u3002", null);
     this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "\u65E5\u8BB0", "\u65E5\u8BB0", (v) => {
       s.journalFolder = v.trim() || "\u65E5\u8BB0";
@@ -6710,7 +6770,24 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       s.autoLog = v;
       p.saveSettings();
     });
-    const jdetail = this.row(jr, "\u81EA\u52A8\u65E5\u5FD7\u8BE6\u7EC6\u7A0B\u5EA6", "\u7B80\u7565\uFF1A\u53EA\u7559\u6700\u65B0\u4E00\u53E5\u7ED3\u8BBA\uFF08\u7EA6 45 \u5B57\uFF09\uFF0C\u4E0D\u9010\u8F6E\u8BB0\u63D0\u95EE\u548C\u6B65\u9AA4\uFF1B\u6807\u51C6\uFF1A\u4FDD\u7559\u6BCF\u8F6E\u7ED3\u8BBA\u4E0E\u6B65\u9AA4\uFF1B\u8BE6\u7EC6\uFF1A\u518D\u8BB0\u5F55\u6BCF\u8F6E\u63D0\u95EE\u3002\u9700\u8981\u4F60\u5904\u7406\u7684\u5F85\u529E\u3001\u5B9E\u9645\u7528\u65F6\u548C\u624B\u5199\u5185\u5BB9\u4FDD\u7559\u3002\u5207\u6362\u540E\u5728\u4E0B\u6B21\u5199\u56DE\u65F6\u6574\u7406\u672C\u4EFB\u52A1\u7684\u81EA\u52A8\u8BB0\u5F55\u3002", null);
+    const grain = this.row(jr, "\u81EA\u52A8\u8BB0\u5F55\u9897\u7C92\u5EA6", "\u6700\u65B0\u8FDB\u5C55\uFF1A\u8986\u76D6\u4E0A\u4E00\u53E5\uFF1B\u6BCF\u8F6E\u8BB0\u5F55\uFF1A\u6309\u5DF2\u5B8C\u6210\u5BF9\u8BDD\u8F6E\u6B21\u7D2F\u79EF\u7ED3\u8BBA\uFF1B\u505C\u6B47\u6216\u5F52\u6863\uFF1A\u53EA\u5728\u81EA\u52A8\u6682\u505C\u6216\u8BC6\u522B\u5F52\u6863\u65F6\u5199\u7ED3\u8BBA\u3002\u4EFB\u52A1\u72B6\u6001\u4E0E\u7528\u65F6\u53E6\u6309\u539F\u89C4\u5219\u540C\u6B65\u3002", null);
+    this.segmented(grain.querySelector(":scope > .ad-row__right"), [{ id: "latest", label: "\u6700\u65B0\u8FDB\u5C55" }, { id: "round", label: "\u6BCF\u8F6E\u8BB0\u5F55" }, { id: "paused", label: "\u505C\u6B47\u6216\u5F52\u6863" }], s.autoLogGranularity || "latest", (v) => {
+      s.autoLogGranularity = v;
+      p.saveSettings();
+      this.display();
+    });
+    const merge = this.row(jr, "\u7D2F\u79EF\u540E\u81EA\u52A8\u5408\u5E76\u603B\u7ED3", "\u5728\u201C\u6BCF\u8F6E\u8BB0\u5F55\u201D\u6A21\u5F0F\u4E0B\uFF0C\u7D2F\u79EF\u5230\u6307\u5B9A\u6761\u6570\u540E\u7531\u6240\u9009 CLI \u5408\u5E76\u4E3A\u4E00\u6761\u603B\u7ED3\uFF1B\u7EE7\u7EED\u4FDD\u7559\u540E\u7EED\u65B0\u8BB0\u5F55\u3001\u624B\u5199\u5185\u5BB9\u3001\u5B9E\u9645\u7528\u65F6\u4E0E\u5F85\u529E\u3002\u603B\u7ED3\u5931\u8D25\u65F6\u4FDD\u7559\u539F\u8BB0\u5F55\u3002", null);
+    this.toggle(merge.querySelector(":scope > .ad-row__right"), !!s.autoLogMerge, (v) => {
+      s.autoLogMerge = v;
+      p.saveSettings();
+      this.display();
+    }, s.autoLogGranularity !== "round");
+    const mergeN = this.row(jr, "\u7D2F\u79EF\u591A\u5C11\u6761\u7ED3\u8BBA\u540E\u5408\u5E76", "\u540C\u4E00\u4F1A\u8BDD\u4ECE\u4E0A\u6B21\u603B\u7ED3\u540E\u65B0\u589E\u7684\u5DF2\u5B8C\u6210\u8F6E\u6B21\uFF1B\u9ED8\u8BA4 10 \u6761\uFF0C\u81F3\u5C11 2 \u6761\u3002\u6700\u65B0\u8FDB\u5C55\u4E0E\u505C\u6B47\u6A21\u5F0F\u4E0D\u7D2F\u79EF\u5408\u5E76\u3002", null);
+    this.numberInput(mergeN.querySelector(":scope > .ad-row__right"), s.autoLogMergeThreshold || 10, 2, 100, (v) => {
+      s.autoLogMergeThreshold = Math.round(v);
+      p.saveSettings();
+    });
+    const jdetail = this.row(jr, "\u81EA\u52A8\u65E5\u5FD7\u8BE6\u7EC6\u7A0B\u5EA6", "\u7B80\u7565\uFF1A\u6BCF\u6761\u7ED3\u8BBA\u7EA6 45 \u5B57\uFF0C\u4E0D\u6284\u7528\u6237\u63D0\u95EE\u548C\u6B65\u9AA4\uFF1B\u6807\u51C6\uFF1A\u7ED3\u8BBA\u66F4\u5B8C\u6574\uFF0C\u53EF\u663E\u793A\u6B65\u9AA4\uFF1B\u8BE6\u7EC6\uFF1A\u6309\u8F6E\u8BB0\u5F55\u65F6\u518D\u4FDD\u7559\u6BCF\u8F6E\u63D0\u95EE\u3002\u9700\u8981\u4F60\u5904\u7406\u7684\u5F85\u529E\u3001\u5B9E\u9645\u7528\u65F6\u548C\u624B\u5199\u5185\u5BB9\u4FDD\u7559\u3002\u5207\u6362\u540E\u5728\u4E0B\u6B21\u5199\u56DE\u65F6\u6574\u7406\u672C\u4EFB\u52A1\u7684\u81EA\u52A8\u8BB0\u5F55\u3002", null);
     this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: "\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09" }, { id: "standard", label: "\u6807\u51C6" }, { id: "detailed", label: "\u8BE6\u7EC6" }], s.autoLogDetail || "brief", (v) => {
       s.autoLogDetail = v;
       p.saveSettings();
@@ -9241,8 +9318,51 @@ var MenuBarBridge = class {
   }
 };
 
-// src/autolog.js
+// src/fold-integration.js
 var import_obsidian5 = require("obsidian");
+var import_language2 = require("@codemirror/language");
+function integrateRecordFolding(plugin) {
+  for (const [id, spec] of Object.entries(RECORD_FOLD_COMMANDS)) {
+    const command = plugin.app.commands.commands[id];
+    if (!command?.checkCallback) continue;
+    const original = command.checkCallback;
+    const wrapped = function(checking) {
+      const view = plugin.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
+      const cm = view?.editor?.cm;
+      const value = cm?.state.field(plugin.aiRecordDisplayField, false);
+      if (!value) return original.apply(this, arguments);
+      const groups = aiRecordGroups(cm.state.doc.toString(), plugin.recordTrackedIds());
+      const targets = foldTargets(groups, view.editor.getCursor().line, spec.all);
+      if (!targets.length) return original.apply(this, arguments);
+      if (checking) return true;
+      const open = spec.open ?? !recordsAreOpen(value.mode, value.toggled, targets[0].key);
+      const result = original.apply(this, arguments);
+      const current = aiRecordGroups(cm.state.doc.toString(), plugin.recordTrackedIds());
+      const keys = new Set(spec.all ? current.map((g) => g.key) : targets.map((g) => g.key));
+      const effects = [];
+      if (open) {
+        (0, import_language2.foldedRanges)(cm.state).between(0, cm.state.doc.length, (from, to) => {
+          if (current.some((g) => keys.has(g.key) && cm.state.doc.line(g.line + 1).to >= from && cm.state.doc.line(g.line + 1).from <= to)) effects.push(import_language2.unfoldEffect.of({ from, to }));
+        });
+      }
+      effects.push(setRecordsOpenEffect.of({ keys: [...keys], open }));
+      cm.dispatch({ effects });
+      if (spec.all && view.getMode?.() === "preview") {
+        for (const button of view.containerEl.querySelectorAll("button.ad-records-toggle")) {
+          if (button.getAttribute("aria-expanded") === "true" !== open) button.click();
+        }
+      }
+      return result ?? true;
+    };
+    command.checkCallback = wrapped;
+    plugin.register(() => {
+      if (command.checkCallback === wrapped) command.checkCallback = original;
+    });
+  }
+}
+
+// src/autolog.js
+var import_obsidian6 = require("obsidian");
 
 // src/llm.js
 var import_fs4 = __toESM(require("fs"), 1);
@@ -9398,7 +9518,7 @@ var AutoLog = class {
     let view = null;
     this.p.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!view && v instanceof import_obsidian5.MarkdownView && v.file && v.file.path === file.path && v.getMode && v.getMode() === "source") view = v;
+      if (!view && v instanceof import_obsidian6.MarkdownView && v.file && v.file.path === file.path && v.getMode && v.getMode() === "source") view = v;
     });
     return view;
   }
@@ -9588,10 +9708,10 @@ ${blockLines.join("\n")}
     }
     return out;
   }
-  async run({ dry = false, fallback = false } = {}) {
+  async run({ dry = false, fallback = false, manual = false } = {}) {
     var _a, _b;
     const report = { asked: 0, changes: [], error: "" };
-    if (this._busy) return report;
+    if (this._busy || this.cfg.journalAutoWrite === false && !manual) return report;
     this._busy = true;
     let day = "", snap = null, file = null;
     try {
@@ -9637,6 +9757,7 @@ ${blockLines.join("\n")}
         report.asked = ask.length;
         report.error = this._err || "";
       }
+      if (this.cfg.journalAutoWrite === false && !manual) return report;
       const text0 = base;
       let text = text0;
       const digest = { doing: [], paused: [], done: [], archived: [], todo: [] };
@@ -9727,8 +9848,10 @@ ${blockLines.join("\n")}
         if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
         const pendingTodos = a && !active && Array.isArray(a.todos) && !rec.todosAdded ? a.todos : [];
         const taskTodo = x.agent === "claude" ? meta.todo || null : null;
-        if (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo) {
+        if ((this.cfg.autoLogGranularity !== "paused" || !active || arch.has(x.sid)) && (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo)) {
           const synced = syncSessionEntry(text, {
+            granularity: this.cfg.autoLogGranularity,
+            compact: this.cfg.autoLogSummaries?.[day]?.[x.sid],
             detail: this.cfg.autoLogDetail,
             sid: x.sid,
             blockId: rec.blockId || "",
@@ -9848,7 +9971,7 @@ ${list.map((s) => "\xB7 " + s).join("\n")}` : "";
       sec("\u{1F4CC} \u8BB0\u4E86\u8981\u4F60\u505A\u7684", d.todo)
     ].filter(Boolean);
     if (!parts.length) return;
-    new import_obsidian5.Notice(`\u{1F916} \u6574\u7406\u4E86\u65E5\u8BB0
+    new import_obsidian6.Notice(`\u{1F916} \u6574\u7406\u4E86\u65E5\u8BB0
 ${parts.join("\n\n")}`, 9e3);
   }
   // 手动整理：一轮最多问 autoLogBatch 个，接着问到问完
@@ -9856,7 +9979,7 @@ ${parts.join("\n\n")}`, 9e3);
     const changes = [];
     let error = "";
     for (let round = 0; round < 5; round++) {
-      const r = await this.run({ fallback: true });
+      const r = await this.run({ fallback: true, manual: true });
       changes.push(...r.changes);
       error = r.error || "";
       if (error || r.asked < this.batch) break;
@@ -9865,13 +9988,13 @@ ${parts.join("\n\n")}`, 9e3);
     const msg = error && !changes.length ? `\u6CA1\u6574\u7406\u6210\uFF1A${error}` : changes.length ? `\u6574\u7406\u8FDB\u65E5\u8BB0\u4E86\uFF1A
 ${changes.join("\n")}${error ? `
 \uFF08\u6A21\u578B\u6CA1\u95EE\u5230\uFF0C\u65B0\u4F1A\u8BDD\u5148\u7528\u5B83\u81EA\u5DF1\u7684\u6807\u9898\u8BB0\u7684\uFF1A${error}\uFF09` : ""}` : `\u6CA1\u6709\u8981\u6539\u7684\uFF1A\u4F1A\u8BDD\u90FD\u5DF2\u7ECF\u8BB0\u8FC7\u4E86\uFF0C\u6216\u8005\u8FD8\u592A\u77ED\uFF08\u4E0D\u5230 ${this.minMinutes} \u5206\u949F\uFF09`;
-    new import_obsidian5.Notice(msg, 9e3);
+    new import_obsidian6.Notice(msg, 9e3);
     this.p.refreshUI();
     return { changes, error };
   }
   // 每分钟看一眼：启动后先等 autoLogStartDelay 分钟整理一次，之后每 autoLogEvery 分钟一次
   tick() {
-    if (!this.cfg.autoLog) return;
+    if (!this.cfg.autoLog || this.cfg.journalAutoWrite === false) return;
     const wait = this._at ? Math.max(5, num(this.cfg.autoLogEvery, 20)) : Math.max(1, num(this.cfg.autoLogStartDelay, 1));
     if (Date.now() - (this._at || this._born) < wait * 6e4) return;
     this._at = Date.now();
@@ -9882,7 +10005,7 @@ ${changes.join("\n")}${error ? `
 };
 
 // src/sync.js
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var STATE_KW2 = STATE_KW;
 var JournalSync = class {
   constructor(plugin) {
@@ -9890,6 +10013,8 @@ var JournalSync = class {
     this._busy = false;
     this._at = 0;
     this._refining = /* @__PURE__ */ new Set();
+    this._merging = /* @__PURE__ */ new Set();
+    this._mergeAt = /* @__PURE__ */ new Map();
   }
   get usage() {
     return this.p.usage;
@@ -9915,7 +10040,7 @@ var JournalSync = class {
     const out = [];
     this.p.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (v instanceof import_obsidian6.MarkdownView && v.file && v.editor && v.editor.cm) {
+      if (v instanceof import_obsidian7.MarkdownView && v.file && v.editor && v.editor.cm) {
         try {
           const doc = v.editor.cm.state.doc.toString();
           if (doc.includes("\u{1F517}") || /\s\^ad-[0-9a-z]{6}/i.test(doc)) out.push(v);
@@ -9948,7 +10073,7 @@ var JournalSync = class {
     if (this._busy) return;
     if (!force && Date.now() - this._at < 8e3) return;
     this._at = Date.now();
-    if (this.cfg.journalSync === false) return;
+    if (this.cfg.journalSync === false || this.cfg.journalAutoWrite === false) return;
     if (this.p.nautilusOwnsAi && this.p.nautilusOwnsAi()) {
       if (!this._warned) {
         this._warned = true;
@@ -9962,6 +10087,7 @@ var JournalSync = class {
         const cm = view.editor.cm;
         if (!cm || !cm.dom.isConnected || cm.composing) continue;
         const text = cm.state.doc.toString();
+        if (this.cfg.journalAutoWrite === false || this._stopped) return;
         let next = text;
         if (this.cfg.resultBack !== false) next = this.results(next);
         if (this.cfg.agentKw !== false) next = this.keywords(next);
@@ -9975,6 +10101,7 @@ var JournalSync = class {
       const file = this.todayJournal();
       if (file && !this.isOpen(file)) {
         const text = await this.p.app.vault.read(file);
+        if (this.cfg.journalAutoWrite === false || this._stopped) return;
         let next = text;
         if (this.cfg.resultBack !== false) next = this.results(next);
         if (this.cfg.agentKw !== false) next = this.keywords(next);
@@ -10013,6 +10140,37 @@ var JournalSync = class {
       this._refining.delete(key);
     });
   }
+  async queueMerge(sid, rounds, day = dayKeyToday(this.cfg)) {
+    var _a, _b;
+    if (!this.cfg.autoLogMerge || this.cfg.autoLogGranularity !== "round" || this.cfg.journalAutoWrite === false || this._stopped) return;
+    const key = `${day}:${sid}`;
+    if (this._merging.has(key) || Date.now() - (this._mergeAt.get(key) || 0) < 6e4) return;
+    const previous = this.cfg.autoLogSummaries?.[day]?.[sid];
+    const pending = rounds.filter((r) => r.n > (previous?.through || 0) && (r.summary || r.said) && (!r.doneAt || dayKey(r.doneAt, this.cfg) === day));
+    if (pending.length < Math.max(2, Number(this.cfg.autoLogMergeThreshold) || 10)) return;
+    this._merging.add(key);
+    this._mergeAt.set(key, Date.now());
+    try {
+      const prompt = [
+        "\u628A\u540C\u4E00\u4EFB\u52A1\u4EE5\u4E0B\u5DE5\u4F5C\u8BB0\u5F55\u5408\u5E76\u4E3A\u4E00\u6BB5\u4E2D\u6587\u603B\u7ED3\uFF0C\u4E0D\u8D85\u8FC7 120 \u5B57\u3002\u4FDD\u7559\u5B9E\u9645\u6210\u679C\u3001\u51B3\u5B9A\u548C\u672A\u89E3\u51B3\u4E8B\u9879\uFF0C\u4E0D\u9010\u8F6E\u590D\u8FF0\u7528\u6237\u8981\u6C42\uFF0C\u4E0D\u628A\u672A\u5B8C\u6210\u4E8B\u9879\u8BF4\u6210\u5DF2\u5B8C\u6210\u3002\u53EA\u8F93\u51FA\u603B\u7ED3\u3002",
+        previous?.text ? `\u6B64\u524D\u603B\u7ED3\uFF1A${previous.text}` : "",
+        ...pending.map((r) => `\u7B2C ${r.n} \u8F6E\uFF1A${String(r.summary || r.said).slice(-600)}`)
+      ].filter(Boolean).join("\n");
+      const raw = await runJournalModel(prompt, this.cfg);
+      const text = safeLabel(raw, 160);
+      if (!text || !this.cfg.autoLogMerge || this.cfg.autoLogGranularity !== "round" || this.cfg.journalAutoWrite === false || this._stopped) return;
+      const through = Math.max(...pending.map((r) => r.n));
+      const bucket = (_b = (_a = this.cfg).autoLogSummaries || (_a.autoLogSummaries = {}))[day] || (_b[day] = {});
+      if ((bucket[sid]?.through || 0) >= through) return;
+      bucket[sid] = { through, text };
+      await this.p.saveSettings();
+      await this.run({ force: true });
+    } catch (e) {
+      console.info("[agent-deck] \u7D2F\u79EF\u603B\u7ED3\u6682\u672A\u751F\u6210\uFF0C\u539F\u8BB0\u5F55\u4FDD\u7559\uFF1A", e.message || e);
+    } finally {
+      this._merging.delete(key);
+    }
+  }
   // 答完一轮或者归档了：把每轮的一句话结论 💬、多轮追问 ❓ 以及 TaskCreate 步骤 📋 写回同一个 ^xxxxx 任务条目下
   results(text) {
     const targets = /* @__PURE__ */ new Map();
@@ -10033,6 +10191,7 @@ var JournalSync = class {
       if (!m) continue;
       const waiting = m.state === "wait" || m.state === "quiet";
       const isDone = this.archived(sid);
+      if (this.cfg.autoLogGranularity === "paused" && !isDone && daySt[sid]?.status !== "paused") continue;
       const rounds = Array.isArray(m.rounds) ? m.rounds : [];
       const said = String(m.lastText || "").trim();
       let summary = "";
@@ -10049,7 +10208,11 @@ var JournalSync = class {
       }
       const taskTodo = m.agent === "claude" ? m.todo || null : null;
       if (!summary && !taskTodo && rounds.length <= 1) continue;
+      const completed = waiting || isDone ? rounds : rounds.slice(0, -1);
+      this.queueMerge(sid, completed);
       const synced = syncSessionEntry(out, {
+        granularity: this.cfg.autoLogGranularity,
+        compact: this.cfg.autoLogSummaries?.[dayKeyToday(this.cfg)]?.[sid],
         detail: this.cfg.autoLogDetail,
         sid,
         blockId: info.blockId || daySt[sid] && daySt[sid].blockId || "",
@@ -10440,7 +10603,7 @@ var JournalSync = class {
 // src/main.js
 var fsp4 = import_fs5.default.promises;
 var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
-var AgentDeckPlugin = class extends import_obsidian7.Plugin {
+var AgentDeckPlugin = class extends import_obsidian8.Plugin {
   async onload() {
     const data = await this.loadData();
     this.settings = deepMerge(DEFAULTS, data || {});
@@ -10459,7 +10622,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     this.store = new UsageStore(this, this.settings);
     await this.store.load(this.usageFile);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
-    this.editorInfoField = import_obsidian7.editorInfoField;
+    this.editorInfoField = import_obsidian8.editorInfoField;
     this.delegator = new Delegator(this);
     this.menubar = new MenuBarBridge(this);
     this.autoLog = new AutoLog(this);
@@ -10469,7 +10632,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     this.addSettingTab(this.settingTab);
     this.registerEditorExtension(createEditorExtension(this));
     this.registerMarkdownPostProcessor((el, ctx) => {
-      const child = new import_obsidian7.MarkdownRenderChild(el);
+      const child = new import_obsidian8.MarkdownRenderChild(el);
       child.onunload = renderAIRecords(el, this);
       ctx.addChild(child);
     });
@@ -10517,6 +10680,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       return this.activateView();
     });
     this.app.workspace.onLayoutReady(async () => {
+      integrateRecordFolding(this);
       if (this.settings.openDashboardOnStartup) this.activateView();
       if (this.settings.showMenuBar !== false) this.menubar.start().catch((e) => console.error("[agent-deck] menubar", e));
       if (this.settings.menuBarHideNautilus !== false) setTimeout(() => this.hideNautilusAgentBar().catch(() => {
@@ -10532,6 +10696,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     });
   }
   onunload() {
+    if (this.journalSync) this.journalSync._stopped = true;
     if (this.store?.dirty) {
       clearTimeout(this.store.saveTimer);
       this.store.save().catch(() => {
@@ -10613,7 +10778,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       this.delegator.resolveHandoffs(this.usage);
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
-      if (force) new import_obsidian7.Notice(`Agent Deck\uFF1A\u8BFB\u5230 ${this.usage.files.size} \u4E2A\u65E5\u5FD7\uFF0C${touched.size} \u5929\u6709\u5185\u5BB9`, 4e3);
+      if (force) new import_obsidian8.Notice(`Agent Deck\uFF1A\u8BFB\u5230 ${this.usage.files.size} \u4E2A\u65E5\u5FD7\uFF0C${touched.size} \u5929\u6709\u5185\u5BB9`, 4e3);
     } catch (e) {
       console.error("[agent-deck] scan", e);
       this.notice("\u626B\u63CF\u4F1A\u8BDD\u5931\u8D25\uFF1A" + (e && e.message || e), 8e3);
@@ -10629,7 +10794,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     this.usage.titles.clear();
     await this.store.save();
     await this.scanNow(true);
-    new import_obsidian7.Notice("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97");
+    new import_obsidian8.Notice("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97");
   }
   async importNautilus(manual = false) {
     const dir = import_path5.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
@@ -10637,14 +10802,14 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     try {
       raw = await fsp4.readFile(import_path5.default.join(dir, "ai-usage.json"), "utf8");
     } catch {
-      if (manual) new import_obsidian7.Notice("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json");
+      if (manual) new import_obsidian8.Notice("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json");
       return;
     }
     let src;
     try {
       src = JSON.parse(raw);
     } catch {
-      if (manual) new import_obsidian7.Notice("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25");
+      if (manual) new import_obsidian8.Notice("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25");
       return;
     }
     const days = src.days || {};
@@ -10662,7 +10827,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     }
     this.store.imported = { ...this.store.imported || {}, nautilus: Date.now() };
     await this.store.save();
-    if (manual || added) new import_obsidian7.Notice(`Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 ${added} \u5929\u5386\u53F2`);
+    if (manual || added) new import_obsidian8.Notice(`Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 ${added} \u5929\u5386\u53F2`);
     this.refreshUI();
   }
   recoverJobs() {
@@ -10770,12 +10935,12 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     await this.saveSettings();
     this.scanNow(true);
     this.refreshUI();
-    new import_obsidian7.Notice(`Agent Deck \u4E3B\u529B\uFF1A${this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ")}`);
+    new import_obsidian8.Notice(`Agent Deck \u4E3B\u529B\uFF1A${this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ")}`);
   }
   async setAgentEnabled(agent, on) {
     var _a;
     if (this.isPrimary(agent) && !on) {
-      new import_obsidian7.Notice("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389");
+      new import_obsidian8.Notice("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389");
       return;
     }
     ((_a = this.settings).agents || (_a.agents = {}))[agent] = !!on;
@@ -11001,7 +11166,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     let found = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!found && v instanceof import_obsidian7.MarkdownView && v.file && v.file.path === path6 && v.editor) found = v;
+      if (!found && v instanceof import_obsidian8.MarkdownView && v.file && v.file.path === path6 && v.editor) found = v;
     });
     return found;
   }
@@ -11010,7 +11175,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     let view = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!view && v instanceof import_obsidian7.MarkdownView && v.editor && v.editor.cm === cm) view = v;
+      if (!view && v instanceof import_obsidian8.MarkdownView && v.editor && v.editor.cm === cm) view = v;
     });
     if (!view || !data || !data.sid) return;
     const sid = data.sid;
@@ -11044,11 +11209,11 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   }
   // 把笔记里的第 srcLine 条任务合并/绑定到第 dstLine 条任务上（不管是 🤖 自动记的还是人写的）
   mergeTaskLines(cmOrView, srcLine, dstLine, srcLineText = "") {
-    let view = cmOrView instanceof import_obsidian7.MarkdownView ? cmOrView : null;
+    let view = cmOrView instanceof import_obsidian8.MarkdownView ? cmOrView : null;
     if (!view) {
       this.app.workspace.iterateAllLeaves((leaf) => {
         const v = leaf.view;
-        if (!view && v instanceof import_obsidian7.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
+        if (!view && v instanceof import_obsidian8.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
       });
     }
     if (!view || !view.editor) return;
@@ -11102,7 +11267,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     }
     const candidates = taskItems(lines.join("\n")).filter((t) => t.line !== taskLine);
     if (!candidates.length) return this.notice("\u5F53\u524D\u7B14\u8BB0\u91CC\u6CA1\u6709\u522B\u7684\u4EFB\u52A1\u6761\u76EE\u53EF\u5408\u5E76");
-    const menu = new import_obsidian7.Menu();
+    const menu = new import_obsidian8.Menu();
     for (const c of candidates.slice(0, 20)) {
       menu.addItem((mi) => {
         const tag = c.auto ? "\u{1F916} " : "";
@@ -11195,7 +11360,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样；同时提供「合并到已有条目」
   gripPick(item, e) {
     const main = this.defaultTarget();
-    const menu = new import_obsidian7.Menu();
+    const menu = new import_obsidian8.Menu();
     for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x))) {
       menu.addItem((mi) => {
         mi.setTitle(AGENTS[id].name + (id === main ? " \xB7 \u4E3B\u529B" : ""));
@@ -11249,7 +11414,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   async delegateAtLine(path6, line) {
     const file = this.app.vault.getAbstractFileByPath(path6);
     if (!file) return this.notice("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0");
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian8.MarkdownView);
     const lines = view && view.file && view.file.path === path6 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     await this.delegator.delegate({ file, lines, line, agent: this.defaultTarget() });
   }
@@ -11263,7 +11428,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     const map = this.lineMap(file.path, text);
     const tasks = runningTaskLines(text, map.sessionByParent, Object.values(this.jobs).filter((job) => job.path === file.path));
     if (!tasks.length) return this.notice("\u4ECA\u5929\u65E5\u8BB0\u91CC\u8FD8\u6CA1\u6709\u6B63\u5728\u8FD0\u884C\u7684 Agent \u9879\u76EE");
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian8.MarkdownView);
     const current = view?.file?.path === file.path ? view.editor?.getCursor().line : -1;
     const index = tasks.findIndex((task) => task.line === current);
     const target = tasks[(index + 1) % tasks.length];
@@ -11499,7 +11664,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
   // ---------- misc ----------
   notice(msg, ms) {
     try {
-      new import_obsidian7.Notice(msg, ms);
+      new import_obsidian8.Notice(msg, ms);
     } catch {
       console.log("[agent-deck]", msg);
     }

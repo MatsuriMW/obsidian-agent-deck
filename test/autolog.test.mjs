@@ -158,9 +158,75 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const text = "- DOING 任务 ^ad-detail\n";
   let out = js.results(text);
   check("live sync defaults to one conclusion without user prompts", out.includes("💬 完成新增配置。") && !out.includes("用户要求") && (out.match(/💬/g)||[]).length===1,out);
-  p.settings.autoLogDetail="detailed";
+  p.settings.autoLogDetail="detailed"; p.settings.autoLogGranularity="round";
   out=js.results(text);
   check("live sync honors detailed setting", out.includes("❓ 第2轮：追加的用户要求"),out);
+}
+
+
+{ // 总开关关闭后所有后台写入停止，手动整理保留。
+  const x={sid:"master-switch",agent:"codex",min:5,segs:nowSegs(5),title:"总开关测试"};
+  const p=fakePlugin("",[x],{}, {autoLog:true,journalAutoWrite:false});
+  const al=new AutoLog(p); let asked=0;
+  al.ask=async()=>{asked++;return new Map([[x.sid,{label:"验证手动整理",todos:[]}]]);};
+  await al.run();
+  check("master off prevents automatic naming and journal writes",asked===0&&p.journal==="");
+  al._born=Date.now()-10*60e3;al.tick();
+  check("master off also prevents the timer",asked===0);
+  const js=new JournalSync(p);let viewed=0;js.openViews=()=>{viewed++;return [];};
+  await js.run({force:true});
+  check("master off stops live result and keyword synchronization",viewed===0);
+  await al.logNow();
+  check("explicit manual organize still works when automatic writing is disabled",asked===1&&p.journal.includes("验证手动整理"),p.journal);
+}
+
+
+{ // 每轮记录和详细程度互相独立；停止模式等到暂停才写。
+  const sid="grain-sync", rounds=[{n:1,ask:"用户要求一",said:"完成基础功能。"},{n:2,ask:"用户要求二",said:"完成新增配置。"}];
+  const p=fakePlugin("",[],{[sid]:{agent:"codex",state:"wait",rounds}},{autoLogGranularity:"round"});
+  p.settings.autoLogState={[p.day]:{[sid]:{key:"任务",blockId:"ad-grain",status:"doing"}}};
+  const js=new JournalSync(p), text="- DOING 任务 ^ad-grain\n";
+  let out=js.results(text);
+  check("round granularity retains conclusions with brief text and no user prompts",(out.match(/💬/g)||[]).length===2&&!out.includes("用户要求"),out);
+  p.settings.autoLogGranularity="paused";
+  check("paused granularity does not write while merely waiting for user",js.results(text)===text);
+  p.settings.autoLogState[p.day][sid].status="paused";
+  check("paused granularity writes after inactivity pause",js.results(text).includes("完成新增配置"));
+}
+
+{ // 只有够数量才调用模型，成功后保存滚动总结；失败不删原记录。
+  const fs=await import("node:fs"), os=await import("node:os"), path=await import("node:path");
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"ad-merge-test-")), bin=path.join(dir,"model");
+  fs.writeFileSync(bin,`#!${process.execPath}\nprocess.stdin.resume();process.stdin.on("end",()=>console.log(JSON.stringify({result:"完成基础功能，新增配置；发布仍待验证。"})));\n`,{mode:0o755});
+  try {
+    const p=fakePlugin("手写内容",[],{},{autoLogGranularity:"round",autoLogMerge:true,autoLogMergeThreshold:2,autoLogPath:bin});
+    const js=new JournalSync(p);let refreshed=0;js.run=async()=>{refreshed++;};
+    const rounds=[{n:1,said:"完成基础功能。",doneAt:Date.now()},{n:2,said:"新增配置，待发布。",doneAt:Date.now()}];
+    await js.queueMerge("merge",rounds.slice(0,1));
+    check("merge below threshold does not call or store summary",refreshed===0&&!p.settings.autoLogSummaries[p.day]);
+    await js.queueMerge("merge",rounds);
+    const summary=p.settings.autoLogSummaries[p.day]?.merge;
+    check("merge stores successful summary and refreshes journal",summary?.through===2&&summary.text.includes("待验证")&&refreshed===1,summary);
+    js._mergeAt.clear();await js.queueMerge("merge",rounds);
+    check("already summarized rounds do not trigger another merge",refreshed===1);
+    js._mergeAt.clear();await js.queueMerge("merge",[...rounds,{n:3,said:"验证完成。"},{n:4,said:"发布完成。"}]);
+    check("subsequent merge rolls prior summary forward",p.settings.autoLogSummaries[p.day].merge.through===4&&refreshed===2);
+    p.settings.autoLogPath=path.join(dir,"missing");
+    await js.queueMerge("failed",rounds);
+    check("failed merge preserves journal and does not save replacement",!p.settings.autoLogSummaries[p.day].failed&&p.journal==="手写内容");
+    p.settings.journalAutoWrite=false;
+    await js.queueMerge("off",rounds);
+    check("master off also stops automatic merging",!p.settings.autoLogSummaries[p.day].off&&refreshed===2);
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+}
+
+{ // 合并只替换本任务 AI 轮次，保留待办、手写内容与更深层子任务。
+  const J=await import("../src/journal.js");
+  const text="- DOING 任务 ^ad-merge1\n\t- 💬 完成第一轮。\n\t- 💬 第2轮：完成第二轮。\n\t- ❓ 第2轮：用户追问\n\t- TODO 手动待办\n\t- 手写备注\n\t- 子任务\n\t\t- 💬 第2轮：子任务自己的记录\n";
+  const args={blockId:"ad-merge1",detail:"brief",granularity:"round",compact:{through:2,text:"完成基础功能，新增配置；发布仍待验证。"},rounds:[{n:1,said:"完成第一轮。"},{n:2,said:"完成第二轮。"},{n:3,said:"完成第三轮。"}]};
+  const out=J.syncSessionEntry(text,args).text;
+  check("compaction retains summary, later turns and manual content",out.includes("累计总结：完成基础功能，新增配置；发布仍待验证。")&&out.includes("第3轮：完成第三轮。")&&!out.includes("完成第二轮")&&!out.includes("用户追问")&&out.includes("TODO 手动待办")&&out.includes("手写备注")&&out.includes("子任务自己的记录"),out);
+  check("compaction is idempotent",J.syncSessionEntry(out,args).text===out);
 }
 
 if (fail) { console.log(`${fail} failed`); process.exit(1); }

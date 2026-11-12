@@ -230,7 +230,7 @@ export function resultInto(text, sid, said, { blockId = "", key = "", ensureId =
 }
 
 // 把同一个窗口会话（session）里的多轮问答、每轮一句话结论、待拍板问题和 TaskCreate 进度都挂在同一个 ^xxxxx 任务条目下
-export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief" } = {}) {
+export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", granularity = "", compact = null } = {}) {
   let lines = text.split("\n");
   let n = -1, linkAt = -1;
   if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
@@ -250,6 +250,7 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
     activeBlockId = eb.blockId;
   }
   const mode = ["standard", "detailed"].includes(detail) ? detail : "brief";
+  const roundLog = granularity ? granularity === "round" : mode !== "brief";
   const base = width(lines[n]);
   const ind = linkAt >= 0 ? (/^\s*/.exec(lines[linkAt])[0]) : childIndent(lines, n);
   const childWidth = width(ind);
@@ -284,7 +285,9 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
     const question = /^\s*[-*+]\s+❓\s*第\d+轮[：:]/.test(lines[i]);
     const history = /^\s*[-*+]\s+💬\s*第\d+轮[：:]/.test(lines[i]);
     const progress = /^\s*[-*+]\s+📋\s+/.test(lines[i]);
-    if ((mode !== "detailed" && question) || (mode === "brief" && (history || progress))) {
+    const roundNumber = /(?:💬|❓)\s*第(\d+)轮[：:]/.exec(lines[i]);
+    const merged = compact?.text && roundNumber && +roundNumber[1] <= compact.through;
+    if (merged || ((!roundLog || mode !== "detailed") && question) || (!roundLog && history) || (mode === "brief" && progress)) {
       lines.splice(i, 1);
       if (i < linkAt) linkAt--;
     }
@@ -298,18 +301,20 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
   }
 
   // 2) 第一轮 / 当前最新结论（💬）与多轮追问 + 结论
-  const validRounds = Array.isArray(rounds) ? rounds.filter((r) => r && (r.ask || r.said || r.summary)) : [];
-  if (mode === "brief" || validRounds.length <= 1) {
-    const r0 = mode === "brief" ? validRounds.filter((r) => r.summary || r.said).slice(-1)[0] : validRounds[0];
+  let validRounds = Array.isArray(rounds) ? rounds.filter((r) => r && (r.ask || r.said || r.summary)) : [];
+  if (compact?.text) validRounds = [{ n: 0, summary: `累计总结：${compact.text}` }, ...validRounds.filter((r) => r.n > compact.through)];
+  if (!roundLog || validRounds.length <= 1) {
+    const r0 = !roundLog ? validRounds.filter((r) => r.summary || r.said).slice(-1)[0] : validRounds[0];
     const raw = (r0 && r0.summary) || said || (r0 && r0.said) || (mode === "brief" ? previousConclusion : "");
-    const msg = raw ? oneSentenceConclusion(raw, mode === "brief" ? 45 : 90) : "";
+    const msg = raw ? (r0?.n === 0 ? resultText(raw, 170) : oneSentenceConclusion(raw, mode === "brief" ? 45 : 90)) : "";
     if (msg) {
       upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- 💬 ${msg}`, linkAt >= 0 ? linkAt : n);
     }
   } else {
     // 第 1 轮结论写在首条 💬，第 2 轮起把追问（❓ 第N轮）和结论（💬 第N轮）顺着挂在同一个母条目下
     const r1 = validRounds[0];
-    const msg1 = r1.summary || (r1.said ? oneSentenceConclusion(r1.said, 90) : said);
+    const raw1 = r1.summary || r1.said || said;
+    const msg1 = r1.n === 0 ? resultText(raw1, 170) : oneSentenceConclusion(raw1, mode === "brief" ? 45 : 90);
     let anchor = linkAt >= 0 ? linkAt : n;
     if (msg1) {
       anchor = upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- 💬 ${msg1}`, anchor);
@@ -321,7 +326,7 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
         const qText = resultText(r.ask, 72);
         if (qText) anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+❓\\s*第${rn}轮[：:]`), `${ind}- ❓ 第${rn}轮：${qText}`, anchor);
       }
-      const rConclusion = r.summary || (r.said ? oneSentenceConclusion(r.said, 90) : "");
+      const rConclusion = oneSentenceConclusion(r.summary || r.said || "", mode === "brief" ? 45 : 90);
       if (rConclusion) {
         anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+💬\\s*第${rn}轮[：:]`), `${ind}- 💬 第${rn}轮：${rConclusion}`, anchor);
       }

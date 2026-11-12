@@ -636,11 +636,19 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => { s.hideArchived = v; p.saveSettings(); p.refreshUI(); });
 
     const jr = this.card(body, "自动记日记（人机共写）", "把 Agent 会话写回今天的日记：新会话记成 DOING，停了一阵改成 PAUSED 并把实际时段写在下面，桌面版或 Codex 里归档了记成 DONE。名字和「接在哪一行」可由本机 Claude 或 Codex CLI 整理。只改它自己记着的那几行，你手改过的状态不会被他掰回去。");
+    const master = this.row(jr, "自动记录到日记（总开关）", "由 Agent Deck 负责。关闭后不再自动建项、续写结论或更新任务状态；会话追踪照常，仍可点“现在整理一次”手动整理。", null);
+    this.toggle(master.querySelector(":scope > .ad-row__right"), s.journalAutoWrite !== false, (v) => { s.journalAutoWrite = v; p.saveSettings(); });
     const jf = this.row(jr, "日记目录", "今天的日记是「目录/YYYY_MM_DD.md」，和螺旋日程的默认一致。", null);
     this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "日记", "日记", (v) => { s.journalFolder = v.trim() || "日记"; p.saveSettings(); });
     const ja = this.row(jr, "自动整理进日记", "每隔一阵扫一遍今天开着的会话；自动关着也可以用命令「整理 Agent 会话进今天的日记」手动跑。", null);
     this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => { s.autoLog = v; p.saveSettings(); });
-    const jdetail = this.row(jr, "自动日志详细程度", "简略：只留最新一句结论（约 45 字），不逐轮记提问和步骤；标准：保留每轮结论与步骤；详细：再记录每轮提问。需要你处理的待办、实际用时和手写内容保留。切换后在下次写回时整理本任务的自动记录。", null);
+    const grain = this.row(jr, "自动记录颗粒度", "最新进展：覆盖上一句；每轮记录：按已完成对话轮次累积结论；停歇或归档：只在自动暂停或识别归档时写结论。任务状态与用时另按原规则同步。", null);
+    this.segmented(grain.querySelector(":scope > .ad-row__right"), [{id:"latest",label:"最新进展"},{id:"round",label:"每轮记录"},{id:"paused",label:"停歇或归档"}], s.autoLogGranularity || "latest", (v) => { s.autoLogGranularity=v; p.saveSettings(); this.display(); });
+    const merge = this.row(jr, "累积后自动合并总结", "在“每轮记录”模式下，累积到指定条数后由所选 CLI 合并为一条总结；继续保留后续新记录、手写内容、实际用时与待办。总结失败时保留原记录。", null);
+    this.toggle(merge.querySelector(":scope > .ad-row__right"), !!s.autoLogMerge, (v) => { s.autoLogMerge=v; p.saveSettings(); this.display(); }, s.autoLogGranularity !== "round");
+    const mergeN = this.row(jr, "累积多少条结论后合并", "同一会话从上次总结后新增的已完成轮次；默认 10 条，至少 2 条。最新进展与停歇模式不累积合并。", null);
+    this.numberInput(mergeN.querySelector(":scope > .ad-row__right"), s.autoLogMergeThreshold || 10, 2, 100, (v) => { s.autoLogMergeThreshold=Math.round(v); p.saveSettings(); });
+    const jdetail = this.row(jr, "自动日志详细程度", "简略：每条结论约 45 字，不抄用户提问和步骤；标准：结论更完整，可显示步骤；详细：按轮记录时再保留每轮提问。需要你处理的待办、实际用时和手写内容保留。切换后在下次写回时整理本任务的自动记录。", null);
     this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: "简略（默认）" }, { id: "standard", label: "标准" }, { id: "detailed", label: "详细" }], s.autoLogDetail || "brief", (v) => { s.autoLogDetail = v; p.saveSettings(); this.display(); });
     const jdisplay = this.row(jr, "AI 记录显示方式", "默认折叠：点按钮展开；默认展开：点按钮折叠；最新 5 条：隐藏更早的记录，原文仍保留。只影响任务下的 AI 记录，手写笔记与子任务照常显示。", null);
     this.segmented(jdisplay.querySelector(":scope > .ad-row__right"), [{ id: "collapsed", label: "默认折叠" }, { id: "expanded", label: "默认展开" }, { id: "latest5", label: "最新 5 条" }], s.aiRecordDisplay || "collapsed", (v) => { s.aiRecordDisplay = v; p.saveSettings(); p.refreshUI(); this.display(); });

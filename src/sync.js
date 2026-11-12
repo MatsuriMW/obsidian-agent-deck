@@ -23,6 +23,8 @@ export class JournalSync {
     this._busy = false;
     this._at = 0;
     this._refining = new Set();
+    this._merging = new Set();
+    this._mergeAt = new Map();
   }
 
   get usage() { return this.p.usage; }
@@ -79,7 +81,7 @@ export class JournalSync {
     if (this._busy) return;
     if (!force && Date.now() - this._at < 8000) return;
     this._at = Date.now();
-    if (this.cfg.journalSync === false) return;
+    if (this.cfg.journalSync === false || this.cfg.journalAutoWrite === false) return;
     if (this.p.nautilusOwnsAi && this.p.nautilusOwnsAi()) {
       if (!this._warned) { this._warned = true; console.info("[agent-deck] 螺旋日程的 AI 追踪还开着，回写先停着"); }
       return;
@@ -90,6 +92,7 @@ export class JournalSync {
         const cm = view.editor.cm;
         if (!cm || !cm.dom.isConnected || cm.composing) continue;
         const text = cm.state.doc.toString();
+        if (this.cfg.journalAutoWrite === false || this._stopped) return;
         let next = text;
         if (this.cfg.resultBack !== false) next = this.results(next);
         if (this.cfg.agentKw !== false) next = this.keywords(next);
@@ -100,6 +103,7 @@ export class JournalSync {
       if (file && !this.isOpen(file)) {
         // 今天的日记没开着也要跟上：客户端里归档了，这边照样记 DONE
         const text = await this.p.app.vault.read(file);
+        if (this.cfg.journalAutoWrite === false || this._stopped) return;
         let next = text;
         if (this.cfg.resultBack !== false) next = this.results(next);
         if (this.cfg.agentKw !== false) next = this.keywords(next);
@@ -137,6 +141,31 @@ export class JournalSync {
       .finally(() => { this._refining.delete(key); });
   }
 
+  async queueMerge(sid, rounds, day = dayKeyToday(this.cfg)) {
+    if (!this.cfg.autoLogMerge || this.cfg.autoLogGranularity !== "round" || this.cfg.journalAutoWrite === false || this._stopped) return;
+    const key = `${day}:${sid}`;
+    if (this._merging.has(key) || Date.now() - (this._mergeAt.get(key) || 0) < 60000) return;
+    const previous = this.cfg.autoLogSummaries?.[day]?.[sid];
+    const pending = rounds.filter((r) => r.n > (previous?.through || 0) && (r.summary || r.said) && (!r.doneAt || dayKey(r.doneAt, this.cfg) === day));
+    if (pending.length < Math.max(2, Number(this.cfg.autoLogMergeThreshold) || 10)) return;
+    this._merging.add(key); this._mergeAt.set(key, Date.now());
+    try {
+      const prompt = ["把同一任务以下工作记录合并为一段中文总结，不超过 120 字。保留实际成果、决定和未解决事项，不逐轮复述用户要求，不把未完成事项说成已完成。只输出总结。",
+        previous?.text ? `此前总结：${previous.text}` : "",
+        ...pending.map((r) => `第 ${r.n} 轮：${String(r.summary || r.said).slice(-600)}`)].filter(Boolean).join("\n");
+      const raw = await runJournalModel(prompt, this.cfg);
+      const text = safeLabel(raw, 160);
+      if (!text || !this.cfg.autoLogMerge || this.cfg.autoLogGranularity !== "round" || this.cfg.journalAutoWrite === false || this._stopped) return;
+      const through = Math.max(...pending.map((r) => r.n));
+      const bucket = ((this.cfg.autoLogSummaries ||= {})[day] ||= {});
+      if ((bucket[sid]?.through || 0) >= through) return;
+      bucket[sid] = { through, text };
+      await this.p.saveSettings();
+      await this.run({ force: true });
+    } catch (e) { console.info("[agent-deck] 累积总结暂未生成，原记录保留：", e.message || e); }
+    finally { this._merging.delete(key); }
+  }
+
   // 答完一轮或者归档了：把每轮的一句话结论 💬、多轮追问 ❓ 以及 TaskCreate 步骤 📋 写回同一个 ^xxxxx 任务条目下
   results(text) {
     const targets = new Map(); // sid -> { blockId, key }
@@ -157,6 +186,7 @@ export class JournalSync {
       if (!m) continue;
       const waiting = m.state === "wait" || m.state === "quiet";
       const isDone = this.archived(sid);
+      if (this.cfg.autoLogGranularity === "paused" && !isDone && daySt[sid]?.status !== "paused") continue;
       const rounds = Array.isArray(m.rounds) ? m.rounds : [];
       const said = String(m.lastText || "").trim();
       let summary = "";
@@ -173,7 +203,11 @@ export class JournalSync {
       }
       const taskTodo = m.agent === "claude" ? (m.todo || null) : null;
       if (!summary && !taskTodo && rounds.length <= 1) continue;
+      const completed = (waiting || isDone) ? rounds : rounds.slice(0, -1);
+      this.queueMerge(sid, completed);
       const synced = J.syncSessionEntry(out, {
+        granularity: this.cfg.autoLogGranularity,
+        compact: this.cfg.autoLogSummaries?.[dayKeyToday(this.cfg)]?.[sid],
         detail: this.cfg.autoLogDetail,
         sid,
         blockId: info.blockId || (daySt[sid] && daySt[sid].blockId) || "",

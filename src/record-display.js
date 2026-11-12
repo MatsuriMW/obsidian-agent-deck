@@ -1,8 +1,11 @@
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
+import { foldEffect, unfoldEffect } from "@codemirror/language";
+import { recordsAreOpen } from "./fold-actions.js";
 import { StateEffect, StateField } from "@codemirror/state";
 import { aiRecordGroups, recordRuns, adBlockIdRanges } from "./ai-records.js";
 
 const toggleRecords = StateEffect.define();
+export const setRecordsOpenEffect = StateEffect.define();
 const modeFor = (plugin) => plugin.settings.aiRecordDisplay || "collapsed";
 function trackedIds(plugin) {
   const ids = new Set();
@@ -50,8 +53,8 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
     for (const { from, to } of adBlockIdRanges(text)) ranges.push(Decoration.replace({}).range(from, to));
     for (const group of aiRecordGroups(text, trackedIds(plugin))) {
       for (const n of group.records) ranges.push(Decoration.line({ class: "ad-record-line" }).range(doc.line(n + 1).from));
-      const open = mode === "expanded" ? !toggled.has(group.key) : toggled.has(group.key);
-      const hidden = mode === "latest5" ? group.records.slice(0, -5) : open ? [] : group.records;
+      const open = recordsAreOpen(mode, toggled, group.key);
+      const hidden = !open ? group.records : mode === "latest5" ? group.records.slice(0, -5) : [];
       ranges.push(Decoration.widget({ widget: new RecordsToggle(group.key, group.records.length, open, mode === "latest5"), side: 2 }).range(doc.line(group.line + 1).to));
       for (const run of recordRuns(hidden)) {
         const from = Math.max(0, doc.line(run.from + 1).from - 1), to = doc.line(run.to + 1).to;
@@ -71,7 +74,19 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
       const mode = modeFor(plugin);
       let toggled = mode === value.mode ? value.toggled : new Set();
       let changed = mode !== value.mode;
+      const setOpen = (keys, open) => {
+        toggled = new Set(toggled);
+        for (const key of keys) {
+          if (open !== (mode !== "collapsed")) toggled.add(key); else toggled.delete(key);
+        }
+        changed = true;
+      };
       for (const e of tr.effects) {
+        if (e.is(setRecordsOpenEffect)) setOpen(e.value.keys, e.value.open);
+        if (e.is(foldEffect) || e.is(unfoldEffect)) {
+          const groups = aiRecordGroups(tr.state.doc.toString(), trackedIds(plugin));
+          setOpen(groups.filter((g) => tr.state.doc.line(g.line + 1).to >= e.value.from && tr.state.doc.line(g.line + 1).from <= e.value.to).map((g) => g.key), e.is(unfoldEffect));
+        }
         if (e.is(refreshEffect)) changed = true;
         if (e.is(toggleRecords)) {
           toggled = new Set(toggled);
@@ -83,6 +98,8 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
     },
     provide: (f) => [EditorView.decorations.from(f, (v) => v.decorations), EditorView.atomicRanges.of((view) => view.state.field(f).decorations)],
   });
+  plugin.aiRecordDisplayField = field;
+  plugin.recordTrackedIds = () => trackedIds(plugin);
   return field;
 }
 

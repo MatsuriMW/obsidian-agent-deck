@@ -252,6 +252,7 @@ export const DEFAULTS = {
   hideArchived: true,
   // Human–AI journal: sessions written back into the daily note.
   journalFolder: "日记",
+  journalAutoWrite: true,  // 自动建项、结论和状态回写总开关；手动整理仍可用
   journalSync: true,
   resultBack: true,
   agentKw: true,
@@ -263,6 +264,10 @@ export const DEFAULTS = {
   yieldToNautilus: true,   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
   aiRecordDisplay: "collapsed", // collapsed 默认折叠 / expanded 默认展开 / latest5 只显示最新五条
+  autoLogGranularity: "latest", // latest 最新进展 / round 每轮 / paused 停歇或归档
+  autoLogMerge: false,
+  autoLogMergeThreshold: 10,
+  autoLogSummaries: {},
   autoLogDetail: "brief",   // brief 最新一句结论 / standard 每轮结论 / detailed 每轮提问和结论
   autoLogEvery: 20,        // 自动整理间隔（分钟）
   autoLogStartDelay: 1,    // 插件启动后第几分钟先整理一次，不用等满一个间隔

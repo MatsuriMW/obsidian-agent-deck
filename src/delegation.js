@@ -1113,14 +1113,17 @@ export class Delegator {
   }
 
   async writeResult(job) {
-    if (job.resultWritten) return;
+    if (job.resultWritten || this.settings.journalAutoWrite === false) return;
     let said = job.result || job.lastText || "";
     const meta = this.plugin.usage && this.plugin.usage.meta.get(job.sessionId);
     if (!said) said = meta && (meta.lastText || "");
     said = J.oneSentenceConclusion(said, clamp(Number(this.settings.resultMax) || 120, 40, 2000));
     if (!said) return;
     const text = await this.plugin.readNote(job.path);
+    if (this.settings.journalAutoWrite === false) return;
     const synced = J.syncSessionEntry(text, {
+      granularity: this.settings.autoLogGranularity,
+      compact: this.settings.autoLogSummaries?.[job.path.split("/").pop().replace(/\.md$/, "")]?.[job.sessionId],
       detail: this.settings.autoLogDetail,
       sid: job.sessionId || "",
       blockId: job.blockId || "",

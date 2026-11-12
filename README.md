@@ -157,7 +157,7 @@ If the menu bar is full (or a menu-bar manager such as Ice has the item in its h
 
 Your task lines are the plan; the agent session logs are the record of what actually happened. With **Auto-log into today's note** enabled, Agent Deck periodically reads today's sessions and writes the record back:
 
-- **Active** → the matching line becomes `DOING`; if there is no line it writes `- DOING 00:45 🤖 …`. A local `claude -p` names the session and picks an existing task line when one fits.
+- **Active** → the matching line becomes `DOING`; if there is no line it writes `- DOING 00:45 🤖 …`. The selected local Claude / Codex CLI names the session and picks an existing task line when one fits.
 - **Idle for a while** (40 minutes by default) → `PAUSED`, with `- ⏱ 00:45–01:20 · 共 52m · Claude` underneath.
 - **Archived in the desktop app / Codex** → `DONE 19:20 …`, including lines still open from previous days.
 - **It never guesses DONE.** The machine only moves between `DOING`, `PAUSED` and the waiting keywords (`TOREVIEW`, `NEEDOK`, `ERRORED`); finishing is you marking it done or archiving the session.
@@ -169,9 +169,15 @@ Writes are line-level, stay out of undo history, skip while an IME composition i
 
 Agents lets you select the default model and delegation target for Claude, Codex and DSH; primary stars separately control history tracking. Models supports adding and editing model names, CLI identifiers, DSH provider routes, context and tags, plus independent defaults and reasoning effort per agent. WorkBuddy and Antigravity model selection remains in their clients. Model availability depends on the signed-in account.
 
-Journal detail (`autoLogDetail`) defaults to `brief`: one latest conclusion, about 45 characters, with no per-turn user prompts or step rows. `standard` keeps per-turn conclusions and steps; `detailed` also keeps follow-up prompts. On the next write-back, the selected detail level also updates existing direct AI records. Required user TODOs and nested task notes are preserved.
+Agent Deck owns automatic journal writing. In **Settings → Agent Deck → 追踪 → 自动记日记**, turn off **自动记录到日记（总开关）** (`journalAutoWrite`, default `true`) to stop automatic task creation, conclusions, keyword updates and compaction. Tracking and manual organization remain available.
+
+Record granularity (`autoLogGranularity`) is independent of text detail: `latest` (default) replaces the last conclusion, `round` accumulates completed turns, and `paused` writes conclusions only after inactivity pause or recognized archive. Status and time still follow their existing rules. Text detail (`autoLogDetail`) defaults to `brief`, about 45 characters without user prompts or steps; `standard` allows longer conclusions and steps; `detailed` also retains follow-up prompts in per-turn mode.
+
+In per-turn mode, enable automatic compaction (`autoLogMerge`, default `false`) and choose a threshold (`autoLogMergeThreshold`, default 10, range 2–100 new conclusions). The selected Claude / Codex CLI rolls previous summaries and new completed turns into one summary. Only a successful response replaces older direct AI turn records. Later turns, manual notes, user TODOs, clocks and nested task notes remain; failures preserve the original records.
 
 AI record display (`aiRecordDisplay`) defaults to `collapsed`. Choose `expanded` or `latest5` to show records expanded or only show the latest five. Record controls sit at the end of the task line with a compact chevron and count, with muted detail text. Agent Deck block IDs (`^ad-…`) are hidden in the editor and reading view while remaining unchanged in Markdown; no zero-width characters are inserted. The editor and reading view hide records without deleting their source text; manual notes and child tasks remain visible.
+
+AI records also follow existing Obsidian fold / unfold commands, plus matching Bullet and Logseq Style Fold commands when installed. Configure their keys in Obsidian; in latest-five mode, unfolding still shows at most five records.
 
 Journal settings are stored explicitly as `autoLogEvery` (20 min), `autoLogStartDelay` (1 min), `autoLogMinMinutes` (3 min; 0 disables the threshold), `autoLogIdle` (40 min), `autoLogBatch` (8), `autoLogAgents`, `autoLogProvider` (`claude` / `codex`), `autoLogModel`, `autoLogEffort` (`low`), `autoLogTimeout` (120 s), `autoLogFallback` (true), `autoLogPath`, `autoLogKw`, `autoLogArchiveDone`, `autoLogNotify`, `roundPolish`, `roundPolishModel` (empty reuses the naming model), and `roundPolishTimeout` (30 s). The journal must already exist. The first run still applies the activity threshold; ineligible sessions wait until a later run. Live write-back follows `pollSeconds` (20 s by default).
 
