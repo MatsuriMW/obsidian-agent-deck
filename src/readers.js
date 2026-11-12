@@ -26,8 +26,33 @@ export function projectName(cwd) {
   if (!cwd) return "?";
   if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(cwd)) return "WorkBuddy";
   if (/\/\.dsh\/sessions\//.test(cwd)) return "DSH";
+  if (/\/\.gemini\/antigravity\//.test(cwd)) return "Antigravity";
   const p = String(cwd).split("/.claude/worktrees/")[0].replace(/\/+$/, "");
   return p === home() ? "~" : (p.split("/").pop() || p);
+}
+
+export function cleanUserPrompt(raw) {
+  const s = String(raw || "");
+  if (!s) return "";
+  const m = s.match(/<(?:user_message|user_query|USER_REQUEST)>\s*([\s\S]*?)\s*<\/(?:user_message|user_query|USER_REQUEST)>/i);
+  const body = m && m[1].trim() ? m[1] : s;
+  return body
+    .replace(/<system-reminder\b[^>]*>[\s\S]*?<\/system-reminder>/gi, "")
+    .replace(/<(?:ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|environment_context|user_instructions)\b[^>]*>[\s\S]*?<\/(?:ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|environment_context|user_instructions)>/gi, "")
+    .replace(/<image_local_path>[\s\S]*?<\/image_local_path>/gi, "")
+    .trim();
+}
+
+function unquoteArgs(args) {
+  if (!args || typeof args !== "object") return {};
+  const out = {};
+  for (const [k, v] of Object.entries(args)) {
+    if (typeof v === "string" && ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("{") && v.endsWith("}")) || (v.startsWith("[") && v.endsWith("]")))) {
+      try { out[k] = JSON.parse(v); continue; } catch { /* keep raw */ }
+    }
+    out[k] = v;
+  }
+  return out;
 }
 
 export function isPromptText(text) {
@@ -46,23 +71,86 @@ export function stepText(name, input) {
   const n = String(name || "");
   const base = (x) => String(x || "").split("/").pop();
   const cut = (x) => { x = String(x || "").replace(/\s+/g, " ").trim(); return x.length > 34 ? x.slice(0, 33) + "…" : x; };
-  if (/^(bash|shell|local_shell_call|exec_command|shell_command)$/i.test(n)) return cut(i.description || (Array.isArray(i.command) ? i.command[i.command.length - 1] : i.command || i.cmd) || "跑命令");
-  if (/^(edit|multiedit|notebookedit|apply_patch|str_replace_editor)$/i.test(n)) return cut(`改 ${base(i.file_path || i.notebook_path || i.path) || "文件"}`);
-  if (/^(write|create_file)$/i.test(n)) return cut(`写 ${base(i.file_path || i.path)}`);
-  if (/^(read|view)$/i.test(n)) return cut(`读 ${base(i.file_path || i.path)}`);
-  if (/^(grep|glob|search)$/i.test(n)) return cut(`找 ${i.pattern || i.query || ""}`);
-  if (/^(agent|task|subagent)$/i.test(n)) return cut(`派出去：${i.description || ""}`);
-  if (/^(websearch|web_search)$/i.test(n)) return cut(`搜 ${i.query || ""}`);
+  if (/^(bash|shell|local_shell_call|exec_command|shell_command|run_command)$/i.test(n)) return cut(i.description || i.toolSummary || (Array.isArray(i.command) ? i.command[i.command.length - 1] : i.command || i.cmd || i.CommandLine) || "跑命令");
+  if (/^(edit|multiedit|notebookedit|apply_patch|str_replace_editor|edit_file|replace_file_content|multi_replace_file_content)$/i.test(n)) return cut(`改 ${base(i.file_path || i.notebook_path || i.path || i.Path || i.TargetFile) || "文件"}`);
+  if (/^(write|create_file|write_file|write_to_file)$/i.test(n)) return cut(`写 ${base(i.file_path || i.path || i.Path || i.TargetFile)}`);
+  if (/^(read|view|read_file|view_file)$/i.test(n)) return cut(`读 ${base(i.file_path || i.path || i.Path || i.AbsolutePath)}`);
+  if (/^(grep|glob|search|grep_search|find_by_name)$/i.test(n)) return cut(`找 ${i.pattern || i.query || i.Query || i.Pattern || ""}`);
+  if (/^(agent|task|subagent|invoke_subagent)$/i.test(n)) return cut(`派出去：${i.description || i.Role || i.Prompt || ""}`);
+  if (/^(websearch|web_search|search_web)$/i.test(n)) return cut(`搜 ${i.query || ""}`);
   if (/^(webfetch|web_fetch)$/i.test(n)) return "读网页";
   if (n === "Skill") return cut(`用技能 ${i.skill || ""}`);
-  if (/^todo/.test(n)) return "整理待办";
+  if (n === "TaskCreate") return cut(`建待办：${i.subject || i.title || ""}`);
+  if (n === "TaskUpdate") return cut(`${i.status === "completed" ? "完成待办 #" : i.status === "in_progress" ? "进行待办 #" : "更新待办 #"}${i.taskId || i.id || ""}`);
+  if (/^todo/i.test(n)) return "整理待办";
   return cut(n.startsWith("mcp__") ? n.split("__").pop() : n);
 }
 
 export function todoOf(pairs) {
   if (!pairs || !pairs.length) return null;
-  const cur = (pairs.find(([st]) => st === "in_progress") || [])[1] || "";
-  return { done: pairs.filter(([st]) => st === "completed").length, total: pairs.length, cur: String(cur).replace(/\s+/g, " ").slice(0, 36) };
+  const cur = (pairs.find(([st]) => st === "in_progress") || pairs.find(([st]) => st === "pending") || [])[1] || "";
+  const done = pairs.filter(([st]) => st === "completed" || st === "done").length;
+  const items = pairs.map(([st, text], idx) => ({ id: String(idx + 1), text: String(text || "").replace(/\s+/g, " ").trim(), status: st || "pending" }));
+  return { done, total: pairs.length, cur: done >= pairs.length ? "" : String(cur).replace(/\s+/g, " ").slice(0, 36), items };
+}
+
+export function applyTaskTool(fc, name, input, callId = "") {
+  const inp = input || {};
+  if (!fc.tasks) fc.tasks = { seq: 0, seen: new Set(), map: new Map() };
+  const tk = fc.tasks;
+  if (name === "TaskCreate") {
+    if (callId && tk.seen.has(callId)) return buildTaskTodo(tk);
+    if (callId) tk.seen.add(callId);
+    tk.seq += 1;
+    const id = String(inp.taskId || inp.id || tk.seq);
+    const subject = String(inp.subject || inp.title || inp.description || `#${id}`).replace(/\s+/g, " ").trim();
+    const activeForm = String(inp.activeForm || "").replace(/\s+/g, " ").trim();
+    tk.map.set(id, { id, subject, activeForm, status: inp.status || "pending" });
+  } else if (name === "TaskUpdate") {
+    const id = String(inp.taskId || inp.id || "");
+    if (!id) return buildTaskTodo(tk);
+    const cur = tk.map.get(id) || { id, subject: `#${id}`, activeForm: "", status: "pending" };
+    if (inp.status) cur.status = String(inp.status);
+    if (inp.subject || inp.title) cur.subject = String(inp.subject || inp.title).replace(/\s+/g, " ").trim();
+    if (inp.activeForm) cur.activeForm = String(inp.activeForm).replace(/\s+/g, " ").trim();
+    tk.map.set(id, cur);
+  }
+  return buildTaskTodo(tk);
+}
+
+function buildTaskTodo(tk) {
+  if (!tk || !tk.map.size) return null;
+  const list = [...tk.map.values()].filter((t) => t.status !== "deleted");
+  if (!list.length) return null;
+  const done = list.filter((t) => t.status === "completed" || t.status === "done").length;
+  const active = list.find((t) => t.status === "in_progress");
+  const next = list.find((t) => t.status === "pending");
+  const rawCur = active ? (active.activeForm || active.subject) : (done < list.length && next ? (next.subject || next.activeForm) : "");
+  const items = list.map((t) => ({ id: t.id, text: t.subject || t.activeForm || `#${t.id}`, activeForm: t.activeForm || "", status: t.status }));
+  return { done, total: list.length, cur: String(rawCur || "").replace(/\s+/g, " ").slice(0, 36), items };
+}
+
+function startRound(fc, ms, rawAsk, key = "") {
+  if (!fc.rounds) fc.rounds = { seen: new Set(), list: [] };
+  if (key && fc.rounds.seen.has(key)) return fc.rounds.list.length;
+  if (key) fc.rounds.seen.add(key);
+  const ask = cleanUserPrompt(rawAsk).replace(/\s+/g, " ").trim().slice(0, 140);
+  if (!ask) return fc.rounds.list.length;
+  const last = fc.rounds.list[fc.rounds.list.length - 1];
+  if (last && last.ask === ask && Math.abs(ms - last.at) < 2000) return fc.rounds.list.length;
+  fc.rounds.list.push({ n: fc.rounds.list.length + 1, at: ms, doneAt: 0, ask, said: "" });
+  return fc.rounds.list.length;
+}
+
+function finishRound(fc, ms, said, isWait = false) {
+  if (!fc.rounds || !fc.rounds.list.length) {
+    if (!said || !String(said).trim()) return;
+    fc.rounds = { seen: new Set(), list: [{ n: 1, at: ms, doneAt: isWait ? ms : 0, ask: "", said: String(said).trim() }] };
+    return;
+  }
+  const cur = fc.rounds.list[fc.rounds.list.length - 1];
+  if (said && String(said).trim()) cur.said = String(said).trim();
+  if (isWait && ms >= cur.at) cur.doneAt = ms;
 }
 
 function cleanLive(v, now = Date.now()) {
@@ -87,6 +175,7 @@ export class AgentUsage {
     this.archivedClaude = new Set(); // sessions archived in the Claude desktop app
     this.sideChats = new Map();      // sid -> [{ pid, since }] currently open side chats
     this.subs = new Map();           // sid -> Map(agentId -> subagent record)
+    this.wbMeta = new Map();         // WorkBuddy db session metadata
     this.sideAt = 0;
     this.errors = [];
     this.lastScan = 0;
@@ -123,6 +212,7 @@ export class AgentUsage {
     add(process.env.CODEX_HOME ? path.join(process.env.CODEX_HOME, "archived_sessions") : path.join(h, ".codex/archived_sessions"), "codex");
     add(path.join(h, ".workbuddy/projects"), "workbuddy");
     add(path.join(h, ".dsh/sessions"), "dsh");
+    add(path.join(h, ".gemini/antigravity/brain"), "antigravity");
     const seen = new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
   }
@@ -136,8 +226,10 @@ export class AgentUsage {
   async scan({ since = 0, onProgress } = {}) {
     const touched = new Set();
     const floor = since || this.sinceMs();
+    await this.readCodexTitles();
+    await this.readCodexArchived();
     for (const [root, agent] of this.roots()) {
-      const files = await this.walk(root, agent === "dsh" ? 4 : 5);
+      const files = await this.walk(root, agent === "dsh" || agent === "antigravity" ? 4 : 5, agent);
       for (const p of files) {
         let st;
         try { st = await fsp.stat(p); } catch { continue; }
@@ -155,8 +247,6 @@ export class AgentUsage {
         await new Promise((r) => setImmediate(r));
       }
     }
-    await this.readCodexTitles();
-    await this.readCodexArchived();
     await this.readClaudeDesktop();
     await this.readClaudeSideChats();
     this.applyClaudeDesktop();
@@ -164,16 +254,21 @@ export class AgentUsage {
     return touched;
   }
 
-  async walk(dir, depth) {
+  async walk(dir, depth, agent = "") {
     const out = [];
     let ents;
     try { ents = await fsp.readdir(dir, { withFileTypes: true }); } catch { return out; }
     for (const e of ents) {
       const p = path.join(dir, e.name);
       if (e.isDirectory()) {
-        if (depth > 0) out.push(...await this.walk(p, depth - 1));
+        if (agent === "antigravity" && (e.name === "steps" || e.name === "chunks" || e.name === "browser_sandbox" || e.name === "scratch")) continue;
+        if (depth > 0) out.push(...await this.walk(p, depth - 1, agent));
       } else if (e.isFile()) {
-        if (e.name.endsWith(".jsonl") || e.name.endsWith(".jsonl.zstd") || e.name.endsWith(".jsonl.zst")) out.push(p);
+        if (agent === "antigravity") {
+          if (e.name === "transcript.jsonl") out.push(p);
+        } else if (e.name.endsWith(".jsonl") || e.name.endsWith(".jsonl.zstd") || e.name.endsWith(".jsonl.zst")) {
+          out.push(p);
+        }
       }
     }
     return out;
@@ -220,7 +315,21 @@ export class AgentUsage {
           }
         }
       } catch { /* no codex state */ }
-      for (const id of await sqliteColumn(path.join(home(), ".workbuddy/workbuddy.db"), "select id from sessions where status = 'archived' or deleted_at is not null")) db.add(id);
+      const wbDb = path.join(home(), ".workbuddy/workbuddy.db");
+      for (const id of await sqliteColumn(wbDb, "select id from sessions where status = 'archived' or deleted_at is not null")) db.add(id);
+      for (const row of await sqliteColumn(wbDb, "select id || char(9) || replace(replace(coalesce(nullif(custom_title,''), title, ''), char(10), ' '), char(9), ' ') || char(9) || coalesce(cwd,'') || char(9) || coalesce(model,'') || char(9) || coalesce(group_title,'') || char(9) || coalesce(status,'') from sessions")) {
+        const [id, title, cwd, model, groupTitle, status] = row.split("\t");
+        if (!id) continue;
+        const cleanTitle = (title || "").trim().slice(0, 120);
+        if (cleanTitle && !this.titles.has(id)) this.titles.set(id, cleanTitle);
+        this.wbMeta.set(id, { title: cleanTitle, cwd: cwd || "", model: model || "", groupTitle: groupTitle || "", status: status || "" });
+        const m = this.meta.get(id);
+        if (m) {
+          if (!m.title && cleanTitle) m.title = cleanTitle;
+          if (!m.model && model && model !== "auto") m.model = model;
+          if (groupTitle && (!m.cwd || /\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(m.cwd))) m.cwd = groupTitle;
+        }
+      }
       try {
         const ws = JSON.parse(await fsp.readFile(path.join(home(), ".dsh/storages/workspace.json"), "utf8"));
         for (const id of (ws && ws.global && ws.global.archivedSessionIds) || []) db.add(String(id));
@@ -363,10 +472,11 @@ export class AgentUsage {
       const base = path.basename(p).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
       const flat = p.replace(/\\/g, "/");
       const sm = /([0-9a-f]{8}-[0-9a-f-]{27})\/subagents\/agent-([^/]+)\.jsonl$/.exec(flat);
-      const sid = sm ? sm[1] : base.startsWith("session-") ? base : (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
+      const agm = agent === "antigravity" ? /\/brain\/([^/]+)\/\.system_generated\/logs\/transcript\.jsonl$/.exec(flat) : null;
+      const sid = sm ? sm[1] : agm ? agm[1] : base.startsWith("session-") ? base : (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
       fc = {
         path: p, agent, size: 0, offset: 0, mtime: 0,
-        sid, id: sid, cwd: "", app: base.startsWith("session-") ? "dsh" : "",
+        sid, id: sid, cwd: "", app: base.startsWith("session-") ? "dsh" : agent === "antigravity" ? "antigravity" : "",
         model: "", days: new Map(), msgs: new Map(), titles: new Map(),
         live: null, zstd: p.endsWith(".zstd") || p.endsWith(".zst"),
         sub: sm ? sm[2] : "", parentSid: sm ? sm[1] : "", metaRead: false,
@@ -416,7 +526,7 @@ export class AgentUsage {
     }
     if (st.size < fc.size) {
       // log was rotated/rewritten: start over
-      fc.size = 0; fc.offset = 0; fc.days = new Map(); fc.msgs = new Map(); fc.titles = new Map(); fc.live = null;
+      fc.size = 0; fc.offset = 0; fc.days = new Map(); fc.msgs = new Map(); fc.titles = new Map(); fc.live = null; fc.tasks = null; fc.rounds = null;
     }
     fc.mtime = st.mtimeMs;
     if (st.size === fc.offset) { fc.size = st.size; return; }
@@ -443,6 +553,7 @@ export class AgentUsage {
     if (fc.agent === "claude") return this.ingestClaude(line, fc, touched);
     if (fc.agent === "codex") return this.ingestCodex(line, fc, touched);
     if (fc.agent === "workbuddy") return this.ingestWorkbuddy(line, fc, touched);
+    if (fc.agent === "antigravity") return this.ingestAntigravity(line, fc, touched);
   }
 
   // ---- Claude Code subagents ----
@@ -552,26 +663,52 @@ export class AgentUsage {
       for (const b of Array.isArray(c) ? c : []) {
         if (b.type === "tool_use") {
           if (b.name === "TodoWrite" && Array.isArray(b.input && b.input.todos)) v.todo = todoOf(b.input.todos.map((t) => [t.status, t.activeForm || t.content]));
-          else v.step = stepText(b.name, b.input);
+          else if (b.name === "TaskCreate" || b.name === "TaskUpdate") {
+            const td = applyTaskTool(fc, b.name, b.input, b.id);
+            if (td) v.todo = td;
+            v.step = stepText(b.name, b.input);
+          } else v.step = stepText(b.name, b.input);
         }
         if (b.type === "text" && b.text) v.lastText = b.text;
       }
       const stop = d.message.stop_reason;
       v.state = stop === "end_turn" || stop === "stop_sequence" ? "wait" : "run";
+      if (v.state === "wait") v.step = "";
+      if (!d.isSidechain) {
+        finishRound(fc, ms, v.lastText, v.state === "wait");
+        v.turns = fc.rounds ? fc.rounds.list.length : 0;
+        v.rounds = fc.rounds ? fc.rounds.list : [];
+      }
       const u = d.message.usage;
+      const meta = this.meta.get(sid) || {};
       if (u && d.message.id && !d.isSidechain) {
         const id = `${d.message.id}:${d.requestId || ""}`;
-        fc.msgs.set(id, { key, sid, proj: s.proj, model: d.message.model, out: u.output_tokens || 0, fresh: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), cached: u.cache_read_input_tokens || 0, at: ms });
-        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, model: v.model, lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), out: (this.meta.get(sid)?.out || 0) + (u.output_tokens || 0), fresh: (this.meta.get(sid)?.fresh || 0) + (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), cached: (this.meta.get(sid)?.cached || 0) + (u.cache_read_input_tokens || 0), calls: (this.meta.get(sid)?.calls || 0) + 1, state: v.state, step: v.step, todo: v.todo, lastText: v.lastText });
+        const prev = fc.msgs.get(id) || { out: 0, fresh: 0, cached: 0 };
+        const m = { key, sid, proj: s.proj, model: d.message.model, out: u.output_tokens || 0, fresh: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), cached: u.cache_read_input_tokens || 0, at: ms };
+        fc.msgs.set(id, m);
+        this.noteMeta(fc, sid, {
+          title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, model: v.model,
+          lastAt: Math.max(ms, meta.lastAt || 0),
+          out: (meta.out || 0) - prev.out + m.out,
+          fresh: (meta.fresh || 0) - prev.fresh + m.fresh,
+          cached: (meta.cached || 0) - prev.cached + m.cached,
+          calls: (meta.calls || 0) + (prev.out || prev.fresh || prev.cached ? 0 : 1),
+          state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText,
+        });
+      } else if (!d.isSidechain) {
+        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, model: v.model, lastAt: Math.max(ms, meta.lastAt || 0), state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText });
       }
     } else if (d.type === "user" && !d.isSidechain) {
       const c = d.message && d.message.content;
       const text = typeof c === "string" ? c : Array.isArray(c) && !c.some((b) => b.type === "tool_result") ? c.filter((b) => b.type === "text").map((b) => b.text).join("") : "";
       if (isPromptText(text)) {
         day.prompts++;
+        startRound(fc, ms, text, d.uuid || String(ms));
+        v.turns = fc.rounds ? fc.rounds.list.length : 0;
+        v.rounds = fc.rounds ? fc.rounds.list : [];
         if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
         v.state = /^\s*\[Request interrupted/.test(text) ? "wait" : "run";
-        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), state: v.state });
+        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), state: v.state, todo: v.todo, turns: v.turns, rounds: v.rounds });
       }
     }
   }
@@ -615,6 +752,9 @@ export class AgentUsage {
         const text = (Array.isArray(p.content) ? p.content : []).filter((b) => b && b.type === "input_text").map((b) => b.text || "").join("").trim();
         if (text && isPromptText(text)) {
           day.prompts++;
+          startRound(fc, ms, text, String(ms));
+          v.turns = fc.rounds ? fc.rounds.list.length : 0;
+          v.rounds = fc.rounds ? fc.rounds.list : [];
           if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
         }
       }
@@ -625,10 +765,14 @@ export class AgentUsage {
       if (p.type === "function_call" || p.type === "custom_tool_call" || p.type === "local_shell_call") {
         let a = {};
         try { a = typeof p.arguments === "string" ? JSON.parse(p.arguments) : p.arguments || p.action || {}; } catch { /* not JSON */ }
-        if (p.name === "update_plan" && Array.isArray(a.plan)) v.todo = todoOf(a.plan.map((x) => [x.status, x.step]));
-        else v.step = stepText(p.name || p.type, a);
+        v.step = stepText(p.name || p.type, a);
         v.state = "run";
       }
+    }
+    if (v.lastText || v.state === "wait") {
+      finishRound(fc, ms, v.lastText, v.state === "wait");
+      v.turns = fc.rounds ? fc.rounds.list.length : 0;
+      v.rounds = fc.rounds ? fc.rounds.list : [];
     }
     const t = d.type === "event_msg" && p.type === "token_count" && p.info && p.info.total_token_usage;
     if (t) {
@@ -638,7 +782,7 @@ export class AgentUsage {
       if (m.out || m.fresh || m.cached) {
         fc.msgs.set(`codex:${fc.id}:${fc.msgs.size}`, m);
         const meta = this.meta.get(sid) || {};
-        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, model: fc.model, lastAt: Math.max(ms, meta.lastAt || 0), out: (meta.out || 0) + m.out, fresh: (meta.fresh || 0) + m.fresh, cached: (meta.cached || 0) + m.cached, calls: (meta.calls || 0) + 1, state: v.state, step: v.step, todo: v.todo, lastText: v.lastText });
+        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, model: fc.model, lastAt: Math.max(ms, meta.lastAt || 0), out: (meta.out || 0) + m.out, fresh: (meta.fresh || 0) + m.fresh, cached: (meta.cached || 0) + m.cached, calls: (meta.calls || 0) + 1, state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText });
       }
       fc.tot = cur;
     }
@@ -648,40 +792,177 @@ export class AgentUsage {
   ingestWorkbuddy(line, fc, touched) {
     let d;
     try { d = JSON.parse(line); } catch { return; }
-    if (d.type === "ai-title") { if (d.aiTitle) { fc.titles.set(fc.sid, d.aiTitle); this.titles.set(fc.sid, d.aiTitle); } return; }
+    if (d.type === "ai-title") {
+      if (d.aiTitle) {
+        fc.titles.set(fc.sid, d.aiTitle);
+        this.titles.set(fc.sid, d.aiTitle);
+        const m = this.meta.get(fc.sid); if (m) m.title = d.aiTitle;
+      }
+      return;
+    }
     if (!["message", "reasoning", "function_call", "function_call_result"].includes(d.type) || !+d.timestamp) return;
     const ms = +d.timestamp;
     if (this.stale("workbuddy", ms)) return;
-    const { key, day, s } = this.touchSess(fc, touched, ms, fc.sid, d.cwd || fc.cwd, "workbuddy");
+    const wbDb = this.wbMeta.get(fc.sid);
+    const rawCwd = d.cwd || fc.cwd || (wbDb && wbDb.cwd) || "";
+    const effCwd = (wbDb && wbDb.groupTitle && (!rawCwd || /\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(rawCwd))) ? wbDb.groupTitle : rawCwd;
+    fc.cwd = effCwd || fc.cwd;
+    const { key, day, s } = this.touchSess(fc, touched, ms, fc.sid, fc.cwd, "workbuddy");
     const v = this.liveOf(fc, fc.sid, ms);
-    v.title = fc.titles.get(fc.sid) || v.title;
-    v.cwd = d.cwd || fc.cwd;
+    v.title = fc.titles.get(fc.sid) || this.titles.get(fc.sid) || (wbDb && wbDb.title) || v.title;
+    v.cwd = fc.cwd;
+    if (wbDb && wbDb.model && wbDb.model !== "auto" && !v.model) v.model = wbDb.model;
     if (d.type === "message") {
-      v.state = d.role === "assistant" ? "wait" : "run";
+      v.state = d.role === "assistant" ? ((d.status === "failed" || d.status === "error") ? "error" : "wait") : "run";
       if (d.role === "assistant") {
-        const text = (Array.isArray(d.content) ? d.content : []).filter((b) => b && (b.type === "output_text" || b.type === "text")).map((b) => b.text || "").join(" ");
+        v.step = "";
+        const text = (Array.isArray(d.content) ? d.content : []).filter((b) => b && (b.type === "output_text" || b.type === "text")).map((b) => b.text || "").join(" ").trim();
         if (text) v.lastText = text;
+        finishRound(fc, ms, v.lastText, v.state === "wait");
       }
       if (d.role === "user") {
-        const text = (Array.isArray(d.content) ? d.content : []).filter((b) => b && b.type === "input_text").map((b) => b.text || "").join("").replace(/<system-reminder[\s\S]*?<\/system-reminder>/g, "").trim();
+        const raw = (Array.isArray(d.content) ? d.content : []).filter((b) => b && (b.type === "input_text" || b.type === "text")).map((b) => b.text || "").join("\n");
+        const text = cleanUserPrompt(raw);
         if (isPromptText(text)) {
           day.prompts++;
+          startRound(fc, ms, text, d.id || String(ms));
+          if (!v.title) {
+            const t0 = text.replace(/\s+/g, " ").trim().slice(0, 80);
+            if (t0) { fc.titles.set(fc.sid, t0); this.titles.set(fc.sid, t0); v.title = t0; }
+          }
           if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
         }
       }
+      v.turns = fc.rounds ? fc.rounds.list.length : 0;
+      v.rounds = fc.rounds ? fc.rounds.list : [];
+    } else if (d.type === "reasoning") {
+      v.state = "run";
+      if (!v.step) v.step = "思考中…";
     } else if (d.type === "function_call") {
       v.state = "run";
       let a = {};
       try { a = typeof d.arguments === "string" ? JSON.parse(d.arguments) : d.arguments || {}; } catch { /* not JSON */ }
       v.step = stepText(d.name, a);
+    } else if (d.type === "function_call_result") {
+      v.state = (d.status === "failed" || d.status === "error") ? "error" : "run";
     }
     const pd = d.providerData || {}, u = pd.usage;
+    const mod = pd.requestModelName || pd.model || v.model;
+    if (mod) v.model = mod;
+    const meta = this.meta.get(fc.sid) || {};
     if (u && pd.messageId) {
       const cached = (u.inputTokensDetails || []).reduce((k, x) => k + ((x && x.cached_tokens) || 0), 0);
-      const m = { key, sid: fc.sid, proj: s.proj, model: pd.requestModelName || pd.model, out: u.outputTokens || 0, fresh: Math.max(0, (u.inputTokens || 0) - cached), cached, at: ms };
-      fc.msgs.set("wb:" + pd.messageId, m);
-      const meta = this.meta.get(fc.sid) || {};
-      this.noteMeta(fc, fc.sid, { title: v.title, text: s.text, cwd: v.cwd, app: "workbuddy", model: m.model, lastAt: Math.max(ms, meta.lastAt || 0), out: (meta.out || 0) + m.out, fresh: (meta.fresh || 0) + m.fresh, cached: (meta.cached || 0) + m.cached, calls: (meta.calls || 0) + 1, state: v.state, step: v.step, lastText: v.lastText });
+      const id = "wb:" + pd.messageId;
+      const prev = fc.msgs.get(id) || { out: 0, fresh: 0, cached: 0 };
+      const m = { key, sid: fc.sid, proj: s.proj, model: v.model, out: u.outputTokens || 0, fresh: Math.max(0, (u.inputTokens || 0) - cached), cached, at: ms };
+      fc.msgs.set(id, m);
+      this.noteMeta(fc, fc.sid, {
+        title: v.title, text: s.text, cwd: v.cwd, app: "workbuddy", model: m.model,
+        lastAt: Math.max(ms, meta.lastAt || 0),
+        out: (meta.out || 0) - prev.out + m.out,
+        fresh: (meta.fresh || 0) - prev.fresh + m.fresh,
+        cached: (meta.cached || 0) - prev.cached + m.cached,
+        calls: (meta.calls || 0) + (prev.out || prev.fresh || prev.cached ? 0 : 1),
+        state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText,
+      });
+    } else {
+      this.noteMeta(fc, fc.sid, {
+        title: v.title, text: s.text, cwd: v.cwd, app: "workbuddy", model: v.model || meta.model,
+        lastAt: Math.max(ms, meta.lastAt || 0),
+        state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText,
+      });
+    }
+  }
+
+  // ---- Antigravity ----
+  ingestAntigravity(line, fc, touched) {
+    let d;
+    try { d = JSON.parse(line); } catch { return; }
+    const ms = Date.parse(d.created_at);
+    if (!ms || this.stale("antigravity", ms)) return;
+    const sid = fc.sid;
+    if (d.type === "USER_INPUT") {
+      const raw = String(d.content || "");
+      const mMod = /Model Selection` from `[^`]*` to `([^`]+)`/.exec(raw);
+      if (mMod) fc.model = mMod[1];
+      const text = cleanUserPrompt(raw);
+      const mPath = /@\[(\/[^\]]+)\]/.exec(text) || /(\/Users\/[^\s`"'<>)\]]+)/.exec(text);
+      if (mPath && !fc.cwd) {
+        const cand = mPath[1];
+        fc.cwd = /\.[a-z0-9]{1,6}$/i.test(cand) ? path.dirname(cand) : cand;
+      }
+      const { day, s } = this.touchSess(fc, touched, ms, sid, fc.cwd || "~", "antigravity");
+      const v = this.liveOf(fc, sid, ms);
+      v.cwd = fc.cwd || "~"; v.app = "antigravity";
+      if (text && isPromptText(text)) {
+        day.prompts++;
+        startRound(fc, ms, text, String(d.step_index ?? ms));
+        v.turns = fc.rounds ? fc.rounds.list.length : 0;
+        v.rounds = fc.rounds ? fc.rounds.list : [];
+        if (!fc.titles.has(sid)) {
+          const t0 = text.replace(/^@\[[^\]]+\]\s*/, "").replace(/\s+/g, " ").trim().slice(0, 80);
+          if (t0) { fc.titles.set(sid, t0); this.titles.set(sid, t0); }
+        }
+        if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
+      }
+      v.title = fc.titles.get(sid) || this.titles.get(sid) || v.title;
+      v.state = "run"; v.step = "";
+      this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: v.cwd, app: "antigravity", model: fc.model || v.model || "antigravity", lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds });
+      return;
+    }
+    if (d.type !== "PLANNER_RESPONSE" && d.type !== "CHECKPOINT" && d.status !== "ERROR") return;
+    const { key, s } = this.touchSess(fc, touched, ms, sid, fc.cwd || "~", "antigravity");
+    const v = this.liveOf(fc, sid, ms);
+    v.title = fc.titles.get(sid) || this.titles.get(sid) || v.title;
+    if (fc.model) v.model = fc.model;
+    if (d.type === "PLANNER_RESPONSE") {
+      const tools = Array.isArray(d.tool_calls) ? d.tool_calls : [];
+      if (tools.length) {
+        v.state = "run";
+        for (const tc of tools) {
+          const inp = unquoteArgs(tc.args);
+          const p0 = inp.Path || inp.TargetFile || inp.SearchPath || inp.DirectoryPath || "";
+          if (p0 && typeof p0 === "string" && p0.startsWith("/") && (!fc.cwd || fc.cwd === "~") && !p0.includes("/.gemini/")) {
+            fc.cwd = path.dirname(p0);
+            s.cwd = fc.cwd; s.proj = projectName(fc.cwd);
+          }
+          v.step = stepText(tc.name, inp);
+        }
+      } else {
+        v.state = d.status === "ERROR" ? "error" : d.status === "RUNNING" ? "run" : "wait";
+        if (v.state === "wait") v.step = "";
+        if (typeof d.content === "string" && d.content.trim()) v.lastText = d.content.trim();
+        finishRound(fc, ms, v.lastText, v.state === "wait");
+        v.turns = fc.rounds ? fc.rounds.list.length : 0;
+        v.rounds = fc.rounds ? fc.rounds.list : [];
+      }
+    } else if (d.status === "ERROR") {
+      v.state = "error";
+      v.err = String(d.content || "").replace(/\s+/g, " ").slice(0, 120);
+    }
+    v.cwd = fc.cwd || "~"; v.app = "antigravity";
+    const out = d.output_tokens || 0, fresh = d.input_tokens || 0, cached = d.cache_read_tokens || 0;
+    const meta = this.meta.get(sid) || {};
+    if (out || fresh || cached) {
+      const id = `ag:${sid}:${d.step_index ?? fc.msgs.size}`;
+      const prev = fc.msgs.get(id) || { out: 0, fresh: 0, cached: 0 };
+      const m = { key, sid, proj: s.proj, model: v.model || "antigravity", out, fresh, cached, at: ms };
+      fc.msgs.set(id, m);
+      this.noteMeta(fc, sid, {
+        title: v.title, text: s.text, cwd: v.cwd, app: "antigravity", model: m.model,
+        lastAt: Math.max(ms, meta.lastAt || 0),
+        out: (meta.out || 0) - prev.out + m.out,
+        fresh: (meta.fresh || 0) - prev.fresh + m.fresh,
+        cached: (meta.cached || 0) - prev.cached + m.cached,
+        calls: (meta.calls || 0) + (prev.out || prev.fresh || prev.cached ? 0 : 1),
+        state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText, err: v.err,
+      });
+    } else {
+      this.noteMeta(fc, sid, {
+        title: v.title, text: s.text, cwd: v.cwd, app: "antigravity", model: v.model || meta.model || "antigravity",
+        lastAt: Math.max(ms, meta.lastAt || 0),
+        state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText, err: v.err,
+      });
     }
   }
 
@@ -710,7 +991,7 @@ export class AgentUsage {
         }
         if (!bytes) return;
       }
-      if (!grown) { fc.days = new Map(); fc.msgs = new Map(); fc.titles = new Map(); fc.live = null; fc.tot = null; fc.zCarry = ""; }
+      if (!grown) { fc.days = new Map(); fc.msgs = new Map(); fc.titles = new Map(); fc.live = null; fc.tot = null; fc.tasks = null; fc.rounds = null; fc.zCarry = ""; }
       fc.mtime = used === raw.length ? st.mtimeMs : 0;   // 没读完：下一轮还要来
       fc.size = from + used;
       fc.zOff = from + used;
@@ -763,9 +1044,12 @@ export class AgentUsage {
       const text = Array.isArray(content) ? content.filter((b) => b && b.type === "text").map((b) => b.text || "").join("") : String(content || "");
       if (isPromptText(text) && !(data.source && data.source.kind === "system")) {
         day.prompts++;
+        startRound(fc, ms, text, String(d.seq ?? ms));
+        v.turns = fc.rounds ? fc.rounds.list.length : 0;
+        v.rounds = fc.rounds ? fc.rounds.list : [];
         if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
         v.state = "run";
-        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: "dsh", lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), state: "run" });
+        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: "dsh", lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), state: "run", turns: v.turns, rounds: v.rounds });
       }
     } else if (t === "turn/start") {
       v.state = "run"; v.err = "";
@@ -776,7 +1060,6 @@ export class AgentUsage {
       let a = {};
       try { a = typeof data.arguments === "string" ? JSON.parse(data.arguments) : data.arguments || {}; } catch { /* not JSON */ }
       v.step = stepText(data.name, a);
-      if (/todo/i.test(String(data.name || "")) && Array.isArray(a.todos)) v.todo = todoOf(a.todos.map((x) => [x.status, x.content || x.activeForm]));
     } else if (t === "assistant/message") {
       v.state = "run";
       const msg = data.message || {};
@@ -785,6 +1068,9 @@ export class AgentUsage {
         if (b.type === "text" && b.text) v.lastText = b.text;
         if (b.type === "tool-call" || b.type === "tool_use") v.step = stepText(b.name, b.arguments || b.input);
       }
+      finishRound(fc, ms, v.lastText, false);
+      v.turns = fc.rounds ? fc.rounds.list.length : 0;
+      v.rounds = fc.rounds ? fc.rounds.list : [];
       const src = msg.source || {};
       if (src.model) v.model = src.model;
       const u = data.usage;
@@ -799,16 +1085,19 @@ export class AgentUsage {
         };
         fc.msgs.set(id, m);
         const meta = this.meta.get(sid) || {};
-        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: "dsh", model: m.model, lastAt: Math.max(ms, meta.lastAt || 0), out: (meta.out || 0) + m.out, fresh: (meta.fresh || 0) + m.fresh, cached: (meta.cached || 0) + m.cached, calls: (meta.calls || 0) + 1, state: v.state, step: v.step, todo: v.todo, lastText: v.lastText });
+        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: "dsh", model: m.model, lastAt: Math.max(ms, meta.lastAt || 0), out: (meta.out || 0) + m.out, fresh: (meta.fresh || 0) + m.fresh, cached: (meta.cached || 0) + m.cached, calls: (meta.calls || 0) + 1, state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText });
       }
     } else if (t === "turn/end") {
       const reason = data.reason || {};
       if (reason.kind === "error") { v.state = "error"; v.err = String(reason.error && reason.error.message || "").slice(0, 120); }
       else if (reason.kind === "aborted") v.state = "wait";
       else v.state = "wait";
-      v.todo = null;
+      v.step = "";
+      finishRound(fc, ms, v.lastText, v.state === "wait");
+      v.turns = fc.rounds ? fc.rounds.list.length : 0;
+      v.rounds = fc.rounds ? fc.rounds.list : [];
       const meta = this.meta.get(sid);
-      if (meta) { meta.state = v.state; meta.err = v.err; meta.lastAt = Math.max(ms, meta.lastAt || 0); }
+      if (meta) { meta.state = v.state; meta.step = ""; meta.err = v.err; meta.turns = v.turns; meta.rounds = v.rounds; meta.lastAt = Math.max(ms, meta.lastAt || 0); }
     }
   }
 
@@ -878,10 +1167,12 @@ export class AgentUsage {
       g.agent = Math.round(g.agent);
     }
     for (const s of sessions.values()) {
+      const m = this.meta.get(s.sid) || {};
       res.list.push({
         sid: s.sid, agent: s.agent, dir: s.proj, cwd: s.cwd, app: s.app,
-        title: this.titles.get(s.sid) || "", text: s.text.slice(0, 300),
+        title: this.titles.get(s.sid) || m.title || "", text: s.text.slice(0, 300),
         min: Math.round(s.min), out: s.out, fresh: s.fresh, cached: s.cached,
+        turns: m.turns || 0, todo: m.todo || null,
         segs: s.segs.map(([a, b]) => [Math.round(a), Math.round(b)]),
       });
     }

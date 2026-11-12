@@ -51,9 +51,21 @@ export const AGENTS = {
     deep: "dsh",
     desktopOnly: true,
   },
+  antigravity: {
+    id: "antigravity",
+    name: "Antigravity",
+    short: "Antigravity",
+    glyph: "⟡",
+    color: "#8b6fb8",
+    soft: "rgba(139,111,184,.13)",
+    kind: "antigravity",
+    where: ["~/.gemini/antigravity/brain", "Antigravity 桌面版与会话日志"],
+    deep: "antigravity",
+    desktopOnly: true,
+  },
 };
 
-export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh"];
+export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity"];
 
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
@@ -130,6 +142,16 @@ export const MODEL_CATALOG = [
     cost: "Medium cost",
     note: "A fast Claude alias for interactive work.",
   },
+  ...[
+    ["gpt-6-luna", "GPT-6-Luna", "Fast"],
+    ["gpt-6.1-sol", "GPT-6.1-Sol", "Reasoning"],
+    ["gpt-6.1-terra", "GPT-6.1 Terra", "Reasoning"],
+    ["gpt-6-astra", "GPT-6-Astra", "Reasoning"],
+    ["gpt-6-sol", "GPT-6-Sol", "Reasoning"],
+    ["gpt-5.6-sol", "GPT-5.6-Sol", "Reasoning"],
+    ["gpt-5.6-terra", "GPT-5.6-Terra", "Reasoning"],
+    ["gpt-5.6-luna", "GPT-5.6-Luna", "Fast"],
+  ].map(([id, name, tag]) => ({ id, name, agent: "codex", cli: id, value: id, provider: "OpenAI", context: "—", tags: [tag], note: "可用性由当前 Codex 登录账号决定。" })),
   {
     id: "deepseek-v4-pro",
     agent: "dsh",
@@ -193,6 +215,7 @@ export const MODEL_CATALOG = [
 ];
 
 export const EFFORTS = {
+  codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: "由所选 Codex 模型支持的强度决定" })),
   claude: [
     { id: "low", label: "Low", hint: "Fastest" },
     { id: "medium", label: "Medium", hint: "Balanced" },
@@ -218,7 +241,7 @@ export const CLAUDE_PERMISSIONS = [
 export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true },
   primaryAgents: ["claude", "dsh"],
   // 0 = no cutoff; otherwise the hour at which a new journal day begins.
   dayCutoff: 8,
@@ -239,12 +262,24 @@ export const DEFAULTS = {
   delegateInTerminal: false,  // 拖到 Claude Code / Codex 上默认在主力终端里开交互式会话（按住 ⌘ 反过来）
   yieldToNautilus: true,   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
-  autoLogEvery: 20,
-  autoLogIdle: 40,
+  autoLogEvery: 20,        // 自动整理间隔（分钟）
+  autoLogStartDelay: 1,    // 插件启动后第几分钟先整理一次，不用等满一个间隔
+  autoLogMinMinutes: 3,    // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
+  autoLogIdle: 40,         // 停了几分钟算 PAUSED
+  autoLogBatch: 8,         // 一轮最多问模型几个会话
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true },
+  autoLogProvider: "claude",
+  autoLogEffort: "low",
   autoLogModel: "haiku",
+  autoLogTimeout: 120,     // 整理时等模型几秒
+  autoLogFallback: true,   // 模型问不到时（自动整理也一样）用会话标题先记上
+  autoLogKw: true,         // 自动建的条目也跟着会话在 DOING / TOREVIEW / NEEDOK / ERRORED 之间切
   autoLogPath: "",
   autoLogArchiveDone: true,
   autoLogNotify: true,
+  roundPolish: true,       // 每轮的 💬 先用本地规则写，再让模型润色成一句话
+  roundPolishModel: "",    // 留空 = 跟整理用的模型一样
+  roundPolishTimeout: 30,  // 润色时等模型几秒
   autoLogState: {},
   workLog: {},
   showMenuBar: true,
@@ -266,6 +301,7 @@ export const DEFAULTS = {
       model: "claude-opus-5-5",
       effort: "high",
       permission: "auto",
+      path: "",
       cwd: "",
       addVault: true,
       openDesktop: true,
@@ -273,9 +309,11 @@ export const DEFAULTS = {
       autoTrustedCwd: true,
       extraArgs: "",
     },
+    codex: { model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
     dsh: {
       model: "deepseek-v4-pro",
       effort: "high",
+      path: "",
       cwd: "",
       autoApprove: false,
       extraArgs: "",
@@ -293,8 +331,9 @@ export const DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", dsh: "deepseek-v4-pro" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "deepseek-v4-pro" },
     effort: "high",
+    effortByAgent: {},
   },
   ui: {
     showSparkline: true,

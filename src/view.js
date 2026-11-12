@@ -102,7 +102,7 @@ export class AgentDeckView extends ItemView {
     const recSec = dash.createDiv({ cls: "ad-sec ad-sec--recent" });
     const recHead = this.secHead(recSec, "最近的会话", `${recent.length} 个 · 最近 7 天`);
     const filters = recHead.createDiv({ cls: "ad-filters" });
-    for (const [id, label] of [["all", "全部"], ["live", "在跑"], ["wait", "等你"], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"]]) {
+    for (const [id, label] of [["all", "全部"], ["live", "在跑"], ["wait", "等你"], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"], ["antigravity", "Antigravity"]]) {
       const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
       b.onclick = () => { this.filter = id; this.render(); };
     }
@@ -272,7 +272,7 @@ export class AgentDeckView extends ItemView {
     card.style.setProperty("--ad-agent-soft", a.soft);
     // 笔记里的一项拖上来 = 委派给它
     // 按住 ⌘：Claude Code / Codex 改在终端里开交互式会话
-    const handoff = id === "codex" || id === "workbuddy";
+    const handoff = id === "codex" || id === "workbuddy" || id === "antigravity";
     const cliCapable = id === "claude" || id === "codex";
     const hint = handoff ? `交给 ${a.short}` : `委派给 ${a.short}`;
     // 设置里「默认在终端里委派」开着时反过来：不按 ⌘ 在终端里开，按住 ⌘ 走原来的后台 / 客户端
@@ -458,6 +458,8 @@ export class AgentDeckView extends ItemView {
     sub.createSpan({ text: a.short });
     if (s.cwd) sub.createSpan({ text: "·" });
     if (s.cwd) sub.createSpan({ cls: "ad-sess__cwd", text: truncate(s.cwd, 34) });
+    const prog = p.sessionProgressText ? p.sessionProgressText(s, s.job) : "";
+    if (prog) { sub.createSpan({ text: "·" }); sub.createSpan({ cls: "ad-sess__prog", text: prog }); }
     if (s.step) { sub.createSpan({ text: "·" }); sub.createSpan({ cls: "ad-sess__step", text: truncate(s.step, 34) }); }
     sub.createSpan({ text: "·" });
     sub.createSpan({ text: timeAgo(s.lastAt) });

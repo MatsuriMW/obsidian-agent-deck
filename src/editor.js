@@ -23,7 +23,7 @@ export const refreshEffect = StateEffect.define();
 export const SESSION_MIME = "application/x-agent-deck-session";
 export const ITEM_MIME = "application/x-agent-deck-item";
 
-const DROP_LABEL = { bind: "绑定", fill: "新建一项", new: "新建一项", below: "在下面新建", after: "在下面新建" };
+const DROP_LABEL = { bind: "绑定", fill: "新建一项", new: "新建一项", below: "在下面新建", after: "在下面新建", merge: "合并到这一项" };
 const setDrop = StateEffect.define();
 const dropField = StateField.define({
   create: () => Decoration.none,
@@ -49,6 +49,21 @@ function dropTarget(view, e) {
   return J.dropKind(view.state.doc.toString().split("\n"), n, !!e.metaKey);   // 按住 ⌘：在下面新建一项，不绑这一项
 }
 
+function mergeTarget(view, e, plugin) {
+  const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }, false);
+  if (pos == null) return null;
+  const lines = view.state.doc.toString().split("\n");
+  let n = view.state.doc.lineAt(pos).number - 1;
+  if (!J.kwLine(lines[n])) {
+    const owner = J.markOwner(lines, n);
+    if (owner >= 0 && J.kwLine(lines[owner])) n = owner;
+    else return null;
+  }
+  const src = plugin._dragItem;
+  if (src && src.line === n) return null;
+  return { line: n, kind: "merge" };
+}
+
 function dndHandlers(plugin) {
   let last = "";
   const show = (view, t) => {
@@ -59,29 +74,51 @@ function dndHandlers(plugin) {
   };
   return Prec.highest(EditorView.domEventHandlers({
     dragover(e, view) {
-      if (!hasType(e, SESSION_MIME)) return false;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "link";
-      show(view, dropTarget(view, e));
-      return true;
+      if (hasType(e, SESSION_MIME)) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "link";
+        show(view, dropTarget(view, e));
+        return true;
+      }
+      if (hasType(e, ITEM_MIME)) {
+        const t = mergeTarget(view, e, plugin);
+        if (!t) { show(view, null); return false; }
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        show(view, t);
+        return true;
+      }
+      return false;
     },
     dragleave(e, view) {
-      if (!hasType(e, SESSION_MIME)) return false;
+      if (!hasType(e, SESSION_MIME) && !hasType(e, ITEM_MIME)) return false;
       if (e.relatedTarget && view.dom.contains(e.relatedTarget)) return false;
       show(view, null);
       return false;
     },
     drop(e, view) {
-      if (!hasType(e, SESSION_MIME)) return false;
-      e.preventDefault();
-      e.stopPropagation();
-      const t = dropTarget(view, e);
-      show(view, null);
-      let data = null;
-      try { data = JSON.parse(e.dataTransfer.getData(SESSION_MIME)); } catch { /* bad payload */ }
-      if (data && t) plugin.bindSessionAt(view, t.line, data, { below: !!e.metaKey });
-      else if (data) plugin.notice("这一行放不了会话：拖到列表项、空的列表项或空行上");
-      return true;
+      if (hasType(e, SESSION_MIME)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const t = dropTarget(view, e);
+        show(view, null);
+        let data = null;
+        try { data = JSON.parse(e.dataTransfer.getData(SESSION_MIME)); } catch { /* bad payload */ }
+        if (data && t) plugin.bindSessionAt(view, t.line, data, { below: !!e.metaKey });
+        else if (data) plugin.notice("这一行放不了会话：拖到列表项、空的列表项或空行上");
+        return true;
+      }
+      if (hasType(e, ITEM_MIME)) {
+        const t = mergeTarget(view, e, plugin);
+        show(view, null);
+        if (!t) return false;
+        e.preventDefault();
+        e.stopPropagation();
+        const item = plugin.readItemDrag(e);
+        if (item && item.line !== t.line) plugin.mergeTaskLines(view, item.line, t.line, item.lineText);
+        return true;
+      }
+      return false;
     },
     // 选中一段文字拖出去：记下它从哪一行来，拖到 Agent 卡片上也能委派
     dragstart(e, view) {
@@ -114,7 +151,7 @@ class GripWidget extends WidgetType {
     el.draggable = true;
     setLucide(el, "send");
     const main = AGENTS[this.plugin.defaultTarget()] || AGENTS.claude;
-    el.setAttribute("aria-label", `单击发给 ${main.short} · 双击或 ⌘ 单击选 Agent · 拖到侧栏的 Agent 上委派`);
+    el.setAttribute("aria-label", `单击发给 ${main.short} · 双击或 ⌘ 单击选 Agent / 合并条目 · 拖到另一条任务上绑定混合`);
     const item = { path: this.path, line: this.line, lineText: this.text };
     // 单击要等一下看是不是双击，免得双击时先把任务发给了主力
     let clickTimer = null;
@@ -137,7 +174,7 @@ class GripWidget extends WidgetType {
       clearTimeout(clickTimer);
       e.dataTransfer.setData(ITEM_MIME, JSON.stringify(item));
       e.dataTransfer.setData("text/plain", this.text.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""));
-      e.dataTransfer.effectAllowed = "copy";
+      e.dataTransfer.effectAllowed = "all";
       this.plugin.noteDragItem(item);
       e.stopPropagation();
     });
@@ -148,7 +185,9 @@ class GripWidget extends WidgetType {
 
 function sigFor(x) {
   if (!x) return "none";
-  return [x.kind, x.job && x.job.id, x.job && x.job.state, x.session && x.session.sid, x.session && x.session.state, x.session && x.session.step, x.session && x.session.tokens, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
+  const s = x.session;
+  const td = s && s.todo;
+  return [x.kind, x.job && x.job.id, x.job && x.job.state, s && s.sid, s && s.state, s && s.step, s && s.turns, s && s.tokens, td && `${td.done}/${td.total}:${td.cur || ""}`, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
 }
 
 class PillWidget extends WidgetType {
@@ -200,6 +239,7 @@ class PillWidget extends WidgetType {
     el.appendChild(right);
 
     const modelName = (job && p.modelLabel(job.model)) || (session && p.modelLabel(session.model)) || "";
+    const progText = p.sessionProgressText ? p.sessionProgressText(session, job) : "";
     if (info.kind === "idle") {
       label.textContent = "委派";
       meta.textContent = modelName || (agent === "dsh" ? "DeepSeek" : "Claude");
@@ -209,31 +249,40 @@ class PillWidget extends WidgetType {
       chev.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.openDelegateModal(this.path, this.line); });
       right.appendChild(chev);
     } else if (info.kind === "running" || info.kind === "starting") {
-      label.textContent = info.kind === "starting" ? "准备中" : "委派中";
+      label.textContent = info.kind === "starting" ? "准备中" : (job ? "委派中" : "在跑");
       // 等待态：Agent 图标换成点阵，准备中绕圈、委派中蛇形走，两段一眼能分开
       glyph.textContent = "";
       lattice(glyph, info.kind === "starting" ? "orbit" : "snake");
-      const start = (job && job.startedAt) || Date.now();
-      const tick = () => { meta.textContent = fmtDur(Date.now() - start); };
+      const start = (job && job.startedAt) || (session && session.lastAt) || Date.now();
+      const tick = () => {
+        const dur = fmtDur(Math.max(0, Date.now() - start));
+        const step = (session && session.step) || (job && job.step) || "";
+        const extra = [progText, step ? truncate(step, 20) : ""].filter(Boolean).join(" · ");
+        meta.textContent = extra ? `${extra} · ${dur}` : dur;
+      };
       tick();
       el._adTimer = setInterval(tick, 1000);
-      const cancel = document.createElement("span");
-      cancel.className = "ad-pill__cancel";
-      setLucide(cancel, "x");
-      cancel.title = "取消";
-      cancel.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.cancelJob(job && job.id); });
-      right.appendChild(cancel);
-      const progress = p.jobProgress(job);
+      if (job) {
+        const cancel = document.createElement("span");
+        cancel.className = "ad-pill__cancel";
+        setLucide(cancel, "x");
+        cancel.title = "取消";
+        cancel.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.cancelJob(job && job.id); });
+        right.appendChild(cancel);
+      }
+      const progress = p.jobProgress(job, session);
       if (progress && progress.total) {
         el.style.setProperty("--ad-p", `${Math.round(progress.done / progress.total * 100)}%`);
         el.classList.add("is-determinate");
       }
     } else if (info.kind === "waiting" || info.kind === "needs-approval") {
       label.textContent = info.kind === "needs-approval" ? "等你允许" : "等你";
+      if (progText) meta.textContent = progText;
       el.classList.add("is-pulse");
     } else if (info.kind === "done") {
       label.textContent = "完成";
-      meta.textContent = job && job.result ? truncate(job.result, 28) : (session && session.lastText ? truncate(session.lastText, 28) : "");
+      const resText = job && job.result ? truncate(job.result, 28) : (session && session.lastText ? truncate(J.oneSentenceConclusion(session.lastText, 28), 28) : "");
+      meta.textContent = [progText, resText].filter(Boolean).join(" · ");
       const open = document.createElement("span");
       open.className = "ad-pill__open";
       setLucide(open, "arrow-up-right");
@@ -249,7 +298,7 @@ class PillWidget extends WidgetType {
       right.appendChild(retry);
     } else {
       label.textContent = "会话";
-      meta.textContent = session && session.step ? truncate(session.step, 26) : "";
+      meta.textContent = [progText, session && session.step ? truncate(session.step, 24) : ""].filter(Boolean).join(" · ");
     }
 
     if (session && session.tokens) {
@@ -317,7 +366,8 @@ function buildDecorations(view, plugin) {
         if (state) {
           const widget = new PillWidget(plugin, path, n, state);
           builder.add(line.to, line.to, Decoration.widget({ widget, side: 1, block: false }));
-        } else if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && J.kwLine(text)) {
+        }
+        if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && J.kwLine(text)) {
           builder.add(line.to, line.to, Decoration.widget({ widget: new GripWidget(plugin, path, n, text), side: 1, block: false }));
         }
       }

@@ -15,7 +15,7 @@ export class DelegateOptionsModal extends Modal {
     this.line = line;
     this.agent = plugin.defaultTarget();
     this.model = plugin.defaultModel(this.agent);
-    this.effort = this.agent === "dsh" ? (plugin.settings.delegate.dsh.effort || "high") : (plugin.settings.delegate.claude.effort || "high");
+    this.effort = plugin.settings.delegate[this.agent]?.effort || "high";
     this.permission = plugin.settings.delegate.claude.permission || "auto";
     this.cwd = "";
     this.suffix = plugin.settings.delegate.promptSuffix || "";
@@ -54,21 +54,21 @@ export class DelegateOptionsModal extends Modal {
     const target = contentEl.createDiv({ cls: "ad-field" });
     target.createDiv({ cls: "ad-field__label", text: "Delegate to" });
     const targets = target.createDiv({ cls: "ad-targetpick" });
-    for (const id of ["claude", "dsh"]) {
+    for (const id of ["claude", "codex", "dsh"]) {
       const a = AGENTS[id];
       const b = targets.createEl("button", { cls: "ad-target ad-target--sm" + (this.agent === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
-      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "桌面版" : "ACP" });
-      b.onclick = () => { this.agent = id; this.model = p.defaultModel(id); this.effort = id === "dsh" ? (p.settings.delegate.dsh.effort || "high") : (p.settings.delegate.claude.effort || "high"); this.render(); };
+      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "桌面版" : id === "codex" ? "CLI / 终端" : "ACP" });
+      b.onclick = () => { this.agent = id; this.model = p.defaultModel(id); this.effort = p.settings.delegate[id]?.effort || "high"; this.render(); };
     }
 
     // Model
     const mf = contentEl.createDiv({ cls: "ad-field" });
     mf.createDiv({ cls: "ad-field__label", text: "Model" });
-    const models = p.modelsFor(this.agent).filter((m) => p.modelEnabled(m.id));
+    const models = p.modelsFor(this.agent).filter((m) => p.modelEnabled(m.id) || m.id === this.model);
     const grid = mf.createDiv({ cls: "ad-modelpick" });
     for (const m of models) {
       const b = grid.createEl("button", { cls: "ad-modelpick__item" + (this.model === m.id ? " is-on" : "") });
@@ -108,7 +108,7 @@ export class DelegateOptionsModal extends Modal {
         b.onclick = () => { this.permission = o.id; this.render(); };
       }
       pf.createDiv({ cls: "ad-hint", text: CLAUDE_PERMISSIONS.find((x) => x.id === this.permission)?.hint || "" });
-    } else {
+    } else if (this.agent === "dsh") {
       const af = contentEl.createDiv({ cls: "ad-field" });
       const row = af.createDiv({ cls: "ad-minirow" });
       row.createSpan({ text: "Auto-approve tool calls" });

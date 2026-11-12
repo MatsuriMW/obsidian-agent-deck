@@ -13,6 +13,7 @@
 import { MarkdownView } from "obsidian";
 import { AGENTS, dayKey, dayKeyToday, dayMinute, fmtTok, fmtClock } from "./constants.js";
 import * as J from "./journal.js";
+import { runJournalModel, safeLabel } from "./llm.js";
 
 const STATE_KW = J.STATE_KW;
 
@@ -21,6 +22,7 @@ export class JournalSync {
     this.p = plugin;
     this._busy = false;
     this._at = 0;
+    this._refining = new Set();
   }
 
   get usage() { return this.p.usage; }
@@ -42,13 +44,16 @@ export class JournalSync {
     return x ? { segs: x.segs || [], out: x.out || 0, fresh: x.fresh || 0, agent: x.agent } : null;
   }
 
-  // 开着的笔记里所有带 🔗 的编辑器
+  // 开着的笔记里所有带 🔗 或 ^ad- 块 ID 的编辑器
   openViews() {
     const out = [];
     this.p.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
       if (v instanceof MarkdownView && v.file && v.editor && v.editor.cm) {
-        try { if (v.editor.cm.state.doc.toString().includes("🔗")) out.push(v); } catch { /* closed */ }
+        try {
+          const doc = v.editor.cm.state.doc.toString();
+          if (doc.includes("🔗") || /\s\^ad-[0-9a-z]{6}/i.test(doc)) out.push(v);
+        } catch { /* closed */ }
       }
     });
     return out;
@@ -107,22 +112,78 @@ export class JournalSync {
     } finally { this._busy = false; }
   }
 
-  // 答完一轮或者归档了：把会话最后说的话写成 💬
+  // 后台调本机小模型把一轮回复润色成精炼的一句话结论（混合模式：先用本地规则写回，润色好后再替换）
+  queueRefineTurn(sid, roundObj, rawSaid) {
+    if (this.cfg.roundPolish === false) return;
+    if (!roundObj || roundObj.summary || roundObj._asked || !rawSaid || rawSaid.length < 40) return;
+    const key = `${sid}:${roundObj.n || 1}:${rawSaid.length}`;
+    if (this._refining.has(key)) return;
+    roundObj._asked = true;
+    this._refining.add(key);
+    const prompt = [
+      "把下面 AI 助手这一轮的回复提炼成一句话结论（不超过 40 个字，直接写结论本身，不要前缀、不要引号、不要代码块）：",
+      "",
+      String(rawSaid).slice(-900),
+    ].join("\n");
+    runJournalModel(prompt, this.cfg, { polish: true })
+      .then((res) => {
+        const clean = J.oneSentenceConclusion(safeLabel(res, 65) || res, 80);
+        if (clean && clean.length >= 4) {
+          roundObj.summary = clean;
+          this.run({ force: true }).catch(() => {});
+        }
+      })
+      .catch(() => {})
+      .finally(() => { this._refining.delete(key); });
+  }
+
+  // 答完一轮或者归档了：把每轮的一句话结论 💬、多轮追问 ❓ 以及 TaskCreate 步骤 📋 写回同一个 ^xxxxx 任务条目下
   results(text) {
-    const seen = new Set();
+    const targets = new Map(); // sid -> { blockId, key }
     for (const line of text.split("\n")) {
       const k = J.parseLink(line);
-      if (k && !seen.has(k.sid)) seen.add(k.sid);
+      if (k && !targets.has(k.sid)) targets.set(k.sid, { blockId: "", key: "" });
+    }
+    const daySt = (this.cfg.autoLogState && this.cfg.autoLogState[dayKeyToday(this.cfg)]) || {};
+    for (const [sid, rec] of Object.entries(daySt)) {
+      if (!rec || rec.skip || rec.gone) continue;
+      if ((rec.blockId && text.includes(`^${rec.blockId}`)) || (rec.key && J.findTask(text, rec.key, rec.blockId, sid))) {
+        if (!targets.has(sid)) targets.set(sid, { blockId: rec.blockId || "", key: rec.key || "" });
+      }
     }
     let out = text;
-    for (const sid of seen) {
+    for (const [sid, info] of targets) {
       const m = this.usage.meta.get(sid);
       if (!m) continue;
       const waiting = m.state === "wait" || m.state === "quiet";
-      if (!waiting && !this.archived(sid)) continue;
+      const isDone = this.archived(sid);
+      const rounds = Array.isArray(m.rounds) ? m.rounds : [];
       const said = String(m.lastText || "").trim();
-      if (!said) continue;
-      out = J.resultInto(out, sid, J.resultText(said, this.cfg.resultMax || 200));
+      let summary = "";
+      if (waiting || isDone) {
+        if (rounds.length) {
+          const lastRound = rounds[rounds.length - 1];
+          if (lastRound && (lastRound.said || said)) {
+            this.queueRefineTurn(sid, lastRound, lastRound.said || said);
+            summary = lastRound.summary || J.oneSentenceConclusion(lastRound.said || said, this.cfg.resultMax || 90);
+          }
+        } else if (said) {
+          summary = J.oneSentenceConclusion(said, this.cfg.resultMax || 90);
+        }
+      }
+      const taskTodo = m.agent === "claude" ? (m.todo || null) : null;
+      if (!summary && !taskTodo && rounds.length <= 1) continue;
+      const synced = J.syncSessionEntry(out, {
+        sid,
+        blockId: info.blockId || (daySt[sid] && daySt[sid].blockId) || "",
+        key: info.key || (daySt[sid] && daySt[sid].key) || "",
+        said: summary,
+        rounds: (waiting || isDone) ? rounds : rounds.slice(0, -1),
+        taskTodo,
+        ensureId: true,
+      });
+      out = synced.text;
+      if (synced.blockId && daySt[sid]) daySt[sid].blockId = synced.blockId;
     }
     return out;
   }
@@ -158,7 +219,37 @@ export class JournalSync {
         out = ls.join("\n");
       }
     }
+    if (this.cfg.autoLogKw !== false) out = this.autoKeywords(out);
     return out;
+  }
+
+  // 自动记日记建的条目没有 🔗 行，靠 ^blockId / 名字认：也跟着会话在 DOING 和中间态之间切。
+  // 只动 DOING 和 TOREVIEW 这类中间态；PAUSED / DONE 归 AutoLog 管，你改成别的不碰；归档的交给 AutoLog 记 DONE。
+  // 同一行挂了几个会话：有一个在跑就是 DOING，否则取第一个停下来的状态
+  autoKeywords(text) {
+    const daySt = (this.cfg.autoLogState || {})[dayKeyToday(this.cfg)] || {};
+    const linked = J.linkMap(text);
+    const want = new Map();   // 行号 → 关键词
+    for (const [sid, rec] of Object.entries(daySt)) {
+      if (!rec || rec.skip || rec.gone || !rec.key || linked.has(sid) || this.archived(sid)) continue;
+      const m = this.usage.meta.get(sid);
+      if (!m) continue;
+      const found = J.findTask(text, rec.key, rec.blockId || "", sid);
+      if (!found || !(found.kw === "DOING" || (J.AGENT_KW_RE.test(found.kw) && found.kw !== "DELEGATED"))) continue;
+      const kw = m.state === "run" ? "DOING" : STATE_KW[m.state];
+      if (!kw) continue;
+      if (kw === "DOING" || !want.has(found.line)) want.set(found.line, kw);
+    }
+    if (!want.size) return text;
+    const ls = text.split("\n");
+    let changed = false;
+    for (const [n, kw] of want) {
+      const p = J.splitTask(ls[n]);
+      if (!p || p.cb || !p.kw || p.kw === kw) continue;
+      ls[n] = `${p.prefix}${kw} ${p.since ? p.since + " " : ""}${p.rest}`.trimEnd();
+      changed = true;
+    }
+    return changed ? ls.join("\n") : text;
   }
 
   // 归档 = 做完：DONE + 实际时段，收掉 🔗 行

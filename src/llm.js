@@ -40,8 +40,47 @@ export function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 1
       if (d.is_error) return reject(new Error(String(d.result || "claude 返回错误").slice(0, 300)));
       resolve(String(d.result || ""));
     });
+    child.stdin.on("error", () => {});
     child.stdin.end(prompt);
   });
+}
+
+// Codex 只做一次整理，不落会话日志，避免把整理本身再次记进日记。
+export async function runCodex(prompt, { bin = "codex", model = "", effort = "low", timeout = 120 } = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-deck-codex-"));
+  const output = path.join(dir, "answer.txt");
+  try {
+    return await new Promise((resolve, reject) => {
+      const args = ["exec", "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never", "--disable", "shell_tool", "-c", 'web_search="disabled"', "-c", 'features.multi_agent=false', "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--output-last-message", output];
+      if (model) args.push("--model", model);
+      args.push("-");
+      const env = { ...process.env, PATH: [path.join(home(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", process.env.PATH || ""].join(":") };
+      const child = spawn(bin, args, { cwd: dir, env, stdio: ["pipe", "ignore", "pipe"] });
+      let err = "";
+      child.stderr.on("data", (d) => { err = (err + d).slice(-2000); });
+      const timer = setTimeout(() => { child.kill(); reject(new Error(`codex 等了 ${timeout} 秒没回来`)); }, timeout * 1000);
+      child.on("error", (e) => { clearTimeout(timer); reject(new Error(`启动 codex 失败：${e.message}`)); });
+      child.stdin.on("error", () => {});
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        if (code !== 0) return reject(new Error((err || `codex 退出码 ${code}`).trim().slice(-500)));
+        try {
+          const answer = fs.readFileSync(output, "utf8").trim();
+          if (!answer) throw new Error("codex 没有返回文字");
+          resolve(answer);
+        } catch (e) { reject(e); }
+      });
+      child.stdin.end("仅整理下列文字，直接输出要求的结果，不调用工具。\n\n" + prompt);
+    });
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+
+export function runJournalModel(prompt, cfg, { polish = false } = {}) {
+  const codex = cfg.autoLogProvider === "codex";
+  const model = (polish && String(cfg.roundPolishModel || "").trim()) || cfg.autoLogModel || (codex ? "" : "haiku");
+  const timeout = polish ? Math.max(5, Number(cfg.roundPolishTimeout) || 30) : Math.max(10, Number(cfg.autoLogTimeout) || 120);
+  if (codex) return runCodex(prompt, { bin: cfg.autoLogPath || cfg.delegate?.codex?.path || "codex", model, effort: cfg.autoLogEffort || "low", timeout });
+  return runClaude(prompt, { bin: cfg.autoLogPath || cfg.delegate?.claude?.path || "claude", model, timeout, system: polish ? "你是整理助手，按要求只输出一句话。" : "" });
 }
 
 // 模型没装 / 没登录时的兜底名字：从会话标题或用户第一句话里取一段

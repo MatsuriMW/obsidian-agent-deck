@@ -301,6 +301,7 @@
 .ad-sess__name { font-size: 12px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ad-sess__sub { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; color: var(--ad-muted); font-size: 10px; margin-top: 2px; white-space: nowrap; overflow: hidden; }
 .ad-sess__cwd, .ad-sess__step { overflow: hidden; text-overflow: ellipsis; }
+.ad-sess__prog { color: var(--ad-agent); font-weight: 600; font-variant-numeric: tabular-nums; }
 .ad-sess__step { color: var(--ad-faint); }
 .ad-sess__tok { color: var(--ad-agent); }
 .ad-sess.is-child { margin-left: 18px; }

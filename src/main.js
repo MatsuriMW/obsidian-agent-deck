@@ -85,6 +85,7 @@ export default class AgentDeckPlugin extends Plugin {
     // 委派只有两个入口：笔记里人写的一项拖到面板的 Agent 卡片上，或者块去向的「委派给 Claude」（⌥⌘D）。
     // Agent Deck 不再在命令面板里放委派命令；委派失败后状态 pill 上的「重试」还在
     this.addCommand({ id: "open-session-line", name: "打开光标这一行绑定的会话", editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
+    this.addCommand({ id: "merge-task-line", name: "把当前任务条目与笔记里另一条绑定/合并", editorCallback: (editor, view) => this.openMergeTaskForEditor(editor, view) });
     this.addCommand({ id: "scan-now", name: "重新扫描本机 Agent 会话", callback: () => this.scanNow(true) });
     this.addCommand({ id: "log-journal", name: "整理 Agent 会话进今天的日记", callback: () => this.autoLog.logNow() });
     this.addCommand({ id: "import-nautilus", name: "导入螺旋日程的历史用量", callback: () => this.importNautilus(true) });
@@ -304,10 +305,9 @@ export default class AgentDeckPlugin extends Plugin {
   primaryAgents() { return (this.settings.primaryAgents || []).filter((x) => AGENTS[x]).slice(0, 2); }
   isPrimary(agent) { return this.primaryAgents().includes(agent); }
   agentEnabled(agent) { return this.isPrimary(agent) || (this.settings.agents || {})[agent] !== false; }
-  defaultTarget() { return this.settings.delegate?.target === "dsh" ? "dsh" : "claude"; }
+  defaultTarget() { return ["claude", "codex", "dsh"].includes(this.settings.delegate?.target) ? this.settings.delegate.target : "claude"; }
   defaultModel(agent) {
-    if (agent === "dsh") return this.settings.delegate?.dsh?.model || this.settings.models?.defaultByAgent?.dsh || "deepseek-v4-pro";
-    return this.settings.delegate?.claude?.model || this.settings.models?.defaultByAgent?.claude || "claude-opus-5-5";
+    return this.settings.delegate?.[agent]?.model || this.settings.models?.defaultByAgent?.[agent] || DEFAULTS.models.defaultByAgent[agent] || "";
   }
 
   async togglePrimary(agent) {
@@ -409,11 +409,29 @@ export default class AgentDeckPlugin extends Plugin {
     return openSessionRaw(this, agent, sessionId, (job && job.app) || (meta && meta.app) || "", meta);
   }
 
-  jobProgress(job) {
-    if (!job || !job.sessionId) return null;
-    const meta = this.usage.meta.get(job.sessionId);
+  sessionProgressText(session, job) {
+    const sid = (session && session.sid) || (job && job.sessionId) || "";
+    const meta = (sid && this.usage.meta.get(sid)) || session || {};
+    const agent = (session && session.agent) || (job && job.agent) || meta.agent || "claude";
+    if (agent === "claude") {
+      const todo = (session && session.todo) || meta.todo;
+      if (todo && todo.total > 0) {
+        return `${todo.done}/${todo.total}${todo.cur ? " · " + truncate(todo.cur, 20) : ""}`;
+      }
+    }
+    const turns = (session && session.turns) || meta.turns || 0;
+    if (turns > 0) return `第 ${turns} 轮`;
+    return "";
+  }
+
+  jobProgress(job, session) {
+    const sid = (job && job.sessionId) || (session && session.sid) || "";
+    if (!sid) return null;
+    const meta = this.usage.meta.get(sid) || session;
+    const agent = (job && job.agent) || (session && session.agent) || (meta && meta.agent) || "claude";
+    if (agent !== "claude") return null;
     const todo = meta && meta.todo;
-    return todo && todo.total ? { done: todo.done, total: todo.total } : null;
+    return todo && todo.total ? { done: todo.done, total: todo.total, cur: todo.cur || "" } : null;
   }
 
   pillTitle(info) {
@@ -422,6 +440,8 @@ export default class AgentDeckPlugin extends Plugin {
     const job = info.job, s = info.session;
     const parts = [];
     if (job) { parts.push(`${AGENTS[job.agent]?.name || job.agent} · ${job.name}`); if (job.step) parts.push(job.step); if (job.error) parts.push(job.error); }
+    const prog = this.sessionProgressText(s, job);
+    if (prog) parts.push(`进度：${prog}`);
     if (s) { parts.push(s.title || s.step || s.sid); if (s.tokens) parts.push(`${fmtTok(s.tokens)} tok`); }
     return parts.filter(Boolean).join("\n");
   }
@@ -453,6 +473,23 @@ export default class AgentDeckPlugin extends Plugin {
       linkByLine.set(i, { ...parsed, parent });
       sessionByParent.set(parent, session);
     }
+    const daySt = (this.settings.autoLogState && this.settings.autoLogState[dayKeyToday(this.settings)]) || {};
+    const byBlockId = new Map();
+    for (const [sid, rec] of Object.entries(daySt)) {
+      if (rec && rec.blockId && !rec.skip && !rec.gone) byBlockId.set(rec.blockId, sid);
+    }
+    if (byBlockId.size) {
+      for (let i = 0; i < lines.length; i++) {
+        if (sessionByParent.has(i)) continue;
+        const bid = J.blockIdOf(lines[i]);
+        const sid = bid && byBlockId.get(bid);
+        if (!sid) continue;
+        const meta = this.usage.meta.get(sid);
+        if (!meta) continue;
+        const live = this.usage.liveSessions({ since: Date.now() - 86400000, limit: 200 }).find((x) => x.sid === sid);
+        sessionByParent.set(i, { ...meta, ...(live || {}), sid, agent: meta.agent || "claude" });
+      }
+    }
     const map = { doc, lines, sessionByParent, linkByLine };
     this._lineMaps[path] = { doc, map };
     return map;
@@ -460,21 +497,28 @@ export default class AgentDeckPlugin extends Plugin {
 
   jobAtLine(path, line, text) {
     const jobs = Object.values(this.jobs).filter((j) => j.path === path);
+    const bid = J.blockIdOf(text);
     let best = null;
     for (const j of jobs) {
-      if (j.lineText === text || (j.line === line && j.lineText === text)) best = j;
+      if ((bid && j.blockId === bid) || j.lineText === text || (j.line === line && j.lineText === text)) best = j;
     }
     return best;
   }
 
   // ---------- drag and drop ----------
   // 一个会话绑到了日记里（拖拽、委派、归档收尾）：告诉自动记日记别再替它新写一行
-  markBound(sid) {
+  markBound(sid, blockId = "", key = "") {
     if (!sid) return;
     const day = dayKeyToday(this.settings);
     const st = ((this.settings.autoLogState ||= {})[day] ||= {});
-    if (st[sid] && st[sid].bound) return;
-    st[sid] = { ...(st[sid] || {}), skip: true, bound: true };
+    const prev = st[sid] || {};
+    st[sid] = {
+      ...prev,
+      skip: true,
+      bound: true,
+      ...(blockId ? { blockId } : {}),
+      ...(key ? { key } : {}),
+    };
     this.saveSettings().catch(() => {});
   }
 
@@ -508,15 +552,89 @@ export default class AgentDeckPlugin extends Plugin {
       title: data.title || meta.title || (meta.text || "").split(" / ")[0] || sid.slice(0, 8),
       state: (live && live.state) || meta.state || "idle", since,
       dropKey: rec && rec.created && rec.key ? rec.key : null,
-    }, { below });
+      blockId: rec && rec.blockId ? rec.blockId : "",
+    }, { below, ensureBlockId: true });
     if (res.error) return this.notice(res.error, 6000);
     const change = J.diffLines(text, res.text);
     if (change) view.editor.transaction({ changes: [change] });
-    this.markBound(sid);
+    this.markBound(sid, res.blockId || "", res.line != null ? J.workKey(res.text.split("\n")[res.line] || "") : "");
     const a = AGENTS[data.agent] || AGENTS.claude;
-    this.notice(res.kind === "bind" ? `🔗 已绑定：${a.short} 会话的状态、💬、⏱ 和归档都会跟着这一项走` : `🔗 新建了一项并绑上 ${a.short} 会话`, 5000);
+    this.notice(res.kind === "bind" ? `🔗 已绑定（^${res.blockId || ""}）：${a.short} 会话的每轮 💬、❓、⏱ 和状态都会跟着这一项走` : `🔗 新建了一项并绑上 ${a.short} 会话`, 5000);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {}), 300);
     this.refreshUI();
+  }
+
+  // 把笔记里的第 srcLine 条任务合并/绑定到第 dstLine 条任务上（不管是 🤖 自动记的还是人写的）
+  mergeTaskLines(cmOrView, srcLine, dstLine, srcLineText = "") {
+    let view = cmOrView instanceof MarkdownView ? cmOrView : null;
+    if (!view) {
+      this.app.workspace.iterateAllLeaves((leaf) => { const v = leaf.view; if (!view && v instanceof MarkdownView && v.editor && v.editor.cm === cmOrView) view = v; });
+    }
+    if (!view || !view.editor) return;
+    const text = view.editor.getValue();
+    const lines = text.split("\n");
+    let sLine = srcLine;
+    if (srcLineText && lines[sLine] !== srcLineText) {
+      const idx = lines.indexOf(srcLineText);
+      if (idx >= 0) sLine = idx;
+    }
+    const res = J.mergeTasks(text, sLine, dstLine);
+    if (res.error) return this.notice(res.error, 6000);
+    const change = J.diffLines(text, res.text);
+    if (change) view.editor.transaction({ changes: [change] });
+    for (const daySt of Object.values(this.settings.autoLogState || {})) {
+      if (!daySt || typeof daySt !== "object") continue;
+      for (const rec of Object.values(daySt)) {
+        if (!rec || typeof rec !== "object") continue;
+        if ((res.srcKey && rec.key === res.srcKey) || (res.srcBlockId && rec.blockId === res.srcBlockId) || (res.dstKey && rec.key === res.dstKey)) {
+          rec.key = res.key;
+          rec.label = res.body;
+          rec.blockId = res.blockId;
+          rec.created = false;
+        }
+      }
+    }
+    const afterLines = res.text.split("\n");
+    for (const job of Object.values(this.jobs)) {
+      if (view.file && job.path === view.file.path && (job.line === sLine || job.line === dstLine || (res.srcBlockId && job.blockId === res.srcBlockId))) {
+        job.line = res.line;
+        job.blockId = res.blockId;
+        job.lineText = afterLines[res.line] || job.lineText;
+      }
+    }
+    this.saveSettings().catch(() => {});
+    this.notice(`🔗 已合并条目（^${res.blockId}）：会话记录与结论已归入「${truncate(res.body, 28)}」`, 5000);
+    setTimeout(() => this.journalSync.run({ force: true }).catch(() => {}), 300);
+    this.refreshUI();
+  }
+
+  openMergeTaskForEditor(editor, view, event = null) {
+    if (!view || !view.file) return;
+    const line = editor.getCursor().line;
+    const lines = editor.getValue().split("\n");
+    let taskLine = line;
+    if (!J.kwLine(lines[taskLine])) {
+      const owner = J.markOwner(lines, taskLine);
+      if (owner >= 0 && J.kwLine(lines[owner])) taskLine = owner;
+      else return this.notice("先把光标放在一条任务行上");
+    }
+    const candidates = J.taskItems(lines.join("\n")).filter((t) => t.line !== taskLine);
+    if (!candidates.length) return this.notice("当前笔记里没有别的任务条目可合并");
+    const menu = new Menu();
+    for (const c of candidates.slice(0, 20)) {
+      menu.addItem((mi) => {
+        const tag = c.auto ? "🤖 " : "";
+        mi.setTitle(`合并到：${tag}${truncate(c.body.replace(/^🤖\s*/, ""), 36)}${c.blockId ? ` (^${c.blockId})` : ""}`);
+        mi.setIcon("git-merge");
+        mi.onClick(() => this.mergeTaskLines(view, taskLine, c.line, lines[taskLine]));
+      });
+    }
+    if (event) menu.showAtMouseEvent(event);
+    else {
+      const coords = editor.cm && editor.cm.coordsAtPos ? editor.cm.coordsAtPos(editor.posToOffset(editor.getCursor())) : null;
+      if (coords) menu.showAtPosition({ x: coords.left, y: coords.bottom });
+      else menu.showAtPosition({ x: window.innerWidth / 2, y: window.innerHeight / 3 });
+    }
   }
 
   // 编辑器里开始拖一项（把手或选中的文字）：记下来源，拖到 Agent 卡片上时用
@@ -579,16 +697,23 @@ export default class AgentDeckPlugin extends Plugin {
     this.refreshUI();
   }
 
-  // 把手单击：先确认，再把这一项连同子块发给主力（委派的默认目标）
+  // 把手单击：先确认，再把这一项连同子块发给主力（委派的默认目标）；如果是 🤖 自动记的或已绑定的行，则打开合并菜单
   async gripSend(item) {
     const t = await this.delegateTarget(item);
-    if (t.error) return this.notice(t.error);
+    if (t.error) {
+      const view = item && item.path ? this.viewForPath(item.path) : null;
+      if (view && (t.error.includes("Agent 记的") || t.error.includes("已经绑着会话"))) {
+        view.editor.setCursor({ line: item.line, ch: 0 });
+        return this.openMergeTaskForEditor(view.editor, view);
+      }
+      return this.notice(t.error);
+    }
     const agent = this.defaultTarget();
-    const where = agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "后台开跑 · 答完在桌面版打开" : "后台新会话";
-    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where }, () => this.delegateDrop(agent, item)).open();
+    const where = agent === "codex" ? "终端新会话 · 使用默认模型" : agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "后台开跑 · 答完在桌面版打开" : "后台新会话";
+    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where }, () => this.delegateDrop(agent, item, null, { cli: agent === "codex" })).open();
   }
 
-  // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样
+  // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样；同时提供「合并到已有条目」
   gripPick(item, e) {
     const main = this.defaultTarget();
     const menu = new Menu();
@@ -599,6 +724,21 @@ export default class AgentDeckPlugin extends Plugin {
         if (mi.iconEl) agentIcon(mi.iconEl, id);
         mi.onClick(() => this.delegateDrop(id, item));
       });
+    }
+    const view = item && item.path ? this.viewForPath(item.path) : null;
+    if (view) {
+      const candidates = J.taskItems(view.editor.getValue()).filter((c) => c.line !== item.line);
+      if (candidates.length) {
+        menu.addSeparator();
+        for (const c of candidates.slice(0, 10)) {
+          menu.addItem((mi) => {
+            const tag = c.auto ? "🤖 " : "";
+            mi.setTitle(`合并到：${tag}${truncate(c.body.replace(/^🤖\s*/, ""), 32)}`);
+            mi.setIcon("git-merge");
+            mi.onClick(() => this.mergeTaskLines(view, item.line, c.line, item.lineText));
+          });
+        }
+      }
     }
     menu.showAtMouseEvent(e);
   }
@@ -677,21 +817,23 @@ export default class AgentDeckPlugin extends Plugin {
       const a = AGENTS[agent];
       const state = isLive ? (s.state || "idle") : "recent";
       const kw = menuKeyword(state);
-      const where = agent === "claude" ? (s.app === "cli" ? "终端" : "桌面版") : agent === "codex" ? (isCodexDesktop(s.app) ? "桌面版" : "CLI") : agent === "workbuddy" ? "桌面版" : "Harness";
+      const where = agent === "codex" ? "终端新会话 · 使用默认模型" : agent === "claude" ? (s.app === "cli" ? "终端" : "桌面版") : agent === "codex" ? (isCodexDesktop(s.app) ? "桌面版" : "CLI") : agent === "workbuddy" ? "桌面版" : agent === "antigravity" ? "IDE" : "Harness";
       const url = sessionDeepLink(agent, s.sid);
+      const prog = this.sessionProgressText(s);
+      const stepStr = [prog, s.step ? truncate(s.step, 30) : ""].filter(Boolean).join(" · ");
       seen.add(s.sid);
       out.push({
         id: `${agent}:${s.sid}`,
         agent, agentName: a.name, agentShort: a.short, color: a.color, glyph: a.glyph,
         title: (s.parentSid ? "↳ " : "") + truncate(s.title || (s.text || "").split(" / ")[0] || s.step || s.sid, 64),
-        detail: `${a.short} ${where} · ${projectName(s.cwd)}${s.step ? " · " + truncate(s.step, 32) : ""}${s.sideChats ? " · side chat ×" + s.sideChats : ""} · ${timeAgo(s.lastAt)}`,
+        detail: `${a.short} ${where} · ${projectName(s.cwd)}${stepStr ? " · " + stepStr : ""}${s.sideChats ? " · side chat ×" + s.sideChats : ""} · ${timeAgo(s.lastAt)}`,
         project: projectName(s.cwd),
-        step: s.step ? truncate(s.step, 40) : "",
+        step: stepStr ? truncate(stepStr, 42) : "",
         ago: timeAgo(s.lastAt),
         keyword: kw.id, keywordLabel: kw.zh,
         state, stateLabel: menuStateLabel(state), primary: !!primary,
-        url: agent === "dsh" ? "dsh://open" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
-        copy: agent === "dsh" ? s.sid : (agent === "codex" ? `codex resume ${s.sid}` : ""),
+        url: agent === "dsh" ? "dsh://open" : agent === "antigravity" ? "antigravity://" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
+        copy: (agent === "dsh" || agent === "antigravity") ? s.sid : (agent === "codex" ? `codex resume ${s.sid}` : ""),
         _at: s.lastAt || 0,
       });
       return true;
@@ -843,7 +985,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   async checkBinary(kind) {
-    const bin = kind === "dsh" ? findDshBinary() : findClaudeBinary(this.settings.delegate?.claude?.path || "");
+    const bin = kind === "codex" ? this.settings.delegate?.codex?.path || "codex" : kind === "dsh" ? findDshBinary(this.settings.delegate?.dsh?.path || "") : findClaudeBinary(this.settings.delegate?.claude?.path || "");
     return await new Promise((resolve) => {
       execFile(bin, ["--version"], { timeout: 10000, env: process.env }, (err, out, errOut) => {
         if (err) resolve(`${kind} 没找到或不能运行：${String(err.message || err)}\n${String(errOut || "").slice(0, 300)}`);
@@ -919,15 +1061,18 @@ function menuRank(state) {
 }
 
 function parseLinkLine(line) {
+  const parsed = J.parseLink(line);
+  if (parsed && parsed.sid) return parsed;
   let agent = "claude";
   let sid = "";
   let m = /claude:\/\/resume\?session=([0-9a-f-]{20,})/i.exec(line);
   if (m) { sid = m[1]; agent = "claude"; }
   else if ((m = /workbuddy:\/\/chat\/([^\s)\]]+)/i.exec(line))) { sid = decodeURIComponent(m[1]); agent = "workbuddy"; }
   else if ((m = /codex:\/\/threads\/([0-9a-f-]{36})/i.exec(line))) { sid = m[1]; agent = "codex"; }
-  else if ((m = /`(session-[0-9a-f-]{20,}|[0-9a-f]{8}-[0-9a-f-]{27})`/i.exec(line))) { sid = m[1]; agent = /dsh|deepseek|harness/i.test(line) ? "dsh" : "claude"; }
-  else if ((m = /`([0-9a-f]{8}-[0-9a-f-]{27})`/i.exec(line))) { sid = m[1]; agent = "dsh"; }
+  else if ((m = /`(session-[0-9a-f-]{20,}|[0-9a-f]{8}-[0-9a-f-]{27})`/i.exec(line))) { sid = m[1]; agent = /antigravity/i.test(line) ? "antigravity" : /dsh|deepseek|harness/i.test(line) ? "dsh" : "claude"; }
+  else if ((m = /`([0-9a-f]{8}-[0-9a-f-]{27})`/i.exec(line))) { sid = m[1]; agent = /antigravity/i.test(line) ? "antigravity" : "dsh"; }
   else if ((m = /codex\s+resume\s+([0-9a-f-]{20,})/i.exec(line))) { sid = m[1]; agent = "codex"; }
-  if (/DeepSeek Harness|DSH/i.test(line) && !/claude:\/\//i.test(line)) agent = "dsh";
+  if (/Antigravity/i.test(line)) agent = "antigravity";
+  else if (/DeepSeek Harness|DSH/i.test(line) && !/claude:\/\//i.test(line)) agent = "dsh";
   return { agent, sid };
 }

@@ -1,5 +1,6 @@
-// node test/bind.test.mjs —— 拖拽绑定的纯文本部分
+// node test/bind.test.mjs —— 拖拽绑定、^xxxxx 块追踪、多轮合并与步骤追踪测试
 import * as J from "../src/journal.js";
+import { cleanUserPrompt, applyTaskTool, AgentUsage } from "../src/readers.js";
 let fail = 0;
 const check = (name, ok, out) => { console.log((ok ? "PASS " : "FAIL ") + name); if (!ok) { fail++; console.log(out); } };
 const sid = "11111111-2222-3333-4444-555555555555";
@@ -68,5 +69,81 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
   check("cmd-drop inserts after the block", L[0] === "- 做完卡片搬迁的功能" && L[1] === "\t- 子项" && L[2] === "- DOING 20:10 🤖 卡片搬迁" && /^\t- 🔗/.test(L[3]) && L[4] === "- 别的", r.text);
   const o = J.bindInto("1. 第一件\n2. 第二件\n", 0, S({ state: "wait" }), { below: true });
   check("cmd-drop numbers on", o.text.split("\n")[1] === "2. TOREVIEW 20:10 🤖 卡片搬迁", o.text);
+}
+{ // Antigravity 链接认得出来
+  const a = J.linkLine("\t", "antigravity", "更新插件", "6b1017c0-f422-4366-bad2-1e29f1bbc7be");
+  check("antigravity link parses", J.parseLink(a) && J.parseLink(a).agent === "antigravity" && J.parseLink(a).sid === "6b1017c0-f422-4366-bad2-1e29f1bbc7be", a);
+}
+{ // ^xxxxx 块 ID 追踪：哪怕改了任务文字，也能靠 ^ad-xxxxxx 找回同一个条目
+  const id = J.makeBlockId(sid);
+  const t = `- DOING 10:00 用户改名后的任务描述 ^${id}\n\t- 笔记子项\n`;
+  const found = J.findTask(t, "原来的名字", id, sid);
+  check("findTask by ^xxxxx blockId after rename", found && found.line === 0 && found.blockId === id, found);
+}
+{ // 一句话结论提取：去掉代码块和标题，抽出简洁的一句话
+  const md = "## 修复报告\n```js\nconst x = 1;\n```\n- 排查了日志路径\n\n已完成 Agent Deck 与螺旋日程的 ^xxxxx 块级多轮追踪和合并支持。";
+  const one = J.oneSentenceConclusion(md, 80);
+  check("oneSentenceConclusion extracts final sentence", one === "已完成 Agent Deck 与螺旋日程的 ^xxxxx 块级多轮追踪和合并支持。", one);
+}
+{ // 同一个会话多轮对话（追问 ❓ + 每轮一句话结论 💬 + 待办 📋 + 用户拍板 TODO 🤖）都跟在同一个 ^xxxxx 条目下
+  const t0 = "- DOING 14:00 升级 Agent Deck 插件\n";
+  const r1 = J.syncSessionEntry(t0, {
+    sid,
+    key: "升级 Agent Deck 插件",
+    said: "第一轮完成了基础日志解析。",
+    rounds: [
+      { n: 1, ask: "帮我升级 Agent Deck 插件", said: "第一轮完成了基础日志解析。" },
+      { n: 2, ask: "加上 Claude TaskCreate 和对话轮数追踪", said: "已支持 Claude TaskCreate 与其他 Agent 轮数追踪。" },
+    ],
+    todos: ["确认是否启用混合模式润色"],
+    taskTodo: { done: 2, total: 3, cur: "编写单元测试" },
+    ensureId: true,
+  });
+  check("syncSessionEntry assigns ^xxxxx and keeps all turns under one entry",
+    r1.blockId === "ad-111111" &&
+    r1.text.includes("^ad-111111") &&
+    r1.text.includes("\t- 📋 步骤 2/3 · 编写单元测试") &&
+    r1.text.includes("\t- 💬 第一轮完成了基础日志解析。") &&
+    r1.text.includes("\t- ❓ 第2轮：加上 Claude TaskCreate 和对话轮数追踪") &&
+    r1.text.includes("\t- 💬 第2轮：已支持 Claude TaskCreate 与其他 Agent 轮数追踪。") &&
+    r1.text.includes("\t- TODO 🤖 确认是否启用混合模式润色") &&
+    r1.text.split("\n").filter((l) => /^- /.test(l)).length === 1,
+    r1.text
+  );
+}
+{ // 条目合并/混合（J.mergeTasks）：把 🤖 自动记的条目合并到人写的条目下，保留人类标题与 ^xxxxx，搬运 💬/❓/🔗 子项并删掉重复项
+  const t = [
+    "- TODO 整理马自立库插件",
+    "- DOING 15:20 🤖 更新 agent-deck 插件 ^ad-111111",
+    "\t- 🔗 [Claude：更新插件](claude://resume?session=" + sid + ")",
+    "\t- 💬 第1轮：已完成多轮追踪。",
+    "\t- ❓ 第2轮：加上合并功能",
+  ].join("\n") + "\n";
+  const m = J.mergeTasks(t, 1, 0);
+  check("mergeTasks merges auto task into human task",
+    !m.error &&
+    m.blockId === "ad-111111" &&
+    m.text.startsWith("- DOING 15:20 整理马自立库插件 ^ad-111111\n") &&
+    m.text.includes("\t- 🔗 [Claude：更新插件]") &&
+    m.text.includes("\t- 💬 第1轮：已完成多轮追踪。") &&
+    m.text.includes("\t- ❓ 第2轮：加上合并功能") &&
+    !m.text.includes("🤖 更新 agent-deck 插件"),
+    m.text
+  );
+}
+{ // Claude TaskCreate / TaskUpdate 追踪 & WorkBuddy / Antigravity 清洗与轮数统计
+  const fc = {};
+  applyTaskTool(fc, "TaskCreate", { subject: "支持 ^xxxxx 追踪", activeForm: "正在支持 ^xxxxx 追踪" }, "c1");
+  applyTaskTool(fc, "TaskCreate", { subject: "支持 Antigravity", activeForm: "正在支持 Antigravity" }, "c2");
+  applyTaskTool(fc, "TaskCreate", { subject: "支持 ^xxxxx 追踪", activeForm: "正在支持 ^xxxxx 追踪" }, "c1"); // duplicate callId ignored
+  const td1 = applyTaskTool(fc, "TaskUpdate", { taskId: "1", status: "completed" });
+  const td2 = applyTaskTool(fc, "TaskUpdate", { taskId: "2", status: "in_progress" });
+  check("Claude TaskCreate/TaskUpdate tracks done/total/cur", td2.done === 1 && td2.total === 2 && td2.cur === "正在支持 Antigravity", td2);
+
+  const wbRaw = '<system-reminder data-role="user-context">cwd: /tmp</system-reminder>\n<user_query>\n帮我优化 WorkBuddy 标题提取\n</user_query>';
+  check("cleanUserPrompt extracts WorkBuddy <user_query>", cleanUserPrompt(wbRaw) === "帮我优化 WorkBuddy 标题提取", cleanUserPrompt(wbRaw));
+
+  const agRaw = "<USER_REQUEST>\n帮我支持 Antigravity 会话追踪\n</USER_REQUEST>";
+  check("cleanUserPrompt extracts Antigravity <USER_REQUEST>", cleanUserPrompt(agRaw) === "帮我支持 Antigravity 会话追踪", cleanUserPrompt(agRaw));
 }
 process.exit(fail ? 1 : 0);

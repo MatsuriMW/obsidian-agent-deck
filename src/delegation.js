@@ -43,7 +43,7 @@ export function blockAt(lines, at) {
 
 export function blockTitle(block) {
   if (!block) return "";
-  const first = block.text.split("\n")[0] || "";
+  const first = J.stripBlockId(block.text.split("\n")[0] || "");
   return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "")
     .replace(TITLE_KW_RE, "")
     .replace(/[#*_`>[\]]/g, "").trim();
@@ -57,6 +57,8 @@ export function hasLink(lines, block) {
 export function findLink(lines, block) {
   const at = hasLink(lines, block);
   if (at < 0) return null;
+  const parsed = J.parseLink(lines[at]);
+  if (parsed && parsed.sid) return { line: at, sid: parsed.sid, agent: parsed.agent, raw: lines[at] };
   const m = /claude:\/\/resume\?session=([0-9a-f-]{20,})/i.exec(lines[at]);
   const wb = /workbuddy:\/\/chat\/([^\s)\]]+)/i.exec(lines[at]);
   const cx = /codex:\/\/threads\/([0-9a-f-]{36})/i.exec(lines[at]);
@@ -82,7 +84,8 @@ export function linkLine(indent, agent, name, sid) {
   return J.linkLine(indent, agent, String(name || "").slice(0, 48), sid);
 }
 
-export function findDshBinary() {
+export function findDshBinary(configured = "") {
+  if (configured.trim()) return norm(configured.trim());
   const candidates = [
     "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
     path.join(home(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
@@ -374,6 +377,7 @@ export function sessionDeepLink(agent, sid) {
   if (agent === "claude") return `claude://resume?session=${sid}`;
   if (agent === "workbuddy") return `workbuddy://chat/${encodeURIComponent(sid)}`;
   if (agent === "dsh") return "dsh://open";
+  if (agent === "antigravity") return "antigravity://";
   if (agent === "codex") return `codex://threads/${sid}`;
   return "";
 }
@@ -385,6 +389,7 @@ export const AGENT_APPS = {
   codex: { bundle: "com.openai.codex", url: "codex://launch" },
   workbuddy: { bundle: "com.tencent.workbuddy.mac", url: "workbuddy://home" },
   dsh: { bundle: "com.deepseek.dsh", url: "dsh://open" },
+  antigravity: { bundle: "com.google.antigravity", url: "antigravity://" },
 };
 
 export function openAgentApp(agent) {
@@ -442,6 +447,12 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     plugin.notice(`已打开 DeepSeek Harness；会话号已复制（${sid.slice(0, 8)}…）`);
     return true;
   }
+  if (agent === "antigravity") {
+    openAgentApp("antigravity");
+    copyText(sid);
+    plugin.notice(`已打开 Antigravity；会话号已复制（${sid.slice(0, 8)}…）`);
+    return true;
+  }
   return false;
 }
 
@@ -474,7 +485,7 @@ class ClaudeRunner {
       }
     }
     const model = opts.model || cfg.model || "claude-opus-5-5";
-    const modelCli = claudeCli(model);
+    const modelCli = resolveCliModel(d.plugin, "claude", model);
     const effort = opts.effort || cfg.effort || "high";
     const permission = opts.permission || cfg.permission || "auto";
     const addVault = cfg.addVault !== false && d.vaultPath && d.vaultPath !== cwd;
@@ -568,7 +579,7 @@ class ClaudeRunner {
   commonArgs() {
     const cfg = this.d.settings.delegate.claude;
     const model = this.job.model || cfg.model || "claude-opus-5-5";
-    const modelCli = claudeCli(model);
+    const modelCli = resolveCliModel(this.d.plugin, "claude", model);
     const addVault = cfg.addVault !== false && this.d.vaultPath && this.d.vaultPath !== (this.job.cwd || cfg.cwd);
     const out = ["--model", modelCli, "--effort", this.job.effort || cfg.effort || "high", "--permission-mode", this.job.permission || cfg.permission || "auto", "-n", this.job.name];
     if (addVault) out.push("--add-dir", this.d.vaultPath);
@@ -630,7 +641,7 @@ class DshRunner {
   async start(opts) {
     const d = this.d;
     const cfg = d.settings.delegate.dsh;
-    const bin = findDshBinary();
+    const bin = findDshBinary(cfg.path || "");
     const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
     const model = opts.model || cfg.model || "deepseek-v4-pro";
     const effort = opts.effort || cfg.effort || "high";
@@ -800,7 +811,18 @@ class DshRunner {
 }
 
 // 内置模型在命令行里的名字（opus / sonnet …）；不在目录里的原样传
-const claudeCli = (model) => MODEL_CATALOG.find((m) => m.agent === "claude" && m.id === model)?.cli || model;
+export function resolveCliModel(plugin, agent, model) {
+  const m = plugin?.modelById?.(model) || MODEL_CATALOG.find((m) => m.agent === agent && m.id === model);
+  return m?.cli || m?.value || model;
+}
+const shellQuote = (s) => "'" + String(s).replace(/'/g, "'\"'\"'") + "'";
+
+export function codexCliArgs(plugin, opts = {}) {
+  const cfg = plugin.settings.delegate.codex || DEFAULTS.delegate.codex;
+  const model = resolveCliModel(plugin, "codex", opts.model || cfg.model);
+  const effort = opts.effort || cfg.effort || "low";
+  return ["--model", model, "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--sandbox", cfg.sandbox || "workspace-write"];
+}
 
 export function resolveDshModel(id) {
   const m = MODEL_CATALOG.find((x) => x.agent === "dsh" && x.id === id);
@@ -835,11 +857,12 @@ export class Delegator {
 
   defaultModel(agent) {
     const a = this.C[agent] || {};
-    return a.model || (agent === "dsh" ? "deepseek-v4-pro" : "claude-opus-5-5");
+    return a.model || DEFAULTS.models.defaultByAgent[agent] || "";
   }
 
   async delegate(opts) {
     this.refreshSettings();
+    if (opts.agent === "codex") return this.handoffCli(opts);
     const agent = opts.agent === "dsh" ? "dsh" : "claude";
     const file = opts.file;
     if (!file) throw new Error("没有当前笔记");
@@ -919,7 +942,7 @@ export class Delegator {
     const title = blockTitle(block) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
-    let cwd = norm(opts.cwd || (agent === "claude" ? this.C.claude.cwd : "") || this.vaultPath);
+    let cwd = norm(opts.cwd || this.C[agent]?.cwd || this.vaultPath);
     // 交互式 claude 在没信任过的目录里会先停在信任提示上，任务就不会自己跑：和后台委派一样换到信任过的目录，库用 --add-dir 加进去
     let extra = "";
     if (agent === "claude") {
@@ -928,30 +951,34 @@ export class Delegator {
         const trusted = await findTrustedDir(this.vaultPath);
         if (trusted) cwd = trusted;
       }
-      if (this.vaultPath && cwd !== this.vaultPath) extra += ` --add-dir ${JSON.stringify(this.vaultPath)}`;
+      if (this.vaultPath && cwd !== this.vaultPath) extra += ` --add-dir ${shellQuote(this.vaultPath)}`;
       if (cfg.permission) extra += ` --permission-mode ${cfg.permission}`;
-    } else if (agent === "codex" && !opts.cwd) {
+    } else if (agent === "codex" && !opts.cwd && !this.C.codex?.cwd) {
       // 交互式 codex 在没信任过的目录里也会停在信任提示上：同样换到信任过的目录，库用 --add-dir 加进去
       cwd = await findCodexTrustedDir(this.vaultPath);
-      if (this.vaultPath && cwd !== this.vaultPath) extra += ` -C ${JSON.stringify(cwd)} --add-dir ${JSON.stringify(this.vaultPath)}`;
+      if (this.vaultPath && cwd !== this.vaultPath) extra += ` -C ${shellQuote(cwd)} --add-dir ${shellQuote(this.vaultPath)}`;
     }
+    const model = resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent));
+    const effort = opts.effort || this.C[agent]?.effort || "high";
+    if (agent === "codex") extra += " " + codexCliArgs(this.plugin, opts).map(shellQuote).join(" ");
+    else extra += ` --model ${shellQuote(model)} --effort ${shellQuote(effort)}`;
     // 任务文字放进临时文件，命令里用 "$(cat …)" 取：多行、引号都不用转义
     const dir = path.join(os.tmpdir(), "agent-deck");
     await fsp.mkdir(dir, { recursive: true });
     const taskFile = path.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp.writeFile(taskFile, prompt, "utf8");
-    const bin = agent === "codex" ? "codex" : "claude";
+    const bin = agent === "codex" ? (this.C.codex?.path || "codex") : findClaudeBinary(this.C.claude?.path || "");
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent, name, path: file.path, line: block.start, lineText: lines[block.start],
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
-      startedAt: Date.now(), state: "starting", handoff: true, cli: true, app: agent === "claude" ? "cli" : "codex_cli_rs",
+      startedAt: Date.now(), state: "starting", model, effort, handoff: true, cli: true, app: agent === "claude" ? "cli" : "codex_cli_rs",
       step: `在终端里开 ${AGENTS[agent]?.name || agent}`, cwd, sessionId: "", linkWritten: false, resultWritten: false,
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     // 任务前面加 --：任务常以「- TODO」开头，不加会被当成命令行参数（unknown option）
-    const term = await openTerminal(`${bin}${extra} -- "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
+    const term = await openTerminal(`${shellQuote(bin)}${extra} -- "$(cat ${shellQuote(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
     this.plugin.notice(`已在 ${TERMINAL_NAME[term] || "终端"} 里开 ${AGENTS[agent]?.name || agent}`, 6000);
     this.plugin.refreshUI();
     return job;
@@ -1018,7 +1045,8 @@ export class Delegator {
     const path = job.path;
     const text = await this.plugin.readNote(path);
     const lines = text.split("\n");
-    let at = lines.findIndex((l) => l === job.lineText);
+    let at = job.blockId ? lines.findIndex((l) => J.blockIdOf(l) === job.blockId) : -1;
+    if (at < 0) at = lines.findIndex((l) => l === job.lineText);
     if (at < 0) at = lines.findIndex((l) => blockTitle({ text: l }) && l.includes(truncate(job.name, 20)));
     if (at < 0) return;
     const block = blockAt(lines, at);
@@ -1028,6 +1056,9 @@ export class Delegator {
     const link = linkLine(indent, job.agent, job.name, sid);
     lines.splice(block.start + 1, 0, link);
     if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
+    const ensured = J.ensureBlockId(lines[block.start], sid);
+    lines[block.start] = ensured.line;
+    job.blockId = ensured.blockId;
     await this.plugin.writeNote(path, lines.join("\n"));
     job.line = block.start;
     job.lineText = lines[block.start];
@@ -1084,38 +1115,36 @@ export class Delegator {
   async writeResult(job) {
     if (job.resultWritten) return;
     let said = job.result || job.lastText || "";
-    if (!said) {
-      const meta = this.plugin.usage && this.plugin.usage.meta.get(job.sessionId);
-      said = meta && (meta.lastText || "");
-    }
-    said = String(said || "").replace(/\s+/g, " ").trim();
+    const meta = this.plugin.usage && this.plugin.usage.meta.get(job.sessionId);
+    if (!said) said = meta && (meta.lastText || "");
+    said = J.oneSentenceConclusion(said, clamp(Number(this.settings.resultMax) || 120, 40, 2000));
     if (!said) return;
-    const max = clamp(Number(this.settings.resultMax) || 240, 40, 2000);
     const text = await this.plugin.readNote(job.path);
-    const lines = text.split("\n");
-    let at = lines.indexOf(job.lineText);
-    let block = at >= 0 ? blockAt(lines, at) : null;
-    if (!block) {
-      const li = lines.findIndex((l) => job.sessionId && l.includes(job.sessionId));
-      if (li >= 0) {
-        const indent = (lines[li].match(/^[ \t]*/) || [""])[0].length;
-        let parent = -1;
-        for (let i = li - 1; i >= 0; i--) {
-          if (!lines[i].trim()) continue;
-          const ind = (lines[i].match(/^[ \t]*/) || [""])[0].length;
-          if (ind < indent) {
-            if (/^\s*(?:[-*+]|\d+[.)])\s+/.test(lines[i])) parent = i;
-            break;
-          }
-        }
-        if (parent >= 0) { at = parent; block = blockAt(lines, parent); }
-      }
+    const synced = J.syncSessionEntry(text, {
+      sid: job.sessionId || "",
+      blockId: job.blockId || "",
+      key: J.workKey(job.name || ""),
+      said,
+      rounds: (meta && Array.isArray(meta.rounds)) ? meta.rounds : [],
+      taskTodo: job.agent === "claude" && meta ? meta.todo : null,
+      ensureId: true,
+    });
+    if (synced.text !== text) {
+      await this.plugin.writeNote(job.path, synced.text);
+      if (synced.blockId) job.blockId = synced.blockId;
+      job.resultWritten = true;
+      this.saveJobs();
+      return;
     }
+    const lines = text.split("\n");
+    let at = job.blockId ? lines.findIndex((l) => J.blockIdOf(l) === job.blockId) : -1;
+    if (at < 0) at = lines.indexOf(job.lineText);
+    let block = at >= 0 ? blockAt(lines, at) : null;
     if (!block) return;
     const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "\t";
     let resultAt = -1;
     for (let i = block.start + 1; i <= block.end; i++) if (RESULT_RE.test(lines[i])) { resultAt = i; break; }
-    const line = `${indent}- 💬 ${truncate(said, max)}`;
+    const line = `${indent}- 💬 ${said}`;
     if (resultAt >= 0) lines[resultAt] = line;
     else {
       const link = findLink(lines, block);

@@ -7,8 +7,9 @@ import claude from "../assets/agents/claude.png";
 import codex from "../assets/agents/codex.png";
 import workbuddy from "../assets/agents/workbuddy.png";
 import dsh from "../assets/agents/dsh.png";
+import antigravity from "../assets/agents/antigravity.png";
 
-export const AGENT_IMAGES = { claude, codex, workbuddy, dsh };
+export const AGENT_IMAGES = { claude, codex, workbuddy, dsh, antigravity };
 
 export function agentImageBuffer(id) {
   const uri = AGENT_IMAGES[id];

@@ -1,4 +1,4 @@
-/* Agent Deck 1.2.10 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.3.0 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -88,9 +88,21 @@ var AGENTS = {
     where: ["~/.dsh/sessions", "DeepSeek Harness \u684C\u9762\u7248\u3001CLI \u548C\u901A\u8FC7 ACP \u59D4\u6D3E\u7684\u4EFB\u52A1"],
     deep: "dsh",
     desktopOnly: true
+  },
+  antigravity: {
+    id: "antigravity",
+    name: "Antigravity",
+    short: "Antigravity",
+    glyph: "\u27E1",
+    color: "#8b6fb8",
+    soft: "rgba(139,111,184,.13)",
+    kind: "antigravity",
+    where: ["~/.gemini/antigravity/brain", "Antigravity \u684C\u9762\u7248\u4E0E\u4F1A\u8BDD\u65E5\u5FD7"],
+    deep: "antigravity",
+    desktopOnly: true
   }
 };
-var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh"];
+var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity"];
 var MODEL_CATALOG = [
   {
     id: "claude-opus-5-5",
@@ -162,6 +174,16 @@ var MODEL_CATALOG = [
     cost: "Medium cost",
     note: "A fast Claude alias for interactive work."
   },
+  ...[
+    ["gpt-6-luna", "GPT-6-Luna", "Fast"],
+    ["gpt-6.1-sol", "GPT-6.1-Sol", "Reasoning"],
+    ["gpt-6.1-terra", "GPT-6.1 Terra", "Reasoning"],
+    ["gpt-6-astra", "GPT-6-Astra", "Reasoning"],
+    ["gpt-6-sol", "GPT-6-Sol", "Reasoning"],
+    ["gpt-5.6-sol", "GPT-5.6-Sol", "Reasoning"],
+    ["gpt-5.6-terra", "GPT-5.6-Terra", "Reasoning"],
+    ["gpt-5.6-luna", "GPT-5.6-Luna", "Fast"]
+  ].map(([id, name, tag]) => ({ id, name, agent: "codex", cli: id, value: id, provider: "OpenAI", context: "\u2014", tags: [tag], note: "\u53EF\u7528\u6027\u7531\u5F53\u524D Codex \u767B\u5F55\u8D26\u53F7\u51B3\u5B9A\u3002" })),
   {
     id: "deepseek-v4-pro",
     agent: "dsh",
@@ -224,6 +246,7 @@ var MODEL_CATALOG = [
   }
 ];
 var EFFORTS = {
+  codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: "\u7531\u6240\u9009 Codex \u6A21\u578B\u652F\u6301\u7684\u5F3A\u5EA6\u51B3\u5B9A" })),
   claude: [
     { id: "low", label: "Low", hint: "Fastest" },
     { id: "medium", label: "Medium", hint: "Balanced" },
@@ -247,7 +270,7 @@ var CLAUDE_PERMISSIONS = [
 var DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true },
   primaryAgents: ["claude", "dsh"],
   // 0 = no cutoff; otherwise the hour at which a new journal day begins.
   dayCutoff: 8,
@@ -273,11 +296,34 @@ var DEFAULTS = {
   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
   autoLogEvery: 20,
+  // 自动整理间隔（分钟）
+  autoLogStartDelay: 1,
+  // 插件启动后第几分钟先整理一次，不用等满一个间隔
+  autoLogMinMinutes: 3,
+  // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
   autoLogIdle: 40,
+  // 停了几分钟算 PAUSED
+  autoLogBatch: 8,
+  // 一轮最多问模型几个会话
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true },
+  autoLogProvider: "claude",
+  autoLogEffort: "low",
   autoLogModel: "haiku",
+  autoLogTimeout: 120,
+  // 整理时等模型几秒
+  autoLogFallback: true,
+  // 模型问不到时（自动整理也一样）用会话标题先记上
+  autoLogKw: true,
+  // 自动建的条目也跟着会话在 DOING / TOREVIEW / NEEDOK / ERRORED 之间切
   autoLogPath: "",
   autoLogArchiveDone: true,
   autoLogNotify: true,
+  roundPolish: true,
+  // 每轮的 💬 先用本地规则写，再让模型润色成一句话
+  roundPolishModel: "",
+  // 留空 = 跟整理用的模型一样
+  roundPolishTimeout: 30,
+  // 润色时等模型几秒
   autoLogState: {},
   workLog: {},
   showMenuBar: true,
@@ -299,6 +345,7 @@ var DEFAULTS = {
       model: "claude-opus-5-5",
       effort: "high",
       permission: "auto",
+      path: "",
       cwd: "",
       addVault: true,
       openDesktop: true,
@@ -306,9 +353,11 @@ var DEFAULTS = {
       autoTrustedCwd: true,
       extraArgs: ""
     },
+    codex: { model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
     dsh: {
       model: "deepseek-v4-pro",
       effort: "high",
+      path: "",
       cwd: "",
       autoApprove: false,
       extraArgs: ""
@@ -327,8 +376,9 @@ var DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", dsh: "deepseek-v4-pro" },
-    effort: "high"
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "deepseek-v4-pro" },
+    effort: "high",
+    effortByAgent: {}
   },
   ui: {
     showSparkline: true,
@@ -1058,8 +1108,31 @@ function projectName(cwd) {
   if (!cwd) return "?";
   if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(cwd)) return "WorkBuddy";
   if (/\/\.dsh\/sessions\//.test(cwd)) return "DSH";
+  if (/\/\.gemini\/antigravity\//.test(cwd)) return "Antigravity";
   const p = String(cwd).split("/.claude/worktrees/")[0].replace(/\/+$/, "");
   return p === home() ? "~" : p.split("/").pop() || p;
+}
+function cleanUserPrompt(raw) {
+  const s = String(raw || "");
+  if (!s) return "";
+  const m = s.match(/<(?:user_message|user_query|USER_REQUEST)>\s*([\s\S]*?)\s*<\/(?:user_message|user_query|USER_REQUEST)>/i);
+  const body = m && m[1].trim() ? m[1] : s;
+  return body.replace(/<system-reminder\b[^>]*>[\s\S]*?<\/system-reminder>/gi, "").replace(/<(?:ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|environment_context|user_instructions)\b[^>]*>[\s\S]*?<\/(?:ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|environment_context|user_instructions)>/gi, "").replace(/<image_local_path>[\s\S]*?<\/image_local_path>/gi, "").trim();
+}
+function unquoteArgs(args) {
+  if (!args || typeof args !== "object") return {};
+  const out = {};
+  for (const [k, v] of Object.entries(args)) {
+    if (typeof v === "string" && (v.startsWith('"') && v.endsWith('"') || v.startsWith("{") && v.endsWith("}") || v.startsWith("[") && v.endsWith("]"))) {
+      try {
+        out[k] = JSON.parse(v);
+        continue;
+      } catch {
+      }
+    }
+    out[k] = v;
+  }
+  return out;
 }
 function isPromptText(text) {
   const s = String(text || "").trim();
@@ -1078,22 +1151,81 @@ function stepText(name, input) {
     x = String(x || "").replace(/\s+/g, " ").trim();
     return x.length > 34 ? x.slice(0, 33) + "\u2026" : x;
   };
-  if (/^(bash|shell|local_shell_call|exec_command|shell_command)$/i.test(n)) return cut(i.description || (Array.isArray(i.command) ? i.command[i.command.length - 1] : i.command || i.cmd) || "\u8DD1\u547D\u4EE4");
-  if (/^(edit|multiedit|notebookedit|apply_patch|str_replace_editor)$/i.test(n)) return cut(`\u6539 ${base(i.file_path || i.notebook_path || i.path) || "\u6587\u4EF6"}`);
-  if (/^(write|create_file)$/i.test(n)) return cut(`\u5199 ${base(i.file_path || i.path)}`);
-  if (/^(read|view)$/i.test(n)) return cut(`\u8BFB ${base(i.file_path || i.path)}`);
-  if (/^(grep|glob|search)$/i.test(n)) return cut(`\u627E ${i.pattern || i.query || ""}`);
-  if (/^(agent|task|subagent)$/i.test(n)) return cut(`\u6D3E\u51FA\u53BB\uFF1A${i.description || ""}`);
-  if (/^(websearch|web_search)$/i.test(n)) return cut(`\u641C ${i.query || ""}`);
+  if (/^(bash|shell|local_shell_call|exec_command|shell_command|run_command)$/i.test(n)) return cut(i.description || i.toolSummary || (Array.isArray(i.command) ? i.command[i.command.length - 1] : i.command || i.cmd || i.CommandLine) || "\u8DD1\u547D\u4EE4");
+  if (/^(edit|multiedit|notebookedit|apply_patch|str_replace_editor|edit_file|replace_file_content|multi_replace_file_content)$/i.test(n)) return cut(`\u6539 ${base(i.file_path || i.notebook_path || i.path || i.Path || i.TargetFile) || "\u6587\u4EF6"}`);
+  if (/^(write|create_file|write_file|write_to_file)$/i.test(n)) return cut(`\u5199 ${base(i.file_path || i.path || i.Path || i.TargetFile)}`);
+  if (/^(read|view|read_file|view_file)$/i.test(n)) return cut(`\u8BFB ${base(i.file_path || i.path || i.Path || i.AbsolutePath)}`);
+  if (/^(grep|glob|search|grep_search|find_by_name)$/i.test(n)) return cut(`\u627E ${i.pattern || i.query || i.Query || i.Pattern || ""}`);
+  if (/^(agent|task|subagent|invoke_subagent)$/i.test(n)) return cut(`\u6D3E\u51FA\u53BB\uFF1A${i.description || i.Role || i.Prompt || ""}`);
+  if (/^(websearch|web_search|search_web)$/i.test(n)) return cut(`\u641C ${i.query || ""}`);
   if (/^(webfetch|web_fetch)$/i.test(n)) return "\u8BFB\u7F51\u9875";
   if (n === "Skill") return cut(`\u7528\u6280\u80FD ${i.skill || ""}`);
-  if (/^todo/.test(n)) return "\u6574\u7406\u5F85\u529E";
+  if (n === "TaskCreate") return cut(`\u5EFA\u5F85\u529E\uFF1A${i.subject || i.title || ""}`);
+  if (n === "TaskUpdate") return cut(`${i.status === "completed" ? "\u5B8C\u6210\u5F85\u529E #" : i.status === "in_progress" ? "\u8FDB\u884C\u5F85\u529E #" : "\u66F4\u65B0\u5F85\u529E #"}${i.taskId || i.id || ""}`);
+  if (/^todo/i.test(n)) return "\u6574\u7406\u5F85\u529E";
   return cut(n.startsWith("mcp__") ? n.split("__").pop() : n);
 }
 function todoOf(pairs) {
   if (!pairs || !pairs.length) return null;
-  const cur = (pairs.find(([st]) => st === "in_progress") || [])[1] || "";
-  return { done: pairs.filter(([st]) => st === "completed").length, total: pairs.length, cur: String(cur).replace(/\s+/g, " ").slice(0, 36) };
+  const cur = (pairs.find(([st]) => st === "in_progress") || pairs.find(([st]) => st === "pending") || [])[1] || "";
+  const done = pairs.filter(([st]) => st === "completed" || st === "done").length;
+  const items = pairs.map(([st, text], idx) => ({ id: String(idx + 1), text: String(text || "").replace(/\s+/g, " ").trim(), status: st || "pending" }));
+  return { done, total: pairs.length, cur: done >= pairs.length ? "" : String(cur).replace(/\s+/g, " ").slice(0, 36), items };
+}
+function applyTaskTool(fc, name, input, callId = "") {
+  const inp = input || {};
+  if (!fc.tasks) fc.tasks = { seq: 0, seen: /* @__PURE__ */ new Set(), map: /* @__PURE__ */ new Map() };
+  const tk = fc.tasks;
+  if (name === "TaskCreate") {
+    if (callId && tk.seen.has(callId)) return buildTaskTodo(tk);
+    if (callId) tk.seen.add(callId);
+    tk.seq += 1;
+    const id = String(inp.taskId || inp.id || tk.seq);
+    const subject = String(inp.subject || inp.title || inp.description || `#${id}`).replace(/\s+/g, " ").trim();
+    const activeForm = String(inp.activeForm || "").replace(/\s+/g, " ").trim();
+    tk.map.set(id, { id, subject, activeForm, status: inp.status || "pending" });
+  } else if (name === "TaskUpdate") {
+    const id = String(inp.taskId || inp.id || "");
+    if (!id) return buildTaskTodo(tk);
+    const cur = tk.map.get(id) || { id, subject: `#${id}`, activeForm: "", status: "pending" };
+    if (inp.status) cur.status = String(inp.status);
+    if (inp.subject || inp.title) cur.subject = String(inp.subject || inp.title).replace(/\s+/g, " ").trim();
+    if (inp.activeForm) cur.activeForm = String(inp.activeForm).replace(/\s+/g, " ").trim();
+    tk.map.set(id, cur);
+  }
+  return buildTaskTodo(tk);
+}
+function buildTaskTodo(tk) {
+  if (!tk || !tk.map.size) return null;
+  const list = [...tk.map.values()].filter((t) => t.status !== "deleted");
+  if (!list.length) return null;
+  const done = list.filter((t) => t.status === "completed" || t.status === "done").length;
+  const active = list.find((t) => t.status === "in_progress");
+  const next = list.find((t) => t.status === "pending");
+  const rawCur = active ? active.activeForm || active.subject : done < list.length && next ? next.subject || next.activeForm : "";
+  const items = list.map((t) => ({ id: t.id, text: t.subject || t.activeForm || `#${t.id}`, activeForm: t.activeForm || "", status: t.status }));
+  return { done, total: list.length, cur: String(rawCur || "").replace(/\s+/g, " ").slice(0, 36), items };
+}
+function startRound(fc, ms, rawAsk, key = "") {
+  if (!fc.rounds) fc.rounds = { seen: /* @__PURE__ */ new Set(), list: [] };
+  if (key && fc.rounds.seen.has(key)) return fc.rounds.list.length;
+  if (key) fc.rounds.seen.add(key);
+  const ask = cleanUserPrompt(rawAsk).replace(/\s+/g, " ").trim().slice(0, 140);
+  if (!ask) return fc.rounds.list.length;
+  const last = fc.rounds.list[fc.rounds.list.length - 1];
+  if (last && last.ask === ask && Math.abs(ms - last.at) < 2e3) return fc.rounds.list.length;
+  fc.rounds.list.push({ n: fc.rounds.list.length + 1, at: ms, doneAt: 0, ask, said: "" });
+  return fc.rounds.list.length;
+}
+function finishRound(fc, ms, said, isWait = false) {
+  if (!fc.rounds || !fc.rounds.list.length) {
+    if (!said || !String(said).trim()) return;
+    fc.rounds = { seen: /* @__PURE__ */ new Set(), list: [{ n: 1, at: ms, doneAt: isWait ? ms : 0, ask: "", said: String(said).trim() }] };
+    return;
+  }
+  const cur = fc.rounds.list[fc.rounds.list.length - 1];
+  if (said && String(said).trim()) cur.said = String(said).trim();
+  if (isWait && ms >= cur.at) cur.doneAt = ms;
 }
 function cleanLive(v, now = Date.now()) {
   if (!v) return v;
@@ -1116,6 +1248,7 @@ var AgentUsage = class {
     this.archivedClaude = /* @__PURE__ */ new Set();
     this.sideChats = /* @__PURE__ */ new Map();
     this.subs = /* @__PURE__ */ new Map();
+    this.wbMeta = /* @__PURE__ */ new Map();
     this.sideAt = 0;
     this.errors = [];
     this.lastScan = 0;
@@ -1151,6 +1284,7 @@ var AgentUsage = class {
     add(process.env.CODEX_HOME ? import_path.default.join(process.env.CODEX_HOME, "archived_sessions") : import_path.default.join(h, ".codex/archived_sessions"), "codex");
     add(import_path.default.join(h, ".workbuddy/projects"), "workbuddy");
     add(import_path.default.join(h, ".dsh/sessions"), "dsh");
+    add(import_path.default.join(h, ".gemini/antigravity/brain"), "antigravity");
     const seen = /* @__PURE__ */ new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
   }
@@ -1162,8 +1296,10 @@ var AgentUsage = class {
   async scan({ since = 0, onProgress } = {}) {
     const touched = /* @__PURE__ */ new Set();
     const floor = since || this.sinceMs();
+    await this.readCodexTitles();
+    await this.readCodexArchived();
     for (const [root, agent] of this.roots()) {
-      const files = await this.walk(root, agent === "dsh" ? 4 : 5);
+      const files = await this.walk(root, agent === "dsh" || agent === "antigravity" ? 4 : 5, agent);
       for (const p of files) {
         let st;
         try {
@@ -1185,15 +1321,13 @@ var AgentUsage = class {
         await new Promise((r) => setImmediate(r));
       }
     }
-    await this.readCodexTitles();
-    await this.readCodexArchived();
     await this.readClaudeDesktop();
     await this.readClaudeSideChats();
     this.applyClaudeDesktop();
     this.lastScan = Date.now();
     return touched;
   }
-  async walk(dir, depth) {
+  async walk(dir, depth, agent = "") {
     const out = [];
     let ents;
     try {
@@ -1204,9 +1338,14 @@ var AgentUsage = class {
     for (const e of ents) {
       const p = import_path.default.join(dir, e.name);
       if (e.isDirectory()) {
-        if (depth > 0) out.push(...await this.walk(p, depth - 1));
+        if (agent === "antigravity" && (e.name === "steps" || e.name === "chunks" || e.name === "browser_sandbox" || e.name === "scratch")) continue;
+        if (depth > 0) out.push(...await this.walk(p, depth - 1, agent));
       } else if (e.isFile()) {
-        if (e.name.endsWith(".jsonl") || e.name.endsWith(".jsonl.zstd") || e.name.endsWith(".jsonl.zst")) out.push(p);
+        if (agent === "antigravity") {
+          if (e.name === "transcript.jsonl") out.push(p);
+        } else if (e.name.endsWith(".jsonl") || e.name.endsWith(".jsonl.zstd") || e.name.endsWith(".jsonl.zst")) {
+          out.push(p);
+        }
       }
     }
     return out;
@@ -1258,7 +1397,21 @@ var AgentUsage = class {
         }
       } catch {
       }
-      for (const id of await sqliteColumn(import_path.default.join(home(), ".workbuddy/workbuddy.db"), "select id from sessions where status = 'archived' or deleted_at is not null")) db.add(id);
+      const wbDb = import_path.default.join(home(), ".workbuddy/workbuddy.db");
+      for (const id of await sqliteColumn(wbDb, "select id from sessions where status = 'archived' or deleted_at is not null")) db.add(id);
+      for (const row of await sqliteColumn(wbDb, "select id || char(9) || replace(replace(coalesce(nullif(custom_title,''), title, ''), char(10), ' '), char(9), ' ') || char(9) || coalesce(cwd,'') || char(9) || coalesce(model,'') || char(9) || coalesce(group_title,'') || char(9) || coalesce(status,'') from sessions")) {
+        const [id, title, cwd, model, groupTitle, status] = row.split("	");
+        if (!id) continue;
+        const cleanTitle = (title || "").trim().slice(0, 120);
+        if (cleanTitle && !this.titles.has(id)) this.titles.set(id, cleanTitle);
+        this.wbMeta.set(id, { title: cleanTitle, cwd: cwd || "", model: model || "", groupTitle: groupTitle || "", status: status || "" });
+        const m = this.meta.get(id);
+        if (m) {
+          if (!m.title && cleanTitle) m.title = cleanTitle;
+          if (!m.model && model && model !== "auto") m.model = model;
+          if (groupTitle && (!m.cwd || /\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(m.cwd))) m.cwd = groupTitle;
+        }
+      }
       try {
         const ws = JSON.parse(await fsp.readFile(import_path.default.join(home(), ".dsh/storages/workspace.json"), "utf8"));
         for (const id of ws && ws.global && ws.global.archivedSessionIds || []) db.add(String(id));
@@ -1412,7 +1565,8 @@ var AgentUsage = class {
       const base = import_path.default.basename(p).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
       const flat = p.replace(/\\/g, "/");
       const sm = /([0-9a-f]{8}-[0-9a-f-]{27})\/subagents\/agent-([^/]+)\.jsonl$/.exec(flat);
-      const sid = sm ? sm[1] : base.startsWith("session-") ? base : (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
+      const agm = agent === "antigravity" ? /\/brain\/([^/]+)\/\.system_generated\/logs\/transcript\.jsonl$/.exec(flat) : null;
+      const sid = sm ? sm[1] : agm ? agm[1] : base.startsWith("session-") ? base : (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
       fc = {
         path: p,
         agent,
@@ -1422,7 +1576,7 @@ var AgentUsage = class {
         sid,
         id: sid,
         cwd: "",
-        app: base.startsWith("session-") ? "dsh" : "",
+        app: base.startsWith("session-") ? "dsh" : agent === "antigravity" ? "antigravity" : "",
         model: "",
         days: /* @__PURE__ */ new Map(),
         msgs: /* @__PURE__ */ new Map(),
@@ -1481,6 +1635,8 @@ var AgentUsage = class {
       fc.msgs = /* @__PURE__ */ new Map();
       fc.titles = /* @__PURE__ */ new Map();
       fc.live = null;
+      fc.tasks = null;
+      fc.rounds = null;
     }
     fc.mtime = st.mtimeMs;
     if (st.size === fc.offset) {
@@ -1511,6 +1667,7 @@ var AgentUsage = class {
     if (fc.agent === "claude") return this.ingestClaude(line, fc, touched);
     if (fc.agent === "codex") return this.ingestCodex(line, fc, touched);
     if (fc.agent === "workbuddy") return this.ingestWorkbuddy(line, fc, touched);
+    if (fc.agent === "antigravity") return this.ingestAntigravity(line, fc, touched);
   }
   // ---- Claude Code subagents ----
   // 会话派一个 subagent，日志另起一个文件：<会话号>/subagents/agent-<agentId>.jsonl，
@@ -1635,26 +1792,61 @@ var AgentUsage = class {
       for (const b of Array.isArray(c) ? c : []) {
         if (b.type === "tool_use") {
           if (b.name === "TodoWrite" && Array.isArray(b.input && b.input.todos)) v.todo = todoOf(b.input.todos.map((t) => [t.status, t.activeForm || t.content]));
-          else v.step = stepText(b.name, b.input);
+          else if (b.name === "TaskCreate" || b.name === "TaskUpdate") {
+            const td = applyTaskTool(fc, b.name, b.input, b.id);
+            if (td) v.todo = td;
+            v.step = stepText(b.name, b.input);
+          } else v.step = stepText(b.name, b.input);
         }
         if (b.type === "text" && b.text) v.lastText = b.text;
       }
       const stop = d.message.stop_reason;
       v.state = stop === "end_turn" || stop === "stop_sequence" ? "wait" : "run";
+      if (v.state === "wait") v.step = "";
+      if (!d.isSidechain) {
+        finishRound(fc, ms, v.lastText, v.state === "wait");
+        v.turns = fc.rounds ? fc.rounds.list.length : 0;
+        v.rounds = fc.rounds ? fc.rounds.list : [];
+      }
       const u = d.message.usage;
+      const meta = this.meta.get(sid) || {};
       if (u && d.message.id && !d.isSidechain) {
         const id = `${d.message.id}:${d.requestId || ""}`;
-        fc.msgs.set(id, { key, sid, proj: s.proj, model: d.message.model, out: u.output_tokens || 0, fresh: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), cached: u.cache_read_input_tokens || 0, at: ms });
-        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, model: v.model, lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), out: (this.meta.get(sid)?.out || 0) + (u.output_tokens || 0), fresh: (this.meta.get(sid)?.fresh || 0) + (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), cached: (this.meta.get(sid)?.cached || 0) + (u.cache_read_input_tokens || 0), calls: (this.meta.get(sid)?.calls || 0) + 1, state: v.state, step: v.step, todo: v.todo, lastText: v.lastText });
+        const prev = fc.msgs.get(id) || { out: 0, fresh: 0, cached: 0 };
+        const m = { key, sid, proj: s.proj, model: d.message.model, out: u.output_tokens || 0, fresh: (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0), cached: u.cache_read_input_tokens || 0, at: ms };
+        fc.msgs.set(id, m);
+        this.noteMeta(fc, sid, {
+          title: v.title,
+          text: s.text,
+          cwd: fc.cwd,
+          app: fc.app,
+          model: v.model,
+          lastAt: Math.max(ms, meta.lastAt || 0),
+          out: (meta.out || 0) - prev.out + m.out,
+          fresh: (meta.fresh || 0) - prev.fresh + m.fresh,
+          cached: (meta.cached || 0) - prev.cached + m.cached,
+          calls: (meta.calls || 0) + (prev.out || prev.fresh || prev.cached ? 0 : 1),
+          state: v.state,
+          step: v.step,
+          todo: v.todo,
+          turns: v.turns,
+          rounds: v.rounds,
+          lastText: v.lastText
+        });
+      } else if (!d.isSidechain) {
+        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, model: v.model, lastAt: Math.max(ms, meta.lastAt || 0), state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText });
       }
     } else if (d.type === "user" && !d.isSidechain) {
       const c = d.message && d.message.content;
       const text = typeof c === "string" ? c : Array.isArray(c) && !c.some((b) => b.type === "tool_result") ? c.filter((b) => b.type === "text").map((b) => b.text).join("") : "";
       if (isPromptText(text)) {
         day.prompts++;
+        startRound(fc, ms, text, d.uuid || String(ms));
+        v.turns = fc.rounds ? fc.rounds.list.length : 0;
+        v.rounds = fc.rounds ? fc.rounds.list : [];
         if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
         v.state = /^\s*\[Request interrupted/.test(text) ? "wait" : "run";
-        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), state: v.state });
+        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), state: v.state, todo: v.todo, turns: v.turns, rounds: v.rounds });
       }
     }
   }
@@ -1709,6 +1901,9 @@ var AgentUsage = class {
         const text = (Array.isArray(p.content) ? p.content : []).filter((b) => b && b.type === "input_text").map((b) => b.text || "").join("").trim();
         if (text && isPromptText(text)) {
           day.prompts++;
+          startRound(fc, ms, text, String(ms));
+          v.turns = fc.rounds ? fc.rounds.list.length : 0;
+          v.rounds = fc.rounds ? fc.rounds.list : [];
           if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
         }
       }
@@ -1722,10 +1917,14 @@ var AgentUsage = class {
           a = typeof p.arguments === "string" ? JSON.parse(p.arguments) : p.arguments || p.action || {};
         } catch {
         }
-        if (p.name === "update_plan" && Array.isArray(a.plan)) v.todo = todoOf(a.plan.map((x) => [x.status, x.step]));
-        else v.step = stepText(p.name || p.type, a);
+        v.step = stepText(p.name || p.type, a);
         v.state = "run";
       }
+    }
+    if (v.lastText || v.state === "wait") {
+      finishRound(fc, ms, v.lastText, v.state === "wait");
+      v.turns = fc.rounds ? fc.rounds.list.length : 0;
+      v.rounds = fc.rounds ? fc.rounds.list : [];
     }
     const t = d.type === "event_msg" && p.type === "token_count" && p.info && p.info.total_token_usage;
     if (t) {
@@ -1735,7 +1934,7 @@ var AgentUsage = class {
       if (m.out || m.fresh || m.cached) {
         fc.msgs.set(`codex:${fc.id}:${fc.msgs.size}`, m);
         const meta = this.meta.get(sid) || {};
-        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, model: fc.model, lastAt: Math.max(ms, meta.lastAt || 0), out: (meta.out || 0) + m.out, fresh: (meta.fresh || 0) + m.fresh, cached: (meta.cached || 0) + m.cached, calls: (meta.calls || 0) + 1, state: v.state, step: v.step, todo: v.todo, lastText: v.lastText });
+        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: fc.app, model: fc.model, lastAt: Math.max(ms, meta.lastAt || 0), out: (meta.out || 0) + m.out, fresh: (meta.fresh || 0) + m.fresh, cached: (meta.cached || 0) + m.cached, calls: (meta.calls || 0) + 1, state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText });
       }
       fc.tot = cur;
     }
@@ -1752,29 +1951,53 @@ var AgentUsage = class {
       if (d.aiTitle) {
         fc.titles.set(fc.sid, d.aiTitle);
         this.titles.set(fc.sid, d.aiTitle);
+        const m = this.meta.get(fc.sid);
+        if (m) m.title = d.aiTitle;
       }
       return;
     }
     if (!["message", "reasoning", "function_call", "function_call_result"].includes(d.type) || !+d.timestamp) return;
     const ms = +d.timestamp;
     if (this.stale("workbuddy", ms)) return;
-    const { key, day, s } = this.touchSess(fc, touched, ms, fc.sid, d.cwd || fc.cwd, "workbuddy");
+    const wbDb = this.wbMeta.get(fc.sid);
+    const rawCwd = d.cwd || fc.cwd || wbDb && wbDb.cwd || "";
+    const effCwd = wbDb && wbDb.groupTitle && (!rawCwd || /\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(rawCwd)) ? wbDb.groupTitle : rawCwd;
+    fc.cwd = effCwd || fc.cwd;
+    const { key, day, s } = this.touchSess(fc, touched, ms, fc.sid, fc.cwd, "workbuddy");
     const v = this.liveOf(fc, fc.sid, ms);
-    v.title = fc.titles.get(fc.sid) || v.title;
-    v.cwd = d.cwd || fc.cwd;
+    v.title = fc.titles.get(fc.sid) || this.titles.get(fc.sid) || wbDb && wbDb.title || v.title;
+    v.cwd = fc.cwd;
+    if (wbDb && wbDb.model && wbDb.model !== "auto" && !v.model) v.model = wbDb.model;
     if (d.type === "message") {
-      v.state = d.role === "assistant" ? "wait" : "run";
+      v.state = d.role === "assistant" ? d.status === "failed" || d.status === "error" ? "error" : "wait" : "run";
       if (d.role === "assistant") {
-        const text = (Array.isArray(d.content) ? d.content : []).filter((b) => b && (b.type === "output_text" || b.type === "text")).map((b) => b.text || "").join(" ");
+        v.step = "";
+        const text = (Array.isArray(d.content) ? d.content : []).filter((b) => b && (b.type === "output_text" || b.type === "text")).map((b) => b.text || "").join(" ").trim();
         if (text) v.lastText = text;
+        finishRound(fc, ms, v.lastText, v.state === "wait");
       }
       if (d.role === "user") {
-        const text = (Array.isArray(d.content) ? d.content : []).filter((b) => b && b.type === "input_text").map((b) => b.text || "").join("").replace(/<system-reminder[\s\S]*?<\/system-reminder>/g, "").trim();
+        const raw = (Array.isArray(d.content) ? d.content : []).filter((b) => b && (b.type === "input_text" || b.type === "text")).map((b) => b.text || "").join("\n");
+        const text = cleanUserPrompt(raw);
         if (isPromptText(text)) {
           day.prompts++;
+          startRound(fc, ms, text, d.id || String(ms));
+          if (!v.title) {
+            const t0 = text.replace(/\s+/g, " ").trim().slice(0, 80);
+            if (t0) {
+              fc.titles.set(fc.sid, t0);
+              this.titles.set(fc.sid, t0);
+              v.title = t0;
+            }
+          }
           if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
         }
       }
+      v.turns = fc.rounds ? fc.rounds.list.length : 0;
+      v.rounds = fc.rounds ? fc.rounds.list : [];
+    } else if (d.type === "reasoning") {
+      v.state = "run";
+      if (!v.step) v.step = "\u601D\u8003\u4E2D\u2026";
     } else if (d.type === "function_call") {
       v.state = "run";
       let a = {};
@@ -1783,14 +2006,174 @@ var AgentUsage = class {
       } catch {
       }
       v.step = stepText(d.name, a);
+    } else if (d.type === "function_call_result") {
+      v.state = d.status === "failed" || d.status === "error" ? "error" : "run";
     }
     const pd = d.providerData || {}, u = pd.usage;
+    const mod = pd.requestModelName || pd.model || v.model;
+    if (mod) v.model = mod;
+    const meta = this.meta.get(fc.sid) || {};
     if (u && pd.messageId) {
       const cached = (u.inputTokensDetails || []).reduce((k, x) => k + (x && x.cached_tokens || 0), 0);
-      const m = { key, sid: fc.sid, proj: s.proj, model: pd.requestModelName || pd.model, out: u.outputTokens || 0, fresh: Math.max(0, (u.inputTokens || 0) - cached), cached, at: ms };
-      fc.msgs.set("wb:" + pd.messageId, m);
-      const meta = this.meta.get(fc.sid) || {};
-      this.noteMeta(fc, fc.sid, { title: v.title, text: s.text, cwd: v.cwd, app: "workbuddy", model: m.model, lastAt: Math.max(ms, meta.lastAt || 0), out: (meta.out || 0) + m.out, fresh: (meta.fresh || 0) + m.fresh, cached: (meta.cached || 0) + m.cached, calls: (meta.calls || 0) + 1, state: v.state, step: v.step, lastText: v.lastText });
+      const id = "wb:" + pd.messageId;
+      const prev = fc.msgs.get(id) || { out: 0, fresh: 0, cached: 0 };
+      const m = { key, sid: fc.sid, proj: s.proj, model: v.model, out: u.outputTokens || 0, fresh: Math.max(0, (u.inputTokens || 0) - cached), cached, at: ms };
+      fc.msgs.set(id, m);
+      this.noteMeta(fc, fc.sid, {
+        title: v.title,
+        text: s.text,
+        cwd: v.cwd,
+        app: "workbuddy",
+        model: m.model,
+        lastAt: Math.max(ms, meta.lastAt || 0),
+        out: (meta.out || 0) - prev.out + m.out,
+        fresh: (meta.fresh || 0) - prev.fresh + m.fresh,
+        cached: (meta.cached || 0) - prev.cached + m.cached,
+        calls: (meta.calls || 0) + (prev.out || prev.fresh || prev.cached ? 0 : 1),
+        state: v.state,
+        step: v.step,
+        todo: v.todo,
+        turns: v.turns,
+        rounds: v.rounds,
+        lastText: v.lastText
+      });
+    } else {
+      this.noteMeta(fc, fc.sid, {
+        title: v.title,
+        text: s.text,
+        cwd: v.cwd,
+        app: "workbuddy",
+        model: v.model || meta.model,
+        lastAt: Math.max(ms, meta.lastAt || 0),
+        state: v.state,
+        step: v.step,
+        todo: v.todo,
+        turns: v.turns,
+        rounds: v.rounds,
+        lastText: v.lastText
+      });
+    }
+  }
+  // ---- Antigravity ----
+  ingestAntigravity(line, fc, touched) {
+    let d;
+    try {
+      d = JSON.parse(line);
+    } catch {
+      return;
+    }
+    const ms = Date.parse(d.created_at);
+    if (!ms || this.stale("antigravity", ms)) return;
+    const sid = fc.sid;
+    if (d.type === "USER_INPUT") {
+      const raw = String(d.content || "");
+      const mMod = /Model Selection` from `[^`]*` to `([^`]+)`/.exec(raw);
+      if (mMod) fc.model = mMod[1];
+      const text = cleanUserPrompt(raw);
+      const mPath = /@\[(\/[^\]]+)\]/.exec(text) || /(\/Users\/[^\s`"'<>)\]]+)/.exec(text);
+      if (mPath && !fc.cwd) {
+        const cand = mPath[1];
+        fc.cwd = /\.[a-z0-9]{1,6}$/i.test(cand) ? import_path.default.dirname(cand) : cand;
+      }
+      const { day, s: s2 } = this.touchSess(fc, touched, ms, sid, fc.cwd || "~", "antigravity");
+      const v2 = this.liveOf(fc, sid, ms);
+      v2.cwd = fc.cwd || "~";
+      v2.app = "antigravity";
+      if (text && isPromptText(text)) {
+        day.prompts++;
+        startRound(fc, ms, text, String(d.step_index ?? ms));
+        v2.turns = fc.rounds ? fc.rounds.list.length : 0;
+        v2.rounds = fc.rounds ? fc.rounds.list : [];
+        if (!fc.titles.has(sid)) {
+          const t0 = text.replace(/^@\[[^\]]+\]\s*/, "").replace(/\s+/g, " ").trim().slice(0, 80);
+          if (t0) {
+            fc.titles.set(sid, t0);
+            this.titles.set(sid, t0);
+          }
+        }
+        if (s2.text.length < 300) s2.text += (s2.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s2.text.length);
+      }
+      v2.title = fc.titles.get(sid) || this.titles.get(sid) || v2.title;
+      v2.state = "run";
+      v2.step = "";
+      this.noteMeta(fc, sid, { title: v2.title, text: s2.text, cwd: v2.cwd, app: "antigravity", model: fc.model || v2.model || "antigravity", lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), state: v2.state, step: v2.step, todo: v2.todo, turns: v2.turns, rounds: v2.rounds });
+      return;
+    }
+    if (d.type !== "PLANNER_RESPONSE" && d.type !== "CHECKPOINT" && d.status !== "ERROR") return;
+    const { key, s } = this.touchSess(fc, touched, ms, sid, fc.cwd || "~", "antigravity");
+    const v = this.liveOf(fc, sid, ms);
+    v.title = fc.titles.get(sid) || this.titles.get(sid) || v.title;
+    if (fc.model) v.model = fc.model;
+    if (d.type === "PLANNER_RESPONSE") {
+      const tools = Array.isArray(d.tool_calls) ? d.tool_calls : [];
+      if (tools.length) {
+        v.state = "run";
+        for (const tc of tools) {
+          const inp = unquoteArgs(tc.args);
+          const p0 = inp.Path || inp.TargetFile || inp.SearchPath || inp.DirectoryPath || "";
+          if (p0 && typeof p0 === "string" && p0.startsWith("/") && (!fc.cwd || fc.cwd === "~") && !p0.includes("/.gemini/")) {
+            fc.cwd = import_path.default.dirname(p0);
+            s.cwd = fc.cwd;
+            s.proj = projectName(fc.cwd);
+          }
+          v.step = stepText(tc.name, inp);
+        }
+      } else {
+        v.state = d.status === "ERROR" ? "error" : d.status === "RUNNING" ? "run" : "wait";
+        if (v.state === "wait") v.step = "";
+        if (typeof d.content === "string" && d.content.trim()) v.lastText = d.content.trim();
+        finishRound(fc, ms, v.lastText, v.state === "wait");
+        v.turns = fc.rounds ? fc.rounds.list.length : 0;
+        v.rounds = fc.rounds ? fc.rounds.list : [];
+      }
+    } else if (d.status === "ERROR") {
+      v.state = "error";
+      v.err = String(d.content || "").replace(/\s+/g, " ").slice(0, 120);
+    }
+    v.cwd = fc.cwd || "~";
+    v.app = "antigravity";
+    const out = d.output_tokens || 0, fresh = d.input_tokens || 0, cached = d.cache_read_tokens || 0;
+    const meta = this.meta.get(sid) || {};
+    if (out || fresh || cached) {
+      const id = `ag:${sid}:${d.step_index ?? fc.msgs.size}`;
+      const prev = fc.msgs.get(id) || { out: 0, fresh: 0, cached: 0 };
+      const m = { key, sid, proj: s.proj, model: v.model || "antigravity", out, fresh, cached, at: ms };
+      fc.msgs.set(id, m);
+      this.noteMeta(fc, sid, {
+        title: v.title,
+        text: s.text,
+        cwd: v.cwd,
+        app: "antigravity",
+        model: m.model,
+        lastAt: Math.max(ms, meta.lastAt || 0),
+        out: (meta.out || 0) - prev.out + m.out,
+        fresh: (meta.fresh || 0) - prev.fresh + m.fresh,
+        cached: (meta.cached || 0) - prev.cached + m.cached,
+        calls: (meta.calls || 0) + (prev.out || prev.fresh || prev.cached ? 0 : 1),
+        state: v.state,
+        step: v.step,
+        todo: v.todo,
+        turns: v.turns,
+        rounds: v.rounds,
+        lastText: v.lastText,
+        err: v.err
+      });
+    } else {
+      this.noteMeta(fc, sid, {
+        title: v.title,
+        text: s.text,
+        cwd: v.cwd,
+        app: "antigravity",
+        model: v.model || meta.model || "antigravity",
+        lastAt: Math.max(ms, meta.lastAt || 0),
+        state: v.state,
+        step: v.step,
+        todo: v.todo,
+        turns: v.turns,
+        rounds: v.rounds,
+        lastText: v.lastText,
+        err: v.err
+      });
     }
   }
   // ----- DeepSeek Harness (zstd JSONL) -----
@@ -1826,6 +2209,8 @@ var AgentUsage = class {
         fc.titles = /* @__PURE__ */ new Map();
         fc.live = null;
         fc.tot = null;
+        fc.tasks = null;
+        fc.rounds = null;
         fc.zCarry = "";
       }
       fc.mtime = used === raw.length ? st.mtimeMs : 0;
@@ -1886,9 +2271,12 @@ var AgentUsage = class {
       const text = Array.isArray(content) ? content.filter((b) => b && b.type === "text").map((b) => b.text || "").join("") : String(content || "");
       if (isPromptText(text) && !(data.source && data.source.kind === "system")) {
         day.prompts++;
+        startRound(fc, ms, text, String(d.seq ?? ms));
+        v.turns = fc.rounds ? fc.rounds.list.length : 0;
+        v.rounds = fc.rounds ? fc.rounds.list : [];
         if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
         v.state = "run";
-        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: "dsh", lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), state: "run" });
+        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: "dsh", lastAt: Math.max(ms, this.meta.get(sid)?.lastAt || 0), state: "run", turns: v.turns, rounds: v.rounds });
       }
     } else if (t === "turn/start") {
       v.state = "run";
@@ -1903,7 +2291,6 @@ var AgentUsage = class {
       } catch {
       }
       v.step = stepText(data.name, a);
-      if (/todo/i.test(String(data.name || "")) && Array.isArray(a.todos)) v.todo = todoOf(a.todos.map((x) => [x.status, x.content || x.activeForm]));
     } else if (t === "assistant/message") {
       v.state = "run";
       const msg = data.message || {};
@@ -1912,6 +2299,9 @@ var AgentUsage = class {
         if (b.type === "text" && b.text) v.lastText = b.text;
         if (b.type === "tool-call" || b.type === "tool_use") v.step = stepText(b.name, b.arguments || b.input);
       }
+      finishRound(fc, ms, v.lastText, false);
+      v.turns = fc.rounds ? fc.rounds.list.length : 0;
+      v.rounds = fc.rounds ? fc.rounds.list : [];
       const src = msg.source || {};
       if (src.model) v.model = src.model;
       const u = data.usage;
@@ -1929,7 +2319,7 @@ var AgentUsage = class {
         };
         fc.msgs.set(id, m);
         const meta = this.meta.get(sid) || {};
-        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: "dsh", model: m.model, lastAt: Math.max(ms, meta.lastAt || 0), out: (meta.out || 0) + m.out, fresh: (meta.fresh || 0) + m.fresh, cached: (meta.cached || 0) + m.cached, calls: (meta.calls || 0) + 1, state: v.state, step: v.step, todo: v.todo, lastText: v.lastText });
+        this.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: fc.cwd, app: "dsh", model: m.model, lastAt: Math.max(ms, meta.lastAt || 0), out: (meta.out || 0) + m.out, fresh: (meta.fresh || 0) + m.fresh, cached: (meta.cached || 0) + m.cached, calls: (meta.calls || 0) + 1, state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText });
       }
     } else if (t === "turn/end") {
       const reason = data.reason || {};
@@ -1938,11 +2328,17 @@ var AgentUsage = class {
         v.err = String(reason.error && reason.error.message || "").slice(0, 120);
       } else if (reason.kind === "aborted") v.state = "wait";
       else v.state = "wait";
-      v.todo = null;
+      v.step = "";
+      finishRound(fc, ms, v.lastText, v.state === "wait");
+      v.turns = fc.rounds ? fc.rounds.list.length : 0;
+      v.rounds = fc.rounds ? fc.rounds.list : [];
       const meta = this.meta.get(sid);
       if (meta) {
         meta.state = v.state;
+        meta.step = "";
         meta.err = v.err;
+        meta.turns = v.turns;
+        meta.rounds = v.rounds;
         meta.lastAt = Math.max(ms, meta.lastAt || 0);
       }
     }
@@ -2033,18 +2429,21 @@ var AgentUsage = class {
       g.agent = Math.round(g.agent);
     }
     for (const s of sessions.values()) {
+      const m = this.meta.get(s.sid) || {};
       res.list.push({
         sid: s.sid,
         agent: s.agent,
         dir: s.proj,
         cwd: s.cwd,
         app: s.app,
-        title: this.titles.get(s.sid) || "",
+        title: this.titles.get(s.sid) || m.title || "",
         text: s.text.slice(0, 300),
         min: Math.round(s.min),
         out: s.out,
         fresh: s.fresh,
         cached: s.cached,
+        turns: m.turns || 0,
+        todo: m.todo || null,
         segs: s.segs.map(([a, b]) => [Math.round(a), Math.round(b)])
       });
     }
@@ -2203,6 +2602,31 @@ var RESULT_RE = /^\s*[-*+]\s+💬/;
 var CLOCK_RE = /^\s*[-*+]\s+⏱/;
 var KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
 var AUTO_MARK = "\u{1F916} ";
+var BLOCK_ID_RE = /\s+\^([A-Za-z0-9-]+)\s*$/;
+function blockIdOf(line) {
+  const m = BLOCK_ID_RE.exec(String(line || ""));
+  return m ? m[1] : "";
+}
+function stripBlockId(s) {
+  return String(s || "").replace(BLOCK_ID_RE, "").trimEnd();
+}
+function makeBlockId(seed = "") {
+  if (seed) {
+    const clean = String(seed).replace(/^session-/, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+    if (clean.length >= 6) return "ad-" + clean.slice(0, 6);
+  }
+  let h = "";
+  const chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  for (let i = 0; i < 6; i++) h += chars[Math.floor(Math.random() * 36)];
+  return "ad-" + h;
+}
+function ensureBlockId(line, preferId = "") {
+  const raw = String(line || "").trimEnd();
+  const existing = blockIdOf(raw);
+  if (existing) return { line: raw, blockId: existing };
+  const id = preferId || makeBlockId();
+  return { line: `${raw} ^${id}`, blockId: id };
+}
 var DAY_OFFSET = 0;
 var setDayOffset = (min) => {
   DAY_OFFSET = Number(min) || 0;
@@ -2228,7 +2652,7 @@ var width = (line) => {
   for (const c of (/^\s*/.exec(line) || [""])[0]) w += c === "	" ? 4 : 1;
   return w;
 };
-var workKey = (label) => String(label || "").replace(/\s*←\s*\S+\s*$/, "").trim();
+var workKey = (label) => stripBlockId(String(label || "")).replace(/\s*←\s*\S+\s*$/, "").trim();
 function splitTask(raw) {
   const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(.*)$/.exec(raw);
   if (!m) return null;
@@ -2251,7 +2675,9 @@ function splitTask(raw) {
     rest = rest.slice(t[0].length);
   }
   if (pr) rest = `${pr[0].trim()} ${rest}`;
-  return { prefix, rest, since, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
+  const blockId = blockIdOf(rest);
+  const body = stripBlockId(rest);
+  return { prefix, rest, body, blockId, since, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
 }
 function kwLine(raw) {
   let s = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s+/, "").replace(STAMP_RE, "");
@@ -2266,24 +2692,26 @@ function kwLine(raw) {
     kw = m[1];
     s = s.slice(m[0].length);
   }
-  s = s.replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
-  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || s.startsWith("\u{1F4AC}") || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
-  return { kw, body: s };
+  const blockId = blockIdOf(s);
+  s = stripBlockId(s).replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
+  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || s.startsWith("\u{1F4AC}") || s.startsWith("\u2753") || s.startsWith("\u{1F4CB}") || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
+  return { kw, body: s, blockId };
 }
 function parseLink(line) {
-  const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
+  const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
   const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
   if (d) return d[2] ? { agent: "codex", sid: d[3], title: d[1] || "" } : { agent: "workbuddy", sid: decodeURIComponent(d[6]), title: d[4] || "" };
   const b = /^\s*[-*+]\s+🔗.*`((?:session-)?[0-9a-f-]{36})`/.exec(line);
   if (!b) return null;
-  const agent = /DeepSeek Harness|dsh:\/\//.test(line) ? "dsh" : /Codex[：:]/.test(line) ? "codex" : /WorkBuddy[：:]/.test(line) ? "workbuddy" : "claude";
+  const agent = /DeepSeek Harness|dsh:\/\//.test(line) ? "dsh" : /Antigravity|antigravity:\/\//i.test(line) ? "antigravity" : /Codex[：:]/.test(line) ? "codex" : /WorkBuddy[：:]/.test(line) ? "workbuddy" : "claude";
   return { agent, sid: b[1], title: "" };
 }
 function linkLine(indent, agent, title, sid) {
   const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
   if (agent === "claude") return `${indent}- \u{1F517} [Claude\uFF1A${safe}](claude://resume?session=${sid})`;
   if (agent === "dsh") return `${indent}- \u{1F517} [DeepSeek Harness\uFF1A${safe}](dsh://open) \`${sid}\``;
+  if (agent === "antigravity") return `${indent}- \u{1F517} [Antigravity\uFF1A${safe}](antigravity://open) \`${sid}\``;
   if (agent === "codex") return `${indent}- \u{1F517} [Codex\uFF1A${safe}](codex://threads/${sid})`;
   if (agent === "workbuddy") return `${indent}- \u{1F517} [WorkBuddy\uFF1A${safe}](workbuddy://chat/${encodeURIComponent(sid)})`;
   return `${indent}- \u{1F517} ${agent}\uFF1A${safe} \`${sid}\``;
@@ -2304,7 +2732,6 @@ function childMark(lines, n, pick) {
   return null;
 }
 var linkUnder = (lines, n) => childMark(lines, n, parseLink);
-var resultUnder = (lines, n) => childMark(lines, n, (l) => RESULT_RE.test(l) ? {} : null);
 function resultText(raw, max = 200) {
   let t = String(raw || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/^\s*\|?[\s:|-]{3,}\|?\s*$/gm, " ").replace(/\d{12,}/g, "\u2026").replace(/\s+/g, " ").trim();
   const cap = Math.max(40, +max || 200);
@@ -2315,22 +2742,101 @@ function resultText(raw, max = 200) {
   }
   return t.replace(/\[\[/g, "\\[\\[").replace(/(^|[^\w&\\])#(?=[^\s#])/g, "$1\\#").replace(/==/g, "\\=\\=").replace(/%%/g, "\\%\\%").replace(/\$/g, "\\$").replace(/</g, "\\<").replace(/\s\^(?=[A-Za-z0-9-]+$)/, " \\^");
 }
-function resultInto(text, sid, said) {
-  if (!said || !text.includes(sid)) return text;
-  const lines = text.split("\n");
-  const at = lines.findIndex((l) => {
-    const k = parseLink(l);
-    return k && k.sid === sid;
-  });
-  const n = at < 0 ? -1 : markOwner(lines, at);
-  if (n < 0) return text;
-  const line = `${/^\s*/.exec(lines[at])[0]}- \u{1F4AC} ${said}`;
-  const had = resultUnder(lines, n);
-  if (had) {
-    if (lines[had.line] === line) return text;
-    lines[had.line] = line;
-  } else lines.splice(at + 1, 0, line);
-  return lines.join("\n");
+function oneSentenceConclusion(raw, max = 90) {
+  const cleaned = String(raw || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s*\|.*\|\s*$/gm, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\d{12,}/g, "\u2026").trim();
+  if (!cleaned) return "";
+  const lines = cleaned.split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  let pick = lines.find((l) => /^(?:结论|总结|核心结论|一句话总结|已完成|已修复|已更新|已实现|原因|问题在于|搞定|改好)[：:，,\s]/.test(l)) || lines.find((l) => l.length >= 6 && !/^(?:好的|收到|明白|没问题|我来|让我|先看)[，。！!,.]*$/.test(l)) || lines[lines.length - 1] || cleaned;
+  const sentMatch = /^(.{6,}?[。！？；!?;])(?:\s|$)/.exec(pick);
+  if (sentMatch) pick = sentMatch[1];
+  return resultText(pick, max);
+}
+function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true } = {}) {
+  let lines = text.split("\n");
+  let n = -1, linkAt = -1;
+  if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
+  if (sid && text.includes(sid)) {
+    linkAt = lines.findIndex((l) => {
+      const k = parseLink(l);
+      return k && k.sid === sid;
+    });
+    if (n < 0 && linkAt >= 0) n = markOwner(lines, linkAt);
+  }
+  if (n < 0 && key) {
+    const found = findTask(text, key);
+    if (found) n = found.line;
+  }
+  if (n < 0) return { text, line: -1, blockId: blockId || "" };
+  let activeBlockId = blockIdOf(lines[n]);
+  if (ensureId || blockId) {
+    const eb = ensureBlockId(lines[n], activeBlockId || blockId || makeBlockId(sid));
+    lines[n] = eb.line;
+    activeBlockId = eb.blockId;
+  }
+  const base = width(lines[n]);
+  const ind = linkAt >= 0 ? /^\s*/.exec(lines[linkAt])[0] : childIndent(lines, n);
+  const childSpan = () => {
+    let end = n;
+    for (let i = n + 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      if (width(lines[i]) <= base) break;
+      end = i;
+    }
+    return end;
+  };
+  const upsertChild = (prefixRe, newLine, afterAnchor = -1) => {
+    const end = childSpan();
+    for (let i = n + 1; i <= end; i++) {
+      if (width(lines[i]) > base && prefixRe.test(lines[i])) {
+        if (lines[i] !== newLine) lines[i] = newLine;
+        return i;
+      }
+    }
+    const insertAt = afterAnchor >= n ? afterAnchor + 1 : end + 1;
+    lines.splice(insertAt, 0, newLine);
+    return insertAt;
+  };
+  if (taskTodo && taskTodo.total > 0) {
+    const stepPart = taskTodo.cur ? ` \xB7 ${resultText(taskTodo.cur, 48)}` : taskTodo.done >= taskTodo.total ? " \xB7 \u5DF2\u5168\u90E8\u5B8C\u6210" : "";
+    const planLine = `${ind}- \u{1F4CB} \u6B65\u9AA4 ${taskTodo.done}/${taskTodo.total}${stepPart}`;
+    upsertChild(/^\s*[-*+]\s+📋\s+/, planLine, linkAt >= 0 ? linkAt : n);
+  }
+  const validRounds = Array.isArray(rounds) ? rounds.filter((r) => r && (r.ask || r.said || r.summary)) : [];
+  if (validRounds.length <= 1) {
+    const r0 = validRounds[0];
+    const msg = r0 && r0.summary || said || (r0 && r0.said ? oneSentenceConclusion(r0.said, 90) : "");
+    if (msg) {
+      upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- \u{1F4AC} ${msg}`, linkAt >= 0 ? linkAt : n);
+    }
+  } else {
+    const r1 = validRounds[0];
+    const msg1 = r1.summary || (r1.said ? oneSentenceConclusion(r1.said, 90) : said);
+    let anchor = linkAt >= 0 ? linkAt : n;
+    if (msg1) {
+      anchor = upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- \u{1F4AC} ${msg1}`, anchor);
+    }
+    for (let idx = 1; idx < validRounds.length; idx++) {
+      const r = validRounds[idx];
+      const rn = r.n || idx + 1;
+      if (r.ask) {
+        const qText = resultText(r.ask, 72);
+        if (qText) anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+\u2753\\s*\u7B2C${rn}\u8F6E[\uFF1A:]`), `${ind}- \u2753 \u7B2C${rn}\u8F6E\uFF1A${qText}`, anchor);
+      }
+      const rConclusion = r.summary || (r.said ? oneSentenceConclusion(r.said, 90) : "");
+      if (rConclusion) {
+        anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+\u{1F4AC}\\s*\u7B2C${rn}\u8F6E[\uFF1A:]`), `${ind}- \u{1F4AC} \u7B2C${rn}\u8F6E\uFF1A${rConclusion}`, anchor);
+      }
+    }
+  }
+  if (Array.isArray(todos) && todos.length) {
+    const end = childSpan();
+    const existing = lines.slice(n + 1, end + 1).join("\n");
+    for (const t of todos) {
+      if (!t || existing.includes(t)) continue;
+      lines.splice(childSpan() + 1, 0, `${ind}- TODO ${AUTO_MARK}${t}`);
+    }
+  }
+  return { text: lines.join("\n"), line: n, blockId: activeBlockId };
 }
 function diffLines(before, after) {
   const a = before.split("\n"), b = after.split("\n");
@@ -2356,13 +2862,32 @@ function taskItems(text) {
     const k = kwLine(lines[i]);
     if (!k) continue;
     const st = DONE_KWS.includes(k.kw) ? "done" : /^(DOING|NOW|IN-PROGRESS)$/.test(k.kw) || AGENT_KW_RE.test(k.kw) ? "doing" : /^(PAUSED|SUSPENDED|WAITING|WAIT)$/.test(k.kw) ? "paused" : "open";
-    out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), indent: width(lines[i]), state: st });
+    out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), blockId: k.blockId || "", indent: width(lines[i]), state: st });
   }
   return out;
 }
-function findTask(text, key) {
-  const hits = taskItems(text).filter((i) => i.key === key);
-  return hits.find((i) => i.state === "open") || hits[0] || null;
+function findTask(text, key, blockId = "", sid = "") {
+  const items = taskItems(text);
+  if (blockId) {
+    const byId = items.find((i) => i.blockId === blockId);
+    if (byId) return byId;
+  }
+  if (sid && text.includes(sid)) {
+    const lines = text.split("\n");
+    const at = lines.findIndex((l) => {
+      const p = parseLink(l);
+      return p && p.sid === sid;
+    });
+    if (at >= 0) {
+      const owner = markOwner(lines, at);
+      const byOwner = items.find((i) => i.line === owner);
+      if (byOwner) return byOwner;
+    }
+  }
+  if (!key) return null;
+  const k = workKey(key);
+  const hits = items.filter((i) => i.key === k);
+  return hits.find((i) => i.state === "open") || hits.find((i) => i.state === "doing") || hits[0] || null;
 }
 function openTasks(text) {
   return taskItems(text).filter((i) => i.state !== "done").map((i) => ({
@@ -2404,7 +2929,7 @@ function kidMatch(body, desc) {
   return a.startsWith(d) || d.startsWith(a) || a.length >= 8 && d.length >= 8 && a.slice(0, 8) === d.slice(0, 8);
 }
 var EMPTY_ITEM_RE = /^(\s*(?:[-*+]|\d+[.)]))\s*$/;
-var MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬)/;
+var MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬|❓|📋)/;
 var STATE_KW = { wait: "TOREVIEW", quiet: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" };
 function kwForState(state) {
   return { run: "DOING", running: "DOING", starting: "DOING", idle: "TOREVIEW", ...STATE_KW }[state] || "DOING";
@@ -2452,6 +2977,8 @@ function bindInto(text, at, s, { below = false } = {}) {
   const want = kwForState(s.state);
   const since = s.since || "";
   const title = resultText(s.title || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD", 60);
+  const rescuedChildren = [];
+  let rescuedBlockId = s.blockId || "";
   const anchor = lines[n];
   const drop = (i) => {
     lines.splice(i, 1);
@@ -2461,18 +2988,26 @@ function bindInto(text, at, s, { below = false } = {}) {
     const k = parseLink(lines[i]);
     if (k && k.sid === s.sid) drop(i);
   }
-  if (s.dropKey) {
-    const hit = taskItems(lines.join("\n")).find((t) => t.key === s.dropKey && t.body.startsWith(AUTO_MARK.trim()) && t.line !== n);
+  if (s.dropKey || s.blockId) {
+    const items = taskItems(lines.join("\n"));
+    const hit = items.find((t) => t.line !== n && t.body.startsWith(AUTO_MARK.trim()) && (s.blockId && t.blockId === s.blockId || s.dropKey && t.key === workKey(s.dropKey)));
     if (hit) {
       const base = width(lines[hit.line]);
       let end = hit.line, own = true;
       for (let i = hit.line + 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         if (width(lines[i]) <= base) break;
-        if (!MARKER_RE.test(lines[i])) own = false;
+        if (!MARKER_RE.test(lines[i]) && !/^\s*[-*+]\s+TODO\s+🤖/.test(lines[i])) own = false;
         end = i;
       }
-      if (own) for (let i = end; i >= hit.line; i--) drop(i);
+      if (own) {
+        if (hit.blockId && !rescuedBlockId) rescuedBlockId = hit.blockId;
+        for (let i = hit.line + 1; i <= end; i++) {
+          const cl = lines[i].replace(/^\s+/, "");
+          if (cl && !/^[-*+]\s+(?:🔗|⏱)/.test(cl)) rescuedChildren.push(cl);
+        }
+        for (let i = end; i >= hit.line; i--) drop(i);
+      }
     }
   }
   if (lines[n] !== anchor) {
@@ -2480,13 +3015,29 @@ function bindInto(text, at, s, { below = false } = {}) {
     if (back < 0) return { text, error: "\u7B14\u8BB0\u5728\u62D6\u7684\u65F6\u5019\u53D8\u4E86\uFF0C\u518D\u62D6\u4E00\u6B21" };
     n = back;
   }
+  const maybeAddBlockId = (lineStr) => {
+    const existing = blockIdOf(lineStr);
+    if (existing) return { line: lineStr, blockId: existing };
+    if (s.ensureBlockId || rescuedBlockId) {
+      return ensureBlockId(lineStr, rescuedBlockId || makeBlockId(s.sid));
+    }
+    return { line: lineStr, blockId: "" };
+  };
   if (target.kind === "bind") {
     const p = splitTask(lines[n]);
     if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
       lines[n] = `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
     }
-    lines.splice(n + 1, 0, linkLine(childIndent(lines, n), s.agent, title, s.sid));
-    return { text: lines.join("\n"), line: n, kind: "bind" };
+    const eb2 = maybeAddBlockId(lines[n]);
+    lines[n] = eb2.line;
+    const ind2 = childIndent(lines, n);
+    const toInsert = [linkLine(ind2, s.agent, title, s.sid)];
+    const existingChildText = lines.slice(n + 1, n + 15).join("\n");
+    for (const rc of rescuedChildren) {
+      if (!existingChildText.includes(rc)) toInsert.push(`${ind2}${rc}`);
+    }
+    lines.splice(n + 1, 0, ...toInsert);
+    return { text: lines.join("\n"), line: n, kind: "bind", blockId: eb2.blockId };
   }
   let prefix;
   if (target.kind === "after") {
@@ -2503,10 +3054,12 @@ function bindInto(text, at, s, { below = false } = {}) {
     }
     const pm = /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[n]);
     prefix = !pm ? "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
-    const item2 = `${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " ");
+    const eb2 = maybeAddBlockId(`${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " "));
+    const item2 = eb2.line;
     const lead2 = (/^\s*/.exec(item2) || [""])[0];
-    lines.splice(end + 1, 0, item2, linkLine(lead2 + (lead2 && !lead2.includes("	") ? "    " : "	"), s.agent, title, s.sid));
-    return { text: lines.join("\n"), line: end + 1, kind: "after" };
+    const ind2 = lead2 + (lead2 && !lead2.includes("	") ? "    " : "	");
+    lines.splice(end + 1, 0, item2, linkLine(ind2, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind2}${rc}`));
+    return { text: lines.join("\n"), line: end + 1, kind: "after", blockId: eb2.blockId };
   }
   if (target.kind === "fill") prefix = EMPTY_ITEM_RE.exec(lines[n])[1] + " ";
   else {
@@ -2520,15 +3073,110 @@ function bindInto(text, at, s, { below = false } = {}) {
     const pm = prev >= 0 ? /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[prev]) : null;
     prefix = !pm || MARKER_RE.test(lines[prev]) ? pm ? (/^\s*/.exec(lines[markOwner(lines, prev)] || "") || [""])[0] + "- " : "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
   }
-  const item = `${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " ");
+  const eb = maybeAddBlockId(`${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " "));
+  const item = eb.line;
   if (target.kind === "below") {
     lines.splice(n + 1, 0, item);
     n = n + 1;
   } else if (target.kind === "new" && lines[n + 1] && lines[n + 1].trim() && !LIST_RE.test(lines[n + 1])) lines.splice(n, 0, item);
   else lines[n] = item;
   const lead = (/^\s*/.exec(item) || [""])[0];
-  lines.splice(n + 1, 0, linkLine(lead + (lead && !lead.includes("	") ? "    " : "	"), s.agent, title, s.sid));
-  return { text: lines.join("\n"), line: n, kind: target.kind };
+  const ind = lead + (lead && !lead.includes("	") ? "    " : "	");
+  lines.splice(n + 1, 0, linkLine(ind, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind}${rc}`));
+  return { text: lines.join("\n"), line: n, kind: target.kind, blockId: eb.blockId };
+}
+function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
+  const lines = text.split("\n");
+  if (srcLine === dstLine || srcLine < 0 || dstLine < 0 || srcLine >= lines.length || dstLine >= lines.length) {
+    return { text, error: "\u8BF7\u9009\u62E9\u4E24\u6761\u4E0D\u540C\u7684\u4EFB\u52A1\u884C" };
+  }
+  if (MARKER_RE.test(lines[srcLine])) srcLine = markOwner(lines, srcLine);
+  if (MARKER_RE.test(lines[dstLine])) dstLine = markOwner(lines, dstLine);
+  if (srcLine < 0 || dstLine < 0 || srcLine === dstLine) return { text, error: "\u8FD9\u4E24\u884C\u672C\u8EAB\u5DF2\u7ECF\u5728\u540C\u4E00\u4E2A\u4EFB\u52A1\u6761\u76EE\u4E0B\u4E86" };
+  const ps = splitTask(lines[srcLine]);
+  const pd = splitTask(lines[dstLine]);
+  const ks = kwLine(lines[srcLine]);
+  const kd = kwLine(lines[dstLine]);
+  if (!ps || !pd || !ks || !kd) return { text, error: "\u53EA\u80FD\u628A\u4EFB\u52A1\u5217\u8868\u9879\u5408\u5E76\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u5217\u8868\u9879\u4E0A" };
+  const blockSpan = (start) => {
+    const base = width(lines[start]);
+    let end = start;
+    for (let i = start + 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      if (width(lines[i]) <= base) break;
+      end = i;
+    }
+    return [start, end];
+  };
+  const [s0, s1] = blockSpan(srcLine);
+  const [d0, d1] = blockSpan(dstLine);
+  if (s0 >= d0 && s0 <= d1 || d0 >= s0 && d0 <= s1) {
+    return { text, error: "\u7236\u5B50\u4EFB\u52A1\u4E0D\u80FD\u76F4\u63A5\u4E92\u76F8\u5408\u5E76" };
+  }
+  const srcIsAuto = ks.body.startsWith(AUTO_MARK.trim());
+  const dstIsAuto = kd.body.startsWith(AUTO_MARK.trim());
+  const keptBody = dstIsAuto && !srcIsAuto ? ks.body : kd.body;
+  const isLiveKw = (kw) => kw === "DOING" || AGENT_KW_RE.test(kw || "");
+  const mergedKw = isLiveKw(ps.kw) ? ps.kw : isLiveKw(pd.kw) ? pd.kw : pd.kw || ps.kw || "DOING";
+  const mergedSince = ps.since && pd.since ? ps.since < pd.since ? ps.since : pd.since : pd.since || ps.since || "";
+  const blockId = pd.blockId || ps.blockId || preferId || makeBlockId(keptBody);
+  const headerRaw = `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
+  const { line: mergedHeader } = ensureBlockId(headerRaw, blockId);
+  const dstBase = width(lines[dstLine]);
+  const srcBase = width(lines[srcLine]);
+  const ind = childIndent(lines, dstLine);
+  const rebaseChild = (line, base) => {
+    const w = width(line);
+    const extra = Math.max(0, Math.floor((w - base - 1) / 4));
+    return `${ind}${"	".repeat(extra)}${line.trim()}`;
+  };
+  const dstKids = lines.slice(d0 + 1, d1 + 1).filter((l) => l.trim()).map((l) => rebaseChild(l, dstBase));
+  const srcKids = lines.slice(s0 + 1, s1 + 1).filter((l) => l.trim()).map((l) => rebaseChild(l, srcBase));
+  const mergedKids = [...dstKids];
+  const seenLinks = new Set(dstKids.map((l) => parseLink(l)?.sid).filter(Boolean));
+  const seenText = new Set(dstKids.map((l) => l.trim()));
+  for (const k of srcKids) {
+    const lk = parseLink(k);
+    if (lk && lk.sid) {
+      if (seenLinks.has(lk.sid)) continue;
+      seenLinks.add(lk.sid);
+      mergedKids.unshift(k);
+      continue;
+    }
+    if (CLOCK_RE.test(k)) {
+      const idx = mergedKids.findIndex((x) => CLOCK_RE.test(x));
+      if (idx >= 0) {
+        if (k.length > mergedKids[idx].length) mergedKids[idx] = k;
+        continue;
+      }
+    }
+    if (!seenText.has(k.trim())) {
+      seenText.add(k.trim());
+      mergedKids.push(k);
+    }
+  }
+  const replacement = [mergedHeader, ...mergedKids];
+  let newDstLine = d0;
+  if (s0 < d0) {
+    lines.splice(d0, d1 - d0 + 1, ...replacement);
+    lines.splice(s0, s1 - s0 + 1);
+    newDstLine = d0 - (s1 - s0 + 1);
+  } else {
+    lines.splice(s0, s1 - s0 + 1);
+    lines.splice(d0, d1 - d0 + 1, ...replacement);
+    newDstLine = d0;
+  }
+  return {
+    text: lines.join("\n"),
+    line: newDstLine,
+    blockId,
+    key: workKey(keptBody),
+    mergedBody: keptBody,
+    srcKey: workKey(ks.body),
+    dstKey: workKey(kd.body),
+    srcBlockId: ps.blockId || "",
+    dstBlockId: pd.blockId || ""
+  };
 }
 
 // src/delegation.js
@@ -2561,7 +3209,7 @@ function blockAt(lines, at) {
 }
 function blockTitle(block) {
   if (!block) return "";
-  const first = block.text.split("\n")[0] || "";
+  const first = stripBlockId(block.text.split("\n")[0] || "");
   return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "").replace(TITLE_KW_RE, "").replace(/[#*_`>[\]]/g, "").trim();
 }
 function hasLink(lines, block) {
@@ -2571,6 +3219,8 @@ function hasLink(lines, block) {
 function findLink(lines, block) {
   const at = hasLink(lines, block);
   if (at < 0) return null;
+  const parsed = parseLink(lines[at]);
+  if (parsed && parsed.sid) return { line: at, sid: parsed.sid, agent: parsed.agent, raw: lines[at] };
   const m = /claude:\/\/resume\?session=([0-9a-f-]{20,})/i.exec(lines[at]);
   const wb = /workbuddy:\/\/chat\/([^\s)\]]+)/i.exec(lines[at]);
   const cx = /codex:\/\/threads\/([0-9a-f-]{36})/i.exec(lines[at]);
@@ -2588,7 +3238,8 @@ function markDelegated(line) {
 function linkLine2(indent, agent, name, sid) {
   return linkLine(indent, agent, String(name || "").slice(0, 48), sid);
 }
-function findDshBinary() {
+function findDshBinary(configured = "") {
+  if (configured.trim()) return norm2(configured.trim());
   const candidates = [
     "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
     import_path2.default.join(home2(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
@@ -2968,6 +3619,7 @@ function sessionDeepLink(agent, sid) {
   if (agent === "claude") return `claude://resume?session=${sid}`;
   if (agent === "workbuddy") return `workbuddy://chat/${encodeURIComponent(sid)}`;
   if (agent === "dsh") return "dsh://open";
+  if (agent === "antigravity") return "antigravity://";
   if (agent === "codex") return `codex://threads/${sid}`;
   return "";
 }
@@ -2975,7 +3627,8 @@ var AGENT_APPS = {
   claude: { bundle: "com.anthropic.claudefordesktop", url: "claude://" },
   codex: { bundle: "com.openai.codex", url: "codex://launch" },
   workbuddy: { bundle: "com.tencent.workbuddy.mac", url: "workbuddy://home" },
-  dsh: { bundle: "com.deepseek.dsh", url: "dsh://open" }
+  dsh: { bundle: "com.deepseek.dsh", url: "dsh://open" },
+  antigravity: { bundle: "com.google.antigravity", url: "antigravity://" }
 };
 function openAgentApp(agent) {
   const app = AGENT_APPS[agent];
@@ -3043,6 +3696,12 @@ function openSession(plugin, agent, sid, app = "", session = null) {
     plugin.notice(`\u5DF2\u6253\u5F00 DeepSeek Harness\uFF1B\u4F1A\u8BDD\u53F7\u5DF2\u590D\u5236\uFF08${sid.slice(0, 8)}\u2026\uFF09`);
     return true;
   }
+  if (agent === "antigravity") {
+    openAgentApp("antigravity");
+    copyText(sid);
+    plugin.notice(`\u5DF2\u6253\u5F00 Antigravity\uFF1B\u4F1A\u8BDD\u53F7\u5DF2\u590D\u5236\uFF08${sid.slice(0, 8)}\u2026\uFF09`);
+    return true;
+  }
   return false;
 }
 var ClaudeRunner = class {
@@ -3072,7 +3731,7 @@ var ClaudeRunner = class {
       }
     }
     const model = opts.model || cfg.model || "claude-opus-5-5";
-    const modelCli = claudeCli(model);
+    const modelCli = resolveCliModel(d.plugin, "claude", model);
     const effort = opts.effort || cfg.effort || "high";
     const permission = opts.permission || cfg.permission || "auto";
     const addVault = cfg.addVault !== false && d.vaultPath && d.vaultPath !== cwd;
@@ -3166,7 +3825,7 @@ var ClaudeRunner = class {
   commonArgs() {
     const cfg = this.d.settings.delegate.claude;
     const model = this.job.model || cfg.model || "claude-opus-5-5";
-    const modelCli = claudeCli(model);
+    const modelCli = resolveCliModel(this.d.plugin, "claude", model);
     const addVault = cfg.addVault !== false && this.d.vaultPath && this.d.vaultPath !== (this.job.cwd || cfg.cwd);
     const out = ["--model", modelCli, "--effort", this.job.effort || cfg.effort || "high", "--permission-mode", this.job.permission || cfg.permission || "auto", "-n", this.job.name];
     if (addVault) out.push("--add-dir", this.d.vaultPath);
@@ -3228,7 +3887,7 @@ var DshRunner = class {
   async start(opts) {
     const d = this.d;
     const cfg = d.settings.delegate.dsh;
-    const bin = findDshBinary();
+    const bin = findDshBinary(cfg.path || "");
     const cwd = norm2(opts.cwd || cfg.cwd || d.vaultPath);
     const model = opts.model || cfg.model || "deepseek-v4-pro";
     const effort = opts.effort || cfg.effort || "high";
@@ -3433,7 +4092,17 @@ var DshRunner = class {
     this.d.refreshUI();
   }
 };
-var claudeCli = (model) => MODEL_CATALOG.find((m) => m.agent === "claude" && m.id === model)?.cli || model;
+function resolveCliModel(plugin, agent, model) {
+  const m = plugin?.modelById?.(model) || MODEL_CATALOG.find((m2) => m2.agent === agent && m2.id === model);
+  return m?.cli || m?.value || model;
+}
+var shellQuote = (s) => "'" + String(s).replace(/'/g, `'"'"'`) + "'";
+function codexCliArgs(plugin, opts = {}) {
+  const cfg = plugin.settings.delegate.codex || DEFAULTS.delegate.codex;
+  const model = resolveCliModel(plugin, "codex", opts.model || cfg.model);
+  const effort = opts.effort || cfg.effort || "low";
+  return ["--model", model, "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--sandbox", cfg.sandbox || "workspace-write"];
+}
 function resolveDshModel(id) {
   const m = MODEL_CATALOG.find((x) => x.agent === "dsh" && x.id === id);
   if (m) return { value: m.value };
@@ -3468,10 +4137,11 @@ ${body}`, 12e3);
   }
   defaultModel(agent) {
     const a = this.C[agent] || {};
-    return a.model || (agent === "dsh" ? "deepseek-v4-pro" : "claude-opus-5-5");
+    return a.model || DEFAULTS.models.defaultByAgent[agent] || "";
   }
   async delegate(opts) {
     this.refreshSettings();
+    if (opts.agent === "codex") return this.handoffCli(opts);
     const agent = opts.agent === "dsh" ? "dsh" : "claude";
     const file = opts.file;
     if (!file) throw new Error("\u6CA1\u6709\u5F53\u524D\u7B14\u8BB0");
@@ -3570,7 +4240,7 @@ ${body}`, 12e3);
     const title = blockTitle(block) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
-    let cwd = norm2(opts.cwd || (agent === "claude" ? this.C.claude.cwd : "") || this.vaultPath);
+    let cwd = norm2(opts.cwd || this.C[agent]?.cwd || this.vaultPath);
     let extra = "";
     if (agent === "claude") {
       const cfg = this.C.claude || {};
@@ -3578,17 +4248,21 @@ ${body}`, 12e3);
         const trusted = await findTrustedDir(this.vaultPath);
         if (trusted) cwd = trusted;
       }
-      if (this.vaultPath && cwd !== this.vaultPath) extra += ` --add-dir ${JSON.stringify(this.vaultPath)}`;
+      if (this.vaultPath && cwd !== this.vaultPath) extra += ` --add-dir ${shellQuote(this.vaultPath)}`;
       if (cfg.permission) extra += ` --permission-mode ${cfg.permission}`;
-    } else if (agent === "codex" && !opts.cwd) {
+    } else if (agent === "codex" && !opts.cwd && !this.C.codex?.cwd) {
       cwd = await findCodexTrustedDir(this.vaultPath);
-      if (this.vaultPath && cwd !== this.vaultPath) extra += ` -C ${JSON.stringify(cwd)} --add-dir ${JSON.stringify(this.vaultPath)}`;
+      if (this.vaultPath && cwd !== this.vaultPath) extra += ` -C ${shellQuote(cwd)} --add-dir ${shellQuote(this.vaultPath)}`;
     }
+    const model = resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent));
+    const effort = opts.effort || this.C[agent]?.effort || "high";
+    if (agent === "codex") extra += " " + codexCliArgs(this.plugin, opts).map(shellQuote).join(" ");
+    else extra += ` --model ${shellQuote(model)} --effort ${shellQuote(effort)}`;
     const dir = import_path2.default.join(import_os2.default.tmpdir(), "agent-deck");
     await fsp2.mkdir(dir, { recursive: true });
     const taskFile = import_path2.default.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp2.writeFile(taskFile, prompt, "utf8");
-    const bin = agent === "codex" ? "codex" : "claude";
+    const bin = agent === "codex" ? this.C.codex?.path || "codex" : findClaudeBinary(this.C.claude?.path || "");
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent,
@@ -3601,6 +4275,8 @@ ${body}`, 12e3);
       originalLine: lines[block.start],
       startedAt: Date.now(),
       state: "starting",
+      model,
+      effort,
       handoff: true,
       cli: true,
       app: agent === "claude" ? "cli" : "codex_cli_rs",
@@ -3612,7 +4288,7 @@ ${body}`, 12e3);
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    const term = await openTerminal(`${bin}${extra} -- "$(cat ${JSON.stringify(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
+    const term = await openTerminal(`${shellQuote(bin)}${extra} -- "$(cat ${shellQuote(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
     this.plugin.notice(`\u5DF2\u5728 ${TERMINAL_NAME[term] || "\u7EC8\u7AEF"} \u91CC\u5F00 ${AGENTS[agent]?.name || agent}`, 6e3);
     this.plugin.refreshUI();
     return job;
@@ -3675,7 +4351,8 @@ ${body}`, 12e3);
     const path6 = job.path;
     const text = await this.plugin.readNote(path6);
     const lines = text.split("\n");
-    let at = lines.findIndex((l) => l === job.lineText);
+    let at = job.blockId ? lines.findIndex((l) => blockIdOf(l) === job.blockId) : -1;
+    if (at < 0) at = lines.findIndex((l) => l === job.lineText);
     if (at < 0) at = lines.findIndex((l) => blockTitle({ text: l }) && l.includes(truncate(job.name, 20)));
     if (at < 0) return;
     const block = blockAt(lines, at);
@@ -3685,6 +4362,9 @@ ${body}`, 12e3);
     const link = linkLine2(indent, job.agent, job.name, sid);
     lines.splice(block.start + 1, 0, link);
     if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
+    const ensured = ensureBlockId(lines[block.start], sid);
+    lines[block.start] = ensured.line;
+    job.blockId = ensured.blockId;
     await this.plugin.writeNote(path6, lines.join("\n"));
     job.line = block.start;
     job.lineText = lines[block.start];
@@ -3755,36 +4435,31 @@ ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
   async writeResult(job) {
     if (job.resultWritten) return;
     let said = job.result || job.lastText || "";
-    if (!said) {
-      const meta = this.plugin.usage && this.plugin.usage.meta.get(job.sessionId);
-      said = meta && (meta.lastText || "");
-    }
-    said = String(said || "").replace(/\s+/g, " ").trim();
+    const meta = this.plugin.usage && this.plugin.usage.meta.get(job.sessionId);
+    if (!said) said = meta && (meta.lastText || "");
+    said = oneSentenceConclusion(said, clamp(Number(this.settings.resultMax) || 120, 40, 2e3));
     if (!said) return;
-    const max = clamp(Number(this.settings.resultMax) || 240, 40, 2e3);
     const text = await this.plugin.readNote(job.path);
-    const lines = text.split("\n");
-    let at = lines.indexOf(job.lineText);
-    let block = at >= 0 ? blockAt(lines, at) : null;
-    if (!block) {
-      const li = lines.findIndex((l) => job.sessionId && l.includes(job.sessionId));
-      if (li >= 0) {
-        const indent2 = (lines[li].match(/^[ \t]*/) || [""])[0].length;
-        let parent = -1;
-        for (let i = li - 1; i >= 0; i--) {
-          if (!lines[i].trim()) continue;
-          const ind = (lines[i].match(/^[ \t]*/) || [""])[0].length;
-          if (ind < indent2) {
-            if (/^\s*(?:[-*+]|\d+[.)])\s+/.test(lines[i])) parent = i;
-            break;
-          }
-        }
-        if (parent >= 0) {
-          at = parent;
-          block = blockAt(lines, parent);
-        }
-      }
+    const synced = syncSessionEntry(text, {
+      sid: job.sessionId || "",
+      blockId: job.blockId || "",
+      key: workKey(job.name || ""),
+      said,
+      rounds: meta && Array.isArray(meta.rounds) ? meta.rounds : [],
+      taskTodo: job.agent === "claude" && meta ? meta.todo : null,
+      ensureId: true
+    });
+    if (synced.text !== text) {
+      await this.plugin.writeNote(job.path, synced.text);
+      if (synced.blockId) job.blockId = synced.blockId;
+      job.resultWritten = true;
+      this.saveJobs();
+      return;
     }
+    const lines = text.split("\n");
+    let at = job.blockId ? lines.findIndex((l) => blockIdOf(l) === job.blockId) : -1;
+    if (at < 0) at = lines.indexOf(job.lineText);
+    let block = at >= 0 ? blockAt(lines, at) : null;
     if (!block) return;
     const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "	";
     let resultAt = -1;
@@ -3792,7 +4467,7 @@ ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
       resultAt = i;
       break;
     }
-    const line = `${indent}- \u{1F4AC} ${truncate(said, max)}`;
+    const line = `${indent}- \u{1F4AC} ${said}`;
     if (resultAt >= 0) lines[resultAt] = line;
     else {
       const link = findLink(lines, block);
@@ -3905,8 +4580,11 @@ var workbuddy_default = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACAC
 // assets/agents/dsh.png
 var dsh_default = "data:image/png;base64,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";
 
+// assets/agents/antigravity.png
+var antigravity_default = "data:image/png;base64,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";
+
 // src/agent-assets.js
-var AGENT_IMAGES = { claude: claude_default, codex: codex_default, workbuddy: workbuddy_default, dsh: dsh_default };
+var AGENT_IMAGES = { claude: claude_default, codex: codex_default, workbuddy: workbuddy_default, dsh: dsh_default, antigravity: antigravity_default };
 function agentImageBuffer(id) {
   const uri = AGENT_IMAGES[id];
   if (!uri) return null;
@@ -3918,7 +4596,8 @@ var AGENT_ICONS = {
   claude: "asterisk",
   codex: "square-terminal",
   workbuddy: "users",
-  dsh: "brain-circuit"
+  dsh: "brain-circuit",
+  antigravity: "sparkles"
 };
 var STATE_ICONS = {
   run: "loader-circle",
@@ -3997,7 +4676,7 @@ var import_state = require("@codemirror/state");
 var refreshEffect = import_state.StateEffect.define();
 var SESSION_MIME = "application/x-agent-deck-session";
 var ITEM_MIME = "application/x-agent-deck-item";
-var DROP_LABEL = { bind: "\u7ED1\u5B9A", fill: "\u65B0\u5EFA\u4E00\u9879", new: "\u65B0\u5EFA\u4E00\u9879", below: "\u5728\u4E0B\u9762\u65B0\u5EFA", after: "\u5728\u4E0B\u9762\u65B0\u5EFA" };
+var DROP_LABEL = { bind: "\u7ED1\u5B9A", fill: "\u65B0\u5EFA\u4E00\u9879", new: "\u65B0\u5EFA\u4E00\u9879", below: "\u5728\u4E0B\u9762\u65B0\u5EFA", after: "\u5728\u4E0B\u9762\u65B0\u5EFA", merge: "\u5408\u5E76\u5230\u8FD9\u4E00\u9879" };
 var setDrop = import_state.StateEffect.define();
 var dropField = import_state.StateField.define({
   create: () => import_view.Decoration.none,
@@ -4023,6 +4702,20 @@ function dropTarget(view, e) {
   const n = view.state.doc.lineAt(pos).number - 1;
   return dropKind(view.state.doc.toString().split("\n"), n, !!e.metaKey);
 }
+function mergeTarget(view, e, plugin) {
+  const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }, false);
+  if (pos == null) return null;
+  const lines = view.state.doc.toString().split("\n");
+  let n = view.state.doc.lineAt(pos).number - 1;
+  if (!kwLine(lines[n])) {
+    const owner = markOwner(lines, n);
+    if (owner >= 0 && kwLine(lines[owner])) n = owner;
+    else return null;
+  }
+  const src = plugin._dragItem;
+  if (src && src.line === n) return null;
+  return { line: n, kind: "merge" };
+}
 function dndHandlers(plugin) {
   let last = "";
   const show = (view, t) => {
@@ -4033,32 +4726,57 @@ function dndHandlers(plugin) {
   };
   return import_state.Prec.highest(import_view.EditorView.domEventHandlers({
     dragover(e, view) {
-      if (!hasType(e, SESSION_MIME)) return false;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "link";
-      show(view, dropTarget(view, e));
-      return true;
+      if (hasType(e, SESSION_MIME)) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "link";
+        show(view, dropTarget(view, e));
+        return true;
+      }
+      if (hasType(e, ITEM_MIME)) {
+        const t = mergeTarget(view, e, plugin);
+        if (!t) {
+          show(view, null);
+          return false;
+        }
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        show(view, t);
+        return true;
+      }
+      return false;
     },
     dragleave(e, view) {
-      if (!hasType(e, SESSION_MIME)) return false;
+      if (!hasType(e, SESSION_MIME) && !hasType(e, ITEM_MIME)) return false;
       if (e.relatedTarget && view.dom.contains(e.relatedTarget)) return false;
       show(view, null);
       return false;
     },
     drop(e, view) {
-      if (!hasType(e, SESSION_MIME)) return false;
-      e.preventDefault();
-      e.stopPropagation();
-      const t = dropTarget(view, e);
-      show(view, null);
-      let data = null;
-      try {
-        data = JSON.parse(e.dataTransfer.getData(SESSION_MIME));
-      } catch {
+      if (hasType(e, SESSION_MIME)) {
+        e.preventDefault();
+        e.stopPropagation();
+        const t = dropTarget(view, e);
+        show(view, null);
+        let data = null;
+        try {
+          data = JSON.parse(e.dataTransfer.getData(SESSION_MIME));
+        } catch {
+        }
+        if (data && t) plugin.bindSessionAt(view, t.line, data, { below: !!e.metaKey });
+        else if (data) plugin.notice("\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A");
+        return true;
       }
-      if (data && t) plugin.bindSessionAt(view, t.line, data, { below: !!e.metaKey });
-      else if (data) plugin.notice("\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A");
-      return true;
+      if (hasType(e, ITEM_MIME)) {
+        const t = mergeTarget(view, e, plugin);
+        show(view, null);
+        if (!t) return false;
+        e.preventDefault();
+        e.stopPropagation();
+        const item = plugin.readItemDrag(e);
+        if (item && item.line !== t.line) plugin.mergeTaskLines(view, item.line, t.line, item.lineText);
+        return true;
+      }
+      return false;
     },
     // 选中一段文字拖出去：记下它从哪一行来，拖到 Agent 卡片上也能委派
     dragstart(e, view) {
@@ -4091,7 +4809,7 @@ var GripWidget = class extends import_view.WidgetType {
     el.draggable = true;
     setLucide(el, "send");
     const main = AGENTS[this.plugin.defaultTarget()] || AGENTS.claude;
-    el.setAttribute("aria-label", `\u5355\u51FB\u53D1\u7ED9 ${main.short} \xB7 \u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009 Agent \xB7 \u62D6\u5230\u4FA7\u680F\u7684 Agent \u4E0A\u59D4\u6D3E`);
+    el.setAttribute("aria-label", `\u5355\u51FB\u53D1\u7ED9 ${main.short} \xB7 \u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009 Agent / \u5408\u5E76\u6761\u76EE \xB7 \u62D6\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u4E0A\u7ED1\u5B9A\u6DF7\u5408`);
     const item = { path: this.path, line: this.line, lineText: this.text };
     let clickTimer = null;
     el.addEventListener("mousedown", (e) => e.stopPropagation());
@@ -4113,7 +4831,7 @@ var GripWidget = class extends import_view.WidgetType {
       clearTimeout(clickTimer);
       e.dataTransfer.setData(ITEM_MIME, JSON.stringify(item));
       e.dataTransfer.setData("text/plain", this.text.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""));
-      e.dataTransfer.effectAllowed = "copy";
+      e.dataTransfer.effectAllowed = "all";
       this.plugin.noteDragItem(item);
       e.stopPropagation();
     });
@@ -4125,7 +4843,9 @@ var GripWidget = class extends import_view.WidgetType {
 };
 function sigFor(x) {
   if (!x) return "none";
-  return [x.kind, x.job && x.job.id, x.job && x.job.state, x.session && x.session.sid, x.session && x.session.state, x.session && x.session.step, x.session && x.session.tokens, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
+  const s = x.session;
+  const td = s && s.todo;
+  return [x.kind, x.job && x.job.id, x.job && x.job.state, s && s.sid, s && s.state, s && s.step, s && s.turns, s && s.tokens, td && `${td.done}/${td.total}:${td.cur || ""}`, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
 }
 var PillWidget = class extends import_view.WidgetType {
   constructor(plugin, path6, line, info) {
@@ -4172,6 +4892,7 @@ var PillWidget = class extends import_view.WidgetType {
     right.className = "ad-pill__right";
     el.appendChild(right);
     const modelName = job && p.modelLabel(job.model) || session && p.modelLabel(session.model) || "";
+    const progText = p.sessionProgressText ? p.sessionProgressText(session, job) : "";
     if (info.kind === "idle") {
       label.textContent = "\u59D4\u6D3E";
       meta.textContent = modelName || (agent === "dsh" ? "DeepSeek" : "Claude");
@@ -4185,36 +4906,43 @@ var PillWidget = class extends import_view.WidgetType {
       });
       right.appendChild(chev);
     } else if (info.kind === "running" || info.kind === "starting") {
-      label.textContent = info.kind === "starting" ? "\u51C6\u5907\u4E2D" : "\u59D4\u6D3E\u4E2D";
+      label.textContent = info.kind === "starting" ? "\u51C6\u5907\u4E2D" : job ? "\u59D4\u6D3E\u4E2D" : "\u5728\u8DD1";
       glyph.textContent = "";
       lattice(glyph, info.kind === "starting" ? "orbit" : "snake");
-      const start = job && job.startedAt || Date.now();
+      const start = job && job.startedAt || session && session.lastAt || Date.now();
       const tick = () => {
-        meta.textContent = fmtDur(Date.now() - start);
+        const dur = fmtDur(Math.max(0, Date.now() - start));
+        const step = session && session.step || job && job.step || "";
+        const extra = [progText, step ? truncate(step, 20) : ""].filter(Boolean).join(" \xB7 ");
+        meta.textContent = extra ? `${extra} \xB7 ${dur}` : dur;
       };
       tick();
       el._adTimer = setInterval(tick, 1e3);
-      const cancel = document.createElement("span");
-      cancel.className = "ad-pill__cancel";
-      setLucide(cancel, "x");
-      cancel.title = "\u53D6\u6D88";
-      cancel.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        p.cancelJob(job && job.id);
-      });
-      right.appendChild(cancel);
-      const progress = p.jobProgress(job);
+      if (job) {
+        const cancel = document.createElement("span");
+        cancel.className = "ad-pill__cancel";
+        setLucide(cancel, "x");
+        cancel.title = "\u53D6\u6D88";
+        cancel.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          p.cancelJob(job && job.id);
+        });
+        right.appendChild(cancel);
+      }
+      const progress = p.jobProgress(job, session);
       if (progress && progress.total) {
         el.style.setProperty("--ad-p", `${Math.round(progress.done / progress.total * 100)}%`);
         el.classList.add("is-determinate");
       }
     } else if (info.kind === "waiting" || info.kind === "needs-approval") {
       label.textContent = info.kind === "needs-approval" ? "\u7B49\u4F60\u5141\u8BB8" : "\u7B49\u4F60";
+      if (progText) meta.textContent = progText;
       el.classList.add("is-pulse");
     } else if (info.kind === "done") {
       label.textContent = "\u5B8C\u6210";
-      meta.textContent = job && job.result ? truncate(job.result, 28) : session && session.lastText ? truncate(session.lastText, 28) : "";
+      const resText = job && job.result ? truncate(job.result, 28) : session && session.lastText ? truncate(oneSentenceConclusion(session.lastText, 28), 28) : "";
+      meta.textContent = [progText, resText].filter(Boolean).join(" \xB7 ");
       const open = document.createElement("span");
       open.className = "ad-pill__open";
       setLucide(open, "arrow-up-right");
@@ -4234,7 +4962,7 @@ var PillWidget = class extends import_view.WidgetType {
       right.appendChild(retry);
     } else {
       label.textContent = "\u4F1A\u8BDD";
-      meta.textContent = session && session.step ? truncate(session.step, 26) : "";
+      meta.textContent = [progText, session && session.step ? truncate(session.step, 24) : ""].filter(Boolean).join(" \xB7 ");
     }
     if (session && session.tokens) {
       const tok = document.createElement("span");
@@ -4304,7 +5032,8 @@ function buildDecorations(view, plugin) {
         if (state) {
           const widget = new PillWidget(plugin, path6, n, state);
           builder.add(line.to, line.to, import_view.Decoration.widget({ widget, side: 1, block: false }));
-        } else if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && kwLine(text)) {
+        }
+        if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && kwLine(text)) {
           builder.add(line.to, line.to, import_view.Decoration.widget({ widget: new GripWidget(plugin, path6, n, text), side: 1, block: false }));
         }
       }
@@ -4437,7 +5166,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const recSec = dash.createDiv({ cls: "ad-sec ad-sec--recent" });
     const recHead = this.secHead(recSec, "\u6700\u8FD1\u7684\u4F1A\u8BDD", `${recent.length} \u4E2A \xB7 \u6700\u8FD1 7 \u5929`);
     const filters = recHead.createDiv({ cls: "ad-filters" });
-    for (const [id, label] of [["all", "\u5168\u90E8"], ["live", "\u5728\u8DD1"], ["wait", "\u7B49\u4F60"], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"]]) {
+    for (const [id, label] of [["all", "\u5168\u90E8"], ["live", "\u5728\u8DD1"], ["wait", "\u7B49\u4F60"], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"], ["antigravity", "Antigravity"]]) {
       const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
       b.onclick = () => {
         this.filter = id;
@@ -4609,7 +5338,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     card.dataset.agent = id;
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
-    const handoff = id === "codex" || id === "workbuddy";
+    const handoff = id === "codex" || id === "workbuddy" || id === "antigravity";
     const cliCapable = id === "claude" || id === "codex";
     const hint = handoff ? `\u4EA4\u7ED9 ${a.short}` : `\u59D4\u6D3E\u7ED9 ${a.short}`;
     const toTerm = (meta) => cliCapable && !!meta !== !!p.settings.delegateInTerminal;
@@ -4823,6 +5552,11 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     sub.createSpan({ text: a.short });
     if (s.cwd) sub.createSpan({ text: "\xB7" });
     if (s.cwd) sub.createSpan({ cls: "ad-sess__cwd", text: truncate(s.cwd, 34) });
+    const prog = p.sessionProgressText ? p.sessionProgressText(s, s.job) : "";
+    if (prog) {
+      sub.createSpan({ text: "\xB7" });
+      sub.createSpan({ cls: "ad-sess__prog", text: prog });
+    }
     if (s.step) {
       sub.createSpan({ text: "\xB7" });
       sub.createSpan({ cls: "ad-sess__step", text: truncate(s.step, 34) });
@@ -5120,6 +5854,18 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       const state = p.agentEnabled(id) ? "\u8FFD\u8E2A\u4E2D" : "\u5DF2\u5173\u95ED";
       this.toggle(foot, enabled, (v) => p.setAgentEnabled(id, v), primary);
       foot.createSpan({ cls: "ad-muted", text: primary ? "\u4E3B\u529B\uFF08\u5168\u91CF\uFF09" : state });
+      if (["claude", "codex", "dsh"].includes(id)) {
+        this.modelSelect(card, id, p.defaultModel(id), (value) => {
+          this.setDefaultModel(id, value);
+          this.display();
+        });
+        const main = card.createDiv({ cls: "ad-btnrow" });
+        this.bigButton(main, p.defaultTarget() === id ? "\u9ED8\u8BA4\u59D4\u6D3E\u5230\u8FD9\u91CC" : "\u8BBE\u4E3A\u9ED8\u8BA4\u59D4\u6D3E Agent", () => {
+          s.delegate.target = id;
+          p.saveSettings();
+          this.display();
+        });
+      }
       const path6 = card.createDiv({ cls: "ad-set-path", text: a.where[0] });
     }
     const bar = body.createDiv({ cls: "ad-btnrow" });
@@ -5144,16 +5890,16 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
   renderDelegate(body) {
     const p = this.plugin;
     const d = p.settings.delegate;
-    this.card(body, "\u9ED8\u8BA4\u59D4\u6D3E\u5230", "\u628A\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u62D6\u5230 Claude Code / DeepSeek Harness \u5361\u7247\u4E0A\u65F6\uFF0C\u7528\u8FD9\u91CC\u7684\u8BBE\u7F6E\u5728\u540E\u53F0\u5F00\u4F1A\u8BDD\u3002\u59D4\u6D3E\u5931\u8D25\u65F6\u70B9\u72B6\u6001 pill \u4E0A\u7684\u300C\u91CD\u8BD5\u300D\u53EF\u4EE5\u4E34\u65F6\u6539\u53C2\u6570\u3002");
+    this.card(body, "\u9ED8\u8BA4\u59D4\u6D3E\u5230", "Claude Code / DeepSeek Harness \u5728\u540E\u53F0\u5F00\u4F1A\u8BDD\uFF1BCodex \u5728\u7EC8\u7AEF\u91CC\u5F00\u4EA4\u4E92\u5F0F\u4F1A\u8BDD\u3002\u59D4\u6D3E\u5931\u8D25\u65F6\u70B9\u72B6\u6001 pill \u4E0A\u7684\u300C\u91CD\u8BD5\u300D\u53EF\u4EE5\u4E34\u65F6\u6539\u53C2\u6570\u3002");
     const targetRow = body.createDiv({ cls: "ad-targetpick" });
-    for (const id of ["claude", "dsh"]) {
+    for (const id of ["claude", "codex", "dsh"]) {
       const a = AGENTS[id];
       const b = targetRow.createEl("button", { cls: "ad-target" + (d.target === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.name });
-      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "\u684C\u9762\u7248 / \u540E\u53F0" : "ACP / \u81EA\u5E26\u8D26\u53F7" });
+      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "\u684C\u9762\u7248 / \u540E\u53F0" : id === "codex" ? "CLI / \u7EC8\u7AEF" : "ACP / \u81EA\u5E26\u8D26\u53F7" });
       b.onclick = async () => {
         d.target = id;
         await p.saveSettings();
@@ -5161,9 +5907,8 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       };
     }
     const claude = this.card(body, "Claude Code", "\u540E\u53F0\u5F00\u4E00\u4E2A\u4F1A\u8BDD\uFF0C\u7B54\u5B8C\u4E00\u8F6E\u53EF\u4EE5\u70B9\u5F00\u8FDB\u5165 Claude \u684C\u9762\u7248\u3002\u6A21\u578B\u3001\u5F3A\u5EA6\u3001\u6743\u9650\u6A21\u5F0F\u90FD\u4F1A\u4F20\u7ED9 claude \u547D\u4EE4\u884C\u3002");
-    const cModel = this.modelSelect(claude, "claude", d.claude.model, (v) => {
-      d.claude.model = v;
-      p.saveSettings();
+    this.modelSelect(claude, "claude", d.claude.model, (v) => {
+      this.setDefaultModel("claude", v);
       this.display();
     });
     this.effortControl(claude, "claude", d.claude.effort, (v) => {
@@ -5212,10 +5957,33 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       new import_obsidian3.Notice(r, 6e3);
     });
     this.bigButton(test, "\u5728\u7EC8\u7AEF\u91CC\u7EED\u8FD9\u4E2A\u76EE\u5F55", () => p.openTerminalAt(d.claude.cwd || p.vaultPath, "claude"));
+    const codex = this.card(body, "Codex CLI", "\u6A21\u578B\u3001\u63A8\u7406\u5F3A\u5EA6\u3001\u5DE5\u4F5C\u76EE\u5F55\u548C\u6C99\u7BB1\u6A21\u5F0F\u4F1A\u4F20\u7ED9 codex \u547D\u4EE4\u884C\u3002\u5BA2\u6237\u7AEF\u5185\u5DF2\u6709\u4F1A\u8BDD\u7684\u6A21\u578B\u4ECD\u7531\u5BA2\u6237\u7AEF\u7BA1\u7406\u3002");
+    this.modelSelect(codex, "codex", d.codex.model, (v) => {
+      this.setDefaultModel("codex", v);
+      this.display();
+    });
+    this.effortControl(codex, "codex", d.codex.effort, (v) => {
+      d.codex.effort = v;
+      p.saveSettings();
+      this.display();
+    });
+    for (const [key, label, hint] of [["path", "codex \u547D\u4EE4\u884C\u8DEF\u5F84", "\u7559\u7A7A = \u4ECE PATH \u627E codex"], ["cwd", "\u5DE5\u4F5C\u76EE\u5F55", "\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55"]]) {
+      const r = this.row(codex, label, hint, null);
+      this.textInput(r.querySelector(":scope > .ad-row__right"), d.codex[key], hint, (v) => {
+        d.codex[key] = v.trim();
+        p.saveSettings();
+      }, "ad-input--wide");
+    }
+    const sandbox = this.row(codex, "\u6C99\u7BB1\u6A21\u5F0F", "read-only = \u53EA\u8BFB\uFF1Bworkspace-write = \u53EF\u4FEE\u6539\u5DE5\u4F5C\u76EE\u5F55\u3002", null);
+    this.segmented(sandbox.querySelector(":scope > .ad-row__right"), ["read-only", "workspace-write"].map((id) => ({ id, label: id })), d.codex.sandbox, (v) => {
+      d.codex.sandbox = v;
+      p.saveSettings();
+      this.display();
+    });
+    this.bigButton(codex.createDiv({ cls: "ad-btnrow" }), "\u68C0\u67E5 codex", async () => new import_obsidian3.Notice(await p.checkBinary("codex"), 6e3));
     const dsh = this.card(body, "DeepSeek Harness", "\u901A\u8FC7 dsh acp \u5F00\u4E00\u4E2A\u771F\u6B63\u7684 Harness \u4F1A\u8BDD\uFF0C\u53EF\u4EE5\u7528\u6A21\u578B\u548C\u63A8\u7406\u5F3A\u5EA6\u3002\u56DE\u7B54\u5B8C\u4F1A\u5199\u8FDB\u4F1A\u8BDD\u65E5\u5FD7\uFF0C\u4E5F\u4F1A\u88AB\u8FFD\u8E2A\u3002");
     this.modelSelect(dsh, "dsh", d.dsh.model, (v) => {
-      d.dsh.model = v;
-      p.saveSettings();
+      this.setDefaultModel("dsh", v);
       this.display();
     });
     this.effortControl(dsh, "dsh", d.dsh.effort, (v) => {
@@ -5242,6 +6010,13 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       const r = await p.checkBinary("dsh");
       new import_obsidian3.Notice(r, 6e3);
     });
+    for (const [id, card] of [["claude", claude], ["dsh", dsh]]) {
+      const r = this.row(card, "\u547D\u4EE4\u884C\u8DEF\u5F84", "\u7559\u7A7A = \u81EA\u52A8\u67E5\u627E\u5DF2\u5B89\u88C5\u7684 CLI\u3002", null);
+      this.textInput(r.querySelector(":scope > .ad-row__right"), d[id].path || "", "\u81EA\u52A8\u67E5\u627E", (v) => {
+        d[id].path = v.trim();
+        p.saveSettings();
+      }, "ad-input--wide");
+    }
     const prompt = this.card(body, "\u63D0\u793A\u8BCD\u524D\u540E\u7F00", "\u6BCF\u6B21\u59D4\u6D3E\u4F1A\u628A\u8FD9\u4E00\u5757\uFF08\u8FDE\u540C\u5B50\u5757\uFF09\u539F\u6837\u53D1\u8FC7\u53BB\uFF0C\u8FD9\u91CC\u7684\u5185\u5BB9\u52A0\u5728\u524D\u540E\u3002");
     const pre = prompt.createDiv({ cls: "ad-field" });
     pre.createDiv({ cls: "ad-field__label", text: "\u524D\u7F00" });
@@ -5286,11 +6061,23 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
     });
   }
+  setDefaultModel(agent, value) {
+    const s = this.plugin.settings;
+    s.delegate[agent].model = value;
+    s.models.defaultByAgent[agent] = value;
+    if (!s.models.enabled.includes(value)) s.models.enabled.push(value);
+    if (this.draft) {
+      this.draft.defaultByAgent[agent] = value;
+      if (!this.draft.enabled.includes(value)) this.draft.enabled.push(value);
+    }
+    return this.plugin.saveSettings();
+  }
   modelSelect(parent, agent, value, onChange) {
-    const row = this.row(parent, "\u6A21\u578B", "\u53EA\u5217\u5F00\u542F\u7684\u6A21\u578B\uFF1B\u66F4\u591A\u5728 Models \u9875\u91CC\u7BA1\u7406\u3002", null);
+    const row = this.row(parent, "\u6A21\u578B", "\u53EF\u9009\u5185\u7F6E\u6216\u81EA\u5B9A\u4E49\u6A21\u578B\uFF1B\u5728 Models \u9875\u6DFB\u52A0\u3001\u7F16\u8F91\u548C\u542F\u7528\u3002", null);
     const sel = row.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
     const models = this.plugin.modelsFor(agent).filter((m) => this.plugin.modelEnabled(m.id));
     if (!models.length) models.push(...this.plugin.modelsFor(agent));
+    if (value && !models.some((m) => m.id === value)) models.push(this.plugin.modelById(value) || { id: value, name: value });
     for (const m of models) {
       const o = sel.createEl("option", { text: m.name, attr: { value: m.id } });
       if (m.id === value) o.selected = true;
@@ -5299,7 +6086,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     return sel;
   }
   effortControl(parent, agent, value, onChange) {
-    const row = this.row(parent, "\u9ED8\u8BA4\u5F3A\u5EA6", "", null);
+    const row = this.row(parent, "\u9ED8\u8BA4\u5F3A\u5EA6", "\u53EF\u7528\u5F3A\u5EA6\u7531\u6240\u9009\u6A21\u578B\u51B3\u5B9A\u3002", null);
     const right = row.querySelector(":scope > .ad-row__right");
     const wrap = right.createDiv({ cls: "ad-effort" });
     const opts = EFFORTS[agent] || EFFORTS.claude;
@@ -5328,11 +6115,11 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
   renderModels(body) {
     const p = this.plugin;
     const d = this.modelsDraft();
-    const target = p.settings.delegate.target === "dsh" ? "dsh" : "claude";
+    const target = this.modelTarget || p.defaultTarget();
     const models = p.allModels(d.custom);
     const enabled = new Set(d.enabled);
     const byId = new Map(models.map((m) => [m.id, m]));
-    const defaultId = d.defaultByAgent[target] || (target === "dsh" ? "deepseek-v4-pro" : "claude-opus-5-5");
+    const defaultId = d.defaultByAgent[target] || p.defaultModel(target);
     const def = byId.get(defaultId) || models.find((m) => m.agent === target) || models[0];
     const intro = body.createDiv({ cls: "ad-models-intro" });
     intro.createDiv({ cls: "ad-models-title", text: "Models" });
@@ -5341,7 +6128,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     const dhead = defaults.createDiv({ cls: "ad-models-sec" });
     dhead.createSpan({ cls: "ad-kicker", text: "Defaults" });
     const targetSeg = defaults.createDiv({ cls: "ad-models-target" });
-    for (const id of ["claude", "dsh"]) {
+    for (const id of ["claude", "codex", "dsh"]) {
       const a = AGENTS[id];
       const b = targetSeg.createEl("button", { cls: "ad-target ad-target--sm" + (target === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
@@ -5349,8 +6136,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
       b.onclick = () => {
-        p.settings.delegate.target = id;
-        p.saveSettings();
+        this.modelTarget = id;
         this.display();
       };
     }
@@ -5360,7 +6146,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     defLeft.createDiv({ cls: "ad-defrow__desc", text: "New delegations start with this model." });
     const defRight = defRow.createDiv({ cls: "ad-defrow__right" });
     const pill = defRight.createEl("select", { cls: "ad-modelpill" });
-    const candidates = models.filter((m) => m.agent === target && enabled.has(m.id));
+    const candidates = models.filter((m) => m.agent === target && (enabled.has(m.id) || m.id === defaultId));
     const pool = candidates.length ? candidates : models.filter((m) => m.agent === target);
     for (const m of pool) {
       const o = pill.createEl("option", { text: m.name, attr: { value: m.id } });
@@ -5368,6 +6154,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     }
     pill.onchange = () => {
       d.defaultByAgent[target] = pill.value;
+      if (!d.enabled.includes(pill.value)) d.enabled.push(pill.value);
       this.display();
     };
     if (def) {
@@ -5386,7 +6173,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     effLeft.createDiv({ cls: "ad-defrow__desc", text: "How long the model thinks before it answers. You can change it per delegation." });
     const effRight = eff.createDiv({ cls: "ad-defrow__right ad-effort ad-effort--big" });
     const eopts = EFFORTS[target] || EFFORTS.claude;
-    const evalue = d.effort || "high";
+    const evalue = d.effortByAgent?.[target] || p.settings.delegate[target]?.effort || d.effort || "high";
     const eidx = Math.max(0, eopts.findIndex((x) => x.id === evalue));
     const etrack = effRight.createDiv({ cls: "ad-effort__track" });
     etrack.createDiv({ cls: "ad-effort__fill" }).style.width = `${eidx / Math.max(1, eopts.length - 1) * 100}%`;
@@ -5395,7 +6182,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       const b = estops.createEl("button", { cls: "ad-effort__stop" + (o.id === evalue ? " is-on" : ""), attr: { title: o.hint || "" } });
       b.createSpan({ cls: "ad-effort__dot" });
       b.onclick = () => {
-        d.effort = o.id;
+        (d.effortByAgent || (d.effortByAgent = {}))[target] = o.id;
         this.display();
       };
       const lab = effRight.createSpan({ cls: "ad-effort__lab", attr: { style: `left:${i / Math.max(1, eopts.length - 1) * 100}%` }, text: o.label });
@@ -5406,7 +6193,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     for (const o of eopts) adv.createEl("option", { text: o.label, attr: { value: o.id } });
     adv.value = evalue;
     adv.onchange = () => {
-      d.effort = adv.value;
+      (d.effortByAgent || (d.effortByAgent = {}))[target] = adv.value;
       this.display();
     };
     const picker = body.createDiv({ cls: "ad-models-card" });
@@ -5455,7 +6242,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       this.groupAction(gh, pinned, d, true);
       for (const m of pinned) this.modelRow(g, m, d, target, defaultId, true);
     }
-    for (const agent of ["claude", "dsh"]) {
+    for (const agent of ["claude", "codex", "dsh"]) {
       const rows = rest.filter((m) => m.agent === agent);
       if (!rows.length) continue;
       const g = list.createDiv({ cls: "ad-modelgroup" });
@@ -5522,13 +6309,21 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       menu.addItem((it) => it.setTitle("Move down").setIcon("arrow-down").onClick(() => this.moveModel(d, m, 1)));
       menu.addItem((it) => it.setTitle("Make default").setIcon("star").onClick(() => {
         d.defaultByAgent[m.agent] = m.id;
+        if (!d.enabled.includes(m.id)) d.enabled.push(m.id);
         this.display();
       }));
       if (m.custom || d.custom.some((x) => x.id === m.id)) {
+        menu.addItem((it) => it.setTitle("\u7F16\u8F91\u6A21\u578B").setIcon("pencil").onClick(() => {
+          new AddModelModal(this.app, this.plugin, (edited) => {
+            d.custom = d.custom.map((x) => x.id === m.id ? edited : x);
+            this.display();
+          }, m).open();
+        }));
         menu.addItem((it) => it.setTitle("Remove").setIcon("trash").onClick(() => {
           d.custom = d.custom.filter((x) => x.id !== m.id);
           d.enabled = d.enabled.filter((x) => x !== m.id);
           d.pinned = d.pinned.filter((x) => x !== m.id);
+          if (d.defaultByAgent[m.agent] === m.id) d.defaultByAgent[m.agent] = DEFAULTS.models.defaultByAgent[m.agent];
           this.display();
         }));
       }
@@ -5600,14 +6395,11 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     if (!this.draft) return;
     const p = this.plugin;
     p.settings.models = deepMerge(p.settings.models, this.draft);
-    const dc = p.settings.delegate.claude, dd = p.settings.delegate.dsh;
-    const cm = p.settings.models.defaultByAgent.claude;
-    const dm = p.settings.models.defaultByAgent.dsh;
-    if (cm) dc.model = cm;
-    if (dm) dd.model = dm;
-    if (p.settings.models.effort) {
-      if (p.settings.delegate.claude.effort) p.settings.delegate.claude.effort = p.settings.models.effort;
-      if (p.settings.delegate.dsh.effort) p.settings.delegate.dsh.effort = p.settings.models.effort;
+    for (const agent of ["claude", "codex", "dsh"]) {
+      const model = p.settings.models.defaultByAgent[agent];
+      if (model) p.settings.delegate[agent].model = model;
+      const effort = p.settings.models.effortByAgent?.[agent];
+      if (effort) p.settings.delegate[agent].effort = effort;
     }
     p.saveSettings();
     new import_obsidian3.Notice("Models \u5DF2\u4FDD\u5B58");
@@ -5673,7 +6465,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
       p.refreshUI();
     });
-    const jr = this.card(body, "\u81EA\u52A8\u8BB0\u65E5\u8BB0\uFF08\u4EBA\u673A\u5171\u5199\uFF09", "\u628A Agent \u4F1A\u8BDD\u5199\u56DE\u4ECA\u5929\u7684\u65E5\u8BB0\uFF1A\u65B0\u4F1A\u8BDD\u8BB0\u6210 DOING\uFF0C\u505C\u4E86\u4E00\u9635\u6539\u6210 PAUSED \u5E76\u628A\u5B9E\u9645\u65F6\u6BB5\u5199\u5728\u4E0B\u9762\uFF0C\u684C\u9762\u7248\u6216 Codex \u91CC\u5F52\u6863\u4E86\u8BB0\u6210 DONE\u3002\u540D\u5B57\u548C\u300C\u63A5\u5728\u54EA\u4E00\u884C\u300D\u95EE\u672C\u673A\u7684 claude \u547D\u4EE4\u884C\u3002\u53EA\u6539\u5B83\u81EA\u5DF1\u8BB0\u7740\u7684\u90A3\u51E0\u884C\uFF0C\u4F60\u624B\u6539\u8FC7\u7684\u72B6\u6001\u4E0D\u4F1A\u88AB\u4ED6\u63B0\u56DE\u53BB\u3002");
+    const jr = this.card(body, "\u81EA\u52A8\u8BB0\u65E5\u8BB0\uFF08\u4EBA\u673A\u5171\u5199\uFF09", "\u628A Agent \u4F1A\u8BDD\u5199\u56DE\u4ECA\u5929\u7684\u65E5\u8BB0\uFF1A\u65B0\u4F1A\u8BDD\u8BB0\u6210 DOING\uFF0C\u505C\u4E86\u4E00\u9635\u6539\u6210 PAUSED \u5E76\u628A\u5B9E\u9645\u65F6\u6BB5\u5199\u5728\u4E0B\u9762\uFF0C\u684C\u9762\u7248\u6216 Codex \u91CC\u5F52\u6863\u4E86\u8BB0\u6210 DONE\u3002\u540D\u5B57\u548C\u300C\u63A5\u5728\u54EA\u4E00\u884C\u300D\u53EF\u7531\u672C\u673A Claude \u6216 Codex CLI \u6574\u7406\u3002\u53EA\u6539\u5B83\u81EA\u5DF1\u8BB0\u7740\u7684\u90A3\u51E0\u884C\uFF0C\u4F60\u624B\u6539\u8FC7\u7684\u72B6\u6001\u4E0D\u4F1A\u88AB\u4ED6\u63B0\u56DE\u53BB\u3002");
     const jf = this.row(jr, "\u65E5\u8BB0\u76EE\u5F55", "\u4ECA\u5929\u7684\u65E5\u8BB0\u662F\u300C\u76EE\u5F55/YYYY_MM_DD.md\u300D\uFF0C\u548C\u87BA\u65CB\u65E5\u7A0B\u7684\u9ED8\u8BA4\u4E00\u81F4\u3002", null);
     this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "\u65E5\u8BB0", "\u65E5\u8BB0", (v) => {
       s.journalFolder = v.trim() || "\u65E5\u8BB0";
@@ -5689,14 +6481,97 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       s.autoLogEvery = v;
       p.saveSettings();
     });
-    const jm = this.row(jr, "\u6574\u7406\u7528\u7684\u6A21\u578B", "\u4F20\u7ED9 claude \u547D\u4EE4\u884C\u7684 --model\uFF1B\u9ED8\u8BA4 haiku\uFF0C\u5FEB\u4E14\u4FBF\u5B9C\u3002", null);
-    this.textInput(jm.querySelector(":scope > .ad-row__right"), s.autoLogModel || "haiku", "haiku", (v) => {
-      s.autoLogModel = v.trim() || "haiku";
+    const jst = this.row(jr, "\u542F\u52A8\u540E\u7B2C\u51E0\u5206\u949F\u5148\u6574\u7406\u4E00\u6B21", "Obsidian \u521A\u6253\u5F00\u65F6\u4E0D\u7528\u7B49\u6EE1\u4E00\u4E2A\u95F4\u9694\uFF0C\u5230\u8FD9\u4E2A\u65F6\u5019\u5148\u8DD1\u4E00\u6B21\uFF1B\u4E4B\u540E\u6309\u4E0A\u9762\u7684\u95F4\u9694\u3002", null);
+    this.numberInput(jst.querySelector(":scope > .ad-row__right"), s.autoLogStartDelay ?? 1, 1, 240, (v) => {
+      s.autoLogStartDelay = v;
+      p.saveSettings();
+    });
+    const jmin = this.row(jr, "\u65B0\u4F1A\u8BDD\u6D3B\u8DC3\u6EE1\u51E0\u5206\u949F\u624D\u8BB0", "\u4E0D\u5230\u8FD9\u4E2A\u65F6\u957F\u7684\u4F1A\u8BDD\u5148\u4E0D\u5EFA\u9879\uFF0C\u514D\u5F97\u968F\u624B\u95EE\u4E00\u53E5\u4E5F\u8FDB\u65E5\u8BB0\uFF1B\u5BA2\u6237\u7AEF\u91CC\u5F52\u6863\u4E86\u7684\u4E0D\u7BA1\u591A\u77ED\u90FD\u8BB0\u30020 = \u6709\u52A8\u9759\u5C31\u8BB0\u3002", null);
+    this.numberInput(jmin.querySelector(":scope > .ad-row__right"), s.autoLogMinMinutes ?? 3, 0, 120, (v) => {
+      s.autoLogMinMinutes = v;
+      p.saveSettings();
+    });
+    const jid = this.row(jr, "\u505C\u4E86\u51E0\u5206\u949F\u7B97\u6682\u505C", "\u4F1A\u8BDD\u505C\u4E0B\u8D85\u8FC7\u8FD9\u4E48\u4E45\uFF0C\u90A3\u4E00\u884C\u4ECE DOING \u6539\u6210 PAUSED\uFF0C\u5E76\u5199\u4E0A\u5B9E\u9645\u65F6\u6BB5 \u23F1\u3002\u6700\u5C11 5 \u5206\u949F\u3002", null);
+    this.numberInput(jid.querySelector(":scope > .ad-row__right"), s.autoLogIdle || 40, 5, 480, (v) => {
+      s.autoLogIdle = v;
+      p.saveSettings();
+    });
+    const jag = this.row(jr, "\u8BB0\u54EA\u51E0\u4E2A Agent", "\u53EA\u6709\u52FE\u4E0A\u7684 Agent \u91CC\u81EA\u5DF1\u65B0\u5F00\u7684\u4F1A\u8BDD\u4F1A\u81EA\u52A8\u8FDB\u65E5\u8BB0\uFF1B\u65E5\u8BB0\u91CC \u{1F517} \u7ED1\u7740\u7684\u4F1A\u8BDD\u4E0D\u53D7\u8FD9\u4E2A\u5F71\u54CD\u3002", null);
+    const agBox = jag.querySelector(":scope > .ad-row__right").createDiv({ cls: "ad-seg" });
+    const agOn = s.autoLogAgents || (s.autoLogAgents = {});
+    for (const id of AGENT_ORDER) {
+      const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id });
+      b.onclick = () => {
+        agOn[id] = agOn[id] === false;
+        b.classList.toggle("is-on", agOn[id] !== false);
+        p.saveSettings();
+      };
+    }
+    const jb = this.row(jr, "\u4E00\u8F6E\u6700\u591A\u95EE\u51E0\u4E2A\u4F1A\u8BDD", "\u6BCF\u6B21\u6574\u7406\u4E00\u6B21\u6700\u591A\u4EA4\u7ED9\u6A21\u578B\u770B\u51E0\u4E2A\u65B0\u4F1A\u8BDD\uFF0C\u5269\u4E0B\u7684\u4E0B\u4E00\u8F6E\u518D\u95EE\uFF08\u624B\u52A8\u6574\u7406\u4F1A\u63A5\u7740\u95EE\u5B8C\uFF09\u3002", null);
+    this.numberInput(jb.querySelector(":scope > .ad-row__right"), s.autoLogBatch || 8, 1, 20, (v) => {
+      s.autoLogBatch = v;
+      p.saveSettings();
+    });
+    const jprovider = this.row(jr, "\u6574\u7406\u4F7F\u7528\u7684 CLI", "\u81EA\u52A8\u5EFA\u9879\u4E0E\u6BCF\u8F6E\u7ED3\u8BBA\u6DA6\u8272\u90FD\u4F7F\u7528\u8FD9\u4E2A CLI\uFF0C\u6CBF\u7528\u5B83\u7684\u767B\u5F55\u3002", null);
+    this.segmented(jprovider.querySelector(":scope > .ad-row__right"), [{ id: "claude", label: "Claude CLI" }, { id: "codex", label: "Codex CLI" }], s.autoLogProvider || "claude", (v) => {
+      s.autoLogProvider = v;
+      s.autoLogModel = v === "codex" ? "gpt-6-luna" : "haiku";
+      s.roundPolishModel = "";
+      s.autoLogPath = "";
+      p.saveSettings();
+      this.display();
+    });
+    if (s.autoLogProvider === "codex") {
+      const effort = this.row(jr, "\u6574\u7406\u4E0E\u6DA6\u8272\u7684\u63A8\u7406\u5F3A\u5EA6", "\u7B80\u5355\u6458\u8981\u53EF\u9009 low\u3002", null);
+      this.segmented(effort.querySelector(":scope > .ad-row__right"), EFFORTS.codex, s.autoLogEffort || "low", (v) => {
+        s.autoLogEffort = v;
+        p.saveSettings();
+        this.display();
+      });
+    }
+    const jm = this.row(jr, "\u6574\u7406\u7528\u7684\u6A21\u578B", "\u4F20\u7ED9\u6240\u9009 CLI \u7684 --model\uFF0C\u53EF\u586B\u6A21\u578B\u540D\u6216\u522B\u540D\u3002Claude \u5982 haiku\uFF1BCodex \u5982 gpt-6-luna\u3002", null);
+    this.textInput(jm.querySelector(":scope > .ad-row__right"), s.autoLogModel || "", s.autoLogProvider === "codex" ? "gpt-6-luna" : "haiku", (v) => {
+      s.autoLogModel = v.trim();
+      p.saveSettings();
+    });
+    const jt = this.row(jr, "\u6574\u7406\u65F6\u7B49\u6A21\u578B\u51E0\u79D2", "\u8D85\u8FC7\u8FD9\u4E48\u4E45\u6CA1\u56DE\u6765\u5C31\u7B97\u8FD9\u4E00\u8F6E\u6CA1\u95EE\u5230\u3002", null);
+    this.numberInput(jt.querySelector(":scope > .ad-row__right"), s.autoLogTimeout || 120, 10, 600, (v) => {
+      s.autoLogTimeout = v;
+      p.saveSettings();
+    });
+    const jfb = this.row(jr, "\u6A21\u578B\u95EE\u4E0D\u5230\u65F6\u5148\u7528\u4F1A\u8BDD\u6807\u9898\u8BB0\u4E0A", "\u6240\u9009 CLI \u6CA1\u88C5\u3001\u6CA1\u767B\u5F55\u3001\u8D85\u65F6\u6216\u56DE\u7684\u4E0D\u662F JSON \u65F6\uFF0C\u81EA\u52A8\u6574\u7406\u4E5F\u50CF\u624B\u52A8\u6574\u7406\u4E00\u6837\u7528\u4F1A\u8BDD\u6807\u9898 / \u7B2C\u4E00\u53E5\u8BDD\u5148\u5EFA\u9879\uFF1B\u5173\u6389\u5219\u8DF3\u8FC7\uFF0C\u7B49\u4E0B\u4E00\u8F6E\u518D\u95EE\u3002", null);
+    this.toggle(jfb.querySelector(":scope > .ad-row__right"), s.autoLogFallback !== false, (v) => {
+      s.autoLogFallback = v;
+      p.saveSettings();
+    });
+    const jp = this.row(jr, "\u6574\u7406 CLI \u8DEF\u5F84", "\u7559\u7A7A = \u4F7F\u7528\u6240\u9009 CLI \u7684\u59D4\u6D3E\u8DEF\u5F84\uFF0C\u518D\u4ECE PATH \u627E\u3002", null);
+    this.textInput(jp.querySelector(":scope > .ad-row__right"), s.autoLogPath || "", "\u81EA\u52A8\u627E", (v) => {
+      s.autoLogPath = v.trim();
+      p.saveSettings();
+    }, "ad-input--wide");
+    const jrp = this.row(jr, "\u6BCF\u8F6E\u7ED3\u8BBA\u8BA9\u6A21\u578B\u6DA6\u8272", "\u6BCF\u7B54\u5B8C\u4E00\u8F6E\uFF0C\u{1F4AC} \u5148\u7528\u672C\u5730\u89C4\u5219\u6458\u4E00\u53E5\u5199\u4E0A\uFF0C\u518D\u5728\u540E\u53F0\u8BA9\u6A21\u578B\u6539\u6210\u4E00\u53E5\u901A\u987A\u7684\u7ED3\u8BBA\u66FF\u6362\u6389\u3002", null);
+    this.toggle(jrp.querySelector(":scope > .ad-row__right"), s.roundPolish !== false, (v) => {
+      s.roundPolish = v;
+      p.saveSettings();
+    });
+    const jrm = this.row(jr, "\u6DA6\u8272\u7528\u7684\u6A21\u578B", "\u7559\u7A7A = \u548C\u6574\u7406\u7528\u7684\u6A21\u578B\u4E00\u6837\u3002", null);
+    this.textInput(jrm.querySelector(":scope > .ad-row__right"), s.roundPolishModel || "", "\u540C\u6574\u7406\u7528\u7684\u6A21\u578B", (v) => {
+      s.roundPolishModel = v.trim();
+      p.saveSettings();
+    });
+    const jrt = this.row(jr, "\u6DA6\u8272\u65F6\u7B49\u6A21\u578B\u51E0\u79D2", "\u8D85\u65F6\u5C31\u7559\u7740\u672C\u5730\u6458\u7684\u90A3\u4E00\u53E5\u3002", null);
+    this.numberInput(jrt.querySelector(":scope > .ad-row__right"), s.roundPolishTimeout || 30, 5, 300, (v) => {
+      s.roundPolishTimeout = v;
       p.saveSettings();
     });
     const jd = this.row(jr, "\u5F52\u6863\u7684\u4F1A\u8BDD\u8BB0\u6210 DONE", "\u4F60\u5728 Claude \u684C\u9762\u7248\u6216 Codex \u91CC\u5F52\u6863\u4E00\u4E2A\u4F1A\u8BDD = \u8FD9\u4EF6\u4E8B\u505A\u5B8C\u4E86\uFF0C\u5B83\u90A3\u4E00\u884C\u8BB0\u6210 DONE\u3002\u684C\u9762\u7248\u5F00\u4E86\u81EA\u52A8\u5F52\u6863\u7684\u8BDD\u5C31\u5173\u6389\u8FD9\u4E2A\u3002", null);
     this.toggle(jd.querySelector(":scope > .ad-row__right"), s.autoLogArchiveDone !== false, (v) => {
       s.autoLogArchiveDone = v;
+      p.saveSettings();
+    });
+    const jn = this.row(jr, "\u6574\u7406\u5B8C\u5F39\u901A\u77E5", "\u5217\u51FA\u8FD9\u4E00\u8F6E\u8BB0\u6210 DOING / PAUSED / DONE \u7684\u6761\u76EE\u548C\u8BB0\u4E0B\u7684\u5F85\u62CD\u677F\u4E8B\u9879\u3002", null);
+    this.toggle(jn.querySelector(":scope > .ad-row__right"), s.autoLogNotify !== false, (v) => {
+      s.autoLogNotify = v;
       p.saveSettings();
     });
     const js = this.row(jr, "\u56DE\u5199\u65E5\u8BB0", "\u65E5\u8BB0\u91CC \u{1F517} \u7ED1\u7740\u7684\u4F1A\u8BDD\uFF1A\u7B54\u5B8C\u5199 \u{1F4AC}\uFF0C\u72B6\u6001\u8DDF\u7740\u4F1A\u8BDD\u5207\uFF0C\u5F52\u6863\u8BB0 DONE\uFF0C\u5B50\u4F1A\u8BDD\u548C\u5F00\u7740\u7684 side chat \u5199\u6210\u5B50\u5757\u3002\u87BA\u65CB\u65E5\u7A0B\u7684 AI \u8FFD\u8E2A\u8FD8\u5F00\u7740\u65F6\u5148\u4E0D\u5199\uFF0C\u514D\u5F97\u4E24\u5957\u5199\u6CD5\u6253\u67B6\u3002", null);
@@ -5707,6 +6582,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     for (const [key, label, desc] of [
       ["resultBack", "\u4F1A\u8BDD\u7ED3\u8BBA\u5199\u56DE\uFF08\u{1F4AC}\uFF09", "\u4F1A\u8BDD\u7B54\u5B8C\u4E00\u8F6E\u6216\u5F52\u6863\u65F6\uFF0C\u628A\u6700\u540E\u90A3\u6761\u56DE\u590D\u5199\u6210\u4EFB\u52A1\u4E0B\u9762\u7684\u4E00\u884C\u3002"],
       ["agentKw", "\u72B6\u6001\u5173\u952E\u8BCD\u8DDF\u7740\u4F1A\u8BDD", "\u5728 DOING / TOREVIEW / NEEDOK / ERRORED / HITLIMIT \u4E4B\u95F4\u8DDF\u7740\u4F1A\u8BDD\u5207\uFF1B\u4F60\u6539\u6210\u522B\u7684\u5C31\u4E0D\u78B0\u3002"],
+      ["autoLogKw", "\u81EA\u52A8\u8BB0\u7684\u6761\u76EE\u4E5F\u8DDF\u7740\u5207\u72B6\u6001", "\u81EA\u52A8\u6574\u7406\u5EFA\u7684 \u{1F916} \u6761\u76EE\uFF08\u6CA1\u6709 \u{1F517} \u884C\uFF09\u4E5F\u5728 DOING / TOREVIEW / NEEDOK / ERRORED \u4E4B\u95F4\u8DDF\u7740\u4F1A\u8BDD\u5207\uFF1BPAUSED\u3001DONE \u7167\u65E7\u7531\u81EA\u52A8\u6574\u7406\u7BA1\u3002"],
       ["kidBlocks", "\u5B50\u4F1A\u8BDD\u548C side chat \u5B50\u5757", "\u684C\u9762\u7248\u91CC\u5F00\u51FA\u6765\u7684\u5B50\u4F1A\u8BDD\u3001\u5F00\u7740\u7684 side chat \u5199\u6210\u7F29\u8FDB\u5B50\u5757\u3002"]
     ]) {
       const row = this.row(jr, label, desc, null);
@@ -5717,7 +6593,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     }
     const jbtn = jr.createDiv({ cls: "ad-btnrow" });
     this.bigButton(jbtn, "\u73B0\u5728\u6574\u7406\u4E00\u6B21", () => p.autoLog.logNow());
-    jr.createDiv({ cls: "ad-hint", text: "\u53EA\u8BB0 Claude Code / Codex / WorkBuddy\uFF1B\u6A21\u578B\u95EE\u4E0D\u5230\u65F6\u624B\u52A8\u6574\u7406\u4F1A\u7528\u4F1A\u8BDD\u6807\u9898\u5148\u8BB0\u4E0A\uFF0C\u81EA\u52A8\u6574\u7406\u7B49\u4E0B\u4E00\u8F6E\u3002\u5199\u5165\u524D\u4F1A\u6838\u5BF9\u65E5\u8BB0\u6CA1\u88AB\u540C\u65F6\u6539\u8FC7\uFF0C\u6B63\u5728\u7528\u8F93\u5165\u6CD5\u6253\u5B57\u7684\u90A3\u4E00\u4E0B\u4E0D\u5199\u3002" });
+    jr.createDiv({ cls: "ad-hint", text: "\u5199\u5165\u524D\u4F1A\u6838\u5BF9\u65E5\u8BB0\u6CA1\u88AB\u540C\u65F6\u6539\u8FC7\uFF0C\u6B63\u5728\u7528\u8F93\u5165\u6CD5\u6253\u5B57\u7684\u90A3\u4E00\u4E0B\u4E0D\u5199\u3002" });
     const ui = this.card(body, "\u754C\u9762");
     const mb = this.row(ui, "macOS \u83DC\u5355\u680F", "\u5728\u7CFB\u7EDF\u6700\u4E0A\u65B9\u663E\u793A\u4E00\u4E2A\u5C0F\u56FE\u6807\u548C\u4E00\u4E32\u7B80\u77ED\u8BF4\u660E\uFF1B\u70B9\u5F00\u662F\u4F1A\u8BDD\u8BE6\u60C5\u548C\u8DF3\u8F6C\u3002Obsidian \u53F3\u4E0B\u89D2\u4E0D\u518D\u663E\u793A Agent \u6C47\u603B\u3002\u7B2C\u4E00\u6B21\u542F\u52A8\u4F1A\u7F16\u8BD1\u4E00\u4E2A Swift \u5C0F\u52A9\u624B\uFF0C\u9700\u8981 Xcode Command Line Tools\u3002", null);
     this.mbSwitch = this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => {
@@ -5877,7 +6753,7 @@ function strength(n, dots = false) {
   return ["", "Very light", "Light", "Balanced", "Strong", "Deepest"][n] || "Balanced";
 }
 var AddModelModal = class extends import_obsidian3.Modal {
-  constructor(app, plugin, onAdd) {
+  constructor(app, plugin, onAdd, existing = null) {
     super(app);
     this.plugin = plugin;
     this.onAdd = onAdd;
@@ -5887,12 +6763,21 @@ var AddModelModal = class extends import_obsidian3.Modal {
     this.model = "";
     this.context = "128K";
     this.tags = "Reasoning";
+    this.existing = existing;
+    if (existing) {
+      this.agent = existing.agent;
+      this.name = existing.name;
+      this.route = existing.providerRoute || "deepseek-account";
+      this.model = existing.model || existing.cli || existing.value || "";
+      this.context = existing.context || "";
+      this.tags = (existing.tags || []).join(", ");
+    }
   }
   onOpen() {
     const { contentEl } = this;
     contentEl.addClass("ad-modal");
-    contentEl.createEl("h3", { text: "Add model" });
-    contentEl.createDiv({ cls: "ad-muted", text: "\u7ED9\u59D4\u6D3E\u6309\u94AE\u52A0\u4E00\u4E2A\u6A21\u578B\u3002Claude \u7528\u547D\u4EE4\u884C\u7684\u522B\u540D\u6216\u5168\u540D\uFF1BDeepSeek Harness \u7528 ACP \u7684 provider / model\u3002" });
+    contentEl.createEl("h3", { text: this.existing ? "\u7F16\u8F91\u6A21\u578B" : "\u6DFB\u52A0\u6A21\u578B" });
+    contentEl.createDiv({ cls: "ad-muted", text: "Claude \u548C Codex \u7528 CLI \u7684\u6A21\u578B\u540D\u6216\u522B\u540D\uFF1BDeepSeek Harness \u7528 ACP \u7684 provider / model\u3002\u53EF\u7528\u6027\u7531\u5404\u5BA2\u6237\u7AEF\u8D26\u53F7\u51B3\u5B9A\u3002" });
     const form = contentEl.createDiv({ cls: "ad-form" });
     const field = (label, el) => {
       const f = form.createDiv({ cls: "ad-field" });
@@ -5900,13 +6785,14 @@ var AddModelModal = class extends import_obsidian3.Modal {
       el(f);
     };
     field("\u663E\u793A\u540D", (f) => {
-      const i = f.createEl("input", { cls: "ad-input", attr: { placeholder: "\u4F8B\u5982 DeepSeek-V4-Pro" } });
+      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.name, placeholder: "\u4F8B\u5982 GPT-6-Luna" } });
       i.oninput = () => this.name = i.value;
     });
     field("Agent", (f) => {
       const s = f.createEl("select", { cls: "ad-select" });
-      for (const id of ["claude", "dsh"]) s.createEl("option", { text: AGENTS[id].name, attr: { value: id } });
+      for (const id of ["claude", "codex", "dsh"]) s.createEl("option", { text: AGENTS[id].name, attr: { value: id } });
       s.value = this.agent;
+      s.disabled = !!this.existing;
       s.onchange = () => {
         this.agent = s.value;
       };
@@ -5916,7 +6802,7 @@ var AddModelModal = class extends import_obsidian3.Modal {
       i.oninput = () => this.route = i.value;
     });
     field("Model / alias", (f) => {
-      const i = f.createEl("input", { cls: "ad-input", attr: { placeholder: "\u4F8B\u5982 deepseek-v4-pro \u6216 opus" } });
+      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.model, placeholder: "\u4F8B\u5982 gpt-6-luna\u3001deepseek-v4-pro \u6216 opus" } });
       i.oninput = () => this.model = i.value;
     });
     field("\u4E0A\u4E0B\u6587", (f) => {
@@ -5934,14 +6820,16 @@ var AddModelModal = class extends import_obsidian3.Modal {
     add.onclick = () => {
       const name = this.name.trim() || this.model.trim();
       if (!name || !this.model.trim()) return new import_obsidian3.Notice("\u663E\u793A\u540D\u548C model \u81F3\u5C11\u586B\u4E00\u4E2A");
-      const id = `custom-${this.agent}-${this.model.trim().replace(/[^a-z0-9]+/gi, "-")}`;
+      const id = this.existing?.id || `custom-${this.agent}-${Date.now().toString(36)}`;
       const m = {
         id,
         agent: this.agent,
         name,
-        cli: this.agent === "claude" ? this.model.trim() : void 0,
+        cli: this.agent !== "dsh" ? this.model.trim() : void 0,
+        model: this.model.trim(),
+        providerRoute: this.agent === "dsh" ? this.route.trim() : void 0,
         value: this.agent === "dsh" ? JSON.stringify([this.route.trim() || "deepseek-account", this.model.trim()]) : this.model.trim(),
-        provider: this.agent === "dsh" ? this.route.trim() || "DeepSeek" : "Claude",
+        provider: this.agent === "dsh" ? this.route.trim() || "DeepSeek" : AGENTS[this.agent].name,
         context: this.context.trim() || "\u2014",
         strength: 3,
         speed: 3,
@@ -5969,7 +6857,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
     this.line = line;
     this.agent = plugin.defaultTarget();
     this.model = plugin.defaultModel(this.agent);
-    this.effort = this.agent === "dsh" ? plugin.settings.delegate.dsh.effort || "high" : plugin.settings.delegate.claude.effort || "high";
+    this.effort = plugin.settings.delegate[this.agent]?.effort || "high";
     this.permission = plugin.settings.delegate.claude.permission || "auto";
     this.cwd = "";
     this.suffix = plugin.settings.delegate.promptSuffix || "";
@@ -6009,24 +6897,24 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
     const target = contentEl.createDiv({ cls: "ad-field" });
     target.createDiv({ cls: "ad-field__label", text: "Delegate to" });
     const targets = target.createDiv({ cls: "ad-targetpick" });
-    for (const id of ["claude", "dsh"]) {
+    for (const id of ["claude", "codex", "dsh"]) {
       const a = AGENTS[id];
       const b = targets.createEl("button", { cls: "ad-target ad-target--sm" + (this.agent === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
-      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "\u684C\u9762\u7248" : "ACP" });
+      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "\u684C\u9762\u7248" : id === "codex" ? "CLI / \u7EC8\u7AEF" : "ACP" });
       b.onclick = () => {
         this.agent = id;
         this.model = p.defaultModel(id);
-        this.effort = id === "dsh" ? p.settings.delegate.dsh.effort || "high" : p.settings.delegate.claude.effort || "high";
+        this.effort = p.settings.delegate[id]?.effort || "high";
         this.render();
       };
     }
     const mf = contentEl.createDiv({ cls: "ad-field" });
     mf.createDiv({ cls: "ad-field__label", text: "Model" });
-    const models = p.modelsFor(this.agent).filter((m) => p.modelEnabled(m.id));
+    const models = p.modelsFor(this.agent).filter((m) => p.modelEnabled(m.id) || m.id === this.model);
     const grid = mf.createDiv({ cls: "ad-modelpick" });
     for (const m of models) {
       const b = grid.createEl("button", { cls: "ad-modelpick__item" + (this.model === m.id ? " is-on" : "") });
@@ -6071,7 +6959,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
         };
       }
       pf.createDiv({ cls: "ad-hint", text: CLAUDE_PERMISSIONS.find((x) => x.id === this.permission)?.hint || "" });
-    } else {
+    } else if (this.agent === "dsh") {
       const af = contentEl.createDiv({ cls: "ad-field" });
       const row = af.createDiv({ cls: "ad-minirow" });
       row.createSpan({ text: "Auto-approve tool calls" });
@@ -8153,8 +9041,58 @@ function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 120, sys
       if (d.is_error) return reject(new Error(String(d.result || "claude \u8FD4\u56DE\u9519\u8BEF").slice(0, 300)));
       resolve(String(d.result || ""));
     });
+    child.stdin.on("error", () => {
+    });
     child.stdin.end(prompt);
   });
+}
+async function runCodex(prompt, { bin = "codex", model = "", effort = "low", timeout = 120 } = {}) {
+  const dir = import_fs4.default.mkdtempSync(import_path4.default.join(import_os4.default.tmpdir(), "agent-deck-codex-"));
+  const output = import_path4.default.join(dir, "answer.txt");
+  try {
+    return await new Promise((resolve, reject) => {
+      const args = ["exec", "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never", "--disable", "shell_tool", "-c", 'web_search="disabled"', "-c", "features.multi_agent=false", "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--output-last-message", output];
+      if (model) args.push("--model", model);
+      args.push("-");
+      const env = { ...process.env, PATH: [import_path4.default.join(home4(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", process.env.PATH || ""].join(":") };
+      const child = (0, import_child_process4.spawn)(bin, args, { cwd: dir, env, stdio: ["pipe", "ignore", "pipe"] });
+      let err2 = "";
+      child.stderr.on("data", (d) => {
+        err2 = (err2 + d).slice(-2e3);
+      });
+      const timer = setTimeout(() => {
+        child.kill();
+        reject(new Error(`codex \u7B49\u4E86 ${timeout} \u79D2\u6CA1\u56DE\u6765`));
+      }, timeout * 1e3);
+      child.on("error", (e) => {
+        clearTimeout(timer);
+        reject(new Error(`\u542F\u52A8 codex \u5931\u8D25\uFF1A${e.message}`));
+      });
+      child.stdin.on("error", () => {
+      });
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        if (code !== 0) return reject(new Error((err2 || `codex \u9000\u51FA\u7801 ${code}`).trim().slice(-500)));
+        try {
+          const answer = import_fs4.default.readFileSync(output, "utf8").trim();
+          if (!answer) throw new Error("codex \u6CA1\u6709\u8FD4\u56DE\u6587\u5B57");
+          resolve(answer);
+        } catch (e) {
+          reject(e);
+        }
+      });
+      child.stdin.end("\u4EC5\u6574\u7406\u4E0B\u5217\u6587\u5B57\uFF0C\u76F4\u63A5\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8C03\u7528\u5DE5\u5177\u3002\n\n" + prompt);
+    });
+  } finally {
+    import_fs4.default.rmSync(dir, { recursive: true, force: true });
+  }
+}
+function runJournalModel(prompt, cfg, { polish = false } = {}) {
+  const codex = cfg.autoLogProvider === "codex";
+  const model = polish && String(cfg.roundPolishModel || "").trim() || cfg.autoLogModel || (codex ? "" : "haiku");
+  const timeout = polish ? Math.max(5, Number(cfg.roundPolishTimeout) || 30) : Math.max(10, Number(cfg.autoLogTimeout) || 120);
+  if (codex) return runCodex(prompt, { bin: cfg.autoLogPath || cfg.delegate?.codex?.path || "codex", model, effort: cfg.autoLogEffort || "low", timeout });
+  return runClaude(prompt, { bin: cfg.autoLogPath || cfg.delegate?.claude?.path || "claude", model, timeout, system: polish ? "\u4F60\u662F\u6574\u7406\u52A9\u624B\uFF0C\u6309\u8981\u6C42\u53EA\u8F93\u51FA\u4E00\u53E5\u8BDD\u3002" : "" });
 }
 function safeLabel(s, max = 40) {
   const t = String(s || "").replace(/[\r\n←`*=~[\]|]/g, " ").replace(/^\s*(?:[-*+]\s+)?(?:TODO|DOING|DONE|SUSPENDED|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+/i, "").replace(/(\d)[:：](\d)/g, "$1.$2").replace(/\s+/g, " ").replace(/[。；;，,\s]+$/, "").trim();
@@ -8164,11 +9102,13 @@ function safeLabel(s, max = 40) {
 
 // src/autolog.js
 var agentName = (id) => AGENTS[id]?.short || id;
+var num = (v, d) => Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d;
 var AutoLog = class {
   constructor(plugin) {
     this.p = plugin;
     this._busy = false;
-    this._at = Date.now();
+    this._born = Date.now();
+    this._at = 0;
     this._err = "";
   }
   get cfg() {
@@ -8176,6 +9116,15 @@ var AutoLog = class {
   }
   get usage() {
     return this.p.usage;
+  }
+  get minMinutes() {
+    return Math.max(0, num(this.cfg.autoLogMinMinutes, 3));
+  }
+  get batch() {
+    return Math.max(1, Math.round(num(this.cfg.autoLogBatch, 8)));
+  }
+  agentOn(id) {
+    return AGENT_ORDER.includes(id) && (this.cfg.autoLogAgents || {})[id] !== false;
   }
   dayKey() {
     return dayKeyToday(this.cfg);
@@ -8256,32 +9205,40 @@ ${blockLines.join("\n")}
     }
     return false;
   }
-  // 这一行现在改写成什么状态
+  // 这一行现在改写成什么状态（通过 ^blockId + sid + key 追踪，保留/补齐 ^xxxxx 块 ID）
   autoLine(text, rec, x, status) {
-    const found = findTask(text, rec.key);
+    const sid = x && x.sid || "";
+    const found = findTask(text, rec.key, rec.blockId || "", sid);
     const segs = x && x.segs || [];
     const first = segs.length ? segs[0][0] : 0;
     const last = segs.length ? segs[segs.length - 1][1] : first;
+    const preferId = found && found.blockId || rec.blockId || makeBlockId(sid || rec.key);
     const done = (body2) => `DONE ${x ? clock(last) + " " : ""}${body2}`;
     if (!found) {
       if (!rec.fresh) return { text, gone: true };
-      const line = status === "doing" ? `- DOING ${clock(first)} ${rec.label}` : status === "done" ? `- ${done(rec.label)}` : `- PAUSED ${rec.label}`;
-      return { text: this.placeBlock(text, [line]) };
+      const rawLine = status === "doing" ? `- DOING ${clock(first)} ${rec.label}` : status === "done" ? `- ${done(rec.label)}` : `- PAUSED ${rec.label}`;
+      const eb2 = ensureBlockId(rawLine, preferId);
+      rec.blockId = eb2.blockId;
+      return { text: this.placeBlock(text, [eb2.line]) };
     }
     const lines = text.split("\n");
     const raw = lines[found.line];
     const p = splitTask(raw);
     if (!p) return { text };
-    const body = rec.created ? rec.label : p.rest.replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
+    const cleanRest = stripBlockId(p.rest).replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
+    const body = rec.created ? stripBlockId(rec.label) : cleanRest;
     const since = rec.created ? clock(first) : segs.length ? clock(first) : p.since || clock(first);
-    const next = status === "doing" ? `${p.prefix}DOING ${since} ${body}`.trimEnd() : status === "done" ? (p.prefix + done(body)).trimEnd() : `${p.prefix}PAUSED ${body}`.trimEnd();
-    if (next === raw) return { text };
-    lines[found.line] = next;
+    const nextRaw = status === "doing" ? `${p.prefix}DOING ${since} ${body}`.trimEnd() : status === "done" ? (p.prefix + done(body)).trimEnd() : `${p.prefix}PAUSED ${body}`.trimEnd();
+    const eb = ensureBlockId(nextRaw, preferId);
+    rec.blockId = eb.blockId;
+    rec.key = workKey(body);
+    if (eb.line === raw) return { text };
+    lines[found.line] = eb.line;
     return { text: lines.join("\n") };
   }
   // 实际时段写在那一行下面第一个 ⏱ 子项里；绑着的会话不用再留 🔗 行，会话号写进 ⏱ 末尾
-  autoClock(text, key, segs, who, tok = 0, sid = "") {
-    const found = findTask(text, key);
+  autoClock(text, key, segs, who, tok = 0, sid = "", blockId = "") {
+    const found = findTask(text, key, blockId, sid);
     if (!found || !segs.length) return text;
     const lines = text.split("\n");
     const at = found.line;
@@ -8294,7 +9251,7 @@ ${blockLines.join("\n")}
     for (let i = at + 1; i < lines.length; i++) {
       if (lines[i].trim() && width(lines[i]) <= base) break;
       if (CLOCK_RE.test(lines[i])) {
-        if (lines[i] === line) return text;
+        if (lines[i] === line) return lines.join("\n");
         lines[i] = line;
         return lines.join("\n");
       }
@@ -8302,7 +9259,7 @@ ${blockLines.join("\n")}
     lines.splice(at + 1, 0, line);
     return lines.join("\n");
   }
-  // 让本机的小模型看一眼这几个会话：起名字、对上日记里哪一行
+  // 让本机的小模型看一眼这几个会话：起名字、对上日记里哪一行、提炼一句话结论
   async ask(items, open, fallback = false) {
     const blocks = items.map(({ x, active }, i) => {
       const meta = this.usage.meta.get(x.sid) || {};
@@ -8323,9 +9280,10 @@ ${blockLines.join("\n")}
       blocks.join("\n\n"),
       "",
       "\u53EA\u8F93\u51FA\u4E00\u4E2A JSON \u6570\u7EC4\uFF0C\u6BCF\u4E2A\u4F1A\u8BDD\u4E00\u9879\uFF0C\u4E0D\u8981\u89E3\u91CA\u3001\u4E0D\u8981\u4EE3\u7801\u5757\uFF1A",
-      '[{"id":"s1","label":"\u2026","match":null,"done":false,"todos":[],"skip":false}]',
+      '[{"id":"s1","label":"\u2026","summary":"\u2026","match":null,"done":false,"todos":[],"skip":false}]',
       "\u5B57\u6BB5\uFF1A",
       "- label\uFF1A\u8FD9\u4EF6\u4E8B\u662F\u4EC0\u4E48\uFF0C\u4E0D\u8D85\u8FC7 20 \u4E2A\u5B57\u7684\u4E2D\u6587\u77ED\u8BED\uFF08\u52A8\u8BCD\u5F00\u5934\uFF09\uFF0C\u4E0D\u8981\u5E26\u65F6\u95F4\u3001\u65F6\u957F\u3001\u72B6\u6001\u8BCD\u548C\u6807\u70B9\u7ED3\u5C3E\u3002",
+      "- summary\uFF1A\u5F53\u524D\u6700\u65B0\u4E00\u8F6E\u5BF9\u8BDD\u7684\u4E00\u53E5\u8BDD\u7ED3\u8BBA\uFF08\u4E0D\u8D85\u8FC7 35 \u4E2A\u5B57\uFF09\uFF0C\u6982\u62EC AI \u521A\u505A\u5B8C\u6216\u5F97\u51FA\u7684\u7ED3\u8BBA\uFF1B\u6CA1\u6709\u56DE\u590D\u5219\u586B\u7A7A\u5B57\u7B26\u4E32\u3002",
       "- match\uFF1A\u53EA\u6709\u5F53\u4E0A\u9762\u67D0\u4E00\u884C\u5199\u7684\u5C31\u662F\u300C\u8FD9\u4E2A\u4F1A\u8BDD\u91CC AI \u5728\u66FF\u7528\u6237\u505A\u7684\u90A3\u4EF6\u5DE5\u4F5C\u672C\u8EAB\u300D\u65F6\uFF0C\u624D\u586B\u90A3\u4E00\u884C\u7684\u7F16\u53F7\u3002\u90A3\u4E00\u884C\u5982\u679C\u662F\u7559\u7ED9\u7528\u6237\u672C\u4EBA\u7684\u52A8\u4F5C\uFF08\u770B\u4E00\u773C\u3001\u770B\u6548\u679C\u3001\u786E\u8BA4\u3001\u62CD\u677F\u3001\u81EA\u5DF1\u8DD1\u547D\u4EE4\u3001\u53D1\u51FA\u53BB\u3001\u9605\u8BFB\u4E4B\u7C7B\uFF09\uFF0C\u54EA\u6015\u8BDD\u9898\u4E00\u6837\u4E5F\u4E0D\u80FD\u5339\u914D\uFF0C\u586B null\u3002\u62FF\u4E0D\u51C6\u4E00\u5F8B\u586B null\u3002",
       "- done\uFF1A\u53EA\u5BF9\u5DF2\u7ECF\u505C\u4E86\u7684\u4F1A\u8BDD\u6709\u610F\u4E49\u3002\u6700\u540E\u7684\u56DE\u590D\u660E\u786E\u8868\u660E\u8FD9\u4EF6\u4E8B\u6574\u4E2A\u505A\u5B8C\u4E86\uFF0C\u586B true\uFF1B\u505A\u5230\u4E00\u534A\u3001\u8FD8\u5728\u7B49\u7528\u6237\u3001\u62A5\u9519\u6CA1\u89E3\u51B3\u3001\u8BF4\u4E86\u4EE5\u540E\u518D\u7EE7\u7EED\uFF0C\u90FD\u586B false\u3002",
       "- todos\uFF1A\u53EA\u5728\u4F1A\u8BDD\u5DF2\u7ECF\u505C\u4E86\u65F6\u586B\u3002\u56DE\u590D\u91CC\u660E\u786E\u8BF4\u4E86\u8981\u7528\u6237\u672C\u4EBA\u53BB\u505A\u6216\u62CD\u677F\u7684\u4E8B\uFF0C\u6BCF\u6761\u4E0D\u8D85\u8FC7 30 \u4E2A\u5B57\uFF0C\u6700\u591A 1 \u6761\uFF0C\u53EA\u5217\u4E0D\u505A\u5C31\u5361\u4F4F\u7684\u90A3\u4E00\u4EF6\uFF1B\u6CA1\u6709\u5C31\u662F\u7A7A\u6570\u7EC4\u3002\u4E0A\u9762\u4EFB\u52A1\u884C\u91CC\u5DF2\u7ECF\u6709\u610F\u601D\u76F8\u540C\u7684\u5C31\u4E0D\u8981\u518D\u5217\u3002",
@@ -8334,12 +9292,14 @@ ${blockLines.join("\n")}
     const out = /* @__PURE__ */ new Map();
     let raw = "";
     try {
-      raw = await runClaude(prompt, { bin: findClaudeBinary(this.cfg.autoLogPath || this.cfg.delegate?.claude?.path || ""), model: this.cfg.autoLogModel || "haiku" });
+      raw = await runJournalModel(prompt, this.cfg);
     } catch (e) {
       this._err = String(e.message || e);
       if (fallback) for (const { x } of items) {
+        const meta = this.usage.meta.get(x.sid) || {};
         const label = safeLabel(x.title || (x.text || "").split(" / ")[0]);
-        if (label) out.set(x.sid, { label, matchKey: null, done: false, todos: [], skip: false });
+        const summary = oneSentenceConclusion(meta.lastText || "", 80);
+        if (label) out.set(x.sid, { label, summary, matchKey: null, done: false, todos: [], skip: false });
       }
       return out;
     }
@@ -8348,10 +9308,13 @@ ${blockLines.join("\n")}
       for (const a of arr) {
         const sid = items[Number(String(a.id).replace(/^s/, "")) - 1]?.x.sid;
         if (!sid) continue;
+        const meta = this.usage.meta.get(sid) || {};
         const label = safeLabel(a.label);
+        const summary = safeLabel(a.summary || "", 60) || oneSentenceConclusion(meta.lastText || "", 80);
         const m = Number.isInteger(a.match) && open[a.match - 1] ? open[a.match - 1] : null;
         out.set(sid, {
           label,
+          summary,
           matchKey: m ? workKey(m.label) : null,
           done: a.done === true,
           todos: (Array.isArray(a.todos) ? a.todos : []).map((t) => safeLabel(t, 50)).filter(Boolean).slice(0, 1),
@@ -8362,8 +9325,10 @@ ${blockLines.join("\n")}
     } catch (e) {
       this._err = "\u6A21\u578B\u56DE\u7684\u4E0D\u662F JSON";
       if (fallback) for (const { x } of items) {
+        const meta = this.usage.meta.get(x.sid) || {};
         const label = safeLabel(x.title || (x.text || "").split(" / ")[0]);
-        if (label) out.set(x.sid, { label, matchKey: null, done: false, todos: [], skip: false });
+        const summary = oneSentenceConclusion(meta.lastText || "", 80);
+        if (label) out.set(x.sid, { label, summary, matchKey: null, done: false, todos: [], skip: false });
       }
     }
     return out;
@@ -8397,19 +9362,19 @@ ${blockLines.join("\n")}
       const todo = [], live = [];
       for (const x of data.list) {
         if (!x.segs || !x.segs.length) continue;
-        if (!AGENT_ORDER.includes(x.agent)) continue;
+        if (!this.agentOn(x.agent)) continue;
         if (linked.has(x.sid)) continue;
         const last = x.segs[x.segs.length - 1][1];
         const active = now - last <= idle;
         const rec = st[x.sid];
         if (rec && (rec.skip || rec.gone)) continue;
         if (!rec) {
-          if (x.min < 3 && !arch.has(x.sid)) continue;
+          if (x.min < this.minMinutes && !arch.has(x.sid)) continue;
           todo.push({ x, active, fresh: true });
         } else if (rec.status === "doing" && !active && !rec.asked && !arch.has(x.sid)) todo.push({ x, active, rec });
         else live.push({ x, active, rec });
       }
-      const ask = todo.slice(0, 8);
+      const ask = todo.slice(0, this.batch);
       let ans = /* @__PURE__ */ new Map();
       if (ask.length) {
         const open = openTasks(base).filter((i) => !this.hasChildren(base, i.line)).slice(0, 60);
@@ -8422,7 +9387,7 @@ ${blockLines.join("\n")}
       const digest = { doing: [], paused: [], done: [], archived: [], todo: [] };
       const clocks = /* @__PURE__ */ new Set();
       const work = (_b = (_a = this.cfg).workLog || (_a.workLog = {}))[day] || (_b[day] = {});
-      for (const { x, active, fresh } of [...ask, ...todo.slice(8), ...live]) {
+      for (const { x, active, fresh } of [...ask, ...todo.slice(this.batch), ...live]) {
         const a = ans.get(x.sid);
         const last = x.segs[x.segs.length - 1][1];
         let rec = st[x.sid];
@@ -8439,16 +9404,21 @@ ${blockLines.join("\n")}
             continue;
           }
           const label = m ? m.body : AUTO_MARK + a.label;
-          rec = st[x.sid] = { key: workKey(label), label, created: !m, agent: x.agent, status: m ? m.state : null, fresh: !m };
+          const blockId = m && m.blockId || makeBlockId(x.sid);
+          rec = st[x.sid] = { key: workKey(label), label, blockId, created: !m, agent: x.agent, status: m ? m.state : null, fresh: !m };
         }
         rec.min = x.min;
         if (a) rec.asked = !active;
         if (active) delete rec.asked;
-        const found = findTask(text, rec.key);
+        const found = findTask(text, rec.key, rec.blockId || "", x.sid);
         if (!found && !rec.fresh) {
           rec.gone = true;
           report.changes.push(`\u4E0D\u518D\u7BA1\uFF1A${rec.label}\uFF08\u8FD9\u4E00\u884C\u6CA1\u4E86\uFF09`);
           continue;
+        }
+        if (found) {
+          if (found.blockId) rec.blockId = found.blockId;
+          rec.key = found.key;
         }
         const cur = found ? found.state : null;
         if (cur === "done") {
@@ -8473,9 +9443,7 @@ ${blockLines.join("\n")}
           clocks.add(rec.key);
           digest.archived.push(`${name}\uFF08${x.min}m\uFF09`);
           report.changes.push(`DONE\uFF08\u5DF2\u5F52\u6863\uFF09\uFF1A${rec.label}\uFF08${x.min}m\uFF09`);
-          continue;
-        }
-        if (active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
+        } else if (active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
           text = this.autoLine(text, rec, x, "doing").text;
           rec.status = "doing";
           delete rec.parkedAt;
@@ -8498,29 +9466,47 @@ ${blockLines.join("\n")}
           digest.done.push(`${name}\uFF08${x.min}m\uFF09`);
           report.changes.push(`\u770B\u7740\u505A\u5B8C\u4E86\uFF1A${rec.label}`);
         }
-        if (a && !active && a.todos.length && !rec.todosAdded) {
-          const have = taskItems(text).map((i) => i.key);
-          for (const t of a.todos) {
-            if (have.some((k) => k.includes(t))) continue;
-            text = this.placeBlock(text, [`- TODO ${AUTO_MARK}${t}`]);
-            digest.todo.push(t);
-            report.changes.push(`TODO\uFF1A${t}`);
+        const meta = this.usage.meta.get(x.sid) || {};
+        const rounds = Array.isArray(meta.rounds) ? meta.rounds : [];
+        const rawSummary = a && a.summary || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? oneSentenceConclusion(meta.lastText, 90) : "");
+        if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
+        const pendingTodos = a && !active && Array.isArray(a.todos) && !rec.todosAdded ? a.todos : [];
+        const taskTodo = x.agent === "claude" ? meta.todo || null : null;
+        if (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo) {
+          const synced = syncSessionEntry(text, {
+            sid: x.sid,
+            blockId: rec.blockId || "",
+            key: rec.key,
+            said: rawSummary,
+            rounds: !active || meta.state === "wait" || meta.state === "quiet" ? rounds : rounds.slice(0, -1),
+            todos: pendingTodos,
+            taskTodo,
+            ensureId: true
+          });
+          text = synced.text;
+          if (synced.blockId) rec.blockId = synced.blockId;
+          if (pendingTodos.length) {
+            for (const t of pendingTodos) {
+              digest.todo.push(t);
+              report.changes.push(`\u5F85\u62CD\u677F\uFF08\u6302\u5728 ${name} \u4E0B\uFF09\uFF1A${t}`);
+            }
+            rec.todosAdded = true;
           }
-          rec.todosAdded = true;
         }
       }
-      const byKey = /* @__PURE__ */ new Map(), who = /* @__PURE__ */ new Map(), toks = /* @__PURE__ */ new Map(), sids = /* @__PURE__ */ new Map();
+      const byKey = /* @__PURE__ */ new Map(), who = /* @__PURE__ */ new Map(), toks = /* @__PURE__ */ new Map(), sids = /* @__PURE__ */ new Map(), blockIds = /* @__PURE__ */ new Map();
       for (const x of data.list) {
         const rec = st[x.sid];
         if (!rec || rec.skip || rec.gone || !rec.key) continue;
+        if (rec.blockId && !blockIds.has(rec.key)) blockIds.set(rec.key, rec.blockId);
         toks.set(rec.key, (toks.get(rec.key) || 0) + (x.out || 0) + (x.fresh || 0));
-        (sids.get(rec.key) || sids.set(rec.key, []).get(rec.key)).push(x.agent === "claude" ? x.sid : "");
+        (sids.get(rec.key) || sids.set(rec.key, []).get(rec.key)).push(x.sid);
         (byKey.get(rec.key) || byKey.set(rec.key, []).get(rec.key)).push(...x.segs);
         (who.get(rec.key) || who.set(rec.key, /* @__PURE__ */ new Set()).get(rec.key)).add(agentName(x.agent));
       }
       const merged = /* @__PURE__ */ new Map();
       for (const [k, segs] of byKey) merged.set(k, unionSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
-      for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "");
+      for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "", blockIds.get(k) || "");
       report.diff = diffLines(base, text);
       if (dry) {
         this.cfg.autoLogState[day] = JSON.parse(snap);
@@ -8563,7 +9549,7 @@ ${blockLines.join("\n")}
       const before = new Map(hits.map(([sid, rec]) => [sid, { status: rec.status, autoPaused: rec.autoPaused, gone: rec.gone }]));
       const list = (this.usage.summary(day) || {}).list || [];
       for (const [sid, rec] of hits) {
-        const found = findTask(text, rec.key);
+        const found = findTask(text, rec.key, rec.blockId || "", sid);
         if (!found) {
           rec.gone = true;
           continue;
@@ -8575,7 +9561,7 @@ ${blockLines.join("\n")}
         }
         const x = list.find((s) => s.sid === sid && s.segs && s.segs.length) || null;
         text = this.autoLine(text, rec, x, "done").text;
-        if (x) text = this.autoClock(text, rec.key, x.segs, agentName(x.agent), (x.out || 0) + (x.fresh || 0), x.agent === "claude" ? x.sid : "");
+        if (x) text = this.autoClock(text, rec.key, x.segs, agentName(x.agent), (x.out || 0) + (x.fresh || 0), x.sid, rec.blockId || "");
         rec.status = "done";
         delete rec.autoPaused;
         out.push(rec.label);
@@ -8609,7 +9595,7 @@ ${list.map((s) => "\xB7 " + s).join("\n")}` : "";
     new import_obsidian5.Notice(`\u{1F916} \u6574\u7406\u4E86\u65E5\u8BB0
 ${parts.join("\n\n")}`, 9e3);
   }
-  // 手动整理：一轮最多问 8 个，接着问到问完
+  // 手动整理：一轮最多问 autoLogBatch 个，接着问到问完
   async logNow() {
     const changes = [];
     let error = "";
@@ -8617,22 +9603,25 @@ ${parts.join("\n\n")}`, 9e3);
       const r = await this.run({ fallback: true });
       changes.push(...r.changes);
       error = r.error || "";
-      if (error || r.asked < 8) break;
+      if (error || r.asked < this.batch) break;
     }
     this._at = Date.now();
     const msg = error && !changes.length ? `\u6CA1\u6574\u7406\u6210\uFF1A${error}` : changes.length ? `\u6574\u7406\u8FDB\u65E5\u8BB0\u4E86\uFF1A
 ${changes.join("\n")}${error ? `
-\uFF08\u6A21\u578B\u6CA1\u95EE\u5230\uFF0C\u65B0\u4F1A\u8BDD\u5148\u7528\u5B83\u81EA\u5DF1\u7684\u6807\u9898\u8BB0\u7684\uFF1A${error}\uFF09` : ""}` : "\u6CA1\u6709\u8981\u6539\u7684\uFF1A\u4F1A\u8BDD\u90FD\u5DF2\u7ECF\u8BB0\u8FC7\u4E86\uFF0C\u6216\u8005\u8FD8\u592A\u77ED\uFF08\u4E0D\u5230 3 \u5206\u949F\uFF09";
+\uFF08\u6A21\u578B\u6CA1\u95EE\u5230\uFF0C\u65B0\u4F1A\u8BDD\u5148\u7528\u5B83\u81EA\u5DF1\u7684\u6807\u9898\u8BB0\u7684\uFF1A${error}\uFF09` : ""}` : `\u6CA1\u6709\u8981\u6539\u7684\uFF1A\u4F1A\u8BDD\u90FD\u5DF2\u7ECF\u8BB0\u8FC7\u4E86\uFF0C\u6216\u8005\u8FD8\u592A\u77ED\uFF08\u4E0D\u5230 ${this.minMinutes} \u5206\u949F\uFF09`;
     new import_obsidian5.Notice(msg, 9e3);
     this.p.refreshUI();
     return { changes, error };
   }
+  // 每分钟看一眼：启动后先等 autoLogStartDelay 分钟整理一次，之后每 autoLogEvery 分钟一次
   tick() {
     if (!this.cfg.autoLog) return;
-    if (Date.now() - this._at < Math.max(5, this.cfg.autoLogEvery || 20) * 6e4) return;
+    const wait = this._at ? Math.max(5, num(this.cfg.autoLogEvery, 20)) : Math.max(1, num(this.cfg.autoLogStartDelay, 1));
+    if (Date.now() - (this._at || this._born) < wait * 6e4) return;
     this._at = Date.now();
+    const fallback = this.cfg.autoLogFallback !== false;
     this.p.scanNow(false).catch(() => {
-    }).then(() => this.run().catch((e) => console.error("[agent-deck] autolog", e)));
+    }).then(() => this.run({ fallback }).catch((e) => console.error("[agent-deck] autolog", e)));
   }
 };
 
@@ -8644,6 +9633,7 @@ var JournalSync = class {
     this.p = plugin;
     this._busy = false;
     this._at = 0;
+    this._refining = /* @__PURE__ */ new Set();
   }
   get usage() {
     return this.p.usage;
@@ -8664,14 +9654,15 @@ var JournalSync = class {
     const x = this.dayList().find((s) => s.sid === sid);
     return x ? { segs: x.segs || [], out: x.out || 0, fresh: x.fresh || 0, agent: x.agent } : null;
   }
-  // 开着的笔记里所有带 🔗 的编辑器
+  // 开着的笔记里所有带 🔗 或 ^ad- 块 ID 的编辑器
   openViews() {
     const out = [];
     this.p.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
       if (v instanceof import_obsidian6.MarkdownView && v.file && v.editor && v.editor.cm) {
         try {
-          if (v.editor.cm.state.doc.toString().includes("\u{1F517}")) out.push(v);
+          const doc = v.editor.cm.state.doc.toString();
+          if (doc.includes("\u{1F517}") || /\s\^ad-[0-9a-z]{6}/i.test(doc)) out.push(v);
         } catch {
         }
       }
@@ -8741,22 +9732,78 @@ var JournalSync = class {
       this._busy = false;
     }
   }
-  // 答完一轮或者归档了：把会话最后说的话写成 💬
+  // 后台调本机小模型把一轮回复润色成精炼的一句话结论（混合模式：先用本地规则写回，润色好后再替换）
+  queueRefineTurn(sid, roundObj, rawSaid) {
+    if (this.cfg.roundPolish === false) return;
+    if (!roundObj || roundObj.summary || roundObj._asked || !rawSaid || rawSaid.length < 40) return;
+    const key = `${sid}:${roundObj.n || 1}:${rawSaid.length}`;
+    if (this._refining.has(key)) return;
+    roundObj._asked = true;
+    this._refining.add(key);
+    const prompt = [
+      "\u628A\u4E0B\u9762 AI \u52A9\u624B\u8FD9\u4E00\u8F6E\u7684\u56DE\u590D\u63D0\u70BC\u6210\u4E00\u53E5\u8BDD\u7ED3\u8BBA\uFF08\u4E0D\u8D85\u8FC7 40 \u4E2A\u5B57\uFF0C\u76F4\u63A5\u5199\u7ED3\u8BBA\u672C\u8EAB\uFF0C\u4E0D\u8981\u524D\u7F00\u3001\u4E0D\u8981\u5F15\u53F7\u3001\u4E0D\u8981\u4EE3\u7801\u5757\uFF09\uFF1A",
+      "",
+      String(rawSaid).slice(-900)
+    ].join("\n");
+    runJournalModel(prompt, this.cfg, { polish: true }).then((res) => {
+      const clean = oneSentenceConclusion(safeLabel(res, 65) || res, 80);
+      if (clean && clean.length >= 4) {
+        roundObj.summary = clean;
+        this.run({ force: true }).catch(() => {
+        });
+      }
+    }).catch(() => {
+    }).finally(() => {
+      this._refining.delete(key);
+    });
+  }
+  // 答完一轮或者归档了：把每轮的一句话结论 💬、多轮追问 ❓ 以及 TaskCreate 步骤 📋 写回同一个 ^xxxxx 任务条目下
   results(text) {
-    const seen = /* @__PURE__ */ new Set();
+    const targets = /* @__PURE__ */ new Map();
     for (const line of text.split("\n")) {
       const k = parseLink(line);
-      if (k && !seen.has(k.sid)) seen.add(k.sid);
+      if (k && !targets.has(k.sid)) targets.set(k.sid, { blockId: "", key: "" });
+    }
+    const daySt = this.cfg.autoLogState && this.cfg.autoLogState[dayKeyToday(this.cfg)] || {};
+    for (const [sid, rec] of Object.entries(daySt)) {
+      if (!rec || rec.skip || rec.gone) continue;
+      if (rec.blockId && text.includes(`^${rec.blockId}`) || rec.key && findTask(text, rec.key, rec.blockId, sid)) {
+        if (!targets.has(sid)) targets.set(sid, { blockId: rec.blockId || "", key: rec.key || "" });
+      }
     }
     let out = text;
-    for (const sid of seen) {
+    for (const [sid, info] of targets) {
       const m = this.usage.meta.get(sid);
       if (!m) continue;
       const waiting = m.state === "wait" || m.state === "quiet";
-      if (!waiting && !this.archived(sid)) continue;
+      const isDone = this.archived(sid);
+      const rounds = Array.isArray(m.rounds) ? m.rounds : [];
       const said = String(m.lastText || "").trim();
-      if (!said) continue;
-      out = resultInto(out, sid, resultText(said, this.cfg.resultMax || 200));
+      let summary = "";
+      if (waiting || isDone) {
+        if (rounds.length) {
+          const lastRound = rounds[rounds.length - 1];
+          if (lastRound && (lastRound.said || said)) {
+            this.queueRefineTurn(sid, lastRound, lastRound.said || said);
+            summary = lastRound.summary || oneSentenceConclusion(lastRound.said || said, this.cfg.resultMax || 90);
+          }
+        } else if (said) {
+          summary = oneSentenceConclusion(said, this.cfg.resultMax || 90);
+        }
+      }
+      const taskTodo = m.agent === "claude" ? m.todo || null : null;
+      if (!summary && !taskTodo && rounds.length <= 1) continue;
+      const synced = syncSessionEntry(out, {
+        sid,
+        blockId: info.blockId || daySt[sid] && daySt[sid].blockId || "",
+        key: info.key || daySt[sid] && daySt[sid].key || "",
+        said: summary,
+        rounds: waiting || isDone ? rounds : rounds.slice(0, -1),
+        taskTodo,
+        ensureId: true
+      });
+      out = synced.text;
+      if (synced.blockId && daySt[sid]) daySt[sid].blockId = synced.blockId;
     }
     return out;
   }
@@ -8790,7 +9837,36 @@ var JournalSync = class {
         out = ls.join("\n");
       }
     }
+    if (this.cfg.autoLogKw !== false) out = this.autoKeywords(out);
     return out;
+  }
+  // 自动记日记建的条目没有 🔗 行，靠 ^blockId / 名字认：也跟着会话在 DOING 和中间态之间切。
+  // 只动 DOING 和 TOREVIEW 这类中间态；PAUSED / DONE 归 AutoLog 管，你改成别的不碰；归档的交给 AutoLog 记 DONE。
+  // 同一行挂了几个会话：有一个在跑就是 DOING，否则取第一个停下来的状态
+  autoKeywords(text) {
+    const daySt = (this.cfg.autoLogState || {})[dayKeyToday(this.cfg)] || {};
+    const linked = linkMap(text);
+    const want = /* @__PURE__ */ new Map();
+    for (const [sid, rec] of Object.entries(daySt)) {
+      if (!rec || rec.skip || rec.gone || !rec.key || linked.has(sid) || this.archived(sid)) continue;
+      const m = this.usage.meta.get(sid);
+      if (!m) continue;
+      const found = findTask(text, rec.key, rec.blockId || "", sid);
+      if (!found || !(found.kw === "DOING" || AGENT_KW_RE.test(found.kw) && found.kw !== "DELEGATED")) continue;
+      const kw = m.state === "run" ? "DOING" : STATE_KW2[m.state];
+      if (!kw) continue;
+      if (kw === "DOING" || !want.has(found.line)) want.set(found.line, kw);
+    }
+    if (!want.size) return text;
+    const ls = text.split("\n");
+    let changed = false;
+    for (const [n, kw] of want) {
+      const p = splitTask(ls[n]);
+      if (!p || p.cb || !p.kw || p.kw === kw) continue;
+      ls[n] = `${p.prefix}${kw} ${p.since ? p.since + " " : ""}${p.rest}`.trimEnd();
+      changed = true;
+    }
+    return changed ? ls.join("\n") : text;
   }
   // 归档 = 做完：DONE + 实际时段，收掉 🔗 行
   finish(text, sid, linkAt) {
@@ -9155,6 +10231,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     this.addCommand({ id: "open-settings", name: "\u6253\u5F00 Agent Deck \u8BBE\u7F6E", callback: () => this.openSettings() });
     this.addCommand({ id: "open-models", name: "\u6253\u5F00 Agent Deck \u7684 Models \u8BBE\u7F6E", callback: () => this.openSettings("models") });
     this.addCommand({ id: "open-session-line", name: "\u6253\u5F00\u5149\u6807\u8FD9\u4E00\u884C\u7ED1\u5B9A\u7684\u4F1A\u8BDD", editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
+    this.addCommand({ id: "merge-task-line", name: "\u628A\u5F53\u524D\u4EFB\u52A1\u6761\u76EE\u4E0E\u7B14\u8BB0\u91CC\u53E6\u4E00\u6761\u7ED1\u5B9A/\u5408\u5E76", editorCallback: (editor, view) => this.openMergeTaskForEditor(editor, view) });
     this.addCommand({ id: "scan-now", name: "\u91CD\u65B0\u626B\u63CF\u672C\u673A Agent \u4F1A\u8BDD", callback: () => this.scanNow(true) });
     this.addCommand({ id: "log-journal", name: "\u6574\u7406 Agent \u4F1A\u8BDD\u8FDB\u4ECA\u5929\u7684\u65E5\u8BB0", callback: () => this.autoLog.logNow() });
     this.addCommand({ id: "import-nautilus", name: "\u5BFC\u5165\u87BA\u65CB\u65E5\u7A0B\u7684\u5386\u53F2\u7528\u91CF", callback: () => this.importNautilus(true) });
@@ -9410,11 +10487,10 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     return this.isPrimary(agent) || (this.settings.agents || {})[agent] !== false;
   }
   defaultTarget() {
-    return this.settings.delegate?.target === "dsh" ? "dsh" : "claude";
+    return ["claude", "codex", "dsh"].includes(this.settings.delegate?.target) ? this.settings.delegate.target : "claude";
   }
   defaultModel(agent) {
-    if (agent === "dsh") return this.settings.delegate?.dsh?.model || this.settings.models?.defaultByAgent?.dsh || "deepseek-v4-pro";
-    return this.settings.delegate?.claude?.model || this.settings.models?.defaultByAgent?.claude || "claude-opus-5-5";
+    return this.settings.delegate?.[agent]?.model || this.settings.models?.defaultByAgent?.[agent] || DEFAULTS.models.defaultByAgent[agent] || "";
   }
   async togglePrimary(agent) {
     var _a;
@@ -9538,11 +10614,28 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     const agent = job ? job.agent : meta && meta.agent || "claude";
     return openSession(this, agent, sessionId, job && job.app || meta && meta.app || "", meta);
   }
-  jobProgress(job) {
-    if (!job || !job.sessionId) return null;
-    const meta = this.usage.meta.get(job.sessionId);
+  sessionProgressText(session, job) {
+    const sid = session && session.sid || job && job.sessionId || "";
+    const meta = sid && this.usage.meta.get(sid) || session || {};
+    const agent = session && session.agent || job && job.agent || meta.agent || "claude";
+    if (agent === "claude") {
+      const todo = session && session.todo || meta.todo;
+      if (todo && todo.total > 0) {
+        return `${todo.done}/${todo.total}${todo.cur ? " \xB7 " + truncate(todo.cur, 20) : ""}`;
+      }
+    }
+    const turns = session && session.turns || meta.turns || 0;
+    if (turns > 0) return `\u7B2C ${turns} \u8F6E`;
+    return "";
+  }
+  jobProgress(job, session) {
+    const sid = job && job.sessionId || session && session.sid || "";
+    if (!sid) return null;
+    const meta = this.usage.meta.get(sid) || session;
+    const agent = job && job.agent || session && session.agent || meta && meta.agent || "claude";
+    if (agent !== "claude") return null;
     const todo = meta && meta.todo;
-    return todo && todo.total ? { done: todo.done, total: todo.total } : null;
+    return todo && todo.total ? { done: todo.done, total: todo.total, cur: todo.cur || "" } : null;
   }
   pillTitle(info) {
     if (!info) return "";
@@ -9554,6 +10647,8 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       if (job.step) parts.push(job.step);
       if (job.error) parts.push(job.error);
     }
+    const prog = this.sessionProgressText(s, job);
+    if (prog) parts.push(`\u8FDB\u5EA6\uFF1A${prog}`);
     if (s) {
       parts.push(s.title || s.step || s.sid);
       if (s.tokens) parts.push(`${fmtTok(s.tokens)} tok`);
@@ -9590,27 +10685,51 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       linkByLine.set(i, { ...parsed, parent });
       sessionByParent.set(parent, session);
     }
+    const daySt = this.settings.autoLogState && this.settings.autoLogState[dayKeyToday(this.settings)] || {};
+    const byBlockId = /* @__PURE__ */ new Map();
+    for (const [sid, rec] of Object.entries(daySt)) {
+      if (rec && rec.blockId && !rec.skip && !rec.gone) byBlockId.set(rec.blockId, sid);
+    }
+    if (byBlockId.size) {
+      for (let i = 0; i < lines.length; i++) {
+        if (sessionByParent.has(i)) continue;
+        const bid = blockIdOf(lines[i]);
+        const sid = bid && byBlockId.get(bid);
+        if (!sid) continue;
+        const meta = this.usage.meta.get(sid);
+        if (!meta) continue;
+        const live = this.usage.liveSessions({ since: Date.now() - 864e5, limit: 200 }).find((x) => x.sid === sid);
+        sessionByParent.set(i, { ...meta, ...live || {}, sid, agent: meta.agent || "claude" });
+      }
+    }
     const map = { doc, lines, sessionByParent, linkByLine };
     this._lineMaps[path6] = { doc, map };
     return map;
   }
   jobAtLine(path6, line, text) {
     const jobs = Object.values(this.jobs).filter((j) => j.path === path6);
+    const bid = blockIdOf(text);
     let best = null;
     for (const j of jobs) {
-      if (j.lineText === text || j.line === line && j.lineText === text) best = j;
+      if (bid && j.blockId === bid || j.lineText === text || j.line === line && j.lineText === text) best = j;
     }
     return best;
   }
   // ---------- drag and drop ----------
   // 一个会话绑到了日记里（拖拽、委派、归档收尾）：告诉自动记日记别再替它新写一行
-  markBound(sid) {
+  markBound(sid, blockId = "", key = "") {
     var _a, _b;
     if (!sid) return;
     const day = dayKeyToday(this.settings);
     const st = (_b = (_a = this.settings).autoLogState || (_a.autoLogState = {}))[day] || (_b[day] = {});
-    if (st[sid] && st[sid].bound) return;
-    st[sid] = { ...st[sid] || {}, skip: true, bound: true };
+    const prev = st[sid] || {};
+    st[sid] = {
+      ...prev,
+      skip: true,
+      bound: true,
+      ...blockId ? { blockId } : {},
+      ...key ? { key } : {}
+    };
     this.saveSettings().catch(() => {
     });
   }
@@ -9647,17 +10766,94 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       title: data.title || meta.title || (meta.text || "").split(" / ")[0] || sid.slice(0, 8),
       state: live && live.state || meta.state || "idle",
       since,
-      dropKey: rec && rec.created && rec.key ? rec.key : null
-    }, { below });
+      dropKey: rec && rec.created && rec.key ? rec.key : null,
+      blockId: rec && rec.blockId ? rec.blockId : ""
+    }, { below, ensureBlockId: true });
     if (res.error) return this.notice(res.error, 6e3);
     const change = diffLines(text, res.text);
     if (change) view.editor.transaction({ changes: [change] });
-    this.markBound(sid);
+    this.markBound(sid, res.blockId || "", res.line != null ? workKey(res.text.split("\n")[res.line] || "") : "");
     const a = AGENTS[data.agent] || AGENTS.claude;
-    this.notice(res.kind === "bind" ? `\u{1F517} \u5DF2\u7ED1\u5B9A\uFF1A${a.short} \u4F1A\u8BDD\u7684\u72B6\u6001\u3001\u{1F4AC}\u3001\u23F1 \u548C\u5F52\u6863\u90FD\u4F1A\u8DDF\u7740\u8FD9\u4E00\u9879\u8D70` : `\u{1F517} \u65B0\u5EFA\u4E86\u4E00\u9879\u5E76\u7ED1\u4E0A ${a.short} \u4F1A\u8BDD`, 5e3);
+    this.notice(res.kind === "bind" ? `\u{1F517} \u5DF2\u7ED1\u5B9A\uFF08^${res.blockId || ""}\uFF09\uFF1A${a.short} \u4F1A\u8BDD\u7684\u6BCF\u8F6E \u{1F4AC}\u3001\u2753\u3001\u23F1 \u548C\u72B6\u6001\u90FD\u4F1A\u8DDF\u7740\u8FD9\u4E00\u9879\u8D70` : `\u{1F517} \u65B0\u5EFA\u4E86\u4E00\u9879\u5E76\u7ED1\u4E0A ${a.short} \u4F1A\u8BDD`, 5e3);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {
     }), 300);
     this.refreshUI();
+  }
+  // 把笔记里的第 srcLine 条任务合并/绑定到第 dstLine 条任务上（不管是 🤖 自动记的还是人写的）
+  mergeTaskLines(cmOrView, srcLine, dstLine, srcLineText = "") {
+    let view = cmOrView instanceof import_obsidian7.MarkdownView ? cmOrView : null;
+    if (!view) {
+      this.app.workspace.iterateAllLeaves((leaf) => {
+        const v = leaf.view;
+        if (!view && v instanceof import_obsidian7.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
+      });
+    }
+    if (!view || !view.editor) return;
+    const text = view.editor.getValue();
+    const lines = text.split("\n");
+    let sLine = srcLine;
+    if (srcLineText && lines[sLine] !== srcLineText) {
+      const idx = lines.indexOf(srcLineText);
+      if (idx >= 0) sLine = idx;
+    }
+    const res = mergeTasks(text, sLine, dstLine);
+    if (res.error) return this.notice(res.error, 6e3);
+    const change = diffLines(text, res.text);
+    if (change) view.editor.transaction({ changes: [change] });
+    for (const daySt of Object.values(this.settings.autoLogState || {})) {
+      if (!daySt || typeof daySt !== "object") continue;
+      for (const rec of Object.values(daySt)) {
+        if (!rec || typeof rec !== "object") continue;
+        if (res.srcKey && rec.key === res.srcKey || res.srcBlockId && rec.blockId === res.srcBlockId || res.dstKey && rec.key === res.dstKey) {
+          rec.key = res.key;
+          rec.label = res.body;
+          rec.blockId = res.blockId;
+          rec.created = false;
+        }
+      }
+    }
+    const afterLines = res.text.split("\n");
+    for (const job of Object.values(this.jobs)) {
+      if (view.file && job.path === view.file.path && (job.line === sLine || job.line === dstLine || res.srcBlockId && job.blockId === res.srcBlockId)) {
+        job.line = res.line;
+        job.blockId = res.blockId;
+        job.lineText = afterLines[res.line] || job.lineText;
+      }
+    }
+    this.saveSettings().catch(() => {
+    });
+    this.notice(`\u{1F517} \u5DF2\u5408\u5E76\u6761\u76EE\uFF08^${res.blockId}\uFF09\uFF1A\u4F1A\u8BDD\u8BB0\u5F55\u4E0E\u7ED3\u8BBA\u5DF2\u5F52\u5165\u300C${truncate(res.body, 28)}\u300D`, 5e3);
+    setTimeout(() => this.journalSync.run({ force: true }).catch(() => {
+    }), 300);
+    this.refreshUI();
+  }
+  openMergeTaskForEditor(editor, view, event = null) {
+    if (!view || !view.file) return;
+    const line = editor.getCursor().line;
+    const lines = editor.getValue().split("\n");
+    let taskLine = line;
+    if (!kwLine(lines[taskLine])) {
+      const owner = markOwner(lines, taskLine);
+      if (owner >= 0 && kwLine(lines[owner])) taskLine = owner;
+      else return this.notice("\u5148\u628A\u5149\u6807\u653E\u5728\u4E00\u6761\u4EFB\u52A1\u884C\u4E0A");
+    }
+    const candidates = taskItems(lines.join("\n")).filter((t) => t.line !== taskLine);
+    if (!candidates.length) return this.notice("\u5F53\u524D\u7B14\u8BB0\u91CC\u6CA1\u6709\u522B\u7684\u4EFB\u52A1\u6761\u76EE\u53EF\u5408\u5E76");
+    const menu = new import_obsidian7.Menu();
+    for (const c of candidates.slice(0, 20)) {
+      menu.addItem((mi) => {
+        const tag = c.auto ? "\u{1F916} " : "";
+        mi.setTitle(`\u5408\u5E76\u5230\uFF1A${tag}${truncate(c.body.replace(/^🤖\s*/, ""), 36)}${c.blockId ? ` (^${c.blockId})` : ""}`);
+        mi.setIcon("git-merge");
+        mi.onClick(() => this.mergeTaskLines(view, taskLine, c.line, lines[taskLine]));
+      });
+    }
+    if (event) menu.showAtMouseEvent(event);
+    else {
+      const coords = editor.cm && editor.cm.coordsAtPos ? editor.cm.coordsAtPos(editor.posToOffset(editor.getCursor())) : null;
+      if (coords) menu.showAtPosition({ x: coords.left, y: coords.bottom });
+      else menu.showAtPosition({ x: window.innerWidth / 2, y: window.innerHeight / 3 });
+    }
   }
   // 编辑器里开始拖一项（把手或选中的文字）：记下来源，拖到 Agent 卡片上时用
   noteDragItem(src) {
@@ -9718,15 +10914,22 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     }
     this.refreshUI();
   }
-  // 把手单击：先确认，再把这一项连同子块发给主力（委派的默认目标）
+  // 把手单击：先确认，再把这一项连同子块发给主力（委派的默认目标）；如果是 🤖 自动记的或已绑定的行，则打开合并菜单
   async gripSend(item) {
     const t = await this.delegateTarget(item);
-    if (t.error) return this.notice(t.error);
+    if (t.error) {
+      const view = item && item.path ? this.viewForPath(item.path) : null;
+      if (view && (t.error.includes("Agent \u8BB0\u7684") || t.error.includes("\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD"))) {
+        view.editor.setCursor({ line: item.line, ch: 0 });
+        return this.openMergeTaskForEditor(view.editor, view);
+      }
+      return this.notice(t.error);
+    }
     const agent = this.defaultTarget();
-    const where = agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "\u540E\u53F0\u5F00\u8DD1 \xB7 \u7B54\u5B8C\u5728\u684C\u9762\u7248\u6253\u5F00" : "\u540E\u53F0\u65B0\u4F1A\u8BDD";
-    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where }, () => this.delegateDrop(agent, item)).open();
+    const where = agent === "codex" ? "\u7EC8\u7AEF\u65B0\u4F1A\u8BDD \xB7 \u4F7F\u7528\u9ED8\u8BA4\u6A21\u578B" : agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "\u540E\u53F0\u5F00\u8DD1 \xB7 \u7B54\u5B8C\u5728\u684C\u9762\u7248\u6253\u5F00" : "\u540E\u53F0\u65B0\u4F1A\u8BDD";
+    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where }, () => this.delegateDrop(agent, item, null, { cli: agent === "codex" })).open();
   }
-  // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样
+  // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样；同时提供「合并到已有条目」
   gripPick(item, e) {
     const main = this.defaultTarget();
     const menu = new import_obsidian7.Menu();
@@ -9737,6 +10940,21 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
         if (mi.iconEl) agentIcon(mi.iconEl, id);
         mi.onClick(() => this.delegateDrop(id, item));
       });
+    }
+    const view = item && item.path ? this.viewForPath(item.path) : null;
+    if (view) {
+      const candidates = taskItems(view.editor.getValue()).filter((c) => c.line !== item.line);
+      if (candidates.length) {
+        menu.addSeparator();
+        for (const c of candidates.slice(0, 10)) {
+          menu.addItem((mi) => {
+            const tag = c.auto ? "\u{1F916} " : "";
+            mi.setTitle(`\u5408\u5E76\u5230\uFF1A${tag}${truncate(c.body.replace(/^🤖\s*/, ""), 32)}`);
+            mi.setIcon("git-merge");
+            mi.onClick(() => this.mergeTaskLines(view, item.line, c.line, item.lineText));
+          });
+        }
+      }
     }
     menu.showAtMouseEvent(e);
   }
@@ -9808,8 +11026,10 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
       const a = AGENTS[agent];
       const state = isLive ? s.state || "idle" : "recent";
       const kw = menuKeyword(state);
-      const where = agent === "claude" ? s.app === "cli" ? "\u7EC8\u7AEF" : "\u684C\u9762\u7248" : agent === "codex" ? isCodexDesktop(s.app) ? "\u684C\u9762\u7248" : "CLI" : agent === "workbuddy" ? "\u684C\u9762\u7248" : "Harness";
+      const where = agent === "codex" ? "\u7EC8\u7AEF\u65B0\u4F1A\u8BDD \xB7 \u4F7F\u7528\u9ED8\u8BA4\u6A21\u578B" : agent === "claude" ? s.app === "cli" ? "\u7EC8\u7AEF" : "\u684C\u9762\u7248" : agent === "codex" ? isCodexDesktop(s.app) ? "\u684C\u9762\u7248" : "CLI" : agent === "workbuddy" ? "\u684C\u9762\u7248" : agent === "antigravity" ? "IDE" : "Harness";
       const url = sessionDeepLink(agent, s.sid);
+      const prog = this.sessionProgressText(s);
+      const stepStr = [prog, s.step ? truncate(s.step, 30) : ""].filter(Boolean).join(" \xB7 ");
       seen.add(s.sid);
       out.push({
         id: `${agent}:${s.sid}`,
@@ -9819,17 +11039,17 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
         color: a.color,
         glyph: a.glyph,
         title: (s.parentSid ? "\u21B3 " : "") + truncate(s.title || (s.text || "").split(" / ")[0] || s.step || s.sid, 64),
-        detail: `${a.short} ${where} \xB7 ${projectName(s.cwd)}${s.step ? " \xB7 " + truncate(s.step, 32) : ""}${s.sideChats ? " \xB7 side chat \xD7" + s.sideChats : ""} \xB7 ${timeAgo(s.lastAt)}`,
+        detail: `${a.short} ${where} \xB7 ${projectName(s.cwd)}${stepStr ? " \xB7 " + stepStr : ""}${s.sideChats ? " \xB7 side chat \xD7" + s.sideChats : ""} \xB7 ${timeAgo(s.lastAt)}`,
         project: projectName(s.cwd),
-        step: s.step ? truncate(s.step, 40) : "",
+        step: stepStr ? truncate(stepStr, 42) : "",
         ago: timeAgo(s.lastAt),
         keyword: kw.id,
         keywordLabel: kw.zh,
         state,
         stateLabel: menuStateLabel(state),
         primary: !!primary,
-        url: agent === "dsh" ? "dsh://open" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
-        copy: agent === "dsh" ? s.sid : agent === "codex" ? `codex resume ${s.sid}` : "",
+        url: agent === "dsh" ? "dsh://open" : agent === "antigravity" ? "antigravity://" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
+        copy: agent === "dsh" || agent === "antigravity" ? s.sid : agent === "codex" ? `codex resume ${s.sid}` : "",
         _at: s.lastAt || 0
       });
       return true;
@@ -10022,7 +11242,7 @@ var AgentDeckPlugin = class extends import_obsidian7.Plugin {
     await this.app.vault.process(file, () => text);
   }
   async checkBinary(kind) {
-    const bin = kind === "dsh" ? findDshBinary() : findClaudeBinary(this.settings.delegate?.claude?.path || "");
+    const bin = kind === "codex" ? this.settings.delegate?.codex?.path || "codex" : kind === "dsh" ? findDshBinary(this.settings.delegate?.dsh?.path || "") : findClaudeBinary(this.settings.delegate?.claude?.path || "");
     return await new Promise((resolve) => {
       (0, import_child_process5.execFile)(bin, ["--version"], { timeout: 1e4, env: process.env }, (err2, out, errOut) => {
         if (err2) resolve(`${kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A${String(err2.message || err2)}
@@ -10107,6 +11327,8 @@ function menuRank(state) {
   return { run: 0, "needs-approval": 1, wait: 2, quiet: 3, error: 4, limit: 4, recent: 5, done: 6, idle: 7 }[state] ?? 7;
 }
 function parseLinkLine(line) {
+  const parsed = parseLink(line);
+  if (parsed && parsed.sid) return parsed;
   let agent = "claude";
   let sid = "";
   let m = /claude:\/\/resume\?session=([0-9a-f-]{20,})/i.exec(line);
@@ -10121,15 +11343,16 @@ function parseLinkLine(line) {
     agent = "codex";
   } else if (m = /`(session-[0-9a-f-]{20,}|[0-9a-f]{8}-[0-9a-f-]{27})`/i.exec(line)) {
     sid = m[1];
-    agent = /dsh|deepseek|harness/i.test(line) ? "dsh" : "claude";
+    agent = /antigravity/i.test(line) ? "antigravity" : /dsh|deepseek|harness/i.test(line) ? "dsh" : "claude";
   } else if (m = /`([0-9a-f]{8}-[0-9a-f-]{27})`/i.exec(line)) {
     sid = m[1];
-    agent = "dsh";
+    agent = /antigravity/i.test(line) ? "antigravity" : "dsh";
   } else if (m = /codex\s+resume\s+([0-9a-f-]{20,})/i.exec(line)) {
     sid = m[1];
     agent = "codex";
   }
-  if (/DeepSeek Harness|DSH/i.test(line) && !/claude:\/\//i.test(line)) agent = "dsh";
+  if (/Antigravity/i.test(line)) agent = "antigravity";
+  else if (/DeepSeek Harness|DSH/i.test(line) && !/claude:\/\//i.test(line)) agent = "dsh";
   return { agent, sid };
 }
 module.exports = module.exports.default;

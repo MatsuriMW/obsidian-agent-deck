@@ -9,6 +9,7 @@ export const AGENT_ICONS = {
   codex: "square-terminal",
   workbuddy: "users",
   dsh: "brain-circuit",
+  antigravity: "sparkles",
 };
 
 export const STATE_ICONS = {
