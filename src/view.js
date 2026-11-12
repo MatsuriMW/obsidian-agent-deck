@@ -34,6 +34,8 @@ export class AgentDeckView extends ItemView {
   render() {
     // 正在拖「现在」里的卡片排序：重画会把拖着的卡片换掉，等松手再画
     if (this._dragSid) { this._pendingRender = true; return; }
+    // 搜索框里正在用输入法拼字：重画会把输入框换掉、打断拼字，等拼完再画
+    if (this._composing) { this._pendingRender = true; return; }
     const root = this.contentEl;
     this._scroll = root.scrollTop || this._scroll;
     const focused = document.activeElement;
@@ -62,6 +64,35 @@ export class AgentDeckView extends ItemView {
     const gear = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": "设置" } });
     setLucide(gear.createSpan({ cls: "ad-iconbtn__icon" }), "settings-2");
     gear.onclick = () => p.openSettings();
+    input.addEventListener("compositionstart", () => { this._composing = true; });
+    input.addEventListener("compositionend", () => {
+      this._composing = false;
+      this._pendingRender = false;
+      this.search = input.value;
+      this.render();
+    });
+    input.oninput = (e) => {
+      if (e.isComposing || this._composing) return;
+      const was = !!this.search.trim();
+      this.search = input.value;
+      // 有字和没字是两种版面（搜索结果 / 仪表盘），切换时整页重画；否则只刷结果列表
+      if (was !== !!this.search.trim() || !this._resultSec) this.render();
+      else this.renderSearch(this._resultSec);
+    };
+    input.onkeydown = (e) => { if (e.key === "Escape" && input.value) { e.preventDefault(); input.value = ""; this.search = ""; this.render(); } };
+
+    // 有搜索词时只显示搜索结果，放在搜索框正下方，范围是本机扫到的全部会话
+    this._resultSec = null;
+    if (this.search.trim()) {
+      const sec = dash.createDiv({ cls: "ad-sec ad-sec--search" });
+      sec._head = this.secHead(sec, "搜索结果");
+      sec._list = sec.createDiv({ cls: "ad-sessionlist" });
+      this._resultSec = sec;
+      this.renderSearch(sec);
+      root.scrollTop = 0;
+      if (searchWasFocused) { const i = root.querySelector(".ad-search__input"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+      return;
+    }
 
     // Hero：今天的数字 + 时间轴 + 花时间最多的项目
     const hero = dash.createDiv({ cls: "ad-hero" });
@@ -106,7 +137,6 @@ export class AgentDeckView extends ItemView {
       const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
       b.onclick = () => { this.filter = id; this.render(); };
     }
-    input.oninput = () => { this.search = input.value; this.renderSessions(recSec); };
     recSec._list = recSec.createDiv({ cls: "ad-sessionlist" });
     this.renderSessions(recSec);
 
@@ -176,12 +206,23 @@ export class AgentDeckView extends ItemView {
     if (this.filter === "live") rows = rows.filter((x) => x.state === "run");
     else if (this.filter === "wait") rows = rows.filter((x) => ["wait", "quiet"].includes(x.state));
     else if (AGENTS[this.filter]) rows = rows.filter((x) => x.agent === this.filter);
-    if (this.search.trim()) {
-      const q = this.search.toLowerCase();
-      rows = rows.filter((x) => `${x.title} ${x.cwd} ${x.text} ${x.step}`.toLowerCase().includes(q));
-    }
     if (!rows.length) return this.empty(list, "没有符合条件的会话");
     for (const s of rows) this.sessionCard(list, s, false);
+  }
+
+  // 搜索：空格分开的几个词都要命中（不分大小写），查标题、首条消息、项目路径、当前步骤、最近回复、模型、Agent 名和会话号
+  renderSearch(sec) {
+    const list = sec._list;
+    list.empty();
+    const words = this.search.toLowerCase().split(/\s+/).filter(Boolean);
+    const rows = this.plugin.recentSessions({ days: 3650, limit: 5000 }).filter((x) => {
+      const hay = [x.title, x.text, x.cwd, x.step, x.lastText, x.model, x.parentTitle, AGENTS[x.agent]?.name, x.agent, x.sid].filter(Boolean).join(" ").toLowerCase();
+      return words.every((w) => hay.includes(w));
+    });
+    const sub = sec._head.querySelector(".ad-sechead__sub") || sec._head.firstChild.createSpan({ cls: "ad-sechead__sub" });
+    sub.setText(rows.length > 100 ? `${rows.length} 个 · 显示最近 100 个` : `${rows.length} 个`);
+    if (!rows.length) return this.empty(list, "没有找到会话");
+    for (const s of rows.slice(0, 100)) this.sessionCard(list, s, false);
   }
 
   secHead(parent, title, sub, action) {

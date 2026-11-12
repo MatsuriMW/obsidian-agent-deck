@@ -9,7 +9,7 @@
 // 状态记在 settings.autoLogState：{ 日记日: { 会话号: { key, label, status, … } } }。
 
 import { Notice, MarkdownView } from "obsidian";
-import { AGENTS, AGENT_ORDER, dayKeyToday, startOfDay, unionSegs } from "./constants.js";
+import { AGENTS, AGENT_ORDER, dayKeyToday, startOfDay, unionSegs, journalPath } from "./constants.js";
 import * as J from "./journal.js";
 import { runJournalModel, safeLabel } from "./llm.js";
 
@@ -33,7 +33,7 @@ export class AutoLog {
 
   dayKey() { return dayKeyToday(this.cfg); }
   nowMin() { return (Date.now() - startOfDay(Date.now(), this.cfg)) / 60000; }
-  journalPath(day) { return `${this.cfg.journalFolder || "日记"}/${day}.md`; }
+  journalPath(day) { return journalPath(this.p.app, this.cfg, day); }
 
   journalFile(day) {
     const f = this.p.app.vault.getAbstractFileByPath(this.journalPath(day));

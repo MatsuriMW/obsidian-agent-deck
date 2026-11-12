@@ -2,7 +2,7 @@
 
 import { App, PluginSettingTab, Notice, Modal, Menu } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS, fmtTok, deepMerge,
+  AGENTS, AGENT_ORDER, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS, fmtTok, deepMerge, journalPath, detectJournalFormat,
 } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 
@@ -638,8 +638,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const jr = this.card(body, "自动记日记（人机共写）", "把 Agent 会话写回今天的日记：新会话记成 DOING，停了一阵改成 PAUSED 并把实际时段写在下面，桌面版或 Codex 里归档了记成 DONE。名字和「接在哪一行」可由本机 Claude 或 Codex CLI 整理。只改它自己记着的那几行，你手改过的状态不会被他掰回去。");
     const master = this.row(jr, "自动记录到日记（总开关）", "由 Agent Deck 负责。关闭后不再自动建项、续写结论或更新任务状态；会话追踪照常，仍可点“现在整理一次”手动整理。", null);
     this.toggle(master.querySelector(":scope > .ad-row__right"), s.journalAutoWrite !== false, (v) => { s.journalAutoWrite = v; p.saveSettings(); });
-    const jf = this.row(jr, "日记目录", "今天的日记是「目录/YYYY_MM_DD.md」，和螺旋日程的默认一致。", null);
-    this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "日记", "日记", (v) => { s.journalFolder = v.trim() || "日记"; p.saveSettings(); });
+    const det = detectJournalFormat(this.app, s);
+    const jf = this.row(jr, "日记目录", `留空自动检测：先看 Obsidian 的「日记」核心插件和 Periodic Notes，都没开就用「日记」。现在用的：${det.folder || "库根目录"}（${det.folderSource}）。今天的日记：${journalPath(this.app, s)}`, null);
+    this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "", `自动：${det.folder || "库根目录"}`, (v) => { s.journalFolder = v.trim(); p.saveSettings(); this.display(); });
+    const jfmt = this.row(jr, "日记文件名格式", `moment 写法，可以带子目录，比如 YYYY-MM-DD、YYYY/MM/YYYY-MM-DD。留空自动检测：先看 Obsidian 的「日记」核心插件和 Periodic Notes，都没开就按日记目录里已有文件的命名。现在检测到：${det.format}（${det.source}）。`, null);
+    this.textInput(jfmt.querySelector(":scope > .ad-row__right"), s.journalFormat || "", `自动：${det.format}`, (v) => { s.journalFormat = v.trim(); p.saveSettings(); this.display(); });
     const ja = this.row(jr, "自动整理进日记", "每隔一阵扫一遍今天开着的会话；自动关着也可以用命令「整理 Agent 会话进今天的日记」手动跑。", null);
     this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => { s.autoLog = v; p.saveSettings(); });
     const grain = this.row(jr, "自动记录颗粒度", "最新进展：覆盖上一句；每轮记录：按已完成对话轮次累积结论；停歇或归档：只在自动暂停或识别归档时写结论。任务状态与用时另按原规则同步。", null);

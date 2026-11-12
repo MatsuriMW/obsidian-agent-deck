@@ -37,6 +37,8 @@ export default class AgentDeckPlugin extends Plugin {
   async onload() {
     const data = await this.loadData();
     this.settings = deepMerge(DEFAULTS, data || {});
+    // 日记目录改成留空自动检测：以前存下的默认值「日记」当作没设过（只迁一次）
+    if (!this.settings.journalFolderAuto) { if (this.settings.journalFolder === "日记") this.settings.journalFolder = ""; this.settings.journalFolderAuto = true; }
     if (!Array.isArray(this.settings.primaryAgents)) this.settings.primaryAgents = this.settings.aiPrimary ? [this.settings.aiPrimary] : ["claude"];
     this.settings.primaryAgents = this.settings.primaryAgents.filter((x) => AGENTS[x]).slice(0, 2);
     if (!this.settings.primaryAgents.length) this.settings.primaryAgents = ["claude"];
@@ -367,7 +369,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   recentSessions({ days = 7, limit = 100 } = {}) {
     const since = Date.now() - days * 86400000;
-    const list = this.usage.sessions({ since, limit: 200 }).filter((x) => this.agentEnabled(x.agent));
+    const list = this.usage.sessions({ since, limit: Math.max(200, limit) }).filter((x) => this.agentEnabled(x.agent));
     const bySid = new Map(list.map((x) => [x.sid, x]));
     for (const job of Object.values(this.jobs)) {
       const sid = job.sessionId || job.id;

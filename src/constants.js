@@ -251,7 +251,8 @@ export const DEFAULTS = {
   claudeDesktop: true,
   hideArchived: true,
   // Human–AI journal: sessions written back into the daily note.
-  journalFolder: "日记",
+  journalFolder: "",       // 日记目录；留空自动检测（找不到就用「日记」）
+  journalFormat: "",       // 日记文件名格式（moment 写法）；留空自动检测
   journalAutoWrite: true,  // 自动建项、结论和状态回写总开关；手动整理仍可用
   journalSync: true,
   resultBack: true,
@@ -368,6 +369,80 @@ export function fmtKey(d = new Date(), cfg = {}) {
   const fmt = cfg.format || "YYYY_MM_DD";
   return fmt.replace("YYYY", d.getFullYear()).replace("MM", pad(d.getMonth() + 1)).replace("DD", pad(d.getDate()));
 }
+// ----- 日记文件名 -----
+// 内部的日期键固定是 YYYY_MM_DD（用量统计、自动记日记的状态都按它存、按字典序比较），
+// 日记文件名另按 journalFormat（moment 写法，可带子目录）。留空 = 自动检测：
+// Obsidian「日记」核心插件 → Periodic Notes 的每日笔记 → 日记目录里已有文件的命名 → YYYY_MM_DD。
+// 日记目录 journalFolder 留空也自动：「日记」核心插件 → Periodic Notes → 「日记」。
+const GUESS_FORMATS = ["YYYY_MM_DD", "YYYY-MM-DD", "YYYYMMDD", "YYYY.MM.DD", "YYYY年MM月DD日", "YYYY年M月D日", "YYYY/MM/YYYY-MM-DD", "YYYY/YYYY-MM-DD", "YYYY-MM/YYYY-MM-DD", "YYYY/MM/DD"];
+const TOKEN_RE = /\[[^\]]*\]|YYYY|YY|MM|M|DD|D/g;
+
+export function formatDate(d, fmt) {
+  const m = globalThis.moment;
+  if (typeof m === "function") return m(d).format(fmt);
+  const v = { YYYY: d.getFullYear(), YY: String(d.getFullYear()).slice(2), MM: pad(d.getMonth() + 1), M: d.getMonth() + 1, DD: pad(d.getDate()), D: d.getDate() };
+  return fmt.replace(TOKEN_RE, (t) => (t[0] === "[" ? t.slice(1, -1) : String(v[t])));
+}
+
+function formatRegex(fmt) {
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let out = "", last = 0;
+  for (const mt of fmt.matchAll(TOKEN_RE)) {
+    out += esc(fmt.slice(last, mt.index));
+    const t = mt[0];
+    out += t[0] === "[" ? esc(t.slice(1, -1)) : t === "YYYY" ? "\\d{4}" : t === "M" || t === "D" ? "\\d{1,2}" : "\\d{2}";
+    last = mt.index + t.length;
+  }
+  return new RegExp("^" + out + esc(fmt.slice(last)) + "$");
+}
+
+// 返回 { folder, folderSource, format, source }；folder 为 "" 表示库根目录
+let _detected = null;
+export function detectJournalFormat(app, cfg = {}) {
+  const own = (cfg.journalFolder || "").trim().replace(/\/+$/, "");
+  const key = own + "\n" + (cfg.journalFormat || "");
+  if (_detected && _detected.app === app && _detected.key === key && Date.now() - _detected.at < 60e3) return _detected;
+  let conf = null;
+  try {
+    const dn = app?.internalPlugins?.getPluginById?.("daily-notes");
+    if (dn?.enabled) conf = { ...(dn.instance?.options || {}), source: "Obsidian「日记」核心插件" };
+  } catch { /* 没有这个接口 */ }
+  if (!conf) {
+    const pn = app?.plugins?.plugins?.["periodic-notes"]?.settings?.daily;
+    if (pn?.enabled) conf = { ...pn, source: "Periodic Notes" };
+  }
+  const folder = own || (conf ? String(conf.folder || "").trim().replace(/^\/+|\/+$/g, "") : "日记");
+  const folderSource = own ? "手动设置" : conf ? conf.source : "默认";
+  let hit = conf ? { format: conf.format || "YYYY-MM-DD", source: conf.source } : null;
+  if (!hit) {
+    let files = [];
+    try { files = app?.vault?.getMarkdownFiles?.() || []; } catch { /* 测试里的假 vault */ }
+    const prefix = folder ? folder + "/" : "";
+    const names = files.filter((f) => f.path.startsWith(prefix)).map((f) => f.path.slice(prefix.length, -3));
+    let best = null;
+    for (const fmt of GUESS_FORMATS) {
+      const re = formatRegex(fmt);
+      const n = names.filter((x) => re.test(x)).length;
+      if (n && (!best || n > best.n)) best = { fmt, n };
+    }
+    if (best) hit = { format: best.fmt, source: `「${folder || "库根目录"}」里已有的 ${best.n} 篇日记` };
+  }
+  _detected = { ...(hit || { format: "YYYY_MM_DD", source: "默认" }), folder, folderSource, key, app, at: Date.now() };
+  return _detected;
+}
+
+export function journalFormat(app, cfg = {}) {
+  return (cfg.journalFormat || "").trim() || detectJournalFormat(app, cfg).format;
+}
+
+// day 是内部日期键（YYYY_MM_DD），默认今天
+export function journalPath(app, cfg = {}, day = dayKeyToday(cfg)) {
+  const [y, m, d] = String(day).split(/\D+/).map(Number);
+  const folder = detectJournalFormat(app, cfg).folder;
+  const name = formatDate(new Date(y, m - 1, d), journalFormat(app, cfg));
+  return folder ? `${folder}/${name}.md` : `${name}.md`;
+}
+
 export function dayKey(ms, cfg = {}) {
   const cutoff = Number.isFinite(cfg.dayCutoff) ? cfg.dayCutoff : 8;
   return fmtKey(new Date(ms - cutoff * 3600e3), cfg);

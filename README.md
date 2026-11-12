@@ -60,12 +60,12 @@ The plugin keeps explanatory text out of its UI; this section is the manual, and
 
 | Area | What it shows / what you can do |
 |---|---|
-| Top bar | Session search (title, project, last step; filters 最近的会话), rescan, settings |
+| Top bar | Session search (title, first message, project, last step, latest reply, model, agent; every space-separated word must match). While it has text the panel shows only the results, drawn from every scanned session; Esc clears it. Rescan, settings |
 | Today card | Collaboration time (vs the 7-day average), output tokens (calls), sessions (prompts); a timeline of when each agent worked today; the three projects that took the most time |
 | 现在 (Now) | Running and waiting sessions, up to six. Click a card to open the session; drag it into a note to bind it (see below); drag it up or down within the list to reorder (new sessions go on top); the × on a card (or right-click) removes it from 现在 |
 | Agents | One card per agent: click the icon to bring the client forward, ⭐ to make it primary (1–2 primary agents: their full history is read; other agents only for sessions that moved today), toggle tracking, **扫描** to rescan. Drop a note item on a card to delegate |
 | 最近 14 天 | Daily collaboration minutes stacked by agent; hover for numbers |
-| 最近的会话 | Sessions from the last 7 days, filterable by state and agent; the search box at the top narrows it |
+| 最近的会话 | Sessions from the last 7 days, filterable by state and agent |
 
 **Where a click opens a session.** Claude Code desktop sessions use `claude://resume`, Codex desktop `codex://threads/<id>`, WorkBuddy `workbuddy://chat/<id>`; DeepSeek Harness can only be focused, so the session id goes to the clipboard. **Claude Code / Codex sessions running in a terminal** switch to the terminal tab that runs them (Terminal, iTerm2, Tern and Herdr select the tab; Warp has no scripting interface, so it is only brought forward); only when the process has exited is a new tab opened to resume. The terminal is **Auto** by default, chosen per machine: the terminal most of your running `claude` / `codex` CLI sessions live in (remembered in `~/.agent-deck/terminal.json`), else the last one recognised, else one that is open, else one that is installed, in the order Herdr → Tern → iTerm2 → Warp → Terminal. Settings → Tracking → Claude desktop lets you pin one, or send them to the desktop app instead.
 
@@ -179,7 +179,7 @@ AI record display (`aiRecordDisplay`) defaults to `collapsed`. Choose `expanded`
 
 AI records also follow existing Obsidian fold / unfold commands, plus matching Bullet and Logseq Style Fold commands when installed. Configure their keys in Obsidian; in latest-five mode, unfolding still shows at most five records.
 
-Journal settings are stored explicitly as `autoLogEvery` (20 min), `autoLogStartDelay` (1 min), `autoLogMinMinutes` (3 min; 0 disables the threshold), `autoLogIdle` (40 min), `autoLogBatch` (8), `autoLogAgents`, `autoLogProvider` (`claude` / `codex`), `autoLogModel`, `autoLogEffort` (`low`), `autoLogTimeout` (120 s), `autoLogFallback` (true), `autoLogPath`, `autoLogKw`, `autoLogArchiveDone`, `autoLogNotify`, `roundPolish`, `roundPolishModel` (empty reuses the naming model), and `roundPolishTimeout` (30 s). The journal must already exist. The first run still applies the activity threshold; ineligible sessions wait until a later run. Live write-back follows `pollSeconds` (20 s by default).
+The daily note is `journalFolder` plus `journalFormat`. An empty `journalFolder` follows Obsidian's Daily notes core plugin, then Periodic Notes, then falls back to `日记`. `journalFormat` is a moment format that may include subfolders (`YYYY-MM-DD`, `YYYY/MM/YYYY-MM-DD`). Left empty, it is detected: Obsidian's Daily notes core plugin, then Periodic Notes, then the naming of notes already in the folder, then `YYYY_MM_DD`. Journal settings are stored explicitly as `autoLogEvery` (20 min), `autoLogStartDelay` (1 min), `autoLogMinMinutes` (3 min; 0 disables the threshold), `autoLogIdle` (40 min), `autoLogBatch` (8), `autoLogAgents`, `autoLogProvider` (`claude` / `codex`), `autoLogModel`, `autoLogEffort` (`low`), `autoLogTimeout` (120 s), `autoLogFallback` (true), `autoLogPath`, `autoLogKw`, `autoLogArchiveDone`, `autoLogNotify`, `roundPolish`, `roundPolishModel` (empty reuses the naming model), and `roundPolishTimeout` (30 s). The journal must already exist. The first run still applies the activity threshold; ineligible sessions wait until a later run. Live write-back follows `pollSeconds` (20 s by default).
 
 ## Delegate targets
 

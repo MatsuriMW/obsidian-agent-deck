@@ -11,7 +11,7 @@
 // 不进撤销记录；正在用输入法打字的那一下不写，等下一轮。
 
 import { MarkdownView } from "obsidian";
-import { AGENTS, dayKey, dayKeyToday, dayMinute, fmtTok, fmtClock } from "./constants.js";
+import { AGENTS, dayKey, dayKeyToday, dayMinute, fmtTok, fmtClock, journalPath } from "./constants.js";
 import * as J from "./journal.js";
 import { runJournalModel, safeLabel } from "./llm.js";
 
@@ -64,7 +64,7 @@ export class JournalSync {
   isOpen(file) { return this.openViews().some((v) => v.file.path === file.path); }
 
   todayJournal() {
-    const f = this.p.app.vault.getAbstractFileByPath(`${this.cfg.journalFolder || "日记"}/${dayKeyToday(this.cfg)}.md`);
+    const f = this.p.app.vault.getAbstractFileByPath(journalPath(this.p.app, this.cfg));
     return f && f.extension === "md" ? f : null;
   }
 

@@ -1,4 +1,4 @@
-/* Agent Deck 1.3.3 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.3.4 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -280,7 +280,10 @@ var DEFAULTS = {
   claudeDesktop: true,
   hideArchived: true,
   // Human–AI journal: sessions written back into the daily note.
-  journalFolder: "\u65E5\u8BB0",
+  journalFolder: "",
+  // 日记目录；留空自动检测（找不到就用「日记」）
+  journalFormat: "",
+  // 日记文件名格式（moment 写法）；留空自动检测
   journalAutoWrite: true,
   // 自动建项、结论和状态回写总开关；手动整理仍可用
   journalSync: true,
@@ -418,6 +421,71 @@ function pad(n) {
 function fmtKey(d = /* @__PURE__ */ new Date(), cfg = {}) {
   const fmt = cfg.format || "YYYY_MM_DD";
   return fmt.replace("YYYY", d.getFullYear()).replace("MM", pad(d.getMonth() + 1)).replace("DD", pad(d.getDate()));
+}
+var GUESS_FORMATS = ["YYYY_MM_DD", "YYYY-MM-DD", "YYYYMMDD", "YYYY.MM.DD", "YYYY\u5E74MM\u6708DD\u65E5", "YYYY\u5E74M\u6708D\u65E5", "YYYY/MM/YYYY-MM-DD", "YYYY/YYYY-MM-DD", "YYYY-MM/YYYY-MM-DD", "YYYY/MM/DD"];
+var TOKEN_RE = /\[[^\]]*\]|YYYY|YY|MM|M|DD|D/g;
+function formatDate(d, fmt) {
+  const m = globalThis.moment;
+  if (typeof m === "function") return m(d).format(fmt);
+  const v = { YYYY: d.getFullYear(), YY: String(d.getFullYear()).slice(2), MM: pad(d.getMonth() + 1), M: d.getMonth() + 1, DD: pad(d.getDate()), D: d.getDate() };
+  return fmt.replace(TOKEN_RE, (t) => t[0] === "[" ? t.slice(1, -1) : String(v[t]));
+}
+function formatRegex(fmt) {
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let out = "", last = 0;
+  for (const mt of fmt.matchAll(TOKEN_RE)) {
+    out += esc(fmt.slice(last, mt.index));
+    const t = mt[0];
+    out += t[0] === "[" ? esc(t.slice(1, -1)) : t === "YYYY" ? "\\d{4}" : t === "M" || t === "D" ? "\\d{1,2}" : "\\d{2}";
+    last = mt.index + t.length;
+  }
+  return new RegExp("^" + out + esc(fmt.slice(last)) + "$");
+}
+var _detected = null;
+function detectJournalFormat(app, cfg = {}) {
+  const own = (cfg.journalFolder || "").trim().replace(/\/+$/, "");
+  const key = own + "\n" + (cfg.journalFormat || "");
+  if (_detected && _detected.app === app && _detected.key === key && Date.now() - _detected.at < 6e4) return _detected;
+  let conf = null;
+  try {
+    const dn = app?.internalPlugins?.getPluginById?.("daily-notes");
+    if (dn?.enabled) conf = { ...dn.instance?.options || {}, source: "Obsidian\u300C\u65E5\u8BB0\u300D\u6838\u5FC3\u63D2\u4EF6" };
+  } catch {
+  }
+  if (!conf) {
+    const pn = app?.plugins?.plugins?.["periodic-notes"]?.settings?.daily;
+    if (pn?.enabled) conf = { ...pn, source: "Periodic Notes" };
+  }
+  const folder = own || (conf ? String(conf.folder || "").trim().replace(/^\/+|\/+$/g, "") : "\u65E5\u8BB0");
+  const folderSource = own ? "\u624B\u52A8\u8BBE\u7F6E" : conf ? conf.source : "\u9ED8\u8BA4";
+  let hit = conf ? { format: conf.format || "YYYY-MM-DD", source: conf.source } : null;
+  if (!hit) {
+    let files = [];
+    try {
+      files = app?.vault?.getMarkdownFiles?.() || [];
+    } catch {
+    }
+    const prefix = folder ? folder + "/" : "";
+    const names = files.filter((f) => f.path.startsWith(prefix)).map((f) => f.path.slice(prefix.length, -3));
+    let best = null;
+    for (const fmt of GUESS_FORMATS) {
+      const re = formatRegex(fmt);
+      const n = names.filter((x) => re.test(x)).length;
+      if (n && (!best || n > best.n)) best = { fmt, n };
+    }
+    if (best) hit = { format: best.fmt, source: `\u300C${folder || "\u5E93\u6839\u76EE\u5F55"}\u300D\u91CC\u5DF2\u6709\u7684 ${best.n} \u7BC7\u65E5\u8BB0` };
+  }
+  _detected = { ...hit || { format: "YYYY_MM_DD", source: "\u9ED8\u8BA4" }, folder, folderSource, key, app, at: Date.now() };
+  return _detected;
+}
+function journalFormat(app, cfg = {}) {
+  return (cfg.journalFormat || "").trim() || detectJournalFormat(app, cfg).format;
+}
+function journalPath(app, cfg = {}, day = dayKeyToday(cfg)) {
+  const [y, m, d] = String(day).split(/\D+/).map(Number);
+  const folder = detectJournalFormat(app, cfg).folder;
+  const name = formatDate(new Date(y, m - 1, d), journalFormat(app, cfg));
+  return folder ? `${folder}/${name}.md` : `${name}.md`;
 }
 function dayKey(ms, cfg = {}) {
   const cutoff = Number.isFinite(cfg.dayCutoff) ? cfg.dayCutoff : 8;
@@ -5400,6 +5468,10 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       this._pendingRender = true;
       return;
     }
+    if (this._composing) {
+      this._pendingRender = true;
+      return;
+    }
     const root = this.contentEl;
     this._scroll = root.scrollTop || this._scroll;
     const focused = document.activeElement;
@@ -5425,6 +5497,47 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const gear = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": "\u8BBE\u7F6E" } });
     setLucide(gear.createSpan({ cls: "ad-iconbtn__icon" }), "settings-2");
     gear.onclick = () => p.openSettings();
+    input.addEventListener("compositionstart", () => {
+      this._composing = true;
+    });
+    input.addEventListener("compositionend", () => {
+      this._composing = false;
+      this._pendingRender = false;
+      this.search = input.value;
+      this.render();
+    });
+    input.oninput = (e) => {
+      if (e.isComposing || this._composing) return;
+      const was = !!this.search.trim();
+      this.search = input.value;
+      if (was !== !!this.search.trim() || !this._resultSec) this.render();
+      else this.renderSearch(this._resultSec);
+    };
+    input.onkeydown = (e) => {
+      if (e.key === "Escape" && input.value) {
+        e.preventDefault();
+        input.value = "";
+        this.search = "";
+        this.render();
+      }
+    };
+    this._resultSec = null;
+    if (this.search.trim()) {
+      const sec = dash.createDiv({ cls: "ad-sec ad-sec--search" });
+      sec._head = this.secHead(sec, "\u641C\u7D22\u7ED3\u679C");
+      sec._list = sec.createDiv({ cls: "ad-sessionlist" });
+      this._resultSec = sec;
+      this.renderSearch(sec);
+      root.scrollTop = 0;
+      if (searchWasFocused) {
+        const i = root.querySelector(".ad-search__input");
+        if (i) {
+          i.focus();
+          i.setSelectionRange(i.value.length, i.value.length);
+        }
+      }
+      return;
+    }
     const hero = dash.createDiv({ cls: "ad-hero" });
     const nums = hero.createDiv({ cls: "ad-hero__nums" });
     this.num(nums, fmtMin(today ? today.wall : 0), "\u534F\u4F5C\u65F6\u957F", this.vsWeek(today));
@@ -5462,10 +5575,6 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
         this.render();
       };
     }
-    input.oninput = () => {
-      this.search = input.value;
-      this.renderSessions(recSec);
-    };
     recSec._list = recSec.createDiv({ cls: "ad-sessionlist" });
     this.renderSessions(recSec);
     root.scrollTop = this._scroll;
@@ -5533,12 +5642,22 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     if (this.filter === "live") rows = rows.filter((x) => x.state === "run");
     else if (this.filter === "wait") rows = rows.filter((x) => ["wait", "quiet"].includes(x.state));
     else if (AGENTS[this.filter]) rows = rows.filter((x) => x.agent === this.filter);
-    if (this.search.trim()) {
-      const q = this.search.toLowerCase();
-      rows = rows.filter((x) => `${x.title} ${x.cwd} ${x.text} ${x.step}`.toLowerCase().includes(q));
-    }
     if (!rows.length) return this.empty(list, "\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684\u4F1A\u8BDD");
     for (const s of rows) this.sessionCard(list, s, false);
+  }
+  // 搜索：空格分开的几个词都要命中（不分大小写），查标题、首条消息、项目路径、当前步骤、最近回复、模型、Agent 名和会话号
+  renderSearch(sec) {
+    const list = sec._list;
+    list.empty();
+    const words = this.search.toLowerCase().split(/\s+/).filter(Boolean);
+    const rows = this.plugin.recentSessions({ days: 3650, limit: 5e3 }).filter((x) => {
+      const hay = [x.title, x.text, x.cwd, x.step, x.lastText, x.model, x.parentTitle, AGENTS[x.agent]?.name, x.agent, x.sid].filter(Boolean).join(" ").toLowerCase();
+      return words.every((w) => hay.includes(w));
+    });
+    const sub = sec._head.querySelector(".ad-sechead__sub") || sec._head.firstChild.createSpan({ cls: "ad-sechead__sub" });
+    sub.setText(rows.length > 100 ? `${rows.length} \u4E2A \xB7 \u663E\u793A\u6700\u8FD1 100 \u4E2A` : `${rows.length} \u4E2A`);
+    if (!rows.length) return this.empty(list, "\u6CA1\u6709\u627E\u5230\u4F1A\u8BDD");
+    for (const s of rows.slice(0, 100)) this.sessionCard(list, s, false);
   }
   secHead(parent, title, sub, action) {
     const h = parent.createDiv({ cls: "ad-sechead" });
@@ -6760,10 +6879,18 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       s.journalAutoWrite = v;
       p.saveSettings();
     });
-    const jf = this.row(jr, "\u65E5\u8BB0\u76EE\u5F55", "\u4ECA\u5929\u7684\u65E5\u8BB0\u662F\u300C\u76EE\u5F55/YYYY_MM_DD.md\u300D\uFF0C\u548C\u87BA\u65CB\u65E5\u7A0B\u7684\u9ED8\u8BA4\u4E00\u81F4\u3002", null);
-    this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "\u65E5\u8BB0", "\u65E5\u8BB0", (v) => {
-      s.journalFolder = v.trim() || "\u65E5\u8BB0";
+    const det = detectJournalFormat(this.app, s);
+    const jf = this.row(jr, "\u65E5\u8BB0\u76EE\u5F55", `\u7559\u7A7A\u81EA\u52A8\u68C0\u6D4B\uFF1A\u5148\u770B Obsidian \u7684\u300C\u65E5\u8BB0\u300D\u6838\u5FC3\u63D2\u4EF6\u548C Periodic Notes\uFF0C\u90FD\u6CA1\u5F00\u5C31\u7528\u300C\u65E5\u8BB0\u300D\u3002\u73B0\u5728\u7528\u7684\uFF1A${det.folder || "\u5E93\u6839\u76EE\u5F55"}\uFF08${det.folderSource}\uFF09\u3002\u4ECA\u5929\u7684\u65E5\u8BB0\uFF1A${journalPath(this.app, s)}`, null);
+    this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "", `\u81EA\u52A8\uFF1A${det.folder || "\u5E93\u6839\u76EE\u5F55"}`, (v) => {
+      s.journalFolder = v.trim();
       p.saveSettings();
+      this.display();
+    });
+    const jfmt = this.row(jr, "\u65E5\u8BB0\u6587\u4EF6\u540D\u683C\u5F0F", `moment \u5199\u6CD5\uFF0C\u53EF\u4EE5\u5E26\u5B50\u76EE\u5F55\uFF0C\u6BD4\u5982 YYYY-MM-DD\u3001YYYY/MM/YYYY-MM-DD\u3002\u7559\u7A7A\u81EA\u52A8\u68C0\u6D4B\uFF1A\u5148\u770B Obsidian \u7684\u300C\u65E5\u8BB0\u300D\u6838\u5FC3\u63D2\u4EF6\u548C Periodic Notes\uFF0C\u90FD\u6CA1\u5F00\u5C31\u6309\u65E5\u8BB0\u76EE\u5F55\u91CC\u5DF2\u6709\u6587\u4EF6\u7684\u547D\u540D\u3002\u73B0\u5728\u68C0\u6D4B\u5230\uFF1A${det.format}\uFF08${det.source}\uFF09\u3002`, null);
+    this.textInput(jfmt.querySelector(":scope > .ad-row__right"), s.journalFormat || "", `\u81EA\u52A8\uFF1A${det.format}`, (v) => {
+      s.journalFormat = v.trim();
+      p.saveSettings();
+      this.display();
     });
     const ja = this.row(jr, "\u81EA\u52A8\u6574\u7406\u8FDB\u65E5\u8BB0", "\u6BCF\u9694\u4E00\u9635\u626B\u4E00\u904D\u4ECA\u5929\u5F00\u7740\u7684\u4F1A\u8BDD\uFF1B\u81EA\u52A8\u5173\u7740\u4E5F\u53EF\u4EE5\u7528\u547D\u4EE4\u300C\u6574\u7406 Agent \u4F1A\u8BDD\u8FDB\u4ECA\u5929\u7684\u65E5\u8BB0\u300D\u624B\u52A8\u8DD1\u3002", null);
     this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => {
@@ -9508,7 +9635,7 @@ var AutoLog = class {
     return (Date.now() - startOfDay(Date.now(), this.cfg)) / 6e4;
   }
   journalPath(day) {
-    return `${this.cfg.journalFolder || "\u65E5\u8BB0"}/${day}.md`;
+    return journalPath(this.p.app, this.cfg, day);
   }
   journalFile(day) {
     const f = this.p.app.vault.getAbstractFileByPath(this.journalPath(day));
@@ -10054,7 +10181,7 @@ var JournalSync = class {
     return this.openViews().some((v) => v.file.path === file.path);
   }
   todayJournal() {
-    const f = this.p.app.vault.getAbstractFileByPath(`${this.cfg.journalFolder || "\u65E5\u8BB0"}/${dayKeyToday(this.cfg)}.md`);
+    const f = this.p.app.vault.getAbstractFileByPath(journalPath(this.p.app, this.cfg));
     return f && f.extension === "md" ? f : null;
   }
   replace(view, before, after) {
@@ -10607,6 +10734,10 @@ var AgentDeckPlugin = class extends import_obsidian8.Plugin {
   async onload() {
     const data = await this.loadData();
     this.settings = deepMerge(DEFAULTS, data || {});
+    if (!this.settings.journalFolderAuto) {
+      if (this.settings.journalFolder === "\u65E5\u8BB0") this.settings.journalFolder = "";
+      this.settings.journalFolderAuto = true;
+    }
     if (!Array.isArray(this.settings.primaryAgents)) this.settings.primaryAgents = this.settings.aiPrimary ? [this.settings.aiPrimary] : ["claude"];
     this.settings.primaryAgents = this.settings.primaryAgents.filter((x) => AGENTS[x]).slice(0, 2);
     if (!this.settings.primaryAgents.length) this.settings.primaryAgents = ["claude"];
@@ -10978,7 +11109,7 @@ var AgentDeckPlugin = class extends import_obsidian8.Plugin {
   }
   recentSessions({ days = 7, limit = 100 } = {}) {
     const since = Date.now() - days * 864e5;
-    const list = this.usage.sessions({ since, limit: 200 }).filter((x) => this.agentEnabled(x.agent));
+    const list = this.usage.sessions({ since, limit: Math.max(200, limit) }).filter((x) => this.agentEnabled(x.agent));
     const bySid = new Map(list.map((x) => [x.sid, x]));
     for (const job of Object.values(this.jobs)) {
       const sid = job.sessionId || job.id;
