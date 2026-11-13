@@ -12,9 +12,30 @@ import crypto from "crypto";
 import { execFile, spawn } from "child_process";
 import source from "./menubar.swift";
 import { agentImageBuffer } from "./agent-assets.js";
+import { t } from "./i18n.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
+
+// The Swift helper compiles its Chinese literals into the binary and looks each
+// one up through L(). These are the keys it can ask for, so the plugin pushes
+// the current language's text along with every snapshot.
+const LABEL_KEYS = [
+  "等待 Agent Deck…",
+  "在跑", "等你", "安静", "等你允许", "出错", "限额", "完成", "最近", "空闲",
+  "{n} 个 NEEDOK? 需要你允许",
+  "现在没有要显示的会话",
+  "主力 Agent 的会话会留在这里；其它 Agent 只在正在运行时出现，WorkBuddy 的等待会话也列。",
+  "主力 AGENT", "全量追踪", "其它 AGENT", "在跑 · WorkBuddy 等你",
+  "等待 Agent 会话", "共 {n} 个 · 向下滑动", "点击卡片跳转",
+  "打开面板", "重新扫描", "隐藏", "跑", "等",
+];
+
+function menuLabels() {
+  const out = {};
+  for (const key of LABEL_KEYS) out[key] = t(key);
+  return out;
+}
 
 const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -69,7 +90,7 @@ export class MenuBarBridge {
       this.plugin.settings.showMenuBar = false;
       this.plugin.settingTab?.mbSwitch?.setOn(false);
       try { await this.plugin.saveSettings(); } catch { /* 下次再存 */ }
-      this.plugin.notice("macOS 菜单栏启动失败，已把开关关上：" + (e && e.message || e), 12000);
+      this.plugin.notice(t("macOS 菜单栏启动失败，已把开关关上：{error}", { error: (e && e.message) || e }), 12000);
     }).finally(() => { this.starting = null; });
     return this.starting;
   }
@@ -108,9 +129,9 @@ export class MenuBarBridge {
 
   async compile(hash) {
     if (!fs.existsSync("/usr/bin/swiftc")) {
-      throw new Error("找不到 /usr/bin/swiftc。安装 Xcode Command Line Tools（xcode-select --install）后再试。");
+      throw new Error(t("找不到 /usr/bin/swiftc。安装 Xcode Command Line Tools（xcode-select --install）后再试。"));
     }
-    this.plugin.notice("正在准备 macOS 菜单栏（第一次要编译一个小助手，约几秒）…", 6000);
+    this.plugin.notice(t("正在准备 macOS 菜单栏（第一次要编译一个小助手，约几秒）…"), 6000);
     await new Promise((resolve) => this.killExisting(resolve));
     await fsp.mkdir(path.join(this.appPath, "Contents", "MacOS"), { recursive: true });
     await fsp.writeFile(this.srcPath, source, "utf8");
@@ -120,7 +141,7 @@ export class MenuBarBridge {
     const res = await new Promise((resolve) => {
       const child = spawn("/usr/bin/swiftc", ["-O", "-swift-version", "5", "-framework", "AppKit", "-framework", "SwiftUI", "-framework", "Carbon", "-o", tmp, this.srcPath], { stdio: ["ignore", "pipe", "pipe"] });
       let err = "";
-      const timer = setTimeout(() => { try { child.kill("SIGKILL"); } catch { /* gone */ } resolve({ ok: false, err: "编译超过 90 秒" }); }, 90000);
+      const timer = setTimeout(() => { try { child.kill("SIGKILL"); } catch { /* gone */ } resolve({ ok: false, err: t("编译超过 90 秒") }); }, 90000);
       child.stdout.on("data", () => {});
       child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 8000) err = err.slice(-8000); });
       child.on("error", (e) => { clearTimeout(timer); resolve({ ok: false, err: String(e && e.message || e) }); });
@@ -128,7 +149,7 @@ export class MenuBarBridge {
     });
     if (!res.ok) {
       this.disabled = true;
-      throw new Error((res.err || "swiftc 编译失败").slice(0, 700));
+      throw new Error((res.err || t("swiftc 编译失败")).slice(0, 700));
     }
     try { await fsp.unlink(this.binPath); } catch { /* none */ }
     await fsp.rename(tmp, this.binPath);
@@ -176,7 +197,7 @@ export class MenuBarBridge {
       const body = JSON.stringify(rest);
       if (!force && body === this.lastJson) return;
       this.lastJson = body;
-      const json = JSON.stringify({ updatedAt, ...rest });
+      const json = JSON.stringify({ updatedAt, ...rest, labels: menuLabels() });
       const tmp = this.statePath + ".tmp";
       fs.mkdirSync(this.dir, { recursive: true });
       fs.writeFileSync(tmp, json, "utf8");

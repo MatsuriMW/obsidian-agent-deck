@@ -9,6 +9,6 @@ if [ -z "$vault" ]; then
 fi
 dest="$vault/.obsidian/plugins/agent-deck"
 mkdir -p "$dest"
-cp main.js manifest.json styles.css README.md README.zh-CN.md versions.json "$dest/"
+cp main.js manifest.json styles.css README.md README.en.md versions.json "$dest/"
 cp docs/task-workflow.zh-CN.md "$dest/README-交接.md"
 echo "installed to $dest"

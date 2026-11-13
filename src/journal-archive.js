@@ -1,8 +1,9 @@
 import * as J from './journal.js';
+import { t } from "./i18n.js";
 
 export function archivePath(value) {
   const path = String(value || '').trim().replace(/\\/g, '/');
-  if (!path || path.startsWith('/') || /^[a-z]:/i.test(path) || path.split('/').some(x => !x || x === '.' || x === '..') || !path.endsWith('.md')) throw new Error('归档位置必须是库内的 .md 文件路径');
+  if (!path || path.startsWith('/') || /^[a-z]:/i.test(path) || path.split('/').some(x => !x || x === '.' || x === '..') || !path.endsWith('.md')) throw new Error(t('归档位置必须是库内的 .md 文件路径'));
   return path;
 }
 
@@ -18,7 +19,7 @@ export function appendArchive(text, date, blocks, turns = new Map()) {
     if (!task) return !dateText.includes(block + '\n');
     let end = task.line + 1;
     while (end < lines.length && (!lines[end].trim() || J.width(lines[end]) > task.indent)) end++;
-    if (lines.slice(task.line, end).join('\n').trimEnd() !== block.trimEnd()) throw new Error('归档中已有同编号但内容不同的任务，已保留原日记，请先核对');
+    if (lines.slice(task.line, end).join('\n').trimEnd() !== block.trimEnd()) throw new Error(t('归档中已有同编号但内容不同的任务，已保留原日记，请先核对'));
     return false;
   });
   if (!pending.length) return text;
@@ -56,7 +57,7 @@ export function appendArchive(text, date, blocks, turns = new Map()) {
 // Write the archive first. If either note changes, keep the source rather than lose context.
 export async function archiveCompletedJournal(plugin, file, base, result) {
   const path = archivePath(plugin.settings.doneArchivePath);
-  if (path === file.path) throw new Error('归档文件不能与当前日记相同');
+  if (path === file.path) throw new Error(t('归档文件不能与当前日记相同'));
   const match = /^(\d{4})[-_](\d{2})[-_](\d{2})/.exec(file.basename);
   const date = match ? match.slice(1).join('-') : file.basename;
   let target = plugin.app.vault.getAbstractFileByPath(path);
@@ -65,13 +66,13 @@ export async function archiveCompletedJournal(plugin, file, base, result) {
   for (const entry of result.entries || []) { const id = J.blockIdOf(entry.text.split("\n")[0]); if (id) turns.set(id, entry.turns); }
   const after = appendArchive(before, date, result.blocks, turns);
   if (target) {
-    if (after !== before && !await plugin.autoLog.write(target, before, after)) throw new Error('归档文件刚有变化，请重试；原日记保留');
+    if (after !== before && !await plugin.autoLog.write(target, before, after)) throw new Error(t('归档文件刚有变化，请重试；原日记保留'));
   } else {
     const parts = path.split('/'); parts.pop(); let folder = '';
     for (const part of parts) { folder = folder ? folder + '/' + part : part; if (!plugin.app.vault.getAbstractFileByPath(folder)) await plugin.app.vault.createFolder(folder); }
     target = await plugin.app.vault.create(path, after);
   }
-  if (!await plugin.autoLog.write(file, base, result.remaining)) throw new Error('日记刚有变化，归档副本已保存，原日记保留；重试不会重复归档');
+  if (!await plugin.autoLog.write(file, base, result.remaining)) throw new Error(t('日记刚有变化，归档副本已保存，原日记保留；重试不会重复归档'));
   plugin.settings.archiveTaskTurns = Object.fromEntries(turns);
   await plugin.saveSettings?.();
   return target;

@@ -12,6 +12,7 @@ import { Notice, MarkdownView } from "obsidian";
 import { AGENTS, AGENT_ORDER, dayKeyToday, startOfDay, unionSegs, journalPath } from "./constants.js";
 import * as J from "./journal.js";
 import { runJournalModel, safeLabel } from "./llm.js";
+import { t } from "./i18n.js";
 
 const agentName = (id) => AGENTS[id]?.short || id;
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d);
@@ -225,7 +226,7 @@ export class AutoLog {
       }
       this._err = "";
     } catch (e) {
-      this._err = "模型回的不是 JSON";
+      this._err = t("模型回的不是 JSON");
       if (fallback) for (const { x } of items) {
         const meta = this.usage.meta.get(x.sid) || {};
         const label = safeLabel(x.title || (x.text || "").split(" / ")[0]);
@@ -242,10 +243,10 @@ export class AutoLog {
     this._busy = true;
     let day = "", snap = null, file = null;
     try {
-      if (this.p.nautilusOwnsAi && this.p.nautilusOwnsAi()) { report.error = "螺旋日程的 AI 追踪还开着，先在设置里停用它"; return report; }
+      if (this.p.nautilusOwnsAi && this.p.nautilusOwnsAi()) { report.error = t("螺旋日程的 AI 追踪还开着，先在设置里停用它"); return report; }
       day = this.dayKey();
       file = this.journalFile(day);
-      if (!file) { report.error = `今天的日记 ${this.journalPath(day)} 还没建`; return report; }
+      if (!file) { report.error = t("今天的日记 {path} 还没建", { path: this.journalPath(day) }); return report; }
       const data = this.usage.summary(day);
       if (!data || !data.list || !data.list.length) return report;
       const idle = Math.max(5, this.cfg.autoLogIdle || 10);
@@ -304,7 +305,7 @@ export class AutoLog {
         const found = J.findTask(text, rec.key, rec.blockId || "", x.sid);
         if (!found && !rec.fresh) {
           rec.gone = true;
-          report.changes.push(`不再管：${rec.label}（这一行没了）`);
+          report.changes.push(t("不再管：{name}（这一行没了）", { name: rec.label }));
           continue;
         }
         if (found) {
@@ -325,21 +326,21 @@ export class AutoLog {
           delete rec.fresh; delete rec.parkedAt; delete rec.hold; delete rec.autoPaused;
           clocks.add(rec.key);
           digest.archived.push(`${name}（${x.min}m）`);
-          report.changes.push(`DONE（已归档）：${rec.label}（${x.min}m）`);
+          report.changes.push(t("DONE（已归档）：{name}（{min}m）", { name: rec.label, min: x.min }));
         } else if (active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
           text = this.autoLine(text, rec, x, "doing").text;
           rec.status = "doing";
           delete rec.parkedAt; delete rec.fresh; delete rec.autoPaused;
           digest.doing.push(name);
-          report.changes.push(`DOING：${rec.label}`);
+          report.changes.push(t("DOING：{name}", { name: rec.label }));
         } else if (!active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
           text = this.autoLine(text, rec, x, "paused").text;
           rec.status = "paused"; rec.autoPaused = true; rec.parkedAt = last; delete rec.fresh;
           clocks.add(rec.key);
           digest.paused.push(`${name}（${x.min}m）`);
-          report.changes.push(`PAUSED：${rec.label}（${x.min}m）`);
+          report.changes.push(t("PAUSED：{name}（{min}m）", { name: rec.label, min: x.min }));
         }
-        if (a && !active && a.done && !rec.doneHint) { rec.doneHint = true; digest.done.push(`${name}（${x.min}m）`); report.changes.push(`看着做完了：${rec.label}`); }
+        if (a && !active && a.done && !rec.doneHint) { rec.doneHint = true; digest.done.push(`${name}（${x.min}m）`); report.changes.push(t("看着做完了：{name}", { name: rec.label })); }
         // 把同一个会话的多轮问答、一句话结论和需要拍板的问题都挂在同一个 ^xxxxx 任务条目下，不另起顶层条目
         const meta = this.usage.meta.get(x.sid) || {};
         const rounds = Array.isArray(meta.rounds) ? meta.rounds : [];
@@ -364,7 +365,7 @@ export class AutoLog {
           text = synced.text;
           if (synced.blockId) rec.blockId = synced.blockId;
           if (pendingTodos.length) {
-            for (const t of pendingTodos) { digest.todo.push(t); report.changes.push(`待拍板（挂在 ${name} 下）：${t}`); }
+            for (const todo of pendingTodos) { digest.todo.push(todo); report.changes.push(t("待拍板（挂在 {name} 下）：{text}", { name, text: todo })); }
             rec.todosAdded = true;
           }
         }
@@ -387,7 +388,7 @@ export class AutoLog {
       if (dry) { this.cfg.autoLogState[day] = JSON.parse(snap); return report; }
       if (!(await this.write(file, base, text))) {
         this.cfg.autoLogState[day] = JSON.parse(snap);
-        report.error = "日记正在被改，这一轮没写";
+        report.error = t("日记正在被改，这一轮没写");
         return report;
       }
       for (const [k, segs] of merged) work[k] = segs;
@@ -446,16 +447,16 @@ export class AutoLog {
   }
 
   digest(d, idle, file) {
-    const sec = (head, list) => (list.length ? `**${head}（${list.length} 件）**\n${list.map((s) => "· " + s).join("\n")}` : "");
+    const sec = (head, list) => (list.length ? t("**{head}（{n} 件）**", { head, n: list.length }) + "\n" + list.map((s) => "· " + s).join("\n") : "");
     const parts = [
-      sec("▶ 在做", d.doing),
-      sec(`⏸ ${idle} 分钟没动，先暂停了`, d.paused),
-      sec("📦 会话归档了，记成做完", d.archived),
-      sec("✅ 看着像是做完了，要标 DONE 自己改一下", d.done),
-      sec("📌 记了要你做的", d.todo),
+      sec(t("▶ 在做"), d.doing),
+      sec(t("⏸ {min} 分钟没动，先暂停了", { min: idle }), d.paused),
+      sec(t("📦 会话归档了，记成做完"), d.archived),
+      sec(t("✅ 看着像是做完了，要标 DONE 自己改一下"), d.done),
+      sec(t("📌 记了要你做的"), d.todo),
     ].filter(Boolean);
     if (!parts.length) return;
-    new Notice(`🤖 整理了日记\n${parts.join("\n\n")}`, 9000);
+    new Notice(t("🤖 整理了日记") + "\n" + parts.join("\n\n"), 9000);
   }
 
   // 手动整理：一轮最多问 autoLogBatch 个，接着问到问完
@@ -469,9 +470,9 @@ export class AutoLog {
       if (error || r.asked < this.batch) break;
     }
     this._at = Date.now();
-    const msg = error && !changes.length ? `没整理成：${error}`
-      : changes.length ? `整理进日记了：\n${changes.join("\n")}${error ? `\n（模型没问到，新会话先用它自己的标题记的：${error}）` : ""}`
-      : `没有要改的：会话都已经记过了，或者还太短（不到 ${this.minMinutes} 分钟）`;
+    const msg = error && !changes.length ? t("没整理成：{error}", { error })
+      : changes.length ? t("整理进日记了：") + "\n" + changes.join("\n") + (error ? "\n" + t("（模型没问到，新会话先用它自己的标题记的：{error}）", { error }) : "")
+      : t("没有要改的：会话都已经记过了，或者还太短（不到 {min} 分钟）", { min: this.minMinutes });
     new Notice(msg, 9000);
     this.p.refreshUI();
     return { changes, error };

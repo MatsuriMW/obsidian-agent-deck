@@ -2,6 +2,7 @@ import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { recordsAreOpen } from "./fold-actions.js";
 import { StateEffect, StateField } from "@codemirror/state";
 import { aiRecordGroups, recordRuns, adBlockIdRanges, hiddenBlockId } from "./ai-records.js";
+import { t } from "./i18n.js";
 
 const toggleRecords = StateEffect.define();
 export const setRecordsOpenEffect = StateEffect.define();
@@ -28,11 +29,11 @@ function recordControl(doc, count, open, limited = false, summary = false) {
   arrow.textContent = limited ? "⋯" : "›";
   arrow.setAttribute("aria-hidden", "true");
   const label = el.appendChild(doc.createElement("span"));
-  label.textContent = summary || limited ? (open ? "收起" : "更多") : "记录";
+  label.textContent = summary || limited ? (open ? t("收起") : t("更多")) : t("记录");
   const badge = el.appendChild(doc.createElement("span"));
   badge.className = "ad-records-count";
   badge.textContent = String(count);
-  const title = limited && !open && !summary ? `共 ${count} 条 AI 记录，仅显示最新 5 条` : `${open ? "折叠" : "展开"} ${count} 条 AI 记录`;
+  const title = limited && !open && !summary ? t("共 {n} 条 AI 记录，仅显示最新 5 条", { n: count }) : (open ? t("折叠 {n} 条 AI 记录", { n: count }) : t("展开 {n} 条 AI 记录", { n: count }));
   el.title = title;
   el.setAttribute("aria-label", title);
   el.type = "button"; el.setAttribute("aria-expanded", String(open));
@@ -64,8 +65,6 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
       ranges.push(Decoration.widget({ widget: new RecordsToggle(group.key, group.records.length, open, mode === "latest5", summary), side: 2 }).range(doc.line(group.line + 1).to));
       for (const run of recordRuns(hidden)) {
         const from = Math.max(0, doc.line(run.from + 1).from - 1), to = doc.line(run.to + 1).to;
-        // 用户将光标放进记录时允许编辑；边界上的任务行光标不算进入记录。
-        if (state.selection.ranges.some((s) => s.empty ? s.from > from && s.from < to : s.from < to && s.to > from)) continue;
         ranges.push(Decoration.replace({ inclusive: false }).range(from, to));
       }
     }
@@ -150,9 +149,9 @@ export function renderAIRecords(el, plugin, ctx) {
     let button = recordControl(list.ownerDocument, records.length, open, mode === "latest5", summary);
     const update = () => {
       records.forEach((li, i) => { li.classList.add("ad-record-item"); li.classList.toggle("ad-record-hidden", !open && (summary ? !summaries.includes(li) : mode === "latest5" ? i < records.length - 5 : true)); });
-      if (summary || mode === "latest5") button.querySelector("span:nth-child(2)").textContent = open ? "收起" : "更多";
+      if (summary || mode === "latest5") button.querySelector("span:nth-child(2)").textContent = open ? t("收起") : t("更多");
       button.dataset.open = String(open);
-      button.title = mode === "latest5" && !open && !summary ? "仅展示最新 5 条 AI 记录" : `${open ? "折叠" : "展开"} ${records.length} 条 AI 记录`;
+      button.title = mode === "latest5" && !open && !summary ? t("仅展示最新 5 条 AI 记录") : (open ? t("折叠 {n} 条 AI 记录", { n: records.length }) : t("展开 {n} 条 AI 记录", { n: records.length }));
       button.setAttribute("aria-label", button.title);
       button.setAttribute("aria-expanded", String(open));
     };

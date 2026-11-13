@@ -2,6 +2,7 @@
 import fs from "fs";
 import { spawn } from "child_process";
 import { createInterface } from "readline";
+import { t } from "./i18n.js";
 
 export function codexDesktopBinary(configured) {
   if (configured) return configured;
@@ -16,10 +17,10 @@ export class CodexDesktopRunner {
   }
   send(message) { this.child.stdin.write(JSON.stringify(message) + "\n"); }
   request(method, params) {
-    if (this.finished) return Promise.reject(new Error("Codex 连接已关闭"));
+    if (this.finished) return Promise.reject(new Error(t("Codex 连接已关闭")));
     const id = ++this.nextId;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`Codex ${method} 连接超时`)); }, 30000);
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(t("Codex {method} 连接超时", { method }))); }, 30000);
       this.pending.set(id, { resolve, reject, timer });
       this.send({ id, method, params });
     });
@@ -31,13 +32,13 @@ export class CodexDesktopRunner {
       this.closed = new Promise(resolve => this.child.once("close", resolve));
       this.child.on("error", error => this.finish("error", error.message));
       this.child.stdin.on("error", error => { if (!this.finished) this.finish("error", error.message); });
-      this.child.on("exit", code => { if (!this.finished) this.finish("error", `Codex App Server 已退出（${code}）`); });
+      this.child.on("exit", code => { if (!this.finished) this.finish("error", t("Codex App Server 已退出（{code}）", { code })); });
       // stderr can include diagnostics; keep it bounded and never use it as model output.
       this.child.stderr.on("data", data => { this.job.stderr = ((this.job.stderr || "") + data.toString()).slice(-2000); });
       this.reader = createInterface({ input: this.child.stdout });
       this.reader.on("line", line => {
         try { this.receive(JSON.parse(line)); }
-        catch (error) { this.finish("error", `Codex 协议响应无效：${error.message}`); }
+        catch (error) { this.finish("error", t("Codex 协议响应无效：{msg}", { msg: error.message })); }
       });
       await this.request("initialize", { clientInfo: { name: "agent_deck", version: "1.4.2" }, capabilities: { experimentalApi: true } });
       this.send({ method: "initialized" });
@@ -46,7 +47,7 @@ export class CodexDesktopRunner {
         sandbox: cfg.sandbox || "workspace-write", approvalPolicy: "on-request",
         config: { model_reasoning_effort: this.job.effort },
       });
-      if (!result.thread?.id || result.model !== this.job.model) throw new Error("Codex 未确认指定模型，任务未发送");
+      if (!result.thread?.id || result.model !== this.job.model) throw new Error(t("Codex 未确认指定模型，任务未发送"));
       this.job.app = "vscode";
       this.job.state = "running";
       this.d.onSession(this.job, result.thread.id);
@@ -62,7 +63,7 @@ export class CodexDesktopRunner {
     const pending = this.pending.get(message.id);
     if (pending) {
       this.pending.delete(message.id); clearTimeout(pending.timer);
-      if (message.error) pending.reject(new Error(message.error.message || "Codex 请求失败"));
+      if (message.error) pending.reject(new Error(message.error.message || t("Codex 请求失败")));
       else pending.resolve(message.result);
       return;
     }
@@ -81,13 +82,13 @@ export class CodexDesktopRunner {
     if (message.method === "turn/started") this.turnId = params.turn?.id;
     if (message.method === "turn/completed") {
       if (params.turn?.status === "completed") this.finish("done");
-      else this.finish("error", params.turn?.error?.message || `Codex 首轮${params.turn?.status || "未完成"}`);
+      else this.finish("error", params.turn?.error?.message || t("Codex 首轮{status}", { status: params.turn?.status || t("未完成") }));
     }
   }
   async finish(state, error = "") {
     if (this.finished) return;
     this.finished = true;
-    for (const pending of this.pending.values()) { clearTimeout(pending.timer); pending.reject(new Error(error || "Codex 连接已结束")); }
+    for (const pending of this.pending.values()) { clearTimeout(pending.timer); pending.reject(new Error(error || t("Codex 连接已结束"))); }
     this.pending.clear();
     this.job.state = state; this.job.endedAt = Date.now();
     if (error) this.job.error = error.slice(0, 500);

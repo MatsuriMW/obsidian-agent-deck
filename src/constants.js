@@ -1,5 +1,7 @@
 // Agent Deck — shared constants and small helpers.
 
+import { t } from "./i18n.js";
+
 // 追加在每条委派消息末尾（笔记里看不到）：先弄懂、有疑问先问，说清打算后等用户点头再动手
 export const CONFIRM_FIRST = "先别动手。把上面的任务读透：有不清楚、有歧义或需要我拍板的地方，先列出来问我；都清楚了，就用几句话复述你的理解和打算怎么做，等我确认后再动手。这一轮不要改文件，也不要跑有副作用的命令。";
 
@@ -14,7 +16,7 @@ export const AGENTS = {
     color: "#a86f58",
     soft: "rgba(168,111,88,.13)",
     kind: "claude",
-    where: ["~/.claude/projects", "Claude Code 和 Claude 桌面版里的 Code 会话"],
+    where: ["~/.claude/projects", t("Claude Code 和 Claude 桌面版里的 Code 会话")],
     deep: "claude",
     desktopOnly: true,
   },
@@ -26,7 +28,7 @@ export const AGENTS = {
     color: "#71899d",
     soft: "rgba(113,137,157,.13)",
     kind: "codex",
-    where: ["~/.codex/sessions", "Codex 桌面版和 codex 命令行"],
+    where: ["~/.codex/sessions", t("Codex 桌面版和 codex 命令行")],
     deep: "codex",
     desktopOnly: true,
   },
@@ -38,7 +40,7 @@ export const AGENTS = {
     color: "#71917f",
     soft: "rgba(113,145,127,.13)",
     kind: "workbuddy",
-    where: ["~/.workbuddy/projects", "WorkBuddy 桌面版"],
+    where: ["~/.workbuddy/projects", t("WorkBuddy 桌面版")],
     deep: "workbuddy",
     desktopOnly: true,
   },
@@ -50,7 +52,7 @@ export const AGENTS = {
     color: "#767fae",
     soft: "rgba(118,127,174,.13)",
     kind: "dsh",
-    where: ["~/.dsh/sessions", "DeepSeek Harness 桌面版、CLI 和通过 ACP 委派的任务"],
+    where: ["~/.dsh/sessions", t("DeepSeek Harness 桌面版、CLI 和通过 ACP 委派的任务")],
     deep: "dsh",
     desktopOnly: true,
   },
@@ -62,7 +64,7 @@ export const AGENTS = {
     color: "#8b6fb8",
     soft: "rgba(139,111,184,.13)",
     kind: "antigravity",
-    where: ["~/.gemini/antigravity/brain", "Antigravity 桌面版与会话日志"],
+    where: ["~/.gemini/antigravity/brain", t("Antigravity 桌面版与会话日志")],
     deep: "antigravity",
     desktopOnly: true,
   },
@@ -75,7 +77,7 @@ export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent
 // Models shown in the layered picker. `cli` is what Claude Code receives;
 // `value` is what the DeepSeek Harness ACP config option receives.
 export const MODEL_CATALOG = [
-  { id: "antigravity-default", agent: "antigravity", name: "CLI 当前默认模型", value: "", provider: "Antigravity", context: "—", tags: [], note: "使用服务端的默认模型；读取可用模型后可指定模型。" },
+  { id: "antigravity-default", agent: "antigravity", name: t("CLI 当前默认模型"), value: "", provider: "Antigravity", context: "—", tags: [], note: t("使用服务端的默认模型；读取可用模型后可指定模型。") },
   {
     id: "claude-opus-5-5",
     agent: "claude",
@@ -155,7 +157,7 @@ export const MODEL_CATALOG = [
     ["gpt-5.6-sol", "GPT-5.6-Sol", "Reasoning"],
     ["gpt-5.6-terra", "GPT-5.6-Terra", "Reasoning"],
     ["gpt-5.6-luna", "GPT-5.6-Luna", "Fast"],
-  ].map(([id, name, tag]) => ({ id, name, agent: "codex", cli: id, value: id, provider: "OpenAI", context: "—", tags: [tag], note: "可用性由当前 Codex 登录账号决定。" })),
+  ].map(([id, name, tag]) => ({ id, name, agent: "codex", cli: id, value: id, provider: "OpenAI", context: "—", tags: [tag], note: t("可用性由当前 Codex 登录账号决定。") })),
   {
     id: "deepseek-v4-pro",
     agent: "dsh",
@@ -219,8 +221,8 @@ export const MODEL_CATALOG = [
 ];
 
 export const EFFORTS = {
-  antigravity: ["low", "medium", "high", "xhigh"].map((id) => ({ id, label: id, hint: "实际可用强度由 ACP 服务端校验" })),
-  codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: "由所选 Codex 模型支持的强度决定" })),
+  antigravity: ["low", "medium", "high", "xhigh"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
+  codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: t("由所选 Codex 模型支持的强度决定") })),
   claude: [
     { id: "low", label: "Low", hint: "Fastest" },
     { id: "medium", label: "Medium", hint: "Balanced" },
@@ -417,14 +419,14 @@ export function detectJournalFormat(app, cfg = {}) {
   let conf = null;
   try {
     const dn = app?.internalPlugins?.getPluginById?.("daily-notes");
-    if (dn?.enabled) conf = { ...(dn.instance?.options || {}), source: "Obsidian「日记」核心插件" };
+    if (dn?.enabled) conf = { ...(dn.instance?.options || {}), source: t("Obsidian「日记」核心插件") };
   } catch { /* 没有这个接口 */ }
   if (!conf) {
     const pn = app?.plugins?.plugins?.["periodic-notes"]?.settings?.daily;
     if (pn?.enabled) conf = { ...pn, source: "Periodic Notes" };
   }
   const folder = own || (conf ? String(conf.folder || "").trim().replace(/^\/+|\/+$/g, "") : "日记");
-  const folderSource = own ? "手动设置" : conf ? conf.source : "默认";
+  const folderSource = own ? t("手动设置") : conf ? conf.source : t("默认");
   let hit = conf ? { format: conf.format || "YYYY-MM-DD", source: conf.source } : null;
   if (!hit) {
     let files = [];
@@ -437,9 +439,9 @@ export function detectJournalFormat(app, cfg = {}) {
       const n = names.filter((x) => re.test(x)).length;
       if (n && (!best || n > best.n)) best = { fmt, n };
     }
-    if (best) hit = { format: best.fmt, source: `「${folder || "库根目录"}」里已有的 ${best.n} 篇日记` };
+    if (best) hit = { format: best.fmt, source: folder ? t("「{folder}」里已有的 {n} 篇日记", { folder, n: best.n }) : t("库根目录里已有的 {n} 篇日记", { n: best.n }) };
   }
-  _detected = { ...(hit || { format: "YYYY_MM_DD", source: "默认" }), folder, folderSource, key, app, at: Date.now() };
+  _detected = { ...(hit || { format: "YYYY_MM_DD", source: t("默认") }), folder, folderSource, key, app, at: Date.now() };
   return _detected;
 }
 
@@ -496,10 +498,10 @@ export function fmtClock(ms) {
 export function timeAgo(ms) {
   if (!ms) return "";
   const s = Math.max(0, (Date.now() - ms) / 1000);
-  if (s < 45) return "刚刚";
-  if (s < 3600) return Math.round(s / 60) + " 分钟前";
-  if (s < 86400) return Math.round(s / 3600) + " 小时前";
-  return Math.round(s / 86400) + " 天前";
+  if (s < 45) return t("刚刚");
+  if (s < 3600) return t("{n} 分钟前", { n: Math.round(s / 60) });
+  if (s < 86400) return t("{n} 小时前", { n: Math.round(s / 3600) });
+  return t("{n} 天前", { n: Math.round(s / 86400) });
 }
 export function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 export function truncate(s, n = 80) { s = String(s == null ? "" : s).replace(/\s+/g, " ").trim(); return s.length > n ? s.slice(0, n - 1) + "…" : s; }

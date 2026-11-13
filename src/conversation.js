@@ -3,6 +3,7 @@ import fs from "fs";
 import * as J from "./journal.js";
 import { decompress } from "fzstd";
 import { createHash } from "crypto";
+import { t } from "./i18n.js";
 
 const textOf = (content) => typeof content === "string" ? content : (Array.isArray(content) ? content : [])
   .filter((b) => ["text", "input_text", "output_text"].includes(b?.type)).map((b) => b.text || "").join("\n");
@@ -81,9 +82,9 @@ export function conversationPath(session) {
 
 export async function archiveConversation(plugin, session) {
   const active = Object.values(plugin.jobs).find((j) => j.agent === session.agent && j.sessionId === (session.sid || session.sessionId));
-  if (["starting", "running", "needs-approval"].includes(active?.state)) throw new Error("请等当前这一轮结束后再归档");
+  if (["starting", "running", "needs-approval"].includes(active?.state)) throw new Error(t("请等当前这一轮结束后再归档"));
   const messages = await readConversation(plugin, session);
-  if (!messages.length) throw new Error("暂未读取到对话正文，请扫描会话后重试");
+  if (!messages.length) throw new Error(t("暂未读取到对话正文，请扫描会话后重试"));
   const vault = plugin.app.vault;
   const notePath = conversationPath(session);
   for (const folder of ["Agent Deck", "Agent Deck/Conversations"]) {

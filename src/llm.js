@@ -8,6 +8,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { spawn } from "child_process";
+import { t } from "./i18n.js";
 
 const home = () => os.homedir();
 
@@ -27,17 +28,17 @@ export function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 1
     const env = { ...process.env, PATH: [path.join(home(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", process.env.PATH || ""].join(":") };
     let child;
     try { child = spawn(bin, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] }); }
-    catch (e) { return reject(new Error(`启动 claude 失败：${e.message}`)); }
+    catch (e) { return reject(new Error(t("启动 claude 失败：{msg}", { msg: e.message }))); }
     let out = "", err = "";
     child.stdout.on("data", (d) => { out += d; });
     child.stderr.on("data", (d) => { err += d; });
     const timer = setTimeout(() => { child.kill(); reject(new Error(`claude 等了 ${timeout} 秒没回来`)); }, timeout * 1000);
-    child.on("error", (e) => { clearTimeout(timer); reject(new Error(`启动 claude 失败：${e.message}`)); });
+    child.on("error", (e) => { clearTimeout(timer); reject(new Error(t("启动 claude 失败：{msg}", { msg: e.message }))); });
     child.on("close", (code) => {
       clearTimeout(timer);
       let d;
-      try { d = JSON.parse(out); } catch { return reject(new Error((err || out || `claude 退出码 ${code}`).trim().slice(0, 300))); }
-      if (d.is_error) return reject(new Error(String(d.result || "claude 返回错误").slice(0, 300)));
+      try { d = JSON.parse(out); } catch { return reject(new Error((err || out || t("claude 退出码 {code}", { code })).trim().slice(0, 300))); }
+      if (d.is_error) return reject(new Error(String(d.result || t("claude 返回错误")).slice(0, 300)));
       resolve(String(d.result || ""));
     });
     child.stdin.on("error", () => {});
@@ -59,14 +60,14 @@ export async function runCodex(prompt, { bin = "codex", model = "", effort = "lo
       let err = "";
       child.stderr.on("data", (d) => { err = (err + d).slice(-2000); });
       const timer = setTimeout(() => { child.kill(); reject(new Error(`codex 等了 ${timeout} 秒没回来`)); }, timeout * 1000);
-      child.on("error", (e) => { clearTimeout(timer); reject(new Error(`启动 codex 失败：${e.message}`)); });
+      child.on("error", (e) => { clearTimeout(timer); reject(new Error(t("启动 codex 失败：{msg}", { msg: e.message }))); });
       child.stdin.on("error", () => {});
       child.on("close", (code) => {
         clearTimeout(timer);
-        if (code !== 0) return reject(new Error((err || `codex 退出码 ${code}`).trim().slice(-500)));
+        if (code !== 0) return reject(new Error((err || t("codex 退出码 {code}", { code })).trim().slice(-500)));
         try {
           const answer = fs.readFileSync(output, "utf8").trim();
-          if (!answer) throw new Error("codex 没有返回文字");
+          if (!answer) throw new Error(t("codex 没有返回文字"));
           resolve(answer);
         } catch (e) { reject(e); }
       });

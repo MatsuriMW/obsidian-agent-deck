@@ -20,6 +20,7 @@ import { lattice } from "./lattice.js";
 import { aiRecordDisplayExtension } from "./record-display.js";
 import { executionStatus } from "./workflow.js";
 import { AGENTS, fmtDur, fmtTok, truncate } from "./constants.js";
+import { t as tr } from "./i18n.js";
 
 export const refreshEffect = StateEffect.define();
 export const SESSION_MIME = "application/x-agent-deck-session";
@@ -35,7 +36,7 @@ const dropField = StateField.define({
       if (!e.is(setDrop)) continue;
       if (!e.value) { deco = Decoration.none; continue; }
       const line = tr.state.doc.line(e.value.line + 1);
-      deco = Decoration.set([Decoration.line({ class: `ad-drop-line ad-drop-line--${e.value.kind}`, attributes: { "data-ad-drop": DROP_LABEL[e.value.kind] || "" } }).range(line.from)]);
+      deco = Decoration.set([Decoration.line({ class: `ad-drop-line ad-drop-line--${e.value.kind}`, attributes: { "data-ad-drop": tr(DROP_LABEL[e.value.kind] || "") } }).range(line.from)]);
     }
     return deco;
   },
@@ -83,11 +84,11 @@ function dndHandlers(plugin) {
         return true;
       }
       if (hasType(e, ITEM_MIME)) {
-        const t = mergeTarget(view, e, plugin);
-        if (!t) { show(view, null); return false; }
+        const target = mergeTarget(view, e, plugin);
+        if (!target) { show(view, null); return false; }
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
-        show(view, t);
+        show(view, target);
         return true;
       }
       return false;
@@ -102,22 +103,22 @@ function dndHandlers(plugin) {
       if (hasType(e, SESSION_MIME)) {
         e.preventDefault();
         e.stopPropagation();
-        const t = dropTarget(view, e);
+        const target = dropTarget(view, e);
         show(view, null);
         let data = null;
         try { data = JSON.parse(e.dataTransfer.getData(SESSION_MIME)); } catch { /* bad payload */ }
-        if (data && t) plugin.bindSessionAt(view, t.line, data, { below: !!e.metaKey });
-        else if (data) plugin.notice("这一行放不了会话：拖到列表项、空的列表项或空行上");
+        if (data && target) plugin.bindSessionAt(view, target.line, data, { below: !!e.metaKey });
+        else if (data) plugin.notice(tr("这一行放不了会话：拖到列表项、空的列表项或空行上"));
         return true;
       }
       if (hasType(e, ITEM_MIME)) {
-        const t = mergeTarget(view, e, plugin);
+        const target = mergeTarget(view, e, plugin);
         show(view, null);
-        if (!t) return false;
+        if (!target) return false;
         e.preventDefault();
         e.stopPropagation();
         const item = plugin.readItemDrag(e);
-        if (item && item.line !== t.line) plugin.mergeTaskLines(view, item.line, t.line, item.lineText);
+        if (item && item.line !== target.line) plugin.mergeTaskLines(view, item.line, target.line, item.lineText);
         return true;
       }
       return false;
@@ -153,7 +154,7 @@ class GripWidget extends WidgetType {
     el.draggable = true;
     setLucide(el, "send");
     const main = AGENTS[this.plugin.defaultTarget()] || AGENTS.claude;
-    el.setAttribute("aria-label", `单击发给 ${main.short} · 双击或 ⌘ 单击选 Agent / 合并条目 · 拖到另一条任务上绑定混合`);
+    el.setAttribute("aria-label", tr("单击发给 {agent} · 双击或 ⌘ 单击选 Agent / 合并条目 · 拖到另一条任务上绑定混合", { agent: main.short }));
     const item = { path: this.path, line: this.line, lineText: this.text };
     // 单击要等一下看是不是双击，免得双击时先把任务发给了主力
     let clickTimer = null;
@@ -243,7 +244,7 @@ class PillWidget extends WidgetType {
     const modelName = (job && p.modelLabel(job.model)) || (session && p.modelLabel(session.model)) || "";
     const progText = p.sessionProgressText ? p.sessionProgressText(session, job) : "";
     if (info.kind === "idle") {
-      label.textContent = "委派";
+      label.textContent = tr("委派");
       meta.textContent = modelName || (agent === "dsh" ? "DeepSeek" : "Claude");
       const chev = document.createElement("span");
       chev.className = "ad-pill__chev";
@@ -251,7 +252,7 @@ class PillWidget extends WidgetType {
       chev.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.openDelegateModal(this.path, this.line); });
       right.appendChild(chev);
     } else if (info.kind === "running" || info.kind === "starting") {
-      label.textContent = executionStatus(job) || (info.kind === "starting" ? "正在建立会话" : "正在执行");
+      label.textContent = executionStatus(job) || (info.kind === "starting" ? tr("正在建立会话") : tr("正在执行"));
       // 等待态：Agent 图标换成点阵，准备中绕圈、委派中蛇形走，两段一眼能分开
       glyph.textContent = "";
       lattice(glyph, info.kind === "starting" ? "orbit" : "snake");
@@ -268,7 +269,7 @@ class PillWidget extends WidgetType {
         const cancel = document.createElement("span");
         cancel.className = "ad-pill__cancel";
         setLucide(cancel, "x");
-        cancel.title = "取消";
+        cancel.title = tr("取消");
         cancel.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.cancelJob(job && job.id); });
         right.appendChild(cancel);
       }
@@ -278,30 +279,30 @@ class PillWidget extends WidgetType {
         el.classList.add("is-determinate");
       }
     } else if (info.kind === "waiting" || info.kind === "needs-approval") {
-      label.textContent = info.kind === "needs-approval" ? "等你允许" : "等你";
+      label.textContent = info.kind === "needs-approval" ? tr("等你允许") : tr("等你");
       if (progText) meta.textContent = progText;
       el.classList.add("is-pulse");
     } else if (info.kind === "done") {
-      label.textContent = "本轮结束";
+      label.textContent = tr("本轮结束");
       const resText = job && job.result ? truncate(job.result, 28) : (session && session.lastText ? truncate(J.oneSentenceConclusion(session.lastText, 28), 28) : "");
       meta.textContent = [progText, resText].filter(Boolean).join(" · ");
       const open = document.createElement("span");
       open.className = "ad-pill__open";
       setLucide(open, "arrow-up-right");
-      open.title = "继续对话或重新委派";
+      open.title = tr("继续对话或重新委派");
       open.addEventListener("mousedown", e => { e.preventDefault(); e.stopPropagation(); p.taskActions(this.path, this.line, e); });
       right.appendChild(open);
     } else if (info.kind === "error") {
-      label.textContent = "出错";
+      label.textContent = tr("出错");
       meta.textContent = truncate((job && job.error) || (session && session.err) || "", 30);
       const retry = document.createElement("span");
       retry.className = "ad-pill__open";
       setLucide(retry, "refresh-cw");
-      retry.title = "重新委派（新会话）";
+      retry.title = tr("重新委派（新会话）");
       retry.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.taskActions(this.path, this.line, e); });
       right.appendChild(retry);
     } else {
-      label.textContent = "会话";
+      label.textContent = tr("会话");
       meta.textContent = [progText, session && session.step ? truncate(session.step, 24) : ""].filter(Boolean).join(" · ");
     }
 

@@ -6,11 +6,12 @@ import { randomUUID } from "crypto";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { memoryEntries } from "./dream.js";
+import { t } from "./i18n.js";
 
 const exec = promisify(execFile);
 export function externalMemoryPath(value) {
   const target = String(value || "").trim().replace(/^~(?=\/)/, os.homedir());
-  if (!path.isAbsolute(target) || path.extname(target).toLowerCase() !== ".md") throw new Error("共享目标必须是外部 Markdown 文件的绝对路径");
+  if (!path.isAbsolute(target) || path.extname(target).toLowerCase() !== ".md") throw new Error(t("共享目标必须是外部 Markdown 文件的绝对路径"));
   return path.normalize(target);
 }
 
@@ -32,7 +33,7 @@ export class DreamSharing {
     await this.sync(false);
   }
   async sync(manual = true) {
-    if (this.busy) { if (manual) this.plugin.notice("长期记忆正在共享同步"); return this.task; }
+    if (this.busy) { if (manual) this.plugin.notice(t("长期记忆正在共享同步")); return this.task; }
     this.task = this.performSync(manual);
     return this.task;
   }
@@ -41,16 +42,16 @@ export class DreamSharing {
     const c = this.cfg;
     try {
       c.lastAttempt = Date.now();
-      this.status = "正在读取长期记忆…";
+      this.status = t("正在读取长期记忆…");
       await this.plugin.saveSettings();
       const target = externalMemoryPath(c.path), gitPush = c.gitPush;
       const text = await this.readMemory();
-      if (typeof text !== "string") throw new Error("还没有长期记忆，请先运行 Dreaming");
+      if (typeof text !== "string") throw new Error(t("还没有长期记忆，请先运行 Dreaming"));
       if (this.plugin.vaultPath) {
         const source = path.resolve(this.plugin.vaultPath, this.plugin.settings.dream.path);
         const realTarget = await fs.realpath(target).catch(e => { if (e.code !== "ENOENT") throw e; return target; });
         const realSource = await fs.realpath(source).catch(e => { if (e.code !== "ENOENT") throw e; return source; });
-        if (realTarget === realSource) throw new Error("共享目标不能覆盖原长期记忆笔记");
+        if (realTarget === realSource) throw new Error(t("共享目标不能覆盖原长期记忆笔记"));
       }
       const git = async (args, cwd = path.dirname(target)) => (await exec("git", ["--literal-pathspecs", ...args], { cwd, timeout: 60000, maxBuffer: 1024 * 1024 })).stdout.trim();
       let root, relative, branch;
@@ -58,11 +59,11 @@ export class DreamSharing {
         // Validate the repository before writing. Never stage or commit unrelated files.
         root = await git(["rev-parse", "--show-toplevel"]);
         relative = path.relative(await fs.realpath(root), path.join(await fs.realpath(path.dirname(target)), path.basename(target)));
-        if (relative.startsWith(".." + path.sep) || path.isAbsolute(relative) || relative.split(path.sep).includes(".git")) throw new Error("共享文件必须位于 Git 仓库工作区内");
+        if (relative.startsWith(".." + path.sep) || path.isAbsolute(relative) || relative.split(path.sep).includes(".git")) throw new Error(t("共享文件必须位于 Git 仓库工作区内"));
         branch = await git(["symbolic-ref", "--short", "HEAD"], root);
         await git(["remote", "get-url", "origin"], root);
       }
-      this.status = "正在写入共享 Markdown…";
+      this.status = t("正在写入共享 Markdown…");
       const snapshot = sharedMemory(text);
       const old = await fs.readFile(target, "utf8").catch(e => { if (e.code !== "ENOENT") throw e; return null; });
       if (old !== snapshot) {
@@ -72,7 +73,7 @@ export class DreamSharing {
         finally { await fs.rm(temp, { force: true }); }
       }
       if (gitPush) {
-        this.status = "正在提交并推送共享记忆…";
+        this.status = t("正在提交并推送共享记忆…");
         await git(["add", "--", relative], root);
         const changed = await git(["diff", "--cached", "--name-only", "--", relative], root);
         if (changed) await git(["commit", "--only", "-m", "Update Agent Deck shared memory", "--", relative], root);
@@ -80,13 +81,13 @@ export class DreamSharing {
         await git(["push", "origin", `HEAD:refs/heads/${branch}`], root);
       }
       c.lastSuccess = Date.now(); c.lastError = "";
-      this.status = gitPush ? "已同步并推送到 origin 当前分支" : "已同步共享 Markdown";
+      this.status = gitPush ? t("已同步并推送到 origin 当前分支") : t("已同步共享 Markdown");
       await this.plugin.saveSettings();
-      if (manual) this.plugin.notice(`${this.status}：${target}`, 7000);
+      if (manual) this.plugin.notice(t("{status}：{target}", { status: this.status, target }), 7000);
       return target;
     } catch (e) {
       c.lastError = e.message;
-      this.status = `共享同步失败：${e.message}`;
+      this.status = t("共享同步失败：{error}", { error: e.message });
       await this.plugin.saveSettings();
       this.plugin.notice(this.status, 8000);
     } finally { this.busy = false; }

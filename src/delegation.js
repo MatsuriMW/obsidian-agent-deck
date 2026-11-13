@@ -14,6 +14,7 @@ import { spawn, execFile } from "child_process";
 import { AGENTS, DEFAULTS, CONFIRM_FIRST, MODEL_CATALOG, clamp, truncate } from "./constants.js";
 import * as J from "./journal.js";
 import { mentionOptions, stripTaskMention, mentionTrigger } from "./task-mentions.js";
+import { t } from "./i18n.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -196,7 +197,7 @@ export async function pickTerminal(which = "auto") {
   return TERMINAL_ORDER.find(usable) || "terminal";
 }
 
-export const TERMINAL_NAME = { herdr: "Herdr", tern: "Tern", iterm: "iTerm2", warp: "Warp", terminal: "系统终端" };
+export const TERMINAL_NAME = { herdr: "Herdr", tern: "Tern", iterm: "iTerm2", warp: "Warp", terminal: t("系统终端") };
 
 // 在终端里开一个标签跑 command，返回实际用的终端（auto 时是挑出来的那个）
 export async function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
@@ -419,14 +420,14 @@ export function copyText(text) {
 function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
   focusCliSession(agent, sid).then((how) => {
     if (how === "tab") return;
-    if (how === "app") return plugin.notice("已切到 Warp");
+    if (how === "app") return plugin.notice(t("已切到 Warp"));
     openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto", AGENTS[agent]?.short || "Claude");
   }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto"));
   return true;
 }
 
 export function openSession(plugin, agent, sid, app = "", session = null) {
-  if (!sid) { plugin.notice("这个会话还没有会话号，稍等一秒再点"); return false; }
+  if (!sid) { plugin.notice(t("这个会话还没有会话号，稍等一秒再点")); return false; }
   if (agent === "claude") {
     // 终端里起的会话：还开着就切到那个终端标签；关了才在新标签里 cd 到会话原来的目录 claude --resume。设置里可以改成走桌面版
     if (app === "cli" && plugin.settings.cliOpen !== "desktop") {
@@ -452,13 +453,13 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     // session id on the clipboard and say so, instead of pretending to deep-link a row.
     openExternal("dsh://open");
     try { navigator.clipboard.writeText(sid); } catch { /* clipboard */ }
-    plugin.notice(`已打开 DeepSeek Harness；会话号已复制`);
+    plugin.notice(t("已打开 DeepSeek Harness；会话号已复制"));
     return true;
   }
   if (agent === "antigravity") {
     openAgentApp("antigravity");
     copyText(sid);
-    plugin.notice(`已打开 Antigravity；会话号已复制`);
+    plugin.notice(t("已打开 Antigravity；会话号已复制"));
     return true;
   }
   return false;
@@ -488,7 +489,7 @@ class ClaudeRunner {
         this.job.cwd = cwd;
         if (!d._trustNoticeAt || Date.now() - d._trustNoticeAt > 10 * 60000) {
           d._trustNoticeAt = Date.now();
-          d.notice(`Claude Code 没有信任库目录，改在 ${cwd} 里跑；库已经用 --add-dir 加进去了。`);
+          d.notice(t("Claude Code 没有信任库目录，改在 {cwd} 里跑；库已经用 --add-dir 加进去了。", { cwd }));
         }
       }
     }
@@ -546,11 +547,11 @@ class ClaudeRunner {
     child.on("exit", (code) => {
       if (this.finished) return;
       if (code === 0) this.done();
-      else this.fail(err.trim() || `claude 退出码 ${code}`);
+      else this.fail(err.trim() || t("claude 退出码 {code}", { code }));
     });
     this.d.saveJobs();
     this.d.onSession(this.job, sid);
-    if (this.d.C.claude.useBackground === true) this.d.notice?.("Claude 后台服务没起来，已改用无头会话（答完可以点任务行打开）");
+    if (this.d.C.claude.useBackground === true) this.d.notice?.(t("Claude 后台服务没起来，已改用无头会话（答完可以点任务行打开）"));
     return true;
   }
 
@@ -668,13 +669,13 @@ class AcpRunner {
     child.on("error", (e) => this.fail(String(e && e.message || e)));
     child.on("exit", (code) => {
       if (this.finished) return;
-      this.fail(err.trim() || `${this.label} ACP 提前退出（${code}）`);
+      this.fail(err.trim() || t("{agent} ACP 提前退出（{code}）", { agent: this.label, code }));
     });
     try {
       const init = await this.request("initialize", { protocolVersion: 1, clientCapabilities: {} }, 30000);
       this.capabilities = init?.agentCapabilities || {};
       if (opts.sessionId && !this.capabilities.sessionCapabilities?.resume && !this.capabilities.loadSession) {
-        throw new Error(`${this.label} 未声明会话恢复能力，请升级后再续聊`);
+        throw new Error(t("{agent} 未声明会话恢复能力，请升级后再续聊", { agent: this.label }));
       }
       const method = opts.sessionId ? (this.capabilities.sessionCapabilities?.resume ? "session/resume" : "session/load") : "session/new";
       this.loadingSession = !!opts.sessionId;
@@ -682,7 +683,7 @@ class AcpRunner {
       this.loadingSession = false;
       if (this.finished) return false;
       this.sessionId = opts.sessionId || made?.sessionId || made?.session_id;
-      if (!this.sessionId) throw new Error(`${this.label} 没有返回会话号`);
+      if (!this.sessionId) throw new Error(t("{agent} 没有返回会话号", { agent: this.label }));
       this.job.sessionId = this.sessionId;
       this.job.transport = "acp";
       let configOptions = made?.configOptions || [];
@@ -697,25 +698,25 @@ class AcpRunner {
       this.d.onSession(this.job, this.sessionId);
       const isDefault = this.agent === "antigravity" && (!model || model === "antigravity-default");
       const modelOption = configOptions.find((x) => x.category === "model" || x.id === "model");
-      if (opts.model && !isDefault && !modelOption) throw new Error(`${this.label} 未提供模型选择`);
+      if (opts.model && !isDefault && !modelOption) throw new Error(t("{agent} 未提供模型选择", { agent: this.label }));
       if (modelOption && !isDefault && (!opts.sessionId || opts.model)) {
         const custom = this.d.plugin?.modelById?.(model);
         const selected = custom?.value || (this.agent === "dsh" ? resolveDshModel(model)?.value : model);
-        if (!selected) throw new Error(`无法识别 ${this.label} 模型：${model}`);
+        if (!selected) throw new Error(t("无法识别 {agent} 模型：{model}", { agent: this.label, model }));
         const changed = await this.request("session/set_config_option", { sessionId: this.sessionId, configId: modelOption.id, value: selected }, 15000);
         configOptions = changed?.configOptions || configOptions;
       }
       const effortOption = configOptions.find((x) => x.category === "thought_level" || x.id === "reasoning_effort");
-      if (opts.effort && !effortOption) throw new Error(`${this.label} 未提供推理强度选择`);
+      if (opts.effort && !effortOption) throw new Error(t("{agent} 未提供推理强度选择", { agent: this.label }));
       if (effortOption && effort && (!opts.sessionId || opts.effort)) {
         const value = this.agent === "dsh" ? dshEffort(effort) : effort;
-        if (this.agent === "antigravity" && !effortOption.options?.some((o) => o.value === value)) throw new Error(`当前模型不支持推理强度 ${value}`);
+        if (this.agent === "antigravity" && !effortOption.options?.some((o) => o.value === value)) throw new Error(t("当前模型不支持推理强度 {value}", { value }));
         await this.request("session/set_config_option", { sessionId: this.sessionId, configId: effortOption.id, value }, 15000);
       }
       if (this.finished) return false;
       this.job.conversation ||= [];
       this.job.conversation.push({ role: "user", text: opts.prompt, at: Date.now() });
-      this.timer = setTimeout(() => this.fail("委派超过 30 分钟没有结束"), 30 * 60000);
+      this.timer = setTimeout(() => this.fail(t("委派超过 30 分钟没有结束")), 30 * 60000);
       this.request("session/prompt", { sessionId: this.sessionId, prompt: [{ type: "text", text: opts.prompt }] }, 31 * 60000)
         .then((r) => this.done(r))
         .catch((e) => this.fail(e && e.message || String(e)));
@@ -778,7 +779,7 @@ class AcpRunner {
       const options = params.options || [];
       if (this.d.plugin?.requestAcpPermission && cfg.autoApprove !== true) {
         this.job.state = "needs-approval";
-        this.job.step = params.toolCall?.title || "等待工具授权";
+        this.job.step = params.toolCall?.title || t("等待工具授权");
         this.d.saveJobs(); this.d.refreshUI();
         Promise.resolve().then(() => this.d.plugin.requestAcpPermission({ agent: this.agent, toolCall: params.toolCall, options }, this))
           .then((optionId) => {
@@ -790,7 +791,7 @@ class AcpRunner {
           }).catch(() => {
             if (this.finished) return;
             this.respond(msg.id, { outcome: { outcome: "cancelled" } });
-            this.job.state = "running"; this.job.step = "工具调用已取消";
+            this.job.state = "running"; this.job.step = t("工具调用已取消");
             this.d.saveJobs(); this.d.refreshUI();
           });
         return;
@@ -798,8 +799,8 @@ class AcpRunner {
       const auto = cfg.autoApprove === true;
       const option = options.find((o) => o.kind === (auto ? "allow_once" : "reject_once"));
       if (!auto) {
-        this.job.step = "工具调用已拒绝";
-        this.d.notify({ title: `${this.label} 需要你允许`, body: `「${this.job.name}」的工具调用已拒绝。可在委派设置中调整权限后重试。`, job: this.job });
+        this.job.step = t("工具调用已拒绝");
+        this.d.notify({ title: t("{agent} 需要你允许", { agent: this.label }), body: t("「{name}」的工具调用已拒绝。可在委派设置中调整权限后重试。", { name: this.job.name }), job: this.job });
       }
       this.respond(msg.id, { outcome: option ? { outcome: "selected", optionId: option.optionId } : { outcome: "cancelled" } });
       return;
@@ -815,10 +816,10 @@ class AcpRunner {
   }
 
   request(method, params, timeout = 20000) {
-    if (this.finished) return Promise.reject(new Error(`${this.label} 连接已关闭`));
+    if (this.finished) return Promise.reject(new Error(t("{agent} 连接已关闭", { agent: this.label })));
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`${method} 超时`)); }, timeout);
+      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(t("{method} 超时", { method }))); }, timeout);
       this.pending.set(id, { resolve, reject, timer });
       this.send({ jsonrpc: "2.0", id, method, params });
     });
@@ -872,7 +873,7 @@ class AcpRunner {
   }
 
   clearPending() {
-    for (const p of this.pending.values()) { clearTimeout(p.timer); p.reject(new Error(`${this.label} 连接已结束`)); }
+    for (const p of this.pending.values()) { clearTimeout(p.timer); p.reject(new Error(t("{agent} 连接已结束", { agent: this.label }))); }
     this.pending.clear();
   }
 
@@ -898,7 +899,7 @@ export function acpModels(agent, configOptions) {
       if (typeof item.value !== "string") continue;
       const builtin = MODEL_CATALOG.find((m) => m.agent === agent && m.value === item.value);
       result.push({ id: builtin?.id || `${agent}-acp-${Buffer.from(item.value).toString("base64url")}`, agent, name: item.name || item.value,
-        value: item.value, provider: group.options ? group.name : AGENTS[agent].name, context: "—", tags: [], note: item.description || "ACP 服务端返回的模型" });
+        value: item.value, provider: group.options ? group.name : AGENTS[agent].name, context: "—", tags: [], note: item.description || t("ACP 服务端返回的模型") });
     }
   }
   return result;
@@ -957,16 +958,16 @@ export class Delegator {
   async delegate(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (opts.destination && !destinations(opts.agent).some(o => o.id === opts.destination)) throw new Error("此 Agent 不支持所选工作位置");
+    if (opts.destination && !destinations(opts.agent).some(o => o.id === opts.destination)) throw new Error(t("此 Agent 不支持所选工作位置"));
     if (!["claude", "codex", "dsh", "antigravity"].includes(opts.agent)) return this.handoff(opts);
     if (opts.destination === "terminal" || (opts.agent === "codex" && !opts.destination && this.C.codex?.transport === "terminal")) return this.handoffCli(opts);
     const agent = opts.agent;
     const file = opts.file;
-    if (!file) throw new Error("没有当前笔记");
+    if (!file) throw new Error(t("没有当前笔记"));
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
-    if (!block) throw new Error("光标要放在一个列表项里");
-    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
+    if (!block) throw new Error(t("光标要放在一个列表项里"));
+    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
     const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
@@ -984,7 +985,7 @@ export class Delegator {
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     this.plugin.refreshUI();
-    this.plugin.notice(`🛫 正在委派给 ${AGENTS[agent]?.name || agent}：${name}`);
+    this.plugin.notice(t("🛫 正在委派给 {agent}：{name}", { agent: AGENTS[agent]?.name || agent, name }));
     const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => job.destination === "background" ? undefined : openSession(this.plugin, "codex", job.sessionId, "vscode")) : ["dsh", "antigravity"].includes(agent) ? new AcpRunner(this, job) : new ClaudeRunner(this, job);
     this.runners.set(job.id, runner);
     try {
@@ -1010,18 +1011,18 @@ export class Delegator {
 
   async continueSession(session, prompt) {
     this.refreshSettings();
-    if (!["dsh", "antigravity"].includes(session.agent)) throw new Error("这个 Agent 不支持在 Obsidian 内续聊");
+    if (!["dsh", "antigravity"].includes(session.agent)) throw new Error(t("这个 Agent 不支持在 Obsidian 内续聊"));
     prompt = String(prompt || "").trim();
-    if (!prompt) throw new Error("请输入追问内容");
+    if (!prompt) throw new Error(t("请输入追问内容"));
     const sid = session.sid || session.sessionId;
-    if (!sid) throw new Error("这个会话还没有会话号");
+    if (!sid) throw new Error(t("这个会话还没有会话号"));
     const existing = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === sid);
-    if (["starting", "running", "needs-approval"].includes(existing?.state)) throw new Error("请等当前这一轮结束后再发送");
-    if (session.agent === "antigravity" && existing?.transport !== "acp") throw new Error("这是 Antigravity 桌面会话，请在客户端继续；在插件中新建 ACP 委派后可在 Obsidian 内续聊");
+    if (["starting", "running", "needs-approval"].includes(existing?.state)) throw new Error(t("请等当前这一轮结束后再发送"));
+    if (session.agent === "antigravity" && existing?.transport !== "acp") throw new Error(t("这是 Antigravity 桌面会话，请在客户端继续；在插件中新建 ACP 委派后可在 Obsidian 内续聊"));
     let job = existing;
     if (!job) {
       job = { id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, agent: session.agent,
-        name: session.title || `${AGENTS[session.agent].name} 会话`, sessionId: sid, cwd: session.cwd || this.vaultPath,
+        name: session.title || t("{agent} 会话", { agent: AGENTS[session.agent].name }), sessionId: sid, cwd: session.cwd || this.vaultPath,
         linkWritten: true, model: "", effort: "", conversation: [] };
       this.jobs[job.id] = job;
     }
@@ -1041,11 +1042,11 @@ export class Delegator {
     if (["claude", "codex", "dsh", "antigravity"].includes(opts.agent)) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
-    if (!file) throw new Error("没有当前笔记");
+    if (!file) throw new Error(t("没有当前笔记"));
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
-    if (!block) throw new Error("要拖一个列表项");
-    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
+    if (!block) throw new Error(t("要拖一个列表项"));
+    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
     const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
@@ -1053,14 +1054,14 @@ export class Delegator {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
-      startedAt: Date.now(), state: "starting", handoff: true, step: `等你在 ${AGENTS[agent]?.name || agent} 里发出去`,
+      startedAt: Date.now(), state: "starting", handoff: true, step: t("等你在 {agent} 里发出去", { agent: AGENTS[agent]?.name || agent }),
       cwd: this.vaultPath, sessionId: "", linkWritten: false, resultWritten: false,
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     copyText(prompt);
     await openAgentApp(agent);
-    this.plugin.notice(`📋 任务已复制，粘贴到 ${AGENTS[agent]?.name || agent} 里发出`, 10000);
+    this.plugin.notice(t("📋 任务已复制，粘贴到 {agent} 里发出", { agent: AGENTS[agent]?.name || agent }), 10000);
     this.plugin.refreshUI();
     return job;
   }
@@ -1073,11 +1074,11 @@ export class Delegator {
     if (!["claude", "codex"].includes(opts.agent)) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
-    if (!file) throw new Error("没有当前笔记");
+    if (!file) throw new Error(t("没有当前笔记"));
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
-    if (!block) throw new Error("要拖一个列表项");
-    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
+    if (!block) throw new Error(t("要拖一个列表项"));
+    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
     const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
@@ -1112,13 +1113,13 @@ export class Delegator {
       agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
       startedAt: Date.now(), state: "starting", model, effort, handoff: true, cli: true, app: agent === "claude" ? "cli" : "codex_cli_rs",
-      step: `在终端里开 ${AGENTS[agent]?.name || agent}`, cwd, sessionId: "", linkWritten: false, resultWritten: false,
+      step: t("在终端里开 {agent}", { agent: AGENTS[agent]?.name || agent }), cwd, sessionId: "", linkWritten: false, resultWritten: false,
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     // 任务前面加 --：任务常以「- TODO」开头，不加会被当成命令行参数（unknown option）
     const term = await openTerminal(`${shellQuote(bin)}${extra} -- "$(cat ${shellQuote(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
-    this.plugin.notice(`已在 ${TERMINAL_NAME[term] || "终端"} 里开 ${AGENTS[agent]?.name || agent}`, 6000);
+    this.plugin.notice(t("已在 {terminal} 里开 {agent}", { terminal: term === "terminal" ? t("系统终端") : (TERMINAL_NAME[term] || t("终端")), agent: AGENTS[agent]?.name || agent }), 6000);
     this.plugin.refreshUI();
     return job;
   }
@@ -1132,7 +1133,7 @@ export class Delegator {
     for (const job of waiting) {
       if (Date.now() - job.startedAt > 30 * 60000) {
         job.state = "cancelled";
-        job.error = "半小时里没在客户端看到这个任务的新会话";
+        job.error = t("半小时里没在客户端看到这个任务的新会话");
         job.endedAt = Date.now();
         this.saveJobs();
         continue;
@@ -1225,7 +1226,7 @@ export class Delegator {
     try { if (job._linkPromise) await job._linkPromise; } catch { /* link failed */ }
     this.refreshUI();
     const agent = AGENTS[job.agent];
-    this.plugin.notice(`✅ ${agent ? agent.name : job.agent} 做完了一轮：${job.name}`, 8000);
+    this.plugin.notice(t("✅ {agent} 做完了一轮：{name}", { agent: agent ? agent.name : job.agent, name: job.name }), 8000);
     if ((job.destination === "desktop" || (!job.destination && this.C.claude.openDesktop === true)) && job.agent === "claude" && job.sessionId) openSession(this.plugin, "claude", job.sessionId);
     if (this.settings.autoWriteResult && job.linkWritten && job.path) {
       try { await this.writeResult(job); } catch (e) { console.error("[agent-deck] writeResult", e); }
@@ -1237,11 +1238,11 @@ export class Delegator {
     this.refreshUI();
     const err = String(job.error || "");
     if (job.agent === "claude" && /not trusted/i.test(err)) {
-      this.plugin.notice(`Claude Code 不信任这个工作目录：\n${job.cwd}\n\n在终端里 cd 到那儿运行一次 claude，接受信任提示；或者在「委派」设置里把工作目录换成一个已经信任的目录。\n（这次没有真正跑起来，已经把 🔗 和 DELEGATED 撤回）`, 16000);
+      this.plugin.notice(t("Claude Code 不信任这个工作目录：{cwd} 在终端里 cd 到那儿运行一次 claude，接受信任提示；或者在「委派」设置里把工作目录换成一个已经信任的目录。（这次没有真正跑起来，已经把 🔗 和 DELEGATED 撤回）", { cwd: job.cwd }), 16000);
     } else if (job.agent === "claude" && /unknown option|invalid option|unrecognized/i.test(err)) {
-      this.plugin.notice(`Claude Code 不认识传过去的参数：\n${err.slice(0, 300)}\n\n把「委派 → 额外参数」清空，或检查 claude --help。`, 12000);
+      this.plugin.notice(t("Claude Code 不认识传过去的参数：{error} 把「委派 → 额外参数」清空，或检查 claude --help。", { error: err.slice(0, 300) }), 12000);
     } else {
-      this.plugin.notice(`⚠️ ${AGENTS[job.agent]?.name || job.agent} 没跑完：${job.name}\n${err || "详情见控制台"}`, 10000);
+      this.plugin.notice(t("⚠️ {agent} 没跑完：{name} {error}", { agent: AGENTS[job.agent]?.name || job.agent, name: job.name, error: err || t("详情见控制台") }), 10000);
     }
     if (job.linkWritten && Date.now() - (job.startedAt || 0) < 12000 && /not trusted|unknown option|invalid option|unrecognized|ENOENT/i.test(err)) {
       this.removeLink(job).catch(() => {});

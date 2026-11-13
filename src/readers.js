@@ -9,6 +9,7 @@ import path from "path";
 import os from "os";
 import { execFile } from "child_process";
 import { decompress } from "fzstd";
+import { t } from "./i18n.js";
 import {
   AGENTS, dayKey, dayKeyToday, dayMinute, unionSegs, clamp,
 } from "./constants.js";
@@ -71,18 +72,18 @@ export function stepText(name, input) {
   const n = String(name || "");
   const base = (x) => String(x || "").split("/").pop();
   const cut = (x) => { x = String(x || "").replace(/\s+/g, " ").trim(); return x.length > 34 ? x.slice(0, 33) + "…" : x; };
-  if (/^(bash|shell|local_shell_call|exec_command|shell_command|run_command)$/i.test(n)) return cut(i.description || i.toolSummary || (Array.isArray(i.command) ? i.command[i.command.length - 1] : i.command || i.cmd || i.CommandLine) || "跑命令");
-  if (/^(edit|multiedit|notebookedit|apply_patch|str_replace_editor|edit_file|replace_file_content|multi_replace_file_content)$/i.test(n)) return cut(`改 ${base(i.file_path || i.notebook_path || i.path || i.Path || i.TargetFile) || "文件"}`);
-  if (/^(write|create_file|write_file|write_to_file)$/i.test(n)) return cut(`写 ${base(i.file_path || i.path || i.Path || i.TargetFile)}`);
-  if (/^(read|view|read_file|view_file)$/i.test(n)) return cut(`读 ${base(i.file_path || i.path || i.Path || i.AbsolutePath)}`);
-  if (/^(grep|glob|search|grep_search|find_by_name)$/i.test(n)) return cut(`找 ${i.pattern || i.query || i.Query || i.Pattern || ""}`);
-  if (/^(agent|task|subagent|invoke_subagent)$/i.test(n)) return cut(`派出去：${i.description || i.Role || i.Prompt || ""}`);
-  if (/^(websearch|web_search|search_web)$/i.test(n)) return cut(`搜 ${i.query || ""}`);
-  if (/^(webfetch|web_fetch)$/i.test(n)) return "读网页";
-  if (n === "Skill") return cut(`用技能 ${i.skill || ""}`);
-  if (n === "TaskCreate") return cut(`建待办：${i.subject || i.title || ""}`);
-  if (n === "TaskUpdate") return cut(`${i.status === "completed" ? "完成待办 #" : i.status === "in_progress" ? "进行待办 #" : "更新待办 #"}${i.taskId || i.id || ""}`);
-  if (/^todo/i.test(n)) return "整理待办";
+  if (/^(bash|shell|local_shell_call|exec_command|shell_command|run_command)$/i.test(n)) return cut(i.description || i.toolSummary || (Array.isArray(i.command) ? i.command[i.command.length - 1] : i.command || i.cmd || i.CommandLine) || t("跑命令"));
+  if (/^(edit|multiedit|notebookedit|apply_patch|str_replace_editor|edit_file|replace_file_content|multi_replace_file_content)$/i.test(n)) return cut(t("改 {file}", { file: base(i.file_path || i.notebook_path || i.path || i.Path || i.TargetFile) || t("文件") }));
+  if (/^(write|create_file|write_file|write_to_file)$/i.test(n)) return cut(t("写 {file}", { file: base(i.file_path || i.path || i.Path || i.TargetFile) }));
+  if (/^(read|view|read_file|view_file)$/i.test(n)) return cut(t("读 {file}", { file: base(i.file_path || i.path || i.Path || i.AbsolutePath) }));
+  if (/^(grep|glob|search|grep_search|find_by_name)$/i.test(n)) return cut(t("找 {pattern}", { pattern: i.pattern || i.query || i.Query || i.Pattern || "" }));
+  if (/^(agent|task|subagent|invoke_subagent)$/i.test(n)) return cut(t("派出去：{what}", { what: i.description || i.Role || i.Prompt || "" }));
+  if (/^(websearch|web_search|search_web)$/i.test(n)) return cut(t("搜 {query}", { query: i.query || "" }));
+  if (/^(webfetch|web_fetch)$/i.test(n)) return t("读网页");
+  if (n === "Skill") return cut(t("用技能 {skill}", { skill: i.skill || "" }));
+  if (n === "TaskCreate") return cut(t("建待办：{subject}", { subject: i.subject || i.title || "" }));
+  if (n === "TaskUpdate") return cut(`${i.status === "completed" ? t("完成待办 #{id}", { id: i.taskId || i.id || "" }) : i.status === "in_progress" ? t("进行待办 #{id}", { id: i.taskId || i.id || "" }) : t("更新待办 #{id}", { id: i.taskId || i.id || "" })}`);
+  if (/^todo/i.test(n)) return t("整理待办");
   return cut(n.startsWith("mcp__") ? n.split("__").pop() : n);
 }
 
@@ -837,7 +838,7 @@ export class AgentUsage {
       v.rounds = fc.rounds ? fc.rounds.list : [];
     } else if (d.type === "reasoning") {
       v.state = "run";
-      if (!v.step) v.step = "思考中…";
+      if (!v.step) v.step = t("思考中…");
     } else if (d.type === "function_call") {
       v.state = "run";
       let a = {};

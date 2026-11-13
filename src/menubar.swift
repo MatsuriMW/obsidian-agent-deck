@@ -147,6 +147,25 @@ struct MenuStat: Decodable {
     let value: String
 }
 
+// MARK: - Localized labels
+
+/// The plugin sends a `labels` map (Chinese source string -> text in the app
+/// language) with every snapshot. Anything missing keeps the Chinese literal
+/// below, so an older snapshot or an untranslated string still renders.
+enum DeckLabels {
+    static var table: [String: String] = [:]
+}
+
+/// Localized UI text. `vars` fills `{name}` placeholders so a translated string
+/// can put the numbers where English needs them.
+func L(_ zh: String, _ vars: [String: String] = [:]) -> String {
+    var text = DeckLabels.table[zh] ?? zh
+    for (name, value) in vars {
+        text = text.replacingOccurrences(of: "{\(name)}", with: value)
+    }
+    return text
+}
+
 struct MenuState: Decodable {
     let updatedAt: Double
     let short: String
@@ -158,8 +177,12 @@ struct MenuState: Decodable {
     let sessions: [MenuSession]
     let agents: [MenuAgent]?
     let stats: [MenuStat]?
+    /// Chinese source string -> localized text, filled by the plugin.
+    let labels: [String: String]?
 
-    static let empty = MenuState(updatedAt: 0, short: "Agent Deck", summary: "等待 Agent Deck…", usage: nil, hotkey: nil, running: 0, waiting: 0, sessions: [], agents: [], stats: nil)
+    static var empty: MenuState {
+        MenuState(updatedAt: 0, short: "Agent Deck", summary: L("等待 Agent Deck…"), usage: nil, hotkey: nil, running: 0, waiting: 0, sessions: [], agents: [], stats: nil, labels: nil)
+    }
 
     var needsApproval: Int {
         sessions.filter { $0.state == "needs-approval" }.count
@@ -172,9 +195,9 @@ struct MenuState: Decodable {
         let parts = summary
             .split(separator: "·")
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            .filter { !$0.isEmpty && !$0.contains("在跑") && !$0.contains("等你") }
+            .filter { !$0.isEmpty && !$0.contains(L("在跑")) && !$0.contains(L("等你")) }
         if parts.isEmpty {
-            return summary.isEmpty ? "等待 Agent Deck…" : summary
+            return summary.isEmpty ? L("等待 Agent Deck…") : summary
         }
         return parts.joined(separator: " · ")
     }
@@ -237,6 +260,7 @@ final class MenuModel: ObservableObject {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: statePath)),
               let next = try? JSONDecoder().decode(MenuState.self, from: data) else { return }
         if next.updatedAt != state.updatedAt {
+            DeckLabels.table = next.labels ?? [:]
             state = next
             onUpdate?()
         }
@@ -335,7 +359,10 @@ enum DeckPalette {
 /// small labels keep a readable contrast on the pale solid chip background.
 struct KeywordStyle {
     let code: String
-    let zh: String
+    /// Chinese source label; the displayed text runs through L() so the panel
+    /// follows the app language.
+    let key: String
+    var zh: String { L(key) }
     let accent: Color
     let ink: Color
     let tint: Color
@@ -345,7 +372,7 @@ struct KeywordStyle {
 
 enum DeckKeywords {
     static let doing = KeywordStyle(
-        code: "DOING", zh: "在跑",
+        code: "DOING", key: "在跑",
         accent: .solid("#C8635F", "#FF938B"),
         ink: .solid("#A34C48", "#FFB3AC"),
         tint: .solid("#F9E7E5", "#37211F"),
@@ -353,7 +380,7 @@ enum DeckKeywords {
     )
 
     static let needok = KeywordStyle(
-        code: "NEEDOK?", zh: "等你",
+        code: "NEEDOK?", key: "等你",
         accent: .solid("#BF7A45", "#F2A66B"),
         ink: .solid("#96582B", "#FFC79A"),
         tint: .solid("#FBEDE1", "#3A281C"),
@@ -361,7 +388,7 @@ enum DeckKeywords {
     )
 
     static let waiting = KeywordStyle(
-        code: "WAITING", zh: "等你",
+        code: "WAITING", key: "等你",
         accent: .solid("#8F7FB6", "#BFAEEA"),
         ink: .solid("#6A5B92", "#D9CEFF"),
         tint: .solid("#F0EBF8", "#2A2438"),
@@ -369,7 +396,7 @@ enum DeckKeywords {
     )
 
     static let paused = KeywordStyle(
-        code: "PAUSED", zh: "安静",
+        code: "PAUSED", key: "安静",
         accent: .solid("#B39A3E", "#E4CB6A"),
         ink: .solid("#846F22", "#F2DF9B"),
         tint: .solid("#F7F0D9", "#332C18"),
@@ -377,7 +404,7 @@ enum DeckKeywords {
     )
 
     static let errored = KeywordStyle(
-        code: "ERRORED", zh: "出错",
+        code: "ERRORED", key: "出错",
         accent: .solid("#93606B", "#E18C99"),
         ink: .solid("#70414B", "#F5B5BE"),
         tint: .solid("#F5E7E9", "#37222A"),
@@ -385,7 +412,7 @@ enum DeckKeywords {
     )
 
     static let hitlimit = KeywordStyle(
-        code: "HITLIMIT!", zh: "限额",
+        code: "HITLIMIT!", key: "限额",
         accent: .solid("#8A5A8C", "#CE93D2"),
         ink: .solid("#673A69", "#E8B9EB"),
         tint: .solid("#F4E8F4", "#332236"),
@@ -393,7 +420,7 @@ enum DeckKeywords {
     )
 
     static let done = KeywordStyle(
-        code: "DONE", zh: "完成",
+        code: "DONE", key: "完成",
         accent: .solid("#629C7F", "#83C9A5"),
         ink: .solid("#43705A", "#B1E5C9"),
         tint: .solid("#E8F3EC", "#1D3328"),
@@ -401,7 +428,7 @@ enum DeckKeywords {
     )
 
     static let later = KeywordStyle(
-        code: "LATER", zh: "最近",
+        code: "LATER", key: "最近",
         accent: .solid("#5C86B4", "#8FB8E8"),
         ink: .solid("#40658D", "#C2DFFF"),
         tint: .solid("#E9F0F9", "#1E2A38"),
@@ -409,7 +436,7 @@ enum DeckKeywords {
     )
 
     static let todo = KeywordStyle(
-        code: "TODO", zh: "空闲",
+        code: "TODO", key: "空闲",
         accent: .solid("#5C86B4", "#8FB8E8"),
         ink: .solid("#40658D", "#C2DFFF"),
         tint: .solid("#E9F0F9", "#1E2A38"),
@@ -783,7 +810,7 @@ struct AgentPill: View {
             Capsule(style: .continuous)
                 .strokeBorder(style.color.opacity(agent.primary ? 0.42 : 0.24), lineWidth: 1)
         )
-        .help("跑 \(agent.running) · 等 \(agent.waiting)")
+        .help("\(L("跑")) \(agent.running) · \(L("等")) \(agent.waiting)")
     }
 }
 
@@ -832,7 +859,7 @@ struct HeaderBlock: View {
             if state.needsApproval > 0 {
                 HStack(spacing: 5) {
                     KeywordGlyph(style: DeckKeywords.needok, size: 10)
-                    Text("\(state.needsApproval) 个 NEEDOK? 需要你允许")
+                    Text(L("{n} 个 NEEDOK? 需要你允许", ["n": "\(state.needsApproval)"]))
                         .font(.system(size: 9.5, weight: .semibold))
                 }
                 .foregroundColor(DeckKeywords.needok.ink)
@@ -1031,11 +1058,11 @@ struct EmptyState: View {
 
             HStack(spacing: 5) {
                 KeywordChip(style: DeckKeywords.todo)
-                Text("现在没有要显示的会话")
+                Text(L("现在没有要显示的会话"))
                     .font(.system(size: 12.5, weight: .bold))
                     .foregroundColor(DeckPalette.ink)
             }
-            Text("主力 Agent 的会话会留在这里；其它 Agent 只在正在运行时出现，WorkBuddy 的等待会话也列。")
+            Text(L("主力 Agent 的会话会留在这里；其它 Agent 只在正在运行时出现，WorkBuddy 的等待会话也列。"))
                 .font(.system(size: 10))
                 .foregroundColor(DeckPalette.secondary)
                 .multilineTextAlignment(.center)
@@ -1059,11 +1086,11 @@ struct SessionListView: View {
         ScrollView(.vertical, showsIndicators: true) {
             LazyVStack(alignment: .leading, spacing: 8) {
                 if !primary.isEmpty {
-                    SectionHeader(title: "主力 AGENT", subtitle: "全量追踪", count: primary.count)
+                    SectionHeader(title: L("主力 AGENT"), subtitle: L("全量追踪"), count: primary.count)
                     ForEach(primary) { SessionCardView(session: $0) }
                 }
                 if !others.isEmpty {
-                    SectionHeader(title: "其它 AGENT", subtitle: "在跑 · WorkBuddy 等你", count: others.count)
+                    SectionHeader(title: L("其它 AGENT"), subtitle: L("在跑 · WorkBuddy 等你"), count: others.count)
                         .padding(.top, 4)
                     ForEach(others) { SessionCardView(session: $0) }
                 }
@@ -1151,8 +1178,8 @@ struct FooterBlock: View {
     let sessionCount: Int
 
     private var hint: String {
-        if sessionCount == 0 { return "等待 Agent 会话" }
-        return sessionCount > 5 ? "共 \(sessionCount) 个 · 向下滑动" : "点击卡片跳转"
+        if sessionCount == 0 { return L("等待 Agent 会话") }
+        return sessionCount > 5 ? L("共 {n} 个 · 向下滑动", ["n": "\(sessionCount)"]) : L("点击卡片跳转")
     }
 
     var body: some View {
@@ -1161,14 +1188,14 @@ struct FooterBlock: View {
                 .font(.system(size: 9))
                 .foregroundColor(DeckPalette.tertiary)
                 .lineLimit(1)
-            FooterButton(title: "打开面板", kind: .primary) {
+            FooterButton(title: L("打开面板"), kind: .primary) {
                 adOpen("obsidian://agent-deck")
             }
-            FooterButton(title: "重新扫描", kind: .secondary) {
+            FooterButton(title: L("重新扫描"), kind: .secondary) {
                 adOpen("obsidian://agent-deck?do=scan")
             }
             Spacer(minLength: 4)
-            FooterButton(title: "隐藏", kind: .quiet) {
+            FooterButton(title: L("隐藏"), kind: .quiet) {
                 adOpen("obsidian://agent-deck?do=hide")
             }
         }

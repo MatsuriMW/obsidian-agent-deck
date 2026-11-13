@@ -6,6 +6,7 @@
 // takes text in and returns text out, so it can be tested without Obsidian.
 
 import { pad, fmtTok } from "./constants.js";
+import { t } from "./i18n.js";
 
 export const LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 export const STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
@@ -505,12 +506,12 @@ export function childIndent(lines, n) {
 export function bindInto(text, at, s, { below = false } = {}) {
   let lines = text.split("\n");
   const target = dropKind(lines, at, below);
-  if (!target) return { text, error: "这一行放不了会话：拖到列表项、空的列表项或空行上" };
+  if (!target) return { text, error: t("这一行放不了会话：拖到列表项、空的列表项或空行上") };
   let n = target.line;
   if (target.kind === "bind") {
     const had = linkUnder(lines, n);
-    if (had && had.sid === s.sid) return { text, error: "这一项已经绑着这个会话了" };
-    if (had) return { text, error: "这一项已经绑着另一个会话；先删掉它下面的 🔗 行" };
+    if (had && had.sid === s.sid) return { text, error: t("这一项已经绑着这个会话了") };
+    if (had) return { text, error: t("这一项已经绑着另一个会话；先删掉它下面的 🔗 行") };
   }
   const want = kwForState(s.state);
   const since = s.since || "";
@@ -549,7 +550,7 @@ export function bindInto(text, at, s, { below = false } = {}) {
   }
   if (lines[n] !== anchor) {
     const back = lines.indexOf(anchor);
-    if (back < 0) return { text, error: "笔记在拖的时候变了，再拖一次" };
+    if (back < 0) return { text, error: t("笔记在拖的时候变了，再拖一次") };
     n = back;
   }
 
@@ -625,17 +626,17 @@ export function bindInto(text, at, s, { below = false } = {}) {
 export function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
   const lines = text.split("\n");
   if (srcLine === dstLine || srcLine < 0 || dstLine < 0 || srcLine >= lines.length || dstLine >= lines.length) {
-    return { text, error: "请选择两条不同的任务行" };
+    return { text, error: t("请选择两条不同的任务行") };
   }
   if (MARKER_RE.test(lines[srcLine])) srcLine = markOwner(lines, srcLine);
   if (MARKER_RE.test(lines[dstLine])) dstLine = markOwner(lines, dstLine);
-  if (srcLine < 0 || dstLine < 0 || srcLine === dstLine) return { text, error: "这两行本身已经在同一个任务条目下了" };
+  if (srcLine < 0 || dstLine < 0 || srcLine === dstLine) return { text, error: t("这两行本身已经在同一个任务条目下了") };
 
   const ps = splitTask(lines[srcLine]);
   const pd = splitTask(lines[dstLine]);
   const ks = kwLine(lines[srcLine]);
   const kd = kwLine(lines[dstLine]);
-  if (!ps || !pd || !ks || !kd) return { text, error: "只能把任务列表项合并到另一条任务列表项上" };
+  if (!ps || !pd || !ks || !kd) return { text, error: t("只能把任务列表项合并到另一条任务列表项上") };
 
   const blockSpan = (start) => {
     const base = width(lines[start]);
@@ -651,7 +652,7 @@ export function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
   const [s0, s1] = blockSpan(srcLine);
   const [d0, d1] = blockSpan(dstLine);
   if ((s0 >= d0 && s0 <= d1) || (d0 >= s0 && d0 <= s1)) {
-    return { text, error: "父子任务不能直接互相合并" };
+    return { text, error: t("父子任务不能直接互相合并") };
   }
 
   // 决定保留哪个标题：人写的优先于 🤖 自动记的；同类型则保留目标行 dstLine
