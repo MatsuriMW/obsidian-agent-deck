@@ -1,14 +1,15 @@
 // Agent Deck — the per-delegation options sheet.
 
 import { Modal, Notice } from "obsidian";
-import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS } from "./constants.js";
+import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
-import { blockAt, blockTitle, BULLET_RE } from "./delegation.js";
+import { blockAt, blockTitle, BULLET_RE, delegationText } from "./delegation.js";
 import { mentionOptions, mentionTrigger } from "./task-mentions.js";
 import { destinations, defaultDestination } from "./workflow.js";
 import { kwLine } from "./journal.js";
 import { t } from "./i18n.js";
+import { archivePath } from "./journal-archive.js";
 
 export class DelegateOptionsModal extends Modal {
   constructor(app, plugin, path, line) {
@@ -58,7 +59,9 @@ export class DelegateOptionsModal extends Modal {
 
     const preview = contentEl.createDiv({ cls: "ad-preview" });
     const pre = preview.createEl("pre", { cls: "ad-preview__text" });
-    pre.textContent = this.block.text.split("\n").slice(0, 6).join("\n") + (this.block.text.split("\n").length > 6 ? "\n…" : "");
+    const full = delegationText(this.lines || [], this.block);
+    const fullLines = full.split("\n");
+    pre.textContent = fullLines.slice(0, 6).join("\n") + (fullLines.length > 6 ? "\n…" : "");
 
     // Target
     const target = contentEl.createDiv({ cls: "ad-field" });
@@ -201,7 +204,7 @@ export class DelegateOptionsModal extends Modal {
 
 // 把手单击后的确认：看一眼要发出去的整块，再发给主力
 export class ConfirmSendModal extends Modal {
-  constructor(app, { agent, text, path, where, destination, newSession = false }, onSend) {
+  constructor(app, { agent, text, path, where, destination, newSession = false, context = [] }, onSend) {
     super(app);
     this.agent = agent;
     this.text = text;
@@ -209,6 +212,7 @@ export class ConfirmSendModal extends Modal {
     this.where = where;
     this.destination = destination || destinations(agent)[0]?.id;
     this.newSession = newSession;
+    this.context = context || [];
     this.onSend = onSend;
   }
 
@@ -229,29 +233,28 @@ export class ConfirmSendModal extends Modal {
     destinationPicker(contentEl, this.agent, this.destination, (v) => { this.destination = v; });
     if (this.newSession) contentEl.createDiv({ cls: "ad-hint", text: t("这次将新建会话，原会话及记录保留。") });
 
-    // 要发出去的整块：按缩进画成一张小卡片，第一行是标题
+    // 要发出去的整块：按缩进画成一张小卡片，母项在上面当上下文，最里面那行是这次要做的
     const card = contentEl.createDiv({ cls: "ad-send__card" });
-    const lines = this.text.split("\n").filter((l) => l.trim());
+    const ctx = this.context.filter((l) => l && l.trim());
+    const lines = [...ctx, ...this.text.split("\n")].filter((l) => l.trim());
     const base = lines.length ? indentOf(lines[0]) : 0;
     lines.forEach((raw, i) => {
       const m = BULLET_RE.exec(raw);
       const k = kwLine(raw);
       const body = k ? k.body : (m ? m[3] : raw.trim());
-      const row = card.createDiv({ cls: "ad-send__line" + (i === 0 ? " is-title" : "") });
+      const row = card.createDiv({ cls: "ad-send__line" + (i === ctx.length ? " is-title" : "") });
       row.style.setProperty("--lvl", String(Math.max(0, indentOf(raw) - base)));
       row.createSpan({ cls: "ad-send__dot" });
-      if (i === 0 && k && k.kw) row.createSpan({ cls: "ad-send__kw", text: k.kw });
+      if (i === ctx.length && k && k.kw) row.createSpan({ cls: "ad-send__kw", text: k.kw });
       row.createSpan({ cls: "ad-send__text", text: body });
     });
-    const more = lines.length - 1;
+    const more = this.text.split("\n").filter((l) => l.trim()).length - 1;
     const meta = contentEl.createDiv({ cls: "ad-send__meta" });
+    if (ctx.length) meta.createSpan({ text: t("带上 {n} 层母项作为上下文", { n: ctx.length }) });
     meta.createSpan({ text: more > 0 ? t("连同 {n} 行子块，作为一条消息", { n: more }) : t("作为一条消息") });
     meta.createSpan({ cls: "ad-send__path", text: this.path });
 
     const foot = contentEl.createDiv({ cls: "ad-send__foot" });
-    const keys = foot.createDiv({ cls: "ad-send__keys" });
-    keys.createEl("kbd", { text: "↵" }); keys.createSpan({ text: t("发送") });
-    keys.createEl("kbd", { text: "esc" }); keys.createSpan({ text: t("取消") });
     const btns = foot.createDiv({ cls: "ad-send__btns" });
     btns.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("取消") }).onclick = () => this.close();
     const go = btns.createEl("button", { cls: "ad-btn ad-send__go" });
@@ -281,4 +284,74 @@ function destinationPicker(parent, agent, value, onChange) {
   const update = () => { hint.textContent = options.find(o => o.id === select.value)?.hint || ""; onChange(select.value); };
   select.onchange = update;
   update();
+}
+
+// Pick where finished AI blocks go. The order (prepend/append) lives in the
+// settings; this sheet only chooses the file, defaulting to the last used one.
+export class ArchiveTargetModal extends Modal {
+  constructor(app, plugin, file, base, plan) {
+    super(app);
+    this.plugin = plugin;
+    this.file = file;
+    this.base = base;
+    this.plan = plan;
+    this.path = plugin.settings.doneArchivePath || DEFAULTS.doneArchivePath;
+  }
+
+  onOpen() {
+    const { contentEl, modalEl } = this;
+    modalEl.addClass("ad-send-modal");
+    contentEl.addClass("ad-modal", "ad-send");
+
+    const head = contentEl.createDiv({ cls: "ad-send__head" });
+    const tt = head.createDiv({ cls: "ad-send__titles" });
+    tt.createDiv({ cls: "ad-send__title", text: t("归档已完成的日志") });
+    tt.createDiv({ cls: "ad-send__sub", text: this.file.path });
+
+    const count = (this.plan.done || []).filter((entry) => entry.ai).length;
+    const meta = contentEl.createDiv({ cls: "ad-send__meta" });
+    meta.createSpan({ text: t("{n} 个已完成的 AI 任务将被移出这篇日记", { n: count }) });
+
+    const field = contentEl.createDiv({ cls: "ad-field" });
+    field.createDiv({ cls: "ad-field__label", text: t("归档到哪个文件") });
+    const input = field.createEl("input", { cls: "ad-input ad-input--wide", attr: { type: "text", spellcheck: "false", placeholder: DEFAULTS.doneArchivePath } });
+    input.value = this.path;
+    const error = field.createDiv({ cls: "ad-hint" });
+
+    const order = this.plugin.settings.archiveOrder === "append" ? t("追加到文件末尾") : t("插到文件开头");
+    field.createDiv({ cls: "ad-hint", text: t("写入顺序：{order}（在 设置 → 追踪 里改）", { order }) });
+
+    // Vault suggestions; the first few matches are enough, the field stays free text.
+    const sugg = contentEl.createDiv({ cls: "ad-hint" });
+    const all = () => this.app.vault.getMarkdownFiles().map((f) => f.path).sort();
+    let files = all();
+    const render = () => {
+      sugg.empty();
+      const q = input.value.trim().toLowerCase();
+      const hits = files.filter((p) => !q || p.toLowerCase().includes(q)).slice(0, 6);
+      for (const p of hits) {
+        if (p === input.value.trim()) continue;
+        const b = sugg.createEl("button", { cls: "ad-btn ad-btn--ghost", text: p });
+        b.onclick = (e) => { e.preventDefault(); input.value = p; render(); };
+      }
+    };
+    input.addEventListener("input", render);
+    render();
+
+    const foot = contentEl.createDiv({ cls: "ad-send__foot" });
+    const btns = foot.createDiv({ cls: "ad-send__btns" });
+    btns.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("取消") }).onclick = () => this.close();
+    const go = btns.createEl("button", { cls: "ad-btn ad-send__go" });
+    setLucide(go.createSpan({ cls: "ad-btn__icon" }), "archive");
+    go.createSpan({ text: t("归档") });
+    go.onclick = () => {
+      let target;
+      try { target = archivePath(input.value); } catch (e) { error.setText(e.message); return; }
+      this.close();
+      this.plugin.archiveJournalTo(this.file, this.base, this.plan, target);
+    };
+    setTimeout(() => input.focus(), 0);
+  }
+
+  onClose() { this.contentEl.empty(); }
 }

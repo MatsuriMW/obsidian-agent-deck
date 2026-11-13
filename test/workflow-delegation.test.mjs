@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { Delegator, freshTaskText } from '../src/delegation.js';
+import { Delegator, freshTaskText, blockAt, ancestorLines, delegationText } from '../src/delegation.js';
 import { DEFAULTS, deepMerge } from '../src/constants.js';
 import { archiveConversation } from '../src/conversation.js';
 const req=createRequire(import.meta.url),opened=[];
@@ -16,6 +16,32 @@ const plugin={settings:deepMerge(DEFAULTS,{}),jobs:{},vaultPath:dir,usage:{meta:
 plugin.settings.delegate.claude.path=bin;plugin.settings.delegate.claude.cwd=dir;plugin.settings.delegate.claude.autoTrustedCwd=false;plugin.settings.delegate.claude.openDesktop=true;
 plugin.settings.autoWriteResult=false;
 const d=new Delegator(plugin);
+{
+ // 委派发出去的是「被点的那一行 + 它下面更深的子块」，母项不进 prompt
+ const lines=['- TODO 做一个博客','\t- TODO 写首页','\t\t- 要求：有搜索框','\t- TODO 写归档页'];
+ assert.equal(blockAt(lines,1).text,'\t- TODO 写首页\n\t\t- 要求：有搜索框','更深的子项跟着走');
+ assert.ok(!blockAt(lines,1).text.includes('做一个博客'),'blockAt 只取这一项，母项由委派时另外作为上下文加');
+ assert.equal(blockAt(lines,2).text,'\t\t- 要求：有搜索框');
+ assert.equal(blockAt(lines,3).text,'\t- TODO 写归档页','不会并进同级的下一个子项');
+ // 混合缩进：母项 4 空格、子项 tab、子子项两个 tab，也认得出更深的子块
+ const mixed=['- TODO 父项','    - TODO 子项','\t\t- 更深的说明'];
+ assert.equal(blockAt(mixed,1).text,'    - TODO 子项\n\t\t- 更深的说明','混合缩进按视觉宽度算');
+ // 有序列表
+ const ol=['1. TODO 第一步','   1. TODO 子步骤','      - 细节'];
+ assert.equal(blockAt(ol,1).text,'   1. TODO 子步骤\n      - 细节');
+ // 子项委派带母项：一直带到最顶层列表项，兄弟项不带，母项和任务都保留原缩进
+ const tree=['- 项目 A','\t- 子任务 A.1','\t\t- 要求','\t- 子任务 A.2','- 另一个'];
+ const a1=blockAt(tree,1);
+ assert.deepEqual(ancestorLines(tree,a1.start),['- 项目 A'],'直接母项');
+ const deep=['- 项目','\t- 阶段','\t\t- 步骤','\t\t\t- 细节'];
+ assert.deepEqual(ancestorLines(deep,2),['- 项目','\t- 阶段'],'三层都带上');
+ const sent=delegationText(tree,a1);
+ assert.ok(sent.includes('只做最里面这一项'));
+ assert.ok(sent.includes('- 项目 A')&&sent.includes('\t- 子任务 A.1'),'母项和任务都保留原缩进');
+ assert.ok(!sent.includes('子任务 A.2'),'兄弟项不带');
+ const prompt=d.buildPrompt({block:a1, contextLines:ancestorLines(tree,a1.start)});
+ assert.ok(prompt.includes('项目 A')&&prompt.includes('子任务 A.1')&&prompt.includes('只做最里面这一项'),'prompt 带上母项上下文');
+}
 const wait=async j=>{for(let i=0;i<400&&['starting','running'].includes(j.state);i++)await new Promise(r=>setTimeout(r,10));assert.equal(j.state,'done')};
 try{
  const one=await d.delegate({file:{path:'task.md'},lines:note.split('\n'),line:0,agent:'claude',destination:'background'});await wait(one);assert.equal(opened.length,0,'background overrides global auto-open');assert.equal(one.destination,'background');

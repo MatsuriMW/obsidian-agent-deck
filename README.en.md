@@ -12,7 +12,7 @@
 
 Agent Deck gathers the AI agent sessions scattered across separate clients onto one deck inside Obsidian: which agent is working, which one is waiting for you, and how far each has got, at a glance. To hand off work, delegate from the line you are writing; progress and the result come back to that same line. What you planned and what the agents did end up in the same journal.
 
-It is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy, DeepSeek Harness and Antigravity**, shows what each agent is doing now, and tracks delegated tasks from the editor. Notes and the panel talk by drag and drop: drop a session card on a list item to bind it, drop a list item on an agent to delegate it. Only the line under the cursor gets a small paper-plane grip: click it to send the item with its children to your primary agent after a confirm, double-click or ⌘-click to pick the agent. Once a line is bound to a session, the line-end pill becomes the progress surface.
+It is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy, DeepSeek Harness and Antigravity**, shows what each agent is doing now, and tracks delegated tasks from the editor. Notes and the panel talk by drag and drop: drop a session card on a list item to bind it, drop a list item on an agent to delegate it. Only the line under the cursor gets a small paper-plane grip: click it to send the item with its children to your primary agent after a confirm (delegating a sub-item also carries its parent lines, up to the outermost list item, as context), double-click or ⌘-click to pick the agent. Once a line is bound to a session, the line-end pill becomes the progress surface.
 
 It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), extracted into a standalone plugin and extended with a second primary agent, DeepSeek Harness, model/effort/mode selection, and a layered model picker.
 
@@ -26,6 +26,7 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 - [What it does](#what-it-does)
 - [macOS menu bar](#macos-menu-bar)
 - [Human–AI journal](#humanai-journal)
+- [What automatic records are useful for](#what-automatic-records-are-useful-for)
 - [Delegate targets](#delegate-targets)
 - [Deep links](#deep-links)
 - [The status pill](#the-status-pill)
@@ -42,7 +43,21 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 
 ## Release notes
 
-Current version: **1.6.0**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+Current version: **1.7.1**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+
+### 1.7.1 · A simpler delegation footer and practical journaling guide
+
+The confirmation sheet now has one Cancel / Send button pair on the right. The duplicate shortcut legend on the left is removed. Send keeps initial focus for Enter; Esc closes the sheet.
+
+Confirm before starting is now Additional delegation instructions, with a default that proceeds when requirements are clear. The settings explain each log detail level and recommend detailed text with per-turn recording for development logs. Switching to latest progress preserves saved records.
+
+This release also ships the local journal organization, record display, manual status selection and startup/cache fixes. The guide describes current behavior; see the changelog for the full changes.
+
+### 1.7.0 · Journal layout and a destination you pick
+
+A day's journal now keeps a fixed order: `## 已完成` on top (your hand-written `DONE` items are hoisted too, most conversation turns first), a rule, then `## 进行中` (still grouped by `### DOING` / `### PAUSED` and sorted by turn count), another rule, and finally your own notes. No blank line is left between a heading and the list under it. The `## AI · 进行中` / `## AI · 已完成` headings written earlier in 1.7.0 are renamed in place on the next run, and running it twice never stacks extra rules.
+
+New **Archive finished logs to…**: pick a target file (any `.md` in the vault, defaulting to `Agent Deck/done/已完成任务.md`, remembering the last one) and the finished AI log moves out of the journal into it. Whether new content goes to the top or the end of that file is **Settings → Tracking → Archive order**; an existing date section keeps its place and is only re-sorted by turn count. Hand-written `DONE` items are never archived away.
 
 ### 1.6.0 · Chinese and English interface
 
@@ -50,11 +65,11 @@ The interface language follows Obsidian's own language setting: a Chinese Obsidi
 
 ### 1.5.1 · Organized logs and context archiving
 
-Use **归组未完成日志**, **归档已完成日志**, and **跳到正在做** in the dashboard. Unfinished task blocks move into the journal's **AI · 进行中** region, grouped by keyword (DOING, TOREVIEW, PAUSED, and others). Within each keyword, tasks with more conversation turns come first. Available session counts are combined per task; otherwise saved round numbers are used. Equal counts retain their order.
+Use **归组未完成日志**, **归档已完成日志**, and **跳到正在做** in the dashboard. Unfinished task blocks move into the journal's **进行中** region, grouped by keyword (DOING, TOREVIEW, PAUSED, and others). Within each keyword, tasks with more conversation turns come first. Available session counts are combined per task; otherwise saved round numbers are used. Equal counts retain their order.
 
 Completed tasks move to `Agent Deck/done/已完成任务.md` by default, grouped by source journal date. Tasks within a date are sorted by turn count, descending, including tasks archived in earlier batches. Set **追踪 → 自动记日记 → 已完成任务归档位置** to another vault-relative Markdown path. The archive is saved before the source block is removed. A write failure or concurrent edit keeps the source. Client archive detection still marks tasks DONE; all sessions attached to a task must be archived first.
 
-Compaction preserves per-turn records in Markdown and displays a cumulative summary. Click **更多** to reveal the details in editing or reading view. Records default to collapsed and retain each manually expanded task across refreshes and reloads. Agent Deck owns this state and does not depend on Logseq Style Fold. Records replaced by older versions can only be recovered while their original session logs remain available. The previous expanded/latest-five display strategies are retired.
+Compaction preserves per-turn records in Markdown and adds a cumulative summary. Click **More** to reveal the summary and details in editing or reading view. Records show the latest AI conclusion by default and retain each manually expanded task across refreshes and reloads. Agent Deck owns this state and does not depend on Logseq Style Fold. Records replaced by older versions can only be recovered while their original session logs remain available. Recording and display are configured separately; choose the latest one, three or five conclusions, or start expanded or collapsed.
 
 Internal block IDs, UUIDs, and session IDs stay in storage while being hidden in the interface. Explicit permission or confirmation waits trigger deduplicated in-app and system notifications. Text detection is limited to recognized requests; client states that are not exposed cannot be detected reliably.
 
@@ -119,6 +134,8 @@ The plugin keeps explanatory text out of its UI; this section is the manual, and
 | 最近 14 天 | Daily collaboration minutes stacked by agent; hover for numbers |
 | 最近的会话 | Sessions from the last 7 days, filterable by state and agent |
 
+**Tidy log / Archive to…**: the two buttons at the top of the dashboard. **Tidy log** rebuilds the current journal — finished tasks (hand-written `DONE` included) move to the top, then a rule, then the unfinished AI log grouped by keyword, then another rule, then your own content. Old section headings are folded away and repeated runs never stack rules. **Archive finished logs to…** moves the finished AI blocks out: choose a target file (default `Agent Deck/done/已完成任务.md`, last one remembered), and where it lands is decided by Settings → Tracking → Archive order (top of file / end of file). Hand-written `DONE` items stay in the journal.
+
 **Where a click opens a session.** Claude Code desktop sessions use `claude://resume`, Codex desktop `codex://threads/<id>`, WorkBuddy `workbuddy://chat/<id>`; DeepSeek Harness can only be focused, so the session id goes to the clipboard. **Claude Code / Codex sessions running in a terminal** switch to the terminal tab that runs them (Terminal, iTerm2, Tern and Herdr select the tab; Warp has no scripting interface, so it is only brought forward); only when the process has exited is a new tab opened to resume. The terminal is **Auto** by default, chosen per machine: the terminal most of your running `claude` / `codex` CLI sessions live in (remembered in `~/.agent-deck/terminal.json`), else the last one recognised, else one that is open, else one that is installed, in the order Herdr → Tern → iTerm2 → Warp → Terminal. Settings → Tracking → Claude desktop lets you pin one, or send them to the desktop app instead.
 
 ### Drag: bind and delegate
@@ -138,12 +155,12 @@ Pin Agent Deck to a sidebar and drag between the note and the panel:
 | You archive the session in its client | The item becomes `DONE` + `⏱` and the `🔗` line is retired |
 
 - **One-to-one.** A session is bound in one place. Dropping it elsewhere moves the binding; an auto-logged `🤖 …` line written for that session earlier is removed, so a task you already wrote and the agent's run of it merge into one line.
-- **The grip ⠿.** The list item under the cursor shows a small grip at its end. **Click** it, confirm, and the item with its children goes to the default delegate (your primary agent) as one message; the item then turns `DELEGATED`. **Double-click** or **⌘-click** to pick the agent (Claude Code, Codex, WorkBuddy, DeepSeek Harness), which works the same as dropping on that card; **drag** it onto an agent card in the sidebar, or drag a text selection. Agent cards turn dashed while you drag, and the hovered one says what dropping will do.
+- **The grip ⠿.** The list item under the cursor shows a small grip at its end. **Click** it, confirm, and the item with its children goes to the default delegate (your primary agent) as one message; delegating a sub-item carries its parent line(s) up to the outermost list item as context, with siblings left out; the item then turns `DELEGATED`. **Double-click** or **⌘-click** to pick the agent (Claude Code, Codex, WorkBuddy, DeepSeek Harness), which works the same as dropping on that card; **drag** it onto an agent card in the sidebar, or drag a text selection. Agent cards turn dashed while you drag, and the hovered one says what dropping will do.
 - **Dropping into a note** highlights the target line and labels it (bind / new item); headings, code blocks and tables don't accept drops.
 - **⚠️ Terminal delegation is only verified on Tern and Herdr.** Opening `claude` / `codex` in a terminal works end to end on Tern and Herdr for both Claude Code and the Codex CLI: the session is bound back to the item, and clicking it switches to its tab. Terminal, iTerm2 and Warp are not tested yet. Like Claude Code, Codex starts in an already-trusted directory when the vault is not trusted, with the vault added through `--add-dir`, so it never stops at the trust prompt. Background delegation (a plain drop on Claude Code / DeepSeek Harness) is not affected.
-- **Confirm before acting.** Every delegated message ends with one extra line (not written into the note): ask first if anything is unclear, otherwise state the plan and wait for your go-ahead before changing anything. Turn it off under Settings → prompt prefix/suffix.
+- **Additional delegation instructions.** Append editable instructions to each delegation. By default, ask only about unclear requirements, scope or acceptance criteria; otherwise state the plan and continue. Disable or edit them under Delegation → prompt prefix/suffix.
 - **Items that are not delegated**: agent-written ones (🤖), items already bound to a session, and items with a ⏱ record. Dropping them only says why.
-- **With Nautilus Spiral**: when Nautilus draws its session progress line under a task, Agent Deck draws no pill there and the `🔗` link is dimmed and not clickable; click Nautilus's progress line to open the session. This can be turned off in the settings.
+- **With Nautilus Spiral**: when Nautilus draws its session progress line under a task, Agent Deck draws no pill there and the `🔗` entry is hidden when there is one binding and the progress row opens that same session. Its Markdown source remains. Links stay available when no matching progress row exists or multiple sessions are bound. Click Nautilus's progress line to open the session. This can be turned off in the settings.
 
 | | |
 |---|---|
@@ -215,23 +232,54 @@ Your task lines are the plan; the agent session logs are the record of what actu
 - **It never guesses DONE.** The machine only moves between `DOING`, `PAUSED` and the waiting keywords (`TOREVIEW`, `NEEDOK`, `ERRORED`); finishing is you marking it done or archiving the session.
 - **Bound lines** get `💬` when the session answers, their keyword follows the session, and archiving writes `DONE` + `⏱`. Auto-logged `🤖` lines follow the session's keyword too (`DOING` ↔ `TOREVIEW` / `NEEDOK` / `ERRORED`), so a session waiting for you shows up as waiting before it is paused.
 - **Nested blocks**: desktop child sessions (from `spawnedFrom`), open side chats, and Claude Code subagents (`<session>/subagents/agent-*.jsonl`) become indented blocks with their own status.
-- **Tunable** in Settings → 追踪 → 自动记日记: how often it runs and how soon after startup the first run happens (1 minute by default, no longer a full interval), how many active minutes a new session needs before it gets a line (3), the idle time before `PAUSED` (40), which agents are logged, how many sessions are asked per round (8), the model and timeout used for naming (`haiku`, 120 s), whether background runs fall back to the session title when the model can't be reached (on), the CLI provider (Claude / Codex), its path, Codex reasoning effort, and the per-round `💬` polish (on / model / timeout).
+- **Tunable** in Settings → 追踪 → 自动记日记：how often it runs and how soon after startup the first run happens (1 minute by default, no longer a full interval), how many active minutes a new session needs before it gets a line (3), the idle time before `PAUSED` (10), which agents are logged, how many sessions are asked per round (8), the model and timeout used for naming (`haiku`, 120 s), whether background runs fall back to the session title when the model can't be reached (on), the CLI provider (Claude / Codex), its path, Codex reasoning effort, and the per-round `💬` polish (on / model / timeout).
 
 Writes are line-level, stay out of undo history, skip while an IME composition is active, and abort if the note changed in the meantime. These writes used to live in Nautilus Spiral; now Agent Deck owns them, and Nautilus keeps the tracking display. While Nautilus's write flags are still on, Agent Deck stays out of the note — use **停用螺旋日程里的 AI 写入** and reload Nautilus to complete the handoff.
 
-Agents lets you select the default model and delegation target for Claude, Codex and DSH; primary stars separately control history tracking. Models supports adding and editing model names, CLI identifiers, DSH provider routes, context and tags, plus independent defaults and reasoning effort per agent. WorkBuddy and Antigravity model selection remains in their clients. Model availability depends on the signed-in account.
+Agents lets you select the default model and delegation target for Claude, Codex and DSH; primary stars separately control history tracking. Models supports adding and editing model names, CLI identifiers, DSH provider routes, context and tags, plus independent defaults and reasoning effort per agent. WorkBuddy model selection remains in its client; Antigravity models and effort can be selected through its CLI integration. Model availability depends on the signed-in account.
 
 Agent Deck owns automatic journal writing. In **Settings → Agent Deck → 追踪 → 自动记日记**, turn off **自动记录到日记（总开关）** (`journalAutoWrite`, default `true`) to stop automatic task creation, conclusions, keyword updates and compaction. Tracking and manual organization remain available.
 
-Record granularity (`autoLogGranularity`) is independent of text detail: `latest` (default) replaces the last conclusion, `round` accumulates completed turns, and `paused` writes conclusions only after inactivity pause or recognized archive. Status and time still follow their existing rules. Text detail (`autoLogDetail`) defaults to `brief`, about 45 characters without user prompts or steps; `standard` allows longer conclusions and steps; `detailed` also retains follow-up prompts in per-turn mode.
+Record granularity (`autoLogGranularity`) is independent of text detail: `latest` adds only the newest round on each scan, `round` (default) accumulates completed turns, and `paused` writes conclusions only after inactivity pause or recognized archive. Switching never overwrites or deletes saved prompts, conclusions or steps. Status and time still follow their existing rules. Text detail (`autoLogDetail`) defaults to `brief`, about 45 characters without user prompts or steps; `standard` retains one sentence each for the prompt and reply; `detailed` retains prompt excerpts up to 1,000 characters, reply excerpts up to 3,000, and available steps. Changes apply to rounds started after the setting change, including in existing sessions. Saved rounds are not rewritten. Full original conversations can be archived separately.
 
-In per-turn mode, enable automatic compaction (`autoLogMerge`, default `false`) and choose a threshold (`autoLogMergeThreshold`, default 10, range 2–100 new conclusions). The selected Claude / Codex CLI rolls previous summaries and new completed turns into one summary. A successful response adds a summary while preserving older direct AI turn records behind “更多”. Later turns, manual notes, user TODOs, clocks and nested task notes remain; failures preserve the original records.
+In per-turn mode, enable automatic compaction (`autoLogMerge`, default `false`) and choose a threshold (`autoLogMergeThreshold`, default 10, range 2–100 new conclusions). The selected Claude / Codex CLI rolls previous summaries and new completed turns into one summary. A successful response adds a summary while preserving older direct AI turn records behind“更多”. Later turns, manual notes, user TODOs, clocks and nested task notes remain; failures preserve the original records.
 
-AI record display (`aiRecordDisplay`) defaults to `collapsed`. Manually expanded tasks retain their state, including after reload. The old expanded/latest-five settings no longer override the default. Record controls sit at the end of the task line with a compact chevron and count, with muted detail text. Agent Deck block IDs (`^ad-…`) are hidden in the editor and reading view while remaining unchanged in Markdown; no zero-width characters are inserted. The editor and reading view hide records without deleting their source text; manual notes and child tasks remain visible.
+Click a task status keyword to choose a new status instead of opening a query. Common states are listed first; other states are grouped, including additional TODOseq keywords. TODOFORAI, TODO4AI, TODO2AI, TODOTOAI and NOW are omitted from the menu while existing notes remain readable. A manual choice locks this task against Agent Deck status synchronization, automatic pause and archive completion. Content recording continues. Choose Resume automatic status to follow the current session again. Marking DONE does not stop the agent or move the task.
 
-AI records follow native Obsidian fold / unfold commands, plus Bullet commands when installed. Configure their keys in Obsidian. Agent Deck stores manual expansion state itself; Logseq Style Fold is not required.
+| Detail | Saved content | Use |
+|---|---|---|
+| Brief (default) | One AI conclusion, about 45 characters; no prompt or steps | Quick progress checks |
+| Standard | One sentence each for the prompt and reply, up to 90 characters each; no steps | Short work notes |
+| Detailed | Prompt excerpts up to 1,000 characters, reply excerpts up to 3,000, available steps and commands from replies | Development logs, debugging reviews and handoffs |
+
+For development logs, use detailed text with per-turn recording. You can still show only the latest conclusion. New settings apply to new rounds, including in existing sessions; saved records are never rewritten or deleted. Detailed records are excerpts; export conversation text separately when needed.
+
+Logs can be copied to other Markdown files for development records or Dreaming evidence. Prompts (`❓`) remain user evidence and replies (`💬`) remain AI evidence. Hidden session/turn markers distinguish new records from multiple sessions; historical records are not rewritten to add markers. Detailed records are bounded excerpts, not full transcripts.
+
+AI record display (`aiRecordDisplay`) is independent of saved granularity and defaults to `latest1`: only the newest AI conclusion is visible. Choose `latest3` or `latest5` for more conclusions, or `collapsed` / `expanded`. Prompts, links, steps and time do not count toward the limit; click More to see saved history and cumulative summaries. DONE tasks follow the same rule. Manual expansion is remembered after reload. Display changes never delete or restore saved records; switching to latest progress preserves all saved history. Manual notes and child tasks remain visible. Agent Deck block IDs stay in Markdown but are hidden in the editor and reading view.
+
+AI records follow Obsidian's own fold / unfold / fold-all / unfold-all commands, plus Bullet's when installed. Configure their keys in Obsidian. Agent Deck stores the manual expansion state in its settings, so no folding plugin is needed.
 
 The daily note is `journalFolder` plus `journalFormat`. An empty `journalFolder` follows Obsidian's Daily notes core plugin, then Periodic Notes, then falls back to `日记`. `journalFormat` is a moment format that may include subfolders (`YYYY-MM-DD`, `YYYY/MM/YYYY-MM-DD`). Left empty, it is detected: Obsidian's Daily notes core plugin, then Periodic Notes, then the naming of notes already in the folder, then `YYYY_MM_DD`. Journal settings are stored explicitly as `autoLogEvery` (20 min), `autoLogStartDelay` (1 min), `autoLogMinMinutes` (3 min; 0 disables the threshold), `autoLogIdle` (10 min), `autoLogBatch` (8), `autoLogAgents`, `autoLogProvider` (`claude` / `codex`), `autoLogModel`, `autoLogEffort` (`low`), `autoLogTimeout` (120 s), `autoLogFallback` (true), `autoLogPath`, `autoLogKw`, `autoLogArchiveDone`, `autoLogNotify`, `roundPolish`, `roundPolishModel` (empty reuses the naming model), and `roundPolishTimeout` (30 s). The journal must already exist. The first run still applies the activity threshold; ineligible sessions wait until a later run. Live write-back follows `pollSeconds` (20 s by default).
+
+## What automatic records are useful for
+
+Automatic records turn work across clients into ordinary Markdown. Tasks, prompts, conclusions, session links and activity spans stay together for search, editing, references and note backups.
+
+| Goal | Use the existing features |
+|---|---|
+| Review your day | Organize today's sessions and review their states, conclusions and activity spans. Organize logs separates completed and ongoing work. Activity spans are session statistics, not measured human work hours. |
+| Resume a task later | Choose per-turn recording, expand More to revisit history, and continue the bound session. To change agents, include selected records as child blocks in a new delegation. |
+| Keep development or project review notes | Standard detail keeps one sentence each for the prompt and reply; detailed keeps longer excerpts and available steps. Export conversation text separately when needed, then check actual changes and validation results. |
+| Find earlier conclusions and reasons | Search task or note keywords in Obsidian, revisit saved exchanges and cumulative summaries, and follow session links or archived text for context. |
+| Keep daily notes readable | Show only the latest conclusion by default and expand history when needed. Archive completed logs to a chosen note while retaining dates and records. |
+| Build long-term memory | Dreaming reads the last fourteen days of daily notes and existing delegated-task notes to extract sourced facts, preferences and project lessons. Edit or export memories, or sync a fixed-path Markdown file for other agents to read. |
+
+Enable automatic organization under Settings → Agent Deck → Tracking → Auto-log and leave the automatic journal writing master switch on. The daily note must exist. Naming, matching tasks, polishing and summaries use your authenticated Claude or Codex CLI; tracking alone makes no model calls.
+
+For development logs, choose detailed text with per-turn recording. Latest progress adds only the newest round on each scan while preserving saved records. Brief detail records only AI conclusions; standard and detailed also retain user prompts. Display limits cannot restore overwritten history. Check AI conclusions yourself. Dreaming distinguishes user prompts from AI replies and does not treat AI inferences as user facts.
+
+Dreaming and shared-memory sync are off by default and run only while the plugin is active. Organization materials go to the selected CLI's model service. Shared Markdown can optionally be committed and pushed from a local Git clone with existing credentials. See [shared memory](docs/shared-memory.md).
 
 ## Delegate targets
 
@@ -246,7 +294,7 @@ Agent Deck starts a headless Claude Code session with:
 
 The task starts right away; there is no input box to confirm. When the first turn finishes, the session opens in the Claude desktop app through `claude://resume?session=<id>` (the app imports the CLI session) and you carry on there. **委派 → 完成后自动在桌面版打开** turns that off; the line's pill still opens it.
 
-Every delegated message, to any agent, ends with one extra line that is not written into the note: if anything is unclear, ask first; otherwise restate the plan and wait for your go-ahead before changing files or running commands. Turn it off with **提示词前后缀 → 动手前先确认**.
+Additional delegation instructions can be appended to messages for any agent. The default asks about unclear key requirements, otherwise proceeds with a plan, implementation and checks. Actions outside the authorized scope require confirmation. Disable or customize this under Delegation → prompt prefix/suffix → Additional delegation instructions. Existing custom text is preserved.
 
 If Claude Code has never trusted the vault, the plugin reads `~/.claude.json` and starts in a directory that Claude already trusts, adding the vault with `--add-dir`. This behaviour can be turned off in **委派 → 库没被信任时自动换个目录**.
 
@@ -353,12 +401,13 @@ npm run build
 
 ## Settings
 
-**Ctrl + Alt + J**, or **跳到正在做**, jumps to today’s **AI · 进行中** region; before grouping, it opens the first running task. Customize it in Obsidian hotkey settings.
+**Ctrl + Alt + J**, or **跳到正在做**, jumps to today’s **进行中** region; before grouping, it opens the first running task. Customize it in Obsidian hotkey settings.
 
 - **Agents**: enable each agent, pick up to two primaries, scan now, import Nautilus Spiral history.
 - **委派**: default target, models, effort, permission mode, working directory, prompt prefix/suffix, write-back rules, trust fallback.
 - **Models**: the layered picker shown above.
-- **追踪**: day cutoff, polling interval, idle threshold, history depth, Claude desktop side chats, automatic journal logging and write-back toggles, macOS menu bar toggle and row limits, UI switches, rebuild, import, and a one-click **pause Nautilus Spiral's AI writes** action.
+- **追踪**: day cutoff, polling interval, idle threshold, history depth, Claude desktop side chats, automatic journal logging and write-back toggles, default archive location and archive order (top / end of file), macOS menu bar toggle and row limits, UI switches, rebuild, import, and a one-click **pause Nautilus Spiral's AI writes** action.
+- **Dreaming**: manual or daily memory extraction, progress, Markdown export, shared-memory sync, and optional Telegram Companion profile integration.
 - **关于**: version, license and debug info.
 
 ## Compatibility with Nautilus Spiral
@@ -376,6 +425,7 @@ If you use **done-to-top** and **journal-tidy**, update to **done-to-top 1.17.3+
 - Delegation and AI journaling start local `claude`, `codex` or `dsh` processes. Journaling passes selected session titles, opening/final excerpts and unfinished daily tasks to the chosen CLI, which uses its signed-in service. Tracking alone makes no model calls.
 - `usage.json` stores only aggregate per-day numbers and session summaries, not full conversations.
 - The menu bar helper reads `~/.agent-deck/menubar.json` and makes no network requests.
+- The parse cache lives in `~/.agent-deck/usage-cache.json.gz` (outside the vault, never uploaded). Deleting it only costs one full rescan; a parser change invalidates it automatically. Usage history and parse caches restore after the workspace layout is ready. Cache v4 retains all message records needed for call and token totals; upgrading an older cache triggers one background rebuild.
 
 ## FAQ
 
@@ -401,8 +451,8 @@ To follow new features, send feedback or keep up with progress, follow me on Twi
 ## Credits
 
 - Extracted from [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), which remains the planner.
-- The progress-in-trigger-button interaction is inspired by [@ZZ.X's note “AI 任务进度，长在触发按钮里”](https://xhslink.cn/o/3gmyiCARRj2).
-- The layered model settings page is inspired by [@ZZ.X's note “AI 产品模型设置”](https://xhslink.cn/o/AwW7VhnzX6m).
+- The progress-in-trigger-button interaction is inspired by [@ZZ.X's note“AI 任务进度，长在触发按钮里”](https://xhslink.cn/o/3gmyiCARRj2).
+- The layered model settings page is inspired by [@ZZ.X's note“AI 产品模型设置”](https://xhslink.cn/o/AwW7VhnzX6m).
 
 ## License
 

@@ -9,12 +9,29 @@ import path from "path";
 import os from "os";
 import { execFile } from "child_process";
 import { decompress } from "fzstd";
+import zlib from "zlib";
+import { promisify } from "util";
+import { randomUUID } from "crypto";
 import { t } from "./i18n.js";
 import {
   AGENTS, dayKey, dayKeyToday, dayMinute, unionSegs, clamp,
 } from "./constants.js";
 
 const fsp = fs.promises;
+// Unique temporary files also isolate two plugin instances during reload.
+const temporaryFile = (file) => `${file}.${randomUUID()}.tmp`;
+function writeAtomicSync(file, data) {
+  const tmp = temporaryFile(file);
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(tmp, data);
+    fs.renameSync(tmp, file);
+  } finally { try { fs.unlinkSync(tmp); } catch { /* committed or not created */ } }
+}
+// The cache is a few hundred KB of JSON; compressing it must not block the UI
+// thread, so the async pair is used everywhere except at unload.
+const gzipAsync = promisify(zlib.gzip);
+const gunzipAsync = promisify(zlib.gunzip);
 const AI_IDLE = 5;              // minutes between two events still counted as one working span
 const LIVE_STALE = 90 * 1000;   // a running session with no new event for this long reads as quiet
 const MAX_TS = 20000;
@@ -22,6 +39,25 @@ const DSH_TOUCH = new Set(["user/message","assistant/message","tool/call","tool/
 
 const home = () => os.homedir();
 const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
+
+// Codex (and DSH's default workspace) create a folder per task, so the folder
+// name is a machine slug: "a", "dui", "w-s", a session id. Those are useless as
+// "project" labels, so the day summary labels them with the session title
+// instead. A real project folder keeps its name.
+export function isScratchCwd(cwd) {
+  const path = String(cwd || "").replace(/\/+$/, "");
+  if (!path) return false;
+  const leaf = path.split("/").pop() || "";
+  if (/^\d+-[0-9a-f-]{16,}$/i.test(leaf) || /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(leaf)) return true;
+  // "a" and "w-s" are Codex slugs; "api", "web", "app", "ui", "go" are real
+  // project folders, so a short name alone is not enough.
+  if (/^[a-z]$/i.test(leaf)) return true;
+  if (/^[a-z]{1,3}-[a-z]{1,3}$/i.test(leaf)) return true;
+  if (leaf === "default-workspace") return true;
+  if (path === home()) return true;   // work started from the home folder has no project
+  if (/\/Codex\/\d{4}-\d{2}-\d{2}\/[^/]+$/i.test(path)) return true;
+  return false;
+}
 
 export function projectName(cwd) {
   if (!cwd) return "?";
@@ -41,6 +77,7 @@ export function cleanUserPrompt(raw) {
     .replace(/<system-reminder\b[^>]*>[\s\S]*?<\/system-reminder>/gi, "")
     .replace(/<(?:ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|environment_context|user_instructions)\b[^>]*>[\s\S]*?<\/(?:ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|environment_context|user_instructions)>/gi, "")
     .replace(/<image_local_path>[\s\S]*?<\/image_local_path>/gi, "")
+    .replace(/^(?:Time sampled while preparing|Elapsed since the preceding|Browser time zone for this request)[^\n]*\n?/gim, "")
     .trim();
 }
 
@@ -62,6 +99,8 @@ export function isPromptText(text) {
   if (/^<(command-|local-command|system-reminder|task-notification|ci-monitor|environment_context)/.test(s)) return false;
   if (/^\[Request interrupted/.test(s)) return false;
   if (/^You are an AI agent powered by/.test(s)) return false;
+  // Harness bookkeeping that ships alongside the prompt is not the task.
+  if (/^(?:Time sampled while preparing|Elapsed since the preceding|Browser time zone for this request)/.test(s)) return false;
   // 新版 Codex 会把 AGENTS.md、打开的页面这些上下文当成用户消息塞在最前面，不是任务本身
   if (/^# AGENTS\.md instructions|^<(user_instructions|external_codex_)/.test(s)) return false;
   return true;
@@ -135,7 +174,7 @@ function startRound(fc, ms, rawAsk, key = "") {
   if (!fc.rounds) fc.rounds = { seen: new Set(), list: [] };
   if (key && fc.rounds.seen.has(key)) return fc.rounds.list.length;
   if (key) fc.rounds.seen.add(key);
-  const ask = cleanUserPrompt(rawAsk).replace(/\s+/g, " ").trim().slice(0, 140);
+  const ask = cleanUserPrompt(rawAsk).replace(/\s+/g, " ").trim().slice(0, 1000);
   if (!ask) return fc.rounds.list.length;
   const last = fc.rounds.list[fc.rounds.list.length - 1];
   if (last && last.ask === ask && Math.abs(ms - last.at) < 2000) return fc.rounds.list.length;
@@ -159,6 +198,55 @@ function cleanLive(v, now = Date.now()) {
   if (v.state === "run" && now - (v.at || 0) > LIVE_STALE) v.quiet = true;
   else v.quiet = false;
   return v;
+}
+
+// Parsing 2.7 GB of history again on every load is the plugin's biggest cost,
+// so the per-file parse result is cached on disk. Bump CACHE_VERSION whenever the
+// parsing below changes: an old cache is then ignored instead of showing stale
+// numbers. Keep the complete per-message map: summary() needs historical token
+// records as well as the recent tail after an incremental append.
+export const USAGE_CACHE_VERSION = 4;
+// Bump when the shape of summary() changes (labels, buckets, fields). The stored
+// day summaries are then recomputed from the parse cache instead of staying on
+// the old shape until each day happens to be touched again.
+export const SUMMARY_VERSION = 2;
+
+// Three containers inside a file record are Maps/Sets, not plain JSON:
+// days[key].sess, tasks.{seen,map} and rounds.seen. Serialising them as-is would
+// come back as plain objects and blow up on the first iteration.
+function packDay(day) {
+  return { ...day, sess: [...(day.sess instanceof Map ? day.sess : new Map())] };
+}
+
+function unpackDay(day) {
+  return { ...day, sess: new Map(day.sess || []) };
+}
+
+function packFile(f) {
+  const out = {
+    p: f.path, a: f.agent, s: f.size, o: f.offset, m: f.mtime,
+    i: f.id, sid: f.sid, cwd: f.cwd, app: f.app, model: f.model,
+    d: [...f.days].map(([key, day]) => [key, packDay(day)]), tm: [...f.titles], ms: [...f.msgs], live: f.live,
+    z: f.zstd ? 1 : 0, sub: f.sub, ps: f.parentSid, mr: f.metaRead ? 1 : 0,
+  };
+  if (f.zOff) { out.zo = f.zOff; out.zh = f.zHead; out.zc = f.zCarry || ""; }
+  if (f.tot) out.tot = f.tot;
+  if (f.tasks) out.tasks = { seq: f.tasks.seq, seen: [...f.tasks.seen], map: [...f.tasks.map] };
+  if (f.rounds) out.rounds = { seen: [...f.rounds.seen], list: f.rounds.list };
+  return out;
+}
+
+function unpackFile(o) {
+  return {
+    path: o.p, agent: o.a, size: o.s, offset: o.o, mtime: o.m,
+    id: o.i, sid: o.sid, cwd: o.cwd || "", app: o.app || "", model: o.model || "",
+    days: new Map((o.d || []).map(([key, day]) => [key, unpackDay(day)])), msgs: new Map(o.ms || []), titles: new Map(o.tm || []),
+    live: o.live || null, zstd: !!o.z, sub: o.sub || "", parentSid: o.ps || "",
+    metaRead: !!o.mr, zOff: o.zo || 0, zHead: o.zh || "", zCarry: o.zc || "",
+    tot: o.tot || null,
+    tasks: o.tasks ? { seq: o.tasks.seq || 0, seen: new Set(o.tasks.seen || []), map: new Map(o.tasks.map || []) } : null,
+    rounds: o.rounds ? { seen: new Set(o.rounds.seen || []), list: o.rounds.list || [] } : null,
+  };
 }
 
 export class AgentUsage {
@@ -202,6 +290,80 @@ export class AgentUsage {
   }
 
   // ----- roots -----
+  // ---- on-disk parse cache -------------------------------------------------
+
+  // Restore what the last session parsed. Anything unreadable is ignored: a
+  // bad cache must never be worse than no cache.
+  async loadCache(file) {
+    try {
+      const raw = await fsp.readFile(file);
+      const data = JSON.parse((await gunzipAsync(raw)).toString("utf8"));
+      if (!data || data.v !== USAGE_CACHE_VERSION || !Array.isArray(data.files)) return false;
+      this.files = new Map();
+      for (const entry of data.files) {
+        if (!entry || !entry.p) continue;
+        const fc = unpackFile(entry);
+        this.files.set(fc.path, fc);
+      }
+      if (Array.isArray(data.meta)) this.meta = new Map(data.meta);
+      return this.files.size > 0;
+    } catch (_) {
+      this.files = new Map();
+      return false;
+    }
+  }
+
+  cacheJSON() {
+    return JSON.stringify({ v: USAGE_CACHE_VERSION, files: [...this.files.values()].map(packFile), meta: [...this.meta] });
+  }
+
+  saveCache(file) {
+    const epoch = this._cacheEpoch || 0;
+    const write = async () => {
+      if (epoch !== (this._cacheEpoch || 0)) return false;
+      let tmp;
+      try {
+        const payload = this.cacheJSON();
+        this.dirty = false; // Later mutations mark the next snapshot dirty again.
+        await fsp.mkdir(path.dirname(file), { recursive: true });
+        tmp = temporaryFile(file);
+        await fsp.writeFile(tmp, await gzipAsync(payload));
+        if (epoch !== (this._cacheEpoch || 0)) return false; // Unload saved a newer snapshot.
+        // Keep the generation check and commit in one JS turn.
+        fs.renameSync(tmp, file);
+        this.savedAt = Date.now();
+        return true;
+      } catch (e) {
+        this.dirty = true;
+        console.error("[agent-deck] usage cache", e);
+        return false;
+      } finally { if (tmp) await fsp.unlink(tmp).catch(() => {}); }
+    };
+    const task = (this._cacheWrite || Promise.resolve()).then(write);
+    this._cacheWrite = task;
+    task.then(() => { if (this._cacheWrite === task) this._cacheWrite = null; });
+    return task;
+  }
+
+  saveCacheSync(file) {
+    this._cacheEpoch = (this._cacheEpoch || 0) + 1;
+    try {
+      writeAtomicSync(file, zlib.gzipSync(this.cacheJSON()));
+      this.dirty = false;
+    } catch { this.dirty = true; }
+  }
+
+  // Throttled save: a scan that read nothing new costs nothing, and a busy
+  // session does not rewrite several megabytes every twenty seconds.
+  maybeSaveCache(file, minIntervalMs = 300000) {
+    if (!this.dirty || this.saving) return false;
+    if (Date.now() - (this.savedAt || 0) < minIntervalMs) return false;
+    this.savedAt = Date.now();     // reserve the slot before the async write
+    this.saving = true;
+    this.saveCache(file).finally(() => { this.saving = false; });
+    return true;
+  }
+
   roots() {
     const h = home();
     const out = [];
@@ -541,6 +703,7 @@ export class AgentUsage {
       if (end < 0) return;
       fc.offset += end + 1;
       const lines = buf.toString("utf8", 0, end).split("\n");
+      this.dirty = true;
       for (let i = 0; i < lines.length; i++) {
         this.ingestJsonl(lines[i], fc, touched);
         if (i % 2000 === 1999) await new Promise((r) => setImmediate(r));
@@ -1001,6 +1164,7 @@ export class AgentUsage {
       const cut = text.lastIndexOf("\n");
       fc.zCarry = cut < 0 ? text : text.slice(cut + 1);
       const lines = cut < 0 ? [] : text.slice(0, cut).split("\n");
+      this.dirty = true;
       for (let i = 0; i < lines.length; i++) {
         this.ingestDsh(lines[i], fc, touched);
         if (i % 2000 === 1999) await new Promise((r) => setImmediate(r));
@@ -1043,7 +1207,10 @@ export class AgentUsage {
     if (t === "user/message") {
       const content = data.message ? data.message.content : data.content;
       const text = Array.isArray(content) ? content.filter((b) => b && b.type === "text").map((b) => b.text || "").join("") : String(content || "");
-      if (isPromptText(text) && !(data.source && data.source.kind === "system")) {
+      // DSH writes its own bookkeeping as user-role messages (time context, skill
+      // catalogue, …). Only what the person typed is a prompt.
+      const kind = data.source && data.source.kind;
+      if (isPromptText(text) && (!kind || kind === "user")) {
         day.prompts++;
         startRound(fc, ms, text, String(d.seq ?? ms));
         v.turns = fc.rounds ? fc.rounds.list.length : 0;
@@ -1128,11 +1295,19 @@ export class AgentUsage {
     const spans = [];
     for (const s of sessions.values()) {
       s.ts.sort((a, b) => a - b);
+      // A scratch workspace gets the session title so the ranking reads as
+      // "the tasks that took the most time today" instead of folder slugs.
+      s.label = s.proj;
+      if (isScratchCwd(s.cwd)) {
+        const meta = this.meta.get(s.sid);
+        const title = String(meta?.title || s.text || "").replace(/\s+/g, " ").trim();
+        if (title) s.label = title.slice(0, 24);
+      }
       let a = s.ts[0], b = a + 1;
       const g = (res.by[s.agent] ||= { wall: 0, agent: 0, out: 0, fresh: 0, cached: 0, segs: [], calls: 0, prompts: asked[s.agent] || 0, models: {} });
       const push = () => {
         spans.push([a, b]); s.segs.push([a, b]); s.min += b - a; res.agent += b - a; g.agent += b - a; g.segs.push([a, b]);
-        const pj = (res.proj[s.proj] ||= { min: 0, out: 0, agents: {} });
+        const pj = (res.proj[s.label] ||= { min: 0, out: 0, cwd: s.cwd, agents: {} });
         pj.min += b - a; pj.agents[s.agent] = (pj.agents[s.agent] || 0) + b - a;
       };
       for (const t of s.ts.slice(1)) {
@@ -1150,7 +1325,7 @@ export class AgentUsage {
         if (m.key !== key || seen.has(id)) continue;
         seen.add(id);
         res.calls++; res.out += m.out; res.fresh += m.fresh; res.cached += m.cached;
-        (res.proj[m.proj] ||= { min: 0, out: 0, agents: {} }).out += m.out;
+        (res.proj[sessions.get(m.sid)?.label || m.proj] ||= { min: 0, out: 0, agents: {} }).out += m.out;
         const liveModel = m.model && m.model !== "<synthetic>";
         if (sessions.has(m.sid)) {
           const ss = sessions.get(m.sid);
@@ -1238,6 +1413,7 @@ export class UsageStore {
       const d = JSON.parse(raw);
       this.days = d.days || {};
       this.imported = d.imported || {};
+      this.summary = d.summary || 0;
     } catch { this.days = {}; }
   }
 
@@ -1255,18 +1431,61 @@ export class UsageStore {
     return changed;
   }
 
+  // Recompute every day the parse cache still knows about. Used when
+  // SUMMARY_VERSION moves: the labels and buckets change, but cached days are
+  // never "touched" again, so merge() alone would leave the old shape in place.
+  rebuild(usage) {
+    const keys = new Set();
+    for (const fc of usage.files.values()) for (const key of fc.days.keys()) keys.add(key);
+    let changed = false;
+    for (const key of keys) {
+      const s = usage.summary(key);
+      if (!s) continue;
+      if (JSON.stringify(s) !== JSON.stringify(this.days[key])) { this.days[key] = s; changed = true; }
+    }
+    this.summary = SUMMARY_VERSION;
+    this.queueSave();
+    return changed;
+  }
+
   queueSave() {
     this.dirty = true;
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => this.save().catch(() => {}), 800);
   }
 
-  async save() {
+  snapshotJSON() {
+    return JSON.stringify({ version: 1, summary: this.summary, days: this.days, imported: this.imported || {}, savedAt: Date.now() });
+  }
+
+  save() {
+    const epoch = this._saveEpoch || 0;
+    const write = async () => {
+      if (!this.file || epoch !== (this._saveEpoch || 0)) return;
+      let tmp;
+      try {
+        const payload = this.snapshotJSON();
+        this.dirty = false;
+        tmp = temporaryFile(this.file);
+        await fsp.writeFile(tmp, payload, "utf8");
+        if (epoch === (this._saveEpoch || 0)) fs.renameSync(tmp, this.file);
+      } catch (e) { this.dirty = true; throw e; }
+      finally { if (tmp) await fsp.unlink(tmp).catch(() => {}); }
+    };
+    const task = (this.saving || Promise.resolve()).catch(() => {}).then(write);
+    this.saving = task;
+    const clear = () => { if (this.saving === task) this.saving = null; };
+    task.then(clear, clear);
+    return task;
+  }
+
+  saveSync() {
     if (!this.file) return;
-    this.dirty = false;
-    const tmp = this.file + ".tmp";
-    await fsp.writeFile(tmp, JSON.stringify({ version: 1, days: this.days, imported: this.imported || {}, savedAt: Date.now() }), "utf8");
-    await fsp.rename(tmp, this.file);
+    this._saveEpoch = (this._saveEpoch || 0) + 1;
+    try {
+      writeAtomicSync(this.file, this.snapshotJSON());
+      this.dirty = false;
+    } catch { this.dirty = true; }
   }
 
   get(key) { return this.days[key] || null; }

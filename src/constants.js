@@ -2,8 +2,8 @@
 
 import { t } from "./i18n.js";
 
-// 追加在每条委派消息末尾（笔记里看不到）：先弄懂、有疑问先问，说清打算后等用户点头再动手
-export const CONFIRM_FIRST = "先别动手。把上面的任务读透：有不清楚、有歧义或需要我拍板的地方，先列出来问我；都清楚了，就用几句话复述你的理解和打算怎么做，等我确认后再动手。这一轮不要改文件，也不要跑有副作用的命令。";
+// 追加在每条委派消息末尾：关键疑问先问，信息充分时继续执行
+export const CONFIRM_FIRST = "先阅读任务及相关上下文。只有影响需求、范围或验收的问题尚不明确时，才集中向我提问；已明确或已确认的信息不要重复询问。信息充分时，简要说明执行计划并继续完成任务，运行必要检查后汇报结果。超出已授权范围的操作，先征求确认。";
 
 export const STORE_VERSION = 1;
 
@@ -272,12 +272,17 @@ export const DEFAULTS = {
   yieldToNautilus: true,   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
   aiRecordExpanded: {},
-  aiRecordDisplay: "collapsed", // collapsed 默认折叠 / expanded 默认展开 / latest5 只显示最新五条
-  autoLogGranularity: "latest", // latest 最新进展 / round 每轮 / paused 停歇或归档
+  aiRecordClosed: {},
+  aiRecordDisplay: "latest1", // collapsed 折叠 / expanded 展开 / latest1、latest3、latest5 最近 N 条 AI 结论
+  autoLogGranularity: "round", // latest 最新进展 / round 每轮 / paused 停歇或归档
   doneArchivePath: "Agent Deck/done/已完成任务.md",
+  archiveOrder: "prepend",
+  viewOpened: false,   // 首次加载时把面板放进右侧栏；之后不再自动打开
   autoLogMerge: false,
   autoLogMergeThreshold: 10,
   autoLogSummaries: {},
+  manualTaskStates: {},
+  autoLogDetailHistory: [],
   autoLogDetail: "brief",   // brief 最新一句结论 / standard 每轮结论 / detailed 每轮提问和结论
   autoLogEvery: 20,        // 自动整理间隔（分钟）
   autoLogStartDelay: 1,    // 插件启动后第几分钟先整理一次，不用等满一个间隔
@@ -343,7 +348,7 @@ export const DEFAULTS = {
     promptPrefix: "",
     promptSuffix: "",
     markStatus: true,
-    confirmFirst: true,   // 委派消息末尾追加「先确认再动手」
+    confirmFirst: true,   // 委派消息末尾追加可自定义的附加要求
     confirmFirstPrompt: CONFIRM_FIRST,
     writeLink: true,
     nameMax: 56,

@@ -1,18 +1,35 @@
-import { Decoration, EditorView, WidgetType } from "@codemirror/view";
-import { recordsAreOpen } from "./fold-actions.js";
+// 记录留存与显示独立：收起时按最近 N 条 AI 结论展示，展开时显示全部记录。
+// 编辑和阅读视图共用 ai-records.js 的选择规则；手动开合状态持久保存。
+
+import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 import { StateEffect, StateField } from "@codemirror/state";
-import { aiRecordGroups, recordRuns, adBlockIdRanges, hiddenBlockId } from "./ai-records.js";
+import { foldedRanges, unfoldEffect } from "@codemirror/language";
+import {
+  aiRecordGroups, recordRuns, adBlockIdRanges, hiddenBlockId,
+  recordIsOpen, recordStartsOpen, visibleRecords,
+} from "./ai-records.js";
 import { t } from "./i18n.js";
+
+const MODES = new Set(["collapsed", "expanded", "latest5", "latest3", "latest1"]);
+const LIMITED = new Set(["latest5", "latest3", "latest1"]);
+
+export const displayMode = (plugin) => (MODES.has(plugin.settings?.aiRecordDisplay) ? plugin.settings.aiRecordDisplay : "latest1");
 
 const toggleRecords = StateEffect.define();
 export const setRecordsOpenEffect = StateEffect.define();
-const modeFor = () => "collapsed";
-function rememberOpen(plugin, key, open) {
+
+// Opening or folding by hand is stored as an exception to the mode default, so
+// switching modes later keeps a sane baseline.
+function rememberOpen(plugin, key, open, startsOpen) {
   const expanded = (plugin.settings.aiRecordExpanded ||= {});
-  if (open) expanded[key] = true; else delete expanded[key];
+  const closed = (plugin.settings.aiRecordClosed ||= {});
+  delete expanded[key];
+  delete closed[key];
+  if (open !== startsOpen) (open ? expanded : closed)[key] = true;
   plugin.saveSettings();
   plugin.refreshUI();
 }
+
 function trackedIds(plugin) {
   const ids = new Set();
   for (const day of Object.values(plugin.settings.autoLogState || {})) for (const rec of Object.values(day || {})) if (rec?.blockId) ids.add(rec.blockId);
@@ -20,49 +37,103 @@ function trackedIds(plugin) {
   return ids;
 }
 
-function recordControl(doc, count, open, limited = false, summary = false) {
+function buttonLabel(open, mode, summary) {
+  if (open) return t("收起");
+  return summary || LIMITED.has(mode) ? t("更多") : t("记录");
+}
+
+function recordControl(doc, count, open, mode, summary = false) {
   const el = doc.createElement("button");
   el.className = "ad-records-toggle";
   el.dataset.open = String(open);
   const arrow = el.appendChild(doc.createElement("span"));
   arrow.className = "ad-records-chevron";
-  arrow.textContent = limited ? "⋯" : "›";
+  arrow.textContent = !open && LIMITED.has(mode) ? "⋯" : "›";
   arrow.setAttribute("aria-hidden", "true");
   const label = el.appendChild(doc.createElement("span"));
-  label.textContent = summary || limited ? (open ? t("收起") : t("更多")) : t("记录");
+  label.textContent = buttonLabel(open, mode, summary);
   const badge = el.appendChild(doc.createElement("span"));
   badge.className = "ad-records-count";
   badge.textContent = String(count);
-  const title = limited && !open && !summary ? t("共 {n} 条 AI 记录，仅显示最新 5 条", { n: count }) : (open ? t("折叠 {n} 条 AI 记录", { n: count }) : t("展开 {n} 条 AI 记录", { n: count }));
+  const title = open ? t("折叠 {n} 条 AI 记录", { n: count }) : t("展开 {n} 条 AI 记录", { n: count });
   el.title = title;
   el.setAttribute("aria-label", title);
-  el.type = "button"; el.setAttribute("aria-expanded", String(open));
+  el.type = "button";
+  el.setAttribute("aria-expanded", String(open));
   return el;
 }
 
 class RecordsToggle extends WidgetType {
-  constructor(key, count, open, limited = false, summary = false) { super(); Object.assign(this, { key, count, open, limited, summary }); }
-  eq(other) { return other.key === this.key && other.count === this.count && other.open === this.open && other.limited === this.limited && other.summary === this.summary; }
+  constructor(key, count, open, mode, summary = false) { super(); Object.assign(this, { key, count, open, mode, summary }); }
+  eq(other) { return other.key === this.key && other.count === this.count && other.open === this.open && other.mode === this.mode && other.summary === this.summary; }
   toDOM(view) {
-    const el = recordControl(view.dom.ownerDocument, this.count, this.open, this.limited, this.summary);
-    {
-      el.onclick = (e) => { e.preventDefault(); e.stopPropagation(); view.dispatch({ effects: toggleRecords.of(this.key), selection: { anchor: view.state.doc.lineAt(view.posAtDOM(el)).from } }); };
-    }
+    const el = recordControl(view.dom.ownerDocument, this.count, this.open, this.mode, this.summary);
+    el.onclick = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      view.dispatch({ effects: toggleRecords.of(this.key), selection: { anchor: view.state.doc.lineAt(view.posAtDOM(el)).from } });
+    };
     return el;
   }
   ignoreEvent() { return true; }
 }
 
+// The record layer owns folding for these blocks. A native fold (⌘⇧[, the list
+// arrow, a leftover fold restored on open, another fold plugin's marker) would
+// put Obsidian's own “…” placeholder next to our “⋯ 更多 3” button — two
+// ellipses for one block. So unfold anything folded inside a managed record
+// block and let our button be the only control.
+export function aiRecordUnfoldExtension(plugin, refreshEffect) {
+  const foldedInGroups = (view) => {
+    const state = view.state;
+    const folds = [];
+    foldedRanges(state).between(0, state.doc.length, (from, to) => folds.push({ from, to }));
+    if (!folds.length) return [];   // 没折叠就什么都不用算
+    const groups = aiRecordGroups(state.doc.toString(), trackedIds(plugin));
+    if (!groups.length) return [];
+    const out = [];
+    for (const g of groups) {
+      if (!g.records.length) continue;
+      const start = state.doc.line(g.line + 1).from;
+      const end = state.doc.line(g.records[g.records.length - 1] + 1).to;
+      for (const f of folds) {
+        // 只收记录块内部的折叠；更上层（母项）的折叠是用户自己的，不碰
+        if (f.from > start && f.from <= end) out.push(unfoldEffect.of(f));
+      }
+    }
+    return out;
+  };
+  return ViewPlugin.fromClass(class {
+    constructor(view) { this._t = setTimeout(() => this.run(view), 0); }
+    update(u) {
+      const touched = u.transactions.some((tr) => tr.effects.some((e) => e.is(toggleRecords) || e.is(setRecordsOpenEffect) || e.is(refreshEffect)));
+      if (u.docChanged || touched) {
+        clearTimeout(this._t);
+        this._t = setTimeout(() => this.run(u.view), 0);
+      }
+    }
+    run(view) {
+      let effects = [];
+      try { effects = foldedInGroups(view); } catch { return; }
+      if (effects.length) view.dispatch({ effects });
+    }
+    destroy() { clearTimeout(this._t); }
+  });
+}
+
 export function aiRecordDisplayExtension(plugin, refreshEffect) {
-  const build = (state, mode, toggled) => {
+  const build = (state, mode) => {
     const ranges = [], doc = state.doc, text = doc.toString();
-    for (const { from, to } of adBlockIdRanges(text, trackedIds(plugin))) ranges.push(Decoration.replace({}).range(from, to));
-    for (const group of aiRecordGroups(text, trackedIds(plugin))) {
+    const ids = trackedIds(plugin);
+    const lines = text.split("\n");
+    for (const { from, to } of adBlockIdRanges(text, ids)) ranges.push(Decoration.replace({}).range(from, to));
+    for (const group of aiRecordGroups(text, ids)) {
       for (const n of group.records) ranges.push(Decoration.line({ class: "ad-record-line" }).range(doc.line(n + 1).from));
-      const summary = group.summaries.length > 0;
-      const open = recordsAreOpen(summary || mode === "latest5" ? "collapsed" : mode, toggled, group.key);
-      const hidden = open ? [] : summary ? group.records.filter(n => !group.summaries.includes(n)) : mode === "latest5" ? group.records.slice(0, -5) : group.records;
-      ranges.push(Decoration.widget({ widget: new RecordsToggle(group.key, group.records.length, open, mode === "latest5", summary), side: 2 }).range(doc.line(group.line + 1).to));
+      const open = recordIsOpen(plugin.settings, mode, group);
+      const duplicate = plugin.redundantSessionLink?.(group, lines) ?? -1;
+      const available = group.records.filter(n => n !== duplicate);
+      const visible = (open ? available : visibleRecords(group, lines, mode)).filter(n => n !== duplicate);
+      if (available.length) ranges.push(Decoration.widget({ widget: new RecordsToggle(group.key, available.length, open, mode, group.summaries.length > 0), side: 2 }).range(doc.line(group.line + 1).to));
+      const hidden = group.records.filter((n) => !visible.includes(n));
       for (const run of recordRuns(hidden)) {
         const from = Math.max(0, doc.line(run.from + 1).from - 1), to = doc.line(run.to + 1).to;
         ranges.push(Decoration.replace({ inclusive: false }).range(from, to));
@@ -72,45 +143,42 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
   };
   const field = StateField.define({
     create(state) {
-      const mode = modeFor(plugin), toggled = new Set(Object.keys(plugin.settings.aiRecordExpanded || {}));
-      return { mode, toggled, decorations: build(state, mode, toggled) };
+      const mode = displayMode(plugin);
+      return { mode, decorations: build(state, mode) };
     },
     update(value, tr) {
-      const mode = modeFor(plugin);
-      let toggled = mode === value.mode ? value.toggled : new Set();
+      const mode = displayMode(plugin);
       let changed = mode !== value.mode;
       const setOpen = (keys, open) => {
-        toggled = new Set(toggled);
+        const groups = aiRecordGroups(tr.state.doc.toString(), trackedIds(plugin));
         for (const key of keys) {
-          const group = aiRecordGroups(tr.state.doc.toString(), trackedIds(plugin)).find(g => g.key === key);
-          const defaultOpen = !group?.summaries.length && mode !== "collapsed" && mode !== "latest5";
-          if (open !== defaultOpen) toggled.add(key); else toggled.delete(key);
-          rememberOpen(plugin, key, open);
+          const group = groups.find((g) => g.key === key);
+          rememberOpen(plugin, key, open, group ? recordStartsOpen(mode, group) : false);
         }
         changed = true;
       };
       for (const e of tr.effects) {
         if (e.is(setRecordsOpenEffect)) setOpen(e.value.keys, e.value.open);
-        if (e.is(refreshEffect)) { toggled = new Set(Object.keys(plugin.settings.aiRecordExpanded || {})); changed = true; }
+        if (e.is(refreshEffect)) changed = true;
         if (e.is(toggleRecords)) {
-          toggled = new Set(toggled);
-          if (toggled.has(e.value)) toggled.delete(e.value); else toggled.add(e.value);
-          rememberOpen(plugin, e.value, toggled.has(e.value));
-          changed = true;
+          const group = aiRecordGroups(tr.state.doc.toString(), trackedIds(plugin)).find((g) => g.key === e.value);
+          const open = recordIsOpen(plugin.settings, mode, group || { key: e.value, summaries: [] });
+          setOpen([e.value], !open);
         }
       }
-      return changed || tr.docChanged || tr.selection ? { mode, toggled, decorations: build(tr.state, mode, toggled) } : value;
+      return changed || tr.docChanged ? { mode, decorations: build(tr.state, mode) } : value;
     },
     provide: (f) => [EditorView.decorations.from(f, (v) => v.decorations), EditorView.atomicRanges.of((view) => view.state.field(f).decorations)],
   });
   plugin.aiRecordDisplayField = field;
   plugin.recordTrackedIds = () => trackedIds(plugin);
-  return field;
+  return [field, aiRecordUnfoldExtension(plugin, refreshEffect)];
 }
 
-// 阅读视图只切换记录元素的可见性，不改笔记正文。
+// Reading view only toggles visibility of the record elements; the note text is
+// not touched.
 export function renderAIRecords(el, plugin, ctx) {
-  const mode = modeFor(plugin), ids = trackedIds(plugin), cleanups = [];
+  const mode = displayMode(plugin), ids = trackedIds(plugin), cleanups = [];
   const walker = el.ownerDocument.createTreeWalker(el, 4);
   const nodes = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
@@ -143,23 +211,32 @@ export function renderAIRecords(el, plugin, ctx) {
     const bound = records.some((li) => /^🔗\s|^💬\s+累计总结[：:]/.test(li.textContent.trim()));
     if (!records.length || !(bound || key?.startsWith("ad-") || ids.has(key) || own.includes("🤖") || parent.id?.startsWith("ad-") || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
     list.dataset.adRecords = "true";
-    const summaries = records.filter(li => /^💬\s+累计总结[：:]/.test(li.textContent.trim()));
-    const summary = summaries.length > 0;
-    let open = !!(key && plugin.settings.aiRecordExpanded?.[key]);
-    let button = recordControl(list.ownerDocument, records.length, open, mode === "latest5", summary);
+    const summaries = records.filter((li) => /^💬\s+累计总结[：:]/.test(li.textContent.trim()));
+    const done = /^(?:DONE|CANCELED|CANCELLED|FAILED)\b/i.test(parent.textContent.trim());
+    // The selection helper works on line numbers, so the DOM list is indexed.
+    const texts = records.map((li) => li.textContent.trim());
+    const group = { key, records: records.map((_, i) => i), summaries: summaries.map((li) => records.indexOf(li)), state: done ? "done" : "doing" };
+    const startsOpen = recordStartsOpen(mode, group);
+    let open = recordIsOpen(plugin.settings, mode, group);
+    const button = recordControl(list.ownerDocument, records.length, open, mode, summaries.length > 0);
     const update = () => {
-      records.forEach((li, i) => { li.classList.add("ad-record-item"); li.classList.toggle("ad-record-hidden", !open && (summary ? !summaries.includes(li) : mode === "latest5" ? i < records.length - 5 : true)); });
-      if (summary || mode === "latest5") button.querySelector("span:nth-child(2)").textContent = open ? t("收起") : t("更多");
+      const kept = open ? group.records : visibleRecords(group, texts, mode);
+      for (const [i, li] of records.entries()) {
+        li.classList.add("ad-record-item");
+        li.classList.toggle("ad-record-hidden", !kept.includes(i));
+      }
+      button.querySelector("span:nth-child(2)").textContent = buttonLabel(open, mode, summaries.length > 0);
       button.dataset.open = String(open);
-      button.title = mode === "latest5" && !open && !summary ? t("仅展示最新 5 条 AI 记录") : (open ? t("折叠 {n} 条 AI 记录", { n: records.length }) : t("展开 {n} 条 AI 记录", { n: records.length }));
-      button.setAttribute("aria-label", button.title);
+      const title = open ? t("折叠 {n} 条 AI 记录", { n: records.length }) : t("展开 {n} 条 AI 记录", { n: records.length });
+      button.title = title;
+      button.setAttribute("aria-label", title);
       button.setAttribute("aria-expanded", String(open));
     };
-    button.onclick = () => { open = !open; if (key) rememberOpen(plugin, key, open); update(); };
+    button.onclick = () => { open = !open; rememberOpen(plugin, key, open, startsOpen); update(); };
     const paragraph = parent.querySelector(":scope > p");
     if (paragraph) paragraph.appendChild(button); else list.parentNode.insertBefore(button, list);
     update();
-    cleanups.push(() => { records.forEach((li) => li.classList.remove("ad-record-hidden", "ad-record-item")); button.remove(); delete list.dataset.adRecords; });
+    cleanups.push(() => { for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item"); button.remove(); delete list.dataset.adRecords; });
   }
   return () => cleanups.forEach((cleanup) => cleanup());
 }

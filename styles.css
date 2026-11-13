@@ -254,7 +254,7 @@
 
 /* 今天花时间最多的项目 */
 .ad-projs { display: flex; flex-direction: column; gap: 4px; margin-top: 9px; }
-.ad-proj { display: grid; grid-template-columns: minmax(0, 7.5em) 1fr auto; align-items: center; gap: 8px; font-size: 11px; }
+.ad-proj { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(44px, 1fr) auto; align-items: center; gap: 8px; font-size: 11px; }
 .ad-proj__name { color: var(--ad-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ad-proj__bar { height: 4px; border-radius: 2px; background: var(--background-modifier-hover); overflow: hidden; }
 .ad-proj__fill { height: 100%; border-radius: 2px; background: var(--ad-accent); opacity: .55; }
@@ -772,11 +772,6 @@ body.ad-dragging-session .markdown-source-view .cm-content { outline: 1px dashed
   .ad-sess.is-landed, .ad-agentcard.is-drop { animation: none !important; transform: none !important; }
 }
 
-/* 螺旋日程的进度行管着打开会话时：🔗 行放淡、不可点（点到的是这一行本身，照常放光标编辑） */
-.ad-link-quiet { opacity: .55; }
-.ad-link-quiet .cm-link, .ad-link-quiet .cm-url, .ad-link-quiet .cm-underline, .ad-link-quiet a, .ad-link-quiet .external-link { pointer-events: none; cursor: text; }
-.ad-link-quiet .external-link { display: none; }
-
 /* Lattice loader（移植自 React Bits，见 src/lattice.js）：等待态的点阵，颜色跟 currentColor */
 .ad-lattice { --ad-ll-cell: 3px; --ad-ll-gap: 1px; --ad-ll-idle: .28; display: inline-grid; grid-template-columns: repeat(3, var(--ad-ll-cell)); gap: var(--ad-ll-gap); flex: none; vertical-align: middle; }
 .ad-lattice__cell { width: var(--ad-ll-cell); height: var(--ad-ll-cell); border-radius: 50%; background: currentColor; opacity: var(--ad-ll-idle); animation: ad-ll-on var(--ad-ll-cycle) cubic-bezier(.77, 0, .175, 1) infinite; }
@@ -813,10 +808,7 @@ body.ad-dragging-session .markdown-source-view .cm-content { outline: 1px dashed
 .ad-send__text { min-width: 0; overflow-wrap: anywhere; }
 .ad-send__meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 8px; font-size: 11px; color: var(--ad-faint); }
 .ad-send__path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ad-send__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px -20px 0; padding: 12px 20px; border-top: 1px solid var(--ad-line); background: var(--ad-surface); }
-.ad-send__keys { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ad-faint); }
-.ad-send__keys kbd { font-family: var(--ad-figure); font-size: 10px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--ad-line); background: var(--background-primary); color: var(--ad-muted); }
-.ad-send__keys span + kbd { margin-left: 6px; }
+.ad-send__foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin: 18px -20px 0; padding: 12px 20px; border-top: 1px solid var(--ad-line); background: var(--ad-surface); }
 .ad-send__btns { display: flex; gap: 8px; }
 .ad-btn.ad-send__go { background: var(--ad-agent); color: #fff; border-color: transparent; }
 .ad-btn.ad-send__go:hover { filter: brightness(1.06); background: var(--ad-agent); }

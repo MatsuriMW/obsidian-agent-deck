@@ -30,6 +30,8 @@ export default {
   "claude 返回错误": "claude returned an error",
   "codex 退出码 {code}": "codex exited with code {code}",
   "codex 没有返回文字": "codex returned no text",
+  "claude 等了 {n} 秒没回来": "claude did not answer within {n}s",
+  "codex 等了 {n} 秒没回来": "codex did not answer within {n}s",
 
   // codex-desktop.js — handoff to the Codex desktop app
   "Codex 连接已关闭": "Codex connection is closed",
@@ -41,10 +43,19 @@ export default {
   "Codex 首轮{status}": "Codex first turn {status}",
   "未完成": "did not complete",
   "Codex 连接已结束": "Codex connection ended",
+  "Agent Deck 首轮不处理交互请求，请在 Codex Desktop 继续":
+    "Agent Deck handles no interactive requests during the first turn — continue in Codex Desktop",
+  "首轮需要审批或交互，请在打开的 Codex Desktop 会话中继续":
+    "The first turn needs an approval or input — continue in the Codex Desktop session that just opened",
 
   // conversation.js — archiving the conversation body
   "请等当前这一轮结束后再归档": "Wait for the current turn to finish before archiving",
   "暂未读取到对话正文，请扫描会话后重试": "No conversation text read yet; scan sessions and try again",
+  "该会话已有归档，且正文经过手工修改。请先保留或移动旧归档后再导出":
+    "This session's archive was edited by hand; keep or move the old archive first, then export again",
+
+  // delegation.js — CLI helper failures
+  "超时": "Timed out",
 
   // readers.js — what the agent is doing right now, on the card and in the menu bar
   "跑命令": "Running a command",

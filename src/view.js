@@ -26,6 +26,9 @@ export class AgentDeckView extends ItemView {
   async onOpen() {
     this.contentEl.addClass("ad-view");
     this.plugin.views.add(this);
+    const refreshPending = () => { if (this._pendingRender) this.render(); };
+    this.registerEvent(this.app.workspace.on("layout-change", refreshPending));
+    this.registerEvent(this.app.workspace.on("active-leaf-change", refreshPending));
     this.render();
   }
 
@@ -33,11 +36,17 @@ export class AgentDeckView extends ItemView {
     this.plugin.views.delete(this);
   }
 
+  onResize() {
+    if (this._pendingRender) this.render();
+  }
+
   render() {
+    if (this.containerEl.isShown && !this.containerEl.isShown()) { this._pendingRender = true; return; }
     // 正在拖「现在」里的卡片排序：重画会把拖着的卡片换掉，等松手再画
     if (this._dragSid) { this._pendingRender = true; return; }
     // 搜索框里正在用输入法拼字：重画会把输入框换掉、打断拼字，等拼完再画
     if (this._composing) { this._pendingRender = true; return; }
+    this._pendingRender = false;
     const root = this.contentEl;
     this._scroll = root.scrollTop || this._scroll;
     const focused = document.activeElement;
@@ -62,7 +71,7 @@ export class AgentDeckView extends ItemView {
     const actions = head.createDiv({ cls: "ad-head__actions" });
     const scan = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("重新扫描本机会话") } });
     setLucide(scan.createSpan({ cls: "ad-iconbtn__icon" }), "refresh-cw");
-    scan.onclick = () => p.scanNow(true);
+    scan.onclick = () => p.scanNow();
     const gear = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("设置") } });
     setLucide(gear.createSpan({ cls: "ad-iconbtn__icon" }), "settings-2");
     gear.onclick = () => p.openSettings();
@@ -97,10 +106,13 @@ export class AgentDeckView extends ItemView {
     }
 
     const journalActions = dash.createDiv({ cls: "ad-btnrow" });
-    for (const [mode, label] of [["active", t("归组未完成日志")], ["done", t("归档已完成日志")]]) {
-      const button = journalActions.createEl("button", { text: label });
-      button.title = mode === "done" ? t("移到归档文件，按日记日期分组，保留完整子项和记录") : t("在当前日记内整理任务整块，保留子项和记录");
-      button.onclick = async () => { button.disabled = true; try { await p.organizeJournal(mode); } catch (e) { p.notice(e.message); } finally { button.disabled = false; } };
+    for (const action of [
+      { label: t("整理日志"), hint: t("已完成的任务放到最上面，一条分割线，再下面是未完成的 AI 日志，最后是你自己写的内容"), run: () => p.organizeJournal() },
+      { label: t("归档已完成的日志到…"), hint: t("把已完成的 AI 日志移出这篇日记，写进你选的归档文件"), run: () => p.archiveCompletedJournal() },
+    ]) {
+      const button = journalActions.createEl("button", { text: action.label });
+      button.title = action.hint;
+      button.onclick = async () => { button.disabled = true; try { await action.run(); } catch (e) { p.notice(e.message); } finally { button.disabled = false; } };
     }
 
     journalActions.createEl("button", { text: t("跳到正在做") }).onclick = () => p.jumpRunningProject();
@@ -305,6 +317,7 @@ export class AgentDeckView extends ItemView {
     const box = parent.createDiv({ cls: "ad-projs" });
     for (const [name, v] of rows) {
       const row = box.createDiv({ cls: "ad-proj" });
+      row.setAttr("title", t("{project} · 今天 {time}", { project: name || "—", time: fmtMin(v.min) }));
       row.createSpan({ cls: "ad-proj__name", text: name || "—" });
       const bar = row.createDiv({ cls: "ad-proj__bar" });
       bar.createDiv({ cls: "ad-proj__fill" }).style.width = `${(v.min / max) * 100}%`;

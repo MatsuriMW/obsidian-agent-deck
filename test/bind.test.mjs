@@ -103,7 +103,7 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
   check("syncSessionEntry assigns ^xxxxx and keeps all turns under one entry",
     r1.blockId === "ad-111111" &&
     r1.text.includes("^ad-111111") &&
-    r1.text.includes("\t- 📋 步骤 2/3 · 编写单元测试") &&
+    r1.text.includes("\t- 📋 第2轮：步骤 2/3 · 编写单元测试") &&
     r1.text.includes("\t- 💬 第一轮完成了基础日志解析。") &&
     r1.text.includes("\t- ❓ 第2轮：加上 Claude TaskCreate 和对话轮数追踪") &&
     r1.text.includes("\t- 💬 第2轮：已支持 Claude TaskCreate 与其他 Agent 轮数追踪。") &&
@@ -148,24 +148,13 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
   check("cleanUserPrompt extracts Antigravity <USER_REQUEST>", cleanUserPrompt(agRaw) === "帮我支持 Antigravity 会话追踪", cleanUserPrompt(agRaw));
 }
 
-{ // 默认只留最新结论，不抄用户每一轮输入；标准模式只列各轮结论
-  const rounds = [
-    {n:1,ask:"第一轮用户要求",said:"已完成第一步。"},
-    {n:2,ask:"第二轮用户要求",said:"已完成最后一步。"},
-    {n:3,ask:"正在讨论的新要求"},
-  ];
-  const input = "- DOING 整理插件 ^ad-detail\n\t- 手写说明\n\t- 💬 旧结论\n\t- ❓ 第2轮：旧追问\n\t- 💬 第2轮：旧结论\n\t- 📋 步骤 1/2\n\t- TODO 🤖 请确认结果\n\t- TODO 用户子任务\n\t\t- 💬 子任务的手写记录\n";
-  const options = {blockId:"ad-detail",rounds,taskTodo:{done:1,total:2,cur:"验证"}};
-  const brief = J.syncSessionEntry(input,options).text;
-  check("brief default keeps one latest conclusion without prompts or step chatter", (brief.match(/^\t- 💬/gm)||[]).length===1 && brief.includes("💬 已完成最后一步。") && !brief.includes("❓ 第") && !brief.includes("📋"),brief);
-  check("brief preserves manual notes, pending TODO and nested records", brief.includes("手写说明") && brief.includes("TODO 🤖 请确认结果") && brief.includes("\t\t- 💬 子任务的手写记录"),brief);
-  const cold = J.syncSessionEntry(input,{blockId:"ad-detail"}).text;
-  check("brief keeps latest existing conclusion when rounds are unavailable", cold.includes("💬 旧结论") && !cold.includes("❓ 第"),cold);
-  check("brief sync is idempotent", J.syncSessionEntry(brief,options).text===brief);
-  const standard = J.syncSessionEntry(input,{...options,detail:"standard"}).text;
-  check("standard keeps round conclusions and steps, omits user prompts", standard.includes("💬 第2轮：已完成最后一步。") && standard.includes("📋 步骤 1/2") && !standard.includes("❓ 第") && !standard.includes("用户要求"),standard);
-  const detailed = J.syncSessionEntry(input,{...options,detail:"detailed"}).text;
-  check("detailed can still record each user prompt", detailed.includes("❓ 第2轮：第二轮用户要求"),detailed);
+{ // Existing records survive detail changes, including manual notes and nested records.
+  const input = "- DOING 整理插件 ^ad-detail\n\t- 手写说明\n\t- 💬 旧结论\n\t- ❓ 第2轮：旧追问\n\t- 💬 第2轮：旧结论\n\t- 📋 步骤 1/2\n\t- TODO 用户子任务\n\t\t- 💬 子任务的手写记录\n";
+  const rounds=[{n:1,ask:"原问题",said:"原回答"},{n:2,ask:"第二轮问题",said:"第二轮回答"}];
+  for(const detail of ["brief","standard","detailed"]){
+    check(`${detail} leaves saved rounds byte-for-byte`,J.syncSessionEntry(input,{blockId:"ad-detail",rounds,detail,granularity:"round"}).text===input);
+  }
+  check("missing source rounds do not erase historical prompts",J.syncSessionEntry(input,{blockId:"ad-detail"}).text===input);
 }
 
 process.exit(fail ? 1 : 0);

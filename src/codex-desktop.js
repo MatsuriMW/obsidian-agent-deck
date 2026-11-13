@@ -69,8 +69,8 @@ export class CodexDesktopRunner {
     }
     if (this.finished) return;
     if (message.id != null && message.method) {
-      this.send({ id: message.id, error: { code: -32601, message: "Agent Deck 首轮不处理交互请求，请在 Codex Desktop 继续" } });
-      this.finish("error", "首轮需要审批或交互，请在打开的 Codex Desktop 会话中继续");
+      this.send({ id: message.id, error: { code: -32601, message: t("Agent Deck 首轮不处理交互请求，请在 Codex Desktop 继续") } });
+      this.finish("error", t("首轮需要审批或交互，请在打开的 Codex Desktop 会话中继续"));
       return;
     }
     const params = message.params;

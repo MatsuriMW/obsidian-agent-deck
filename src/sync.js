@@ -14,6 +14,8 @@ import { MarkdownView } from "obsidian";
 import { AGENTS, dayKey, dayKeyToday, dayMinute, fmtTok, fmtClock, journalPath } from "./constants.js";
 import * as J from "./journal.js";
 import { runJournalModel, safeLabel } from "./llm.js";
+import { ensureTopRule } from "./organize-journal.js";
+import { detailForRound } from "./log-detail.js";
 
 const STATE_KW = J.STATE_KW;
 
@@ -23,6 +25,7 @@ export class JournalSync {
     this._busy = false;
     this._at = 0;
     this._refining = new Set();
+    this._polishing = new WeakSet();
     this._merging = new Set();
     this._mergeAt = new Map();
   }
@@ -78,7 +81,7 @@ export class JournalSync {
   }
 
   async run({ force = false } = {}) {
-    if (this._busy) return;
+    if (this._busy || this._stopped) return;
     if (!force && Date.now() - this._at < 8000) return;
     this._at = Date.now();
     if (this.cfg.journalSync === false || this.cfg.journalAutoWrite === false) return;
@@ -97,6 +100,8 @@ export class JournalSync {
         if (this.cfg.resultBack !== false) next = this.results(next);
         if (this.cfg.agentKw !== false) next = this.keywords(next);
         if (this.cfg.kidBlocks !== false) { next = this.spawnAll(next); next = this.subsIntoAll(next); next = this.sides(next); }
+        next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
+        next = ensureTopRule(next);
         if (next !== text) this.replace(view, text, next);
       }
       const file = this.todayJournal();
@@ -109,6 +114,8 @@ export class JournalSync {
         if (this.cfg.agentKw !== false) next = this.keywords(next);
         next = this.spawnAll(next);
         next = this.sides(next);
+        next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
+        next = ensureTopRule(next);
         if (next !== text) await this.p.app.vault.process(file, (cur) => (cur === text ? next : cur));
       }
     } catch (e) {
@@ -116,13 +123,14 @@ export class JournalSync {
     } finally { this._busy = false; }
   }
 
-  // 后台调本机小模型把一轮回复润色成精炼的一句话结论（混合模式：先用本地规则写回，润色好后再替换）
+  // 新轮次可先在后台润色后落笔；不回头替换已经保存的历史记录。
   queueRefineTurn(sid, roundObj, rawSaid) {
-    if (this.cfg.roundPolish === false) return;
+    if (this.cfg.roundPolish === false || detailForRound(this.cfg.autoLogDetail, this.cfg.autoLogDetailHistory, roundObj || {}) === "detailed") return;
     if (!roundObj || roundObj.summary || roundObj._asked || !rawSaid || rawSaid.length < 40) return;
     const key = `${sid}:${roundObj.n || 1}:${rawSaid.length}`;
     if (this._refining.has(key)) return;
     roundObj._asked = true;
+    this._polishing.add(roundObj);
     this._refining.add(key);
     const prompt = [
       "把下面 AI 助手这一轮的回复提炼成一句话结论（不超过 40 个字，直接写结论本身，不要前缀、不要引号、不要代码块）：",
@@ -134,15 +142,14 @@ export class JournalSync {
         const clean = J.oneSentenceConclusion(safeLabel(res, 65) || res, 80);
         if (clean && clean.length >= 4) {
           roundObj.summary = clean;
-          this.run({ force: true }).catch(() => {});
         }
       })
       .catch(() => {})
-      .finally(() => { this._refining.delete(key); });
+      .finally(() => { this._polishing.delete(roundObj); this._refining.delete(key); this.run({ force: true }).catch(() => {}); });
   }
 
   async queueMerge(sid, rounds, day = dayKeyToday(this.cfg)) {
-    if (!this.cfg.autoLogMerge || this.cfg.autoLogGranularity !== "round" || this.cfg.journalAutoWrite === false || this._stopped) return;
+    if (!this.cfg.autoLogMerge || this.cfg.journalAutoWrite === false || this._stopped) return;
     const key = `${day}:${sid}`;
     if (this._merging.has(key) || Date.now() - (this._mergeAt.get(key) || 0) < 60000) return;
     const previous = this.cfg.autoLogSummaries?.[day]?.[sid];
@@ -150,12 +157,16 @@ export class JournalSync {
     if (pending.length < Math.max(2, Number(this.cfg.autoLogMergeThreshold) || 10)) return;
     this._merging.add(key); this._mergeAt.set(key, Date.now());
     try {
-      const prompt = ["把同一任务以下工作记录合并为一段中文总结，不超过 120 字。保留实际成果、决定和未解决事项，不逐轮复述用户要求，不把未完成事项说成已完成。只输出总结。",
+      const prompt = ["把同一任务以下工作记录合并成 1 到 2 句完整的中文句子，写进日记直接当结论用。"
+        + "每句都要有主语和谓语，读起来是一句完整的话；不要「已完成」「搞定了」这种没有主语的碎片。"
+        + "先说做成了什么、结果如何，再说还差什么没解决；不要逐轮复述用户的要求，也不要把没做完的说成做完了。"
+        + "不要前缀、不要引号、不要代码块，总长不超过 120 字。只输出总结本身。",
         previous?.text ? `此前总结：${previous.text}` : "",
         ...pending.map((r) => `第 ${r.n} 轮：${String(r.summary || r.said).slice(-600)}`)].filter(Boolean).join("\n");
       const raw = await runJournalModel(prompt, this.cfg);
-      const text = safeLabel(raw, 160);
-      if (!text || !this.cfg.autoLogMerge || this.cfg.autoLogGranularity !== "round" || this.cfg.journalAutoWrite === false || this._stopped) return;
+      // resultText cuts on a sentence boundary instead of mid-word.
+      const text = J.resultText(raw, 200);
+      if (!text || !this.cfg.autoLogMerge || this.cfg.journalAutoWrite === false || this._stopped) return;
       const through = Math.max(...pending.map((r) => r.n));
       const bucket = ((this.cfg.autoLogSummaries ||= {})[day] ||= {});
       if ((bucket[sid]?.through || 0) >= through) return;
@@ -201,19 +212,21 @@ export class JournalSync {
           summary = J.oneSentenceConclusion(said, this.cfg.resultMax || 90);
         }
       }
-      const taskTodo = m.agent === "claude" ? (m.todo || null) : null;
-      if (!summary && !taskTodo && rounds.length <= 1) continue;
-      const completed = (waiting || isDone) ? rounds : rounds.slice(0, -1);
+      const completed = ((waiting || isDone) ? rounds : rounds.slice(0, -1)).filter(r => !this._polishing.has(r));
+      if (rounds.at(-1) && this._polishing.has(rounds.at(-1))) summary = "";
+      const taskTodo = m.agent === "claude" && (waiting || isDone) && completed.at(-1) === rounds.at(-1) ? (m.todo || null) : null;
+      if (!summary && !taskTodo && !completed.length) continue;
       this.queueMerge(sid, completed);
       const synced = J.syncSessionEntry(out, {
         granularity: this.cfg.autoLogGranularity,
         compact: this.cfg.autoLogSummaries?.[dayKeyToday(this.cfg)]?.[sid],
         detail: this.cfg.autoLogDetail,
+        detailHistory: this.cfg.autoLogDetailHistory,
         sid,
         blockId: info.blockId || (daySt[sid] && daySt[sid].blockId) || "",
         key: info.key || (daySt[sid] && daySt[sid].key) || "",
         said: summary,
-        rounds: (waiting || isDone) ? rounds : rounds.slice(0, -1),
+        rounds: completed,
         taskTodo,
         ensureId: true,
       });
@@ -225,21 +238,26 @@ export class JournalSync {
 
   // 关键词跟着会话走：只在 DOING 和中间态之间切，你改成别的就不碰
   keywords(text) {
-    let out = text;
-    const lines = () => out.split("\n");
-    // 从下往上改，行号不会因为插入而错
-    for (let at = lines().length - 1; at >= 0; at--) {
-      const line = lines()[at];
-      const k = J.parseLink(line);
+    // Split once: this used to split the whole note for every line, so a long
+    // journal was quadratic in characters. The pass still runs bottom-up so the
+    // line numbers above stay valid when a row is rewritten.
+    let ls = text.split("\n");
+    const owner = J.ownersOf(ls);
+    for (let at = ls.length - 1; at >= 0; at--) {
+      const k = J.parseLink(ls[at]);
       if (!k) continue;
-      const ls = lines();
-      const n = J.markOwner(ls, at);
+      const n = owner[at];
       if (n < 0) continue;
       const cur = J.kwLine(ls[n]);
-      if (!cur) continue;
+      if (!cur || J.isManualTask(this.cfg, ls[n])) continue;
       if (this.archived(k.sid)) {
-        const sessions = ls.flatMap((l, i) => J.markOwner(ls, i) === n && J.parseLink(l) ? [J.parseLink(l).sid] : []);
-        if (!J.DONE_KWS.includes(cur.kw) && sessions.every(sid => this.archived(sid))) out = this.finish(out, k.sid, at);
+        const sessions = [];
+        for (let i = 0; i < ls.length; i++) {
+          if (owner[i] !== n) continue;
+          const link = J.parseLink(ls[i]);
+          if (link) sessions.push(link.sid);
+        }
+        if (!J.DONE_KWS.includes(cur.kw) && sessions.every(sid => this.archived(sid))) ls = this.finish(ls.join("\n"), k.sid, at).split("\n");
         continue;
       }
       if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || J.AGENT_KW_RE.test(cur.kw) || !cur.kw)) continue;
@@ -250,11 +268,9 @@ export class JournalSync {
       const p = J.splitTask(ls[n]);
       if (!p) continue;
       const nextLine = `${p.prefix}${want} ${p.since ? p.since + " " : ""}${p.rest}`.trimEnd();
-      if (nextLine !== ls[n]) {
-        ls[n] = nextLine;
-        out = ls.join("\n");
-      }
+      if (nextLine !== ls[n]) ls[n] = nextLine;
     }
+    let out = ls.join("\n");
     if (this.cfg.autoLogKw !== false) out = this.autoKeywords(out);
     return out;
   }
@@ -271,6 +287,7 @@ export class JournalSync {
       const m = this.usage.meta.get(sid);
       if (!m) continue;
       const found = J.findTask(text, rec.key, rec.blockId || "", sid);
+      if (found && J.isManualTask(this.cfg, text.split("\n")[found.line])) continue;
       if (!found || !(found.kw === "DOING" || (J.AGENT_KW_RE.test(found.kw) && found.kw !== "DELEGATED"))) continue;
       const kw = m.state === "run" ? "DOING" : STATE_KW[m.state];
       if (!kw) continue;
@@ -296,7 +313,7 @@ export class JournalSync {
     const n = J.markOwner(lines, at);
     if (n < 0) return text;
     const p = J.splitTask(lines[n]);
-    if (!p) return text;
+    if (!p || J.isManualTask(this.cfg, lines[n])) return text;
     const meta = this.usage.meta.get(sid) || {};
     const last = meta.lastAt ? dayMinute(meta.lastAt, this.cfg) : null;
     const body = p.rest.replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");

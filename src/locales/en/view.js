@@ -14,10 +14,6 @@ export default {
   "没有找到会话": "No sessions found",
 
   // Journal actions
-  "归组未完成日志": "Group unfinished journal items",
-  "归档已完成日志": "Archive finished journal items",
-  "移到归档文件，按日记日期分组，保留完整子项和记录": "Move to the archive file, grouped by journal date, keeping all sub-items and records",
-  "在当前日记内整理任务整块，保留子项和记录": "Tidy whole task blocks inside the current journal, keeping sub-items and records",
   "跳到正在做": "Jump to what's running",
 
   // Hero numbers
@@ -80,10 +76,8 @@ export default {
   "收起": "Collapse",
   "更多": "More",
   "记录": "Records",
-  "共 {n} 条 AI 记录，仅显示最新 5 条": "{n} AI records — showing only the latest 5",
   "折叠 {n} 条 AI 记录": "Collapse {n} AI records",
   "展开 {n} 条 AI 记录": "Expand {n} AI records",
-  "仅展示最新 5 条 AI 记录": "Showing only the latest 5 AI records",
 
   // journal-archive.js — archiving finished tasks into their own note
   "归档位置必须是库内的 .md 文件路径": "The archive location must be a .md path inside the vault",
@@ -94,4 +88,15 @@ export default {
     "The archive file just changed. Try again; the journal was left untouched.",
   "日记刚有变化，归档副本已保存，原日记保留；重试不会重复归档":
     "The journal just changed. The archive copy was saved and the journal left untouched; retrying will not duplicate it.",
+
+  // Journal layout buttons
+  "整理日志": "Tidy log",
+  "已完成的任务放到最上面，一条分割线，再下面是未完成的 AI 日志，最后是你自己写的内容":
+    "Finished tasks go on top, then a rule, then the unfinished AI log, then your own notes",
+  "归档已完成的日志到…": "Archive finished logs to…",
+  "把已完成的 AI 日志移出这篇日记，写进你选的归档文件":
+    "Move the finished AI log out of this journal into an archive file you pick",
+
+  // Project rows under the day timeline
+  "{project} · 今天 {time}": "{project} · {time} today",
 };

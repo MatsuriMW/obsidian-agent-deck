@@ -20,6 +20,9 @@ export default {
     "This starts a new session; the original session and its log are kept.",
   "连同 {n} 行子块，作为一条消息": "Sent as one message with {n} child lines",
   "作为一条消息": "Sent as one message",
+  "带上 {n} 层母项作为上下文": "Parent lines included as context ({n})",
+  "这条任务在笔记里挂的位置，只做最里面这一项：":
+    "Where this task sits in the note. Only do the innermost item:",
   "发送": "Send",
   "接下来在哪里工作": "Where to work next",
 
@@ -143,4 +146,13 @@ export default {
 
   // task-mentions.js
   "一条任务只能指定一个 Agent 标记": "A task can carry only one agent marker",
+
+  // Archive target sheet
+  "归档已完成的日志": "Archive finished logs",
+  "{n} 个已完成的 AI 任务将被移出这篇日记": "{n} finished AI tasks will be moved out of this journal",
+  "归档到哪个文件": "Archive to which file",
+  "插到文件开头": "Top of the file",
+  "追加到文件末尾": "End of the file",
+  "写入顺序：{order}（在 设置 → 追踪 里改）": "Write order: {order} (change it in Settings → Tracking)",
+  "归档": "Archive",
 };

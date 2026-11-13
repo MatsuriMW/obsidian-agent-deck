@@ -7,6 +7,7 @@
 
 import { pad, fmtTok } from "./constants.js";
 import { t } from "./i18n.js";
+import { detailForRound } from "./log-detail.js";
 
 export const LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 export const STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
@@ -23,11 +24,18 @@ export const AGENT_KW_RE = /^(TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)
 export const OPEN_KWS = ["TODO", "LATER", "NOW", "WAITING", "WAIT", "TODOFORAI", "TODO4AI", "TODO2AI", "TODOTOAI"];
 export const DONE_KWS = ["DONE", "CANCELED", "CANCELLED", "FAILED"];
 
+// A choice made in the task-state menu remains manual until explicitly released.
+export function isManualTask(settings, raw) {
+  return !!settings?.manualTaskStates?.[blockIdOf(raw)];
+}
+
 export const LINK_RE = /^\s*[-*+]\s+🔗/;
 export const RESULT_RE = /^\s*[-*+]\s+💬/;
 export const CLOCK_RE = /^\s*[-*+]\s+⏱/;
 export const QUESTION_RE = /^\s*[-*+]\s+❓/;
 export const PLAN_RE = /^\s*[-*+]\s+📋/;
+// 本插件写下的记录行（和 ai-records.js 的 AI_RECORD_RE 一致），⏱ 也在其中
+export const RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
 export const KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
 export const AUTO_MARK = "🤖 ";
 export const BLOCK_ID_RE = /\s+\^([A-Za-z0-9-]+)\s*$/;
@@ -104,6 +112,24 @@ export function splitTask(raw) {
   return { prefix, rest, body, blockId, since, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
 }
 
+// ⌘⇧D：把一行任务改成做完的样子。缩进、短横 -、复选框和时间戳都留着，
+// 只换状态；checkbox 任务改成 [x]，其它任务换成 DONE。已经做完的返回 null。
+export function flipToDone(raw) {
+  const part = splitTask(raw);
+  if (!part) return null;
+  const kw = kwLine(raw)?.kw || '';
+  if (DONE_KWS.includes(kw)) return null;
+  const box = part.cb ? (part.cb === ' ' || part.cb === '/' ? '[x]' : `[${part.cb}]`) : '';
+  const since = part.since ? `${part.since} ` : '';
+  const head = box
+    ? `${part.prefix}${box} ${since}${part.rest}`
+    : `${part.prefix}DONE ${since}${part.rest}`;
+  return head.trimEnd();
+}
+
+// 一行任务是不是已经做完：关键词（DONE / CANCELLED / FAILED）或复选框 [x] 都算。
+export const isDoneLine = (raw) => DONE_KWS.includes(kwLine(raw)?.kw || '');
+
 // 日记里的任务正文和状态（跳过 🔗 / ⏱ / 💬 / ❓ / 📋 / 🤖 记号行）
 export function kwLine(raw) {
   let s = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s+/, "").replace(STAMP_RE, "");
@@ -143,6 +169,23 @@ export function markOwner(lines, i) {
   const ind = width(lines[i]);
   for (let j = i - 1; j >= 0; j--) if (lines[j].trim() && LIST_RE.test(lines[j]) && width(lines[j]) < ind) return j;
   return -1;
+}
+
+// markOwner(lines, i) for every line, in one pass. Re-planning a long journal
+// asked the same question once per child line, and each answer re-walked the
+// note upwards, so a 5k-line journal took ~190 ms; this is O(n) and gives the
+// same answer: the nearest earlier list item with a smaller indentation.
+export function ownersOf(lines) {
+  const out = new Int32Array(lines.length).fill(-1);
+  const stack = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const w = width(lines[i]);
+    while (stack.length && stack[stack.length - 1][0] >= w) stack.pop();
+    if (stack.length) out[i] = stack[stack.length - 1][1];
+    if (LIST_RE.test(lines[i])) stack.push([w, i]);
+  }
+  return out;
 }
 
 export function childMark(lines, n, pick) {
@@ -230,8 +273,17 @@ export function resultInto(text, sid, said, { blockId = "", key = "", ensureId =
   return lines.join("\n");
 }
 
+// Preserve code contents in detailed excerpts while keeping a single foldable list record.
+const detailExcerpt = (raw, max) => resultText(String(raw || "").replace(/^\s*(?:`{3,}|~{3,})[^\n]*$/gm, ""), max);
+
+// Journal detail uses one sentence even when Chinese punctuation has no following space.
+const recordSentence = (raw, max) => {
+  const text = oneSentenceConclusion(raw, max);
+  return text.match(/^.*?[。！？；!?;]/)?.[0] || text;
+};
+
 // 把同一个窗口会话（session）里的多轮问答、每轮一句话结论、待拍板问题和 TaskCreate 进度都挂在同一个 ^xxxxx 任务条目下
-export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", granularity = "", compact = null } = {}) {
+export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null } = {}) {
   let lines = text.split("\n");
   let n = -1, linkAt = -1;
   if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
@@ -251,7 +303,9 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
     activeBlockId = eb.blockId;
   }
   const mode = ["standard", "detailed"].includes(detail) ? detail : "brief";
-  const roundLog = granularity ? granularity === "round" : mode !== "brief";
+  // A merged summary is the visible line; the rounds behind it stay in the note
+  // so the “更多” toggle can show them, whatever the granularity setting is.
+  const roundLog = Boolean(compact?.text) || (granularity ? granularity === "round" : mode !== "brief");
   const base = width(lines[n]);
   const ind = linkAt >= 0 ? (/^\s*/.exec(lines[linkAt])[0]) : childIndent(lines, n);
   const childWidth = width(ind);
@@ -277,58 +331,42 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
     return insertAt;
   };
 
-  const previousConclusion = lines.slice(n + 1, childSpan() + 1)
-    .filter((line) => width(line) === childWidth && /^\s*[-*+]\s+💬\s+/.test(line))
-    .slice(-1)[0]?.replace(/^\s*[-*+]\s+💬\s+(?:第\d+轮[：:]\s*)?/, "") || "";
-  // 只整理本任务直属的自动记录，用户笔记和子任务的记录保留。
-  for (let i = childSpan(); i > n; i--) {
-    if (width(lines[i]) !== childWidth) continue;
-    const question = /^\s*[-*+]\s+❓\s*第\d+轮[：:]/.test(lines[i]);
-    const history = /^\s*[-*+]\s+💬\s*第\d+轮[：:]/.test(lines[i]);
-    const progress = /^\s*[-*+]\s+📋\s+/.test(lines[i]);
-    if ((!compact?.text && (((!roundLog || mode !== "detailed") && question) || (!roundLog && history))) || (mode === "brief" && progress)) {
-      lines.splice(i, 1);
-      if (i < linkAt) linkAt--;
-    }
+  // Completed records are append-only: changing detail never rewrites saved rounds.
+  const fenced = fencedLines(lines), recorded = new Set();
+  const sourceTurn = raw => /<!-- ad-turn:([A-Za-z0-9_-]+):(\d+) -->/.exec(raw);
+  const legacyOwner = lines.slice(n + 1, childSpan() + 1).map(parseLink).find(Boolean)?.sid || sid;
+  const belongs = raw => { const marker = sourceTurn(raw); return marker ? marker[1] === sid : legacyOwner === sid; };
+  const provenance = rn => /^[A-Za-z0-9_-]+$/.test(sid) ? ` <!-- ad-turn:${sid}:${rn} -->` : "";
+  for (let i = n + 1; i <= childSpan(); i++) {
+    if (fenced.has(i) || width(lines[i]) !== childWidth || !belongs(lines[i])) continue;
+    const match = /^\s*[-*+]\s+💬\s+(?:第(\d+)轮[：:]|((?!累计总结[：:]).))/.exec(lines[i]);
+    if (match) recorded.add(sourceTurn(lines[i]) ? +sourceTurn(lines[i])[2] : match[1] ? +match[1] : 1);
   }
-
-  // 1) TaskCreate / TodoWrite 进度行（📋）
-  if (mode !== "brief" && taskTodo && taskTodo.total > 0) {
-    const stepPart = taskTodo.cur ? ` · ${resultText(taskTodo.cur, 48)}` : (taskTodo.done >= taskTodo.total ? " · 已全部完成" : "");
-    const planLine = `${ind}- 📋 步骤 ${taskTodo.done}/${taskTodo.total}${stepPart}`;
-    upsertChild(/^\s*[-*+]\s+📋\s+/, planLine, linkAt >= 0 ? linkAt : n);
-  }
-
-  // 2) 第一轮 / 当前最新结论（💬）与多轮追问 + 结论
-  let validRounds = Array.isArray(rounds) ? rounds.filter((r) => r && (r.ask || r.said || r.summary)) : [];
-  if (compact?.text) validRounds = [{ n: 0, summary: `累计总结：${compact.text}` }, ...validRounds];
-  if (!roundLog || validRounds.length <= 1) {
-    const r0 = !roundLog ? validRounds.filter((r) => r.summary || r.said).slice(-1)[0] : validRounds[0];
-    const raw = (r0 && r0.summary) || said || (r0 && r0.said) || (mode === "brief" ? previousConclusion : "");
-    const msg = raw ? (r0?.n === 0 ? resultText(raw, 170) : oneSentenceConclusion(raw, mode === "brief" ? 45 : 90)) : "";
-    if (msg) {
-      upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- 💬 ${msg}`, linkAt >= 0 ? linkAt : n);
+  let validRounds = (Array.isArray(rounds) ? rounds : []).filter(r => r && (r.said || r.summary));
+  if (!validRounds.length && said && !recorded.size) validRounds = [{ n: 1, said }];
+  if (!roundLog) validRounds = validRounds.slice(-1);
+  const fresh = validRounds.filter((r, index) => !recorded.has(r.n || index + 1));
+  // Latest progress limits new additions; saved records always remain untouched.
+  const append = line => {
+    let at = childSpan() + 1;
+    for (let i = n + 1; i < at; i++) if (width(lines[i]) === childWidth && CLOCK_RE.test(lines[i])) { at = i; break; }
+    lines.splice(at, 0, line);
+  };
+  if (compact?.text) upsertChild(/^\s*[-*+]\s+💬\s+累计总结[：:]/, `${ind}- 💬 累计总结：${resultText(compact.text, 170)}`, linkAt >= 0 ? linkAt : n);
+  for (const [index, r] of fresh.entries()) {
+    const rn = r.n || index + 1;
+    const level = detailForRound(mode, detailHistory, r);
+    if (level !== "brief" && r.ask) {
+      const ask = level === "detailed" ? detailExcerpt(r.ask, 1000) : recordSentence(r.ask, 90);
+      append(`${ind}- ❓ 第${rn}轮：${ask}${provenance(rn)}`);
     }
-  } else {
-    // 第 1 轮结论写在首条 💬，第 2 轮起把追问（❓ 第N轮）和结论（💬 第N轮）顺着挂在同一个母条目下
-    const r1 = validRounds[0];
-    const raw1 = r1.summary || r1.said || said;
-    const msg1 = r1.n === 0 ? resultText(raw1, 170) : oneSentenceConclusion(raw1, mode === "brief" ? 45 : 90);
-    let anchor = linkAt >= 0 ? linkAt : n;
-    if (msg1) {
-      anchor = upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- 💬 ${msg1}`, anchor);
-    }
-    for (let idx = 1; idx < validRounds.length; idx++) {
-      const r = validRounds[idx];
-      const rn = r.n || (idx + 1);
-      if ((mode === "detailed" || compact?.text) && r.ask) {
-        const qText = resultText(r.ask, 72);
-        if (qText) anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+❓\\s*第${rn}轮[：:]`), `${ind}- ❓ 第${rn}轮：${qText}`, anchor);
-      }
-      const rConclusion = oneSentenceConclusion(r.summary || r.said || "", mode === "brief" ? 45 : 90);
-      if (rConclusion) {
-        anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+💬\\s*第${rn}轮[：:]`), `${ind}- 💬 第${rn}轮：${rConclusion}`, anchor);
-      }
+    const raw = level === "detailed" ? (r.said || r.summary) : (r.summary || r.said);
+    const message = level === "detailed" ? detailExcerpt(raw, 3000) : recordSentence(raw, level === "brief" ? 45 : 90);
+    // Number the latest-progress entry too, so a setting change cannot rewrite it.
+    const prefix = rn === 1 && roundLog ? "" : `第${rn}轮：`;
+    append(`${ind}- 💬 ${prefix}${message}${provenance(rn)}`);
+    if (level === "detailed" && r === validRounds.at(-1) && taskTodo?.total > 0) {
+      append(`${ind}- 📋 第${rn}轮：步骤 ${taskTodo.done}/${taskTodo.total}${taskTodo.cur ? ` · ${resultText(taskTodo.cur, 90)}` : ""}`);
     }
   }
 
@@ -362,6 +400,36 @@ export function diffLines(before, after) {
 
 // 一篇日记里所有的任务行：[{ line, kw, body, key, blockId, indent, state }]
 // state = done / doing / paused / open；🔗 / ⏱ / 💬 / ❓ / 📋 记号行不算
+// Lines that belong to a fenced code block, so callers never treat a code
+// sample as a real task.
+export function fencedLines(lines) {
+  const out = new Set();
+  let fence = '', size = 0;
+  lines.forEach((line, n) => {
+    const m = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence || m) out.add(n);
+    if (m && !fence) { fence = m[1][0]; size = m[1].length; }
+    else if (m && m[1][0] === fence && m[1].length >= size && !m[2].trim()) fence = '';
+  });
+  return out;
+}
+
+// The outermost task block that contains `at`, or -1. Used by the
+// "mark DONE and archive" command so the cursor can sit anywhere in a block.
+export function taskLineAt(lines, at) {
+  if (at < 0 || at >= lines.length || !lines[at].trim()) return -1;
+  const fenced = fencedLines(lines);
+  if (fenced.has(at)) return -1;   // a code sample is not a task
+  for (let i = 0; i <= at; i++) {
+    if (fenced.has(i) || !LIST_RE.test(lines[i]) || !kwLine(lines[i])) continue;
+    const indent = width(lines[i]);
+    let end = i + 1;
+    while (end < lines.length && (!lines[end].trim() || width(lines[end]) > indent)) end++;
+    if (at < end) return i;
+  }
+  return -1;
+}
+
 export function taskItems(text) {
   const out = [];
   const lines = text.split("\n");
@@ -497,6 +565,42 @@ export function childIndent(lines, n) {
   }
   const lead = (/^\s*/.exec(lines[n]) || [""])[0];
   return lead + (lead && !lead.includes("\t") ? "    " : "\t");
+}
+
+// 一个任务的记录块里，直属（同一缩进）的记录行号
+function recordBlock(lines, n) {
+  const base = width(lines[n]);
+  const indent = width(childIndent(lines, n));
+  const out = [];
+  for (let i = n + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) <= base) break;
+    if (width(lines[i]) !== indent) continue;
+    if (RECORD_LINE_RE.test(lines[i])) out.push(i);
+  }
+  return out;
+}
+
+// ⏱ 行统一排在本任务记录的最后：先 ❓、再 💬，最后 ⏱。
+// 只挪 ⏱，其他记录行（包括多轮 ❓/💬 的配对）保持原顺序。
+export function clocksLast(text) {
+  const lines = text.split("\n");
+  const fenced = fencedLines(lines);
+  for (const task of taskItems(text).reverse()) {
+    const n = task.line;
+    if (fenced.has(n) || !lines[n]?.trim()) continue;   // 围栏里的示例不算任务
+    const records = recordBlock(lines, n).filter((i) => !fenced.has(i));
+    const clocks = records.filter((i) => CLOCK_RE.test(lines[i]));
+    const rest = records.filter((i) => !CLOCK_RE.test(lines[i]));
+    if (!clocks.length || !rest.length) continue;
+    const last = rest[rest.length - 1];
+    if (clocks[0] > last) continue;   // 已经在最后
+    const moved = clocks.map((i) => lines[i]);
+    for (const i of [...clocks].sort((a, b) => b - a)) lines.splice(i, 1);
+    const at = last - clocks.filter((i) => i < last).length;
+    lines.splice(at + 1, 0, ...moved);
+  }
+  return lines.join("\n");
 }
 
 // 把会话 s 绑到第 at 行（或在那儿新建一项）。s = { sid, agent, title, state, since, dropKey, blockId, ensureBlockId }

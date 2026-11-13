@@ -99,7 +99,7 @@ export async function archiveConversation(plugin, session) {
     const prior = await vault.read(file);
     if (prior === content) { await linkArchive(plugin, session, notePath); return file; }
     const region = /<!-- agent-deck-conversation sha256:([a-f0-9]{64}) -->\n([\s\S]*?)\n<!-- \/agent-deck-conversation -->/.exec(prior);
-    if (!region || hash(region[2]) !== region[1]) throw new Error("该会话已有归档，且正文经过手工修改。请先保留或移动旧归档后再导出");
+    if (!region || hash(region[2]) !== region[1]) throw new Error(t("该会话已有归档，且正文经过手工修改。请先保留或移动旧归档后再导出"));
     const next = prior.slice(0, region.index) + content + prior.slice(region.index + region[0].length);
     if (next !== prior) await vault.modify(file, next);
     await linkArchive(plugin, session, notePath);

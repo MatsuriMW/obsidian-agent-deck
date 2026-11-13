@@ -1,5 +1,8 @@
 import * as J from './journal.js';
 import { t } from "./i18n.js";
+import { renderJournal, roundsIn, squeezeBlank } from "./organize-journal.js";
+
+const ARCHIVE_TITLE = '# 已完成的 AI 任务';
 
 export function archivePath(value) {
   const path = String(value || '').trim().replace(/\\/g, '/');
@@ -7,73 +10,138 @@ export function archivePath(value) {
   return path;
 }
 
-export function appendArchive(text, date, blocks, turns = new Map()) {
-  const lines = text.split('\n');
-  const dateStart = lines.indexOf(`## ${date}`);
-  let dateEnd = dateStart + 1;
-  while (dateEnd < lines.length && !/^#{1,2}\s/.test(lines[dateEnd])) dateEnd++;
-  const dateText = dateStart < 0 ? '' : lines.slice(dateStart, dateEnd).join('\n') + '\n';
-  const pending = blocks.filter(block => {
-    const id = J.blockIdOf(block.split('\n')[0]);
-    const task = id && J.findTaskByBlockId(text, id);
-    if (!task) return !dateText.includes(block + '\n');
-    let end = task.line + 1;
-    while (end < lines.length && (!lines[end].trim() || J.width(lines[end]) > task.indent)) end++;
-    if (lines.slice(task.line, end).join('\n').trimEnd() !== block.trimEnd()) throw new Error(t('归档中已有同编号但内容不同的任务，已保留原日记，请先核对'));
-    return false;
-  });
-  if (!pending.length) return text;
-  const heading = `## ${date}`;
-  let at = lines.indexOf(heading);
-  if (at < 0) { while (lines.length && !lines.at(-1).trim()) lines.pop(); lines.push('', heading); at = lines.length; }
-  else { at++; while (at < lines.length && !/^#{1,2}\s/.test(lines[at])) at++; }
-  while (at > 0 && !lines[at - 1].trim()) lines.splice(--at, 1);
-  lines.splice(at, 0, '', ...pending.join('\n').split('\n'), '');
-  const start = lines.indexOf(heading) + 1;
-  let end = start;
-  while (end < lines.length && !/^#{1,2}\s/.test(lines[end])) end++;
-  const section = lines.slice(start, end), selected = [], chunks = [];
-  let fence = "";
-  for (let n = 0; n < section.length; n++) {
-    const marker = /^\s*(`{3,}|~{3,})/.exec(section[n]);
-    if (marker) { if (!fence) fence = marker[1][0]; else if (marker[1][0] === fence) fence = ""; continue; }
-    if (fence || !/^(?:[-*+]|\d+[.)])\s/.test(section[n])) continue;
-    const task = J.kwLine(section[n]);
-    if (!task || !J.DONE_KWS.includes(task.kw)) continue;
-    let last = n + 1;
-    while (last < section.length && (!section[last].trim() || J.width(section[last]) > 0)) last++;
-    const block = section.slice(n, last).join("\n").trimEnd();
-    const rounds = Math.max(0, ...[...block.matchAll(/(?:💬|❓)\s*第(\d+)轮[：:]/g)].map(m => +m[1]));
-    chunks.push({ text: block, turns: Math.max(turns.get(task.blockId) || 0, rounds) });
-    selected.push([n, last]); n = last - 1;
-  }
-  chunks.sort((a, b) => b.turns - a.turns);
-  const notes = section.filter((_, n) => !selected.some(([a, b]) => n >= a && n < b));
-  while (notes.length && !notes.at(-1).trim()) notes.pop();
-  lines.splice(start, end - start, ...notes, "", ...chunks.map(c => c.text).join("\n").split("\n"), "");
-  return lines.join('\n').replace(/\n*$/, '\n');
+// The archive groups by the source journal's date, taken from its file name.
+export function archiveDate(file) {
+  const name = String(file?.basename || file?.path || '');
+  const m = /^(\d{4})[-_](\d{2})[-_](\d{2})/.exec(name);
+  return m ? m.slice(1).join('-') : name;
 }
 
-// Write the archive first. If either note changes, keep the source rather than lose context.
-export async function archiveCompletedJournal(plugin, file, base, result) {
-  const path = archivePath(plugin.settings.doneArchivePath);
-  if (path === file.path) throw new Error(t('归档文件不能与当前日记相同'));
-  const match = /^(\d{4})[-_](\d{2})[-_](\d{2})/.exec(file.basename);
-  const date = match ? match.slice(1).join('-') : file.basename;
-  let target = plugin.app.vault.getAbstractFileByPath(path);
-  const before = target ? await plugin.readNote(path) : '# 已完成的 AI 任务\n';
+// Split a section body back into task blocks so they can be de-duplicated,
+// re-sorted and merged. Text that is not a list task is kept as its own chunk.
+function splitArchiveBlocks(body) {
+  const lines = String(body || '').split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    const k = J.LIST_RE.test(lines[i]) ? J.kwLine(lines[i]) : null;
+    const indent = J.width(lines[i]);
+    let end = i + 1;
+    if (k) while (end < lines.length && (!lines[end].trim() || J.width(lines[end]) > indent)) end++;
+    const chunk = lines.slice(i, end);
+    while (chunk.length && !chunk.at(-1).trim()) chunk.pop();
+    if (chunk.length) out.push({ text: chunk.join('\n'), blockId: J.blockIdOf(chunk[0]) });
+    i = end - 1;
+  }
+  return out;
+}
+
+const DATE_HEAD_RE = /^##\s+\d{4}-\d{2}-\d{2}\s*$/;
+const H2_RE = /^#{1,2}\s/;
+
+function parseArchive(text) {
+  const lines = String(text || '').split('\n');
+  const fence = J.fencedLines(lines);
+  const heads = [];
+  // A "## 2026-01-01" inside a code sample is content, not a section.
+  lines.forEach((line, i) => { if (!fence.has(i) && DATE_HEAD_RE.test(line)) heads.push(i); });
+  const title = (lines.slice(0, heads.length ? heads[0] : lines.length).join('\n').trim()) || ARCHIVE_TITLE;
+  const sections = [];
+  for (let idx = 0; idx < heads.length; idx++) {
+    const start = heads[idx];
+    const nextHead = idx + 1 < heads.length ? heads[idx + 1] : lines.length;
+    // The user's own H2 closes this date section. Their text is kept verbatim,
+    // in place, and never sorted with the task blocks.
+    let end = start + 1;
+    while (end < nextHead && !(H2_RE.test(lines[end]) && !fence.has(end))) end++;
+    sections.push({ name: lines[start].replace(/^##\s+/, '').trim(), blocks: splitArchiveBlocks(lines.slice(start + 1, end).join('\n')) });
+    if (end < nextHead) sections.push({ raw: lines.slice(end, nextHead).join('\n') });
+  }
+  return { title, sections };
+}
+
+function renderArchive({ title, sections }) {
+  const parts = [title.trim()];
+  for (const section of sections) {
+    if (section.raw) { if (section.raw.trim()) parts.push(section.raw.trim()); continue; }
+    if (!section.blocks.length) continue;
+    parts.push([`## ${section.name}`, '', section.blocks.map((b) => b.text).join('\n')].join('\n'));
+  }
+  return squeezeBlank(parts.join('\n\n')).replace(/\n*$/, '\n');
+}
+
+// Merge finished blocks into the dated section of an archive note.
+// `prepend` decides where a brand-new date section goes; an existing date
+// section keeps its place so repeated runs never reorder the file.
+export function mergeArchive(text, { date, blocks = [], turns = new Map(), prepend = true } = {}) {
+  const src = String(text || '');
+  const crlf = /\r\n/.test(src);
+  const archive = parseArchive(src.replace(/\r\n/g, '\n').replace(/\r/g, '\n'));
+  const incoming = blocks.map((raw) => {
+    const body = String(raw).replace(/\s+$/, '');
+    return { text: body, blockId: J.blockIdOf(body.split('\n')[0]) };
+  });
+  let section = archive.sections.find((s) => !s.raw && s.name === date);
+  if (!section) {
+    section = { name: date, blocks: [] };
+    if (prepend) archive.sections.unshift(section);
+    else archive.sections.push(section);
+  }
+  for (const block of incoming) {
+    const same = section.blocks.find((b) => (block.blockId ? b.blockId === block.blockId : b.text.trim() === block.text.trim()));
+    if (!same) { section.blocks.push(block); continue; }
+    if (same.text.trim() !== block.text.trim()) throw new Error(t('归档中已有同编号但内容不同的任务，已保留原日记，请先核对'));
+  }
+  const turnOf = (b) => Math.max(turns.get(b.blockId) || 0, roundsIn(b.text));
+  section.blocks = section.blocks.map((b, i) => ({ b, i }))
+    .sort((x, y) => turnOf(y.b) - turnOf(x.b) || x.i - y.i)
+    .map(({ b }) => b);
+  const out = renderArchive(archive);
+  return crlf ? out.replace(/\n/g, '\r\n') : out;
+}
+
+async function ensureFolders(vault, path) {
+  const parts = path.split('/');
+  parts.pop();
+  let folder = '';
+  for (const part of parts) {
+    folder = folder ? `${folder}/${part}` : part;
+    if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
+  }
+}
+
+// Move the finished AI blocks out of the journal into an archive note.
+// The archive is written first: if anything else changed in between, the
+// journal keeps its content instead of losing context.
+export async function archiveCompletedTo(plugin, file, base, plan, { path, order = 'prepend' } = {}) {
+  const targetPath = archivePath(path);
+  if (targetPath === file.path) throw new Error(t('归档文件不能与当前日记相同'));
+  const blocks = (plan.done || []).filter((entry) => entry.ai);
+  if (!blocks.length) throw new Error(t('没有可归档的 AI 任务'));
+
+  const date = archiveDate(file);
   const turns = new Map(Object.entries(plugin.settings.archiveTaskTurns || {}));
-  for (const entry of result.entries || []) { const id = J.blockIdOf(entry.text.split("\n")[0]); if (id) turns.set(id, entry.turns); }
-  const after = appendArchive(before, date, result.blocks, turns);
+  for (const entry of blocks) if (entry.blockId) turns.set(entry.blockId, entry.turns);
+
+  const existing = plugin.app.vault.getAbstractFileByPath(targetPath);
+  const before = existing ? await plugin.readNote(targetPath) : '';
+  const after = mergeArchive(before, { date, blocks: blocks.map((b) => b.text), turns, prepend: order !== 'append' });
+
+  let target = existing;
   if (target) {
     if (after !== before && !await plugin.autoLog.write(target, before, after)) throw new Error(t('归档文件刚有变化，请重试；原日记保留'));
   } else {
-    const parts = path.split('/'); parts.pop(); let folder = '';
-    for (const part of parts) { folder = folder ? folder + '/' + part : part; if (!plugin.app.vault.getAbstractFileByPath(folder)) await plugin.app.vault.createFolder(folder); }
-    target = await plugin.app.vault.create(path, after);
+    await ensureFolders(plugin.app.vault, targetPath);
+    target = await plugin.app.vault.create(targetPath, after);
   }
-  if (!await plugin.autoLog.write(file, base, result.remaining)) throw new Error(t('日记刚有变化，归档副本已保存，原日记保留；重试不会重复归档'));
+
+  // By block id when there is one: two blocks can read the same.
+  const skip = new Set(blocks.map((b) => b.blockId || b.text));
+  const next = renderJournal(plan, { skip });
+  if (next !== base && !await plugin.autoLog.write(file, base, next)) throw new Error(t('日记刚有变化，归档副本已保存，原日记保留；重试不会重复归档'));
+
   plugin.settings.archiveTaskTurns = Object.fromEntries(turns);
+  plugin.settings.doneArchivePath = targetPath;
   await plugin.saveSettings?.();
-  return target;
+  return { target, moved: blocks.length };
 }

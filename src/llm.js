@@ -32,7 +32,7 @@ export function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 1
     let out = "", err = "";
     child.stdout.on("data", (d) => { out += d; });
     child.stderr.on("data", (d) => { err += d; });
-    const timer = setTimeout(() => { child.kill(); reject(new Error(`claude 等了 ${timeout} 秒没回来`)); }, timeout * 1000);
+    const timer = setTimeout(() => { child.kill(); reject(new Error(t("claude 等了 {n} 秒没回来", { n: timeout }))); }, timeout * 1000);
     child.on("error", (e) => { clearTimeout(timer); reject(new Error(t("启动 claude 失败：{msg}", { msg: e.message }))); });
     child.on("close", (code) => {
       clearTimeout(timer);
@@ -59,7 +59,7 @@ export async function runCodex(prompt, { bin = "codex", model = "", effort = "lo
       const child = spawn(bin, args, { cwd: dir, env, stdio: ["pipe", "ignore", "pipe"] });
       let err = "";
       child.stderr.on("data", (d) => { err = (err + d).slice(-2000); });
-      const timer = setTimeout(() => { child.kill(); reject(new Error(`codex 等了 ${timeout} 秒没回来`)); }, timeout * 1000);
+      const timer = setTimeout(() => { child.kill(); reject(new Error(t("codex 等了 {n} 秒没回来", { n: timeout }))); }, timeout * 1000);
       child.on("error", (e) => { clearTimeout(timer); reject(new Error(t("启动 codex 失败：{msg}", { msg: e.message }))); });
       child.stdin.on("error", () => {});
       child.on("close", (code) => {

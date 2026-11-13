@@ -16,8 +16,6 @@ export default {
   "停止当前任务的执行": "Stop the current task's run",
   "重新扫描本机 Agent 会话": "Rescan local agent sessions",
   "跳转到日记正在做的区域": "Jump to the journal's in-progress section",
-  "当前日记：归组未完成的 AI 任务与记录": "Current journal: group unfinished AI tasks and records",
-  "当前日记：归档已完成的 AI 任务与记录": "Current journal: archive completed AI tasks and records",
   "整理 Agent 会话进今天的日记": "Log agent sessions into today's journal",
   "Dreaming：整理 AI 记录与用户日志为长期记忆": "Dreaming: distill AI records and user logs into long-term memory",
   "Dreaming：同步共享长期记忆": "Dreaming: sync shared long-term memory",
@@ -87,11 +85,8 @@ export default {
   "没有可归档的 AI 任务": "No AI tasks to archive",
   "已归档 {count} 个 AI 任务到 {path}": "Archived {count} AI tasks to {path}",
   "日记刚有变化，请再整理一次": "The journal just changed — organize again",
-  "已整理 {count} 个 AI 任务到「{section}」": "Organized {count} AI tasks into “{section}”",
-  "没有可整理的 AI 任务": "No AI tasks to organize",
-  "已完成": "Done",
-  "进行中": "In progress",
   "今天的日记还没有创建": "Today's journal has not been created yet",
+  "没有可整理的 AI 任务": "No AI tasks to tidy",
   "今天日记里还没有正在做的区域或运行中的 AI 任务": "Today's journal has no in-progress section or running AI task yet",
 
   // ----- attention alerts -----
@@ -108,4 +103,24 @@ export default {
 
   // Primary-agent switch confirmation
   "Agent Deck 主力：{agents}": "Agent Deck primaries: {agents}",
+
+  // Journal layout commands
+  "当前日记：整理日志版面": "Current journal: tidy the log layout",
+  "当前日记：归档已完成的日志到…": "Current journal: archive finished logs to…",
+  "已整理 {count} 个 AI 任务": "Tidied {count} AI tasks",
+
+  // ⌘⇧D — mark done and archive to the top band
+  "标记 DONE 并归档到「已完成」区": "Mark DONE and archive to the finished band",
+  "这个快捷键只在日记里用": "This shortcut only works in a journal note",
+  "这一条已经是 DONE 了": "This task is already DONE",
+  "日记刚有变化，请重试": "The journal just changed — try again",
+  "任务已变化，请重新点击状态关键词": "The task changed. Click its status keyword again.",
+  "没有可跟随的会话状态": "No session status is available to follow",
+  "人工管理：AI 不覆盖此任务状态": "Managed manually: AI will not override this task status",
+  "状态由会话自动同步": "Status follows the session automatically",
+  "选择一个任务状态": "Choose a task status",
+  "等待与稍后": "Waiting and later",
+  "AI 状态": "AI states",
+  "其他关键词": "Other keywords",
+  "恢复自动跟随：{state}": "Resume automatic status: {state}",
 };

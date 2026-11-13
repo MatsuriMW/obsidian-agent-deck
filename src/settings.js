@@ -1,3 +1,4 @@
+import { changeLogDetail } from "./log-detail.js";
 // Agent Deck — settings, including the layered Models page.
 
 import { archivePath } from "./journal-archive.js";
@@ -199,7 +200,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const path = card.createDiv({ cls: "ad-set-path", text: a.where[0] });
     }
     const bar = body.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(bar, t("立即扫描"), () => p.scanNow(true), "mod-cta");
+    this.bigButton(bar, t("立即扫描"), () => p.scanNow(), "mod-cta");
     this.bigButton(bar, t("导入螺旋日程的历史"), () => p.importNautilus());
     const info = this.card(body, t("本机日志"), t("只读，不上传。DeepSeek Harness 的会话是 zstd 压缩的 JSONL，插件内置了解压器。"));
     const paths = info.createDiv({ cls: "ad-pathlist" });
@@ -327,10 +328,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const sufTa = suf.createEl("textarea", { cls: "ad-textarea", attr: { placeholder: t("例如：做完把改动文件列出来。"), rows: "2" } });
     sufTa.value = d.promptSuffix || "";
     sufTa.onchange = () => { d.promptSuffix = sufTa.value; p.saveSettings(); };
-    const rc = this.row(prompt, t("动手前先确认"), t("在最后再追加一句（笔记里看不到）：有疑问先问，都清楚了先说打算，等你确认再动手。"), null);
+    const rc = this.row(prompt, t("委派附加要求"), t("开启后，将下方要求追加到委派消息末尾。默认只在关键问题不明确时提问，信息充分时继续执行；可自定义。"), null);
     this.toggle(rc.querySelector(":scope > .ad-row__right"), d.confirmFirst !== false, (v) => { d.confirmFirst = v; p.saveSettings(); });
     const confirm = prompt.createDiv({ cls: "ad-field" });
-    confirm.createDiv({ cls: "ad-field__label", text: t("确认提示词（开启时追加到消息末尾，可自定义）") });
+    confirm.createDiv({ cls: "ad-field__label", text: t("附加要求正文（可自定义）") });
     const confirmTa = confirm.createEl("textarea", { cls: "ad-textarea", attr: { rows: "5" } });
     confirmTa.value = d.confirmFirstPrompt ?? DEFAULTS.delegate.confirmFirstPrompt;
     confirmTa.onchange = () => { d.confirmFirstPrompt = confirmTa.value; p.saveSettings(); };
@@ -733,7 +734,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: t("自动") }, { id: "terminal", label: t("系统终端") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
     const dd = this.row(desk, t("拖到 Claude Code / Codex 上默认在终端里开"), t("开着：笔记里的一项拖到 Claude Code / Codex 卡片上，在主力终端里新开标签跑交互式会话；按住 ⌘ 拖才走后台（Claude Code）/ 交给桌面版（Codex）。关着则反过来。"), null);
     this.toggle(dd.querySelector(":scope > .ad-row__right"), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
-    const dn = this.row(desk, t("有螺旋日程的进度行时让给它"), t("螺旋日程在任务行下面画了会话进度行时，行尾不再画 pill，🔗 链接放淡、不可点；点进度行打开会话（命令行会话切到它的终端标签）。"), null);
+    const dn = this.row(desk, t("有螺旋日程的进度行时让给它"), t("螺旋日程接管进度显示时，行尾不再重复画 pill；进度行能打开同一会话时，隐藏重复的 🔗 入口，绑定原文仍保留。没有对应进度入口或绑定多个会话时保留可点击的链接。"), null);
     this.toggle(dn.querySelector(":scope > .ad-row__right"), s.yieldToNautilus !== false, (v) => { s.yieldToNautilus = v; p.saveSettings(); p.refreshUI(); });
     const d2 = this.row(desk, t("归档的会话不再列出"), t("桌面版里归档 = 做完：归档的会话从「现在」和「最近的会话」里收起来，历史用量照旧保留。"), null);
     this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => { s.hideArchived = v; p.saveSettings(); p.refreshUI(); });
@@ -748,17 +749,31 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.textInput(jfmt.querySelector(":scope > .ad-row__right"), s.journalFormat || "", t("自动：{format}", { format: det.format }), (v) => { s.journalFormat = v.trim(); p.saveSettings(); this.display(); });
     const ja = this.row(jr, t("自动整理进日记"), t("每隔一阵扫一遍今天开着的会话；自动关着也可以用命令「整理 Agent 会话进今天的日记」手动跑。"), null);
     this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => { s.autoLog = v; p.saveSettings(); });
-    const grain = this.row(jr, t("自动记录颗粒度"), t("最新进展：覆盖上一句；每轮记录：按已完成对话轮次累积结论；停歇或归档：只在自动暂停或识别归档时写结论。任务状态与用时另按原规则同步。"), null);
-    this.segmented(grain.querySelector(":scope > .ad-row__right"), [{id:"latest",label:t("最新进展")},{id:"round",label:t("每轮记录")},{id:"paused",label:t("停歇或归档")}], s.autoLogGranularity || "latest", (v) => { s.autoLogGranularity=v; p.saveSettings(); this.display(); });
-    const archive = this.row(jr, t("已完成任务归档位置"), t("点击“归档已完成日志”时，整块移到此文件，按原日记日期分组。填写库内的 .md 文件路径；修改位置只影响后续归档。"), null);
+    const grain = this.row(jr, t("自动记录颗粒度"), t("默认每轮记录，补齐已完成轮次；最新进展每次只补最新一轮；停歇或归档只在暂停或归档时补记。切换后只影响后续记录，已保存的提问、结论与步骤不覆盖、不删除。显示条数另设。"), null);
+    this.segmented(grain.querySelector(":scope > .ad-row__right"), [{id:"latest",label:t("最新进展")},{id:"round",label:t("每轮记录")},{id:"paused",label:t("停歇或归档")}], s.autoLogGranularity || DEFAULTS.autoLogGranularity, (v) => { s.autoLogGranularity=v; p.saveSettings(); this.display(); });
+    const archive = this.row(jr, t("默认归档位置"), t("「归档已完成的日志到…」默认写到这里，按原日记日期分组。每次归档也可以在弹窗里改；填写库内的 .md 文件路径。"), null);
     this.textInput(archive.querySelector(":scope > .ad-row__right"), s.doneArchivePath, DEFAULTS.doneArchivePath, v => { try { s.doneArchivePath = archivePath(v); p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
-    const merge = this.row(jr, t("累积后自动合并总结"), t("在“每轮记录”模式下，累积到指定条数后由所选 CLI 显示一条累计总结；原轮次记录保留在笔记中，点击“更多”展开。手写内容、实际用时与待办保留。总结失败时保留原记录。"), null);
-    this.toggle(merge.querySelector(":scope > .ad-row__right"), !!s.autoLogMerge, (v) => { s.autoLogMerge=v; p.saveSettings(); this.display(); }, s.autoLogGranularity !== "round");
-    const mergeN = this.row(jr, t("累积多少条结论后合并"), t("同一会话从上次总结后新增的已完成轮次；默认 10 条，至少 2 条。最新进展与停歇模式不累积合并。"), null);
+    const order = this.row(jr, t("归档顺序"), t("插到开头时，新的归档内容放在标题下面、旧内容上面；追加时放到文件末尾。同一日期已有内容时保持原位置，只按轮数重排。"), null);
+    this.segmented(order.querySelector(":scope > .ad-row__right"), [{ id: "prepend", label: t("插到开头") }, { id: "append", label: t("追加到末尾") }], s.archiveOrder || "prepend", (v) => { s.archiveOrder = v; p.saveSettings(); });
+    const merge = this.row(jr, t("累积后自动合并总结"), t("累积到指定条数后，由所选 CLI 写一条累计总结，保留之前的每轮记录。收起时仍按显示设置展示最近结论，展开可看总结与历史。手写内容、用时与待办保留；总结失败时保留原记录。"), null);
+    this.toggle(merge.querySelector(":scope > .ad-row__right"), !!s.autoLogMerge, (v) => { s.autoLogMerge=v; p.saveSettings(); this.display(); });
+    const mergeN = this.row(jr, t("累积多少条结论后合并"), t("同一会话从上次总结后新增的已完成轮次；默认 10 条，至少 2 条。"), null);
     this.numberInput(mergeN.querySelector(":scope > .ad-row__right"), s.autoLogMergeThreshold || 10, 2, 100, (v) => { s.autoLogMergeThreshold=Math.round(v); p.saveSettings(); });
-    const jdetail = this.row(jr, t("自动日志详细程度"), t("简略：每条结论约 45 字，不抄用户提问和步骤；标准：结论更完整，可显示步骤；详细：按轮记录时再保留每轮提问。需要你处理的待办、实际用时和手写内容保留。切换后在下次写回时整理本任务的自动记录。"), null);
-    this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: t("简略（默认）") }, { id: "standard", label: t("标准") }, { id: "detailed", label: t("详细") }], s.autoLogDetail || "brief", (v) => { s.autoLogDetail = v; p.saveSettings(); this.display(); });
-    this.row(jr, t("AI 记录显示方式"), t("默认折叠；手动展开后保留该任务的展开状态，折叠后恢复为折叠。累计总结保留一条可见结论，点“更多”看明细。由 Agent Deck 自己控制，并与 Obsidian 原生折叠命令联动，不依赖 Logseq Style Fold。"), null);
+    const jdetail = this.row(jr, t("自动日志详细程度"), "", null);
+    const detailDesc = jdetail.querySelector(":scope > .ad-row__left");
+    detailDesc.createDiv({ cls: "ad-row__desc", text: t("简略（默认）：只记一句 AI 结论，约 45 字，不记提问和步骤。适合快速看进展。") });
+    detailDesc.createDiv({ cls: "ad-row__desc", text: t("标准：提问和回答各保留一句，分别最多 90 字，不记步骤。适合简短工作记录。") });
+    detailDesc.createDiv({ cls: "ad-row__desc", text: t("详细：提问摘录最多 1000 字、回复摘录最多 3000 字，保留可用步骤与回复中的命令。适合开发日志、排错复盘和交接。") });
+    detailDesc.createDiv({ cls: "ad-row__desc", text: t("开发日志推荐搭配“每轮记录”。三档只决定新轮次保存多少内容；旧会话的新轮次采用新设置，已保存记录不改写、不删除。显示条数另设；需要完整问答正文时，可另行归档到笔记。") });
+    this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: t("简略（默认）") }, { id: "standard", label: t("标准") }, { id: "detailed", label: t("详细") }], s.autoLogDetail || "brief", (v) => { changeLogDetail(s, v); p.saveSettings(); this.display(); });
+    const rmode = this.row(jr, t("AI 记录显示方式"), t("只控制显示，不改笔记里的记录。默认最新一条，可选最近三条、五条 AI 结论；提问、链接、用时与步骤在展开后显示。点「更多」查看已保存的历史，手动开合会记住。已完成任务遵循同一规则；历史多少由记录颗粒度决定。"), null);
+    this.segmented(rmode.querySelector(":scope > .ad-row__right"), [
+      { id: "collapsed", label: t("默认折叠") },
+      { id: "expanded", label: t("默认展开") },
+      { id: "latest5", label: t("最新五条") },
+      { id: "latest3", label: t("最新三条") },
+      { id: "latest1", label: t("最新一条") },
+    ], s.aiRecordDisplay || DEFAULTS.aiRecordDisplay, (v) => { s.aiRecordDisplay = v; p.saveSettings(); p.refreshUI(); this.display(); });
     const je = this.row(jr, t("每隔几分钟"), t("自动整理的间隔，最少 5 分钟。"), null);
     this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => { s.autoLogEvery = v; p.saveSettings(); });
     const jst = this.row(jr, t("启动后第几分钟先整理一次"), t("Obsidian 刚打开时不用等满一个间隔，到这个时候先跑一次；之后按上面的间隔。"), null);
@@ -792,7 +807,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.toggle(jfb.querySelector(":scope > .ad-row__right"), s.autoLogFallback !== false, (v) => { s.autoLogFallback = v; p.saveSettings(); });
     const jp = this.row(jr, t("整理 CLI 路径"), t("留空 = 使用所选 CLI 的委派路径，再从 PATH 找。"), null);
     this.textInput(jp.querySelector(":scope > .ad-row__right"), s.autoLogPath || "", t("自动找"), (v) => { s.autoLogPath = v.trim(); p.saveSettings(); }, "ad-input--wide");
-    const jrp = this.row(jr, t("每轮结论让模型润色"), t("每答完一轮，💬 先用本地规则摘一句写上，再在后台让模型改成一句通顺的结论替换掉。"), null);
+    const jrp = this.row(jr, t("每轮结论让模型润色"), t("简略和标准档的新一轮结论可先交给模型润色后记录；失败或超时使用本地摘录。详细档保留回复摘录，不做一句话润色；已保存的旧记录不替换。"), null);
     this.toggle(jrp.querySelector(":scope > .ad-row__right"), s.roundPolish !== false, (v) => { s.roundPolish = v; p.saveSettings(); });
     const jrm = this.row(jr, t("润色用的模型"), t("留空 = 和整理用的模型一样。"), null);
     this.textInput(jrm.querySelector(":scope > .ad-row__right"), s.roundPolishModel || "", t("同整理用的模型"), (v) => { s.roundPolishModel = v.trim(); p.saveSettings(); });

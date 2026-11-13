@@ -13,6 +13,7 @@ import { AGENTS, AGENT_ORDER, dayKeyToday, startOfDay, unionSegs, journalPath } 
 import * as J from "./journal.js";
 import { runJournalModel, safeLabel } from "./llm.js";
 import { t } from "./i18n.js";
+import { planJournal, ensureTopRule, ACTIVE_HEADING } from "./organize-journal.js";
 
 const agentName = (id) => AGENTS[id]?.short || id;
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d);
@@ -57,6 +58,7 @@ export class AutoLog {
 
   // 只改前后不一样的那几行；这期间日记被改过就不写，返回 false
   async write(file, base, next) {
+    next = ensureTopRule(next);
     if (base === next) return true;
     const v = this.viewFor(file);
     if (v) {
@@ -70,13 +72,39 @@ export class AutoLog {
     return ok;
   }
 
-  // 新写一块：装了「任务归位」就按状态进分区，没装就接在最后
+  // 新写一块：AI 区域在的时候一定写进区域里；还没有区域才交给「任务归位」按它的分区放
   placeBlock(text, blockLines) {
+    const block = blockLines.join("\n");
+    // New records belong inside the AI region, not at the bottom of the note:
+    // they go where the generated content ends, before the closing rule and
+    // before anything the user wrote. done-to-top's zones sit above that rule,
+    // so handing the block to it would strand the record outside the frame.
+    const at = planJournal(text).insertAt;
+    if (at != null) {
+      const lines = text.split("\n");
+      const chunk = [];
+      if (at > 0 && lines[at - 1].trim()) chunk.push("");
+      // A region that only has a finished band still needs somewhere to put an
+      // active record, or it would land under "已完成".
+      if (!lines.some((line) => line.trim() === ACTIVE_HEADING)) chunk.push(ACTIVE_HEADING, "");
+      chunk.push(block);
+      if (at < lines.length && lines[at].trim()) chunk.push("");
+      lines.splice(at, 0, ...chunk);
+      return ensureTopRule(`${lines.join("\n").replace(/\s*$/, "")}\n`);
+    }
+    // No region yet: a journal that is still run by done-to-top keeps its own
+    // zone layout, so let it place the block; anything it writes is adopted into
+    // the frame the first time the journal is organized.
     const core = this.p.app.plugins?.plugins?.["done-to-top"]?.core;
     if (core && core.addBlock) {
       try { return core.addBlock(text, blockLines); } catch { /* fall through */ }
     }
-    return `${text.replace(/\s*$/, "")}\n${blockLines.join("\n")}\n`;
+    // Otherwise start a region at the end of the note. Everything above it is
+    // the user's and stays that way, so the record is framed from its first
+    // moment instead of waiting for the next organize.
+    const above = text.replace(/\s*$/, "");
+    const framed = `${ACTIVE_HEADING}\n\n${block}`;
+    return ensureTopRule(above ? `${above}\n\n---\n${framed}\n` : `---\n${framed}\n`);
   }
 
   state(day) {
@@ -112,6 +140,7 @@ export class AutoLog {
   autoLine(text, rec, x, status) {
     const sid = (x && x.sid) || "";
     const found = J.findTask(text, rec.key, rec.blockId || "", sid);
+    if (found && J.isManualTask(this.cfg, text.split("\n")[found.line])) return { text };
     const segs = (x && x.segs) || [];
     const first = segs.length ? segs[0][0] : 0;
     const last = segs.length ? segs[segs.length - 1][1] : first;
@@ -313,27 +342,29 @@ export class AutoLog {
           rec.key = found.key;
         }
         const cur = found ? found.state : null;
-        if (cur === "done") { if (rec.status !== "done") clocks.add(rec.key); rec.status = "done"; continue; }
+        const manualState = found && J.isManualTask(this.cfg, text.split("\n")[found.line]);
+        if (manualState) rec.status = cur;
+        if (cur === "done" && !manualState) { if (rec.status !== "done") clocks.add(rec.key); rec.status = "done"; continue; }
         if (rec.status && cur !== rec.status && cur) {
           if (cur === "doing") rec.hold = Date.now() + 2 * 3600e3; else rec.parkedAt = last;
           rec.status = cur;
           delete rec.autoPaused;
         }
         const name = J.workKey(rec.label).replace(J.AUTO_MARK, "");
-        if (this.allArchived(st, x.sid, rec, arch)) {
+        if (!manualState && this.allArchived(st, x.sid, rec, arch)) {
           text = this.autoLine(text, rec, x, "done").text;
           rec.status = "done";
           delete rec.fresh; delete rec.parkedAt; delete rec.hold; delete rec.autoPaused;
           clocks.add(rec.key);
           digest.archived.push(`${name}（${x.min}m）`);
           report.changes.push(t("DONE（已归档）：{name}（{min}m）", { name: rec.label, min: x.min }));
-        } else if (active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
+        } else if (!manualState && active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
           text = this.autoLine(text, rec, x, "doing").text;
           rec.status = "doing";
           delete rec.parkedAt; delete rec.fresh; delete rec.autoPaused;
           digest.doing.push(name);
           report.changes.push(t("DOING：{name}", { name: rec.label }));
-        } else if (!active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
+        } else if (!manualState && !active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
           text = this.autoLine(text, rec, x, "paused").text;
           rec.status = "paused"; rec.autoPaused = true; rec.parkedAt = last; delete rec.fresh;
           clocks.add(rec.key);
@@ -347,12 +378,13 @@ export class AutoLog {
         const rawSummary = (a && a.summary) || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? J.oneSentenceConclusion(meta.lastText, 90) : "");
         if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
         const pendingTodos = (a && !active && Array.isArray(a.todos) && !rec.todosAdded) ? a.todos : [];
-        const taskTodo = x.agent === "claude" ? (meta.todo || null) : null;
+        const taskTodo = x.agent === "claude" && (!active || meta.state === "wait" || meta.state === "quiet") ? (meta.todo || null) : null;
         if ((this.cfg.autoLogGranularity !== "paused" || !active || arch.has(x.sid)) && (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo)) {
           const synced = J.syncSessionEntry(text, {
             granularity: this.cfg.autoLogGranularity,
             compact: this.cfg.autoLogSummaries?.[day]?.[x.sid],
             detail: this.cfg.autoLogDetail,
+        detailHistory: this.cfg.autoLogDetailHistory,
             sid: x.sid,
             blockId: rec.blockId || "",
             key: rec.key,
@@ -384,6 +416,8 @@ export class AutoLog {
       const merged = new Map();
       for (const [k, segs] of byKey) merged.set(k, unionSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
       for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "", blockIds.get(k) || "");
+      // ⏱ 排在记录块最后：顺带把以前夹在 ❓ / 💬 中间的旧记录也理顺
+      text = J.clocksLast(text);
       report.diff = J.diffLines(base, text);
       if (dry) { this.cfg.autoLogState[day] = JSON.parse(snap); return report; }
       if (!(await this.write(file, base, text))) {
@@ -424,6 +458,7 @@ export class AutoLog {
       for (const [sid, rec] of hits) {
         const found = J.findTask(text, rec.key, rec.blockId || "", sid);
         if (!found) { rec.gone = true; continue; }
+        if (J.isManualTask(this.cfg, text.split("\n")[found.line])) continue;
         if (found.state === "done") { rec.status = found.state; delete rec.autoPaused; continue; }
         const x = list.find((s) => s.sid === sid && s.segs && s.segs.length) || null;
         text = this.autoLine(text, rec, x, "done").text;

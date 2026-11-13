@@ -5,8 +5,8 @@
 // and a layered model picker.
 
 import fs from "fs";
-import { archiveCompletedJournal } from "./journal-archive.js";
-import { organizeAIJournal } from "./organize-journal.js";
+import { archiveCompletedTo } from "./journal-archive.js";
+import { planJournal, renderJournal, ACTIVE_HEADING, LEGACY_HEADINGS } from "./organize-journal.js";
 import { AttentionTracker } from "./attention.js";
 import { defaultDestination, activeJob, canOpenClient } from "./workflow.js";
 import path from "path";
@@ -16,13 +16,13 @@ import {
   Plugin, Notice, MarkdownView, MarkdownRenderChild, Menu, editorInfoField,
 } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp, visibleMenuAgents,
+  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp, visibleMenuAgents, journalPath,
 } from "./constants.js";
-import { AgentUsage, UsageStore, projectName } from "./readers.js";
-import { Delegator, blockAt, freshTaskText, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findAgyBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
+import { AgentUsage, UsageStore, projectName, SUMMARY_VERSION } from "./readers.js";
+import { Delegator, blockAt, freshTaskText, ancestorLines, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findAgyBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { AgentDeckSettingsTab } from "./settings.js";
-import { DelegateOptionsModal, ConfirmSendModal } from "./dialog.js";
+import { DelegateOptionsModal, ConfirmSendModal, ArchiveTargetModal } from "./dialog.js";
 import { agentIcon } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
 import { MenuBarBridge } from "./menubar.js";
@@ -36,6 +36,7 @@ import { Dreaming } from "./dream.js";
 import { ConversationModal, AcpPermissionModal } from "./conversation-modal.js";
 import { registerTaskAgentSuggest } from "./mention-suggest.js";
 import { t } from "./i18n.js";
+import { registerTaskStatusMenu } from "./task-status.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -64,8 +65,8 @@ export default class AgentDeckPlugin extends Plugin {
     this.usageFile = path.join(this.pluginDir, "usage.json");
 
     this.store = new UsageStore(this, this.settings);
-    await this.store.load(this.usageFile);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
+    this.usageCacheFile = path.join(os.homedir(), ".agent-deck", "usage-cache.json.gz");
     this.editorInfoField = editorInfoField;
     this.delegator = new Delegator(this);
     this.menubar = new MenuBarBridge(this);
@@ -78,6 +79,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.addSettingTab(this.settingTab);
     this.registerEditorExtension(createEditorExtension(this));
     registerTaskAgentSuggest(this);
+    registerTaskStatusMenu(this);
     this.registerMarkdownPostProcessor((el, ctx) => {
       const child = new MarkdownRenderChild(el);
       child.onunload = renderAIRecords(el, this, ctx);
@@ -119,10 +121,16 @@ export default class AgentDeckPlugin extends Plugin {
       const job = view.file && this.jobAtLine(view.file.path, editor.getCursor().line, editor.getLine(editor.getCursor().line));
       if (job && activeJob(job)) this.cancelJob(job.id); else this.notice(t("当前任务没有可停止的执行"));
     } });
-    this.addCommand({ id: "scan-now", name: t("重新扫描本机 Agent 会话"), callback: () => this.scanNow(true) });
+    this.addCommand({ id: "scan-now", name: t("重新扫描本机 Agent 会话"), callback: () => this.scanNow() });
     this.addCommand({ id: "jump-running-project", name: t("跳转到日记正在做的区域"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "J" }], callback: () => this.jumpRunningProject() });
-    this.addCommand({ id: "group-active-journal", name: t("当前日记：归组未完成的 AI 任务与记录"), callback: () => this.organizeJournal("active") });
-    this.addCommand({ id: "group-done-journal", name: t("当前日记：归档已完成的 AI 任务与记录"), callback: () => this.organizeJournal("done") });
+    this.addCommand({
+      id: "done-and-archive-top",
+      name: t("标记 DONE 并归档到「已完成」区"),
+      hotkeys: [{ modifiers: ["Mod", "Shift"], key: "D" }],
+      editorCallback: (editor, view) => this.markDoneAndArchive(editor, view),
+    });
+    this.addCommand({ id: "group-active-journal", name: t("当前日记：整理日志版面"), callback: () => this.organizeJournal() });
+    this.addCommand({ id: "group-done-journal", name: t("当前日记：归档已完成的日志到…"), callback: () => this.archiveCompletedJournal() });
     this.addCommand({ id: "log-journal", name: t("整理 Agent 会话进今天的日记"), callback: () => this.autoLog.logNow() });
     this.addCommand({ id: "dream-now", name: t("Dreaming：整理 AI 记录与用户日志为长期记忆"), callback: () => this.dreaming.run() });
     this.addCommand({ id: "dream-share", name: t("Dreaming：同步共享长期记忆"), callback: () => this.dreaming.sharing.sync() });
@@ -131,7 +139,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "clean-jobs", name: t("清理已结束的委派记录"), callback: () => this.cleanJobs() });
 
     this.registerObsidianProtocolHandler("agent-deck", async (params) => {
-      if (params && params.do === "scan") return this.scanNow(true);
+      if (params && params.do === "scan") return this.scanNow();
       if (params && params.do === "log") return this.autoLog.logNow();
       // 菜单栏里点命令行会话：交回插件，在终端里接着聊
       if (params && params.do === "open" && params.sid) { const m = this.usage.meta.get(params.sid) || {}; return this.openSession(params.agent || m.agent || "claude", params.sid, m.app || params.app || "", m); }
@@ -146,28 +154,43 @@ export default class AgentDeckPlugin extends Plugin {
       return this.activateView();
     });
 
+    // Register immediately; disk history must not delay Obsidian's layout restore.
+    this._usageReady = new Promise((resolve) => this.app.workspace.onLayoutReady(resolve)).then(async () => {
+      if (this._unloaded) return;
+      await this.store.load(this.usageFile);
+      if (this._unloaded) return;
+      await this.usage.loadCache(this.usageCacheFile);
+      if (this._unloaded) return;
+      if (this.store.summary !== SUMMARY_VERSION) this.store.rebuild(this.usage);
+      this.refreshUI();
+    });
     this.app.workspace.onLayoutReady(async () => {
+      await this._usageReady;
+      if (this._unloaded) return;
       integrateRecordFolding(this);
       if (this.settings.openDashboardOnStartup) this.activateView();
+      else { try { this.openPanelOnce(); } catch (e) { console.error("[agent-deck] panel", e); } }
       if (this.settings.showMenuBar !== false) this.menubar.start().catch((e) => console.error("[agent-deck] menubar", e));
-      if (this.settings.menuBarHideNautilus !== false) setTimeout(() => this.hideNautilusAgentBar().catch(() => {}), 2500);
+      if (this.settings.menuBarHideNautilus !== false) this.defer(() => this.hideNautilusAgentBar().catch(() => {}), 2500);
       this.scheduleScan();
       this.registerInterval(window.setInterval(() => this.autoLog.tick(), 60 * 1000));
       this.registerInterval(window.setInterval(() => this.dreaming.tick().catch((e) => console.error("[agent-deck] dream", e)), 60 * 1000));
-      setTimeout(() => this.scanNow(false), 1200);
+      this.defer(() => this.scanNow(false), 1200);
       if (this.settings.importNautilus !== false && !this.store.imported?.nautilus) {
-        setTimeout(() => this.importNautilus(false).catch(() => {}), 3500);
+        this.defer(() => this.importNautilus(false).catch(() => {}), 3500);
       }
-      setTimeout(() => this.recoverJobs(), 4000);
+      this.defer(() => this.recoverJobs(), 4000);
     });
   }
 
   onunload() {
+    this._unloaded = true;
     this.conversationModal?.close();
     for (const alert of this.attentionAlerts?.values() || []) { alert.notice?.hide(); alert.system?.close(); }
     this.settingTab?.hide();
     if (this.journalSync) this.journalSync._stopped = true;
-    if (this.store?.dirty) { clearTimeout(this.store.saveTimer); this.store.save().catch(() => {}); }
+    if (this.store) { clearTimeout(this.store.saveTimer); if (this.store.dirty || this.store.saving) this.store.saveSync(); }
+    if (this.usage && (this.usage.dirty || this.usage.saving)) this.usage.saveCacheSync(this.usageCacheFile);
     clearInterval(this._scanTimer);
     clearTimeout(this._refreshTimer);
     this.menubar?.stop();
@@ -176,6 +199,11 @@ export default class AgentDeckPlugin extends Plugin {
     }
     // 面板不在这里 detach：固定在侧栏的位置要留着，重载 / 更新插件后原地回来
     try { this.ribbonEl?.remove(); } catch { /* gone */ }
+  }
+
+  defer(callback, delay) {
+    const timer = setTimeout(() => { if (!this._unloaded) callback(); }, delay);
+    this.register(() => clearTimeout(timer));
   }
 
   // ---------- setup ----------
@@ -190,6 +218,20 @@ export default class AgentDeckPlugin extends Plugin {
     if (this.settings.showMenuBar !== false) this.menubar?.start().catch((e) => console.error("[agent-deck] menubar", e));
     else this.menubar?.stop();
     this.refreshUI();
+  }
+
+  // A new install should not look empty: put the panel in the right sidebar the
+  // first time the plugin ever loads. `viewOpened` makes it one-shot, and an
+  // existing leaf is left alone so a pinned position survives updates.
+  openPanelOnce() {
+    if (this.settings.viewOpened) return false;
+    this.settings.viewOpened = true;
+    this.saveSettings?.();
+    if (this.app.workspace.getLeavesOfType(VIEW_TYPE).length) return false;
+    const leaf = this.app.workspace.getRightLeaf(false);
+    if (!leaf) return false;
+    leaf.setViewState({ type: VIEW_TYPE, active: false });
+    return true;
   }
 
   async activateView() {
@@ -218,9 +260,14 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   async scanNow(force = false) {
+    await this._usageReady;
+    if (this._unloaded) return;
     if (this._scanning) return;
     this._scanning = true;
     try {
+      // First scan after a load: paint what the last session stored before
+      // walking the logs, so the panel is not blank for the whole scan.
+      if (!this._painted) { this._painted = true; this.refreshUI(); }
       if (force) {
         this.usage.files.clear();
         this.usage.meta.clear();
@@ -229,10 +276,12 @@ export default class AgentDeckPlugin extends Plugin {
       }
       const since = force ? 0 : Math.max(0, (this.usage.lastScan || 0) - 60000);
       const touched = await this.usage.scan({ since });
+      if (this._unloaded) return;
       this.store.cfg = this.settings;
       this.store.merge(touched, this.usage);
       this.store.prune();
       this.delegator.resolveHandoffs(this.usage);
+      this.usage.maybeSaveCache(this.usageCacheFile);
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
       if (force) new Notice(t("Agent Deck：读到 {files} 个日志，{days} 天有内容", { files: this.usage.files.size, days: touched.size }), 4000);
@@ -477,13 +526,23 @@ export default class AgentDeckPlugin extends Plugin {
     return this.openSession(m.agent || agent || "claude", sid, m.app || "", m);
   }
 
-  // 螺旋日程在这一行下面画了进度行（它开着「任务行下面的进度条」和 AI 追踪），这一行就不再画 pill、🔗 链接也不可点，
-  // 免得同一个会话有三个入口
+  // 螺旋日程接管进度显示时不重复画 pill；链接去重另核对具体会话。
   nautilusOwnsLine(text) {
     const n = this.app.plugins && this.app.plugins.plugins && this.app.plugins.plugins["nautilus-spiral"];
     if (!n || !n.settings || this.settings.yieldToNautilus === false) return false;
     if (n.settings.lineProgress === false || n.settings.showAi === false) return false;
     return NAUTILUS_LINE_RE.test(text);
+  }
+
+  // Hide a binding only when Nautilus can open that exact session from its progress row.
+  redundantSessionLink(group, lines) {
+    const links = group.records.filter(n => /^\s*(?:[-*+]|\d+[.)])\s+🔗/.test(lines[n]));
+    if (links.length !== 1) return -1; // Multiple sessions need their individual entrances.
+    const n = links[0], raw = lines[group.line], link = J.parseLink(lines[n]);
+    if (!link || !this.nautilusOwnsLine(raw) || raw.length >= 2000 || n - group.line > 12) return -1;
+    const nautilus = this.app.plugins.plugins["nautilus-spiral"];
+    try { return nautilus.lineStatus?.(raw, link)?.sid === link.sid ? n : -1; }
+    catch { return -1; } // Older integrations retain the ordinary link.
   }
 
   openJob(jobId, sid) {
@@ -537,24 +596,26 @@ export default class AgentDeckPlugin extends Plugin {
     const cached = this._lineMaps[path];
     if (cached && cached.doc === doc) return cached.map;
     const lines = doc.toString().split("\n");
+    const owners = J.ownersOf(lines), fenced = J.fencedLines(lines);
     const sessionByParent = new Map();
     const linkByLine = new Map();
+    let liveBySid;
+    const liveFor = (sid) => {
+      liveBySid ||= new Map(this.usage.liveSessions({ since: Date.now() - 86400000, limit: 200 }).map(x => [x.sid, x]));
+      return liveBySid.get(sid);
+    };
+    const jobsBySid = new Map();
+    for (const job of Object.values(this.jobs)) if (!jobsBySid.has(job.sessionId)) jobsBySid.set(job.sessionId, job);
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      if (!/^\s*[-*+]\s+🔗/.test(line)) continue;
-      const indent = (line.match(/^[ \t]*/) || [""])[0].length;
-      let parent = -1;
-      for (let j = i - 1; j >= 0; j--) {
-        if (!lines[j].trim()) continue;
-        const ind = (lines[j].match(/^[ \t]*/) || [""])[0].length;
-        if (ind < indent) { if (/^\s*(?:[-*+]|\d+[.)])\s+/.test(lines[j])) parent = j; break; }
-      }
+      if (fenced.has(i) || !/^\s*(?:[-*+]|\d+[.)])\s+🔗/.test(line)) continue;
+      const parent = owners[i];
       if (parent < 0) continue;
       const parsed = parseLinkLine(line);
       if (!parsed.sid) continue;
       const meta = this.usage.meta.get(parsed.sid) || { sid: parsed.sid, agent: parsed.agent, state: "idle", title: "", tokens: 0, lastAt: 0 };
-      const live = this.usage.liveSessions({ since: Date.now() - 86400000, limit: 200 }).find((x) => x.sid === parsed.sid);
-      const job = Object.values(this.jobs).find((j) => j.sessionId === parsed.sid);
+      const live = liveFor(parsed.sid);
+      const job = jobsBySid.get(parsed.sid);
       const session = { ...meta, ...(live || {}), agent: parsed.agent || meta.agent, job };
       linkByLine.set(i, { ...parsed, parent });
       sessionByParent.set(parent, session);
@@ -572,7 +633,7 @@ export default class AgentDeckPlugin extends Plugin {
         if (!sid) continue;
         const meta = this.usage.meta.get(sid);
         if (!meta) continue;
-        const live = this.usage.liveSessions({ since: Date.now() - 86400000, limit: 200 }).find((x) => x.sid === sid);
+        const live = liveFor(sid);
         sessionByParent.set(i, { ...meta, ...(live || {}), sid, agent: meta.agent || "claude" });
       }
     }
@@ -779,6 +840,7 @@ export default class AgentDeckPlugin extends Plugin {
       if (!confirmed) {
         new ConfirmSendModal(this.app, {
           agent, text: newSession ? freshTaskText(target.block.text) : target.block.text, path: item.path,
+          context: ancestorLines(target.lines, target.block.start),
           where: `${opts.model || this.defaultModel(agent) || t("客户端模型")} · ${opts.effort || this.settings.delegate[agent]?.effort || t("客户端强度")}`,
           destination, newSession,
         }, chosen => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: target.block.text })).open();
@@ -921,43 +983,110 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
 
-  async organizeJournal(mode) {
+  // Which journal the two commands act on: the note you are looking at when it
+  // sits next to today's journal, otherwise today's journal.
+  journalTarget() {
     const current = this.app.workspace.getActiveFile(), today = this.journalSync.todayJournal();
-    const file = current?.parent?.path === today?.parent?.path ? current : today;
-    if (!file) return this.notice(t("请先打开日记"));
+    return current?.parent?.path === today?.parent?.path ? current : today;
+  }
+
+  async journalPlan(file, base) {
     const tracked = new Map();
     const add = (id, sid) => { if (!id) return; if (!tracked.has(id)) tracked.set(id, new Set()); if (sid) tracked.get(id).add(sid); };
     for (const day of Object.values(this.settings.autoLogState || {})) for (const [sid, rec] of Object.entries(day)) if (!rec.skip && !rec.gone) add(rec.blockId, sid);
     for (const [sid, rec] of Object.entries(this.settings.taskBindings || {})) add(rec.blockId, sid);
     for (const job of Object.values(this.jobs)) if (job.path === file.path) add(job.blockId, job.sessionId);
-    const base = await this.readNote(file.path);
     const turns = new Map(Object.entries(this.settings.archiveTaskTurns || {}));
     for (const [sid, meta] of this.usage.meta) turns.set(sid, Math.max(meta.turns || 0, meta.rounds?.length || 0));
     for (const job of Object.values(this.jobs)) if (job.sessionId) turns.set(job.sessionId, Math.max(turns.get(job.sessionId) || 0, job.conversation?.filter(m => m.role === "user").length || 0));
-    const result = organizeAIJournal(base, mode, { tracked, archived: this.autoLog.archived(), turns });
-    if (mode === "done") {
-      if (!result.count) return this.notice(t("没有可归档的 AI 任务"));
-      const target = await archiveCompletedJournal(this, file, base, result);
-      this.refreshUI();
-      return this.notice(t("已归档 {count} 个 AI 任务到 {path}", { count: result.count, path: target.path }));
+    return planJournal(base, { tracked, archived: this.autoLog.archived(), turns });
+  }
+
+  async writeJournal(file, base, next) {
+    const view = this.viewForPath(file.path);
+    if (view?.editor?.cm) {
+      if (view.editor.getValue() !== base || view.editor.cm.composing) return false;
+      const change = J.diffLines(base, next);
+      view.editor.cm.dispatch({ changes: { from: view.editor.posToOffset(change.from), to: view.editor.posToOffset(change.to), insert: change.text }, userEvent: "agent-deck.organize" });
+      return true;
     }
-    if (result.text !== base) {
-      const view = this.viewForPath(file.path);
-      if (view?.editor?.cm) {
-        if (view.editor.getValue() !== base || view.editor.cm.composing) return this.notice(t("日记刚有变化，请再整理一次"));
-        const change = J.diffLines(base, result.text);
-        view.editor.cm.dispatch({ changes: { from: view.editor.posToOffset(change.from), to: view.editor.posToOffset(change.to), insert: change.text }, userEvent: "agent-deck.organize" });
-      } else if (!await this.autoLog.write(file, base, result.text)) return this.notice(t("日记刚有变化，请再整理一次"));
-    }
+    return this.autoLog.write(file, base, next);
+  }
+
+  // Rebuild the journal: finished tasks on top, a rule, the unfinished AI log,
+  // another rule, then the user's own notes.
+  async organizeJournal() {
+    const file = this.journalTarget();
+    if (!file) return this.notice(t("请先打开日记"));
+    const base = await this.readNote(file.path);
+    const plan = await this.journalPlan(file, base);
+    if (!plan.count.total) return this.notice(t("没有可整理的 AI 任务"));
+    const next = renderJournal(plan);
+    if (next !== base && !await this.writeJournal(file, base, next)) return this.notice(t("日记刚有变化，请再整理一次"));
     this.refreshUI();
-    this.notice(result.count ? t("已整理 {count} 个 AI 任务到「{section}」", { count: result.count, section: mode === "done" ? t("已完成") : t("进行中") }) : t("没有可整理的 AI 任务"));
+    this.notice(t("已整理 {count} 个 AI 任务", { count: plan.count.total }));
+  }
+
+  // Move finished AI blocks into an archive note the user picks.
+  async archiveCompletedJournal() {
+    const file = this.journalTarget();
+    if (!file) return this.notice(t("请先打开日记"));
+    const base = await this.readNote(file.path);
+    const plan = await this.journalPlan(file, base);
+    if (!plan.done.some((entry) => entry.ai)) return this.notice(t("没有可归档的 AI 任务"));
+    new ArchiveTargetModal(this.app, this, file, base, plan).open();
+  }
+
+  // ⌘⇧D: flip the block under the cursor to DONE and move it into the finished
+  // band at the top of the journal, in one undoable edit.
+  async markDoneAndArchive(editor, view) {
+    const file = view?.file;
+    if (!file) return;
+    const base = editor.getValue();
+    const lines = base.split("\n");
+    const at = J.taskLineAt(lines, editor.getCursor().line);
+    if (at < 0) return this.notice(t("光标要放在一个列表项里"));
+    const part = J.splitTask(lines[at]);
+    if (!part) return this.notice(t("光标要放在一个列表项里"));
+
+    // Journals can live at the vault root, where the parent path is "/" and the
+    // computed path has no folder part at all.
+    const target = journalPath(this.app, this.journalSync.cfg);
+    const folder = target.includes("/") ? target.slice(0, target.lastIndexOf("/")) : "";
+    const parent = file.parent?.path === "/" ? "" : (file.parent?.path || "");
+    if (parent !== folder) return this.notice(t("这个快捷键只在日记里用"));
+
+    const head = J.flipToDone(lines[at]);
+    if (!head) return this.notice(t("这一条已经是 DONE 了"));
+    const edited = [...lines.slice(0, at), head, ...lines.slice(at + 1)].join("\n");
+
+    const plan = await this.journalPlan(file, edited);
+    // When the layout has nothing to move, the flip itself is still the edit, so
+    // `next` falls back to `edited`; writeJournal diffs against the editor text,
+    // not against the intermediate string.
+    const next = renderJournal(plan);
+    const nextText = next === edited ? edited : next;
+    if (!await this.writeJournal(file, base, nextText)) return this.notice(t("日记刚有变化，请重试"));
+    const moved = nextText.split("\n").findIndex((line) => line.trim() === head.trim());
+    if (moved >= 0) editor.setCursor({ line: moved, ch: 0 });
+    this.refreshUI();
+  }
+
+  async archiveJournalTo(file, base, plan, target) {
+    try {
+      const result = await archiveCompletedTo(this, file, base, plan, { path: target, order: this.settings.archiveOrder || "prepend" });
+      this.refreshUI();
+      this.notice(t("已归档 {count} 个 AI 任务到 {path}", { count: result.moved, path: result.target.path }));
+    } catch (e) {
+      this.notice(e.message);
+    }
   }
 
   async jumpRunningProject() {
     const file = this.journalSync.todayJournal();
     if (!file) return this.notice(t("今天的日记还没有创建"));
     const text = await this.readNote(file.path);
-    const heading = text.split("\n").findIndex(line => line === "## AI · 进行中");
+    const heading = text.split("\n").findIndex(line => [ACTIVE_HEADING, ...LEGACY_HEADINGS].includes(line.trim()));
     const map = this.lineMap(file.path, text);
     const tasks = J.runningTaskLines(text, map.sessionByParent, Object.values(this.jobs).filter(job => job.path === file.path));
     const line = heading >= 0 ? heading : tasks[0]?.line;
@@ -1148,6 +1277,8 @@ export default class AgentDeckPlugin extends Plugin {
 
   // ---------- ui refresh ----------
   refreshUI() {
+    if (this._unloaded) return;
+    this._lineMaps = {}; // Session status can change while the document stays identical.
     this.checkAttention();
     clearTimeout(this._refreshTimer);
     this._refreshTimer = setTimeout(() => {

@@ -328,8 +328,6 @@ class PillWidget extends WidgetType {
   ignoreEvent() { return true; }
 }
 
-const quietLink = Decoration.line({ class: "ad-link-quiet" });
-
 function buildDecorations(view, plugin) {
   const builder = new RangeSetBuilder();
   const info = view.state.field(plugin.editorInfoField, false);
@@ -351,9 +349,7 @@ function buildDecorations(view, plugin) {
         const text = line.text;
         const job = plugin.jobAtLine(path, n, text);
         const session = map.sessionByParent.get(n) || null;
-        // 螺旋日程已经在这一项下面画了进度行（点它就打开会话）：🔗 链接放淡、不可点，行尾也不画 pill
-        const link = map.linkByLine.get(n);
-        if (link && map.sessionByParent.get(link.parent) && plugin.nautilusOwnsLine(map.lines[link.parent] || "")) builder.add(line.from, line.from, quietLink);
+        // 螺旋日程已接管进度显示时，行尾不重复画 pill。
         if (session && plugin.nautilusOwnsLine(text)) { if (line.to >= to) break; pos = line.to + 1; continue; }
         let state = null;
         if (job && ["starting", "running"].includes(job.state)) state = { kind: job.state === "starting" ? "starting" : "running", job };
@@ -368,7 +364,9 @@ function buildDecorations(view, plugin) {
           else if (st === "error" || st === "limit") state = { kind: "error", job, session };
           else state = { kind: "bound", job, session };
         }
-        if (state) {
+        // A finished task keeps no status pill: 「正在执行」「等你」 under a line
+        // that is already marked DONE is only noise.
+        if (state && !J.isDoneLine(text)) {
           const widget = new PillWidget(plugin, path, n, state);
           builder.add(line.to, line.to, Decoration.widget({ widget, side: 1, block: false }));
         }

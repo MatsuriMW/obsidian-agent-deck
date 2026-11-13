@@ -32,16 +32,46 @@ export function blockAt(lines, at) {
   if (at < 0 || at >= lines.length) return null;
   const m = BULLET_RE.exec(lines[at]);
   if (!m) return null;
-  const indent = m[1].length;
+  // 缩进按视觉宽度算（tab = 4 列），母项用空格、子项用 tab 混着写时，也能认出更深的子块
+  const indent = J.width(lines[at]);
   let end = at;
   for (let i = at + 1; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) { end = i; continue; }
-    const indentHere = (line.match(/^[ \t]*/) || [""])[0].length;
-    if (indentHere <= indent) break;
+    if (J.width(line) <= indent) break;
     end = i;
   }
   return { start: at, end, indent, text: lines.slice(at, end + 1).join("\n") };
+}
+
+// 被委派的那一项在笔记里挂在哪：上面每一层母项各取一行，从最外层排到直接母项。
+// 只认列表项，只取母项自己那一行；母项的其他子项（兄弟项）不带。
+export function ancestorLines(lines, at) {
+  if (at < 0 || at >= lines.length) return [];
+  const out = [];
+  let need = J.width(lines[at]);
+  for (let i = at - 1; i >= 0 && need > 0; i--) {
+    const line = lines[i];
+    if (!line.trim() || !BULLET_RE.test(line)) continue;
+    const w = J.width(line);
+    if (w >= need) continue;   // 同级或更深的不是母项
+    out.unshift(line);
+    need = w;
+  }
+  return out;
+}
+
+// 母项上下文 + 要做的这一块：母项各占一行、保留原缩进，前面一句说明只做最里面那项。
+export function withContext(contextLines, task) {
+  const ctx = (contextLines || []).filter((l) => l && l.trim());
+  if (!ctx.length) return task;
+  return `${t("这条任务在笔记里挂的位置，只做最里面这一项：")}\n\n${ctx.join("\n")}\n${task}`;
+}
+
+// 发出去的一整段（预览和真正发出去的正文用同一个拼法）。
+export function delegationText(lines, block, { newSession = false } = {}) {
+  const task = newSession ? freshTaskText(block.text) : block.text;
+  return withContext(block ? ancestorLines(lines, block.start) : [], task);
 }
 
 export function blockTitle(block, trigger = "@") {
@@ -970,7 +1000,7 @@ export class Delegator {
     if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
     const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
-    const prompt = this.buildPrompt({ ...opts, block, file, title });
+    const prompt = this.buildPrompt({ ...opts, block, file, title, contextLines: ancestorLines(lines, block.start) });
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
@@ -1049,7 +1079,7 @@ export class Delegator {
     if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
     const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
-    const prompt = this.buildPrompt({ ...opts, block, file, title });
+    const prompt = this.buildPrompt({ ...opts, block, file, title, contextLines: ancestorLines(lines, block.start) });
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
@@ -1081,7 +1111,7 @@ export class Delegator {
     if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
     const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
-    const prompt = this.buildPrompt({ ...opts, block, file, title });
+    const prompt = this.buildPrompt({ ...opts, block, file, title, contextLines: ancestorLines(lines, block.start) });
     let cwd = norm(opts.cwd || this.C[agent]?.cwd || this.vaultPath);
     // 交互式 claude 在没信任过的目录里会先停在信任提示上，任务就不会自己跑：和后台委派一样换到信任过的目录，库用 --add-dir 加进去
     let extra = "";
@@ -1160,7 +1190,8 @@ export class Delegator {
     const parts = [];
     if (c.promptPrefix && c.promptPrefix.trim()) parts.push(c.promptPrefix.trim());
     const task = opts.newSession ? freshTaskText(opts.block.text) : opts.block.text;
-    parts.push(stripTaskMention(task, mentionTrigger(this.plugin)).trim());
+    // 从子项发出去的活，把母项那几行原样带上当上下文，只做最里面这一项
+    parts.push(stripTaskMention(withContext(opts.contextLines, task), mentionTrigger(this.plugin)).trim());
     if (opts.promptSuffix && opts.promptSuffix.trim()) parts.push(opts.promptSuffix.trim());
     else if (c.promptSuffix && c.promptSuffix.trim()) parts.push(c.promptSuffix.trim());
     if (opts.file) parts.push(`\n（来自 Obsidian：${opts.file.path}）`);
@@ -1276,6 +1307,7 @@ export class Delegator {
     let said = job.result || job.lastText || "";
     const meta = this.plugin.usage && this.plugin.usage.meta.get(job.sessionId);
     if (!said) said = meta && (meta.lastText || "");
+    const rawSaid = said;
     said = J.oneSentenceConclusion(said, clamp(Number(this.settings.resultMax) || 120, 40, 2000));
     if (!said) return;
     const text = await this.plugin.readNote(job.path);
@@ -1284,11 +1316,12 @@ export class Delegator {
       granularity: this.settings.autoLogGranularity,
       compact: this.settings.autoLogSummaries?.[job.path.split("/").pop().replace(/\.md$/, "")]?.[job.sessionId],
       detail: this.settings.autoLogDetail,
+        detailHistory: this.settings.autoLogDetailHistory,
       sid: job.sessionId || "",
       blockId: job.blockId || "",
       key: J.workKey(job.name || ""),
       said,
-      rounds: (meta && Array.isArray(meta.rounds)) ? meta.rounds : [],
+      rounds: meta?.rounds?.length ? meta.rounds : [{ n: 1, at: job.startedAt, ask: "", said: rawSaid }],
       taskTodo: job.agent === "claude" && meta ? meta.todo : null,
       ensureId: true,
     });
@@ -1309,8 +1342,7 @@ export class Delegator {
     for (let i = block.start + 1; i <= block.end; i++) if (RESULT_RE.test(lines[i])) { resultAt = i; break; }
     const conclusion = this.settings.autoLogDetail === "standard" || this.settings.autoLogDetail === "detailed" ? said : J.oneSentenceConclusion(said, 45);
     const line = `${indent}- 💬 ${conclusion}`;
-    if (resultAt >= 0) lines[resultAt] = line;
-    else {
+    if (resultAt < 0) {
       const link = findLink(lines, block);
       lines.splice((link ? link.line : block.start) + 1, 0, line);
     }
@@ -1359,7 +1391,7 @@ function spawnCapture(bin, args, { cwd, env, timeout = 30000 }) {
     let child;
     try { child = spawn(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }); }
     catch (e) { return resolve({ ok: false, out: "", err: String(e && e.message || e) }); }
-    const timer = setTimeout(() => { if (!done) { done = true; try { child.kill("SIGTERM"); } catch { /* gone */ } resolve({ ok: false, out, err: err || "超时" }); } }, timeout);
+    const timer = setTimeout(() => { if (!done) { done = true; try { child.kill("SIGTERM"); } catch { /* gone */ } resolve({ ok: false, out, err: err || t("超时") }); } }, timeout);
     child.stdout.on("data", (b) => { out += b.toString(); if (out.length > 20000) out = out.slice(-20000); });
     child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 10000) err = err.slice(-10000); });
     child.on("error", (e) => { if (done) return; done = true; clearTimeout(timer); resolve({ ok: false, out, err: String(e && e.message || e) }); });

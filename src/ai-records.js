@@ -3,22 +3,57 @@ import * as J from "./journal.js";
 export const AI_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
 
 export function aiRecordGroups(text, trackedIds = new Set()) {
-  const lines = text.split("\n"), out = [];
+  const lines = text.split("\n"), out = [], fenced = J.fencedLines(lines);
   for (const task of J.taskItems(text)) {
-    if (AI_RECORD_RE.test(lines[task.line])) continue;
+    if (fenced.has(task.line) || AI_RECORD_RE.test(lines[task.line])) continue;
     const indent = J.width(J.childIndent(lines, task.line));
     const records = [];
     for (let i = task.line + 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
+      if (fenced.has(i) || !lines[i].trim()) continue;
       const w = J.width(lines[i]);
       if (w <= task.indent) break;
       if (w === indent && AI_RECORD_RE.test(lines[i])) records.push(i);
     }
     if (!records.length) continue;
     const tracked = task.blockId?.startsWith("ad-") || trackedIds.has(task.blockId) || task.body.startsWith("🤖") || records.some((i) => J.parseLink(lines[i]));
-    if (tracked) out.push({ key: task.blockId || `${task.line}:${task.key}`, line: task.line, records, summaries: records.filter(n => /💬\s+累计总结[：:]/.test(lines[n])) });
+    if (tracked) out.push({
+      key: task.blockId || `${task.line}:${task.key}`,
+      line: task.line,
+      kw: task.kw,
+      state: task.state,
+      records,
+      summaries: records.filter((n) => /💬\s+累计总结[：:]/.test(lines[n])),
+    });
   }
   return out;
+}
+
+// The display setting determines the initial state, including merged summaries.
+export function recordStartsOpen(mode, group) {
+  return mode === "expanded";
+}
+
+// What the user last chose wins over the mode default. Both sets are sparse:
+// aiRecordExpanded holds tasks opened by hand, aiRecordClosed holds tasks folded
+// by hand (only meaningful when the mode starts them open).
+export function recordIsOpen(settings, mode, group) {
+  const expanded = settings?.aiRecordExpanded || {};
+  const closed = settings?.aiRecordClosed || {};
+  if (closed[group.key]) return false;
+  if (expanded[group.key]) return true;
+  return recordStartsOpen(mode, group);
+}
+
+// 收起时按 AI 结论计数；提问、链接、用时和步骤只在展开后显示。
+// 累计总结是没有轮次结论时的回退，不占最近 N 条的名额。
+export function visibleRecords(group, lines, mode = "latest1") {
+  const count = { latest1: 1, latest3: 3, latest5: 5 }[mode];
+  if (count) {
+    const results = group.records.filter((n) => /^(?:\s*(?:[-*+]|\d+[.)])\s+)?💬\s/.test(lines[n]) && !/💬\s+累计总结[：:]/.test(lines[n]));
+    return results.length ? results.slice(-count) : group.summaries;
+  }
+  // expanded 模式被手动收起后也必须隐藏明细。
+  return group.summaries;
 }
 
 export function recordRuns(records) {
@@ -45,6 +80,8 @@ export function adBlockIdRanges(text, trackedIds = new Set()) {
       if (!fence) { fence = marker[1][0]; fenceLength = marker[1].length; }
       else if (marker[1][0] === fence && marker[1].length >= fenceLength && !marker[2].trim()) fence = "";
     } else if (!fence) {
+      const turn = /[ \t]+<!-- ad-turn:[A-Za-z0-9_-]+:\d+ -->\s*$/.exec(line);
+      if (turn) out.push({ from: offset + turn.index, to: offset + line.length });
       const id = /(?:[ \t]+|^)\^([a-z0-9-]+)[ \t]*$/i.exec(line);
       if (id && hiddenBlockId(id[1], trackedIds)) out.push({ from: offset + id.index, to: offset + line.length });
       const link = J.parseLink(line), suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(line);
