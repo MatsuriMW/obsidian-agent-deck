@@ -1,5 +1,6 @@
 // Read conversation text on demand; usage summaries intentionally truncate prompts.
 import fs from "fs";
+import * as J from "./journal.js";
 import { decompress } from "fzstd";
 import { createHash } from "crypto";
 
@@ -95,12 +96,31 @@ export async function archiveConversation(plugin, session) {
   const file = vault.getAbstractFileByPath(notePath);
   if (file) {
     const prior = await vault.read(file);
-    if (prior === content) return file;
+    if (prior === content) { await linkArchive(plugin, session, notePath); return file; }
     const region = /<!-- agent-deck-conversation sha256:([a-f0-9]{64}) -->\n([\s\S]*?)\n<!-- \/agent-deck-conversation -->/.exec(prior);
     if (!region || hash(region[2]) !== region[1]) throw new Error("该会话已有归档，且正文经过手工修改。请先保留或移动旧归档后再导出");
     const next = prior.slice(0, region.index) + content + prior.slice(region.index + region[0].length);
     if (next !== prior) await vault.modify(file, next);
+    await linkArchive(plugin, session, notePath);
     return file;
   }
-  return vault.create(notePath, content);
+  const created = await vault.create(notePath, content);
+  await linkArchive(plugin, session, notePath);
+  return created;
+}
+
+async function linkArchive(plugin, session, archivePath) {
+  if (!plugin.readNote || !plugin.writeNote) return;
+  const sid = session.sid || session.sessionId;
+  const job = Object.values(plugin.jobs).find(j => j.agent === session.agent && j.sessionId === sid);
+  const binding = Object.values(plugin.settings?.taskBindings || {}).find(b => b.sid === sid);
+  const target = binding?.path ? binding : job;
+  if (!target?.path || !plugin.app.vault.getAbstractFileByPath(target.path)) return;
+  const text = await plugin.readNote(target.path);
+  if (text.includes(`[[${archivePath}|`)) return;
+  const task = J.findTask(text, target.key || J.workKey(target.name || ""), target.blockId, sid);
+  if (!task) return;
+  const lines = text.split("\n"), indent = (lines[task.line].match(/^[ \t]*/)?.[0] || "") + "\t";
+  lines.splice(task.line + 1, 0, `${indent}- 📄 [[${archivePath}|对话归档 · ${session.agent}]]`);
+  await plugin.writeNote(target.path, lines.join("\n"));
 }

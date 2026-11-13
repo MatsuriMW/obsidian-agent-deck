@@ -4,9 +4,6 @@ export const RECORD_FOLD_COMMANDS = {
   "editor:fold-more": { open: false }, "editor:fold-less": { open: true },
   "editor:fold-all": { open: false, all: true }, "editor:unfold-all": { open: true, all: true },
   "bullet:fold": { open: false }, "bullet:unfold": { open: true },
-  "logseq-style-fold:toggle-fold": { open: null },
-  "logseq-style-fold:collapse-all": { open: false, all: true },
-  "logseq-style-fold:expand-all": { open: true, all: true },
 };
 export function foldTargets(groups, line, all = false) {
   if (all) return groups;

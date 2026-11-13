@@ -5,6 +5,10 @@
 // and a layered model picker.
 
 import fs from "fs";
+import { archiveCompletedJournal } from "./journal-archive.js";
+import { organizeAIJournal } from "./organize-journal.js";
+import { AttentionTracker } from "./attention.js";
+import { defaultDestination, activeJob, canOpenClient } from "./workflow.js";
 import path from "path";
 import os from "os";
 import { execFile } from "child_process";
@@ -15,7 +19,7 @@ import {
   AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp, visibleMenuAgents,
 } from "./constants.js";
 import { AgentUsage, UsageStore, projectName } from "./readers.js";
-import { Delegator, blockAt, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findAgyBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
+import { Delegator, blockAt, freshTaskText, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findAgyBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { AgentDeckSettingsTab } from "./settings.js";
 import { DelegateOptionsModal, ConfirmSendModal } from "./dialog.js";
@@ -30,7 +34,7 @@ import * as J from "./journal.js";
 import { mentionOptions } from "./task-mentions.js";
 import { Dreaming } from "./dream.js";
 import { ConversationModal, AcpPermissionModal } from "./conversation-modal.js";
-import { TaskAgentSuggest } from "./mention-suggest.js";
+import { registerTaskAgentSuggest } from "./mention-suggest.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -49,6 +53,8 @@ export default class AgentDeckPlugin extends Plugin {
     this.settings.jobs = this.settings.jobs && typeof this.settings.jobs === "object" ? this.settings.jobs : {};
     J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 8) * 60);
     this.jobs = this.settings.jobs;
+    this.attentionTracker = new AttentionTracker();
+    this.attentionAlerts = new Map();
     this.views = new Set();
     this._lineMaps = {};
     this.vaultPath = this.app.vault.adapter.getBasePath ? this.app.vault.adapter.getBasePath() : "";
@@ -70,10 +76,10 @@ export default class AgentDeckPlugin extends Plugin {
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
     this.registerEditorExtension(createEditorExtension(this));
-    this.registerEditorSuggest(new TaskAgentSuggest(this));
+    registerTaskAgentSuggest(this);
     this.registerMarkdownPostProcessor((el, ctx) => {
       const child = new MarkdownRenderChild(el);
-      child.onunload = renderAIRecords(el, this);
+      child.onunload = renderAIRecords(el, this, ctx);
       ctx.addChild(child);
     });
 
@@ -97,13 +103,25 @@ export default class AgentDeckPlugin extends Plugin {
     });
     this.addCommand({ id: "open-settings", name: "打开 Agent Deck 设置", callback: () => this.openSettings() });
     this.addCommand({ id: "open-models", name: "打开 Agent Deck 的 Models 设置", callback: () => this.openSettings("models") });
-    // 委派只有两个入口：笔记里人写的一项拖到面板的 Agent 卡片上，或者块去向的「委派给 Claude」（⌥⌘D）。
-    // Agent Deck 不再在命令面板里放委派命令；委派失败后状态 pill 上的「重试」还在
-    this.addCommand({ id: "conversation-line", name: "查看当前任务的对话、续聊与归档", editorCallback: (editor, view) => this.conversationForEditor(editor, view) });
+    this.addCommand({ id: "delegate-line", name: "委派当前任务 / 打开任务操作", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "D" }], editorCallback: (editor, view) => {
+      if (view.file) this.gripSend({ path: view.file.path, line: editor.getCursor().line, lineText: editor.getLine(editor.getCursor().line) });
+    } });
+    this.addCommand({ id: "task-actions-line", name: "当前任务：续聊、停止、重新委派", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "A" }], editorCallback: (editor, view) => { if (view.file) this.taskActions(view.file.path, editor.getCursor().line); } });
+    this.addCommand({ id: "next-attention", name: "处理下一条需要授权或确认的会话", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "N" }], callback: () => {
+      const alert = this.attentionAlerts.values().next().value;
+      if (alert) alert.open(); else this.notice("目前没有需要授权或确认的会话");
+    } });
+    this.addCommand({ id: "conversation-line", name: "查看当前任务的对话、续聊与归档", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "C" }], editorCallback: (editor, view) => this.conversationForEditor(editor, view) });
     this.addCommand({ id: "open-session-line", name: "打开光标这一行绑定的会话", editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
     this.addCommand({ id: "merge-task-line", name: "把当前任务条目与笔记里另一条绑定/合并", editorCallback: (editor, view) => this.openMergeTaskForEditor(editor, view) });
+    this.addCommand({ id: "stop-task-line", name: "停止当前任务的执行", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "X" }], editorCallback: (editor, view) => {
+      const job = view.file && this.jobAtLine(view.file.path, editor.getCursor().line, editor.getLine(editor.getCursor().line));
+      if (job && activeJob(job)) this.cancelJob(job.id); else this.notice("当前任务没有可停止的执行");
+    } });
     this.addCommand({ id: "scan-now", name: "重新扫描本机 Agent 会话", callback: () => this.scanNow(true) });
-    this.addCommand({ id: "jump-running-project", name: "跳转到日记中正在运行的项目", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "J" }], callback: () => this.jumpRunningProject() });
+    this.addCommand({ id: "jump-running-project", name: "跳转到日记正在做的区域", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "J" }], callback: () => this.jumpRunningProject() });
+    this.addCommand({ id: "group-active-journal", name: "当前日记：归组未完成的 AI 任务与记录", callback: () => this.organizeJournal("active") });
+    this.addCommand({ id: "group-done-journal", name: "当前日记：归档已完成的 AI 任务与记录", callback: () => this.organizeJournal("done") });
     this.addCommand({ id: "log-journal", name: "整理 Agent 会话进今天的日记", callback: () => this.autoLog.logNow() });
     this.addCommand({ id: "dream-now", name: "Dreaming：整理 AI 记录与用户日志为长期记忆", callback: () => this.dreaming.run() });
     this.addCommand({ id: "dream-share", name: "Dreaming：同步共享长期记忆", callback: () => this.dreaming.sharing.sync() });
@@ -145,6 +163,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   onunload() {
     this.conversationModal?.close();
+    for (const alert of this.attentionAlerts?.values() || []) { alert.notice?.hide(); alert.system?.close(); }
     this.settingTab?.hide();
     if (this.journalSync) this.journalSync._stopped = true;
     if (this.store?.dirty) { clearTimeout(this.store.saveTimer); this.store.save().catch(() => {}); }
@@ -407,6 +426,8 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   openConversation(session) {
+    const job = Object.values(this.jobs).find(j => j.agent === session.agent && j.sessionId === (session.sid || session.sessionId));
+    session = { ...job, ...session, sid: session.sid || session.sessionId, transport: job?.transport || session.transport };
     this.conversationModal?.close();
     this.conversationModal = new ConversationModal(this.app, this, session);
     this.conversationModal.open();
@@ -444,7 +465,8 @@ export default class AgentDeckPlugin extends Plugin {
 
   openSession(agent, sid, app, session) {
     const job = Object.values(this.jobs).find((j) => j.agent === agent && j.sessionId === sid);
-    if (agent === "antigravity" && job?.transport === "acp") return this.openConversation({ ...job, sid });
+    if ((agent === "antigravity" && job?.transport === "acp") || (agent === "dsh" && job?.destination === "obsidian")) return this.openConversation({ ...job, sid });
+    if (job && ["claude", "codex"].includes(agent)) return this.openClientSession({ ...job, ...session, sid, agent });
     return openSessionRaw(this, agent, sid, app, session);
   }
 
@@ -505,7 +527,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (job) { parts.push(`${AGENTS[job.agent]?.name || job.agent} · ${job.name}`); if (job.step) parts.push(job.step); if (job.error) parts.push(job.error); }
     const prog = this.sessionProgressText(s, job);
     if (prog) parts.push(`进度：${prog}`);
-    if (s) { parts.push(s.title || s.step || s.sid); if (s.tokens) parts.push(`${fmtTok(s.tokens)} tok`); }
+    if (s) { parts.push(s.title || s.step || "未命名会话"); if (s.tokens) parts.push(`${fmtTok(s.tokens)} tok`); }
     return parts.filter(Boolean).join("\n");
   }
 
@@ -622,7 +644,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (change) view.editor.transaction({ changes: [change] });
     this.markBound(sid, res.blockId || "", res.line != null ? J.workKey(res.text.split("\n")[res.line] || "") : "");
     const a = AGENTS[data.agent] || AGENTS.claude;
-    this.notice(res.kind === "bind" ? `🔗 已绑定（^${res.blockId || ""}）：${a.short} 会话的每轮 💬、❓、⏱ 和状态都会跟着这一项走` : `🔗 新建了一项并绑上 ${a.short} 会话`, 5000);
+    this.notice(res.kind === "bind" ? `🔗 已绑定：${a.short} 会话的每轮 💬、❓、⏱ 和状态都会跟着这一项走` : `🔗 新建了一项并绑上 ${a.short} 会话`, 5000);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {}), 300);
     this.refreshUI();
   }
@@ -666,7 +688,7 @@ export default class AgentDeckPlugin extends Plugin {
       }
     }
     this.saveSettings().catch(() => {});
-    this.notice(`🔗 已合并条目（^${res.blockId}）：会话记录与结论已归入「${truncate(res.body, 28)}」`, 5000);
+    this.notice(`🔗 已合并条目：会话记录与结论已归入「${truncate(res.body, 28)}」`, 5000);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {}), 300);
     this.refreshUI();
   }
@@ -687,7 +709,7 @@ export default class AgentDeckPlugin extends Plugin {
     for (const c of candidates.slice(0, 20)) {
       menu.addItem((mi) => {
         const tag = c.auto ? "🤖 " : "";
-        mi.setTitle(`合并到：${tag}${truncate(c.body.replace(/^🤖\s*/, ""), 36)}${c.blockId ? ` (^${c.blockId})` : ""}`);
+        mi.setTitle(`合并到：${tag}${truncate(c.body.replace(/^🤖\s*/, ""), 36)}`);
         mi.setIcon("git-merge");
         mi.onClick(() => this.mergeTaskLines(view, taskLine, c.line, lines[taskLine]));
       });
@@ -728,7 +750,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   // 笔记里的一项拖到了某个 Agent 卡片上：Claude / DSH 后台直接跑，Codex / WorkBuddy 打开客户端交接
   // 这一项能不能委派：能就给出笔记、行和整块，不能就给出原因
-  async delegateTarget(item) {
+  async delegateTarget(item, { newSession = false } = {}) {
     if (!item || !item.path) return { error: "没认出拖的是哪一项" };
     const file = this.app.vault.getAbstractFileByPath(item.path);
     if (!file) return { error: "找不到这篇笔记" };
@@ -738,50 +760,99 @@ export default class AgentDeckPlugin extends Plugin {
     if (line < 0) return { error: "这一行刚改过，重新来一次" };
     // 只有人写的文字条目才委派；Agent 写的（🤖）、已经绑着会话的，不再开新会话
     const block = blockAt(lines, line), k = J.kwLine(lines[line]);
-    if (k && k.body.startsWith(J.AUTO_MARK.trim())) return { error: "Agent 记的条目不委派" };
-    if (block && findLink(lines, block)) return { error: "已经绑着会话，不委派" };
-    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => J.CLOCK_RE.test(l))) return { error: "已有用时记录，不委派" };
+    if (!newSession && k && k.body.startsWith(J.AUTO_MARK.trim())) return { error: "Agent 记的条目不委派" };
+    if (!newSession && block && findLink(lines, block)) return { error: "已经绑着会话，不委派" };
+    if (!newSession && block && lines.slice(block.start + 1, block.end + 1).some((l) => J.CLOCK_RE.test(l))) return { error: "已有用时记录，不委派" };
     return { file, lines, line, block };
   }
 
-  async delegateDrop(agent, item, fromEl, { cli = false } = {}) {
+  async delegateDrop(agent, item, fromEl, { cli = false, destination, newSession = false, confirmed = false, expectedText } = {}) {
     this._dragItem = null;
-    const t = await this.delegateTarget(item);
+    const t = await this.delegateTarget(item, { newSession });
     if (t.error) return this.notice(t.error);
-    const { file, lines, line } = t;
+    if (confirmed && expectedText !== undefined && t.block.text !== expectedText) return this.notice("任务内容已变化，请重新预览后发送");
     try {
-      const opts = mentionOptions(this, { file, lines, line, agent });
+      const opts = mentionOptions(this, { ...t, agent, ignoreMention: newSession });
       agent = opts.agent;
-      // 按住 ⌘ 松手：Claude Code / Codex 在终端里开交互式会话；不按：Claude Code / DeepSeek Harness 后台直接开跑
-      // （Claude Code 答完一轮自动在桌面版打开，见设置「完成后自动在桌面版打开」）
-      if (cli && (agent === "claude" || agent === "codex")) await this.delegator.handoffCli(opts);
-      else if (["claude", "dsh", "antigravity"].includes(agent)) await this.delegator.delegate(opts);
-      else await this.delegator.handoff(opts);
+      destination ||= cli && ["claude", "codex"].includes(agent) ? "terminal" : defaultDestination(this, agent);
+      if (!confirmed) {
+        new ConfirmSendModal(this.app, {
+          agent, text: newSession ? freshTaskText(t.block.text) : t.block.text, path: item.path,
+          where: `${opts.model || this.defaultModel(agent) || "客户端模型"} · ${opts.effort || this.settings.delegate[agent]?.effort || "客户端强度"}`,
+          destination, newSession,
+        }, chosen => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: t.block.text })).open();
+        return;
+      }
+      await this.delegator.delegate({ ...opts, destination, newSession });
     } catch (e) { this.notice(String(e.message || e), 8000); }
     this.refreshUI();
   }
 
-  // 把手单击：先确认，再把这一项连同子块发给主力（委派的默认目标）；如果是 🤖 自动记的或已绑定的行，则打开合并菜单
   async gripSend(item) {
-    const t = await this.delegateTarget(item);
-    if (t.error) {
-      const view = item && item.path ? this.viewForPath(item.path) : null;
-      if (view && (t.error.includes("Agent 记的") || t.error.includes("已经绑着会话"))) {
-        view.editor.setCursor({ line: item.line, ch: 0 });
-        return this.openMergeTaskForEditor(view.editor, view);
-      }
-      return this.notice(t.error);
+    const view = this.viewForPath(item.path);
+    if (view && this.sessionsAtTask(item.path, item.line, view.editor.getValue().split("\n")).length) return this.taskActions(item.path, item.line);
+    return this.delegateDrop(this.defaultTarget(), item);
+  }
+
+  sessionsAtTask(path, line, lines) {
+    const block = blockAt(lines, line);
+    if (!block) return [];
+    const bid = J.blockIdOf(lines[block.start]);
+    const found = new Map();
+    const width = s => (s.match(/^[ \t]*/)?.[0] || "").replace(/\t/g, "    ").length;
+    for (let n = block.start + 1; n <= block.end; n++) {
+      const link = J.parseLink(lines[n]);
+      if (!link) continue;
+      let owner = n - 1;
+      while (owner > block.start && (!lines[owner].trim() || width(lines[owner]) >= width(lines[n]))) owner--;
+      if (owner !== block.start) continue;
+      found.set(`${link.agent}:${link.sid}`, { ...this.usage.meta.get(link.sid), ...link });
     }
-    let selected;
-    try { selected = mentionOptions(this, { lines: t.lines, line: t.line, agent: this.defaultTarget() }); }
-    catch (e) { return this.notice(e.message); }
-    const agent = selected.agent;
-    const where = agent === "codex" ? (this.settings.delegate.codex.transport === "terminal" ? "终端新会话" : "首轮完成后在 Codex 桌面版打开") : !["claude", "dsh"].includes(agent) ? "客户端交接" : agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "后台开跑 · 答完在桌面版打开" : "后台新会话";
-    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where: `${selected.model || this.defaultModel(agent) || "客户端模型"} · ${selected.effort || this.settings.delegate[agent]?.effort || "客户端强度"} · ${where}` }, () => this.delegateDrop(agent, item, null, { cli: agent === "codex" && this.settings.delegate.codex.transport === "terminal" })).open();
+    for (const job of Object.values(this.jobs)) {
+      if (job.path !== path || !((bid && job.blockId === bid) || job.lineText === lines[block.start])) continue;
+      found.set(`${job.agent}:${job.sessionId || job.id}`, { ...this.usage.meta.get(job.sessionId), ...job, sid: job.sessionId });
+    }
+    return [...found.values()];
+  }
+
+  openClientSession(session) {
+    const owned = Object.values(this.jobs).find(j => j.agent === session.agent && j.sessionId === session.sid);
+    session = { ...owned, ...session, transport: owned?.transport || session.transport };
+    if (!canOpenClient(session)) return this.notice("此 Antigravity 会话尚不支持转到桌面 IDE 继续，请在 Obsidian 中续聊");
+    if (!session.sid) return this.notice("正在建立会话，请稍后再打开");
+    const job = Object.values(this.jobs).find(j => j.agent === session.agent && j.sessionId === session.sid);
+    if (["claude", "codex"].includes(session.agent) && activeJob(job)) return this.notice("首轮仍在执行，结束后再打开桌面中的同一会话");
+    return openSessionRaw(this, session.agent, session.sid, session.app, session);
+  }
+
+  taskActions(path, line, event) {
+    const view = this.viewForPath(path);
+    if (!view) return;
+    const lines = view.editor.getValue().split("\n"), block = blockAt(lines, line);
+    if (!block) return;
+    const sessions = this.sessionsAtTask(path, line, lines);
+    const menu = new Menu();
+    for (const [index, session] of sessions.entries()) {
+      const title = `${AGENTS[session.agent]?.name || session.agent} · 会话 ${index + 1}`;
+      const inNote = ["dsh", "antigravity"].includes(session.agent) && (session.agent !== "antigravity" || session.transport === "acp");
+      menu.addItem(mi => mi.setTitle(`继续对话 · ${title}`).setDisabled(!session.sid).onClick(() => inNote && session.destination !== "desktop" ? this.openConversation(session) : this.openClientSession(session)));
+      menu.addItem(mi => mi.setTitle(`查看正文与保存对话 · ${title}`).setDisabled(!session.sid).onClick(() => this.openConversation(session)));
+      if (canOpenClient(session)) menu.addItem(mi => mi.setTitle(`在客户端打开 · ${title}`).setDisabled(!session.sid || (["claude", "codex"].includes(session.agent) && activeJob(session))).onClick(() => this.openClientSession(session)));
+      if (activeJob(session) && this.delegator.runners.has(session.id)) menu.addItem(mi => mi.setTitle(`停止执行 · ${title}`).onClick(() => this.cancelJob(session.id)));
+      else if (session.handoff && !session.sid && activeJob(session)) menu.addItem(mi => mi.setTitle(`取消交接 · ${title}`).onClick(() => this.cancelJob(session.id)));
+      menu.addSeparator();
+    }
+    for (const agent of AGENT_ORDER.filter(a => this.agentEnabled(a))) menu.addItem(mi => mi.setTitle(`重新委派（新会话）· ${AGENTS[agent].name}`).onClick(() => this.delegateDrop(agent, { path, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    menu.addItem(mi => mi.setTitle("绑定或合并到其他任务").onClick(() => { view.editor.setCursor({line:block.start,ch:0}); this.openMergeTaskForEditor(view.editor, view); }));
+    if (event) menu.showAtMouseEvent(event);
+    else menu.showAtPosition({ x: view.containerEl.getBoundingClientRect().left + 100, y: view.containerEl.getBoundingClientRect().top + 100 });
+    return menu;
   }
 
   // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样；同时提供「合并到已有条目」
   gripPick(item, e) {
+    const current = this.viewForPath(item.path);
+    if (current && this.sessionsAtTask(item.path, item.line, current.editor.getValue().split("\n")).length) return this.taskActions(item.path, item.line, e);
     const main = this.defaultTarget();
     const menu = new Menu();
     for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x))) {
@@ -841,7 +912,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (!file) return this.notice("找不到这篇笔记");
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);
     const lines = view && view.file && view.file.path === path ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
-    await this.delegator.delegate({ file, lines, line, agent: this.defaultTarget() });
+    return this.delegateDrop(this.defaultTarget(), { path, line, lineText: lines[line] });
   }
 
   openDelegateModal(path, line) {
@@ -849,17 +920,48 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
 
+  async organizeJournal(mode) {
+    const current = this.app.workspace.getActiveFile(), today = this.journalSync.todayJournal();
+    const file = current?.parent?.path === today?.parent?.path ? current : today;
+    if (!file) return this.notice("请先打开日记");
+    const tracked = new Map();
+    const add = (id, sid) => { if (!id) return; if (!tracked.has(id)) tracked.set(id, new Set()); if (sid) tracked.get(id).add(sid); };
+    for (const day of Object.values(this.settings.autoLogState || {})) for (const [sid, rec] of Object.entries(day)) if (!rec.skip && !rec.gone) add(rec.blockId, sid);
+    for (const [sid, rec] of Object.entries(this.settings.taskBindings || {})) add(rec.blockId, sid);
+    for (const job of Object.values(this.jobs)) if (job.path === file.path) add(job.blockId, job.sessionId);
+    const base = await this.readNote(file.path);
+    const turns = new Map(Object.entries(this.settings.archiveTaskTurns || {}));
+    for (const [sid, meta] of this.usage.meta) turns.set(sid, Math.max(meta.turns || 0, meta.rounds?.length || 0));
+    for (const job of Object.values(this.jobs)) if (job.sessionId) turns.set(job.sessionId, Math.max(turns.get(job.sessionId) || 0, job.conversation?.filter(m => m.role === "user").length || 0));
+    const result = organizeAIJournal(base, mode, { tracked, archived: this.autoLog.archived(), turns });
+    if (mode === "done") {
+      if (!result.count) return this.notice("没有可归档的 AI 任务");
+      const target = await archiveCompletedJournal(this, file, base, result);
+      this.refreshUI();
+      return this.notice(`已归档 ${result.count} 个 AI 任务到 ${target.path}`);
+    }
+    if (result.text !== base) {
+      const view = this.viewForPath(file.path);
+      if (view?.editor?.cm) {
+        if (view.editor.getValue() !== base || view.editor.cm.composing) return this.notice("日记刚有变化，请再整理一次");
+        const change = J.diffLines(base, result.text);
+        view.editor.cm.dispatch({ changes: { from: view.editor.posToOffset(change.from), to: view.editor.posToOffset(change.to), insert: change.text }, userEvent: "agent-deck.organize" });
+      } else if (!await this.autoLog.write(file, base, result.text)) return this.notice("日记刚有变化，请再整理一次");
+    }
+    this.refreshUI();
+    this.notice(result.count ? `已整理 ${result.count} 个 AI 任务到「${mode === "done" ? "已完成" : "进行中"}」` : "没有可整理的 AI 任务");
+  }
+
   async jumpRunningProject() {
     const file = this.journalSync.todayJournal();
     if (!file) return this.notice("今天的日记还没有创建");
     const text = await this.readNote(file.path);
+    const heading = text.split("\n").findIndex(line => line === "## AI · 进行中");
     const map = this.lineMap(file.path, text);
-    const tasks = J.runningTaskLines(text, map.sessionByParent, Object.values(this.jobs).filter((job) => job.path === file.path));
-    if (!tasks.length) return this.notice("今天日记里还没有正在运行的 Agent 项目");
-    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
-    const current = view?.file?.path === file.path ? view.editor?.getCursor().line : -1;
-    const index = tasks.findIndex((task) => task.line === current);
-    const target = tasks[(index + 1) % tasks.length];
+    const tasks = J.runningTaskLines(text, map.sessionByParent, Object.values(this.jobs).filter(job => job.path === file.path));
+    const line = heading >= 0 ? heading : tasks[0]?.line;
+    if (line === undefined) return this.notice("今天日记里还没有正在做的区域或运行中的 AI 任务");
+    const target = { line };
     const leaf = this.app.workspace.getLeaf(false);
     await leaf.openFile(file, { active: true, eState: { line: target.line } });
     leaf.view.setEphemeralState?.({ line: target.line, focus: true });
@@ -1041,12 +1143,41 @@ export default class AgentDeckPlugin extends Plugin {
 
   // ---------- ui refresh ----------
   refreshUI() {
+    this.checkAttention();
     clearTimeout(this._refreshTimer);
     this._refreshTimer = setTimeout(() => {
       for (const view of this.views) { try { view.render(); } catch (e) { console.error("[agent-deck] view", e); } }
       try { dispatchRefresh(this); } catch { /* no editors */ }
       this.menubar?.update();
     }, 120);
+  }
+
+  checkAttention() {
+    if (!this.attentionTracker) return;
+    const sessions = [...Object.values(this.jobs).filter(j => j.state !== "bound" && (activeJob(j) || Date.now() - (j.endedAt || j.startedAt || 0) < 86400000)), ...this.liveSessions({ hours: 24 })];
+    const fresh = this.attentionTracker.update(sessions);
+    for (const [key, alert] of this.attentionAlerts) {
+      if (!this.attentionTracker.pending.has(key)) { alert.notice?.hide(); alert.system?.close(); this.attentionAlerts.delete(key); }
+    }
+    for (const { key, session, reason } of fresh) {
+      const title = `Agent Deck · ${reason}`;
+      const body = `${AGENTS[session.agent]?.name || "Agent"}：${session.name || session.title || "未命名任务"}`;
+      const open = () => {
+        const runner = this.delegator.runners.get(session.id);
+        if (runner?.permissionModal) runner.permissionModal.open();
+        else this.openSession(session.agent, session.sid || session.sessionId, session.app, session);
+      };
+      const fragment = document.createDocumentFragment();
+      fragment.createEl("div", { text: `${title}\n${body}` });
+      fragment.createEl("button", { text: "前往处理" }).onclick = open;
+      const alert = { open, notice: new Notice(fragment, 0) };
+      try {
+        alert.system = new Notification(title, { body, tag: `agent-deck:${key}` });
+        alert.system.onclick = () => { window.focus(); open(); };
+        alert.system.onerror = () => console.warn("[agent-deck] 系统通知不可用，请检查 Obsidian 的通知权限");
+      } catch (error) { console.warn("[agent-deck] 系统通知不可用", error); }
+      this.attentionAlerts.set(key, alert);
+    }
   }
 
   // ---------- misc ----------

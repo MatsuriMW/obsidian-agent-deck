@@ -18,7 +18,7 @@ export function integrateRecordFolding(plugin) {
       const targets = foldTargets(groups, view.editor.getCursor().line, spec.all);
       if (!targets.length) return original.apply(this, arguments);
       if (checking) return true;
-      const open = spec.open ?? !recordsAreOpen(value.mode, value.toggled, targets[0].key);
+      const open = spec.open ?? !recordsAreOpen(targets[0].summaries.length || value.mode === "latest5" ? "collapsed" : value.mode, value.toggled, targets[0].key);
       const result = original.apply(this, arguments);
       const current = aiRecordGroups(cm.state.doc.toString(), plugin.recordTrackedIds());
       const keys = new Set(spec.all ? current.map((g) => g.key) : targets.map((g) => g.key));

@@ -1,4 +1,4 @@
-/* Agent Deck 1.4.5 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.5.0 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -34,11 +34,9 @@ __export(main_exports, {
 });
 module.exports = __toCommonJS(main_exports);
 var import_fs7 = __toESM(require("fs"), 1);
-var import_path6 = __toESM(require("path"), 1);
-var import_child_process7 = require("child_process");
-var import_obsidian10 = require("obsidian");
 
 // src/constants.js
+var CONFIRM_FIRST = "\u5148\u522B\u52A8\u624B\u3002\u628A\u4E0A\u9762\u7684\u4EFB\u52A1\u8BFB\u900F\uFF1A\u6709\u4E0D\u6E05\u695A\u3001\u6709\u6B67\u4E49\u6216\u9700\u8981\u6211\u62CD\u677F\u7684\u5730\u65B9\uFF0C\u5148\u5217\u51FA\u6765\u95EE\u6211\uFF1B\u90FD\u6E05\u695A\u4E86\uFF0C\u5C31\u7528\u51E0\u53E5\u8BDD\u590D\u8FF0\u4F60\u7684\u7406\u89E3\u548C\u6253\u7B97\u600E\u4E48\u505A\uFF0C\u7B49\u6211\u786E\u8BA4\u540E\u518D\u52A8\u624B\u3002\u8FD9\u4E00\u8F6E\u4E0D\u8981\u6539\u6587\u4EF6\uFF0C\u4E5F\u4E0D\u8981\u8DD1\u6709\u526F\u4F5C\u7528\u7684\u547D\u4EE4\u3002";
 var STORE_VERSION = 1;
 var AGENTS = {
   claude: {
@@ -302,10 +300,12 @@ var DEFAULTS = {
   yieldToNautilus: true,
   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
+  aiRecordExpanded: {},
   aiRecordDisplay: "collapsed",
   // collapsed 默认折叠 / expanded 默认展开 / latest5 只显示最新五条
   autoLogGranularity: "latest",
   // latest 最新进展 / round 每轮 / paused 停歇或归档
+  doneArchivePath: "Agent Deck/done/\u5DF2\u5B8C\u6210\u4EFB\u52A1.md",
   autoLogMerge: false,
   autoLogMergeThreshold: 10,
   autoLogSummaries: {},
@@ -317,7 +317,7 @@ var DEFAULTS = {
   // 插件启动后第几分钟先整理一次，不用等满一个间隔
   autoLogMinMinutes: 3,
   // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
-  autoLogIdle: 40,
+  autoLogIdle: 10,
   // 停了几分钟算 PAUSED
   autoLogBatch: 8,
   // 一轮最多问模型几个会话
@@ -381,11 +381,14 @@ var DEFAULTS = {
       autoApprove: false,
       extraArgs: ""
     },
+    mentionSuggest: true,
+    mentionTrigger: "@",
     promptPrefix: "",
     promptSuffix: "",
     markStatus: true,
     confirmFirst: true,
     // 委派消息末尾追加「先确认再动手」
+    confirmFirstPrompt: CONFIRM_FIRST,
     writeLink: true,
     nameMax: 56
   },
@@ -556,13 +559,889 @@ function visibleMenuAgents(agents, scope = "primary-running") {
   return agents.filter((agent) => scope === "all" || agent.primary || agent.running > 0);
 }
 
+// src/journal.js
+var LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
+var STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
+var CHECKBOX_RE = /^\[([ xX\/\-])\]\s*/;
+var TASK_KWS = "TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED";
+var KEYWORD_RE = new RegExp(`^(${TASK_KWS})\\s*`);
+var KW_WORD_RE = new RegExp(`^(${TASK_KWS})(?=\\s|$)\\s*`);
+var AGENT_KW_RE = /^(TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)$/;
+var OPEN_KWS = ["TODO", "LATER", "NOW", "WAITING", "WAIT", "TODOFORAI", "TODO4AI", "TODO2AI", "TODOTOAI"];
+var DONE_KWS = ["DONE", "CANCELED", "CANCELLED", "FAILED"];
+var LINK_RE = /^\s*[-*+]\s+🔗/;
+var RESULT_RE = /^\s*[-*+]\s+💬/;
+var CLOCK_RE = /^\s*[-*+]\s+⏱/;
+var KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
+var AUTO_MARK = "\u{1F916} ";
+var BLOCK_ID_RE = /\s+\^([A-Za-z0-9-]+)\s*$/;
+function blockIdOf(line) {
+  const m = BLOCK_ID_RE.exec(String(line || ""));
+  return m ? m[1] : "";
+}
+function stripBlockId(s) {
+  return String(s || "").replace(BLOCK_ID_RE, "").trimEnd();
+}
+function makeBlockId(seed = "") {
+  if (seed) {
+    const clean = String(seed).replace(/^session-/, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+    if (clean.length >= 6) return "ad-" + clean.slice(0, 6);
+  }
+  let h = "";
+  const chars = "0123456789abcdefghijklmnopqrstuvwxyz";
+  for (let i = 0; i < 6; i++) h += chars[Math.floor(Math.random() * 36)];
+  return "ad-" + h;
+}
+function ensureBlockId(line, preferId = "") {
+  const raw = String(line || "").trimEnd();
+  const existing = blockIdOf(raw);
+  if (existing) return { line: raw, blockId: existing };
+  const id = preferId || makeBlockId();
+  return { line: `${raw} ^${id}`, blockId: id };
+}
+var DAY_OFFSET = 0;
+var setDayOffset = (min) => {
+  DAY_OFFSET = Number(min) || 0;
+};
+var dayOffset = () => DAY_OFFSET;
+var clock = (t) => {
+  const m = Math.round(t + DAY_OFFSET);
+  return `${pad(Math.floor((m % 1440 + 1440) % 1440 / 60))}:${pad((m % 60 + 60) % 60)}`;
+};
+function clockLine(indent, segs, who, tok = 0, ellipsis = false) {
+  const shown = [];
+  for (const [a, b] of segs) {
+    const prev = shown[shown.length - 1];
+    if (prev && a - prev[1] <= 10) prev[1] = Math.max(prev[1], b);
+    else shown.push([a, b]);
+  }
+  const total = Math.round(segs.reduce((n, [a, b]) => n + b - a, 0));
+  return `${indent}- \u23F1 ${ellipsis && shown.length > 8 ? "\u2026 " : ""}${shown.slice(-8).map(([a, b]) => `${clock(a)}\u2013${clock(b)}`).join("\u3001")} \xB7 \u5171 ${durTag(total)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""}${who ? " \xB7 " + who : ""}`;
+}
+var durTag = (m) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? m % 60 + "m" : ""}` : `${Math.max(1, Math.round(m))}m`;
+var width = (line) => {
+  let w = 0;
+  for (const c of (/^\s*/.exec(line) || [""])[0]) w += c === "	" ? 4 : 1;
+  return w;
+};
+var workKey = (label) => stripBlockId(String(label || "")).replace(/\s*←\s*\S+\s*$/, "").trim();
+function splitTask(raw) {
+  const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(.*)$/.exec(raw);
+  if (!m) return null;
+  let [, prefix, rest] = m;
+  const st = STAMP_RE.exec(rest);
+  if (st) {
+    prefix += st[0];
+    rest = rest.slice(st[0].length);
+  }
+  const cb = CHECKBOX_RE.exec(rest);
+  if (cb) rest = rest.slice(cb[0].length);
+  const kw = KEYWORD_RE.exec(rest);
+  if (kw) rest = rest.slice(kw[0].length);
+  const pr = kw && /^\[#[ABC]\]\s*/.exec(rest);
+  if (pr) rest = rest.slice(pr[0].length);
+  let since = null;
+  const t = kw && /^(\d{1,2})[:：](\d{2})(?![\d:：]|\s*[-–~～到至])\s*/.exec(rest);
+  if (t) {
+    since = `${pad(+t[1])}:${t[2]}`;
+    rest = rest.slice(t[0].length);
+  }
+  if (pr) rest = `${pr[0].trim()} ${rest}`;
+  const blockId = blockIdOf(rest);
+  const body = stripBlockId(rest);
+  return { prefix, rest, body, blockId, since, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
+}
+function kwLine(raw) {
+  let s = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s+/, "").replace(STAMP_RE, "");
+  let kw = "";
+  const cb = CHECKBOX_RE.exec(s);
+  if (cb) {
+    kw = cb[1] === " " ? "TODO" : cb[1] === "/" ? "DOING" : cb[1] === "-" ? "CANCELLED" : "DONE";
+    s = s.slice(cb[0].length);
+  }
+  const m = KW_WORD_RE.exec(s);
+  if (m) {
+    kw = m[1];
+    s = s.slice(m[0].length);
+  }
+  const blockId = blockIdOf(s);
+  s = stripBlockId(s).replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
+  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || s.startsWith("\u{1F4AC}") || s.startsWith("\u2753") || s.startsWith("\u{1F4CB}") || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
+  return { kw, body: s, blockId };
+}
+function parseLink(line) {
+  const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
+  if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
+  const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
+  if (d) return d[2] ? { agent: "codex", sid: d[3], title: d[1] || "" } : { agent: "workbuddy", sid: decodeURIComponent(d[6]), title: d[4] || "" };
+  const b = /^\s*[-*+]\s+🔗.*`((?:session-)?[0-9a-f-]{36})`/.exec(line);
+  if (!b) return null;
+  const agent = /DeepSeek Harness|dsh:\/\//.test(line) ? "dsh" : /Antigravity|antigravity:\/\//i.test(line) ? "antigravity" : /Codex[：:]/.test(line) ? "codex" : /WorkBuddy[：:]/.test(line) ? "workbuddy" : "claude";
+  return { agent, sid: b[1], title: "" };
+}
+function linkLine(indent, agent, title, sid) {
+  const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
+  if (agent === "claude") return `${indent}- \u{1F517} [Claude\uFF1A${safe}](claude://resume?session=${sid})`;
+  if (agent === "dsh") return `${indent}- \u{1F517} [DeepSeek Harness\uFF1A${safe}](dsh://open) \`${sid}\``;
+  if (agent === "antigravity") return `${indent}- \u{1F517} [Antigravity\uFF1A${safe}](antigravity://open) \`${sid}\``;
+  if (agent === "codex") return `${indent}- \u{1F517} [Codex\uFF1A${safe}](codex://threads/${sid})`;
+  if (agent === "workbuddy") return `${indent}- \u{1F517} [WorkBuddy\uFF1A${safe}](workbuddy://chat/${encodeURIComponent(sid)})`;
+  return `${indent}- \u{1F517} ${agent}\uFF1A${safe} \`${sid}\``;
+}
+function markOwner(lines, i) {
+  const ind = width(lines[i]);
+  for (let j = i - 1; j >= 0; j--) if (lines[j].trim() && LIST_RE.test(lines[j]) && width(lines[j]) < ind) return j;
+  return -1;
+}
+function childMark(lines, n, pick) {
+  const base = width(lines[n]);
+  for (let i = n + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) <= base) break;
+    const l = pick(lines[i]);
+    if (l) return { line: i, ...l };
+  }
+  return null;
+}
+var linkUnder = (lines, n) => childMark(lines, n, parseLink);
+function resultText(raw, max = 200) {
+  let t = String(raw || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/^\s*\|?[\s:|-]{3,}\|?\s*$/gm, " ").replace(/\d{12,}/g, "\u2026").replace(/\s+/g, " ").trim();
+  const cap = Math.max(40, +max || 200);
+  if ([...t].length > cap) {
+    const cut = [...t].slice(0, cap).join("");
+    const stop = Math.max(...["\u3002", "\uFF01", "\uFF1F", "\uFF1B", ". ", "! ", "? "].map((c) => cut.lastIndexOf(c)));
+    t = (stop > cap * 0.5 ? cut.slice(0, stop + 1) : cut).trim() + "\u2026";
+  }
+  return t.replace(/\[\[/g, "\\[\\[").replace(/(^|[^\w&\\])#(?=[^\s#])/g, "$1\\#").replace(/==/g, "\\=\\=").replace(/%%/g, "\\%\\%").replace(/\$/g, "\\$").replace(/</g, "\\<").replace(/\s\^(?=[A-Za-z0-9-]+$)/, " \\^");
+}
+function oneSentenceConclusion(raw, max = 90) {
+  const cleaned = String(raw || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s*\|.*\|\s*$/gm, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\d{12,}/g, "\u2026").trim();
+  if (!cleaned) return "";
+  const lines = cleaned.split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  let pick = lines.find((l) => /^(?:结论|总结|核心结论|一句话总结|已完成|已修复|已更新|已实现|原因|问题在于|搞定|改好)[：:，,\s]/.test(l)) || lines.find((l) => l.length >= 6 && !/^(?:好的|收到|明白|没问题|我来|让我|先看)[，。！!,.]*$/.test(l)) || lines[lines.length - 1] || cleaned;
+  const sentMatch = /^(.{6,}?[。！？；!?;])(?:\s|$)/.exec(pick);
+  if (sentMatch) pick = sentMatch[1];
+  return resultText(pick, max);
+}
+function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", granularity = "", compact = null } = {}) {
+  let lines = text.split("\n");
+  let n = -1, linkAt = -1;
+  if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
+  if (sid && text.includes(sid)) {
+    linkAt = lines.findIndex((l) => {
+      const k = parseLink(l);
+      return k && k.sid === sid;
+    });
+    if (n < 0 && linkAt >= 0) n = markOwner(lines, linkAt);
+  }
+  if (n < 0 && key) {
+    const found = findTask(text, key);
+    if (found) n = found.line;
+  }
+  if (n < 0) return { text, line: -1, blockId: blockId || "" };
+  let activeBlockId = blockIdOf(lines[n]);
+  if (ensureId || blockId) {
+    const eb = ensureBlockId(lines[n], activeBlockId || blockId || makeBlockId(sid));
+    lines[n] = eb.line;
+    activeBlockId = eb.blockId;
+  }
+  const mode = ["standard", "detailed"].includes(detail) ? detail : "brief";
+  const roundLog = granularity ? granularity === "round" : mode !== "brief";
+  const base = width(lines[n]);
+  const ind = linkAt >= 0 ? /^\s*/.exec(lines[linkAt])[0] : childIndent(lines, n);
+  const childWidth = width(ind);
+  const childSpan = () => {
+    let end = n;
+    for (let i = n + 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      if (width(lines[i]) <= base) break;
+      end = i;
+    }
+    return end;
+  };
+  const upsertChild = (prefixRe, newLine, afterAnchor = -1) => {
+    const end = childSpan();
+    for (let i = n + 1; i <= end; i++) {
+      if (width(lines[i]) === childWidth && prefixRe.test(lines[i])) {
+        if (lines[i] !== newLine) lines[i] = newLine;
+        return i;
+      }
+    }
+    const insertAt = afterAnchor >= n ? afterAnchor + 1 : end + 1;
+    lines.splice(insertAt, 0, newLine);
+    return insertAt;
+  };
+  const previousConclusion = lines.slice(n + 1, childSpan() + 1).filter((line) => width(line) === childWidth && /^\s*[-*+]\s+💬\s+/.test(line)).slice(-1)[0]?.replace(/^\s*[-*+]\s+💬\s+(?:第\d+轮[：:]\s*)?/, "") || "";
+  for (let i = childSpan(); i > n; i--) {
+    if (width(lines[i]) !== childWidth) continue;
+    const question = /^\s*[-*+]\s+❓\s*第\d+轮[：:]/.test(lines[i]);
+    const history = /^\s*[-*+]\s+💬\s*第\d+轮[：:]/.test(lines[i]);
+    const progress = /^\s*[-*+]\s+📋\s+/.test(lines[i]);
+    if (!compact?.text && ((!roundLog || mode !== "detailed") && question || !roundLog && history) || mode === "brief" && progress) {
+      lines.splice(i, 1);
+      if (i < linkAt) linkAt--;
+    }
+  }
+  if (mode !== "brief" && taskTodo && taskTodo.total > 0) {
+    const stepPart = taskTodo.cur ? ` \xB7 ${resultText(taskTodo.cur, 48)}` : taskTodo.done >= taskTodo.total ? " \xB7 \u5DF2\u5168\u90E8\u5B8C\u6210" : "";
+    const planLine = `${ind}- \u{1F4CB} \u6B65\u9AA4 ${taskTodo.done}/${taskTodo.total}${stepPart}`;
+    upsertChild(/^\s*[-*+]\s+📋\s+/, planLine, linkAt >= 0 ? linkAt : n);
+  }
+  let validRounds = Array.isArray(rounds) ? rounds.filter((r) => r && (r.ask || r.said || r.summary)) : [];
+  if (compact?.text) validRounds = [{ n: 0, summary: `\u7D2F\u8BA1\u603B\u7ED3\uFF1A${compact.text}` }, ...validRounds];
+  if (!roundLog || validRounds.length <= 1) {
+    const r0 = !roundLog ? validRounds.filter((r) => r.summary || r.said).slice(-1)[0] : validRounds[0];
+    const raw = r0 && r0.summary || said || r0 && r0.said || (mode === "brief" ? previousConclusion : "");
+    const msg = raw ? r0?.n === 0 ? resultText(raw, 170) : oneSentenceConclusion(raw, mode === "brief" ? 45 : 90) : "";
+    if (msg) {
+      upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- \u{1F4AC} ${msg}`, linkAt >= 0 ? linkAt : n);
+    }
+  } else {
+    const r1 = validRounds[0];
+    const raw1 = r1.summary || r1.said || said;
+    const msg1 = r1.n === 0 ? resultText(raw1, 170) : oneSentenceConclusion(raw1, mode === "brief" ? 45 : 90);
+    let anchor = linkAt >= 0 ? linkAt : n;
+    if (msg1) {
+      anchor = upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- \u{1F4AC} ${msg1}`, anchor);
+    }
+    for (let idx = 1; idx < validRounds.length; idx++) {
+      const r = validRounds[idx];
+      const rn = r.n || idx + 1;
+      if ((mode === "detailed" || compact?.text) && r.ask) {
+        const qText = resultText(r.ask, 72);
+        if (qText) anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+\u2753\\s*\u7B2C${rn}\u8F6E[\uFF1A:]`), `${ind}- \u2753 \u7B2C${rn}\u8F6E\uFF1A${qText}`, anchor);
+      }
+      const rConclusion = oneSentenceConclusion(r.summary || r.said || "", mode === "brief" ? 45 : 90);
+      if (rConclusion) {
+        anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+\u{1F4AC}\\s*\u7B2C${rn}\u8F6E[\uFF1A:]`), `${ind}- \u{1F4AC} \u7B2C${rn}\u8F6E\uFF1A${rConclusion}`, anchor);
+      }
+    }
+  }
+  if (Array.isArray(todos) && todos.length) {
+    const end = childSpan();
+    const existing = lines.slice(n + 1, end + 1).join("\n");
+    for (const t of todos) {
+      if (!t || existing.includes(t)) continue;
+      lines.splice(childSpan() + 1, 0, `${ind}- TODO ${AUTO_MARK}${t}`);
+    }
+  }
+  return { text: lines.join("\n"), line: n, blockId: activeBlockId };
+}
+function diffLines(before, after) {
+  const a = before.split("\n"), b = after.split("\n");
+  let s = 0;
+  while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let ea = a.length, eb = b.length;
+  while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) {
+    ea--;
+    eb--;
+  }
+  if (s === ea && s === eb) return null;
+  const mid = b.slice(s, eb);
+  if (ea < a.length) return { from: { line: s, ch: 0 }, to: { line: ea, ch: 0 }, text: mid.map((l) => l + "\n").join("") };
+  const end = { line: a.length - 1, ch: a[a.length - 1].length };
+  if (s > 0) return { from: { line: s - 1, ch: a[s - 1].length }, to: end, text: mid.map((l) => "\n" + l).join("") };
+  return { from: { line: 0, ch: 0 }, to: end, text: mid.join("\n") };
+}
+function taskItems(text) {
+  const out = [];
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    if (!LIST_RE.test(lines[i])) continue;
+    const k = kwLine(lines[i]);
+    if (!k) continue;
+    const st = DONE_KWS.includes(k.kw) ? "done" : /^(DOING|NOW|IN-PROGRESS)$/.test(k.kw) || AGENT_KW_RE.test(k.kw) ? "doing" : /^(PAUSED|SUSPENDED|WAITING|WAIT)$/.test(k.kw) ? "paused" : "open";
+    out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), blockId: k.blockId || "", indent: width(lines[i]), state: st });
+  }
+  return out;
+}
+function findTaskByBlockId(text, blockId) {
+  if (!blockId) return null;
+  return taskItems(text).find((i) => i.blockId === blockId) || null;
+}
+function findTask(text, key, blockId = "", sid = "") {
+  const items = taskItems(text);
+  if (blockId) {
+    const byId = items.find((i) => i.blockId === blockId);
+    if (byId) return byId;
+  }
+  if (sid && text.includes(sid)) {
+    const lines = text.split("\n");
+    const at = lines.findIndex((l) => {
+      const p = parseLink(l);
+      return p && p.sid === sid;
+    });
+    if (at >= 0) {
+      const owner = markOwner(lines, at);
+      const byOwner = items.find((i) => i.line === owner);
+      if (byOwner) return byOwner;
+    }
+  }
+  if (!key) return null;
+  const k = workKey(key);
+  const hits = items.filter((i) => i.key === k);
+  return hits.find((i) => i.state === "open") || hits.find((i) => i.state === "doing") || hits[0] || null;
+}
+function openTasks(text) {
+  return taskItems(text).filter((i) => i.state !== "done").map((i) => ({
+    label: i.body,
+    doing: i.state === "doing",
+    paused: i.kw === "PAUSED" || i.kw === "SUSPENDED",
+    line: i.line
+  }));
+}
+function linkMap(text) {
+  const out = /* @__PURE__ */ new Map();
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const l = parseLink(lines[i]);
+    if (!l) continue;
+    const n = markOwner(lines, i);
+    const k = n >= 0 ? kwLine(lines[n]) : null;
+    if (k) out.set(l.sid, workKey(k.body));
+  }
+  return out;
+}
+function parseKid(line) {
+  const m = KID_LINK_RE.exec(line);
+  return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2] } : null;
+}
+function kidUnder(lines, n) {
+  return childMark(lines, n, parseKid);
+}
+function kidIdent(line) {
+  const c = parseKid(line);
+  if (c) return { ...c, open: true };
+  const m = /^\s*[-*+]\s+⏱.*·\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`\s*$/.exec(line);
+  return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2], open: false } : null;
+}
+var kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(/^\s*(?:\d+[.)、]\s*)?(?:(?:TODO|DOING|LATER|NOW|WAITING|WAIT|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+)?(?:\d{1,2}[:：]\d{2}\s*)?/, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
+function kidMatch(body, desc) {
+  const a = kidNorm(body), d = kidNorm(desc);
+  if (a.length < 4 || d.length < 4) return false;
+  return a.startsWith(d) || d.startsWith(a) || a.length >= 8 && d.length >= 8 && a.slice(0, 8) === d.slice(0, 8);
+}
+var EMPTY_ITEM_RE = /^(\s*(?:[-*+]|\d+[.)]))\s*$/;
+var MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬|❓|📋)/;
+var STATE_KW = { wait: "TOREVIEW", quiet: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" };
+function kwForState(state) {
+  return { run: "DOING", running: "DOING", starting: "DOING", idle: "TOREVIEW", ...STATE_KW }[state] || "DOING";
+}
+function dropKind(lines, at, below = false) {
+  if (at < 0 || at >= lines.length) return null;
+  const raw = lines[at];
+  if (below) {
+    if (/^\s*(?:#|```|~~~|\|)/.test(raw)) return null;
+    const n = MARKER_RE.test(raw) ? markOwner(lines, at) : at;
+    if (n < 0) return null;
+    if (!raw.trim()) return { kind: "new", line: at };
+    return { kind: "after", line: n };
+  }
+  if (MARKER_RE.test(raw)) {
+    const n = markOwner(lines, at);
+    return n >= 0 ? { kind: "bind", line: n } : null;
+  }
+  if (EMPTY_ITEM_RE.test(raw)) return { kind: "fill", line: at };
+  if (!raw.trim()) return { kind: "new", line: at };
+  if (LIST_RE.test(raw)) return kwLine(raw) ? { kind: "bind", line: at } : null;
+  if (/^\s*(?:#|```|~~~|\||>|---)/.test(raw)) return null;
+  return { kind: "below", line: at };
+}
+function childIndent(lines, n) {
+  const base = width(lines[n]);
+  for (let i = n + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) > base) return (/^\s*/.exec(lines[i]) || [""])[0];
+    break;
+  }
+  const lead = (/^\s*/.exec(lines[n]) || [""])[0];
+  return lead + (lead && !lead.includes("	") ? "    " : "	");
+}
+function bindInto(text, at, s, { below = false } = {}) {
+  let lines = text.split("\n");
+  const target = dropKind(lines, at, below);
+  if (!target) return { text, error: "\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A" };
+  let n = target.line;
+  if (target.kind === "bind") {
+    const had = linkUnder(lines, n);
+    if (had && had.sid === s.sid) return { text, error: "\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u8FD9\u4E2A\u4F1A\u8BDD\u4E86" };
+    if (had) return { text, error: "\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u53E6\u4E00\u4E2A\u4F1A\u8BDD\uFF1B\u5148\u5220\u6389\u5B83\u4E0B\u9762\u7684 \u{1F517} \u884C" };
+  }
+  const want = kwForState(s.state);
+  const since = s.since || "";
+  const title = resultText(s.title || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD", 60);
+  const rescuedChildren = [];
+  let rescuedBlockId = s.blockId || "";
+  const anchor = lines[n];
+  const drop = (i) => {
+    lines.splice(i, 1);
+    if (i < n) n--;
+  };
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const k = parseLink(lines[i]);
+    if (k && k.sid === s.sid) drop(i);
+  }
+  if (s.dropKey || s.blockId) {
+    const items = taskItems(lines.join("\n"));
+    const hit = items.find((t) => t.line !== n && t.body.startsWith(AUTO_MARK.trim()) && (s.blockId && t.blockId === s.blockId || s.dropKey && t.key === workKey(s.dropKey)));
+    if (hit) {
+      const base = width(lines[hit.line]);
+      let end = hit.line, own = true;
+      for (let i = hit.line + 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        if (width(lines[i]) <= base) break;
+        if (!MARKER_RE.test(lines[i]) && !/^\s*[-*+]\s+TODO\s+🤖/.test(lines[i])) own = false;
+        end = i;
+      }
+      if (own) {
+        if (hit.blockId && !rescuedBlockId) rescuedBlockId = hit.blockId;
+        for (let i = hit.line + 1; i <= end; i++) {
+          const cl = lines[i].replace(/^\s+/, "");
+          if (cl && !/^[-*+]\s+(?:🔗|⏱)/.test(cl)) rescuedChildren.push(cl);
+        }
+        for (let i = end; i >= hit.line; i--) drop(i);
+      }
+    }
+  }
+  if (lines[n] !== anchor) {
+    const back = lines.indexOf(anchor);
+    if (back < 0) return { text, error: "\u7B14\u8BB0\u5728\u62D6\u7684\u65F6\u5019\u53D8\u4E86\uFF0C\u518D\u62D6\u4E00\u6B21" };
+    n = back;
+  }
+  const maybeAddBlockId = (lineStr) => {
+    const existing = blockIdOf(lineStr);
+    if (existing) return { line: lineStr, blockId: existing };
+    if (s.ensureBlockId || rescuedBlockId) {
+      return ensureBlockId(lineStr, rescuedBlockId || makeBlockId(s.sid));
+    }
+    return { line: lineStr, blockId: "" };
+  };
+  if (target.kind === "bind") {
+    const p = splitTask(lines[n]);
+    if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
+      lines[n] = `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
+    }
+    const eb2 = maybeAddBlockId(lines[n]);
+    lines[n] = eb2.line;
+    const ind2 = childIndent(lines, n);
+    const toInsert = [linkLine(ind2, s.agent, title, s.sid)];
+    const existingChildText = lines.slice(n + 1, n + 15).join("\n");
+    for (const rc of rescuedChildren) {
+      if (!existingChildText.includes(rc)) toInsert.push(`${ind2}${rc}`);
+    }
+    lines.splice(n + 1, 0, ...toInsert);
+    return { text: lines.join("\n"), line: n, kind: "bind", blockId: eb2.blockId };
+  }
+  let prefix;
+  if (target.kind === "after") {
+    const base = width(lines[n]);
+    let end = n;
+    for (let i = n + 1; i < lines.length; i++) {
+      if (!lines[i].trim()) {
+        const j = lines.findIndex((l, k) => k > i && l.trim());
+        if (j > 0 && width(lines[j]) > base) continue;
+        break;
+      }
+      if (width(lines[i]) <= base) break;
+      end = i;
+    }
+    const pm = /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[n]);
+    prefix = !pm ? "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
+    const eb2 = maybeAddBlockId(`${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " "));
+    const item2 = eb2.line;
+    const lead2 = (/^\s*/.exec(item2) || [""])[0];
+    const ind2 = lead2 + (lead2 && !lead2.includes("	") ? "    " : "	");
+    lines.splice(end + 1, 0, item2, linkLine(ind2, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind2}${rc}`));
+    return { text: lines.join("\n"), line: end + 1, kind: "after", blockId: eb2.blockId };
+  }
+  if (target.kind === "fill") prefix = EMPTY_ITEM_RE.exec(lines[n])[1] + " ";
+  else {
+    let prev = -1;
+    for (let i = target.kind === "below" ? n : n - 1; i >= 0; i--) {
+      if (lines[i].trim()) {
+        prev = i;
+        break;
+      }
+    }
+    const pm = prev >= 0 ? /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[prev]) : null;
+    prefix = !pm || MARKER_RE.test(lines[prev]) ? pm ? (/^\s*/.exec(lines[markOwner(lines, prev)] || "") || [""])[0] + "- " : "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
+  }
+  const eb = maybeAddBlockId(`${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " "));
+  const item = eb.line;
+  if (target.kind === "below") {
+    lines.splice(n + 1, 0, item);
+    n = n + 1;
+  } else if (target.kind === "new" && lines[n + 1] && lines[n + 1].trim() && !LIST_RE.test(lines[n + 1])) lines.splice(n, 0, item);
+  else lines[n] = item;
+  const lead = (/^\s*/.exec(item) || [""])[0];
+  const ind = lead + (lead && !lead.includes("	") ? "    " : "	");
+  lines.splice(n + 1, 0, linkLine(ind, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind}${rc}`));
+  return { text: lines.join("\n"), line: n, kind: target.kind, blockId: eb.blockId };
+}
+function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
+  const lines = text.split("\n");
+  if (srcLine === dstLine || srcLine < 0 || dstLine < 0 || srcLine >= lines.length || dstLine >= lines.length) {
+    return { text, error: "\u8BF7\u9009\u62E9\u4E24\u6761\u4E0D\u540C\u7684\u4EFB\u52A1\u884C" };
+  }
+  if (MARKER_RE.test(lines[srcLine])) srcLine = markOwner(lines, srcLine);
+  if (MARKER_RE.test(lines[dstLine])) dstLine = markOwner(lines, dstLine);
+  if (srcLine < 0 || dstLine < 0 || srcLine === dstLine) return { text, error: "\u8FD9\u4E24\u884C\u672C\u8EAB\u5DF2\u7ECF\u5728\u540C\u4E00\u4E2A\u4EFB\u52A1\u6761\u76EE\u4E0B\u4E86" };
+  const ps = splitTask(lines[srcLine]);
+  const pd = splitTask(lines[dstLine]);
+  const ks = kwLine(lines[srcLine]);
+  const kd = kwLine(lines[dstLine]);
+  if (!ps || !pd || !ks || !kd) return { text, error: "\u53EA\u80FD\u628A\u4EFB\u52A1\u5217\u8868\u9879\u5408\u5E76\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u5217\u8868\u9879\u4E0A" };
+  const blockSpan = (start) => {
+    const base = width(lines[start]);
+    let end = start;
+    for (let i = start + 1; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      if (width(lines[i]) <= base) break;
+      end = i;
+    }
+    return [start, end];
+  };
+  const [s0, s1] = blockSpan(srcLine);
+  const [d0, d1] = blockSpan(dstLine);
+  if (s0 >= d0 && s0 <= d1 || d0 >= s0 && d0 <= s1) {
+    return { text, error: "\u7236\u5B50\u4EFB\u52A1\u4E0D\u80FD\u76F4\u63A5\u4E92\u76F8\u5408\u5E76" };
+  }
+  const srcIsAuto = ks.body.startsWith(AUTO_MARK.trim());
+  const dstIsAuto = kd.body.startsWith(AUTO_MARK.trim());
+  const keptBody = dstIsAuto && !srcIsAuto ? ks.body : kd.body;
+  const isLiveKw = (kw) => kw === "DOING" || AGENT_KW_RE.test(kw || "");
+  const mergedKw = isLiveKw(ps.kw) ? ps.kw : isLiveKw(pd.kw) ? pd.kw : pd.kw || ps.kw || "DOING";
+  const mergedSince = ps.since && pd.since ? ps.since < pd.since ? ps.since : pd.since : pd.since || ps.since || "";
+  const blockId = pd.blockId || ps.blockId || preferId || makeBlockId(keptBody);
+  const headerRaw = `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
+  const { line: mergedHeader } = ensureBlockId(headerRaw, blockId);
+  const dstBase = width(lines[dstLine]);
+  const srcBase = width(lines[srcLine]);
+  const ind = childIndent(lines, dstLine);
+  const rebaseChild = (line, base) => {
+    const w = width(line);
+    const extra = Math.max(0, Math.floor((w - base - 1) / 4));
+    return `${ind}${"	".repeat(extra)}${line.trim()}`;
+  };
+  const dstKids = lines.slice(d0 + 1, d1 + 1).filter((l) => l.trim()).map((l) => rebaseChild(l, dstBase));
+  const srcKids = lines.slice(s0 + 1, s1 + 1).filter((l) => l.trim()).map((l) => rebaseChild(l, srcBase));
+  const mergedKids = [...dstKids];
+  const seenLinks = new Set(dstKids.map((l) => parseLink(l)?.sid).filter(Boolean));
+  const seenText = new Set(dstKids.map((l) => l.trim()));
+  for (const k of srcKids) {
+    const lk = parseLink(k);
+    if (lk && lk.sid) {
+      if (seenLinks.has(lk.sid)) continue;
+      seenLinks.add(lk.sid);
+      mergedKids.unshift(k);
+      continue;
+    }
+    if (CLOCK_RE.test(k)) {
+      const idx = mergedKids.findIndex((x) => CLOCK_RE.test(x));
+      if (idx >= 0) {
+        if (k.length > mergedKids[idx].length) mergedKids[idx] = k;
+        continue;
+      }
+    }
+    if (!seenText.has(k.trim())) {
+      seenText.add(k.trim());
+      mergedKids.push(k);
+    }
+  }
+  const replacement = [mergedHeader, ...mergedKids];
+  let newDstLine = d0;
+  if (s0 < d0) {
+    lines.splice(d0, d1 - d0 + 1, ...replacement);
+    lines.splice(s0, s1 - s0 + 1);
+    newDstLine = d0 - (s1 - s0 + 1);
+  } else {
+    lines.splice(s0, s1 - s0 + 1);
+    lines.splice(d0, d1 - d0 + 1, ...replacement);
+    newDstLine = d0;
+  }
+  return {
+    text: lines.join("\n"),
+    line: newDstLine,
+    blockId,
+    key: workKey(keptBody),
+    mergedBody: keptBody,
+    srcKey: workKey(ks.body),
+    dstKey: workKey(kd.body),
+    srcBlockId: ps.blockId || "",
+    dstBlockId: pd.blockId || ""
+  };
+}
+function runningTaskLines(text, sessionByParent, jobs = []) {
+  const lines = text.split("\n");
+  return taskItems(text).filter((task) => {
+    if (task.state === "done") return false;
+    if (sessionByParent.get(task.line)?.state === "run") return true;
+    return jobs.some((job) => ["starting", "running"].includes(job.state) && (task.blockId && job.blockId === task.blockId || job.lineText === lines[task.line]));
+  });
+}
+
+// src/journal-archive.js
+function archivePath(value) {
+  const path7 = String(value || "").trim().replace(/\\/g, "/");
+  if (!path7 || path7.startsWith("/") || /^[a-z]:/i.test(path7) || path7.split("/").some((x) => !x || x === "." || x === "..") || !path7.endsWith(".md")) throw new Error("\u5F52\u6863\u4F4D\u7F6E\u5FC5\u987B\u662F\u5E93\u5185\u7684 .md \u6587\u4EF6\u8DEF\u5F84");
+  return path7;
+}
+function appendArchive(text, date, blocks, turns = /* @__PURE__ */ new Map()) {
+  const lines = text.split("\n");
+  const dateStart = lines.indexOf(`## ${date}`);
+  let dateEnd = dateStart + 1;
+  while (dateEnd < lines.length && !/^#{1,2}\s/.test(lines[dateEnd])) dateEnd++;
+  const dateText = dateStart < 0 ? "" : lines.slice(dateStart, dateEnd).join("\n") + "\n";
+  const pending = blocks.filter((block) => {
+    const id = blockIdOf(block.split("\n")[0]);
+    const task = id && findTaskByBlockId(text, id);
+    if (!task) return !dateText.includes(block + "\n");
+    let end2 = task.line + 1;
+    while (end2 < lines.length && (!lines[end2].trim() || width(lines[end2]) > task.indent)) end2++;
+    if (lines.slice(task.line, end2).join("\n").trimEnd() !== block.trimEnd()) throw new Error("\u5F52\u6863\u4E2D\u5DF2\u6709\u540C\u7F16\u53F7\u4F46\u5185\u5BB9\u4E0D\u540C\u7684\u4EFB\u52A1\uFF0C\u5DF2\u4FDD\u7559\u539F\u65E5\u8BB0\uFF0C\u8BF7\u5148\u6838\u5BF9");
+    return false;
+  });
+  if (!pending.length) return text;
+  const heading = `## ${date}`;
+  let at = lines.indexOf(heading);
+  if (at < 0) {
+    while (lines.length && !lines.at(-1).trim()) lines.pop();
+    lines.push("", heading);
+    at = lines.length;
+  } else {
+    at++;
+    while (at < lines.length && !/^#{1,2}\s/.test(lines[at])) at++;
+  }
+  while (at > 0 && !lines[at - 1].trim()) lines.splice(--at, 1);
+  lines.splice(at, 0, "", ...pending.join("\n").split("\n"), "");
+  const start = lines.indexOf(heading) + 1;
+  let end = start;
+  while (end < lines.length && !/^#{1,2}\s/.test(lines[end])) end++;
+  const section = lines.slice(start, end), selected = [], chunks = [];
+  let fence = "";
+  for (let n = 0; n < section.length; n++) {
+    const marker = /^\s*(`{3,}|~{3,})/.exec(section[n]);
+    if (marker) {
+      if (!fence) fence = marker[1][0];
+      else if (marker[1][0] === fence) fence = "";
+      continue;
+    }
+    if (fence || !/^(?:[-*+]|\d+[.)])\s/.test(section[n])) continue;
+    const task = kwLine(section[n]);
+    if (!task || !DONE_KWS.includes(task.kw)) continue;
+    let last = n + 1;
+    while (last < section.length && (!section[last].trim() || width(section[last]) > 0)) last++;
+    const block = section.slice(n, last).join("\n").trimEnd();
+    const rounds = Math.max(0, ...[...block.matchAll(/(?:💬|❓)\s*第(\d+)轮[：:]/g)].map((m) => +m[1]));
+    chunks.push({ text: block, turns: Math.max(turns.get(task.blockId) || 0, rounds) });
+    selected.push([n, last]);
+    n = last - 1;
+  }
+  chunks.sort((a, b) => b.turns - a.turns);
+  const notes = section.filter((_, n) => !selected.some(([a, b]) => n >= a && n < b));
+  while (notes.length && !notes.at(-1).trim()) notes.pop();
+  lines.splice(start, end - start, ...notes, "", ...chunks.map((c) => c.text).join("\n").split("\n"), "");
+  return lines.join("\n").replace(/\n*$/, "\n");
+}
+async function archiveCompletedJournal(plugin, file, base, result) {
+  const path7 = archivePath(plugin.settings.doneArchivePath);
+  if (path7 === file.path) throw new Error("\u5F52\u6863\u6587\u4EF6\u4E0D\u80FD\u4E0E\u5F53\u524D\u65E5\u8BB0\u76F8\u540C");
+  const match = /^(\d{4})[-_](\d{2})[-_](\d{2})/.exec(file.basename);
+  const date = match ? match.slice(1).join("-") : file.basename;
+  let target = plugin.app.vault.getAbstractFileByPath(path7);
+  const before = target ? await plugin.readNote(path7) : "# \u5DF2\u5B8C\u6210\u7684 AI \u4EFB\u52A1\n";
+  const turns = new Map(Object.entries(plugin.settings.archiveTaskTurns || {}));
+  for (const entry of result.entries || []) {
+    const id = blockIdOf(entry.text.split("\n")[0]);
+    if (id) turns.set(id, entry.turns);
+  }
+  const after = appendArchive(before, date, result.blocks, turns);
+  if (target) {
+    if (after !== before && !await plugin.autoLog.write(target, before, after)) throw new Error("\u5F52\u6863\u6587\u4EF6\u521A\u6709\u53D8\u5316\uFF0C\u8BF7\u91CD\u8BD5\uFF1B\u539F\u65E5\u8BB0\u4FDD\u7559");
+  } else {
+    const parts = path7.split("/");
+    parts.pop();
+    let folder = "";
+    for (const part of parts) {
+      folder = folder ? folder + "/" + part : part;
+      if (!plugin.app.vault.getAbstractFileByPath(folder)) await plugin.app.vault.createFolder(folder);
+    }
+    target = await plugin.app.vault.create(path7, after);
+  }
+  if (!await plugin.autoLog.write(file, base, result.remaining)) throw new Error("\u65E5\u8BB0\u521A\u6709\u53D8\u5316\uFF0C\u5F52\u6863\u526F\u672C\u5DF2\u4FDD\u5B58\uFF0C\u539F\u65E5\u8BB0\u4FDD\u7559\uFF1B\u91CD\u8BD5\u4E0D\u4F1A\u91CD\u590D\u5F52\u6863");
+  plugin.settings.archiveTaskTurns = Object.fromEntries(turns);
+  await plugin.saveSettings?.();
+  return target;
+}
+
+// src/organize-journal.js
+function organizeAIJournal(text, mode, { tracked = /* @__PURE__ */ new Map(), archived = /* @__PURE__ */ new Set(), turns = /* @__PURE__ */ new Map() } = {}) {
+  const lines = text.split("\n"), code = /* @__PURE__ */ new Set();
+  let fence = "", size = 0;
+  lines.forEach((line, n) => {
+    const m = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
+    if (fence || m) code.add(n);
+    if (m && !fence) {
+      fence = m[1][0];
+      size = m[1].length;
+    } else if (m && m[1][0] === fence && m[1].length >= size && !m[2].trim()) fence = "";
+  });
+  const moved = [], entries = [];
+  for (const task of taskItems(text)) {
+    if (code.has(task.line) || moved.some((b) => task.line < b.end)) continue;
+    let end = task.line + 1;
+    while (end < lines.length && (!lines[end].trim() || width(lines[end]) > task.indent)) end++;
+    const sids = new Set(tracked.get(task.blockId) || []);
+    for (let n = task.line + 1; n < end; n++) {
+      if (markOwner(lines, n) === task.line) {
+        const link = parseLink(lines[n]);
+        if (link) sids.add(link.sid);
+      }
+    }
+    if (!(sids.size || task.blockId?.startsWith("ad-") || tracked.has(task.blockId) || task.body.startsWith("\u{1F916}"))) continue;
+    const archivedDone = task.state !== "done" && sids.size > 0 && [...sids].every((s) => archived.has(s));
+    const done = task.state === "done" || archivedDone;
+    if (mode === "done" !== done) continue;
+    const chunk = lines.slice(task.line, end);
+    while (chunk.length && !chunk.at(-1).trim()) chunk.pop();
+    if (archivedDone && task.kw !== "DONE") {
+      const p = splitTask(chunk[0]);
+      chunk[0] = `${p.prefix}DONE ${p.since ? p.since + " " : ""}${p.rest}`;
+    }
+    const indent = /^\s*/.exec(chunk[0])[0];
+    const block = chunk.map((line) => line.startsWith(indent) ? line.slice(indent.length) : line).join("\n");
+    const round = Math.max(0, ...[...block.matchAll(/(?:💬|❓)\s*第(\d+)轮[：:]/g)].map((m) => +m[1]));
+    const count = Math.max(turns.get(task.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), round);
+    entries.push({ text: block, keyword: task.kw || "TODO", turns: count });
+    moved.push({ start: task.line, end });
+  }
+  if (!entries.length) return { text, remaining: text, blocks: [], count: 0 };
+  const order = ["DOING", "NOW", "IN-PROGRESS", "DELEGATED", "NEEDOK", "TOREVIEW", "PAUSED", "SUSPENDED", "WAITING", "WAIT", "QUEUED", "HITLIMIT", "ERRORED", "TODO", "LATER"];
+  const rank = (kw) => order.includes(kw) ? order.indexOf(kw) : order.length;
+  entries.sort((a, b) => (mode === "done" ? 0 : rank(a.keyword) - rank(b.keyword)) || b.turns - a.turns);
+  const blocks = entries.map((e) => e.text);
+  const rest = [], protectedLines = /* @__PURE__ */ new Set();
+  lines.forEach((line, n) => {
+    if (moved.some((b) => n >= b.start && n < b.end)) return;
+    if (code.has(n)) protectedLines.add(rest.length);
+    rest.push(line);
+  });
+  const remaining = rest.join("\n").replace(/\n*$/, "\n");
+  const heading = mode === "done" ? "## AI \xB7 \u5DF2\u5B8C\u6210" : "## AI \xB7 \u8FDB\u884C\u4E2D";
+  let at = rest.findIndex((line, n) => line === heading && !protectedLines.has(n));
+  if (at < 0) {
+    while (rest.length && !rest.at(-1).trim()) rest.pop();
+    rest.push("", heading, "");
+    at = rest.length;
+  } else {
+    at++;
+    while (at < rest.length && (protectedLines.has(at) || !/^#{1,2}\s/.test(rest[at]))) at++;
+  }
+  while (at > 0 && !rest[at - 1].trim()) {
+    rest.splice(--at, 1);
+  }
+  if (mode !== "done") {
+    const start = rest.indexOf(heading) + 1;
+    for (let n = at - 1; n >= start; n--) {
+      if (/^### [A-Z-]+$/.test(rest[n]) && order.includes(rest[n].slice(4)) && rest.slice(n + 1, at).every((line) => !line.trim() || /^### [A-Z-]+$/.test(line))) {
+        rest.splice(n, 1);
+        at--;
+      }
+    }
+  }
+  while (at > 0 && !rest[at - 1].trim()) rest.splice(--at, 1);
+  const body = [];
+  let previous = "";
+  for (const entry of entries) {
+    if (mode !== "done" && entry.keyword !== previous) {
+      body.push(`### ${entry.keyword}`, "");
+      previous = entry.keyword;
+    }
+    body.push(entry.text);
+  }
+  rest.splice(at, 0, "", ...body.join("\n").split("\n"), "");
+  const next = rest.join("\n").replace(/\n*$/, "\n");
+  return { text: next, remaining, blocks, entries, count: blocks.length };
+}
+
+// src/attention.js
+function attentionReason(session) {
+  if (session.state === "error" && /^首轮需要审批或交互/.test(session.error || "")) return "\u9700\u8981\u6388\u6743";
+  if (session.state === "needs-approval") return "\u9700\u8981\u6388\u6743";
+  if (!["wait", "done"].includes(session.state)) return "";
+  const text = (session.lastText || session.result || "").trim().split("\n").filter(Boolean).at(-1) || "";
+  return /^(?:请(?:你)?(?:确认|批准|授权|允许|选择)|需要你(?:确认|批准|授权|选择))[^。！\n]*[？?]?$/.test(text) || /^(?:Can|Could|Would) you (?:please )?(?:confirm|approve|allow|choose)\b[^.!\n]*\?$/i.test(text) ? "\u9700\u8981\u786E\u8BA4" : "";
+}
+var AttentionTracker = class {
+  constructor() {
+    this.pending = /* @__PURE__ */ new Map();
+  }
+  update(sessions) {
+    const next = /* @__PURE__ */ new Map(), fresh = [];
+    for (const session of sessions) {
+      const key = `${session.agent}:${session.sid || session.sessionId || session.id}`;
+      if (next.has(key)) continue;
+      next.set(key, { session, reason: attentionReason(session) });
+    }
+    for (const [key, value] of next) {
+      if (!value.reason) {
+        next.delete(key);
+        continue;
+      }
+      if (this.pending.get(key)?.reason !== value.reason) fresh.push({ key, ...value });
+    }
+    this.pending = next;
+    return fresh;
+  }
+};
+
+// src/workflow.js
+var activeJob = (job) => ["starting", "running", "needs-approval"].includes(job?.state);
+function destinations(agent) {
+  const modes = {
+    obsidian: { id: "obsidian", label: "\u5728 Obsidian \u4E2D\u804A", hint: "\u53D1\u9001\u540E\u6253\u5F00\u5BF9\u8BDD\uFF0C\u5728\u539F\u4F1A\u8BDD\u4E2D\u7EE7\u7EED\u8FFD\u95EE\u3002" },
+    desktop: { id: "desktop", label: "\u5728\u684C\u9762\u5BA2\u6237\u7AEF\u4E2D\u804A", hint: agent === "workbuddy" ? "\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u7B49\u5F85\u4F60\u7C98\u8D34\u53D1\u9001\u3002" : agent === "dsh" ? "\u5EFA\u7ACB\u4F1A\u8BDD\u540E\u6253\u5F00 Harness\uFF1B\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u5728\u4FA7\u680F\u9009\u62E9\u540C\u4E00\u4F1A\u8BDD\u7EE7\u7EED\u3002" : "\u5148\u6267\u884C\u9996\u8F6E\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD\uFF1B\u9996\u8F6E\u671F\u95F4\u907F\u514D\u4E24\u8FB9\u540C\u65F6\u53D1\u9001\u3002" },
+    background: { id: "background", label: "\u540E\u53F0\u6267\u884C", hint: "\u7559\u5728\u5F53\u524D\u7B14\u8BB0\uFF0C\u5B8C\u6210\u6216\u9700\u8981\u5904\u7406\u65F6\u63D0\u9192\u3002" },
+    terminal: { id: "terminal", label: "\u5728\u7EC8\u7AEF\u4E2D\u804A", hint: "\u6253\u5F00\u4EA4\u4E92\u7EC8\u7AEF\uFF0C\u540E\u7EED\u5728\u7EC8\u7AEF\u7EE7\u7EED\u3002" }
+  };
+  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["obsidian", "desktop", "background"], antigravity: ["obsidian", "background"], workbuddy: ["desktop"] };
+  return (ids[agent] || []).map((id) => modes[id]);
+}
+function defaultDestination(plugin, agent) {
+  if (["dsh", "antigravity"].includes(agent)) return "obsidian";
+  if (agent === "codex") return plugin.settings.delegate.codex?.transport === "terminal" ? "terminal" : "desktop";
+  if (agent === "claude") return plugin.settings.delegate.claude?.openDesktop ? "desktop" : "background";
+  return "desktop";
+}
+function canOpenClient(session) {
+  return !(session.agent === "antigravity" && session.transport === "acp");
+}
+function executionStatus(job) {
+  if (!job) return "";
+  if (job.handoff && !job.sessionId) return job.cli ? "\u7B49\u5F85\u7EC8\u7AEF\u4F1A\u8BDD\u5EFA\u7ACB" : "\u7B49\u5F85\u4F60\u5728\u5BA2\u6237\u7AEF\u7C98\u8D34\u53D1\u9001";
+  if (job.state === "starting") return "\u6B63\u5728\u5EFA\u7ACB\u4F1A\u8BDD";
+  if (job.state === "needs-approval") return "\u9700\u8981\u6388\u6743";
+  if (job.state === "running") return job.destination === "desktop" && ["claude", "codex"].includes(job.agent) ? "\u9996\u8F6E\u6267\u884C\u4E2D\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762" : "\u6B63\u5728\u6267\u884C";
+  if (job.state === "done") return "\u672C\u8F6E\u7ED3\u675F";
+  return job.state === "cancelled" ? "\u5DF2\u505C\u6B62" : "";
+}
+function workspaceLabel(cwd) {
+  const name = String(cwd || "").replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "\u5DE5\u4F5C\u533A";
+  return /[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}/i.test(name) ? "\u4F1A\u8BDD\u5DE5\u4F5C\u533A" : name;
+}
+
+// src/main.js
+var import_path6 = __toESM(require("path"), 1);
+var import_child_process7 = require("child_process");
+var import_obsidian10 = require("obsidian");
+
 // src/readers.js
 var import_fs = __toESM(require("fs"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_os = __toESM(require("os"), 1);
 var import_child_process = require("child_process");
 
-// ../../../../../../claude/agent-deck/node_modules/fzstd/esm/index.mjs
+// node_modules/fzstd/esm/index.mjs
 var ab = ArrayBuffer;
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -2827,650 +3706,35 @@ var import_path2 = __toESM(require("path"), 1);
 var import_os2 = __toESM(require("os"), 1);
 var import_child_process3 = require("child_process");
 
-// src/journal.js
-var LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
-var STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
-var CHECKBOX_RE = /^\[([ xX\/\-])\]\s*/;
-var TASK_KWS = "TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED";
-var KEYWORD_RE = new RegExp(`^(${TASK_KWS})\\s*`);
-var KW_WORD_RE = new RegExp(`^(${TASK_KWS})(?=\\s|$)\\s*`);
-var AGENT_KW_RE = /^(TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)$/;
-var OPEN_KWS = ["TODO", "LATER", "NOW", "WAITING", "WAIT", "TODOFORAI", "TODO4AI", "TODO2AI", "TODOTOAI"];
-var DONE_KWS = ["DONE", "CANCELED", "CANCELLED", "FAILED"];
-var LINK_RE = /^\s*[-*+]\s+🔗/;
-var RESULT_RE = /^\s*[-*+]\s+💬/;
-var CLOCK_RE = /^\s*[-*+]\s+⏱/;
-var KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
-var AUTO_MARK = "\u{1F916} ";
-var BLOCK_ID_RE = /\s+\^([A-Za-z0-9-]+)\s*$/;
-function blockIdOf(line) {
-  const m = BLOCK_ID_RE.exec(String(line || ""));
-  return m ? m[1] : "";
-}
-function stripBlockId(s) {
-  return String(s || "").replace(BLOCK_ID_RE, "").trimEnd();
-}
-function makeBlockId(seed = "") {
-  if (seed) {
-    const clean = String(seed).replace(/^session-/, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
-    if (clean.length >= 6) return "ad-" + clean.slice(0, 6);
-  }
-  let h = "";
-  const chars = "0123456789abcdefghijklmnopqrstuvwxyz";
-  for (let i = 0; i < 6; i++) h += chars[Math.floor(Math.random() * 36)];
-  return "ad-" + h;
-}
-function ensureBlockId(line, preferId = "") {
-  const raw = String(line || "").trimEnd();
-  const existing = blockIdOf(raw);
-  if (existing) return { line: raw, blockId: existing };
-  const id = preferId || makeBlockId();
-  return { line: `${raw} ^${id}`, blockId: id };
-}
-var DAY_OFFSET = 0;
-var setDayOffset = (min) => {
-  DAY_OFFSET = Number(min) || 0;
-};
-var dayOffset = () => DAY_OFFSET;
-var clock = (t) => {
-  const m = Math.round(t + DAY_OFFSET);
-  return `${pad(Math.floor((m % 1440 + 1440) % 1440 / 60))}:${pad((m % 60 + 60) % 60)}`;
-};
-function clockLine(indent, segs, who, tok = 0, ellipsis = false) {
-  const shown = [];
-  for (const [a, b] of segs) {
-    const prev = shown[shown.length - 1];
-    if (prev && a - prev[1] <= 10) prev[1] = Math.max(prev[1], b);
-    else shown.push([a, b]);
-  }
-  const total = Math.round(segs.reduce((n, [a, b]) => n + b - a, 0));
-  return `${indent}- \u23F1 ${ellipsis && shown.length > 8 ? "\u2026 " : ""}${shown.slice(-8).map(([a, b]) => `${clock(a)}\u2013${clock(b)}`).join("\u3001")} \xB7 \u5171 ${durTag(total)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""}${who ? " \xB7 " + who : ""}`;
-}
-var durTag = (m) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? m % 60 + "m" : ""}` : `${Math.max(1, Math.round(m))}m`;
-var width = (line) => {
-  let w = 0;
-  for (const c of (/^\s*/.exec(line) || [""])[0]) w += c === "	" ? 4 : 1;
-  return w;
-};
-var workKey = (label) => stripBlockId(String(label || "")).replace(/\s*←\s*\S+\s*$/, "").trim();
-function splitTask(raw) {
-  const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(.*)$/.exec(raw);
-  if (!m) return null;
-  let [, prefix, rest] = m;
-  const st = STAMP_RE.exec(rest);
-  if (st) {
-    prefix += st[0];
-    rest = rest.slice(st[0].length);
-  }
-  const cb = CHECKBOX_RE.exec(rest);
-  if (cb) rest = rest.slice(cb[0].length);
-  const kw = KEYWORD_RE.exec(rest);
-  if (kw) rest = rest.slice(kw[0].length);
-  const pr = kw && /^\[#[ABC]\]\s*/.exec(rest);
-  if (pr) rest = rest.slice(pr[0].length);
-  let since = null;
-  const t = kw && /^(\d{1,2})[:：](\d{2})(?![\d:：]|\s*[-–~～到至])\s*/.exec(rest);
-  if (t) {
-    since = `${pad(+t[1])}:${t[2]}`;
-    rest = rest.slice(t[0].length);
-  }
-  if (pr) rest = `${pr[0].trim()} ${rest}`;
-  const blockId = blockIdOf(rest);
-  const body = stripBlockId(rest);
-  return { prefix, rest, body, blockId, since, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
-}
-function kwLine(raw) {
-  let s = raw.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s+/, "").replace(STAMP_RE, "");
-  let kw = "";
-  const cb = CHECKBOX_RE.exec(s);
-  if (cb) {
-    kw = cb[1] === " " ? "TODO" : cb[1] === "/" ? "DOING" : cb[1] === "-" ? "CANCELLED" : "DONE";
-    s = s.slice(cb[0].length);
-  }
-  const m = KW_WORD_RE.exec(s);
-  if (m) {
-    kw = m[1];
-    s = s.slice(m[0].length);
-  }
-  const blockId = blockIdOf(s);
-  s = stripBlockId(s).replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
-  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || s.startsWith("\u{1F4AC}") || s.startsWith("\u2753") || s.startsWith("\u{1F4CB}") || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
-  return { kw, body: s, blockId };
-}
-function parseLink(line) {
-  const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
-  if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
-  const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
-  if (d) return d[2] ? { agent: "codex", sid: d[3], title: d[1] || "" } : { agent: "workbuddy", sid: decodeURIComponent(d[6]), title: d[4] || "" };
-  const b = /^\s*[-*+]\s+🔗.*`((?:session-)?[0-9a-f-]{36})`/.exec(line);
-  if (!b) return null;
-  const agent = /DeepSeek Harness|dsh:\/\//.test(line) ? "dsh" : /Antigravity|antigravity:\/\//i.test(line) ? "antigravity" : /Codex[：:]/.test(line) ? "codex" : /WorkBuddy[：:]/.test(line) ? "workbuddy" : "claude";
-  return { agent, sid: b[1], title: "" };
-}
-function linkLine(indent, agent, title, sid) {
-  const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
-  if (agent === "claude") return `${indent}- \u{1F517} [Claude\uFF1A${safe}](claude://resume?session=${sid})`;
-  if (agent === "dsh") return `${indent}- \u{1F517} [DeepSeek Harness\uFF1A${safe}](dsh://open) \`${sid}\``;
-  if (agent === "antigravity") return `${indent}- \u{1F517} [Antigravity\uFF1A${safe}](antigravity://open) \`${sid}\``;
-  if (agent === "codex") return `${indent}- \u{1F517} [Codex\uFF1A${safe}](codex://threads/${sid})`;
-  if (agent === "workbuddy") return `${indent}- \u{1F517} [WorkBuddy\uFF1A${safe}](workbuddy://chat/${encodeURIComponent(sid)})`;
-  return `${indent}- \u{1F517} ${agent}\uFF1A${safe} \`${sid}\``;
-}
-function markOwner(lines, i) {
-  const ind = width(lines[i]);
-  for (let j = i - 1; j >= 0; j--) if (lines[j].trim() && LIST_RE.test(lines[j]) && width(lines[j]) < ind) return j;
-  return -1;
-}
-function childMark(lines, n, pick) {
-  const base = width(lines[n]);
-  for (let i = n + 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    if (width(lines[i]) <= base) break;
-    const l = pick(lines[i]);
-    if (l) return { line: i, ...l };
-  }
-  return null;
-}
-var linkUnder = (lines, n) => childMark(lines, n, parseLink);
-function resultText(raw, max = 200) {
-  let t = String(raw || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/^\s*\|?[\s:|-]{3,}\|?\s*$/gm, " ").replace(/\d{12,}/g, "\u2026").replace(/\s+/g, " ").trim();
-  const cap = Math.max(40, +max || 200);
-  if ([...t].length > cap) {
-    const cut = [...t].slice(0, cap).join("");
-    const stop = Math.max(...["\u3002", "\uFF01", "\uFF1F", "\uFF1B", ". ", "! ", "? "].map((c) => cut.lastIndexOf(c)));
-    t = (stop > cap * 0.5 ? cut.slice(0, stop + 1) : cut).trim() + "\u2026";
-  }
-  return t.replace(/\[\[/g, "\\[\\[").replace(/(^|[^\w&\\])#(?=[^\s#])/g, "$1\\#").replace(/==/g, "\\=\\=").replace(/%%/g, "\\%\\%").replace(/\$/g, "\\$").replace(/</g, "\\<").replace(/\s\^(?=[A-Za-z0-9-]+$)/, " \\^");
-}
-function oneSentenceConclusion(raw, max = 90) {
-  const cleaned = String(raw || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s*\|.*\|\s*$/gm, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\d{12,}/g, "\u2026").trim();
-  if (!cleaned) return "";
-  const lines = cleaned.split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
-  let pick = lines.find((l) => /^(?:结论|总结|核心结论|一句话总结|已完成|已修复|已更新|已实现|原因|问题在于|搞定|改好)[：:，,\s]/.test(l)) || lines.find((l) => l.length >= 6 && !/^(?:好的|收到|明白|没问题|我来|让我|先看)[，。！!,.]*$/.test(l)) || lines[lines.length - 1] || cleaned;
-  const sentMatch = /^(.{6,}?[。！？；!?;])(?:\s|$)/.exec(pick);
-  if (sentMatch) pick = sentMatch[1];
-  return resultText(pick, max);
-}
-function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", granularity = "", compact = null } = {}) {
-  let lines = text.split("\n");
-  let n = -1, linkAt = -1;
-  if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
-  if (sid && text.includes(sid)) {
-    linkAt = lines.findIndex((l) => {
-      const k = parseLink(l);
-      return k && k.sid === sid;
-    });
-    if (n < 0 && linkAt >= 0) n = markOwner(lines, linkAt);
-  }
-  if (n < 0 && key) {
-    const found = findTask(text, key);
-    if (found) n = found.line;
-  }
-  if (n < 0) return { text, line: -1, blockId: blockId || "" };
-  let activeBlockId = blockIdOf(lines[n]);
-  if (ensureId || blockId) {
-    const eb = ensureBlockId(lines[n], activeBlockId || blockId || makeBlockId(sid));
-    lines[n] = eb.line;
-    activeBlockId = eb.blockId;
-  }
-  const mode = ["standard", "detailed"].includes(detail) ? detail : "brief";
-  const roundLog = granularity ? granularity === "round" : mode !== "brief";
-  const base = width(lines[n]);
-  const ind = linkAt >= 0 ? /^\s*/.exec(lines[linkAt])[0] : childIndent(lines, n);
-  const childWidth = width(ind);
-  const childSpan = () => {
-    let end = n;
-    for (let i = n + 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      if (width(lines[i]) <= base) break;
-      end = i;
-    }
-    return end;
-  };
-  const upsertChild = (prefixRe, newLine, afterAnchor = -1) => {
-    const end = childSpan();
-    for (let i = n + 1; i <= end; i++) {
-      if (width(lines[i]) === childWidth && prefixRe.test(lines[i])) {
-        if (lines[i] !== newLine) lines[i] = newLine;
-        return i;
-      }
-    }
-    const insertAt = afterAnchor >= n ? afterAnchor + 1 : end + 1;
-    lines.splice(insertAt, 0, newLine);
-    return insertAt;
-  };
-  const previousConclusion = lines.slice(n + 1, childSpan() + 1).filter((line) => width(line) === childWidth && /^\s*[-*+]\s+💬\s+/.test(line)).slice(-1)[0]?.replace(/^\s*[-*+]\s+💬\s+(?:第\d+轮[：:]\s*)?/, "") || "";
-  for (let i = childSpan(); i > n; i--) {
-    if (width(lines[i]) !== childWidth) continue;
-    const question = /^\s*[-*+]\s+❓\s*第\d+轮[：:]/.test(lines[i]);
-    const history = /^\s*[-*+]\s+💬\s*第\d+轮[：:]/.test(lines[i]);
-    const progress = /^\s*[-*+]\s+📋\s+/.test(lines[i]);
-    const roundNumber = /(?:💬|❓)\s*第(\d+)轮[：:]/.exec(lines[i]);
-    const merged = compact?.text && roundNumber && +roundNumber[1] <= compact.through;
-    if (merged || (!roundLog || mode !== "detailed") && question || !roundLog && history || mode === "brief" && progress) {
-      lines.splice(i, 1);
-      if (i < linkAt) linkAt--;
-    }
-  }
-  if (mode !== "brief" && taskTodo && taskTodo.total > 0) {
-    const stepPart = taskTodo.cur ? ` \xB7 ${resultText(taskTodo.cur, 48)}` : taskTodo.done >= taskTodo.total ? " \xB7 \u5DF2\u5168\u90E8\u5B8C\u6210" : "";
-    const planLine = `${ind}- \u{1F4CB} \u6B65\u9AA4 ${taskTodo.done}/${taskTodo.total}${stepPart}`;
-    upsertChild(/^\s*[-*+]\s+📋\s+/, planLine, linkAt >= 0 ? linkAt : n);
-  }
-  let validRounds = Array.isArray(rounds) ? rounds.filter((r) => r && (r.ask || r.said || r.summary)) : [];
-  if (compact?.text) validRounds = [{ n: 0, summary: `\u7D2F\u8BA1\u603B\u7ED3\uFF1A${compact.text}` }, ...validRounds.filter((r) => r.n > compact.through)];
-  if (!roundLog || validRounds.length <= 1) {
-    const r0 = !roundLog ? validRounds.filter((r) => r.summary || r.said).slice(-1)[0] : validRounds[0];
-    const raw = r0 && r0.summary || said || r0 && r0.said || (mode === "brief" ? previousConclusion : "");
-    const msg = raw ? r0?.n === 0 ? resultText(raw, 170) : oneSentenceConclusion(raw, mode === "brief" ? 45 : 90) : "";
-    if (msg) {
-      upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- \u{1F4AC} ${msg}`, linkAt >= 0 ? linkAt : n);
-    }
-  } else {
-    const r1 = validRounds[0];
-    const raw1 = r1.summary || r1.said || said;
-    const msg1 = r1.n === 0 ? resultText(raw1, 170) : oneSentenceConclusion(raw1, mode === "brief" ? 45 : 90);
-    let anchor = linkAt >= 0 ? linkAt : n;
-    if (msg1) {
-      anchor = upsertChild(/^\s*[-*+]\s+💬(?!\s*第\d+轮[：:])/, `${ind}- \u{1F4AC} ${msg1}`, anchor);
-    }
-    for (let idx = 1; idx < validRounds.length; idx++) {
-      const r = validRounds[idx];
-      const rn = r.n || idx + 1;
-      if (mode === "detailed" && r.ask) {
-        const qText = resultText(r.ask, 72);
-        if (qText) anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+\u2753\\s*\u7B2C${rn}\u8F6E[\uFF1A:]`), `${ind}- \u2753 \u7B2C${rn}\u8F6E\uFF1A${qText}`, anchor);
-      }
-      const rConclusion = oneSentenceConclusion(r.summary || r.said || "", mode === "brief" ? 45 : 90);
-      if (rConclusion) {
-        anchor = upsertChild(new RegExp(`^\\s*[-*+]\\s+\u{1F4AC}\\s*\u7B2C${rn}\u8F6E[\uFF1A:]`), `${ind}- \u{1F4AC} \u7B2C${rn}\u8F6E\uFF1A${rConclusion}`, anchor);
-      }
-    }
-  }
-  if (Array.isArray(todos) && todos.length) {
-    const end = childSpan();
-    const existing = lines.slice(n + 1, end + 1).join("\n");
-    for (const t of todos) {
-      if (!t || existing.includes(t)) continue;
-      lines.splice(childSpan() + 1, 0, `${ind}- TODO ${AUTO_MARK}${t}`);
-    }
-  }
-  return { text: lines.join("\n"), line: n, blockId: activeBlockId };
-}
-function diffLines(before, after) {
-  const a = before.split("\n"), b = after.split("\n");
-  let s = 0;
-  while (s < a.length && s < b.length && a[s] === b[s]) s++;
-  let ea = a.length, eb = b.length;
-  while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) {
-    ea--;
-    eb--;
-  }
-  if (s === ea && s === eb) return null;
-  const mid = b.slice(s, eb);
-  if (ea < a.length) return { from: { line: s, ch: 0 }, to: { line: ea, ch: 0 }, text: mid.map((l) => l + "\n").join("") };
-  const end = { line: a.length - 1, ch: a[a.length - 1].length };
-  if (s > 0) return { from: { line: s - 1, ch: a[s - 1].length }, to: end, text: mid.map((l) => "\n" + l).join("") };
-  return { from: { line: 0, ch: 0 }, to: end, text: mid.join("\n") };
-}
-function taskItems(text) {
-  const out = [];
-  const lines = text.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    if (!LIST_RE.test(lines[i])) continue;
-    const k = kwLine(lines[i]);
-    if (!k) continue;
-    const st = DONE_KWS.includes(k.kw) ? "done" : /^(DOING|NOW|IN-PROGRESS)$/.test(k.kw) || AGENT_KW_RE.test(k.kw) ? "doing" : /^(PAUSED|SUSPENDED|WAITING|WAIT)$/.test(k.kw) ? "paused" : "open";
-    out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), blockId: k.blockId || "", indent: width(lines[i]), state: st });
-  }
-  return out;
-}
-function findTask(text, key, blockId = "", sid = "") {
-  const items = taskItems(text);
-  if (blockId) {
-    const byId = items.find((i) => i.blockId === blockId);
-    if (byId) return byId;
-  }
-  if (sid && text.includes(sid)) {
-    const lines = text.split("\n");
-    const at = lines.findIndex((l) => {
-      const p = parseLink(l);
-      return p && p.sid === sid;
-    });
-    if (at >= 0) {
-      const owner = markOwner(lines, at);
-      const byOwner = items.find((i) => i.line === owner);
-      if (byOwner) return byOwner;
-    }
-  }
-  if (!key) return null;
-  const k = workKey(key);
-  const hits = items.filter((i) => i.key === k);
-  return hits.find((i) => i.state === "open") || hits.find((i) => i.state === "doing") || hits[0] || null;
-}
-function openTasks(text) {
-  return taskItems(text).filter((i) => i.state !== "done").map((i) => ({
-    label: i.body,
-    doing: i.state === "doing",
-    paused: i.kw === "PAUSED" || i.kw === "SUSPENDED",
-    line: i.line
-  }));
-}
-function linkMap(text) {
-  const out = /* @__PURE__ */ new Map();
-  const lines = text.split("\n");
-  for (let i = 0; i < lines.length; i++) {
-    const l = parseLink(lines[i]);
-    if (!l) continue;
-    const n = markOwner(lines, i);
-    const k = n >= 0 ? kwLine(lines[n]) : null;
-    if (k) out.set(l.sid, workKey(k.body));
-  }
-  return out;
-}
-function parseKid(line) {
-  const m = KID_LINK_RE.exec(line);
-  return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2] } : null;
-}
-function kidUnder(lines, n) {
-  return childMark(lines, n, parseKid);
-}
-function kidIdent(line) {
-  const c = parseKid(line);
-  if (c) return { ...c, open: true };
-  const m = /^\s*[-*+]\s+⏱.*·\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`\s*$/.exec(line);
-  return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2], open: false } : null;
-}
-var kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(/^\s*(?:\d+[.)、]\s*)?(?:(?:TODO|DOING|LATER|NOW|WAITING|WAIT|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+)?(?:\d{1,2}[:：]\d{2}\s*)?/, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
-function kidMatch(body, desc) {
-  const a = kidNorm(body), d = kidNorm(desc);
-  if (a.length < 4 || d.length < 4) return false;
-  return a.startsWith(d) || d.startsWith(a) || a.length >= 8 && d.length >= 8 && a.slice(0, 8) === d.slice(0, 8);
-}
-var EMPTY_ITEM_RE = /^(\s*(?:[-*+]|\d+[.)]))\s*$/;
-var MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬|❓|📋)/;
-var STATE_KW = { wait: "TOREVIEW", quiet: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" };
-function kwForState(state) {
-  return { run: "DOING", running: "DOING", starting: "DOING", idle: "TOREVIEW", ...STATE_KW }[state] || "DOING";
-}
-function dropKind(lines, at, below = false) {
-  if (at < 0 || at >= lines.length) return null;
-  const raw = lines[at];
-  if (below) {
-    if (/^\s*(?:#|```|~~~|\|)/.test(raw)) return null;
-    const n = MARKER_RE.test(raw) ? markOwner(lines, at) : at;
-    if (n < 0) return null;
-    if (!raw.trim()) return { kind: "new", line: at };
-    return { kind: "after", line: n };
-  }
-  if (MARKER_RE.test(raw)) {
-    const n = markOwner(lines, at);
-    return n >= 0 ? { kind: "bind", line: n } : null;
-  }
-  if (EMPTY_ITEM_RE.test(raw)) return { kind: "fill", line: at };
-  if (!raw.trim()) return { kind: "new", line: at };
-  if (LIST_RE.test(raw)) return kwLine(raw) ? { kind: "bind", line: at } : null;
-  if (/^\s*(?:#|```|~~~|\||>|---)/.test(raw)) return null;
-  return { kind: "below", line: at };
-}
-function childIndent(lines, n) {
-  const base = width(lines[n]);
-  for (let i = n + 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    if (width(lines[i]) > base) return (/^\s*/.exec(lines[i]) || [""])[0];
-    break;
-  }
-  const lead = (/^\s*/.exec(lines[n]) || [""])[0];
-  return lead + (lead && !lead.includes("	") ? "    " : "	");
-}
-function bindInto(text, at, s, { below = false } = {}) {
-  let lines = text.split("\n");
-  const target = dropKind(lines, at, below);
-  if (!target) return { text, error: "\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A" };
-  let n = target.line;
-  if (target.kind === "bind") {
-    const had = linkUnder(lines, n);
-    if (had && had.sid === s.sid) return { text, error: "\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u8FD9\u4E2A\u4F1A\u8BDD\u4E86" };
-    if (had) return { text, error: "\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u53E6\u4E00\u4E2A\u4F1A\u8BDD\uFF1B\u5148\u5220\u6389\u5B83\u4E0B\u9762\u7684 \u{1F517} \u884C" };
-  }
-  const want = kwForState(s.state);
-  const since = s.since || "";
-  const title = resultText(s.title || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD", 60);
-  const rescuedChildren = [];
-  let rescuedBlockId = s.blockId || "";
-  const anchor = lines[n];
-  const drop = (i) => {
-    lines.splice(i, 1);
-    if (i < n) n--;
-  };
-  for (let i = lines.length - 1; i >= 0; i--) {
-    const k = parseLink(lines[i]);
-    if (k && k.sid === s.sid) drop(i);
-  }
-  if (s.dropKey || s.blockId) {
-    const items = taskItems(lines.join("\n"));
-    const hit = items.find((t) => t.line !== n && t.body.startsWith(AUTO_MARK.trim()) && (s.blockId && t.blockId === s.blockId || s.dropKey && t.key === workKey(s.dropKey)));
-    if (hit) {
-      const base = width(lines[hit.line]);
-      let end = hit.line, own = true;
-      for (let i = hit.line + 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        if (width(lines[i]) <= base) break;
-        if (!MARKER_RE.test(lines[i]) && !/^\s*[-*+]\s+TODO\s+🤖/.test(lines[i])) own = false;
-        end = i;
-      }
-      if (own) {
-        if (hit.blockId && !rescuedBlockId) rescuedBlockId = hit.blockId;
-        for (let i = hit.line + 1; i <= end; i++) {
-          const cl = lines[i].replace(/^\s+/, "");
-          if (cl && !/^[-*+]\s+(?:🔗|⏱)/.test(cl)) rescuedChildren.push(cl);
-        }
-        for (let i = end; i >= hit.line; i--) drop(i);
-      }
-    }
-  }
-  if (lines[n] !== anchor) {
-    const back = lines.indexOf(anchor);
-    if (back < 0) return { text, error: "\u7B14\u8BB0\u5728\u62D6\u7684\u65F6\u5019\u53D8\u4E86\uFF0C\u518D\u62D6\u4E00\u6B21" };
-    n = back;
-  }
-  const maybeAddBlockId = (lineStr) => {
-    const existing = blockIdOf(lineStr);
-    if (existing) return { line: lineStr, blockId: existing };
-    if (s.ensureBlockId || rescuedBlockId) {
-      return ensureBlockId(lineStr, rescuedBlockId || makeBlockId(s.sid));
-    }
-    return { line: lineStr, blockId: "" };
-  };
-  if (target.kind === "bind") {
-    const p = splitTask(lines[n]);
-    if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
-      lines[n] = `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
-    }
-    const eb2 = maybeAddBlockId(lines[n]);
-    lines[n] = eb2.line;
-    const ind2 = childIndent(lines, n);
-    const toInsert = [linkLine(ind2, s.agent, title, s.sid)];
-    const existingChildText = lines.slice(n + 1, n + 15).join("\n");
-    for (const rc of rescuedChildren) {
-      if (!existingChildText.includes(rc)) toInsert.push(`${ind2}${rc}`);
-    }
-    lines.splice(n + 1, 0, ...toInsert);
-    return { text: lines.join("\n"), line: n, kind: "bind", blockId: eb2.blockId };
-  }
-  let prefix;
-  if (target.kind === "after") {
-    const base = width(lines[n]);
-    let end = n;
-    for (let i = n + 1; i < lines.length; i++) {
-      if (!lines[i].trim()) {
-        const j = lines.findIndex((l, k) => k > i && l.trim());
-        if (j > 0 && width(lines[j]) > base) continue;
-        break;
-      }
-      if (width(lines[i]) <= base) break;
-      end = i;
-    }
-    const pm = /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[n]);
-    prefix = !pm ? "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
-    const eb2 = maybeAddBlockId(`${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " "));
-    const item2 = eb2.line;
-    const lead2 = (/^\s*/.exec(item2) || [""])[0];
-    const ind2 = lead2 + (lead2 && !lead2.includes("	") ? "    " : "	");
-    lines.splice(end + 1, 0, item2, linkLine(ind2, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind2}${rc}`));
-    return { text: lines.join("\n"), line: end + 1, kind: "after", blockId: eb2.blockId };
-  }
-  if (target.kind === "fill") prefix = EMPTY_ITEM_RE.exec(lines[n])[1] + " ";
-  else {
-    let prev = -1;
-    for (let i = target.kind === "below" ? n : n - 1; i >= 0; i--) {
-      if (lines[i].trim()) {
-        prev = i;
-        break;
-      }
-    }
-    const pm = prev >= 0 ? /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[prev]) : null;
-    prefix = !pm || MARKER_RE.test(lines[prev]) ? pm ? (/^\s*/.exec(lines[markOwner(lines, prev)] || "") || [""])[0] + "- " : "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
-  }
-  const eb = maybeAddBlockId(`${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " "));
-  const item = eb.line;
-  if (target.kind === "below") {
-    lines.splice(n + 1, 0, item);
-    n = n + 1;
-  } else if (target.kind === "new" && lines[n + 1] && lines[n + 1].trim() && !LIST_RE.test(lines[n + 1])) lines.splice(n, 0, item);
-  else lines[n] = item;
-  const lead = (/^\s*/.exec(item) || [""])[0];
-  const ind = lead + (lead && !lead.includes("	") ? "    " : "	");
-  lines.splice(n + 1, 0, linkLine(ind, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind}${rc}`));
-  return { text: lines.join("\n"), line: n, kind: target.kind, blockId: eb.blockId };
-}
-function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
-  const lines = text.split("\n");
-  if (srcLine === dstLine || srcLine < 0 || dstLine < 0 || srcLine >= lines.length || dstLine >= lines.length) {
-    return { text, error: "\u8BF7\u9009\u62E9\u4E24\u6761\u4E0D\u540C\u7684\u4EFB\u52A1\u884C" };
-  }
-  if (MARKER_RE.test(lines[srcLine])) srcLine = markOwner(lines, srcLine);
-  if (MARKER_RE.test(lines[dstLine])) dstLine = markOwner(lines, dstLine);
-  if (srcLine < 0 || dstLine < 0 || srcLine === dstLine) return { text, error: "\u8FD9\u4E24\u884C\u672C\u8EAB\u5DF2\u7ECF\u5728\u540C\u4E00\u4E2A\u4EFB\u52A1\u6761\u76EE\u4E0B\u4E86" };
-  const ps = splitTask(lines[srcLine]);
-  const pd = splitTask(lines[dstLine]);
-  const ks = kwLine(lines[srcLine]);
-  const kd = kwLine(lines[dstLine]);
-  if (!ps || !pd || !ks || !kd) return { text, error: "\u53EA\u80FD\u628A\u4EFB\u52A1\u5217\u8868\u9879\u5408\u5E76\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u5217\u8868\u9879\u4E0A" };
-  const blockSpan = (start) => {
-    const base = width(lines[start]);
-    let end = start;
-    for (let i = start + 1; i < lines.length; i++) {
-      if (!lines[i].trim()) continue;
-      if (width(lines[i]) <= base) break;
-      end = i;
-    }
-    return [start, end];
-  };
-  const [s0, s1] = blockSpan(srcLine);
-  const [d0, d1] = blockSpan(dstLine);
-  if (s0 >= d0 && s0 <= d1 || d0 >= s0 && d0 <= s1) {
-    return { text, error: "\u7236\u5B50\u4EFB\u52A1\u4E0D\u80FD\u76F4\u63A5\u4E92\u76F8\u5408\u5E76" };
-  }
-  const srcIsAuto = ks.body.startsWith(AUTO_MARK.trim());
-  const dstIsAuto = kd.body.startsWith(AUTO_MARK.trim());
-  const keptBody = dstIsAuto && !srcIsAuto ? ks.body : kd.body;
-  const isLiveKw = (kw) => kw === "DOING" || AGENT_KW_RE.test(kw || "");
-  const mergedKw = isLiveKw(ps.kw) ? ps.kw : isLiveKw(pd.kw) ? pd.kw : pd.kw || ps.kw || "DOING";
-  const mergedSince = ps.since && pd.since ? ps.since < pd.since ? ps.since : pd.since : pd.since || ps.since || "";
-  const blockId = pd.blockId || ps.blockId || preferId || makeBlockId(keptBody);
-  const headerRaw = `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
-  const { line: mergedHeader } = ensureBlockId(headerRaw, blockId);
-  const dstBase = width(lines[dstLine]);
-  const srcBase = width(lines[srcLine]);
-  const ind = childIndent(lines, dstLine);
-  const rebaseChild = (line, base) => {
-    const w = width(line);
-    const extra = Math.max(0, Math.floor((w - base - 1) / 4));
-    return `${ind}${"	".repeat(extra)}${line.trim()}`;
-  };
-  const dstKids = lines.slice(d0 + 1, d1 + 1).filter((l) => l.trim()).map((l) => rebaseChild(l, dstBase));
-  const srcKids = lines.slice(s0 + 1, s1 + 1).filter((l) => l.trim()).map((l) => rebaseChild(l, srcBase));
-  const mergedKids = [...dstKids];
-  const seenLinks = new Set(dstKids.map((l) => parseLink(l)?.sid).filter(Boolean));
-  const seenText = new Set(dstKids.map((l) => l.trim()));
-  for (const k of srcKids) {
-    const lk = parseLink(k);
-    if (lk && lk.sid) {
-      if (seenLinks.has(lk.sid)) continue;
-      seenLinks.add(lk.sid);
-      mergedKids.unshift(k);
-      continue;
-    }
-    if (CLOCK_RE.test(k)) {
-      const idx = mergedKids.findIndex((x) => CLOCK_RE.test(x));
-      if (idx >= 0) {
-        if (k.length > mergedKids[idx].length) mergedKids[idx] = k;
-        continue;
-      }
-    }
-    if (!seenText.has(k.trim())) {
-      seenText.add(k.trim());
-      mergedKids.push(k);
-    }
-  }
-  const replacement = [mergedHeader, ...mergedKids];
-  let newDstLine = d0;
-  if (s0 < d0) {
-    lines.splice(d0, d1 - d0 + 1, ...replacement);
-    lines.splice(s0, s1 - s0 + 1);
-    newDstLine = d0 - (s1 - s0 + 1);
-  } else {
-    lines.splice(s0, s1 - s0 + 1);
-    lines.splice(d0, d1 - d0 + 1, ...replacement);
-    newDstLine = d0;
-  }
-  return {
-    text: lines.join("\n"),
-    line: newDstLine,
-    blockId,
-    key: workKey(keptBody),
-    mergedBody: keptBody,
-    srcKey: workKey(ks.body),
-    dstKey: workKey(kd.body),
-    srcBlockId: ps.blockId || "",
-    dstBlockId: pd.blockId || ""
-  };
-}
-function runningTaskLines(text, sessionByParent, jobs = []) {
-  const lines = text.split("\n");
-  return taskItems(text).filter((task) => {
-    if (task.state === "done") return false;
-    if (sessionByParent.get(task.line)?.state === "run") return true;
-    return jobs.some((job) => ["starting", "running"].includes(job.state) && (task.blockId && job.blockId === task.blockId || job.lineText === lines[task.line]));
-  });
-}
-
 // src/task-mentions.js
 var ROUTABLE_AGENTS = ["claude", "codex", "dsh", "workbuddy", "antigravity"];
-var TOKEN = /(?:^|\s)@(claude|codex|dsh|workbuddy|antigravity)(?:\/([^\s`]+))?(?=\s|$)/g;
-function taskMention(line) {
+function mentionTrigger(plugin) {
+  return plugin.settings.delegate?.mentionTrigger || "@";
+}
+function taskMention(line, trigger = "@") {
+  const markers = [.../* @__PURE__ */ new Set([trigger, "@"])].sort((a, b) => b.length - a.length).map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+  const token = new RegExp("(?:^|\\s)(" + markers + ")(claude|codex|dsh|workbuddy|antigravity)(?:/([^\\s`]+))?(?=\\s|$)", "g");
   const masked = line.replace(/`[^`]*`|!?\[[^\]]*\]\([^)]*\)/g, (s) => "x".repeat(s.length));
-  const found = [...masked.matchAll(TOKEN)];
-  if (found.length > 1) throw new Error("\u4E00\u6761\u4EFB\u52A1\u53EA\u80FD\u6307\u5B9A\u4E00\u4E2A @Agent");
+  const found = [...masked.matchAll(token)];
+  if (found.length > 1) throw new Error("\u4E00\u6761\u4EFB\u52A1\u53EA\u80FD\u6307\u5B9A\u4E00\u4E2A Agent \u6807\u8BB0");
   if (!found.length) return null;
-  const m = found[0], parts = (m[2] || "").split("/");
-  if (parts.length > 2 || m[2] !== void 0 && parts.some((p) => !p)) throw new Error("\u4F7F\u7528 @agent/model/effort \u6307\u5B9A\u59D4\u6D3E");
-  const start = m.index + (m[0].startsWith("@") ? 0 : 1);
-  return { agent: m[1], model: parts[0] || "", effort: parts[1] || "", from: start, to: m.index + m[0].length };
+  const m = found[0], parts = (m[3] || "").split("/");
+  if (parts.length > 2 || m[3] !== void 0 && parts.some((p) => !p)) throw new Error(`\u4F7F\u7528 ${trigger}agent/model/effort \u6307\u5B9A\u59D4\u6D3E`);
+  const start = m.index + (m[0].startsWith(m[1]) ? 0 : 1);
+  return { agent: m[2], trigger: m[1], model: parts[0] || "", effort: parts[1] || "", from: start, to: m.index + m[0].length };
 }
 function mentionOptions(plugin, opts) {
   if (opts.mentionResolved) return opts;
   const line = opts.block?.text.split("\n")[0] || opts.lines?.[opts.line] || "";
-  const m = taskMention(line);
+  const m = taskMention(line, mentionTrigger(plugin));
   if (!m || opts.ignoreMention) return { agent: plugin.defaultTarget?.() || "claude", ...opts, mentionResolved: true };
   if (!plugin.agentEnabled(m.agent)) throw new Error(`${AGENTS[m.agent].name} \u5DF2\u5173\u95ED\uFF0C\u8BF7\u5148\u5728\u8BBE\u7F6E\u4E2D\u542F\u7528`);
-  if (m.model && !plugin.modelsFor(m.agent).some((x) => x.id === m.model)) throw new Error(`@${m.agent} \u7684\u6A21\u578B\u4E0D\u5B58\u5728\uFF0C\u8BF7\u4ECE @ \u83DC\u5355\u9009\u62E9\u6216\u5148\u6DFB\u52A0\u81EA\u5B9A\u4E49\u6A21\u578B`);
-  if (m.effort && !(EFFORTS[m.agent] || []).some((x) => x.id === m.effort)) throw new Error(`@${m.agent} \u4E0D\u652F\u6301\u5F3A\u5EA6 ${m.effort}`);
+  if (m.model && !plugin.modelsFor(m.agent).some((x) => x.id === m.model)) throw new Error(`${m.trigger}${m.agent} \u7684\u6A21\u578B\u4E0D\u5B58\u5728\uFF0C\u8BF7\u4ECE Agent \u83DC\u5355\u9009\u62E9\u6216\u5148\u6DFB\u52A0\u81EA\u5B9A\u4E49\u6A21\u578B`);
+  if (m.effort && !(EFFORTS[m.agent] || []).some((x) => x.id === m.effort)) throw new Error(`${m.trigger}${m.agent} \u4E0D\u652F\u6301\u5F3A\u5EA6 ${m.effort}`);
   return { ...opts, agent: m.agent, model: m.model || plugin.defaultModel(m.agent), effort: m.effort || plugin.settings.delegate[m.agent]?.effort, mentionResolved: true };
 }
-function stripTaskMention(text) {
-  const lines = text.split("\n"), m = taskMention(lines[0]);
+function stripTaskMention(text, trigger = "@") {
+  const lines = text.split("\n"), m = taskMention(lines[0], trigger);
   if (m) lines[0] = (lines[0].slice(0, m.from) + lines[0].slice(m.to)).trimEnd();
   return lines.join("\n");
 }
@@ -3490,7 +3754,6 @@ function mentionSuggestions(plugin, query) {
 var fsp2 = import_fs3.default.promises;
 var home2 = () => import_os2.default.homedir();
 var norm2 = (p) => String(p || "").replace(/^~(?=\/)/, home2());
-var CONFIRM_FIRST = "\u5148\u522B\u52A8\u624B\u3002\u628A\u4E0A\u9762\u7684\u4EFB\u52A1\u8BFB\u900F\uFF1A\u6709\u4E0D\u6E05\u695A\u3001\u6709\u6B67\u4E49\u6216\u9700\u8981\u6211\u62CD\u677F\u7684\u5730\u65B9\uFF0C\u5148\u5217\u51FA\u6765\u95EE\u6211\uFF1B\u90FD\u6E05\u695A\u4E86\uFF0C\u5C31\u7528\u51E0\u53E5\u8BDD\u590D\u8FF0\u4F60\u7684\u7406\u89E3\u548C\u6253\u7B97\u600E\u4E48\u505A\uFF0C\u7B49\u6211\u786E\u8BA4\u540E\u518D\u52A8\u624B\u3002\u8FD9\u4E00\u8F6E\u4E0D\u8981\u6539\u6587\u4EF6\uFF0C\u4E5F\u4E0D\u8981\u8DD1\u6709\u526F\u4F5C\u7528\u7684\u547D\u4EE4\u3002";
 var BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 var LINK_RE2 = LINK_RE;
 var RESULT_RE2 = RESULT_RE;
@@ -3514,9 +3777,9 @@ function blockAt(lines, at) {
   }
   return { start: at, end, indent, text: lines.slice(at, end + 1).join("\n") };
 }
-function blockTitle(block) {
+function blockTitle(block, trigger = "@") {
   if (!block) return "";
-  const first = stripBlockId(stripTaskMention(block.text).split("\n")[0] || "");
+  const first = stripBlockId(stripTaskMention(block.text, trigger).split("\n")[0] || "");
   return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "").replace(TITLE_KW_RE, "").replace(/[#*_`>[\]]/g, "").trim();
 }
 function hasLink(lines, block) {
@@ -4005,13 +4268,13 @@ function openSession(plugin, agent, sid, app = "", session = null) {
       navigator.clipboard.writeText(sid);
     } catch {
     }
-    plugin.notice(`\u5DF2\u6253\u5F00 DeepSeek Harness\uFF1B\u4F1A\u8BDD\u53F7\u5DF2\u590D\u5236\uFF08${sid.slice(0, 8)}\u2026\uFF09`);
+    plugin.notice(`\u5DF2\u6253\u5F00 DeepSeek Harness\uFF1B\u4F1A\u8BDD\u53F7\u5DF2\u590D\u5236`);
     return true;
   }
   if (agent === "antigravity") {
     openAgentApp("antigravity");
     copyText(sid);
-    plugin.notice(`\u5DF2\u6253\u5F00 Antigravity\uFF1B\u4F1A\u8BDD\u53F7\u5DF2\u590D\u5236\uFF08${sid.slice(0, 8)}\u2026\uFF09`);
+    plugin.notice(`\u5DF2\u6253\u5F00 Antigravity\uFF1B\u4F1A\u8BDD\u53F7\u5DF2\u590D\u5236`);
     return true;
   }
   return false;
@@ -4325,7 +4588,7 @@ var AcpRunner = class {
         const name = u.title || u.kind || u.toolName || "tool";
         this.lastStep = truncate(name, 40);
         this.job.step = this.lastStep;
-        this.job.state = "running";
+        if (this.job.state !== "needs-approval") this.job.state = "running";
       } else if (kind === "usage_update") {
         this.job.contextUsed = u.used;
         this.job.contextSize = u.size;
@@ -4337,7 +4600,7 @@ var AcpRunner = class {
     if (method === "session/request_permission") {
       const cfg = this.d.settings.delegate[this.agent];
       const options = params.options || [];
-      if (this.agent === "antigravity" && this.d.plugin?.requestAcpPermission && cfg.autoApprove !== true) {
+      if (this.d.plugin?.requestAcpPermission && cfg.autoApprove !== true) {
         this.job.state = "needs-approval";
         this.job.step = params.toolCall?.title || "\u7B49\u5F85\u5DE5\u5177\u6388\u6743";
         this.d.saveJobs();
@@ -4542,22 +4805,26 @@ ${body}`, 12e3);
   async delegate(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
+    if (opts.destination && !destinations(opts.agent).some((o) => o.id === opts.destination)) throw new Error("\u6B64 Agent \u4E0D\u652F\u6301\u6240\u9009\u5DE5\u4F5C\u4F4D\u7F6E");
     if (!["claude", "codex", "dsh", "antigravity"].includes(opts.agent)) return this.handoff(opts);
-    if (opts.agent === "codex" && this.C.codex?.transport === "terminal") return this.handoffCli(opts);
+    if (opts.destination === "terminal" || opts.agent === "codex" && !opts.destination && this.C.codex?.transport === "terminal") return this.handoffCli(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error("\u6CA1\u6709\u5F53\u524D\u7B14\u8BB0");
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
     if (!block) throw new Error("\u5149\u6807\u8981\u653E\u5728\u4E00\u4E2A\u5217\u8868\u9879\u91CC");
-    if (hasLink(lines, block) >= 0) throw new Error("\u8FD9\u4E00\u5757\u4E0B\u9762\u5DF2\u7ECF\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u53D1\u5148\u5220\u6389\u90A3\u4E00\u884C");
-    const title = blockTitle(block) || "Agent Deck task";
+    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error("\u8FD9\u4E00\u5757\u4E0B\u9762\u5DF2\u7ECF\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u53D1\u5148\u5220\u6389\u90A3\u4E00\u884C");
+    const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent,
       name,
+      destination: opts.destination,
+      newSession: !!opts.newSession,
+      blockId: blockIdOf(lines[block.start]),
       path: file.path,
       line: block.start,
       lineText: lines[block.start],
@@ -4578,7 +4845,7 @@ ${body}`, 12e3);
     this.plugin.saveJobs();
     this.plugin.refreshUI();
     this.plugin.notice(`\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 ${AGENTS[agent]?.name || agent}\uFF1A${name}`);
-    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => openSession(this.plugin, "codex", job.sessionId, "vscode")) : ["dsh", "antigravity"].includes(agent) ? new AcpRunner(this, job) : new ClaudeRunner(this, job);
+    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => job.destination === "background" ? void 0 : openSession(this.plugin, "codex", job.sessionId, "vscode")) : ["dsh", "antigravity"].includes(agent) ? new AcpRunner(this, job) : new ClaudeRunner(this, job);
     this.runners.set(job.id, runner);
     try {
       await runner.start({ ...opts, prompt, name });
@@ -4657,14 +4924,17 @@ ${body}`, 12e3);
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
     if (!block) throw new Error("\u8981\u62D6\u4E00\u4E2A\u5217\u8868\u9879");
-    if (hasLink(lines, block) >= 0) throw new Error("\u8FD9\u4E00\u5757\u4E0B\u9762\u5DF2\u7ECF\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u53D1\u5148\u5220\u6389\u90A3\u4E00\u884C");
-    const title = blockTitle(block) || "Agent Deck task";
+    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error("\u8FD9\u4E00\u5757\u4E0B\u9762\u5DF2\u7ECF\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u53D1\u5148\u5220\u6389\u90A3\u4E00\u884C");
+    const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent,
       name,
+      destination: opts.destination,
+      newSession: !!opts.newSession,
+      blockId: blockIdOf(lines[block.start]),
       path: file.path,
       line: block.start,
       lineText: lines[block.start],
@@ -4700,8 +4970,8 @@ ${body}`, 12e3);
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
     if (!block) throw new Error("\u8981\u62D6\u4E00\u4E2A\u5217\u8868\u9879");
-    if (hasLink(lines, block) >= 0) throw new Error("\u8FD9\u4E00\u5757\u4E0B\u9762\u5DF2\u7ECF\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u53D1\u5148\u5220\u6389\u90A3\u4E00\u884C");
-    const title = blockTitle(block) || "Agent Deck task";
+    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error("\u8FD9\u4E00\u5757\u4E0B\u9762\u5DF2\u7ECF\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u53D1\u5148\u5220\u6389\u90A3\u4E00\u884C");
+    const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
     let cwd = norm2(opts.cwd || this.C[agent]?.cwd || this.vaultPath);
@@ -4731,6 +5001,9 @@ ${body}`, 12e3);
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent,
       name,
+      destination: opts.destination,
+      newSession: !!opts.newSession,
+      blockId: blockIdOf(lines[block.start]),
       path: file.path,
       line: block.start,
       lineText: lines[block.start],
@@ -4791,12 +5064,16 @@ ${body}`, 12e3);
     const c = this.C;
     const parts = [];
     if (c.promptPrefix && c.promptPrefix.trim()) parts.push(c.promptPrefix.trim());
-    parts.push(stripTaskMention(opts.block.text).trim());
+    const task = opts.newSession ? freshTaskText(opts.block.text) : opts.block.text;
+    parts.push(stripTaskMention(task, mentionTrigger(this.plugin)).trim());
     if (opts.promptSuffix && opts.promptSuffix.trim()) parts.push(opts.promptSuffix.trim());
     else if (c.promptSuffix && c.promptSuffix.trim()) parts.push(c.promptSuffix.trim());
     if (opts.file) parts.push(`
 \uFF08\u6765\u81EA Obsidian\uFF1A${opts.file.path}\uFF09`);
-    if (c.confirmFirst !== false) parts.push(CONFIRM_FIRST);
+    if (c.confirmFirst !== false) {
+      const prompt = c.confirmFirstPrompt ?? CONFIRM_FIRST;
+      if (prompt.trim()) parts.push(prompt.trim());
+    }
     return parts.join("\n\n");
   }
   onSession(job, sid) {
@@ -4805,12 +5082,23 @@ ${body}`, 12e3);
     this.plugin.markBound?.(sid);
     this.plugin.flyFromAgent?.(job);
     this.saveJobs();
+    if (!job.openedDestination && !job.handoff && ["obsidian", "desktop"].includes(job.destination)) {
+      job.openedDestination = true;
+      if (job.destination === "obsidian") this.plugin.openConversation?.({ ...job, sid });
+      else if (job.agent === "dsh") openSession(this.plugin, job.agent, sid);
+    }
     if (job.linkWritten) return;
     job.linkWritten = true;
     job._linkPromise = this.writeLink(job, sid).catch((e) => console.error("[agent-deck] writeLink", e));
     this.refreshUI();
   }
-  async writeLink(job, sid) {
+  writeLink(job, sid) {
+    const pending = (this._linkWrites || Promise.resolve()).catch(() => {
+    }).then(() => this.writeLinkNow(job, sid));
+    this._linkWrites = pending;
+    return pending;
+  }
+  async writeLinkNow(job, sid) {
     if (!this.C.writeLink) return;
     const path7 = job.path;
     const text = await this.plugin.readNote(path7);
@@ -4821,7 +5109,7 @@ ${body}`, 12e3);
     if (at < 0) return;
     const block = blockAt(lines, at);
     if (!block) return;
-    if (hasLink(lines, block) >= 0) return;
+    if (lines.slice(block.start + 1, block.end + 1).some((l) => parseLink(l)?.sid === sid)) return;
     const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "	";
     let link = linkLine2(indent, job.agent, job.name, sid);
     if (job.agent === "antigravity" && job.transport === "acp") link = link.replace("antigravity://open", `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(sid)}`);
@@ -4844,7 +5132,7 @@ ${body}`, 12e3);
     this.refreshUI();
     const agent = AGENTS[job.agent];
     this.plugin.notice(`\u2705 ${agent ? agent.name : job.agent} \u505A\u5B8C\u4E86\u4E00\u8F6E\uFF1A${job.name}`, 8e3);
-    if (this.C.claude.openDesktop === true && job.agent === "claude" && job.sessionId) openSession(this.plugin, "claude", job.sessionId);
+    if ((job.destination === "desktop" || !job.destination && this.C.claude.openDesktop === true) && job.agent === "claude" && job.sessionId) openSession(this.plugin, "claude", job.sessionId);
     if (this.settings.autoWriteResult && job.linkWritten && job.path) {
       try {
         await this.writeResult(job);
@@ -4888,7 +5176,10 @@ ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
       if (li >= 0) lines.splice(li, 1);
       let at = lines.indexOf(job.lineText);
       if (at < 0) at = lines.findIndex((l) => /DELEGATED/.test(l) && job.originalLine && l.includes(String(job.name || "").slice(0, 16)));
-      if (at >= 0 && job.originalLine) lines[at] = job.originalLine;
+      if (at >= 0 && job.originalLine && !job.newSession) {
+        const block = blockAt(lines, at);
+        if (!block || hasLink(lines, block) < 0) lines[at] = job.originalLine;
+      }
       await this.plugin.writeNote(job.path, lines.join("\n"));
       job.linkWritten = false;
       job.resultWritten = true;
@@ -5031,6 +5322,9 @@ function execCapture(bin, args, { cwd, env, timeout = 1e4 } = {}) {
     });
   });
 }
+function freshTaskText(text) {
+  return text.split("\n").filter((l) => !/^\s*[-*+]\s+(?:🔗|💬|📋|❓|⏱|📄)\s*/u.test(l)).map((l, i) => i === 0 ? stripBlockId(l) : l).join("\n");
+}
 
 // src/view.js
 var import_obsidian2 = require("obsidian");
@@ -5146,7 +5440,6 @@ var import_state2 = require("@codemirror/state");
 
 // src/record-display.js
 var import_view = require("@codemirror/view");
-var import_language = require("@codemirror/language");
 
 // src/fold-actions.js
 var RECORD_FOLD_COMMANDS = {
@@ -5156,10 +5449,7 @@ var RECORD_FOLD_COMMANDS = {
   "editor:fold-all": { open: false, all: true },
   "editor:unfold-all": { open: true, all: true },
   "bullet:fold": { open: false },
-  "bullet:unfold": { open: true },
-  "logseq-style-fold:toggle-fold": { open: null },
-  "logseq-style-fold:collapse-all": { open: false, all: true },
-  "logseq-style-fold:expand-all": { open: true, all: true }
+  "bullet:unfold": { open: true }
 };
 function foldTargets(groups, line, all = false) {
   if (all) return groups;
@@ -5188,7 +5478,7 @@ function aiRecordGroups(text, trackedIds2 = /* @__PURE__ */ new Set()) {
     }
     if (!records.length) continue;
     const tracked = task.blockId?.startsWith("ad-") || trackedIds2.has(task.blockId) || task.body.startsWith("\u{1F916}") || records.some((i) => parseLink(lines[i]));
-    if (tracked) out.push({ key: task.blockId || `${task.line}:${task.key}`, line: task.line, records });
+    if (tracked) out.push({ key: task.blockId || `${task.line}:${task.key}`, line: task.line, records, summaries: records.filter((n) => /💬\s+累计总结[：:]/.test(lines[n])) });
   }
   return out;
 }
@@ -5201,7 +5491,10 @@ function recordRuns(records) {
   }
   return runs;
 }
-function adBlockIdRanges(text) {
+function hiddenBlockId(id, trackedIds2 = /* @__PURE__ */ new Set()) {
+  return /^ad-[a-z0-9-]+$/i.test(id) || /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id) || trackedIds2.has(id);
+}
+function adBlockIdRanges(text, trackedIds2 = /* @__PURE__ */ new Set()) {
   const out = [];
   let offset = 0, fence = "", fenceLength = 0;
   for (const line of text.split("\n")) {
@@ -5212,8 +5505,10 @@ function adBlockIdRanges(text) {
         fenceLength = marker[1].length;
       } else if (marker[1][0] === fence && marker[1].length >= fenceLength && !marker[2].trim()) fence = "";
     } else if (!fence) {
-      const id = /(?:[ \t]+|^)\^ad-[a-z0-9-]+[ \t]*$/i.exec(line);
-      if (id) out.push({ from: offset + id.index, to: offset + line.length });
+      const id = /(?:[ \t]+|^)\^([a-z0-9-]+)[ \t]*$/i.exec(line);
+      if (id && hiddenBlockId(id[1], trackedIds2)) out.push({ from: offset + id.index, to: offset + line.length });
+      const link = parseLink(line), suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(line);
+      if (link && suffix?.[1] === link.sid) out.push({ from: offset + suffix.index, to: offset + line.length });
     }
     offset += line.length + 1;
   }
@@ -5223,15 +5518,23 @@ function adBlockIdRanges(text) {
 // src/record-display.js
 var toggleRecords = import_state.StateEffect.define();
 var setRecordsOpenEffect = import_state.StateEffect.define();
-var modeFor = (plugin) => plugin.settings.aiRecordDisplay || "collapsed";
+var modeFor = () => "collapsed";
+function rememberOpen(plugin, key, open) {
+  var _a;
+  const expanded = (_a = plugin.settings).aiRecordExpanded || (_a.aiRecordExpanded = {});
+  if (open) expanded[key] = true;
+  else delete expanded[key];
+  plugin.saveSettings();
+  plugin.refreshUI();
+}
 function trackedIds(plugin) {
   const ids = /* @__PURE__ */ new Set();
   for (const day of Object.values(plugin.settings.autoLogState || {})) for (const rec of Object.values(day || {})) if (rec?.blockId) ids.add(rec.blockId);
   for (const rec of Object.values(plugin.settings.taskBindings || {})) if (rec?.blockId) ids.add(rec.blockId);
   return ids;
 }
-function recordControl(doc, count, open, limited = false) {
-  const el = doc.createElement(limited ? "span" : "button");
+function recordControl(doc, count, open, limited = false, summary = false) {
+  const el = doc.createElement("button");
   el.className = "ad-records-toggle";
   el.dataset.open = String(open);
   const arrow = el.appendChild(doc.createElement("span"));
@@ -5239,30 +5542,28 @@ function recordControl(doc, count, open, limited = false) {
   arrow.textContent = limited ? "\u22EF" : "\u203A";
   arrow.setAttribute("aria-hidden", "true");
   const label = el.appendChild(doc.createElement("span"));
-  label.textContent = "\u8BB0\u5F55";
+  label.textContent = summary || limited ? open ? "\u6536\u8D77" : "\u66F4\u591A" : "\u8BB0\u5F55";
   const badge = el.appendChild(doc.createElement("span"));
   badge.className = "ad-records-count";
   badge.textContent = String(count);
-  const title = limited ? `\u5171 ${count} \u6761 AI \u8BB0\u5F55\uFF0C\u4EC5\u663E\u793A\u6700\u65B0 5 \u6761` : `${open ? "\u6298\u53E0" : "\u5C55\u5F00"} ${count} \u6761 AI \u8BB0\u5F55`;
+  const title = limited && !open && !summary ? `\u5171 ${count} \u6761 AI \u8BB0\u5F55\uFF0C\u4EC5\u663E\u793A\u6700\u65B0 5 \u6761` : `${open ? "\u6298\u53E0" : "\u5C55\u5F00"} ${count} \u6761 AI \u8BB0\u5F55`;
   el.title = title;
   el.setAttribute("aria-label", title);
-  if (!limited) {
-    el.type = "button";
-    el.setAttribute("aria-expanded", String(open));
-  }
+  el.type = "button";
+  el.setAttribute("aria-expanded", String(open));
   return el;
 }
 var RecordsToggle = class extends import_view.WidgetType {
-  constructor(key, count, open, limited = false) {
+  constructor(key, count, open, limited = false, summary = false) {
     super();
-    Object.assign(this, { key, count, open, limited });
+    Object.assign(this, { key, count, open, limited, summary });
   }
   eq(other) {
-    return other.key === this.key && other.count === this.count && other.open === this.open && other.limited === this.limited;
+    return other.key === this.key && other.count === this.count && other.open === this.open && other.limited === this.limited && other.summary === this.summary;
   }
   toDOM(view) {
-    const el = recordControl(view.dom.ownerDocument, this.count, this.open, this.limited);
-    if (!this.limited) {
+    const el = recordControl(view.dom.ownerDocument, this.count, this.open, this.limited, this.summary);
+    {
       el.onclick = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -5278,12 +5579,13 @@ var RecordsToggle = class extends import_view.WidgetType {
 function aiRecordDisplayExtension(plugin, refreshEffect2) {
   const build = (state, mode, toggled) => {
     const ranges = [], doc = state.doc, text = doc.toString();
-    for (const { from, to } of adBlockIdRanges(text)) ranges.push(import_view.Decoration.replace({}).range(from, to));
+    for (const { from, to } of adBlockIdRanges(text, trackedIds(plugin))) ranges.push(import_view.Decoration.replace({}).range(from, to));
     for (const group of aiRecordGroups(text, trackedIds(plugin))) {
       for (const n of group.records) ranges.push(import_view.Decoration.line({ class: "ad-record-line" }).range(doc.line(n + 1).from));
-      const open = recordsAreOpen(mode, toggled, group.key);
-      const hidden = !open ? group.records : mode === "latest5" ? group.records.slice(0, -5) : [];
-      ranges.push(import_view.Decoration.widget({ widget: new RecordsToggle(group.key, group.records.length, open, mode === "latest5"), side: 2 }).range(doc.line(group.line + 1).to));
+      const summary = group.summaries.length > 0;
+      const open = recordsAreOpen(summary || mode === "latest5" ? "collapsed" : mode, toggled, group.key);
+      const hidden = open ? [] : summary ? group.records.filter((n) => !group.summaries.includes(n)) : mode === "latest5" ? group.records.slice(0, -5) : group.records;
+      ranges.push(import_view.Decoration.widget({ widget: new RecordsToggle(group.key, group.records.length, open, mode === "latest5", summary), side: 2 }).range(doc.line(group.line + 1).to));
       for (const run2 of recordRuns(hidden)) {
         const from = Math.max(0, doc.line(run2.from + 1).from - 1), to = doc.line(run2.to + 1).to;
         if (state.selection.ranges.some((s) => s.empty ? s.from > from && s.from < to : s.from < to && s.to > from)) continue;
@@ -5294,7 +5596,7 @@ function aiRecordDisplayExtension(plugin, refreshEffect2) {
   };
   const field = import_state.StateField.define({
     create(state) {
-      const mode = modeFor(plugin), toggled = /* @__PURE__ */ new Set();
+      const mode = modeFor(plugin), toggled = new Set(Object.keys(plugin.settings.aiRecordExpanded || {}));
       return { mode, toggled, decorations: build(state, mode, toggled) };
     },
     update(value, tr) {
@@ -5304,22 +5606,25 @@ function aiRecordDisplayExtension(plugin, refreshEffect2) {
       const setOpen = (keys, open) => {
         toggled = new Set(toggled);
         for (const key of keys) {
-          if (open !== (mode !== "collapsed")) toggled.add(key);
+          const group = aiRecordGroups(tr.state.doc.toString(), trackedIds(plugin)).find((g) => g.key === key);
+          const defaultOpen = !group?.summaries.length && mode !== "collapsed" && mode !== "latest5";
+          if (open !== defaultOpen) toggled.add(key);
           else toggled.delete(key);
+          rememberOpen(plugin, key, open);
         }
         changed = true;
       };
       for (const e of tr.effects) {
         if (e.is(setRecordsOpenEffect)) setOpen(e.value.keys, e.value.open);
-        if (e.is(import_language.foldEffect) || e.is(import_language.unfoldEffect)) {
-          const groups = aiRecordGroups(tr.state.doc.toString(), trackedIds(plugin));
-          setOpen(groups.filter((g) => tr.state.doc.line(g.line + 1).to >= e.value.from && tr.state.doc.line(g.line + 1).from <= e.value.to).map((g) => g.key), e.is(import_language.unfoldEffect));
+        if (e.is(refreshEffect2)) {
+          toggled = new Set(Object.keys(plugin.settings.aiRecordExpanded || {}));
+          changed = true;
         }
-        if (e.is(refreshEffect2)) changed = true;
         if (e.is(toggleRecords)) {
           toggled = new Set(toggled);
           if (toggled.has(e.value)) toggled.delete(e.value);
           else toggled.add(e.value);
+          rememberOpen(plugin, e.value, toggled.has(e.value));
           changed = true;
         }
       }
@@ -5331,15 +5636,15 @@ function aiRecordDisplayExtension(plugin, refreshEffect2) {
   plugin.recordTrackedIds = () => trackedIds(plugin);
   return field;
 }
-function renderAIRecords(el, plugin) {
+function renderAIRecords(el, plugin, ctx) {
   const mode = modeFor(plugin), ids = trackedIds(plugin), cleanups = [];
   const walker = el.ownerDocument.createTreeWalker(el, 4);
   const nodes = [];
   while (walker.nextNode()) nodes.push(walker.currentNode);
   for (const node of nodes) {
     if (node.parentElement?.closest("pre, code, .ad-block-id-hidden")) continue;
-    const match = /(?:[ \t]+|^)\^ad-[a-z0-9-]+[ \t]*$/i.exec(node.textContent);
-    if (!match) continue;
+    const match = /(?:[ \t]+|^)\^([a-z0-9-]+)[ \t]*$/i.exec(node.textContent);
+    if (!match || !hiddenBlockId(match[1], ids)) continue;
     const tail = node.splitText(match.index);
     const hidden = el.ownerDocument.createElement("span");
     hidden.className = "ad-block-id-hidden";
@@ -5347,33 +5652,48 @@ function renderAIRecords(el, plugin) {
     hidden.appendChild(tail);
     cleanups.push(() => hidden.replaceWith(tail));
   }
-  for (const list of el.querySelectorAll("li > ul, li > ol")) {
+  for (const code of el.querySelectorAll("li code")) {
+    if (!/^(?:session-)?[0-9a-f-]{36}$/i.test(code.textContent)) continue;
+    const li = code.closest("li");
+    if (!li.textContent.trim().startsWith("\u{1F517}") || !li.querySelector('a[href^="dsh:"], a[href^="antigravity:"]')) continue;
+    code.classList.add("ad-block-id-hidden");
+    cleanups.push(() => code.classList.remove("ad-block-id-hidden"));
+  }
+  for (const list of el.querySelectorAll("li ul, li ol")) {
     if (list.dataset.adRecords) continue;
-    const parent = list.parentElement;
+    const parent = list.parentElement.closest("li");
+    if (!parent) continue;
     const own = [...parent.childNodes].filter((n) => n !== list && n.nodeName !== "UL" && n.nodeName !== "OL").map((n) => n.textContent).join("");
     const records = [...list.children].filter((li) => /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/.test(li.textContent.trim()));
-    const bound = records.some((li) => /^🔗\s/.test(li.textContent.trim()));
-    if (!records.length || !(bound || own.includes("\u{1F916}") || parent.id?.startsWith("ad-") || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
+    const section = ctx?.getSectionInfo?.(el);
+    const first = section && section.text.split("\n")[(section.lineStart || 0) + (Number(parent.dataset.line) || 0)];
+    const key = parent.id || parent.dataset.blockId || first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1];
+    const bound = records.some((li) => /^🔗\s|^💬\s+累计总结[：:]/.test(li.textContent.trim()));
+    if (!records.length || !(bound || key?.startsWith("ad-") || ids.has(key) || own.includes("\u{1F916}") || parent.id?.startsWith("ad-") || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
     list.dataset.adRecords = "true";
-    let button = recordControl(list.ownerDocument, records.length, mode === "expanded", mode === "latest5");
-    let open = mode === "expanded";
+    const summaries = records.filter((li) => /^💬\s+累计总结[：:]/.test(li.textContent.trim()));
+    const summary = summaries.length > 0;
+    let open = !!(key && plugin.settings.aiRecordExpanded?.[key]);
+    let button = recordControl(list.ownerDocument, records.length, open, mode === "latest5", summary);
     const update = () => {
       records.forEach((li, i) => {
         li.classList.add("ad-record-item");
-        li.classList.toggle("ad-record-hidden", mode === "latest5" ? i < records.length - 5 : !open);
+        li.classList.toggle("ad-record-hidden", !open && (summary ? !summaries.includes(li) : mode === "latest5" ? i < records.length - 5 : true));
       });
+      if (summary || mode === "latest5") button.querySelector("span:nth-child(2)").textContent = open ? "\u6536\u8D77" : "\u66F4\u591A";
       button.dataset.open = String(open);
-      button.title = mode === "latest5" ? "\u4EC5\u5C55\u793A\u6700\u65B0 5 \u6761 AI \u8BB0\u5F55" : `${open ? "\u6298\u53E0" : "\u5C55\u5F00"} ${records.length} \u6761 AI \u8BB0\u5F55`;
+      button.title = mode === "latest5" && !open && !summary ? "\u4EC5\u5C55\u793A\u6700\u65B0 5 \u6761 AI \u8BB0\u5F55" : `${open ? "\u6298\u53E0" : "\u5C55\u5F00"} ${records.length} \u6761 AI \u8BB0\u5F55`;
       button.setAttribute("aria-label", button.title);
       button.setAttribute("aria-expanded", String(open));
     };
-    if (mode !== "latest5") button.onclick = () => {
+    button.onclick = () => {
       open = !open;
+      if (key) rememberOpen(plugin, key, open);
       update();
     };
     const paragraph = parent.querySelector(":scope > p");
     if (paragraph) paragraph.appendChild(button);
-    else parent.insertBefore(button, list);
+    else list.parentNode.insertBefore(button, list);
     update();
     cleanups.push(() => {
       records.forEach((li) => li.classList.remove("ad-record-hidden", "ad-record-item"));
@@ -5618,7 +5938,7 @@ var PillWidget = class extends import_view2.WidgetType {
       });
       right.appendChild(chev);
     } else if (info.kind === "running" || info.kind === "starting") {
-      label.textContent = info.kind === "starting" ? "\u51C6\u5907\u4E2D" : job ? "\u59D4\u6D3E\u4E2D" : "\u5728\u8DD1";
+      label.textContent = executionStatus(job) || (info.kind === "starting" ? "\u6B63\u5728\u5EFA\u7ACB\u4F1A\u8BDD" : "\u6B63\u5728\u6267\u884C");
       glyph.textContent = "";
       lattice(glyph, info.kind === "starting" ? "orbit" : "snake");
       const start = job && job.startedAt || session && session.lastAt || Date.now();
@@ -5652,12 +5972,18 @@ var PillWidget = class extends import_view2.WidgetType {
       if (progText) meta.textContent = progText;
       el.classList.add("is-pulse");
     } else if (info.kind === "done") {
-      label.textContent = "\u5B8C\u6210";
+      label.textContent = "\u672C\u8F6E\u7ED3\u675F";
       const resText = job && job.result ? truncate(job.result, 28) : session && session.lastText ? truncate(oneSentenceConclusion(session.lastText, 28), 28) : "";
       meta.textContent = [progText, resText].filter(Boolean).join(" \xB7 ");
       const open = document.createElement("span");
       open.className = "ad-pill__open";
       setLucide(open, "arrow-up-right");
+      open.title = "\u7EE7\u7EED\u5BF9\u8BDD\u6216\u91CD\u65B0\u59D4\u6D3E";
+      open.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        p.taskActions(this.path, this.line, e);
+      });
       right.appendChild(open);
     } else if (info.kind === "error") {
       label.textContent = "\u51FA\u9519";
@@ -5665,11 +5991,11 @@ var PillWidget = class extends import_view2.WidgetType {
       const retry = document.createElement("span");
       retry.className = "ad-pill__open";
       setLucide(retry, "refresh-cw");
-      retry.title = "\u91CD\u8BD5";
+      retry.title = "\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09";
       retry.addEventListener("mousedown", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        p.openDelegateModal(this.path, this.line);
+        p.taskActions(this.path, this.line, e);
       });
       right.appendChild(retry);
     } else {
@@ -5687,8 +6013,8 @@ var PillWidget = class extends import_view2.WidgetType {
       e.preventDefault();
       e.stopPropagation();
       if (info.kind === "idle") p.delegateAtLine(this.path, this.line).catch((err2) => p.notice(String(err2.message || err2)));
-      else if (info.kind === "error") p.openDelegateModal(this.path, this.line);
-      else p.openJob(job && job.id, session && session.sid);
+      else if (info.kind === "error") p.taskActions(this.path, this.line, e);
+      else p.taskActions(this.path, this.line, e);
     });
     el.title = p.pillTitle(info);
     return el;
@@ -5893,6 +6219,22 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       }
       return;
     }
+    const journalActions = dash.createDiv({ cls: "ad-btnrow" });
+    for (const [mode, label] of [["active", "\u5F52\u7EC4\u672A\u5B8C\u6210\u65E5\u5FD7"], ["done", "\u5F52\u6863\u5DF2\u5B8C\u6210\u65E5\u5FD7"]]) {
+      const button = journalActions.createEl("button", { text: label });
+      button.title = mode === "done" ? "\u79FB\u5230\u5F52\u6863\u6587\u4EF6\uFF0C\u6309\u65E5\u8BB0\u65E5\u671F\u5206\u7EC4\uFF0C\u4FDD\u7559\u5B8C\u6574\u5B50\u9879\u548C\u8BB0\u5F55" : "\u5728\u5F53\u524D\u65E5\u8BB0\u5185\u6574\u7406\u4EFB\u52A1\u6574\u5757\uFF0C\u4FDD\u7559\u5B50\u9879\u548C\u8BB0\u5F55";
+      button.onclick = async () => {
+        button.disabled = true;
+        try {
+          await p.organizeJournal(mode);
+        } catch (e) {
+          p.notice(e.message);
+        } finally {
+          button.disabled = false;
+        }
+      };
+    }
+    journalActions.createEl("button", { text: "\u8DF3\u5230\u6B63\u5728\u505A" }).onclick = () => p.jumpRunningProject();
     const hero = dash.createDiv({ cls: "ad-hero" });
     const nums = hero.createDiv({ cls: "ad-hero__nums" });
     this.num(nums, fmtMin(today ? today.wall : 0), "\u534F\u4F5C\u65F6\u957F", this.vsWeek(today));
@@ -6241,7 +6583,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     card.dataset.sid = s.sid;
     card.draggable = true;
     card.addEventListener("dragstart", (e) => {
-      const title = s.title || truncate(s.text || s.step || s.sid, 60);
+      const title = s.title || truncate(s.text || s.step || "\u672A\u547D\u540D\u4F1A\u8BDD", 60);
       e.dataTransfer.setData(SESSION_MIME, JSON.stringify({ agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" }));
       e.dataTransfer.setData("text/plain", title);
       e.dataTransfer.effectAllowed = "all";
@@ -6275,7 +6617,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       card.removeClass("is-drop");
-      p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title: s.title || truncate(s.text || s.step || s.sid, 60), app: s.app || "", state: s.state || "" });
+      p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title: s.title || truncate(s.text || s.step || "\u672A\u547D\u540D\u4F1A\u8BDD", 60), app: s.app || "", state: s.state || "" });
     });
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
@@ -6289,7 +6631,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     agentIcon(icon.createSpan({ cls: "ad-glyph" }), s.agent);
     const body = card.createDiv({ cls: "ad-sess__body" });
     const titleRow = body.createDiv({ cls: "ad-sess__title" });
-    titleRow.createSpan({ cls: "ad-sess__name", text: s.title || truncate(s.text || s.step || s.sid, 60) || s.sid.slice(0, 12) });
+    titleRow.createSpan({ cls: "ad-sess__name", text: s.title || truncate(s.text || s.step || "\u672A\u547D\u540D\u4F1A\u8BDD", 60) });
     const st = stateChip(s);
     if (st) {
       const chip = titleRow.createSpan({ cls: `ad-state ${st.cls}` });
@@ -6314,7 +6656,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const sub = body.createDiv({ cls: "ad-sess__sub" });
     sub.createSpan({ text: a.short });
     if (s.cwd) sub.createSpan({ text: "\xB7" });
-    if (s.cwd) sub.createSpan({ cls: "ad-sess__cwd", text: truncate(s.cwd, 34) });
+    if (s.cwd) sub.createSpan({ cls: "ad-sess__cwd", text: truncate(workspaceLabel(s.cwd), 34), attr: { title: s.cwd } });
     const prog = p.sessionProgressText ? p.sessionProgressText(s, s.job) : "";
     if (prog) {
       sub.createSpan({ text: "\xB7" });
@@ -7256,6 +7598,22 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
         this.display();
       };
     }
+    const mentions = this.card(body, "\u4EFB\u52A1\u884C Agent \u8865\u5168", "\u5728\u5217\u8868\u4EFB\u52A1\u4E2D\u8F93\u5165\u89E6\u53D1\u7B26\u53F7\uFF0C\u9009\u62E9 Agent\u3001\u6A21\u578B\u548C\u63A8\u7406\u5F3A\u5EA6\u3002");
+    const suggestRow = this.row(mentions, "\u8F93\u5165\u65F6\u663E\u793A\u5019\u9009\u83DC\u5355", "\u5173\u95ED\u540E\u4E0D\u5F39\u83DC\u5355\uFF1B\u5DF2\u6709\u4EFB\u52A1\u6807\u8BB0\u4ECD\u53EF\u6B63\u5E38\u6D3E\u53D1\u3002", null);
+    this.toggle(suggestRow.querySelector(":scope > .ad-row__right"), d.mentionSuggest !== false, (v) => {
+      d.mentionSuggest = v;
+      p.saveSettings();
+    });
+    const triggerRow = this.row(mentions, "\u89E6\u53D1\u7B26\u53F7", "\u9ED8\u8BA4 @\uFF0C\u4E5F\u53EF\u4F7F\u7528 !\u3001:: \u7B49\u7B26\u53F7\uFF1B\u524D\u9762\u9700\u7A7A\u683C\u3002\u65E7 @ \u6807\u8BB0\u7EE7\u7EED\u6709\u6548\u3002", null);
+    this.textInput(triggerRow.querySelector(":scope > .ad-row__right"), d.mentionTrigger || "@", "@", (v) => {
+      const trigger = v.trim();
+      if (!trigger || /[\s`\p{L}\p{N}]/u.test(trigger)) {
+        new import_obsidian3.Notice("\u8BF7\u586B\u5199\u4E0D\u542B\u7A7A\u683C\u3001\u5B57\u6BCD\u3001\u6570\u5B57\u6216\u53CD\u5F15\u53F7\u7684\u7B26\u53F7");
+        return;
+      }
+      d.mentionTrigger = trigger;
+      p.saveSettings();
+    });
     const claude = this.card(body, "Claude Code", "\u540E\u53F0\u5F00\u4E00\u4E2A\u4F1A\u8BDD\uFF0C\u7B54\u5B8C\u4E00\u8F6E\u53EF\u4EE5\u70B9\u5F00\u8FDB\u5165 Claude \u684C\u9762\u7248\u3002\u6A21\u578B\u3001\u5F3A\u5EA6\u3001\u6743\u9650\u6A21\u5F0F\u90FD\u4F1A\u4F20\u7ED9 claude \u547D\u4EE4\u884C\u3002");
     this.modelSelect(claude, "claude", d.claude.model, (v) => {
       this.setDefaultModel("claude", v);
@@ -7346,7 +7704,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       d.dsh.effort = v;
       p.saveSettings();
     });
-    const route = this.row(dsh, "\u81EA\u52A8\u5141\u8BB8\u5DE5\u5177\u8C03\u7528", "ACP \u6A21\u5F0F\u4E0B Harness \u4F1A\u628A\u6743\u9650\u8BF7\u6C42\u53D1\u56DE\u63D2\u4EF6\u3002\u6253\u5F00 = \u81EA\u52A8\u5141\u8BB8\u4E00\u6B21\uFF1B\u5173\u6389 = \u62D2\u7EDD\u5E76\u5728\u901A\u77E5\u91CC\u63D0\u9192\u4F60\u3002", null);
+    const route = this.row(dsh, "\u81EA\u52A8\u5141\u8BB8\u5DE5\u5177\u8C03\u7528", "ACP \u6A21\u5F0F\u4E0B Harness \u4F1A\u628A\u6743\u9650\u8BF7\u6C42\u53D1\u56DE\u63D2\u4EF6\u3002\u6253\u5F00 = \u81EA\u52A8\u5141\u8BB8\u4E00\u6B21\uFF1B\u5173\u6389 = \u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\uFF0C\u5E76\u53D1\u9001\u901A\u77E5\u3002", null);
     this.toggle(route.querySelector(":scope > .ad-row__right"), d.dsh.autoApprove === true, (v) => {
       d.dsh.autoApprove = v;
       p.saveSettings();
@@ -7431,6 +7789,14 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       d.confirmFirst = v;
       p.saveSettings();
     });
+    const confirm = prompt.createDiv({ cls: "ad-field" });
+    confirm.createDiv({ cls: "ad-field__label", text: "\u786E\u8BA4\u63D0\u793A\u8BCD\uFF08\u5F00\u542F\u65F6\u8FFD\u52A0\u5230\u6D88\u606F\u672B\u5C3E\uFF0C\u53EF\u81EA\u5B9A\u4E49\uFF09" });
+    const confirmTa = confirm.createEl("textarea", { cls: "ad-textarea", attr: { rows: "5" } });
+    confirmTa.value = d.confirmFirstPrompt ?? DEFAULTS.delegate.confirmFirstPrompt;
+    confirmTa.onchange = () => {
+      d.confirmFirstPrompt = confirmTa.value;
+      p.saveSettings();
+    };
     const beh = this.card(body, "\u5199\u56DE\u7B14\u8BB0", "\u59D4\u6D3E\u5F00\u59CB\u540E\uFF0C\u5728\u4EFB\u52A1\u4E0B\u9762\u5199\u4E00\u884C \u{1F517}\uFF1B\u5B8C\u6210\u540E\u5199\u4E00\u884C \u{1F4AC}\u3002");
     const r1 = this.row(beh, "\u628A\u72B6\u6001\u6539\u6210 DELEGATED", "\u4FDD\u7559\u539F\u6765\u7684\u65F6\u523B\u548C\u4F18\u5148\u7EA7\u3002", null);
     this.toggle(r1.querySelector(":scope > .ad-row__right"), d.markStatus !== false, (v) => {
@@ -7981,7 +8347,16 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
       this.display();
     });
-    const merge = this.row(jr, "\u7D2F\u79EF\u540E\u81EA\u52A8\u5408\u5E76\u603B\u7ED3", "\u5728\u201C\u6BCF\u8F6E\u8BB0\u5F55\u201D\u6A21\u5F0F\u4E0B\uFF0C\u7D2F\u79EF\u5230\u6307\u5B9A\u6761\u6570\u540E\u7531\u6240\u9009 CLI \u5408\u5E76\u4E3A\u4E00\u6761\u603B\u7ED3\uFF1B\u7EE7\u7EED\u4FDD\u7559\u540E\u7EED\u65B0\u8BB0\u5F55\u3001\u624B\u5199\u5185\u5BB9\u3001\u5B9E\u9645\u7528\u65F6\u4E0E\u5F85\u529E\u3002\u603B\u7ED3\u5931\u8D25\u65F6\u4FDD\u7559\u539F\u8BB0\u5F55\u3002", null);
+    const archive = this.row(jr, "\u5DF2\u5B8C\u6210\u4EFB\u52A1\u5F52\u6863\u4F4D\u7F6E", "\u70B9\u51FB\u201C\u5F52\u6863\u5DF2\u5B8C\u6210\u65E5\u5FD7\u201D\u65F6\uFF0C\u6574\u5757\u79FB\u5230\u6B64\u6587\u4EF6\uFF0C\u6309\u539F\u65E5\u8BB0\u65E5\u671F\u5206\u7EC4\u3002\u586B\u5199\u5E93\u5185\u7684 .md \u6587\u4EF6\u8DEF\u5F84\uFF1B\u4FEE\u6539\u4F4D\u7F6E\u53EA\u5F71\u54CD\u540E\u7EED\u5F52\u6863\u3002", null);
+    this.textInput(archive.querySelector(":scope > .ad-row__right"), s.doneArchivePath, DEFAULTS.doneArchivePath, (v) => {
+      try {
+        s.doneArchivePath = archivePath(v);
+        p.saveSettings();
+      } catch (e) {
+        new import_obsidian3.Notice(e.message);
+      }
+    }, "ad-input--wide");
+    const merge = this.row(jr, "\u7D2F\u79EF\u540E\u81EA\u52A8\u5408\u5E76\u603B\u7ED3", "\u5728\u201C\u6BCF\u8F6E\u8BB0\u5F55\u201D\u6A21\u5F0F\u4E0B\uFF0C\u7D2F\u79EF\u5230\u6307\u5B9A\u6761\u6570\u540E\u7531\u6240\u9009 CLI \u663E\u793A\u4E00\u6761\u7D2F\u8BA1\u603B\u7ED3\uFF1B\u539F\u8F6E\u6B21\u8BB0\u5F55\u4FDD\u7559\u5728\u7B14\u8BB0\u4E2D\uFF0C\u70B9\u51FB\u201C\u66F4\u591A\u201D\u5C55\u5F00\u3002\u624B\u5199\u5185\u5BB9\u3001\u5B9E\u9645\u7528\u65F6\u4E0E\u5F85\u529E\u4FDD\u7559\u3002\u603B\u7ED3\u5931\u8D25\u65F6\u4FDD\u7559\u539F\u8BB0\u5F55\u3002", null);
     this.toggle(merge.querySelector(":scope > .ad-row__right"), !!s.autoLogMerge, (v) => {
       s.autoLogMerge = v;
       p.saveSettings();
@@ -7998,13 +8373,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
       this.display();
     });
-    const jdisplay = this.row(jr, "AI \u8BB0\u5F55\u663E\u793A\u65B9\u5F0F", "\u9ED8\u8BA4\u6298\u53E0\uFF1A\u70B9\u6309\u94AE\u5C55\u5F00\uFF1B\u9ED8\u8BA4\u5C55\u5F00\uFF1A\u70B9\u6309\u94AE\u6298\u53E0\uFF1B\u6700\u65B0 5 \u6761\uFF1A\u9690\u85CF\u66F4\u65E9\u7684\u8BB0\u5F55\uFF0C\u539F\u6587\u4ECD\u4FDD\u7559\u3002\u53EA\u5F71\u54CD\u4EFB\u52A1\u4E0B\u7684 AI \u8BB0\u5F55\uFF0C\u624B\u5199\u7B14\u8BB0\u4E0E\u5B50\u4EFB\u52A1\u7167\u5E38\u663E\u793A\u3002", null);
-    this.segmented(jdisplay.querySelector(":scope > .ad-row__right"), [{ id: "collapsed", label: "\u9ED8\u8BA4\u6298\u53E0" }, { id: "expanded", label: "\u9ED8\u8BA4\u5C55\u5F00" }, { id: "latest5", label: "\u6700\u65B0 5 \u6761" }], s.aiRecordDisplay || "collapsed", (v) => {
-      s.aiRecordDisplay = v;
-      p.saveSettings();
-      p.refreshUI();
-      this.display();
-    });
+    this.row(jr, "AI \u8BB0\u5F55\u663E\u793A\u65B9\u5F0F", "\u9ED8\u8BA4\u6298\u53E0\uFF1B\u624B\u52A8\u5C55\u5F00\u540E\u4FDD\u7559\u8BE5\u4EFB\u52A1\u7684\u5C55\u5F00\u72B6\u6001\uFF0C\u6298\u53E0\u540E\u6062\u590D\u4E3A\u6298\u53E0\u3002\u7D2F\u8BA1\u603B\u7ED3\u4FDD\u7559\u4E00\u6761\u53EF\u89C1\u7ED3\u8BBA\uFF0C\u70B9\u201C\u66F4\u591A\u201D\u770B\u660E\u7EC6\u3002\u7531 Agent Deck \u81EA\u5DF1\u63A7\u5236\uFF0C\u5E76\u4E0E Obsidian \u539F\u751F\u6298\u53E0\u547D\u4EE4\u8054\u52A8\uFF0C\u4E0D\u4F9D\u8D56 Logseq Style Fold\u3002", null);
     const je = this.row(jr, "\u6BCF\u9694\u51E0\u5206\u949F", "\u81EA\u52A8\u6574\u7406\u7684\u95F4\u9694\uFF0C\u6700\u5C11 5 \u5206\u949F\u3002", null);
     this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => {
       s.autoLogEvery = v;
@@ -8021,7 +8390,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
     });
     const jid = this.row(jr, "\u505C\u4E86\u51E0\u5206\u949F\u7B97\u6682\u505C", "\u4F1A\u8BDD\u505C\u4E0B\u8D85\u8FC7\u8FD9\u4E48\u4E45\uFF0C\u90A3\u4E00\u884C\u4ECE DOING \u6539\u6210 PAUSED\uFF0C\u5E76\u5199\u4E0A\u5B9E\u9645\u65F6\u6BB5 \u23F1\u3002\u6700\u5C11 5 \u5206\u949F\u3002", null);
-    this.numberInput(jid.querySelector(":scope > .ad-row__right"), s.autoLogIdle || 40, 5, 480, (v) => {
+    this.numberInput(jid.querySelector(":scope > .ad-row__right"), s.autoLogIdle || 10, 5, 480, (v) => {
       s.autoLogIdle = v;
       p.saveSettings();
     });
@@ -8396,6 +8765,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
     this.model = plugin.defaultModel(this.agent);
     this.effort = plugin.settings.delegate[this.agent]?.effort || "high";
     this.permission = plugin.settings.delegate.claude.permission || "auto";
+    this.destination = defaultDestination(plugin, this.agent);
     this.cwd = "";
     this.suffix = plugin.settings.delegate.promptSuffix || "";
     this.block = null;
@@ -8437,7 +8807,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
     contentEl.empty();
     const head = contentEl.createDiv({ cls: "ad-modalhead" });
     const title = head.createDiv({ cls: "ad-modalhead__title", text: "Delegate this block" });
-    const sub = head.createDiv({ cls: "ad-modalhead__sub", text: `${blockTitle(this.block).slice(0, 80)} \xB7 ${this.path}` });
+    const sub = head.createDiv({ cls: "ad-modalhead__sub", text: `${blockTitle(this.block, mentionTrigger(p)).slice(0, 80)} \xB7 ${this.path}` });
     const preview = contentEl.createDiv({ cls: "ad-preview" });
     const pre = preview.createEl("pre", { cls: "ad-preview__text" });
     pre.textContent = this.block.text.split("\n").slice(0, 6).join("\n") + (this.block.text.split("\n").length > 6 ? "\n\u2026" : "");
@@ -8456,9 +8826,13 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
         this.agent = id;
         this.model = p.defaultModel(id);
         this.effort = p.settings.delegate[id]?.effort || "high";
+        this.destination = defaultDestination(p, id);
         this.render();
       };
     }
+    destinationPicker(contentEl, this.agent, this.destination, (v) => {
+      this.destination = v;
+    });
     const mf = contentEl.createDiv({ cls: "ad-field" });
     mf.createDiv({ cls: "ad-field__label", text: "Model" });
     const models = p.modelsFor(this.agent).filter((m) => p.modelEnabled(m.id) || m.id === this.model);
@@ -8530,7 +8904,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
         p.saveSettings();
         this.render();
       };
-      af.createDiv({ cls: "ad-hint", text: "ACP \u6A21\u5F0F\u6CA1\u6709 plan/auto \u8FD9\u4E2A\u5207\u6362\uFF1B\u5173\u6389\u81EA\u52A8\u5141\u8BB8\u65F6\uFF0CHarness \u7684\u6743\u9650\u8BF7\u6C42\u4F1A\u88AB\u62D2\u7EDD\u5E76\u63D0\u9192\u4F60\u3002" });
+      af.createDiv({ cls: "ad-hint", text: "ACP \u6A21\u5F0F\u6CA1\u6709 plan/auto \u8FD9\u4E2A\u5207\u6362\uFF1B\u5173\u6389\u81EA\u52A8\u5141\u8BB8\u65F6\uFF0CHarness \u7684\u6743\u9650\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\u3002" });
     }
     if (this.agent === "antigravity") contentEl.createDiv({ cls: "ad-hint", text: "\u901A\u8FC7 agy acp \u59D4\u6D3E\uFF0C\u5DE5\u5177\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\uFF1B\u5B8C\u6210\u540E\u53EF\u6253\u5F00\u4F1A\u8BDD\u6B63\u6587\u7EE7\u7EED\u8FFD\u95EE\u3002\u63A8\u7406\u5F3A\u5EA6\u4EE5\u5F53\u524D\u6A21\u578B\u652F\u6301\u7684\u503C\u4E3A\u51C6\u3002" });
     const cf = contentEl.createDiv({ cls: "ad-field" });
@@ -8565,6 +8939,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
       try {
         const job = await p.delegator.delegate({
           ignoreMention: true,
+          destination: this.destination,
           file: this.file,
           lines: this.lines,
           block: this.block,
@@ -8574,7 +8949,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
           permission: this.agent === "claude" ? this.permission : "",
           cwd: this.cwd.trim(),
           promptSuffix: this.suffix,
-          name: blockTitle(this.block)
+          name: blockTitle(this.block, mentionTrigger(p))
         });
         this.close();
       } catch (e) {
@@ -8591,12 +8966,14 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
   }
 };
 var ConfirmSendModal = class extends import_obsidian4.Modal {
-  constructor(app, { agent, text, path: path7, where }, onSend) {
+  constructor(app, { agent, text, path: path7, where, destination, newSession = false }, onSend) {
     super(app);
     this.agent = agent;
     this.text = text;
     this.path = path7;
     this.where = where;
+    this.destination = destination || destinations(agent)[0]?.id;
+    this.newSession = newSession;
     this.onSend = onSend;
   }
   onOpen() {
@@ -8609,8 +8986,12 @@ var ConfirmSendModal = class extends import_obsidian4.Modal {
     const head = contentEl.createDiv({ cls: "ad-send__head" });
     agentIcon(head.createSpan({ cls: "ad-send__mark" }), this.agent);
     const tt = head.createDiv({ cls: "ad-send__titles" });
-    tt.createDiv({ cls: "ad-send__title", text: `\u53D1\u7ED9 ${a.name}` });
+    tt.createDiv({ cls: "ad-send__title", text: `${this.newSession ? "\u91CD\u65B0\u59D4\u6D3E\u7ED9" : "\u53D1\u7ED9"} ${a.name}` });
     tt.createDiv({ cls: "ad-send__sub", text: this.where });
+    destinationPicker(contentEl, this.agent, this.destination, (v) => {
+      this.destination = v;
+    });
+    if (this.newSession) contentEl.createDiv({ cls: "ad-hint", text: "\u8FD9\u6B21\u5C06\u65B0\u5EFA\u4F1A\u8BDD\uFF0C\u539F\u4F1A\u8BDD\u53CA\u8BB0\u5F55\u4FDD\u7559\u3002" });
     const card = contentEl.createDiv({ cls: "ad-send__card" });
     const lines = this.text.split("\n").filter((l) => l.trim());
     const base = lines.length ? indentOf(lines[0]) : 0;
@@ -8641,7 +9022,7 @@ var ConfirmSendModal = class extends import_obsidian4.Modal {
     go.createSpan({ text: "\u53D1\u9001" });
     go.onclick = () => {
       this.close();
-      this.onSend();
+      this.onSend(this.destination);
     };
     setTimeout(() => go.focus(), 0);
   }
@@ -8652,6 +9033,21 @@ var ConfirmSendModal = class extends import_obsidian4.Modal {
 function indentOf(line) {
   const ws = (line.match(/^[ \t]*/) || [""])[0];
   return ws.replace(/\t/g, "  ").length / 2;
+}
+function destinationPicker(parent, agent, value, onChange) {
+  const field = parent.createDiv({ cls: "ad-field" });
+  field.createDiv({ cls: "ad-field__label", text: "\u63A5\u4E0B\u6765\u5728\u54EA\u91CC\u5DE5\u4F5C" });
+  const options = destinations(agent);
+  const select = field.createEl("select", { cls: "ad-input ad-input--wide", attr: { "aria-label": "\u63A5\u4E0B\u6765\u5728\u54EA\u91CC\u5DE5\u4F5C" } });
+  for (const option of options) select.createEl("option", { text: option.label, attr: { value: option.id } });
+  select.value = options.some((o) => o.id === value) ? value : options[0]?.id;
+  const hint = field.createDiv({ cls: "ad-hint" });
+  const update = () => {
+    hint.textContent = options.find((o) => o.id === select.value)?.hint || "";
+    onChange(select.value);
+  };
+  select.onchange = update;
+  update();
 }
 
 // src/menubar.js
@@ -10550,7 +10946,7 @@ var MenuBarBridge = class {
 
 // src/fold-integration.js
 var import_obsidian5 = require("obsidian");
-var import_language2 = require("@codemirror/language");
+var import_language = require("@codemirror/language");
 function integrateRecordFolding(plugin) {
   for (const [id, spec] of Object.entries(RECORD_FOLD_COMMANDS)) {
     const command = plugin.app.commands.commands[id];
@@ -10565,14 +10961,14 @@ function integrateRecordFolding(plugin) {
       const targets = foldTargets(groups, view.editor.getCursor().line, spec.all);
       if (!targets.length) return original.apply(this, arguments);
       if (checking) return true;
-      const open = spec.open ?? !recordsAreOpen(value.mode, value.toggled, targets[0].key);
+      const open = spec.open ?? !recordsAreOpen(targets[0].summaries.length || value.mode === "latest5" ? "collapsed" : value.mode, value.toggled, targets[0].key);
       const result = original.apply(this, arguments);
       const current = aiRecordGroups(cm.state.doc.toString(), plugin.recordTrackedIds());
       const keys = new Set(spec.all ? current.map((g) => g.key) : targets.map((g) => g.key));
       const effects = [];
       if (open) {
-        (0, import_language2.foldedRanges)(cm.state).between(0, cm.state.doc.length, (from, to) => {
-          if (current.some((g) => keys.has(g.key) && cm.state.doc.line(g.line + 1).to >= from && cm.state.doc.line(g.line + 1).from <= to)) effects.push(import_language2.unfoldEffect.of({ from, to }));
+        (0, import_language.foldedRanges)(cm.state).between(0, cm.state.doc.length, (from, to) => {
+          if (current.some((g) => keys.has(g.key) && cm.state.doc.line(g.line + 1).to >= from && cm.state.doc.line(g.line + 1).from <= to)) effects.push(import_language.unfoldEffect.of({ from, to }));
         });
       }
       effects.push(setRecordsOpenEffect.of({ keys: [...keys], open }));
@@ -10684,6 +11080,9 @@ ${blockLines.join("\n")}
     for (const sid of this.usage.archivedClaude || []) out.add(sid);
     for (const sid of this.usage.archived || []) out.add(sid);
     return out;
+  }
+  allArchived(st, sid, rec, arch) {
+    return arch.has(sid) && (!rec.blockId || Object.entries(st).every(([other, item]) => item.skip || item.gone || item.blockId !== rec.blockId || arch.has(other)));
   }
   autoParked(rec, cur) {
     return cur === "paused" && !!rec && !!rec.autoPaused;
@@ -10844,7 +11243,7 @@ ${blockLines.join("\n")}
       }
       const data = this.usage.summary(day);
       if (!data || !data.list || !data.list.length) return report;
-      const idle = Math.max(5, this.cfg.autoLogIdle || 40);
+      const idle = Math.max(5, this.cfg.autoLogIdle || 10);
       const now = this.nowMin();
       const st = this.state(day);
       snap = JSON.stringify(st);
@@ -10926,7 +11325,7 @@ ${blockLines.join("\n")}
           delete rec.autoPaused;
         }
         const name = workKey(rec.label).replace(AUTO_MARK, "");
-        if (arch.has(x.sid) && (fresh || cur === "doing" || this.autoParked(rec, cur))) {
+        if (this.allArchived(st, x.sid, rec, arch)) {
           text = this.autoLine(text, rec, x, "done").text;
           rec.status = "done";
           delete rec.fresh;
@@ -11029,7 +11428,7 @@ ${blockLines.join("\n")}
     }
   }
   // 前几天记下、还挂着的行：会话归档了，就在它当天的日记里补成 DONE。
-  // 你自己改成 TODO / PAUSED 的不动；日记正好被改过就跳过这一天。
+  // 同一任务的会话全部归档才完成；日记正好被改过就跳过这一天。
   async archivePast(arch, today) {
     if (!arch.size) return [];
     const out = [];
@@ -11038,7 +11437,7 @@ ${blockLines.join("\n")}
       const file = this.journalFile(day);
       if (!file) continue;
       const st = this.cfg.autoLogState[day] || {};
-      const hits = Object.entries(st).filter(([sid, r]) => arch.has(sid) && r.key && !r.skip && !r.gone && (r.status === "doing" || this.autoParked(r, r.status)));
+      const hits = Object.entries(st).filter(([sid, r]) => arch.has(sid) && r.key && !r.skip && !r.gone && r.status !== "done" && this.allArchived(st, sid, r, arch));
       if (!hits.length) continue;
       const base = await this.read(file);
       let text = base;
@@ -11050,7 +11449,7 @@ ${blockLines.join("\n")}
           rec.gone = true;
           continue;
         }
-        if (found.state !== "doing" && !this.autoParked(rec, found.state)) {
+        if (found.state === "done") {
           rec.status = found.state;
           delete rec.autoPaused;
           continue;
@@ -11357,11 +11756,12 @@ var JournalSync = class {
       if (n < 0) continue;
       const cur = kwLine(ls[n]);
       if (!cur) continue;
-      if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || AGENT_KW_RE.test(cur.kw) || !cur.kw)) continue;
       if (this.archived(k.sid)) {
-        if (cur.kw === "DOING" || cur.kw === "DELEGATED" || AGENT_KW_RE.test(cur.kw)) out = this.finish(out, k.sid, at);
+        const sessions = ls.flatMap((l, i) => markOwner(ls, i) === n && parseLink(l) ? [parseLink(l).sid] : []);
+        if (!DONE_KWS.includes(cur.kw) && sessions.every((sid) => this.archived(sid))) out = this.finish(out, k.sid, at);
         continue;
       }
+      if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || AGENT_KW_RE.test(cur.kw) || !cur.kw)) continue;
       const m = this.usage.meta.get(k.sid);
       if (!m) continue;
       const want = m.state === "run" ? cur.kw === "DELEGATED" ? "DELEGATED" : "DOING" : STATE_KW2[m.state];
@@ -11831,14 +12231,35 @@ ${body}
   const file = vault.getAbstractFileByPath(notePath2);
   if (file) {
     const prior = await vault.read(file);
-    if (prior === content) return file;
+    if (prior === content) {
+      await linkArchive(plugin, session, notePath2);
+      return file;
+    }
     const region = /<!-- agent-deck-conversation sha256:([a-f0-9]{64}) -->\n([\s\S]*?)\n<!-- \/agent-deck-conversation -->/.exec(prior);
     if (!region || hash2(region[2]) !== region[1]) throw new Error("\u8BE5\u4F1A\u8BDD\u5DF2\u6709\u5F52\u6863\uFF0C\u4E14\u6B63\u6587\u7ECF\u8FC7\u624B\u5DE5\u4FEE\u6539\u3002\u8BF7\u5148\u4FDD\u7559\u6216\u79FB\u52A8\u65E7\u5F52\u6863\u540E\u518D\u5BFC\u51FA");
     const next = prior.slice(0, region.index) + content + prior.slice(region.index + region[0].length);
     if (next !== prior) await vault.modify(file, next);
+    await linkArchive(plugin, session, notePath2);
     return file;
   }
-  return vault.create(notePath2, content);
+  const created = await vault.create(notePath2, content);
+  await linkArchive(plugin, session, notePath2);
+  return created;
+}
+async function linkArchive(plugin, session, archivePath2) {
+  if (!plugin.readNote || !plugin.writeNote) return;
+  const sid = session.sid || session.sessionId;
+  const job = Object.values(plugin.jobs).find((j) => j.agent === session.agent && j.sessionId === sid);
+  const binding = Object.values(plugin.settings?.taskBindings || {}).find((b) => b.sid === sid);
+  const target = binding?.path ? binding : job;
+  if (!target?.path || !plugin.app.vault.getAbstractFileByPath(target.path)) return;
+  const text = await plugin.readNote(target.path);
+  if (text.includes(`[[${archivePath2}|`)) return;
+  const task = findTask(text, target.key || workKey(target.name || ""), target.blockId, sid);
+  if (!task) return;
+  const lines = text.split("\n"), indent = (lines[task.line].match(/^[ \t]*/)?.[0] || "") + "	";
+  lines.splice(task.line + 1, 0, `${indent}- \u{1F4C4} [[${archivePath2}|\u5BF9\u8BDD\u5F52\u6863 \xB7 ${session.agent}]]`);
+  await plugin.writeNote(target.path, lines.join("\n"));
 }
 
 // src/conversation-modal.js
@@ -11856,7 +12277,8 @@ var ConversationModal = class extends import_obsidian8.Modal {
     const actions = el.createDiv({ cls: "ad-btnrow" });
     const refresh = actions.createEl("button", { text: "\u5237\u65B0\u6B63\u6587" });
     refresh.onclick = () => this.load();
-    const archive = actions.createEl("button", { text: "\u5F52\u6863\u5230\u7B14\u8BB0" });
+    if (canOpenClient(this.session)) actions.createEl("button", { text: "\u5728\u5BA2\u6237\u7AEF\u6253\u5F00" }).onclick = () => this.plugin.openClientSession(this.session);
+    const archive = actions.createEl("button", { text: "\u4FDD\u5B58\u5BF9\u8BDD\u5230\u7B14\u8BB0" });
     archive.onclick = async () => {
       archive.disabled = true;
       try {
@@ -11869,7 +12291,13 @@ var ConversationModal = class extends import_obsidian8.Modal {
         archive.disabled = false;
       }
     };
-    el.createDiv({ cls: "ad-hint", text: "\u663E\u793A\u7528\u6237\u6D88\u606F\u4E0E\u56DE\u590D\u6B63\u6587\u3002\u5F52\u6863\u4E0D\u5305\u542B\u5DE5\u5177\u7ED3\u679C\u3001\u5185\u90E8\u63A8\u7406\u548C\u9644\u4EF6\u3002" });
+    this.scope.register(["Mod"], "s", (event) => {
+      event.preventDefault();
+      if (!archive.disabled) archive.click();
+      return false;
+    });
+    archive.title = "\u4FDD\u5B58\u5BF9\u8BDD\uFF08\u2318S / Ctrl+S\uFF09";
+    el.createDiv({ cls: "ad-hint", text: "\u4FDD\u5B58\u7528\u6237\u6D88\u606F\u4E0E\u56DE\u590D\u6B63\u6587\uFF1B\u4F1A\u8BDD\u53EF\u7EE7\u7EED\uFF0C\u4EFB\u52A1\u72B6\u6001\u4E0D\u53D7\u5F71\u54CD\u3002\u5DE5\u5177\u7ED3\u679C\u3001\u5185\u90E8\u63A8\u7406\u548C\u9644\u4EF6\u4E0D\u5305\u542B\u5728\u5185\u3002" });
     this.messagesEl = el.createDiv({ cls: "ad-conversation__messages" });
     if (this.session.agent === "dsh" || this.session.agent === "antigravity" && Object.values(this.plugin.jobs).some((j) => j.agent === "antigravity" && j.transport === "acp" && j.sessionId === (this.session.sid || this.session.sessionId))) {
       this.input = el.createEl("textarea", { cls: "ad-textarea", attr: { rows: "3", placeholder: "\u5728\u539F\u4F1A\u8BDD\u4E2D\u7EE7\u7EED\u8FFD\u95EE\u2026" } });
@@ -11888,6 +12316,12 @@ var ConversationModal = class extends import_obsidian8.Modal {
           this.send.disabled = false;
         }
       };
+      this.scope.register(["Mod"], "Enter", (event) => {
+        event.preventDefault();
+        if (!this.send.disabled && this.input.value.trim()) this.send.click();
+        return false;
+      });
+      this.send.title = "\u53D1\u9001\uFF08\u2318Enter / Ctrl+Enter\uFF09";
       const stop = row.createEl("button", { text: "\u505C\u6B62\u5F53\u524D\u4E00\u8F6E" });
       stop.onclick = () => {
         const job = Object.values(this.plugin.jobs).find((j) => j.agent === this.session.agent && j.sessionId === (this.session.sid || this.session.sessionId));
@@ -11943,8 +12377,13 @@ var AcpPermissionModal = class extends import_obsidian8.Modal {
   }
   onOpen() {
     const { toolCall, options } = this.info;
-    this.contentEl.createEl("h2", { text: "Antigravity \u8BF7\u6C42\u5DE5\u5177\u6743\u9650" });
-    this.contentEl.createEl("pre", { text: JSON.stringify(toolCall || {}, null, 2) });
+    this.contentEl.createEl("h2", { text: `${this.info.agent === "dsh" ? "DeepSeek Harness" : "Antigravity"} \u8BF7\u6C42\u5DE5\u5177\u6743\u9650` });
+    this.contentEl.createEl("p", { text: toolCall?.title || "Agent \u8BF7\u6C42\u6267\u884C\u5DE5\u5177\u64CD\u4F5C\uFF0C\u8BF7\u9009\u62E9\u662F\u5426\u5141\u8BB8\u3002" });
+    if (toolCall?.rawInput) {
+      const details = this.contentEl.createEl("details");
+      details.createEl("summary", { text: "\u67E5\u770B\u64CD\u4F5C\u8BE6\u60C5" });
+      details.createEl("pre", { text: JSON.stringify(toolCall.rawInput, null, 2) });
+    }
     const row = this.contentEl.createDiv({ cls: "ad-btnrow" });
     for (const option of options) {
       const button = row.createEl("button", { text: option.name || option.kind });
@@ -11968,43 +12407,54 @@ var TaskAgentSuggest = class extends import_obsidian9.EditorSuggest {
     this.plugin = plugin;
   }
   onTrigger(cursor, editor) {
+    if (this.plugin.settings.delegate?.mentionSuggest === false) return null;
     const line = editor.getLine(cursor.line), head = line.slice(0, cursor.ch);
     if (!/^\s*(?:[-*+]|\d+[.)])\s+/.test(line)) return null;
     let fence = "";
     for (let n = 0; n < cursor.line; n++) {
-      const m2 = /^\s*(`{3,}|~{3,})/.exec(editor.getLine(n));
-      if (m2) {
-        if (!fence) fence = m2[1][0];
-        else if (m2[1][0] === fence) fence = "";
+      const m = /^\s*(`{3,}|~{3,})/.exec(editor.getLine(n));
+      if (m) {
+        if (!fence) fence = m[1][0];
+        else if (m[1][0] === fence) fence = "";
       }
     }
     if (fence || (head.match(/`/g) || []).length % 2) return null;
-    const m = /(?:^|\s)@([a-zA-Z0-9._/-]*)$/.exec(head);
-    if (!m) return null;
-    return { start: { line: cursor.line, ch: cursor.ch - m[1].length - 1 }, end: cursor, query: m[1] };
+    const token = /(?:^|\s)(\S*)$/.exec(head)?.[1];
+    const trigger = mentionTrigger(this.plugin);
+    if (!token?.startsWith(trigger)) return null;
+    const query = token.slice(trigger.length);
+    if (!/^[a-zA-Z0-9._/-]*$/.test(query)) return null;
+    return { start: { line: cursor.line, ch: cursor.ch - token.length }, end: cursor, query };
   }
   getSuggestions(context) {
     return mentionSuggestions(this.plugin, context.query);
   }
   renderSuggestion(item, el) {
     el.createDiv({ text: item.label });
-    el.createDiv({ cls: "ad-muted", text: `@${item.value} \xB7 ${item.hint}` });
+    el.createDiv({ cls: "ad-muted", text: `${mentionTrigger(this.plugin)}${item.value} \xB7 ${item.hint}` });
   }
   selectSuggestion(item) {
     if (!this.context) return;
     const { editor, file, start, end } = this.context;
-    const text = `@${item.value}${item.next ? "/" : ""}`;
+    const text = `${mentionTrigger(this.plugin)}${item.value}${item.next ? "/" : ""}`;
     editor.replaceRange(text, start, end);
     editor.setCursor({ line: start.line, ch: start.ch + text.length });
     this.close();
-    if (item.next) {
+    if (item.next && this.plugin.settings.delegate?.mentionSuggest !== false) {
       setTimeout(() => {
         const cursor = editor.getCursor();
-        if (cursor.line === start.line && cursor.ch === start.ch + text.length && editor.getLine(start.line).slice(start.ch, cursor.ch) === text) this.app.workspace.editorSuggest?.trigger(editor, file, true);
+        if (this.plugin.settings.delegate?.mentionSuggest !== false && cursor.line === start.line && cursor.ch === start.ch + text.length && editor.getLine(start.line).slice(start.ch, cursor.ch) === text) this.app.workspace.editorSuggest?.trigger(editor, file, true);
       }, 0);
     }
   }
 };
+function registerTaskAgentSuggest(plugin) {
+  const suggest = new TaskAgentSuggest(plugin);
+  plugin.registerEditorSuggest(suggest);
+  const suggests = plugin.app.workspace.editorSuggest?.suggests;
+  const index = suggests?.indexOf(suggest);
+  if (index > 0) suggests.unshift(...suggests.splice(index, 1));
+}
 
 // src/main.js
 var fsp4 = import_fs7.default.promises;
@@ -12023,6 +12473,8 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
     this.settings.jobs = this.settings.jobs && typeof this.settings.jobs === "object" ? this.settings.jobs : {};
     setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 8) * 60);
     this.jobs = this.settings.jobs;
+    this.attentionTracker = new AttentionTracker();
+    this.attentionAlerts = /* @__PURE__ */ new Map();
     this.views = /* @__PURE__ */ new Set();
     this._lineMaps = {};
     this.vaultPath = this.app.vault.adapter.getBasePath ? this.app.vault.adapter.getBasePath() : "";
@@ -12042,10 +12494,10 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
     this.registerEditorExtension(createEditorExtension(this));
-    this.registerEditorSuggest(new TaskAgentSuggest(this));
+    registerTaskAgentSuggest(this);
     this.registerMarkdownPostProcessor((el, ctx) => {
       const child = new import_obsidian10.MarkdownRenderChild(el);
-      child.onunload = renderAIRecords(el, this);
+      child.onunload = renderAIRecords(el, this, ctx);
       ctx.addChild(child);
     });
     this.setupRibbon();
@@ -12067,11 +12519,29 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
     });
     this.addCommand({ id: "open-settings", name: "\u6253\u5F00 Agent Deck \u8BBE\u7F6E", callback: () => this.openSettings() });
     this.addCommand({ id: "open-models", name: "\u6253\u5F00 Agent Deck \u7684 Models \u8BBE\u7F6E", callback: () => this.openSettings("models") });
-    this.addCommand({ id: "conversation-line", name: "\u67E5\u770B\u5F53\u524D\u4EFB\u52A1\u7684\u5BF9\u8BDD\u3001\u7EED\u804A\u4E0E\u5F52\u6863", editorCallback: (editor, view) => this.conversationForEditor(editor, view) });
+    this.addCommand({ id: "delegate-line", name: "\u59D4\u6D3E\u5F53\u524D\u4EFB\u52A1 / \u6253\u5F00\u4EFB\u52A1\u64CD\u4F5C", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "D" }], editorCallback: (editor, view) => {
+      if (view.file) this.gripSend({ path: view.file.path, line: editor.getCursor().line, lineText: editor.getLine(editor.getCursor().line) });
+    } });
+    this.addCommand({ id: "task-actions-line", name: "\u5F53\u524D\u4EFB\u52A1\uFF1A\u7EED\u804A\u3001\u505C\u6B62\u3001\u91CD\u65B0\u59D4\u6D3E", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "A" }], editorCallback: (editor, view) => {
+      if (view.file) this.taskActions(view.file.path, editor.getCursor().line);
+    } });
+    this.addCommand({ id: "next-attention", name: "\u5904\u7406\u4E0B\u4E00\u6761\u9700\u8981\u6388\u6743\u6216\u786E\u8BA4\u7684\u4F1A\u8BDD", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "N" }], callback: () => {
+      const alert = this.attentionAlerts.values().next().value;
+      if (alert) alert.open();
+      else this.notice("\u76EE\u524D\u6CA1\u6709\u9700\u8981\u6388\u6743\u6216\u786E\u8BA4\u7684\u4F1A\u8BDD");
+    } });
+    this.addCommand({ id: "conversation-line", name: "\u67E5\u770B\u5F53\u524D\u4EFB\u52A1\u7684\u5BF9\u8BDD\u3001\u7EED\u804A\u4E0E\u5F52\u6863", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "C" }], editorCallback: (editor, view) => this.conversationForEditor(editor, view) });
     this.addCommand({ id: "open-session-line", name: "\u6253\u5F00\u5149\u6807\u8FD9\u4E00\u884C\u7ED1\u5B9A\u7684\u4F1A\u8BDD", editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
     this.addCommand({ id: "merge-task-line", name: "\u628A\u5F53\u524D\u4EFB\u52A1\u6761\u76EE\u4E0E\u7B14\u8BB0\u91CC\u53E6\u4E00\u6761\u7ED1\u5B9A/\u5408\u5E76", editorCallback: (editor, view) => this.openMergeTaskForEditor(editor, view) });
+    this.addCommand({ id: "stop-task-line", name: "\u505C\u6B62\u5F53\u524D\u4EFB\u52A1\u7684\u6267\u884C", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "X" }], editorCallback: (editor, view) => {
+      const job = view.file && this.jobAtLine(view.file.path, editor.getCursor().line, editor.getLine(editor.getCursor().line));
+      if (job && activeJob(job)) this.cancelJob(job.id);
+      else this.notice("\u5F53\u524D\u4EFB\u52A1\u6CA1\u6709\u53EF\u505C\u6B62\u7684\u6267\u884C");
+    } });
     this.addCommand({ id: "scan-now", name: "\u91CD\u65B0\u626B\u63CF\u672C\u673A Agent \u4F1A\u8BDD", callback: () => this.scanNow(true) });
-    this.addCommand({ id: "jump-running-project", name: "\u8DF3\u8F6C\u5230\u65E5\u8BB0\u4E2D\u6B63\u5728\u8FD0\u884C\u7684\u9879\u76EE", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "J" }], callback: () => this.jumpRunningProject() });
+    this.addCommand({ id: "jump-running-project", name: "\u8DF3\u8F6C\u5230\u65E5\u8BB0\u6B63\u5728\u505A\u7684\u533A\u57DF", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "J" }], callback: () => this.jumpRunningProject() });
+    this.addCommand({ id: "group-active-journal", name: "\u5F53\u524D\u65E5\u8BB0\uFF1A\u5F52\u7EC4\u672A\u5B8C\u6210\u7684 AI \u4EFB\u52A1\u4E0E\u8BB0\u5F55", callback: () => this.organizeJournal("active") });
+    this.addCommand({ id: "group-done-journal", name: "\u5F53\u524D\u65E5\u8BB0\uFF1A\u5F52\u6863\u5DF2\u5B8C\u6210\u7684 AI \u4EFB\u52A1\u4E0E\u8BB0\u5F55", callback: () => this.organizeJournal("done") });
     this.addCommand({ id: "log-journal", name: "\u6574\u7406 Agent \u4F1A\u8BDD\u8FDB\u4ECA\u5929\u7684\u65E5\u8BB0", callback: () => this.autoLog.logNow() });
     this.addCommand({ id: "dream-now", name: "Dreaming\uFF1A\u6574\u7406 AI \u8BB0\u5F55\u4E0E\u7528\u6237\u65E5\u5FD7\u4E3A\u957F\u671F\u8BB0\u5FC6", callback: () => this.dreaming.run() });
     this.addCommand({ id: "dream-share", name: "Dreaming\uFF1A\u540C\u6B65\u5171\u4EAB\u957F\u671F\u8BB0\u5FC6", callback: () => this.dreaming.sharing.sync() });
@@ -12114,6 +12584,10 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
   }
   onunload() {
     this.conversationModal?.close();
+    for (const alert of this.attentionAlerts?.values() || []) {
+      alert.notice?.hide();
+      alert.system?.close();
+    }
     this.settingTab?.hide();
     if (this.journalSync) this.journalSync._stopped = true;
     if (this.store?.dirty) {
@@ -12435,6 +12909,8 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
     return out.sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).slice(0, limit);
   }
   openConversation(session) {
+    const job = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === (session.sid || session.sessionId));
+    session = { ...job, ...session, sid: session.sid || session.sessionId, transport: job?.transport || session.transport };
     this.conversationModal?.close();
     this.conversationModal = new ConversationModal(this.app, this, session);
     this.conversationModal.open();
@@ -12469,7 +12945,8 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
   }
   openSession(agent, sid, app, session) {
     const job = Object.values(this.jobs).find((j) => j.agent === agent && j.sessionId === sid);
-    if (agent === "antigravity" && job?.transport === "acp") return this.openConversation({ ...job, sid });
+    if (agent === "antigravity" && job?.transport === "acp" || agent === "dsh" && job?.destination === "obsidian") return this.openConversation({ ...job, sid });
+    if (job && ["claude", "codex"].includes(agent)) return this.openClientSession({ ...job, ...session, sid, agent });
     return openSession(this, agent, sid, app, session);
   }
   // 给别的插件用（螺旋日程的进度行）：只给会话号，按 Agent Deck 的规矩打开——命令行会话切到它的终端标签
@@ -12532,7 +13009,7 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
     const prog = this.sessionProgressText(s, job);
     if (prog) parts.push(`\u8FDB\u5EA6\uFF1A${prog}`);
     if (s) {
-      parts.push(s.title || s.step || s.sid);
+      parts.push(s.title || s.step || "\u672A\u547D\u540D\u4F1A\u8BDD");
       if (s.tokens) parts.push(`${fmtTok(s.tokens)} tok`);
     }
     return parts.filter(Boolean).join("\n");
@@ -12656,7 +13133,7 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
     if (change) view.editor.transaction({ changes: [change] });
     this.markBound(sid, res.blockId || "", res.line != null ? workKey(res.text.split("\n")[res.line] || "") : "");
     const a = AGENTS[data.agent] || AGENTS.claude;
-    this.notice(res.kind === "bind" ? `\u{1F517} \u5DF2\u7ED1\u5B9A\uFF08^${res.blockId || ""}\uFF09\uFF1A${a.short} \u4F1A\u8BDD\u7684\u6BCF\u8F6E \u{1F4AC}\u3001\u2753\u3001\u23F1 \u548C\u72B6\u6001\u90FD\u4F1A\u8DDF\u7740\u8FD9\u4E00\u9879\u8D70` : `\u{1F517} \u65B0\u5EFA\u4E86\u4E00\u9879\u5E76\u7ED1\u4E0A ${a.short} \u4F1A\u8BDD`, 5e3);
+    this.notice(res.kind === "bind" ? `\u{1F517} \u5DF2\u7ED1\u5B9A\uFF1A${a.short} \u4F1A\u8BDD\u7684\u6BCF\u8F6E \u{1F4AC}\u3001\u2753\u3001\u23F1 \u548C\u72B6\u6001\u90FD\u4F1A\u8DDF\u7740\u8FD9\u4E00\u9879\u8D70` : `\u{1F517} \u65B0\u5EFA\u4E86\u4E00\u9879\u5E76\u7ED1\u4E0A ${a.short} \u4F1A\u8BDD`, 5e3);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {
     }), 300);
     this.refreshUI();
@@ -12704,7 +13181,7 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
     }
     this.saveSettings().catch(() => {
     });
-    this.notice(`\u{1F517} \u5DF2\u5408\u5E76\u6761\u76EE\uFF08^${res.blockId}\uFF09\uFF1A\u4F1A\u8BDD\u8BB0\u5F55\u4E0E\u7ED3\u8BBA\u5DF2\u5F52\u5165\u300C${truncate(res.body, 28)}\u300D`, 5e3);
+    this.notice(`\u{1F517} \u5DF2\u5408\u5E76\u6761\u76EE\uFF1A\u4F1A\u8BDD\u8BB0\u5F55\u4E0E\u7ED3\u8BBA\u5DF2\u5F52\u5165\u300C${truncate(res.body, 28)}\u300D`, 5e3);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {
     }), 300);
     this.refreshUI();
@@ -12725,7 +13202,7 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
     for (const c of candidates.slice(0, 20)) {
       menu.addItem((mi) => {
         const tag = c.auto ? "\u{1F916} " : "";
-        mi.setTitle(`\u5408\u5E76\u5230\uFF1A${tag}${truncate(c.body.replace(/^🤖\s*/, ""), 36)}${c.blockId ? ` (^${c.blockId})` : ""}`);
+        mi.setTitle(`\u5408\u5E76\u5230\uFF1A${tag}${truncate(c.body.replace(/^🤖\s*/, ""), 36)}`);
         mi.setIcon("git-merge");
         mi.onClick(() => this.mergeTaskLines(view, taskLine, c.line, lines[taskLine]));
       });
@@ -12767,7 +13244,7 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
   }
   // 笔记里的一项拖到了某个 Agent 卡片上：Claude / DSH 后台直接跑，Codex / WorkBuddy 打开客户端交接
   // 这一项能不能委派：能就给出笔记、行和整块，不能就给出原因
-  async delegateTarget(item) {
+  async delegateTarget(item, { newSession = false } = {}) {
     if (!item || !item.path) return { error: "\u6CA1\u8BA4\u51FA\u62D6\u7684\u662F\u54EA\u4E00\u9879" };
     const file = this.app.vault.getAbstractFileByPath(item.path);
     if (!file) return { error: "\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0" };
@@ -12776,50 +13253,101 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
     let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
     if (line < 0) return { error: "\u8FD9\u4E00\u884C\u521A\u6539\u8FC7\uFF0C\u91CD\u65B0\u6765\u4E00\u6B21" };
     const block = blockAt(lines, line), k = kwLine(lines[line]);
-    if (k && k.body.startsWith(AUTO_MARK.trim())) return { error: "Agent \u8BB0\u7684\u6761\u76EE\u4E0D\u59D4\u6D3E" };
-    if (block && findLink(lines, block)) return { error: "\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\uFF0C\u4E0D\u59D4\u6D3E" };
-    if (block && lines.slice(block.start + 1, block.end + 1).some((l) => CLOCK_RE.test(l))) return { error: "\u5DF2\u6709\u7528\u65F6\u8BB0\u5F55\uFF0C\u4E0D\u59D4\u6D3E" };
+    if (!newSession && k && k.body.startsWith(AUTO_MARK.trim())) return { error: "Agent \u8BB0\u7684\u6761\u76EE\u4E0D\u59D4\u6D3E" };
+    if (!newSession && block && findLink(lines, block)) return { error: "\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\uFF0C\u4E0D\u59D4\u6D3E" };
+    if (!newSession && block && lines.slice(block.start + 1, block.end + 1).some((l) => CLOCK_RE.test(l))) return { error: "\u5DF2\u6709\u7528\u65F6\u8BB0\u5F55\uFF0C\u4E0D\u59D4\u6D3E" };
     return { file, lines, line, block };
   }
-  async delegateDrop(agent, item, fromEl, { cli = false } = {}) {
+  async delegateDrop(agent, item, fromEl, { cli = false, destination, newSession = false, confirmed = false, expectedText } = {}) {
     this._dragItem = null;
-    const t = await this.delegateTarget(item);
+    const t = await this.delegateTarget(item, { newSession });
     if (t.error) return this.notice(t.error);
-    const { file, lines, line } = t;
+    if (confirmed && expectedText !== void 0 && t.block.text !== expectedText) return this.notice("\u4EFB\u52A1\u5185\u5BB9\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u9884\u89C8\u540E\u53D1\u9001");
     try {
-      const opts = mentionOptions(this, { file, lines, line, agent });
+      const opts = mentionOptions(this, { ...t, agent, ignoreMention: newSession });
       agent = opts.agent;
-      if (cli && (agent === "claude" || agent === "codex")) await this.delegator.handoffCli(opts);
-      else if (["claude", "dsh", "antigravity"].includes(agent)) await this.delegator.delegate(opts);
-      else await this.delegator.handoff(opts);
+      destination || (destination = cli && ["claude", "codex"].includes(agent) ? "terminal" : defaultDestination(this, agent));
+      if (!confirmed) {
+        new ConfirmSendModal(this.app, {
+          agent,
+          text: newSession ? freshTaskText(t.block.text) : t.block.text,
+          path: item.path,
+          where: `${opts.model || this.defaultModel(agent) || "\u5BA2\u6237\u7AEF\u6A21\u578B"} \xB7 ${opts.effort || this.settings.delegate[agent]?.effort || "\u5BA2\u6237\u7AEF\u5F3A\u5EA6"}`,
+          destination,
+          newSession
+        }, (chosen) => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: t.block.text })).open();
+        return;
+      }
+      await this.delegator.delegate({ ...opts, destination, newSession });
     } catch (e) {
       this.notice(String(e.message || e), 8e3);
     }
     this.refreshUI();
   }
-  // 把手单击：先确认，再把这一项连同子块发给主力（委派的默认目标）；如果是 🤖 自动记的或已绑定的行，则打开合并菜单
   async gripSend(item) {
-    const t = await this.delegateTarget(item);
-    if (t.error) {
-      const view = item && item.path ? this.viewForPath(item.path) : null;
-      if (view && (t.error.includes("Agent \u8BB0\u7684") || t.error.includes("\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD"))) {
-        view.editor.setCursor({ line: item.line, ch: 0 });
-        return this.openMergeTaskForEditor(view.editor, view);
-      }
-      return this.notice(t.error);
+    const view = this.viewForPath(item.path);
+    if (view && this.sessionsAtTask(item.path, item.line, view.editor.getValue().split("\n")).length) return this.taskActions(item.path, item.line);
+    return this.delegateDrop(this.defaultTarget(), item);
+  }
+  sessionsAtTask(path7, line, lines) {
+    const block = blockAt(lines, line);
+    if (!block) return [];
+    const bid = blockIdOf(lines[block.start]);
+    const found = /* @__PURE__ */ new Map();
+    const width2 = (s) => (s.match(/^[ \t]*/)?.[0] || "").replace(/\t/g, "    ").length;
+    for (let n = block.start + 1; n <= block.end; n++) {
+      const link = parseLink(lines[n]);
+      if (!link) continue;
+      let owner = n - 1;
+      while (owner > block.start && (!lines[owner].trim() || width2(lines[owner]) >= width2(lines[n]))) owner--;
+      if (owner !== block.start) continue;
+      found.set(`${link.agent}:${link.sid}`, { ...this.usage.meta.get(link.sid), ...link });
     }
-    let selected;
-    try {
-      selected = mentionOptions(this, { lines: t.lines, line: t.line, agent: this.defaultTarget() });
-    } catch (e) {
-      return this.notice(e.message);
+    for (const job of Object.values(this.jobs)) {
+      if (job.path !== path7 || !(bid && job.blockId === bid || job.lineText === lines[block.start])) continue;
+      found.set(`${job.agent}:${job.sessionId || job.id}`, { ...this.usage.meta.get(job.sessionId), ...job, sid: job.sessionId });
     }
-    const agent = selected.agent;
-    const where = agent === "codex" ? this.settings.delegate.codex.transport === "terminal" ? "\u7EC8\u7AEF\u65B0\u4F1A\u8BDD" : "\u9996\u8F6E\u5B8C\u6210\u540E\u5728 Codex \u684C\u9762\u7248\u6253\u5F00" : !["claude", "dsh"].includes(agent) ? "\u5BA2\u6237\u7AEF\u4EA4\u63A5" : agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "\u540E\u53F0\u5F00\u8DD1 \xB7 \u7B54\u5B8C\u5728\u684C\u9762\u7248\u6253\u5F00" : "\u540E\u53F0\u65B0\u4F1A\u8BDD";
-    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where: `${selected.model || this.defaultModel(agent) || "\u5BA2\u6237\u7AEF\u6A21\u578B"} \xB7 ${selected.effort || this.settings.delegate[agent]?.effort || "\u5BA2\u6237\u7AEF\u5F3A\u5EA6"} \xB7 ${where}` }, () => this.delegateDrop(agent, item, null, { cli: agent === "codex" && this.settings.delegate.codex.transport === "terminal" })).open();
+    return [...found.values()];
+  }
+  openClientSession(session) {
+    const owned = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === session.sid);
+    session = { ...owned, ...session, transport: owned?.transport || session.transport };
+    if (!canOpenClient(session)) return this.notice("\u6B64 Antigravity \u4F1A\u8BDD\u5C1A\u4E0D\u652F\u6301\u8F6C\u5230\u684C\u9762 IDE \u7EE7\u7EED\uFF0C\u8BF7\u5728 Obsidian \u4E2D\u7EED\u804A");
+    if (!session.sid) return this.notice("\u6B63\u5728\u5EFA\u7ACB\u4F1A\u8BDD\uFF0C\u8BF7\u7A0D\u540E\u518D\u6253\u5F00");
+    const job = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === session.sid);
+    if (["claude", "codex"].includes(session.agent) && activeJob(job)) return this.notice("\u9996\u8F6E\u4ECD\u5728\u6267\u884C\uFF0C\u7ED3\u675F\u540E\u518D\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD");
+    return openSession(this, session.agent, session.sid, session.app, session);
+  }
+  taskActions(path7, line, event) {
+    const view = this.viewForPath(path7);
+    if (!view) return;
+    const lines = view.editor.getValue().split("\n"), block = blockAt(lines, line);
+    if (!block) return;
+    const sessions = this.sessionsAtTask(path7, line, lines);
+    const menu = new import_obsidian10.Menu();
+    for (const [index, session] of sessions.entries()) {
+      const title = `${AGENTS[session.agent]?.name || session.agent} \xB7 \u4F1A\u8BDD ${index + 1}`;
+      const inNote = ["dsh", "antigravity"].includes(session.agent) && (session.agent !== "antigravity" || session.transport === "acp");
+      menu.addItem((mi) => mi.setTitle(`\u7EE7\u7EED\u5BF9\u8BDD \xB7 ${title}`).setDisabled(!session.sid).onClick(() => inNote && session.destination !== "desktop" ? this.openConversation(session) : this.openClientSession(session)));
+      menu.addItem((mi) => mi.setTitle(`\u67E5\u770B\u6B63\u6587\u4E0E\u4FDD\u5B58\u5BF9\u8BDD \xB7 ${title}`).setDisabled(!session.sid).onClick(() => this.openConversation(session)));
+      if (canOpenClient(session)) menu.addItem((mi) => mi.setTitle(`\u5728\u5BA2\u6237\u7AEF\u6253\u5F00 \xB7 ${title}`).setDisabled(!session.sid || ["claude", "codex"].includes(session.agent) && activeJob(session)).onClick(() => this.openClientSession(session)));
+      if (activeJob(session) && this.delegator.runners.has(session.id)) menu.addItem((mi) => mi.setTitle(`\u505C\u6B62\u6267\u884C \xB7 ${title}`).onClick(() => this.cancelJob(session.id)));
+      else if (session.handoff && !session.sid && activeJob(session)) menu.addItem((mi) => mi.setTitle(`\u53D6\u6D88\u4EA4\u63A5 \xB7 ${title}`).onClick(() => this.cancelJob(session.id)));
+      menu.addSeparator();
+    }
+    for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a))) menu.addItem((mi) => mi.setTitle(`\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 ${AGENTS[agent].name}`).onClick(() => this.delegateDrop(agent, { path: path7, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    menu.addItem((mi) => mi.setTitle("\u7ED1\u5B9A\u6216\u5408\u5E76\u5230\u5176\u4ED6\u4EFB\u52A1").onClick(() => {
+      view.editor.setCursor({ line: block.start, ch: 0 });
+      this.openMergeTaskForEditor(view.editor, view);
+    }));
+    if (event) menu.showAtMouseEvent(event);
+    else menu.showAtPosition({ x: view.containerEl.getBoundingClientRect().left + 100, y: view.containerEl.getBoundingClientRect().top + 100 });
+    return menu;
   }
   // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样；同时提供「合并到已有条目」
   gripPick(item, e) {
+    const current = this.viewForPath(item.path);
+    if (current && this.sessionsAtTask(item.path, item.line, current.editor.getValue().split("\n")).length) return this.taskActions(item.path, item.line, e);
     const main = this.defaultTarget();
     const menu = new import_obsidian10.Menu();
     for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x))) {
@@ -12877,22 +13405,56 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
     if (!file) return this.notice("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0");
     const view = this.app.workspace.getActiveViewOfType(import_obsidian10.MarkdownView);
     const lines = view && view.file && view.file.path === path7 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
-    await this.delegator.delegate({ file, lines, line, agent: this.defaultTarget() });
+    return this.delegateDrop(this.defaultTarget(), { path: path7, line, lineText: lines[line] });
   }
   openDelegateModal(path7, line) {
     new DelegateOptionsModal(this.app, this, path7, line).open();
+  }
+  async organizeJournal(mode) {
+    const current = this.app.workspace.getActiveFile(), today = this.journalSync.todayJournal();
+    const file = current?.parent?.path === today?.parent?.path ? current : today;
+    if (!file) return this.notice("\u8BF7\u5148\u6253\u5F00\u65E5\u8BB0");
+    const tracked = /* @__PURE__ */ new Map();
+    const add = (id, sid) => {
+      if (!id) return;
+      if (!tracked.has(id)) tracked.set(id, /* @__PURE__ */ new Set());
+      if (sid) tracked.get(id).add(sid);
+    };
+    for (const day of Object.values(this.settings.autoLogState || {})) for (const [sid, rec] of Object.entries(day)) if (!rec.skip && !rec.gone) add(rec.blockId, sid);
+    for (const [sid, rec] of Object.entries(this.settings.taskBindings || {})) add(rec.blockId, sid);
+    for (const job of Object.values(this.jobs)) if (job.path === file.path) add(job.blockId, job.sessionId);
+    const base = await this.readNote(file.path);
+    const turns = new Map(Object.entries(this.settings.archiveTaskTurns || {}));
+    for (const [sid, meta] of this.usage.meta) turns.set(sid, Math.max(meta.turns || 0, meta.rounds?.length || 0));
+    for (const job of Object.values(this.jobs)) if (job.sessionId) turns.set(job.sessionId, Math.max(turns.get(job.sessionId) || 0, job.conversation?.filter((m) => m.role === "user").length || 0));
+    const result = organizeAIJournal(base, mode, { tracked, archived: this.autoLog.archived(), turns });
+    if (mode === "done") {
+      if (!result.count) return this.notice("\u6CA1\u6709\u53EF\u5F52\u6863\u7684 AI \u4EFB\u52A1");
+      const target = await archiveCompletedJournal(this, file, base, result);
+      this.refreshUI();
+      return this.notice(`\u5DF2\u5F52\u6863 ${result.count} \u4E2A AI \u4EFB\u52A1\u5230 ${target.path}`);
+    }
+    if (result.text !== base) {
+      const view = this.viewForPath(file.path);
+      if (view?.editor?.cm) {
+        if (view.editor.getValue() !== base || view.editor.cm.composing) return this.notice("\u65E5\u8BB0\u521A\u6709\u53D8\u5316\uFF0C\u8BF7\u518D\u6574\u7406\u4E00\u6B21");
+        const change = diffLines(base, result.text);
+        view.editor.cm.dispatch({ changes: { from: view.editor.posToOffset(change.from), to: view.editor.posToOffset(change.to), insert: change.text }, userEvent: "agent-deck.organize" });
+      } else if (!await this.autoLog.write(file, base, result.text)) return this.notice("\u65E5\u8BB0\u521A\u6709\u53D8\u5316\uFF0C\u8BF7\u518D\u6574\u7406\u4E00\u6B21");
+    }
+    this.refreshUI();
+    this.notice(result.count ? `\u5DF2\u6574\u7406 ${result.count} \u4E2A AI \u4EFB\u52A1\u5230\u300C${mode === "done" ? "\u5DF2\u5B8C\u6210" : "\u8FDB\u884C\u4E2D"}\u300D` : "\u6CA1\u6709\u53EF\u6574\u7406\u7684 AI \u4EFB\u52A1");
   }
   async jumpRunningProject() {
     const file = this.journalSync.todayJournal();
     if (!file) return this.notice("\u4ECA\u5929\u7684\u65E5\u8BB0\u8FD8\u6CA1\u6709\u521B\u5EFA");
     const text = await this.readNote(file.path);
+    const heading = text.split("\n").findIndex((line2) => line2 === "## AI \xB7 \u8FDB\u884C\u4E2D");
     const map = this.lineMap(file.path, text);
     const tasks = runningTaskLines(text, map.sessionByParent, Object.values(this.jobs).filter((job) => job.path === file.path));
-    if (!tasks.length) return this.notice("\u4ECA\u5929\u65E5\u8BB0\u91CC\u8FD8\u6CA1\u6709\u6B63\u5728\u8FD0\u884C\u7684 Agent \u9879\u76EE");
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian10.MarkdownView);
-    const current = view?.file?.path === file.path ? view.editor?.getCursor().line : -1;
-    const index = tasks.findIndex((task) => task.line === current);
-    const target = tasks[(index + 1) % tasks.length];
+    const line = heading >= 0 ? heading : tasks[0]?.line;
+    if (line === void 0) return this.notice("\u4ECA\u5929\u65E5\u8BB0\u91CC\u8FD8\u6CA1\u6709\u6B63\u5728\u505A\u7684\u533A\u57DF\u6216\u8FD0\u884C\u4E2D\u7684 AI \u4EFB\u52A1");
+    const target = { line };
     const leaf = this.app.workspace.getLeaf(false);
     await leaf.openFile(file, { active: true, eState: { line: target.line } });
     leaf.view.setEphemeralState?.({ line: target.line, focus: true });
@@ -13107,6 +13669,7 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
   }
   // ---------- ui refresh ----------
   refreshUI() {
+    this.checkAttention();
     clearTimeout(this._refreshTimer);
     this._refreshTimer = setTimeout(() => {
       for (const view of this.views) {
@@ -13122,6 +13685,43 @@ var AgentDeckPlugin = class extends import_obsidian10.Plugin {
       }
       this.menubar?.update();
     }, 120);
+  }
+  checkAttention() {
+    if (!this.attentionTracker) return;
+    const sessions = [...Object.values(this.jobs).filter((j) => j.state !== "bound" && (activeJob(j) || Date.now() - (j.endedAt || j.startedAt || 0) < 864e5)), ...this.liveSessions({ hours: 24 })];
+    const fresh = this.attentionTracker.update(sessions);
+    for (const [key, alert] of this.attentionAlerts) {
+      if (!this.attentionTracker.pending.has(key)) {
+        alert.notice?.hide();
+        alert.system?.close();
+        this.attentionAlerts.delete(key);
+      }
+    }
+    for (const { key, session, reason } of fresh) {
+      const title = `Agent Deck \xB7 ${reason}`;
+      const body = `${AGENTS[session.agent]?.name || "Agent"}\uFF1A${session.name || session.title || "\u672A\u547D\u540D\u4EFB\u52A1"}`;
+      const open = () => {
+        const runner = this.delegator.runners.get(session.id);
+        if (runner?.permissionModal) runner.permissionModal.open();
+        else this.openSession(session.agent, session.sid || session.sessionId, session.app, session);
+      };
+      const fragment = document.createDocumentFragment();
+      fragment.createEl("div", { text: `${title}
+${body}` });
+      fragment.createEl("button", { text: "\u524D\u5F80\u5904\u7406" }).onclick = open;
+      const alert = { open, notice: new import_obsidian10.Notice(fragment, 0) };
+      try {
+        alert.system = new Notification(title, { body, tag: `agent-deck:${key}` });
+        alert.system.onclick = () => {
+          window.focus();
+          open();
+        };
+        alert.system.onerror = () => console.warn("[agent-deck] \u7CFB\u7EDF\u901A\u77E5\u4E0D\u53EF\u7528\uFF0C\u8BF7\u68C0\u67E5 Obsidian \u7684\u901A\u77E5\u6743\u9650");
+      } catch (error) {
+        console.warn("[agent-deck] \u7CFB\u7EDF\u901A\u77E5\u4E0D\u53EF\u7528", error);
+      }
+      this.attentionAlerts.set(key, alert);
+    }
   }
   // ---------- misc ----------
   notice(msg, ms) {

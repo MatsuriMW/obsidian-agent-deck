@@ -237,11 +237,12 @@ export class JournalSync {
       if (n < 0) continue;
       const cur = J.kwLine(ls[n]);
       if (!cur) continue;
-      if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || J.AGENT_KW_RE.test(cur.kw) || !cur.kw)) continue;
       if (this.archived(k.sid)) {
-        if (cur.kw === "DOING" || cur.kw === "DELEGATED" || J.AGENT_KW_RE.test(cur.kw)) out = this.finish(out, k.sid, at);
+        const sessions = ls.flatMap((l, i) => J.markOwner(ls, i) === n && J.parseLink(l) ? [J.parseLink(l).sid] : []);
+        if (!J.DONE_KWS.includes(cur.kw) && sessions.every(sid => this.archived(sid))) out = this.finish(out, k.sid, at);
         continue;
       }
+      if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || J.AGENT_KW_RE.test(cur.kw) || !cur.kw)) continue;
       const m = this.usage.meta.get(k.sid);
       if (!m) continue;
       const want = m.state === "run" ? (cur.kw === "DELEGATED" ? "DELEGATED" : "DOING") : STATE_KW[m.state];

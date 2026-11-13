@@ -1,5 +1,6 @@
 // Agent Deck — the sidebar dashboard.
 
+import { workspaceLabel } from "./workflow.js";
 import { ItemView, Menu } from "obsidian";
 import { AGENTS, AGENT_ORDER, fmtMin, fmtTok, timeAgo, truncate, dayKey, dayKeyToday, dayMinute, startOfDay } from "./constants.js";
 import { agentIcon, setLucide, stateIcon } from "./icons.js";
@@ -93,6 +94,15 @@ export class AgentDeckView extends ItemView {
       if (searchWasFocused) { const i = root.querySelector(".ad-search__input"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
       return;
     }
+
+    const journalActions = dash.createDiv({ cls: "ad-btnrow" });
+    for (const [mode, label] of [["active", "归组未完成日志"], ["done", "归档已完成日志"]]) {
+      const button = journalActions.createEl("button", { text: label });
+      button.title = mode === "done" ? "移到归档文件，按日记日期分组，保留完整子项和记录" : "在当前日记内整理任务整块，保留子项和记录";
+      button.onclick = async () => { button.disabled = true; try { await p.organizeJournal(mode); } catch (e) { p.notice(e.message); } finally { button.disabled = false; } };
+    }
+
+    journalActions.createEl("button", { text: "跳到正在做" }).onclick = () => p.jumpRunningProject();
 
     // Hero：今天的数字 + 时间轴 + 花时间最多的项目
     const hero = dash.createDiv({ cls: "ad-hero" });
@@ -436,7 +446,7 @@ export class AgentDeckView extends ItemView {
     card.dataset.sid = s.sid;
     card.draggable = true;
     card.addEventListener("dragstart", (e) => {
-      const title = s.title || truncate(s.text || s.step || s.sid, 60);
+      const title = s.title || truncate(s.text || s.step || "未命名会话", 60);
       e.dataTransfer.setData(SESSION_MIME, JSON.stringify({ agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" }));
       e.dataTransfer.setData("text/plain", title);
       e.dataTransfer.effectAllowed = "all";   // 按住 ⌘ 拖（在下面新建）时 macOS 会换拖放效果，都放行
@@ -458,7 +468,7 @@ export class AgentDeckView extends ItemView {
     card.addEventListener("drop", (e) => {
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault(); card.removeClass("is-drop");
-      p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title: s.title || truncate(s.text || s.step || s.sid, 60), app: s.app || "", state: s.state || "" });
+      p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title: s.title || truncate(s.text || s.step || "未命名会话", 60), app: s.app || "", state: s.state || "" });
     });
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
@@ -472,7 +482,7 @@ export class AgentDeckView extends ItemView {
     agentIcon(icon.createSpan({ cls: "ad-glyph" }), s.agent);
     const body = card.createDiv({ cls: "ad-sess__body" });
     const titleRow = body.createDiv({ cls: "ad-sess__title" });
-    titleRow.createSpan({ cls: "ad-sess__name", text: s.title || truncate(s.text || s.step || s.sid, 60) || s.sid.slice(0, 12) });
+    titleRow.createSpan({ cls: "ad-sess__name", text: s.title || truncate(s.text || s.step || "未命名会话", 60) });
     const st = stateChip(s);
     if (st) {
       const chip = titleRow.createSpan({ cls: `ad-state ${st.cls}` });
@@ -498,7 +508,7 @@ export class AgentDeckView extends ItemView {
     const sub = body.createDiv({ cls: "ad-sess__sub" });
     sub.createSpan({ text: a.short });
     if (s.cwd) sub.createSpan({ text: "·" });
-    if (s.cwd) sub.createSpan({ cls: "ad-sess__cwd", text: truncate(s.cwd, 34) });
+    if (s.cwd) sub.createSpan({ cls: "ad-sess__cwd", text: truncate(workspaceLabel(s.cwd), 34), attr: { title: s.cwd } });
     const prog = p.sessionProgressText ? p.sessionProgressText(s, s.job) : "";
     if (prog) { sub.createSpan({ text: "·" }); sub.createSpan({ cls: "ad-sess__prog", text: prog }); }
     if (s.step) { sub.createSpan({ text: "·" }); sub.createSpan({ cls: "ad-sess__step", text: truncate(s.step, 34) }); }

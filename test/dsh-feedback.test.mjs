@@ -69,3 +69,8 @@ test('DSH: active turn refuses a concurrent follow-up',async()=>{
 test('DSH: plugin reload can resume a historic session without creating a new one',async()=>{
  const f=fixture();try{const j=await f.d.continueSession({agent:'dsh',sid:'historic-session',cwd:f.dir,title:'旧对话'},'接着说');await settled(j);assert.equal(j.sessionId,'historic-session');assert.equal(j.state,'done');assert.equal(f.readEvents().some(m=>m.method==='session/new'),false);assert.equal(f.readEvents().some(m=>m.method==='session/set_config_option'),false)}finally{f.cleanup()}
 });
+
+// Use the same real ACP stream for manual permissions as Antigravity.
+test('DSH: manual permission waits for Obsidian and returns the chosen option',async()=>{
+ const f=fixture('permission');try{f.plugin.settings.delegate.dsh.autoApprove=false;let called=false;f.plugin.requestAcpPermission=async({agent,options})=>{called=true;assert.equal(agent,'dsh');return options[0].optionId};const j=await f.send();await settled(j);assert.equal(called,true);assert.equal(j.state,'done');assert.equal(f.readEvents().find(m=>m.id===999).result.outcome.outcome,'selected')}finally{f.cleanup()}
+});

@@ -18,6 +18,7 @@ import * as J from "./journal.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { aiRecordDisplayExtension } from "./record-display.js";
+import { executionStatus } from "./workflow.js";
 import { AGENTS, fmtDur, fmtTok, truncate } from "./constants.js";
 
 export const refreshEffect = StateEffect.define();
@@ -250,7 +251,7 @@ class PillWidget extends WidgetType {
       chev.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.openDelegateModal(this.path, this.line); });
       right.appendChild(chev);
     } else if (info.kind === "running" || info.kind === "starting") {
-      label.textContent = info.kind === "starting" ? "准备中" : (job ? "委派中" : "在跑");
+      label.textContent = executionStatus(job) || (info.kind === "starting" ? "正在建立会话" : "正在执行");
       // 等待态：Agent 图标换成点阵，准备中绕圈、委派中蛇形走，两段一眼能分开
       glyph.textContent = "";
       lattice(glyph, info.kind === "starting" ? "orbit" : "snake");
@@ -281,12 +282,14 @@ class PillWidget extends WidgetType {
       if (progText) meta.textContent = progText;
       el.classList.add("is-pulse");
     } else if (info.kind === "done") {
-      label.textContent = "完成";
+      label.textContent = "本轮结束";
       const resText = job && job.result ? truncate(job.result, 28) : (session && session.lastText ? truncate(J.oneSentenceConclusion(session.lastText, 28), 28) : "");
       meta.textContent = [progText, resText].filter(Boolean).join(" · ");
       const open = document.createElement("span");
       open.className = "ad-pill__open";
       setLucide(open, "arrow-up-right");
+      open.title = "继续对话或重新委派";
+      open.addEventListener("mousedown", e => { e.preventDefault(); e.stopPropagation(); p.taskActions(this.path, this.line, e); });
       right.appendChild(open);
     } else if (info.kind === "error") {
       label.textContent = "出错";
@@ -294,8 +297,8 @@ class PillWidget extends WidgetType {
       const retry = document.createElement("span");
       retry.className = "ad-pill__open";
       setLucide(retry, "refresh-cw");
-      retry.title = "重试";
-      retry.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.openDelegateModal(this.path, this.line); });
+      retry.title = "重新委派（新会话）";
+      retry.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); p.taskActions(this.path, this.line, e); });
       right.appendChild(retry);
     } else {
       label.textContent = "会话";
@@ -314,8 +317,8 @@ class PillWidget extends WidgetType {
       e.preventDefault();
       e.stopPropagation();
       if (info.kind === "idle") p.delegateAtLine(this.path, this.line).catch((err) => p.notice(String(err.message || err)));
-      else if (info.kind === "error") p.openDelegateModal(this.path, this.line);
-      else p.openJob(job && job.id, session && session.sid);
+      else if (info.kind === "error") p.taskActions(this.path, this.line, e);
+      else p.taskActions(this.path, this.line, e);
     });
     el.title = p.pillTitle(info);
     return el;

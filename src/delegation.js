@@ -6,20 +6,20 @@
 // with model and reasoning-effort selection.
 
 import fs from "fs";
+import { destinations } from "./workflow.js";
 import { CodexDesktopRunner } from "./codex-desktop.js";
 import path from "path";
 import os from "os";
 import { spawn, execFile } from "child_process";
-import { AGENTS, DEFAULTS, MODEL_CATALOG, clamp, truncate } from "./constants.js";
+import { AGENTS, DEFAULTS, CONFIRM_FIRST, MODEL_CATALOG, clamp, truncate } from "./constants.js";
 import * as J from "./journal.js";
-import { mentionOptions, stripTaskMention } from "./task-mentions.js";
+import { mentionOptions, stripTaskMention, mentionTrigger } from "./task-mentions.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
 const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
 
-// 追加在每条委派消息末尾（笔记里看不到）：先弄懂、有疑问先问，说清打算后等用户点头再动手
-export const CONFIRM_FIRST = "先别动手。把上面的任务读透：有不清楚、有歧义或需要我拍板的地方，先列出来问我；都清楚了，就用几句话复述你的理解和打算怎么做，等我确认后再动手。这一轮不要改文件，也不要跑有副作用的命令。";
+export { CONFIRM_FIRST } from "./constants.js";
 
 export const BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 export const LINK_RE = J.LINK_RE;
@@ -43,9 +43,9 @@ export function blockAt(lines, at) {
   return { start: at, end, indent, text: lines.slice(at, end + 1).join("\n") };
 }
 
-export function blockTitle(block) {
+export function blockTitle(block, trigger = "@") {
   if (!block) return "";
-  const first = J.stripBlockId(stripTaskMention(block.text).split("\n")[0] || "");
+  const first = J.stripBlockId(stripTaskMention(block.text, trigger).split("\n")[0] || "");
   return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "")
     .replace(TITLE_KW_RE, "")
     .replace(/[#*_`>[\]]/g, "").trim();
@@ -452,13 +452,13 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     // session id on the clipboard and say so, instead of pretending to deep-link a row.
     openExternal("dsh://open");
     try { navigator.clipboard.writeText(sid); } catch { /* clipboard */ }
-    plugin.notice(`已打开 DeepSeek Harness；会话号已复制（${sid.slice(0, 8)}…）`);
+    plugin.notice(`已打开 DeepSeek Harness；会话号已复制`);
     return true;
   }
   if (agent === "antigravity") {
     openAgentApp("antigravity");
     copyText(sid);
-    plugin.notice(`已打开 Antigravity；会话号已复制（${sid.slice(0, 8)}…）`);
+    plugin.notice(`已打开 Antigravity；会话号已复制`);
     return true;
   }
   return false;
@@ -764,7 +764,7 @@ class AcpRunner {
         const name = u.title || u.kind || u.toolName || "tool";
         this.lastStep = truncate(name, 40);
         this.job.step = this.lastStep;
-        this.job.state = "running";
+        if (this.job.state !== "needs-approval") this.job.state = "running";
       } else if (kind === "usage_update") {
         this.job.contextUsed = u.used;
         this.job.contextSize = u.size;
@@ -776,7 +776,7 @@ class AcpRunner {
     if (method === "session/request_permission") {
       const cfg = this.d.settings.delegate[this.agent];
       const options = params.options || [];
-      if (this.agent === "antigravity" && this.d.plugin?.requestAcpPermission && cfg.autoApprove !== true) {
+      if (this.d.plugin?.requestAcpPermission && cfg.autoApprove !== true) {
         this.job.state = "needs-approval";
         this.job.step = params.toolCall?.title || "等待工具授权";
         this.d.saveJobs(); this.d.refreshUI();
@@ -957,21 +957,22 @@ export class Delegator {
   async delegate(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
+    if (opts.destination && !destinations(opts.agent).some(o => o.id === opts.destination)) throw new Error("此 Agent 不支持所选工作位置");
     if (!["claude", "codex", "dsh", "antigravity"].includes(opts.agent)) return this.handoff(opts);
-    if (opts.agent === "codex" && this.C.codex?.transport === "terminal") return this.handoffCli(opts);
+    if (opts.destination === "terminal" || (opts.agent === "codex" && !opts.destination && this.C.codex?.transport === "terminal")) return this.handoffCli(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error("没有当前笔记");
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
     if (!block) throw new Error("光标要放在一个列表项里");
-    if (hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
-    const title = blockTitle(block) || "Agent Deck task";
+    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
+    const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-      agent, name, path: file.path, line: block.start, lineText: lines[block.start],
+      agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000),
       originalLine: lines[block.start],
       startedAt: Date.now(), state: "starting", model: agent === "codex" ? resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent)) : opts.model || this.defaultModel(agent),
@@ -984,7 +985,7 @@ export class Delegator {
     this.plugin.saveJobs();
     this.plugin.refreshUI();
     this.plugin.notice(`🛫 正在委派给 ${AGENTS[agent]?.name || agent}：${name}`);
-    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => openSession(this.plugin, "codex", job.sessionId, "vscode")) : ["dsh", "antigravity"].includes(agent) ? new AcpRunner(this, job) : new ClaudeRunner(this, job);
+    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => job.destination === "background" ? undefined : openSession(this.plugin, "codex", job.sessionId, "vscode")) : ["dsh", "antigravity"].includes(agent) ? new AcpRunner(this, job) : new ClaudeRunner(this, job);
     this.runners.set(job.id, runner);
     try {
       await runner.start({ ...opts, prompt, name });
@@ -1044,13 +1045,13 @@ export class Delegator {
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
     if (!block) throw new Error("要拖一个列表项");
-    if (hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
-    const title = blockTitle(block) || "Agent Deck task";
+    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
+    const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-      agent, name, path: file.path, line: block.start, lineText: lines[block.start],
+      agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
       startedAt: Date.now(), state: "starting", handoff: true, step: `等你在 ${AGENTS[agent]?.name || agent} 里发出去`,
       cwd: this.vaultPath, sessionId: "", linkWritten: false, resultWritten: false,
@@ -1076,8 +1077,8 @@ export class Delegator {
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
     const block = opts.block || blockAt(lines, opts.line);
     if (!block) throw new Error("要拖一个列表项");
-    if (hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
-    const title = blockTitle(block) || "Agent Deck task";
+    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error("这一块下面已经有 🔗 了；要重发先删掉那一行");
+    const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
     const prompt = this.buildPrompt({ ...opts, block, file, title });
     let cwd = norm(opts.cwd || this.C[agent]?.cwd || this.vaultPath);
@@ -1108,7 +1109,7 @@ export class Delegator {
     const bin = agent === "codex" ? (this.C.codex?.path || "codex") : findClaudeBinary(this.C.claude?.path || "");
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-      agent, name, path: file.path, line: block.start, lineText: lines[block.start],
+      agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
       startedAt: Date.now(), state: "starting", model, effort, handoff: true, cli: true, app: agent === "claude" ? "cli" : "codex_cli_rs",
       step: `在终端里开 ${AGENTS[agent]?.name || agent}`, cwd, sessionId: "", linkWritten: false, resultWritten: false,
@@ -1157,11 +1158,15 @@ export class Delegator {
     const c = this.C;
     const parts = [];
     if (c.promptPrefix && c.promptPrefix.trim()) parts.push(c.promptPrefix.trim());
-    parts.push(stripTaskMention(opts.block.text).trim());
+    const task = opts.newSession ? freshTaskText(opts.block.text) : opts.block.text;
+    parts.push(stripTaskMention(task, mentionTrigger(this.plugin)).trim());
     if (opts.promptSuffix && opts.promptSuffix.trim()) parts.push(opts.promptSuffix.trim());
     else if (c.promptSuffix && c.promptSuffix.trim()) parts.push(c.promptSuffix.trim());
     if (opts.file) parts.push(`\n（来自 Obsidian：${opts.file.path}）`);
-    if (c.confirmFirst !== false) parts.push(CONFIRM_FIRST);
+    if (c.confirmFirst !== false) {
+      const prompt = c.confirmFirstPrompt ?? CONFIRM_FIRST;
+      if (prompt.trim()) parts.push(prompt.trim());
+    }
     return parts.join("\n\n");
   }
 
@@ -1172,13 +1177,24 @@ export class Delegator {
     this.plugin.markBound?.(sid);
     this.plugin.flyFromAgent?.(job);
     this.saveJobs();
+    if (!job.openedDestination && !job.handoff && ["obsidian", "desktop"].includes(job.destination)) {
+      job.openedDestination = true;
+      if (job.destination === "obsidian") this.plugin.openConversation?.({ ...job, sid });
+      else if (job.agent === "dsh") openSession(this.plugin, job.agent, sid);
+    }
     if (job.linkWritten) return;
     job.linkWritten = true;
     job._linkPromise = this.writeLink(job, sid).catch((e) => console.error("[agent-deck] writeLink", e));
     this.refreshUI();
   }
 
-  async writeLink(job, sid) {
+  writeLink(job, sid) {
+    const pending = (this._linkWrites || Promise.resolve()).catch(() => {}).then(() => this.writeLinkNow(job, sid));
+    this._linkWrites = pending;
+    return pending;
+  }
+
+  async writeLinkNow(job, sid) {
     if (!this.C.writeLink) return;
     const path = job.path;
     const text = await this.plugin.readNote(path);
@@ -1189,7 +1205,7 @@ export class Delegator {
     if (at < 0) return;
     const block = blockAt(lines, at);
     if (!block) return;
-    if (hasLink(lines, block) >= 0) return;
+    if (lines.slice(block.start + 1, block.end + 1).some(l => J.parseLink(l)?.sid === sid)) return;
     const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "\t";
     let link = linkLine(indent, job.agent, job.name, sid);
     if (job.agent === "antigravity" && job.transport === "acp") link = link.replace("antigravity://open", `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(sid)}`);
@@ -1210,7 +1226,7 @@ export class Delegator {
     this.refreshUI();
     const agent = AGENTS[job.agent];
     this.plugin.notice(`✅ ${agent ? agent.name : job.agent} 做完了一轮：${job.name}`, 8000);
-    if (this.C.claude.openDesktop === true && job.agent === "claude" && job.sessionId) openSession(this.plugin, "claude", job.sessionId);
+    if ((job.destination === "desktop" || (!job.destination && this.C.claude.openDesktop === true)) && job.agent === "claude" && job.sessionId) openSession(this.plugin, "claude", job.sessionId);
     if (this.settings.autoWriteResult && job.linkWritten && job.path) {
       try { await this.writeResult(job); } catch (e) { console.error("[agent-deck] writeResult", e); }
     }
@@ -1243,7 +1259,10 @@ export class Delegator {
       if (li >= 0) lines.splice(li, 1);
       let at = lines.indexOf(job.lineText);
       if (at < 0) at = lines.findIndex((l) => /DELEGATED/.test(l) && job.originalLine && l.includes(String(job.name || "").slice(0, 16)));
-      if (at >= 0 && job.originalLine) lines[at] = job.originalLine;
+      if (at >= 0 && job.originalLine && !job.newSession) {
+        const block = blockAt(lines, at);
+        if (!block || hasLink(lines, block) < 0) lines[at] = job.originalLine;
+      }
       await this.plugin.writeNote(job.path, lines.join("\n"));
       job.linkWritten = false;
       job.resultWritten = true;
@@ -1353,4 +1372,9 @@ function execCapture(bin, args, { cwd, env, timeout = 10000 } = {}) {
       resolve({ ok: !err, out: String(out || ""), err: String(errOut || (err && err.message) || "") });
     });
   });
+}
+
+// A new execution receives the task and manual subitems, not previous managed output.
+export function freshTaskText(text) {
+  return text.split("\n").filter(l => !/^\s*[-*+]\s+(?:🔗|💬|📋|❓|⏱|📄)\s*/u.test(l)).map((l, i) => i === 0 ? J.stripBlockId(l) : l).join("\n");
 }

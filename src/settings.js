@@ -1,5 +1,6 @@
 // Agent Deck — settings, including the layered Models page.
 
+import { archivePath } from "./journal-archive.js";
 import { App, PluginSettingTab, Notice, Modal, Menu } from "obsidian";
 import {
   AGENTS, AGENT_ORDER, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS, fmtTok, deepMerge, journalPath, detectJournalFormat,
@@ -232,6 +233,16 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       b.onclick = async () => { d.target = id; await p.saveSettings(); this.display(); };
     }
 
+    const mentions = this.card(body, "任务行 Agent 补全", "在列表任务中输入触发符号，选择 Agent、模型和推理强度。");
+    const suggestRow = this.row(mentions, "输入时显示候选菜单", "关闭后不弹菜单；已有任务标记仍可正常派发。", null);
+    this.toggle(suggestRow.querySelector(":scope > .ad-row__right"), d.mentionSuggest !== false, (v) => { d.mentionSuggest = v; p.saveSettings(); });
+    const triggerRow = this.row(mentions, "触发符号", "默认 @，也可使用 !、:: 等符号；前面需空格。旧 @ 标记继续有效。", null);
+    this.textInput(triggerRow.querySelector(":scope > .ad-row__right"), d.mentionTrigger || "@", "@", (v) => {
+      const trigger = v.trim();
+      if (!trigger || /[\s`\p{L}\p{N}]/u.test(trigger)) { new Notice("请填写不含空格、字母、数字或反引号的符号"); return; }
+      d.mentionTrigger = trigger; p.saveSettings();
+    });
+
     // Claude card
     const claude = this.card(body, "Claude Code", "后台开一个会话，答完一轮可以点开进入 Claude 桌面版。模型、强度、权限模式都会传给 claude 命令行。");
     this.modelSelect(claude, "claude", d.claude.model, (v) => { this.setDefaultModel("claude", v); this.display(); });
@@ -271,7 +282,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const dsh = this.card(body, "DeepSeek Harness", "通过 dsh acp 开一个真正的 Harness 会话，可以用模型和推理强度。回答完会写进会话日志，也会被追踪。");
     this.modelSelect(dsh, "dsh", d.dsh.model, (v) => { this.setDefaultModel("dsh", v); this.display(); });
     this.effortControl(dsh, "dsh", d.dsh.effort, (v) => { d.dsh.effort = v; p.saveSettings(); });
-    const route = this.row(dsh, "自动允许工具调用", "ACP 模式下 Harness 会把权限请求发回插件。打开 = 自动允许一次；关掉 = 拒绝并在通知里提醒你。", null);
+    const route = this.row(dsh, "自动允许工具调用", "ACP 模式下 Harness 会把权限请求发回插件。打开 = 自动允许一次；关掉 = 在 Obsidian 中逐次确认，并发送通知。", null);
     this.toggle(route.querySelector(":scope > .ad-row__right"), d.dsh.autoApprove === true, (v) => { d.dsh.autoApprove = v; p.saveSettings(); });
     const dcwd = this.row(dsh, "工作目录", "留空 = 当前库根目录。", null);
     this.textInput(dcwd.querySelector(":scope > .ad-row__right"), d.dsh.cwd, "留空 = 库根目录", (v) => { d.dsh.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
@@ -317,6 +328,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     sufTa.onchange = () => { d.promptSuffix = sufTa.value; p.saveSettings(); };
     const rc = this.row(prompt, "动手前先确认", "在最后再追加一句（笔记里看不到）：有疑问先问，都清楚了先说打算，等你确认再动手。", null);
     this.toggle(rc.querySelector(":scope > .ad-row__right"), d.confirmFirst !== false, (v) => { d.confirmFirst = v; p.saveSettings(); });
+    const confirm = prompt.createDiv({ cls: "ad-field" });
+    confirm.createDiv({ cls: "ad-field__label", text: "确认提示词（开启时追加到消息末尾，可自定义）" });
+    const confirmTa = confirm.createEl("textarea", { cls: "ad-textarea", attr: { rows: "5" } });
+    confirmTa.value = d.confirmFirstPrompt ?? DEFAULTS.delegate.confirmFirstPrompt;
+    confirmTa.onchange = () => { d.confirmFirstPrompt = confirmTa.value; p.saveSettings(); };
 
     // Behaviour
     const beh = this.card(body, "写回笔记", "委派开始后，在任务下面写一行 🔗；完成后写一行 💬。");
@@ -733,14 +749,15 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => { s.autoLog = v; p.saveSettings(); });
     const grain = this.row(jr, "自动记录颗粒度", "最新进展：覆盖上一句；每轮记录：按已完成对话轮次累积结论；停歇或归档：只在自动暂停或识别归档时写结论。任务状态与用时另按原规则同步。", null);
     this.segmented(grain.querySelector(":scope > .ad-row__right"), [{id:"latest",label:"最新进展"},{id:"round",label:"每轮记录"},{id:"paused",label:"停歇或归档"}], s.autoLogGranularity || "latest", (v) => { s.autoLogGranularity=v; p.saveSettings(); this.display(); });
-    const merge = this.row(jr, "累积后自动合并总结", "在“每轮记录”模式下，累积到指定条数后由所选 CLI 合并为一条总结；继续保留后续新记录、手写内容、实际用时与待办。总结失败时保留原记录。", null);
+    const archive = this.row(jr, "已完成任务归档位置", "点击“归档已完成日志”时，整块移到此文件，按原日记日期分组。填写库内的 .md 文件路径；修改位置只影响后续归档。", null);
+    this.textInput(archive.querySelector(":scope > .ad-row__right"), s.doneArchivePath, DEFAULTS.doneArchivePath, v => { try { s.doneArchivePath = archivePath(v); p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
+    const merge = this.row(jr, "累积后自动合并总结", "在“每轮记录”模式下，累积到指定条数后由所选 CLI 显示一条累计总结；原轮次记录保留在笔记中，点击“更多”展开。手写内容、实际用时与待办保留。总结失败时保留原记录。", null);
     this.toggle(merge.querySelector(":scope > .ad-row__right"), !!s.autoLogMerge, (v) => { s.autoLogMerge=v; p.saveSettings(); this.display(); }, s.autoLogGranularity !== "round");
     const mergeN = this.row(jr, "累积多少条结论后合并", "同一会话从上次总结后新增的已完成轮次；默认 10 条，至少 2 条。最新进展与停歇模式不累积合并。", null);
     this.numberInput(mergeN.querySelector(":scope > .ad-row__right"), s.autoLogMergeThreshold || 10, 2, 100, (v) => { s.autoLogMergeThreshold=Math.round(v); p.saveSettings(); });
     const jdetail = this.row(jr, "自动日志详细程度", "简略：每条结论约 45 字，不抄用户提问和步骤；标准：结论更完整，可显示步骤；详细：按轮记录时再保留每轮提问。需要你处理的待办、实际用时和手写内容保留。切换后在下次写回时整理本任务的自动记录。", null);
     this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: "简略（默认）" }, { id: "standard", label: "标准" }, { id: "detailed", label: "详细" }], s.autoLogDetail || "brief", (v) => { s.autoLogDetail = v; p.saveSettings(); this.display(); });
-    const jdisplay = this.row(jr, "AI 记录显示方式", "默认折叠：点按钮展开；默认展开：点按钮折叠；最新 5 条：隐藏更早的记录，原文仍保留。只影响任务下的 AI 记录，手写笔记与子任务照常显示。", null);
-    this.segmented(jdisplay.querySelector(":scope > .ad-row__right"), [{ id: "collapsed", label: "默认折叠" }, { id: "expanded", label: "默认展开" }, { id: "latest5", label: "最新 5 条" }], s.aiRecordDisplay || "collapsed", (v) => { s.aiRecordDisplay = v; p.saveSettings(); p.refreshUI(); this.display(); });
+    this.row(jr, "AI 记录显示方式", "默认折叠；手动展开后保留该任务的展开状态，折叠后恢复为折叠。累计总结保留一条可见结论，点“更多”看明细。由 Agent Deck 自己控制，并与 Obsidian 原生折叠命令联动，不依赖 Logseq Style Fold。", null);
     const je = this.row(jr, "每隔几分钟", "自动整理的间隔，最少 5 分钟。", null);
     this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => { s.autoLogEvery = v; p.saveSettings(); });
     const jst = this.row(jr, "启动后第几分钟先整理一次", "Obsidian 刚打开时不用等满一个间隔，到这个时候先跑一次；之后按上面的间隔。", null);
@@ -748,7 +765,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const jmin = this.row(jr, "新会话活跃满几分钟才记", "不到这个时长的会话先不建项，免得随手问一句也进日记；客户端里归档了的不管多短都记。0 = 有动静就记。", null);
     this.numberInput(jmin.querySelector(":scope > .ad-row__right"), s.autoLogMinMinutes ?? 3, 0, 120, (v) => { s.autoLogMinMinutes = v; p.saveSettings(); });
     const jid = this.row(jr, "停了几分钟算暂停", "会话停下超过这么久，那一行从 DOING 改成 PAUSED，并写上实际时段 ⏱。最少 5 分钟。", null);
-    this.numberInput(jid.querySelector(":scope > .ad-row__right"), s.autoLogIdle || 40, 5, 480, (v) => { s.autoLogIdle = v; p.saveSettings(); });
+    this.numberInput(jid.querySelector(":scope > .ad-row__right"), s.autoLogIdle || 10, 5, 480, (v) => { s.autoLogIdle = v; p.saveSettings(); });
     const jag = this.row(jr, "记哪几个 Agent", "只有勾上的 Agent 里自己新开的会话会自动进日记；日记里 🔗 绑着的会话不受这个影响。", null);
     const agBox = jag.querySelector(":scope > .ad-row__right").createDiv({ cls: "ad-seg" });
     const agOn = (s.autoLogAgents ||= {});

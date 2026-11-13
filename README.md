@@ -1,5 +1,20 @@
 # Agent Deck（智能体甲板）
 
+## 1.5.0 · Organized logs and context archiving
+
+Use **归组未完成日志**, **归档已完成日志**, and **跳到正在做** in the dashboard. Unfinished task blocks move into the journal's **AI · 进行中** region, grouped by keyword (DOING, TOREVIEW, PAUSED, and others). Within each keyword, tasks with more conversation turns come first. Available session counts are combined per task; otherwise saved round numbers are used. Equal counts retain their order.
+
+Completed tasks move to `Agent Deck/done/已完成任务.md` by default, grouped by source journal date. Tasks within a date are sorted by turn count, descending, including tasks archived in earlier batches. Set **追踪 → 自动记日记 → 已完成任务归档位置** to another vault-relative Markdown path. The archive is saved before the source block is removed. A write failure or concurrent edit keeps the source. Client archive detection still marks tasks DONE; all sessions attached to a task must be archived first.
+
+Compaction preserves per-turn records in Markdown and displays a cumulative summary. Click **更多** to reveal the details in editing or reading view. Records default to collapsed and retain each manually expanded task across refreshes and reloads. Agent Deck owns this state and does not depend on Logseq Style Fold. Records replaced by older versions can only be recovered while their original session logs remain available. The previous expanded/latest-five display strategies are retired.
+
+Internal block IDs, UUIDs, and session IDs stay in storage while being hidden in the interface. Explicit permission or confirmation waits trigger deduplicated in-app and system notifications. Text detection is limited to recognized requests; client states that are not exposed cannot be detected reliably.
+
+Default Ctrl+Alt shortcuts: D delegate/task actions, A task menu, C conversation, N pending confirmation, X stop, and J jump to the active region. Open sessions by clicking. AI records reuse native Obsidian and Bullet folding; no separate O/R bindings are installed.
+
+
+Under Delegation, disable task-line suggestions or customize their trigger (default @, preceded by whitespace). Parent and child tasks select independently; code and email text do not trigger suggestions. The confirmation prompt can be disabled or edited and is appended only when enabled.
+
 ## Task mentions and Dreaming (1.4.0)
 
 Type `@` in a list task to choose an agent. Type `/` to choose its model, then `/` again for reasoning effort:
@@ -136,11 +151,11 @@ To hand over: open **Settings → 追踪 → 停用螺旋日程里的 AI 写入*
 - **Human–AI journal, moved in.** The AI half of Nautilus Spiral's journal flow now lives here: sessions are recorded into today's note (the selected local Claude / Codex CLI names them and matches existing task lines), status and elapsed time are written back, `💬` carries the last reply, child sessions / side chats / Claude Code subagents become nested blocks, and archiving a session marks its line `DONE`. Nautilus keeps the tracking display.
 - **Write-back on bound lines.** A bound `🔗` session gets `💬`, its keyword follows the session (`DOING` / `TOREVIEW` / `NEEDOK` / `ERRORED` / `HITLIMIT`), and archiving writes `DONE` + `⏱` and retires the `🔗` line. While Nautilus's own AI tracking is still enabled Agent Deck stays out of the note, so the two never fight over the same lines.
 - **Two primary agents, full history.** Pick up to two agents as primaries. They are read in full (all history, cross-day catch-up); every other enabled agent is only read for sessions that moved today.
-- **Two ways to delegate, no more.** Drop a list item you wrote onto an agent card in the panel, or use **块去向 → 委派给 Claude** (⌥⌘D). Anything between existing note items, agent-written items (🤖) and session cards is a binding, never a new session. There is no Delegate button on list items and no delegate command in the palette. Model, effort, permission mode and working directory come from the settings; when a delegation fails, **Retry** on its status pill opens the options sheet.
+- **Delegate from a task.** Click its paper plane, drop it onto an agent card, or press Ctrl+Alt+D. Bound tasks offer continue, inspect, stop, or delegate a new session. Preview the block and select a supported work destination before sending.
 - **Progress only on bound lines.** A line with a `🔗` session or a running delegation gets a line-end pill. While the job runs the pill fills and shows the elapsed clock; the `×` cancels it. When the agent answers, the pill becomes **Done** and the result is written under the task as one `💬` line. Lines with no session stay clean.
 - **Note-native records.** Delegation writes a `🔗` line under the task and changes the status to `DELEGATED`; the line is the source of truth. Delete the `🔗` line to unbind.
 - **Layered model settings.** A global default model, a default effort slider, capability tags, search/filter, enable switches, pinned order and a per-row menu. Changes sit in an **Unsaved changes** bar until you save them.
-- **Local only.** Everything is read from `~/.claude`, `~/.codex`, `~/.workbuddy`, `~/.dsh`, `~/.gemini/antigravity/brain` and the Claude desktop session list under `~/Library/Application Support/Claude/claude-code-sessions`. Nothing is uploaded. The plugin stores its own aggregate in `usage.json` next to the plugin, so history survives log rotation.
+- **Local only.** Everything is read from `~/.claude`, `~/.codex`, `~/.workbuddy`, `~/.dsh`, `~/.gemini/antigravity/brain` and the Claude desktop session list under `~/Library/Application Support/Claude/claude-code-sessions`. Tracking reads local files; delegation, summarization, and Dreaming send the selected material to the configured model service. The plugin stores its own aggregate in `usage.json` next to the plugin, so history survives log rotation.
 - **Official app icons.** The dashboard, session rows, pills and settings use agent icons; the menu bar falls back to a glyph when an icon is unavailable; status, tool and window icons stay Lucide, and running states use a CSS spinner.
 - **The agent summary lives in the macOS menu bar.** Obsidian's bottom-right status bar no longer carries the agent session summary. The status item is just an icon; click it for a solid, opaque panel of task cards you can jump from.
 
@@ -175,7 +190,7 @@ If the menu bar is full (or a menu-bar manager such as Ice has the item in its h
 Your task lines are the plan; the agent session logs are the record of what actually happened. With **Auto-log into today's note** enabled, Agent Deck periodically reads today's sessions and writes the record back:
 
 - **Active** → the matching line becomes `DOING`; if there is no line it writes `- DOING 00:45 🤖 …`. The selected local Claude / Codex CLI names the session and picks an existing task line when one fits.
-- **Idle for a while** (40 minutes by default) → `PAUSED`, with `- ⏱ 00:45–01:20 · 共 52m · Claude` underneath.
+- **Idle for a while** (10 minutes by default) → `PAUSED`, with `- ⏱ 00:45–01:20 · 共 52m · Claude` underneath.
 - **Archived in the desktop app / Codex** → `DONE 19:20 …`, including lines still open from previous days.
 - **It never guesses DONE.** The machine only moves between `DOING`, `PAUSED` and the waiting keywords (`TOREVIEW`, `NEEDOK`, `ERRORED`); finishing is you marking it done or archiving the session.
 - **Bound lines** get `💬` when the session answers, their keyword follows the session, and archiving writes `DONE` + `⏱`. Auto-logged `🤖` lines follow the session's keyword too (`DOING` ↔ `TOREVIEW` / `NEEDOK` / `ERRORED`), so a session waiting for you shows up as waiting before it is paused.
@@ -190,13 +205,13 @@ Agent Deck owns automatic journal writing. In **Settings → Agent Deck → 追�
 
 Record granularity (`autoLogGranularity`) is independent of text detail: `latest` (default) replaces the last conclusion, `round` accumulates completed turns, and `paused` writes conclusions only after inactivity pause or recognized archive. Status and time still follow their existing rules. Text detail (`autoLogDetail`) defaults to `brief`, about 45 characters without user prompts or steps; `standard` allows longer conclusions and steps; `detailed` also retains follow-up prompts in per-turn mode.
 
-In per-turn mode, enable automatic compaction (`autoLogMerge`, default `false`) and choose a threshold (`autoLogMergeThreshold`, default 10, range 2–100 new conclusions). The selected Claude / Codex CLI rolls previous summaries and new completed turns into one summary. Only a successful response replaces older direct AI turn records. Later turns, manual notes, user TODOs, clocks and nested task notes remain; failures preserve the original records.
+In per-turn mode, enable automatic compaction (`autoLogMerge`, default `false`) and choose a threshold (`autoLogMergeThreshold`, default 10, range 2–100 new conclusions). The selected Claude / Codex CLI rolls previous summaries and new completed turns into one summary. A successful response adds a summary while preserving older direct AI turn records behind “更多”. Later turns, manual notes, user TODOs, clocks and nested task notes remain; failures preserve the original records.
 
-AI record display (`aiRecordDisplay`) defaults to `collapsed`. Choose `expanded` or `latest5` to show records expanded or only show the latest five. Record controls sit at the end of the task line with a compact chevron and count, with muted detail text. Agent Deck block IDs (`^ad-…`) are hidden in the editor and reading view while remaining unchanged in Markdown; no zero-width characters are inserted. The editor and reading view hide records without deleting their source text; manual notes and child tasks remain visible.
+AI record display (`aiRecordDisplay`) defaults to `collapsed`. Manually expanded tasks retain their state, including after reload. The old expanded/latest-five settings no longer override the default. Record controls sit at the end of the task line with a compact chevron and count, with muted detail text. Agent Deck block IDs (`^ad-…`) are hidden in the editor and reading view while remaining unchanged in Markdown; no zero-width characters are inserted. The editor and reading view hide records without deleting their source text; manual notes and child tasks remain visible.
 
-AI records also follow existing Obsidian fold / unfold commands, plus matching Bullet and Logseq Style Fold commands when installed. Configure their keys in Obsidian; in latest-five mode, unfolding still shows at most five records.
+AI records follow native Obsidian fold / unfold commands, plus Bullet commands when installed. Configure their keys in Obsidian. Agent Deck stores manual expansion state itself; Logseq Style Fold is not required.
 
-The daily note is `journalFolder` plus `journalFormat`. An empty `journalFolder` follows Obsidian's Daily notes core plugin, then Periodic Notes, then falls back to `日记`. `journalFormat` is a moment format that may include subfolders (`YYYY-MM-DD`, `YYYY/MM/YYYY-MM-DD`). Left empty, it is detected: Obsidian's Daily notes core plugin, then Periodic Notes, then the naming of notes already in the folder, then `YYYY_MM_DD`. Journal settings are stored explicitly as `autoLogEvery` (20 min), `autoLogStartDelay` (1 min), `autoLogMinMinutes` (3 min; 0 disables the threshold), `autoLogIdle` (40 min), `autoLogBatch` (8), `autoLogAgents`, `autoLogProvider` (`claude` / `codex`), `autoLogModel`, `autoLogEffort` (`low`), `autoLogTimeout` (120 s), `autoLogFallback` (true), `autoLogPath`, `autoLogKw`, `autoLogArchiveDone`, `autoLogNotify`, `roundPolish`, `roundPolishModel` (empty reuses the naming model), and `roundPolishTimeout` (30 s). The journal must already exist. The first run still applies the activity threshold; ineligible sessions wait until a later run. Live write-back follows `pollSeconds` (20 s by default).
+The daily note is `journalFolder` plus `journalFormat`. An empty `journalFolder` follows Obsidian's Daily notes core plugin, then Periodic Notes, then falls back to `日记`. `journalFormat` is a moment format that may include subfolders (`YYYY-MM-DD`, `YYYY/MM/YYYY-MM-DD`). Left empty, it is detected: Obsidian's Daily notes core plugin, then Periodic Notes, then the naming of notes already in the folder, then `YYYY_MM_DD`. Journal settings are stored explicitly as `autoLogEvery` (20 min), `autoLogStartDelay` (1 min), `autoLogMinMinutes` (3 min; 0 disables the threshold), `autoLogIdle` (10 min), `autoLogBatch` (8), `autoLogAgents`, `autoLogProvider` (`claude` / `codex`), `autoLogModel`, `autoLogEffort` (`low`), `autoLogTimeout` (120 s), `autoLogFallback` (true), `autoLogPath`, `autoLogKw`, `autoLogArchiveDone`, `autoLogNotify`, `roundPolish`, `roundPolishModel` (empty reuses the naming model), and `roundPolishTimeout` (30 s). The journal must already exist. The first run still applies the activity threshold; ineligible sessions wait until a later run. Live write-back follows `pollSeconds` (20 s by default).
 
 ## Delegate targets
 
@@ -318,7 +333,7 @@ npm run build
 
 ## Settings
 
-**Ctrl + Alt + J** jumps to a running Agent project in today's journal. Repeated presses cycle through running projects; waiting and finished sessions are excluded. Customize “Agent Deck: 跳转到日记中正在运行的项目” in Obsidian's hotkey settings.
+**Ctrl + Alt + J**, or **跳到正在做**, jumps to today’s **AI · 进行中** region; before grouping, it opens the first running task. Customize it in Obsidian hotkey settings.
 
 - **Agents**: enable each agent, pick up to two primaries, scan now, import Nautilus Spiral history.
 - **委派**: default target, models, effort, permission mode, working directory, prompt prefix/suffix, write-back rules, trust fallback.

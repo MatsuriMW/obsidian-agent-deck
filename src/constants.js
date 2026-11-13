@@ -1,5 +1,8 @@
 // Agent Deck — shared constants and small helpers.
 
+// 追加在每条委派消息末尾（笔记里看不到）：先弄懂、有疑问先问，说清打算后等用户点头再动手
+export const CONFIRM_FIRST = "先别动手。把上面的任务读透：有不清楚、有歧义或需要我拍板的地方，先列出来问我；都清楚了，就用几句话复述你的理解和打算怎么做，等我确认后再动手。这一轮不要改文件，也不要跑有副作用的命令。";
+
 export const STORE_VERSION = 1;
 
 export const AGENTS = {
@@ -266,8 +269,10 @@ export const DEFAULTS = {
   delegateInTerminal: false,  // 拖到 Claude Code / Codex 上默认在主力终端里开交互式会话（按住 ⌘ 反过来）
   yieldToNautilus: true,   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: false,
+  aiRecordExpanded: {},
   aiRecordDisplay: "collapsed", // collapsed 默认折叠 / expanded 默认展开 / latest5 只显示最新五条
   autoLogGranularity: "latest", // latest 最新进展 / round 每轮 / paused 停歇或归档
+  doneArchivePath: "Agent Deck/done/已完成任务.md",
   autoLogMerge: false,
   autoLogMergeThreshold: 10,
   autoLogSummaries: {},
@@ -275,7 +280,7 @@ export const DEFAULTS = {
   autoLogEvery: 20,        // 自动整理间隔（分钟）
   autoLogStartDelay: 1,    // 插件启动后第几分钟先整理一次，不用等满一个间隔
   autoLogMinMinutes: 3,    // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
-  autoLogIdle: 40,         // 停了几分钟算 PAUSED
+  autoLogIdle: 10,         // 停了几分钟算 PAUSED
   autoLogBatch: 8,         // 一轮最多问模型几个会话
   autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true },
   autoLogProvider: "claude",
@@ -331,10 +336,13 @@ export const DEFAULTS = {
       autoApprove: false,
       extraArgs: "",
     },
+    mentionSuggest: true,
+    mentionTrigger: "@",
     promptPrefix: "",
     promptSuffix: "",
     markStatus: true,
     confirmFirst: true,   // 委派消息末尾追加「先确认再动手」
+    confirmFirstPrompt: CONFIRM_FIRST,
     writeLink: true,
     nameMax: 56,
   },

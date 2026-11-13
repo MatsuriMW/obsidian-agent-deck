@@ -10,4 +10,6 @@ assert.equal(RECORD_FOLD_COMMANDS['editor:unfold-all'].all,true);
 assert.equal(recordsAreOpen('collapsed',new Set(),'parent'),false);
 assert.equal(recordsAreOpen('expanded',new Set(),'parent'),true);
 assert.equal(recordsAreOpen('latest5',new Set(),'parent'),true);
-console.log('PASS native/Bullet/Logseq command mapping and nested AI record fold targeting');
+console.log('PASS native/Bullet command mapping without Logseq dependency and nested AI record fold targeting');
+
+assert.ok(!Object.keys(RECORD_FOLD_COMMANDS).some(id=>id.startsWith("logseq-style-fold:")));

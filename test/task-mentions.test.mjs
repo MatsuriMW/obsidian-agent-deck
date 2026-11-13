@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { register, createRequire } from 'node:module';
 globalThis.require = createRequire(import.meta.url);
 register('data:text/javascript,' + encodeURIComponent(`export async function resolve(s,c,n){if(s==='obsidian')return {url:'data:text/javascript,export class EditorSuggest{constructor(app){this.app=app}close(){}};',shortCircuit:true};return n(s,c)}`));
-const { TaskAgentSuggest } = await import('../src/mention-suggest.js');
+const { TaskAgentSuggest, registerTaskAgentSuggest } = await import('../src/mention-suggest.js');
 const { taskMention, mentionOptions, stripTaskMention, mentionSuggestions } = await import('../src/task-mentions.js');
 const { DEFAULTS, MODEL_CATALOG, deepMerge } = await import('../src/constants.js');
 const { Delegator, codexCliArgs } = await import('../src/delegation.js');
@@ -107,3 +107,85 @@ console.log('PASS chained model picker: aliases, mainstream model options, autom
 const disabledModels={...p,modelEnabled:()=>false};
 assert.ok(mentionSuggestions(disabledModels,'codex/').some(x=>x.value==='codex/gpt-6.1-sol'));
 console.log('PASS legacy settings with no enabled Codex models still show the model catalog');
+
+// The manager stops at the first matching provider: a broad Tasks provider
+// must not swallow Agent Deck's more specific @ completion.
+const broadTaskSuggest = { onTrigger: () => ({ query: "task" }) };
+const manager = { suggests: [broadTaskSuggest] };
+const registrationPlugin = {
+  ...p, app: { workspace: { editorSuggest: manager } },
+  registerEditorSuggest(s) { manager.suggests.push(s); },
+};
+registerTaskAgentSuggest(registrationPlugin);
+for (const line of ['- [ ] @', '- TODO @', '1. TODO @codex/']) {
+  const cursor = { line: 0, ch: line.length };
+  const first = manager.suggests.find(s => s.onTrigger(cursor, fakeEditor(line)));
+  assert.ok(first instanceof TaskAgentSuggest, `${line}: Agent Deck menu must win over Tasks`);
+  assert.ok(first.getSuggestions(first.onTrigger(cursor, fakeEditor(line))).length);
+}
+assert.equal(manager.suggests.find(s => s.onTrigger({line:0,ch:8}, fakeEditor('- [ ] hi'))), broadTaskSuggest);
+console.log('PASS @ completion priority over broad task suggesters; ordinary Tasks completion preserved');
+const confirmPlugin = { ...p, settings: deepMerge(DEFAULTS, {}) };
+const confirmDelegator = new Delegator(confirmPlugin);
+const buildConfirmPrompt = () => confirmDelegator.buildPrompt({block:{text:'- TODO 测试'}});
+const defaultPrompt = buildConfirmPrompt();
+assert.ok(defaultPrompt.includes('先别动手。'));
+confirmPlugin.settings.delegate.confirmFirstPrompt = '自定义确认\n请先说明方案。';
+assert.ok(buildConfirmPrompt().endsWith('自定义确认\n请先说明方案。'));
+assert.ok(!buildConfirmPrompt().includes('先别动手。'));
+confirmPlugin.settings.delegate.confirmFirst = false;
+assert.ok(!buildConfirmPrompt().includes('自定义确认'));
+confirmPlugin.settings.delegate.confirmFirst = true;
+confirmPlugin.settings.delegate.confirmFirstPrompt = '';
+assert.ok(!buildConfirmPrompt().includes('先别动手。'));
+delete confirmPlugin.settings.delegate.confirmFirstPrompt;
+assert.equal(buildConfirmPrompt(), defaultPrompt);
+console.log('PASS custom confirmation prompt, toggle, explicit empty text and legacy default');
+// Configurable menu trigger must also route and strip the selected token.
+const customPlugin = { ...p, settings: deepMerge(DEFAULTS, {}) };
+const customSuggest = new TaskAgentSuggest(customPlugin);
+customPlugin.settings.delegate.mentionSuggest = false;
+assert.equal(customSuggest.onTrigger({line:0,ch:8},fakeEditor('- TODO @')), null);
+customPlugin.settings.delegate.mentionSuggest = true;
+for (const trigger of ['!', '::', '$', '/', '[', '🤖']) {
+  customPlugin.settings.delegate.mentionTrigger = trigger;
+  const text = '- TODO '+trigger;
+  const context = customSuggest.onTrigger({line:0,ch:text.length},fakeEditor(text));
+  assert.equal(context?.query, '', trigger);
+  assert.equal(context.start.ch, 7);
+  assert.equal(customSuggest.onTrigger({line:0,ch:8},fakeEditor('- TODO @')), null);
+  const task = '- TODO 测试 '+trigger+'codex/gpt-6.1-sol/high';
+  const chosen = mentionOptions(customPlugin,{lines:[task],line:0});
+  assert.equal(chosen.agent,'codex');assert.equal(chosen.effort,'high');
+  const prompt = new Delegator(customPlugin).buildPrompt({block:{text:task}});
+  assert.ok(!prompt.includes(trigger+'codex/'),trigger+' must not leak into prompt');
+  assert.equal(mentionOptions(customPlugin,{lines:['- TODO @codex'],line:0}).agent,'codex');
+}
+customPlugin.settings.delegate.mentionTrigger = '::';
+assert.equal(taskMention('- TODO test::codex','::'),null);
+assert.equal(taskMention('- TODO `::codex`','::'),null);
+assert.equal(taskMention('- TODO [链接](https://x/::codex)','::'),null);
+assert.throws(()=>taskMention('- TODO @codex ::claude','::'),/一个/);
+customPlugin.settings.delegate.mentionSuggest = false;
+assert.equal(mentionOptions(customPlugin,{lines:['- TODO ::codex'],line:0}).agent,'codex');
+let customContent='- TODO ::',customCursor={line:0,ch:9},customReopen=0;
+const customEditor={getLine:()=>customContent,getCursor:()=>customCursor,replaceRange:(text,start,end)=>{customContent=customContent.slice(0,start.ch)+text+customContent.slice(end.ch)},setCursor:c=>customCursor=c};
+customPlugin.app={workspace:{editorSuggest:{trigger:()=>customReopen++}}};
+customSuggest.app=customPlugin.app;
+customSuggest.context={editor:customEditor,file:null,start:{line:0,ch:7},end:customCursor};
+customSuggest.selectSuggestion(mentionSuggestions(customPlugin,'codex')[0]);
+assert.equal(customContent,'- TODO ::codex/');
+await new Promise(r=>setTimeout(r,10));assert.equal(customReopen,0,'disabled menu must not reopen');
+console.log('PASS configurable trigger, disabled menu, legacy routing and safe symbol boundaries');
+customPlugin.settings.delegate.mentionSuggest = true;
+customContent='- TODO ::';customCursor={line:0,ch:9};
+customSuggest.context={editor:customEditor,file:null,start:{line:0,ch:7},end:customCursor};
+customSuggest.selectSuggestion(mentionSuggestions(customPlugin,'codex')[0]);
+assert.equal(customContent,'- TODO ::codex/');
+await new Promise(r=>setTimeout(r,10));assert.equal(customReopen,1);
+customSuggest.context={editor:customEditor,file:null,start:{line:0,ch:7},end:customCursor};
+customSuggest.selectSuggestion(mentionSuggestions(customPlugin,'codex/').find(x=>x.value==='codex/gpt-6.1-terra'));
+assert.equal(customContent,'- TODO ::codex/gpt-6.1-terra');
+assert.equal(mentionOptions(customPlugin,{lines:[customContent],line:0}).model,'gpt-6.1-terra');
+for(const trigger of ['@@','.*','\\','💡']) assert.equal(taskMention('- TODO '+trigger+'codex',trigger)?.agent,'codex');
+console.log('PASS custom symbol chained selection, concrete model routing and regex escaping');

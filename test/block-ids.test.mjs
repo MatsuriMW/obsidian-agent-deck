@@ -8,3 +8,12 @@ assert.equal(adBlockIdRanges('段落文字 ^ad-abcdef').length,1);
 assert.equal(adBlockIdRanges('文字中 ^ad-abcdef 还有正文').length,0);
 assert.equal(adBlockIdRanges('- 普通标题').length,0);
 console.log('PASS hide real Agent Deck block IDs without changing source, other IDs or code examples');
+const uuid = '5031567a-cc11-4b71-a9ec-8a290ee39dc9';
+assert.equal(adBlockIdRanges(`- TODO 任务 ^${uuid}`).length,1);
+assert.equal(adBlockIdRanges('- TODO 任务 ^custom',new Set(['custom'])).length,1);
+assert.equal(adBlockIdRanges('- TODO 任务 ^custom').length,0);
+assert.equal(adBlockIdRanges(`- 示例 \`^${uuid}\``).length,0);
+assert.equal(adBlockIdRanges(`~~~md\n- 示例 ^${uuid}\n~~~`).length,0);
+
+assert.equal(adBlockIdRanges(`  - 🔗 [DeepSeek Harness：任务](dsh://open) \`${uuid}\``).length,1);
+assert.equal(adBlockIdRanges(`- 手写代码 \`${uuid}\``).length,0);

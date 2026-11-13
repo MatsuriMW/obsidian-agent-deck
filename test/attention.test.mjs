@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { attentionReason, AttentionTracker } from '../src/attention.js';
+assert.equal(attentionReason({state:'needs-approval'}),'需要授权');
+assert.equal(attentionReason({state:'wait',lastText:'已完成，请查收。'}),'');
+assert.equal(attentionReason({state:'wait',lastText:'请确认是否继续删除这些文件？'}),'需要确认');
+assert.equal(attentionReason({state:'running',lastText:'请确认是否继续？'}),'');
+assert.equal(attentionReason({state:'wait',lastText:'此前用户说“请确认”。现在已经完成。'}),'');
+const tracker = new AttentionTracker();
+const job={id:'job',sessionId:'session',agent:'codex',state:'needs-approval'};
+assert.equal(tracker.update([job,{sid:'session',agent:'codex',state:'needs-approval'}]).length,1);
+assert.equal(tracker.update([job]).length,0);
+tracker.update([{...job,state:'running'}]);
+assert.equal(tracker.update([job]).length,1);
+tracker.update([]);
+assert.equal(tracker.update([job]).length,1);
+console.log('PASS permission/confirmation detection, duplicate sessions, resolution and repeated requests');

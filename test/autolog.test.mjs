@@ -220,13 +220,26 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
 }
 
-{ // 合并只替换本任务 AI 轮次，保留待办、手写内容与更深层子任务。
+{ // 合并保留本任务 AI 轮次，保留待办、手写内容与更深层子任务。
   const J=await import("../src/journal.js");
   const text="- DOING 任务 ^ad-merge1\n\t- 💬 完成第一轮。\n\t- 💬 第2轮：完成第二轮。\n\t- ❓ 第2轮：用户追问\n\t- TODO 手动待办\n\t- 手写备注\n\t- 子任务\n\t\t- 💬 第2轮：子任务自己的记录\n";
   const args={blockId:"ad-merge1",detail:"brief",granularity:"round",compact:{through:2,text:"完成基础功能，新增配置；发布仍待验证。"},rounds:[{n:1,said:"完成第一轮。"},{n:2,said:"完成第二轮。"},{n:3,said:"完成第三轮。"}]};
   const out=J.syncSessionEntry(text,args).text;
-  check("compaction retains summary, later turns and manual content",out.includes("累计总结：完成基础功能，新增配置；发布仍待验证。")&&out.includes("第3轮：完成第三轮。")&&!out.includes("完成第二轮")&&!out.includes("用户追问")&&out.includes("TODO 手动待办")&&out.includes("手写备注")&&out.includes("子任务自己的记录"),out);
+  check("compaction retains summary, later turns and manual content",out.includes("累计总结：完成基础功能，新增配置；发布仍待验证。")&&out.includes("第3轮：完成第三轮。")&&out.includes("完成第二轮")&&out.includes("用户追问")&&out.includes("TODO 手动待办")&&out.includes("手写备注")&&out.includes("子任务自己的记录"),out);
   check("compaction is idempotent",J.syncSessionEntry(out,args).text===out);
+}
+
+{ // 客户端归档是明确完成动作；多会话须全部归档。
+  const sid = "11111111-2222-3333-4444-555555555555", other = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const link = id => `\t- 🔗 [Codex](codex://threads/${id})`;
+  const p = fakePlugin("", [], {}); p.usage.archived.add(sid);
+  const sync = new JournalSync(p);
+  check("archived manually paused task becomes DONE", sync.keywords(`- PAUSED 任务 ^ad-done\n${link(sid)}`).startsWith("- DONE"));
+  check("one archived session cannot complete a multi-session task", !sync.keywords(`- DOING 任务 ^ad-multi\n${link(sid)}\n${link(other)}`).startsWith("- DONE"));
+  const al = new AutoLog(p), st = { [sid]: {blockId:"ad-multi"}, [other]:{blockId:"ad-multi"} };
+  check("automatic log also waits for all sessions to archive", !al.allArchived(st,sid,st[sid],p.usage.archived));
+  p.usage.archived.add(other);
+  check("all archived sessions complete their shared task", sync.keywords(`- PAUSED 任务 ^ad-multi\n${link(sid)}\n${link(other)}`).startsWith("- DONE") && al.allArchived(st,sid,st[sid],p.usage.archived));
 }
 
 if (fail) { console.log(`${fail} failed`); process.exit(1); }

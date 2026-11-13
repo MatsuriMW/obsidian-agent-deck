@@ -1,3 +1,4 @@
+import { canOpenClient } from "./workflow.js";
 import { Modal, Notice, MarkdownRenderer, Component } from "obsidian";
 import { readConversation, archiveConversation } from "./conversation.js";
 
@@ -13,7 +14,8 @@ export class ConversationModal extends Modal {
     const actions = el.createDiv({ cls: "ad-btnrow" });
     const refresh = actions.createEl("button", { text: "刷新正文" });
     refresh.onclick = () => this.load();
-    const archive = actions.createEl("button", { text: "归档到笔记" });
+    if (canOpenClient(this.session)) actions.createEl("button", { text: "在客户端打开" }).onclick = () => this.plugin.openClientSession(this.session);
+    const archive = actions.createEl("button", { text: "保存对话到笔记" });
     archive.onclick = async () => {
       archive.disabled = true;
       try {
@@ -23,7 +25,9 @@ export class ConversationModal extends Modal {
       } catch (e) { new Notice(e.message); }
       finally { archive.disabled = false; }
     };
-    el.createDiv({ cls: "ad-hint", text: "显示用户消息与回复正文。归档不包含工具结果、内部推理和附件。" });
+    this.scope.register(["Mod"], "s", (event) => { event.preventDefault(); if (!archive.disabled) archive.click(); return false; });
+    archive.title = "保存对话（⌘S / Ctrl+S）";
+    el.createDiv({ cls: "ad-hint", text: "保存用户消息与回复正文；会话可继续，任务状态不受影响。工具结果、内部推理和附件不包含在内。" });
     this.messagesEl = el.createDiv({ cls: "ad-conversation__messages" });
     if (this.session.agent === "dsh" || (this.session.agent === "antigravity" && Object.values(this.plugin.jobs).some((j) => j.agent === "antigravity" && j.transport === "acp" && j.sessionId === (this.session.sid || this.session.sessionId)))) {
       this.input = el.createEl("textarea", { cls: "ad-textarea", attr: { rows: "3", placeholder: "在原会话中继续追问…" } });
@@ -39,6 +43,8 @@ export class ConversationModal extends Modal {
         } catch (e) { new Notice(e.message); }
         finally { this.send.disabled = false; }
       };
+      this.scope.register(["Mod"], "Enter", (event) => { event.preventDefault(); if (!this.send.disabled && this.input.value.trim()) this.send.click(); return false; });
+      this.send.title = "发送（⌘Enter / Ctrl+Enter）";
       const stop = row.createEl("button", { text: "停止当前一轮" });
       stop.onclick = () => {
         const job = Object.values(this.plugin.jobs).find((j) => j.agent === this.session.agent && j.sessionId === (this.session.sid || this.session.sessionId));
@@ -86,8 +92,13 @@ export class AcpPermissionModal extends Modal {
   constructor(app, info, resolve) { super(app); this.info = info; this.resolve = resolve; }
   onOpen() {
     const { toolCall, options } = this.info;
-    this.contentEl.createEl("h2", { text: "Antigravity 请求工具权限" });
-    this.contentEl.createEl("pre", { text: JSON.stringify(toolCall || {}, null, 2) });
+    this.contentEl.createEl("h2", { text: `${this.info.agent === "dsh" ? "DeepSeek Harness" : "Antigravity"} 请求工具权限` });
+    this.contentEl.createEl("p", { text: toolCall?.title || "Agent 请求执行工具操作，请选择是否允许。" });
+    if (toolCall?.rawInput) {
+      const details = this.contentEl.createEl("details");
+      details.createEl("summary", { text: "查看操作详情" });
+      details.createEl("pre", { text: JSON.stringify(toolCall.rawInput, null, 2) });
+    }
     const row = this.contentEl.createDiv({ cls: "ad-btnrow" });
     for (const option of options) {
       const button = row.createEl("button", { text: option.name || option.kind });

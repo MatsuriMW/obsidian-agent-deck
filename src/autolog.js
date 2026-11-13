@@ -91,6 +91,10 @@ export class AutoLog {
     return out;
   }
 
+  allArchived(st, sid, rec, arch) {
+    return arch.has(sid) && (!rec.blockId || Object.entries(st).every(([other, item]) => item.skip || item.gone || item.blockId !== rec.blockId || arch.has(other)));
+  }
+
   autoParked(rec, cur) { return cur === "paused" && !!rec && !!rec.autoPaused; }
 
   hasChildren(text, line) {
@@ -244,7 +248,7 @@ export class AutoLog {
       if (!file) { report.error = `今天的日记 ${this.journalPath(day)} 还没建`; return report; }
       const data = this.usage.summary(day);
       if (!data || !data.list || !data.list.length) return report;
-      const idle = Math.max(5, this.cfg.autoLogIdle || 40);
+      const idle = Math.max(5, this.cfg.autoLogIdle || 10);
       const now = this.nowMin();
       const st = this.state(day);
       snap = JSON.stringify(st);
@@ -315,7 +319,7 @@ export class AutoLog {
           delete rec.autoPaused;
         }
         const name = J.workKey(rec.label).replace(J.AUTO_MARK, "");
-        if (arch.has(x.sid) && (fresh || cur === "doing" || this.autoParked(rec, cur))) {
+        if (this.allArchived(st, x.sid, rec, arch)) {
           text = this.autoLine(text, rec, x, "done").text;
           rec.status = "done";
           delete rec.fresh; delete rec.parkedAt; delete rec.hold; delete rec.autoPaused;
@@ -401,7 +405,7 @@ export class AutoLog {
   }
 
   // 前几天记下、还挂着的行：会话归档了，就在它当天的日记里补成 DONE。
-  // 你自己改成 TODO / PAUSED 的不动；日记正好被改过就跳过这一天。
+  // 同一任务的会话全部归档才完成；日记正好被改过就跳过这一天。
   async archivePast(arch, today) {
     if (!arch.size) return [];
     const out = [];
@@ -410,7 +414,7 @@ export class AutoLog {
       const file = this.journalFile(day);
       if (!file) continue;
       const st = this.cfg.autoLogState[day] || {};
-      const hits = Object.entries(st).filter(([sid, r]) => arch.has(sid) && r.key && !r.skip && !r.gone && (r.status === "doing" || this.autoParked(r, r.status)));
+      const hits = Object.entries(st).filter(([sid, r]) => arch.has(sid) && r.key && !r.skip && !r.gone && r.status !== "done" && this.allArchived(st, sid, r, arch));
       if (!hits.length) continue;
       const base = await this.read(file);
       let text = base;
@@ -419,7 +423,7 @@ export class AutoLog {
       for (const [sid, rec] of hits) {
         const found = J.findTask(text, rec.key, rec.blockId || "", sid);
         if (!found) { rec.gone = true; continue; }
-        if (found.state !== "doing" && !this.autoParked(rec, found.state)) { rec.status = found.state; delete rec.autoPaused; continue; }
+        if (found.state === "done") { rec.status = found.state; delete rec.autoPaused; continue; }
         const x = list.find((s) => s.sid === sid && s.segs && s.segs.length) || null;
         text = this.autoLine(text, rec, x, "done").text;
         if (x) text = this.autoClock(text, rec.key, x.segs, agentName(x.agent), (x.out || 0) + (x.fresh || 0), x.sid, rec.blockId || "");

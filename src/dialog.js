@@ -5,7 +5,8 @@ import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { blockAt, blockTitle, BULLET_RE } from "./delegation.js";
-import { mentionOptions } from "./task-mentions.js";
+import { mentionOptions, mentionTrigger } from "./task-mentions.js";
+import { destinations, defaultDestination } from "./workflow.js";
 import { kwLine } from "./journal.js";
 
 export class DelegateOptionsModal extends Modal {
@@ -18,6 +19,7 @@ export class DelegateOptionsModal extends Modal {
     this.model = plugin.defaultModel(this.agent);
     this.effort = plugin.settings.delegate[this.agent]?.effort || "high";
     this.permission = plugin.settings.delegate.claude.permission || "auto";
+    this.destination = defaultDestination(plugin, this.agent);
     this.cwd = "";
     this.suffix = plugin.settings.delegate.promptSuffix || "";
     this.block = null;
@@ -51,7 +53,7 @@ export class DelegateOptionsModal extends Modal {
     contentEl.empty();
     const head = contentEl.createDiv({ cls: "ad-modalhead" });
     const title = head.createDiv({ cls: "ad-modalhead__title", text: "Delegate this block" });
-    const sub = head.createDiv({ cls: "ad-modalhead__sub", text: `${blockTitle(this.block).slice(0, 80)} · ${this.path}` });
+    const sub = head.createDiv({ cls: "ad-modalhead__sub", text: `${blockTitle(this.block, mentionTrigger(p)).slice(0, 80)} · ${this.path}` });
 
     const preview = contentEl.createDiv({ cls: "ad-preview" });
     const pre = preview.createEl("pre", { cls: "ad-preview__text" });
@@ -69,8 +71,10 @@ export class DelegateOptionsModal extends Modal {
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
       b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "桌面版" : id === "codex" ? (p.settings.delegate.codex.transport === "terminal" ? "CLI / 终端" : "首轮后打开桌面版") : "ACP" });
-      b.onclick = () => { this.agent = id; this.model = p.defaultModel(id); this.effort = p.settings.delegate[id]?.effort || "high"; this.render(); };
+      b.onclick = () => { this.agent = id; this.model = p.defaultModel(id); this.effort = p.settings.delegate[id]?.effort || "high"; this.destination = defaultDestination(p, id); this.render(); };
     }
+
+    destinationPicker(contentEl, this.agent, this.destination, (v) => { this.destination = v; });
 
     // Model
     const mf = contentEl.createDiv({ cls: "ad-field" });
@@ -131,7 +135,7 @@ export class DelegateOptionsModal extends Modal {
       const b = row.createEl("button", { cls: "ad-switch" + (p.settings.delegate.dsh.autoApprove ? " is-on" : "") });
       b.createSpan({ cls: "ad-switch__knob" });
       b.onclick = () => { p.settings.delegate.dsh.autoApprove = !p.settings.delegate.dsh.autoApprove; p.saveSettings(); this.render(); };
-      af.createDiv({ cls: "ad-hint", text: "ACP 模式没有 plan/auto 这个切换；关掉自动允许时，Harness 的权限请求会被拒绝并提醒你。" });
+      af.createDiv({ cls: "ad-hint", text: "ACP 模式没有 plan/auto 这个切换；关掉自动允许时，Harness 的权限请求会在 Obsidian 中逐次确认。" });
     }
 
     if (this.agent === "antigravity") contentEl.createDiv({ cls: "ad-hint", text: "通过 agy acp 委派，工具请求会在 Obsidian 中逐次确认；完成后可打开会话正文继续追问。推理强度以当前模型支持的值为准。" });
@@ -168,6 +172,7 @@ export class DelegateOptionsModal extends Modal {
       try {
         const job = await p.delegator.delegate({
           ignoreMention: true,
+          destination: this.destination,
           file: this.file,
           lines: this.lines,
           block: this.block,
@@ -177,7 +182,7 @@ export class DelegateOptionsModal extends Modal {
           permission: this.agent === "claude" ? this.permission : "",
           cwd: this.cwd.trim(),
           promptSuffix: this.suffix,
-          name: blockTitle(this.block),
+          name: blockTitle(this.block, mentionTrigger(p)),
         });
         this.close();
       } catch (e) {
@@ -195,12 +200,14 @@ export class DelegateOptionsModal extends Modal {
 
 // 把手单击后的确认：看一眼要发出去的整块，再发给主力
 export class ConfirmSendModal extends Modal {
-  constructor(app, { agent, text, path, where }, onSend) {
+  constructor(app, { agent, text, path, where, destination, newSession = false }, onSend) {
     super(app);
     this.agent = agent;
     this.text = text;
     this.path = path;
     this.where = where;
+    this.destination = destination || destinations(agent)[0]?.id;
+    this.newSession = newSession;
     this.onSend = onSend;
   }
 
@@ -215,8 +222,11 @@ export class ConfirmSendModal extends Modal {
     const head = contentEl.createDiv({ cls: "ad-send__head" });
     agentIcon(head.createSpan({ cls: "ad-send__mark" }), this.agent);
     const tt = head.createDiv({ cls: "ad-send__titles" });
-    tt.createDiv({ cls: "ad-send__title", text: `发给 ${a.name}` });
+    tt.createDiv({ cls: "ad-send__title", text: `${this.newSession ? "重新委派给" : "发给"} ${a.name}` });
     tt.createDiv({ cls: "ad-send__sub", text: this.where });
+
+    destinationPicker(contentEl, this.agent, this.destination, (v) => { this.destination = v; });
+    if (this.newSession) contentEl.createDiv({ cls: "ad-hint", text: "这次将新建会话，原会话及记录保留。" });
 
     // 要发出去的整块：按缩进画成一张小卡片，第一行是标题
     const card = contentEl.createDiv({ cls: "ad-send__card" });
@@ -246,7 +256,7 @@ export class ConfirmSendModal extends Modal {
     const go = btns.createEl("button", { cls: "ad-btn ad-send__go" });
     setLucide(go.createSpan({ cls: "ad-btn__icon" }), "send");
     go.createSpan({ text: "发送" });
-    go.onclick = () => { this.close(); this.onSend(); };
+    go.onclick = () => { this.close(); this.onSend(this.destination); };
     setTimeout(() => go.focus(), 0);   // 回车直接发
   }
 
@@ -257,4 +267,17 @@ export class ConfirmSendModal extends Modal {
 function indentOf(line) {
   const ws = (line.match(/^[ \t]*/) || [""])[0];
   return ws.replace(/\t/g, "  ").length / 2;
+}
+
+function destinationPicker(parent, agent, value, onChange) {
+  const field = parent.createDiv({ cls: "ad-field" });
+  field.createDiv({ cls: "ad-field__label", text: "接下来在哪里工作" });
+  const options = destinations(agent);
+  const select = field.createEl("select", { cls: "ad-input ad-input--wide", attr: { "aria-label": "接下来在哪里工作" } });
+  for (const option of options) select.createEl("option", { text: option.label, attr: { value: option.id } });
+  select.value = options.some(o => o.id === value) ? value : options[0]?.id;
+  const hint = field.createDiv({ cls: "ad-hint" });
+  const update = () => { hint.textContent = options.find(o => o.id === select.value)?.hint || ""; onChange(select.value); };
+  select.onchange = update;
+  update();
 }

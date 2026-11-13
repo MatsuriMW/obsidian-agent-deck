@@ -16,7 +16,7 @@ export function aiRecordGroups(text, trackedIds = new Set()) {
     }
     if (!records.length) continue;
     const tracked = task.blockId?.startsWith("ad-") || trackedIds.has(task.blockId) || task.body.startsWith("🤖") || records.some((i) => J.parseLink(lines[i]));
-    if (tracked) out.push({ key: task.blockId || `${task.line}:${task.key}`, line: task.line, records });
+    if (tracked) out.push({ key: task.blockId || `${task.line}:${task.key}`, line: task.line, records, summaries: records.filter(n => /💬\s+累计总结[：:]/.test(lines[n])) });
   }
   return out;
 }
@@ -32,7 +32,11 @@ export function recordRuns(records) {
 }
 
 // 块 ID 留在 Markdown 中，仅返回要在编辑器隐藏的字符范围。
-export function adBlockIdRanges(text) {
+export function hiddenBlockId(id, trackedIds = new Set()) {
+  return /^ad-[a-z0-9-]+$/i.test(id) || /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id) || trackedIds.has(id);
+}
+
+export function adBlockIdRanges(text, trackedIds = new Set()) {
   const out = [];
   let offset = 0, fence = "", fenceLength = 0;
   for (const line of text.split("\n")) {
@@ -41,8 +45,10 @@ export function adBlockIdRanges(text) {
       if (!fence) { fence = marker[1][0]; fenceLength = marker[1].length; }
       else if (marker[1][0] === fence && marker[1].length >= fenceLength && !marker[2].trim()) fence = "";
     } else if (!fence) {
-      const id = /(?:[ \t]+|^)\^ad-[a-z0-9-]+[ \t]*$/i.exec(line);
-      if (id) out.push({ from: offset + id.index, to: offset + line.length });
+      const id = /(?:[ \t]+|^)\^([a-z0-9-]+)[ \t]*$/i.exec(line);
+      if (id && hiddenBlockId(id[1], trackedIds)) out.push({ from: offset + id.index, to: offset + line.length });
+      const link = J.parseLink(line), suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(line);
+      if (link && suffix?.[1] === link.sid) out.push({ from: offset + suffix.index, to: offset + line.length });
     }
     offset += line.length + 1;
   }
