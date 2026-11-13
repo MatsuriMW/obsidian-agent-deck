@@ -21,10 +21,18 @@ export class TaskAgentSuggest extends EditorSuggest {
   renderSuggestion(item, el) { el.createDiv({ text: item.label }); el.createDiv({ cls: "ad-muted", text: `@${item.value} · ${item.hint}` }); }
   selectSuggestion(item) {
     if (!this.context) return;
-    const { editor, start, end } = this.context;
-    const text = `@${item.value}`;
+    const { editor, file, start, end } = this.context;
+    const text = `@${item.value}${item.next ? "/" : ""}`;
     editor.replaceRange(text, start, end);
     editor.setCursor({ line: start.line, ch: start.ch + text.length });
     this.close();
+    if (item.next) {
+      // Reopen after the editor applies the selection. Obsidian's suggest manager
+      // is also what normally opens the next level when a slash is typed.
+      setTimeout(() => {
+        const cursor = editor.getCursor();
+        if (cursor.line === start.line && cursor.ch === start.ch + text.length && editor.getLine(start.line).slice(start.ch, cursor.ch) === text) this.app.workspace.editorSuggest?.trigger(editor, file, true);
+      }, 0);
+    }
   }
 }

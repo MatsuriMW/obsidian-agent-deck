@@ -35,9 +35,12 @@ export function stripTaskMention(text) {
 
 export function mentionSuggestions(plugin, query) {
   const parts = query.split("/"), agent = parts[0];
-  if (parts.length === 1) return ROUTABLE_AGENTS.filter((id) => plugin.agentEnabled(id) && (id + " " + AGENTS[id].name).toLowerCase().includes(agent.toLowerCase())).map((id) => ({ value: id, label: AGENTS[id].name, hint: EFFORTS[id] ? "继续输入 / 选择模型与强度" : "客户端交接；模型与强度在客户端设置" }));
+  if (parts.length === 1) return ROUTABLE_AGENTS.filter((id) => plugin.agentEnabled(id) && (id + " " + AGENTS[id].name + (id === "codex" ? " gpt" : id === "dsh" ? " deepseek" : "")).toLowerCase().includes(agent.toLowerCase())).map((id) => ({ value: id, label: AGENTS[id].name, next: plugin.modelsFor(id).length > 0, hint: EFFORTS[id] ? "选择后继续选择具体模型" : "客户端交接；模型与强度在客户端设置" }));
   if (!ROUTABLE_AGENTS.includes(agent) || !plugin.agentEnabled(agent)) return [];
-  if (parts.length === 2) return plugin.modelsFor(agent).filter((m) => plugin.modelEnabled(m.id) && m.id.toLowerCase().includes(parts[1].toLowerCase())).map((m) => ({ value: `${agent}/${m.id}`, label: m.name, hint: "继续输入 / 选择强度" }));
+  if (parts.length === 2) {
+    const all = plugin.modelsFor(agent), enabled = all.filter(m => plugin.modelEnabled(m.id));
+    return (enabled.length ? enabled : all).filter(m => (m.id + " " + m.name).toLowerCase().includes(parts[1].toLowerCase())).map(m => ({ value: `${agent}/${m.id}`, label: m.name, hint: "选定模型；可继续输入 / 选择强度" }));
+  }
   if (parts.length === 3 && plugin.modelsFor(agent).some((m) => m.id === parts[1])) return (EFFORTS[agent] || []).filter((e) => e.id.startsWith(parts[2])).map((e) => ({ value: `${agent}/${parts[1]}/${e.id}`, label: e.label, hint: e.hint }));
   return [];
 }

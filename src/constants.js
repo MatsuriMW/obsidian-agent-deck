@@ -303,7 +303,7 @@ export const DEFAULTS = {
   autoWriteResult: true,
   resultMax: 240,
   importNautilus: true,
-  dream: { enabled: false, path: "Agent Deck/长期记忆.md", syncProfile: false, lastRun: 0, lastAttempt: 0, fingerprint: "", lastError: "" },
+  dream: { enabled: false, path: "Agent Deck/长期记忆.md", syncProfile: false, lastRun: 0, lastAttempt: 0, states: {}, coverage: null, lastError: "" },
   // Delegation
   delegate: {
     target: "claude",

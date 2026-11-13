@@ -349,14 +349,16 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   renderDream(body) {
     const p = this.plugin, s = p.settings.dream;
     const card = this.card(body, "Dreaming · 长期记忆", "从最近十四天的用户日志和已写入笔记的 AI 记录提炼事实、偏好与项目经验。沿用「追踪」里整理日记的 CLI、模型和登录；材料会发送给该 CLI 所用的模型服务。记忆为带来源的 Markdown，可直接修改。自动整理仅在本插件运行时执行。");
-    const auto = this.row(card, "每天自动整理", "开启后每二十四小时运行一次；失败至少隔一小时再试。", null);
+    const auto = this.row(card, "每天自动整理", "每天处理新增或变化的记录；有积压时每分钟继续一批，失败至少隔一小时再试。", null);
     this.toggle(auto.querySelector(":scope > .ad-row__right"), s.enabled, (v) => { s.enabled = v; p.saveSettings(); });
     const file = this.row(card, "长期记忆笔记", "库内 Markdown 路径。修改路径不会移动旧记忆。", null);
     this.textInput(file.querySelector(":scope > .ad-row__right"), s.path, "Agent Deck/长期记忆.md", (v) => { try { s.path = notePath(v); p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
-    const sync = this.row(card, "同步到 Telegram Companion 陪伴档案", "写入 Companion 设置中的档案，只更新 Agent Deck 专属区段；不会直接发送 Telegram 消息。插件未启用或档案不存在时保留本地记忆。", null);
+    const sync = this.row(card, "同步到 Telegram Companion 陪伴档案", "只同步当前有效记忆，最多 6000 字；完整历史保留在长期记忆笔记。只更新 Agent Deck 专属区段，不会直接发送 Telegram 消息。", null);
     this.toggle(sync.querySelector(":scope > .ad-row__right"), s.syncProfile, (v) => { s.syncProfile = v; p.saveSettings(); });
     this.bigButton(card, "现在 Dream 一次", () => p.dreaming.run());
     this.bigButton(card, "导出长期记忆 Markdown 副本", () => p.dreaming.exportMemory());
+    card.createDiv({ cls: "ad-muted", text: "可在笔记里修改记忆；将状态改为「已拒绝」或删除整条，后续整理会排除它。新证据改变旧记忆时，旧条目标为「已被替代」。" });
+    if (s.coverage) card.createDiv({ cls: "ad-muted", text: `上次采集 ${s.coverage.files} 篇；已处理 ${s.coverage.processed}/${s.coverage.total} 块，待处理 ${s.coverage.pending} 块。` });
     if (s.lastRun) card.createDiv({ cls: "ad-muted", text: `上次完成：${new Date(s.lastRun).toLocaleString()}` });
     if (s.lastError) card.createDiv({ cls: "ad-muted", text: `上次未完成：${s.lastError}` });
   }

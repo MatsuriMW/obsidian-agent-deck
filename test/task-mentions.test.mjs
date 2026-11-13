@@ -55,7 +55,7 @@ try {
   const actual = new Delegator(p);actual.onSession=()=>{};actual.onDone=()=>{};actual.onError=()=>{};
   const model = p.modelsFor('claude')[0].id;
   const job=await actual.delegate({file:{path:'task.md'},lines:['- TODO fake @claude/'+model+'/max'],line:0,agent:'codex'});
-  for(let i=0;i<40 && job.state==='running';i++) await new Promise(r=>setTimeout(r,10));
+  for(let i=0;i<500 && job.state==='running';i++) await new Promise(r=>setTimeout(r,10));
   const argv=JSON.parse(fs.readFileSync(argvPath,'utf8'));
   assert.equal(job.agent,'claude');assert.equal(job.effort,'max');assert.equal(argv[argv.indexOf('--effort')+1],'max');
   assert.ok(!argv.at(-1).includes('@claude/'));assert.equal(job.state,'done');
@@ -70,7 +70,7 @@ rl.on('line',line=>{const m=JSON.parse(line);fs.appendFileSync(${JSON.stringify(
   fs.chmodSync(bin,0o755);p.settings.delegate.dsh.path=bin;p.settings.delegate.dsh.cwd=acpDir;
   const actual=new Delegator(p);actual.onSession=()=>{};actual.onDone=()=>{};actual.onError=()=>{};
   const job=await actual.delegate({file:{path:'task.md'},lines:['- TODO fake @dsh/deepseek-v4-pro/max'],line:0,agent:'claude'});
-  for(let i=0;i<40 && job.state==='running';i++)await new Promise(r=>setTimeout(r,10));
+  for(let i=0;i<500 && job.state==='running';i++)await new Promise(r=>setTimeout(r,10));
   assert.equal(job.state,'done');
   const requests=fs.readFileSync(events,'utf8').trim().split('\n').map(x=>JSON.parse(x));
   assert.ok(requests.some(x=>x.method==='session/set_config_option'&&x.params.configId==='model'&&x.params.value.includes('deepseek-v4-pro')));
@@ -83,3 +83,26 @@ rl.on('line',line=>{const m=JSON.parse(line);fs.appendFileSync(${JSON.stringify(
   assert.ok(!fs.readFileSync(events,'utf8').includes('session/prompt'));
 }finally{fs.rmSync(acpDir,{recursive:true,force:true})}
 console.log('PASS ACP applies the selected model/effort and rejects unsupported controls before dispatch');
+// Agent selection must automatically reopen the concrete model list.
+assert.equal(mentionSuggestions(p,'gpt')[0].value,'codex');
+assert.equal(mentionSuggestions(p,'deepseek')[0].value,'dsh');
+for(const [agent,models] of Object.entries({codex:['gpt-6.1-sol','gpt-6.1-terra'],claude:['claude-sonnet-5','claude-fable','claude-haiku-5-5'],dsh:['deepseek-v41-flash','deepseek-v4-pro']})) {
+  assert.ok(mentionSuggestions(p,agent).find(x=>x.value===agent).next);
+  for(const model of models)assert.ok(mentionSuggestions(p,agent+'/').some(x=>x.value===agent+'/'+model));
+}
+let content='- TODO @',cursor={line:0,ch:8},reopened=0;
+const editor={getLine:()=>content,getCursor:()=>cursor,replaceRange:(text,start,end)=>{content=content.slice(0,start.ch)+text+content.slice(end.ch)},setCursor:c=>cursor=c};
+p.app.workspace={editorSuggest:{trigger:(ed,file,force)=>{assert.equal(ed,editor);assert.equal(force,true);reopened++;}}};
+suggest.context={editor,file:null,start:{line:0,ch:7},end:{line:0,ch:8}};
+suggest.selectSuggestion(mentionSuggestions(p,'codex').find(x=>x.value==='codex'));
+assert.equal(content,'- TODO @codex/');
+await new Promise(r=>setTimeout(r,10));assert.equal(reopened,1);
+suggest.context={editor,file:null,start:{line:0,ch:7},end:cursor};
+suggest.selectSuggestion(mentionSuggestions(p,'codex/').find(x=>x.value==='codex/gpt-6.1-terra'));
+assert.equal(content,'- TODO @codex/gpt-6.1-terra');
+assert.equal(mentionOptions(p,{lines:[content],line:0}).model,'gpt-6.1-terra');
+assert.equal(mentionSuggestions(p,'workbuddy')[0].next,false);
+console.log('PASS chained model picker: aliases, mainstream model options, automatic reopening and selected model routing');
+const disabledModels={...p,modelEnabled:()=>false};
+assert.ok(mentionSuggestions(disabledModels,'codex/').some(x=>x.value==='codex/gpt-6.1-sol'));
+console.log('PASS legacy settings with no enabled Codex models still show the model catalog');

@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import { Dreaming, parseMemories, profileWithDream, notePath, DREAM_START, DREAM_END } from '../src/dream.js';
 import { DEFAULTS, deepMerge, journalPath, dayKeyToday } from '../src/constants.js';
-const sources = new Map([['S1',{kind:'user'}],['S2',{kind:'ai'}]]);
+const sources = new Map([['S1',{kind:'user',text:'以后请用中文回复'}],['S2',{kind:'ai',text:'构建完成'}]]);
 const answer = (memories) => JSON.stringify({memories});
-const fact = {text:'偏好中文回复',kind:'preference',sources:['S1']};
+const fact = {text:'偏好中文回复',kind:'preference',sources:['S1'],quotes:[{source:'S1',text:'以后请用中文回复'}]};
 assert.equal(parseMemories(answer([fact,fact]),sources).length,1);
 assert.throws(()=>parseMemories(answer([{...fact,sources:['unknown']}]),sources),/来源/);
 assert.throws(()=>parseMemories(answer([{...fact,sources:['S2']}]),sources),/AI/);
 assert.throws(()=>parseMemories(answer([{...fact,text:'<!-- break -->'}]),sources));
 assert.throws(()=>parseMemories('not json',sources));
-assert.equal(parseMemories(answer([{...fact,kind:'lesson',sources:['S2']}]),sources).length,1);
+assert.equal(parseMemories(answer([{...fact,kind:'lesson',sources:['S2'],quotes:[{source:'S2',text:'构建完成'}]}]),sources).length,1);
 for (const path of ['../memory.md','/tmp/m.md','C:/m.md','a/../m.md']) assert.throws(()=>notePath(path));
 let profile = '用户原本写的\n\n## 最近\n原来的内容\n';
 const merged = profileWithDream(profile,'记忆一');
@@ -38,7 +38,7 @@ await dream.run(); assert.equal(calls,1); assert.equal(files.get(settings.dream.
 const exported = await dream.exportMemory(); assert.equal(files.get(exported),memory);
 settings.dream.enabled=true;
 await dream.tick(); assert.equal(calls,1);
-settings.dream.fingerprint='changed';
+files.set(journalPath(p.app,settings,dayKeyToday(settings)), '- TODO 新增记录：以后请用中文回复');
 dream.model=async()=> 'invalid';
 await dream.run(); assert.equal(files.get(settings.dream.path),memory); assert.ok(settings.dream.lastError);
 settings.dream.lastRun=0; settings.dream.lastAttempt=Date.now();
