@@ -248,7 +248,11 @@ Agent Deck 用无头方式起一个 Claude Code 会话，把下面这些参数�
 
 ### DeepSeek Harness
 
-通过 `dsh acp` 走 ACP（Agent Client Protocol）：建真正的 Harness 会话，选模型和 `reasoning_effort`，发 prompt，跟 `session/update` 流。任务直接开跑，答完把结论写回 `💬`。会话落在 `~/.dsh/sessions`，所以面板里也能追踪到。但 Harness 客户端侧栏只列默认工作区，从库里起的会话在客户端里看不到；`dsh://open` 也只能把客户端叫到前台。
+通过 `dsh acp` 走 ACP（Agent Client Protocol）：建真正的 Harness 会话，选模型和 `reasoning_effort`，发 prompt，跟 `session/update` 流。任务直接开跑，答完把结论写回 `💬`。会话保存在 `~/.dsh/sessions`，Agent Deck 可以继续追踪。
+
+2026-11-13 在 Harness 0.2.2-rc.1 上实测，`@dsh/deepseek-v4-pro/high` 能按指定模型和强度执行，并把回复写回笔记。会话会出现在 Harness 桌面侧栏的“未分组”中，手动选中后可以继续对话。Agent Deck 的 `dsh://open` 链接目前只会唤起客户端并复制会话号，不能自动定位到指定会话。
+
+**DeepSeek Harness 桌面端仍处于快速迭代阶段，目前稳定性有限。** 不同版本的会话显示和接入行为可能变化，上述结果以实测版本为准。
 
 ACP 没有 Claude 那套 plan/auto 权限模式；插件可以选择自动允许一次工具调用，或者拒绝并在通知里提醒你。
 
@@ -266,7 +270,7 @@ Codex 会话用 `codex://threads/<id>` 在桌面版打开（同时把 `codex res
 |---|---|---|
 | Claude Code | `claude://resume?session=<id>` | 可用 |
 | WorkBuddy | `workbuddy://chat/<id>` | 可用 |
-| DeepSeek Harness | `dsh://open` | 只能聚焦客户端；当前桌面版没有按会话跳转的 URL。插件会把会话号复制到剪贴板，方便你去侧栏找。 |
+| DeepSeek Harness | `dsh://open` | 当前集成只唤起客户端并复制会话号；请在侧栏手动选择对应会话。 |
 | Codex | `codex://threads/<id>` | 可用；同时复制 `codex resume <id>` |
 | Antigravity | `antigravity://` | 打开客户端并复制会话号；不直接定位某条会话 |
 

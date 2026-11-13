@@ -216,7 +216,11 @@ If Claude Code has never trusted the vault, the plugin reads `~/.claude.json` an
 
 ### DeepSeek Harness
 
-Agent Deck speaks ACP (Agent Client Protocol) to `dsh acp`. It creates a real Harness session, selects the model and `reasoning_effort`, sends the prompt, and follows the `session/update` stream. The task starts right away and the answer is written back as `💬`. The session is persisted in `~/.dsh/sessions`, so it also appears in the dashboard afterwards. The Harness client itself only lists its default workspace, so a session started from the vault does not show up in the client's sidebar, and `dsh://open` can only bring the client forward.
+Agent Deck speaks ACP (Agent Client Protocol) to `dsh acp`. It creates a real Harness session, selects the model and `reasoning_effort`, sends the prompt, and follows the `session/update` stream. The task starts right away and the answer is written back as `💬`. The session is persisted in `~/.dsh/sessions`, so Agent Deck can continue tracking it.
+
+Tested on 2026-11-13 with Harness 0.2.2-rc.1: `@dsh/deepseek-v4-pro/high` used the selected model and effort and wrote its reply back to the note. The session appeared under the desktop sidebar's ungrouped section and could be continued after selecting it manually. Agent Deck's `dsh://open` link currently only brings the client forward and copies the session ID; it does not navigate to a specific session.
+
+**The DeepSeek Harness desktop app is still undergoing rapid iteration and is not yet very stable.** Session visibility and integration behavior may change between versions; the results above apply to the tested version.
 
 ACP does not expose Claude-style plan/auto permission modes. Instead the plugin can auto-approve one-shot tool permissions, or reject them and notify you.
 
@@ -234,7 +238,7 @@ Codex sessions open in the desktop app with `codex://threads/<id>` (and `codex r
 |---|---|---|
 | Claude Code | `claude://resume?session=<id>` | Works |
 | WorkBuddy | `workbuddy://chat/<id>` | Works |
-| DeepSeek Harness | `dsh://open` | Opens the client; the desktop build does not expose a per-session URL yet. Agent Deck copies the session id to the clipboard so you can find it in the sidebar. |
+| DeepSeek Harness | `dsh://open` | The current integration opens the client and copies the session ID. Select the matching session manually in the sidebar. |
 | Codex | `codex://threads/<id>` | Works; also copies `codex resume <id>` |
 | Antigravity | `antigravity://` | Opens the client and copies the session ID; no direct conversation navigation |
 
