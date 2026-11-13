@@ -68,7 +68,7 @@ export class DelegateOptionsModal extends Modal {
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
-      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "桌面版" : id === "codex" ? "CLI / 终端" : "ACP" });
+      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "桌面版" : id === "codex" ? (p.settings.delegate.codex.transport === "terminal" ? "CLI / 终端" : "首轮后打开桌面版") : "ACP" });
       b.onclick = () => { this.agent = id; this.model = p.defaultModel(id); this.effort = p.settings.delegate[id]?.effort || "high"; this.render(); };
     }
 

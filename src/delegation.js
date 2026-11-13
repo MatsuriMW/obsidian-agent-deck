@@ -6,6 +6,7 @@
 // with model and reasoning-effort selection.
 
 import fs from "fs";
+import { CodexDesktopRunner } from "./codex-desktop.js";
 import path from "path";
 import os from "os";
 import { spawn, execFile } from "child_process";
@@ -365,7 +366,7 @@ export async function focusCliSession(agent, sid) {
 }
 
 // Codex 会话的 originator：桌面版 / IDE 插件里起的才有会话页可跳；codex_cli_rs、codex_exec 是命令行
-export const isCodexDesktop = (app) => /desktop|vscode|app|ide/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
+export const isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
 // 命令行会话（Claude Code 终端版、Codex 命令行）：点开回终端，而不是交给桌面版
 export function isCliSession(agent, app) {
   if (agent === "claude") return app === "cli";
@@ -867,8 +868,8 @@ export class Delegator {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
     if (!["claude", "codex", "dsh"].includes(opts.agent)) return this.handoff(opts);
-    if (opts.agent === "codex") return this.handoffCli(opts);
-    const agent = opts.agent === "dsh" ? "dsh" : "claude";
+    if (opts.agent === "codex" && this.C.codex?.transport === "terminal") return this.handoffCli(opts);
+    const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error("没有当前笔记");
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
@@ -883,17 +884,17 @@ export class Delegator {
       agent, name, path: file.path, line: block.start, lineText: lines[block.start],
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000),
       originalLine: lines[block.start],
-      startedAt: Date.now(), state: "starting", model: opts.model || this.defaultModel(agent),
-      effort: opts.effort || (agent === "dsh" ? this.C.dsh.effort : this.C.claude.effort),
+      startedAt: Date.now(), state: "starting", model: agent === "codex" ? resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent)) : opts.model || this.defaultModel(agent),
+      effort: opts.effort || this.C[agent]?.effort,
       permission: opts.permission || (agent === "dsh" ? "" : this.C.claude.permission),
-      cwd: opts.cwd || (agent === "dsh" ? this.C.dsh.cwd : this.C.claude.cwd) || this.vaultPath,
+      cwd: norm(opts.cwd || this.C[agent]?.cwd || this.vaultPath),
       sessionId: "", linkWritten: false, resultWritten: false,
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     this.plugin.refreshUI();
-    this.plugin.notice(`🛫 正在委派给 ${agent === "dsh" ? "DeepSeek Harness" : "Claude Code"}：${name}`);
-    const runner = agent === "dsh" ? new DshRunner(this, job) : new ClaudeRunner(this, job);
+    this.plugin.notice(`🛫 正在委派给 ${AGENTS[agent]?.name || agent}：${name}`);
+    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => openSession(this.plugin, "codex", job.sessionId, "vscode")) : agent === "dsh" ? new DshRunner(this, job) : new ClaudeRunner(this, job);
     this.runners.set(job.id, runner);
     try {
       await runner.start({ ...opts, prompt, name });
@@ -1090,12 +1091,12 @@ export class Delegator {
   onError(job) {
     this.refreshUI();
     const err = String(job.error || "");
-    if (/not trusted/i.test(err)) {
+    if (job.agent === "claude" && /not trusted/i.test(err)) {
       this.plugin.notice(`Claude Code 不信任这个工作目录：\n${job.cwd}\n\n在终端里 cd 到那儿运行一次 claude，接受信任提示；或者在「委派」设置里把工作目录换成一个已经信任的目录。\n（这次没有真正跑起来，已经把 🔗 和 DELEGATED 撤回）`, 16000);
-    } else if (/unknown option|invalid option|unrecognized/i.test(err)) {
+    } else if (job.agent === "claude" && /unknown option|invalid option|unrecognized/i.test(err)) {
       this.plugin.notice(`Claude Code 不认识传过去的参数：\n${err.slice(0, 300)}\n\n把「委派 → 额外参数」清空，或检查 claude --help。`, 12000);
     } else {
-      this.plugin.notice(`⚠️ ${job.agent === "dsh" ? "DeepSeek Harness" : "Claude Code"} 没跑完：${job.name}\n${err || "详情见控制台"}`, 10000);
+      this.plugin.notice(`⚠️ ${AGENTS[job.agent]?.name || job.agent} 没跑完：${job.name}\n${err || "详情见控制台"}`, 10000);
     }
     if (job.linkWritten && Date.now() - (job.startedAt || 0) < 12000 && /not trusted|unknown option|invalid option|unrecognized|ENOENT/i.test(err)) {
       this.removeLink(job).catch(() => {});

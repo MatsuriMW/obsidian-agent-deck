@@ -28,6 +28,7 @@ const fakeEditor = (text) => ({getLine: (n) => text.split('\n')[n]});
 assert.equal(suggest.onTrigger({line:1,ch:8},fakeEditor('```\n- TODO @\n```')),null);
 assert.equal(suggest.onTrigger({line:0,ch:9},fakeEditor('- TODO `@')),null);
 assert.equal(suggest.onTrigger({line:0,ch:8},fakeEditor('- TODO @')).query,'');
+p.settings.delegate.codex.transport='terminal';
 const d = new Delegator(p);
 const prompt = d.buildPrompt({block:{text:lines.join('\n')}});
 assert.ok(!prompt.includes('@codex/')); assert.ok(prompt.includes('子任务 @claude'));

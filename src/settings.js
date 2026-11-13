@@ -222,7 +222,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.name });
-      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "桌面版 / 后台" : id === "codex" ? "CLI / 终端" : "ACP / 自带账号" });
+      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "桌面版 / 后台" : id === "codex" ? "桌面版 / 终端" : "ACP / 自带账号" });
       b.onclick = async () => { d.target = id; await p.saveSettings(); this.display(); };
     }
 
@@ -248,10 +248,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.bigButton(test, "检查 claude", async () => { const r = await p.checkBinary("claude"); new Notice(r, 6000); });
     this.bigButton(test, "在终端里续这个目录", () => p.openTerminalAt(d.claude.cwd || p.vaultPath, "claude"));
 
-    const codex = this.card(body, "Codex CLI", "模型、推理强度、工作目录和沙箱模式会传给 codex 命令行。客户端内已有会话的模型仍由客户端管理。");
+    const codex = this.card(body, "Codex", "任务行的 @codex/模型/强度会传入新会话。桌面模式通过 App Server 完成第一轮，再打开 Codex Desktop 继续；遇到审批或交互会停止并提示到桌面继续。连接失败会报错。");
+    const transport = this.row(codex, "派发到", "按住 ⌘ 拖放仍可直接在终端启动。", null);
+    this.segmented(transport.querySelector(":scope > .ad-row__right"), [{ id: "desktop", label: "Codex 桌面版" }, { id: "terminal", label: "终端" }], d.codex.transport || "desktop", (v) => { d.codex.transport = v; p.saveSettings(); this.display(); });
     this.modelSelect(codex, "codex", d.codex.model, (v) => { this.setDefaultModel("codex", v); this.display(); });
     this.effortControl(codex, "codex", d.codex.effort, (v) => { d.codex.effort = v; p.saveSettings(); this.display(); });
-    for (const [key, label, hint] of [["path", "codex 命令行路径", "留空 = 从 PATH 找 codex"], ["cwd", "工作目录", "留空 = 库根目录"]]) {
+    for (const [key, label, hint] of [["path", "codex 程序路径", "桌面模式留空优先使用 Desktop 自带程序；终端模式从 PATH 查找"], ["cwd", "工作目录", "留空 = 库根目录"]]) {
       const r = this.row(codex, label, hint, null);
       this.textInput(r.querySelector(":scope > .ad-row__right"), d.codex[key], hint, (v) => { d.codex[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }

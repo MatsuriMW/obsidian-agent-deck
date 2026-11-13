@@ -319,7 +319,7 @@ export const DEFAULTS = {
       autoTrustedCwd: true,
       extraArgs: "",
     },
-    codex: { model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
+    codex: { transport: "desktop", model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
     dsh: {
       model: "deepseek-v4-pro",
       effort: "high",

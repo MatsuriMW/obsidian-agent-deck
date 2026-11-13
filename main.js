@@ -1,4 +1,4 @@
-/* Agent Deck 1.4.1 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.4.2 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -33,9 +33,9 @@ __export(main_exports, {
   default: () => AgentDeckPlugin
 });
 module.exports = __toCommonJS(main_exports);
-var import_fs5 = __toESM(require("fs"), 1);
+var import_fs6 = __toESM(require("fs"), 1);
 var import_path5 = __toESM(require("path"), 1);
-var import_child_process5 = require("child_process");
+var import_child_process6 = require("child_process");
 var import_obsidian9 = require("obsidian");
 
 // src/constants.js
@@ -369,7 +369,7 @@ var DEFAULTS = {
       autoTrustedCwd: true,
       extraArgs: ""
     },
-    codex: { model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
+    codex: { transport: "desktop", model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
     dsh: {
       model: "deepseek-v4-pro",
       effort: "high",
@@ -1947,8 +1947,8 @@ var AgentUsage = class {
       fc.sid = p.id || fc.sid;
       fc.cwd = p.cwd || fc.cwd;
       fc.app = p.originator || fc.app || "codex";
-      const spawn4 = p.source && typeof p.source === "object" && p.source.subagent && p.source.subagent.thread_spawn;
-      const parent = p.parent_thread_id || spawn4 && spawn4.parent_thread_id || "";
+      const spawn5 = p.source && typeof p.source === "object" && p.source.subagent && p.source.subagent.thread_spawn;
+      const parent = p.parent_thread_id || spawn5 && spawn5.parent_thread_id || "";
       if (parent && parent !== fc.sid) {
         fc.parentSid = String(parent);
         this.noteMeta(fc, fc.sid, { parentSid: fc.parentSid });
@@ -2666,10 +2666,163 @@ function sqliteColumn(db, sql) {
 }
 
 // src/delegation.js
+var import_fs3 = __toESM(require("fs"), 1);
+
+// src/codex-desktop.js
 var import_fs2 = __toESM(require("fs"), 1);
+var import_child_process2 = require("child_process");
+var import_readline = require("readline");
+function codexDesktopBinary(configured) {
+  if (configured) return configured;
+  const bundled = ["/Applications/Codex.app/Contents/Resources/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"];
+  return bundled.find((p) => import_fs2.default.existsSync(p)) || "codex";
+}
+var CodexDesktopRunner = class {
+  constructor(delegator, job, openDesktop) {
+    this.d = delegator;
+    this.job = job;
+    this.openDesktop = openDesktop;
+    this.pending = /* @__PURE__ */ new Map();
+    this.nextId = 0;
+    this.finished = false;
+  }
+  send(message) {
+    this.child.stdin.write(JSON.stringify(message) + "\n");
+  }
+  request(method, params) {
+    if (this.finished) return Promise.reject(new Error("Codex \u8FDE\u63A5\u5DF2\u5173\u95ED"));
+    const id = ++this.nextId;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`Codex ${method} \u8FDE\u63A5\u8D85\u65F6`));
+      }, 3e4);
+      this.pending.set(id, { resolve, reject, timer });
+      this.send({ id, method, params });
+    });
+  }
+  async start({ prompt }) {
+    try {
+      const cfg = this.d.settings.delegate.codex;
+      this.child = (0, import_child_process2.spawn)(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
+      this.closed = new Promise((resolve) => this.child.once("close", resolve));
+      this.child.on("error", (error) => this.finish("error", error.message));
+      this.child.stdin.on("error", (error) => {
+        if (!this.finished) this.finish("error", error.message);
+      });
+      this.child.on("exit", (code) => {
+        if (!this.finished) this.finish("error", `Codex App Server \u5DF2\u9000\u51FA\uFF08${code}\uFF09`);
+      });
+      this.child.stderr.on("data", (data) => {
+        this.job.stderr = ((this.job.stderr || "") + data.toString()).slice(-2e3);
+      });
+      this.reader = (0, import_readline.createInterface)({ input: this.child.stdout });
+      this.reader.on("line", (line) => {
+        try {
+          this.receive(JSON.parse(line));
+        } catch (error) {
+          this.finish("error", `Codex \u534F\u8BAE\u54CD\u5E94\u65E0\u6548\uFF1A${error.message}`);
+        }
+      });
+      await this.request("initialize", { clientInfo: { name: "agent_deck", version: "1.4.2" }, capabilities: { experimentalApi: true } });
+      this.send({ method: "initialized" });
+      const result = await this.request("thread/start", {
+        model: this.job.model,
+        cwd: this.job.cwd,
+        ephemeral: false,
+        sandbox: cfg.sandbox || "workspace-write",
+        approvalPolicy: "on-request",
+        config: { model_reasoning_effort: this.job.effort }
+      });
+      if (!result.thread?.id || result.model !== this.job.model) throw new Error("Codex \u672A\u786E\u8BA4\u6307\u5B9A\u6A21\u578B\uFF0C\u4EFB\u52A1\u672A\u53D1\u9001");
+      this.job.app = "vscode";
+      this.job.state = "running";
+      this.d.onSession(this.job, result.thread.id);
+      await this.request("thread/name/set", { threadId: result.thread.id, name: this.job.name });
+      const started = await this.request("turn/start", {
+        threadId: result.thread.id,
+        model: this.job.model,
+        effort: this.job.effort,
+        input: [{ type: "text", text: prompt }]
+      });
+      this.turnId = started.turn?.id;
+    } catch (error) {
+      await this.finish("error", error.message);
+    }
+  }
+  receive(message) {
+    const pending = this.pending.get(message.id);
+    if (pending) {
+      this.pending.delete(message.id);
+      clearTimeout(pending.timer);
+      if (message.error) pending.reject(new Error(message.error.message || "Codex \u8BF7\u6C42\u5931\u8D25"));
+      else pending.resolve(message.result);
+      return;
+    }
+    if (this.finished) return;
+    if (message.id != null && message.method) {
+      this.send({ id: message.id, error: { code: -32601, message: "Agent Deck \u9996\u8F6E\u4E0D\u5904\u7406\u4EA4\u4E92\u8BF7\u6C42\uFF0C\u8BF7\u5728 Codex Desktop \u7EE7\u7EED" } });
+      this.finish("error", "\u9996\u8F6E\u9700\u8981\u5BA1\u6279\u6216\u4EA4\u4E92\uFF0C\u8BF7\u5728\u6253\u5F00\u7684 Codex Desktop \u4F1A\u8BDD\u4E2D\u7EE7\u7EED");
+      return;
+    }
+    const params = message.params;
+    if (params?.threadId !== this.job.sessionId) return;
+    if (message.method === "item/completed" && params.item?.type === "agentMessage") {
+      this.job.result = params.item.text || "";
+      this.job.lastText = this.job.result.slice(-2e3);
+    }
+    if (message.method === "turn/started") this.turnId = params.turn?.id;
+    if (message.method === "turn/completed") {
+      if (params.turn?.status === "completed") this.finish("done");
+      else this.finish("error", params.turn?.error?.message || `Codex \u9996\u8F6E${params.turn?.status || "\u672A\u5B8C\u6210"}`);
+    }
+  }
+  async finish(state, error = "") {
+    if (this.finished) return;
+    this.finished = true;
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(new Error(error || "Codex \u8FDE\u63A5\u5DF2\u7ED3\u675F"));
+    }
+    this.pending.clear();
+    this.job.state = state;
+    this.job.endedAt = Date.now();
+    if (error) this.job.error = error.slice(0, 500);
+    this.d.saveJobs();
+    this.d.refreshUI();
+    if (this.child) {
+      if (state !== "done" && this.job.sessionId && this.turnId) {
+        try {
+          this.send({ id: ++this.nextId, method: "turn/interrupt", params: { threadId: this.job.sessionId, turnId: this.turnId } });
+        } catch {
+        }
+      }
+      this.child.stdin.end();
+      const kill = setTimeout(() => this.child.kill("SIGTERM"), 1500);
+      await this.closed;
+      clearTimeout(kill);
+      this.reader?.close();
+    }
+    if (this.job.sessionId && state !== "cancelled") {
+      try {
+        await this.openDesktop();
+      } catch (error2) {
+        this.job.desktopError = error2.message;
+        this.d.saveJobs();
+      }
+    }
+    if (state === "done") await this.d.onDone(this.job);
+    else if (state === "error") this.d.onError(this.job);
+  }
+  cancel() {
+    return this.finish("cancelled");
+  }
+};
+
+// src/delegation.js
 var import_path2 = __toESM(require("path"), 1);
 var import_os2 = __toESM(require("os"), 1);
-var import_child_process2 = require("child_process");
+var import_child_process3 = require("child_process");
 
 // src/journal.js
 var LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
@@ -3331,7 +3484,7 @@ function mentionSuggestions(plugin, query) {
 }
 
 // src/delegation.js
-var fsp2 = import_fs2.default.promises;
+var fsp2 = import_fs3.default.promises;
 var home2 = () => import_os2.default.homedir();
 var norm2 = (p) => String(p || "").replace(/^~(?=\/)/, home2());
 var CONFIRM_FIRST = "\u5148\u522B\u52A8\u624B\u3002\u628A\u4E0A\u9762\u7684\u4EFB\u52A1\u8BFB\u900F\uFF1A\u6709\u4E0D\u6E05\u695A\u3001\u6709\u6B67\u4E49\u6216\u9700\u8981\u6211\u62CD\u677F\u7684\u5730\u65B9\uFF0C\u5148\u5217\u51FA\u6765\u95EE\u6211\uFF1B\u90FD\u6E05\u695A\u4E86\uFF0C\u5C31\u7528\u51E0\u53E5\u8BDD\u590D\u8FF0\u4F60\u7684\u7406\u89E3\u548C\u6253\u7B97\u600E\u4E48\u505A\uFF0C\u7B49\u6211\u786E\u8BA4\u540E\u518D\u52A8\u624B\u3002\u8FD9\u4E00\u8F6E\u4E0D\u8981\u6539\u6587\u4EF6\uFF0C\u4E5F\u4E0D\u8981\u8DD1\u6709\u526F\u4F5C\u7528\u7684\u547D\u4EE4\u3002";
@@ -3400,7 +3553,7 @@ function findDshBinary(configured = "") {
   ];
   for (const p of candidates) {
     try {
-      if (import_fs2.default.existsSync(p)) return p;
+      if (import_fs3.default.existsSync(p)) return p;
     } catch {
     }
   }
@@ -3411,7 +3564,7 @@ function findClaudeBinary(configured = "") {
   const candidates = [import_path2.default.join(home2(), ".local/bin/claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", "/usr/bin/claude"];
   for (const p of candidates) {
     try {
-      if (import_fs2.default.existsSync(p)) return p;
+      if (import_fs3.default.existsSync(p)) return p;
     } catch {
     }
   }
@@ -3421,7 +3574,7 @@ function pickTrusted(list, vaultPath) {
   if (list.includes(vaultPath)) return vaultPath;
   const isDir = (p) => {
     try {
-      return import_fs2.default.statSync(p).isDirectory();
+      return import_fs3.default.statSync(p).isDirectory();
     } catch {
       return false;
     }
@@ -3467,23 +3620,23 @@ function openExternal(url) {
   } catch {
   }
   try {
-    (0, import_child_process2.execFile)("/usr/bin/open", [url], () => {
+    (0, import_child_process3.execFile)("/usr/bin/open", [url], () => {
     });
     return true;
   } catch {
     return false;
   }
 }
-var appInstalled = (name) => ["/Applications", import_path2.default.join(home2(), "Applications")].some((d) => import_fs2.default.existsSync(import_path2.default.join(d, name)));
+var appInstalled = (name) => ["/Applications", import_path2.default.join(home2(), "Applications")].some((d) => import_fs3.default.existsSync(import_path2.default.join(d, name)));
 var TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable", tern: "so.stencil.tern", herdr: "dev.herdr.app" };
 var TERMINAL_APP = { herdr: "Herdr.app", tern: "Tern.app", iterm: "iTerm.app", warp: "Warp.app", terminal: "Terminal.app" };
 var TERMINAL_ORDER = ["herdr", "tern", "iterm", "warp", "terminal"];
 var HERDR_SPACE = "spagentdeck";
-var findBin = (name) => [import_path2.default.join(home2(), ".local/bin", name), `/opt/homebrew/bin/${name}`, `/usr/local/bin/${name}`].find((p) => import_fs2.default.existsSync(p)) || "";
+var findBin = (name) => [import_path2.default.join(home2(), ".local/bin", name), `/opt/homebrew/bin/${name}`, `/usr/local/bin/${name}`].find((p) => import_fs3.default.existsSync(p)) || "";
 var TERN_BIN = "/Applications/Tern.app/Contents/MacOS/tern";
 var TERN_SESSION = "Agent Deck";
-var osa = (script) => new Promise((resolve) => (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], { timeout: 8e3 }, (err2, out) => resolve(err2 ? null : String(out || "").trim())));
-var run = (bin, args) => new Promise((resolve) => (0, import_child_process2.execFile)(bin, args, { timeout: 8e3, maxBuffer: 8 << 20 }, (err2, out) => resolve(err2 ? "" : String(out || ""))));
+var osa = (script) => new Promise((resolve) => (0, import_child_process3.execFile)("/usr/bin/osascript", ["-e", script], { timeout: 8e3 }, (err2, out) => resolve(err2 ? null : String(out || "").trim())));
+var run = (bin, args) => new Promise((resolve) => (0, import_child_process3.execFile)(bin, args, { timeout: 8e3, maxBuffer: 8 << 20 }, (err2, out) => resolve(err2 ? "" : String(out || ""))));
 var DETECTED_FILE = () => import_path2.default.join(home2(), ".agent-deck", "terminal.json");
 var usable = (t) => t === "terminal" || appInstalled(TERMINAL_APP[t]) && (t !== "herdr" || !!findBin("hc"));
 async function pickTerminal(which = "auto") {
@@ -3516,7 +3669,7 @@ async function pickTerminal(which = "auto") {
 }
 var TERMINAL_NAME = { herdr: "Herdr", tern: "Tern", iterm: "iTerm2", warp: "Warp", terminal: "\u7CFB\u7EDF\u7EC8\u7AEF" };
 async function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
-  const dir = cwd && import_fs2.default.existsSync(cwd) ? cwd : home2();
+  const dir = cwd && import_fs3.default.existsSync(cwd) ? cwd : home2();
   const term = await pickTerminal(which);
   if (term === "herdr") {
     const hc = findBin("hc"), app = findBin("herdr-app");
@@ -3542,9 +3695,9 @@ async function openTerminal(command, cwd = "", which = "auto", title = "Claude",
   if (term === "warp") {
     try {
       const d = import_path2.default.join(home2(), ".warp/launch_configurations");
-      import_fs2.default.mkdirSync(d, { recursive: true });
+      import_fs3.default.mkdirSync(d, { recursive: true });
       const q = (s) => JSON.stringify(String(s));
-      import_fs2.default.writeFileSync(import_path2.default.join(d, "agent-deck-resume.yaml"), [
+      import_fs3.default.writeFileSync(import_path2.default.join(d, "agent-deck-resume.yaml"), [
         "---",
         "name: agent-deck-resume",
         "windows:",
@@ -3561,7 +3714,7 @@ async function openTerminal(command, cwd = "", which = "auto", title = "Claude",
     } catch {
     }
   }
-  if (term === "tern" && import_fs2.default.existsSync(TERN_BIN)) {
+  if (term === "tern" && import_fs3.default.existsSync(TERN_BIN)) {
     const launch = ["--cwd", dir, "--", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`];
     (async () => {
       const tryOnce = async () => {
@@ -3580,12 +3733,12 @@ async function openTerminal(command, cwd = "", which = "auto", title = "Claude",
       }
       if (!ok) {
         try {
-          (0, import_child_process2.spawn)(TERN_BIN, ["-e", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`], { cwd: dir, detached: true, stdio: "ignore" }).unref();
+          (0, import_child_process3.spawn)(TERN_BIN, ["-e", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`], { cwd: dir, detached: true, stdio: "ignore" }).unref();
         } catch {
         }
         return;
       }
-      if (!background) (0, import_child_process2.execFile)("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern], () => {
+      if (!background) (0, import_child_process3.execFile)("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern], () => {
       });
     })();
     return term;
@@ -3604,7 +3757,7 @@ activate
 do script ${line}
 end tell`;
   try {
-    (0, import_child_process2.execFile)("/usr/bin/osascript", ["-e", script], () => {
+    (0, import_child_process3.execFile)("/usr/bin/osascript", ["-e", script], () => {
     });
     return term === "iterm" ? "iterm" : "terminal";
   } catch {
@@ -3704,7 +3857,7 @@ end repeat
 end tell
 return ""`);
     if (ok === "ok") return "tab";
-  } else if (proc.host === "tern" && import_fs2.default.existsSync(TERN_BIN)) {
+  } else if (proc.host === "tern" && import_fs3.default.existsSync(TERN_BIN)) {
     const chain = /* @__PURE__ */ new Set([proc.pid]);
     for (let i = 0, p = proc.pid; i < 12 && p > 1; i++) {
       p = Number((await run("/bin/ps", ["-o", "ppid=", "-p", String(p)])).trim()) || 0;
@@ -3759,7 +3912,7 @@ return ""`);
   await run("/usr/bin/open", ["-b", bundle]);
   return "app";
 }
-var isCodexDesktop = (app) => /desktop|vscode|app|ide/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
+var isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
 function isCliSession(agent, app) {
   if (agent === "claude") return app === "cli";
   if (agent === "codex") return !isCodexDesktop(app);
@@ -3785,7 +3938,7 @@ function openAgentApp(agent) {
   const app = AGENT_APPS[agent];
   if (!app) return Promise.resolve(false);
   return new Promise((resolve) => {
-    (0, import_child_process2.execFile)("/usr/bin/open", ["-b", app.bundle], (err2) => {
+    (0, import_child_process3.execFile)("/usr/bin/open", ["-b", app.bundle], (err2) => {
       if (!err2) return resolve(true);
       resolve(openExternal(app.url));
     });
@@ -3915,7 +4068,7 @@ var ClaudeRunner = class {
     const sid = require("crypto").randomUUID();
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = `${bin} ${args2.slice(0, -2).join(" ")} \u2026`;
-    const child = (0, import_child_process2.spawn)(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    const child = (0, import_child_process3.spawn)(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.fallbackStarted = true;
     this.job.sessionId = sid;
@@ -3988,7 +4141,7 @@ var ClaudeRunner = class {
     clearTimeout(this.pollTimer);
     if (this.short) {
       const bin = findClaudeBinary(this.d.settings.delegate.claude.path || "");
-      (0, import_child_process2.execFile)(bin, ["stop", this.short], { env: cleanEnv() }, () => {
+      (0, import_child_process3.execFile)(bin, ["stop", this.short], { env: cleanEnv() }, () => {
       });
     }
     if (this.child) {
@@ -4043,7 +4196,7 @@ var DshRunner = class {
     const model = opts.model || cfg.model || "deepseek-v4-pro";
     const effort = opts.effort || cfg.effort || "high";
     this.job.command = `${bin} acp`;
-    const child = (0, import_child_process2.spawn)(bin, ["acp"], { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    const child = (0, import_child_process3.spawn)(bin, ["acp"], { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -4298,8 +4451,8 @@ ${body}`, 12e3);
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
     if (!["claude", "codex", "dsh"].includes(opts.agent)) return this.handoff(opts);
-    if (opts.agent === "codex") return this.handoffCli(opts);
-    const agent = opts.agent === "dsh" ? "dsh" : "claude";
+    if (opts.agent === "codex" && this.C.codex?.transport === "terminal") return this.handoffCli(opts);
+    const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error("\u6CA1\u6709\u5F53\u524D\u7B14\u8BB0");
     const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
@@ -4321,10 +4474,10 @@ ${body}`, 12e3);
       originalLine: lines[block.start],
       startedAt: Date.now(),
       state: "starting",
-      model: opts.model || this.defaultModel(agent),
-      effort: opts.effort || (agent === "dsh" ? this.C.dsh.effort : this.C.claude.effort),
+      model: agent === "codex" ? resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent)) : opts.model || this.defaultModel(agent),
+      effort: opts.effort || this.C[agent]?.effort,
       permission: opts.permission || (agent === "dsh" ? "" : this.C.claude.permission),
-      cwd: opts.cwd || (agent === "dsh" ? this.C.dsh.cwd : this.C.claude.cwd) || this.vaultPath,
+      cwd: norm2(opts.cwd || this.C[agent]?.cwd || this.vaultPath),
       sessionId: "",
       linkWritten: false,
       resultWritten: false
@@ -4332,8 +4485,8 @@ ${body}`, 12e3);
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     this.plugin.refreshUI();
-    this.plugin.notice(`\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 ${agent === "dsh" ? "DeepSeek Harness" : "Claude Code"}\uFF1A${name}`);
-    const runner = agent === "dsh" ? new DshRunner(this, job) : new ClaudeRunner(this, job);
+    this.plugin.notice(`\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 ${AGENTS[agent]?.name || agent}\uFF1A${name}`);
+    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => openSession(this.plugin, "codex", job.sessionId, "vscode")) : agent === "dsh" ? new DshRunner(this, job) : new ClaudeRunner(this, job);
     this.runners.set(job.id, runner);
     try {
       await runner.start({ ...opts, prompt, name });
@@ -4553,19 +4706,19 @@ ${body}`, 12e3);
   onError(job) {
     this.refreshUI();
     const err2 = String(job.error || "");
-    if (/not trusted/i.test(err2)) {
+    if (job.agent === "claude" && /not trusted/i.test(err2)) {
       this.plugin.notice(`Claude Code \u4E0D\u4FE1\u4EFB\u8FD9\u4E2A\u5DE5\u4F5C\u76EE\u5F55\uFF1A
 ${job.cwd}
 
 \u5728\u7EC8\u7AEF\u91CC cd \u5230\u90A3\u513F\u8FD0\u884C\u4E00\u6B21 claude\uFF0C\u63A5\u53D7\u4FE1\u4EFB\u63D0\u793A\uFF1B\u6216\u8005\u5728\u300C\u59D4\u6D3E\u300D\u8BBE\u7F6E\u91CC\u628A\u5DE5\u4F5C\u76EE\u5F55\u6362\u6210\u4E00\u4E2A\u5DF2\u7ECF\u4FE1\u4EFB\u7684\u76EE\u5F55\u3002
 \uFF08\u8FD9\u6B21\u6CA1\u6709\u771F\u6B63\u8DD1\u8D77\u6765\uFF0C\u5DF2\u7ECF\u628A \u{1F517} \u548C DELEGATED \u64A4\u56DE\uFF09`, 16e3);
-    } else if (/unknown option|invalid option|unrecognized/i.test(err2)) {
+    } else if (job.agent === "claude" && /unknown option|invalid option|unrecognized/i.test(err2)) {
       this.plugin.notice(`Claude Code \u4E0D\u8BA4\u8BC6\u4F20\u8FC7\u53BB\u7684\u53C2\u6570\uFF1A
 ${err2.slice(0, 300)}
 
 \u628A\u300C\u59D4\u6D3E \u2192 \u989D\u5916\u53C2\u6570\u300D\u6E05\u7A7A\uFF0C\u6216\u68C0\u67E5 claude --help\u3002`, 12e3);
     } else {
-      this.plugin.notice(`\u26A0\uFE0F ${job.agent === "dsh" ? "DeepSeek Harness" : "Claude Code"} \u6CA1\u8DD1\u5B8C\uFF1A${job.name}
+      this.plugin.notice(`\u26A0\uFE0F ${AGENTS[job.agent]?.name || job.agent} \u6CA1\u8DD1\u5B8C\uFF1A${job.name}
 ${err2 || "\u8BE6\u60C5\u89C1\u63A7\u5236\u53F0"}`, 1e4);
     }
     if (job.linkWritten && Date.now() - (job.startedAt || 0) < 12e3 && /not trusted|unknown option|invalid option|unrecognized|ENOENT/i.test(err2)) {
@@ -4684,7 +4837,7 @@ function spawnCapture(bin, args, { cwd, env, timeout = 3e4 }) {
     let out = "", err2 = "", done = false;
     let child;
     try {
-      child = (0, import_child_process2.spawn)(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+      child = (0, import_child_process3.spawn)(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
     } catch (e) {
       return resolve({ ok: false, out: "", err: String(e && e.message || e) });
     }
@@ -4722,7 +4875,7 @@ function spawnCapture(bin, args, { cwd, env, timeout = 3e4 }) {
 }
 function execCapture(bin, args, { cwd, env, timeout = 1e4 } = {}) {
   return new Promise((resolve) => {
-    (0, import_child_process2.execFile)(bin, args, { cwd, env, timeout, maxBuffer: 8 * 1024 * 1024 }, (err2, out, errOut) => {
+    (0, import_child_process3.execFile)(bin, args, { cwd, env, timeout, maxBuffer: 8 * 1024 * 1024 }, (err2, out, errOut) => {
       resolve({ ok: !err2, out: String(out || ""), err: String(errOut || err2 && err2.message || "") });
     });
   });
@@ -6135,15 +6288,15 @@ var import_obsidian3 = require("obsidian");
 var import_crypto = require("crypto");
 
 // src/llm.js
-var import_fs3 = __toESM(require("fs"), 1);
+var import_fs4 = __toESM(require("fs"), 1);
 var import_os3 = __toESM(require("os"), 1);
 var import_path3 = __toESM(require("path"), 1);
-var import_child_process3 = require("child_process");
+var import_child_process4 = require("child_process");
 var home3 = () => import_os3.default.homedir();
 function workDir() {
   const dir = import_path3.default.join(import_os3.default.tmpdir(), "agent-deck-autolog");
   try {
-    import_fs3.default.mkdirSync(dir, { recursive: true });
+    import_fs4.default.mkdirSync(dir, { recursive: true });
   } catch {
   }
   return dir;
@@ -6156,7 +6309,7 @@ function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 120, sys
     const env = { ...process.env, PATH: [import_path3.default.join(home3(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", process.env.PATH || ""].join(":") };
     let child;
     try {
-      child = (0, import_child_process3.spawn)(bin, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
+      child = (0, import_child_process4.spawn)(bin, args, { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
     } catch (e) {
       return reject(new Error(`\u542F\u52A8 claude \u5931\u8D25\uFF1A${e.message}`));
     }
@@ -6192,7 +6345,7 @@ function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 120, sys
   });
 }
 async function runCodex(prompt, { bin = "codex", model = "", effort = "low", timeout = 120 } = {}) {
-  const dir = import_fs3.default.mkdtempSync(import_path3.default.join(import_os3.default.tmpdir(), "agent-deck-codex-"));
+  const dir = import_fs4.default.mkdtempSync(import_path3.default.join(import_os3.default.tmpdir(), "agent-deck-codex-"));
   const output = import_path3.default.join(dir, "answer.txt");
   try {
     return await new Promise((resolve, reject) => {
@@ -6200,7 +6353,7 @@ async function runCodex(prompt, { bin = "codex", model = "", effort = "low", tim
       if (model) args.push("--model", model);
       args.push("-");
       const env = { ...process.env, PATH: [import_path3.default.join(home3(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", process.env.PATH || ""].join(":") };
-      const child = (0, import_child_process3.spawn)(bin, args, { cwd: dir, env, stdio: ["pipe", "ignore", "pipe"] });
+      const child = (0, import_child_process4.spawn)(bin, args, { cwd: dir, env, stdio: ["pipe", "ignore", "pipe"] });
       let err2 = "";
       child.stderr.on("data", (d) => {
         err2 = (err2 + d).slice(-2e3);
@@ -6219,7 +6372,7 @@ async function runCodex(prompt, { bin = "codex", model = "", effort = "low", tim
         clearTimeout(timer);
         if (code !== 0) return reject(new Error((err2 || `codex \u9000\u51FA\u7801 ${code}`).trim().slice(-500)));
         try {
-          const answer = import_fs3.default.readFileSync(output, "utf8").trim();
+          const answer = import_fs4.default.readFileSync(output, "utf8").trim();
           if (!answer) throw new Error("codex \u6CA1\u6709\u8FD4\u56DE\u6587\u5B57");
           resolve(answer);
         } catch (e) {
@@ -6229,7 +6382,7 @@ async function runCodex(prompt, { bin = "codex", model = "", effort = "low", tim
       child.stdin.end("\u4EC5\u6574\u7406\u4E0B\u5217\u6587\u5B57\uFF0C\u76F4\u63A5\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8C03\u7528\u5DE5\u5177\u3002\n\n" + prompt);
     });
   } finally {
-    import_fs3.default.rmSync(dir, { recursive: true, force: true });
+    import_fs4.default.rmSync(dir, { recursive: true, force: true });
   }
 }
 function runJournalModel(prompt, cfg, { polish = false } = {}) {
@@ -6785,7 +6938,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.name });
-      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "\u684C\u9762\u7248 / \u540E\u53F0" : id === "codex" ? "CLI / \u7EC8\u7AEF" : "ACP / \u81EA\u5E26\u8D26\u53F7" });
+      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "\u684C\u9762\u7248 / \u540E\u53F0" : id === "codex" ? "\u684C\u9762\u7248 / \u7EC8\u7AEF" : "ACP / \u81EA\u5E26\u8D26\u53F7" });
       b.onclick = async () => {
         d.target = id;
         await p.saveSettings();
@@ -6843,7 +6996,13 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       new import_obsidian3.Notice(r, 6e3);
     });
     this.bigButton(test, "\u5728\u7EC8\u7AEF\u91CC\u7EED\u8FD9\u4E2A\u76EE\u5F55", () => p.openTerminalAt(d.claude.cwd || p.vaultPath, "claude"));
-    const codex = this.card(body, "Codex CLI", "\u6A21\u578B\u3001\u63A8\u7406\u5F3A\u5EA6\u3001\u5DE5\u4F5C\u76EE\u5F55\u548C\u6C99\u7BB1\u6A21\u5F0F\u4F1A\u4F20\u7ED9 codex \u547D\u4EE4\u884C\u3002\u5BA2\u6237\u7AEF\u5185\u5DF2\u6709\u4F1A\u8BDD\u7684\u6A21\u578B\u4ECD\u7531\u5BA2\u6237\u7AEF\u7BA1\u7406\u3002");
+    const codex = this.card(body, "Codex", "\u4EFB\u52A1\u884C\u7684 @codex/\u6A21\u578B/\u5F3A\u5EA6\u4F1A\u4F20\u5165\u65B0\u4F1A\u8BDD\u3002\u684C\u9762\u6A21\u5F0F\u901A\u8FC7 App Server \u5B8C\u6210\u7B2C\u4E00\u8F6E\uFF0C\u518D\u6253\u5F00 Codex Desktop \u7EE7\u7EED\uFF1B\u9047\u5230\u5BA1\u6279\u6216\u4EA4\u4E92\u4F1A\u505C\u6B62\u5E76\u63D0\u793A\u5230\u684C\u9762\u7EE7\u7EED\u3002\u8FDE\u63A5\u5931\u8D25\u4F1A\u62A5\u9519\u3002");
+    const transport = this.row(codex, "\u6D3E\u53D1\u5230", "\u6309\u4F4F \u2318 \u62D6\u653E\u4ECD\u53EF\u76F4\u63A5\u5728\u7EC8\u7AEF\u542F\u52A8\u3002", null);
+    this.segmented(transport.querySelector(":scope > .ad-row__right"), [{ id: "desktop", label: "Codex \u684C\u9762\u7248" }, { id: "terminal", label: "\u7EC8\u7AEF" }], d.codex.transport || "desktop", (v) => {
+      d.codex.transport = v;
+      p.saveSettings();
+      this.display();
+    });
     this.modelSelect(codex, "codex", d.codex.model, (v) => {
       this.setDefaultModel("codex", v);
       this.display();
@@ -6853,7 +7012,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
       this.display();
     });
-    for (const [key, label, hint] of [["path", "codex \u547D\u4EE4\u884C\u8DEF\u5F84", "\u7559\u7A7A = \u4ECE PATH \u627E codex"], ["cwd", "\u5DE5\u4F5C\u76EE\u5F55", "\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55"]]) {
+    for (const [key, label, hint] of [["path", "codex \u7A0B\u5E8F\u8DEF\u5F84", "\u684C\u9762\u6A21\u5F0F\u7559\u7A7A\u4F18\u5148\u4F7F\u7528 Desktop \u81EA\u5E26\u7A0B\u5E8F\uFF1B\u7EC8\u7AEF\u6A21\u5F0F\u4ECE PATH \u67E5\u627E"], ["cwd", "\u5DE5\u4F5C\u76EE\u5F55", "\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55"]]) {
       const r = this.row(codex, label, hint, null);
       this.textInput(r.querySelector(":scope > .ad-row__right"), d.codex[key], hint, (v) => {
         d.codex[key] = v.trim();
@@ -7880,7 +8039,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
-      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "\u684C\u9762\u7248" : id === "codex" ? "CLI / \u7EC8\u7AEF" : "ACP" });
+      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? "\u684C\u9762\u7248" : id === "codex" ? p.settings.delegate.codex.transport === "terminal" ? "CLI / \u7EC8\u7AEF" : "\u9996\u8F6E\u540E\u6253\u5F00\u684C\u9762\u7248" : "ACP" });
       b.onclick = () => {
         this.agent = id;
         this.model = p.defaultModel(id);
@@ -8070,11 +8229,11 @@ function indentOf(line) {
 }
 
 // src/menubar.js
-var import_fs4 = __toESM(require("fs"), 1);
+var import_fs5 = __toESM(require("fs"), 1);
 var import_path4 = __toESM(require("path"), 1);
 var import_os4 = __toESM(require("os"), 1);
 var import_crypto2 = __toESM(require("crypto"), 1);
-var import_child_process4 = require("child_process");
+var import_child_process5 = require("child_process");
 
 // src/menubar.swift
 var menubar_default = `// Agent Deck menu bar helper.
@@ -9736,7 +9895,7 @@ app.run()
 `;
 
 // src/menubar.js
-var fsp3 = import_fs4.default.promises;
+var fsp3 = import_fs5.default.promises;
 var home4 = () => import_os4.default.homedir();
 var INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -9774,7 +9933,7 @@ var MenuBarBridge = class {
   }
   isAlive() {
     try {
-      const pid = Number(import_fs4.default.readFileSync(this.pidPath, "utf8").trim());
+      const pid = Number(import_fs5.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
         process.kill(pid, 0);
         return true;
@@ -9808,14 +9967,14 @@ var MenuBarBridge = class {
   writeAgentIcons() {
     const dir = import_path4.default.join(this.dir, "agents");
     try {
-      import_fs4.default.mkdirSync(dir, { recursive: true });
+      import_fs5.default.mkdirSync(dir, { recursive: true });
     } catch {
       return;
     }
     for (const id of ["claude", "codex", "workbuddy", "dsh"]) {
       try {
         const buf = agentImageBuffer(id);
-        if (buf) import_fs4.default.writeFileSync(import_path4.default.join(dir, `${id}.png`), buf);
+        if (buf) import_fs5.default.writeFileSync(import_path4.default.join(dir, `${id}.png`), buf);
       } catch {
       }
     }
@@ -9830,7 +9989,7 @@ var MenuBarBridge = class {
       oldHash = (await fsp3.readFile(this.hashPath, "utf8")).trim();
     } catch {
     }
-    const hasBinary = import_fs4.default.existsSync(this.binPath);
+    const hasBinary = import_fs5.default.existsSync(this.binPath);
     if (!hasBinary || oldHash !== hash2) {
       await this.compile(hash2);
     }
@@ -9841,7 +10000,7 @@ var MenuBarBridge = class {
     this.timer = setInterval(() => this.update(), 1800);
   }
   async compile(hash2) {
-    if (!import_fs4.default.existsSync("/usr/bin/swiftc")) {
+    if (!import_fs5.default.existsSync("/usr/bin/swiftc")) {
       throw new Error("\u627E\u4E0D\u5230 /usr/bin/swiftc\u3002\u5B89\u88C5 Xcode Command Line Tools\uFF08xcode-select --install\uFF09\u540E\u518D\u8BD5\u3002");
     }
     this.plugin.notice("\u6B63\u5728\u51C6\u5907 macOS \u83DC\u5355\u680F\uFF08\u7B2C\u4E00\u6B21\u8981\u7F16\u8BD1\u4E00\u4E2A\u5C0F\u52A9\u624B\uFF0C\u7EA6\u51E0\u79D2\uFF09\u2026", 6e3);
@@ -9855,7 +10014,7 @@ var MenuBarBridge = class {
     } catch {
     }
     const res = await new Promise((resolve) => {
-      const child = (0, import_child_process4.spawn)("/usr/bin/swiftc", ["-O", "-swift-version", "5", "-framework", "AppKit", "-framework", "SwiftUI", "-framework", "Carbon", "-o", tmp, this.srcPath], { stdio: ["ignore", "pipe", "pipe"] });
+      const child = (0, import_child_process5.spawn)("/usr/bin/swiftc", ["-O", "-swift-version", "5", "-framework", "AppKit", "-framework", "SwiftUI", "-framework", "Carbon", "-o", tmp, this.srcPath], { stdio: ["ignore", "pipe", "pipe"] });
       let err2 = "";
       const timer = setTimeout(() => {
         try {
@@ -9896,7 +10055,7 @@ var MenuBarBridge = class {
     this.killExisting(() => {
       if (!this.enabled) return;
       try {
-        (0, import_child_process4.execFile)("/usr/bin/open", args, () => {
+        (0, import_child_process5.execFile)("/usr/bin/open", args, () => {
         });
       } catch (e) {
         console.error("[agent-deck] launch menu bar", e);
@@ -9905,7 +10064,7 @@ var MenuBarBridge = class {
   }
   killExisting(done) {
     try {
-      const pid = Number(import_fs4.default.readFileSync(this.pidPath, "utf8").trim());
+      const pid = Number(import_fs5.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
         try {
           process.kill(pid, "SIGTERM");
@@ -9915,20 +10074,20 @@ var MenuBarBridge = class {
     } catch {
     }
     try {
-      import_fs4.default.unlinkSync(this.pidPath);
+      import_fs5.default.unlinkSync(this.pidPath);
     } catch {
     }
     const pattern = this.binPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "( |$)";
     try {
-      (0, import_child_process4.execFile)("/usr/bin/pkill", ["-f", pattern], () => done && done());
+      (0, import_child_process5.execFile)("/usr/bin/pkill", ["-f", pattern], () => done && done());
     } catch {
       done && done();
     }
   }
   show() {
     try {
-      import_fs4.default.mkdirSync(this.dir, { recursive: true });
-      import_fs4.default.writeFileSync(import_path4.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
+      import_fs5.default.mkdirSync(this.dir, { recursive: true });
+      import_fs5.default.writeFileSync(import_path4.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
     } catch (e) {
       console.error("[agent-deck] menu bar show", e);
     }
@@ -9943,9 +10102,9 @@ var MenuBarBridge = class {
       this.lastJson = body;
       const json = JSON.stringify({ updatedAt, ...rest });
       const tmp = this.statePath + ".tmp";
-      import_fs4.default.mkdirSync(this.dir, { recursive: true });
-      import_fs4.default.writeFileSync(tmp, json, "utf8");
-      import_fs4.default.renameSync(tmp, this.statePath);
+      import_fs5.default.mkdirSync(this.dir, { recursive: true });
+      import_fs5.default.writeFileSync(tmp, json, "utf8");
+      import_fs5.default.renameSync(tmp, this.statePath);
     } catch (e) {
       console.error("[agent-deck] menu bar state", e);
     }
@@ -11179,7 +11338,7 @@ var TaskAgentSuggest = class extends import_obsidian8.EditorSuggest {
 };
 
 // src/main.js
-var fsp4 = import_fs5.default.promises;
+var fsp4 = import_fs6.default.promises;
 var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
 var AgentDeckPlugin = class extends import_obsidian9.Plugin {
   async onload() {
@@ -11294,7 +11453,7 @@ var AgentDeckPlugin = class extends import_obsidian9.Plugin {
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
       try {
-        if (runner.constructor && runner.constructor.name === "DshRunner") runner.cancel();
+        if (runner.constructor && ["DshRunner", "CodexDesktopRunner"].includes(runner.constructor.name)) runner.cancel();
       } catch {
       }
     }
@@ -11948,8 +12107,8 @@ var AgentDeckPlugin = class extends import_obsidian9.Plugin {
       return this.notice(e.message);
     }
     const agent = selected.agent;
-    const where = agent === "codex" ? "\u7EC8\u7AEF\u65B0\u4F1A\u8BDD" : !["claude", "dsh"].includes(agent) ? "\u5BA2\u6237\u7AEF\u4EA4\u63A5" : agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "\u540E\u53F0\u5F00\u8DD1 \xB7 \u7B54\u5B8C\u5728\u684C\u9762\u7248\u6253\u5F00" : "\u540E\u53F0\u65B0\u4F1A\u8BDD";
-    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where: `${selected.model || this.defaultModel(agent) || "\u5BA2\u6237\u7AEF\u6A21\u578B"} \xB7 ${selected.effort || this.settings.delegate[agent]?.effort || "\u5BA2\u6237\u7AEF\u5F3A\u5EA6"} \xB7 ${where}` }, () => this.delegateDrop(agent, item, null, { cli: agent === "codex" })).open();
+    const where = agent === "codex" ? this.settings.delegate.codex.transport === "terminal" ? "\u7EC8\u7AEF\u65B0\u4F1A\u8BDD" : "\u9996\u8F6E\u5B8C\u6210\u540E\u5728 Codex \u684C\u9762\u7248\u6253\u5F00" : !["claude", "dsh"].includes(agent) ? "\u5BA2\u6237\u7AEF\u4EA4\u63A5" : agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "\u540E\u53F0\u5F00\u8DD1 \xB7 \u7B54\u5B8C\u5728\u684C\u9762\u7248\u6253\u5F00" : "\u540E\u53F0\u65B0\u4F1A\u8BDD";
+    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where: `${selected.model || this.defaultModel(agent) || "\u5BA2\u6237\u7AEF\u6A21\u578B"} \xB7 ${selected.effort || this.settings.delegate[agent]?.effort || "\u5BA2\u6237\u7AEF\u5F3A\u5EA6"} \xB7 ${where}` }, () => this.delegateDrop(agent, item, null, { cli: agent === "codex" && this.settings.delegate.codex.transport === "terminal" })).open();
   }
   // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样；同时提供「合并到已有条目」
   gripPick(item, e) {
@@ -12287,7 +12446,7 @@ var AgentDeckPlugin = class extends import_obsidian9.Plugin {
   async checkBinary(kind) {
     const bin = kind === "codex" ? this.settings.delegate?.codex?.path || "codex" : kind === "dsh" ? findDshBinary(this.settings.delegate?.dsh?.path || "") : findClaudeBinary(this.settings.delegate?.claude?.path || "");
     return await new Promise((resolve) => {
-      (0, import_child_process5.execFile)(bin, ["--version"], { timeout: 1e4, env: process.env }, (err2, out, errOut) => {
+      (0, import_child_process6.execFile)(bin, ["--version"], { timeout: 1e4, env: process.env }, (err2, out, errOut) => {
         if (err2) resolve(`${kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A${String(err2.message || err2)}
 ${String(errOut || "").slice(0, 300)}`);
         else resolve(`${kind}\uFF1A${String(out || "").trim()}`);
@@ -12300,7 +12459,7 @@ activate
 do script ${JSON.stringify(`cd ${JSON.stringify(cwd)} && ${cmd}`)}
 end tell`;
     try {
-      (0, import_child_process5.execFile)("/usr/bin/osascript", ["-e", script], () => {
+      (0, import_child_process6.execFile)("/usr/bin/osascript", ["-e", script], () => {
       });
     } catch (e) {
       this.notice(String(e.message || e));

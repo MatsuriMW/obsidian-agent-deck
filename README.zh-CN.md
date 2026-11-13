@@ -61,7 +61,7 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 | Agent | 主要日志来源 | 进度显示 | 委派方式 |
 |---|---|---|---|
 | Claude Code | `~/.claude/projects`，以及 Claude 桌面版的 Code 会话 | 优先显示 TaskCreate / TaskUpdate / TodoWrite 步骤；无清单时显示对话轮次 | 后台 CLI 或终端交互会话 |
-| Codex | `~/.codex/sessions`、`archived_sessions` 与会话索引 | 对话轮次 | 终端 CLI，可选模型与推理强度；也可交给桌面版粘贴发送 |
+| Codex | `~/.codex/sessions`、`archived_sessions` 与会话索引 | 对话轮次 | 桌面模式通过 App Server 完成首轮后打开 Desktop；可切换到终端 |
 | WorkBuddy | `~/.workbuddy/projects`，结合 `workbuddy.db` 元数据 | 对话轮次 | 打开客户端并复制任务，用户粘贴发送 |
 | DeepSeek Harness（DSH） | `~/.dsh/sessions` 的 zstd 日志及本机用量统计接口 | 对话轮次 | ACP 后台委派，可选模型与推理强度 |
 | Antigravity | `~/.gemini/antigravity/brain/<会话号>/.system_generated/logs/transcript.jsonl` | 对话轮次、规划回复与工具动作 | 打开客户端并复制任务，用户粘贴发送 |
@@ -96,7 +96,7 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 |---|---|
 | 「现在」里的会话卡片 → 笔记里有字的一项（有序 / 无序列表都行） | 原文不动，前面换上会话的状态关键词（`DOING` / `TOREVIEW` / `NEEDOK` …），下面多一行 `🔗` 子块。之后 `💬`、状态、`⏱` 都跟着会话走 |
 | 会话卡片 → 空行、空的列表项「- 」、或一段文字上 | 在那儿新建一项 `DOING 20:05 🤖 会话标题` 并绑上；接着上面列表的缩进和编号 |
-| 笔记里的一项 → Agents 里的某个 Agent | 委派。Claude Code、DeepSeek Harness 直接在后台开会话（默认模型 Opus 5.5，设置里可改）；Claude Code 答完一轮自动在桌面版打开，接着在桌面版里聊；Codex 默认走桌面版交接，WorkBuddy 也使用桌面版交接：任务文字放进剪贴板、客户端叫到前台，你粘贴发出去，Agent Deck 认出新会话后自动绑回这一项 |
+| 笔记里的一项 → Agents 里的某个 Agent | 委派。Claude Code、DeepSeek Harness 直接在后台开会话（默认模型 Opus 5.5，设置里可改）；Claude Code 答完一轮自动在桌面版打开，接着在桌面版里聊；Codex 默认通过 App Server 完成首轮，自动绑回任务并打开桌面版继续；WorkBuddy 把任务文字放进剪贴板，你在客户端粘贴发送 |
 | 按住 ⌘ 把会话卡片拖到一项上 | 不绑这一项，在它（连同子项）下面新建一条并绑上 |
 | 按住 ⌘ 把一项拖到 Claude Code / Codex 上 | 在主力终端里新开标签跑交互式的 `claude` / `codex`，任务直接当第一句发出去；会话一出现自动绑回这一项。设置里开了「默认在终端里开」就反过来：不按 ⌘ 是终端，按 ⌘ 是后台 / 桌面版。主力终端是 Tern 或 Herdr 时，任务放进单独的「Agent Deck」会话（Herdr 里是「Agent Deck」空间）在后台跑，不把终端叫到前台；Claude Code 在信任过的目录里起（库用 `--add-dir` 加进去），不会卡在信任提示上 |
 | 笔记里的一项 → 面板里的某张会话卡片 | 把这个会话绑给它，不委派 |
@@ -254,7 +254,9 @@ ACP 没有 Claude 那套 plan/auto 权限模式；插件可以选择自动允许
 
 ### Codex / WorkBuddy
 
-Codex 可在“委派”或“Agents”页设为默认委派目标，使用终端 CLI 并传入所选模型、推理强度和沙箱模式。普通拖放默认仍走桌面版交接；按住 ⌘ 拖放（或开启默认终端委派）走 CLI。WorkBuddy 使用桌面版交接：把一项拖到它们的卡片上，任务文字（加上委派设置里的前后缀）放进剪贴板，客户端叫到前台；你新建对话、粘贴发出去。Agent Deck 每轮扫描找这个 Agent 新出现、开头对得上的会话，找到就在那一项下面写 `🔗`、改成 `DELEGATED`，面板里的卡片飞进「现在」。等待中 Agent 卡片上会挂一行「等你在 Codex 里发出：…」，点 `×` 不等了；半小时没等到自动作罢。
+Codex 可设为默认委派目标。在“委派 → Codex → 派发到”选择桌面版或终端。桌面模式通过 App Server 创建持久会话，传入 `@codex/模型/强度`，完成首轮后释放会话并打开 Codex Desktop。连接失败或模型不可用时明确报错。遇到审批或交互请求时停止，打开桌面会话供你继续。按住 ⌘ 拖放仍可直接走终端。
+
+WorkBuddy 使用桌面版交接：把一项拖到它的卡片上，任务文字（加上委派设置里的前后缀）放进剪贴板，客户端叫到前台；你新建对话、粘贴发出去。Agent Deck 每轮扫描找这个 Agent 新出现、开头对得上的会话，找到就在那一项下面写 `🔗`、改成 `DELEGATED`，面板里的卡片飞进「现在」。等待中 Agent 卡片上会挂一行「等你在 WorkBuddy 里发出：…」，点 `×` 不等了；半小时没等到自动作罢。
 
 Codex 会话用 `codex://threads/<id>` 在桌面版打开（同时把 `codex resume <id>` 放进剪贴板）；WorkBuddy 用 `workbuddy://chat/<id>`。
 

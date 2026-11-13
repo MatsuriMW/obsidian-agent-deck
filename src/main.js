@@ -147,7 +147,7 @@ export default class AgentDeckPlugin extends Plugin {
     clearTimeout(this._refreshTimer);
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
-      try { if (runner.constructor && runner.constructor.name === "DshRunner") runner.cancel(); } catch { /* already gone */ }
+      try { if (runner.constructor && ["DshRunner", "CodexDesktopRunner"].includes(runner.constructor.name)) runner.cancel(); } catch { /* already gone */ }
     }
     // 面板不在这里 detach：固定在侧栏的位置要留着，重载 / 更新插件后原地回来
     try { this.ribbonEl?.remove(); } catch { /* gone */ }
@@ -733,8 +733,8 @@ export default class AgentDeckPlugin extends Plugin {
     try { selected = mentionOptions(this, { lines: t.lines, line: t.line, agent: this.defaultTarget() }); }
     catch (e) { return this.notice(e.message); }
     const agent = selected.agent;
-    const where = agent === "codex" ? "终端新会话" : !["claude", "dsh"].includes(agent) ? "客户端交接" : agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "后台开跑 · 答完在桌面版打开" : "后台新会话";
-    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where: `${selected.model || this.defaultModel(agent) || "客户端模型"} · ${selected.effort || this.settings.delegate[agent]?.effort || "客户端强度"} · ${where}` }, () => this.delegateDrop(agent, item, null, { cli: agent === "codex" })).open();
+    const where = agent === "codex" ? (this.settings.delegate.codex.transport === "terminal" ? "终端新会话" : "首轮完成后在 Codex 桌面版打开") : !["claude", "dsh"].includes(agent) ? "客户端交接" : agent === "claude" && this.settings.delegate.claude.openDesktop === true ? "后台开跑 · 答完在桌面版打开" : "后台新会话";
+    new ConfirmSendModal(this.app, { agent, text: t.block ? t.block.text : t.lines[t.line], path: item.path, where: `${selected.model || this.defaultModel(agent) || "客户端模型"} · ${selected.effort || this.settings.delegate[agent]?.effort || "客户端强度"} · ${where}` }, () => this.delegateDrop(agent, item, null, { cli: agent === "codex" && this.settings.delegate.codex.transport === "terminal" })).open();
   }
 
   // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样；同时提供「合并到已有条目」

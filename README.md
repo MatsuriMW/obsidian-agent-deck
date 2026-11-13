@@ -59,7 +59,7 @@ The current version tracks these five agents through their local session logs:
 | Agent | Main log source | Progress | Delegation |
 |---|---|---|---|
 | Claude Code | `~/.claude/projects` and Code sessions in the Claude desktop app | TaskCreate / TaskUpdate / TodoWrite steps when available; conversation turns otherwise | Background CLI or interactive terminal |
-| Codex | `~/.codex/sessions`, `archived_sessions` and session indexes | Conversation turns | Terminal CLI with model and effort selection, or desktop clipboard handoff |
+| Codex | `~/.codex/sessions`, `archived_sessions` and session indexes | Conversation turns | App Server first turn with Desktop continuation, or terminal CLI |
 | WorkBuddy | `~/.workbuddy/projects`, combined with `workbuddy.db` metadata | Conversation turns | Open the client and copy the task for you to paste and send |
 | DeepSeek Harness (DSH) | zstd logs under `~/.dsh/sessions` and the local usage statistics interface | Conversation turns | Background ACP with model and effort selection |
 | Antigravity | `~/.gemini/antigravity/brain/<session-id>/.system_generated/logs/transcript.jsonl` | Conversation turns, planner replies and tool actions | Open the client and copy the task for you to paste and send |
@@ -94,7 +94,7 @@ Pin Agent Deck to a sidebar and drag between the note and the panel:
 |---|---|
 | A session card from **现在** → a list item with text (ordered or unordered) | The text stays; the line gets the session's keyword (`DOING` / `TOREVIEW` / `NEEDOK` …) and a `🔗` child. From then on `💬`, status and `⏱` follow the session |
 | A session card → an empty line, an empty item (`- `), or a paragraph | A new item `DOING 20:05 🤖 session title` is created there and bound, following the list's indent and numbering |
-| A list item → an agent card | Delegation. Claude Code and DeepSeek Harness start a session in the background (default model Opus 5.5, configurable in the settings); when Claude Code finishes its first turn the session opens in the Claude desktop app, where you carry on. Codex defaults to desktop handoff, as does WorkBuddy: the task goes to the clipboard and the client comes to the front; you paste and send, and Agent Deck binds the new session back to the item once it appears |
+| A list item → an agent card | Delegation. Claude Code and DeepSeek Harness start a session in the background (default model Opus 5.5, configurable in the settings); when Claude Code finishes its first turn the session opens in the Claude desktop app, where you carry on. Codex runs its first turn through App Server, binds the persistent session and opens Desktop to continue. WorkBuddy copies the task to the clipboard for you to paste and send |
 | ⌘-drag a session card onto an item | Leaves the item alone and creates a new bound item below it (and its children) |
 | ⌘-drag an item onto Claude Code / Codex | Opens a new tab in your terminal running interactive `claude` / `codex` with the task as the first message; the session is bound back once it appears. With **open in terminal by default** on in the settings, it is the other way round. With Tern or Herdr as your terminal the task runs in a separate background session named "Agent Deck" (a space of that name in Herdr), and the terminal does not come forward; Claude Code starts in a trusted directory (the vault added with `--add-dir`) so it never stops at the trust prompt |
 | An item → a session card in the panel | Binds that session to the item, no delegation |
@@ -222,7 +222,9 @@ ACP does not expose Claude-style plan/auto permission modes. Instead the plugin 
 
 ### Codex and WorkBuddy
 
-Codex can be the default delegation target, opening a terminal with your selected model, reasoning effort and sandbox. Plain drops still default to desktop handoff; ⌘-drop (or the terminal-default setting) uses the CLI. WorkBuddy uses client handoff: drop an item on their card, the task text (with your delegation prefix/suffix) goes to the clipboard and the client comes to the front; start a chat, paste, send. On each scan Agent Deck looks for a new session of that agent whose opening matches, writes `🔗` under the item, marks it `DELEGATED`, and flies the card into **现在**. While it waits, the agent card shows a "waiting for you to send" row with an `×`; it gives up after 30 minutes.
+Codex can be the default delegation target. Settings → Delegation → Codex selects Desktop (default) or terminal. Desktop mode creates a persistent App Server session using the selected model, effort and sandbox, runs the first turn, then releases the session and opens Desktop to continue. Connection and model failures are reported without falling back to a terminal. Approval or interactive requests stop the first turn and open Desktop for continuation. ⌘-drop still uses the terminal.
+
+WorkBuddy uses client handoff: drop an item on their card, the task text (with your delegation prefix/suffix) goes to the clipboard and the client comes to the front; start a chat, paste, send. On each scan Agent Deck looks for a new session of that agent whose opening matches, writes `🔗` under the item, marks it `DELEGATED`, and flies the card into **现在**. While it waits, the agent card shows a "waiting for you to send" row with an `×`; it gives up after 30 minutes.
 
 Codex sessions open in the desktop app with `codex://threads/<id>` (and `codex resume <id>` is copied too). WorkBuddy opens with `workbuddy://chat/<id>`.
 
