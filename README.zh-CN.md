@@ -8,7 +8,7 @@
 - TODO 分析这份材料 @codex/gpt-6.1-sol/high
 ```
 
-选择保留在这一行，之后点击纸飞机或拖拽派发时生效。父任务与子任务各自选择。详细委派窗口会读取任务行的选择，窗口内修改只影响本次委派。模型来自现有 Models 列表，自定义模型也可选择。WorkBuddy 与 Antigravity 使用客户端交接，模型和强度在客户端设置。
+选择保留在这一行，之后点击纸飞机或拖拽派发时生效。父任务与子任务各自选择。详细委派窗口会读取任务行的选择，窗口内修改只影响本次委派。模型来自现有 Models 列表，自定义模型也可选择。WorkBuddy 使用客户端交接，模型和强度在客户端设置。Antigravity 通过 Antigravity CLI 直接委派，可选择 CLI 提供的模型与强度，并在 Obsidian 内继续对话。
 
 设置中的 **Dreaming** 页支持“现在 Dream 一次”和“每天自动整理”。材料来自最近十四天的日记，以及已有委派任务对应笔记。每次输入有长度上限；AI 记录须已写进笔记，未落笔记的会话不在此范围内。整理沿用“追踪”中的 CLI、模型与登录，材料会发送给该 CLI 使用的模型服务。自动整理仅在插件运行时每二十四小时检查，默认关闭。
 
@@ -32,7 +32,7 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 
 笔记和面板之间可以直接拖：会话卡片拖到笔记里的一项上，就把会话绑给它；笔记里的一项拖到某个 Agent 上，就是委派。只有光标所在的那一项尾巴上有个纸飞机把手：单击确认后连同子块发给主力，双击或 ⌘ 单击选发给哪个 Agent。任务行绑定了会话后，行尾的 pill 才变成进度条，完成后把结果写回笔记。macOS 菜单栏还有一块常驻的纯色面板，菜单栏被系统藏起来时可以用自定义全局快捷键唤起。
 
-它从[螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 里「人机协作 / AI 追踪」那一半拆出来，补上了第二个主力 Agent、DeepSeek Harness 的 ACP 委派、模型 / 强度 / 权限模式选择、分层的模型设置页，以及一块可读性更高的 SwiftUI 菜单栏面板。
+它从[螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 里「人机协作 / AI 追踪」那一半拆出来，补上了第二个主力 Agent、DeepSeek Harness 的后台委派、模型 / 强度 / 权限模式选择、分层的模型设置页，以及一块可读性更高的 SwiftUI 菜单栏面板。
 
 **目录**
 
@@ -45,6 +45,7 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 - [委派到哪儿](#委派到哪儿)
 - [Deeplink](#deeplink)
 - [状态 pill](#状态-pill)
+- [使用前的运行依赖](#使用前的运行依赖)
 - [安装](#安装)
 - [设置](#设置)
 - [和螺旋日程并存](#和螺旋日程并存)
@@ -63,10 +64,10 @@ Agent Deck 是 Obsidian 插件，把本机 **Claude Code、Codex、WorkBuddy、D
 | Claude Code | `~/.claude/projects`，以及 Claude 桌面版的 Code 会话 | 优先显示 TaskCreate / TaskUpdate / TodoWrite 步骤；无清单时显示对话轮次 | 后台 CLI 或终端交互会话 |
 | Codex | `~/.codex/sessions`、`archived_sessions` 与会话索引 | 对话轮次 | 桌面模式通过 App Server 完成首轮后打开 Desktop；可切换到终端 |
 | WorkBuddy | `~/.workbuddy/projects`，结合 `workbuddy.db` 元数据 | 对话轮次 | 打开客户端并复制任务，用户粘贴发送 |
-| DeepSeek Harness（DSH） | `~/.dsh/sessions` 的 zstd 日志及本机用量统计接口 | 对话轮次 | ACP 后台委派，可选模型与推理强度 |
-| Antigravity | `~/.gemini/antigravity/brain/<会话号>/.system_generated/logs/transcript.jsonl` | 对话轮次、规划回复与工具动作 | 打开客户端并复制任务，用户粘贴发送 |
+| DeepSeek Harness（DSH） | `~/.dsh/sessions` 的 zstd 日志及本机用量统计接口 | 对话轮次 | 后台直接委派，可选模型与推理强度 |
+| Antigravity | 原 IDE 日志及插件保存的 插件内问答 | 对话轮次、规划回复与工具动作 | 后台直接委派；插件内续聊和正文归档 |
 
-这 5 类会话均可绑定日记任务、自动建项并写回结论。状态和 token 用量以各客户端实际写出的日志字段为准。Claude、Codex、WorkBuddy 和 DSH 已接入各自可识别的归档来源；Antigravity 目前不承诺自动识别归档。点击 Antigravity 或 DSH 会话会打开客户端并复制会话号，不会直接定位到某条会话。
+这 5 类会话均可绑定日记任务、自动建项并写回结论。状态和 token 用量以各客户端实际写出的日志字段为准。Claude、Codex、WorkBuddy 和 DSH 已接入各自可识别的归档来源；Antigravity 目前不承诺自动识别归档。点击插件创建的 Antigravity 会话会打开 Obsidian 内对话；原 Antigravity IDE 会话和 DSH 客户端入口仍只打开应用并复制会话号。
 
 模型可以在 Models 页添加或修改。新增模型不会自动新增一种 Agent 日志读取器。插件在 macOS 上开发和验证；其他系统的客户端路径与跳转行为尚未验证。
 
@@ -248,13 +249,13 @@ Agent Deck 用无头方式起一个 Claude Code 会话，把下面这些参数�
 
 ### DeepSeek Harness
 
-通过 `dsh acp` 走 ACP（Agent Client Protocol）：建真正的 Harness 会话，选模型和 `reasoning_effort`，发 prompt，跟 `session/update` 流。任务直接开跑，答完把结论写回 `💬`。会话保存在 `~/.dsh/sessions`，Agent Deck 可以继续追踪。
+通过本机 Harness 开会话，可选择模型和推理强度。任务直接开跑，答完把结论写回 `💬`。会话保存在 `~/.dsh/sessions`，Agent Deck 可以继续追踪。
 
 2026-11-13 在 Harness 0.2.2-rc.1 上实测，`@dsh/deepseek-v4-pro/high` 能按指定模型和强度执行，并把回复写回笔记。会话会出现在 Harness 桌面侧栏的“未分组”中，手动选中后可以继续对话。Agent Deck 的 `dsh://open` 链接目前只会唤起客户端并复制会话号，不能自动定位到指定会话。
 
 **DeepSeek Harness 桌面端仍处于快速迭代阶段，目前稳定性有限。** 不同版本的会话显示和接入行为可能变化，上述结果以实测版本为准。
 
-ACP 没有 Claude 那套 plan/auto 权限模式；插件可以选择自动允许一次工具调用，或者拒绝并在通知里提醒你。
+Harness 的工具权限可设为自动允许一次，或拒绝并提醒。
 
 ### Codex / WorkBuddy
 
@@ -269,7 +270,7 @@ Codex 会话用 `codex://threads/<id>` 在桌面版打开（同时把 `codex res
 | Agent | 链接 | 状态 |
 |---|---|---|
 | Claude Code | `claude://resume?session=<id>` | 可用 |
-| WorkBuddy | `workbuddy://chat/<id>` | 可用 |
+| WorkBuddy | `workbuddy://chat/<id>` | 仅用于 WorkBuddy 自身可识别的会话；独立 CodeBuddy CLI 会话不可直接导入 |
 | DeepSeek Harness | `dsh://open` | 当前集成只唤起客户端并复制会话号；请在侧栏手动选择对应会话。 |
 | Codex | `codex://threads/<id>` | 可用；同时复制 `codex resume <id>` |
 | Antigravity | `antigravity://` | 打开客户端并复制会话号；不直接定位某条会话 |
@@ -283,7 +284,52 @@ Codex 会话用 `codex://threads/<id>` 在桌面版打开（同时把 `codex res
 3. **等你 / 等你允许**，缓慢呼吸。
 4. **完成 / 出错**，带打开或重试。
 
-委派失败时，点状态 pill 上的「重试」打开参数面板：
+委派失败时，点状态 pill 上的「重试」打开参数面板。
+
+## 使用前的运行依赖
+
+Agent Deck 当前通过本机程序完成 Claude、Codex、DSH 和 Antigravity 的自动委派。对应程序缺失或不能运行时，这条自动委派路径不可用。程序可以由桌面应用自带，不要求所有用户都额外安装一份全局 CLI。通过远程 API 或 SDK 委派也可以不依赖本机 CLI，但本版本没有提供通用远程委派后端。
+
+只读取已有会话日志、绑定任务、查看正文和归档正文，不需要启动 Agent CLI。AI 起名、总结、润色和 Dreaming 另需一个可用且已登录的 Claude 或 Codex CLI。
+
+| 功能 / Agent | 当前实现 | 用户需要准备什么 |
+|---|---|---|
+| Claude Code 自动委派 | 启动 `claude` 无头进程或终端会话 | 安装并登录 Claude Code；需要桌面续聊时另装 Claude 桌面应用 |
+| Codex 桌面模式 | 启动 `codex app-server` | 可用的 Codex 程序、登录及 Codex 桌面应用；插件优先寻找桌面应用附带的程序 |
+| Codex 终端模式 | 启动 `codex` 交互会话 | 终端可执行的 Codex CLI，以及该程序使用的登录 |
+| DeepSeek Harness 自动委派与插件内续聊 | 通过 Harness 执行任务 | 支持后台委派的 Harness 安装，以及有效的模型 / 提供商配置和登录 |
+| WorkBuddy 交接 | 复制文字并打开客户端，由用户发送 | 国内版 WorkBuddy 桌面应用；本路径不调用独立 CodeBuddy CLI |
+| Antigravity 自动委派与插件内续聊 | 通过 Antigravity CLI 执行任务 | 独立 Antigravity CLI（agy）及其登录；只安装 IDE 不够 |
+| 自动日记、AI 润色、Dreaming | 调用所选 `claude` 或 `codex` CLI | 单独确认整理设置中的程序路径、登录和模型可用性 |
+| macOS 菜单栏助手 | 首次在本机编译 SwiftUI 程序 | Xcode Command Line Tools 中的 `swiftc`；不使用菜单栏时可关闭该功能 |
+
+### 安装与首次检查
+
+只准备你要使用的 Agent，不需要把表里的程序全部安装。
+
+1. 从官方渠道安装：[Claude Code](https://code.claude.com/docs/en/setup)、[Codex](https://developers.openai.com/codex/cli/)、[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)、[Antigravity CLI](https://antigravity.google/docs/cli/acp)。使用已发布的插件文件不需要运行 `npm install`；Node.js / npm 是从本仓库源码构建时的工具。Agent 自己的安装器若另有运行依赖，以其官方说明为准。
+2. 在终端确认所选程序能运行，例如 `claude --version`、`codex --version`、`dsh --help`。Antigravity 应能运行 `agy --version`，并按官方流程完成 CLI 登录。程序不在 PATH 时，使用它的完整路径。Codex 桌面模式和 Harness 可以使用应用附带的程序。
+3. 按所选 Agent 的官方流程完成登录或配置提供商。版本号检查不证明账号已登录、额度充足或模型可用。不要用一个客户端的登录成功推断另一个程序也已登录。
+4. 在“设置 → Agent Deck → 委派”填写需要覆盖的程序路径。macOS 从图形界面启动 Obsidian 时，PATH 可能与终端不同；路径问题优先填写完整路径。整理和 Dreaming 使用“追踪”中的整理 CLI 配置，也要单独核对。
+5. 先委派一个“只回复测试口令，不调用工具”的任务。收到回复后再测试第二轮、正文归档，以及需要时的桌面续聊。任务测试会调用模型服务；只有完整流程通过，才能确认该路径可用。
+
+本版本设置中的“检查”按钮只验证程序和版本，不完成安装或登录。插件不会自动安装 Agent、修改 shell 配置、复制账号凭证或替用户登录。菜单栏缺少编译器时，可按系统提示运行 `xcode-select --install`。
+
+### Antigravity 在插件内委派与续聊
+
+1. 安装官方独立 CLI，并按官方流程完成登录。在“委派 → Antigravity”检查程序，必要时填完整路径（例如 `~/.local/bin/agy`）。
+2. 点击“读取 Antigravity 可用模型”，按账号实际返回的模型选择。也可以使用“CLI 当前默认模型”；强度是否可用由当前模型校验，不支持时会明确报错。
+3. 从任务的 `@antigravity` 菜单、纸飞机目标或 Agent 卡片委派。任务和子块直接发送，回复写回任务，并保存在插件委派记录中。
+4. 点击该任务的会话按钮或对话入口，在 Obsidian 内查看正文、继续追问、停止当前一轮或归档。恢复使用原会话号；插件重载后仍可续聊。
+5. 工具需要权限时会弹出工具详情和服务端选项。关闭弹窗视为取消本次请求。插件不会默认自动批准 Antigravity 工具。
+
+原 IDE 会话继续使用原日志入口，不与 CLI 会话混用。插件内问答随插件委派记录保存在 `data.json`；需要长期保存时请“归档到笔记”，再使用“清理已结束的委派记录”。正文归档不含工具结果、内部推理或附件。
+
+### WorkBuddy 的两个版本
+
+国内版 WorkBuddy 使用 `~/.workbuddy` 和 `workbuddy://`；国际版 WorkBuddy AI 使用 `~/.workbuddy-ai` 和 `workbuddy-ai://`。当前插件的 WorkBuddy 读取器和打开入口按国内版配置，尚未提供国际版的独立入口。
+
+2026-11-13 实测，独立 CodeBuddy CLI 登录后可以完成任务，但用该 CLI 的会话 ID 打开国内版 WorkBuddy，桌面日志返回 `conversation not found`。因此安装 CodeBuddy CLI 不能让当前 WorkBuddy 交接自动变为后台委派。国际版的同会话导入和续聊尚未验证成功，不能承诺可用。
 
 ## 安装
 
@@ -302,15 +348,15 @@ npm install
 npm run build
 ```
 
-`npm run build` 用 esbuild 生成 `main.js`。运行时唯一的依赖是 `fzstd`，用来解 DeepSeek Harness 的 zstd 会话日志。
+`npm run build` 用 esbuild 生成 `main.js`。`fzstd` 是打包进插件的 JavaScript 依赖，用来解 DeepSeek Harness 的 zstd 会话日志。用户无需单独安装它；Agent 程序和登录要求见“使用前的运行依赖”。
 
 ## 设置
 
 按 **⌃⌥J（Ctrl + Alt + J）** 跳转到今天日记中实际正在运行的 Agent 项目；多个项目时连续按依次跳转。可在 Obsidian“设置 → 快捷键”搜索“Agent Deck: 跳转到日记中正在运行的项目”修改。等待回复或已完成的会话不作为跳转目标。
 
-- **Agents**：开关每个 Agent、选最多两个主力、选择 Claude / Codex / DSH 的默认模型和默认委派目标、立即扫描、导入历史。主力星标控制追踪范围，与默认委派目标分别设置。
+- **Agents**：开关每个 Agent、选最多两个主力、选择 Claude / Codex / DSH / Antigravity 的默认模型和默认委派目标、立即扫描、导入历史。主力星标控制追踪范围，与默认委派目标分别设置。
 - **委派**：默认目标、模型、强度、权限模式、工作目录、提示词前后缀、写回规则、信任回退。
-- **Models**：管理 Claude / Codex / DSH 的模型，可添加和编辑显示名、CLI 模型名、DSH provider route、上下文和能力标签，启用、置顶、排序，并分别设置默认模型与推理强度。可选模型取决于客户端账号；WorkBuddy / Antigravity 内的模型请在对应客户端选择。
+- **Models**：管理 Claude / Codex / DSH / Antigravity 的模型，可添加和编辑显示名、CLI 模型名、DSH provider route、上下文和能力标签，启用、置顶、排序，并分别设置默认模型与推理强度。可选模型取决于客户端账号；WorkBuddy 内的模型请在客户端选择。
 - **追踪**：日记分界、轮询间隔、历史天数、macOS 菜单栏开关和条数、界面开关、重算、导入，以及一键「停用螺旋日程里的 AI 写入」。
 - **关于**：版本、许可证、调试信息。
 

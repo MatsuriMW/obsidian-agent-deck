@@ -15,7 +15,7 @@ import {
   AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp, visibleMenuAgents,
 } from "./constants.js";
 import { AgentUsage, UsageStore, projectName } from "./readers.js";
-import { Delegator, blockAt, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
+import { Delegator, blockAt, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findAgyBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { AgentDeckSettingsTab } from "./settings.js";
 import { DelegateOptionsModal, ConfirmSendModal } from "./dialog.js";
@@ -29,6 +29,7 @@ import { JournalSync } from "./sync.js";
 import * as J from "./journal.js";
 import { mentionOptions } from "./task-mentions.js";
 import { Dreaming } from "./dream.js";
+import { ConversationModal, AcpPermissionModal } from "./conversation-modal.js";
 import { TaskAgentSuggest } from "./mention-suggest.js";
 
 const fsp = fs.promises;
@@ -98,12 +99,14 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "open-models", name: "打开 Agent Deck 的 Models 设置", callback: () => this.openSettings("models") });
     // 委派只有两个入口：笔记里人写的一项拖到面板的 Agent 卡片上，或者块去向的「委派给 Claude」（⌥⌘D）。
     // Agent Deck 不再在命令面板里放委派命令；委派失败后状态 pill 上的「重试」还在
+    this.addCommand({ id: "conversation-line", name: "查看当前任务的对话、续聊与归档", editorCallback: (editor, view) => this.conversationForEditor(editor, view) });
     this.addCommand({ id: "open-session-line", name: "打开光标这一行绑定的会话", editorCallback: (editor, view) => this.openSessionForEditor(editor, view) });
     this.addCommand({ id: "merge-task-line", name: "把当前任务条目与笔记里另一条绑定/合并", editorCallback: (editor, view) => this.openMergeTaskForEditor(editor, view) });
     this.addCommand({ id: "scan-now", name: "重新扫描本机 Agent 会话", callback: () => this.scanNow(true) });
     this.addCommand({ id: "jump-running-project", name: "跳转到日记中正在运行的项目", hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "J" }], callback: () => this.jumpRunningProject() });
     this.addCommand({ id: "log-journal", name: "整理 Agent 会话进今天的日记", callback: () => this.autoLog.logNow() });
     this.addCommand({ id: "dream-now", name: "Dreaming：整理 AI 记录与用户日志为长期记忆", callback: () => this.dreaming.run() });
+    this.addCommand({ id: "dream-share", name: "Dreaming：同步共享长期记忆", callback: () => this.dreaming.sharing.sync() });
     this.addCommand({ id: "dream-export", name: "Dreaming：导出长期记忆 Markdown 副本", callback: () => this.dreaming.exportMemory() });
     this.addCommand({ id: "import-nautilus", name: "导入螺旋日程的历史用量", callback: () => this.importNautilus(true) });
     this.addCommand({ id: "clean-jobs", name: "清理已结束的委派记录", callback: () => this.cleanJobs() });
@@ -141,13 +144,15 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   onunload() {
+    this.conversationModal?.close();
+    this.settingTab?.hide();
     if (this.journalSync) this.journalSync._stopped = true;
     if (this.store?.dirty) { clearTimeout(this.store.saveTimer); this.store.save().catch(() => {}); }
     clearInterval(this._scanTimer);
     clearTimeout(this._refreshTimer);
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
-      try { if (runner.constructor && ["DshRunner", "CodexDesktopRunner"].includes(runner.constructor.name)) runner.cancel(); } catch { /* already gone */ }
+      try { if (runner.constructor && ["AcpRunner", "CodexDesktopRunner"].includes(runner.constructor.name)) runner.cancel(); } catch { /* already gone */ }
     }
     // 面板不在这里 detach：固定在侧栏的位置要留着，重载 / 更新插件后原地回来
     try { this.ribbonEl?.remove(); } catch { /* gone */ }
@@ -302,7 +307,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   // ---------- model helpers ----------
   allModels(custom) {
-    const list = [...MODEL_CATALOG, ...(custom || this.settings.models.custom || [])];
+    const list = [...MODEL_CATALOG, ...(this.settings.delegate.dsh.availableModels || []), ...(this.settings.delegate.antigravity.availableModels || []), ...(custom || this.settings.models.custom || [])];
     const seen = new Set();
     const out = [];
     for (const m of list) if (m && m.id && !seen.has(m.id)) { seen.add(m.id); out.push(m); }
@@ -325,7 +330,7 @@ export default class AgentDeckPlugin extends Plugin {
   primaryAgents() { return (this.settings.primaryAgents || []).filter((x) => AGENTS[x]).slice(0, 2); }
   isPrimary(agent) { return this.primaryAgents().includes(agent); }
   agentEnabled(agent) { return this.isPrimary(agent) || (this.settings.agents || {})[agent] !== false; }
-  defaultTarget() { return ["claude", "codex", "dsh"].includes(this.settings.delegate?.target) ? this.settings.delegate.target : "claude"; }
+  defaultTarget() { return ["claude", "codex", "dsh", "antigravity"].includes(this.settings.delegate?.target) ? this.settings.delegate.target : "claude"; }
   defaultModel(agent) {
     return this.settings.delegate?.[agent]?.model || this.settings.models?.defaultByAgent?.[agent] || DEFAULTS.models.defaultByAgent[agent] || "";
   }
@@ -401,7 +406,45 @@ export default class AgentDeckPlugin extends Plugin {
     return out.sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0)).slice(0, limit);
   }
 
+  openConversation(session) {
+    this.conversationModal?.close();
+    this.conversationModal = new ConversationModal(this.app, this, session);
+    this.conversationModal.open();
+  }
+
+  refreshDshModels() { return this.refreshAcpModels("dsh"); }
+
+  async refreshAcpModels(agent) {
+    const models = await this.delegator.refreshAcpModels(agent);
+    for (const model of models) if (!this.settings.models.enabled.includes(model.id)) this.settings.models.enabled.push(model.id);
+    await this.saveSettings();
+    return models;
+  }
+
+  conversationForEditor(editor, view) {
+    if (!view?.file) return;
+    const line = editor.getCursor().line;
+    const map = this.lineMap(view.file.path, editor.cm.state.doc);
+    let session = map.sessionByParent.get(line);
+    if (!session) {
+      const job = this.jobAtLine(view.file.path, line, editor.getLine(line));
+      if (job?.sessionId) session = { ...job, sid: job.sessionId };
+    }
+    if (!session) return this.notice("请把光标放在已绑定会话的任务行上");
+    this.openConversation(session);
+  }
+
+  requestAcpPermission(info, runner) {
+    return new Promise((resolve) => {
+      const modal = new AcpPermissionModal(this.app, info, resolve);
+      runner.permissionModal = modal;
+      modal.open();
+    });
+  }
+
   openSession(agent, sid, app, session) {
+    const job = Object.values(this.jobs).find((j) => j.agent === agent && j.sessionId === sid);
+    if (agent === "antigravity" && job?.transport === "acp") return this.openConversation({ ...job, sid });
     return openSessionRaw(this, agent, sid, app, session);
   }
 
@@ -426,7 +469,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (!sessionId) { this.notice("会话还没有会话号，稍等一秒再点"); return; }
     const meta = this.usage.meta.get(sessionId) || null;
     const agent = job ? job.agent : (meta && meta.agent) || "claude";
-    return openSessionRaw(this, agent, sessionId, (job && job.app) || (meta && meta.app) || "", meta);
+    return this.openSession(agent, sessionId, (job && job.app) || (meta && meta.app) || "", meta);
   }
 
   sessionProgressText(session, job) {
@@ -712,7 +755,7 @@ export default class AgentDeckPlugin extends Plugin {
       // 按住 ⌘ 松手：Claude Code / Codex 在终端里开交互式会话；不按：Claude Code / DeepSeek Harness 后台直接开跑
       // （Claude Code 答完一轮自动在桌面版打开，见设置「完成后自动在桌面版打开」）
       if (cli && (agent === "claude" || agent === "codex")) await this.delegator.handoffCli(opts);
-      else if (agent === "claude" || agent === "dsh") await this.delegator.delegate(opts);
+      else if (["claude", "dsh", "antigravity"].includes(agent)) await this.delegator.delegate(opts);
       else await this.delegator.handoff(opts);
     } catch (e) { this.notice(String(e.message || e), 8000); }
     this.refreshUI();
@@ -863,7 +906,8 @@ export default class AgentDeckPlugin extends Plugin {
       const a = AGENTS[agent];
       const state = isLive ? (s.state || "idle") : "recent";
       const kw = menuKeyword(state);
-      const where = agent === "claude" ? (s.app === "cli" ? "终端" : "桌面版") : agent === "codex" ? (isCodexDesktop(s.app) ? "桌面版" : "CLI") : agent === "workbuddy" ? "桌面版" : agent === "antigravity" ? "IDE" : "Harness";
+      const where = agent === "claude" ? (s.app === "cli" ? "终端" : "桌面版") : agent === "codex" ? (isCodexDesktop(s.app) ? "桌面版" : "CLI") : agent === "workbuddy" ? "桌面版" : agent === "antigravity" ? (s.job?.transport === "acp" ? "Obsidian / ACP" : "IDE") : "Harness";
+      const acp = agent === "antigravity" && s.job?.transport === "acp";
       const url = sessionDeepLink(agent, s.sid);
       const prog = this.sessionProgressText(s);
       const stepStr = [prog, s.step ? truncate(s.step, 30) : ""].filter(Boolean).join(" · ");
@@ -878,7 +922,7 @@ export default class AgentDeckPlugin extends Plugin {
         ago: timeAgo(s.lastAt),
         keyword: kw.id, keywordLabel: kw.zh,
         state, stateLabel: menuStateLabel(state), primary: !!primary,
-        url: agent === "dsh" ? "dsh://open" : agent === "antigravity" ? "antigravity://" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
+        url: acp ? `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(s.sid)}` : agent === "dsh" ? "dsh://open" : agent === "antigravity" ? "antigravity://" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
         copy: (agent === "dsh" || agent === "antigravity") ? s.sid : (agent === "codex" ? `codex resume ${s.sid}` : ""),
         _at: s.lastAt || 0,
       });
@@ -1031,7 +1075,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   async checkBinary(kind) {
-    const bin = kind === "codex" ? this.settings.delegate?.codex?.path || "codex" : kind === "dsh" ? findDshBinary(this.settings.delegate?.dsh?.path || "") : findClaudeBinary(this.settings.delegate?.claude?.path || "");
+    const bin = kind === "codex" ? this.settings.delegate?.codex?.path || "codex" : kind === "antigravity" ? findAgyBinary(this.settings.delegate?.antigravity?.path || "") : kind === "dsh" ? findDshBinary(this.settings.delegate?.dsh?.path || "") : findClaudeBinary(this.settings.delegate?.claude?.path || "");
     return await new Promise((resolve) => {
       execFile(bin, ["--version"], { timeout: 10000, env: process.env }, (err, out, errOut) => {
         if (err) resolve(`${kind} 没找到或不能运行：${String(err.message || err)}\n${String(errOut || "").slice(0, 300)}`);

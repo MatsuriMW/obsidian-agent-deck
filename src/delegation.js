@@ -99,6 +99,12 @@ export function findDshBinary(configured = "") {
   return "dsh";
 }
 
+export function findAgyBinary(configured = "") {
+  if (configured.trim()) return norm(configured.trim());
+  const candidates = [path.join(home(), ".local/bin/agy"), "/opt/homebrew/bin/agy", "/usr/local/bin/agy"];
+  return candidates.find((p) => fs.existsSync(p)) || "agy";
+}
+
 export function findClaudeBinary(configured = "") {
   if (configured && configured.trim()) return norm(configured.trim());
   const candidates = [path.join(home(), ".local/bin/claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", "/usr/bin/claude"];
@@ -624,10 +630,12 @@ class ClaudeRunner {
   }
 }
 
-// ----- DeepSeek Harness ACP -----
-class DshRunner {
+// ----- Local ACP agents: Harness and Antigravity -----
+class AcpRunner {
   constructor(delegator, job) {
     this.d = delegator;
+    this.agent = job.agent || "dsh";
+    this.label = AGENTS[this.agent]?.name || this.agent;
     this.job = job;
     this.child = null;
     this.buf = "";
@@ -642,46 +650,71 @@ class DshRunner {
 
   async start(opts) {
     const d = this.d;
-    const cfg = d.settings.delegate.dsh;
-    const bin = findDshBinary(cfg.path || "");
+    const cfg = d.settings.delegate[this.agent];
+    const bin = this.agent === "antigravity" ? findAgyBinary(cfg.path || "") : findDshBinary(cfg.path || "");
     const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
-    const model = opts.model || cfg.model || "deepseek-v4-pro";
-    const effort = opts.effort || cfg.effort || "high";
+    const model = opts.model || cfg.model || (this.agent === "dsh" ? "deepseek-v4-pro" : "");
+    const effort = opts.effort || cfg.effort || (this.agent === "dsh" ? "high" : "");
     this.job.command = `${bin} acp`;
-    const child = spawn(bin, ["acp"], { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(bin, ["acp", ...splitArgs(cfg.extraArgs || "")], { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
     let err = "";
-    child.stdout.on("data", (b) => this.onData(b.toString()));
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (text) => this.onData(text));
+    child.stdin.on("error", (e) => this.fail(e.message));
     child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 4000) err = err.slice(-4000); this.job.stderr = err.slice(-1000); });
     child.on("error", (e) => this.fail(String(e && e.message || e)));
     child.on("exit", (code) => {
       if (this.finished) return;
-      if (code !== 0) this.fail(err.trim() || `dsh acp 退出码 ${code}`);
+      this.fail(err.trim() || `${this.label} ACP 提前退出（${code}）`);
     });
     try {
       const init = await this.request("initialize", { protocolVersion: 1, clientCapabilities: {} }, 30000);
-      const made = await this.request("session/new", { cwd, mcpServers: [] }, 60000);
-      this.sessionId = made && (made.sessionId || made.session_id);
-      if (!this.sessionId) throw new Error("DeepSeek Harness 没有返回会话号");
+      this.capabilities = init?.agentCapabilities || {};
+      if (opts.sessionId && !this.capabilities.sessionCapabilities?.resume && !this.capabilities.loadSession) {
+        throw new Error(`${this.label} 未声明会话恢复能力，请升级后再续聊`);
+      }
+      const method = opts.sessionId ? (this.capabilities.sessionCapabilities?.resume ? "session/resume" : "session/load") : "session/new";
+      this.loadingSession = !!opts.sessionId;
+      const made = await this.request(method, { cwd, mcpServers: [], ...(opts.sessionId ? { sessionId: opts.sessionId } : {}) }, 60000);
+      this.loadingSession = false;
+      if (this.finished) return false;
+      this.sessionId = opts.sessionId || made?.sessionId || made?.session_id;
+      if (!this.sessionId) throw new Error(`${this.label} 没有返回会话号`);
       this.job.sessionId = this.sessionId;
+      this.job.transport = "acp";
+      let configOptions = made?.configOptions || [];
+      const available = acpModels(this.agent, configOptions);
+      if (available.length) {
+        cfg.availableModels = available;
+        this.job.availableModels = available;
+      }
+      if (opts.discoverOnly) { this.done({}); return true; }
       this.job.state = "running";
       this.d.saveJobs();
       this.d.onSession(this.job, this.sessionId);
-      // model + effort, when the Harness advertises them
-      const options = (made.configOptions || []).map((x) => x.id);
-      if (opts.model && !options.includes("model")) throw new Error("Harness 未提供模型选择，无法使用指定模型");
-      if (opts.effort && !options.includes("reasoning_effort")) throw new Error("Harness 未提供推理强度选择，无法使用指定强度");
-      if (options.includes("model")) {
-        const custom = this.d.plugin && this.d.plugin.modelById ? this.d.plugin.modelById(model) : null;
-        const m = (custom && custom.value) ? { value: custom.value } : resolveDshModel(model);
-        if (m) { try { await this.request("session/set_config_option", { sessionId: this.sessionId, configId: "model", value: m.value }, 15000); } catch (e) { if (opts.model) throw e; } }
+      const isDefault = this.agent === "antigravity" && (!model || model === "antigravity-default");
+      const modelOption = configOptions.find((x) => x.category === "model" || x.id === "model");
+      if (opts.model && !isDefault && !modelOption) throw new Error(`${this.label} 未提供模型选择`);
+      if (modelOption && !isDefault && (!opts.sessionId || opts.model)) {
+        const custom = this.d.plugin?.modelById?.(model);
+        const selected = custom?.value || (this.agent === "dsh" ? resolveDshModel(model)?.value : model);
+        if (!selected) throw new Error(`无法识别 ${this.label} 模型：${model}`);
+        const changed = await this.request("session/set_config_option", { sessionId: this.sessionId, configId: modelOption.id, value: selected }, 15000);
+        configOptions = changed?.configOptions || configOptions;
       }
-      if (options.includes("reasoning_effort")) {
-        const e = dshEffort(effort);
-        if (e) { try { await this.request("session/set_config_option", { sessionId: this.sessionId, configId: "reasoning_effort", value: e }, 15000); } catch (e) { if (opts.effort) throw e; } }
+      const effortOption = configOptions.find((x) => x.category === "thought_level" || x.id === "reasoning_effort");
+      if (opts.effort && !effortOption) throw new Error(`${this.label} 未提供推理强度选择`);
+      if (effortOption && effort && (!opts.sessionId || opts.effort)) {
+        const value = this.agent === "dsh" ? dshEffort(effort) : effort;
+        if (this.agent === "antigravity" && !effortOption.options?.some((o) => o.value === value)) throw new Error(`当前模型不支持推理强度 ${value}`);
+        await this.request("session/set_config_option", { sessionId: this.sessionId, configId: effortOption.id, value }, 15000);
       }
+      if (this.finished) return false;
+      this.job.conversation ||= [];
+      this.job.conversation.push({ role: "user", text: opts.prompt, at: Date.now() });
       this.timer = setTimeout(() => this.fail("委派超过 30 分钟没有结束"), 30 * 60000);
       this.request("session/prompt", { sessionId: this.sessionId, prompt: [{ type: "text", text: opts.prompt }] }, 31 * 60000)
         .then((r) => this.done(r))
@@ -714,13 +747,14 @@ class DshRunner {
       else p.resolve(msg.result);
       return;
     }
+    if (this.finished) return;
     const method = msg.method;
     if (!method) return;
     const params = msg.params || {};
     if (method === "session/update") {
       const u = params.update || {};
       const kind = u.sessionUpdate;
-      if (kind === "agent_message_chunk") {
+      if (kind === "agent_message_chunk" && !this.loadingSession) {
         const t = u.content && u.content.text;
         if (t) { this.assistantText += t; this.job.lastText = this.assistantText.slice(-2000); }
       } else if (kind === "agent_thought_chunk") {
@@ -740,28 +774,48 @@ class DshRunner {
       return;
     }
     if (method === "session/request_permission") {
-      const auto = this.d.settings.delegate.dsh.autoApprove === true;
-      if (auto) {
-        this.respond(msg.id, { outcome: { outcome: "selected", optionId: "allow-once" } });
-      } else {
+      const cfg = this.d.settings.delegate[this.agent];
+      const options = params.options || [];
+      if (this.agent === "antigravity" && this.d.plugin?.requestAcpPermission && cfg.autoApprove !== true) {
         this.job.state = "needs-approval";
-        this.job.step = "等你允许一次工具调用";
-        this.d.saveJobs();
-        this.d.notify({ title: "DeepSeek Harness 需要你允许", body: `「${this.job.name}」停在了一次工具调用上。到设置里打开「自动允许」后重试，或者在 Harness 里手动继续。`, job: this.job });
-        this.respond(msg.id, { outcome: { outcome: "selected", optionId: "reject-once" } });
+        this.job.step = params.toolCall?.title || "等待工具授权";
+        this.d.saveJobs(); this.d.refreshUI();
+        Promise.resolve().then(() => this.d.plugin.requestAcpPermission({ agent: this.agent, toolCall: params.toolCall, options }, this))
+          .then((optionId) => {
+            if (this.finished) return;
+            const selected = options.find((o) => o.optionId === optionId);
+            this.respond(msg.id, { outcome: selected ? { outcome: "selected", optionId: selected.optionId } : { outcome: "cancelled" } });
+            this.job.state = "running"; this.job.step = "";
+            this.d.saveJobs(); this.d.refreshUI();
+          }).catch(() => {
+            if (this.finished) return;
+            this.respond(msg.id, { outcome: { outcome: "cancelled" } });
+            this.job.state = "running"; this.job.step = "工具调用已取消";
+            this.d.saveJobs(); this.d.refreshUI();
+          });
+        return;
       }
+      const auto = cfg.autoApprove === true;
+      const option = options.find((o) => o.kind === (auto ? "allow_once" : "reject_once"));
+      if (!auto) {
+        this.job.step = "工具调用已拒绝";
+        this.d.notify({ title: `${this.label} 需要你允许`, body: `「${this.job.name}」的工具调用已拒绝。可在委派设置中调整权限后重试。`, job: this.job });
+      }
+      this.respond(msg.id, { outcome: option ? { outcome: "selected", optionId: option.optionId } : { outcome: "cancelled" } });
       return;
     }
+    if (msg.id != null) this.send({ jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: `Unsupported method: ${method}` } });
   }
 
   respond(id, result) { this.send({ jsonrpc: "2.0", id, result }); }
 
   send(o) {
-    if (!this.child || !this.child.stdin || this.finished) return;
+    if (!this.child || !this.child.stdin || this.child.stdin.destroyed) return;
     try { this.child.stdin.write(JSON.stringify(o) + "\n"); } catch { /* closed */ }
   }
 
   request(method, params, timeout = 20000) {
+    if (this.finished) return Promise.reject(new Error(`${this.label} 连接已关闭`));
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(`${method} 超时`)); }, timeout);
@@ -774,8 +828,10 @@ class DshRunner {
     if (this.finished) return;
     this.finished = true;
     clearTimeout(this.timer);
+    this.permissionModal?.close();
+    this.clearPending();
     if (this.sessionId) { try { this.send({ jsonrpc: "2.0", method: "session/cancel", params: { sessionId: this.sessionId } }); } catch { /* closed */ } }
-    setTimeout(() => { try { this.child && this.child.kill("SIGTERM"); } catch { /* gone */ } }, 500);
+    this.close();
     this.job.state = "cancelled";
     this.job.endedAt = Date.now();
     this.d.saveJobs();
@@ -786,10 +842,16 @@ class DshRunner {
     if (this.finished) return;
     this.finished = true;
     clearTimeout(this.timer);
+    this.permissionModal?.close();
+    this.clearPending();
     this.job.state = "done";
     this.job.endedAt = Date.now();
     this.job.stopReason = result && result.stopReason || "";
-    if (this.assistantText) this.job.result = this.assistantText;
+    if (this.assistantText) {
+      this.job.result = this.assistantText;
+      this.job.conversation ||= [];
+      this.job.conversation.push({ role: "assistant", text: this.assistantText, at: Date.now() });
+    }
     this.d.saveJobs();
     this.close();
     this.d.onDone(this.job);
@@ -799,6 +861,8 @@ class DshRunner {
     if (this.finished) return;
     this.finished = true;
     clearTimeout(this.timer);
+    this.permissionModal?.close();
+    this.clearPending();
     this.job.state = "error";
     this.job.error = String(message || "").slice(0, 500);
     this.job.endedAt = Date.now();
@@ -807,11 +871,37 @@ class DshRunner {
     this.d.onError(this.job);
   }
 
+  clearPending() {
+    for (const p of this.pending.values()) { clearTimeout(p.timer); p.reject(new Error(`${this.label} 连接已结束`)); }
+    this.pending.clear();
+  }
+
   close() {
-    if (this.sessionId) { try { this.send({ jsonrpc: "2.0", id: this.nextId++, method: "session/close", params: { sessionId: this.sessionId } }); } catch { /* closed */ } }
-    setTimeout(() => { try { this.child && this.child.kill("SIGTERM"); } catch { /* gone */ } }, 1200);
+    if (this.sessionId && this.capabilities?.sessionCapabilities?.close) { try { this.send({ jsonrpc: "2.0", id: this.nextId++, method: "session/close", params: { sessionId: this.sessionId } }); } catch { /* closed */ } }
+    if (this.child) {
+      this.child.stdin.end();
+      const timer = setTimeout(() => { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }, 1200);
+      this.child.once("close", () => clearTimeout(timer));
+      timer.unref();
+    }
     this.d.refreshUI();
   }
+}
+
+export function dshModels(configOptions) { return acpModels("dsh", configOptions); }
+
+export function acpModels(agent, configOptions) {
+  const option = configOptions.find((x) => x.category === "model" || x.id === "model");
+  const result = [];
+  for (const group of option?.options || []) {
+    for (const item of group.options || [group]) {
+      if (typeof item.value !== "string") continue;
+      const builtin = MODEL_CATALOG.find((m) => m.agent === agent && m.value === item.value);
+      result.push({ id: builtin?.id || `${agent}-acp-${Buffer.from(item.value).toString("base64url")}`, agent, name: item.name || item.value,
+        value: item.value, provider: group.options ? group.name : AGENTS[agent].name, context: "—", tags: [], note: item.description || "ACP 服务端返回的模型" });
+    }
+  }
+  return result;
 }
 
 // 内置模型在命令行里的名字（opus / sonnet …）；不在目录里的原样传
@@ -867,7 +957,7 @@ export class Delegator {
   async delegate(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (!["claude", "codex", "dsh"].includes(opts.agent)) return this.handoff(opts);
+    if (!["claude", "codex", "dsh", "antigravity"].includes(opts.agent)) return this.handoff(opts);
     if (opts.agent === "codex" && this.C.codex?.transport === "terminal") return this.handoffCli(opts);
     const agent = opts.agent;
     const file = opts.file;
@@ -894,7 +984,7 @@ export class Delegator {
     this.plugin.saveJobs();
     this.plugin.refreshUI();
     this.plugin.notice(`🛫 正在委派给 ${AGENTS[agent]?.name || agent}：${name}`);
-    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => openSession(this.plugin, "codex", job.sessionId, "vscode")) : agent === "dsh" ? new DshRunner(this, job) : new ClaudeRunner(this, job);
+    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => openSession(this.plugin, "codex", job.sessionId, "vscode")) : ["dsh", "antigravity"].includes(agent) ? new AcpRunner(this, job) : new ClaudeRunner(this, job);
     this.runners.set(job.id, runner);
     try {
       await runner.start({ ...opts, prompt, name });
@@ -904,12 +994,50 @@ export class Delegator {
     return job;
   }
 
-  // Codex / WorkBuddy 没有能起会话的命令行接口：任务文字放进剪贴板、把客户端叫到前台，你粘贴发出去。
+  refreshDshModels() { return this.refreshAcpModels("dsh"); }
+
+  async refreshAcpModels(agent) {
+    this.refreshSettings();
+    return new Promise((resolve, reject) => {
+      const d = { settings: this.settings, vaultPath: this.vaultPath,
+        saveJobs() {}, saveJobsSoon() {}, refreshUI() {}, onDone: (job) => { this.saveJobs(); resolve(job.availableModels || []); },
+        onError: (job) => reject(new Error(job.error)) };
+      const runner = new AcpRunner(d, { agent });
+      runner.start({ discoverOnly: true }).catch((e) => runner.fail(e.message));
+    });
+  }
+
+  async continueSession(session, prompt) {
+    this.refreshSettings();
+    if (!["dsh", "antigravity"].includes(session.agent)) throw new Error("这个 Agent 不支持在 Obsidian 内续聊");
+    prompt = String(prompt || "").trim();
+    if (!prompt) throw new Error("请输入追问内容");
+    const sid = session.sid || session.sessionId;
+    if (!sid) throw new Error("这个会话还没有会话号");
+    const existing = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === sid);
+    if (["starting", "running", "needs-approval"].includes(existing?.state)) throw new Error("请等当前这一轮结束后再发送");
+    if (session.agent === "antigravity" && existing?.transport !== "acp") throw new Error("这是 Antigravity 桌面会话，请在客户端继续；在插件中新建 ACP 委派后可在 Obsidian 内续聊");
+    let job = existing;
+    if (!job) {
+      job = { id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, agent: session.agent,
+        name: session.title || `${AGENTS[session.agent].name} 会话`, sessionId: sid, cwd: session.cwd || this.vaultPath,
+        linkWritten: true, model: "", effort: "", conversation: [] };
+      this.jobs[job.id] = job;
+    }
+    Object.assign(job, { state: "starting", startedAt: Date.now(), endedAt: 0, error: "", result: "", lastText: "", step: "", resultWritten: false });
+    this.saveJobs(); this.refreshUI();
+    const runner = new AcpRunner(this, job);
+    this.runners.set(job.id, runner);
+    await runner.start({ sessionId: sid, prompt, cwd: job.cwd, ...(job.model ? { model: job.model } : {}), ...(job.effort ? { effort: job.effort } : {}) });
+    return job;
+  }
+
+  // 尚未接入自动委派的客户端：复制任务并唤起应用，由用户发送。
   // 之后每轮扫描找这个 Agent 新出现、开头对得上的会话，找到就绑回这一行（🔗 + DELEGATED），面板里的卡片飞进「现在」。
   async handoff(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (["claude", "codex", "dsh"].includes(opts.agent)) return this.delegate(opts);
+    if (["claude", "codex", "dsh", "antigravity"].includes(opts.agent)) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error("没有当前笔记");
@@ -1063,7 +1191,8 @@ export class Delegator {
     if (!block) return;
     if (hasLink(lines, block) >= 0) return;
     const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "\t";
-    const link = linkLine(indent, job.agent, job.name, sid);
+    let link = linkLine(indent, job.agent, job.name, sid);
+    if (job.agent === "antigravity" && job.transport === "acp") link = link.replace("antigravity://open", `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(sid)}`);
     lines.splice(block.start + 1, 0, link);
     if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
     const ensured = J.ensureBlockId(lines[block.start], sid);
@@ -1082,7 +1211,7 @@ export class Delegator {
     const agent = AGENTS[job.agent];
     this.plugin.notice(`✅ ${agent ? agent.name : job.agent} 做完了一轮：${job.name}`, 8000);
     if (this.C.claude.openDesktop === true && job.agent === "claude" && job.sessionId) openSession(this.plugin, "claude", job.sessionId);
-    if (this.settings.autoWriteResult && job.linkWritten) {
+    if (this.settings.autoWriteResult && job.linkWritten && job.path) {
       try { await this.writeResult(job); } catch (e) { console.error("[agent-deck] writeResult", e); }
     }
     this.plugin.refreshUI();

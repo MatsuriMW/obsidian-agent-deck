@@ -61,7 +61,7 @@ export class DelegateOptionsModal extends Modal {
     const target = contentEl.createDiv({ cls: "ad-field" });
     target.createDiv({ cls: "ad-field__label", text: "Delegate to" });
     const targets = target.createDiv({ cls: "ad-targetpick" });
-    for (const id of ["claude", "codex", "dsh"]) {
+    for (const id of ["claude", "codex", "dsh", "antigravity"]) {
       const a = AGENTS[id];
       const b = targets.createEl("button", { cls: "ad-target ad-target--sm" + (this.agent === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
@@ -86,6 +86,15 @@ export class DelegateOptionsModal extends Modal {
       meta.createSpan({ text: m.context });
       for (const t of m.tags || []) meta.createSpan({ cls: "ad-cap", text: t });
       b.onclick = () => { this.model = m.id; this.render(); };
+    }
+
+    if (["dsh", "antigravity"].includes(this.agent)) {
+      const refresh = mf.createEl("button", { cls: "ad-btn", text: `读取 ${AGENTS[this.agent].name} 可用模型` });
+      refresh.onclick = async () => {
+        refresh.disabled = true;
+        try { await p.refreshAcpModels(this.agent); this.render(); }
+        catch (e) { new Notice(e.message); refresh.disabled = false; }
+      };
     }
 
     // Effort
@@ -124,6 +133,8 @@ export class DelegateOptionsModal extends Modal {
       b.onclick = () => { p.settings.delegate.dsh.autoApprove = !p.settings.delegate.dsh.autoApprove; p.saveSettings(); this.render(); };
       af.createDiv({ cls: "ad-hint", text: "ACP 模式没有 plan/auto 这个切换；关掉自动允许时，Harness 的权限请求会被拒绝并提醒你。" });
     }
+
+    if (this.agent === "antigravity") contentEl.createDiv({ cls: "ad-hint", text: "通过 agy acp 委派，工具请求会在 Obsidian 中逐次确认；完成后可打开会话正文继续追问。推理强度以当前模型支持的值为准。" });
 
     // Working directory
     const cf = contentEl.createDiv({ cls: "ad-field" });

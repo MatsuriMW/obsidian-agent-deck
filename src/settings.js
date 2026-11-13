@@ -4,7 +4,8 @@ import { App, PluginSettingTab, Notice, Modal, Menu } from "obsidian";
 import {
   AGENTS, AGENT_ORDER, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS, fmtTok, deepMerge, journalPath, detectJournalFormat,
 } from "./constants.js";
-import { notePath } from "./dream.js";
+import { notePath, companionInstalled } from "./dream.js";
+import { externalMemoryPath } from "./dream-sharing.js";
 import { agentIcon, setLucide } from "./icons.js";
 
 const HOTKEY_MOD_SYMBOL = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘", ctrl: "⌃", alt: "⌥", cmd: "⌘" };
@@ -50,7 +51,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.search = "";
   }
 
+  hide() {
+    if (this._dreamTimer) { clearInterval(this._dreamTimer); this._dreamTimer = null; }
+  }
+
   display() {
+    this.hide();
     const { containerEl } = this;
     const active = (containerEl.ownerDocument || document).activeElement;
     const focusSearch = !!(active && active.classList && active.classList.contains("ad-search__input"));
@@ -183,7 +189,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const state = p.agentEnabled(id) ? "追踪中" : "已关闭";
       this.toggle(foot, enabled, (v) => p.setAgentEnabled(id, v), primary);
       foot.createSpan({ cls: "ad-muted", text: primary ? "主力（全量）" : state });
-      if (["claude", "codex", "dsh"].includes(id)) {
+      if (["claude", "codex", "dsh", "antigravity"].includes(id)) {
         this.modelSelect(card, id, p.defaultModel(id), (value) => { this.setDefaultModel(id, value); this.display(); });
         const main = card.createDiv({ cls: "ad-btnrow" });
         this.bigButton(main, p.defaultTarget() === id ? "默认委派到这里" : "设为默认委派 Agent", () => { s.delegate.target = id; p.saveSettings(); this.display(); });
@@ -213,9 +219,9 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   renderDelegate(body) {
     const p = this.plugin;
     const d = p.settings.delegate;
-    this.card(body, "默认委派到", "Claude Code / DeepSeek Harness 在后台开会话；Codex 在终端里开交互式会话。委派失败时点状态 pill 上的「重试」可以临时改参数。");
+    this.card(body, "默认委派到", "Claude Code / DeepSeek Harness / Antigravity ACP 在后台开会话；Codex 在终端里开交互式会话。委派失败时点状态 pill 上的「重试」可以临时改参数。");
     const targetRow = body.createDiv({ cls: "ad-targetpick" });
-    for (const id of ["claude", "codex", "dsh"]) {
+    for (const id of ["claude", "codex", "dsh", "antigravity"]) {
       const a = AGENTS[id];
       const b = targetRow.createEl("button", { cls: "ad-target" + (d.target === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
@@ -269,15 +275,33 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.toggle(route.querySelector(":scope > .ad-row__right"), d.dsh.autoApprove === true, (v) => { d.dsh.autoApprove = v; p.saveSettings(); });
     const dcwd = this.row(dsh, "工作目录", "留空 = 当前库根目录。", null);
     this.textInput(dcwd.querySelector(":scope > .ad-row__right"), d.dsh.cwd, "留空 = 库根目录", (v) => { d.dsh.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
-    const dextra = this.row(dsh, "额外 ACP 参数", "目前不用填；留给以后版本。", null);
+    const dextra = this.row(dsh, "额外 ACP 参数", "传给 dsh acp 的参数，通常留空。", null);
     this.textInput(dextra.querySelector(":scope > .ad-row__right"), d.dsh.extraArgs, "可留空", (v) => { d.dsh.extraArgs = v; p.saveSettings(); }, "ad-input--wide");
     const dtest = dsh.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(dtest, "读取 Harness 可用模型", async () => {
+      try { const models = await p.refreshDshModels(); new Notice(`已读取 ${models.length} 个模型，包含 Harness 中配置的自定义模型`); this.display(); }
+      catch (e) { new Notice(`读取失败：${e.message}`, 8000); }
+    });
     this.bigButton(dtest, "检查 dsh", async () => { const r = await p.checkBinary("dsh"); new Notice(r, 6000); });
 
     for (const [id, card] of [["claude", claude], ["dsh", dsh]]) {
       const r = this.row(card, "命令行路径", "留空 = 自动查找已安装的 CLI。", null);
       this.textInput(r.querySelector(":scope > .ad-row__right"), d[id].path || "", "自动查找", (v) => { d[id].path = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
+
+    const agy = this.card(body, "Antigravity ACP", "需要独立 Antigravity CLI（agy），安装并运行 agy acp --login 完成登录。任务、回复和后续追问在 Obsidian 内完成；工具请求逐次弹窗确认。此会话不保证能在 Antigravity IDE 中打开。");
+    this.modelSelect(agy, "antigravity", d.antigravity.model, (v) => { this.setDefaultModel("antigravity", v); this.display(); });
+    this.effortControl(agy, "antigravity", d.antigravity.effort, (v) => { d.antigravity.effort = v; p.saveSettings(); });
+    for (const [key, label, hint] of [["path", "agy 程序路径", "留空自动查找，例如 ~/.local/bin/agy"], ["cwd", "工作目录", "留空 = 库根目录"]]) {
+      const r = this.row(agy, label, hint, null);
+      this.textInput(r.querySelector(":scope > .ad-row__right"), d.antigravity[key], hint, (v) => { d.antigravity[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
+    }
+    const atest = agy.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(atest, "读取 Antigravity 可用模型", async () => {
+      try { const models = await p.refreshAcpModels("antigravity"); new Notice(`已读取 ${models.length} 个模型`); this.display(); }
+      catch (e) { new Notice(`读取失败：${e.message}`, 8000); }
+    });
+    this.bigButton(atest, "检查 agy", async () => new Notice(await p.checkBinary("antigravity"), 6000));
 
     // Prompt
     const prompt = this.card(body, "提示词前后缀", "每次委派会把这一块（连同子块）原样发过去，这里的内容加在前后。");
@@ -355,14 +379,54 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.toggle(auto.querySelector(":scope > .ad-row__right"), s.enabled, (v) => { s.enabled = v; p.saveSettings(); });
     const file = this.row(card, "长期记忆笔记", "库内 Markdown 路径。修改路径不会移动旧记忆。", null);
     this.textInput(file.querySelector(":scope > .ad-row__right"), s.path, "Agent Deck/长期记忆.md", (v) => { try { s.path = notePath(v); p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
-    const sync = this.row(card, "同步到 Telegram Companion 陪伴档案", "只同步当前有效记忆，最多 6000 字；完整历史保留在长期记忆笔记。只更新 Agent Deck 专属区段，不会直接发送 Telegram 消息。", null);
-    this.toggle(sync.querySelector(":scope > .ad-row__right"), s.syncProfile, (v) => { s.syncProfile = v; p.saveSettings(); });
-    this.bigButton(card, "现在 Dream 一次", () => p.dreaming.run());
+    if (companionInstalled(p.app)) {
+      const sync = this.row(card, "同步到 Telegram Companion 陪伴档案", "只同步当前有效记忆，最多 6000 字；完整历史保留在长期记忆笔记。只更新 Agent Deck 专属区段，不会直接发送 Telegram 消息。", null);
+      this.toggle(sync.querySelector(":scope > .ad-row__right"), s.syncProfile, (v) => { s.syncProfile = v; p.saveSettings(); });
+    }
+    const run = this.bigButton(card, "现在 Dream 一次", async () => {
+      const task = p.dreaming.run(); update();
+      try { await task; } finally { update(); }
+    });
+    const progress = card.createDiv({ cls: "ad-dream-progress", attr: { role: "status", "aria-live": "polite" } });
+    const phase = progress.createDiv();
+    const elapsed = progress.createDiv({ cls: "ad-muted" });
+    const meter = progress.createEl("progress", { attr: { "aria-label": "Dream 整理进度" } });
     this.bigButton(card, "导出长期记忆 Markdown 副本", () => p.dreaming.exportMemory());
     card.createDiv({ cls: "ad-muted", text: "可在笔记里修改记忆；将状态改为「已拒绝」或删除整条，后续整理会排除它。新证据改变旧记忆时，旧条目标为「已被替代」。" });
-    if (s.coverage) card.createDiv({ cls: "ad-muted", text: `上次采集 ${s.coverage.files} 篇；已处理 ${s.coverage.processed}/${s.coverage.total} 块，待处理 ${s.coverage.pending} 块。` });
-    if (s.lastRun) card.createDiv({ cls: "ad-muted", text: `上次完成：${new Date(s.lastRun).toLocaleString()}` });
-    if (s.lastError) card.createDiv({ cls: "ad-muted", text: `上次未完成：${s.lastError}` });
+    const summary = card.createDiv({ cls: "ad-muted" });
+
+    const c = s.share, sharing = p.dreaming.sharing;
+    const shared = this.card(body, "与其他 Agent 共享记忆", "单向同步为固定路径的 Markdown，保留人工说明、当前有效记忆与来源，排除已拒绝和已被替代条目。让其他 Agent 在启动说明或记忆配置中读取此文件即可。修改请回到原长期记忆笔记；下次同步会覆盖共享文件。");
+    const enabled = this.row(shared, "自动同步共享记忆", "每次 Dream 完成后同步，并按下方间隔定期同步人工修改。独立于每天自动整理，仅在插件运行时执行；失败一小时后重试。", null);
+    this.toggle(enabled.querySelector(":scope > .ad-row__right"), c.enabled, v => { c.enabled = v; p.saveSettings(); });
+    const target = this.row(shared, "共享文件路径", "绝对路径，支持 ~/。例如 /Users/me/shared-agent-memory/memory.md；可放在同步盘或 GitHub 仓库的本地克隆中。首次使用请指定专用文件。", null);
+    this.textInput(target.querySelector(":scope > .ad-row__right"), c.path, "/Users/me/shared-agent-memory/memory.md", v => { try { c.path = v.trim() ? externalMemoryPath(v) : ""; p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
+    const interval = this.row(shared, "定期同步间隔（小时）", "1—168 小时。其他 Agent 读取本地共享文件，或拉取仓库中的这个文件。", null);
+    this.numberInput(interval.querySelector(":scope > .ad-row__right"), c.intervalHours, 1, 168, v => { c.intervalHours = v; p.saveSettings(); });
+    const git = this.row(shared, "同步后提交并推送 Git", "目标文件的父目录须已存在于本地 Git 仓库。使用已有 Git 登录与提交身份，只提交此共享文件，推送到 origin 的当前分支（包括 GitHub）。开启前确认仓库可见范围适合存放这些记忆。", null);
+    this.toggle(git.querySelector(":scope > .ad-row__right"), c.gitPush, v => { c.gitPush = v; p.saveSettings(); });
+    const syncNow = this.bigButton(shared, "立即同步共享记忆", async () => {
+      const task = sharing.sync(); update();
+      try { await task; } finally { update(); }
+    });
+    const sharedStatus = shared.createDiv({ cls: "ad-muted", attr: { role: "status", "aria-live": "polite" } });
+    const update = () => {
+      const d = p.dreaming, state = d.progress;
+      run.disabled = d.busy;
+      run.textContent = d.busy ? "Dream 整理中…" : "现在 Dream 一次";
+      progress.hidden = state.phase === "idle";
+      progress.setAttribute("aria-busy", String(d.busy));
+      const steps = { collect: 1, model: 2, write: 3, sync: 4 };
+      phase.textContent = `${steps[state.phase] ? `第 ${steps[state.phase]}/4 步 · ` : ""}${state.message}`;
+      elapsed.textContent = state.startedAt ? `耗时 ${Math.max(0, Math.floor(((state.endedAt || Date.now()) - state.startedAt) / 1000))} 秒` : "";
+      summary.textContent = [s.coverage ? `上次采集 ${s.coverage.files} 篇；已处理 ${s.coverage.processed}/${s.coverage.total} 块，待处理 ${s.coverage.pending} 块。` : "", s.lastRun ? `上次完成：${new Date(s.lastRun).toLocaleString()}` : "", s.lastError ? `上次未完成：${s.lastError}` : ""].filter(Boolean).join("；");
+      meter.hidden = !d.busy; // Indeterminate: model completion time cannot be measured.
+      syncNow.disabled = sharing.busy || d.busy;
+      syncNow.textContent = sharing.busy ? "共享同步中…" : "立即同步共享记忆";
+      sharedStatus.textContent = [sharing.status || (c.lastError ? `上次共享失败：${c.lastError}` : ""), c.lastSuccess ? `上次同步成功：${new Date(c.lastSuccess).toLocaleString()}` : "尚未同步"].filter(Boolean).join("；");
+    };
+    update();
+    this._dreamTimer = setInterval(update, 1000);
   }
 
   modelsDraft() {
@@ -394,7 +458,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const dhead = defaults.createDiv({ cls: "ad-models-sec" });
     dhead.createSpan({ cls: "ad-kicker", text: "Defaults" });
     const targetSeg = defaults.createDiv({ cls: "ad-models-target" });
-    for (const id of ["claude", "codex", "dsh"]) {
+    for (const id of ["claude", "codex", "dsh", "antigravity"]) {
       const a = AGENTS[id];
       const b = targetSeg.createEl("button", { cls: "ad-target ad-target--sm" + (target === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
@@ -493,7 +557,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       this.groupAction(gh, pinned, d, true);
       for (const m of pinned) this.modelRow(g, m, d, target, defaultId, true);
     }
-    for (const agent of ["claude", "codex", "dsh"]) {
+    for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
       const rows = rest.filter((m) => m.agent === agent);
       if (!rows.length) continue;
       const g = list.createDiv({ cls: "ad-modelgroup" });
@@ -620,7 +684,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     if (!this.draft) return;
     const p = this.plugin;
     p.settings.models = deepMerge(p.settings.models, this.draft);
-    for (const agent of ["claude", "codex", "dsh"]) {
+    for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
       const model = p.settings.models.defaultByAgent[agent];
       if (model) p.settings.delegate[agent].model = model;
       const effort = p.settings.models.effortByAgent?.[agent];
@@ -897,7 +961,7 @@ class AddModelModal extends Modal {
     field("显示名", (f) => { const i = f.createEl("input", { cls: "ad-input", attr: { value: this.name, placeholder: "例如 GPT-6-Luna" } }); i.oninput = () => this.name = i.value; });
     field("Agent", (f) => {
       const s = f.createEl("select", { cls: "ad-select" });
-      for (const id of ["claude", "codex", "dsh"]) s.createEl("option", { text: AGENTS[id].name, attr: { value: id } });
+      for (const id of ["claude", "codex", "dsh", "antigravity"]) s.createEl("option", { text: AGENTS[id].name, attr: { value: id } });
       s.value = this.agent;
       s.disabled = !!this.existing;
       s.onchange = () => { this.agent = s.value; };

@@ -847,3 +847,17 @@ body.ad-dragging-session .markdown-source-view .cm-content { outline: 1px dashed
 .markdown-source-view.mod-cm6 .ad-pill__label { font-weight: 500; }
 .ad-record-hidden, .ad-block-id-hidden { display: none !important; }
 @media (prefers-reduced-motion: reduce) { .ad-records-chevron { transition: none; } }
+
+/* Dream progress stays visible through model calls and reports the final result. */
+.ad-dream-progress { margin: 12px 0; padding: 12px; border: 1px solid var(--background-modifier-border); border-radius: 8px; }
+.ad-dream-progress progress { display: block; width: 100%; margin-top: 8px; accent-color: var(--interactive-accent); }
+.ad-dream-progress[hidden], .ad-dream-progress progress[hidden] { display: none; }
+
+/* Conversation text and in-vault follow-up. */
+.ad-conversation__messages { max-height: 50vh; overflow-y: auto; margin: 12px 0; user-select: text; }
+.ad-conversation__message { border-top: 1px solid var(--background-modifier-border); padding: 8px 0; overflow-wrap: anywhere; }
+.ad-conversation__message pre { white-space: pre-wrap; }
+.ad-conversation .ad-textarea { width: 100%; margin: 8px 0; }
+
+.ad-sess.has-conversation { grid-template-columns: 24px minmax(0, 1fr) 22px 22px; }
+.ad-sess.has-conversation.has-x { grid-template-columns: 24px minmax(0, 1fr) 22px 22px 22px; }

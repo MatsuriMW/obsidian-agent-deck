@@ -8,7 +8,7 @@ Type `@` in a list task to choose an agent. Type `/` to choose its model, then `
 - TODO Review this material @codex/gpt-6.1-sol/high
 ```
 
-The selection stays on that task line and is read when you send or drag it. Child tasks have independent selections. The detailed delegation dialog starts from the mention; changes in the dialog apply only to that dispatch. Custom models in Models are included. WorkBuddy and Antigravity use client handoff, with model and effort configured in the client.
+The selection stays on that task line and is read when you send or drag it. Child tasks have independent selections. The detailed delegation dialog starts from the mention; changes in the dialog apply only to that dispatch. Custom models in Models are included. WorkBuddy uses client handoff, with model and effort configured in the client. Antigravity uses direct CLI delegation and in-plugin follow-up.
 
 The new **Dreaming** settings page offers a manual run and an optional daily run. It reads the last fourteen journal days and notes attached to tracked delegation jobs, within a bounded input budget. AI records must already be written to notes. It reuses the journal model CLI, model and login; material goes to that CLI's model provider. Automatic runs require the plugin to be running and are disabled by default.
 
@@ -43,6 +43,7 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 - [Delegate targets](#delegate-targets)
 - [Deep links](#deep-links)
 - [The status pill](#the-status-pill)
+- [Runtime requirements](#runtime-requirements)
 - [Installation](#installation)
 - [Settings](#settings)
 - [Compatibility with Nautilus Spiral](#compatibility-with-nautilus-spiral)
@@ -61,10 +62,10 @@ The current version tracks these five agents through their local session logs:
 | Claude Code | `~/.claude/projects` and Code sessions in the Claude desktop app | TaskCreate / TaskUpdate / TodoWrite steps when available; conversation turns otherwise | Background CLI or interactive terminal |
 | Codex | `~/.codex/sessions`, `archived_sessions` and session indexes | Conversation turns | App Server first turn with Desktop continuation, or terminal CLI |
 | WorkBuddy | `~/.workbuddy/projects`, combined with `workbuddy.db` metadata | Conversation turns | Open the client and copy the task for you to paste and send |
-| DeepSeek Harness (DSH) | zstd logs under `~/.dsh/sessions` and the local usage statistics interface | Conversation turns | Background ACP with model and effort selection |
-| Antigravity | `~/.gemini/antigravity/brain/<session-id>/.system_generated/logs/transcript.jsonl` | Conversation turns, planner replies and tool actions | Open the client and copy the task for you to paste and send |
+| DeepSeek Harness (DSH) | zstd logs under `~/.dsh/sessions` and the local usage statistics interface | Conversation turns | Background delegation with model and effort selection |
+| Antigravity | Original IDE logs and conversation history saved with plugin jobs | Conversation turns, planner replies and tool actions | Direct CLI delegation, in-plugin follow-up and text export |
 
-All five can bind to journal tasks, create automatic entries and write conclusions back. State and token data depend on the fields each client actually logs. Archive detection is integrated for Claude, Codex, WorkBuddy and DSH; Antigravity archive detection is not currently guaranteed. Clicking an Antigravity or DSH session opens the client and copies the session ID rather than jumping directly to that conversation.
+All five can bind to journal tasks, create automatic entries and write conclusions back. State and token data depend on the fields each client actually logs. Archive detection is integrated for Claude, Codex, WorkBuddy and DSH; Antigravity archive detection is not currently guaranteed. Plugin-created Antigravity CLI sessions open the conversation inside Obsidian. Original Antigravity IDE sessions and the DSH client entry still open the app and copy the session ID.
 
 Models can be added or edited in Models. Adding a model does not add another agent log reader. The plugin is developed and verified on macOS; client paths and navigation on other systems are unverified.
 
@@ -216,13 +217,13 @@ If Claude Code has never trusted the vault, the plugin reads `~/.claude.json` an
 
 ### DeepSeek Harness
 
-Agent Deck speaks ACP (Agent Client Protocol) to `dsh acp`. It creates a real Harness session, selects the model and `reasoning_effort`, sends the prompt, and follows the `session/update` stream. The task starts right away and the answer is written back as `💬`. The session is persisted in `~/.dsh/sessions`, so Agent Deck can continue tracking it.
+Agent Deck starts a local Harness session with your selected model and reasoning effort. The task starts right away and the answer is written back as `💬`. The session is persisted in `~/.dsh/sessions`, so Agent Deck can continue tracking it.
 
 Tested on 2026-11-13 with Harness 0.2.2-rc.1: `@dsh/deepseek-v4-pro/high` used the selected model and effort and wrote its reply back to the note. The session appeared under the desktop sidebar's ungrouped section and could be continued after selecting it manually. Agent Deck's `dsh://open` link currently only brings the client forward and copies the session ID; it does not navigate to a specific session.
 
 **The DeepSeek Harness desktop app is still undergoing rapid iteration and is not yet very stable.** Session visibility and integration behavior may change between versions; the results above apply to the tested version.
 
-ACP does not expose Claude-style plan/auto permission modes. Instead the plugin can auto-approve one-shot tool permissions, or reject them and notify you.
+Harness tool requests can be automatically approved once, or rejected with a notification.
 
 ### Codex and WorkBuddy
 
@@ -237,7 +238,7 @@ Codex sessions open in the desktop app with `codex://threads/<id>` (and `codex r
 | Agent | Link | State |
 |---|---|---|
 | Claude Code | `claude://resume?session=<id>` | Works |
-| WorkBuddy | `workbuddy://chat/<id>` | Works |
+| WorkBuddy | `workbuddy://chat/<id>` | WorkBuddy-native sessions only; does not import independent CodeBuddy CLI sessions |
 | DeepSeek Harness | `dsh://open` | The current integration opens the client and copies the session ID. Select the matching session manually in the sidebar. |
 | Codex | `codex://threads/<id>` | Works; also copies `codex resume <id>` |
 | Antigravity | `antigravity://` | Opens the client and copies the session ID; no direct conversation navigation |
@@ -252,6 +253,49 @@ The pill is a CodeMirror widget. It only lives on lines that already have a sess
 4. **Done** or **Error**, with an open/retry control.
 
 When a delegation fails, **Retry** on its status pill opens the options sheet:
+
+## Runtime requirements
+
+Agent Deck currently starts local programs for automatic Claude, Codex, DSH and Antigravity delegation. If the required program is missing or cannot run, that delegation path is unavailable. A desktop app may bundle the program; a separate global CLI installation is not always necessary. Remote API or SDK backends can work without a local CLI, but this version does not provide a generic remote delegation backend.
+
+Reading existing logs, binding tasks, viewing conversation text and exporting it do not start an Agent CLI. AI naming, summaries, polishing and Dreaming separately require a configured, authenticated Claude or Codex CLI.
+
+| Feature / Agent | Current implementation | Required on the user's machine |
+|---|---|---|
+| Claude Code automatic delegation | Headless `claude` process or terminal session | Installed and authenticated Claude Code; Claude desktop app for desktop continuation |
+| Codex desktop mode | `codex app-server` | Working, authenticated Codex executable and Codex desktop app; bundled executable preferred |
+| Codex terminal mode | Interactive `codex` | Codex CLI available to the terminal and its authentication |
+| DeepSeek Harness delegation and in-plugin follow-up | Harness CLI | A compatible Harness installation and configured model/provider credentials |
+| WorkBuddy handoff | Clipboard plus client launch; user sends | Chinese-edition WorkBuddy desktop app; no independent CodeBuddy CLI required for this path |
+| Antigravity delegation and in-plugin follow-up | Antigravity CLI | Standalone Antigravity CLI with its own login; installing the IDE alone is insufficient |
+| AI journaling, polishing and Dreaming | Selected `claude` or `codex` CLI | Check that feature's executable path, authentication and model availability separately |
+| macOS menu-bar helper | Local SwiftUI compilation on first use | `swiftc` from Xcode Command Line Tools; disable the feature if unused |
+
+### Install and verify
+
+Prepare only the agents you intend to use.
+
+1. Follow the official installation instructions for [Claude Code](https://code.claude.com/docs/en/setup), [Codex](https://developers.openai.com/codex/cli/), [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) or [Antigravity CLI](https://antigravity.google/docs/cli/acp). Installing the released plugin files does not require `npm install`. Node.js/npm are needed to build this repository; agent installers may have their own requirements.
+2. Check the selected program: `claude --version`, `codex --version` or `dsh --help`. For Antigravity, check `agy --version` and complete the CLI login following the official instructions. Use an absolute path if the program is not on PATH. Desktop Codex and Harness can use bundled executables.
+3. Complete the selected agent's login or provider setup. A version check does not prove authentication, quota or model availability. Signing into a desktop app does not establish that a separate CLI is authenticated.
+4. Set executable overrides under **Settings → Agent Deck → Delegation**. Obsidian's environment on macOS can differ from your terminal; use an absolute path when necessary. Check the separate journaling CLI configuration used by AI organization and Dreaming too.
+5. Delegate a small task asking for a fixed reply without tools. Then verify follow-up, text export and desktop continuation if required. This task calls the model service; only an end-to-end test establishes readiness.
+
+The existing **Check** buttons check executables and versions only. This version does not install agents, alter shell configuration, copy credentials or sign users in automatically. If the menu-bar compiler is missing, install Xcode Command Line Tools with `xcode-select --install` following the system prompts.
+
+### Antigravity delegation and follow-up
+
+Install the standalone CLI and complete its login following the official instructions. Under **Delegation → Antigravity CLI**, check the executable and read available models. An absolute path such as `~/.local/bin/agy` can be configured. The default option preserves the server model; unsupported effort values fail explicitly.
+
+Delegate through `@antigravity`, the paper-plane target or the agent card. Open the bound session inside Obsidian to read replies, continue the same conversation, stop a turn or export text. Tool permission requests show the server's tool details and choices; closing the dialog cancels the request. Automatic tool approval is disabled by default.
+
+Original IDE sessions remain separate. Conversation messages are saved with delegation jobs in plugin `data.json`; export them to notes before using **Clean finished delegation records** for long-term retention. Text exports exclude tool results, internal reasoning and attachments. CLI-to-IDE same-session continuation is not guaranteed.
+
+### WorkBuddy editions
+
+Chinese-edition WorkBuddy uses `~/.workbuddy` and `workbuddy://`. International WorkBuddy AI uses `~/.workbuddy-ai` and `workbuddy-ai://`. The current plugin's WorkBuddy reader and launch target are configured for the Chinese edition; a separate international target is not implemented.
+
+In a 2026-11-13 test, the independent CodeBuddy CLI completed a task after login, but opening its session ID in Chinese-edition WorkBuddy produced `conversation not found` in desktop logs. Installing CodeBuddy CLI therefore does not turn the current WorkBuddy handoff into automatic delegation. International-edition same-session import and continuation remain unverified.
 
 ## Installation
 
@@ -270,7 +314,7 @@ npm install
 npm run build
 ```
 
-`npm run build` writes `main.js` with esbuild. The only runtime dependency is `fzstd`, used to read DeepSeek Harness's zstd-compressed session logs.
+`npm run build` writes `main.js` with esbuild. The JavaScript dependency `fzstd` is bundled into the plugin to read Harness zstd logs; users do not install it separately. Agent executables and authentication are separate requirements listed above.
 
 ## Settings
 

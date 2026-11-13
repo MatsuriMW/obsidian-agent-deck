@@ -313,7 +313,7 @@ export class AgentDeckView extends ItemView {
     card.style.setProperty("--ad-agent-soft", a.soft);
     // 笔记里的一项拖上来 = 委派给它
     // 按住 ⌘：Claude Code / Codex 改在终端里开交互式会话
-    const handoff = id === "codex" || id === "workbuddy" || id === "antigravity";
+    const handoff = id === "codex" || id === "workbuddy";
     const cliCapable = id === "claude" || id === "codex";
     const hint = handoff ? `交给 ${a.short}` : `委派给 ${a.short}`;
     // 设置里「默认在终端里委派」开着时反过来：不按 ⌘ 在终端里开，按住 ⌘ 走原来的后台 / 客户端
@@ -510,6 +510,12 @@ export class AgentDeckView extends ItemView {
       kin.createSpan({ cls: "ad-sess__kinmark", text: "↳" });
       kin.createSpan({ cls: "ad-sess__kintitle", text: `从「${truncate(s.parentTitle || "母会话", 24)}」开出` });
       if (s.deskTitle && s.deskTitle !== s.title) kin.title = `桌面版里的标题：${s.deskTitle}`;
+    }
+    if (["claude", "codex", "workbuddy", "dsh", "antigravity"].includes(s.agent)) {
+      card.addClass("has-conversation");
+      const conversation = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": "查看对话、续聊与归档" } });
+      setLucide(conversation.createSpan({ cls: "ad-arrow__icon" }), "messages-square");
+      conversation.onclick = (e) => { e.stopPropagation(); p.openConversation(s); };
     }
     if (compact) {
       card.addClass("has-x");

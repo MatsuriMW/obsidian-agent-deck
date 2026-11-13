@@ -72,6 +72,7 @@ export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent
 // Models shown in the layered picker. `cli` is what Claude Code receives;
 // `value` is what the DeepSeek Harness ACP config option receives.
 export const MODEL_CATALOG = [
+  { id: "antigravity-default", agent: "antigravity", name: "CLI 当前默认模型", value: "", provider: "Antigravity", context: "—", tags: [], note: "使用服务端的默认模型；读取可用模型后可指定模型。" },
   {
     id: "claude-opus-5-5",
     agent: "claude",
@@ -215,6 +216,7 @@ export const MODEL_CATALOG = [
 ];
 
 export const EFFORTS = {
+  antigravity: ["low", "medium", "high", "xhigh"].map((id) => ({ id, label: id, hint: "实际可用强度由 ACP 服务端校验" })),
   codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: "由所选 Codex 模型支持的强度决定" })),
   claude: [
     { id: "low", label: "Low", hint: "Fastest" },
@@ -303,7 +305,7 @@ export const DEFAULTS = {
   autoWriteResult: true,
   resultMax: 240,
   importNautilus: true,
-  dream: { enabled: false, path: "Agent Deck/长期记忆.md", syncProfile: false, lastRun: 0, lastAttempt: 0, states: {}, coverage: null, lastError: "" },
+  dream: { enabled: false, path: "Agent Deck/长期记忆.md", syncProfile: false, lastRun: 0, lastAttempt: 0, states: {}, coverage: null, lastError: "", share: { enabled: false, path: "", intervalHours: 24, gitPush: false, lastAttempt: 0, lastSuccess: 0, lastError: "" } },
   // Delegation
   delegate: {
     target: "claude",
@@ -320,6 +322,7 @@ export const DEFAULTS = {
       extraArgs: "",
     },
     codex: { transport: "desktop", model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
+    antigravity: { model: "antigravity-default", effort: "medium", path: "", cwd: "", autoApprove: false },
     dsh: {
       model: "deepseek-v4-pro",
       effort: "high",
@@ -341,7 +344,7 @@ export const DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "deepseek-v4-pro" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "deepseek-v4-pro", antigravity: "antigravity-default" },
     effort: "high",
     effortByAgent: {},
   },
