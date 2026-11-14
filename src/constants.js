@@ -413,6 +413,31 @@ export function deepMerge(base, extra) {
   return out;
 }
 
+export function syncDelegationSettings(settings, raw = null) {
+  if (!settings || typeof settings !== "object") return settings;
+  const d = (settings.delegate ||= {});
+  const m = (settings.models ||= {});
+  m.defaultByAgent ||= {};
+  m.effortByAgent ||= {};
+  m.enabled = Array.isArray(m.enabled) ? m.enabled : [];
+  if (!["claude", "codex", "dsh", "antigravity"].includes(d.target)) d.target = "claude";
+  for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
+    const cfg = (d[agent] ||= {});
+    const rawDelModel = raw?.delegate?.[agent]?.model;
+    const rawModModel = raw?.models?.defaultByAgent?.[agent];
+    const model = rawDelModel || rawModModel || cfg.model || m.defaultByAgent[agent] || DEFAULTS.models.defaultByAgent[agent] || "";
+    cfg.model = model;
+    m.defaultByAgent[agent] = model;
+    if (model && !m.enabled.includes(model)) m.enabled.push(model);
+    const rawDelEffort = raw?.delegate?.[agent]?.effort;
+    const rawModEffort = raw?.models?.effortByAgent?.[agent];
+    const effort = rawDelEffort || rawModEffort || cfg.effort || m.effortByAgent[agent] || DEFAULTS.delegate[agent]?.effort || "high";
+    cfg.effort = effort;
+    m.effortByAgent[agent] = effort;
+  }
+  return settings;
+}
+
 export function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
 export function pad(n) { return String(n).padStart(2, "0"); }
 export function fmtKey(d = new Date(), cfg = {}) {

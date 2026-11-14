@@ -8,6 +8,7 @@ export default {
   "打开 macOS 菜单栏面板": "Open macOS menu bar panel",
   "打开 Agent Deck 设置": "Open Agent Deck settings",
   "打开 Agent Deck 的 Models 设置": "Open Agent Deck Models settings",
+  "打开 Agent Deck 的管理模型设置": "Open Agent Deck Manage models settings",
   "委派当前任务 / 打开任务操作": "Delegate current task / open task actions",
   "当前任务：续聊、停止、重新委派": "Current task: continue, stop, re-delegate",
   "处理下一条需要授权或确认的会话": "Handle the next session that needs approval or confirmation",
@@ -26,7 +27,9 @@ export default {
 
   // ----- notices: menu bar, scanning, importing -----
   "macOS 菜单栏已关闭，请先在「追踪」里打开": "The macOS menu bar is off — turn it on under Tracking first",
+  "macOS 菜单栏已关闭，请先在「记录」里打开": "The macOS menu bar is off — turn it on under Recording first",
   "已隐藏 macOS 菜单栏；可在 Agent Deck → 追踪 里重新打开": "macOS menu bar hidden — reopen it in Agent Deck → Tracking",
+  "已隐藏 macOS 菜单栏；可在 Agent Deck → 记录 里重新打开": "macOS menu bar hidden — reopen it in Agent Deck → Recording",
   "目前没有需要授权或确认的会话": "No session needs approval or confirmation right now",
   "当前任务没有可停止的执行": "Nothing is running for the current task",
   "Agent Deck：读到 {files} 个日志，{days} 天有内容": "Agent Deck: read {files} log files, {days} days with content",

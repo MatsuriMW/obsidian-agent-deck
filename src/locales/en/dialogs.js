@@ -154,5 +154,6 @@ export default {
   "插到文件开头": "Top of the file",
   "追加到文件末尾": "End of the file",
   "写入顺序：{order}（在 设置 → 追踪 里改）": "Write order: {order} (change it in Settings → Tracking)",
+  "写入顺序：{order}（在 设置 → 记录 里改）": "Write order: {order} (change it in Settings → Recording)",
   "归档": "Archive",
 };

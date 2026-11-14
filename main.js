@@ -1,4 +1,4 @@
-/* Agent Deck 1.9.1 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.9.2 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -46,6 +46,7 @@ var main_default = {
   "\u6253\u5F00 macOS \u83DC\u5355\u680F\u9762\u677F": "Open macOS menu bar panel",
   "\u6253\u5F00 Agent Deck \u8BBE\u7F6E": "Open Agent Deck settings",
   "\u6253\u5F00 Agent Deck \u7684 Models \u8BBE\u7F6E": "Open Agent Deck Models settings",
+  "\u6253\u5F00 Agent Deck \u7684\u7BA1\u7406\u6A21\u578B\u8BBE\u7F6E": "Open Agent Deck Manage models settings",
   "\u59D4\u6D3E\u5F53\u524D\u4EFB\u52A1 / \u6253\u5F00\u4EFB\u52A1\u64CD\u4F5C": "Delegate current task / open task actions",
   "\u5F53\u524D\u4EFB\u52A1\uFF1A\u7EED\u804A\u3001\u505C\u6B62\u3001\u91CD\u65B0\u59D4\u6D3E": "Current task: continue, stop, re-delegate",
   "\u5904\u7406\u4E0B\u4E00\u6761\u9700\u8981\u6388\u6743\u6216\u786E\u8BA4\u7684\u4F1A\u8BDD": "Handle the next session that needs approval or confirmation",
@@ -63,7 +64,9 @@ var main_default = {
   "\u6E05\u7406\u5DF2\u7ED3\u675F\u7684\u59D4\u6D3E\u8BB0\u5F55": "Clean up finished delegation records",
   // ----- notices: menu bar, scanning, importing -----
   "macOS \u83DC\u5355\u680F\u5DF2\u5173\u95ED\uFF0C\u8BF7\u5148\u5728\u300C\u8FFD\u8E2A\u300D\u91CC\u6253\u5F00": "The macOS menu bar is off \u2014 turn it on under Tracking first",
+  "macOS \u83DC\u5355\u680F\u5DF2\u5173\u95ED\uFF0C\u8BF7\u5148\u5728\u300C\u8BB0\u5F55\u300D\u91CC\u6253\u5F00": "The macOS menu bar is off \u2014 turn it on under Recording first",
   "\u5DF2\u9690\u85CF macOS \u83DC\u5355\u680F\uFF1B\u53EF\u5728 Agent Deck \u2192 \u8FFD\u8E2A \u91CC\u91CD\u65B0\u6253\u5F00": "macOS menu bar hidden \u2014 reopen it in Agent Deck \u2192 Tracking",
+  "\u5DF2\u9690\u85CF macOS \u83DC\u5355\u680F\uFF1B\u53EF\u5728 Agent Deck \u2192 \u8BB0\u5F55 \u91CC\u91CD\u65B0\u6253\u5F00": "macOS menu bar hidden \u2014 reopen it in Agent Deck \u2192 Recording",
   "\u76EE\u524D\u6CA1\u6709\u9700\u8981\u6388\u6743\u6216\u786E\u8BA4\u7684\u4F1A\u8BDD": "No session needs approval or confirmation right now",
   "\u5F53\u524D\u4EFB\u52A1\u6CA1\u6709\u53EF\u505C\u6B62\u7684\u6267\u884C": "Nothing is running for the current task",
   "Agent Deck\uFF1A\u8BFB\u5230 {files} \u4E2A\u65E5\u5FD7\uFF0C{days} \u5929\u6709\u5185\u5BB9": "Agent Deck: read {files} log files, {days} days with content",
@@ -283,6 +286,26 @@ var settings_default = {
   "\u9ED8\u8BA4\u8BBE\u7F6E": "Defaults",
   "\u9ED8\u8BA4\u6A21\u578B": "Default model",
   "\u53EF\u7528\u6A21\u578B": "Available models",
+  "\u8FFD\u8E2A\u4E3B\u529B\u4E0E\u9ED8\u8BA4\u59D4\u6D3E\u5206\u522B\u8BBE\u7F6E": "Primary tracking and default delegation are set separately.",
+  "\u66F4\u591A Claude Code \u9009\u9879": "More Claude Code options",
+  "\u516C\u5171\u7EC8\u7AEF\u4E0E\u5176\u4F59 Agent": "Shared terminal and other Agents",
+  "\u5BA2\u6237\u7AEF\u4EA4\u63A5 \xB7 \u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u6A21\u578B": "Client handoff \xB7 choose models in the client",
+  "\u53D1\u9001\u89C4\u5219": "Sending rules",
+  "\u4EFB\u52A1\u884C Agent \u8865\u5168\u3001\u63D0\u793A\u8BCD\u524D\u540E\u7F00\u548C\u59D4\u6D3E\u9644\u52A0\u8981\u6C42": "Task-line completion, prompt prefix/suffix and extra instructions.",
+  "\u7BA1\u7406\u6A21\u578B": "Manage models",
+  "\u6DFB\u52A0\u3001\u7F16\u8F91\u3001\u542F\u7528\u3001\u7F6E\u9876\u548C\u6392\u5E8F\u53EF\u7528\u6A21\u578B": "Add, edit, enable, pin and sort available models.",
+  "\u6765\u6E90\u4E0E\u626B\u63CF": "Sources and scanning",
+  "Claude \u684C\u9762\u7248\u5B50\u4F1A\u8BDD\u4E0E\u6BCD\u5B50\u5173\u8054": "Claude desktop child sessions and parent links.",
+  "\u65E5\u8BB0\u4E0E\u5F52\u6863": "Journal and archives",
+  "\u81EA\u52A8\u4F1A\u8BDD\u8BB0\u5F55": "Automatic session recording",
+  "\u81EA\u52A8\u5C06\u6D3B\u8DC3\u4F1A\u8BDD\u5EFA\u9879\u5E76\u8BB0\u5165\u4ECA\u65E5\u65E5\u8BB0": "Automatically create journal entries for active sessions.",
+  "\u59D4\u6D3E\u4EFB\u52A1\u56DE\u5199": "Delegated-task write-back",
+  "\u59D4\u6D3E\u5B8C\u6210\u540E\u5199 \u{1F4AC} \u7ED3\u8BBA": "Write a \u{1F4AC} conclusion when delegation finishes.",
+  "\u6574\u7406\u65E5\u5FD7\u6A21\u677F\u4E0E\u5F52\u6863": "Layout template and archives",
+  "\u81EA\u52A8\u6574\u7406\u3001\u6DA6\u8272\u4F7F\u7528\u7684 CLI\u3001\u6A21\u578B\u4E0E\u8C03\u7528\u9891\u7387\uFF0C\u72EC\u7ACB\u4E8E\u59D4\u6D3E\u6A21\u578B": "CLI, models and schedule for tidying and polishing.",
+  "\u5C55\u793A\u4E0E\u7EF4\u62A4": "Display and maintenance",
+  "\u4F1A\u8BDD\u6253\u5F00\u65B9\u5F0F\u3001\u9762\u677F\u3001\u7F16\u8F91\u5668\u4E0E\u83DC\u5355\u680F\u663E\u793A\u3001\u7F13\u5B58\u7EF4\u62A4": "Session opening, panel, editor, menu bar and maintenance.",
+  "\u5728\u300C\u8BB0\u5F55\u300D\u4E2D\u5F00\u542F\u81EA\u52A8\u4F1A\u8BDD\u8BB0\u5F55\uFF0C\u5728 Dreaming \u4E2D\u6574\u7406\u8BB0\u5FC6": "Enable automatic session recording in Recording; distill memories in Dreaming.",
   "\u9ED8\u8BA4\u59D4\u6D3E": "Default destination",
   "\u8BBE\u4E3A\u9ED8\u8BA4\u59D4\u6D3E": "Use as default destination",
   "\u9ED8\u8BA4 @\uFF0C\u524D\u9762\u9700\u7A7A\u683C": "Default: @, preceded by a space.",
@@ -859,6 +882,7 @@ var dialogs_default = {
   "\u63D2\u5230\u6587\u4EF6\u5F00\u5934": "Top of the file",
   "\u8FFD\u52A0\u5230\u6587\u4EF6\u672B\u5C3E": "End of the file",
   "\u5199\u5165\u987A\u5E8F\uFF1A{order}\uFF08\u5728 \u8BBE\u7F6E \u2192 \u8FFD\u8E2A \u91CC\u6539\uFF09": "Write order: {order} (change it in Settings \u2192 Tracking)",
+  "\u5199\u5165\u987A\u5E8F\uFF1A{order}\uFF08\u5728 \u8BBE\u7F6E \u2192 \u8BB0\u5F55 \u91CC\u6539\uFF09": "Write order: {order} (change it in Settings \u2192 Recording)",
   "\u5F52\u6863": "Archive"
 };
 
@@ -1526,6 +1550,30 @@ function deepMerge(base, extra) {
     else out[k] = v;
   }
   return out;
+}
+function syncDelegationSettings(settings, raw = null) {
+  if (!settings || typeof settings !== "object") return settings;
+  const d = settings.delegate || (settings.delegate = {});
+  const m = settings.models || (settings.models = {});
+  m.defaultByAgent || (m.defaultByAgent = {});
+  m.effortByAgent || (m.effortByAgent = {});
+  m.enabled = Array.isArray(m.enabled) ? m.enabled : [];
+  if (!["claude", "codex", "dsh", "antigravity"].includes(d.target)) d.target = "claude";
+  for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
+    const cfg = d[agent] || (d[agent] = {});
+    const rawDelModel = raw?.delegate?.[agent]?.model;
+    const rawModModel = raw?.models?.defaultByAgent?.[agent];
+    const model = rawDelModel || rawModModel || cfg.model || m.defaultByAgent[agent] || DEFAULTS.models.defaultByAgent[agent] || "";
+    cfg.model = model;
+    m.defaultByAgent[agent] = model;
+    if (model && !m.enabled.includes(model)) m.enabled.push(model);
+    const rawDelEffort = raw?.delegate?.[agent]?.effort;
+    const rawModEffort = raw?.models?.effortByAgent?.[agent];
+    const effort = rawDelEffort || rawModEffort || cfg.effort || m.effortByAgent[agent] || DEFAULTS.delegate[agent]?.effort || "high";
+    cfg.effort = effort;
+    m.effortByAgent[agent] = effort;
+  }
+  return settings;
 }
 function clamp(n, a, b) {
   return Math.max(a, Math.min(b, n));
@@ -9093,7 +9141,7 @@ var AgentCardsModal = class extends import_obsidian3.Modal {
     const settings = foot.createEl("button", { text: t("Agent \u8BBE\u7F6E") });
     settings.onclick = () => {
       this.close();
-      view.plugin.openSettings("agents");
+      view.plugin.openSettings("record");
     };
     foot.createEl("button", { text: t("\u5B8C\u6210") }).onclick = () => this.close();
   }
@@ -9720,11 +9768,17 @@ function hotkeySpecFromEvent(event, key) {
   if (event.metaKey) mods.push("command");
   return [...mods, key].join("+");
 }
+function catalogSnapshot(src = {}) {
+  return {
+    enabled: [...src.enabled || []],
+    pinned: [...src.pinned || []],
+    order: [...src.order || []],
+    custom: JSON.parse(JSON.stringify(src.custom || []))
+  };
+}
 var TABS = [
-  ["agents", "Agents", "users"],
   ["delegate", "\u59D4\u6D3E", "send"],
-  ["models", "Models", "layers"],
-  ["tracking", "\u8FFD\u8E2A", "radar"],
+  ["record", "\u8BB0\u5F55", "radar"],
   ["dream", "Dreaming", "moon"],
   ["about", "\u5173\u4E8E", "info"]
 ];
@@ -9732,10 +9786,25 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
-    this.tab = "agents";
+    this.tab = "delegate";
     this.draft = null;
     this.filter = "all";
     this.search = "";
+    this.subOpen = {};
+  }
+  normalizeTab(tab) {
+    if (tab === "models") return "delegate";
+    if (tab === "agents" || tab === "tracking" || tab === "record") return "record";
+    if (tab === "dream" || tab === "about" || tab === "delegate") return tab;
+    return "delegate";
+  }
+  openTab(tab) {
+    if (tab === "models") {
+      this.tab = "delegate";
+      this._scrollToModels = true;
+    } else {
+      this.tab = this.normalizeTab(tab);
+    }
   }
   hide() {
     if (this._dreamTimer) {
@@ -9745,6 +9814,9 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
   }
   display() {
     this.hide();
+    if (this.tab === "models") this._scrollToModels = true;
+    this.tab = this.normalizeTab(this.tab);
+    syncDelegationSettings(this.plugin.settings);
     const { containerEl } = this;
     const active = (containerEl.ownerDocument || document).activeElement;
     const focusSearch = !!(active && active.classList && active.classList.contains("ad-search__input"));
@@ -9757,7 +9829,6 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     }
     containerEl.empty();
     containerEl.addClass("ad-settings");
-    const s = this.plugin.settings;
     const head = containerEl.createDiv({ cls: "ad-set-head" });
     const brand = head.createDiv({ cls: "ad-brand" });
     const brandMark = brand.createSpan({ cls: "ad-brand__mark" });
@@ -9766,10 +9837,11 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     bt.createDiv({ cls: "ad-brand__name", text: "Agent Deck" });
     bt.createDiv({ cls: "ad-brand__sub", text: `${t("\u667A\u80FD\u4F53\u7532\u677F")} \xB7 v${this.plugin.manifest.version}` });
     const nav = containerEl.createDiv({ cls: "ad-set-nav" });
-    const dirty = this.draft && JSON.stringify(this.draft) !== JSON.stringify(this.plugin.settings.models);
+    const dirty = this.isDraftDirty();
     for (const [id, label, icon] of TABS) {
-      const text = id === "models" && dirty ? `${t(label)} \xB7` : t(label);
-      const b = nav.createEl("button", { cls: "ad-set-tab" + (this.tab === id ? " is-on" : "") + (id === "models" && dirty ? " is-dirty" : "") });
+      const isDirtyTab = id === "delegate" && dirty;
+      const text = isDirtyTab ? `${t(label)} \xB7` : t(label);
+      const b = nav.createEl("button", { cls: "ad-set-tab" + (this.tab === id ? " is-on" : "") + (isDirtyTab ? " is-dirty" : "") });
       const ic = b.createSpan({ cls: "ad-tabicon" });
       setLucide(ic, icon);
       b.createSpan({ text });
@@ -9779,13 +9851,21 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       };
     }
     const body = containerEl.createDiv({ cls: "ad-set-body" });
-    if (this.tab === "agents") this.renderAgents(body);
-    else if (this.tab === "delegate") this.renderDelegate(body);
-    else if (this.tab === "models") this.renderModels(body);
-    else if (this.tab === "dream") this.renderDream(body);
-    else if (this.tab === "tracking") this.renderTracking(body);
-    else this.renderAbout(body);
-    if (this.tab === "models") this.renderDraftBar(body);
+    if (this.tab === "delegate") {
+      this.renderDelegate(body);
+      this.renderDraftBar(body);
+    } else if (this.tab === "record") {
+      this.renderRecord(body);
+    } else if (this.tab === "dream") {
+      this.renderDream(body);
+    } else {
+      this.renderAbout(body);
+    }
+    if (this._scrollToModels) {
+      const mc = containerEl.querySelector?.(".ad-models-card");
+      if (mc?.scrollIntoView) mc.scrollIntoView({ block: "start" });
+      this._scrollToModels = false;
+    }
     if (focusSearch) {
       const i = containerEl.querySelector(".ad-search__input");
       if (i) {
@@ -9806,6 +9886,17 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       if (sub) h.createDiv({ cls: "ad-card__sub", text: sub });
     }
     return c;
+  }
+  subDetails(parent, key, title, defaultOpen = false) {
+    const d = parent.createEl("details", { cls: "ad-subdetails" });
+    d.dataset.section = key;
+    d.open = this.subOpen[key] ?? defaultOpen;
+    d.ontoggle = () => {
+      if (d.isConnected) this.subOpen[key] = d.open;
+    };
+    const sum = d.createEl("summary", { cls: "ad-subdetails__head" });
+    sum.createSpan({ text: title });
+    return d.createDiv({ cls: "ad-subdetails__body" });
   }
   row(parent, name, desc, right) {
     const r = parent.createDiv({ cls: "ad-row" });
@@ -9865,78 +9956,18 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     b.onclick = onClick;
     return b;
   }
-  // ---------- Agents ----------
-  renderAgents(body) {
-    const p = this.plugin;
-    const s = p.settings;
-    const agentSection = this.card(body, t("\u8981\u8FFD\u8E2A\u7684 Agent"), t("\u6700\u591A\u4E24\u4F4D\u4E3B\u529B\u8BFB\u53D6\u5168\u90E8\u5386\u53F2\uFF0C\u5176\u4F59\u8BFB\u53D6\u5F53\u5929\u4F1A\u8BDD"));
-    const grid = agentSection.createDiv({ cls: "ad-set-agents" });
-    for (const id of AGENT_ORDER) {
-      const a = AGENTS[id];
-      const enabled = p.agentEnabled(id);
-      const primary = p.isPrimary(id);
-      const card = grid.createDiv({ cls: `ad-set-agent ${enabled ? "" : "is-off"} ${primary ? "is-primary" : ""}` });
-      card.style.setProperty("--ad-agent", a.color);
-      card.style.setProperty("--ad-agent-soft", a.soft);
-      const top = card.createDiv({ cls: "ad-set-agent__top" });
-      agentIcon(top.createSpan({ cls: "ad-set-agent__icon" }), id);
-      const name = top.createDiv({ cls: "ad-set-agent__identity" });
-      name.createDiv({ cls: "ad-set-agent__name", text: a.name });
-      const controls = top.createDiv({ cls: "ad-set-agent__controls" });
-      const star = controls.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? t("\u53D6\u6D88\u4E3B\u529B") : t("\u8BBE\u4E3A\u4E3B\u529B\uFF08\u6700\u591A\u4E24\u4E2A\uFF09"), "aria-pressed": String(primary) } });
-      setLucide(star, primary ? "star" : "star-off");
-      star.title = primary ? t("\u53D6\u6D88\u4E3B\u529B") : t("\u8BBE\u4E3A\u4E3B\u529B\uFF08\u6700\u591A\u4E24\u4E2A\uFF09");
-      star.onclick = () => p.togglePrimary(id);
-      this.toggle(controls, enabled, (v) => p.setAgentEnabled(id, v), primary);
-      const sessions = [...p.usage.meta.values()].filter((x) => x.agent === id);
-      const stats = card.createDiv({ cls: "ad-set-agent__meta" });
-      stats.createSpan({ text: t("{n} \u4E2A\u4F1A\u8BDD", { n: sessions.length }) });
-      stats.createSpan({ text: fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
-      stats.createSpan({ cls: "ad-set-agent__state", text: primary ? t("\u4E3B\u529B\uFF08\u5168\u91CF\uFF09") : enabled ? t("\u8FFD\u8E2A\u4E2D") : t("\u5DF2\u5173\u95ED") });
-      if (["claude", "codex", "dsh", "antigravity"].includes(id)) {
-        const config = card.createDiv({ cls: "ad-set-agent__config" });
-        this.modelSelect(config, id, p.defaultModel(id), (value) => {
-          this.setDefaultModel(id, value);
-          this.display();
-        });
-        const isDefault = p.defaultTarget() === id;
-        const button = this.bigButton(config, isDefault ? t("\u9ED8\u8BA4\u59D4\u6D3E") : t("\u8BBE\u4E3A\u9ED8\u8BA4\u59D4\u6D3E"), () => {
-          s.delegate.target = id;
-          p.saveSettings();
-          this.display();
-        }, isDefault ? "is-default" : "");
-        button.setAttribute("aria-pressed", String(isDefault));
-      }
-    }
-    const bar = body.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(bar, t("\u7ACB\u5373\u626B\u63CF"), () => p.scanNow(), "mod-cta");
-    this.bigButton(bar, t("\u5BFC\u5165\u87BA\u65CB\u65E5\u7A0B\u7684\u5386\u53F2"), () => p.importNautilus());
-    const info = this.card(body, t("\u672C\u673A\u65E5\u5FD7"), "");
-    const paths = info.createDiv({ cls: "ad-pathlist" });
-    for (const [id, a] of Object.entries(AGENTS)) {
-      const r = paths.createDiv({ cls: "ad-pathrow" });
-      agentIcon(r.createSpan({ cls: "ad-glyph", attr: { style: `color:${a.color}` } }), id);
-      r.createSpan({ cls: "ad-pathrow__name", text: a.name });
-      r.createSpan({ cls: "ad-pathrow__path", text: a.where[0] });
-      r.createSpan({ cls: "ad-muted", text: p.agentEnabled(id) ? t("\u8BFB") : t("\u4E0D\u8BFB") });
-    }
-    const errs = p.usage.errors || [];
-    if (errs.length) {
-      const e = this.card(body, t("\u8BFB\u65E5\u5FD7\u65F6\u9047\u5230\u7684\u95EE\u9898"), "");
-      for (const x of errs.slice(-6)) e.createDiv({ cls: "ad-error-line", text: `${x.path}: ${x.message}` });
-    }
-  }
   // ---------- Delegation ----------
   renderDelegate(body) {
     const p = this.plugin;
-    const d = p.settings.delegate;
-    const destinations2 = this.card(body, t("\u9ED8\u8BA4\u59D4\u6D3E\u5230"), "");
+    const s = p.settings;
+    const d = s.delegate;
+    const destinations2 = this.card(body, t("\u9ED8\u8BA4\u59D4\u6D3E\u5230"), t("\u8FFD\u8E2A\u4E3B\u529B\u4E0E\u9ED8\u8BA4\u59D4\u6D3E\u5206\u522B\u8BBE\u7F6E"));
     const targetRow = destinations2.createDiv({ cls: "ad-targetpick" });
     for (const id of AGENT_ORDER) {
       const a = AGENTS[id];
       const available = id !== "workbuddy" && !a.trackingOnly;
-      const b = targetRow.createEl(available ? "button" : "div", { cls: "ad-target" + (available && d.target === id ? " is-on" : "") });
-      if (available) b.setAttribute("aria-pressed", String(d.target === id));
+      const b = targetRow.createEl(available ? "button" : "div", { cls: "ad-target" + (available && p.defaultTarget() === id ? " is-on" : ""), attr: { "data-agent": id } });
+      if (available) b.setAttribute("aria-pressed", String(p.defaultTarget() === id));
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
@@ -9948,30 +9979,14 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
         this.display();
       };
     }
-    const mentions = this.card(body, t("\u4EFB\u52A1\u884C Agent \u8865\u5168"), t("\u8F93\u5165\u89E6\u53D1\u7B26\u9009\u62E9 Agent\u3001\u6A21\u578B\u548C\u5F3A\u5EA6"));
-    const suggestRow = this.row(mentions, t("\u8F93\u5165\u65F6\u663E\u793A\u5019\u9009\u83DC\u5355"), "", null);
-    this.toggle(suggestRow.querySelector(":scope > .ad-row__right"), d.mentionSuggest !== false, (v) => {
-      d.mentionSuggest = v;
-      p.saveSettings();
-    });
-    const triggerRow = this.row(mentions, t("\u89E6\u53D1\u7B26\u53F7"), t("\u9ED8\u8BA4 @\uFF0C\u524D\u9762\u9700\u7A7A\u683C"), null);
-    this.textInput(triggerRow.querySelector(":scope > .ad-row__right"), d.mentionTrigger || "@", "@", (v) => {
-      const trigger = v.trim();
-      if (!trigger || /[\s`\p{L}\p{N}]/u.test(trigger)) {
-        new import_obsidian4.Notice(t("\u8BF7\u586B\u5199\u4E0D\u542B\u7A7A\u683C\u3001\u5B57\u6BCD\u3001\u6570\u5B57\u6216\u53CD\u5F15\u53F7\u7684\u7B26\u53F7"));
-        return;
-      }
-      d.mentionTrigger = trigger;
-      p.saveSettings();
-    });
     const claude = this.card(body, "Claude Code", "");
-    this.modelSelect(claude, "claude", d.claude.model, (v) => {
+    this.modelSelect(claude, "claude", p.defaultModel("claude"), (v) => {
       this.setDefaultModel("claude", v);
       this.display();
     });
     this.effortControl(claude, "claude", d.claude.effort, (v) => {
-      d.claude.effort = v;
-      p.saveSettings();
+      this.setDefaultEffort("claude", v);
+      this.display();
     });
     const permRow = this.row(claude, t("\u6743\u9650\u6A21\u5F0F"), t("plan\uFF1A\u89C4\u5212\uFF1Bauto\uFF1A\u81EA\u52A8\u5224\u65AD\uFF1BacceptEdits\uFF1A\u5141\u8BB8\u4FEE\u6539\u6587\u4EF6"), null);
     this.segmented(permRow.querySelector(":scope > .ad-row__right"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => {
@@ -9979,32 +9994,38 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       p.saveSettings();
       this.display();
     });
+    const claudePathRow = this.row(claude, t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E"), null);
+    this.textInput(claudePathRow.querySelector(":scope > .ad-row__right"), d.claude.path || "", t("\u81EA\u52A8\u67E5\u627E"), (v) => {
+      d.claude.path = v.trim();
+      p.saveSettings();
+    }, "ad-input--wide");
     const cwdRow = this.row(claude, t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A\u4F7F\u7528\u5E93\u6839\u76EE\u5F55"), null);
     this.textInput(cwdRow.querySelector(":scope > .ad-row__right"), d.claude.cwd, t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55"), (v) => {
       d.claude.cwd = v.trim();
       p.saveSettings();
     }, "ad-input--wide");
-    const addVault = this.row(claude, t("\u628A\u5F53\u524D\u5E93\u4E5F\u52A0\u8FDB\u53EF\u8BFB\u76EE\u5F55"), "", null);
-    this.toggle(addVault.querySelector(":scope > .ad-row__right"), d.claude.addVault !== false, (v) => {
-      d.claude.addVault = v;
-      p.saveSettings();
-    });
     const openDesk = this.row(claude, t("\u5B8C\u6210\u540E\u81EA\u52A8\u5728\u684C\u9762\u7248\u6253\u5F00"), "", null);
     this.toggle(openDesk.querySelector(":scope > .ad-row__right"), d.claude.openDesktop === true, (v) => {
       d.claude.openDesktop = v;
       p.saveSettings();
     });
-    const bg = this.row(claude, t("\u4F7F\u7528 claude --bg \u540E\u53F0\u670D\u52A1"), t("\u7531 Claude \u540E\u53F0\u670D\u52A1\u7BA1\u7406\u4F1A\u8BDD"), null);
-    this.toggle(bg.querySelector(":scope > .ad-row__right"), d.claude.useBackground === true, (v) => {
-      d.claude.useBackground = v;
+    const claudeMore = this.subDetails(claude, "claude-more", t("\u66F4\u591A Claude Code \u9009\u9879"));
+    const addVault = this.row(claudeMore, t("\u628A\u5F53\u524D\u5E93\u4E5F\u52A0\u8FDB\u53EF\u8BFB\u76EE\u5F55"), "", null);
+    this.toggle(addVault.querySelector(":scope > .ad-row__right"), d.claude.addVault !== false, (v) => {
+      d.claude.addVault = v;
       p.saveSettings();
     });
-    const trust = this.row(claude, t("\u5E93\u6CA1\u88AB\u4FE1\u4EFB\u65F6\u81EA\u52A8\u6362\u4E2A\u76EE\u5F55"), t("\u4F7F\u7528\u5DF2\u4FE1\u4EFB\u76EE\u5F55\uFF0C\u5E76\u6DFB\u52A0\u5F53\u524D\u5E93\u7684\u8BBF\u95EE\u8DEF\u5F84"), null);
+    const trust = this.row(claudeMore, t("\u5E93\u6CA1\u88AB\u4FE1\u4EFB\u65F6\u81EA\u52A8\u6362\u4E2A\u76EE\u5F55"), t("\u4F7F\u7528\u5DF2\u4FE1\u4EFB\u76EE\u5F55\uFF0C\u5E76\u6DFB\u52A0\u5F53\u524D\u5E93\u7684\u8BBF\u95EE\u8DEF\u5F84"), null);
     this.toggle(trust.querySelector(":scope > .ad-row__right"), d.claude.autoTrustedCwd !== false, (v) => {
       d.claude.autoTrustedCwd = v;
       p.saveSettings();
     });
-    const extra = this.row(claude, t("\u989D\u5916\u53C2\u6570"), t("\u4F20\u7ED9 Claude CLI \u7684\u53C2\u6570"), null);
+    const bg = this.row(claudeMore, t("\u4F7F\u7528 claude --bg \u540E\u53F0\u670D\u52A1"), t("\u7531 Claude \u540E\u53F0\u670D\u52A1\u7BA1\u7406\u4F1A\u8BDD"), null);
+    this.toggle(bg.querySelector(":scope > .ad-row__right"), d.claude.useBackground === true, (v) => {
+      d.claude.useBackground = v;
+      p.saveSettings();
+    });
+    const extra = this.row(claudeMore, t("\u989D\u5916\u53C2\u6570"), t("\u4F20\u7ED9 Claude CLI \u7684\u53C2\u6570"), null);
     this.textInput(extra.querySelector(":scope > .ad-row__right"), d.claude.extraArgs, t("\u53EF\u7559\u7A7A"), (v) => {
       d.claude.extraArgs = v;
       p.saveSettings();
@@ -10022,12 +10043,17 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       p.saveSettings();
       this.display();
     });
-    this.modelSelect(codex, "codex", d.codex.model, (v) => {
+    this.modelSelect(codex, "codex", p.defaultModel("codex"), (v) => {
       this.setDefaultModel("codex", v);
       this.display();
     });
     this.effortControl(codex, "codex", d.codex.effort, (v) => {
-      d.codex.effort = v;
+      this.setDefaultEffort("codex", v);
+      this.display();
+    });
+    const sandbox = this.row(codex, t("\u6C99\u7BB1\u6A21\u5F0F"), t("read-only\uFF1A\u53EA\u8BFB\uFF1Bworkspace-write\uFF1A\u5141\u8BB8\u4FEE\u6539\u5DE5\u4F5C\u76EE\u5F55"), null);
+    this.segmented(sandbox.querySelector(":scope > .ad-row__right"), ["read-only", "workspace-write"].map((id) => ({ id, label: id })), d.codex.sandbox, (v) => {
+      d.codex.sandbox = v;
       p.saveSettings();
       this.display();
     });
@@ -10038,27 +10064,26 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
         p.saveSettings();
       }, "ad-input--wide");
     }
-    const sandbox = this.row(codex, t("\u6C99\u7BB1\u6A21\u5F0F"), t("read-only\uFF1A\u53EA\u8BFB\uFF1Bworkspace-write\uFF1A\u5141\u8BB8\u4FEE\u6539\u5DE5\u4F5C\u76EE\u5F55"), null);
-    this.segmented(sandbox.querySelector(":scope > .ad-row__right"), ["read-only", "workspace-write"].map((id) => ({ id, label: id })), d.codex.sandbox, (v) => {
-      d.codex.sandbox = v;
-      p.saveSettings();
-      this.display();
-    });
     this.bigButton(codex.createDiv({ cls: "ad-btnrow" }), t("\u68C0\u67E5 codex"), async () => new import_obsidian4.Notice(await p.checkBinary("codex"), 6e3));
     const dsh = this.card(body, "DeepSeek Harness", "");
-    this.modelSelect(dsh, "dsh", d.dsh.model, (v) => {
+    this.modelSelect(dsh, "dsh", p.defaultModel("dsh"), (v) => {
       this.setDefaultModel("dsh", v);
       this.display();
     });
     this.effortControl(dsh, "dsh", d.dsh.effort, (v) => {
-      d.dsh.effort = v;
-      p.saveSettings();
+      this.setDefaultEffort("dsh", v);
+      this.display();
     });
     const route = this.row(dsh, t("\u81EA\u52A8\u5141\u8BB8\u5DE5\u5177\u8C03\u7528"), t("\u5173\u95ED\u540E\u9010\u6B21\u786E\u8BA4\u5DE5\u5177\u6743\u9650"), null);
     this.toggle(route.querySelector(":scope > .ad-row__right"), d.dsh.autoApprove === true, (v) => {
       d.dsh.autoApprove = v;
       p.saveSettings();
     });
+    const dshPathRow = this.row(dsh, t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E"), null);
+    this.textInput(dshPathRow.querySelector(":scope > .ad-row__right"), d.dsh.path || "", t("\u81EA\u52A8\u67E5\u627E"), (v) => {
+      d.dsh.path = v.trim();
+      p.saveSettings();
+    }, "ad-input--wide");
     const dcwd = this.row(dsh, t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A\u4F7F\u7528\u5E93\u6839\u76EE\u5F55"), null);
     this.textInput(dcwd.querySelector(":scope > .ad-row__right"), d.dsh.cwd, t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55"), (v) => {
       d.dsh.cwd = v.trim();
@@ -10083,21 +10108,14 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       const r = await p.checkBinary("dsh");
       new import_obsidian4.Notice(r, 6e3);
     });
-    for (const [id, card] of [["claude", claude], ["dsh", dsh]]) {
-      const r = this.row(card, t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E"), null);
-      this.textInput(r.querySelector(":scope > .ad-row__right"), d[id].path || "", t("\u81EA\u52A8\u67E5\u627E"), (v) => {
-        d[id].path = v.trim();
-        p.saveSettings();
-      }, "ad-input--wide");
-    }
     const agy = this.card(body, "Antigravity ACP", t("\u5B89\u88C5 agy CLI \u540E\u8FD0\u884C agy acp --login \u767B\u5F55"));
-    this.modelSelect(agy, "antigravity", d.antigravity.model, (v) => {
+    this.modelSelect(agy, "antigravity", p.defaultModel("antigravity"), (v) => {
       this.setDefaultModel("antigravity", v);
       this.display();
     });
     this.effortControl(agy, "antigravity", d.antigravity.effort, (v) => {
-      d.antigravity.effort = v;
-      p.saveSettings();
+      this.setDefaultEffort("antigravity", v);
+      this.display();
     });
     for (const [key, label, hint] of [["path", t("agy \u7A0B\u5E8F\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\uFF0C\u4F8B\u5982 ~/.local/bin/agy")], ["cwd", t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55")]]) {
       const r = this.row(agy, label, hint, null);
@@ -10117,12 +10135,41 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       }
     });
     this.bigButton(atest, t("\u68C0\u67E5 agy"), async () => new import_obsidian4.Notice(await p.checkBinary("antigravity"), 6e3));
+    const sharedAgents = this.card(body, t("\u516C\u5171\u7EC8\u7AEF\u4E0E\u5176\u4F59 Agent"), "");
+    const dt = this.row(sharedAgents, t("\u4E3B\u529B\u7EC8\u7AEF"), t("\u7528\u4E8E\u7EC8\u7AEF\u59D4\u6D3E\u548C\u6062\u590D\u4F1A\u8BDD"), null);
+    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: t("\u81EA\u52A8") }, { id: "terminal", label: t("\u7CFB\u7EDF\u7EC8\u7AEF") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => {
+      s.cliTerminal = v;
+      p.saveSettings();
+      this.display();
+    });
+    const dd = this.row(sharedAgents, t("\u9ED8\u8BA4\u5728\u7EC8\u7AEF\u59D4\u6D3E"), t("\u9002\u7528\u4E8E Claude Code \u548C Codex"), null);
+    this.toggle(dd.querySelector(":scope > .ad-row__right"), !!s.delegateInTerminal, (v) => {
+      s.delegateInTerminal = v;
+      p.saveSettings();
+      p.refreshUI();
+    });
     for (const id of ["workbuddy", "opencode", "qoder"]) {
-      const card = this.card(body, AGENTS[id].name);
-      this.row(card, t("\u59D4\u6D3E\u65B9\u5F0F"), "", id === "workbuddy" ? t("\u5BA2\u6237\u7AEF\u4EA4\u63A5") : t("\u6682\u4E0D\u652F\u6301\u59D4\u6D3E"));
+      const r = this.row(sharedAgents, AGENTS[id].name, "", id === "workbuddy" ? t("\u5BA2\u6237\u7AEF\u4EA4\u63A5 \xB7 \u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u6A21\u578B") : t("\u6682\u4E0D\u652F\u6301\u59D4\u6D3E"));
+      r.dataset.agent = id;
     }
-    const prompt = this.card(body, t("\u63D0\u793A\u8BCD\u524D\u540E\u7F00"), "");
-    const pre = prompt.createDiv({ cls: "ad-field" });
+    this.renderModels(body);
+    const rules = this.card(body, t("\u53D1\u9001\u89C4\u5219"), t("\u4EFB\u52A1\u884C Agent \u8865\u5168\u3001\u63D0\u793A\u8BCD\u524D\u540E\u7F00\u548C\u59D4\u6D3E\u9644\u52A0\u8981\u6C42"));
+    const suggestRow = this.row(rules, t("\u8F93\u5165\u65F6\u663E\u793A\u5019\u9009\u83DC\u5355"), t("\u8F93\u5165\u89E6\u53D1\u7B26\u9009\u62E9 Agent\u3001\u6A21\u578B\u548C\u5F3A\u5EA6"), null);
+    this.toggle(suggestRow.querySelector(":scope > .ad-row__right"), d.mentionSuggest !== false, (v) => {
+      d.mentionSuggest = v;
+      p.saveSettings();
+    });
+    const triggerRow = this.row(rules, t("\u89E6\u53D1\u7B26\u53F7"), t("\u9ED8\u8BA4 @\uFF0C\u524D\u9762\u9700\u7A7A\u683C"), null);
+    this.textInput(triggerRow.querySelector(":scope > .ad-row__right"), d.mentionTrigger || "@", "@", (v) => {
+      const trigger = v.trim();
+      if (!trigger || /[\s`\p{L}\p{N}]/u.test(trigger)) {
+        new import_obsidian4.Notice(t("\u8BF7\u586B\u5199\u4E0D\u542B\u7A7A\u683C\u3001\u5B57\u6BCD\u3001\u6570\u5B57\u6216\u53CD\u5F15\u53F7\u7684\u7B26\u53F7"));
+        return;
+      }
+      d.mentionTrigger = trigger;
+      p.saveSettings();
+    });
+    const pre = rules.createDiv({ cls: "ad-field" });
     pre.createDiv({ cls: "ad-field__label", text: t("\u524D\u7F00") });
     const preTa = pre.createEl("textarea", { cls: "ad-textarea", attr: { placeholder: t("\u4F8B\u5982\uFF1A\u5148\u8BFB\u4E00\u4E0B\u76F8\u5173\u6587\u4EF6\uFF0C\u518D\u52A8\u624B\u3002"), rows: "2" } });
     preTa.value = d.promptPrefix || "";
@@ -10130,7 +10177,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       d.promptPrefix = preTa.value;
       p.saveSettings();
     };
-    const suf = prompt.createDiv({ cls: "ad-field" });
+    const suf = rules.createDiv({ cls: "ad-field" });
     suf.createDiv({ cls: "ad-field__label", text: t("\u540E\u7F00") });
     const sufTa = suf.createEl("textarea", { cls: "ad-textarea", attr: { placeholder: t("\u4F8B\u5982\uFF1A\u505A\u5B8C\u628A\u6539\u52A8\u6587\u4EF6\u5217\u51FA\u6765\u3002"), rows: "2" } });
     sufTa.value = d.promptSuffix || "";
@@ -10138,12 +10185,12 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       d.promptSuffix = sufTa.value;
       p.saveSettings();
     };
-    const rc = this.row(prompt, t("\u59D4\u6D3E\u9644\u52A0\u8981\u6C42"), t("\u8FFD\u52A0\u5230\u6BCF\u6B21\u59D4\u6D3E\u6D88\u606F\u672B\u5C3E"), null);
+    const rc = this.row(rules, t("\u59D4\u6D3E\u9644\u52A0\u8981\u6C42"), t("\u8FFD\u52A0\u5230\u6BCF\u6B21\u59D4\u6D3E\u6D88\u606F\u672B\u5C3E"), null);
     this.toggle(rc.querySelector(":scope > .ad-row__right"), d.confirmFirst !== false, (v) => {
       d.confirmFirst = v;
       p.saveSettings();
     });
-    const confirm = prompt.createDiv({ cls: "ad-field" });
+    const confirm = rules.createDiv({ cls: "ad-field" });
     confirm.createDiv({ cls: "ad-field__label", text: t("\u9644\u52A0\u8981\u6C42\u6B63\u6587\uFF08\u53EF\u81EA\u5B9A\u4E49\uFF09") });
     const confirmTa = confirm.createEl("textarea", { cls: "ad-textarea", attr: { rows: "5" } });
     confirmTa.value = d.confirmFirstPrompt ?? DEFAULTS.delegate.confirmFirstPrompt;
@@ -10151,41 +10198,24 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       d.confirmFirstPrompt = confirmTa.value;
       p.saveSettings();
     };
-    const beh = this.card(body, t("\u5199\u56DE\u7B14\u8BB0"), "");
-    const r1 = this.row(beh, t("\u628A\u72B6\u6001\u6539\u6210 DELEGATED"), "", null);
-    this.toggle(r1.querySelector(":scope > .ad-row__right"), d.markStatus !== false, (v) => {
-      d.markStatus = v;
-      p.saveSettings();
-    });
-    const r2 = this.row(beh, t("\u5199 \u{1F517} \u7ED1\u5B9A\u884C"), t("\u5220\u9664\u7ED1\u5B9A\u884C\u53EF\u89E3\u9664\u5173\u8054"), null);
-    this.toggle(r2.querySelector(":scope > .ad-row__right"), d.writeLink !== false, (v) => {
-      d.writeLink = v;
-      p.saveSettings();
-    });
-    const r3 = this.row(beh, t("\u5B8C\u6210\u540E\u5199 \u{1F4AC} \u7ED3\u8BBA"), "", null);
-    this.toggle(r3.querySelector(":scope > .ad-row__right"), p.settings.autoWriteResult !== false, (v) => {
-      p.settings.autoWriteResult = v;
-      p.saveSettings();
-    });
-    const r4 = this.row(beh, t("\u{1F4AC} \u6700\u591A\u591A\u5C11\u4E2A\u5B57"), "", null);
-    this.numberInput(r4.querySelector(":scope > .ad-row__right"), p.settings.resultMax || 240, 40, 2e3, (v) => {
-      p.settings.resultMax = v;
-      p.saveSettings();
-    });
   }
   setDefaultModel(agent, value) {
     const s = this.plugin.settings;
     s.delegate[agent].model = value;
     s.models.defaultByAgent[agent] = value;
     if (!s.models.enabled.includes(value)) s.models.enabled.push(value);
-    if (this.draft) {
-      this.draft.defaultByAgent[agent] = value;
-      if (!this.draft.enabled.includes(value)) this.draft.enabled.push(value);
-    }
+    if (this.draft && !this.draft.enabled.includes(value)) this.draft.enabled.push(value);
+    return this.plugin.saveSettings();
+  }
+  setDefaultEffort(agent, value) {
+    var _a;
+    const s = this.plugin.settings;
+    s.delegate[agent].effort = value;
+    ((_a = s.models).effortByAgent || (_a.effortByAgent = {}))[agent] = value;
     return this.plugin.saveSettings();
   }
   modelSelect(parent, agent, value, onChange) {
-    const row = this.row(parent, t("\u6A21\u578B"), "", null);
+    const row = this.row(parent, t("\u9ED8\u8BA4\u6A21\u578B"), "", null);
     const sel = row.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
     const models = this.plugin.modelsFor(agent).filter((m) => this.plugin.modelEnabled(m.id));
     if (!models.length) models.push(...this.plugin.modelsFor(agent));
@@ -10211,10 +10241,722 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       const b = stops.createEl("button", { cls: "ad-effort__stop" + (o.id === value ? " is-on" : ""), attr: { "aria-label": o.label, "aria-pressed": String(o.id === value) } });
       b.createSpan({ cls: "ad-effort__dot" });
       b.onclick = () => onChange(o.id);
-      const lab = wrap.createEl("span", { cls: "ad-effort__lab", attr: { style: `left:${i / Math.max(1, opts.length - 1) * 100}%` }, text: o.label });
+      wrap.createEl("span", { cls: "ad-effort__lab", attr: { style: `left:${i / Math.max(1, opts.length - 1) * 100}%` }, text: o.label });
     });
   }
-  // ---------- Models ----------
+  // ---------- Manage Models (inside Delegation) ----------
+  modelsDraft() {
+    if (!this.draft) this.draft = catalogSnapshot(this.plugin.settings.models);
+    if (!this.draft.enabled) this.draft.enabled = [];
+    if (!this.draft.pinned) this.draft.pinned = [];
+    if (!this.draft.order) this.draft.order = [];
+    if (!this.draft.custom) this.draft.custom = [];
+    return this.draft;
+  }
+  isDraftDirty() {
+    if (!this.draft) return false;
+    return JSON.stringify(catalogSnapshot(this.draft)) !== JSON.stringify(catalogSnapshot(this.plugin.settings.models));
+  }
+  discardDraft() {
+    this.draft = catalogSnapshot(this.plugin.settings.models);
+    this.display();
+  }
+  renderModels(body) {
+    const p = this.plugin;
+    if (syncModelGroups(p.settings, (agent) => p.agentEnabled(agent))) p.saveSettings();
+    const d = this.modelsDraft();
+    const models = p.allModels(d.custom);
+    const enabled = new Set(d.enabled);
+    const picker = body.createDiv({ cls: "ad-card ad-models-card" });
+    const phead = picker.createDiv({ cls: "ad-card__head" });
+    phead.createDiv({ cls: "ad-card__title", text: t("\u7BA1\u7406\u6A21\u578B") });
+    phead.createDiv({ cls: "ad-card__sub", text: t("\u6DFB\u52A0\u3001\u7F16\u8F91\u3001\u542F\u7528\u3001\u7F6E\u9876\u548C\u6392\u5E8F\u53EF\u7528\u6A21\u578B") });
+    const tools = picker.createDiv({ cls: "ad-picker-tools" });
+    const searchWrap = tools.createDiv({ cls: "ad-search" });
+    searchWrap.createSpan({ cls: "ad-search__icon", text: "\u2315" });
+    const search = searchWrap.createEl("input", { cls: "ad-search__input", attr: { placeholder: t("\u641C\u7D22\u6A21\u578B"), value: this.search } });
+    search.oninput = () => {
+      this.search = search.value;
+      this.display();
+    };
+    const add = tools.createEl("button", { cls: "ad-btn ad-btn--soft", text: "\uFF0B " + t("\u6DFB\u52A0\u6A21\u578B") });
+    add.onclick = () => new AddModelModal(this.app, p, (m) => {
+      d.custom.push(m);
+      if (!d.enabled.includes(m.id)) d.enabled.push(m.id);
+      if (!d.order.includes(m.id)) d.order.push(m.id);
+      this.display();
+    }).open();
+    const filters = picker.createDiv({ cls: "ad-filters ad-filters--models" });
+    for (const [id, label] of [["all", t("\u5168\u90E8")], ["enabled", t("\u5DF2\u542F\u7528")], ["reasoning", t("\u63A8\u7406")], ["fast", t("\u5FEB\u901F")], ["vision", t("\u89C6\u89C9")]]) {
+      const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label, attr: { "aria-pressed": String(this.filter === id) } });
+      b.onclick = () => {
+        this.filter = id;
+        this.display();
+      };
+    }
+    const list = picker.createDiv({ cls: "ad-modellist" });
+    const q = this.search.trim().toLowerCase();
+    const visible = models.filter((m) => {
+      if (this.filter === "enabled" && !enabled.has(m.id)) return false;
+      if (this.filter === "reasoning" && !(m.tags || []).includes("Reasoning")) return false;
+      if (this.filter === "fast" && !(m.tags || []).includes("Fast")) return false;
+      if (this.filter === "vision" && !(m.tags || []).includes("Vision")) return false;
+      if (q && !`${m.name} ${m.provider} ${(m.tags || []).join(" ")}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+    const pinned = d.pinned.map((id) => visible.find((m) => m.id === id)).filter(Boolean);
+    const rest = visible.filter((m) => !d.pinned.includes(m.id));
+    for (const agent of AGENT_ORDER) {
+      const rows = [...pinned, ...rest].filter((m) => m.agent === agent);
+      const clientModels = agent === "workbuddy" || AGENTS[agent].trackingOnly;
+      if (!rows.length && (!clientModels || q || this.filter !== "all")) continue;
+      const state = p.settings.ui.modelGroups[agent];
+      const g = list.createEl(clientModels ? "div" : "details", { cls: "ad-modelgroup" });
+      g.dataset.agent = agent;
+      if (!clientModels) {
+        g.open = state.open;
+        g.ontoggle = () => {
+          if (!g.isConnected || p.settings.ui.modelGroups[agent] !== state || state.open === g.open) return;
+          state.open = g.open;
+          p.saveSettings();
+        };
+      }
+      const gh = g.createEl(clientModels ? "div" : "summary", { cls: "ad-modelgroup__head" });
+      const a = AGENTS[agent];
+      agentIcon(gh.createSpan({ cls: "ad-glyph", attr: { style: `color:${a.color}` } }), agent);
+      gh.createSpan({ text: a.name });
+      gh.createSpan({ cls: "ad-muted", text: clientModels ? t("\u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u6A21\u578B") : t("\u5DF2\u542F\u7528 {n} / {total}", { n: rows.filter((m) => enabled.has(m.id)).length, total: rows.length }) });
+      if (rows.length) this.groupAction(gh, rows, d, false);
+      const defaultId = p.defaultModel(agent);
+      for (const m of rows) this.modelRow(g, m, d, agent, defaultId, d.pinned.includes(m.id));
+    }
+    if (!pinned.length && !rest.length) {
+      list.createDiv({ cls: "ad-empty ad-empty--small", text: t("\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684\u6A21\u578B") });
+    }
+  }
+  groupAction(head, rows, d) {
+    const allOn = rows.every((m) => d.enabled.includes(m.id));
+    const b = head.createEl("button", { cls: "ad-linkbtn", text: allOn ? t("\u5168\u90E8\u5173\u95ED") : t("\u5168\u90E8\u5F00\u542F") });
+    b.onclick = () => {
+      for (const m of rows) {
+        const i = d.enabled.indexOf(m.id);
+        if (allOn && i >= 0) d.enabled.splice(i, 1);
+        if (!allOn && i < 0) d.enabled.push(m.id);
+      }
+      this.display();
+    };
+  }
+  modelRow(parent, m, d, _agent, defaultId, pinned) {
+    const on = d.enabled.includes(m.id);
+    const row = parent.createDiv({ cls: "ad-modelrow" + (on ? "" : " is-off") });
+    row.tabIndex = 0;
+    row.dataset.id = m.id;
+    const left = row.createDiv({ cls: "ad-modelrow__left" });
+    const name = left.createDiv({ cls: "ad-modelrow__name" });
+    name.createSpan({ text: m.name });
+    if (pinned) name.createSpan({ cls: "ad-badge ad-badge--soft", text: t("\u7F6E\u9876") });
+    if (m.id === defaultId) name.createSpan({ cls: "ad-badge", text: t("\u9ED8\u8BA4") });
+    const meta = left.createDiv({ cls: "ad-modelrow__meta" });
+    meta.createSpan({ text: m.context });
+    meta.createSpan({ cls: "ad-dot", text: "\xB7" });
+    meta.createSpan({ text: strength(m.strength, true) });
+    meta.createSpan({ cls: "ad-dot", text: "\xB7" });
+    for (const tag of m.tags || []) meta.createSpan({ cls: "ad-cap", text: tag });
+    if (m.cost) meta.createSpan({ cls: "ad-cost", text: m.cost });
+    const right = row.createDiv({ cls: "ad-modelrow__right" });
+    this.toggle(right, on, (v) => {
+      const i = d.enabled.indexOf(m.id);
+      if (v && i < 0) d.enabled.push(m.id);
+      if (!v && i >= 0) d.enabled.splice(i, 1);
+      this.display();
+    });
+    const more = right.createEl("button", { cls: "ad-morebtn", text: "\u22EF" });
+    more.onclick = (e) => {
+      e.stopPropagation();
+      const menu = new import_obsidian4.Menu();
+      menu.addItem((it) => it.setTitle(pinned ? t("\u53D6\u6D88\u7F6E\u9876") : t("\u7F6E\u9876")).setIcon(pinned ? "pin-off" : "pin").onClick(() => {
+        const i = d.pinned.indexOf(m.id);
+        if (pinned && i >= 0) d.pinned.splice(i, 1);
+        if (!pinned && i < 0) d.pinned.push(m.id);
+        this.display();
+      }));
+      menu.addItem((it) => it.setTitle(t("\u4E0A\u79FB")).setIcon("arrow-up").onClick(() => this.moveModel(d, m, -1)));
+      menu.addItem((it) => it.setTitle(t("\u4E0B\u79FB")).setIcon("arrow-down").onClick(() => this.moveModel(d, m, 1)));
+      if (m.custom || d.custom.some((x) => x.id === m.id)) {
+        menu.addItem((it) => it.setTitle(t("\u7F16\u8F91\u6A21\u578B")).setIcon("pencil").onClick(() => {
+          new AddModelModal(this.app, this.plugin, (edited) => {
+            d.custom = d.custom.map((x) => x.id === m.id ? edited : x);
+            this.display();
+          }, m).open();
+        }));
+        menu.addItem((it) => it.setTitle(t("\u79FB\u9664")).setIcon("trash").onClick(() => {
+          d.custom = d.custom.filter((x) => x.id !== m.id);
+          d.enabled = d.enabled.filter((x) => x !== m.id);
+          d.pinned = d.pinned.filter((x) => x !== m.id);
+          this.display();
+        }));
+      }
+      menu.showAtMouseEvent(e);
+    };
+    row.addEventListener("keydown", (e) => {
+      if (!e.altKey) return;
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        this.moveModel(d, m, -1);
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        this.moveModel(d, m, 1);
+      }
+    });
+  }
+  moveModel(d, m, dir) {
+    const order = d.order.length ? d.order : this.plugin.allModels(d.custom).map((x) => x.id);
+    const i = order.indexOf(m.id);
+    if (i < 0) return;
+    const j = i + dir;
+    if (j < 0 || j >= order.length) return;
+    [order[i], order[j]] = [order[j], order[i]];
+    d.order = order;
+    this.display();
+  }
+  renderDraftBar(parent) {
+    if (!this.isDraftDirty()) return;
+    const bar = document.createElement("div");
+    bar.className = "ad-draftbar ad-draftbar--inline";
+    bar.createSpan({ cls: "ad-draftbar__text", text: t("\u672A\u4FDD\u5B58\u7684\u66F4\u6539") });
+    const discard = bar.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("\u653E\u5F03\u66F4\u6539") });
+    discard.onclick = () => this.discardDraft();
+    const save = bar.createEl("button", { cls: "ad-btn ad-btn--cta", text: t("\u4FDD\u5B58 \u2318S") });
+    save.onclick = () => this.saveDraft();
+    if (this._draftBar) {
+      try {
+        this._draftBar.remove();
+      } catch {
+      }
+    }
+    this._draftBar = bar;
+    (parent || this.containerEl).prepend(bar);
+    if (!this._draftKeyHandler && this.app?.scope?.register) {
+      this._draftKeyHandler = true;
+      this.app.scope.register(["Mod"], "s", (e) => {
+        if (this.tab === "delegate" && this.isDraftDirty()) {
+          e.preventDefault();
+          this.saveDraft();
+        }
+      });
+    }
+  }
+  saveDraft() {
+    if (!this.draft) return;
+    const p = this.plugin;
+    const snap = catalogSnapshot(this.draft);
+    const prevCustomIds = new Set((p.settings.models.custom || []).map((x) => x.id));
+    const nextCustomIds = new Set(snap.custom.map((x) => x.id));
+    p.settings.models.enabled = snap.enabled;
+    p.settings.models.pinned = snap.pinned;
+    p.settings.models.order = snap.order;
+    p.settings.models.custom = snap.custom;
+    for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
+      const cur = p.defaultModel ? p.defaultModel(agent) : p.settings.delegate[agent]?.model;
+      if (cur && prevCustomIds.has(cur) && !nextCustomIds.has(cur)) {
+        const fallback = DEFAULTS.models.defaultByAgent[agent];
+        p.settings.delegate[agent].model = fallback;
+        p.settings.models.defaultByAgent[agent] = fallback;
+      }
+      const active = p.defaultModel ? p.defaultModel(agent) : p.settings.delegate[agent]?.model;
+      if (active && !p.settings.models.enabled.includes(active)) {
+        p.settings.models.enabled.push(active);
+      }
+    }
+    this.draft = catalogSnapshot(p.settings.models);
+    p.saveSettings();
+    new import_obsidian4.Notice(t("Models \u5DF2\u4FDD\u5B58"));
+    this.display();
+  }
+  // ---------- Recording ----------
+  renderAgents(body) {
+    return this.renderRecord(body);
+  }
+  renderTracking(body) {
+    return this.renderRecord(body);
+  }
+  renderRecord(body) {
+    const p = this.plugin;
+    const s = p.settings;
+    const d = s.delegate;
+    const sourceCard = this.card(body, t("\u6765\u6E90\u4E0E\u626B\u63CF"), t("\u6700\u591A\u4E24\u4F4D\u4E3B\u529B\u8BFB\u53D6\u5168\u90E8\u5386\u53F2\uFF0C\u5176\u4F59\u8BFB\u53D6\u5F53\u5929\u4F1A\u8BDD"));
+    const grid = sourceCard.createDiv({ cls: "ad-set-agents" });
+    for (const id of AGENT_ORDER) {
+      const a = AGENTS[id];
+      const enabled = p.agentEnabled(id);
+      const primary = p.isPrimary(id);
+      const card = grid.createDiv({ cls: `ad-set-agent ${enabled ? "" : "is-off"} ${primary ? "is-primary" : ""}` });
+      card.dataset.agent = id;
+      card.style.setProperty("--ad-agent", a.color);
+      card.style.setProperty("--ad-agent-soft", a.soft);
+      const top = card.createDiv({ cls: "ad-set-agent__top" });
+      agentIcon(top.createSpan({ cls: "ad-set-agent__icon" }), id);
+      const name = top.createDiv({ cls: "ad-set-agent__identity" });
+      name.createDiv({ cls: "ad-set-agent__name", text: a.name });
+      const controls = top.createDiv({ cls: "ad-set-agent__controls" });
+      const star = controls.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? t("\u53D6\u6D88\u4E3B\u529B") : t("\u8BBE\u4E3A\u4E3B\u529B\uFF08\u6700\u591A\u4E24\u4E2A\uFF09"), "aria-pressed": String(primary) } });
+      setLucide(star, primary ? "star" : "star-off");
+      star.title = primary ? t("\u53D6\u6D88\u4E3B\u529B") : t("\u8BBE\u4E3A\u4E3B\u529B\uFF08\u6700\u591A\u4E24\u4E2A\uFF09");
+      star.onclick = () => p.togglePrimary(id);
+      this.toggle(controls, enabled, (v) => p.setAgentEnabled(id, v), primary);
+      const sessions = [...p.usage.meta.values()].filter((x) => x.agent === id);
+      const stats2 = card.createDiv({ cls: "ad-set-agent__meta" });
+      stats2.createSpan({ text: t("{n} \u4E2A\u4F1A\u8BDD", { n: sessions.length }) });
+      stats2.createSpan({ text: fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
+      stats2.createSpan({ cls: "ad-set-agent__state", text: primary ? t("\u4E3B\u529B\uFF08\u5168\u91CF\uFF09") : enabled ? t("\u8FFD\u8E2A\u4E2D") : t("\u5DF2\u5173\u95ED") });
+    }
+    const r1 = this.row(sourceCard, t("\u65E5\u8BB0\u65E5\u671F\u5206\u754C"), t("\u6B64\u65F6\u523B\u4E4B\u524D\u8BA1\u5165\u524D\u4E00\u5929"), null);
+    this.numberInput(r1.querySelector(":scope > .ad-row__right"), s.dayCutoff, 0, 12, (v) => {
+      s.dayCutoff = v;
+      p.saveSettings();
+      p.scheduleScan();
+    });
+    const r2 = this.row(sourceCard, t("\u626B\u63CF\u95F4\u9694\uFF08\u79D2\uFF09"), "", null);
+    this.numberInput(r2.querySelector(":scope > .ad-row__right"), s.pollSeconds, 5, 300, (v) => {
+      s.pollSeconds = v;
+      p.saveSettings();
+      p.scheduleScan();
+    });
+    const r4 = this.row(sourceCard, t("\u4E3B\u529B\u8BFB\u591A\u5C11\u5929\u5386\u53F2"), t("\u975E\u4E3B\u529B\u8BFB\u53D6\u5F53\u5929\u4F1A\u8BDD"), null);
+    this.numberInput(r4.querySelector(":scope > .ad-row__right"), s.fullHistoryDays, 1, 365, (v) => {
+      s.fullHistoryDays = v;
+      p.saveSettings();
+      p.scanNow(true);
+    });
+    const d1 = this.row(sourceCard, t("\u8BC6\u522B side chat \u548C\u6BCD\u5B50\u5173\u7CFB"), t("Claude \u684C\u9762\u7248\u5B50\u4F1A\u8BDD\u4E0E\u6BCD\u5B50\u5173\u8054"), null);
+    this.toggle(d1.querySelector(":scope > .ad-row__right"), s.claudeDesktop !== false, (v) => {
+      s.claudeDesktop = v;
+      p.saveSettings();
+      p.scanNow(true);
+    });
+    const scanBar = sourceCard.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(scanBar, t("\u7ACB\u5373\u626B\u63CF"), () => p.scanNow(), "mod-cta");
+    this.bigButton(scanBar, t("\u5BFC\u5165\u87BA\u65CB\u65E5\u7A0B\u7684\u5386\u53F2"), () => p.importNautilus());
+    const logDetails = this.subDetails(sourceCard, "log-paths", t("\u672C\u673A\u65E5\u5FD7"));
+    const paths = logDetails.createDiv({ cls: "ad-pathlist" });
+    for (const [id, a] of Object.entries(AGENTS)) {
+      const r = paths.createDiv({ cls: "ad-pathrow" });
+      agentIcon(r.createSpan({ cls: "ad-glyph", attr: { style: `color:${a.color}` } }), id);
+      r.createSpan({ cls: "ad-pathrow__name", text: a.name });
+      r.createSpan({ cls: "ad-pathrow__path", text: a.where[0] });
+      r.createSpan({ cls: "ad-muted", text: p.agentEnabled(id) ? t("\u8BFB") : t("\u4E0D\u8BFB") });
+    }
+    const errs = p.usage.errors || [];
+    if (errs.length) {
+      for (const x of errs.slice(-6)) logDetails.createDiv({ cls: "ad-error-line", text: `${x.path}: ${x.message}` });
+    }
+    const jr = this.card(body, t("\u65E5\u8BB0\u4E0E\u5F52\u6863"), t("\u5C06\u4F1A\u8BDD\u8BB0\u5F55\u5199\u5165\u4ECA\u5929\u7684\u65E5\u8BB0"));
+    const master = this.row(jr, t("\u542F\u7528\u65E5\u8BB0\u5199\u5165"), "", null);
+    this.toggle(master.querySelector(":scope > .ad-row__right"), s.journalAutoWrite !== false, (v) => {
+      s.journalAutoWrite = v;
+      p.saveSettings();
+    });
+    const det = detectJournalFormat(this.app, s);
+    const jf = this.row(jr, t("\u65E5\u8BB0\u76EE\u5F55"), t("\u5F53\u524D\uFF1A{folder}\uFF1B\u4ECA\u5929\uFF1A{path}", { folder: det.folder || t("\u5E93\u6839\u76EE\u5F55"), source: det.folderSource, path: journalPath(this.app, s) }), null);
+    this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "", t("\u81EA\u52A8\uFF1A{folder}", { folder: det.folder || t("\u5E93\u6839\u76EE\u5F55") }), (v) => {
+      s.journalFolder = v.trim();
+      p.saveSettings();
+      this.display();
+    });
+    const jfmt = this.row(jr, t("\u65E5\u8BB0\u6587\u4EF6\u540D\u683C\u5F0F"), t("\u4F8B\u5982 YYYY-MM-DD\uFF1B\u5F53\u524D\uFF1A{format}", { format: det.format, source: det.source }), null);
+    this.textInput(jfmt.querySelector(":scope > .ad-row__right"), s.journalFormat || "", t("\u81EA\u52A8\uFF1A{format}", { format: det.format }), (v) => {
+      s.journalFormat = v.trim();
+      p.saveSettings();
+      this.display();
+    });
+    const ja = this.row(jr, t("\u81EA\u52A8\u4F1A\u8BDD\u8BB0\u5F55"), t("\u81EA\u52A8\u5C06\u6D3B\u8DC3\u4F1A\u8BDD\u5EFA\u9879\u5E76\u8BB0\u5165\u4ECA\u65E5\u65E5\u8BB0"), null);
+    this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => {
+      s.autoLog = v;
+      p.saveSettings();
+    });
+    const jag = this.row(jr, t("\u8BB0\u54EA\u51E0\u4E2A Agent"), t("\u9009\u62E9\u81EA\u52A8\u5EFA\u9879\u7684 Agent"), null);
+    const agBox = jag.querySelector(":scope > .ad-row__right").createDiv({ cls: "ad-seg ad-seg--many" });
+    const agOn = s.autoLogAgents || (s.autoLogAgents = {});
+    for (const id of AGENT_ORDER) {
+      const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id, attr: { "aria-pressed": String(agOn[id] !== false) } });
+      b.onclick = () => {
+        agOn[id] = agOn[id] === false;
+        b.classList.toggle("is-on", agOn[id] !== false);
+        b.setAttribute("aria-pressed", String(agOn[id] !== false));
+        p.saveSettings();
+      };
+    }
+    const grain = this.row(jr, t("\u81EA\u52A8\u8BB0\u5F55\u9897\u7C92\u5EA6"), t("\u9009\u62E9\u8BB0\u5F55\u7684\u65F6\u673A"), null);
+    this.segmented(grain.querySelector(":scope > .ad-row__right"), [{ id: "latest", label: t("\u6700\u65B0\u8FDB\u5C55") }, { id: "round", label: t("\u6BCF\u8F6E\u8BB0\u5F55") }, { id: "paused", label: t("\u505C\u6B47\u6216\u5F52\u6863") }], s.autoLogGranularity || DEFAULTS.autoLogGranularity, (v) => {
+      s.autoLogGranularity = v;
+      p.saveSettings();
+      this.display();
+    });
+    const jdetail = this.row(jr, t("\u81EA\u52A8\u65E5\u5FD7\u8BE6\u7EC6\u7A0B\u5EA6"), "", null);
+    const detailDesc = jdetail.querySelector(":scope > .ad-row__left");
+    detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u7B80\u7565\uFF1A\u4EFB\u52A1\u548C\u7ED3\u8BBA\u5408\u6210\u4E00\u6BB5") });
+    detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u6807\u51C6\uFF1A\u63D0\u95EE\u3001\u56DE\u7B54\u5404\u4E00\u53E5") });
+    detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u8BE6\u7EC6\uFF1A\u4FDD\u7559\u63D0\u95EE\u3001\u56DE\u590D\u6458\u5F55\u548C\u6B65\u9AA4") });
+    this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: t("\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09") }, { id: "standard", label: t("\u6807\u51C6") }, { id: "detailed", label: t("\u8BE6\u7EC6") }], s.autoLogDetail || "brief", (v) => {
+      changeLogDetail(s, v);
+      p.saveSettings();
+      this.display();
+    });
+    const rmode = this.row(jr, t("AI \u8BB0\u5F55\u663E\u793A\u65B9\u5F0F"), t("\u63A7\u5236\u7B14\u8BB0\u4E2D\u9ED8\u8BA4\u5C55\u5F00\u7684\u8BB0\u5F55"), null);
+    this.segmented(rmode.querySelector(":scope > .ad-row__right"), [
+      { id: "collapsed", label: t("\u9ED8\u8BA4\u6298\u53E0") },
+      { id: "expanded", label: t("\u9ED8\u8BA4\u5C55\u5F00") },
+      { id: "latest5", label: t("\u6700\u65B0\u4E94\u6761") },
+      { id: "latest3", label: t("\u6700\u65B0\u4E09\u6761") },
+      { id: "latest1", label: t("\u6700\u65B0\u4E00\u6761") }
+    ], s.aiRecordDisplay || DEFAULTS.aiRecordDisplay, (v) => {
+      s.aiRecordDisplay = v;
+      p.saveSettings();
+      p.refreshUI();
+      this.display();
+    });
+    const merge = this.row(jr, t("\u7D2F\u79EF\u540E\u81EA\u52A8\u5408\u5E76\u603B\u7ED3"), "", null);
+    this.toggle(merge.querySelector(":scope > .ad-row__right"), !!s.autoLogMerge, (v) => {
+      s.autoLogMerge = v;
+      p.saveSettings();
+      this.display();
+    });
+    const mergeN = this.row(jr, t("\u7D2F\u79EF\u591A\u5C11\u6761\u7ED3\u8BBA\u540E\u5408\u5E76"), t("\u81F3\u5C11 2 \u6761"), null);
+    this.numberInput(mergeN.querySelector(":scope > .ad-row__right"), s.autoLogMergeThreshold || 10, 2, 100, (v) => {
+      s.autoLogMergeThreshold = Math.round(v);
+      p.saveSettings();
+    });
+    const wb = this.subDetails(jr, "writeback", t("\u72B6\u6001\u4E0E\u7ED3\u8BBA\u56DE\u5199"), true);
+    const dm1 = this.row(wb, t("\u628A\u72B6\u6001\u6539\u6210 DELEGATED"), "", null);
+    this.toggle(dm1.querySelector(":scope > .ad-row__right"), d.markStatus !== false, (v) => {
+      d.markStatus = v;
+      p.saveSettings();
+    });
+    const dm2 = this.row(wb, t("\u5199 \u{1F517} \u7ED1\u5B9A\u884C"), t("\u5220\u9664\u7ED1\u5B9A\u884C\u53EF\u89E3\u9664\u5173\u8054"), null);
+    this.toggle(dm2.querySelector(":scope > .ad-row__right"), d.writeLink !== false, (v) => {
+      d.writeLink = v;
+      p.saveSettings();
+    });
+    const dm3 = this.row(wb, t("\u59D4\u6D3E\u4EFB\u52A1\u56DE\u5199"), t("\u59D4\u6D3E\u5B8C\u6210\u540E\u5199 \u{1F4AC} \u7ED3\u8BBA"), null);
+    this.toggle(dm3.querySelector(":scope > .ad-row__right"), s.autoWriteResult !== false, (v) => {
+      s.autoWriteResult = v;
+      p.saveSettings();
+    });
+    const js = this.row(wb, t("\u56DE\u5199\u65E5\u8BB0"), t("\u66F4\u65B0\u5DF2\u7ED1\u5B9A\u4EFB\u52A1\u7684\u72B6\u6001\u4E0E\u7ED3\u8BBA"), null);
+    this.toggle(js.querySelector(":scope > .ad-row__right"), s.journalSync !== false, (v) => {
+      s.journalSync = v;
+      p.saveSettings();
+    });
+    for (const [key, label, desc] of [
+      ["resultBack", t("\u4F1A\u8BDD\u7ED3\u8BBA\u5199\u56DE\uFF08\u{1F4AC}\uFF09"), ""],
+      ["agentKw", t("\u72B6\u6001\u5173\u952E\u8BCD\u8DDF\u7740\u4F1A\u8BDD"), ""],
+      ["autoLogKw", t("\u81EA\u52A8\u8BB0\u7684\u6761\u76EE\u4E5F\u8DDF\u7740\u5207\u72B6\u6001"), ""],
+      ["kidBlocks", t("\u5B50\u4F1A\u8BDD\u548C side chat \u5B50\u5757"), ""]
+    ]) {
+      const row = this.row(wb, label, desc, null);
+      this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] !== false, (v) => {
+        s[key] = v;
+        p.saveSettings();
+      });
+    }
+    const rMax = this.row(wb, t("\u{1F4AC} \u6700\u591A\u591A\u5C11\u4E2A\u5B57"), "", null);
+    this.numberInput(rMax.querySelector(":scope > .ad-row__right"), s.resultMax || 240, 40, 2e3, (v) => {
+      s.resultMax = v;
+      p.saveSettings();
+    });
+    const jd = this.row(wb, t("\u5F52\u6863\u7684\u4F1A\u8BDD\u8BB0\u6210 DONE"), "", null);
+    this.toggle(jd.querySelector(":scope > .ad-row__right"), s.autoLogArchiveDone !== false, (v) => {
+      s.autoLogArchiveDone = v;
+      p.saveSettings();
+    });
+    const jn = this.row(wb, t("\u6574\u7406\u5B8C\u5F39\u901A\u77E5"), "", null);
+    this.toggle(jn.querySelector(":scope > .ad-row__right"), s.autoLogNotify !== false, (v) => {
+      s.autoLogNotify = v;
+      p.saveSettings();
+    });
+    const tpl = this.subDetails(jr, "template-archive", t("\u6574\u7406\u65E5\u5FD7\u6A21\u677F\u4E0E\u5F52\u6863"), true);
+    const suggest = this.row(tpl, t("\u65E5\u5FD7\u6742\u4E71\u65F6\u63D0\u9192\u6574\u7406"), t("\u6BCF\u65B0\u589E 4 \u6761\u8BB0\u5F55\u63D0\u9192\uFF0C\u6BCF\u5929\u6700\u591A 2 \u6B21"), null);
+    this.toggle(suggest.querySelector(":scope > .ad-row__right"), s.organizeJournalSuggest !== false, (v) => {
+      s.organizeJournalSuggest = v;
+      p.saveSettings();
+    });
+    const templateRow = this.row(tpl, t("\u6574\u7406\u6A21\u677F"), t("\u8BBE\u7F6E\u7B14\u8BB0\u5206\u533A\u7684\u6807\u9898\u548C\u987A\u5E8F"), null);
+    const template = templateRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
+    for (const [value, label] of [["auto", t("\u8DDF\u968F\u754C\u9762\uFF08\u9ED8\u8BA4\uFF09")], ["zh", t("\u4E2D\u6587\u6A21\u677F")], ["en", "English template"], ["custom", t("\u81EA\u5B9A\u4E49\u6A21\u677F")]]) template.createEl("option", { text: label, attr: { value } });
+    template.value = s.journalLayout ? "custom" : s.journalLayoutLanguage || "auto";
+    template.onchange = () => {
+      if (template.value === "custom") s.journalLayout = builtinJournalLayout(s.journalLayoutLanguage === "auto" ? currentLanguage() : s.journalLayoutLanguage || currentLanguage());
+      else {
+        s.journalLayout = null;
+        s.journalLayoutLanguage = template.value;
+      }
+      p.saveSettings();
+      this.display();
+    };
+    if (s.journalLayout) {
+      const names = { done: t("\u5DF2\u5B8C\u6210"), active: t("\u8FDB\u884C\u4E2D"), notes: t("\u624B\u5199\u5185\u5BB9") };
+      const orderRow = this.row(tpl, t("\u5206\u533A\u987A\u5E8F"), "", null);
+      const orderSel = orderRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
+      for (const keys of [["done", "active", "notes"], ["active", "done", "notes"], ["notes", "done", "active"], ["notes", "active", "done"], ["done", "notes", "active"], ["active", "notes", "done"]]) orderSel.createEl("option", { text: keys.map((key) => names[key]).join(" \u2192 "), attr: { value: keys.join(",") } });
+      orderSel.value = s.journalLayout.order.join(",");
+      orderSel.onchange = () => {
+        s.journalLayout = journalLayout({ ...s.journalLayout, order: orderSel.value.split(",") });
+        p.saveSettings();
+      };
+      for (const key of JOURNAL_LAYOUT_DEFAULT.order) {
+        const row = this.row(tpl, t("{section}\u6807\u9898", { section: names[key] }), key === "notes" ? t("\u7559\u7A7A\u4E0D\u6DFB\u52A0\u6807\u9898") : "", null);
+        const input = this.textInput(row.querySelector(":scope > .ad-row__right"), s.journalLayout.titles[key], names[key], (value) => {
+          try {
+            s.journalLayout = journalLayout({ ...s.journalLayout, titles: { ...s.journalLayout.titles, [key]: value } });
+            p.saveSettings();
+          } catch (error) {
+            input.value = s.journalLayout.titles[key];
+            new import_obsidian4.Notice(error.message);
+          }
+        });
+      }
+    }
+    const archive = this.row(tpl, t("\u9ED8\u8BA4\u5F52\u6863\u4F4D\u7F6E"), t("\u5E93\u5185 Markdown \u8DEF\u5F84"), null);
+    this.textInput(archive.querySelector(":scope > .ad-row__right"), s.doneArchivePath, DEFAULTS.doneArchivePath, (v) => {
+      try {
+        s.doneArchivePath = archivePath(v);
+        p.saveSettings();
+      } catch (e) {
+        new import_obsidian4.Notice(e.message);
+      }
+    }, "ad-input--wide");
+    const archOrder = this.row(tpl, t("\u5F52\u6863\u987A\u5E8F"), "", null);
+    this.segmented(archOrder.querySelector(":scope > .ad-row__right"), [{ id: "prepend", label: t("\u63D2\u5230\u5F00\u5934") }, { id: "append", label: t("\u8FFD\u52A0\u5230\u672B\u5C3E") }], s.archiveOrder || "prepend", (v) => {
+      s.archiveOrder = v;
+      p.saveSettings();
+    });
+    const jrBtns = jr.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(jrBtns, t("\u73B0\u5728\u6574\u7406\u4E00\u6B21"), () => p.autoLog.logNow());
+    this.bigButton(jrBtns, t("\u6062\u590D\u9ED8\u8BA4\u6574\u7406\u6A21\u677F"), () => {
+      s.journalLayout = null;
+      s.journalLayoutLanguage = "auto";
+      p.saveSettings();
+      this.display();
+    });
+    const modelCard = this.card(body, t("AI \u6574\u7406\u6A21\u578B"), t("\u81EA\u52A8\u6574\u7406\u3001\u6DA6\u8272\u4F7F\u7528\u7684 CLI\u3001\u6A21\u578B\u4E0E\u8C03\u7528\u9891\u7387\uFF0C\u72EC\u7ACB\u4E8E\u59D4\u6D3E\u6A21\u578B"));
+    const jprovider = this.row(modelCard, t("\u6574\u7406\u4F7F\u7528\u7684 CLI"), "", null);
+    this.segmented(jprovider.querySelector(":scope > .ad-row__right"), [{ id: "claude", label: "Claude CLI" }, { id: "codex", label: "Codex CLI" }], s.autoLogProvider || "claude", (v) => {
+      s.autoLogProvider = v;
+      s.autoLogModel = v === "codex" ? "gpt-6-luna" : "haiku";
+      s.roundPolishModel = "";
+      s.autoLogPath = "";
+      p.saveSettings();
+      this.display();
+    });
+    if (s.autoLogProvider === "codex") {
+      const effort = this.row(modelCard, t("\u6574\u7406\u4E0E\u6DA6\u8272\u7684\u63A8\u7406\u5F3A\u5EA6"), "", null);
+      this.segmented(effort.querySelector(":scope > .ad-row__right"), EFFORTS.codex, s.autoLogEffort || "low", (v) => {
+        s.autoLogEffort = v;
+        p.saveSettings();
+        this.display();
+      });
+    }
+    const jm = this.row(modelCard, t("\u6574\u7406\u7528\u7684\u6A21\u578B"), t("\u586B\u5199\u6A21\u578B\u540D\u6216\u522B\u540D"), null);
+    this.textInput(jm.querySelector(":scope > .ad-row__right"), s.autoLogModel || "", s.autoLogProvider === "codex" ? "gpt-6-luna" : "haiku", (v) => {
+      s.autoLogModel = v.trim();
+      p.saveSettings();
+    });
+    const jt = this.row(modelCard, t("\u6574\u7406\u8D85\u65F6\uFF08\u79D2\uFF09"), "", null);
+    this.numberInput(jt.querySelector(":scope > .ad-row__right"), s.autoLogTimeout || 120, 10, 600, (v) => {
+      s.autoLogTimeout = v;
+      p.saveSettings();
+    });
+    const jfb = this.row(modelCard, t("\u6574\u7406\u5931\u8D25\u65F6\u4F7F\u7528\u4F1A\u8BDD\u6807\u9898"), "", null);
+    this.toggle(jfb.querySelector(":scope > .ad-row__right"), s.autoLogFallback !== false, (v) => {
+      s.autoLogFallback = v;
+      p.saveSettings();
+    });
+    const jp = this.row(modelCard, t("\u6574\u7406 CLI \u8DEF\u5F84"), t("\u7559\u7A7A\u4F7F\u7528\u59D4\u6D3E\u8BBE\u7F6E\u4E2D\u7684\u8DEF\u5F84"), null);
+    this.textInput(jp.querySelector(":scope > .ad-row__right"), s.autoLogPath || "", t("\u81EA\u52A8\u627E"), (v) => {
+      s.autoLogPath = v.trim();
+      p.saveSettings();
+    }, "ad-input--wide");
+    const jrp = this.row(modelCard, t("\u6BCF\u8F6E\u7ED3\u8BBA\u8BA9\u6A21\u578B\u6DA6\u8272"), t("\u9002\u7528\u4E8E\u7B80\u7565\u548C\u6807\u51C6\u8BB0\u5F55"), null);
+    this.toggle(jrp.querySelector(":scope > .ad-row__right"), s.roundPolish !== false, (v) => {
+      s.roundPolish = v;
+      p.saveSettings();
+    });
+    const jrm = this.row(modelCard, t("\u6DA6\u8272\u7528\u7684\u6A21\u578B"), t("\u7559\u7A7A\u6CBF\u7528\u6574\u7406\u6A21\u578B"), null);
+    this.textInput(jrm.querySelector(":scope > .ad-row__right"), s.roundPolishModel || "", t("\u540C\u6574\u7406\u7528\u7684\u6A21\u578B"), (v) => {
+      s.roundPolishModel = v.trim();
+      p.saveSettings();
+    });
+    const jrt = this.row(modelCard, t("\u6DA6\u8272\u8D85\u65F6\uFF08\u79D2\uFF09"), "", null);
+    this.numberInput(jrt.querySelector(":scope > .ad-row__right"), s.roundPolishTimeout || 30, 5, 300, (v) => {
+      s.roundPolishTimeout = v;
+      p.saveSettings();
+    });
+    const sched = this.subDetails(modelCard, "autolog-schedule", t("\u81EA\u52A8\u6574\u7406\u9891\u7387"), true);
+    const je = this.row(sched, t("\u6574\u7406\u95F4\u9694\uFF08\u5206\u949F\uFF09"), t("\u81F3\u5C11 5 \u5206\u949F"), null);
+    this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => {
+      s.autoLogEvery = v;
+      p.saveSettings();
+    });
+    const jst = this.row(sched, t("\u9996\u6B21\u6574\u7406\u5EF6\u8FDF\uFF08\u5206\u949F\uFF09"), "", null);
+    this.numberInput(jst.querySelector(":scope > .ad-row__right"), s.autoLogStartDelay ?? 1, 1, 240, (v) => {
+      s.autoLogStartDelay = v;
+      p.saveSettings();
+    });
+    const jmin = this.row(sched, t("\u6700\u77ED\u8BB0\u5F55\u65F6\u957F\uFF08\u5206\u949F\uFF09"), t("0 \u8868\u793A\u7ACB\u5373\u8BB0\u5F55"), null);
+    this.numberInput(jmin.querySelector(":scope > .ad-row__right"), s.autoLogMinMinutes ?? 3, 0, 120, (v) => {
+      s.autoLogMinMinutes = v;
+      p.saveSettings();
+    });
+    const jid = this.row(sched, t("\u6682\u505C\u5224\u5B9A\uFF08\u5206\u949F\uFF09"), t("\u81F3\u5C11 5 \u5206\u949F"), null);
+    this.numberInput(jid.querySelector(":scope > .ad-row__right"), s.autoLogIdle || 10, 5, 480, (v) => {
+      s.autoLogIdle = v;
+      p.saveSettings();
+    });
+    const jb = this.row(sched, t("\u6BCF\u6279\u4F1A\u8BDD\u6570"), "", null);
+    this.numberInput(jb.querySelector(":scope > .ad-row__right"), s.autoLogBatch || 8, 1, 20, (v) => {
+      s.autoLogBatch = v;
+      p.saveSettings();
+    });
+    const ui = this.card(body, t("\u5C55\u793A\u4E0E\u7EF4\u62A4"), t("\u4F1A\u8BDD\u6253\u5F00\u65B9\u5F0F\u3001\u9762\u677F\u3001\u7F16\u8F91\u5668\u4E0E\u83DC\u5355\u680F\u663E\u793A\u3001\u7F13\u5B58\u7EF4\u62A4"));
+    const dc = this.row(ui, t("\u7EC8\u7AEF\u4F1A\u8BDD\u6253\u5F00\u65B9\u5F0F"), "", null);
+    this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: t("\u7EC8\u7AEF") }, { id: "desktop", label: t("\u684C\u9762\u7248") }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => {
+      s.cliOpen = v;
+      p.saveSettings();
+      this.display();
+    });
+    const d2 = this.row(ui, t("\u5F52\u6863\u7684\u4F1A\u8BDD\u4E0D\u518D\u5217\u51FA"), "", null);
+    this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => {
+      s.hideArchived = v;
+      p.saveSettings();
+      p.refreshUI();
+    });
+    for (const [key, label, desc, fallback] of [
+      ["showEditorPills", t("\u4EFB\u52A1\u884C\u4E0A\u7684\u4F1A\u8BDD\u72B6\u6001\u6309\u94AE"), "", true],
+      ["dragGrip", t("\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u7684\u628A\u624B"), t("\u5355\u51FB\u59D4\u6D3E\uFF1B\u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009\u62E9 Agent"), true],
+      ["showRibbonIcon", t("\u5DE6\u4FA7\u680F\u56FE\u6807"), "", true],
+      ["openDashboardOnStartup", t("\u542F\u52A8\u65F6\u6253\u5F00\u9762\u677F"), "", false]
+    ]) {
+      const row = this.row(ui, label, desc, null);
+      this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] === void 0 ? fallback : s[key] !== false, (v) => {
+        s[key] = v;
+        p.saveSettings();
+        p.applyUiSettings();
+      });
+    }
+    const bars = this.row(ui, t("\u6700\u8FD1 14 \u5929\u7684\u6761\u5F62\u56FE"), "", null);
+    this.toggle(bars.querySelector(":scope > .ad-row__right"), s.ui.showUsageBars !== false, (v) => {
+      s.ui.showUsageBars = v;
+      p.saveSettings();
+      p.refreshUI();
+    });
+    const spark = this.row(ui, t("\u6BCF\u4E2A Agent \u7684\u5C0F\u706B\u82B1\u7EBF"), "", null);
+    this.toggle(spark.querySelector(":scope > .ad-row__right"), s.ui.showSparkline !== false, (v) => {
+      s.ui.showSparkline = v;
+      p.saveSettings();
+      p.refreshUI();
+    });
+    this.row(ui, t("\u8DF3\u8F6C\u5230\u6B63\u5728\u8FD0\u884C\u7684\u9879\u76EE"), t("\u9ED8\u8BA4 Ctrl+Alt+J"), "\u2303\u2325J");
+    const mb = this.row(ui, t("macOS \u83DC\u5355\u680F"), "", null);
+    this.mbSwitch = this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => {
+      s.showMenuBar = v;
+      p.saveSettings();
+      p.applyUiSettings();
+    });
+    const ma = this.row(ui, t("\u83DC\u5355\u680F\u663E\u793A\u54EA\u4E9B Agent"), "", null);
+    this.segmented(ma.querySelector(":scope > .ad-row__right"), [{ id: "primary-running", label: t("\u4E3B\u529B\u4E0E\u5728\u8DD1\u7684") }, { id: "all", label: t("\u5168\u90E8\u5DF2\u542F\u7528") }], s.menuBarAgentScope || "primary-running", (v) => {
+      s.menuBarAgentScope = v;
+      p.saveSettings();
+      p.menubar?.update(true);
+      this.display();
+    });
+    for (const [key, label, desc, min, max] of [
+      ["menuBarPrimaryLimit", t("\u83DC\u5355\u680F\uFF1A\u4E3B\u529B\u6700\u591A\u51E0\u4E2A"), "", 3, 12],
+      ["menuBarOtherLimit", t("\u83DC\u5355\u680F\uFF1A\u5176\u5B83 Agent \u6700\u591A\u51E0\u4E2A"), "", 1, 6]
+    ]) {
+      const row = this.row(ui, label, desc, null);
+      this.numberInput(row.querySelector(":scope > .ad-row__right"), s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => {
+        s[key] = v;
+        p.saveSettings();
+        p.refreshUI();
+      });
+    }
+    const hkRow = this.row(ui, t("\u83DC\u5355\u680F\u5FEB\u6377\u952E"), t("\u70B9\u8F93\u5165\u6846\u540E\u6309\u7EC4\u5408\u952E\uFF0C\u9700\u5305\u542B \u2303\u3001\u2325 \u6216 \u2318"), null);
+    const hkRight = hkRow.querySelector(":scope > .ad-row__right");
+    const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": t("\u83DC\u5355\u680F\u5FEB\u6377\u952E") } });
+    hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+    hkInput.addEventListener("focus", () => {
+      hkInput.value = t("\u6309\u4E0B\u7EC4\u5408\u952E\u2026");
+      hkInput.classList.add("is-capturing");
+    });
+    hkInput.addEventListener("blur", () => {
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+      hkInput.classList.remove("is-capturing");
+    });
+    hkInput.addEventListener("input", () => {
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+    });
+    hkInput.addEventListener("keydown", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "Escape") {
+        hkInput.blur();
+        return;
+      }
+      if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
+      const key = hotkeyKeyFromEvent(event);
+      if (!key) {
+        hkInput.value = t("\u53EA\u652F\u6301 A\u2013Z / 0\u20139 / F1\u2013F12");
+        return;
+      }
+      if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+        hkInput.value = t("\u81F3\u5C11\u52A0 \u2303 / \u2325 / \u2318");
+        return;
+      }
+      s.menuBarHotkey = hotkeySpecFromEvent(event, key);
+      p.saveSettings();
+      p.menubar?.update(true);
+      new import_obsidian4.Notice(t("\u83DC\u5355\u680F\u5FEB\u6377\u952E\u5DF2\u4FDD\u5B58\uFF0C\u7EA6 2 \u79D2\u5185\u751F\u6548"));
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+      hkInput.classList.remove("is-capturing");
+      hkInput.blur();
+    }, true);
+    const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: t("\u9ED8\u8BA4") });
+    hkReset.onclick = () => {
+      s.menuBarHotkey = DEFAULTS.menuBarHotkey;
+      p.saveSettings();
+      p.menubar?.update(true);
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+    };
+    const dn = this.row(ui, t("\u4F7F\u7528\u87BA\u65CB\u65E5\u7A0B\u7684\u8FDB\u5EA6\u663E\u793A"), "", null);
+    this.toggle(dn.querySelector(":scope > .ad-row__right"), s.yieldToNautilus !== false, (v) => {
+      s.yieldToNautilus = v;
+      p.saveSettings();
+      p.refreshUI();
+    });
+    const nautRow = this.row(ui, t("\u5173\u95ED\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B"), "", null);
+    this.toggle(nautRow.querySelector(":scope > .ad-row__right"), s.menuBarHideNautilus !== false, (v) => {
+      s.menuBarHideNautilus = v;
+      p.saveSettings();
+      if (v) p.hideNautilusAgentBar().catch(() => {
+      });
+      else p.restoreNautilusAgentBar().catch(() => {
+      });
+    });
+    const btn = ui.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(btn, t("\u91CD\u542F\u83DC\u5355\u680F"), () => p.menubar?.restart());
+    this.bigButton(btn, t("\u91CD\u65B0\u8BA1\u7B97\u5168\u90E8\u5386\u53F2"), () => p.rebuildUsage(), "mod-warning");
+    this.bigButton(btn, t("\u6253\u5F00\u63D2\u4EF6\u76EE\u5F55"), () => p.openPluginDir());
+    this.bigButton(btn, t("\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u91CC\u7684 AI \u5199\u5165"), () => p.pauseNautilus(), "mod-warning");
+    const stats = ui.createDiv({ cls: "ad-statline" });
+    const days = Object.keys(p.store.days).length;
+    stats.createSpan({ text: t("{n} \u5929\u8BB0\u5F55", { n: days }) });
+    stats.createSpan({ cls: "ad-dot", text: "\xB7" });
+    stats.createSpan({ text: t("{n} \u4E2A\u4F1A\u8BDD\u7D22\u5F15", { n: p.usage.meta.size }) });
+    stats.createSpan({ cls: "ad-dot", text: "\xB7" });
+    stats.createSpan({ text: t("{n} \u4E2A\u65E5\u5FD7\u6587\u4EF6", { n: p.usage.files.size }) });
+  }
+  // ---------- Dreaming ----------
   renderDream(body) {
     const p = this.plugin, s = p.settings.dream;
     const card = this.card(body, t("Dreaming \xB7 \u957F\u671F\u8BB0\u5FC6"), t("\u4ECE\u8FD1 14 \u5929\u65E5\u5FD7\u63D0\u70BC\u8BB0\u5FC6\uFF0C\u4FDD\u5B58\u5230\u7B14\u8BB0"));
@@ -10310,752 +11052,6 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     update();
     this._dreamTimer = setInterval(update, 1e3);
   }
-  modelsDraft() {
-    if (!this.draft) this.draft = JSON.parse(JSON.stringify(this.plugin.settings.models));
-    if (!this.draft.enabled) this.draft.enabled = [];
-    if (!this.draft.pinned) this.draft.pinned = [];
-    if (!this.draft.order) this.draft.order = [];
-    if (!this.draft.custom) this.draft.custom = [];
-    if (!this.draft.defaultByAgent) this.draft.defaultByAgent = { claude: "claude-opus-5-5", dsh: "deepseek-v4-pro" };
-    return this.draft;
-  }
-  renderModels(body) {
-    const p = this.plugin;
-    if (syncModelGroups(p.settings, (agent) => p.agentEnabled(agent))) p.saveSettings();
-    const d = this.modelsDraft();
-    const target = this.modelTarget || p.defaultTarget();
-    const models = p.allModels(d.custom);
-    const enabled = new Set(d.enabled);
-    const byId = new Map(models.map((m) => [m.id, m]));
-    const defaultId = d.defaultByAgent[target] || p.defaultModel(target);
-    const def = byId.get(defaultId) || models.find((m) => m.agent === target) || models[0];
-    const intro = body.createDiv({ cls: "ad-models-intro" });
-    intro.createDiv({ cls: "ad-models-title", text: "Models" });
-    intro.createDiv({ cls: "ad-models-sub", text: t("\u7BA1\u7406\u53EF\u9009\u6A21\u578B\u3001\u9ED8\u8BA4\u6A21\u578B\u548C\u63A8\u7406\u5F3A\u5EA6") });
-    const defaults = body.createDiv({ cls: "ad-models-card" });
-    const dhead = defaults.createDiv({ cls: "ad-models-sec" });
-    dhead.createSpan({ cls: "ad-kicker", text: t("\u9ED8\u8BA4\u8BBE\u7F6E") });
-    const targetSeg = defaults.createDiv({ cls: "ad-models-target" });
-    for (const id of AGENT_ORDER) {
-      const a = AGENTS[id];
-      const b = targetSeg.createEl("button", { cls: "ad-target ad-target--sm" + (target === id ? " is-on" : ""), attr: { "aria-pressed": String(target === id) } });
-      b.style.setProperty("--ad-agent", a.color);
-      b.style.setProperty("--ad-agent-soft", a.soft);
-      agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
-      b.createSpan({ text: a.short });
-      b.onclick = () => {
-        this.modelTarget = id;
-        this.display();
-      };
-    }
-    if (target === "workbuddy" || AGENTS[target]?.trackingOnly) {
-      this.row(defaults, t("\u6A21\u578B"), "", t("\u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u6A21\u578B"));
-    } else {
-      const defRow = defaults.createDiv({ cls: "ad-defrow" });
-      const defLeft = defRow.createDiv({ cls: "ad-defrow__left" });
-      defLeft.createDiv({ cls: "ad-defrow__name", text: t("\u9ED8\u8BA4\u6A21\u578B") });
-      const defRight = defRow.createDiv({ cls: "ad-defrow__right" });
-      const pill = defRight.createEl("select", { cls: "ad-modelpill" });
-      const candidates = models.filter((m) => m.agent === target && (enabled.has(m.id) || m.id === defaultId));
-      const pool = candidates.length ? candidates : models.filter((m) => m.agent === target);
-      for (const m of pool) {
-        const o = pill.createEl("option", { text: m.name, attr: { value: m.id } });
-        if (m.id === def.id) o.selected = true;
-      }
-      pill.onchange = () => {
-        d.defaultByAgent[target] = pill.value;
-        if (!d.enabled.includes(pill.value)) d.enabled.push(pill.value);
-        this.display();
-      };
-      if (def) {
-        const meta = defaults.createDiv({ cls: "ad-modelmeta" });
-        meta.createSpan({ text: def.context });
-        meta.createSpan({ cls: "ad-dot", text: "\xB7" });
-        meta.createSpan({ text: strength(def.strength) });
-        meta.createSpan({ cls: "ad-dot", text: "\xB7" });
-        for (const tag of def.tags || []) meta.createSpan({ cls: "ad-cap", text: tag });
-        if (def.cost) meta.createSpan({ cls: "ad-cost", text: def.cost });
-      }
-      const eff = defaults.createDiv({ cls: "ad-defrow ad-defrow--effort" });
-      const effLeft = eff.createDiv({ cls: "ad-defrow__left" });
-      effLeft.createDiv({ cls: "ad-defrow__name", text: t("\u9ED8\u8BA4\u5F3A\u5EA6") });
-      const effRight = eff.createDiv({ cls: "ad-defrow__right ad-effort ad-effort--big" });
-      const eopts = EFFORTS[target] || EFFORTS.claude;
-      const evalue = d.effortByAgent?.[target] || p.settings.delegate[target]?.effort || d.effort || "high";
-      const eidx = Math.max(0, eopts.findIndex((x) => x.id === evalue));
-      const etrack = effRight.createDiv({ cls: "ad-effort__track" });
-      etrack.createDiv({ cls: "ad-effort__fill" }).style.width = `${eidx / Math.max(1, eopts.length - 1) * 100}%`;
-      const estops = etrack.createDiv({ cls: "ad-effort__stops" });
-      eopts.forEach((o, i) => {
-        const b = estops.createEl("button", { cls: "ad-effort__stop" + (o.id === evalue ? " is-on" : ""), attr: { "aria-label": o.label, "aria-pressed": String(o.id === evalue) } });
-        b.createSpan({ cls: "ad-effort__dot" });
-        b.onclick = () => {
-          (d.effortByAgent || (d.effortByAgent = {}))[target] = o.id;
-          this.display();
-        };
-        const lab = effRight.createSpan({ cls: "ad-effort__lab", attr: { style: `left:${i / Math.max(1, eopts.length - 1) * 100}%` }, text: o.label });
-      });
-      const rec = effRight.createDiv({ cls: "ad-effort__rec" });
-      const adv = rec.createEl("select", { cls: "ad-advselect" });
-      for (const o of eopts) adv.createEl("option", { text: o.label, attr: { value: o.id } });
-      adv.value = evalue;
-      adv.onchange = () => {
-        (d.effortByAgent || (d.effortByAgent = {}))[target] = adv.value;
-        this.display();
-      };
-    }
-    const picker = body.createDiv({ cls: "ad-models-card" });
-    const phead = picker.createDiv({ cls: "ad-models-sec" });
-    phead.createSpan({ cls: "ad-kicker", text: t("\u53EF\u7528\u6A21\u578B") });
-    const tools = picker.createDiv({ cls: "ad-picker-tools" });
-    const searchWrap = tools.createDiv({ cls: "ad-search" });
-    searchWrap.createSpan({ cls: "ad-search__icon", text: "\u2315" });
-    const search = searchWrap.createEl("input", { cls: "ad-search__input", attr: { placeholder: t("\u641C\u7D22\u6A21\u578B"), value: this.search } });
-    search.oninput = () => {
-      this.search = search.value;
-      this.display();
-    };
-    const add = tools.createEl("button", { cls: "ad-btn ad-btn--soft", text: "\uFF0B " + t("\u6DFB\u52A0\u6A21\u578B") });
-    add.onclick = () => new AddModelModal(this.app, p, (m) => {
-      d.custom.push(m);
-      if (!d.enabled.includes(m.id)) d.enabled.push(m.id);
-      if (!d.order.includes(m.id)) d.order.push(m.id);
-      this.display();
-    }).open();
-    const filters = picker.createDiv({ cls: "ad-filters ad-filters--models" });
-    for (const [id, label] of [["all", t("\u5168\u90E8")], ["enabled", t("\u5DF2\u542F\u7528")], ["reasoning", t("\u63A8\u7406")], ["fast", t("\u5FEB\u901F")], ["vision", t("\u89C6\u89C9")]]) {
-      const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label, attr: { "aria-pressed": String(this.filter === id) } });
-      b.onclick = () => {
-        this.filter = id;
-        this.display();
-      };
-    }
-    const list = picker.createDiv({ cls: "ad-modellist" });
-    const q = this.search.trim().toLowerCase();
-    let visible = models.filter((m) => {
-      if (this.filter === "enabled" && !enabled.has(m.id)) return false;
-      if (this.filter === "reasoning" && !(m.tags || []).includes("Reasoning")) return false;
-      if (this.filter === "fast" && !(m.tags || []).includes("Fast")) return false;
-      if (this.filter === "vision" && !(m.tags || []).includes("Vision")) return false;
-      if (q && !`${m.name} ${m.provider} ${(m.tags || []).join(" ")}`.toLowerCase().includes(q)) return false;
-      return true;
-    });
-    const pinned = d.pinned.map((id) => visible.find((m) => m.id === id)).filter(Boolean);
-    const rest = visible.filter((m) => !d.pinned.includes(m.id));
-    for (const agent of AGENT_ORDER) {
-      const rows = [...pinned, ...rest].filter((m) => m.agent === agent);
-      const clientModels = agent === "workbuddy" || AGENTS[agent].trackingOnly;
-      if (!rows.length && (!clientModels || q || this.filter !== "all")) continue;
-      const state = p.settings.ui.modelGroups[agent];
-      const g = list.createEl(clientModels ? "div" : "details", { cls: "ad-modelgroup" });
-      g.dataset.agent = agent;
-      if (!clientModels) {
-        g.open = state.open;
-        g.ontoggle = () => {
-          if (!g.isConnected || p.settings.ui.modelGroups[agent] !== state || state.open === g.open) return;
-          state.open = g.open;
-          p.saveSettings();
-        };
-      }
-      const gh = g.createEl(clientModels ? "div" : "summary", { cls: "ad-modelgroup__head" });
-      const a = AGENTS[agent];
-      agentIcon(gh.createSpan({ cls: "ad-glyph", attr: { style: `color:${a.color}` } }), agent);
-      gh.createSpan({ text: a.name });
-      gh.createSpan({ cls: "ad-muted", text: clientModels ? t("\u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u6A21\u578B") : t("\u5DF2\u542F\u7528 {n} / {total}", { n: rows.filter((m) => enabled.has(m.id)).length, total: rows.length }) });
-      if (rows.length) this.groupAction(gh, rows, d, false);
-      for (const m of rows) this.modelRow(g, m, d, target, defaultId, d.pinned.includes(m.id));
-    }
-    if (!pinned.length && !rest.length) {
-      list.createDiv({ cls: "ad-empty ad-empty--small", text: t("\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684\u6A21\u578B") });
-    }
-  }
-  groupAction(head, rows, d, pinned) {
-    const allOn = rows.every((m) => d.enabled.includes(m.id));
-    const b = head.createEl("button", { cls: "ad-linkbtn", text: allOn ? t("\u5168\u90E8\u5173\u95ED") : t("\u5168\u90E8\u5F00\u542F") });
-    b.onclick = () => {
-      for (const m of rows) {
-        const i = d.enabled.indexOf(m.id);
-        if (allOn && i >= 0) d.enabled.splice(i, 1);
-        if (!allOn && i < 0) d.enabled.push(m.id);
-      }
-      this.display();
-    };
-  }
-  modelRow(parent, m, d, target, defaultId, pinned) {
-    const on = d.enabled.includes(m.id);
-    const row = parent.createDiv({ cls: "ad-modelrow" + (on ? "" : " is-off") });
-    row.tabIndex = 0;
-    row.dataset.id = m.id;
-    const left = row.createDiv({ cls: "ad-modelrow__left" });
-    const name = left.createDiv({ cls: "ad-modelrow__name" });
-    name.createSpan({ text: m.name });
-    if (pinned) name.createSpan({ cls: "ad-badge ad-badge--soft", text: t("\u7F6E\u9876") });
-    if (m.id === defaultId) name.createSpan({ cls: "ad-badge", text: t("\u9ED8\u8BA4") });
-    if (m.agent === target) name.createSpan({ cls: "ad-badge ad-badge--soft", text: AGENTS[m.agent].short });
-    const meta = left.createDiv({ cls: "ad-modelrow__meta" });
-    meta.createSpan({ text: m.context });
-    meta.createSpan({ cls: "ad-dot", text: "\xB7" });
-    meta.createSpan({ text: strength(m.strength, true) });
-    meta.createSpan({ cls: "ad-dot", text: "\xB7" });
-    for (const tag of m.tags || []) meta.createSpan({ cls: "ad-cap", text: tag });
-    if (m.cost) meta.createSpan({ cls: "ad-cost", text: m.cost });
-    const right = row.createDiv({ cls: "ad-modelrow__right" });
-    this.toggle(right, on, (v) => {
-      const i = d.enabled.indexOf(m.id);
-      if (v && i < 0) d.enabled.push(m.id);
-      if (!v && i >= 0) d.enabled.splice(i, 1);
-      this.display();
-    });
-    const more = right.createEl("button", { cls: "ad-morebtn", text: "\u22EF" });
-    more.onclick = (e) => {
-      e.stopPropagation();
-      const menu = new import_obsidian4.Menu();
-      menu.addItem((it) => it.setTitle(pinned ? t("\u53D6\u6D88\u7F6E\u9876") : t("\u7F6E\u9876")).setIcon(pinned ? "pin-off" : "pin").onClick(() => {
-        const i = d.pinned.indexOf(m.id);
-        if (pinned && i >= 0) d.pinned.splice(i, 1);
-        if (!pinned && i < 0) d.pinned.push(m.id);
-        this.display();
-      }));
-      menu.addItem((it) => it.setTitle(t("\u4E0A\u79FB")).setIcon("arrow-up").onClick(() => this.moveModel(d, m, -1)));
-      menu.addItem((it) => it.setTitle(t("\u4E0B\u79FB")).setIcon("arrow-down").onClick(() => this.moveModel(d, m, 1)));
-      menu.addItem((it) => it.setTitle(t("\u8BBE\u4E3A\u9ED8\u8BA4\u6A21\u578B")).setIcon("star").onClick(() => {
-        d.defaultByAgent[m.agent] = m.id;
-        if (!d.enabled.includes(m.id)) d.enabled.push(m.id);
-        this.display();
-      }));
-      if (m.custom || d.custom.some((x) => x.id === m.id)) {
-        menu.addItem((it) => it.setTitle(t("\u7F16\u8F91\u6A21\u578B")).setIcon("pencil").onClick(() => {
-          new AddModelModal(this.app, this.plugin, (edited) => {
-            d.custom = d.custom.map((x) => x.id === m.id ? edited : x);
-            this.display();
-          }, m).open();
-        }));
-        menu.addItem((it) => it.setTitle(t("\u79FB\u9664")).setIcon("trash").onClick(() => {
-          d.custom = d.custom.filter((x) => x.id !== m.id);
-          d.enabled = d.enabled.filter((x) => x !== m.id);
-          d.pinned = d.pinned.filter((x) => x !== m.id);
-          if (d.defaultByAgent[m.agent] === m.id) d.defaultByAgent[m.agent] = DEFAULTS.models.defaultByAgent[m.agent];
-          this.display();
-        }));
-      }
-      const ev = e;
-      menu.showAtMouseEvent(ev);
-    };
-    row.addEventListener("keydown", (e) => {
-      if (!e.altKey) return;
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        this.moveModel(d, m, -1);
-      }
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        this.moveModel(d, m, 1);
-      }
-    });
-  }
-  moveModel(d, m, dir) {
-    const order = d.order.length ? d.order : this.plugin.allModels(d.custom).map((x) => x.id);
-    const i = order.indexOf(m.id);
-    if (i < 0) return;
-    const j = i + dir;
-    if (j < 0 || j >= order.length) return;
-    [order[i], order[j]] = [order[j], order[i]];
-    d.order = order;
-    this.display();
-  }
-  renderDraftBar(parent) {
-    const p = this.plugin;
-    if (!this.draft) return;
-    const a = JSON.stringify(this.draft);
-    const b = JSON.stringify(p.settings.models);
-    if (a === b) return;
-    const bar = document.createElement("div");
-    bar.className = "ad-draftbar ad-draftbar--inline";
-    bar.createSpan({ cls: "ad-draftbar__text", text: t("\u672A\u4FDD\u5B58\u7684\u66F4\u6539") });
-    const discard = bar.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("\u653E\u5F03\u66F4\u6539") });
-    discard.onclick = () => {
-      this.draft = JSON.parse(JSON.stringify(p.settings.models));
-      this.display();
-    };
-    const save = bar.createEl("button", { cls: "ad-btn ad-btn--cta", text: t("\u4FDD\u5B58 \u2318S") });
-    save.onclick = () => this.saveDraft();
-    if (this._draftBar) {
-      try {
-        this._draftBar.remove();
-      } catch {
-      }
-    }
-    this._draftBar = bar;
-    (parent || this.containerEl).prepend(bar);
-    if (!this._draftKeyHandler) {
-      this._draftKeyHandler = (e) => {
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-          e.preventDefault();
-          this.saveDraft();
-        }
-      };
-      this.app.scope.register(["Mod"], "s", (e) => {
-        if (this.tab === "models") {
-          e.preventDefault();
-          this.saveDraft();
-        }
-      });
-    }
-  }
-  saveDraft() {
-    if (!this.draft) return;
-    const p = this.plugin;
-    p.settings.models = deepMerge(p.settings.models, this.draft);
-    for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
-      const model = p.settings.models.defaultByAgent[agent];
-      if (model) p.settings.delegate[agent].model = model;
-      const effort = p.settings.models.effortByAgent?.[agent];
-      if (effort) p.settings.delegate[agent].effort = effort;
-    }
-    p.saveSettings();
-    new import_obsidian4.Notice(t("Models \u5DF2\u4FDD\u5B58"));
-    this.display();
-  }
-  // ---------- Tracking ----------
-  renderTracking(body) {
-    const p = this.plugin;
-    const s = p.settings;
-    const c = this.card(body, t("\u65F6\u95F4\u4E0E\u626B\u63CF"));
-    const r1 = this.row(c, t("\u65E5\u8BB0\u65E5\u671F\u5206\u754C"), t("\u6B64\u65F6\u523B\u4E4B\u524D\u8BA1\u5165\u524D\u4E00\u5929"), null);
-    const cut = this.numberInput(r1.querySelector(":scope > .ad-row__right"), s.dayCutoff, 0, 12, (v) => {
-      s.dayCutoff = v;
-      p.saveSettings();
-      p.scheduleScan();
-    });
-    const r2 = this.row(c, t("\u626B\u63CF\u95F4\u9694\uFF08\u79D2\uFF09"), "", null);
-    this.numberInput(r2.querySelector(":scope > .ad-row__right"), s.pollSeconds, 5, 300, (v) => {
-      s.pollSeconds = v;
-      p.saveSettings();
-      p.scheduleScan();
-    });
-    const r4 = this.row(c, t("\u4E3B\u529B\u8BFB\u591A\u5C11\u5929\u5386\u53F2"), t("\u975E\u4E3B\u529B\u8BFB\u53D6\u5F53\u5929\u4F1A\u8BDD"), null);
-    this.numberInput(r4.querySelector(":scope > .ad-row__right"), s.fullHistoryDays, 1, 365, (v) => {
-      s.fullHistoryDays = v;
-      p.saveSettings();
-      p.scanNow(true);
-    });
-    const layoutCard = this.card(body, t("\u6574\u7406\u65E5\u5FD7\u6A21\u677F"), t("\u8BBE\u7F6E\u7B14\u8BB0\u5206\u533A\u7684\u6807\u9898\u548C\u987A\u5E8F"));
-    const suggest = this.row(layoutCard, t("\u65E5\u5FD7\u6742\u4E71\u65F6\u63D0\u9192\u6574\u7406"), t("\u6BCF\u65B0\u589E 4 \u6761\u8BB0\u5F55\u63D0\u9192\uFF0C\u6BCF\u5929\u6700\u591A 2 \u6B21"), null);
-    this.toggle(suggest.querySelector(":scope > .ad-row__right"), s.organizeJournalSuggest !== false, (v) => {
-      s.organizeJournalSuggest = v;
-      p.saveSettings();
-    });
-    const templateRow = this.row(layoutCard, t("\u6574\u7406\u6A21\u677F"), "", null);
-    const template = templateRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
-    for (const [value, label] of [["auto", t("\u8DDF\u968F\u754C\u9762\uFF08\u9ED8\u8BA4\uFF09")], ["zh", t("\u4E2D\u6587\u6A21\u677F")], ["en", "English template"], ["custom", t("\u81EA\u5B9A\u4E49\u6A21\u677F")]]) template.createEl("option", { text: label, attr: { value } });
-    template.value = s.journalLayout ? "custom" : s.journalLayoutLanguage || "auto";
-    template.onchange = () => {
-      if (template.value === "custom") s.journalLayout = builtinJournalLayout(s.journalLayoutLanguage === "auto" ? currentLanguage() : s.journalLayoutLanguage || currentLanguage());
-      else {
-        s.journalLayout = null;
-        s.journalLayoutLanguage = template.value;
-      }
-      p.saveSettings();
-      this.display();
-    };
-    if (s.journalLayout) {
-      const names = { done: t("\u5DF2\u5B8C\u6210"), active: t("\u8FDB\u884C\u4E2D"), notes: t("\u624B\u5199\u5185\u5BB9") };
-      const orderRow = this.row(layoutCard, t("\u5206\u533A\u987A\u5E8F"), "", null);
-      const order2 = orderRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
-      for (const keys of [["done", "active", "notes"], ["active", "done", "notes"], ["notes", "done", "active"], ["notes", "active", "done"], ["done", "notes", "active"], ["active", "notes", "done"]]) order2.createEl("option", { text: keys.map((key) => names[key]).join(" \u2192 "), attr: { value: keys.join(",") } });
-      order2.value = s.journalLayout.order.join(",");
-      order2.onchange = () => {
-        s.journalLayout = journalLayout({ ...s.journalLayout, order: order2.value.split(",") });
-        p.saveSettings();
-      };
-      for (const key of JOURNAL_LAYOUT_DEFAULT.order) {
-        const row = this.row(layoutCard, t("{section}\u6807\u9898", { section: names[key] }), key === "notes" ? t("\u7559\u7A7A\u4E0D\u6DFB\u52A0\u6807\u9898") : "", null);
-        const input = this.textInput(row.querySelector(":scope > .ad-row__right"), s.journalLayout.titles[key], names[key], (value) => {
-          try {
-            s.journalLayout = journalLayout({ ...s.journalLayout, titles: { ...s.journalLayout.titles, [key]: value } });
-            p.saveSettings();
-          } catch (error) {
-            input.value = s.journalLayout.titles[key];
-            new import_obsidian4.Notice(error.message);
-          }
-        });
-      }
-    }
-    this.bigButton(layoutCard.createDiv({ cls: "ad-btnrow" }), t("\u6062\u590D\u9ED8\u8BA4\u6574\u7406\u6A21\u677F"), () => {
-      s.journalLayout = null;
-      s.journalLayoutLanguage = "auto";
-      p.saveSettings();
-      this.display();
-    });
-    const desk = this.card(body, t("Claude \u684C\u9762\u7248"), "");
-    const d1 = this.row(desk, t("\u8BC6\u522B side chat \u548C\u6BCD\u5B50\u5173\u7CFB"), "", null);
-    this.toggle(d1.querySelector(":scope > .ad-row__right"), s.claudeDesktop !== false, (v) => {
-      s.claudeDesktop = v;
-      p.saveSettings();
-      p.scanNow(true);
-    });
-    const terminal = this.card(body, t("\u7EC8\u7AEF\u4E0E\u4F1A\u8BDD\u8DF3\u8F6C"));
-    const dc = this.row(terminal, t("\u7EC8\u7AEF\u4F1A\u8BDD\u6253\u5F00\u65B9\u5F0F"), "", null);
-    this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: t("\u7EC8\u7AEF") }, { id: "desktop", label: t("\u684C\u9762\u7248") }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => {
-      s.cliOpen = v;
-      p.saveSettings();
-      this.display();
-    });
-    const dt = this.row(terminal, t("\u4E3B\u529B\u7EC8\u7AEF"), t("\u7528\u4E8E\u7EC8\u7AEF\u59D4\u6D3E\u548C\u6062\u590D\u4F1A\u8BDD"), null);
-    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: t("\u81EA\u52A8") }, { id: "terminal", label: t("\u7CFB\u7EDF\u7EC8\u7AEF") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => {
-      s.cliTerminal = v;
-      p.saveSettings();
-      this.display();
-    });
-    const dd = this.row(terminal, t("\u9ED8\u8BA4\u5728\u7EC8\u7AEF\u59D4\u6D3E"), t("\u9002\u7528\u4E8E Claude Code \u548C Codex"), null);
-    this.toggle(dd.querySelector(":scope > .ad-row__right"), !!s.delegateInTerminal, (v) => {
-      s.delegateInTerminal = v;
-      p.saveSettings();
-      p.refreshUI();
-    });
-    const visibility = this.card(body, t("\u4F1A\u8BDD\u5C55\u793A\u4E0E\u8FDB\u5EA6"));
-    const dn = this.row(visibility, t("\u4F7F\u7528\u87BA\u65CB\u65E5\u7A0B\u7684\u8FDB\u5EA6\u663E\u793A"), "", null);
-    this.toggle(dn.querySelector(":scope > .ad-row__right"), s.yieldToNautilus !== false, (v) => {
-      s.yieldToNautilus = v;
-      p.saveSettings();
-      p.refreshUI();
-    });
-    const d2 = this.row(visibility, t("\u5F52\u6863\u7684\u4F1A\u8BDD\u4E0D\u518D\u5217\u51FA"), "", null);
-    this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => {
-      s.hideArchived = v;
-      p.saveSettings();
-      p.refreshUI();
-    });
-    let jr = this.card(body, t("\u81EA\u52A8\u8BB0\u65E5\u8BB0\uFF08\u4EBA\u673A\u5171\u5199\uFF09"), t("\u5C06\u4F1A\u8BDD\u8BB0\u5F55\u5199\u5165\u4ECA\u5929\u7684\u65E5\u8BB0"));
-    const master = this.row(jr, t("\u542F\u7528\u65E5\u8BB0\u5199\u5165"), "", null);
-    this.toggle(master.querySelector(":scope > .ad-row__right"), s.journalAutoWrite !== false, (v) => {
-      s.journalAutoWrite = v;
-      p.saveSettings();
-    });
-    const det = detectJournalFormat(this.app, s);
-    const jf = this.row(jr, t("\u65E5\u8BB0\u76EE\u5F55"), t("\u5F53\u524D\uFF1A{folder}\uFF1B\u4ECA\u5929\uFF1A{path}", { folder: det.folder || t("\u5E93\u6839\u76EE\u5F55"), source: det.folderSource, path: journalPath(this.app, s) }), null);
-    this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "", t("\u81EA\u52A8\uFF1A{folder}", { folder: det.folder || t("\u5E93\u6839\u76EE\u5F55") }), (v) => {
-      s.journalFolder = v.trim();
-      p.saveSettings();
-      this.display();
-    });
-    const jfmt = this.row(jr, t("\u65E5\u8BB0\u6587\u4EF6\u540D\u683C\u5F0F"), t("\u4F8B\u5982 YYYY-MM-DD\uFF1B\u5F53\u524D\uFF1A{format}", { format: det.format, source: det.source }), null);
-    this.textInput(jfmt.querySelector(":scope > .ad-row__right"), s.journalFormat || "", t("\u81EA\u52A8\uFF1A{format}", { format: det.format }), (v) => {
-      s.journalFormat = v.trim();
-      p.saveSettings();
-      this.display();
-    });
-    const ja = this.row(jr, t("\u81EA\u52A8\u6574\u7406\u8FDB\u65E5\u8BB0"), "", null);
-    this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => {
-      s.autoLog = v;
-      p.saveSettings();
-    });
-    jr = this.card(body, t("\u8BB0\u5F55\u5185\u5BB9\u4E0E\u663E\u793A"));
-    const grain = this.row(jr, t("\u81EA\u52A8\u8BB0\u5F55\u9897\u7C92\u5EA6"), t("\u9009\u62E9\u8BB0\u5F55\u7684\u65F6\u673A"), null);
-    this.segmented(grain.querySelector(":scope > .ad-row__right"), [{ id: "latest", label: t("\u6700\u65B0\u8FDB\u5C55") }, { id: "round", label: t("\u6BCF\u8F6E\u8BB0\u5F55") }, { id: "paused", label: t("\u505C\u6B47\u6216\u5F52\u6863") }], s.autoLogGranularity || DEFAULTS.autoLogGranularity, (v) => {
-      s.autoLogGranularity = v;
-      p.saveSettings();
-      this.display();
-    });
-    const rmode = this.row(jr, t("AI \u8BB0\u5F55\u663E\u793A\u65B9\u5F0F"), t("\u63A7\u5236\u7B14\u8BB0\u4E2D\u9ED8\u8BA4\u5C55\u5F00\u7684\u8BB0\u5F55"), null);
-    this.segmented(rmode.querySelector(":scope > .ad-row__right"), [
-      { id: "collapsed", label: t("\u9ED8\u8BA4\u6298\u53E0") },
-      { id: "expanded", label: t("\u9ED8\u8BA4\u5C55\u5F00") },
-      { id: "latest5", label: t("\u6700\u65B0\u4E94\u6761") },
-      { id: "latest3", label: t("\u6700\u65B0\u4E09\u6761") },
-      { id: "latest1", label: t("\u6700\u65B0\u4E00\u6761") }
-    ], s.aiRecordDisplay || DEFAULTS.aiRecordDisplay, (v) => {
-      s.aiRecordDisplay = v;
-      p.saveSettings();
-      p.refreshUI();
-      this.display();
-    });
-    jr = this.card(body, t("\u5F52\u6863\u4E0E\u7D2F\u8BA1\u603B\u7ED3"));
-    const archive = this.row(jr, t("\u9ED8\u8BA4\u5F52\u6863\u4F4D\u7F6E"), t("\u5E93\u5185 Markdown \u8DEF\u5F84"), null);
-    this.textInput(archive.querySelector(":scope > .ad-row__right"), s.doneArchivePath, DEFAULTS.doneArchivePath, (v) => {
-      try {
-        s.doneArchivePath = archivePath(v);
-        p.saveSettings();
-      } catch (e) {
-        new import_obsidian4.Notice(e.message);
-      }
-    }, "ad-input--wide");
-    const order = this.row(jr, t("\u5F52\u6863\u987A\u5E8F"), "", null);
-    this.segmented(order.querySelector(":scope > .ad-row__right"), [{ id: "prepend", label: t("\u63D2\u5230\u5F00\u5934") }, { id: "append", label: t("\u8FFD\u52A0\u5230\u672B\u5C3E") }], s.archiveOrder || "prepend", (v) => {
-      s.archiveOrder = v;
-      p.saveSettings();
-    });
-    const merge = this.row(jr, t("\u7D2F\u79EF\u540E\u81EA\u52A8\u5408\u5E76\u603B\u7ED3"), "", null);
-    this.toggle(merge.querySelector(":scope > .ad-row__right"), !!s.autoLogMerge, (v) => {
-      s.autoLogMerge = v;
-      p.saveSettings();
-      this.display();
-    });
-    const mergeN = this.row(jr, t("\u7D2F\u79EF\u591A\u5C11\u6761\u7ED3\u8BBA\u540E\u5408\u5E76"), t("\u81F3\u5C11 2 \u6761"), null);
-    this.numberInput(mergeN.querySelector(":scope > .ad-row__right"), s.autoLogMergeThreshold || 10, 2, 100, (v) => {
-      s.autoLogMergeThreshold = Math.round(v);
-      p.saveSettings();
-    });
-    jr = this.card(body, t("\u8BB0\u5F55\u8BE6\u7EC6\u7A0B\u5EA6"));
-    const jdetail = this.row(jr, t("\u81EA\u52A8\u65E5\u5FD7\u8BE6\u7EC6\u7A0B\u5EA6"), "", null);
-    const detailDesc = jdetail.querySelector(":scope > .ad-row__left");
-    detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u7B80\u7565\uFF1A\u4EFB\u52A1\u548C\u7ED3\u8BBA\u5408\u6210\u4E00\u6BB5") });
-    detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u6807\u51C6\uFF1A\u63D0\u95EE\u3001\u56DE\u7B54\u5404\u4E00\u53E5") });
-    detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u8BE6\u7EC6\uFF1A\u4FDD\u7559\u63D0\u95EE\u3001\u56DE\u590D\u6458\u5F55\u548C\u6B65\u9AA4") });
-    this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: t("\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09") }, { id: "standard", label: t("\u6807\u51C6") }, { id: "detailed", label: t("\u8BE6\u7EC6") }], s.autoLogDetail || "brief", (v) => {
-      changeLogDetail(s, v);
-      p.saveSettings();
-      this.display();
-    });
-    jr = this.card(body, t("\u81EA\u52A8\u6574\u7406\u9891\u7387"));
-    const je = this.row(jr, t("\u6574\u7406\u95F4\u9694\uFF08\u5206\u949F\uFF09"), t("\u81F3\u5C11 5 \u5206\u949F"), null);
-    this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => {
-      s.autoLogEvery = v;
-      p.saveSettings();
-    });
-    const jst = this.row(jr, t("\u9996\u6B21\u6574\u7406\u5EF6\u8FDF\uFF08\u5206\u949F\uFF09"), "", null);
-    this.numberInput(jst.querySelector(":scope > .ad-row__right"), s.autoLogStartDelay ?? 1, 1, 240, (v) => {
-      s.autoLogStartDelay = v;
-      p.saveSettings();
-    });
-    const jmin = this.row(jr, t("\u6700\u77ED\u8BB0\u5F55\u65F6\u957F\uFF08\u5206\u949F\uFF09"), t("0 \u8868\u793A\u7ACB\u5373\u8BB0\u5F55"), null);
-    this.numberInput(jmin.querySelector(":scope > .ad-row__right"), s.autoLogMinMinutes ?? 3, 0, 120, (v) => {
-      s.autoLogMinMinutes = v;
-      p.saveSettings();
-    });
-    const jid = this.row(jr, t("\u6682\u505C\u5224\u5B9A\uFF08\u5206\u949F\uFF09"), t("\u81F3\u5C11 5 \u5206\u949F"), null);
-    this.numberInput(jid.querySelector(":scope > .ad-row__right"), s.autoLogIdle || 10, 5, 480, (v) => {
-      s.autoLogIdle = v;
-      p.saveSettings();
-    });
-    const jag = this.row(jr, t("\u8BB0\u54EA\u51E0\u4E2A Agent"), t("\u9009\u62E9\u81EA\u52A8\u5EFA\u9879\u7684 Agent"), null);
-    const agBox = jag.querySelector(":scope > .ad-row__right").createDiv({ cls: "ad-seg ad-seg--many" });
-    const agOn = s.autoLogAgents || (s.autoLogAgents = {});
-    for (const id of AGENT_ORDER) {
-      const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id, attr: { "aria-pressed": String(agOn[id] !== false) } });
-      b.onclick = () => {
-        agOn[id] = agOn[id] === false;
-        b.classList.toggle("is-on", agOn[id] !== false);
-        b.setAttribute("aria-pressed", String(agOn[id] !== false));
-        p.saveSettings();
-      };
-    }
-    const jb = this.row(jr, t("\u6BCF\u6279\u4F1A\u8BDD\u6570"), "", null);
-    this.numberInput(jb.querySelector(":scope > .ad-row__right"), s.autoLogBatch || 8, 1, 20, (v) => {
-      s.autoLogBatch = v;
-      p.saveSettings();
-    });
-    jr = this.card(body, t("AI \u6574\u7406\u6A21\u578B"));
-    const jprovider = this.row(jr, t("\u6574\u7406\u4F7F\u7528\u7684 CLI"), "", null);
-    this.segmented(jprovider.querySelector(":scope > .ad-row__right"), [{ id: "claude", label: "Claude CLI" }, { id: "codex", label: "Codex CLI" }], s.autoLogProvider || "claude", (v) => {
-      s.autoLogProvider = v;
-      s.autoLogModel = v === "codex" ? "gpt-6-luna" : "haiku";
-      s.roundPolishModel = "";
-      s.autoLogPath = "";
-      p.saveSettings();
-      this.display();
-    });
-    if (s.autoLogProvider === "codex") {
-      const effort = this.row(jr, t("\u6574\u7406\u4E0E\u6DA6\u8272\u7684\u63A8\u7406\u5F3A\u5EA6"), "", null);
-      this.segmented(effort.querySelector(":scope > .ad-row__right"), EFFORTS.codex, s.autoLogEffort || "low", (v) => {
-        s.autoLogEffort = v;
-        p.saveSettings();
-        this.display();
-      });
-    }
-    const jm = this.row(jr, t("\u6574\u7406\u7528\u7684\u6A21\u578B"), t("\u586B\u5199\u6A21\u578B\u540D\u6216\u522B\u540D"), null);
-    this.textInput(jm.querySelector(":scope > .ad-row__right"), s.autoLogModel || "", s.autoLogProvider === "codex" ? "gpt-6-luna" : "haiku", (v) => {
-      s.autoLogModel = v.trim();
-      p.saveSettings();
-    });
-    const jt = this.row(jr, t("\u6574\u7406\u8D85\u65F6\uFF08\u79D2\uFF09"), "", null);
-    this.numberInput(jt.querySelector(":scope > .ad-row__right"), s.autoLogTimeout || 120, 10, 600, (v) => {
-      s.autoLogTimeout = v;
-      p.saveSettings();
-    });
-    const jfb = this.row(jr, t("\u6574\u7406\u5931\u8D25\u65F6\u4F7F\u7528\u4F1A\u8BDD\u6807\u9898"), "", null);
-    this.toggle(jfb.querySelector(":scope > .ad-row__right"), s.autoLogFallback !== false, (v) => {
-      s.autoLogFallback = v;
-      p.saveSettings();
-    });
-    const jp = this.row(jr, t("\u6574\u7406 CLI \u8DEF\u5F84"), t("\u7559\u7A7A\u4F7F\u7528\u59D4\u6D3E\u8BBE\u7F6E\u4E2D\u7684\u8DEF\u5F84"), null);
-    this.textInput(jp.querySelector(":scope > .ad-row__right"), s.autoLogPath || "", t("\u81EA\u52A8\u627E"), (v) => {
-      s.autoLogPath = v.trim();
-      p.saveSettings();
-    }, "ad-input--wide");
-    const jrp = this.row(jr, t("\u6BCF\u8F6E\u7ED3\u8BBA\u8BA9\u6A21\u578B\u6DA6\u8272"), t("\u9002\u7528\u4E8E\u7B80\u7565\u548C\u6807\u51C6\u8BB0\u5F55"), null);
-    this.toggle(jrp.querySelector(":scope > .ad-row__right"), s.roundPolish !== false, (v) => {
-      s.roundPolish = v;
-      p.saveSettings();
-    });
-    const jrm = this.row(jr, t("\u6DA6\u8272\u7528\u7684\u6A21\u578B"), t("\u7559\u7A7A\u6CBF\u7528\u6574\u7406\u6A21\u578B"), null);
-    this.textInput(jrm.querySelector(":scope > .ad-row__right"), s.roundPolishModel || "", t("\u540C\u6574\u7406\u7528\u7684\u6A21\u578B"), (v) => {
-      s.roundPolishModel = v.trim();
-      p.saveSettings();
-    });
-    const jrt = this.row(jr, t("\u6DA6\u8272\u8D85\u65F6\uFF08\u79D2\uFF09"), "", null);
-    this.numberInput(jrt.querySelector(":scope > .ad-row__right"), s.roundPolishTimeout || 30, 5, 300, (v) => {
-      s.roundPolishTimeout = v;
-      p.saveSettings();
-    });
-    jr = this.card(body, t("\u72B6\u6001\u4E0E\u7ED3\u8BBA\u56DE\u5199"));
-    const jd = this.row(jr, t("\u5F52\u6863\u7684\u4F1A\u8BDD\u8BB0\u6210 DONE"), "", null);
-    this.toggle(jd.querySelector(":scope > .ad-row__right"), s.autoLogArchiveDone !== false, (v) => {
-      s.autoLogArchiveDone = v;
-      p.saveSettings();
-    });
-    const jn = this.row(jr, t("\u6574\u7406\u5B8C\u5F39\u901A\u77E5"), "", null);
-    this.toggle(jn.querySelector(":scope > .ad-row__right"), s.autoLogNotify !== false, (v) => {
-      s.autoLogNotify = v;
-      p.saveSettings();
-    });
-    const js = this.row(jr, t("\u56DE\u5199\u65E5\u8BB0"), t("\u66F4\u65B0\u5DF2\u7ED1\u5B9A\u4EFB\u52A1\u7684\u72B6\u6001\u4E0E\u7ED3\u8BBA"), null);
-    this.toggle(js.querySelector(":scope > .ad-row__right"), s.journalSync !== false, (v) => {
-      s.journalSync = v;
-      p.saveSettings();
-    });
-    for (const [key, label, desc] of [
-      ["resultBack", t("\u4F1A\u8BDD\u7ED3\u8BBA\u5199\u56DE\uFF08\u{1F4AC}\uFF09"), ""],
-      ["agentKw", t("\u72B6\u6001\u5173\u952E\u8BCD\u8DDF\u7740\u4F1A\u8BDD"), ""],
-      ["autoLogKw", t("\u81EA\u52A8\u8BB0\u7684\u6761\u76EE\u4E5F\u8DDF\u7740\u5207\u72B6\u6001"), ""],
-      ["kidBlocks", t("\u5B50\u4F1A\u8BDD\u548C side chat \u5B50\u5757"), ""]
-    ]) {
-      const row = this.row(jr, label, desc, null);
-      this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] !== false, (v) => {
-        s[key] = v;
-        p.saveSettings();
-      });
-    }
-    const jbtn = jr.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(jbtn, t("\u73B0\u5728\u6574\u7406\u4E00\u6B21"), () => p.autoLog.logNow());
-    let ui = this.card(body, t("macOS \u83DC\u5355\u680F"));
-    const mb = this.row(ui, t("macOS \u83DC\u5355\u680F"), "", null);
-    this.mbSwitch = this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => {
-      s.showMenuBar = v;
-      p.saveSettings();
-      p.applyUiSettings();
-    });
-    const ma = this.row(ui, t("\u83DC\u5355\u680F\u663E\u793A\u54EA\u4E9B Agent"), "", null);
-    this.segmented(ma.querySelector(":scope > .ad-row__right"), [{ id: "primary-running", label: t("\u4E3B\u529B\u4E0E\u5728\u8DD1\u7684") }, { id: "all", label: t("\u5168\u90E8\u5DF2\u542F\u7528") }], s.menuBarAgentScope || "primary-running", (v) => {
-      s.menuBarAgentScope = v;
-      p.saveSettings();
-      p.menubar?.update(true);
-      this.display();
-    });
-    for (const [key, label, desc, min, max] of [
-      ["menuBarPrimaryLimit", t("\u83DC\u5355\u680F\uFF1A\u4E3B\u529B\u6700\u591A\u51E0\u4E2A"), "", 3, 12],
-      ["menuBarOtherLimit", t("\u83DC\u5355\u680F\uFF1A\u5176\u5B83 Agent \u6700\u591A\u51E0\u4E2A"), "", 1, 6]
-    ]) {
-      const row = this.row(ui, label, desc, null);
-      this.numberInput(row.querySelector(":scope > .ad-row__right"), s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => {
-        s[key] = v;
-        p.saveSettings();
-        p.refreshUI();
-      });
-    }
-    const hkRow = this.row(ui, t("\u83DC\u5355\u680F\u5FEB\u6377\u952E"), t("\u70B9\u8F93\u5165\u6846\u540E\u6309\u7EC4\u5408\u952E\uFF0C\u9700\u5305\u542B \u2303\u3001\u2325 \u6216 \u2318"), null);
-    const hkRight = hkRow.querySelector(":scope > .ad-row__right");
-    const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": t("\u83DC\u5355\u680F\u5FEB\u6377\u952E") } });
-    hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-    hkInput.addEventListener("focus", () => {
-      hkInput.value = t("\u6309\u4E0B\u7EC4\u5408\u952E\u2026");
-      hkInput.classList.add("is-capturing");
-    });
-    hkInput.addEventListener("blur", () => {
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      hkInput.classList.remove("is-capturing");
-    });
-    hkInput.addEventListener("input", () => {
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-    });
-    hkInput.addEventListener("keydown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.key === "Escape") {
-        hkInput.blur();
-        return;
-      }
-      if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
-      const key = hotkeyKeyFromEvent(event);
-      if (!key) {
-        hkInput.value = t("\u53EA\u652F\u6301 A\u2013Z / 0\u20139 / F1\u2013F12");
-        return;
-      }
-      if (!event.ctrlKey && !event.altKey && !event.metaKey) {
-        hkInput.value = t("\u81F3\u5C11\u52A0 \u2303 / \u2325 / \u2318");
-        return;
-      }
-      s.menuBarHotkey = hotkeySpecFromEvent(event, key);
-      p.saveSettings();
-      p.menubar?.update(true);
-      new import_obsidian4.Notice(t("\u83DC\u5355\u680F\u5FEB\u6377\u952E\u5DF2\u4FDD\u5B58\uFF0C\u7EA6 2 \u79D2\u5185\u751F\u6548"));
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      hkInput.classList.remove("is-capturing");
-      hkInput.blur();
-    }, true);
-    const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: t("\u9ED8\u8BA4") });
-    hkReset.onclick = () => {
-      s.menuBarHotkey = DEFAULTS.menuBarHotkey;
-      p.saveSettings();
-      p.menubar?.update(true);
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-    };
-    const mbbtn = this.row(ui, t("\u83DC\u5355\u680F\u52A9\u624B"), "", null);
-    const mbrestart = mbbtn.querySelector(":scope > .ad-row__right").createEl("button", { cls: "ad-btn", text: t("\u91CD\u542F\u83DC\u5355\u680F") });
-    mbrestart.onclick = () => p.menubar?.restart();
-    ui = this.card(body, t("\u9762\u677F\u4E0E\u7F16\u8F91\u5668"));
-    this.row(ui, t("\u8DF3\u8F6C\u5230\u6B63\u5728\u8FD0\u884C\u7684\u9879\u76EE"), t("\u9ED8\u8BA4 Ctrl+Alt+J"), "\u2303\u2325J");
-    const nautRow = this.row(ui, t("\u5173\u95ED\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B"), "", null);
-    this.toggle(nautRow.querySelector(":scope > .ad-row__right"), s.menuBarHideNautilus !== false, (v) => {
-      s.menuBarHideNautilus = v;
-      p.saveSettings();
-      if (v) p.hideNautilusAgentBar().catch(() => {
-      });
-      else p.restoreNautilusAgentBar().catch(() => {
-      });
-    });
-    for (const [key, label, desc, fallback] of [
-      ["showEditorPills", t("\u4EFB\u52A1\u884C\u4E0A\u7684\u4F1A\u8BDD\u72B6\u6001\u6309\u94AE"), "", true],
-      ["dragGrip", t("\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u7684\u628A\u624B"), t("\u5355\u51FB\u59D4\u6D3E\uFF1B\u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009\u62E9 Agent"), true],
-      ["showRibbonIcon", t("\u5DE6\u4FA7\u680F\u56FE\u6807"), "", true],
-      ["openDashboardOnStartup", t("\u542F\u52A8\u65F6\u6253\u5F00\u9762\u677F"), "", false]
-    ]) {
-      const row = this.row(ui, label, desc, null);
-      this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] === void 0 ? fallback : s[key] !== false, (v) => {
-        s[key] = v;
-        p.saveSettings();
-        p.applyUiSettings();
-      });
-    }
-    const bars = this.row(ui, t("\u6700\u8FD1 14 \u5929\u7684\u6761\u5F62\u56FE"), "", null);
-    this.toggle(bars.querySelector(":scope > .ad-row__right"), s.ui.showUsageBars !== false, (v) => {
-      s.ui.showUsageBars = v;
-      p.saveSettings();
-      p.refreshUI();
-    });
-    const spark = this.row(ui, t("\u6BCF\u4E2A Agent \u7684\u5C0F\u706B\u82B1\u7EBF"), "", null);
-    this.toggle(spark.querySelector(":scope > .ad-row__right"), s.ui.showSparkline !== false, (v) => {
-      s.ui.showSparkline = v;
-      p.saveSettings();
-      p.refreshUI();
-    });
-    const data = this.card(body, t("\u6570\u636E"), "");
-    const btn = data.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(btn, t("\u91CD\u65B0\u542F\u52A8\u83DC\u5355\u680F\u52A9\u624B"), () => p.menubar?.restart());
-    this.bigButton(btn, t("\u91CD\u65B0\u8BA1\u7B97\u5168\u90E8\u5386\u53F2"), () => p.rebuildUsage(), "mod-warning");
-    this.bigButton(btn, t("\u6253\u5F00\u63D2\u4EF6\u76EE\u5F55"), () => p.openPluginDir());
-    this.bigButton(btn, t("\u5BFC\u5165\u87BA\u65CB\u65E5\u7A0B\u7684\u5386\u53F2"), () => p.importNautilus());
-    const stats = data.createDiv({ cls: "ad-statline" });
-    const days = Object.keys(p.store.days).length;
-    stats.createSpan({ text: t("{n} \u5929\u8BB0\u5F55", { n: days }) });
-    stats.createSpan({ cls: "ad-dot", text: "\xB7" });
-    stats.createSpan({ text: t("{n} \u4E2A\u4F1A\u8BDD\u7D22\u5F15", { n: p.usage.meta.size }) });
-    stats.createSpan({ cls: "ad-dot", text: "\xB7" });
-    stats.createSpan({ text: t("{n} \u4E2A\u65E5\u5FD7\u6587\u4EF6", { n: p.usage.files.size }) });
-    const naut = this.card(body, t("\u548C\u87BA\u65CB\u65E5\u7A0B\u5E76\u5B58"), "");
-    const nbtn = naut.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(nbtn, t("\u505C\u7528\u87BA\u65CB\u65E5\u7A0B\u91CC\u7684 AI \u5199\u5165"), () => p.pauseNautilus(), "mod-warning");
-  }
   // ---------- About ----------
   renderAbout(body) {
     const p = this.plugin;
@@ -11074,7 +11070,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       [t("\u67E5\u770B\u4E0E\u626B\u63CF"), t("\u70B9\u51FB\u4F1A\u8BDD\u6253\u5F00\uFF1B\u5728 Agent \u83DC\u5355\u4E2D\u626B\u63CF")],
       [t("\u4ECE\u7B14\u8BB0\u59D4\u6D3E"), t("\u70B9\u51FB\u4EFB\u52A1\u884C\u672B\u5C3E\u628A\u624B\uFF0C\u6216\u62D6\u5230 Agent \u5361\u7247")],
       [t("\u7ED1\u5B9A\u5DF2\u6709\u4F1A\u8BDD"), t("\u5728\u4EFB\u52A1\u4E0E\u4F1A\u8BDD\u5361\u7247\u4E4B\u95F4\u62D6\u653E")],
-      [t("\u4FDD\u5B58\u5DE5\u4F5C\u8BB0\u5F55"), t("\u5728\u300C\u8FFD\u8E2A\u300D\u4E2D\u5F00\u542F\u81EA\u52A8\u8BB0\u5F55\uFF0C\u5728 Dreaming \u4E2D\u6574\u7406\u8BB0\u5FC6")]
+      [t("\u4FDD\u5B58\u5DE5\u4F5C\u8BB0\u5F55"), t("\u5728\u300C\u8BB0\u5F55\u300D\u4E2D\u5F00\u542F\u81EA\u52A8\u4F1A\u8BDD\u8BB0\u5F55\uFF0C\u5728 Dreaming \u4E2D\u6574\u7406\u8BB0\u5FC6")]
     ];
     for (const [title, text] of rows) {
       const row = guide.createDiv({ cls: "ad-about-guide" });
@@ -11519,7 +11515,7 @@ var ArchiveTargetModal = class extends import_obsidian5.Modal {
     input.value = this.path;
     const error = field.createDiv({ cls: "ad-hint" });
     const order = this.plugin.settings.archiveOrder === "append" ? t("\u8FFD\u52A0\u5230\u6587\u4EF6\u672B\u5C3E") : t("\u63D2\u5230\u6587\u4EF6\u5F00\u5934");
-    field.createDiv({ cls: "ad-hint", text: t("\u5199\u5165\u987A\u5E8F\uFF1A{order}\uFF08\u5728 \u8BBE\u7F6E \u2192 \u8FFD\u8E2A \u91CC\u6539\uFF09", { order }) });
+    field.createDiv({ cls: "ad-hint", text: t("\u5199\u5165\u987A\u5E8F\uFF1A{order}\uFF08\u5728 \u8BBE\u7F6E \u2192 \u8BB0\u5F55 \u91CC\u6539\uFF09", { order }) });
     const sugg = contentEl.createDiv({ cls: "ad-hint" });
     const all = () => this.app.vault.getMarkdownFiles().map((f) => f.path).sort();
     let files = all();
@@ -15272,7 +15268,7 @@ var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*
 var AgentDeckPlugin = class extends import_obsidian12.Plugin {
   async onload() {
     const data = await this.loadData();
-    this.settings = deepMerge(DEFAULTS, data || {});
+    this.settings = syncDelegationSettings(deepMerge(DEFAULTS, data || {}), data || {});
     if (!this.settings.journalFolderAuto) {
       if (this.settings.journalFolder === "\u65E5\u8BB0") this.settings.journalFolder = "";
       this.settings.journalFolderAuto = true;
@@ -15318,7 +15314,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
       id: "open-menubar-panel",
       name: t("\u6253\u5F00 macOS \u83DC\u5355\u680F\u9762\u677F"),
       callback: async () => {
-        if (this.settings.showMenuBar === false) return this.notice(t("macOS \u83DC\u5355\u680F\u5DF2\u5173\u95ED\uFF0C\u8BF7\u5148\u5728\u300C\u8FFD\u8E2A\u300D\u91CC\u6253\u5F00"));
+        if (this.settings.showMenuBar === false) return this.notice(t("macOS \u83DC\u5355\u680F\u5DF2\u5173\u95ED\uFF0C\u8BF7\u5148\u5728\u300C\u8BB0\u5F55\u300D\u91CC\u6253\u5F00"));
         await this.menubar.start();
         const started = Date.now();
         const wait = setInterval(() => {
@@ -15330,7 +15326,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
       }
     });
     this.addCommand({ id: "open-settings", name: t("\u6253\u5F00 Agent Deck \u8BBE\u7F6E"), callback: () => this.openSettings() });
-    this.addCommand({ id: "open-models", name: t("\u6253\u5F00 Agent Deck \u7684 Models \u8BBE\u7F6E"), callback: () => this.openSettings("models") });
+    this.addCommand({ id: "open-models", name: t("\u6253\u5F00 Agent Deck \u7684\u7BA1\u7406\u6A21\u578B\u8BBE\u7F6E"), callback: () => this.openSettings("models") });
     this.addCommand({ id: "delegate-line", name: t("\u59D4\u6D3E\u5F53\u524D\u4EFB\u52A1 / \u6253\u5F00\u4EFB\u52A1\u64CD\u4F5C"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "D" }], editorCallback: (editor, view) => {
       if (view.file) this.gripSend({ path: view.file.path, line: editor.getCursor().line, lineText: editor.getLine(editor.getCursor().line) });
     } });
@@ -15378,7 +15374,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
         await this.saveSettings();
         this.menubar?.stop();
         this.settingTab?.mbSwitch?.setOn(false);
-        this.notice(t("\u5DF2\u9690\u85CF macOS \u83DC\u5355\u680F\uFF1B\u53EF\u5728 Agent Deck \u2192 \u8FFD\u8E2A \u91CC\u91CD\u65B0\u6253\u5F00"), 8e3);
+        this.notice(t("\u5DF2\u9690\u85CF macOS \u83DC\u5355\u680F\uFF1B\u53EF\u5728 Agent Deck \u2192 \u8BB0\u5F55 \u91CC\u91CD\u65B0\u6253\u5F00"), 8e3);
         return;
       }
       return this.activateView();
@@ -15490,7 +15486,10 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
   }
   openSettings(tab) {
     try {
-      if (tab && this.settingTab) this.settingTab.tab = tab;
+      if (tab && this.settingTab) {
+        if (typeof this.settingTab.openTab === "function") this.settingTab.openTab(tab);
+        else this.settingTab.tab = tab;
+      }
       this.app.setting.open();
       this.app.setting.openTabById(this.manifest.id);
       if (tab && this.settingTab) setTimeout(() => {

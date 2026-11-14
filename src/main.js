@@ -18,7 +18,7 @@ import {
   Plugin, Notice, MarkdownView, MarkdownRenderChild, Menu, editorInfoField,
 } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp, visibleMenuAgents, journalPath,
+  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, syncDelegationSettings, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp, visibleMenuAgents, journalPath,
 } from "./constants.js";
 import { AgentUsage, UsageStore, projectName, SUMMARY_VERSION } from "./readers.js";
 import { Delegator, blockAt, freshTaskText, ancestorLines, delegationText, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findAgyBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
@@ -49,7 +49,7 @@ const NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\
 export default class AgentDeckPlugin extends Plugin {
   async onload() {
     const data = await this.loadData();
-    this.settings = deepMerge(DEFAULTS, data || {});
+    this.settings = syncDelegationSettings(deepMerge(DEFAULTS, data || {}), data || {});
     // 日记目录改成留空自动检测：以前存下的默认值「日记」当作没设过（只迁一次）
     if (!this.settings.journalFolderAuto) { if (this.settings.journalFolder === "日记") this.settings.journalFolder = ""; this.settings.journalFolderAuto = true; }
     if (!Array.isArray(this.settings.primaryAgents)) this.settings.primaryAgents = this.settings.aiPrimary ? [this.settings.aiPrimary] : ["claude"];
@@ -97,7 +97,7 @@ export default class AgentDeckPlugin extends Plugin {
       id: "open-menubar-panel",
       name: t("打开 macOS 菜单栏面板"),
       callback: async () => {
-        if (this.settings.showMenuBar === false) return this.notice(t("macOS 菜单栏已关闭，请先在「追踪」里打开"));
+        if (this.settings.showMenuBar === false) return this.notice(t("macOS 菜单栏已关闭，请先在「记录」里打开"));
         await this.menubar.start();
         const started = Date.now();
         const wait = setInterval(() => {
@@ -109,7 +109,7 @@ export default class AgentDeckPlugin extends Plugin {
       },
     });
     this.addCommand({ id: "open-settings", name: t("打开 Agent Deck 设置"), callback: () => this.openSettings() });
-    this.addCommand({ id: "open-models", name: t("打开 Agent Deck 的 Models 设置"), callback: () => this.openSettings("models") });
+    this.addCommand({ id: "open-models", name: t("打开 Agent Deck 的管理模型设置"), callback: () => this.openSettings("models") });
     this.addCommand({ id: "delegate-line", name: t("委派当前任务 / 打开任务操作"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "D" }], editorCallback: (editor, view) => {
       if (view.file) this.gripSend({ path: view.file.path, line: editor.getCursor().line, lineText: editor.getLine(editor.getCursor().line) });
     } });
@@ -152,7 +152,7 @@ export default class AgentDeckPlugin extends Plugin {
         await this.saveSettings();
         this.menubar?.stop();
         this.settingTab?.mbSwitch?.setOn(false);
-        this.notice(t("已隐藏 macOS 菜单栏；可在 Agent Deck → 追踪 里重新打开"), 8000);
+        this.notice(t("已隐藏 macOS 菜单栏；可在 Agent Deck → 记录 里重新打开"), 8000);
         return;
       }
       return this.activateView();
@@ -249,7 +249,10 @@ export default class AgentDeckPlugin extends Plugin {
 
   openSettings(tab) {
     try {
-      if (tab && this.settingTab) this.settingTab.tab = tab;
+      if (tab && this.settingTab) {
+        if (typeof this.settingTab.openTab === "function") this.settingTab.openTab(tab);
+        else this.settingTab.tab = tab;
+      }
       this.app.setting.open();
       this.app.setting.openTabById(this.manifest.id);
       if (tab && this.settingTab) setTimeout(() => { try { this.settingTab.display(); } catch { /* not open yet */ } }, 120);

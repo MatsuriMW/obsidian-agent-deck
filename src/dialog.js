@@ -322,7 +322,7 @@ export class ArchiveTargetModal extends Modal {
     const error = field.createDiv({ cls: "ad-hint" });
 
     const order = this.plugin.settings.archiveOrder === "append" ? t("追加到文件末尾") : t("插到文件开头");
-    field.createDiv({ cls: "ad-hint", text: t("写入顺序：{order}（在 设置 → 追踪 里改）", { order }) });
+    field.createDiv({ cls: "ad-hint", text: t("写入顺序：{order}（在 设置 → 记录 里改）", { order }) });
 
     // Vault suggestions; the first few matches are enough, the field stays free text.
     const sugg = contentEl.createDiv({ cls: "ad-hint" });

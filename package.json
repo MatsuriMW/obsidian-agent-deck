@@ -1,6 +1,6 @@
 {
   "name": "obsidian-agent-deck",
-  "version": "1.9.1",
+  "version": "1.9.2",
   "description": "Track seven local AI agents, bind sessions to note tasks, and keep progress and conversation records in Obsidian.",
   "scripts": {
     "build": "node esbuild.config.mjs",

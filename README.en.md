@@ -455,49 +455,27 @@ npm run build
 
 **Ctrl + Alt + J**, or **跳到正在做**, jumps to today’s **进行中** region; before grouping, it opens the first running task. Customize it in Obsidian hotkey settings.
 
-- **Agents**: enable each agent, pick up to two primaries, scan now, import Nautilus Spiral history.
-- **委派**: default target, models, effort, permission mode, working directory, prompt prefix/suffix, write-back rules, trust fallback.
-- **Models**: each Agent section in Model picker can be expanded or collapsed with its heading or keyboard. Disabling tracking or removing an Agent card folds its section; showing it again expands it. Pinned models appear first within their Agent section.
-- **追踪**: day cutoff, polling interval, idle threshold, history depth, Claude desktop side chats, automatic journal logging and write-back toggles, default archive location and archive order (top / end of file), macOS menu bar toggle and row limits, UI switches, rebuild, import, and a one-click **pause Nautilus Spiral's AI writes** action.
-- **Dreaming**: manual or daily memory extraction, progress, Markdown export, shared-memory sync, and optional Telegram Companion profile integration.
-- **关于**: version, license and debug info.
-
-## Next changes
-
-### Organize settings around delegation and recording
-
-Agents, Delegation and Models currently repeat some default delegation, model and effort controls. The next step is to assign each setting one home before changing the page structure. This is a planned change; the current version still has the six settings tabs described above.
-
-The proposed main pages are Delegation, Recording, Dreaming and About. Models becomes a Manage models entry within Delegation. Agent tracking settings move into Recording.
+Settings are organized into four main tabs: **Delegate**, **Records**, **Dreaming** and **About**. Each setting has a single editable location, and all seven Agents are visible in the relevant sections.
 
 | Location | Settings owned by this section |
 |---|---|
 | Delegation → Default target | The single global default delegation target. Primary tracking agents remain a separate choice. |
 | Delegation → Each agent | Default model, effort, permissions, executable path, working directory and execution location per agent; shared terminal preferences also live here. |
-| Delegation → Manage models | Add, edit, enable, pin and sort models, with search and agent groups. Remove the repeated default model and effort controls. |
+| Delegation → Manage models | Add, edit, enable, pin and sort models, with search and collapsible agent groups (disabling tracking or removing a card folds its group; showing it again expands it). |
 | Delegation → Sending | Task-line agent completion, prompt prefix and suffix, and additional delegation instructions. |
 | Recording → Sources and scanning | Tracking switches, primary agents, history scope, scan interval, log paths, manual scanning and history import. |
-| Recording → Journal and archives | Journal writing, automatic task creation, status and conclusion updates, per-turn records, detail, display range, cumulative summaries, organization templates and archives. |
-| Recording → Organization model | CLI, model, timeouts and frequency for automatic organization and polishing, named separately from delegation models. |
+| Recording → Journal and archives | Journal writing, automatic session recording, status and conclusion updates (distinguishing delegated-task write-back from bound-session write-back), per-turn records, detail, display range, cumulative summaries, organization templates and archives. |
+| Recording → Organization model | CLI, model, timeouts and frequency for automatic organization and polishing, configured separately from delegation models. |
 | Recording → Display and maintenance | Session opening, dashboard, editor and menu bar display, cache maintenance and Nautilus writing ownership. |
 | Dreaming / About | Keep memory and synchronization separate from version information and common actions. |
 
-Each setting gets one editable location. Merge controls that write the same field; name settings with different effects by their scope, such as delegated-task write-back and automatic session recording. Task-line model and effort choices remain overrides for the current task.
-
-All seven agents remain visible in the relevant sections. Use short capability statuses for client-managed models, client handoff and unavailable delegation. Keep text left-aligned, spacing compact and related operations grouped; less-used settings can collapse.
-
-### Implementation and acceptance
-
-1. Inventory each control, its stored fields and its effects, marking repeated entry points. Keep existing storage fields, consolidate writes and move controls while preserving personal defaults, tracking and recording choices.
-2. Merge pages and model management, updating commands, settings links and both languages. Saving or discarding a model catalog draft must only affect catalog changes and must not overwrite newer delegation defaults.
-3. Compare functionality before and after: exactly one global delegation-target selector and one editable default model and effort control per configurable agent. Existing functions remain discoverable and settings survive reload.
-4. Verify that primary tracking and default delegation are independent, and that recording and display choices keep their separate effects. Check both languages, light and dark themes and narrow windows, then install locally for validation.
+Task-line model and effort choices remain overrides for the current task. Short capability statuses are shown for client-managed models, client handoff and unavailable delegation.
 
 ## Compatibility with Nautilus Spiral
 
 Agent Deck understands the same `🔗` line as Nautilus Spiral. If both plugins are on, Nautilus will also see the Claude sessions and may rewrite `DELEGATED` to `TOREVIEW`.
 
-Agent Deck hides Nautilus's 🤖 agent status item automatically (the planner's own status bar and timer stay). The AI **writes** of the journal flow (automatic logging, status keywords, `💬`, child blocks) now live in Agent Deck; while Nautilus's write flags are still on, Agent Deck keeps its hands off the note. Use **追踪 → 停用螺旋日程里的 AI 写入** to turn off only those writes — Nautilus keeps its tracking display. Its settings are backed up first. After using it, reload Nautilus Spiral from Obsidian's plugin settings (or restart Obsidian); Agent Deck never disables or enables another plugin.
+Agent Deck hides Nautilus's 🤖 agent status item automatically (the planner's own status bar and timer stay). The AI **writes** of the journal flow (automatic logging, status keywords, `💬`, child blocks) now live in Agent Deck; while Nautilus's write flags are still on, Agent Deck keeps its hands off the note. Use **Recording → Disable AI writes in Nautilus Spiral** to turn off only those writes — Nautilus keeps its tracking display. Its settings are backed up first. After using it, reload Nautilus Spiral from Obsidian's plugin settings (or restart Obsidian); Agent Deck never disables or enables another plugin.
 
 If you use **done-to-top** and **journal-tidy**, update to **done-to-top 1.17.3+** and **journal-tidy 1.9.1+**. Those versions keep a `DELEGATED` block that mentions 明天 / 后天 / 大后天 in today's DOING area instead of moving it to the next day, and do not fold DOING/TODO blocks before the first separator.
 
@@ -513,11 +491,11 @@ If you use **done-to-top** and **journal-tidy**, update to **done-to-top 1.17.3+
 ## FAQ
 
 - **The UI is in English. Can I switch it to Chinese?** There is no separate switch; it follows Obsidian. Set Obsidian's language to Chinese (Settings → About → Language) and reload the plugin.
-- **The menu bar still shows the old language.** The helper reads the `labels` the plugin pushes. Reload the plugin, or press **Restart menu bar** under Tracking in the settings.
-- **No menu bar icon.** The first start needs `swiftc` (`xcode-select --install`). You can also press **Restart menu bar** under Tracking, or open the panel with **⌃⌥⌘D**.
+- **The menu bar still shows the old language.** The helper reads the `labels` the plugin pushes. Reload the plugin, or press **Restart menu bar** under Recording in the settings.
+- **No menu bar icon.** The first start needs `swiftc` (`xcode-select --install`). You can also press **Restart menu bar** under Recording, or open the panel with **⌃⌥⌘D**.
 - **Only the Agent Deck commands are English in the command palette?** That means Obsidian is in English and the other plugins are not localised; that is their behaviour, not this plugin's.
 - **A delegation failed. What do I check first?** Press **Check** in that agent's settings to confirm the binary path and version, then confirm the login and that the model is available. A passing version check does not prove a login.
-- **Times written into the journal are off by hours.** Check **Tracking → day cutoff**; spans are stored as minutes from the cutoff.
+- **Times written into the journal are off by hours.** Check **Recording → Journal day cutoff**; spans are stored as minutes from the cutoff.
 
 ## Release provenance
 

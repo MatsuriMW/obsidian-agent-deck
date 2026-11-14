@@ -774,7 +774,7 @@ export class AgentCardsModal extends Modal {
     }
     const foot = el.createDiv({ cls: "ad-modalfoot" });
     const settings = foot.createEl("button", { text: t("Agent 设置") });
-    settings.onclick = () => { this.close(); view.plugin.openSettings("agents"); };
+    settings.onclick = () => { this.close(); view.plugin.openSettings("record"); };
     foot.createEl("button", { text: t("完成") }).onclick = () => this.close();
   }
 
