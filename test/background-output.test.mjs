@@ -9,6 +9,7 @@ const J = await import('../src/journal.js');
 const { Delegator, isCliSession } = await import('../src/delegation.js');
 const { JournalSync } = await import('../src/sync.js');
 const { DEFAULTS, deepMerge } = await import('../src/constants.js');
+const semantic = '结论：本地修复；改动：修复缓存与并发写入；未完成：尚未发布，Windows 未验证';
 const longReply = '# 原文\n\n' + '中文内容🙂 保留全部空格与代码。\n'.repeat(400) + '\n```js\nconst text = "末尾 END";\n```\n';
 function fixture(note) {
   const files = new Map([['journal.md', { path: 'journal.md', text: note }]]);
@@ -26,14 +27,14 @@ function fixture(note) {
 }
 test('background summary stays short and repeats do not duplicate the record', () => {
   const before = '- DOING 测试 ^ad-raw\n';
-  const options = { blockId: 'ad-raw', sid: 'raw-session', replyMax: 240, rounds: [{ n: 1, said: longReply }] };
+  const options = { blockId: 'ad-raw', sid: 'raw-session', rounds: [{ n: 1, said: longReply, journalSummary: semantic }] };
   const output = J.syncSessionEntry(before, options).text;
   assert.ok(output.length < 400);
   assert.equal(J.syncSessionEntry(output, options).text, output);
 });
 test('simultaneous background results archive complete replies and preserve every journal summary and binding', async () => {
   const p = fixture('- DOING 任务 ^ad-race\n');
-  const d = new Delegator(p);
+  const d = new Delegator(p); d.summarizeBackground = async () => semantic;
   const jobs = ['a-session', 'b-session', 'c-session'].map((sid, i) => ({ id: sid, agent: 'dsh', name: '任务',
     path: 'journal.md', blockId: 'ad-race', sessionId: sid, destination: 'background', startedAt: 1,
     result: longReply + i, linkWritten: true }));
@@ -48,15 +49,21 @@ test('simultaneous background results archive complete replies and preserve ever
   assert.ok(p.note().includes('new-session')); assert.ok(p.note().length < 1800);
   const before = p.note(); await Promise.all(jobs.map(j => d.writeResult(j))); assert.equal(p.note(), before);
 });
-test('background scans skip polishing and merging, and write bounded progress', () => {
+test('background scans use the same semantic summary pipeline without saving a prefix', async () => {
   const sid = 'session-11111111-2222-4333-8444-555555555555';
   const p = fixture('- DOING 任务 ^ad-task\n' + J.linkLine('\t', 'dsh', '任务', sid));
-  p.jobs.one = { agent: 'dsh', sessionId: sid, destination: 'background', state: 'done' };
+  p.jobs.one = { id: 'one', path: 'journal.md', name: '任务', blockId: 'ad-task', agent: 'dsh', sessionId: sid,
+    destination: 'background', state: 'done', conversation: [{ role: 'assistant', text: longReply }] };
   p.usage.meta.set(sid, { agent: 'dsh', state: 'wait', lastText: longReply, rounds: [{ n: 1, said: longReply, summary: '旧摘要' }] });
+  const d = new Delegator(p); d.summarizeBackground = async () => semantic;
+  let pending;
+  p.delegator = { writeResult: (...args) => (pending = d.writeResult(...args)) };
   const sync = new JournalSync(p);
-  sync.queueRefineTurn = () => assert.fail('background reply must not be polished');
-  sync.queueMerge = () => assert.fail('background reply must not be merged');
-  assert.ok(sync.results(p.note()).length < 600);
+  sync.queueRefineTurn = () => assert.fail('the old short-polish path must not run');
+  sync.queueMerge = () => assert.fail('background replies must not be merged');
+  sync.results(p.note()); await pending;
+  assert.ok(p.note().includes(semantic));
+  assert.ok(!p.note().includes('旧摘要')); assert.ok(!p.note().includes('中文内容🙂'));
 });
 test('Claude background subprocess drains complete UTF-8 output and automatically saves a full transcript', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ad-output-'));
@@ -65,7 +72,7 @@ test('Claude background subprocess drains complete UTF-8 output and automaticall
   fs.writeFileSync(bin, script); fs.chmodSync(bin, 0o755);
   const p = fixture('- TODO 原文测试 ^ad-stream\n'); p.vaultPath = dir;
   Object.assign(p.settings.delegate.claude, { path: bin, cwd: dir, autoTrustedCwd: false });
-  const d = new Delegator(p);
+  const d = new Delegator(p); d.summarizeBackground = async () => semantic;
   try {
     const job = await d.delegate({ agent: 'claude', destination: 'background', file: { path: 'journal.md' }, line: 0 });
     for (let n = 0; n < 300 && !job.resultWritten; n++) await new Promise(r => setTimeout(r, 10));
@@ -76,4 +83,45 @@ test('Claude background subprocess drains complete UTF-8 output and automaticall
 test('WorkBuddy terminal sessions are recognized separately from desktop sessions', () => {
   assert.equal(isCliSession('workbuddy', 'cli'), true);
   assert.equal(isCliSession('workbuddy', 'workbuddy'), false);
+});
+
+test('failed semantic summaries keep the original link, do not commit a turn, and retry successfully', async () => {
+  const p = fixture('- DOING 任务 ^ad-retry\n');
+  const job = { id: 'retry-job', path: 'journal.md', name: '任务', blockId: 'ad-retry', agent: 'claude', sessionId: 'retry-session',
+    destination: 'background', state: 'done', result: longReply, linkWritten: true };
+  p.jobs[job.id] = job;
+  const d = new Delegator(p); let calls = 0;
+  d.summarizeBackground = async () => { calls++; throw new Error('model offline'); };
+  await Promise.all([d.writeResult(job), d.writeResult(job)]);
+  assert.equal(calls, 1, 'one model call for the same reply');
+  assert.ok(p.note().includes('总结暂未生成')); assert.ok(p.note().includes('[[' + job.archivePath + '|'));
+  assert.ok(!p.note().includes('ad-turn:retry-session:1'));
+  assert.ok(!p.note().includes('中文内容🙂')); assert.ok(!job.resultWritten);
+  await d.writeResult(job); assert.equal(calls, 1, 'retry backoff prevents a request each scan');
+  job.backgroundSummaries[1].retryAt = 0;
+  d.summarizeBackground = async () => { calls++; p.files.get('journal.md').text += '\n用户等待总结期间新写的文字'; return semantic; };
+  await d.retryBackgroundSummaries();
+  assert.equal(calls, 2); assert.ok(p.note().includes(semantic)); assert.equal(job.resultWritten, true);
+  assert.ok(!p.note().includes('总结暂未生成')); assert.ok(p.note().includes('用户等待总结期间新写的文字'));
+  assert.ok(p.files.get(job.archivePath).text.includes(longReply));
+});
+
+test('a later scanned round retries with its own complete reply rather than the initial job output', async () => {
+  const p = fixture('- DOING 任务 ^ad-later\n');
+  const sid = 'later-session', first = '第一轮：完成基础改动', second = '第二轮过程。'.repeat(200) + '最终未完成：生产发布与 Windows 验证';
+  const job = { id: 'later-job', path: 'journal.md', name: '任务', blockId: 'ad-later', agent: 'claude', sessionId: sid,
+    destination: 'background', state: 'done', result: first, linkWritten: true };
+  p.jobs[job.id] = job;
+  const d = new Delegator(p); d.summarizeBackground = async () => '结论：第一轮结束；改动：基础改动；未完成：原文未说明';
+  await d.writeResult(job);
+  job.conversation = [{ role: 'assistant', text: first }, { role: 'assistant', text: second }];
+  const rounds = [{ n: 1, said: first }, { n: 2, said: second }];
+  p.usage.meta.set(sid, { rounds, lastText: second, state: 'wait' });
+  d.summarizeBackground = async () => { throw new Error('offline'); };
+  await d.writeResult(job, { rounds }); assert.equal(job.resultWritten, false);
+  job.backgroundSummaries[2].retryAt = 0;
+  d.summarizeBackground = async raw => { assert.equal(raw, second); return '结论：第二轮结束；改动：完成本地修改；未完成：生产发布与 Windows 验证'; };
+  await d.retryBackgroundSummaries();
+  assert.equal(job.resultWritten, true); assert.ok(p.note().includes('未完成：生产发布与 Windows 验证'));
+  assert.ok(p.files.get(job.archivePath).text.includes(second));
 });

@@ -231,8 +231,9 @@ export class JournalSync {
         // A live scan may contain partial output. Let the owning runner finish first.
         if (["starting", "running", "needs-approval"].includes(background.state)) continue;
         const rounds = m.rounds || [];
-        out = J.syncSessionEntry(out, { sid, blockId: info.blockId || daySt[sid]?.blockId || "", key: info.key || daySt[sid]?.key || "",
-          rounds: rounds.length ? rounds : [{ n: 1, said: background.result || m.lastText || "" }], replyMax: 240, detail: "brief" }).text;
+        const completed = ["wait", "quiet"].includes(m.state) || this.archived(sid) ? rounds : rounds.slice(0, -1);
+        if (completed.length) this.p.delegator?.writeResult(background, { rounds: completed })
+          .catch(error => console.info("[agent-deck] background summary pending", error.message));
         continue;
       }
       const waiting = m.state === "wait" || m.state === "quiet";

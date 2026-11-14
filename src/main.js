@@ -297,6 +297,7 @@ export default class AgentDeckPlugin extends Plugin {
       this.store.merge(touched, this.usage);
       this.store.prune();
       this.delegator.resolveHandoffs(this.usage);
+      this.delegator.retryBackgroundSummaries?.();
       this.usage.maybeSaveCache(this.usageCacheFile);
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));

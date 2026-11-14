@@ -82,7 +82,7 @@ export function adBlockIdRanges(text, trackedIds = new Set()) {
       if (!fence) { fence = marker[1][0]; fenceLength = marker[1].length; }
       else if (marker[1][0] === fence && marker[1].length >= fenceLength && !marker[2].trim()) fence = "";
     } else if (!fence) {
-      const turn = /[ \t]+<!-- ad-(?:(?:turn|summary):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/.exec(line);
+      const turn = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/.exec(line);
       if (turn) out.push({ from: offset + turn.index, to: offset + turn.index + turn[0].length });
       const id = /(?:[ \t]+|^)\^([a-z0-9-]+)(?:\S*)?[ \t]*$/i.exec(line);
       if (id && hiddenBlockId(id[1], trackedIds)) out.push({ from: offset + id.index, to: offset + line.length });

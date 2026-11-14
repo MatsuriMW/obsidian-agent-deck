@@ -48,7 +48,14 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 
 ## Release notes
 
-Current version: **1.9.4**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+Current version: **1.9.5**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+
+### 1.9.5 · Semantic summaries for background replies
+
+- The summary model reads the complete reply and extracts the conclusion, changes, and unfinished work. About 240 Chinese characters is a length target; neither the reply's prefix nor the generated summary is cut to a hard limit.
+- Reuses the configured journaling/polishing model for an additional call. Complete originals are saved first; the summary merges into the current journal after the model responds, outside the note-writing queue.
+- Failed summaries retain the original link and a pending status. Scans retry after at least 60 seconds; concurrent requests for the same reply share one call and successful summaries are cached.
+- Task completion and subsequent session scans use the same summary pipeline. Manual edits and already saved history remain unchanged.
 
 ### 1.9.4 · Background transcripts and concurrent journal updates
 
@@ -392,7 +399,7 @@ Both desktop destinations copy the task and open the client for you to paste and
 
 ### Background replies and concurrent journal editing
 
-Background tasks write up to about 240 characters and a complete-transcript link to the journal. Original messages are automatically saved under `Agent Deck/Conversations/`. Running tasks show an indeterminate indicator and elapsed time; finished or failed tasks retain their duration. An explicit background destination does not open the desktop app when CLI authentication fails.
+Background tasks first save complete originals under `Agent Deck/Conversations/`. The configured journaling/polishing model reads the full reply and summarizes its conclusion, changes and unfinished work, with a transcript link in the journal. About 240 Chinese characters is a target rather than a hard limit. Failed summaries remain pending and retry on later scans; they never fall back to a prefix excerpt. Running tasks show an indeterminate indicator and elapsed time; finished or failed tasks retain their duration. An explicit background destination does not open the desktop app when CLI authentication fails.
 
 Bindings, conclusions and archive links share a queue per note. Open notes receive local editor transactions against current content; closed notes merge content inside `Vault.process()`. AI organization re-reads the note after its model call and skips stale changes if the user edits it again. Session/turn markers prevent duplicate records and keep each agent's output separate from manual notes.
 

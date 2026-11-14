@@ -460,7 +460,7 @@ function sortRecordedRounds(lines, parent) {
   for (let i = slots.length - 1; i >= 0; i--) lines.splice(slots[i][0], slots[i][1] - slots[i][0], ...records[i].lines);
 }
 
-export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null, replyMax = 0 } = {}) {
+export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null } = {}) {
   let lines = text.split("\n");
   let n = -1, linkAt = -1;
   if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
@@ -534,7 +534,7 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
     }
     const raw = level === "detailed" ? (r.said || r.summary) : (r.summary || r.said);
     const task = r.taskSummary || r.ask || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
-    const message = replyMax ? resultText(r.said || r.summary, replyMax) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
+    const message = r.journalSummary ? resultText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
       ? `任务：${resultText(task, 45)}；结论：${resultText(raw, 65)}`
       : recordSentence(raw, 90);
     // Number the latest-progress entry too, so a setting change cannot rewrite it.

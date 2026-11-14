@@ -8,7 +8,8 @@ import { updateNote } from "./note-updates.js";
 // with model and reasoning-effort selection.
 
 import fs from "fs";
-import { randomUUID } from "crypto";
+import { randomUUID, createHash } from "crypto";
+import { summarizeBackgroundReply, backgroundSummaryPending } from "./background-summary.js";
 import { destinations } from "./workflow.js";
 import { CodexDesktopRunner } from "./codex-desktop.js";
 import path from "path";
@@ -1172,6 +1173,7 @@ export class Delegator {
   constructor(plugin) {
     this.plugin = plugin;
     this.jobs = plugin.jobs;          // by id
+    this.summaryCalls = new Map();
     this.runners = new Map();         // id -> runner
     this.settings = plugin.settings;
     this.vaultPath = plugin.vaultPath;
@@ -1522,35 +1524,82 @@ export class Delegator {
     } catch (e) { console.error("[agent-deck] removeLink", e); }
   }
 
-  async writeResult(job) {
-    if (job.resultWritten || this.settings.journalAutoWrite === false) return;
+  summarizeBackground(raw) { return summarizeBackgroundReply(raw, this.settings); }
+
+  async prepareBackgroundRound(job, round) {
+    const raw = round.said || "";
+    if (!raw) return null;
+    const n = round.n || 1, hash = createHash("sha256").update(raw.trim()).digest("hex");
+    const saved = (job.backgroundSummaries ||= {});
+    const prior = saved[n];
+    if (prior?.hash === hash && prior.text) return { n, said: raw, journalSummary: prior.text };
+    const key = `${job.id}:${n}:${hash}`;
+    if (this.summaryCalls.has(key)) return this.summaryCalls.get(key);
+    if (prior?.hash === hash && prior.retryAt > Date.now()) return null;
+    const pending = this.summarizeBackground(raw).then(text => {
+      saved[n] = { hash, text };
+      return { n, said: raw, journalSummary: text };
+    }).catch(error => {
+      saved[n] = { hash, retryAt: Date.now() + 60000 };
+      console.info("[agent-deck] background summary pending", error.message);
+      return null;
+    }).finally(() => { this.summaryCalls.delete(key); if (!this.plugin._unloaded) this.saveJobs(); });
+    this.summaryCalls.set(key, pending);
+    return pending;
+  }
+
+  retryBackgroundSummaries() {
+    const now = Date.now();
+    return Promise.all(Object.values(this.jobs).filter(job => job.destination === "background" && job.state === "done" &&
+      !job.resultWritten && Object.values(job.backgroundSummaries || {}).some(entry => typeof entry.retryAt === "number" && entry.retryAt <= now))
+      .map(job => this.writeResult(job).catch(error => console.info("[agent-deck] background summary pending", error.message))));
+  }
+
+  async writeResult(job, { rounds: scannedRounds } = {}) {
+    if ((job.resultWritten && !scannedRounds) || this.settings.journalAutoWrite === false || this.plugin._unloaded || !job.path) return;
     const meta = this.plugin.usage?.meta.get(job.sessionId);
     const raw = job.result || meta?.rounds?.at(-1)?.said || meta?.lastText || job.lastText || "";
-    if (!raw) return;
+    if (!raw && !scannedRounds?.length) return;
     const background = job.destination === "background";
-    if (background && !job.archivePath) {
-      const messages = job.conversation?.length ? job.conversation : [
-        { role: "user", text: job.prompt || job.name || "" }, { role: "assistant", text: raw },
-      ];
-      const file = await archiveConversation(this.plugin, { ...job, sid: job.sessionId }, { messages });
-      job.archivePath = file.path;
-      this.saveJobs();
+    let rounds = scannedRounds || (background && job.result && (!job.backgroundArchiveThrough || job.backgroundArchiveThrough === 1)
+      ? [{ n: meta?.rounds?.at(-1)?.n || 1, said: job.result }]
+      : meta?.rounds?.length ? meta.rounds : [{ n: 1, at: job.startedAt, ask: "", said: raw }]);
+    if (background) {
+      const through = Math.max(0, ...rounds.map(r => r.n || 1));
+      if (!job.archivePath || (scannedRounds && through > (job.backgroundArchiveThrough || 0))) {
+        const messages = !scannedRounds && job.conversation?.length ? job.conversation : !scannedRounds
+          ? [{ role: "user", text: job.prompt || job.name || "" }, { role: "assistant", text: raw }] : null;
+        const file = await archiveConversation(this.plugin, { ...job, sid: job.sessionId }, messages ? { messages } : {});
+        job.archivePath = file.path;
+        job.backgroundArchiveThrough = through;
+        this.saveJobs();
+      }
+      if (this.plugin._unloaded) return;
+      const note = await this.plugin.readNote(job.path);
+      rounds = rounds.filter(r => r.said && !note.includes(`<!-- ad-turn:${job.sessionId}:${r.n || 1} -->`));
+      await updateNote(this.plugin, job.path, text => rounds.reduce((current, round) =>
+        backgroundSummaryPending(current, job, round.n || 1, true), text));
+      if (rounds.length) job.resultWritten = false;
+      const prepared = [];
+      for (const round of rounds) {
+        const result = await this.prepareBackgroundRound(job, round);
+        if (result) prepared.push(result);
+      }
+      rounds = prepared;
+      if (this.plugin._unloaded) return;
     }
     let synced;
     await updateNote(this.plugin, job.path, text => {
-      if (job.resultWritten || this.settings.journalAutoWrite === false) return text;
-      // The runner's complete output can arrive before the next log scan.
-      const rounds = background && job.result
-        ? [{ n: meta?.rounds?.at(-1)?.n || 1, said: job.result }]
-        : meta?.rounds?.length ? meta.rounds : [{ n: 1, at: job.startedAt, ask: "", said: raw }];
+      if ((job.resultWritten && !scannedRounds) || this.settings.journalAutoWrite === false) return text;
+      if (background) for (const round of rounds) text = backgroundSummaryPending(text, job, round.n, false);
+      if (background && !rounds.length) return text;
       synced = J.syncSessionEntry(text, {
-        granularity: this.settings.autoLogGranularity,
+        granularity: background ? "round" : this.settings.autoLogGranularity,
         compact: background ? null : this.settings.autoLogSummaries?.[job.path.split("/").pop().replace(/\.md$/, "")]?.[job.sessionId],
         detail: background ? "brief" : this.settings.autoLogDetail,
         detailHistory: background ? [] : this.settings.autoLogDetailHistory,
-        replyMax: background ? 240 : 0,
         sid: job.sessionId || "", blockId: job.blockId || "", key: J.workKey(job.name || ""),
-        said: background ? J.resultText(raw, 240) : J.oneSentenceConclusion(raw, clamp(Number(this.settings.resultMax) || 120, 40, 2000)),
+        said: background ? "" : J.oneSentenceConclusion(raw, clamp(Number(this.settings.resultMax) || 120, 40, 2000)),
         rounds,
         taskTodo: job.agent === "claude" && meta ? meta.todo : null, ensureId: true,
       });
@@ -1558,7 +1607,8 @@ export class Delegator {
     });
     if (synced?.line >= 0) {
       if (synced.blockId) job.blockId = synced.blockId;
-      job.resultWritten = true;
+      // A failed round remains retryable; successful summaries are cached independently.
+      job.resultWritten = !Object.values(job.backgroundSummaries || {}).some(entry => entry.retryAt);
       this.saveJobs();
     }
   }
