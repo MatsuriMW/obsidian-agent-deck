@@ -98,3 +98,15 @@ assert.equal(persisted.ui.modelGroups.claude.open,false);
 plugin.settings.ui.agentCards.hidden=[];await save.saveSettings();
 assert.equal(persisted.ui.modelGroups.claude.open,true,'card off/on is persisted even while Models is closed');
 console.log('PASS real settings save keeps model groups in sync outside the Models page');
+
+for (const id of ['workbuddy','opencode','qoder']) {
+  tab.modelTarget=id;
+  const before=JSON.stringify(tab.draft),body=render();
+  const targets=body.all().find(el=>el.options.cls==='ad-models-target');
+  assert.equal(targets.children.length,7,'Models includes all tracked Agents');
+  assert.equal(body.all().filter(el=>el.options.cls==='ad-modelpill').length,0,'client-managed models do not show an ineffective default selector');
+  const status=body.all().find(el=>el.dataset.agent===id);
+  assert.equal(status.tag,'div','client-managed model groups do not have an empty expand control');
+  assert.equal(JSON.stringify(tab.draft),before,'showing a client-managed Agent preserves saved model choices');
+}
+console.log('PASS Models shows all seven Agents without ineffective controls for client-managed models');

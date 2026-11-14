@@ -16,7 +16,7 @@ If you find a problem or want to suggest a feature, open a [GitHub Issue](https:
 
 Agent Deck gathers the AI agent sessions scattered across separate clients onto one deck inside Obsidian: which agent is working, which one is waiting for you, and how far each has got, at a glance. To hand off work, delegate from the line you are writing; progress and the result come back to that same line. What you planned and what the agents did end up in the same journal.
 
-It is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy, DeepSeek Harness and Antigravity**, shows what each agent is doing now, and tracks delegated tasks from the editor. Notes and the panel talk by drag and drop: drop a session card on a list item to bind it, drop a list item on an agent to delegate it. Only the line under the cursor gets a small paper-plane grip: click it to send the item with its children to your primary agent after a confirm (delegating a sub-item also carries its parent lines, up to the outermost list item, as context), double-click or ⌘-click to pick the agent. Once a line is bound to a session, the line-end pill becomes the progress surface.
+It is an Obsidian plugin that reads the local session logs of **Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode and Qoder**, shows what each agent is doing now, and tracks delegated tasks from the editor. Notes and the panel talk by drag and drop: drop a session card on a list item to bind it, drop a list item on an agent to delegate it. Only the line under the cursor gets a small paper-plane grip: click it to send the item with its children to your primary agent after a confirm (delegating a sub-item also carries its parent lines, up to the outermost list item, as context), double-click or ⌘-click to pick the agent. Once a line is bound to a session, the line-end pill becomes the progress surface.
 
 It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral), extracted into a standalone plugin and extended with a second primary agent, DeepSeek Harness, model/effort/mode selection, and a layered model picker.
 
@@ -47,7 +47,23 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 
 ## Release notes
 
-Current version: **1.8.0**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+Current version: **1.9.1**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+
+### 1.9.1 · Desktop tracking, settings and per-turn records
+
+- Add OpenCode and Qoder desktop session tracking, task binding, journal updates and conversation export. Delegation and in-plugin follow-up are not available for these two agents.
+- Rework all six settings tabs with left-aligned text and consistent control columns, tighter spacing and shorter copy; support narrow windows and light and dark themes. Models and Delegation show all seven agents with a short status for unavailable options.
+- The default per-turn mode fills completed turns from the first through the latest and lists them newest first. Questions, answers and steps move together while saved text and subtasks remain intact.
+- Fix task ID collisions between sessions with the same UUID time prefix; prefer complete session links when resolving bindings.
+- Add **Ctrl+Alt+L** for organizing the journal and place it first in About’s common actions.
+
+### 1.9.0 · Delegation context and clearer settings choices
+
+- An AI reply can act as a parent block: edit it, add notes or child tasks underneath, and delegate again from that line or any descendant. The dispatch carries the whole ancestor chain, its body text, continuation lines and AI records, plus the current block and its subtree; sibling branches are left out, and a new session keeps the existing AI record as context.
+- Later write-backs append new records and keep your rewritten titles, earlier exchanges, cumulative summaries and child blocks. Parent and child tasks no longer overwrite each other's titles or ⏱ time records.
+- Brief logs condense the task and conclusion into keywords or short phrases in one paragraph. Collapsed, a record shows up to three lines; expanded, the full record. Existing history stays as it is.
+- The Agent sections in Models can be collapsed and expanded from the heading or the keyboard. Hiding or disabling an Agent collapses its section, and showing it again expands it. Pinned models stay ahead of their section.
+- Selection buttons across the settings share an accent fill with a check mark in light and dark themes, and a single-choice row no longer keeps showing its old selection after a click.
 
 ### 1.8.0 · Compact Agents and journal templates
 
@@ -58,7 +74,7 @@ Current version: **1.8.0**. Every change is listed in [CHANGELOG.md](CHANGELOG.m
 - Tracking includes built-in Chinese and English journal templates, automatic interface-language selection, and custom titles with all six section orders. Template changes preserve tasks, exchanges, personal notes and code examples.
 - Simplify the record display description and reorganize About.
 
-**Coming next: OpenCode support.** This is a development preview, not an Agent added in this release.
+OpenCode desktop tracking, previewed at that time, ships in 1.9.1.
 
 ### 1.7.1 · A simpler delegation footer and practical journaling guide
 
@@ -88,7 +104,7 @@ Compaction preserves per-turn records in Markdown and adds a cumulative summary.
 
 Internal block IDs, UUIDs, and session IDs stay in storage while being hidden in the interface. Explicit permission or confirmation waits trigger deduplicated in-app and system notifications. Text detection is limited to recognized requests; client states that are not exposed cannot be detected reliably.
 
-Default Ctrl+Alt shortcuts: D delegate/task actions, A task menu, C conversation, N pending confirmation, X stop, and J jump to the active region. Open sessions by clicking. AI records reuse native Obsidian and Bullet folding; no separate O/R bindings are installed.
+Default Ctrl+Alt shortcuts: D delegate/task actions, A task menu, C conversation, N pending confirmation, X stop, J jump to the active region, and L organize the journal. Open sessions by clicking. AI records reuse native Obsidian and Bullet folding; no separate O/R bindings are installed.
 
 Under Delegation, disable task-line suggestions or customize their trigger (default @, preceded by whitespace). Parent and child tasks select independently; code and email text do not trigger suggestions. The confirmation prompt can be disabled or edited and is appended only when enabled.
 
@@ -118,9 +134,19 @@ The UI follows Obsidian's own language, with no separate switch and no restart: 
 - **macOS menu bar** — the Swift helper compiles its Chinese constants into the binary and the plugin pushes a `labels` map with each state snapshot, so a missing entry falls back to the original Chinese and an older snapshot cannot break.
 - **Adding text** — `import { t } from "./i18n.js"`, use the Chinese sentence as the key, and add the English in the matching fragment under `src/locales/en/`. `node test/i18n.test.mjs` checks for missing translations, duplicate keys and placeholder mismatches. See [docs/ui-language.md](docs/ui-language.md).
 
+### OpenCode and Qoder desktop tracking (1.9.1)
+
+The plugin reads OpenCode Desktop's `~/.local/share/opencode/opencode.db` (both SQLite schemas) and Qoder Desktop's `~/Library/Application Support/com.qoder.app.stable/main.sqlite`. Tracking includes dashboard and menu bar sessions, turns, activity spans, task binding, journal updates and conversation archives. Existing primary-Agent and history settings apply. Available since 1.9.1.
+
+OpenCode token usage comes from message records. Qoder's current desktop format exposes no per-turn tokens, so none are estimated. Status follows persisted fields and may miss permission waits. Opening a session launches the app and copies its ID; select the session in the client. Delegation and in-plugin follow-up are not included. Only macOS has been checked; Qoder IDE and standalone CLI are outside this scope.
+
+Validation (2026-11-14): both desktop clients completed two real test turns. Session discovery, turn counts, journal updates, conversation viewing and export were checked; repeated scans preserve totals. The live test caught and fixed an OpenCode 2.3.0 role-reading bug: roles live in the database type column, not in the JSON payload. Desktop tracking for both clients ships in 1.9.1.
+
+**Ctrl+Alt+L** organizes the current journal. Change it in Obsidian's hotkey settings. Organize journal is the first item under About → Common actions.
+
 ## Supported agents
 
-The current version tracks these five agents through their local session logs:
+The current version tracks these seven agents through their local session logs:
 
 | Agent | Main log source | Progress | Delegation |
 |---|---|---|---|
@@ -129,8 +155,10 @@ The current version tracks these five agents through their local session logs:
 | WorkBuddy | `~/.workbuddy/projects`, combined with `workbuddy.db` metadata | Conversation turns | Open the client and copy the task for you to paste and send |
 | DeepSeek Harness (DSH) | zstd logs under `~/.dsh/sessions` and the local usage statistics interface | Conversation turns | Background delegation with model and effort selection |
 | Antigravity | Original IDE logs and conversation history saved with plugin jobs | Conversation turns, planner replies and tool actions | Direct CLI delegation, in-plugin follow-up and text export |
+| OpenCode Desktop | `~/.local/share/opencode/opencode.db` | Conversation turns and activity spans | Not available |
+| Qoder Desktop | `~/Library/Application Support/com.qoder.app.stable/main.sqlite` | Conversation turns and activity spans | Not available |
 
-All five can bind to journal tasks, create automatic entries and write conclusions back. State and token data depend on the fields each client actually logs. Archive detection is integrated for Claude, Codex, WorkBuddy and DSH; Antigravity archive detection is not currently guaranteed. Plugin-created Antigravity CLI sessions open the conversation inside Obsidian. Original Antigravity IDE sessions and the DSH client entry still open the app and copy the session ID.
+All seven can bind to journal tasks, create automatic entries and write conclusions back. State and token data depend on the fields each client actually logs. Archive detection is integrated for Claude, Codex, WorkBuddy and DSH; Antigravity archive detection is not currently guaranteed. Plugin-created Antigravity CLI sessions open the conversation inside Obsidian. Original Antigravity IDE sessions and the DSH client entry still open the app and copy the session ID.
 
 Models can be added or edited in Models. Adding a model does not add another agent log reader. The plugin is developed and verified on macOS; client paths and navigation on other systems are unverified.
 
@@ -237,7 +265,15 @@ If the menu bar is full (or a menu-bar manager such as Ice has the item in its h
 
 ![Layered model settings](assets/models.png)
 
+### Continue delegating from AI records
+
+An AI reply can become a parent block: edit it, add notes or subtasks, and delegate the reply or a descendant to the same or another agent. Use **Delegate again (new session)** for a line already bound to a session. The message includes every ancestor's own content and continuation lines, plus the selected block and its subtree, excluding sibling branches. New sessions retain saved AI records as context.
+
+Later results append without replacing saved rounds or cumulative summaries. Edited task titles remain as written. Records with descendants or their own block IDs remain visible outside automatic record folding. Edited or reused clocks are preserved; legacy clocks without an original-content signature are retained and updated statistics get a separate record.
+
 ## Human–AI journal
+
+The default per-turn mode retains completed turns from the first through the latest, newest first. Questions, answers and steps stay together. Collapsing a task changes only what is visible; saved records remain in Markdown.
 
 Your task lines are the plan; the agent session logs are the record of what actually happened. With **Auto-log into today's note** enabled, Agent Deck periodically reads today's sessions and writes the record back:
 
@@ -255,7 +291,7 @@ Agents lets you select the default model and delegation target for Claude, Codex
 
 Agent Deck owns automatic journal writing. In **Settings → Agent Deck → 追踪 → 自动记日记**, turn off **自动记录到日记（总开关）** (`journalAutoWrite`, default `true`) to stop automatic task creation, conclusions, keyword updates and compaction. Tracking and manual organization remain available.
 
-Record granularity (`autoLogGranularity`) is independent of text detail: `latest` adds only the newest round on each scan, `round` (default) accumulates completed turns, and `paused` writes conclusions only after inactivity pause or recognized archive. Switching never overwrites or deletes saved prompts, conclusions or steps. Status and time still follow their existing rules. Text detail (`autoLogDetail`) defaults to `brief`, about 45 characters without user prompts or steps; `standard` retains one sentence each for the prompt and reply; `detailed` retains prompt excerpts up to 1,000 characters, reply excerpts up to 3,000, and available steps. Changes apply to rounds started after the setting change, including in existing sessions. Saved rounds are not rewritten. Full original conversations can be archived separately.
+Record granularity (`autoLogGranularity`) is independent of text detail: `latest` adds only the newest round on each scan, `round` (default) accumulates completed turns, and `paused` writes conclusions only after inactivity pause or recognized archive. Switching never overwrites or deletes saved prompts, conclusions or steps. Status and time still follow their existing rules. Text detail (`autoLogDetail`) defaults to `brief`, combining task and result keywords or phrases in one paragraph, shown in up to three lines when closed and fully when expanded; `standard` retains one sentence each for the prompt and reply; `detailed` retains prompt excerpts up to 1,000 characters, reply excerpts up to 3,000, and available steps. Changes apply to rounds started after the setting change, including in existing sessions. Saved rounds are not rewritten. Full original conversations can be archived separately.
 
 In per-turn mode, enable automatic compaction (`autoLogMerge`, default `false`) and choose a threshold (`autoLogMergeThreshold`, default 10, range 2–100 new conclusions). The selected Claude / Codex CLI rolls previous summaries and new completed turns into one summary. A successful response adds a summary while preserving older direct AI turn records behind“更多”. Later turns, manual notes, user TODOs, clocks and nested task notes remain; failures preserve the original records.
 
@@ -263,7 +299,7 @@ Click a task status keyword to choose a new status instead of opening a query. C
 
 | Detail | Saved content | Use |
 |---|---|---|
-| Brief (default) | One AI conclusion, about 45 characters; no prompt or steps | Quick progress checks |
+| Brief (default) | Task and result keywords or phrases in one paragraph; up to three lines when closed, full record when expanded | Quick task and result checks |
 | Standard | One sentence each for the prompt and reply, up to 90 characters each; no steps | Short work notes |
 | Detailed | Prompt excerpts up to 1,000 characters, reply excerpts up to 3,000, available steps and commands from replies | Development logs, debugging reviews and handoffs |
 
@@ -420,7 +456,7 @@ npm run build
 
 - **Agents**: enable each agent, pick up to two primaries, scan now, import Nautilus Spiral history.
 - **委派**: default target, models, effort, permission mode, working directory, prompt prefix/suffix, write-back rules, trust fallback.
-- **Models**: the layered picker shown above.
+- **Models**: each Agent section in Model picker can be expanded or collapsed with its heading or keyboard. Disabling tracking or removing an Agent card folds its section; showing it again expands it. Pinned models appear first within their Agent section.
 - **追踪**: day cutoff, polling interval, idle threshold, history depth, Claude desktop side chats, automatic journal logging and write-back toggles, default archive location and archive order (top / end of file), macOS menu bar toggle and row limits, UI switches, rebuild, import, and a one-click **pause Nautilus Spiral's AI writes** action.
 - **Dreaming**: manual or daily memory extraction, progress, Markdown export, shared-memory sync, and optional Telegram Companion profile integration.
 - **关于**: version, license and debug info.

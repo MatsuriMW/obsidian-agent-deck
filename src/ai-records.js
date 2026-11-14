@@ -51,7 +51,8 @@ export function visibleRecords(group, lines, mode = "latest1") {
   const count = { latest1: 1, latest3: 3, latest5: 5 }[mode];
   if (count) {
     const results = group.records.filter((n) => /^(?:\s*(?:[-*+]|\d+[.)])\s+)?💬\s/.test(lines[n]) && !/💬\s+累计总结[：:]/.test(lines[n]));
-    return results.length ? results.slice(-count) : group.summaries;
+    const round = n => +( /<!-- ad-turn:[^:]+:(\d+) -->/.exec(lines[n]) || /第(\d+)轮[：:]/.exec(lines[n]) || [0, 0])[1];
+    return results.length ? results.sort((a, b) => round(b) - round(a) || b - a).slice(0, count).sort((a, b) => a - b) : group.summaries;
   }
   // expanded 模式被手动收起后也必须隐藏明细。
   return group.summaries;

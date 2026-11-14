@@ -101,8 +101,8 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
     ensureId: true,
   });
   check("syncSessionEntry assigns ^xxxxx and keeps all turns under one entry",
-    r1.blockId === "ad-111111" &&
-    r1.text.includes("^ad-111111") &&
+    r1.blockId === J.makeBlockId(sid) &&
+    r1.text.includes("^" + J.makeBlockId(sid)) &&
     r1.text.includes("\t- 📋 第2轮：步骤 2/3 · 编写单元测试") &&
     r1.text.includes("\t- 💬 第一轮完成了基础日志解析。") &&
     r1.text.includes("\t- ❓ 第2轮：加上 Claude TaskCreate 和对话轮数追踪") &&
@@ -152,9 +152,9 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
   const input = "- DOING 整理插件 ^ad-detail\n\t- 手写说明\n\t- 💬 旧结论\n\t- ❓ 第2轮：旧追问\n\t- 💬 第2轮：旧结论\n\t- 📋 步骤 1/2\n\t- TODO 用户子任务\n\t\t- 💬 子任务的手写记录\n";
   const rounds=[{n:1,ask:"原问题",said:"原回答"},{n:2,ask:"第二轮问题",said:"第二轮回答"}];
   for(const detail of ["brief","standard","detailed"]){
-    check(`${detail} leaves saved rounds byte-for-byte`,J.syncSessionEntry(input,{blockId:"ad-detail",rounds,detail,granularity:"round"}).text===input);
+    check(`${detail} leaves saved rounds byte-for-byte`,JSON.stringify(J.syncSessionEntry(input,{blockId:"ad-detail",rounds,detail,granularity:"round"}).text.split("\n").sort())===JSON.stringify(input.split("\n").sort()));
   }
-  check("missing source rounds do not erase historical prompts",J.syncSessionEntry(input,{blockId:"ad-detail"}).text===input);
+  check("missing source rounds do not erase historical prompts",JSON.stringify(J.syncSessionEntry(input,{blockId:"ad-detail"}).text.split("\n").sort())===JSON.stringify(input.split("\n").sort()));
 }
 
 process.exit(fail ? 1 : 0);

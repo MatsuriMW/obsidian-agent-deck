@@ -133,7 +133,7 @@ export default class AgentDeckPlugin extends Plugin {
       hotkeys: [{ modifiers: ["Mod", "Shift"], key: "D" }],
       editorCallback: (editor, view) => this.markDoneAndArchive(editor, view),
     });
-    this.addCommand({ id: "group-active-journal", name: t("当前日记：整理日志版面"), callback: () => this.organizeJournal() });
+    this.addCommand({ id: "group-active-journal", name: t("当前日记：整理日志版面"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "L" }], callback: () => this.organizeJournal() });
     this.addCommand({ id: "group-done-journal", name: t("当前日记：归档已完成的日志到…"), callback: () => this.archiveCompletedJournal() });
     this.addCommand({ id: "log-journal", name: t("整理 Agent 会话进今天的日记"), callback: () => this.autoLog.logNow() });
     this.addCommand({ id: "dream-now", name: t("Dreaming：整理 AI 记录与用户日志为长期记忆"), callback: () => this.dreaming.run() });
@@ -719,7 +719,9 @@ export default class AgentDeckPlugin extends Plugin {
     if (res.error) return this.notice(res.error, 6000);
     const change = J.diffLines(text, res.text);
     if (change) view.editor.transaction({ changes: [change] });
-    this.markBound(sid, res.blockId || "", res.line != null ? J.workKey(res.text.split("\n")[res.line] || "") : "");
+    const key = res.line != null ? J.workKey(res.text.split("\n")[res.line] || "") : "";
+    (this.settings.taskBindings ||= {})[sid] = { sid, agent: data.agent || meta.agent || "claude", path: view.file.path, blockId: res.blockId || "", key };
+    this.markBound(sid, res.blockId || "", key);
     const a = AGENTS[data.agent] || AGENTS.claude;
     this.notice(res.kind === "bind" ? t("🔗 已绑定：{agent} 会话的每轮 💬、❓、⏱ 和状态都会跟着这一项走", { agent: a.short }) : t("🔗 新建了一项并绑上 {agent} 会话", { agent: a.short }), 5000);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {}), 300);
@@ -843,6 +845,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   async delegateDrop(agent, item, fromEl, { cli = false, destination, newSession = false, confirmed = false, expectedText } = {}) {
     this._dragItem = null;
+    if (AGENTS[agent]?.trackingOnly) return;
     const target = await this.delegateTarget(item, { newSession });
     if (target.error) return this.notice(target.error);
     if (confirmed && expectedText !== undefined && delegationText(target.lines, target.block, { newSession }) !== expectedText) return this.notice(t("任务内容已变化，请重新预览后发送"));
@@ -918,7 +921,7 @@ export default class AgentDeckPlugin extends Plugin {
       else if (session.handoff && !session.sid && activeJob(session)) menu.addItem(mi => mi.setTitle(t("取消交接 · {title}", { title })).onClick(() => this.cancelJob(session.id)));
       menu.addSeparator();
     }
-    for (const agent of AGENT_ORDER.filter(a => this.agentEnabled(a))) menu.addItem(mi => mi.setTitle(t("重新委派（新会话）· {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    for (const agent of AGENT_ORDER.filter(a => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem(mi => mi.setTitle(t("重新委派（新会话）· {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
     menu.addItem(mi => mi.setTitle(t("绑定或合并到其他任务")).onClick(() => { view.editor.setCursor({line:block.start,ch:0}); this.openMergeTaskForEditor(view.editor, view); }));
     if (event) menu.showAtMouseEvent(event);
     else menu.showAtPosition({ x: view.containerEl.getBoundingClientRect().left + 100, y: view.containerEl.getBoundingClientRect().top + 100 });
@@ -931,7 +934,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (current && this.sessionsAtTask(item.path, item.line, current.editor.getValue().split("\n")).length) return this.taskActions(item.path, item.line, e);
     const main = this.defaultTarget();
     const menu = new Menu();
-    for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x))) {
+    for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x) && !AGENTS[x].trackingOnly)) {
       menu.addItem((mi) => {
         mi.setTitle(AGENTS[id].name + (id === main ? " · " + t("主力") : ""));
         mi.setIcon("bot");
@@ -1151,9 +1154,9 @@ export default class AgentDeckPlugin extends Plugin {
       const a = AGENTS[agent];
       const state = isLive ? (s.state || "idle") : "recent";
       const kw = menuKeyword(state);
-      const where = agent === "claude" ? (s.app === "cli" ? t("终端") : t("桌面版")) : agent === "codex" ? (isCodexDesktop(s.app) ? t("桌面版") : "CLI") : agent === "workbuddy" ? t("桌面版") : agent === "antigravity" ? (s.job?.transport === "acp" ? "Obsidian / ACP" : "IDE") : "Harness";
+      const where = agent === "claude" ? (s.app === "cli" ? t("终端") : t("桌面版")) : agent === "codex" ? (isCodexDesktop(s.app) ? t("桌面版") : "CLI") : ["workbuddy", "opencode", "qoder"].includes(agent) ? t("桌面版") : agent === "antigravity" ? (s.job?.transport === "acp" ? "Obsidian / ACP" : "IDE") : "Harness";
       const acp = agent === "antigravity" && s.job?.transport === "acp";
-      const url = sessionDeepLink(agent, s.sid);
+      const url = AGENTS[agent].trackingOnly ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : sessionDeepLink(agent, s.sid);
       const prog = this.sessionProgressText(s);
       const stepStr = [prog, s.step ? truncate(s.step, 30) : ""].filter(Boolean).join(" · ");
       seen.add(s.sid);
@@ -1168,7 +1171,7 @@ export default class AgentDeckPlugin extends Plugin {
         keyword: kw.id, keywordLabel: t(kw.zh),
         state, stateLabel: menuStateLabel(state), primary: !!primary,
         url: acp ? `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(s.sid)}` : agent === "dsh" ? "dsh://open" : agent === "antigravity" ? "antigravity://" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
-        copy: (agent === "dsh" || agent === "antigravity") ? s.sid : (agent === "codex" ? `codex resume ${s.sid}` : ""),
+        copy: (agent === "dsh" || agent === "antigravity" || AGENTS[agent].trackingOnly) ? s.sid : (agent === "codex" ? `codex resume ${s.sid}` : ""),
         _at: s.lastAt || 0,
       });
       return true;

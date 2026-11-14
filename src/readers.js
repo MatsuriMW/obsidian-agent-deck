@@ -5,6 +5,7 @@
 // uploaded anywhere.
 
 import fs from "fs";
+import { desktopSessions, desktopMessages } from "./desktop-sessions.js";
 import path from "path";
 import os from "os";
 import { execFile } from "child_process";
@@ -205,7 +206,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 4;
+export const USAGE_CACHE_VERSION = 5;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -412,11 +413,72 @@ export class AgentUsage {
         await new Promise((r) => setImmediate(r));
       }
     }
+    await this.readDesktopDatabases({ floor, onlyAgent, strictSince, touched });
     await this.readClaudeDesktop();
     await this.readClaudeSideChats();
     this.applyClaudeDesktop();
     if (!onlyAgent && !strictSince) this.lastScan = Date.now();
     return touched;
+  }
+
+  desktopDatabases() {
+    return [
+      [path.join(home(), ".local/share/opencode/opencode.db"), "opencode"],
+      [path.join(home(), "Library/Application Support/com.qoder.app.stable/main.sqlite"), "qoder"],
+    ];
+  }
+
+  async readDesktopDatabases({ floor, onlyAgent, strictSince, touched }) {
+    for (const [db, agent] of this.desktopDatabases()) {
+      if (!this.enabled(agent) || onlyAgent && agent !== onlyAgent || !fs.existsSync(db)) continue;
+      try {
+        const sessions = await desktopSessions(db, agent, !strictSince && this.isPrimary(agent) ? 0 : floor);
+        const scope = this.isPrimary(agent) ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+        for (const row of sessions) {
+          const key = `${db}#${row.sid}`;
+          if (row.archived || row.deletedAt) this.archived.add(row.sid); else this.archived.delete(row.sid);
+          const meta = this.meta.get(row.sid);
+          if (meta) meta.archived = !!(row.archived || row.deletedAt);
+          if (row.deletedAt) continue;
+          const previous = this.files.get(key);
+          // Query row revisions directly: WAL writes need not change the database mtime.
+          if (previous?.size === row.revision && previous.offset === scope) continue;
+          const messages = await desktopMessages(db, agent, row.sid);
+          const fc = { path: key, agent, sid: row.sid, id: row.sid, cwd: row.cwd || "", app: "desktop", model: row.model || "", size: row.revision, offset: scope, mtime: row.updatedAt, days: new Map(), msgs: new Map(), titles: new Map(), live: null };
+          // Build a replacement snapshot: streaming updates must not add usage twice.
+          for (const day of previous?.days.keys() || []) touched.add(day);
+          let out = 0, fresh = 0, cached = 0, calls = 0, firstText = "";
+          for (const m of messages) {
+            if (!m.at || this.stale(agent, m.at) && !previous?.days.has(dayKey(m.at, this.cfg))) continue;
+            const { key: dayId, day, s } = this.touchSess(fc, touched, m.at, row.sid, fc.cwd, fc.app);
+            const v = this.liveOf(fc, row.sid, m.end || m.at);
+            v.cwd = fc.cwd; v.app = fc.app; v.title = row.title || "";
+            v.state = m.state; v.step = m.step; v.err = m.error;
+            if (m.model) v.model = m.model;
+            if (m.role === "user" && m.text.trim()) {
+              day.prompts++; startRound(fc, m.at, m.text, m.id);
+              if (!firstText) firstText = m.text.slice(0, 300);
+              s.text = firstText;
+            } else if (m.role === "assistant") {
+              if (m.text.trim()) v.lastText = m.text;
+              finishRound(fc, m.end || m.at, m.text, m.state === "wait");
+              out += m.out; fresh += m.fresh; cached += m.cached; calls++;
+              fc.msgs.set(`${agent}:${m.id}`, { key: dayId, sid: row.sid, proj: s.proj, model: m.model || row.model || "", out: m.out, fresh: m.fresh, cached: m.cached, at: m.at });
+            }
+            if (m.end) this.touchSess(fc, touched, m.end, row.sid, fc.cwd, fc.app);
+          }
+          if (fc.live) {
+            if (row.state) fc.live.state = row.state;
+            fc.live.turns = fc.rounds?.list.length || 0; fc.live.rounds = fc.rounds?.list || [];
+            this.noteMeta(fc, row.sid, { ...fc.live, title: row.title || firstText, text: firstText, cwd: fc.cwd, app: fc.app, model: fc.live.model || row.model || "", lastAt: fc.live.at, startedAt: row.startedAt, parentSid: row.parentSid || "", out, fresh, cached, calls, archived: !!row.archived });
+          }
+          this.files.set(key, fc); this.dirty = true;
+        }
+      } catch (e) {
+        this.errors.push({ path: db, message: String(e.message || e) });
+        this.errors = this.errors.slice(-20);
+      }
+    }
   }
 
   async walk(dir, depth, agent = "") {
@@ -627,7 +689,7 @@ export class AgentUsage {
   // 归档 = 做完：桌面版里归档的、Codex archived_sessions 里的都可以从会话列表里收起来
   hidden(sid) {
     if (this.settings.hideArchived === false) return false;
-    return this.archivedClaude.has(sid) || this.archived.has(sid);
+    return this.archivedClaude.has(sid) || this.archived.has(sid) || !!(AGENTS[this.meta.get(sid)?.agent]?.trackingOnly && this.meta.get(sid)?.archived);
   }
 
   // ----- file caches -----

@@ -68,9 +68,35 @@ export const AGENTS = {
     deep: "antigravity",
     desktopOnly: true,
   },
+  opencode: {
+    id: "opencode",
+    name: "OpenCode",
+    short: "OpenCode",
+    glyph: "▣",
+    color: "#777b83",
+    soft: "rgba(119,123,131,.13)",
+    kind: "opencode",
+    where: ["~/.local/share/opencode/opencode.db", "OpenCode Desktop"],
+    deep: "opencode",
+    desktopOnly: true,
+    trackingOnly: true,
+  },
+  qoder: {
+    id: "qoder",
+    name: "Qoder",
+    short: "Qoder",
+    glyph: "◉",
+    color: "#748c65",
+    soft: "rgba(116,140,101,.13)",
+    kind: "qoder",
+    where: ["~/Library/Application Support/com.qoder.app.stable/main.sqlite", "Qoder Desktop"],
+    deep: "qoder",
+    desktopOnly: true,
+    trackingOnly: true,
+  },
 };
 
-export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity"];
+export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder"];
 
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
@@ -248,7 +274,7 @@ export const CLAUDE_PERMISSIONS = [
 export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true },
   primaryAgents: ["claude", "dsh"],
   // 0 = no cutoff; otherwise the hour at which a new journal day begins.
   dayCutoff: 8,
@@ -293,7 +319,7 @@ export const DEFAULTS = {
   autoLogMinMinutes: 3,    // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
   autoLogIdle: 10,         // 停了几分钟算 PAUSED
   autoLogBatch: 8,         // 一轮最多问模型几个会话
-  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true },
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true },
   autoLogProvider: "claude",
   autoLogEffort: "low",
   autoLogModel: "haiku",

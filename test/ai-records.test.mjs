@@ -170,7 +170,7 @@ console.log('PASS AI folding groups exclude manual notes and nested tasks; lates
     const shown = visibleRecords(g, lines, `latest${count}`);
     assert.equal(shown.length, count);
     assert.ok(shown.every(n => /💬/.test(lines[n])));
-    assert.ok(lines[shown.at(-1)].includes('结论6'));
+    assert.ok(lines[shown[0]].includes('结论6'));
     assert.equal(g.records.filter(n => /💬/.test(lines[n])).length, 6, 'changing display keeps all conclusions');
   }
   assert.ok(note.includes('手写备注') && note.includes('子任务结果'));

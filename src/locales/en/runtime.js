@@ -2,6 +2,7 @@
 // Keys are the Chinese source strings; placeholders use {name}.
 
 export default {
+  "已打开 {agent}；会话号已复制，请在客户端选择会话": "Opened {agent}; session ID copied. Select the session in the client.",
   // constants.js — agent descriptions shown in Settings
   "Claude Code 和 Claude 桌面版里的 Code 会话": "Code sessions in Claude Code and the Claude desktop app",
   "Codex 桌面版和 codex 命令行": "The Codex desktop app and the codex CLI",

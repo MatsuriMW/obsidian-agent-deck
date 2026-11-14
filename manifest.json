@@ -1,9 +1,9 @@
 {
   "id": "agent-deck",
   "name": "Agent Deck",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "minAppVersion": "1.4.0",
-  "description": "Track Claude Code, Codex, WorkBuddy and DeepSeek Harness; drag sessions onto note items and items onto agents; keep agent status in the macOS menu bar.",
+  "description": "Track seven local AI agents, bind sessions to note tasks, and keep progress and conversation records in Obsidian.",
   "author": "MatsuriMW",
   "authorUrl": "https://github.com/MatsuriMW",
   "isDesktopOnly": true

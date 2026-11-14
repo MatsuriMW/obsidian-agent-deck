@@ -152,7 +152,7 @@ export class AgentDeckView extends ItemView {
     const recSec = dash.createDiv({ cls: "ad-sec ad-sec--recent" });
     const recHead = this.secHead(recSec, t("最近的会话"), t("{n} 个 · 最近 7 天", { n: recent.length }));
     const filters = recHead.createDiv({ cls: "ad-filters" });
-    for (const [id, label] of [["all", t("全部")], ["live", t("在跑")], ["wait", t("等你")], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"], ["antigravity", "Antigravity"]]) {
+    for (const [id, label] of [["all", t("全部")], ["live", t("在跑")], ["wait", t("等你")], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"], ["antigravity", "Antigravity"], ["opencode", "OpenCode"], ["qoder", "Qoder"]]) {
       const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
       b.onclick = () => { this.filter = id; this.render(); };
     }
@@ -415,9 +415,9 @@ export class AgentDeckView extends ItemView {
     // 设置里「默认在终端里委派」开着时反过来：不按 ⌘ 在终端里开，按住 ⌘ 走原来的后台 / 客户端
     const toTerm = (meta) => cliCapable && (!!meta !== !!p.settings.delegateInTerminal);
     const hintFor = (meta) => (toTerm(meta) ? t("在终端里开 {name}", { name: a.short }) : hint);
-    card.setAttr("data-drop-hint", hintFor(false));
+    if (!a.trackingOnly) card.setAttr("data-drop-hint", hintFor(false));
     card.addEventListener("dragover", (e) => {
-      if (this._dragAgent) return;
+      if (this._dragAgent || a.trackingOnly) return;
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
@@ -425,9 +425,9 @@ export class AgentDeckView extends ItemView {
       card.toggleClass("is-cli", toTerm(e.metaKey));
       card.setAttr("data-drop-hint", hintFor(e.metaKey));
     });
-    card.addEventListener("dragleave", (e) => { if (!card.contains(e.relatedTarget)) { card.removeClass("is-drop"); card.removeClass("is-cli"); card.setAttr("data-drop-hint", hintFor(false)); } });
+    card.addEventListener("dragleave", (e) => { if (!a.trackingOnly && !card.contains(e.relatedTarget)) { card.removeClass("is-drop"); card.removeClass("is-cli"); card.setAttr("data-drop-hint", hintFor(false)); } });
     card.addEventListener("drop", (e) => {
-      if (this._dragAgent) return;
+      if (this._dragAgent || a.trackingOnly) return;
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       card.removeClass("is-drop");
@@ -592,7 +592,7 @@ export class AgentDeckView extends ItemView {
     });
     // 笔记里的一项拖到会话卡片上：绑定，不委派
     card.addEventListener("dragover", (e) => { if (!p.acceptsItemDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "link"; card.addClass("is-drop"); });
-    card.addEventListener("dragleave", (e) => { if (!card.contains(e.relatedTarget)) card.removeClass("is-drop"); });
+    card.addEventListener("dragleave", (e) => { if (!a.trackingOnly && !card.contains(e.relatedTarget)) card.removeClass("is-drop"); });
     card.addEventListener("drop", (e) => {
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault(); card.removeClass("is-drop");
@@ -649,7 +649,7 @@ export class AgentDeckView extends ItemView {
       kin.createSpan({ cls: "ad-sess__kintitle", text: t("从「{title}」开出", { title: truncate(s.parentTitle || t("母会话"), 24) }) });
       if (s.deskTitle && s.deskTitle !== s.title) kin.title = t("桌面版里的标题：{title}", { title: s.deskTitle });
     }
-    if (["claude", "codex", "workbuddy", "dsh", "antigravity"].includes(s.agent)) {
+    if (AGENT_ORDER.includes(s.agent)) {
       card.addClass("has-conversation");
       const conversation = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": t("查看对话、续聊与归档") } });
       setLucide(conversation.createSpan({ cls: "ad-arrow__icon" }), "messages-square");

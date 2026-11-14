@@ -5,6 +5,7 @@
 // without touching the rest of the note. Everything in this file is pure: it
 // takes text in and returns text out, so it can be tested without Obsidian.
 
+import { createHash } from "crypto";
 import { pad, fmtTok } from "./constants.js";
 import { t } from "./i18n.js";
 import { detailForRound } from "./log-detail.js";
@@ -51,10 +52,7 @@ export function stripBlockId(s) {
 }
 
 export function makeBlockId(seed = "") {
-  if (seed) {
-    const clean = String(seed).replace(/^session-/, "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
-    if (clean.length >= 6) return "ad-" + clean.slice(0, 6);
-  }
+  if (seed) return "ad-" + createHash("sha256").update(String(seed)).digest("hex").slice(0, 12);
   let h = "";
   const chars = "0123456789abcdefghijklmnopqrstuvwxyz";
   for (let i = 0; i < 6; i++) h += chars[Math.floor(Math.random() * 36)];
@@ -159,6 +157,8 @@ export function kwLine(raw) {
 }
 
 export function parseLink(line) {
+  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder)&sid=([^)]*)\)/.exec(line);
+  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(OpenCode|Qoder)：/, "") };
   const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
   const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
@@ -171,6 +171,7 @@ export function parseLink(line) {
 
 export function linkLine(indent, agent, title, sid) {
   const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
+  if (["opencode", "qoder"].includes(agent)) return `${indent}- 🔗 [${agent === "opencode" ? "OpenCode" : "Qoder"}：${safe}](obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(sid)})`;
   if (agent === "claude") return `${indent}- 🔗 [Claude：${safe}](claude://resume?session=${sid})`;
   if (agent === "dsh") return `${indent}- 🔗 [DeepSeek Harness：${safe}](dsh://open) \`${sid}\``;
   if (agent === "antigravity") return `${indent}- 🔗 [Antigravity：${safe}](antigravity://open) \`${sid}\``;
@@ -304,13 +305,32 @@ const recordSentence = (raw, max) => {
 };
 
 // 把同一个窗口会话（session）里的多轮问答、每轮一句话结论、待拍板问题和 TaskCreate 进度都挂在同一个 ^xxxxx 任务条目下
+function sortRecordedRounds(lines, parent) {
+  const base = width(lines[parent]), child = width(childIndent(lines, parent));
+  const fences = fencedLines(lines), slots = [], records = [];
+  for (let i = parent + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) <= base) break;
+    if (fences.has(i) || width(lines[i]) !== child || !CONTEXT_RECORD_RE.test(lines[i]) || /💬\s+累计总结[：:]/.test(lines[i]) || blockIdOf(lines[i])) continue;
+    const match = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(lines[i]) || /第(\d+)轮[：:]/.exec(lines[i]);
+    if (!match && !RESULT_RE.test(lines[i])) continue;
+    let end = i + 1;
+    while (end < lines.length && (!lines[end].trim() || width(lines[end]) > child)) end++;
+    slots.push([i, end]);
+    records.push({ n: match ? +match[1] : 1, rank: QUESTION_RE.test(lines[i]) ? 0 : RESULT_RE.test(lines[i]) ? 1 : 2, lines: lines.slice(i, end) });
+    i = end - 1;
+  }
+  records.sort((a, b) => b.n - a.n || a.rank - b.rank);
+  for (let i = slots.length - 1; i >= 0; i--) lines.splice(slots[i][0], slots[i][1] - slots[i][0], ...records[i].lines);
+}
+
 export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null } = {}) {
   let lines = text.split("\n");
   let n = -1, linkAt = -1;
   if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
   if (sid && text.includes(sid)) {
     linkAt = lines.findIndex((l) => { const k = parseLink(l); return k && k.sid === sid; });
-    if (n < 0 && linkAt >= 0) n = markOwner(lines, linkAt);
+    if (linkAt >= 0) n = markOwner(lines, linkAt);
   }
   if (n < 0 && key) {
     const found = findTask(text, key);
@@ -398,6 +418,7 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
     }
   }
 
+  sortRecordedRounds(lines, n);
   return { text: lines.join("\n"), line: n, blockId: activeBlockId };
 }
 
@@ -471,10 +492,6 @@ export function findTaskByBlockId(text, blockId) {
 // 这一行现在是什么状态（优先按 ^blockId，其次按 🔗 sid，最后按 key）；找不到返回 null
 export function findTask(text, key, blockId = "", sid = "") {
   const items = taskItems(text);
-  if (blockId) {
-    const byId = items.find((i) => i.blockId === blockId);
-    if (byId) return byId;
-  }
   if (sid && text.includes(sid)) {
     const lines = text.split("\n");
     const at = lines.findIndex((l) => { const p = parseLink(l); return p && p.sid === sid; });
@@ -483,6 +500,10 @@ export function findTask(text, key, blockId = "", sid = "") {
       const byOwner = items.find((i) => i.line === owner);
       if (byOwner) return byOwner;
     }
+  }
+  if (blockId) {
+    const byId = items.find((i) => i.blockId === blockId);
+    if (byId) return byId;
   }
   if (!key) return null;
   const k = workKey(key);

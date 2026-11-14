@@ -428,6 +428,8 @@ export const AGENT_APPS = {
   workbuddy: { bundle: "com.tencent.workbuddy.mac", url: "workbuddy://home" },
   dsh: { bundle: "com.deepseek.dsh", url: "dsh://open" },
   antigravity: { bundle: "com.google.antigravity", url: "antigravity://" },
+  opencode: { bundle: "ai.opencode.desktop", url: "opencode://" },
+  qoder: { bundle: "com.qoder.app", url: "qoder://" },
 };
 
 export function openAgentApp(agent) {
@@ -457,6 +459,11 @@ function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
 
 export function openSession(plugin, agent, sid, app = "", session = null) {
   if (!sid) { plugin.notice(t("这个会话还没有会话号，稍等一秒再点")); return false; }
+  if (["opencode", "qoder"].includes(agent)) {
+    copyText(sid);
+    openAgentApp(agent).then((ok) => plugin.notice(ok ? t("已打开 {agent}；会话号已复制，请在客户端选择会话", { agent: AGENTS[agent].name }) : t("没打开 {agent}：本机好像没装", { agent: AGENTS[agent].name })));
+    return true;
+  }
   if (agent === "claude") {
     // 终端里起的会话：还开着就切到那个终端标签；关了才在新标签里 cd 到会话原来的目录 claude --resume。设置里可以改成走桌面版
     if (app === "cli" && plugin.settings.cliOpen !== "desktop") {

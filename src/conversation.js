@@ -1,5 +1,6 @@
 // Read conversation text on demand; usage summaries intentionally truncate prompts.
 import fs from "fs";
+import { desktopMessages } from "./desktop-sessions.js";
 import * as J from "./journal.js";
 import { decompress } from "fzstd";
 import { createHash } from "crypto";
@@ -43,6 +44,12 @@ export async function readConversation(plugin, session, cache = new Map()) {
   const files = [...(plugin.usage.files?.values() || [])].filter((f) => f.sid === sid && f.agent === session.agent && !f.sub);
   const messages = [];
   for (const file of files) {
+    if (["opencode", "qoder"].includes(session.agent)) {
+      const db = file.path.slice(0, file.path.lastIndexOf("#"));
+      const rows = await desktopMessages(db, session.agent, sid);
+      messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));
+      continue;
+    }
     const stat = await fs.promises.stat(file.path);
     let entry = cache.get(file.path);
     if (!entry || entry.mtime !== stat.mtimeMs || entry.size !== stat.size) {

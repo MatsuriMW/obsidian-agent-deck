@@ -10,6 +10,8 @@ export const AGENT_ICONS = {
   workbuddy: "users",
   dsh: "brain-circuit",
   antigravity: "sparkles",
+  opencode: "square-terminal",
+  qoder: "circle-dot",
 };
 
 export const STATE_ICONS = {
