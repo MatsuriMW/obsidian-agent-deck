@@ -262,6 +262,10 @@ export const DEFAULTS = {
   journalFormat: "",       // 日记文件名格式（moment 写法）；留空自动检测
   journalAutoWrite: true,  // 自动建项、结论和状态回写总开关；手动整理仍可用
   journalSync: true,
+  journalLayout: null,
+  journalLayoutLanguage: "auto",
+  organizeJournalSuggest: true,
+  journalOrganizePrompt: { day: "", count: 0, notes: {} },
   resultBack: true,
   agentKw: true,
   kidBlocks: true,
@@ -366,6 +370,7 @@ export const DEFAULTS = {
   ui: {
     showSparkline: true,
     showUsageBars: true,
+    agentCards: { order: [...AGENT_ORDER], hidden: [], pinned: [] },
   },
   jobs: {},
   lastScan: 0,

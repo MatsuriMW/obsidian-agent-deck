@@ -326,7 +326,7 @@
 .ad-sess__x:hover .ad-arrow__icon { color: var(--ad-bad); }
 .ad-nowlist .ad-sess.is-dragging { opacity: .35; transform: none; }
 
-.ad-agentgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ad-agentgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .ad-agentcard {
   border: 1px solid var(--ad-line);
   border-radius: var(--ad-radius);
@@ -351,7 +351,7 @@
 .ad-agentcard:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--ad-agent) 34%, var(--ad-line)); }
 .ad-agentcard.is-off { opacity: .55; filter: saturate(.55); }
 .ad-agentcard.is-primary { border-color: color-mix(in srgb, var(--ad-agent) 38%, var(--ad-line)); }
-.ad-agentcard__top { display: flex; align-items: flex-start; gap: 6px; }
+.ad-agentcard__top { display: grid; grid-template-columns: 10px 24px minmax(0, 1fr) 16px 20px; align-items: center; gap: 4px; }
 .ad-agentcard__mark { width: 24px; height: 24px; border-radius: 8px; background: var(--ad-agent-soft); color: var(--ad-agent); display: inline-flex; align-items: center; justify-content: center; font-size: 12px; flex: none; }
 .ad-agentcard__name { min-width: 0; flex: 1; }
 .ad-agentcard__title { font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -363,7 +363,43 @@
 .ad-agentcard__stats .ad-dot { font-weight: 400; }
 .ad-spark { margin-top: 4px; height: 26px; }
 .ad-spark__svg { width: 100%; height: 26px; display: block; overflow: visible; }
-.ad-agentcard__foot { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.ad-agentcard__top > button { padding: 0; height: 24px; border: 0; background: transparent; box-shadow: none; }
+.ad-agentcard__top .ad-agentcard__mark { background: var(--ad-agent-soft); }
+.ad-agentcard__grip { width: 10px; cursor: grab; opacity: .2; }
+.ad-agentcard__grip:active { cursor: grabbing; }
+.ad-agentcard__more { width: 20px; color: var(--ad-muted); }
+.ad-agentcard__top .ad-star { width: 16px; }
+.ad-agentcard__top .ad-star svg { width: 13px; height: 13px; }
+.ad-agentcard:hover .ad-agentcard__grip, .ad-agentcard__grip:focus-visible { opacity: .8; }
+.ad-agentcard--grid .ad-star:not(.is-on) { opacity: 0; }
+.ad-agentcard--grid:hover .ad-star, .ad-agentcard--grid .ad-star:focus-visible { opacity: 1; }
+.ad-agentcard--grid::after { display: none; }
+.ad-agentcard--grid .ad-agentcard__stats { margin: 10px 0 0 14px; font-size: 11px; }
+.ad-agentgrid--list { grid-template-columns: minmax(0, 1fr); }
+.ad-agentcard--list { padding: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+.ad-agentcard--list .ad-agentcard__top { grid-column: 1 / -1; }
+.ad-agentcard--list .ad-agentcard__title { font-size: 13px; }
+.ad-agentcard--list .ad-agentcard__stats { grid-column: 2; grid-row: 2; margin: 0; font-size: 11px; align-self: center; }
+.ad-agentcard__detail, .ad-agentcard__context { grid-column: 1; margin: 0 0 0 42px; font-size: 10px; color: var(--ad-muted); line-height: 1.5; }
+.ad-agentcard__context { grid-row: 3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ad-ink); }
+.ad-agentcard__trend { grid-column: 2; grid-row: 3; display: flex; align-items: center; gap: 5px; width: 100px; margin: 0; color: var(--ad-faint); font-size: 9px; }
+.ad-agentcard--list .ad-handoff { grid-column: 1 / -1; }
+.ad-agentcard__trend > span { white-space: nowrap; }
+.ad-agentcard__trend .ad-spark { flex: 1; min-width: 0; margin: 0; height: 18px; }
+.ad-agentcard__trend .ad-spark__svg { height: 18px; }
+.ad-agentcard.is-running .ad-agentcard__where { color: var(--ad-good); }
+.ad-agentcard__grip svg, .ad-agentcard__more svg, .ad-cardmanager__row button svg { display: block; width: 13px; height: 13px; }
+.ad-agentcard.is-dragging { opacity: .4; transform: none; }
+.ad-agentcard__pin { display: inline-flex; margin-left: 4px; vertical-align: middle; color: var(--ad-muted); }
+.ad-agentcard__pin svg { width: 10px; height: 10px; }
+.ad-cardmanager__list { margin-top: 14px; }
+.modal.ad-cardmanager-dialog { width: min(600px, 94vw); }
+.ad-modal.ad-cardmanager { width: 100%; box-sizing: border-box; }
+.ad-cardmanager__row { display: flex; align-items: center; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--ad-line); }
+.ad-cardmanager__row .ad-glyph { display: inline-flex; width: 22px; height: 22px; flex: none; }
+.ad-cardmanager__name { flex: 1; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+.ad-cardmanager__row button { flex: none; }
+.ad-cardmanager__row button:disabled { opacity: .3; cursor: default; }
 .ad-minitoggle { appearance: none; border: 1px solid var(--ad-line); background: transparent; color: var(--ad-muted); font-size: 9px; border-radius: 999px; padding: 2px 7px; cursor: pointer; }
 .ad-minitoggle.is-on { color: var(--ad-good); border-color: color-mix(in srgb, var(--ad-good) 35%, var(--ad-line)); }
 
@@ -581,6 +617,18 @@
 .theme-light .ad-draftbar { background: #2b2926; }
 
 /* ---------- modal ---------- */
+.ad-about-intro .ad-card__title { font-size: 24px; letter-spacing: -.04em; }
+.ad-about-intro .ad-card__sub { font-size: 12px; line-height: 1.7; }
+.ad-about-agents { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 16px; }
+.ad-about-agent { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--ad-muted); }
+.ad-about-agent .ad-glyph { display: inline-flex; width: 20px; height: 20px; }
+.ad-about-guide { display: grid; grid-template-columns: minmax(90px, 1fr) minmax(0, 4fr); gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--ad-line); }
+.ad-about-guide__title { font-size: 12px; font-weight: 650; }
+.ad-about-guide__text, .ad-about-p { font-size: 12px; line-height: 1.8; color: var(--ad-muted); overflow-wrap: anywhere; }
+.ad-about-details { margin-top: 14px; font-size: 12px; }
+.ad-about-details summary { cursor: pointer; color: var(--ad-muted); }
+.ad-about-meta { display: grid; gap: 6px; margin-bottom: 12px; font-size: 11px; line-height: 1.7; color: var(--ad-muted); }
+@media (max-width: 600px) { .ad-about-guide { grid-template-columns: 1fr; gap: 4px; } }
 .ad-modal { width: min(540px, 94vw); max-height: 84vh; overflow-y: auto; overflow-x: hidden; }
 .ad-modalhead__title { font-size: 17px; font-weight: 750; letter-spacing: -.02em; }
 .ad-modalhead__sub { font-size: 10px; color: var(--ad-muted); margin-top: 3px; overflow-wrap: anywhere; }

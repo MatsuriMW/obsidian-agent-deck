@@ -281,5 +281,18 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   check('auto logging restores the opening rule', out.startsWith('---\n## 进行中'), out);
 }
 
+{
+  const { planJournal, renderJournal } = await import('../src/organize-journal.js');
+  const { readJournalLayout } = await import('../src/journal-layout.js');
+  const layout={order:['notes','done','active'],titles:{done:'Completed',active:'In progress',notes:'Personal notes'}};
+  const base=renderJournal(planJournal('- DONE Existing ^ad-done\n- DOING Running ^ad-running\n\nPersonal text\n',{layout}));
+  const next=new AutoLog(fakePlugin(base,[])).placeBlock(base,['- DOING New task ^ad-new','  - 💬 Keep this result']);
+  const parsed=readJournalLayout(next);
+  check('new auto logs stay inside the custom active section',parsed.sections.active.text.includes('New task')&&!parsed.sections.notes.text.includes('New task'));
+  check('custom headings survive auto logging',!next.includes('## 进行中')&&next.includes('## In progress'));
+  check('custom auto logging preserves personal notes',parsed.sections.notes.text==='Personal text');
+  check('custom auto logging remains organizeable',renderJournal(planJournal(renderJournal(planJournal(next))))===renderJournal(planJournal(next)));
+}
+
 if (fail) { console.log(`${fail} failed`); process.exit(1); }
 console.log("all passed");

@@ -1,7 +1,7 @@
 // Agent Deck — the sidebar dashboard.
 
 import { workspaceLabel } from "./workflow.js";
-import { ItemView, Menu } from "obsidian";
+import { ItemView, Menu, Modal } from "obsidian";
 import { AGENTS, AGENT_ORDER, fmtMin, fmtTok, timeAgo, truncate, dayKey, dayKeyToday, dayMinute, startOfDay } from "./constants.js";
 import { agentIcon, setLucide, stateIcon } from "./icons.js";
 import { lattice } from "./lattice.js";
@@ -43,7 +43,7 @@ export class AgentDeckView extends ItemView {
   render() {
     if (this.containerEl.isShown && !this.containerEl.isShown()) { this._pendingRender = true; return; }
     // 正在拖「现在」里的卡片排序：重画会把拖着的卡片换掉，等松手再画
-    if (this._dragSid) { this._pendingRender = true; return; }
+    if (this._dragSid || this._dragAgent) { this._pendingRender = true; return; }
     // 搜索框里正在用输入法拼字：重画会把输入框换掉、打断拼字，等拼完再画
     if (this._composing) { this._pendingRender = true; return; }
     this._pendingRender = false;
@@ -139,11 +139,7 @@ export class AgentDeckView extends ItemView {
     for (const s of nowItems) this.sessionCard(nowList, s, true);
     this.nowReorder(nowList);
 
-    // Agents
-    const agentsSec = dash.createDiv({ cls: "ad-sec" });
-    this.secHead(agentsSec, "Agents", "", () => p.openSettings());
-    const grid = agentsSec.createDiv({ cls: "ad-agentgrid" });
-    for (const id of AGENT_ORDER) this.agentCard(grid, id, today);
+    this.agentSection(dash, today);
 
     // Usage
     if (p.settings.ui.showUsageBars !== false) {
@@ -166,6 +162,81 @@ export class AgentDeckView extends ItemView {
     root.scrollTop = this._scroll;
     this.playFly(dash);
     if (searchWasFocused) { const i = root.querySelector(".ad-search__input"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+  }
+
+  agentSection(parent, today) {
+    const sec = parent.createDiv({ cls: "ad-sec" });
+    this.secHead(sec, "Agents", "", () => new AgentCardsModal(this).open());
+    const ids = this.visibleAgentIds();
+    const mode = ids.length <= 3 ? "list" : "grid";
+    const grid = sec.createDiv({ cls: `ad-agentgrid ad-agentgrid--${mode}` });
+    grid.dataset.layout = mode;
+    for (const id of ids) this.agentCard(grid, id, today, mode);
+    if (!ids.length) this.empty(sec, t("没有显示的 Agent 卡片，可在「管理」或 Agent 设置中添加。"));
+    this.agentReorder(grid);
+    return grid;
+  }
+
+  runningAgents() {
+    return new Set(this.plugin.liveSessions({ hours: 6 }).filter(session => ["run", "starting", "running", "busy"].includes(session.state)).map(session => session.agent));
+  }
+
+  agentPriority(id) {
+    return this.agentLayout().pinned.includes(id) ? 0 : this.runningAgents().has(id) ? 1 : 2;
+  }
+
+  agentLayout() {
+    const saved = this.plugin.settings.ui.agentCards || {};
+    const valid = (ids) => [...new Set((Array.isArray(ids) ? ids : []).filter((id) => AGENT_ORDER.includes(id)))];
+    return { order: valid([...(Array.isArray(saved.order) ? saved.order : []), ...AGENT_ORDER]), hidden: valid(saved.hidden), pinned: valid(saved.pinned) };
+  }
+
+  visibleAgentIds() {
+    const { order, hidden, pinned } = this.agentLayout();
+    const visible = order.filter((id) => !hidden.includes(id) && this.plugin.agentEnabled(id));
+    const running = this.runningAgents();
+    const priority = id => pinned.includes(id) ? 0 : running.has(id) ? 1 : 2;
+    return visible.sort((a, b) => priority(a) - priority(b));
+  }
+
+  async updateAgentCards(change) {
+    const layout = this.agentLayout();
+    change(layout);
+    this.plugin.settings.ui.agentCards = layout;
+    await this.plugin.saveSettings();
+    for (const view of this.plugin.views) view.render();
+  }
+
+  moveAgentCard(id, target, after = false) {
+    const visible = this.visibleAgentIds();
+    if (id === target || !visible.includes(id) || !visible.includes(target) || this.agentPriority(id) !== this.agentPriority(target)) return;
+    return this.updateAgentCards((layout) => {
+      layout.order = layout.order.filter((x) => x !== id);
+      layout.order.splice(layout.order.indexOf(target) + (after ? 1 : 0), 0, id);
+    });
+  }
+
+  agentReorder(grid) {
+    grid.addEventListener("dragover", (e) => {
+      if (!this._dragAgent) return;
+      const target = e.target.closest(".ad-agentcard");
+      if (!target || !grid.contains(target)) return;
+      if (this.agentPriority(this._dragAgent) !== this.agentPriority(target.dataset.agent)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    });
+    grid.addEventListener("drop", (e) => {
+      const id = this._dragAgent;
+      if (!id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const target = e.target.closest(".ad-agentcard");
+      if (!target || !grid.contains(target)) return;
+      const rect = target.getBoundingClientRect();
+      this._dragAgent = null;
+      this.moveAgentCard(id, target.dataset.agent, grid.dataset.layout === "list" ? e.clientY > rect.top + rect.height / 2 : e.clientX > rect.left + rect.width / 2);
+      this.render();
+    });
   }
 
   // 「现在」：去掉移除过的，按拖出来的顺序排；没排过的（新来的）放最上面
@@ -325,14 +396,15 @@ export class AgentDeckView extends ItemView {
     }
   }
 
-  agentCard(parent, id, today) {
+  agentCard(parent, id, today, mode = "grid") {
     const p = this.plugin;
     const a = AGENTS[id];
     const enabled = p.agentEnabled(id);
     const primary = p.isPrimary(id);
     const by = (today && today.by && today.by[id]) || null;
-    const card = parent.createDiv({ cls: `ad-agentcard ${enabled ? "" : "is-off"} ${primary ? "is-primary" : ""}` });
+    const card = parent.createDiv({ cls: `ad-agentcard ad-agentcard--${mode} ${enabled ? "" : "is-off"} ${primary ? "is-primary" : ""}` });
     card.dataset.agent = id;
+    const pinned = this.agentLayout().pinned.includes(id);
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     // 笔记里的一项拖上来 = 委派给它
@@ -345,6 +417,7 @@ export class AgentDeckView extends ItemView {
     const hintFor = (meta) => (toTerm(meta) ? t("在终端里开 {name}", { name: a.short }) : hint);
     card.setAttr("data-drop-hint", hintFor(false));
     card.addEventListener("dragover", (e) => {
+      if (this._dragAgent) return;
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
@@ -354,6 +427,7 @@ export class AgentDeckView extends ItemView {
     });
     card.addEventListener("dragleave", (e) => { if (!card.contains(e.relatedTarget)) { card.removeClass("is-drop"); card.removeClass("is-cli"); card.setAttr("data-drop-hint", hintFor(false)); } });
     card.addEventListener("drop", (e) => {
+      if (this._dragAgent) return;
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       card.removeClass("is-drop");
@@ -362,14 +436,21 @@ export class AgentDeckView extends ItemView {
       p.delegateDrop(id, p.readItemDrag(e), null, { cli: toTerm(e.metaKey) });
     });
     const top = card.createDiv({ cls: "ad-agentcard__top" });
+    const grip = top.createEl("button", { cls: "ad-agentcard__grip ad-linkbtn", attr: { draggable: "true", "aria-label": t("拖动排序；方向键调整位置"), title: t("拖动排序；方向键调整位置") } });
+    setLucide(grip, "grip-vertical");
     const mark = top.createEl("button", { cls: "ad-agentcard__mark", attr: { "aria-label": t("打开 {name}", { name: a.name }) } });
     agentIcon(mark.createSpan({ cls: "ad-glyph" }), id);
     mark.onclick = (e) => { e.stopPropagation(); p.openAgentApp(id); };
     const name = top.createDiv({ cls: "ad-agentcard__name" });
-    name.createDiv({ cls: "ad-agentcard__title", text: a.name });
-    const live = p.usage.liveSessions({ since: Date.now() - 86400000, limit: 100 }).filter((x) => x.agent === id);
-    const running = live.filter((x) => x.state === "run").length;
-    name.createDiv({ cls: "ad-agentcard__where", text: running ? t("{n} 个在跑", { n: running }) : (by ? t("{n} 个会话", { n: by.sessions || 0 }) : t("今天还没动")) });
+    name.createDiv({ cls: "ad-agentcard__title", text: mode === "list" ? a.name : a.short, attr: { title: a.name } });
+    const live = p.liveSessions({ hours: 24 }).filter((x) => x.agent === id);
+    const running = live.filter((x) => ["run", "starting", "running", "busy"].includes(x.state)).length;
+    card.toggleClass("is-running", running > 0);
+    const where = name.createDiv({ cls: "ad-agentcard__where", text: running ? t("{n} 个在跑", { n: running }) : (by ? t("{n} 个会话", { n: by.sessions || 0 }) : t("今天还没动")) });
+    if (pinned) {
+      const pin = where.createSpan({ cls: "ad-agentcard__pin", attr: { "aria-label": t("已置顶"), title: t("已置顶") } });
+      setLucide(pin, "pin");
+    }
     const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? t("取消主力") : t("设为主力（最多两个）") } });
     setLucide(star, primary ? "star" : "star-off");
     star.onclick = (e) => { e.stopPropagation(); p.togglePrimary(id); };
@@ -377,8 +458,19 @@ export class AgentDeckView extends ItemView {
     stats.createSpan({ text: fmtMin(by ? by.wall : 0) });
     stats.createSpan({ cls: "ad-dot", text: "·" });
     stats.createSpan({ text: fmtTok(by ? by.out : 0) + " tok" });
-    const spark = card.createDiv({ cls: "ad-spark" });
-    if (p.settings.ui.showSparkline !== false) this.sparkline(spark, id);
+    if (mode === "list") {
+      card.createDiv({ cls: "ad-agentcard__detail", text: t("今天 {n} 个会话 · 追踪中", { n: by?.sessions || 0 }) });
+      const current = live.find(session => ["run", "starting", "running", "busy", "wait", "needs-approval"].includes(session.state));
+      if (current) {
+        const context = card.createDiv({ cls: "ad-agentcard__context", text: current.title || current.step || workspaceLabel(current.cwd) });
+        context.title = [current.title, current.cwd, current.step].filter(Boolean).join(" · ");
+      }
+      if (p.settings.ui.showSparkline !== false) {
+        const trend = card.createDiv({ cls: "ad-agentcard__trend" });
+        trend.createSpan({ text: t("近 14 天") });
+        this.sparkline(trend.createDiv({ cls: "ad-spark" }), id);
+      }
+    }
     for (const job of Object.values(p.jobs).filter((j) => j.agent === id && j.handoff && j.state === "starting" && !j.sessionId)) {
       const row = card.createDiv({ cls: "ad-handoff" });
       lattice(row.createSpan({ cls: "ad-handoff__icon" }), "ripple");
@@ -387,11 +479,33 @@ export class AgentDeckView extends ItemView {
       setLucide(x, "x");
       x.onclick = (e) => { e.stopPropagation(); p.cancelJob(job.id); };
     }
-    const foot = card.createDiv({ cls: "ad-agentcard__foot" });
-    const toggle = foot.createEl("button", { cls: "ad-minitoggle" + (enabled ? " is-on" : ""), text: enabled ? t("追踪中") : t("已关闭") });
-    toggle.onclick = (e) => { e.stopPropagation(); p.setAgentEnabled(id, !enabled); };
-    const open = foot.createEl("button", { cls: "ad-linkbtn", text: t("扫描") });
-    open.onclick = (e) => { e.stopPropagation(); p.scanNow(true); };
+    grip.ondragstart = (e) => {
+      e.stopPropagation();
+      this._dragAgent = id;
+      e.dataTransfer.setData("application/x-agent-deck-card", id);
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setDragImage(card, 12, 12);
+      card.addClass("is-dragging");
+    };
+    grip.ondragend = () => { this._dragAgent = null; this.render(); };
+    grip.onkeydown = (e) => {
+      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
+      e.preventDefault();
+      const next = e.key === "ArrowDown" || e.key === "ArrowRight";
+      const ids = this.visibleAgentIds().filter((x) => this.agentPriority(x) === this.agentPriority(id));
+      const target = ids[ids.indexOf(id) + (next ? 1 : -1)];
+      if (target) Promise.resolve(this.moveAgentCard(id, target, next)).then(() => this.contentEl.querySelector(`[data-agent="${id}"] .ad-agentcard__grip`)?.focus());
+    };
+    const more = top.createEl("button", { cls: "ad-linkbtn ad-agentcard__more", attr: { "aria-label": t("管理 {name} 卡片", { name: a.name }) } });
+    setLucide(more, "ellipsis");
+    more.onclick = (e) => {
+      const menu = new Menu();
+      menu.addItem((item) => item.setTitle(t("扫描最近 7 天的会话")).setIcon("refresh-cw").onClick(() => p.scanNow(false, { agent: id, days: 7 })));
+      menu.addItem((item) => item.setTitle(pinned ? t("取消置顶") : t("置顶卡片")).setIcon(pinned ? "pin-off" : "pin").onClick(() => this.updateAgentCards((layout) => { layout.pinned = pinned ? layout.pinned.filter((x) => x !== id) : [...layout.pinned, id]; })));
+      menu.addItem((item) => item.setTitle(t("关闭追踪并隐藏")).setIcon("eye-off").setDisabled(primary).onClick(() => p.setAgentEnabled(id, false)));
+      menu.addItem((item) => item.setTitle(t("从侧边栏移除")).setIcon("minus").onClick(() => this.updateAgentCards((layout) => { layout.hidden.push(id); })));
+      menu.showAtMouseEvent(e);
+    };
   }
 
   sparkline(parent, agent) {
@@ -612,6 +726,59 @@ export class AgentDeckView extends ItemView {
     e.createDiv({ cls: "ad-empty__title", text: title });
     if (sub) e.createDiv({ cls: "ad-empty__sub", text: sub });
   }
+}
+
+export class AgentCardsModal extends Modal {
+  constructor(view) { super(view.app); this.view = view; this.modalEl.addClass("ad-cardmanager-dialog"); }
+
+  onOpen() { this.render(); }
+
+  render() {
+    const el = this.contentEl;
+    el.empty();
+    el.addClass("ad-modal", "ad-cardmanager");
+    el.createEl("h3", { text: t("管理 Agent 卡片") });
+    el.createDiv({ cls: "ad-muted", text: t("置顶的 Agent 始终在最上面，未置顶时运行中的优先。同一优先级内可拖动排序。移除不影响追踪和会话。") });
+    const view = this.view;
+    const { hidden, pinned } = view.agentLayout();
+    const visible = view.visibleAgentIds();
+    const change = async (fn) => { await view.updateAgentCards(fn); this.render(); };
+    const button = (parent, label, icon, run, disabled = false) => {
+      const b = parent.createEl("button", { cls: "ad-linkbtn", attr: { "aria-label": label, title: label } });
+      setLucide(b, icon);
+      b.disabled = disabled;
+      b.onclick = run;
+    };
+    const list = el.createDiv({ cls: "ad-cardmanager__list" });
+    if (!visible.length) list.createDiv({ cls: "ad-muted", text: t("还没有 Agent 卡片，点「管理」添加。") });
+    for (const id of visible) {
+      const row = list.createDiv({ cls: "ad-cardmanager__row", attr: { "data-agent": id } });
+      agentIcon(row.createSpan({ cls: "ad-glyph" }), id);
+      row.createSpan({ cls: "ad-cardmanager__name", text: AGENTS[id].name });
+      const group = visible.filter((x) => view.agentPriority(x) === view.agentPriority(id));
+      const i = group.indexOf(id);
+      button(row, t("上移"), "arrow-up", async () => { await view.moveAgentCard(id, group[i - 1]); this.render(); }, i === 0);
+      button(row, t("下移"), "arrow-down", async () => { await view.moveAgentCard(id, group[i + 1], true); this.render(); }, i === group.length - 1);
+      button(row, pinned.includes(id) ? t("取消置顶") : t("置顶卡片"), pinned.includes(id) ? "pin-off" : "pin", () => change((layout) => { layout.pinned = pinned.includes(id) ? layout.pinned.filter((x) => x !== id) : [...layout.pinned, id]; }));
+      button(row, t("从侧边栏移除"), "minus", () => change((layout) => { layout.hidden.push(id); }));
+    }
+    el.createEl("h4", { text: t("添加卡片") });
+    if (!hidden.length) el.createDiv({ cls: "ad-muted", text: t("所有可用的 Agent 都已添加。") });
+    for (const id of hidden) {
+      const row = el.createDiv({ cls: "ad-cardmanager__row", attr: { "data-agent": id } });
+      agentIcon(row.createSpan({ cls: "ad-glyph" }), id);
+      row.createSpan({ cls: "ad-cardmanager__name", text: AGENTS[id].name });
+      if (!view.plugin.agentEnabled(id)) { row.createSpan({ cls: "ad-muted", text: t("已关闭") }); continue; }
+      const add = row.createEl("button", { cls: "ad-linkbtn", text: t("添加到侧边栏") });
+      add.onclick = () => change((layout) => { layout.hidden = layout.hidden.filter((x) => x !== id); });
+    }
+    const foot = el.createDiv({ cls: "ad-modalfoot" });
+    const settings = foot.createEl("button", { text: t("Agent 设置") });
+    settings.onclick = () => { this.close(); view.plugin.openSettings("agents"); };
+    foot.createEl("button", { text: t("完成") }).onclick = () => this.close();
+  }
+
+  onClose() { this.contentEl.empty(); }
 }
 
 function stateChip(s) {

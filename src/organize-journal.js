@@ -1,4 +1,5 @@
 import * as J from './journal.js';
+import { readJournalLayout, renderJournalLayout } from './journal-layout.js';
 
 // Journal layout
 //
@@ -53,7 +54,13 @@ export function roundsIn(text) {
 }
 
 // Classify the whole note into the three bands without touching the text.
-export function planJournal(text, { tracked = new Map(), archived = new Set(), turns = new Map() } = {}) {
+export function planJournal(text, { tracked = new Map(), archived = new Set(), turns = new Map(), layout } = {}) {
+  const custom = readJournalLayout(text);
+  if (custom) {
+    const canonical = [custom.head, `---\n${DONE_HEADING}\n${custom.sections.done.text}\n\n---\n${ACTIVE_HEADING}\n${custom.sections.active.text}\n\n---\n`].filter(Boolean).join('\n\n');
+    const plan = planJournal(canonical, { tracked, archived, turns });
+    return { ...plan, rest: [plan.rest, custom.sections.notes.text].filter(Boolean).join('\n\n'), crlf: /\r\n/.test(text), layout: layout === undefined ? custom.layout : layout, tail: custom.tail, insertAt: custom.sections.active.end };
+  }
   // Work in LF; renderJournal puts the note's own line endings back.
   const crlf = /\r\n/.test(String(text));
   const lines = String(text).replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
@@ -124,6 +131,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
   // Subheads this file writes only ever live inside a generated "active" band.
   // A keyword-looking "### TODO" anywhere else is the user's own.
   const inActiveBand = (n) => generated.some((sec) => sec.active && n > sec.line && n < sec.end);
+  const inBand = (n, finished) => generated.some((sec) => sec.active === !finished && n > sec.line && n < Math.min(sec.end, regionEnd));
   const KW_WORDS = J.TASK_KWS.split('|');
   const dropSubheadAbove = (i) => {
     let up = i - 1;
@@ -176,7 +184,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
       }
       const block = blockText(chunk, 0, chunk.length);
       const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
-      done.push({ text: block, blockId: k.blockId || '', turns: count, ai, sid: [...sids], at: i });
+      done.push({ text: block, blockId: k.blockId || '', turns: count, ai, sid: [...sids], at: i, organized: inBand(i, true) });
       // A block that leaves the active band must not leave its heading behind.
       dropSubheadAbove(i);
       moved.push([i, end]);
@@ -187,7 +195,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
 
     const block = blockText(lines, i, end);
     const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
-    active.push({ text: block, keyword: k.kw || 'TODO', turns: count, blockId: k.blockId || '', at: i });
+    active.push({ text: block, keyword: k.kw || 'TODO', turns: count, blockId: k.blockId || '', at: i, organized: inBand(i, false) });
     dropSubheadAbove(i);
     moved.push([i, end]);
     cursor = end;
@@ -228,8 +236,8 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
       }
       const block = blockText(chunk, 0, chunk.length);
       const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
-      if (doneKw || archivedOut || allKidsDone) done.push({ text: block, blockId: k.blockId || '', turns: count, ai, sid: [...sids], at: i });
-      else active.push({ text: block, keyword: k.kw || 'TODO', turns: count, blockId: k.blockId || '', at: i });
+      if (doneKw || archivedOut || allKidsDone) done.push({ text: block, blockId: k.blockId || '', turns: count, ai, sid: [...sids], at: i, organized: false });
+      else active.push({ text: block, keyword: k.kw || 'TODO', turns: count, blockId: k.blockId || '', at: i, organized: false });
       adopted.push([i, end]);
       i = end - 1;
     }
@@ -301,6 +309,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
 
   return {
     head,
+    layout,
     crlf,
     done,
     active,
@@ -315,6 +324,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
 // use this so a missing frame is restored instead of waiting for the next
 // organize. Idempotent: a framed note comes back unchanged.
 export function ensureTopRule(text) {
+  if (readJournalLayout(text)) return text;
   const lines = String(text || '').split('\n');
   const fence = J.fencedLines(lines);
   const { start } = splitFrontMatter(lines);
@@ -337,21 +347,25 @@ export function ensureTopRule(text) {
 
 // Render a plan back into note text. `done`/`active` can be turned off, and
 // `skip` drops specific finished blocks (used after archiving them away).
-export function renderJournal(plan, { done = true, active = true, skip = null } = {}) {
+export function renderJournal(plan, { done = true, active = true, skip = null, layout = plan.layout } = {}) {
   // `skip` is what archiving just moved out. Matching on the block id first
   // keeps two identical-looking blocks from being dropped together.
   const finished = done ? plan.done.filter((entry) => !(skip && (entry.blockId ? skip.has(entry.blockId) : skip.has(entry.text)))) : [];
   const bands = [];
+  const activeBody = [];
 
   if (finished.length) bands.push([DONE_HEADING, ...finished.map((entry) => entry.text)].join('\n'));
   if (active && plan.active.length) {
-    const body = [];
     let previous = '';
     for (const entry of plan.active) {
-      if (entry.keyword !== previous) { body.push(`### ${entry.keyword}`); previous = entry.keyword; }
-      body.push(entry.text);
+      if (entry.keyword !== previous) { activeBody.push(`### ${entry.keyword}`); previous = entry.keyword; }
+      activeBody.push(entry.text);
     }
-    bands.push([ACTIVE_HEADING, ...body].join('\n'));
+    bands.push([ACTIVE_HEADING, ...activeBody].join('\n'));
+  }
+  if (layout) {
+    const out = renderJournalLayout({ head: plan.head, done: finished.map(entry => entry.text).join('\n'), active: activeBody.join('\n'), notes: plan.rest, tail: plan.tail }, layout);
+    return plan.crlf ? out.replace(/\n/g, '\r\n') : out;
   }
 
   // The AI region is framed by its own rules: one above the first band, one
@@ -371,6 +385,7 @@ export function renderJournal(plan, { done = true, active = true, skip = null } 
   if (above) parts.push(above);
   if (body) parts.push(`---\n${body}`);
   if (below) parts.push(`${body ? '---\n\n' : ''}${below}`);
+  if (plan.tail) parts.push(plan.tail);
 
   const out = `${parts.join('\n\n').replace(/\n*$/, '')}\n`;
   return plan.crlf ? out.replace(/\n/g, '\r\n') : out;

@@ -7,6 +7,8 @@
 import fs from "fs";
 import { archiveCompletedTo } from "./journal-archive.js";
 import { planJournal, renderJournal, ACTIVE_HEADING, LEGACY_HEADINGS } from "./organize-journal.js";
+import { readJournalLayout, configuredJournalLayout } from "./journal-layout.js";
+import { JournalOrganizer } from "./journal-organizer.js";
 import { AttentionTracker } from "./attention.js";
 import { defaultDestination, activeJob, canOpenClient } from "./workflow.js";
 import path from "path";
@@ -73,6 +75,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.autoLog = new AutoLog(this);
     this.dreaming = new Dreaming(this);
     this.journalSync = new JournalSync(this);
+    this.journalOrganizer = new JournalOrganizer(this);
 
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
@@ -259,7 +262,7 @@ export default class AgentDeckPlugin extends Plugin {
     this._scanTimer = setInterval(() => this.scanNow(false), sec * 1000);
   }
 
-  async scanNow(force = false) {
+  async scanNow(force = false, { agent = "", days = 0 } = {}) {
     await this._usageReady;
     if (this._unloaded) return;
     if (this._scanning) return;
@@ -268,15 +271,24 @@ export default class AgentDeckPlugin extends Plugin {
       // First scan after a load: paint what the last session stored before
       // walking the logs, so the panel is not blank for the whole scan.
       if (!this._painted) { this._painted = true; this.refreshUI(); }
-      if (force) {
+      if (force && !agent && !days) {
         this.usage.files.clear();
         this.usage.meta.clear();
         this.usage.titles.clear();
         this.usage.lastScan = 0;
       }
-      const since = force ? 0 : Math.max(0, (this.usage.lastScan || 0) - 60000);
-      const touched = await this.usage.scan({ since });
+      const since = days ? Date.now() - days * 86400000 : force ? 0 : Math.max(0, (this.usage.lastScan || 0) - 60000);
+      // A card scan must also recover non-primary history already skipped by
+      // incremental parsing. Read it separately, then replace only those files.
+      const scoped = !!(agent && days);
+      const usage = scoped ? new AgentUsage({ cfg: this.settings, settings: { ...this.settings, primaryAgents: [agent] } }) : this.usage;
+      const touched = await usage.scan({ since, agent, strictSince: !!days });
       if (this._unloaded) return;
+      if (scoped) {
+        for (const key of ["files", "meta", "titles", "subs"]) for (const [id, value] of usage[key]) this.usage[key].set(id, value);
+        this.usage.errors = [...this.usage.errors, ...usage.errors].slice(-20);
+        this.usage.dirty = true;
+      }
       this.store.cfg = this.settings;
       this.store.merge(touched, this.usage);
       this.store.prune();
@@ -285,6 +297,7 @@ export default class AgentDeckPlugin extends Plugin {
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
       if (force) new Notice(t("Agent Deck：读到 {files} 个日志，{days} 天有内容", { files: this.usage.files.size, days: touched.size }), 4000);
+      if (agent && days) new Notice(t("{name}：最近 {days} 天的会话已扫描", { name: AGENTS[agent].name, days }), 4000);
     } catch (e) {
       console.error("[agent-deck] scan", e);
       this.notice(t("扫描会话失败：{error}", { error: e && e.message || e }), 8000);
@@ -999,7 +1012,7 @@ export default class AgentDeckPlugin extends Plugin {
     const turns = new Map(Object.entries(this.settings.archiveTaskTurns || {}));
     for (const [sid, meta] of this.usage.meta) turns.set(sid, Math.max(meta.turns || 0, meta.rounds?.length || 0));
     for (const job of Object.values(this.jobs)) if (job.sessionId) turns.set(job.sessionId, Math.max(turns.get(job.sessionId) || 0, job.conversation?.filter(m => m.role === "user").length || 0));
-    return planJournal(base, { tracked, archived: this.autoLog.archived(), turns });
+    return planJournal(base, { tracked, archived: this.autoLog.archived(), turns, layout: configuredJournalLayout(this.settings) });
   }
 
   async writeJournal(file, base, next) {
@@ -1015,8 +1028,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   // Rebuild the journal: finished tasks on top, a rule, the unfinished AI log,
   // another rule, then the user's own notes.
-  async organizeJournal() {
-    const file = this.journalTarget();
+  async organizeJournal(file = this.journalTarget()) {
     if (!file) return this.notice(t("请先打开日记"));
     const base = await this.readNote(file.path);
     const plan = await this.journalPlan(file, base);
@@ -1086,7 +1098,8 @@ export default class AgentDeckPlugin extends Plugin {
     const file = this.journalSync.todayJournal();
     if (!file) return this.notice(t("今天的日记还没有创建"));
     const text = await this.readNote(file.path);
-    const heading = text.split("\n").findIndex(line => [ACTIVE_HEADING, ...LEGACY_HEADINGS].includes(line.trim()));
+    const custom = readJournalLayout(text);
+    const heading = custom ? custom.sections.active.start - 1 : text.split("\n").findIndex(line => [ACTIVE_HEADING, ...LEGACY_HEADINGS].includes(line.trim()));
     const map = this.lineMap(file.path, text);
     const tasks = J.runningTaskLines(text, map.sessionByParent, Object.values(this.jobs).filter(job => job.path === file.path));
     const line = heading >= 0 ? heading : tasks[0]?.line;

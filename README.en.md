@@ -1,5 +1,9 @@
 # Agent Deck
 
+This project is still early and evolving quickly. Some parts of the experience may be rough, and occasional updates may introduce breaking changes.
+
+If you find a problem or want to suggest a feature, open a [GitHub Issue](https://github.com/MatsuriMW/obsidian-agent-deck/issues) or email [klauschen2799@gmail.com](mailto:klauschen2799@gmail.com). I’ll work on it when I see it.
+
 > Track every agent. Delegate from the line you are already looking at.
 
 [中文](README.md) ｜ **English** ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [Changelog](CHANGELOG.md)
@@ -43,7 +47,18 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 
 ## Release notes
 
-Current version: **1.7.1**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+Current version: **1.8.0**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+
+### 1.8.0 · Compact Agents and journal templates
+
+- Show detailed rows for 1–3 visible Agents, compact cards for 4 or more. Move scan, pin, tracking and remove actions into More; the star still selects a primary.
+- Pinned Agents always appear first, then running Agents. Manual order is retained within each priority. Manage can add or remove cards; disabled Agents stay hidden until enabled again in settings.
+- Scan in an Agent’s menu reads that Agent’s sessions updated in the last 7 days and preserves existing history.
+- Ask after the first 4 scattered AI tasks, then after each 4 new tasks. A task and its child records count as one. Limit prompts to 2 per day across all journals; keep progress across days. Organize runs only after confirmation.
+- Tracking includes built-in Chinese and English journal templates, automatic interface-language selection, and custom titles with all six section orders. Template changes preserve tasks, exchanges, personal notes and code examples.
+- Simplify the record display description and reorganize About.
+
+**Coming next: OpenCode support.** This is a development preview, not an Agent added in this release.
 
 ### 1.7.1 · A simpler delegation footer and practical journaling guide
 

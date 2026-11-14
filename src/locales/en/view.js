@@ -4,6 +4,22 @@
 // once in en/editor.js, so the merged table has no duplicate keys.
 
 export default {
+  "还没有 Agent 卡片，点「管理」添加。": "No Agent cards yet. Choose Manage to add one.",
+  "已置顶": "Pinned",
+  "扫描 {name} 最近 7 天的会话": "Scan sessions updated in the last 7 days for {name}",
+  "拖动排序；方向键调整位置": "Drag to reorder; use arrow keys to move",
+  "管理 {name} 卡片": "Manage {name} card",
+  "取消置顶": "Unpin",
+  "置顶卡片": "Pin card",
+  "从侧边栏移除": "Remove from sidebar",
+  "管理 Agent 卡片": "Manage Agent cards",
+  "置顶卡片排在前面，同组内可拖动排序。移除只隐藏卡片，不删除会话或关闭追踪。": "Pinned cards appear first. Drag to reorder within each group. Removing a card only hides it; sessions and tracking are kept.",
+  "上移": "Move up",
+  "下移": "Move down",
+  "添加卡片": "Add cards",
+  "所有可用的 Agent 都已添加。": "All available Agents have been added.",
+  "添加到侧边栏": "Add to sidebar",
+  "Agent 设置": "Agent settings",
   // Dashboard header + search
   "搜会话：标题、项目、第一步…": "Search sessions: title, project, first message…",
   "重新扫描本机会话": "Rescan local sessions",

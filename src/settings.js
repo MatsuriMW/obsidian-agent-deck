@@ -1,4 +1,5 @@
 import { changeLogDetail } from "./log-detail.js";
+import { JOURNAL_LAYOUT_DEFAULT, journalLayout, builtinJournalLayout } from "./journal-layout.js";
 // Agent Deck — settings, including the layered Models page.
 
 import { archivePath } from "./journal-archive.js";
@@ -9,7 +10,7 @@ import {
 import { notePath, companionInstalled } from "./dream.js";
 import { externalMemoryPath } from "./dream-sharing.js";
 import { agentIcon, setLucide } from "./icons.js";
-import { t } from "./i18n.js";
+import { t, currentLanguage } from "./i18n.js";
 
 const HOTKEY_MOD_SYMBOL = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘", ctrl: "⌃", alt: "⌥", cmd: "⌘" };
 
@@ -725,6 +726,35 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const r4 = this.row(c, t("主力读多少天历史"), t("只影响主力；非主力只读今天。"), null);
     this.numberInput(r4.querySelector(":scope > .ad-row__right"), s.fullHistoryDays, 1, 365, (v) => { s.fullHistoryDays = v; p.saveSettings(); p.scanNow(true); });
 
+    const layoutCard = this.card(body, t("整理日志模板"), t("设置分区标题和顺序，下次点击「整理日志」时应用。任务、问答和手写内容整块保留。"));
+    const suggest = this.row(layoutCard, t("日志杂乱时提醒整理"), t("首次发现 4 条散落的 AI 任务记录时提醒，之后每新增 4 条再提醒；每天总共最多 2 次，累计进度跨日保留。"), null);
+    this.toggle(suggest.querySelector(":scope > .ad-row__right"), s.organizeJournalSuggest !== false, (v) => { s.organizeJournalSuggest = v; p.saveSettings(); });
+    const templateRow = this.row(layoutCard, t("整理模板"), t("默认跟随界面语言，也可选择中文、英文或自定义。切换后，下次整理时应用。"), null);
+    const template = templateRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
+    for (const [value, label] of [["auto", t("跟随界面（默认）")], ["zh", t("中文模板")], ["en", "English template"], ["custom", t("自定义模板")]]) template.createEl("option", { text: label, attr: { value } });
+    template.value = s.journalLayout ? "custom" : s.journalLayoutLanguage || "auto";
+    template.onchange = () => {
+      if (template.value === "custom") s.journalLayout = builtinJournalLayout(s.journalLayoutLanguage === "auto" ? currentLanguage() : s.journalLayoutLanguage || currentLanguage());
+      else { s.journalLayout = null; s.journalLayoutLanguage = template.value; }
+      p.saveSettings(); this.display();
+    };
+    if (s.journalLayout) {
+      const names = { done: t("已完成"), active: t("进行中"), notes: t("手写内容") };
+      const orderRow = this.row(layoutCard, t("分区顺序"), "", null);
+      const order = orderRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
+      for (const keys of [["done", "active", "notes"], ["active", "done", "notes"], ["notes", "done", "active"], ["notes", "active", "done"], ["done", "notes", "active"], ["active", "notes", "done"]]) order.createEl("option", { text: keys.map(key => names[key]).join(" → "), attr: { value: keys.join(",") } });
+      order.value = s.journalLayout.order.join(",");
+      order.onchange = () => { s.journalLayout = journalLayout({ ...s.journalLayout, order: order.value.split(",") }); p.saveSettings(); };
+      for (const key of JOURNAL_LAYOUT_DEFAULT.order) {
+        const row = this.row(layoutCard, t("{section}标题", { section: names[key] }), key === "notes" ? t("留空则不添加标题，保留手写内容原有标题。") : "", null);
+        const input = this.textInput(row.querySelector(":scope > .ad-row__right"), s.journalLayout.titles[key], names[key], (value) => {
+          try { s.journalLayout = journalLayout({ ...s.journalLayout, titles: { ...s.journalLayout.titles, [key]: value } }); p.saveSettings(); }
+          catch (error) { input.value = s.journalLayout.titles[key]; new Notice(error.message); }
+        });
+      }
+    }
+    this.bigButton(layoutCard.createDiv({ cls: "ad-btnrow" }), t("恢复默认整理模板"), () => { s.journalLayout = null; s.journalLayoutLanguage = "auto"; p.saveSettings(); this.display(); });
+
     const desk = this.card(body, t("Claude 桌面版"), t("桌面版给每个会话存一份清单（claude-code-sessions/<账号>/<组织>/local_*.json）。侧栏里看着同级、其实是「从某个会话开出来」的 side chat，只有这份清单里的 spawnedFrom 记得；终端里的 claude 没有这一项。"));
     const d1 = this.row(desk, t("识别 side chat 和母子关系"), t("子会话在面板里缩进，标出从哪个会话开出；顺手看有哪些会话正开着 side chat。"), null);
     this.toggle(d1.querySelector(":scope > .ad-row__right"), s.claudeDesktop !== false, (v) => { s.claudeDesktop = v; p.saveSettings(); p.scanNow(true); });
@@ -766,7 +796,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("详细：提问摘录最多 1000 字、回复摘录最多 3000 字，保留可用步骤与回复中的命令。适合开发日志、排错复盘和交接。") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("开发日志推荐搭配“每轮记录”。三档只决定新轮次保存多少内容；旧会话的新轮次采用新设置，已保存记录不改写、不删除。显示条数另设；需要完整问答正文时，可另行归档到笔记。") });
     this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: t("简略（默认）") }, { id: "standard", label: t("标准") }, { id: "detailed", label: t("详细") }], s.autoLogDetail || "brief", (v) => { changeLogDetail(s, v); p.saveSettings(); this.display(); });
-    const rmode = this.row(jr, t("AI 记录显示方式"), t("只控制显示，不改笔记里的记录。默认最新一条，可选最近三条、五条 AI 结论；提问、链接、用时与步骤在展开后显示。点「更多」查看已保存的历史，手动开合会记住。已完成任务遵循同一规则；历史多少由记录颗粒度决定。"), null);
+    const rmode = this.row(jr, t("AI 记录显示方式"), t("默认显示最新一条 AI 结论，可选三条或五条。点「更多」展开历史，不影响已保存的记录。"), null);
     this.segmented(rmode.querySelector(":scope > .ad-row__right"), [
       { id: "collapsed", label: t("默认折叠") },
       { id: "expanded", label: t("默认展开") },
@@ -930,29 +960,48 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   // ---------- About ----------
   renderAbout(body) {
     const p = this.plugin;
-    const c = this.card(body, "Agent Deck", t("智能体甲板 · 在 Obsidian 里追踪和委派 AI Agent。"));
-    c.createDiv({ cls: "ad-about-p", text: t("读本机 Claude Code、Codex、WorkBuddy、DeepSeek Harness 的会话日志，在面板里看谁在跑、谁在等你；从笔记里派活，进度和结果写回笔记。怎么操作：") });
-    const list = c.createDiv({ cls: "ad-about-list" });
+    const intro = this.card(body, "Agent Deck", t("在 Obsidian 里追踪会话、委派任务、保存 AI 工作记录。"));
+    intro.addClass("ad-about-intro");
+    const agents = intro.createDiv({ cls: "ad-about-agents" });
+    for (const id of AGENT_ORDER) {
+      const agent = agents.createDiv({ cls: "ad-about-agent" });
+      agentIcon(agent.createSpan({ cls: "ad-glyph" }), id);
+      agent.createSpan({ text: AGENTS[id].name });
+    }
+    const guide = this.card(body, t("常用操作"));
+    const rows = [
+      [t("管理侧边栏"), t("Agents 右上角「管理」可添加、移除和置顶。置顶的先显示，其余运行中的优先；同级可拖动左侧把手或用方向键排序。置顶与主力星标分别设置。")],
+      [t("查看与扫描"), t("点会话卡片打开会话；点 Agent 图标打开客户端。卡片内「扫描」默认读取该 Agent 最近 7 天有更新的会话，已有历史保留。")],
+      [t("从笔记委派"), t("把列表项行尾的把手或选中文字拖到 Agent 卡片上；也可点击行尾把手确认发送。具体执行方式在「委派」中设置。")],
+      [t("绑定已有会话"), t("把会话卡片拖到笔记列表项，或把笔记列表项拖到会话卡片，绑定后可从笔记继续打开会话。")],
+      [t("保存工作记录"), t("在「追踪」中开启自动记录，按简略、标准或详细保存后续问答；「Dreaming」可将记录整理为长期记忆。")],
+    ];
+    for (const [title, text] of rows) {
+      const row = guide.createDiv({ cls: "ad-about-guide" });
+      row.createDiv({ cls: "ad-about-guide__title", text: title });
+      row.createDiv({ cls: "ad-about-guide__text", text });
+    }
+    const more = guide.createEl("details", { cls: "ad-about-details" });
+    more.createEl("summary", { text: t("更多拖放与进度操作") });
+    const list = more.createDiv({ cls: "ad-about-list" });
     for (const line of [
       t("点会话卡片：打开这个会话。点 Agent 卡片上的图标：把客户端叫到前台。⭐ 设主力（最多两个，全部历史都读）。"),
       t("会话卡片拖到笔记里有字的一项上：绑定（原文不动，下面写 🔗）；拖到空行或空的列表项上：在那儿新建一项并绑上。按住 ⌘ 拖：在这一项下面新建。"),
-      t("笔记里的一项（光标行尾巴上的把手 ⠿，或选中文字）拖到 Agent 卡片上：委派。Claude Code / DeepSeek Harness 后台跑；Codex / WorkBuddy 复制任务、打开客户端，你发出后自动绑回。"),
       t("按住 ⌘ 拖到 Claude Code / Codex 上：在主力终端里新开标签跑交互式会话，任务直接发出去。"),
       t("Agent 记的条目（🤖）、已经绑着会话的、有 ⏱ 记录的不会再委派。"),
       t("笔记里的一项拖到面板的会话卡片上：把这个会话绑给它。在客户端里归档会话：这一项记 DONE + ⏱。"),
       t("行尾 pill 是进度：委派中可以 × 取消，出错可以重试。和螺旋日程一起用时，pill 让给螺旋的进度行，点进度行打开会话。"),
     ]) {
-      const r = list.createDiv({ cls: "ad-about-li" });
-      r.createSpan({ cls: "ad-about-dot", text: "·" });
-      r.createSpan({ text: line });
+      list.createEl("p", { cls: "ad-about-p", text: line });
     }
+    const c = this.card(body, t("版本与支持"));
     const meta = c.createDiv({ cls: "ad-about-meta" });
     meta.createDiv({ text: t("版本 {version} · MIT License", { version: p.manifest.version }) });
     meta.createDiv({ text: t("从 Nautilus Spiral（螺旋日程）的 AI 追踪部分拆出；交互参考了小红书 @ZZ.X 的两条帖子。") });
     const btns = c.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, t("打开 GitHub 仓库"), () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));
     this.bigButton(btns, t("复制调试信息"), async () => {
-      const text = JSON.stringify({ version: "1.0.2", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
+      const text = JSON.stringify({ version: p.manifest.version, settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
       await navigator.clipboard.writeText(text);
       new Notice(t("调试信息已复制"));
     });

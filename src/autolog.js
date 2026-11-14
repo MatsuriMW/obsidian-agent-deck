@@ -14,6 +14,7 @@ import * as J from "./journal.js";
 import { runJournalModel, safeLabel } from "./llm.js";
 import { t } from "./i18n.js";
 import { planJournal, ensureTopRule, ACTIVE_HEADING } from "./organize-journal.js";
+import { readJournalLayout } from "./journal-layout.js";
 
 const agentName = (id) => AGENTS[id]?.short || id;
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d);
@@ -75,6 +76,14 @@ export class AutoLog {
   // 新写一块：AI 区域在的时候一定写进区域里；还没有区域才交给「任务归位」按它的分区放
   placeBlock(text, blockLines) {
     const block = blockLines.join("\n");
+    const custom = readJournalLayout(text);
+    if (custom) {
+      const crlf = /\r\n/.test(text);
+      const lines = text.replace(/\r\n/g, "\n").split("\n");
+      lines.splice(custom.sections.active.end, 0, block);
+      const next = lines.join("\n");
+      return crlf ? next.replace(/\n/g, "\r\n") : next;
+    }
     // New records belong inside the AI region, not at the bottom of the note:
     // they go where the generated content ends, before the closing rule and
     // before anything the user wrote. done-to-top's zones sit above that rule,

@@ -6,7 +6,7 @@ import esbuild from 'esbuild';
 import {pathToFileURL} from 'node:url';
 const root=path.resolve(import.meta.dirname,'..');
 const stubs={
- obsidian:'export class ItemView{constructor(leaf){Object.assign(this,leaf)}registerEvent(){}};export class Menu{};',
+ obsidian:'export class ItemView{constructor(leaf){Object.assign(this,leaf)}registerEvent(){}};export class Menu{};export class Modal{};',
  './icons.js':'export function agentIcon(){};export function setLucide(){};export function stateIcon(){};',
  './lattice.js':'export function lattice(){};',
  './editor.js':'export const SESSION_MIME="test";'

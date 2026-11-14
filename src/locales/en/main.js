@@ -2,6 +2,7 @@
 // Keys are the Chinese source strings; placeholders use {name}.
 
 export default {
+  "{name}：最近 {days} 天的会话已扫描": "{name}: scanned sessions updated in the last {days} days",
   // ----- command palette -----
   "打开 Agent Deck 面板": "Open Agent Deck panel",
   "打开 macOS 菜单栏面板": "Open macOS menu bar panel",

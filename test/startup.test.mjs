@@ -10,7 +10,7 @@ const source=fs.readFileSync(path.join(root,'src/main.js'),'utf8');
 const stubs=new Map();
 for(const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*"([^\"]+)"/g)){
  const spec=match[2];
- if(['./constants.js','./readers.js','./workflow.js','./attention.js','./i18n.js','./journal-archive.js','./organize-journal.js'].includes(spec)) continue;
+ if(['./constants.js','./readers.js','./workflow.js','./attention.js','./i18n.js','./journal-archive.js','./organize-journal.js','./journal-layout.js'].includes(spec)) continue;
  const exports=match[1].split(',').map(n=>n.trim().split(/\s+as\s+/)[0]).filter(Boolean);
  stubs.set(spec,exports.map(n=>n==='Plugin'?`export class Plugin { constructor(){this.cleanups=[]} register(fn){this.cleanups.push(fn)} registerView(){} addSettingTab(){} registerEditorExtension(){} registerMarkdownPostProcessor(){} addCommand(){} registerObsidianProtocolHandler(){} registerInterval(id){this.register(()=>clearInterval(id))} }`: /^[A-Z]/.test(n)?`export class ${n} {constructor(){this.runners=new Map()} hide(){} stop(){} }`:`export function ${n}(){}`).join('\n'));
 }

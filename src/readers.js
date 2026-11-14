@@ -386,17 +386,19 @@ export class AgentUsage {
   }
 
   // ----- scanning -----
-  async scan({ since = 0, onProgress } = {}) {
+  async scan({ since = 0, agent: onlyAgent = "", strictSince = false, onProgress } = {}) {
     const touched = new Set();
     const floor = since || this.sinceMs();
     await this.readCodexTitles();
     await this.readCodexArchived();
     for (const [root, agent] of this.roots()) {
+      if (onlyAgent && agent !== onlyAgent) continue;
       const files = await this.walk(root, agent === "dsh" || agent === "antigravity" ? 4 : 5, agent);
       for (const p of files) {
         let st;
         try { st = await fsp.stat(p); } catch { continue; }
         const fc = this.files.get(p);
+        if (strictSince && st.mtimeMs < floor) continue;
         if (!fc && st.mtimeMs < floor && !this.isPrimary(agent)) continue;
         if (fc && st.size === fc.size && st.mtimeMs === fc.mtime) continue;
         try {
@@ -413,7 +415,7 @@ export class AgentUsage {
     await this.readClaudeDesktop();
     await this.readClaudeSideChats();
     this.applyClaudeDesktop();
-    this.lastScan = Date.now();
+    if (!onlyAgent && !strictSince) this.lastScan = Date.now();
     return touched;
   }
 

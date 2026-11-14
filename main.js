@@ -1,4 +1,4 @@
-/* Agent Deck 1.7.1 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.8.0 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -37,6 +37,7 @@ var import_fs7 = __toESM(require("fs"), 1);
 
 // src/locales/en/main.js
 var main_default = {
+  "{name}\uFF1A\u6700\u8FD1 {days} \u5929\u7684\u4F1A\u8BDD\u5DF2\u626B\u63CF": "{name}: scanned sessions updated in the last {days} days",
   // ----- command palette -----
   "\u6253\u5F00 Agent Deck \u9762\u677F": "Open Agent Deck panel",
   "\u6253\u5F00 macOS \u83DC\u5355\u680F\u9762\u677F": "Open macOS menu bar panel",
@@ -153,6 +154,22 @@ var main_default = {
 
 // src/locales/en/view.js
 var view_default = {
+  "\u8FD8\u6CA1\u6709 Agent \u5361\u7247\uFF0C\u70B9\u300C\u7BA1\u7406\u300D\u6DFB\u52A0\u3002": "No Agent cards yet. Choose Manage to add one.",
+  "\u5DF2\u7F6E\u9876": "Pinned",
+  "\u626B\u63CF {name} \u6700\u8FD1 7 \u5929\u7684\u4F1A\u8BDD": "Scan sessions updated in the last 7 days for {name}",
+  "\u62D6\u52A8\u6392\u5E8F\uFF1B\u65B9\u5411\u952E\u8C03\u6574\u4F4D\u7F6E": "Drag to reorder; use arrow keys to move",
+  "\u7BA1\u7406 {name} \u5361\u7247": "Manage {name} card",
+  "\u53D6\u6D88\u7F6E\u9876": "Unpin",
+  "\u7F6E\u9876\u5361\u7247": "Pin card",
+  "\u4ECE\u4FA7\u8FB9\u680F\u79FB\u9664": "Remove from sidebar",
+  "\u7BA1\u7406 Agent \u5361\u7247": "Manage Agent cards",
+  "\u7F6E\u9876\u5361\u7247\u6392\u5728\u524D\u9762\uFF0C\u540C\u7EC4\u5185\u53EF\u62D6\u52A8\u6392\u5E8F\u3002\u79FB\u9664\u53EA\u9690\u85CF\u5361\u7247\uFF0C\u4E0D\u5220\u9664\u4F1A\u8BDD\u6216\u5173\u95ED\u8FFD\u8E2A\u3002": "Pinned cards appear first. Drag to reorder within each group. Removing a card only hides it; sessions and tracking are kept.",
+  "\u4E0A\u79FB": "Move up",
+  "\u4E0B\u79FB": "Move down",
+  "\u6DFB\u52A0\u5361\u7247": "Add cards",
+  "\u6240\u6709\u53EF\u7528\u7684 Agent \u90FD\u5DF2\u6DFB\u52A0\u3002": "All available Agents have been added.",
+  "\u6DFB\u52A0\u5230\u4FA7\u8FB9\u680F": "Add to sidebar",
+  "Agent \u8BBE\u7F6E": "Agent settings",
   // Dashboard header + search
   "\u641C\u4F1A\u8BDD\uFF1A\u6807\u9898\u3001\u9879\u76EE\u3001\u7B2C\u4E00\u6B65\u2026": "Search sessions: title, project, first message\u2026",
   "\u91CD\u65B0\u626B\u63CF\u672C\u673A\u4F1A\u8BDD": "Rescan local sessions",
@@ -236,6 +253,49 @@ var view_default = {
 
 // src/locales/en/settings.js
 var settings_default = {
+  "Agents \u53F3\u4E0A\u89D2\u300C\u7BA1\u7406\u300D\u53EF\u6DFB\u52A0\u3001\u79FB\u9664\u548C\u7F6E\u9876\u3002\u7F6E\u9876\u7684\u5148\u663E\u793A\uFF0C\u5176\u4F59\u8FD0\u884C\u4E2D\u7684\u4F18\u5148\uFF1B\u540C\u7EA7\u53EF\u62D6\u52A8\u5DE6\u4FA7\u628A\u624B\u6216\u7528\u65B9\u5411\u952E\u6392\u5E8F\u3002\u7F6E\u9876\u4E0E\u4E3B\u529B\u661F\u6807\u5206\u522B\u8BBE\u7F6E\u3002": "Manage above Agents adds, removes or pins them. Pinned Agents come first, then running Agents; drag the left grip or use arrow keys within a priority. Pinning is separate from the primary star.",
+  "\u9996\u6B21\u53D1\u73B0 4 \u6761\u6563\u843D\u7684 AI \u4EFB\u52A1\u8BB0\u5F55\u65F6\u63D0\u9192\uFF0C\u4E4B\u540E\u6BCF\u65B0\u589E 4 \u6761\u518D\u63D0\u9192\uFF1B\u6BCF\u5929\u603B\u5171\u6700\u591A 2 \u6B21\uFF0C\u7D2F\u8BA1\u8FDB\u5EA6\u8DE8\u65E5\u4FDD\u7559\u3002": "Ask after the first 4 scattered AI task records, then after every 4 new ones. At most 2 prompts per day across all journals; progress carries over to the next day.",
+  "\u4ECA\u5929 {n} \u4E2A\u4F1A\u8BDD \xB7 \u8FFD\u8E2A\u4E2D": "{n} sessions today \xB7 Tracking",
+  "\u8FD1 14 \u5929": "Last 14 days",
+  "\u626B\u63CF\u6700\u8FD1 7 \u5929\u7684\u4F1A\u8BDD": "Scan sessions from the last 7 days",
+  "\u5173\u95ED\u8FFD\u8E2A\u5E76\u9690\u85CF": "Turn off tracking and hide",
+  "\u7F6E\u9876\u7684 Agent \u59CB\u7EC8\u5728\u6700\u4E0A\u9762\uFF0C\u672A\u7F6E\u9876\u65F6\u8FD0\u884C\u4E2D\u7684\u4F18\u5148\u3002\u540C\u4E00\u4F18\u5148\u7EA7\u5185\u53EF\u62D6\u52A8\u6392\u5E8F\u3002\u79FB\u9664\u4E0D\u5F71\u54CD\u8FFD\u8E2A\u548C\u4F1A\u8BDD\u3002": "Pinned Agents always come first, followed by running Agents. Drag to reorder within the same priority. Removing a card keeps tracking and sessions.",
+  "\u6574\u7406\u6A21\u677F\u5FC5\u987B\u5305\u542B\u5DF2\u5B8C\u6210\u3001\u8FDB\u884C\u4E2D\u548C\u624B\u5199\u5185\u5BB9\u4E09\u4E2A\u5206\u533A\u3002": "The template must include completed tasks, active tasks, and personal notes exactly once.",
+  "\u5206\u533A\u6807\u9898\u8BF7\u586B 1\u201360 \u5B57\u7684\u5355\u884C\u6587\u5B57\uFF1B\u624B\u5199\u5185\u5BB9\u6807\u9898\u53EF\u4EE5\u7559\u7A7A\u3002": "Use a single-line title of 1\u201360 characters. The personal notes title may be empty.",
+  "\u6574\u7406\u6A21\u677F\u7684\u5206\u533A\u6807\u8BB0\u4E0D\u5B8C\u6574\uFF0C\u8BF7\u5148\u4FEE\u590D\u6807\u8BB0\uFF1B\u539F\u6587\u672A\u4FEE\u6539\u3002": "The layout markers are incomplete. Repair them first; the original note has not been changed.",
+  "\u8FD9\u7BC7\u65E5\u8BB0\u7684 AI \u8BB0\u5F55\u6709\u4E9B\u5206\u6563\u6216\u987A\u5E8F\u6DF7\u4E71\uFF0C\u8981\u6574\u7406\u65E5\u5FD7\u5417\uFF1F": "AI records in this journal are scattered or out of order. Organize this journal?",
+  "\u7A0D\u540E": "Later",
+  "\u6574\u7406\u65E5\u5FD7\u6A21\u677F": "Journal layout template",
+  "\u8BBE\u7F6E\u5206\u533A\u6807\u9898\u548C\u987A\u5E8F\uFF0C\u4E0B\u6B21\u70B9\u51FB\u300C\u6574\u7406\u65E5\u5FD7\u300D\u65F6\u5E94\u7528\u3002\u4EFB\u52A1\u3001\u95EE\u7B54\u548C\u624B\u5199\u5185\u5BB9\u6574\u5757\u4FDD\u7559\u3002": "Set section titles and order for the next time you choose Organize journal. Tasks, exchanges, and personal notes are kept intact.",
+  "\u65E5\u5FD7\u6742\u4E71\u65F6\u63D0\u9192\u6574\u7406": "Suggest organizing scattered records",
+  "\u68C0\u6D4B\u5230\u81F3\u5C11\u4E09\u6761 AI \u8BB0\u5F55\u5206\u6563\u6216\u987A\u5E8F\u6DF7\u4E71\u65F6\uFF0C\u8BE2\u95EE\u662F\u5426\u6574\u7406\uFF1B\u540C\u4E00\u7BC7\u65E5\u8BB0\u6BCF\u5929\u6700\u591A\u4E00\u6B21\u3002": "When at least three AI records are scattered or out of order, ask whether to organize them. Each journal is prompted at most once a day.",
+  "\u6574\u7406\u6A21\u677F": "Layout template",
+  "\u9ED8\u8BA4\u8DDF\u968F\u754C\u9762\u8BED\u8A00\uFF0C\u4E5F\u53EF\u9009\u62E9\u4E2D\u6587\u3001\u82F1\u6587\u6216\u81EA\u5B9A\u4E49\u3002\u5207\u6362\u540E\uFF0C\u4E0B\u6B21\u6574\u7406\u65F6\u5E94\u7528\u3002": "Follows the interface language by default. Choose Chinese, English, or Custom; changes apply the next time you organize.",
+  "\u8DDF\u968F\u754C\u9762\uFF08\u9ED8\u8BA4\uFF09": "Follow interface (default)",
+  "\u4E2D\u6587\u6A21\u677F": "Chinese template",
+  "\u81EA\u5B9A\u4E49\u6A21\u677F": "Custom template",
+  "\u5DF2\u5B8C\u6210": "Completed",
+  "\u8FDB\u884C\u4E2D": "In progress",
+  "\u624B\u5199\u5185\u5BB9": "Personal notes",
+  "\u5206\u533A\u987A\u5E8F": "Section order",
+  "{section}\u6807\u9898": "{section} title",
+  "\u7559\u7A7A\u5219\u4E0D\u6DFB\u52A0\u6807\u9898\uFF0C\u4FDD\u7559\u624B\u5199\u5185\u5BB9\u539F\u6709\u6807\u9898\u3002": "Leave blank to keep the existing headings in your personal notes without adding another title.",
+  "\u6062\u590D\u9ED8\u8BA4\u6574\u7406\u6A21\u677F": "Restore default template",
+  "\u6CA1\u6709\u663E\u793A\u7684 Agent \u5361\u7247\uFF0C\u53EF\u5728\u300C\u7BA1\u7406\u300D\u6216 Agent \u8BBE\u7F6E\u4E2D\u6DFB\u52A0\u3002": "No Agent cards are shown. Add them in Manage or enable them in Agent settings.",
+  "\u5728 Obsidian \u91CC\u8FFD\u8E2A\u4F1A\u8BDD\u3001\u59D4\u6D3E\u4EFB\u52A1\u3001\u4FDD\u5B58 AI \u5DE5\u4F5C\u8BB0\u5F55\u3002": "Track sessions, delegate tasks, and save AI work records in Obsidian.",
+  "\u5E38\u7528\u64CD\u4F5C": "Everyday actions",
+  "\u7BA1\u7406\u4FA7\u8FB9\u680F": "Manage the sidebar",
+  "Agents \u53F3\u4E0A\u89D2\u300C\u7BA1\u7406\u300D\u53EF\u6DFB\u52A0\u3001\u79FB\u9664\u548C\u7F6E\u9876\u5361\u7247\u3002\u62D6\u52A8\u5361\u7247\u5E95\u90E8\u628A\u624B\u8C03\u6574\u987A\u5E8F\uFF0C\u4E5F\u53EF\u7528\u65B9\u5411\u952E\u6216\u7BA1\u7406\u9762\u677F\u7684\u4E0A\u4E0B\u79FB\u6309\u94AE\u3002\u7F6E\u9876\u4E0E\u4E3B\u529B\u661F\u6807\u5206\u522B\u8BBE\u7F6E\u3002": "Choose Manage above Agents to add, remove, or pin cards. Reorder with the grip at the bottom of a card, arrow keys, or the move buttons in Manage. Pinning is separate from the primary star.",
+  "\u67E5\u770B\u4E0E\u626B\u63CF": "View and scan",
+  "\u70B9\u4F1A\u8BDD\u5361\u7247\u6253\u5F00\u4F1A\u8BDD\uFF1B\u70B9 Agent \u56FE\u6807\u6253\u5F00\u5BA2\u6237\u7AEF\u3002\u5361\u7247\u5185\u300C\u626B\u63CF\u300D\u9ED8\u8BA4\u8BFB\u53D6\u8BE5 Agent \u6700\u8FD1 7 \u5929\u6709\u66F4\u65B0\u7684\u4F1A\u8BDD\uFF0C\u5DF2\u6709\u5386\u53F2\u4FDD\u7559\u3002": "Select a session card to open the session, or an Agent icon to open its app. Scan on a card reads that Agent's sessions updated in the last 7 days and keeps existing history.",
+  "\u4ECE\u7B14\u8BB0\u59D4\u6D3E": "Delegate from a note",
+  "\u628A\u5217\u8868\u9879\u884C\u5C3E\u7684\u628A\u624B\u6216\u9009\u4E2D\u6587\u5B57\u62D6\u5230 Agent \u5361\u7247\u4E0A\uFF1B\u4E5F\u53EF\u70B9\u51FB\u884C\u5C3E\u628A\u624B\u786E\u8BA4\u53D1\u9001\u3002\u5177\u4F53\u6267\u884C\u65B9\u5F0F\u5728\u300C\u59D4\u6D3E\u300D\u4E2D\u8BBE\u7F6E\u3002": "Drag a list item's end-of-line grip or selected text onto an Agent card, or click the grip to confirm sending. Configure how tasks run in Delegation.",
+  "\u7ED1\u5B9A\u5DF2\u6709\u4F1A\u8BDD": "Link an existing session",
+  "\u628A\u4F1A\u8BDD\u5361\u7247\u62D6\u5230\u7B14\u8BB0\u5217\u8868\u9879\uFF0C\u6216\u628A\u7B14\u8BB0\u5217\u8868\u9879\u62D6\u5230\u4F1A\u8BDD\u5361\u7247\uFF0C\u7ED1\u5B9A\u540E\u53EF\u4ECE\u7B14\u8BB0\u7EE7\u7EED\u6253\u5F00\u4F1A\u8BDD\u3002": "Drag a session card onto a note list item, or a note list item onto a session card. Once linked, open the session again from the note.",
+  "\u4FDD\u5B58\u5DE5\u4F5C\u8BB0\u5F55": "Save work records",
+  "\u5728\u300C\u8FFD\u8E2A\u300D\u4E2D\u5F00\u542F\u81EA\u52A8\u8BB0\u5F55\uFF0C\u6309\u7B80\u7565\u3001\u6807\u51C6\u6216\u8BE6\u7EC6\u4FDD\u5B58\u540E\u7EED\u95EE\u7B54\uFF1B\u300CDreaming\u300D\u53EF\u5C06\u8BB0\u5F55\u6574\u7406\u4E3A\u957F\u671F\u8BB0\u5FC6\u3002": "Enable automatic records in Tracking and choose brief, standard, or detailed for future exchanges. Dreaming can organize those records into long-term memory.",
+  "\u66F4\u591A\u62D6\u653E\u4E0E\u8FDB\u5EA6\u64CD\u4F5C": "More drag-and-drop and progress actions",
+  "\u7248\u672C\u4E0E\u652F\u6301": "Version and support",
   // Keys shared with other modules live in exactly one fragment:
   // 取消主力 / 设为主力（最多两个） / {n} 个会话 / 追踪中 / 已关闭 -> src/locales/en/view.js; 默认 -> src/locales/en/runtime.js
   "\u667A\u80FD\u4F53\u7532\u677F": "Agent Deck",
@@ -430,7 +490,7 @@ var settings_default = {
   "\u6807\u51C6": "Standard",
   "\u8BE6\u7EC6": "Detailed",
   "AI \u8BB0\u5F55\u663E\u793A\u65B9\u5F0F": "How AI records display",
-  "\u53EA\u63A7\u5236\u663E\u793A\uFF0C\u4E0D\u6539\u7B14\u8BB0\u91CC\u7684\u8BB0\u5F55\u3002\u9ED8\u8BA4\u6700\u65B0\u4E00\u6761\uFF0C\u53EF\u9009\u6700\u8FD1\u4E09\u6761\u3001\u4E94\u6761 AI \u7ED3\u8BBA\uFF1B\u63D0\u95EE\u3001\u94FE\u63A5\u3001\u7528\u65F6\u4E0E\u6B65\u9AA4\u5728\u5C55\u5F00\u540E\u663E\u793A\u3002\u70B9\u300C\u66F4\u591A\u300D\u67E5\u770B\u5DF2\u4FDD\u5B58\u7684\u5386\u53F2\uFF0C\u624B\u52A8\u5F00\u5408\u4F1A\u8BB0\u4F4F\u3002\u5DF2\u5B8C\u6210\u4EFB\u52A1\u9075\u5FAA\u540C\u4E00\u89C4\u5219\uFF1B\u5386\u53F2\u591A\u5C11\u7531\u8BB0\u5F55\u9897\u7C92\u5EA6\u51B3\u5B9A\u3002": "Controls display only, without changing saved records. Defaults to the latest AI conclusion; you can show the latest three or five. Prompts, links, time and steps appear when expanded. Click More to see saved history; manual open or closed state is remembered. Completed tasks follow the same rule. Record granularity determines how much history is available.",
+  "\u9ED8\u8BA4\u663E\u793A\u6700\u65B0\u4E00\u6761 AI \u7ED3\u8BBA\uFF0C\u53EF\u9009\u4E09\u6761\u6216\u4E94\u6761\u3002\u70B9\u300C\u66F4\u591A\u300D\u5C55\u5F00\u5386\u53F2\uFF0C\u4E0D\u5F71\u54CD\u5DF2\u4FDD\u5B58\u7684\u8BB0\u5F55\u3002": "Shows the latest AI conclusion by default, with options for three or five. Click More to expand history. Saved records stay unchanged.",
   "\u9ED8\u8BA4\u6298\u53E0": "Collapsed",
   "\u9ED8\u8BA4\u5C55\u5F00": "Expanded",
   "\u6700\u65B0\u4E94\u6761": "Latest five",
@@ -1186,6 +1246,10 @@ var DEFAULTS = {
   journalAutoWrite: true,
   // 自动建项、结论和状态回写总开关；手动整理仍可用
   journalSync: true,
+  journalLayout: null,
+  journalLayoutLanguage: "auto",
+  organizeJournalSuggest: true,
+  journalOrganizePrompt: { day: "", count: 0, notes: {} },
   resultBack: true,
   agentKw: true,
   kidBlocks: true,
@@ -1309,7 +1373,8 @@ var DEFAULTS = {
   },
   ui: {
     showSparkline: true,
-    showUsageBars: true
+    showUsageBars: true,
+    agentCards: { order: [...AGENT_ORDER], hidden: [], pinned: [] }
   },
   jobs: {},
   lastScan: 0
@@ -2184,6 +2249,73 @@ function runningTaskLines(text, sessionByParent, jobs = []) {
   });
 }
 
+// src/journal-layout.js
+var JOURNAL_LAYOUT_DEFAULT = { order: ["done", "active", "notes"], titles: { done: "\u5DF2\u5B8C\u6210", active: "\u8FDB\u884C\u4E2D", notes: "" } };
+var START = "<!-- agent-deck:layout:start -->";
+var END = "<!-- agent-deck:layout:end -->";
+var KEYS = JOURNAL_LAYOUT_DEFAULT.order;
+function builtinJournalLayout(language = currentLanguage()) {
+  return { order: [...KEYS], titles: language === "en" ? { done: "Completed", active: "In progress", notes: "" } : { ...JOURNAL_LAYOUT_DEFAULT.titles } };
+}
+function configuredJournalLayout(settings = {}) {
+  if (settings.journalLayout) return journalLayout(settings.journalLayout);
+  const language = settings.journalLayoutLanguage && settings.journalLayoutLanguage !== "auto" ? settings.journalLayoutLanguage : currentLanguage();
+  return language === "en" ? builtinJournalLayout("en") : null;
+}
+function journalLayout(value) {
+  const order = value?.order;
+  if (!Array.isArray(order) || order.length !== 3 || new Set(order).size !== 3 || order.some((key) => !KEYS.includes(key))) throw new Error(t("\u6574\u7406\u6A21\u677F\u5FC5\u987B\u5305\u542B\u5DF2\u5B8C\u6210\u3001\u8FDB\u884C\u4E2D\u548C\u624B\u5199\u5185\u5BB9\u4E09\u4E2A\u5206\u533A\u3002"));
+  const titles = {};
+  for (const key of KEYS) {
+    const title = String(value.titles?.[key] ?? JOURNAL_LAYOUT_DEFAULT.titles[key]).trim();
+    if (title.length > 60 || /[\r\n<>]/.test(title) || key !== "notes" && !title) throw new Error(t("\u5206\u533A\u6807\u9898\u8BF7\u586B 1\u201360 \u5B57\u7684\u5355\u884C\u6587\u5B57\uFF1B\u624B\u5199\u5185\u5BB9\u6807\u9898\u53EF\u4EE5\u7559\u7A7A\u3002"));
+    titles[key] = title;
+  }
+  return { order: [...order], titles };
+}
+function readJournalLayout(text) {
+  if (!String(text).includes("<!-- agent-deck:")) return null;
+  const lines = String(text).replace(/\r\n/g, "\n").split("\n");
+  const fences = fencedLines(lines);
+  const markers = lines.flatMap((line, i) => !fences.has(i) && (line === START || line === END || /^<!-- agent-deck:section:/.test(line)) ? [{ line, i }] : []);
+  if (!markers.length) return null;
+  const invalid = () => {
+    throw new Error(t("\u6574\u7406\u6A21\u677F\u7684\u5206\u533A\u6807\u8BB0\u4E0D\u5B8C\u6574\uFF0C\u8BF7\u5148\u4FEE\u590D\u6807\u8BB0\uFF1B\u539F\u6587\u672A\u4FEE\u6539\u3002"));
+  };
+  if (markers.length !== 8 || markers[0].line !== START || markers.at(-1).line !== END) invalid();
+  const sections = {}, order = [], titles = {}, headingRows = /* @__PURE__ */ new Set();
+  for (let n = 1; n < 7; n += 2) {
+    const open = markers[n], close = markers[n + 1];
+    const match = /^<!-- agent-deck:section:(done|active|notes):(heading|plain) -->$/.exec(open.line);
+    if (!match || sections[match[1]] || close.line !== `<!-- agent-deck:section:${match[1]}:end -->`) invalid();
+    const [, key, kind] = match;
+    const start = open.i + 1 + (kind === "heading" ? 1 : 0);
+    if (kind === "heading" && !/^## .+/.test(lines[open.i + 1] || "")) invalid();
+    if (kind === "heading") headingRows.add(open.i + 1);
+    titles[key] = kind === "heading" ? lines[open.i + 1].slice(3) : "";
+    sections[key] = { text: lines.slice(start, close.i).join("\n"), start, end: close.i };
+    order.push(key);
+  }
+  const owned = /* @__PURE__ */ new Set();
+  for (const section of Object.values(sections)) for (let i = section.start; i < section.end; i++) owned.add(i);
+  for (let i = markers[0].i + 1; i < markers.at(-1).i; i++) {
+    if (owned.has(i) || markers.some((m) => m.i === i) || headingRows.has(i)) continue;
+    if (lines[i].trim() && lines[i] !== "---") invalid();
+  }
+  return { head: lines.slice(0, markers[0].i).join("\n").trimEnd(), tail: lines.slice(markers.at(-1).i + 1).join("\n").trim(), sections, layout: { order, titles } };
+}
+function renderJournalLayout({ head, done, active, notes, tail = "" }, value) {
+  const layout = journalLayout(value);
+  const content = { done, active, notes };
+  const bands = layout.order.map((key) => {
+    const title = layout.titles[key];
+    return [`<!-- agent-deck:section:${key}:${title ? "heading" : "plain"} -->`, ...title ? [`## ${title}`] : [], content[key].replace(/\n*$/, ""), `<!-- agent-deck:section:${key}:end -->`].filter((line, i) => line || i !== (title ? 2 : 1)).join("\n");
+  });
+  return [head.trimEnd(), `${START}
+${bands.join("\n\n---\n\n")}
+${END}`, tail].filter(Boolean).join("\n\n").replace(/\n*$/, "\n");
+}
+
 // src/organize-journal.js
 var DONE_HEADING = "## \u5DF2\u5B8C\u6210";
 var ACTIVE_HEADING = "## \u8FDB\u884C\u4E2D";
@@ -2212,7 +2344,22 @@ function blockText(lines, start, end) {
 function roundsIn(text) {
   return Math.max(0, ...[...text.matchAll(/(?:💬|❓)\s*第(\d+)轮[：:]/g)].map((m) => +m[1]));
 }
-function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* @__PURE__ */ new Set(), turns = /* @__PURE__ */ new Map() } = {}) {
+function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* @__PURE__ */ new Set(), turns = /* @__PURE__ */ new Map(), layout } = {}) {
+  const custom = readJournalLayout(text);
+  if (custom) {
+    const canonical = [custom.head, `---
+${DONE_HEADING}
+${custom.sections.done.text}
+
+---
+${ACTIVE_HEADING}
+${custom.sections.active.text}
+
+---
+`].filter(Boolean).join("\n\n");
+    const plan = planJournal(canonical, { tracked, archived, turns });
+    return { ...plan, rest: [plan.rest, custom.sections.notes.text].filter(Boolean).join("\n\n"), crlf: /\r\n/.test(text), layout: layout === void 0 ? custom.layout : layout, tail: custom.tail, insertAt: custom.sections.active.end };
+  }
   const crlf = /\r\n/.test(String(text));
   const lines = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
   const fence = fencedLines(lines);
@@ -2263,6 +2410,7 @@ function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* 
   const moved = [];
   const owner = ownersOf(lines);
   const inActiveBand = (n) => generated.some((sec) => sec.active && n > sec.line && n < sec.end);
+  const inBand = (n, finished) => generated.some((sec) => sec.active === !finished && n > sec.line && n < Math.min(sec.end, regionEnd));
   const KW_WORDS = TASK_KWS.split("|");
   const dropSubheadAbove = (i) => {
     let up = i - 1;
@@ -2310,7 +2458,7 @@ function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* 
       }
       const block2 = blockText(chunk, 0, chunk.length);
       const count2 = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block2));
-      done.push({ text: block2, blockId: k.blockId || "", turns: count2, ai, sid: [...sids], at: i });
+      done.push({ text: block2, blockId: k.blockId || "", turns: count2, ai, sid: [...sids], at: i, organized: inBand(i, true) });
       dropSubheadAbove(i);
       moved.push([i, end]);
       cursor = end;
@@ -2319,7 +2467,7 @@ function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* 
     if (!ai) continue;
     const block = blockText(lines, i, end);
     const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
-    active.push({ text: block, keyword: k.kw || "TODO", turns: count, blockId: k.blockId || "", at: i });
+    active.push({ text: block, keyword: k.kw || "TODO", turns: count, blockId: k.blockId || "", at: i, organized: inBand(i, false) });
     dropSubheadAbove(i);
     moved.push([i, end]);
     cursor = end;
@@ -2354,8 +2502,8 @@ function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* 
       }
       const block = blockText(chunk, 0, chunk.length);
       const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
-      if (doneKw || archivedOut || allKidsDone) done.push({ text: block, blockId: k.blockId || "", turns: count, ai, sid: [...sids], at: i });
-      else active.push({ text: block, keyword: k.kw || "TODO", turns: count, blockId: k.blockId || "", at: i });
+      if (doneKw || archivedOut || allKidsDone) done.push({ text: block, blockId: k.blockId || "", turns: count, ai, sid: [...sids], at: i, organized: false });
+      else active.push({ text: block, keyword: k.kw || "TODO", turns: count, blockId: k.blockId || "", at: i, organized: false });
       adopted.push([i, end]);
       i = end - 1;
     }
@@ -2413,6 +2561,7 @@ function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* 
   const insertAt = generated.length ? moved.length ? Math.max(...moved.map(([, end]) => end)) : generated[generated.length - 1].line + 1 : null;
   return {
     head,
+    layout,
     crlf,
     done,
     active,
@@ -2422,6 +2571,7 @@ function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* 
   };
 }
 function ensureTopRule(text) {
+  if (readJournalLayout(text)) return text;
   const lines = String(text || "").split("\n");
   const fence = fencedLines(lines);
   const { start } = splitFrontMatter(lines);
@@ -2439,21 +2589,25 @@ function ensureTopRule(text) {
   }
   return String(text || "");
 }
-function renderJournal(plan, { done = true, active = true, skip = null } = {}) {
+function renderJournal(plan, { done = true, active = true, skip = null, layout = plan.layout } = {}) {
   const finished = done ? plan.done.filter((entry) => !(skip && (entry.blockId ? skip.has(entry.blockId) : skip.has(entry.text)))) : [];
   const bands = [];
+  const activeBody = [];
   if (finished.length) bands.push([DONE_HEADING, ...finished.map((entry) => entry.text)].join("\n"));
   if (active && plan.active.length) {
-    const body2 = [];
     let previous = "";
     for (const entry of plan.active) {
       if (entry.keyword !== previous) {
-        body2.push(`### ${entry.keyword}`);
+        activeBody.push(`### ${entry.keyword}`);
         previous = entry.keyword;
       }
-      body2.push(entry.text);
+      activeBody.push(entry.text);
     }
-    bands.push([ACTIVE_HEADING, ...body2].join("\n"));
+    bands.push([ACTIVE_HEADING, ...activeBody].join("\n"));
+  }
+  if (layout) {
+    const out2 = renderJournalLayout({ head: plan.head, done: finished.map((entry) => entry.text).join("\n"), active: activeBody.join("\n"), notes: plan.rest, tail: plan.tail }, layout);
+    return plan.crlf ? out2.replace(/\n/g, "\r\n") : out2;
   }
   const above = plan.head.replace(/\s+$/, "");
   const body = bands.length ? bands.join("\n\n---\n") : "";
@@ -2465,6 +2619,7 @@ function renderJournal(plan, { done = true, active = true, skip = null } = {}) {
   if (body) parts.push(`---
 ${body}`);
   if (below) parts.push(`${body ? "---\n\n" : ""}${below}`);
+  if (plan.tail) parts.push(plan.tail);
   const out = `${parts.join("\n\n").replace(/\n*$/, "")}
 `;
   return plan.crlf ? out.replace(/\n/g, "\r\n") : out;
@@ -2606,6 +2761,76 @@ async function archiveCompletedTo(plugin, file, base, plan, { path: path7, order
   return { target, moved: blocks.length };
 }
 
+// src/journal-organizer.js
+var import_obsidian = require("obsidian");
+function unorganizedRecordKeys(plan) {
+  const occurrences = /* @__PURE__ */ new Map();
+  return [...plan.active, ...plan.done.filter((entry) => entry.ai)].filter((entry) => !entry.organized).map((entry) => {
+    const key = entry.blockId || entry.sid?.join(",") || entry.text.split("\n")[0];
+    const n = occurrences.get(key) || 0;
+    occurrences.set(key, n + 1);
+    return `${key}:${n}`;
+  });
+}
+var JournalOrganizer = class {
+  constructor(plugin) {
+    this.plugin = plugin;
+    const schedule = () => {
+      clearTimeout(this.timer);
+      this.timer = setTimeout(() => this.check().catch((error) => console.warn("[agent-deck] journal layout", error)), 2e3);
+    };
+    for (const name of ["file-open", "active-leaf-change", "editor-change"]) plugin.registerEvent(plugin.app.workspace.on(name, schedule));
+    plugin.registerEvent(plugin.app.vault.on("modify", (file) => {
+      if (file.path === plugin.app.workspace.getActiveFile()?.path) schedule();
+    }));
+    plugin.register(() => {
+      clearTimeout(this.timer);
+      this.notice?.hide();
+    });
+    schedule();
+  }
+  async check() {
+    const p = this.plugin;
+    if (this.checking || p._unloaded || p.settings.organizeJournalSuggest === false) return;
+    this.checking = true;
+    try {
+      await p._usageReady;
+      if (p._unloaded) return;
+      const view = p.app.workspace.getActiveViewOfType(import_obsidian.MarkdownView);
+      const file = view?.file;
+      if (!file || view.editor?.cm?.composing || file.path !== p.journalTarget()?.path) return;
+      const day = dayKeyToday(p.settings);
+      const previous = p.settings.journalOrganizePrompt || { notes: {} };
+      const count = previous.day === day ? previous.count || 0 : 0;
+      if (count >= 2) return;
+      const base = await p.readNote(file.path);
+      const plan = await p.journalPlan(file, base);
+      const keys = unorganizedRecordKeys(plan);
+      const acknowledged = previous.notes?.[file.path] || [];
+      if (keys.filter((key) => !acknowledged.includes(key)).length < 4 || p.app.workspace.getActiveFile()?.path !== file.path || p._unloaded || p.settings.organizeJournalSuggest === false) return;
+      p.settings.journalOrganizePrompt = { day, count: count + 1, notes: { ...previous.notes, [file.path]: [.../* @__PURE__ */ new Set([...acknowledged, ...keys])] } };
+      await p.saveSettings();
+      if (p._unloaded) return;
+      this.notice?.hide();
+      const fragment = document.createDocumentFragment();
+      fragment.createEl("div", { text: t("\u8FD9\u7BC7\u65E5\u8BB0\u7684 AI \u8BB0\u5F55\u6709\u4E9B\u5206\u6563\u6216\u987A\u5E8F\u6DF7\u4E71\uFF0C\u8981\u6574\u7406\u65E5\u5FD7\u5417\uFF1F") });
+      const actions = fragment.createDiv({ cls: "ad-btnrow" });
+      actions.createEl("button", { text: t("\u6574\u7406\u65E5\u5FD7") }).onclick = async () => {
+        this.notice?.hide();
+        try {
+          await p.organizeJournal(file);
+        } catch (error) {
+          p.notice(error.message);
+        }
+      };
+      actions.createEl("button", { text: t("\u7A0D\u540E") }).onclick = () => this.notice?.hide();
+      this.notice = new import_obsidian.Notice(fragment, 2e4);
+    } finally {
+      this.checking = false;
+    }
+  }
+};
+
 // src/attention.js
 function attentionReason(session) {
   if (session.state === "error" && /^首轮需要审批或交互/.test(session.error || "")) return "\u9700\u8981\u6388\u6743";
@@ -2676,7 +2901,7 @@ function workspaceLabel(cwd) {
 var import_path6 = __toESM(require("path"), 1);
 var import_os6 = __toESM(require("os"), 1);
 var import_child_process7 = require("child_process");
-var import_obsidian11 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 
 // src/readers.js
 var import_fs = __toESM(require("fs"), 1);
@@ -3677,12 +3902,13 @@ var AgentUsage = class {
     return Date.now() - days * 864e5;
   }
   // ----- scanning -----
-  async scan({ since = 0, onProgress } = {}) {
+  async scan({ since = 0, agent: onlyAgent = "", strictSince = false, onProgress } = {}) {
     const touched = /* @__PURE__ */ new Set();
     const floor = since || this.sinceMs();
     await this.readCodexTitles();
     await this.readCodexArchived();
     for (const [root, agent] of this.roots()) {
+      if (onlyAgent && agent !== onlyAgent) continue;
       const files = await this.walk(root, agent === "dsh" || agent === "antigravity" ? 4 : 5, agent);
       for (const p of files) {
         let st;
@@ -3692,6 +3918,7 @@ var AgentUsage = class {
           continue;
         }
         const fc = this.files.get(p);
+        if (strictSince && st.mtimeMs < floor) continue;
         if (!fc && st.mtimeMs < floor && !this.isPrimary(agent)) continue;
         if (fc && st.size === fc.size && st.mtimeMs === fc.mtime) continue;
         try {
@@ -3708,7 +3935,7 @@ var AgentUsage = class {
     await this.readClaudeDesktop();
     await this.readClaudeSideChats();
     this.applyClaudeDesktop();
-    this.lastScan = Date.now();
+    if (!onlyAgent && !strictSince) this.lastScan = Date.now();
     return touched;
   }
   async walk(dir, depth, agent = "") {
@@ -6826,10 +7053,10 @@ function freshTaskText(text) {
 }
 
 // src/view.js
-var import_obsidian2 = require("obsidian");
+var import_obsidian3 = require("obsidian");
 
 // src/icons.js
-var import_obsidian = require("obsidian");
+var import_obsidian2 = require("obsidian");
 
 // assets/agents/claude.png
 var claude_default = "data:image/png;base64,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";
@@ -6878,7 +7105,7 @@ function setLucide(el, name, cls = "") {
   if (!el) return el;
   el.textContent = "";
   try {
-    (0, import_obsidian.setIcon)(el, name);
+    (0, import_obsidian2.setIcon)(el, name);
   } catch {
     el.textContent = "";
   }
@@ -7672,7 +7899,7 @@ async function dispatchRefresh(plugin) {
 
 // src/view.js
 var VIEW_TYPE = "agent-deck-view";
-var AgentDeckView = class extends import_obsidian2.ItemView {
+var AgentDeckView = class extends import_obsidian3.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -7710,7 +7937,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       this._pendingRender = true;
       return;
     }
-    if (this._dragSid) {
+    if (this._dragSid || this._dragAgent) {
       this._pendingRender = true;
       return;
     }
@@ -7822,10 +8049,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     if (!nowItems.length) this.empty(nowList, t("\u73B0\u5728\u6CA1\u6709\u5728\u8DD1\u7684\u4F1A\u8BDD"));
     for (const s of nowItems) this.sessionCard(nowList, s, true);
     this.nowReorder(nowList);
-    const agentsSec = dash.createDiv({ cls: "ad-sec" });
-    this.secHead(agentsSec, "Agents", "", () => p.openSettings());
-    const grid = agentsSec.createDiv({ cls: "ad-agentgrid" });
-    for (const id of AGENT_ORDER) this.agentCard(grid, id, today);
+    this.agentSection(dash, today);
     if (p.settings.ui.showUsageBars !== false) {
       const usageSec = dash.createDiv({ cls: "ad-sec" });
       this.secHead(usageSec, t("\u6700\u8FD1 14 \u5929"));
@@ -7852,6 +8076,73 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
         i.setSelectionRange(i.value.length, i.value.length);
       }
     }
+  }
+  agentSection(parent, today) {
+    const sec = parent.createDiv({ cls: "ad-sec" });
+    this.secHead(sec, "Agents", "", () => new AgentCardsModal(this).open());
+    const ids = this.visibleAgentIds();
+    const mode = ids.length <= 3 ? "list" : "grid";
+    const grid = sec.createDiv({ cls: `ad-agentgrid ad-agentgrid--${mode}` });
+    grid.dataset.layout = mode;
+    for (const id of ids) this.agentCard(grid, id, today, mode);
+    if (!ids.length) this.empty(sec, t("\u6CA1\u6709\u663E\u793A\u7684 Agent \u5361\u7247\uFF0C\u53EF\u5728\u300C\u7BA1\u7406\u300D\u6216 Agent \u8BBE\u7F6E\u4E2D\u6DFB\u52A0\u3002"));
+    this.agentReorder(grid);
+    return grid;
+  }
+  runningAgents() {
+    return new Set(this.plugin.liveSessions({ hours: 6 }).filter((session) => ["run", "starting", "running", "busy"].includes(session.state)).map((session) => session.agent));
+  }
+  agentPriority(id) {
+    return this.agentLayout().pinned.includes(id) ? 0 : this.runningAgents().has(id) ? 1 : 2;
+  }
+  agentLayout() {
+    const saved = this.plugin.settings.ui.agentCards || {};
+    const valid = (ids) => [...new Set((Array.isArray(ids) ? ids : []).filter((id) => AGENT_ORDER.includes(id)))];
+    return { order: valid([...Array.isArray(saved.order) ? saved.order : [], ...AGENT_ORDER]), hidden: valid(saved.hidden), pinned: valid(saved.pinned) };
+  }
+  visibleAgentIds() {
+    const { order, hidden, pinned } = this.agentLayout();
+    const visible = order.filter((id) => !hidden.includes(id) && this.plugin.agentEnabled(id));
+    const running = this.runningAgents();
+    const priority = (id) => pinned.includes(id) ? 0 : running.has(id) ? 1 : 2;
+    return visible.sort((a, b) => priority(a) - priority(b));
+  }
+  async updateAgentCards(change) {
+    const layout = this.agentLayout();
+    change(layout);
+    this.plugin.settings.ui.agentCards = layout;
+    await this.plugin.saveSettings();
+    for (const view of this.plugin.views) view.render();
+  }
+  moveAgentCard(id, target, after = false) {
+    const visible = this.visibleAgentIds();
+    if (id === target || !visible.includes(id) || !visible.includes(target) || this.agentPriority(id) !== this.agentPriority(target)) return;
+    return this.updateAgentCards((layout) => {
+      layout.order = layout.order.filter((x) => x !== id);
+      layout.order.splice(layout.order.indexOf(target) + (after ? 1 : 0), 0, id);
+    });
+  }
+  agentReorder(grid) {
+    grid.addEventListener("dragover", (e) => {
+      if (!this._dragAgent) return;
+      const target = e.target.closest(".ad-agentcard");
+      if (!target || !grid.contains(target)) return;
+      if (this.agentPriority(this._dragAgent) !== this.agentPriority(target.dataset.agent)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    });
+    grid.addEventListener("drop", (e) => {
+      const id = this._dragAgent;
+      if (!id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const target = e.target.closest(".ad-agentcard");
+      if (!target || !grid.contains(target)) return;
+      const rect = target.getBoundingClientRect();
+      this._dragAgent = null;
+      this.moveAgentCard(id, target.dataset.agent, grid.dataset.layout === "list" ? e.clientY > rect.top + rect.height / 2 : e.clientX > rect.left + rect.width / 2);
+      this.render();
+    });
   }
   // 「现在」：去掉移除过的，按拖出来的顺序排；没排过的（新来的）放最上面
   nowOrdered(items) {
@@ -8003,14 +8294,15 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       row.createSpan({ cls: "ad-proj__min", text: fmtMin(v.min) });
     }
   }
-  agentCard(parent, id, today) {
+  agentCard(parent, id, today, mode = "grid") {
     const p = this.plugin;
     const a = AGENTS[id];
     const enabled = p.agentEnabled(id);
     const primary = p.isPrimary(id);
     const by = today && today.by && today.by[id] || null;
-    const card = parent.createDiv({ cls: `ad-agentcard ${enabled ? "" : "is-off"} ${primary ? "is-primary" : ""}` });
+    const card = parent.createDiv({ cls: `ad-agentcard ad-agentcard--${mode} ${enabled ? "" : "is-off"} ${primary ? "is-primary" : ""}` });
     card.dataset.agent = id;
+    const pinned = this.agentLayout().pinned.includes(id);
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     const handoff = id === "codex" || id === "workbuddy";
@@ -8020,6 +8312,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     const hintFor = (meta) => toTerm(meta) ? t("\u5728\u7EC8\u7AEF\u91CC\u5F00 {name}", { name: a.short }) : hint;
     card.setAttr("data-drop-hint", hintFor(false));
     card.addEventListener("dragover", (e) => {
+      if (this._dragAgent) return;
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
@@ -8035,6 +8328,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       }
     });
     card.addEventListener("drop", (e) => {
+      if (this._dragAgent) return;
       if (!p.acceptsItemDrag(e)) return;
       e.preventDefault();
       card.removeClass("is-drop");
@@ -8043,6 +8337,8 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       p.delegateDrop(id, p.readItemDrag(e), null, { cli: toTerm(e.metaKey) });
     });
     const top = card.createDiv({ cls: "ad-agentcard__top" });
+    const grip = top.createEl("button", { cls: "ad-agentcard__grip ad-linkbtn", attr: { draggable: "true", "aria-label": t("\u62D6\u52A8\u6392\u5E8F\uFF1B\u65B9\u5411\u952E\u8C03\u6574\u4F4D\u7F6E"), title: t("\u62D6\u52A8\u6392\u5E8F\uFF1B\u65B9\u5411\u952E\u8C03\u6574\u4F4D\u7F6E") } });
+    setLucide(grip, "grip-vertical");
     const mark = top.createEl("button", { cls: "ad-agentcard__mark", attr: { "aria-label": t("\u6253\u5F00 {name}", { name: a.name }) } });
     agentIcon(mark.createSpan({ cls: "ad-glyph" }), id);
     mark.onclick = (e) => {
@@ -8050,10 +8346,15 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       p.openAgentApp(id);
     };
     const name = top.createDiv({ cls: "ad-agentcard__name" });
-    name.createDiv({ cls: "ad-agentcard__title", text: a.name });
-    const live = p.usage.liveSessions({ since: Date.now() - 864e5, limit: 100 }).filter((x) => x.agent === id);
-    const running = live.filter((x) => x.state === "run").length;
-    name.createDiv({ cls: "ad-agentcard__where", text: running ? t("{n} \u4E2A\u5728\u8DD1", { n: running }) : by ? t("{n} \u4E2A\u4F1A\u8BDD", { n: by.sessions || 0 }) : t("\u4ECA\u5929\u8FD8\u6CA1\u52A8") });
+    name.createDiv({ cls: "ad-agentcard__title", text: mode === "list" ? a.name : a.short, attr: { title: a.name } });
+    const live = p.liveSessions({ hours: 24 }).filter((x) => x.agent === id);
+    const running = live.filter((x) => ["run", "starting", "running", "busy"].includes(x.state)).length;
+    card.toggleClass("is-running", running > 0);
+    const where = name.createDiv({ cls: "ad-agentcard__where", text: running ? t("{n} \u4E2A\u5728\u8DD1", { n: running }) : by ? t("{n} \u4E2A\u4F1A\u8BDD", { n: by.sessions || 0 }) : t("\u4ECA\u5929\u8FD8\u6CA1\u52A8") });
+    if (pinned) {
+      const pin = where.createSpan({ cls: "ad-agentcard__pin", attr: { "aria-label": t("\u5DF2\u7F6E\u9876"), title: t("\u5DF2\u7F6E\u9876") } });
+      setLucide(pin, "pin");
+    }
     const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? t("\u53D6\u6D88\u4E3B\u529B") : t("\u8BBE\u4E3A\u4E3B\u529B\uFF08\u6700\u591A\u4E24\u4E2A\uFF09") } });
     setLucide(star, primary ? "star" : "star-off");
     star.onclick = (e) => {
@@ -8064,8 +8365,19 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     stats.createSpan({ text: fmtMin(by ? by.wall : 0) });
     stats.createSpan({ cls: "ad-dot", text: "\xB7" });
     stats.createSpan({ text: fmtTok(by ? by.out : 0) + " tok" });
-    const spark = card.createDiv({ cls: "ad-spark" });
-    if (p.settings.ui.showSparkline !== false) this.sparkline(spark, id);
+    if (mode === "list") {
+      card.createDiv({ cls: "ad-agentcard__detail", text: t("\u4ECA\u5929 {n} \u4E2A\u4F1A\u8BDD \xB7 \u8FFD\u8E2A\u4E2D", { n: by?.sessions || 0 }) });
+      const current = live.find((session) => ["run", "starting", "running", "busy", "wait", "needs-approval"].includes(session.state));
+      if (current) {
+        const context = card.createDiv({ cls: "ad-agentcard__context", text: current.title || current.step || workspaceLabel(current.cwd) });
+        context.title = [current.title, current.cwd, current.step].filter(Boolean).join(" \xB7 ");
+      }
+      if (p.settings.ui.showSparkline !== false) {
+        const trend = card.createDiv({ cls: "ad-agentcard__trend" });
+        trend.createSpan({ text: t("\u8FD1 14 \u5929") });
+        this.sparkline(trend.createDiv({ cls: "ad-spark" }), id);
+      }
+    }
     for (const job of Object.values(p.jobs).filter((j) => j.agent === id && j.handoff && j.state === "starting" && !j.sessionId)) {
       const row = card.createDiv({ cls: "ad-handoff" });
       lattice(row.createSpan({ cls: "ad-handoff__icon" }), "ripple");
@@ -8077,16 +8389,39 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
         p.cancelJob(job.id);
       };
     }
-    const foot = card.createDiv({ cls: "ad-agentcard__foot" });
-    const toggle = foot.createEl("button", { cls: "ad-minitoggle" + (enabled ? " is-on" : ""), text: enabled ? t("\u8FFD\u8E2A\u4E2D") : t("\u5DF2\u5173\u95ED") });
-    toggle.onclick = (e) => {
+    grip.ondragstart = (e) => {
       e.stopPropagation();
-      p.setAgentEnabled(id, !enabled);
+      this._dragAgent = id;
+      e.dataTransfer.setData("application/x-agent-deck-card", id);
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setDragImage(card, 12, 12);
+      card.addClass("is-dragging");
     };
-    const open = foot.createEl("button", { cls: "ad-linkbtn", text: t("\u626B\u63CF") });
-    open.onclick = (e) => {
-      e.stopPropagation();
-      p.scanNow(true);
+    grip.ondragend = () => {
+      this._dragAgent = null;
+      this.render();
+    };
+    grip.onkeydown = (e) => {
+      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) return;
+      e.preventDefault();
+      const next = e.key === "ArrowDown" || e.key === "ArrowRight";
+      const ids = this.visibleAgentIds().filter((x) => this.agentPriority(x) === this.agentPriority(id));
+      const target = ids[ids.indexOf(id) + (next ? 1 : -1)];
+      if (target) Promise.resolve(this.moveAgentCard(id, target, next)).then(() => this.contentEl.querySelector(`[data-agent="${id}"] .ad-agentcard__grip`)?.focus());
+    };
+    const more = top.createEl("button", { cls: "ad-linkbtn ad-agentcard__more", attr: { "aria-label": t("\u7BA1\u7406 {name} \u5361\u7247", { name: a.name }) } });
+    setLucide(more, "ellipsis");
+    more.onclick = (e) => {
+      const menu = new import_obsidian3.Menu();
+      menu.addItem((item) => item.setTitle(t("\u626B\u63CF\u6700\u8FD1 7 \u5929\u7684\u4F1A\u8BDD")).setIcon("refresh-cw").onClick(() => p.scanNow(false, { agent: id, days: 7 })));
+      menu.addItem((item) => item.setTitle(pinned ? t("\u53D6\u6D88\u7F6E\u9876") : t("\u7F6E\u9876\u5361\u7247")).setIcon(pinned ? "pin-off" : "pin").onClick(() => this.updateAgentCards((layout) => {
+        layout.pinned = pinned ? layout.pinned.filter((x) => x !== id) : [...layout.pinned, id];
+      })));
+      menu.addItem((item) => item.setTitle(t("\u5173\u95ED\u8FFD\u8E2A\u5E76\u9690\u85CF")).setIcon("eye-off").setDisabled(primary).onClick(() => p.setAgentEnabled(id, false)));
+      menu.addItem((item) => item.setTitle(t("\u4ECE\u4FA7\u8FB9\u680F\u79FB\u9664")).setIcon("minus").onClick(() => this.updateAgentCards((layout) => {
+        layout.hidden.push(id);
+      })));
+      menu.showAtMouseEvent(e);
     };
   }
   sparkline(parent, agent) {
@@ -8267,7 +8602,7 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
       };
       card.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        const m = new import_obsidian2.Menu();
+        const m = new import_obsidian3.Menu();
         m.addItem((i) => i.setTitle(t("\u6253\u5F00\u4F1A\u8BDD")).setIcon("arrow-up-right").onClick(() => p.openSession(s.agent, s.sid, s.app, s)));
         m.addItem((i) => i.setTitle(t("\u4ECE\u300C\u73B0\u5728\u300D\u79FB\u9664")).setIcon("x").onClick(() => this.removeFromNow(s.sid)));
         m.showAtMouseEvent(e);
@@ -8340,6 +8675,84 @@ var AgentDeckView = class extends import_obsidian2.ItemView {
     if (sub) e.createDiv({ cls: "ad-empty__sub", text: sub });
   }
 };
+var AgentCardsModal = class extends import_obsidian3.Modal {
+  constructor(view) {
+    super(view.app);
+    this.view = view;
+    this.modalEl.addClass("ad-cardmanager-dialog");
+  }
+  onOpen() {
+    this.render();
+  }
+  render() {
+    const el = this.contentEl;
+    el.empty();
+    el.addClass("ad-modal", "ad-cardmanager");
+    el.createEl("h3", { text: t("\u7BA1\u7406 Agent \u5361\u7247") });
+    el.createDiv({ cls: "ad-muted", text: t("\u7F6E\u9876\u7684 Agent \u59CB\u7EC8\u5728\u6700\u4E0A\u9762\uFF0C\u672A\u7F6E\u9876\u65F6\u8FD0\u884C\u4E2D\u7684\u4F18\u5148\u3002\u540C\u4E00\u4F18\u5148\u7EA7\u5185\u53EF\u62D6\u52A8\u6392\u5E8F\u3002\u79FB\u9664\u4E0D\u5F71\u54CD\u8FFD\u8E2A\u548C\u4F1A\u8BDD\u3002") });
+    const view = this.view;
+    const { hidden, pinned } = view.agentLayout();
+    const visible = view.visibleAgentIds();
+    const change = async (fn) => {
+      await view.updateAgentCards(fn);
+      this.render();
+    };
+    const button = (parent, label, icon, run2, disabled = false) => {
+      const b = parent.createEl("button", { cls: "ad-linkbtn", attr: { "aria-label": label, title: label } });
+      setLucide(b, icon);
+      b.disabled = disabled;
+      b.onclick = run2;
+    };
+    const list = el.createDiv({ cls: "ad-cardmanager__list" });
+    if (!visible.length) list.createDiv({ cls: "ad-muted", text: t("\u8FD8\u6CA1\u6709 Agent \u5361\u7247\uFF0C\u70B9\u300C\u7BA1\u7406\u300D\u6DFB\u52A0\u3002") });
+    for (const id of visible) {
+      const row = list.createDiv({ cls: "ad-cardmanager__row", attr: { "data-agent": id } });
+      agentIcon(row.createSpan({ cls: "ad-glyph" }), id);
+      row.createSpan({ cls: "ad-cardmanager__name", text: AGENTS[id].name });
+      const group = visible.filter((x) => view.agentPriority(x) === view.agentPriority(id));
+      const i = group.indexOf(id);
+      button(row, t("\u4E0A\u79FB"), "arrow-up", async () => {
+        await view.moveAgentCard(id, group[i - 1]);
+        this.render();
+      }, i === 0);
+      button(row, t("\u4E0B\u79FB"), "arrow-down", async () => {
+        await view.moveAgentCard(id, group[i + 1], true);
+        this.render();
+      }, i === group.length - 1);
+      button(row, pinned.includes(id) ? t("\u53D6\u6D88\u7F6E\u9876") : t("\u7F6E\u9876\u5361\u7247"), pinned.includes(id) ? "pin-off" : "pin", () => change((layout) => {
+        layout.pinned = pinned.includes(id) ? layout.pinned.filter((x) => x !== id) : [...layout.pinned, id];
+      }));
+      button(row, t("\u4ECE\u4FA7\u8FB9\u680F\u79FB\u9664"), "minus", () => change((layout) => {
+        layout.hidden.push(id);
+      }));
+    }
+    el.createEl("h4", { text: t("\u6DFB\u52A0\u5361\u7247") });
+    if (!hidden.length) el.createDiv({ cls: "ad-muted", text: t("\u6240\u6709\u53EF\u7528\u7684 Agent \u90FD\u5DF2\u6DFB\u52A0\u3002") });
+    for (const id of hidden) {
+      const row = el.createDiv({ cls: "ad-cardmanager__row", attr: { "data-agent": id } });
+      agentIcon(row.createSpan({ cls: "ad-glyph" }), id);
+      row.createSpan({ cls: "ad-cardmanager__name", text: AGENTS[id].name });
+      if (!view.plugin.agentEnabled(id)) {
+        row.createSpan({ cls: "ad-muted", text: t("\u5DF2\u5173\u95ED") });
+        continue;
+      }
+      const add = row.createEl("button", { cls: "ad-linkbtn", text: t("\u6DFB\u52A0\u5230\u4FA7\u8FB9\u680F") });
+      add.onclick = () => change((layout) => {
+        layout.hidden = layout.hidden.filter((x) => x !== id);
+      });
+    }
+    const foot = el.createDiv({ cls: "ad-modalfoot" });
+    const settings = foot.createEl("button", { text: t("Agent \u8BBE\u7F6E") });
+    settings.onclick = () => {
+      this.close();
+      view.plugin.openSettings("agents");
+    };
+    foot.createEl("button", { text: t("\u5B8C\u6210") }).onclick = () => this.close();
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
 function stateChip(s) {
   const st = s.state || "idle";
   if (st === "run") return { cls: "is-live", label: t("\u5728\u8DD1") };
@@ -8354,7 +8767,7 @@ function stateChip(s) {
 }
 
 // src/settings.js
-var import_obsidian3 = require("obsidian");
+var import_obsidian4 = require("obsidian");
 
 // src/dream.js
 var import_crypto3 = require("crypto");
@@ -8952,7 +9365,7 @@ var TABS = [
   ["dream", "Dreaming", "moon"],
   ["about", "\u5173\u4E8E", "info"]
 ];
-var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
+var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -9178,7 +9591,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     this.textInput(triggerRow.querySelector(":scope > .ad-row__right"), d.mentionTrigger || "@", "@", (v) => {
       const trigger = v.trim();
       if (!trigger || /[\s`\p{L}\p{N}]/u.test(trigger)) {
-        new import_obsidian3.Notice(t("\u8BF7\u586B\u5199\u4E0D\u542B\u7A7A\u683C\u3001\u5B57\u6BCD\u3001\u6570\u5B57\u6216\u53CD\u5F15\u53F7\u7684\u7B26\u53F7"));
+        new import_obsidian4.Notice(t("\u8BF7\u586B\u5199\u4E0D\u542B\u7A7A\u683C\u3001\u5B57\u6BCD\u3001\u6570\u5B57\u6216\u53CD\u5F15\u53F7\u7684\u7B26\u53F7"));
         return;
       }
       d.mentionTrigger = trigger;
@@ -9232,7 +9645,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     const test = claude.createDiv({ cls: "ad-btnrow" });
     this.bigButton(test, t("\u68C0\u67E5 claude"), async () => {
       const r = await p.checkBinary("claude");
-      new import_obsidian3.Notice(r, 6e3);
+      new import_obsidian4.Notice(r, 6e3);
     });
     this.bigButton(test, t("\u5728\u7EC8\u7AEF\u91CC\u7EED\u8FD9\u4E2A\u76EE\u5F55"), () => p.openTerminalAt(d.claude.cwd || p.vaultPath, "claude"));
     const codex = this.card(body, "Codex", t("\u4EFB\u52A1\u884C\u7684 @codex/\u6A21\u578B/\u5F3A\u5EA6\u4F1A\u4F20\u5165\u65B0\u4F1A\u8BDD\u3002\u684C\u9762\u6A21\u5F0F\u901A\u8FC7 App Server \u5B8C\u6210\u7B2C\u4E00\u8F6E\uFF0C\u518D\u6253\u5F00 Codex Desktop \u7EE7\u7EED\uFF1B\u9047\u5230\u5BA1\u6279\u6216\u4EA4\u4E92\u4F1A\u505C\u6B62\u5E76\u63D0\u793A\u5230\u684C\u9762\u7EE7\u7EED\u3002\u8FDE\u63A5\u5931\u8D25\u4F1A\u62A5\u9519\u3002"));
@@ -9264,7 +9677,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
       this.display();
     });
-    this.bigButton(codex.createDiv({ cls: "ad-btnrow" }), t("\u68C0\u67E5 codex"), async () => new import_obsidian3.Notice(await p.checkBinary("codex"), 6e3));
+    this.bigButton(codex.createDiv({ cls: "ad-btnrow" }), t("\u68C0\u67E5 codex"), async () => new import_obsidian4.Notice(await p.checkBinary("codex"), 6e3));
     const dsh = this.card(body, "DeepSeek Harness", t("\u901A\u8FC7 dsh acp \u5F00\u4E00\u4E2A\u771F\u6B63\u7684 Harness \u4F1A\u8BDD\uFF0C\u53EF\u4EE5\u7528\u6A21\u578B\u548C\u63A8\u7406\u5F3A\u5EA6\u3002\u56DE\u7B54\u5B8C\u4F1A\u5199\u8FDB\u4F1A\u8BDD\u65E5\u5FD7\uFF0C\u4E5F\u4F1A\u88AB\u8FFD\u8E2A\u3002"));
     this.modelSelect(dsh, "dsh", d.dsh.model, (v) => {
       this.setDefaultModel("dsh", v);
@@ -9293,15 +9706,15 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     this.bigButton(dtest, t("\u8BFB\u53D6 Harness \u53EF\u7528\u6A21\u578B"), async () => {
       try {
         const models = await p.refreshDshModels();
-        new import_obsidian3.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A\u6A21\u578B\uFF0C\u5305\u542B Harness \u4E2D\u914D\u7F6E\u7684\u81EA\u5B9A\u4E49\u6A21\u578B", { n: models.length }));
+        new import_obsidian4.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A\u6A21\u578B\uFF0C\u5305\u542B Harness \u4E2D\u914D\u7F6E\u7684\u81EA\u5B9A\u4E49\u6A21\u578B", { n: models.length }));
         this.display();
       } catch (e) {
-        new import_obsidian3.Notice(t("\u8BFB\u53D6\u5931\u8D25\uFF1A{msg}", { msg: e.message }), 8e3);
+        new import_obsidian4.Notice(t("\u8BFB\u53D6\u5931\u8D25\uFF1A{msg}", { msg: e.message }), 8e3);
       }
     });
     this.bigButton(dtest, t("\u68C0\u67E5 dsh"), async () => {
       const r = await p.checkBinary("dsh");
-      new import_obsidian3.Notice(r, 6e3);
+      new import_obsidian4.Notice(r, 6e3);
     });
     for (const [id, card] of [["claude", claude], ["dsh", dsh]]) {
       const r = this.row(card, t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A = \u81EA\u52A8\u67E5\u627E\u5DF2\u5B89\u88C5\u7684 CLI\u3002"), null);
@@ -9330,13 +9743,13 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     this.bigButton(atest, t("\u8BFB\u53D6 Antigravity \u53EF\u7528\u6A21\u578B"), async () => {
       try {
         const models = await p.refreshAcpModels("antigravity");
-        new import_obsidian3.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A\u6A21\u578B", { n: models.length }));
+        new import_obsidian4.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A\u6A21\u578B", { n: models.length }));
         this.display();
       } catch (e) {
-        new import_obsidian3.Notice(t("\u8BFB\u53D6\u5931\u8D25\uFF1A{msg}", { msg: e.message }), 8e3);
+        new import_obsidian4.Notice(t("\u8BFB\u53D6\u5931\u8D25\uFF1A{msg}", { msg: e.message }), 8e3);
       }
     });
-    this.bigButton(atest, t("\u68C0\u67E5 agy"), async () => new import_obsidian3.Notice(await p.checkBinary("antigravity"), 6e3));
+    this.bigButton(atest, t("\u68C0\u67E5 agy"), async () => new import_obsidian4.Notice(await p.checkBinary("antigravity"), 6e3));
     const prompt = this.card(body, t("\u63D0\u793A\u8BCD\u524D\u540E\u7F00"), t("\u6BCF\u6B21\u59D4\u6D3E\u4F1A\u628A\u8FD9\u4E00\u5757\uFF08\u8FDE\u540C\u5B50\u5757\uFF09\u539F\u6837\u53D1\u8FC7\u53BB\uFF0C\u8FD9\u91CC\u7684\u5185\u5BB9\u52A0\u5728\u524D\u540E\u3002"));
     const pre = prompt.createDiv({ cls: "ad-field" });
     pre.createDiv({ cls: "ad-field__label", text: t("\u524D\u7F00") });
@@ -9445,7 +9858,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
         s.path = notePath(v);
         p.saveSettings();
       } catch (e) {
-        new import_obsidian3.Notice(e.message);
+        new import_obsidian4.Notice(e.message);
       }
     }, "ad-input--wide");
     if (companionInstalled(p.app)) {
@@ -9484,7 +9897,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
         c.path = v.trim() ? externalMemoryPath(v) : "";
         p.saveSettings();
       } catch (e) {
-        new import_obsidian3.Notice(e.message);
+        new import_obsidian4.Notice(e.message);
       }
     }, "ad-input--wide");
     const interval = this.row(shared, t("\u5B9A\u671F\u540C\u6B65\u95F4\u9694\uFF08\u5C0F\u65F6\uFF09"), t("1\u2014168 \u5C0F\u65F6\u3002\u5176\u4ED6 Agent \u8BFB\u53D6\u672C\u5730\u5171\u4EAB\u6587\u4EF6\uFF0C\u6216\u62C9\u53D6\u4ED3\u5E93\u4E2D\u7684\u8FD9\u4E2A\u6587\u4EF6\u3002"), null);
@@ -9720,7 +10133,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
     const more = right.createEl("button", { cls: "ad-morebtn", text: "\u22EF" });
     more.onclick = (e) => {
       e.stopPropagation();
-      const menu = new import_obsidian3.Menu();
+      const menu = new import_obsidian4.Menu();
       menu.addItem((it) => it.setTitle(pinned ? "Unpin" : "Pin").setIcon(pinned ? "pin-off" : "pin").onClick(() => {
         const i = d.pinned.indexOf(m.id);
         if (pinned && i >= 0) d.pinned.splice(i, 1);
@@ -9824,7 +10237,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       if (effort) p.settings.delegate[agent].effort = effort;
     }
     p.saveSettings();
-    new import_obsidian3.Notice(t("Models \u5DF2\u4FDD\u5B58"));
+    new import_obsidian4.Notice(t("Models \u5DF2\u4FDD\u5B58"));
     this.display();
   }
   // ---------- Tracking ----------
@@ -9849,6 +10262,54 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       s.fullHistoryDays = v;
       p.saveSettings();
       p.scanNow(true);
+    });
+    const layoutCard = this.card(body, t("\u6574\u7406\u65E5\u5FD7\u6A21\u677F"), t("\u8BBE\u7F6E\u5206\u533A\u6807\u9898\u548C\u987A\u5E8F\uFF0C\u4E0B\u6B21\u70B9\u51FB\u300C\u6574\u7406\u65E5\u5FD7\u300D\u65F6\u5E94\u7528\u3002\u4EFB\u52A1\u3001\u95EE\u7B54\u548C\u624B\u5199\u5185\u5BB9\u6574\u5757\u4FDD\u7559\u3002"));
+    const suggest = this.row(layoutCard, t("\u65E5\u5FD7\u6742\u4E71\u65F6\u63D0\u9192\u6574\u7406"), t("\u9996\u6B21\u53D1\u73B0 4 \u6761\u6563\u843D\u7684 AI \u4EFB\u52A1\u8BB0\u5F55\u65F6\u63D0\u9192\uFF0C\u4E4B\u540E\u6BCF\u65B0\u589E 4 \u6761\u518D\u63D0\u9192\uFF1B\u6BCF\u5929\u603B\u5171\u6700\u591A 2 \u6B21\uFF0C\u7D2F\u8BA1\u8FDB\u5EA6\u8DE8\u65E5\u4FDD\u7559\u3002"), null);
+    this.toggle(suggest.querySelector(":scope > .ad-row__right"), s.organizeJournalSuggest !== false, (v) => {
+      s.organizeJournalSuggest = v;
+      p.saveSettings();
+    });
+    const templateRow = this.row(layoutCard, t("\u6574\u7406\u6A21\u677F"), t("\u9ED8\u8BA4\u8DDF\u968F\u754C\u9762\u8BED\u8A00\uFF0C\u4E5F\u53EF\u9009\u62E9\u4E2D\u6587\u3001\u82F1\u6587\u6216\u81EA\u5B9A\u4E49\u3002\u5207\u6362\u540E\uFF0C\u4E0B\u6B21\u6574\u7406\u65F6\u5E94\u7528\u3002"), null);
+    const template = templateRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
+    for (const [value, label] of [["auto", t("\u8DDF\u968F\u754C\u9762\uFF08\u9ED8\u8BA4\uFF09")], ["zh", t("\u4E2D\u6587\u6A21\u677F")], ["en", "English template"], ["custom", t("\u81EA\u5B9A\u4E49\u6A21\u677F")]]) template.createEl("option", { text: label, attr: { value } });
+    template.value = s.journalLayout ? "custom" : s.journalLayoutLanguage || "auto";
+    template.onchange = () => {
+      if (template.value === "custom") s.journalLayout = builtinJournalLayout(s.journalLayoutLanguage === "auto" ? currentLanguage() : s.journalLayoutLanguage || currentLanguage());
+      else {
+        s.journalLayout = null;
+        s.journalLayoutLanguage = template.value;
+      }
+      p.saveSettings();
+      this.display();
+    };
+    if (s.journalLayout) {
+      const names = { done: t("\u5DF2\u5B8C\u6210"), active: t("\u8FDB\u884C\u4E2D"), notes: t("\u624B\u5199\u5185\u5BB9") };
+      const orderRow = this.row(layoutCard, t("\u5206\u533A\u987A\u5E8F"), "", null);
+      const order2 = orderRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
+      for (const keys of [["done", "active", "notes"], ["active", "done", "notes"], ["notes", "done", "active"], ["notes", "active", "done"], ["done", "notes", "active"], ["active", "notes", "done"]]) order2.createEl("option", { text: keys.map((key) => names[key]).join(" \u2192 "), attr: { value: keys.join(",") } });
+      order2.value = s.journalLayout.order.join(",");
+      order2.onchange = () => {
+        s.journalLayout = journalLayout({ ...s.journalLayout, order: order2.value.split(",") });
+        p.saveSettings();
+      };
+      for (const key of JOURNAL_LAYOUT_DEFAULT.order) {
+        const row = this.row(layoutCard, t("{section}\u6807\u9898", { section: names[key] }), key === "notes" ? t("\u7559\u7A7A\u5219\u4E0D\u6DFB\u52A0\u6807\u9898\uFF0C\u4FDD\u7559\u624B\u5199\u5185\u5BB9\u539F\u6709\u6807\u9898\u3002") : "", null);
+        const input = this.textInput(row.querySelector(":scope > .ad-row__right"), s.journalLayout.titles[key], names[key], (value) => {
+          try {
+            s.journalLayout = journalLayout({ ...s.journalLayout, titles: { ...s.journalLayout.titles, [key]: value } });
+            p.saveSettings();
+          } catch (error) {
+            input.value = s.journalLayout.titles[key];
+            new import_obsidian4.Notice(error.message);
+          }
+        });
+      }
+    }
+    this.bigButton(layoutCard.createDiv({ cls: "ad-btnrow" }), t("\u6062\u590D\u9ED8\u8BA4\u6574\u7406\u6A21\u677F"), () => {
+      s.journalLayout = null;
+      s.journalLayoutLanguage = "auto";
+      p.saveSettings();
+      this.display();
     });
     const desk = this.card(body, t("Claude \u684C\u9762\u7248"), t("\u684C\u9762\u7248\u7ED9\u6BCF\u4E2A\u4F1A\u8BDD\u5B58\u4E00\u4EFD\u6E05\u5355\uFF08claude-code-sessions/<\u8D26\u53F7>/<\u7EC4\u7EC7>/local_*.json\uFF09\u3002\u4FA7\u680F\u91CC\u770B\u7740\u540C\u7EA7\u3001\u5176\u5B9E\u662F\u300C\u4ECE\u67D0\u4E2A\u4F1A\u8BDD\u5F00\u51FA\u6765\u300D\u7684 side chat\uFF0C\u53EA\u6709\u8FD9\u4EFD\u6E05\u5355\u91CC\u7684 spawnedFrom \u8BB0\u5F97\uFF1B\u7EC8\u7AEF\u91CC\u7684 claude \u6CA1\u6709\u8FD9\u4E00\u9879\u3002"));
     const d1 = this.row(desk, t("\u8BC6\u522B side chat \u548C\u6BCD\u5B50\u5173\u7CFB"), t("\u5B50\u4F1A\u8BDD\u5728\u9762\u677F\u91CC\u7F29\u8FDB\uFF0C\u6807\u51FA\u4ECE\u54EA\u4E2A\u4F1A\u8BDD\u5F00\u51FA\uFF1B\u987A\u624B\u770B\u6709\u54EA\u4E9B\u4F1A\u8BDD\u6B63\u5F00\u7740 side chat\u3002"), null);
@@ -9923,7 +10384,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
         s.doneArchivePath = archivePath(v);
         p.saveSettings();
       } catch (e) {
-        new import_obsidian3.Notice(e.message);
+        new import_obsidian4.Notice(e.message);
       }
     }, "ad-input--wide");
     const order = this.row(jr, t("\u5F52\u6863\u987A\u5E8F"), t("\u63D2\u5230\u5F00\u5934\u65F6\uFF0C\u65B0\u7684\u5F52\u6863\u5185\u5BB9\u653E\u5728\u6807\u9898\u4E0B\u9762\u3001\u65E7\u5185\u5BB9\u4E0A\u9762\uFF1B\u8FFD\u52A0\u65F6\u653E\u5230\u6587\u4EF6\u672B\u5C3E\u3002\u540C\u4E00\u65E5\u671F\u5DF2\u6709\u5185\u5BB9\u65F6\u4FDD\u6301\u539F\u4F4D\u7F6E\uFF0C\u53EA\u6309\u8F6E\u6570\u91CD\u6392\u3002"), null);
@@ -9953,7 +10414,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       p.saveSettings();
       this.display();
     });
-    const rmode = this.row(jr, t("AI \u8BB0\u5F55\u663E\u793A\u65B9\u5F0F"), t("\u53EA\u63A7\u5236\u663E\u793A\uFF0C\u4E0D\u6539\u7B14\u8BB0\u91CC\u7684\u8BB0\u5F55\u3002\u9ED8\u8BA4\u6700\u65B0\u4E00\u6761\uFF0C\u53EF\u9009\u6700\u8FD1\u4E09\u6761\u3001\u4E94\u6761 AI \u7ED3\u8BBA\uFF1B\u63D0\u95EE\u3001\u94FE\u63A5\u3001\u7528\u65F6\u4E0E\u6B65\u9AA4\u5728\u5C55\u5F00\u540E\u663E\u793A\u3002\u70B9\u300C\u66F4\u591A\u300D\u67E5\u770B\u5DF2\u4FDD\u5B58\u7684\u5386\u53F2\uFF0C\u624B\u52A8\u5F00\u5408\u4F1A\u8BB0\u4F4F\u3002\u5DF2\u5B8C\u6210\u4EFB\u52A1\u9075\u5FAA\u540C\u4E00\u89C4\u5219\uFF1B\u5386\u53F2\u591A\u5C11\u7531\u8BB0\u5F55\u9897\u7C92\u5EA6\u51B3\u5B9A\u3002"), null);
+    const rmode = this.row(jr, t("AI \u8BB0\u5F55\u663E\u793A\u65B9\u5F0F"), t("\u9ED8\u8BA4\u663E\u793A\u6700\u65B0\u4E00\u6761 AI \u7ED3\u8BBA\uFF0C\u53EF\u9009\u4E09\u6761\u6216\u4E94\u6761\u3002\u70B9\u300C\u66F4\u591A\u300D\u5C55\u5F00\u5386\u53F2\uFF0C\u4E0D\u5F71\u54CD\u5DF2\u4FDD\u5B58\u7684\u8BB0\u5F55\u3002"), null);
     this.segmented(rmode.querySelector(":scope > .ad-row__right"), [
       { id: "collapsed", label: t("\u9ED8\u8BA4\u6298\u53E0") },
       { id: "expanded", label: t("\u9ED8\u8BA4\u5C55\u5F00") },
@@ -10145,7 +10606,7 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
       s.menuBarHotkey = hotkeySpecFromEvent(event, key);
       p.saveSettings();
       p.menubar?.update(true);
-      new import_obsidian3.Notice(t("\u83DC\u5355\u680F\u5FEB\u6377\u952E\u5DF2\u4FDD\u5B58\uFF0C\u7EA6 2 \u79D2\u5185\u751F\u6548"));
+      new import_obsidian4.Notice(t("\u83DC\u5355\u680F\u5FEB\u6377\u952E\u5DF2\u4FDD\u5B58\uFF0C\u7EA6 2 \u79D2\u5185\u751F\u6548"));
       hkInput.value = hotkeyDisplay(s.menuBarHotkey);
       hkInput.classList.remove("is-capturing");
       hkInput.blur();
@@ -10217,31 +10678,50 @@ var AgentDeckSettingsTab = class extends import_obsidian3.PluginSettingTab {
   // ---------- About ----------
   renderAbout(body) {
     const p = this.plugin;
-    const c = this.card(body, "Agent Deck", t("\u667A\u80FD\u4F53\u7532\u677F \xB7 \u5728 Obsidian \u91CC\u8FFD\u8E2A\u548C\u59D4\u6D3E AI Agent\u3002"));
-    c.createDiv({ cls: "ad-about-p", text: t("\u8BFB\u672C\u673A Claude Code\u3001Codex\u3001WorkBuddy\u3001DeepSeek Harness \u7684\u4F1A\u8BDD\u65E5\u5FD7\uFF0C\u5728\u9762\u677F\u91CC\u770B\u8C01\u5728\u8DD1\u3001\u8C01\u5728\u7B49\u4F60\uFF1B\u4ECE\u7B14\u8BB0\u91CC\u6D3E\u6D3B\uFF0C\u8FDB\u5EA6\u548C\u7ED3\u679C\u5199\u56DE\u7B14\u8BB0\u3002\u600E\u4E48\u64CD\u4F5C\uFF1A") });
-    const list = c.createDiv({ cls: "ad-about-list" });
+    const intro = this.card(body, "Agent Deck", t("\u5728 Obsidian \u91CC\u8FFD\u8E2A\u4F1A\u8BDD\u3001\u59D4\u6D3E\u4EFB\u52A1\u3001\u4FDD\u5B58 AI \u5DE5\u4F5C\u8BB0\u5F55\u3002"));
+    intro.addClass("ad-about-intro");
+    const agents = intro.createDiv({ cls: "ad-about-agents" });
+    for (const id of AGENT_ORDER) {
+      const agent = agents.createDiv({ cls: "ad-about-agent" });
+      agentIcon(agent.createSpan({ cls: "ad-glyph" }), id);
+      agent.createSpan({ text: AGENTS[id].name });
+    }
+    const guide = this.card(body, t("\u5E38\u7528\u64CD\u4F5C"));
+    const rows = [
+      [t("\u7BA1\u7406\u4FA7\u8FB9\u680F"), t("Agents \u53F3\u4E0A\u89D2\u300C\u7BA1\u7406\u300D\u53EF\u6DFB\u52A0\u3001\u79FB\u9664\u548C\u7F6E\u9876\u3002\u7F6E\u9876\u7684\u5148\u663E\u793A\uFF0C\u5176\u4F59\u8FD0\u884C\u4E2D\u7684\u4F18\u5148\uFF1B\u540C\u7EA7\u53EF\u62D6\u52A8\u5DE6\u4FA7\u628A\u624B\u6216\u7528\u65B9\u5411\u952E\u6392\u5E8F\u3002\u7F6E\u9876\u4E0E\u4E3B\u529B\u661F\u6807\u5206\u522B\u8BBE\u7F6E\u3002")],
+      [t("\u67E5\u770B\u4E0E\u626B\u63CF"), t("\u70B9\u4F1A\u8BDD\u5361\u7247\u6253\u5F00\u4F1A\u8BDD\uFF1B\u70B9 Agent \u56FE\u6807\u6253\u5F00\u5BA2\u6237\u7AEF\u3002\u5361\u7247\u5185\u300C\u626B\u63CF\u300D\u9ED8\u8BA4\u8BFB\u53D6\u8BE5 Agent \u6700\u8FD1 7 \u5929\u6709\u66F4\u65B0\u7684\u4F1A\u8BDD\uFF0C\u5DF2\u6709\u5386\u53F2\u4FDD\u7559\u3002")],
+      [t("\u4ECE\u7B14\u8BB0\u59D4\u6D3E"), t("\u628A\u5217\u8868\u9879\u884C\u5C3E\u7684\u628A\u624B\u6216\u9009\u4E2D\u6587\u5B57\u62D6\u5230 Agent \u5361\u7247\u4E0A\uFF1B\u4E5F\u53EF\u70B9\u51FB\u884C\u5C3E\u628A\u624B\u786E\u8BA4\u53D1\u9001\u3002\u5177\u4F53\u6267\u884C\u65B9\u5F0F\u5728\u300C\u59D4\u6D3E\u300D\u4E2D\u8BBE\u7F6E\u3002")],
+      [t("\u7ED1\u5B9A\u5DF2\u6709\u4F1A\u8BDD"), t("\u628A\u4F1A\u8BDD\u5361\u7247\u62D6\u5230\u7B14\u8BB0\u5217\u8868\u9879\uFF0C\u6216\u628A\u7B14\u8BB0\u5217\u8868\u9879\u62D6\u5230\u4F1A\u8BDD\u5361\u7247\uFF0C\u7ED1\u5B9A\u540E\u53EF\u4ECE\u7B14\u8BB0\u7EE7\u7EED\u6253\u5F00\u4F1A\u8BDD\u3002")],
+      [t("\u4FDD\u5B58\u5DE5\u4F5C\u8BB0\u5F55"), t("\u5728\u300C\u8FFD\u8E2A\u300D\u4E2D\u5F00\u542F\u81EA\u52A8\u8BB0\u5F55\uFF0C\u6309\u7B80\u7565\u3001\u6807\u51C6\u6216\u8BE6\u7EC6\u4FDD\u5B58\u540E\u7EED\u95EE\u7B54\uFF1B\u300CDreaming\u300D\u53EF\u5C06\u8BB0\u5F55\u6574\u7406\u4E3A\u957F\u671F\u8BB0\u5FC6\u3002")]
+    ];
+    for (const [title, text] of rows) {
+      const row = guide.createDiv({ cls: "ad-about-guide" });
+      row.createDiv({ cls: "ad-about-guide__title", text: title });
+      row.createDiv({ cls: "ad-about-guide__text", text });
+    }
+    const more = guide.createEl("details", { cls: "ad-about-details" });
+    more.createEl("summary", { text: t("\u66F4\u591A\u62D6\u653E\u4E0E\u8FDB\u5EA6\u64CD\u4F5C") });
+    const list = more.createDiv({ cls: "ad-about-list" });
     for (const line of [
       t("\u70B9\u4F1A\u8BDD\u5361\u7247\uFF1A\u6253\u5F00\u8FD9\u4E2A\u4F1A\u8BDD\u3002\u70B9 Agent \u5361\u7247\u4E0A\u7684\u56FE\u6807\uFF1A\u628A\u5BA2\u6237\u7AEF\u53EB\u5230\u524D\u53F0\u3002\u2B50 \u8BBE\u4E3B\u529B\uFF08\u6700\u591A\u4E24\u4E2A\uFF0C\u5168\u90E8\u5386\u53F2\u90FD\u8BFB\uFF09\u3002"),
       t("\u4F1A\u8BDD\u5361\u7247\u62D6\u5230\u7B14\u8BB0\u91CC\u6709\u5B57\u7684\u4E00\u9879\u4E0A\uFF1A\u7ED1\u5B9A\uFF08\u539F\u6587\u4E0D\u52A8\uFF0C\u4E0B\u9762\u5199 \u{1F517}\uFF09\uFF1B\u62D6\u5230\u7A7A\u884C\u6216\u7A7A\u7684\u5217\u8868\u9879\u4E0A\uFF1A\u5728\u90A3\u513F\u65B0\u5EFA\u4E00\u9879\u5E76\u7ED1\u4E0A\u3002\u6309\u4F4F \u2318 \u62D6\uFF1A\u5728\u8FD9\u4E00\u9879\u4E0B\u9762\u65B0\u5EFA\u3002"),
-      t("\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\uFF08\u5149\u6807\u884C\u5C3E\u5DF4\u4E0A\u7684\u628A\u624B \u283F\uFF0C\u6216\u9009\u4E2D\u6587\u5B57\uFF09\u62D6\u5230 Agent \u5361\u7247\u4E0A\uFF1A\u59D4\u6D3E\u3002Claude Code / DeepSeek Harness \u540E\u53F0\u8DD1\uFF1BCodex / WorkBuddy \u590D\u5236\u4EFB\u52A1\u3001\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u4F60\u53D1\u51FA\u540E\u81EA\u52A8\u7ED1\u56DE\u3002"),
       t("\u6309\u4F4F \u2318 \u62D6\u5230 Claude Code / Codex \u4E0A\uFF1A\u5728\u4E3B\u529B\u7EC8\u7AEF\u91CC\u65B0\u5F00\u6807\u7B7E\u8DD1\u4EA4\u4E92\u5F0F\u4F1A\u8BDD\uFF0C\u4EFB\u52A1\u76F4\u63A5\u53D1\u51FA\u53BB\u3002"),
       t("Agent \u8BB0\u7684\u6761\u76EE\uFF08\u{1F916}\uFF09\u3001\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\u7684\u3001\u6709 \u23F1 \u8BB0\u5F55\u7684\u4E0D\u4F1A\u518D\u59D4\u6D3E\u3002"),
       t("\u7B14\u8BB0\u91CC\u7684\u4E00\u9879\u62D6\u5230\u9762\u677F\u7684\u4F1A\u8BDD\u5361\u7247\u4E0A\uFF1A\u628A\u8FD9\u4E2A\u4F1A\u8BDD\u7ED1\u7ED9\u5B83\u3002\u5728\u5BA2\u6237\u7AEF\u91CC\u5F52\u6863\u4F1A\u8BDD\uFF1A\u8FD9\u4E00\u9879\u8BB0 DONE + \u23F1\u3002"),
       t("\u884C\u5C3E pill \u662F\u8FDB\u5EA6\uFF1A\u59D4\u6D3E\u4E2D\u53EF\u4EE5 \xD7 \u53D6\u6D88\uFF0C\u51FA\u9519\u53EF\u4EE5\u91CD\u8BD5\u3002\u548C\u87BA\u65CB\u65E5\u7A0B\u4E00\u8D77\u7528\u65F6\uFF0Cpill \u8BA9\u7ED9\u87BA\u65CB\u7684\u8FDB\u5EA6\u884C\uFF0C\u70B9\u8FDB\u5EA6\u884C\u6253\u5F00\u4F1A\u8BDD\u3002")
     ]) {
-      const r = list.createDiv({ cls: "ad-about-li" });
-      r.createSpan({ cls: "ad-about-dot", text: "\xB7" });
-      r.createSpan({ text: line });
+      list.createEl("p", { cls: "ad-about-p", text: line });
     }
+    const c = this.card(body, t("\u7248\u672C\u4E0E\u652F\u6301"));
     const meta = c.createDiv({ cls: "ad-about-meta" });
     meta.createDiv({ text: t("\u7248\u672C {version} \xB7 MIT License", { version: p.manifest.version }) });
     meta.createDiv({ text: t("\u4ECE Nautilus Spiral\uFF08\u87BA\u65CB\u65E5\u7A0B\uFF09\u7684 AI \u8FFD\u8E2A\u90E8\u5206\u62C6\u51FA\uFF1B\u4EA4\u4E92\u53C2\u8003\u4E86\u5C0F\u7EA2\u4E66 @ZZ.X \u7684\u4E24\u6761\u5E16\u5B50\u3002") });
     const btns = c.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, t("\u6253\u5F00 GitHub \u4ED3\u5E93"), () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));
     this.bigButton(btns, t("\u590D\u5236\u8C03\u8BD5\u4FE1\u606F"), async () => {
-      const text = JSON.stringify({ version: "1.0.2", settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
+      const text = JSON.stringify({ version: p.manifest.version, settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
       await navigator.clipboard.writeText(text);
-      new import_obsidian3.Notice(t("\u8C03\u8BD5\u4FE1\u606F\u5DF2\u590D\u5236"));
+      new import_obsidian4.Notice(t("\u8C03\u8BD5\u4FE1\u606F\u5DF2\u590D\u5236"));
     });
   }
 };
@@ -10250,7 +10730,7 @@ function strength(n, dots = false) {
   if (dots) return "\u25CF".repeat(n) + "\u25CB".repeat(5 - n);
   return ["", "Very light", "Light", "Balanced", "Strong", "Deepest"][n] || "Balanced";
 }
-var AddModelModal = class extends import_obsidian3.Modal {
+var AddModelModal = class extends import_obsidian4.Modal {
   constructor(app, plugin, onAdd, existing = null) {
     super(app);
     this.plugin = plugin;
@@ -10317,7 +10797,7 @@ var AddModelModal = class extends import_obsidian3.Modal {
     const add = bar.createEl("button", { cls: "ad-btn ad-btn--cta", text: "Add" });
     add.onclick = () => {
       const name = this.name.trim() || this.model.trim();
-      if (!name || !this.model.trim()) return new import_obsidian3.Notice(t("\u663E\u793A\u540D\u548C model \u81F3\u5C11\u586B\u4E00\u4E2A"));
+      if (!name || !this.model.trim()) return new import_obsidian4.Notice(t("\u663E\u793A\u540D\u548C model \u81F3\u5C11\u586B\u4E00\u4E2A"));
       const id = this.existing?.id || `custom-${this.agent}-${Date.now().toString(36)}`;
       const m = {
         id,
@@ -10346,8 +10826,8 @@ var AddModelModal = class extends import_obsidian3.Modal {
 };
 
 // src/dialog.js
-var import_obsidian4 = require("obsidian");
-var DelegateOptionsModal = class extends import_obsidian4.Modal {
+var import_obsidian5 = require("obsidian");
+var DelegateOptionsModal = class extends import_obsidian5.Modal {
   constructor(app, plugin, path7, line) {
     super(app);
     this.plugin = plugin;
@@ -10387,7 +10867,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
       this.model = selected.model || this.plugin.defaultModel(this.agent);
       this.effort = selected.effort || this.plugin.settings.delegate[this.agent]?.effort || "high";
     } catch (e) {
-      new import_obsidian4.Notice(e.message);
+      new import_obsidian5.Notice(e.message);
       this.close();
       return;
     }
@@ -10452,7 +10932,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
           await p.refreshAcpModels(this.agent);
           this.render();
         } catch (e) {
-          new import_obsidian4.Notice(e.message);
+          new import_obsidian5.Notice(e.message);
           refresh.disabled = false;
         }
       };
@@ -10551,7 +11031,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
         go.removeAttribute("disabled");
         setLucide(goIcon, "send");
         label.textContent = "Delegate";
-        new import_obsidian4.Notice(String(e.message || e), 6e3);
+        new import_obsidian5.Notice(String(e.message || e), 6e3);
       }
     };
   }
@@ -10559,7 +11039,7 @@ var DelegateOptionsModal = class extends import_obsidian4.Modal {
     this.contentEl.empty();
   }
 };
-var ConfirmSendModal = class extends import_obsidian4.Modal {
+var ConfirmSendModal = class extends import_obsidian5.Modal {
   constructor(app, { agent, text, path: path7, where, destination, newSession = false, context = [] }, onSend) {
     super(app);
     this.agent = agent;
@@ -10641,7 +11121,7 @@ function destinationPicker(parent, agent, value, onChange) {
   select.onchange = update;
   update();
 }
-var ArchiveTargetModal = class extends import_obsidian4.Modal {
+var ArchiveTargetModal = class extends import_obsidian5.Modal {
   constructor(app, plugin, file, base, plan) {
     super(app);
     this.plugin = plugin;
@@ -12665,7 +13145,7 @@ var MenuBarBridge = class {
 };
 
 // src/fold-integration.js
-var import_obsidian5 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 var import_language2 = require("@codemirror/language");
 
 // src/fold-actions.js
@@ -12690,7 +13170,7 @@ function integrateRecordFolding(plugin) {
     if (!command?.checkCallback) continue;
     const original = command.checkCallback;
     const wrapped = function(checking) {
-      const view = plugin.app.workspace.getActiveViewOfType(import_obsidian5.MarkdownView);
+      const view = plugin.app.workspace.getActiveViewOfType(import_obsidian6.MarkdownView);
       const cm = view?.editor?.cm;
       const value = cm?.state.field(plugin.aiRecordDisplayField, false);
       if (!value) return original.apply(this, arguments);
@@ -12729,7 +13209,7 @@ function integrateRecordFolding(plugin) {
 }
 
 // src/autolog.js
-var import_obsidian6 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 var agentName = (id) => AGENTS[id]?.short || id;
 var num = (v, d) => Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d;
 var AutoLog = class {
@@ -12772,7 +13252,7 @@ var AutoLog = class {
     let view = null;
     this.p.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!view && v instanceof import_obsidian6.MarkdownView && v.file && v.file.path === file.path && v.getMode && v.getMode() === "source") view = v;
+      if (!view && v instanceof import_obsidian7.MarkdownView && v.file && v.file.path === file.path && v.getMode && v.getMode() === "source") view = v;
     });
     return view;
   }
@@ -12801,6 +13281,14 @@ var AutoLog = class {
   // 新写一块：AI 区域在的时候一定写进区域里；还没有区域才交给「任务归位」按它的分区放
   placeBlock(text, blockLines) {
     const block = blockLines.join("\n");
+    const custom = readJournalLayout(text);
+    if (custom) {
+      const crlf = /\r\n/.test(text);
+      const lines = text.replace(/\r\n/g, "\n").split("\n");
+      lines.splice(custom.sections.active.end, 0, block);
+      const next = lines.join("\n");
+      return crlf ? next.replace(/\n/g, "\r\n") : next;
+    }
     const at = planJournal(text).insertAt;
     if (at != null) {
       const lines = text.split("\n");
@@ -13255,7 +13743,7 @@ ${framed}
       sec(t("\u{1F4CC} \u8BB0\u4E86\u8981\u4F60\u505A\u7684"), d.todo)
     ].filter(Boolean);
     if (!parts.length) return;
-    new import_obsidian6.Notice(t("\u{1F916} \u6574\u7406\u4E86\u65E5\u8BB0") + "\n" + parts.join("\n\n"), 9e3);
+    new import_obsidian7.Notice(t("\u{1F916} \u6574\u7406\u4E86\u65E5\u8BB0") + "\n" + parts.join("\n\n"), 9e3);
   }
   // 手动整理：一轮最多问 autoLogBatch 个，接着问到问完
   async logNow() {
@@ -13269,7 +13757,7 @@ ${framed}
     }
     this._at = Date.now();
     const msg = error && !changes.length ? t("\u6CA1\u6574\u7406\u6210\uFF1A{error}", { error }) : changes.length ? t("\u6574\u7406\u8FDB\u65E5\u8BB0\u4E86\uFF1A") + "\n" + changes.join("\n") + (error ? "\n" + t("\uFF08\u6A21\u578B\u6CA1\u95EE\u5230\uFF0C\u65B0\u4F1A\u8BDD\u5148\u7528\u5B83\u81EA\u5DF1\u7684\u6807\u9898\u8BB0\u7684\uFF1A{error}\uFF09", { error }) : "") : t("\u6CA1\u6709\u8981\u6539\u7684\uFF1A\u4F1A\u8BDD\u90FD\u5DF2\u7ECF\u8BB0\u8FC7\u4E86\uFF0C\u6216\u8005\u8FD8\u592A\u77ED\uFF08\u4E0D\u5230 {min} \u5206\u949F\uFF09", { min: this.minMinutes });
-    new import_obsidian6.Notice(msg, 9e3);
+    new import_obsidian7.Notice(msg, 9e3);
     this.p.refreshUI();
     return { changes, error };
   }
@@ -13286,7 +13774,7 @@ ${framed}
 };
 
 // src/sync.js
-var import_obsidian7 = require("obsidian");
+var import_obsidian8 = require("obsidian");
 var STATE_KW2 = STATE_KW;
 var JournalSync = class {
   constructor(plugin) {
@@ -13322,7 +13810,7 @@ var JournalSync = class {
     const out = [];
     this.p.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (v instanceof import_obsidian7.MarkdownView && v.file && v.editor && v.editor.cm) {
+      if (v instanceof import_obsidian8.MarkdownView && v.file && v.editor && v.editor.cm) {
         try {
           const doc = v.editor.cm.state.doc.toString();
           if (doc.includes("\u{1F517}") || /\s\^ad-[0-9a-z]{6}/i.test(doc)) out.push(v);
@@ -13894,7 +14382,7 @@ var JournalSync = class {
 };
 
 // src/conversation-modal.js
-var import_obsidian8 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 
 // src/conversation.js
 var import_fs6 = __toESM(require("fs"), 1);
@@ -14039,7 +14527,7 @@ async function linkArchive(plugin, session, archivePath2) {
 }
 
 // src/conversation-modal.js
-var ConversationModal = class extends import_obsidian8.Modal {
+var ConversationModal = class extends import_obsidian9.Modal {
   constructor(app, plugin, session) {
     super(app);
     this.plugin = plugin;
@@ -14060,9 +14548,9 @@ var ConversationModal = class extends import_obsidian8.Modal {
       try {
         const file = await archiveConversation(this.plugin, this.session);
         await this.app.workspace.getLeaf(false).openFile(file);
-        new import_obsidian8.Notice(t("\u5DF2\u5F52\u6863\uFF1A{path}", { path: file.path }));
+        new import_obsidian9.Notice(t("\u5DF2\u5F52\u6863\uFF1A{path}", { path: file.path }));
       } catch (e) {
-        new import_obsidian8.Notice(e.message);
+        new import_obsidian9.Notice(e.message);
       } finally {
         archive.disabled = false;
       }
@@ -14087,7 +14575,7 @@ var ConversationModal = class extends import_obsidian8.Modal {
           this.input.value = "";
           await this.load();
         } catch (e) {
-          new import_obsidian8.Notice(e.message);
+          new import_obsidian9.Notice(e.message);
         } finally {
           this.send.disabled = false;
         }
@@ -14120,14 +14608,14 @@ var ConversationModal = class extends import_obsidian8.Modal {
       if (this.closed || signature === this.signature) return;
       this.signature = signature;
       this.renderComponent?.unload();
-      this.renderComponent = new import_obsidian8.Component();
+      this.renderComponent = new import_obsidian9.Component();
       this.renderComponent.load();
       this.messagesEl.empty();
       if (!messages.length) this.messagesEl.createDiv({ text: t("\u6682\u672A\u8BFB\u5230\u6B63\u6587\u3002\u53EF\u5148\u626B\u63CF\u672C\u673A\u4F1A\u8BDD\uFF0C\u518D\u5237\u65B0\u3002") });
       for (const m of messages) {
         const item = this.messagesEl.createDiv({ cls: "ad-conversation__message" });
         item.createEl("h3", { text: m.role === "user" ? t("\u7528\u6237") : "Agent" });
-        await import_obsidian8.MarkdownRenderer.render(this.app, m.text, item.createDiv(), "", this.renderComponent);
+        await import_obsidian9.MarkdownRenderer.render(this.app, m.text, item.createDiv(), "", this.renderComponent);
         if (this.closed) return;
       }
       if (job?.state === "error") this.messagesEl.createDiv({ text: t("\u672C\u8F6E\u5931\u8D25\uFF1A{error}", { error: job.error }) });
@@ -14145,7 +14633,7 @@ var ConversationModal = class extends import_obsidian8.Modal {
     this.contentEl.empty();
   }
 };
-var AcpPermissionModal = class extends import_obsidian8.Modal {
+var AcpPermissionModal = class extends import_obsidian9.Modal {
   constructor(app, info, resolve) {
     super(app);
     this.info = info;
@@ -14176,8 +14664,8 @@ var AcpPermissionModal = class extends import_obsidian8.Modal {
 };
 
 // src/mention-suggest.js
-var import_obsidian9 = require("obsidian");
-var TaskAgentSuggest = class extends import_obsidian9.EditorSuggest {
+var import_obsidian10 = require("obsidian");
+var TaskAgentSuggest = class extends import_obsidian10.EditorSuggest {
   constructor(plugin) {
     super(plugin.app);
     this.plugin = plugin;
@@ -14233,7 +14721,7 @@ function registerTaskAgentSuggest(plugin) {
 }
 
 // src/task-status.js
-var import_obsidian10 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 var import_crypto6 = require("crypto");
 var STATUS_TOKEN = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)([A-Z][A-Z0-9_-]*)(?=\s|$)/;
 function replaceTaskStatus(raw, keyword) {
@@ -14314,9 +14802,9 @@ async function applyStatusChoice(plugin, target, keyword) {
 }
 async function statusMenu(plugin, target, position) {
   const text = await plugin.readNote(target.path), n = locateStatusTask(text, target);
-  if (n < 0) return new import_obsidian10.Notice(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
-  const suggested = suggestedStatus(plugin.settings, plugin.usage, text, n), menu = new import_obsidian10.Menu();
-  const choose = (keyword) => applyStatusChoice(plugin, target, keyword).catch((error) => new import_obsidian10.Notice(error.message));
+  if (n < 0) return new import_obsidian11.Notice(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
+  const suggested = suggestedStatus(plugin.settings, plugin.usage, text, n), menu = new import_obsidian11.Menu();
+  const choose = (keyword) => applyStatusChoice(plugin, target, keyword).catch((error) => new import_obsidian11.Notice(error.message));
   menu.addItem((item) => item.setTitle(isManualTask(plugin.settings, text.split("\n")[n]) ? t("\u4EBA\u5DE5\u7BA1\u7406\uFF1AAI \u4E0D\u8986\u76D6\u6B64\u4EFB\u52A1\u72B6\u6001") : suggested ? t("\u72B6\u6001\u7531\u4F1A\u8BDD\u81EA\u52A8\u540C\u6B65") : t("\u9009\u62E9\u4E00\u4E2A\u4EFB\u52A1\u72B6\u6001")).setDisabled(true));
   for (const keyword of ["TODO", "DOING", "PAUSED", "DONE", "CANCELED"]) menu.addItem((item) => item.setTitle(keyword).setChecked(keyword === target.keyword).onClick(() => choose(keyword)));
   const groups = [
@@ -14332,7 +14820,7 @@ async function statusMenu(plugin, target, position) {
     }
   }
   for (const [title, keywords] of groups) menu.addItem((item) => item.setTitle(title).onClick(() => {
-    const sub = new import_obsidian10.Menu();
+    const sub = new import_obsidian11.Menu();
     for (const kw of keywords) sub.addItem((i) => i.setTitle(kw).setChecked(kw === target.keyword).onClick(() => choose(kw)));
     sub.showAtPosition(position);
   }));
@@ -14380,7 +14868,7 @@ function registerTaskStatusMenu(plugin) {
     if (type !== "mousedown") {
       const rect = event.target.getBoundingClientRect?.();
       const position = { x: event.clientX ?? rect?.left ?? 0, y: event.clientY ?? rect?.bottom ?? 0 };
-      statusMenu(plugin, target, position).catch((error) => new import_obsidian10.Notice(error.message));
+      statusMenu(plugin, target, position).catch((error) => new import_obsidian11.Notice(error.message));
     }
   }, true);
 }
@@ -14388,7 +14876,7 @@ function registerTaskStatusMenu(plugin) {
 // src/main.js
 var fsp4 = import_fs7.default.promises;
 var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
-var AgentDeckPlugin = class extends import_obsidian11.Plugin {
+var AgentDeckPlugin = class extends import_obsidian12.Plugin {
   async onload() {
     const data = await this.loadData();
     this.settings = deepMerge(DEFAULTS, data || {});
@@ -14413,12 +14901,13 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     this.store = new UsageStore(this, this.settings);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
     this.usageCacheFile = import_path6.default.join(import_os6.default.homedir(), ".agent-deck", "usage-cache.json.gz");
-    this.editorInfoField = import_obsidian11.editorInfoField;
+    this.editorInfoField = import_obsidian12.editorInfoField;
     this.delegator = new Delegator(this);
     this.menubar = new MenuBarBridge(this);
     this.autoLog = new AutoLog(this);
     this.dreaming = new Dreaming(this);
     this.journalSync = new JournalSync(this);
+    this.journalOrganizer = new JournalOrganizer(this);
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
@@ -14426,7 +14915,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     registerTaskAgentSuggest(this);
     registerTaskStatusMenu(this);
     this.registerMarkdownPostProcessor((el, ctx) => {
-      const child = new import_obsidian11.MarkdownRenderChild(el);
+      const child = new import_obsidian12.MarkdownRenderChild(el);
       child.onunload = renderAIRecords(el, this, ctx);
       ctx.addChild(child);
     });
@@ -14627,7 +15116,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     const sec = clamp(Number(this.settings.pollSeconds) || 20, 5, 300);
     this._scanTimer = setInterval(() => this.scanNow(false), sec * 1e3);
   }
-  async scanNow(force = false) {
+  async scanNow(force = false, { agent = "", days = 0 } = {}) {
     await this._usageReady;
     if (this._unloaded) return;
     if (this._scanning) return;
@@ -14637,15 +15126,22 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
         this._painted = true;
         this.refreshUI();
       }
-      if (force) {
+      if (force && !agent && !days) {
         this.usage.files.clear();
         this.usage.meta.clear();
         this.usage.titles.clear();
         this.usage.lastScan = 0;
       }
-      const since = force ? 0 : Math.max(0, (this.usage.lastScan || 0) - 6e4);
-      const touched = await this.usage.scan({ since });
+      const since = days ? Date.now() - days * 864e5 : force ? 0 : Math.max(0, (this.usage.lastScan || 0) - 6e4);
+      const scoped = !!(agent && days);
+      const usage = scoped ? new AgentUsage({ cfg: this.settings, settings: { ...this.settings, primaryAgents: [agent] } }) : this.usage;
+      const touched = await usage.scan({ since, agent, strictSince: !!days });
       if (this._unloaded) return;
+      if (scoped) {
+        for (const key of ["files", "meta", "titles", "subs"]) for (const [id, value] of usage[key]) this.usage[key].set(id, value);
+        this.usage.errors = [...this.usage.errors, ...usage.errors].slice(-20);
+        this.usage.dirty = true;
+      }
       this.store.cfg = this.settings;
       this.store.merge(touched, this.usage);
       this.store.prune();
@@ -14653,7 +15149,8 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
       this.usage.maybeSaveCache(this.usageCacheFile);
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
-      if (force) new import_obsidian11.Notice(t("Agent Deck\uFF1A\u8BFB\u5230 {files} \u4E2A\u65E5\u5FD7\uFF0C{days} \u5929\u6709\u5185\u5BB9", { files: this.usage.files.size, days: touched.size }), 4e3);
+      if (force) new import_obsidian12.Notice(t("Agent Deck\uFF1A\u8BFB\u5230 {files} \u4E2A\u65E5\u5FD7\uFF0C{days} \u5929\u6709\u5185\u5BB9", { files: this.usage.files.size, days: touched.size }), 4e3);
+      if (agent && days) new import_obsidian12.Notice(t("{name}\uFF1A\u6700\u8FD1 {days} \u5929\u7684\u4F1A\u8BDD\u5DF2\u626B\u63CF", { name: AGENTS[agent].name, days }), 4e3);
     } catch (e) {
       console.error("[agent-deck] scan", e);
       this.notice(t("\u626B\u63CF\u4F1A\u8BDD\u5931\u8D25\uFF1A{error}", { error: e && e.message || e }), 8e3);
@@ -14669,7 +15166,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     this.usage.titles.clear();
     await this.store.save();
     await this.scanNow(true);
-    new import_obsidian11.Notice(t("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97"));
+    new import_obsidian12.Notice(t("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97"));
   }
   async importNautilus(manual = false) {
     const dir = import_path6.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
@@ -14677,14 +15174,14 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     try {
       raw = await fsp4.readFile(import_path6.default.join(dir, "ai-usage.json"), "utf8");
     } catch {
-      if (manual) new import_obsidian11.Notice(t("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json"));
+      if (manual) new import_obsidian12.Notice(t("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json"));
       return;
     }
     let src;
     try {
       src = JSON.parse(raw);
     } catch {
-      if (manual) new import_obsidian11.Notice(t("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25"));
+      if (manual) new import_obsidian12.Notice(t("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25"));
       return;
     }
     const days = src.days || {};
@@ -14702,7 +15199,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     }
     this.store.imported = { ...this.store.imported || {}, nautilus: Date.now() };
     await this.store.save();
-    if (manual || added) new import_obsidian11.Notice(t("Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 {days} \u5929\u5386\u53F2", { days: added }));
+    if (manual || added) new import_obsidian12.Notice(t("Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 {days} \u5929\u5386\u53F2", { days: added }));
     this.refreshUI();
   }
   recoverJobs() {
@@ -14810,12 +15307,12 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     await this.saveSettings();
     this.scanNow(true);
     this.refreshUI();
-    new import_obsidian11.Notice(t("Agent Deck \u4E3B\u529B\uFF1A{agents}", { agents: this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ") }));
+    new import_obsidian12.Notice(t("Agent Deck \u4E3B\u529B\uFF1A{agents}", { agents: this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ") }));
   }
   async setAgentEnabled(agent, on) {
     var _a;
     if (this.isPrimary(agent) && !on) {
-      new import_obsidian11.Notice(t("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389"));
+      new import_obsidian12.Notice(t("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389"));
       return;
     }
     ((_a = this.settings).agents || (_a.agents = {}))[agent] = !!on;
@@ -15090,7 +15587,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     let found = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!found && v instanceof import_obsidian11.MarkdownView && v.file && v.file.path === path7 && v.editor) found = v;
+      if (!found && v instanceof import_obsidian12.MarkdownView && v.file && v.file.path === path7 && v.editor) found = v;
     });
     return found;
   }
@@ -15099,7 +15596,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     let view = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!view && v instanceof import_obsidian11.MarkdownView && v.editor && v.editor.cm === cm) view = v;
+      if (!view && v instanceof import_obsidian12.MarkdownView && v.editor && v.editor.cm === cm) view = v;
     });
     if (!view || !data || !data.sid) return;
     const sid = data.sid;
@@ -15133,11 +15630,11 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
   }
   // 把笔记里的第 srcLine 条任务合并/绑定到第 dstLine 条任务上（不管是 🤖 自动记的还是人写的）
   mergeTaskLines(cmOrView, srcLine, dstLine, srcLineText = "") {
-    let view = cmOrView instanceof import_obsidian11.MarkdownView ? cmOrView : null;
+    let view = cmOrView instanceof import_obsidian12.MarkdownView ? cmOrView : null;
     if (!view) {
       this.app.workspace.iterateAllLeaves((leaf) => {
         const v = leaf.view;
-        if (!view && v instanceof import_obsidian11.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
+        if (!view && v instanceof import_obsidian12.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
       });
     }
     if (!view || !view.editor) return;
@@ -15191,7 +15688,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     }
     const candidates = taskItems(lines.join("\n")).filter((t2) => t2.line !== taskLine);
     if (!candidates.length) return this.notice(t("\u5F53\u524D\u7B14\u8BB0\u91CC\u6CA1\u6709\u522B\u7684\u4EFB\u52A1\u6761\u76EE\u53EF\u5408\u5E76"));
-    const menu = new import_obsidian11.Menu();
+    const menu = new import_obsidian12.Menu();
     for (const c of candidates.slice(0, 20)) {
       menu.addItem((mi) => {
         const tag = c.auto ? "\u{1F916} " : "";
@@ -15318,7 +15815,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     const lines = view.editor.getValue().split("\n"), block = blockAt(lines, line);
     if (!block) return;
     const sessions = this.sessionsAtTask(path7, line, lines);
-    const menu = new import_obsidian11.Menu();
+    const menu = new import_obsidian12.Menu();
     for (const [index, session] of sessions.entries()) {
       const title = `${AGENTS[session.agent]?.name || session.agent} \xB7 ${t("\u4F1A\u8BDD {n}", { n: index + 1 })}`;
       const inNote = ["dsh", "antigravity"].includes(session.agent) && (session.agent !== "antigravity" || session.transport === "acp");
@@ -15343,7 +15840,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     const current = this.viewForPath(item.path);
     if (current && this.sessionsAtTask(item.path, item.line, current.editor.getValue().split("\n")).length) return this.taskActions(item.path, item.line, e);
     const main = this.defaultTarget();
-    const menu = new import_obsidian11.Menu();
+    const menu = new import_obsidian12.Menu();
     for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x))) {
       menu.addItem((mi) => {
         mi.setTitle(AGENTS[id].name + (id === main ? " \xB7 " + t("\u4E3B\u529B") : ""));
@@ -15397,7 +15894,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
   async delegateAtLine(path7, line) {
     const file = this.app.vault.getAbstractFileByPath(path7);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian11.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian12.MarkdownView);
     const lines = view && view.file && view.file.path === path7 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     return this.delegateDrop(this.defaultTarget(), { path: path7, line, lineText: lines[line] });
   }
@@ -15423,7 +15920,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     const turns = new Map(Object.entries(this.settings.archiveTaskTurns || {}));
     for (const [sid, meta] of this.usage.meta) turns.set(sid, Math.max(meta.turns || 0, meta.rounds?.length || 0));
     for (const job of Object.values(this.jobs)) if (job.sessionId) turns.set(job.sessionId, Math.max(turns.get(job.sessionId) || 0, job.conversation?.filter((m) => m.role === "user").length || 0));
-    return planJournal(base, { tracked, archived: this.autoLog.archived(), turns });
+    return planJournal(base, { tracked, archived: this.autoLog.archived(), turns, layout: configuredJournalLayout(this.settings) });
   }
   async writeJournal(file, base, next) {
     const view = this.viewForPath(file.path);
@@ -15437,8 +15934,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
   }
   // Rebuild the journal: finished tasks on top, a rule, the unfinished AI log,
   // another rule, then the user's own notes.
-  async organizeJournal() {
-    const file = this.journalTarget();
+  async organizeJournal(file = this.journalTarget()) {
     if (!file) return this.notice(t("\u8BF7\u5148\u6253\u5F00\u65E5\u8BB0"));
     const base = await this.readNote(file.path);
     const plan = await this.journalPlan(file, base);
@@ -15496,7 +15992,8 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
     const file = this.journalSync.todayJournal();
     if (!file) return this.notice(t("\u4ECA\u5929\u7684\u65E5\u8BB0\u8FD8\u6CA1\u6709\u521B\u5EFA"));
     const text = await this.readNote(file.path);
-    const heading = text.split("\n").findIndex((line2) => [ACTIVE_HEADING, ...LEGACY_HEADINGS].includes(line2.trim()));
+    const custom = readJournalLayout(text);
+    const heading = custom ? custom.sections.active.start - 1 : text.split("\n").findIndex((line2) => [ACTIVE_HEADING, ...LEGACY_HEADINGS].includes(line2.trim()));
     const map = this.lineMap(file.path, text);
     const tasks = runningTaskLines(text, map.sessionByParent, Object.values(this.jobs).filter((job) => job.path === file.path));
     const line = heading >= 0 ? heading : tasks[0]?.line;
@@ -15759,7 +16256,7 @@ var AgentDeckPlugin = class extends import_obsidian11.Plugin {
       fragment.createEl("div", { text: `${title}
 ${body}` });
       fragment.createEl("button", { text: t("\u524D\u5F80\u5904\u7406") }).onclick = open;
-      const alert = { open, notice: new import_obsidian11.Notice(fragment, 0) };
+      const alert = { open, notice: new import_obsidian12.Notice(fragment, 0) };
       try {
         alert.system = new Notification(title, { body, tag: `agent-deck:${key}` });
         alert.system.onclick = () => {
@@ -15776,7 +16273,7 @@ ${body}` });
   // ---------- misc ----------
   notice(msg, ms) {
     try {
-      new import_obsidian11.Notice(msg, ms);
+      new import_obsidian12.Notice(msg, ms);
     } catch {
       console.log("[agent-deck]", msg);
     }
