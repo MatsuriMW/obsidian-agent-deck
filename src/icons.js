@@ -1,4 +1,4 @@
-// Obsidian UI icons: the four agent marks use the official app icons; every
+// Obsidian UI icons: the agent marks use the official app icons; every
 // other glyph stays Lucide.
 import { setIcon } from "obsidian";
 import { AGENT_IMAGES } from "./agent-assets.js";
