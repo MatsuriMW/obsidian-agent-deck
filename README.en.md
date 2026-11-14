@@ -37,6 +37,7 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 - [Runtime requirements](#runtime-requirements)
 - [Installation](#installation)
 - [Settings](#settings)
+- [Next changes](#next-changes)
 - [Compatibility with Nautilus Spiral](#compatibility-with-nautilus-spiral)
 - [Privacy](#privacy)
 - [FAQ](#faq)
@@ -460,6 +461,37 @@ npm run build
 - **追踪**: day cutoff, polling interval, idle threshold, history depth, Claude desktop side chats, automatic journal logging and write-back toggles, default archive location and archive order (top / end of file), macOS menu bar toggle and row limits, UI switches, rebuild, import, and a one-click **pause Nautilus Spiral's AI writes** action.
 - **Dreaming**: manual or daily memory extraction, progress, Markdown export, shared-memory sync, and optional Telegram Companion profile integration.
 - **关于**: version, license and debug info.
+
+## Next changes
+
+### Organize settings around delegation and recording
+
+Agents, Delegation and Models currently repeat some default delegation, model and effort controls. The next step is to assign each setting one home before changing the page structure. This is a planned change; the current version still has the six settings tabs described above.
+
+The proposed main pages are Delegation, Recording, Dreaming and About. Models becomes a Manage models entry within Delegation. Agent tracking settings move into Recording.
+
+| Location | Settings owned by this section |
+|---|---|
+| Delegation → Default target | The single global default delegation target. Primary tracking agents remain a separate choice. |
+| Delegation → Each agent | Default model, effort, permissions, executable path, working directory and execution location per agent; shared terminal preferences also live here. |
+| Delegation → Manage models | Add, edit, enable, pin and sort models, with search and agent groups. Remove the repeated default model and effort controls. |
+| Delegation → Sending | Task-line agent completion, prompt prefix and suffix, and additional delegation instructions. |
+| Recording → Sources and scanning | Tracking switches, primary agents, history scope, scan interval, log paths, manual scanning and history import. |
+| Recording → Journal and archives | Journal writing, automatic task creation, status and conclusion updates, per-turn records, detail, display range, cumulative summaries, organization templates and archives. |
+| Recording → Organization model | CLI, model, timeouts and frequency for automatic organization and polishing, named separately from delegation models. |
+| Recording → Display and maintenance | Session opening, dashboard, editor and menu bar display, cache maintenance and Nautilus writing ownership. |
+| Dreaming / About | Keep memory and synchronization separate from version information and common actions. |
+
+Each setting gets one editable location. Merge controls that write the same field; name settings with different effects by their scope, such as delegated-task write-back and automatic session recording. Task-line model and effort choices remain overrides for the current task.
+
+All seven agents remain visible in the relevant sections. Use short capability statuses for client-managed models, client handoff and unavailable delegation. Keep text left-aligned, spacing compact and related operations grouped; less-used settings can collapse.
+
+### Implementation and acceptance
+
+1. Inventory each control, its stored fields and its effects, marking repeated entry points. Keep existing storage fields, consolidate writes and move controls while preserving personal defaults, tracking and recording choices.
+2. Merge pages and model management, updating commands, settings links and both languages. Saving or discarding a model catalog draft must only affect catalog changes and must not overwrite newer delegation defaults.
+3. Compare functionality before and after: exactly one global delegation-target selector and one editable default model and effort control per configurable agent. Existing functions remain discoverable and settings survive reload.
+4. Verify that primary tracking and default delegation are independent, and that recording and display choices keep their separate effects. Check both languages, light and dark themes and narrow windows, then install locally for validation.
 
 ## Compatibility with Nautilus Spiral
 
