@@ -7,7 +7,7 @@ import { lattice } from "./lattice.js";
 import { blockAt, blockTitle, BULLET_RE, delegationText } from "./delegation.js";
 import { mentionOptions, mentionTrigger } from "./task-mentions.js";
 import { destinations, defaultDestination } from "./workflow.js";
-import { kwLine } from "./journal.js";
+import { kwLine, fencedLines } from "./journal.js";
 import { t } from "./i18n.js";
 import { archivePath } from "./journal-archive.js";
 
@@ -250,7 +250,10 @@ export class ConfirmSendModal extends Modal {
     });
     const more = this.text.split("\n").filter((l) => l.trim()).length - 1;
     const meta = contentEl.createDiv({ cls: "ad-send__meta" });
-    if (ctx.length) meta.createSpan({ text: t("带上 {n} 层母项作为上下文", { n: ctx.length }) });
+    if (ctx.length) {
+      const fenced = fencedLines(ctx);
+      meta.createSpan({ text: t("带上 {n} 层母项作为上下文", { n: ctx.filter((line, i) => !fenced.has(i) && BULLET_RE.test(line)).length }) });
+    }
     meta.createSpan({ text: more > 0 ? t("连同 {n} 行子块，作为一条消息", { n: more }) : t("作为一条消息") });
     meta.createSpan({ cls: "ad-send__path", text: this.path });
 

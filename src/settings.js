@@ -11,6 +11,7 @@ import { notePath, companionInstalled } from "./dream.js";
 import { externalMemoryPath } from "./dream-sharing.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { t, currentLanguage } from "./i18n.js";
+import { syncModelGroups } from "./model-groups.js";
 
 const HOTKEY_MOD_SYMBOL = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘", ctrl: "⌃", alt: "⌥", cmd: "⌘" };
 
@@ -135,9 +136,15 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   segmented(parent, options, value, onChange, cls = "") {
     const box = parent.createDiv({ cls: "ad-seg " + cls });
     for (const opt of options) {
-      const b = box.createEl("button", { cls: "ad-seg__btn" + (opt.id === value ? " is-on" : ""), text: opt.label });
+      const b = box.createEl("button", { cls: "ad-seg__btn" + (opt.id === value ? " is-on" : ""), text: opt.label, attr: { "aria-pressed": String(opt.id === value) } });
       b.title = opt.hint || "";
-      b.onclick = () => onChange(opt.id);
+      b.onclick = () => {
+        for (const choice of box.children) {
+          choice.classList.toggle("is-on", choice === b);
+          choice.setAttribute("aria-pressed", String(choice === b));
+        }
+        onChange(opt.id);
+      };
     }
     return box;
   }
@@ -227,7 +234,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const targetRow = body.createDiv({ cls: "ad-targetpick" });
     for (const id of ["claude", "codex", "dsh", "antigravity"]) {
       const a = AGENTS[id];
-      const b = targetRow.createEl("button", { cls: "ad-target" + (d.target === id ? " is-on" : "") });
+      const b = targetRow.createEl("button", { cls: "ad-target" + (d.target === id ? " is-on" : ""), attr: { "aria-pressed": String(d.target === id) } });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
@@ -383,7 +390,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const idx = Math.max(0, opts.findIndex((x) => x.id === value));
     fill.style.width = `${(idx / Math.max(1, opts.length - 1)) * 100}%`;
     opts.forEach((o, i) => {
-      const b = stops.createEl("button", { cls: "ad-effort__stop" + (o.id === value ? " is-on" : ""), attr: { title: o.hint || "" } });
+      const b = stops.createEl("button", { cls: "ad-effort__stop" + (o.id === value ? " is-on" : ""), attr: { title: o.hint || "", "aria-label": o.label, "aria-pressed": String(o.id === value) } });
       b.createSpan({ cls: "ad-effort__dot" });
       b.onclick = () => onChange(o.id);
       const lab = wrap.createEl("span", { cls: "ad-effort__lab", attr: { style: `left:${(i / Math.max(1, opts.length - 1)) * 100}%` }, text: o.label });
@@ -460,6 +467,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
   renderModels(body) {
     const p = this.plugin;
+    if (syncModelGroups(p.settings, agent => p.agentEnabled(agent))) p.saveSettings();
     const d = this.modelsDraft();
     const target = this.modelTarget || p.defaultTarget();
     const models = p.allModels(d.custom);
@@ -479,7 +487,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const targetSeg = defaults.createDiv({ cls: "ad-models-target" });
     for (const id of ["claude", "codex", "dsh", "antigravity"]) {
       const a = AGENTS[id];
-      const b = targetSeg.createEl("button", { cls: "ad-target ad-target--sm" + (target === id ? " is-on" : "") });
+      const b = targetSeg.createEl("button", { cls: "ad-target ad-target--sm" + (target === id ? " is-on" : ""), attr: { "aria-pressed": String(target === id) } });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
@@ -523,7 +531,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     etrack.createDiv({ cls: "ad-effort__fill" }).style.width = `${(eidx / Math.max(1, eopts.length - 1)) * 100}%`;
     const estops = etrack.createDiv({ cls: "ad-effort__stops" });
     eopts.forEach((o, i) => {
-      const b = estops.createEl("button", { cls: "ad-effort__stop" + (o.id === evalue ? " is-on" : ""), attr: { title: o.hint || "" } });
+      const b = estops.createEl("button", { cls: "ad-effort__stop" + (o.id === evalue ? " is-on" : ""), attr: { title: o.hint || "", "aria-label": o.label, "aria-pressed": String(o.id === evalue) } });
       b.createSpan({ cls: "ad-effort__dot" });
       b.onclick = () => { (d.effortByAgent ||= {})[target] = o.id; this.display(); };
       const lab = effRight.createSpan({ cls: "ad-effort__lab", attr: { style: `left:${(i / Math.max(1, eopts.length - 1)) * 100}%` }, text: o.label });
@@ -554,7 +562,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     }).open();
     const filters = picker.createDiv({ cls: "ad-filters ad-filters--models" });
     for (const [id, label] of [["all", "All"], ["enabled", "Enabled"], ["reasoning", "Reasoning"], ["fast", "Fast"], ["vision", "Vision"]]) {
-      const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
+      const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label, attr: { "aria-pressed": String(this.filter === id) } });
       b.onclick = () => { this.filter = id; this.display(); };
     }
     const list = picker.createDiv({ cls: "ad-modellist" });
@@ -569,24 +577,25 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     });
     const pinned = d.pinned.map((id) => visible.find((m) => m.id === id)).filter(Boolean);
     const rest = visible.filter((m) => !d.pinned.includes(m.id));
-    if (pinned.length) {
-      const g = list.createDiv({ cls: "ad-modelgroup" });
-      const gh = g.createDiv({ cls: "ad-modelgroup__head" });
-      gh.createSpan({ text: "Pinned" });
-      this.groupAction(gh, pinned, d, true);
-      for (const m of pinned) this.modelRow(g, m, d, target, defaultId, true);
-    }
     for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
-      const rows = rest.filter((m) => m.agent === agent);
+      const rows = [...pinned, ...rest].filter((m) => m.agent === agent);
       if (!rows.length) continue;
-      const g = list.createDiv({ cls: "ad-modelgroup" });
-      const gh = g.createDiv({ cls: "ad-modelgroup__head" });
+      const state = p.settings.ui.modelGroups[agent];
+      const g = list.createEl("details", { cls: "ad-modelgroup" });
+      g.dataset.agent = agent;
+      g.open = state.open;
+      g.ontoggle = () => {
+        if (!g.isConnected || p.settings.ui.modelGroups[agent] !== state || state.open === g.open) return;
+        state.open = g.open;
+        p.saveSettings();
+      };
+      const gh = g.createEl("summary", { cls: "ad-modelgroup__head" });
       const a = AGENTS[agent];
       agentIcon(gh.createSpan({ cls: "ad-glyph", attr: { style: `color:${a.color}` } }), agent);
       gh.createSpan({ text: a.name });
       gh.createSpan({ cls: "ad-muted", text: `${rows.filter((m) => enabled.has(m.id)).length} of ${rows.length} on` });
       this.groupAction(gh, rows, d, false);
-      for (const m of rows) this.modelRow(g, m, d, target, defaultId, false);
+      for (const m of rows) this.modelRow(g, m, d, target, defaultId, d.pinned.includes(m.id));
     }
     if (!pinned.length && !rest.length) {
       list.createDiv({ cls: "ad-empty ad-empty--small", text: t("没有符合条件的模型") });
@@ -615,6 +624,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const left = row.createDiv({ cls: "ad-modelrow__left" });
     const name = left.createDiv({ cls: "ad-modelrow__name" });
     name.createSpan({ text: m.name });
+    if (pinned) name.createSpan({ cls: "ad-badge ad-badge--soft", text: "Pinned" });
     if (m.id === defaultId) name.createSpan({ cls: "ad-badge", text: "Default" });
     if (m.agent === target) name.createSpan({ cls: "ad-badge ad-badge--soft", text: AGENTS[m.agent].short });
     const meta = left.createDiv({ cls: "ad-modelrow__meta" });
@@ -791,7 +801,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.numberInput(mergeN.querySelector(":scope > .ad-row__right"), s.autoLogMergeThreshold || 10, 2, 100, (v) => { s.autoLogMergeThreshold=Math.round(v); p.saveSettings(); });
     const jdetail = this.row(jr, t("自动日志详细程度"), "", null);
     const detailDesc = jdetail.querySelector(":scope > .ad-row__left");
-    detailDesc.createDiv({ cls: "ad-row__desc", text: t("简略（默认）：只记一句 AI 结论，约 45 字，不记提问和步骤。适合快速看进展。") });
+    detailDesc.createDiv({ cls: "ad-row__desc", text: t("简略（默认）：用关键词或短语浓缩任务和结论，合成一段，收起时最多显示三行；展开查看完整记录。不单列提问和步骤。") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("标准：提问和回答各保留一句，分别最多 90 字，不记步骤。适合简短工作记录。") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("详细：提问摘录最多 1000 字、回复摘录最多 3000 字，保留可用步骤与回复中的命令。适合开发日志、排错复盘和交接。") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("开发日志推荐搭配“每轮记录”。三档只决定新轮次保存多少内容；旧会话的新轮次采用新设置，已保存记录不改写、不删除。显示条数另设；需要完整问答正文时，可另行归档到笔记。") });
@@ -816,8 +826,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const agBox = jag.querySelector(":scope > .ad-row__right").createDiv({ cls: "ad-seg" });
     const agOn = (s.autoLogAgents ||= {});
     for (const id of AGENT_ORDER) {
-      const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id });
-      b.onclick = () => { agOn[id] = agOn[id] === false; b.classList.toggle("is-on", agOn[id] !== false); p.saveSettings(); };
+      const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id, attr: { "aria-pressed": String(agOn[id] !== false) } });
+      b.onclick = () => { agOn[id] = agOn[id] === false; b.classList.toggle("is-on", agOn[id] !== false); b.setAttribute("aria-pressed", String(agOn[id] !== false)); p.saveSettings(); };
     }
     const jb = this.row(jr, t("一轮最多问几个会话"), t("每次整理一次最多交给模型看几个新会话，剩下的下一轮再问（手动整理会接着问完）。"), null);
     this.numberInput(jb.querySelector(":scope > .ad-row__right"), s.autoLogBatch || 8, 1, 20, (v) => { s.autoLogBatch = v; p.saveSettings(); });

@@ -1,4 +1,4 @@
-/* Agent Deck 1.8.0 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.9.0 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -480,7 +480,7 @@ var settings_default = {
   "\u7D2F\u79EF\u5230\u6307\u5B9A\u6761\u6570\u540E\uFF0C\u7531\u6240\u9009 CLI \u5199\u4E00\u6761\u7D2F\u8BA1\u603B\u7ED3\uFF0C\u4FDD\u7559\u4E4B\u524D\u7684\u6BCF\u8F6E\u8BB0\u5F55\u3002\u6536\u8D77\u65F6\u4ECD\u6309\u663E\u793A\u8BBE\u7F6E\u5C55\u793A\u6700\u8FD1\u7ED3\u8BBA\uFF0C\u5C55\u5F00\u53EF\u770B\u603B\u7ED3\u4E0E\u5386\u53F2\u3002\u624B\u5199\u5185\u5BB9\u3001\u7528\u65F6\u4E0E\u5F85\u529E\u4FDD\u7559\uFF1B\u603B\u7ED3\u5931\u8D25\u65F6\u4FDD\u7559\u539F\u8BB0\u5F55\u3002": "After the threshold, the selected CLI writes a cumulative summary while retaining earlier rounds. Collapsed display still follows the display setting; expand to see the summary and history. Handwritten content, time and to-dos are kept. Failed summaries leave the records intact.",
   "\u7D2F\u79EF\u591A\u5C11\u6761\u7ED3\u8BBA\u540E\u5408\u5E76": "Results to accumulate before merging",
   "\u540C\u4E00\u4F1A\u8BDD\u4ECE\u4E0A\u6B21\u603B\u7ED3\u540E\u65B0\u589E\u7684\u5DF2\u5B8C\u6210\u8F6E\u6B21\uFF1B\u9ED8\u8BA4 10 \u6761\uFF0C\u81F3\u5C11 2 \u6761\u3002": "Completed rounds added since the last summary for the same session; 10 by default, at least 2.",
-  "\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09\uFF1A\u53EA\u8BB0\u4E00\u53E5 AI \u7ED3\u8BBA\uFF0C\u7EA6 45 \u5B57\uFF0C\u4E0D\u8BB0\u63D0\u95EE\u548C\u6B65\u9AA4\u3002\u9002\u5408\u5FEB\u901F\u770B\u8FDB\u5C55\u3002": "Brief (default): one AI conclusion, about 45 characters, without prompts or steps. For quick progress checks.",
+  "\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09\uFF1A\u7528\u5173\u952E\u8BCD\u6216\u77ED\u8BED\u6D53\u7F29\u4EFB\u52A1\u548C\u7ED3\u8BBA\uFF0C\u5408\u6210\u4E00\u6BB5\uFF0C\u6536\u8D77\u65F6\u6700\u591A\u663E\u793A\u4E09\u884C\uFF1B\u5C55\u5F00\u67E5\u770B\u5B8C\u6574\u8BB0\u5F55\u3002\u4E0D\u5355\u5217\u63D0\u95EE\u548C\u6B65\u9AA4\u3002": "Brief (default): condense the task and result into keywords or phrases in one paragraph. Show up to three lines when closed; expand to read the full record. No separate prompt or steps.",
   "\u6807\u51C6\uFF1A\u63D0\u95EE\u548C\u56DE\u7B54\u5404\u4FDD\u7559\u4E00\u53E5\uFF0C\u5206\u522B\u6700\u591A 90 \u5B57\uFF0C\u4E0D\u8BB0\u6B65\u9AA4\u3002\u9002\u5408\u7B80\u77ED\u5DE5\u4F5C\u8BB0\u5F55\u3002": "Standard: one sentence each for the prompt and reply, up to 90 characters each, without steps. For short work notes.",
   "\u8BE6\u7EC6\uFF1A\u63D0\u95EE\u6458\u5F55\u6700\u591A 1000 \u5B57\u3001\u56DE\u590D\u6458\u5F55\u6700\u591A 3000 \u5B57\uFF0C\u4FDD\u7559\u53EF\u7528\u6B65\u9AA4\u4E0E\u56DE\u590D\u4E2D\u7684\u547D\u4EE4\u3002\u9002\u5408\u5F00\u53D1\u65E5\u5FD7\u3001\u6392\u9519\u590D\u76D8\u548C\u4EA4\u63A5\u3002": "Detailed: prompt excerpts up to 1,000 characters, reply excerpts up to 3,000, with available steps and commands in replies. For development logs, debugging reviews and handoffs.",
   "\u5F00\u53D1\u65E5\u5FD7\u63A8\u8350\u642D\u914D\u201C\u6BCF\u8F6E\u8BB0\u5F55\u201D\u3002\u4E09\u6863\u53EA\u51B3\u5B9A\u65B0\u8F6E\u6B21\u4FDD\u5B58\u591A\u5C11\u5185\u5BB9\uFF1B\u65E7\u4F1A\u8BDD\u7684\u65B0\u8F6E\u6B21\u91C7\u7528\u65B0\u8BBE\u7F6E\uFF0C\u5DF2\u4FDD\u5B58\u8BB0\u5F55\u4E0D\u6539\u5199\u3001\u4E0D\u5220\u9664\u3002\u663E\u793A\u6761\u6570\u53E6\u8BBE\uFF1B\u9700\u8981\u5B8C\u6574\u95EE\u7B54\u6B63\u6587\u65F6\uFF0C\u53EF\u53E6\u884C\u5F52\u6863\u5230\u7B14\u8BB0\u3002": "For development logs, also choose per-turn recording. Detail controls the content saved for new rounds, including new rounds in existing sessions; saved records are never rewritten or deleted. Display count is separate. Export conversation text to notes when you need full exchanges.",
@@ -1564,6 +1564,7 @@ function isManualTask(settings, raw) {
 var LINK_RE = /^\s*[-*+]\s+🔗/;
 var RESULT_RE = /^\s*[-*+]\s+💬/;
 var CLOCK_RE = /^\s*[-*+]\s+⏱/;
+var CONTEXT_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋)\s/;
 var RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
 var KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
 var AUTO_MARK = "\u{1F916} ";
@@ -1609,7 +1610,17 @@ function clockLine(indent, segs, who, tok = 0, ellipsis = false) {
     else shown.push([a, b]);
   }
   const total = Math.round(segs.reduce((n, [a, b]) => n + b - a, 0));
-  return `${indent}- \u23F1 ${ellipsis && shown.length > 8 ? "\u2026 " : ""}${shown.slice(-8).map(([a, b]) => `${clock(a)}\u2013${clock(b)}`).join("\u3001")} \xB7 \u5171 ${durTag(total)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""}${who ? " \xB7 " + who : ""}`;
+  const line = `${indent}- \u23F1 ${ellipsis && shown.length > 8 ? "\u2026 " : ""}${shown.slice(-8).map(([a, b]) => `${clock(a)}\u2013${clock(b)}`).join("\u3001")} \xB7 \u5171 ${durTag(total)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""}${who ? " \xB7 " + who : ""}`;
+  return `${line} <!-- ad-clock:${clockHash(line)} -->`;
+}
+function clockHash(line) {
+  let hash2 = 5381;
+  for (const char of line.trim()) hash2 = Math.imul(hash2, 33) ^ char.codePointAt(0);
+  return (hash2 >>> 0).toString(16);
+}
+function mutableClock(lines, n) {
+  const marker = /^(.*?) <!-- ad-clock:([a-f0-9]+) -->\s*$/.exec(lines[n]);
+  return !!marker && clockHash(marker[1]) === marker[2] && !blockIdOf(lines[n]) && !hasDescendants(lines, n);
 }
 var durTag = (m) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? m % 60 + "m" : ""}` : `${Math.max(1, Math.round(m))}m`;
 var width = (line) => {
@@ -1670,7 +1681,7 @@ function kwLine(raw) {
   }
   const blockId = blockIdOf(s);
   s = stripBlockId(s).replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
-  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || s.startsWith("\u{1F4AC}") || s.startsWith("\u2753") || s.startsWith("\u{1F4CB}") || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
+  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || !kw && !blockId && /^(?:💬|❓|📋)/.test(s) || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
   return { kw, body: s, blockId };
 }
 function parseLink(line) {
@@ -1718,6 +1729,12 @@ function childMark(lines, n, pick) {
     if (l) return { line: i, ...l };
   }
   return null;
+}
+function hasDescendants(lines, n) {
+  for (let i = n + 1; i < lines.length; i++) {
+    if (lines[i].trim()) return width(lines[i]) > width(lines[n]);
+  }
+  return false;
 }
 var linkUnder = (lines, n) => childMark(lines, n, parseLink);
 function resultText(raw, max = 200) {
@@ -1780,18 +1797,6 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
     }
     return end;
   };
-  const upsertChild = (prefixRe, newLine, afterAnchor = -1) => {
-    const end = childSpan();
-    for (let i = n + 1; i <= end; i++) {
-      if (width(lines[i]) === childWidth && prefixRe.test(lines[i])) {
-        if (lines[i] !== newLine) lines[i] = newLine;
-        return i;
-      }
-    }
-    const insertAt = afterAnchor >= n ? afterAnchor + 1 : end + 1;
-    lines.splice(insertAt, 0, newLine);
-    return insertAt;
-  };
   const fenced = fencedLines(lines), recorded = /* @__PURE__ */ new Set();
   const sourceTurn = (raw) => /<!-- ad-turn:([A-Za-z0-9_-]+):(\d+) -->/.exec(raw);
   const legacyOwner = lines.slice(n + 1, childSpan() + 1).map(parseLink).find(Boolean)?.sid || sid;
@@ -1802,8 +1807,9 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
   const provenance = (rn) => /^[A-Za-z0-9_-]+$/.test(sid) ? ` <!-- ad-turn:${sid}:${rn} -->` : "";
   for (let i = n + 1; i <= childSpan(); i++) {
     if (fenced.has(i) || width(lines[i]) !== childWidth || !belongs(lines[i])) continue;
+    const marker = sourceTurn(lines[i]);
     const match = /^\s*[-*+]\s+💬\s+(?:第(\d+)轮[：:]|((?!累计总结[：:]).))/.exec(lines[i]);
-    if (match) recorded.add(sourceTurn(lines[i]) ? +sourceTurn(lines[i])[2] : match[1] ? +match[1] : 1);
+    if (marker || match) recorded.add(marker ? +marker[2] : match[1] ? +match[1] : 1);
   }
   let validRounds = (Array.isArray(rounds) ? rounds : []).filter((r) => r && (r.said || r.summary));
   if (!validRounds.length && said && !recorded.size) validRounds = [{ n: 1, said }];
@@ -1817,7 +1823,12 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
     }
     lines.splice(at, 0, line);
   };
-  if (compact?.text) upsertChild(/^\s*[-*+]\s+💬\s+累计总结[：:]/, `${ind}- \u{1F4AC} \u7D2F\u8BA1\u603B\u7ED3\uFF1A${resultText(compact.text, 170)}`, linkAt >= 0 ? linkAt : n);
+  if (compact?.text) {
+    const summary = `${ind}- \u{1F4AC} \u7D2F\u8BA1\u603B\u7ED3\uFF1A${resultText(compact.text, 170)}`;
+    const marker = /^[A-Za-z0-9_-]+$/.test(sid) ? ` <!-- ad-summary:${sid}:${compact.through || 0} -->` : "";
+    const saved = lines.slice(n + 1, childSpan() + 1).some((raw) => width(raw) === childWidth && (raw === summary || marker && raw.includes(marker)));
+    if (!saved) append(summary + marker);
+  }
   for (const [index, r] of fresh.entries()) {
     const rn = r.n || index + 1;
     const level = detailForRound(mode, detailHistory, r);
@@ -1826,7 +1837,8 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
       append(`${ind}- \u2753 \u7B2C${rn}\u8F6E\uFF1A${ask}${provenance(rn)}`);
     }
     const raw = level === "detailed" ? r.said || r.summary : r.summary || r.said;
-    const message = level === "detailed" ? detailExcerpt(raw, 3e3) : recordSentence(raw, level === "brief" ? 45 : 90);
+    const task = r.taskSummary || r.ask || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
+    const message = level === "detailed" ? detailExcerpt(raw, 3e3) : level === "brief" ? `\u4EFB\u52A1\uFF1A${resultText(task, 45)}\uFF1B\u7ED3\u8BBA\uFF1A${resultText(raw, 65)}` : recordSentence(raw, 90);
     const prefix = rn === 1 && roundLog ? "" : `\u7B2C${rn}\u8F6E\uFF1A`;
     append(`${ind}- \u{1F4AC} ${prefix}${message}${provenance(rn)}`);
     if (level === "detailed" && r === validRounds.at(-1) && taskTodo?.total > 0) {
@@ -2013,7 +2025,7 @@ function clocksLast(text) {
   for (const task of taskItems(text).reverse()) {
     const n = task.line;
     if (fenced.has(n) || !lines[n]?.trim()) continue;
-    const records = recordBlock(lines, n).filter((i) => !fenced.has(i));
+    const records = recordBlock(lines, n).filter((i) => !fenced.has(i) && !blockIdOf(lines[i]) && !hasDescendants(lines, i));
     const clocks = records.filter((i) => CLOCK_RE.test(lines[i]));
     const rest = records.filter((i) => !CLOCK_RE.test(lines[i]));
     if (!clocks.length || !rest.length) continue;
@@ -5486,17 +5498,17 @@ function blockAt(lines, at) {
 }
 function ancestorLines(lines, at) {
   if (at < 0 || at >= lines.length) return [];
-  const out = [];
-  let need = width(lines[at]);
-  for (let i = at - 1; i >= 0 && need > 0; i--) {
+  const stack = [], fenced = fencedLines(lines);
+  for (let i = 0; i <= at; i++) {
     const line = lines[i];
-    if (!line.trim() || !BULLET_RE.test(line)) continue;
+    if (!line.trim()) continue;
     const w = width(line);
-    if (w >= need) continue;
-    out.unshift(line);
-    need = w;
+    while (stack.length && stack.at(-1).width >= w) stack.pop();
+    if (i === at) break;
+    if (!fenced.has(i) && BULLET_RE.test(line)) stack.push({ width: w, body: [line] });
+    else if (stack.length) stack.at(-1).body.push(line);
   }
-  return out;
+  return stack.flatMap((item) => item.body);
 }
 function withContext(contextLines, task) {
   const ctx = (contextLines || []).filter((l) => l && l.trim());
@@ -5516,7 +5528,7 @@ function blockTitle(block, trigger = "@") {
   return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "").replace(TITLE_KW_RE, "").replace(/[#*_`>[\]]/g, "").trim();
 }
 function hasLink(lines, block) {
-  for (let i = block.start + 1; i <= block.end; i++) if (LINK_RE2.test(lines[i])) return i;
+  for (let i = block.start + 1; i <= block.end; i++) if (LINK_RE2.test(lines[i]) && markOwner(lines, i) === block.start) return i;
   return -1;
 }
 function findLink(lines, block) {
@@ -7049,7 +7061,7 @@ function execCapture(bin, args, { cwd, env, timeout = 1e4 } = {}) {
   });
 }
 function freshTaskText(text) {
-  return text.split("\n").filter((l) => !/^\s*[-*+]\s+(?:🔗|💬|📋|❓|⏱|📄)\s*/u.test(l)).map((l, i) => i === 0 ? stripBlockId(l) : l).join("\n");
+  return text.split("\n").map((l, i) => i === 0 ? stripBlockId(l) : l).join("\n");
 }
 
 // src/view.js
@@ -7171,6 +7183,7 @@ var import_language = require("@codemirror/language");
 
 // src/ai-records.js
 var AI_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
+var isBriefRecord = (line) => /💬\s+(?:第\d+轮[：:])?任务：.+；结论：/.test(line);
 function aiRecordGroups(text, trackedIds2 = /* @__PURE__ */ new Set()) {
   const lines = text.split("\n"), out = [], fenced = fencedLines(lines);
   for (const task of taskItems(text)) {
@@ -7181,7 +7194,7 @@ function aiRecordGroups(text, trackedIds2 = /* @__PURE__ */ new Set()) {
       if (fenced.has(i) || !lines[i].trim()) continue;
       const w = width(lines[i]);
       if (w <= task.indent) break;
-      if (w === indent && AI_RECORD_RE.test(lines[i])) records.push(i);
+      if (w === indent && AI_RECORD_RE.test(lines[i]) && !blockIdOf(lines[i]) && !hasDescendants(lines, i)) records.push(i);
     }
     if (!records.length) continue;
     const tracked = task.blockId?.startsWith("ad-") || trackedIds2.has(task.blockId) || task.body.startsWith("\u{1F916}") || records.some((i) => parseLink(lines[i]));
@@ -7237,8 +7250,8 @@ function adBlockIdRanges(text, trackedIds2 = /* @__PURE__ */ new Set()) {
         fenceLength = marker[1].length;
       } else if (marker[1][0] === fence && marker[1].length >= fenceLength && !marker[2].trim()) fence = "";
     } else if (!fence) {
-      const turn = /[ \t]+<!-- ad-turn:[A-Za-z0-9_-]+:\d+ -->\s*$/.exec(line);
-      if (turn) out.push({ from: offset + turn.index, to: offset + line.length });
+      const turn = /[ \t]+<!-- ad-(?:(?:turn|summary):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/.exec(line);
+      if (turn) out.push({ from: offset + turn.index, to: offset + turn.index + turn[0].length });
       const id = /(?:[ \t]+|^)\^([a-z0-9-]+)[ \t]*$/i.exec(line);
       if (id && hiddenBlockId(id[1], trackedIds2)) out.push({ from: offset + id.index, to: offset + line.length });
       const link = parseLink(line), suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(line);
@@ -7367,8 +7380,8 @@ function aiRecordDisplayExtension(plugin, refreshEffect2) {
     const lines = text.split("\n");
     for (const { from, to } of adBlockIdRanges(text, ids)) ranges.push(import_view2.Decoration.replace({}).range(from, to));
     for (const group of aiRecordGroups(text, ids)) {
-      for (const n of group.records) ranges.push(import_view2.Decoration.line({ class: "ad-record-line" }).range(doc.line(n + 1).from));
       const open = recordIsOpen(plugin.settings, mode, group);
+      for (const n of group.records) ranges.push(import_view2.Decoration.line({ class: "ad-record-line" + (!open && isBriefRecord(lines[n]) ? " ad-record-brief-clamped" : "") }).range(doc.line(n + 1).from));
       const duplicate = plugin.redundantSessionLink?.(group, lines) ?? -1;
       const available = group.records.filter((n) => n !== duplicate);
       const visible = (open ? available : visibleRecords(group, lines, mode)).filter((n) => n !== duplicate);
@@ -7442,7 +7455,7 @@ function renderAIRecords(el, plugin, ctx) {
     const parent = list.parentElement.closest("li");
     if (!parent) continue;
     const own = [...parent.childNodes].filter((n) => n !== list && n.nodeName !== "UL" && n.nodeName !== "OL").map((n) => n.textContent).join("");
-    const records = [...list.children].filter((li) => /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/.test(li.textContent.trim()));
+    const records = [...list.children].filter((li) => !li.querySelector("ul, ol") && !li.id && !li.dataset.blockId && /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/.test(li.textContent.trim()));
     const section = ctx?.getSectionInfo?.(el);
     const first = section && section.text.split("\n")[(section.lineStart || 0) + (Number(parent.dataset.line) || 0)];
     const key = parent.id || parent.dataset.blockId || first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1];
@@ -7461,6 +7474,7 @@ function renderAIRecords(el, plugin, ctx) {
       for (const [i, li] of records.entries()) {
         li.classList.add("ad-record-item");
         li.classList.toggle("ad-record-hidden", !kept.includes(i));
+        li.classList.toggle("ad-record-brief-clamped", !open && isBriefRecord(texts[i]));
       }
       button.querySelector("span:nth-child(2)").textContent = buttonLabel(open, mode, summaries.length > 0);
       button.dataset.open = String(open);
@@ -7479,7 +7493,7 @@ function renderAIRecords(el, plugin, ctx) {
     else list.parentNode.insertBefore(button, list);
     update();
     cleanups.push(() => {
-      for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item");
+      for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item", "ad-record-brief-clamped");
       button.remove();
       delete list.dataset.adRecords;
     });
@@ -7851,7 +7865,7 @@ function buildDecorations(view, plugin) {
           const widget = new PillWidget(plugin, path7, n, state);
           builder.add(line.to, line.to, import_view3.Decoration.widget({ widget, side: 1, block: false }));
         }
-        if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && kwLine(text)) {
+        if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && (kwLine(text) || CONTEXT_RECORD_RE.test(text))) {
           builder.add(line.to, line.to, import_view3.Decoration.widget({ widget: new GripWidget(plugin, path7, n, text), side: 1, block: false }));
         }
       }
@@ -8875,7 +8889,7 @@ function runJournalModel(prompt, cfg, { polish = false } = {}) {
   const model = polish && String(cfg.roundPolishModel || "").trim() || cfg.autoLogModel || (codex ? "" : "haiku");
   const timeout = polish ? Math.max(5, Number(cfg.roundPolishTimeout) || 30) : Math.max(10, Number(cfg.autoLogTimeout) || 120);
   if (codex) return runCodex(prompt, { bin: cfg.autoLogPath || cfg.delegate?.codex?.path || "codex", model, effort: cfg.autoLogEffort || "low", timeout });
-  return runClaude(prompt, { bin: cfg.autoLogPath || cfg.delegate?.claude?.path || "claude", model, timeout, system: polish ? "\u4F60\u662F\u6574\u7406\u52A9\u624B\uFF0C\u6309\u8981\u6C42\u53EA\u8F93\u51FA\u4E00\u53E5\u8BDD\u3002" : "" });
+  return runClaude(prompt, { bin: cfg.autoLogPath || cfg.delegate?.claude?.path || "claude", model, timeout, system: polish ? "\u4F60\u662F\u6574\u7406\u52A9\u624B\uFF0C\u53EA\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8865\u5145\u89E3\u91CA\u3002" : "" });
 }
 function safeLabel(s, max = 40) {
   const t2 = String(s || "").replace(/[\r\n←`*=~[\]|]/g, " ").replace(/^\s*(?:[-*+]\s+)?(?:TODO|DOING|DONE|SUSPENDED|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+/i, "").replace(/(\d)[:：](\d)/g, "$1.$2").replace(/\s+/g, " ").replace(/[。；;，,\s]+$/, "").trim();
@@ -9336,6 +9350,21 @@ ${body}
   }
 };
 
+// src/model-groups.js
+function syncModelGroups(settings, agentEnabled) {
+  const ui = settings.ui || (settings.ui = {});
+  const groups = ui.modelGroups || (ui.modelGroups = {});
+  let changed = false;
+  for (const agent of AGENT_ORDER) {
+    const visible = agentEnabled(agent) && !(ui.agentCards?.hidden || []).includes(agent);
+    if (!groups[agent] || groups[agent].visible !== visible) {
+      groups[agent] = { visible, open: visible };
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 // src/settings.js
 var HOTKEY_MOD_SYMBOL = { control: "\u2303", option: "\u2325", shift: "\u21E7", command: "\u2318", ctrl: "\u2303", alt: "\u2325", cmd: "\u2318" };
 function hotkeyDisplay(spec) {
@@ -9472,9 +9501,15 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
   segmented(parent, options, value, onChange, cls = "") {
     const box = parent.createDiv({ cls: "ad-seg " + cls });
     for (const opt of options) {
-      const b = box.createEl("button", { cls: "ad-seg__btn" + (opt.id === value ? " is-on" : ""), text: opt.label });
+      const b = box.createEl("button", { cls: "ad-seg__btn" + (opt.id === value ? " is-on" : ""), text: opt.label, attr: { "aria-pressed": String(opt.id === value) } });
       b.title = opt.hint || "";
-      b.onclick = () => onChange(opt.id);
+      b.onclick = () => {
+        for (const choice of box.children) {
+          choice.classList.toggle("is-on", choice === b);
+          choice.setAttribute("aria-pressed", String(choice === b));
+        }
+        onChange(opt.id);
+      };
     }
     return box;
   }
@@ -9569,7 +9604,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     const targetRow = body.createDiv({ cls: "ad-targetpick" });
     for (const id of ["claude", "codex", "dsh", "antigravity"]) {
       const a = AGENTS[id];
-      const b = targetRow.createEl("button", { cls: "ad-target" + (d.target === id ? " is-on" : "") });
+      const b = targetRow.createEl("button", { cls: "ad-target" + (d.target === id ? " is-on" : ""), attr: { "aria-pressed": String(d.target === id) } });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
@@ -9837,7 +9872,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     const idx = Math.max(0, opts.findIndex((x) => x.id === value));
     fill2.style.width = `${idx / Math.max(1, opts.length - 1) * 100}%`;
     opts.forEach((o, i) => {
-      const b = stops.createEl("button", { cls: "ad-effort__stop" + (o.id === value ? " is-on" : ""), attr: { title: o.hint || "" } });
+      const b = stops.createEl("button", { cls: "ad-effort__stop" + (o.id === value ? " is-on" : ""), attr: { title: o.hint || "", "aria-label": o.label, "aria-pressed": String(o.id === value) } });
       b.createSpan({ cls: "ad-effort__dot" });
       b.onclick = () => onChange(o.id);
       const lab = wrap.createEl("span", { cls: "ad-effort__lab", attr: { style: `left:${i / Math.max(1, opts.length - 1) * 100}%` }, text: o.label });
@@ -9949,6 +9984,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
   }
   renderModels(body) {
     const p = this.plugin;
+    if (syncModelGroups(p.settings, (agent) => p.agentEnabled(agent))) p.saveSettings();
     const d = this.modelsDraft();
     const target = this.modelTarget || p.defaultTarget();
     const models = p.allModels(d.custom);
@@ -9965,7 +10001,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     const targetSeg = defaults.createDiv({ cls: "ad-models-target" });
     for (const id of ["claude", "codex", "dsh", "antigravity"]) {
       const a = AGENTS[id];
-      const b = targetSeg.createEl("button", { cls: "ad-target ad-target--sm" + (target === id ? " is-on" : "") });
+      const b = targetSeg.createEl("button", { cls: "ad-target ad-target--sm" + (target === id ? " is-on" : ""), attr: { "aria-pressed": String(target === id) } });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
@@ -10014,7 +10050,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     etrack.createDiv({ cls: "ad-effort__fill" }).style.width = `${eidx / Math.max(1, eopts.length - 1) * 100}%`;
     const estops = etrack.createDiv({ cls: "ad-effort__stops" });
     eopts.forEach((o, i) => {
-      const b = estops.createEl("button", { cls: "ad-effort__stop" + (o.id === evalue ? " is-on" : ""), attr: { title: o.hint || "" } });
+      const b = estops.createEl("button", { cls: "ad-effort__stop" + (o.id === evalue ? " is-on" : ""), attr: { title: o.hint || "", "aria-label": o.label, "aria-pressed": String(o.id === evalue) } });
       b.createSpan({ cls: "ad-effort__dot" });
       b.onclick = () => {
         (d.effortByAgent || (d.effortByAgent = {}))[target] = o.id;
@@ -10052,7 +10088,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     }).open();
     const filters = picker.createDiv({ cls: "ad-filters ad-filters--models" });
     for (const [id, label] of [["all", "All"], ["enabled", "Enabled"], ["reasoning", "Reasoning"], ["fast", "Fast"], ["vision", "Vision"]]) {
-      const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
+      const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label, attr: { "aria-pressed": String(this.filter === id) } });
       b.onclick = () => {
         this.filter = id;
         this.display();
@@ -10070,24 +10106,25 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     });
     const pinned = d.pinned.map((id) => visible.find((m) => m.id === id)).filter(Boolean);
     const rest = visible.filter((m) => !d.pinned.includes(m.id));
-    if (pinned.length) {
-      const g = list.createDiv({ cls: "ad-modelgroup" });
-      const gh = g.createDiv({ cls: "ad-modelgroup__head" });
-      gh.createSpan({ text: "Pinned" });
-      this.groupAction(gh, pinned, d, true);
-      for (const m of pinned) this.modelRow(g, m, d, target, defaultId, true);
-    }
     for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
-      const rows = rest.filter((m) => m.agent === agent);
+      const rows = [...pinned, ...rest].filter((m) => m.agent === agent);
       if (!rows.length) continue;
-      const g = list.createDiv({ cls: "ad-modelgroup" });
-      const gh = g.createDiv({ cls: "ad-modelgroup__head" });
+      const state = p.settings.ui.modelGroups[agent];
+      const g = list.createEl("details", { cls: "ad-modelgroup" });
+      g.dataset.agent = agent;
+      g.open = state.open;
+      g.ontoggle = () => {
+        if (!g.isConnected || p.settings.ui.modelGroups[agent] !== state || state.open === g.open) return;
+        state.open = g.open;
+        p.saveSettings();
+      };
+      const gh = g.createEl("summary", { cls: "ad-modelgroup__head" });
       const a = AGENTS[agent];
       agentIcon(gh.createSpan({ cls: "ad-glyph", attr: { style: `color:${a.color}` } }), agent);
       gh.createSpan({ text: a.name });
       gh.createSpan({ cls: "ad-muted", text: `${rows.filter((m) => enabled.has(m.id)).length} of ${rows.length} on` });
       this.groupAction(gh, rows, d, false);
-      for (const m of rows) this.modelRow(g, m, d, target, defaultId, false);
+      for (const m of rows) this.modelRow(g, m, d, target, defaultId, d.pinned.includes(m.id));
     }
     if (!pinned.length && !rest.length) {
       list.createDiv({ cls: "ad-empty ad-empty--small", text: t("\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684\u6A21\u578B") });
@@ -10114,6 +10151,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     const left = row.createDiv({ cls: "ad-modelrow__left" });
     const name = left.createDiv({ cls: "ad-modelrow__name" });
     name.createSpan({ text: m.name });
+    if (pinned) name.createSpan({ cls: "ad-badge ad-badge--soft", text: "Pinned" });
     if (m.id === defaultId) name.createSpan({ cls: "ad-badge", text: "Default" });
     if (m.agent === target) name.createSpan({ cls: "ad-badge ad-badge--soft", text: AGENTS[m.agent].short });
     const meta = left.createDiv({ cls: "ad-modelrow__meta" });
@@ -10405,7 +10443,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     });
     const jdetail = this.row(jr, t("\u81EA\u52A8\u65E5\u5FD7\u8BE6\u7EC6\u7A0B\u5EA6"), "", null);
     const detailDesc = jdetail.querySelector(":scope > .ad-row__left");
-    detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09\uFF1A\u53EA\u8BB0\u4E00\u53E5 AI \u7ED3\u8BBA\uFF0C\u7EA6 45 \u5B57\uFF0C\u4E0D\u8BB0\u63D0\u95EE\u548C\u6B65\u9AA4\u3002\u9002\u5408\u5FEB\u901F\u770B\u8FDB\u5C55\u3002") });
+    detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09\uFF1A\u7528\u5173\u952E\u8BCD\u6216\u77ED\u8BED\u6D53\u7F29\u4EFB\u52A1\u548C\u7ED3\u8BBA\uFF0C\u5408\u6210\u4E00\u6BB5\uFF0C\u6536\u8D77\u65F6\u6700\u591A\u663E\u793A\u4E09\u884C\uFF1B\u5C55\u5F00\u67E5\u770B\u5B8C\u6574\u8BB0\u5F55\u3002\u4E0D\u5355\u5217\u63D0\u95EE\u548C\u6B65\u9AA4\u3002") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u6807\u51C6\uFF1A\u63D0\u95EE\u548C\u56DE\u7B54\u5404\u4FDD\u7559\u4E00\u53E5\uFF0C\u5206\u522B\u6700\u591A 90 \u5B57\uFF0C\u4E0D\u8BB0\u6B65\u9AA4\u3002\u9002\u5408\u7B80\u77ED\u5DE5\u4F5C\u8BB0\u5F55\u3002") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u8BE6\u7EC6\uFF1A\u63D0\u95EE\u6458\u5F55\u6700\u591A 1000 \u5B57\u3001\u56DE\u590D\u6458\u5F55\u6700\u591A 3000 \u5B57\uFF0C\u4FDD\u7559\u53EF\u7528\u6B65\u9AA4\u4E0E\u56DE\u590D\u4E2D\u7684\u547D\u4EE4\u3002\u9002\u5408\u5F00\u53D1\u65E5\u5FD7\u3001\u6392\u9519\u590D\u76D8\u548C\u4EA4\u63A5\u3002") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u5F00\u53D1\u65E5\u5FD7\u63A8\u8350\u642D\u914D\u201C\u6BCF\u8F6E\u8BB0\u5F55\u201D\u3002\u4E09\u6863\u53EA\u51B3\u5B9A\u65B0\u8F6E\u6B21\u4FDD\u5B58\u591A\u5C11\u5185\u5BB9\uFF1B\u65E7\u4F1A\u8BDD\u7684\u65B0\u8F6E\u6B21\u91C7\u7528\u65B0\u8BBE\u7F6E\uFF0C\u5DF2\u4FDD\u5B58\u8BB0\u5F55\u4E0D\u6539\u5199\u3001\u4E0D\u5220\u9664\u3002\u663E\u793A\u6761\u6570\u53E6\u8BBE\uFF1B\u9700\u8981\u5B8C\u6574\u95EE\u7B54\u6B63\u6587\u65F6\uFF0C\u53EF\u53E6\u884C\u5F52\u6863\u5230\u7B14\u8BB0\u3002") });
@@ -10451,10 +10489,11 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     const agBox = jag.querySelector(":scope > .ad-row__right").createDiv({ cls: "ad-seg" });
     const agOn = s.autoLogAgents || (s.autoLogAgents = {});
     for (const id of AGENT_ORDER) {
-      const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id });
+      const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id, attr: { "aria-pressed": String(agOn[id] !== false) } });
       b.onclick = () => {
         agOn[id] = agOn[id] === false;
         b.classList.toggle("is-on", agOn[id] !== false);
+        b.setAttribute("aria-pressed", String(agOn[id] !== false));
         p.saveSettings();
       };
     }
@@ -11083,7 +11122,10 @@ var ConfirmSendModal = class extends import_obsidian5.Modal {
     });
     const more = this.text.split("\n").filter((l) => l.trim()).length - 1;
     const meta = contentEl.createDiv({ cls: "ad-send__meta" });
-    if (ctx.length) meta.createSpan({ text: t("\u5E26\u4E0A {n} \u5C42\u6BCD\u9879\u4F5C\u4E3A\u4E0A\u4E0B\u6587", { n: ctx.length }) });
+    if (ctx.length) {
+      const fenced = fencedLines(ctx);
+      meta.createSpan({ text: t("\u5E26\u4E0A {n} \u5C42\u6BCD\u9879\u4F5C\u4E3A\u4E0A\u4E0B\u6587", { n: ctx.filter((line, i) => !fenced.has(i) && BULLET_RE.test(line)).length }) });
+    }
     meta.createSpan({ text: more > 0 ? t("\u8FDE\u540C {n} \u884C\u5B50\u5757\uFF0C\u4F5C\u4E3A\u4E00\u6761\u6D88\u606F", { n: more }) : t("\u4F5C\u4E3A\u4E00\u6761\u6D88\u606F") });
     meta.createSpan({ cls: "ad-send__path", text: this.path });
     const foot = contentEl.createDiv({ cls: "ad-send__foot" });
@@ -13369,7 +13411,7 @@ ${framed}
     const p = splitTask(raw);
     if (!p) return { text };
     const cleanRest = stripBlockId(p.rest).replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
-    const body = rec.created ? stripBlockId(rec.label) : cleanRest;
+    const body = cleanRest;
     const since = rec.created ? clock(first) : segs.length ? clock(first) : p.since || clock(first);
     const nextRaw = status === "doing" ? `${p.prefix}DOING ${since} ${body}`.trimEnd() : status === "done" ? (p.prefix + done(body)).trimEnd() : `${p.prefix}PAUSED ${body}`.trimEnd();
     const eb = ensureBlockId(nextRaw, preferId);
@@ -13385,21 +13427,23 @@ ${framed}
     if (!found || !segs.length) return text;
     const lines = text.split("\n");
     const at = found.line;
-    const line = clockLine((/^\s*/.exec(lines[at]) || [""])[0] + "	", segs, who, tok, true);
+    const line = clockLine(childIndent(lines, at), segs, who, tok, true);
     if (sid) {
       const l = linkUnder(lines, at);
-      if (l && l.sid === sid) lines.splice(l.line, 1);
+      if (l && l.sid === sid && markOwner(lines, l.line) === at && !blockIdOf(lines[l.line]) && !hasDescendants(lines, l.line)) lines.splice(l.line, 1);
     }
     const base = width(lines[at]);
+    let end = at;
     for (let i = at + 1; i < lines.length; i++) {
       if (lines[i].trim() && width(lines[i]) <= base) break;
-      if (CLOCK_RE.test(lines[i])) {
+      if (lines[i].trim()) end = i;
+      if (CLOCK_RE.test(lines[i]) && markOwner(lines, i) === at && mutableClock(lines, i)) {
         if (lines[i] === line) return lines.join("\n");
         lines[i] = line;
         return lines.join("\n");
       }
     }
-    lines.splice(at + 1, 0, line);
+    lines.splice(end + 1, 0, line);
     return lines.join("\n");
   }
   // 让本机的小模型看一眼这几个会话：起名字、对上日记里哪一行、提炼一句话结论
@@ -13898,12 +13942,25 @@ var JournalSync = class {
     roundObj._asked = true;
     this._polishing.add(roundObj);
     this._refining.add(key);
+    const brief = detailForRound(this.cfg.autoLogDetail, this.cfg.autoLogDetailHistory, roundObj) === "brief";
     const prompt = [
-      "\u628A\u4E0B\u9762 AI \u52A9\u624B\u8FD9\u4E00\u8F6E\u7684\u56DE\u590D\u63D0\u70BC\u6210\u4E00\u53E5\u8BDD\u7ED3\u8BBA\uFF08\u4E0D\u8D85\u8FC7 40 \u4E2A\u5B57\uFF0C\u76F4\u63A5\u5199\u7ED3\u8BBA\u672C\u8EAB\uFF0C\u4E0D\u8981\u524D\u7F00\u3001\u4E0D\u8981\u5F15\u53F7\u3001\u4E0D\u8981\u4EE3\u7801\u5757\uFF09\uFF1A",
+      brief ? '\u628A\u672C\u8F6E\u4EFB\u52A1\u548C\u56DE\u590D\u5206\u522B\u6D53\u7F29\u6210\u5173\u952E\u8BCD\u6216\u77ED\u8BED\uFF0C\u53EA\u8F93\u51FA JSON\uFF1A{"task":"\u4EFB\u52A1\u8981\u70B9\uFF0C\u6700\u591A 30 \u5B57","result":"\u7ED3\u8BBA\u8981\u70B9\uFF0C\u6700\u591A 45 \u5B57"}\u3002\u4FDD\u7559\u5931\u8D25\u3001\u672A\u5B8C\u6210\u3001\u5F85\u9A8C\u8BC1\u7B49\u72B6\u6001\uFF0C\u4E0D\u7F16\u9020\u4E8B\u5B9E\uFF0C\u4E0D\u8981\u4EE3\u7801\u5757\u3002' : "\u628A\u4E0B\u9762 AI \u52A9\u624B\u8FD9\u4E00\u8F6E\u7684\u56DE\u590D\u63D0\u70BC\u6210\u4E00\u53E5\u8BDD\u7ED3\u8BBA\uFF08\u4E0D\u8D85\u8FC7 40 \u4E2A\u5B57\uFF0C\u76F4\u63A5\u5199\u7ED3\u8BBA\u672C\u8EAB\uFF0C\u4E0D\u8981\u524D\u7F00\u3001\u4E0D\u8981\u5F15\u53F7\u3001\u4E0D\u8981\u4EE3\u7801\u5757\uFF09\uFF1A",
+      brief ? `\u4EFB\u52A1\uFF1A${String(roundObj.ask || this.usage.meta.get(sid)?.title || "").slice(-600)}` : "",
       "",
       String(rawSaid).slice(-900)
     ].join("\n");
     runJournalModel(prompt, this.cfg, { polish: true }).then((res) => {
+      if (brief) {
+        try {
+          const data = JSON.parse(res.replace(/^```(?:json)?\s*|\s*```$/g, "").trim());
+          if (typeof data.task === "string" && data.task.trim() && typeof data.result === "string" && data.result.trim()) {
+            roundObj.taskSummary = data.task.trim();
+            roundObj.summary = data.result.trim();
+          }
+        } catch {
+        }
+        return;
+      }
       const clean = oneSentenceConclusion(safeLabel(res, 65) || res, 80);
       if (clean && clean.length >= 4) {
         roundObj.summary = clean;
@@ -14090,7 +14147,7 @@ var JournalSync = class {
       const base = width(lines[n]);
       for (let i = n + 1; i < lines.length; i++) {
         if (lines[i].trim() && width(lines[i]) <= base) break;
-        if (CLOCK_RE.test(lines[i])) {
+        if (CLOCK_RE.test(lines[i]) && markOwner(lines, i) === n && mutableClock(lines, i)) {
           lines.splice(i, 1);
           break;
         }
@@ -14099,7 +14156,7 @@ var JournalSync = class {
       lines.splice(n + 1, 0, clockLine((/^\s*/.exec(lines[n]) || [""])[0] + "	", info.segs, who, (info.out || 0) + (info.fresh || 0)));
     }
     const link = linkUnder(lines, n);
-    if (link && link.sid === sid) lines.splice(link.line, 1);
+    if (link && link.sid === sid && markOwner(lines, link.line) === n && !blockIdOf(lines[link.line]) && !hasDescendants(lines, link.line)) lines.splice(link.line, 1);
     this.p.markBound?.(sid);
     return lines.join("\n");
   }
@@ -15236,6 +15293,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
   }
   // ---------- settings ----------
   async saveSettings() {
+    syncModelGroups(this.settings, (agent) => this.agentEnabled(agent));
     this.settings.jobs = this.jobs;
     setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 8) * 60);
     await this.saveData(this.settings);
@@ -15742,17 +15800,15 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
     const lines = view ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
     if (line < 0) return { error: t("\u8FD9\u4E00\u884C\u521A\u6539\u8FC7\uFF0C\u91CD\u65B0\u6765\u4E00\u6B21") };
-    const block = blockAt(lines, line), k = kwLine(lines[line]);
-    if (!newSession && k && k.body.startsWith(AUTO_MARK.trim())) return { error: t("Agent \u8BB0\u7684\u6761\u76EE\u4E0D\u59D4\u6D3E") };
+    const block = blockAt(lines, line);
     if (!newSession && block && findLink(lines, block)) return { error: t("\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\uFF0C\u4E0D\u59D4\u6D3E") };
-    if (!newSession && block && lines.slice(block.start + 1, block.end + 1).some((l) => CLOCK_RE.test(l))) return { error: t("\u5DF2\u6709\u7528\u65F6\u8BB0\u5F55\uFF0C\u4E0D\u59D4\u6D3E") };
     return { file, lines, line, block };
   }
   async delegateDrop(agent, item, fromEl, { cli = false, destination, newSession = false, confirmed = false, expectedText } = {}) {
     this._dragItem = null;
     const target = await this.delegateTarget(item, { newSession });
     if (target.error) return this.notice(target.error);
-    if (confirmed && expectedText !== void 0 && target.block.text !== expectedText) return this.notice(t("\u4EFB\u52A1\u5185\u5BB9\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u9884\u89C8\u540E\u53D1\u9001"));
+    if (confirmed && expectedText !== void 0 && delegationText(target.lines, target.block, { newSession }) !== expectedText) return this.notice(t("\u4EFB\u52A1\u5185\u5BB9\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u9884\u89C8\u540E\u53D1\u9001"));
     try {
       const opts = mentionOptions(this, { ...target, agent, ignoreMention: newSession });
       agent = opts.agent;
@@ -15766,7 +15822,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
           where: `${opts.model || this.defaultModel(agent) || t("\u5BA2\u6237\u7AEF\u6A21\u578B")} \xB7 ${opts.effort || this.settings.delegate[agent]?.effort || t("\u5BA2\u6237\u7AEF\u5F3A\u5EA6")}`,
           destination,
           newSession
-        }, (chosen) => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: target.block.text })).open();
+        }, (chosen) => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: delegationText(target.lines, target.block, { newSession }) })).open();
         return;
       }
       await this.delegator.delegate({ ...opts, destination, newSession });

@@ -34,6 +34,7 @@ export const RESULT_RE = /^\s*[-*+]\s+💬/;
 export const CLOCK_RE = /^\s*[-*+]\s+⏱/;
 export const QUESTION_RE = /^\s*[-*+]\s+❓/;
 export const PLAN_RE = /^\s*[-*+]\s+📋/;
+export const CONTEXT_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋)\s/;
 // 本插件写下的记录行（和 ai-records.js 的 AI_RECORD_RE 一致），⏱ 也在其中
 export const RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
 export const KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
@@ -83,7 +84,20 @@ export function clockLine(indent, segs, who, tok = 0, ellipsis = false) {
     else shown.push([a, b]);
   }
   const total = Math.round(segs.reduce((n, [a, b]) => n + b - a, 0));
-  return `${indent}- ⏱ ${ellipsis && shown.length > 8 ? "… " : ""}${shown.slice(-8).map(([a, b]) => `${clock(a)}–${clock(b)}`).join("、")} · 共 ${durTag(total)}${tok ? ` · ${fmtTok(tok)} tok` : ""}${who ? " · " + who : ""}`;
+  const line = `${indent}- ⏱ ${ellipsis && shown.length > 8 ? "… " : ""}${shown.slice(-8).map(([a, b]) => `${clock(a)}–${clock(b)}`).join("、")} · 共 ${durTag(total)}${tok ? ` · ${fmtTok(tok)} tok` : ""}${who ? " · " + who : ""}`;
+  return `${line} <!-- ad-clock:${clockHash(line)} -->`;
+}
+
+function clockHash(line) {
+  let hash = 5381;
+  for (const char of line.trim()) hash = Math.imul(hash, 33) ^ char.codePointAt(0);
+  return (hash >>> 0).toString(16);
+}
+
+// 无原始签名的旧记录按用户内容保留；已修改、加块号或子块的记录也不再更新。
+export function mutableClock(lines, n) {
+  const marker = /^(.*?) <!-- ad-clock:([a-f0-9]+) -->\s*$/.exec(lines[n]);
+  return !!marker && clockHash(marker[1]) === marker[2] && !blockIdOf(lines[n]) && !hasDescendants(lines, n);
 }
 export const durTag = (m) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? (m % 60) + "m" : ""}` : `${Math.max(1, Math.round(m))}m`);
 export const width = (line) => { let w = 0; for (const c of (/^\s*/.exec(line) || [""])[0]) w += c === "\t" ? 4 : 1; return w; };
@@ -140,7 +154,7 @@ export function kwLine(raw) {
   if (m) { kw = m[1]; s = s.slice(m[0].length); }
   const blockId = blockIdOf(s);
   s = stripBlockId(s).replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
-  if (!s || s.startsWith("⏱") || s.startsWith("🔗") || s.startsWith("💬") || s.startsWith("❓") || s.startsWith("📋") || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
+  if (!s || s.startsWith("⏱") || s.startsWith("🔗") || ((!kw && !blockId) && /^(?:💬|❓|📋)/.test(s)) || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
   return { kw, body: s, blockId };
 }
 
@@ -197,6 +211,13 @@ export function childMark(lines, n, pick) {
     if (l) return { line: i, ...l };
   }
   return null;
+}
+
+export function hasDescendants(lines, n) {
+  for (let i = n + 1; i < lines.length; i++) {
+    if (lines[i].trim()) return width(lines[i]) > width(lines[n]);
+  }
+  return false;
 }
 
 export const linkUnder = (lines, n) => childMark(lines, n, parseLink);
@@ -318,19 +339,6 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
     }
     return end;
   };
-  const upsertChild = (prefixRe, newLine, afterAnchor = -1) => {
-    const end = childSpan();
-    for (let i = n + 1; i <= end; i++) {
-      if (width(lines[i]) === childWidth && prefixRe.test(lines[i])) {
-        if (lines[i] !== newLine) lines[i] = newLine;
-        return i;
-      }
-    }
-    const insertAt = afterAnchor >= n ? afterAnchor + 1 : end + 1;
-    lines.splice(insertAt, 0, newLine);
-    return insertAt;
-  };
-
   // Completed records are append-only: changing detail never rewrites saved rounds.
   const fenced = fencedLines(lines), recorded = new Set();
   const sourceTurn = raw => /<!-- ad-turn:([A-Za-z0-9_-]+):(\d+) -->/.exec(raw);
@@ -339,8 +347,9 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
   const provenance = rn => /^[A-Za-z0-9_-]+$/.test(sid) ? ` <!-- ad-turn:${sid}:${rn} -->` : "";
   for (let i = n + 1; i <= childSpan(); i++) {
     if (fenced.has(i) || width(lines[i]) !== childWidth || !belongs(lines[i])) continue;
+    const marker = sourceTurn(lines[i]);
     const match = /^\s*[-*+]\s+💬\s+(?:第(\d+)轮[：:]|((?!累计总结[：:]).))/.exec(lines[i]);
-    if (match) recorded.add(sourceTurn(lines[i]) ? +sourceTurn(lines[i])[2] : match[1] ? +match[1] : 1);
+    if (marker || match) recorded.add(marker ? +marker[2] : match[1] ? +match[1] : 1);
   }
   let validRounds = (Array.isArray(rounds) ? rounds : []).filter(r => r && (r.said || r.summary));
   if (!validRounds.length && said && !recorded.size) validRounds = [{ n: 1, said }];
@@ -352,7 +361,13 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
     for (let i = n + 1; i < at; i++) if (width(lines[i]) === childWidth && CLOCK_RE.test(lines[i])) { at = i; break; }
     lines.splice(at, 0, line);
   };
-  if (compact?.text) upsertChild(/^\s*[-*+]\s+💬\s+累计总结[：:]/, `${ind}- 💬 累计总结：${resultText(compact.text, 170)}`, linkAt >= 0 ? linkAt : n);
+  if (compact?.text) {
+    const summary = `${ind}- 💬 累计总结：${resultText(compact.text, 170)}`;
+    const marker = /^[A-Za-z0-9_-]+$/.test(sid) ? ` <!-- ad-summary:${sid}:${compact.through || 0} -->` : "";
+    const saved = lines.slice(n + 1, childSpan() + 1).some(raw => width(raw) === childWidth &&
+      (raw === summary || (marker && raw.includes(marker))));
+    if (!saved) append(summary + marker);
+  }
   for (const [index, r] of fresh.entries()) {
     const rn = r.n || index + 1;
     const level = detailForRound(mode, detailHistory, r);
@@ -361,7 +376,10 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
       append(`${ind}- ❓ 第${rn}轮：${ask}${provenance(rn)}`);
     }
     const raw = level === "detailed" ? (r.said || r.summary) : (r.summary || r.said);
-    const message = level === "detailed" ? detailExcerpt(raw, 3000) : recordSentence(raw, level === "brief" ? 45 : 90);
+    const task = r.taskSummary || r.ask || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
+    const message = level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
+      ? `任务：${resultText(task, 45)}；结论：${resultText(raw, 65)}`
+      : recordSentence(raw, 90);
     // Number the latest-progress entry too, so a setting change cannot rewrite it.
     const prefix = rn === 1 && roundLog ? "" : `第${rn}轮：`;
     append(`${ind}- 💬 ${prefix}${message}${provenance(rn)}`);
@@ -589,7 +607,7 @@ export function clocksLast(text) {
   for (const task of taskItems(text).reverse()) {
     const n = task.line;
     if (fenced.has(n) || !lines[n]?.trim()) continue;   // 围栏里的示例不算任务
-    const records = recordBlock(lines, n).filter((i) => !fenced.has(i));
+    const records = recordBlock(lines, n).filter((i) => !fenced.has(i) && !blockIdOf(lines[i]) && !hasDescendants(lines, i));
     const clocks = records.filter((i) => CLOCK_RE.test(lines[i]));
     const rest = records.filter((i) => !CLOCK_RE.test(lines[i]));
     if (!clocks.length || !rest.length) continue;

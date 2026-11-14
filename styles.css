@@ -523,6 +523,16 @@
 .ad-target__hint { font-size: 9px; font-weight: 500; color: var(--ad-muted); }
 .ad-target--sm { padding: 6px 9px; font-size: 11px; border-radius: 999px; }
 
+/* Settings choices show both a filled accent and a check, with room reserved for the mark. */
+.ad-settings .ad-seg { flex-wrap: wrap; gap: 4px; border-radius: 12px; }
+.ad-settings .ad-row__right:has(.ad-seg) { flex-shrink: 1; min-width: 0; max-width: 65%; }
+.ad-settings :is(.ad-seg__btn, .ad-chip) { display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid var(--ad-line); background: var(--background-primary); color: var(--ad-ink); box-shadow: none; white-space: nowrap; }
+.ad-settings :is(.ad-seg__btn, .ad-chip, .ad-target)::before { content: "✓"; display: inline-block; width: 1em; flex: none; visibility: hidden; font-weight: 800; }
+.ad-settings :is(.ad-seg__btn, .ad-chip, .ad-target).is-on { background: var(--interactive-accent, var(--ad-accent)); color: var(--text-on-accent, #fff); border-color: var(--interactive-accent, var(--ad-accent)); box-shadow: inset 0 0 0 1px currentColor; }
+.ad-settings :is(.ad-seg__btn, .ad-chip, .ad-target).is-on::before { visibility: visible; }
+.ad-settings .ad-target.is-on :is(.ad-glyph, .ad-target__hint) { color: inherit; }
+.ad-settings :is(.ad-seg__btn, .ad-chip, .ad-target, .ad-effort__stop):focus-visible { outline: 2px solid var(--interactive-accent, var(--ad-accent)); outline-offset: 3px; }
+
 .ad-field { margin-top: 10px; }
 .ad-field__label { font-size: 11px; font-weight: 700; margin-bottom: 5px; }
 .ad-hint { font-size: 9px; color: var(--ad-muted); margin-top: 4px; line-height: 1.45; }
@@ -537,6 +547,7 @@
 .ad-effort__stop { appearance: none; border: 0; background: transparent; padding: 0; width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
 .ad-effort__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--background-primary); border: 1.5px solid color-mix(in srgb, var(--ad-muted) 60%, transparent); transition: all .16s ease; }
 .ad-effort__stop.is-on .ad-effort__dot { width: 13px; height: 13px; border: 2px solid var(--background-primary); background: linear-gradient(145deg, #8b9aac, #a49bbd); box-shadow: 0 2px 7px rgba(116, 109, 148, .25); }
+.ad-settings .ad-effort__stop.is-on .ad-effort__dot { width: 16px; height: 16px; background: var(--interactive-accent, var(--ad-accent)); box-shadow: 0 0 0 2px var(--interactive-accent, var(--ad-accent)); }
 .ad-effort__lab { position: absolute; top: 14px; transform: translateX(-50%); font-size: 8px; color: var(--ad-faint); white-space: nowrap; }
 .ad-effort__lab:first-of-type { transform: translateX(0); }
 .ad-effort__lab:last-of-type { transform: translateX(-100%); }
@@ -573,6 +584,10 @@
 .ad-modellist { margin-top: 4px; }
 .ad-modelgroup { margin-top: 10px; }
 .ad-modelgroup__head { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 700; color: var(--ad-muted); padding: 7px 2px; border-bottom: 1px solid var(--ad-line); }
+summary.ad-modelgroup__head { cursor: pointer; list-style: none; }
+summary.ad-modelgroup__head::-webkit-details-marker { display: none; }
+summary.ad-modelgroup__head::before { content: "›"; display: inline-block; font-size: 16px; transition: transform .12s ease; }
+.ad-modelgroup[open] > summary.ad-modelgroup__head::before { transform: rotate(90deg); }
 .ad-modelgroup__head .ad-linkbtn { margin-left: auto; }
 .ad-modelrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 6px; border-bottom: 1px solid var(--ad-line); border-radius: 8px; transition: background .15s ease; }
 .ad-modelrow:hover, .ad-modelrow:focus { background: var(--background-modifier-hover); outline: none; }
@@ -882,6 +897,13 @@ body.ad-dragging-session .markdown-source-view .cm-content { outline: 1px dashed
 .ad-records-count { color: var(--text-faint); font-size: 10px; font-variant-numeric: tabular-nums; }
 .markdown-source-view.mod-cm6 .cm-line.ad-record-line,
 .markdown-rendered .ad-record-item { color: var(--text-muted); font-size: .88em; }
+.markdown-source-view.mod-cm6 .cm-line.ad-record-brief-clamped:not(.cm-active),
+.markdown-rendered .ad-record-brief-clamped {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
 .markdown-source-view.mod-cm6 .ad-pill { height: 20px; border-color: transparent; background: transparent; box-shadow: none; color: var(--text-muted); }
 .markdown-source-view.mod-cm6 .ad-pill:hover { transform: none; background: var(--background-modifier-hover); }
 .markdown-source-view.mod-cm6 .ad-pill__label { font-weight: 500; }

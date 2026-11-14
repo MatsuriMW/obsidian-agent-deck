@@ -44,21 +44,20 @@ export function blockAt(lines, at) {
   return { start: at, end, indent, text: lines.slice(at, end + 1).join("\n") };
 }
 
-// 被委派的那一项在笔记里挂在哪：上面每一层母项各取一行，从最外层排到直接母项。
-// 只认列表项，只取母项自己那一行；母项的其他子项（兄弟项）不带。
+// 从最外层到直接母项，保留母项正文与续行，不带兄弟分支。
 export function ancestorLines(lines, at) {
   if (at < 0 || at >= lines.length) return [];
-  const out = [];
-  let need = J.width(lines[at]);
-  for (let i = at - 1; i >= 0 && need > 0; i--) {
+  const stack = [], fenced = J.fencedLines(lines);
+  for (let i = 0; i <= at; i++) {
     const line = lines[i];
-    if (!line.trim() || !BULLET_RE.test(line)) continue;
+    if (!line.trim()) continue;
     const w = J.width(line);
-    if (w >= need) continue;   // 同级或更深的不是母项
-    out.unshift(line);
-    need = w;
+    while (stack.length && stack.at(-1).width >= w) stack.pop();
+    if (i === at) break;
+    if (!fenced.has(i) && BULLET_RE.test(line)) stack.push({ width: w, body: [line] });
+    else if (stack.length) stack.at(-1).body.push(line);
   }
-  return out;
+  return stack.flatMap(item => item.body);
 }
 
 // 母项上下文 + 要做的这一块：母项各占一行、保留原缩进，前面一句说明只做最里面那项。
@@ -83,7 +82,7 @@ export function blockTitle(block, trigger = "@") {
 }
 
 export function hasLink(lines, block) {
-  for (let i = block.start + 1; i <= block.end; i++) if (LINK_RE.test(lines[i])) return i;
+  for (let i = block.start + 1; i <= block.end; i++) if (LINK_RE.test(lines[i]) && J.markOwner(lines, i) === block.start) return i;
   return -1;
 }
 
@@ -1407,7 +1406,7 @@ function execCapture(bin, args, { cwd, env, timeout = 10000 } = {}) {
   });
 }
 
-// A new execution receives the task and manual subitems, not previous managed output.
+// Saved AI output is working context, including edits and nested delegations.
 export function freshTaskText(text) {
-  return text.split("\n").filter(l => !/^\s*[-*+]\s+(?:🔗|💬|📋|❓|⏱|📄)\s*/u.test(l)).map((l, i) => i === 0 ? J.stripBlockId(l) : l).join("\n");
+  return text.split("\n").map((l, i) => i === 0 ? J.stripBlockId(l) : l).join("\n");
 }

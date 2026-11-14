@@ -30,5 +30,14 @@ try{
  const fallback=field.create({doc}).decorations;
  assert.ok(!fallback.some(r=>r.from<=link.from&&r.to>=link.to),'a unique fallback link stays visible');
  assert.ok(text.includes('codex://threads/'),'display filtering keeps source binding unchanged');
+ const briefLines=['- DOING Brief ^ad-brief','  - 💬 任务：缓存、兼容；结论：修复、待发布','  - 💬 有用户子块的回复','    - TODO 用户的下一步'];
+ const briefDoc={toString:()=>briefLines.join('\n'),line(n){const from=briefLines.slice(0,n-1).reduce((sum,l)=>sum+l.length+1,0);return {from,to:from+briefLines[n-1].length}}};
+ plugin.settings.aiRecordExpanded={};
+ const closedBrief=field.create({doc:briefDoc}).decorations;
+ assert.ok(closedBrief.some(r=>r.spec.class?.includes('ad-record-brief-clamped')),'closed brief task/result gets the three-line display class');
+ const protectedLine=briefDoc.line(3);
+ assert.ok(!closedBrief.some(r=>r.from<=protectedLine.from&&r.to>=protectedLine.to),'the reply above user descendants is never hidden');
+ plugin.settings.aiRecordExpanded={'ad-brief':true};
+ assert.ok(!field.create({doc:briefDoc}).decorations.some(r=>r.spec.class?.includes('ad-record-brief-clamped')),'expanding history removes the line clamp');
  console.log('PASS selection-only transactions reuse AI record decorations');
 }finally{fs.rmSync(dir,{recursive:true,force:true})}

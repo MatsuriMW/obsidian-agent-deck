@@ -81,7 +81,7 @@ export function runJournalModel(prompt, cfg, { polish = false } = {}) {
   const model = (polish && String(cfg.roundPolishModel || "").trim()) || cfg.autoLogModel || (codex ? "" : "haiku");
   const timeout = polish ? Math.max(5, Number(cfg.roundPolishTimeout) || 30) : Math.max(10, Number(cfg.autoLogTimeout) || 120);
   if (codex) return runCodex(prompt, { bin: cfg.autoLogPath || cfg.delegate?.codex?.path || "codex", model, effort: cfg.autoLogEffort || "low", timeout });
-  return runClaude(prompt, { bin: cfg.autoLogPath || cfg.delegate?.claude?.path || "claude", model, timeout, system: polish ? "你是整理助手，按要求只输出一句话。" : "" });
+  return runClaude(prompt, { bin: cfg.autoLogPath || cfg.delegate?.claude?.path || "claude", model, timeout, system: polish ? "你是整理助手，只输出要求的结果，不补充解释。" : "" });
 }
 
 // 模型没装 / 没登录时的兜底名字：从会话标题或用户第一句话里取一段

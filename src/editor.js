@@ -370,7 +370,7 @@ function buildDecorations(view, plugin) {
           const widget = new PillWidget(plugin, path, n, state);
           builder.add(line.to, line.to, Decoration.widget({ widget, side: 1, block: false }));
         }
-        if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && J.kwLine(text)) {
+        if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && (J.kwLine(text) || J.CONTEXT_RECORD_RE.test(text))) {
           builder.add(line.to, line.to, Decoration.widget({ widget: new GripWidget(plugin, path, n, text), side: 1, block: false }));
         }
       }

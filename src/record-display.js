@@ -6,7 +6,7 @@ import { StateEffect, StateField } from "@codemirror/state";
 import { foldedRanges, unfoldEffect } from "@codemirror/language";
 import {
   aiRecordGroups, recordRuns, adBlockIdRanges, hiddenBlockId,
-  recordIsOpen, recordStartsOpen, visibleRecords,
+  recordIsOpen, recordStartsOpen, visibleRecords, isBriefRecord,
 } from "./ai-records.js";
 import { t } from "./i18n.js";
 
@@ -127,8 +127,8 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
     const lines = text.split("\n");
     for (const { from, to } of adBlockIdRanges(text, ids)) ranges.push(Decoration.replace({}).range(from, to));
     for (const group of aiRecordGroups(text, ids)) {
-      for (const n of group.records) ranges.push(Decoration.line({ class: "ad-record-line" }).range(doc.line(n + 1).from));
       const open = recordIsOpen(plugin.settings, mode, group);
+      for (const n of group.records) ranges.push(Decoration.line({ class: "ad-record-line" + (!open && isBriefRecord(lines[n]) ? " ad-record-brief-clamped" : "") }).range(doc.line(n + 1).from));
       const duplicate = plugin.redundantSessionLink?.(group, lines) ?? -1;
       const available = group.records.filter(n => n !== duplicate);
       const visible = (open ? available : visibleRecords(group, lines, mode)).filter(n => n !== duplicate);
@@ -204,7 +204,7 @@ export function renderAIRecords(el, plugin, ctx) {
     const parent = list.parentElement.closest("li");
     if (!parent) continue;
     const own = [...parent.childNodes].filter((n) => n !== list && n.nodeName !== "UL" && n.nodeName !== "OL").map((n) => n.textContent).join("");
-    const records = [...list.children].filter((li) => /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/.test(li.textContent.trim()));
+    const records = [...list.children].filter((li) => !li.querySelector('ul, ol') && !li.id && !li.dataset.blockId && /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/.test(li.textContent.trim()));
     const section = ctx?.getSectionInfo?.(el);
     const first = section && section.text.split("\n")[(section.lineStart || 0) + (Number(parent.dataset.line) || 0)];
     const key = parent.id || parent.dataset.blockId || (first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1]);
@@ -224,6 +224,7 @@ export function renderAIRecords(el, plugin, ctx) {
       for (const [i, li] of records.entries()) {
         li.classList.add("ad-record-item");
         li.classList.toggle("ad-record-hidden", !kept.includes(i));
+        li.classList.toggle("ad-record-brief-clamped", !open && isBriefRecord(texts[i]));
       }
       button.querySelector("span:nth-child(2)").textContent = buttonLabel(open, mode, summaries.length > 0);
       button.dataset.open = String(open);
@@ -236,7 +237,7 @@ export function renderAIRecords(el, plugin, ctx) {
     const paragraph = parent.querySelector(":scope > p");
     if (paragraph) paragraph.appendChild(button); else list.parentNode.insertBefore(button, list);
     update();
-    cleanups.push(() => { for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item"); button.remove(); delete list.dataset.adRecords; });
+    cleanups.push(() => { for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item", "ad-record-brief-clamped"); button.remove(); delete list.dataset.adRecords; });
   }
   return () => cleanups.forEach((cleanup) => cleanup());
 }

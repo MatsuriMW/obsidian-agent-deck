@@ -21,9 +21,10 @@ import {
   AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp, visibleMenuAgents, journalPath,
 } from "./constants.js";
 import { AgentUsage, UsageStore, projectName, SUMMARY_VERSION } from "./readers.js";
-import { Delegator, blockAt, freshTaskText, ancestorLines, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findAgyBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
+import { Delegator, blockAt, freshTaskText, ancestorLines, delegationText, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findAgyBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { AgentDeckSettingsTab } from "./settings.js";
+import { syncModelGroups } from "./model-groups.js";
 import { DelegateOptionsModal, ConfirmSendModal, ArchiveTargetModal } from "./dialog.js";
 import { agentIcon } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
@@ -377,6 +378,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   // ---------- settings ----------
   async saveSettings() {
+    syncModelGroups(this.settings, agent => this.agentEnabled(agent));
     this.settings.jobs = this.jobs;
     J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 8) * 60);
     await this.saveData(this.settings);
@@ -833,11 +835,9 @@ export default class AgentDeckPlugin extends Plugin {
     const lines = view ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
     if (line < 0) return { error: t("这一行刚改过，重新来一次") };
-    // 只有人写的文字条目才委派；Agent 写的（🤖）、已经绑着会话的，不再开新会话
-    const block = blockAt(lines, line), k = J.kwLine(lines[line]);
-    if (!newSession && k && k.body.startsWith(J.AUTO_MARK.trim())) return { error: t("Agent 记的条目不委派") };
+    // 自动记录也可以作为任务；只有这一块自己的绑定才阻止重复发送。
+    const block = blockAt(lines, line);
     if (!newSession && block && findLink(lines, block)) return { error: t("已经绑着会话，不委派") };
-    if (!newSession && block && lines.slice(block.start + 1, block.end + 1).some((l) => J.CLOCK_RE.test(l))) return { error: t("已有用时记录，不委派") };
     return { file, lines, line, block };
   }
 
@@ -845,7 +845,7 @@ export default class AgentDeckPlugin extends Plugin {
     this._dragItem = null;
     const target = await this.delegateTarget(item, { newSession });
     if (target.error) return this.notice(target.error);
-    if (confirmed && expectedText !== undefined && target.block.text !== expectedText) return this.notice(t("任务内容已变化，请重新预览后发送"));
+    if (confirmed && expectedText !== undefined && delegationText(target.lines, target.block, { newSession }) !== expectedText) return this.notice(t("任务内容已变化，请重新预览后发送"));
     try {
       const opts = mentionOptions(this, { ...target, agent, ignoreMention: newSession });
       agent = opts.agent;
@@ -856,7 +856,7 @@ export default class AgentDeckPlugin extends Plugin {
           context: ancestorLines(target.lines, target.block.start),
           where: `${opts.model || this.defaultModel(agent) || t("客户端模型")} · ${opts.effort || this.settings.delegate[agent]?.effort || t("客户端强度")}`,
           destination, newSession,
-        }, chosen => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: target.block.text })).open();
+        }, chosen => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: delegationText(target.lines, target.block, { newSession }) })).open();
         return;
       }
       await this.delegator.delegate({ ...opts, destination, newSession });

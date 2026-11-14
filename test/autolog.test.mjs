@@ -158,7 +158,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const text = "- DOING 任务 ^ad-detail\n";
   let out = js.results(text);
   // 默认每轮保存结论，简略模式只保留最近提问；显示策略不影响写回。
-  check("default live sync retains both conclusions plus the newest prompt", out.includes("💬 第2轮：完成新增配置。") && !out.includes("❓") && !out.includes("最初要求") && (out.match(/💬/g)||[]).length===2,out);
+  check("default live sync combines each task and conclusion", out.includes("任务：追加的用户要求；结论：完成新增配置。") && !out.includes("❓") && out.includes("最初要求") && (out.match(/💬/g)||[]).length===2,out);
   p.settings.autoLogDetail="detailed"; p.settings.autoLogGranularity="round";
   out=js.results(text);
   check("live sync honors detailed setting", out.includes("❓ 第2轮：追加的用户要求"),out);
@@ -188,7 +188,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   p.settings.autoLogState={[p.day]:{[sid]:{key:"任务",blockId:"ad-grain",status:"doing"}}};
   const js=new JournalSync(p), text="- DOING 任务 ^ad-grain\n";
   let out=js.results(text);
-  check("round granularity keeps conclusions and only the newest prompt",(out.match(/💬/g)||[]).length===2&&!out.includes("❓")&&!out.includes("用户要求一"),out);
+  check("round granularity keeps each task and conclusion in one paragraph",(out.match(/💬/g)||[]).length===2&&!out.includes("❓")&&out.includes("任务：用户要求一；结论：完成基础功能。"),out);
   p.settings.autoLogGranularity="paused";
   check("paused granularity does not write while merely waiting for user",js.results(text)===text);
   p.settings.autoLogState[p.day][sid].status="paused";
@@ -226,7 +226,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const text="- DOING 任务 ^ad-merge1\n\t- 💬 完成第一轮。\n\t- 💬 第2轮：完成第二轮。\n\t- ❓ 第2轮：用户追问\n\t- TODO 手动待办\n\t- 手写备注\n\t- 子任务\n\t\t- 💬 第2轮：子任务自己的记录\n";
   const args={blockId:"ad-merge1",detail:"brief",granularity:"round",compact:{through:2,text:"完成基础功能，新增配置；发布仍待验证。"},rounds:[{n:1,said:"完成第一轮。"},{n:2,said:"完成第二轮。"},{n:3,said:"完成第三轮。"}]};
   const out=J.syncSessionEntry(text,args).text;
-  check("compaction retains summary, later turns and manual content",out.includes("累计总结：完成基础功能，新增配置；发布仍待验证。")&&out.includes("第3轮：完成第三轮。")&&out.includes("完成第二轮")&&out.includes("用户追问")&&out.includes("TODO 手动待办")&&out.includes("手写备注")&&out.includes("子任务自己的记录"),out);
+  check("compaction retains summary, later turns and manual content",out.includes("累计总结：完成基础功能，新增配置；发布仍待验证。")&&out.includes("第3轮：任务：任务；结论：完成第三轮。")&&out.includes("完成第二轮")&&out.includes("用户追问")&&out.includes("TODO 手动待办")&&out.includes("手写备注")&&out.includes("子任务自己的记录"),out);
   check("compaction is idempotent",J.syncSessionEntry(out,args).text===out);
 }
 

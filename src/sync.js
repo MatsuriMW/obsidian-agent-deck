@@ -132,13 +132,26 @@ export class JournalSync {
     roundObj._asked = true;
     this._polishing.add(roundObj);
     this._refining.add(key);
+    const brief = detailForRound(this.cfg.autoLogDetail, this.cfg.autoLogDetailHistory, roundObj) === "brief";
     const prompt = [
-      "把下面 AI 助手这一轮的回复提炼成一句话结论（不超过 40 个字，直接写结论本身，不要前缀、不要引号、不要代码块）：",
+      brief ? '把本轮任务和回复分别浓缩成关键词或短语，只输出 JSON：{"task":"任务要点，最多 30 字","result":"结论要点，最多 45 字"}。保留失败、未完成、待验证等状态，不编造事实，不要代码块。'
+        : "把下面 AI 助手这一轮的回复提炼成一句话结论（不超过 40 个字，直接写结论本身，不要前缀、不要引号、不要代码块）：",
+      brief ? `任务：${String(roundObj.ask || this.usage.meta.get(sid)?.title || "").slice(-600)}` : "",
       "",
       String(rawSaid).slice(-900),
     ].join("\n");
     runJournalModel(prompt, this.cfg, { polish: true })
       .then((res) => {
+        if (brief) {
+          try {
+            const data = JSON.parse(res.replace(/^```(?:json)?\s*|\s*```$/g, "").trim());
+            if (typeof data.task === "string" && data.task.trim() && typeof data.result === "string" && data.result.trim()) {
+              roundObj.taskSummary = data.task.trim();
+              roundObj.summary = data.result.trim();
+            }
+          } catch { /* use the local task and reply excerpts */ }
+          return;
+        }
         const clean = J.oneSentenceConclusion(safeLabel(res, 65) || res, 80);
         if (clean && clean.length >= 4) {
           roundObj.summary = clean;
@@ -324,14 +337,14 @@ export class JournalSync {
       const base = J.width(lines[n]);
       for (let i = n + 1; i < lines.length; i++) {
         if (lines[i].trim() && J.width(lines[i]) <= base) break;
-        if (J.CLOCK_RE.test(lines[i])) { lines.splice(i, 1); break; }
+        if (J.CLOCK_RE.test(lines[i]) && J.markOwner(lines, i) === n && J.mutableClock(lines, i)) { lines.splice(i, 1); break; }
       }
       const who = AGENTS[info.agent]?.short || info.agent;
       lines.splice(n + 1, 0, J.clockLine((/^\s*/.exec(lines[n]) || [""])[0] + "\t", info.segs, who, (info.out || 0) + (info.fresh || 0)));
     }
     // 收掉这一项的 🔗 行；记一笔「绑过」，自动记日记就不会在 🔗 没了之后再替它新写一行
     const link = J.linkUnder(lines, n);
-    if (link && link.sid === sid) lines.splice(link.line, 1);
+    if (link && link.sid === sid && J.markOwner(lines, link.line) === n && !J.blockIdOf(lines[link.line]) && !J.hasDescendants(lines, link.line)) lines.splice(link.line, 1);
     this.p.markBound?.(sid);
     return lines.join("\n");
   }

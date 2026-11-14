@@ -169,7 +169,7 @@ export class AutoLog {
     const p = J.splitTask(raw);
     if (!p) return { text };
     const cleanRest = J.stripBlockId(p.rest).replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
-    const body = rec.created ? J.stripBlockId(rec.label) : cleanRest;
+    const body = cleanRest;
     const since = rec.created ? J.clock(first) : (segs.length ? J.clock(first) : (p.since || J.clock(first)));
     const nextRaw = status === "doing" ? `${p.prefix}DOING ${since} ${body}`.trimEnd()
       : status === "done" ? (p.prefix + done(body)).trimEnd()
@@ -188,18 +188,20 @@ export class AutoLog {
     if (!found || !segs.length) return text;
     const lines = text.split("\n");
     const at = found.line;
-    const line = J.clockLine((/^\s*/.exec(lines[at]) || [""])[0] + "\t", segs, who, tok, true);
-    if (sid) { const l = J.linkUnder(lines, at); if (l && l.sid === sid) lines.splice(l.line, 1); }
+    const line = J.clockLine(J.childIndent(lines, at), segs, who, tok, true);
+    if (sid) { const l = J.linkUnder(lines, at); if (l && l.sid === sid && J.markOwner(lines, l.line) === at && !J.blockIdOf(lines[l.line]) && !J.hasDescendants(lines, l.line)) lines.splice(l.line, 1); }
     const base = J.width(lines[at]);
+    let end = at;
     for (let i = at + 1; i < lines.length; i++) {
       if (lines[i].trim() && J.width(lines[i]) <= base) break;
-      if (J.CLOCK_RE.test(lines[i])) {
+      if (lines[i].trim()) end = i;
+      if (J.CLOCK_RE.test(lines[i]) && J.markOwner(lines, i) === at && J.mutableClock(lines, i)) {
         if (lines[i] === line) return lines.join("\n");
         lines[i] = line;
         return lines.join("\n");
       }
     }
-    lines.splice(at + 1, 0, line);
+    lines.splice(end + 1, 0, line);
     return lines.join("\n");
   }
 

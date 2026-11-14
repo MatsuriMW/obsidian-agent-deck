@@ -1,6 +1,7 @@
 // AI 记录的显示范围；只管直属记录，不隐藏手写笔记与子任务。
 import * as J from "./journal.js";
 export const AI_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
+export const isBriefRecord = line => /💬\s+(?:第\d+轮[：:])?任务：.+；结论：/.test(line);
 
 export function aiRecordGroups(text, trackedIds = new Set()) {
   const lines = text.split("\n"), out = [], fenced = J.fencedLines(lines);
@@ -12,7 +13,7 @@ export function aiRecordGroups(text, trackedIds = new Set()) {
       if (fenced.has(i) || !lines[i].trim()) continue;
       const w = J.width(lines[i]);
       if (w <= task.indent) break;
-      if (w === indent && AI_RECORD_RE.test(lines[i])) records.push(i);
+      if (w === indent && AI_RECORD_RE.test(lines[i]) && !J.blockIdOf(lines[i]) && !J.hasDescendants(lines, i)) records.push(i);
     }
     if (!records.length) continue;
     const tracked = task.blockId?.startsWith("ad-") || trackedIds.has(task.blockId) || task.body.startsWith("🤖") || records.some((i) => J.parseLink(lines[i]));
@@ -80,8 +81,8 @@ export function adBlockIdRanges(text, trackedIds = new Set()) {
       if (!fence) { fence = marker[1][0]; fenceLength = marker[1].length; }
       else if (marker[1][0] === fence && marker[1].length >= fenceLength && !marker[2].trim()) fence = "";
     } else if (!fence) {
-      const turn = /[ \t]+<!-- ad-turn:[A-Za-z0-9_-]+:\d+ -->\s*$/.exec(line);
-      if (turn) out.push({ from: offset + turn.index, to: offset + line.length });
+      const turn = /[ \t]+<!-- ad-(?:(?:turn|summary):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/.exec(line);
+      if (turn) out.push({ from: offset + turn.index, to: offset + turn.index + turn[0].length });
       const id = /(?:[ \t]+|^)\^([a-z0-9-]+)[ \t]*$/i.exec(line);
       if (id && hiddenBlockId(id[1], trackedIds)) out.push({ from: offset + id.index, to: offset + line.length });
       const link = J.parseLink(line), suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(line);

@@ -27,7 +27,7 @@ assert.equal(aiRecordGroups('- DOING 改名 ^nw-abc\n\t- 💬 结果',new Set(['
   assert.ok(/💬 累计总结：周报写完并发给组长/.test(merged.text));
   const shownWhenClosed = g.records.filter((n) => g.summaries.includes(n));
   assert.equal(shownWhenClosed.length, 1, 'collapsed shows only the summary');
-  assert.ok(merged.text.includes('💬 第3轮：第3轮结论'), 'round details stay in the note');
+  assert.ok(merged.text.includes('💬 第3轮：任务：问题3；结论：第3轮结论'), 'round details stay in the note');
 }
 {
   // 显示模式：折叠时露出哪些行
@@ -79,7 +79,7 @@ assert.equal(aiRecordGroups('- DOING 改名 ^nw-abc\n\t- 💬 结果',new Set(['
     text = syncSessionEntry(text, { sid, granularity: 'latest', detail: 'brief', rounds: [{ n, ask: `第${n}轮问`, said: `第${n}轮答` }] }).text;
   }
   const asks = text.split('\n').filter((l) => /❓/.test(l));
-  assert.equal(asks.length, 0, 'brief records do not retain prompts');
+  assert.equal(asks.length, 0, 'brief records combine task and result without a separate prompt line');
   const g = aiRecordGroups(text, new Set())[0];
   const shown = visibleRecords(g, text.split('\n'), 'latest1');
   assert.equal(shown.length, 1, 'only the AI conclusion is visible');
