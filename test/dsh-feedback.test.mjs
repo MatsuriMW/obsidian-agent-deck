@@ -64,7 +64,14 @@ test('DSH: second turn resumes the same session and preserves full messages',asy
  const f=fixture();try{const j=await f.send();await settled(j);const prompt='继续追问\n'+ '完整内容'.repeat(4000);const again=await f.d.continueSession({agent:'dsh',sid:j.sessionId},prompt);await settled(again);assert.equal(again.id,j.id);assert.equal(again.state,'done');assert.equal(again.conversation.length,4);assert.equal(again.conversation[2].text,prompt);assert.equal(f.readEvents().filter(m=>m.method==='session/new').length,1);assert.equal(f.readEvents().find(m=>m.method==='session/resume').params.sessionId,'test-session');assert.equal(f.readEvents().filter(m=>m.method==='session/prompt').length,2)}finally{f.cleanup()}
 });
 test('DSH: active turn refuses a concurrent follow-up',async()=>{
- const f=fixture('wait');try{const j=await f.send();await assert.rejects(()=>f.d.continueSession({agent:'dsh',sid:j.sessionId},'追问'),/当前这一轮/);assert.equal(f.readEvents().filter(m=>m.method==='session/prompt').length,1)}finally{f.cleanup()}
+ const f=fixture('wait');try{
+  const j=await f.send();
+  const end=Date.now()+1500;
+  while(!f.readEvents().some(m=>m.method==='session/prompt')&&Date.now()<end)await new Promise(r=>setTimeout(r,10));
+  assert.equal(f.readEvents().filter(m=>m.method==='session/prompt').length,1,'the fixture received the active prompt');
+  await assert.rejects(()=>f.d.continueSession({agent:'dsh',sid:j.sessionId},'追问'),/当前这一轮/);
+  assert.equal(f.readEvents().filter(m=>m.method==='session/prompt').length,1);
+ }finally{f.cleanup()}
 });
 test('DSH: plugin reload can resume a historic session without creating a new one',async()=>{
  const f=fixture();try{const j=await f.d.continueSession({agent:'dsh',sid:'historic-session',cwd:f.dir,title:'旧对话'},'接着说');await settled(j);assert.equal(j.sessionId,'historic-session');assert.equal(j.state,'done');assert.equal(f.readEvents().some(m=>m.method==='session/new'),false);assert.equal(f.readEvents().some(m=>m.method==='session/set_config_option'),false)}finally{f.cleanup()}
