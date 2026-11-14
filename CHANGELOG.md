@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.3
+
+- 新增 OpenCode 与 Qoder 委派及插件内续聊：OpenCode 支持通过 `opencode-cli acp`（或 `opencode`）后台委派、插件内同会话续聊与终端交互；Qoder 支持通过 `qodercli`（`-p -f stream-json` / `-r <sessionId>`）后台委派与插件内续聊、桌面客户端交接和终端交互。
+- 统一所有 AI 自动写的任务行标题格式为 `任务状态 + 🤖 + 开始对话时间-最后一次对话时间 + 总结标题`（例如 `- DOING 🤖 14:52-15:52 调整 Agent Deck 侧边栏面板`），覆盖自动记日记、拖拽会话建项、状态切换、会话回写、子会话／side chat／subagent 子块与整理日志；自动剥离原始路径、URL 与口语前缀，提炼简短总结标题。
+- 修正 `manifest.json` 与 `package.json` 的插件描述（移除冗余的 `"Obsidian"` 一词），符合社区插件市场审核要求。
+
 ## 1.9.2
 
 - 设置页重组为 **委派、记录、Dreaming、关于** 四页：Models 并入委派页内的“管理模型”，Agents 的追踪设置并入记录页。

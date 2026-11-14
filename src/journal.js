@@ -102,7 +102,101 @@ export const width = (line) => { let w = 0; for (const c of (/^\s*/.exec(line) |
 
 export const workKey = (label) => stripBlockId(String(label || "")).replace(/\s*←\s*\S+\s*$/, "").trim();
 
-// 这一行是什么任务：{ prefix, rest, since, kw, cb, blockId, body }；不是列表项返回 null
+const TIME_SPAN_PREFIX_RE = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?\s*/;
+
+// 把原始会话标题或首句提示词浓缩成简洁的任务标题（去掉路径、链接、口水前缀和过长从句）
+export function summarizeAutoTitle(raw, max = 22) {
+  let s = stripBlockId(String(raw || ""))
+    .replace(/[\r\n←`*=~[\]|]/g, " ")
+    .replace(/^🤖\s*/, "")
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
+    .replace(/^\s*(?:TODO|DOING|DONE|SUSPENDED|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+/i, "")
+    .replace(/^🤖\s*/, "")
+    .replace(TIME_SPAN_PREFIX_RE, "")
+    .replace(/^🤖\s*/, "")
+    .replace(/Files mentioned by the user:\s*(?:##\s*\S+\s*)*/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/https?:\/\/[^\s/，,。；;）)]+(?:\/[^\s/，,。；;）)]+)*\/([A-Za-z0-9._-]+?)(?:\.git)?(?:[/?#][^\s，,。；;）)]*)?(?=$|[\s，,。；;）)])/gi, " $1 ")
+    .replace(/https?:\/\/[^\s，,。；;）)]+/gi, " ")
+    .trim();
+
+  const pathMatch = /(?:\/Users\/|~\/)(?:[^\s/\\]|\\ )+\/([A-Za-z0-9._\u4e00-\u9fa5-]+)\/?/.exec(s);
+  const pathBase = pathMatch ? pathMatch[1] : "";
+  s = s
+    .replace(/(?:仓库|项目|目录|路径|位置|文件)[：:]\s*(?:\/Users\/|~\/)(?:[^\s，,。；;）)]|\\ )+/g, " ")
+    .replace(/(?:\/Users\/|~\/)(?:[^\s，,。；;）)]|\\ )+/g, " ")
+    .replace(/[（(][^）)]{14,}[）)]/g, " ")
+    .replace(/[，,。；;]\s*(?:位置在|路径在|目录在|地址在|文件在|它位于|位于|顺着|有问题问我).*$/i, "")
+    .replace(/^(?:你好|哈喽|嗨|请问|麻烦|请帮我|帮我|请你|我想让你|我想|我要|咱们|我们|现在|再|先|顺便|另外|还有)(?:先|再)?(?:把|给|对)?\s*/i, "")
+    .replace(/^(?:继续)?(更新|修改|调整|优化|整理|检查|修复|排查|查看|看看|处理|实现|重构|分析)一下\s*/i, "$1")
+    .replace(/这个\s*(?:obsidian\s*)?插件/gi, "插件")
+    .replace(/(\d)[:：](\d)/g, "$1.$2")
+    .replace(/\s+/g, " ")
+    .replace(/^[，,。；;：:、\s]+|[，,。；;：:、….\s]+$/g, "")
+    .trim();
+
+  const clauses = s.split(/[。！？；!?;]|，(?=.{6,})/).map((c) => c.trim()).filter(Boolean);
+  if (clauses.length > 1 && [...clauses[0]].length >= 4) {
+    s = clauses[0].replace(/^(?:关于|对于)\s*/, "").trim();
+  }
+  if (!s && pathBase) s = `整理 ${pathBase}`;
+  if (!s) s = "整理会话";
+  const chars = [...s];
+  return chars.length > max ? chars.slice(0, max).join("").replace(/[，,。；;：:、\s]+$/, "").trim() : s;
+}
+
+// 统一生成 AI 自动记录标题行：任务状态 + 🤖 + 开始对话时间-最后一次对话时间 + 文字标题 (+ ^blockId)
+export function formatAutoTaskLine({ prefix = "- ", kw = "DOING", start = "", end = "", span = "", title = "", blockId = "", summarize = false } = {}) {
+  const existingId = blockId || blockIdOf(title);
+  let cleanTitle = stripBlockId(String(title || ""))
+    .replace(/^🤖\s*/, "")
+    .replace(TIME_SPAN_PREFIX_RE, "")
+    .replace(/^🤖\s*/, "")
+    .replace(TIME_SPAN_PREFIX_RE, "")
+    .trim();
+  if (summarize || !cleanTitle) cleanTitle = summarizeAutoTitle(cleanTitle || title);
+  let timeRange = "";
+  if (span) {
+    const m = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?$/.exec(span.trim());
+    if (m) {
+      const s = `${pad(+m[1])}:${m[2]}`;
+      const e = m[3] ? `${pad(+m[3])}:${m[4]}` : s;
+      timeRange = `${s}-${e}`;
+    } else {
+      timeRange = span.trim();
+    }
+  } else if (start || end) {
+    const s = start || end;
+    const e = end || start;
+    timeRange = `${s}-${e}`;
+  }
+  const head = `${prefix}${kw ? kw + " " : ""}${AUTO_MARK}${timeRange ? timeRange + " " : ""}${cleanTitle}`.replace(/ {2,}/g, " ").trimEnd();
+  return existingId ? `${head} ^${existingId}` : head;
+}
+
+// 从任务块下面的 ⏱ 行提取「开始对话时间 - 最后一次对话时间」
+export function clockSpanFromLines(lines, ownerLine) {
+  if (!Array.isArray(lines) || ownerLine < 0 || ownerLine >= lines.length) return null;
+  const base = width(lines[ownerLine] || "");
+  for (let i = ownerLine + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) <= base) break;
+    if (CLOCK_RE.test(lines[i]) && markOwner(lines, i) === ownerLine) {
+      const matches = [...lines[i].matchAll(/(\d{1,2})[:：](\d{2})\s*[–—~～-]\s*(\d{1,2})[:：](\d{2})/g)];
+      if (matches.length) {
+        const first = matches[0];
+        const last = matches[matches.length - 1];
+        return {
+          start: `${pad(+first[1])}:${first[2]}`,
+          end: `${pad(+last[3])}:${last[4]}`,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+// 这一行是什么任务：{ prefix, rest, since, until, span, auto, title, kw, cb, blockId, body }；不是列表项返回 null
 export function splitTask(raw) {
   const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(.*)$/.exec(raw);
   if (!m) return null;
@@ -116,12 +210,39 @@ export function splitTask(raw) {
   const pr = kw && /^\[#[ABC]\]\s*/.exec(rest);
   if (pr) rest = rest.slice(pr[0].length);
   let since = null;
-  const t = kw && /^(\d{1,2})[:：](\d{2})(?![\d:：]|\s*[-–~～到至])\s*/.exec(rest);
-  if (t) { since = `${pad(+t[1])}:${t[2]}`; rest = rest.slice(t[0].length); }
+  let until = null;
+  const legacyRangeBeforeAuto = kw && /^(\d{1,2})[:：](\d{2})\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2})\s+(?=🤖)/.exec(rest);
+  if (legacyRangeBeforeAuto) {
+    since = `${pad(+legacyRangeBeforeAuto[1])}:${legacyRangeBeforeAuto[2]}`;
+    until = `${pad(+legacyRangeBeforeAuto[3])}:${legacyRangeBeforeAuto[4]}`;
+    rest = rest.slice(legacyRangeBeforeAuto[0].length);
+  } else {
+    const t = kw && /^(\d{1,2})[:：](\d{2})(?![\d:：]|\s*[-–~～到至])\s*/.exec(rest);
+    if (t) { since = `${pad(+t[1])}:${t[2]}`; rest = rest.slice(t[0].length); }
+  }
+  const autoMatch = /^🤖\s*/.exec(rest);
+  const auto = Boolean(autoMatch) && !(!kw && /^🤖\s*(?:子代理|side chat)/.test(rest));
+  let title = "";
+  if (auto) {
+    let afterRobot = rest.slice(autoMatch[0].length);
+    const tm = TIME_SPAN_PREFIX_RE.exec(afterRobot);
+    if (tm) {
+      since = `${pad(+tm[1])}:${tm[2]}`;
+      until = tm[3] ? `${pad(+tm[3])}:${tm[4]}` : since;
+      afterRobot = afterRobot.slice(tm[0].length);
+    } else if (since && !until) {
+      until = since;
+    }
+    const bid = blockIdOf(afterRobot);
+    title = stripBlockId(afterRobot).trim();
+    rest = `${AUTO_MARK}${title}${bid ? ` ^${bid}` : ""}`;
+  }
   if (pr) rest = `${pr[0].trim()} ${rest}`;
   const blockId = blockIdOf(rest);
   const body = stripBlockId(rest);
-  return { prefix, rest, body, blockId, since, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
+  if (!auto) title = body;
+  const span = since ? `${since}-${until || since}` : null;
+  return { prefix, rest, body, title, auto, blockId, since, until, span, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
 }
 
 // ⌘⇧D：把一行任务改成做完的样子。缩进、短横 -、复选框和时间戳都留着，
@@ -131,6 +252,16 @@ export function flipToDone(raw) {
   if (!part) return null;
   const kw = kwLine(raw)?.kw || '';
   if (DONE_KWS.includes(kw)) return null;
+  if (part.auto && !part.cb) {
+    return formatAutoTaskLine({
+      prefix: part.prefix,
+      kw: 'DONE',
+      start: part.since || '',
+      end: part.until || part.since || '',
+      title: part.title,
+      blockId: part.blockId,
+    });
+  }
   const box = part.cb ? (part.cb === ' ' || part.cb === '/' ? '[x]' : `[${part.cb}]`) : '';
   const since = part.since ? `${part.since} ` : '';
   const head = box
@@ -151,8 +282,13 @@ export function kwLine(raw) {
   const m = KW_WORD_RE.exec(s);
   if (m) { kw = m[1]; s = s.slice(m[0].length); }
   const blockId = blockIdOf(s);
-  s = stripBlockId(s).replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
-  if (!s || s.startsWith("⏱") || s.startsWith("🔗") || ((!kw && !blockId) && /^(?:💬|❓|📋)/.test(s)) || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
+  s = stripBlockId(s)
+    .replace(/^\[#[ABC]\]\s*/, "")
+    .replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "")
+    .replace(/^\[#[ABC]\]\s*/, "")
+    .replace(/^🤖\s*\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "🤖 ")
+    .trim();
+  if (!s || s.startsWith("⏱") || s.startsWith("🔗") || ((!kw && !blockId) && /^(?:💬|❓|📋)/.test(s)) || (!kw && /^🤖\s*(?:子代理|side chat)/.test(s))) return null;
   return { kw, body: s, blockId };
 }
 
@@ -479,7 +615,7 @@ export function taskItems(text) {
     const st = DONE_KWS.includes(k.kw) ? "done"
       : /^(DOING|NOW|IN-PROGRESS)$/.test(k.kw) || AGENT_KW_RE.test(k.kw) ? "doing"
       : /^(PAUSED|SUSPENDED|WAITING|WAIT)$/.test(k.kw) ? "paused" : "open";
-    out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), blockId: k.blockId || "", indent: width(lines[i]), state: st });
+    out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), auto: k.body.startsWith(AUTO_MARK.trim()), blockId: k.blockId || "", indent: width(lines[i]), state: st });
   }
   return out;
 }
@@ -548,7 +684,7 @@ export function kidIdent(line) {
   const m = /^\s*[-*+]\s+⏱.*·\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`\s*$/.exec(line);
   return m ? { kind: m[1] === "子代理" ? "sub" : "side", id: m[2], open: false } : null;
 }
-export const kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(/^\s*(?:\d+[.)、]\s*)?(?:(?:TODO|DOING|LATER|NOW|WAITING|WAIT|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+)?(?:\d{1,2}[:：]\d{2}\s*)?/, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
+export const kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(/^\s*(?:\d+[.)、]\s*)?(?:(?:TODO|DOING|LATER|NOW|WAITING|WAIT|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*)?/, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
 export function kidMatch(body, desc) {
   const a = kidNorm(body), d = kidNorm(desc);
   if (a.length < 4 || d.length < 4) return false;
@@ -658,7 +794,9 @@ export function bindInto(text, at, s, { below = false } = {}) {
   }
   const want = kwForState(s.state);
   const since = s.since || "";
+  const until = s.until || since;
   const title = resultText(s.title || "没起名的会话", 60);
+  const autoTitle = summarizeAutoTitle(s.title || "没起名的会话");
   const rescuedChildren = [];
   let rescuedBlockId = s.blockId || "";
 
@@ -709,7 +847,9 @@ export function bindInto(text, at, s, { below = false } = {}) {
   if (target.kind === "bind") {
     const p = splitTask(lines[n]);
     if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
-      lines[n] = `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
+      lines[n] = p.auto
+        ? formatAutoTaskLine({ prefix: p.prefix, kw: want, start: p.since || since, end: p.until || until || p.since || since, title: p.title, blockId: p.blockId })
+        : `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
     }
     const eb = maybeAddBlockId(lines[n]);
     lines[n] = eb.line;
@@ -735,7 +875,7 @@ export function bindInto(text, at, s, { below = false } = {}) {
     }
     const pm = /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[n]);
     prefix = !pm ? "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
-    const eb = maybeAddBlockId(`${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " "));
+    const eb = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle }));
     const item = eb.line;
     const lead = (/^\s*/.exec(item) || [""])[0];
     const ind = lead + (lead && !lead.includes("\t") ? "    " : "\t");
@@ -751,7 +891,7 @@ export function bindInto(text, at, s, { below = false } = {}) {
     prefix = !pm || MARKER_RE.test(lines[prev]) ? (pm ? (/^\s*/.exec(lines[markOwner(lines, prev)] || "") || [""])[0] + "- " : "- ")
       : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
   }
-  const eb = maybeAddBlockId(`${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " "));
+  const eb = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle }));
   const item = eb.line;
   if (target.kind === "below") { lines.splice(n + 1, 0, item); n = n + 1; }
   else if (target.kind === "new" && lines[n + 1] && lines[n + 1].trim() && !LIST_RE.test(lines[n + 1])) lines.splice(n, 0, item);   // 空行下面紧接一段文字：空行留着，不然那段会变成这一项的续行
@@ -807,10 +947,14 @@ export function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
   const isLiveKw = (kw) => kw === "DOING" || AGENT_KW_RE.test(kw || "");
   const mergedKw = isLiveKw(ps.kw) ? ps.kw : isLiveKw(pd.kw) ? pd.kw : (pd.kw || ps.kw || "DOING");
   const mergedSince = (ps.since && pd.since) ? (ps.since < pd.since ? ps.since : pd.since) : (pd.since || ps.since || "");
+  const mergedUntil = (ps.until && pd.until) ? (ps.until > pd.until ? ps.until : pd.until) : (pd.until || ps.until || mergedSince);
 
   // 决定保留哪个 ^xxxxx 块 ID
   const blockId = pd.blockId || ps.blockId || preferId || makeBlockId(keptBody);
-  const headerRaw = `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
+  const keptIsAuto = keptBody.startsWith(AUTO_MARK.trim());
+  const headerRaw = keptIsAuto
+    ? formatAutoTaskLine({ prefix: pd.prefix, kw: mergedKw, start: mergedSince, end: mergedUntil, title: keptBody })
+    : `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
   const { line: mergedHeader } = ensureBlockId(headerRaw, blockId);
 
   // 收集并合并两边子项（按目标行的子缩进重排，去重）

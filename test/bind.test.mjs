@@ -23,11 +23,11 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
 { // 空行：新建一项，接着上面的有序编号
   const t = "1. 第一件\n2. 第二件\n\n";
   const r = J.bindInto(t, 2, S());
-  check("blank → new numbered item", r.text.split("\n")[2] === "3. DOING 20:10 🤖 卡片搬迁" && /^\t- 🔗/.test(r.text.split("\n")[3]), r.text);
+  check("blank → new numbered item", r.text.split("\n")[2] === "3. DOING 🤖 20:10-20:10 卡片搬迁" && /^\t- 🔗/.test(r.text.split("\n")[3]), r.text);
 }
 { // 空的列表项：就地写上
   const r = J.bindInto("- \n", 0, S({ state: "wait" }));
-  check("empty item filled", r.text.startsWith("- TOREVIEW 20:10 🤖 卡片搬迁\n\t- 🔗"), r.text);
+  check("empty item filled", r.text.startsWith("- TOREVIEW 🤖 20:10-20:10 卡片搬迁\n\t- 🔗"), r.text);
 }
 { // 一对一：别处的 🔗 摘掉，自动记日记替它写的 🤖 项收掉
   const t = `- DOING 19:00 🤖 卡片搬迁\n\t- ⏱ 19:00–19:30 · 共 30m\n\t- 🔗 [Claude：卡片搬迁](claude://resume?session=${sid})\n- 做完卡片搬迁的功能\n`;
@@ -49,7 +49,7 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
 }
 { // 段落下面新建；标题上不放
   const r = J.bindInto("一段话\n", 0, S());
-  check("paragraph → item below", r.text.startsWith("一段话\n- DOING 20:10 🤖 卡片搬迁\n"), r.text);
+  check("paragraph → item below", r.text.startsWith("一段话\n- DOING 🤖 20:10-20:10 卡片搬迁\n"), r.text);
   check("heading refused", !!J.bindInto("## 标题\n", 0, S()).error);
 }
 { // 时段分钟数从日记分界（8 点）起算：写成钟点要加回来
@@ -60,15 +60,15 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
 { // 空行下面是一段文字：新项插在空行前，空行留着
   const r = J.bindInto("1. 第一件\n\n一段话\n", 1, S());
   const L = r.text.split("\n");
-  check("blank before paragraph kept", L[1] === "2. DOING 20:10 🤖 卡片搬迁" && L[3] === "" && L[4] === "一段话", r.text);
+  check("blank before paragraph kept", L[1] === "2. DOING 🤖 20:10-20:10 卡片搬迁" && L[3] === "" && L[4] === "一段话", r.text);
 }
 { // ⌘ 拖：不绑这一项，在它（连同子项）下面新建一项
   const t = "- 做完卡片搬迁的功能\n\t- 子项\n- 别的\n";
   const r = J.bindInto(t, 0, S(), { below: true });
   const L = r.text.split("\n");
-  check("cmd-drop inserts after the block", L[0] === "- 做完卡片搬迁的功能" && L[1] === "\t- 子项" && L[2] === "- DOING 20:10 🤖 卡片搬迁" && /^\t- 🔗/.test(L[3]) && L[4] === "- 别的", r.text);
+  check("cmd-drop inserts after the block", L[0] === "- 做完卡片搬迁的功能" && L[1] === "\t- 子项" && L[2] === "- DOING 🤖 20:10-20:10 卡片搬迁" && /^\t- 🔗/.test(L[3]) && L[4] === "- 别的", r.text);
   const o = J.bindInto("1. 第一件\n2. 第二件\n", 0, S({ state: "wait" }), { below: true });
-  check("cmd-drop numbers on", o.text.split("\n")[1] === "2. TOREVIEW 20:10 🤖 卡片搬迁", o.text);
+  check("cmd-drop numbers on", o.text.split("\n")[1] === "2. TOREVIEW 🤖 20:10-20:10 卡片搬迁", o.text);
 }
 { // Antigravity 链接认得出来
   const a = J.linkLine("\t", "antigravity", "更新插件", "6b1017c0-f422-4366-bad2-1e29f1bbc7be");

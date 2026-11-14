@@ -50,7 +50,18 @@ Agent Deck 把散在各个客户端里的 AI Agent 会话收到 Obsidian 里的�
 
 ## 更新记录
 
-当前版本 **1.9.1**。逐版细节见 [CHANGELOG.md](CHANGELOG.md)，正式产物见 [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)。
+当前版本 **1.9.3**。逐版细节见 [CHANGELOG.md](CHANGELOG.md)，正式产物见 [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)。
+
+### 1.9.3 · OpenCode／Qoder 委派、统一自动记录标题与上架规范
+
+- 新增 OpenCode 与 Qoder 委派及插件内续聊：OpenCode 通过本机 `opencode-cli acp`（或终端 `opencode`）后台委派、插件内同会话续聊与桌面打开；Qoder 支持通过 `qodercli` 后台委派与插件内同会话续聊、桌面客户端交接以及终端交互。
+- 统一所有 AI 自动写入的任务行标题格式为 `任务状态 + 🤖 + 开始对话时间-最后一次对话时间 + 总结标题`（例如 `- DOING 🤖 14:52-15:52 调整 Agent Deck 侧边栏面板`），覆盖自动记日记、拖拽建项、状态切换、会话回写、子块与整理日志；自动剥离路径、链接与口语前缀，提炼简短标题。
+- 修正 `manifest.json` 描述文案，符合社区插件市场审核规范。
+
+### 1.9.2 · 按“委派”和“记录”重组设置
+
+- 设置页重组为 **委派、记录、Dreaming、关于** 四页：Models 并入委派页底部的“管理模型”，Agents 的追踪设置并入记录页；同一个设置只保留一个编辑入口。
+- 模型目录草稿（⌘S）与委派默认值解耦；OpenCode 与 Qoder 换用本机客户端图标。
 
 ### 1.9.1 · 桌面追踪、设置重排与每轮记录
 
@@ -140,13 +151,13 @@ Agent Deck 把散在各个客户端里的 AI Agent 会话收到 Obsidian 里的�
 - **macOS 菜单栏**：Swift 助手把中文常量编进二进制，插件随状态快照下发 `labels` 表；查不到就用原中文，旧快照也不会出错。
 - **加文案**：`import { t } from "./i18n.js"`，中文原文直接当 key，英文补在 `src/locales/en/` 对应分片。`node test/i18n.test.mjs` 会检查漏翻、重复 key 和占位符不一致。约定见 [docs/ui-language.md](docs/ui-language.md)。
 
-### OpenCode 与 Qoder 桌面追踪（1.9.1）
+### OpenCode 与 Qoder 追踪与委派（1.9.1–1.9.3）
 
-已接入 OpenCode Desktop 的 `~/.local/share/opencode/opencode.db`（新旧 SQLite 表结构）与 Qoder Desktop 的 `~/Library/Application Support/com.qoder.app.stable/main.sqlite`。支持会话面板、菜单栏、轮次、活动时段、任务绑定、自动记录、结论回写与正文归档；主力／非主力的扫描范围沿用现有设置。此功能自 1.9.1 提供。
+已接入 OpenCode Desktop 的 `~/.local/share/opencode/opencode.db`（新旧 SQLite 表结构）与 Qoder Desktop 的 `~/Library/Application Support/com.qoder.app.stable/main.sqlite`，以及 `qodercli` 的 `~/.qoder/projects` 会话日志。支持会话面板、菜单栏、轮次、活动时段、任务绑定、自动记录、结论回写与正文归档；主力／非主力的扫描范围沿用现有设置。桌面追踪自 1.9.1 提供，委派与插件内续聊自 1.9.3 提供。
 
-OpenCode 按消息记录可用的 token；Qoder 当前桌面格式未提供逐轮 token，不估算。运行状态依据本地持久化字段，不能保证识别客户端内的权限等待。点击这两类会话会打开应用并复制会话号，需在客户端选择会话；本轮未接入委派和插件内续聊。只验证 macOS；Qoder IDE 与独立 CLI 不在此次范围内。
+OpenCode 按消息记录可用的 token；Qoder 桌面格式未提供逐轮 token 时不估算，`qodercli` 会话读取实际输出的 token。点击这两类会话会打开应用并复制会话号；OpenCode 通过 `opencode-cli acp`（桌面应用内置或独立 CLI）支持后台委派、插件内同会话续聊与终端 `opencode` 交互；Qoder 支持通过 `qodercli` 无头后台委派与插件内续聊、桌面客户端交接以及终端交互。
 
-验证（2026-11-14）：两款桌面客户端均发送了两轮真实测试消息，验证会话发现、轮次、结论回写、正文查看及归档；重复扫描不重复累计。实测修复了 OpenCode 2.3.0 消息角色只存于数据库 type 列、正文无角色字段导致漏读的问题。两款客户端的桌面追踪随 1.9.1 发布。
+验证（2026-11-14～11-15）：两款桌面客户端与 CLI 均完成了真实多轮会话测试，验证会话发现、轮次、委派、续聊、结论回写、正文查看及归档；重复扫描不重复累计。实测修复了 OpenCode 2.3.0 消息角色只存于数据库 type 列、正文无角色字段导致漏读的问题。
 
 整理日志默认快捷键为 **Ctrl+Alt+L**，可在 Obsidian 的快捷键设置中修改；“关于 → 常用操作”第一项提供说明。
 
@@ -161,8 +172,8 @@ OpenCode 按消息记录可用的 token；Qoder 当前桌面格式未提供逐�
 | WorkBuddy | `~/.workbuddy/projects`，结合 `workbuddy.db` 元数据 | 对话轮次 | 打开客户端并复制任务，用户粘贴发送 |
 | DeepSeek Harness（DSH） | `~/.dsh/sessions` 的 zstd 日志及本机用量统计接口 | 对话轮次 | 后台直接委派，可选模型与推理强度 |
 | Antigravity | 原 IDE 日志及插件保存的插件内问答 | 对话轮次、规划回复与工具动作 | 后台直接委派；插件内续聊和正文归档 |
-| OpenCode Desktop | `~/.local/share/opencode/opencode.db` | 对话轮次与活动时段 | 暂不支持 |
-| Qoder Desktop | `~/Library/Application Support/com.qoder.app.stable/main.sqlite` | 对话轮次与活动时段 | 暂不支持 |
+| OpenCode | `~/.local/share/opencode/opencode.db` | 对话轮次与活动时段 | 后台 ACP 直接委派、插件内续聊、桌面打开或终端交互 |
+| Qoder | `~/Library/Application Support/com.qoder.app.stable/main.sqlite` 与 `~/.qoder/projects` | 对话轮次与活动时段 | `qodercli` 后台直接委派与插件内续聊、桌面复制交接或终端交互 |
 
 这 7 类会话均可绑定日记任务、自动建项并写回结论。状态和 token 用量以各客户端实际写出的日志字段为准。Claude、Codex、WorkBuddy 和 DSH 已接入各自可识别的归档来源；Antigravity 目前不承诺自动识别归档。点击插件创建的 Antigravity 会话会打开 Obsidian 内对话；原 Antigravity IDE 会话和 DSH 客户端入口仍只打开应用并复制会话号。
 
@@ -195,7 +206,7 @@ OpenCode 按消息记录可用的 token；Qoder 当前桌面格式未提供逐�
 | 怎么拖 | 结果 |
 |---|---|
 | 「现在」里的会话卡片 → 笔记里有字的一项（有序 / 无序列表都行） | 原文不动，前面换上会话的状态关键词（`DOING` / `TOREVIEW` / `NEEDOK` …），下面多一行 `🔗` 子块。之后 `💬`、状态、`⏱` 都跟着会话走 |
-| 会话卡片 → 空行、空的列表项「- 」、或一段文字上 | 在那儿新建一项 `DOING 20:05 🤖 会话标题` 并绑上；接着上面列表的缩进和编号 |
+| 会话卡片 → 空行、空的列表项「- 」、或一段文字上 | 在那儿新建一项 `DOING 🤖 20:05-20:18 会话标题` 并绑上；接着上面列表的缩进和编号 |
 | 笔记里的一项 → Agents 里的某个 Agent | 委派。Claude Code、DeepSeek Harness 直接在后台开会话（默认模型 Opus 5.5，设置里可改）；Claude Code 答完一轮自动在桌面版打开，接着在桌面版里聊；Codex 默认通过 App Server 完成首轮，自动绑回任务并打开桌面版继续；WorkBuddy 把任务文字放进剪贴板，你在客户端粘贴发送 |
 | 按住 ⌘ 把会话卡片拖到一项上 | 不绑这一项，在它（连同子项）下面新建一条并绑上 |
 | 按住 ⌘ 把一项拖到 Claude Code / Codex 上 | 在主力终端里新开标签跑交互式的 `claude` / `codex`，任务直接当第一句发出去；会话一出现自动绑回这一项。设置里开了「默认在终端里开」就反过来：不按 ⌘ 是终端，按 ⌘ 是后台 / 桌面版。主力终端是 Tern 或 Herdr 时，任务放进单独的「Agent Deck」会话（Herdr 里是「Agent Deck」空间）在后台跑，不把终端叫到前台；Claude Code 在信任过的目录里起（库用 `--add-dir` 加进去），不会卡在信任提示上 |
@@ -234,7 +245,7 @@ OpenCode 按消息记录可用的 token；Qoder 当前桌面格式未提供逐�
 
 - **本机 Agent 面板**：Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity 的在跑、等你、安静会话，带项目、最近一步、时长和 token。点一行用 deeplink 回到那个会话。
 - **Claude 桌面版的 side chat**：桌面版里从一个会话开出来的会话，侧栏里看着和它同级。Agent Deck 读 `claude-code-sessions/**/local_*.json` 里的 `spawnedFrom` 认出母子关系，把子会话缩进一层、标出从哪个会话开出；正开着 side chat 的会话带一个标签，菜单栏里也会写 `side chat ×N`。已归档的会话不列在「现在」和「最近的会话」里：Claude 桌面版读 `isArchived`，Codex 读 `state_*.sqlite` 的 `threads.archived`（老版本的 `archived_sessions/` 也认），WorkBuddy 读 `workbuddy.db` 的 `sessions.status`，DeepSeek Harness 读 `storages/workspace.json` 的 `archivedSessionIds`。
-- **人机共写：自动记日记**：读今天 Claude / Codex / WorkBuddy / DeepSeek Harness / Antigravity 的会话，用所选本机 Claude / Codex CLI 起名、对上日记里已有的任务行，接不上就新写一行 `DOING HH:MM 🤖 …`；停了一阵改 `PAUSED` 并写 `⏱` 时段；桌面版 / Codex 里归档记 `DONE`；前几天还挂着的行补记。设置 → 追踪里打开，或跑命令「整理 Agent 会话进今天的日记」。
+- **人机共写：自动记日记**：读今天 7 类 Agent 的会话，用所选本机 Claude / Codex CLI 起名、对上日记里已有的任务行，接不上就新写一行 `DOING 🤖 HH:MM-HH:MM 总结标题`；停了一阵改 `PAUSED` 并写 `⏱` 时段；桌面版 / Codex 里归档记 `DONE`；前几天还挂着的行补记。设置 → 记录里打开，或跑命令「整理 Agent 会话进今天的日记」。
 - **回写日记**：`🔗` 绑着的会话答完一轮或归档写 `💬`；状态关键词跟着会话切；桌面版子会话、开着的 side chat、Claude Code 的 subagent 写成缩进子块。
 - **和螺旋日程分工**：这些 AI 写入原来在螺旋里，现在归 Agent Deck；螺旋只保留追踪展示。螺旋的 AI 追踪还开着时 Agent Deck 不写日记，点「停用螺旋日程里的 AI 写入」并重载螺旋后完全接管。
 - **最多两个主力 Agent**：主力全量读（全部历史、跨天补记）；其它开着的只读今天有动静的会话。
@@ -276,9 +287,9 @@ OpenCode 按消息记录可用的 token；Qoder 当前桌面格式未提供逐�
 
 你在日记里写任务，是预计；Agent 的会话日志是自己会写的实际记录。打开「自动记日记」以后，Agent Deck 每隔一阵看一眼今天开着的会话，替你把状态和用时补上：
 
-- **在动** → 那一行改成 `DOING`；日记里没有对应的行，就新写一行 `- DOING 00:45 🤖 优化配色`。名字和“接在哪一行”由所选 Claude / Codex CLI 整理；对不上就新写。
-- **停了一阵**（默认 10 分钟）→ 改成 `PAUSED`，实际时段写在下面：`- ⏱ 00:45–01:20、04:02–04:24 · 共 52m · Claude`。
-- **归档** → 改成 `DONE 19:20 …`，前几天记下、还挂着的行也在当天日记里补上。四家客户端的归档都认；今天的日记没开着也照样改。
+- **在动** → 那一行改成 `DOING`；日记里没有对应的行，就新写一行 `- DOING 🤖 00:45-01:20 优化配色`（统一格式为 `任务状态 + 🤖 + 开始对话时间-最后一次对话时间 + 总结标题`）。名字和“接在哪一行”由所选 Claude / Codex CLI 整理，未调用模型时也会自动剥离路径、链接与口语前缀提炼简短标题；对不上就新写。
+- **停了一阵**（默认 10 分钟）→ 改成 `PAUSED 🤖 00:45-01:20 优化配色`，实际时段写在下面：`- ⏱ 00:45–01:20、04:02–04:24 · 共 52m · Claude`。
+- **归档** → 改成 `DONE 🤖 18:30-19:20 …`，前几天记下、还挂着的行也在当天日记里补上。四家客户端的归档都认；今天的日记没开着也照样改。
 - **不猜 DONE**：机器只在 `DOING` / `PAUSED` 和等你的几种状态（`TOREVIEW` / `NEEDOK` / `ERRORED`）之间切；你觉得做完了自己改，或者去桌面版里归档。模型说「看着做完了」只在提醒里提一句。
 - **绑定会话的回写**：`🔗` 行绑着的会话答完一轮写 `💬`；停在权限提示上写 `NEEDOK`，等你回复写 `TOREVIEW`，报错 `ERRORED`，限额 `HITLIMIT`；归档记 `DONE` + `⏱`。自动记的 `🤖` 那一行也一样跟着会话切 `DOING` ↔ `TOREVIEW` / `NEEDOK` / `ERRORED`，不用等停满 10 分钟才看出它在等你。
 - **都能调**（设置 → 追踪 → 自动记日记）：每隔几分钟整理、启动后第几分钟先跑一次（默认 1 分钟，不用再等满一个间隔）、新会话活跃满几分钟才记（3）、停几分钟算暂停（10）、记哪几个 Agent、一轮最多问几个会话（8）、整理用的模型和等多久（`haiku`、120 秒）、模型问不到时自动整理也先用会话标题记上（默认开）、整理 CLI（Claude / Codex）及其路径、Codex 推理强度、每轮 `💬` 要不要让模型润色及润色用的模型和超时。
@@ -406,6 +417,16 @@ WorkBuddy 使用桌面版交接：把一项拖到它的卡片上，任务文字�
 
 Codex 会话用 `codex://threads/<id>` 在桌面版打开（同时把 `codex resume <id>` 放进剪贴板）；WorkBuddy 用 `workbuddy://chat/<id>`。
 
+### OpenCode / Qoder
+
+OpenCode 通过 `opencode-cli acp`（优先调用 OpenCode.app 内置的 `/Applications/OpenCode.app/Contents/MacOS/opencode-cli`，也可在设置中指定独立 `opencode` 路径）建立后台会话，支持在 Obsidian 内同会话续聊、首轮或续聊后打开桌面应用，以及按住 ⌘ 或在工作位置中选择终端运行交互式 `opencode`。ACP 会话直接写入 `~/.local/share/opencode/opencode.db`，与桌面版共享同一套本地存储。
+
+Qoder 支持三种方式：
+
+- **后台 CLI / 插件内续聊**：调用 `qodercli`（`-p <prompt> -f stream-json`，续聊使用 `-r <sessionId>`），支持选择模型等级（`auto`、`lite`、`efficient`、`performance`、`ultimate`、`gmodel`、`qmodel`、`mmodel`、`kmodel`）与工作目录，会话保存在 `~/.qoder/projects`。
+- **桌面交接**：复制任务文字并唤起 Qoder Desktop，在客户端发送后自动匹配并绑定回原任务行。
+- **终端交互**：在主力终端新开标签运行交互式 `qodercli`。
+
 ## Deeplink
 
 | Agent | 链接 | 状态 |
@@ -441,6 +462,8 @@ Agent Deck 当前通过本机程序完成 Claude、Codex、DSH 和 Antigravity �
 | DeepSeek Harness 自动委派与插件内续聊 | 通过 Harness 执行任务 | 支持后台委派的 Harness 安装，以及有效的模型 / 提供商配置和登录 |
 | WorkBuddy 交接 | 复制文字并打开客户端，由用户发送 | 国内版 WorkBuddy 桌面应用；本路径不调用独立 CodeBuddy CLI |
 | Antigravity 自动委派与插件内续聊 | 通过 Antigravity CLI 执行任务 | 独立 Antigravity CLI（agy）及其登录；只安装 IDE 不够 |
+| OpenCode 自动委派与续聊 | 启动 `opencode-cli acp` 或终端 `opencode` | OpenCode 桌面应用（自带 `opencode-cli`）或独立 `opencode` CLI，并完成提供商配置 |
+| Qoder 自动委派、续聊与桌面交接 | 启动 `qodercli`、终端会话，或桌面复制交接 | 后台委派与终端需安装并登录 `qodercli`；仅桌面交接只需安装 Qoder 桌面应用 |
 | 自动日记、AI 润色、Dreaming | 调用所选 `claude` 或 `codex` CLI | 单独确认整理设置中的程序路径、登录和模型可用性 |
 | macOS 菜单栏助手 | 首次在本机编译 SwiftUI 程序 | Xcode Command Line Tools 中的 `swiftc`；不使用菜单栏时可关闭该功能 |
 
@@ -510,6 +533,25 @@ npm run build
 | Dreaming／关于 | 保留长期记忆及同步、版本与常用操作各自的独立页面。 |
 
 任务行里的模型、强度选择继续作为当前任务的覆盖值，沿用全局默认的关系保持清楚。模型需在客户端选择、采用客户端交接或尚不支持委派时，只显示简短的能力状态。
+
+## 下一步改动方向
+
+以下功能已完成本机可行性调研，记入后续开发计划（暂未开始编码）：
+
+### 1. Grok Bot（Sand）会话追踪与按 Bot 过滤
+
+- **本地数据源**：
+  - Bot 与会话映射表：`~/Library/Application Support/Sand/bot-sessions.json`，包含每个 Bot 的 `botId`、`botName`、`platform`（如 `telegram`、`feishu`）、`workspaceDir`、`createdAt`、`updatedAt` 以及该 Bot 名下全部 `sessionIds`。
+  - 会话明细日志：`~/.grok-bot/agents/sessions/<sessionId>/session.jsonl`（逐轮 `user` / `assistant` 消息、工具调用、模型名、起止时间戳与精确 token 用量）及会话级 `metadata.json`。
+  - 与 Claude Code 去重归属：Grok Bot 底层复用 Claude Agent SDK，部分会话会同时写入 `~/.claude/projects/`。读取时先用 `bot-sessions.json` 的 `sessionIds → botId` 映射表认领归属，已被 Grok Bot 认领的 `sessionId` 从 Claude Code 列表中排除，避免同一会话重复统计。
+- **按 Bot 勾选追踪（过滤群聊或测试 Bot）**：
+  - 在 **设置 → 记录 → 来源与扫描** 的 Grok Bot 设置项下，自动读取 `bot-sessions.json` 中的 Bot 列表（显示 `botName`、平台标签与会话数，如 `chen (telegram)`、`raft-bot (feishu)`）。
+  - 提供多选开关（`grokBotTrackedBotIds`）：默认全选，用户可只勾选需要记入面板与日记的主力 Bot，忽略测试 Bot 或高频群聊噪音 Bot。
+  - 在面板卡片、会话列表与自动记日记标题中保留 `[botName]` 来源标识，便于区分不同 Bot 的对话。
+
+### 2. 其它后续规划
+
+- **Pi 支持**、**委派确认卡片内直接调整模型／强度／记录方式并记住偏好**、**对已有 AI 记录块单独调整记录颗粒度**（详见 Linear 项目 `P-MAT-42`）。
 
 ## 和螺旋日程并存
 

@@ -9,6 +9,7 @@ import os from "os";
 import path from "path";
 import { spawn } from "child_process";
 import { t } from "./i18n.js";
+import { summarizeAutoTitle } from "./journal.js";
 
 const home = () => os.homedir();
 
@@ -84,8 +85,9 @@ export function runJournalModel(prompt, cfg, { polish = false } = {}) {
   return runClaude(prompt, { bin: cfg.autoLogPath || cfg.delegate?.claude?.path || "claude", model, timeout, system: polish ? "你是整理助手，只输出要求的结果，不补充解释。" : "" });
 }
 
-// 模型没装 / 没登录时的兜底名字：从会话标题或用户第一句话里取一段
+// 模型没装 / 没登录时的兜底名字：从会话标题或用户第一句话里浓缩成简短总结标题
 export function safeLabel(s, max = 40) {
+  if (max <= 40) return summarizeAutoTitle(s, Math.min(max, 22));
   const t = String(s || "")
     .replace(/[\r\n←`*=~[\]|]/g, " ")
     .replace(/^\s*(?:[-*+]\s+)?(?:TODO|DOING|DONE|SUSPENDED|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+/i, "")

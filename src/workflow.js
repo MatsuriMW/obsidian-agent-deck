@@ -10,14 +10,15 @@ export function destinations(agent) {
     background: { id: "background", label: t("后台执行"), hint: t("留在当前笔记，完成或需要处理时提醒。") },
     terminal: { id: "terminal", label: t("在终端中聊"), hint: t("打开交互终端，后续在终端继续。") },
   };
-  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["obsidian", "desktop", "background"], antigravity: ["obsidian", "background"], workbuddy: ["desktop"] };
+  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["obsidian", "desktop", "background"], antigravity: ["obsidian", "background"], opencode: ["obsidian", "desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], workbuddy: ["desktop"] };
   return (ids[agent] || []).map(id => modes[id]);
 }
 
 export function defaultDestination(plugin, agent) {
-  if (["dsh", "antigravity"].includes(agent)) return "obsidian";
+  if (["dsh", "antigravity", "opencode"].includes(agent)) return "obsidian";
   if (agent === "codex") return plugin.settings.delegate.codex?.transport === "terminal" ? "terminal" : "desktop";
   if (agent === "claude") return plugin.settings.delegate.claude?.openDesktop ? "desktop" : "background";
+  if (agent === "qoder") return plugin.settings.delegate.qoder?.openDesktop !== false ? "desktop" : "background";
   return "desktop";
 }
 
@@ -30,7 +31,7 @@ export function executionStatus(job) {
   if (job.handoff && !job.sessionId) return job.cli ? t("等待终端会话建立") : t("等待你在客户端粘贴发送");
   if (job.state === "starting") return t("正在建立会话");
   if (job.state === "needs-approval") return t("需要授权");
-  if (job.state === "running") return job.destination === "desktop" && ["claude", "codex"].includes(job.agent) ? t("首轮执行中，结束后打开桌面") : t("正在执行");
+  if (job.state === "running") return job.destination === "desktop" && ["claude", "codex", "opencode", "qoder"].includes(job.agent) ? t("首轮执行中，结束后打开桌面") : t("正在执行");
   if (job.state === "done") return t("本轮结束");
   return job.state === "cancelled" ? t("已停止") : "";
 }

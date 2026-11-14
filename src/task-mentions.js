@@ -2,14 +2,14 @@
 import { AGENTS, EFFORTS } from "./constants.js";
 import { t } from "./i18n.js";
 
-export const ROUTABLE_AGENTS = ["claude", "codex", "dsh", "workbuddy", "antigravity"];
+export const ROUTABLE_AGENTS = ["claude", "codex", "dsh", "workbuddy", "antigravity", "opencode", "qoder"];
 export function mentionTrigger(plugin) { return plugin.settings.delegate?.mentionTrigger || "@"; }
 
 export function taskMention(line, trigger = "@") {
   // Keep saved @ routes working after changing the completion trigger.
   const markers = [...new Set([trigger, "@"])].sort((a, b) => b.length - a.length)
     .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  const token = new RegExp("(?:^|\\s)(" + markers + ")(claude|codex|dsh|workbuddy|antigravity)(?:/([^\\s`]+))?(?=\\s|$)", "g");
+  const token = new RegExp("(?:^|\\s)(" + markers + ")(claude|codex|dsh|workbuddy|antigravity|opencode|qoder)(?:/([^\\s`]+))?(?=\\s|$)", "g");
   // Inline code and links (including email addresses) are ordinary task content.
   const masked = line.replace(/`[^`]*`|!?\[[^\]]*\]\([^)]*\)/g, (s) => "x".repeat(s.length));
   const found = [...masked.matchAll(token)];

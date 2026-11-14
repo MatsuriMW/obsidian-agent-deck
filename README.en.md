@@ -48,7 +48,17 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 
 ## Release notes
 
-Current version: **1.9.1**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+Current version: **1.9.3**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+
+### 1.9.3 · OpenCode & Qoder delegation, unified auto-record titles, and plugin directory compliance
+
+- Add OpenCode and Qoder delegation and in-plugin follow-up: OpenCode runs via `opencode-cli acp` (or interactive `opencode` in a terminal) with same-session follow-up and desktop opening; Qoder supports headless `qodercli` delegation and same-session follow-up (`-r <sessionId>`), desktop clipboard handoff, and interactive terminal sessions.
+- Unify all AI auto-written task headers to `STATUS 🤖 HH:mm-HH:mm Summarized title` (for example `- DOING 🤖 14:52-15:52 Adjust Agent Deck sidebar panel`) across auto-logging, drag-to-create, status transitions, session write-backs, child blocks and journal organization, stripping raw paths, URLs and conversational filler.
+- Update `manifest.json` description to comply with community plugin review requirements.
+
+### 1.9.2 · Reorganized Delegate and Records settings
+
+- Consolidate settings into four tabs (**Delegate**, **Records**, **Dreaming**, **About**) with a single editing location per setting; isolate the model catalog draft (`⌘S`) from delegation defaults; use native client icons for OpenCode and Qoder.
 
 ### 1.9.1 · Desktop tracking, settings and per-turn records
 
@@ -156,8 +166,8 @@ The current version tracks these seven agents through their local session logs:
 | WorkBuddy | `~/.workbuddy/projects`, combined with `workbuddy.db` metadata | Conversation turns | Open the client and copy the task for you to paste and send |
 | DeepSeek Harness (DSH) | zstd logs under `~/.dsh/sessions` and the local usage statistics interface | Conversation turns | Background delegation with model and effort selection |
 | Antigravity | Original IDE logs and conversation history saved with plugin jobs | Conversation turns, planner replies and tool actions | Direct CLI delegation, in-plugin follow-up and text export |
-| OpenCode Desktop | `~/.local/share/opencode/opencode.db` | Conversation turns and activity spans | Not available |
-| Qoder Desktop | `~/Library/Application Support/com.qoder.app.stable/main.sqlite` | Conversation turns and activity spans | Not available |
+| OpenCode | `~/.local/share/opencode/opencode.db` | Conversation turns and activity spans | Background ACP delegation, in-plugin follow-up, desktop continuation or terminal CLI |
+| Qoder | `~/Library/Application Support/com.qoder.app.stable/main.sqlite` and `~/.qoder/projects` | Conversation turns and activity spans | `qodercli` background delegation and in-plugin follow-up, desktop clipboard handoff or terminal CLI |
 
 All seven can bind to journal tasks, create automatic entries and write conclusions back. State and token data depend on the fields each client actually logs. Archive detection is integrated for Claude, Codex, WorkBuddy and DSH; Antigravity archive detection is not currently guaranteed. Plugin-created Antigravity CLI sessions open the conversation inside Obsidian. Original Antigravity IDE sessions and the DSH client entry still open the app and copy the session ID.
 
@@ -190,7 +200,7 @@ Pin Agent Deck to a sidebar and drag between the note and the panel:
 | Drag | Result |
 |---|---|
 | A session card from **现在** → a list item with text (ordered or unordered) | The text stays; the line gets the session's keyword (`DOING` / `TOREVIEW` / `NEEDOK` …) and a `🔗` child. From then on `💬`, status and `⏱` follow the session |
-| A session card → an empty line, an empty item (`- `), or a paragraph | A new item `DOING 20:05 🤖 session title` is created there and bound, following the list's indent and numbering |
+| A session card → an empty line, an empty item (`- `), or a paragraph | A new item `DOING 🤖 20:05-20:18 session title` is created there and bound, following the list's indent and numbering |
 | A list item → an agent card | Delegation. Claude Code and DeepSeek Harness start a session in the background (default model Opus 5.5, configurable in the settings); when Claude Code finishes its first turn the session opens in the Claude desktop app, where you carry on. Codex runs its first turn through App Server, binds the persistent session and opens Desktop to continue. WorkBuddy copies the task to the clipboard for you to paste and send |
 | ⌘-drag a session card onto an item | Leaves the item alone and creates a new bound item below it (and its children) |
 | ⌘-drag an item onto Claude Code / Codex | Opens a new tab in your terminal running interactive `claude` / `codex` with the task as the first message; the session is bound back once it appears. With **open in terminal by default** on in the settings, it is the other way round. With Tern or Herdr as your terminal the task runs in a separate background session named "Agent Deck" (a space of that name in Herdr), and the terminal does not come forward; Claude Code starts in a trusted directory (the vault added with `--add-dir`) so it never stops at the trust prompt |
@@ -278,9 +288,9 @@ The default per-turn mode retains completed turns from the first through the lat
 
 Your task lines are the plan; the agent session logs are the record of what actually happened. With **Auto-log into today's note** enabled, Agent Deck periodically reads today's sessions and writes the record back:
 
-- **Active** → the matching line becomes `DOING`; if there is no line it writes `- DOING 00:45 🤖 …`. The selected local Claude / Codex CLI names the session and picks an existing task line when one fits.
-- **Idle for a while** (10 minutes by default) → `PAUSED`, with `- ⏱ 00:45–01:20 · 共 52m · Claude` underneath.
-- **Archived in the desktop app / Codex** → `DONE 19:20 …`, including lines still open from previous days.
+- **Active** → the matching line becomes `DOING`; if there is no line it writes `- DOING 🤖 00:45-01:20 …` (`STATUS + 🤖 + start-last conversation time + summarized title`). The selected local Claude / Codex CLI names the session and picks an existing task line when one fits.
+- **Idle for a while** (10 minutes by default) → `PAUSED 🤖 00:45-01:20 …`, with `- ⏱ 00:45–01:20 · 共 52m · Claude` underneath.
+- **Archived in the desktop app / Codex** → `DONE 🤖 18:30-19:20 …`, including lines still open from previous days.
 - **It never guesses DONE.** The machine only moves between `DOING`, `PAUSED` and the waiting keywords (`TOREVIEW`, `NEEDOK`, `ERRORED`); finishing is you marking it done or archiving the session.
 - **Bound lines** get `💬` when the session answers, their keyword follows the session, and archiving writes `DONE` + `⏱`. Auto-logged `🤖` lines follow the session's keyword too (`DOING` ↔ `TOREVIEW` / `NEEDOK` / `ERRORED`), so a session waiting for you shows up as waiting before it is paused.
 - **Nested blocks**: desktop child sessions (from `spawnedFrom`), open side chats, and Claude Code subagents (`<session>/subagents/agent-*.jsonl`) become indented blocks with their own status.
@@ -470,6 +480,23 @@ Settings are organized into four main tabs: **Delegate**, **Records**, **Dreamin
 | Dreaming / About | Keep memory and synchronization separate from version information and common actions. |
 
 Task-line model and effort choices remain overrides for the current task. Short capability statuses are shown for client-managed models, client handoff and unavailable delegation.
+
+## Next changes
+
+The following items have completed feasibility analysis and are queued on the roadmap (not yet implemented):
+
+### 1. Grok Bot (Sand) session tracking and per-bot filtering
+
+- **Local data sources**:
+  - Bot & session index: `~/Library/Application Support/Sand/bot-sessions.json` (`botId`, `botName`, `platform` such as `telegram` or `feishu`, `workspaceDir`, `sessionIds`).
+  - Session transcripts: `~/.grok-bot/agents/sessions/<sessionId>/session.jsonl` (per-turn user/assistant messages, tool calls, model, timestamps and token usage) plus `metadata.json`.
+  - Deduplication with Claude Code: because Grok Bot uses the Claude Agent SDK under the hood, sessions claimed by `bot-sessions.json` are attributed to Grok Bot and excluded from the Claude Code list so they are never double-counted.
+- **Per-bot filter in settings**:
+  - Under **Settings → Recording → Sources and scanning**, list all bots discovered in `bot-sessions.json` (showing `botName`, platform badge and session count) with multi-select checkboxes (`grokBotTrackedBotIds`) so users can track only specific bots and ignore test or noisy group bots.
+
+### 2. Other planned items
+
+- **Pi support**, **choosing model / effort / recording granularity directly in the delegation sheet**, and **per-block recording settings on existing AI record blocks** (tracked in Linear project `P-MAT-42`).
 
 ## Compatibility with Nautilus Spiral
 

@@ -1,6 +1,7 @@
 import { canOpenClient } from "./workflow.js";
 import { Modal, Notice, MarkdownRenderer, Component } from "obsidian";
 import { readConversation, archiveConversation } from "./conversation.js";
+import { AGENTS } from "./constants.js";
 import { t } from "./i18n.js";
 
 export class ConversationModal extends Modal {
@@ -30,7 +31,7 @@ export class ConversationModal extends Modal {
     archive.title = t("保存对话（⌘S / Ctrl+S）");
     el.createDiv({ cls: "ad-hint", text: t("保存用户消息与回复正文；会话可继续，任务状态不受影响。工具结果、内部推理和附件不包含在内。") });
     this.messagesEl = el.createDiv({ cls: "ad-conversation__messages" });
-    if (this.session.agent === "dsh" || (this.session.agent === "antigravity" && Object.values(this.plugin.jobs).some((j) => j.agent === "antigravity" && j.transport === "acp" && j.sessionId === (this.session.sid || this.session.sessionId)))) {
+    if (["dsh", "opencode"].includes(this.session.agent) || (this.session.agent === "antigravity" && Object.values(this.plugin.jobs).some((j) => j.agent === "antigravity" && j.transport === "acp" && j.sessionId === (this.session.sid || this.session.sessionId)))) {
       this.input = el.createEl("textarea", { cls: "ad-textarea", attr: { rows: "3", placeholder: t("在原会话中继续追问…") } });
       const row = el.createDiv({ cls: "ad-btnrow" });
       this.send = row.createEl("button", { cls: "mod-cta", text: t("发送到原会话") });
@@ -93,7 +94,7 @@ export class AcpPermissionModal extends Modal {
   constructor(app, info, resolve) { super(app); this.info = info; this.resolve = resolve; }
   onOpen() {
     const { toolCall, options } = this.info;
-    this.contentEl.createEl("h2", { text: t("{agent} 请求工具权限", { agent: this.info.agent === "dsh" ? "DeepSeek Harness" : "Antigravity" }) });
+    this.contentEl.createEl("h2", { text: t("{agent} 请求工具权限", { agent: AGENTS[this.info.agent]?.name || this.info.agent }) });
     this.contentEl.createEl("p", { text: toolCall?.title || t("Agent 请求执行工具操作，请选择是否允许。") });
     if (toolCall?.rawInput) {
       const details = this.contentEl.createEl("details");

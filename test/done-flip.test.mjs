@@ -18,6 +18,8 @@ assert.equal(flipToDone('- [ ] 没有关键词'), '- [x] 没有关键词');
 // Timestamps and the body stay where they were.
 assert.equal(flipToDone('- DOING 09:00 x'), '- DONE 09:00 x');
 assert.equal(flipToDone('- [ ] DOING 09:00 x'), '- [x] 09:00 x');
+assert.equal(flipToDone('- DOING 🤖 09:00-09:45 自动记录 ^ad-123456'), '- DONE 🤖 09:00-09:45 自动记录 ^ad-123456');
+assert.equal(flipToDone('- DOING 09:00 🤖 旧自动记录 ^ad-123456'), '- DONE 🤖 09:00-09:00 旧自动记录 ^ad-123456');
 
 // Double spaces inside the body are content, not layout.
 assert.equal(flipToDone('- TODO a  b'), '- DONE a  b');

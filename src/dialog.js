@@ -20,7 +20,7 @@ export class DelegateOptionsModal extends Modal {
     this.agent = plugin.defaultTarget();
     this.model = plugin.defaultModel(this.agent);
     this.effort = plugin.settings.delegate[this.agent]?.effort || "high";
-    this.permission = plugin.settings.delegate.claude.permission || "auto";
+    this.permission = plugin.settings.delegate[this.agent]?.permission || plugin.settings.delegate.claude.permission || "auto";
     this.destination = defaultDestination(plugin, this.agent);
     this.cwd = "";
     this.suffix = plugin.settings.delegate.promptSuffix || "";
@@ -67,15 +67,15 @@ export class DelegateOptionsModal extends Modal {
     const target = contentEl.createDiv({ cls: "ad-field" });
     target.createDiv({ cls: "ad-field__label", text: "Delegate to" });
     const targets = target.createDiv({ cls: "ad-targetpick" });
-    for (const id of ["claude", "codex", "dsh", "antigravity"]) {
+    for (const id of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"]) {
       const a = AGENTS[id];
       const b = targets.createEl("button", { cls: "ad-target ad-target--sm" + (this.agent === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
-      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? t("桌面版") : id === "codex" ? (p.settings.delegate.codex.transport === "terminal" ? t("CLI / 终端") : t("首轮后打开桌面版")) : "ACP" });
-      b.onclick = () => { this.agent = id; this.model = p.defaultModel(id); this.effort = p.settings.delegate[id]?.effort || "high"; this.destination = defaultDestination(p, id); this.render(); };
+      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? t("桌面版") : id === "codex" ? (p.settings.delegate.codex.transport === "terminal" ? t("CLI / 终端") : t("首轮后打开桌面版")) : id === "qoder" ? t("桌面版 / CLI") : "ACP" });
+      b.onclick = () => { this.agent = id; this.model = p.defaultModel(id); this.effort = p.settings.delegate[id]?.effort || "high"; this.permission = p.settings.delegate[id]?.permission || p.settings.delegate.claude.permission || "auto"; this.destination = defaultDestination(p, id); this.render(); };
     }
 
     destinationPicker(contentEl, this.agent, this.destination, (v) => { this.destination = v; });
@@ -96,7 +96,7 @@ export class DelegateOptionsModal extends Modal {
       b.onclick = () => { this.model = m.id; this.render(); };
     }
 
-    if (["dsh", "antigravity"].includes(this.agent)) {
+    if (["dsh", "antigravity", "opencode"].includes(this.agent)) {
       const refresh = mf.createEl("button", { cls: "ad-btn", text: t("读取 {agent} 可用模型", { agent: AGENTS[this.agent].name }) });
       refresh.onclick = async () => {
         refresh.disabled = true;
@@ -122,7 +122,7 @@ export class DelegateOptionsModal extends Modal {
     });
 
     // Permission
-    if (this.agent === "claude") {
+    if (["claude", "qoder"].includes(this.agent)) {
       const pf = contentEl.createDiv({ cls: "ad-field" });
       pf.createDiv({ cls: "ad-field__label", text: "Mode" });
       const seg = pf.createDiv({ cls: "ad-seg" });
@@ -132,14 +132,15 @@ export class DelegateOptionsModal extends Modal {
         b.onclick = () => { this.permission = o.id; this.render(); };
       }
       pf.createDiv({ cls: "ad-hint", text: CLAUDE_PERMISSIONS.find((x) => x.id === this.permission)?.hint || "" });
-    } else if (this.agent === "dsh") {
+    } else if (["dsh", "opencode"].includes(this.agent)) {
+      const cfg = p.settings.delegate[this.agent];
       const af = contentEl.createDiv({ cls: "ad-field" });
       const row = af.createDiv({ cls: "ad-minirow" });
       row.createSpan({ text: "Auto-approve tool calls" });
-      const b = row.createEl("button", { cls: "ad-switch" + (p.settings.delegate.dsh.autoApprove ? " is-on" : "") });
+      const b = row.createEl("button", { cls: "ad-switch" + (cfg.autoApprove ? " is-on" : "") });
       b.createSpan({ cls: "ad-switch__knob" });
-      b.onclick = () => { p.settings.delegate.dsh.autoApprove = !p.settings.delegate.dsh.autoApprove; p.saveSettings(); this.render(); };
-      af.createDiv({ cls: "ad-hint", text: t("ACP 模式没有 plan/auto 这个切换；关掉自动允许时，Harness 的权限请求会在 Obsidian 中逐次确认。") });
+      b.onclick = () => { cfg.autoApprove = !cfg.autoApprove; p.saveSettings(); this.render(); };
+      af.createDiv({ cls: "ad-hint", text: t("ACP 模式没有 plan/auto 这个切换；关掉自动允许时，权限请求会在 Obsidian 中逐次确认。") });
     }
 
     if (this.agent === "antigravity") contentEl.createDiv({ cls: "ad-hint", text: t("通过 agy acp 委派，工具请求会在 Obsidian 中逐次确认；完成后可打开会话正文继续追问。推理强度以当前模型支持的值为准。") });
@@ -183,7 +184,7 @@ export class DelegateOptionsModal extends Modal {
           agent: this.agent,
           model: this.model,
           effort: this.effort,
-          permission: this.agent === "claude" ? this.permission : "",
+          permission: ["claude", "qoder"].includes(this.agent) ? this.permission : "",
           cwd: this.cwd.trim(),
           promptSuffix: this.suffix,
           name: blockTitle(this.block, mentionTrigger(p)),

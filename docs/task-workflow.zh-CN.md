@@ -1,6 +1,15 @@
 # Agent Deck 交接进度与操作说明
 
-更新日期：2026-11-15。当前程序正式版为 1.9.2。
+更新日期：2026-11-15。当前程序正式版为 1.9.3。
+
+## 1.9.3：OpenCode／Qoder 委派、统一自动记录标题格式与上架规范
+
+- **OpenCode 与 Qoder 委派及插件内续聊**：
+  - OpenCode 通过 `opencode-cli acp`（优先调用 OpenCode.app 内置二进制，也可自定义路径）支持后台委派、Obsidian 内同会话续聊、桌面端打开及终端 `opencode` 交互；ACP 会话写入 `~/.local/share/opencode/opencode.db`。
+  - Qoder 支持 `qodercli`（`-p <prompt> -f stream-json` / `-r <sessionId>`）后台委派与插件内续聊、桌面端复制交接及终端 `qodercli` 交互，会话保存在 `~/.qoder/projects`。
+- **统一 AI 自动记录标题格式**：
+  - 所有 AI 自动写的任务行统一为 `任务状态 + 🤖 + 开始对话时间-最后一次对话时间 + 总结标题`（例如 `- DOING 🤖 14:52-15:52 调整 Agent Deck 侧边栏面板`），覆盖自动记日记、拖拽建项、状态切换、会话回写、子块与整理日志；自动剥离路径、URL 与口语前缀。
+- **插件市场规范**：修正 `manifest.json` 描述（移除冗余 `"Obsidian"` 字样），满足社区插件市场审核要求。
 
 ## 1.9.2：按“委派”和“记录”重组设置
 
@@ -51,7 +60,7 @@
 
 ### 下一步与未完成项
 
-1. OpenCode／Qoder 桌面追踪已在 1.9.1 提供；委派与插件内续聊仍未接入。
+1. **Grok Bot（Sand）会话追踪与按 Bot 过滤**：已完成本地数据结构可行性分析（`~/Library/Application Support/Sand/bot-sessions.json` 与 `~/.grok-bot/agents/sessions/<sessionId>/session.jsonl`），计划支持在「记录 → 来源与扫描」按 Bot 勾选追踪并去重 Claude Code 共用会话；当前仅记录在 README 与 Linear，暂不编码。
 2. Pi 支持：保留既有 Backlog，尚未实现。
 3. 委派卡片里的模型、强度与记录方式选择，以及已有 AI 记录块的独立记录设置：保留既有规划，尚未实现。
 4. 历史审查项、跨终端／跨系统的验证缺口和 README 全文专项核对仍需逐项复核；以 Linear 项目的对应卡片为准。
@@ -71,6 +80,8 @@
 | Codex | 桌面、后台、终端 | 首轮结束并释放会话后打开桌面。 |
 | DeepSeek Harness | Obsidian、桌面、后台 | 建立会话后打开客户端；当前轮结束后，在侧栏手动选择同一会话继续。 |
 | Antigravity | Obsidian、后台 | 插件创建的 CLI 会话暂不提供桌面 IDE 交接选项。 |
+| OpenCode | Obsidian、桌面、后台、终端 | ACP 会话写入 `opencode.db`，可在插件内续聊或打开桌面应用。 |
+| Qoder | Obsidian、桌面、后台、终端 | `qodercli` 支持后台与插件内续聊；桌面模式复制任务并打开客户端交接。 |
 | WorkBuddy | 桌面 | 复制任务并打开客户端，等待用户粘贴发送。 |
 
 CLI（Command Line Interface，命令行接口）是插件调用本机 Agent 的一种方式。各客户端是否能接续同一会话，取决于实际接口支持。

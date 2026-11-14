@@ -1,9 +1,9 @@
 {
   "id": "agent-deck",
   "name": "Agent Deck",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "minAppVersion": "1.4.0",
-  "description": "Track seven local AI agents, bind sessions to note tasks, and keep progress and conversation records in Obsidian.",
+  "description": "Track seven local AI agents, bind sessions to note tasks, and keep progress and conversation records in your notes.",
   "author": "MatsuriMW",
   "authorUrl": "https://github.com/MatsuriMW",
   "isDesktopOnly": true

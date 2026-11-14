@@ -1,4 +1,4 @@
-/* Agent Deck 1.9.2 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.9.3 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -756,7 +756,24 @@ var settings_default = {
   "\u5F52\u6863\u987A\u5E8F": "Archive order",
   "\u63D2\u5230\u5F00\u5934\u65F6\uFF0C\u65B0\u7684\u5F52\u6863\u5185\u5BB9\u653E\u5728\u6807\u9898\u4E0B\u9762\u3001\u65E7\u5185\u5BB9\u4E0A\u9762\uFF1B\u8FFD\u52A0\u65F6\u653E\u5230\u6587\u4EF6\u672B\u5C3E\u3002\u540C\u4E00\u65E5\u671F\u5DF2\u6709\u5185\u5BB9\u65F6\u4FDD\u6301\u539F\u4F4D\u7F6E\uFF0C\u53EA\u6309\u8F6E\u6570\u91CD\u6392\u3002": "Top of the file puts new entries under the title, above older ones; end of the file appends them. An existing date section keeps its place and is only re-sorted by turn count.",
   "\u63D2\u5230\u5F00\u5934": "Top of the file",
-  "\u8FFD\u52A0\u5230\u672B\u5C3E": "End of the file"
+  "\u8FFD\u52A0\u5230\u672B\u5C3E": "End of the file",
+  "\u684C\u9762\u7248 / CLI": "Desktop / CLI",
+  "\u4F18\u5148\u4F7F\u7528 OpenCode.app \u5185\u7F6E\u7684 opencode-cli acp\uFF0C\u53EF\u5728 Obsidian \u5185\u7EED\u804A\u6216\u5728\u684C\u9762\u7248\u6253\u5F00": "Prefers opencode-cli acp bundled with OpenCode.app; continue inside Obsidian or open in the desktop app",
+  "\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\uFF08\u542B OpenCode.app \u5185\u7F6E CLI\uFF09": "Empty detects it automatically (including the OpenCode.app bundled CLI)",
+  "\u8BFB\u53D6 OpenCode \u53EF\u7528\u6A21\u578B": "Load available OpenCode models",
+  "\u68C0\u67E5 opencode": "Check opencode",
+  "\u5DF2\u767B\u5F55 qodercli \u65F6\u540E\u53F0\u76F4\u63A5\u6267\u884C\uFF1B\u672A\u767B\u5F55\u65F6\u81EA\u52A8\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00 Qoder \u684C\u9762\u7248\u4EA4\u63A5": "Runs headless via qodercli when signed in; falls back to copying the task and opening Qoder Desktop when not signed in",
+  "\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\uFF08~/.qoder/bin/qodercli/qodercli\uFF09": "Empty detects it automatically (~/.qoder/bin/qodercli/qodercli)",
+  "\u68C0\u67E5 qoder": "Check qoder",
+  "\u767B\u5F55 qoder CLI": "Sign in to qoder CLI",
+  "\u9002\u7528\u4E8E Claude Code\u3001Codex\u3001OpenCode \u548C Qoder": "Applies to Claude Code, Codex, OpenCode and Qoder",
+  "\u4F7F\u7528 OpenCode \u9ED8\u8BA4\u6A21\u578B\uFF1B\u6216\u5728\u59D4\u6D3E\u8BBE\u7F6E\u4E2D\u8BFB\u53D6 OpenCode \u53EF\u7528\u6A21\u578B": "Uses OpenCode's default model; or load available OpenCode models in Delegation settings",
+  "Qoder \u81EA\u52A8\u8DEF\u7531\u81F3\u9AD8\u9636\u63A8\u7406\u6A21\u578B\uFF08cli: ultimate\uFF09": "Qoder auto-routes to its top reasoning model (cli: ultimate)",
+  "Qoder \u81EA\u52A8\u6309\u4EFB\u52A1\u96BE\u5EA6\u9009\u62E9\u6A21\u578B\uFF08cli: auto\uFF09": "Qoder picks a model automatically by task complexity (cli: auto)",
+  "Qoder 3.8 Max \u6A21\u578B\uFF08cli: q38max\uFF09": "Qoder 3.8 Max model (cli: q38max)",
+  "\u901A\u8FC7 OpenCode ACP \u5EFA\u4F1A\u8BDD\uFF0C\u6216\u4EA4\u63A5\u7ED9\u5BA2\u6237\u7AEF / \u7EC8\u7AEF": "Starts a session via OpenCode ACP, or hands off to the client / terminal",
+  "\u901A\u8FC7 qodercli \u6216 Qoder \u684C\u9762\u7248\u59D4\u6D3E\u4EFB\u52A1": "Delegates tasks via qodercli or Qoder Desktop",
+  "\u4F20\u7ED9 qodercli --reasoning-effort": "Passed to qodercli --reasoning-effort"
 };
 
 // src/locales/en/dialogs.js
@@ -767,6 +784,9 @@ var dialogs_default = {
   "\u9996\u8F6E\u540E\u6253\u5F00\u684C\u9762\u7248": "Desktop app after the first turn",
   "\u8BFB\u53D6 {agent} \u53EF\u7528\u6A21\u578B": "Load the models available to {agent}",
   "ACP \u6A21\u5F0F\u6CA1\u6709 plan/auto \u8FD9\u4E2A\u5207\u6362\uFF1B\u5173\u6389\u81EA\u52A8\u5141\u8BB8\u65F6\uFF0CHarness \u7684\u6743\u9650\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\u3002": "ACP mode has no plan/auto switch. With auto-allow off, Harness asks you to confirm each permission request inside Obsidian.",
+  "ACP \u6A21\u5F0F\u6CA1\u6709 plan/auto \u8FD9\u4E2A\u5207\u6362\uFF1B\u5173\u6389\u81EA\u52A8\u5141\u8BB8\u65F6\uFF0C\u6743\u9650\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\u3002": "ACP mode has no plan/auto switch. With auto-allow off, each permission request is confirmed in Obsidian.",
+  "qoder \u9000\u51FA\u7801 {code}": "qoder exited with code {code}",
+  "\u{1F4CB} Qoder CLI \u5C1A\u672A\u767B\u5F55\uFF0C\u5DF2\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00 Qoder \u684C\u9762\u7248\uFF08\u4E5F\u53EF\u5728\u8BBE\u7F6E\u91CC\u767B\u5F55 CLI\uFF09": "\u{1F4CB} Qoder CLI is not signed in; copied the task and opened Qoder Desktop (or sign in to the CLI in Settings)",
   "\u901A\u8FC7 agy acp \u59D4\u6D3E\uFF0C\u5DE5\u5177\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\uFF1B\u5B8C\u6210\u540E\u53EF\u6253\u5F00\u4F1A\u8BDD\u6B63\u6587\u7EE7\u7EED\u8FFD\u95EE\u3002\u63A8\u7406\u5F3A\u5EA6\u4EE5\u5F53\u524D\u6A21\u578B\u652F\u6301\u7684\u503C\u4E3A\u51C6\u3002": "Delegated through agy acp, so tool requests are confirmed one by one in Obsidian. When it finishes, open the transcript to keep asking. Reasoning effort follows what the current model supports.",
   "\u7559\u7A7A = \u63D2\u4EF6\u8BBE\u7F6E\u91CC\u7684\u76EE\u5F55\uFF08\u9ED8\u8BA4\u662F\u5E93\u6839\u76EE\u5F55\uFF09\u3002": "Leave empty to use the folder from plugin settings (the vault root by default).",
   "\u52A0\u5728\u8FD9\u6B21\u59D4\u6D3E\u6700\u540E\u7684\u8BDD": "Text to add at the end of this delegation",
@@ -1202,10 +1222,9 @@ var AGENTS = {
     color: "#777b83",
     soft: "rgba(119,123,131,.13)",
     kind: "opencode",
-    where: ["~/.local/share/opencode/opencode.db", "OpenCode Desktop"],
+    where: ["~/.local/share/opencode/opencode.db", "OpenCode Desktop / CLI"],
     deep: "opencode",
-    desktopOnly: true,
-    trackingOnly: true
+    desktopOnly: true
   },
   qoder: {
     id: "qoder",
@@ -1215,15 +1234,55 @@ var AGENTS = {
     color: "#748c65",
     soft: "rgba(116,140,101,.13)",
     kind: "qoder",
-    where: ["~/Library/Application Support/com.qoder.app.stable/main.sqlite", "Qoder Desktop"],
+    where: ["~/Library/Application Support/com.qoder.app.stable/main.sqlite \xB7 ~/.qoder/projects", "Qoder Desktop / CLI"],
     deep: "qoder",
-    desktopOnly: true,
-    trackingOnly: true
+    desktopOnly: true
   }
 };
 var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder"];
 var MODEL_CATALOG = [
   { id: "antigravity-default", agent: "antigravity", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Antigravity", context: "\u2014", tags: [], note: t("\u4F7F\u7528\u670D\u52A1\u7AEF\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
+  { id: "opencode-default", agent: "opencode", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "OpenCode", context: "\u2014", tags: [], note: t("\u4F7F\u7528\u670D\u52A1\u7AEF\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
+  {
+    id: "qoder-ultimate",
+    agent: "qoder",
+    name: "Ultimate",
+    cli: "ultimate",
+    value: "ultimate",
+    provider: "Qoder",
+    context: "\u2014",
+    strength: 5,
+    speed: 3,
+    tags: ["Reasoning"],
+    cost: "High cost",
+    note: "Qoder Ultimate model for complex engineering tasks."
+  },
+  {
+    id: "qoder-auto",
+    agent: "qoder",
+    name: "Auto",
+    cli: "auto",
+    value: "auto",
+    provider: "Qoder",
+    context: "\u2014",
+    strength: 4,
+    speed: 4,
+    tags: ["Reasoning", "Fast"],
+    note: "Qoder automatic model routing."
+  },
+  {
+    id: "qoder-38max",
+    agent: "qoder",
+    name: "QModel 3.8 Max",
+    cli: "qmodel_38max",
+    value: "qmodel_38max",
+    provider: "Qoder",
+    context: "\u2014",
+    strength: 4,
+    speed: 4,
+    tags: ["Reasoning"],
+    note: "QModel 3.8 Max."
+  },
   {
     id: "claude-opus-5-5",
     agent: "claude",
@@ -1367,6 +1426,8 @@ var MODEL_CATALOG = [
 ];
 var EFFORTS = {
   antigravity: ["low", "medium", "high", "xhigh"].map((id) => ({ id, label: id, hint: t("\u5B9E\u9645\u53EF\u7528\u5F3A\u5EA6\u7531 ACP \u670D\u52A1\u7AEF\u6821\u9A8C") })),
+  opencode: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("\u5B9E\u9645\u53EF\u7528\u5F3A\u5EA6\u7531 ACP \u670D\u52A1\u7AEF\u6821\u9A8C") })),
+  qoder: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("\u4F20\u7ED9 qodercli --reasoning-effort") })),
   codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: t("\u7531\u6240\u9009 Codex \u6A21\u578B\u652F\u6301\u7684\u5F3A\u5EA6\u51B3\u5B9A") })),
   claude: [
     { id: "low", label: "Low", hint: "Fastest" },
@@ -1504,6 +1565,8 @@ var DEFAULTS = {
     },
     codex: { transport: "desktop", model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
     antigravity: { model: "antigravity-default", effort: "medium", path: "", cwd: "", autoApprove: false },
+    opencode: { model: "opencode-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: true, extraArgs: "" },
     dsh: {
       model: "deepseek-v4-pro",
       effort: "high",
@@ -1529,7 +1592,7 @@ var DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "deepseek-v4-pro", antigravity: "antigravity-default" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "deepseek-v4-pro", antigravity: "antigravity-default", opencode: "opencode-default", qoder: "qoder-ultimate" },
     effort: "high",
     effortByAgent: {}
   },
@@ -1558,8 +1621,8 @@ function syncDelegationSettings(settings, raw = null) {
   m.defaultByAgent || (m.defaultByAgent = {});
   m.effortByAgent || (m.effortByAgent = {});
   m.enabled = Array.isArray(m.enabled) ? m.enabled : [];
-  if (!["claude", "codex", "dsh", "antigravity"].includes(d.target)) d.target = "claude";
-  for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
+  if (!["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(d.target)) d.target = "claude";
+  for (const agent of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"]) {
     const cfg = d[agent] || (d[agent] = {});
     const rawDelModel = raw?.delegate?.[agent]?.model;
     const rawModModel = raw?.models?.defaultByAgent?.[agent];
@@ -1813,6 +1876,63 @@ var width = (line) => {
   return w;
 };
 var workKey = (label) => stripBlockId(String(label || "")).replace(/\s*←\s*\S+\s*$/, "").trim();
+var TIME_SPAN_PREFIX_RE = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?\s*/;
+function summarizeAutoTitle(raw, max = 22) {
+  let s = stripBlockId(String(raw || "")).replace(/[\r\n←`*=~[\]|]/g, " ").replace(/^🤖\s*/, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:TODO|DOING|DONE|SUSPENDED|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+/i, "").replace(/^🤖\s*/, "").replace(TIME_SPAN_PREFIX_RE, "").replace(/^🤖\s*/, "").replace(/Files mentioned by the user:\s*(?:##\s*\S+\s*)*/gi, " ").replace(/<[^>]+>/g, " ").replace(/https?:\/\/[^\s/，,。；;）)]+(?:\/[^\s/，,。；;）)]+)*\/([A-Za-z0-9._-]+?)(?:\.git)?(?:[/?#][^\s，,。；;）)]*)?(?=$|[\s，,。；;）)])/gi, " $1 ").replace(/https?:\/\/[^\s，,。；;）)]+/gi, " ").trim();
+  const pathMatch = /(?:\/Users\/|~\/)(?:[^\s/\\]|\\ )+\/([A-Za-z0-9._\u4e00-\u9fa5-]+)\/?/.exec(s);
+  const pathBase = pathMatch ? pathMatch[1] : "";
+  s = s.replace(/(?:仓库|项目|目录|路径|位置|文件)[：:]\s*(?:\/Users\/|~\/)(?:[^\s，,。；;）)]|\\ )+/g, " ").replace(/(?:\/Users\/|~\/)(?:[^\s，,。；;）)]|\\ )+/g, " ").replace(/[（(][^）)]{14,}[）)]/g, " ").replace(/[，,。；;]\s*(?:位置在|路径在|目录在|地址在|文件在|它位于|位于|顺着|有问题问我).*$/i, "").replace(/^(?:你好|哈喽|嗨|请问|麻烦|请帮我|帮我|请你|我想让你|我想|我要|咱们|我们|现在|再|先|顺便|另外|还有)(?:先|再)?(?:把|给|对)?\s*/i, "").replace(/^(?:继续)?(更新|修改|调整|优化|整理|检查|修复|排查|查看|看看|处理|实现|重构|分析)一下\s*/i, "$1").replace(/这个\s*(?:obsidian\s*)?插件/gi, "\u63D2\u4EF6").replace(/(\d)[:：](\d)/g, "$1.$2").replace(/\s+/g, " ").replace(/^[，,。；;：:、\s]+|[，,。；;：:、….\s]+$/g, "").trim();
+  const clauses = s.split(/[。！？；!?;]|，(?=.{6,})/).map((c) => c.trim()).filter(Boolean);
+  if (clauses.length > 1 && [...clauses[0]].length >= 4) {
+    s = clauses[0].replace(/^(?:关于|对于)\s*/, "").trim();
+  }
+  if (!s && pathBase) s = `\u6574\u7406 ${pathBase}`;
+  if (!s) s = "\u6574\u7406\u4F1A\u8BDD";
+  const chars = [...s];
+  return chars.length > max ? chars.slice(0, max).join("").replace(/[，,。；;：:、\s]+$/, "").trim() : s;
+}
+function formatAutoTaskLine({ prefix = "- ", kw = "DOING", start = "", end = "", span = "", title = "", blockId = "", summarize = false } = {}) {
+  const existingId = blockId || blockIdOf(title);
+  let cleanTitle = stripBlockId(String(title || "")).replace(/^🤖\s*/, "").replace(TIME_SPAN_PREFIX_RE, "").replace(/^🤖\s*/, "").replace(TIME_SPAN_PREFIX_RE, "").trim();
+  if (summarize || !cleanTitle) cleanTitle = summarizeAutoTitle(cleanTitle || title);
+  let timeRange = "";
+  if (span) {
+    const m = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?$/.exec(span.trim());
+    if (m) {
+      const s = `${pad(+m[1])}:${m[2]}`;
+      const e = m[3] ? `${pad(+m[3])}:${m[4]}` : s;
+      timeRange = `${s}-${e}`;
+    } else {
+      timeRange = span.trim();
+    }
+  } else if (start || end) {
+    const s = start || end;
+    const e = end || start;
+    timeRange = `${s}-${e}`;
+  }
+  const head = `${prefix}${kw ? kw + " " : ""}${AUTO_MARK}${timeRange ? timeRange + " " : ""}${cleanTitle}`.replace(/ {2,}/g, " ").trimEnd();
+  return existingId ? `${head} ^${existingId}` : head;
+}
+function clockSpanFromLines(lines, ownerLine) {
+  if (!Array.isArray(lines) || ownerLine < 0 || ownerLine >= lines.length) return null;
+  const base = width(lines[ownerLine] || "");
+  for (let i = ownerLine + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) <= base) break;
+    if (CLOCK_RE.test(lines[i]) && markOwner(lines, i) === ownerLine) {
+      const matches = [...lines[i].matchAll(/(\d{1,2})[:：](\d{2})\s*[–—~～-]\s*(\d{1,2})[:：](\d{2})/g)];
+      if (matches.length) {
+        const first = matches[0];
+        const last = matches[matches.length - 1];
+        return {
+          start: `${pad(+first[1])}:${first[2]}`,
+          end: `${pad(+last[3])}:${last[4]}`
+        };
+      }
+    }
+  }
+  return null;
+}
 function splitTask(raw) {
   const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(.*)$/.exec(raw);
   if (!m) return null;
@@ -1829,21 +1949,58 @@ function splitTask(raw) {
   const pr = kw && /^\[#[ABC]\]\s*/.exec(rest);
   if (pr) rest = rest.slice(pr[0].length);
   let since = null;
-  const t2 = kw && /^(\d{1,2})[:：](\d{2})(?![\d:：]|\s*[-–~～到至])\s*/.exec(rest);
-  if (t2) {
-    since = `${pad(+t2[1])}:${t2[2]}`;
-    rest = rest.slice(t2[0].length);
+  let until = null;
+  const legacyRangeBeforeAuto = kw && /^(\d{1,2})[:：](\d{2})\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2})\s+(?=🤖)/.exec(rest);
+  if (legacyRangeBeforeAuto) {
+    since = `${pad(+legacyRangeBeforeAuto[1])}:${legacyRangeBeforeAuto[2]}`;
+    until = `${pad(+legacyRangeBeforeAuto[3])}:${legacyRangeBeforeAuto[4]}`;
+    rest = rest.slice(legacyRangeBeforeAuto[0].length);
+  } else {
+    const t2 = kw && /^(\d{1,2})[:：](\d{2})(?![\d:：]|\s*[-–~～到至])\s*/.exec(rest);
+    if (t2) {
+      since = `${pad(+t2[1])}:${t2[2]}`;
+      rest = rest.slice(t2[0].length);
+    }
+  }
+  const autoMatch = /^🤖\s*/.exec(rest);
+  const auto = Boolean(autoMatch) && !(!kw && /^🤖\s*(?:子代理|side chat)/.test(rest));
+  let title = "";
+  if (auto) {
+    let afterRobot = rest.slice(autoMatch[0].length);
+    const tm = TIME_SPAN_PREFIX_RE.exec(afterRobot);
+    if (tm) {
+      since = `${pad(+tm[1])}:${tm[2]}`;
+      until = tm[3] ? `${pad(+tm[3])}:${tm[4]}` : since;
+      afterRobot = afterRobot.slice(tm[0].length);
+    } else if (since && !until) {
+      until = since;
+    }
+    const bid = blockIdOf(afterRobot);
+    title = stripBlockId(afterRobot).trim();
+    rest = `${AUTO_MARK}${title}${bid ? ` ^${bid}` : ""}`;
   }
   if (pr) rest = `${pr[0].trim()} ${rest}`;
   const blockId = blockIdOf(rest);
   const body = stripBlockId(rest);
-  return { prefix, rest, body, blockId, since, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
+  if (!auto) title = body;
+  const span = since ? `${since}-${until || since}` : null;
+  return { prefix, rest, body, title, auto, blockId, since, until, span, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
 }
 function flipToDone(raw) {
   const part = splitTask(raw);
   if (!part) return null;
   const kw = kwLine(raw)?.kw || "";
   if (DONE_KWS.includes(kw)) return null;
+  if (part.auto && !part.cb) {
+    return formatAutoTaskLine({
+      prefix: part.prefix,
+      kw: "DONE",
+      start: part.since || "",
+      end: part.until || part.since || "",
+      title: part.title,
+      blockId: part.blockId
+    });
+  }
   const box = part.cb ? part.cb === " " || part.cb === "/" ? "[x]" : `[${part.cb}]` : "";
   const since = part.since ? `${part.since} ` : "";
   const head = box ? `${part.prefix}${box} ${since}${part.rest}` : `${part.prefix}DONE ${since}${part.rest}`;
@@ -1864,8 +2021,8 @@ function kwLine(raw) {
     s = s.slice(m[0].length);
   }
   const blockId = blockIdOf(s);
-  s = stripBlockId(s).replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").trim();
-  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || !kw && !blockId && /^(?:💬|❓|📋)/.test(s) || /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
+  s = stripBlockId(s).replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").replace(/^🤖\s*\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "\u{1F916} ").trim();
+  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || !kw && !blockId && /^(?:💬|❓|📋)/.test(s) || !kw && /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
   return { kw, body: s, blockId };
 }
 function parseLink(line) {
@@ -2111,7 +2268,7 @@ function taskItems(text) {
     const k = kwLine(lines[i]);
     if (!k) continue;
     const st = DONE_KWS.includes(k.kw) ? "done" : /^(DOING|NOW|IN-PROGRESS)$/.test(k.kw) || AGENT_KW_RE.test(k.kw) ? "doing" : /^(PAUSED|SUSPENDED|WAITING|WAIT)$/.test(k.kw) ? "paused" : "open";
-    out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), blockId: k.blockId || "", indent: width(lines[i]), state: st });
+    out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), auto: k.body.startsWith(AUTO_MARK.trim()), blockId: k.blockId || "", indent: width(lines[i]), state: st });
   }
   return out;
 }
@@ -2171,7 +2328,7 @@ function kidIdent(line) {
   const m = /^\s*[-*+]\s+⏱.*·\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`\s*$/.exec(line);
   return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2], open: false } : null;
 }
-var kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(/^\s*(?:\d+[.)、]\s*)?(?:(?:TODO|DOING|LATER|NOW|WAITING|WAIT|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+)?(?:\d{1,2}[:：]\d{2}\s*)?/, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
+var kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(/^\s*(?:\d+[.)、]\s*)?(?:(?:TODO|DOING|LATER|NOW|WAITING|WAIT|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*)?/, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
 function kidMatch(body, desc) {
   const a = kidNorm(body), d = kidNorm(desc);
   if (a.length < 4 || d.length < 4) return false;
@@ -2256,7 +2413,9 @@ function bindInto(text, at, s, { below = false } = {}) {
   }
   const want = kwForState(s.state);
   const since = s.since || "";
+  const until = s.until || since;
   const title = resultText(s.title || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD", 60);
+  const autoTitle = summarizeAutoTitle(s.title || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD");
   const rescuedChildren = [];
   let rescuedBlockId = s.blockId || "";
   const anchor = lines[n];
@@ -2306,7 +2465,7 @@ function bindInto(text, at, s, { below = false } = {}) {
   if (target.kind === "bind") {
     const p = splitTask(lines[n]);
     if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
-      lines[n] = `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
+      lines[n] = p.auto ? formatAutoTaskLine({ prefix: p.prefix, kw: want, start: p.since || since, end: p.until || until || p.since || since, title: p.title, blockId: p.blockId }) : `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
     }
     const eb2 = maybeAddBlockId(lines[n]);
     lines[n] = eb2.line;
@@ -2334,7 +2493,7 @@ function bindInto(text, at, s, { below = false } = {}) {
     }
     const pm = /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[n]);
     prefix = !pm ? "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
-    const eb2 = maybeAddBlockId(`${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " "));
+    const eb2 = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle }));
     const item2 = eb2.line;
     const lead2 = (/^\s*/.exec(item2) || [""])[0];
     const ind2 = lead2 + (lead2 && !lead2.includes("	") ? "    " : "	");
@@ -2353,7 +2512,7 @@ function bindInto(text, at, s, { below = false } = {}) {
     const pm = prev >= 0 ? /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[prev]) : null;
     prefix = !pm || MARKER_RE.test(lines[prev]) ? pm ? (/^\s*/.exec(lines[markOwner(lines, prev)] || "") || [""])[0] + "- " : "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
   }
-  const eb = maybeAddBlockId(`${prefix}${want} ${since ? since + " " : ""}${AUTO_MARK}${title}`.replace(/ {2,}/g, " "));
+  const eb = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle }));
   const item = eb.line;
   if (target.kind === "below") {
     lines.splice(n + 1, 0, item);
@@ -2399,8 +2558,10 @@ function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
   const isLiveKw = (kw) => kw === "DOING" || AGENT_KW_RE.test(kw || "");
   const mergedKw = isLiveKw(ps.kw) ? ps.kw : isLiveKw(pd.kw) ? pd.kw : pd.kw || ps.kw || "DOING";
   const mergedSince = ps.since && pd.since ? ps.since < pd.since ? ps.since : pd.since : pd.since || ps.since || "";
+  const mergedUntil = ps.until && pd.until ? ps.until > pd.until ? ps.until : pd.until : pd.until || ps.until || mergedSince;
   const blockId = pd.blockId || ps.blockId || preferId || makeBlockId(keptBody);
-  const headerRaw = `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
+  const keptIsAuto = keptBody.startsWith(AUTO_MARK.trim());
+  const headerRaw = keptIsAuto ? formatAutoTaskLine({ prefix: pd.prefix, kw: mergedKw, start: mergedSince, end: mergedUntil, title: keptBody }) : `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
   const { line: mergedHeader } = ensureBlockId(headerRaw, blockId);
   const dstBase = width(lines[dstLine]);
   const srcBase = width(lines[srcLine]);
@@ -2668,12 +2829,34 @@ ${custom.sections.active.text}
     const kids = container ? childKeywords(i, end) : [];
     const allKidsDone = kids.length > 0 && kids.every((kw) => DONE_KWS.includes(kw));
     const finished = doneKw || archivedOut || allKidsDone;
-    if (finished) {
-      let chunk = lines.slice(i, end);
-      if (archivedOut && !doneKw) {
-        const p = splitTask(chunk[0]);
-        if (p) chunk = [`${p.prefix}DONE ${p.since ? p.since + " " : ""}${p.rest}`, ...chunk.slice(1)];
+    const normalizeChunkHeader = (chunkLines, forceDone = false) => {
+      if (container || !chunkLines.length) return chunkLines;
+      const p = splitTask(chunkLines[0]);
+      if (!p) return chunkLines;
+      if (p.auto && !p.cb) {
+        const cs = clockSpanFromLines(chunkLines, 0);
+        const s = p.since || cs?.start || "";
+        const e = (p.until && p.until !== p.since ? p.until : cs?.end) || p.until || p.since || s;
+        if (s || e || forceDone) {
+          return [
+            formatAutoTaskLine({
+              prefix: p.prefix,
+              kw: forceDone ? "DONE" : p.kw || "TODO",
+              start: s,
+              end: e,
+              title: p.title,
+              blockId: p.blockId
+            }),
+            ...chunkLines.slice(1)
+          ];
+        }
+        return chunkLines;
       }
+      if (forceDone) return [`${p.prefix}DONE ${p.since ? p.since + " " : ""}${p.rest}`, ...chunkLines.slice(1)];
+      return chunkLines;
+    };
+    if (finished) {
+      const chunk = normalizeChunkHeader(lines.slice(i, end), archivedOut && !doneKw);
       const block2 = blockText(chunk, 0, chunk.length);
       const count2 = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block2));
       done.push({ text: block2, blockId: k.blockId || "", turns: count2, ai, sid: [...sids], at: i, organized: inBand(i, true) });
@@ -2683,7 +2866,8 @@ ${custom.sections.active.text}
       continue;
     }
     if (!ai) continue;
-    const block = blockText(lines, i, end);
+    const activeChunk = normalizeChunkHeader(lines.slice(i, end), false);
+    const block = blockText(activeChunk, 0, activeChunk.length);
     const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
     active.push({ text: block, keyword: k.kw || "TODO", turns: count, blockId: k.blockId || "", at: i, organized: inBand(i, false) });
     dropSubheadAbove(i);
@@ -2714,9 +2898,26 @@ ${custom.sections.active.text}
       const kids = container ? childKeywords(i, end) : [];
       const allKidsDone = kids.length > 0 && kids.every((kw) => DONE_KWS.includes(kw));
       let chunk = lines.slice(i, end);
-      if (archivedOut && !doneKw) {
-        const p = splitTask(chunk[0]);
-        if (p) chunk = [`${p.prefix}DONE ${p.since ? p.since + " " : ""}${p.rest}`, ...chunk.slice(1)];
+      const p = !container ? splitTask(chunk[0]) : null;
+      if (p && p.auto && !p.cb) {
+        const cs = clockSpanFromLines(chunk, 0);
+        const s = p.since || cs?.start || "";
+        const e = (p.until && p.until !== p.since ? p.until : cs?.end) || p.until || p.since || s;
+        if (s || e || archivedOut && !doneKw) {
+          chunk = [
+            formatAutoTaskLine({
+              prefix: p.prefix,
+              kw: archivedOut && !doneKw ? "DONE" : p.kw || "TODO",
+              start: s,
+              end: e,
+              title: p.title,
+              blockId: p.blockId
+            }),
+            ...chunk.slice(1)
+          ];
+        }
+      } else if (archivedOut && !doneKw && p) {
+        chunk = [`${p.prefix}DONE ${p.since ? p.since + " " : ""}${p.rest}`, ...chunk.slice(1)];
       }
       const block = blockText(chunk, 0, chunk.length);
       const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
@@ -3089,13 +3290,14 @@ function destinations(agent) {
     background: { id: "background", label: t("\u540E\u53F0\u6267\u884C"), hint: t("\u7559\u5728\u5F53\u524D\u7B14\u8BB0\uFF0C\u5B8C\u6210\u6216\u9700\u8981\u5904\u7406\u65F6\u63D0\u9192\u3002") },
     terminal: { id: "terminal", label: t("\u5728\u7EC8\u7AEF\u4E2D\u804A"), hint: t("\u6253\u5F00\u4EA4\u4E92\u7EC8\u7AEF\uFF0C\u540E\u7EED\u5728\u7EC8\u7AEF\u7EE7\u7EED\u3002") }
   };
-  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["obsidian", "desktop", "background"], antigravity: ["obsidian", "background"], workbuddy: ["desktop"] };
+  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["obsidian", "desktop", "background"], antigravity: ["obsidian", "background"], opencode: ["obsidian", "desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], workbuddy: ["desktop"] };
   return (ids[agent] || []).map((id) => modes[id]);
 }
 function defaultDestination(plugin, agent) {
-  if (["dsh", "antigravity"].includes(agent)) return "obsidian";
+  if (["dsh", "antigravity", "opencode"].includes(agent)) return "obsidian";
   if (agent === "codex") return plugin.settings.delegate.codex?.transport === "terminal" ? "terminal" : "desktop";
   if (agent === "claude") return plugin.settings.delegate.claude?.openDesktop ? "desktop" : "background";
+  if (agent === "qoder") return plugin.settings.delegate.qoder?.openDesktop !== false ? "desktop" : "background";
   return "desktop";
 }
 function canOpenClient(session) {
@@ -3106,7 +3308,7 @@ function executionStatus(job) {
   if (job.handoff && !job.sessionId) return job.cli ? t("\u7B49\u5F85\u7EC8\u7AEF\u4F1A\u8BDD\u5EFA\u7ACB") : t("\u7B49\u5F85\u4F60\u5728\u5BA2\u6237\u7AEF\u7C98\u8D34\u53D1\u9001");
   if (job.state === "starting") return t("\u6B63\u5728\u5EFA\u7ACB\u4F1A\u8BDD");
   if (job.state === "needs-approval") return t("\u9700\u8981\u6388\u6743");
-  if (job.state === "running") return job.destination === "desktop" && ["claude", "codex"].includes(job.agent) ? t("\u9996\u8F6E\u6267\u884C\u4E2D\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762") : t("\u6B63\u5728\u6267\u884C");
+  if (job.state === "running") return job.destination === "desktop" && ["claude", "codex", "opencode", "qoder"].includes(job.agent) ? t("\u9996\u8F6E\u6267\u884C\u4E2D\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762") : t("\u6B63\u5728\u6267\u884C");
   if (job.state === "done") return t("\u672C\u8F6E\u7ED3\u675F");
   return job.state === "cancelled" ? t("\u5DF2\u505C\u6B62") : "";
 }
@@ -4204,6 +4406,7 @@ var AgentUsage = class {
     add(import_path.default.join(h, ".workbuddy/projects"), "workbuddy");
     add(import_path.default.join(h, ".dsh/sessions"), "dsh");
     add(import_path.default.join(h, ".gemini/antigravity/brain"), "antigravity");
+    add(import_path.default.join(h, ".qoder/projects"), "qoder");
     const seen = /* @__PURE__ */ new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
   }
@@ -4217,10 +4420,16 @@ var AgentUsage = class {
     const floor = since || this.sinceMs();
     await this.readCodexTitles();
     await this.readCodexArchived();
+    await this.readDesktopDatabases({ floor, onlyAgent, strictSince, touched });
     for (const [root, agent] of this.roots()) {
       if (onlyAgent && agent !== onlyAgent) continue;
       const files = await this.walk(root, agent === "dsh" || agent === "antigravity" ? 4 : 5, agent);
       for (const p of files) {
+        if (agent === "qoder") {
+          const base = import_path.default.basename(p).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
+          const baseSid = (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
+          if ([...this.files.keys()].some((k) => k.endsWith(`#${baseSid}`))) continue;
+        }
         let st;
         try {
           st = await fsp.stat(p);
@@ -4242,7 +4451,6 @@ var AgentUsage = class {
         await new Promise((r) => setImmediate(r));
       }
     }
-    await this.readDesktopDatabases({ floor, onlyAgent, strictSince, touched });
     await this.readClaudeDesktop();
     await this.readClaudeSideChats();
     this.applyClaudeDesktop();
@@ -4545,7 +4753,7 @@ var AgentUsage = class {
   // 归档 = 做完：桌面版里归档的、Codex archived_sessions 里的都可以从会话列表里收起来
   hidden(sid) {
     if (this.settings.hideArchived === false) return false;
-    return this.archivedClaude.has(sid) || this.archived.has(sid) || !!(AGENTS[this.meta.get(sid)?.agent]?.trackingOnly && this.meta.get(sid)?.archived);
+    return this.archivedClaude.has(sid) || this.archived.has(sid) || !!this.meta.get(sid)?.archived;
   }
   // ----- file caches -----
   ensureFile(p, agent) {
@@ -4654,7 +4862,7 @@ var AgentUsage = class {
   ingestJsonl(line, fc, touched) {
     if (!line) return;
     if (fc.agent === "claude" && fc.sub) this.subLine(fc, line);
-    if (fc.agent === "claude") return this.ingestClaude(line, fc, touched);
+    if (fc.agent === "claude" || fc.agent === "qoder") return this.ingestClaude(line, fc, touched);
     if (fc.agent === "codex") return this.ingestCodex(line, fc, touched);
     if (fc.agent === "workbuddy") return this.ingestWorkbuddy(line, fc, touched);
     if (fc.agent === "antigravity") return this.ingestAntigravity(line, fc, touched);
@@ -4766,10 +4974,10 @@ var AgentUsage = class {
     }
     if (d.type !== "assistant" && d.type !== "user") return;
     const ms = Date.parse(d.timestamp);
-    if (!ms || this.stale("claude", ms)) return;
+    if (!ms || this.stale(fc.agent, ms)) return;
     fc.sid = d.sessionId || fc.sid;
     fc.cwd = d.cwd || fc.cwd;
-    fc.app = d.entrypoint || fc.app;
+    fc.app = d.entrypoint || fc.app || (fc.agent === "qoder" ? "cli" : "");
     const sid = fc.sid;
     const { key, day, s } = this.touchSess(fc, touched, ms, sid, fc.cwd, fc.app);
     const v = this.liveOf(fc, sid, ms);
@@ -5793,13 +6001,13 @@ var import_os2 = __toESM(require("os"), 1);
 var import_child_process4 = require("child_process");
 
 // src/task-mentions.js
-var ROUTABLE_AGENTS = ["claude", "codex", "dsh", "workbuddy", "antigravity"];
+var ROUTABLE_AGENTS = ["claude", "codex", "dsh", "workbuddy", "antigravity", "opencode", "qoder"];
 function mentionTrigger(plugin) {
   return plugin.settings.delegate?.mentionTrigger || "@";
 }
 function taskMention(line, trigger = "@") {
   const markers = [.../* @__PURE__ */ new Set([trigger, "@"])].sort((a, b) => b.length - a.length).map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  const token = new RegExp("(?:^|\\s)(" + markers + ")(claude|codex|dsh|workbuddy|antigravity)(?:/([^\\s`]+))?(?=\\s|$)", "g");
+  const token = new RegExp("(?:^|\\s)(" + markers + ")(claude|codex|dsh|workbuddy|antigravity|opencode|qoder)(?:/([^\\s`]+))?(?=\\s|$)", "g");
   const masked = line.replace(/`[^`]*`|!?\[[^\]]*\]\([^)]*\)/g, (s) => "x".repeat(s.length));
   const found = [...masked.matchAll(token)];
   if (found.length > 1) throw new Error(t("\u4E00\u6761\u4EFB\u52A1\u53EA\u80FD\u6307\u5B9A\u4E00\u4E2A Agent \u6807\u8BB0"));
@@ -5940,6 +6148,41 @@ function findAgyBinary(configured = "") {
   if (configured.trim()) return norm2(configured.trim());
   const candidates = [import_path2.default.join(home2(), ".local/bin/agy"), "/opt/homebrew/bin/agy", "/usr/local/bin/agy"];
   return candidates.find((p) => import_fs4.default.existsSync(p)) || "agy";
+}
+function findOpenCodeBinary(configured = "") {
+  if (configured && configured.trim()) return norm2(configured.trim());
+  const candidates = [
+    "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
+    import_path2.default.join(home2(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
+    import_path2.default.join(home2(), ".local/bin/opencode"),
+    "/opt/homebrew/bin/opencode",
+    "/usr/local/bin/opencode"
+  ];
+  for (const p of candidates) {
+    try {
+      if (import_fs4.default.existsSync(p)) return p;
+    } catch {
+    }
+  }
+  return "opencode";
+}
+function findQoderBinary(configured = "") {
+  if (configured && configured.trim()) return norm2(configured.trim());
+  const candidates = [
+    import_path2.default.join(home2(), ".qoder/bin/qodercli/qodercli"),
+    import_path2.default.join(home2(), ".local/bin/qodercli"),
+    import_path2.default.join(home2(), ".local/bin/qoder"),
+    import_path2.default.join(home2(), ".qoder/entry/qoder"),
+    "/opt/homebrew/bin/qodercli",
+    "/usr/local/bin/qodercli"
+  ];
+  for (const p of candidates) {
+    try {
+      if (import_fs4.default.existsSync(p)) return p;
+    } catch {
+    }
+  }
+  return "qodercli";
 }
 function findClaudeBinary(configured = "") {
   if (configured && configured.trim()) return norm2(configured.trim());
@@ -6296,7 +6539,7 @@ return ""`);
 }
 var isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
 function isCliSession(agent, app) {
-  if (agent === "claude") return app === "cli";
+  if (agent === "claude" || agent === "qoder") return app === "cli";
   if (agent === "codex") return !isCodexDesktop(app);
   return false;
 }
@@ -6355,6 +6598,10 @@ function openSession(plugin, agent, sid, app = "", session = null) {
     return false;
   }
   if (["opencode", "qoder"].includes(agent)) {
+    if (agent === "qoder" && app === "cli" && plugin.settings.cliOpen !== "desktop") {
+      const cwd = session && session.cwd || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
+      return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${sid}`, cwd);
+    }
     copyText(sid);
     openAgentApp(agent).then((ok) => plugin.notice(ok ? t("\u5DF2\u6253\u5F00 {agent}\uFF1B\u4F1A\u8BDD\u53F7\u5DF2\u590D\u5236\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u4F1A\u8BDD", { agent: AGENTS[agent].name }) : t("\u6CA1\u6253\u5F00 {agent}\uFF1A\u672C\u673A\u597D\u50CF\u6CA1\u88C5", { agent: AGENTS[agent].name })));
     return true;
@@ -6563,6 +6810,144 @@ var ClaudeRunner = class {
     this.d.onError(this.job);
   }
 };
+function qoderPermissionArgs(permission) {
+  if (permission === "plan") return ["--work-mode", "spec", "--permission-mode", "default"];
+  if (permission === "acceptEdits") return ["--permission-mode", "accept_edits"];
+  if (permission === "manual") return ["--permission-mode", "default"];
+  return ["--permission-mode", "auto"];
+}
+var QoderRunner = class {
+  constructor(delegator, job) {
+    this.d = delegator;
+    this.job = job;
+    this.child = null;
+    this.finished = false;
+    this.sessionTimer = null;
+    this.timer = null;
+  }
+  async start(opts) {
+    const d = this.d;
+    const cfg = d.settings.delegate.qoder || DEFAULTS.delegate.qoder;
+    const bin = findQoderBinary(cfg.path || "");
+    const cwd = norm2(opts.cwd || cfg.cwd || d.vaultPath);
+    const model = resolveCliModel(d.plugin, "qoder", opts.model || cfg.model || "qoder-ultimate");
+    const effort = opts.effort || cfg.effort || "high";
+    const perm = opts.permission || cfg.permission || "auto";
+    const sid = crypto.randomUUID();
+    this.sessionId = sid;
+    this.job.cwd = cwd;
+    this.job.app = "cli";
+    const args = ["-p", "--session-id", sid, "-w", cwd, "-m", model, "--reasoning-effort", effort, ...qoderPermissionArgs(perm)];
+    if (opts.name) args.push("-n", opts.name);
+    if (d.vaultPath && cwd !== d.vaultPath) args.push("--add-dir", d.vaultPath);
+    for (const a of splitArgs(cfg.extraArgs || "")) args.push(a);
+    args.push("--", opts.prompt);
+    this.job.command = [bin, ...args.slice(0, -1), "<prompt>"].join(" ");
+    const child = (0, import_child_process4.spawn)(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    this.child = child;
+    this.job.state = "running";
+    this.job.startedAt = Date.now();
+    this.sessionTimer = setTimeout(() => {
+      this.sessionTimer = null;
+      if (this.finished) return;
+      this.d.onSession(this.job, this.sessionId);
+    }, 250);
+    let out = "", err2 = "";
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (text) => {
+      out += text;
+      this.job.lastText = out.slice(-2e3);
+      this.d.saveJobsSoon();
+      this.d.refreshUI();
+    });
+    child.stderr.on("data", (b) => {
+      err2 += b.toString();
+      if (err2.length > 4e3) err2 = err2.slice(-4e3);
+      this.job.stderr = err2.slice(-1e3);
+    });
+    child.on("error", (e) => this.fail(String(e && e.message || e)));
+    child.on("exit", (code) => {
+      if (this.finished) return;
+      clearTimeout(this.sessionTimer);
+      this.sessionTimer = null;
+      const combined = `${err2}
+${out}`.trim();
+      if (code !== 0 && /not logged in|qodercli login/i.test(combined)) {
+        this.fallbackToDesktop(opts.prompt);
+        return;
+      }
+      if (code === 0) {
+        if (!this.job.sessionId) this.d.onSession(this.job, this.sessionId);
+        this.done(out.trim());
+      } else {
+        this.fail(combined || t("qoder \u9000\u51FA\u7801 {code}", { code }));
+      }
+    });
+    this.timer = setTimeout(() => this.fail(t("\u59D4\u6D3E\u8D85\u8FC7 30 \u5206\u949F\u6CA1\u6709\u7ED3\u675F")), 30 * 6e4);
+    return true;
+  }
+  fallbackToDesktop(prompt) {
+    this.finished = true;
+    clearTimeout(this.timer);
+    this.job.handoff = true;
+    this.job.cli = false;
+    this.job.app = "";
+    this.job.sessionId = "";
+    this.job.state = "starting";
+    this.job.step = t("\u7B49\u4F60\u5728 {agent} \u91CC\u53D1\u51FA\u53BB", { agent: AGENTS.qoder.name });
+    this.d.saveJobs();
+    this.d.copyText(prompt);
+    this.d.openAgentApp("qoder");
+    this.d.notice(t("\u{1F4CB} Qoder CLI \u5C1A\u672A\u767B\u5F55\uFF0C\u5DF2\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00 Qoder \u684C\u9762\u7248\uFF08\u4E5F\u53EF\u5728\u8BBE\u7F6E\u91CC\u767B\u5F55 CLI\uFF09"), 1e4);
+    this.d.refreshUI();
+  }
+  cancel() {
+    if (this.finished) return;
+    this.finished = true;
+    clearTimeout(this.sessionTimer);
+    clearTimeout(this.timer);
+    if (this.child) {
+      try {
+        this.child.kill("SIGTERM");
+      } catch {
+      }
+    }
+    this.job.state = "cancelled";
+    this.job.endedAt = Date.now();
+    this.d.saveJobs();
+    this.d.refreshUI();
+  }
+  done(result) {
+    if (this.finished) return;
+    this.finished = true;
+    clearTimeout(this.timer);
+    this.job.state = "done";
+    this.job.endedAt = Date.now();
+    if (result) {
+      this.job.result = result;
+      this.job.lastText = result.slice(-2e3);
+    }
+    this.d.saveJobs();
+    this.d.onDone(this.job);
+  }
+  fail(message) {
+    if (this.finished) return;
+    this.finished = true;
+    clearTimeout(this.sessionTimer);
+    clearTimeout(this.timer);
+    if (this.child) {
+      try {
+        this.child.kill("SIGTERM");
+      } catch {
+      }
+    }
+    this.job.state = "error";
+    this.job.error = String(message || "").slice(0, 500);
+    this.job.endedAt = Date.now();
+    this.d.saveJobs();
+    this.d.onError(this.job);
+  }
+};
 var AcpRunner = class {
   constructor(delegator, job) {
     this.d = delegator;
@@ -6583,7 +6968,7 @@ var AcpRunner = class {
     var _a;
     const d = this.d;
     const cfg = d.settings.delegate[this.agent];
-    const bin = this.agent === "antigravity" ? findAgyBinary(cfg.path || "") : findDshBinary(cfg.path || "");
+    const bin = this.agent === "antigravity" ? findAgyBinary(cfg.path || "") : this.agent === "opencode" ? findOpenCodeBinary(cfg.path || "") : findDshBinary(cfg.path || "");
     const cwd = norm2(opts.cwd || cfg.cwd || d.vaultPath);
     const model = opts.model || cfg.model || (this.agent === "dsh" ? "deepseek-v4-pro" : "");
     const effort = opts.effort || cfg.effort || (this.agent === "dsh" ? "high" : "");
@@ -6634,7 +7019,7 @@ var AcpRunner = class {
       this.job.state = "running";
       this.d.saveJobs();
       this.d.onSession(this.job, this.sessionId);
-      const isDefault = this.agent === "antigravity" && (!model || model === "antigravity-default");
+      const isDefault = (this.agent === "antigravity" || this.agent === "opencode") && (!model || model === `${this.agent}-default`);
       const modelOption = configOptions.find((x) => x.category === "model" || x.id === "model");
       if (opts.model && !isDefault && !modelOption) throw new Error(t("{agent} \u672A\u63D0\u4F9B\u6A21\u578B\u9009\u62E9", { agent: this.label }));
       if (modelOption && !isDefault && (!opts.sessionId || opts.model)) {
@@ -6644,8 +7029,8 @@ var AcpRunner = class {
         const changed = await this.request("session/set_config_option", { sessionId: this.sessionId, configId: modelOption.id, value: selected }, 15e3);
         configOptions = changed?.configOptions || configOptions;
       }
-      const effortOption = configOptions.find((x) => x.category === "thought_level" || x.id === "reasoning_effort");
-      if (opts.effort && !effortOption) throw new Error(t("{agent} \u672A\u63D0\u4F9B\u63A8\u7406\u5F3A\u5EA6\u9009\u62E9", { agent: this.label }));
+      const effortOption = configOptions.find((x) => x.category === "thought_level" || x.id === "reasoning_effort" || x.id === "variant");
+      if (opts.effort && !effortOption && this.agent !== "opencode") throw new Error(t("{agent} \u672A\u63D0\u4F9B\u63A8\u7406\u5F3A\u5EA6\u9009\u62E9", { agent: this.label }));
       if (effortOption && effort && (!opts.sessionId || opts.effort)) {
         const value = this.agent === "dsh" ? dshEffort(effort) : effort;
         if (this.agent === "antigravity" && !effortOption.options?.some((o) => o.value === value)) throw new Error(t("\u5F53\u524D\u6A21\u578B\u4E0D\u652F\u6301\u63A8\u7406\u5F3A\u5EA6 {value}", { value }));
@@ -6913,6 +7298,12 @@ var Delegator = class {
     this.plugin.notice(`${title}
 ${body}`, 12e3);
   }
+  copyText(text) {
+    return copyText(text);
+  }
+  openAgentApp(agent) {
+    return openAgentApp(agent);
+  }
   get C() {
     return this.settings.delegate || DEFAULTS.delegate;
   }
@@ -6924,7 +7315,7 @@ ${body}`, 12e3);
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
     if (opts.destination && !destinations(opts.agent).some((o) => o.id === opts.destination)) throw new Error(t("\u6B64 Agent \u4E0D\u652F\u6301\u6240\u9009\u5DE5\u4F5C\u4F4D\u7F6E"));
-    if (!["claude", "codex", "dsh", "antigravity"].includes(opts.agent)) return this.handoff(opts);
+    if (!["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(opts.agent)) return this.handoff(opts);
     if (opts.destination === "terminal" || opts.agent === "codex" && !opts.destination && this.C.codex?.transport === "terminal") return this.handoffCli(opts);
     const agent = opts.agent;
     const file = opts.file;
@@ -6953,7 +7344,7 @@ ${body}`, 12e3);
       state: "starting",
       model: agent === "codex" ? resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent)) : opts.model || this.defaultModel(agent),
       effort: opts.effort || this.C[agent]?.effort,
-      permission: opts.permission || (agent === "dsh" ? "" : this.C.claude.permission),
+      permission: opts.permission || (["claude", "qoder"].includes(agent) ? this.C[agent]?.permission || "auto" : ""),
       cwd: norm2(opts.cwd || this.C[agent]?.cwd || this.vaultPath),
       sessionId: "",
       linkWritten: false,
@@ -6963,7 +7354,7 @@ ${body}`, 12e3);
     this.plugin.saveJobs();
     this.plugin.refreshUI();
     this.plugin.notice(t("\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 {agent}\uFF1A{name}", { agent: AGENTS[agent]?.name || agent, name }));
-    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => job.destination === "background" ? void 0 : openSession(this.plugin, "codex", job.sessionId, "vscode")) : ["dsh", "antigravity"].includes(agent) ? new AcpRunner(this, job) : new ClaudeRunner(this, job);
+    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => job.destination === "background" ? void 0 : openSession(this.plugin, "codex", job.sessionId, "vscode")) : ["dsh", "antigravity", "opencode"].includes(agent) ? new AcpRunner(this, job) : agent === "qoder" ? new QoderRunner(this, job) : new ClaudeRunner(this, job);
     this.runners.set(job.id, runner);
     try {
       await runner.start({ ...opts, prompt, name });
@@ -6999,7 +7390,7 @@ ${body}`, 12e3);
   }
   async continueSession(session, prompt) {
     this.refreshSettings();
-    if (!["dsh", "antigravity"].includes(session.agent)) throw new Error(t("\u8FD9\u4E2A Agent \u4E0D\u652F\u6301\u5728 Obsidian \u5185\u7EED\u804A"));
+    if (!["dsh", "antigravity", "opencode"].includes(session.agent)) throw new Error(t("\u8FD9\u4E2A Agent \u4E0D\u652F\u6301\u5728 Obsidian \u5185\u7EED\u804A"));
     prompt = String(prompt || "").trim();
     if (!prompt) throw new Error(t("\u8BF7\u8F93\u5165\u8FFD\u95EE\u5185\u5BB9"));
     const sid = session.sid || session.sessionId;
@@ -7035,7 +7426,7 @@ ${body}`, 12e3);
   async handoff(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (["claude", "codex", "dsh", "antigravity"].includes(opts.agent)) return this.delegate(opts);
+    if (["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(opts.agent)) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error(t("\u6CA1\u6709\u5F53\u524D\u7B14\u8BB0"));
@@ -7076,12 +7467,12 @@ ${body}`, 12e3);
     this.plugin.refreshUI();
     return job;
   }
-  // 按住 ⌘ 拖到 Claude Code / Codex 上：在主力终端里新开一个标签跑交互式的 claude / codex，任务直接当第一句发出去。
+  // 按住 ⌘ 拖到 Claude Code / Codex / OpenCode / Qoder 上：在主力终端里新开一个标签跑交互式命令行，任务直接当第一句发出去。
   // 进程是你的终端开的，不归插件管；会话一出现照交接的办法认领、绑回这一行。
   async handoffCli(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (!["claude", "codex"].includes(opts.agent)) return this.delegate(opts);
+    if (!["claude", "codex", "opencode", "qoder"].includes(opts.agent)) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error(t("\u6CA1\u6709\u5F53\u524D\u7B14\u8BB0"));
@@ -7109,12 +7500,12 @@ ${body}`, 12e3);
     const model = resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent));
     const effort = opts.effort || this.C[agent]?.effort || "high";
     if (agent === "codex") extra += " " + codexCliArgs(this.plugin, opts).map(shellQuote).join(" ");
-    else extra += ` --model ${shellQuote(model)} --effort ${shellQuote(effort)}`;
+    else if (agent === "claude") extra += ` --model ${shellQuote(model)} --effort ${shellQuote(effort)}`;
     const dir = import_path2.default.join(import_os2.default.tmpdir(), "agent-deck");
     await fsp2.mkdir(dir, { recursive: true });
     const taskFile = import_path2.default.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp2.writeFile(taskFile, prompt, "utf8");
-    const bin = agent === "codex" ? this.C.codex?.path || "codex" : findClaudeBinary(this.C.claude?.path || "");
+    const bin = agent === "codex" ? this.C.codex?.path || "codex" : agent === "opencode" ? findOpenCodeBinary(this.C.opencode?.path || "") : agent === "qoder" ? findQoderBinary(this.C.qoder?.path || "") : findClaudeBinary(this.C.claude?.path || "");
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent,
@@ -7134,7 +7525,7 @@ ${body}`, 12e3);
       effort,
       handoff: true,
       cli: true,
-      app: agent === "claude" ? "cli" : "codex_cli_rs",
+      app: agent === "codex" ? "codex_cli_rs" : "cli",
       step: t("\u5728\u7EC8\u7AEF\u91CC\u5F00 {agent}", { agent: AGENTS[agent]?.name || agent }),
       cwd,
       sessionId: "",
@@ -7143,7 +7534,18 @@ ${body}`, 12e3);
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    const term = await openTerminal(`${shellQuote(bin)}${extra} -- "$(cat ${shellQuote(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
+    let cmd;
+    if (agent === "opencode") {
+      const auto = this.C.opencode?.autoApprove ? " --auto" : "";
+      cmd = `${shellQuote(bin)}${auto} --prompt "$(cat ${shellQuote(taskFile)})" ${shellQuote(cwd)}`;
+    } else if (agent === "qoder") {
+      const perm = qoderPermissionArgs(opts.permission || this.C.qoder?.permission || "auto").map(shellQuote).join(" ");
+      const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
+      cmd = `${shellQuote(bin)} -w ${shellQuote(cwd)}${addDir} ${perm} -m ${shellQuote(model)} --reasoning-effort ${shellQuote(effort)} -n ${shellQuote(name)} -- "$(cat ${shellQuote(taskFile)})"`;
+    } else {
+      cmd = `${shellQuote(bin)}${extra} -- "$(cat ${shellQuote(taskFile)})"`;
+    }
+    const term = await openTerminal(cmd, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
     this.plugin.notice(t("\u5DF2\u5728 {terminal} \u91CC\u5F00 {agent}", { terminal: term === "terminal" ? t("\u7CFB\u7EDF\u7EC8\u7AEF") : TERMINAL_NAME[term] || t("\u7EC8\u7AEF"), agent: AGENTS[agent]?.name || agent }), 6e3);
     this.plugin.refreshUI();
     return job;
@@ -7167,7 +7569,7 @@ ${body}`, 12e3);
       let best = null;
       for (const m of usage.meta.values()) {
         if (m.agent !== job.agent || taken.has(m.sid) || (m.lastAt || 0) < job.startedAt - 5e3) continue;
-        if (job.cli && !isCliSession(m.agent, m.app)) continue;
+        if (job.cli && job.agent !== "opencode" && !isCliSession(m.agent, m.app)) continue;
         const t2 = norm3(m.text || m.title);
         if (!t2 || !(t2.includes(head) || t2.startsWith(promptHead.slice(0, 16)))) continue;
         if (!best || (m.lastAt || 0) < (best.lastAt || 0)) best = m;
@@ -7250,7 +7652,7 @@ ${body}`, 12e3);
     this.refreshUI();
     const agent = AGENTS[job.agent];
     this.plugin.notice(t("\u2705 {agent} \u505A\u5B8C\u4E86\u4E00\u8F6E\uFF1A{name}", { agent: agent ? agent.name : job.agent, name: job.name }), 8e3);
-    if ((job.destination === "desktop" || !job.destination && this.C.claude.openDesktop === true) && job.agent === "claude" && job.sessionId) openSession(this.plugin, "claude", job.sessionId);
+    if ((job.destination === "desktop" || !job.destination && this.C[job.agent]?.openDesktop === true) && ["claude", "opencode", "qoder"].includes(job.agent) && job.sessionId) openSession(this.plugin, job.agent, job.sessionId, job.app);
     if (this.settings.autoWriteResult && job.linkWritten && job.path) {
       try {
         await this.writeResult(job);
@@ -8702,7 +9104,7 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     const handoff = id === "codex" || id === "workbuddy";
-    const cliCapable = id === "claude" || id === "codex";
+    const cliCapable = ["claude", "codex", "opencode", "qoder"].includes(id);
     const hint = handoff ? t("\u4EA4\u7ED9 {name}", { name: a.short }) : t("\u59D4\u6D3E\u7ED9 {name}", { name: a.short });
     const toTerm = (meta) => cliCapable && !!meta !== !!p.settings.delegateInTerminal;
     const hintFor = (meta) => toTerm(meta) ? t("\u5728\u7EC8\u7AEF\u91CC\u5F00 {name}", { name: a.short }) : hint;
@@ -9274,6 +9676,7 @@ function runJournalModel(prompt, cfg, { polish = false } = {}) {
   return runClaude(prompt, { bin: cfg.autoLogPath || cfg.delegate?.claude?.path || "claude", model, timeout, system: polish ? "\u4F60\u662F\u6574\u7406\u52A9\u624B\uFF0C\u53EA\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8865\u5145\u89E3\u91CA\u3002" : "" });
 }
 function safeLabel(s, max = 40) {
+  if (max <= 40) return summarizeAutoTitle(s, Math.min(max, 22));
   const t2 = String(s || "").replace(/[\r\n←`*=~[\]|]/g, " ").replace(/^\s*(?:[-*+]\s+)?(?:TODO|DOING|DONE|SUSPENDED|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+/i, "").replace(/(\d)[:：](\d)/g, "$1.$2").replace(/\s+/g, " ").replace(/[。；;，,\s]+$/, "").trim();
   const chars = [...t2];
   return (chars.length > max ? chars.slice(0, max).join("").trim() + "\u2026" : t2).slice(0, max + 1);
@@ -9438,7 +9841,7 @@ function evidenceBlocks(text, path7) {
       flush();
       const indent = list[1].replace(/\t/g, "    ").length;
       while (stack.length && stack.at(-1).indent >= indent) stack.pop();
-      kind = /^\s*(?:[-*+]|\d+[.)])\s+❓\s/.test(line) ? "user" : AI_RECORD_RE.test(line) || /^\s*(?:[-*+]|\d+[.)])\s+(?:\S+\s+)?🤖/.test(line) ? "ai" : stack.at(-1)?.kind || "user";
+      kind = /^\s*(?:[-*+]|\d+[.)])\s+❓\s/.test(line) ? "user" : AI_RECORD_RE.test(line) || /^\s*(?:[-*+]|\d+[.)])\s+(?:\S+\s+){0,2}🤖/.test(line) ? "ai" : stack.at(-1)?.kind || "user";
       stack.push({ indent, kind });
     } else if (!fence && /^\S/.test(line) && !marker) {
       flush();
@@ -9972,7 +10375,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.name });
-      b.createSpan({ cls: "ad-target__hint", text: a.trackingOnly ? t("\u6682\u4E0D\u652F\u6301\u59D4\u6D3E") : id === "workbuddy" ? t("\u5BA2\u6237\u7AEF\u4EA4\u63A5") : id === "claude" ? t("\u684C\u9762\u7248 / \u540E\u53F0") : id === "codex" ? t("\u684C\u9762\u7248 / \u7EC8\u7AEF") : t("ACP / \u81EA\u5E26\u8D26\u53F7") });
+      b.createSpan({ cls: "ad-target__hint", text: a.trackingOnly ? t("\u6682\u4E0D\u652F\u6301\u59D4\u6D3E") : id === "workbuddy" ? t("\u5BA2\u6237\u7AEF\u4EA4\u63A5") : id === "claude" ? t("\u684C\u9762\u7248 / \u540E\u53F0") : id === "codex" ? t("\u684C\u9762\u7248 / \u7EC8\u7AEF") : id === "qoder" ? t("\u684C\u9762\u7248 / CLI") : t("ACP / \u81EA\u5E26\u8D26\u53F7") });
       if (available) b.onclick = async () => {
         d.target = id;
         await p.saveSettings();
@@ -10135,6 +10538,73 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       }
     });
     this.bigButton(atest, t("\u68C0\u67E5 agy"), async () => new import_obsidian4.Notice(await p.checkBinary("antigravity"), 6e3));
+    const opencode = this.card(body, "OpenCode", t("\u4F18\u5148\u4F7F\u7528 OpenCode.app \u5185\u7F6E\u7684 opencode-cli acp\uFF0C\u53EF\u5728 Obsidian \u5185\u7EED\u804A\u6216\u5728\u684C\u9762\u7248\u6253\u5F00"));
+    this.modelSelect(opencode, "opencode", p.defaultModel("opencode"), (v) => {
+      this.setDefaultModel("opencode", v);
+      this.display();
+    });
+    this.effortControl(opencode, "opencode", d.opencode.effort, (v) => {
+      this.setDefaultEffort("opencode", v);
+      this.display();
+    });
+    const ocRoute = this.row(opencode, t("\u81EA\u52A8\u5141\u8BB8\u5DE5\u5177\u8C03\u7528"), t("\u5173\u95ED\u540E\u9010\u6B21\u786E\u8BA4\u5DE5\u5177\u6743\u9650"), null);
+    this.toggle(ocRoute.querySelector(":scope > .ad-row__right"), d.opencode.autoApprove === true, (v) => {
+      d.opencode.autoApprove = v;
+      p.saveSettings();
+    });
+    const ocDesk = this.row(opencode, t("\u5B8C\u6210\u540E\u81EA\u52A8\u5728\u684C\u9762\u7248\u6253\u5F00"), "", null);
+    this.toggle(ocDesk.querySelector(":scope > .ad-row__right"), d.opencode.openDesktop === true, (v) => {
+      d.opencode.openDesktop = v;
+      p.saveSettings();
+    });
+    for (const [key, label, hint] of [["path", t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\uFF08\u542B OpenCode.app \u5185\u7F6E CLI\uFF09")], ["cwd", t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55")], ["extraArgs", t("\u989D\u5916 ACP \u53C2\u6570"), t("\u53EF\u7559\u7A7A")]]) {
+      const r = this.row(opencode, label, hint, null);
+      this.textInput(r.querySelector(":scope > .ad-row__right"), d.opencode[key] || "", hint, (v) => {
+        d.opencode[key] = v.trim();
+        p.saveSettings();
+      }, "ad-input--wide");
+    }
+    const octest = opencode.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(octest, t("\u8BFB\u53D6 OpenCode \u53EF\u7528\u6A21\u578B"), async () => {
+      try {
+        const models = await p.refreshAcpModels("opencode");
+        new import_obsidian4.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A\u6A21\u578B", { n: models.length }));
+        this.display();
+      } catch (e) {
+        new import_obsidian4.Notice(t("\u8BFB\u53D6\u5931\u8D25\uFF1A{msg}", { msg: e.message }), 8e3);
+      }
+    });
+    this.bigButton(octest, t("\u68C0\u67E5 opencode"), async () => new import_obsidian4.Notice(await p.checkBinary("opencode"), 6e3));
+    const qoder = this.card(body, "Qoder", t("\u5DF2\u767B\u5F55 qodercli \u65F6\u540E\u53F0\u76F4\u63A5\u6267\u884C\uFF1B\u672A\u767B\u5F55\u65F6\u81EA\u52A8\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00 Qoder \u684C\u9762\u7248\u4EA4\u63A5"));
+    this.modelSelect(qoder, "qoder", p.defaultModel("qoder"), (v) => {
+      this.setDefaultModel("qoder", v);
+      this.display();
+    });
+    this.effortControl(qoder, "qoder", d.qoder.effort, (v) => {
+      this.setDefaultEffort("qoder", v);
+      this.display();
+    });
+    const qPermRow = this.row(qoder, t("\u6743\u9650\u6A21\u5F0F"), t("plan\uFF1A\u89C4\u5212\uFF1Bauto\uFF1A\u81EA\u52A8\u5224\u65AD\uFF1BacceptEdits\uFF1A\u5141\u8BB8\u4FEE\u6539\u6587\u4EF6"), null);
+    this.segmented(qPermRow.querySelector(":scope > .ad-row__right"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => {
+      d.qoder.permission = v;
+      p.saveSettings();
+      this.display();
+    });
+    const qOpenDesk = this.row(qoder, t("\u5B8C\u6210\u540E\u81EA\u52A8\u5728\u684C\u9762\u7248\u6253\u5F00"), "", null);
+    this.toggle(qOpenDesk.querySelector(":scope > .ad-row__right"), d.qoder.openDesktop !== false, (v) => {
+      d.qoder.openDesktop = v;
+      p.saveSettings();
+    });
+    for (const [key, label, hint] of [["path", t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\uFF08~/.qoder/bin/qodercli/qodercli\uFF09")], ["cwd", t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55")], ["extraArgs", t("\u989D\u5916\u53C2\u6570"), t("\u53EF\u7559\u7A7A")]]) {
+      const r = this.row(qoder, label, hint, null);
+      this.textInput(r.querySelector(":scope > .ad-row__right"), d.qoder[key] || "", hint, (v) => {
+        d.qoder[key] = v.trim();
+        p.saveSettings();
+      }, "ad-input--wide");
+    }
+    const qtest = qoder.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(qtest, t("\u68C0\u67E5 qoder"), async () => new import_obsidian4.Notice(await p.checkBinary("qoder"), 6e3));
+    this.bigButton(qtest, t("\u767B\u5F55 qoder CLI"), () => p.openTerminalAt(d.qoder.cwd || p.vaultPath, "qoder login"));
     const sharedAgents = this.card(body, t("\u516C\u5171\u7EC8\u7AEF\u4E0E\u5176\u4F59 Agent"), "");
     const dt = this.row(sharedAgents, t("\u4E3B\u529B\u7EC8\u7AEF"), t("\u7528\u4E8E\u7EC8\u7AEF\u59D4\u6D3E\u548C\u6062\u590D\u4F1A\u8BDD"), null);
     this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: t("\u81EA\u52A8") }, { id: "terminal", label: t("\u7CFB\u7EDF\u7EC8\u7AEF") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => {
@@ -10142,14 +10612,14 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       p.saveSettings();
       this.display();
     });
-    const dd = this.row(sharedAgents, t("\u9ED8\u8BA4\u5728\u7EC8\u7AEF\u59D4\u6D3E"), t("\u9002\u7528\u4E8E Claude Code \u548C Codex"), null);
+    const dd = this.row(sharedAgents, t("\u9ED8\u8BA4\u5728\u7EC8\u7AEF\u59D4\u6D3E"), t("\u9002\u7528\u4E8E Claude Code\u3001Codex\u3001OpenCode \u548C Qoder"), null);
     this.toggle(dd.querySelector(":scope > .ad-row__right"), !!s.delegateInTerminal, (v) => {
       s.delegateInTerminal = v;
       p.saveSettings();
       p.refreshUI();
     });
-    for (const id of ["workbuddy", "opencode", "qoder"]) {
-      const r = this.row(sharedAgents, AGENTS[id].name, "", id === "workbuddy" ? t("\u5BA2\u6237\u7AEF\u4EA4\u63A5 \xB7 \u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u6A21\u578B") : t("\u6682\u4E0D\u652F\u6301\u59D4\u6D3E"));
+    for (const id of ["workbuddy"]) {
+      const r = this.row(sharedAgents, AGENTS[id].name, "", t("\u5BA2\u6237\u7AEF\u4EA4\u63A5 \xB7 \u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u6A21\u578B"));
       r.dataset.agent = id;
     }
     this.renderModels(body);
@@ -10457,7 +10927,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
     p.settings.models.pinned = snap.pinned;
     p.settings.models.order = snap.order;
     p.settings.models.custom = snap.custom;
-    for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
+    for (const agent of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"]) {
       const cur = p.defaultModel ? p.defaultModel(agent) : p.settings.delegate[agent]?.model;
       if (cur && prevCustomIds.has(cur) && !nextCustomIds.has(cur)) {
         const fallback = DEFAULTS.models.defaultByAgent[agent];
@@ -11133,7 +11603,7 @@ var AddModelModal = class extends import_obsidian4.Modal {
     });
     field("Agent", (f) => {
       const s = f.createEl("select", { cls: "ad-select" });
-      for (const id of ["claude", "codex", "dsh", "antigravity"]) s.createEl("option", { text: AGENTS[id].name, attr: { value: id } });
+      for (const id of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"]) s.createEl("option", { text: AGENTS[id].name, attr: { value: id } });
       s.value = this.agent;
       s.disabled = !!this.existing;
       s.onchange = () => {
@@ -11201,7 +11671,7 @@ var DelegateOptionsModal = class extends import_obsidian5.Modal {
     this.agent = plugin.defaultTarget();
     this.model = plugin.defaultModel(this.agent);
     this.effort = plugin.settings.delegate[this.agent]?.effort || "high";
-    this.permission = plugin.settings.delegate.claude.permission || "auto";
+    this.permission = plugin.settings.delegate[this.agent]?.permission || plugin.settings.delegate.claude.permission || "auto";
     this.destination = defaultDestination(plugin, this.agent);
     this.cwd = "";
     this.suffix = plugin.settings.delegate.promptSuffix || "";
@@ -11253,18 +11723,19 @@ var DelegateOptionsModal = class extends import_obsidian5.Modal {
     const target = contentEl.createDiv({ cls: "ad-field" });
     target.createDiv({ cls: "ad-field__label", text: "Delegate to" });
     const targets = target.createDiv({ cls: "ad-targetpick" });
-    for (const id of ["claude", "codex", "dsh", "antigravity"]) {
+    for (const id of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"]) {
       const a = AGENTS[id];
       const b = targets.createEl("button", { cls: "ad-target ad-target--sm" + (this.agent === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
-      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? t("\u684C\u9762\u7248") : id === "codex" ? p.settings.delegate.codex.transport === "terminal" ? t("CLI / \u7EC8\u7AEF") : t("\u9996\u8F6E\u540E\u6253\u5F00\u684C\u9762\u7248") : "ACP" });
+      b.createSpan({ cls: "ad-target__hint", text: id === "claude" ? t("\u684C\u9762\u7248") : id === "codex" ? p.settings.delegate.codex.transport === "terminal" ? t("CLI / \u7EC8\u7AEF") : t("\u9996\u8F6E\u540E\u6253\u5F00\u684C\u9762\u7248") : id === "qoder" ? t("\u684C\u9762\u7248 / CLI") : "ACP" });
       b.onclick = () => {
         this.agent = id;
         this.model = p.defaultModel(id);
         this.effort = p.settings.delegate[id]?.effort || "high";
+        this.permission = p.settings.delegate[id]?.permission || p.settings.delegate.claude.permission || "auto";
         this.destination = defaultDestination(p, id);
         this.render();
       };
@@ -11289,7 +11760,7 @@ var DelegateOptionsModal = class extends import_obsidian5.Modal {
         this.render();
       };
     }
-    if (["dsh", "antigravity"].includes(this.agent)) {
+    if (["dsh", "antigravity", "opencode"].includes(this.agent)) {
       const refresh = mf.createEl("button", { cls: "ad-btn", text: t("\u8BFB\u53D6 {agent} \u53EF\u7528\u6A21\u578B", { agent: AGENTS[this.agent].name }) });
       refresh.onclick = async () => {
         refresh.disabled = true;
@@ -11319,7 +11790,7 @@ var DelegateOptionsModal = class extends import_obsidian5.Modal {
       };
       ewrap.createSpan({ cls: "ad-effort__lab", attr: { style: `left:${i / Math.max(1, opts.length - 1) * 100}%` }, text: o.label });
     });
-    if (this.agent === "claude") {
+    if (["claude", "qoder"].includes(this.agent)) {
       const pf = contentEl.createDiv({ cls: "ad-field" });
       pf.createDiv({ cls: "ad-field__label", text: "Mode" });
       const seg = pf.createDiv({ cls: "ad-seg" });
@@ -11332,18 +11803,19 @@ var DelegateOptionsModal = class extends import_obsidian5.Modal {
         };
       }
       pf.createDiv({ cls: "ad-hint", text: CLAUDE_PERMISSIONS.find((x) => x.id === this.permission)?.hint || "" });
-    } else if (this.agent === "dsh") {
+    } else if (["dsh", "opencode"].includes(this.agent)) {
+      const cfg = p.settings.delegate[this.agent];
       const af = contentEl.createDiv({ cls: "ad-field" });
       const row = af.createDiv({ cls: "ad-minirow" });
       row.createSpan({ text: "Auto-approve tool calls" });
-      const b = row.createEl("button", { cls: "ad-switch" + (p.settings.delegate.dsh.autoApprove ? " is-on" : "") });
+      const b = row.createEl("button", { cls: "ad-switch" + (cfg.autoApprove ? " is-on" : "") });
       b.createSpan({ cls: "ad-switch__knob" });
       b.onclick = () => {
-        p.settings.delegate.dsh.autoApprove = !p.settings.delegate.dsh.autoApprove;
+        cfg.autoApprove = !cfg.autoApprove;
         p.saveSettings();
         this.render();
       };
-      af.createDiv({ cls: "ad-hint", text: t("ACP \u6A21\u5F0F\u6CA1\u6709 plan/auto \u8FD9\u4E2A\u5207\u6362\uFF1B\u5173\u6389\u81EA\u52A8\u5141\u8BB8\u65F6\uFF0CHarness \u7684\u6743\u9650\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\u3002") });
+      af.createDiv({ cls: "ad-hint", text: t("ACP \u6A21\u5F0F\u6CA1\u6709 plan/auto \u8FD9\u4E2A\u5207\u6362\uFF1B\u5173\u6389\u81EA\u52A8\u5141\u8BB8\u65F6\uFF0C\u6743\u9650\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\u3002") });
     }
     if (this.agent === "antigravity") contentEl.createDiv({ cls: "ad-hint", text: t("\u901A\u8FC7 agy acp \u59D4\u6D3E\uFF0C\u5DE5\u5177\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\uFF1B\u5B8C\u6210\u540E\u53EF\u6253\u5F00\u4F1A\u8BDD\u6B63\u6587\u7EE7\u7EED\u8FFD\u95EE\u3002\u63A8\u7406\u5F3A\u5EA6\u4EE5\u5F53\u524D\u6A21\u578B\u652F\u6301\u7684\u503C\u4E3A\u51C6\u3002") });
     const cf = contentEl.createDiv({ cls: "ad-field" });
@@ -11385,7 +11857,7 @@ var DelegateOptionsModal = class extends import_obsidian5.Modal {
           agent: this.agent,
           model: this.model,
           effort: this.effort,
-          permission: this.agent === "claude" ? this.permission : "",
+          permission: ["claude", "qoder"].includes(this.agent) ? this.permission : "",
           cwd: this.cwd.trim(),
           promptSuffix: this.suffix,
           name: blockTitle(this.block, mentionTrigger(p))
@@ -13721,25 +14193,57 @@ ${framed}
     const found = findTask(text, rec.key, rec.blockId || "", sid);
     if (found && isManualTask(this.cfg, text.split("\n")[found.line])) return { text };
     const segs = x && x.segs || [];
-    const first = segs.length ? segs[0][0] : 0;
+    const first = segs.length ? segs[0][0] : null;
     const last = segs.length ? segs[segs.length - 1][1] : first;
     const preferId = found && found.blockId || rec.blockId || makeBlockId(sid || rec.key);
-    const done = (body2) => `DONE ${x ? clock(last) + " " : ""}${body2}`;
+    const kw = status === "doing" ? "DOING" : status === "done" ? "DONE" : "PAUSED";
+    const startClock = first != null ? clock(first) : "";
+    const endClock = last != null ? clock(last) : startClock;
     if (!found) {
       if (!rec.fresh) return { text, gone: true };
-      const rawLine = status === "doing" ? `- DOING ${clock(first)} ${rec.label}` : status === "done" ? `- ${done(rec.label)}` : `- PAUSED ${rec.label}`;
+      const isAuto2 = rec.created !== false || String(rec.label || "").startsWith("\u{1F916}");
+      const rawLine = isAuto2 ? formatAutoTaskLine({
+        prefix: "- ",
+        kw,
+        start: startClock || clock(0),
+        end: endClock || startClock || clock(0),
+        title: summarizeAutoTitle(rec.label),
+        blockId: preferId
+      }) : status === "doing" ? `- DOING ${startClock || clock(0)} ${rec.label}` : status === "done" ? `- DONE ${endClock ? endClock + " " : ""}${rec.label}` : `- PAUSED ${rec.label}`;
       const eb2 = ensureBlockId(rawLine, preferId);
       rec.blockId = eb2.blockId;
+      rec.label = kwLine(eb2.line)?.body || rec.label;
+      rec.key = workKey(rec.label);
       return { text: this.placeBlock(text, [eb2.line]) };
     }
     const lines = text.split("\n");
     const raw = lines[found.line];
     const p = splitTask(raw);
     if (!p) return { text };
+    const isAuto = Boolean(p.auto || rec.created || String(rec.label || "").startsWith("\u{1F916}"));
+    if (isAuto) {
+      const clockSpan = clockSpanFromLines(lines, found.line);
+      const start = startClock || p.since || clockSpan?.start || "";
+      const end = endClock || (p.until && p.until !== p.since ? p.until : clockSpan?.end) || p.until || p.since || start;
+      const eb2 = ensureBlockId(formatAutoTaskLine({
+        prefix: p.prefix,
+        kw,
+        start,
+        end,
+        title: p.title || summarizeAutoTitle(rec.label),
+        blockId: preferId
+      }), preferId);
+      rec.blockId = eb2.blockId;
+      rec.label = kwLine(eb2.line)?.body || rec.label;
+      rec.key = workKey(rec.label);
+      if (eb2.line === raw) return { text };
+      lines[found.line] = eb2.line;
+      return { text: lines.join("\n") };
+    }
     const cleanRest = stripBlockId(p.rest).replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
     const body = cleanRest;
-    const since = rec.created ? clock(first) : segs.length ? clock(first) : p.since || clock(first);
-    const nextRaw = status === "doing" ? `${p.prefix}DOING ${since} ${body}`.trimEnd() : status === "done" ? (p.prefix + done(body)).trimEnd() : `${p.prefix}PAUSED ${body}`.trimEnd();
+    const since = segs.length ? clock(first) : p.since || clock(0);
+    const nextRaw = status === "doing" ? `${p.prefix}DOING ${since} ${body}`.trimEnd() : status === "done" ? `${p.prefix}DONE ${endClock ? endClock + " " : ""}${body}`.trimEnd() : `${p.prefix}PAUSED ${body}`.trimEnd();
     const eb = ensureBlockId(nextRaw, preferId);
     rec.blockId = eb.blockId;
     rec.key = workKey(body);
@@ -13795,7 +14299,7 @@ ${framed}
       "\u53EA\u8F93\u51FA\u4E00\u4E2A JSON \u6570\u7EC4\uFF0C\u6BCF\u4E2A\u4F1A\u8BDD\u4E00\u9879\uFF0C\u4E0D\u8981\u89E3\u91CA\u3001\u4E0D\u8981\u4EE3\u7801\u5757\uFF1A",
       '[{"id":"s1","label":"\u2026","summary":"\u2026","match":null,"done":false,"todos":[],"skip":false}]',
       "\u5B57\u6BB5\uFF1A",
-      "- label\uFF1A\u8FD9\u4EF6\u4E8B\u662F\u4EC0\u4E48\uFF0C\u4E0D\u8D85\u8FC7 20 \u4E2A\u5B57\u7684\u4E2D\u6587\u77ED\u8BED\uFF08\u52A8\u8BCD\u5F00\u5934\uFF09\uFF0C\u4E0D\u8981\u5E26\u65F6\u95F4\u3001\u65F6\u957F\u3001\u72B6\u6001\u8BCD\u548C\u6807\u70B9\u7ED3\u5C3E\u3002",
+      "- label\uFF1A\u8FD9\u4EF6\u4E8B\u662F\u4EC0\u4E48\uFF0C\u4E0D\u8D85\u8FC7 18 \u4E2A\u5B57\u7684\u4E2D\u6587\u603B\u7ED3\u6807\u9898\uFF08\u52A8\u8BCD\u5F00\u5934\uFF0C\u7A0D\u5FAE\u603B\u7ED3\u6982\u62EC\u6838\u5FC3\u4EFB\u52A1\uFF0C\u4E0D\u8981\u7167\u6284\u539F\u8BDD\u3001\u8DEF\u5F84\u6216\u94FE\u63A5\uFF0C\u4E0D\u8981\u5E26\u65F6\u95F4\u3001\u65F6\u957F\u3001\u72B6\u6001\u8BCD\u548C\u6807\u70B9\u7ED3\u5C3E\uFF09\u3002",
       "- summary\uFF1A\u5F53\u524D\u6700\u65B0\u4E00\u8F6E\u5BF9\u8BDD\u7684\u4E00\u53E5\u8BDD\u7ED3\u8BBA\uFF08\u4E0D\u8D85\u8FC7 35 \u4E2A\u5B57\uFF09\uFF0C\u6982\u62EC AI \u521A\u505A\u5B8C\u6216\u5F97\u51FA\u7684\u7ED3\u8BBA\uFF1B\u6CA1\u6709\u56DE\u590D\u5219\u586B\u7A7A\u5B57\u7B26\u4E32\u3002",
       "- match\uFF1A\u53EA\u6709\u5F53\u4E0A\u9762\u67D0\u4E00\u884C\u5199\u7684\u5C31\u662F\u300C\u8FD9\u4E2A\u4F1A\u8BDD\u91CC AI \u5728\u66FF\u7528\u6237\u505A\u7684\u90A3\u4EF6\u5DE5\u4F5C\u672C\u8EAB\u300D\u65F6\uFF0C\u624D\u586B\u90A3\u4E00\u884C\u7684\u7F16\u53F7\u3002\u90A3\u4E00\u884C\u5982\u679C\u662F\u7559\u7ED9\u7528\u6237\u672C\u4EBA\u7684\u52A8\u4F5C\uFF08\u770B\u4E00\u773C\u3001\u770B\u6548\u679C\u3001\u786E\u8BA4\u3001\u62CD\u677F\u3001\u81EA\u5DF1\u8DD1\u547D\u4EE4\u3001\u53D1\u51FA\u53BB\u3001\u9605\u8BFB\u4E4B\u7C7B\uFF09\uFF0C\u54EA\u6015\u8BDD\u9898\u4E00\u6837\u4E5F\u4E0D\u80FD\u5339\u914D\uFF0C\u586B null\u3002\u62FF\u4E0D\u51C6\u4E00\u5F8B\u586B null\u3002",
       "- done\uFF1A\u53EA\u5BF9\u5DF2\u7ECF\u505C\u4E86\u7684\u4F1A\u8BDD\u6709\u610F\u4E49\u3002\u6700\u540E\u7684\u56DE\u590D\u660E\u786E\u8868\u660E\u8FD9\u4EF6\u4E8B\u6574\u4E2A\u505A\u5B8C\u4E86\uFF0C\u586B true\uFF1B\u505A\u5230\u4E00\u534A\u3001\u8FD8\u5728\u7B49\u7528\u6237\u3001\u62A5\u9519\u6CA1\u89E3\u51B3\u3001\u8BF4\u4E86\u4EE5\u540E\u518D\u7EE7\u7EED\uFF0C\u90FD\u586B false\u3002",
@@ -13967,6 +14471,8 @@ ${framed}
           delete rec.autoPaused;
           digest.doing.push(name);
           report.changes.push(t("DOING\uFF1A{name}", { name: rec.label }));
+        } else if (!manualState && active && cur === "doing") {
+          text = this.autoLine(text, rec, x, "doing").text;
         } else if (!manualState && !active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
           text = this.autoLine(text, rec, x, "paused").text;
           rec.status = "paused";
@@ -13976,6 +14482,8 @@ ${framed}
           clocks.add(rec.key);
           digest.paused.push(`${name}\uFF08${x.min}m\uFF09`);
           report.changes.push(t("PAUSED\uFF1A{name}\uFF08{min}m\uFF09", { name: rec.label, min: x.min }));
+        } else if (!manualState && !active && cur === "paused") {
+          text = this.autoLine(text, rec, x, "paused").text;
         }
         if (a && !active && a.done && !rec.doneHint) {
           rec.doneHint = true;
@@ -14174,6 +14682,20 @@ var JournalSync = class {
   segmentsFor(sid) {
     const x = this.dayList().find((s) => s.sid === sid);
     return x ? { segs: x.segs || [], out: x.out || 0, fresh: x.fresh || 0, agent: x.agent } : null;
+  }
+  sessionTimeSpan(sid, p, lines = [], ownerLine = -1) {
+    const info = sid ? this.segmentsFor(sid) : null;
+    const segs = info && info.segs ? info.segs : [];
+    const segStart = segs.length ? clock(segs[0][0]) : "";
+    const segEnd = segs.length ? clock(segs[segs.length - 1][1]) : "";
+    const clockSpan = clockSpanFromLines(lines, ownerLine);
+    const m = sid && this.usage?.meta?.get(sid) || {};
+    const today = dayKeyToday(this.cfg);
+    const metaStart = m.firstAt && dayKey(m.firstAt, this.cfg) === today ? clock(dayMinute(m.firstAt, this.cfg)) : "";
+    const metaEnd = m.lastAt && dayKey(m.lastAt, this.cfg) === today ? clock(dayMinute(m.lastAt, this.cfg)) : "";
+    const start = segStart || clockSpan?.start || p?.since || metaStart || metaEnd || "";
+    const end = segEnd || metaEnd || (p?.until && p?.until !== p?.since ? p.until : clockSpan?.end) || p?.until || p?.since || start || "";
+    return { start, end };
   }
   // 开着的笔记里所有带 🔗 或 ^ad- 块 ID 的编辑器
   openViews() {
@@ -14411,11 +14933,24 @@ var JournalSync = class {
       }
       if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || AGENT_KW_RE.test(cur.kw) || !cur.kw)) continue;
       const m = this.usage.meta.get(k.sid);
-      if (!m) continue;
-      const want = m.state === "run" ? cur.kw === "DELEGATED" ? "DELEGATED" : "DOING" : STATE_KW2[m.state];
-      if (!want || want === cur.kw) continue;
+      const want = m ? m.state === "run" ? cur.kw === "DELEGATED" ? "DELEGATED" : "DOING" : STATE_KW2[m.state] : null;
       const p = splitTask(ls[n]);
       if (!p) continue;
+      if (p.auto && !p.cb) {
+        const { start, end } = this.sessionTimeSpan(k.sid, p, ls, n);
+        const nextKw = want || cur.kw || "DOING";
+        const nextLine2 = formatAutoTaskLine({
+          prefix: p.prefix,
+          kw: nextKw,
+          start,
+          end,
+          title: p.title,
+          blockId: p.blockId
+        });
+        if (nextLine2 !== ls[n]) ls[n] = nextLine2;
+        continue;
+      }
+      if (!want || want === cur.kw) continue;
       const nextLine = `${p.prefix}${want} ${p.since ? p.since + " " : ""}${p.rest}`.trimEnd();
       if (nextLine !== ls[n]) ls[n] = nextLine;
     }
@@ -14439,14 +14974,31 @@ var JournalSync = class {
       if (!found || !(found.kw === "DOING" || AGENT_KW_RE.test(found.kw) && found.kw !== "DELEGATED")) continue;
       const kw = m.state === "run" ? "DOING" : STATE_KW2[m.state];
       if (!kw) continue;
-      if (kw === "DOING" || !want.has(found.line)) want.set(found.line, kw);
+      if (kw === "DOING" || !want.has(found.line)) want.set(found.line, { kw, sid });
     }
     if (!want.size) return text;
     const ls = text.split("\n");
     let changed = false;
-    for (const [n, kw] of want) {
+    for (const [n, { kw, sid }] of want) {
       const p = splitTask(ls[n]);
-      if (!p || p.cb || !p.kw || p.kw === kw) continue;
+      if (!p || p.cb || !p.kw) continue;
+      if (p.auto) {
+        const { start, end } = this.sessionTimeSpan(sid, p, ls, n);
+        const nextLine = formatAutoTaskLine({
+          prefix: p.prefix,
+          kw,
+          start,
+          end,
+          title: p.title,
+          blockId: p.blockId
+        });
+        if (nextLine !== ls[n]) {
+          ls[n] = nextLine;
+          changed = true;
+        }
+        continue;
+      }
+      if (p.kw === kw) continue;
       ls[n] = `${p.prefix}${kw} ${p.since ? p.since + " " : ""}${p.rest}`.trimEnd();
       changed = true;
     }
@@ -14466,8 +15018,21 @@ var JournalSync = class {
     if (!p || isManualTask(this.cfg, lines[n])) return text;
     const meta = this.usage.meta.get(sid) || {};
     const last = meta.lastAt ? dayMinute(meta.lastAt, this.cfg) : null;
-    const body = p.rest.replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
-    lines[n] = `${p.prefix}DONE ${last != null ? clock(last) + " " : ""}${body}`.trimEnd();
+    if (p.auto && !p.cb) {
+      const { start, end } = this.sessionTimeSpan(sid, p, lines, n);
+      const lastClock = last != null ? clock(last) : end;
+      lines[n] = formatAutoTaskLine({
+        prefix: p.prefix,
+        kw: "DONE",
+        start: start || lastClock,
+        end: lastClock || end || start,
+        title: p.title,
+        blockId: p.blockId
+      });
+    } else {
+      const body = p.rest.replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
+      lines[n] = `${p.prefix}DONE ${last != null ? clock(last) + " " : ""}${body}`.trimEnd();
+    }
     const info = this.segmentsFor(sid);
     if (info && info.segs.length) {
       const base = width(lines[n]);
@@ -14556,7 +15121,13 @@ var JournalSync = class {
       lines.splice(
         end + 1,
         0,
-        `${kidInd}- DOING ${fmtClock(d.created)} ${AUTO_MARK}${resultText(name, 60)}`,
+        formatAutoTaskLine({
+          prefix: `${kidInd}- `,
+          kw: "DOING",
+          start: fmtClock(d.created),
+          end: fmtClock(d.active || d.created),
+          title: summarizeAutoTitle(name)
+        }),
         linkLine(kidInd + unit, "claude", name, d.sid)
       );
       return true;
@@ -14642,9 +15213,10 @@ var JournalSync = class {
           claimed.add(k);
         }
       }
-      const setKw = (k, kw, time) => {
+      const setKw = (k, kw, time, startTime = "") => {
         const pt = splitTask(lines[k]);
-        if (pt) lines[k] = `${pt.prefix}${kw} ${time} ${pt.rest}`.trimEnd();
+        if (!pt) return;
+        lines[k] = pt.auto ? formatAutoTaskLine({ prefix: pt.prefix, kw, start: startTime || pt.since || time, end: time || pt.until || pt.since, title: pt.title, blockId: pt.blockId }) : `${pt.prefix}${kw} ${time} ${pt.rest}`.trimEnd();
       };
       for (const r of subs) {
         const id = r.id.slice(0, 8), k = this.kidState(r, parentWait), over = k.st === "done" || k.st === "fail";
@@ -14653,7 +15225,7 @@ var JournalSync = class {
           if (!had.open) continue;
           if (over) {
             const ind = (/^\s*/.exec(lines[had.block]) || [""])[0];
-            setKw(had.block, k.kw, fmtClock(r.at || r.start));
+            setKw(had.block, k.kw, fmtClock(r.at || r.start), fmtClock(r.start));
             const mark = parseKid(lines[had.mark]);
             if (mark) lines[had.mark] = `${ind}	- \u23F1 ${fmtClock(r.start)}\u2013${fmtClock(r.at || r.start)} \xB7 \u5171 ${durTag(Math.max(1, Math.round(((r.at || r.start) - r.start) / 6e4)))}${this.kidTok(r) ? ` \xB7 ${fmtTok(this.kidTok(r))} tok` : ""} \xB7 \u5B50\u4EE3\u7406 \`${id}\``;
             const said = String(r.last || "").trim();
@@ -14671,20 +15243,20 @@ var JournalSync = class {
           claimed.add(mine);
           const ind = (/^\s*/.exec(lines[mine]) || [""])[0];
           if (over) {
-            setKw(mine, k.kw, fmtClock(r.at || r.start));
+            setKw(mine, k.kw, fmtClock(r.at || r.start), fmtClock(r.start));
             lines.splice(mine + 1, 0, ...this.finishKid(ind, r));
           } else {
             const pt = splitTask(lines[mine]);
-            setKw(mine, "DOING", pt && pt.kw === "DOING" && pt.since ? pt.since : fmtClock(r.start));
+            setKw(mine, "DOING", pt && pt.kw === "DOING" && pt.since ? pt.since : fmtClock(r.start), fmtClock(r.start));
             lines.splice(mine + 1, 0, `${ind}	- \u{1F517} \u5B50\u4EE3\u7406 \`${id}\``);
           }
           return true;
         }
-        const name = resultText(r.desc || r.type || "subagent", 60);
+        const name = summarizeAutoTitle(r.desc || r.type || "subagent");
         if (over) {
-          lines.splice(end + 1, 0, `${kidInd}- ${k.kw} ${fmtClock(r.at || r.start)} ${AUTO_MARK}${name}`, ...this.finishKid(kidInd + unit, r));
+          lines.splice(end + 1, 0, formatAutoTaskLine({ prefix: `${kidInd}- `, kw: k.kw, start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name }), ...this.finishKid(kidInd + unit, r));
         } else {
-          lines.splice(end + 1, 0, `${kidInd}- DOING ${fmtClock(r.start)} ${AUTO_MARK}${name}`, `${kidInd}${unit}- \u{1F517} \u5B50\u4EE3\u7406 \`${id}\``);
+          lines.splice(end + 1, 0, formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name }), `${kidInd}${unit}- \u{1F517} \u5B50\u4EE3\u7406 \`${id}\``);
         }
         return true;
       }
@@ -14737,7 +15309,7 @@ var JournalSync = class {
       lines.splice(
         end + 1,
         0,
-        `${kidInd}- DOING ${clock(min)} ${AUTO_MARK}side chat`,
+        formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: clock(min), end: clock(min), title: "side chat" }),
         `${kidInd}${unit}- \u{1F517} side chat \`pid ${s.pid}\``
       );
       changed = true;
@@ -14756,8 +15328,10 @@ var JournalSync = class {
         if (start > nowMin) start -= 1440;
         mins = Math.max(1, nowMin - start);
       }
-      lines[c.block] = `${cur ? cur.prefix : ""}DONE ${clock(nowMin)} ${cur ? cur.rest : "side chat"}`.trimEnd();
-      lines[c.mark] = `${kidInd}${unit}- \u23F1 ${from || clock(nowMin - mins)}\u2013${clock(nowMin)} \xB7 \u5171 ${durTag(mins)} \xB7 side chat \`pid ${c.id}\``;
+      const startStr = from || clock(nowMin - mins);
+      const endStr = clock(nowMin);
+      lines[c.block] = cur && cur.auto ? formatAutoTaskLine({ prefix: cur.prefix, kw: "DONE", start: startStr, end: endStr, title: cur.title || "side chat", blockId: cur.blockId }) : `${cur ? cur.prefix : ""}DONE ${endStr} ${cur ? cur.rest : "side chat"}`.trimEnd();
+      lines[c.mark] = `${kidInd}${unit}- \u23F1 ${startStr}\u2013${endStr} \xB7 \u5171 ${durTag(mins)} \xB7 side chat \`pid ${c.id}\``;
       changed = true;
     }
     return changed ? lines.join("\n") : text;
@@ -14787,7 +15361,7 @@ function conversationMessages(agent, source) {
       role = d.type === "user/message" ? "user" : "assistant";
       text = textOf(d.data?.message?.content ?? d.data?.content);
       id = d.data?.message?.id || d.data?.id;
-    } else if (agent === "claude" && ["user", "assistant"].includes(d.type) && !d.isSidechain) {
+    } else if ((agent === "claude" || agent === "qoder") && ["user", "assistant"].includes(d.type) && !d.isSidechain) {
       role = d.type;
       text = textOf(d.message?.content);
       id = d.uuid;
@@ -14818,7 +15392,7 @@ async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map
   const files = [...plugin.usage.files?.values() || []].filter((f) => f.sid === sid && f.agent === session.agent && !f.sub);
   const messages = [];
   for (const file of files) {
-    if (["opencode", "qoder"].includes(session.agent)) {
+    if (["opencode", "qoder"].includes(session.agent) && file.path.includes("#")) {
       const db = file.path.slice(0, file.path.lastIndexOf("#"));
       const rows = await desktopMessages(db, session.agent, sid);
       messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));
@@ -14952,7 +15526,7 @@ var ConversationModal = class extends import_obsidian9.Modal {
     archive.title = t("\u4FDD\u5B58\u5BF9\u8BDD\uFF08\u2318S / Ctrl+S\uFF09");
     el.createDiv({ cls: "ad-hint", text: t("\u4FDD\u5B58\u7528\u6237\u6D88\u606F\u4E0E\u56DE\u590D\u6B63\u6587\uFF1B\u4F1A\u8BDD\u53EF\u7EE7\u7EED\uFF0C\u4EFB\u52A1\u72B6\u6001\u4E0D\u53D7\u5F71\u54CD\u3002\u5DE5\u5177\u7ED3\u679C\u3001\u5185\u90E8\u63A8\u7406\u548C\u9644\u4EF6\u4E0D\u5305\u542B\u5728\u5185\u3002") });
     this.messagesEl = el.createDiv({ cls: "ad-conversation__messages" });
-    if (this.session.agent === "dsh" || this.session.agent === "antigravity" && Object.values(this.plugin.jobs).some((j) => j.agent === "antigravity" && j.transport === "acp" && j.sessionId === (this.session.sid || this.session.sessionId))) {
+    if (["dsh", "opencode"].includes(this.session.agent) || this.session.agent === "antigravity" && Object.values(this.plugin.jobs).some((j) => j.agent === "antigravity" && j.transport === "acp" && j.sessionId === (this.session.sid || this.session.sessionId))) {
       this.input = el.createEl("textarea", { cls: "ad-textarea", attr: { rows: "3", placeholder: t("\u5728\u539F\u4F1A\u8BDD\u4E2D\u7EE7\u7EED\u8FFD\u95EE\u2026") } });
       const row = el.createDiv({ cls: "ad-btnrow" });
       this.send = row.createEl("button", { cls: "mod-cta", text: t("\u53D1\u9001\u5230\u539F\u4F1A\u8BDD") });
@@ -15030,7 +15604,7 @@ var AcpPermissionModal = class extends import_obsidian9.Modal {
   }
   onOpen() {
     const { toolCall, options } = this.info;
-    this.contentEl.createEl("h2", { text: t("{agent} \u8BF7\u6C42\u5DE5\u5177\u6743\u9650", { agent: this.info.agent === "dsh" ? "DeepSeek Harness" : "Antigravity" }) });
+    this.contentEl.createEl("h2", { text: t("{agent} \u8BF7\u6C42\u5DE5\u5177\u6743\u9650", { agent: AGENTS[this.info.agent]?.name || this.info.agent }) });
     this.contentEl.createEl("p", { text: toolCall?.title || t("Agent \u8BF7\u6C42\u6267\u884C\u5DE5\u5177\u64CD\u4F5C\uFF0C\u8BF7\u9009\u62E9\u662F\u5426\u5141\u8BB8\u3002") });
     if (toolCall?.rawInput) {
       const details = this.contentEl.createEl("details");
@@ -15433,7 +16007,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
       try {
-        if (runner.constructor && ["AcpRunner", "CodexDesktopRunner"].includes(runner.constructor.name)) runner.cancel();
+        if (runner.constructor && ["AcpRunner", "CodexDesktopRunner", "QoderRunner"].includes(runner.constructor.name)) runner.cancel();
       } catch {
       }
     }
@@ -15640,7 +16214,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
   }
   // ---------- model helpers ----------
   allModels(custom) {
-    const list = [...MODEL_CATALOG, ...this.settings.delegate.dsh.availableModels || [], ...this.settings.delegate.antigravity.availableModels || [], ...custom || this.settings.models.custom || []];
+    const list = [...MODEL_CATALOG, ...this.settings.delegate.dsh?.availableModels || [], ...this.settings.delegate.antigravity?.availableModels || [], ...this.settings.delegate.opencode?.availableModels || [], ...custom || this.settings.models.custom || []];
     const seen = /* @__PURE__ */ new Set();
     const out = [];
     for (const m of list) if (m && m.id && !seen.has(m.id)) {
@@ -15680,7 +16254,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
     return this.isPrimary(agent) || (this.settings.agents || {})[agent] !== false;
   }
   defaultTarget() {
-    return ["claude", "codex", "dsh", "antigravity"].includes(this.settings.delegate?.target) ? this.settings.delegate.target : "claude";
+    return ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(this.settings.delegate?.target) ? this.settings.delegate.target : "claude";
   }
   defaultModel(agent) {
     return this.settings.delegate?.[agent]?.model || this.settings.models?.defaultByAgent?.[agent] || DEFAULTS.models.defaultByAgent[agent] || "";
@@ -15817,8 +16391,8 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
   }
   openSession(agent, sid, app, session) {
     const job = Object.values(this.jobs).find((j) => j.agent === agent && j.sessionId === sid);
-    if (agent === "antigravity" && job?.transport === "acp" || agent === "dsh" && job?.destination === "obsidian") return this.openConversation({ ...job, sid });
-    if (job && ["claude", "codex"].includes(agent)) return this.openClientSession({ ...job, ...session, sid, agent });
+    if (agent === "antigravity" && job?.transport === "acp" || ["dsh", "opencode"].includes(agent) && job?.destination === "obsidian") return this.openConversation({ ...job, sid });
+    if (job && ["claude", "codex", "qoder"].includes(agent)) return this.openClientSession({ ...job, ...session, sid, agent });
     return openSession(this, agent, sid, app, session);
   }
   // 给别的插件用（螺旋日程的进度行）：只给会话号，按 Agent Deck 的规矩打开——命令行会话切到它的终端标签
@@ -16000,8 +16574,10 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
     const rec = ((this.settings.autoLogState || {})[day] || {})[sid];
     const daySess = ((this.usage.summary(day) || {}).list || []).find((x) => x.sid === sid);
     const first = daySess && daySess.segs && daySess.segs.length ? daySess.segs[0][0] : null;
+    const last = daySess && daySess.segs && daySess.segs.length ? daySess.segs[daySess.segs.length - 1][1] : first;
     const now = /* @__PURE__ */ new Date();
     const since = first != null ? clock(first) : fmtClock(now.getTime());
+    const until = last != null ? clock(last) : meta.lastAt ? fmtClock(meta.lastAt) : since;
     const text = cm.state.doc.toString();
     const res = bindInto(text, line, {
       sid,
@@ -16009,6 +16585,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
       title: data.title || meta.title || (meta.text || "").split(" / ")[0] || sid.slice(0, 8),
       state: live && live.state || meta.state || "idle",
       since,
+      until,
       dropKey: rec && rec.created && rec.key ? rec.key : null,
       blockId: rec && rec.blockId ? rec.blockId : ""
     }, { below, ensureBlockId: true });
@@ -16151,7 +16728,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
     try {
       const opts = mentionOptions(this, { ...target, agent, ignoreMention: newSession });
       agent = opts.agent;
-      destination || (destination = cli && ["claude", "codex"].includes(agent) ? "terminal" : defaultDestination(this, agent));
+      destination || (destination = cli && ["claude", "codex", "opencode", "qoder"].includes(agent) ? "terminal" : defaultDestination(this, agent));
       if (!confirmed) {
         new ConfirmSendModal(this.app, {
           agent,
@@ -16201,7 +16778,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
     if (!canOpenClient(session)) return this.notice(t("\u6B64 Antigravity \u4F1A\u8BDD\u5C1A\u4E0D\u652F\u6301\u8F6C\u5230\u684C\u9762 IDE \u7EE7\u7EED\uFF0C\u8BF7\u5728 Obsidian \u4E2D\u7EED\u804A"));
     if (!session.sid) return this.notice(t("\u6B63\u5728\u5EFA\u7ACB\u4F1A\u8BDD\uFF0C\u8BF7\u7A0D\u540E\u518D\u6253\u5F00"));
     const job = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === session.sid);
-    if (["claude", "codex"].includes(session.agent) && activeJob(job)) return this.notice(t("\u9996\u8F6E\u4ECD\u5728\u6267\u884C\uFF0C\u7ED3\u675F\u540E\u518D\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD"));
+    if (["claude", "codex", "qoder"].includes(session.agent) && activeJob(job)) return this.notice(t("\u9996\u8F6E\u4ECD\u5728\u6267\u884C\uFF0C\u7ED3\u675F\u540E\u518D\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD"));
     return openSession(this, session.agent, session.sid, session.app, session);
   }
   taskActions(path7, line, event) {
@@ -16213,10 +16790,10 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
     const menu = new import_obsidian12.Menu();
     for (const [index, session] of sessions.entries()) {
       const title = `${AGENTS[session.agent]?.name || session.agent} \xB7 ${t("\u4F1A\u8BDD {n}", { n: index + 1 })}`;
-      const inNote = ["dsh", "antigravity"].includes(session.agent) && (session.agent !== "antigravity" || session.transport === "acp");
+      const inNote = ["dsh", "antigravity", "opencode"].includes(session.agent) && (session.agent !== "antigravity" || session.transport === "acp");
       menu.addItem((mi) => mi.setTitle(t("\u7EE7\u7EED\u5BF9\u8BDD \xB7 {title}", { title })).setDisabled(!session.sid).onClick(() => inNote && session.destination !== "desktop" ? this.openConversation(session) : this.openClientSession(session)));
       menu.addItem((mi) => mi.setTitle(t("\u67E5\u770B\u6B63\u6587\u4E0E\u4FDD\u5B58\u5BF9\u8BDD \xB7 {title}", { title })).setDisabled(!session.sid).onClick(() => this.openConversation(session)));
-      if (canOpenClient(session)) menu.addItem((mi) => mi.setTitle(t("\u5728\u5BA2\u6237\u7AEF\u6253\u5F00 \xB7 {title}", { title })).setDisabled(!session.sid || ["claude", "codex"].includes(session.agent) && activeJob(session)).onClick(() => this.openClientSession(session)));
+      if (canOpenClient(session)) menu.addItem((mi) => mi.setTitle(t("\u5728\u5BA2\u6237\u7AEF\u6253\u5F00 \xB7 {title}", { title })).setDisabled(!session.sid || ["claude", "codex", "qoder"].includes(session.agent) && activeJob(session)).onClick(() => this.openClientSession(session)));
       if (activeJob(session) && this.delegator.runners.has(session.id)) menu.addItem((mi) => mi.setTitle(t("\u505C\u6B62\u6267\u884C \xB7 {title}", { title })).onClick(() => this.cancelJob(session.id)));
       else if (session.handoff && !session.sid && activeJob(session)) menu.addItem((mi) => mi.setTitle(t("\u53D6\u6D88\u4EA4\u63A5 \xB7 {title}", { title })).onClick(() => this.cancelJob(session.id)));
       menu.addSeparator();
@@ -16437,9 +17014,9 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
       const a = AGENTS[agent];
       const state = isLive ? s.state || "idle" : "recent";
       const kw = menuKeyword(state);
-      const where = agent === "claude" ? s.app === "cli" ? t("\u7EC8\u7AEF") : t("\u684C\u9762\u7248") : agent === "codex" ? isCodexDesktop(s.app) ? t("\u684C\u9762\u7248") : "CLI" : ["workbuddy", "opencode", "qoder"].includes(agent) ? t("\u684C\u9762\u7248") : agent === "antigravity" ? s.job?.transport === "acp" ? "Obsidian / ACP" : "IDE" : "Harness";
+      const where = ["claude", "qoder"].includes(agent) ? s.app === "cli" ? t("\u7EC8\u7AEF") : t("\u684C\u9762\u7248") : agent === "codex" ? isCodexDesktop(s.app) ? t("\u684C\u9762\u7248") : "CLI" : ["workbuddy", "opencode"].includes(agent) ? t("\u684C\u9762\u7248") : agent === "antigravity" ? s.job?.transport === "acp" ? "Obsidian / ACP" : "IDE" : "Harness";
       const acp = agent === "antigravity" && s.job?.transport === "acp";
-      const url = AGENTS[agent].trackingOnly ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : sessionDeepLink(agent, s.sid);
+      const url = AGENTS[agent].trackingOnly || ["opencode", "qoder"].includes(agent) ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : sessionDeepLink(agent, s.sid);
       const prog = this.sessionProgressText(s);
       const stepStr = [prog, s.step ? truncate(s.step, 30) : ""].filter(Boolean).join(" \xB7 ");
       seen.add(s.sid);
@@ -16461,7 +17038,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
         stateLabel: menuStateLabel(state),
         primary: !!primary,
         url: acp ? `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(s.sid)}` : agent === "dsh" ? "dsh://open" : agent === "antigravity" ? "antigravity://" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
-        copy: agent === "dsh" || agent === "antigravity" || AGENTS[agent].trackingOnly ? s.sid : agent === "codex" ? `codex resume ${s.sid}` : "",
+        copy: agent === "dsh" || agent === "antigravity" || ["opencode", "qoder"].includes(agent) || AGENTS[agent].trackingOnly ? s.sid : agent === "codex" ? `codex resume ${s.sid}` : "",
         _at: s.lastAt || 0
       });
       return true;
@@ -16695,7 +17272,7 @@ ${body}` });
     await this.app.vault.process(file, () => text);
   }
   async checkBinary(kind) {
-    const bin = kind === "codex" ? this.settings.delegate?.codex?.path || "codex" : kind === "antigravity" ? findAgyBinary(this.settings.delegate?.antigravity?.path || "") : kind === "dsh" ? findDshBinary(this.settings.delegate?.dsh?.path || "") : findClaudeBinary(this.settings.delegate?.claude?.path || "");
+    const bin = kind === "codex" ? this.settings.delegate?.codex?.path || "codex" : kind === "antigravity" ? findAgyBinary(this.settings.delegate?.antigravity?.path || "") : kind === "dsh" ? findDshBinary(this.settings.delegate?.dsh?.path || "") : kind === "opencode" ? findOpenCodeBinary(this.settings.delegate?.opencode?.path || "") : kind === "qoder" ? findQoderBinary(this.settings.delegate?.qoder?.path || "") : findClaudeBinary(this.settings.delegate?.claude?.path || "");
     return await new Promise((resolve) => {
       (0, import_child_process8.execFile)(bin, ["--version"], { timeout: 1e4, env: process.env }, (err2, out, errOut) => {
         if (err2) resolve(t("{kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A{error}", { kind, error: String(err2.message || err2) }) + "\n" + String(errOut || "").slice(0, 300));

@@ -229,7 +229,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       b.style.setProperty("--ad-agent-soft", a.soft);
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.name });
-      b.createSpan({ cls: "ad-target__hint", text: a.trackingOnly ? t("暂不支持委派") : id === "workbuddy" ? t("客户端交接") : id === "claude" ? t("桌面版 / 后台") : id === "codex" ? t("桌面版 / 终端") : t("ACP / 自带账号") });
+      b.createSpan({ cls: "ad-target__hint", text: a.trackingOnly ? t("暂不支持委派") : id === "workbuddy" ? t("客户端交接") : id === "claude" ? t("桌面版 / 后台") : id === "codex" ? t("桌面版 / 终端") : id === "qoder" ? t("桌面版 / CLI") : t("ACP / 自带账号") });
       if (available) b.onclick = async () => { d.target = id; await p.saveSettings(); this.display(); };
     }
 
@@ -303,13 +303,46 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     });
     this.bigButton(atest, t("检查 agy"), async () => new Notice(await p.checkBinary("antigravity"), 6000));
 
+    const opencode = this.card(body, "OpenCode", t("优先使用 OpenCode.app 内置的 opencode-cli acp，可在 Obsidian 内续聊或在桌面版打开"));
+    this.modelSelect(opencode, "opencode", p.defaultModel("opencode"), (v) => { this.setDefaultModel("opencode", v); this.display(); });
+    this.effortControl(opencode, "opencode", d.opencode.effort, (v) => { this.setDefaultEffort("opencode", v); this.display(); });
+    const ocRoute = this.row(opencode, t("自动允许工具调用"), t("关闭后逐次确认工具权限"), null);
+    this.toggle(ocRoute.querySelector(":scope > .ad-row__right"), d.opencode.autoApprove === true, (v) => { d.opencode.autoApprove = v; p.saveSettings(); });
+    const ocDesk = this.row(opencode, t("完成后自动在桌面版打开"), "", null);
+    this.toggle(ocDesk.querySelector(":scope > .ad-row__right"), d.opencode.openDesktop === true, (v) => { d.opencode.openDesktop = v; p.saveSettings(); });
+    for (const [key, label, hint] of [["path", t("命令行路径"), t("留空自动查找（含 OpenCode.app 内置 CLI）")], ["cwd", t("工作目录"), t("留空 = 库根目录")], ["extraArgs", t("额外 ACP 参数"), t("可留空")]]) {
+      const r = this.row(opencode, label, hint, null);
+      this.textInput(r.querySelector(":scope > .ad-row__right"), d.opencode[key] || "", hint, (v) => { d.opencode[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
+    }
+    const octest = opencode.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(octest, t("读取 OpenCode 可用模型"), async () => {
+      try { const models = await p.refreshAcpModels("opencode"); new Notice(t("已读取 {n} 个模型", { n: models.length })); this.display(); }
+      catch (e) { new Notice(t("读取失败：{msg}", { msg: e.message }), 8000); }
+    });
+    this.bigButton(octest, t("检查 opencode"), async () => new Notice(await p.checkBinary("opencode"), 6000));
+
+    const qoder = this.card(body, "Qoder", t("已登录 qodercli 时后台直接执行；未登录时自动复制任务并打开 Qoder 桌面版交接"));
+    this.modelSelect(qoder, "qoder", p.defaultModel("qoder"), (v) => { this.setDefaultModel("qoder", v); this.display(); });
+    this.effortControl(qoder, "qoder", d.qoder.effort, (v) => { this.setDefaultEffort("qoder", v); this.display(); });
+    const qPermRow = this.row(qoder, t("权限模式"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件"), null);
+    this.segmented(qPermRow.querySelector(":scope > .ad-row__right"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => { d.qoder.permission = v; p.saveSettings(); this.display(); });
+    const qOpenDesk = this.row(qoder, t("完成后自动在桌面版打开"), "", null);
+    this.toggle(qOpenDesk.querySelector(":scope > .ad-row__right"), d.qoder.openDesktop !== false, (v) => { d.qoder.openDesktop = v; p.saveSettings(); });
+    for (const [key, label, hint] of [["path", t("命令行路径"), t("留空自动查找（~/.qoder/bin/qodercli/qodercli）")], ["cwd", t("工作目录"), t("留空 = 库根目录")], ["extraArgs", t("额外参数"), t("可留空")]]) {
+      const r = this.row(qoder, label, hint, null);
+      this.textInput(r.querySelector(":scope > .ad-row__right"), d.qoder[key] || "", hint, (v) => { d.qoder[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
+    }
+    const qtest = qoder.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(qtest, t("检查 qoder"), async () => new Notice(await p.checkBinary("qoder"), 6000));
+    this.bigButton(qtest, t("登录 qoder CLI"), () => p.openTerminalAt(d.qoder.cwd || p.vaultPath, "qoder login"));
+
     const sharedAgents = this.card(body, t("公共终端与其余 Agent"), "");
     const dt = this.row(sharedAgents, t("主力终端"), t("用于终端委派和恢复会话"), null);
     this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: t("自动") }, { id: "terminal", label: t("系统终端") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
-    const dd = this.row(sharedAgents, t("默认在终端委派"), t("适用于 Claude Code 和 Codex"), null);
+    const dd = this.row(sharedAgents, t("默认在终端委派"), t("适用于 Claude Code、Codex、OpenCode 和 Qoder"), null);
     this.toggle(dd.querySelector(":scope > .ad-row__right"), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
-    for (const id of ["workbuddy", "opencode", "qoder"]) {
-      const r = this.row(sharedAgents, AGENTS[id].name, "", id === "workbuddy" ? t("客户端交接 · 在客户端选择模型") : t("暂不支持委派"));
+    for (const id of ["workbuddy"]) {
+      const r = this.row(sharedAgents, AGENTS[id].name, "", t("客户端交接 · 在客户端选择模型"));
       r.dataset.agent = id;
     }
 
@@ -591,7 +624,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     p.settings.models.pinned = snap.pinned;
     p.settings.models.order = snap.order;
     p.settings.models.custom = snap.custom;
-    for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
+    for (const agent of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"]) {
       const cur = p.defaultModel ? p.defaultModel(agent) : p.settings.delegate[agent]?.model;
       if (cur && prevCustomIds.has(cur) && !nextCustomIds.has(cur)) {
         const fallback = DEFAULTS.models.defaultByAgent[agent];
@@ -1028,7 +1061,7 @@ class AddModelModal extends Modal {
     field(t("显示名"), (f) => { const i = f.createEl("input", { cls: "ad-input", attr: { value: this.name, placeholder: t("例如 GPT-6-Luna") } }); i.oninput = () => this.name = i.value; });
     field("Agent", (f) => {
       const s = f.createEl("select", { cls: "ad-select" });
-      for (const id of ["claude", "codex", "dsh", "antigravity"]) s.createEl("option", { text: AGENTS[id].name, attr: { value: id } });
+      for (const id of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"]) s.createEl("option", { text: AGENTS[id].name, attr: { value: id } });
       s.value = this.agent;
       s.disabled = !!this.existing;
       s.onchange = () => { this.agent = s.value; };

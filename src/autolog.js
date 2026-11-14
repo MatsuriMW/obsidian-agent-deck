@@ -151,28 +151,62 @@ export class AutoLog {
     const found = J.findTask(text, rec.key, rec.blockId || "", sid);
     if (found && J.isManualTask(this.cfg, text.split("\n")[found.line])) return { text };
     const segs = (x && x.segs) || [];
-    const first = segs.length ? segs[0][0] : 0;
+    const first = segs.length ? segs[0][0] : null;
     const last = segs.length ? segs[segs.length - 1][1] : first;
     const preferId = (found && found.blockId) || rec.blockId || J.makeBlockId(sid || rec.key);
-    const done = (body) => `DONE ${x ? J.clock(last) + " " : ""}${body}`;
+    const kw = status === "doing" ? "DOING" : status === "done" ? "DONE" : "PAUSED";
+    const startClock = first != null ? J.clock(first) : "";
+    const endClock = last != null ? J.clock(last) : startClock;
     if (!found) {
       if (!rec.fresh) return { text, gone: true };
-      const rawLine = status === "doing" ? `- DOING ${J.clock(first)} ${rec.label}`
-        : status === "done" ? `- ${done(rec.label)}`
+      const isAuto = rec.created !== false || String(rec.label || "").startsWith("🤖");
+      const rawLine = isAuto
+        ? J.formatAutoTaskLine({
+            prefix: "- ",
+            kw,
+            start: startClock || J.clock(0),
+            end: endClock || startClock || J.clock(0),
+            title: J.summarizeAutoTitle(rec.label),
+            blockId: preferId,
+          })
+        : status === "doing" ? `- DOING ${startClock || J.clock(0)} ${rec.label}`
+        : status === "done" ? `- DONE ${endClock ? endClock + " " : ""}${rec.label}`
         : `- PAUSED ${rec.label}`;
       const eb = J.ensureBlockId(rawLine, preferId);
       rec.blockId = eb.blockId;
+      rec.label = J.kwLine(eb.line)?.body || rec.label;
+      rec.key = J.workKey(rec.label);
       return { text: this.placeBlock(text, [eb.line]) };
     }
     const lines = text.split("\n");
     const raw = lines[found.line];
     const p = J.splitTask(raw);
     if (!p) return { text };
+    const isAuto = Boolean(p.auto || rec.created || String(rec.label || "").startsWith("🤖"));
+    if (isAuto) {
+      const clockSpan = J.clockSpanFromLines(lines, found.line);
+      const start = startClock || p.since || clockSpan?.start || "";
+      const end = endClock || (p.until && p.until !== p.since ? p.until : clockSpan?.end) || p.until || p.since || start;
+      const eb = J.ensureBlockId(J.formatAutoTaskLine({
+        prefix: p.prefix,
+        kw,
+        start,
+        end,
+        title: p.title || J.summarizeAutoTitle(rec.label),
+        blockId: preferId,
+      }), preferId);
+      rec.blockId = eb.blockId;
+      rec.label = J.kwLine(eb.line)?.body || rec.label;
+      rec.key = J.workKey(rec.label);
+      if (eb.line === raw) return { text };
+      lines[found.line] = eb.line;
+      return { text: lines.join("\n") };
+    }
     const cleanRest = J.stripBlockId(p.rest).replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
     const body = cleanRest;
-    const since = rec.created ? J.clock(first) : (segs.length ? J.clock(first) : (p.since || J.clock(first)));
+    const since = segs.length ? J.clock(first) : (p.since || J.clock(0));
     const nextRaw = status === "doing" ? `${p.prefix}DOING ${since} ${body}`.trimEnd()
-      : status === "done" ? (p.prefix + done(body)).trimEnd()
+      : status === "done" ? `${p.prefix}DONE ${endClock ? endClock + " " : ""}${body}`.trimEnd()
       : `${p.prefix}PAUSED ${body}`.trimEnd();
     const eb = J.ensureBlockId(nextRaw, preferId);
     rec.blockId = eb.blockId;
@@ -226,7 +260,7 @@ export class AutoLog {
       "只输出一个 JSON 数组，每个会话一项，不要解释、不要代码块：",
       '[{"id":"s1","label":"…","summary":"…","match":null,"done":false,"todos":[],"skip":false}]',
       "字段：",
-      "- label：这件事是什么，不超过 20 个字的中文短语（动词开头），不要带时间、时长、状态词和标点结尾。",
+      "- label：这件事是什么，不超过 18 个字的中文总结标题（动词开头，稍微总结概括核心任务，不要照抄原话、路径或链接，不要带时间、时长、状态词和标点结尾）。",
       "- summary：当前最新一轮对话的一句话结论（不超过 35 个字），概括 AI 刚做完或得出的结论；没有回复则填空字符串。",
       "- match：只有当上面某一行写的就是「这个会话里 AI 在替用户做的那件工作本身」时，才填那一行的编号。那一行如果是留给用户本人的动作（看一眼、看效果、确认、拍板、自己跑命令、发出去、阅读之类），哪怕话题一样也不能匹配，填 null。拿不准一律填 null。",
       "- done：只对已经停了的会话有意义。最后的回复明确表明这件事整个做完了，填 true；做到一半、还在等用户、报错没解决、说了以后再继续，都填 false。",
@@ -375,12 +409,16 @@ export class AutoLog {
           delete rec.parkedAt; delete rec.fresh; delete rec.autoPaused;
           digest.doing.push(name);
           report.changes.push(t("DOING：{name}", { name: rec.label }));
+        } else if (!manualState && active && cur === "doing") {
+          text = this.autoLine(text, rec, x, "doing").text;
         } else if (!manualState && !active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
           text = this.autoLine(text, rec, x, "paused").text;
           rec.status = "paused"; rec.autoPaused = true; rec.parkedAt = last; delete rec.fresh;
           clocks.add(rec.key);
           digest.paused.push(`${name}（${x.min}m）`);
           report.changes.push(t("PAUSED：{name}（{min}m）", { name: rec.label, min: x.min }));
+        } else if (!manualState && !active && cur === "paused") {
+          text = this.autoLine(text, rec, x, "paused").text;
         }
         if (a && !active && a.done && !rec.doneHint) { rec.doneHint = true; digest.done.push(`${name}（${x.min}m）`); report.changes.push(t("看着做完了：{name}", { name: rec.label })); }
         // 把同一个会话的多轮问答、一句话结论和需要拍板的问题都挂在同一个 ^xxxxx 任务条目下，不另起顶层条目

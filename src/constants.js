@@ -76,10 +76,9 @@ export const AGENTS = {
     color: "#777b83",
     soft: "rgba(119,123,131,.13)",
     kind: "opencode",
-    where: ["~/.local/share/opencode/opencode.db", "OpenCode Desktop"],
+    where: ["~/.local/share/opencode/opencode.db", "OpenCode Desktop / CLI"],
     deep: "opencode",
     desktopOnly: true,
-    trackingOnly: true,
   },
   qoder: {
     id: "qoder",
@@ -89,10 +88,9 @@ export const AGENTS = {
     color: "#748c65",
     soft: "rgba(116,140,101,.13)",
     kind: "qoder",
-    where: ["~/Library/Application Support/com.qoder.app.stable/main.sqlite", "Qoder Desktop"],
+    where: ["~/Library/Application Support/com.qoder.app.stable/main.sqlite · ~/.qoder/projects", "Qoder Desktop / CLI"],
     deep: "qoder",
     desktopOnly: true,
-    trackingOnly: true,
   },
 };
 
@@ -104,6 +102,47 @@ export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent
 // `value` is what the DeepSeek Harness ACP config option receives.
 export const MODEL_CATALOG = [
   { id: "antigravity-default", agent: "antigravity", name: t("CLI 当前默认模型"), value: "", provider: "Antigravity", context: "—", tags: [], note: t("使用服务端的默认模型；读取可用模型后可指定模型。") },
+  { id: "opencode-default", agent: "opencode", name: t("CLI 当前默认模型"), value: "", provider: "OpenCode", context: "—", tags: [], note: t("使用服务端的默认模型；读取可用模型后可指定模型。") },
+  {
+    id: "qoder-ultimate",
+    agent: "qoder",
+    name: "Ultimate",
+    cli: "ultimate",
+    value: "ultimate",
+    provider: "Qoder",
+    context: "—",
+    strength: 5,
+    speed: 3,
+    tags: ["Reasoning"],
+    cost: "High cost",
+    note: "Qoder Ultimate model for complex engineering tasks.",
+  },
+  {
+    id: "qoder-auto",
+    agent: "qoder",
+    name: "Auto",
+    cli: "auto",
+    value: "auto",
+    provider: "Qoder",
+    context: "—",
+    strength: 4,
+    speed: 4,
+    tags: ["Reasoning", "Fast"],
+    note: "Qoder automatic model routing.",
+  },
+  {
+    id: "qoder-38max",
+    agent: "qoder",
+    name: "QModel 3.8 Max",
+    cli: "qmodel_38max",
+    value: "qmodel_38max",
+    provider: "Qoder",
+    context: "—",
+    strength: 4,
+    speed: 4,
+    tags: ["Reasoning"],
+    note: "QModel 3.8 Max.",
+  },
   {
     id: "claude-opus-5-5",
     agent: "claude",
@@ -248,6 +287,8 @@ export const MODEL_CATALOG = [
 
 export const EFFORTS = {
   antigravity: ["low", "medium", "high", "xhigh"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
+  opencode: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
+  qoder: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("传给 qodercli --reasoning-effort") })),
   codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: t("由所选 Codex 模型支持的强度决定") })),
   claude: [
     { id: "low", label: "Low", hint: "Fastest" },
@@ -365,6 +406,8 @@ export const DEFAULTS = {
     },
     codex: { transport: "desktop", model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
     antigravity: { model: "antigravity-default", effort: "medium", path: "", cwd: "", autoApprove: false },
+    opencode: { model: "opencode-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: true, extraArgs: "" },
     dsh: {
       model: "deepseek-v4-pro",
       effort: "high",
@@ -389,7 +432,7 @@ export const DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "deepseek-v4-pro", antigravity: "antigravity-default" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "deepseek-v4-pro", antigravity: "antigravity-default", opencode: "opencode-default", qoder: "qoder-ultimate" },
     effort: "high",
     effortByAgent: {},
   },
@@ -420,8 +463,8 @@ export function syncDelegationSettings(settings, raw = null) {
   m.defaultByAgent ||= {};
   m.effortByAgent ||= {};
   m.enabled = Array.isArray(m.enabled) ? m.enabled : [];
-  if (!["claude", "codex", "dsh", "antigravity"].includes(d.target)) d.target = "claude";
-  for (const agent of ["claude", "codex", "dsh", "antigravity"]) {
+  if (!["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(d.target)) d.target = "claude";
+  for (const agent of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"]) {
     const cfg = (d[agent] ||= {});
     const rawDelModel = raw?.delegate?.[agent]?.model;
     const rawModModel = raw?.models?.defaultByAgent?.[agent];

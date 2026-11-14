@@ -135,6 +135,33 @@ export function findAgyBinary(configured = "") {
   return candidates.find((p) => fs.existsSync(p)) || "agy";
 }
 
+export function findOpenCodeBinary(configured = "") {
+  if (configured && configured.trim()) return norm(configured.trim());
+  const candidates = [
+    "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
+    path.join(home(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
+    path.join(home(), ".local/bin/opencode"),
+    "/opt/homebrew/bin/opencode",
+    "/usr/local/bin/opencode",
+  ];
+  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
+  return "opencode";
+}
+
+export function findQoderBinary(configured = "") {
+  if (configured && configured.trim()) return norm(configured.trim());
+  const candidates = [
+    path.join(home(), ".qoder/bin/qodercli/qodercli"),
+    path.join(home(), ".local/bin/qodercli"),
+    path.join(home(), ".local/bin/qoder"),
+    path.join(home(), ".qoder/entry/qoder"),
+    "/opt/homebrew/bin/qodercli",
+    "/usr/local/bin/qodercli",
+  ];
+  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
+  return "qodercli";
+}
+
 export function findClaudeBinary(configured = "") {
   if (configured && configured.trim()) return norm(configured.trim());
   const candidates = [path.join(home(), ".local/bin/claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", "/usr/bin/claude"];
@@ -403,9 +430,9 @@ export async function focusCliSession(agent, sid) {
 
 // Codex 会话的 originator：桌面版 / IDE 插件里起的才有会话页可跳；codex_cli_rs、codex_exec 是命令行
 export const isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
-// 命令行会话（Claude Code 终端版、Codex 命令行）：点开回终端，而不是交给桌面版
+// 命令行会话（Claude Code 终端版、Codex 命令行、Qoder CLI）：点开回终端，而不是交给桌面版
 export function isCliSession(agent, app) {
-  if (agent === "claude") return app === "cli";
+  if (agent === "claude" || agent === "qoder") return app === "cli";
   if (agent === "codex") return !isCodexDesktop(app);
   return false;
 }
@@ -460,6 +487,10 @@ function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
 export function openSession(plugin, agent, sid, app = "", session = null) {
   if (!sid) { plugin.notice(t("这个会话还没有会话号，稍等一秒再点")); return false; }
   if (["opencode", "qoder"].includes(agent)) {
+    if (agent === "qoder" && app === "cli" && plugin.settings.cliOpen !== "desktop") {
+      const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
+      return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${sid}`, cwd);
+    }
     copyText(sid);
     openAgentApp(agent).then((ok) => plugin.notice(ok ? t("已打开 {agent}；会话号已复制，请在客户端选择会话", { agent: AGENTS[agent].name }) : t("没打开 {agent}：本机好像没装", { agent: AGENTS[agent].name })));
     return true;
@@ -667,7 +698,142 @@ class ClaudeRunner {
   }
 }
 
-// ----- Local ACP agents: Harness and Antigravity -----
+// ----- Qoder CLI: one-shot headless execution with Desktop handoff fallback -----
+export function qoderPermissionArgs(permission) {
+  if (permission === "plan") return ["--work-mode", "spec", "--permission-mode", "default"];
+  if (permission === "acceptEdits") return ["--permission-mode", "accept_edits"];
+  if (permission === "manual") return ["--permission-mode", "default"];
+  return ["--permission-mode", "auto"];
+}
+
+class QoderRunner {
+  constructor(delegator, job) {
+    this.d = delegator;
+    this.job = job;
+    this.child = null;
+    this.finished = false;
+    this.sessionTimer = null;
+    this.timer = null;
+  }
+
+  async start(opts) {
+    const d = this.d;
+    const cfg = d.settings.delegate.qoder || DEFAULTS.delegate.qoder;
+    const bin = findQoderBinary(cfg.path || "");
+    const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
+    const model = resolveCliModel(d.plugin, "qoder", opts.model || cfg.model || "qoder-ultimate");
+    const effort = opts.effort || cfg.effort || "high";
+    const perm = opts.permission || cfg.permission || "auto";
+    const sid = crypto.randomUUID();
+    this.sessionId = sid;
+    this.job.cwd = cwd;
+    this.job.app = "cli";
+    const args = ["-p", "--session-id", sid, "-w", cwd, "-m", model, "--reasoning-effort", effort, ...qoderPermissionArgs(perm)];
+    if (opts.name) args.push("-n", opts.name);
+    if (d.vaultPath && cwd !== d.vaultPath) args.push("--add-dir", d.vaultPath);
+    for (const a of splitArgs(cfg.extraArgs || "")) args.push(a);
+    args.push("--", opts.prompt);
+    this.job.command = [bin, ...args.slice(0, -1), "<prompt>"].join(" ");
+    const child = spawn(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    this.child = child;
+    this.job.state = "running";
+    this.job.startedAt = Date.now();
+    this.sessionTimer = setTimeout(() => {
+      this.sessionTimer = null;
+      if (this.finished) return;
+      this.d.onSession(this.job, this.sessionId);
+    }, 250);
+    let out = "", err = "";
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (text) => {
+      out += text;
+      this.job.lastText = out.slice(-2000);
+      this.d.saveJobsSoon();
+      this.d.refreshUI();
+    });
+    child.stderr.on("data", (b) => {
+      err += b.toString();
+      if (err.length > 4000) err = err.slice(-4000);
+      this.job.stderr = err.slice(-1000);
+    });
+    child.on("error", (e) => this.fail(String(e && e.message || e)));
+    child.on("exit", (code) => {
+      if (this.finished) return;
+      clearTimeout(this.sessionTimer);
+      this.sessionTimer = null;
+      const combined = `${err}\n${out}`.trim();
+      if (code !== 0 && /not logged in|qodercli login/i.test(combined)) {
+        this.fallbackToDesktop(opts.prompt);
+        return;
+      }
+      if (code === 0) {
+        if (!this.job.sessionId) this.d.onSession(this.job, this.sessionId);
+        this.done(out.trim());
+      } else {
+        this.fail(combined || t("qoder 退出码 {code}", { code }));
+      }
+    });
+    this.timer = setTimeout(() => this.fail(t("委派超过 30 分钟没有结束")), 30 * 60000);
+    return true;
+  }
+
+  fallbackToDesktop(prompt) {
+    this.finished = true;
+    clearTimeout(this.timer);
+    this.job.handoff = true;
+    this.job.cli = false;
+    this.job.app = "";
+    this.job.sessionId = "";
+    this.job.state = "starting";
+    this.job.step = t("等你在 {agent} 里发出去", { agent: AGENTS.qoder.name });
+    this.d.saveJobs();
+    this.d.copyText(prompt);
+    this.d.openAgentApp("qoder");
+    this.d.notice(t("📋 Qoder CLI 尚未登录，已复制任务并打开 Qoder 桌面版（也可在设置里登录 CLI）"), 10000);
+    this.d.refreshUI();
+  }
+
+  cancel() {
+    if (this.finished) return;
+    this.finished = true;
+    clearTimeout(this.sessionTimer);
+    clearTimeout(this.timer);
+    if (this.child) { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }
+    this.job.state = "cancelled";
+    this.job.endedAt = Date.now();
+    this.d.saveJobs();
+    this.d.refreshUI();
+  }
+
+  done(result) {
+    if (this.finished) return;
+    this.finished = true;
+    clearTimeout(this.timer);
+    this.job.state = "done";
+    this.job.endedAt = Date.now();
+    if (result) {
+      this.job.result = result;
+      this.job.lastText = result.slice(-2000);
+    }
+    this.d.saveJobs();
+    this.d.onDone(this.job);
+  }
+
+  fail(message) {
+    if (this.finished) return;
+    this.finished = true;
+    clearTimeout(this.sessionTimer);
+    clearTimeout(this.timer);
+    if (this.child) { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }
+    this.job.state = "error";
+    this.job.error = String(message || "").slice(0, 500);
+    this.job.endedAt = Date.now();
+    this.d.saveJobs();
+    this.d.onError(this.job);
+  }
+}
+
+// ----- Local ACP agents: Harness, Antigravity, and OpenCode -----
 class AcpRunner {
   constructor(delegator, job) {
     this.d = delegator;
@@ -688,7 +854,7 @@ class AcpRunner {
   async start(opts) {
     const d = this.d;
     const cfg = d.settings.delegate[this.agent];
-    const bin = this.agent === "antigravity" ? findAgyBinary(cfg.path || "") : findDshBinary(cfg.path || "");
+    const bin = this.agent === "antigravity" ? findAgyBinary(cfg.path || "") : this.agent === "opencode" ? findOpenCodeBinary(cfg.path || "") : findDshBinary(cfg.path || "");
     const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
     const model = opts.model || cfg.model || (this.agent === "dsh" ? "deepseek-v4-pro" : "");
     const effort = opts.effort || cfg.effort || (this.agent === "dsh" ? "high" : "");
@@ -732,7 +898,7 @@ class AcpRunner {
       this.job.state = "running";
       this.d.saveJobs();
       this.d.onSession(this.job, this.sessionId);
-      const isDefault = this.agent === "antigravity" && (!model || model === "antigravity-default");
+      const isDefault = (this.agent === "antigravity" || this.agent === "opencode") && (!model || model === `${this.agent}-default`);
       const modelOption = configOptions.find((x) => x.category === "model" || x.id === "model");
       if (opts.model && !isDefault && !modelOption) throw new Error(t("{agent} 未提供模型选择", { agent: this.label }));
       if (modelOption && !isDefault && (!opts.sessionId || opts.model)) {
@@ -742,8 +908,8 @@ class AcpRunner {
         const changed = await this.request("session/set_config_option", { sessionId: this.sessionId, configId: modelOption.id, value: selected }, 15000);
         configOptions = changed?.configOptions || configOptions;
       }
-      const effortOption = configOptions.find((x) => x.category === "thought_level" || x.id === "reasoning_effort");
-      if (opts.effort && !effortOption) throw new Error(t("{agent} 未提供推理强度选择", { agent: this.label }));
+      const effortOption = configOptions.find((x) => x.category === "thought_level" || x.id === "reasoning_effort" || x.id === "variant");
+      if (opts.effort && !effortOption && this.agent !== "opencode") throw new Error(t("{agent} 未提供推理强度选择", { agent: this.label }));
       if (effortOption && effort && (!opts.sessionId || opts.effort)) {
         const value = this.agent === "dsh" ? dshEffort(effort) : effort;
         if (this.agent === "antigravity" && !effortOption.options?.some((o) => o.value === value)) throw new Error(t("当前模型不支持推理强度 {value}", { value }));
@@ -983,6 +1149,8 @@ export class Delegator {
 
   notice(text, ms) { this.plugin.notice(text, ms); }
   notify({ title, body }) { this.plugin.notice(`${title}\n${body}`, 12000); }
+  copyText(text) { return copyText(text); }
+  openAgentApp(agent) { return openAgentApp(agent); }
 
   get C() { return this.settings.delegate || DEFAULTS.delegate; }
 
@@ -995,7 +1163,7 @@ export class Delegator {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
     if (opts.destination && !destinations(opts.agent).some(o => o.id === opts.destination)) throw new Error(t("此 Agent 不支持所选工作位置"));
-    if (!["claude", "codex", "dsh", "antigravity"].includes(opts.agent)) return this.handoff(opts);
+    if (!["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(opts.agent)) return this.handoff(opts);
     if (opts.destination === "terminal" || (opts.agent === "codex" && !opts.destination && this.C.codex?.transport === "terminal")) return this.handoffCli(opts);
     const agent = opts.agent;
     const file = opts.file;
@@ -1014,7 +1182,7 @@ export class Delegator {
       originalLine: lines[block.start],
       startedAt: Date.now(), state: "starting", model: agent === "codex" ? resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent)) : opts.model || this.defaultModel(agent),
       effort: opts.effort || this.C[agent]?.effort,
-      permission: opts.permission || (agent === "dsh" ? "" : this.C.claude.permission),
+      permission: opts.permission || (["claude", "qoder"].includes(agent) ? (this.C[agent]?.permission || "auto") : ""),
       cwd: norm(opts.cwd || this.C[agent]?.cwd || this.vaultPath),
       sessionId: "", linkWritten: false, resultWritten: false,
     };
@@ -1022,7 +1190,7 @@ export class Delegator {
     this.plugin.saveJobs();
     this.plugin.refreshUI();
     this.plugin.notice(t("🛫 正在委派给 {agent}：{name}", { agent: AGENTS[agent]?.name || agent, name }));
-    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => job.destination === "background" ? undefined : openSession(this.plugin, "codex", job.sessionId, "vscode")) : ["dsh", "antigravity"].includes(agent) ? new AcpRunner(this, job) : new ClaudeRunner(this, job);
+    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => job.destination === "background" ? undefined : openSession(this.plugin, "codex", job.sessionId, "vscode")) : ["dsh", "antigravity", "opencode"].includes(agent) ? new AcpRunner(this, job) : agent === "qoder" ? new QoderRunner(this, job) : new ClaudeRunner(this, job);
     this.runners.set(job.id, runner);
     try {
       await runner.start({ ...opts, prompt, name });
@@ -1047,7 +1215,7 @@ export class Delegator {
 
   async continueSession(session, prompt) {
     this.refreshSettings();
-    if (!["dsh", "antigravity"].includes(session.agent)) throw new Error(t("这个 Agent 不支持在 Obsidian 内续聊"));
+    if (!["dsh", "antigravity", "opencode"].includes(session.agent)) throw new Error(t("这个 Agent 不支持在 Obsidian 内续聊"));
     prompt = String(prompt || "").trim();
     if (!prompt) throw new Error(t("请输入追问内容"));
     const sid = session.sid || session.sessionId;
@@ -1075,7 +1243,7 @@ export class Delegator {
   async handoff(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (["claude", "codex", "dsh", "antigravity"].includes(opts.agent)) return this.delegate(opts);
+    if (["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(opts.agent)) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error(t("没有当前笔记"));
@@ -1102,12 +1270,12 @@ export class Delegator {
     return job;
   }
 
-  // 按住 ⌘ 拖到 Claude Code / Codex 上：在主力终端里新开一个标签跑交互式的 claude / codex，任务直接当第一句发出去。
+  // 按住 ⌘ 拖到 Claude Code / Codex / OpenCode / Qoder 上：在主力终端里新开一个标签跑交互式命令行，任务直接当第一句发出去。
   // 进程是你的终端开的，不归插件管；会话一出现照交接的办法认领、绑回这一行。
   async handoffCli(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (!["claude", "codex"].includes(opts.agent)) return this.delegate(opts);
+    if (!["claude", "codex", "opencode", "qoder"].includes(opts.agent)) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error(t("没有当前笔记"));
@@ -1137,24 +1305,35 @@ export class Delegator {
     const model = resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent));
     const effort = opts.effort || this.C[agent]?.effort || "high";
     if (agent === "codex") extra += " " + codexCliArgs(this.plugin, opts).map(shellQuote).join(" ");
-    else extra += ` --model ${shellQuote(model)} --effort ${shellQuote(effort)}`;
+    else if (agent === "claude") extra += ` --model ${shellQuote(model)} --effort ${shellQuote(effort)}`;
     // 任务文字放进临时文件，命令里用 "$(cat …)" 取：多行、引号都不用转义
     const dir = path.join(os.tmpdir(), "agent-deck");
     await fsp.mkdir(dir, { recursive: true });
     const taskFile = path.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp.writeFile(taskFile, prompt, "utf8");
-    const bin = agent === "codex" ? (this.C.codex?.path || "codex") : findClaudeBinary(this.C.claude?.path || "");
+    const bin = agent === "codex" ? (this.C.codex?.path || "codex") : agent === "opencode" ? findOpenCodeBinary(this.C.opencode?.path || "") : agent === "qoder" ? findQoderBinary(this.C.qoder?.path || "") : findClaudeBinary(this.C.claude?.path || "");
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
-      startedAt: Date.now(), state: "starting", model, effort, handoff: true, cli: true, app: agent === "claude" ? "cli" : "codex_cli_rs",
+      startedAt: Date.now(), state: "starting", model, effort, handoff: true, cli: true, app: agent === "codex" ? "codex_cli_rs" : "cli",
       step: t("在终端里开 {agent}", { agent: AGENTS[agent]?.name || agent }), cwd, sessionId: "", linkWritten: false, resultWritten: false,
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    // 任务前面加 --：任务常以「- TODO」开头，不加会被当成命令行参数（unknown option）
-    const term = await openTerminal(`${shellQuote(bin)}${extra} -- "$(cat ${shellQuote(taskFile)})"`, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
+    let cmd;
+    if (agent === "opencode") {
+      const auto = this.C.opencode?.autoApprove ? " --auto" : "";
+      cmd = `${shellQuote(bin)}${auto} --prompt "$(cat ${shellQuote(taskFile)})" ${shellQuote(cwd)}`;
+    } else if (agent === "qoder") {
+      const perm = qoderPermissionArgs(opts.permission || this.C.qoder?.permission || "auto").map(shellQuote).join(" ");
+      const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
+      cmd = `${shellQuote(bin)} -w ${shellQuote(cwd)}${addDir} ${perm} -m ${shellQuote(model)} --reasoning-effort ${shellQuote(effort)} -n ${shellQuote(name)} -- "$(cat ${shellQuote(taskFile)})"`;
+    } else {
+      // 任务前面加 --：任务常以「- TODO」开头，不加会被当成命令行参数（unknown option）
+      cmd = `${shellQuote(bin)}${extra} -- "$(cat ${shellQuote(taskFile)})"`;
+    }
+    const term = await openTerminal(cmd, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
     this.plugin.notice(t("已在 {terminal} 里开 {agent}", { terminal: term === "terminal" ? t("系统终端") : (TERMINAL_NAME[term] || t("终端")), agent: AGENTS[agent]?.name || agent }), 6000);
     this.plugin.refreshUI();
     return job;
@@ -1179,7 +1358,7 @@ export class Delegator {
       let best = null;
       for (const m of usage.meta.values()) {
         if (m.agent !== job.agent || taken.has(m.sid) || (m.lastAt || 0) < job.startedAt - 5000) continue;
-        if (job.cli && !isCliSession(m.agent, m.app)) continue;   // 终端里开的只认命令行会话
+        if (job.cli && job.agent !== "opencode" && !isCliSession(m.agent, m.app)) continue;   // 终端里开的只认命令行会话
         const t = norm(m.text || m.title);
         if (!t || !(t.includes(head) || t.startsWith(promptHead.slice(0, 16)))) continue;
         if (!best || (m.lastAt || 0) < (best.lastAt || 0)) best = m;
@@ -1264,7 +1443,7 @@ export class Delegator {
     this.refreshUI();
     const agent = AGENTS[job.agent];
     this.plugin.notice(t("✅ {agent} 做完了一轮：{name}", { agent: agent ? agent.name : job.agent, name: job.name }), 8000);
-    if ((job.destination === "desktop" || (!job.destination && this.C.claude.openDesktop === true)) && job.agent === "claude" && job.sessionId) openSession(this.plugin, "claude", job.sessionId);
+    if ((job.destination === "desktop" || (!job.destination && this.C[job.agent]?.openDesktop === true)) && ["claude", "opencode", "qoder"].includes(job.agent) && job.sessionId) openSession(this.plugin, job.agent, job.sessionId, job.app);
     if (this.settings.autoWriteResult && job.linkWritten && job.path) {
       try { await this.writeResult(job); } catch (e) { console.error("[agent-deck] writeResult", e); }
     }

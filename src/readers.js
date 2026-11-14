@@ -377,6 +377,7 @@ export class AgentUsage {
     add(path.join(h, ".workbuddy/projects"), "workbuddy");
     add(path.join(h, ".dsh/sessions"), "dsh");
     add(path.join(h, ".gemini/antigravity/brain"), "antigravity");
+    add(path.join(h, ".qoder/projects"), "qoder");
     const seen = new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
   }
@@ -392,10 +393,16 @@ export class AgentUsage {
     const floor = since || this.sinceMs();
     await this.readCodexTitles();
     await this.readCodexArchived();
+    await this.readDesktopDatabases({ floor, onlyAgent, strictSince, touched });
     for (const [root, agent] of this.roots()) {
       if (onlyAgent && agent !== onlyAgent) continue;
       const files = await this.walk(root, agent === "dsh" || agent === "antigravity" ? 4 : 5, agent);
       for (const p of files) {
+        if (agent === "qoder") {
+          const base = path.basename(p).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
+          const baseSid = (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
+          if ([...this.files.keys()].some((k) => k.endsWith(`#${baseSid}`))) continue;
+        }
         let st;
         try { st = await fsp.stat(p); } catch { continue; }
         const fc = this.files.get(p);
@@ -413,7 +420,6 @@ export class AgentUsage {
         await new Promise((r) => setImmediate(r));
       }
     }
-    await this.readDesktopDatabases({ floor, onlyAgent, strictSince, touched });
     await this.readClaudeDesktop();
     await this.readClaudeSideChats();
     this.applyClaudeDesktop();
@@ -689,7 +695,7 @@ export class AgentUsage {
   // 归档 = 做完：桌面版里归档的、Codex archived_sessions 里的都可以从会话列表里收起来
   hidden(sid) {
     if (this.settings.hideArchived === false) return false;
-    return this.archivedClaude.has(sid) || this.archived.has(sid) || !!(AGENTS[this.meta.get(sid)?.agent]?.trackingOnly && this.meta.get(sid)?.archived);
+    return this.archivedClaude.has(sid) || this.archived.has(sid) || !!this.meta.get(sid)?.archived;
   }
 
   // ----- file caches -----
@@ -778,7 +784,7 @@ export class AgentUsage {
   ingestJsonl(line, fc, touched) {
     if (!line) return;
     if (fc.agent === "claude" && fc.sub) this.subLine(fc, line);
-    if (fc.agent === "claude") return this.ingestClaude(line, fc, touched);
+    if (fc.agent === "claude" || fc.agent === "qoder") return this.ingestClaude(line, fc, touched);
     if (fc.agent === "codex") return this.ingestCodex(line, fc, touched);
     if (fc.agent === "workbuddy") return this.ingestWorkbuddy(line, fc, touched);
     if (fc.agent === "antigravity") return this.ingestAntigravity(line, fc, touched);
@@ -876,10 +882,10 @@ export class AgentUsage {
     if (d.type === "last-prompt") { fc.sid = d.sessionId || fc.sid; return; }
     if (d.type !== "assistant" && d.type !== "user") return;
     const ms = Date.parse(d.timestamp);
-    if (!ms || this.stale("claude", ms)) return;
+    if (!ms || this.stale(fc.agent, ms)) return;
     fc.sid = d.sessionId || fc.sid;
     fc.cwd = d.cwd || fc.cwd;
-    fc.app = d.entrypoint || fc.app;
+    fc.app = d.entrypoint || fc.app || (fc.agent === "qoder" ? "cli" : "");
     const sid = fc.sid;
     const { key, day, s } = this.touchSess(fc, touched, ms, sid, fc.cwd, fc.app);
     const v = this.liveOf(fc, sid, ms);

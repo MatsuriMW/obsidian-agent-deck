@@ -74,6 +74,8 @@ plugin.allModels=()=>[
   {id:'three',agent:'codex',name:'Codex one',tags:[]},
   {id:'four',agent:'dsh',name:'DSH one',tags:[]},
   {id:'five',agent:'antigravity',name:'AGY one',tags:[]},
+  {id:'six',agent:'opencode',name:'OpenCode one',tags:[]},
+  {id:'seven',agent:'qoder',name:'Qoder one',tags:[]},
 ];
 plugin.modelsFor=id=>plugin.allModels().filter(m=>m.agent===id);
 plugin.modelById=id=>plugin.allModels().find(m=>m.id===id)||null;
@@ -81,7 +83,7 @@ plugin.modelEnabled=id=>plugin.settings.models.enabled.includes(id);
 plugin.defaultModel=id=>plugin.settings.delegate[id]?.model || plugin.allModels().find(m=>m.agent===id)?.id;
 plugin.usage={meta:new Map(),files:new Map(),errors:[]};
 plugin.store={days:{}};
-tab.draft={...structuredClone(plugin.settings.models),pinned:['two','four'],enabled:['one','two','three','four','five']};
+tab.draft={...structuredClone(plugin.settings.models),pinned:['two','four'],enabled:['one','two','three','four','five','six','seven']};
 const origModelRow = tab.modelRow.bind(tab);
 tab.modelRow=(parent,model,_d,_target,_defaultId,pinned)=>{const row=parent.createDiv({cls:'test-row'});row.dataset.id=model.id;row.pinned=pinned;};
 const render=()=>{const body=new Element();tab.renderModels(body);return body;};
@@ -144,7 +146,7 @@ console.log('PASS real settings save keeps model groups in sync outside the Mode
 const modelsBody = render();
 assert.equal(modelsBody.all().filter(el=>el.classList.contains('ad-modelgroup')).length, 7, 'Manage models includes all seven Agents');
 assert.equal(modelsBody.all().filter(el=>el.tag==='select').length, 0, 'Manage models removes duplicate default model/effort selectors');
-for (const id of ['workbuddy','opencode','qoder']) {
+for (const id of ['workbuddy']) {
   const status=modelsBody.all().find(el=>el.classList.contains('ad-modelgroup')&&el.dataset.agent===id);
   assert.equal(status.tag,'div','client-managed model groups do not have an empty expand control');
 }
@@ -159,8 +161,8 @@ tab.renderRecord(recBody);
 const targetPickers = [...delBody.all(), ...recBody.all()].filter(el => el.classList.contains('ad-targetpick'));
 assert.equal(targetPickers.length, 1, 'default delegation target picker appears exactly once across all pages');
 assert.equal(targetPickers[0].children.length, AGENT_ORDER.length, 'default target picker shows all 7 Agents');
-assert.equal(delBody.all().filter(el => el.tag === 'select').length, 4, 'exactly one default model select per configurable Agent on Delegation page');
-assert.equal(delBody.all().filter(el => el.classList.contains('ad-effort')).length, 4, 'exactly one default effort control per configurable Agent on Delegation page');
+assert.equal(delBody.all().filter(el => el.tag === 'select').length, 6, 'exactly one default model select per configurable Agent on Delegation page');
+assert.equal(delBody.all().filter(el => el.classList.contains('ad-effort')).length, 6, 'exactly one default effort control per configurable Agent on Delegation page');
 assert.equal(recBody.all().filter(el => el.classList.contains('ad-set-agent')).length, AGENT_ORDER.length, 'Recording page lists all 7 tracked Agents');
 assert.equal(recBody.all().filter(el => el.classList.contains('ad-set-agent__config')).length, 0, 'Recording agent cards have no duplicate model or default-target controls');
 

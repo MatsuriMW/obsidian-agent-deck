@@ -49,6 +49,21 @@ export class JournalSync {
     return x ? { segs: x.segs || [], out: x.out || 0, fresh: x.fresh || 0, agent: x.agent } : null;
   }
 
+  sessionTimeSpan(sid, p, lines = [], ownerLine = -1) {
+    const info = sid ? this.segmentsFor(sid) : null;
+    const segs = info && info.segs ? info.segs : [];
+    const segStart = segs.length ? J.clock(segs[0][0]) : "";
+    const segEnd = segs.length ? J.clock(segs[segs.length - 1][1]) : "";
+    const clockSpan = J.clockSpanFromLines(lines, ownerLine);
+    const m = (sid && this.usage?.meta?.get(sid)) || {};
+    const today = dayKeyToday(this.cfg);
+    const metaStart = m.firstAt && dayKey(m.firstAt, this.cfg) === today ? J.clock(dayMinute(m.firstAt, this.cfg)) : "";
+    const metaEnd = m.lastAt && dayKey(m.lastAt, this.cfg) === today ? J.clock(dayMinute(m.lastAt, this.cfg)) : "";
+    const start = segStart || clockSpan?.start || p?.since || metaStart || metaEnd || "";
+    const end = segEnd || metaEnd || (p?.until && p?.until !== p?.since ? p.until : clockSpan?.end) || p?.until || p?.since || start || "";
+    return { start, end };
+  }
+
   // 开着的笔记里所有带 🔗 或 ^ad- 块 ID 的编辑器
   openViews() {
     const out = [];
@@ -275,11 +290,24 @@ export class JournalSync {
       }
       if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || J.AGENT_KW_RE.test(cur.kw) || !cur.kw)) continue;
       const m = this.usage.meta.get(k.sid);
-      if (!m) continue;
-      const want = m.state === "run" ? (cur.kw === "DELEGATED" ? "DELEGATED" : "DOING") : STATE_KW[m.state];
-      if (!want || want === cur.kw) continue;
+      const want = m ? (m.state === "run" ? (cur.kw === "DELEGATED" ? "DELEGATED" : "DOING") : STATE_KW[m.state]) : null;
       const p = J.splitTask(ls[n]);
       if (!p) continue;
+      if (p.auto && !p.cb) {
+        const { start, end } = this.sessionTimeSpan(k.sid, p, ls, n);
+        const nextKw = want || cur.kw || "DOING";
+        const nextLine = J.formatAutoTaskLine({
+          prefix: p.prefix,
+          kw: nextKw,
+          start,
+          end,
+          title: p.title,
+          blockId: p.blockId,
+        });
+        if (nextLine !== ls[n]) ls[n] = nextLine;
+        continue;
+      }
+      if (!want || want === cur.kw) continue;
       const nextLine = `${p.prefix}${want} ${p.since ? p.since + " " : ""}${p.rest}`.trimEnd();
       if (nextLine !== ls[n]) ls[n] = nextLine;
     }
@@ -294,7 +322,7 @@ export class JournalSync {
   autoKeywords(text) {
     const daySt = (this.cfg.autoLogState || {})[dayKeyToday(this.cfg)] || {};
     const linked = J.linkMap(text);
-    const want = new Map();   // 行号 → 关键词
+    const want = new Map();   // 行号 → { kw, sid }
     for (const [sid, rec] of Object.entries(daySt)) {
       if (!rec || rec.skip || rec.gone || !rec.key || linked.has(sid) || this.archived(sid)) continue;
       const m = this.usage.meta.get(sid);
@@ -304,14 +332,31 @@ export class JournalSync {
       if (!found || !(found.kw === "DOING" || (J.AGENT_KW_RE.test(found.kw) && found.kw !== "DELEGATED"))) continue;
       const kw = m.state === "run" ? "DOING" : STATE_KW[m.state];
       if (!kw) continue;
-      if (kw === "DOING" || !want.has(found.line)) want.set(found.line, kw);
+      if (kw === "DOING" || !want.has(found.line)) want.set(found.line, { kw, sid });
     }
     if (!want.size) return text;
     const ls = text.split("\n");
     let changed = false;
-    for (const [n, kw] of want) {
+    for (const [n, { kw, sid }] of want) {
       const p = J.splitTask(ls[n]);
-      if (!p || p.cb || !p.kw || p.kw === kw) continue;
+      if (!p || p.cb || !p.kw) continue;
+      if (p.auto) {
+        const { start, end } = this.sessionTimeSpan(sid, p, ls, n);
+        const nextLine = J.formatAutoTaskLine({
+          prefix: p.prefix,
+          kw,
+          start,
+          end,
+          title: p.title,
+          blockId: p.blockId,
+        });
+        if (nextLine !== ls[n]) {
+          ls[n] = nextLine;
+          changed = true;
+        }
+        continue;
+      }
+      if (p.kw === kw) continue;
       ls[n] = `${p.prefix}${kw} ${p.since ? p.since + " " : ""}${p.rest}`.trimEnd();
       changed = true;
     }
@@ -329,8 +374,21 @@ export class JournalSync {
     if (!p || J.isManualTask(this.cfg, lines[n])) return text;
     const meta = this.usage.meta.get(sid) || {};
     const last = meta.lastAt ? dayMinute(meta.lastAt, this.cfg) : null;
-    const body = p.rest.replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
-    lines[n] = `${p.prefix}DONE ${last != null ? J.clock(last) + " " : ""}${body}`.trimEnd();
+    if (p.auto && !p.cb) {
+      const { start, end } = this.sessionTimeSpan(sid, p, lines, n);
+      const lastClock = last != null ? J.clock(last) : end;
+      lines[n] = J.formatAutoTaskLine({
+        prefix: p.prefix,
+        kw: "DONE",
+        start: start || lastClock,
+        end: lastClock || end || start,
+        title: p.title,
+        blockId: p.blockId,
+      });
+    } else {
+      const body = p.rest.replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
+      lines[n] = `${p.prefix}DONE ${last != null ? J.clock(last) + " " : ""}${body}`.trimEnd();
+    }
     const info = this.segmentsFor(sid);
     if (info && info.segs.length) {
       // 先收掉旧的 ⏱
@@ -399,7 +457,13 @@ export class JournalSync {
         return true;
       }
       lines.splice(end + 1, 0,
-        `${kidInd}- DOING ${fmtClock(d.created)} ${J.AUTO_MARK}${J.resultText(name, 60)}`,
+        J.formatAutoTaskLine({
+          prefix: `${kidInd}- `,
+          kw: "DOING",
+          start: fmtClock(d.created),
+          end: fmtClock(d.active || d.created),
+          title: J.summarizeAutoTitle(name),
+        }),
         J.linkLine(kidInd + unit, "claude", name, d.sid));
       return true;
     };
@@ -476,9 +540,12 @@ export class JournalSync {
         const mark = J.childMark(lines, k, (l) => { const id = J.kidIdent(l); return id && id.kind === "sub" ? id : null; });
         if (mark) { known.set(String(mark.id), { block: k, mark: mark.line, open: !!mark.open }); claimed.add(k); }
       }
-      const setKw = (k, kw, time) => {
+      const setKw = (k, kw, time, startTime = "") => {
         const pt = J.splitTask(lines[k]);
-        if (pt) lines[k] = `${pt.prefix}${kw} ${time} ${pt.rest}`.trimEnd();
+        if (!pt) return;
+        lines[k] = pt.auto
+          ? J.formatAutoTaskLine({ prefix: pt.prefix, kw, start: startTime || pt.since || time, end: time || pt.until || pt.since, title: pt.title, blockId: pt.blockId })
+          : `${pt.prefix}${kw} ${time} ${pt.rest}`.trimEnd();
       };
       for (const r of subs) {
         const id = r.id.slice(0, 8), k = this.kidState(r, parentWait), over = k.st === "done" || k.st === "fail";
@@ -487,7 +554,7 @@ export class JournalSync {
           if (!had.open) continue;
           if (over) {
             const ind = (/^\s*/.exec(lines[had.block]) || [""])[0];
-            setKw(had.block, k.kw, fmtClock(r.at || r.start));
+            setKw(had.block, k.kw, fmtClock(r.at || r.start), fmtClock(r.start));
             const mark = J.parseKid(lines[had.mark]);
             if (mark) lines[had.mark] = `${ind}\t- ⏱ ${fmtClock(r.start)}–${fmtClock(r.at || r.start)} · 共 ${J.durTag(Math.max(1, Math.round(((r.at || r.start) - r.start) / 60e3)))}${this.kidTok(r) ? ` · ${fmtTok(this.kidTok(r))} tok` : ""} · 子代理 \`${id}\``;
             const said = String(r.last || "").trim();
@@ -505,20 +572,20 @@ export class JournalSync {
           claimed.add(mine);
           const ind = (/^\s*/.exec(lines[mine]) || [""])[0];
           if (over) {
-            setKw(mine, k.kw, fmtClock(r.at || r.start));
+            setKw(mine, k.kw, fmtClock(r.at || r.start), fmtClock(r.start));
             lines.splice(mine + 1, 0, ...this.finishKid(ind, r));
           } else {
             const pt = J.splitTask(lines[mine]);
-            setKw(mine, "DOING", pt && pt.kw === "DOING" && pt.since ? pt.since : fmtClock(r.start));
+            setKw(mine, "DOING", pt && pt.kw === "DOING" && pt.since ? pt.since : fmtClock(r.start), fmtClock(r.start));
             lines.splice(mine + 1, 0, `${ind}\t- 🔗 子代理 \`${id}\``);
           }
           return true;
         }
-        const name = J.resultText(r.desc || r.type || "subagent", 60);
+        const name = J.summarizeAutoTitle(r.desc || r.type || "subagent");
         if (over) {
-          lines.splice(end + 1, 0, `${kidInd}- ${k.kw} ${fmtClock(r.at || r.start)} ${J.AUTO_MARK}${name}`, ...this.finishKid(kidInd + unit, r));
+          lines.splice(end + 1, 0, J.formatAutoTaskLine({ prefix: `${kidInd}- `, kw: k.kw, start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name }), ...this.finishKid(kidInd + unit, r));
         } else {
-          lines.splice(end + 1, 0, `${kidInd}- DOING ${fmtClock(r.start)} ${J.AUTO_MARK}${name}`, `${kidInd}${unit}- 🔗 子代理 \`${id}\``);
+          lines.splice(end + 1, 0, J.formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name }), `${kidInd}${unit}- 🔗 子代理 \`${id}\``);
         }
         return true;
       }
@@ -561,7 +628,7 @@ export class JournalSync {
       if (known.has(String(s.pid))) continue;
       const min = dayMinute(s.since || Date.now(), this.cfg);
       lines.splice(end + 1, 0,
-        `${kidInd}- DOING ${J.clock(min)} ${J.AUTO_MARK}side chat`,
+        J.formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: J.clock(min), end: J.clock(min), title: "side chat" }),
         `${kidInd}${unit}- 🔗 side chat \`pid ${s.pid}\``);
       changed = true;
       end += 2;
@@ -579,8 +646,12 @@ export class JournalSync {
         if (start > nowMin) start -= 1440;
         mins = Math.max(1, nowMin - start);
       }
-      lines[c.block] = `${cur ? cur.prefix : ""}DONE ${J.clock(nowMin)} ${cur ? cur.rest : "side chat"}`.trimEnd();
-      lines[c.mark] = `${kidInd}${unit}- ⏱ ${from || J.clock(nowMin - mins)}–${J.clock(nowMin)} · 共 ${J.durTag(mins)} · side chat \`pid ${c.id}\``;
+      const startStr = from || J.clock(nowMin - mins);
+      const endStr = J.clock(nowMin);
+      lines[c.block] = cur && cur.auto
+        ? J.formatAutoTaskLine({ prefix: cur.prefix, kw: "DONE", start: startStr, end: endStr, title: cur.title || "side chat", blockId: cur.blockId })
+        : `${cur ? cur.prefix : ""}DONE ${endStr} ${cur ? cur.rest : "side chat"}`.trimEnd();
+      lines[c.mark] = `${kidInd}${unit}- ⏱ ${startStr}–${endStr} · 共 ${J.durTag(mins)} · side chat \`pid ${c.id}\``;
       changed = true;
     }
     return changed ? lines.join("\n") : text;

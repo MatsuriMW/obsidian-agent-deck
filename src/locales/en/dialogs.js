@@ -9,6 +9,11 @@ export default {
   "读取 {agent} 可用模型": "Load the models available to {agent}",
   "ACP 模式没有 plan/auto 这个切换；关掉自动允许时，Harness 的权限请求会在 Obsidian 中逐次确认。":
     "ACP mode has no plan/auto switch. With auto-allow off, Harness asks you to confirm each permission request inside Obsidian.",
+  "ACP 模式没有 plan/auto 这个切换；关掉自动允许时，权限请求会在 Obsidian 中逐次确认。":
+    "ACP mode has no plan/auto switch. With auto-allow off, each permission request is confirmed in Obsidian.",
+  "qoder 退出码 {code}": "qoder exited with code {code}",
+  "📋 Qoder CLI 尚未登录，已复制任务并打开 Qoder 桌面版（也可在设置里登录 CLI）":
+    "📋 Qoder CLI is not signed in; copied the task and opened Qoder Desktop (or sign in to the CLI in Settings)",
   "通过 agy acp 委派，工具请求会在 Obsidian 中逐次确认；完成后可打开会话正文继续追问。推理强度以当前模型支持的值为准。":
     "Delegated through agy acp, so tool requests are confirmed one by one in Obsidian. When it finishes, open the transcript to keep asking. Reasoning effort follows what the current model supports.",
   "留空 = 插件设置里的目录（默认是库根目录）。":

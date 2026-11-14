@@ -44,7 +44,7 @@ export function evidenceBlocks(text, path) {
       flush();
       const indent = list[1].replace(/\t/g, "    ").length;
       while (stack.length && stack.at(-1).indent >= indent) stack.pop();
-      kind = /^\s*(?:[-*+]|\d+[.)])\s+❓\s/.test(line) ? "user" : AI_RECORD_RE.test(line) || /^\s*(?:[-*+]|\d+[.)])\s+(?:\S+\s+)?🤖/.test(line) ? "ai" : stack.at(-1)?.kind || "user";
+      kind = /^\s*(?:[-*+]|\d+[.)])\s+❓\s/.test(line) ? "user" : AI_RECORD_RE.test(line) || /^\s*(?:[-*+]|\d+[.)])\s+(?:\S+\s+){0,2}🤖/.test(line) ? "ai" : stack.at(-1)?.kind || "user";
       stack.push({ indent, kind });
     } else if (!fence && /^\S/.test(line) && !marker) {
       flush(); stack.length = 0; kind = "user";

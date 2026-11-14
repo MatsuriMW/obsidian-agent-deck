@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { destinations, defaultDestination, activeJob, canOpenClient, executionStatus, workspaceLabel } from '../src/workflow.js';
 assert.deepEqual(destinations('antigravity').map(x=>x.id),['obsidian','background']);
+assert.deepEqual(destinations('opencode').map(x=>x.id),['obsidian','desktop','background','terminal']);
+assert.deepEqual(destinations('qoder').map(x=>x.id),['desktop','background','terminal']);
 assert.deepEqual(destinations('workbuddy').map(x=>x.id),['desktop']);
 assert.ok(destinations('dsh').some(x=>x.id==='desktop'));
 assert.ok(!destinations('claude').some(x=>x.id==='obsidian'));
