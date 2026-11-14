@@ -508,7 +508,7 @@ export default {
   "插到开头": "Top of the file",
   "追加到末尾": "End of the file",
   "桌面版 / CLI": "Desktop / CLI",
-  "优先使用 OpenCode.app 内置的 opencode-cli acp，可在 Obsidian 内续聊或在桌面版打开": "Prefers opencode-cli acp bundled with OpenCode.app; continue inside Obsidian or open in the desktop app",
+  "通过 OpenCode.app 内置的 opencode-cli acp 后台委派，也可打开桌面端或终端": "Delegates in the background through the bundled opencode-cli acp; desktop and terminal destinations are also available.",
   "留空自动查找（含 OpenCode.app 内置 CLI）": "Empty detects it automatically (including the OpenCode.app bundled CLI)",
   "读取 OpenCode 可用模型": "Load available OpenCode models",
   "检查 opencode": "Check opencode",

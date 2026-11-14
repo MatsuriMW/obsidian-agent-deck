@@ -1,3 +1,4 @@
+import { updateNote, serializeNote } from "./note-updates.js";
 // Read conversation text on demand; usage summaries intentionally truncate prompts.
 import fs from "fs";
 import { desktopMessages } from "./desktop-sessions.js";
@@ -87,34 +88,32 @@ export function conversationPath(session) {
   return `Agent Deck/Conversations/${safe(session.agent)}-${safe(session.sid || session.sessionId)}.md`;
 }
 
-export async function archiveConversation(plugin, session) {
+export async function archiveConversation(plugin, session, { messages: suppliedMessages } = {}) {
   const active = Object.values(plugin.jobs).find((j) => j.agent === session.agent && j.sessionId === (session.sid || session.sessionId));
   if (["starting", "running", "needs-approval"].includes(active?.state)) throw new Error(t("请等当前这一轮结束后再归档"));
-  const messages = await readConversation(plugin, session);
+  const messages = suppliedMessages || await readConversation(plugin, session);
   if (!messages.length) throw new Error(t("暂未读取到对话正文，请扫描会话后重试"));
   const vault = plugin.app.vault;
   const notePath = conversationPath(session);
   for (const folder of ["Agent Deck", "Agent Deck/Conversations"]) {
-    if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
+    await serializeNote(plugin, folder, async () => {
+      if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
+    });
   }
   const body = conversationMarkdown(session, messages);
   const hash = (text) => createHash("sha256").update(text).digest("hex");
   const content = `<!-- agent-deck-conversation sha256:${hash(body)} -->\n${body}\n<!-- /agent-deck-conversation -->`;
 
-  const file = vault.getAbstractFileByPath(notePath);
-  if (file) {
-    const prior = await vault.read(file);
-    if (prior === content) { await linkArchive(plugin, session, notePath); return file; }
+  const file = await serializeNote(plugin, notePath, async () =>
+    vault.getAbstractFileByPath(notePath) || await vault.create(notePath, content));
+  await updateNote(plugin, notePath, prior => {
+    if (prior === content) return prior;
     const region = /<!-- agent-deck-conversation sha256:([a-f0-9]{64}) -->\n([\s\S]*?)\n<!-- \/agent-deck-conversation -->/.exec(prior);
     if (!region || hash(region[2]) !== region[1]) throw new Error(t("该会话已有归档，且正文经过手工修改。请先保留或移动旧归档后再导出"));
-    const next = prior.slice(0, region.index) + content + prior.slice(region.index + region[0].length);
-    if (next !== prior) await vault.modify(file, next);
-    await linkArchive(plugin, session, notePath);
-    return file;
-  }
-  const created = await vault.create(notePath, content);
+    return prior.slice(0, region.index) + content + prior.slice(region.index + region[0].length);
+  });
   await linkArchive(plugin, session, notePath);
-  return created;
+  return file;
 }
 
 async function linkArchive(plugin, session, archivePath) {
@@ -124,11 +123,12 @@ async function linkArchive(plugin, session, archivePath) {
   const binding = Object.values(plugin.settings?.taskBindings || {}).find(b => b.sid === sid);
   const target = binding?.path ? binding : job;
   if (!target?.path || !plugin.app.vault.getAbstractFileByPath(target.path)) return;
-  const text = await plugin.readNote(target.path);
-  if (text.includes(`[[${archivePath}|`)) return;
-  const task = J.findTask(text, target.key || J.workKey(target.name || ""), target.blockId, sid);
-  if (!task) return;
-  const lines = text.split("\n"), indent = (lines[task.line].match(/^[ \t]*/)?.[0] || "") + "\t";
-  lines.splice(task.line + 1, 0, `${indent}- 📄 [[${archivePath}|对话归档 · ${session.agent}]]`);
-  await plugin.writeNote(target.path, lines.join("\n"));
+  await updateNote(plugin, target.path, text => {
+    if (text.includes(`[[${archivePath}|`)) return text;
+    const task = J.findTask(text, target.key || J.workKey(target.name || ""), target.blockId, sid);
+    if (!task) return text;
+    const lines = text.split("\n"), indent = (lines[task.line].match(/^[ \t]*/)?.[0] || "") + "\t";
+    lines.splice(task.line + 1, 0, `${indent}- 📄 [[${archivePath}|对话归档 · ${session.agent}]]`);
+    return lines.join("\n");
+  });
 }

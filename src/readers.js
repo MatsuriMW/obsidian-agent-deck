@@ -375,6 +375,7 @@ export class AgentUsage {
     add(process.env.CODEX_HOME ? path.join(process.env.CODEX_HOME, "sessions") : path.join(h, ".codex/sessions"), "codex");
     add(process.env.CODEX_HOME ? path.join(process.env.CODEX_HOME, "archived_sessions") : path.join(h, ".codex/archived_sessions"), "codex");
     add(path.join(h, ".workbuddy/projects"), "workbuddy");
+    add(path.join(h, ".codebuddy/projects"), "workbuddy");
     add(path.join(h, ".dsh/sessions"), "dsh");
     add(path.join(h, ".gemini/antigravity/brain"), "antigravity");
     add(path.join(h, ".qoder/projects"), "qoder");
@@ -1081,6 +1082,7 @@ export class AgentUsage {
       v.state = (d.status === "failed" || d.status === "error") ? "error" : "run";
     }
     const pd = d.providerData || {}, u = pd.usage;
+    const wbApp = (pd.agent === "cli" || String(fc.path || "").includes("/.codebuddy/")) ? "cli" : "workbuddy";
     const mod = pd.requestModelName || pd.model || v.model;
     if (mod) v.model = mod;
     const meta = this.meta.get(fc.sid) || {};
@@ -1091,7 +1093,7 @@ export class AgentUsage {
       const m = { key, sid: fc.sid, proj: s.proj, model: v.model, out: u.outputTokens || 0, fresh: Math.max(0, (u.inputTokens || 0) - cached), cached, at: ms };
       fc.msgs.set(id, m);
       this.noteMeta(fc, fc.sid, {
-        title: v.title, text: s.text, cwd: v.cwd, app: "workbuddy", model: m.model,
+        title: v.title, text: s.text, cwd: v.cwd, app: wbApp, model: m.model,
         lastAt: Math.max(ms, meta.lastAt || 0),
         out: (meta.out || 0) - prev.out + m.out,
         fresh: (meta.fresh || 0) - prev.fresh + m.fresh,
@@ -1101,7 +1103,7 @@ export class AgentUsage {
       });
     } else {
       this.noteMeta(fc, fc.sid, {
-        title: v.title, text: s.text, cwd: v.cwd, app: "workbuddy", model: v.model || meta.model,
+        title: v.title, text: s.text, cwd: v.cwd, app: wbApp, model: v.model || meta.model,
         lastAt: Math.max(ms, meta.lastAt || 0),
         state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds, lastText: v.lastText,
       });

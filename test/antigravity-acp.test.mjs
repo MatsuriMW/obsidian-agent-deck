@@ -80,11 +80,12 @@ if(m.id!=null)send({id:m.id,result:{configOptions:options()}});
  }
 });
 
-test('Qoder delegates via qodercli when signed in and falls back to desktop handoff when not logged in',async()=>{
+test('Qoder delegates via qodercli in background and uses clipboard handoff for desktop',async()=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ad-qoder-')),bin=path.join(dir,'qodercli'),argsFile=path.join(dir,'args.json');
  fs.writeFileSync(bin,`#!/usr/bin/env node
 const fs=require('fs');
-fs.writeFileSync(${JSON.stringify(argsFile)},JSON.stringify(process.argv.slice(2)));
+const argv=process.argv.slice(2);
+fs.writeFileSync(${JSON.stringify(argsFile)},JSON.stringify(argv));
 if(process.env.QODER_MODE==='unauth'){process.stderr.write('Not logged in. Please run "qodercli login" first.\\n');process.exit(1);}
 process.stdout.write('QODER_OK\\n');
 `);
@@ -96,22 +97,36 @@ process.stdout.write('QODER_OK\\n');
  d.copyText=t=>{copied=t;};
  d.openAgentApp=a=>{openedApp=a;};
  try{
-  const j=await d.delegate({agent:'qoder',file:{path:'test.md'},line:0});
+  const j=await d.delegate({agent:'qoder',destination:'background',file:{path:'test.md'},line:0});
   await settle(j);
   assert.equal(j.state,'done');
-  assert.equal(j.result,'QODER_OK');
+  assert.equal(j.result,'QODER_OK\n');
   assert.ok(j.sessionId);
   const args=JSON.parse(fs.readFileSync(argsFile,'utf8'));
   assert.ok(args.includes('-p'));
+  assert.ok(args.includes('--session-id'));
   assert.ok(args.includes('ultimate'));
-  process.env.QODER_MODE='unauth';
-  const j2=await d.delegate({agent:'qoder',file:{path:'test.md'},line:0,newSession:true});
-  await new Promise(r=>setTimeout(r,120));
-  assert.equal(j2.handoff,true);
-  assert.equal(j2.state,'starting');
-  assert.equal(j2.sessionId,'');
+  assert.equal(j.conversation.length,2);
+
+  // Explicit desktop destination goes straight to clipboard handoff without spawning qodercli
+  fs.unlinkSync(argsFile);
+  const jDesk=await d.delegate({agent:'qoder',destination:'desktop',file:{path:'test.md'},line:0,newSession:true});
+  assert.equal(jDesk.handoff,true);
+  assert.equal(jDesk.state,'starting');
+  assert.equal(jDesk.sessionId,'');
   assert.equal(openedApp,'qoder');
   assert.ok(copied.includes('test qoder'));
+  assert.equal(fs.existsSync(argsFile),false);
+
+  // Explicit background execution fails visibly without opening a desktop client.
+  copied='';openedApp='';
+  process.env.QODER_MODE='unauth';
+  const j2=await d.delegate({agent:'qoder',destination:'background',file:{path:'test.md'},line:0,newSession:true});
+  await settle(j2);
+  assert.equal(j2.state,'error');
+  assert.match(j2.error,/Not logged in/);
+  assert.equal(openedApp,'');
+  assert.equal(copied,'');
  }finally{
   delete process.env.QODER_MODE;
   for(const r of d.runners.values()){r.cancel();r.child?.kill()}

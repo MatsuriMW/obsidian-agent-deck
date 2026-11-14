@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import esbuild from 'esbuild';
-const stub=`export class WidgetType{}; export const Decoration={set:r=>r,replace:spec=>({range:(from,to)=>({from,to,spec})}),line:spec=>({range:from=>({from,to:from,spec})}),widget:spec=>({range:from=>({from,to:from,spec})})}, EditorView={}, StateEffect={define:()=>({})}, StateField={define:c=>c}, ViewPlugin={fromClass:()=>null}, foldedRanges=()=>{}, unfoldEffect={};`;
+const stub=`export class WidgetType{}; export const Decoration={set:r=>r,replace:spec=>({range:(from,to)=>({from,to,spec})}),line:spec=>({range:from=>({from,to:from,spec})}),widget:spec=>({range:from=>({from,to:from,spec})})}, EditorView={}, EditorState={transactionFilter:{of:f=>f}}, StateEffect={define:()=>({})}, StateField={define:c=>c}, ViewPlugin={fromClass:()=>null}, foldedRanges=()=>{}, unfoldEffect={};`;
 const bundle=await esbuild.build({entryPoints:[path.resolve(import.meta.dirname,'../src/record-display.js')],bundle:true,format:'esm',platform:'node',write:false,plugins:[{name:'cm-surface',setup(b){b.onResolve({filter:/^@codemirror\//},a=>({path:a.path,namespace:'cm'}));b.onLoad({filter:/.*/,namespace:'cm'},()=>({contents:stub}))}}]});
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ad-refresh-'));
 try{

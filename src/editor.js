@@ -274,7 +274,11 @@ class PillWidget extends WidgetType {
         right.appendChild(cancel);
       }
       const progress = p.jobProgress(job, session);
-      if (progress && progress.total) {
+      if (job?.destination === "background") {
+        el.setAttribute("role", "progressbar");
+        el.setAttribute("aria-label", label.textContent);
+      }
+      if (job?.destination !== "background" && progress && progress.total) {
         el.style.setProperty("--ad-p", `${Math.round(progress.done / progress.total * 100)}%`);
         el.classList.add("is-determinate");
       }
@@ -285,7 +289,8 @@ class PillWidget extends WidgetType {
     } else if (info.kind === "done") {
       label.textContent = tr("本轮结束");
       const resText = job && job.result ? truncate(job.result, 28) : (session && session.lastText ? truncate(J.oneSentenceConclusion(session.lastText, 28), 28) : "");
-      meta.textContent = [progText, resText].filter(Boolean).join(" · ");
+      const elapsed = job?.endedAt && job?.startedAt ? fmtDur(Math.max(0, job.endedAt - job.startedAt)) : "";
+      meta.textContent = [elapsed, progText, resText].filter(Boolean).join(" · ");
       const open = document.createElement("span");
       open.className = "ad-pill__open";
       setLucide(open, "arrow-up-right");
@@ -294,7 +299,8 @@ class PillWidget extends WidgetType {
       right.appendChild(open);
     } else if (info.kind === "error") {
       label.textContent = tr("出错");
-      meta.textContent = truncate((job && job.error) || (session && session.err) || "", 30);
+      const elapsed = job?.endedAt && job?.startedAt ? fmtDur(Math.max(0, job.endedAt - job.startedAt)) : "";
+      meta.textContent = [elapsed, truncate((job && job.error) || (session && session.err) || "", 30)].filter(Boolean).join(" · ");
       const retry = document.createElement("span");
       retry.className = "ad-pill__open";
       setLucide(retry, "refresh-cw");

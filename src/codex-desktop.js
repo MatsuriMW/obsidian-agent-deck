@@ -13,6 +13,7 @@ export function codexDesktopBinary(configured) {
 export class CodexDesktopRunner {
   constructor(delegator, job, openDesktop) {
     this.d = delegator; this.job = job; this.openDesktop = openDesktop;
+    this.messages = new Map();
     this.pending = new Map(); this.nextId = 0; this.finished = false;
   }
   send(message) { this.child.stdin.write(JSON.stringify(message) + "\n"); }
@@ -27,6 +28,7 @@ export class CodexDesktopRunner {
   }
   async start({ prompt }) {
     try {
+      this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
       const cfg = this.d.settings.delegate.codex;
       this.child = spawn(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
       this.closed = new Promise(resolve => this.child.once("close", resolve));
@@ -76,7 +78,8 @@ export class CodexDesktopRunner {
     const params = message.params;
     if (params?.threadId !== this.job.sessionId) return;
     if (message.method === "item/completed" && params.item?.type === "agentMessage") {
-      this.job.result = params.item.text || "";
+      this.messages.set(params.item.id || `message-${this.messages.size}`, params.item.text || "");
+      this.job.result = [...this.messages.values()].join("\n\n");
       this.job.lastText = this.job.result.slice(-2000);
     }
     if (message.method === "turn/started") this.turnId = params.turn?.id;
@@ -91,6 +94,7 @@ export class CodexDesktopRunner {
     for (const pending of this.pending.values()) { clearTimeout(pending.timer); pending.reject(new Error(error || t("Codex 连接已结束"))); }
     this.pending.clear();
     this.job.state = state; this.job.endedAt = Date.now();
+    if (this.job.result) this.job.conversation.push({ role: "assistant", text: this.job.result, at: this.job.endedAt });
     if (error) this.job.error = error.slice(0, 500);
     this.d.saveJobs(); this.d.refreshUI();
     if (this.child) {

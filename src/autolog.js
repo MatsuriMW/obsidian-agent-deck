@@ -1,3 +1,4 @@
+import { serializeNote } from "./note-updates.js";
 // Agent Deck — 自动记日记（人机共写）.
 //
 // 你在日记里写任务，是预计；Agent 的会话日志是自己会写的实际记录。这一块把
@@ -63,7 +64,7 @@ export class AutoLog {
     if (base === next) return true;
     const v = this.viewFor(file);
     if (v) {
-      if (v.editor.getValue() !== base) return false;
+      if (v.editor.cm?.composing || v.editor.getValue() !== base) return false;
       const change = J.diffLines(base, next);
       if (change) v.editor.transaction({ changes: [change] });
       return true;
@@ -330,10 +331,11 @@ export class AutoLog {
       const arch = this.archived();
       const base = await this.read(file);
       const linked = J.linkMap(base);
+      const background = new Set(Object.values(this.p.jobs || {}).filter(job => job.destination === "background").map(job => job.sessionId));
       const todo = [], live = [];
       for (const x of data.list) {
         if (!x.segs || !x.segs.length) continue;
-        if (!this.agentOn(x.agent)) continue;
+        if (!this.agentOn(x.agent) || background.has(x.sid)) continue;
         if (linked.has(x.sid)) continue;   // 日记里用 🔗 绑好的，交给回写那一半
         const last = x.segs[x.segs.length - 1][1];
         const active = now - last <= idle;
@@ -354,131 +356,136 @@ export class AutoLog {
         report.error = this._err || "";
       }
       if (this.cfg.journalAutoWrite === false && !manual) return report;
-      const text0 = base;
-      let text = text0;
-      const digest = { doing: [], paused: [], done: [], archived: [], todo: [] };
-      const clocks = new Set();
-      const work = ((this.cfg.workLog ||= {})[day] ||= {});
-      for (const { x, active, fresh } of [...ask, ...todo.slice(this.batch), ...live]) {
-        const a = ans.get(x.sid);
-        const last = x.segs[x.segs.length - 1][1];
-        let rec = st[x.sid];
-        if (fresh) {
-          if (!a) continue;
-          if (a.skip) { st[x.sid] = { skip: true }; continue; }
-          let m = a.matchKey ? J.taskItems(text).find((i) => i.state === "open" && i.key === a.matchKey) : null;
-          if (m && !active && m.state !== "doing" && m.state !== "paused") m = null;
-          if (!m && !a.label) { st[x.sid] = { skip: true }; continue; }
-          const label = m ? m.body : J.AUTO_MARK + a.label;
-          const blockId = (m && m.blockId) || J.makeBlockId(x.sid);
-          rec = st[x.sid] = { key: J.workKey(label), label, blockId, created: !m, agent: x.agent, status: m ? m.state : null, fresh: !m };
-        }
-        rec.min = x.min;
-        if (a) rec.asked = !active;
-        if (active) delete rec.asked;
-        const found = J.findTask(text, rec.key, rec.blockId || "", x.sid);
-        if (!found && !rec.fresh) {
-          rec.gone = true;
-          report.changes.push(t("不再管：{name}（这一行没了）", { name: rec.label }));
-          continue;
-        }
-        if (found) {
-          if (found.blockId) rec.blockId = found.blockId;
-          rec.key = found.key;
-        }
-        const cur = found ? found.state : null;
-        const manualState = found && J.isManualTask(this.cfg, text.split("\n")[found.line]);
-        if (manualState) rec.status = cur;
-        if (cur === "done" && !manualState) { if (rec.status !== "done") clocks.add(rec.key); rec.status = "done"; continue; }
-        if (rec.status && cur !== rec.status && cur) {
-          if (cur === "doing") rec.hold = Date.now() + 2 * 3600e3; else rec.parkedAt = last;
-          rec.status = cur;
-          delete rec.autoPaused;
-        }
-        const name = J.workKey(rec.label).replace(J.AUTO_MARK, "");
-        if (!manualState && this.allArchived(st, x.sid, rec, arch)) {
-          text = this.autoLine(text, rec, x, "done").text;
-          rec.status = "done";
-          delete rec.fresh; delete rec.parkedAt; delete rec.hold; delete rec.autoPaused;
-          clocks.add(rec.key);
-          digest.archived.push(`${name}（${x.min}m）`);
-          report.changes.push(t("DONE（已归档）：{name}（{min}m）", { name: rec.label, min: x.min }));
-        } else if (!manualState && active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
-          text = this.autoLine(text, rec, x, "doing").text;
-          rec.status = "doing";
-          delete rec.parkedAt; delete rec.fresh; delete rec.autoPaused;
-          digest.doing.push(name);
-          report.changes.push(t("DOING：{name}", { name: rec.label }));
-        } else if (!manualState && active && cur === "doing") {
-          text = this.autoLine(text, rec, x, "doing").text;
-        } else if (!manualState && !active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
-          text = this.autoLine(text, rec, x, "paused").text;
-          rec.status = "paused"; rec.autoPaused = true; rec.parkedAt = last; delete rec.fresh;
-          clocks.add(rec.key);
-          digest.paused.push(`${name}（${x.min}m）`);
-          report.changes.push(t("PAUSED：{name}（{min}m）", { name: rec.label, min: x.min }));
-        } else if (!manualState && !active && cur === "paused") {
-          text = this.autoLine(text, rec, x, "paused").text;
-        }
-        if (a && !active && a.done && !rec.doneHint) { rec.doneHint = true; digest.done.push(`${name}（${x.min}m）`); report.changes.push(t("看着做完了：{name}", { name: rec.label })); }
-        // 把同一个会话的多轮问答、一句话结论和需要拍板的问题都挂在同一个 ^xxxxx 任务条目下，不另起顶层条目
-        const meta = this.usage.meta.get(x.sid) || {};
-        const rounds = Array.isArray(meta.rounds) ? meta.rounds : [];
-        const rawSummary = (a && a.summary) || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? J.oneSentenceConclusion(meta.lastText, 90) : "");
-        if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
-        const pendingTodos = (a && !active && Array.isArray(a.todos) && !rec.todosAdded) ? a.todos : [];
-        const taskTodo = x.agent === "claude" && (!active || meta.state === "wait" || meta.state === "quiet") ? (meta.todo || null) : null;
-        if ((this.cfg.autoLogGranularity !== "paused" || !active || arch.has(x.sid)) && (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo)) {
-          const synced = J.syncSessionEntry(text, {
-            granularity: this.cfg.autoLogGranularity,
-            compact: this.cfg.autoLogSummaries?.[day]?.[x.sid],
-            detail: this.cfg.autoLogDetail,
-        detailHistory: this.cfg.autoLogDetailHistory,
-            sid: x.sid,
-            blockId: rec.blockId || "",
-            key: rec.key,
-            said: rawSummary,
-            rounds: (!active || meta.state === "wait" || meta.state === "quiet") ? rounds : rounds.slice(0, -1),
-            todos: pendingTodos,
-            taskTodo,
-            ensureId: true,
-          });
-          text = synced.text;
-          if (synced.blockId) rec.blockId = synced.blockId;
-          if (pendingTodos.length) {
-            for (const todo of pendingTodos) { digest.todo.push(todo); report.changes.push(t("待拍板（挂在 {name} 下）：{text}", { name, text: todo })); }
-            rec.todosAdded = true;
+      await serializeNote(this.p, file.path, async () => {
+        const base = await this.read(file);
+        const linked = J.linkMap(base);
+        let text = base;
+        const digest = { doing: [], paused: [], done: [], archived: [], todo: [] };
+        const clocks = new Set();
+        const work = ((this.cfg.workLog ||= {})[day] ||= {});
+        for (const { x, active, fresh } of [...ask, ...todo.slice(this.batch), ...live]) {
+          if (linked.has(x.sid)) continue;
+          const a = ans.get(x.sid);
+          const last = x.segs[x.segs.length - 1][1];
+          let rec = st[x.sid];
+          if (fresh) {
+            if (!a) continue;
+            if (a.skip) { st[x.sid] = { skip: true }; continue; }
+            let m = a.matchKey ? J.taskItems(text).find((i) => i.state === "open" && i.key === a.matchKey) : null;
+            if (m && !active && m.state !== "doing" && m.state !== "paused") m = null;
+            if (!m && !a.label) { st[x.sid] = { skip: true }; continue; }
+            const label = m ? m.body : J.AUTO_MARK + a.label;
+            const blockId = (m && m.blockId) || J.makeBlockId(x.sid);
+            rec = st[x.sid] = { key: J.workKey(label), label, blockId, created: !m, agent: x.agent, status: m ? m.state : null, fresh: !m };
+          }
+          rec.min = x.min;
+          if (a) rec.asked = !active;
+          if (active) delete rec.asked;
+          const found = J.findTask(text, rec.key, rec.blockId || "", x.sid);
+          if (!found && !rec.fresh) {
+            rec.gone = true;
+            report.changes.push(t("不再管：{name}（这一行没了）", { name: rec.label }));
+            continue;
+          }
+          if (found) {
+            if (found.blockId) rec.blockId = found.blockId;
+            rec.key = found.key;
+          }
+          const cur = found ? found.state : null;
+          const manualState = found && J.isManualTask(this.cfg, text.split("\n")[found.line]);
+          if (manualState) rec.status = cur;
+          if (cur === "done" && !manualState) { if (rec.status !== "done") clocks.add(rec.key); rec.status = "done"; continue; }
+          if (rec.status && cur !== rec.status && cur) {
+            if (cur === "doing") rec.hold = Date.now() + 2 * 3600e3; else rec.parkedAt = last;
+            rec.status = cur;
+            delete rec.autoPaused;
+          }
+          const name = J.workKey(rec.label).replace(J.AUTO_MARK, "");
+          if (!manualState && this.allArchived(st, x.sid, rec, arch)) {
+            text = this.autoLine(text, rec, x, "done").text;
+            rec.status = "done";
+            delete rec.fresh; delete rec.parkedAt; delete rec.hold; delete rec.autoPaused;
+            clocks.add(rec.key);
+            digest.archived.push(`${name}（${x.min}m）`);
+            report.changes.push(t("DONE（已归档）：{name}（{min}m）", { name: rec.label, min: x.min }));
+          } else if (!manualState && active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
+            text = this.autoLine(text, rec, x, "doing").text;
+            rec.status = "doing";
+            delete rec.parkedAt; delete rec.fresh; delete rec.autoPaused;
+            digest.doing.push(name);
+            report.changes.push(t("DOING：{name}", { name: rec.label }));
+          } else if (!manualState && active && cur === "doing") {
+            text = this.autoLine(text, rec, x, "doing").text;
+          } else if (!manualState && !active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
+            text = this.autoLine(text, rec, x, "paused").text;
+            rec.status = "paused"; rec.autoPaused = true; rec.parkedAt = last; delete rec.fresh;
+            clocks.add(rec.key);
+            digest.paused.push(`${name}（${x.min}m）`);
+            report.changes.push(t("PAUSED：{name}（{min}m）", { name: rec.label, min: x.min }));
+          } else if (!manualState && !active && cur === "paused") {
+            text = this.autoLine(text, rec, x, "paused").text;
+          }
+          if (a && !active && a.done && !rec.doneHint) { rec.doneHint = true; digest.done.push(`${name}（${x.min}m）`); report.changes.push(t("看着做完了：{name}", { name: rec.label })); }
+          // 把同一个会话的多轮问答、一句话结论和需要拍板的问题都挂在同一个 ^xxxxx 任务条目下，不另起顶层条目
+          const meta = this.usage.meta.get(x.sid) || {};
+          const rounds = Array.isArray(meta.rounds) ? meta.rounds : [];
+          const rawSummary = (a && a.summary) || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? J.oneSentenceConclusion(meta.lastText, 90) : "");
+          if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
+          const pendingTodos = (a && !active && Array.isArray(a.todos) && !rec.todosAdded) ? a.todos : [];
+          const taskTodo = x.agent === "claude" && (!active || meta.state === "wait" || meta.state === "quiet") ? (meta.todo || null) : null;
+          if ((this.cfg.autoLogGranularity !== "paused" || !active || arch.has(x.sid)) && (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo)) {
+            const synced = J.syncSessionEntry(text, {
+              granularity: this.cfg.autoLogGranularity,
+              compact: this.cfg.autoLogSummaries?.[day]?.[x.sid],
+              detail: this.cfg.autoLogDetail,
+          detailHistory: this.cfg.autoLogDetailHistory,
+              sid: x.sid,
+              blockId: rec.blockId || "",
+              key: rec.key,
+              said: rawSummary,
+              rounds: (!active || meta.state === "wait" || meta.state === "quiet") ? rounds : rounds.slice(0, -1),
+              todos: pendingTodos,
+              taskTodo,
+              ensureId: true,
+            });
+            text = synced.text;
+            if (synced.blockId) rec.blockId = synced.blockId;
+            if (pendingTodos.length) {
+              for (const todo of pendingTodos) { digest.todo.push(todo); report.changes.push(t("待拍板（挂在 {name} 下）：{text}", { name, text: todo })); }
+              rec.todosAdded = true;
+            }
           }
         }
-      }
-      // 用时：各个会话真正在动的时段并到它那一行名下
-      const byKey = new Map(), who = new Map(), toks = new Map(), sids = new Map(), blockIds = new Map();
-      for (const x of data.list) {
-        const rec = st[x.sid];
-        if (!rec || rec.skip || rec.gone || !rec.key) continue;
-        if (rec.blockId && !blockIds.has(rec.key)) blockIds.set(rec.key, rec.blockId);
-        toks.set(rec.key, (toks.get(rec.key) || 0) + (x.out || 0) + (x.fresh || 0));
-        (sids.get(rec.key) || sids.set(rec.key, []).get(rec.key)).push(x.sid);
-        (byKey.get(rec.key) || byKey.set(rec.key, []).get(rec.key)).push(...x.segs);
-        (who.get(rec.key) || who.set(rec.key, new Set()).get(rec.key)).add(agentName(x.agent));
-      }
-      const merged = new Map();
-      for (const [k, segs] of byKey) merged.set(k, unionSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
-      for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "", blockIds.get(k) || "");
-      // ⏱ 排在记录块最后：顺带把以前夹在 ❓ / 💬 中间的旧记录也理顺
-      text = J.clocksLast(text);
-      report.diff = J.diffLines(base, text);
-      if (dry) { this.cfg.autoLogState[day] = JSON.parse(snap); return report; }
-      if (!(await this.write(file, base, text))) {
-        this.cfg.autoLogState[day] = JSON.parse(snap);
-        report.error = t("日记正在被改，这一轮没写");
-        return report;
-      }
-      for (const [k, segs] of merged) work[k] = segs;
+        // 用时：各个会话真正在动的时段并到它那一行名下
+        const byKey = new Map(), who = new Map(), toks = new Map(), sids = new Map(), blockIds = new Map();
+        for (const x of data.list) {
+          const rec = st[x.sid];
+          if (!rec || rec.skip || rec.gone || !rec.key) continue;
+          if (rec.blockId && !blockIds.has(rec.key)) blockIds.set(rec.key, rec.blockId);
+          toks.set(rec.key, (toks.get(rec.key) || 0) + (x.out || 0) + (x.fresh || 0));
+          (sids.get(rec.key) || sids.set(rec.key, []).get(rec.key)).push(x.sid);
+          (byKey.get(rec.key) || byKey.set(rec.key, []).get(rec.key)).push(...x.segs);
+          (who.get(rec.key) || who.set(rec.key, new Set()).get(rec.key)).add(agentName(x.agent));
+        }
+        const merged = new Map();
+        for (const [k, segs] of byKey) merged.set(k, unionSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
+        for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "", blockIds.get(k) || "");
+        // ⏱ 排在记录块最后：顺带把以前夹在 ❓ / 💬 中间的旧记录也理顺
+        text = J.clocksLast(text);
+        report.diff = J.diffLines(base, text);
+        if (dry) { this.cfg.autoLogState[day] = JSON.parse(snap); return report; }
+        if (!(await this.write(file, base, text))) {
+          this.cfg.autoLogState[day] = JSON.parse(snap);
+          report.error = t("日记正在被改，这一轮没写");
+          return report;
+        }
+        for (const [k, segs] of merged) work[k] = segs;
+        if (this.cfg.autoLogNotify !== false) this.digest(digest, idle, file);
+      });
+      if (dry || report.error === t("日记正在被改，这一轮没写")) return report;
       await this.archivePast(arch, day);
       for (const k of Object.keys(this.cfg.autoLogState).sort().slice(0, -4)) delete this.cfg.autoLogState[k];
       await this.p.saveSettings();
-      if (this.cfg.autoLogNotify !== false) this.digest(digest, idle, file);
       return report;
     } catch (e) {
       console.error("[agent-deck] 自动记日记失败", e);

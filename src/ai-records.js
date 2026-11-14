@@ -84,7 +84,7 @@ export function adBlockIdRanges(text, trackedIds = new Set()) {
     } else if (!fence) {
       const turn = /[ \t]+<!-- ad-(?:(?:turn|summary):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/.exec(line);
       if (turn) out.push({ from: offset + turn.index, to: offset + turn.index + turn[0].length });
-      const id = /(?:[ \t]+|^)\^([a-z0-9-]+)[ \t]*$/i.exec(line);
+      const id = /(?:[ \t]+|^)\^([a-z0-9-]+)(?:\S*)?[ \t]*$/i.exec(line);
       if (id && hiddenBlockId(id[1], trackedIds)) out.push({ from: offset + id.index, to: offset + line.length });
       const link = J.parseLink(line), suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(line);
       if (link && suffix?.[1] === link.sid) out.push({ from: offset + suffix.index, to: offset + line.length });
@@ -92,4 +92,33 @@ export function adBlockIdRanges(text, trackedIds = new Set()) {
     offset += line.length + 1;
   }
   return out;
+}
+
+// Keep user typing and cursor placement before a line-ending hidden block ID,
+// while letting Enter split the line after the hidden block ID so the ID stays on the task line.
+export function redirectHiddenTailTransaction(text, trackedIds = new Set(), { change = null, prevHead = -1, nextHead = -1, selectionEmpty = true } = {}) {
+  const ranges = adBlockIdRanges(text, trackedIds);
+  if (!ranges.length) return null;
+  if (change && change.from === change.to && change.insert) {
+    for (const r of ranges) {
+      if (change.insert.startsWith("\n") && change.from === r.from) {
+        return { change: { from: r.to, to: r.to, insert: change.insert }, head: r.to + change.insert.length };
+      }
+      if (!change.insert.includes("\n") && change.from > r.from && change.from <= r.to) {
+        return { change: { from: r.from, to: r.from, insert: change.insert }, head: r.from + change.insert.length };
+      }
+    }
+    return null;
+  }
+  if (!change && selectionEmpty && nextHead >= 0) {
+    for (const r of ranges) {
+      if (nextHead > r.from && nextHead <= r.to) {
+        if (prevHead === r.from && nextHead === r.to) {
+          return { head: r.to < text.length ? r.to + 1 : r.from };
+        }
+        return { head: r.from };
+      }
+    }
+  }
+  return null;
 }

@@ -293,7 +293,7 @@ export function kwLine(raw) {
 }
 
 export function parseLink(line) {
-  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder)&sid=([^)]*)\)/.exec(line);
+  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder|workbuddy)&sid=([^)]*)\)/.exec(line);
   if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(OpenCode|Qoder)：/, "") };
   const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
@@ -460,7 +460,7 @@ function sortRecordedRounds(lines, parent) {
   for (let i = slots.length - 1; i >= 0; i--) lines.splice(slots[i][0], slots[i][1] - slots[i][0], ...records[i].lines);
 }
 
-export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null } = {}) {
+export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null, replyMax = 0 } = {}) {
   let lines = text.split("\n");
   let n = -1, linkAt = -1;
   if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
@@ -501,7 +501,8 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
   const legacyOwner = lines.slice(n + 1, childSpan() + 1).map(parseLink).find(Boolean)?.sid || sid;
   const belongs = raw => { const marker = sourceTurn(raw); return marker ? marker[1] === sid : legacyOwner === sid; };
   const provenance = rn => /^[A-Za-z0-9_-]+$/.test(sid) ? ` <!-- ad-turn:${sid}:${rn} -->` : "";
-  for (let i = n + 1; i <= childSpan(); i++) {
+  const recordedEnd = childSpan();
+  for (let i = n + 1; i <= recordedEnd; i++) {
     if (fenced.has(i) || width(lines[i]) !== childWidth || !belongs(lines[i])) continue;
     const marker = sourceTurn(lines[i]);
     const match = /^\s*[-*+]\s+💬\s+(?:第(\d+)轮[：:]|((?!累计总结[：:]).))/.exec(lines[i]);
@@ -533,7 +534,7 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
     }
     const raw = level === "detailed" ? (r.said || r.summary) : (r.summary || r.said);
     const task = r.taskSummary || r.ask || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
-    const message = level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
+    const message = replyMax ? resultText(r.said || r.summary, replyMax) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
       ? `任务：${resultText(task, 45)}；结论：${resultText(raw, 65)}`
       : recordSentence(raw, 90);
     // Number the latest-progress entry too, so a setting change cannot rewrite it.

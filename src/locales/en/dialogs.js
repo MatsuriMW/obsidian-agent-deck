@@ -14,8 +14,7 @@ export default {
   "qoder 退出码 {code}": "qoder exited with code {code}",
   "📋 Qoder CLI 尚未登录，已复制任务并打开 Qoder 桌面版（也可在设置里登录 CLI）":
     "📋 Qoder CLI is not signed in; copied the task and opened Qoder Desktop (or sign in to the CLI in Settings)",
-  "通过 agy acp 委派，工具请求会在 Obsidian 中逐次确认；完成后可打开会话正文继续追问。推理强度以当前模型支持的值为准。":
-    "Delegated through agy acp, so tool requests are confirmed one by one in Obsidian. When it finishes, open the transcript to keep asking. Reasoning effort follows what the current model supports.",
+  "通过 agy acp 后台委派；工具请求逐次确认，完成后可查看或归档正文。": "Delegates in the background through agy acp. Confirm tool requests individually, then view or export the transcript.",
   "留空 = 插件设置里的目录（默认是库根目录）。":
     "Leave empty to use the folder from plugin settings (the vault root by default).",
   "加在这次委派最后的话": "Text to add at the end of this delegation",
@@ -136,8 +135,9 @@ export default {
   "这一块下面已经有 🔗 了；要重发先删掉那一行":
     "This block already has a 🔗 below it. Delete that line before sending again.",
   "请等当前这一轮结束后再发送": "Wait for the current turn to finish before sending",
-  "这是 Antigravity 桌面会话，请在客户端继续；在插件中新建 ACP 委派后可在 Obsidian 内续聊":
-    "This is an Antigravity desktop session, so continue in the client. New ACP delegations can be continued inside Obsidian.",
+  "这是 Antigravity 桌面会话，请在客户端继续": "This is an Antigravity desktop session. Continue in its own client.",
+  "这是 Qoder 桌面会话，请在客户端继续；在插件中通过 CLI 委派后可在 Obsidian 内续聊":
+    "This is a Qoder desktop session, so continue in the client. Sessions delegated via the CLI in the plugin can be continued inside Obsidian.",
   "等你在 {agent} 里发出去": "Waiting for you to send it in {agent}",
   "在终端里开 {agent}": "Opening {agent} in the terminal",
 

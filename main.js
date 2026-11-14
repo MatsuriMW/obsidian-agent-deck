@@ -1,4 +1,4 @@
-/* Agent Deck 1.9.3 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.9.4 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -104,7 +104,7 @@ var main_default = {
   "\u4EFB\u52A1\u5185\u5BB9\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u9884\u89C8\u540E\u53D1\u9001": "The task content changed \u2014 preview it again before sending",
   "\u5BA2\u6237\u7AEF\u6A21\u578B": "client model",
   "\u5BA2\u6237\u7AEF\u5F3A\u5EA6": "client effort",
-  "\u6B64 Antigravity \u4F1A\u8BDD\u5C1A\u4E0D\u652F\u6301\u8F6C\u5230\u684C\u9762 IDE \u7EE7\u7EED\uFF0C\u8BF7\u5728 Obsidian \u4E2D\u7EED\u804A": "This Antigravity session cannot continue in the desktop IDE yet \u2014 keep chatting in Obsidian",
+  "\u6B64 Antigravity \u4F1A\u8BDD\u53EF\u67E5\u770B\u548C\u5F52\u6863\u6B63\u6587\uFF0C\u6682\u4E0D\u652F\u6301\u8F6C\u5230\u684C\u9762 IDE": "View or export this Antigravity transcript here; desktop IDE continuation is unavailable.",
   "\u6B63\u5728\u5EFA\u7ACB\u4F1A\u8BDD\uFF0C\u8BF7\u7A0D\u540E\u518D\u6253\u5F00": "The session is still being established \u2014 open it again shortly",
   "\u9996\u8F6E\u4ECD\u5728\u6267\u884C\uFF0C\u7ED3\u675F\u540E\u518D\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD": "The first turn is still running \u2014 open the same session on the desktop once it finishes",
   "\u6CA1\u6253\u5F00 {agent}\uFF1A\u672C\u673A\u597D\u50CF\u6CA1\u88C5": "Could not open {agent} \u2014 it does not seem to be installed",
@@ -758,7 +758,7 @@ var settings_default = {
   "\u63D2\u5230\u5F00\u5934": "Top of the file",
   "\u8FFD\u52A0\u5230\u672B\u5C3E": "End of the file",
   "\u684C\u9762\u7248 / CLI": "Desktop / CLI",
-  "\u4F18\u5148\u4F7F\u7528 OpenCode.app \u5185\u7F6E\u7684 opencode-cli acp\uFF0C\u53EF\u5728 Obsidian \u5185\u7EED\u804A\u6216\u5728\u684C\u9762\u7248\u6253\u5F00": "Prefers opencode-cli acp bundled with OpenCode.app; continue inside Obsidian or open in the desktop app",
+  "\u901A\u8FC7 OpenCode.app \u5185\u7F6E\u7684 opencode-cli acp \u540E\u53F0\u59D4\u6D3E\uFF0C\u4E5F\u53EF\u6253\u5F00\u684C\u9762\u7AEF\u6216\u7EC8\u7AEF": "Delegates in the background through the bundled opencode-cli acp; desktop and terminal destinations are also available.",
   "\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\uFF08\u542B OpenCode.app \u5185\u7F6E CLI\uFF09": "Empty detects it automatically (including the OpenCode.app bundled CLI)",
   "\u8BFB\u53D6 OpenCode \u53EF\u7528\u6A21\u578B": "Load available OpenCode models",
   "\u68C0\u67E5 opencode": "Check opencode",
@@ -787,7 +787,7 @@ var dialogs_default = {
   "ACP \u6A21\u5F0F\u6CA1\u6709 plan/auto \u8FD9\u4E2A\u5207\u6362\uFF1B\u5173\u6389\u81EA\u52A8\u5141\u8BB8\u65F6\uFF0C\u6743\u9650\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\u3002": "ACP mode has no plan/auto switch. With auto-allow off, each permission request is confirmed in Obsidian.",
   "qoder \u9000\u51FA\u7801 {code}": "qoder exited with code {code}",
   "\u{1F4CB} Qoder CLI \u5C1A\u672A\u767B\u5F55\uFF0C\u5DF2\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00 Qoder \u684C\u9762\u7248\uFF08\u4E5F\u53EF\u5728\u8BBE\u7F6E\u91CC\u767B\u5F55 CLI\uFF09": "\u{1F4CB} Qoder CLI is not signed in; copied the task and opened Qoder Desktop (or sign in to the CLI in Settings)",
-  "\u901A\u8FC7 agy acp \u59D4\u6D3E\uFF0C\u5DE5\u5177\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\uFF1B\u5B8C\u6210\u540E\u53EF\u6253\u5F00\u4F1A\u8BDD\u6B63\u6587\u7EE7\u7EED\u8FFD\u95EE\u3002\u63A8\u7406\u5F3A\u5EA6\u4EE5\u5F53\u524D\u6A21\u578B\u652F\u6301\u7684\u503C\u4E3A\u51C6\u3002": "Delegated through agy acp, so tool requests are confirmed one by one in Obsidian. When it finishes, open the transcript to keep asking. Reasoning effort follows what the current model supports.",
+  "\u901A\u8FC7 agy acp \u540E\u53F0\u59D4\u6D3E\uFF1B\u5DE5\u5177\u8BF7\u6C42\u9010\u6B21\u786E\u8BA4\uFF0C\u5B8C\u6210\u540E\u53EF\u67E5\u770B\u6216\u5F52\u6863\u6B63\u6587\u3002": "Delegates in the background through agy acp. Confirm tool requests individually, then view or export the transcript.",
   "\u7559\u7A7A = \u63D2\u4EF6\u8BBE\u7F6E\u91CC\u7684\u76EE\u5F55\uFF08\u9ED8\u8BA4\u662F\u5E93\u6839\u76EE\u5F55\uFF09\u3002": "Leave empty to use the folder from plugin settings (the vault root by default).",
   "\u52A0\u5728\u8FD9\u6B21\u59D4\u6D3E\u6700\u540E\u7684\u8BDD": "Text to add at the end of this delegation",
   "\u91CD\u65B0\u59D4\u6D3E\u7ED9 {agent}": "Delegate again to {agent}",
@@ -883,7 +883,8 @@ var dialogs_default = {
   "\u6B64 Agent \u4E0D\u652F\u6301\u6240\u9009\u5DE5\u4F5C\u4F4D\u7F6E": "This agent does not support the chosen working location",
   "\u8FD9\u4E00\u5757\u4E0B\u9762\u5DF2\u7ECF\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u53D1\u5148\u5220\u6389\u90A3\u4E00\u884C": "This block already has a \u{1F517} below it. Delete that line before sending again.",
   "\u8BF7\u7B49\u5F53\u524D\u8FD9\u4E00\u8F6E\u7ED3\u675F\u540E\u518D\u53D1\u9001": "Wait for the current turn to finish before sending",
-  "\u8FD9\u662F Antigravity \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED\uFF1B\u5728\u63D2\u4EF6\u4E2D\u65B0\u5EFA ACP \u59D4\u6D3E\u540E\u53EF\u5728 Obsidian \u5185\u7EED\u804A": "This is an Antigravity desktop session, so continue in the client. New ACP delegations can be continued inside Obsidian.",
+  "\u8FD9\u662F Antigravity \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED": "This is an Antigravity desktop session. Continue in its own client.",
+  "\u8FD9\u662F Qoder \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED\uFF1B\u5728\u63D2\u4EF6\u4E2D\u901A\u8FC7 CLI \u59D4\u6D3E\u540E\u53EF\u5728 Obsidian \u5185\u7EED\u804A": "This is a Qoder desktop session, so continue in the client. Sessions delegated via the CLI in the plugin can be continued inside Obsidian.",
   "\u7B49\u4F60\u5728 {agent} \u91CC\u53D1\u51FA\u53BB": "Waiting for you to send it in {agent}",
   "\u5728\u7EC8\u7AEF\u91CC\u5F00 {agent}": "Opening {agent} in the terminal",
   // workflow.js — lifecycle wording shown on the task line
@@ -1566,7 +1567,7 @@ var DEFAULTS = {
     codex: { transport: "desktop", model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
     antigravity: { model: "antigravity-default", effort: "medium", path: "", cwd: "", autoApprove: false },
     opencode: { model: "opencode-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
-    qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: true, extraArgs: "" },
+    qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
       model: "deepseek-v4-pro",
       effort: "high",
@@ -2026,7 +2027,7 @@ function kwLine(raw) {
   return { kw, body: s, blockId };
 }
 function parseLink(line) {
-  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder)&sid=([^)]*)\)/.exec(line);
+  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder|workbuddy)&sid=([^)]*)\)/.exec(line);
   if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(OpenCode|Qoder)：/, "") };
   const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
@@ -2123,7 +2124,7 @@ function sortRecordedRounds(lines, parent) {
   records.sort((a, b) => b.n - a.n || a.rank - b.rank);
   for (let i = slots.length - 1; i >= 0; i--) lines.splice(slots[i][0], slots[i][1] - slots[i][0], ...records[i].lines);
 }
-function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null } = {}) {
+function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null, replyMax = 0 } = {}) {
   let lines = text.split("\n");
   let n = -1, linkAt = -1;
   if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
@@ -2167,7 +2168,8 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
     return marker ? marker[1] === sid : legacyOwner === sid;
   };
   const provenance = (rn) => /^[A-Za-z0-9_-]+$/.test(sid) ? ` <!-- ad-turn:${sid}:${rn} -->` : "";
-  for (let i = n + 1; i <= childSpan(); i++) {
+  const recordedEnd = childSpan();
+  for (let i = n + 1; i <= recordedEnd; i++) {
     if (fenced.has(i) || width(lines[i]) !== childWidth || !belongs(lines[i])) continue;
     const marker = sourceTurn(lines[i]);
     const match = /^\s*[-*+]\s+💬\s+(?:第(\d+)轮[：:]|((?!累计总结[：:]).))/.exec(lines[i]);
@@ -2200,7 +2202,7 @@ function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", r
     }
     const raw = level === "detailed" ? r.said || r.summary : r.summary || r.said;
     const task = r.taskSummary || r.ask || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
-    const message = level === "detailed" ? detailExcerpt(raw, 3e3) : level === "brief" ? `\u4EFB\u52A1\uFF1A${resultText(task, 45)}\uFF1B\u7ED3\u8BBA\uFF1A${resultText(raw, 65)}` : recordSentence(raw, 90);
+    const message = replyMax ? resultText(r.said || r.summary, replyMax) : level === "detailed" ? detailExcerpt(raw, 3e3) : level === "brief" ? `\u4EFB\u52A1\uFF1A${resultText(task, 45)}\uFF1B\u7ED3\u8BBA\uFF1A${resultText(raw, 65)}` : recordSentence(raw, 90);
     const prefix = rn === 1 && roundLog ? "" : `\u7B2C${rn}\u8F6E\uFF1A`;
     append(`${ind}- \u{1F4AC} ${prefix}${message}${provenance(rn)}`);
     if (level === "detailed" && r === validRounds.at(-1) && taskTodo?.total > 0) {
@@ -3285,19 +3287,19 @@ var AttentionTracker = class {
 var activeJob = (job) => ["starting", "running", "needs-approval"].includes(job?.state);
 function destinations(agent) {
   const modes = {
-    obsidian: { id: "obsidian", label: t("\u5728 Obsidian \u4E2D\u804A"), hint: t("\u53D1\u9001\u540E\u6253\u5F00\u5BF9\u8BDD\uFF0C\u5728\u539F\u4F1A\u8BDD\u4E2D\u7EE7\u7EED\u8FFD\u95EE\u3002") },
-    desktop: { id: "desktop", label: t("\u5728\u684C\u9762\u5BA2\u6237\u7AEF\u4E2D\u804A"), hint: agent === "workbuddy" ? t("\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u7B49\u5F85\u4F60\u7C98\u8D34\u53D1\u9001\u3002") : agent === "dsh" ? t("\u5EFA\u7ACB\u4F1A\u8BDD\u540E\u6253\u5F00 Harness\uFF1B\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u5728\u4FA7\u680F\u9009\u62E9\u540C\u4E00\u4F1A\u8BDD\u7EE7\u7EED\u3002") : t("\u5148\u6267\u884C\u9996\u8F6E\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD\uFF1B\u9996\u8F6E\u671F\u95F4\u907F\u514D\u4E24\u8FB9\u540C\u65F6\u53D1\u9001\u3002") },
+    desktop: { id: "desktop", label: t("\u5728\u684C\u9762\u5BA2\u6237\u7AEF\u4E2D\u804A"), hint: ["workbuddy", "qoder"].includes(agent) ? t("\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u7B49\u5F85\u4F60\u7C98\u8D34\u53D1\u9001\u3002") : agent === "dsh" ? t("\u5EFA\u7ACB\u4F1A\u8BDD\u540E\u6253\u5F00 Harness\uFF1B\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u5728\u4FA7\u680F\u9009\u62E9\u540C\u4E00\u4F1A\u8BDD\u7EE7\u7EED\u3002") : t("\u5148\u6267\u884C\u9996\u8F6E\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD\uFF1B\u9996\u8F6E\u671F\u95F4\u907F\u514D\u4E24\u8FB9\u540C\u65F6\u53D1\u9001\u3002") },
     background: { id: "background", label: t("\u540E\u53F0\u6267\u884C"), hint: t("\u7559\u5728\u5F53\u524D\u7B14\u8BB0\uFF0C\u5B8C\u6210\u6216\u9700\u8981\u5904\u7406\u65F6\u63D0\u9192\u3002") },
     terminal: { id: "terminal", label: t("\u5728\u7EC8\u7AEF\u4E2D\u804A"), hint: t("\u6253\u5F00\u4EA4\u4E92\u7EC8\u7AEF\uFF0C\u540E\u7EED\u5728\u7EC8\u7AEF\u7EE7\u7EED\u3002") }
   };
-  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["obsidian", "desktop", "background"], antigravity: ["obsidian", "background"], opencode: ["obsidian", "desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], workbuddy: ["desktop"] };
+  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["desktop", "background"], antigravity: ["background"], opencode: ["desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], workbuddy: ["desktop", "terminal"] };
   return (ids[agent] || []).map((id) => modes[id]);
 }
 function defaultDestination(plugin, agent) {
-  if (["dsh", "antigravity", "opencode"].includes(agent)) return "obsidian";
-  if (agent === "codex") return plugin.settings.delegate.codex?.transport === "terminal" ? "terminal" : "desktop";
-  if (agent === "claude") return plugin.settings.delegate.claude?.openDesktop ? "desktop" : "background";
-  if (agent === "qoder") return plugin.settings.delegate.qoder?.openDesktop !== false ? "desktop" : "background";
+  if (agent === "antigravity" || agent === "qoder") return "background";
+  if (agent === "dsh") return "desktop";
+  if (agent === "opencode") return plugin.settings?.delegate?.opencode?.openDesktop ? "desktop" : "background";
+  if (agent === "codex") return plugin.settings?.delegate?.codex?.transport === "terminal" ? "terminal" : "desktop";
+  if (agent === "claude") return plugin.settings?.delegate?.claude?.openDesktop ? "desktop" : "background";
   return "desktop";
 }
 function canOpenClient(session) {
@@ -3308,7 +3310,7 @@ function executionStatus(job) {
   if (job.handoff && !job.sessionId) return job.cli ? t("\u7B49\u5F85\u7EC8\u7AEF\u4F1A\u8BDD\u5EFA\u7ACB") : t("\u7B49\u5F85\u4F60\u5728\u5BA2\u6237\u7AEF\u7C98\u8D34\u53D1\u9001");
   if (job.state === "starting") return t("\u6B63\u5728\u5EFA\u7ACB\u4F1A\u8BDD");
   if (job.state === "needs-approval") return t("\u9700\u8981\u6388\u6743");
-  if (job.state === "running") return job.destination === "desktop" && ["claude", "codex", "opencode", "qoder"].includes(job.agent) ? t("\u9996\u8F6E\u6267\u884C\u4E2D\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762") : t("\u6B63\u5728\u6267\u884C");
+  if (job.state === "running") return job.destination === "desktop" && ["claude", "codex", "opencode"].includes(job.agent) ? t("\u9996\u8F6E\u6267\u884C\u4E2D\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762") : t("\u6B63\u5728\u6267\u884C");
   if (job.state === "done") return t("\u672C\u8F6E\u7ED3\u675F");
   return job.state === "cancelled" ? t("\u5DF2\u505C\u6B62") : "";
 }
@@ -4404,6 +4406,7 @@ var AgentUsage = class {
     add(process.env.CODEX_HOME ? import_path.default.join(process.env.CODEX_HOME, "sessions") : import_path.default.join(h, ".codex/sessions"), "codex");
     add(process.env.CODEX_HOME ? import_path.default.join(process.env.CODEX_HOME, "archived_sessions") : import_path.default.join(h, ".codex/archived_sessions"), "codex");
     add(import_path.default.join(h, ".workbuddy/projects"), "workbuddy");
+    add(import_path.default.join(h, ".codebuddy/projects"), "workbuddy");
     add(import_path.default.join(h, ".dsh/sessions"), "dsh");
     add(import_path.default.join(h, ".gemini/antigravity/brain"), "antigravity");
     add(import_path.default.join(h, ".qoder/projects"), "qoder");
@@ -5208,6 +5211,7 @@ var AgentUsage = class {
       v.state = d.status === "failed" || d.status === "error" ? "error" : "run";
     }
     const pd = d.providerData || {}, u = pd.usage;
+    const wbApp = pd.agent === "cli" || String(fc.path || "").includes("/.codebuddy/") ? "cli" : "workbuddy";
     const mod = pd.requestModelName || pd.model || v.model;
     if (mod) v.model = mod;
     const meta = this.meta.get(fc.sid) || {};
@@ -5221,7 +5225,7 @@ var AgentUsage = class {
         title: v.title,
         text: s.text,
         cwd: v.cwd,
-        app: "workbuddy",
+        app: wbApp,
         model: m.model,
         lastAt: Math.max(ms, meta.lastAt || 0),
         out: (meta.out || 0) - prev.out + m.out,
@@ -5240,7 +5244,7 @@ var AgentUsage = class {
         title: v.title,
         text: s.text,
         cwd: v.cwd,
-        app: "workbuddy",
+        app: wbApp,
         model: v.model || meta.model,
         lastAt: Math.max(ms, meta.lastAt || 0),
         state: v.state,
@@ -5841,23 +5845,208 @@ function sqliteColumn(db, sql) {
   });
 }
 
+// src/note-updates.js
+var queues = /* @__PURE__ */ new WeakMap();
+function serializeNote(plugin, path7, task) {
+  let pending = queues.get(plugin);
+  if (!pending) queues.set(plugin, pending = /* @__PURE__ */ new Map());
+  const next = (pending.get(path7) || Promise.resolve()).catch(() => {
+  }).then(task);
+  pending.set(path7, next);
+  return next.finally(() => {
+    if (pending.get(path7) === next) pending.delete(path7);
+  });
+}
+function updateNote(plugin, path7, transform) {
+  return serializeNote(plugin, path7, async () => {
+    while (!plugin._unloaded && plugin.viewForPath?.(path7)?.editor.cm?.composing) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    if (plugin._unloaded) return;
+    const view = plugin.viewForPath?.(path7);
+    if (view && (!view.getMode || view.getMode() === "source")) {
+      const before2 = view.editor.getValue();
+      const next2 = transform(before2);
+      const change = diffLines(before2, next2);
+      if (change) view.editor.transaction({ changes: [change] });
+      return;
+    }
+    const file = plugin.app?.vault?.getAbstractFileByPath(path7);
+    if (file && plugin.app.vault.process) {
+      await plugin.app.vault.process(file, transform);
+      return;
+    }
+    const before = plugin.readNote ? await plugin.readNote(path7) : await plugin.app.vault.read(file);
+    const next = transform(before);
+    if (next !== before) {
+      if (plugin.writeNote) await plugin.writeNote(path7, next);
+      else await plugin.app.vault.modify(file, next);
+    }
+  });
+}
+
+// src/conversation.js
+var import_fs3 = __toESM(require("fs"), 1);
+var import_crypto3 = require("crypto");
+var textOf = (content) => typeof content === "string" ? content : (Array.isArray(content) ? content : []).filter((b) => ["text", "input_text", "output_text"].includes(b?.type)).map((b) => b.text || "").join("\n");
+function conversationMessages(agent, source) {
+  const messages = [];
+  const seen = /* @__PURE__ */ new Map();
+  for (const line of source.split("\n")) {
+    let d;
+    try {
+      d = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    let role, text, id;
+    if (agent === "dsh" && ["user/message", "assistant/message"].includes(d.type)) {
+      if (d.type === "user/message" && d.data?.source?.kind && d.data.source.kind !== "user") continue;
+      role = d.type === "user/message" ? "user" : "assistant";
+      text = textOf(d.data?.message?.content ?? d.data?.content);
+      id = d.data?.message?.id || d.data?.id;
+    } else if ((agent === "claude" || agent === "qoder") && ["user", "assistant"].includes(d.type) && !d.isSidechain) {
+      role = d.type;
+      text = textOf(d.message?.content);
+      id = d.uuid;
+    } else if (agent === "codex" && d.type === "response_item" && d.payload?.type === "message") {
+      role = d.payload.role;
+      text = textOf(d.payload.content);
+      id = d.payload.id;
+    } else if (agent === "workbuddy" && d.type === "message") {
+      role = d.role;
+      text = textOf(d.content);
+      id = d.id;
+    }
+    if (!["user", "assistant"].includes(role) || !text?.trim()) continue;
+    const message = { role, text, at: d.time || Date.parse(d.timestamp) || 0 };
+    const key = id && `${role}:${id}`;
+    if (key && seen.has(key)) messages[seen.get(key)] = message;
+    else {
+      if (key) seen.set(key, messages.length);
+      messages.push(message);
+    }
+  }
+  return messages;
+}
+async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map()) {
+  const sid = session.sid || session.sessionId;
+  const owned = Object.values(plugin.jobs).find((j) => j.sessionId === sid && j.agent === session.agent);
+  if (session.agent === "antigravity" && owned?.transport === "acp") return [...owned.conversation || []];
+  const files = [...plugin.usage.files?.values() || []].filter((f) => f.sid === sid && f.agent === session.agent && !f.sub);
+  const messages = [];
+  for (const file of files) {
+    if (["opencode", "qoder"].includes(session.agent) && file.path.includes("#")) {
+      const db = file.path.slice(0, file.path.lastIndexOf("#"));
+      const rows = await desktopMessages(db, session.agent, sid);
+      messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));
+      continue;
+    }
+    const stat = await import_fs3.default.promises.stat(file.path);
+    let entry = cache.get(file.path);
+    if (!entry || entry.mtime !== stat.mtimeMs || entry.size !== stat.size) {
+      const raw = await import_fs3.default.promises.readFile(file.path);
+      let bytes = raw;
+      if (file.zstd) {
+        try {
+          bytes = decompress(raw);
+        } catch (e) {
+          if (!file.zOff) throw e;
+          bytes = decompress(raw.subarray(0, file.zOff));
+        }
+      }
+      entry = { mtime: stat.mtimeMs, size: stat.size, messages: conversationMessages(session.agent, Buffer.from(bytes).toString("utf8")) };
+      cache.set(file.path, entry);
+    }
+    messages.push(...entry.messages);
+  }
+  if (!messages.length) {
+    const job = Object.values(plugin.jobs).find((j) => j.sessionId === sid && j.agent === session.agent);
+    messages.push(...job?.conversation || []);
+  }
+  return messages;
+}
+function conversationMarkdown(session, messages) {
+  const title = String(session.title || session.name || "Agent \u5BF9\u8BDD").replace(/[\r\n]/g, " ");
+  const sid = session.sid || session.sessionId;
+  return [
+    `# ${title}`,
+    "",
+    `Agent\uFF1A${session.agent}`,
+    `\u4F1A\u8BDD\uFF1A${sid}`,
+    "",
+    "> \u672C\u6587\u5F52\u6863\u7528\u6237\u6D88\u606F\u4E0E Agent \u56DE\u590D\u6B63\u6587\uFF1B\u5DE5\u5177\u7ED3\u679C\u3001\u5185\u90E8\u63A8\u7406\u548C\u9644\u4EF6\u4E0D\u5305\u542B\u5728\u5185\u3002",
+    "",
+    ...messages.flatMap((m) => [`## ${m.role === "user" ? "\u7528\u6237" : "Agent"}`, "", m.text, ""])
+  ].join("\n");
+}
+function conversationPath(session) {
+  const safe = (s) => String(s || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `Agent Deck/Conversations/${safe(session.agent)}-${safe(session.sid || session.sessionId)}.md`;
+}
+async function archiveConversation(plugin, session, { messages: suppliedMessages } = {}) {
+  const active = Object.values(plugin.jobs).find((j) => j.agent === session.agent && j.sessionId === (session.sid || session.sessionId));
+  if (["starting", "running", "needs-approval"].includes(active?.state)) throw new Error(t("\u8BF7\u7B49\u5F53\u524D\u8FD9\u4E00\u8F6E\u7ED3\u675F\u540E\u518D\u5F52\u6863"));
+  const messages = suppliedMessages || await readConversation(plugin, session);
+  if (!messages.length) throw new Error(t("\u6682\u672A\u8BFB\u53D6\u5230\u5BF9\u8BDD\u6B63\u6587\uFF0C\u8BF7\u626B\u63CF\u4F1A\u8BDD\u540E\u91CD\u8BD5"));
+  const vault = plugin.app.vault;
+  const notePath2 = conversationPath(session);
+  for (const folder of ["Agent Deck", "Agent Deck/Conversations"]) {
+    await serializeNote(plugin, folder, async () => {
+      if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
+    });
+  }
+  const body = conversationMarkdown(session, messages);
+  const hash2 = (text) => (0, import_crypto3.createHash)("sha256").update(text).digest("hex");
+  const content = `<!-- agent-deck-conversation sha256:${hash2(body)} -->
+${body}
+<!-- /agent-deck-conversation -->`;
+  const file = await serializeNote(plugin, notePath2, async () => vault.getAbstractFileByPath(notePath2) || await vault.create(notePath2, content));
+  await updateNote(plugin, notePath2, (prior) => {
+    if (prior === content) return prior;
+    const region = /<!-- agent-deck-conversation sha256:([a-f0-9]{64}) -->\n([\s\S]*?)\n<!-- \/agent-deck-conversation -->/.exec(prior);
+    if (!region || hash2(region[2]) !== region[1]) throw new Error(t("\u8BE5\u4F1A\u8BDD\u5DF2\u6709\u5F52\u6863\uFF0C\u4E14\u6B63\u6587\u7ECF\u8FC7\u624B\u5DE5\u4FEE\u6539\u3002\u8BF7\u5148\u4FDD\u7559\u6216\u79FB\u52A8\u65E7\u5F52\u6863\u540E\u518D\u5BFC\u51FA"));
+    return prior.slice(0, region.index) + content + prior.slice(region.index + region[0].length);
+  });
+  await linkArchive(plugin, session, notePath2);
+  return file;
+}
+async function linkArchive(plugin, session, archivePath2) {
+  if (!plugin.readNote || !plugin.writeNote) return;
+  const sid = session.sid || session.sessionId;
+  const job = Object.values(plugin.jobs).find((j) => j.agent === session.agent && j.sessionId === sid);
+  const binding = Object.values(plugin.settings?.taskBindings || {}).find((b) => b.sid === sid);
+  const target = binding?.path ? binding : job;
+  if (!target?.path || !plugin.app.vault.getAbstractFileByPath(target.path)) return;
+  await updateNote(plugin, target.path, (text) => {
+    if (text.includes(`[[${archivePath2}|`)) return text;
+    const task = findTask(text, target.key || workKey(target.name || ""), target.blockId, sid);
+    if (!task) return text;
+    const lines = text.split("\n"), indent = (lines[task.line].match(/^[ \t]*/)?.[0] || "") + "	";
+    lines.splice(task.line + 1, 0, `${indent}- \u{1F4C4} [[${archivePath2}|\u5BF9\u8BDD\u5F52\u6863 \xB7 ${session.agent}]]`);
+    return lines.join("\n");
+  });
+}
+
 // src/delegation.js
-var import_fs4 = __toESM(require("fs"), 1);
+var import_fs5 = __toESM(require("fs"), 1);
+var import_crypto4 = require("crypto");
 
 // src/codex-desktop.js
-var import_fs3 = __toESM(require("fs"), 1);
+var import_fs4 = __toESM(require("fs"), 1);
 var import_child_process3 = require("child_process");
 var import_readline = require("readline");
 function codexDesktopBinary(configured) {
   if (configured) return configured;
   const bundled = ["/Applications/Codex.app/Contents/Resources/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"];
-  return bundled.find((p) => import_fs3.default.existsSync(p)) || "codex";
+  return bundled.find((p) => import_fs4.default.existsSync(p)) || "codex";
 }
 var CodexDesktopRunner = class {
   constructor(delegator, job, openDesktop) {
     this.d = delegator;
     this.job = job;
     this.openDesktop = openDesktop;
+    this.messages = /* @__PURE__ */ new Map();
     this.pending = /* @__PURE__ */ new Map();
     this.nextId = 0;
     this.finished = false;
@@ -5879,6 +6068,7 @@ var CodexDesktopRunner = class {
   }
   async start({ prompt }) {
     try {
+      this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
       const cfg = this.d.settings.delegate.codex;
       this.child = (0, import_child_process3.spawn)(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
       this.closed = new Promise((resolve) => this.child.once("close", resolve));
@@ -5944,7 +6134,8 @@ var CodexDesktopRunner = class {
     const params = message.params;
     if (params?.threadId !== this.job.sessionId) return;
     if (message.method === "item/completed" && params.item?.type === "agentMessage") {
-      this.job.result = params.item.text || "";
+      this.messages.set(params.item.id || `message-${this.messages.size}`, params.item.text || "");
+      this.job.result = [...this.messages.values()].join("\n\n");
       this.job.lastText = this.job.result.slice(-2e3);
     }
     if (message.method === "turn/started") this.turnId = params.turn?.id;
@@ -5963,6 +6154,7 @@ var CodexDesktopRunner = class {
     this.pending.clear();
     this.job.state = state;
     this.job.endedAt = Date.now();
+    if (this.job.result) this.job.conversation.push({ role: "assistant", text: this.job.result, at: this.job.endedAt });
     if (error) this.job.error = error.slice(0, 500);
     this.d.saveJobs();
     this.d.refreshUI();
@@ -6045,12 +6237,11 @@ function mentionSuggestions(plugin, query) {
 }
 
 // src/delegation.js
-var fsp2 = import_fs4.default.promises;
+var fsp2 = import_fs5.default.promises;
 var home2 = () => import_os2.default.homedir();
 var norm2 = (p) => String(p || "").replace(/^~(?=\/)/, home2());
 var BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 var LINK_RE2 = LINK_RE;
-var RESULT_RE2 = RESULT_RE;
 var STATUS_RE = new RegExp(`^(\\s*(?:[-*+]|\\d+[.)])\\s+(?:\\*\\*\\d{1,2}[:\uFF1A]\\d{2}\\*\\*\\s*)?)(${TASK_KWS})(?=\\s|$)`, "i");
 var TITLE_KW_RE = new RegExp(`^(${TASK_KWS})\\s+`, "i");
 function blockAt(lines, at) {
@@ -6138,7 +6329,7 @@ function findDshBinary(configured = "") {
   ];
   for (const p of candidates) {
     try {
-      if (import_fs4.default.existsSync(p)) return p;
+      if (import_fs5.default.existsSync(p)) return p;
     } catch {
     }
   }
@@ -6147,7 +6338,7 @@ function findDshBinary(configured = "") {
 function findAgyBinary(configured = "") {
   if (configured.trim()) return norm2(configured.trim());
   const candidates = [import_path2.default.join(home2(), ".local/bin/agy"), "/opt/homebrew/bin/agy", "/usr/local/bin/agy"];
-  return candidates.find((p) => import_fs4.default.existsSync(p)) || "agy";
+  return candidates.find((p) => import_fs5.default.existsSync(p)) || "agy";
 }
 function findOpenCodeBinary(configured = "") {
   if (configured && configured.trim()) return norm2(configured.trim());
@@ -6160,7 +6351,7 @@ function findOpenCodeBinary(configured = "") {
   ];
   for (const p of candidates) {
     try {
-      if (import_fs4.default.existsSync(p)) return p;
+      if (import_fs5.default.existsSync(p)) return p;
     } catch {
     }
   }
@@ -6178,18 +6369,33 @@ function findQoderBinary(configured = "") {
   ];
   for (const p of candidates) {
     try {
-      if (import_fs4.default.existsSync(p)) return p;
+      if (import_fs5.default.existsSync(p)) return p;
     } catch {
     }
   }
   return "qodercli";
+}
+function findWorkbuddyBinary(configured = "") {
+  if (configured && configured.trim()) return norm2(configured.trim());
+  const candidates = [
+    import_path2.default.join(home2(), ".local/bin/codebuddy"),
+    "/opt/homebrew/bin/codebuddy",
+    "/usr/local/bin/codebuddy"
+  ];
+  for (const p of candidates) {
+    try {
+      if (import_fs5.default.existsSync(p)) return p;
+    } catch {
+    }
+  }
+  return "codebuddy";
 }
 function findClaudeBinary(configured = "") {
   if (configured && configured.trim()) return norm2(configured.trim());
   const candidates = [import_path2.default.join(home2(), ".local/bin/claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", "/usr/bin/claude"];
   for (const p of candidates) {
     try {
-      if (import_fs4.default.existsSync(p)) return p;
+      if (import_fs5.default.existsSync(p)) return p;
     } catch {
     }
   }
@@ -6199,7 +6405,7 @@ function pickTrusted(list, vaultPath) {
   if (list.includes(vaultPath)) return vaultPath;
   const isDir = (p) => {
     try {
-      return import_fs4.default.statSync(p).isDirectory();
+      return import_fs5.default.statSync(p).isDirectory();
     } catch {
       return false;
     }
@@ -6252,12 +6458,12 @@ function openExternal(url) {
     return false;
   }
 }
-var appInstalled = (name) => ["/Applications", import_path2.default.join(home2(), "Applications")].some((d) => import_fs4.default.existsSync(import_path2.default.join(d, name)));
+var appInstalled = (name) => ["/Applications", import_path2.default.join(home2(), "Applications")].some((d) => import_fs5.default.existsSync(import_path2.default.join(d, name)));
 var TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable", tern: "so.stencil.tern", herdr: "dev.herdr.app" };
 var TERMINAL_APP = { herdr: "Herdr.app", tern: "Tern.app", iterm: "iTerm.app", warp: "Warp.app", terminal: "Terminal.app" };
 var TERMINAL_ORDER = ["herdr", "tern", "iterm", "warp", "terminal"];
 var HERDR_SPACE = "spagentdeck";
-var findBin = (name) => [import_path2.default.join(home2(), ".local/bin", name), `/opt/homebrew/bin/${name}`, `/usr/local/bin/${name}`].find((p) => import_fs4.default.existsSync(p)) || "";
+var findBin = (name) => [import_path2.default.join(home2(), ".local/bin", name), `/opt/homebrew/bin/${name}`, `/usr/local/bin/${name}`].find((p) => import_fs5.default.existsSync(p)) || "";
 var TERN_BIN = "/Applications/Tern.app/Contents/MacOS/tern";
 var TERN_SESSION = "Agent Deck";
 var osa = (script) => new Promise((resolve) => (0, import_child_process4.execFile)("/usr/bin/osascript", ["-e", script], { timeout: 8e3 }, (err2, out) => resolve(err2 ? null : String(out || "").trim())));
@@ -6294,7 +6500,7 @@ async function pickTerminal(which = "auto") {
 }
 var TERMINAL_NAME = { herdr: "Herdr", tern: "Tern", iterm: "iTerm2", warp: "Warp", terminal: t("\u7CFB\u7EDF\u7EC8\u7AEF") };
 async function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
-  const dir = cwd && import_fs4.default.existsSync(cwd) ? cwd : home2();
+  const dir = cwd && import_fs5.default.existsSync(cwd) ? cwd : home2();
   const term = await pickTerminal(which);
   if (term === "herdr") {
     const hc = findBin("hc"), app = findBin("herdr-app");
@@ -6320,9 +6526,9 @@ async function openTerminal(command, cwd = "", which = "auto", title = "Claude",
   if (term === "warp") {
     try {
       const d = import_path2.default.join(home2(), ".warp/launch_configurations");
-      import_fs4.default.mkdirSync(d, { recursive: true });
+      import_fs5.default.mkdirSync(d, { recursive: true });
       const q = (s) => JSON.stringify(String(s));
-      import_fs4.default.writeFileSync(import_path2.default.join(d, "agent-deck-resume.yaml"), [
+      import_fs5.default.writeFileSync(import_path2.default.join(d, "agent-deck-resume.yaml"), [
         "---",
         "name: agent-deck-resume",
         "windows:",
@@ -6339,7 +6545,7 @@ async function openTerminal(command, cwd = "", which = "auto", title = "Claude",
     } catch {
     }
   }
-  if (term === "tern" && import_fs4.default.existsSync(TERN_BIN)) {
+  if (term === "tern" && import_fs5.default.existsSync(TERN_BIN)) {
     const launch = ["--cwd", dir, "--", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`];
     (async () => {
       const tryOnce = async () => {
@@ -6482,7 +6688,7 @@ end repeat
 end tell
 return ""`);
     if (ok === "ok") return "tab";
-  } else if (proc.host === "tern" && import_fs4.default.existsSync(TERN_BIN)) {
+  } else if (proc.host === "tern" && import_fs5.default.existsSync(TERN_BIN)) {
     const chain = /* @__PURE__ */ new Set([proc.pid]);
     for (let i = 0, p = proc.pid; i < 12 && p > 1; i++) {
       p = Number((await run("/bin/ps", ["-o", "ppid=", "-p", String(p)])).trim()) || 0;
@@ -6539,7 +6745,7 @@ return ""`);
 }
 var isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
 function isCliSession(agent, app) {
-  if (agent === "claude" || agent === "qoder") return app === "cli";
+  if (["claude", "qoder", "workbuddy"].includes(agent)) return app === "cli";
   if (agent === "codex") return !isCodexDesktop(app);
   return false;
 }
@@ -6598,9 +6804,9 @@ function openSession(plugin, agent, sid, app = "", session = null) {
     return false;
   }
   if (["opencode", "qoder"].includes(agent)) {
-    if (agent === "qoder" && app === "cli" && plugin.settings.cliOpen !== "desktop") {
+    if (agent === "qoder" && app === "cli") {
       const cwd = session && session.cwd || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
-      return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${sid}`, cwd);
+      return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);
     }
     copyText(sid);
     openAgentApp(agent).then((ok) => plugin.notice(ok ? t("\u5DF2\u6253\u5F00 {agent}\uFF1B\u4F1A\u8BDD\u53F7\u5DF2\u590D\u5236\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u4F1A\u8BDD", { agent: AGENTS[agent].name }) : t("\u6CA1\u6253\u5F00 {agent}\uFF1A\u672C\u673A\u597D\u50CF\u6CA1\u88C5", { agent: AGENTS[agent].name })));
@@ -6615,6 +6821,10 @@ function openSession(plugin, agent, sid, app = "", session = null) {
     return true;
   }
   if (agent === "workbuddy") {
+    const meta = session || plugin.usage && plugin.usage.meta.get(sid) || {};
+    if (app === "cli" || meta.app === "cli") {
+      return focusOrResume(plugin, agent, sid, `${shellQuote(findWorkbuddyBinary(plugin.settings?.delegate?.workbuddy?.path || ""))} -r ${shellQuote(sid)}`, meta.cwd || "");
+    }
     openExternal(`workbuddy://chat/${encodeURIComponent(sid)}`);
     return true;
   }
@@ -6679,7 +6889,7 @@ var ClaudeRunner = class {
     if (addVault) common.push("--add-dir", d.vaultPath);
     if (cfg.extraArgs && cfg.extraArgs.trim()) common.push(...splitArgs(cfg.extraArgs));
     const prompt = opts.prompt;
-    if (cfg.useBackground === true) {
+    if (cfg.useBackground === true && this.job.destination !== "background") {
       const args = ["--bg", ...common, "--", prompt];
       this.job.command = `${bin} ${args.slice(0, -2).join(" ")} \u2026`;
       const res = await spawnCapture(bin, args, { cwd, env: cleanEnv(), timeout: 3e4 });
@@ -6701,7 +6911,7 @@ var ClaudeRunner = class {
     return this.startHeadless({ cwd, common, prompt, bin });
   }
   startHeadless({ cwd, common, prompt, bin }) {
-    const sid = require("crypto").randomUUID();
+    const sid = (0, import_crypto4.randomUUID)();
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = `${bin} ${args2.slice(0, -2).join(" ")} \u2026`;
     const child = (0, import_child_process4.spawn)(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
@@ -6713,9 +6923,12 @@ var ClaudeRunner = class {
     this.job.short = "";
     this.job.agentState = "headless";
     let err2 = "";
-    child.stdout.on("data", (b) => {
-      const s = b.toString();
-      this.job.lastText = s.slice(-2e3);
+    const output = [];
+    this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (s) => {
+      output.push(s);
+      this.job.lastText = ((this.job.lastText || "") + s).slice(-2e3);
     });
     child.stderr.on("data", (b) => {
       err2 += b.toString();
@@ -6723,10 +6936,13 @@ var ClaudeRunner = class {
       this.job.stderr = err2.slice(-1e3);
     });
     child.on("error", (e) => this.fail(String(e && e.message || e)));
-    child.on("exit", (code) => {
+    child.on("close", (code) => {
       if (this.finished) return;
-      if (code === 0) this.done();
-      else this.fail(err2.trim() || t("claude \u9000\u51FA\u7801 {code}", { code }));
+      if (code === 0) {
+        this.job.result = output.join("");
+        this.job.conversation.push({ role: "assistant", text: this.job.result, at: Date.now() });
+        this.done();
+      } else this.fail(err2.trim() || t("claude \u9000\u51FA\u7801 {code}", { code }));
     });
     this.d.saveJobs();
     this.d.onSession(this.job, sid);
@@ -6826,6 +7042,7 @@ var QoderRunner = class {
     this.timer = null;
   }
   async start(opts) {
+    var _a;
     const d = this.d;
     const cfg = d.settings.delegate.qoder || DEFAULTS.delegate.qoder;
     const bin = findQoderBinary(cfg.path || "");
@@ -6833,12 +7050,14 @@ var QoderRunner = class {
     const model = resolveCliModel(d.plugin, "qoder", opts.model || cfg.model || "qoder-ultimate");
     const effort = opts.effort || cfg.effort || "high";
     const perm = opts.permission || cfg.permission || "auto";
-    const sid = crypto.randomUUID();
+    const sid = opts.sessionId || (0, import_crypto4.randomUUID)();
     this.sessionId = sid;
+    if (opts.sessionId) this.job.sessionId = sid;
     this.job.cwd = cwd;
     this.job.app = "cli";
-    const args = ["-p", "--session-id", sid, "-w", cwd, "-m", model, "--reasoning-effort", effort, ...qoderPermissionArgs(perm)];
-    if (opts.name) args.push("-n", opts.name);
+    const sessionArgs = opts.sessionId ? ["-r", sid] : ["--session-id", sid];
+    const args = ["-p", ...sessionArgs, "-w", cwd, "-m", model, "--reasoning-effort", effort, ...qoderPermissionArgs(perm)];
+    if (!opts.sessionId && opts.name) args.push("-n", opts.name);
     if (d.vaultPath && cwd !== d.vaultPath) args.push("--add-dir", d.vaultPath);
     for (const a of splitArgs(cfg.extraArgs || "")) args.push(a);
     args.push("--", opts.prompt);
@@ -6847,6 +7066,8 @@ var QoderRunner = class {
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
+    (_a = this.job).conversation || (_a.conversation = []);
+    this.job.conversation.push({ role: "user", text: opts.prompt, at: Date.now() });
     this.sessionTimer = setTimeout(() => {
       this.sessionTimer = null;
       if (this.finished) return;
@@ -6866,19 +7087,20 @@ var QoderRunner = class {
       this.job.stderr = err2.slice(-1e3);
     });
     child.on("error", (e) => this.fail(String(e && e.message || e)));
-    child.on("exit", (code) => {
+    child.on("close", (code) => {
       if (this.finished) return;
       clearTimeout(this.sessionTimer);
       this.sessionTimer = null;
       const combined = `${err2}
 ${out}`.trim();
       if (code !== 0 && /not logged in|qodercli login/i.test(combined)) {
-        this.fallbackToDesktop(opts.prompt);
+        if (this.job.destination === "background") this.fail(combined);
+        else this.fallbackToDesktop(opts.prompt);
         return;
       }
       if (code === 0) {
         if (!this.job.sessionId) this.d.onSession(this.job, this.sessionId);
-        this.done(out.trim());
+        this.done(out);
       } else {
         this.fail(combined || t("qoder \u9000\u51FA\u7801 {code}", { code }));
       }
@@ -6918,6 +7140,7 @@ ${out}`.trim();
     this.d.refreshUI();
   }
   done(result) {
+    var _a;
     if (this.finished) return;
     this.finished = true;
     clearTimeout(this.timer);
@@ -6926,6 +7149,8 @@ ${out}`.trim();
     if (result) {
       this.job.result = result;
       this.job.lastText = result.slice(-2e3);
+      (_a = this.job).conversation || (_a.conversation = []);
+      this.job.conversation.push({ role: "assistant", text: result, at: Date.now() });
     }
     this.d.saveJobs();
     this.d.onDone(this.job);
@@ -7315,8 +7540,8 @@ ${body}`, 12e3);
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
     if (opts.destination && !destinations(opts.agent).some((o) => o.id === opts.destination)) throw new Error(t("\u6B64 Agent \u4E0D\u652F\u6301\u6240\u9009\u5DE5\u4F5C\u4F4D\u7F6E"));
-    if (!["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(opts.agent)) return this.handoff(opts);
     if (opts.destination === "terminal" || opts.agent === "codex" && !opts.destination && this.C.codex?.transport === "terminal") return this.handoffCli(opts);
+    if (!["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(opts.agent) || opts.agent === "qoder" && opts.destination === "desktop") return this.handoff(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error(t("\u6CA1\u6709\u5F53\u524D\u7B14\u8BB0"));
@@ -7397,7 +7622,7 @@ ${body}`, 12e3);
     if (!sid) throw new Error(t("\u8FD9\u4E2A\u4F1A\u8BDD\u8FD8\u6CA1\u6709\u4F1A\u8BDD\u53F7"));
     const existing = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === sid);
     if (["starting", "running", "needs-approval"].includes(existing?.state)) throw new Error(t("\u8BF7\u7B49\u5F53\u524D\u8FD9\u4E00\u8F6E\u7ED3\u675F\u540E\u518D\u53D1\u9001"));
-    if (session.agent === "antigravity" && existing?.transport !== "acp") throw new Error(t("\u8FD9\u662F Antigravity \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED\uFF1B\u5728\u63D2\u4EF6\u4E2D\u65B0\u5EFA ACP \u59D4\u6D3E\u540E\u53EF\u5728 Obsidian \u5185\u7EED\u804A"));
+    if (session.agent === "antigravity" && existing?.transport !== "acp") throw new Error(t("\u8FD9\u662F Antigravity \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED"));
     let job = existing;
     if (!job) {
       job = {
@@ -7409,6 +7634,7 @@ ${body}`, 12e3);
         linkWritten: true,
         model: "",
         effort: "",
+        permission: "",
         conversation: []
       };
       this.jobs[job.id] = job;
@@ -7421,12 +7647,13 @@ ${body}`, 12e3);
     await runner.start({ sessionId: sid, prompt, cwd: job.cwd, ...job.model ? { model: job.model } : {}, ...job.effort ? { effort: job.effort } : {} });
     return job;
   }
-  // 尚未接入自动委派的客户端：复制任务并唤起应用，由用户发送。
+  // 尚未接入自动委派的客户端（或 Qoder 桌面模式）：复制任务并唤起应用，由用户发送。
   // 之后每轮扫描找这个 Agent 新出现、开头对得上的会话，找到就绑回这一行（🔗 + DELEGATED），面板里的卡片飞进「现在」。
   async handoff(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(opts.agent)) return this.delegate(opts);
+    if (opts.destination === "terminal") return this.handoffCli(opts);
+    if (["claude", "codex", "dsh", "antigravity", "opencode"].includes(opts.agent) || opts.agent === "qoder" && opts.destination !== "desktop") return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error(t("\u6CA1\u6709\u5F53\u524D\u7B14\u8BB0"));
@@ -7461,8 +7688,8 @@ ${body}`, 12e3);
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    copyText(prompt);
-    await openAgentApp(agent);
+    this.copyText(prompt);
+    await this.openAgentApp(agent);
     this.plugin.notice(t("\u{1F4CB} \u4EFB\u52A1\u5DF2\u590D\u5236\uFF0C\u7C98\u8D34\u5230 {agent} \u91CC\u53D1\u51FA", { agent: AGENTS[agent]?.name || agent }), 1e4);
     this.plugin.refreshUI();
     return job;
@@ -7472,7 +7699,7 @@ ${body}`, 12e3);
   async handoffCli(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (!["claude", "codex", "opencode", "qoder"].includes(opts.agent)) return this.delegate(opts);
+    if (!["claude", "codex", "opencode", "qoder", "workbuddy"].includes(opts.agent)) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error(t("\u6CA1\u6709\u5F53\u524D\u7B14\u8BB0"));
@@ -7505,7 +7732,7 @@ ${body}`, 12e3);
     await fsp2.mkdir(dir, { recursive: true });
     const taskFile = import_path2.default.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp2.writeFile(taskFile, prompt, "utf8");
-    const bin = agent === "codex" ? this.C.codex?.path || "codex" : agent === "opencode" ? findOpenCodeBinary(this.C.opencode?.path || "") : agent === "qoder" ? findQoderBinary(this.C.qoder?.path || "") : findClaudeBinary(this.C.claude?.path || "");
+    const bin = agent === "codex" ? this.C.codex?.path || "codex" : agent === "opencode" ? findOpenCodeBinary(this.C.opencode?.path || "") : agent === "qoder" ? findQoderBinary(this.C.qoder?.path || "") : agent === "workbuddy" ? findWorkbuddyBinary(this.C.workbuddy?.path || "") : findClaudeBinary(this.C.claude?.path || "");
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent,
@@ -7542,6 +7769,9 @@ ${body}`, 12e3);
       const perm = qoderPermissionArgs(opts.permission || this.C.qoder?.permission || "auto").map(shellQuote).join(" ");
       const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
       cmd = `${shellQuote(bin)} -w ${shellQuote(cwd)}${addDir} ${perm} -m ${shellQuote(model)} --reasoning-effort ${shellQuote(effort)} -n ${shellQuote(name)} -- "$(cat ${shellQuote(taskFile)})"`;
+    } else if (agent === "workbuddy") {
+      const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
+      cmd = `${shellQuote(bin)}${addDir} -- "$(cat ${shellQuote(taskFile)})"`;
     } else {
       cmd = `${shellQuote(bin)}${extra} -- "$(cat ${shellQuote(taskFile)})"`;
     }
@@ -7602,46 +7832,41 @@ ${body}`, 12e3);
     this.plugin.markBound?.(sid);
     this.plugin.flyFromAgent?.(job);
     this.saveJobs();
-    if (!job.openedDestination && !job.handoff && ["obsidian", "desktop"].includes(job.destination)) {
+    if (!job.openedDestination && !job.handoff && job.destination === "desktop") {
       job.openedDestination = true;
-      if (job.destination === "obsidian") this.plugin.openConversation?.({ ...job, sid });
-      else if (job.agent === "dsh") openSession(this.plugin, job.agent, sid);
+      if (job.agent === "dsh") openSession(this.plugin, job.agent, sid);
     }
     if (job.linkWritten) return;
     job.linkWritten = true;
     job._linkPromise = this.writeLink(job, sid).catch((e) => console.error("[agent-deck] writeLink", e));
     this.refreshUI();
   }
-  writeLink(job, sid) {
-    const pending = (this._linkWrites || Promise.resolve()).catch(() => {
-    }).then(() => this.writeLinkNow(job, sid));
-    this._linkWrites = pending;
-    return pending;
-  }
-  async writeLinkNow(job, sid) {
+  async writeLink(job, sid) {
     if (!this.C.writeLink) return;
     const path7 = job.path;
-    const text = await this.plugin.readNote(path7);
-    const lines = text.split("\n");
-    let at = job.blockId ? lines.findIndex((l) => blockIdOf(l) === job.blockId) : -1;
-    if (at < 0) at = lines.findIndex((l) => l === job.lineText);
-    if (at < 0) at = lines.findIndex((l) => blockTitle({ text: l }) && l.includes(truncate(job.name, 20)));
-    if (at < 0) return;
-    const block = blockAt(lines, at);
-    if (!block) return;
-    if (lines.slice(block.start + 1, block.end + 1).some((l) => parseLink(l)?.sid === sid)) return;
-    const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "	";
-    let link = linkLine2(indent, job.agent, job.name, sid);
-    if (job.agent === "antigravity" && job.transport === "acp") link = link.replace("antigravity://open", `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(sid)}`);
-    lines.splice(block.start + 1, 0, link);
-    if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
-    const ensured = ensureBlockId(lines[block.start], sid);
-    lines[block.start] = ensured.line;
-    job.blockId = ensured.blockId;
-    await this.plugin.writeNote(path7, lines.join("\n"));
-    job.line = block.start;
-    job.lineText = lines[block.start];
-    job.linkLineText = link;
+    await updateNote(this.plugin, path7, (text) => {
+      const lines = text.split("\n");
+      let at = job.blockId ? lines.findIndex((l) => blockIdOf(l) === job.blockId) : -1;
+      if (at < 0) at = lines.findIndex((l) => l === job.lineText);
+      if (at < 0) at = lines.findIndex((l) => blockTitle({ text: l }) && l.includes(truncate(job.name, 20)));
+      if (at < 0) return text;
+      const block = blockAt(lines, at);
+      if (!block) return text;
+      if (lines.slice(block.start + 1, block.end + 1).some((l) => parseLink(l)?.sid === sid)) return text;
+      const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "	";
+      let link = linkLine2(indent, job.agent, job.name, sid);
+      if (job.agent === "antigravity" && job.transport === "acp") link = link.replace("antigravity://open", `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(sid)}`);
+      if (job.agent === "workbuddy" && job.app === "cli") link = link.replace(/workbuddy:\/\/chat\/[^)]+/, `obsidian://agent-deck?do=open&agent=workbuddy&sid=${encodeURIComponent(sid)}`);
+      lines.splice(block.start + 1, 0, link);
+      if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
+      const ensured = ensureBlockId(lines[block.start], sid);
+      lines[block.start] = ensured.line;
+      job.blockId = ensured.blockId;
+      job.line = block.start;
+      job.lineText = lines[block.start];
+      job.linkLineText = link;
+      return lines.join("\n");
+    });
     this.saveJobs();
   }
   async onDone(job) {
@@ -7652,7 +7877,7 @@ ${body}`, 12e3);
     this.refreshUI();
     const agent = AGENTS[job.agent];
     this.plugin.notice(t("\u2705 {agent} \u505A\u5B8C\u4E86\u4E00\u8F6E\uFF1A{name}", { agent: agent ? agent.name : job.agent, name: job.name }), 8e3);
-    if ((job.destination === "desktop" || !job.destination && this.C[job.agent]?.openDesktop === true) && ["claude", "opencode", "qoder"].includes(job.agent) && job.sessionId) openSession(this.plugin, job.agent, job.sessionId, job.app);
+    if ((job.destination === "desktop" || !job.destination && this.C[job.agent]?.openDesktop === true) && ["claude", "opencode"].includes(job.agent) && job.sessionId) openSession(this.plugin, job.agent, job.sessionId, job.app);
     if (this.settings.autoWriteResult && job.linkWritten && job.path) {
       try {
         await this.writeResult(job);
@@ -7680,19 +7905,20 @@ ${body}`, 12e3);
   }
   async removeLink(job) {
     try {
-      const text = await this.plugin.readNote(job.path);
-      const lines = text.split("\n");
-      const sid = job.sessionId || "";
-      let li = sid ? lines.findIndex((l) => l.includes(sid)) : -1;
-      if (li < 0 && job.linkLineText) li = lines.indexOf(job.linkLineText);
-      if (li >= 0) lines.splice(li, 1);
-      let at = lines.indexOf(job.lineText);
-      if (at < 0) at = lines.findIndex((l) => /DELEGATED/.test(l) && job.originalLine && l.includes(String(job.name || "").slice(0, 16)));
-      if (at >= 0 && job.originalLine && !job.newSession) {
-        const block = blockAt(lines, at);
-        if (!block || hasLink(lines, block) < 0) lines[at] = job.originalLine;
-      }
-      await this.plugin.writeNote(job.path, lines.join("\n"));
+      await updateNote(this.plugin, job.path, (text) => {
+        const lines = text.split("\n");
+        const sid = job.sessionId || "";
+        let li = sid ? lines.findIndex((l) => l.includes(sid)) : -1;
+        if (li < 0 && job.linkLineText) li = lines.indexOf(job.linkLineText);
+        if (li >= 0) lines.splice(li, 1);
+        let at = lines.indexOf(job.lineText);
+        if (at < 0) at = lines.findIndex((l) => /DELEGATED/.test(l) && job.originalLine && l.includes(String(job.name || "").slice(0, 16)));
+        if (at >= 0 && job.originalLine && !job.newSession) {
+          const block = blockAt(lines, at);
+          if (!block || hasLink(lines, block) < 0) lines[at] = job.originalLine;
+        }
+        return lines.join("\n");
+      });
       job.linkWritten = false;
       job.resultWritten = true;
       this.saveJobs();
@@ -7702,54 +7928,44 @@ ${body}`, 12e3);
   }
   async writeResult(job) {
     if (job.resultWritten || this.settings.journalAutoWrite === false) return;
-    let said = job.result || job.lastText || "";
-    const meta = this.plugin.usage && this.plugin.usage.meta.get(job.sessionId);
-    if (!said) said = meta && (meta.lastText || "");
-    const rawSaid = said;
-    said = oneSentenceConclusion(said, clamp(Number(this.settings.resultMax) || 120, 40, 2e3));
-    if (!said) return;
-    const text = await this.plugin.readNote(job.path);
-    if (this.settings.journalAutoWrite === false) return;
-    const synced = syncSessionEntry(text, {
-      granularity: this.settings.autoLogGranularity,
-      compact: this.settings.autoLogSummaries?.[job.path.split("/").pop().replace(/\.md$/, "")]?.[job.sessionId],
-      detail: this.settings.autoLogDetail,
-      detailHistory: this.settings.autoLogDetailHistory,
-      sid: job.sessionId || "",
-      blockId: job.blockId || "",
-      key: workKey(job.name || ""),
-      said,
-      rounds: meta?.rounds?.length ? meta.rounds : [{ n: 1, at: job.startedAt, ask: "", said: rawSaid }],
-      taskTodo: job.agent === "claude" && meta ? meta.todo : null,
-      ensureId: true
+    const meta = this.plugin.usage?.meta.get(job.sessionId);
+    const raw = job.result || meta?.rounds?.at(-1)?.said || meta?.lastText || job.lastText || "";
+    if (!raw) return;
+    const background = job.destination === "background";
+    if (background && !job.archivePath) {
+      const messages = job.conversation?.length ? job.conversation : [
+        { role: "user", text: job.prompt || job.name || "" },
+        { role: "assistant", text: raw }
+      ];
+      const file = await archiveConversation(this.plugin, { ...job, sid: job.sessionId }, { messages });
+      job.archivePath = file.path;
+      this.saveJobs();
+    }
+    let synced;
+    await updateNote(this.plugin, job.path, (text) => {
+      if (job.resultWritten || this.settings.journalAutoWrite === false) return text;
+      const rounds = background && job.result ? [{ n: meta?.rounds?.at(-1)?.n || 1, said: job.result }] : meta?.rounds?.length ? meta.rounds : [{ n: 1, at: job.startedAt, ask: "", said: raw }];
+      synced = syncSessionEntry(text, {
+        granularity: this.settings.autoLogGranularity,
+        compact: background ? null : this.settings.autoLogSummaries?.[job.path.split("/").pop().replace(/\.md$/, "")]?.[job.sessionId],
+        detail: background ? "brief" : this.settings.autoLogDetail,
+        detailHistory: background ? [] : this.settings.autoLogDetailHistory,
+        replyMax: background ? 240 : 0,
+        sid: job.sessionId || "",
+        blockId: job.blockId || "",
+        key: workKey(job.name || ""),
+        said: background ? resultText(raw, 240) : oneSentenceConclusion(raw, clamp(Number(this.settings.resultMax) || 120, 40, 2e3)),
+        rounds,
+        taskTodo: job.agent === "claude" && meta ? meta.todo : null,
+        ensureId: true
+      });
+      return synced.text;
     });
-    if (synced.line >= 0) {
-      if (synced.text !== text) await this.plugin.writeNote(job.path, synced.text);
+    if (synced?.line >= 0) {
       if (synced.blockId) job.blockId = synced.blockId;
       job.resultWritten = true;
       this.saveJobs();
-      return;
     }
-    const lines = text.split("\n");
-    let at = job.blockId ? lines.findIndex((l) => blockIdOf(l) === job.blockId) : -1;
-    if (at < 0) at = lines.indexOf(job.lineText);
-    let block = at >= 0 ? blockAt(lines, at) : null;
-    if (!block) return;
-    const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "	";
-    let resultAt = -1;
-    for (let i = block.start + 1; i <= block.end; i++) if (RESULT_RE2.test(lines[i])) {
-      resultAt = i;
-      break;
-    }
-    const conclusion = this.settings.autoLogDetail === "standard" || this.settings.autoLogDetail === "detailed" ? said : oneSentenceConclusion(said, 45);
-    const line = `${indent}- \u{1F4AC} ${conclusion}`;
-    if (resultAt < 0) {
-      const link = findLink(lines, block);
-      lines.splice((link ? link.line : block.start) + 1, 0, line);
-    }
-    await this.plugin.writeNote(job.path, lines.join("\n"));
-    job.resultWritten = true;
-    this.saveJobs();
   }
   cancel(id) {
     const runner = this.runners.get(id);
@@ -8036,7 +8252,7 @@ function adBlockIdRanges(text, trackedIds2 = /* @__PURE__ */ new Set()) {
     } else if (!fence) {
       const turn = /[ \t]+<!-- ad-(?:(?:turn|summary):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/.exec(line);
       if (turn) out.push({ from: offset + turn.index, to: offset + turn.index + turn[0].length });
-      const id = /(?:[ \t]+|^)\^([a-z0-9-]+)[ \t]*$/i.exec(line);
+      const id = /(?:[ \t]+|^)\^([a-z0-9-]+)(?:\S*)?[ \t]*$/i.exec(line);
       if (id && hiddenBlockId(id[1], trackedIds2)) out.push({ from: offset + id.index, to: offset + line.length });
       const link = parseLink(line), suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(line);
       if (link && suffix?.[1] === link.sid) out.push({ from: offset + suffix.index, to: offset + line.length });
@@ -8044,6 +8260,32 @@ function adBlockIdRanges(text, trackedIds2 = /* @__PURE__ */ new Set()) {
     offset += line.length + 1;
   }
   return out;
+}
+function redirectHiddenTailTransaction(text, trackedIds2 = /* @__PURE__ */ new Set(), { change = null, prevHead = -1, nextHead = -1, selectionEmpty = true } = {}) {
+  const ranges = adBlockIdRanges(text, trackedIds2);
+  if (!ranges.length) return null;
+  if (change && change.from === change.to && change.insert) {
+    for (const r of ranges) {
+      if (change.insert.startsWith("\n") && change.from === r.from) {
+        return { change: { from: r.to, to: r.to, insert: change.insert }, head: r.to + change.insert.length };
+      }
+      if (!change.insert.includes("\n") && change.from > r.from && change.from <= r.to) {
+        return { change: { from: r.from, to: r.from, insert: change.insert }, head: r.from + change.insert.length };
+      }
+    }
+    return null;
+  }
+  if (!change && selectionEmpty && nextHead >= 0) {
+    for (const r of ranges) {
+      if (nextHead > r.from && nextHead <= r.to) {
+        if (prevHead === r.from && nextHead === r.to) {
+          return { head: r.to < text.length ? r.to + 1 : r.from };
+        }
+        return { head: r.from };
+      }
+    }
+  }
+  return null;
 }
 
 // src/record-display.js
@@ -8207,9 +8449,45 @@ function aiRecordDisplayExtension(plugin, refreshEffect2) {
     },
     provide: (f) => [import_view2.EditorView.decorations.from(f, (v) => v.decorations), import_view2.EditorView.atomicRanges.of((view) => view.state.field(f).decorations)]
   });
+  const guardHiddenTail = import_state.EditorState.transactionFilter.of((tr) => {
+    const startDoc = tr.startState.doc;
+    const prevSel = tr.startState.selection.main;
+    const redirectAt = (pos, options) => {
+      const line = startDoc.lineAt(pos);
+      const text = line.text + (line.to < startDoc.length ? "\n" : "");
+      const local = options.change ? { change: { ...options.change, from: options.change.from - line.from, to: options.change.to - line.from } } : { ...options, prevHead: options.prevHead - line.from, nextHead: options.nextHead - line.from };
+      const result = redirectHiddenTailTransaction(text, trackedIds(plugin), local);
+      if (!result) return null;
+      return {
+        ...result,
+        head: result.head + line.from,
+        ...result.change ? { change: { ...result.change, from: result.change.from + line.from, to: result.change.to + line.from } } : {}
+      };
+    };
+    if (tr.docChanged) {
+      let count = 0, single = null;
+      tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+        count++;
+        single = { from: fromA, to: toA, insert: inserted.toString() };
+      });
+      if (count !== 1 || !single || single.from !== single.to || !single.insert) return tr;
+      const redirected = redirectAt(single.from, { change: single });
+      if (!redirected?.change) return tr;
+      return [{ changes: redirected.change, selection: { anchor: redirected.head } }];
+    }
+    if (tr.selection && tr.newSelection.ranges.length === 1 && tr.newSelection.main.empty) {
+      const redirected = redirectAt(tr.newSelection.main.head, {
+        prevHead: prevSel.empty ? prevSel.head : -1,
+        nextHead: tr.newSelection.main.head,
+        selectionEmpty: true
+      });
+      if (redirected?.head != null) return [tr, { selection: { anchor: redirected.head } }];
+    }
+    return tr;
+  });
   plugin.aiRecordDisplayField = field;
   plugin.recordTrackedIds = () => trackedIds(plugin);
-  return [field, aiRecordUnfoldExtension(plugin, refreshEffect2)];
+  return [field, guardHiddenTail, aiRecordUnfoldExtension(plugin, refreshEffect2)];
 }
 function renderAIRecords(el, plugin, ctx) {
   const mode = displayMode(plugin), ids = trackedIds(plugin), cleanups = [];
@@ -8218,7 +8496,7 @@ function renderAIRecords(el, plugin, ctx) {
   while (walker.nextNode()) nodes.push(walker.currentNode);
   for (const node of nodes) {
     if (node.parentElement?.closest("pre, code, .ad-block-id-hidden")) continue;
-    const match = /(?:[ \t]+|^)\^([a-z0-9-]+)[ \t]*$/i.exec(node.textContent);
+    const match = /(?:[ \t]+|^)\^([a-z0-9-]+)(?:\S*)?[ \t]*$/i.exec(node.textContent);
     if (!match || !hiddenBlockId(match[1], ids)) continue;
     const tail = node.splitText(match.index);
     const hidden = el.ownerDocument.createElement("span");
@@ -8544,7 +8822,11 @@ var PillWidget = class extends import_view3.WidgetType {
         right.appendChild(cancel);
       }
       const progress = p.jobProgress(job, session);
-      if (progress && progress.total) {
+      if (job?.destination === "background") {
+        el.setAttribute("role", "progressbar");
+        el.setAttribute("aria-label", label.textContent);
+      }
+      if (job?.destination !== "background" && progress && progress.total) {
         el.style.setProperty("--ad-p", `${Math.round(progress.done / progress.total * 100)}%`);
         el.classList.add("is-determinate");
       }
@@ -8555,7 +8837,8 @@ var PillWidget = class extends import_view3.WidgetType {
     } else if (info.kind === "done") {
       label.textContent = t("\u672C\u8F6E\u7ED3\u675F");
       const resText = job && job.result ? truncate(job.result, 28) : session && session.lastText ? truncate(oneSentenceConclusion(session.lastText, 28), 28) : "";
-      meta.textContent = [progText, resText].filter(Boolean).join(" \xB7 ");
+      const elapsed = job?.endedAt && job?.startedAt ? fmtDur(Math.max(0, job.endedAt - job.startedAt)) : "";
+      meta.textContent = [elapsed, progText, resText].filter(Boolean).join(" \xB7 ");
       const open = document.createElement("span");
       open.className = "ad-pill__open";
       setLucide(open, "arrow-up-right");
@@ -8568,7 +8851,8 @@ var PillWidget = class extends import_view3.WidgetType {
       right.appendChild(open);
     } else if (info.kind === "error") {
       label.textContent = t("\u51FA\u9519");
-      meta.textContent = truncate(job && job.error || session && session.err || "", 30);
+      const elapsed = job?.endedAt && job?.startedAt ? fmtDur(Math.max(0, job.endedAt - job.startedAt)) : "";
+      meta.textContent = [elapsed, truncate(job && job.error || session && session.err || "", 30)].filter(Boolean).join(" \xB7 ");
       const retry = document.createElement("span");
       retry.className = "ad-pill__open";
       setLucide(retry, "refresh-cw");
@@ -9104,7 +9388,7 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     const handoff = id === "codex" || id === "workbuddy";
-    const cliCapable = ["claude", "codex", "opencode", "qoder"].includes(id);
+    const cliCapable = ["claude", "codex", "opencode", "qoder", "workbuddy"].includes(id);
     const hint = handoff ? t("\u4EA4\u7ED9 {name}", { name: a.short }) : t("\u59D4\u6D3E\u7ED9 {name}", { name: a.short });
     const toTerm = (meta) => cliCapable && !!meta !== !!p.settings.delegateInTerminal;
     const hintFor = (meta) => toTerm(meta) ? t("\u5728\u7EC8\u7AEF\u91CC\u5F00 {name}", { name: a.short }) : hint;
@@ -9568,10 +9852,10 @@ function stateChip(s) {
 var import_obsidian4 = require("obsidian");
 
 // src/dream.js
-var import_crypto4 = require("crypto");
+var import_crypto6 = require("crypto");
 
 // src/llm.js
-var import_fs5 = __toESM(require("fs"), 1);
+var import_fs6 = __toESM(require("fs"), 1);
 var import_os3 = __toESM(require("os"), 1);
 var import_path3 = __toESM(require("path"), 1);
 var import_child_process5 = require("child_process");
@@ -9579,7 +9863,7 @@ var home3 = () => import_os3.default.homedir();
 function workDir() {
   const dir = import_path3.default.join(import_os3.default.tmpdir(), "agent-deck-autolog");
   try {
-    import_fs5.default.mkdirSync(dir, { recursive: true });
+    import_fs6.default.mkdirSync(dir, { recursive: true });
   } catch {
   }
   return dir;
@@ -9628,7 +9912,7 @@ function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 120, sys
   });
 }
 async function runCodex(prompt, { bin = "codex", model = "", effort = "low", timeout = 120 } = {}) {
-  const dir = import_fs5.default.mkdtempSync(import_path3.default.join(import_os3.default.tmpdir(), "agent-deck-codex-"));
+  const dir = import_fs6.default.mkdtempSync(import_path3.default.join(import_os3.default.tmpdir(), "agent-deck-codex-"));
   const output = import_path3.default.join(dir, "answer.txt");
   try {
     return await new Promise((resolve, reject) => {
@@ -9655,7 +9939,7 @@ async function runCodex(prompt, { bin = "codex", model = "", effort = "low", tim
         clearTimeout(timer);
         if (code !== 0) return reject(new Error((err2 || t("codex \u9000\u51FA\u7801 {code}", { code })).trim().slice(-500)));
         try {
-          const answer = import_fs5.default.readFileSync(output, "utf8").trim();
+          const answer = import_fs6.default.readFileSync(output, "utf8").trim();
           if (!answer) throw new Error(t("codex \u6CA1\u6709\u8FD4\u56DE\u6587\u5B57"));
           resolve(answer);
         } catch (e) {
@@ -9665,7 +9949,7 @@ async function runCodex(prompt, { bin = "codex", model = "", effort = "low", tim
       child.stdin.end("\u4EC5\u6574\u7406\u4E0B\u5217\u6587\u5B57\uFF0C\u76F4\u63A5\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8C03\u7528\u5DE5\u5177\u3002\n\n" + prompt);
     });
   } finally {
-    import_fs5.default.rmSync(dir, { recursive: true, force: true });
+    import_fs6.default.rmSync(dir, { recursive: true, force: true });
   }
 }
 function runJournalModel(prompt, cfg, { polish = false } = {}) {
@@ -9686,7 +9970,7 @@ function safeLabel(s, max = 40) {
 var import_promises = __toESM(require("fs/promises"), 1);
 var import_path4 = __toESM(require("path"), 1);
 var import_os4 = __toESM(require("os"), 1);
-var import_crypto3 = require("crypto");
+var import_crypto5 = require("crypto");
 var import_child_process6 = require("child_process");
 var import_util2 = require("util");
 var exec = (0, import_util2.promisify)(import_child_process6.execFile);
@@ -9764,7 +10048,7 @@ var DreamSharing = class {
       });
       if (old !== snapshot) {
         await import_promises.default.mkdir(import_path4.default.dirname(target), { recursive: true });
-        const temp = `${target}.${(0, import_crypto3.randomUUID)()}.tmp`;
+        const temp = `${target}.${(0, import_crypto5.randomUUID)()}.tmp`;
         try {
           await import_promises.default.writeFile(temp, snapshot, { flag: "wx" });
           await import_promises.default.rename(temp, target);
@@ -9804,7 +10088,7 @@ function companionInstalled(app) {
 var DREAM_START = "<!-- agent-deck:dream:start -->";
 var DREAM_END = "<!-- agent-deck:dream:end -->";
 var LABELS = { fact: "\u4E8B\u5B9E", preference: "\u504F\u597D", pattern: "\u5F85\u9A8C\u8BC1\u89C4\u5F8B", lesson: "\u9879\u76EE\u7ECF\u9A8C" };
-var hash = (text) => (0, import_crypto4.createHash)("sha256").update(text).digest("hex").slice(0, 24);
+var hash = (text) => (0, import_crypto6.createHash)("sha256").update(text).digest("hex").slice(0, 24);
 var memoryId = (text) => "m-" + hash(text.toLowerCase().replace(/[\s\p{P}\p{S}]/gu, ""));
 function notePath(value) {
   const p = String(value || "").trim().replace(/\\/g, "/");
@@ -10538,7 +10822,7 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       }
     });
     this.bigButton(atest, t("\u68C0\u67E5 agy"), async () => new import_obsidian4.Notice(await p.checkBinary("antigravity"), 6e3));
-    const opencode = this.card(body, "OpenCode", t("\u4F18\u5148\u4F7F\u7528 OpenCode.app \u5185\u7F6E\u7684 opencode-cli acp\uFF0C\u53EF\u5728 Obsidian \u5185\u7EED\u804A\u6216\u5728\u684C\u9762\u7248\u6253\u5F00"));
+    const opencode = this.card(body, "OpenCode", t("\u901A\u8FC7 OpenCode.app \u5185\u7F6E\u7684 opencode-cli acp \u540E\u53F0\u59D4\u6D3E\uFF0C\u4E5F\u53EF\u6253\u5F00\u684C\u9762\u7AEF\u6216\u7EC8\u7AEF"));
     this.modelSelect(opencode, "opencode", p.defaultModel("opencode"), (v) => {
       this.setDefaultModel("opencode", v);
       this.display();
@@ -10589,11 +10873,6 @@ var AgentDeckSettingsTab = class extends import_obsidian4.PluginSettingTab {
       d.qoder.permission = v;
       p.saveSettings();
       this.display();
-    });
-    const qOpenDesk = this.row(qoder, t("\u5B8C\u6210\u540E\u81EA\u52A8\u5728\u684C\u9762\u7248\u6253\u5F00"), "", null);
-    this.toggle(qOpenDesk.querySelector(":scope > .ad-row__right"), d.qoder.openDesktop !== false, (v) => {
-      d.qoder.openDesktop = v;
-      p.saveSettings();
     });
     for (const [key, label, hint] of [["path", t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\uFF08~/.qoder/bin/qodercli/qodercli\uFF09")], ["cwd", t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55")], ["extraArgs", t("\u989D\u5916\u53C2\u6570"), t("\u53EF\u7559\u7A7A")]]) {
       const r = this.row(qoder, label, hint, null);
@@ -11817,7 +12096,7 @@ var DelegateOptionsModal = class extends import_obsidian5.Modal {
       };
       af.createDiv({ cls: "ad-hint", text: t("ACP \u6A21\u5F0F\u6CA1\u6709 plan/auto \u8FD9\u4E2A\u5207\u6362\uFF1B\u5173\u6389\u81EA\u52A8\u5141\u8BB8\u65F6\uFF0C\u6743\u9650\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\u3002") });
     }
-    if (this.agent === "antigravity") contentEl.createDiv({ cls: "ad-hint", text: t("\u901A\u8FC7 agy acp \u59D4\u6D3E\uFF0C\u5DE5\u5177\u8BF7\u6C42\u4F1A\u5728 Obsidian \u4E2D\u9010\u6B21\u786E\u8BA4\uFF1B\u5B8C\u6210\u540E\u53EF\u6253\u5F00\u4F1A\u8BDD\u6B63\u6587\u7EE7\u7EED\u8FFD\u95EE\u3002\u63A8\u7406\u5F3A\u5EA6\u4EE5\u5F53\u524D\u6A21\u578B\u652F\u6301\u7684\u503C\u4E3A\u51C6\u3002") });
+    if (this.agent === "antigravity") contentEl.createDiv({ cls: "ad-hint", text: t("\u901A\u8FC7 agy acp \u540E\u53F0\u59D4\u6D3E\uFF1B\u5DE5\u5177\u8BF7\u6C42\u9010\u6B21\u786E\u8BA4\uFF0C\u5B8C\u6210\u540E\u53EF\u67E5\u770B\u6216\u5F52\u6863\u6B63\u6587\u3002") });
     const cf = contentEl.createDiv({ cls: "ad-field" });
     cf.createDiv({ cls: "ad-field__label", text: "Working directory" });
     const cwd = cf.createEl("input", { cls: "ad-input", attr: { placeholder: p.vaultPath, value: this.cwd } });
@@ -12032,10 +12311,10 @@ var ArchiveTargetModal = class extends import_obsidian5.Modal {
 };
 
 // src/menubar.js
-var import_fs6 = __toESM(require("fs"), 1);
+var import_fs7 = __toESM(require("fs"), 1);
 var import_path5 = __toESM(require("path"), 1);
 var import_os5 = __toESM(require("os"), 1);
-var import_crypto5 = __toESM(require("crypto"), 1);
+var import_crypto7 = __toESM(require("crypto"), 1);
 var import_child_process7 = require("child_process");
 
 // src/menubar.swift
@@ -13725,7 +14004,7 @@ app.run()
 `;
 
 // src/menubar.js
-var fsp3 = import_fs6.default.promises;
+var fsp3 = import_fs7.default.promises;
 var home4 = () => import_os5.default.homedir();
 var LABEL_KEYS = [
   "\u7B49\u5F85 Agent Deck\u2026",
@@ -13795,7 +14074,7 @@ var MenuBarBridge = class {
   }
   isAlive() {
     try {
-      const pid = Number(import_fs6.default.readFileSync(this.pidPath, "utf8").trim());
+      const pid = Number(import_fs7.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
         process.kill(pid, 0);
         return true;
@@ -13829,14 +14108,14 @@ var MenuBarBridge = class {
   writeAgentIcons() {
     const dir = import_path5.default.join(this.dir, "agents");
     try {
-      import_fs6.default.mkdirSync(dir, { recursive: true });
+      import_fs7.default.mkdirSync(dir, { recursive: true });
     } catch {
       return;
     }
     for (const id of ["claude", "codex", "workbuddy", "dsh"]) {
       try {
         const buf = agentImageBuffer(id);
-        if (buf) import_fs6.default.writeFileSync(import_path5.default.join(dir, `${id}.png`), buf);
+        if (buf) import_fs7.default.writeFileSync(import_path5.default.join(dir, `${id}.png`), buf);
       } catch {
       }
     }
@@ -13845,13 +14124,13 @@ var MenuBarBridge = class {
     this.disabled = false;
     await fsp3.mkdir(this.dir, { recursive: true });
     this.writeAgentIcons();
-    const hash2 = import_crypto5.default.createHash("sha256").update(menubar_default2).digest("hex").slice(0, 16);
+    const hash2 = import_crypto7.default.createHash("sha256").update(menubar_default2).digest("hex").slice(0, 16);
     let oldHash = "";
     try {
       oldHash = (await fsp3.readFile(this.hashPath, "utf8")).trim();
     } catch {
     }
-    const hasBinary = import_fs6.default.existsSync(this.binPath);
+    const hasBinary = import_fs7.default.existsSync(this.binPath);
     if (!hasBinary || oldHash !== hash2) {
       await this.compile(hash2);
     }
@@ -13862,7 +14141,7 @@ var MenuBarBridge = class {
     this.timer = setInterval(() => this.update(), 1800);
   }
   async compile(hash2) {
-    if (!import_fs6.default.existsSync("/usr/bin/swiftc")) {
+    if (!import_fs7.default.existsSync("/usr/bin/swiftc")) {
       throw new Error(t("\u627E\u4E0D\u5230 /usr/bin/swiftc\u3002\u5B89\u88C5 Xcode Command Line Tools\uFF08xcode-select --install\uFF09\u540E\u518D\u8BD5\u3002"));
     }
     this.plugin.notice(t("\u6B63\u5728\u51C6\u5907 macOS \u83DC\u5355\u680F\uFF08\u7B2C\u4E00\u6B21\u8981\u7F16\u8BD1\u4E00\u4E2A\u5C0F\u52A9\u624B\uFF0C\u7EA6\u51E0\u79D2\uFF09\u2026"), 6e3);
@@ -13926,7 +14205,7 @@ var MenuBarBridge = class {
   }
   killExisting(done) {
     try {
-      const pid = Number(import_fs6.default.readFileSync(this.pidPath, "utf8").trim());
+      const pid = Number(import_fs7.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
         try {
           process.kill(pid, "SIGTERM");
@@ -13936,7 +14215,7 @@ var MenuBarBridge = class {
     } catch {
     }
     try {
-      import_fs6.default.unlinkSync(this.pidPath);
+      import_fs7.default.unlinkSync(this.pidPath);
     } catch {
     }
     const pattern = this.binPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "( |$)";
@@ -13948,8 +14227,8 @@ var MenuBarBridge = class {
   }
   show() {
     try {
-      import_fs6.default.mkdirSync(this.dir, { recursive: true });
-      import_fs6.default.writeFileSync(import_path5.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
+      import_fs7.default.mkdirSync(this.dir, { recursive: true });
+      import_fs7.default.writeFileSync(import_path5.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
     } catch (e) {
       console.error("[agent-deck] menu bar show", e);
     }
@@ -13964,9 +14243,9 @@ var MenuBarBridge = class {
       this.lastJson = body;
       const json2 = JSON.stringify({ updatedAt, ...rest, labels: menuLabels() });
       const tmp = this.statePath + ".tmp";
-      import_fs6.default.mkdirSync(this.dir, { recursive: true });
-      import_fs6.default.writeFileSync(tmp, json2, "utf8");
-      import_fs6.default.renameSync(tmp, this.statePath);
+      import_fs7.default.mkdirSync(this.dir, { recursive: true });
+      import_fs7.default.writeFileSync(tmp, json2, "utf8");
+      import_fs7.default.renameSync(tmp, this.statePath);
     } catch (e) {
       console.error("[agent-deck] menu bar state", e);
     }
@@ -14106,7 +14385,7 @@ var AutoLog = class {
     if (base === next) return true;
     const v = this.viewFor(file);
     if (v) {
-      if (v.editor.getValue() !== base) return false;
+      if (v.editor.cm?.composing || v.editor.getValue() !== base) return false;
       const change = diffLines(base, next);
       if (change) v.editor.transaction({ changes: [change] });
       return true;
@@ -14351,7 +14630,6 @@ ${framed}
     return out;
   }
   async run({ dry = false, fallback = false, manual = false } = {}) {
-    var _a, _b;
     const report = { asked: 0, changes: [], error: "" };
     if (this._busy || this.cfg.journalAutoWrite === false && !manual) return report;
     this._busy = true;
@@ -14376,10 +14654,11 @@ ${framed}
       const arch = this.archived();
       const base = await this.read(file);
       const linked = linkMap(base);
+      const background = new Set(Object.values(this.p.jobs || {}).filter((job) => job.destination === "background").map((job) => job.sessionId));
       const todo = [], live = [];
       for (const x of data.list) {
         if (!x.segs || !x.segs.length) continue;
-        if (!this.agentOn(x.agent)) continue;
+        if (!this.agentOn(x.agent) || background.has(x.sid)) continue;
         if (linked.has(x.sid)) continue;
         const last = x.segs[x.segs.length - 1][1];
         const active = now - last <= idle;
@@ -14400,157 +14679,163 @@ ${framed}
         report.error = this._err || "";
       }
       if (this.cfg.journalAutoWrite === false && !manual) return report;
-      const text0 = base;
-      let text = text0;
-      const digest = { doing: [], paused: [], done: [], archived: [], todo: [] };
-      const clocks = /* @__PURE__ */ new Set();
-      const work = (_b = (_a = this.cfg).workLog || (_a.workLog = {}))[day] || (_b[day] = {});
-      for (const { x, active, fresh } of [...ask, ...todo.slice(this.batch), ...live]) {
-        const a = ans.get(x.sid);
-        const last = x.segs[x.segs.length - 1][1];
-        let rec = st[x.sid];
-        if (fresh) {
-          if (!a) continue;
-          if (a.skip) {
-            st[x.sid] = { skip: true };
-            continue;
-          }
-          let m = a.matchKey ? taskItems(text).find((i) => i.state === "open" && i.key === a.matchKey) : null;
-          if (m && !active && m.state !== "doing" && m.state !== "paused") m = null;
-          if (!m && !a.label) {
-            st[x.sid] = { skip: true };
-            continue;
-          }
-          const label = m ? m.body : AUTO_MARK + a.label;
-          const blockId = m && m.blockId || makeBlockId(x.sid);
-          rec = st[x.sid] = { key: workKey(label), label, blockId, created: !m, agent: x.agent, status: m ? m.state : null, fresh: !m };
-        }
-        rec.min = x.min;
-        if (a) rec.asked = !active;
-        if (active) delete rec.asked;
-        const found = findTask(text, rec.key, rec.blockId || "", x.sid);
-        if (!found && !rec.fresh) {
-          rec.gone = true;
-          report.changes.push(t("\u4E0D\u518D\u7BA1\uFF1A{name}\uFF08\u8FD9\u4E00\u884C\u6CA1\u4E86\uFF09", { name: rec.label }));
-          continue;
-        }
-        if (found) {
-          if (found.blockId) rec.blockId = found.blockId;
-          rec.key = found.key;
-        }
-        const cur = found ? found.state : null;
-        const manualState = found && isManualTask(this.cfg, text.split("\n")[found.line]);
-        if (manualState) rec.status = cur;
-        if (cur === "done" && !manualState) {
-          if (rec.status !== "done") clocks.add(rec.key);
-          rec.status = "done";
-          continue;
-        }
-        if (rec.status && cur !== rec.status && cur) {
-          if (cur === "doing") rec.hold = Date.now() + 2 * 36e5;
-          else rec.parkedAt = last;
-          rec.status = cur;
-          delete rec.autoPaused;
-        }
-        const name = workKey(rec.label).replace(AUTO_MARK, "");
-        if (!manualState && this.allArchived(st, x.sid, rec, arch)) {
-          text = this.autoLine(text, rec, x, "done").text;
-          rec.status = "done";
-          delete rec.fresh;
-          delete rec.parkedAt;
-          delete rec.hold;
-          delete rec.autoPaused;
-          clocks.add(rec.key);
-          digest.archived.push(`${name}\uFF08${x.min}m\uFF09`);
-          report.changes.push(t("DONE\uFF08\u5DF2\u5F52\u6863\uFF09\uFF1A{name}\uFF08{min}m\uFF09", { name: rec.label, min: x.min }));
-        } else if (!manualState && active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
-          text = this.autoLine(text, rec, x, "doing").text;
-          rec.status = "doing";
-          delete rec.parkedAt;
-          delete rec.fresh;
-          delete rec.autoPaused;
-          digest.doing.push(name);
-          report.changes.push(t("DOING\uFF1A{name}", { name: rec.label }));
-        } else if (!manualState && active && cur === "doing") {
-          text = this.autoLine(text, rec, x, "doing").text;
-        } else if (!manualState && !active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
-          text = this.autoLine(text, rec, x, "paused").text;
-          rec.status = "paused";
-          rec.autoPaused = true;
-          rec.parkedAt = last;
-          delete rec.fresh;
-          clocks.add(rec.key);
-          digest.paused.push(`${name}\uFF08${x.min}m\uFF09`);
-          report.changes.push(t("PAUSED\uFF1A{name}\uFF08{min}m\uFF09", { name: rec.label, min: x.min }));
-        } else if (!manualState && !active && cur === "paused") {
-          text = this.autoLine(text, rec, x, "paused").text;
-        }
-        if (a && !active && a.done && !rec.doneHint) {
-          rec.doneHint = true;
-          digest.done.push(`${name}\uFF08${x.min}m\uFF09`);
-          report.changes.push(t("\u770B\u7740\u505A\u5B8C\u4E86\uFF1A{name}", { name: rec.label }));
-        }
-        const meta = this.usage.meta.get(x.sid) || {};
-        const rounds = Array.isArray(meta.rounds) ? meta.rounds : [];
-        const rawSummary = a && a.summary || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? oneSentenceConclusion(meta.lastText, 90) : "");
-        if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
-        const pendingTodos = a && !active && Array.isArray(a.todos) && !rec.todosAdded ? a.todos : [];
-        const taskTodo = x.agent === "claude" && (!active || meta.state === "wait" || meta.state === "quiet") ? meta.todo || null : null;
-        if ((this.cfg.autoLogGranularity !== "paused" || !active || arch.has(x.sid)) && (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo)) {
-          const synced = syncSessionEntry(text, {
-            granularity: this.cfg.autoLogGranularity,
-            compact: this.cfg.autoLogSummaries?.[day]?.[x.sid],
-            detail: this.cfg.autoLogDetail,
-            detailHistory: this.cfg.autoLogDetailHistory,
-            sid: x.sid,
-            blockId: rec.blockId || "",
-            key: rec.key,
-            said: rawSummary,
-            rounds: !active || meta.state === "wait" || meta.state === "quiet" ? rounds : rounds.slice(0, -1),
-            todos: pendingTodos,
-            taskTodo,
-            ensureId: true
-          });
-          text = synced.text;
-          if (synced.blockId) rec.blockId = synced.blockId;
-          if (pendingTodos.length) {
-            for (const todo2 of pendingTodos) {
-              digest.todo.push(todo2);
-              report.changes.push(t("\u5F85\u62CD\u677F\uFF08\u6302\u5728 {name} \u4E0B\uFF09\uFF1A{text}", { name, text: todo2 }));
+      await serializeNote(this.p, file.path, async () => {
+        var _a, _b;
+        const base2 = await this.read(file);
+        const linked2 = linkMap(base2);
+        let text = base2;
+        const digest = { doing: [], paused: [], done: [], archived: [], todo: [] };
+        const clocks = /* @__PURE__ */ new Set();
+        const work = (_b = (_a = this.cfg).workLog || (_a.workLog = {}))[day] || (_b[day] = {});
+        for (const { x, active, fresh } of [...ask, ...todo.slice(this.batch), ...live]) {
+          if (linked2.has(x.sid)) continue;
+          const a = ans.get(x.sid);
+          const last = x.segs[x.segs.length - 1][1];
+          let rec = st[x.sid];
+          if (fresh) {
+            if (!a) continue;
+            if (a.skip) {
+              st[x.sid] = { skip: true };
+              continue;
             }
-            rec.todosAdded = true;
+            let m = a.matchKey ? taskItems(text).find((i) => i.state === "open" && i.key === a.matchKey) : null;
+            if (m && !active && m.state !== "doing" && m.state !== "paused") m = null;
+            if (!m && !a.label) {
+              st[x.sid] = { skip: true };
+              continue;
+            }
+            const label = m ? m.body : AUTO_MARK + a.label;
+            const blockId = m && m.blockId || makeBlockId(x.sid);
+            rec = st[x.sid] = { key: workKey(label), label, blockId, created: !m, agent: x.agent, status: m ? m.state : null, fresh: !m };
+          }
+          rec.min = x.min;
+          if (a) rec.asked = !active;
+          if (active) delete rec.asked;
+          const found = findTask(text, rec.key, rec.blockId || "", x.sid);
+          if (!found && !rec.fresh) {
+            rec.gone = true;
+            report.changes.push(t("\u4E0D\u518D\u7BA1\uFF1A{name}\uFF08\u8FD9\u4E00\u884C\u6CA1\u4E86\uFF09", { name: rec.label }));
+            continue;
+          }
+          if (found) {
+            if (found.blockId) rec.blockId = found.blockId;
+            rec.key = found.key;
+          }
+          const cur = found ? found.state : null;
+          const manualState = found && isManualTask(this.cfg, text.split("\n")[found.line]);
+          if (manualState) rec.status = cur;
+          if (cur === "done" && !manualState) {
+            if (rec.status !== "done") clocks.add(rec.key);
+            rec.status = "done";
+            continue;
+          }
+          if (rec.status && cur !== rec.status && cur) {
+            if (cur === "doing") rec.hold = Date.now() + 2 * 36e5;
+            else rec.parkedAt = last;
+            rec.status = cur;
+            delete rec.autoPaused;
+          }
+          const name = workKey(rec.label).replace(AUTO_MARK, "");
+          if (!manualState && this.allArchived(st, x.sid, rec, arch)) {
+            text = this.autoLine(text, rec, x, "done").text;
+            rec.status = "done";
+            delete rec.fresh;
+            delete rec.parkedAt;
+            delete rec.hold;
+            delete rec.autoPaused;
+            clocks.add(rec.key);
+            digest.archived.push(`${name}\uFF08${x.min}m\uFF09`);
+            report.changes.push(t("DONE\uFF08\u5DF2\u5F52\u6863\uFF09\uFF1A{name}\uFF08{min}m\uFF09", { name: rec.label, min: x.min }));
+          } else if (!manualState && active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
+            text = this.autoLine(text, rec, x, "doing").text;
+            rec.status = "doing";
+            delete rec.parkedAt;
+            delete rec.fresh;
+            delete rec.autoPaused;
+            digest.doing.push(name);
+            report.changes.push(t("DOING\uFF1A{name}", { name: rec.label }));
+          } else if (!manualState && active && cur === "doing") {
+            text = this.autoLine(text, rec, x, "doing").text;
+          } else if (!manualState && !active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
+            text = this.autoLine(text, rec, x, "paused").text;
+            rec.status = "paused";
+            rec.autoPaused = true;
+            rec.parkedAt = last;
+            delete rec.fresh;
+            clocks.add(rec.key);
+            digest.paused.push(`${name}\uFF08${x.min}m\uFF09`);
+            report.changes.push(t("PAUSED\uFF1A{name}\uFF08{min}m\uFF09", { name: rec.label, min: x.min }));
+          } else if (!manualState && !active && cur === "paused") {
+            text = this.autoLine(text, rec, x, "paused").text;
+          }
+          if (a && !active && a.done && !rec.doneHint) {
+            rec.doneHint = true;
+            digest.done.push(`${name}\uFF08${x.min}m\uFF09`);
+            report.changes.push(t("\u770B\u7740\u505A\u5B8C\u4E86\uFF1A{name}", { name: rec.label }));
+          }
+          const meta = this.usage.meta.get(x.sid) || {};
+          const rounds = Array.isArray(meta.rounds) ? meta.rounds : [];
+          const rawSummary = a && a.summary || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? oneSentenceConclusion(meta.lastText, 90) : "");
+          if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
+          const pendingTodos = a && !active && Array.isArray(a.todos) && !rec.todosAdded ? a.todos : [];
+          const taskTodo = x.agent === "claude" && (!active || meta.state === "wait" || meta.state === "quiet") ? meta.todo || null : null;
+          if ((this.cfg.autoLogGranularity !== "paused" || !active || arch.has(x.sid)) && (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo)) {
+            const synced = syncSessionEntry(text, {
+              granularity: this.cfg.autoLogGranularity,
+              compact: this.cfg.autoLogSummaries?.[day]?.[x.sid],
+              detail: this.cfg.autoLogDetail,
+              detailHistory: this.cfg.autoLogDetailHistory,
+              sid: x.sid,
+              blockId: rec.blockId || "",
+              key: rec.key,
+              said: rawSummary,
+              rounds: !active || meta.state === "wait" || meta.state === "quiet" ? rounds : rounds.slice(0, -1),
+              todos: pendingTodos,
+              taskTodo,
+              ensureId: true
+            });
+            text = synced.text;
+            if (synced.blockId) rec.blockId = synced.blockId;
+            if (pendingTodos.length) {
+              for (const todo2 of pendingTodos) {
+                digest.todo.push(todo2);
+                report.changes.push(t("\u5F85\u62CD\u677F\uFF08\u6302\u5728 {name} \u4E0B\uFF09\uFF1A{text}", { name, text: todo2 }));
+              }
+              rec.todosAdded = true;
+            }
           }
         }
-      }
-      const byKey = /* @__PURE__ */ new Map(), who = /* @__PURE__ */ new Map(), toks = /* @__PURE__ */ new Map(), sids = /* @__PURE__ */ new Map(), blockIds = /* @__PURE__ */ new Map();
-      for (const x of data.list) {
-        const rec = st[x.sid];
-        if (!rec || rec.skip || rec.gone || !rec.key) continue;
-        if (rec.blockId && !blockIds.has(rec.key)) blockIds.set(rec.key, rec.blockId);
-        toks.set(rec.key, (toks.get(rec.key) || 0) + (x.out || 0) + (x.fresh || 0));
-        (sids.get(rec.key) || sids.set(rec.key, []).get(rec.key)).push(x.sid);
-        (byKey.get(rec.key) || byKey.set(rec.key, []).get(rec.key)).push(...x.segs);
-        (who.get(rec.key) || who.set(rec.key, /* @__PURE__ */ new Set()).get(rec.key)).add(agentName(x.agent));
-      }
-      const merged = /* @__PURE__ */ new Map();
-      for (const [k, segs] of byKey) merged.set(k, unionSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
-      for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "", blockIds.get(k) || "");
-      text = clocksLast(text);
-      report.diff = diffLines(base, text);
-      if (dry) {
-        this.cfg.autoLogState[day] = JSON.parse(snap);
-        return report;
-      }
-      if (!await this.write(file, base, text)) {
-        this.cfg.autoLogState[day] = JSON.parse(snap);
-        report.error = t("\u65E5\u8BB0\u6B63\u5728\u88AB\u6539\uFF0C\u8FD9\u4E00\u8F6E\u6CA1\u5199");
-        return report;
-      }
-      for (const [k, segs] of merged) work[k] = segs;
+        const byKey = /* @__PURE__ */ new Map(), who = /* @__PURE__ */ new Map(), toks = /* @__PURE__ */ new Map(), sids = /* @__PURE__ */ new Map(), blockIds = /* @__PURE__ */ new Map();
+        for (const x of data.list) {
+          const rec = st[x.sid];
+          if (!rec || rec.skip || rec.gone || !rec.key) continue;
+          if (rec.blockId && !blockIds.has(rec.key)) blockIds.set(rec.key, rec.blockId);
+          toks.set(rec.key, (toks.get(rec.key) || 0) + (x.out || 0) + (x.fresh || 0));
+          (sids.get(rec.key) || sids.set(rec.key, []).get(rec.key)).push(x.sid);
+          (byKey.get(rec.key) || byKey.set(rec.key, []).get(rec.key)).push(...x.segs);
+          (who.get(rec.key) || who.set(rec.key, /* @__PURE__ */ new Set()).get(rec.key)).add(agentName(x.agent));
+        }
+        const merged = /* @__PURE__ */ new Map();
+        for (const [k, segs] of byKey) merged.set(k, unionSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
+        for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "", blockIds.get(k) || "");
+        text = clocksLast(text);
+        report.diff = diffLines(base2, text);
+        if (dry) {
+          this.cfg.autoLogState[day] = JSON.parse(snap);
+          return report;
+        }
+        if (!await this.write(file, base2, text)) {
+          this.cfg.autoLogState[day] = JSON.parse(snap);
+          report.error = t("\u65E5\u8BB0\u6B63\u5728\u88AB\u6539\uFF0C\u8FD9\u4E00\u8F6E\u6CA1\u5199");
+          return report;
+        }
+        for (const [k, segs] of merged) work[k] = segs;
+        if (this.cfg.autoLogNotify !== false) this.digest(digest, idle, file);
+      });
+      if (dry || report.error === t("\u65E5\u8BB0\u6B63\u5728\u88AB\u6539\uFF0C\u8FD9\u4E00\u8F6E\u6CA1\u5199")) return report;
       await this.archivePast(arch, day);
       for (const k of Object.keys(this.cfg.autoLogState).sort().slice(0, -4)) delete this.cfg.autoLogState[k];
       await this.p.saveSettings();
-      if (this.cfg.autoLogNotify !== false) this.digest(digest, idle, file);
       return report;
     } catch (e) {
       console.error("[agent-deck] \u81EA\u52A8\u8BB0\u65E5\u8BB0\u5931\u8D25", e);
@@ -14764,16 +15049,17 @@ var JournalSync = class {
       }
       const file = this.todayJournal();
       if (file && !this.isOpen(file)) {
-        const text = await this.p.app.vault.read(file);
-        if (this.cfg.journalAutoWrite === false || this._stopped) return;
-        let next = text;
-        if (this.cfg.resultBack !== false) next = this.results(next);
-        if (this.cfg.agentKw !== false) next = this.keywords(next);
-        next = this.spawnAll(next);
-        next = this.sides(next);
-        next = clocksLast(next);
-        next = ensureTopRule(next);
-        if (next !== text) await this.p.app.vault.process(file, (cur) => cur === text ? next : cur);
+        await updateNote(this.p, file.path, (text) => {
+          if (this.cfg.journalAutoWrite === false || this._stopped) return text;
+          let next = text;
+          if (this.cfg.resultBack !== false) next = this.results(next);
+          if (this.cfg.agentKw !== false) next = this.keywords(next);
+          next = this.spawnAll(next);
+          next = this.sides(next);
+          next = clocksLast(next);
+          next = ensureTopRule(next);
+          return next;
+        });
       }
     } catch (e) {
       console.error("[agent-deck] \u4F1A\u8BDD\u56DE\u5199\u65E5\u8BB0\u5931\u8D25", e);
@@ -14866,10 +15152,25 @@ var JournalSync = class {
         if (!targets.has(sid)) targets.set(sid, { blockId: rec.blockId || "", key: rec.key || "" });
       }
     }
+    const backgroundJobs = new Map(Object.values(this.p.jobs || {}).filter((job) => job.destination === "background").map((job) => [job.sessionId, job]));
     let out = text;
     for (const [sid, info] of targets) {
       const m = this.usage.meta.get(sid);
       if (!m) continue;
+      const background = backgroundJobs.get(sid);
+      if (background) {
+        if (["starting", "running", "needs-approval"].includes(background.state)) continue;
+        const rounds2 = m.rounds || [];
+        out = syncSessionEntry(out, {
+          sid,
+          blockId: info.blockId || daySt[sid]?.blockId || "",
+          key: info.key || daySt[sid]?.key || "",
+          rounds: rounds2.length ? rounds2 : [{ n: 1, said: background.result || m.lastText || "" }],
+          replyMax: 240,
+          detail: "brief"
+        }).text;
+        continue;
+      }
       const waiting = m.state === "wait" || m.state === "quiet";
       const isDone = this.archived(sid);
       if (this.cfg.autoLogGranularity === "paused" && !isDone && daySt[sid]?.status !== "paused") continue;
@@ -15340,156 +15641,6 @@ var JournalSync = class {
 
 // src/conversation-modal.js
 var import_obsidian9 = require("obsidian");
-
-// src/conversation.js
-var import_fs7 = __toESM(require("fs"), 1);
-var import_crypto6 = require("crypto");
-var textOf = (content) => typeof content === "string" ? content : (Array.isArray(content) ? content : []).filter((b) => ["text", "input_text", "output_text"].includes(b?.type)).map((b) => b.text || "").join("\n");
-function conversationMessages(agent, source) {
-  const messages = [];
-  const seen = /* @__PURE__ */ new Map();
-  for (const line of source.split("\n")) {
-    let d;
-    try {
-      d = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    let role, text, id;
-    if (agent === "dsh" && ["user/message", "assistant/message"].includes(d.type)) {
-      if (d.type === "user/message" && d.data?.source?.kind && d.data.source.kind !== "user") continue;
-      role = d.type === "user/message" ? "user" : "assistant";
-      text = textOf(d.data?.message?.content ?? d.data?.content);
-      id = d.data?.message?.id || d.data?.id;
-    } else if ((agent === "claude" || agent === "qoder") && ["user", "assistant"].includes(d.type) && !d.isSidechain) {
-      role = d.type;
-      text = textOf(d.message?.content);
-      id = d.uuid;
-    } else if (agent === "codex" && d.type === "response_item" && d.payload?.type === "message") {
-      role = d.payload.role;
-      text = textOf(d.payload.content);
-      id = d.payload.id;
-    } else if (agent === "workbuddy" && d.type === "message") {
-      role = d.role;
-      text = textOf(d.content);
-      id = d.id;
-    }
-    if (!["user", "assistant"].includes(role) || !text?.trim()) continue;
-    const message = { role, text, at: d.time || Date.parse(d.timestamp) || 0 };
-    const key = id && `${role}:${id}`;
-    if (key && seen.has(key)) messages[seen.get(key)] = message;
-    else {
-      if (key) seen.set(key, messages.length);
-      messages.push(message);
-    }
-  }
-  return messages;
-}
-async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map()) {
-  const sid = session.sid || session.sessionId;
-  const owned = Object.values(plugin.jobs).find((j) => j.sessionId === sid && j.agent === session.agent);
-  if (session.agent === "antigravity" && owned?.transport === "acp") return [...owned.conversation || []];
-  const files = [...plugin.usage.files?.values() || []].filter((f) => f.sid === sid && f.agent === session.agent && !f.sub);
-  const messages = [];
-  for (const file of files) {
-    if (["opencode", "qoder"].includes(session.agent) && file.path.includes("#")) {
-      const db = file.path.slice(0, file.path.lastIndexOf("#"));
-      const rows = await desktopMessages(db, session.agent, sid);
-      messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));
-      continue;
-    }
-    const stat = await import_fs7.default.promises.stat(file.path);
-    let entry = cache.get(file.path);
-    if (!entry || entry.mtime !== stat.mtimeMs || entry.size !== stat.size) {
-      const raw = await import_fs7.default.promises.readFile(file.path);
-      let bytes = raw;
-      if (file.zstd) {
-        try {
-          bytes = decompress(raw);
-        } catch (e) {
-          if (!file.zOff) throw e;
-          bytes = decompress(raw.subarray(0, file.zOff));
-        }
-      }
-      entry = { mtime: stat.mtimeMs, size: stat.size, messages: conversationMessages(session.agent, Buffer.from(bytes).toString("utf8")) };
-      cache.set(file.path, entry);
-    }
-    messages.push(...entry.messages);
-  }
-  if (!messages.length) {
-    const job = Object.values(plugin.jobs).find((j) => j.sessionId === sid && j.agent === session.agent);
-    messages.push(...job?.conversation || []);
-  }
-  return messages;
-}
-function conversationMarkdown(session, messages) {
-  const title = String(session.title || session.name || "Agent \u5BF9\u8BDD").replace(/[\r\n]/g, " ");
-  const sid = session.sid || session.sessionId;
-  return [
-    `# ${title}`,
-    "",
-    `Agent\uFF1A${session.agent}`,
-    `\u4F1A\u8BDD\uFF1A${sid}`,
-    "",
-    "> \u672C\u6587\u5F52\u6863\u7528\u6237\u6D88\u606F\u4E0E Agent \u56DE\u590D\u6B63\u6587\uFF1B\u5DE5\u5177\u7ED3\u679C\u3001\u5185\u90E8\u63A8\u7406\u548C\u9644\u4EF6\u4E0D\u5305\u542B\u5728\u5185\u3002",
-    "",
-    ...messages.flatMap((m) => [`## ${m.role === "user" ? "\u7528\u6237" : "Agent"}`, "", m.text, ""])
-  ].join("\n");
-}
-function conversationPath(session) {
-  const safe = (s) => String(s || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
-  return `Agent Deck/Conversations/${safe(session.agent)}-${safe(session.sid || session.sessionId)}.md`;
-}
-async function archiveConversation(plugin, session) {
-  const active = Object.values(plugin.jobs).find((j) => j.agent === session.agent && j.sessionId === (session.sid || session.sessionId));
-  if (["starting", "running", "needs-approval"].includes(active?.state)) throw new Error(t("\u8BF7\u7B49\u5F53\u524D\u8FD9\u4E00\u8F6E\u7ED3\u675F\u540E\u518D\u5F52\u6863"));
-  const messages = await readConversation(plugin, session);
-  if (!messages.length) throw new Error(t("\u6682\u672A\u8BFB\u53D6\u5230\u5BF9\u8BDD\u6B63\u6587\uFF0C\u8BF7\u626B\u63CF\u4F1A\u8BDD\u540E\u91CD\u8BD5"));
-  const vault = plugin.app.vault;
-  const notePath2 = conversationPath(session);
-  for (const folder of ["Agent Deck", "Agent Deck/Conversations"]) {
-    if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
-  }
-  const body = conversationMarkdown(session, messages);
-  const hash2 = (text) => (0, import_crypto6.createHash)("sha256").update(text).digest("hex");
-  const content = `<!-- agent-deck-conversation sha256:${hash2(body)} -->
-${body}
-<!-- /agent-deck-conversation -->`;
-  const file = vault.getAbstractFileByPath(notePath2);
-  if (file) {
-    const prior = await vault.read(file);
-    if (prior === content) {
-      await linkArchive(plugin, session, notePath2);
-      return file;
-    }
-    const region = /<!-- agent-deck-conversation sha256:([a-f0-9]{64}) -->\n([\s\S]*?)\n<!-- \/agent-deck-conversation -->/.exec(prior);
-    if (!region || hash2(region[2]) !== region[1]) throw new Error(t("\u8BE5\u4F1A\u8BDD\u5DF2\u6709\u5F52\u6863\uFF0C\u4E14\u6B63\u6587\u7ECF\u8FC7\u624B\u5DE5\u4FEE\u6539\u3002\u8BF7\u5148\u4FDD\u7559\u6216\u79FB\u52A8\u65E7\u5F52\u6863\u540E\u518D\u5BFC\u51FA"));
-    const next = prior.slice(0, region.index) + content + prior.slice(region.index + region[0].length);
-    if (next !== prior) await vault.modify(file, next);
-    await linkArchive(plugin, session, notePath2);
-    return file;
-  }
-  const created = await vault.create(notePath2, content);
-  await linkArchive(plugin, session, notePath2);
-  return created;
-}
-async function linkArchive(plugin, session, archivePath2) {
-  if (!plugin.readNote || !plugin.writeNote) return;
-  const sid = session.sid || session.sessionId;
-  const job = Object.values(plugin.jobs).find((j) => j.agent === session.agent && j.sessionId === sid);
-  const binding = Object.values(plugin.settings?.taskBindings || {}).find((b) => b.sid === sid);
-  const target = binding?.path ? binding : job;
-  if (!target?.path || !plugin.app.vault.getAbstractFileByPath(target.path)) return;
-  const text = await plugin.readNote(target.path);
-  if (text.includes(`[[${archivePath2}|`)) return;
-  const task = findTask(text, target.key || workKey(target.name || ""), target.blockId, sid);
-  if (!task) return;
-  const lines = text.split("\n"), indent = (lines[task.line].match(/^[ \t]*/)?.[0] || "") + "	";
-  lines.splice(task.line + 1, 0, `${indent}- \u{1F4C4} [[${archivePath2}|\u5BF9\u8BDD\u5F52\u6863 \xB7 ${session.agent}]]`);
-  await plugin.writeNote(target.path, lines.join("\n"));
-}
-
-// src/conversation-modal.js
 var ConversationModal = class extends import_obsidian9.Modal {
   constructor(app, plugin, session) {
     super(app);
@@ -15526,37 +15677,7 @@ var ConversationModal = class extends import_obsidian9.Modal {
     archive.title = t("\u4FDD\u5B58\u5BF9\u8BDD\uFF08\u2318S / Ctrl+S\uFF09");
     el.createDiv({ cls: "ad-hint", text: t("\u4FDD\u5B58\u7528\u6237\u6D88\u606F\u4E0E\u56DE\u590D\u6B63\u6587\uFF1B\u4F1A\u8BDD\u53EF\u7EE7\u7EED\uFF0C\u4EFB\u52A1\u72B6\u6001\u4E0D\u53D7\u5F71\u54CD\u3002\u5DE5\u5177\u7ED3\u679C\u3001\u5185\u90E8\u63A8\u7406\u548C\u9644\u4EF6\u4E0D\u5305\u542B\u5728\u5185\u3002") });
     this.messagesEl = el.createDiv({ cls: "ad-conversation__messages" });
-    if (["dsh", "opencode"].includes(this.session.agent) || this.session.agent === "antigravity" && Object.values(this.plugin.jobs).some((j) => j.agent === "antigravity" && j.transport === "acp" && j.sessionId === (this.session.sid || this.session.sessionId))) {
-      this.input = el.createEl("textarea", { cls: "ad-textarea", attr: { rows: "3", placeholder: t("\u5728\u539F\u4F1A\u8BDD\u4E2D\u7EE7\u7EED\u8FFD\u95EE\u2026") } });
-      const row = el.createDiv({ cls: "ad-btnrow" });
-      this.send = row.createEl("button", { cls: "mod-cta", text: t("\u53D1\u9001\u5230\u539F\u4F1A\u8BDD") });
-      this.send.onclick = async () => {
-        this.send.disabled = true;
-        try {
-          const job = await this.plugin.delegator.continueSession(this.session, this.input.value);
-          if (job.state === "error") throw new Error(job.error);
-          this.input.value = "";
-          await this.load();
-        } catch (e) {
-          new import_obsidian9.Notice(e.message);
-        } finally {
-          this.send.disabled = false;
-        }
-      };
-      this.scope.register(["Mod"], "Enter", (event) => {
-        event.preventDefault();
-        if (!this.send.disabled && this.input.value.trim()) this.send.click();
-        return false;
-      });
-      this.send.title = t("\u53D1\u9001\uFF08\u2318Enter / Ctrl+Enter\uFF09");
-      const stop = row.createEl("button", { text: t("\u505C\u6B62\u5F53\u524D\u4E00\u8F6E") });
-      stop.onclick = () => {
-        const job = Object.values(this.plugin.jobs).find((j) => j.agent === this.session.agent && j.sessionId === (this.session.sid || this.session.sessionId));
-        if (job) this.plugin.delegator.cancel(job.id);
-      };
-    } else {
-      el.createDiv({ cls: "ad-hint", text: t("\u6B64 Agent \u7684\u7EED\u804A\u8BF7\u5728\u539F\u5BA2\u6237\u7AEF\u5B8C\u6210\u3002") });
-    }
+    el.createDiv({ cls: "ad-hint", text: t("\u6B64 Agent \u7684\u7EED\u804A\u8BF7\u5728\u539F\u5BA2\u6237\u7AEF\u5B8C\u6210\u3002") });
     this.load();
     this.timer = setInterval(() => this.load(), 2e3);
   }
@@ -15685,7 +15806,7 @@ function registerTaskAgentSuggest(plugin) {
 
 // src/task-status.js
 var import_obsidian11 = require("obsidian");
-var import_crypto7 = require("crypto");
+var import_crypto8 = require("crypto");
 var STATUS_TOKEN = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)([A-Z][A-Z0-9_-]*)(?=\s|$)/;
 function replaceTaskStatus(raw, keyword) {
   if (!/^[A-Z][A-Z0-9_-]*$/.test(keyword)) return null;
@@ -15723,7 +15844,7 @@ function suggestedStatus(settings, usage, text, n) {
   return states.map((state) => STATE_KW[state]).find(Boolean) || "";
 }
 async function applyStatusChoice(plugin, target, keyword) {
-  const settings = plugin.settings, id = blockIdOf(target.raw) || (0, import_crypto7.randomUUID)();
+  const settings = plugin.settings, id = blockIdOf(target.raw) || (0, import_crypto8.randomUUID)();
   let previous, changed = false;
   const transform = (text) => {
     const n = locateStatusTask(text, target);
@@ -16391,8 +16512,8 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
   }
   openSession(agent, sid, app, session) {
     const job = Object.values(this.jobs).find((j) => j.agent === agent && j.sessionId === sid);
-    if (agent === "antigravity" && job?.transport === "acp" || ["dsh", "opencode"].includes(agent) && job?.destination === "obsidian") return this.openConversation({ ...job, sid });
-    if (job && ["claude", "codex", "qoder"].includes(agent)) return this.openClientSession({ ...job, ...session, sid, agent });
+    if (agent === "antigravity" && job?.transport === "acp") return this.openConversation({ ...job, sid });
+    if (job && ["claude", "codex", "qoder", "workbuddy"].includes(agent)) return this.openClientSession({ ...job, ...session, sid, agent });
     return openSession(this, agent, sid, app, session);
   }
   // 给别的插件用（螺旋日程的进度行）：只给会话号，按 Agent Deck 的规矩打开——命令行会话切到它的终端标签
@@ -16728,7 +16849,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
     try {
       const opts = mentionOptions(this, { ...target, agent, ignoreMention: newSession });
       agent = opts.agent;
-      destination || (destination = cli && ["claude", "codex", "opencode", "qoder"].includes(agent) ? "terminal" : defaultDestination(this, agent));
+      destination || (destination = cli && ["claude", "codex", "opencode", "qoder", "workbuddy"].includes(agent) ? "terminal" : defaultDestination(this, agent));
       if (!confirmed) {
         new ConfirmSendModal(this.app, {
           agent,
@@ -16775,7 +16896,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
   openClientSession(session) {
     const owned = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === session.sid);
     session = { ...owned, ...session, transport: owned?.transport || session.transport };
-    if (!canOpenClient(session)) return this.notice(t("\u6B64 Antigravity \u4F1A\u8BDD\u5C1A\u4E0D\u652F\u6301\u8F6C\u5230\u684C\u9762 IDE \u7EE7\u7EED\uFF0C\u8BF7\u5728 Obsidian \u4E2D\u7EED\u804A"));
+    if (!canOpenClient(session)) return this.notice(t("\u6B64 Antigravity \u4F1A\u8BDD\u53EF\u67E5\u770B\u548C\u5F52\u6863\u6B63\u6587\uFF0C\u6682\u4E0D\u652F\u6301\u8F6C\u5230\u684C\u9762 IDE"));
     if (!session.sid) return this.notice(t("\u6B63\u5728\u5EFA\u7ACB\u4F1A\u8BDD\uFF0C\u8BF7\u7A0D\u540E\u518D\u6253\u5F00"));
     const job = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === session.sid);
     if (["claude", "codex", "qoder"].includes(session.agent) && activeJob(job)) return this.notice(t("\u9996\u8F6E\u4ECD\u5728\u6267\u884C\uFF0C\u7ED3\u675F\u540E\u518D\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD"));
@@ -16790,8 +16911,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
     const menu = new import_obsidian12.Menu();
     for (const [index, session] of sessions.entries()) {
       const title = `${AGENTS[session.agent]?.name || session.agent} \xB7 ${t("\u4F1A\u8BDD {n}", { n: index + 1 })}`;
-      const inNote = ["dsh", "antigravity", "opencode"].includes(session.agent) && (session.agent !== "antigravity" || session.transport === "acp");
-      menu.addItem((mi) => mi.setTitle(t("\u7EE7\u7EED\u5BF9\u8BDD \xB7 {title}", { title })).setDisabled(!session.sid).onClick(() => inNote && session.destination !== "desktop" ? this.openConversation(session) : this.openClientSession(session)));
+      if (canOpenClient(session)) menu.addItem((mi) => mi.setTitle(t("\u7EE7\u7EED\u5BF9\u8BDD \xB7 {title}", { title })).setDisabled(!session.sid).onClick(() => this.openClientSession(session)));
       menu.addItem((mi) => mi.setTitle(t("\u67E5\u770B\u6B63\u6587\u4E0E\u4FDD\u5B58\u5BF9\u8BDD \xB7 {title}", { title })).setDisabled(!session.sid).onClick(() => this.openConversation(session)));
       if (canOpenClient(session)) menu.addItem((mi) => mi.setTitle(t("\u5728\u5BA2\u6237\u7AEF\u6253\u5F00 \xB7 {title}", { title })).setDisabled(!session.sid || ["claude", "codex", "qoder"].includes(session.agent) && activeJob(session)).onClick(() => this.openClientSession(session)));
       if (activeJob(session) && this.delegator.runners.has(session.id)) menu.addItem((mi) => mi.setTitle(t("\u505C\u6B62\u6267\u884C \xB7 {title}", { title })).onClick(() => this.cancelJob(session.id)));
@@ -17014,7 +17134,7 @@ var AgentDeckPlugin = class extends import_obsidian12.Plugin {
       const a = AGENTS[agent];
       const state = isLive ? s.state || "idle" : "recent";
       const kw = menuKeyword(state);
-      const where = ["claude", "qoder"].includes(agent) ? s.app === "cli" ? t("\u7EC8\u7AEF") : t("\u684C\u9762\u7248") : agent === "codex" ? isCodexDesktop(s.app) ? t("\u684C\u9762\u7248") : "CLI" : ["workbuddy", "opencode"].includes(agent) ? t("\u684C\u9762\u7248") : agent === "antigravity" ? s.job?.transport === "acp" ? "Obsidian / ACP" : "IDE" : "Harness";
+      const where = ["claude", "qoder", "workbuddy"].includes(agent) ? s.app === "cli" ? t("\u7EC8\u7AEF") : t("\u684C\u9762\u7248") : agent === "codex" ? isCodexDesktop(s.app) ? t("\u684C\u9762\u7248") : "CLI" : agent === "opencode" ? t("\u684C\u9762\u7248") : agent === "antigravity" ? s.job?.transport === "acp" ? t("\u540E\u53F0\u6267\u884C") : "IDE" : "Harness";
       const acp = agent === "antigravity" && s.job?.transport === "acp";
       const url = AGENTS[agent].trackingOnly || ["opencode", "qoder"].includes(agent) ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : sessionDeepLink(agent, s.sid);
       const prog = this.sessionProgressText(s);

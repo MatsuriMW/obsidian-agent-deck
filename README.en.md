@@ -48,11 +48,19 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 
 ## Release notes
 
-Current version: **1.9.3**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+Current version: **1.9.4**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+
+### 1.9.4 · Background transcripts and concurrent journal updates
+
+- Delegation offers desktop, background and terminal destinations. The transcript window is for reading and exporting; continue conversations in the agent's own client or terminal.
+- Background tasks write a short progress or conclusion (up to about 240 characters) and a transcript link to the journal. Complete replies, including code and line breaks, are saved automatically under `Agent Deck/Conversations/`.
+- Binding, result and archive-link updates share a per-note queue and merge against current content. AI organization re-reads the journal after the model responds.
+- Running background tasks show an indeterminate indicator and elapsed time; completed or failed tasks retain their duration.
+- Document Qoder and WorkBuddy CLI/desktop session boundaries and remove in-plugin continuation from the integration principles.
 
 ### 1.9.3 · OpenCode & Qoder delegation, unified auto-record titles, and plugin directory compliance
 
-- Add OpenCode and Qoder delegation and in-plugin follow-up: OpenCode runs via `opencode-cli acp` (or interactive `opencode` in a terminal) with same-session follow-up and desktop opening; Qoder supports headless `qodercli` delegation and same-session follow-up (`-r <sessionId>`), desktop clipboard handoff, and interactive terminal sessions.
+- Add OpenCode and Qoder delegation through background CLI, desktop handoff and interactive terminals. In-plugin continuation introduced during development was removed in 1.9.4.
 - Unify all AI auto-written task headers to `STATUS 🤖 HH:mm-HH:mm Summarized title` (for example `- DOING 🤖 14:52-15:52 Adjust Agent Deck sidebar panel`) across auto-logging, drag-to-create, status transitions, session write-backs, child blocks and journal organization, stripping raw paths, URLs and conversational filler.
 - Update `manifest.json` description to comply with community plugin review requirements.
 
@@ -127,7 +135,7 @@ Type `@` in a list task to choose an agent. Type `/` to choose its model, then `
 - TODO Review this material @codex/gpt-6.1-sol/high
 ```
 
-The selection stays on that task line and is read when you send or drag it. Child tasks have independent selections. The detailed delegation dialog starts from the mention; changes in the dialog apply only to that dispatch. Custom models in Models are included. WorkBuddy uses client handoff, with model and effort configured in the client. Antigravity uses direct CLI delegation and in-plugin follow-up.
+The selection stays on that task line and is read when you send or drag it. Child tasks have independent selections. The detailed delegation dialog starts from the mention; changes in the dialog apply only to that dispatch. Custom models in Models are included. WorkBuddy uses client handoff, with model and effort configured in the client. Antigravity uses background CLI delegation; its transcript can be read and exported in the plugin.
 
 The new **Dreaming** settings page offers a manual run and an optional daily run. It reads the last fourteen journal days and notes attached to tracked delegation jobs, within a bounded input budget. AI records must already be written to notes. It reuses the journal model CLI, model and login; material goes to that CLI's model provider. Automatic runs require the plugin to be running and are disabled by default.
 
@@ -149,9 +157,7 @@ The UI follows Obsidian's own language, with no separate switch and no restart: 
 
 The plugin reads OpenCode Desktop's `~/.local/share/opencode/opencode.db` (both SQLite schemas) and Qoder Desktop's `~/Library/Application Support/com.qoder.app.stable/main.sqlite`. Tracking includes dashboard and menu bar sessions, turns, activity spans, task binding, journal updates and conversation archives. Existing primary-Agent and history settings apply. Available since 1.9.1.
 
-OpenCode token usage comes from message records. Qoder's current desktop format exposes no per-turn tokens, so none are estimated. Status follows persisted fields and may miss permission waits. Opening a session launches the app and copies its ID; select the session in the client. Delegation and in-plugin follow-up are not included. Only macOS has been checked; Qoder IDE and standalone CLI are outside this scope.
-
-Validation (2026-11-14): both desktop clients completed two real test turns. Session discovery, turn counts, journal updates, conversation viewing and export were checked; repeated scans preserve totals. The live test caught and fixed an OpenCode 2.3.0 role-reading bug: roles live in the database type column, not in the JSON payload. Desktop tracking for both clients ships in 1.9.1.
+OpenCode reads available message tokens and uses `opencode-cli acp` for background delegation. Its CLI and desktop share `opencode.db`; the desktop entry launches the app and copies the session ID for manual selection. Qoder uses headless `qodercli -p` and interactive `qodercli -r <sessionId>`; its CLI session files under `~/.qoder/projects` are separate from the desktop SQLite database. Desktop delegation therefore copies the task and opens the client for you to paste and send.
 
 **Ctrl+Alt+L** organizes the current journal. Change it in Obsidian's hotkey settings. Organize journal is the first item under About → Common actions.
 
@@ -163,13 +169,13 @@ The current version tracks these seven agents through their local session logs:
 |---|---|---|---|
 | Claude Code | `~/.claude/projects` and Code sessions in the Claude desktop app | TaskCreate / TaskUpdate / TodoWrite steps when available; conversation turns otherwise | Background CLI or interactive terminal |
 | Codex | `~/.codex/sessions`, `archived_sessions` and session indexes | Conversation turns | App Server first turn with Desktop continuation, or terminal CLI |
-| WorkBuddy | `~/.workbuddy/projects`, combined with `workbuddy.db` metadata | Conversation turns | Open the client and copy the task for you to paste and send |
+| WorkBuddy | `~/.workbuddy/projects`, `~/.codebuddy/projects` and `workbuddy.db` metadata | Conversation turns | Desktop clipboard handoff or independent CodeBuddy CLI terminal interaction |
 | DeepSeek Harness (DSH) | zstd logs under `~/.dsh/sessions` and the local usage statistics interface | Conversation turns | Background delegation with model and effort selection |
-| Antigravity | Original IDE logs and conversation history saved with plugin jobs | Conversation turns, planner replies and tool actions | Direct CLI delegation, in-plugin follow-up and text export |
-| OpenCode | `~/.local/share/opencode/opencode.db` | Conversation turns and activity spans | Background ACP delegation, in-plugin follow-up, desktop continuation or terminal CLI |
-| Qoder | `~/Library/Application Support/com.qoder.app.stable/main.sqlite` and `~/.qoder/projects` | Conversation turns and activity spans | `qodercli` background delegation and in-plugin follow-up, desktop clipboard handoff or terminal CLI |
+| Antigravity | Original IDE logs and conversation history saved with plugin jobs | Conversation turns, planner replies and tool actions | Background CLI delegation and text export |
+| OpenCode | `~/.local/share/opencode/opencode.db` | Conversation turns and activity spans | Background ACP delegation, desktop opening or terminal CLI |
+| Qoder | `~/Library/Application Support/com.qoder.app.stable/main.sqlite` and `~/.qoder/projects` | Conversation turns and activity spans | `qodercli` background delegation, desktop clipboard handoff or terminal CLI |
 
-All seven can bind to journal tasks, create automatic entries and write conclusions back. State and token data depend on the fields each client actually logs. Archive detection is integrated for Claude, Codex, WorkBuddy and DSH; Antigravity archive detection is not currently guaranteed. Plugin-created Antigravity CLI sessions open the conversation inside Obsidian. Original Antigravity IDE sessions and the DSH client entry still open the app and copy the session ID.
+All seven can bind to journal tasks, create automatic entries and write conclusions back. State and token data depend on the fields each client actually logs. Archive detection is integrated for Claude, Codex, WorkBuddy and DSH; Antigravity archive detection is not currently guaranteed. Plugin-created Antigravity CLI sessions open a read-only transcript inside Obsidian; IDE continuation is unavailable. Original Antigravity IDE sessions and the DSH client entry still open the app and copy the session ID.
 
 Models can be added or edited in Models. Adding a model does not add another agent log reader. The plugin is developed and verified on macOS; client paths and navigation on other systems are unverified.
 
@@ -378,6 +384,20 @@ WorkBuddy uses client handoff: drop an item on their card, the task text (with y
 
 Codex sessions open in the desktop app with `codex://threads/<id>` (and `codex resume <id>` is copied too). WorkBuddy opens with `workbuddy://chat/<id>`.
 
+### Qoder and WorkBuddy desktop boundaries
+
+Qoder CLI files under `~/.qoder/projects` do not share sessions with the desktop SQLite database. WorkBuddy desktop uses `~/.workbuddy`; the independent CodeBuddy CLI writes `~/.codebuddy/projects`. Its CLI IDs cannot be imported through WorkBuddy desktop links. Continue Qoder background tasks with `qodercli -r <sid>` in a terminal. WorkBuddy terminal delegation runs `codebuddy` and resumes with `codebuddy -r <sid>`; managed background execution is not offered for WorkBuddy.
+
+Both desktop destinations copy the task and open the client for you to paste and send. The next scan binds the new desktop session. Claude and Codex can hand the same completed first-turn session to desktop. OpenCode shares storage between CLI and desktop, but its desktop entry currently requires manual session selection.
+
+### Background replies and concurrent journal editing
+
+Background tasks write up to about 240 characters and a complete-transcript link to the journal. Original messages are automatically saved under `Agent Deck/Conversations/`. Running tasks show an indeterminate indicator and elapsed time; finished or failed tasks retain their duration. An explicit background destination does not open the desktop app when CLI authentication fails.
+
+Bindings, conclusions and archive links share a queue per note. Open notes receive local editor transactions against current content; closed notes merge content inside `Vault.process()`. AI organization re-reads the note after its model call and skips stale changes if the user edits it again. Session/turn markers prevent duplicate records and keep each agent's output separate from manual notes.
+
+These protections cover writes routed through Agent Deck. External scripts overwriting Markdown and simultaneous edits from multiple devices are outside the local queue. Agent Deck does not automatically create a Git commit for each agent; a commit contains the journal file as saved, with source sessions identified by markers and transcript links.
+
 ## Deep links
 
 | Agent | Link | State |
@@ -410,9 +430,9 @@ Reading existing logs, binding tasks, viewing conversation text and exporting it
 | Claude Code automatic delegation | Headless `claude` process or terminal session | Installed and authenticated Claude Code; Claude desktop app for desktop continuation |
 | Codex desktop mode | `codex app-server` | Working, authenticated Codex executable and Codex desktop app; bundled executable preferred |
 | Codex terminal mode | Interactive `codex` | Codex CLI available to the terminal and its authentication |
-| DeepSeek Harness delegation and in-plugin follow-up | Harness CLI | A compatible Harness installation and configured model/provider credentials |
+| DeepSeek Harness delegation | Harness CLI | A compatible Harness installation and configured model/provider credentials |
 | WorkBuddy handoff | Clipboard plus client launch; user sends | Chinese-edition WorkBuddy desktop app; no independent CodeBuddy CLI required for this path |
-| Antigravity delegation and in-plugin follow-up | Antigravity CLI | Standalone Antigravity CLI with its own login; installing the IDE alone is insufficient |
+| Antigravity delegation | Antigravity CLI | Standalone Antigravity CLI with its own login; installing the IDE alone is insufficient |
 | AI journaling, polishing and Dreaming | Selected `claude` or `codex` CLI | Check that feature's executable path, authentication and model availability separately |
 | macOS menu-bar helper | Local SwiftUI compilation on first use | `swiftc` from Xcode Command Line Tools; disable the feature if unused |
 
@@ -432,7 +452,7 @@ The existing **Check** buttons check executables and versions only. This version
 
 Install the standalone CLI and complete its login following the official instructions. Under **Delegation → Antigravity CLI**, check the executable and read available models. An absolute path such as `~/.local/bin/agy` can be configured. The default option preserves the server model; unsupported effort values fail explicitly.
 
-Delegate through `@antigravity`, the paper-plane target or the agent card. Open the bound session inside Obsidian to read replies, continue the same conversation, stop a turn or export text. Tool permission requests show the server's tool details and choices; closing the dialog cancels the request. Automatic tool approval is disabled by default.
+Delegate through `@antigravity`, the paper-plane target or the agent card. Open the bound session inside Obsidian to read replies or export text. Stop a running turn from its task menu; in-plugin continuation is unavailable. Tool permission requests show the server's tool details and choices; closing the dialog cancels the request. Automatic tool approval is disabled by default.
 
 Original IDE sessions remain separate. Conversation messages are saved with delegation jobs in plugin `data.json`; export them to notes before using **Clean finished delegation records** for long-term retention. Text exports exclude tool results, internal reasoning and attachments. CLI-to-IDE same-session continuation is not guaranteed.
 

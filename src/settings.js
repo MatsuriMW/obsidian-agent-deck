@@ -303,7 +303,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     });
     this.bigButton(atest, t("检查 agy"), async () => new Notice(await p.checkBinary("antigravity"), 6000));
 
-    const opencode = this.card(body, "OpenCode", t("优先使用 OpenCode.app 内置的 opencode-cli acp，可在 Obsidian 内续聊或在桌面版打开"));
+    const opencode = this.card(body, "OpenCode", t("通过 OpenCode.app 内置的 opencode-cli acp 后台委派，也可打开桌面端或终端"));
     this.modelSelect(opencode, "opencode", p.defaultModel("opencode"), (v) => { this.setDefaultModel("opencode", v); this.display(); });
     this.effortControl(opencode, "opencode", d.opencode.effort, (v) => { this.setDefaultEffort("opencode", v); this.display(); });
     const ocRoute = this.row(opencode, t("自动允许工具调用"), t("关闭后逐次确认工具权限"), null);
@@ -326,8 +326,6 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.effortControl(qoder, "qoder", d.qoder.effort, (v) => { this.setDefaultEffort("qoder", v); this.display(); });
     const qPermRow = this.row(qoder, t("权限模式"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件"), null);
     this.segmented(qPermRow.querySelector(":scope > .ad-row__right"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => { d.qoder.permission = v; p.saveSettings(); this.display(); });
-    const qOpenDesk = this.row(qoder, t("完成后自动在桌面版打开"), "", null);
-    this.toggle(qOpenDesk.querySelector(":scope > .ad-row__right"), d.qoder.openDesktop !== false, (v) => { d.qoder.openDesktop = v; p.saveSettings(); });
     for (const [key, label, hint] of [["path", t("命令行路径"), t("留空自动查找（~/.qoder/bin/qodercli/qodercli）")], ["cwd", t("工作目录"), t("留空 = 库根目录")], ["extraArgs", t("额外参数"), t("可留空")]]) {
       const r = this.row(qoder, label, hint, null);
       this.textInput(r.querySelector(":scope > .ad-row__right"), d.qoder[key] || "", hint, (v) => { d.qoder[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");

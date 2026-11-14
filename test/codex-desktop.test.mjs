@@ -6,6 +6,13 @@ import { isCodexDesktop } from '../src/delegation.js';
 import { CodexDesktopRunner } from '../src/codex-desktop.js';
 assert.equal(isCodexDesktop('agent_deck'),true);
 assert.equal(isCodexDesktop('codex_cli_rs'),false);
+{
+ const job={sessionId:'multi'};
+ const runner=new CodexDesktopRunner({},job,()=>{});
+ const message=(id,text)=>runner.receive({method:'item/completed',params:{threadId:'multi',item:{id,type:'agentMessage',text}}});
+ message('progress','先完成了第一步');message('final','完整结果与尚未完成的事项');message('final','完整结果与尚未完成的事项（更新）');
+ assert.equal(job.result,'先完成了第一步\n\n完整结果与尚未完成的事项（更新）');
+}
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ad-desktop-'));
 const bin=path.join(dir,'codex'), events=path.join(dir,'events.jsonl');
 fs.writeFileSync(bin,`#!/usr/bin/env node

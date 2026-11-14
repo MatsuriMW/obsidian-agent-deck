@@ -31,30 +31,7 @@ export class ConversationModal extends Modal {
     archive.title = t("保存对话（⌘S / Ctrl+S）");
     el.createDiv({ cls: "ad-hint", text: t("保存用户消息与回复正文；会话可继续，任务状态不受影响。工具结果、内部推理和附件不包含在内。") });
     this.messagesEl = el.createDiv({ cls: "ad-conversation__messages" });
-    if (["dsh", "opencode"].includes(this.session.agent) || (this.session.agent === "antigravity" && Object.values(this.plugin.jobs).some((j) => j.agent === "antigravity" && j.transport === "acp" && j.sessionId === (this.session.sid || this.session.sessionId)))) {
-      this.input = el.createEl("textarea", { cls: "ad-textarea", attr: { rows: "3", placeholder: t("在原会话中继续追问…") } });
-      const row = el.createDiv({ cls: "ad-btnrow" });
-      this.send = row.createEl("button", { cls: "mod-cta", text: t("发送到原会话") });
-      this.send.onclick = async () => {
-        this.send.disabled = true;
-        try {
-          const job = await this.plugin.delegator.continueSession(this.session, this.input.value);
-          if (job.state === "error") throw new Error(job.error);
-          this.input.value = "";
-          await this.load();
-        } catch (e) { new Notice(e.message); }
-        finally { this.send.disabled = false; }
-      };
-      this.scope.register(["Mod"], "Enter", (event) => { event.preventDefault(); if (!this.send.disabled && this.input.value.trim()) this.send.click(); return false; });
-      this.send.title = t("发送（⌘Enter / Ctrl+Enter）");
-      const stop = row.createEl("button", { text: t("停止当前一轮") });
-      stop.onclick = () => {
-        const job = Object.values(this.plugin.jobs).find((j) => j.agent === this.session.agent && j.sessionId === (this.session.sid || this.session.sessionId));
-        if (job) this.plugin.delegator.cancel(job.id);
-      };
-    } else {
-      el.createDiv({ cls: "ad-hint", text: t("此 Agent 的续聊请在原客户端完成。") });
-    }
+    el.createDiv({ cls: "ad-hint", text: t("此 Agent 的续聊请在原客户端完成。") });
     this.load();
     this.timer = setInterval(() => this.load(), 2000);
   }

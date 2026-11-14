@@ -1,3 +1,5 @@
+import { archiveConversation } from "./conversation.js";
+import { updateNote } from "./note-updates.js";
 // Agent Deck — delegate a note block to Claude Code or DeepSeek Harness.
 //
 // Claude Code: `claude --bg` (fallback: `claude -p --session-id`), then the
@@ -6,6 +8,7 @@
 // with model and reasoning-effort selection.
 
 import fs from "fs";
+import { randomUUID } from "crypto";
 import { destinations } from "./workflow.js";
 import { CodexDesktopRunner } from "./codex-desktop.js";
 import path from "path";
@@ -160,6 +163,17 @@ export function findQoderBinary(configured = "") {
   ];
   for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
   return "qodercli";
+}
+
+export function findWorkbuddyBinary(configured = "") {
+  if (configured && configured.trim()) return norm(configured.trim());
+  const candidates = [
+    path.join(home(), ".local/bin/codebuddy"),
+    "/opt/homebrew/bin/codebuddy",
+    "/usr/local/bin/codebuddy",
+  ];
+  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
+  return "codebuddy";
 }
 
 export function findClaudeBinary(configured = "") {
@@ -432,7 +446,7 @@ export async function focusCliSession(agent, sid) {
 export const isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
 // 命令行会话（Claude Code 终端版、Codex 命令行、Qoder CLI）：点开回终端，而不是交给桌面版
 export function isCliSession(agent, app) {
-  if (agent === "claude" || agent === "qoder") return app === "cli";
+  if (["claude", "qoder", "workbuddy"].includes(agent)) return app === "cli";
   if (agent === "codex") return !isCodexDesktop(app);
   return false;
 }
@@ -487,9 +501,9 @@ function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
 export function openSession(plugin, agent, sid, app = "", session = null) {
   if (!sid) { plugin.notice(t("这个会话还没有会话号，稍等一秒再点")); return false; }
   if (["opencode", "qoder"].includes(agent)) {
-    if (agent === "qoder" && app === "cli" && plugin.settings.cliOpen !== "desktop") {
+    if (agent === "qoder" && app === "cli") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
-      return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${sid}`, cwd);
+      return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);
     }
     copyText(sid);
     openAgentApp(agent).then((ok) => plugin.notice(ok ? t("已打开 {agent}；会话号已复制，请在客户端选择会话", { agent: AGENTS[agent].name }) : t("没打开 {agent}：本机好像没装", { agent: AGENTS[agent].name })));
@@ -504,7 +518,14 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     openExternal(`claude://resume?session=${sid}`);
     return true;
   }
-  if (agent === "workbuddy") { openExternal(`workbuddy://chat/${encodeURIComponent(sid)}`); return true; }
+  if (agent === "workbuddy") {
+    const meta = session || (plugin.usage && plugin.usage.meta.get(sid)) || {};
+    if ((app === "cli" || meta.app === "cli")) {
+      return focusOrResume(plugin, agent, sid, `${shellQuote(findWorkbuddyBinary(plugin.settings?.delegate?.workbuddy?.path || ""))} -r ${shellQuote(sid)}`, meta.cwd || "");
+    }
+    openExternal(`workbuddy://chat/${encodeURIComponent(sid)}`);
+    return true;
+  }
   if (agent === "codex") {
     // 命令行里起的（codex / codex exec）：开着就切到那个终端标签，关了才 codex resume；桌面版里的用 codex://threads/<id> 回桌面版
     const meta = session || (plugin.usage && plugin.usage.meta.get(sid)) || {};
@@ -572,7 +593,7 @@ class ClaudeRunner {
     // Headless is the reliable default: a child process we own, with the exact
     // model / effort / permission mode, and a session id we choose. The optional
     // `claude --bg` daemon can be flaky across CLI versions, so it is opt-in.
-    if (cfg.useBackground === true) {
+    if (cfg.useBackground === true && this.job.destination !== "background") {
       const args = ["--bg", ...common, "--", prompt];
       this.job.command = `${bin} ${args.slice(0, -2).join(" ")} …`;
       const res = await spawnCapture(bin, args, { cwd, env: cleanEnv(), timeout: 30000 });
@@ -596,7 +617,7 @@ class ClaudeRunner {
 
   startHeadless({ cwd, common, prompt, bin }) {
     // Older CLI (or a dead background daemon): run headless with a session id we choose.
-    const sid = require("crypto").randomUUID();
+    const sid = randomUUID();
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = `${bin} ${args2.slice(0, -2).join(" ")} …`;
     const child = spawn(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
@@ -608,12 +629,19 @@ class ClaudeRunner {
     this.job.short = "";
     this.job.agentState = "headless";
     let err = "";
-    child.stdout.on("data", (b) => { const s = b.toString(); this.job.lastText = s.slice(-2000); });
+    const output = [];
+    this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", s => { output.push(s); this.job.lastText = ((this.job.lastText || "") + s).slice(-2000); });
     child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 4000) err = err.slice(-4000); this.job.stderr = err.slice(-1000); });
     child.on("error", (e) => this.fail(String(e && e.message || e)));
-    child.on("exit", (code) => {
+    child.on("close", (code) => {
       if (this.finished) return;
-      if (code === 0) this.done();
+      if (code === 0) {
+        this.job.result = output.join("");
+        this.job.conversation.push({ role: "assistant", text: this.job.result, at: Date.now() });
+        this.done();
+      }
       else this.fail(err.trim() || t("claude 退出码 {code}", { code }));
     });
     this.d.saveJobs();
@@ -724,12 +752,14 @@ class QoderRunner {
     const model = resolveCliModel(d.plugin, "qoder", opts.model || cfg.model || "qoder-ultimate");
     const effort = opts.effort || cfg.effort || "high";
     const perm = opts.permission || cfg.permission || "auto";
-    const sid = crypto.randomUUID();
+    const sid = opts.sessionId || randomUUID();
     this.sessionId = sid;
+    if (opts.sessionId) this.job.sessionId = sid;
     this.job.cwd = cwd;
     this.job.app = "cli";
-    const args = ["-p", "--session-id", sid, "-w", cwd, "-m", model, "--reasoning-effort", effort, ...qoderPermissionArgs(perm)];
-    if (opts.name) args.push("-n", opts.name);
+    const sessionArgs = opts.sessionId ? ["-r", sid] : ["--session-id", sid];
+    const args = ["-p", ...sessionArgs, "-w", cwd, "-m", model, "--reasoning-effort", effort, ...qoderPermissionArgs(perm)];
+    if (!opts.sessionId && opts.name) args.push("-n", opts.name);
     if (d.vaultPath && cwd !== d.vaultPath) args.push("--add-dir", d.vaultPath);
     for (const a of splitArgs(cfg.extraArgs || "")) args.push(a);
     args.push("--", opts.prompt);
@@ -738,6 +768,8 @@ class QoderRunner {
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
+    this.job.conversation ||= [];
+    this.job.conversation.push({ role: "user", text: opts.prompt, at: Date.now() });
     this.sessionTimer = setTimeout(() => {
       this.sessionTimer = null;
       if (this.finished) return;
@@ -757,18 +789,19 @@ class QoderRunner {
       this.job.stderr = err.slice(-1000);
     });
     child.on("error", (e) => this.fail(String(e && e.message || e)));
-    child.on("exit", (code) => {
+    child.on("close", (code) => {
       if (this.finished) return;
       clearTimeout(this.sessionTimer);
       this.sessionTimer = null;
       const combined = `${err}\n${out}`.trim();
       if (code !== 0 && /not logged in|qodercli login/i.test(combined)) {
-        this.fallbackToDesktop(opts.prompt);
+        if (this.job.destination === "background") this.fail(combined);
+        else this.fallbackToDesktop(opts.prompt);
         return;
       }
       if (code === 0) {
         if (!this.job.sessionId) this.d.onSession(this.job, this.sessionId);
-        this.done(out.trim());
+        this.done(out);
       } else {
         this.fail(combined || t("qoder 退出码 {code}", { code }));
       }
@@ -814,6 +847,8 @@ class QoderRunner {
     if (result) {
       this.job.result = result;
       this.job.lastText = result.slice(-2000);
+      this.job.conversation ||= [];
+      this.job.conversation.push({ role: "assistant", text: result, at: Date.now() });
     }
     this.d.saveJobs();
     this.d.onDone(this.job);
@@ -1163,8 +1198,8 @@ export class Delegator {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
     if (opts.destination && !destinations(opts.agent).some(o => o.id === opts.destination)) throw new Error(t("此 Agent 不支持所选工作位置"));
-    if (!["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(opts.agent)) return this.handoff(opts);
     if (opts.destination === "terminal" || (opts.agent === "codex" && !opts.destination && this.C.codex?.transport === "terminal")) return this.handoffCli(opts);
+    if (!["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(opts.agent) || (opts.agent === "qoder" && opts.destination === "desktop")) return this.handoff(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error(t("没有当前笔记"));
@@ -1222,12 +1257,12 @@ export class Delegator {
     if (!sid) throw new Error(t("这个会话还没有会话号"));
     const existing = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === sid);
     if (["starting", "running", "needs-approval"].includes(existing?.state)) throw new Error(t("请等当前这一轮结束后再发送"));
-    if (session.agent === "antigravity" && existing?.transport !== "acp") throw new Error(t("这是 Antigravity 桌面会话，请在客户端继续；在插件中新建 ACP 委派后可在 Obsidian 内续聊"));
+    if (session.agent === "antigravity" && existing?.transport !== "acp") throw new Error(t("这是 Antigravity 桌面会话，请在客户端继续"));
     let job = existing;
     if (!job) {
       job = { id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, agent: session.agent,
         name: session.title || t("{agent} 会话", { agent: AGENTS[session.agent].name }), sessionId: sid, cwd: session.cwd || this.vaultPath,
-        linkWritten: true, model: "", effort: "", conversation: [] };
+        linkWritten: true, model: "", effort: "", permission: "", conversation: [] };
       this.jobs[job.id] = job;
     }
     Object.assign(job, { state: "starting", startedAt: Date.now(), endedAt: 0, error: "", result: "", lastText: "", step: "", resultWritten: false });
@@ -1238,12 +1273,13 @@ export class Delegator {
     return job;
   }
 
-  // 尚未接入自动委派的客户端：复制任务并唤起应用，由用户发送。
+  // 尚未接入自动委派的客户端（或 Qoder 桌面模式）：复制任务并唤起应用，由用户发送。
   // 之后每轮扫描找这个 Agent 新出现、开头对得上的会话，找到就绑回这一行（🔗 + DELEGATED），面板里的卡片飞进「现在」。
   async handoff(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(opts.agent)) return this.delegate(opts);
+    if (opts.destination === "terminal") return this.handoffCli(opts);
+    if (["claude", "codex", "dsh", "antigravity", "opencode"].includes(opts.agent) || (opts.agent === "qoder" && opts.destination !== "desktop")) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error(t("没有当前笔记"));
@@ -1263,8 +1299,8 @@ export class Delegator {
     };
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    copyText(prompt);
-    await openAgentApp(agent);
+    this.copyText(prompt);
+    await this.openAgentApp(agent);
     this.plugin.notice(t("📋 任务已复制，粘贴到 {agent} 里发出", { agent: AGENTS[agent]?.name || agent }), 10000);
     this.plugin.refreshUI();
     return job;
@@ -1275,7 +1311,7 @@ export class Delegator {
   async handoffCli(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (!["claude", "codex", "opencode", "qoder"].includes(opts.agent)) return this.delegate(opts);
+    if (!["claude", "codex", "opencode", "qoder", "workbuddy"].includes(opts.agent)) return this.delegate(opts);
     const agent = opts.agent;
     const file = opts.file;
     if (!file) throw new Error(t("没有当前笔记"));
@@ -1311,7 +1347,7 @@ export class Delegator {
     await fsp.mkdir(dir, { recursive: true });
     const taskFile = path.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp.writeFile(taskFile, prompt, "utf8");
-    const bin = agent === "codex" ? (this.C.codex?.path || "codex") : agent === "opencode" ? findOpenCodeBinary(this.C.opencode?.path || "") : agent === "qoder" ? findQoderBinary(this.C.qoder?.path || "") : findClaudeBinary(this.C.claude?.path || "");
+    const bin = agent === "codex" ? (this.C.codex?.path || "codex") : agent === "opencode" ? findOpenCodeBinary(this.C.opencode?.path || "") : agent === "qoder" ? findQoderBinary(this.C.qoder?.path || "") : agent === "workbuddy" ? findWorkbuddyBinary(this.C.workbuddy?.path || "") : findClaudeBinary(this.C.claude?.path || "");
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
@@ -1329,6 +1365,9 @@ export class Delegator {
       const perm = qoderPermissionArgs(opts.permission || this.C.qoder?.permission || "auto").map(shellQuote).join(" ");
       const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
       cmd = `${shellQuote(bin)} -w ${shellQuote(cwd)}${addDir} ${perm} -m ${shellQuote(model)} --reasoning-effort ${shellQuote(effort)} -n ${shellQuote(name)} -- "$(cat ${shellQuote(taskFile)})"`;
+    } else if (agent === "workbuddy") {
+      const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
+      cmd = `${shellQuote(bin)}${addDir} -- "$(cat ${shellQuote(taskFile)})"`;
     } else {
       // 任务前面加 --：任务常以「- TODO」开头，不加会被当成命令行参数（unknown option）
       cmd = `${shellQuote(bin)}${extra} -- "$(cat ${shellQuote(taskFile)})"`;
@@ -1394,10 +1433,9 @@ export class Delegator {
     this.plugin.markBound?.(sid);
     this.plugin.flyFromAgent?.(job);
     this.saveJobs();
-    if (!job.openedDestination && !job.handoff && ["obsidian", "desktop"].includes(job.destination)) {
+    if (!job.openedDestination && !job.handoff && job.destination === "desktop") {
       job.openedDestination = true;
-      if (job.destination === "obsidian") this.plugin.openConversation?.({ ...job, sid });
-      else if (job.agent === "dsh") openSession(this.plugin, job.agent, sid);
+      if (job.agent === "dsh") openSession(this.plugin, job.agent, sid);
     }
     if (job.linkWritten) return;
     job.linkWritten = true;
@@ -1405,36 +1443,32 @@ export class Delegator {
     this.refreshUI();
   }
 
-  writeLink(job, sid) {
-    const pending = (this._linkWrites || Promise.resolve()).catch(() => {}).then(() => this.writeLinkNow(job, sid));
-    this._linkWrites = pending;
-    return pending;
-  }
-
-  async writeLinkNow(job, sid) {
+  async writeLink(job, sid) {
     if (!this.C.writeLink) return;
     const path = job.path;
-    const text = await this.plugin.readNote(path);
-    const lines = text.split("\n");
-    let at = job.blockId ? lines.findIndex((l) => J.blockIdOf(l) === job.blockId) : -1;
-    if (at < 0) at = lines.findIndex((l) => l === job.lineText);
-    if (at < 0) at = lines.findIndex((l) => blockTitle({ text: l }) && l.includes(truncate(job.name, 20)));
-    if (at < 0) return;
-    const block = blockAt(lines, at);
-    if (!block) return;
-    if (lines.slice(block.start + 1, block.end + 1).some(l => J.parseLink(l)?.sid === sid)) return;
-    const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "\t";
-    let link = linkLine(indent, job.agent, job.name, sid);
-    if (job.agent === "antigravity" && job.transport === "acp") link = link.replace("antigravity://open", `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(sid)}`);
-    lines.splice(block.start + 1, 0, link);
-    if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
-    const ensured = J.ensureBlockId(lines[block.start], sid);
-    lines[block.start] = ensured.line;
-    job.blockId = ensured.blockId;
-    await this.plugin.writeNote(path, lines.join("\n"));
-    job.line = block.start;
-    job.lineText = lines[block.start];
-    job.linkLineText = link;
+    await updateNote(this.plugin, path, text => {
+      const lines = text.split("\n");
+      let at = job.blockId ? lines.findIndex((l) => J.blockIdOf(l) === job.blockId) : -1;
+      if (at < 0) at = lines.findIndex((l) => l === job.lineText);
+      if (at < 0) at = lines.findIndex((l) => blockTitle({ text: l }) && l.includes(truncate(job.name, 20)));
+      if (at < 0) return text;
+      const block = blockAt(lines, at);
+      if (!block) return text;
+      if (lines.slice(block.start + 1, block.end + 1).some(l => J.parseLink(l)?.sid === sid)) return text;
+      const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "\t";
+      let link = linkLine(indent, job.agent, job.name, sid);
+      if (job.agent === "antigravity" && job.transport === "acp") link = link.replace("antigravity://open", `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(sid)}`);
+      if (job.agent === "workbuddy" && job.app === "cli") link = link.replace(/workbuddy:\/\/chat\/[^)]+/, `obsidian://agent-deck?do=open&agent=workbuddy&sid=${encodeURIComponent(sid)}`);
+      lines.splice(block.start + 1, 0, link);
+      if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
+      const ensured = J.ensureBlockId(lines[block.start], sid);
+      lines[block.start] = ensured.line;
+      job.blockId = ensured.blockId;
+      job.line = block.start;
+      job.lineText = lines[block.start];
+      job.linkLineText = link;
+      return lines.join("\n");
+    });
     this.saveJobs();
   }
 
@@ -1443,7 +1477,7 @@ export class Delegator {
     this.refreshUI();
     const agent = AGENTS[job.agent];
     this.plugin.notice(t("✅ {agent} 做完了一轮：{name}", { agent: agent ? agent.name : job.agent, name: job.name }), 8000);
-    if ((job.destination === "desktop" || (!job.destination && this.C[job.agent]?.openDesktop === true)) && ["claude", "opencode", "qoder"].includes(job.agent) && job.sessionId) openSession(this.plugin, job.agent, job.sessionId, job.app);
+    if ((job.destination === "desktop" || (!job.destination && this.C[job.agent]?.openDesktop === true)) && ["claude", "opencode"].includes(job.agent) && job.sessionId) openSession(this.plugin, job.agent, job.sessionId, job.app);
     if (this.settings.autoWriteResult && job.linkWritten && job.path) {
       try { await this.writeResult(job); } catch (e) { console.error("[agent-deck] writeResult", e); }
     }
@@ -1468,7 +1502,7 @@ export class Delegator {
 
   async removeLink(job) {
     try {
-      const text = await this.plugin.readNote(job.path);
+      await updateNote(this.plugin, job.path, text => {
       const lines = text.split("\n");
       const sid = job.sessionId || "";
       let li = sid ? lines.findIndex((l) => l.includes(sid)) : -1;
@@ -1480,7 +1514,8 @@ export class Delegator {
         const block = blockAt(lines, at);
         if (!block || hasLink(lines, block) < 0) lines[at] = job.originalLine;
       }
-      await this.plugin.writeNote(job.path, lines.join("\n"));
+      return lines.join("\n");
+      });
       job.linkWritten = false;
       job.resultWritten = true;
       this.saveJobs();
@@ -1489,51 +1524,43 @@ export class Delegator {
 
   async writeResult(job) {
     if (job.resultWritten || this.settings.journalAutoWrite === false) return;
-    let said = job.result || job.lastText || "";
-    const meta = this.plugin.usage && this.plugin.usage.meta.get(job.sessionId);
-    if (!said) said = meta && (meta.lastText || "");
-    const rawSaid = said;
-    said = J.oneSentenceConclusion(said, clamp(Number(this.settings.resultMax) || 120, 40, 2000));
-    if (!said) return;
-    const text = await this.plugin.readNote(job.path);
-    if (this.settings.journalAutoWrite === false) return;
-    const synced = J.syncSessionEntry(text, {
-      granularity: this.settings.autoLogGranularity,
-      compact: this.settings.autoLogSummaries?.[job.path.split("/").pop().replace(/\.md$/, "")]?.[job.sessionId],
-      detail: this.settings.autoLogDetail,
-        detailHistory: this.settings.autoLogDetailHistory,
-      sid: job.sessionId || "",
-      blockId: job.blockId || "",
-      key: J.workKey(job.name || ""),
-      said,
-      rounds: meta?.rounds?.length ? meta.rounds : [{ n: 1, at: job.startedAt, ask: "", said: rawSaid }],
-      taskTodo: job.agent === "claude" && meta ? meta.todo : null,
-      ensureId: true,
+    const meta = this.plugin.usage?.meta.get(job.sessionId);
+    const raw = job.result || meta?.rounds?.at(-1)?.said || meta?.lastText || job.lastText || "";
+    if (!raw) return;
+    const background = job.destination === "background";
+    if (background && !job.archivePath) {
+      const messages = job.conversation?.length ? job.conversation : [
+        { role: "user", text: job.prompt || job.name || "" }, { role: "assistant", text: raw },
+      ];
+      const file = await archiveConversation(this.plugin, { ...job, sid: job.sessionId }, { messages });
+      job.archivePath = file.path;
+      this.saveJobs();
+    }
+    let synced;
+    await updateNote(this.plugin, job.path, text => {
+      if (job.resultWritten || this.settings.journalAutoWrite === false) return text;
+      // The runner's complete output can arrive before the next log scan.
+      const rounds = background && job.result
+        ? [{ n: meta?.rounds?.at(-1)?.n || 1, said: job.result }]
+        : meta?.rounds?.length ? meta.rounds : [{ n: 1, at: job.startedAt, ask: "", said: raw }];
+      synced = J.syncSessionEntry(text, {
+        granularity: this.settings.autoLogGranularity,
+        compact: background ? null : this.settings.autoLogSummaries?.[job.path.split("/").pop().replace(/\.md$/, "")]?.[job.sessionId],
+        detail: background ? "brief" : this.settings.autoLogDetail,
+        detailHistory: background ? [] : this.settings.autoLogDetailHistory,
+        replyMax: background ? 240 : 0,
+        sid: job.sessionId || "", blockId: job.blockId || "", key: J.workKey(job.name || ""),
+        said: background ? J.resultText(raw, 240) : J.oneSentenceConclusion(raw, clamp(Number(this.settings.resultMax) || 120, 40, 2000)),
+        rounds,
+        taskTodo: job.agent === "claude" && meta ? meta.todo : null, ensureId: true,
+      });
+      return synced.text;
     });
-    if (synced.line >= 0) {
-      if (synced.text !== text) await this.plugin.writeNote(job.path, synced.text);
+    if (synced?.line >= 0) {
       if (synced.blockId) job.blockId = synced.blockId;
       job.resultWritten = true;
       this.saveJobs();
-      return;
     }
-    const lines = text.split("\n");
-    let at = job.blockId ? lines.findIndex((l) => J.blockIdOf(l) === job.blockId) : -1;
-    if (at < 0) at = lines.indexOf(job.lineText);
-    let block = at >= 0 ? blockAt(lines, at) : null;
-    if (!block) return;
-    const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "\t";
-    let resultAt = -1;
-    for (let i = block.start + 1; i <= block.end; i++) if (RESULT_RE.test(lines[i])) { resultAt = i; break; }
-    const conclusion = this.settings.autoLogDetail === "standard" || this.settings.autoLogDetail === "detailed" ? said : J.oneSentenceConclusion(said, 45);
-    const line = `${indent}- 💬 ${conclusion}`;
-    if (resultAt < 0) {
-      const link = findLink(lines, block);
-      lines.splice((link ? link.line : block.start) + 1, 0, line);
-    }
-    await this.plugin.writeNote(job.path, lines.join("\n"));
-    job.resultWritten = true;
-    this.saveJobs();
   }
 
   cancel(id) {

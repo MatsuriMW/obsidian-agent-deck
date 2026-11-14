@@ -2,10 +2,10 @@
 // 编辑和阅读视图共用 ai-records.js 的选择规则；手动开合状态持久保存。
 
 import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
-import { StateEffect, StateField } from "@codemirror/state";
+import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { foldedRanges, unfoldEffect } from "@codemirror/language";
 import {
-  aiRecordGroups, recordRuns, adBlockIdRanges, hiddenBlockId,
+  aiRecordGroups, recordRuns, adBlockIdRanges, hiddenBlockId, redirectHiddenTailTransaction,
   recordIsOpen, recordStartsOpen, visibleRecords, isBriefRecord,
 } from "./ai-records.js";
 import { t } from "./i18n.js";
@@ -170,9 +170,44 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
     },
     provide: (f) => [EditorView.decorations.from(f, (v) => v.decorations), EditorView.atomicRanges.of((view) => view.state.field(f).decorations)],
   });
+  const guardHiddenTail = EditorState.transactionFilter.of((tr) => {
+    const startDoc = tr.startState.doc;
+    const prevSel = tr.startState.selection.main;
+    // Cursor moves and typing only need the affected line, not the whole diary.
+    const redirectAt = (pos, options) => {
+      const line = startDoc.lineAt(pos);
+      const text = line.text + (line.to < startDoc.length ? "\n" : "");
+      const local = options.change ? { change: { ...options.change, from: options.change.from - line.from, to: options.change.to - line.from } }
+        : { ...options, prevHead: options.prevHead - line.from, nextHead: options.nextHead - line.from };
+      const result = redirectHiddenTailTransaction(text, trackedIds(plugin), local);
+      if (!result) return null;
+      return { ...result, head: result.head + line.from,
+        ...(result.change ? { change: { ...result.change, from: result.change.from + line.from, to: result.change.to + line.from } } : {}) };
+    };
+    if (tr.docChanged) {
+      let count = 0, single = null;
+      tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+        count++;
+        single = { from: fromA, to: toA, insert: inserted.toString() };
+      });
+      if (count !== 1 || !single || single.from !== single.to || !single.insert) return tr;
+      const redirected = redirectAt(single.from, { change: single });
+      if (!redirected?.change) return tr;
+      return [{ changes: redirected.change, selection: { anchor: redirected.head } }];
+    }
+    if (tr.selection && tr.newSelection.ranges.length === 1 && tr.newSelection.main.empty) {
+      const redirected = redirectAt(tr.newSelection.main.head, {
+        prevHead: prevSel.empty ? prevSel.head : -1,
+        nextHead: tr.newSelection.main.head,
+        selectionEmpty: true,
+      });
+      if (redirected?.head != null) return [tr, { selection: { anchor: redirected.head } }];
+    }
+    return tr;
+  });
   plugin.aiRecordDisplayField = field;
   plugin.recordTrackedIds = () => trackedIds(plugin);
-  return [field, aiRecordUnfoldExtension(plugin, refreshEffect)];
+  return [field, guardHiddenTail, aiRecordUnfoldExtension(plugin, refreshEffect)];
 }
 
 // Reading view only toggles visibility of the record elements; the note text is
@@ -184,7 +219,7 @@ export function renderAIRecords(el, plugin, ctx) {
   while (walker.nextNode()) nodes.push(walker.currentNode);
   for (const node of nodes) {
     if (node.parentElement?.closest("pre, code, .ad-block-id-hidden")) continue;
-    const match = /(?:[ \t]+|^)\^([a-z0-9-]+)[ \t]*$/i.exec(node.textContent);
+    const match = /(?:[ \t]+|^)\^([a-z0-9-]+)(?:\S*)?[ \t]*$/i.exec(node.textContent);
     if (!match || !hiddenBlockId(match[1], ids)) continue;
     const tail = node.splitText(match.index);
     const hidden = el.ownerDocument.createElement("span");

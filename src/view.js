@@ -410,7 +410,7 @@ export class AgentDeckView extends ItemView {
     // 笔记里的一项拖上来 = 委派给它
     // 按住 ⌘：Claude Code / Codex 改在终端里开交互式会话
     const handoff = id === "codex" || id === "workbuddy";
-    const cliCapable = ["claude", "codex", "opencode", "qoder"].includes(id);
+    const cliCapable = ["claude", "codex", "opencode", "qoder", "workbuddy"].includes(id);
     const hint = handoff ? t("交给 {name}", { name: a.short }) : t("委派给 {name}", { name: a.short });
     // 设置里「默认在终端里委派」开着时反过来：不按 ⌘ 在终端里开，按住 ⌘ 走原来的后台 / 客户端
     const toTerm = (meta) => cliCapable && (!!meta !== !!p.settings.delegateInTerminal);

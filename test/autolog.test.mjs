@@ -305,5 +305,24 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   check('custom auto logging remains organizeable',renderJournal(planJournal(renderJournal(planJournal(next))))===renderJournal(planJournal(next)));
 }
 
+{ // 模型仍在运行时，用户和另一个 Agent 的新内容必须保留。
+  const x = { sid: "model-wait", agent: "codex", min: 5, segs: nowSegs(5), title: "异步整理" };
+  const p = fakePlugin("- TODO 手写原文\n", [x]);
+  const al = new AutoLog(p);
+  al.ask = async () => {
+    p.journal += "- TODO 用户刚输入的日记\n- DOING 另一个 Agent ^ad-other\n\t- 💬 另一个 Agent 刚回传\n";
+    return new Map([[x.sid, { label: "异步整理", summary: "完成", todos: [], skip: false }]]);
+  };
+  await al.run();
+  check("model waits preserve new user input and other agents' records", p.journal.includes("用户刚输入的日记") && p.journal.includes("另一个 Agent 刚回传") && p.journal.includes("异步整理"), p.journal);
+}
+
+{ // 自动整理也不能打断中文输入法组字。
+  const p = fakePlugin("- TODO 原文\n", []);
+  const al = new AutoLog(p);
+  al.viewFor = () => ({ editor: { cm: { composing: true }, getValue: () => p.journal, transaction() { throw new Error("must not interrupt IME"); } } });
+  check("AI organization skips writes while IME is composing", await al.write({}, p.journal, p.journal + "- AI 记录\n") === false);
+}
+
 if (fail) { console.log(`${fail} failed`); process.exit(1); }
 console.log("all passed");

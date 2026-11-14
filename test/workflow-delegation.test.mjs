@@ -62,12 +62,15 @@ rl.on('line',s=>{const m=JSON.parse(s);if(m.id==null)return;let result={};if(m.m
  for(const sid of [...ids,one.sessionId,two.sessionId])assert.ok(note.includes(sid),'serialized binding keeps '+sid);
  const combined=note;
  await d.writeLink({agent:'dsh',path:'task.md',blockId:'ad-task'},ids[0]);assert.equal(note,combined,'same SID is idempotent');
- const job={agent:'antigravity',id:'inline',destination:'obsidian',path:'task.md',linkWritten:true};d.onSession(job,ids[0]);assert.ok(opened.includes('obsidian:'+ids[0]));
  await assert.rejects(()=>d.delegate({agent:'antigravity',destination:'desktop'}),/不支持/);
+ await assert.rejects(()=>d.delegate({agent:'antigravity',destination:'obsidian'}),/不支持/);
  const cleaned=freshTaskText('- TODO 测试 ^ad-task\n\t- 🔗 旧链接\n\t- 💬 旧结论\n\t- 📄 旧归档\n\t- 手写子任务');assert.equal(cleaned,'- TODO 测试\n\t- 🔗 旧链接\n\t- 💬 旧结论\n\t- 📄 旧归档\n\t- 手写子任务');
  // Saving a transcript links back to the task and leaves its state unchanged.
  const files=new Map([['task.md',{path:'task.md'}]]);
  plugin.app={vault:{getAbstractFileByPath:p=>files.get(p),createFolder:async p=>files.set(p,{path:p}),create:async(p,text)=>{const f={path:p,text};files.set(p,f);return f},read:async f=>f.text,modify:async(f,text)=>f.text=text}};
+ const readTask=plugin.readNote,writeTask=plugin.writeNote;
+ plugin.readNote=async path=>path==='task.md'?readTask(path):files.get(path).text;
+ plugin.writeNote=async(path,text)=>path==='task.md'?writeTask(path,text):(files.get(path).text=text);
  one.conversation=[{role:'user',text:'问题'},{role:'assistant',text:'答案'}];one.state='done';
  plugin.usage.files=new Map();
  const root=note.split('\n')[0],archive=await archiveConversation(plugin,{agent:'claude',sid:one.sessionId});assert.ok(note.includes('[['+archive.path+'|对话归档'));assert.equal(note.split('\n')[0],root);const saved=note;await archiveConversation(plugin,{agent:'claude',sid:one.sessionId});assert.equal(note,saved);

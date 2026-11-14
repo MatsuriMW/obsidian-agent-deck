@@ -533,8 +533,8 @@ export default class AgentDeckPlugin extends Plugin {
 
   openSession(agent, sid, app, session) {
     const job = Object.values(this.jobs).find((j) => j.agent === agent && j.sessionId === sid);
-    if ((agent === "antigravity" && job?.transport === "acp") || (["dsh", "opencode"].includes(agent) && job?.destination === "obsidian")) return this.openConversation({ ...job, sid });
-    if (job && ["claude", "codex", "qoder"].includes(agent)) return this.openClientSession({ ...job, ...session, sid, agent });
+    if (agent === "antigravity" && job?.transport === "acp") return this.openConversation({ ...job, sid });
+    if (job && ["claude", "codex", "qoder", "workbuddy"].includes(agent)) return this.openClientSession({ ...job, ...session, sid, agent });
     return openSessionRaw(this, agent, sid, app, session);
   }
 
@@ -857,7 +857,7 @@ export default class AgentDeckPlugin extends Plugin {
     try {
       const opts = mentionOptions(this, { ...target, agent, ignoreMention: newSession });
       agent = opts.agent;
-      destination ||= cli && ["claude", "codex", "opencode", "qoder"].includes(agent) ? "terminal" : defaultDestination(this, agent);
+      destination ||= cli && ["claude", "codex", "opencode", "qoder", "workbuddy"].includes(agent) ? "terminal" : defaultDestination(this, agent);
       if (!confirmed) {
         new ConfirmSendModal(this.app, {
           agent, text: newSession ? freshTaskText(target.block.text) : target.block.text, path: item.path,
@@ -902,7 +902,7 @@ export default class AgentDeckPlugin extends Plugin {
   openClientSession(session) {
     const owned = Object.values(this.jobs).find(j => j.agent === session.agent && j.sessionId === session.sid);
     session = { ...owned, ...session, transport: owned?.transport || session.transport };
-    if (!canOpenClient(session)) return this.notice(t("此 Antigravity 会话尚不支持转到桌面 IDE 继续，请在 Obsidian 中续聊"));
+    if (!canOpenClient(session)) return this.notice(t("此 Antigravity 会话可查看和归档正文，暂不支持转到桌面 IDE"));
     if (!session.sid) return this.notice(t("正在建立会话，请稍后再打开"));
     const job = Object.values(this.jobs).find(j => j.agent === session.agent && j.sessionId === session.sid);
     if (["claude", "codex", "qoder"].includes(session.agent) && activeJob(job)) return this.notice(t("首轮仍在执行，结束后再打开桌面中的同一会话"));
@@ -918,8 +918,7 @@ export default class AgentDeckPlugin extends Plugin {
     const menu = new Menu();
     for (const [index, session] of sessions.entries()) {
       const title = `${AGENTS[session.agent]?.name || session.agent} · ${t("会话 {n}", { n: index + 1 })}`;
-      const inNote = ["dsh", "antigravity", "opencode"].includes(session.agent) && (session.agent !== "antigravity" || session.transport === "acp");
-      menu.addItem(mi => mi.setTitle(t("继续对话 · {title}", { title })).setDisabled(!session.sid).onClick(() => inNote && session.destination !== "desktop" ? this.openConversation(session) : this.openClientSession(session)));
+      if (canOpenClient(session)) menu.addItem(mi => mi.setTitle(t("继续对话 · {title}", { title })).setDisabled(!session.sid).onClick(() => this.openClientSession(session)));
       menu.addItem(mi => mi.setTitle(t("查看正文与保存对话 · {title}", { title })).setDisabled(!session.sid).onClick(() => this.openConversation(session)));
       if (canOpenClient(session)) menu.addItem(mi => mi.setTitle(t("在客户端打开 · {title}", { title })).setDisabled(!session.sid || (["claude", "codex", "qoder"].includes(session.agent) && activeJob(session))).onClick(() => this.openClientSession(session)));
       if (activeJob(session) && this.delegator.runners.has(session.id)) menu.addItem(mi => mi.setTitle(t("停止执行 · {title}", { title })).onClick(() => this.cancelJob(session.id)));
@@ -1159,7 +1158,7 @@ export default class AgentDeckPlugin extends Plugin {
       const a = AGENTS[agent];
       const state = isLive ? (s.state || "idle") : "recent";
       const kw = menuKeyword(state);
-      const where = ["claude", "qoder"].includes(agent) ? (s.app === "cli" ? t("终端") : t("桌面版")) : agent === "codex" ? (isCodexDesktop(s.app) ? t("桌面版") : "CLI") : ["workbuddy", "opencode"].includes(agent) ? t("桌面版") : agent === "antigravity" ? (s.job?.transport === "acp" ? "Obsidian / ACP" : "IDE") : "Harness";
+      const where = ["claude", "qoder", "workbuddy"].includes(agent) ? (s.app === "cli" ? t("终端") : t("桌面版")) : agent === "codex" ? (isCodexDesktop(s.app) ? t("桌面版") : "CLI") : agent === "opencode" ? t("桌面版") : agent === "antigravity" ? (s.job?.transport === "acp" ? t("后台执行") : "IDE") : "Harness";
       const acp = agent === "antigravity" && s.job?.transport === "acp";
       const url = (AGENTS[agent].trackingOnly || ["opencode", "qoder"].includes(agent)) ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : sessionDeepLink(agent, s.sid);
       const prog = this.sessionProgressText(s);

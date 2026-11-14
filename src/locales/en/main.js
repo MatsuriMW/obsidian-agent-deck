@@ -68,7 +68,7 @@ export default {
   "任务内容已变化，请重新预览后发送": "The task content changed — preview it again before sending",
   "客户端模型": "client model",
   "客户端强度": "client effort",
-  "此 Antigravity 会话尚不支持转到桌面 IDE 继续，请在 Obsidian 中续聊": "This Antigravity session cannot continue in the desktop IDE yet — keep chatting in Obsidian",
+  "此 Antigravity 会话可查看和归档正文，暂不支持转到桌面 IDE": "View or export this Antigravity transcript here; desktop IDE continuation is unavailable.",
   "正在建立会话，请稍后再打开": "The session is still being established — open it again shortly",
   "首轮仍在执行，结束后再打开桌面中的同一会话": "The first turn is still running — open the same session on the desktop once it finishes",
   "没打开 {agent}：本机好像没装": "Could not open {agent} — it does not seem to be installed",

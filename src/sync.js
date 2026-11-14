@@ -1,3 +1,4 @@
+import { updateNote } from "./note-updates.js";
 // Agent Deck — 会话回写日记.
 //
 // 日记里用 🔗 绑着的会话，这一块负责把会话的变化写回任务行：
@@ -122,16 +123,17 @@ export class JournalSync {
       const file = this.todayJournal();
       if (file && !this.isOpen(file)) {
         // 今天的日记没开着也要跟上：客户端里归档了，这边照样记 DONE
-        const text = await this.p.app.vault.read(file);
-        if (this.cfg.journalAutoWrite === false || this._stopped) return;
-        let next = text;
-        if (this.cfg.resultBack !== false) next = this.results(next);
-        if (this.cfg.agentKw !== false) next = this.keywords(next);
-        next = this.spawnAll(next);
-        next = this.sides(next);
-        next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
-        next = ensureTopRule(next);
-        if (next !== text) await this.p.app.vault.process(file, (cur) => (cur === text ? next : cur));
+        await updateNote(this.p, file.path, text => {
+          if (this.cfg.journalAutoWrite === false || this._stopped) return text;
+          let next = text;
+          if (this.cfg.resultBack !== false) next = this.results(next);
+          if (this.cfg.agentKw !== false) next = this.keywords(next);
+          next = this.spawnAll(next);
+          next = this.sides(next);
+          next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
+          next = ensureTopRule(next);
+          return next;
+        });
       }
     } catch (e) {
       console.error("[agent-deck] 会话回写日记失败", e);
@@ -219,10 +221,20 @@ export class JournalSync {
         if (!targets.has(sid)) targets.set(sid, { blockId: rec.blockId || "", key: rec.key || "" });
       }
     }
+    const backgroundJobs = new Map(Object.values(this.p.jobs || {}).filter(job => job.destination === "background").map(job => [job.sessionId, job]));
     let out = text;
     for (const [sid, info] of targets) {
       const m = this.usage.meta.get(sid);
       if (!m) continue;
+      const background = backgroundJobs.get(sid);
+      if (background) {
+        // A live scan may contain partial output. Let the owning runner finish first.
+        if (["starting", "running", "needs-approval"].includes(background.state)) continue;
+        const rounds = m.rounds || [];
+        out = J.syncSessionEntry(out, { sid, blockId: info.blockId || daySt[sid]?.blockId || "", key: info.key || daySt[sid]?.key || "",
+          rounds: rounds.length ? rounds : [{ n: 1, said: background.result || m.lastText || "" }], replyMax: 240, detail: "brief" }).text;
+        continue;
+      }
       const waiting = m.state === "wait" || m.state === "quiet";
       const isDone = this.archived(sid);
       if (this.cfg.autoLogGranularity === "paused" && !isDone && daySt[sid]?.status !== "paused") continue;

@@ -407,7 +407,7 @@ export const DEFAULTS = {
     codex: { transport: "desktop", model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
     antigravity: { model: "antigravity-default", effort: "medium", path: "", cwd: "", autoApprove: false },
     opencode: { model: "opencode-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
-    qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: true, extraArgs: "" },
+    qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
       model: "deepseek-v4-pro",
       effort: "high",
