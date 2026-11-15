@@ -161,4 +161,16 @@ export default {
   "写入顺序：{order}（在 设置 → 追踪 里改）": "Write order: {order} (change it in Settings → Tracking)",
   "写入顺序：{order}（在 设置 → 记录 里改）": "Write order: {order} (change it in Settings → Recording)",
   "归档": "Archive",
+
+  // Cursor conversation & tool timeline
+  "保存用户消息、工具调用时间线与回复正文；长工具结果默认折叠。": "Saves user prompts, tool call timeline and replies; long tool results are collapsed by default.",
+  "工具时间线（{count}）": "Tool timeline ({count})",
+  "成功": "Done",
+  "失败": "Failed",
+  "中断": "Interrupted",
+  "结果缺失": "Missing result",
+  "执行中": "Running",
+  "查看工具参数": "View tool input",
+  "未采集到工具结果": "Tool result was not captured",
+  "展开工具结果（{count} 字符）": "Show tool output ({count} chars)",
 };

@@ -53,8 +53,8 @@ export function stripBlockId(s) {
   return String(s || "").replace(BLOCK_ID_RE, "").trimEnd();
 }
 
-const AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder" };
-export const isDeckBlockId = id => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
+const AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor" };
+export const isDeckBlockId = id => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
 export function normalizeTaskSlug(value) {
   const slug = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
   return /^[a-z][a-z0-9]{0,15}(?:-[a-z][a-z0-9]{0,15})?$/.test(slug) ? slug : "";
@@ -188,6 +188,30 @@ export function summarizeAutoTitle(raw, max = 22) {
   if (!s) s = "整理会话";
   const chars = [...s];
   return chars.length > max ? chars.slice(0, max).join("").replace(/[，,。；;：:、\s]+$/, "").trim() : s;
+}
+
+export function prefixAutoTitle(title, project = "") {
+  const body = String(title || "").trim();
+  const proj = String(project || "").replace(/\s+/g, " ").trim();
+  if (!body || !proj) return body;
+  const esc = proj.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const stripped = body.replace(new RegExp(`^${esc}\\s*->\\s*`), "").trim();
+  return `${proj} -> ${stripped || body}`;
+}
+
+export function formatProjectAutoTitle(raw, project = "", max = 22) {
+  const proj = String(project || "").replace(/\s+/g, " ").trim();
+  let s = stripBlockId(String(raw || ""))
+    .replace(/^🤖\s*/, "")
+    .replace(TIME_SPAN_PREFIX_RE, "")
+    .replace(/^🤖\s*/, "")
+    .trim();
+  if (proj) {
+    const esc = proj.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    s = s.replace(new RegExp(`^${esc}\\s*->\\s*`), "").trim();
+  }
+  const body = summarizeAutoTitle(s, max);
+  return proj ? prefixAutoTitle(body, proj) : body;
 }
 
 // 统一生成 AI 自动记录标题行：任务状态 + 🤖 + 开始对话时间-最后一次对话时间 + 文字标题 (+ ^blockId)
@@ -339,8 +363,8 @@ export function kwLine(raw) {
 }
 
 export function parseLink(line) {
-  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder|workbuddy)&sid=([^)]*)\)/.exec(line);
-  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(OpenCode|Qoder)：/, "") };
+  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder|workbuddy|cursor)&sid=([^)]*)\)/.exec(line);
+  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(OpenCode|Qoder|Cursor)：/, "") };
   const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
   const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
@@ -353,7 +377,10 @@ export function parseLink(line) {
 
 export function linkLine(indent, agent, title, sid) {
   const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
-  if (["opencode", "qoder"].includes(agent)) return `${indent}- 🔗 [${agent === "opencode" ? "OpenCode" : "Qoder"}：${safe}](obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(sid)})`;
+  if (["opencode", "qoder", "cursor"].includes(agent)) {
+    const label = agent === "opencode" ? "OpenCode" : agent === "qoder" ? "Qoder" : "Cursor";
+    return `${indent}- 🔗 [${label}：${safe}](obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(sid)})`;
+  }
   if (agent === "claude") return `${indent}- 🔗 [Claude：${safe}](claude://resume?session=${sid})`;
   if (agent === "dsh") return `${indent}- 🔗 [DeepSeek Harness：${safe}](dsh://open) \`${sid}\``;
   if (agent === "antigravity") return `${indent}- 🔗 [Antigravity：${safe}](antigravity://open) \`${sid}\``;
@@ -587,7 +614,7 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
   const append = line => {
     let at = childSpan() + 1;
     for (let i = n + 1; i < at; i++) if (width(lines[i]) === childWidth && CLOCK_RE.test(lines[i])) { at = i; break; }
-    lines.splice(at, 0, line);
+    lines.splice(at, 0, ...line.split("\n"));
   };
   if (compact?.text) {
     const summary = `${ind}- 💬 累计总结：${summaryText(compact.text, 170)}`;
@@ -607,12 +634,15 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
     }
     const raw = level === "detailed" ? (r.said || r.summary) : (r.summary || r.said);
     const task = cleanUserPrompt(r.taskSummary || r.ask) || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
-    const message = r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
+    const message = r.replyText !== undefined ? r.replyText : r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
       ? `任务：${summaryText(task, 45)}；结论：${summaryText(raw, 65)}`
       : recordSentence(raw, 90);
     // Number the latest-progress entry too, so a setting change cannot rewrite it.
     const prefix = rn === 1 && roundLog ? "" : `第${rn}轮：`;
-    append(`${ind}- 💬 ${prefix}${message}${provenance(rn)}`);
+    if (r.replyText !== undefined) {
+      const [first, ...rest] = message.split("\n");
+      append([`${ind}- 💬 ${prefix}${first}${provenance(rn)}`, ...rest.map(line => `${ind}  ${line}`)].join("\n"));
+    } else append(`${ind}- 💬 ${prefix}${message}${provenance(rn)}`);
     if (level === "detailed" && r === validRounds.at(-1) && taskTodo?.total > 0) {
       append(`${ind}- 📋 第${rn}轮：步骤 ${taskTodo.done}/${taskTodo.total}${taskTodo.cur ? ` · ${resultText(taskTodo.cur, 90)}` : ""}`);
     }

@@ -152,7 +152,7 @@ export async function archiveCompletedTo(plugin, file, base, plan, { path, order
   // By block id when there is one: two blocks can read the same.
   const skip = new Set(blocks.map((b) => b.blockId || b.text));
   const next = renderJournal(plan, { skip });
-  if (next !== base && !await plugin.autoLog.write(file, base, next)) throw new Error(t('日记刚有变化，归档副本已保存，原日记保留；重试不会重复归档'));
+  if (next !== base && !await plugin.autoLog.write(file, base, next, { cleanup: false })) throw new Error(t('日记刚有变化，归档副本已保存，原日记保留；重试不会重复归档'));
 
   plugin.settings.archiveTaskTurns = Object.fromEntries(turns);
   plugin.settings.doneArchivePath = targetPath;

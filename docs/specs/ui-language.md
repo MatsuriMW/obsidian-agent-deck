@@ -31,7 +31,8 @@ t("共 {n} 个", { n: list.length });              // 占位符用 {name}
 | --- | --- |
 | `main.js` | 命令面板、状态栏、通知 |
 | `view.js` | 主面板、AI 记录显示、归档与归组提示 |
-| `settings.js` | 设置页六个标签页 |
+| `dashboard.js` | 实验回顾 Dashboard |
+| `settings.js` | 设置页五个标签页（委派、记录、Dreaming、实验功能、关于） |
 | `dialogs.js` | 委派对话框、对话窗口、任务操作菜单 |
 | `writers.js` | 自动记日记、Dreaming、共享记忆 |
 | `runtime.js` | 读日志、同步、模型调用、Codex 桌面版 |

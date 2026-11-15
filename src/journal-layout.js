@@ -1,28 +1,36 @@
 import { fencedLines } from './journal.js';
 import { t, currentLanguage } from './i18n.js';
 
-export const JOURNAL_LAYOUT_DEFAULT = { order: ['done', 'active', 'notes'], titles: { done: '已完成', active: '进行中', notes: '' } };
+export const JOURNAL_LAYOUT_DEFAULT = { order: ['active', 'todo', 'done'], titles: { active: '正在做', todo: '还要做', done: '已完成' } };
 const START = '<!-- agent-deck:layout:start -->';
 const END = '<!-- agent-deck:layout:end -->';
 const KEYS = JOURNAL_LAYOUT_DEFAULT.order;
+const MARKER_TOKEN_RE = /(<!-- agent-deck:(?:layout:(?:start|end)|section:(?:done|active|todo|notes):(?:heading|plain|end)) -->)/g;
+const SECTION_OPEN_RE = /^<!-- agent-deck:section:(done|active|todo|notes):(heading|plain) -->$/;
 
 export function builtinJournalLayout(language = currentLanguage()) {
-  return { order: [...KEYS], titles: language === 'en' ? { done: 'Completed', active: 'In progress', notes: '' } : { ...JOURNAL_LAYOUT_DEFAULT.titles } };
+  return { order: [...KEYS], titles: language === 'en' ? { active: 'In progress', todo: 'To do', done: 'Completed' } : { ...JOURNAL_LAYOUT_DEFAULT.titles } };
 }
 
 export function configuredJournalLayout(settings = {}) {
-  if (settings.journalLayout) return journalLayout(settings.journalLayout);
+  if (settings.journalLayout) {
+    const layout = journalLayout(settings.journalLayout);
+    if (!layout.order.includes('notes')) return layout;
+    const defaults = builtinJournalLayout(settings.journalLayoutLanguage === 'auto' ? currentLanguage() : settings.journalLayoutLanguage);
+    return { order: layout.order.map(key => key === 'notes' ? 'todo' : key), titles: { active: layout.titles.active, done: layout.titles.done, todo: defaults.titles.todo } };
+  }
   const language = settings.journalLayoutLanguage && settings.journalLayoutLanguage !== 'auto' ? settings.journalLayoutLanguage : currentLanguage();
-  return language === 'en' ? builtinJournalLayout('en') : null;
+  return builtinJournalLayout(language);
 }
 
 export function journalLayout(value) {
   const order = value?.order;
-  if (!Array.isArray(order) || order.length !== 3 || new Set(order).size !== 3 || order.some(key => !KEYS.includes(key))) throw new Error(t('整理模板必须包含已完成、进行中和手写内容三个分区。'));
+  const keys = order?.includes('notes') ? ['done', 'active', 'notes'] : KEYS;
+  if (!Array.isArray(order) || order.length !== 3 || new Set(order).size !== 3 || order.some(key => !keys.includes(key))) throw new Error(t('整理模板必须包含正在做、还要做和已完成三个分区。'));
   const titles = {};
-  for (const key of KEYS) {
-    const title = String(value.titles?.[key] ?? JOURNAL_LAYOUT_DEFAULT.titles[key]).trim();
-    if (title.length > 60 || /[\r\n<>]/.test(title) || (key !== 'notes' && !title)) throw new Error(t('分区标题请填 1–60 字的单行文字；手写内容标题可以留空。'));
+  for (const key of keys) {
+    const title = String(value.titles?.[key] ?? JOURNAL_LAYOUT_DEFAULT.titles[key] ?? '').trim();
+    if (title.length > 60 || /[\r\n<>]/.test(title) || (key !== 'notes' && !title)) throw new Error(t('分区标题请填 1–60 字的单行文字。'));
     titles[key] = title;
   }
   return { order: [...order], titles };
@@ -32,42 +40,103 @@ export function journalLayout(value) {
 // heading or code example for a generated section.
 export function readJournalLayout(text) {
   if (!String(text).includes('<!-- agent-deck:')) return null;
-  const lines = String(text).replace(/\r\n/g, '\n').split('\n');
-  const fences = fencedLines(lines);
-  const markers = lines.flatMap((line, i) => !fences.has(i) && (line === START || line === END || /^<!-- agent-deck:section:/.test(line)) ? [{ line, i }] : []);
+  const normalized = String(text).replace(/\r\n/g, '\n');
+  const rawLines = normalized.split('\n');
+  const rawFences = fencedLines(rawLines);
+  // 实时预览里分区注释是隐藏的，用户退格或同行续写时容易把注释粘到前后文字上；
+  // 拆分非代码块行里的内联标记，同时保留原文本切片偏移。
+  const vLines = [];
+  let pos = 0;
+  for (let r = 0; r < rawLines.length; r++) {
+    const raw = rawLines[r];
+    MARKER_TOKEN_RE.lastIndex = 0;
+    if (!rawFences.has(r) && MARKER_TOKEN_RE.test(raw)) {
+      MARKER_TOKEN_RE.lastIndex = 0;
+      let cursor = 0, match;
+      while ((match = MARKER_TOKEN_RE.exec(raw))) {
+        const before = raw.slice(cursor, match.index);
+        if (before.trim()) vLines.push({ text: before, startOffset: pos + cursor, endOffset: pos + match.index, rawLine: r, fenced: false });
+        vLines.push({ text: match[1], startOffset: pos + match.index, endOffset: pos + match.index + match[1].length, rawLine: r, fenced: false });
+        cursor = match.index + match[1].length;
+      }
+      const after = raw.slice(cursor);
+      if (after.trim()) vLines.push({ text: after, startOffset: pos + cursor, endOffset: pos + raw.length, rawLine: r, fenced: false });
+    } else {
+      vLines.push({ text: raw, startOffset: pos, endOffset: pos + raw.length, rawLine: r, fenced: rawFences.has(r) });
+    }
+    pos += raw.length + 1;
+  }
+  const markers = vLines.flatMap((v, i) => !v.fenced && (v.text === START || v.text === END || /^<!-- agent-deck:section:/.test(v.text)) ? [{ line: v.text, i }] : []);
   if (!markers.length) return null;
   const invalid = () => { throw new Error(t('整理模板的分区标记不完整，请先修复标记；原文未修改。')); };
-  if (markers.length !== 8 || markers[0].line !== START || markers.at(-1).line !== END) invalid();
-  const sections = {}, order = [], titles = {}, headingRows = new Set();
-  for (let n = 1; n < 7; n += 2) {
-    const open = markers[n], close = markers[n + 1];
-    const match = /^<!-- agent-deck:section:(done|active|notes):(heading|plain) -->$/.exec(open.line);
+  const hasStart = markers[0].line === START;
+  const hasEnd = markers.length > 1 && markers.at(-1).line === END;
+  const inner = markers.slice(hasStart ? 1 : 0, hasEnd ? -1 : undefined);
+  // 只要三个完整分区的起止标记都在，允许外框 layout:start / layout:end 被误删后按分割线恢复。
+  if (inner.length !== 6 || inner.some(m => m.line === START || m.line === END)) invalid();
+  const markerIndices = new Set(markers.map(m => m.i));
+  const sections = {}, order = [], titles = {}, headingRows = new Set(), owned = new Set();
+  for (let n = 0; n < 6; n += 2) {
+    const open = inner[n], close = inner[n + 1];
+    const match = SECTION_OPEN_RE.exec(open.line);
     if (!match || sections[match[1]] || close.line !== `<!-- agent-deck:section:${match[1]}:end -->`) invalid();
     const [, key, kind] = match;
-    const start = open.i + 1 + (kind === 'heading' ? 1 : 0);
-    if (kind === 'heading' && !/^## .+/.test(lines[open.i + 1] || '')) invalid();
-    if (kind === 'heading') headingRows.add(open.i + 1);
-    titles[key] = kind === 'heading' ? lines[open.i + 1].slice(3) : '';
-    sections[key] = { text: lines.slice(start, close.i).join('\n'), start, end: close.i };
+    let headingRow = -1;
+    if (kind === 'heading') {
+      for (let i = open.i + 1; i < close.i; i++) {
+        if (!vLines[i].fenced && /^## .+/.test(vLines[i].text)) { headingRow = i; break; }
+      }
+      if (headingRow >= 0) {
+        headingRows.add(headingRow);
+        titles[key] = vLines[headingRow].text.slice(3).trim();
+      } else {
+        titles[key] = builtinJournalLayout().titles[key] || JOURNAL_LAYOUT_DEFAULT.titles[key] || '';
+        if (!titles[key]) invalid();
+      }
+    } else {
+      titles[key] = '';
+    }
+    for (let i = open.i + 1; i < close.i; i++) owned.add(i);
+    const beforeHeading = headingRow > open.i + 1 ? vLines.slice(open.i + 1, headingRow).map(v => v.text).filter(line => line.trim()) : [];
+    const afterHeading = vLines.slice(headingRow >= 0 ? headingRow + 1 : open.i + 1, close.i).map(v => v.text);
+    const bodyLines = beforeHeading.length ? [...beforeHeading, ...afterHeading] : afterHeading;
+    const startV = headingRow >= 0 ? headingRow + 1 : open.i + 1;
+    sections[key] = { text: bodyLines.join('\n'), start: vLines[Math.min(startV, close.i)].rawLine, end: vLines[close.i].rawLine };
     order.push(key);
   }
+  const checkFrom = hasStart ? markers[0].i + 1 : inner[0].i;
+  const checkTo = hasEnd ? markers.at(-1).i : inner[5].i;
   // Anything between sections must be the spacing/rules we wrote. Unexpected
   // text is never silently discarded by a later organize.
-  const owned = new Set();
-  for (const section of Object.values(sections)) for (let i = section.start; i < section.end; i++) owned.add(i);
-  for (let i = markers[0].i + 1; i < markers.at(-1).i; i++) {
-    if (owned.has(i) || markers.some(m => m.i === i) || headingRows.has(i)) continue;
-    if (lines[i].trim() && lines[i] !== '---') invalid();
+  for (let i = checkFrom; i < checkTo; i++) {
+    if (owned.has(i) || markerIndices.has(i) || headingRows.has(i)) continue;
+    if (vLines[i].text.trim() && vLines[i].text.trim() !== '---') invalid();
   }
-  return { head: lines.slice(0, markers[0].i).join('\n').trimEnd(), tail: lines.slice(markers.at(-1).i + 1).join('\n').trim(), sections, layout: { order, titles } };
+  if (!sections.done || !sections.active || !(sections.todo || sections.notes) || (sections.todo && sections.notes)) invalid();
+  let openAt = hasStart ? markers[0].i : inner[0].i;
+  if (!hasStart) {
+    let k = openAt - 1;
+    while (k >= 0 && !vLines[k].text.trim()) k--;
+    if (k >= 0 && !vLines[k].fenced && vLines[k].text.trim() === '---') openAt = k;
+  }
+  let closeAt = hasEnd ? markers.at(-1).i : inner[5].i;
+  if (!hasEnd) {
+    let k = closeAt + 1;
+    while (k < vLines.length && !vLines[k].text.trim()) k++;
+    if (k < vLines.length && !vLines[k].fenced && vLines[k].text.trim() === '---') closeAt = k;
+  }
+  const rawHead = normalized.slice(0, vLines[openAt].startOffset);
+  const rawTail = normalized.slice(vLines[closeAt].endOffset);
+  return { rawHead, rawTail, head: rawHead.trimEnd(), tail: rawTail.trim(), sections, layout: { order, titles } };
 }
 
-export function renderJournalLayout({ head, done, active, notes, tail = '' }, value) {
+export function renderJournalLayout({ head, done, active, todo = '', notes = '', tail = '' }, value) {
   const layout = journalLayout(value);
-  const content = { done, active, notes };
+  const content = { done, active, todo, notes };
   const bands = layout.order.map(key => {
     const title = layout.titles[key];
     return [`<!-- agent-deck:section:${key}:${title ? 'heading' : 'plain'} -->`, ...(title ? [`## ${title}`] : []), content[key].replace(/\n*$/, ''), `<!-- agent-deck:section:${key}:end -->`].filter((line, i) => line || i !== (title ? 2 : 1)).join('\n');
   });
+  if (layout.order.includes('todo')) return head + `${START}\n\n---\n${bands.join('\n\n---\n')}\n\n---\n${END}` + tail;
   return [head.trimEnd(), `${START}\n${bands.join('\n\n---\n\n')}\n${END}`, tail].filter(Boolean).join('\n\n').replace(/\n*$/, '\n');
 }

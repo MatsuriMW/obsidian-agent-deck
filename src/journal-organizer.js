@@ -4,7 +4,7 @@ import { t } from './i18n.js';
 
 export function unorganizedRecordKeys(plan) {
   const occurrences = new Map();
-  return [...plan.active, ...plan.done.filter(entry => entry.ai)].filter(entry => !entry.organized).map(entry => {
+  return [...plan.active, ...(plan.todo || []), ...plan.done.filter(entry => entry.ai)].filter(entry => !entry.organized).map(entry => {
     const key = entry.blockId || entry.sid?.join(',') || entry.text.split('\n')[0];
     const n = occurrences.get(key) || 0;
     occurrences.set(key, n + 1);

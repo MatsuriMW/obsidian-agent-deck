@@ -8,6 +8,22 @@ import fs from "fs";
 import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 export { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 import { desktopSessions, desktopMessages } from "./desktop-sessions.js";
+import {
+  cursorEventsDir,
+  cursorHooksStatus,
+  installCursorHooks,
+  uninstallCursorHooks,
+  readCursorDbMeta,
+  packCursorState,
+  unpackCursorState,
+  ingestCursorEvent,
+} from "./cursor-sessions.js";
+export {
+  cursorEventsDir,
+  cursorHooksStatus,
+  installCursorHooks,
+  uninstallCursorHooks,
+};
 import path from "path";
 import os from "os";
 import { execFile } from "child_process";
@@ -69,6 +85,17 @@ export function projectName(cwd) {
   if (/\/\.gemini\/antigravity\//.test(cwd)) return "Antigravity";
   const p = String(cwd).split("/.claude/worktrees/")[0].replace(/\/+$/, "");
   return p === home() ? "~" : (p.split("/").pop() || p);
+}
+
+// Standalone / scratch directories have no concrete project folder and must
+// not receive a project-name prefix in auto-generated journal titles.
+export function sessionProjectName(cwd) {
+  const raw = String(cwd || "").trim();
+  if (!raw || raw === "~" || raw === "/") return "";
+  if (isScratchCwd(raw)) return "";
+  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(raw) || /\/\.dsh\/sessions\//.test(raw) || /\/\.gemini\/antigravity\//.test(raw)) return "";
+  const name = projectName(raw);
+  return !name || name === "?" || name === "~" ? "" : name;
 }
 
 
@@ -184,7 +211,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 6;
+export const USAGE_CACHE_VERSION = 7;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -212,6 +239,7 @@ function packFile(f) {
   if (f.tot) out.tot = f.tot;
   if (f.tasks) out.tasks = { seq: f.tasks.seq, seen: [...f.tasks.seen], map: [...f.tasks.map] };
   if (f.rounds) out.rounds = { seen: [...f.rounds.seen], list: f.rounds.list };
+  if (f.cursor) out.cur = packCursorState(f.cursor);
   return out;
 }
 
@@ -225,6 +253,7 @@ function unpackFile(o) {
     tot: o.tot || null,
     tasks: o.tasks ? { seq: o.tasks.seq || 0, seen: new Set(o.tasks.seen || []), map: new Map(o.tasks.map || []) } : null,
     rounds: o.rounds ? { seen: new Set(o.rounds.seen || []), list: o.rounds.list || [] } : null,
+    cursor: unpackCursorState(o.cur),
   };
 }
 
@@ -232,6 +261,7 @@ export class AgentUsage {
   constructor(opts = {}) {
     this.cfg = opts.cfg || {};
     this.settings = opts.settings || {};
+    this.historyAgents = opts.historyAgents || [];
     this.files = new Map();      // path -> file cache
     this.meta = new Map();       // sid -> live session meta (merged across files)
     this.titles = new Map();     // codex title index
@@ -252,10 +282,10 @@ export class AgentUsage {
   get primaries() {
     const p = this.settings.primaryAgents;
     const list = Array.isArray(p) ? p : [p].filter(Boolean);
-    return list.filter((x) => AGENTS[x]).slice(0, 2);
+    return list.filter((x) => AGENTS[x]).slice(0, 3);
   }
 
-  isPrimary(agent) { return this.primaries.includes(agent); }
+  isPrimary(agent) { return this.historyAgents.includes(agent) || this.primaries.includes(agent); }
 
   enabled(agent) {
     if (this.isPrimary(agent)) return true;
@@ -357,6 +387,7 @@ export class AgentUsage {
     add(path.join(h, ".dsh/sessions"), "dsh");
     add(path.join(h, ".gemini/antigravity/brain"), "antigravity");
     add(path.join(h, ".qoder/projects"), "qoder");
+    add(cursorEventsDir(h), "cursor");
     const seen = new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
   }
@@ -402,6 +433,7 @@ export class AgentUsage {
     await this.readClaudeDesktop();
     await this.readClaudeSideChats();
     this.applyClaudeDesktop();
+    await this.readCursorMeta({ onlyAgent });
     if (!onlyAgent && !strictSince) this.lastScan = Date.now();
     return touched;
   }
@@ -671,6 +703,36 @@ export class AgentUsage {
     }
   }
 
+  async readCursorMeta({ onlyAgent } = {}) {
+    if (onlyAgent && onlyAgent !== "cursor") return;
+    if (!this.enabled("cursor")) return;
+    const sids = [];
+    for (const fc of this.files.values()) {
+      if (fc.agent === "cursor" && fc.sid) sids.push(fc.sid);
+    }
+    if (!sids.length) return;
+    const metaMap = await readCursorDbMeta(sids, { homeDir: home() });
+    for (const [sid, info] of metaMap) {
+      const m = this.meta.get(sid);
+      if (m) {
+        if (info.title && !this.titles.has(sid)) m.title = info.title;
+        if (info.cwd && (!m.cwd || m.cwd === "~")) m.cwd = info.cwd;
+        if (info.model && !m.model) m.model = info.model;
+        if (typeof info.archived === "boolean") m.archived = info.archived;
+      }
+      for (const fc of this.files.values()) {
+        if (fc.agent !== "cursor" || fc.sid !== sid) continue;
+        if (info.cwd && (!fc.cwd || fc.cwd === "~")) fc.cwd = info.cwd;
+        if (info.model && !fc.model) fc.model = info.model;
+        if (fc.live) {
+          if (info.title && !fc.live.title) fc.live.title = info.title;
+          if (info.cwd && (!fc.live.cwd || fc.live.cwd === "~")) fc.live.cwd = info.cwd;
+          if (info.model && !fc.live.model) fc.live.model = info.model;
+        }
+      }
+    }
+  }
+
   // 归档 = 做完：桌面版里归档的、Codex archived_sessions 里的都可以从会话列表里收起来
   hidden(sid) {
     if (this.settings.hideArchived === false) return false;
@@ -738,7 +800,7 @@ export class AgentUsage {
     }
     if (st.size < fc.size) {
       // log was rotated/rewritten: start over
-      fc.size = 0; fc.offset = 0; fc.days = new Map(); fc.msgs = new Map(); fc.titles = new Map(); fc.live = null; fc.tasks = null; fc.rounds = null;
+      fc.size = 0; fc.offset = 0; fc.days = new Map(); fc.msgs = new Map(); fc.titles = new Map(); fc.live = null; fc.tasks = null; fc.rounds = null; fc.cursor = null;
     }
     fc.mtime = st.mtimeMs;
     if (st.size === fc.offset) { fc.size = st.size; return; }
@@ -767,6 +829,13 @@ export class AgentUsage {
     if (fc.agent === "codex") return this.ingestCodex(line, fc, touched);
     if (fc.agent === "workbuddy") return this.ingestWorkbuddy(line, fc, touched);
     if (fc.agent === "antigravity") return this.ingestAntigravity(line, fc, touched);
+    if (fc.agent === "cursor") return this.ingestCursor(line, fc, touched);
+  }
+
+  ingestCursor(line, fc, touched) {
+    let d;
+    try { d = JSON.parse(line); } catch { return; }
+    ingestCursorEvent({ usage: this, startRound, finishRound, stepText, dayKey }, d, fc, touched);
   }
 
   // ---- Claude Code subagents ----
@@ -1395,7 +1464,7 @@ export class AgentUsage {
     for (const s of sessions.values()) {
       const m = this.meta.get(s.sid) || {};
       res.list.push({
-        sid: s.sid, agent: s.agent, dir: s.proj, cwd: s.cwd, app: s.app,
+        sid: s.sid, agent: s.agent, dir: s.proj, cwd: s.cwd || m.cwd || "", app: s.app,
         title: this.titles.get(s.sid) || m.title || "", text: s.text.slice(0, 300),
         min: Math.round(s.min), out: s.out, fresh: s.fresh, cached: s.cached,
         turns: m.turns || 0, todo: m.todo || null,

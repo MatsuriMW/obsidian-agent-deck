@@ -1,3 +1,4 @@
+import { settingsAgentOrder, recommendPrimaryAgents } from "./settings-agents.js";
 // Agent Deck — Obsidian plugin entry.
 //
 // Extracted from Nautilus Spiral's human–agent tracking, then extended with a
@@ -21,7 +22,12 @@ import {
 import {
   AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, syncDelegationSettings, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp, visibleMenuAgents, journalPath,
 } from "./constants.js";
-import { AgentUsage, UsageStore, projectName, SUMMARY_VERSION } from "./readers.js";
+import {
+  AgentUsage, UsageStore, projectName, SUMMARY_VERSION,
+  cursorEventsDir, cursorHooksStatus,
+  installCursorHooks as installCursorHooksHelper,
+  uninstallCursorHooks as uninstallCursorHooksHelper,
+} from "./readers.js";
 import { Delegator, blockAt, freshTaskText, ancestorLines, delegationText, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findAgyBinary, findOpenCodeBinary, findQoderBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
@@ -54,9 +60,10 @@ export default class AgentDeckPlugin extends Plugin {
     this.settings = syncDelegationSettings(deepMerge(DEFAULTS, data || {}), data || {});
     // 日记目录改成留空自动检测：以前存下的默认值「日记」当作没设过（只迁一次）
     if (!this.settings.journalFolderAuto) { if (this.settings.journalFolder === "日记") this.settings.journalFolder = ""; this.settings.journalFolderAuto = true; }
+    this.settings.primaryAgentsInitialized = data?.primaryAgentsInitialized ?? !!(Array.isArray(data?.primaryAgents) || data?.aiPrimary);
+    if (!this.settings.primaryAgentsInitialized) this.settings.primaryAgents = [];
     if (!Array.isArray(this.settings.primaryAgents)) this.settings.primaryAgents = this.settings.aiPrimary ? [this.settings.aiPrimary] : ["claude"];
-    this.settings.primaryAgents = this.settings.primaryAgents.filter((x) => AGENTS[x]).slice(0, 2);
-    if (!this.settings.primaryAgents.length) this.settings.primaryAgents = ["claude"];
+    this.settings.primaryAgents = this.settings.primaryAgents.filter((x) => AGENTS[x]).slice(0, 3);
     this.settings.jobs = this.settings.jobs && typeof this.settings.jobs === "object" ? this.settings.jobs : {};
     J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 8) * 60);
     this.jobs = this.settings.jobs;
@@ -186,6 +193,7 @@ export default class AgentDeckPlugin extends Plugin {
       if (this.settings.showMenuBar !== false) this.menubar.start().catch((e) => console.error("[agent-deck] menubar", e));
       if (this.settings.menuBarHideNautilus !== false) this.defer(() => this.hideNautilusAgentBar().catch(() => {}), 2500);
       this.scheduleScan();
+      this.watchCursorEvents();
       this.registerInterval(window.setInterval(() => this.autoLog.tick(), 60 * 1000));
       this.registerInterval(window.setInterval(() => this.dreaming.tick().catch((e) => console.error("[agent-deck] dream", e)), 60 * 1000));
       this.defer(() => this.scanNow(false), 1200);
@@ -206,6 +214,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (this.usage && (this.usage.dirty || this.usage.saving)) this.usage.saveCacheSync(this.usageCacheFile);
     clearInterval(this._scanTimer);
     clearTimeout(this._refreshTimer);
+    this.closeCursorWatcher();
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
       try { if (runner.constructor && ["AcpRunner", "CodexDesktopRunner", "QoderRunner"].includes(runner.constructor.name)) runner.cancel(); } catch { /* already gone */ }
@@ -294,12 +303,74 @@ export default class AgentDeckPlugin extends Plugin {
     this._scanTimer = setInterval(() => this.scanNow(false), sec * 1000);
   }
 
+  watchCursorEvents() {
+    this.closeCursorWatcher();
+    if (this._unloaded || !this.agentEnabled("cursor")) return;
+    const dir = cursorEventsDir();
+    if (!fs.existsSync(dir)) return;
+    const scheduleCursor = () => {
+      if (this._unloaded) return;
+      clearTimeout(this._cursorWatchTimer);
+      this._cursorWatchTimer = setTimeout(() => {
+        if (this._unloaded) return;
+        if (this._scanning) return scheduleCursor();
+        this.scanNow(false, { agent: "cursor" });
+      }, 350);
+    };
+    try {
+      this._cursorWatcher = fs.watch(dir, { persistent: false }, scheduleCursor);
+    } catch { /* 操作系统不支持或目录不可监听 */ }
+  }
+
+  closeCursorWatcher() {
+    clearTimeout(this._cursorWatchTimer);
+    this._cursorWatchTimer = null;
+    try { this._cursorWatcher?.close(); } catch { /* already closed */ }
+    this._cursorWatcher = null;
+  }
+
+  cursorHooksStatus() {
+    return cursorHooksStatus();
+  }
+
+  installCursorHooks() {
+    const res = installCursorHooksHelper();
+    this.watchCursorEvents();
+    this.notice(t("Cursor Hooks 已安装：{path}", { path: res.hooksPath }));
+    return res;
+  }
+
+  uninstallCursorHooks() {
+    const res = uninstallCursorHooksHelper();
+    this.notice(t("已从 Cursor 配置移除 Agent Deck Hooks"));
+    return res;
+  }
+
+  async initializePrimaryAgents() {
+    if (this.settings.primaryAgentsInitialized !== false) return;
+    const usage = new AgentUsage({ cfg: this.settings, settings: this.settings, historyAgents: AGENT_ORDER });
+    const touched = await usage.scan({ since: Date.now() - 30 * 86400000, strictSince: true });
+    if (this._unloaded || this.settings.primaryAgentsInitialized) return;
+    const candidates = { files: usage.files, meta: new Map([...usage.meta].filter(([, meta]) => this.agentEnabled(meta.agent))) };
+    const primaries = recommendPrimaryAgents(candidates);
+    if (!primaries.length && usage.errors.length) return;
+    this.settings.primaryAgents = primaries;
+    this.settings.primaryAgentsInitialized = true;
+    for (const key of ["files", "meta", "titles", "subs"]) for (const [id, value] of usage[key]) this.usage[key].set(id, value);
+    for (const key of ["archived", "archivedClaude"]) for (const sid of usage[key]) this.usage[key].add(sid);
+    this.usage.dirty = true;
+    await this.saveSettings();
+    if (this.app.setting?.activeTab === this.settingTab && this.settingTab.containerEl?.isConnected) this.settingTab.display();
+    return touched;
+  }
+
   async scanNow(force = false, { agent = "", days = 0 } = {}) {
     await this._usageReady;
     if (this._unloaded) return;
     if (this._scanning) return;
     this._scanning = true;
     try {
+      const initialDays = this.settings.primaryAgentsInitialized === false ? await this.initializePrimaryAgents() : null;
       // First scan after a load: paint what the last session stored before
       // walking the logs, so the panel is not blank for the whole scan.
       if (!this._painted) { this._painted = true; this.refreshUI(); }
@@ -315,6 +386,7 @@ export default class AgentDeckPlugin extends Plugin {
       const scoped = !!(agent && days);
       const usage = scoped ? new AgentUsage({ cfg: this.settings, settings: { ...this.settings, primaryAgents: [agent] } }) : this.usage;
       const touched = await usage.scan({ since, agent, strictSince: !!days });
+      for (const day of initialDays || []) touched.add(day);
       if (this._unloaded) return;
       if (scoped) {
         for (const key of ["files", "meta", "titles", "subs"]) for (const [id, value] of usage[key]) this.usage[key].set(id, value);
@@ -325,7 +397,7 @@ export default class AgentDeckPlugin extends Plugin {
       this.store.merge(touched, this.usage);
       this.store.prune();
       this.delegator.resolveHandoffs(this.usage);
-      this.delegator.retryBackgroundSummaries?.();
+      this.delegator.retryBackgroundResults?.();
       this.usage.maybeSaveCache(this.usageCacheFile);
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
@@ -443,7 +515,7 @@ export default class AgentDeckPlugin extends Plugin {
   modelEnabled(id) { return (this.settings.models.enabled || []).includes(id); }
   modelLabel(id) { const m = this.modelById(id); return m ? m.name : (id || ""); }
 
-  primaryAgents() { return (this.settings.primaryAgents || []).filter((x) => AGENTS[x]).slice(0, 2); }
+  primaryAgents() { return (this.settings.primaryAgents || []).filter((x) => AGENTS[x]).slice(0, 3); }
   isPrimary(agent) { return this.primaryAgents().includes(agent); }
   agentEnabled(agent) { return this.isPrimary(agent) || (this.settings.agents || {})[agent] !== false; }
   defaultTarget() { return ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(this.settings.delegate?.target) ? this.settings.delegate.target : "claude"; }
@@ -453,16 +525,18 @@ export default class AgentDeckPlugin extends Plugin {
 
   async togglePrimary(agent) {
     if (!AGENTS[agent]) return;
+    this.settings.primaryAgentsInitialized = true;
     const list = this.primaryAgents();
     const i = list.indexOf(agent);
     if (i >= 0) list.splice(i, 1);
     else {
       list.push(agent);
-      if (list.length > 2) list.shift();
+      if (list.length > 3) list.shift();
     }
     this.settings.primaryAgents = list.length ? list : [agent];
     (this.settings.agents ||= {})[agent] = true;
     await this.saveSettings();
+    if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
     new Notice(t("Agent Deck 主力：{agents}", { agents: this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ") }));
@@ -471,7 +545,12 @@ export default class AgentDeckPlugin extends Plugin {
   async setAgentEnabled(agent, on) {
     if (this.isPrimary(agent) && !on) { new Notice(t("主力 Agent 不能关掉；先把主力换掉")); return; }
     (this.settings.agents ||= {})[agent] = !!on;
+    if (!on) {
+      const order = settingsAgentOrder(this.settings, "tracking", id => this.agentEnabled(id));
+      ((this.settings.ui ||= {}).agentOrders ||= {}).tracking = order.filter(id => id !== agent).concat(agent);
+    }
     await this.saveSettings();
+    if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
   }
@@ -574,7 +653,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   // 螺旋日程接管进度显示时不重复画 pill；链接去重另核对具体会话。
-  nautilusOwnsLine(text, session = null) {
+  nautilusOwnsLine(text, session = null, requireTokens = true) {
     const n = this.app.plugins && this.app.plugins.plugins && this.app.plugins.plugins["nautilus-spiral"];
     if (!n || !n.settings || this.settings.yieldToNautilus === false) return false;
     if (n.settings.lineProgress === false || n.settings.showAi === false) return false;
@@ -582,7 +661,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (session?.sid) {
       try {
         const shown = n.lineStatus?.(text);
-        return shown?.sid === session.sid && (!session.tokens || shown.tok > 0);
+        return shown?.sid === session.sid && (!requireTokens || !session.tokens || shown.tok > 0);
       } catch { return false; }
     }
     return true;
@@ -1083,20 +1162,18 @@ export default class AgentDeckPlugin extends Plugin {
       view.editor.cm.dispatch({ changes: { from: view.editor.posToOffset(change.from), to: view.editor.posToOffset(change.to), insert: change.text }, userEvent: "agent-deck.organize" });
       return true;
     }
-    return this.autoLog.write(file, base, next);
+    return this.autoLog.write(file, base, next, { cleanup: false });
   }
 
-  // Rebuild the journal: finished tasks on top, a rule, the unfinished AI log,
-  // another rule, then the user's own notes.
+  // Rebuild only the bounded task sections; outside notes remain untouched.
   async organizeJournal(file = this.journalTarget()) {
     if (!file) return this.notice(t("请先打开日记"));
     const base = await this.readNote(file.path);
     const plan = await this.journalPlan(file, base);
-    if (!plan.count.total) return this.notice(t("没有可整理的 AI 任务"));
     const next = renderJournal(plan);
     if (next !== base && !await this.writeJournal(file, base, next)) return this.notice(t("日记刚有变化，请再整理一次"));
     this.refreshUI();
-    this.notice(t("已整理 {count} 个 AI 任务", { count: plan.count.total }));
+    this.notice(plan.count.total ? t("已整理 {count} 个任务", { count: plan.count.total }) : t("已建立日志分区，区外笔记保持原样"));
   }
 
   // Move finished AI blocks into an archive note the user picks.
@@ -1211,7 +1288,7 @@ export default class AgentDeckPlugin extends Plugin {
       const a = AGENTS[agent];
       const state = isLive ? (s.state || "idle") : "recent";
       const kw = menuKeyword(state);
-      const where = ["claude", "qoder", "workbuddy"].includes(agent) ? (s.app === "cli" ? t("终端") : t("桌面版")) : agent === "codex" ? (isCodexDesktop(s.app) ? t("桌面版") : "CLI") : agent === "opencode" ? t("桌面版") : agent === "antigravity" ? (s.job?.transport === "acp" ? t("后台执行") : "IDE") : "Harness";
+      const where = ["claude", "qoder", "workbuddy"].includes(agent) ? (s.app === "cli" ? t("终端") : t("桌面版")) : agent === "codex" ? (isCodexDesktop(s.app) ? t("桌面版") : "CLI") : ["opencode", "cursor"].includes(agent) ? t("桌面版") : agent === "antigravity" ? (s.job?.transport === "acp" ? t("后台执行") : "IDE") : "Harness";
       const acp = agent === "antigravity" && s.job?.transport === "acp";
       const url = (AGENTS[agent].trackingOnly || ["opencode", "qoder"].includes(agent)) ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : sessionDeepLink(agent, s.sid);
       const prog = this.sessionProgressText(s);
@@ -1428,33 +1505,6 @@ export default class AgentDeckPlugin extends Plugin {
   openTerminalAt(cwd, cmd) {
     const script = `tell application "Terminal"\nactivate\ndo script ${JSON.stringify(`cd ${JSON.stringify(cwd)} && ${cmd}`)}\nend tell`;
     try { execFile("/usr/bin/osascript", ["-e", script], () => {}); } catch (e) { this.notice(String(e.message || e)); }
-  }
-
-  async pauseNautilus() {
-    const p = path.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
-    let data;
-    try { data = JSON.parse(await fsp.readFile(p, "utf8")); }
-    catch { this.notice(t("没有找到螺旋日程的 data.json")); return; }
-    const backup = p + `.agent-deck-backup-${Date.now()}`;
-    try { await fsp.copyFile(p, backup); } catch { /* backup best-effort */ }
-    // 只关写日记的那几项；showAi / agentStatus / lineProgress 是螺旋自己的追踪展示，留着。
-    data.autoLog = false;
-    data.autoLogArchiveDone = false;
-    data.agentKw = false;
-    data.resultBack = false;
-    try { await fsp.writeFile(p, JSON.stringify(data, null, 1), "utf8"); }
-    catch (e) { this.notice(t("写入螺旋日程设置失败：{error}", { error: e && e.message || e })); return; }
-    this.notice(t("已停用螺旋日程的 AI 写入（原设置备份在 {backup}）：自动记日记、状态写回、💬 和子块都不再写；它的 Agent 追踪展示照常。请在 Obsidian 设置里重新加载螺旋日程，或重启 Obsidian。", { backup: path.basename(backup) }), 10000);
-  }
-
-  // 螺旋日程的「写日记」还开着的时候，不让 Agent Deck 也改日记：两套写法会打架。
-  // 只看会写笔记的那几个开关；showAi / agentStatus / lineProgress 是它的追踪展示，留着不碍事。
-  nautilusOwnsAi() {
-    const n = this.app.plugins?.plugins?.["nautilus-spiral"];
-    const s = n && n.settings;
-    if (!s) return false;
-    if (s.showAi === false) return false;
-    return s.resultBack !== false || s.agentKw !== false || s.autoLog === true;
   }
 
   openPluginDir() {

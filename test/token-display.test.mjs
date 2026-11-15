@@ -14,6 +14,7 @@ test('editor keeps its token display when the progress provider cannot represent
  assert.equal(owns.call(p,raw,s),false);
  n.lineStatus=()=>({sid:'other-session',tok:1234});assert.equal(owns.call(p,raw,s),false);
  n.lineStatus=()=>({sid,tok:0});assert.equal(owns.call(p,raw,s),false);
+ assert.equal(owns.call(p,raw,s,false),true,'background progress yields to the same session even without token data');
  n.lineStatus=()=>({sid,tok:1234});assert.equal(owns.call(p,raw,s),true);
 });
 test('inactive session metadata retains token counts on both linked and automatic task lines',()=>{

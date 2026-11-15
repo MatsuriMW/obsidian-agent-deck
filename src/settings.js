@@ -1,11 +1,12 @@
+import { settingsAgentOrder, moveSettingsAgent } from "./settings-agents.js";
 import { changeLogDetail } from "./log-detail.js";
-import { JOURNAL_LAYOUT_DEFAULT, journalLayout, builtinJournalLayout } from "./journal-layout.js";
+import { JOURNAL_LAYOUT_DEFAULT, journalLayout, builtinJournalLayout, configuredJournalLayout } from "./journal-layout.js";
 // Agent Deck — settings: Delegation, Recording, Dreaming, Experiments, and About.
 
 import { archivePath } from "./journal-archive.js";
 import { App, PluginSettingTab, Notice, Modal, Menu } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS, fmtTok, syncDelegationSettings, journalPath, detectJournalFormat,
+  AGENTS, AGENT_ORDER, MODEL_CATALOG, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS, fmtTok, syncDelegationSettings, journalPath, detectJournalFormat,
 } from "./constants.js";
 import { notePath, companionInstalled } from "./dream.js";
 import { externalMemoryPath } from "./dream-sharing.js";
@@ -150,6 +151,80 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     return c;
   }
 
+  agentCard(parent, agent, title, sub = "") {
+    const state = this.plugin.settings.ui.delegateGroups[agent];
+    const card = parent.createEl("details", { cls: "ad-card ad-delegate-agent" });
+    card.dataset.agent = agent;
+    card.open = state.open;
+    card.ontoggle = () => {
+      if (!card.isConnected || this.plugin.settings.ui.delegateGroups[agent] !== state || state.open === card.open) return;
+      state.open = card.open;
+      this.plugin.saveSettings();
+    };
+    const head = card.createEl("summary", { cls: "ad-card__head" });
+    agentIcon(head.createSpan({ cls: "ad-glyph" }), agent);
+    head.createSpan({ cls: "ad-card__title", text: title });
+    const body = card.createDiv({ cls: "ad-delegate-agent__body" });
+    if (sub) body.createDiv({ cls: "ad-card__sub", text: sub });
+    return body;
+  }
+
+  sortHandle(parent, grid, section, agent) {
+    const grip = parent.createEl("button", { cls: "ad-settings-grip", attr: { type: "button", draggable: "true", "aria-label": t("拖动排序；方向键调整位置"), title: t("拖动排序；方向键调整位置") } });
+    grip.dataset.agent = agent;
+    setLucide(grip, "grip-vertical");
+    grip.ondragstart = event => {
+      event.stopPropagation();
+      this._settingsDrag = { section, agent };
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("application/x-agent-deck-settings-agent", JSON.stringify(this._settingsDrag));
+    };
+    grip.ondragend = () => {
+      this._settingsDrag = null;
+      grid.querySelectorAll(".is-drop-target").forEach(el => el.classList.remove("is-drop-target"));
+    };
+    grip.onkeydown = async event => {
+      if (!["ArrowUp", "ArrowLeft", "ArrowDown", "ArrowRight"].includes(event.key)) return;
+      event.preventDefault(); event.stopPropagation();
+      const enabled = id => this.plugin.agentEnabled(id);
+      const order = settingsAgentOrder(this.plugin.settings, section, enabled).filter(id => section !== "tracking" || enabled(id) === enabled(agent));
+      const after = ["ArrowDown", "ArrowRight"].includes(event.key), target = order[order.indexOf(agent) + (after ? 1 : -1)];
+      if (target) await this.moveSettingAgent(section, agent, target, after);
+      this.containerEl?.querySelector(`.ad-settings-grip[data-agent="${agent}"]`)?.focus();
+    };
+    return grip;
+  }
+
+  agentReorder(grid, section, selector) {
+    grid.ondragover = event => {
+      if (this._settingsDrag?.section !== section) return;
+      const target = event.target.closest(selector);
+      if (!target || !grid.contains(target)) return;
+      if (section === "tracking" && this.plugin.agentEnabled(this._settingsDrag.agent) !== this.plugin.agentEnabled(target.dataset.agent)) return;
+      event.preventDefault(); event.dataTransfer.dropEffect = "move";
+      grid.querySelectorAll(".is-drop-target").forEach(el => el.classList.remove("is-drop-target"));
+      target.classList.add("is-drop-target");
+    };
+    grid.ondrop = async event => {
+      const drag = this._settingsDrag;
+      if (drag?.section !== section) return;
+      event.preventDefault(); event.stopPropagation();
+      const target = event.target.closest(selector);
+      this._settingsDrag = null;
+      grid.querySelectorAll(".is-drop-target").forEach(el => el.classList.remove("is-drop-target"));
+      if (!target || !grid.contains(target)) return;
+      const rect = target.getBoundingClientRect();
+      const after = section === "tracking" ? event.clientY > rect.top + rect.height / 2 : event.clientX > rect.left + rect.width / 2;
+      await this.moveSettingAgent(section, drag.agent, target.dataset.agent, after);
+    };
+  }
+
+  async moveSettingAgent(section, agent, target, after) {
+    if (!moveSettingsAgent(this.plugin.settings, section, agent, target, after, id => this.plugin.agentEnabled(id))) return;
+    await this.plugin.saveSettings();
+    this.display();
+  }
+
   subDetails(parent, key, title, defaultOpen = false) {
     const d = parent.createEl("details", { cls: "ad-subdetails" });
     d.dataset.section = key;
@@ -196,6 +271,16 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     return box;
   }
 
+  selectInput(parent, options, value, onChange, cls = "") {
+    const sel = parent.createEl("select", { cls: "ad-select" + (cls ? " " + cls : "") });
+    for (const opt of options) {
+      const o = sel.createEl("option", { text: opt.label, attr: { value: opt.id } });
+      if (opt.id === value) o.selected = true;
+    }
+    sel.onchange = () => onChange(sel.value);
+    return sel;
+  }
+
   textInput(parent, value, placeholder, onChange, cls = "") {
     const input = parent.createEl("input", { cls: "ad-input " + cls, attr: { value: value || "", placeholder: placeholder || "" } });
     input.onchange = () => onChange(input.value);
@@ -220,13 +305,18 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const s = p.settings;
     const d = s.delegate;
 
+    if (syncModelGroups(s, id => p.agentEnabled(id))) p.saveSettings();
+
     // 1. 委派 → 默认目标
     const destinations = this.card(body, t("默认委派到"), t("追踪主力与默认委派分别设置"));
     const targetRow = destinations.createDiv({ cls: "ad-targetpick" });
-    for (const id of AGENT_ORDER) {
+    for (const id of settingsAgentOrder(s, "delegation", id => p.agentEnabled(id))) {
       const a = AGENTS[id];
       const available = id !== "workbuddy" && !a.trackingOnly;
-      const b = targetRow.createEl(available ? "button" : "div", { cls: "ad-target" + (available && p.defaultTarget() === id ? " is-on" : ""), attr: { "data-agent": id } });
+      const item = targetRow.createDiv({ cls: "ad-settings-target" });
+      item.dataset.agent = id;
+      this.sortHandle(item, targetRow, "delegation", id);
+      const b = item.createEl(available ? "button" : "div", { cls: "ad-target" + (available && p.defaultTarget() === id ? " is-on" : ""), attr: { "data-agent": id } });
       if (available) b.setAttribute("aria-pressed", String(p.defaultTarget() === id));
       b.style.setProperty("--ad-agent", a.color);
       b.style.setProperty("--ad-agent-soft", a.soft);
@@ -236,19 +326,21 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       if (available) b.onclick = async () => { d.target = id; await p.saveSettings(); this.display(); };
     }
 
+    this.agentReorder(targetRow, "delegation", ".ad-settings-target");
+
     // 2. 委派 → 各 Agent
-    const claude = this.card(body, "Claude Code", "");
+    const claude = this.agentCard(body, "claude", "Claude Code", "");
     this.modelSelect(claude, "claude", p.defaultModel("claude"), (v) => { this.setDefaultModel("claude", v); this.display(); });
     this.effortControl(claude, "claude", d.claude.effort, (v) => { this.setDefaultEffort("claude", v); this.display(); });
     const permRow = this.row(claude, t("权限模式"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件"), null);
     this.segmented(permRow.querySelector(":scope > .ad-row__right"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => { d.claude.permission = v; p.saveSettings(); this.display(); });
-    const claudePathRow = this.row(claude, t("命令行路径"), t("留空自动查找"), null);
+    const claudeMore = this.subDetails(claude, "claude-more", t("更多设置"));
+    const claudePathRow = this.row(claudeMore, t("命令行路径"), t("留空自动查找"), null);
     this.textInput(claudePathRow.querySelector(":scope > .ad-row__right"), d.claude.path || "", t("自动查找"), (v) => { d.claude.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
     const cwdRow = this.row(claude, t("工作目录"), t("留空使用库根目录"), null);
     this.textInput(cwdRow.querySelector(":scope > .ad-row__right"), d.claude.cwd, t("留空 = 库根目录"), (v) => { d.claude.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
-    const openDesk = this.row(claude, t("完成后自动在桌面版打开"), "", null);
+    const openDesk = this.row(claudeMore, t("完成后自动在桌面版打开"), "", null);
     this.toggle(openDesk.querySelector(":scope > .ad-row__right"), d.claude.openDesktop === true, (v) => { d.claude.openDesktop = v; p.saveSettings(); });
-    const claudeMore = this.subDetails(claude, "claude-more", t("更多 Claude Code 选项"));
     const addVault = this.row(claudeMore, t("把当前库也加进可读目录"), "", null);
     this.toggle(addVault.querySelector(":scope > .ad-row__right"), d.claude.addVault !== false, (v) => { d.claude.addVault = v; p.saveSettings(); });
     const trust = this.row(claudeMore, t("库没被信任时自动换个目录"), t("使用已信任目录，并添加当前库的访问路径"), null);
@@ -257,89 +349,106 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.toggle(bg.querySelector(":scope > .ad-row__right"), d.claude.useBackground === true, (v) => { d.claude.useBackground = v; p.saveSettings(); });
     const extra = this.row(claudeMore, t("额外参数"), t("传给 Claude CLI 的参数"), null);
     this.textInput(extra.querySelector(":scope > .ad-row__right"), d.claude.extraArgs, t("可留空"), (v) => { d.claude.extraArgs = v; p.saveSettings(); }, "ad-input--wide");
-    const test = claude.createDiv({ cls: "ad-btnrow" });
+    const test = claudeMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(test, t("检查 claude"), async () => { const r = await p.checkBinary("claude"); new Notice(r, 6000); });
     this.bigButton(test, t("在终端里续这个目录"), () => p.openTerminalAt(d.claude.cwd || p.vaultPath, "claude"));
 
-    const codex = this.card(body, "Codex", "");
+    claude.appendChild(claudeMore.parentElement);
+
+    const codex = this.agentCard(body, "codex", "Codex", "");
     const transport = this.row(codex, t("派发到"), "", null);
     this.segmented(transport.querySelector(":scope > .ad-row__right"), [{ id: "desktop", label: t("Codex 桌面版") }, { id: "terminal", label: t("终端") }], d.codex.transport || "desktop", (v) => { d.codex.transport = v; p.saveSettings(); this.display(); });
     this.modelSelect(codex, "codex", p.defaultModel("codex"), (v) => { this.setDefaultModel("codex", v); this.display(); });
     this.effortControl(codex, "codex", d.codex.effort, (v) => { this.setDefaultEffort("codex", v); this.display(); });
     const sandbox = this.row(codex, t("沙箱模式"), t("read-only：只读；workspace-write：允许修改工作目录"), null);
     this.segmented(sandbox.querySelector(":scope > .ad-row__right"), ["read-only", "workspace-write"].map((id) => ({ id, label: id })), d.codex.sandbox, (v) => { d.codex.sandbox = v; p.saveSettings(); this.display(); });
+    const codexMore = this.subDetails(codex, "codex-more", t("更多设置"));
     for (const [key, label, hint] of [["path", t("codex 程序路径"), t("桌面模式留空优先使用 Desktop 自带程序；终端模式从 PATH 查找")], ["cwd", t("工作目录"), t("留空 = 库根目录")]]) {
-      const r = this.row(codex, label, hint, null);
+      const r = this.row(key === "cwd" ? codex : codexMore, label, hint, null);
       this.textInput(r.querySelector(":scope > .ad-row__right"), d.codex[key], hint, (v) => { d.codex[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
-    this.bigButton(codex.createDiv({ cls: "ad-btnrow" }), t("检查 codex"), async () => new Notice(await p.checkBinary("codex"), 6000));
+    this.bigButton(codexMore.createDiv({ cls: "ad-btnrow" }), t("检查 codex"), async () => new Notice(await p.checkBinary("codex"), 6000));
 
-    const dsh = this.card(body, "DeepSeek Harness", "");
+    codex.appendChild(codexMore.parentElement);
+
+    const dsh = this.agentCard(body, "dsh", "DeepSeek Harness", "");
     this.modelSelect(dsh, "dsh", p.defaultModel("dsh"), (v) => { this.setDefaultModel("dsh", v); this.display(); });
     this.effortControl(dsh, "dsh", d.dsh.effort, (v) => { this.setDefaultEffort("dsh", v); this.display(); });
     const route = this.row(dsh, t("自动允许工具调用"), t("关闭后逐次确认工具权限"), null);
     this.toggle(route.querySelector(":scope > .ad-row__right"), d.dsh.autoApprove === true, (v) => { d.dsh.autoApprove = v; p.saveSettings(); });
-    const dshPathRow = this.row(dsh, t("命令行路径"), t("留空自动查找"), null);
+    const dshMore = this.subDetails(dsh, "dsh-more", t("更多设置"));
+    const dshPathRow = this.row(dshMore, t("命令行路径"), t("留空自动查找"), null);
     this.textInput(dshPathRow.querySelector(":scope > .ad-row__right"), d.dsh.path || "", t("自动查找"), (v) => { d.dsh.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
     const dcwd = this.row(dsh, t("工作目录"), t("留空使用库根目录"), null);
     this.textInput(dcwd.querySelector(":scope > .ad-row__right"), d.dsh.cwd, t("留空 = 库根目录"), (v) => { d.dsh.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
-    const dextra = this.row(dsh, t("额外 ACP 参数"), t("可留空"), null);
+    const dextra = this.row(dshMore, t("额外 ACP 参数"), t("可留空"), null);
     this.textInput(dextra.querySelector(":scope > .ad-row__right"), d.dsh.extraArgs, t("可留空"), (v) => { d.dsh.extraArgs = v; p.saveSettings(); }, "ad-input--wide");
-    const dtest = dsh.createDiv({ cls: "ad-btnrow" });
+    const dtest = dshMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(dtest, t("读取 Harness 可用模型"), async () => {
       try { const models = await p.refreshDshModels(); new Notice(t("已读取 {n} 个模型，包含 Harness 中配置的自定义模型", { n: models.length })); this.display(); }
       catch (e) { new Notice(t("读取失败：{msg}", { msg: e.message }), 8000); }
     });
     this.bigButton(dtest, t("检查 dsh"), async () => { const r = await p.checkBinary("dsh"); new Notice(r, 6000); });
 
-    const agy = this.card(body, "Antigravity ACP", t("安装 agy CLI 后运行 agy acp --login 登录"));
+    dsh.appendChild(dshMore.parentElement);
+
+    const agy = this.agentCard(body, "antigravity", "Antigravity ACP", t("安装 agy CLI 后运行 agy acp --login 登录"));
     this.modelSelect(agy, "antigravity", p.defaultModel("antigravity"), (v) => { this.setDefaultModel("antigravity", v); this.display(); });
     this.effortControl(agy, "antigravity", d.antigravity.effort, (v) => { this.setDefaultEffort("antigravity", v); this.display(); });
+    const agyMore = this.subDetails(agy, "agy-more", t("更多设置"));
     for (const [key, label, hint] of [["path", t("agy 程序路径"), t("留空自动查找，例如 ~/.local/bin/agy")], ["cwd", t("工作目录"), t("留空 = 库根目录")]]) {
-      const r = this.row(agy, label, hint, null);
+      const r = this.row(key === "cwd" ? agy : agyMore, label, hint, null);
       this.textInput(r.querySelector(":scope > .ad-row__right"), d.antigravity[key], hint, (v) => { d.antigravity[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
-    const atest = agy.createDiv({ cls: "ad-btnrow" });
+    const atest = agyMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(atest, t("读取 Antigravity 可用模型"), async () => {
       try { const models = await p.refreshAcpModels("antigravity"); new Notice(t("已读取 {n} 个模型", { n: models.length })); this.display(); }
       catch (e) { new Notice(t("读取失败：{msg}", { msg: e.message }), 8000); }
     });
     this.bigButton(atest, t("检查 agy"), async () => new Notice(await p.checkBinary("antigravity"), 6000));
 
-    const opencode = this.card(body, "OpenCode", t("通过 OpenCode.app 内置的 opencode-cli acp 后台委派，也可打开桌面端或终端"));
+    agy.appendChild(agyMore.parentElement);
+
+    const opencode = this.agentCard(body, "opencode", "OpenCode", t("通过 OpenCode.app 内置的 opencode-cli acp 后台委派，也可打开桌面端或终端"));
     this.modelSelect(opencode, "opencode", p.defaultModel("opencode"), (v) => { this.setDefaultModel("opencode", v); this.display(); });
     this.effortControl(opencode, "opencode", d.opencode.effort, (v) => { this.setDefaultEffort("opencode", v); this.display(); });
     const ocRoute = this.row(opencode, t("自动允许工具调用"), t("关闭后逐次确认工具权限"), null);
     this.toggle(ocRoute.querySelector(":scope > .ad-row__right"), d.opencode.autoApprove === true, (v) => { d.opencode.autoApprove = v; p.saveSettings(); });
-    const ocDesk = this.row(opencode, t("完成后自动在桌面版打开"), "", null);
+    const opencodeMore = this.subDetails(opencode, "opencode-more", t("更多设置"));
+    const ocDesk = this.row(opencodeMore, t("完成后自动在桌面版打开"), "", null);
     this.toggle(ocDesk.querySelector(":scope > .ad-row__right"), d.opencode.openDesktop === true, (v) => { d.opencode.openDesktop = v; p.saveSettings(); });
     for (const [key, label, hint] of [["path", t("命令行路径"), t("留空自动查找（含 OpenCode.app 内置 CLI）")], ["cwd", t("工作目录"), t("留空 = 库根目录")], ["extraArgs", t("额外 ACP 参数"), t("可留空")]]) {
-      const r = this.row(opencode, label, hint, null);
+      const r = this.row(key === "cwd" ? opencode : opencodeMore, label, hint, null);
       this.textInput(r.querySelector(":scope > .ad-row__right"), d.opencode[key] || "", hint, (v) => { d.opencode[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
-    const octest = opencode.createDiv({ cls: "ad-btnrow" });
+    const octest = opencodeMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(octest, t("读取 OpenCode 可用模型"), async () => {
       try { const models = await p.refreshAcpModels("opencode"); new Notice(t("已读取 {n} 个模型", { n: models.length })); this.display(); }
       catch (e) { new Notice(t("读取失败：{msg}", { msg: e.message }), 8000); }
     });
     this.bigButton(octest, t("检查 opencode"), async () => new Notice(await p.checkBinary("opencode"), 6000));
 
-    const qoder = this.card(body, "Qoder", t("已登录 qodercli 时后台直接执行；未登录时自动复制任务并打开 Qoder 桌面版交接"));
+    opencode.appendChild(opencodeMore.parentElement);
+
+    const qoder = this.agentCard(body, "qoder", "Qoder", t("已登录 qodercli 时后台直接执行；未登录时自动复制任务并打开 Qoder 桌面版交接"));
     this.modelSelect(qoder, "qoder", p.defaultModel("qoder"), (v) => { this.setDefaultModel("qoder", v); this.display(); });
     this.effortControl(qoder, "qoder", d.qoder.effort, (v) => { this.setDefaultEffort("qoder", v); this.display(); });
     const qPermRow = this.row(qoder, t("权限模式"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件"), null);
     this.segmented(qPermRow.querySelector(":scope > .ad-row__right"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => { d.qoder.permission = v; p.saveSettings(); this.display(); });
+    const qoderMore = this.subDetails(qoder, "qoder-more", t("更多设置"));
     for (const [key, label, hint] of [["path", t("命令行路径"), t("留空自动查找（~/.qoder/bin/qodercli/qodercli）")], ["cwd", t("工作目录"), t("留空 = 库根目录")], ["extraArgs", t("额外参数"), t("可留空")]]) {
-      const r = this.row(qoder, label, hint, null);
+      const r = this.row(key === "cwd" ? qoder : qoderMore, label, hint, null);
       this.textInput(r.querySelector(":scope > .ad-row__right"), d.qoder[key] || "", hint, (v) => { d.qoder[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
-    const qtest = qoder.createDiv({ cls: "ad-btnrow" });
+    const qtest = qoderMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(qtest, t("检查 qoder"), async () => new Notice(await p.checkBinary("qoder"), 6000));
     this.bigButton(qtest, t("登录 qoder CLI"), () => p.openTerminalAt(d.qoder.cwd || p.vaultPath, "qoder login"));
 
+    qoder.appendChild(qoderMore.parentElement);
+
     const sharedAgents = this.card(body, t("公共终端与其余 Agent"), "");
     const dt = this.row(sharedAgents, t("主力终端"), t("用于终端委派和恢复会话"), null);
-    this.segmented(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: t("自动") }, { id: "terminal", label: t("系统终端") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
+    this.selectInput(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: t("自动") }, { id: "terminal", label: t("系统终端") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
     const dd = this.row(sharedAgents, t("默认在终端委派"), t("适用于 Claude Code、Codex、OpenCode 和 Qoder"), null);
     this.toggle(dd.querySelector(":scope > .ad-row__right"), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
     for (const id of ["workbuddy"]) {
@@ -354,29 +463,31 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const rules = this.card(body, t("发送规则"), t("任务行 Agent 补全、提示词前后缀和委派附加要求"));
     const suggestRow = this.row(rules, t("输入时显示候选菜单"), t("输入触发符选择 Agent、模型和强度"), null);
     this.toggle(suggestRow.querySelector(":scope > .ad-row__right"), d.mentionSuggest !== false, (v) => { d.mentionSuggest = v; p.saveSettings(); });
-    const triggerRow = this.row(rules, t("触发符号"), t("默认 @，前面需空格"), null);
+    const rulesMore = this.subDetails(rules, "rules-more", t("更多设置"));
+    const triggerRow = this.row(rulesMore, t("触发符号"), t("默认 @，前面需空格"), null);
     this.textInput(triggerRow.querySelector(":scope > .ad-row__right"), d.mentionTrigger || "@", "@", (v) => {
       const trigger = v.trim();
       if (!trigger || /[\s`\p{L}\p{N}]/u.test(trigger)) { new Notice(t("请填写不含空格、字母、数字或反引号的符号")); return; }
       d.mentionTrigger = trigger; p.saveSettings();
     });
-    const pre = rules.createDiv({ cls: "ad-field" });
+    const pre = rulesMore.createDiv({ cls: "ad-field" });
     pre.createDiv({ cls: "ad-field__label", text: t("前缀") });
     const preTa = pre.createEl("textarea", { cls: "ad-textarea", attr: { placeholder: t("例如：先读一下相关文件，再动手。"), rows: "2" } });
     preTa.value = d.promptPrefix || "";
     preTa.onchange = () => { d.promptPrefix = preTa.value; p.saveSettings(); };
-    const suf = rules.createDiv({ cls: "ad-field" });
+    const suf = rulesMore.createDiv({ cls: "ad-field" });
     suf.createDiv({ cls: "ad-field__label", text: t("后缀") });
     const sufTa = suf.createEl("textarea", { cls: "ad-textarea", attr: { placeholder: t("例如：做完把改动文件列出来。"), rows: "2" } });
     sufTa.value = d.promptSuffix || "";
     sufTa.onchange = () => { d.promptSuffix = sufTa.value; p.saveSettings(); };
     const rc = this.row(rules, t("委派附加要求"), t("追加到每次委派消息末尾"), null);
     this.toggle(rc.querySelector(":scope > .ad-row__right"), d.confirmFirst !== false, (v) => { d.confirmFirst = v; p.saveSettings(); });
-    const confirm = rules.createDiv({ cls: "ad-field" });
+    const confirm = rulesMore.createDiv({ cls: "ad-field" });
     confirm.createDiv({ cls: "ad-field__label", text: t("附加要求正文（可自定义）") });
     const confirmTa = confirm.createEl("textarea", { cls: "ad-textarea", attr: { rows: "5" } });
     confirmTa.value = d.confirmFirstPrompt ?? DEFAULTS.delegate.confirmFirstPrompt;
     confirmTa.onchange = () => { d.confirmFirstPrompt = confirmTa.value; p.saveSettings(); };
+    rules.appendChild(rulesMore.parentElement);
   }
 
   setDefaultModel(agent, value) {
@@ -397,16 +508,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
   modelSelect(parent, agent, value, onChange) {
     const row = this.row(parent, t("默认模型"), "", null);
-    const sel = row.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
-    const models = this.plugin.modelsFor(agent).filter((m) => this.plugin.modelEnabled(m.id));
-    if (!models.length) models.push(...this.plugin.modelsFor(agent));
+    const all = this.plugin.modelsFor(agent);
+    const models = agent === "codex" ? all : all.filter((m) => this.plugin.modelEnabled(m.id));
+    if (!models.length) models.push(...all);
     if (value && !models.some((m) => m.id === value)) models.push(this.plugin.modelById(value) || { id: value, name: value });
-    for (const m of models) {
-      const o = sel.createEl("option", { text: m.name, attr: { value: m.id } });
-      if (m.id === value) o.selected = true;
-    }
-    sel.onchange = () => onChange(sel.value);
-    return sel;
+    return this.selectInput(row.querySelector(":scope > .ad-row__right"), models.map((m) => ({ id: m.id, label: m.name })), value, onChange);
   }
 
   effortControl(parent, agent, value, onChange) {
@@ -653,9 +759,9 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const d = s.delegate;
 
     // 1. 记录 → 来源与扫描
-    const sourceCard = this.card(body, t("来源与扫描"), t("最多两位主力读取全部历史，其余读取当天会话"));
+    const sourceCard = this.card(body, t("来源与扫描"), t("最多三位主力读取全部历史；首次安装按近 30 天会话数推荐"));
     const grid = sourceCard.createDiv({ cls: "ad-set-agents" });
-    for (const id of AGENT_ORDER) {
+    for (const id of settingsAgentOrder(s, "tracking", id => p.agentEnabled(id))) {
       const a = AGENTS[id];
       const enabled = p.agentEnabled(id);
       const primary = p.isPrimary(id);
@@ -668,29 +774,52 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const name = top.createDiv({ cls: "ad-set-agent__identity" });
       name.createDiv({ cls: "ad-set-agent__name", text: a.name });
       const controls = top.createDiv({ cls: "ad-set-agent__controls" });
-      const star = controls.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? t("取消主力") : t("设为主力（最多两个）"), "aria-pressed": String(primary) } });
+      const star = controls.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? t("取消主力") : t("设为主力（最多三个）"), "aria-pressed": String(primary) } });
       setLucide(star, primary ? "star" : "star-off");
-      star.title = primary ? t("取消主力") : t("设为主力（最多两个）");
+      star.title = primary ? t("取消主力") : t("设为主力（最多三个）");
       star.onclick = () => p.togglePrimary(id);
       this.toggle(controls, enabled, (v) => p.setAgentEnabled(id, v), primary);
+      this.sortHandle(controls, grid, "tracking", id);
       const sessions = [...p.usage.meta.values()].filter((x) => x.agent === id);
       const stats = card.createDiv({ cls: "ad-set-agent__meta" });
       stats.createSpan({ text: t("{n} 个会话", { n: sessions.length }) });
       stats.createSpan({ text: fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
       stats.createSpan({ cls: "ad-set-agent__state", text: primary ? t("主力（全量）") : enabled ? t("追踪中") : t("已关闭") });
     }
-    const r1 = this.row(sourceCard, t("日记日期分界"), t("此时刻之前计入前一天"), null);
+    this.agentReorder(grid, "tracking", ".ad-set-agent");
+    const sourceMore = this.subDetails(sourceCard, "source-more", t("更多设置"));
+    const r1 = this.row(sourceMore, t("日记日期分界"), t("此时刻之前计入前一天"), null);
     this.numberInput(r1.querySelector(":scope > .ad-row__right"), s.dayCutoff, 0, 12, (v) => { s.dayCutoff = v; p.saveSettings(); p.scheduleScan(); });
-    const r2 = this.row(sourceCard, t("扫描间隔（秒）"), "", null);
+    const r2 = this.row(sourceMore, t("扫描间隔（秒）"), "", null);
     this.numberInput(r2.querySelector(":scope > .ad-row__right"), s.pollSeconds, 5, 300, (v) => { s.pollSeconds = v; p.saveSettings(); p.scheduleScan(); });
-    const r4 = this.row(sourceCard, t("主力读多少天历史"), t("非主力读取当天会话"), null);
+    const r4 = this.row(sourceMore, t("主力读多少天历史"), t("非主力读取当天会话"), null);
     this.numberInput(r4.querySelector(":scope > .ad-row__right"), s.fullHistoryDays, 1, 365, (v) => { s.fullHistoryDays = v; p.saveSettings(); p.scanNow(true); });
-    const d1 = this.row(sourceCard, t("识别 side chat 和母子关系"), t("Claude 桌面版子会话与母子关联"), null);
+    const d1 = this.row(sourceMore, t("识别 side chat 和母子关系"), t("Claude 桌面版子会话与母子关联"), null);
     this.toggle(d1.querySelector(":scope > .ad-row__right"), s.claudeDesktop !== false, (v) => { s.claudeDesktop = v; p.saveSettings(); p.scanNow(true); });
+    if (typeof p.cursorHooksStatus === "function") {
+      const ch = p.cursorHooksStatus();
+      const statusText = ch.outdated
+        ? t("Cursor Hooks 需要更新（{matched}/{total}）", { matched: ch.matchedEvents, total: ch.totalEvents })
+        : ch.installed
+          ? t("已配置 Cursor 3.30.14+ Hooks（{matched}/{total}）", { matched: ch.matchedEvents, total: ch.totalEvents })
+          : t("未安装 Cursor Hooks；仅追踪安装后的 Cursor 3.30.14+ 新会话或新对话轮次");
+      const curRow = this.row(sourceMore, "Cursor Hooks", statusText, null);
+      const curRight = curRow.querySelector(":scope > .ad-row__right");
+      this.btn(curRight, ch.installed && !ch.outdated ? t("更新 Hooks") : t("安装 Hooks"), () => {
+        try { p.installCursorHooks(); } catch (e) { p.notice?.(e.message || String(e)); }
+        this.display();
+      });
+      if (ch.installed || ch.matchedEvents > 0 || ch.scriptExists) {
+        this.btn(curRight, t("卸载 Hooks"), () => {
+          try { p.uninstallCursorHooks(); } catch (e) { p.notice?.(e.message || String(e)); }
+          this.display();
+        });
+      }
+    }
     const scanBar = sourceCard.createDiv({ cls: "ad-btnrow" });
     this.bigButton(scanBar, t("立即扫描"), () => p.scanNow(), "mod-cta");
-    this.bigButton(scanBar, t("导入螺旋日程的历史"), () => p.importNautilus());
-    const logDetails = this.subDetails(sourceCard, "log-paths", t("本机日志"));
+    this.bigButton(sourceMore.createDiv({ cls: "ad-btnrow" }), t("导入螺旋日程的历史"), () => p.importNautilus());
+    const logDetails = this.subDetails(sourceMore, "log-paths", t("本机日志"));
     const paths = logDetails.createDiv({ cls: "ad-pathlist" });
     for (const [id, a] of Object.entries(AGENTS)) {
       const r = paths.createDiv({ cls: "ad-pathrow" });
@@ -703,6 +832,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     if (errs.length) {
       for (const x of errs.slice(-6)) logDetails.createDiv({ cls: "ad-error-line", text: `${x.path}: ${x.message}` });
     }
+
+    sourceCard.appendChild(sourceMore.parentElement);
 
     // 2. 记录 → 日记与归档
     const jr = this.card(body, t("日记与归档"), t("将会话记录写入今天的日记"));
@@ -738,12 +869,14 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       { id: "latest3", label: t("最新三条") },
       { id: "latest1", label: t("最新一条") },
     ], s.aiRecordDisplay || DEFAULTS.aiRecordDisplay, (v) => { s.aiRecordDisplay = v; p.saveSettings(); p.refreshUI(); this.display(); });
-    const merge = this.row(jr, t("累积后自动合并总结"), "", null);
+    const jrMore = this.subDetails(jr, "recording-more", t("更多设置"));
+    jrMore.appendChild(grain);
+    const merge = this.row(jrMore, t("累积后自动合并总结"), "", null);
     this.toggle(merge.querySelector(":scope > .ad-row__right"), !!s.autoLogMerge, (v) => { s.autoLogMerge = v; p.saveSettings(); this.display(); });
-    const mergeN = this.row(jr, t("累积多少条结论后合并"), t("至少 2 条"), null);
+    const mergeN = this.row(jrMore, t("累积多少条结论后合并"), t("至少 2 条"), null);
     this.numberInput(mergeN.querySelector(":scope > .ad-row__right"), s.autoLogMergeThreshold || 10, 2, 100, (v) => { s.autoLogMergeThreshold = Math.round(v); p.saveSettings(); });
 
-    const wb = this.subDetails(jr, "writeback", t("状态与结论回写"), true);
+    const wb = jrMore;
     const dm1 = this.row(wb, t("把状态改成 DELEGATED"), "", null);
     this.toggle(dm1.querySelector(":scope > .ad-row__right"), d.markStatus !== false, (v) => { d.markStatus = v; p.saveSettings(); });
     const dm2 = this.row(wb, t("写 🔗 绑定行"), t("删除绑定行可解除关联"), null);
@@ -761,14 +894,14 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const row = this.row(wb, label, desc, null);
       this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] !== false, (v) => { s[key] = v; p.saveSettings(); });
     }
-    const rMax = this.row(wb, t("💬 最多多少个字"), "", null);
-    this.numberInput(rMax.querySelector(":scope > .ad-row__right"), s.resultMax || 240, 40, 2000, (v) => { s.resultMax = v; p.saveSettings(); });
+    const rMax = this.row(jr, t("💬 最多多少个字"), t("普通会话的结论长度；后台回答超过 500 字时返回完整问答文件"), null);
+    this.numberInput(rMax.querySelector(":scope > .ad-row__right"), s.resultMax || DEFAULTS.resultMax, 40, 2000, (v) => { s.resultMax = v; p.saveSettings(); });
     const jd = this.row(wb, t("归档的会话记成 DONE"), "", null);
     this.toggle(jd.querySelector(":scope > .ad-row__right"), s.autoLogArchiveDone !== false, (v) => { s.autoLogArchiveDone = v; p.saveSettings(); });
     const jn = this.row(wb, t("整理完弹通知"), "", null);
     this.toggle(jn.querySelector(":scope > .ad-row__right"), s.autoLogNotify !== false, (v) => { s.autoLogNotify = v; p.saveSettings(); });
 
-    const tpl = this.subDetails(jr, "template-archive", t("整理日志模板与归档"), true);
+    const tpl = this.subDetails(jrMore, "template-archive", t("整理日志模板与归档"));
     const suggest = this.row(tpl, t("日志杂乱时提醒整理"), t("每新增 4 条记录提醒，每天最多 2 次"), null);
     this.toggle(suggest.querySelector(":scope > .ad-row__right"), s.organizeJournalSuggest !== false, (v) => { s.organizeJournalSuggest = v; p.saveSettings(); });
     const templateRow = this.row(tpl, t("整理模板"), t("设置笔记分区的标题和顺序"), null);
@@ -781,14 +914,15 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       p.saveSettings(); this.display();
     };
     if (s.journalLayout) {
-      const names = { done: t("已完成"), active: t("进行中"), notes: t("手写内容") };
+      s.journalLayout = configuredJournalLayout(s);
+      const names = { active: t("正在做"), todo: t("还要做"), done: t("已完成") };
       const orderRow = this.row(tpl, t("分区顺序"), "", null);
       const orderSel = orderRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
-      for (const keys of [["done", "active", "notes"], ["active", "done", "notes"], ["notes", "done", "active"], ["notes", "active", "done"], ["done", "notes", "active"], ["active", "notes", "done"]]) orderSel.createEl("option", { text: keys.map((key) => names[key]).join(" → "), attr: { value: keys.join(",") } });
+      for (const keys of [["active", "todo", "done"], ["active", "done", "todo"], ["todo", "active", "done"], ["todo", "done", "active"], ["done", "active", "todo"], ["done", "todo", "active"]]) orderSel.createEl("option", { text: keys.map((key) => names[key]).join(" → "), attr: { value: keys.join(",") } });
       orderSel.value = s.journalLayout.order.join(",");
       orderSel.onchange = () => { s.journalLayout = journalLayout({ ...s.journalLayout, order: orderSel.value.split(",") }); p.saveSettings(); };
       for (const key of JOURNAL_LAYOUT_DEFAULT.order) {
-        const row = this.row(tpl, t("{section}标题", { section: names[key] }), key === "notes" ? t("留空不添加标题") : "", null);
+        const row = this.row(tpl, t("{section}标题", { section: names[key] }), "", null);
         const input = this.textInput(row.querySelector(":scope > .ad-row__right"), s.journalLayout.titles[key], names[key], (value) => {
           try { s.journalLayout = journalLayout({ ...s.journalLayout, titles: { ...s.journalLayout.titles, [key]: value } }); p.saveSettings(); }
           catch (error) { input.value = s.journalLayout.titles[key]; new Notice(error.message); }
@@ -801,7 +935,9 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.segmented(archOrder.querySelector(":scope > .ad-row__right"), [{ id: "prepend", label: t("插到开头") }, { id: "append", label: t("追加到末尾") }], s.archiveOrder || "prepend", (v) => { s.archiveOrder = v; p.saveSettings(); });
     const jrBtns = jr.createDiv({ cls: "ad-btnrow" });
     this.bigButton(jrBtns, t("现在整理一次"), () => p.autoLog.logNow());
-    this.bigButton(jrBtns, t("恢复默认整理模板"), () => { s.journalLayout = null; s.journalLayoutLanguage = "auto"; p.saveSettings(); this.display(); });
+    this.bigButton(tpl.createDiv({ cls: "ad-btnrow" }), t("恢复默认整理模板"), () => { s.journalLayout = null; s.journalLayoutLanguage = "auto"; p.saveSettings(); this.display(); });
+
+    jr.appendChild(jrMore.parentElement);
 
     // 3. 记录 → 整理模型
     const modelCard = this.card(body, t("AI 整理模型"), t("自动整理、润色使用的 CLI、模型与调用频率，独立于委派模型"));
@@ -815,19 +951,20 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     }
     const jm = this.row(modelCard, t("整理用的模型"), t("填写模型名或别名"), null);
     this.textInput(jm.querySelector(":scope > .ad-row__right"), s.autoLogModel || "", s.autoLogProvider === "codex" ? "gpt-6-luna" : "haiku", (v) => { s.autoLogModel = v.trim(); p.saveSettings(); });
-    const jt = this.row(modelCard, t("整理超时（秒）"), "", null);
+    const modelMore = this.subDetails(modelCard, "model-more", t("更多设置"));
+    const jt = this.row(modelMore, t("整理超时（秒）"), "", null);
     this.numberInput(jt.querySelector(":scope > .ad-row__right"), s.autoLogTimeout || 120, 10, 600, (v) => { s.autoLogTimeout = v; p.saveSettings(); });
-    const jfb = this.row(modelCard, t("整理失败时使用会话标题"), "", null);
+    const jfb = this.row(modelMore, t("整理失败时使用会话标题"), "", null);
     this.toggle(jfb.querySelector(":scope > .ad-row__right"), s.autoLogFallback !== false, (v) => { s.autoLogFallback = v; p.saveSettings(); });
-    const jp = this.row(modelCard, t("整理 CLI 路径"), t("留空使用委派设置中的路径"), null);
+    const jp = this.row(modelMore, t("整理 CLI 路径"), t("留空使用委派设置中的路径"), null);
     this.textInput(jp.querySelector(":scope > .ad-row__right"), s.autoLogPath || "", t("自动找"), (v) => { s.autoLogPath = v.trim(); p.saveSettings(); }, "ad-input--wide");
-    const jrp = this.row(modelCard, t("每轮结论让模型润色"), t("适用于简略和标准记录"), null);
+    const jrp = this.row(modelMore, t("每轮结论让模型润色"), t("适用于简略和标准记录"), null);
     this.toggle(jrp.querySelector(":scope > .ad-row__right"), s.roundPolish !== false, (v) => { s.roundPolish = v; p.saveSettings(); });
-    const jrm = this.row(modelCard, t("润色用的模型"), t("留空沿用整理模型"), null);
+    const jrm = this.row(modelMore, t("润色用的模型"), t("留空沿用整理模型"), null);
     this.textInput(jrm.querySelector(":scope > .ad-row__right"), s.roundPolishModel || "", t("同整理用的模型"), (v) => { s.roundPolishModel = v.trim(); p.saveSettings(); });
-    const jrt = this.row(modelCard, t("润色超时（秒）"), "", null);
+    const jrt = this.row(modelMore, t("润色超时（秒）"), "", null);
     this.numberInput(jrt.querySelector(":scope > .ad-row__right"), s.roundPolishTimeout || 30, 5, 300, (v) => { s.roundPolishTimeout = v; p.saveSettings(); });
-    const sched = this.subDetails(modelCard, "autolog-schedule", t("自动整理频率"), true);
+    const sched = modelMore;
     const je = this.row(sched, t("整理间隔（分钟）"), t("至少 5 分钟"), null);
     this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => { s.autoLogEvery = v; p.saveSettings(); });
     const jst = this.row(sched, t("首次整理延迟（分钟）"), "", null);
@@ -854,21 +991,21 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const row = this.row(ui, label, desc, null);
       this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] === undefined ? fallback : s[key] !== false, (v) => { s[key] = v; p.saveSettings(); p.applyUiSettings(); });
     }
-    const bars = this.row(ui, t("最近 14 天的条形图"), "", null);
+    const uiMore = this.subDetails(ui, "display-more", t("更多设置"));
+    const bars = this.row(uiMore, t("最近 14 天的条形图"), "", null);
     this.toggle(bars.querySelector(":scope > .ad-row__right"), s.ui.showUsageBars !== false, (v) => { s.ui.showUsageBars = v; p.saveSettings(); p.refreshUI(); });
-    const spark = this.row(ui, t("每个 Agent 的小火花线"), "", null);
+    const spark = this.row(uiMore, t("每个 Agent 的小火花线"), "", null);
     this.toggle(spark.querySelector(":scope > .ad-row__right"), s.ui.showSparkline !== false, (v) => { s.ui.showSparkline = v; p.saveSettings(); p.refreshUI(); });
-    this.row(ui, t("跳转到正在运行的项目"), t("默认 Ctrl+Alt+J"), "⌃⌥J");
 
     const mb = this.row(ui, t("macOS 菜单栏"), "", null);
     this.mbSwitch = this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => { s.showMenuBar = v; p.saveSettings(); p.applyUiSettings(); });
-    const ma = this.row(ui, t("菜单栏显示哪些 Agent"), "", null);
+    const ma = this.row(uiMore, t("菜单栏显示哪些 Agent"), "", null);
     this.segmented(ma.querySelector(":scope > .ad-row__right"), [{ id: "primary-running", label: t("主力与在跑的") }, { id: "all", label: t("全部已启用") }], s.menuBarAgentScope || "primary-running", (v) => { s.menuBarAgentScope = v; p.saveSettings(); p.menubar?.update(true); this.display(); });
     for (const [key, label, desc, min, max] of [
       ["menuBarPrimaryLimit", t("菜单栏：主力最多几个"), "", 3, 12],
       ["menuBarOtherLimit", t("菜单栏：其它 Agent 最多几个"), "", 1, 6],
     ]) {
-      const row = this.row(ui, label, desc, null);
+      const row = this.row(uiMore, label, desc, null);
       this.numberInput(row.querySelector(":scope > .ad-row__right"), s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => { s[key] = v; p.saveSettings(); p.refreshUI(); });
     }
     const hkRow = this.row(ui, t("菜单栏快捷键"), t("点输入框后按组合键，需包含 ⌃、⌥ 或 ⌘"), null);
@@ -910,23 +1047,23 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       hkInput.value = hotkeyDisplay(s.menuBarHotkey);
     };
 
-    const dn = this.row(ui, t("使用螺旋日程的进度显示"), "", null);
+    const dn = this.row(uiMore, t("使用螺旋日程的进度显示"), "", null);
     this.toggle(dn.querySelector(":scope > .ad-row__right"), s.yieldToNautilus !== false, (v) => { s.yieldToNautilus = v; p.saveSettings(); p.refreshUI(); });
-    const nautRow = this.row(ui, t("关闭螺旋日程右下角的 Agent 汇总"), "", null);
+    const nautRow = this.row(uiMore, t("关闭螺旋日程右下角的 Agent 汇总"), "", null);
     this.toggle(nautRow.querySelector(":scope > .ad-row__right"), s.menuBarHideNautilus !== false, (v) => { s.menuBarHideNautilus = v; p.saveSettings(); if (v) p.hideNautilusAgentBar().catch(() => {}); else p.restoreNautilusAgentBar().catch(() => {}); });
 
-    const btn = ui.createDiv({ cls: "ad-btnrow" });
+    const btn = uiMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btn, t("重启菜单栏"), () => p.menubar?.restart());
     this.bigButton(btn, t("重新计算全部历史"), () => p.rebuildUsage(), "mod-warning");
     this.bigButton(btn, t("打开插件目录"), () => p.openPluginDir());
-    this.bigButton(btn, t("停用螺旋日程里的 AI 写入"), () => p.pauseNautilus(), "mod-warning");
-    const stats = ui.createDiv({ cls: "ad-statline" });
+    const stats = uiMore.createDiv({ cls: "ad-statline" });
     const days = Object.keys(p.store.days).length;
     stats.createSpan({ text: t("{n} 天记录", { n: days }) });
     stats.createSpan({ cls: "ad-dot", text: "·" });
     stats.createSpan({ text: t("{n} 个会话索引", { n: p.usage.meta.size }) });
     stats.createSpan({ cls: "ad-dot", text: "·" });
     stats.createSpan({ text: t("{n} 个日志文件", { n: p.usage.files.size }) });
+    ui.appendChild(uiMore.parentElement);
   }
 
   // ---------- Dreaming ----------
@@ -935,10 +1072,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const card = this.card(body, t("Dreaming · 长期记忆"), t("从近 14 天日志提炼记忆，保存到笔记"));
     const auto = this.row(card, t("每天自动整理"), "", null);
     this.toggle(auto.querySelector(":scope > .ad-row__right"), s.enabled, (v) => { s.enabled = v; p.saveSettings(); });
-    const file = this.row(card, t("长期记忆笔记"), t("库内 Markdown 路径"), null);
+    const dreamMore = this.subDetails(card, "dream-more", t("更多设置"));
+    const file = this.row(dreamMore, t("长期记忆笔记"), t("库内 Markdown 路径"), null);
     this.textInput(file.querySelector(":scope > .ad-row__right"), s.path, "Agent Deck/长期记忆.md", (v) => { try { s.path = notePath(v); p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
     if (companionInstalled(p.app)) {
-      const sync = this.row(card, t("同步到 Telegram Companion 陪伴档案"), t("同步有效记忆，最多 6000 字"), null);
+      const sync = this.row(dreamMore, t("同步到 Telegram Companion 陪伴档案"), t("同步有效记忆，最多 6000 字"), null);
       this.toggle(sync.querySelector(":scope > .ad-row__right"), s.syncProfile, (v) => { s.syncProfile = v; p.saveSettings(); });
     }
     const actions = card.createDiv({ cls: "ad-btnrow" });
@@ -950,9 +1088,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const phase = progress.createDiv();
     const elapsed = progress.createDiv({ cls: "ad-muted" });
     const meter = progress.createEl("progress", { attr: { "aria-label": t("Dream 整理进度") } });
-    this.bigButton(actions, t("导出长期记忆 Markdown 副本"), () => p.dreaming.exportMemory());
+    this.bigButton(dreamMore.createDiv({ cls: "ad-btnrow" }), t("导出长期记忆 Markdown 副本"), () => p.dreaming.exportMemory());
     card.createDiv({ cls: "ad-muted", text: t("可直接编辑长期记忆笔记") });
     const summary = card.createDiv({ cls: "ad-muted" });
+
+    card.appendChild(dreamMore.parentElement);
 
     const c = s.share, sharing = p.dreaming.sharing;
     const shared = this.card(body, t("与其他 Agent 共享记忆"), t("将记忆导出到固定文件，供其他 Agent 读取"));
@@ -960,15 +1100,17 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.toggle(enabled.querySelector(":scope > .ad-row__right"), c.enabled, (v) => { c.enabled = v; p.saveSettings(); });
     const target = this.row(shared, t("共享文件路径"), t("绝对路径，支持 ~/"), null);
     this.textInput(target.querySelector(":scope > .ad-row__right"), c.path, "/Users/me/shared-agent-memory/memory.md", (v) => { try { c.path = v.trim() ? externalMemoryPath(v) : ""; p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
-    const interval = this.row(shared, t("定期同步间隔（小时）"), t("1–168 小时"), null);
+    const shareMore = this.subDetails(shared, "share-more", t("更多设置"));
+    const interval = this.row(shareMore, t("定期同步间隔（小时）"), t("1–168 小时"), null);
     this.numberInput(interval.querySelector(":scope > .ad-row__right"), c.intervalHours, 1, 168, (v) => { c.intervalHours = v; p.saveSettings(); });
-    const git = this.row(shared, t("同步后提交并推送 Git"), t("共享文件需位于 Git 仓库中；推送到 origin 当前分支"), null);
+    const git = this.row(shareMore, t("同步后提交并推送 Git"), t("共享文件需位于 Git 仓库中；推送到 origin 当前分支"), null);
     this.toggle(git.querySelector(":scope > .ad-row__right"), c.gitPush, (v) => { c.gitPush = v; p.saveSettings(); });
     const syncNow = this.bigButton(shared.createDiv({ cls: "ad-btnrow" }), t("立即同步共享记忆"), async () => {
       const task = sharing.sync(); update();
       try { await task; } finally { update(); }
     });
     const sharedStatus = shared.createDiv({ cls: "ad-muted", attr: { role: "status", "aria-live": "polite" } });
+    shared.appendChild(shareMore.parentElement);
     const update = () => {
       const d = p.dreaming, state = d.progress;
       run.disabled = d.busy;
@@ -1026,7 +1168,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     }
     const c = this.card(body, t("版本与支持"));
     const meta = c.createDiv({ cls: "ad-about-meta" });
-    meta.createDiv({ text: t("版本 {version} · MIT License", { version: p.manifest.version }) });
+    meta.createDiv({ text: t("版本 {version} · Apache-2.0 License", { version: p.manifest.version }) });
     meta.createDiv({ text: t("从 Nautilus Spiral（螺旋日程）的 AI 追踪部分拆出；交互参考了小红书 @ZZ.X 的两条帖子。") });
     const btns = c.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, t("打开 GitHub 仓库"), () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));

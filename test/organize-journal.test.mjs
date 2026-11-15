@@ -21,14 +21,12 @@ const source = [
 const options = { archived: new Set([sid]) };
 const plan = planJournal(source, options);
 
-// Every finished block is hoisted, hand-written ones included; an archived
-// session counts as finished even when the keyword says otherwise.
-assert.equal(plan.done.length, 2);
-assert.ok(plan.done.some((e) => e.text.startsWith('- DONE 09:00 手写完成')));
+// Only AI blocks are organized; hand-written tasks stay where written.
+// An archived session counts as finished even when the keyword says otherwise.
+assert.equal(plan.done.length, 1);
 const archived = plan.done.find((e) => e.text.includes('已归档'));
 assert.ok(archived.text.startsWith('- DONE'), 'archived task is rewritten as DONE');
 assert.equal(archived.ai, true, 'archived task is an AI block');
-assert.equal(plan.done.find((e) => e.text.includes('手写完成')).ai, false);
 
 // Only the real AI block is left in the active band.
 assert.equal(plan.active.length, 1);
@@ -36,10 +34,11 @@ assert.equal(plan.active[0].keyword, 'DOING');
 assert.ok(plan.active[0].text.includes('  - 手写子项'));
 
 const out = renderJournal(plan);
-assert.ok(out.startsWith('---\njournal: 每日\n---\n\n---\n## 已完成\n- DONE 09:00 手写完成'), 'front matter stays on top, the region opens with its own rule');
+assert.ok(out.startsWith('---\njournal: 每日\n---\n\n---\n## 已完成\n- DONE 已归档'), 'front matter stays on top, the region opens with its own rule');
+assert.ok(out.includes('\n---\n\n- DONE 09:00 手写完成'), 'hand-written DONE stays in user notes');
 assert.ok(out.indexOf(DONE_HEADING) < out.indexOf(ACTIVE_HEADING), 'finished band comes first');
 assert.ok(out.includes(`\n---\n${ACTIVE_HEADING}`), 'one rule between the bands');
-assert.ok(out.includes('\n---\n\n- TODO 手动任务'), 'second rule before the user notes');
+assert.ok(out.includes('\n---\n\n- DONE 09:00 手写完成\n- TODO 手动任务'), 'second rule before the user notes');
 assert.ok(out.includes('```md\n- DONE 示例 ^ad-code\n```'), 'fenced examples are untouched');
 assert.ok(out.includes('- 手写正文'));
 assert.equal(renderJournal(planJournal(out, options)), out, 'layout is idempotent');
@@ -99,7 +98,8 @@ assert.equal(taskLineAt(['```md', '- DONE 示例 ^ad-code', '```', '', '- TODO �
 const plain = '- TODO 只有手写\n- DONE 手写的完成\n';
 const plainPlan = planJournal(plain);
 assert.equal(plainPlan.active.length, 0);
-assert.equal(renderJournal(plainPlan), `---\n${DONE_HEADING}\n- DONE 手写的完成\n\n---\n\n- TODO 只有手写\n`);
+assert.equal(plainPlan.done.length, 0);
+assert.equal(renderJournal(plainPlan), plain);
 
 // The ⌘⇧D command finds the whole block, wherever the cursor sits inside it.
 const block = ['- DOING 10:00 干活 ^ad-b', '\t- 💬 记录', '\t\t- 更深'].concat(['- TODO 下一条']);
@@ -124,7 +124,7 @@ assert.equal(taskLineAt(['', '- TODO 孤立'], 0), -1, 'a blank line has no bloc
 
 {
   // A code sample that shows the generated headings is content, not a band.
-  const sample = '- DONE a\n\n```md\n## 已完成\n- DONE 示例\n\n\n两行空行之后\n```\n\n- 手写正文\n';
+  const sample = '- DONE a ^ad-a\n\n```md\n## 已完成\n- DONE 示例\n\n\n两行空行之后\n```\n\n- 手写正文\n';
   const out = renderJournal(planJournal(sample));
   assert.ok(out.includes('```md\n## 已完成\n- DONE 示例\n\n\n两行空行之后\n```'), 'fenced sample untouched, blank run kept');
   assert.ok(out.startsWith(`---\n${DONE_HEADING}\n- DONE a`), 'the real finished task still moves');
@@ -132,16 +132,16 @@ assert.equal(taskLineAt(['', '- TODO 孤立'], 0), -1, 'a blank line has no bloc
 
 {
   // A properties block longer than 80 lines is still front matter.
-  const fm = ['---', ...Array.from({ length: 120 }, (_, i) => `k${i}: v${i}`), '---', '', '- TODO 任务', '- 手写'].join('\n');
+  const fm = ['---', ...Array.from({ length: 120 }, (_, i) => `k${i}: v${i}`), '---', '', '- TODO 任务 ^ad-fm', '- 手写'].join('\n');
   const out = renderJournal(planJournal(fm));
   assert.ok(out.startsWith('---\nk0: v0'), 'long front matter stays at the top');
   assert.ok(out.includes('k119: v119\n---'), 'the closing rule is still there');
-  assert.equal((out.match(/^---$/gm) || []).length, 2, 'no stray rule is left behind');
+  assert.equal((out.match(/^---$/gm) || []).length, 4, 'no stray rule is left behind');
 }
 
 {
   // CRLF notes keep their line endings.
-  const crlf = '- DONE x\r\n- DOING y\r\n- 手写\r\n';
+  const crlf = '- DONE x ^ad-x\r\n- DOING y ^ad-y\r\n- 手写\r\n';
   const out = renderJournal(planJournal(crlf));
   assert.ok(out.includes('\r\n'), 'CRLF preserved');
   assert.equal(/[^\r]\n/.test(out), false, 'no bare LF is introduced');
@@ -152,7 +152,7 @@ assert.equal(taskLineAt(['', '- TODO 孤立'], 0), -1, 'a blank line has no bloc
   // The keyword subheads are generated inside the active band only, and a block
   // that leaves the band leaves its heading behind otherwise.
   const sid = '11111111-2222-3333-4444-555555555555';
-  const doc = ['## 已完成', '- DONE a', '', '---', '', '## 进行中', '### DOING', '- DOING b', `  - 🔗 [Codex](codex://threads/${sid})`, '', '我的笔记', ''].join('\n');
+  const doc = ['## 已完成', '- DONE a ^ad-a', '', '---', '', '## 进行中', '### DOING', '- DOING b', `  - 🔗 [Codex](codex://threads/${sid})`, '', '我的笔记', ''].join('\n');
   const laid = renderJournal(planJournal(doc));
   assert.ok(laid.includes('### DOING\n- DOING b'), 'the active band gets its subhead');
   const archived = renderJournal(planJournal(laid, { archived: new Set([sid]) }));

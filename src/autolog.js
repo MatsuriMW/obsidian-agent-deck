@@ -12,10 +12,11 @@ import { serializeNote } from "./note-updates.js";
 import { Notice, MarkdownView } from "obsidian";
 import { AGENTS, AGENT_ORDER, dayKeyToday, startOfDay, unionSegs, journalPath } from "./constants.js";
 import * as J from "./journal.js";
+import { sessionProjectName } from "./readers.js";
 import { runJournalModel, safeLabel } from "./llm.js";
 import { t } from "./i18n.js";
-import { planJournal, ensureTopRule, ACTIVE_HEADING } from "./organize-journal.js";
-import { readJournalLayout } from "./journal-layout.js";
+import { planJournal, renderJournal, ensureTopRule } from "./organize-journal.js";
+import { readJournalLayout, configuredJournalLayout } from "./journal-layout.js";
 
 const agentName = (id) => AGENTS[id]?.short || id;
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d);
@@ -34,6 +35,10 @@ export class AutoLog {
   get minMinutes() { return Math.max(0, num(this.cfg.autoLogMinMinutes, 3)); }
   get batch() { return Math.max(1, Math.round(num(this.cfg.autoLogBatch, 8))); }
   agentOn(id) { return AGENT_ORDER.includes(id) && (this.cfg.autoLogAgents || {})[id] !== false; }
+  projectOf(x) {
+    const cwd = x?.cwd || this.usage?.meta?.get(x?.sid)?.cwd || "";
+    return sessionProjectName(cwd);
+  }
 
   dayKey() { return dayKeyToday(this.cfg); }
   nowMin() { return (Date.now() - startOfDay(Date.now(), this.cfg)) / 60000; }
@@ -59,8 +64,8 @@ export class AutoLog {
   }
 
   // 只改前后不一样的那几行；这期间日记被改过就不写，返回 false
-  async write(file, base, next) {
-    next = ensureTopRule(J.cleanCompletedIdentifiers(next));
+  async write(file, base, next, { cleanup = true } = {}) {
+    if (cleanup) next = ensureTopRule(J.cleanCompletedIdentifiers(next));
     if (base === next) return true;
     const v = this.viewFor(file);
     if (v) {
@@ -77,44 +82,17 @@ export class AutoLog {
   // 新写一块：AI 区域在的时候一定写进区域里；还没有区域才交给「任务归位」按它的分区放
   placeBlock(text, blockLines) {
     const block = blockLines.join("\n");
-    const custom = readJournalLayout(text);
-    if (custom) {
-      const crlf = /\r\n/.test(text);
-      const lines = text.replace(/\r\n/g, "\n").split("\n");
-      lines.splice(custom.sections.active.end, 0, block);
-      const next = lines.join("\n");
-      return crlf ? next.replace(/\n/g, "\r\n") : next;
+    let custom = readJournalLayout(text);
+    if (!custom) {
+      text = renderJournal(planJournal(text, { layout: configuredJournalLayout(this.cfg) }));
+      custom = readJournalLayout(text);
+      if (!custom) throw new Error(t("请先关闭笔记中的代码块，再建立日志分区"));
     }
-    // New records belong inside the AI region, not at the bottom of the note:
-    // they go where the generated content ends, before the closing rule and
-    // before anything the user wrote. done-to-top's zones sit above that rule,
-    // so handing the block to it would strand the record outside the frame.
-    const at = planJournal(text).insertAt;
-    if (at != null) {
-      const lines = text.split("\n");
-      const chunk = [];
-      if (at > 0 && lines[at - 1].trim()) chunk.push("");
-      // A region that only has a finished band still needs somewhere to put an
-      // active record, or it would land under "已完成".
-      if (!lines.some((line) => line.trim() === ACTIVE_HEADING)) chunk.push(ACTIVE_HEADING, "");
-      chunk.push(block);
-      if (at < lines.length && lines[at].trim()) chunk.push("");
-      lines.splice(at, 0, ...chunk);
-      return ensureTopRule(`${lines.join("\n").replace(/\s*$/, "")}\n`);
-    }
-    // No region yet: a journal that is still run by done-to-top keeps its own
-    // zone layout, so let it place the block; anything it writes is adopted into
-    // the frame the first time the journal is organized.
-    const core = this.p.app.plugins?.plugins?.["done-to-top"]?.core;
-    if (core && core.addBlock) {
-      try { return core.addBlock(text, blockLines); } catch { /* fall through */ }
-    }
-    // Otherwise start a region at the end of the note. Everything above it is
-    // the user's and stays that way, so the record is framed from its first
-    // moment instead of waiting for the next organize.
-    const above = text.replace(/\s*$/, "");
-    const framed = `${ACTIVE_HEADING}\n\n${block}`;
-    return ensureTopRule(above ? `${above}\n\n---\n${framed}\n` : `---\n${framed}\n`);
+    const crlf = /\r\n/.test(text);
+    const lines = text.replace(/\r\n/g, "\n").split("\n");
+    lines.splice(custom.sections.active.end, 0, block);
+    const next = lines.join("\n");
+    return crlf ? next.replace(/\n/g, "\r\n") : next;
   }
 
   state(day) {
@@ -167,7 +145,7 @@ export class AutoLog {
             kw,
             start: startClock || J.clock(0),
             end: endClock || startClock || J.clock(0),
-            title: J.summarizeAutoTitle(rec.label),
+            title: J.formatProjectAutoTitle(rec.label, rec.proj || this.projectOf(x)),
             blockId: preferId,
           })
         : status === "doing" ? `- DOING ${startClock || J.clock(0)} ${rec.label}`
@@ -270,30 +248,38 @@ export class AutoLog {
       "- todos：只在会话已经停了时填。回复里明确说了要用户本人去做或拍板的事，每条不超过 30 个字，最多 1 条，只列不做就卡住的那一件；没有就是空数组。上面任务行里已经有意思相同的就不要再列。",
       "- skip：一两句闲聊或问答、没有实际做事的会话填 true。",
     ].join("\n");
+    const buildFallback = () => {
+      for (const { x } of items) {
+        const meta = this.usage.meta.get(x.sid) || {};
+        const proj = this.projectOf(x);
+        const rawLabel = x.title || (x.text || "").split(" / ")[0];
+        const label = String(rawLabel || "").trim() ? J.formatProjectAutoTitle(rawLabel, proj) : "";
+        const summary = J.oneSentenceConclusion(meta.lastText || "", 80);
+        if (label) out.set(x.sid, { label, proj, summary, matchKey: null, done: false, todos: [], skip: false });
+      }
+      return out;
+    };
     const out = new Map();
     let raw = "";
     try { raw = await runJournalModel(prompt, this.cfg); }
     catch (e) {
       this._err = String(e.message || e);
-      if (fallback) for (const { x } of items) {
-        const meta = this.usage.meta.get(x.sid) || {};
-        const label = safeLabel(x.title || (x.text || "").split(" / ")[0]);
-        const summary = J.oneSentenceConclusion(meta.lastText || "", 80);
-        if (label) out.set(x.sid, { label, summary, matchKey: null, done: false, todos: [], skip: false });
-      }
-      return out;
+      return fallback ? buildFallback() : out;
     }
     try {
       const arr = JSON.parse(raw.slice(raw.indexOf("["), raw.lastIndexOf("]") + 1));
       for (const a of arr) {
-        const sid = items[Number(String(a.id).replace(/^s/, "")) - 1]?.x.sid;
+        const item = items[Number(String(a.id).replace(/^s/, "")) - 1];
+        const sid = item?.x.sid;
         if (!sid) continue;
         const meta = this.usage.meta.get(sid) || {};
-        const label = safeLabel(a.label);
+        const proj = this.projectOf(item.x);
+        const label = String(a.label || "").trim() ? J.formatProjectAutoTitle(a.label, proj) : "";
         const summary = safeLabel(a.summary || "", 60) || J.oneSentenceConclusion(meta.lastText || "", 80);
         const m = Number.isInteger(a.match) && open[a.match - 1] ? open[a.match - 1] : null;
         out.set(sid, {
           label,
+          proj,
           slug: J.normalizeTaskSlug(a.slug),
           summary,
           matchKey: m ? J.workKey(m.label) : null,
@@ -305,12 +291,7 @@ export class AutoLog {
       this._err = "";
     } catch (e) {
       this._err = t("模型回的不是 JSON");
-      if (fallback) for (const { x } of items) {
-        const meta = this.usage.meta.get(x.sid) || {};
-        const label = safeLabel(x.title || (x.text || "").split(" / ")[0]);
-        const summary = J.oneSentenceConclusion(meta.lastText || "", 80);
-        if (label) out.set(x.sid, { label, summary, matchKey: null, done: false, todos: [], skip: false });
-      }
+      if (fallback) return buildFallback();
     }
     return out;
   }
@@ -321,7 +302,6 @@ export class AutoLog {
     this._busy = true;
     let day = "", snap = null, file = null;
     try {
-      if (this.p.nautilusOwnsAi && this.p.nautilusOwnsAi()) { report.error = t("螺旋日程的 AI 追踪还开着，先在设置里停用它"); return report; }
       day = this.dayKey();
       file = this.journalFile(day);
       if (!file) { report.error = t("今天的日记 {path} 还没建", { path: this.journalPath(day) }); return report; }
@@ -379,7 +359,7 @@ export class AutoLog {
             if (!m && !a.label) { st[x.sid] = { skip: true }; continue; }
             const label = m ? m.body : J.AUTO_MARK + a.label;
             const blockId = (m && m.blockId) || J.makeBlockId(x.sid, x.agent, a.slug);
-            rec = st[x.sid] = { key: J.workKey(label), label, blockId, created: !m, agent: x.agent, status: m ? m.state : null, fresh: !m };
+            rec = st[x.sid] = { key: J.workKey(label), label, blockId, created: !m, agent: x.agent, proj: m ? "" : (a.proj || this.projectOf(x)), status: m ? m.state : null, fresh: !m };
           }
           rec.min = x.min;
           if (a) rec.asked = !active;

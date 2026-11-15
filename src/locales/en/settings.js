@@ -2,6 +2,14 @@
 // Keys are the Chinese source strings; placeholders use {name}.
 
 export default {
+  "最多三位主力读取全部历史；首次安装按近 30 天会话数推荐": "Up to three primary agents read full history; first-install recommendations use session counts from the past 30 days",
+  "普通会话的结论长度；后台回答超过 500 字时返回完整问答文件": "Conclusion length for regular sessions; background answers over 500 characters return a full Q&A file",
+  "更多设置": "More settings",
+  "正在做": "In progress",
+  "还要做": "To do",
+  "整理模板必须包含正在做、还要做和已完成三个分区。": "The template must include in-progress, to-do, and completed sections exactly once.",
+  "分区标题请填 1–60 字的单行文字。": "Use a single-line title of 1\u201360 characters.",
+
   "实验功能": "Experiments",
   "默认开启。查看 token 热力图、项目投入和历史记录；关闭后隐藏入口并关闭回顾页，保留统计数据。": "On by default. Review token activity, project effort and history. Turning this off hides the entry and closes review tabs while preserving statistics.",
   "设置保存失败：{error}": "Could not save settings: {error}",
@@ -472,7 +480,6 @@ export default {
   "{n} 个日志文件": "{n} log files",
   "和螺旋日程并存": "Living alongside Nautilus Spiral",
   "螺旋日程也会读同一批 🔗 会话、改任务状态、写 💬。用 Agent Deck 接管后，可以只关掉它的 AI 写入，日程和它的追踪展示照样在。": "Nautilus Spiral also reads the same 🔗 sessions, changes task status and writes 💬. Once Agent Deck takes over you can turn off just its AI writes; your schedule and its tracking display stay.",
-  "停用螺旋日程里的 AI 写入": "Disable AI writes in Nautilus Spiral",
   "只关自动记日记、状态写回、💬 和子块写入；螺旋自己的 Agent 追踪展示保留。会先备份它的 data.json。写入后请在 Obsidian 设置里重新加载螺旋日程（或重启 Obsidian）；Agent Deck 不会自动启停其它插件。": "Turns off only auto-journaling, status write-back, 💬 and sub-block writes; Nautilus Spiral's own agent tracking display stays. Its data.json is backed up first. Afterwards reload Nautilus Spiral in Obsidian settings (or restart Obsidian); Agent Deck never starts or stops other plugins itself.",
   "点击会话时打开哪儿": "Where clicking a session opens",
   "Claude Code 桌面版会话用 claude://resume；Codex 桌面版用 codex://threads/<会话号>；WorkBuddy 用 workbuddy://chat/<会话号>；DeepSeek Harness 只有 dsh://open（聚焦客户端），会话号会复制到剪贴板。终端里的 Claude Code / Codex 会话：还开着就切到那个终端标签，关了才 resume（见「追踪 → Claude 桌面版」）。": "Claude Code desktop sessions use claude://resume; Codex desktop uses codex://threads/<session id>; WorkBuddy uses workbuddy://chat/<session id>; DeepSeek Harness only has dsh://open (focuses the client), and the session id is copied to the clipboard. Claude Code / Codex sessions in a terminal switch to the terminal tab while running and only resume once closed (see Tracking → Claude desktop).",
@@ -486,7 +493,7 @@ export default {
   "Agent 记的条目（🤖）、已经绑着会话的、有 ⏱ 记录的不会再委派。": "Items recorded by an agent (🤖), items already bound to a session, and items with a ⏱ entry are never delegated again.",
   "笔记里的一项拖到面板的会话卡片上：把这个会话绑给它。在客户端里归档会话：这一项记 DONE + ⏱。": "Drag an item from a note onto a session card in the panel to bind that session to it. Archiving the session in the client records DONE + ⏱ on the item.",
   "行尾 pill 是进度：委派中可以 × 取消，出错可以重试。和螺旋日程一起用时，pill 让给螺旋的进度行，点进度行打开会话。": "The pill at the end of the line is progress: × cancels a running delegation and errors can be retried. When Nautilus Spiral is in use the pill yields to its progress line; click that line to open the session.",
-  "版本 {version} · MIT License": "Version {version} · MIT License",
+  "版本 {version} · Apache-2.0 License": "Version {version} · Apache-2.0 License",
   "从 Nautilus Spiral（螺旋日程）的 AI 追踪部分拆出；交互参考了小红书 @ZZ.X 的两条帖子。": "Split out of Nautilus Spiral's AI tracking; the interaction was inspired by two posts from @ZZ.X on Xiaohongshu.",
   "打开 GitHub 仓库": "Open the GitHub repo",
   "复制调试信息": "Copy debug info",
@@ -527,4 +534,11 @@ export default {
   "通过 OpenCode ACP 建会话，或交接给客户端 / 终端": "Starts a session via OpenCode ACP, or hands off to the client / terminal",
   "通过 qodercli 或 Qoder 桌面版委派任务": "Delegates tasks via qodercli or Qoder Desktop",
   "传给 qodercli --reasoning-effort": "Passed to qodercli --reasoning-effort",
+  "Cursor 桌面版（Hooks + 会话日志）": "Cursor Desktop (Hooks + session logs)",
+  "Cursor Hooks 需要更新（{matched}/{total}）": "Cursor Hooks need an update ({matched}/{total})",
+  "已配置 Cursor 3.30.14+ Hooks（{matched}/{total}）": "Cursor 3.30.14+ Hooks configured ({matched}/{total})",
+  "未安装 Cursor Hooks；仅追踪安装后的 Cursor 3.30.14+ 新会话或新对话轮次": "Cursor Hooks not installed; only new Cursor 3.30.14+ sessions or turns after installation are tracked",
+  "更新 Hooks": "Update Hooks",
+  "安装 Hooks": "Install Hooks",
+  "卸载 Hooks": "Uninstall Hooks",
 };

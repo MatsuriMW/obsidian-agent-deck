@@ -92,9 +92,22 @@ export const AGENTS = {
     deep: "qoder",
     desktopOnly: true,
   },
+  cursor: {
+    id: "cursor",
+    name: "Cursor",
+    short: "Cursor",
+    glyph: "▸",
+    color: "#5f7d95",
+    soft: "rgba(95,125,149,.13)",
+    kind: "cursor",
+    where: ["~/.agent-deck/cursor-events · ~/.cursor/hooks.json", t("Cursor 桌面版（Hooks + 会话日志）")],
+    deep: "cursor",
+    desktopOnly: true,
+    trackingOnly: true,
+  },
 };
 
-export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder"];
+export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "cursor"];
 
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
@@ -214,14 +227,14 @@ export const MODEL_CATALOG = [
     note: "A fast Claude alias for interactive work.",
   },
   ...[
-    ["gpt-6-luna", "GPT-6-Luna", "Fast"],
-    ["gpt-6.1-sol", "GPT-6.1-Sol", "Reasoning"],
+    ["gpt-6.1-sol", "GPT-6.1 Sol", "Reasoning"],
+    ["gpt-6-astra", "GPT-6 Astra", "Reasoning"],
     ["gpt-6.1-terra", "GPT-6.1 Terra", "Reasoning"],
-    ["gpt-6-astra", "GPT-6-Astra", "Reasoning"],
-    ["gpt-6-sol", "GPT-6-Sol", "Reasoning"],
-    ["gpt-5.6-sol", "GPT-5.6-Sol", "Reasoning"],
-    ["gpt-5.6-terra", "GPT-5.6-Terra", "Reasoning"],
-    ["gpt-5.6-luna", "GPT-5.6-Luna", "Fast"],
+    ["gpt-6-sol", "GPT-6 Sol", "Reasoning"],
+    ["gpt-6-luna", "GPT-6 Luna", "Fast"],
+    ["gpt-5.6-sol", "GPT-5.6 Sol", "Reasoning"],
+    ["gpt-5.6-terra", "GPT-5.6 Terra", "Reasoning"],
+    ["gpt-5.6-luna", "GPT-5.6 Luna", "Fast"],
   ].map(([id, name, tag]) => ({ id, name, agent: "codex", cli: id, value: id, provider: "OpenAI", context: "—", tags: [tag], note: t("可用性由当前 Codex 登录账号决定。") })),
   {
     id: "deepseek-v4-pro",
@@ -315,7 +328,7 @@ export const CLAUDE_PERMISSIONS = [
 export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true },
   primaryAgents: ["claude", "dsh"],
   // 0 = no cutoff; otherwise the hour at which a new journal day begins.
   dayCutoff: 8,
@@ -362,7 +375,7 @@ export const DEFAULTS = {
   autoLogMinMinutes: 3,    // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
   autoLogIdle: 10,         // 停了几分钟算 PAUSED
   autoLogBatch: 8,         // 一轮最多问模型几个会话
-  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true },
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true },
   autoLogProvider: "claude",
   autoLogEffort: "low",
   autoLogModel: "haiku",
@@ -388,7 +401,7 @@ export const DEFAULTS = {
   showRibbonIcon: true,
   openDashboardOnStartup: false,
   autoWriteResult: true,
-  resultMax: 240,
+  resultMax: 350,
   importNautilus: true,
   dream: { enabled: false, path: "Agent Deck/长期记忆.md", syncProfile: false, lastRun: 0, lastAttempt: 0, states: {}, coverage: null, lastError: "", share: { enabled: false, path: "", intervalHours: 24, gitPush: false, lastAttempt: 0, lastSuccess: 0, lastError: "" } },
   // Delegation
@@ -441,6 +454,7 @@ export const DEFAULTS = {
   ui: {
     showSparkline: true,
     showUsageBars: true,
+    recentDays: 7,
     agentCards: { order: [...AGENT_ORDER], hidden: [], pinned: [] },
   },
   jobs: {},
@@ -460,6 +474,10 @@ export function deepMerge(base, extra) {
 
 export function syncDelegationSettings(settings, raw = null) {
   if (!settings || typeof settings !== "object") return settings;
+  if (!settings.resultMaxDefault350) {
+    if (settings.resultMax === 240) settings.resultMax = DEFAULTS.resultMax;
+    settings.resultMaxDefault350 = true;
+  }
   const d = (settings.delegate ||= {});
   const m = (settings.models ||= {});
   m.defaultByAgent ||= {};

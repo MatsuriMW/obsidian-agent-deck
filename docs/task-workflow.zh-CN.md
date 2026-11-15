@@ -1,268 +1,42 @@
-# Agent Deck 交接进度与操作说明
+# Agent Deck 交接状态与速查
 
-更新日期：2026-11-15。当前版本为 1.9.7。
+基线：**1.9.8**（准备发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
-## 1.9.7 · 摘要短链与 token 显示
+## 双平台验证边界
 
-- 任务和结论里的长地址以 `[🔗](完整地址)` 回传，完整目标不参与摘要截断。
-- 螺旋日程未匹配同一会话或未提供相应 token 时，由 Agent Deck 显示 token 和数据库图标。
-
-## 1.9.6 · 实验回顾与语义追踪标识
-
-- 保留用户改过的 AI 块标题，不重新压缩空格或剥离标题内容；确认选项回传改写成可读答案，避免内部标签进入日志。
-- 设置新增「实验功能」页。回顾默认开启；关闭后隐藏入口和命令、关闭回顾页，保留统计数据与项目更正。
-- 新任务使用 Agent 前缀、英文任务短名和短尾码；已有编号保持稳定，DONE、归档和整理已完成记录时清除内部标识，保留会话链接和手写内容。
-- 侧栏图表按钮／命令「打开 Agent Deck 回顾 Dashboard」进入独立主页面，最上方为每日 token 热力图。
-- 时间范围、按日下钻、项目 token 与去重活跃耗时、来源日记和会话跳转、项目手动纠正与恢复自动识别。
-- 项目识别使用页面链接、标题、目录、重复关键词及别名；冲突留未归类。token 为输入＋输出＋缓存读取，缺失不估算。
-- 核心文件：src/analytics.js、src/dashboard-data.js、src/dashboard.js；专项验证：test/analytics.test.mjs、test/dashboard-data.test.mjs、test/dashboard-view.test.mjs。
-
-## 1.9.5 · 后台回传改为 AI 总结
-
-- 总结模型阅读完整回复，分别提炼“结论、改动、未完成”。约 240 字是篇幅目标，不再截取回复开头，也不在生成后硬截断总结。
-- 沿用记录设置中的整理模型／润色模型，额外调用一次。完整原文先保存，总结完成后再合并到最新日记，不占用日记写入队列。
-- 总结失败时保留原文链接并显示“总结暂未生成”；之后随扫描重试，至少间隔 60 秒。相同回复的并发请求共用调用，成功总结缓存复用。
-- 任务完成与后续会话扫描共用总结入口。已有手写内容和已保存历史保持原样。
-
-## 1.9.4 · 后台原文归档与并发记录保护
-
-- 委派只保留桌面端、后台执行和终端交互。对话窗口用于查看和保存正文，后续对话回到各 Agent 的客户端或终端。
-- 后台任务在日记中写入最多约 240 字的进展／结论，并自动链接完整对话笔记。原文保存在 `Agent Deck/Conversations/`，保留代码、换行和长文本。
-- 同一篇笔记的绑定、结果与归档链接按文件排队，写入时合并最新内容。自动整理等待模型期间的手写内容也保留。
-- 运行时显示动态指示条和耗时；后台任务不显示估算百分比。完成或失败后保留本轮耗时。
-- 补充 Qoder 和 WorkBuddy 的 CLI／桌面会话边界，移除接入原则中的插件内续聊要求。
-
-## 1.9.3：OpenCode／Qoder 委派、统一自动记录标题格式与上架规范
-
-- **OpenCode 与 Qoder 委派**：
-  - OpenCode 通过 `opencode-cli acp`（优先调用 OpenCode.app 内置二进制，也可自定义路径）支持后台委派、桌面端打开及终端 `opencode` 交互；ACP 会话写入 `~/.local/share/opencode/opencode.db`。
-  - Qoder 支持 `qodercli`（`-p <prompt>` / `-r <sessionId>`）后台委派与终端续聊、桌面端复制交接及终端 `qodercli` 交互，会话保存在 `~/.qoder/projects`。
-- **统一 AI 自动记录标题格式**：
-  - 所有 AI 自动写的任务行统一为 `任务状态 + 🤖 + 开始对话时间-最后一次对话时间 + 总结标题`（例如 `- DOING 🤖 14:52-15:52 调整 Agent Deck 侧边栏面板`），覆盖自动记日记、拖拽建项、状态切换、会话回写、子块与整理日志；自动剥离路径、URL 与口语前缀。
-- **插件市场规范**：修正 `manifest.json` 描述（移除冗余 `"Obsidian"` 字样），满足社区插件市场审核要求。
-
-## 1.9.2：按“委派”和“记录”重组设置
-
-设置页重组为 **委派、记录、Dreaming、关于** 四页：Models 改为委派页内的“管理模型”，Agents 的追踪设置并入记录页。同一个设置只保留一个编辑位置，默认委派目标全局唯一，每个可配置 Agent 的默认模型与推理强度各有一处编辑入口；模型目录草稿保存／放弃只处理模型目录改动，不会覆盖委派页刚保存的默认值。按作用范围区分“委派任务回写”和“自动会话记录”，合并重复操作按钮，OpenCode 与 Qoder 使用客户端应用图标。
-
-- 源码正本：`/Users/chenchen/claude/agent-deck`。
-- 本交接源文件：`docs/task-workflow.zh-CN.md`；安装时同步为插件目录的 `README-交接.md`。
-- Linear 项目：[P-MAT-42 · Agent Deck · Obsidian 插件](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)。
-- 当前发布：[1.9.2](https://github.com/MatsuriMW/obsidian-agent-deck/releases/tag/1.9.2)。
-
-## 1.9.1：OpenCode／Qoder 追踪、设置与记录
-
-新增 OpenCode Desktop 与 Qoder Desktop 的 SQLite 会话读取、轮次与活动时段、面板／菜单栏、任务绑定与结论回写、正文读取及归档。两者均可设主力和手动扫描，重复扫描不累计重复用量；OpenCode 可读取消息 token，Qoder 缺少逐轮 token 时不估算。当前只验证 macOS 桌面格式，未接入两者的委派与插件内续聊。客户端入口打开应用并复制会话号，需要手动选择会话。
-
-2026-11-14 已在两款桌面客户端分别发送两轮测试消息，验证追踪、轮次、绑定任务的结论回写、正文查看与归档。真实测试发现并修复 OpenCode 2.3.0 的数据库角色列漏读；模拟数据已改为相同格式。两款客户端的桌面追踪随 1.9.1 发布。两款 Agent 的委派入口仍未接入，客户端内直接发送不算插件委派。
-
-整理日志默认快捷键：**Ctrl+Alt+L**。可在 Obsidian 快捷键设置修改。“关于 → 常用操作”第一项为整理日志。
-
-全部设置重组为 **委派、记录、Dreaming、关于** 四页：Models 并入委派页内的“管理模型”，Agents 的追踪设置并入记录页；同一个设置只保留一个编辑位置，默认委派目标全局唯一，每个可配置 Agent 的默认模型与强度各有一个编辑入口；模型目录草稿保存／放弃不会覆盖委派默认值。统一文字左对齐与控件列起点，收紧页边距、分区和行距，精简说明。委派与记录展示全部 7 个 Agent，未接入功能显示简短状态。中英文、深浅色主题与 360／480／675 px 容器完成布局检查。
-
-默认“每轮记录”补齐第一轮到最新已完成轮次，按最新到最早排列；同轮问答和步骤成组。修复 UUID 时间前缀相同导致的任务块号冲突，绑定查找优先使用完整会话链接。已有个人设置保留；本机已按用户要求切回“每轮记录”。
-
-## 当前版本与交接入口
-
-- 源码正本：`/Users/chenchen/claude/agent-deck`。
-- 本交接源文件：`docs/task-workflow.zh-CN.md`；安装时同步为插件目录的 `README-交接.md`。
-- Linear 项目：[P-MAT-42 · Agent Deck · Obsidian 插件](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)。
-- 当前发布：[1.9.1](https://github.com/MatsuriMW/obsidian-agent-deck/releases/tag/1.9.1)。
-- 发布附件由 [GitHub Actions](https://github.com/MatsuriMW/obsidian-agent-deck/actions/workflows/release.yml) 构建。安装文件为 `main.js`、`manifest.json` 和 `styles.css`。
-
-## 1.8.0 已完成
-
-- 可见 Agent 为 1–3 个时显示横条，提供会话数、当前任务、用量和趋势；4 个及以上显示紧凑卡片，只保留名称、状态、简短用量及必要入口。
-- 扫描、pin/unpin、关闭追踪和移除收进“更多”；主力星标独立保留。pin 始终在最上面，未 pin 的运行中 Agent 优先，同一优先级内保留手动顺序。
-- 左侧把手支持拖动与方向键排序。“管理”可添加、移除和置顶；配置重启后保留。关闭追踪后从看板隐藏，在设置中重新开启可恢复。仅移除卡片不影响追踪。
-- Agent 菜单中的扫描默认读取该 Agent 最近 7 天有更新的会话，保留旧历史。重复扫描不重复累计 token。
-- 整理提醒按散落、未进入整理分区的 AI 任务计数。首次 4 条，之后每新增 4 条再询问；任务及其子记录算一条。所有日记合计每天最多 2 次，累计进度跨日和重载保留。
-- 提醒提供“整理日志”和“稍后”。点击确认才整理，也可在“追踪”里关闭提醒。
-- “追踪 → 整理日志模板”内置中文、英文，默认跟随界面语言；自定义三个分区标题及六种顺序。切换后，下次整理时应用。
-- 模板切换、自动记录和归档保留任务、问答、手写内容及代码示例。重复整理不增加重复分区。
-- 简化“AI 记录显示方式”说明，重排“关于”页。中英文 README 开头补充早期高速迭代说明、GitHub Issues 和邮件反馈入口。
-
-### 验证结果
-
-全量 `npm test`、`npm run build` 和 `git diff --check` 通过。本机检查了 1／3／4 个 Agent 的布局、信息密度、按钮边界和自动排序；验证后恢复原有个人配置。
-
-模板、整理提醒和确认按钮在内存测试日记中验证，真实笔记未为测试执行整理。英文界面选择英文模板的逻辑、六种顺序、重复整理、每日限次及跨日累计均有回归测试。本轮未重新调用各 Agent 的真实模型，客户端能力边界仍以既有专项验证为准。
-
-### 下一步与未完成项
-
-1. **Grok Bot（Sand）会话追踪与按 Bot 过滤**：已完成本地数据结构可行性分析（`~/Library/Application Support/Sand/bot-sessions.json` 与 `~/.grok-bot/agents/sessions/<sessionId>/session.jsonl`），计划支持在「记录 → 来源与扫描」按 Bot 勾选追踪并去重 Claude Code 共用会话；当前仅记录在 README 与 Linear，暂不编码。
-2. Pi 支持：保留既有 Backlog，尚未实现。
-3. 委派卡片里的模型、强度与记录方式选择，以及已有 AI 记录块的独立记录设置：保留既有规划，尚未实现。
-4. 历史审查项、跨终端／跨系统的验证缺口和 README 全文专项核对仍需逐项复核；以 Linear 项目的对应卡片为准。
-
-本版侧栏 Agent 卡片管理不等于完成上述委派配置方向。以上 1.8.0 验证为历史记录。后文保留既有操作说明和历史验证边界。
-
-
-## 发送前选择工作位置
-
-单击任务行的纸飞机、从 Agent 菜单选择目标，或拖任务到 Agent 卡片，都会先打开预览。预览包含任务正文和子块。模型和强度沿用任务标记或默认设置。
-
-在“接下来在哪里工作”中选择这次执行的位置。选择仅影响本次任务。
-
-| Agent | 可选位置 | 桌面交接方式 |
+| 平台 | 已验证范围 | 未覆盖 / 已知代码缺口 |
 | --- | --- | --- |
-| Claude Code | 桌面、后台、终端 | 首轮结束后打开桌面中的同一会话。 |
-| Codex | 桌面、后台、终端 | 首轮结束并释放会话后打开桌面。 |
-| DeepSeek Harness | 桌面、后台 | 建立会话后打开客户端；当前轮结束后，在侧栏手动选择同一会话继续。 |
-| Antigravity | 后台 | 插件创建的 CLI 会话暂不提供桌面 IDE 交接选项。 |
-| OpenCode | 桌面、后台、终端 | ACP 会话写入 `opencode.db`，打开桌面应用后手动选择会话。 |
-| Qoder | 桌面、后台、终端 | `qodercli` 支持后台委派与终端续聊；桌面模式复制任务并打开客户端交接。 |
-| WorkBuddy | 桌面、终端 | 复制任务并打开客户端，等待用户粘贴发送。 |
+| **macOS** | 全量 `npm test`、构建、Vault 热重载、Dashboard、标题保护、token 显示、Qoder CLI 同会话 | 终端交互仅实测 Tern / Herdr；7 家客户端全量委派未逐一复测 |
+| **Windows** | 尚未实机运行验证 | `src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）仍依赖 macOS `osascript`/终端；`src/readers.js` 在 `win32` 跳过 `claudeDesktop`；CLI 探测与路径短链待实测 |
 
-CLI（Command Line Interface，命令行接口）是插件调用本机 Agent 的一种方式。各客户端是否能接续同一会话，取决于实际接口支持。
+## 活跃 Backlog（均未排期）
 
-选择“后台执行”后，插件保留当前笔记。全局“完成后自动在桌面版打开”开关不会覆盖这次选择。对话窗口仅用于查看和归档，后续对话回到客户端或终端。
+| 事项 | 范围与边界约束 | 参考 Spec / 模块 |
+| --- | --- | --- |
+| **AI 记录母块视图切换**（[MAT-623](https://linear.app/matsurimywaifu/issue/MAT-623)） | 顶层 AI 母块尾部改为视图切换（首版「大纲／表格」），底层 Markdown 不重写、各块记住偏好 | `design-language-and-ui`、`src/editor.js`, `src/ai-records.js`, `src/record-display.js`, `src/fold-actions.js` |
+| **Grok Bot（Sand）追踪** | 读取 `bot-sessions.json` 与 `session.jsonl`，按 Bot 多选过滤并与 Claude Code 共用会话去重 | `src/constants.js`, `src/readers.js`, `src/settings.js`, `src/view.js` |
+| **Pi 支持 & 委派/块级粒度** | Pi 接入、委派卡片选模型/强度/记录粒度并记住偏好、已有 AI 块单独调粒度 | `acp-integration.zh-CN`、`src/delegation.js`, `src/dialog.js`, `src/ai-records.js`, `src/autolog.js` |
+| **技术债复核**（[MAT-479](https://linear.app/matsurimywaifu/issue/MAT-479)） | 逐项核实遗留问题状态并决定重构边界 | `src/readers.js`, `src/sync.js`, `src/view.js` |
+| **Windows 端适配** | 替换 `osascript`/POSIX 路径假定，打通终端唤醒、桌面交接与 WorkBuddy 自动发送 | `src/delegation.js`, `src/main.js`, `src/readers.js` |
 
-如果预览期间任务内容发生变化，发送会停止。重新预览后再确认，避免发送用户尚未检查的内容。
+## 操作速查（同步至库内 `README-交接.md`）
 
-## 从原任务继续工作
+- **快捷键**（macOS `Alt` = `Option`）：`Ctrl+Alt+D` 委派/任务菜单 · `Ctrl+Alt+A` 续聊/停止/重派 · `Ctrl+Alt+C` 查看与保存对话 · `Ctrl+Alt+N` 下一条待确认 · `Ctrl+Alt+X` 停止执行 · `Ctrl+Alt+J` 跳到「正在做」 · `Ctrl+Alt+L` 整理日志 · `⌃⌥⌘D` macOS 菜单栏。
+- **关键词**：`DOING` / `NOW` / `IN-PROGRESS`、`TOREVIEW`、`NEEDOK`、`ERRORED` / `FAILED`、`HITLIMIT`、`QUEUED`、`DELEGATED`、`TODO` / `LATER`、`PAUSED` / `SUSPENDED`、`WAITING` / `WAIT`、`DONE`、`CANCELED` / `CANCELLED`、`TODOFORAI` / `TODO4AI` / `TODO2AI` / `TODOTOAI`，及 `[ ]` `[/]` `[x]` `[-]`。
+- **整理与归档**：**整理日志**默认按 `---` → 正在做 → `---` → 还要做 → `---` → 已完成 → `---` 排列，只整理完整分区内的 **AI** 条目，非 AI 手写条目与区外笔记保持原位；无完整分区时只建立空分区。**归档已完成的日志到…** 仅移出已完成 **AI** 块（默认 `Agent Deck/done/已完成任务.md`），先写归档再删源。
 
-已关联会话的任务行会打开操作菜单。每个会话按 Agent 名称和可读的序号分别显示。
+## 本地修改（2026-11-15，1.9.8）
 
-- “继续对话”恢复所选会话。后续对话回到原客户端或终端。Antigravity ACP 会话只提供正文查看与归档。
-- “查看正文与保存对话”打开问答记录窗口。
-- “在客户端打开”只对支持客户端入口的会话显示。Claude 和 Codex 的首轮仍在执行时，该入口会等待当前轮结束。
-- “停止执行”用于插件当前管理的运行任务。
-- “重新委派（新会话）”会再次预览，并创建独立会话。可以选择另一个 Agent。
+- 常用设置保留在各区域外层，低频细节收进默认折叠的“更多设置”。
+- 结论字数默认 350，旧默认 240 迁移一次，保留其他自定义数值。后台回答单独按 500 字分流，不调用额外总结模型。
+- 新自动记录写入明确分区。旧版有完整分割线的区域可迁移，区外任务不自动搬入。
+- 螺旋日程已删除 AI 写入旧开关；移除 Agent Deck 的旧归属判断和停用按钮。
+- 后台回答不超过 500 字直接回写完整原文；超过时返回 `Agent Deck/Answers/` 中的完整问答文件。清理内部块号、定位标识、追踪注释，保留正文代码与链接。
+- 后台任务不显示行尾 pill；进度在母块下方显示一次，保留取消、重试和授权入口，回答结束后隐藏 Agent Deck 补充的状态行。
+- 已复核 `pitfalls-and-lessons.md`，更新后台总结的过时规则，其余当前约束保留。
+- 本轮 macOS 验证：完整 `npm test`、构建、双仓库 `git diff --check` 通过；两插件已热重载。实际调用整理命令验证区外原文及空白保留、重复整理不变、空分区初始化和新记录入区。临时验收笔记已删除。Windows 未实机验证。
 
-同一任务可以保留多个会话链接。菜单只列当前任务的会话，不混入子任务的会话。
-
-重新委派时，原任务与旧链接保留。新消息会排除旧的自动结论、进度、绑定链接、时段和归档链接，保留任务文字和手写子项。
-
-## 看懂执行状态
-
-任务行显示“正在建立会话”“正在执行”“需要授权”或“本轮结束”。桌面交接受限时，显示“首轮执行中，结束后打开桌面”。
-
-WorkBuddy 在用户粘贴前显示等待发送。仅复制了文字时，插件不会把任务当作已执行。
-
-“本轮结束”表示 Agent 当前这一轮已回复。任务是否完成仍由用户决定。
-
-### Qoder 与 WorkBuddy 的桌面边界
-
-Qoder CLI 的 `~/.qoder/projects` 与桌面 SQLite 会话不互通。WorkBuddy 桌面使用 `~/.workbuddy`，独立 CodeBuddy CLI 使用 `~/.codebuddy/projects`；CLI 会话不能用桌面链接导入。因此 Qoder 的后台任务用终端 `qodercli -r <sid>` 继续；WorkBuddy 的终端委派运行 `codebuddy`，后续用 `codebuddy -r <sid>`。WorkBuddy 当前不提供受插件管理的后台执行。
-
-两者选择桌面委派时，都复制任务并打开客户端，等待你粘贴发送；扫描到新桌面会话后再绑定。Claude 和 Codex 则可在首轮结束后把同一会话交给桌面继续。OpenCode 的 CLI 与桌面共享存储，但当前打开应用后仍需手动选择会话。
-
-### 后台回复与多人共写日志
-
-后台任务先保存完整原文，再由 AI 阅读完整回复并提炼“结论、改动、未完成”，附原文链接写入日记。约 240 字是目标，生成后不硬截断。总结额外调用现有整理／润色模型；失败时保留原文链接和“总结暂未生成”，随扫描重试，不写开头摘录。日记显示完成或失败状态及耗时。执行中使用动态条，不把步骤数当成任务百分比。后台显式选择不会因 CLI 未登录而自动跳到桌面。
-
-多个 Agent 的绑定、结论与归档链接共用按文件排队的写入入口。打开的笔记读取当前编辑器内容后做局部事务；未打开的笔记在 `Vault.process()` 回调中合并最新内容。自动整理在模型返回后重新读日记；用户又改过时放弃该次旧结果，留给下一次同步。每轮记录带会话号与轮次，重复扫描不重复写入；手写内容和不同会话的记录不会相互替换。
-
-这些保护覆盖经 Agent Deck 写入的记录。外部脚本直接覆盖 Markdown、多台设备同时改同一篇日记，不受本机队列控制。Agent Deck 不替各 Agent 自动提交 Git；手写内容和 AI 记录保存为同一篇日记，Git 提交自然包含该文件当时的内容，来源由会话标记和原文链接区分。
-
-## 保存完整问答
-
-在对话窗口点击“保存对话到笔记”，生成 `Agent Deck/Conversations/<agent>-<会话号>.md`。成功后，插件会在关联任务下补一条“对话归档”笔记链接。
-
-保存内容包括可读取的用户消息和助手回复，保留换行、长文本和代码块。工具结果、内部推理和附件不在保存范围内。
-
-同一会话再次保存会更新同一篇笔记。插件保留生成区段外的手写备注。如果生成的正文已被手动修改，插件会提示先处理旧归档。重复保存不会重复插入任务链接。
-
-保存对话会保留任务当前状态，会话仍可继续。保存成功后，可以在 Obsidian 中搜索、引用和整理问答。
-
-## 验证范围
-
-全套 `npm test` 和构建通过。新增回归覆盖可选工作位置、每次委派的去向、后台覆盖全局开关、多会话保留、并发写链接、新消息清理和归档回链。
-
-受控 CLI 与 App Server 子进程验证了首次委派和再次委派。测试确认新会话号不同，旧链接仍在，后台执行不会打开桌面。
-
-实际 Obsidian 验证了预览、工作位置选项、内容变化时阻止发送、多会话菜单、重新委派的菜单回调，以及正文显示和保存。保存测试实际创建了 Markdown 文件，补回任务链接，保留原任务状态。测试笔记、归档和临时会话记录已清理。
-
-本轮没有重新调用各家真实模型。此前的 Harness 和 Antigravity 多轮实测记录仍保留在 Linear 项目的测试文档中。WorkBuddy 自动发送和 Antigravity IDE 同会话恢复仍未接入。
-
-## 隐藏内部编号与等待提醒
-
-任务末尾的 `^ad-…`、UUID 块号和已关联任务的块号在编辑视图、阅读视图中隐藏。编号仍保留在 Markdown 中，块引用和同步继续使用原值。普通手写块号、代码示例保留。Harness 和 Antigravity 绑定行末尾的会话号也隐藏。任务菜单使用“会话 1、会话 2”区分会话；会话卡片显示工作区名称，完整路径可悬停查看。
-
-明确的权限请求会触发 Obsidian 内的常驻提示和 macOS 系统通知。点击“前往处理”可返回权限框或会话。Harness 和 Antigravity 关闭自动授权后，会逐次询问用户。关闭权限框会取消该次请求。相同等待只提醒一次，恢复执行后移除提醒。
-
-会话结束时，最后一行若明确要求用户确认、授权或选择，也会提醒。普通回复结束不提醒。文本识别只覆盖明确的请求句式，不能识别所有自然语言表达；终端或客户端未暴露的权限状态也无法可靠识别。系统通知是否显示，取决于 macOS 为 Obsidian 设置的通知权限；应用内提示仍保留。
-
-## 快捷键
-
-以下为默认绑定，macOS 的 Alt 键对应 Option。可在 Obsidian 设置 → 快捷键中搜索“Agent Deck”修改。
-
-| 快捷键 | 操作 |
-| --- | --- |
-| Ctrl+Alt+D | 委派当前任务；已关联会话时打开任务操作菜单 |
-| Ctrl+Alt+A | 打开当前任务的续聊、停止、重新委派菜单 |
-| Ctrl+Alt+C | 查看当前任务的对话、续聊与保存对话 |
-| Ctrl+Alt+N | 处理下一条需要授权或确认的会话 |
-| Ctrl+Alt+X | 停止插件管理的当前任务执行 |
-| Ctrl+Alt+J | 跳到今天日记正在做的区域 |
-
-AI 记录沿用 Obsidian 原生的切换折叠、折叠更多、展开更多和全部折叠／展开命令，也兼容 Bullet 折叠命令，不另设快捷键。打开绑定会话使用任务状态按钮或面板卡片的点击入口；命令面板入口保留，不预设快捷键。
-
-对话窗口内，Cmd+Enter（Windows / Linux 为 Ctrl+Enter）发送追问，Cmd+S / Ctrl+S 保存对话。发送预览保留 Enter 发送、Escape 取消。权限选择继续使用 Tab 移动焦点、Enter 确认，避免用单键误授权。
-
-螺旋日程的 11 组默认全局快捷键已清除。命令仍可从命令面板执行，需要时可自行绑定。已有的手动快捷键设置保留。
-
-## 支持的任务关键词
-
-| 关键词 | 含义 |
-| --- | --- |
-| DOING、NOW、IN-PROGRESS | 进行中 |
-| TOREVIEW | 本轮回复结束，等待查看；不表示整个任务完成 |
-| NEEDOK | 等待授权 |
-| ERRORED | 执行出错 |
-| HITLIMIT | 命中用量限制 |
-| QUEUED | 排队中 |
-| DELEGATED | 已委派 |
-| TODO、LATER | 待办、稍后 |
-| PAUSED、SUSPENDED | 暂停、挂起 |
-| WAITING、WAIT | 等待 |
-| DONE | 完成 |
-| CANCELED、CANCELLED | 取消 |
-| FAILED | 失败 |
-| TODOFORAI、TODO4AI、TODO2AI、TODOTOAI | 待交给 Agent 的任务标记 |
-
-也支持任务复选框：`[ ]` 待办、`[/]` 进行中、`[x]` 完成、`[-]` 取消。自动状态以会话提供的信息为准；完成任务仍由用户决定。
-
-吃饭／锻炼的自动暂停、恢复、回来提醒、相关设置与 Telegram 接口已移除。写入这些词不再触发自动暂停。旧恢复状态被丢弃，任务状态保留。
-
-## 整理日志与归档
-
-面板顶部是“整理日志”“归档已完成的日志到…”和“跳到正在做”。
-
-**整理日志**重排当前这篇日记的版面。以下为默认中文模板；英文界面默认使用英文分区标题，也可在设置中自定义标题和顺序：
-
-1. `## 已完成`：所有已完成的任务，包括你自己手写的 `DONE`；
-2. 一条 `---` 分割线；
-3. `## 进行中`：未完成的 AI 块，按 `### DOING`／`### PAUSED` 等关键词分组，组内按对话轮数从多到少；标题和下面的列表之间不留空行；
-4. 一条 `---` 分割线；
-5. 你自己写的其余内容，保持原有顺序。
-
-只移动整块，不改写正文。代码块和 frontmatter 保留，手写内容在所选分区内保留原有顺序。1.7.0 早期写下的 `## AI · 进行中` / `## AI · 已完成` 标题和上一轮写的分割线在整理时会被收掉改名重建，所以重复整理不会叠加线条。
-
-**归档已完成的日志到…**把已完成的 **AI** 块移出日记：弹窗里选目标文件（库内任意 `.md`，默认 `Agent Deck/done/已完成任务.md`，记住上次用过的），按原日记日期分成 `## 2026-11-13` 这样的段落。写进去的位置由“追踪 → 归档顺序”决定：插到开头（新内容在标题下、旧内容上）或追加到末尾；同一日期已有内容时保持原位置，只按轮数降序重排。手写的 `DONE` 不参与归档。
-
-先写归档文件，成功后才从日记里移除；任一边被并发修改就保留源内容并提示重试。同一块号内容不同会直接报错，不会覆盖。客户端中归档后自动 DONE 的功能仍在；同一任务的会话全部归档才算完成。
-
-累计总结保留原轮次记录，默认显示最新结论，点击“更多”查看总结和明细，编辑和阅读视图都支持。旧版本已从笔记替换掉的记录，只能在原会话日志仍可读取时恢复。记录默认只露出最新结论，用户手动展开状态会持久保留。
-
-内部块号、UUID、会话编号在界面隐藏，原始 Markdown 保留。明确等待权限或确认时显示 Obsidian 内提示和系统通知；相同等待只提醒一次。自然语言识别有范围，无法识别客户端未暴露的等待状态。
-
-默认快捷键为 Ctrl+Alt+D 委派／任务操作、A 任务菜单、C 查看对话、N 处理待确认、X 停止执行、J 跳到正在做、L 整理日志。打开会话使用点击入口；AI 记录沿用 Obsidian 和 Bullet 的折叠命令，不单独占用 O／R。可在 Obsidian 设置中修改。
-
-
-## 展开状态与 1.5.0 交接
-
-AI 记录默认每轮保存、只显示最新一条 AI 结论。记录颗粒度决定留存，显示方式独立决定收起时显示最近一／三／五条结论或默认展开／折叠；提问、链接、用时与步骤在展开后查看。DONE 遵循同一显示规则。手动开合状态写入插件设置，重载后保留；点击“更多”查看累计总结和历史。此功能由 Agent Deck 的 CodeMirror 扩展与阅读后处理实现，不依赖 Logseq Style Fold，也不挂接它的命令。已在该插件停用时实测。
-
-未完成任务按关键词分组，同关键词按对话轮数降序，轮数相同保持原顺序。归档文件同一日期内的旧任务与新任务一起按轮数降序排序。会话元数据缺失时，使用笔记中可读取的轮次。旧版已经替换掉的记录仅在原日志仍可读取时可恢复。
-
-本地正本为仓库 src；构建后安装 main.js、manifest.json、styles.css，同时同步中英文 README 和本交接说明到插件目录。临时脚本、截图和个人测试输出不进入 Release。
-
-1.5.1 补充：恢复旧光标位置也不会绕过默认折叠；仅显式展开状态显示明细。
-
-## 状态选择与日志详细程度（2026-11-14）
-
-点击任务关键词选择状态；人工选择会锁定当前任务，AI 继续记内容但不改状态。可恢复自动跟随，DONE 不等于停止 Agent 或立即移动任务。常用、等待、AI 状态和其他关键词分组展示。
-
-简略只记一句 AI 结论；标准问题和回答各一句；详细记录较完整提问／回复摘录和可用步骤，长度上限分别为 1000／3000 字。设置按新开始的轮次生效，旧记录正文不重写，轮次按最新到最早重排。较早启动的轮次仍按当时的档位记录。摘录可复制为开发日志，完整对话另行归档。Dreaming 仍区分用户输入与 AI 输出的证据身份。
+- 后台输出专项已通过 macOS 实测：短回答完整回写、长问答无追踪标识、单条进度、取消及重试入口、回答后无行尾 pill。未调用真实模型；临时笔记、文件和测试任务已清理。
+- **Cursor 桌面端追踪（[MAT-622](https://linear.app/matsurimywaifu/issue/MAT-622)）**：已实现 Cursor Desktop `3.30.14+` 仅追踪集成（`src/cursor-sessions.js`, `src/readers.js`, `src/conversation.js`, `src/conversation-modal.js`, `src/settings.js`, `src/main.js`, `src/journal.js`, `src/delegation.js`, `src/menubar.js`, `src/menubar.swift`, `assets/agents/cursor.png`）。设置页 `来源与扫描 → 更多设置` 提供 Cursor Hooks 安装/更新/卸载；`fs.watch` 去抖触发增量扫描；仅 Cursor 对话视图与 Markdown 归档包含工具调用时间线（长结果折叠 + 缺失结果标注）。macOS 已通过 `npm test`（含 `test/cursor-sessions.test.mjs`）、`npm run build`、`swiftc -typecheck src/menubar.swift`、`git diff --check`；Windows 尚未实机验证（Hooks 安装依赖可用 `node`，SQLite 元数据仅在存在 `/usr/bin/sqlite3` 的环境可用，未包含 `win32` 端到端实测）。
+- **AI 自动记录项目名前缀 & 侧栏「最近的会话」改版**：工作区文件夹下的新建 AI 自动记录（全 Agent 适用）统一生成 `项目名 -> 生成的标题`（`src/readers.js` `sessionProjectName`、`src/journal.js` `formatProjectAutoTitle`/`prefixAutoTitle`、`src/autolog.js`），单开/内置暂存会话及手动修改标题不变；侧栏「最近的会话」（`src/view.js`、`src/constants.js`、`styles.css`、`src/locales/en/view.js`）支持 `7 天 / 30 天 / 120 天` 切换（持久化 `settings.ui.recentDays`）、全部视角同 Agent 默认叠放仅露最新 1 张且可多组同时点击展开（展开/收起锚定组顶部位置并按需用 `--ad-slack` 防止高处横条因高度骤减被夹紧下跳，向上滚动时自动收回余量）、单 Agent 筛选平铺，页面同时严格最多渲染 `30` 张会话卡片。macOS 已通过 `npm test`（含 `test/recent-panel-and-prefix.test.mjs`）、`npm run build`、`git diff --check`；Obsidian 界面视觉样式与 Windows 实机待后续手动复验。
+- **原生点击折叠 & 整理日志 AI/非 AI 区分**：`src/record-display.js` 中 `aiRecordUnfoldExtension` 改为仅展开 AI 记录内部（`g.records[0]` 起），不再误撤母项与 `logseq-style-fold` 的原生折叠（避免闪回）；`guardHiddenTail` 在非 `expanded` 模式下拦截已展开 AI 记录块的原生 `foldEffect` 并改为按 Agent Deck 当前模式收起（`latest1`/`latest3`/`latest5`/`collapsed`），再次点击或非 AI 条目仍按 Obsidian 原生折叠。`src/organize-journal.js`（`planBoundedJournal` 按分区各自保留 `rest`、`planJournal` 对非 AI 条目跳过分类移动）改为仅对 AI 记录条目生效；`src/journal-layout.js`（`readJournalLayout`）兼容分区标题注释与 `##` 之间手写行及缺失末尾 `layout:end` 注释的恢复。macOS 已通过 `npm test`、`npm run build`、`git diff --check` 及 `马自立` Vault 真实日记实测验证（Windows 待后续实机验证）。

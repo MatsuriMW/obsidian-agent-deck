@@ -29,7 +29,12 @@ export class ConversationModal extends Modal {
     };
     this.scope.register(["Mod"], "s", (event) => { event.preventDefault(); if (!archive.disabled) archive.click(); return false; });
     archive.title = t("保存对话（⌘S / Ctrl+S）");
-    el.createDiv({ cls: "ad-hint", text: t("保存用户消息与回复正文；会话可继续，任务状态不受影响。工具结果、内部推理和附件不包含在内。") });
+    el.createDiv({
+      cls: "ad-hint",
+      text: this.session.agent === "cursor"
+        ? t("保存用户消息、工具调用时间线与回复正文；长工具结果默认折叠。")
+        : t("保存用户消息与回复正文；会话可继续，任务状态不受影响。工具结果、内部推理和附件不包含在内。"),
+    });
     this.messagesEl = el.createDiv({ cls: "ad-conversation__messages" });
     el.createDiv({ cls: "ad-hint", text: t("此 Agent 的续聊请在原客户端完成。") });
     this.load();
@@ -52,13 +57,60 @@ export class ConversationModal extends Modal {
       for (const m of messages) {
         const item = this.messagesEl.createDiv({ cls: "ad-conversation__message" });
         item.createEl("h3", { text: m.role === "user" ? t("用户") : "Agent" });
-        await MarkdownRenderer.render(this.app, m.text, item.createDiv(), "", this.renderComponent);
-        if (this.closed) return;
+        if (m.text) {
+          await MarkdownRenderer.render(this.app, m.text, item.createDiv(), "", this.renderComponent);
+          if (this.closed) return;
+        }
+        if (Array.isArray(m.tools) && m.tools.length) this.renderTools(item, m.tools);
       }
       if (job?.state === "error") this.messagesEl.createDiv({ text: t("本轮失败：{error}", { error: job.error }) });
       if (["starting", "running", "needs-approval"].includes(job?.state)) this.messagesEl.createDiv({ text: job?.state === "needs-approval" ? t("等待工具权限确认…") : t("正在回复…") });
     } catch (e) { if (!this.closed) this.messagesEl.setText(t("读取失败：{error}", { error: e.message })); }
     finally { this.loading = false; }
+  }
+  renderTools(parent, tools) {
+    const wrap = parent.createDiv({ cls: "ad-tool-timeline" });
+    wrap.createDiv({ cls: "ad-tool-timeline__title", text: t("工具时间线（{count}）", { count: tools.length }) });
+    const glyph = { success: "✓", error: "✗", interrupted: "⏸", missing: "?", running: "⋯" };
+    const label = {
+      success: t("成功"),
+      error: t("失败"),
+      interrupted: t("中断"),
+      missing: t("结果缺失"),
+      running: t("执行中"),
+    };
+    for (const tool of tools) {
+      const row = wrap.createDiv({ cls: `ad-tool-item is-${tool.status || "running"}` });
+      const head = row.createDiv({ cls: "ad-tool-item__head" });
+      head.createSpan({ cls: "ad-tool-item__glyph", text: glyph[tool.status] || "•" });
+      head.createEl("strong", { text: tool.name || "tool" });
+      head.createSpan({ cls: "ad-tool-item__status", text: label[tool.status] || tool.status || "" });
+      if (tool.durationMs > 0) head.createSpan({ cls: "ad-tool-item__dur", text: `${tool.durationMs}ms` });
+      const inp = tool.input === undefined || tool.input === null ? "" : typeof tool.input === "string" ? tool.input : JSON.stringify(tool.input, null, 2);
+      if (inp) {
+        if (inp.length > 180 || inp.includes("\n")) {
+          const det = row.createEl("details", { cls: "ad-tool-item__details" });
+          det.createEl("summary", { text: t("查看工具参数") });
+          det.createEl("pre", { text: inp });
+        } else {
+          row.createDiv({ cls: "ad-tool-item__input", text: inp });
+        }
+      }
+      if (tool.missingResult) {
+        row.createDiv({ cls: "ad-tool-item__missing", text: t("未采集到工具结果") });
+      } else if (tool.error) {
+        row.createDiv({ cls: "ad-tool-item__error", text: String(tool.error) });
+      } else if (tool.output) {
+        const out = String(tool.output);
+        if (out.length > 240 || out.split("\n").length > 4) {
+          const det = row.createEl("details", { cls: "ad-tool-item__details" });
+          det.createEl("summary", { text: t("展开工具结果（{count} 字符）", { count: tool.outputLength || out.length }) });
+          det.createEl("pre", { text: out });
+        } else {
+          row.createEl("pre", { cls: "ad-tool-item__output", text: out });
+        }
+      }
+    }
   }
   onClose() {
     this.closed = true; clearInterval(this.timer);

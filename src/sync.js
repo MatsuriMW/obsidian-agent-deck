@@ -101,10 +101,6 @@ export class JournalSync {
     if (!force && Date.now() - this._at < 8000) return;
     this._at = Date.now();
     if (this.cfg.journalSync === false || this.cfg.journalAutoWrite === false) return;
-    if (this.p.nautilusOwnsAi && this.p.nautilusOwnsAi()) {
-      if (!this._warned) { this._warned = true; console.info("[agent-deck] 螺旋日程的 AI 追踪还开着，回写先停着"); }
-      return;
-    }
     this._busy = true;
     try {
       for (const view of this.openViews()) {
@@ -249,7 +245,7 @@ export class JournalSync {
         const rounds = m.rounds || [];
         const completed = ["wait", "quiet"].includes(m.state) || this.archived(sid) ? rounds : rounds.slice(0, -1);
         if (completed.length) this.p.delegator?.writeResult(background, { rounds: completed })
-          .catch(error => console.info("[agent-deck] background summary pending", error.message));
+          .catch(error => console.info("[agent-deck] background result pending", error.message));
         continue;
       }
       const waiting = m.state === "wait" || m.state === "quiet";

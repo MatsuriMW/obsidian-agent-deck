@@ -3,7 +3,7 @@ import {test} from 'node:test';
 import {register} from 'node:module';
 register('data:text/javascript,'+encodeURIComponent(`export async function resolve(s,c,n){if(s==='obsidian')return {url:'data:text/javascript,export class MarkdownView{};export class Notice{};',shortCircuit:true};return n(s,c)}`));
 const J=await import('../src/journal.js');const {AutoLog}=await import('../src/autolog.js');
-const agents=['claude','codex','dsh','workbuddy','antigravity','opencode','qoder'];
+const agents=['claude','codex','dsh','workbuddy','antigravity','opencode','qoder','cursor'];
 const url='https://example.com/project/very-long-reference-document?source=all-agent-clients';
 const title='10:30 前检查  [[工作计划|我的计划]]，保留用户改名';
 for(const agent of agents)test(`${agent}: shared journal rules preserve semantics, compact links, edited titles and cleanup`,()=>{

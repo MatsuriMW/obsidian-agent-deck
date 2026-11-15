@@ -12,6 +12,7 @@ export const AGENT_ICONS = {
   antigravity: "sparkles",
   opencode: "square-terminal",
   qoder: "circle-dot",
+  cursor: "mouse-pointer-click",
 };
 
 export const STATE_ICONS = {

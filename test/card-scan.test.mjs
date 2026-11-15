@@ -57,6 +57,9 @@ try {
   await primary.scan({since:now-7*day,agent:'claude',strictSince:true});
   assert.ok(!primary.files.has(primaryOld),'primary status cannot bypass the seven-day file cutoff');
   assert.equal(primary.lastScan,0);
+  const firstInstall = new AgentUsage({settings:{...settings,primaryAgents:[]},cfg:settings,historyAgents:['workbuddy']});
+  await firstInstall.scan({since:now-30*day,strictSince:true});
+  assert.ok(firstInstall.meta.has('recent') && firstInstall.meta.has('old'),'first-install scan includes 30-day history for non-primary Agents');
   console.log('PASS card scan: Agent scope, seven-day cutoff, non-primary recovery, history preservation, repeat totals and incremental cursor');
 } finally {
   for (const [key,value] of Object.entries(original)) AgentUsage.prototype[key]=value;

@@ -6,6 +6,7 @@ export async function resolve(spec, ctx, next) {
   return next(spec, ctx);
 }`));
 const { DEFAULTS, deepMerge, dayKeyToday, dayMinute } = await import("../src/constants.js");
+const { readJournalLayout } = await import("../src/journal-layout.js");
 const { AutoLog } = await import("../src/autolog.js");
 const { resolveCliModel, codexCliArgs } = await import("../src/delegation.js");
 const { JournalSync } = await import("../src/sync.js");
@@ -259,17 +260,17 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const p = fakePlugin(region, []);
   const out = new AutoLog(p).placeBlock(region, ['- DOING 🤖 新记录 ^ad-b']);
   check('a new auto record lands inside the AI region', out.indexOf('新记录') < out.indexOf('我的笔记') && out.indexOf('## 进行中') < out.indexOf('新记录'), out);
-  check('and stays attached to the band', /- DOING 老记录 \^ad-a\n\n- DOING 🤖 新记录 \^ad-b\n\n---/.test(out), out);
+  check('and stays attached to the band', readJournalLayout(out).sections.active.text.includes('- DOING 老记录 ^ad-a\n- DOING 🤖 新记录 ^ad-b'), out);
 
   // 还没有区域时，顺手在末尾开一个区域：用户写在上面，记录在里面
   const plain = '- TODO 手写\n';
   const opened = new AutoLog(fakePlugin(plain, [])).placeBlock(plain, ['- DOING 🤖 新记录 ^ad-b']);
-  check('without a region one is opened around the record', opened === '- TODO 手写\n\n---\n## 进行中\n\n- DOING 🤖 新记录 ^ad-b\n', opened);
+  check('without a region one is opened around the record', opened.startsWith(plain) && readJournalLayout(opened).sections.active.text.includes('新记录') && !readJournalLayout(opened).sections.todo.text.includes('手写'), opened);
 
   // 区域里只有「已完成」时，先补一个「进行中」，别把 DOING 记到已完成下面
   const doneOnly = ['---', '', '## 已完成', '- DONE 旧的 ^ad-old', '', '---', '', '我的笔记', ''].join('\n');
   const withActive = new AutoLog(fakePlugin(doneOnly, [])).placeBlock(doneOnly, ['- DOING 🤖 新记录 ^ad-b']);
-  check('a finished-only region gains an active band', withActive.indexOf('## 进行中') > withActive.indexOf('## 已完成') && withActive.indexOf('新记录') < withActive.indexOf('我的笔记'), withActive);
+  check('a finished-only region gains an active band', withActive.indexOf('## 正在做') < withActive.indexOf('## 已完成') && withActive.indexOf('新记录') < withActive.indexOf('我的笔记'), withActive);
 
   // 有区域时不再把放置交给 done-to-top：它的分区在区域上面，会把记录放到框外
   const framed = ['---', '', '## 进行中', '### DOING', '- DOING 老记录 ^ad-a', '', '---', '', '我的笔记', ''].join('\n');
@@ -279,17 +280,18 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const out2 = new AutoLog(p2).placeBlock(framed, ['- DOING 新记录 ^ad-b']);
   check('a framed journal never hands placement to done-to-top', !asked && out2.indexOf('## 进行中') < out2.indexOf('新记录') && out2.indexOf('新记录') < out2.indexOf('我的笔记'), out2);
 
-  // 没有区域时才让 done-to-top 按它的分区放
+  // 没有区域时建立自有分区，避免新记录落到框外
   const bare = '- DONE 旧的 ^ad-old\n';
   const p3 = fakePlugin(bare, []);
   p3.app.plugins.plugins = { 'done-to-top': { core: { addBlock: (text) => '- DOING 新记录 ^ad-b\n' + text } } };
-  check('without a region done-to-top still places the block', new AutoLog(p3).placeBlock(bare, ['- DOING 新记录 ^ad-b']).startsWith('- DOING 新记录'));
+  const initialized = new AutoLog(p3).placeBlock(bare, ['- DOING 新记录 ^ad-b']);
+  check('without a region new records use an owned frame', initialized.startsWith(bare) && readJournalLayout(initialized).sections.active.text.includes('新记录'));
 }
 
 { // 没有分割线时，自动记录顺手把「进行中」上的分割线补上
   const unframed = '## 进行中\n- DOING 老记录 ^ad-a\n';
   const out = new AutoLog(fakePlugin(unframed, [])).placeBlock(unframed, ['- DOING 🤖 新记录 ^ad-b']);
-  check('auto logging restores the opening rule', out.startsWith('---\n## 进行中'), out);
+  check('auto logging keeps unbounded notes outside the new frame', out.startsWith(unframed) && readJournalLayout(out).sections.active.text.includes('新记录') && !readJournalLayout(out).sections.active.text.includes('老记录'), out);
 }
 
 {
@@ -337,5 +339,13 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   check('renaming an automatic entry preserves its ID',p.journal.includes('^'+id),p.journal);
 }
 
+{
+  const base = '- DONE 区外的 AI 条目 ^ad-outside\n\n';
+  const next = base + '---\n## 正在做\n---\n';
+  const p = fakePlugin(base, []);
+  const al = new AutoLog(p);
+  await al.write({ path: 'journal.md' }, base, next, { cleanup: false });
+  check('prepared layout writes preserve outside identifiers and whitespace', p.journal === next, p.journal);
+}
 if (fail) { console.log(`${fail} failed`); process.exit(1); }
 console.log("all passed");

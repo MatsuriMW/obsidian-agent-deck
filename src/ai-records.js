@@ -73,6 +73,30 @@ export function hiddenBlockId(id, trackedIds = new Set()) {
   return J.isDeckBlockId(id) || /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id) || trackedIds.has(id);
 }
 
+const LAYOUT_MARKER_RE = /^<!-- agent-deck:(?:layout:(?:start|end)|section:(?:done|active|todo|notes):(?:heading|plain|end)) -->$/;
+
+// 分区边界注释留在 Markdown 中，但在编辑器里整行隐藏（不留多余空行，代码块内示例不动）。
+export function layoutMarkerRanges(text) {
+  const out = [];
+  const lines = text.split("\n");
+  const fenced = J.fencedLines(lines);
+  let offset = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const lineEnd = offset + line.length;
+    if (!fenced.has(i) && LAYOUT_MARKER_RE.test(line)) {
+      const from = i > 0 ? offset - 1 : 0;
+      let to = lineEnd;
+      if (line === "<!-- agent-deck:layout:start -->" && i + 1 < lines.length && lines[i + 1] === "") {
+        to = lineEnd + 1;
+      }
+      out.push({ from, to });
+    }
+    offset = lineEnd + 1;
+  }
+  return out;
+}
+
 export function adBlockIdRanges(text, trackedIds = new Set()) {
   const out = [];
   let offset = 0, fence = "", fenceLength = 0;

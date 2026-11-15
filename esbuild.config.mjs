@@ -3,7 +3,7 @@ import fs from "fs";
 
 const watch = process.argv.includes("--watch");
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
-const banner = `/* Agent Deck ${pkg.version} — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */`;
+const banner = `/* Agent Deck ${pkg.version} — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */`;
 
 const options = {
   entryPoints: ["src/main.js"],

@@ -2,9 +2,9 @@
 // Keys are the Chinese source strings; placeholders use {name}.
 
 export default {
+  "问答文件已被手动修改，已保留原文，请另存后重试": "The answer file was edited manually and has been preserved. Save it elsewhere before retrying",
+  "请先关闭笔记中的代码块，再建立日志分区": "Close the code fence in this note before creating journal sections",
   // autolog.js — status notices and the organize summary.
-  "螺旋日程的 AI 追踪还开着，先在设置里停用它":
-    "Nautilus scheduling is still tracking AI sessions; turn that off in settings first",
   "今天的日记 {path} 还没建": "Today's journal {path} has not been created yet",
   "模型回的不是 JSON": "The model did not return JSON",
   "日记正在被改，这一轮没写": "The journal is being edited, so this round was not written",

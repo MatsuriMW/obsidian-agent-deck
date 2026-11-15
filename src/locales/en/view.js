@@ -4,6 +4,9 @@
 // once in en/editor.js, so the merged table has no duplicate keys.
 
 export default {
+  "设为主力（最多三个）": "Set as primary (up to three)",
+  "按正在做、还要做、已完成整理分区，分割线外的笔记保持原样": "Organize in-progress, to-do, and completed sections, keeping notes outside the dividers unchanged",
+
   "还没有 Agent 卡片，点「管理」添加。": "No Agent cards yet. Choose Manage to add one.",
   "已置顶": "Pinned",
   "扫描 {name} 最近 7 天的会话": "Scan sessions updated in the last 7 days for {name}",
@@ -50,6 +53,12 @@ export default {
   "最近 14 天": "Last 14 days",
   "最近的会话": "Recent sessions",
   "{n} 个 · 最近 7 天": "{n} · last 7 days",
+  "{n} 个 · 最近 {days} 天": "{n} · last {days} days",
+  "{days} 天": "{days}d",
+  "共 {total} 条 {agent} 对话 · 点击展开 +{more}": "{total} {agent} sessions · click to expand +{more}",
+  "{agent} · 共 {total} 条对话": "{agent} · {total} sessions",
+  "已达单页 {max} 张卡片上限，另有 {n} 条较早会话未显示": "Page cap of {max} cards reached; {n} older sessions hidden",
+  "已显示最新 {shown} / 共 {total} 张卡片，更多请用顶部搜索": "Showing latest {shown} of {total} cards; use search above for more",
   "全部": "All",
   "在跑": "Running",
   "没有符合条件的会话": "No sessions match this filter",

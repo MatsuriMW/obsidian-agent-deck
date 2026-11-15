@@ -2,6 +2,9 @@
 // Keys are the Chinese source strings; placeholders use {name}.
 
 export default {
+  "已整理 {count} 个任务": "Organized {count} tasks",
+  "已建立日志分区，区外笔记保持原样": "Journal sections are ready; notes outside the sections are unchanged",
+
   "{name}：最近 {days} 天的会话已扫描": "{name}: scanned sessions updated in the last {days} days",
   // ----- command palette -----
   "打开 Agent Deck 面板": "Open Agent Deck panel",
@@ -101,9 +104,6 @@ export default {
   // ----- misc errors and Nautilus Spiral -----
   "找不到笔记：{path}": "Could not find the note: {path}",
   "{kind} 没找到或不能运行：{error}": "{kind} was not found or cannot run: {error}",
-  "没有找到螺旋日程的 data.json": "Nautilus Spiral's data.json was not found",
-  "写入螺旋日程设置失败：{error}": "Could not write Nautilus Spiral settings: {error}",
-  "已停用螺旋日程的 AI 写入（原设置备份在 {backup}）：自动记日记、状态写回、💬 和子块都不再写；它的 Agent 追踪展示照常。请在 Obsidian 设置里重新加载螺旋日程，或重启 Obsidian。": "Nautilus Spiral's AI writing is now off (previous settings backed up to {backup}): auto-journaling, status write-back, 💬 lines and add-on blocks are no longer written; its agent tracking display keeps working. Reload Nautilus Spiral in Obsidian settings, or restart Obsidian.",
 
   // Primary-agent switch confirmation
   "Agent Deck 主力：{agents}": "Agent Deck primaries: {agents}",
@@ -127,4 +127,6 @@ export default {
   "AI 状态": "AI states",
   "其他关键词": "Other keywords",
   "恢复自动跟随：{state}": "Resume automatic status: {state}",
+  "Cursor Hooks 已安装：{path}": "Cursor Hooks installed: {path}",
+  "已从 Cursor 配置移除 Agent Deck Hooks": "Removed Agent Deck Hooks from Cursor config",
 };

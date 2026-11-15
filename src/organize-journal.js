@@ -1,11 +1,11 @@
 import * as J from './journal.js';
-import { readJournalLayout, renderJournalLayout } from './journal-layout.js';
+import { readJournalLayout, renderJournalLayout, builtinJournalLayout } from './journal-layout.js';
 
 // Journal layout
 //
 // The journal is rebuilt into three bands, top to bottom:
 //
-//   ## AI · 已完成      every finished task block, AI or hand-written
+//   ## AI · 已完成      every finished AI task block
 //   ---
 //   ## AI · 进行中      unfinished AI blocks, grouped by keyword and sorted
 //   ---
@@ -53,9 +53,92 @@ export function roundsIn(text) {
   return Math.max(0, ...[...text.matchAll(/(?:💬|❓)\s*第(\d+)轮[：:]/g)].map((m) => +m[1]));
 }
 
+// Only a complete frame is owned by the organizer. Headings or AI-looking
+// tasks elsewhere in the note never establish ownership on their own.
+function readBoundedJournal(text, layout) {
+  const lines = text.split('\n');
+  const fence = J.fencedLines(lines);
+  const { start } = splitFrontMatter(lines);
+  const titles = new Map([
+    [DONE_HEADING, 'done'], [ACTIVE_HEADING, 'active'],
+    [LEGACY_HEADINGS[0], 'done'], [LEGACY_HEADINGS[1], 'active'],
+    ['## 正在做', 'active'], ['## 还要做', 'todo'],
+    ...Object.entries(builtinJournalLayout('en').titles).map(([key, title]) => [`## ${title}`, key]),
+    ...Object.entries(layout.titles).map(([key, title]) => [`## ${title}`, key]),
+  ]);
+  const headingAfter = row => { let next = row + 1; while (next < lines.length && !lines[next].trim()) next++; return next; };
+  const offset = row => lines.slice(0, row).reduce((sum, line) => sum + line.length + 1, 0);
+  for (let open = start; open < lines.length; open++) {
+    if (fence.has(open) || !isRule(lines[open])) continue;
+    let heading = headingAfter(open);
+    if (!titles.has(lines[heading]?.trim())) continue;
+    const sections = {};
+    while (heading < lines.length) {
+      const key = titles.get(lines[heading].trim());
+      let end = heading + 1;
+      while (end < lines.length && (fence.has(end) || !isRule(lines[end]))) end++;
+      if (end === lines.length) break;
+      sections[key] = { text: lines.slice(heading + 1, end).join('\n'), start: heading + 1, end };
+      const next = headingAfter(end);
+      if (!titles.has(lines[next]?.trim()) || sections[titles.get(lines[next]?.trim())]) {
+        return { rawHead: text.slice(0, offset(open)), rawTail: text.slice(offset(end) + lines[end].length), sections };
+      }
+      heading = next;
+    }
+  }
+  return null;
+}
+
+function planBoundedJournal(text, options, custom) {
+  const crlf = /\r\n/.test(text);
+  const normalized = String(text).replace(/\r\n/g, '\n');
+  const layout = options.layout || custom?.layout || builtinJournalLayout();
+  const region = custom || readBoundedJournal(normalized, layout);
+  const kwWords = J.TASK_KWS.split('|');
+  const pending = new Set(['TODO', 'LATER', 'TODOFORAI', 'TODO4AI', 'TODO2AI', 'TODOTOAI', 'QUEUED']);
+  // Each bounded section keeps its own non-AI content in place; only AI task
+  // blocks are classified, sorted, and moved across sections.
+  const sectionPlans = Object.fromEntries(['active', 'todo', 'done'].map(key => {
+    const body = region?.sections[key]?.text || '';
+    const lines = body.split('\n'), fence = J.fencedLines(lines);
+    const cleaned = lines.filter((line, i) => fence.has(i) || !SUBHEAD_RE.test(line) || !kwWords.includes(line.replace(/^###\s+/, '').trim())).join('\n');
+    return [key, planJournal(cleaned, { ...options, layout: undefined, boundedBody: true })];
+  }));
+  const secOrder = { active: 0, todo: 1, done: 2 };
+  const done = ['active', 'todo', 'done']
+    .flatMap(key => sectionPlans[key].done.map(entry => ({ ...entry, _sec: key })))
+    .sort((a, b) => b.turns - a.turns || secOrder[a._sec] - secOrder[b._sec] || a.at - b.at);
+  const combinedActive = ['active', 'todo', 'done'].flatMap(key => sectionPlans[key].active.map(entry => ({ ...entry, _sec: key })));
+  const byActiveOrder = (a, b) => rank(a.keyword) - rank(b.keyword) || b.turns - a.turns || secOrder[a._sec] - secOrder[b._sec] || a.at - b.at;
+  const todo = combinedActive.filter(entry => pending.has(entry.keyword)).sort(byActiveOrder);
+  const active = combinedActive.filter(entry => !pending.has(entry.keyword)).sort(byActiveOrder);
+  const organized = (entry, key) => !!region?.sections[key]?.text.includes(entry.text);
+  for (const entry of active) entry.organized = organized(entry, 'active');
+  for (const entry of todo) entry.organized = organized(entry, 'todo');
+  for (const entry of done) entry.organized = organized(entry, 'done');
+  const sectionRest = {
+    active: sectionPlans.active.rest,
+    todo: sectionPlans.todo.rest,
+    done: sectionPlans.done.rest,
+  };
+  let head = region ? region.rawHead : normalized;
+  if (!region && head && !head.endsWith('\n\n')) head += head.endsWith('\n') ? '\n' : '\n\n';
+  // The former custom "notes" section contains personal notes, not pending
+  // tasks. Keep it outside the new frame during migration.
+  const tail = (region?.sections.notes?.text ? '\n\n' + region.sections.notes.text : '') + (region ? region.rawTail : '\n');
+  return {
+    head, tail, crlf, layout, bounded: true,
+    done, active, todo, sectionRest,
+    rest: sectionRest.todo,
+    insertAt: region?.sections.active?.end ?? null,
+    count: { done: done.length, active: active.length + todo.length, total: done.length + active.length + todo.length },
+  };
+}
+
 // Classify the whole note into the three bands without touching the text.
-export function planJournal(text, { tracked = new Map(), archived = new Set(), turns = new Map(), layout } = {}) {
+export function planJournal(text, { tracked = new Map(), archived = new Set(), turns = new Map(), layout, boundedBody = false } = {}) {
   const custom = readJournalLayout(text);
+  if (layout?.order.includes('todo') || custom?.sections.todo) return planBoundedJournal(text, { tracked, archived, turns, layout }, custom);
   if (custom) {
     const canonical = [custom.head, `---\n${DONE_HEADING}\n${custom.sections.done.text}\n\n---\n${ACTIVE_HEADING}\n${custom.sections.active.text}\n\n---\n`].filter(Boolean).join('\n\n');
     const plan = planJournal(canonical, { tracked, archived, turns });
@@ -72,7 +155,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
   // labels, and the separator that follows.
   const generated = [];
   for (let i = start; i < lines.length; i++) {
-    if (fence.has(i)) continue;   // a "## 已完成" inside a code sample is content
+    if (boundedBody || fence.has(i)) continue;   // section bodies are already bounded
     const title = lines[i].trim();
     const isDone = title === DONE_HEADING || title === LEGACY_HEADINGS[0];
     const isActive = title === ACTIVE_HEADING || title === LEGACY_HEADINGS[1];
@@ -168,6 +251,9 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
     const body = String(k.body || '');
     const ai = sids.size > 0 || J.isDeckBlockId(k.blockId) || tracked.has(k.blockId) || body.startsWith('🤖');
     const doneKw = J.DONE_KWS.includes(k.kw);
+    // Only AI entries are organized; items already inside the generated done
+    // band remain there so identifier cleanup stays idempotent on rescans.
+    if (!ai && !(inBand(i, true) && !boundedBody && doneKw)) continue;
     const archivedOut = sids.size > 0 && [...sids].every((sid) => archived.has(sid));
     // journal-tidy 的分组容器：没有状态关键词、只标 🤖 的行。里面的记录全是 DONE 就整块算完成，
     // 还有没做完的就整块留在进行中；子块不拆散。
@@ -214,7 +300,6 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
       cursor = end;
       continue;
     }
-    if (!ai) continue;
 
     const activeChunk = normalizeChunkHeader(lines.slice(i, end), false);
     const block = blockText(activeChunk, 0, activeChunk.length);
@@ -392,6 +477,18 @@ export function renderJournal(plan, { done = true, active = true, skip = null, l
   // `skip` is what archiving just moved out. Matching on the block id first
   // keeps two identical-looking blocks from being dropped together.
   const finished = done ? plan.done.filter((entry) => !(skip && (entry.blockId ? skip.has(entry.blockId) : skip.has(entry.text)))).map(entry => ({ ...entry, text: entry.ai ? J.cleanCompletedIdentifiers(entry.text, new Set([entry.blockId])) : entry.text })) : [];
+  if (plan.bounded) {
+    const joinSection = (aiText, restText) => [aiText, restText].filter(Boolean).join('\n\n');
+    const rest = plan.sectionRest || { active: '', todo: plan.rest || '', done: '' };
+    const out = renderJournalLayout({
+      head: plan.head,
+      tail: plan.tail,
+      done: joinSection(finished.map(entry => entry.text).join('\n'), rest.done),
+      active: joinSection(active ? plan.active.map(entry => J.cleanCompletedIdentifiers(entry.text)).join('\n') : '', rest.active),
+      todo: joinSection(active ? plan.todo.map(entry => J.cleanCompletedIdentifiers(entry.text)).join('\n') : '', rest.todo),
+    }, layout);
+    return plan.crlf ? out.replace(/\n/g, '\r\n') : out;
+  }
   const bands = [];
   const activeBody = [];
 

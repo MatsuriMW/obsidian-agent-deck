@@ -207,7 +207,8 @@ class PillWidget extends WidgetType {
     const p = this.plugin;
     const info = this.info;
     const el = document.createElement("span");
-    el.className = `ad-pill ad-pill--${info.kind}`;
+    const background = info.job?.destination === "background";
+    el.className = background ? `ad-background-progress ad-background-progress--${info.kind}` : `ad-pill ad-pill--${info.kind}`;
     el.setAttribute("contenteditable", "false");
     el.dataset.line = String(this.line);
     const job = info.job;
@@ -360,7 +361,7 @@ function buildDecorations(view, plugin) {
         const job = plugin.jobAtLine(path, n, text);
         const session = map.sessionByParent.get(n) || null;
         // 螺旋日程已接管进度显示时，行尾不重复画 pill。
-        if (session && plugin.nautilusOwnsLine(text, session)) { if (line.to >= to) break; pos = line.to + 1; continue; }
+        if ((session || job?.sessionId) && plugin.nautilusOwnsLine(text, session || { sid: job.sessionId }, job?.destination !== "background")) { if (line.to >= to) break; pos = line.to + 1; continue; }
         let state = null;
         if (job && ["starting", "running"].includes(job.state)) state = { kind: job.state === "starting" ? "starting" : "running", job };
         else if (job && job.state === "needs-approval") state = { kind: "needs-approval", job, session };
@@ -376,6 +377,7 @@ function buildDecorations(view, plugin) {
         }
         // A finished task keeps no status pill: 「正在执行」「等你」 under a line
         // that is already marked DONE is only noise.
+        if (job?.destination === "background" && state?.kind === "done") state = null;
         if (state && !J.isDoneLine(text)) {
           const widget = new PillWidget(plugin, path, n, state);
           builder.add(line.to, line.to, Decoration.widget({ widget, side: 1, block: false }));

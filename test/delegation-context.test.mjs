@@ -92,3 +92,17 @@ const record='  - 💬 可再次委派的 AI 结果';
 const view={state:{field:()=>({file:{path:'note.md'}}),doc:{lineAt:()=>({number:1,from:0,to:record.length,text:record})},selection:{main:{empty:true,head:0}}},visibleRanges:[{from:0,to:record.length}]};
 assert.ok(decorate(view,{settings:{showEditorPills:true},_lastEditor:view,lineMap:()=>({sessionByParent:new Map()}),jobAtLine(){}}).some(item=>item.widget.grip),'reply lines expose the real paper-plane entry');
 console.log('PASS nested reply delegation, parent/child writeback and AI reply paper plane');
+
+const bgLine = '- DOING 后台任务 ^ad-background';
+const bgView = {state:{field:()=>({file:{path:'note.md'}}),doc:{lineAt:()=>({number:1,from:0,to:bgLine.length,text:bgLine})},selection:{main:{empty:false,head:0}}},visibleRanges:[{from:0,to:bgLine.length}]};
+const bgJob = {id:'background',destination:'background',state:'running',sessionId:'bg-session'};
+let owns = false;
+const bgPlugin = {settings:{showEditorPills:true},lineMap:()=>({sessionByParent:new Map()}),jobAtLine:()=>bgJob,nautilusOwnsLine:()=>owns};
+assert.equal(decorate(bgView,bgPlugin).length,1,'background execution has one fallback progress widget');
+owns=true;
+assert.equal(decorate(bgView,bgPlugin).length,0,'a matching parent progress row suppresses the fallback');
+owns=false;bgJob.state='done';
+assert.equal(decorate(bgView,bgPlugin).length,0,'completed background answers have no lingering status pill');
+bgJob.destination='desktop';
+assert.equal(decorate(bgView,bgPlugin).length,1,'desktop sessions keep their existing pill');
+console.log('PASS background progress: one provider, no finished pill, desktop behavior preserved');

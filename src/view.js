@@ -9,6 +9,63 @@ import { SESSION_MIME } from "./editor.js";
 import { t } from "./i18n.js";
 
 export const VIEW_TYPE = "agent-deck-view";
+export const RECENT_DAY_OPTIONS = [7, 30, 120];
+export const MAX_RECENT_CARDS = 30;
+
+export function filterRecentRows(rows, filter = "all") {
+  if (filter === "live") return rows.filter((x) => x.state === "run");
+  if (filter === "wait") return rows.filter((x) => ["wait", "quiet"].includes(x.state));
+  if (AGENTS[filter]) return rows.filter((x) => x.agent === filter);
+  return rows;
+}
+
+export function planRecentDisplay(rows, { filter = "all", expanded = new Set(), maxCards = MAX_RECENT_CARDS } = {}) {
+  if (AGENTS[filter]) {
+    const cards = rows.slice(0, maxCards);
+    return {
+      mode: "flat",
+      total: rows.length,
+      renderedCount: cards.length,
+      hiddenCount: Math.max(0, rows.length - cards.length),
+      cards,
+      groups: [],
+    };
+  }
+  const byAgent = new Map();
+  for (const s of rows) {
+    const id = s.agent || "claude";
+    let g = byAgent.get(id);
+    if (!g) byAgent.set(id, g = { agent: id, items: [] });
+    g.items.push(s);
+  }
+  const groups = [...byAgent.values()].slice(0, maxCards);
+  let extraBudget = Math.max(0, maxCards - groups.length);
+  let renderedCount = 0;
+  const planned = groups.map((g) => {
+    const isSingle = g.items.length === 1;
+    const isExpanded = !isSingle && expanded.has(g.agent);
+    const extra = isExpanded ? Math.min(g.items.length - 1, extraBudget) : 0;
+    extraBudget -= extra;
+    const visibleItems = g.items.slice(0, 1 + extra);
+    renderedCount += visibleItems.length;
+    return {
+      agent: g.agent,
+      items: g.items,
+      visibleItems,
+      expanded: isExpanded,
+      stacked: !isSingle && !isExpanded,
+      unshownCount: Math.max(0, g.items.length - visibleItems.length),
+    };
+  });
+  return {
+    mode: "grouped",
+    total: rows.length,
+    renderedCount,
+    hiddenCount: Math.max(0, rows.length - renderedCount),
+    cards: [],
+    groups: planned,
+  };
+}
 
 export class AgentDeckView extends ItemView {
   constructor(leaf, plugin) {
@@ -16,7 +73,14 @@ export class AgentDeckView extends ItemView {
     this.plugin = plugin;
     this.filter = "all";
     this.search = "";
+    this.expandedAgents = new Set();
     this._scroll = 0;
+    this._bottomSlack = 0;
+  }
+
+  recentDays() {
+    const v = Number(this.plugin.settings?.ui?.recentDays);
+    return RECENT_DAY_OPTIONS.includes(v) ? v : 7;
   }
 
   getViewType() { return VIEW_TYPE; }
@@ -26,6 +90,13 @@ export class AgentDeckView extends ItemView {
   async onOpen() {
     this.contentEl.addClass("ad-view");
     this.plugin.views.add(this);
+    const onScroll = () => {
+      if (this._reconcilingScroll) return;
+      this._scroll = this.contentEl.scrollTop;
+      this.reconcileBottomSlack();
+    };
+    if (typeof this.registerDomEvent === "function") this.registerDomEvent(this.contentEl, "scroll", onScroll, { passive: true });
+    else if (this.contentEl.addEventListener) this.contentEl.addEventListener("scroll", onScroll, { passive: true });
     const refreshPending = () => { if (this._pendingRender) this.render(); };
     this.registerEvent(this.app.workspace.on("layout-change", refreshPending));
     this.registerEvent(this.app.workspace.on("active-leaf-change", refreshPending));
@@ -38,6 +109,7 @@ export class AgentDeckView extends ItemView {
 
   onResize() {
     if (this._pendingRender) this.render();
+    else this.reconcileBottomSlack();
   }
 
   render() {
@@ -48,12 +120,13 @@ export class AgentDeckView extends ItemView {
     if (this._composing) { this._pendingRender = true; return; }
     this._pendingRender = false;
     const root = this.contentEl;
-    this._scroll = root.scrollTop || this._scroll;
+    if (root.children?.length && typeof root.scrollTop === "number") this._scroll = root.scrollTop;
     const focused = document.activeElement;
     const searchWasFocused = focused && focused.classList && focused.classList.contains("ad-search__input");
     root.empty();
     root.addClass("ad-view");
     const dash = root.createDiv({ cls: "ad-dash" });
+    if (this._bottomSlack > 0) dash.style.setProperty("--ad-slack", `${this._bottomSlack}px`);
 
     const p = this.plugin;
     const todayKey = dayKeyToday(p.settings);
@@ -61,7 +134,8 @@ export class AgentDeckView extends ItemView {
     const live = p.liveSessions({ hours: 6 });
     const running = live.filter((x) => ["run", "starting", "running"].includes(x.state) || (x.agent && x.state === "busy"));
     const waiting = live.filter((x) => ["wait", "quiet", "needs-approval"].includes(x.state));
-    const recent = p.recentSessions({ days: 7, limit: 80 });
+    const days = this.recentDays();
+    const recent = p.recentSessions({ days, limit: 1000 });
 
     // Header：会话搜索 + 两个按钮
     const head = dash.createDiv({ cls: "ad-head" });
@@ -100,6 +174,9 @@ export class AgentDeckView extends ItemView {
     // 有搜索词时只显示搜索结果，放在搜索框正下方，范围是本机扫到的全部会话
     this._resultSec = null;
     if (this.search.trim()) {
+      this._bottomSlack = 0;
+      this._scroll = 0;
+      dash.style.setProperty("--ad-slack", "0px");
       const sec = dash.createDiv({ cls: "ad-sec ad-sec--search" });
       sec._head = this.secHead(sec, t("搜索结果"));
       sec._list = sec.createDiv({ cls: "ad-sessionlist" });
@@ -112,7 +189,7 @@ export class AgentDeckView extends ItemView {
 
     const journalActions = dash.createDiv({ cls: "ad-btnrow" });
     for (const action of [
-      { label: t("整理日志"), hint: t("已完成的任务放到最上面，一条分割线，再下面是未完成的 AI 日志，最后是你自己写的内容"), run: () => p.organizeJournal() },
+      { label: t("整理日志"), hint: t("按正在做、还要做、已完成整理分区，分割线外的笔记保持原样"), run: () => p.organizeJournal() },
       { label: t("归档已完成的日志到…"), hint: t("把已完成的 AI 日志移出这篇日记，写进你选的归档文件"), run: () => p.archiveCompletedJournal() },
     ]) {
       const button = journalActions.createEl("button", { text: action.label });
@@ -155,16 +232,31 @@ export class AgentDeckView extends ItemView {
 
     // Recent
     const recSec = dash.createDiv({ cls: "ad-sec ad-sec--recent" });
-    const recHead = this.secHead(recSec, t("最近的会话"), t("{n} 个 · 最近 7 天", { n: recent.length }));
-    const filters = recHead.createDiv({ cls: "ad-filters" });
-    for (const [id, label] of [["all", t("全部")], ["live", t("在跑")], ["wait", t("等你")], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"], ["antigravity", "Antigravity"], ["opencode", "OpenCode"], ["qoder", "Qoder"]]) {
-      const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
-      b.onclick = () => { this.filter = id; this.render(); };
+    const filteredRecent = filterRecentRows(recent, this.filter);
+    const recHead = this.secHead(recSec, t("最近的会话"), t("{n} 个 · 最近 {days} 天", { n: filteredRecent.length, days }));
+    const range = recHead.createDiv({ cls: "ad-range" });
+    for (const d of RECENT_DAY_OPTIONS) {
+      const rb = range.createEl("button", { cls: "ad-chip ad-range__btn" + (days === d ? " is-on" : ""), text: t("{days} 天", { days: d }) });
+      rb.onclick = () => {
+        if (this.recentDays() === d) return;
+        this._bottomSlack = 0;
+        (p.settings.ui ||= {}).recentDays = d;
+        p.saveSettings();
+        this.render();
+      };
     }
+    const filters = recHead.createDiv({ cls: "ad-filters" });
+    for (const [id, label] of [["all", t("全部")], ["live", t("在跑")], ["wait", t("等你")], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"], ["antigravity", "Antigravity"], ["opencode", "OpenCode"], ["qoder", "Qoder"], ["cursor", "Cursor"]]) {
+      const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
+      b.onclick = () => { this._bottomSlack = 0; this.filter = id; this.render(); };
+    }
+    recSec._head = recHead;
+    recSec._rows = filteredRecent;
     recSec._list = recSec.createDiv({ cls: "ad-sessionlist" });
     this.renderSessions(recSec);
 
     root.scrollTop = this._scroll;
+    this.reconcileBottomSlack(dash);
     this.playFly(dash);
     if (searchWasFocused) { const i = root.querySelector(".ad-search__input"); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   }
@@ -301,12 +393,108 @@ export class AgentDeckView extends ItemView {
     if (!list) return;
     list.empty();
     const p = this.plugin;
-    let rows = p.recentSessions({ days: 7, limit: 200 });
-    if (this.filter === "live") rows = rows.filter((x) => x.state === "run");
-    else if (this.filter === "wait") rows = rows.filter((x) => ["wait", "quiet"].includes(x.state));
-    else if (AGENTS[this.filter]) rows = rows.filter((x) => x.agent === this.filter);
+    const days = this.recentDays();
+    const rows = sec._rows || filterRecentRows(p.recentSessions({ days, limit: 1000 }), this.filter);
+    sec._rows = rows;
     if (!rows.length) return this.empty(list, t("没有符合条件的会话"));
-    for (const s of rows) this.sessionCard(list, s, false);
+    const plan = planRecentDisplay(rows, { filter: this.filter, expanded: this.expandedAgents, maxCards: MAX_RECENT_CARDS });
+    if (plan.mode === "flat") {
+      for (const s of plan.cards) this.sessionCard(list, s, false);
+      if (plan.hiddenCount > 0) {
+        list.createDiv({ cls: "ad-recent-more", text: t("已显示最新 {shown} / 共 {total} 张卡片，更多请用顶部搜索", { shown: plan.renderedCount, total: plan.total }) });
+      }
+      return;
+    }
+    for (const g of plan.groups) {
+      const a = AGENTS[g.agent] || AGENTS.claude;
+      if (g.items.length === 1) {
+        this.sessionCard(list, g.visibleItems[0], false);
+        continue;
+      }
+      const stack = list.createDiv({ cls: `ad-stack ${g.stacked ? "is-collapsed" : "is-expanded"}` });
+      stack.dataset.agent = g.agent;
+      stack.style.setProperty("--ad-agent", a.color);
+      stack.style.setProperty("--ad-agent-soft", a.soft);
+      if (g.stacked) {
+        const expand = () => this.toggleAgentGroup(sec, stack, g.agent, true);
+        const topWrap = stack.createDiv({ cls: "ad-stack__top" });
+        this.sessionCard(topWrap, g.visibleItems[0], false);
+        const topCard = topWrap.firstElementChild;
+        if (topCard) topCard.onclick = expand;
+        const bar = stack.createEl("button", { cls: "ad-stack__bar", attr: { type: "button" } });
+        bar.createSpan({ cls: "ad-stack__label", text: t("共 {total} 条 {agent} 对话 · 点击展开 +{more}", { total: g.items.length, agent: a.short, more: g.items.length - 1 }) });
+        bar.createSpan({ cls: "ad-stack__chev", text: "▾" });
+        bar.onclick = expand;
+      } else {
+        const head = stack.createEl("button", { cls: "ad-stack__head", attr: { type: "button" } });
+        const headLeft = head.createSpan({ cls: "ad-stack__title" });
+        agentIcon(headLeft.createSpan({ cls: "ad-glyph" }), g.agent);
+        headLeft.createSpan({ text: t("{agent} · 共 {total} 条对话", { agent: a.short, total: g.items.length }) });
+        head.createSpan({ cls: "ad-stack__toggle", text: `${t("收起")} ▴` });
+        head.onclick = () => this.toggleAgentGroup(sec, stack, g.agent, false);
+        const body = stack.createDiv({ cls: "ad-stack__list" });
+        for (const s of g.visibleItems) this.sessionCard(body, s, false);
+        if (g.unshownCount > 0) {
+          stack.createDiv({ cls: "ad-stack__foot", text: t("已达单页 {max} 张卡片上限，另有 {n} 条较早会话未显示", { max: MAX_RECENT_CARDS, n: g.unshownCount }) });
+        }
+      }
+    }
+  }
+
+  // 收起或展开同 Agent 堆叠时锚定该组顶部在视口中的位置，避免高处横条因高度骤减被 scrollTop 夹紧而突然下跳；
+  // 留出的底部余量只维持当前位置，并在向上滚动或内容重新撑高时自动收回。
+  toggleAgentGroup(sec, stack, agent, expand) {
+    const root = this.contentEl;
+    const dash = root?.querySelector?.(".ad-dash");
+    const rootRect = root?.getBoundingClientRect?.();
+    const stackRect = stack?.getBoundingClientRect?.();
+    const prevRelTop = rootRect && stackRect ? stackRect.top - rootRect.top : null;
+    if (expand) this.expandedAgents.add(agent);
+    else this.expandedAgents.delete(agent);
+    this.renderSessions(sec);
+    if (!dash || prevRelTop === null || !root.clientHeight) return;
+    const nextStack = [...(sec._list?.children || [])].find((el) => el.dataset?.agent === agent);
+    const nextRootRect = root.getBoundingClientRect?.();
+    const nextStackRect = nextStack?.getBoundingClientRect?.();
+    if (!nextRootRect || !nextStackRect) return;
+    const nextContentTop = nextStackRect.top - nextRootRect.top + root.scrollTop;
+    const targetScrollTop = Math.max(0, Math.round(nextContentTop - prevRelTop));
+    this._reconcilingScroll = true;
+    try {
+      this.syncBottomSlack(dash, targetScrollTop);
+      root.scrollTop = targetScrollTop;
+      this._scroll = root.scrollTop;
+    } finally {
+      this._reconcilingScroll = false;
+    }
+  }
+
+  syncBottomSlack(dash, targetScrollTop, maxCap = Infinity) {
+    const root = this.contentEl;
+    if (!root || !dash || !root.clientHeight) return 0;
+    dash.style.setProperty("--ad-slack", "0px");
+    const naturalHeight = root.scrollHeight;
+    const naturalMax = Math.max(0, naturalHeight - root.clientHeight);
+    const slack = targetScrollTop > naturalMax
+      ? Math.min(maxCap, Math.ceil(targetScrollTop + root.clientHeight - naturalHeight))
+      : 0;
+    this._bottomSlack = slack;
+    dash.style.setProperty("--ad-slack", `${slack}px`);
+    return slack;
+  }
+
+  reconcileBottomSlack(dash = this.contentEl?.querySelector?.(".ad-dash")) {
+    if (!this._bottomSlack || this._reconcilingScroll || !dash) return;
+    const root = this.contentEl;
+    if (!root || !root.clientHeight) return;
+    this._reconcilingScroll = true;
+    try {
+      const savedScrollTop = root.scrollTop;
+      this.syncBottomSlack(dash, savedScrollTop, this._bottomSlack);
+      if (root.scrollTop !== savedScrollTop) root.scrollTop = savedScrollTop;
+    } finally {
+      this._reconcilingScroll = false;
+    }
   }
 
   // 搜索：空格分开的几个词都要命中（不分大小写），查标题、首条消息、项目路径、当前步骤、最近回复、模型、Agent 名和会话号
@@ -456,7 +644,7 @@ export class AgentDeckView extends ItemView {
       const pin = where.createSpan({ cls: "ad-agentcard__pin", attr: { "aria-label": t("已置顶"), title: t("已置顶") } });
       setLucide(pin, "pin");
     }
-    const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? t("取消主力") : t("设为主力（最多两个）") } });
+    const star = top.createEl("button", { cls: "ad-star" + (primary ? " is-on" : ""), attr: { "aria-label": primary ? t("取消主力") : t("设为主力（最多三个）") } });
     setLucide(star, primary ? "star" : "star-off");
     star.onclick = (e) => { e.stopPropagation(); p.togglePrimary(id); };
     const stats = card.createDiv({ cls: "ad-agentcard__stats" });

@@ -1,4 +1,4 @@
-import { archiveConversation } from "./conversation.js";
+import { readConversation } from "./conversation.js";
 import { updateNote } from "./note-updates.js";
 // Agent Deck — delegate a note block to Claude Code or DeepSeek Harness.
 //
@@ -8,8 +8,8 @@ import { updateNote } from "./note-updates.js";
 // with model and reasoning-effort selection.
 
 import fs from "fs";
-import { randomUUID, createHash } from "crypto";
-import { summarizeBackgroundReply, backgroundSummaryPending } from "./background-summary.js";
+import { randomUUID } from "crypto";
+import { saveBackgroundAnswer, clearBackgroundPending, backgroundRounds } from "./background-output.js";
 import { destinations } from "./workflow.js";
 import { CodexDesktopRunner } from "./codex-desktop.js";
 import path from "path";
@@ -472,6 +472,7 @@ export const AGENT_APPS = {
   antigravity: { bundle: "com.google.antigravity", url: "antigravity://" },
   opencode: { bundle: "ai.opencode.desktop", url: "opencode://" },
   qoder: { bundle: "com.qoder.app", url: "qoder://" },
+  cursor: { bundle: "com.todesktop.230313mzl4w4u92", url: "cursor://" },
 };
 
 export function openAgentApp(agent) {
@@ -501,7 +502,7 @@ function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
 
 export function openSession(plugin, agent, sid, app = "", session = null) {
   if (!sid) { plugin.notice(t("这个会话还没有会话号，稍等一秒再点")); return false; }
-  if (["opencode", "qoder"].includes(agent)) {
+  if (["opencode", "qoder", "cursor"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
       return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);
@@ -1173,7 +1174,6 @@ export class Delegator {
   constructor(plugin) {
     this.plugin = plugin;
     this.jobs = plugin.jobs;          // by id
-    this.summaryCalls = new Map();
     this.runners = new Map();         // id -> runner
     this.settings = plugin.settings;
     this.vaultPath = plugin.vaultPath;
@@ -1215,6 +1215,7 @@ export class Delegator {
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
+      question: stripTaskMention(withContext(ancestorLines(lines, block.start), freshTaskText(block.text)), mentionTrigger(this.plugin)),
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000),
       originalLine: lines[block.start],
       startedAt: Date.now(), state: "starting", model: agent === "codex" ? resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent)) : opts.model || this.defaultModel(agent),
@@ -1295,6 +1296,7 @@ export class Delegator {
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
+      question: stripTaskMention(withContext(ancestorLines(lines, block.start), freshTaskText(block.text)), mentionTrigger(this.plugin)),
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
       startedAt: Date.now(), state: "starting", handoff: true, step: t("等你在 {agent} 里发出去", { agent: AGENTS[agent]?.name || agent }),
       cwd: this.vaultPath, sessionId: "", linkWritten: false, resultWritten: false,
@@ -1353,6 +1355,7 @@ export class Delegator {
     const job = {
       id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
       agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
+      question: stripTaskMention(withContext(ancestorLines(lines, block.start), freshTaskText(block.text)), mentionTrigger(this.plugin)),
       blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
       startedAt: Date.now(), state: "starting", model, effort, handoff: true, cli: true, app: agent === "codex" ? "codex_cli_rs" : "cli",
       step: t("在终端里开 {agent}", { agent: AGENTS[agent]?.name || agent }), cwd, sessionId: "", linkWritten: false, resultWritten: false,
@@ -1528,35 +1531,37 @@ export class Delegator {
     } catch (e) { console.error("[agent-deck] removeLink", e); }
   }
 
-  summarizeBackground(raw) { return summarizeBackgroundReply(raw, this.settings); }
-
-  async prepareBackgroundRound(job, round) {
-    const raw = round.said || "";
-    if (!raw) return null;
-    const n = round.n || 1, hash = createHash("sha256").update(raw.trim()).digest("hex");
-    const saved = (job.backgroundSummaries ||= {});
-    const prior = saved[n];
-    if (prior?.hash === hash && prior.text) return { n, said: raw, journalSummary: prior.text };
-    const key = `${job.id}:${n}:${hash}`;
-    if (this.summaryCalls.has(key)) return this.summaryCalls.get(key);
-    if (prior?.hash === hash && prior.retryAt > Date.now()) return null;
-    const pending = this.summarizeBackground(raw).then(text => {
-      saved[n] = { hash, text };
-      return { n, said: raw, journalSummary: text };
-    }).catch(error => {
-      saved[n] = { hash, retryAt: Date.now() + 60000 };
-      console.info("[agent-deck] background summary pending", error.message);
-      return null;
-    }).finally(() => { this.summaryCalls.delete(key); if (!this.plugin._unloaded) this.saveJobs(); });
-    this.summaryCalls.set(key, pending);
-    return pending;
+  retryBackgroundResults() {
+    return Promise.all(Object.values(this.jobs).filter(job => job.destination === "background" && job.state === "done" && !job.resultWritten)
+      .map(job => this.writeResult(job).catch(error => console.info("[agent-deck] background result pending", error.message))));
   }
 
-  retryBackgroundSummaries() {
-    const now = Date.now();
-    return Promise.all(Object.values(this.jobs).filter(job => job.destination === "background" && job.state === "done" &&
-      !job.resultWritten && Object.values(job.backgroundSummaries || {}).some(entry => typeof entry.retryAt === "number" && entry.retryAt <= now))
-      .map(job => this.writeResult(job).catch(error => console.info("[agent-deck] background summary pending", error.message))));
+  async writeBackgroundResult(job, rounds) {
+    const note = await this.plugin.readNote(job.path);
+    const pending = rounds.filter(round => round.said && !J.hasRecordedTurn(note, job.sessionId, round.n || 1));
+    if (!pending.length) { job.resultWritten = true; this.saveJobs(); return; }
+    const messages = job.conversation?.length ? job.conversation : await readConversation(this.plugin, job);
+    const full = backgroundRounds(messages);
+    const prepared = [];
+    for (const round of pending) {
+      const original = full.find(item => item.n === (round.n || 1));
+      const complete = original?.said ? { ...round, ask: original.ask, said: original.said } : round;
+      prepared.push({ ...complete, replyText: await saveBackgroundAnswer(this.plugin, job, complete) });
+    }
+    if (this.plugin._unloaded) return;
+    let synced;
+    await updateNote(this.plugin, job.path, text => {
+      if (this.settings.journalAutoWrite === false) return text;
+      for (const round of prepared) text = clearBackgroundPending(text, job, round.n || 1);
+      synced = J.syncSessionEntry(text, { sid: job.sessionId || "", agent: job.agent, blockId: job.blockId || "",
+        key: J.workKey(job.name || ""), rounds: prepared, granularity: "round", detail: "brief", ensureId: true });
+      return synced.text;
+    });
+    if (synced?.line >= 0) {
+      if (synced.blockId) job.blockId = synced.blockId;
+      job.resultWritten = true;
+      this.saveJobs();
+    }
   }
 
   async writeResult(job, { rounds: scannedRounds } = {}) {
@@ -1564,46 +1569,22 @@ export class Delegator {
     const meta = this.plugin.usage?.meta.get(job.sessionId);
     const raw = job.result || meta?.rounds?.at(-1)?.said || meta?.lastText || job.lastText || "";
     if (!raw && !scannedRounds?.length) return;
-    const background = job.destination === "background";
-    let rounds = scannedRounds || (background && job.result && (!job.backgroundArchiveThrough || job.backgroundArchiveThrough === 1)
-      ? [{ n: meta?.rounds?.at(-1)?.n || 1, said: job.result }]
-      : meta?.rounds?.length ? meta.rounds : [{ n: 1, at: job.startedAt, ask: "", said: raw }]);
-    if (background) {
-      const through = Math.max(0, ...rounds.map(r => r.n || 1));
-      if (!job.archivePath || (scannedRounds && through > (job.backgroundArchiveThrough || 0))) {
-        const messages = !scannedRounds && job.conversation?.length ? job.conversation : !scannedRounds
-          ? [{ role: "user", text: job.prompt || job.name || "" }, { role: "assistant", text: raw }] : null;
-        const file = await archiveConversation(this.plugin, { ...job, sid: job.sessionId }, messages ? { messages } : {});
-        job.archivePath = file.path;
-        job.backgroundArchiveThrough = through;
-        this.saveJobs();
-      }
-      if (this.plugin._unloaded) return;
-      const note = await this.plugin.readNote(job.path);
-      rounds = rounds.filter(r => r.said && !J.hasRecordedTurn(note, job.sessionId, r.n || 1));
-      await updateNote(this.plugin, job.path, text => rounds.reduce((current, round) =>
-        backgroundSummaryPending(current, job, round.n || 1, true), text));
-      if (rounds.length) job.resultWritten = false;
-      const prepared = [];
-      for (const round of rounds) {
-        const result = await this.prepareBackgroundRound(job, round);
-        if (result) prepared.push(result);
-      }
-      rounds = prepared;
-      if (this.plugin._unloaded) return;
+    if (job.destination === "background") {
+      const rounds = scannedRounds || (job.result ? [{ n: meta?.rounds?.at(-1)?.n || 1, said: job.result, ask: meta?.rounds?.at(-1)?.ask }]
+        : meta?.rounds?.length ? meta.rounds : [{ n: 1, said: raw }]);
+      return this.writeBackgroundResult(job, rounds);
     }
+    const rounds = scannedRounds || (meta?.rounds?.length ? meta.rounds : [{ n: 1, at: job.startedAt, ask: "", said: raw }]);
     let synced;
     await updateNote(this.plugin, job.path, text => {
       if ((job.resultWritten && !scannedRounds) || this.settings.journalAutoWrite === false) return text;
-      if (background) for (const round of rounds) text = backgroundSummaryPending(text, job, round.n, false);
-      if (background && !rounds.length) return text;
       synced = J.syncSessionEntry(text, {
-        granularity: background ? "round" : this.settings.autoLogGranularity,
-        compact: background ? null : this.settings.autoLogSummaries?.[job.path.split("/").pop().replace(/\.md$/, "")]?.[job.sessionId],
-        detail: background ? "brief" : this.settings.autoLogDetail,
-        detailHistory: background ? [] : this.settings.autoLogDetailHistory,
+        granularity: this.settings.autoLogGranularity,
+        compact: this.settings.autoLogSummaries?.[job.path.split("/").pop().replace(/\.md$/, "")]?.[job.sessionId],
+        detail: this.settings.autoLogDetail,
+        detailHistory: this.settings.autoLogDetailHistory,
         sid: job.sessionId || "", agent: job.agent, blockId: job.blockId || "", key: J.workKey(job.name || ""),
-        said: background ? "" : J.oneSentenceConclusion(raw, clamp(Number(this.settings.resultMax) || 120, 40, 2000)),
+        said: J.oneSentenceConclusion(raw, clamp(Number(this.settings.resultMax) || 120, 40, 2000)),
         rounds,
         taskTodo: job.agent === "claude" && meta ? meta.todo : null, ensureId: true,
       });
@@ -1611,8 +1592,7 @@ export class Delegator {
     });
     if (synced?.line >= 0) {
       if (synced.blockId) job.blockId = synced.blockId;
-      // A failed round remains retryable; successful summaries are cached independently.
-      job.resultWritten = !Object.values(job.backgroundSummaries || {}).some(entry => entry.retryAt);
+      job.resultWritten = true;
       this.saveJobs();
     }
   }

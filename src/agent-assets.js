@@ -10,8 +10,9 @@ import dsh from "../assets/agents/dsh.png";
 import antigravity from "../assets/agents/antigravity.png";
 import opencode from "../assets/agents/opencode.png";
 import qoder from "../assets/agents/qoder.png";
+import cursor from "../assets/agents/cursor.png";
 
-export const AGENT_IMAGES = { claude, codex, workbuddy, dsh, antigravity, opencode, qoder };
+export const AGENT_IMAGES = { claude, codex, workbuddy, dsh, antigravity, opencode, qoder, cursor };
 
 export function agentImageBuffer(id) {
   const uri = AGENT_IMAGES[id];

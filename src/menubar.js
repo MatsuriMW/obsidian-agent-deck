@@ -12,6 +12,7 @@ import crypto from "crypto";
 import { execFile, spawn } from "child_process";
 import source from "./menubar.swift";
 import { agentImageBuffer } from "./agent-assets.js";
+import { AGENT_ORDER } from "./constants.js";
 import { t } from "./i18n.js";
 
 const fsp = fs.promises;
@@ -99,7 +100,7 @@ export class MenuBarBridge {
   writeAgentIcons() {
     const dir = path.join(this.dir, "agents");
     try { fs.mkdirSync(dir, { recursive: true }); } catch { return; }
-    for (const id of ["claude", "codex", "workbuddy", "dsh"]) {
+    for (const id of AGENT_ORDER) {
       try {
         const buf = agentImageBuffer(id);
         if (buf) fs.writeFileSync(path.join(dir, `${id}.png`), buf);
@@ -116,10 +117,15 @@ export class MenuBarBridge {
     let oldHash = "";
     try { oldHash = (await fsp.readFile(this.hashPath, "utf8")).trim(); } catch { /* first run */ }
     const hasBinary = fs.existsSync(this.binPath);
-    if (!hasBinary || oldHash !== hash) {
+    const compiled = !hasBinary || oldHash !== hash;
+    if (compiled) {
       await this.compile(hash);
     }
     // 编译要几秒；这期间开关被关掉的话，别再把助手拉起来
+    if (!this.enabled) return;
+    this.plugin.settings.showMenuBar = true;
+    this.plugin.settingTab?.mbSwitch?.setOn(true);
+    if (compiled) await this.plugin.saveSettings();
     if (!this.enabled) return;
     this.update(true);
     this.launch();

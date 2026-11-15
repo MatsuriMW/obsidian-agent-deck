@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { adBlockIdRanges, redirectHiddenTailTransaction } from '../src/ai-records.js';
+import { adBlockIdRanges, layoutMarkerRanges, redirectHiddenTailTransaction } from '../src/ai-records.js';
+import { renderJournalLayout, builtinJournalLayout } from '../src/journal-layout.js';
 const text = '- DOING 任务 ^ad-01a1d0\n\t- 手写备注\n- PAUSED 第二件 ^ad-26d277\n- 保留其他插件 ^nw-123456\n```md\n- 文档示例 ^ad-example\n```\n';
 const ranges = adBlockIdRanges(text);
 assert.deepEqual(ranges.map(({from,to})=>text.slice(from,to)),[' ^ad-01a1d0',' ^ad-26d277']);
@@ -38,3 +39,20 @@ assert.deepEqual(redirectHiddenTailTransaction(lineWithId, new Set(), {
   nextHead: lineWithId.length,
   selectionEmpty: true,
 }), { head: visibleEnd });
+
+const stripRanges = (src, list) => {
+  let out = '', pos = 0;
+  for (const r of list) { out += src.slice(pos, r.from); pos = r.to; }
+  return out + src.slice(pos);
+};
+const rendered = renderJournalLayout({
+  head: '个人笔记\n\n',
+  active: '- DOING 跑着',
+  todo: '',
+  done: '- DONE 完成',
+  tail: '\n\n私人记录\n',
+}, builtinJournalLayout('zh'));
+const visible = stripRanges(rendered, layoutMarkerRanges(rendered));
+assert.equal(visible, '个人笔记\n\n---\n## 正在做\n- DOING 跑着\n\n---\n## 还要做\n\n---\n## 已完成\n- DONE 完成\n\n---\n\n私人记录\n');
+const fencedLayout = '```md\n<!-- agent-deck:layout:start -->\n<!-- agent-deck:section:active:heading -->\n```\n';
+assert.deepEqual(layoutMarkerRanges(fencedLayout), [], 'fenced layout marker examples stay visible');

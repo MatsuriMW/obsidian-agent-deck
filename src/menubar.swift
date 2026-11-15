@@ -124,6 +124,7 @@ struct MenuSession: Decodable, Identifiable {
         case "codex": return "Codex"
         case "workbuddy": return "WorkBuddy"
         case "dsh": return "DSH"
+        case "cursor": return "Cursor"
         default: return agentName
         }
     }
@@ -645,6 +646,13 @@ enum DeckAgents {
                 color: .solid("#767FAE", "#A2ABD6"),
                 tint: .solid("#EAECF4", "#25283A"),
                 glyph: "◈", short: "DSH"
+            )
+        case "cursor":
+            return AgentStyle(
+                id: "cursor",
+                color: .solid("#5F7D95", "#89A7BF"),
+                tint: .solid("#E7EDF2", "#1F2932"),
+                glyph: "▸", short: "Cursor"
             )
         default:
             let base = Color(hex: fallbackColor)

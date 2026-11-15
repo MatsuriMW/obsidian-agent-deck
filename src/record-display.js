@@ -3,9 +3,9 @@
 
 import { Decoration, EditorView, ViewPlugin, WidgetType } from "@codemirror/view";
 import { EditorState, StateEffect, StateField } from "@codemirror/state";
-import { foldedRanges, unfoldEffect } from "@codemirror/language";
+import { foldedRanges, foldEffect, unfoldEffect } from "@codemirror/language";
 import {
-  aiRecordGroups, recordRuns, adBlockIdRanges, hiddenBlockId, redirectHiddenTailTransaction,
+  aiRecordGroups, recordRuns, adBlockIdRanges, layoutMarkerRanges, hiddenBlockId, redirectHiddenTailTransaction,
   recordIsOpen, recordStartsOpen, visibleRecords, isBriefRecord,
 } from "./ai-records.js";
 import { t } from "./i18n.js";
@@ -93,11 +93,11 @@ export function aiRecordUnfoldExtension(plugin, refreshEffect) {
     const out = [];
     for (const g of groups) {
       if (!g.records.length) continue;
-      const start = state.doc.line(g.line + 1).from;
+      const start = state.doc.line(g.records[0] + 1).from;
       const end = state.doc.line(g.records[g.records.length - 1] + 1).to;
       for (const f of folds) {
-        // 只收记录块内部的折叠；更上层（母项）的折叠是用户自己的，不碰
-        if (f.from > start && f.from <= end) out.push(unfoldEffect.of(f));
+        // 只收记录块内部的折叠；母项自身与更上层的折叠是用户自己的，不碰
+        if (f.from >= start && f.from <= end) out.push(unfoldEffect.of(f));
       }
     }
     return out;
@@ -126,6 +126,7 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
     const ids = trackedIds(plugin);
     const lines = text.split("\n");
     for (const { from, to } of adBlockIdRanges(text, ids)) ranges.push(Decoration.replace({}).range(from, to));
+    for (const { from, to } of layoutMarkerRanges(text)) ranges.push(Decoration.replace({ inclusive: false }).range(from, to));
     for (const group of aiRecordGroups(text, ids)) {
       const open = recordIsOpen(plugin.settings, mode, group);
       for (const n of group.records) ranges.push(Decoration.line({ class: "ad-record-line" + (!open && isBriefRecord(lines[n]) ? " ad-record-brief-clamped" : "") }).range(doc.line(n + 1).from));
@@ -184,6 +185,25 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
       return { ...result, head: result.head + line.from,
         ...(result.change ? { change: { ...result.change, from: result.change.from + line.from, to: result.change.to + line.from } } : {}) };
     };
+    if (!tr.docChanged && tr.effects.some((e) => e.is(foldEffect)) && !tr.effects.some((e) => e.is(unfoldEffect) || e.is(setRecordsOpenEffect))) {
+      const mode = displayMode(plugin);
+      if (mode !== "expanded") {
+        const groups = aiRecordGroups(startDoc.toString(), trackedIds(plugin));
+        const openByLine = new Map();
+        for (const g of groups) {
+          if (g.records.length && recordIsOpen(plugin.settings, mode, g)) openByLine.set(g.line, g.key);
+        }
+        if (openByLine.size) {
+          const keys = [], kept = [];
+          for (const e of tr.effects) {
+            const key = e.is(foldEffect) ? openByLine.get(startDoc.lineAt(e.value.from).number - 1) : null;
+            if (key) keys.push(key);
+            else kept.push(e);
+          }
+          if (keys.length) return { effects: [...kept, setRecordsOpenEffect.of({ keys, open: false })], selection: tr.selection, scrollIntoView: tr.scrollIntoView };
+        }
+      }
+    }
     if (tr.docChanged) {
       let count = 0, single = null;
       tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {

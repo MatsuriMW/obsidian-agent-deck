@@ -29,12 +29,12 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
   - Drag a list item from your note onto an agent card in the sidebar;
   - Type `@` in a task line to pick an agent, then `/` for model and reasoning effort (e.g. `@codex/gpt-6.1-sol/high`).
 - **Pre-send preview & full context**: Preview the block and choose a work destination before sending; delegating a sub-item automatically carries its ancestor chain (excluding unrelated sibling branches) and its child subtree, and you can edit an AI reply block to delegate again from it.
-- **Drag to bind**: Drop a session card onto an existing list item to bind it, or onto an empty line to create a new bound task. Bound lines show a live progress pill with elapsed time, cancel, and retry controls.
+- **Drag to bind**: Drop a session card onto an existing list item to bind it, or onto an empty line to create a new bound task. Regular bound sessions show a status pill. Background tasks show one progress row below the parent task with cancel/retry actions; it disappears when the answer is ready.
 
 ### 3. Human–AI Journal, Organization & Archiving
-- **Auto-journaling & write-back**: Periodically matches or creates daily-note task lines for today's sessions and syncs status, `⏱` active spans, per-turn records (brief / standard / detailed), and nested child session / side-chat / subagent blocks. Background tasks archive full transcripts under `Agent Deck/Conversations/` and attach an AI summary (~240 Chinese characters target covering conclusion, changes, and unfinished work) with a link back to the transcript; long URLs and file paths in summaries collapse into clickable short links without truncating targets.
+- **Auto-journaling & write-back**: Periodically matches or creates daily-note task lines for today's sessions and syncs status, `⏱` active spans, per-turn records (brief / standard / detailed), and nested child session / side-chat / subagent blocks. Background answers of up to 500 characters are written inline in full; longer answers return a link to a Markdown file under `Agent Deck/Answers/` containing the full question and answer with internal tracking metadata removed. No extra summary model is called. Regular session conclusions default to 350 characters, with long addresses shortened to clickable labels.
 - **Title protection & record folding**: Preserves manually edited AI task titles verbatim; shows only the latest AI conclusion by default while keeping history expandable; supports manual status locking; keeps internal tracking IDs hidden and removes them automatically on completion or archival.
-- **One-click tidy & archive**: **Tidy log** reorganizes the current daily note by template (finished tasks on top, ongoing AI logs grouped by status and turns, handwritten notes preserved); **Archive finished logs to…** moves completed AI blocks out of the journal into a target note grouped by date.
+- **One-click tidy & archive**: **Tidy log** reorganizes the current daily note by template (in progress, to do, completed, framed by dividers). Only complete bounded sections are organized; outside notes stay unchanged. Notes without a complete frame receive empty sections; **Archive finished logs to…** moves completed AI blocks out of the journal into a target note grouped by date.
 - **Nautilus Spiral compatibility**: Works alongside [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) by letting Agent Deck handle AI note writes while Nautilus keeps scheduling and tracking displays (Agent Deck restores token display whenever Nautilus does not show tokens for the same session).
 
 ### 4. Review Dashboard (Experimental, On by Default)
@@ -66,7 +66,7 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 ## Installation & Requirements
 
 ### 1. Installing the Plugin
-Agent Deck is not in the Obsidian community plugin directory yet. Install manually (current version **1.9.7**, requires Obsidian **1.4.0+** desktop):
+Agent Deck is not in the Obsidian community plugin directory yet. Install manually (current version **1.9.8**, requires Obsidian **1.4.0+** desktop):
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
 2. Place all 3 files in `<your-vault>/.obsidian/plugins/agent-deck/`.
@@ -115,7 +115,7 @@ Copy the generated `main.js`, `manifest.json`, and `styles.css` into `<your-vaul
 
 1. **Platform Support**
    - **Desktop only**: Obsidian mobile is not supported.
-   - **Windows unverified**: Developed and tested on macOS; 1.9.7 has not been verified on Windows yet. The menu bar helper is macOS-only, and terminal tab switching / several binary discovery paths currently rely on macOS tooling.
+   - **Windows unverified**: Developed and tested on macOS; 1.9.8 has not been verified on Windows yet. The menu bar helper is macOS-only, and terminal tab switching / several binary discovery paths currently rely on macOS tooling.
 2. **No Generic Remote API Delegation**
    - Automatic delegation launches local CLI or desktop processes. There is no generic remote API/SDK backend, and the plugin does not install CLIs or sign users in automatically.
 3. **No In-Plugin Follow-Up Chat**
