@@ -7,7 +7,7 @@
          .ad-tok-dbs）。
    模块边界：母块 AI 记录折叠与四视图投影已拆分至 views/record-views.css。
              此处 DOM 直接挂载在 Obsidian 笔记视图或 body 上，不在 .ad-view /
-             .ad-settings / .ad-modal 容器内，未注入 --ad-line / --ad-surface，
+             .ad-settings / .ad-modal / .ad-review 容器内，未注入 --ad-line / --ad-surface，
              需使用 Obsidian 原生变量或带 fallback。
    ========================================================================== */
 

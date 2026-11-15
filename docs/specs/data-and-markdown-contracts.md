@@ -28,6 +28,6 @@
 ## 4. 持久化与口径
 
 - **`data.json`**（`STORE_VERSION = 1`）：`archiveTaskTurns`、`aiRecordExpanded`、`aiRecordClosed`、`aiRecordViews` 存插件设置，不污染 Markdown。切换大纲／表格／卡片／时间线视图仅改变编辑器渲染，不改写 Markdown 内容、层级、顺序或块号。
-- **`usage.json` 缓存**（`USAGE_CACHE_VERSION = 6` in `src/readers.js`）：修改会话解析或清洗规则时必须递增版本号。
+- **`usage.json` 缓存**（`USAGE_CACHE_VERSION = 10` in `src/readers.js`）：修改会话解析或清洗规则时必须递增版本号。
 - **Token 让渡**：仅当螺旋日程实际匹配同一会话且提供相应 token 时让出显示；否则由 Agent Deck 显示。
 - **Dashboard 回顾口径**：汇总输入/输出/缓存读取 token、去重活跃耗时与会话数（沿用日记分界）；**缺失数据绝不估算**；不改写日记、不调用外部模型。项目归属除 `🔗` 链接外，也结合日记文件名日期与 `autoLogState` 溯源无 `🔗` 的 AI 自动记录块。（已在 macOS 实测；Windows 端未测）
