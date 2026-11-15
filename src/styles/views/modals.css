@@ -1,0 +1,629 @@
+/* ==========================================================================
+   [视图层 4/5] 弹窗与对话框（views/modals.css）
+   --------------------------------------------------------------------------
+   包含：基础委派弹窗、卡片排序管理弹窗、把手发送确认框、Dreaming 进度条、
+         对话回放弹窗、ACP 权限确认与工具调用时间线。
+   模块边界：每类弹窗以自身根类（.ad-modal / .ad-cardmanager / .ad-send /
+             .ad-dream-progress / .ad-conversation）收敛全部子元素。
+   注：模型网格选择器（ad-modelpick）已归入 base/controls.css，
+       关于/引导区块（ad-about-*）已归入 views/settings.css。
+   ========================================================================== */
+
+/* ---------- 1. 基础委派弹窗与权限审批外框 ---------- */
+
+.ad-modal {
+  width: min(540px, 94vw);
+  max-height: 84vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  & .ad-modalhead__title {
+    font-size: 17px;
+    font-weight: 750;
+    letter-spacing: -.02em;
+  }
+
+  & .ad-modalhead__sub {
+    font-size: 10px;
+    color: var(--ad-muted);
+    margin-top: 3px;
+    overflow-wrap: anywhere;
+  }
+
+  & .ad-preview {
+    margin-top: 12px;
+    border: 1px solid var(--ad-line);
+    border-radius: 10px;
+    background: var(--background-secondary);
+    padding: 9px 11px;
+    max-height: 120px;
+    overflow: auto;
+  }
+
+  & .ad-preview__text {
+    margin: 0;
+    font-family: var(--ad-figure);
+    font-size: 10px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    color: var(--ad-muted);
+  }
+
+  & .ad-modalfoot {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ad-line);
+  }
+
+  /* 权限确认弹窗说明与折叠参数块 */
+  & .ad-perm-sub {
+    font-size: 12.5px;
+    line-height: 1.55;
+    margin-top: 6px;
+    color: var(--ad-ink);
+  }
+
+  & .ad-perm-details {
+    margin-top: 12px;
+    border: 1px solid var(--ad-line);
+    border-radius: var(--ad-radius-sm);
+    padding: 8px 12px;
+    background: var(--ad-surface);
+    font-size: 12px;
+
+    & summary {
+      cursor: pointer;
+      color: var(--ad-muted);
+    }
+
+    & pre {
+      margin: 8px 0 0;
+      font-size: 11px;
+      max-height: 220px;
+      overflow: auto;
+    }
+  }
+}
+
+/* ---------- 2. 侧栏 Agent 卡片管理弹窗 ---------- */
+
+.modal.ad-cardmanager-dialog {
+  width: min(600px, 94vw);
+}
+
+.ad-modal.ad-cardmanager {
+  width: 100%;
+  box-sizing: border-box;
+
+  & .ad-cardmanager__list {
+    margin-top: 14px;
+  }
+
+  & .ad-cardmanager__row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--ad-line);
+
+    & .ad-glyph {
+      display: inline-flex;
+      width: 22px;
+      height: 22px;
+      flex: none;
+    }
+
+    & button {
+      flex: none;
+
+      &:disabled {
+        opacity: .3;
+        cursor: default;
+      }
+
+      & svg {
+        display: block;
+        width: 13px;
+        height: 13px;
+      }
+    }
+  }
+
+  & .ad-cardmanager__name {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+
+  & .ad-minitoggle {
+    appearance: none;
+    border: 1px solid var(--ad-line);
+    background: transparent;
+    color: var(--ad-muted);
+    font-size: 9px;
+    border-radius: 999px;
+    padding: 2px 7px;
+    cursor: pointer;
+
+    &.is-on {
+      color: var(--ad-good);
+      border-color: color-mix(in srgb, var(--ad-good) 35%, var(--ad-line));
+    }
+  }
+}
+
+/* ---------- 3. 把手单击发送确认弹窗 ---------- */
+
+/* 全幅底栏视觉：外层 .modal 去内边距，由 .ad-send__foot 贴边铺满 */
+.modal.ad-send-modal {
+  width: min(460px, 92vw);
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+
+  & .modal-close-button {
+    top: 14px;
+    right: 14px;
+  }
+}
+
+.ad-send {
+  width: auto;
+  padding: 20px 20px 0;
+  max-height: 80vh;
+
+  & .ad-send__head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-right: 24px;
+  }
+
+  & .ad-send__mark {
+    width: 36px;
+    height: 36px;
+    flex: none;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .08), 0 0 0 1px var(--ad-line);
+    overflow: hidden;
+  }
+
+  & .ad-send__title {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    color: var(--ad-ink);
+  }
+
+  & .ad-send__sub {
+    font-size: 11.5px;
+    color: var(--ad-muted);
+    margin-top: 2px;
+  }
+
+  & .ad-send__card {
+    margin-top: 16px;
+    padding: 12px 14px;
+    max-height: 240px;
+    overflow: auto;
+    border: 1px solid var(--ad-line);
+    border-left: 3px solid var(--ad-agent);
+    border-radius: 12px;
+    background: var(--ad-agent-soft);
+  }
+
+  /* 按大纲层级 --lvl 动态缩进待发送正文 */
+  & .ad-send__line {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding-left: calc(var(--lvl, 0) * 16px);
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--ad-muted);
+
+    & + .ad-send__line {
+      margin-top: 2px;
+    }
+
+    &.is-title {
+      color: var(--ad-ink);
+      font-weight: 600;
+      font-size: 14px;
+    }
+  }
+
+  & .ad-send__dot {
+    width: 5px;
+    height: 5px;
+    flex: none;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: .45;
+    transform: translateY(-2px);
+  }
+
+  & .ad-send__kw {
+    flex: none;
+    font-family: var(--ad-figure);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: var(--background-primary);
+    border: 1px solid var(--ad-line);
+    color: var(--ad-muted);
+  }
+
+  & .ad-send__text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  & .ad-send__meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--ad-faint);
+  }
+
+  & .ad-send__path {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  & .ad-send__foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin: 18px -20px 0;
+    padding: 12px 20px;
+    border-top: 1px solid var(--ad-line);
+    background: var(--ad-surface);
+  }
+
+  & .ad-send__btns {
+    display: flex;
+    gap: 8px;
+  }
+
+  & .ad-btn.ad-send__go {
+    background: var(--ad-agent);
+    color: #fff;
+    border-color: transparent;
+
+    &:hover {
+      filter: brightness(1.06);
+      background: var(--ad-agent);
+    }
+
+    &:focus-visible {
+      box-shadow: 0 0 0 3px var(--ad-agent-soft);
+    }
+  }
+}
+
+/* ---------- 4. Dreaming 分享进度弹窗 ---------- */
+
+/* 在模型调用期间全程保持可见，并在完成后展示最终结果 */
+.ad-dream-progress {
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+
+  & progress {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    accent-color: var(--interactive-accent);
+  }
+
+  &[hidden],
+  & progress[hidden] {
+    display: none;
+  }
+}
+
+/* ---------- 5. 对话回放弹窗与工具调用时间线 ---------- */
+
+.modal:has(.ad-conversation) {
+  width: min(680px, 94vw);
+}
+
+.ad-conversation {
+  width: auto;
+  max-height: none;
+  overflow: visible;
+  padding-top: 2px;
+
+  & .ad-textarea {
+    width: 100%;
+    margin: 8px 0;
+  }
+
+  /* 共用行内小图标槽位（14px / 13px 两档） */
+  & :is(.ad-conv-agent__mark, .ad-conv-msg__ico) {
+    display: inline-flex;
+    width: 14px;
+    height: 14px;
+  }
+
+  & :is(.ad-btn__ico, .ad-conv-foot__ico) {
+    display: inline-flex;
+    width: 13px;
+    height: 13px;
+  }
+
+  & .ad-conv-foot__ico {
+    flex: none;
+  }
+
+  & .ad-conv-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  & .ad-conv-agent {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 9px 2px 6px;
+    border-radius: 999px;
+    background: var(--ad-agent-soft, var(--ad-surface-2));
+    border: 1px solid color-mix(in srgb, var(--ad-agent, var(--ad-accent)) 28%, transparent);
+    color: var(--ad-ink);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  & .ad-conv-sub {
+    font-family: var(--ad-figure);
+    font-size: 11px;
+    color: var(--ad-muted);
+  }
+
+  & .ad-conv-title {
+    margin-top: 8px;
+    font-size: 17px;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+  }
+
+  & .ad-conv-actions {
+    margin-top: 12px;
+    align-items: center;
+
+    & .ad-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: none;
+    }
+  }
+
+  & .ad-conv-refresh {
+    margin-left: auto;
+  }
+
+  & .ad-conv-note {
+    margin-top: 10px;
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: var(--ad-muted);
+  }
+
+  /* 对话消息流允许划词复制，不受弹窗拖拽/按钮禁止选中限制 */
+  & .ad-conversation__messages {
+    max-height: 52vh;
+    overflow-y: auto;
+    margin: 12px 0 0;
+    padding-top: 12px;
+    border-top: 1px solid var(--ad-line);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    user-select: text;
+  }
+
+  & .ad-conv-empty {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 18px 16px;
+    border-radius: var(--ad-radius-sm);
+    border: 1px dashed var(--ad-line);
+    background: var(--ad-surface);
+  }
+
+  & .ad-conv-empty__ico {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--background-primary);
+    border: 1px solid var(--ad-line);
+    color: var(--ad-muted);
+
+    & svg {
+      width: 15px;
+      height: 15px;
+    }
+  }
+
+  & .ad-conv-empty__text {
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ad-muted);
+    padding-top: 4px;
+  }
+
+  & .ad-conversation__message {
+    padding: 11px 14px;
+    border-radius: var(--ad-radius-sm);
+    border: 1px solid var(--ad-line);
+    overflow-wrap: anywhere;
+
+    &.is-user {
+      background: var(--ad-surface);
+    }
+
+    &.is-assistant {
+      background: var(--background-primary);
+      border-left: 3px solid var(--ad-agent, var(--ad-accent));
+    }
+
+    & pre {
+      white-space: pre-wrap;
+    }
+  }
+
+  & .ad-conv-msg__role {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    font-size: 11.5px;
+    font-weight: 650;
+    color: var(--ad-muted);
+  }
+
+  & .ad-conv-msg__body {
+    font-size: 13px;
+    line-height: 1.65;
+
+    & > :first-child {
+      margin-top: 0;
+    }
+
+    & > :last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  /* 对话状态提示条：通过 --ad-status-tone 统一错误与警告着色 */
+  & .ad-conv-status {
+    padding: 9px 12px;
+    border-radius: var(--ad-radius-sm);
+    border: 1px solid var(--ad-line);
+    background: var(--ad-surface);
+    font-size: 12px;
+    color: var(--ad-muted);
+
+    &.is-error { --ad-status-tone: var(--ad-bad); }
+    &.is-warn  { --ad-status-tone: var(--ad-warn); }
+
+    &:is(.is-error, .is-warn) {
+      border-left: 3px solid var(--ad-status-tone);
+      color: var(--ad-status-tone);
+    }
+
+    &.is-live {
+      border-left: 3px solid var(--ad-agent, var(--ad-accent));
+    }
+  }
+
+  & .ad-conv-foot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--ad-line);
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ad-muted);
+  }
+
+  /* 工具调用时间线（Cursor 会话等展示工具参数、耗时与缺失结果） */
+  & .ad-tool-timeline {
+    margin-top: 8px;
+    padding-left: 10px;
+    border-left: 2px solid var(--background-modifier-border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  & .ad-tool-timeline__title {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  & .ad-tool-item {
+    font-size: 12px;
+    padding: 6px 8px;
+    border-radius: var(--ad-radius-sm);
+    background: var(--background-secondary);
+    text-align: left;
+
+    &.is-success { --ad-tool-tone: var(--ad-good); }
+    &.is-error   { --ad-tool-tone: var(--ad-bad); }
+    &.is-missing { --ad-tool-tone: var(--ad-warn); }
+
+    &:is(.is-success, .is-error, .is-missing) .ad-tool-item__glyph {
+      color: var(--ad-tool-tone);
+    }
+  }
+
+  & .ad-tool-item__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  & .ad-tool-item__glyph {
+    font-family: var(--font-monospace);
+  }
+
+  & .ad-tool-item__error {
+    color: var(--ad-bad);
+  }
+
+  & .ad-tool-item__missing {
+    color: var(--ad-warn);
+  }
+
+  & .ad-tool-item__status,
+  & .ad-tool-item__dur {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  & .ad-tool-item__input {
+    margin-top: 4px;
+    font-family: var(--font-monospace);
+    font-size: 11px;
+    color: var(--text-muted);
+    word-break: break-all;
+  }
+
+  & .ad-tool-item__output,
+  & .ad-tool-item__details pre {
+    margin: 4px 0 0;
+    font-size: 11px;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  & .ad-tool-item__details summary {
+    cursor: pointer;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+}

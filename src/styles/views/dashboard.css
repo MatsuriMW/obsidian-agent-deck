@@ -1,0 +1,361 @@
+/* ==========================================================================
+   [视图层 1/7] 侧栏主面板骨架与统计区（views/dashboard.css）
+   --------------------------------------------------------------------------
+   包含：面板外层容器（.ad-view / .ad-dash）、页头搜索与操作按钮（.ad-head）、
+         Hero 概览卡与今日时间轴/项目投入（.ad-hero）、分区标题容器（.ad-sec），
+         以及 7 日堆叠柱状图与图例（.ad-bars / .ad-legend）。
+   模块边界：卡片实体与叠放列表拆分至 views/dashboard-cards.css；
+             本文件所有内部规则均收敛在 .ad-view / .ad-dash 边界内，消除顶层平铺。
+   ========================================================================== */
+
+.ad-view {
+  padding: 0;
+  overflow-y: auto;
+
+  /* ---------- 1. 面板容器与页头 ---------- */
+
+  & .ad-dash {
+    /* 预留底部 --ad-slack 弹性留白：防止收起高处叠放组时因内容骤减导致视图夹紧跳动 */
+    padding: 14px 10px calc(38px + var(--ad-slack, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 100%;
+
+    & .ad-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 2px 2px 8px;
+
+      & .ad-search {
+        flex: 1;
+        min-width: 0;
+        height: 28px;
+
+        &:focus-within {
+          border-color: var(--ad-accent);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--ad-accent) 16%, transparent);
+        }
+      }
+
+      & .ad-head__actions {
+        display: flex;
+        gap: 6px;
+        flex: none;
+      }
+    }
+
+    /* ---------- 2. Hero 概览卡、今日时间轴与项目投入 ---------- */
+
+    & .ad-hero {
+      position: relative;
+      border: 1px solid var(--ad-line);
+      border-radius: 18px;
+      padding: 14px 14px 12px;
+      background:
+        radial-gradient(120% 90% at 0% 0%, rgba(139, 132, 168, .10), transparent 55%),
+        radial-gradient(100% 90% at 100% 0%, rgba(176, 155, 140, .08), transparent 55%),
+        var(--ad-surface);
+      overflow: hidden;
+
+      &::after {
+        content: "";
+        position: absolute;
+        inset: -60% -30% auto auto;
+        width: 180px;
+        height: 180px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(139, 132, 168, .14), transparent 65%);
+        filter: blur(22px);
+        pointer-events: none;
+      }
+
+      & .ad-hero__hint {
+        font-size: 10px;
+        color: var(--ad-faint);
+        margin-top: 10px;
+      }
+
+      & .ad-hero__nums {
+        position: relative;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+
+      & .ad-num {
+        min-width: 0;
+      }
+
+      & .ad-num__v {
+        font-size: 25px;
+        font-weight: 760;
+        letter-spacing: -.03em;
+        line-height: 1.05;
+        font-variant-numeric: tabular-nums;
+      }
+
+      & .ad-num__l {
+        font-size: 10px;
+        color: var(--ad-muted);
+        margin-top: 2px;
+      }
+
+      & .ad-num__sub {
+        font-size: 10px;
+        color: var(--ad-faint);
+        margin-top: 1px;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* 今天的时间轴泳道 */
+      & .ad-day {
+        position: relative;
+        margin-top: 12px;
+        padding-top: 2px;
+      }
+
+      & .ad-day__lane {
+        position: relative;
+        height: 8px;
+        border-radius: 4px;
+        background: var(--background-modifier-hover);
+        overflow: hidden;
+
+        & + .ad-day__lane {
+          margin-top: 3px;
+        }
+      }
+
+      & .ad-day__seg {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-radius: 2px;
+        opacity: .85;
+      }
+
+      & .ad-day__now {
+        position: absolute;
+        top: 0;
+        bottom: 14px;
+        width: 1.5px;
+        background: var(--ad-ink);
+        opacity: .45;
+        border-radius: 1px;
+      }
+
+      & .ad-day__ticks {
+        display: flex;
+        justify-content: space-between;
+        font-size: 9px;
+        color: var(--ad-faint);
+        margin-top: 3px;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* 今天投入时间最多的项目 */
+      & .ad-projs {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 9px;
+      }
+
+      & .ad-proj {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(44px, 1fr) auto;
+        align-items: center;
+        gap: 8px;
+        font-size: 11px;
+      }
+
+      & .ad-proj__name {
+        color: var(--ad-ink);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      & .ad-proj__bar {
+        height: 4px;
+        border-radius: 2px;
+        background: var(--background-modifier-hover);
+        overflow: hidden;
+      }
+
+      & .ad-proj__fill {
+        height: 100%;
+        border-radius: 2px;
+        background: var(--ad-accent);
+        opacity: .55;
+      }
+
+      & .ad-proj__min {
+        color: var(--ad-muted);
+        font-size: 10px;
+        font-variant-numeric: tabular-nums;
+        min-width: 4.2em;
+        text-align: right;
+      }
+    }
+
+    /* 浅色主题 Hero 背景渐变调柔 */
+    .theme-light & .ad-hero {
+      background:
+        radial-gradient(120% 90% at 0% 0%, rgba(139, 132, 168, .07), transparent 55%),
+        radial-gradient(100% 90% at 100% 0%, rgba(176, 155, 140, .06), transparent 55%),
+        var(--background-secondary);
+    }
+
+    /* ---------- 3. 分区容器与标题 ---------- */
+
+    & .ad-sec {
+      margin-top: 16px;
+
+      & .ad-sechead {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 8px;
+        padding: 0 2px;
+
+        & .ad-filters {
+          margin-left: auto;
+        }
+      }
+
+      & .ad-sechead__title {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: -.01em;
+      }
+
+      & .ad-sechead__sub {
+        font-size: 10px;
+        font-weight: 500;
+        color: var(--ad-muted);
+      }
+
+      &.ad-sec--recent {
+        & .ad-sechead {
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+
+        & .ad-sechead__title {
+          flex-wrap: wrap;
+        }
+
+        & .ad-range {
+          display: inline-flex;
+          gap: 4px;
+          margin-left: auto;
+        }
+
+        & .ad-filters {
+          margin-left: 0;
+          width: 100%;
+        }
+      }
+    }
+
+    /* ---------- 4. 7 日堆叠柱状图与图例 ---------- */
+
+    & .ad-bars {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 108px;
+      padding: 8px 4px 0;
+      border-bottom: 1px solid var(--ad-line);
+
+      & .ad-bar {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 4px;
+        min-width: 0;
+        height: 100%;
+      }
+
+      & .ad-bar__stack {
+        flex: 1;
+        display: flex;
+        flex-direction: column-reverse;
+        justify-content: flex-start;
+        gap: 1px;
+        min-height: 2px;
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      & .ad-bar__seg {
+        width: 100%;
+        min-height: 2px;
+        border-radius: 2px;
+        transition: height .3s ease;
+      }
+
+      & .ad-bar__zero {
+        height: 1px;
+        background: var(--ad-line);
+        margin-top: auto;
+      }
+
+      & .ad-bar__label {
+        font-size: 8px;
+        color: var(--ad-faint);
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+    }
+
+    & .ad-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 0 4px;
+
+      & .ad-legend__item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 9px;
+        color: var(--ad-muted);
+      }
+
+      & .ad-legend__dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+      }
+    }
+  }
+}
+
+/* ---------- 5. 极窄侧栏 Hero 断点 ---------- */
+
+@media (max-width: 340px) {
+  .ad-view .ad-hero {
+    & .ad-hero__nums {
+      gap: 3px;
+    }
+
+    & .ad-num__v {
+      font-size: 21px;
+    }
+  }
+}

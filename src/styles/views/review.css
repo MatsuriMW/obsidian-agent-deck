@@ -1,0 +1,746 @@
+/* ==========================================================================
+   [视图层 5/5] 回顾面板（views/review.css）
+   --------------------------------------------------------------------------
+   包含：页面容器与热力图色阶、顶部控件与日历热力图、选中汇总与 KPI 指标、
+         洞察/筛选胶囊、24 小时作息节律图、Agent 分布、模型/项目排行表、
+         记录明细与容器查询断点。
+   模块边界：全部子选择器统一收敛在 .ad-review 根块内部，不向顶层泄漏；
+             焦点外框已交由 base/tokens.css 统一提供。
+   ========================================================================== */
+
+.ad-review {
+  overflow: auto;
+  container-type: inline-size;
+
+  & h1 {
+    font-size: 26px;
+    margin: 0;
+    font-weight: 650;
+    letter-spacing: -.025em;
+  }
+
+  & h2 {
+    font-size: 17px;
+    margin: 0;
+    font-weight: 600;
+  }
+
+  & button {
+    cursor: pointer;
+  }
+
+  /* ---- 1. 页面容器与热力图色阶变量 ---- */
+  & .ad-review__page {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 32px clamp(16px, 4vw, 48px) 64px;
+    color: var(--ad-ink);
+    --ad-heat-0: var(--ad-line);
+    --ad-heat-1: #b8ddca;
+    --ad-heat-2: #77bb98;
+    --ad-heat-3: #36855c;
+    --ad-heat-4: #185333;
+  }
+
+  /* 深色主题热力图阶梯色 */
+  .theme-dark & .ad-review__page {
+    --ad-heat-0: #303b37;
+    --ad-heat-1: #284e3b;
+    --ad-heat-2: #357b51;
+    --ad-heat-3: #57ae72;
+    --ad-heat-4: #91d79a;
+  }
+
+  /* ---- 2. 页头、筛选控制栏与热力图卡片 ---- */
+  & :is(.ad-review__head, .ad-review__sectionhead, .ad-review__heat-footer, .ad-review__controls) {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  & .ad-review__head {
+    align-items: flex-start;
+    margin-bottom: 28px;
+
+    & p {
+      color: var(--ad-muted);
+      font-size: 13px;
+      margin: 7px 0 0;
+    }
+  }
+
+  & :is(.ad-review__actions, .ad-review__presets, .ad-review__dates, .ad-review__selection) {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  & .ad-review__controls {
+    font-size: 12px;
+    margin-bottom: 20px;
+    gap: 12px;
+  }
+
+  & .ad-review__presets {
+    gap: 4px;
+
+    & button {
+      font-size: 12px;
+      box-shadow: none;
+      background: transparent;
+
+      &[aria-pressed="true"] {
+        background: var(--background-modifier-hover);
+        color: var(--ad-ink);
+        font-weight: 600;
+      }
+    }
+  }
+
+  & .ad-review__dates {
+    & label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--ad-muted);
+    }
+
+    & input {
+      width: 133px;
+      font-size: 12px;
+    }
+  }
+
+  /* 热力图与 24h 作息节律共用卡片表面 */
+  & :is(.ad-review__heat, .ad-review__rhythm-card) {
+    background: var(--ad-surface);
+    border-radius: 12px;
+  }
+
+  & .ad-review__heat {
+    padding: 22px 24px 18px;
+  }
+
+  & .ad-review__sectionhead {
+    margin-bottom: 18px;
+
+    & > span {
+      font-size: 12px;
+      color: var(--ad-muted);
+    }
+  }
+
+  & .ad-review__heat-scroll {
+    overflow-x: auto;
+    padding: 5px 2px 9px;
+  }
+
+  /* 按周数动态伸缩的 GitHub 风格贡献网格 */
+  & .ad-review__calendar {
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    grid-template-rows: 20px auto;
+    column-gap: 7px;
+    min-width: calc(var(--ad-weeks) * 12px + 27px);
+  }
+
+  & .ad-review__weekdays {
+    display: grid;
+    grid-template-rows: repeat(7, 12px);
+    gap: 3px;
+    grid-row: 2;
+    font-size: 10px;
+    color: var(--ad-muted);
+    align-items: center;
+  }
+
+  & .ad-review__months {
+    grid-column: 2;
+    display: grid;
+    grid-template-columns: repeat(var(--ad-weeks), minmax(9px, 1fr));
+    gap: 3px;
+    font-size: 10px;
+    color: var(--ad-muted);
+
+    & span {
+      white-space: nowrap;
+    }
+  }
+
+  & .ad-review__grid {
+    grid-column: 2;
+    grid-row: 2;
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(7, 12px);
+    grid-template-columns: repeat(var(--ad-weeks), minmax(9px, 1fr));
+    gap: 3px;
+  }
+
+  & button.ad-review__day {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 12px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 3px;
+    box-shadow: none;
+
+    &[aria-pressed="true"] {
+      outline: 2px solid var(--ad-ink);
+      outline-offset: 2px;
+    }
+  }
+
+  & :is(.ad-review__day, .ad-review__swatch)[data-level="0"] { background: var(--ad-heat-0); }
+  & :is(.ad-review__day, .ad-review__swatch)[data-level="1"] { background: var(--ad-heat-1); }
+  & :is(.ad-review__day, .ad-review__swatch)[data-level="2"] { background: var(--ad-heat-2); }
+  & :is(.ad-review__day, .ad-review__swatch)[data-level="3"] { background: var(--ad-heat-3); }
+  & :is(.ad-review__day, .ad-review__swatch)[data-level="4"] { background: var(--ad-heat-4); }
+
+  & .ad-review__heat-footer {
+    margin-top: 15px;
+    font-size: 11px;
+    color: var(--ad-muted);
+  }
+
+  & .ad-review__legend {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  & .ad-review__swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+  }
+
+  /* ---- 3. 选中区间汇总、KPI 指标与洞察/筛选胶囊 ---- */
+  & .ad-review__selection {
+    margin: 24px 0 14px;
+    color: var(--ad-muted);
+    font-size: 12px;
+
+    & button {
+      font-size: 12px;
+    }
+  }
+
+  & .ad-review__stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+
+    & > div {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    & span {
+      color: var(--ad-muted);
+      font-size: 12px;
+    }
+
+    & strong {
+      font-size: 27px;
+      font-weight: 600;
+      letter-spacing: -.03em;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+
+  & .ad-review__insights {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  /* 洞察胶囊与工具栏筛选胶囊共享圆角边框与选中态高亮 */
+  & :is(.ad-review__insight, button.ad-review__insight, button.ad-review__chip) {
+    height: auto;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--ad-line);
+    color: var(--ad-muted);
+    box-shadow: none;
+  }
+
+  & :is(.ad-review__insight, button.ad-review__insight) {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.4;
+    background: var(--ad-surface);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  & button.ad-review__insight:hover {
+    color: var(--ad-ink);
+    background: var(--background-modifier-hover);
+  }
+
+  & :is(button.ad-review__insight, button.ad-review__chip)[aria-pressed="true"] {
+    border-color: var(--interactive-accent);
+    color: var(--ad-ink);
+    font-weight: 600;
+  }
+
+  & .ad-review__note {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--ad-muted);
+    margin: 16px 0;
+    max-width: 80ch;
+  }
+
+  & :is(.ad-review__agents, .ad-review__models, .ad-review__projects, .ad-review__records, .ad-review__rhythm) {
+    margin-top: 32px;
+  }
+
+  /* ---- 4. 24 小时作息节律柱状图 ---- */
+  & .ad-review__rhythm-card {
+    padding: 18px 20px 14px;
+  }
+
+  & .ad-review__rhythm-bars {
+    display: grid;
+    grid-template-columns: repeat(24, minmax(0, 1fr));
+    gap: 5px;
+    align-items: end;
+    height: 110px;
+    padding-bottom: 4px;
+  }
+
+  & .ad-review__rhythm-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    min-width: 0;
+
+    &.is-peak .ad-review__rhythm-fill {
+      background: var(--ad-heat-3);
+    }
+
+    &:hover .ad-review__rhythm-fill {
+      background: var(--ad-heat-4);
+    }
+  }
+
+  & .ad-review__rhythm-track {
+    position: relative;
+    flex: 1 1 auto;
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    border-radius: 4px;
+    background: color-mix(in srgb, var(--ad-line) 35%, transparent);
+    overflow: hidden;
+  }
+
+  & .ad-review__rhythm-fill {
+    position: relative;
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    background: var(--ad-heat-2);
+    transition: background-color .15s ease;
+  }
+
+  /* 叠加在柱内底部的并发/多线密度条 */
+  & .ad-review__rhythm-conc {
+    position: absolute;
+    inset: auto 0 0 0;
+    background: var(--ad-accent);
+    opacity: .78;
+    border-radius: 2px 2px 0 0;
+  }
+
+  & .ad-review__rhythm-hour {
+    height: 14px;
+    font-size: 10px;
+    line-height: 14px;
+    color: var(--ad-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  & .ad-review__rhythm-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--ad-muted);
+  }
+
+  & .ad-review__rhythm-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+
+    &.is-active {
+      background: var(--ad-heat-3);
+    }
+
+    &.is-conc {
+      background: var(--ad-accent);
+      margin-left: 8px;
+    }
+  }
+
+  /* ---- 5. Agent 分布卡片与模型/项目排行表 ---- */
+  & table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  & th {
+    text-align: left;
+    color: var(--ad-muted);
+    font-size: 12px;
+    font-weight: 400;
+    white-space: nowrap;
+  }
+
+  & th,
+  & td {
+    padding: 12px 10px;
+    border-bottom: 1px solid var(--ad-line);
+  }
+
+  /* 统一所有排行表首列占宽 45%（注：曾有 .ad-review__models 首列 32% 被下条同权覆盖，保留 45% 现状） */
+  & th:first-child,
+  & td:first-child {
+    padding-left: 0;
+    width: 45%;
+  }
+
+  & td:not(:first-child) {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  & tr.is-selected {
+    background: var(--background-modifier-hover);
+  }
+
+  & .ad-review__agent-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 10px;
+  }
+
+  & button.ad-review__agent-row {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 7px;
+    height: auto;
+    padding: 11px 13px;
+    border: 1px solid var(--ad-line);
+    border-radius: 10px;
+    background: var(--ad-surface);
+    text-align: left;
+    box-shadow: none;
+
+    &:hover {
+      background: var(--background-modifier-hover);
+    }
+
+    &.is-selected {
+      border-color: var(--ad-agent, var(--interactive-accent));
+      background: var(--background-modifier-hover);
+    }
+
+    & .ad-review__bar {
+      margin-top: 0;
+
+      & span {
+        background: var(--ad-agent, var(--ad-heat-3));
+      }
+    }
+  }
+
+  & .ad-review__agent-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  & .ad-review__agent-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ad-ink);
+  }
+
+  & .ad-review__agent-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--ad-agent, var(--ad-muted));
+  }
+
+  & .ad-review__agent-icons {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: none;
+  }
+
+  & .ad-review__agent-badge {
+    width: 13px;
+    height: 13px;
+    opacity: .9;
+  }
+
+  & .ad-review__agent-meta {
+    font-size: 11px;
+    color: var(--ad-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  & .ad-review__table-scroll {
+    overflow-x: auto;
+    margin-top: 14px;
+  }
+
+  /* 表格排序与跳转无框文字按钮共用样式重置 */
+  & :is(button.ad-review__th-sort, button.ad-review__project-name, button.ad-review__link, button.ad-review__source) {
+    height: auto;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  & button.ad-review__th-sort {
+    font: inherit;
+    color: inherit;
+    font-weight: inherit;
+
+    &:hover {
+      color: var(--ad-ink);
+    }
+
+    &.is-active {
+      color: var(--ad-ink);
+      font-weight: 600;
+    }
+  }
+
+  & :is(button.ad-review__project-name, button.ad-review__link, button.ad-review__source) {
+    white-space: normal;
+    text-align: left;
+  }
+
+  & button.ad-review__project-name {
+    font-weight: 550;
+  }
+
+  & .ad-review__project-sub {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 5px;
+
+    & button.ad-review__link {
+      margin-top: 0;
+    }
+  }
+
+  & .ad-review__project-agents {
+    font-size: 11px;
+    color: var(--ad-muted);
+  }
+
+  & button.ad-review__link {
+    display: block;
+    margin-top: 5px;
+    font-size: 11px;
+    color: var(--ad-muted);
+  }
+
+  & .ad-review__toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  & .ad-review__search {
+    flex: 1 1 220px;
+    min-width: 0;
+    font-size: 12px;
+  }
+
+  & .ad-review__chips {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  & button.ad-review__chip {
+    font-size: 11.5px;
+    background: transparent;
+
+    &[aria-pressed="true"] {
+      background: var(--background-modifier-hover);
+    }
+  }
+
+  & .ad-review__bar {
+    height: 3px;
+    margin-top: 6px;
+    width: 100%;
+    background: var(--ad-line);
+    border-radius: 2px;
+
+    & span {
+      display: block;
+      height: 100%;
+      background: var(--ad-heat-3);
+      border-radius: 2px;
+    }
+  }
+
+  /* ---- 6. 记录明细与统计口径说明 ---- */
+  & .ad-review__record {
+    border-bottom: 1px solid var(--ad-line);
+
+    & > summary {
+      cursor: pointer;
+      padding: 15px 0;
+      font-size: 13px;
+    }
+  }
+
+  & .ad-review__record-title {
+    overflow-wrap: anywhere;
+  }
+
+  & .ad-review__record-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 6px 0 0 16px;
+    font-size: 11px;
+    color: var(--ad-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  & .ad-review__record-body {
+    padding: 0 0 18px 16px;
+    font-size: 12px;
+
+    & > p {
+      margin-top: 0;
+      color: var(--ad-muted);
+    }
+
+    & > .ad-review__actions {
+      margin-bottom: 15px;
+    }
+  }
+
+  & button.ad-review__source {
+    color: var(--link-color);
+    overflow-wrap: anywhere;
+  }
+
+  & .ad-review__excerpt {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-height: 240px;
+    overflow: auto;
+    font: inherit;
+    line-height: 1.7;
+    padding: 12px;
+    background: var(--ad-surface);
+    border-radius: 6px;
+  }
+
+  & .ad-review__method {
+    margin-top: 32px;
+    font-size: 12px;
+    color: var(--ad-muted);
+    line-height: 1.7;
+
+    & summary {
+      cursor: pointer;
+    }
+  }
+}
+
+/* ---------- 7. 容器宽度响应式断点 ---------- */
+
+@container (max-width: 600px) {
+  .ad-review {
+    & .ad-review__page {
+      padding: 20px 16px 40px;
+    }
+
+    & .ad-review__heat {
+      padding: 18px 14px;
+    }
+
+    & .ad-review__stats {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    & .ad-review__agent-list {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    & .ad-review__rhythm-card {
+      padding: 14px 12px 12px;
+    }
+
+    & .ad-review__rhythm-bars {
+      gap: 2px;
+      height: 88px;
+    }
+
+    & .ad-review__toolbar {
+      align-items: stretch;
+    }
+
+    & .ad-review__search {
+      flex-basis: 100%;
+    }
+
+    & .ad-review__dates {
+      gap: 8px;
+
+      & label {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    & .ad-review__head {
+      margin-bottom: 20px;
+    }
+  }
+}

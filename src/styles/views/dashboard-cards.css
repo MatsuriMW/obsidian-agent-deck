@@ -1,0 +1,806 @@
+/* ==========================================================================
+   [视图层 2/7] 侧栏卡片与会话叠放列表（views/dashboard-cards.css）
+   --------------------------------------------------------------------------
+   包含：实时与最近会话卡片（.ad-nowlist / .ad-sess）、来源角标与运行态胶囊
+         （.ad-side / .ad-state）、Agent 网格与横条卡片（.ad-agentgrid /
+         .ad-agentcard）、活跃交接提示条（.ad-handoff），以及最近会话列表与
+         同 Agent 扑克牌叠放组（.ad-sessionlist / .ad-stack / .ad-recent-more）。
+   模块边界：收敛在 .ad-view 内，同时覆盖侧栏主列表（.ad-view > .ad-dash）
+             与挂载在 body 上的飞行残影（.ad-view.ad-fly-layer > .ad-sess）。
+   ========================================================================== */
+
+.ad-view {
+  /* 浅色主题卡片微阴影采用 :where() 降权，确保 .is-drop 等状态类不受源码顺序影响 */
+  :where(.theme-light) & :is(.ad-sess, .ad-agentcard) {
+    box-shadow: 0 1px 0 rgba(0, 0, 0, .02);
+  }
+
+  /* ---------- 1. 实时会话与最近会话卡片 ---------- */
+
+  & .ad-nowlist {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+
+    & .ad-sess.is-dragging {
+      opacity: .35;
+      transform: none;
+    }
+  }
+
+  & .ad-sess {
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr) 22px;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 10px;
+    border: 1px solid var(--ad-line);
+    border-radius: var(--ad-radius-sm);
+    background: var(--ad-surface);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform .16s ease, border-color .16s ease, background .16s ease;
+
+    /* 左侧 Agent 识别色细竖条 */
+    &::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 7px;
+      bottom: 7px;
+      width: 2px;
+      border-radius: 2px;
+      background: var(--ad-agent);
+      opacity: .8;
+    }
+
+    &:hover {
+      transform: translateY(-1px);
+      border-color: color-mix(in srgb, var(--ad-agent) 38%, var(--ad-line));
+      background: var(--background-modifier-hover);
+
+      & .ad-sess__x {
+        opacity: 1;
+      }
+    }
+
+    &.is-live {
+      border-color: color-mix(in srgb, var(--ad-agent) 30%, var(--ad-line));
+    }
+
+    &.is-now {
+      background: linear-gradient(90deg, var(--ad-agent-soft), transparent 65%), var(--ad-surface);
+    }
+
+    &.is-child {
+      margin-left: 18px;
+
+      &::before {
+        opacity: .45;
+      }
+    }
+
+    /* 依据右侧操作按钮数量动态分配网格列 */
+    &.has-x,
+    &.has-conversation {
+      grid-template-columns: 24px minmax(0, 1fr) 22px 22px;
+    }
+
+    &.has-conversation.has-x {
+      grid-template-columns: 24px minmax(0, 1fr) 22px 22px 22px;
+    }
+
+    &[draggable="true"] {
+      cursor: grab;
+    }
+
+    &.is-dragging {
+      opacity: .45;
+    }
+
+    &.is-drop {
+      border-style: solid;
+      border-color: var(--ad-agent);
+      background: linear-gradient(90deg, var(--ad-agent-soft), transparent 70%), var(--ad-surface);
+    }
+
+    &.is-landed {
+      animation: ad-land .9s ease-out 1;
+    }
+
+    body.ad-dragging-item & {
+      border-style: dashed;
+    }
+
+    & .ad-sess__mark {
+      width: 22px;
+      height: 22px;
+      border-radius: 7px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--ad-agent-soft);
+      color: var(--ad-agent);
+      font-size: 12px;
+
+      & .ad-glyph {
+        width: 18px;
+        height: 18px;
+
+        & svg {
+          width: 12px;
+          height: 12px;
+        }
+      }
+
+      & svg {
+        width: 12px;
+        height: 12px;
+      }
+    }
+
+    & .ad-sess__body {
+      min-width: 0;
+    }
+
+    & .ad-sess__title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    & .ad-sess__name {
+      font-size: 12px;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    & .ad-sess__sub {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-wrap: wrap;
+      color: var(--ad-muted);
+      font-size: 10px;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    & .ad-sess__cwd,
+    & .ad-sess__step {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    & .ad-sess__prog {
+      color: var(--ad-agent);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    & .ad-sess__step {
+      color: var(--ad-faint);
+    }
+
+    & .ad-sess__tok {
+      color: var(--ad-agent);
+    }
+
+    & .ad-sess__kin {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 3px;
+      color: var(--ad-faint);
+      font-size: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+
+    & .ad-sess__kinmark {
+      color: var(--ad-agent);
+      opacity: .75;
+      font-size: 11px;
+      line-height: 1;
+    }
+
+    & .ad-sess__kintitle {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    & .ad-sess__x {
+      opacity: 0;
+      transition: opacity .12s ease;
+
+      &:focus-visible {
+        opacity: 1;
+      }
+
+      &:hover .ad-arrow__icon {
+        color: var(--ad-bad);
+      }
+    }
+  }
+
+  /* ---------- 2. 来源角标与运行状态胶囊 ---------- */
+
+  & .ad-side {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex: none;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    padding: 1px 6px;
+    border-radius: 999px;
+    color: var(--ad-agent);
+    background: var(--ad-agent-soft);
+
+    & .ad-side__icon {
+      display: inline-flex;
+      width: 10px;
+      height: 10px;
+
+      & svg {
+        width: 10px;
+        height: 10px;
+      }
+    }
+  }
+
+  & .ad-state {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    padding: 1px 5px;
+    border-radius: 999px;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+
+    &.is-live  { --ad-state-tone: var(--ad-good); animation: ad-pulse 1.8s ease-in-out infinite; }
+    &.is-wait  { --ad-state-tone: var(--ad-warn); }
+    &.is-error { --ad-state-tone: var(--ad-bad); }
+    &.is-done  { --ad-state-tone: var(--ad-good); --ad-state-alpha: 12%; }
+
+    &:is(.is-live, .is-wait, .is-error, .is-done) {
+      color: var(--ad-state-tone);
+      background: color-mix(in srgb, var(--ad-state-tone) var(--ad-state-alpha, 14%), transparent);
+    }
+
+    &.is-quiet {
+      color: var(--ad-muted);
+      background: var(--background-modifier-hover);
+    }
+
+    & .ad-state__icon .ad-lattice {
+      --ad-ll-cell: 2.5px;
+      --ad-ll-gap: .5px;
+      margin-right: 3px;
+    }
+  }
+
+  /* ---------- 3. Agent 卡片网格与列表（1-3 详细横条，4+ 紧凑网格） ---------- */
+
+  & .ad-agentgrid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+
+    &.ad-agentgrid--list {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  & .ad-agentcard {
+    border: 1px solid var(--ad-line);
+    border-radius: var(--ad-radius);
+    background: var(--ad-surface);
+    padding: 10px;
+    position: relative;
+    overflow: hidden;
+    transition: transform .16s ease, border-color .16s ease;
+
+    &::after {
+      content: "";
+      position: absolute;
+      right: -26px;
+      top: -32px;
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: var(--ad-agent-soft);
+      filter: blur(8px);
+      pointer-events: none;
+    }
+
+    &:hover {
+      transform: translateY(-1px);
+      border-color: color-mix(in srgb, var(--ad-agent) 34%, var(--ad-line));
+
+      & .ad-agentcard__grip {
+        opacity: .8;
+      }
+    }
+
+    &.is-off {
+      opacity: .55;
+      filter: saturate(.55);
+    }
+
+    &.is-primary {
+      border-color: color-mix(in srgb, var(--ad-agent) 38%, var(--ad-line));
+    }
+
+    &.is-running .ad-agentcard__where {
+      color: var(--ad-good);
+    }
+
+    &.is-dragging {
+      opacity: .4;
+      transform: none;
+    }
+
+    &.is-drop {
+      border-style: solid;
+      border-color: var(--ad-agent);
+      background: linear-gradient(180deg, var(--ad-agent-soft), transparent 80%), var(--ad-surface);
+      transform: translateY(-2px) scale(1.015);
+      box-shadow: 0 8px 22px color-mix(in srgb, var(--ad-agent) 22%, transparent);
+
+      &::before {
+        content: attr(data-drop-hint);
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: 6px;
+        z-index: 2;
+        padding: 3px 6px;
+        border-radius: 7px;
+        font-size: 10px;
+        text-align: center;
+        color: #fff;
+        background: var(--ad-agent);
+      }
+    }
+
+    body.ad-dragging-item & {
+      border-style: dashed;
+      border-color: color-mix(in srgb, var(--ad-agent) 45%, var(--ad-line));
+    }
+
+    & .ad-agentcard__top {
+      display: grid;
+      grid-template-columns: 10px 24px minmax(0, 1fr) 16px 20px;
+      align-items: center;
+      gap: 4px;
+
+      & > button {
+        padding: 0;
+        height: 24px;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      & .ad-star {
+        width: 16px;
+
+        & svg {
+          width: 13px;
+          height: 13px;
+        }
+      }
+    }
+
+    & .ad-agentcard__mark {
+      width: 24px;
+      height: 24px;
+      border-radius: 8px;
+      background: var(--ad-agent-soft);
+      color: var(--ad-agent);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      flex: none;
+      appearance: none;
+      border: 0;
+      padding: 0;
+      cursor: pointer;
+      transition: transform .14s ease, box-shadow .14s ease;
+
+      &:hover {
+        transform: scale(1.08);
+        box-shadow: 0 0 0 2px color-mix(in srgb, var(--ad-agent) 28%, transparent);
+      }
+
+      & .ad-glyph {
+        width: 20px;
+        height: 20px;
+
+        & svg {
+          width: 13px;
+          height: 13px;
+        }
+      }
+
+      & svg {
+        width: 13px;
+        height: 13px;
+      }
+    }
+
+    & .ad-agentcard__name {
+      min-width: 0;
+      flex: 1;
+    }
+
+    & .ad-agentcard__title {
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    & .ad-agentcard__where {
+      font-size: 9px;
+      color: var(--ad-muted);
+      margin-top: 1px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    & .ad-agentcard__stats {
+      display: flex;
+      align-items: baseline;
+      gap: 3px;
+      margin-top: 8px;
+      font-size: 11px;
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+
+      & .ad-dot {
+        font-weight: 400;
+      }
+    }
+
+    & .ad-spark {
+      margin-top: 4px;
+      height: 26px;
+    }
+
+    & .ad-spark__svg {
+      width: 100%;
+      height: 26px;
+      display: block;
+      overflow: visible;
+    }
+
+    & .ad-agentcard__grip {
+      width: 10px;
+      cursor: grab;
+      opacity: .2;
+
+      &:active {
+        cursor: grabbing;
+      }
+
+      &:focus-visible {
+        opacity: .8;
+      }
+    }
+
+    & .ad-agentcard__more {
+      width: 20px;
+      color: var(--ad-muted);
+    }
+
+    & .ad-agentcard__grip svg,
+    & .ad-agentcard__more svg {
+      display: block;
+      width: 13px;
+      height: 13px;
+    }
+
+    & .ad-agentcard__pin {
+      display: inline-flex;
+      margin-left: 4px;
+      vertical-align: middle;
+      color: var(--ad-muted);
+
+      & svg {
+        width: 10px;
+        height: 10px;
+      }
+    }
+
+    /* 紧凑网格形态（4+ 个 Agent 时） */
+    &.ad-agentcard--grid {
+      &::after {
+        display: none;
+      }
+
+      & .ad-star:not(.is-on) {
+        opacity: 0;
+      }
+
+      &:hover .ad-star,
+      & .ad-star:focus-visible {
+        opacity: 1;
+      }
+
+      & .ad-agentcard__stats {
+        margin: 10px 0 0 14px;
+        font-size: 11px;
+      }
+    }
+
+    /* 详细横条形态（1-3 个 Agent 时） */
+    &.ad-agentcard--list {
+      padding: 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 4px 10px;
+
+      & .ad-agentcard__top,
+      & .ad-handoff {
+        grid-column: 1 / -1;
+      }
+
+      & .ad-agentcard__title {
+        font-size: 13px;
+      }
+
+      & .ad-agentcard__stats {
+        grid-column: 2;
+        grid-row: 2;
+        margin: 0;
+        font-size: 11px;
+        align-self: center;
+      }
+
+      & .ad-agentcard__detail,
+      & .ad-agentcard__context {
+        grid-column: 1;
+        margin: 0 0 0 42px;
+        font-size: 10px;
+        color: var(--ad-muted);
+        line-height: 1.5;
+      }
+
+      & .ad-agentcard__context {
+        grid-row: 3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--ad-ink);
+      }
+
+      & .ad-agentcard__trend {
+        grid-column: 2;
+        grid-row: 3;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        width: 100px;
+        margin: 0;
+        color: var(--ad-faint);
+        font-size: 9px;
+
+        & > span {
+          white-space: nowrap;
+        }
+
+        & .ad-spark {
+          flex: 1;
+          min-width: 0;
+          margin: 0;
+          height: 18px;
+        }
+
+        & .ad-spark__svg {
+          height: 18px;
+        }
+      }
+    }
+
+    /* 卡片底部的活跃交接提示条 */
+    & .ad-handoff {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 6px;
+      padding: 4px 6px;
+      border-radius: 7px;
+      font-size: 10px;
+      color: var(--ad-agent);
+      background: var(--ad-agent-soft);
+
+      & .ad-handoff__icon {
+        font-size: 11px;
+        flex: none;
+
+        & .ad-lattice {
+          color: var(--ad-agent, currentColor);
+        }
+      }
+
+      & .ad-handoff__text {
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      & .ad-handoff__x {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        padding: 0;
+        color: inherit;
+        cursor: pointer;
+        font-size: 11px;
+        opacity: .7;
+        box-shadow: none;
+
+        &:hover {
+          opacity: 1;
+        }
+      }
+    }
+  }
+
+  /* ---------- 4. 最近会话列表与同 Agent 扑克牌叠放栈 ---------- */
+
+  & .ad-sessionlist {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  & .ad-stack {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+
+    /* 折叠态：用 ::before / ::after 在卡片底缘伪造两层扑克牌叠放边 */
+    &.is-collapsed {
+      padding-bottom: 6px;
+
+      &::before,
+      &::after {
+        content: "";
+        position: absolute;
+        left: 6px;
+        right: 6px;
+        bottom: 2px;
+        height: 10px;
+        border-radius: 0 0 10px 10px;
+        border: 1px solid var(--ad-line);
+        background: var(--ad-surface);
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      &::after {
+        left: 12px;
+        right: 12px;
+        bottom: -2px;
+        opacity: .7;
+      }
+
+      & .ad-sess {
+        cursor: pointer;
+        border-bottom-left-radius: 4px;
+        border-bottom-right-radius: 4px;
+      }
+    }
+
+    &.is-expanded {
+      gap: 5px;
+      padding: 6px;
+      border: 1px solid var(--ad-line);
+      border-radius: 10px;
+      background: var(--ad-surface);
+    }
+
+    & .ad-stack__top {
+      position: relative;
+      z-index: 1;
+    }
+
+    & .ad-stack__bar {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 4px 10px;
+      margin-top: -1px;
+      border: 1px solid var(--ad-line);
+      border-top: 1px dashed var(--ad-line);
+      border-radius: 0 0 10px 10px;
+      background: var(--ad-surface-2, var(--background-secondary));
+      color: var(--ad-muted);
+      font-size: 11px;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    & .ad-stack__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 4px 6px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ad-muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    & .ad-stack__bar:hover,
+    & .ad-stack__head:hover {
+      color: var(--ad-ink);
+      border-color: color-mix(in srgb, var(--ad-agent) 38%, var(--ad-line));
+    }
+
+    & .ad-stack__title {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--ad-ink);
+
+      & .ad-glyph {
+        width: 14px;
+        height: 14px;
+        color: var(--ad-agent);
+      }
+    }
+
+    & .ad-stack__list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    & .ad-stack__foot {
+      font-size: 11px;
+      color: var(--ad-muted);
+      padding: 4px 6px;
+      text-align: left;
+    }
+  }
+
+  & .ad-recent-more {
+    font-size: 11px;
+    color: var(--ad-muted);
+    padding: 4px 6px;
+    text-align: left;
+  }
+}
+
+/* ---------- 5. 极窄侧栏卡片断点 ---------- */
+
+@media (max-width: 340px) {
+  .ad-view .ad-agentgrid {
+    grid-template-columns: 1fr;
+  }
+}

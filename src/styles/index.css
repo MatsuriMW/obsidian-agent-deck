@@ -1,12 +1,26 @@
-/* Agent Deck — 智能体甲板
-   Modular stylesheet entry bundled into root styles.css by esbuild.
-   Import order preserves base -> component -> settings/modal override cascade. */
+/* ==========================================================================
+   Agent Deck — 智能体甲板样式总入口（src/styles/index.css）
+   --------------------------------------------------------------------------
+   由 esbuild 打包生成根目录 styles.css，切勿直接编辑根目录 styles.css。
+   导入顺序严格遵循分层级联：
+     基础层（Token 变量 → 原子控件 → 复合控件）
+     → 视图层（侧栏面板骨架/卡片 → 笔记编辑器/记录四视图 → 设置页 → 弹窗 → 回顾面板）
+     → 动效与降级层（关键帧与 reduced-motion 置于末尾确保覆盖生效）
+   ========================================================================== */
 
-@import "./tokens.css";
-@import "./atoms.css";
-@import "./dashboard.css";
-@import "./editor.css";
-@import "./settings.css";
-@import "./modals.css";
-@import "./review.css";
-@import "./motion.css";
+/* 1. 基础层（跨视图共享，不耦合具体业务页面） */
+@import "./base/tokens.css";
+@import "./base/atoms.css";
+@import "./base/controls.css";
+
+/* 2. 视图层（按宿主容器划定模块边界） */
+@import "./views/dashboard.css";
+@import "./views/dashboard-cards.css";
+@import "./views/editor.css";
+@import "./views/record-views.css";
+@import "./views/settings.css";
+@import "./views/modals.css";
+@import "./views/review.css";
+
+/* 3. 动效与无障碍降级层 */
+@import "./base/motion.css";

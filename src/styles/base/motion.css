@@ -1,49 +1,67 @@
-/* 全部关键帧动画、失焦降频与统一的 reduced-motion 降级（置于末尾确保优先级覆盖）。 */
+/* ==========================================================================
+   [基础层 4/4] 关键帧动效与无障碍降级（base/motion.css）
+   --------------------------------------------------------------------------
+   置于 index.css 最末导入，确保 prefers-reduced-motion 降级优先级覆盖各视图组件。
+   ========================================================================== */
 
+/* ---------- 1. 关键帧动画定义 ---------- */
+
+/* 侧栏运行中状态胶囊（.ad-state.is-live）呼吸脉冲 */
 @keyframes ad-pulse {
   0%, 100% { opacity: .75; }
   50% { opacity: 1; }
 }
 
+/* 笔记行内待审批/提醒 pill（.ad-pill.is-pulse）琥珀光晕 */
 @keyframes ad-glow {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ad-warn) 0%, transparent); }
   50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ad-warn) 14%, transparent); }
 }
 
+/* 行内 pill 与后台进度条的斜向流光扫过 */
 @keyframes ad-sweep {
   0% { left: -50%; }
   100% { left: 110%; }
 }
 
+/* 通用加载图标旋转（.ad-spin svg） */
 @keyframes ad-spin {
   to { transform: rotate(360deg); }
 }
 
+/* 拖放会话落地卡片时的 Agent 识别色涟漪扩散 */
 @keyframes ad-land {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ad-agent) 45%, transparent); }
   100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--ad-agent) 0%, transparent); }
 }
 
+/* 3×3 点阵等待动画单格亮起节拍（见 base/atoms.css 与 src/lattice.js） */
 @keyframes ad-ll-on {
   0%, 100% { opacity: var(--ad-ll-idle); }
   18%, 42% { opacity: 1; }
   62% { opacity: var(--ad-ll-idle); }
 }
 
+/* 编辑器 ASCII 进度条入场微上浮 */
 @keyframes ad-prog-in {
   from { opacity: 0; transform: translateY(-3px); }
   to { opacity: 1; transform: none; }
 }
 
+/* 运行态进度条尾部文字轻呼吸 */
 @keyframes ad-prog-breathe {
   50% { opacity: 0.5; }
 }
 
+/* 紫色 Token 小圆柱方块逐个错峰弹出 */
 @keyframes ad-db-in {
   from { opacity: 0; transform: translateY(2px) scale(.7); }
   to { opacity: 1; transform: none; }
 }
 
+/* ---------- 2. 失焦节能与系统级减弱动态降级 ---------- */
+
+/* 窗口失焦时暂停运行态进度条文字呼吸，减少后台无效重绘 */
 body:not(.is-focused) .ad-prog[data-mode="run"] .ad-prog-tail {
   animation-play-state: paused;
 }
@@ -53,20 +71,18 @@ body:not(.is-focused) .ad-prog[data-mode="run"] .ad-prog-tail {
   .ad-sess,
   .ad-agentcard,
   .ad-btn,
-  .ad-iconbtn {
-    transition: none !important;
-  }
-
+  .ad-iconbtn,
   .ad-records-chevron,
   .ad-rt-row,
   .ad-rt-footer-item,
   .ad-rt-card,
   .ad-rt-tl-item {
-    transition: none;
+    transition: none !important;
   }
 
   .ad-pill--running .ad-pill__wave,
   .ad-pill--starting .ad-pill__wave,
+  .ad-background-progress .ad-pill__wave,
   .ad-state.is-live,
   .ad-pill.is-pulse,
   .ad-spin svg,
@@ -82,10 +98,7 @@ body:not(.is-focused) .ad-prog[data-mode="run"] .ad-prog-tail {
     transform: none !important;
   }
 
-  .ad-background-progress .ad-pill__wave {
-    animation: none;
-  }
-
+  /* 点阵保留极低频同步微闪烁，避免完全静止被误判卡死 */
   .ad-lattice__cell {
     animation-delay: 0ms !important;
     animation-duration: 1400ms !important;
