@@ -18,51 +18,18 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 
 ## Core Architecture & Information Flow
 
-```mermaid
-flowchart LR
-  subgraph NOTE["Obsidian Journal & Notes"]
-    direction TB
-    Task["Task Line / Outline Block\nGrip · Drag · @agent"]
-    Views["Multi-View & Tidy\nOutline · Table · Cards · Timeline"]
-  end
-  subgraph HARNESS["Delegation & Context"]
-    Ctx["Harness Pipeline\nAncestors · Wikilinks · Model"]
-  end
-  subgraph AGENTS["8 Local AI Agents"]
-    direction TB
-    Run["Runners\nACP/CLI · Desktop · Terminal"]
-    Logs["Local Logs & Hooks\nJSONL · SQLite (Read-only)"]
-  end
-  subgraph DECK["Agent Deck Control & Sync"]
-    direction TB
-    Panel["Sidebar Deck & macOS Menu Bar\nLive Status · Alerts · Jump"]
-    Sync["Journal Auto-Sync\nStatus · Conclusions · Spans · Links"]
-  end
-  subgraph INSIGHT["Review & Memory"]
-    direction TB
-    Dash["Review Dashboard\nToken Heatmap · Project Effort"]
-    Dream["Dreaming Memory\nFacts/Patterns · Shared Note"]
-  end
-  Task -->|"Delegate"| Ctx
-  Ctx -->|"Launch / Resume"| Run
-  Run -->|"Transcripts & Events"| Logs
-  Logs -->|"Incremental Scan"| Panel
-  Panel <-->|"Drag Bind / Jump"| Task
-  Logs -->|"00:00 Split & Noise Filter"| Sync
-  Sync -->|"Write Back"| Views
-  Logs -->|"Usage Stats"| Dash
-  Views -->|"Daily Evidence"| Dash
-  Views -->|"14-Day Evidence"| Dream
-```
+<p align="center">
+  <img src="assets/architecture.en.svg" width="900" alt="Agent Deck Core Architecture and Information Flow: Task delegation, 8 local AI agents, read-only tracking, multi-view journal sync, Review Dashboard, and Dreaming">
+</p>
 
 ---
 
 ## Core Features
 
 ### 1. Unified Multi-Agent Session Panel
-- **Tracks 7 local agents**: **Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, and Qoder**.
+- **Tracks 8 local agents**: **Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder**, and **Cursor** (3.30.14+ Hooks, tracking only).
 - **Live status & quick jump**: Distinguishes running, waiting for reply, needs approval, hit limit, paused, errored, and finished sessions; click a session card to switch back to its client or terminal tab (see per-agent boundaries below).
-- **Primary agents & global search**: Pin up to 2 primary agents for full history and cross-day catch-up (other enabled agents read sessions active today); search across all scanned local sessions by title, project, model, or content, and view a 14-day activity trend.
+- **Primary agents, time spans & global search**: Pin up to 2 primary agents for full history and cross-day catch-up (other enabled agents read sessions active today); switch "Recent Sessions" between `7 / 30 / 120` days with per-agent stacks; search across all scanned local sessions by title, project, model, or content, and view a 14-day activity trend.
 
 ### 2. Task-Line Delegation & Drag-and-Drop Binding
 - **Three ways to delegate**:
@@ -75,7 +42,7 @@ flowchart LR
 ### 3. Human–AI Journal, Organization & Archiving
 - **Auto-journaling & write-back**: Periodically matches or creates daily-note task lines for today's sessions and syncs status, `⏱` active spans, per-turn records (brief / standard / detailed), and nested child session / side-chat / subagent blocks. Background answers of up to 500 characters are written inline in full; longer answers return a link to a Markdown file under `Agent Deck/Answers/` containing the full question and answer with internal tracking metadata removed. No extra summary model is called. Regular session conclusions default to 350 characters, with long addresses shortened to clickable labels.
 - **Title protection & record folding**: Preserves manually edited AI task titles verbatim; shows only the latest AI conclusion by default while keeping history expandable; supports manual status locking; keeps internal tracking IDs hidden and removes them automatically on completion or archival.
-- **Four persistent record views**: Switch any top-level AI record block in place between **Outline / Table / Cards / Timeline** (persisted per block without rewriting underlying Markdown):
+- **Four persistent record views & view-aware export**: Switch any top-level AI record block in place between **Outline / Table / Cards / Timeline** (persisted per block without rewriting underlying Markdown), and export from the view menu's Export submenu as expanded view-aware PDF or standalone HTML, lossless Markdown (`.md`), structured JSON (`.json`), CSV (`.csv`), or clipboard snippets:
 
 <p align="center">
   <img src="assets/ai-record-views-1.png" width="840" alt="AI auto-record views: Outline vs Table">
@@ -111,16 +78,17 @@ flowchart LR
 | **Codex** | Yes | Yes | Yes (via App Server after turn 1) | Yes | Yes (desktop / terminal tab) |
 | **DeepSeek Harness** | Yes | Yes (`dsh acp`) | Opens app only | — | Focuses app & copies session ID |
 | **Antigravity** | Yes | Yes (`agy acp`) | No | — | Focuses app & copies session ID |
-| **OpenCode** | Yes | Yes (`opencode-cli acp`) | Opens app only (shared DB) | Yes | Manual selection in app |
-| **Qoder** | Yes | Yes (`qodercli`) | Clipboard handoff to desktop | Yes | CLI resumes in terminal; desktop DB is separate |
-| **WorkBuddy** | Yes | No | Clipboard handoff to desktop | Yes (`codebuddy`) | Native WorkBuddy sessions only |
+| **OpenCode** | Yes | Yes (`opencode-cli acp`) | Auto-opens app after turn 1 (shared DB) | Yes | Manual selection in app |
+| **Qoder** | Yes | Yes (`qodercli`) | Clipboard handoff to desktop | Yes (`qodercli`) | CLI resumes in terminal; desktop copies ID for manual pick |
+| **WorkBuddy** | Yes | No | Clipboard handoff to desktop | Yes (`codebuddy`) | Native WorkBuddy sessions & terminal resume (`codebuddy -r`) |
+| **Cursor** | Yes (3.30.14+ Hooks + logs) | No | No (tracking only) | — | Opens app & copies session ID |
 
 ---
 
 ## Installation & Requirements
 
 ### 1. Installing the Plugin
-Agent Deck is not in the Obsidian community plugin directory yet. Install manually (current version **1.9.8**, requires Obsidian **1.4.0+** desktop):
+Agent Deck is not in the Obsidian community plugin directory yet. Install manually (current version **1.9.9.1**, requires Obsidian **1.4.0+** desktop):
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
 2. Place all 3 files in `<your-vault>/.obsidian/plugins/agent-deck/`.
@@ -144,24 +112,25 @@ Copy the generated `main.js`, `manifest.json`, and `styles.css` into `<your-vaul
 
 ### 2. Runtime Dependencies (Prepare Only What You Use)
 
-- **Tracking, binding & Review Dashboard only**: **No extra dependencies required.** The plugin reads local client logs directly and makes no network requests.
-- **Delegation, auto-journaling, AI summaries/polishing & Dreaming**: Require the corresponding local agent CLI or desktop app to be installed and authenticated:
+- **Tracking, binding & Review Dashboard only**: **No extra dependencies required.** The plugin reads local client logs directly (Cursor requires enabling Hooks in settings) and makes no network requests.
+- **Delegation, auto-journaling, AI summaries/polishing & Dreaming**: Require the corresponding local agent CLI or desktop app to be installed and authenticated, or an OpenAI-compatible API for summarization/Dreaming:
 
 | Feature / Agent | Required on Your Machine |
 |---|---|
-| **Claude Code** | Installed and authenticated `claude` CLI (plus Claude desktop app for desktop continuation) |
+| **Claude Code** | Installed and authenticated `claude` CLI (`/login` or `~/.claude/settings.json` `env` auth; plus Claude desktop app for desktop continuation) |
 | **Codex** | Installed and authenticated `codex` CLI and Codex desktop app (bundled CLI is supported) |
 | **DeepSeek Harness** | ACP-capable `dsh` installation with valid model/provider credentials |
 | **Antigravity** | Standalone **Antigravity CLI (`agy`)** with CLI login (installing the IDE alone is not enough) |
 | **OpenCode** | OpenCode desktop app (bundles `opencode-cli`) or standalone `opencode` CLI with configured provider |
 | **Qoder** | `qodercli` installed and logged in for background/terminal delegation; Qoder desktop app for desktop handoff |
 | **WorkBuddy** | Chinese-edition WorkBuddy desktop app (`codebuddy` CLI separately if using terminal mode) |
-| **Auto-journaling / AI summaries / Dreaming** | At least one authenticated `claude` or `codex` CLI with available quota (configured under Records settings) |
+| **Cursor** | Cursor Desktop **3.30.14+** with Cursor Hooks installed via **Settings → Sources & Scan → More settings** (tracking only) |
+| **Auto-journaling / AI summaries / Dreaming** | Any authenticated local CLI (`agy`, `claude`, `codex`, `qodercli`, `codebuddy`, including `~/.claude/settings.json` `env` auth) OR an **OpenAI-compatible API** (presets for DeepSeek, OpenAI, OpenRouter, Alibaba Cloud Qwen, local Ollama, or custom endpoints under **Records → Journal model**; Dreaming inherits by default and can override separately) |
 | **macOS menu bar helper** | `swiftc` from Xcode Command Line Tools (`xcode-select --install`); can be disabled in settings if unused |
 
 > **Notes**:
 > - When Obsidian launches from the macOS GUI, its `PATH` may differ from your terminal. If a binary isn't found, set its full absolute path in plugin settings.
-> - The **Check** button in settings only verifies executable paths and versions—it does **not** prove login status or model quota. Verify authentication in your terminal before delegating.
+> - The **Check** button in Delegation settings only verifies executable paths and versions—it does **not** prove login status or model quota. Use **Test connection** in Records / Dreaming settings (or test in your terminal) to verify live responses.
 
 ---
 
@@ -169,12 +138,13 @@ Copy the generated `main.js`, `manifest.json`, and `styles.css` into `<your-vaul
 
 1. **Platform Support**
    - **Desktop only**: Obsidian mobile is not supported.
-   - **Windows unverified**: Developed and tested on macOS; 1.9.8 has not been verified on Windows yet. The menu bar helper is macOS-only, and terminal tab switching / several binary discovery paths currently rely on macOS tooling.
-2. **No Generic Remote API Delegation**
-   - Automatic delegation launches local CLI or desktop processes. There is no generic remote API/SDK backend, and the plugin does not install CLIs or sign users in automatically.
+   - **Windows unverified**: Developed and tested on macOS; Windows has not been verified yet. The menu bar helper is macOS-only, and terminal tab switching / several binary discovery paths currently rely on macOS tooling.
+2. **No Generic Remote API Backend for Task Delegation**
+   - Automatic task delegation launches local CLI or desktop processes; there is no generic remote API/SDK runner for delegating coding tasks (while auto-journaling, AI summaries, and Dreaming do support OpenAI-compatible APIs). The plugin does not install CLIs or sign users in automatically.
 3. **No In-Plugin Follow-Up Chat**
    - The transcript modal inside Obsidian is read-only (for inspecting, stopping the current turn, and archiving conversations); follow-up turns must be continued in each agent's own desktop app or terminal.
 4. **Per-Agent Boundaries**
+   - **Cursor**: Supports **3.30.14+ desktop** Hooks-based read-only tracking only; no task delegation or terminal interaction, and legacy unhooked DB sessions are excluded.
    - **WorkBuddy**: Only the **Chinese edition** is supported; international **WorkBuddy AI** is not supported. Managed background execution is unavailable, and independent `codebuddy` CLI sessions cannot be imported into the WorkBuddy desktop app.
    - **Qoder**: `qodercli` sessions and the Qoder desktop database are separate—background tasks resume in terminal (`qodercli -r <id>`), and desktop mode uses clipboard handoff. Token counts are not estimated when omitted by the desktop format.
    - **Antigravity**: CLI sessions and original IDE sessions do not mix, archive detection is not guaranteed, and exported transcripts exclude tool outputs, internal reasoning, and attachments.
@@ -183,7 +153,7 @@ Copy the generated `main.js`, `manifest.json`, and `styles.css` into `<your-vaul
 5. **Terminal Delegation Verification**
    - Interactive terminal delegation is currently verified end-to-end only on **Tern** and **Herdr**. **Terminal.app, iTerm2, and Warp** are untested (Warp lacks a scripting interface and can only be brought forward).
 6. **Planned / Not Yet Implemented**
-   - **Multi-view AI record rendering in Reading view and Kanban view**, **modern Cursor desktop tracking**, **Grok Bot (Sand) tracking & per-bot filtering**, **Pi support**, **choosing model / effort / recording granularity directly inside the delegation sheet**, **per-block granularity overrides on existing AI blocks**, **automatic send for WorkBuddy**, and **LLM Wiki auto-ingestion** are planned on the roadmap and not available in this release.
+   - **Multi-view AI record rendering in Reading view and Kanban view**, **Grok Bot (Sand) tracking & per-bot filtering**, **Pi support**, **choosing model / effort / recording granularity directly inside the delegation sheet**, **per-block granularity overrides on existing AI blocks**, **automatic send for WorkBuddy**, and **LLM Wiki auto-ingestion** are planned on the roadmap and not available in this release.
 
 ---
 

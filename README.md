@@ -18,51 +18,18 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 
 ## 核心结构与信息流转
 
-```mermaid
-flowchart LR
-  subgraph NOTE["Obsidian 日记与笔记"]
-    direction TB
-    Task["任务行 / 大纲块\n把手 · 拖拽 · @agent"]
-    Views["同源多视图与整理\n大纲 · 表格 · 卡片 · 时间线 · 归档"]
-  end
-  subgraph HARNESS["委派与上下文管道"]
-    Ctx["Harness 上下文组装\n母项链 · 双链 · 模型与位置"]
-  end
-  subgraph AGENTS["本机 8 家 AI Agent"]
-    direction TB
-    Run["执行端\n后台 ACP/CLI · 桌面版 · 终端"]
-    Logs["本机会话日志 / Hooks\nJSONL · SQLite（只读数据源）"]
-  end
-  subgraph DECK["Agent Deck 控制与回写"]
-    direction TB
-    Panel["侧栏甲板 · macOS 菜单栏\n实时状态 · 待确认提醒 · 直达跳转"]
-    Sync["日志自动回写引擎\n状态 · 结论 · 时段 · 短链"]
-  end
-  subgraph INSIGHT["回顾分析与长期记忆"]
-    direction TB
-    Dash["协作回顾 Dashboard\nToken 热力图 · 项目投入排名"]
-    Dream["Dreaming 长期记忆\n提炼偏好规律 · 单向共享"]
-  end
-  Task -->|"委派任务"| Ctx
-  Ctx -->|"启动 / 续聊"| Run
-  Run -->|"写入对话与事件"| Logs
-  Logs -->|"只读增量扫描"| Panel
-  Panel <-->|"拖放绑定 / 跳转"| Task
-  Logs -->|"零点分割与口语过滤"| Sync
-  Sync -->|"写回原任务块"| Views
-  Logs -->|"用量汇总"| Dash
-  Views -->|"日记证据归属"| Dash
-  Views -->|"近 14 天证据"| Dream
-```
+<p align="center">
+  <img src="assets/architecture.svg" width="900" alt="Agent Deck 核心结构与信息流转：从日记任务委派到 8 家 Agent 执行、只读扫描、多视图回写、Dashboard 与 Dreaming">
+</p>
 
 ---
 
 ## 核心功能
 
 ### 1. 多 Agent 会话追踪面板
-- **统一收拢 7 类本地 Agent**：支持 **Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder**。
+- **统一收拢 8 类本地 Agent**：支持 **Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder** 以及 **Cursor**（3.30.14+ Hooks，仅追踪）。
 - **实时状态与跳转**：区分运行中、等待回复、需要确认、到达限额、暂停、出错、已完成等状态；点击会话卡片可直接切回对应客户端或终端标签（支持范围见下文边界表）。
-- **主力与全局搜索**：可设最多 2 个主力 Agent（追踪全部历史与跨天补记），其余已启用 Agent 读取当日活跃会话；支持按标题、项目、模型、正文关键字搜索全部本地扫描到的会话，并查看最近 14 天协作趋势。
+- **主力、时间范围与全局搜索**：可设最多 2 个主力 Agent（追踪全部历史与跨天补记），其余已启用 Agent 读取当日活跃会话；「最近的会话」支持按 `7 天 / 30 天 / 120 天` 切换并按 Agent 叠放收拢；支持按标题、项目、模型、正文关键字搜索全部本地扫描到的会话，并查看最近 14 天协作趋势。
 
 ### 2. 从笔记委派与双向拖拽
 - **三种委派方式**：
@@ -75,7 +42,7 @@ flowchart LR
 ### 3. 人机共写日记、整理与归档
 - **自动记日记与回写**：定时扫描当日会话，自动匹配或新建日记任务行，实时同步状态、`⏱` 活动时段、每轮简略/标准/详细记录以及嵌套子会话 / Side Chat / Subagent 子块；后台回答不超过 500 字时完整写入子块；超过时返回 `Agent Deck/Answers/` 中的 Markdown 文件链接，文件包含完整问题与回答，清除内部追踪标识，不另调总结模型。普通会话结论默认 350 字，摘要中的长网址与文件路径折叠为可点击短链。
 - **标题保护与记录折叠**：保留用户手写修改过的 AI 标题不被覆盖；默认收起历史轮次仅展示最新结论；支持人工切换并锁定任务状态；内部追踪标识在编辑与阅读视图隐藏，并在完成或归档时自动清理。
-- **四种持久化记录视图**：支持同一条 AI 自动记录在**大纲 / 表格 / 卡片 / 时间线**间就地切换并按块记住视图偏好，不改写底层 Markdown：
+- **四种持久化记录视图与按视图导出**：支持同一条 AI 自动记录在**大纲 / 表格 / 卡片 / 时间线**间就地切换并按块记住视图偏好，不改写底层 Markdown；顶层视图菜单内的「导出」子菜单可按当前视图导出展开后的 PDF 与独立 HTML，也可导出无损 Markdown（`.md`）、结构化 JSON（`.json`）、CSV（`.csv`），或一键复制 Markdown / 表格 / 纯文本 / JSON。
 
 <p align="center">
   <img src="assets/ai-record-views-1.png" width="840" alt="AI 自动记录视图对比：大纲视图与表格视图">
@@ -110,16 +77,17 @@ flowchart LR
 | **Codex** | 支持 | 支持 | 支持（App Server 首轮后打开） | 支持 | 支持（桌面 / 终端标签） |
 | **DeepSeek Harness** | 支持 | 支持（`dsh acp`） | 仅唤起客户端 | — | 仅聚焦客户端并复制会话号 |
 | **Antigravity** | 支持 | 支持（`agy acp`） | 不支持 | — | 仅聚焦客户端并复制会话号 |
-| **OpenCode** | 支持 | 支持（`opencode-cli acp`） | 仅打开应用（共用本地库） | 支持 | 需在桌面端手动选会话 |
-| **Qoder** | 支持 | 支持（`qodercli`） | 仅复制任务并唤起桌面端 | 支持 | CLI 走终端恢复；桌面不互通 |
-| **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起桌面端 | 支持（`codebuddy`） | 仅支持原生桌面会话直达 |
+| **OpenCode** | 支持 | 支持（`opencode-cli acp`） | 首轮后自动打开应用（共用本地库） | 支持 | 需在桌面端手动选会话 |
+| **Qoder** | 支持 | 支持（`qodercli`） | 仅复制任务并唤起桌面端 | 支持（`qodercli`） | CLI 走终端恢复；桌面端复制会话号后手动选 |
+| **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起桌面端 | 支持（`codebuddy`） | 支持原生桌面会话直达与终端恢复 |
+| **Cursor** | 支持（3.30.14+ Hooks + 日志） | 不支持 | 不支持（仅追踪） | — | 仅打开应用并复制会话号 |
 
 ---
 
 ## 安装与依赖
 
 ### 1. 安装插件
-目前尚未上架 Obsidian 社区插件市场，需手动安装（当前版本 **1.9.8**，需 Obsidian **1.4.0+** 桌面端）：
+目前尚未上架 Obsidian 社区插件市场，需手动安装（当前版本 **1.9.9.1**，需 Obsidian **1.4.0+** 桌面端）：
 
 1. 前往 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新产物中的 `main.js`、`manifest.json`、`styles.css`。
 2. 将这 3 个文件放入你的 Obsidian 库目录：`<Vault>/.obsidian/plugins/agent-deck/`。
@@ -143,24 +111,25 @@ npm run build
 
 ### 2. 运行依赖（按需准备，无需全装）
 
-- **仅使用面板追踪、任务绑定与回顾 Dashboard**：**无需额外依赖**，直接读取本机已有客户端日志，不发起网络请求。
-- **使用委派、自动记日记、AI 总结/润色与 Dreaming**：需要安装并登录你实际要用的本机 Agent CLI / 桌面端：
+- **仅使用面板追踪、任务绑定与回顾 Dashboard**：**无需额外依赖**，直接读取本机已有客户端日志（Cursor 需在设置中开启 Hooks），不发起网络请求。
+- **使用委派、自动记日记、AI 总结/润色与 Dreaming**：需要安装并登录你实际要用的本机 Agent CLI / 桌面端，或在整理模型处填写 OpenAI 兼容 API：
 
 | 功能 / Agent | 需要提前准备什么 |
 |---|---|
-| **Claude Code** | 安装并登录 `claude` CLI；需桌面续聊则另装 Claude 桌面端 |
+| **Claude Code** | 安装并登录 `claude` CLI（支持 `/login` 或 `~/.claude/settings.json` `env` 认证）；需桌面续聊则另装 Claude 桌面端 |
 | **Codex** | 安装并登录 `codex` CLI 与 Codex 桌面端（支持复用桌面端内置 CLI） |
 | **DeepSeek Harness** | 安装支持 ACP 的 `dsh`，并完成模型提供商与账号配置 |
 | **Antigravity** | 安装并登录**独立 Antigravity CLI（`agy`）**（仅装 IDE 无法委派） |
 | **OpenCode** | 安装 OpenCode 桌面端（内置 `opencode-cli`）或独立 `opencode` CLI 并完成配置 |
 | **Qoder** | 后台与终端委派需安装并登录 `qodercli`；仅桌面复制交接需安装 Qoder 桌面端 |
 | **WorkBuddy** | 安装中国版 WorkBuddy 桌面端（终端交互需另装 `codebuddy` CLI） |
-| **自动记日记 / AI 总结 / Dreaming** | 需至少一个已登录且额度可用的 `claude` 或 `codex` CLI（在「记录 → 整理模型」单独指定） |
+| **Cursor** | 安装 Cursor 桌面端（3.30.14+），并在设置「来源与扫描 → 更多设置」中安装 Cursor Hooks（仅追踪） |
+| **自动记日记 / AI 总结 / Dreaming** | 任一已登录且额度可用的本地 CLI（`agy`、`claude`、`codex`、`qodercli`、`codebuddy`，含 `~/.claude/settings.json` 的 `env` 认证），或填写 **OpenAI 兼容 API**（支持 DeepSeek、OpenAI、OpenRouter、阿里云百炼 Qwen、本地 Ollama 预设或自定义地址；在「记录 → 整理模型」设置，Dreaming 默认跟随并可单独覆盖） |
 | **macOS 菜单栏助手** | 需 Xcode Command Line Tools 中的 `swiftc`（未安装时可运行 `xcode-select --install`）；不用可在设置中关闭 |
 
 > **提示**：
 > - 从 macOS 图形界面启动 Obsidian 时，`PATH` 可能与终端不同；若检测不到命令，请在插件设置中填写 CLI 的完整绝对路径。
-> - 设置页中的「检查」按钮仅验证程序路径与版本号，**不代表账号已登录或模型可用**；请先在终端验证登录与额度后再进行委派。
+> - 委派设置页中的「检查」按钮仅验证程序路径与版本号，**不代表账号已登录或模型可用**；自动整理与 Dreaming 模型页提供「测试连接」按钮可直接验证实际返回。
 
 ---
 
@@ -168,12 +137,13 @@ npm run build
 
 1. **平台支持边界**
    - **仅限桌面端**：不支持 Obsidian 移动端。
-   - **Windows 尚未完成实机验证**：插件在 macOS 上开发并实测；1.9.8 尚未在 Windows 上实机验证。macOS 菜单栏助手仅限 macOS；终端自动唤醒、标签切换与部分路径探测目前仍依赖 macOS 环境。
-2. **无通用远程 API 委派后端**
-   - 自动委派依赖本机 CLI 或桌面应用，暂不支持直接填写通用远程 API Key / SDK 进行云端委派；插件也不会自动安装 CLI 或代为登录。
+   - **Windows 尚未完成实机验证**：插件在 macOS 上开发并实测，目前尚未在 Windows 上完成实机验证。macOS 菜单栏助手仅限 macOS；终端自动唤醒、标签切换与部分路径探测目前仍依赖 macOS 环境。
+2. **无通用远程 API 任务委派后端**
+   - 自动委派任务依赖本机 CLI 或桌面应用，暂不支持直接用远程 API Key / SDK 替代 Agent 执行任务（自动记日记、总结与 Dreaming 已支持 OpenAI 兼容 API）；插件也不会自动安装 CLI 或代为登录。
 3. **不支持在插件内直接续聊**
    - Obsidian 内的对话窗口仅用于查看回复正文、停止当前轮与保存归档笔记，没有输入发送框；后续追问需回到各 Agent 的桌面客户端或终端中继续。
 4. **部分客户端集成边界**
+   - **Cursor**：仅支持 **3.30.14+ 桌面端** Hooks 只读追踪，不支持任务委派与终端交互；未接入 Hooks 的旧版数据库会话不纳入追踪。
    - **WorkBuddy**：仅支持**中国版** WorkBuddy；不支持国际版（WorkBuddy AI）。不支持插件管理的后台执行；独立 CodeBuddy CLI 会话无法导入 WorkBuddy 桌面端。
    - **Qoder**：`qodercli` 会话与 Qoder 桌面端数据库相互独立不互通；桌面端未输出逐轮 token 时不做估算。
    - **Antigravity**：CLI 会话与原 IDE 会话互不相通，暂不承诺自动识别归档；导出正文不包含工具执行结果、内部推理过程与附件。
@@ -182,7 +152,7 @@ npm run build
 5. **终端交互委派的实测范围**
    - 在终端新开标签页自动运行交互式会话的功能，目前仅在 **Tern** 和 **Herdr** 上完成端到端实测；**系统终端（Terminal.app）、iTerm2、Warp** 尚未实测（Warp 无脚本接口，仅能前置窗口）。
 6. **规划中、尚未实现的功能**
-   - **阅读视图下的 AI 记录多视图渲染与看板视图**、**新版 Cursor 桌面端会话追踪**、**Grok Bot（Sand）会话追踪与按 Bot 过滤**、**Pi 支持**、**在委派确认弹窗内直接切换模型/强度/记录粒度**、**对已有 AI 块单独调整粒度**、**WorkBuddy 自动发送**，以及面向独立大纲 App 的 **LLM Wiki 自动摄入** 等能力仍在规划中，当前版本尚未提供。
+   - **阅读视图下的 AI 记录多视图渲染与看板视图**、**Grok Bot（Sand）会话追踪与按 Bot 过滤**、**Pi 支持**、**在委派确认弹窗内直接切换模型/强度/记录粒度**、**对已有 AI 块单独调整粒度**、**WorkBuddy 自动发送**，以及面向独立大纲 App 的 **LLM Wiki 自动摄入** 等能力仍在规划中，当前版本尚未提供。
 
 ---
 
