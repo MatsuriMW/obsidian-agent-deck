@@ -5,7 +5,7 @@ import os from "os";
 import { randomUUID } from "crypto";
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { memoryEntries } from "./dream.js";
+import { memoryEntries } from "./dream-entries.js";
 import { t } from "./i18n.js";
 
 const exec = promisify(execFile);

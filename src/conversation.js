@@ -7,6 +7,7 @@ import * as J from "./journal.js";
 import { decompress } from "fzstd";
 import { createHash } from "crypto";
 import { t } from "./i18n.js";
+import { cleanUserPrompt } from "./prompt-text.js";
 
 const textOf = (content) => typeof content === "string" ? content : (Array.isArray(content) ? content : [])
   .filter((b) => ["text", "input_text", "output_text"].includes(b?.type)).map((b) => b.text || "").join("\n");
@@ -16,6 +17,11 @@ export function conversationMessages(agent, source, transcriptText = "") {
   const messages = [];
   const seen = new Map();
   for (const line of source.split("\n")) {
+    if (!line) continue;
+    if (agent === "dsh" && !line.includes("user/message") && !line.includes("assistant/message")) continue;
+    if ((agent === "claude" || agent === "qoder") && !line.includes('"user"') && !line.includes('"assistant"')) continue;
+    if (agent === "codex" && !line.includes("response_item")) continue;
+    if (agent === "workbuddy" && !line.includes('"message"')) continue;
     let d;
     try { d = JSON.parse(line); } catch { continue; }
     let role, text, id;
@@ -156,8 +162,49 @@ function formatCursorToolLines(tools) {
   return lines;
 }
 
+const UUID_LIKE_RE = /^[a-z]+-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$|^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+const CONTEXT_HEADER_RE = /^(?:这条任务在笔记里挂的位置[，,:：]?|（来自 Obsidian：.*）).*$/;
+
+function cleanConversationLabel(raw) {
+  const cleaned = J.stripBlockId(String(raw || ""))
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !CONTEXT_HEADER_RE.test(line))
+    .join(" ");
+  return cleaned
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s*/, "")
+    .replace(/^(?:TODO|DOING|DONE|PAUSED|LATER|NOW|WAIT|WAITING|CANCELED|CANCELLED|DELEGATED|TOREVIEW|NEEDOK|ERRORED|HITLIMIT)\s+/i, "")
+    .replace(/^🤖\s*/, "")
+    .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, "$2")
+    .replace(/\[([^\]\n]+)\]\([^)\n]+\)/g, "$1")
+    .replace(/[*_`~#]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function conversationTitle(session = {}, messages = []) {
+  const candidates = [];
+  for (const raw of [session.title, session.name]) {
+    const s = String(raw || "").trim();
+    if (s && !UUID_LIKE_RE.test(s)) candidates.push(cleanConversationLabel(s));
+  }
+  for (const m of messages || []) {
+    if (!m?.text) continue;
+    const stripped = cleanConversationLabel(cleanUserPrompt(m.text));
+    if (stripped && !UUID_LIKE_RE.test(stripped)) { candidates.push(stripped); break; }
+  }
+  for (const raw of [session.prompt, session.firstPrompt, session.task]) {
+    const s = cleanConversationLabel(cleanUserPrompt(raw || ""));
+    if (s && !UUID_LIKE_RE.test(s)) { candidates.push(s); break; }
+  }
+  const picked = candidates.find(Boolean) || "";
+  if (picked) return picked.slice(0, 60).trim();
+  const agent = String(session.agent || "Agent").trim();
+  return `${agent} 对话`;
+}
+
 export function conversationMarkdown(session, messages) {
-  const title = String(session.title || session.name || "Agent 对话").replace(/[\r\n]/g, " ");
+  const title = conversationTitle(session, messages).replace(/[\r\n]/g, " ");
   const sid = session.sid || session.sessionId;
   const hasTools = session.agent === "cursor" || messages.some((m) => Array.isArray(m.tools) && m.tools.length);
   const noteLine = hasTools
@@ -172,9 +219,19 @@ export function conversationMarkdown(session, messages) {
   return [`# ${title}`, "", `Agent：${session.agent}`, `会话：${sid}`, "", noteLine, "", ...body].join("\n");
 }
 
-export function conversationPath(session) {
-  const safe = (s) => String(s || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
-  return `Agent Deck/Conversations/${safe(session.agent)}-${safe(session.sid || session.sessionId)}.md`;
+export function conversationPath(session, messages = []) {
+  const title = conversationTitle(session, messages);
+  const safeTitle = title
+    .replace(/\.\.+/g, "-")
+    .replace(/[\\/:*?"<>|\[\]#^]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 50)
+    || "对话";
+  const sid = String(session?.sid || session?.sessionId || "unknown");
+  const agent = String(session?.agent || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
+  const hash = createHash("sha256").update(`${agent}:${sid}`).digest("hex").slice(0, 8);
+  return `Agent Deck/Conversations/${safeTitle}-${agent}-${hash}.md`;
 }
 
 export async function archiveConversation(plugin, session, { messages: suppliedMessages } = {}) {
@@ -183,7 +240,8 @@ export async function archiveConversation(plugin, session, { messages: suppliedM
   const messages = suppliedMessages || await readConversation(plugin, session);
   if (!messages.length) throw new Error(t("暂未读取到对话正文，请扫描会话后重试"));
   const vault = plugin.app.vault;
-  const notePath = conversationPath(session);
+  const title = conversationTitle(session, messages);
+  const notePath = conversationPath(session, messages);
   for (const folder of ["Agent Deck", "Agent Deck/Conversations"]) {
     await serializeNote(plugin, folder, async () => {
       if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
@@ -201,23 +259,24 @@ export async function archiveConversation(plugin, session, { messages: suppliedM
     if (!region || hash(region[2]) !== region[1]) throw new Error(t("该会话已有归档，且正文经过手工修改。请先保留或移动旧归档后再导出"));
     return prior.slice(0, region.index) + content + prior.slice(region.index + region[0].length);
   });
-  await linkArchive(plugin, session, notePath);
+  await linkArchive(plugin, session, notePath, title);
   return file;
 }
 
-async function linkArchive(plugin, session, archivePath) {
+async function linkArchive(plugin, session, archivePath, title = "") {
   if (!plugin.readNote || !plugin.writeNote) return;
   const sid = session.sid || session.sessionId;
   const job = Object.values(plugin.jobs).find(j => j.agent === session.agent && j.sessionId === sid);
   const binding = Object.values(plugin.settings?.taskBindings || {}).find(b => b.sid === sid);
   const target = binding?.path ? binding : job;
   if (!target?.path || !plugin.app.vault.getAbstractFileByPath(target.path)) return;
+  const alias = title ? `对话归档 · ${title.slice(0, 36)}` : `对话归档 · ${session.agent}`;
   await updateNote(plugin, target.path, text => {
     if (text.includes(`[[${archivePath}|`)) return text;
     const task = J.findTask(text, target.key || J.workKey(target.name || ""), target.blockId, sid);
     if (!task) return text;
     const lines = text.split("\n"), indent = (lines[task.line].match(/^[ \t]*/)?.[0] || "") + "\t";
-    lines.splice(task.line + 1, 0, `${indent}- 📄 [[${archivePath}|对话归档 · ${session.agent}]]`);
+    lines.splice(task.line + 1, 0, `${indent}- 📄 [[${archivePath}|${alias}]]`);
     return lines.join("\n");
   });
 }

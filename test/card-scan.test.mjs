@@ -60,6 +60,27 @@ try {
   const firstInstall = new AgentUsage({settings:{...settings,primaryAgents:[]},cfg:settings,historyAgents:['workbuddy']});
   await firstInstall.scan({since:now-30*day,strictSince:true});
   assert.ok(firstInstall.meta.has('recent') && firstInstall.meta.has('old'),'first-install scan includes 30-day history for non-primary Agents');
+  const wbDesktopDir = path.join(dir, '.workbuddy', 'projects', 'p');
+  const cbCliDir = path.join(dir, '.codebuddy', 'projects', 'p');
+  fs.mkdirSync(wbDesktopDir, { recursive: true });
+  fs.mkdirSync(cbCliDir, { recursive: true });
+  const wbDesktopFile = path.join(wbDesktopDir, 'wb-desktop.jsonl');
+  const cbCliFile = path.join(cbCliDir, 'cb-cli.jsonl');
+  const sampleWbLines = [
+    { type: 'message', role: 'user', timestamp: now, cwd: '/project', content: [{ type: 'input_text', text: '桌面端任务' }], providerData: { agent: 'cli' } },
+    { type: 'message', role: 'assistant', timestamp: now + 1000, content: [{ type: 'output_text', text: '完成' }], providerData: { agent: 'cli', messageId: 'm1', usage: { outputTokens: 12, inputTokens: 8 } } },
+  ].map((x) => JSON.stringify(x)).join('\n') + '\n';
+  fs.writeFileSync(wbDesktopFile, sampleWbLines);
+  fs.writeFileSync(cbCliFile, sampleWbLines);
+  const wbUsage = new AgentUsage({ settings, cfg: settings });
+  wbUsage.readCodexArchived = async () => {};
+  await wbUsage.readJsonl(wbDesktopFile, 'workbuddy', fs.statSync(wbDesktopFile), new Set());
+  await wbUsage.readJsonl(cbCliFile, 'workbuddy', fs.statSync(cbCliFile), new Set());
+  assert.equal(wbUsage.meta.get('wb-desktop')?.app, 'workbuddy', 'WorkBuddy Desktop logs with providerData.agent="cli" still resolve as desktop');
+  assert.equal(wbUsage.meta.get('cb-cli')?.app, 'cli', 'CodeBuddy CLI logs under .codebuddy resolve as cli');
+  const winFc = wbUsage.ensureFile('C:\\Users\\demo\\.codebuddy\\projects\\p\\win-cli.jsonl', 'workbuddy');
+  wbUsage.ingestWorkbuddy(JSON.stringify({ type: 'message', role: 'user', timestamp: now, cwd: 'C:\\proj', content: [{ type: 'input_text', text: 'win cli' }] }), winFc, new Set());
+  assert.equal(wbUsage.meta.get(winFc.sid)?.app, 'cli', 'Windows backslash .codebuddy path resolves as cli');
   console.log('PASS card scan: Agent scope, seven-day cutoff, non-primary recovery, history preservation, repeat totals and incremental cursor');
 } finally {
   for (const [key,value] of Object.entries(original)) AgentUsage.prototype[key]=value;

@@ -126,5 +126,90 @@ console.log('PASS bounded extraction context retrieves relevant early memories')
   let payload;
   const d=new Dreaming(p,async prompt=>{payload=prompt.split('材料（line 为原笔记起始行号）：\n')[1];return '{"memories":[]}';});
   await d.run();assert.ok(payload.length<=48002);assert.ok(p.settings.dream.coverage.pending>0);
+  await d.run(true,{drain:true});assert.equal(p.settings.dream.coverage.pending,0);
 }
-console.log('PASS edited-entry rejection and serialized evidence budget');
+// Tolerant Dreaming: invalid AI-only preference item does not block valid lesson items or stall progress; dividers skipped; dream model inherits autoLog or overrides separately.
+{
+  const { dreamModelConfig } = await import('../src/dream.js');
+  const inherited = dreamModelConfig({ autoLogProvider: 'agy', autoLogModel: 'gemini-3.8-flash-low', dream: { provider: '', model: '' } });
+  assert.equal(inherited.autoLogProvider, 'agy');
+  assert.equal(inherited.autoLogModel, 'gemini-3.8-flash-low');
+  const switched = dreamModelConfig({ autoLogProvider: 'agy', autoLogModel: 'gemini-3.8-flash-low', dream: { provider: 'codex', model: '' } });
+  assert.equal(switched.autoLogProvider, 'codex');
+  assert.equal(switched.autoLogModel, '');
+
+  const blocks = evidenceBlocks('- ---\n- [x] DONE 01:00-02:00 🤖 完成构建\n  - 💬 通过测试 <!-- ad-turn:s1:1 -->\n  - ❓ 明天看下性能', 'a.md');
+  assert.equal(blocks.some(b => /^- ---$/.test(b.text)), false);
+  assert.equal(blocks.find(b => b.text.includes('完成构建')).kind, 'ai');
+  assert.equal(blocks.find(b => b.text.includes('通过测试')).text.includes('ad-turn'), false);
+
+  const { p, files, path } = fixture();
+  files.set(path, '- DOING 🤖 修复打包\n  - 💬 先验证本地构建再发布');
+  let usedCfg = null;
+  const d = new Dreaming(p, async (_prompt, cfg) => {
+    usedCfg = cfg;
+    return JSON.stringify({
+      memories: [
+        { text: '用户偏好先构建', kind: 'preference', sources: ['S2'], quotes: [{ source: 'S2', text: '先验证本地构建再发布' }], replaces: [] },
+        { text: '先验证本地构建再发布', kind: 'lesson', sources: ['S2'], quotes: [{ source: 'S2', text: '先验证本地构建再发布' }], replaces: [] },
+      ],
+    });
+  });
+  p.settings.autoLogProvider = 'agy';
+  p.settings.autoLogModel = 'gemini-3.8-flash-low';
+  p.settings.dream.model = 'gemini-3.8-flash-medium';
+  await d.run();
+  assert.equal(usedCfg.autoLogModel, 'gemini-3.8-flash-medium');
+  assert.equal(p.settings.dream.lastError, '');
+  const saved = files.get(p.settings.dream.path) || '';
+  assert.ok(saved.includes('先验证本地构建再发布') && !saved.includes('用户偏好先构建'));
+}
+// Dreaming scope "ai-records": filters out standalone prose, manual todos and non-AI siblings, while preserving 🤖 trees and bound tasks with AI child records.
+{
+  const md = [
+    '今天去公园散步了。',
+    '',
+    '- TODO 纯手写待办',
+    '  - 个人备忘，没用 AI',
+    '- DOING [[Agent Deck]]',
+    '  - 手写子备注（无 AI）',
+    '  - DONE 🤖 09:00-09:15 实现分形看板',
+    '    - ❓ 只保留关键设计',
+    '    - 💬 已写入路线图',
+    '      - AI 嵌套解释内容',
+    '- DOING 修超时 bug ^codex-fix-123',
+    '  - 🔗 [Codex](codex://threads/123)',
+    '  - 💬 修复了重试机制',
+    '```md',
+    '- DONE 🤖 代码块示例不应被采纳',
+    '```',
+  ].join('\n');
+  const aiOnlyBlocks = evidenceBlocks(md, 'note.md', { aiOnly: true });
+  const joined = aiOnlyBlocks.map((b) => b.text).join('\n');
+  assert.equal(joined.includes('今天去公园散步了'), false);
+  assert.equal(joined.includes('纯手写待办'), false);
+  assert.equal(joined.includes('个人备忘'), false);
+  assert.equal(joined.includes('手写子备注'), false);
+  assert.equal(joined.includes('代码块示例'), false);
+  assert.ok(joined.includes('实现分形看板'));
+  assert.ok(joined.includes('只保留关键设计'));
+  assert.ok(joined.includes('AI 嵌套解释内容'));
+  assert.ok(joined.includes('修超时 bug'));
+  assert.ok(joined.includes('修复了重试机制'));
+  assert.equal(aiOnlyBlocks.find((b) => b.text.includes('只保留关键设计')).kind, 'user');
+  assert.equal(aiOnlyBlocks.find((b) => b.text.includes('AI 嵌套解释内容')).kind, 'ai');
+  assert.equal(aiOnlyBlocks.find((b) => b.text.includes('修超时 bug')).kind, 'user');
+
+  const { p, files, path } = fixture();
+  p.settings.dream.scope = 'ai-records';
+  files.set(path, md);
+  const d = new Dreaming(p, async () => JSON.stringify({
+    memories: [{ text: '写规格时只保留关键设计', kind: 'preference', sources: ['S2'], quotes: [{ source: 'S2', text: '只保留关键设计' }], replaces: [] }],
+  }));
+  const collected = await d.collect();
+  assert.equal([...collected.values()].some((s) => s.text.includes('纯手写待办')), false);
+  await d.run();
+  const saved = files.get(p.settings.dream.path) || '';
+  assert.ok(saved.includes('写规格时只保留关键设计'));
+}
+console.log('PASS edited-entry rejection, dream model inheritance/override, tolerant recovery and serialized evidence budget');

@@ -330,15 +330,16 @@ export const DEFAULTS = {
   // Which agents are read. Primary agents are always on.
   agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true },
   primaryAgents: ["claude", "dsh"],
-  // 0 = no cutoff; otherwise the hour at which a new journal day begins.
-  dayCutoff: 8,
+  // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
+  dayCutoff: 0,
   experimentalDashboard: true,
   dashboardProjects: {},    // 会话 → 项目页面路径；缺省自动识别，空字符串手动未归类
-  pollSeconds: 20,
+  pollSeconds: 60,
   fullHistoryDays: 14,
   // Claude desktop session list: identifies side chats (spawnedFrom) and archive state.
   claudeDesktop: true,
   hideArchived: true,
+  cursorHooksPrompted: false,
   // Human–AI journal: sessions written back into the daily note.
   journalFolder: "",       // 日记目录；留空自动检测（找不到就用「日记」）
   journalFormat: "",       // 日记文件名格式（moment 写法）；留空自动检测
@@ -359,9 +360,11 @@ export const DEFAULTS = {
   autoLog: false,
   aiRecordExpanded: {},
   aiRecordClosed: {},
+  aiRecordViews: {},
   aiRecordDisplay: "latest1", // collapsed 折叠 / expanded 展开 / latest1、latest3、latest5 最近 N 条 AI 结论
   autoLogGranularity: "round", // latest 最新进展 / round 每轮 / paused 停歇或归档
   doneArchivePath: "Agent Deck/done/已完成任务.md",
+  lastTaskExportDir: "",
   archiveOrder: "prepend",
   viewOpened: false,   // 首次加载时把面板放进右侧栏；之后不再自动打开
   autoLogMerge: false,
@@ -376,9 +379,11 @@ export const DEFAULTS = {
   autoLogIdle: 10,         // 停了几分钟算 PAUSED
   autoLogBatch: 8,         // 一轮最多问模型几个会话
   autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true },
-  autoLogProvider: "claude",
+  autoLogProvider: "auto",
   autoLogEffort: "low",
-  autoLogModel: "haiku",
+  autoLogModel: "",
+  autoLogApiUrl: "",
+  autoLogApiKey: "",
   autoLogTimeout: 120,     // 整理时等模型几秒
   autoLogFallback: true,   // 模型问不到时（自动整理也一样）用会话标题先记上
   autoLogKw: true,         // 自动建的条目也跟着会话在 DOING / TOREVIEW / NEEDOK / ERRORED 之间切
@@ -398,12 +403,13 @@ export const DEFAULTS = {
   menuBarHideNautilus: true,
   menuBarMigrated: false,
   showEditorPills: true,
+  lineProgress: true,
   showRibbonIcon: true,
   openDashboardOnStartup: false,
   autoWriteResult: true,
   resultMax: 350,
   importNautilus: true,
-  dream: { enabled: false, path: "Agent Deck/长期记忆.md", syncProfile: false, lastRun: 0, lastAttempt: 0, states: {}, coverage: null, lastError: "", share: { enabled: false, path: "", intervalHours: 24, gitPush: false, lastAttempt: 0, lastSuccess: 0, lastError: "" } },
+  dream: { enabled: false, scope: "all", path: "Agent Deck/长期记忆.md", provider: "", model: "", effort: "", apiUrl: "", apiKey: "", syncProfile: false, lastRun: 0, lastAttempt: 0, states: {}, coverage: null, lastError: "", share: { enabled: false, path: "", intervalHours: 24, gitPush: false, lastAttempt: 0, lastSuccess: 0, lastError: "" } },
   // Delegation
   delegate: {
     target: "claude",
@@ -582,12 +588,12 @@ export function journalPath(app, cfg = {}, day = dayKeyToday(cfg)) {
 }
 
 export function dayKey(ms, cfg = {}) {
-  const cutoff = Number.isFinite(cfg.dayCutoff) ? cfg.dayCutoff : 8;
+  const cutoff = Number.isFinite(cfg.dayCutoff) ? cfg.dayCutoff : 0;
   return fmtKey(new Date(ms - cutoff * 3600e3), cfg);
 }
 export function dayKeyToday(cfg = {}) { return dayKey(Date.now(), cfg); }
 export function startOfDay(ms, cfg = {}) {
-  const cutoff = Number.isFinite(cfg.dayCutoff) ? cfg.dayCutoff : 8;
+  const cutoff = Number.isFinite(cfg.dayCutoff) ? cfg.dayCutoff : 0;
   const d = new Date(ms - cutoff * 3600e3);
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() + cutoff * 3600e3;
 }

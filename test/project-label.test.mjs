@@ -3,7 +3,10 @@
 // is labelled with the session title so the ranking reads as tasks.
 
 import assert from 'node:assert/strict';
-import { AgentUsage, UsageStore, isScratchCwd, SUMMARY_VERSION } from '../src/readers.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { AgentUsage, UsageStore, isScratchCwd, inferWorkspaceRoot, sessionProjectName, SUMMARY_VERSION } from '../src/readers.js';
 
 // --- which directories are machine workspaces -------------------------------
 for (const cwd of [
@@ -77,6 +80,23 @@ function usage(sessions, titles) {
   assert.equal(store.rebuild(u), true, 'old labels are replaced');
   assert.deepEqual(Object.keys(store.days[KEY].proj), ['增强长期记忆共享']);
   assert.equal(store.summary, SUMMARY_VERSION);
+}
+
+// inferWorkspaceRoot resolves a file in a subdirectory (e.g. repo/src/view.js)
+// up to the repository root so Antigravity tracks `agent-deck`, not `src`.
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ad-ws-root-'));
+  try {
+    const repo = path.join(tmp, 'agent-deck');
+    const src = path.join(repo, 'src');
+    fs.mkdirSync(src, { recursive: true });
+    fs.writeFileSync(path.join(repo, 'package.json'), '{}');
+    fs.writeFileSync(path.join(src, 'view.js'), '');
+    assert.equal(inferWorkspaceRoot(path.join(src, 'view.js')), repo);
+    assert.equal(sessionProjectName(inferWorkspaceRoot(src)), 'agent-deck');
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 }
 
 console.log('PASS project labels: scratch workspaces use the session title, real folders keep their name');

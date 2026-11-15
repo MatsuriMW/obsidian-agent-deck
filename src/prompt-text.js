@@ -25,6 +25,38 @@ export function cleanUserPrompt(raw) {
 }
 
 
+export function condenseUserPrompt(raw) {
+  const base = cleanUserPrompt(raw);
+  if (!base) return "";
+  const lines = base.split("\n");
+  let inFence = false;
+  const cleaned = lines.map((line) => {
+    if (/^\s*```/.test(line)) { inFence = !inFence; return line; }
+    if (inFence) return line;
+    let s = line.trim();
+    if (!s) return "";
+    // Remove leading spoken/courtesy fillers repeatedly until substantive text starts.
+    const zhLead = /^(?:(?:你好|哈喽|嗨|请问(?:一下)?|麻烦(?:你)?|劳烦|请?帮我(?:先)?(?:看看|看一下|查一下)?|你(?:先|再)?(?:帮我)?(?:看看|看一下|查一下)|我想(?:问一下|让你|要)|能不能(?:帮我)?|可不可以(?:帮我)?|那个|就是说?|怎么说呢|其实吧|嗯+|啊+|呃+|额+|哦+|唉+|哎+|然后呢?)[，,、。\s:：]*)+/;
+    const enLead = /^(?:(?:hey|hi|hello|um+|uh+|okay|ok|well|so|basically|actually|honestly|please|can you|could you|would you|help me)\b[\s,:-]*)+/i;
+    let prev = "";
+    while (s !== prev) {
+      prev = s;
+      s = s.replace(zhLead, "").replace(enLead, "").trim();
+    }
+    // Collapse pure hesitation interjections between clauses.
+    s = s
+      .replace(/[，,]\s*(?:嗯+|啊+|呃+|额+|那个|就是说?|怎么说呢|怎么讲|怎么说)\s*[，,]/g, "，")
+      .replace(/\s+\b(?:um+|uh+|you know|basically|like)\b\s*,\s*/gi, ", ")
+      .replace(/[，,、\s]*(?:谢谢(?:你|啦)?|多谢|麻烦了|辛苦了|好吗|可以吗|对吧|是吧|好吧|行吧)[！!。.?？\s]*$/, "")
+      .replace(/([，,])\1+/g, "$1")
+      .replace(/^[，,、\s]+/, "")
+      .trim();
+    return s || line.trim();
+  }).filter((line, i, arr) => line || (i > 0 && arr[i - 1] !== ""));
+  const joined = cleaned.join("\n").trim();
+  return joined.length >= 2 || base.trim().length < 2 ? joined : base.trim();
+}
+
 export function isPromptText(text) {
   const s = cleanUserPrompt(text).trim();
   if (!s) return false;

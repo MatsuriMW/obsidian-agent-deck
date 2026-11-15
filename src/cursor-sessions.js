@@ -307,6 +307,20 @@ export function uninstallCursorHooks({ homeDir = os.homedir() } = {}) {
   return { scriptPath, hooksPath };
 }
 
+export function isCursorRunning({ platform = process.platform, exec = execFile } = {}) {
+  const cmd = platform === "win32" ? "tasklist" : platform === "darwin" ? "/bin/ps" : "ps";
+  const args = platform === "win32" ? ["/FI", "IMAGENAME eq Cursor.exe", "/FO", "CSV", "/NH"] : ["-eo", "comm="];
+  return new Promise((resolve) => {
+    exec(cmd, args, { timeout: 2000, maxBuffer: 1 << 20 }, (err, out) => {
+      if (err) return resolve(false);
+      const text = String(out || "");
+      if (platform === "win32") return resolve(/"cursor\.exe"/i.test(text));
+      if (platform === "darwin") return resolve(text.split("\n").some((line) => /(?:^|\/)Cursor\.app\/Contents\/MacOS\/Cursor$/i.test(line.trim())));
+      return resolve(text.split("\n").some((line) => /(?:^|\/)cursor(?:\.appimage)?$/i.test(line.trim())));
+    });
+  });
+}
+
 // ----- DB metadata enrichment for Hook-discovered sessions ONLY -----
 
 function sqliteRows(db, sql) {
@@ -433,16 +447,36 @@ export function ingestCursorEvent(ctx, d, fc, touched) {
   if (d.transcript) cs.transcript = d.transcript;
 
   if (ev === "sessionStart") {
+    const existingLastAt = usage.meta.get(sid)?.lastAt || 0;
     usage.noteMeta(fc, sid, {
       cwd: fc.cwd,
       app: "desktop",
       model: fc.model || usage.meta.get(sid)?.model || "",
-      lastAt: Math.max(ms, usage.meta.get(sid)?.lastAt || 0),
+      lastAt: existingLastAt || ms,
     });
     return;
   }
 
   if (usage.stale("cursor", ms)) return;
+
+  // Closing/archiving (`sessionEnd`) or background compaction (`preCompact`) must not
+  // fabricate conversation activity or bump `lastAt` past the last real turn.
+  if (ev === "preCompact") return;
+  if (ev === "sessionEnd") {
+    cs.openTools.clear();
+    if (fc.live) {
+      fc.live.step = "";
+      if (fc.live.state === "run") fc.live.state = "wait";
+    }
+    const meta = usage.meta.get(sid);
+    if (meta) {
+      usage.noteMeta(fc, sid, {
+        state: meta.state === "run" ? "wait" : meta.state,
+        step: "",
+      });
+    }
+    return;
+  }
 
   const { key, day, s } = usage.touchSess(fc, touched, ms, sid, fc.cwd, "desktop");
   const v = usage.liveOf(fc, sid, ms);
@@ -532,10 +566,6 @@ export function ingestCursorEvent(ctx, d, fc, touched) {
       });
       return;
     }
-  } else if (ev === "sessionEnd") {
-    cs.openTools.clear();
-    v.step = "";
-    if (v.state === "run") v.state = "wait";
   } else if (ev === "subagentStart") {
     const subId = String(d.subId || d.parentCallId || "");
     if (subId) {

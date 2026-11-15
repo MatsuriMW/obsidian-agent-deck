@@ -7,7 +7,8 @@
 - **关键词**：`DOING` / `NOW` / `IN-PROGRESS`（进行中）、`TOREVIEW`（待查看）、`NEEDOK`（待授权）、`ERRORED` / `FAILED`、`HITLIMIT`、`QUEUED`、`DELEGATED`、`TODO` / `LATER`、`PAUSED` / `SUSPENDED`、`WAITING` / `WAIT`、`DONE`、`CANCELED` / `CANCELLED`、`TODOFORAI` / `TODO4AI` / `TODO2AI` / `TODOTOAI`；支持 `[ ]` `[/]` `[x]` `[-]`。人工改写关键词锁定自动状态同步（内容仍继续记录）。
 - **摘要短链与 AI 总结**：
   - 摘要中的长网址与文件路径使用 `[🔗](完整地址)`（不截断目标，编码空格与括号）；详细摘录与完整归档保留原文。
-  - 用户输入统一走 `src/prompt-text.js` 的 `cleanUserPrompt` / `isPromptText`。
+  - 用户输入清洗走 `src/prompt-text.js` 的 `cleanUserPrompt` / `isPromptText`；AI 自动记录（`❓`、简略 `任务：` 及模型摘要入参）额外走 `condenseUserPrompt` 过滤口语废话以提高信息密度。
+  - 日记内仅记录时间（`HH:mm`），不重复写日期；默认以自然日零点（`dayCutoff: 0`）分割，跨日延续对话保留在原起始日日记中并合并时段，零点后新对话写入新一天。
   - 后台回答按清理后的正文计数：不超过 500 字，完整原文直接写入子块；超过 500 字，只写完整问答文件链接。文件保存在 `Agent Deck/Answers/`，包含完整问题与回答；不写会话号、定位标识或追踪注释。保留正文代码、命令与链接，不另调总结模型。文件校验值保存在插件状态中，手动修改过的文件不覆盖。
   - 普通会话的结论长度默认 350，保留用户自定义值；与后台 500 字分流规则独立。
 - **记录粒度**：简略 / 标准 / 详细（上限 1000/3000 字），配置变更仅作用于新开始轮次，不重写已有记录。
@@ -26,7 +27,7 @@
 
 ## 4. 持久化与口径
 
-- **`data.json`**（`STORE_VERSION = 1`）：`archiveTaskTurns`、`aiRecordExpanded`、`aiRecordClosed` 存插件设置，不污染 Markdown。
+- **`data.json`**（`STORE_VERSION = 1`）：`archiveTaskTurns`、`aiRecordExpanded`、`aiRecordClosed`、`aiRecordViews` 存插件设置，不污染 Markdown。切换大纲／表格／卡片／时间线视图仅改变编辑器渲染，不改写 Markdown 内容、层级、顺序或块号。
 - **`usage.json` 缓存**（`USAGE_CACHE_VERSION = 6` in `src/readers.js`）：修改会话解析或清洗规则时必须递增版本号。
 - **Token 让渡**：仅当螺旋日程实际匹配同一会话且提供相应 token 时让出显示；否则由 Agent Deck 显示。
-- **Dashboard 回顾口径**：汇总输入/输出/缓存读取 token、去重活跃耗时与会话数（沿用日记分界）；**缺失数据绝不估算**；不改写日记、不调用外部模型。
+- **Dashboard 回顾口径**：汇总输入/输出/缓存读取 token、去重活跃耗时与会话数（沿用日记分界）；**缺失数据绝不估算**；不改写日记、不调用外部模型。项目归属除 `🔗` 链接外，也结合日记文件名日期与 `autoLogState` 溯源无 `🔗` 的 AI 自动记录块。（已在 macOS 实测；Windows 端未测）

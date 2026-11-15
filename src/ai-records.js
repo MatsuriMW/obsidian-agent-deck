@@ -1,30 +1,100 @@
 // AI 记录的显示范围；只管直属记录，不隐藏手写笔记与子任务。
 import * as J from "./journal.js";
 export const AI_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
+export const RECORD_VIEWS = new Set(["outline", "table", "cards", "timeline"]);
 export const isBriefRecord = line => /💬\s+(?:第\d+轮[：:])?任务：.+；结论：/.test(line);
 
+function groupPrefValue(map, group) {
+  if (!map || !group) return undefined;
+  for (const k of [group.key, group.stableKey]) {
+    if (k && Object.hasOwn(map, k)) return map[k];
+  }
+  return undefined;
+}
+
+export function recordViewMode(settings, group) {
+  const mode = groupPrefValue(settings?.aiRecordViews, group);
+  return RECORD_VIEWS.has(mode) ? mode : "outline";
+}
+
+function collectChildSubtree(lines, start, indent, endLine, fenced) {
+  let subEnd = start;
+  let hasForeignSubtree = false;
+  for (let k = start + 1; k <= endLine; k++) {
+    if (!lines[k].trim()) continue;
+    if (J.width(lines[k]) <= indent) break;
+    subEnd = k;
+    if (!fenced.has(k) && (J.kwLine(lines[k])?.kw || J.blockIdOf(lines[k]) || J.parseLink(lines[k]))) {
+      hasForeignSubtree = true;
+    }
+  }
+  return { subEnd, hasForeignSubtree };
+}
+
+const normalizeStableTaskKey = (k) => String(k || "")
+  .replace(/^(?:\*\*\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\*\*|\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?)\s*/u, "")
+  .replace(/^🤖\s*/u, "")
+  .trim();
+
 export function aiRecordGroups(text, trackedIds = new Set()) {
-  const lines = text.split("\n"), out = [], fenced = J.fencedLines(lines);
+  if (!text || (!text.includes("💬") && !text.includes("❓") && !text.includes("📋") && !text.includes("⏱") && !text.includes("🔗") && !text.includes("🤖") && !text.includes("^"))) return [];
+  const lines = text.split("\n"), out = [], fenced = J.fencedLines(lines), titleCounts = new Map();
   for (const task of J.taskItems(text)) {
     if (fenced.has(task.line) || AI_RECORD_RE.test(lines[task.line])) continue;
     const indent = J.width(J.childIndent(lines, task.line));
-    const records = [];
+    let endLine = task.line;
     for (let i = task.line + 1; i < lines.length; i++) {
+      if (lines[i].trim() && J.width(lines[i]) <= task.indent) break;
+      if (lines[i].trim()) endLine = i;
+    }
+    const records = [];
+    const tableEntries = [];
+    for (let i = task.line + 1; i <= endLine; i++) {
       if (fenced.has(i) || !lines[i].trim()) continue;
       const w = J.width(lines[i]);
-      if (w <= task.indent) break;
-      if (w === indent && AI_RECORD_RE.test(lines[i]) && !J.blockIdOf(lines[i]) && !J.hasDescendants(lines, i)) records.push(i);
+      if (w !== indent || !AI_RECORD_RE.test(lines[i]) || J.blockIdOf(lines[i])) continue;
+      const { subEnd, hasForeignSubtree } = collectChildSubtree(lines, i, indent, endLine, fenced);
+      if (subEnd === i) {
+        records.push(i);
+        tableEntries.push({ line: i, endLine: i, lineNumbers: [i], children: [] });
+      } else if (!hasForeignSubtree) {
+        const lineNumbers = [];
+        const children = [];
+        for (let k = i; k <= subEnd; k++) {
+          lineNumbers.push(k);
+          if (k > i && (lines[k].trim() || fenced.has(k))) children.push(lines[k]);
+        }
+        tableEntries.push({ line: i, endLine: subEnd, lineNumbers, children });
+      }
+      i = subEnd;
     }
-    if (!records.length) continue;
-    const tracked = J.isDeckBlockId(task.blockId) || trackedIds.has(task.blockId) || task.body.startsWith("🤖") || records.some((i) => J.parseLink(lines[i]));
-    if (tracked) out.push({
-      key: task.blockId || `${task.line}:${task.key}`,
-      line: task.line,
-      kw: task.kw,
-      state: task.state,
-      records,
-      summaries: records.filter((n) => /💬\s+累计总结[：:]/.test(lines[n])),
-    });
+    if (!records.length && !tableEntries.length) continue;
+    const tracked = J.isDeckBlockId(task.blockId)
+      || trackedIds.has(task.blockId)
+      || task.body.startsWith("🤖")
+      || records.some((i) => J.parseLink(lines[i]))
+      || tableEntries.some((e) => J.parseLink(lines[e.line]));
+    if (tracked) {
+      const baseTitle = normalizeStableTaskKey(task.key) || task.key;
+      const occ = (titleCounts.get(baseTitle) || 0) + 1;
+      titleCounts.set(baseTitle, occ);
+      const stableKey = `task:${baseTitle}${occ > 1 ? `#${occ}` : ""}`;
+      out.push({
+        key: task.blockId || stableKey,
+        stableKey,
+        line: task.line,
+        indent: task.indent,
+        endLine,
+        kw: task.kw,
+        state: task.state,
+        records,
+        summaries: records.filter((n) => /💬\s+累计总结[：:]/.test(lines[n])),
+        tableEntries,
+      });
+    }
+  }
+  for (const g of out) {
+    g.topLevel = !out.some((outer) => outer !== g && outer.line < g.line && g.line <= outer.endLine);
   }
   return out;
 }
@@ -40,22 +110,210 @@ export function recordStartsOpen(mode, group) {
 export function recordIsOpen(settings, mode, group) {
   const expanded = settings?.aiRecordExpanded || {};
   const closed = settings?.aiRecordClosed || {};
-  if (closed[group.key]) return false;
-  if (expanded[group.key]) return true;
+  if (groupPrefValue(closed, group)) return false;
+  if (groupPrefValue(expanded, group)) return true;
   return recordStartsOpen(mode, group);
+}
+
+function selectVisibleLines(lineNums, lines, mode = "latest1", summaryLines = []) {
+  const count = { latest1: 1, latest3: 3, latest5: 5 }[mode];
+  if (count) {
+    const results = lineNums.filter((n) => /^(?:\s*(?:[-*+]|\d+[.)])\s+)?💬\s/.test(lines[n]) && !/💬\s+累计总结[：:]/.test(lines[n]));
+    const round = n => +( /<!-- ad-turn:[^:]+:(\d+) -->/.exec(lines[n]) || /第(\d+)轮[：:]/.exec(lines[n]) || [0, 0])[1];
+    return results.length ? results.sort((a, b) => round(b) - round(a) || b - a).slice(0, count).sort((a, b) => a - b) : summaryLines;
+  }
+  // expanded 模式被手动收起后也必须隐藏明细。
+  return summaryLines;
 }
 
 // 收起时按 AI 结论计数；提问、链接、用时和步骤只在展开后显示。
 // 累计总结是没有轮次结论时的回退，不占最近 N 条的名额。
 export function visibleRecords(group, lines, mode = "latest1") {
-  const count = { latest1: 1, latest3: 3, latest5: 5 }[mode];
-  if (count) {
-    const results = group.records.filter((n) => /^(?:\s*(?:[-*+]|\d+[.)])\s+)?💬\s/.test(lines[n]) && !/💬\s+累计总结[：:]/.test(lines[n]));
-    const round = n => +( /<!-- ad-turn:[^:]+:(\d+) -->/.exec(lines[n]) || /第(\d+)轮[：:]/.exec(lines[n]) || [0, 0])[1];
-    return results.length ? results.sort((a, b) => round(b) - round(a) || b - a).slice(0, count).sort((a, b) => a - b) : group.summaries;
+  return selectVisibleLines(group.records, lines, mode, group.summaries);
+}
+
+export function visibleTableEntries(group, lines, mode = "latest1", open = false, redundantLine = -1) {
+  const entries = (group.tableEntries || []).filter((e) => e.line !== redundantLine);
+  if (open) return entries;
+  const lineNums = entries.map((e) => e.line);
+  const summaries = lineNums.filter((n) => /💬\s+累计总结[：:]/.test(lines[n]));
+  const kept = new Set(selectVisibleLines(lineNums, lines, mode, summaries));
+  return entries.filter((e) => kept.has(e.line));
+}
+
+const RECORD_PROVENANCE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/g;
+
+function cleanRecordText(raw) {
+  return String(raw || "")
+    .replace(RECORD_PROVENANCE_RE, "")
+    .replace(/(?:[ \t]+|^)\^[a-z0-9-]+(?:\S*)?[ \t]*$/i, "")
+    .trim();
+}
+
+export function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
+  const raw = String(rawLine || "");
+  const turnMatch = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(raw) || /第(\d+)轮[：:]/.exec(raw);
+  const round = turnMatch ? Number(turnMatch[1]) : null;
+  const link = J.parseLink(raw);
+  let body = cleanRecordText(raw).replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "");
+  if (link) {
+    const suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(body);
+    if (suffix?.[1] === link.sid) body = body.slice(0, suffix.index).trimEnd();
   }
-  // expanded 模式被手动收起后也必须隐藏明细。
-  return group.summaries;
+
+  let kind = "result", kindLabel = "结论", content = body, meta = "", task = "", conclusion = "";
+  if (/^💬\s+累计总结[：:]/.test(body)) {
+    kind = "summary"; kindLabel = "总结";
+    content = body.replace(/^💬\s+累计总结[：:]\s*/, "");
+  } else if (/^💬\s/.test(body)) {
+    kind = "result"; kindLabel = "结论";
+    content = body.replace(/^💬\s+(?:第\d+轮[：:])?\s*/, "");
+    const brief = /^任务：([\s\S]+?)；结论：([\s\S]+)$/.exec(content);
+    if (brief) { task = brief[1].trim(); conclusion = brief[2].trim(); }
+  } else if (/^❓\s/.test(body)) {
+    kind = "question"; kindLabel = "提问";
+    content = body.replace(/^❓\s+(?:第\d+轮[：:])?\s*/, "");
+  } else if (/^📋\s/.test(body)) {
+    kind = "plan"; kindLabel = "步骤";
+    const rest = body.replace(/^📋\s+(?:第\d+轮[：:])?\s*/, "");
+    const step = /^步骤\s+(\d+\/\d+)(?:\s*·\s*(.*))?$/.exec(rest);
+    if (step) { meta = step[1]; content = (step[2] || "").trim() || rest; }
+    else content = rest;
+  } else if (/^⏱\s/.test(body)) {
+    kind = "clock"; kindLabel = "用时";
+    const rest = body.replace(/^⏱\s+/, "");
+    const parts = rest.split(/\s+·\s+/).map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 1) { content = parts[0]; meta = parts.slice(1).join(" · "); }
+    else content = rest;
+  } else if (/^🔗\s/.test(body)) {
+    kind = "link"; kindLabel = "会话";
+    content = body.replace(/^🔗\s+/, "");
+    meta = link ? ((agentNames && agentNames[link.agent]) || link.agent || "") : "";
+  } else if (/^TODO\s+🤖\s/.test(body)) {
+    kind = "todo"; kindLabel = "待确认";
+    content = body.replace(/^TODO\s+🤖\s+/, "");
+  }
+
+  const nonEmptyChildren = (childLines || []).filter((l) => String(l || "").trim());
+  const baseIndent = nonEmptyChildren.length ? Math.min(...nonEmptyChildren.map((l) => J.width(l))) : 0;
+  const children = nonEmptyChildren.map((l) => ({
+    level: Math.max(0, Math.floor((J.width(l) - baseIndent) / 2)),
+    text: cleanRecordText(l).replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""),
+  })).filter((c) => c.text);
+
+  return { kind, kindLabel, round, content, task, conclusion, meta, children };
+}
+
+export function buildTableModel(parsedRows = []) {
+  const rows = [];
+  const footer = [];
+  for (let i = 0; i < parsedRows.length; i++) {
+    const r = parsedRows[i];
+    if (r.kind === "clock" || r.kind === "link") {
+      footer.push(r);
+      continue;
+    }
+    const next = parsedRows[i + 1];
+    if (
+      r.kind === "question" &&
+      r.round != null &&
+      !r.children?.length &&
+      next?.kind === "result" &&
+      next.round === r.round &&
+      !next.task
+    ) {
+      rows.push({
+        type: "round",
+        round: r.round,
+        badge: "",
+        badgeKind: "result",
+        prompt: r.content,
+        promptMeta: "",
+        promptLine: r.line,
+        conclusion: next.content,
+        conclusionLine: next.line,
+        line: next.line,
+        startedAt: Number(r.startedAt || next?.startedAt) || 0,
+        children: next.children || [],
+        sig: `${r.sig}+${next.sig}`,
+      });
+      i++;
+      continue;
+    }
+    if (r.kind === "summary" || r.kind === "todo") {
+      rows.push({
+        type: "span",
+        round: r.round,
+        badge: r.kindLabel,
+        badgeKind: r.kind,
+        prompt: "",
+        promptMeta: "",
+        promptLine: r.line,
+        conclusion: r.content,
+        conclusionLine: r.line,
+        line: r.line,
+        startedAt: Number(r.startedAt) || 0,
+        children: r.children || [],
+        sig: r.sig,
+      });
+      continue;
+    }
+    if (r.kind === "plan") {
+      rows.push({
+        type: "round",
+        round: r.round,
+        badge: r.round == null ? r.kindLabel : "",
+        badgeKind: "plan",
+        prompt: "",
+        promptStep: true,
+        promptMeta: r.meta || "",
+        promptLine: r.line,
+        conclusion: r.content,
+        conclusionLine: r.line,
+        line: r.line,
+        startedAt: Number(r.startedAt) || 0,
+        children: r.children || [],
+        sig: r.sig,
+      });
+      continue;
+    }
+    if (r.kind === "question") {
+      rows.push({
+        type: "round",
+        round: r.round,
+        badge: r.round == null ? r.kindLabel : "",
+        badgeKind: "question",
+        prompt: r.content,
+        promptMeta: "",
+        promptLine: r.line,
+        conclusion: "",
+        conclusionLine: r.line,
+        line: r.line,
+        startedAt: Number(r.startedAt) || 0,
+        children: r.children || [],
+        sig: r.sig,
+      });
+      continue;
+    }
+    const brief = Boolean(r.task && r.conclusion);
+    rows.push({
+      type: "round",
+      round: r.round,
+      badge: r.round == null ? r.kindLabel : "",
+      badgeKind: r.kind,
+      prompt: brief ? r.task : "",
+      promptMeta: "",
+      promptLine: r.line,
+      conclusion: brief ? r.conclusion : r.content,
+      conclusionLine: r.line,
+      line: r.line,
+      startedAt: Number(r.startedAt) || 0,
+      children: r.children || [],
+      sig: r.sig,
+    });
+  }
+  const hasPromptCol = rows.some((r) => Boolean(r.prompt || r.promptStep));
+  return { rows, footer, hasPromptCol };
 }
 
 export function recordRuns(records) {
@@ -77,6 +335,7 @@ const LAYOUT_MARKER_RE = /^<!-- agent-deck:(?:layout:(?:start|end)|section:(?:do
 
 // 分区边界注释留在 Markdown 中，但在编辑器里整行隐藏（不留多余空行，代码块内示例不动）。
 export function layoutMarkerRanges(text) {
+  if (!text || !text.includes("<!-- agent-deck:")) return [];
   const out = [];
   const lines = text.split("\n");
   const fenced = J.fencedLines(lines);
@@ -98,6 +357,7 @@ export function layoutMarkerRanges(text) {
 }
 
 export function adBlockIdRanges(text, trackedIds = new Set()) {
+  if (!text || (!text.includes("^") && !text.includes("🔗"))) return [];
   const out = [];
   let offset = 0, fence = "", fenceLength = 0;
   for (const line of text.split("\n")) {

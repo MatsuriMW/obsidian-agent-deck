@@ -10,13 +10,14 @@ import { serializeNote } from "./note-updates.js";
 // 状态记在 settings.autoLogState：{ 日记日: { 会话号: { key, label, status, … } } }。
 
 import { Notice, MarkdownView } from "obsidian";
-import { AGENTS, AGENT_ORDER, dayKeyToday, startOfDay, unionSegs, journalPath } from "./constants.js";
+import { AGENTS, AGENT_ORDER, dayKey, dayKeyToday, dayMinute, startOfDay, unionSegs, journalPath } from "./constants.js";
 import * as J from "./journal.js";
 import { sessionProjectName } from "./readers.js";
 import { runJournalModel, safeLabel } from "./llm.js";
 import { t } from "./i18n.js";
 import { planJournal, renderJournal, ensureTopRule } from "./organize-journal.js";
 import { readJournalLayout, configuredJournalLayout } from "./journal-layout.js";
+import { condenseUserPrompt } from "./prompt-text.js";
 
 const agentName = (id) => AGENTS[id]?.short || id;
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d);
@@ -132,10 +133,15 @@ export class AutoLog {
     const segs = (x && x.segs) || [];
     const first = segs.length ? segs[0][0] : null;
     const last = segs.length ? segs[segs.length - 1][1] : first;
+    const meta = (sid && this.usage?.meta?.get(sid)) || {};
+    const roundDoneAt = Array.isArray(meta.rounds) ? meta.rounds.reduce((best, r) => Math.max(best, r?.doneAt || 0), 0) : 0;
+    const endMs = meta.lastAt || roundDoneAt || 0;
+    const metaEndClock = endMs ? J.clock(dayMinute(endMs, this.cfg)) : "";
+    const metaStartClock = !first && meta.startedAt ? J.clock(dayMinute(meta.startedAt, this.cfg)) : "";
     const preferId = (found && found.blockId) || rec.blockId || J.makeBlockId(sid || rec.key, x?.agent || rec.agent, rec.slug);
     const kw = status === "doing" ? "DOING" : status === "done" ? "DONE" : "PAUSED";
-    const startClock = first != null ? J.clock(first) : "";
-    const endClock = last != null ? J.clock(last) : startClock;
+    const startClock = first != null ? J.clock(first) : metaStartClock;
+    const endClock = (status === "done" && metaEndClock) ? metaEndClock : (last != null ? J.clock(last) : (metaEndClock || startClock));
     if (!found) {
       if (!rec.fresh) return { text, gone: true };
       const isAuto = rec.created !== false || String(rec.label || "").startsWith("🤖");
@@ -224,12 +230,13 @@ export class AutoLog {
     const blocks = items.map(({ x, active }, i) => {
       const meta = this.usage.meta.get(x.sid) || {};
       const last = String(meta.lastText || "").replace(/\d{12,}/g, "…").replace(/\s+/g, " ").trim().slice(-700);
+      const opening = condenseUserPrompt(x.text || "").replace(/\d{12,}/g, "…").slice(0, 200);
       return [`#s${i + 1} [${agentName(x.agent)}] 标题：${x.title || "（没有）"}；累计 ${x.min} 分钟；现在：${active ? "还在进行" : "已经停了"}`,
-        x.text ? `开头说的：${String(x.text).replace(/\d{12,}/g, "…").slice(0, 200)}` : "",
+        opening ? `开头说的：${opening}` : "",
         last ? `最后一条回复的结尾：${last}` : ""].filter(Boolean).join("\n");
     });
     const prompt = [
-      "下面是用户今天和 AI 助手的几个工作会话，以及他今天日记里还没做完的任务行。请把每个会话整理成一条任务记录。",
+      "下面是用户今天和 AI 助手的几个工作会话，以及他今天日记里还没做完的任务行。请把每个会话整理成高信息密度的任务记录（自动过滤用户话语中的口语废话、语气词与寒暄，只记录事实、动作与结论，且不要在正文中重复写日期）。",
       "",
       "【日记里还没做完的任务行】（编号: 状态 文字）",
       open.length ? open.map((i, n) => `${n + 1}: ${i.doing ? "DOING" : i.paused ? "PAUSED" : "TODO"} ${J.workKey(i.label)}`).join("\n") : "（没有）",
@@ -240,9 +247,9 @@ export class AutoLog {
       "只输出一个 JSON 数组，每个会话一项，不要解释、不要代码块：",
       '[{"id":"s1","label":"…","slug":"journal-cleanup","summary":"…","match":null,"done":false,"todos":[],"skip":false}]',
       "字段：",
-      "- label：这件事是什么，不超过 18 个字的中文总结标题（动词开头，稍微总结概括核心任务，不要照抄原话、路径或链接，不要带时间、时长、状态词和标点结尾）。",
+      "- label：这件事是什么，不超过 18 个字的中文总结标题（动词开头，高信息密度概括核心任务，过滤口语废话，不要照抄原话、路径、链接或日期，不要带时间、时长、状态词和标点结尾）。",
       "- slug：label 对应的一两个简短英文关键词，用小写英文字母、数字和短横线，每词不超过 16 个字符，例如 journal-cleanup；用于首次创建定位标识。",
-      "- summary：当前最新一轮对话的一句话结论（不超过 35 个字），概括 AI 刚做完或得出的结论；没有回复则填空字符串。",
+      "- summary：当前最新一轮对话的一句话结论（不超过 35 个字，去掉口语铺垫，概括 AI 刚做完或得出的结论；没有回复则填空字符串）。",
       "- match：只有当上面某一行写的就是「这个会话里 AI 在替用户做的那件工作本身」时，才填那一行的编号。那一行如果是留给用户本人的动作（看一眼、看效果、确认、拍板、自己跑命令、发出去、阅读之类），哪怕话题一样也不能匹配，填 null。拿不准一律填 null。",
       "- done：只对已经停了的会话有意义。最后的回复明确表明这件事整个做完了，填 true；做到一半、还在等用户、报错没解决、说了以后再继续，都填 false。",
       "- todos：只在会话已经停了时填。回复里明确说了要用户本人去做或拍板的事，每条不超过 30 个字，最多 1 条，只列不做就卡住的那一件；没有就是空数组。上面任务行里已经有意思相同的就不要再列。",
@@ -252,7 +259,7 @@ export class AutoLog {
       for (const { x } of items) {
         const meta = this.usage.meta.get(x.sid) || {};
         const proj = this.projectOf(x);
-        const rawLabel = x.title || (x.text || "").split(" / ")[0];
+        const rawLabel = x.title || condenseUserPrompt((x.text || "").split(" / ")[0]);
         const label = String(rawLabel || "").trim() ? J.formatProjectAutoTitle(rawLabel, proj) : "";
         const summary = J.oneSentenceConclusion(meta.lastText || "", 80);
         if (label) out.set(x.sid, { label, proj, summary, matchKey: null, done: false, todos: [], skip: false });
@@ -296,27 +303,101 @@ export class AutoLog {
     return out;
   }
 
+  dayDiff(fromDay, toDay) {
+    if (!fromDay || !toDay || fromDay === toDay) return 0;
+    const parse = (d) => new Date(String(d).replace(/^(\d{4})\D(\d{2})\D(\d{2})$/, "$1-$2-$3") + "T12:00:00").getTime();
+    return Math.round((parse(toDay) - parse(fromDay)) / 86400000);
+  }
+
+  // 跨日期会话留在原起始日日记，过了零点的新会话再记到今天。
+  originDayOf(x, today) {
+    const sid = x?.sid;
+    if (!sid) return today;
+    for (const d of Object.keys(this.cfg.autoLogState || {}).sort()) {
+      if (d >= today) continue;
+      const rec = this.cfg.autoLogState[d]?.[sid];
+      if (rec && !rec.gone && (rec.key || rec.blockId || rec.skip)) return d;
+    }
+    const meta = this.usage?.meta?.get(sid) || {};
+    const firstRoundAt = Array.isArray(meta.rounds) && meta.rounds[0]?.at ? meta.rounds[0].at : 0;
+    const startMs = meta.startedAt || firstRoundAt || 0;
+    if (startMs > 0) {
+      const startDay = dayKey(startMs, this.cfg);
+      if (startDay && startDay < today && this.journalFile(startDay)) return startDay;
+    }
+    return today;
+  }
+
   async run({ dry = false, fallback = false, manual = false } = {}) {
     const report = { asked: 0, changes: [], error: "" };
     if (this._busy || (this.cfg.journalAutoWrite === false && !manual)) return report;
     this._busy = true;
-    let day = "", snap = null, file = null;
     try {
-      day = this.dayKey();
-      file = this.journalFile(day);
+      const day = this.dayKey();
+      const file = this.journalFile(day);
       if (!file) { report.error = t("今天的日记 {path} 还没建", { path: this.journalPath(day) }); return report; }
       const data = this.usage.summary(day);
       if (!data || !data.list || !data.list.length) return report;
+      const arch = this.archived();
+      const todayList = [], crossByOrigin = new Map();
+      for (const x of data.list) {
+        const origin = this.originDayOf(x, day);
+        if (origin < day) {
+          (crossByOrigin.get(origin) || crossByOrigin.set(origin, []).get(origin)).push(x);
+        } else {
+          todayList.push(x);
+        }
+      }
+      const res = await this.processDay(day, file, todayList, day, arch, { dry, fallback, manual }, report);
+      if (!res || dry) return report;
+      // 跨日延续的会话保留在原起始日日记位置并合并时段与进度
+      for (const [originDay, crossList] of crossByOrigin) {
+        const originFile = this.journalFile(originDay);
+        if (!originFile) continue;
+        const shiftMin = Math.round(this.dayDiff(originDay, day) * 1440);
+        const originList = ((this.usage.summary(originDay) || {}).list || []).map((s) => ({ ...s }));
+        const bySid = new Map(originList.map((s) => [s.sid, s]));
+        for (const xToday of crossList) {
+          const shiftedSegs = (xToday.segs || []).map(([a, b]) => [a + shiftMin, b + shiftMin]);
+          const prev = bySid.get(xToday.sid);
+          const mergedSegs = unionSegs([...(prev?.segs || []), ...shiftedSegs]);
+          const min = Math.round(mergedSegs.reduce((n, [a, b]) => n + Math.max(0, b - a), 0));
+          const merged = {
+            ...(prev || xToday),
+            segs: mergedSegs,
+            min,
+            out: (prev?.out || 0) + (xToday.out || 0),
+            fresh: (prev?.fresh || 0) + (xToday.fresh || 0),
+          };
+          if (prev) Object.assign(prev, merged);
+          else originList.push(merged);
+        }
+        await this.processDay(originDay, originFile, originList, day, arch, { dry, fallback, manual }, report, shiftMin);
+      }
+      await this.archivePast(arch, day);
+      for (const k of Object.keys(this.cfg.autoLogState).sort().slice(0, -14)) delete this.cfg.autoLogState[k];
+      await this.p.saveSettings();
+      return report;
+    } catch (e) {
+      console.error("[agent-deck] 自动记日记失败", e);
+      report.error = String(e.message || e);
+      return report;
+    } finally { this._busy = false; }
+  }
+
+  async processDay(day, file, list, todayDay, arch, { dry = false, fallback = false, manual = false } = {}, report, shiftMin = 0) {
+    let snap = null;
+    try {
+      if (!list.length) return true;
       const idle = Math.max(5, this.cfg.autoLogIdle || 10);
-      const now = this.nowMin();
+      const now = this.nowMin() + shiftMin;
       const st = this.state(day);
       snap = JSON.stringify(st);
-      const arch = this.archived();
       const base = await this.read(file);
       const linked = J.linkMap(base);
       const background = new Set(Object.values(this.p.jobs || {}).filter(job => job.destination === "background").map(job => job.sessionId));
       const todo = [], live = [];
-      for (const x of data.list) {
+      for (const x of list) {
         if (!x.segs || !x.segs.length) continue;
         if (!this.agentOn(x.agent) || background.has(x.sid)) continue;
         if (linked.has(x.sid)) continue;   // 日记里用 🔗 绑好的，交给回写那一半
@@ -335,10 +416,10 @@ export class AutoLog {
       if (ask.length) {
         const open = J.openTasks(base).filter((i) => !this.hasChildren(base, i.line)).slice(0, 60);
         ans = await this.ask(ask, open, fallback);
-        report.asked = ask.length;
+        report.asked += ask.length;
         report.error = this._err || "";
       }
-      if (this.cfg.journalAutoWrite === false && !manual) return report;
+      if (this.cfg.journalAutoWrite === false && !manual) return true;
       await serializeNote(this.p, file.path, async () => {
         const base = await this.read(file);
         const linked = J.linkMap(base);
@@ -409,7 +490,6 @@ export class AutoLog {
             text = this.autoLine(text, rec, x, "paused").text;
           }
           if (a && !active && a.done && !rec.doneHint) { rec.doneHint = true; digest.done.push(`${name}（${x.min}m）`); report.changes.push(t("看着做完了：{name}", { name: rec.label })); }
-          // 把同一个会话的多轮问答、一句话结论和需要拍板的问题都挂在同一个 ^xxxxx 任务条目下，不另起顶层条目
           const meta = this.usage.meta.get(x.sid) || {};
           const rounds = Array.isArray(meta.rounds) ? meta.rounds : [];
           const rawSummary = (a && a.summary) || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? J.oneSentenceConclusion(meta.lastText, 90) : "");
@@ -421,7 +501,7 @@ export class AutoLog {
               granularity: this.cfg.autoLogGranularity,
               compact: this.cfg.autoLogSummaries?.[day]?.[x.sid],
               detail: this.cfg.autoLogDetail,
-          detailHistory: this.cfg.autoLogDetailHistory,
+              detailHistory: this.cfg.autoLogDetailHistory,
               sid: x.sid, agent: x.agent,
               blockId: rec.blockId || "",
               key: rec.key,
@@ -439,9 +519,8 @@ export class AutoLog {
             }
           }
         }
-        // 用时：各个会话真正在动的时段并到它那一行名下
         const byKey = new Map(), who = new Map(), toks = new Map(), sids = new Map(), blockIds = new Map();
-        for (const x of data.list) {
+        for (const x of list) {
           const rec = st[x.sid];
           if (!rec || rec.skip || rec.gone || !rec.key) continue;
           if (rec.blockId && !blockIds.has(rec.key)) blockIds.set(rec.key, rec.blockId);
@@ -453,29 +532,22 @@ export class AutoLog {
         const merged = new Map();
         for (const [k, segs] of byKey) merged.set(k, unionSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
         for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "", blockIds.get(k) || "");
-        // ⏱ 排在记录块最后：顺带把以前夹在 ❓ / 💬 中间的旧记录也理顺
         text = J.cleanCompletedIdentifiers(J.clocksLast(text));
-        report.diff = J.diffLines(base, text);
-        if (dry) { this.cfg.autoLogState[day] = JSON.parse(snap); return report; }
+        if (day === todayDay) report.diff = J.diffLines(base, text);
+        if (dry) { this.cfg.autoLogState[day] = JSON.parse(snap); return; }
         if (!(await this.write(file, base, text))) {
           this.cfg.autoLogState[day] = JSON.parse(snap);
-          report.error = t("日记正在被改，这一轮没写");
-          return report;
+          if (day === todayDay) report.error = t("日记正在被改，这一轮没写");
+          return;
         }
         for (const [k, segs] of merged) work[k] = segs;
-        if (this.cfg.autoLogNotify !== false) this.digest(digest, idle, file);
+        if (this.cfg.autoLogNotify !== false && day === todayDay) this.digest(digest, idle, file);
       });
-      if (dry || report.error === t("日记正在被改，这一轮没写")) return report;
-      await this.archivePast(arch, day);
-      for (const k of Object.keys(this.cfg.autoLogState).sort().slice(0, -4)) delete this.cfg.autoLogState[k];
-      await this.p.saveSettings();
-      return report;
+      return day !== todayDay || report.error !== t("日记正在被改，这一轮没写");
     } catch (e) {
-      console.error("[agent-deck] 自动记日记失败", e);
       if (snap && day) this.cfg.autoLogState[day] = JSON.parse(snap);
-      report.error = String(e.message || e);
-      return report;
-    } finally { this._busy = false; }
+      throw e;
+    }
   }
 
   // 前几天记下、还挂着的行：会话归档了，就在它当天的日记里补成 DONE。

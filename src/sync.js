@@ -17,6 +17,7 @@ import * as J from "./journal.js";
 import { runJournalModel, safeLabel } from "./llm.js";
 import { ensureTopRule } from "./organize-journal.js";
 import { detailForRound } from "./log-detail.js";
+import { condenseUserPrompt } from "./prompt-text.js";
 
 const STATE_KW = J.STATE_KW;
 
@@ -58,7 +59,8 @@ export class JournalSync {
     const clockSpan = J.clockSpanFromLines(lines, ownerLine);
     const m = (sid && this.usage?.meta?.get(sid)) || {};
     const today = dayKeyToday(this.cfg);
-    const metaStart = m.firstAt && dayKey(m.firstAt, this.cfg) === today ? J.clock(dayMinute(m.firstAt, this.cfg)) : "";
+    const firstAt = m.startedAt || m.firstAt || 0;
+    const metaStart = firstAt && dayKey(firstAt, this.cfg) === today ? J.clock(dayMinute(firstAt, this.cfg)) : "";
     const metaEnd = m.lastAt && dayKey(m.lastAt, this.cfg) === today ? J.clock(dayMinute(m.lastAt, this.cfg)) : "";
     const start = segStart || clockSpan?.start || p?.since || metaStart || metaEnd || "";
     const end = segEnd || metaEnd || (p?.until && p?.until !== p?.since ? p.until : clockSpan?.end) || p?.until || p?.since || start || "";
@@ -73,7 +75,7 @@ export class JournalSync {
       if (v instanceof MarkdownView && v.file && v.editor && v.editor.cm) {
         try {
           const doc = v.editor.cm.state.doc.toString();
-          if (doc.includes("🔗") || J.taskItems(doc).some(task => J.isDeckBlockId(task.blockId))) out.push(v);
+          if (doc.includes("🔗") || (doc.includes("^") && J.taskItems(doc).some(task => J.isDeckBlockId(task.blockId)))) out.push(v);
         } catch { /* closed */ }
       }
     });
@@ -149,10 +151,11 @@ export class JournalSync {
     this._polishing.add(roundObj);
     this._refining.add(key);
     const brief = detailForRound(this.cfg.autoLogDetail, this.cfg.autoLogDetailHistory, roundObj) === "brief";
+    const cleanAsk = condenseUserPrompt(roundObj.ask || this.usage.meta.get(sid)?.title || "");
     const prompt = [
-      brief ? '把本轮任务和回复分别浓缩成关键词或短语，只输出 JSON：{"task":"任务要点，最多 30 字","result":"结论要点，最多 45 字"}。保留失败、未完成、待验证等状态，不编造事实，不要代码块。'
-        : "把下面 AI 助手这一轮的回复提炼成一句话结论（不超过 40 个字，直接写结论本身，不要前缀、不要引号、不要代码块）：",
-      brief ? `任务：${String(roundObj.ask || this.usage.meta.get(sid)?.title || "").slice(-600)}` : "",
+      brief ? '把本轮任务和回复分别浓缩成高信息密度的关键词或短语，只输出 JSON：{"task":"任务要点，最多 30 字","result":"结论要点，最多 45 字"}。自动过滤用户话语中的口语废话、语气词与寒暄，保留具体动作、对象和失败/待验证等状态，不编造事实，不要代码块。'
+        : "把下面 AI 助手这一轮的回复提炼成一句话结论（不超过 40 个字，高信息密度，不要口语废话、不要前缀、不要引号、不要代码块）：",
+      brief ? `任务：${String(cleanAsk).slice(-600)}` : "",
       "",
       String(rawSaid).slice(-900),
     ].join("\n");
@@ -305,12 +308,16 @@ export class JournalSync {
       if (!cur || J.isManualTask(this.cfg, ls[n])) continue;
       if (this.archived(k.sid)) {
         const sessions = [];
+        let latestSid = k.sid, latestAt = at, bestTime = this.usage.meta.get(k.sid)?.lastAt || 0;
         for (let i = 0; i < ls.length; i++) {
           if (owner[i] !== n) continue;
           const link = J.parseLink(ls[i]);
-          if (link) sessions.push(link.sid);
+          if (!link) continue;
+          sessions.push(link.sid);
+          const t = this.usage.meta.get(link.sid)?.lastAt || 0;
+          if (t > bestTime) { bestTime = t; latestSid = link.sid; latestAt = i; }
         }
-        if (!J.DONE_KWS.includes(cur.kw) && sessions.every(sid => this.archived(sid))) ls = this.finish(ls.join("\n"), k.sid, at).split("\n");
+        if (!J.DONE_KWS.includes(cur.kw) && sessions.every(sid => this.archived(sid))) ls = this.finish(ls.join("\n"), latestSid, latestAt).split("\n");
         continue;
       }
       if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || J.AGENT_KW_RE.test(cur.kw) || !cur.kw)) continue;
@@ -398,10 +405,12 @@ export class JournalSync {
     const p = J.splitTask(lines[n]);
     if (!p || J.isManualTask(this.cfg, lines[n])) return text;
     const meta = this.usage.meta.get(sid) || {};
-    const last = meta.lastAt ? dayMinute(meta.lastAt, this.cfg) : null;
+    const roundDoneAt = Array.isArray(meta.rounds) ? meta.rounds.reduce((best, r) => Math.max(best, r?.doneAt || 0), 0) : 0;
+    const endMs = meta.lastAt || roundDoneAt || 0;
+    const last = endMs ? dayMinute(endMs, this.cfg) : null;
+    const { start, end } = this.sessionTimeSpan(sid, p, lines, n);
+    const lastClock = last != null ? J.clock(last) : end;
     if (p.auto && !p.cb) {
-      const { start, end } = this.sessionTimeSpan(sid, p, lines, n);
-      const lastClock = last != null ? J.clock(last) : end;
       lines[n] = J.formatAutoTaskLine({
         prefix: p.prefix,
         kw: "DONE",
@@ -412,7 +421,7 @@ export class JournalSync {
       });
     } else {
       const body = p.rest.replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
-      lines[n] = `${p.prefix}DONE ${last != null ? J.clock(last) + " " : ""}${body}`.trimEnd();
+      lines[n] = `${p.prefix}DONE ${lastClock ? lastClock + " " : ""}${body}`.trimEnd();
     }
     const info = this.segmentsFor(sid);
     if (info && info.segs.length) {

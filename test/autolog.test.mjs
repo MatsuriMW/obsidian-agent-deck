@@ -347,5 +347,77 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   await al.write({ path: 'journal.md' }, base, next, { cleanup: false });
   check('prepared layout writes preserve outside identifiers and whitespace', p.journal === next, p.journal);
 }
+{ // 归档触发 DONE 时，结束时间按最后一次对话结束时间为准（不是归档操作时间）
+  const sid1 = "11111111-1111-1111-1111-111111111111";
+  const sid2 = "22222222-2222-2222-2222-222222222222";
+  const baseDate = new Date();
+  baseDate.setHours(10, 0, 0, 0);
+  const tEnd1 = baseDate.getTime() + 12 * 60000; // 10:12
+  const tEnd2 = baseDate.getTime() + 28 * 60000; // 10:28
+  const p = fakePlugin("", [], {
+    [sid1]: { agent: "claude", state: "wait", lastAt: tEnd1 },
+    [sid2]: { agent: "codex", state: "wait", lastAt: tEnd2 },
+  }, { dayCutoff: 0 });
+  p.usage.archivedClaude.add(sid1);
+  p.usage.archived.add(sid2);
+  const js = new JournalSync(p);
+  const multiNote = `- DOING 🤖 10:00-10:12 联合任务 ^ad-multi\n\t- 🔗 [Codex](codex://threads/${sid2})\n\t- 🔗 [Claude](claude://resume?session=${sid1})\n`;
+  const multiOut = js.keywords(multiNote);
+  check("multi-session archive uses latest conversation end time instead of bottom link or archive time", multiOut.includes("- DONE 🤖 10:00-10:28 联合任务"), multiOut);
+
+  const al = new AutoLog(p);
+  const pastNote = "- PAUSED 🤖 10:00-10:05 跨天归档 ^ad-past\n";
+  const res = al.autoLine(pastNote, { key: "跨天归档", blockId: "ad-past", slug: "past" }, { sid: sid1, agent: "claude", segs: [] }, "done");
+  check("autolog archive falls back to meta lastAt instead of stale p.until", res.text.startsWith("- DONE 🤖 10:00-10:12 跨天归档 ^ad-past"), res.text);
+}
+
+{ // 口语过滤 & 跨零点会话保留在前一天位置，过了零点的新会话去新一天
+  const { condenseUserPrompt } = await import("../src/prompt-text.js");
+  const { dayKey } = await import("../src/constants.js");
+  const condensed = condenseUserPrompt("那个，就是说麻烦你帮我看一下，嗯，为什么 npm run build 会报错，谢谢！");
+  check("condenseUserPrompt strips spoken filler while keeping core task", !/那个|就是说|谢谢|麻烦你/.test(condensed) && condensed.includes("npm run build"), condensed);
+
+  const now = Date.now();
+  const yMs = now - 86400e3;
+  const cfg = deepMerge(DEFAULTS, { dayCutoff: 0 });
+  const today = dayKey(now, cfg), yesterday = dayKey(yMs, cfg);
+  const files = { [`日记/${today}.md`]: "", [`日记/${yesterday}.md`]: "- DOING 🤖 23:40-23:55 跨夜任务 ^ad-cross\n" };
+  const crossSid = "cross-midnight-1", freshSid = "after-midnight-2";
+  const meta = new Map([
+    [crossSid, { agent: "codex", startedAt: yMs, lastAt: now, state: "wait", rounds: [{ n: 1, ask: "昨天开始" }, { n: 2, ask: "嗯，那个继续排查构建", said: "已完成跨夜构建验证。" }] }],
+    [freshSid, { agent: "codex", startedAt: now, lastAt: now, state: "run" }],
+  ]);
+  const summaryMap = {
+    [yesterday]: { list: [{ sid: crossSid, agent: "codex", min: 15, segs: [[1420, 1435]], title: "跨夜任务" }] },
+    [today]: { list: [
+      { sid: crossSid, agent: "codex", min: 10, segs: [[0, 10]], title: "跨夜任务" },
+      { sid: freshSid, agent: "codex", min: 5, segs: [[15, 20]], title: "新的一天任务" },
+    ] },
+  };
+  const p = {
+    settings: cfg,
+    app: {
+      vault: {
+        getAbstractFileByPath: (path) => (Object.hasOwn(files, path) ? { path, extension: "md" } : null),
+        read: async (f) => files[f.path],
+        process: async (f, fn) => { files[f.path] = fn(files[f.path]); },
+      },
+      workspace: { iterateAllLeaves() {} },
+      plugins: { plugins: {} },
+    },
+    usage: { summary: (d) => summaryMap[d] || { list: [] }, meta, archived: new Set(), archivedClaude: new Set() },
+    saveSettings: async () => {}, refreshUI() {}, scanNow: async () => {},
+  };
+  cfg.autoLogState = { [yesterday]: { [crossSid]: { key: "🤖 跨夜任务", label: "🤖 跨夜任务", blockId: "ad-cross", status: "doing" } } };
+  const al = new AutoLog(p);
+  al.ask = async (items) => new Map(items.map(({ x }) => [x.sid, { label: x.title, slug: "new-day", summary: "", matchKey: null, done: false, todos: [], skip: false }]));
+  await al.run();
+  check("cross-day conversation stays in yesterday's journal and is not duplicated in today's journal",
+    !files[`日记/${today}.md`].includes("跨夜任务")
+    && files[`日记/${today}.md`].includes("新的一天任务")
+    && files[`日记/${yesterday}.md`].includes("23:40-00:10 跨夜任务")
+    && files[`日记/${yesterday}.md`].includes("继续排查构建"),
+    files);
+}
 if (fail) { console.log(`${fail} failed`); process.exit(1); }
 console.log("all passed");

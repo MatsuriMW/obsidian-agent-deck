@@ -981,6 +981,7 @@ function stateChip(s) {
   if (st === "quiet") return { cls: "is-quiet", label: t("安静") };
   if (st === "error") return { cls: "is-error", label: t("出错") };
   if (st === "limit") return { cls: "is-error", label: t("限额") };
+  if (st === "queued") return { cls: "is-quiet", label: t("排队续跑") };
   if (st === "needs-approval") return { cls: "is-wait", label: t("等你允许") };
   if (st === "done") return { cls: "is-done", label: t("完成") };
   if (st === "cancelled") return { cls: "is-quiet", label: t("已取消") };

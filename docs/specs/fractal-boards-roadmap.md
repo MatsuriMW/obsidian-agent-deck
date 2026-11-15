@@ -1,0 +1,45 @@
+# 后续迭代方向：WorkFlowy 分形看板与大纲多 Agent 编排
+
+状态：**规划中（Backlog，未排期）**｜Linear：见项目 `P-MAT-42` Backlog 卡片
+
+> 本文件记录借鉴 WorkFlowy Fractal Boards（分形看板）思想的长期迭代方向与架构实现路线，不代表当前版本已交付全部能力。
+
+---
+
+## 1. 为什么要做（核心意义）
+
+Agent Deck 当前已具备单母块多视图（`outline` / `table` / `cards` / `timeline`）与可扩展 `Harness` / `AgentRegistry` 基础，但在用户继续沿着 **Harness / 大纲编辑 / 双链 / 拓展 Agent** 深化工作流时，纯线性列表会遇到四个痛点：
+
+1. **多 Agent 并行拆解的可读性瓶颈**：当一个复杂任务拆出 3–4 个子任务并分别委派给 Claude Code、Codex、OpenCode、DeepSeek Harness 时，线性大纲下交错出现的 `❓` / `💬` / `📋` / `⏱` 会迅速拉长篇幅，难以在同一个视野里看清“每个子任务的负责人、阶段卡点、最新结论”。
+2. **大纲与看板割裂问题**：传统看板往往脱离日常笔记存在，需要二次建库或手动同步状态；而 WorkFlowy 的核心启发是**“大纲即看板，任意母节点都可以原地切换为二维看板”**（子项作为列、孙项作为卡片，或同层子项按状态分列），不破坏原本的标准 Markdown 树。
+3. **Zoom（局部聚焦）天然对应 Harness 的 Context Scope**：在分形结构里“聚焦进某个母节点”，既能消除屏幕上的兄弟分支噪音，也自然定义了发给 Agent 的上下文边界（当前母项链 + 直接子项 + `[[双链]]` 引用）。
+4. **Mirror（单源投影）替代复制粘贴**：在跨日记/跨项目页追踪同一任务时，纯文本复制会导致 Token 统计重复与 Dreaming 重复抽取；借由“单主源 + 引用镜像”可兼顾多处可见与数据唯一性。
+
+---
+
+## 2. 怎么实现（架构路线与阶段规划）
+
+基于当前已经重构完成的分层底座（[`ai-records.js`](../../src/ai-records.js)、[`record-display.js`](../../src/record-display.js)、[`harness.js`](../../src/harness.js)、[`agent-registry.js`](../../src/agent-registry.js)），按低耦合渐进方式分三阶段推进：
+
+### 阶段 A：父块原地分形看板视图（CM6 编辑态投影）
+- **交互入口**：复用顶层 AI 记录与任务父块的 `ViewToggleWidget` + `aiRecordViews`（含 `stableKey` 跨行/跨 `DONE` 持久化），在 `大纲 / 表格 / 卡片 / 时间线` 基础上拓展 `看板（board）` 模式。
+- **投影规则**：
+  - 以“选定父块的子任务/阶段分组”作为看板列（例如 `TODO` / `DOING` / `NEEDOK` / `DONE`，或按子标题分组）；
+  - 每张看板卡展示子块标题、绑定 Agent 徽章、进度胶囊或最新一条 `💬` 结论、耗时与快捷操作入口；
+  - 拖拽卡片跨列时，不造私有语法，直接通过 `note-updates.js` + `journal.js` 原子更新对应子行的标准状态关键词（如 `TODO` → `DOING`）。
+
+### 阶段 B：大纲 Zoom + Harness 多 Agent 协同编排
+- **上下文作用域解析**：扩展 `src/harness.js` 的 `ContextResolver` 注册点（`registerContextResolver`），在用户“聚焦父块（Zoom）”时仅加载该父块及其母项链 + 显式 `[[双链]]` 摘要作为上下文，屏蔽无关同级块。
+- **同盘多 Agent 派发与结果收口**：借助 `src/agent-registry.js` 的能力声明，支持在看板内对不同子卡分别指定不同 Agent（例如后端给 Codex、前端/文档给 Claude Code、批量辅助给 OpenCode/DSH），各子块独立写入 `🔗` 与 `💬`，母块汇总整体进展。
+
+### 阶段 C：双链镜像（Mirror）与统计严格隔离
+- **只读引用投影**：探索对 `![[笔记#^blockId]]` / `[[笔记#^blockId]]` 关联任务卡的轻量预览展示，写入与状态切换始终路由回唯一主源（`job.path` / `stableKey`）。
+- **统计与记忆硬隔离**：`readers.js`、`analytics.js`、`dream.js` 与 `autolog.js` 保持只采信主源条目，明确排除引用镜像，避免 Dashboard Token 用量与 Dreaming 记忆重复计数。
+
+---
+
+## 3. 架构红线（不可破坏的不变式）
+
+1. **Markdown 为唯一正本**：看板列结构、卡片状态尽量从标准任务关键词与缩进树衍生；视图偏好、折叠状态保留在 `data.json` 稀疏映射（`aiRecordViews`）中，**禁止向用户正文注入专有看板语法**。
+2. **阅读视图与源码可移植性**：分形看板与交互卡片仅增强 CM6 编辑视图，阅读视图与导出（`task-export.js`）始终呈现干净标准的大纲 Markdown。
+3. **测试与兼容性边界**：后续每个阶段均需延续 `npm test`（含 `architecture-refactor.test.mjs` 零循环检查与 `record-views.test.mjs` 持久化回归）；macOS / Windows 双平台单独注明实测范围。

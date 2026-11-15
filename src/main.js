@@ -24,7 +24,7 @@ import {
 } from "./constants.js";
 import {
   AgentUsage, UsageStore, projectName, SUMMARY_VERSION,
-  cursorEventsDir, cursorHooksStatus,
+  cursorEventsDir, cursorHooksStatus, isCursorRunning,
   installCursorHooks as installCursorHooksHelper,
   uninstallCursorHooks as uninstallCursorHooksHelper,
 } from "./readers.js";
@@ -34,7 +34,7 @@ import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
 import { AgentDeckSettingsTab } from "./settings.js";
 import { syncModelGroups } from "./model-groups.js";
 import { DelegateOptionsModal, ConfirmSendModal, ArchiveTargetModal } from "./dialog.js";
-import { agentIcon } from "./icons.js";
+import { agentIcon, setLucide } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
 import { MenuBarBridge } from "./menubar.js";
 import { integrateRecordFolding } from "./fold-integration.js";
@@ -48,6 +48,10 @@ import { ConversationModal, AcpPermissionModal } from "./conversation-modal.js";
 import { registerTaskAgentSuggest } from "./mention-suggest.js";
 import { t } from "./i18n.js";
 import { registerTaskStatusMenu } from "./task-status.js";
+import { copyTaskMarkdown, exportTaskToPdf, saveTaskAsFile } from "./task-export.js";
+import { scanAgentWait, scanLimitQueue, resolveExternalState, buildLineProgressInfo } from "./external-state.js";
+import { ManagedTimers, CircuitBreaker, safeRun } from "./runtime-guard.js";
+import { hasAgentCapability, usesDeckSessionLink } from "./agent-registry.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -65,12 +69,20 @@ export default class AgentDeckPlugin extends Plugin {
     if (!Array.isArray(this.settings.primaryAgents)) this.settings.primaryAgents = this.settings.aiPrimary ? [this.settings.aiPrimary] : ["claude"];
     this.settings.primaryAgents = this.settings.primaryAgents.filter((x) => AGENTS[x]).slice(0, 3);
     this.settings.jobs = this.settings.jobs && typeof this.settings.jobs === "object" ? this.settings.jobs : {};
-    J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 8) * 60);
+    J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 0) * 60);
     this.jobs = this.settings.jobs;
     this.attentionTracker = new AttentionTracker();
     this.attentionAlerts = new Map();
+    this.extState = { perm: new Map(), queue: new Map(), sig: "" };
     this.views = new Set();
     this._lineMaps = {};
+    this._timers = new ManagedTimers();
+    this._faultBreakers = {
+      autoLog: new CircuitBreaker({ threshold: 3, cooldownMs: 5 * 60000 }),
+      dreaming: new CircuitBreaker({ threshold: 3, cooldownMs: 10 * 60000 }),
+      externalState: new CircuitBreaker({ threshold: 5, cooldownMs: 60000 }),
+    };
+    this.agentShortNames = Object.fromEntries(Object.entries(AGENTS).map(([id, a]) => [id, a.short || a.name || id]));
     this.vaultPath = this.app.vault.adapter.getBasePath ? this.app.vault.adapter.getBasePath() : "";
     this.manifestDir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
     this.pluginDir = path.join(this.vaultPath, this.manifestDir);
@@ -151,7 +163,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "group-active-journal", name: t("当前日记：整理日志版面"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "L" }], callback: () => this.organizeJournal() });
     this.addCommand({ id: "group-done-journal", name: t("当前日记：归档已完成的日志到…"), callback: () => this.archiveCompletedJournal() });
     this.addCommand({ id: "log-journal", name: t("整理 Agent 会话进今天的日记"), callback: () => this.autoLog.logNow() });
-    this.addCommand({ id: "dream-now", name: t("Dreaming：整理 AI 记录与用户日志为长期记忆"), callback: () => this.dreaming.run() });
+    this.addCommand({ id: "dream-now", name: t("Dreaming：整理 AI 记录与用户日志为长期记忆"), callback: () => this.dreaming.run(true, { drain: true }) });
     this.addCommand({ id: "dream-share", name: t("Dreaming：同步共享长期记忆"), callback: () => this.dreaming.sharing.sync() });
     this.addCommand({ id: "dream-export", name: t("Dreaming：导出长期记忆 Markdown 副本"), callback: () => this.dreaming.exportMemory() });
     this.addCommand({ id: "import-nautilus", name: t("导入螺旋日程的历史用量"), callback: () => this.importNautilus(true) });
@@ -194,8 +206,9 @@ export default class AgentDeckPlugin extends Plugin {
       if (this.settings.menuBarHideNautilus !== false) this.defer(() => this.hideNautilusAgentBar().catch(() => {}), 2500);
       this.scheduleScan();
       this.watchCursorEvents();
-      this.registerInterval(window.setInterval(() => this.autoLog.tick(), 60 * 1000));
-      this.registerInterval(window.setInterval(() => this.dreaming.tick().catch((e) => console.error("[agent-deck] dream", e)), 60 * 1000));
+      this.registerInterval(window.setInterval(() => safeRun("autoLog:tick", () => this.autoLog.tick(), { breaker: this._faultBreakers?.autoLog }), 60 * 1000));
+      this.registerInterval(window.setInterval(() => safeRun("dream:tick", () => this.dreaming.tick(), { breaker: this._faultBreakers?.dreaming }), 60 * 1000));
+      this.registerInterval(window.setInterval(() => safeRun("externalState:poll", () => this.pollExternalState(), { breaker: this._faultBreakers?.externalState }), 10 * 1000));
       this.defer(() => this.scanNow(false), 1200);
       if (this.settings.importNautilus !== false && !this.store.imported?.nautilus) {
         this.defer(() => this.importNautilus(false).catch(() => {}), 3500);
@@ -207,13 +220,16 @@ export default class AgentDeckPlugin extends Plugin {
   onunload() {
     this._unloaded = true;
     this.conversationModal?.close();
+    this._cursorPromptNotice?.hide();
+    this._cursorPromptNotice = null;
     for (const alert of this.attentionAlerts?.values() || []) { alert.notice?.hide(); alert.system?.close(); }
     this.settingTab?.hide();
     if (this.journalSync) this.journalSync._stopped = true;
     if (this.store) { clearTimeout(this.store.saveTimer); if (this.store.dirty || this.store.saving) this.store.saveSync(); }
     if (this.usage && (this.usage.dirty || this.usage.saving)) this.usage.saveCacheSync(this.usageCacheFile);
-    clearInterval(this._scanTimer);
-    clearTimeout(this._refreshTimer);
+    this._timers?.dispose?.();
+    this._scanTimer = null;
+    this._refreshTimer = null;
     this.closeCursorWatcher();
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
@@ -298,9 +314,11 @@ export default class AgentDeckPlugin extends Plugin {
 
   // ---------- scan ----------
   scheduleScan() {
+    this._timers?.clear?.(this._scanTimer);
     clearInterval(this._scanTimer);
-    const sec = clamp(Number(this.settings.pollSeconds) || 20, 5, 300);
-    this._scanTimer = setInterval(() => this.scanNow(false), sec * 1000);
+    const sec = clamp(Number(this.settings.pollSeconds) || 60, 5, 300);
+    const run = () => safeRun("scan:periodic", () => this.scanNow(false));
+    this._scanTimer = typeof this._timers?.setInterval === "function" ? this._timers.setInterval(run, sec * 1000) : setInterval(run, sec * 1000);
   }
 
   watchCursorEvents() {
@@ -335,15 +353,83 @@ export default class AgentDeckPlugin extends Plugin {
 
   installCursorHooks() {
     const res = installCursorHooksHelper();
+    this._cursorPromptNotice?.hide();
+    this._cursorPromptNotice = null;
+    if (!this.settings.cursorHooksPrompted) {
+      this.settings.cursorHooksPrompted = true;
+      this.saveSettings().catch(() => {});
+    }
     this.watchCursorEvents();
     this.notice(t("Cursor Hooks 已安装：{path}", { path: res.hooksPath }));
+    if (this.app.setting?.activeTab === this.settingTab && this.settingTab.containerEl?.isConnected) this.settingTab.display();
+    this.scanNow(false).catch(() => {});
     return res;
   }
 
   uninstallCursorHooks() {
     const res = uninstallCursorHooksHelper();
+    this._cursorPromptNotice?.hide();
+    this._cursorPromptNotice = null;
+    if (!this.settings.cursorHooksPrompted) {
+      this.settings.cursorHooksPrompted = true;
+      this.saveSettings().catch(() => {});
+    }
     this.notice(t("已从 Cursor 配置移除 Agent Deck Hooks"));
     return res;
+  }
+
+  isCursorRunning() {
+    return isCursorRunning();
+  }
+
+  async maybePromptCursorHooks() {
+    if (this._unloaded || this._promptingCursorHooks || this._cursorPromptNotice) return false;
+    if (!this.agentEnabled("cursor") || this.settings.cursorHooksPrompted) return false;
+    const status = this.cursorHooksStatus();
+    if (status.installed && !status.outdated) {
+      this.settings.cursorHooksPrompted = true;
+      await this.saveSettings();
+      return false;
+    }
+    this._promptingCursorHooks = true;
+    try {
+      if (!(await this.isCursorRunning())) return false;
+      if (this._unloaded || this.settings.cursorHooksPrompted || !this.agentEnabled("cursor")) return false;
+      const cur = this.cursorHooksStatus();
+      if (cur.installed && !cur.outdated) {
+        this.settings.cursorHooksPrompted = true;
+        await this.saveSettings();
+        return false;
+      }
+      this.settings.cursorHooksPrompted = true;
+      await this.saveSettings();
+      if (this._unloaded) return false;
+      const fragment = document.createDocumentFragment();
+      fragment.createEl("div", {
+        text: cur.outdated
+          ? t("检测到已打开 Cursor：需要更新 Cursor Hooks 吗？更新后即可继续追踪 Cursor 对话。")
+          : t("检测到已打开 Cursor：要安装 Cursor Hooks 吗？安装后即可自动追踪 Cursor 对话。"),
+      });
+      const actions = fragment.createDiv({ cls: "ad-btnrow" });
+      const installBtn = actions.createEl("button", {
+        cls: "mod-cta",
+        text: cur.outdated ? t("更新 Hooks") : t("安装 Hooks"),
+      });
+      installBtn.onclick = () => {
+        this._cursorPromptNotice?.hide();
+        this._cursorPromptNotice = null;
+        try { this.installCursorHooks(); } catch (e) { this.notice(e?.message || String(e)); }
+      };
+      const laterBtn = actions.createEl("button", { text: t("暂不") });
+      laterBtn.onclick = () => {
+        this._cursorPromptNotice?.hide();
+        this._cursorPromptNotice = null;
+      };
+      this._cursorPromptNotice = new Notice(fragment, 0);
+      return true;
+    } finally {
+      this._promptingCursorHooks = false;
+    }
   }
 
   async initializePrimaryAgents() {
@@ -399,8 +485,10 @@ export default class AgentDeckPlugin extends Plugin {
       this.delegator.resolveHandoffs(this.usage);
       this.delegator.retryBackgroundResults?.();
       this.usage.maybeSaveCache(this.usageCacheFile);
+      await this.refreshExternalState?.().catch(() => {});
       this.refreshUI();
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
+      if (!scoped) this.maybePromptCursorHooks?.().catch(() => {});
       if (force) new Notice(t("Agent Deck：读到 {files} 个日志，{days} 天有内容", { files: this.usage.files.size, days: touched.size }), 4000);
       if (agent && days) new Notice(t("{name}：最近 {days} 天的会话已扫描", { name: AGENTS[agent].name, days }), 4000);
     } catch (e) {
@@ -484,7 +572,7 @@ export default class AgentDeckPlugin extends Plugin {
   async saveSettings() {
     syncModelGroups(this.settings, agent => this.agentEnabled(agent));
     this.settings.jobs = this.jobs;
-    J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 8) * 60);
+    J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 0) * 60);
     await this.saveData(this.settings);
   }
 
@@ -518,7 +606,7 @@ export default class AgentDeckPlugin extends Plugin {
   primaryAgents() { return (this.settings.primaryAgents || []).filter((x) => AGENTS[x]).slice(0, 3); }
   isPrimary(agent) { return this.primaryAgents().includes(agent); }
   agentEnabled(agent) { return this.isPrimary(agent) || (this.settings.agents || {})[agent] !== false; }
-  defaultTarget() { return ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(this.settings.delegate?.target) ? this.settings.delegate.target : "claude"; }
+  defaultTarget() { return hasAgentCapability(this.settings.delegate?.target, "delegate") ? this.settings.delegate.target : "claude"; }
   defaultModel(agent) {
     return this.settings.delegate?.[agent]?.model || this.settings.models?.defaultByAgent?.[agent] || DEFAULTS.models.defaultByAgent[agent] || "";
   }
@@ -555,11 +643,85 @@ export default class AgentDeckPlugin extends Plugin {
     this.refreshUI();
   }
 
-  // ---------- sessions ----------
+  // ---------- external state & sessions ----------
+  extStateSig(perm, queue) {
+    const p = [...(perm || new Map()).entries()].sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([sid, d]) => `${sid}:${d.at || 0}:${d.released ? 1 : 0}:${d.tool || ""}`).join(";");
+    const q = [...(queue || new Map()).entries()].sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([sid, d]) => `${sid}:${d.reset_at || 0}`).join(";");
+    return `${p}|${q}`;
+  }
+
+  async refreshExternalState() {
+    if (this._extScanning) return false;
+    this._extScanning = true;
+    try {
+      const [perm, queue] = await Promise.all([
+        scanAgentWait({ prev: this.extState?.perm }),
+        scanLimitQueue(),
+      ]);
+      const sig = this.extStateSig(perm, queue);
+      const changed = sig !== (this.extState?.sig || "");
+      this.extState = { perm, queue, sig };
+      return changed;
+    } finally {
+      this._extScanning = false;
+    }
+  }
+
+  async pollExternalState() {
+    if (this._unloaded) return;
+    if (await this.refreshExternalState()) {
+      if (!this._unloaded) this.refreshUI();
+    }
+  }
+
+  applyExternalState(session, now = Date.now()) {
+    if (!session || !session.sid) return session;
+    const perm = this.extState?.perm?.get(session.sid) || null;
+    const queue = this.extState?.queue?.get(session.sid) || null;
+    if (!perm && !queue && session.state !== "limit") return session;
+    const resolved = resolveExternalState({
+      baseState: session.state || "idle",
+      lastAt: session.lastAt || 0,
+      archived: !!this.usage?.hidden?.(session.sid),
+      resets: session.resets || 0,
+      perm,
+      queue,
+      now,
+    });
+    if (resolved.state === session.state && !resolved.permTool && !resolved.queueResetAt) return session;
+    return {
+      ...session,
+      state: resolved.state,
+      ...(resolved.permTool ? { permTool: resolved.permTool } : {}),
+      ...(resolved.queueResetAt ? { queueResetAt: resolved.queueResetAt } : {}),
+    };
+  }
+
+  lineProgressInfo(text, lines, lineIndex, session = null, job = null) {
+    if (this.settings.lineProgress === false) return null;
+    if (this.nautilusOwnsLine(text, session, job?.destination !== "background")) return null;
+    return buildLineProgressInfo(this, text, lines, lineIndex, session, job);
+  }
+
   liveSessions({ hours = 24 } = {}) {
     const since = Date.now() - hours * 3600e3;
-    const list = this.usage.liveSessions({ since, limit: 100 }).filter((x) => this.agentEnabled(x.agent));
+    const now = Date.now();
+    const list = this.usage.liveSessions({ since, limit: 100 })
+      .filter((x) => this.agentEnabled(x.agent))
+      .map((x) => this.applyExternalState(x, now));
     const seen = new Set(list.map((x) => x.sid));
+    for (const sid of new Set([...(this.extState?.perm?.keys() || []), ...(this.extState?.queue?.keys() || [])])) {
+      if (seen.has(sid) || this.usage.hidden(sid)) continue;
+      const meta = this.usage.meta.get(sid);
+      if (!meta || !this.agentEnabled(meta.agent)) continue;
+      const resolved = this.applyExternalState(meta, now);
+      if (resolved.state === "needs-approval" || resolved.state === "queued") {
+        list.push(resolved);
+        seen.add(sid);
+      }
+    }
     for (const job of Object.values(this.jobs)) {
       if (!["running", "needs-approval"].includes(job.state)) continue;
       if (!job.sessionId || seen.has(job.sessionId)) continue;
@@ -656,7 +818,7 @@ export default class AgentDeckPlugin extends Plugin {
   nautilusOwnsLine(text, session = null, requireTokens = true) {
     const n = this.app.plugins && this.app.plugins.plugins && this.app.plugins.plugins["nautilus-spiral"];
     if (!n || !n.settings || this.settings.yieldToNautilus === false) return false;
-    if (n.settings.lineProgress === false || n.settings.showAi === false) return false;
+    if (typeof n.lineStatus !== "function" || n.settings.lineProgress === false || n.settings.showAi === false) return false;
     if (!NAUTILUS_LINE_RE.test(text)) return false;
     if (session?.sid) {
       try {
@@ -749,7 +911,8 @@ export default class AgentDeckPlugin extends Plugin {
       const meta = this.usage.meta.get(parsed.sid) || { sid: parsed.sid, agent: parsed.agent, state: "idle", title: "", tokens: 0, lastAt: 0 };
       const live = liveFor(parsed.sid);
       const job = jobsBySid.get(parsed.sid);
-      const session = { ...meta, ...(live || {}), tokens: live?.tokens ?? meta.tokens ?? ((meta.out || 0) + (meta.fresh || 0)), agent: parsed.agent || meta.agent, job };
+      const rawSession = { ...meta, ...(live || {}), tokens: live?.tokens ?? meta.tokens ?? ((meta.out || 0) + (meta.fresh || 0)), agent: parsed.agent || meta.agent, job };
+      const session = this.applyExternalState ? this.applyExternalState(rawSession) : rawSession;
       linkByLine.set(i, { ...parsed, parent });
       sessionByParent.set(parent, session);
     }
@@ -767,7 +930,8 @@ export default class AgentDeckPlugin extends Plugin {
         const meta = this.usage.meta.get(sid);
         if (!meta) continue;
         const live = liveFor(sid);
-        sessionByParent.set(i, { ...meta, ...(live || {}), tokens: live?.tokens ?? meta.tokens ?? ((meta.out || 0) + (meta.fresh || 0)), sid, agent: meta.agent || "claude" });
+        const rawSession = { ...meta, ...(live || {}), tokens: live?.tokens ?? meta.tokens ?? ((meta.out || 0) + (meta.fresh || 0)), sid, agent: meta.agent || "claude" };
+        sessionByParent.set(i, this.applyExternalState ? this.applyExternalState(rawSession) : rawSession);
       }
     }
     const map = { doc, lines, sessionByParent, linkByLine };
@@ -989,7 +1153,7 @@ export default class AgentDeckPlugin extends Plugin {
     try {
       const opts = mentionOptions(this, { ...target, agent, ignoreMention: newSession });
       agent = opts.agent;
-      destination ||= cli && ["claude", "codex", "opencode", "qoder", "workbuddy"].includes(agent) ? "terminal" : defaultDestination(this, agent);
+      destination ||= cli && hasAgentCapability(agent, "terminalHandoff") ? "terminal" : defaultDestination(this, agent);
       if (!confirmed) {
         new ConfirmSendModal(this.app, {
           agent, text: newSession ? freshTaskText(target.block.text) : target.block.text, path: item.path,
@@ -1037,7 +1201,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (!canOpenClient(session)) return this.notice(t("此 Antigravity 会话可查看和归档正文，暂不支持转到桌面 IDE"));
     if (!session.sid) return this.notice(t("正在建立会话，请稍后再打开"));
     const job = Object.values(this.jobs).find(j => j.agent === session.agent && j.sessionId === session.sid);
-    if (["claude", "codex", "qoder"].includes(session.agent) && activeJob(job)) return this.notice(t("首轮仍在执行，结束后再打开桌面中的同一会话"));
+    if (hasAgentCapability(session.agent, "waitDesktopUntilDone") && activeJob(job)) return this.notice(t("首轮仍在执行，结束后再打开桌面中的同一会话"));
     return openSessionRaw(this, session.agent, session.sid, session.app, session);
   }
 
@@ -1052,7 +1216,7 @@ export default class AgentDeckPlugin extends Plugin {
       const title = `${AGENTS[session.agent]?.name || session.agent} · ${t("会话 {n}", { n: index + 1 })}`;
       if (canOpenClient(session)) menu.addItem(mi => mi.setTitle(t("继续对话 · {title}", { title })).setDisabled(!session.sid).onClick(() => this.openClientSession(session)));
       menu.addItem(mi => mi.setTitle(t("查看正文与保存对话 · {title}", { title })).setDisabled(!session.sid).onClick(() => this.openConversation(session)));
-      if (canOpenClient(session)) menu.addItem(mi => mi.setTitle(t("在客户端打开 · {title}", { title })).setDisabled(!session.sid || (["claude", "codex", "qoder"].includes(session.agent) && activeJob(session))).onClick(() => this.openClientSession(session)));
+      if (canOpenClient(session)) menu.addItem(mi => mi.setTitle(t("在客户端打开 · {title}", { title })).setDisabled(!session.sid || (hasAgentCapability(session.agent, "waitDesktopUntilDone") && activeJob(session))).onClick(() => this.openClientSession(session)));
       if (activeJob(session) && this.delegator.runners.has(session.id)) menu.addItem(mi => mi.setTitle(t("停止执行 · {title}", { title })).onClick(() => this.cancelJob(session.id)));
       else if (session.handoff && !session.sid && activeJob(session)) menu.addItem(mi => mi.setTitle(t("取消交接 · {title}", { title })).onClick(() => this.cancelJob(session.id)));
       menu.addSeparator();
@@ -1062,6 +1226,59 @@ export default class AgentDeckPlugin extends Plugin {
     if (event) menu.showAtMouseEvent(event);
     else menu.showAtPosition({ x: view.containerEl.getBoundingClientRect().left + 100, y: view.containerEl.getBoundingClientRect().top + 100 });
     return menu;
+  }
+
+  setRecordViewIcon(el, viewMode) {
+    const icons = { outline: "list-tree", table: "table", cards: "layout-grid", timeline: "history" };
+    setLucide(el, icons[viewMode] || "list-tree");
+  }
+
+  openRecordViewMenu(event, { path = "", line = 0, viewMode = "outline", onSelect } = {}) {
+    const menu = new Menu();
+    const views = [
+      ["outline", t("大纲"), "list-tree"],
+      ["table", t("表格"), "table"],
+      ["cards", t("卡片"), "layout-grid"],
+      ["timeline", t("时间线"), "history"],
+    ];
+    for (const [id, label, icon] of views) {
+      menu.addItem((mi) => {
+        mi.setTitle(label).setIcon(icon).setChecked(viewMode === id).onClick(() => onSelect?.(id));
+      });
+    }
+    if (path) {
+      menu.addSeparator();
+      const populateExport = (sub) => {
+        sub.addItem((si) => si.setTitle(t("导出为 PDF")).setIcon("file-text").onClick(() => exportTaskToPdf(this, path, line)));
+        sub.addItem((si) => si.setTitle(t("以 Markdown 格式复制到剪贴板")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path, line)));
+        sub.addItem((si) => si.setTitle(t("另存为…")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path, line)));
+      };
+      menu.addItem((mi) => {
+        mi.setTitle(t("导出")).setIcon("download");
+        if (typeof mi.setSubmenu === "function") {
+          populateExport(mi.setSubmenu());
+        } else {
+          mi.onClick(() => {
+            const sub = new Menu();
+            populateExport(sub);
+            if (event) sub.showAtMouseEvent(event);
+          });
+        }
+      });
+    }
+    if (event) menu.showAtMouseEvent(event);
+    return menu;
+  }
+
+  openRecordLink(href, sourcePath = "") {
+    if (!href) return;
+    if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith("/")) {
+      window.open(href);
+      return;
+    }
+    let target = href;
+    try { target = decodeURI(href); } catch { /* keep raw href */ }
+    this.app.workspace.openLinkText(target, sourcePath || "", false);
   }
 
   // 把手双击：在把手旁边列出开着的 Agent，选哪个就发给哪个，和拖到那张卡片上一样；同时提供「合并到已有条目」
@@ -1290,7 +1507,7 @@ export default class AgentDeckPlugin extends Plugin {
       const kw = menuKeyword(state);
       const where = ["claude", "qoder", "workbuddy"].includes(agent) ? (s.app === "cli" ? t("终端") : t("桌面版")) : agent === "codex" ? (isCodexDesktop(s.app) ? t("桌面版") : "CLI") : ["opencode", "cursor"].includes(agent) ? t("桌面版") : agent === "antigravity" ? (s.job?.transport === "acp" ? t("后台执行") : "IDE") : "Harness";
       const acp = agent === "antigravity" && s.job?.transport === "acp";
-      const url = (AGENTS[agent].trackingOnly || ["opencode", "qoder"].includes(agent)) ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : sessionDeepLink(agent, s.sid);
+      const url = usesDeckSessionLink(agent) ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : sessionDeepLink(agent, s.sid);
       const prog = this.sessionProgressText(s);
       const stepStr = [prog, s.step ? truncate(s.step, 30) : ""].filter(Boolean).join(" · ");
       seen.add(s.sid);
@@ -1430,12 +1647,14 @@ export default class AgentDeckPlugin extends Plugin {
     if (this._unloaded) return;
     this._lineMaps = {}; // Session status can change while the document stays identical.
     this.checkAttention();
+    this._timers?.clear?.(this._refreshTimer);
     clearTimeout(this._refreshTimer);
-    this._refreshTimer = setTimeout(() => {
+    const paint = () => {
       for (const view of this.views) { try { view.render(); } catch (e) { console.error("[agent-deck] view", e); } }
       try { dispatchRefresh(this); } catch { /* no editors */ }
       this.menubar?.update();
-    }, 120);
+    };
+    this._refreshTimer = typeof this._timers?.setTimeout === "function" ? this._timers.setTimeout(paint, 120) : setTimeout(paint, 120);
   }
 
   checkAttention() {
@@ -1446,7 +1665,9 @@ export default class AgentDeckPlugin extends Plugin {
       if (!this.attentionTracker.pending.has(key)) { alert.notice?.hide(); alert.system?.close(); this.attentionAlerts.delete(key); }
     }
     for (const { key, session, reason } of fresh) {
-      const reasonLabel = reason === "需要授权" ? t("需要授权") : reason === "需要确认" ? t("需要确认") : reason;
+      const reasonLabel = reason === "需要授权"
+        ? (session.permTool ? t("需要授权（{tool}）", { tool: session.permTool }) : t("需要授权"))
+        : reason === "需要确认" ? t("需要确认") : reason;
       const title = `Agent Deck · ${reasonLabel}`;
       const body = t("{agent}：{task}", { agent: AGENTS[session.agent]?.name || "Agent", task: session.name || session.title || t("未命名任务") });
       const open = () => {
@@ -1517,7 +1738,7 @@ export default class AgentDeckPlugin extends Plugin {
 }
 
 function menuStateLabel(state) {
-  return t(({ run: "在跑", wait: "等你", quiet: "安静", "needs-approval": "等你允许", error: "出错", limit: "限额", recent: "最近", done: "完成", idle: "空闲" })[state] || "空闲");
+  return t(({ run: "在跑", wait: "等你", quiet: "安静", "needs-approval": "等你允许", queued: "排队续跑", error: "出错", limit: "限额", recent: "最近", done: "完成", idle: "空闲" })[state] || "空闲");
 }
 
 // The menu bar speaks TODOseq's keyword language instead of a separate status
@@ -1529,6 +1750,7 @@ function menuKeyword(state) {
     wait: { id: "WAITING", zh: "等你" },
     quiet: { id: "PAUSED", zh: "安静" },
     "needs-approval": { id: "NEEDOK", zh: "等你" },
+    queued: { id: "QUEUED", zh: "排队" },
     error: { id: "ERRORED", zh: "出错" },
     limit: { id: "HITLIMIT", zh: "限额" },
     done: { id: "DONE", zh: "完成" },
@@ -1538,7 +1760,7 @@ function menuKeyword(state) {
 }
 
 function menuRank(state) {
-  return ({ run: 0, "needs-approval": 1, wait: 2, quiet: 3, error: 4, limit: 4, recent: 5, done: 6, idle: 7 })[state] ?? 7;
+  return ({ run: 0, "needs-approval": 1, wait: 2, quiet: 3, queued: 4, error: 4, limit: 4, recent: 5, done: 6, idle: 7 })[state] ?? 7;
 }
 
 function parseLinkLine(line) {

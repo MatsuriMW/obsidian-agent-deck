@@ -6,8 +6,9 @@ import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { foldedRanges, foldEffect, unfoldEffect } from "@codemirror/language";
 import {
   aiRecordGroups, recordRuns, adBlockIdRanges, layoutMarkerRanges, hiddenBlockId, redirectHiddenTailTransaction,
-  recordIsOpen, recordStartsOpen, visibleRecords, isBriefRecord,
+  recordIsOpen, recordStartsOpen, visibleRecords, visibleTableEntries, RECORD_VIEWS, recordViewMode, parseAiRecordRow, buildTableModel, isBriefRecord,
 } from "./ai-records.js";
+import { isDeckBlockId, blockIdOf, parseLink, turnMarker } from "./journal.js";
 import { t } from "./i18n.js";
 
 const MODES = new Set(["collapsed", "expanded", "latest5", "latest3", "latest1"]);
@@ -17,15 +18,32 @@ export const displayMode = (plugin) => (MODES.has(plugin.settings?.aiRecordDispl
 
 const toggleRecords = StateEffect.define();
 export const setRecordsOpenEffect = StateEffect.define();
+export const setRecordViewEffect = StateEffect.define();
+
+const groupPrefKeys = (key, stableKey = "") => [key, stableKey].filter((k, i, arr) => k && arr.indexOf(k) === i);
 
 // Opening or folding by hand is stored as an exception to the mode default, so
 // switching modes later keeps a sane baseline.
-function rememberOpen(plugin, key, open, startsOpen) {
+function rememberOpen(plugin, key, open, startsOpen, stableKey = "") {
   const expanded = (plugin.settings.aiRecordExpanded ||= {});
   const closed = (plugin.settings.aiRecordClosed ||= {});
-  delete expanded[key];
-  delete closed[key];
-  if (open !== startsOpen) (open ? expanded : closed)[key] = true;
+  for (const k of groupPrefKeys(key, stableKey)) {
+    delete expanded[k];
+    delete closed[k];
+    if (open !== startsOpen) (open ? expanded : closed)[k] = true;
+  }
+  plugin.saveSettings();
+  plugin.refreshUI();
+}
+
+function rememberView(plugin, key, viewMode, stableKey = "") {
+  const views = (plugin.settings.aiRecordViews ||= {});
+  const keys = groupPrefKeys(key, stableKey);
+  if (viewMode && viewMode !== "outline" && RECORD_VIEWS.has(viewMode)) {
+    for (const k of keys) views[k] = viewMode;
+  } else {
+    for (const k of keys) delete views[k];
+  }
   plugin.saveSettings();
   plugin.refreshUI();
 }
@@ -36,6 +54,73 @@ function trackedIds(plugin) {
   for (const rec of Object.values(plugin.settings.taskBindings || {})) if (rec?.blockId) ids.add(rec.blockId);
   return ids;
 }
+
+function blockSessionMap(plugin) {
+  const out = new Map();
+  const add = (id, sid) => {
+    if (!id || !sid) return;
+    if (!out.has(id)) out.set(id, new Set());
+    out.get(id).add(sid);
+  };
+  for (const day of Object.values(plugin?.settings?.autoLogState || {})) {
+    for (const [sid, rec] of Object.entries(day || {})) add(rec?.blockId, sid);
+  }
+  for (const [sid, rec] of Object.entries(plugin?.settings?.taskBindings || {})) add(rec?.blockId, sid);
+  for (const job of Object.values(plugin?.jobs || {})) add(job?.blockId, job?.sessionId);
+  return out;
+}
+
+function collectGroupSids(group, lines, blockMap) {
+  const sids = [];
+  const push = (sid) => { if (sid && !sids.includes(sid)) sids.push(sid); };
+  const id = blockIdOf(lines[group.line]);
+  if (id && blockMap?.has(id)) for (const sid of blockMap.get(id)) push(sid);
+  for (const n of group.records || []) push(parseLink(lines[n])?.sid);
+  for (const e of group.tableEntries || []) push(parseLink(lines[e.line])?.sid);
+  return sids;
+}
+
+function roundStartedAt(plugin, rawLine, round, groupSids) {
+  if (round == null || !groupSids.length) return 0;
+  let sid = groupSids[0];
+  if (groupSids.length > 1) {
+    sid = parseLink(rawLine)?.sid
+      || groupSids.find((id) => rawLine.includes(turnMarker(id, round)) || rawLine.includes(`<!-- ad-turn:${id}:${round} -->`))
+      || groupSids[0];
+  }
+  const metaRounds = plugin?.usage?.meta?.get?.(sid)?.rounds;
+  if (Array.isArray(metaRounds)) {
+    const hit = metaRounds.find((r) => r && r.n === round) || metaRounds[round - 1];
+    const ts = Number(hit?.at);
+    if (Number.isFinite(ts) && ts > 0) return ts;
+  }
+  for (const job of Object.values(plugin?.jobs || {})) {
+    if (job?.sessionId !== sid || !Array.isArray(job.conversation)) continue;
+    let seen = 0;
+    for (const msg of job.conversation) {
+      if (msg?.role !== "user") continue;
+      seen++;
+      const ts = Number(msg.at);
+      if (seen === round && Number.isFinite(ts) && ts > 0) return ts;
+    }
+  }
+  return 0;
+}
+
+const pad2 = (n) => String(n).padStart(2, "0");
+const localDayKey = (ms) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+};
+const formatTimelineAt = (ms, showDate = false) => {
+  const d = new Date(ms);
+  const hm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  return showDate ? `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${hm}` : hm;
+};
+const formatTimelineFull = (ms) => {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+};
 
 function buttonLabel(open, mode, summary) {
   if (open) return t("收起");
@@ -77,6 +162,380 @@ class RecordsToggle extends WidgetType {
   ignoreEvent() { return true; }
 }
 
+const VIEW_LABELS = {
+  outline: "大纲",
+  table: "表格",
+  cards: "卡片",
+  timeline: "时间线",
+};
+const EMPTY_VIEW_LABELS = {
+  table: "表格视图 · 已收起 {n} 条记录",
+  cards: "卡片视图 · 已收起 {n} 条记录",
+  timeline: "时间线视图 · 已收起 {n} 条记录",
+};
+const VIEW_FALLBACK_ICON = {
+  outline: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 4h8M5 8h8M5 12h8M2.5 4h.01M2.5 8h.01M2.5 12h.01"/></svg>',
+  table: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 6.5h12M6.5 6.5V13"/></svg>',
+  cards: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="2" y="2.5" width="5" height="4.5" rx="1"/><rect x="9" y="2.5" width="5" height="4.5" rx="1"/><rect x="2" y="9" width="5" height="4.5" rx="1"/><rect x="9" y="9" width="5" height="4.5" rx="1"/></svg>',
+  timeline: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 3v10M5 4.5h8M5 8h6M5 11.5h8"/></svg>',
+};
+
+function renderInlineText(doc, container, text, sourcePath, plugin) {
+  const s = String(text || "");
+  const tokenRe = /\[([^\]\n]+)\]\(([^)\s]+(?:\([^)]*\))?[^)\s]*)\)|`([^`\n]+)`|\*\*([^*\n]+)\*\*/g;
+  let last = 0, m;
+  while ((m = tokenRe.exec(s))) {
+    if (m.index > last) container.appendChild(doc.createTextNode(s.slice(last, m.index)));
+    if (m[1] != null) {
+      const a = doc.createElement("a");
+      a.className = "ad-rt-link";
+      a.textContent = m[1];
+      a.href = m[2];
+      a.title = m[2];
+      a.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        plugin.openRecordLink?.(m[2], sourcePath);
+      });
+      container.appendChild(a);
+    } else if (m[3] != null) {
+      const code = doc.createElement("code");
+      code.className = "ad-rt-code";
+      code.textContent = m[3];
+      container.appendChild(code);
+    } else if (m[4] != null) {
+      const strong = doc.createElement("strong");
+      strong.textContent = m[4];
+      container.appendChild(strong);
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < s.length) container.appendChild(doc.createTextNode(s.slice(last)));
+}
+
+class ViewToggleWidget extends WidgetType {
+  constructor(plugin, key, line, viewMode) {
+    super();
+    this.plugin = plugin;
+    this.key = key;
+    this.line = line;
+    this.viewMode = viewMode;
+  }
+  eq(other) { return other.key === this.key && other.line === this.line && other.viewMode === this.viewMode; }
+  toDOM(view) {
+    const doc = view.dom.ownerDocument;
+    const btn = doc.createElement("button");
+    btn.type = "button";
+    btn.className = "ad-view-toggle";
+    btn.dataset.view = this.viewMode;
+    btn.title = t("切换 AI 记录展示形式");
+    btn.setAttribute("aria-label", t("切换 AI 记录展示形式"));
+    btn.setAttribute("aria-haspopup", "menu");
+
+    const ico = btn.appendChild(doc.createElement("span"));
+    ico.className = "ad-view-toggle__ico";
+    ico.setAttribute("aria-hidden", "true");
+    if (this.plugin.setRecordViewIcon) this.plugin.setRecordViewIcon(ico, this.viewMode);
+    else ico.innerHTML = VIEW_FALLBACK_ICON[this.viewMode] || VIEW_FALLBACK_ICON.outline;
+
+    const label = btn.appendChild(doc.createElement("span"));
+    label.className = "ad-view-toggle__label";
+    label.textContent = t(VIEW_LABELS[this.viewMode] || "大纲");
+
+    const chev = btn.appendChild(doc.createElement("span"));
+    chev.className = "ad-view-toggle__chev";
+    chev.textContent = "▾";
+    chev.setAttribute("aria-hidden", "true");
+
+    btn.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const select = (nextView) => {
+        if (nextView === this.viewMode) return;
+        view.dispatch({ effects: setRecordViewEffect.of({ key: this.key, view: nextView }) });
+      };
+      if (this.plugin.openRecordViewMenu) {
+        const info = view.state.field?.(this.plugin.editorInfoField, false);
+        const path = info?.file?.path || "";
+        this.plugin.openRecordViewMenu(e, { path, line: this.line, key: this.key, viewMode: this.viewMode, onSelect: select });
+      } else {
+        select(this.viewMode === "table" ? "outline" : "table");
+      }
+    });
+    return btn;
+  }
+  ignoreEvent() { return true; }
+}
+
+class RecordViewWidget extends WidgetType {
+  constructor(plugin, viewMode, key, groupLine, rows, totalCount, open, mode, sourcePath) {
+    super();
+    this.plugin = plugin;
+    this.viewMode = viewMode;
+    this.key = key;
+    this.groupLine = groupLine;
+    this.rows = rows;
+    this.totalCount = totalCount;
+    this.open = open;
+    this.mode = mode;
+    this.sourcePath = sourcePath;
+    this.model = buildTableModel(rows);
+    this.sig = `${viewMode}|${key}|${open}|${mode}|${totalCount}|${rows.map((r) => `${r.line}:${r.startedAt || 0}:${r.sig}`).join("\n")}`;
+  }
+  eq(other) { return other.sig === this.sig && other.sourcePath === this.sourcePath; }
+  jumpTo(view, line) {
+    const stDoc = view.state.doc;
+    const target = Math.min(Math.max(0, line), Math.max(0, (stDoc.lines || 1) - 1));
+    const lineObj = stDoc.line(target + 1);
+    const leading = (/^\s*/.exec(lineObj.text || "") || [""])[0].length;
+    const effects = [setRecordViewEffect.of({ key: this.key, view: "outline" })];
+    if (!this.open) effects.push(setRecordsOpenEffect.of({ keys: [this.key], open: true }));
+    view.dispatch({
+      effects,
+      selection: { anchor: lineObj.from + leading },
+      scrollIntoView: true,
+    });
+    view.focus?.();
+  }
+  bindJump(el, view, line) {
+    el.addEventListener("click", (e) => {
+      if (e.target.closest("a, button")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.jumpTo(view, line);
+    });
+  }
+  renderRoundMarker(doc, parent, row) {
+    if (row.type === "span" || row.round == null) {
+      const badge = parent.appendChild(doc.createElement("span"));
+      badge.className = `ad-rt-badge ad-rt-badge--${row.badgeKind || "result"}`;
+      badge.textContent = t(row.badge || "结论");
+      return badge;
+    }
+    const label = parent.appendChild(doc.createElement("span"));
+    label.className = "ad-rt-round-num";
+    label.textContent = `#${row.round}`;
+    return label;
+  }
+  appendStepTag(doc, parent, row) {
+    if (!row.promptStep) return;
+    const stepTag = parent.appendChild(doc.createElement("span"));
+    stepTag.className = "ad-rt-step";
+    stepTag.textContent = row.promptMeta ? t("步骤 {step}", { step: row.promptMeta }) : t("步骤");
+  }
+  appendChildren(doc, view, td, children) {
+    if (!children?.length) return;
+    const subToggle = td.appendChild(doc.createElement("button"));
+    subToggle.type = "button";
+    subToggle.className = "ad-rt-sub-toggle";
+    subToggle.setAttribute("aria-expanded", "false");
+    subToggle.textContent = `▸ ${t("{n} 条子项", { n: children.length })}`;
+    const subList = td.appendChild(doc.createElement("div"));
+    subList.className = "ad-rt-sub-list";
+    subList.hidden = true;
+    for (const child of children) {
+      const item = subList.appendChild(doc.createElement("div"));
+      item.className = "ad-rt-sub-item";
+      if (child.level) item.style.paddingLeft = `${child.level * 14}px`;
+      renderInlineText(doc, item, child.text, this.sourcePath, this.plugin);
+    }
+    subToggle.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const expanded = subList.hidden;
+      subList.hidden = !expanded;
+      subToggle.setAttribute("aria-expanded", String(expanded));
+      subToggle.textContent = `${expanded ? "▾" : "▸"} ${t("{n} 条子项", { n: children.length })}`;
+      view.requestMeasure?.();
+    });
+  }
+  renderTable(doc, view, wrap, { rows, hasPromptCol }) {
+    const table = wrap.appendChild(doc.createElement("table"));
+    table.className = "ad-record-table";
+    const thead = table.appendChild(doc.createElement("thead"));
+    const headRow = thead.appendChild(doc.createElement("tr"));
+    const cols = hasPromptCol
+      ? [t("轮次"), t("任务 / 提问"), t("结论 / 回复")]
+      : [t("轮次"), t("结论 / 回复")];
+    for (const col of cols) {
+      const th = headRow.appendChild(doc.createElement("th"));
+      th.textContent = col;
+    }
+    const tbody = table.appendChild(doc.createElement("tbody"));
+    for (const row of rows) {
+      const tr = tbody.appendChild(doc.createElement("tr"));
+      tr.className = "ad-rt-row";
+      tr.title = t("点击定位并回到原块编辑");
+      const tdRound = tr.appendChild(doc.createElement("td"));
+      tdRound.className = "ad-rt-round";
+      this.renderRoundMarker(doc, tdRound, row);
+      if (row.type === "span") {
+        const tdSpan = tr.appendChild(doc.createElement("td"));
+        tdSpan.className = "ad-rt-span";
+        tdSpan.colSpan = hasPromptCol ? 2 : 1;
+        const textEl = tdSpan.appendChild(doc.createElement("div"));
+        textEl.className = "ad-rt-text";
+        renderInlineText(doc, textEl, row.conclusion, this.sourcePath, this.plugin);
+        this.appendChildren(doc, view, tdSpan, row.children);
+      } else {
+        if (hasPromptCol) {
+          const tdPrompt = tr.appendChild(doc.createElement("td"));
+          tdPrompt.className = "ad-rt-prompt";
+          this.appendStepTag(doc, tdPrompt, row);
+          if (row.prompt) {
+            const pEl = tdPrompt.appendChild(doc.createElement("div"));
+            pEl.className = "ad-rt-text";
+            renderInlineText(doc, pEl, row.prompt, this.sourcePath, this.plugin);
+          }
+          this.bindJump(tdPrompt, view, row.promptLine ?? row.line);
+        }
+        const tdConclusion = tr.appendChild(doc.createElement("td"));
+        tdConclusion.className = "ad-rt-conclusion";
+        if (row.conclusion) {
+          const cEl = tdConclusion.appendChild(doc.createElement("div"));
+          cEl.className = "ad-rt-text";
+          renderInlineText(doc, cEl, row.conclusion, this.sourcePath, this.plugin);
+        }
+        this.appendChildren(doc, view, tdConclusion, row.children);
+      }
+      this.bindJump(tr, view, row.conclusionLine ?? row.line);
+    }
+  }
+  renderCards(doc, view, wrap, { rows }) {
+    const grid = wrap.appendChild(doc.createElement("div"));
+    grid.className = "ad-rt-cards";
+    for (const row of rows) {
+      const card = grid.appendChild(doc.createElement("div"));
+      card.className = `ad-rt-card${row.type === "span" ? " is-span" : ""}`;
+      card.title = t("点击定位并回到原块编辑");
+      const head = card.appendChild(doc.createElement("div"));
+      head.className = "ad-rt-card__head";
+      this.renderRoundMarker(doc, head, row);
+      this.appendStepTag(doc, head, row);
+      if (row.prompt) {
+        const promptEl = card.appendChild(doc.createElement("div"));
+        promptEl.className = "ad-rt-card__prompt";
+        renderInlineText(doc, promptEl, row.prompt, this.sourcePath, this.plugin);
+        this.bindJump(promptEl, view, row.promptLine ?? row.line);
+      }
+      if (row.conclusion || row.children?.length) {
+        const body = card.appendChild(doc.createElement("div"));
+        body.className = "ad-rt-card__body";
+        if (row.conclusion) {
+          const textEl = body.appendChild(doc.createElement("div"));
+          textEl.className = "ad-rt-text";
+          renderInlineText(doc, textEl, row.conclusion, this.sourcePath, this.plugin);
+        }
+        this.appendChildren(doc, view, body, row.children);
+      }
+      this.bindJump(card, view, row.conclusionLine ?? row.line);
+    }
+  }
+  renderTimeline(doc, view, wrap, { rows }) {
+    const times = rows.map((r) => Number(r.startedAt) || 0).filter((ms) => ms > 0);
+    const timed = times.length > 0;
+    const dated = times.length > 1 && new Set(times.map(localDayKey)).size > 1;
+    const list = wrap.appendChild(doc.createElement("div"));
+    list.className = "ad-rt-timeline" + (timed ? " ad-rt-timeline--timed" : "") + (dated ? " ad-rt-timeline--dated" : "");
+    for (const row of rows) {
+      const item = list.appendChild(doc.createElement("div"));
+      item.className = `ad-rt-tl-item ad-rt-tl-item--${row.badgeKind || "result"}`;
+      item.title = t("点击定位并回到原块编辑");
+      const dot = item.appendChild(doc.createElement("span"));
+      dot.className = "ad-rt-tl-dot";
+      dot.setAttribute("aria-hidden", "true");
+      if (row.startedAt > 0) {
+        const timeEl = item.appendChild(doc.createElement("time"));
+        timeEl.className = "ad-rt-tl-time";
+        timeEl.setAttribute("datetime", new Date(row.startedAt).toISOString());
+        timeEl.textContent = formatTimelineAt(row.startedAt, dated);
+        timeEl.title = t("提问时间：{time}", { time: formatTimelineFull(row.startedAt) });
+      }
+      const head = item.appendChild(doc.createElement("div"));
+      head.className = "ad-rt-tl-head";
+      this.renderRoundMarker(doc, head, row);
+      this.appendStepTag(doc, head, row);
+      if (row.prompt) {
+        const promptEl = item.appendChild(doc.createElement("div"));
+        promptEl.className = "ad-rt-tl-prompt";
+        renderInlineText(doc, promptEl, row.prompt, this.sourcePath, this.plugin);
+        this.bindJump(promptEl, view, row.promptLine ?? row.line);
+      }
+      if (row.conclusion || row.children?.length) {
+        const replyEl = item.appendChild(doc.createElement("div"));
+        replyEl.className = "ad-rt-tl-reply";
+        if (row.conclusion) {
+          const textEl = replyEl.appendChild(doc.createElement("div"));
+          textEl.className = "ad-rt-text";
+          renderInlineText(doc, textEl, row.conclusion, this.sourcePath, this.plugin);
+        }
+        this.appendChildren(doc, view, replyEl, row.children);
+      }
+      this.bindJump(item, view, row.conclusionLine ?? row.line);
+    }
+  }
+  renderFooter(doc, view, wrap, footer) {
+    if (!footer.length) return;
+    const foot = wrap.appendChild(doc.createElement("div"));
+    foot.className = "ad-rt-footer";
+    for (const item of footer) {
+      const lineEl = foot.appendChild(doc.createElement("div"));
+      lineEl.className = "ad-rt-footer-item";
+      lineEl.title = t("点击定位并回到原块编辑");
+      const icon = lineEl.appendChild(doc.createElement("span"));
+      icon.className = "ad-rt-footer-ico";
+      icon.textContent = item.kind === "clock" ? "⏱" : "🔗";
+      const body = lineEl.appendChild(doc.createElement("span"));
+      body.className = "ad-rt-footer-body";
+      renderInlineText(doc, body, item.content, this.sourcePath, this.plugin);
+      if (item.meta) {
+        const metaEl = lineEl.appendChild(doc.createElement("span"));
+        metaEl.className = "ad-rt-footer-meta";
+        metaEl.textContent = item.kind === "clock" ? `· ${item.meta}` : item.meta;
+      }
+      this.bindJump(lineEl, view, item.line);
+    }
+  }
+  toDOM(view) {
+    const doc = view.dom.ownerDocument;
+    const wrap = doc.createElement("div");
+    wrap.className = "ad-record-table-wrap ad-record-view-wrap";
+    wrap.dataset.view = this.viewMode;
+    wrap.setAttribute("contenteditable", "false");
+
+    const { rows, footer } = this.model;
+    if (!rows.length && !footer.length) {
+      const bar = wrap.appendChild(doc.createElement("div"));
+      bar.className = "ad-record-table-empty";
+      const note = bar.appendChild(doc.createElement("span"));
+      note.textContent = t(EMPTY_VIEW_LABELS[this.viewMode] || EMPTY_VIEW_LABELS.table, { n: this.totalCount });
+      const expand = bar.appendChild(doc.createElement("button"));
+      expand.type = "button";
+      expand.className = "ad-record-table-expand";
+      expand.textContent = t("展开");
+      expand.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        view.dispatch({ effects: setRecordsOpenEffect.of({ keys: [this.key], open: true }) });
+      });
+      return wrap;
+    }
+
+    if (rows.length) {
+      const renderer = this.viewMode === "cards"
+        ? this.renderCards
+        : this.viewMode === "timeline"
+          ? this.renderTimeline
+          : this.renderTable;
+      renderer.call(this, doc, view, wrap, this.model);
+    }
+    this.renderFooter(doc, view, wrap, footer);
+    return wrap;
+  }
+  ignoreEvent() { return true; }
+}
+
 // The record layer owns folding for these blocks. A native fold (⌘⇧[, the list
 // arrow, a leftover fold restored on open, another fold plugin's marker) would
 // put Obsidian's own “…” placeholder next to our “⋯ 更多 3” button — two
@@ -105,7 +564,7 @@ export function aiRecordUnfoldExtension(plugin, refreshEffect) {
   return ViewPlugin.fromClass(class {
     constructor(view) { this._t = setTimeout(() => this.run(view), 0); }
     update(u) {
-      const touched = u.transactions.some((tr) => tr.effects.some((e) => e.is(toggleRecords) || e.is(setRecordsOpenEffect) || e.is(refreshEffect)));
+      const touched = u.transactions.some((tr) => tr.effects.some((e) => e.is(toggleRecords) || e.is(setRecordsOpenEffect) || e.is(setRecordViewEffect) || e.is(refreshEffect)));
       if (u.docChanged || touched) {
         clearTimeout(this._t);
         this._t = setTimeout(() => this.run(u.view), 0);
@@ -125,27 +584,69 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
     const ranges = [], doc = state.doc, text = doc.toString();
     const ids = trackedIds(plugin);
     const lines = text.split("\n");
+    const topLevelLines = new Set();
+    const info = state.field?.(plugin.editorInfoField, false);
+    const sourcePath = info?.file?.path || "";
+    const agentNames = plugin.agentShortNames || null;
+    let sidsByBlock = null;
     for (const { from, to } of adBlockIdRanges(text, ids)) ranges.push(Decoration.replace({}).range(from, to));
     for (const { from, to } of layoutMarkerRanges(text)) ranges.push(Decoration.replace({ inclusive: false }).range(from, to));
     for (const group of aiRecordGroups(text, ids)) {
       const open = recordIsOpen(plugin.settings, mode, group);
-      for (const n of group.records) ranges.push(Decoration.line({ class: "ad-record-line" + (!open && isBriefRecord(lines[n]) ? " ad-record-brief-clamped" : "") }).range(doc.line(n + 1).from));
       const duplicate = plugin.redundantSessionLink?.(group, lines) ?? -1;
       const available = group.records.filter(n => n !== duplicate);
+      const tableAll = (group.tableEntries || []).filter(e => e.line !== duplicate);
+      const isTopLevel = Boolean(group.topLevel) && tableAll.length > 0;
+      const viewMode = isTopLevel ? recordViewMode(plugin.settings, group) : "outline";
+      if (isTopLevel) topLevelLines.add(group.line);
+
+      if (viewMode !== "outline") {
+        const visibleEntries = visibleTableEntries(group, lines, mode, open, duplicate);
+        const groupSids = viewMode === "timeline"
+          ? collectGroupSids(group, lines, (sidsByBlock ||= blockSessionMap(plugin)))
+          : null;
+        const rows = visibleEntries.map((entry) => {
+          const parsed = parseAiRecordRow(lines[entry.line], entry.children, agentNames);
+          return {
+            ...parsed,
+            line: entry.line,
+            startedAt: groupSids ? roundStartedAt(plugin, lines[entry.line], parsed.round, groupSids) : 0,
+            sig: [lines[entry.line], ...entry.children].join("\n"),
+          };
+        });
+        const summaryCount = tableAll.filter((e) => /💬\s+累计总结[：:]/.test(lines[e.line])).length;
+        ranges.push(Decoration.widget({ widget: new RecordsToggle(group.key, tableAll.length, open, mode, summaryCount > 0), side: 2 }).range(doc.line(group.line + 1).to));
+        ranges.push(Decoration.widget({ widget: new ViewToggleWidget(plugin, group.key, group.line, viewMode), side: 3 }).range(doc.line(group.line + 1).to));
+        ranges.push(Decoration.widget({
+          widget: new RecordViewWidget(plugin, viewMode, group.key, group.line, rows, tableAll.length, open, mode, sourcePath),
+          block: true,
+          side: 1,
+        }).range(doc.line(group.line + 1).to));
+        const hiddenLines = [...new Set((group.tableEntries || []).flatMap((e) => e.lineNumbers))].sort((a, b) => a - b);
+        for (const run of recordRuns(hiddenLines)) {
+          const from = Math.max(0, doc.line(run.from + 1).from - 1), to = doc.line(run.to + 1).to;
+          ranges.push(Decoration.replace({ inclusive: false }).range(from, to));
+        }
+        continue;
+      }
+
+      for (const n of group.records) ranges.push(Decoration.line({ class: "ad-record-line" + (!open && isBriefRecord(lines[n]) ? " ad-record-brief-clamped" : "") }).range(doc.line(n + 1).from));
       const visible = (open ? available : visibleRecords(group, lines, mode)).filter(n => n !== duplicate);
       if (available.length) ranges.push(Decoration.widget({ widget: new RecordsToggle(group.key, available.length, open, mode, group.summaries.length > 0), side: 2 }).range(doc.line(group.line + 1).to));
+      if (isTopLevel) ranges.push(Decoration.widget({ widget: new ViewToggleWidget(plugin, group.key, group.line, viewMode), side: 3 }).range(doc.line(group.line + 1).to));
       const hidden = group.records.filter((n) => !visible.includes(n));
       for (const run of recordRuns(hidden)) {
         const from = Math.max(0, doc.line(run.from + 1).from - 1), to = doc.line(run.to + 1).to;
         ranges.push(Decoration.replace({ inclusive: false }).range(from, to));
       }
     }
-    return Decoration.set(ranges, true);
+    return { decorations: Decoration.set(ranges, true), topLevelLines };
   };
   const field = StateField.define({
     create(state) {
       const mode = displayMode(plugin);
-      return { mode, decorations: build(state, mode) };
+      const { decorations, topLevelLines } = build(state, mode);
+      return { mode, topLevelLines, decorations };
     },
     update(value, tr) {
       const mode = displayMode(plugin);
@@ -153,13 +654,18 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
       const setOpen = (keys, open) => {
         const groups = aiRecordGroups(tr.state.doc.toString(), trackedIds(plugin));
         for (const key of keys) {
-          const group = groups.find((g) => g.key === key);
-          rememberOpen(plugin, key, open, group ? recordStartsOpen(mode, group) : false);
+          const group = groups.find((g) => g.key === key || g.stableKey === key);
+          rememberOpen(plugin, key, open, group ? recordStartsOpen(mode, group) : false, group?.stableKey);
         }
         changed = true;
       };
       for (const e of tr.effects) {
         if (e.is(setRecordsOpenEffect)) setOpen(e.value.keys, e.value.open);
+        if (e.is(setRecordViewEffect)) {
+          const group = aiRecordGroups(tr.state.doc.toString(), trackedIds(plugin)).find((g) => g.key === e.value.key || g.stableKey === e.value.key);
+          rememberView(plugin, e.value.key, e.value.view, group?.stableKey || e.value.stableKey);
+          changed = true;
+        }
         if (e.is(refreshEffect)) changed = true;
         if (e.is(toggleRecords)) {
           const group = aiRecordGroups(tr.state.doc.toString(), trackedIds(plugin)).find((g) => g.key === e.value);
@@ -167,7 +673,9 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
           setOpen([e.value], !open);
         }
       }
-      return changed || tr.docChanged ? { mode, decorations: build(tr.state, mode) } : value;
+      if (!changed && !tr.docChanged) return value;
+      const { decorations, topLevelLines } = build(tr.state, mode);
+      return { mode, topLevelLines, decorations };
     },
     provide: (f) => [EditorView.decorations.from(f, (v) => v.decorations), EditorView.atomicRanges.of((view) => view.state.field(f).decorations)],
   });
@@ -264,7 +772,7 @@ export function renderAIRecords(el, plugin, ctx) {
     const first = section && section.text.split("\n")[(section.lineStart || 0) + (Number(parent.dataset.line) || 0)];
     const key = parent.id || parent.dataset.blockId || (first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1]);
     const bound = records.some((li) => /^🔗\s|^💬\s+累计总结[：:]/.test(li.textContent.trim()));
-    if (!records.length || !(bound || J.isDeckBlockId(key) || ids.has(key) || own.includes("🤖") || J.isDeckBlockId(parent.id) || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
+    if (!records.length || !(bound || isDeckBlockId(key) || ids.has(key) || own.includes("🤖") || isDeckBlockId(parent.id) || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
     list.dataset.adRecords = "true";
     const summaries = records.filter((li) => /^💬\s+累计总结[：:]/.test(li.textContent.trim()));
     const done = /^(?:DONE|CANCELED|CANCELLED|FAILED)\b/i.test(parent.textContent.trim());

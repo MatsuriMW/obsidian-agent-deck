@@ -8,17 +8,64 @@ import { updateNote } from "./note-updates.js";
 // with model and reasoning-effort selection.
 
 import fs from "fs";
-import { randomUUID } from "crypto";
 import { saveBackgroundAnswer, clearBackgroundPending, backgroundRounds } from "./background-output.js";
 import { destinations } from "./workflow.js";
-import { CodexDesktopRunner } from "./codex-desktop.js";
 import path from "path";
 import os from "os";
 import { spawn, execFile } from "child_process";
-import { AGENTS, DEFAULTS, CONFIRM_FIRST, MODEL_CATALOG, clamp, truncate } from "./constants.js";
+import { AGENTS, DEFAULTS, CONFIRM_FIRST, clamp, truncate } from "./constants.js";
 import * as J from "./journal.js";
 import { mentionOptions, stripTaskMention, mentionTrigger } from "./task-mentions.js";
+import { hasAgentCapability, canContinueInApp } from "./agent-registry.js";
+import {
+  ancestorLines, withContext, freshTaskText,
+  buildDelegationPayload, buildPromptFromContext, createDelegationRunner, HarnessPipeline,
+} from "./harness.js";
+import {
+  findDshBinary,
+  findAgyBinary,
+  findOpenCodeBinary,
+  findQoderBinary,
+  findWorkbuddyBinary,
+  findClaudeBinary,
+  findTrustedDir,
+  findCodexTrustedDir,
+  cleanEnv,
+  resolveCliModel,
+  codexCliArgs,
+  resolveDshModel,
+  dshEffort,
+  acpModels,
+  dshModels,
+  qoderPermissionArgs,
+  AcpRunner,
+  getRunnerClasses,
+  registerRunnerClass,
+} from "./delegation-runners.js";
 import { t } from "./i18n.js";
+
+export {
+  ancestorLines,
+  withContext,
+  freshTaskText,
+  findDshBinary,
+  findAgyBinary,
+  findOpenCodeBinary,
+  findQoderBinary,
+  findWorkbuddyBinary,
+  findClaudeBinary,
+  findTrustedDir,
+  findCodexTrustedDir,
+  cleanEnv,
+  resolveCliModel,
+  codexCliArgs,
+  resolveDshModel,
+  dshEffort,
+  acpModels,
+  dshModels,
+  qoderPermissionArgs,
+  registerRunnerClass,
+};
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -46,29 +93,6 @@ export function blockAt(lines, at) {
     end = i;
   }
   return { start: at, end, indent, text: lines.slice(at, end + 1).join("\n") };
-}
-
-// 从最外层到直接母项，保留母项正文与续行，不带兄弟分支。
-export function ancestorLines(lines, at) {
-  if (at < 0 || at >= lines.length) return [];
-  const stack = [], fenced = J.fencedLines(lines);
-  for (let i = 0; i <= at; i++) {
-    const line = lines[i];
-    if (!line.trim()) continue;
-    const w = J.width(line);
-    while (stack.length && stack.at(-1).width >= w) stack.pop();
-    if (i === at) break;
-    if (!fenced.has(i) && BULLET_RE.test(line)) stack.push({ width: w, body: [line] });
-    else if (stack.length) stack.at(-1).body.push(line);
-  }
-  return stack.flatMap(item => item.body);
-}
-
-// 母项上下文 + 要做的这一块：母项各占一行、保留原缩进，前面一句说明只做最里面那项。
-export function withContext(contextLines, task) {
-  const ctx = (contextLines || []).filter((l) => l && l.trim());
-  if (!ctx.length) return task;
-  return `${t("这条任务在笔记里挂的位置，只做最里面这一项：")}\n\n${ctx.join("\n")}\n${task}`;
 }
 
 // 发出去的一整段（预览和真正发出去的正文用同一个拼法）。
@@ -118,109 +142,6 @@ export function markDelegated(line) {
 
 export function linkLine(indent, agent, name, sid) {
   return J.linkLine(indent, agent, String(name || "").slice(0, 48), sid);
-}
-
-export function findDshBinary(configured = "") {
-  if (configured.trim()) return norm(configured.trim());
-  const candidates = [
-    "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
-    path.join(home(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
-    path.join(home(), ".local/bin/dsh"),
-    "/opt/homebrew/bin/dsh",
-    "/usr/local/bin/dsh",
-  ];
-  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
-  return "dsh";
-}
-
-export function findAgyBinary(configured = "") {
-  if (configured.trim()) return norm(configured.trim());
-  const candidates = [path.join(home(), ".local/bin/agy"), "/opt/homebrew/bin/agy", "/usr/local/bin/agy"];
-  return candidates.find((p) => fs.existsSync(p)) || "agy";
-}
-
-export function findOpenCodeBinary(configured = "") {
-  if (configured && configured.trim()) return norm(configured.trim());
-  const candidates = [
-    "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
-    path.join(home(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
-    path.join(home(), ".local/bin/opencode"),
-    "/opt/homebrew/bin/opencode",
-    "/usr/local/bin/opencode",
-  ];
-  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
-  return "opencode";
-}
-
-export function findQoderBinary(configured = "") {
-  if (configured && configured.trim()) return norm(configured.trim());
-  const candidates = [
-    path.join(home(), ".qoder/bin/qodercli/qodercli"),
-    path.join(home(), ".local/bin/qodercli"),
-    path.join(home(), ".local/bin/qoder"),
-    path.join(home(), ".qoder/entry/qoder"),
-    "/opt/homebrew/bin/qodercli",
-    "/usr/local/bin/qodercli",
-  ];
-  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
-  return "qodercli";
-}
-
-export function findWorkbuddyBinary(configured = "") {
-  if (configured && configured.trim()) return norm(configured.trim());
-  const candidates = [
-    path.join(home(), ".local/bin/codebuddy"),
-    "/opt/homebrew/bin/codebuddy",
-    "/usr/local/bin/codebuddy",
-  ];
-  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
-  return "codebuddy";
-}
-
-export function findClaudeBinary(configured = "") {
-  if (configured && configured.trim()) return norm(configured.trim());
-  const candidates = [path.join(home(), ".local/bin/claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", "/usr/bin/claude"];
-  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
-  return "claude";
-}
-
-// 从已信任的目录里挑一个当工作目录：库本身信任过就用库
-function pickTrusted(list, vaultPath) {
-  if (list.includes(vaultPath)) return vaultPath;
-  const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
-  // 临时目录随时会被清掉，不用
-  const trusted = list.filter((p) => isDir(p) && !/^\/(private\/)?(tmp|var)\//.test(p));
-  // Prefer a trusted directory that is not an ancestor of the vault, so a task
-  // never starts writing in the middle of the user's home directory.
-  const notAncestor = trusted.filter((p) => p !== vaultPath && !String(vaultPath).startsWith(p.replace(/\/+$/, "") + "/"));
-  notAncestor.sort((a, b) => a.length - b.length);
-  if (notAncestor.length) return notAncestor[0];
-  trusted.sort((a, b) => a.length - b.length);
-  return trusted[0] || vaultPath;
-}
-
-export async function findTrustedDir(vaultPath) {
-  try {
-    const projects = JSON.parse(await fsp.readFile(path.join(home(), ".claude.json"), "utf8")).projects || {};
-    return pickTrusted(Object.keys(projects).filter((p) => projects[p] && projects[p].hasTrustDialogAccepted), vaultPath);
-  } catch { return vaultPath; }
-}
-
-// Codex 的信任记录在 config.toml 的 [projects."目录"] trust_level = "trusted"
-export async function findCodexTrustedDir(vaultPath) {
-  try {
-    const toml = await fsp.readFile(path.join(process.env.CODEX_HOME || path.join(home(), ".codex"), "config.toml"), "utf8");
-    const list = [...toml.matchAll(/^\[projects\."([^"]+)"\]\s*\n\s*trust_level\s*=\s*"trusted"/gm)].map((m) => m[1]);
-    return pickTrusted(list, vaultPath);
-  } catch { return vaultPath; }
-}
-
-export function cleanEnv(extra = {}) {
-  const env = { ...process.env, ...extra };
-  const parts = new Set(String(env.PATH || "").split(":").filter(Boolean));
-  for (const p of [path.join(home(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]) parts.add(p);
-  env.PATH = [...parts].join(":");
-  return env;
 }
 
 export function openExternal(url) {
@@ -555,628 +476,53 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
   return false;
 }
 
-// ----- Claude Code -----
-class ClaudeRunner {
-  constructor(delegator, job) {
-    this.d = delegator;
-    this.job = job;
-    this.child = null;
-    this.short = "";
-    this.pollTimer = null;
-    this.finished = false;
-  }
-
-  async start(opts) {
-    const d = this.d;
-    const cfg = d.settings.delegate.claude;
-    const bin = findClaudeBinary(cfg.path || "");
-    const name = opts.name || "Agent Deck task";
-    let cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
-    if (cfg.autoTrustedCwd !== false && !opts.cwd && !cfg.cwd) {
-      const trusted = await findTrustedDir(d.vaultPath);
-      if (trusted && trusted !== cwd) {
-        cwd = trusted;
-        this.job.cwd = cwd;
-        if (!d._trustNoticeAt || Date.now() - d._trustNoticeAt > 10 * 60000) {
-          d._trustNoticeAt = Date.now();
-          d.notice(t("Claude Code 没有信任库目录，改在 {cwd} 里跑；库已经用 --add-dir 加进去了。", { cwd }));
-        }
-      }
-    }
-    const model = opts.model || cfg.model || "claude-opus-5-5";
-    const modelCli = resolveCliModel(d.plugin, "claude", model);
-    const effort = opts.effort || cfg.effort || "high";
-    const permission = opts.permission || cfg.permission || "auto";
-    const addVault = cfg.addVault !== false && d.vaultPath && d.vaultPath !== cwd;
-    const common = ["--model", modelCli, "--effort", effort, "--permission-mode", permission, "-n", name];
-    if (addVault) common.push("--add-dir", d.vaultPath);
-    if (cfg.extraArgs && cfg.extraArgs.trim()) common.push(...splitArgs(cfg.extraArgs));
-    const prompt = opts.prompt;
-    // Headless is the reliable default: a child process we own, with the exact
-    // model / effort / permission mode, and a session id we choose. The optional
-    // `claude --bg` daemon can be flaky across CLI versions, so it is opt-in.
-    if (cfg.useBackground === true && this.job.destination !== "background") {
-      const args = ["--bg", ...common, "--", prompt];
-      this.job.command = `${bin} ${args.slice(0, -2).join(" ")} …`;
-      const res = await spawnCapture(bin, args, { cwd, env: cleanEnv(), timeout: 30000 });
-      if (res.ok) {
-        const m = /backgrounded\s*·\s*([0-9a-f]{6,})/i.exec(res.out || "");
-        if (m) {
-          this.short = m[1];
-          this.job.short = this.short;
-          this.job.state = "running";
-          this.job.startedAt = Date.now();
-          this.opts = opts;
-          this.watchStart = Date.now();
-          this.d.saveJobs();
-          this.watchAgents();
-          return true;
-        }
-      }
-    }
-    return this.startHeadless({ cwd, common, prompt, bin });
-  }
-
-  startHeadless({ cwd, common, prompt, bin }) {
-    // Older CLI (or a dead background daemon): run headless with a session id we choose.
-    const sid = randomUUID();
-    const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
-    this.job.command = `${bin} ${args2.slice(0, -2).join(" ")} …`;
-    const child = spawn(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
-    this.child = child;
-    this.fallbackStarted = true;
-    this.job.sessionId = sid;
-    this.job.state = "running";
-    this.job.startedAt = Date.now();
-    this.job.short = "";
-    this.job.agentState = "headless";
-    let err = "";
-    const output = [];
-    this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
-    child.stdout.setEncoding("utf8");
-    child.stdout.on("data", s => { output.push(s); this.job.lastText = ((this.job.lastText || "") + s).slice(-2000); });
-    child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 4000) err = err.slice(-4000); this.job.stderr = err.slice(-1000); });
-    child.on("error", (e) => this.fail(String(e && e.message || e)));
-    child.on("close", (code) => {
-      if (this.finished) return;
-      if (code === 0) {
-        this.job.result = output.join("");
-        this.job.conversation.push({ role: "assistant", text: this.job.result, at: Date.now() });
-        this.done();
-      }
-      else this.fail(err.trim() || t("claude 退出码 {code}", { code }));
-    });
-    this.d.saveJobs();
-    this.d.onSession(this.job, sid);
-    if (this.d.C.claude.useBackground === true) this.d.notice?.(t("Claude 后台服务没起来，已改用无头会话（答完可以点任务行打开）"));
-    return true;
-  }
-
-  async watchAgents() {
-    if (this.finished) return;
-    const bin = findClaudeBinary(this.d.settings.delegate.claude.path || "");
-    const res = await execCapture(bin, ["agents", "--json"], { cwd: this.d.vaultPath, env: cleanEnv(), timeout: 10000 });
-    let found = false;
-    if (res.ok) {
-      try {
-        const list = JSON.parse(res.out || "[]");
-        const row = list.find((x) => x.id === this.short || (x.kind === "background" && String(x.name || "") === this.job.name));
-        if (row && row.sessionId) {
-          found = true;
-          this.job.sessionId = row.sessionId;
-          this.job.status = row.status;
-          this.job.agentState = row.state || row.status;
-          if (!this.job.linkWritten) this.d.onSession(this.job, row.sessionId);
-          if (row.status === "idle" || row.status === "done" || row.status === "stopped") {
-            // give the session log one poll to settle, then finish
-            this.settleStarted = this.settleStarted || Date.now();
-            if (Date.now() - this.settleStarted > 5000) return this.done();
-          } else this.settleStarted = 0;
-        }
-      } catch { /* not JSON yet */ }
-    }
-    if (!found && this.job.short && this.watchStart && Date.now() - this.watchStart > 8000 && !this.fallbackStarted) {
-      this.fallbackStarted = true;
-      return this.startHeadless({ cwd: this.job.cwd || this.d.vaultPath, common: this.commonArgs(), prompt: this.job.prompt, bin });
-    }
-    this.pollTimer = setTimeout(() => this.watchAgents(), 1800);
-  }
-
-  commonArgs() {
-    const cfg = this.d.settings.delegate.claude;
-    const model = this.job.model || cfg.model || "claude-opus-5-5";
-    const modelCli = resolveCliModel(this.d.plugin, "claude", model);
-    const addVault = cfg.addVault !== false && this.d.vaultPath && this.d.vaultPath !== (this.job.cwd || cfg.cwd);
-    const out = ["--model", modelCli, "--effort", this.job.effort || cfg.effort || "high", "--permission-mode", this.job.permission || cfg.permission || "auto", "-n", this.job.name];
-    if (addVault) out.push("--add-dir", this.d.vaultPath);
-    return out;
-  }
-
-  cancel() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.pollTimer);
-    if (this.short) {
-      const bin = findClaudeBinary(this.d.settings.delegate.claude.path || "");
-      execFile(bin, ["stop", this.short], { env: cleanEnv() }, () => {});
-    }
-    if (this.child) { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }
-    this.job.state = "cancelled";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-  }
-
-  done() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.pollTimer);
-    this.job.state = "done";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.d.onDone(this.job);
-  }
-
-  fail(message) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.pollTimer);
-    this.job.state = "error";
-    this.job.error = String(message || "").slice(0, 500);
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.d.onError(this.job);
-  }
-}
-
-// ----- Qoder CLI: one-shot headless execution with Desktop handoff fallback -----
-export function qoderPermissionArgs(permission) {
-  if (permission === "plan") return ["--work-mode", "spec", "--permission-mode", "default"];
-  if (permission === "acceptEdits") return ["--permission-mode", "accept_edits"];
-  if (permission === "manual") return ["--permission-mode", "default"];
-  return ["--permission-mode", "auto"];
-}
-
-class QoderRunner {
-  constructor(delegator, job) {
-    this.d = delegator;
-    this.job = job;
-    this.child = null;
-    this.finished = false;
-    this.sessionTimer = null;
-    this.timer = null;
-  }
-
-  async start(opts) {
-    const d = this.d;
-    const cfg = d.settings.delegate.qoder || DEFAULTS.delegate.qoder;
-    const bin = findQoderBinary(cfg.path || "");
-    const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
-    const model = resolveCliModel(d.plugin, "qoder", opts.model || cfg.model || "qoder-ultimate");
-    const effort = opts.effort || cfg.effort || "high";
-    const perm = opts.permission || cfg.permission || "auto";
-    const sid = opts.sessionId || randomUUID();
-    this.sessionId = sid;
-    if (opts.sessionId) this.job.sessionId = sid;
-    this.job.cwd = cwd;
-    this.job.app = "cli";
-    const sessionArgs = opts.sessionId ? ["-r", sid] : ["--session-id", sid];
-    const args = ["-p", ...sessionArgs, "-w", cwd, "-m", model, "--reasoning-effort", effort, ...qoderPermissionArgs(perm)];
-    if (!opts.sessionId && opts.name) args.push("-n", opts.name);
-    if (d.vaultPath && cwd !== d.vaultPath) args.push("--add-dir", d.vaultPath);
-    for (const a of splitArgs(cfg.extraArgs || "")) args.push(a);
-    args.push("--", opts.prompt);
-    this.job.command = [bin, ...args.slice(0, -1), "<prompt>"].join(" ");
-    const child = spawn(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
-    this.child = child;
-    this.job.state = "running";
-    this.job.startedAt = Date.now();
-    this.job.conversation ||= [];
-    this.job.conversation.push({ role: "user", text: opts.prompt, at: Date.now() });
-    this.sessionTimer = setTimeout(() => {
-      this.sessionTimer = null;
-      if (this.finished) return;
-      this.d.onSession(this.job, this.sessionId);
-    }, 250);
-    let out = "", err = "";
-    child.stdout.setEncoding("utf8");
-    child.stdout.on("data", (text) => {
-      out += text;
-      this.job.lastText = out.slice(-2000);
-      this.d.saveJobsSoon();
-      this.d.refreshUI();
-    });
-    child.stderr.on("data", (b) => {
-      err += b.toString();
-      if (err.length > 4000) err = err.slice(-4000);
-      this.job.stderr = err.slice(-1000);
-    });
-    child.on("error", (e) => this.fail(String(e && e.message || e)));
-    child.on("close", (code) => {
-      if (this.finished) return;
-      clearTimeout(this.sessionTimer);
-      this.sessionTimer = null;
-      const combined = `${err}\n${out}`.trim();
-      if (code !== 0 && /not logged in|qodercli login/i.test(combined)) {
-        if (this.job.destination === "background") this.fail(combined);
-        else this.fallbackToDesktop(opts.prompt);
-        return;
-      }
-      if (code === 0) {
-        if (!this.job.sessionId) this.d.onSession(this.job, this.sessionId);
-        this.done(out);
-      } else {
-        this.fail(combined || t("qoder 退出码 {code}", { code }));
-      }
-    });
-    this.timer = setTimeout(() => this.fail(t("委派超过 30 分钟没有结束")), 30 * 60000);
-    return true;
-  }
-
-  fallbackToDesktop(prompt) {
-    this.finished = true;
-    clearTimeout(this.timer);
-    this.job.handoff = true;
-    this.job.cli = false;
-    this.job.app = "";
-    this.job.sessionId = "";
-    this.job.state = "starting";
-    this.job.step = t("等你在 {agent} 里发出去", { agent: AGENTS.qoder.name });
-    this.d.saveJobs();
-    this.d.copyText(prompt);
-    this.d.openAgentApp("qoder");
-    this.d.notice(t("📋 Qoder CLI 尚未登录，已复制任务并打开 Qoder 桌面版（也可在设置里登录 CLI）"), 10000);
-    this.d.refreshUI();
-  }
-
-  cancel() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.sessionTimer);
-    clearTimeout(this.timer);
-    if (this.child) { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }
-    this.job.state = "cancelled";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.d.refreshUI();
-  }
-
-  done(result) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
-    this.job.state = "done";
-    this.job.endedAt = Date.now();
-    if (result) {
-      this.job.result = result;
-      this.job.lastText = result.slice(-2000);
-      this.job.conversation ||= [];
-      this.job.conversation.push({ role: "assistant", text: result, at: Date.now() });
-    }
-    this.d.saveJobs();
-    this.d.onDone(this.job);
-  }
-
-  fail(message) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.sessionTimer);
-    clearTimeout(this.timer);
-    if (this.child) { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }
-    this.job.state = "error";
-    this.job.error = String(message || "").slice(0, 500);
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.d.onError(this.job);
-  }
-}
-
-// ----- Local ACP agents: Harness, Antigravity, and OpenCode -----
-class AcpRunner {
-  constructor(delegator, job) {
-    this.d = delegator;
-    this.agent = job.agent || "dsh";
-    this.label = AGENTS[this.agent]?.name || this.agent;
-    this.job = job;
-    this.child = null;
-    this.buf = "";
-    this.nextId = 1;
-    this.pending = new Map();
-    this.finished = false;
-    this.assistantText = "";
-    this.lastStep = "";
-    this.sessionId = "";
-    this.timer = null;
-  }
-
-  async start(opts) {
-    const d = this.d;
-    const cfg = d.settings.delegate[this.agent];
-    const bin = this.agent === "antigravity" ? findAgyBinary(cfg.path || "") : this.agent === "opencode" ? findOpenCodeBinary(cfg.path || "") : findDshBinary(cfg.path || "");
-    const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
-    const model = opts.model || cfg.model || (this.agent === "dsh" ? "deepseek-v4-pro" : "");
-    const effort = opts.effort || cfg.effort || (this.agent === "dsh" ? "high" : "");
-    this.job.command = `${bin} acp`;
-    const child = spawn(bin, ["acp", ...splitArgs(cfg.extraArgs || "")], { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
-    this.child = child;
-    this.job.state = "running";
-    this.job.startedAt = Date.now();
-    let err = "";
-    child.stdout.setEncoding("utf8");
-    child.stdout.on("data", (text) => this.onData(text));
-    child.stdin.on("error", (e) => this.fail(e.message));
-    child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 4000) err = err.slice(-4000); this.job.stderr = err.slice(-1000); });
-    child.on("error", (e) => this.fail(String(e && e.message || e)));
-    child.on("exit", (code) => {
-      if (this.finished) return;
-      this.fail(err.trim() || t("{agent} ACP 提前退出（{code}）", { agent: this.label, code }));
-    });
-    try {
-      const init = await this.request("initialize", { protocolVersion: 1, clientCapabilities: {} }, 30000);
-      this.capabilities = init?.agentCapabilities || {};
-      if (opts.sessionId && !this.capabilities.sessionCapabilities?.resume && !this.capabilities.loadSession) {
-        throw new Error(t("{agent} 未声明会话恢复能力，请升级后再续聊", { agent: this.label }));
-      }
-      const method = opts.sessionId ? (this.capabilities.sessionCapabilities?.resume ? "session/resume" : "session/load") : "session/new";
-      this.loadingSession = !!opts.sessionId;
-      const made = await this.request(method, { cwd, mcpServers: [], ...(opts.sessionId ? { sessionId: opts.sessionId } : {}) }, 60000);
-      this.loadingSession = false;
-      if (this.finished) return false;
-      this.sessionId = opts.sessionId || made?.sessionId || made?.session_id;
-      if (!this.sessionId) throw new Error(t("{agent} 没有返回会话号", { agent: this.label }));
-      this.job.sessionId = this.sessionId;
-      this.job.transport = "acp";
-      let configOptions = made?.configOptions || [];
-      const available = acpModels(this.agent, configOptions);
-      if (available.length) {
-        cfg.availableModels = available;
-        this.job.availableModels = available;
-      }
-      if (opts.discoverOnly) { this.done({}); return true; }
-      this.job.state = "running";
-      this.d.saveJobs();
-      this.d.onSession(this.job, this.sessionId);
-      const isDefault = (this.agent === "antigravity" || this.agent === "opencode") && (!model || model === `${this.agent}-default`);
-      const modelOption = configOptions.find((x) => x.category === "model" || x.id === "model");
-      if (opts.model && !isDefault && !modelOption) throw new Error(t("{agent} 未提供模型选择", { agent: this.label }));
-      if (modelOption && !isDefault && (!opts.sessionId || opts.model)) {
-        const custom = this.d.plugin?.modelById?.(model);
-        const selected = custom?.value || (this.agent === "dsh" ? resolveDshModel(model)?.value : model);
-        if (!selected) throw new Error(t("无法识别 {agent} 模型：{model}", { agent: this.label, model }));
-        const changed = await this.request("session/set_config_option", { sessionId: this.sessionId, configId: modelOption.id, value: selected }, 15000);
-        configOptions = changed?.configOptions || configOptions;
-      }
-      const effortOption = configOptions.find((x) => x.category === "thought_level" || x.id === "reasoning_effort" || x.id === "variant");
-      if (opts.effort && !effortOption && this.agent !== "opencode") throw new Error(t("{agent} 未提供推理强度选择", { agent: this.label }));
-      if (effortOption && effort && (!opts.sessionId || opts.effort)) {
-        const value = this.agent === "dsh" ? dshEffort(effort) : effort;
-        if (this.agent === "antigravity" && !effortOption.options?.some((o) => o.value === value)) throw new Error(t("当前模型不支持推理强度 {value}", { value }));
-        await this.request("session/set_config_option", { sessionId: this.sessionId, configId: effortOption.id, value }, 15000);
-      }
-      if (this.finished) return false;
-      this.job.conversation ||= [];
-      this.job.conversation.push({ role: "user", text: opts.prompt, at: Date.now() });
-      this.timer = setTimeout(() => this.fail(t("委派超过 30 分钟没有结束")), 30 * 60000);
-      this.request("session/prompt", { sessionId: this.sessionId, prompt: [{ type: "text", text: opts.prompt }] }, 31 * 60000)
-        .then((r) => this.done(r))
-        .catch((e) => this.fail(e && e.message || String(e)));
-    } catch (e) {
-      this.fail(e && e.message || String(e));
-    }
-    return true;
-  }
-
-  onData(text) {
-    this.buf += text;
-    let at;
-    while ((at = this.buf.indexOf("\n")) >= 0) {
-      const line = this.buf.slice(0, at).trim();
-      this.buf = this.buf.slice(at + 1);
-      if (!line) continue;
-      let msg;
-      try { msg = JSON.parse(line); } catch { continue; }
-      this.onMessage(msg);
-    }
-  }
-
-  onMessage(msg) {
-    if (msg.id != null && this.pending.has(msg.id)) {
-      const p = this.pending.get(msg.id);
-      this.pending.delete(msg.id);
-      clearTimeout(p.timer);
-      if (msg.error) p.reject(new Error(msg.error.message || JSON.stringify(msg.error)));
-      else p.resolve(msg.result);
-      return;
-    }
-    if (this.finished) return;
-    const method = msg.method;
-    if (!method) return;
-    const params = msg.params || {};
-    if (method === "session/update") {
-      const u = params.update || {};
-      const kind = u.sessionUpdate;
-      if (kind === "agent_message_chunk" && !this.loadingSession) {
-        const t = u.content && u.content.text;
-        if (t) { this.assistantText += t; this.job.lastText = this.assistantText.slice(-2000); }
-      } else if (kind === "agent_thought_chunk") {
-        const t = u.content && u.content.text;
-        if (t) this.job.thought = t.slice(-500);
-      } else if (kind === "tool_call" || kind === "tool_call_update") {
-        const name = u.title || u.kind || u.toolName || "tool";
-        this.lastStep = truncate(name, 40);
-        this.job.step = this.lastStep;
-        if (this.job.state !== "needs-approval") this.job.state = "running";
-      } else if (kind === "usage_update") {
-        this.job.contextUsed = u.used;
-        this.job.contextSize = u.size;
-      }
-      this.d.saveJobsSoon();
-      this.d.refreshUI();
-      return;
-    }
-    if (method === "session/request_permission") {
-      const cfg = this.d.settings.delegate[this.agent];
-      const options = params.options || [];
-      if (this.d.plugin?.requestAcpPermission && cfg.autoApprove !== true) {
-        this.job.state = "needs-approval";
-        this.job.step = params.toolCall?.title || t("等待工具授权");
-        this.d.saveJobs(); this.d.refreshUI();
-        Promise.resolve().then(() => this.d.plugin.requestAcpPermission({ agent: this.agent, toolCall: params.toolCall, options }, this))
-          .then((optionId) => {
-            if (this.finished) return;
-            const selected = options.find((o) => o.optionId === optionId);
-            this.respond(msg.id, { outcome: selected ? { outcome: "selected", optionId: selected.optionId } : { outcome: "cancelled" } });
-            this.job.state = "running"; this.job.step = "";
-            this.d.saveJobs(); this.d.refreshUI();
-          }).catch(() => {
-            if (this.finished) return;
-            this.respond(msg.id, { outcome: { outcome: "cancelled" } });
-            this.job.state = "running"; this.job.step = t("工具调用已取消");
-            this.d.saveJobs(); this.d.refreshUI();
-          });
-        return;
-      }
-      const auto = cfg.autoApprove === true;
-      const option = options.find((o) => o.kind === (auto ? "allow_once" : "reject_once"));
-      if (!auto) {
-        this.job.step = t("工具调用已拒绝");
-        this.d.notify({ title: t("{agent} 需要你允许", { agent: this.label }), body: t("「{name}」的工具调用已拒绝。可在委派设置中调整权限后重试。", { name: this.job.name }), job: this.job });
-      }
-      this.respond(msg.id, { outcome: option ? { outcome: "selected", optionId: option.optionId } : { outcome: "cancelled" } });
-      return;
-    }
-    if (msg.id != null) this.send({ jsonrpc: "2.0", id: msg.id, error: { code: -32601, message: `Unsupported method: ${method}` } });
-  }
-
-  respond(id, result) { this.send({ jsonrpc: "2.0", id, result }); }
-
-  send(o) {
-    if (!this.child || !this.child.stdin || this.child.stdin.destroyed) return;
-    try { this.child.stdin.write(JSON.stringify(o) + "\n"); } catch { /* closed */ }
-  }
-
-  request(method, params, timeout = 20000) {
-    if (this.finished) return Promise.reject(new Error(t("{agent} 连接已关闭", { agent: this.label })));
-    const id = this.nextId++;
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(t("{method} 超时", { method }))); }, timeout);
-      this.pending.set(id, { resolve, reject, timer });
-      this.send({ jsonrpc: "2.0", id, method, params });
-    });
-  }
-
-  cancel() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
-    this.permissionModal?.close();
-    this.clearPending();
-    if (this.sessionId) { try { this.send({ jsonrpc: "2.0", method: "session/cancel", params: { sessionId: this.sessionId } }); } catch { /* closed */ } }
-    this.close();
-    this.job.state = "cancelled";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.d.refreshUI();
-  }
-
-  done(result) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
-    this.permissionModal?.close();
-    this.clearPending();
-    this.job.state = "done";
-    this.job.endedAt = Date.now();
-    this.job.stopReason = result && result.stopReason || "";
-    if (this.assistantText) {
-      this.job.result = this.assistantText;
-      this.job.conversation ||= [];
-      this.job.conversation.push({ role: "assistant", text: this.assistantText, at: Date.now() });
-    }
-    this.d.saveJobs();
-    this.close();
-    this.d.onDone(this.job);
-  }
-
-  fail(message) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
-    this.permissionModal?.close();
-    this.clearPending();
-    this.job.state = "error";
-    this.job.error = String(message || "").slice(0, 500);
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.close();
-    this.d.onError(this.job);
-  }
-
-  clearPending() {
-    for (const p of this.pending.values()) { clearTimeout(p.timer); p.reject(new Error(t("{agent} 连接已结束", { agent: this.label }))); }
-    this.pending.clear();
-  }
-
-  close() {
-    if (this.sessionId && this.capabilities?.sessionCapabilities?.close) { try { this.send({ jsonrpc: "2.0", id: this.nextId++, method: "session/close", params: { sessionId: this.sessionId } }); } catch { /* closed */ } }
-    if (this.child) {
-      this.child.stdin.end();
-      const timer = setTimeout(() => { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }, 1200);
-      this.child.once("close", () => clearTimeout(timer));
-      timer.unref();
-    }
-    this.d.refreshUI();
-  }
-}
-
-export function dshModels(configOptions) { return acpModels("dsh", configOptions); }
-
-export function acpModels(agent, configOptions) {
-  const option = configOptions.find((x) => x.category === "model" || x.id === "model");
-  const result = [];
-  for (const group of option?.options || []) {
-    for (const item of group.options || [group]) {
-      if (typeof item.value !== "string") continue;
-      const builtin = MODEL_CATALOG.find((m) => m.agent === agent && m.value === item.value);
-      result.push({ id: builtin?.id || `${agent}-acp-${Buffer.from(item.value).toString("base64url")}`, agent, name: item.name || item.value,
-        value: item.value, provider: group.options ? group.name : AGENTS[agent].name, context: "—", tags: [], note: item.description || t("ACP 服务端返回的模型") });
-    }
-  }
-  return result;
-}
-
-// 内置模型在命令行里的名字（opus / sonnet …）；不在目录里的原样传
-export function resolveCliModel(plugin, agent, model) {
-  const m = plugin?.modelById?.(model) || MODEL_CATALOG.find((m) => m.agent === agent && m.id === model);
-  return m?.cli || m?.value || model;
-}
 const shellQuote = (s) => "'" + String(s).replace(/'/g, "'\"'\"'") + "'";
-
-export function codexCliArgs(plugin, opts = {}) {
-  const cfg = plugin.settings.delegate.codex || DEFAULTS.delegate.codex;
-  const model = resolveCliModel(plugin, "codex", opts.model || cfg.model);
-  const effort = opts.effort || cfg.effort || "low";
-  return ["--model", model, "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--sandbox", cfg.sandbox || "workspace-write"];
-}
-
-export function resolveDshModel(id) {
-  const m = MODEL_CATALOG.find((x) => x.agent === "dsh" && x.id === id);
-  if (m) return { value: m.value };
-  if (String(id || "").startsWith("[")) return { value: id };
-  return null;
-}
-
-export function dshEffort(e) {
-  const map = { off: "off", low: "low", medium: "high", high: "high", xhigh: "max", max: "max" };
-  return map[e] || "high";
-}
 
 export class Delegator {
   constructor(plugin) {
     this.plugin = plugin;
     this.jobs = plugin.jobs;          // by id
     this.runners = new Map();         // id -> runner
+    this.harness = new HarnessPipeline();
     this.settings = plugin.settings;
     this.vaultPath = plugin.vaultPath;
+  }
+
+  async resolveBlockContext(opts, missingBlockMsg) {
+    const file = opts.file;
+    if (!file) throw new Error(t("没有当前笔记"));
+    const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
+    const block = opts.block || blockAt(lines, opts.line);
+    if (!block) throw new Error(missingBlockMsg);
+    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
+    const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
+    const name = truncate(title, this.C.nameMax || 56);
+    const payload = await buildDelegationPayload({ plugin: this.plugin, file, lines, block, opts });
+    return { file, lines, block, title, name, ...payload };
+  }
+
+  buildJobBase({ agent, name, opts, lines, block, question, prompt, ...extra }) {
+    return {
+      id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+      agent,
+      name,
+      destination: opts.destination,
+      newSession: !!opts.newSession,
+      blockId: J.blockIdOf(lines[block.start]),
+      path: opts.file.path,
+      line: block.start,
+      lineText: lines[block.start],
+      question,
+      blockText: block.text.slice(0, 6000),
+      prompt: prompt.slice(0, 12000),
+      originalLine: lines[block.start],
+      startedAt: Date.now(),
+      state: "starting",
+      sessionId: "",
+      linkWritten: false,
+      resultWritten: false,
+      ...extra,
+    };
   }
 
   refreshSettings() {
@@ -1201,37 +547,38 @@ export class Delegator {
     opts = mentionOptions(this.plugin, opts);
     if (opts.destination && !destinations(opts.agent).some(o => o.id === opts.destination)) throw new Error(t("此 Agent 不支持所选工作位置"));
     if (opts.destination === "terminal" || (opts.agent === "codex" && !opts.destination && this.C.codex?.transport === "terminal")) return this.handoffCli(opts);
-    if (!["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(opts.agent) || (opts.agent === "qoder" && opts.destination === "desktop")) return this.handoff(opts);
+    if (!hasAgentCapability(opts.agent, "delegate") || (opts.agent === "qoder" && opts.destination === "desktop")) return this.handoff(opts);
     const agent = opts.agent;
-    const file = opts.file;
-    if (!file) throw new Error(t("没有当前笔记"));
-    const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
-    const block = opts.block || blockAt(lines, opts.line);
-    if (!block) throw new Error(t("光标要放在一个列表项里"));
-    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
-    const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
-    const name = truncate(title, this.C.nameMax || 56);
-    const prompt = this.buildPrompt({ ...opts, block, file, title, contextLines: ancestorLines(lines, block.start) });
-    const job = {
-      id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-      agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
-      question: stripTaskMention(withContext(ancestorLines(lines, block.start), freshTaskText(block.text)), mentionTrigger(this.plugin)),
-      blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000),
-      originalLine: lines[block.start],
-      startedAt: Date.now(), state: "starting", model: agent === "codex" ? resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent)) : opts.model || this.defaultModel(agent),
+    const resolved = await this.resolveBlockContext(opts, t("光标要放在一个列表项里"));
+    const job = this.buildJobBase({
+      agent,
+      name: resolved.name,
+      opts: { ...opts, file: resolved.file },
+      lines: resolved.lines,
+      block: resolved.block,
+      question: resolved.question,
+      prompt: resolved.prompt,
+      model: agent === "codex" ? resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent)) : opts.model || this.defaultModel(agent),
       effort: opts.effort || this.C[agent]?.effort,
-      permission: opts.permission || (["claude", "qoder"].includes(agent) ? (this.C[agent]?.permission || "auto") : ""),
+      permission: opts.permission || (hasAgentCapability(agent, "permissionControl") ? (this.C[agent]?.permission || "auto") : ""),
       cwd: norm(opts.cwd || this.C[agent]?.cwd || this.vaultPath),
-      sessionId: "", linkWritten: false, resultWritten: false,
-    };
+    });
+    const hookPayload = { opts, resolved, job, prompt: resolved.prompt, name: resolved.name };
+    await this.harness.run("beforeDelegate", hookPayload);
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     this.plugin.refreshUI();
-    this.plugin.notice(t("🛫 正在委派给 {agent}：{name}", { agent: AGENTS[agent]?.name || agent, name }));
-    const runner = agent === "codex" ? new CodexDesktopRunner(this, job, () => job.destination === "background" ? undefined : openSession(this.plugin, "codex", job.sessionId, "vscode")) : ["dsh", "antigravity", "opencode"].includes(agent) ? new AcpRunner(this, job) : agent === "qoder" ? new QoderRunner(this, job) : new ClaudeRunner(this, job);
+    this.plugin.notice(t("🛫 正在委派给 {agent}：{name}", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name }));
+    const runner = createDelegationRunner(
+      agent,
+      this,
+      job,
+      getRunnerClasses(),
+      () => (job.destination === "background" ? undefined : openSession(this.plugin, "codex", job.sessionId, "vscode")),
+    );
     this.runners.set(job.id, runner);
     try {
-      await runner.start({ ...opts, prompt, name });
+      await runner.start({ ...opts, prompt: hookPayload.prompt, name: hookPayload.name });
     } catch (e) {
       runner.fail && runner.fail(e && e.message || String(e));
     }
@@ -1253,7 +600,7 @@ export class Delegator {
 
   async continueSession(session, prompt) {
     this.refreshSettings();
-    if (!["dsh", "antigravity", "opencode"].includes(session.agent)) throw new Error(t("这个 Agent 不支持在 Obsidian 内续聊"));
+    if (!canContinueInApp(session.agent)) throw new Error(t("这个 Agent 不支持在 Obsidian 内续聊"));
     prompt = String(prompt || "").trim();
     if (!prompt) throw new Error(t("请输入追问内容"));
     const sid = session.sid || session.sessionId;
@@ -1282,28 +629,24 @@ export class Delegator {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
     if (opts.destination === "terminal") return this.handoffCli(opts);
-    if (["claude", "codex", "dsh", "antigravity", "opencode"].includes(opts.agent) || (opts.agent === "qoder" && opts.destination !== "desktop")) return this.delegate(opts);
+    if (hasAgentCapability(opts.agent, "delegate") && (opts.agent !== "qoder" || opts.destination !== "desktop")) return this.delegate(opts);
     const agent = opts.agent;
-    const file = opts.file;
-    if (!file) throw new Error(t("没有当前笔记"));
-    const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
-    const block = opts.block || blockAt(lines, opts.line);
-    if (!block) throw new Error(t("要拖一个列表项"));
-    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
-    const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
-    const name = truncate(title, this.C.nameMax || 56);
-    const prompt = this.buildPrompt({ ...opts, block, file, title, contextLines: ancestorLines(lines, block.start) });
-    const job = {
-      id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-      agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
-      question: stripTaskMention(withContext(ancestorLines(lines, block.start), freshTaskText(block.text)), mentionTrigger(this.plugin)),
-      blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
-      startedAt: Date.now(), state: "starting", handoff: true, step: t("等你在 {agent} 里发出去", { agent: AGENTS[agent]?.name || agent }),
-      cwd: this.vaultPath, sessionId: "", linkWritten: false, resultWritten: false,
-    };
+    const resolved = await this.resolveBlockContext(opts, t("要拖一个列表项"));
+    const job = this.buildJobBase({
+      agent,
+      name: resolved.name,
+      opts: { ...opts, file: resolved.file },
+      lines: resolved.lines,
+      block: resolved.block,
+      question: resolved.question,
+      prompt: resolved.prompt,
+      handoff: true,
+      step: t("等你在 {agent} 里发出去", { agent: AGENTS[agent]?.name || agent }),
+      cwd: this.vaultPath,
+    });
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    this.copyText(prompt);
+    this.copyText(resolved.prompt);
     await this.openAgentApp(agent);
     this.plugin.notice(t("📋 任务已复制，粘贴到 {agent} 里发出", { agent: AGENTS[agent]?.name || agent }), 10000);
     this.plugin.refreshUI();
@@ -1315,17 +658,10 @@ export class Delegator {
   async handoffCli(opts) {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
-    if (!["claude", "codex", "opencode", "qoder", "workbuddy"].includes(opts.agent)) return this.delegate(opts);
+    if (!hasAgentCapability(opts.agent, "terminalHandoff")) return this.delegate(opts);
     const agent = opts.agent;
-    const file = opts.file;
-    if (!file) throw new Error(t("没有当前笔记"));
-    const lines = opts.lines || (await this.plugin.readNote(file.path)).split("\n");
-    const block = opts.block || blockAt(lines, opts.line);
-    if (!block) throw new Error(t("要拖一个列表项"));
-    if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
-    const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
-    const name = truncate(title, this.C.nameMax || 56);
-    const prompt = this.buildPrompt({ ...opts, block, file, title, contextLines: ancestorLines(lines, block.start) });
+    const resolved = await this.resolveBlockContext(opts, t("要拖一个列表项"));
+    const { lines, block, name, question, prompt } = resolved;
     let cwd = norm(opts.cwd || this.C[agent]?.cwd || this.vaultPath);
     // 交互式 claude 在没信任过的目录里会先停在信任提示上，任务就不会自己跑：和后台委派一样换到信任过的目录，库用 --add-dir 加进去
     let extra = "";
@@ -1352,14 +688,22 @@ export class Delegator {
     const taskFile = path.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp.writeFile(taskFile, prompt, "utf8");
     const bin = agent === "codex" ? (this.C.codex?.path || "codex") : agent === "opencode" ? findOpenCodeBinary(this.C.opencode?.path || "") : agent === "qoder" ? findQoderBinary(this.C.qoder?.path || "") : agent === "workbuddy" ? findWorkbuddyBinary(this.C.workbuddy?.path || "") : findClaudeBinary(this.C.claude?.path || "");
-    const job = {
-      id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-      agent, name, destination: opts.destination, newSession: !!opts.newSession, blockId: J.blockIdOf(lines[block.start]), path: file.path, line: block.start, lineText: lines[block.start],
-      question: stripTaskMention(withContext(ancestorLines(lines, block.start), freshTaskText(block.text)), mentionTrigger(this.plugin)),
-      blockText: block.text.slice(0, 6000), prompt: prompt.slice(0, 12000), originalLine: lines[block.start],
-      startedAt: Date.now(), state: "starting", model, effort, handoff: true, cli: true, app: agent === "codex" ? "codex_cli_rs" : "cli",
-      step: t("在终端里开 {agent}", { agent: AGENTS[agent]?.name || agent }), cwd, sessionId: "", linkWritten: false, resultWritten: false,
-    };
+    const job = this.buildJobBase({
+      agent,
+      name,
+      opts: { ...opts, file: resolved.file },
+      lines,
+      block,
+      question,
+      prompt,
+      model,
+      effort,
+      handoff: true,
+      cli: true,
+      app: agent === "codex" ? "codex_cli_rs" : "cli",
+      step: t("在终端里开 {agent}", { agent: AGENTS[agent]?.name || agent }),
+      cwd,
+    });
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     let cmd;
@@ -1415,20 +759,7 @@ export class Delegator {
   }
 
   buildPrompt(opts) {
-    const c = this.C;
-    const parts = [];
-    if (c.promptPrefix && c.promptPrefix.trim()) parts.push(c.promptPrefix.trim());
-    const task = opts.newSession ? freshTaskText(opts.block.text) : opts.block.text;
-    // 从子项发出去的活，把母项那几行原样带上当上下文，只做最里面这一项
-    parts.push(stripTaskMention(withContext(opts.contextLines, task), mentionTrigger(this.plugin)).trim());
-    if (opts.promptSuffix && opts.promptSuffix.trim()) parts.push(opts.promptSuffix.trim());
-    else if (c.promptSuffix && c.promptSuffix.trim()) parts.push(c.promptSuffix.trim());
-    if (opts.file) parts.push(`\n（来自 Obsidian：${opts.file.path}）`);
-    if (c.confirmFirst !== false) {
-      const prompt = c.confirmFirstPrompt ?? CONFIRM_FIRST;
-      if (prompt.trim()) parts.push(prompt.trim());
-    }
-    return parts.join("\n\n");
+    return buildPromptFromContext(this.plugin, opts);
   }
 
   onSession(job, sid) {
@@ -1486,15 +817,17 @@ export class Delegator {
     this.refreshUI();
     const agent = AGENTS[job.agent];
     this.plugin.notice(t("✅ {agent} 做完了一轮：{name}", { agent: agent ? agent.name : job.agent, name: job.name }), 8000);
-    if ((job.destination === "desktop" || (!job.destination && this.C[job.agent]?.openDesktop === true)) && ["claude", "opencode"].includes(job.agent) && job.sessionId) openSession(this.plugin, job.agent, job.sessionId, job.app);
+    if ((job.destination === "desktop" || (!job.destination && this.C[job.agent]?.openDesktop === true)) && hasAgentCapability(job.agent, "autoOpenDesktopOnDone") && job.sessionId) openSession(this.plugin, job.agent, job.sessionId, job.app);
     if (this.settings.autoWriteResult && job.linkWritten && job.path) {
       try { await this.writeResult(job); } catch (e) { console.error("[agent-deck] writeResult", e); }
     }
+    await this.harness.run("afterResult", { job });
     this.plugin.refreshUI();
   }
 
   onError(job) {
     this.refreshUI();
+    this.harness.run("onError", { job }).catch(() => {});
     const err = String(job.error || "");
     if (job.agent === "claude" && /not trusted/i.test(err)) {
       this.plugin.notice(t("Claude Code 不信任这个工作目录：{cwd} 在终端里 cd 到那儿运行一次 claude，接受信任提示；或者在「委派」设置里把工作目录换成一个已经信任的目录。（这次没有真正跑起来，已经把 🔗 和 DELEGATED 撤回）", { cwd: job.cwd }), 16000);
@@ -1620,40 +953,4 @@ export class Delegator {
   refreshUI() {
     this.plugin.refreshUI();
   }
-}
-
-// ----- process helpers -----
-function splitArgs(s) {
-  const out = [];
-  const re = /"([^"]*)"|'([^']*)'|(\S+)/g;
-  let m;
-  while ((m = re.exec(s))) out.push(m[1] ?? m[2] ?? m[3]);
-  return out;
-}
-
-function spawnCapture(bin, args, { cwd, env, timeout = 30000 }) {
-  return new Promise((resolve) => {
-    let out = "", err = "", done = false;
-    let child;
-    try { child = spawn(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }); }
-    catch (e) { return resolve({ ok: false, out: "", err: String(e && e.message || e) }); }
-    const timer = setTimeout(() => { if (!done) { done = true; try { child.kill("SIGTERM"); } catch { /* gone */ } resolve({ ok: false, out, err: err || t("超时") }); } }, timeout);
-    child.stdout.on("data", (b) => { out += b.toString(); if (out.length > 20000) out = out.slice(-20000); });
-    child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 10000) err = err.slice(-10000); });
-    child.on("error", (e) => { if (done) return; done = true; clearTimeout(timer); resolve({ ok: false, out, err: String(e && e.message || e) }); });
-    child.on("close", (code) => { if (done) return; done = true; clearTimeout(timer); resolve({ ok: code === 0, out, err, code }); });
-  });
-}
-
-function execCapture(bin, args, { cwd, env, timeout = 10000 } = {}) {
-  return new Promise((resolve) => {
-    execFile(bin, args, { cwd, env, timeout, maxBuffer: 8 * 1024 * 1024 }, (err, out, errOut) => {
-      resolve({ ok: !err, out: String(out || ""), err: String(errOut || (err && err.message) || "") });
-    });
-  });
-}
-
-// Saved AI output is working context, including edits and nested delegations.
-export function freshTaskText(text) {
-  return text.split("\n").map((l, i) => i === 0 ? J.stripBlockId(l) : l).join("\n");
 }

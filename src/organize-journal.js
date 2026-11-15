@@ -233,6 +233,35 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
     }
     return out;
   };
+  const normalizeChunkHeader = (chunkLines, forceDone = false, container = false) => {
+    if (container || !chunkLines.length) return chunkLines;
+    const p = J.splitTask(chunkLines[0]);
+    if (!p) return chunkLines;
+    const cs = J.clockSpanFromLines(chunkLines, 0);
+    if (p.auto && !p.cb) {
+      const s = p.since || cs?.start || '';
+      const e = (p.until && p.until !== p.since ? p.until : cs?.end) || p.until || p.since || s;
+      if (s || e || forceDone) {
+        return [
+          J.formatAutoTaskLine({
+            prefix: p.prefix,
+            kw: forceDone ? 'DONE' : (p.kw || 'TODO'),
+            start: s,
+            end: e,
+            title: p.title, preserveTitle: true,
+            blockId: p.blockId,
+          }),
+          ...chunkLines.slice(1),
+        ];
+      }
+      return chunkLines;
+    }
+    if (forceDone) {
+      const stamp = cs?.end || p.until || p.since || '';
+      return [`${p.prefix}DONE ${stamp ? stamp + ' ' : ''}${p.rest}`.trimEnd(), ...chunkLines.slice(1)];
+    }
+    return chunkLines;
+  };
   let cursor = headEnd;
   for (let i = headEnd; i < regionEnd; i++) {
     if (i < cursor || fence.has(i) || drop.has(i) || !J.LIST_RE.test(lines[i])) continue;
@@ -262,35 +291,8 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
     const allKidsDone = kids.length > 0 && kids.every((kw) => J.DONE_KWS.includes(kw));
     const finished = doneKw || archivedOut || allKidsDone;
 
-    const normalizeChunkHeader = (chunkLines, forceDone = false) => {
-      if (container || !chunkLines.length) return chunkLines;
-      const p = J.splitTask(chunkLines[0]);
-      if (!p) return chunkLines;
-      if (p.auto && !p.cb) {
-        const cs = J.clockSpanFromLines(chunkLines, 0);
-        const s = p.since || cs?.start || '';
-        const e = (p.until && p.until !== p.since ? p.until : cs?.end) || p.until || p.since || s;
-        if (s || e || forceDone) {
-          return [
-            J.formatAutoTaskLine({
-              prefix: p.prefix,
-              kw: forceDone ? 'DONE' : (p.kw || 'TODO'),
-              start: s,
-              end: e,
-              title: p.title, preserveTitle: true,
-              blockId: p.blockId,
-            }),
-            ...chunkLines.slice(1),
-          ];
-        }
-        return chunkLines;
-      }
-      if (forceDone) return [`${p.prefix}DONE ${p.since ? p.since + ' ' : ''}${p.rest}`, ...chunkLines.slice(1)];
-      return chunkLines;
-    };
-
     if (finished) {
-      const chunk = normalizeChunkHeader(lines.slice(i, end), archivedOut && !doneKw);
+      const chunk = normalizeChunkHeader(lines.slice(i, end), archivedOut && !doneKw, container);
       const block = blockText(chunk, 0, chunk.length);
       const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
       done.push({ text: block, blockId: k.blockId || '', turns: count, ai, sid: [...sids], at: i, organized: inBand(i, true) });
@@ -301,7 +303,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
       continue;
     }
 
-    const activeChunk = normalizeChunkHeader(lines.slice(i, end), false);
+    const activeChunk = normalizeChunkHeader(lines.slice(i, end), false, container);
     const block = blockText(activeChunk, 0, activeChunk.length);
     const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
     active.push({ text: block, keyword: k.kw || 'TODO', turns: count, blockId: k.blockId || '', at: i, organized: inBand(i, false) });
@@ -338,28 +340,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
       const container = !k.kw && body.startsWith('🤖');
       const kids = container ? childKeywords(i, end) : [];
       const allKidsDone = kids.length > 0 && kids.every((kw) => J.DONE_KWS.includes(kw));
-      let chunk = lines.slice(i, end);
-      const p = !container ? J.splitTask(chunk[0]) : null;
-      if (p && p.auto && !p.cb) {
-        const cs = J.clockSpanFromLines(chunk, 0);
-        const s = p.since || cs?.start || '';
-        const e = (p.until && p.until !== p.since ? p.until : cs?.end) || p.until || p.since || s;
-        if (s || e || (archivedOut && !doneKw)) {
-          chunk = [
-            J.formatAutoTaskLine({
-              prefix: p.prefix,
-              kw: archivedOut && !doneKw ? 'DONE' : (p.kw || 'TODO'),
-              start: s,
-              end: e,
-              title: p.title, preserveTitle: true,
-              blockId: p.blockId,
-            }),
-            ...chunk.slice(1),
-          ];
-        }
-      } else if (archivedOut && !doneKw && p) {
-        chunk = [`${p.prefix}DONE ${p.since ? p.since + ' ' : ''}${p.rest}`, ...chunk.slice(1)];
-      }
+      const chunk = normalizeChunkHeader(lines.slice(i, end), archivedOut && !doneKw, container);
       const block = blockText(chunk, 0, chunk.length);
       const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
       if (doneKw || archivedOut || allKidsDone) done.push({ text: block, blockId: k.blockId || '', turns: count, ai, sid: [...sids], at: i, organized: false });

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.9
+
+- **协作回顾 Dashboard 增强**：新增「24 小时作息与并发」时段活跃柱状图、多会话并发统计与最活跃时段提示；新增「模型分布」统计表（Token、问答轮次、轮均 Token、缓存命中率、活跃耗时与会话数），支持点击联动筛选并纳入简报导出。
+- **Agent 图标与项目投入多维排序**：Dashboard 中「Agent 分布」、模型与项目明细列表、记录明细统一改用 Agent 官方图标（`agentIcon`）；「项目投入」新增按 `Token / 耗时 / 会话 / 名称` 与「顺序 ↑ / 倒序 ↓」切换及表头点击排序。
+- **AI 自动记录与日记视图持久化**：AI 自动记录按零点分割跨日对话并精简时间显示与口语冗余；AI 记录母块支持大纲／表格／卡片／时间线多视图持久化切换、行内展开深层子块与任务正文干净导出（`Agent Deck` 导出动作），归档对话自动标记对应任务完成，对话弹窗采用 `.ad-modal` 设计语言并生成语义化归档命名。
+- **Dreaming 采集范围与模型联动**：修复 Dreaming 执行链路，默认跟随「AI 自动记录」的模型与 CLI（支持独立覆盖），并支持在设置中控制「Dreaming 采集范围」（仅采集含 AI 自动记录的条目，或包含全部日记与任务）。
+- **无环架构重构与可扩展底座**：新增统一无环模块 `runtime-guard.js`、`agent-registry.js`、`harness.js`、`dream-entries.js`、`outline.js`（只读 Markdown 大纲与双链解析原语）、`agent-ingestors.js`（可扩展日志解析注册表）与 `delegation-runners.js`（可扩展委派 Runner 注册表），进一步厘清计算（`analytics.js`）与视图（`dashboard.js`）职责边界。
+- **文档与结构图**：在 README 与设置「关于」页补充核心信息流转与 Agent 协作 Mermaid 结构图，补充 GitHub Issues／Roadmap 反馈入口，并整理 WorkFlowy 分形看板与 Dashboard 任务闭环演进方向。
+
 ## 1.9.8
 
 - 新增 Cursor 桌面端（3.30.14+ Hooks）只读追踪与增量扫描；对话视图与归档包含工具调用时间线及折叠输出，并在设置页提供 Hooks 安装与清理入口。

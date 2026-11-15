@@ -4,7 +4,7 @@
 
 [中文](README.md) ｜ **English** ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [Changelog](CHANGELOG.md)
 
-This project is still early and evolving quickly. Some parts of the experience may be rough, and occasional updates may introduce breaking changes. If you find a bug or have a suggestion, open a [GitHub Issue](https://github.com/MatsuriMW/obsidian-agent-deck/issues) or email [klauschen2799@gmail.com](mailto:klauschen2799@gmail.com).
+This project is still early and evolving quickly. Some parts of the experience may be rough, and occasional updates may introduce breaking changes. Check the [Roadmap](https://matsuri.site/portfolio/journal-workflow/#whistlist) to submit suggestions and vote on upcoming features, or open a [GitHub Issue](https://github.com/MatsuriMW/obsidian-agent-deck/issues) / email [klauschen2799@gmail.com](mailto:klauschen2799@gmail.com) to report bugs.
 
 <p align="center">
   <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4"><img src="assets/demo.gif" width="800" alt="Agent Deck demo: a session card dropped on a journal task binds it, a task dropped on an agent delegates it, status and the answer are written back"></a>
@@ -13,6 +13,47 @@ This project is still early and evolving quickly. Some parts of the experience m
 <p align="center">25-second demo (Chinese captions) · click for the <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4">4K60 version with sound</a></p>
 
 Agent Deck brings AI agent sessions scattered across separate local clients onto one deck inside Obsidian: see at a glance which agent is running, which one is waiting for you, and how far each has progressed. Delegate work directly from any task line in your notes, and let progress, active time, and answers flow back into the same journal.
+
+---
+
+## Core Architecture & Information Flow
+
+```mermaid
+flowchart LR
+  subgraph NOTE["Obsidian Journal & Notes"]
+    direction TB
+    Task["Task Line / Outline Block\nGrip · Drag · @agent"]
+    Views["Multi-View & Tidy\nOutline · Table · Cards · Timeline"]
+  end
+  subgraph HARNESS["Delegation & Context"]
+    Ctx["Harness Pipeline\nAncestors · Wikilinks · Model"]
+  end
+  subgraph AGENTS["8 Local AI Agents"]
+    direction TB
+    Run["Runners\nACP/CLI · Desktop · Terminal"]
+    Logs["Local Logs & Hooks\nJSONL · SQLite (Read-only)"]
+  end
+  subgraph DECK["Agent Deck Control & Sync"]
+    direction TB
+    Panel["Sidebar Deck & macOS Menu Bar\nLive Status · Alerts · Jump"]
+    Sync["Journal Auto-Sync\nStatus · Conclusions · Spans · Links"]
+  end
+  subgraph INSIGHT["Review & Memory"]
+    direction TB
+    Dash["Review Dashboard\nToken Heatmap · Project Effort"]
+    Dream["Dreaming Memory\nFacts/Patterns · Shared Note"]
+  end
+  Task -->|"Delegate"| Ctx
+  Ctx -->|"Launch / Resume"| Run
+  Run -->|"Transcripts & Events"| Logs
+  Logs -->|"Incremental Scan"| Panel
+  Panel <-->|"Drag Bind / Jump"| Task
+  Logs -->|"00:00 Split & Noise Filter"| Sync
+  Sync -->|"Write Back"| Views
+  Logs -->|"Usage Stats"| Dash
+  Views -->|"Daily Evidence"| Dash
+  Views -->|"14-Day Evidence"| Dream
+```
 
 ---
 
@@ -34,13 +75,26 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 ### 3. Human–AI Journal, Organization & Archiving
 - **Auto-journaling & write-back**: Periodically matches or creates daily-note task lines for today's sessions and syncs status, `⏱` active spans, per-turn records (brief / standard / detailed), and nested child session / side-chat / subagent blocks. Background answers of up to 500 characters are written inline in full; longer answers return a link to a Markdown file under `Agent Deck/Answers/` containing the full question and answer with internal tracking metadata removed. No extra summary model is called. Regular session conclusions default to 350 characters, with long addresses shortened to clickable labels.
 - **Title protection & record folding**: Preserves manually edited AI task titles verbatim; shows only the latest AI conclusion by default while keeping history expandable; supports manual status locking; keeps internal tracking IDs hidden and removes them automatically on completion or archival.
+- **Four persistent record views**: Switch any top-level AI record block in place between **Outline / Table / Cards / Timeline** (persisted per block without rewriting underlying Markdown):
+
+<p align="center">
+  <img src="assets/ai-record-views-1.png" width="840" alt="AI auto-record views: Outline vs Table">
+</p>
+<p align="center">
+  <img src="assets/ai-record-views-2.png" width="840" alt="AI auto-record views: Cards vs Timeline">
+</p>
+
 - **One-click tidy & archive**: **Tidy log** reorganizes the current daily note by template (in progress, to do, completed, framed by dividers). Only complete bounded sections are organized; outside notes stay unchanged. Notes without a complete frame receive empty sections; **Archive finished logs to…** moves completed AI blocks out of the journal into a target note grouped by date.
 - **Nautilus Spiral compatibility**: Works alongside [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) by letting Agent Deck handle AI note writes while Nautilus keeps scheduling and tracking displays (Agent Deck restores token display whenever Nautilus does not show tokens for the same session).
 
 ### 4. Review Dashboard (Experimental, On by Default)
-- Displays a GitHub-style **daily token heatmap** (input, output, and cache reads; does not represent monetary cost, with no estimates when missing) with 7/30/90-day, 1-year, and custom date filters.
-- Automatically ranks **project effort** from note links, titles, folders, keywords, and aliases; supports manual project overrides, per-day drill-down, and jumping back to the source journal block or session.
+- Displays a GitHub-style **daily token heatmap** and **24-hour rhythm & concurrency** chart (input, output, and cache reads; does not represent monetary cost, with no estimates when missing) with 7/30/90-day, 1-year, and custom date filters.
+- Summarizes **By Agent** (with official Agent icons) and **By Model** (tokens, per-turn average, cache hit ratio) for linked filtering, and aggregates **Project activity** (sortable by tokens, active time, sessions, or name in ascending/descending order) from note links, titles, folders, keywords, and aliases; supports manual project overrides, per-day drill-down, and jumping back to the source journal block or session.
 - Uses only locally tracked history; makes no extra model calls and never modifies your journal.
+
+<p align="center">
+  <img src="assets/dashboard.png" width="680" alt="Agent Deck Review Dashboard: token heatmap, 24-hour rhythm and concurrency, Agent and model breakdowns, and project activity">
+</p>
 
 ### 5. macOS Menu Bar Helper, Dreaming & Bilingual UI
 - **Solid macOS menu bar panel**: An always-accessible icon (or customizable global shortcut **`⌃⌥⌘D`**) for checking today's metrics and active/waiting sessions from any app and jumping straight to them.
@@ -129,7 +183,7 @@ Copy the generated `main.js`, `manifest.json`, and `styles.css` into `<your-vaul
 5. **Terminal Delegation Verification**
    - Interactive terminal delegation is currently verified end-to-end only on **Tern** and **Herdr**. **Terminal.app, iTerm2, and Warp** are untested (Warp lacks a scripting interface and can only be brought forward).
 6. **Planned / Not Yet Implemented**
-   - **Outline / table view toggle for AI record parent blocks**, **modern Cursor desktop tracking**, **Grok Bot (Sand) tracking & per-bot filtering**, **Pi support**, **choosing model / effort / recording granularity directly inside the delegation sheet**, **per-block granularity overrides on existing AI blocks**, **automatic send for WorkBuddy**, and **LLM Wiki auto-ingestion** are planned on the roadmap and not available in this release.
+   - **Multi-view AI record rendering in Reading view and Kanban view**, **modern Cursor desktop tracking**, **Grok Bot (Sand) tracking & per-bot filtering**, **Pi support**, **choosing model / effort / recording granularity directly inside the delegation sheet**, **per-block granularity overrides on existing AI blocks**, **automatic send for WorkBuddy**, and **LLM Wiki auto-ingestion** are planned on the roadmap and not available in this release.
 
 ---
 
@@ -137,5 +191,6 @@ Copy the generated `main.js`, `manifest.json`, and `styles.css` into `<your-vaul
 
 - **Local-first**: Session parsing, panel analytics, the Review Dashboard, and the macOS menu bar helper only read local files and send zero telemetry. Task text or journal excerpts are sent to your locally configured CLI model provider only when you run delegation, AI organization/summarization, or Dreaming.
 - **License**: [Apache 2.0](LICENSE) (see also [NOTICE](NOTICE)).
-- **More docs**: Full version history in [CHANGELOG.md](CHANGELOG.md); developer specs and architecture docs in [docs/](docs/).
+- **More docs**: Full version history in [CHANGELOG.md](CHANGELOG.md); developer specs, architecture, and roadmap notes in [docs/](docs/).
+- **Feedback & Roadmap**: Open a [GitHub Issue](https://github.com/MatsuriMW/obsidian-agent-deck/issues) to report bugs or visit the [Roadmap](https://matsuri.site/portfolio/journal-workflow/#whistlist) to submit and vote on feature ideas.
 - **Updates**: Follow [@Matsurimywaifu](https://x.com/Matsurimywaifu) on X/Twitter.

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { conversationMessages, conversationMarkdown, conversationPath, archiveConversation, readConversation } from '../src/conversation.js';
+import { conversationMessages, conversationMarkdown, conversationPath, conversationTitle, archiveConversation, readConversation } from '../src/conversation.js';
 const lines=(rows)=>rows.map(JSON.stringify).join('\n');
 const full='多行消息\n'+ '完整正文'.repeat(4000);
 
@@ -15,14 +15,25 @@ test('conversation: reads full multi-line messages from supported agents, exclud
   workbuddy:[{type:'message',role:'user',content:[{type:'input_text',text:full}]},{type:'message',role:'assistant',content:[{type:'output_text',text:'回复'}]}],
  };
  for(const [agent,records]of Object.entries(cases)){const m=conversationMessages(agent,lines(records));assert.deepEqual(m.map(x=>[x.role,x.text]),[['user',full],['assistant','回复']],agent)}
+ const literal=conversationMessages('claude',lines([{type:'user',message:{content:'提及了 "isSidechain":true 这个字段'}}]));
+ assert.deepEqual(literal.map(x=>x.text),['提及了 "isSidechain":true 这个字段']);
 });
 test('conversation: latest version replaces repeated message ID without dropping distinct messages',()=>{
  const source=lines([{type:'message',id:'1',role:'assistant',content:'partial'},{type:'message',id:'1',role:'assistant',content:'complete'},{type:'message',id:'2',role:'assistant',content:'next'}]);
  assert.deepEqual(conversationMessages('workbuddy',source).map(m=>m.text),['complete','next']);
 });
-test('conversation: safe archive path and faithful markdown text',()=>{
+test('conversation: safe archive path with semantic title instead of raw UUID, and faithful markdown text',()=>{
  const session={agent:'dsh',sid:'../escape',title:'test\nheading'};
- assert.equal(conversationPath(session),'Agent Deck/Conversations/dsh-___escape.md');
+ const p=conversationPath(session);
+ assert.ok(p.startsWith('Agent Deck/Conversations/test heading-dsh-'),p);
+ assert.ok(!p.includes('../'),p);
+ const uuidSession={agent:'antigravity',sid:'1768feac-716b-4cdc-ba0a-241f315094af',title:'antigravity-1768feac-716b-4cdc-ba0a-241f315094af'};
+ const msgs=[{role:'user',text:'这条任务在笔记里挂的位置：\n\n- 没有投入实践的认知都是幻觉\n\t- 以[[套利交易]]的角度来说，认知也具有[[反身性]]'}];
+ const semantic=conversationPath(uuidSession,msgs);
+ assert.ok(semantic.includes('没有投入实践的认知都是幻觉'),semantic);
+ assert.ok(!semantic.includes('1768feac-716b-4cdc-ba0a-241f315094af'),semantic);
+ assert.ok(!conversationTitle(uuidSession,msgs).includes('1768feac'));
+ assert.equal(conversationTitle({...uuidSession,prompt:'查看今天进度'}),'查看今天进度');
  const md=conversationMarkdown(session,[{role:'user',text:full},{role:'assistant',text:'```js\nlet a=1;\n```'}]);
  assert.ok(md.includes(full));assert.ok(md.includes('```js\nlet a=1;\n```'));assert.ok(md.startsWith('# test heading\n'));
 });

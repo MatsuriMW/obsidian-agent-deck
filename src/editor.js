@@ -21,6 +21,8 @@ import { aiRecordDisplayExtension } from "./record-display.js";
 import { executionStatus } from "./workflow.js";
 import { AGENTS, fmtDur, fmtTok, truncate } from "./constants.js";
 import { t as tr } from "./i18n.js";
+import { RESULT_LINE_RE, SUB_LINE_RE, TOK_BLOCK_MAX } from "./external-state.js";
+import { bindConnectedInterval } from "./runtime-guard.js";
 
 export const refreshEffect = StateEffect.define();
 export const SESSION_MIME = "application/x-agent-deck-session";
@@ -265,7 +267,7 @@ class PillWidget extends WidgetType {
         meta.textContent = extra ? `${extra} · ${dur}` : dur;
       };
       tick();
-      el._adTimer = setInterval(tick, 1000);
+      bindConnectedInterval(el, "_adTimer", tick, 1000);
       if (job) {
         const cancel = document.createElement("span");
         cancel.className = "ad-pill__cancel";
@@ -339,6 +341,158 @@ class PillWidget extends WidgetType {
   ignoreEvent() { return true; }
 }
 
+const PROG_BAR_WIDTH = 20;
+
+function paintLineProgress(el, info) {
+  const doc = el.ownerDocument;
+  const win = doc.defaultView || window;
+  if (!el._bar) {
+    for (const k of ["bar", "pct", "tail", "tok"]) {
+      el["_" + k] = doc.createElement("span");
+      el["_" + k].className = "ad-prog-" + k;
+      el.appendChild(el["_" + k]);
+    }
+    el._n = 0;
+    el._i = 0;
+  }
+  win.clearInterval(el._timer);
+  el._timer = 0;
+  el.dataset.mode = info.mode;
+  el.dataset.agent = info.agent || "";
+  el.dataset.sid = info.sid || "";
+  el.dataset.job = info.jobId || "";
+  if (info.agent && AGENTS[info.agent]?.color) el.style.setProperty("--ad-prog", AGENTS[info.agent].color);
+  else el.style.removeProperty("--ad-prog");
+  el.classList.toggle("is-linked", !!(info.sid || info.jobId));
+  el.title = info.tip + (info.sid || info.jobId ? "\n" + tr("点击打开会话 · 右键更多操作") : "");
+  el._tail.textContent = (info.mode === "bar" ? "  " : " ") + info.tail;
+
+  const tok = info.tok || 0;
+  const full = Math.min(TOK_BLOCK_MAX, Math.floor(tok / 1e6));
+  const part = Math.floor((tok % 1e6) / 1e5);
+  if (el._tokN !== tok) {
+    el._tokN = tok;
+    if (!el._tokNum) {
+      el._tokNum = el._tok.appendChild(doc.createElement("span"));
+      el._tokRow = el._tok.appendChild(doc.createElement("span"));
+      el._tokRow.className = "ad-tok-dbs";
+    }
+    el._tokNum.textContent = tok ? fmtTok(tok) : "";
+    const row = el._tokRow;
+    const want = Array.from({ length: full + part }, (_, i) => i < full);
+    let keep = 0;
+    while (keep < row.childElementCount && keep < want.length && row.children[keep].classList.contains("is-full") === want[keep]) keep++;
+    while (row.childElementCount > keep) row.lastElementChild.remove();
+    for (let i = keep; i < want.length; i++) {
+      const c = row.appendChild(doc.createElement("span"));
+      c.className = "ad-tok-db" + (want[i] ? " is-full" : "");
+      c.style.setProperty("--ad-db-i", String(i - keep));
+      setLucide(c, "database");
+    }
+  }
+  el._tok.title = tok ? tr("{tok} tok：实心的一个 100 万，空心的一个 10 万", { tok: fmtTok(tok) }) : "";
+
+  if (info.mode === "bar") {
+    const to = Math.max(0, Math.min(PROG_BAR_WIDTH, Math.round(info.pct * PROG_BAR_WIDTH)));
+    const show = (n) => {
+      el._bar.textContent = "[" + "#".repeat(n) + "-".repeat(PROG_BAR_WIDTH - n) + "]";
+      el._pct.textContent = " " + Math.round(n === to ? info.pct * 100 : (n / PROG_BAR_WIDTH) * 100) + "%";
+    };
+    show(el._n);
+    if (el._n !== to) {
+      el._timer = win.setInterval(() => {
+        if (!el.isConnected) { win.clearInterval(el._timer); return; }
+        el._n += el._n < to ? 1 : -1;
+        show(el._n);
+        if (el._n === to) win.clearInterval(el._timer);
+      }, 28);
+    }
+  } else if (info.mode === "run") {
+    const show = () => {
+      const a = Array(PROG_BAR_WIDTH).fill(" ");
+      for (let k = 0; k < 3; k++) {
+        const q = (el._i % (PROG_BAR_WIDTH + 3)) - k;
+        if (q >= 0 && q < PROG_BAR_WIDTH) a[q] = "#";
+      }
+      el._bar.textContent = "[" + a.join("") + "]";
+    };
+    el._pct.textContent = "";
+    show();
+    el._timer = win.setInterval(() => {
+      if (!el.isConnected) { win.clearInterval(el._timer); return; }
+      el._i++;
+      show();
+    }, 110);
+  } else {
+    el._bar.textContent = "[" + "·".repeat(PROG_BAR_WIDTH) + "]";
+    el._pct.textContent = "";
+  }
+}
+
+class LineProgressWidget extends WidgetType {
+  constructor(plugin, path, line, info) {
+    super();
+    this.plugin = plugin;
+    this.path = path;
+    this.line = line;
+    this.info = info;
+    this.sig = JSON.stringify(info);
+  }
+  eq(other) { return other.path === this.path && other.line === this.line && other.sig === this.sig; }
+  toDOM(view) {
+    const el = view.dom.ownerDocument.createElement("span");
+    el.className = "ad-prog";
+    el.setAttribute("aria-hidden", "true");
+    el.addEventListener("click", (ev) => {
+      const sid = el.dataset.sid;
+      const jobId = el.dataset.job;
+      if (!sid && !jobId) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (jobId && this.plugin.jobs?.[jobId]) this.plugin.openJob(jobId, sid);
+      else if (sid) this.plugin.openSession(el.dataset.agent || "claude", sid);
+    });
+    el.addEventListener("contextmenu", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.plugin.taskActions(this.path, this.line, ev);
+    });
+    paintLineProgress(el, this.info);
+    return el;
+  }
+  updateDOM(dom) {
+    if (!dom._bar) return false;
+    paintLineProgress(dom, this.info);
+    return true;
+  }
+  destroy(dom) { (dom.ownerDocument.defaultView || window).clearInterval(dom._timer); }
+  ignoreEvent() { return true; }
+}
+
+function saidHandlers(plugin) {
+  return EditorView.domEventHandlers({
+    dblclick(ev, view) {
+      const lineEl = ev.target && ev.target.closest && ev.target.closest(".cm-line.ad-said");
+      if (!lineEl) return false;
+      const doc = view.state.doc;
+      const n = doc.lineAt(view.posAtDOM(lineEl)).number;
+      const own = J.width(doc.line(n).text);
+      for (let i = n - 1; i >= Math.max(1, n - 30); i--) {
+        const lineText = doc.line(i).text;
+        const w = J.width(lineText);
+        const k = w === own ? J.parseLink(lineText) : null;
+        if (k && k.sid) {
+          ev.preventDefault();
+          plugin.openSession(k.agent || "claude", k.sid);
+          return true;
+        }
+        if (w < own && lineText.trim()) break;
+      }
+      return false;
+    },
+  });
+}
+
 function buildDecorations(view, plugin) {
   const builder = new RangeSetBuilder();
   const info = view.state.field(plugin.editorInfoField, false);
@@ -371,19 +525,28 @@ function buildDecorations(view, plugin) {
         else if (session) {
           const st = session.state || "idle";
           if (st === "run") state = { kind: "running", job, session };
-          else if (st === "wait" || st === "quiet") state = { kind: "waiting", job, session };
+          else if (st === "needs-approval") state = { kind: "needs-approval", job, session };
+          else if (st === "wait" || st === "quiet" || st === "queued") state = { kind: "waiting", job, session };
           else if (st === "error" || st === "limit") state = { kind: "error", job, session };
           else state = { kind: "bound", job, session };
         }
         // A finished task keeps no status pill: 「正在执行」「等你」 under a line
         // that is already marked DONE is only noise.
         if (job?.destination === "background" && state?.kind === "done") state = null;
-        if (state && !J.isDoneLine(text)) {
+        const displayState = plugin.aiRecordDisplayField ? view.state.field(plugin.aiRecordDisplayField, false) : null;
+        const isTopLevelAiParent = Boolean(displayState?.topLevelLines?.has(n));
+        if (n === cursorLine && !isTopLevelAiParent && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && (J.kwLine(text) || J.CONTEXT_RECORD_RE.test(text))) {
+          builder.add(line.to, line.to, Decoration.widget({ widget: new GripWidget(plugin, path, n, text), side: 1, block: false }));
+        }
+        const prog = line.length < 2000 && plugin.lineProgressInfo ? plugin.lineProgressInfo(text, map.lines, n, session, job) : null;
+        if (!prog && typeof Decoration.line === "function" && (RESULT_LINE_RE.test(text) || SUB_LINE_RE.test(text))) {
+          builder.add(line.from, line.from, Decoration.line({ class: "ad-said" }));
+        }
+        if (prog) {
+          builder.add(line.to, line.to, Decoration.widget({ widget: new LineProgressWidget(plugin, path, n, prog), side: 1, block: false }));
+        } else if (state && !J.isDoneLine(text)) {
           const widget = new PillWidget(plugin, path, n, state);
           builder.add(line.to, line.to, Decoration.widget({ widget, side: 1, block: false }));
-        }
-        if (n === cursorLine && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && (J.kwLine(text) || J.CONTEXT_RECORD_RE.test(text))) {
-          builder.add(line.to, line.to, Decoration.widget({ widget: new GripWidget(plugin, path, n, text), side: 1, block: false }));
         }
       }
       if (line.to >= to) break;
@@ -393,9 +556,24 @@ function buildDecorations(view, plugin) {
   return builder.finish();
 }
 
+const SIMPLE_BULLET_RE = /^\s*(?:[-*+]|\d+[.)])\s/;
+
+function cursorLineOf(view, plugin) {
+  const sel = view.state.selection.main;
+  return plugin._lastEditor === view && sel.empty ? view.state.doc.lineAt(sel.head).number - 1 : -1;
+}
+
+function lineHasBullet(doc, lineZero) {
+  return lineZero >= 0 && lineZero < doc.lines && SIMPLE_BULLET_RE.test(doc.line(lineZero + 1).text);
+}
+
 export function createEditorExtension(plugin) {
   const pluginClass = class {
-    constructor(view) { if (view.hasFocus) plugin._lastEditor = view; this.decorations = buildDecorations(view, plugin); }
+    constructor(view) {
+      if (view.hasFocus) plugin._lastEditor = view;
+      this._cursorLine = cursorLineOf(view, plugin);
+      this.decorations = buildDecorations(view, plugin);
+    }
     update(update) {
       if (update.focusChanged && update.view.hasFocus && plugin._lastEditor !== update.view) {
         const prev = plugin._lastEditor;
@@ -403,10 +581,23 @@ export function createEditorExtension(plugin) {
         if (prev && prev !== update.view) { try { prev.dispatch({ effects: refreshEffect.of(null) }); } catch { /* closed */ } }
       }
       const refresh = update.transactions.some((tr) => tr.effects.some((e) => e.is(refreshEffect)));
-      if (update.docChanged || update.selectionSet || update.viewportChanged || update.focusChanged || refresh) this.decorations = buildDecorations(update.view, plugin);
+      if (update.docChanged || update.viewportChanged || update.focusChanged || refresh) {
+        this._cursorLine = cursorLineOf(update.view, plugin);
+        this.decorations = buildDecorations(update.view, plugin);
+        return;
+      }
+      if (update.selectionSet) {
+        const nextLine = cursorLineOf(update.view, plugin);
+        const prevLine = this._cursorLine;
+        this._cursorLine = nextLine;
+        if (nextLine === prevLine || plugin.settings.dragGrip === false) return;
+        const doc = update.view.state.doc;
+        if (!lineHasBullet(doc, prevLine) && !lineHasBullet(doc, nextLine)) return;
+        this.decorations = buildDecorations(update.view, plugin);
+      }
     }
   };
-  return [ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin), aiRecordDisplayExtension(plugin, refreshEffect)];
+  return [ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin), saidHandlers(plugin), aiRecordDisplayExtension(plugin, refreshEffect)];
 }
 
 export async function dispatchRefresh(plugin) {

@@ -1,0 +1,158 @@
+// Declarative Agent capability registry for Open-Closed extensibility.
+import { AGENTS, AGENT_ORDER } from "./constants.js";
+
+const CAPABILITIES = new Map([
+  ["claude", {
+    delegate: true,
+    runnerKind: "claude",
+    acp: false,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: false,
+    permissionControl: true,
+    archiveDetection: true,
+    modelCatalog: true,
+    autoOpenDesktopOnDone: true,
+    waitDesktopUntilDone: true,
+    sessionLinkScheme: "claude",
+  }],
+  ["codex", {
+    delegate: true,
+    runnerKind: "codex",
+    acp: false,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: true,
+    modelCatalog: true,
+    autoOpenDesktopOnDone: false,
+    waitDesktopUntilDone: true,
+    sessionLinkScheme: "codex",
+  }],
+  ["workbuddy", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: true,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "workbuddy",
+  }],
+  ["dsh", {
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    desktopHandoffOnly: false,
+    terminalHandoff: false,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: true,
+    sessionLinkScheme: "dsh",
+  }],
+  ["antigravity", {
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    desktopHandoffOnly: false,
+    terminalHandoff: false,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: true,
+    sessionLinkScheme: "antigravity",
+  }],
+  ["opencode", {
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: true,
+    autoOpenDesktopOnDone: true,
+    waitDesktopUntilDone: false,
+    sessionLinkScheme: "obsidian",
+  }],
+  ["qoder", {
+    delegate: true,
+    runnerKind: "qoder",
+    acp: false,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: false,
+    permissionControl: true,
+    archiveDetection: false,
+    modelCatalog: true,
+    autoOpenDesktopOnDone: false,
+    waitDesktopUntilDone: true,
+    sessionLinkScheme: "obsidian",
+  }],
+  ["cursor", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "cursor",
+  }],
+]);
+
+export function registerAgentCapability(id, capability = {}) {
+  if (!id || typeof id !== "string") throw new Error("Agent id is required");
+  const prev = CAPABILITIES.get(id) || {};
+  const next = { ...prev, ...capability };
+  CAPABILITIES.set(id, next);
+  return next;
+}
+
+export function getAgentCapability(id) {
+  const base = CAPABILITIES.get(id) || {};
+  const meta = AGENTS[id] || {};
+  return {
+    id,
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: !!meta.trackingOnly,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    autoOpenDesktopOnDone: false,
+    waitDesktopUntilDone: false,
+    sessionLinkScheme: meta.deep || id,
+    ...base,
+  };
+}
+
+export function hasAgentCapability(id, cap) {
+  return Boolean(getAgentCapability(id)[cap]);
+}
+
+export function listAgentsByCapability(cap) {
+  const ids = [...new Set([...AGENT_ORDER, ...CAPABILITIES.keys()])];
+  return ids.filter((id) => hasAgentCapability(id, cap));
+}
+
+export const delegateAgents = () => listAgentsByCapability("delegate");
+export const acpAgents = () => listAgentsByCapability("acp");
+export const cliHandoffAgents = () => listAgentsByCapability("terminalHandoff");
+export const canContinueInApp = (id) => hasAgentCapability(id, "continueInApp");
+export const archiveCapableAgents = () => listAgentsByCapability("archiveDetection");
+export const permissionCapableAgents = () => listAgentsByCapability("permissionControl");
+export const usesDeckSessionLink = (id) => {
+  const cap = getAgentCapability(id);
+  return !!AGENTS[id]?.trackingOnly || cap.sessionLinkScheme === "obsidian";
+};

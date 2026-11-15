@@ -9,10 +9,11 @@ import { createHash } from "crypto";
 import { pad, fmtTok } from "./constants.js";
 import { t } from "./i18n.js";
 import { detailForRound } from "./log-detail.js";
-import { cleanUserPrompt } from "./prompt-text.js";
+import { cleanUserPrompt, condenseUserPrompt } from "./prompt-text.js";
 import { formatSummaryLinks } from "./summary-links.js";
+import { LIST_RE, width, fencedLines, ownersOf, markOwner, subtreeEnd } from "./outline.js";
 
-export const LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
+export { LIST_RE, width, fencedLines, ownersOf, markOwner, subtreeEnd };
 export const STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
 export const CHECKBOX_RE = /^\[([ xX\/\-])\]\s*/;
 // 任务关键词，长的在前（TODOFORAI 在 TODO 前、WAITING 在 WAIT 前）：KEYWORD_RE 不带前瞻，靠这个顺序
@@ -143,7 +144,6 @@ export function mutableClock(lines, n) {
   return !!marker && clockHash(marker[1]) === marker[2] && !blockIdOf(lines[n]) && !hasDescendants(lines, n);
 }
 export const durTag = (m) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? (m % 60) + "m" : ""}` : `${Math.max(1, Math.round(m))}m`);
-export const width = (line) => { let w = 0; for (const c of (/^\s*/.exec(line) || [""])[0]) w += c === "\t" ? 4 : 1; return w; };
 
 export const workKey = (label) => stripBlockId(String(label || "")).replace(/\s*←\s*\S+\s*$/, "").trim();
 
@@ -389,29 +389,6 @@ export function linkLine(indent, agent, title, sid) {
   return `${indent}- 🔗 ${agent}：${safe} \`${sid}\``;
 }
 
-export function markOwner(lines, i) {
-  const ind = width(lines[i]);
-  for (let j = i - 1; j >= 0; j--) if (lines[j].trim() && LIST_RE.test(lines[j]) && width(lines[j]) < ind) return j;
-  return -1;
-}
-
-// markOwner(lines, i) for every line, in one pass. Re-planning a long journal
-// asked the same question once per child line, and each answer re-walked the
-// note upwards, so a 5k-line journal took ~190 ms; this is O(n) and gives the
-// same answer: the nearest earlier list item with a smaller indentation.
-export function ownersOf(lines) {
-  const out = new Int32Array(lines.length).fill(-1);
-  const stack = [];
-  for (let i = 0; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const w = width(lines[i]);
-    while (stack.length && stack[stack.length - 1][0] >= w) stack.pop();
-    if (stack.length) out[i] = stack[stack.length - 1][1];
-    if (LIST_RE.test(lines[i])) stack.push([w, i]);
-  }
-  return out;
-}
-
 export function childMark(lines, n, pick) {
   const base = width(lines[n]);
   for (let i = n + 1; i < lines.length; i++) {
@@ -599,7 +576,7 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
       const brokenTask = /任务：\\?<send_user_message_question_reply>[^；]*(?=；结论：)/;
       if (brokenTask.test(lines[i])) {
         const round = sourceRounds.get(+marker[2]);
-        const task = cleanUserPrompt(round?.taskSummary || round?.ask);
+        const task = condenseUserPrompt(round?.taskSummary || round?.ask);
         if (task) lines[i] = lines[i].replace(brokenTask, `任务：${summaryText(task, 45)}`);
       }
     }
@@ -627,13 +604,13 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
   for (const [index, r] of fresh.entries()) {
     const rn = r.n || index + 1;
     const level = detailForRound(mode, detailHistory, r);
-    const userAsk = cleanUserPrompt(r.ask);
+    const userAsk = condenseUserPrompt(r.ask);
     if (level !== "brief" && userAsk) {
       const ask = level === "detailed" ? detailExcerpt(userAsk, 1000) : recordSentence(userAsk, 90);
       append(`${ind}- ❓ 第${rn}轮：${ask}${provenance(rn)}`);
     }
     const raw = level === "detailed" ? (r.said || r.summary) : (r.summary || r.said);
-    const task = cleanUserPrompt(r.taskSummary || r.ask) || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
+    const task = condenseUserPrompt(r.taskSummary || r.ask) || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
     const message = r.replyText !== undefined ? r.replyText : r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
       ? `任务：${summaryText(task, 45)}；结论：${summaryText(raw, 65)}`
       : recordSentence(raw, 90);
@@ -679,20 +656,6 @@ export function diffLines(before, after) {
 
 // 一篇日记里所有的任务行：[{ line, kw, body, key, blockId, indent, state }]
 // state = done / doing / paused / open；🔗 / ⏱ / 💬 / ❓ / 📋 记号行不算
-// Lines that belong to a fenced code block, so callers never treat a code
-// sample as a real task.
-export function fencedLines(lines) {
-  const out = new Set();
-  let fence = '', size = 0;
-  lines.forEach((line, n) => {
-    const m = /^\s*(`{3,}|~{3,})(.*)$/.exec(line);
-    if (fence || m) out.add(n);
-    if (m && !fence) { fence = m[1][0]; size = m[1].length; }
-    else if (m && m[1][0] === fence && m[1].length >= size && !m[2].trim()) fence = '';
-  });
-  return out;
-}
-
 // The outermost task block that contains `at`, or -1. Used by the
 // "mark DONE and archive" command so the cursor can sit anywhere in a block.
 export function taskLineAt(lines, at) {
@@ -701,10 +664,7 @@ export function taskLineAt(lines, at) {
   if (fenced.has(at)) return -1;   // a code sample is not a task
   for (let i = 0; i <= at; i++) {
     if (fenced.has(i) || !LIST_RE.test(lines[i]) || !kwLine(lines[i])) continue;
-    const indent = width(lines[i]);
-    let end = i + 1;
-    while (end < lines.length && (!lines[end].trim() || width(lines[end]) > indent)) end++;
-    if (at < end) return i;
+    if (at < subtreeEnd(lines, i)) return i;
   }
   return -1;
 }

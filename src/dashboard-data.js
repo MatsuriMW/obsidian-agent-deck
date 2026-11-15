@@ -1,12 +1,17 @@
 import { journalPath } from "./constants.js";
-import { journalSources, resolveProjects, isoDay } from "./analytics.js";
+import { journalSources, resolveProjects, isoDay, dayFromNotePath } from "./analytics.js";
 
 export class DashboardData {
   constructor(plugin) { this.plugin = plugin; this.cache = new Map(); }
 
   async load() {
     const p = this.plugin, vault = p.app.vault, metadata = p.app.metadataCache;
-    const paths = new Set(Object.keys(p.store.days).map(day => journalPath(p.app, p.settings, day)));
+    const paths = new Set(), pathDay = new Map();
+    for (const day of Object.keys(p.store.days)) {
+      const jp = journalPath(p.app, p.settings, day);
+      paths.add(jp);
+      pathDay.set(jp, isoDay(day));
+    }
     for (const binding of Object.values(p.settings.taskBindings || {})) if (binding.path) paths.add(binding.path);
     for (const job of Object.values(p.jobs || {})) if (job.path) paths.add(job.path);
     if (p.settings.doneArchivePath) paths.add(p.settings.doneArchivePath);
@@ -20,10 +25,13 @@ export class DashboardData {
           const editor = p.autoLog?.viewFor(file)?.editor;
           const signature = `${file.stat.mtime}:${file.stat.size}`;
           const text = editor?.getValue();
+          const day = pathDay.get(file.path) || dayFromNotePath(file.path);
+          const autoState = day ? (p.settings.autoLogState?.[day] || null) : null;
+          const autoSig = autoState ? JSON.stringify(Object.entries(autoState).map(([sid, r]) => [sid, r?.blockId || "", r?.key || ""]).sort()) : "";
           let cached = this.cache.get(file.path);
-          if (!cached || cached.signature !== signature || cached.editorText !== text) {
-            const entries = journalSources(text ?? await vault.cachedRead(file), file.path);
-            cached = { signature, editorText: text, entries };
+          if (!cached || cached.signature !== signature || cached.editorText !== text || cached.autoSig !== autoSig) {
+            const entries = journalSources(text ?? await vault.cachedRead(file), file.path, { autoState });
+            cached = { signature, editorText: text, autoSig, entries };
             this.cache.set(file.path, cached);
           }
           for (const entry of cached.entries) {
@@ -36,7 +44,7 @@ export class DashboardData {
       await new Promise(resolve => setTimeout(resolve, 0));
     }
     for (const path of this.cache.keys()) if (!paths.has(path)) this.cache.delete(path);
-    const pages = vault.getMarkdownFiles().filter(f => !paths.has(f.path) && !f.path.startsWith("Agent Deck/Conversations/") && !/^\d{4}[-/]\d{2}[-/]\d{2}$/.test(f.basename)).map(file => {
+    const pages = vault.getMarkdownFiles().filter(f => !paths.has(f.path) && !f.path.startsWith("Agent Deck/Conversations/") && !/^\d{4}[-_/]\d{2}[-_/]\d{2}$/.test(f.basename)).map(file => {
       const aliases = metadata.getFileCache(file)?.frontmatter?.aliases;
       return { path: file.path, name: file.basename, aliases: typeof aliases === "string" ? [aliases] : Array.isArray(aliases) ? aliases.filter(a => typeof a === "string") : [] };
     });
@@ -45,7 +53,15 @@ export class DashboardData {
       const list = data.list?.length ? data.list : [{ sid: `legacy:${day}`, out: data.out, fresh: data.fresh, cached: data.cached, segs: data.segs, legacy: true }];
       for (const session of list) {
         const meta = p.usage.meta.get(session.sid);
-        rows.push({ ...session, day: isoDay(day), title: session.title || meta?.title || "", sources: sources.get(session.sid) || [] });
+        const byModels = Object.keys(data.by?.[session.agent]?.models || {}).filter(Boolean);
+        const singleDayModel = byModels.length === 1 ? byModels[0] : "";
+        rows.push({
+          ...session,
+          day: isoDay(day),
+          title: session.title || meta?.title || "",
+          model: session.model || meta?.model || singleDayModel,
+          sources: sources.get(session.sid) || [],
+        });
       }
       if (data.list?.length) {
         // Older summaries can retain message usage without a corresponding

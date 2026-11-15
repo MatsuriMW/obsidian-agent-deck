@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import vm from "node:vm";
 import { test } from "node:test";
 import { register } from "node:module";
 
@@ -382,6 +383,97 @@ test("Journal links and cleanup support Cursor sessions", () => {
   assert.ok(J.isDeckBlockId(`ad-cursor-${sid.slice(0, 8)}`));
 });
 
+test("isCursorRunning detects Cursor main executable across platforms without false positives", async () => {
+  const fakeExec = (out, err = null) => (_cmd, _args, _opts, cb) => cb(err, out);
+  assert.equal(
+    await CS.isCursorRunning({
+      platform: "darwin",
+      exec: fakeExec("/System/Library/PrivateFrameworks/TextInputUIMacHelper.framework/Versions/A/XPCServices/CursorUIViewService.xpc/Contents/MacOS/CursorUIViewService\n/Applications/Cursor.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler\n"),
+    }),
+    false,
+  );
+  assert.equal(
+    await CS.isCursorRunning({
+      platform: "darwin",
+      exec: fakeExec("/Applications/Cursor.app/Contents/MacOS/Cursor\n"),
+    }),
+    true,
+  );
+  assert.equal(await CS.isCursorRunning({ platform: "win32", exec: fakeExec('"Cursor.exe","1234","Console","1","120,000 K"\r\n') }), true);
+  assert.equal(await CS.isCursorRunning({ platform: "win32", exec: fakeExec("INFO: No tasks are running which match the specified criteria.\r\n") }), false);
+  assert.equal(await CS.isCursorRunning({ platform: "linux", exec: fakeExec("/usr/share/cursor/cursor\n") }), true);
+  assert.equal(await CS.isCursorRunning({ platform: "darwin", exec: fakeExec("", new Error("ps failed")) }), false);
+});
+
+test("maybePromptCursorHooks asks once when Cursor opens and installs hooks on click", async () => {
+  const mainSrc = fs.readFileSync(new URL("../src/main.js", import.meta.url), "utf8");
+  const start = mainSrc.indexOf("  async maybePromptCursorHooks()");
+  const end = mainSrc.indexOf("  async initializePrimaryAgents()", start);
+  const methodSrc = mainSrc.slice(start, end).trim();
+
+  function makeEl(tag, opts = {}) {
+    const el = {
+      tagName: tag.toUpperCase(),
+      cls: opts.cls || "",
+      text: opts.text || "",
+      children: [],
+      createDiv(o) { const d = makeEl("div", o); el.children.push(d); return d; },
+      createEl(t, o) { const c = makeEl(t, o); el.children.push(c); return c; },
+    };
+    return el;
+  }
+
+  const notices = [];
+  class FakeNotice {
+    constructor(content, duration) { this.content = content; this.duration = duration; this.hidden = false; notices.push(this); }
+    hide() { this.hidden = true; }
+  }
+
+  let running = false;
+  let installedCalls = 0;
+  let savedCalls = 0;
+  const plugin = vm.runInNewContext(`({ ${methodSrc} })`, {
+    Notice: FakeNotice,
+    t: (s) => s,
+    document: { createDocumentFragment: () => makeEl("fragment") },
+  });
+  Object.assign(plugin, {
+    _unloaded: false,
+    settings: { ...DEFAULTS, cursorHooksPrompted: false },
+    agentEnabled: (id) => id === "cursor",
+    cursorHooksStatus: () => ({ installed: installedCalls > 0, outdated: false }),
+    isCursorRunning: async () => running,
+    saveSettings: async () => { savedCalls++; },
+    installCursorHooks: () => { installedCalls++; },
+    notice: () => {},
+  });
+
+  // Closed: does not prompt or mark prompted
+  assert.equal(await plugin.maybePromptCursorHooks(), false);
+  assert.equal(notices.length, 0);
+  assert.equal(plugin.settings.cursorHooksPrompted, false);
+
+  // Opens: prompts once and persists cursorHooksPrompted
+  running = true;
+  assert.equal(await plugin.maybePromptCursorHooks(), true);
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0].duration, 0);
+  assert.equal(plugin.settings.cursorHooksPrompted, true);
+  assert.equal(savedCalls, 1);
+  const msgText = notices[0].content.children[0].text;
+  assert.ok(msgText.includes("追踪 Cursor 对话"));
+
+  // Subsequent scan while open does not nag again
+  assert.equal(await plugin.maybePromptCursorHooks(), false);
+  assert.equal(notices.length, 1);
+
+  // Clicking install button installs hooks and hides notice
+  const buttons = notices[0].content.children[1].children;
+  buttons[0].onclick();
+  assert.equal(installedCalls, 1);
+  assert.equal(notices[0].hidden, true);
+});
+
 class MockVault {
   constructor() {
     this.files = new Map();
@@ -402,6 +494,43 @@ class MockVault {
     return next;
   }
 }
+
+test("Cursor sessionEnd/sessionStart and Codex trailing turns preserve exact last conversation end time", async () => {
+  const sidCursor = "66666666-7777-8888-9999-000000000001";
+  const evFile = path.join(CS.cursorEventsDir(tmpRoot), `${sidCursor}.jsonl`);
+  const turnStart = Date.now() - 3 * 3600 * 1000;
+  const turnEnd = turnStart + 15 * 60 * 1000;
+  const archiveClick = Date.now() - 1000;
+  fs.mkdirSync(path.dirname(evFile), { recursive: true });
+  fs.writeFileSync(evFile, [
+    { event: "sessionStart", sid: sidCursor, at: turnStart, version: "3.30.14", cwd: "/tmp/proj" },
+    { event: "beforeSubmitPrompt", sid: sidCursor, gen: "g1", at: turnStart, version: "3.30.14", prompt: "Fix bug" },
+    { event: "stop", sid: sidCursor, gen: "g1", at: turnEnd, status: "completed", version: "3.30.14" },
+    { event: "sessionStart", sid: sidCursor, at: archiveClick - 200, version: "3.30.14" },
+    { event: "preCompact", sid: sidCursor, at: archiveClick - 100, version: "3.30.14" },
+    { event: "sessionEnd", sid: sidCursor, at: archiveClick, version: "3.30.14" },
+  ].map((r) => JSON.stringify(r)).join("\n") + "\n");
+
+  const codexSid = "77777777-8888-9999-0000-000000000002";
+  const codexDir = path.join(tmpRoot, ".codex", "sessions", "2026", "11", "16");
+  fs.mkdirSync(codexDir, { recursive: true });
+  const codexFile = path.join(codexDir, `rollout-${codexSid}.jsonl`);
+  const t1 = new Date(turnStart).toISOString();
+  const t2 = new Date(turnEnd).toISOString();
+  fs.writeFileSync(codexFile, [
+    { type: "session_meta", payload: { id: codexSid, cwd: "/tmp/proj", originator: "codex" } },
+    { timestamp: t1, type: "response_item", payload: { type: "message", role: "user", content: [{ type: "input_text", text: "Check logs" }] } },
+    { timestamp: t1, type: "event_msg", payload: { type: "token_count", info: { total_token_usage: { input_tokens: 100, cached_input_tokens: 0, output_tokens: 20 } } } },
+    { timestamp: t2, type: "response_item", payload: { type: "message", role: "assistant", content: [{ type: "output_text", text: "Done." }] } },
+    { timestamp: t2, type: "event_msg", payload: { type: "task_complete" } },
+  ].map((r) => JSON.stringify(r)).join("\n") + "\n");
+
+  const usage = new AgentUsage({ cfg: { dayCutoff: 4 }, settings: { agents: { cursor: true, codex: true }, primaryAgents: ["cursor", "codex"] } });
+  await usage.scan({ since: 0 });
+  const cm = usage.meta.get(sidCursor);
+  assert.equal(cm.lastAt, turnEnd, "Cursor sessionStart/preCompact/sessionEnd must not overwrite last conversation end time");
+  assert.equal(usage.meta.get(codexSid)?.lastAt, turnEnd, "Codex task_complete without trailing token_count updates lastAt");
+});
 
 test.after(() => {
   process.env.HOME = origHome;

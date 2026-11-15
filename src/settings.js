@@ -4,15 +4,22 @@ import { JOURNAL_LAYOUT_DEFAULT, journalLayout, builtinJournalLayout, configured
 // Agent Deck — settings: Delegation, Recording, Dreaming, Experiments, and About.
 
 import { archivePath } from "./journal-archive.js";
+import * as obsidianNs from "obsidian";
 import { App, PluginSettingTab, Notice, Modal, Menu } from "obsidian";
 import {
   AGENTS, AGENT_ORDER, MODEL_CATALOG, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS, fmtTok, syncDelegationSettings, journalPath, detectJournalFormat,
 } from "./constants.js";
-import { notePath, companionInstalled } from "./dream.js";
+import { notePath } from "./dream-entries.js";
+import { companionInstalled, dreamModelConfig } from "./dream.js";
 import { externalMemoryPath } from "./dream-sharing.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { t, currentLanguage } from "./i18n.js";
 import { syncModelGroups } from "./model-groups.js";
+import { ManagedTimers } from "./runtime-guard.js";
+import { delegateAgents } from "./agent-registry.js";
+import {
+  detectJournalProviders, resolveJournalProvider, JOURNAL_PROVIDERS, API_PRESETS, fetchAgyModels, testJournalModel,
+} from "./llm.js";
 
 const HOTKEY_MOD_SYMBOL = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘", ctrl: "⌃", alt: "⌥", cmd: "⌘" };
 
@@ -64,6 +71,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.filter = "all";
     this.search = "";
     this.subOpen = {};
+    this._timers = new ManagedTimers();
   }
 
   normalizeTab(tab) {
@@ -83,11 +91,15 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   }
 
   hide() {
-    if (this._dreamTimer) { clearInterval(this._dreamTimer); this._dreamTimer = null; }
+    this._timers?.dispose();
+    this._dreamTimer = null;
+    this._aboutComp?.unload?.();
+    this._aboutComp = null;
   }
 
   display() {
     this.hide();
+    this._timers = new ManagedTimers();
     if (this.tab === "models") this._scrollToModels = true;
     this.tab = this.normalizeTab(this.tab);
     syncDelegationSettings(this.plugin.settings);
@@ -731,7 +743,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     p.settings.models.pinned = snap.pinned;
     p.settings.models.order = snap.order;
     p.settings.models.custom = snap.custom;
-    for (const agent of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"]) {
+    for (const agent of delegateAgents()) {
       const cur = p.defaultModel ? p.defaultModel(agent) : p.settings.delegate[agent]?.model;
       if (cur && prevCustomIds.has(cur) && !nextCustomIds.has(cur)) {
         const fallback = DEFAULTS.models.defaultByAgent[agent];
@@ -805,12 +817,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
           : t("未安装 Cursor Hooks；仅追踪安装后的 Cursor 3.30.14+ 新会话或新对话轮次");
       const curRow = this.row(sourceMore, "Cursor Hooks", statusText, null);
       const curRight = curRow.querySelector(":scope > .ad-row__right");
-      this.btn(curRight, ch.installed && !ch.outdated ? t("更新 Hooks") : t("安装 Hooks"), () => {
+      this.bigButton(curRight, ch.installed && !ch.outdated ? t("更新 Hooks") : t("安装 Hooks"), () => {
         try { p.installCursorHooks(); } catch (e) { p.notice?.(e.message || String(e)); }
         this.display();
       });
       if (ch.installed || ch.matchedEvents > 0 || ch.scriptExists) {
-        this.btn(curRight, t("卸载 Hooks"), () => {
+        this.bigButton(curRight, t("卸载 Hooks"), () => {
           try { p.uninstallCursorHooks(); } catch (e) { p.notice?.(e.message || String(e)); }
           this.display();
         });
@@ -940,24 +952,110 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     jr.appendChild(jrMore.parentElement);
 
     // 3. 记录 → 整理模型
-    const modelCard = this.card(body, t("AI 整理模型"), t("自动整理、润色使用的 CLI、模型与调用频率，独立于委派模型"));
-    const jprovider = this.row(modelCard, t("整理使用的 CLI"), "", null);
-    this.segmented(jprovider.querySelector(":scope > .ad-row__right"), [{ id: "claude", label: "Claude CLI" }, { id: "codex", label: "Codex CLI" }], s.autoLogProvider || "claude", (v) => {
-      s.autoLogProvider = v; s.autoLogModel = v === "codex" ? "gpt-6-luna" : "haiku"; s.roundPolishModel = ""; s.autoLogPath = ""; p.saveSettings(); this.display();
+    const detected = detectJournalProviders({ cfg: s });
+    const detectedNames = detected.available.map((x) => x.label).join("、");
+    const modelSub = detected.available.length
+      ? t("已扫描本机已登录 CLI：{list}", { list: detectedNames })
+      : t("未检测到已登录的本地 CLI，可选用自定义 API");
+    const modelCard = this.card(body, t("AI 整理模型"), modelSub);
+    const curProvider = s.autoLogProvider || "auto";
+    const resolved = resolveJournalProvider(s);
+    const autoTarget = detected.providers.find((x) => x.id === detected.recommended);
+    const providerOptions = [
+      {
+        id: "auto",
+        label: autoTarget?.available
+          ? t("自动挑选本机 CLI（当前：{name}）", { name: autoTarget.label })
+          : t("自动挑选本机 CLI"),
+      },
+      ...detected.providers.map((x) => ({
+        id: x.id,
+        label: `${x.label} ${x.available ? t("（已登录）") : x.found ? t("（未登录）") : t("（未安装）")}`,
+      })),
+      { id: "api", label: t("自定义 API（OpenAI 兼容）") },
+    ];
+    const jprovider = this.row(modelCard, t("整理使用的模型来源"), t("自动检测本机已登录 CLI，或自填兼容 OpenAI 格式的 API"), null);
+    this.selectInput(jprovider.querySelector(":scope > .ad-row__right"), providerOptions, curProvider, (v) => {
+      s.autoLogProvider = v;
+      s.autoLogModel = v === "auto" ? "" : (JOURNAL_PROVIDERS[v]?.defaultModel || "");
+      s.roundPolishModel = "";
+      s.autoLogPath = "";
+      p.saveSettings();
+      this.display();
     });
-    if (s.autoLogProvider === "codex") {
+
+    if (resolved === "api") {
+      const presetRow = this.row(modelCard, t("API 预设"), t("快捷填入地址与默认模型"), null);
+      const matchedPreset = API_PRESETS.find((x) => x.url === (s.autoLogApiUrl || "").trim())?.id || "custom";
+      this.selectInput(
+        presetRow.querySelector(":scope > .ad-row__right"),
+        [{ id: "custom", label: t("手动填写") }, ...API_PRESETS.map((x) => ({ id: x.id, label: x.id === "ollama" ? t("本地 Ollama") : x.label }))],
+        matchedPreset,
+        (id) => {
+          const hit = API_PRESETS.find((x) => x.id === id);
+          if (!hit) return;
+          s.autoLogApiUrl = hit.url;
+          s.autoLogModel = hit.model;
+          p.saveSettings();
+          this.display();
+        },
+      );
+      const urlRow = this.row(modelCard, "API Base URL", t("填写服务商接口地址（自动补齐 /chat/completions）"), null);
+      this.textInput(urlRow.querySelector(":scope > .ad-row__right"), s.autoLogApiUrl || "", "https://api.deepseek.com", (v) => { s.autoLogApiUrl = v.trim(); p.saveSettings(); }, "ad-input--wide");
+      const keyRow = this.row(modelCard, "API Key", t("保存于插件设置 data.json 中"), null);
+      const keyInput = this.textInput(keyRow.querySelector(":scope > .ad-row__right"), s.autoLogApiKey || "", t("输入 API Key（本地 Ollama 可留空）"), (v) => { s.autoLogApiKey = v.trim(); p.saveSettings(); }, "ad-input--wide");
+      keyInput.type = "password";
+    } else if (resolved === "codex") {
       const effort = this.row(modelCard, t("整理与润色的推理强度"), "", null);
       this.segmented(effort.querySelector(":scope > .ad-row__right"), EFFORTS.codex, s.autoLogEffort || "low", (v) => { s.autoLogEffort = v; p.saveSettings(); this.display(); });
     }
-    const jm = this.row(modelCard, t("整理用的模型"), t("填写模型名或别名"), null);
-    this.textInput(jm.querySelector(":scope > .ad-row__right"), s.autoLogModel || "", s.autoLogProvider === "codex" ? "gpt-6-luna" : "haiku", (v) => { s.autoLogModel = v.trim(); p.saveSettings(); });
+
+    const spec = JOURNAL_PROVIDERS[resolved];
+    const presetModels = [...new Set([...(resolved === "agy" && this._agyJournalModels?.length ? this._agyJournalModels : []), ...(spec?.models || [])])];
+    if (resolved !== "api" && presetModels.length) {
+      const quickRow = this.row(modelCard, t("常用模型预设"), t("点选可填入下方模型框"), null);
+      const quickRight = quickRow.querySelector(":scope > .ad-row__right");
+      const curModel = s.autoLogModel || spec?.defaultModel || "";
+      this.selectInput(
+        quickRight,
+        [{ id: "", label: t("自定义输入") }, ...presetModels.map((m) => ({ id: m, label: m }))],
+        presetModels.includes(curModel) ? curModel : "",
+        (m) => { if (m) { s.autoLogModel = m; p.saveSettings(); this.display(); } },
+      );
+      if (resolved === "agy") {
+        this.bigButton(quickRight, t("刷新列表"), async () => {
+          const list = await fetchAgyModels(s.autoLogPath || s.delegate?.antigravity?.path || "");
+          if (!list.length) return new Notice(t("没有读到可用 agy 模型"));
+          this._agyJournalModels = list;
+          new Notice(t("已读取 {n} 个 agy 模型", { n: list.length }));
+          this.display();
+        });
+      }
+    }
+
+    const modelPlaceholder = resolved === "api" ? "deepseek-chat" : (spec?.defaultModel || t("留空用 CLI 默认模型"));
+    const jm = this.row(modelCard, t("整理用的模型"), t("填写模型名或别名；留空使用当前方式默认模型"), null);
+    const jmRight = jm.querySelector(":scope > .ad-row__right");
+    this.textInput(jmRight, s.autoLogModel || "", modelPlaceholder, (v) => { s.autoLogModel = v.trim(); p.saveSettings(); }, resolved === "api" ? "ad-input--wide" : "");
+    this.bigButton(jmRight, t("测试连接"), async () => {
+      new Notice(t("正在测试整理模型连接…"), 2500);
+      try {
+        const reply = await testJournalModel(s);
+        new Notice(t("整理模型可用：{reply}", { reply: reply.slice(0, 60) || "OK" }), 5000);
+      } catch (e) {
+        new Notice(t("整理模型不可用：{msg}", { msg: e?.message || String(e) }), 8000);
+      }
+    });
+
     const modelMore = this.subDetails(modelCard, "model-more", t("更多设置"));
     const jt = this.row(modelMore, t("整理超时（秒）"), "", null);
     this.numberInput(jt.querySelector(":scope > .ad-row__right"), s.autoLogTimeout || 120, 10, 600, (v) => { s.autoLogTimeout = v; p.saveSettings(); });
     const jfb = this.row(modelMore, t("整理失败时使用会话标题"), "", null);
     this.toggle(jfb.querySelector(":scope > .ad-row__right"), s.autoLogFallback !== false, (v) => { s.autoLogFallback = v; p.saveSettings(); });
-    const jp = this.row(modelMore, t("整理 CLI 路径"), t("留空使用委派设置中的路径"), null);
-    this.textInput(jp.querySelector(":scope > .ad-row__right"), s.autoLogPath || "", t("自动找"), (v) => { s.autoLogPath = v.trim(); p.saveSettings(); }, "ad-input--wide");
+    if (resolved !== "api") {
+      const jp = this.row(modelMore, t("整理 CLI 路径"), t("留空自动查找或沿用委派路径"), null);
+      this.textInput(jp.querySelector(":scope > .ad-row__right"), s.autoLogPath || "", t("自动找"), (v) => { s.autoLogPath = v.trim(); p.saveSettings(); }, "ad-input--wide");
+    }
     const jrp = this.row(modelMore, t("每轮结论让模型润色"), t("适用于简略和标准记录"), null);
     this.toggle(jrp.querySelector(":scope > .ad-row__right"), s.roundPolish !== false, (v) => { s.roundPolish = v; p.saveSettings(); });
     const jrm = this.row(modelMore, t("润色用的模型"), t("留空沿用整理模型"), null);
@@ -984,6 +1082,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => { s.hideArchived = v; p.saveSettings(); p.refreshUI(); });
     for (const [key, label, desc, fallback] of [
       ["showEditorPills", t("任务行上的会话状态按钮"), "", true],
+      ["lineProgress", t("显示任务行进度条与 token 块"), t("在 AI 任务行下方渲染 ASCII 进度条与紫色 token 方块"), true],
       ["dragGrip", t("列表项尾巴上的把手"), t("单击委派；双击或 ⌘ 单击选择 Agent"), true],
       ["showRibbonIcon", t("左侧栏图标"), "", true],
       ["openDashboardOnStartup", t("启动时打开面板"), "", false],
@@ -1072,7 +1171,91 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const card = this.card(body, t("Dreaming · 长期记忆"), t("从近 14 天日志提炼记忆，保存到笔记"));
     const auto = this.row(card, t("每天自动整理"), "", null);
     this.toggle(auto.querySelector(":scope > .ad-row__right"), s.enabled, (v) => { s.enabled = v; p.saveSettings(); });
+    const scopeRow = this.row(card, t("Dreaming 采集范围"), t("控制 Dreaming 只读取带 AI 自动记录的条目，还是读取全部日记与任务"), null);
+    this.segmented(
+      scopeRow.querySelector(":scope > .ad-row__right"),
+      [
+        { id: "all", label: t("全部日记与任务") },
+        { id: "ai-records", label: t("仅 AI 自动记录条目") },
+      ],
+      s.scope === "ai-records" ? "ai-records" : "all",
+      (v) => { s.scope = v; p.saveSettings(); this.display(); },
+    );
+
+    const detected = detectJournalProviders({ cfg: p.settings });
+    const baseCfg = p.settings;
+    const baseProvider = resolveJournalProvider(baseCfg);
+    const baseModel = baseCfg.autoLogModel || JOURNAL_PROVIDERS[baseProvider]?.defaultModel || "";
+    const curDreamProvider = String(s.provider || "").trim();
+    const effectiveCfg = dreamModelConfig(baseCfg);
+    const effectiveProvider = resolveJournalProvider(effectiveCfg);
+    const effectiveSpec = JOURNAL_PROVIDERS[effectiveProvider];
+    const dprovider = this.row(card, t("Dreaming 模型来源"), t("默认跟随「AI 自动记录」使用的 CLI 与模型，也可单独切换"), null);
+    this.selectInput(
+      dprovider.querySelector(":scope > .ad-row__right"),
+      [
+        {
+          id: "",
+          label: t("跟随 AI 自动记录（当前：{name}）", {
+            name: baseModel ? `${JOURNAL_PROVIDERS[baseProvider]?.label || baseProvider} / ${baseModel}` : (JOURNAL_PROVIDERS[baseProvider]?.label || baseProvider),
+          }),
+        },
+        ...detected.providers.map((x) => ({
+          id: x.id,
+          label: `${x.label} ${x.available ? t("（已登录）") : x.found ? t("（未登录）") : t("（未安装）")}`,
+        })),
+        { id: "api", label: t("自定义 API（OpenAI 兼容）") },
+      ],
+      curDreamProvider,
+      (v) => {
+        s.provider = v;
+        if (!v) s.model = "";
+        else s.model = JOURNAL_PROVIDERS[v]?.defaultModel || "";
+        p.saveSettings();
+        this.display();
+      },
+    );
+
+    const dreamPresets = [...new Set([...(effectiveProvider === "agy" && this._agyJournalModels?.length ? this._agyJournalModels : []), ...(effectiveSpec?.models || [])])];
+    if (effectiveProvider !== "api" && dreamPresets.length) {
+      const quickRow = this.row(card, t("Dreaming 模型预设"), t("点选可单独指定 Dreaming 使用的模型"), null);
+      const quickRight = quickRow.querySelector(":scope > .ad-row__right");
+      const curModel = s.model || "";
+      this.selectInput(
+        quickRight,
+        [{ id: "", label: curDreamProvider ? t("自定义输入") : t("跟随 AI 自动记录") }, ...dreamPresets.map((m) => ({ id: m, label: m }))],
+        dreamPresets.includes(curModel) ? curModel : "",
+        (m) => { s.model = m; p.saveSettings(); this.display(); },
+      );
+    }
+
+    const dreamModelPlaceholder = !curDreamProvider
+      ? (baseModel ? t("跟随：{model}", { model: baseModel }) : (effectiveSpec?.defaultModel || t("跟随 AI 自动记录")))
+      : (effectiveProvider === "api" ? "deepseek-chat" : (effectiveSpec?.defaultModel || t("留空用 CLI 默认模型")));
+    const dm = this.row(card, t("Dreaming 模型"), t("留空跟随 AI 自动记录；填写可单独覆盖模型"), null);
+    const dmRight = dm.querySelector(":scope > .ad-row__right");
+    this.textInput(dmRight, s.model || "", dreamModelPlaceholder, (v) => { s.model = v.trim(); p.saveSettings(); }, effectiveProvider === "api" ? "ad-input--wide" : "");
+    this.bigButton(dmRight, t("测试连接"), async () => {
+      new Notice(t("正在测试 Dreaming 模型连接…"), 2500);
+      try {
+        const reply = await testJournalModel(dreamModelConfig(p.settings));
+        new Notice(t("整理模型可用：{reply}", { reply: reply.slice(0, 60) || "OK" }), 5000);
+      } catch (e) {
+        new Notice(t("整理模型不可用：{msg}", { msg: e?.message || String(e) }), 8000);
+      }
+    });
+
     const dreamMore = this.subDetails(card, "dream-more", t("更多设置"));
+    if (curDreamProvider === "api") {
+      const urlRow = this.row(dreamMore, "Dreaming API Base URL", t("填写服务商接口地址（自动补齐 /chat/completions）"), null);
+      this.textInput(urlRow.querySelector(":scope > .ad-row__right"), s.apiUrl || "", "https://api.deepseek.com", (v) => { s.apiUrl = v.trim(); p.saveSettings(); }, "ad-input--wide");
+      const keyRow = this.row(dreamMore, "Dreaming API Key", t("保存于插件设置 data.json 中"), null);
+      const keyInput = this.textInput(keyRow.querySelector(":scope > .ad-row__right"), s.apiKey || "", t("输入 API Key（本地 Ollama 可留空）"), (v) => { s.apiKey = v.trim(); p.saveSettings(); }, "ad-input--wide");
+      keyInput.type = "password";
+    } else if (curDreamProvider === "codex") {
+      const effortRow = this.row(dreamMore, t("Dreaming 推理强度"), "", null);
+      this.segmented(effortRow.querySelector(":scope > .ad-row__right"), EFFORTS.codex, s.effort || p.settings.autoLogEffort || "low", (v) => { s.effort = v; p.saveSettings(); this.display(); });
+    }
     const file = this.row(dreamMore, t("长期记忆笔记"), t("库内 Markdown 路径"), null);
     this.textInput(file.querySelector(":scope > .ad-row__right"), s.path, "Agent Deck/长期记忆.md", (v) => { try { s.path = notePath(v); p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
     if (companionInstalled(p.app)) {
@@ -1081,7 +1264,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     }
     const actions = card.createDiv({ cls: "ad-btnrow" });
     const run = this.bigButton(actions, t("现在 Dream 一次"), async () => {
-      const task = p.dreaming.run(); update();
+      const task = p.dreaming.run(true, { drain: true }); update();
       try { await task; } finally { update(); }
     });
     const progress = card.createDiv({ cls: "ad-dream-progress", attr: { role: "status", "aria-live": "polite" } });
@@ -1127,7 +1310,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       sharedStatus.textContent = [sharing.status || (c.lastError ? t("上次共享失败：{error}", { error: c.lastError }) : ""), c.lastSuccess ? t("上次同步成功：{time}", { time: new Date(c.lastSuccess).toLocaleString() }) : t("尚未同步")].filter(Boolean).join(t("；"));
     };
     update();
-    this._dreamTimer = setInterval(update, 1000);
+    this._dreamTimer = this._timers.setInterval(update, 1000);
   }
 
   // ---------- About ----------
@@ -1152,6 +1335,13 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       agentIcon(agent.createSpan({ cls: "ad-glyph" }), id);
       agent.createSpan({ text: AGENTS[id].name });
     }
+    const flowCard = this.card(
+      body,
+      t("核心结构与信息流转"),
+      t("从笔记委派，本机只读采集多端日志，状态与结论回写原任务，再沉淀为回顾数据与长期记忆。"),
+    );
+    const diagramEl = flowCard.createDiv({ cls: "ad-about-diagram" });
+    this.renderAboutDiagram(diagramEl);
     const guide = this.card(body, t("常用操作"));
     const rows = [
       [t("整理日志"), t("Ctrl+Alt+L，或点击面板顶部的「整理日志」")],
@@ -1169,15 +1359,115 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const c = this.card(body, t("版本与支持"));
     const meta = c.createDiv({ cls: "ad-about-meta" });
     meta.createDiv({ text: t("版本 {version} · Apache-2.0 License", { version: p.manifest.version }) });
-    meta.createDiv({ text: t("从 Nautilus Spiral（螺旋日程）的 AI 追踪部分拆出；交互参考了小红书 @ZZ.X 的两条帖子。") });
+    meta.createDiv({ text: t("欢迎在 GitHub Issues 反馈 bug，或在 Roadmap 提交建议并为你期待的方向投票。") });
     const btns = c.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, t("打开 GitHub 仓库"), () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));
+    this.bigButton(btns, t("反馈 Issue"), () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck/issues"));
+    this.bigButton(btns, t("查看 Roadmap"), () => p.openExternal("https://matsuri.site/portfolio/journal-workflow/#whistlist"));
     this.bigButton(btns, t("复制调试信息"), async () => {
       const text = JSON.stringify({ version: p.manifest.version, settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
       await navigator.clipboard.writeText(text);
       new Notice(t("调试信息已复制"));
     });
   }
+
+  renderAboutDiagram(el) {
+    const md = aboutArchitectureMermaid(currentLanguage());
+    const Comp = obsidianNs.Component;
+    const Renderer = obsidianNs.MarkdownRenderer;
+    if (Renderer?.render && Comp) {
+      this._aboutComp?.unload?.();
+      this._aboutComp = new Comp();
+      this._aboutComp.load();
+      Renderer.render(this.plugin.app, md, el, "", this._aboutComp).catch(() => {
+        el.empty();
+        el.createEl("pre", { cls: "ad-about-diagram__raw", text: md.replace(/^```mermaid\n|\n```$/g, "") });
+      });
+      return;
+    }
+    el.createEl("pre", { cls: "ad-about-diagram__raw", text: md.replace(/^```mermaid\n|\n```$/g, "") });
+  }
+}
+
+function aboutArchitectureMermaid(lang) {
+  if (lang === "en") {
+    return [
+      "```mermaid",
+      "flowchart LR",
+      '  subgraph NOTE["Obsidian Journal & Notes"]',
+      "    direction TB",
+      '    Task["Task Line / Outline Block\\nGrip · Drag · @agent"]',
+      '    Views["Multi-View & Tidy\\nOutline · Table · Cards · Timeline"]',
+      "  end",
+      '  subgraph HARNESS["Delegation & Context"]',
+      '    Ctx["Harness Pipeline\\nAncestors · Wikilinks · Model"]',
+      "  end",
+      '  subgraph AGENTS["8 Local AI Agents"]',
+      "    direction TB",
+      '    Run["Runners\\nACP/CLI · Desktop · Terminal"]',
+      '    Logs["Local Logs & Hooks\\nJSONL · SQLite (Read-only)"]',
+      "  end",
+      '  subgraph DECK["Agent Deck Control & Sync"]',
+      "    direction TB",
+      '    Panel["Sidebar Deck & macOS Menu Bar\\nLive Status · Alerts · Jump"]',
+      '    Sync["Journal Auto-Sync\\nStatus · Conclusions · Spans · Links"]',
+      "  end",
+      '  subgraph INSIGHT["Review & Memory"]',
+      "    direction TB",
+      '    Dash["Review Dashboard\\nToken Heatmap · Project Effort"]',
+      '    Dream["Dreaming Memory\\nFacts/Patterns · Shared Note"]',
+      "  end",
+      '  Task -->|"Delegate"| Ctx',
+      '  Ctx -->|"Launch / Resume"| Run',
+      '  Run -->|"Transcripts & Events"| Logs',
+      '  Logs -->|"Incremental Scan"| Panel',
+      '  Panel <-->|"Drag Bind / Jump"| Task',
+      '  Logs -->|"00:00 Split & Noise Filter"| Sync',
+      '  Sync -->|"Write Back"| Views',
+      '  Logs -->|"Usage Stats"| Dash',
+      '  Views -->|"Daily Evidence"| Dash',
+      '  Views -->|"14-Day Evidence"| Dream',
+      "```",
+    ].join("\n");
+  }
+  return [
+    "```mermaid",
+    "flowchart LR",
+    '  subgraph NOTE["Obsidian 日记与笔记"]',
+    "    direction TB",
+    '    Task["任务行 / 大纲块\\n把手 · 拖拽 · @agent"]',
+    '    Views["同源多视图与整理\\n大纲 · 表格 · 卡片 · 时间线 · 归档"]',
+    "  end",
+    '  subgraph HARNESS["委派与上下文管道"]',
+    '    Ctx["Harness 组装\\n母项链 · 双链 · 模型与位置"]',
+    "  end",
+    '  subgraph AGENTS["本机 8 家 AI Agent"]',
+    "    direction TB",
+    '    Run["执行端\\n后台 ACP/CLI · 桌面版 · 终端"]',
+    '    Logs["本机会话日志 / Hooks\\nJSONL · SQLite（只读数据源）"]',
+    "  end",
+    '  subgraph DECK["Agent Deck 控制与回写"]',
+    "    direction TB",
+    '    Panel["侧栏甲板 · macOS 菜单栏\\n实时状态 · 待确认提醒 · 直达跳转"]',
+    '    Sync["日志自动回写引擎\\n状态 · 结论 · 时段 · 短链"]',
+    "  end",
+    '  subgraph INSIGHT["回顾分析与长期记忆"]',
+    "    direction TB",
+    '    Dash["协作回顾 Dashboard\\nToken 热力图 · 项目投入排名"]',
+    '    Dream["Dreaming 长期记忆\\n提炼偏好规律 · 单向共享"]',
+    "  end",
+    '  Task -->|"委派任务"| Ctx',
+    '  Ctx -->|"启动 / 续聊"| Run',
+    '  Run -->|"写入对话与事件"| Logs',
+    '  Logs -->|"只读增量扫描"| Panel',
+    '  Panel <-->|"拖放绑定 / 跳转"| Task',
+    '  Logs -->|"零点分割与口语过滤"| Sync',
+    '  Sync -->|"写回原任务块"| Views',
+    '  Logs -->|"用量汇总"| Dash',
+    '  Views -->|"日记证据归属"| Dash',
+    '  Views -->|"近 14 天证据"| Dream',
+    "```",
+  ].join("\n");
 }
 
 function strength(n, dots = false) {
@@ -1215,7 +1505,7 @@ class AddModelModal extends Modal {
     field(t("显示名"), (f) => { const i = f.createEl("input", { cls: "ad-input", attr: { value: this.name, placeholder: t("例如 GPT-6-Luna") } }); i.oninput = () => this.name = i.value; });
     field("Agent", (f) => {
       const s = f.createEl("select", { cls: "ad-select" });
-      for (const id of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"]) s.createEl("option", { text: AGENTS[id].name, attr: { value: id } });
+      for (const id of delegateAgents()) s.createEl("option", { text: AGENTS[id]?.name || id, attr: { value: id } });
       s.value = this.agent;
       s.disabled = !!this.existing;
       s.onchange = () => { this.agent = s.value; };

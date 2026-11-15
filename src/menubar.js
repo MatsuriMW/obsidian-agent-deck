@@ -14,6 +14,7 @@ import source from "./menubar.swift";
 import { agentImageBuffer } from "./agent-assets.js";
 import { AGENT_ORDER } from "./constants.js";
 import { t } from "./i18n.js";
+import { ManagedTimers, safeRun } from "./runtime-guard.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -57,6 +58,7 @@ const INFO_PLIST = `<?xml version="1.0" encoding="UTF-8"?>
 export class MenuBarBridge {
   constructor(plugin) {
     this.plugin = plugin;
+    this._timers = new ManagedTimers();
     this.dir = path.join(home(), ".agent-deck");
     this.appPath = path.join(this.dir, "AgentDeckMenuBar.app");
     this.binPath = path.join(this.appPath, "Contents", "MacOS", "AgentDeckMenuBar");
@@ -103,7 +105,10 @@ export class MenuBarBridge {
     for (const id of AGENT_ORDER) {
       try {
         const buf = agentImageBuffer(id);
-        if (buf) fs.writeFileSync(path.join(dir, `${id}.png`), buf);
+        if (!buf) continue;
+        const p = path.join(dir, `${id}.png`);
+        try { if (fs.statSync(p).size === buf.length) continue; } catch { /* missing */ }
+        fs.writeFileSync(p, buf);
       } catch { /* 图标写不出去就退回字形 */ }
     }
   }
@@ -127,10 +132,11 @@ export class MenuBarBridge {
     this.plugin.settingTab?.mbSwitch?.setOn(true);
     if (compiled) await this.plugin.saveSettings();
     if (!this.enabled) return;
+    if (this._timers.disposed) this._timers = new ManagedTimers();
     this.update(true);
-    this.launch();
-    clearInterval(this.timer);
-    this.timer = setInterval(() => this.update(), 1800);
+    if (compiled || !this.isAlive()) this.launch();
+    this._timers.clear(this.timer);
+    this.timer = this._timers.setInterval(() => safeRun("menubar:update", () => this.update()), 1800);
   }
 
   async compile(hash) {
@@ -212,7 +218,7 @@ export class MenuBarBridge {
   }
 
   stop() {
-    clearInterval(this.timer);
+    this._timers?.dispose();
     this.timer = null;
     this.killExisting();
   }

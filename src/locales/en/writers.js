@@ -46,6 +46,7 @@ export default {
   "尚未开始": "Not started yet",
   "Dreaming 正在整理": "Dreaming is already organizing",
   "正在采集用户日志与 AI 记录…": "Collecting your journal and AI records…",
+  "正在采集含 AI 自动记录的条目…": "Collecting entries with AI auto-records…",
   "正在整理 {count} 块材料（共 {total} 块），等待模型返回…":
     "Organizing {count} blocks of material (of {total}); waiting for the model…",
   "正在校验并写入长期记忆…": "Validating and writing long-term memory…",

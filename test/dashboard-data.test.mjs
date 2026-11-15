@@ -40,6 +40,12 @@ test('加载日记、绑定与归档，缓存不漏编辑器草稿，历史日�
   p.store.days['2026_11_14'].out = 25;
   const remainder = (await loader.load()).rows.find(r => r.residual);
   assert.equal(remainder.out, 15, '旧汇总中没有会话明细的已知用量仍参与统计');
+
+  // 单模型按天汇总可直接填充模型名，多模型混用时不强猜
+  p.store.days['2026_11_14'].by = { codex: { models: { 'gpt-5-codex': 25 } } };
+  assert.equal((await loader.load()).rows.find(r => r.sid === sid).model, 'gpt-5-codex');
+  p.store.days['2026_11_14'].by = { codex: { models: { 'gpt-5-codex': 15, 'gpt-4o': 10 } } };
+  assert.equal((await loader.load()).rows.find(r => r.sid === sid).model, '');
 });
 
 test('来源读取失败不伪装为完整数据，其他日记录仍然可用', async () => {
