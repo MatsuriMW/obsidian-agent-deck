@@ -315,7 +315,11 @@ class PillWidget extends WidgetType {
     if (session && session.tokens) {
       const tok = document.createElement("span");
       tok.className = "ad-pill__tok";
-      tok.textContent = fmtTok(session.tokens);
+      const icon = tok.appendChild(document.createElement("span"));
+      icon.setAttribute("aria-hidden", "true");
+      setLucide(icon, "database");
+      tok.appendChild(document.createTextNode(fmtTok(session.tokens)));
+      tok.title = session.tokens.toLocaleString() + " token";
       right.appendChild(tok);
     }
 
@@ -356,7 +360,7 @@ function buildDecorations(view, plugin) {
         const job = plugin.jobAtLine(path, n, text);
         const session = map.sessionByParent.get(n) || null;
         // 螺旋日程已接管进度显示时，行尾不重复画 pill。
-        if (session && plugin.nautilusOwnsLine(text)) { if (line.to >= to) break; pos = line.to + 1; continue; }
+        if (session && plugin.nautilusOwnsLine(text, session)) { if (line.to >= to) break; pos = line.to + 1; continue; }
         let state = null;
         if (job && ["starting", "running"].includes(job.state)) state = { kind: job.state === "starting" ? "starting" : "running", job };
         else if (job && job.state === "needs-approval") state = { kind: "needs-approval", job, session };

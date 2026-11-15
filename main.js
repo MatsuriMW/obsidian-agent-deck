@@ -1,4 +1,4 @@
-/* Agent Deck 1.9.6 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.9.7 — MIT — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1894,6 +1894,44 @@ function isPromptText(text) {
   return true;
 }
 
+// src/summary-links.js
+var import_os = __toESM(require("os"), 1);
+function formatSummaryLinks(raw, format = (text) => text) {
+  const links = [];
+  const keep = (link) => {
+    const marker = String.fromCharCode(57344 + links.length);
+    links.push(link);
+    return marker;
+  };
+  const encode = (c) => c === "(" ? "%28" : c === ")" ? "%29" : encodeURIComponent(c);
+  const target = (address2) => {
+    if (/^(?:https?|file):/i.test(address2)) return address2.replace(/[()\s]/g, encode);
+    const path7 = address2.replace(/^~(?=\/)/, import_os.default.homedir()).replace(/\\/g, "/");
+    return (path7.startsWith("/") ? "file://" : "file:///") + path7.replace(/[()\s?#]/g, encode);
+  };
+  const address = (value) => /^(?:https?:\/\/|file:\/\/|[a-z]:[\\/]|~?\/)/i.test(value);
+  const longPath = (value) => value.length >= 40 || /^(?:[a-z]:[\\/]|~\/|\/(?:Users|home|tmp|var|workspace|mnt|Volumes)\/)/i.test(value);
+  let text = String(raw || "").replace(/\[([^\]\n]+)\]\((<[^>\n]+>|(?:[^()\n]|\([^()\n]*\))*)\)/g, (whole, label, href) => {
+    const value = href.replace(/^<|>$/g, "");
+    if (!address(value) || /\s+["']/.test(value)) return keep(whole);
+    return keep(`[${address(label) && label.length >= 40 ? "\u{1F517}" : label}](${target(value)})`);
+  });
+  text = text.replace(/`([^`\n]+)`/g, (whole, value) => address(value) && longPath(value) ? keep(`[\u{1F517}](${target(value)})`) : whole);
+  text = text.replace(/(?:https?|file):\/\/[^\s<>"`，。；！？）]+/gi, (value) => {
+    let suffix = "";
+    while (/[.,;!]$/.test(value) || value.endsWith(")") && (value.match(/\)/g) || []).length > (value.match(/\(/g) || []).length) {
+      suffix = value.slice(-1) + suffix;
+      value = value.slice(0, -1);
+    }
+    return keep(`[\u{1F517}](${target(value)})`) + suffix;
+  });
+  text = text.replace(
+    /(^|[\s（(：:])((?:[a-z]:[\\/]|~\/|\/)[^\s<>`"，。；！？）),;:]+)/gi,
+    (whole, prefix, value) => longPath(value) ? prefix + keep(`[\u{1F517}](${target(value)})`) : whole
+  );
+  return format(text).replace(/[\ue000-\uf8ff]/g, (marker) => links[marker.charCodeAt(0) - 57344] ?? marker);
+}
+
 // src/journal.js
 var LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 var STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
@@ -2231,19 +2269,26 @@ function resultText(raw, max = 200) {
   }
   return t2.replace(/\[\[/g, "\\[\\[").replace(/(^|[^\w&\\])#(?=[^\s#])/g, "$1\\#").replace(/==/g, "\\=\\=").replace(/%%/g, "\\%\\%").replace(/\$/g, "\\$").replace(/</g, "\\<").replace(/\s\^(?=[A-Za-z0-9-]+$)/, " \\^");
 }
+function summaryText(raw, max = 200) {
+  return formatSummaryLinks(raw, (text) => resultText(text, max));
+}
 function oneSentenceConclusion(raw, max = 90) {
-  const cleaned = String(raw || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s*\|.*\|\s*$/gm, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\d{12,}/g, "\u2026").trim();
-  if (!cleaned) return "";
-  const lines = cleaned.split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
-  let pick = lines.find((l) => /^(?:结论|总结|核心结论|一句话总结|已完成|已修复|已更新|已实现|原因|问题在于|搞定|改好)[：:，,\s]/.test(l)) || lines.find((l) => l.length >= 6 && !/^(?:好的|收到|明白|没问题|我来|让我|先看)[，。！!,.]*$/.test(l)) || lines[lines.length - 1] || cleaned;
-  const sentMatch = /^(.{6,}?[。！？；!?;])(?:\s|$)/.exec(pick);
-  if (sentMatch) pick = sentMatch[1];
-  return resultText(pick, max);
+  return formatSummaryLinks(raw, (source) => {
+    const cleaned = String(source || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s*\|.*\|\s*$/gm, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\d{12,}/g, "\u2026").trim();
+    if (!cleaned) return "";
+    const lines = cleaned.split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+    let pick = lines.find((l) => /^(?:结论|总结|核心结论|一句话总结|已完成|已修复|已更新|已实现|原因|问题在于|搞定|改好)[：:，,\s]/.test(l)) || lines.find((l) => l.length >= 6 && !/^(?:好的|收到|明白|没问题|我来|让我|先看)[，。！!,.]*$/.test(l)) || lines[lines.length - 1] || cleaned;
+    const sentMatch = /^(.{6,}?[。！？；!?;])(?:\s|$)/.exec(pick);
+    if (sentMatch) pick = sentMatch[1];
+    return resultText(pick, max);
+  });
 }
 var detailExcerpt = (raw, max) => resultText(String(raw || "").replace(/^\s*(?:`{3,}|~{3,})[^\n]*$/gm, ""), max);
 var recordSentence = (raw, max) => {
-  const text = oneSentenceConclusion(raw, max);
-  return text.match(/^.*?[。！？；!?;]/)?.[0] || text;
+  return formatSummaryLinks(raw, (masked) => {
+    const text = oneSentenceConclusion(masked, max);
+    return text.match(/^.*?[。！？；!?;]/)?.[0] || text;
+  });
 };
 function sortRecordedRounds(lines, parent) {
   const base = width(lines[parent]), child = width(childIndent(lines, parent));
@@ -2320,7 +2365,7 @@ function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key = "", 
       if (brokenTask.test(lines[i])) {
         const round = sourceRounds.get(+marker[2]);
         const task = cleanUserPrompt(round?.taskSummary || round?.ask);
-        if (task) lines[i] = lines[i].replace(brokenTask, `\u4EFB\u52A1\uFF1A${resultText(task, 45)}`);
+        if (task) lines[i] = lines[i].replace(brokenTask, `\u4EFB\u52A1\uFF1A${summaryText(task, 45)}`);
       }
     }
     const match = /^\s*[-*+]\s+💬\s+(?:第(\d+)轮[：:]|((?!累计总结[：:]).))/.exec(lines[i]);
@@ -2339,7 +2384,7 @@ function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key = "", 
     lines.splice(at, 0, line);
   };
   if (compact?.text) {
-    const summary = `${ind}- \u{1F4AC} \u7D2F\u8BA1\u603B\u7ED3\uFF1A${resultText(compact.text, 170)}`;
+    const summary = `${ind}- \u{1F4AC} \u7D2F\u8BA1\u603B\u7ED3\uFF1A${summaryText(compact.text, 170)}`;
     const marker = sid ? ` ${sessionMarker("summary", sid, compact.through || 0)}` : "";
     const legacyMarker = ` <!-- ad-summary:${sid}:${compact.through || 0} -->`;
     const saved = lines.slice(n + 1, childSpan() + 1).some((raw) => width(raw) === childWidth && (raw === summary || marker && (raw.includes(marker) || raw.includes(legacyMarker))));
@@ -2355,7 +2400,7 @@ function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key = "", 
     }
     const raw = level === "detailed" ? r.said || r.summary : r.summary || r.said;
     const task = cleanUserPrompt(r.taskSummary || r.ask) || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
-    const message = r.journalSummary ? resultText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3e3) : level === "brief" ? `\u4EFB\u52A1\uFF1A${resultText(task, 45)}\uFF1B\u7ED3\u8BBA\uFF1A${resultText(raw, 65)}` : recordSentence(raw, 90);
+    const message = r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3e3) : level === "brief" ? `\u4EFB\u52A1\uFF1A${summaryText(task, 45)}\uFF1B\u7ED3\u8BBA\uFF1A${summaryText(raw, 65)}` : recordSentence(raw, 90);
     const prefix = rn === 1 && roundLog ? "" : `\u7B2C${rn}\u8F6E\uFF1A`;
     append(`${ind}- \u{1F4AC} ${prefix}${message}${provenance(rn)}`);
     if (level === "detailed" && r === validRounds.at(-1) && taskTodo?.total > 0) {
@@ -3420,12 +3465,12 @@ var JournalOrganizer = class {
 
 // src/llm.js
 var import_fs = __toESM(require("fs"), 1);
-var import_os = __toESM(require("os"), 1);
+var import_os2 = __toESM(require("os"), 1);
 var import_path = __toESM(require("path"), 1);
 var import_child_process = require("child_process");
-var home = () => import_os.default.homedir();
+var home = () => import_os2.default.homedir();
 function workDir() {
-  const dir = import_path.default.join(import_os.default.tmpdir(), "agent-deck-autolog");
+  const dir = import_path.default.join(import_os2.default.tmpdir(), "agent-deck-autolog");
   try {
     import_fs.default.mkdirSync(dir, { recursive: true });
   } catch {
@@ -3476,7 +3521,7 @@ function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 120, sys
   });
 }
 async function runCodex(prompt, { bin = "codex", model = "", effort = "low", timeout = 120 } = {}) {
-  const dir = import_fs.default.mkdtempSync(import_path.default.join(import_os.default.tmpdir(), "agent-deck-codex-"));
+  const dir = import_fs.default.mkdtempSync(import_path.default.join(import_os2.default.tmpdir(), "agent-deck-codex-"));
   const output = import_path.default.join(dir, "answer.txt");
   try {
     return await new Promise((resolve, reject) => {
@@ -3626,7 +3671,7 @@ function workspaceLabel(cwd) {
 
 // src/main.js
 var import_path6 = __toESM(require("path"), 1);
-var import_os6 = __toESM(require("os"), 1);
+var import_os7 = __toESM(require("os"), 1);
 var import_child_process8 = require("child_process");
 var import_obsidian13 = require("obsidian");
 
@@ -3725,7 +3770,7 @@ async function desktopMessages(db, agent, sid) {
 
 // src/readers.js
 var import_path2 = __toESM(require("path"), 1);
-var import_os2 = __toESM(require("os"), 1);
+var import_os3 = __toESM(require("os"), 1);
 var import_child_process3 = require("child_process");
 
 // node_modules/fzstd/esm/index.mjs
@@ -4374,7 +4419,7 @@ var AI_IDLE = 5;
 var LIVE_STALE = 90 * 1e3;
 var MAX_TS = 2e4;
 var DSH_TOUCH = /* @__PURE__ */ new Set(["user/message", "assistant/message", "tool/call", "tool/result", "turn/start", "turn/end", "step/start", "step/end"]);
-var home2 = () => import_os2.default.homedir();
+var home2 = () => import_os3.default.homedir();
 var norm = (p) => String(p || "").replace(/^~(?=\/)/, home2());
 function isScratchCwd(cwd) {
   const path7 = String(cwd || "").replace(/\/+$/, "");
@@ -6329,6 +6374,7 @@ async function summarizeBackgroundReply(raw, settings, runModel = runJournalMode
     "\u76EE\u6807\u603B\u957F\u7EA6 240 \u4E2A\u4E2D\u6587\u5B57\uFF1B\u91CD\u8981\u72B6\u6001\u4F18\u5148\u4E8E\u5B57\u6570\uFF0C\u4E0D\u4E3A\u4E86\u51D1\u5B57\u6570\u7701\u7565\u672A\u5B8C\u6210\u4E8B\u9879\u3002",
     "\u9605\u8BFB\u5B8C\u6574\u539F\u6587\uFF0C\u7279\u522B\u68C0\u67E5\u672B\u5C3E\uFF0C\u4E0D\u80FD\u53EA\u622A\u53D6\u5F00\u5934\u3002\u4E0D\u8981\u628A\u8BA1\u5212\u5199\u6210\u5DF2\u5B8C\u6210\uFF0C\u4E0D\u63A8\u65AD\u5DF2\u7ECF\u53D1\u5E03\u6216\u9A8C\u8BC1\u3002",
     "\u6539\u52A8\u53EA\u5199\u5177\u4F53\u4EA4\u4ED8\uFF0C\u4E0D\u590D\u8FF0\u6392\u67E5\u8FC7\u7A0B\uFF1B\u672A\u5B8C\u6210\u9879\u5355\u72EC\u4FDD\u7559\u672A\u53D1\u5E03\u3001\u672A\u9A8C\u8BC1\u548C\u5F85\u7528\u6237\u786E\u8BA4\u7684\u4E8B\u9879\u3002",
+    "\u7F51\u9875\u6216\u6587\u4EF6\u5730\u5740\u7528 [\u{1F517}](\u5B8C\u6574\u5730\u5740) \u8868\u793A\uFF1B\u5DF2\u6709\u6E05\u695A\u7684\u94FE\u63A5\u6587\u5B57\u53EF\u4FDD\u7559\uFF0C\u4E0D\u8BA9\u957F\u5730\u5740\u5360\u7528\u6458\u8981\u6B63\u6587\u3002",
     "\u539F\u6587\u6CA1\u6709\u4EA4\u4EE3\u67D0\u9879\u65F6\uFF0C\u586B\u201C\u539F\u6587\u672A\u8BF4\u660E\u201D\uFF1B\u53EA\u6709\u660E\u786E\u5168\u90E8\u5B8C\u6210\u4E14\u65E0\u5269\u4F59\u4E8B\u9879\u65F6\u624D\u80FD\u5199\u201C\u65E0\u201D\u3002",
     "\u4E0D\u8981\u4EE3\u7801\u5757\u3001\u5F00\u573A\u767D\u6216\u8865\u5145\u89E3\u91CA\u3002",
     "\n\u3010\u5B8C\u6574\u56DE\u590D\u3011\n" + raw
@@ -6338,7 +6384,7 @@ async function summarizeBackgroundReply(raw, settings, runModel = runJournalMode
   for (const key of ["conclusion", "changes", "unfinished"]) {
     if (typeof data?.[key] !== "string" || !data[key].trim()) throw new Error("Invalid background summary");
   }
-  return [["\u7ED3\u8BBA", data.conclusion], ["\u6539\u52A8", data.changes], ["\u672A\u5B8C\u6210", data.unfinished]].map(([label, value]) => `${label}\uFF1A${value.replace(/\s+/g, " ").trim().replace(/[。；;]+$/, "")}`).join("\uFF1B");
+  return [["\u7ED3\u8BBA", data.conclusion], ["\u6539\u52A8", data.changes], ["\u672A\u5B8C\u6210", data.unfinished]].map(([label, value]) => `${label}\uFF1A${formatSummaryLinks(value, (text) => text.replace(/\s+/g, " ").trim().replace(/[。；;]+$/, ""))}`).join("\uFF1B");
 }
 function backgroundSummaryPending(text, job, round, pending) {
   const task = findTask(text, workKey(job.name || ""), job.blockId || "", job.sessionId);
@@ -6510,7 +6556,7 @@ var CodexDesktopRunner = class {
 
 // src/delegation.js
 var import_path3 = __toESM(require("path"), 1);
-var import_os3 = __toESM(require("os"), 1);
+var import_os4 = __toESM(require("os"), 1);
 var import_child_process5 = require("child_process");
 
 // src/task-mentions.js
@@ -6559,7 +6605,7 @@ function mentionSuggestions(plugin, query) {
 
 // src/delegation.js
 var fsp2 = import_fs6.default.promises;
-var home3 = () => import_os3.default.homedir();
+var home3 = () => import_os4.default.homedir();
 var norm2 = (p) => String(p || "").replace(/^~(?=\/)/, home3());
 var BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 var LINK_RE2 = LINK_RE;
@@ -8050,7 +8096,7 @@ ${body}`, 12e3);
     const effort = opts.effort || this.C[agent]?.effort || "high";
     if (agent === "codex") extra += " " + codexCliArgs(this.plugin, opts).map(shellQuote).join(" ");
     else if (agent === "claude") extra += ` --model ${shellQuote(model)} --effort ${shellQuote(effort)}`;
-    const dir = import_path3.default.join(import_os3.default.tmpdir(), "agent-deck");
+    const dir = import_path3.default.join(import_os4.default.tmpdir(), "agent-deck");
     await fsp2.mkdir(dir, { recursive: true });
     const taskFile = import_path3.default.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp2.writeFile(taskFile, prompt, "utf8");
@@ -9240,7 +9286,11 @@ var PillWidget = class extends import_view3.WidgetType {
     if (session && session.tokens) {
       const tok = document.createElement("span");
       tok.className = "ad-pill__tok";
-      tok.textContent = fmtTok(session.tokens);
+      const icon = tok.appendChild(document.createElement("span"));
+      icon.setAttribute("aria-hidden", "true");
+      setLucide(icon, "database");
+      tok.appendChild(document.createTextNode(fmtTok(session.tokens)));
+      tok.title = session.tokens.toLocaleString() + " token";
       right.appendChild(tok);
     }
     el.addEventListener("mousedown", (e) => {
@@ -9281,7 +9331,7 @@ function buildDecorations(view, plugin) {
         const text = line.text;
         const job = plugin.jobAtLine(path7, n, text);
         const session = map.sessionByParent.get(n) || null;
-        if (session && plugin.nautilusOwnsLine(text)) {
+        if (session && plugin.nautilusOwnsLine(text, session)) {
           if (line.to >= to) break;
           pos = line.to + 1;
           continue;
@@ -10750,13 +10800,13 @@ var import_crypto6 = require("crypto");
 // src/dream-sharing.js
 var import_promises = __toESM(require("fs/promises"), 1);
 var import_path4 = __toESM(require("path"), 1);
-var import_os4 = __toESM(require("os"), 1);
+var import_os5 = __toESM(require("os"), 1);
 var import_crypto5 = require("crypto");
 var import_child_process6 = require("child_process");
 var import_util2 = require("util");
 var exec = (0, import_util2.promisify)(import_child_process6.execFile);
 function externalMemoryPath(value) {
-  const target = String(value || "").trim().replace(/^~(?=\/)/, import_os4.default.homedir());
+  const target = String(value || "").trim().replace(/^~(?=\/)/, import_os5.default.homedir());
   if (!import_path4.default.isAbsolute(target) || import_path4.default.extname(target).toLowerCase() !== ".md") throw new Error(t("\u5171\u4EAB\u76EE\u6807\u5FC5\u987B\u662F\u5916\u90E8 Markdown \u6587\u4EF6\u7684\u7EDD\u5BF9\u8DEF\u5F84"));
   return import_path4.default.normalize(target);
 }
@@ -13110,7 +13160,7 @@ var ArchiveTargetModal = class extends import_obsidian6.Modal {
 // src/menubar.js
 var import_fs7 = __toESM(require("fs"), 1);
 var import_path5 = __toESM(require("path"), 1);
-var import_os5 = __toESM(require("os"), 1);
+var import_os6 = __toESM(require("os"), 1);
 var import_crypto7 = __toESM(require("crypto"), 1);
 var import_child_process7 = require("child_process");
 
@@ -14802,7 +14852,7 @@ app.run()
 
 // src/menubar.js
 var fsp3 = import_fs7.default.promises;
-var home4 = () => import_os5.default.homedir();
+var home4 = () => import_os6.default.homedir();
 var LABEL_KEYS = [
   "\u7B49\u5F85 Agent Deck\u2026",
   "\u5728\u8DD1",
@@ -15928,7 +15978,7 @@ var JournalSync = class {
         ...pending.map((r) => `\u7B2C ${r.n} \u8F6E\uFF1A${String(r.summary || r.said).slice(-600)}`)
       ].filter(Boolean).join("\n");
       const raw = await runJournalModel(prompt, this.cfg);
-      const text = resultText(raw, 200);
+      const text = summaryText(raw, 200);
       if (!text || !this.cfg.autoLogMerge || this.cfg.journalAutoWrite === false || this._stopped) return;
       const through = Math.max(...pending.map((r) => r.n));
       const bucket = (_b = (_a = this.cfg).autoLogSummaries || (_a.autoLogSummaries = {}))[day] || (_b[day] = {});
@@ -16284,7 +16334,7 @@ var JournalSync = class {
     const min = Math.max(1, Math.round(((r.at || r.start) - r.start) / 6e4));
     const out = [`${indent}- \u23F1 ${fmtClock(r.start)}\u2013${fmtClock(r.at || r.start)} \xB7 \u5171 ${durTag(min)}${tok ? ` \xB7 ${fmtTok(tok)} tok` : ""} \xB7 \u5B50\u4EE3\u7406 \`${r.id.slice(0, 8)}\``];
     const said = String(r.last || "").trim();
-    if (said) out.push(`${indent}- \u{1F4AC} ${resultText(said, this.cfg.resultMax || 200)}`);
+    if (said) out.push(`${indent}- \u{1F4AC} ${summaryText(said, this.cfg.resultMax || 200)}`);
     return out;
   }
   subsInto(text, sid) {
@@ -16342,7 +16392,7 @@ var JournalSync = class {
             const mark = parseKid(lines[had.mark]);
             if (mark) lines[had.mark] = `${ind}	- \u23F1 ${fmtClock(r.start)}\u2013${fmtClock(r.at || r.start)} \xB7 \u5171 ${durTag(Math.max(1, Math.round(((r.at || r.start) - r.start) / 6e4)))}${this.kidTok(r) ? ` \xB7 ${fmtTok(this.kidTok(r))} tok` : ""} \xB7 \u5B50\u4EE3\u7406 \`${id}\``;
             const said = String(r.last || "").trim();
-            if (said) lines.splice(had.mark + 1, 0, `${ind}	- \u{1F4AC} ${resultText(said, this.cfg.resultMax || 200)}`);
+            if (said) lines.splice(had.mark + 1, 0, `${ind}	- \u{1F4AC} ${summaryText(said, this.cfg.resultMax || 200)}`);
             return true;
           }
           continue;
@@ -16804,7 +16854,7 @@ var AgentDeckPlugin = class extends import_obsidian13.Plugin {
     this.usageFile = import_path6.default.join(this.pluginDir, "usage.json");
     this.store = new UsageStore(this, this.settings);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
-    this.usageCacheFile = import_path6.default.join(import_os6.default.homedir(), ".agent-deck", "usage-cache.json.gz");
+    this.usageCacheFile = import_path6.default.join(import_os7.default.homedir(), ".agent-deck", "usage-cache.json.gz");
     this.editorInfoField = import_obsidian13.editorInfoField;
     this.delegator = new Delegator(this);
     this.menubar = new MenuBarBridge(this);
@@ -17371,11 +17421,20 @@ var AgentDeckPlugin = class extends import_obsidian13.Plugin {
     return this.openSession(m.agent || agent || "claude", sid, m.app || "", m);
   }
   // 螺旋日程接管进度显示时不重复画 pill；链接去重另核对具体会话。
-  nautilusOwnsLine(text) {
+  nautilusOwnsLine(text, session = null) {
     const n = this.app.plugins && this.app.plugins.plugins && this.app.plugins.plugins["nautilus-spiral"];
     if (!n || !n.settings || this.settings.yieldToNautilus === false) return false;
     if (n.settings.lineProgress === false || n.settings.showAi === false) return false;
-    return NAUTILUS_LINE_RE.test(text);
+    if (!NAUTILUS_LINE_RE.test(text)) return false;
+    if (session?.sid) {
+      try {
+        const shown = n.lineStatus?.(text);
+        return shown?.sid === session.sid && (!session.tokens || shown.tok > 0);
+      } catch {
+        return false;
+      }
+    }
+    return true;
   }
   // Hide a binding only when Nautilus can open that exact session from its progress row.
   redundantSessionLink(group, lines) {
@@ -17467,7 +17526,7 @@ var AgentDeckPlugin = class extends import_obsidian13.Plugin {
       const meta = this.usage.meta.get(parsed.sid) || { sid: parsed.sid, agent: parsed.agent, state: "idle", title: "", tokens: 0, lastAt: 0 };
       const live = liveFor(parsed.sid);
       const job = jobsBySid.get(parsed.sid);
-      const session = { ...meta, ...live || {}, agent: parsed.agent || meta.agent, job };
+      const session = { ...meta, ...live || {}, tokens: live?.tokens ?? meta.tokens ?? (meta.out || 0) + (meta.fresh || 0), agent: parsed.agent || meta.agent, job };
       linkByLine.set(i, { ...parsed, parent });
       sessionByParent.set(parent, session);
     }
@@ -17485,7 +17544,7 @@ var AgentDeckPlugin = class extends import_obsidian13.Plugin {
         const meta = this.usage.meta.get(sid);
         if (!meta) continue;
         const live = liveFor(sid);
-        sessionByParent.set(i, { ...meta, ...live || {}, sid, agent: meta.agent || "claude" });
+        sessionByParent.set(i, { ...meta, ...live || {}, tokens: live?.tokens ?? meta.tokens ?? (meta.out || 0) + (meta.fresh || 0), sid, agent: meta.agent || "claude" });
       }
     }
     const map = { doc, lines, sessionByParent, linkByLine };

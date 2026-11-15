@@ -10,6 +10,7 @@ import { pad, fmtTok } from "./constants.js";
 import { t } from "./i18n.js";
 import { detailForRound } from "./log-detail.js";
 import { cleanUserPrompt } from "./prompt-text.js";
+import { formatSummaryLinks } from "./summary-links.js";
 
 export const LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 export const STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
@@ -424,27 +425,34 @@ export function resultText(raw, max = 200) {
   return t.replace(/\[\[/g, "\\[\\[").replace(/(^|[^\w&\\])#(?=[^\s#])/g, "$1\\#").replace(/==/g, "\\=\\=").replace(/%%/g, "\\%\\%").replace(/\$/g, "\\$").replace(/</g, "\\<").replace(/\s\^(?=[A-Za-z0-9-]+$)/, " \\^");
 }
 
-// 提取一轮回复的一句话结论：优先取明确总结句或首句，压成单句并做 Obsidian 转义
+// 摘要截短时保留完整链接目标。
+export function summaryText(raw, max = 200) {
+  return formatSummaryLinks(raw, text => resultText(text, max));
+}
+
+// 提取一轮回复的一句话结论：优先取明确总结句或首句。
 export function oneSentenceConclusion(raw, max = 90) {
-  const cleaned = String(raw || "")
-    .replace(/```[\s\S]*?(?:```|$)/g, " ")
-    .replace(/^\s*\|.*\|\s*$/gm, " ")
-    .replace(/^\s{0,3}#{1,6}\s+/gm, "")
-    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "")
-    .replace(/^\s*>\s?/gm, "")
-    .replace(/\*\*([^*]+)\*\*/g, "$1")
-    .replace(/\d{12,}/g, "…")
-    .trim();
-  if (!cleaned) return "";
-  const lines = cleaned.split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
-  let pick = lines.find((l) => /^(?:结论|总结|核心结论|一句话总结|已完成|已修复|已更新|已实现|原因|问题在于|搞定|改好)[：:，,\s]/.test(l))
-    || lines.find((l) => l.length >= 6 && !/^(?:好的|收到|明白|没问题|我来|让我|先看)[，。！!,.]*$/.test(l))
-    || lines[lines.length - 1]
-    || cleaned;
-  // 取第一句完整的话（至少 6 个字之后的句号/叹号/问号/分号）
-  const sentMatch = /^(.{6,}?[。！？；!?;])(?:\s|$)/.exec(pick);
-  if (sentMatch) pick = sentMatch[1];
-  return resultText(pick, max);
+  return formatSummaryLinks(raw, source => {
+    const cleaned = String(source || "")
+      .replace(/```[\s\S]*?(?:```|$)/g, " ")
+      .replace(/^\s*\|.*\|\s*$/gm, " ")
+      .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+      .replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "")
+      .replace(/^\s*>\s?/gm, "")
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\d{12,}/g, "…")
+      .trim();
+    if (!cleaned) return "";
+    const lines = cleaned.split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+    let pick = lines.find((l) => /^(?:结论|总结|核心结论|一句话总结|已完成|已修复|已更新|已实现|原因|问题在于|搞定|改好)[：:，,\s]/.test(l))
+      || lines.find((l) => l.length >= 6 && !/^(?:好的|收到|明白|没问题|我来|让我|先看)[，。！!,.]*$/.test(l))
+      || lines[lines.length - 1]
+      || cleaned;
+    // 取第一句完整的话（至少 6 个字之后的句号/叹号/问号/分号）
+    const sentMatch = /^(.{6,}?[。！？；!?;])(?:\s|$)/.exec(pick);
+    if (sentMatch) pick = sentMatch[1];
+    return resultText(pick, max);
+  });
 }
 
 // 把会话最后说的话写到它绑着的那件任务下面；已有 💬 就换掉，没有就接在 🔗 后面（支持通过 ^blockId 或 sid 定位）
@@ -481,8 +489,10 @@ const detailExcerpt = (raw, max) => resultText(String(raw || "").replace(/^\s*(?
 
 // Journal detail uses one sentence even when Chinese punctuation has no following space.
 const recordSentence = (raw, max) => {
-  const text = oneSentenceConclusion(raw, max);
-  return text.match(/^.*?[。！？；!?;]/)?.[0] || text;
+  return formatSummaryLinks(raw, masked => {
+    const text = oneSentenceConclusion(masked, max);
+    return text.match(/^.*?[。！？；!?;]/)?.[0] || text;
+  });
 };
 
 // 把同一个窗口会话（session）里的多轮问答、每轮一句话结论、待拍板问题和 TaskCreate 进度都挂在同一个 ^xxxxx 任务条目下
@@ -563,7 +573,7 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
       if (brokenTask.test(lines[i])) {
         const round = sourceRounds.get(+marker[2]);
         const task = cleanUserPrompt(round?.taskSummary || round?.ask);
-        if (task) lines[i] = lines[i].replace(brokenTask, `任务：${resultText(task, 45)}`);
+        if (task) lines[i] = lines[i].replace(brokenTask, `任务：${summaryText(task, 45)}`);
       }
     }
     const match = /^\s*[-*+]\s+💬\s+(?:第(\d+)轮[：:]|((?!累计总结[：:]).))/.exec(lines[i]);
@@ -580,7 +590,7 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
     lines.splice(at, 0, line);
   };
   if (compact?.text) {
-    const summary = `${ind}- 💬 累计总结：${resultText(compact.text, 170)}`;
+    const summary = `${ind}- 💬 累计总结：${summaryText(compact.text, 170)}`;
     const marker = sid ? ` ${sessionMarker("summary", sid, compact.through || 0)}` : "";
     const legacyMarker = ` <!-- ad-summary:${sid}:${compact.through || 0} -->`;
     const saved = lines.slice(n + 1, childSpan() + 1).some(raw => width(raw) === childWidth &&
@@ -597,8 +607,8 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
     }
     const raw = level === "detailed" ? (r.said || r.summary) : (r.summary || r.said);
     const task = cleanUserPrompt(r.taskSummary || r.ask) || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
-    const message = r.journalSummary ? resultText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
-      ? `任务：${resultText(task, 45)}；结论：${resultText(raw, 65)}`
+    const message = r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
+      ? `任务：${summaryText(task, 45)}；结论：${summaryText(raw, 65)}`
       : recordSentence(raw, 90);
     // Number the latest-progress entry too, so a setting change cannot rewrite it.
     const prefix = rn === 1 && roundLog ? "" : `第${rn}轮：`;

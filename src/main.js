@@ -574,11 +574,18 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   // 螺旋日程接管进度显示时不重复画 pill；链接去重另核对具体会话。
-  nautilusOwnsLine(text) {
+  nautilusOwnsLine(text, session = null) {
     const n = this.app.plugins && this.app.plugins.plugins && this.app.plugins.plugins["nautilus-spiral"];
     if (!n || !n.settings || this.settings.yieldToNautilus === false) return false;
     if (n.settings.lineProgress === false || n.settings.showAi === false) return false;
-    return NAUTILUS_LINE_RE.test(text);
+    if (!NAUTILUS_LINE_RE.test(text)) return false;
+    if (session?.sid) {
+      try {
+        const shown = n.lineStatus?.(text);
+        return shown?.sid === session.sid && (!session.tokens || shown.tok > 0);
+      } catch { return false; }
+    }
+    return true;
   }
 
   // Hide a binding only when Nautilus can open that exact session from its progress row.
@@ -663,7 +670,7 @@ export default class AgentDeckPlugin extends Plugin {
       const meta = this.usage.meta.get(parsed.sid) || { sid: parsed.sid, agent: parsed.agent, state: "idle", title: "", tokens: 0, lastAt: 0 };
       const live = liveFor(parsed.sid);
       const job = jobsBySid.get(parsed.sid);
-      const session = { ...meta, ...(live || {}), agent: parsed.agent || meta.agent, job };
+      const session = { ...meta, ...(live || {}), tokens: live?.tokens ?? meta.tokens ?? ((meta.out || 0) + (meta.fresh || 0)), agent: parsed.agent || meta.agent, job };
       linkByLine.set(i, { ...parsed, parent });
       sessionByParent.set(parent, session);
     }
@@ -681,7 +688,7 @@ export default class AgentDeckPlugin extends Plugin {
         const meta = this.usage.meta.get(sid);
         if (!meta) continue;
         const live = liveFor(sid);
-        sessionByParent.set(i, { ...meta, ...(live || {}), sid, agent: meta.agent || "claude" });
+        sessionByParent.set(i, { ...meta, ...(live || {}), tokens: live?.tokens ?? meta.tokens ?? ((meta.out || 0) + (meta.fresh || 0)), sid, agent: meta.agent || "claude" });
       }
     }
     const map = { doc, lines, sessionByParent, linkByLine };

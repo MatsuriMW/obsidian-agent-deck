@@ -61,7 +61,13 @@ Token 合计包含输入、输出和缓存读取，不代表费用。耗时按�
 
 ## 更新记录
 
-当前版本 **1.9.6**。逐版细节见 [CHANGELOG.md](CHANGELOG.md)，正式产物见 [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)。
+当前版本 **1.9.7**。逐版细节见 [CHANGELOG.md](CHANGELOG.md)，正式产物见 [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)。
+
+### 1.9.7 · 摘要短链与 token 显示
+
+- 摘要短链、任务／结论格式、用户标题保护和内部标识清理均在公共记录层处理，适用于七类 Agent 客户端和不同模型；客户端适配器只负责读取原始数据。
+- 摘要中的地址用 `[🔗](完整地址)` 回传，保留可读链接文字；摘要截断不破坏目标。完整原文仍保留地址。
+- 修复螺旋日程未实际显示会话时，Agent Deck 也隐藏显示的问题；恢复自动记录条目的 token 数字与数据库图标，补齐不活跃会话的显示值。
 
 ### 1.9.6 · 实验回顾与语义追踪标识
 

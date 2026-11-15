@@ -453,7 +453,8 @@
 .ad-pill__label { font-weight: 700; position: relative; z-index: 1; }
 .ad-pill__meta { color: var(--ad-muted); font-variant-numeric: tabular-nums; position: relative; z-index: 1; }
 .ad-pill__right { display: inline-flex; align-items: center; gap: 2px; position: relative; z-index: 1; }
-.ad-pill__tok { color: var(--ad-muted); font-size: 9px; }
+.ad-pill__tok { display: inline-flex; align-items: center; gap: 3px; color: var(--ad-muted); font-size: 9px; }
+.ad-pill__tok svg { width: 11px; height: 11px; }
 .ad-pill__chev, .ad-pill__cancel, .ad-pill__open { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; color: var(--ad-muted); font-size: 12px; line-height: 1; }
 .ad-pill__chev:hover { background: var(--background-modifier-hover); color: var(--ad-ink); }
 .ad-pill__cancel { font-size: 13px; }

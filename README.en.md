@@ -59,7 +59,13 @@ Tokens include input, output and cache reads; they do not represent cost. Active
 
 ## Release notes
 
-Current version: **1.9.6**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+Current version: **1.9.7**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+
+### 1.9.7 · Compact summary links and token display
+
+- Shared journal rules apply across all seven Agent clients and models: compact links, task/outcome formatting, edited-title preservation and identifier cleanup. Client adapters only read source data.
+- Render addresses in summaries as clickable `[🔗](full-address)` links without truncating their targets; preserve readable link labels and original transcripts.
+- Restore token amounts with a database icon when Nautilus cannot display the same session, and include token amounts for inactive sessions.
 
 ### 1.9.6 · Experimental review and semantic tracking IDs
 

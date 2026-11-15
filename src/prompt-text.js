@@ -37,4 +37,3 @@ export function isPromptText(text) {
   if (/^# AGENTS\.md instructions|^<(user_instructions|external_codex_)/.test(s)) return false;
   return true;
 }
-

@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import {test} from 'node:test';
+import {register} from 'node:module';
+register('data:text/javascript,'+encodeURIComponent(`export async function resolve(s,c,n){if(s==='obsidian')return {url:'data:text/javascript,export class MarkdownView{};export class Notice{};',shortCircuit:true};return n(s,c)}`));
+const J=await import('../src/journal.js');const {AutoLog}=await import('../src/autolog.js');
+const agents=['claude','codex','dsh','workbuddy','antigravity','opencode','qoder'];
+const url='https://example.com/project/very-long-reference-document?source=all-agent-clients';
+const title='10:30 前检查  [[工作计划|我的计划]]，保留用户改名';
+for(const agent of agents)test(`${agent}: shared journal rules preserve semantics, compact links, edited titles and cleanup`,()=>{
+ const sid=agent+'-universal-rules',blockId=J.makeBlockId(sid,agent,'journal-rules');
+ const al=new AutoLog({settings:{}}),rec={key:'旧标题',label:'旧标题',created:true,agent,blockId};
+ let note=`- DOING 🤖 09:00-09:30 ${title} ^${blockId}\n`+J.linkLine('  ',agent,'任务',sid);
+ note=al.autoLine(note,rec,{sid,agent,segs:[[540,600]]},'paused').text;
+ assert.ok(note.includes(title),'edited title is verbatim');
+ const options={sid,agent,blockId,detail:'brief',granularity:'round',rounds:[{n:1,ask:'参考 '+url+' 修复缓存',summary:'缓存修复完成，尚未发布。',said:'原始回复与模型名称不影响公共格式'}]};
+ note=J.syncSessionEntry(note,options).text;
+ assert.ok(note.includes(`[🔗](${url})`),'full link remains clickable');
+ assert.ok(note.includes('修复缓存')&&note.includes('缓存修复完成，尚未发布'),'task and outcome retain their meaning');
+ assert.ok(note.includes(title));assert.equal(J.syncSessionEntry(note,options).text,note,'repeat scan is stable');
+ note=al.autoLine(note,rec,{sid,agent,segs:[[540,600]]},'done').text;
+ note=J.cleanCompletedIdentifiers(note);
+ assert.ok(note.includes(title)&&note.includes(sid));assert.ok(!note.includes('^'+blockId)&&!note.includes('<!-- ad-turn:'));
+});

@@ -198,7 +198,7 @@ export class JournalSync {
         ...pending.map((r) => `第 ${r.n} 轮：${String(r.summary || r.said).slice(-600)}`)].filter(Boolean).join("\n");
       const raw = await runJournalModel(prompt, this.cfg);
       // resultText cuts on a sentence boundary instead of mid-word.
-      const text = J.resultText(raw, 200);
+      const text = J.summaryText(raw, 200);
       if (!text || !this.cfg.autoLogMerge || this.cfg.journalAutoWrite === false || this._stopped) return;
       const through = Math.max(...pending.map((r) => r.n));
       const bucket = ((this.cfg.autoLogSummaries ||= {})[day] ||= {});
@@ -537,7 +537,7 @@ export class JournalSync {
     const min = Math.max(1, Math.round(((r.at || r.start) - r.start) / 60e3));
     const out = [`${indent}- ⏱ ${fmtClock(r.start)}–${fmtClock(r.at || r.start)} · 共 ${J.durTag(min)}${tok ? ` · ${fmtTok(tok)} tok` : ""} · 子代理 \`${r.id.slice(0, 8)}\``];
     const said = String(r.last || "").trim();
-    if (said) out.push(`${indent}- 💬 ${J.resultText(said, this.cfg.resultMax || 200)}`);
+    if (said) out.push(`${indent}- 💬 ${J.summaryText(said, this.cfg.resultMax || 200)}`);
     return out;
   }
 
@@ -585,7 +585,7 @@ export class JournalSync {
             const mark = J.parseKid(lines[had.mark]);
             if (mark) lines[had.mark] = `${ind}\t- ⏱ ${fmtClock(r.start)}–${fmtClock(r.at || r.start)} · 共 ${J.durTag(Math.max(1, Math.round(((r.at || r.start) - r.start) / 60e3)))}${this.kidTok(r) ? ` · ${fmtTok(this.kidTok(r))} tok` : ""} · 子代理 \`${id}\``;
             const said = String(r.last || "").trim();
-            if (said) lines.splice(had.mark + 1, 0, `${ind}\t- 💬 ${J.resultText(said, this.cfg.resultMax || 200)}`);
+            if (said) lines.splice(had.mark + 1, 0, `${ind}\t- 💬 ${J.summaryText(said, this.cfg.resultMax || 200)}`);
             return true;
           }
           continue;
