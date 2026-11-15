@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.9.9**（准备发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.9.9.1**（已修复发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 双平台验证边界
 
@@ -46,3 +46,9 @@
 - **Dashboard 视觉与排序优化 & 高价值微重构（1.9.9）**：
   - `src/dashboard.js` 与 `styles.css` 在「Agent 分布」、模型/项目明细及记录明细中统一采用 `agentIcon` 图标；「项目投入」支持按 `Token / 耗时 / 会话 / 名称` 与「顺序 ↑ / 倒序 ↓」切换及表头排序，并以 `projectsMaxTokens` 作为进度条基准、复用 `analytics.js` 预计算的时段 `range`。
   - 抽出共享只读大纲/双链模块 `src/outline.js`（由 `journal.js` / `harness.js` / `analytics.js` / `dream.js` 复用），抽出可扩展日志解析注册表 `src/agent-ingestors.js`（由 `readers.js` 委托）和委派 Runner 注册表 `src/delegation-runners.js`（由 `delegation.js` 委托）；macOS 已通过全量 `npm test` 与 `npm run build`（Windows 未实测）。
+- **AI 记录多视图与多格式导出优化**：
+  - 将会话轮次时间戳解析与格式化（`trackedBlockIds`、`blockSessionMap`、`collectGroupSids`、`roundStartedAt`、`localDayKey`、`formatTimelineAt`、`formatTimelineFull`）抽至 `src/ai-records.js`，由 `src/record-display.js` 与 `src/task-export.js` 复用（零循环依赖）。
+  - 保留顶层 AI 自动记录母块行尾单一 `ViewToggleWidget` 入口，视图菜单内的「导出」子菜单（`populateRecordExportMenu` in `src/main.js`）自动携带当前 `viewMode`。
+  - `src/task-export.js` 支持按当前视图（大纲 / 表格 / 卡片 / 时间线）导出 PDF 与独立 HTML（展开全部子项、保留时间线时间戳与手写附注）；新增无损导出 Markdown (`.md`)、结构化 JSON (`.json`)、UTF-8 BOM CSV (`.csv`)，以及复制为 Markdown、Markdown 表格、纯文本与 JSON；原移出式保存明确为「另存为并移出原文…」。
+  - 验证边界：macOS 已通过全量 `npm test`（含 `test/task-export.test.mjs`、`test/record-views.test.mjs`、`test/i18n.test.mjs`、`test/architecture-refactor.test.mjs`）、`npm run build`、`git diff --check`；Obsidian 真实 PDF 渲染与 Windows 端未实测。
+- **Claude CLI `env` 认证修复（[Issue #4](https://github.com/MatsuriMW/obsidian-agent-deck/issues/4)）**：`src/llm.js` 中 `runClaude()` 将 `--setting-sources` 由 `project` 调整为 `user,project`，使配置在 `~/.claude/settings.json` `env` 中的 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` 可被子进程正常加载；同步补全 `JOURNAL_PROVIDERS.claude.loggedIn`（`hasClaudeSettingsAuth`），识别 `env.ANTHROPIC_AUTH_TOKEN` 及 `~/.claude/settings.json` `env` 中的 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_API_KEY` 避免自动探测误判未登录（已补 `test/llm.test.mjs` 单测与 macOS 测试/构建）。

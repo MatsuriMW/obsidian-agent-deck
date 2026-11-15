@@ -48,7 +48,11 @@ import { ConversationModal, AcpPermissionModal } from "./conversation-modal.js";
 import { registerTaskAgentSuggest } from "./mention-suggest.js";
 import { t } from "./i18n.js";
 import { registerTaskStatusMenu } from "./task-status.js";
-import { copyTaskMarkdown, exportTaskToPdf, saveTaskAsFile } from "./task-export.js";
+import {
+  copyTaskMarkdown, copyTaskMarkdownTable, copyTaskPlainText, copyTaskJson,
+  exportTaskToPdf, exportTaskToHtml, exportTaskToMarkdown, exportTaskToJson, exportTaskToCsv,
+  saveTaskAsFile,
+} from "./task-export.js";
 import { scanAgentWait, scanLimitQueue, resolveExternalState, buildLineProgressInfo } from "./external-state.js";
 import { ManagedTimers, CircuitBreaker, safeRun } from "./runtime-guard.js";
 import { hasAgentCapability, usesDeckSessionLink } from "./agent-registry.js";
@@ -1233,6 +1237,60 @@ export default class AgentDeckPlugin extends Plugin {
     setLucide(el, icons[viewMode] || "list-tree");
   }
 
+  populateRecordExportMenu(sub, { path = "", line = 0, viewMode = "outline" } = {}) {
+    const viewLabels = {
+      outline: t("大纲"),
+      table: t("表格"),
+      cards: t("卡片"),
+      timeline: t("时间线"),
+    };
+    const activeViewLabel = viewLabels[viewMode] || viewLabels.outline;
+    sub.addItem((si) => si
+      .setTitle(t("导出为 PDF（{view}）", { view: activeViewLabel }))
+      .setIcon("file-text")
+      .onClick(() => exportTaskToPdf(this, path, line, { viewMode })));
+    sub.addItem((si) => si
+      .setTitle(t("导出为 HTML（{view}）", { view: activeViewLabel }))
+      .setIcon("globe")
+      .onClick(() => exportTaskToHtml(this, path, line, { viewMode })));
+    sub.addItem((si) => si
+      .setTitle(t("导出为 Markdown (.md)"))
+      .setIcon("file-code")
+      .onClick(() => exportTaskToMarkdown(this, path, line)));
+    sub.addItem((si) => si
+      .setTitle(t("导出为 JSON (.json)"))
+      .setIcon("braces")
+      .onClick(() => exportTaskToJson(this, path, line, { viewMode })));
+    sub.addItem((si) => si
+      .setTitle(t("导出为 CSV (.csv)"))
+      .setIcon("table")
+      .onClick(() => exportTaskToCsv(this, path, line)));
+
+    sub.addSeparator();
+    sub.addItem((si) => si
+      .setTitle(t("复制为 Markdown"))
+      .setIcon("clipboard-copy")
+      .onClick(() => copyTaskMarkdown(this, path, line)));
+    sub.addItem((si) => si
+      .setTitle(t("复制为 Markdown 表格"))
+      .setIcon("table")
+      .onClick(() => copyTaskMarkdownTable(this, path, line)));
+    sub.addItem((si) => si
+      .setTitle(t("复制为纯文本"))
+      .setIcon("align-left")
+      .onClick(() => copyTaskPlainText(this, path, line)));
+    sub.addItem((si) => si
+      .setTitle(t("复制为 JSON"))
+      .setIcon("copy")
+      .onClick(() => copyTaskJson(this, path, line, { viewMode })));
+
+    sub.addSeparator();
+    sub.addItem((si) => si
+      .setTitle(t("另存为并移出原文…"))
+      .setIcon("folder-output")
+      .onClick(() => saveTaskAsFile(this, path, line)));
+  }
+
   openRecordViewMenu(event, { path = "", line = 0, viewMode = "outline", onSelect } = {}) {
     const menu = new Menu();
     const views = [
@@ -1248,19 +1306,15 @@ export default class AgentDeckPlugin extends Plugin {
     }
     if (path) {
       menu.addSeparator();
-      const populateExport = (sub) => {
-        sub.addItem((si) => si.setTitle(t("导出为 PDF")).setIcon("file-text").onClick(() => exportTaskToPdf(this, path, line)));
-        sub.addItem((si) => si.setTitle(t("以 Markdown 格式复制到剪贴板")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path, line)));
-        sub.addItem((si) => si.setTitle(t("另存为…")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path, line)));
-      };
+      const opts = { path, line, viewMode };
       menu.addItem((mi) => {
         mi.setTitle(t("导出")).setIcon("download");
         if (typeof mi.setSubmenu === "function") {
-          populateExport(mi.setSubmenu());
+          this.populateRecordExportMenu(mi.setSubmenu(), opts);
         } else {
           mi.onClick(() => {
             const sub = new Menu();
-            populateExport(sub);
+            this.populateRecordExportMenu(sub, opts);
             if (event) sub.showAtMouseEvent(event);
           });
         }

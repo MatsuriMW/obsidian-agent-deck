@@ -48,29 +48,40 @@ export async function resolve(s, c, n) {
   return n(s, c);
 }`));
 
-const { extractTaskBlock, buildTaskExportDocument, removeTaskBlockFromNote, writeExportFile } = await import("../src/task-export.js");
+const {
+  extractTaskBlock,
+  buildTaskExportDocument,
+  buildTaskViewHtmlDocument,
+  buildTaskExportJson,
+  buildTaskExportCsv,
+  buildTaskMarkdownTable,
+  buildTaskPlainText,
+  removeTaskBlockFromNote,
+  writeExportFile,
+} = await import("../src/task-export.js");
 const { default: AgentDeckPlugin } = await import("../src/main.js");
 
-test("extractTaskBlock cleans internal markers, keeps dialogue and parent task, and classifies name", () => {
-  const note = [
-    "- 其他任务",
-    "\t- DOING 🤖 10:00-10:28 agent-deck -> 时间线优化 ^ad-time-abc1234567",
-    "\t\t- ❓ 第1轮：横向时间轴可行吗？ <!-- ad-turn:abc1234567:1 -->",
-    "\t\t- 💬 第1轮：可以直接复用内存 rounds 列表 <!-- ad-turn:abc1234567:1 -->",
-    "\t\t\t```js",
-    "\t\t\tconst sample = '^ad-keep-inside-fence';",
-    "\t\t\t```",
-    "\t\t- 🔗 [Claude](claude://resume?session=11111111-1111-1111-1111-111111111111) `11111111-1111-1111-1111-111111111111`",
-    "\t\t- ⏱ 10:00–10:28 · 共 28m · 12k tok <!-- ad-clock:deadbeef -->",
-    "",
-    "- 后续任务",
-  ].join("\n");
+const SAMPLE_NOTE = [
+  "- 其他任务",
+  "\t- DOING 🤖 10:00-10:28 agent-deck -> 时间线优化 ^ad-time-abc1234567",
+  "\t\t- ❓ 第1轮：横向时间轴可行吗？ <!-- ad-turn:abc1234567:1 -->",
+  "\t\t- 💬 第1轮：可以直接复用内存 rounds 列表 <!-- ad-turn:abc1234567:1 -->",
+  "\t\t\t```js",
+  "\t\t\tconst sample = '^ad-keep-inside-fence';",
+  "\t\t\t```",
+  "\t\t- 🔗 [Claude](claude://resume?session=11111111-1111-1111-1111-111111111111) `11111111-1111-1111-1111-111111111111`",
+  "\t\t- ⏱ 10:00–10:28 · 共 28m · 12k tok <!-- ad-clock:deadbeef -->",
+  "",
+  "- 后续任务",
+].join("\n");
 
-  const ex = extractTaskBlock(note, 1, "日记/2026_11_16.md");
+test("extractTaskBlock cleans internal markers, keeps dialogue and parent task, and classifies name", () => {
+  const ex = extractTaskBlock(SAMPLE_NOTE, 1, "日记/2026_11_16.md");
   assert.ok(ex);
   assert.equal(ex.start, 1);
   assert.equal(ex.end, 8);
   assert.equal(ex.date, "2026-11-16");
+  assert.equal(ex.status, "DOING");
   assert.equal(ex.title, "agent-deck -> 时间线优化");
   assert.equal(ex.category, "agent-deck");
   assert.equal(ex.suggestedName, "2026-11-16-agent-deck-时间线优化");
@@ -85,6 +96,116 @@ test("extractTaskBlock cleans internal markers, keeps dialogue and parent task, 
 
   const doc = buildTaskExportDocument(ex, "日记/2026_11_16.md");
   assert.ok(doc.startsWith("# agent-deck -> 时间线优化\n\n> 来源：日记/2026_11_16.md\n\n- DOING 🤖"));
+});
+
+test("buildTaskViewHtmlDocument renders distinct outline, table, cards and timeline views with expanded children, timestamps and safe links", () => {
+  const t1 = new Date(2026, 10, 16, 9, 15, 0).getTime();
+  const t2 = new Date(2026, 10, 17, 10, 40, 0).getTime();
+  const note = [
+    "- DOING 🤖 10:00-10:28 agent-deck -> 导出视图 ^ad-view-1234567890",
+    "  - ❓ 第1轮：支持表格与 [链接](https://example.com) 吗？ <!-- ad-turn:s1:1 -->",
+    "  - 💬 第1轮：支持，见 [[设计规范|UI 规范]] 与 [bad](javascript:alert(1)) <!-- ad-turn:s1:1 -->",
+    "    - 细节 A：支持 `table` | `cards`",
+    "      - 深层 B",
+    "  - 💬 第2轮：任务：加时间线；结论：已按跨天时间轴对齐 <!-- ad-turn:s1:2 -->",
+    "  - 💬 累计总结：全部导出格式就绪",
+    "  - 手写补充：记得核对暗色与打印分页",
+    "  - 🔗 [Codex](codex://threads/11111111-2222-3333-4444-555555555555) `11111111-2222-3333-4444-555555555555`",
+    "  - ⏱ 09:15–10:40 · 共 35m · 8k tok <!-- ad-clock:cafebabe -->",
+  ].join("\n");
+
+  const plugin = {
+    settings: { aiRecordViews: { "ad-view-1234567890": "timeline" } },
+    agentShortNames: { codex: "Codex" },
+    usage: { meta: new Map([["s1", { rounds: [{ n: 1, at: t1 }, { n: 2, at: t2 }] }]]) },
+  };
+
+  const ex = extractTaskBlock(note, 0, "日记/2026_11_16.md", plugin);
+  assert.equal(ex.viewMode, "timeline");
+  assert.equal(ex.structured.rows.length, 3);
+  assert.equal(ex.structured.footer.length, 2);
+  assert.equal(ex.structured.extraMarkdown, "- 手写补充：记得核对暗色与打印分页");
+
+  const outlineHtml = buildTaskViewHtmlDocument(ex, "日记/2026_11_16.md", { viewMode: "outline" });
+  assert.ok(outlineHtml.includes('class="ad-ex-outline"'));
+  assert.ok(outlineHtml.includes("视图：大纲"));
+
+  const tableHtml = buildTaskViewHtmlDocument(ex, "日记/2026_11_16.md", { viewMode: "table" });
+  assert.ok(tableHtml.includes('data-view="table"'));
+  assert.ok(tableHtml.includes('<table class="ad-record-table">'));
+  assert.ok(tableHtml.includes("任务 / 提问"));
+  assert.ok(tableHtml.includes("细节 A：支持"));
+  assert.ok(tableHtml.includes("深层 B"));
+  assert.ok(tableHtml.includes('href="https://example.com"'));
+  assert.ok(!tableHtml.includes("javascript:alert"));
+  assert.ok(tableHtml.includes("UI 规范"));
+  assert.ok(tableHtml.includes("附注与子任务"));
+  assert.ok(tableHtml.includes("手写补充：记得核对暗色与打印分页"));
+  assert.ok(tableHtml.includes("ad-rt-footer"));
+
+  const cardsHtml = buildTaskViewHtmlDocument(ex, "日记/2026_11_16.md", { viewMode: "cards" });
+  assert.ok(cardsHtml.includes('data-view="cards"'));
+  assert.ok(cardsHtml.includes('class="ad-rt-cards"'));
+  assert.ok(cardsHtml.includes('class="ad-rt-card is-span"'));
+  assert.ok(cardsHtml.includes("2026-11-16 09:15"));
+
+  const timelineHtml = buildTaskViewHtmlDocument(ex, "日记/2026_11_16.md", { viewMode: "timeline" });
+  assert.ok(timelineHtml.includes('data-view="timeline"'));
+  assert.ok(timelineHtml.includes("ad-rt-timeline--timed ad-rt-timeline--dated"));
+  assert.ok(timelineHtml.includes("11-16 09:15"));
+  assert.ok(timelineHtml.includes("11-17 10:40"));
+
+  // Plain task without AI records falls back cleanly to outline even if cards requested
+  const plainEx = extractTaskBlock("- TODO 手写普通任务\n  - 普通子项", 0, "日记/2026_11_16.md");
+  const plainHtml = buildTaskViewHtmlDocument(plainEx, "日记/2026_11_16.md", { viewMode: "cards" });
+  assert.ok(plainHtml.includes('class="ad-ex-outline"'));
+  assert.ok(plainHtml.includes("普通子项"));
+});
+
+test("JSON, CSV, Markdown table and plain text builders produce valid reusable outputs", () => {
+  const t1 = new Date(2026, 10, 16, 14, 5, 0).getTime();
+  const note = [
+    "- DONE 🤖 14:00-14:20 proj -> 接口整理 ^ad-api-1234567890",
+    '  - ❓ 第1轮：字段包含 "id", `name` 吗？ <!-- ad-turn:s1:1 -->',
+    "  - 💬 第1轮：包含 `a | b` 与 [[Docs|文档]] <!-- ad-turn:s1:1 -->",
+    "    - 子项一",
+    "  - 手写注记",
+    "  - ⏱ 14:00–14:20 · 共 20m · 5k tok",
+  ].join("\n");
+  const plugin = {
+    settings: { aiRecordViews: { "ad-api-1234567890": "table" } },
+    usage: { meta: new Map([["s1", { rounds: [{ n: 1, at: t1 }] }]]) },
+  };
+  const ex = extractTaskBlock(note, 0, "日记/2026_11_16.md", plugin);
+
+  const json = JSON.parse(buildTaskExportJson(ex, "日记/2026_11_16.md"));
+  assert.equal(json.schema, "agent-deck.task-export.v1");
+  assert.equal(json.status, "DONE");
+  assert.equal(json.viewMode, "table");
+  assert.equal(json.rounds.length, 1);
+  assert.equal(json.rounds[0].round, 1);
+  assert.equal(json.rounds[0].startedAt, t1);
+  assert.deepEqual(json.rounds[0].children, [{ level: 0, text: "子项一" }]);
+  assert.equal(json.notes, "- 手写注记");
+  assert.equal(json.footer.length, 1);
+
+  const csv = buildTaskExportCsv(ex, "日记/2026_11_16.md");
+  assert.ok(csv.startsWith("\uFEFF标题,日期,来源,轮次,类型,时间,任务 / 提问,结论 / 回复,子项\r\n"));
+  assert.ok(csv.includes("#1") && csv.includes('"字段包含 ""id"", `name` 吗？"'));
+
+  const mdTable = buildTaskMarkdownTable(ex, "日记/2026_11_16.md");
+  assert.ok(mdTable.includes("| 轮次 | 任务 / 提问 | 结论 / 回复 |"));
+  assert.ok(mdTable.includes("`a \\| b`"));
+  assert.ok(mdTable.includes("• 子项一"));
+  assert.ok(mdTable.includes("## 附注与子任务"));
+  assert.ok(mdTable.includes("- ⏱ 14:00–14:20 · 共 20m · 5k tok"));
+
+  const plain = buildTaskPlainText(ex, "日记/2026_11_16.md");
+  assert.ok(!plain.includes("[[Docs|文档]]"));
+  assert.ok(plain.includes("文档"));
+  assert.ok(!plain.includes("`name`"));
+  assert.ok(plain.includes("[#1 · 2026-11-16 14:05]"));
+  assert.ok(plain.includes("  - 子项一"));
 });
 
 test("removeTaskBlockFromNote removes block with zero leftover placeholder and clean spacing", () => {
@@ -139,18 +260,34 @@ test("writeExportFile writes inside vault via Obsidian API and outside vault via
   }
 });
 
-test("openRecordViewMenu exposes Export submenu instead of task actions or re-delegate", () => {
-  const menu = AgentDeckPlugin.prototype.openRecordViewMenu.call(
-    { app: {}, settings: {} },
+test("openRecordViewMenu exposes view-aware PDF and multi-format exports inside Export submenu", () => {
+  const ctx = {
+    app: {},
+    settings: {},
+    populateRecordExportMenu: AgentDeckPlugin.prototype.populateRecordExportMenu,
+  };
+
+  const viewMenu = AgentDeckPlugin.prototype.openRecordViewMenu.call(
+    ctx,
     {},
     { path: "日记/2026_11_16.md", line: 3, viewMode: "timeline" },
   );
-  const titles = menu.items.map((i) => i.title);
-  assert.deepEqual(titles, ["大纲", "表格", "卡片", "时间线", "导出"]);
-  const exportItem = menu.items[4];
+  assert.deepEqual(viewMenu.items.map((i) => i.title), ["大纲", "表格", "卡片", "时间线", "导出"]);
+  const exportItem = viewMenu.items[4];
   assert.ok(exportItem.submenu);
   assert.deepEqual(
     exportItem.submenu.items.map((i) => i.title),
-    ["导出为 PDF", "以 Markdown 格式复制到剪贴板", "另存为…"],
+    [
+      "导出为 PDF（时间线）",
+      "导出为 HTML（时间线）",
+      "导出为 Markdown (.md)",
+      "导出为 JSON (.json)",
+      "导出为 CSV (.csv)",
+      "复制为 Markdown",
+      "复制为 Markdown 表格",
+      "复制为纯文本",
+      "复制为 JSON",
+      "另存为并移出原文…",
+    ],
   );
 });

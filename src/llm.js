@@ -47,6 +47,16 @@ function resolveBin(name, configured = "", homeDir = home(), env = process.env) 
   return "";
 }
 
+function hasClaudeSettingsAuth(homeDir) {
+  try {
+    const raw = fs.readFileSync(path.join(homeDir, ".claude", "settings.json"), "utf8");
+    const env = JSON.parse(raw)?.env;
+    return Boolean(env && (String(env.ANTHROPIC_AUTH_TOKEN || "").trim() || String(env.ANTHROPIC_API_KEY || "").trim()));
+  } catch {
+    return false;
+  }
+}
+
 export const JOURNAL_CLI_ORDER = ["agy", "claude", "codex", "qodercli", "codebuddy"];
 
 export const JOURNAL_PROVIDERS = {
@@ -66,7 +76,7 @@ export const JOURNAL_PROVIDERS = {
     delegateKey: "claude",
     defaultModel: "haiku",
     models: ["haiku", "sonnet", "claude-opus-5-5", "fable"],
-    loggedIn: (h, env) => fs.existsSync(path.join(h, ".claude", ".credentials.json")) || fs.existsSync(path.join(h, ".claude.json")) || Boolean(env.ANTHROPIC_API_KEY),
+    loggedIn: (h, env) => fs.existsSync(path.join(h, ".claude", ".credentials.json")) || fs.existsSync(path.join(h, ".claude.json")) || Boolean(String(env?.ANTHROPIC_API_KEY || env?.ANTHROPIC_AUTH_TOKEN || "").trim()) || hasClaudeSettingsAuth(h),
   },
   codex: {
     id: "codex",
@@ -169,9 +179,9 @@ function runProcess(bin, args, { label, timeout = 120, stdin = null, env = build
 }
 
 // 一问一答：-p 打完就退，不写会话记录（否则它自己也会被追踪成一个会话），
-// 不加载 MCP、个人设置里的钩子和插件；返回它说的那段文字
+// 保留 user 设置源以读取 ~/.claude/settings.json 的 env 认证，同时屏蔽 MCP 与工具调用
 export async function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 120, system = "" } = {}) {
-  const args = ["-p", "--output-format", "json", "--no-session-persistence", "--strict-mcp-config", "--setting-sources", "project", "--tools", "", "--system-prompt", system || "你是一个只输出 JSON 的整理助手。"];
+  const args = ["-p", "--output-format", "json", "--no-session-persistence", "--strict-mcp-config", "--setting-sources", "user,project", "--tools", "", "--system-prompt", system || "你是一个只输出 JSON 的整理助手。"];
   if (model) args.push("--model", model);
   const { code, out, err } = await runProcess(bin, args, { label: "claude", timeout, stdin: prompt });
   let d;

@@ -1,4 +1,4 @@
-/* Agent Deck 1.9.9 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.9.9.1 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -158,17 +158,45 @@ var main_default = {
   "\u6682\u4E0D": "Not now",
   // Record view export submenu
   "\u5BFC\u51FA": "Export",
-  "\u5BFC\u51FA\u4E3A PDF": "Export to PDF",
-  "\u4EE5 Markdown \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F": "Copy as Markdown",
-  "\u53E6\u5B58\u4E3A\u2026": "Save as\u2026",
+  "\u5BFC\u51FA\u4E3A PDF\uFF08{view}\uFF09": "Export to PDF ({view})",
+  "\u5BFC\u51FA\u4E3A HTML\uFF08{view}\uFF09": "Export to HTML ({view})",
+  "\u5BFC\u51FA\u4E3A Markdown (.md)": "Export to Markdown (.md)",
+  "\u5BFC\u51FA\u4E3A JSON (.json)": "Export to JSON (.json)",
+  "\u5BFC\u51FA\u4E3A CSV (.csv)": "Export to CSV (.csv)",
+  "\u590D\u5236\u4E3A Markdown": "Copy as Markdown",
+  "\u590D\u5236\u4E3A Markdown \u8868\u683C": "Copy as Markdown table",
+  "\u590D\u5236\u4E3A\u7EAF\u6587\u672C": "Copy as plain text",
+  "\u590D\u5236\u4E3A JSON": "Copy as JSON",
+  "\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026": "Move and save as Markdown\u2026",
   "AI \u5BF9\u8BDD\u4EFB\u52A1": "AI conversation task",
   "\u6765\u6E90\uFF1A{path}": "Source: {path}",
+  "\u6765\u6E90": "Source",
+  "\u89C6\u56FE\uFF1A{view}": "View: {view}",
+  "{n} \u6761\u8BB0\u5F55": "{n} records",
+  "\u9644\u6CE8\u4E0E\u5B50\u4EFB\u52A1": "Notes & subtasks",
+  "\u6807\u9898": "Title",
+  "\u65E5\u671F": "Date",
+  "\u7C7B\u578B": "Type",
+  "\u65F6\u95F4": "Time",
+  "\u5B50\u9879": "Subitems",
+  "\u4EFB\u52A1": "Task",
   "\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757": "No exportable task block found",
   "\u5199\u5165\u526A\u8D34\u677F\u5931\u8D25": "Could not write to clipboard",
   "\u5DF2\u6309 Markdown \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F": "Copied as Markdown to clipboard",
+  "\u5DF2\u6309 Markdown \u8868\u683C\u590D\u5236\u5230\u526A\u8D34\u677F": "Copied as Markdown table to clipboard",
+  "\u5DF2\u6309\u7EAF\u6587\u672C\u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F": "Copied as plain text to clipboard",
+  "\u5DF2\u6309 JSON \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F": "Copied as JSON to clipboard",
   "\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u5BFC\u51FA PDF": "PDF export is unavailable in this environment",
-  "\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A PDF": "Export task and conversation to PDF",
+  "\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A PDF\uFF08{view}\uFF09": "Export task and conversation to PDF ({view})",
+  "\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A HTML": "Export task and conversation to HTML",
+  "\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A Markdown": "Export task and conversation to Markdown",
+  "\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A JSON": "Export task and conversation to JSON",
+  "\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A CSV": "Export task and conversation to CSV",
   "\u5DF2\u5BFC\u51FA PDF\uFF1A{path}": "Exported PDF: {path}",
+  "\u5DF2\u5BFC\u51FA HTML\uFF1A{path}": "Exported HTML: {path}",
+  "\u5DF2\u5BFC\u51FA Markdown\uFF1A{path}": "Exported Markdown: {path}",
+  "\u5DF2\u5BFC\u51FA JSON\uFF1A{path}": "Exported JSON: {path}",
+  "\u5DF2\u5BFC\u51FA CSV\uFF1A{path}": "Exported CSV: {path}",
   "\u5BFC\u51FA PDF \u5931\u8D25\uFF1A{error}": "PDF export failed: {error}",
   "\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u9009\u62E9\u4FDD\u5B58\u4F4D\u7F6E": "File picker is unavailable in this environment",
   "\u53E6\u5B58\u4E3A\u4EFB\u52A1\u4E0E\u5BF9\u8BDD": "Save task and conversation as",
@@ -4044,6 +4072,15 @@ function resolveBin(name, configured = "", homeDir = home(), env = process.env) 
   }
   return "";
 }
+function hasClaudeSettingsAuth(homeDir) {
+  try {
+    const raw = import_fs.default.readFileSync(import_path.default.join(homeDir, ".claude", "settings.json"), "utf8");
+    const env = JSON.parse(raw)?.env;
+    return Boolean(env && (String(env.ANTHROPIC_AUTH_TOKEN || "").trim() || String(env.ANTHROPIC_API_KEY || "").trim()));
+  } catch {
+    return false;
+  }
+}
 var JOURNAL_CLI_ORDER = ["agy", "claude", "codex", "qodercli", "codebuddy"];
 var JOURNAL_PROVIDERS = {
   agy: {
@@ -4062,7 +4099,7 @@ var JOURNAL_PROVIDERS = {
     delegateKey: "claude",
     defaultModel: "haiku",
     models: ["haiku", "sonnet", "claude-opus-5-5", "fable"],
-    loggedIn: (h, env) => import_fs.default.existsSync(import_path.default.join(h, ".claude", ".credentials.json")) || import_fs.default.existsSync(import_path.default.join(h, ".claude.json")) || Boolean(env.ANTHROPIC_API_KEY)
+    loggedIn: (h, env) => import_fs.default.existsSync(import_path.default.join(h, ".claude", ".credentials.json")) || import_fs.default.existsSync(import_path.default.join(h, ".claude.json")) || Boolean(String(env?.ANTHROPIC_API_KEY || env?.ANTHROPIC_AUTH_TOKEN || "").trim()) || hasClaudeSettingsAuth(h)
   },
   codex: {
     id: "codex",
@@ -4180,7 +4217,7 @@ function runProcess(bin, args, { label, timeout = 120, stdin = null, env = build
   });
 }
 async function runClaude(prompt, { bin = "claude", model = "haiku", timeout = 120, system = "" } = {}) {
-  const args = ["-p", "--output-format", "json", "--no-session-persistence", "--strict-mcp-config", "--setting-sources", "project", "--tools", "", "--system-prompt", system || "\u4F60\u662F\u4E00\u4E2A\u53EA\u8F93\u51FA JSON \u7684\u6574\u7406\u52A9\u624B\u3002"];
+  const args = ["-p", "--output-format", "json", "--no-session-persistence", "--strict-mcp-config", "--setting-sources", "user,project", "--tools", "", "--system-prompt", system || "\u4F60\u662F\u4E00\u4E2A\u53EA\u8F93\u51FA JSON \u7684\u6574\u7406\u52A9\u624B\u3002"];
   if (model) args.push("--model", model);
   const { code, out, err: err2 } = await runProcess(bin, args, { label: "claude", timeout, stdin: prompt });
   let d;
@@ -11142,6 +11179,84 @@ function redirectHiddenTailTransaction(text, trackedIds2 = /* @__PURE__ */ new S
   }
   return null;
 }
+function trackedBlockIds(plugin) {
+  const ids = /* @__PURE__ */ new Set();
+  for (const day of Object.values(plugin?.settings?.autoLogState || {})) {
+    for (const rec of Object.values(day || {})) if (rec?.blockId) ids.add(rec.blockId);
+  }
+  for (const rec of Object.values(plugin?.settings?.taskBindings || {})) if (rec?.blockId) ids.add(rec.blockId);
+  return ids;
+}
+function blockSessionMap(plugin) {
+  const out = /* @__PURE__ */ new Map();
+  const add = (id, sid) => {
+    if (!id || !sid) return;
+    if (!out.has(id)) out.set(id, /* @__PURE__ */ new Set());
+    out.get(id).add(sid);
+  };
+  for (const day of Object.values(plugin?.settings?.autoLogState || {})) {
+    for (const [sid, rec] of Object.entries(day || {})) add(rec?.blockId, sid);
+  }
+  for (const [sid, rec] of Object.entries(plugin?.settings?.taskBindings || {})) add(rec?.blockId, sid);
+  for (const job of Object.values(plugin?.jobs || {})) add(job?.blockId, job?.sessionId);
+  return out;
+}
+function collectGroupSids(group, lines, blockMap) {
+  const sids = [];
+  const push = (sid) => {
+    if (sid && !sids.includes(sid)) sids.push(sid);
+  };
+  const turnSid = (line) => /<!-- ad-turn:([A-Za-z0-9_-]+):\d+ -->/.exec(String(line || ""))?.[1];
+  const id = group ? blockIdOf(lines[group.line]) : "";
+  if (id && blockMap?.has(id)) for (const sid of blockMap.get(id)) push(sid);
+  for (const n of group?.records || []) {
+    push(parseLink(lines[n])?.sid);
+    push(turnSid(lines[n]));
+  }
+  for (const e of group?.tableEntries || []) {
+    push(parseLink(lines[e.line])?.sid);
+    push(turnSid(lines[e.line]));
+  }
+  return sids;
+}
+function roundStartedAt(plugin, rawLine, round, groupSids = []) {
+  if (round == null || !groupSids.length) return 0;
+  let sid = groupSids[0];
+  if (groupSids.length > 1) {
+    sid = parseLink(rawLine)?.sid || groupSids.find((id) => rawLine.includes(turnMarker(id, round)) || rawLine.includes(`<!-- ad-turn:${id}:${round} -->`)) || groupSids[0];
+  }
+  const metaRounds = plugin?.usage?.meta?.get?.(sid)?.rounds;
+  if (Array.isArray(metaRounds)) {
+    const hit = metaRounds.find((r) => r && r.n === round) || metaRounds[round - 1];
+    const ts = Number(hit?.at);
+    if (Number.isFinite(ts) && ts > 0) return ts;
+  }
+  for (const job of Object.values(plugin?.jobs || {})) {
+    if (job?.sessionId !== sid || !Array.isArray(job.conversation)) continue;
+    let seen = 0;
+    for (const msg of job.conversation) {
+      if (msg?.role !== "user") continue;
+      seen++;
+      const ts = Number(msg.at);
+      if (seen === round && Number.isFinite(ts) && ts > 0) return ts;
+    }
+  }
+  return 0;
+}
+var pad2 = (n) => String(n).padStart(2, "0");
+function localDayKey(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+function formatTimelineAt(ms, showDate = false) {
+  const d = new Date(ms);
+  const hm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  return showDate ? `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${hm}` : hm;
+}
+function formatTimelineFull(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
 
 // src/record-display.js
 var MODES2 = /* @__PURE__ */ new Set(["collapsed", "expanded", "latest5", "latest3", "latest1"]);
@@ -11175,75 +11290,7 @@ function rememberView(plugin, key, viewMode, stableKey = "") {
   plugin.saveSettings();
   plugin.refreshUI();
 }
-function trackedIds(plugin) {
-  const ids = /* @__PURE__ */ new Set();
-  for (const day of Object.values(plugin.settings.autoLogState || {})) for (const rec of Object.values(day || {})) if (rec?.blockId) ids.add(rec.blockId);
-  for (const rec of Object.values(plugin.settings.taskBindings || {})) if (rec?.blockId) ids.add(rec.blockId);
-  return ids;
-}
-function blockSessionMap(plugin) {
-  const out = /* @__PURE__ */ new Map();
-  const add = (id, sid) => {
-    if (!id || !sid) return;
-    if (!out.has(id)) out.set(id, /* @__PURE__ */ new Set());
-    out.get(id).add(sid);
-  };
-  for (const day of Object.values(plugin?.settings?.autoLogState || {})) {
-    for (const [sid, rec] of Object.entries(day || {})) add(rec?.blockId, sid);
-  }
-  for (const [sid, rec] of Object.entries(plugin?.settings?.taskBindings || {})) add(rec?.blockId, sid);
-  for (const job of Object.values(plugin?.jobs || {})) add(job?.blockId, job?.sessionId);
-  return out;
-}
-function collectGroupSids(group, lines, blockMap) {
-  const sids = [];
-  const push = (sid) => {
-    if (sid && !sids.includes(sid)) sids.push(sid);
-  };
-  const id = blockIdOf(lines[group.line]);
-  if (id && blockMap?.has(id)) for (const sid of blockMap.get(id)) push(sid);
-  for (const n of group.records || []) push(parseLink(lines[n])?.sid);
-  for (const e of group.tableEntries || []) push(parseLink(lines[e.line])?.sid);
-  return sids;
-}
-function roundStartedAt(plugin, rawLine, round, groupSids) {
-  if (round == null || !groupSids.length) return 0;
-  let sid = groupSids[0];
-  if (groupSids.length > 1) {
-    sid = parseLink(rawLine)?.sid || groupSids.find((id) => rawLine.includes(turnMarker(id, round)) || rawLine.includes(`<!-- ad-turn:${id}:${round} -->`)) || groupSids[0];
-  }
-  const metaRounds = plugin?.usage?.meta?.get?.(sid)?.rounds;
-  if (Array.isArray(metaRounds)) {
-    const hit = metaRounds.find((r) => r && r.n === round) || metaRounds[round - 1];
-    const ts = Number(hit?.at);
-    if (Number.isFinite(ts) && ts > 0) return ts;
-  }
-  for (const job of Object.values(plugin?.jobs || {})) {
-    if (job?.sessionId !== sid || !Array.isArray(job.conversation)) continue;
-    let seen = 0;
-    for (const msg of job.conversation) {
-      if (msg?.role !== "user") continue;
-      seen++;
-      const ts = Number(msg.at);
-      if (seen === round && Number.isFinite(ts) && ts > 0) return ts;
-    }
-  }
-  return 0;
-}
-var pad2 = (n) => String(n).padStart(2, "0");
-var localDayKey = (ms) => {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-};
-var formatTimelineAt = (ms, showDate = false) => {
-  const d = new Date(ms);
-  const hm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
-  return showDate ? `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${hm}` : hm;
-};
-var formatTimelineFull = (ms) => {
-  const d = new Date(ms);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
-};
+var trackedIds = (plugin) => trackedBlockIds(plugin);
 function buttonLabel(open, mode, summary) {
   if (open) return t("\u6536\u8D77");
   return summary || LIMITED.has(mode) ? t("\u66F4\u591A") : t("\u8BB0\u5F55");
@@ -22105,6 +22152,7 @@ var import_path9 = __toESM(require("path"), 1);
 var import_obsidian13 = require("obsidian");
 var RECORD_COMMENT_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
 var UUID_RE = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+var SAFE_HREF_RE = /^(?:https?:|mailto:|obsidian:|claude:|codex:|workbuddy:|dsh:|antigravity:|opencode:|qoder:|cursor:|\/|#|\.\.?\/)/i;
 function dedentVisualLines(lines, cols) {
   if (!cols) return [...lines];
   return lines.map((line) => {
@@ -22173,8 +22221,46 @@ function deriveDate(sourcePath = "") {
   const pad3 = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad3(d.getMonth() + 1)}-${pad3(d.getDate())}`;
 }
-function extractTaskBlock(text, line, sourcePath = "") {
-  const lines = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+function extractStructuredRecords(lines, blockStart, blockEnd, cleanedLines, plugin) {
+  const ids = trackedBlockIds(plugin);
+  const groups = aiRecordGroups(lines.join("\n"), ids);
+  const group = groups.find((g) => g.line === blockStart) || null;
+  if (!group) return null;
+  const duplicate = plugin?.redundantSessionLink?.(group, lines) ?? -1;
+  const entries = (group.tableEntries || []).filter((e) => e.line !== duplicate);
+  const sids = collectGroupSids(group, lines, blockSessionMap(plugin));
+  const agentNames = plugin?.agentShortNames || Object.fromEntries(Object.entries(AGENTS).map(([id, a]) => [id, a.short || a.name || id]));
+  const parsedRows = entries.map((entry) => {
+    const parsed = parseAiRecordRow(lines[entry.line], entry.children, agentNames);
+    return {
+      ...parsed,
+      line: entry.line,
+      startedAt: roundStartedAt(plugin, lines[entry.line], parsed.round, sids),
+      sig: [lines[entry.line], ...entry.children].join("\n")
+    };
+  });
+  const model = buildTableModel(parsedRows);
+  const covered = new Set((group.tableEntries || []).flatMap((e) => e.lineNumbers || []));
+  const extraRaw = [];
+  for (let i = blockStart + 1; i <= blockEnd; i++) {
+    if (!covered.has(i) && i !== duplicate) extraRaw.push(cleanedLines[i - blockStart]);
+  }
+  while (extraRaw.length && !extraRaw[0].trim()) extraRaw.shift();
+  while (extraRaw.length && !extraRaw.at(-1).trim()) extraRaw.pop();
+  const minIndent = extraRaw.filter((l) => l.trim()).reduce((min, l) => Math.min(min, width(l)), Infinity);
+  const extraMarkdown = extraRaw.length ? dedentVisualLines(extraRaw, Number.isFinite(minIndent) ? minIndent : 0).join("\n") : "";
+  return {
+    viewMode: recordViewMode(plugin?.settings, group),
+    rows: model.rows,
+    footer: model.footer,
+    hasPromptCol: model.hasPromptCol,
+    extraMarkdown,
+    sids
+  };
+}
+function extractTaskBlock(text, line, sourcePath = "", plugin = null) {
+  const normalized2 = String(text || "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  const lines = normalized2.split("\n");
   const block = blockAt(lines, line);
   if (!block) return null;
   let end = block.end;
@@ -22184,6 +22270,7 @@ function extractTaskBlock(text, line, sourcePath = "") {
   const fenced = fencedLines(dedented);
   const cleanedLines = dedented.map((l, idx) => cleanExportLine(l, fenced.has(idx)));
   const title = deriveTitle(cleanedLines[0]);
+  const status = kwLine(cleanedLines[0])?.kw || "";
   const { category, shortTitle } = deriveCategory(title, rawLines);
   const date = deriveDate(sourcePath);
   const suggestedName = sanitizeFilePart(
@@ -22191,15 +22278,19 @@ function extractTaskBlock(text, line, sourcePath = "") {
     `${date}-task`,
     72
   );
+  const structured = extractStructuredRecords(lines, block.start, end, cleanedLines, plugin);
   return {
     start: block.start,
     end,
     rawText: rawLines.join("\n"),
     markdown: cleanedLines.join("\n"),
     title,
+    status,
     category,
     date,
-    suggestedName
+    suggestedName,
+    viewMode: structured?.viewMode || "outline",
+    structured
   };
 }
 function buildTaskExportDocument(extracted, sourcePath = "") {
@@ -22292,41 +22383,216 @@ async function writeExportFile(plugin, chosenPath, content) {
   await import_promises3.default.writeFile(abs, content, "utf8");
   return { path: abs, insideVault: false };
 }
-async function copyTaskMarkdown(plugin, path9, line) {
-  const text = await plugin.readNote(path9);
-  const extracted = extractTaskBlock(text, line, path9);
-  if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
-  if (!writeClipboard(`${extracted.markdown}
-`)) return plugin.notice(t("\u5199\u5165\u526A\u8D34\u677F\u5931\u8D25"));
-  plugin.notice(t("\u5DF2\u6309 Markdown \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F"));
-}
 function escapeHtml(raw) {
   return String(raw || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-function buildPdfHtmlDocument(title, bodyHtml) {
+function viewLabel(viewMode) {
+  if (viewMode === "table") return t("\u8868\u683C");
+  if (viewMode === "cards") return t("\u5361\u7247");
+  if (viewMode === "timeline") return t("\u65F6\u95F4\u7EBF");
+  return t("\u5927\u7EB2");
+}
+function resolveExportView(extracted, requestedView = "") {
+  const candidate = RECORD_VIEWS.has(requestedView) ? requestedView : extracted?.viewMode || "outline";
+  if (candidate !== "outline" && !extracted?.structured?.rows?.length && !extracted?.structured?.footer?.length) {
+    return "outline";
+  }
+  return candidate;
+}
+function renderInlineHtml(text) {
+  const s = String(text || "");
+  const tokenRe = /\[([^\]\n]+)\]\(([^)\s]+(?:\([^)]*\))?[^)\s]*)\)|\[\[([^\]|\n]+?)(?:\|([^\]\n]+))?\]\]|`([^`\n]+)`|\*\*([^*\n]+)\*\*|\*([^*\n]+)\*/g;
+  let out = "";
+  let last = 0;
+  let m;
+  while (m = tokenRe.exec(s)) {
+    if (m.index > last) out += escapeHtml(s.slice(last, m.index)).replace(/\n/g, "<br />");
+    if (m[1] != null) {
+      const href = String(m[2] || "").trim();
+      if (SAFE_HREF_RE.test(href) || !/^[a-z][a-z0-9+.-]*:/i.test(href)) {
+        out += `<a class="ad-rt-link" href="${escapeHtml(href)}">${escapeHtml(m[1])}</a>`;
+      } else {
+        out += escapeHtml(m[1]);
+      }
+    } else if (m[3] != null) {
+      out += `<span class="ad-wikilink">${escapeHtml(m[4] || m[3])}</span>`;
+    } else if (m[5] != null) {
+      out += `<code class="ad-rt-code">${escapeHtml(m[5])}</code>`;
+    } else if (m[6] != null) {
+      out += `<strong>${escapeHtml(m[6])}</strong>`;
+    } else if (m[7] != null) {
+      out += `<em>${escapeHtml(m[7])}</em>`;
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < s.length) out += escapeHtml(s.slice(last)).replace(/\n/g, "<br />");
+  return out;
+}
+function badgeLabel(kind, fallback = "") {
+  if (fallback === "\u603B\u7ED3" || kind === "summary") return t("\u603B\u7ED3");
+  if (fallback === "\u5F85\u786E\u8BA4" || kind === "todo") return t("\u5F85\u786E\u8BA4");
+  if (fallback === "\u63D0\u95EE" || kind === "question") return t("\u63D0\u95EE");
+  if (fallback === "\u6B65\u9AA4" || kind === "plan") return t("\u6B65\u9AA4");
+  return t("\u7ED3\u8BBA");
+}
+function renderRoundMarkerHtml(row) {
+  if (row.type === "span" || row.round == null) {
+    const kind = escapeHtml(row.badgeKind || "result");
+    return `<span class="ad-rt-badge ad-rt-badge--${kind}">${escapeHtml(badgeLabel(row.badgeKind, row.badge))}</span>`;
+  }
+  return `<span class="ad-rt-round-num">#${row.round}</span>`;
+}
+function renderStepTagHtml(row) {
+  if (!row.promptStep) return "";
+  const label = row.promptMeta ? t("\u6B65\u9AA4 {step}", { step: row.promptMeta }) : t("\u6B65\u9AA4");
+  return `<span class="ad-rt-step">${escapeHtml(label)}</span>`;
+}
+function renderChildrenHtml(children) {
+  if (!children?.length) return "";
+  const items = children.map((c) => {
+    const pad3 = c.level ? ` style="padding-left:${c.level * 14}px"` : "";
+    return `<div class="ad-rt-sub-item"${pad3}><span class="ad-rt-sub-dot">\u2022</span><span>${renderInlineHtml(c.text)}</span></div>`;
+  }).join("");
+  return `<div class="ad-rt-sub-list">${items}</div>`;
+}
+function renderTableViewHtml(model) {
+  const headCols = model.hasPromptCol ? [t("\u8F6E\u6B21"), t("\u4EFB\u52A1 / \u63D0\u95EE"), t("\u7ED3\u8BBA / \u56DE\u590D")] : [t("\u8F6E\u6B21"), t("\u7ED3\u8BBA / \u56DE\u590D")];
+  const thead = `<thead><tr>${headCols.map((c) => `<th>${escapeHtml(c)}</th>`).join("")}</tr></thead>`;
+  const tbodyRows = model.rows.map((row) => {
+    const roundCell = `<td class="ad-rt-round">${renderRoundMarkerHtml(row)}</td>`;
+    if (row.type === "span") {
+      const colSpan = model.hasPromptCol ? ' colspan="2"' : "";
+      return `<tr class="ad-rt-row">${roundCell}<td class="ad-rt-span"${colSpan}><div class="ad-rt-text">${renderInlineHtml(row.conclusion)}</div>${renderChildrenHtml(row.children)}</td></tr>`;
+    }
+    const promptCell = model.hasPromptCol ? `<td class="ad-rt-prompt">${renderStepTagHtml(row)}${row.prompt ? `<div class="ad-rt-text">${renderInlineHtml(row.prompt)}</div>` : ""}</td>` : "";
+    const conclusionCell = `<td class="ad-rt-conclusion">${row.conclusion ? `<div class="ad-rt-text">${renderInlineHtml(row.conclusion)}</div>` : ""}${renderChildrenHtml(row.children)}</td>`;
+    return `<tr class="ad-rt-row">${roundCell}${promptCell}${conclusionCell}</tr>`;
+  }).join("");
+  return `<table class="ad-record-table">${thead}<tbody>${tbodyRows}</tbody></table>`;
+}
+function renderCardsViewHtml(model) {
+  const cards = model.rows.map((row) => {
+    const spanCls = row.type === "span" ? " is-span" : "";
+    const timeBadge = row.startedAt > 0 ? `<time class="ad-rt-card__time" datetime="${escapeHtml(new Date(row.startedAt).toISOString())}">${escapeHtml(formatTimelineFull(row.startedAt).slice(0, 16))}</time>` : "";
+    const prompt = row.prompt ? `<div class="ad-rt-card__prompt">${renderInlineHtml(row.prompt)}</div>` : "";
+    const body = row.conclusion || row.children?.length ? `<div class="ad-rt-card__body">${row.conclusion ? `<div class="ad-rt-text">${renderInlineHtml(row.conclusion)}</div>` : ""}${renderChildrenHtml(row.children)}</div>` : "";
+    return `<article class="ad-rt-card${spanCls}"><div class="ad-rt-card__head">${renderRoundMarkerHtml(row)}${renderStepTagHtml(row)}${timeBadge}</div>${prompt}${body}</article>`;
+  }).join("");
+  return `<div class="ad-rt-cards">${cards}</div>`;
+}
+function renderTimelineViewHtml(model) {
+  const times = model.rows.map((r) => Number(r.startedAt) || 0).filter((ms) => ms > 0);
+  const timed = times.length > 0;
+  const dated = times.length > 1 && new Set(times.map(localDayKey)).size > 1;
+  const cls = `ad-rt-timeline${timed ? " ad-rt-timeline--timed" : ""}${dated ? " ad-rt-timeline--dated" : ""}`;
+  const items = model.rows.map((row) => {
+    const kind = escapeHtml(row.badgeKind || "result");
+    const timeEl = row.startedAt > 0 ? `<time class="ad-rt-tl-time" datetime="${escapeHtml(new Date(row.startedAt).toISOString())}">${escapeHtml(formatTimelineAt(row.startedAt, dated))}</time>` : "";
+    const promptEl = row.prompt ? `<div class="ad-rt-tl-prompt">${renderInlineHtml(row.prompt)}</div>` : "";
+    const replyEl = row.conclusion || row.children?.length ? `<div class="ad-rt-tl-reply">${row.conclusion ? `<div class="ad-rt-text">${renderInlineHtml(row.conclusion)}</div>` : ""}${renderChildrenHtml(row.children)}</div>` : "";
+    return `<div class="ad-rt-tl-item ad-rt-tl-item--${kind}"><span class="ad-rt-tl-dot" aria-hidden="true"></span>${timeEl}<div class="ad-rt-tl-head">${renderRoundMarkerHtml(row)}${renderStepTagHtml(row)}</div>${promptEl}${replyEl}</div>`;
+  }).join("");
+  return `<div class="${cls}">${items}</div>`;
+}
+function renderFooterHtml(footer) {
+  if (!footer?.length) return "";
+  const items = footer.map((item) => {
+    const ico = item.kind === "clock" ? "\u23F1" : "\u{1F517}";
+    const metaText = item.meta ? `<span class="ad-rt-footer-meta">${escapeHtml(item.kind === "clock" ? `\xB7 ${item.meta}` : item.meta)}</span>` : "";
+    return `<div class="ad-rt-footer-item"><span class="ad-rt-footer-ico">${ico}</span><span class="ad-rt-footer-body">${renderInlineHtml(item.content)}</span>${metaText}</div>`;
+  }).join("");
+  return `<div class="ad-rt-footer">${items}</div>`;
+}
+function fallbackMarkdownHtml(md) {
+  return `<pre class="ad-ex-fallback">${escapeHtml(md)}</pre>`;
+}
+function buildTaskViewHtmlDocument(extracted, sourcePath = "", { viewMode = "", outlineBodyHtml = "", extraNotesHtml = "" } = {}) {
+  const effectiveView = resolveExportView(extracted, viewMode);
+  const label = viewLabel(effectiveView);
+  const chips = [
+    `<span class="ad-ex-chip ad-ex-chip--view">${escapeHtml(t("\u89C6\u56FE\uFF1A{view}", { view: label }))}</span>`
+  ];
+  if (extracted.status) chips.push(`<span class="ad-ex-chip">${escapeHtml(extracted.status)}</span>`);
+  if (extracted.date) chips.push(`<span class="ad-ex-chip">${escapeHtml(extracted.date)}</span>`);
+  if (extracted.category) chips.push(`<span class="ad-ex-chip">${escapeHtml(extracted.category)}</span>`);
+  if (extracted.structured?.rows?.length) {
+    chips.push(`<span class="ad-ex-chip">${escapeHtml(t("{n} \u6761\u8BB0\u5F55", { n: extracted.structured.rows.length }))}</span>`);
+  }
+  const sourceHtml = sourcePath ? `<div class="ad-ex-source">${escapeHtml(t("\u6765\u6E90\uFF1A{path}", { path: sourcePath }))}</div>` : "";
+  let mainHtml = "";
+  if (effectiveView === "outline" || !extracted.structured) {
+    mainHtml = `<section class="ad-ex-outline">${outlineBodyHtml || fallbackMarkdownHtml(extracted.markdown)}</section>`;
+  } else {
+    const model = extracted.structured;
+    let viewBody = "";
+    if (model.rows.length) {
+      if (effectiveView === "cards") viewBody = renderCardsViewHtml(model);
+      else if (effectiveView === "timeline") viewBody = renderTimelineViewHtml(model);
+      else viewBody = renderTableViewHtml(model);
+    }
+    const footerHtml = renderFooterHtml(model.footer);
+    const notesBlock = model.extraMarkdown ? `<section class="ad-ex-notes"><h2>${escapeHtml(t("\u9644\u6CE8\u4E0E\u5B50\u4EFB\u52A1"))}</h2>${extraNotesHtml || fallbackMarkdownHtml(model.extraMarkdown)}</section>` : "";
+    mainHtml = `<div class="ad-record-view-wrap" data-view="${escapeHtml(effectiveView)}">${viewBody}${footerHtml}</div>${notesBlock}`;
+  }
   return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
-<title>${escapeHtml(title)}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${escapeHtml(extracted.title)}</title>
 <style>
-  @page { size: A4; margin: 16mm; }
+  @page { size: A4; margin: 14mm; }
   * { box-sizing: border-box; }
   body {
     margin: 0;
+    padding: 24px;
     font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
-    font-size: 13.5px;
-    line-height: 1.65;
+    font-size: 13px;
+    line-height: 1.62;
     color: #1f2328;
     background: #ffffff;
     overflow-wrap: anywhere;
   }
-  h1, h2, h3, h4 { margin: 0 0 10px; line-height: 1.35; color: #111827; }
-  h1 { font-size: 20px; padding-bottom: 8px; border-bottom: 1px solid #d0d7de; }
+  @media print { body { padding: 0; } }
+  .ad-ex-doc { max-width: 920px; margin: 0 auto; }
+  .ad-ex-header {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid #d8dee4;
+  }
+  .ad-ex-header h1 {
+    margin: 0 0 8px;
+    font-size: 20px;
+    line-height: 1.35;
+    color: #111827;
+  }
+  .ad-ex-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .ad-ex-chip {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #4b5563;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+  }
+  .ad-ex-chip--view {
+    color: #5b537a;
+    background: #f4f2f8;
+    border-color: #dcd6ea;
+  }
+  .ad-ex-source { font-size: 11.5px; color: #57606a; }
+  h2, h3, h4 { margin: 14px 0 8px; line-height: 1.35; color: #111827; }
+  h2 { font-size: 15px; }
   p, ul, ol, blockquote, pre, table { margin: 0 0 10px; }
   ul, ol { padding-left: 22px; }
   li { margin: 4px 0; }
-  li > ul, li > ol { margin-top: 4px; margin-bottom: 4px; }
   blockquote {
     padding: 6px 12px;
     border-left: 3px solid #d0d7de;
@@ -22334,7 +22600,7 @@ function buildPdfHtmlDocument(title, bodyHtml) {
     background: #f6f8fa;
     border-radius: 0 6px 6px 0;
   }
-  code {
+  code, .ad-rt-code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 12px;
     background: #f3f4f6;
@@ -22350,46 +22616,442 @@ function buildPdfHtmlDocument(title, bodyHtml) {
     word-break: break-word;
   }
   pre code { background: none; padding: 0; }
-  a { color: #0969da; text-decoration: none; }
-  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  th, td { border: 1px solid #d0d7de; padding: 6px 8px; text-align: left; }
-  th { background: #f6f8fa; }
+  a, .ad-rt-link { color: #0969da; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .ad-wikilink {
+    color: #5b537a;
+    background: #f4f2f8;
+    padding: 0 4px;
+    border-radius: 4px;
+  }
+  .ad-record-view-wrap {
+    border: 1px solid #d8dee4;
+    border-radius: 10px;
+    background: #f9fafb;
+    overflow: hidden;
+  }
+  .ad-record-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    font-size: 12.5px;
+    background: #ffffff;
+  }
+  .ad-record-table thead { display: table-header-group; }
+  .ad-record-table th {
+    padding: 7px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #57606a;
+    text-align: left;
+    white-space: nowrap;
+    background: #f6f8fa;
+    border-bottom: 1px solid #d8dee4;
+  }
+  .ad-record-table td {
+    padding: 8px 10px;
+    vertical-align: top;
+    text-align: left;
+    border-bottom: 1px solid #eaeef2;
+  }
+  .ad-record-table tbody tr { break-inside: avoid; }
+  .ad-record-table tbody tr:last-child td { border-bottom: 0; }
+  .ad-rt-round {
+    width: 1%;
+    white-space: nowrap;
+    color: #57606a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+  }
+  .ad-rt-round-num { font-weight: 600; color: #57606a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+  .ad-rt-badge, .ad-rt-step {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-size: 10.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    background: #ffffff;
+    color: #57606a;
+    border: 1px solid #d0d7de;
+  }
+  .ad-rt-badge--result { color: #746d94; border-color: #cbc6db; }
+  .ad-rt-badge--summary { color: #4d725d; border-color: #bcd3c5; }
+  .ad-rt-badge--question { color: #8c663f; border-color: #dec8b0; }
+  .ad-rt-badge--todo { color: #965553; border-color: #dfc0be; }
+  .ad-rt-prompt { width: 34%; color: #4b5563; }
+  .ad-rt-sub-list {
+    margin-top: 6px;
+    padding: 4px 0 2px 10px;
+    border-left: 2px solid #d8dee4;
+    font-size: 12px;
+    color: #4b5563;
+  }
+  .ad-rt-sub-item { display: flex; gap: 6px; align-items: baseline; }
+  .ad-rt-sub-item + .ad-rt-sub-item { margin-top: 3px; }
+  .ad-rt-sub-dot { color: #8c959f; flex: none; }
+  .ad-rt-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px;
+  }
+  @media (max-width: 560px) { .ad-rt-cards { grid-template-columns: 1fr; } }
+  .ad-rt-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #d8dee4;
+    background: #ffffff;
+    font-size: 12.5px;
+    break-inside: avoid;
+  }
+  .ad-rt-card.is-span { grid-column: 1 / -1; }
+  .ad-rt-card__head, .ad-rt-tl-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .ad-rt-card__time { margin-left: auto; font-size: 11px; color: #6e7781; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .ad-rt-card__prompt { font-weight: 600; color: #111827; padding-bottom: 5px; border-bottom: 1px solid #eaeef2; }
+  .ad-rt-card__body { color: #374151; }
+  .ad-rt-timeline {
+    position: relative;
+    padding: 12px 14px 12px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ad-rt-timeline::before {
+    content: "";
+    position: absolute;
+    left: 15px;
+    top: 18px;
+    bottom: 18px;
+    width: 1px;
+    background: #d0d7de;
+  }
+  .ad-rt-timeline--timed { padding-left: 78px; }
+  .ad-rt-timeline--timed::before { left: 67px; }
+  .ad-rt-timeline--dated { padding-left: 110px; }
+  .ad-rt-timeline--dated::before { left: 99px; }
+  .ad-rt-tl-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding: 8px 10px;
+    border-radius: 7px;
+    background: #ffffff;
+    border: 1px solid #eaeef2;
+    break-inside: avoid;
+  }
+  .ad-rt-tl-dot {
+    position: absolute;
+    left: -15px;
+    top: 13px;
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: #746d94;
+    box-shadow: 0 0 0 3px #f9fafb;
+  }
+  .ad-rt-tl-item--summary .ad-rt-tl-dot { background: #6f8f7c; }
+  .ad-rt-tl-item--question .ad-rt-tl-dot { background: #a9845f; }
+  .ad-rt-tl-item--todo .ad-rt-tl-dot { background: #a86f6d; }
+  .ad-rt-tl-time {
+    position: absolute;
+    right: calc(100% + 20px);
+    top: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    color: #57606a;
+    white-space: nowrap;
+  }
+  .ad-rt-tl-prompt {
+    padding: 5px 8px;
+    border-radius: 6px;
+    background: #f6f8fa;
+    border: 1px solid #e5e7eb;
+    font-size: 12px;
+    color: #4b5563;
+  }
+  .ad-rt-tl-reply {
+    padding-left: 8px;
+    border-left: 2px solid #b4aec9;
+    font-size: 12.5px;
+    color: #1f2328;
+  }
+  .ad-rt-footer {
+    border-top: 1px solid #d8dee4;
+    background: #f6f8fa;
+  }
+  .ad-rt-footer-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px;
+    padding: 6px 10px;
+    font-size: 11.5px;
+    color: #57606a;
+  }
+  .ad-rt-footer-item + .ad-rt-footer-item { border-top: 1px solid #eaeef2; }
+  .ad-rt-footer-meta { color: #6e7781; }
+  .ad-ex-notes {
+    margin-top: 16px;
+    padding: 12px 14px;
+    border: 1px solid #d8dee4;
+    border-radius: 8px;
+    background: #ffffff;
+  }
+  .ad-ex-notes > h2 { margin-top: 0; font-size: 13.5px; color: #374151; }
 </style>
 </head>
-<body>${bodyHtml}</body>
+<body>
+<main class="ad-ex-doc">
+  <header class="ad-ex-header">
+    <h1>${escapeHtml(extracted.title)}</h1>
+    <div class="ad-ex-chips">${chips.join("")}</div>
+    ${sourceHtml}
+  </header>
+  ${mainHtml}
+</main>
+</body>
 </html>`;
 }
-async function exportTaskToPdf(plugin, path9, line) {
+function rowTypeLabel(row) {
+  if (row.promptStep) return row.promptMeta ? t("\u6B65\u9AA4 {step}", { step: row.promptMeta }) : t("\u6B65\u9AA4");
+  return badgeLabel(row.badgeKind, row.badge);
+}
+function buildTaskExportJson(extracted, sourcePath = "", { viewMode = "" } = {}) {
+  const effectiveView = resolveExportView(extracted, viewMode);
+  const model = extracted.structured;
+  const payload = {
+    schema: "agent-deck.task-export.v1",
+    exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    title: extracted.title,
+    category: extracted.category,
+    date: extracted.date,
+    source: sourcePath,
+    status: extracted.status || "",
+    viewMode: effectiveView,
+    taskLine: extracted.markdown.split("\n")[0] || "",
+    rounds: (model?.rows || []).map((row, idx) => ({
+      index: idx + 1,
+      round: row.round,
+      type: row.badgeKind || row.type || "result",
+      label: rowTypeLabel(row),
+      step: row.promptMeta || "",
+      startedAt: row.startedAt > 0 ? row.startedAt : null,
+      startedAtIso: row.startedAt > 0 ? new Date(row.startedAt).toISOString() : null,
+      prompt: row.prompt || "",
+      conclusion: row.conclusion || "",
+      children: (row.children || []).map((c) => ({ level: c.level, text: c.text }))
+    })),
+    footer: (model?.footer || []).map((item) => ({
+      kind: item.kind,
+      label: item.kindLabel,
+      content: item.content,
+      meta: item.meta || ""
+    })),
+    notes: model?.extraMarkdown || "",
+    markdown: extracted.markdown
+  };
+  return `${JSON.stringify(payload, null, 2)}
+`;
+}
+function csvCell(val) {
+  const s = String(val ?? "");
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function buildTaskExportCsv(extracted, sourcePath = "") {
+  const header = [t("\u6807\u9898"), t("\u65E5\u671F"), t("\u6765\u6E90"), t("\u8F6E\u6B21"), t("\u7C7B\u578B"), t("\u65F6\u95F4"), t("\u4EFB\u52A1 / \u63D0\u95EE"), t("\u7ED3\u8BBA / \u56DE\u590D"), t("\u5B50\u9879")];
+  const rows = extracted.structured?.rows || [];
+  const dataRows = rows.length ? rows.map((row) => [
+    extracted.title,
+    extracted.date,
+    sourcePath,
+    row.round != null ? `#${row.round}` : "",
+    rowTypeLabel(row),
+    row.startedAt > 0 ? formatTimelineFull(row.startedAt) : "",
+    row.prompt || "",
+    row.conclusion || "",
+    (row.children || []).map((c) => `${"  ".repeat(c.level)}${c.text}`).join("\n")
+  ]) : [[
+    extracted.title,
+    extracted.date,
+    sourcePath,
+    "",
+    extracted.status || t("\u4EFB\u52A1"),
+    "",
+    "",
+    extracted.markdown.split("\n").slice(1).join("\n").trim(),
+    ""
+  ]];
+  const lines = [header, ...dataRows].map((r) => r.map(csvCell).join(","));
+  return `\uFEFF${lines.join("\r\n")}\r
+`;
+}
+function mdTableCell(raw) {
+  return String(raw || "").replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>");
+}
+function buildTaskMarkdownTable(extracted, sourcePath = "") {
+  const model = extracted.structured;
+  if (!model?.rows?.length) return buildTaskExportDocument(extracted, sourcePath);
+  const parts = [`# ${extracted.title}`];
+  if (sourcePath) parts.push(`> ${t("\u6765\u6E90\uFF1A{path}", { path: sourcePath })}`);
+  const cols = model.hasPromptCol ? [t("\u8F6E\u6B21"), t("\u4EFB\u52A1 / \u63D0\u95EE"), t("\u7ED3\u8BBA / \u56DE\u590D")] : [t("\u8F6E\u6B21"), t("\u7ED3\u8BBA / \u56DE\u590D")];
+  const tableLines = [
+    `| ${cols.join(" | ")} |`,
+    `| ${cols.map(() => "---").join(" | ")} |`
+  ];
+  for (const row of model.rows) {
+    const marker = row.round != null ? `#${row.round}` : rowTypeLabel(row);
+    const stepPrefix = row.promptStep ? `[${rowTypeLabel(row)}] ` : "";
+    const promptCell = mdTableCell(`${stepPrefix}${row.prompt || ""}`);
+    const childSuffix = (row.children || []).length ? (row.conclusion ? "<br>" : "") + row.children.map((c) => `${"&nbsp;&nbsp;".repeat(c.level)}\u2022 ${c.text}`).join("<br>") : "";
+    const conclusionCell = `${mdTableCell(row.conclusion || "")}${childSuffix.replace(/\|/g, "\\|")}`;
+    tableLines.push(
+      model.hasPromptCol ? `| ${mdTableCell(marker)} | ${promptCell} | ${conclusionCell} |` : `| ${mdTableCell(marker)} | ${conclusionCell} |`
+    );
+  }
+  parts.push(tableLines.join("\n"));
+  if (model.extraMarkdown) parts.push(`## ${t("\u9644\u6CE8\u4E0E\u5B50\u4EFB\u52A1")}
+
+${model.extraMarkdown}`);
+  if (model.footer?.length) {
+    parts.push(model.footer.map((item) => `- ${item.kind === "clock" ? "\u23F1" : "\u{1F517}"} ${item.content}${item.meta ? ` \xB7 ${item.meta}` : ""}`).join("\n"));
+  }
+  return `${parts.join("\n\n").replace(/\n+$/, "")}
+`;
+}
+function stripInlineMarkdown(raw) {
+  return String(raw || "").replace(/\[([^\]\n]+)\]\(([^)\s]+(?:\([^)]*\))?[^)\s]*)\)/g, "$1 ($2)").replace(/\[\[([^\]|\n]+?)(?:\|([^\]\n]+))?\]\]/g, (_, p, alias) => alias || p).replace(/`([^`\n]+)`/g, "$1").replace(/\*\*([^*\n]+)\*\*/g, "$1").replace(/\*([^*\n]+)\*/g, "$1");
+}
+function buildTaskPlainText(extracted, sourcePath = "") {
+  const lines = [extracted.title];
+  if (sourcePath) lines.push(t("\u6765\u6E90\uFF1A{path}", { path: sourcePath }));
+  if (extracted.date) lines.push(`${t("\u65E5\u671F")}\uFF1A${extracted.date}`);
+  const model = extracted.structured;
+  if (!model?.rows?.length) {
+    lines.push("", stripInlineMarkdown(extracted.markdown));
+    return `${lines.join("\n").replace(/\n+$/, "")}
+`;
+  }
+  lines.push("");
+  for (const row of model.rows) {
+    const headParts = [];
+    if (row.round != null) headParts.push(`#${row.round}`);
+    else headParts.push(rowTypeLabel(row));
+    if (row.promptStep) headParts.push(rowTypeLabel(row));
+    if (row.startedAt > 0) headParts.push(formatTimelineFull(row.startedAt).slice(0, 16));
+    lines.push(`[${headParts.join(" \xB7 ")}]`);
+    if (row.prompt) lines.push(`${t("\u4EFB\u52A1 / \u63D0\u95EE")}\uFF1A${stripInlineMarkdown(row.prompt)}`);
+    if (row.conclusion) lines.push(`${t("\u7ED3\u8BBA / \u56DE\u590D")}\uFF1A${stripInlineMarkdown(row.conclusion)}`);
+    for (const c of row.children || []) {
+      lines.push(`${"  ".repeat(c.level + 1)}- ${stripInlineMarkdown(c.text)}`);
+    }
+    lines.push("");
+  }
+  if (model.extraMarkdown) {
+    lines.push(`${t("\u9644\u6CE8\u4E0E\u5B50\u4EFB\u52A1")}\uFF1A`, stripInlineMarkdown(model.extraMarkdown), "");
+  }
+  for (const item of model.footer || []) {
+    lines.push(`${item.kind === "clock" ? "\u23F1" : "\u{1F517}"} ${stripInlineMarkdown(item.content)}${item.meta ? ` \xB7 ${item.meta}` : ""}`);
+  }
+  return `${lines.join("\n").replace(/\n+$/, "")}
+`;
+}
+async function copyTaskFormatted(plugin, path9, line, { buildText, successMsg, viewMode = "" }) {
+  const text = await plugin.readNote(path9);
+  const extracted = extractTaskBlock(text, line, path9, plugin);
+  if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
+  const output = buildText(extracted, path9, { viewMode });
+  if (!writeClipboard(output)) return plugin.notice(t("\u5199\u5165\u526A\u8D34\u677F\u5931\u8D25"));
+  plugin.notice(successMsg);
+}
+async function copyTaskMarkdown(plugin, path9, line) {
+  return copyTaskFormatted(plugin, path9, line, {
+    buildText: (extracted) => `${extracted.markdown}
+`,
+    successMsg: t("\u5DF2\u6309 Markdown \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F")
+  });
+}
+async function copyTaskMarkdownTable(plugin, path9, line) {
+  return copyTaskFormatted(plugin, path9, line, {
+    buildText: (extracted, src) => buildTaskMarkdownTable(extracted, src),
+    successMsg: t("\u5DF2\u6309 Markdown \u8868\u683C\u590D\u5236\u5230\u526A\u8D34\u677F")
+  });
+}
+async function copyTaskPlainText(plugin, path9, line) {
+  return copyTaskFormatted(plugin, path9, line, {
+    buildText: (extracted, src) => buildTaskPlainText(extracted, src),
+    successMsg: t("\u5DF2\u6309\u7EAF\u6587\u672C\u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F")
+  });
+}
+async function copyTaskJson(plugin, path9, line, options = {}) {
+  return copyTaskFormatted(plugin, path9, line, {
+    buildText: (extracted, src, opts) => buildTaskExportJson(extracted, src, opts),
+    successMsg: t("\u5DF2\u6309 JSON \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F"),
+    viewMode: options.viewMode || ""
+  });
+}
+async function renderMarkdownFragment(plugin, md, path9, comp) {
+  if (!md) return "";
+  const host = document.createElement("div");
+  try {
+    await import_obsidian13.MarkdownRenderer.render(plugin.app, md, host, path9, comp);
+    return host.innerHTML;
+  } finally {
+    host.remove();
+  }
+}
+async function renderTaskHtmlForExport(plugin, extracted, path9, viewMode) {
+  const effectiveView = resolveExportView(extracted, viewMode);
+  const comp = new import_obsidian13.Component();
+  comp.load();
+  try {
+    let outlineBodyHtml = "";
+    let extraNotesHtml = "";
+    if (effectiveView === "outline" || !extracted.structured) {
+      outlineBodyHtml = await renderMarkdownFragment(plugin, extracted.markdown, path9, comp);
+    } else if (extracted.structured.extraMarkdown) {
+      extraNotesHtml = await renderMarkdownFragment(plugin, extracted.structured.extraMarkdown, path9, comp);
+    }
+    return buildTaskViewHtmlDocument(extracted, path9, {
+      viewMode: effectiveView,
+      outlineBodyHtml,
+      extraNotesHtml
+    });
+  } finally {
+    comp.unload();
+  }
+}
+async function exportTaskToPdf(plugin, path9, line, options = {}) {
   const remote = getElectronRemote();
   if (!remote?.dialog || !remote?.BrowserWindow) {
     return plugin.notice(t("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u5BFC\u51FA PDF"));
   }
   const text = await plugin.readNote(path9);
-  const extracted = extractTaskBlock(text, line, path9);
+  const extracted = extractTaskBlock(text, line, path9, plugin);
   if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
+  const effectiveView = resolveExportView(extracted, options.viewMode);
   const startDir = initialExportDir(plugin, path9);
   const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
-    title: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A PDF"),
+    title: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A PDF\uFF08{view}\uFF09", { view: viewLabel(effectiveView) }),
     defaultPath: import_path9.default.join(startDir, `${extracted.suggestedName}.pdf`),
     filters: [{ name: "PDF", extensions: ["pdf"] }]
   });
   if (picked.canceled || !picked.filePath) return;
   const targetPdf = ensureExt(picked.filePath, ".pdf");
-  const md = buildTaskExportDocument(extracted, path9);
-  const host = document.createElement("div");
-  const comp = new import_obsidian13.Component();
-  comp.load();
   let win = null;
   let tmpHtml = "";
   try {
-    await import_obsidian13.MarkdownRenderer.render(plugin.app, md, host, path9, comp);
-    const html = buildPdfHtmlDocument(extracted.title, host.innerHTML);
+    const html = await renderTaskHtmlForExport(plugin, extracted, path9, effectiveView);
     tmpHtml = import_path9.default.join(import_os10.default.tmpdir(), `agent-deck-pdf-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
     await import_promises3.default.writeFile(tmpHtml, html, "utf8");
     win = new remote.BrowserWindow({
       show: false,
-      width: 820,
-      height: 1080,
+      width: 860,
+      height: 1120,
       webPreferences: { javascript: false, sandbox: true }
     });
     await win.loadFile(tmpHtml);
@@ -22401,12 +23063,73 @@ async function exportTaskToPdf(plugin, path9, line) {
   } catch (e) {
     plugin.notice(t("\u5BFC\u51FA PDF \u5931\u8D25\uFF1A{error}", { error: String(e?.message || e) }));
   } finally {
-    comp.unload();
-    host.remove();
     if (win && !win.isDestroyed?.()) win.destroy();
     if (tmpHtml) await import_promises3.default.unlink(tmpHtml).catch(() => {
     });
   }
+}
+async function exportTaskToTextFile(plugin, path9, line, { ext, filterName, dialogTitle, buildContent, onSuccess, viewMode = "" }) {
+  const remote = getElectronRemote();
+  if (!remote?.dialog) {
+    return plugin.notice(t("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u9009\u62E9\u4FDD\u5B58\u4F4D\u7F6E"));
+  }
+  const text = await plugin.readNote(path9);
+  const extracted = extractTaskBlock(text, line, path9, plugin);
+  if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
+  const startDir = initialExportDir(plugin, path9);
+  const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
+    title: dialogTitle,
+    defaultPath: import_path9.default.join(startDir, `${extracted.suggestedName}${ext}`),
+    filters: [{ name: filterName, extensions: [ext.replace(/^\./, "")] }]
+  });
+  if (picked.canceled || !picked.filePath) return;
+  const targetFile = ensureExt(picked.filePath, ext);
+  const vaultBase = plugin.app?.vault?.adapter?.basePath;
+  if (ext === ".md" && vaultBase && import_path9.default.resolve(import_path9.default.join(vaultBase, path9)) === import_path9.default.resolve(targetFile)) {
+    return plugin.notice(t("\u4E0D\u80FD\u8986\u76D6\u5F53\u524D\u6240\u5728\u7B14\u8BB0"));
+  }
+  const content = await buildContent(extracted, path9, { viewMode });
+  const written = await writeExportFile(plugin, targetFile, content);
+  rememberExportDir(plugin, targetFile);
+  plugin.notice(onSuccess(written.path));
+}
+async function exportTaskToHtml(plugin, path9, line, options = {}) {
+  return exportTaskToTextFile(plugin, path9, line, {
+    ext: ".html",
+    filterName: "HTML",
+    dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A HTML"),
+    viewMode: options.viewMode || "",
+    buildContent: (extracted, src, opts) => renderTaskHtmlForExport(plugin, extracted, src, opts.viewMode),
+    onSuccess: (p) => t("\u5DF2\u5BFC\u51FA HTML\uFF1A{path}", { path: p })
+  });
+}
+async function exportTaskToMarkdown(plugin, path9, line) {
+  return exportTaskToTextFile(plugin, path9, line, {
+    ext: ".md",
+    filterName: "Markdown",
+    dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A Markdown"),
+    buildContent: (extracted, src) => buildTaskExportDocument(extracted, src),
+    onSuccess: (p) => t("\u5DF2\u5BFC\u51FA Markdown\uFF1A{path}", { path: p })
+  });
+}
+async function exportTaskToJson(plugin, path9, line, options = {}) {
+  return exportTaskToTextFile(plugin, path9, line, {
+    ext: ".json",
+    filterName: "JSON",
+    dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A JSON"),
+    viewMode: options.viewMode || "",
+    buildContent: (extracted, src, opts) => buildTaskExportJson(extracted, src, opts),
+    onSuccess: (p) => t("\u5DF2\u5BFC\u51FA JSON\uFF1A{path}", { path: p })
+  });
+}
+async function exportTaskToCsv(plugin, path9, line) {
+  return exportTaskToTextFile(plugin, path9, line, {
+    ext: ".csv",
+    filterName: "CSV",
+    dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A CSV"),
+    buildContent: (extracted, src) => buildTaskExportCsv(extracted, src),
+    onSuccess: (p) => t("\u5DF2\u5BFC\u51FA CSV\uFF1A{path}", { path: p })
+  });
 }
 async function saveTaskAsFile(plugin, path9, line) {
   const remote = getElectronRemote();
@@ -22414,7 +23137,7 @@ async function saveTaskAsFile(plugin, path9, line) {
     return plugin.notice(t("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u9009\u62E9\u4FDD\u5B58\u4F4D\u7F6E"));
   }
   const base = await plugin.readNote(path9);
-  const extracted = extractTaskBlock(base, line, path9);
+  const extracted = extractTaskBlock(base, line, path9, plugin);
   if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
   const startDir = initialExportDir(plugin, path9);
   const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
@@ -22432,7 +23155,7 @@ async function saveTaskAsFile(plugin, path9, line) {
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
   const latest = await plugin.readNote(path9);
-  const check = extractTaskBlock(latest, line, path9);
+  const check = extractTaskBlock(latest, line, path9, plugin);
   if (!check || check.rawText !== extracted.rawText) {
     return plugin.notice(t("\u539F\u7B14\u8BB0\u5185\u5BB9\u521A\u6709\u53D8\u5316\uFF0C\u5DF2\u4FDD\u5B58\u526F\u672C\u5230 {path}\uFF0C\u539F\u6587\u4FDD\u7559", { path: written.path }));
   }
@@ -23698,6 +24421,27 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     const icons = { outline: "list-tree", table: "table", cards: "layout-grid", timeline: "history" };
     setLucide(el, icons[viewMode] || "list-tree");
   }
+  populateRecordExportMenu(sub, { path: path9 = "", line = 0, viewMode = "outline" } = {}) {
+    const viewLabels = {
+      outline: t("\u5927\u7EB2"),
+      table: t("\u8868\u683C"),
+      cards: t("\u5361\u7247"),
+      timeline: t("\u65F6\u95F4\u7EBF")
+    };
+    const activeViewLabel = viewLabels[viewMode] || viewLabels.outline;
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A PDF\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("file-text").onClick(() => exportTaskToPdf(this, path9, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A HTML\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("globe").onClick(() => exportTaskToHtml(this, path9, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A Markdown (.md)")).setIcon("file-code").onClick(() => exportTaskToMarkdown(this, path9, line)));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A JSON (.json)")).setIcon("braces").onClick(() => exportTaskToJson(this, path9, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A CSV (.csv)")).setIcon("table").onClick(() => exportTaskToCsv(this, path9, line)));
+    sub.addSeparator();
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path9, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown \u8868\u683C")).setIcon("table").onClick(() => copyTaskMarkdownTable(this, path9, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A\u7EAF\u6587\u672C")).setIcon("align-left").onClick(() => copyTaskPlainText(this, path9, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A JSON")).setIcon("copy").onClick(() => copyTaskJson(this, path9, line, { viewMode })));
+    sub.addSeparator();
+    sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path9, line)));
+  }
   openRecordViewMenu(event, { path: path9 = "", line = 0, viewMode = "outline", onSelect } = {}) {
     const menu = new import_obsidian14.Menu();
     const views = [
@@ -23713,19 +24457,15 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     }
     if (path9) {
       menu.addSeparator();
-      const populateExport = (sub) => {
-        sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A PDF")).setIcon("file-text").onClick(() => exportTaskToPdf(this, path9, line)));
-        sub.addItem((si) => si.setTitle(t("\u4EE5 Markdown \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path9, line)));
-        sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path9, line)));
-      };
+      const opts = { path: path9, line, viewMode };
       menu.addItem((mi) => {
         mi.setTitle(t("\u5BFC\u51FA")).setIcon("download");
         if (typeof mi.setSubmenu === "function") {
-          populateExport(mi.setSubmenu());
+          this.populateRecordExportMenu(mi.setSubmenu(), opts);
         } else {
           mi.onClick(() => {
             const sub = new import_obsidian14.Menu();
-            populateExport(sub);
+            this.populateRecordExportMenu(sub, opts);
             if (event) sub.showAtMouseEvent(event);
           });
         }

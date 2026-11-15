@@ -44,6 +44,8 @@ try {
   await test('Existing Claude configuration remains supported', async () => {
     const r = JSON.parse(await runJournalModel('总结', {autoLogPath:bin, autoLogModel:'haiku'}));
     assert.ok(r.args.includes('--no-session-persistence'));
+    assert.ok(r.args.includes('--strict-mcp-config'));
+    assert.equal(r.args[r.args.indexOf('--setting-sources')+1], 'user,project');
     assert.equal(r.args[r.args.indexOf('--model')+1], 'haiku');
   });
   await test('CLI failure and timeout reject instead of returning a false success', async () => {
@@ -107,6 +109,35 @@ try {
     assert.equal(resolveJournalProvider({ autoLogProvider: 'auto', autoLogPath: '/tmp/my-codex' }, { homeDir: fakeHome, env: { PATH: '' } }), 'codex');
     assert.equal(resolveJournalProvider({ autoLogProvider: 'api' }, { homeDir: fakeHome, env: { PATH: '' } }), 'api');
     assert.equal(resolveJournalProvider({}, { homeDir: fakeHome, env: { PATH: '' } }), 'claude');
+  });
+
+  await test('detectJournalProviders recognizes Claude auth via ANTHROPIC_AUTH_TOKEN env or ~/.claude/settings.json env', () => {
+    const fakeHome = path.join(dir, 'claude-settings-auth-home');
+    const localBin = path.join(fakeHome, '.local', 'bin');
+    fs.mkdirSync(localBin, { recursive: true });
+    const claudeBin = path.join(localBin, 'claude');
+    fs.writeFileSync(claudeBin, '#!/bin/sh\nexit 0\n');
+    fs.chmodSync(claudeBin, 0o755);
+
+    const claudeDir = path.join(fakeHome, '.claude');
+    fs.mkdirSync(claudeDir, { recursive: true });
+    const settingsPath = path.join(claudeDir, 'settings.json');
+    fs.writeFileSync(settingsPath, JSON.stringify({ model: 'sonnet', env: { ANTHROPIC_BASE_URL: 'https://relay.example.com' } }));
+
+    // Only settings.json without token/API key -> not logged in
+    let res = detectJournalProviders({ homeDir: fakeHome, env: { PATH: '' } });
+    assert.equal(res.providers.find((x) => x.id === 'claude')?.loggedIn, false);
+
+    // Process env ANTHROPIC_AUTH_TOKEN -> logged in
+    res = detectJournalProviders({ homeDir: fakeHome, env: { PATH: '', ANTHROPIC_AUTH_TOKEN: 'tok-env' } });
+    assert.equal(res.providers.find((x) => x.id === 'claude')?.available, true);
+
+    // ~/.claude/settings.json env.ANTHROPIC_AUTH_TOKEN -> logged in even with clean process env
+    fs.writeFileSync(settingsPath, JSON.stringify({ env: { ANTHROPIC_AUTH_TOKEN: 'tok-file', ANTHROPIC_BASE_URL: 'https://relay.example.com' } }));
+    res = detectJournalProviders({ homeDir: fakeHome, env: { PATH: '' } });
+    assert.equal(res.providers.find((x) => x.id === 'claude')?.available, true);
+    assert.equal(res.recommended, 'claude');
+    assert.equal(resolveJournalProvider({ autoLogProvider: 'auto' }, { homeDir: fakeHome, env: { PATH: '' } }), 'claude');
   });
 
   await test('runOpenAiApi normalizes URL, handles auth headers and errors', async () => {

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.9.1
+
+- **Claude CLI `env` 认证修复（#4）**：`runClaude()` 将 `--setting-sources` 由 `project` 调整为 `user,project`，使配置在 `~/.claude/settings.json` `env` 中的 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` 等凭据可在无头整理与 Dreaming 子进程中正常加载；同步更新 `JOURNAL_PROVIDERS.claude.loggedIn` 探测逻辑，识别 `env.ANTHROPIC_AUTH_TOKEN` 与 `~/.claude/settings.json` `env` 中的认证字段，避免自动挑选模型时误判未登录。
+- **AI 记录按视图与多格式导出**：顶层 AI 自动记录母块的视图菜单内新增「导出」子菜单，支持按当前视图（大纲／表格／卡片／时间线）导出展开后的 PDF 与独立 HTML（保留时间线时间戳与手写附注），新增无损 Markdown (`.md`)、结构化 JSON (`.json`)、UTF-8 BOM CSV (`.csv`) 文件导出，以及复制为 Markdown、Markdown 表格、纯文本与 JSON 以便数据复用。
+
 ## 1.9.9
 
 - **协作回顾 Dashboard 增强**：新增「24 小时作息与并发」时段活跃柱状图、多会话并发统计与最活跃时段提示；新增「模型分布」统计表（Token、问答轮次、轮均 Token、缓存命中率、活跃耗时与会话数），支持点击联动筛选并纳入简报导出。

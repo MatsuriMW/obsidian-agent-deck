@@ -406,3 +406,89 @@ export function redirectHiddenTailTransaction(text, trackedIds = new Set(), { ch
   }
   return null;
 }
+
+export function trackedBlockIds(plugin) {
+  const ids = new Set();
+  for (const day of Object.values(plugin?.settings?.autoLogState || {})) {
+    for (const rec of Object.values(day || {})) if (rec?.blockId) ids.add(rec.blockId);
+  }
+  for (const rec of Object.values(plugin?.settings?.taskBindings || {})) if (rec?.blockId) ids.add(rec.blockId);
+  return ids;
+}
+
+export function blockSessionMap(plugin) {
+  const out = new Map();
+  const add = (id, sid) => {
+    if (!id || !sid) return;
+    if (!out.has(id)) out.set(id, new Set());
+    out.get(id).add(sid);
+  };
+  for (const day of Object.values(plugin?.settings?.autoLogState || {})) {
+    for (const [sid, rec] of Object.entries(day || {})) add(rec?.blockId, sid);
+  }
+  for (const [sid, rec] of Object.entries(plugin?.settings?.taskBindings || {})) add(rec?.blockId, sid);
+  for (const job of Object.values(plugin?.jobs || {})) add(job?.blockId, job?.sessionId);
+  return out;
+}
+
+export function collectGroupSids(group, lines, blockMap) {
+  const sids = [];
+  const push = (sid) => { if (sid && !sids.includes(sid)) sids.push(sid); };
+  const turnSid = (line) => /<!-- ad-turn:([A-Za-z0-9_-]+):\d+ -->/.exec(String(line || ""))?.[1];
+  const id = group ? J.blockIdOf(lines[group.line]) : "";
+  if (id && blockMap?.has(id)) for (const sid of blockMap.get(id)) push(sid);
+  for (const n of group?.records || []) {
+    push(J.parseLink(lines[n])?.sid);
+    push(turnSid(lines[n]));
+  }
+  for (const e of group?.tableEntries || []) {
+    push(J.parseLink(lines[e.line])?.sid);
+    push(turnSid(lines[e.line]));
+  }
+  return sids;
+}
+
+export function roundStartedAt(plugin, rawLine, round, groupSids = []) {
+  if (round == null || !groupSids.length) return 0;
+  let sid = groupSids[0];
+  if (groupSids.length > 1) {
+    sid = J.parseLink(rawLine)?.sid
+      || groupSids.find((id) => rawLine.includes(J.turnMarker(id, round)) || rawLine.includes(`<!-- ad-turn:${id}:${round} -->`))
+      || groupSids[0];
+  }
+  const metaRounds = plugin?.usage?.meta?.get?.(sid)?.rounds;
+  if (Array.isArray(metaRounds)) {
+    const hit = metaRounds.find((r) => r && r.n === round) || metaRounds[round - 1];
+    const ts = Number(hit?.at);
+    if (Number.isFinite(ts) && ts > 0) return ts;
+  }
+  for (const job of Object.values(plugin?.jobs || {})) {
+    if (job?.sessionId !== sid || !Array.isArray(job.conversation)) continue;
+    let seen = 0;
+    for (const msg of job.conversation) {
+      if (msg?.role !== "user") continue;
+      seen++;
+      const ts = Number(msg.at);
+      if (seen === round && Number.isFinite(ts) && ts > 0) return ts;
+    }
+  }
+  return 0;
+}
+
+const pad2 = (n) => String(n).padStart(2, "0");
+
+export function localDayKey(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}
+
+export function formatTimelineAt(ms, showDate = false) {
+  const d = new Date(ms);
+  const hm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  return showDate ? `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${hm}` : hm;
+}
+
+export function formatTimelineFull(ms) {
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
