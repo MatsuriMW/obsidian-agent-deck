@@ -24,8 +24,8 @@ for (const order of orders) {
   assert.ok(second.includes('## 手写原题'),'a user heading is not treated as an old template title');
   assert.equal(renderJournal(planJournal(second)),second);
   const fallback=renderJournal(planJournal(second,{layout:null}));
-  assert.equal(fallback,source,'restoring defaults preserves all original content');
-  const skipped=renderJournal(planJournal(first),{skip:new Set(['ad-done'])});
+  assert.equal(fallback,source.replace(' ^ad-done',''),'restoring defaults preserves content with completed identifiers removed');
+  const skipped=renderJournal(planJournal(first),{skip:new Set([planJournal(first).done.find(entry=>entry.text.includes('完成任务')).text])});
   assert.ok(!skipped.includes('完成任务')&&skipped.includes('正在做')&&skipped.includes('手写完成'),'archiving removes only the selected AI block');
   const crlf=first.replace(/\n/g,'\r\n');
   assert.equal(renderJournal(planJournal(crlf)),crlf,'CRLF custom journals stay CRLF');

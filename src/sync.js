@@ -73,7 +73,7 @@ export class JournalSync {
       if (v instanceof MarkdownView && v.file && v.editor && v.editor.cm) {
         try {
           const doc = v.editor.cm.state.doc.toString();
-          if (doc.includes("🔗") || /\s\^ad-[0-9a-z]{6}/i.test(doc)) out.push(v);
+          if (doc.includes("🔗") || J.taskItems(doc).some(task => J.isDeckBlockId(task.blockId))) out.push(v);
         } catch { /* closed */ }
       }
     });
@@ -111,27 +111,30 @@ export class JournalSync {
         const cm = view.editor.cm;
         if (!cm || !cm.dom.isConnected || cm.composing) continue;
         const text = cm.state.doc.toString();
+        const taskIds = this.cfg.resultBack !== false ? await this.prepareTaskIds(text) : new Map();
         if (this.cfg.journalAutoWrite === false || this._stopped) return;
         let next = text;
-        if (this.cfg.resultBack !== false) next = this.results(next);
+        if (this.cfg.resultBack !== false) next = this.results(next, taskIds);
         if (this.cfg.agentKw !== false) next = this.keywords(next);
         if (this.cfg.kidBlocks !== false) { next = this.spawnAll(next); next = this.subsIntoAll(next); next = this.sides(next); }
         next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
-        next = ensureTopRule(next);
+        next = ensureTopRule(J.cleanCompletedIdentifiers(next));
         if (next !== text) this.replace(view, text, next);
       }
       const file = this.todayJournal();
       if (file && !this.isOpen(file)) {
         // 今天的日记没开着也要跟上：客户端里归档了，这边照样记 DONE
+        const taskIds = this.p.taskBlockId && this.cfg.resultBack !== false
+          ? await this.prepareTaskIds(await this.p.readNote(file.path)) : new Map();
         await updateNote(this.p, file.path, text => {
           if (this.cfg.journalAutoWrite === false || this._stopped) return text;
           let next = text;
-          if (this.cfg.resultBack !== false) next = this.results(next);
+          if (this.cfg.resultBack !== false) next = this.results(next, taskIds);
           if (this.cfg.agentKw !== false) next = this.keywords(next);
           next = this.spawnAll(next);
           next = this.sides(next);
           next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
-          next = ensureTopRule(next);
+          next = ensureTopRule(J.cleanCompletedIdentifiers(next));
           return next;
         });
       }
@@ -208,7 +211,20 @@ export class JournalSync {
   }
 
   // 答完一轮或者归档了：把每轮的一句话结论 💬、多轮追问 ❓ 以及 TaskCreate 步骤 📋 写回同一个 ^xxxxx 任务条目下
-  results(text) {
+  async prepareTaskIds(text) {
+    const ids = new Map();
+    if (!this.p.taskBlockId) return ids;
+    for (const raw of text.split("\n")) {
+      const link = J.parseLink(raw);
+      if (!link || ids.has(link.sid)) continue;
+      const task = J.findTask(text, "", "", link.sid);
+      if (!task || task.blockId || task.state === "done") continue;
+      ids.set(link.sid, await this.p.taskBlockId(link.sid, link.agent, task.body.replace(/^🤖\s*/, "")));
+    }
+    return ids;
+  }
+
+  results(text, taskIds = new Map()) {
     const targets = new Map(); // sid -> { blockId, key }
     for (const line of text.split("\n")) {
       const k = J.parseLink(line);
@@ -263,8 +279,8 @@ export class JournalSync {
         compact: this.cfg.autoLogSummaries?.[dayKeyToday(this.cfg)]?.[sid],
         detail: this.cfg.autoLogDetail,
         detailHistory: this.cfg.autoLogDetailHistory,
-        sid,
-        blockId: info.blockId || (daySt[sid] && daySt[sid].blockId) || "",
+        sid, agent: m.agent,
+        blockId: info.blockId || taskIds.get(sid) || (daySt[sid] && daySt[sid].blockId) || "",
         key: info.key || (daySt[sid] && daySt[sid].key) || "",
         said: summary,
         rounds: completed,
@@ -314,7 +330,7 @@ export class JournalSync {
           kw: nextKw,
           start,
           end,
-          title: p.title,
+          title: p.title, preserveTitle: true,
           blockId: p.blockId,
         });
         if (nextLine !== ls[n]) ls[n] = nextLine;
@@ -326,7 +342,7 @@ export class JournalSync {
     }
     let out = ls.join("\n");
     if (this.cfg.autoLogKw !== false) out = this.autoKeywords(out);
-    return out;
+    return J.cleanCompletedIdentifiers(out);
   }
 
   // 自动记日记建的条目没有 🔗 行，靠 ^blockId / 名字认：也跟着会话在 DOING 和中间态之间切。
@@ -360,7 +376,7 @@ export class JournalSync {
           kw,
           start,
           end,
-          title: p.title,
+          title: p.title, preserveTitle: true,
           blockId: p.blockId,
         });
         if (nextLine !== ls[n]) {
@@ -395,7 +411,7 @@ export class JournalSync {
         kw: "DONE",
         start: start || lastClock,
         end: lastClock || end || start,
-        title: p.title,
+        title: p.title, preserveTitle: true,
         blockId: p.blockId,
       });
     } else {
@@ -413,11 +429,9 @@ export class JournalSync {
       const who = AGENTS[info.agent]?.short || info.agent;
       lines.splice(n + 1, 0, J.clockLine((/^\s*/.exec(lines[n]) || [""])[0] + "\t", info.segs, who, (info.out || 0) + (info.fresh || 0)));
     }
-    // 收掉这一项的 🔗 行；记一笔「绑过」，自动记日记就不会在 🔗 没了之后再替它新写一行
-    const link = J.linkUnder(lines, n);
-    if (link && link.sid === sid && J.markOwner(lines, link.line) === n && !J.blockIdOf(lines[link.line]) && !J.hasDescendants(lines, link.line)) lines.splice(link.line, 1);
+    // Keep the session link usable after removing the finished task's IDs.
     this.p.markBound?.(sid);
-    return lines.join("\n");
+    return J.cleanCompletedIdentifiers(lines.join("\n"));
   }
 
   // 一篇笔记里所有绑着的 Claude 会话开出来的子会话都挂上；新挂上的继续往下挂
@@ -557,7 +571,7 @@ export class JournalSync {
         const pt = J.splitTask(lines[k]);
         if (!pt) return;
         lines[k] = pt.auto
-          ? J.formatAutoTaskLine({ prefix: pt.prefix, kw, start: startTime || pt.since || time, end: time || pt.until || pt.since, title: pt.title, blockId: pt.blockId })
+          ? J.formatAutoTaskLine({ prefix: pt.prefix, kw, start: startTime || pt.since || time, end: time || pt.until || pt.since, title: pt.title, preserveTitle: true, blockId: pt.blockId })
           : `${pt.prefix}${kw} ${time} ${pt.rest}`.trimEnd();
       };
       for (const r of subs) {
@@ -662,7 +676,7 @@ export class JournalSync {
       const startStr = from || J.clock(nowMin - mins);
       const endStr = J.clock(nowMin);
       lines[c.block] = cur && cur.auto
-        ? J.formatAutoTaskLine({ prefix: cur.prefix, kw: "DONE", start: startStr, end: endStr, title: cur.title || "side chat", blockId: cur.blockId })
+        ? J.formatAutoTaskLine({ prefix: cur.prefix, kw: "DONE", start: startStr, end: endStr, title: cur.title, preserveTitle: true, blockId: cur.blockId })
         : `${cur ? cur.prefix : ""}DONE ${endStr} ${cur ? cur.rest : "side chat"}`.trimEnd();
       lines[c.mark] = `${kidInd}${unit}- ⏱ ${startStr}–${endStr} · 共 ${J.durTag(mins)} · side chat \`pid ${c.id}\``;
       changed = true;

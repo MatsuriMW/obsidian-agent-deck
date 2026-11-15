@@ -1,5 +1,4 @@
 import { Menu, Notice } from "obsidian";
-import { randomUUID } from "crypto";
 import * as J from "./journal.js";
 import { t } from "./i18n.js";
 
@@ -41,12 +40,21 @@ export function suggestedStatus(settings, usage, text, n) {
 }
 
 export async function applyStatusChoice(plugin, target, keyword) {
-  const settings=plugin.settings, id=J.blockIdOf(target.raw)||randomUUID();
+  const settings=plugin.settings;
+  let id=J.blockIdOf(target.raw);
+  if (!id && plugin.taskBlockId && !J.DONE_KWS.includes(keyword)) {
+    const text=await plugin.readNote(target.path), n=locateStatusTask(text,target);
+    if(n<0)throw new Error(t('任务已变化，请重新点击状态关键词'));
+    const link=J.linkUnder(text.split('\n'),n), task=J.kwLine(target.raw);
+    if(link || task?.body.startsWith('🤖'))id=await plugin.taskBlockId(link?.sid || "",link?.agent || "",task.body.replace(/^🤖\s*/,""));
+  }
   let previous, changed=false;
   const transform=text=>{
     const n=locateStatusTask(text,target);
     if(n<0)throw new Error(t('任务已变化，请重新点击状态关键词'));
     const lines=text.split('\n');
+    const link=J.linkUnder(lines,n);
+    id ||= J.makeBlockId(link?.sid || "", link?.agent);
     const next=keyword || suggestedStatus(settings,plugin.usage,text,n);
     if(!next)throw new Error(t('没有可跟随的会话状态'));
     const raw=replaceTaskStatus(lines[n],next);
@@ -56,7 +64,7 @@ export async function applyStatusChoice(plugin, target, keyword) {
     if(keyword)locks[id]=next;else delete locks[id];
     changed=true;
     lines[n]=J.ensureBlockId(raw,id).line;
-    return lines.join('\n');
+    return J.cleanCompletedIdentifiers(lines.join('\n'));
   };
   try {
     const view=plugin.viewForPath(target.path);

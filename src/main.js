@@ -9,6 +9,7 @@ import { archiveCompletedTo } from "./journal-archive.js";
 import { planJournal, renderJournal, ACTIVE_HEADING, LEGACY_HEADINGS } from "./organize-journal.js";
 import { readJournalLayout, configuredJournalLayout } from "./journal-layout.js";
 import { JournalOrganizer } from "./journal-organizer.js";
+import { semanticTaskId } from "./task-id.js";
 import { AttentionTracker } from "./attention.js";
 import { defaultDestination, activeJob, canOpenClient } from "./workflow.js";
 import path from "path";
@@ -23,6 +24,7 @@ import {
 import { AgentUsage, UsageStore, projectName, SUMMARY_VERSION } from "./readers.js";
 import { Delegator, blockAt, freshTaskText, ancestorLines, delegationText, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findAgyBinary, findOpenCodeBinary, findQoderBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
+import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
 import { AgentDeckSettingsTab } from "./settings.js";
 import { syncModelGroups } from "./model-groups.js";
 import { DelegateOptionsModal, ConfirmSendModal, ArchiveTargetModal } from "./dialog.js";
@@ -79,6 +81,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.journalOrganizer = new JournalOrganizer(this);
 
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
+    this.registerView(DASHBOARD_TYPE, (leaf) => new DashboardView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
     this.registerEditorExtension(createEditorExtension(this));
@@ -93,6 +96,11 @@ export default class AgentDeckPlugin extends Plugin {
     this.setupRibbon();
 
     this.addCommand({ id: "open-dashboard", name: t("打开 Agent Deck 面板"), callback: () => this.activateView() });
+    this.addCommand({ id: "open-review", name: t("打开 Agent Deck 回顾 Dashboard"), checkCallback: (checking) => {
+      if (this.settings.experimentalDashboard === false) return false;
+      if (!checking) this.activateDashboard();
+      return true;
+    } });
     this.addCommand({
       id: "open-menubar-panel",
       name: t("打开 macOS 菜单栏面板"),
@@ -155,6 +163,7 @@ export default class AgentDeckPlugin extends Plugin {
         this.notice(t("已隐藏 macOS 菜单栏；可在 Agent Deck → 记录 里重新打开"), 8000);
         return;
       }
+      if (params && params.do === "review") return this.activateDashboard();
       return this.activateView();
     });
 
@@ -245,6 +254,25 @@ export default class AgentDeckPlugin extends Plugin {
       await leaf.setViewState({ type: VIEW_TYPE, active: true });
     }
     this.app.workspace.revealLeaf(leaf);
+  }
+
+  async setExperimentalDashboard(enabled) {
+    const previous = this.settings.experimentalDashboard;
+    this.settings.experimentalDashboard = enabled;
+    try { await this.saveSettings(); }
+    catch (error) { this.settings.experimentalDashboard = previous; throw error; }
+    if (!enabled) for (const leaf of this.app.workspace.getLeavesOfType(DASHBOARD_TYPE)) leaf.detach();
+    this.refreshUI();
+  }
+
+  async activateDashboard() {
+    if (this.settings.experimentalDashboard === false) return;
+    let leaf = this.app.workspace.getLeavesOfType(DASHBOARD_TYPE)[0];
+    if (!leaf) {
+      leaf = this.app.workspace.getLeaf("tab");
+      await leaf.setViewState({ type: DASHBOARD_TYPE, active: true });
+    }
+    if (this.settings.experimentalDashboard !== false) this.app.workspace.revealLeaf(leaf);
   }
 
   openSettings(tab) {
@@ -698,8 +726,12 @@ export default class AgentDeckPlugin extends Plugin {
     return found;
   }
 
+  taskBlockId(seed, agent, title) {
+    return semanticTaskId(this, seed, agent, title);
+  }
+
   // 面板里的会话卡片拖到了笔记第 line 行上
-  bindSessionAt(cm, line, data, { below = false } = {}) {
+  async bindSessionAt(cm, line, data, { below = false } = {}) {
     let view = null;
     this.app.workspace.iterateAllLeaves((leaf) => { const v = leaf.view; if (!view && v instanceof MarkdownView && v.editor && v.editor.cm === cm) view = v; });
     if (!view || !data || !data.sid) return;
@@ -714,13 +746,26 @@ export default class AgentDeckPlugin extends Plugin {
     const now = new Date();
     const since = first != null ? J.clock(first) : fmtClock(now.getTime());
     const until = last != null ? J.clock(last) : (meta.lastAt ? fmtClock(meta.lastAt) : since);
+    const before = cm.state.doc.toString(), anchor = before.split("\n")[line], notePath = view.file.path;
+    const agent = data.agent || meta.agent || "claude";
+    const title = data.title || meta.title || (meta.text || "").split(" / ")[0] || sid.slice(0, 8);
+    let blockId = (rec && rec.blockId) || (!below && J.blockIdOf(anchor));
+    if (!blockId && this.taskBlockId) {
+      blockId = await this.taskBlockId(sid, agent, title);
+      if (this._unloaded || view.file?.path !== notePath || view.editor.cm !== cm) return;
+      const current = cm.state.doc.toString();
+      if (current !== before) {
+        const matches = current.split("\n").flatMap((raw, n) => raw === anchor ? [n] : []);
+        if (matches.length !== 1) return this.notice(t("笔记在拖的时候变了，再拖一次"));
+        line = matches[0];
+      }
+    }
     const text = cm.state.doc.toString();
     const res = J.bindInto(text, line, {
-      sid, agent: data.agent || meta.agent || "claude",
-      title: data.title || meta.title || (meta.text || "").split(" / ")[0] || sid.slice(0, 8),
+      sid, agent, title,
       state: (live && live.state) || meta.state || "idle", since, until,
       dropKey: rec && rec.created && rec.key ? rec.key : null,
-      blockId: rec && rec.blockId ? rec.blockId : "",
+      blockId: blockId || "",
     }, { below, ensureBlockId: true });
     if (res.error) return this.notice(res.error, 6000);
     const change = J.diffLines(text, res.text);
@@ -1087,7 +1132,7 @@ export default class AgentDeckPlugin extends Plugin {
     const next = renderJournal(plan);
     const nextText = next === edited ? edited : next;
     if (!await this.writeJournal(file, base, nextText)) return this.notice(t("日记刚有变化，请重试"));
-    const moved = nextText.split("\n").findIndex((line) => line.trim() === head.trim());
+    const moved = nextText.split("\n").findIndex((line) => J.stripBlockId(line).trim() === J.stripBlockId(head).trim());
     if (moved >= 0) editor.setCursor({ line: moved, ch: 0 });
     this.refreshUI();
   }

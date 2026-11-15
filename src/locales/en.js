@@ -13,7 +13,8 @@ import writers from "./en/writers.js";
 import runtime from "./en/runtime.js";
 import menubar from "./en/menubar.js";
 import editor from "./en/editor.js";
+import dashboard from "./en/dashboard.js";
 
-export const fragments = { main, view, settings, dialogs, writers, runtime, menubar, editor };
+export const fragments = { main, view, settings, dialogs, writers, runtime, menubar, editor, dashboard };
 
-export default Object.assign({}, main, view, settings, dialogs, writers, runtime, menubar, editor);
+export default Object.assign({}, main, view, settings, dialogs, writers, runtime, menubar, editor, dashboard);

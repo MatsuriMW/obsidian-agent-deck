@@ -1448,6 +1448,10 @@ export class Delegator {
   async writeLink(job, sid) {
     if (!this.C.writeLink) return;
     const path = job.path;
+    const existing = job.blockId || J.blockIdOf(job.lineText);
+    const blockId = existing || (this.plugin.taskBlockId
+      ? await this.plugin.taskBlockId(sid, job.agent, job.name)
+      : J.makeBlockId(sid, job.agent, job.name));
     await updateNote(this.plugin, path, text => {
       const lines = text.split("\n");
       let at = job.blockId ? lines.findIndex((l) => J.blockIdOf(l) === job.blockId) : -1;
@@ -1463,7 +1467,7 @@ export class Delegator {
       if (job.agent === "workbuddy" && job.app === "cli") link = link.replace(/workbuddy:\/\/chat\/[^)]+/, `obsidian://agent-deck?do=open&agent=workbuddy&sid=${encodeURIComponent(sid)}`);
       lines.splice(block.start + 1, 0, link);
       if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
-      const ensured = J.ensureBlockId(lines[block.start], sid);
+      const ensured = J.ensureBlockId(lines[block.start], blockId);
       lines[block.start] = ensured.line;
       job.blockId = ensured.blockId;
       job.line = block.start;
@@ -1576,7 +1580,7 @@ export class Delegator {
       }
       if (this.plugin._unloaded) return;
       const note = await this.plugin.readNote(job.path);
-      rounds = rounds.filter(r => r.said && !note.includes(`<!-- ad-turn:${job.sessionId}:${r.n || 1} -->`));
+      rounds = rounds.filter(r => r.said && !J.hasRecordedTurn(note, job.sessionId, r.n || 1));
       await updateNote(this.plugin, job.path, text => rounds.reduce((current, round) =>
         backgroundSummaryPending(current, job, round.n || 1, true), text));
       if (rounds.length) job.resultWritten = false;
@@ -1598,7 +1602,7 @@ export class Delegator {
         compact: background ? null : this.settings.autoLogSummaries?.[job.path.split("/").pop().replace(/\.md$/, "")]?.[job.sessionId],
         detail: background ? "brief" : this.settings.autoLogDetail,
         detailHistory: background ? [] : this.settings.autoLogDetailHistory,
-        sid: job.sessionId || "", blockId: job.blockId || "", key: J.workKey(job.name || ""),
+        sid: job.sessionId || "", agent: job.agent, blockId: job.blockId || "", key: J.workKey(job.name || ""),
         said: background ? "" : J.oneSentenceConclusion(raw, clamp(Number(this.settings.resultMax) || 120, 40, 2000)),
         rounds,
         taskTodo: job.agent === "claude" && meta ? meta.todo : null, ensureId: true,

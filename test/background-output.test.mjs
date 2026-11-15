@@ -42,7 +42,7 @@ test('simultaneous background results archive complete replies and preserve ever
   await Promise.all([...jobs.map(j => d.writeResult(j)), d.writeLink({ agent: 'dsh', name: '任务', path: 'journal.md', blockId: 'ad-race' }, 'new-session')]);
   for (const [i, job] of jobs.entries()) {
     assert.ok(p.files.get(job.archivePath).text.includes(longReply + i), 'unabridged original includes Markdown and ending');
-    assert.ok(p.note().includes(`<!-- ad-turn:${job.sessionId}:1 -->`), `kept ${job.sessionId}`);
+    assert.ok(J.hasRecordedTurn(p.note(),job.sessionId,1), `kept ${job.sessionId}`);
     assert.ok(p.note().includes(`[[${job.archivePath}|`));
     assert.equal(job.resultWritten, true);
   }

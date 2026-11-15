@@ -60,7 +60,7 @@ export class AutoLog {
 
   // 只改前后不一样的那几行；这期间日记被改过就不写，返回 false
   async write(file, base, next) {
-    next = ensureTopRule(next);
+    next = ensureTopRule(J.cleanCompletedIdentifiers(next));
     if (base === next) return true;
     const v = this.viewFor(file);
     if (v) {
@@ -154,7 +154,7 @@ export class AutoLog {
     const segs = (x && x.segs) || [];
     const first = segs.length ? segs[0][0] : null;
     const last = segs.length ? segs[segs.length - 1][1] : first;
-    const preferId = (found && found.blockId) || rec.blockId || J.makeBlockId(sid || rec.key);
+    const preferId = (found && found.blockId) || rec.blockId || J.makeBlockId(sid || rec.key, x?.agent || rec.agent, rec.slug);
     const kw = status === "doing" ? "DOING" : status === "done" ? "DONE" : "PAUSED";
     const startClock = first != null ? J.clock(first) : "";
     const endClock = last != null ? J.clock(last) : startClock;
@@ -183,7 +183,7 @@ export class AutoLog {
     const raw = lines[found.line];
     const p = J.splitTask(raw);
     if (!p) return { text };
-    const isAuto = Boolean(p.auto || rec.created || String(rec.label || "").startsWith("🤖"));
+    const isAuto = Boolean(p.auto);
     if (isAuto) {
       const clockSpan = J.clockSpanFromLines(lines, found.line);
       const start = startClock || p.since || clockSpan?.start || "";
@@ -193,7 +193,7 @@ export class AutoLog {
         kw,
         start,
         end,
-        title: p.title || J.summarizeAutoTitle(rec.label),
+        title: p.title, preserveTitle: true,
         blockId: preferId,
       }), preferId);
       rec.blockId = eb.blockId;
@@ -224,20 +224,21 @@ export class AutoLog {
     const lines = text.split("\n");
     const at = found.line;
     const line = J.clockLine(J.childIndent(lines, at), segs, who, tok, true);
-    if (sid) { const l = J.linkUnder(lines, at); if (l && l.sid === sid && J.markOwner(lines, l.line) === at && !J.blockIdOf(lines[l.line]) && !J.hasDescendants(lines, l.line)) lines.splice(l.line, 1); }
+    if (sid && !J.isDoneLine(lines[at])) { const l = J.linkUnder(lines, at); if (l && l.sid === sid && J.markOwner(lines, l.line) === at && !J.blockIdOf(lines[l.line]) && !J.hasDescendants(lines, l.line)) lines.splice(l.line, 1); }
     const base = J.width(lines[at]);
     let end = at;
     for (let i = at + 1; i < lines.length; i++) {
       if (lines[i].trim() && J.width(lines[i]) <= base) break;
       if (lines[i].trim()) end = i;
+      if (J.CLOCK_RE.test(lines[i]) && J.markOwner(lines, i) === at && lines[i] === line.replace(/ <!-- ad-clock:[a-f0-9]+ -->$/, "")) return J.cleanCompletedIdentifiers(lines.join("\n"));
       if (J.CLOCK_RE.test(lines[i]) && J.markOwner(lines, i) === at && J.mutableClock(lines, i)) {
-        if (lines[i] === line) return lines.join("\n");
+        if (lines[i] === line) return J.cleanCompletedIdentifiers(lines.join("\n"));
         lines[i] = line;
-        return lines.join("\n");
+        return J.cleanCompletedIdentifiers(lines.join("\n"));
       }
     }
     lines.splice(end + 1, 0, line);
-    return lines.join("\n");
+    return J.cleanCompletedIdentifiers(lines.join("\n"));
   }
 
   // 让本机的小模型看一眼这几个会话：起名字、对上日记里哪一行、提炼一句话结论
@@ -259,9 +260,10 @@ export class AutoLog {
       blocks.join("\n\n"),
       "",
       "只输出一个 JSON 数组，每个会话一项，不要解释、不要代码块：",
-      '[{"id":"s1","label":"…","summary":"…","match":null,"done":false,"todos":[],"skip":false}]',
+      '[{"id":"s1","label":"…","slug":"journal-cleanup","summary":"…","match":null,"done":false,"todos":[],"skip":false}]',
       "字段：",
       "- label：这件事是什么，不超过 18 个字的中文总结标题（动词开头，稍微总结概括核心任务，不要照抄原话、路径或链接，不要带时间、时长、状态词和标点结尾）。",
+      "- slug：label 对应的一两个简短英文关键词，用小写英文字母、数字和短横线，每词不超过 16 个字符，例如 journal-cleanup；用于首次创建定位标识。",
       "- summary：当前最新一轮对话的一句话结论（不超过 35 个字），概括 AI 刚做完或得出的结论；没有回复则填空字符串。",
       "- match：只有当上面某一行写的就是「这个会话里 AI 在替用户做的那件工作本身」时，才填那一行的编号。那一行如果是留给用户本人的动作（看一眼、看效果、确认、拍板、自己跑命令、发出去、阅读之类），哪怕话题一样也不能匹配，填 null。拿不准一律填 null。",
       "- done：只对已经停了的会话有意义。最后的回复明确表明这件事整个做完了，填 true；做到一半、还在等用户、报错没解决、说了以后再继续，都填 false。",
@@ -292,6 +294,7 @@ export class AutoLog {
         const m = Number.isInteger(a.match) && open[a.match - 1] ? open[a.match - 1] : null;
         out.set(sid, {
           label,
+          slug: J.normalizeTaskSlug(a.slug),
           summary,
           matchKey: m ? J.workKey(m.label) : null,
           done: a.done === true,
@@ -375,7 +378,7 @@ export class AutoLog {
             if (m && !active && m.state !== "doing" && m.state !== "paused") m = null;
             if (!m && !a.label) { st[x.sid] = { skip: true }; continue; }
             const label = m ? m.body : J.AUTO_MARK + a.label;
-            const blockId = (m && m.blockId) || J.makeBlockId(x.sid);
+            const blockId = (m && m.blockId) || J.makeBlockId(x.sid, x.agent, a.slug);
             rec = st[x.sid] = { key: J.workKey(label), label, blockId, created: !m, agent: x.agent, status: m ? m.state : null, fresh: !m };
           }
           rec.min = x.min;
@@ -439,7 +442,7 @@ export class AutoLog {
               compact: this.cfg.autoLogSummaries?.[day]?.[x.sid],
               detail: this.cfg.autoLogDetail,
           detailHistory: this.cfg.autoLogDetailHistory,
-              sid: x.sid,
+              sid: x.sid, agent: x.agent,
               blockId: rec.blockId || "",
               key: rec.key,
               said: rawSummary,
@@ -471,7 +474,7 @@ export class AutoLog {
         for (const [k, segs] of byKey) merged.set(k, unionSegs([...(work[k] || []).filter((s) => s[1] != null), ...segs]));
         for (const k of clocks) if (merged.has(k)) text = this.autoClock(text, k, merged.get(k), [...who.get(k)].join(" / "), toks.get(k) || 0, (sids.get(k) || []).filter(Boolean).length === 1 ? (sids.get(k) || []).filter(Boolean)[0] : "", blockIds.get(k) || "");
         // ⏱ 排在记录块最后：顺带把以前夹在 ❓ / 💬 中间的旧记录也理顺
-        text = J.clocksLast(text);
+        text = J.cleanCompletedIdentifiers(J.clocksLast(text));
         report.diff = J.diffLines(base, text);
         if (dry) { this.cfg.autoLogState[day] = JSON.parse(snap); return report; }
         if (!(await this.write(file, base, text))) {

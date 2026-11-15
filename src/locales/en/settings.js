@@ -2,6 +2,9 @@
 // Keys are the Chinese source strings; placeholders use {name}.
 
 export default {
+  "实验功能": "Experiments",
+  "默认开启。查看 token 热力图、项目投入和历史记录；关闭后隐藏入口并关闭回顾页，保留统计数据。": "On by default. Review token activity, project effort and history. Turning this off hides the entry and closes review tabs while preserving statistics.",
+  "设置保存失败：{error}": "Could not save settings: {error}",
   "暂不支持委派": "Delegation not available",
   "客户端交接": "Client handoff",
   "委派方式": "Delegation method",

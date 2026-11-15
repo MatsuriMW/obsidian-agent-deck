@@ -4,7 +4,7 @@ This project is still early and evolving quickly. Some parts of the experience m
 
 If you find a problem or want to suggest a feature, open a [GitHub Issue](https://github.com/MatsuriMW/obsidian-agent-deck/issues) or email [klauschen2799@gmail.com](mailto:klauschen2799@gmail.com). I’ll work on it when I see it.
 
-> Track every agent. Delegate from the line you are already looking at.
+> Delegate AI work from your journal. Review daily token usage and project activity in a dashboard.
 
 [中文](README.md) ｜ **English** ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [Changelog](CHANGELOG.md)
 
@@ -22,6 +22,7 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 
 **Contents**
 
+- [Experimental Review Dashboard](#experimental-review-dashboard)
 - [Release notes](#release-notes)
 - [Interface language](#interface-language)
 - [Supported agents](#supported-agents)
@@ -46,9 +47,27 @@ It is the AI/agent tracking half of [Nautilus Spiral](https://github.com/Matsuri
 - [Credits](#credits)
 - [License](#license)
 
+## Experimental Review Dashboard
+
+Enabled by default under Agent Deck settings → Experiments. Disabling it hides the entry and command, closes open review tabs, and preserves statistics.
+
+Open **Agent Deck: Open Agent Deck Review Dashboard** from the command palette, or use the chart button in the sidebar. The first section is a GitHub-style token heatmap. Select a date to review the work behind that day.
+
+Choose 7, 30 or 90 days, the past year, or a custom range. Project activity combines saved journal context with daily session usage. Page links take priority, followed by titles, folders and recurring keywords, including page aliases. Expand a record to change its project, restore automatic matching, or open the source journal block and original session.
+
+Tokens include input, output and cache reads; they do not represent cost. Active time merges overlapping periods within each project and across the total. Concurrent project times may add up to more than total time. Days follow the journal cutoff. Only locally tracked, saved history is included; missing usage is shown without estimates. No model call is needed, and journal content is not modified.
+
 ## Release notes
 
-Current version: **1.9.5**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+Current version: **1.9.6**. Every change is listed in [CHANGELOG.md](CHANGELOG.md); builds are on [Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
+
+### 1.9.6 · Experimental review and semantic tracking IDs
+
+- Preserve edited AI task titles verbatim, including spacing and links. Convert confirmation envelopes into readable answers instead of recording internal transport tags.
+- Add an Experiments settings page with Review Dashboard enabled by default. Disabling review preserves statistics and project overrides.
+- Review daily token activity, date ranges, project effort and source records; correct project matching using saved local history.
+- New task IDs combine an Agent prefix, short English task name and stable suffix. Internal IDs remain hidden in the UI and are removed on completion or archival; preserve old IDs, handwritten notes and session links.
+- Verify real Qoder delegation, terminal continuation, round tracking, result writeback and full transcript archives.
 
 ### 1.9.5 · Semantic summaries for background replies
 
@@ -492,7 +511,7 @@ npm run build
 
 **Ctrl + Alt + J**, or **跳到正在做**, jumps to today’s **进行中** region; before grouping, it opens the first running task. Customize it in Obsidian hotkey settings.
 
-Settings are organized into four main tabs: **Delegate**, **Records**, **Dreaming** and **About**. Each setting has a single editable location, and all seven Agents are visible in the relevant sections.
+Settings are organized into five main tabs: **Delegate**, **Records**, **Dreaming**, **Experiments** and **About**. Each setting has a single editable location, and all seven Agents are visible in the relevant sections.
 
 | Location | Settings owned by this section |
 |---|---|
@@ -504,6 +523,7 @@ Settings are organized into four main tabs: **Delegate**, **Records**, **Dreamin
 | Recording → Journal and archives | Journal writing, automatic session recording, status and conclusion updates (distinguishing delegated-task write-back from bound-session write-back), per-turn records, detail, display range, cumulative summaries, organization templates and archives. |
 | Recording → Organization model | CLI, model, timeouts and frequency for automatic organization and polishing, configured separately from delegation models. |
 | Recording → Display and maintenance | Session opening, dashboard, editor and menu bar display, cache maintenance and Nautilus writing ownership. |
+| Experiments | Enable or disable Review Dashboard, on by default; disabling preserves saved data. |
 | Dreaming / About | Keep memory and synchronization separate from version information and common actions. |
 
 Task-line model and effort choices remain overrides for the current task. Short capability statuses are shown for client-managed models, client handoff and unavailable delegation.

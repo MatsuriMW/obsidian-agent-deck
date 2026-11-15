@@ -244,7 +244,7 @@ export function renderAIRecords(el, plugin, ctx) {
     const first = section && section.text.split("\n")[(section.lineStart || 0) + (Number(parent.dataset.line) || 0)];
     const key = parent.id || parent.dataset.blockId || (first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1]);
     const bound = records.some((li) => /^🔗\s|^💬\s+累计总结[：:]/.test(li.textContent.trim()));
-    if (!records.length || !(bound || key?.startsWith("ad-") || ids.has(key) || own.includes("🤖") || parent.id?.startsWith("ad-") || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
+    if (!records.length || !(bound || J.isDeckBlockId(key) || ids.has(key) || own.includes("🤖") || J.isDeckBlockId(parent.id) || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
     list.dataset.adRecords = "true";
     const summaries = records.filter((li) => /^💬\s+累计总结[：:]/.test(li.textContent.trim()));
     const done = /^(?:DONE|CANCELED|CANCELLED|FAILED)\b/i.test(parent.textContent.trim());

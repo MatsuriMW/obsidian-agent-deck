@@ -64,7 +64,7 @@ assert.ok(!/\n---\n\n---\n/.test(once), 'the generated rule is not followed by a
 const shipped = '## AI · 已完成\n\n- DONE 旧的 ^ad-old\n\n---\n\n## AI · 进行中\n\n- TODO 新的 ^ad-new\n';
 const migrated = renderJournal(planJournal(shipped));
 assert.ok(!migrated.includes('AI · '), 'legacy headings are rewritten');
-assert.ok(migrated.startsWith('---\n## 已完成\n- DONE 旧的 ^ad-old'), 'legacy finished block moves under the new heading, inside the region');
+assert.ok(migrated.startsWith('---\n## 已完成\n- DONE 旧的'), 'legacy finished block moves under the new heading, inside the region');
 
 // Grouping order and turn sorting inside the active band.
 const unsorted = '- PAUSED 暂停 ^ad-p\n- DOING 一轮 ^ad-one\n- TOREVIEW 待看 ^ad-review\n- DOING 十轮 ^ad-ten\n';
@@ -172,7 +172,7 @@ assert.equal(taskLineAt(['', '- TODO 孤立'], 0), -1, 'a blank line has no bloc
   const doc = '# 随笔\n\n先写两句自己的想法\n\n## 已完成\n- DONE 旧的 ^ad-old\n\n---\n\n- TODO 手写\n';
   const out = renderJournal(planJournal(doc));
   assert.ok(out.startsWith('# 随笔\n\n先写两句自己的想法\n\n---\n## 已完成'), 'notes above the region stay above it');
-  assert.ok(out.includes('- DONE 旧的 ^ad-old\n\n---\n\n- TODO 手写'), 'the user text below still follows the closing rule');
+  assert.ok(out.includes('- DONE 旧的\n\n---\n\n- TODO 手写'), 'the user text below still follows the closing rule');
   assert.equal(renderJournal(planJournal(out)), out, 'stable with notes above the region');
   assert.equal((out.match(/^---$/gm) || []).length, 2, 'one opening rule, one closing rule');
 }

@@ -319,6 +319,8 @@ export const DEFAULTS = {
   primaryAgents: ["claude", "dsh"],
   // 0 = no cutoff; otherwise the hour at which a new journal day begins.
   dayCutoff: 8,
+  experimentalDashboard: true,
+  dashboardProjects: {},    // 会话 → 项目页面路径；缺省自动识别，空字符串手动未归类
   pollSeconds: 20,
   fullHistoryDays: 14,
   // Claude desktop session list: identifies side chats (spawnedFrom) and archive state.

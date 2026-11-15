@@ -109,9 +109,9 @@ test('primary changes recover old history and preserve it on later non-primary u
  }finally{fs.rmSync(f.dir,{recursive:true,force:true})}
 });
 
-test('manual binding persists the note path and task identity used by conversation archive links',()=>{
+test('manual binding persists the note path and task identity used by conversation archive links',async()=>{
  const source=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
- const start=source.indexOf('  bindSessionAt('),end=source.indexOf('  // 把笔记里的第',start);
+ const start=source.indexOf('  async bindSessionAt('),end=source.indexOf('  // 把笔记里的第',start);
  class MarkdownView {}
  const view=new MarkdownView();
  const cm={state:{doc:{toString:()=>'- TODO 手动绑定验收\n'}}};
@@ -121,6 +121,6 @@ test('manual binding persists the note path and task identity used by conversati
  const plugin={settings:{},app:{workspace:{iterateAllLeaves(fn){fn({view})}}},usage:{meta:new Map(),summary:()=>null},liveSessions:()=>[],
    markBound(sid,blockId,key){const b=this.settings.taskBindings[sid];assert.equal(b.path,view.file.path);assert.equal(b.sid,sid);assert.equal(b.agent,'opencode');assert.equal(b.blockId,blockId);assert.equal(b.key,key);bound=true},
    notice(){},refreshUI(){},journalSync:{run:async()=>{}}};
- bind.call(plugin,cm,0,{agent:'opencode',sid:'ses_binding_test',title:'验收'});
+ await bind.call(plugin,cm,0,{agent:'opencode',sid:'ses_binding_test',title:'验收'});
  assert.ok(bound);
 });

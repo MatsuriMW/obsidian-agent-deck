@@ -166,7 +166,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
       if (link) sids.add(link.sid);
     }
     const body = String(k.body || '');
-    const ai = sids.size > 0 || (k.blockId || '').startsWith('ad-') || tracked.has(k.blockId) || body.startsWith('🤖');
+    const ai = sids.size > 0 || J.isDeckBlockId(k.blockId) || tracked.has(k.blockId) || body.startsWith('🤖');
     const doneKw = J.DONE_KWS.includes(k.kw);
     const archivedOut = sids.size > 0 && [...sids].every((sid) => archived.has(sid));
     // journal-tidy 的分组容器：没有状态关键词、只标 🤖 的行。里面的记录全是 DONE 就整块算完成，
@@ -191,7 +191,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
               kw: forceDone ? 'DONE' : (p.kw || 'TODO'),
               start: s,
               end: e,
-              title: p.title,
+              title: p.title, preserveTitle: true,
               blockId: p.blockId,
             }),
             ...chunkLines.slice(1),
@@ -246,7 +246,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
         if (link) sids.add(link.sid);
       }
       const body = String(k.body || '');
-      const ai = sids.size > 0 || (k.blockId || '').startsWith('ad-') || tracked.has(k.blockId) || body.startsWith('🤖');
+      const ai = sids.size > 0 || J.isDeckBlockId(k.blockId) || tracked.has(k.blockId) || body.startsWith('🤖');
       if (!ai) continue;
       const doneKw = J.DONE_KWS.includes(k.kw);
       const archivedOut = sids.size > 0 && [...sids].every((sid) => archived.has(sid));
@@ -266,7 +266,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
               kw: archivedOut && !doneKw ? 'DONE' : (p.kw || 'TODO'),
               start: s,
               end: e,
-              title: p.title,
+              title: p.title, preserveTitle: true,
               blockId: p.blockId,
             }),
             ...chunk.slice(1),
@@ -391,7 +391,7 @@ export function ensureTopRule(text) {
 export function renderJournal(plan, { done = true, active = true, skip = null, layout = plan.layout } = {}) {
   // `skip` is what archiving just moved out. Matching on the block id first
   // keeps two identical-looking blocks from being dropped together.
-  const finished = done ? plan.done.filter((entry) => !(skip && (entry.blockId ? skip.has(entry.blockId) : skip.has(entry.text)))) : [];
+  const finished = done ? plan.done.filter((entry) => !(skip && (entry.blockId ? skip.has(entry.blockId) : skip.has(entry.text)))).map(entry => ({ ...entry, text: entry.ai ? J.cleanCompletedIdentifiers(entry.text, new Set([entry.blockId])) : entry.text })) : [];
   const bands = [];
   const activeBody = [];
 
@@ -400,7 +400,7 @@ export function renderJournal(plan, { done = true, active = true, skip = null, l
     let previous = '';
     for (const entry of plan.active) {
       if (entry.keyword !== previous) { activeBody.push(`### ${entry.keyword}`); previous = entry.keyword; }
-      activeBody.push(entry.text);
+      activeBody.push(J.cleanCompletedIdentifiers(entry.text));
     }
     bands.push([ACTIVE_HEADING, ...activeBody].join('\n'));
   }

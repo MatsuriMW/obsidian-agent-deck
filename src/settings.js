@@ -1,6 +1,6 @@
 import { changeLogDetail } from "./log-detail.js";
 import { JOURNAL_LAYOUT_DEFAULT, journalLayout, builtinJournalLayout } from "./journal-layout.js";
-// Agent Deck — settings: Delegation, Recording, Dreaming, and About.
+// Agent Deck — settings: Delegation, Recording, Dreaming, Experiments, and About.
 
 import { archivePath } from "./journal-archive.js";
 import { App, PluginSettingTab, Notice, Modal, Menu } from "obsidian";
@@ -50,6 +50,7 @@ export const TABS = [
   ["delegate", "委派", "send"],
   ["record", "记录", "radar"],
   ["dream", "Dreaming", "moon"],
+  ["experimental", "实验功能", "flask-conical"],
   ["about", "关于", "info"],
 ];
 
@@ -67,7 +68,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   normalizeTab(tab) {
     if (tab === "models") return "delegate";
     if (tab === "agents" || tab === "tracking" || tab === "record") return "record";
-    if (tab === "dream" || tab === "about" || tab === "delegate") return tab;
+    if (tab === "dream" || tab === "about" || tab === "delegate" || tab === "experimental") return tab;
     return "delegate";
   }
 
@@ -122,6 +123,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       this.renderRecord(body);
     } else if (this.tab === "dream") {
       this.renderDream(body);
+    } else if (this.tab === "experimental") {
+      this.renderExperimental(body);
     } else {
       this.renderAbout(body);
     }
@@ -986,6 +989,17 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   }
 
   // ---------- About ----------
+  renderExperimental(body) {
+    const p = this.plugin;
+    const card = this.card(body, t("实验功能"));
+    const row = this.row(card, t("AI 协作回顾"), t("默认开启。查看 token 热力图、项目投入和历史记录；关闭后隐藏入口并关闭回顾页，保留统计数据。"), null);
+    this.toggle(row.querySelector(":scope > .ad-row__right"), p.settings.experimentalDashboard !== false, async (enabled) => {
+      try { await p.setExperimentalDashboard(enabled); }
+      catch (error) { new Notice(t("设置保存失败：{error}", { error: error.message })); }
+      this.display();
+    });
+  }
+
   renderAbout(body) {
     const p = this.plugin;
     const intro = this.card(body, "Agent Deck", t("在 Obsidian 里追踪会话、委派任务、保存 AI 工作记录。"));

@@ -76,7 +76,7 @@ assert.equal((once.match(/今天已经做掉的/g) || []).length, 1, 'a DONE bel
 assert.equal((once.match(/代码示例/g) || []).length, 1, 'a fenced example is not hoisted');
 
 // The bands themselves are still rebuilt inside the frame.
-assert.ok(once.includes('## 已完成\n- DONE 旧的 ^ad-old'), 'the finished band is regenerated');
+assert.ok(once.includes('## 已完成\n- DONE 旧的'), 'the finished band is regenerated');
 assert.ok(once.includes('## 进行中\n### DOING\n- DOING 写周报 ^ad-weekly'), 'the active band is regenerated');
 
 // Three runs in a row change nothing after the first.

@@ -27,10 +27,11 @@ export function backgroundSummaryPending(text, job, round, pending) {
   const task = J.findTask(text, J.workKey(job.name || ""), job.blockId || "", job.sessionId);
   if (!task) return text;
   const lines = text.split("\n"), indent = J.childIndent(lines, task.line);
-  const marker = `<!-- ad-summary-pending:${job.sessionId}:${round} -->`;
+  const marker = J.sessionMarker('summary-pending', job.sessionId, round);
+  const legacy = `<!-- ad-summary-pending:${job.sessionId}:${round} -->`;
   const line = `${indent}- ⏳ 第${round}轮：总结暂未生成 ${marker}`;
-  const at = lines.findIndex(raw => raw.includes(marker));
-  if (pending && at < 0 && !text.includes(`<!-- ad-turn:${job.sessionId}:${round} -->`)) lines.splice(task.line + 1, 0, line);
-  if (!pending && at >= 0 && lines[at] === line && !J.hasDescendants(lines, at)) lines.splice(at, 1);
+  const at = lines.findIndex(raw => raw.includes(marker) || raw.includes(legacy));
+  if (pending && at < 0 && !J.hasRecordedTurn(text, job.sessionId, round)) lines.splice(task.line + 1, 0, line);
+  if (!pending && at >= 0 && lines[at].replace(legacy, marker) === line && !J.hasDescendants(lines, at)) lines.splice(at, 1);
   return lines.join("\n");
 }

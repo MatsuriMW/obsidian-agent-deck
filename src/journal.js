@@ -9,6 +9,7 @@ import { createHash } from "crypto";
 import { pad, fmtTok } from "./constants.js";
 import { t } from "./i18n.js";
 import { detailForRound } from "./log-detail.js";
+import { cleanUserPrompt } from "./prompt-text.js";
 
 export const LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 export const STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
@@ -51,12 +52,55 @@ export function stripBlockId(s) {
   return String(s || "").replace(BLOCK_ID_RE, "").trimEnd();
 }
 
-export function makeBlockId(seed = "") {
-  if (seed) return "ad-" + createHash("sha256").update(String(seed)).digest("hex").slice(0, 12);
+const AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder" };
+export const isDeckBlockId = id => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
+export function normalizeTaskSlug(value) {
+  const slug = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
+  return /^[a-z][a-z0-9]{0,15}(?:-[a-z][a-z0-9]{0,15})?$/.test(slug) ? slug : "";
+}
+const isLegacyBlockId = id => /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id || "");
+const shortSessionId = seed => BigInt("0x" + createHash("sha256").update(String(seed)).digest("hex").slice(0, 12)).toString(36).padStart(10, "0");
+export const sessionMarker = (kind, sid, round) => `<!-- ad-${kind}:${shortSessionId(sid)}:${round} -->`;
+export const turnMarker = (sid, round) => sessionMarker("turn", sid, round);
+export const hasRecordedTurn = (text, sid, round) => text.includes(turnMarker(sid, round)) || text.includes(`<!-- ad-turn:${sid}:${round} -->`);
+
+export function makeBlockId(seed = "", agent = "", slug = "") {
+  const task = normalizeTaskSlug(slug);
+  const prefix = (AGENT_ID_PREFIX[agent] || "ad") + (task ? "-" + task : "");
+  if (seed) return prefix + "-" + shortSessionId(seed);
   let h = "";
   const chars = "0123456789abcdefghijklmnopqrstuvwxyz";
-  for (let i = 0; i < 6; i++) h += chars[Math.floor(Math.random() * 36)];
-  return "ad-" + h;
+  for (let i = 0; i < 10; i++) h += chars[Math.floor(Math.random() * 36)];
+  return prefix + "-" + h;
+}
+
+// Only generated identifiers in completed AI tasks are removed. Links and user
+// blocks remain usable; active nested tasks and fenced examples keep their IDs.
+export function cleanCompletedIdentifiers(text, trackedIds = new Set()) {
+  const crlf = /\r\n/.test(text);
+  const lines = text.replace(/\r\n/g, "\n").split("\n"), fenced = fencedLines(lines), owners = ownersOf(lines), ai = new Set();
+  const record = raw => RECORD_LINE_RE.test(raw) || /^\s*[-*+]\s+⏳\s/.test(raw);
+  const marker = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
+  for (let i = 0; i < lines.length; i++) {
+    if (fenced.has(i)) continue;
+    const k = LIST_RE.test(lines[i]) && kwLine(lines[i]);
+    if (k && (k.body.startsWith("🤖") || isDeckBlockId(k.blockId) || trackedIds.has(k.blockId))) ai.add(i);
+    if ((parseLink(lines[i]) || (record(lines[i]) && marker.test(lines[i]))) && owners[i] >= 0) ai.add(owners[i]);
+  }
+  const stack = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (fenced.has(i) || !lines[i].trim()) continue;
+    while (stack.length && width(lines[stack.at(-1)]) >= width(lines[i])) stack.pop();
+    const k = LIST_RE.test(lines[i]) && kwLine(lines[i]);
+    if (k && (k.kw || ai.has(i)) && !record(lines[i])) stack.push(i);
+    const parent = stack.at(-1);
+    if (parent === undefined || !ai.has(parent) || !isDoneLine(lines[parent])) continue;
+    if (i !== parent && !record(lines[i])) continue;
+    const id = blockIdOf(lines[i]);
+    if (isDeckBlockId(id) || (i === parent && isLegacyBlockId(id))) lines[i] = stripBlockId(lines[i]);
+    if (record(lines[i])) lines[i] = lines[i].replace(marker, "");
+  }
+  return lines.join(crlf ? "\r\n" : "\n");
 }
 
 export function ensureBlockId(line, preferId = "") {
@@ -146,15 +190,15 @@ export function summarizeAutoTitle(raw, max = 22) {
 }
 
 // 统一生成 AI 自动记录标题行：任务状态 + 🤖 + 开始对话时间-最后一次对话时间 + 文字标题 (+ ^blockId)
-export function formatAutoTaskLine({ prefix = "- ", kw = "DOING", start = "", end = "", span = "", title = "", blockId = "", summarize = false } = {}) {
+export function formatAutoTaskLine({ prefix = "- ", kw = "DOING", start = "", end = "", span = "", title = "", blockId = "", summarize = false, preserveTitle = false } = {}) {
   const existingId = blockId || blockIdOf(title);
-  let cleanTitle = stripBlockId(String(title || ""))
+  let cleanTitle = preserveTitle ? String(title || "") : stripBlockId(String(title || ""))
     .replace(/^🤖\s*/, "")
     .replace(TIME_SPAN_PREFIX_RE, "")
     .replace(/^🤖\s*/, "")
     .replace(TIME_SPAN_PREFIX_RE, "")
     .trim();
-  if (summarize || !cleanTitle) cleanTitle = summarizeAutoTitle(cleanTitle || title);
+  if (!preserveTitle && (summarize || !cleanTitle)) cleanTitle = summarizeAutoTitle(cleanTitle || title);
   let timeRange = "";
   if (span) {
     const m = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?$/.exec(span.trim());
@@ -170,7 +214,8 @@ export function formatAutoTaskLine({ prefix = "- ", kw = "DOING", start = "", en
     const e = end || start;
     timeRange = `${s}-${e}`;
   }
-  const head = `${prefix}${kw ? kw + " " : ""}${AUTO_MARK}${timeRange ? timeRange + " " : ""}${cleanTitle}`.replace(/ {2,}/g, " ").trimEnd();
+  const raw = `${prefix}${kw ? kw + " " : ""}${AUTO_MARK}${timeRange ? timeRange + " " : ""}${cleanTitle}`;
+  const head = (preserveTitle ? raw : raw.replace(/ {2,}/g, " ")).trimEnd();
   return existingId ? `${head} ^${existingId}` : head;
 }
 
@@ -258,7 +303,7 @@ export function flipToDone(raw) {
       kw: 'DONE',
       start: part.since || '',
       end: part.until || part.since || '',
-      title: part.title,
+      title: part.title, preserveTitle: true,
       blockId: part.blockId,
     });
   }
@@ -460,7 +505,7 @@ function sortRecordedRounds(lines, parent) {
   for (let i = slots.length - 1; i >= 0; i--) lines.splice(slots[i][0], slots[i][1] - slots[i][0], ...records[i].lines);
 }
 
-export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null } = {}) {
+export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null } = {}) {
   let lines = text.split("\n");
   let n = -1, linkAt = -1;
   if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
@@ -474,8 +519,13 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
   }
   if (n < 0) return { text, line: -1, blockId: blockId || "" };
   let activeBlockId = blockIdOf(lines[n]);
+  // A cleaned completed record is final. Re-scans cannot reconstruct per-session
+  // ownership after provenance is removed, so keep its saved results intact.
+  if (isDoneLine(lines[n]) && !activeBlockId && resultUnder(lines, n)) {
+    return { text: cleanCompletedIdentifiers(text), line: n, blockId: "" };
+  }
   if (ensureId || blockId) {
-    const eb = ensureBlockId(lines[n], activeBlockId || blockId || makeBlockId(sid));
+    const eb = ensureBlockId(lines[n], activeBlockId || blockId || makeBlockId(sid, agent || (linkAt >= 0 && parseLink(lines[linkAt])?.agent)));
     lines[n] = eb.line;
     activeBlockId = eb.blockId;
   }
@@ -497,14 +547,25 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
   };
   // Completed records are append-only: changing detail never rewrites saved rounds.
   const fenced = fencedLines(lines), recorded = new Set();
+  const sourceRounds = new Map((Array.isArray(rounds) ? rounds : []).filter(Boolean).map((round, i) => [round.n || i + 1, round]));
   const sourceTurn = raw => /<!-- ad-turn:([A-Za-z0-9_-]+):(\d+) -->/.exec(raw);
   const legacyOwner = lines.slice(n + 1, childSpan() + 1).map(parseLink).find(Boolean)?.sid || sid;
-  const belongs = raw => { const marker = sourceTurn(raw); return marker ? marker[1] === sid : legacyOwner === sid; };
-  const provenance = rn => /^[A-Za-z0-9_-]+$/.test(sid) ? ` <!-- ad-turn:${sid}:${rn} -->` : "";
+  const belongs = raw => { const marker = sourceTurn(raw); return marker ? marker[1] === sid || marker[1] === shortSessionId(sid) : legacyOwner === sid; };
+  const provenance = rn => sid ? ` ${turnMarker(sid, rn)}` : "";
   const recordedEnd = childSpan();
   for (let i = n + 1; i <= recordedEnd; i++) {
     if (fenced.has(i) || width(lines[i]) !== childWidth || !belongs(lines[i])) continue;
     const marker = sourceTurn(lines[i]);
+    // Repair only the known generated task field, keeping the saved conclusion
+    // and any user-owned record or subtree untouched.
+    if (marker && RESULT_RE.test(lines[i]) && !blockIdOf(lines[i]) && !hasDescendants(lines, i)) {
+      const brokenTask = /任务：\\?<send_user_message_question_reply>[^；]*(?=；结论：)/;
+      if (brokenTask.test(lines[i])) {
+        const round = sourceRounds.get(+marker[2]);
+        const task = cleanUserPrompt(round?.taskSummary || round?.ask);
+        if (task) lines[i] = lines[i].replace(brokenTask, `任务：${resultText(task, 45)}`);
+      }
+    }
     const match = /^\s*[-*+]\s+💬\s+(?:第(\d+)轮[：:]|((?!累计总结[：:]).))/.exec(lines[i]);
     if (marker || match) recorded.add(marker ? +marker[2] : match[1] ? +match[1] : 1);
   }
@@ -520,20 +581,22 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
   };
   if (compact?.text) {
     const summary = `${ind}- 💬 累计总结：${resultText(compact.text, 170)}`;
-    const marker = /^[A-Za-z0-9_-]+$/.test(sid) ? ` <!-- ad-summary:${sid}:${compact.through || 0} -->` : "";
+    const marker = sid ? ` ${sessionMarker("summary", sid, compact.through || 0)}` : "";
+    const legacyMarker = ` <!-- ad-summary:${sid}:${compact.through || 0} -->`;
     const saved = lines.slice(n + 1, childSpan() + 1).some(raw => width(raw) === childWidth &&
-      (raw === summary || (marker && raw.includes(marker))));
+      (raw === summary || (marker && (raw.includes(marker) || raw.includes(legacyMarker)))));
     if (!saved) append(summary + marker);
   }
   for (const [index, r] of fresh.entries()) {
     const rn = r.n || index + 1;
     const level = detailForRound(mode, detailHistory, r);
-    if (level !== "brief" && r.ask) {
-      const ask = level === "detailed" ? detailExcerpt(r.ask, 1000) : recordSentence(r.ask, 90);
+    const userAsk = cleanUserPrompt(r.ask);
+    if (level !== "brief" && userAsk) {
+      const ask = level === "detailed" ? detailExcerpt(userAsk, 1000) : recordSentence(userAsk, 90);
       append(`${ind}- ❓ 第${rn}轮：${ask}${provenance(rn)}`);
     }
     const raw = level === "detailed" ? (r.said || r.summary) : (r.summary || r.said);
-    const task = r.taskSummary || r.ask || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
+    const task = cleanUserPrompt(r.taskSummary || r.ask) || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
     const message = r.journalSummary ? resultText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
       ? `任务：${resultText(task, 45)}；结论：${resultText(raw, 65)}`
       : recordSentence(raw, 90);
@@ -556,7 +619,7 @@ export function syncSessionEntry(text, { sid = "", blockId = "", key = "", said 
   }
 
   sortRecordedRounds(lines, n);
-  return { text: lines.join("\n"), line: n, blockId: activeBlockId };
+  return { text: cleanCompletedIdentifiers(lines.join("\n")), line: n, blockId: activeBlockId };
 }
 
 // 前后两份文字不一样的那一段，换成一次按行改动
@@ -840,7 +903,7 @@ export function bindInto(text, at, s, { below = false } = {}) {
     const existing = blockIdOf(lineStr);
     if (existing) return { line: lineStr, blockId: existing };
     if (s.ensureBlockId || rescuedBlockId) {
-      return ensureBlockId(lineStr, rescuedBlockId || makeBlockId(s.sid));
+      return ensureBlockId(lineStr, rescuedBlockId || makeBlockId(s.sid, s.agent));
     }
     return { line: lineStr, blockId: "" };
   };
@@ -849,7 +912,7 @@ export function bindInto(text, at, s, { below = false } = {}) {
     const p = splitTask(lines[n]);
     if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
       lines[n] = p.auto
-        ? formatAutoTaskLine({ prefix: p.prefix, kw: want, start: p.since || since, end: p.until || until || p.since || since, title: p.title, blockId: p.blockId })
+        ? formatAutoTaskLine({ prefix: p.prefix, kw: want, start: p.since || since, end: p.until || until || p.since || since, title: p.title, preserveTitle: true, blockId: p.blockId })
         : `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
     }
     const eb = maybeAddBlockId(lines[n]);
@@ -954,7 +1017,7 @@ export function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
   const blockId = pd.blockId || ps.blockId || preferId || makeBlockId(keptBody);
   const keptIsAuto = keptBody.startsWith(AUTO_MARK.trim());
   const headerRaw = keptIsAuto
-    ? formatAutoTaskLine({ prefix: pd.prefix, kw: mergedKw, start: mergedSince, end: mergedUntil, title: keptBody })
+    ? formatAutoTaskLine({ prefix: pd.prefix, kw: mergedKw, start: mergedSince, end: mergedUntil, title: keptBody, preserveTitle: true })
     : `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
   const { line: mergedHeader } = ensureBlockId(headerRaw, blockId);
 

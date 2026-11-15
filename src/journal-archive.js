@@ -39,6 +39,13 @@ function splitArchiveBlocks(body) {
 const DATE_HEAD_RE = /^##\s+\d{4}-\d{2}-\d{2}\s*$/;
 const H2_RE = /^#{1,2}\s/;
 
+// The session link survives cleanup. Old blocks without links fall back to
+// their readable heading so a retry still detects changed archive content.
+function archiveIdentity(text) {
+  const sessions = text.split('\n').map(J.parseLink).filter(Boolean).map(link => `${link.agent}:${link.sid}`).sort();
+  return sessions.length ? sessions.join(',') : J.stripBlockId(text.split('\n')[0]);
+}
+
 function parseArchive(text) {
   const lines = String(text || '').split('\n');
   const fence = J.fencedLines(lines);
@@ -87,12 +94,19 @@ export function mergeArchive(text, { date, blocks = [], turns = new Map(), prepe
     if (prepend) archive.sections.unshift(section);
     else archive.sections.push(section);
   }
+  const clean = block => {
+    const key = archiveIdentity(block.text);
+    turns.set(key, Math.max(turns.get(key) || 0, turns.get(block.blockId) || 0, roundsIn(block.text)));
+    return { ...block, text: J.cleanCompletedIdentifiers(block.text), key };
+  };
+  section.blocks = section.blocks.map(clean);
   for (const block of incoming) {
-    const same = section.blocks.find((b) => (block.blockId ? b.blockId === block.blockId : b.text.trim() === block.text.trim()));
-    if (!same) { section.blocks.push(block); continue; }
-    if (same.text.trim() !== block.text.trim()) throw new Error(t('归档中已有同编号但内容不同的任务，已保留原日记，请先核对'));
+    const entry = clean(block);
+    const same = section.blocks.find(b => (entry.blockId && b.blockId === entry.blockId) || b.key === entry.key);
+    if (!same) { section.blocks.push(entry); continue; }
+    if (same.text.trim() !== entry.text.trim()) throw new Error(t('归档中已有同编号但内容不同的任务，已保留原日记，请先核对'));
   }
-  const turnOf = (b) => Math.max(turns.get(b.blockId) || 0, roundsIn(b.text));
+  const turnOf = (b) => Math.max(turns.get(b.key) || 0, turns.get(b.blockId) || 0, roundsIn(b.text));
   section.blocks = section.blocks.map((b, i) => ({ b, i }))
     .sort((x, y) => turnOf(y.b) - turnOf(x.b) || x.i - y.i)
     .map(({ b }) => b);

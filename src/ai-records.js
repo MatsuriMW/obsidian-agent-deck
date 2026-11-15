@@ -16,7 +16,7 @@ export function aiRecordGroups(text, trackedIds = new Set()) {
       if (w === indent && AI_RECORD_RE.test(lines[i]) && !J.blockIdOf(lines[i]) && !J.hasDescendants(lines, i)) records.push(i);
     }
     if (!records.length) continue;
-    const tracked = task.blockId?.startsWith("ad-") || trackedIds.has(task.blockId) || task.body.startsWith("🤖") || records.some((i) => J.parseLink(lines[i]));
+    const tracked = J.isDeckBlockId(task.blockId) || trackedIds.has(task.blockId) || task.body.startsWith("🤖") || records.some((i) => J.parseLink(lines[i]));
     if (tracked) out.push({
       key: task.blockId || `${task.line}:${task.key}`,
       line: task.line,
@@ -70,7 +70,7 @@ export function recordRuns(records) {
 
 // 块 ID 留在 Markdown 中，仅返回要在编辑器隐藏的字符范围。
 export function hiddenBlockId(id, trackedIds = new Set()) {
-  return /^ad-[a-z0-9-]+$/i.test(id) || /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id) || trackedIds.has(id);
+  return J.isDeckBlockId(id) || /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id) || trackedIds.has(id);
 }
 
 export function adBlockIdRanges(text, trackedIds = new Set()) {

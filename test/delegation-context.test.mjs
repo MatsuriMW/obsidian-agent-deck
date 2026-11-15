@@ -67,7 +67,7 @@ const beforeClock = clockNote;
 clockNote = al.autoClock(clockNote, '任务', [[60,180]], 'Codex', 0, '', 'ad-clock');
 assert.ok(clockNote.includes(beforeClock), 'clock updates preserve a reused record and its descendants');
 const childClock = '- DONE 任务 ^ad-clock\n\t- TODO 子任务\n\t\t- ⏱ 用户写的时间';
-assert.ok(al.autoClock(childClock, '任务', [[60,120]], 'Codex', 0, '', 'ad-clock').includes(childClock), 'parent statistics never replace a nested task clock');
+assert.ok(al.autoClock(childClock, '任务', [[60,120]], 'Codex', 0, '', 'ad-clock').includes(J.cleanCompletedIdentifiers(childClock)), 'parent statistics never replace a nested task clock');
 const editedClock = al.autoClock('- DONE 任务 ^ad-clock', '任务', [[60,120]], 'Codex', 0, '', 'ad-clock').replace('Codex', '用户改过的说明');
 assert.ok(al.autoClock(editedClock, '任务', [[60,180]], 'Codex', 0, '', 'ad-clock').includes(editedClock), 'an edited clock without children is retained too');
 
@@ -82,7 +82,7 @@ current=J.syncSessionEntry(current,{sid:'original',blockId:'ad-origin',granulari
 assert.equal(current,original,'parent sync never duplicates or overwrites a delegated reply');
 const childId=J.blockIdOf(current.split('\n')[replyIndex]);
 current=J.syncSessionEntry(current,{sid,blockId:childId,rounds:[{n:1,ask:'继续验证',said:'子任务验证通过'}]}).text;
-assert.ok(current.includes('子任务验证通过') && current.includes('ad-turn:original:1'));
+assert.ok(current.includes('子任务验证通过') && J.hasRecordedTurn(current,'original',1));
 assert.ok(J.width(current.split('\n').find(line=>line.includes('子任务验证通过')))>J.width(current.split('\n')[replyIndex]),'new results belong under the delegated reply');
 
 const editorSource=fs.readFileSync(new URL('../src/editor.js',import.meta.url),'utf8');

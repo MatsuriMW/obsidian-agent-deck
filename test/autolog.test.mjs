@@ -49,7 +49,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   al.ask = async (items) => { asked = items.map((i) => i.x.sid); return new Map(items.map(({ x }) => [x.sid, { label: "整理会话", summary: "", matchKey: null, done: false, todos: [], skip: false }])); };
   await al.run();
   check("minMinutes=1 lets 2-minute session in; disabled agent skipped", asked.join() === "a-short", asked);
-  check("auto item written for antigravity session", /DOING 🤖 \d\d:\d\d-\d\d:\d\d 整理会话 \^ad-/.test(p.journal), p.journal);
+  check("auto item written for antigravity session", /DOING 🤖 \d\d:\d\d-\d\d:\d\d 整理会话 \^agy-/.test(p.journal), p.journal);
 }
 { // 默认 3 分钟门槛照旧
   const p = fakePlugin("", [{ sid: "a-short", agent: "antigravity", min: 2, segs: nowSegs(2) }]);
@@ -108,22 +108,22 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   p.usage.meta.get(sid).state = "wait";
   check("autoLogKw=false leaves it alone", js.keywords(out) === out, js.keywords(out));
 }
-{ // 门槛 ④：非 Claude 会话归档时也收掉它的 🔗 行
+{ // 完成后保留非 Claude 会话的 🔗 链接
   const sid = "cccccccc-1111-2222-3333-444444444444";
   const p = fakePlugin("", []);
   const al = new AutoLog(p);
   const text = `- DONE 11:00 做事 ^ad-cccccc\n\t- 🔗 Codex：做事 \`${sid}\`\n`;
   const out = al.autoClock(text, "做事", [[60, 120]], "Codex", 0, sid, "ad-cccccc");
-  check("codex 🔗 line folded into ⏱", !out.includes("🔗") && out.includes("⏱"), out);
+  check("completed Codex keeps its session link beside the clock", out.includes("🔗") && out.includes("⏱"), out);
 }
 
 
-{ // 已有相同的时段行时，仍必须收掉非 Claude 的绑定行
+{ // 已有相同的完成时段行时，保留会话链接且不重复追加时段
   const al = new AutoLog(fakePlugin("", []));
   const sid = "cccccccc-1111-2222-3333-444444444444";
   const first = al.autoClock(`- DONE 做事 ^ad-cccccc\n\t- 🔗 Codex：做事 \`${sid}\`\n`, "做事", [[60, 120]], "Codex", 0, sid, "ad-cccccc");
   const again = al.autoClock(first + `\t- 🔗 Codex：做事 \`${sid}\`\n`, "做事", [[60, 120]], "Codex", 0, sid, "ad-cccccc");
-  check("unchanged clock still removes the session link", !again.includes("🔗"), again);
+  check("unchanged completed clock preserves the session link", again.includes("🔗") && (again.match(/⏱/g) || []).length === 1, again);
 }
 
 
@@ -157,7 +157,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const al = new AutoLog(p);
   al.nowMin = () => 700;
   await al.run({ fallback: true });
-  check("PAUSED auto record includes 🤖 + start-end time + summarized title", /- PAUSED 🤖 10:00-10:25 克隆 chuanhugpt \^ad-/.test(p.journal), p.journal);
+  check("PAUSED auto record includes 🤖 + start-end time + summarized title", /- PAUSED 🤖 10:00-10:25 克隆 chuanhugpt \^codex-/.test(p.journal), p.journal);
 }
 
 
@@ -322,6 +322,19 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const al = new AutoLog(p);
   al.viewFor = () => ({ editor: { cm: { composing: true }, getValue: () => p.journal, transaction() { throw new Error("must not interrupt IME"); } } });
   check("AI organization skips writes while IME is composing", await al.write({}, p.journal, p.journal + "- AI 记录\n") === false);
+}
+
+
+{ // 命名调用同时给出英文短名，新 ID 使用语义短名，之后改标题不换号。
+  const x={sid:'semantic-auto',agent:'antigravity',min:5,segs:nowSegs(5),title:'整理日志'};
+  const p=fakePlugin('',[x]);const al=new AutoLog(p);
+  al.ask=async()=>new Map([[x.sid,{label:'整理日志',slug:'journal-cleanup',summary:'',matchKey:null,skip:false}]]);
+  await al.run();
+  const {makeBlockId}=await import('../src/journal.js');
+  const id=makeBlockId(x.sid,x.agent,'journal-cleanup');
+  check('auto naming produces an agent/task/suffix ID',p.journal.includes('^'+id),p.journal);
+  p.journal=p.journal.replace('整理日志','改过的标题');await al.run();
+  check('renaming an automatic entry preserves its ID',p.journal.includes('^'+id),p.journal);
 }
 
 if (fail) { console.log(`${fail} failed`); process.exit(1); }

@@ -69,6 +69,11 @@ export class AgentDeckView extends ItemView {
     setLucide(search.createSpan({ cls: "ad-search__icon" }), "search");
     const input = search.createEl("input", { cls: "ad-search__input", attr: { placeholder: t("搜会话：标题、项目、第一步…"), value: this.search } });
     const actions = head.createDiv({ cls: "ad-head__actions" });
+    if (p.settings.experimentalDashboard !== false) {
+      const review = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("打开 Agent Deck 回顾 Dashboard") } });
+      setLucide(review.createSpan({ cls: "ad-iconbtn__icon" }), "chart-no-axes-combined");
+      review.onclick = () => p.activateDashboard();
+    }
     const scan = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("重新扫描本机会话") } });
     setLucide(scan.createSpan({ cls: "ad-iconbtn__icon" }), "refresh-cw");
     scan.onclick = () => p.scanNow();

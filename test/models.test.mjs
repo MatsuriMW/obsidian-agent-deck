@@ -4,7 +4,7 @@ register('data:text/javascript,' + encodeURIComponent(`export async function res
 const {AgentDeckSettingsTab, TABS} = await import('../src/settings.js');
 const {AGENT_ORDER, DEFAULTS, deepMerge, syncDelegationSettings} = await import('../src/constants.js');
 
-assert.deepEqual(TABS.map(([id]) => id), ['delegate', 'record', 'dream', 'about'], 'four top-level settings pages');
+assert.deepEqual(TABS.map(([id]) => id), ['delegate', 'record', 'dream', 'experimental', 'about'], 'settings include an experimental features page');
 
 const plugin = {settings:deepMerge(DEFAULTS,{}),saveSettings(){}};
 const tab = new AgentDeckSettingsTab({},plugin);

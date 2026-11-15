@@ -14,7 +14,8 @@ const block = '- DONE 成果 ^ad-finished\n  - 💬 详细记录';
 const first = mergeArchive('', { date: '2026-11-13', blocks: [block], prepend: true });
 assert.ok(first.startsWith('# 已完成的 AI 任务\n'), 'a new archive gets a title');
 assert.ok(first.includes('## 2026-11-13'));
-assert.ok(first.includes(block));
+assert.ok(first.includes('- DONE 成果\n  - 💬 详细记录'));
+assert.ok(!first.includes('^ad-'));
 
 const next = '- DONE 次日 ^ad-next';
 const prepended = mergeArchive(first, { date: '2026-11-14', blocks: [next], prepend: true });
@@ -67,7 +68,7 @@ function fixture() {
   assert.equal(plan.done.filter((e) => e.ai).length, 1, 'only the AI block is archivable');
   const { target, moved } = await archiveCompletedTo(f.p, f.file, f.files.get(f.file.path).text, plan, { path: 'Custom/done.md' });
   assert.equal(moved, 1);
-  assert.ok(f.files.get('Custom/done.md').text.includes('- DONE 🤖 AI 完成 ^ad-fin'));
+  assert.ok(f.files.get('Custom/done.md').text.includes('- DONE 🤖 AI 完成'));
   assert.ok(f.files.get('Custom/done.md').text.startsWith('# 已完成的 AI 任务'), 'first run writes the title');
   const journal = f.files.get(f.file.path).text;
   assert.ok(!journal.includes('AI 完成'), 'archived block left the journal');
@@ -92,7 +93,7 @@ function fixture() {
   // Retrying with the new base never duplicates the archived block.
   const fresh = f.files.get(f.file.path).text;
   await archiveCompletedTo(f.p, f.file, fresh, planJournal(fresh), { path: 'Custom/done.md' });
-  assert.equal((f.files.get('Custom/done.md').text.match(/ad-fin/g) || []).length, 1);
+  assert.equal((f.files.get('Custom/done.md').text.match(/AI 完成/g) || []).length, 1);
 }
 
 {

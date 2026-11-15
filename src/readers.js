@@ -5,6 +5,8 @@
 // uploaded anywhere.
 
 import fs from "fs";
+import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
+export { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 import { desktopSessions, desktopMessages } from "./desktop-sessions.js";
 import path from "path";
 import os from "os";
@@ -69,18 +71,6 @@ export function projectName(cwd) {
   return p === home() ? "~" : (p.split("/").pop() || p);
 }
 
-export function cleanUserPrompt(raw) {
-  const s = String(raw || "");
-  if (!s) return "";
-  const m = s.match(/<(?:user_message|user_query|USER_REQUEST)>\s*([\s\S]*?)\s*<\/(?:user_message|user_query|USER_REQUEST)>/i);
-  const body = m && m[1].trim() ? m[1] : s;
-  return body
-    .replace(/<system-reminder\b[^>]*>[\s\S]*?<\/system-reminder>/gi, "")
-    .replace(/<(?:ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|environment_context|user_instructions)\b[^>]*>[\s\S]*?<\/(?:ADDITIONAL_METADATA|USER_SETTINGS_CHANGE|CONTEXT_SUMMARY|environment_context|user_instructions)>/gi, "")
-    .replace(/<image_local_path>[\s\S]*?<\/image_local_path>/gi, "")
-    .replace(/^(?:Time sampled while preparing|Elapsed since the preceding|Browser time zone for this request)[^\n]*\n?/gim, "")
-    .trim();
-}
 
 function unquoteArgs(args) {
   if (!args || typeof args !== "object") return {};
@@ -94,18 +84,6 @@ function unquoteArgs(args) {
   return out;
 }
 
-export function isPromptText(text) {
-  const s = String(text || "").trim();
-  if (!s) return false;
-  if (/^<(command-|local-command|system-reminder|task-notification|ci-monitor|environment_context)/.test(s)) return false;
-  if (/^\[Request interrupted/.test(s)) return false;
-  if (/^You are an AI agent powered by/.test(s)) return false;
-  // Harness bookkeeping that ships alongside the prompt is not the task.
-  if (/^(?:Time sampled while preparing|Elapsed since the preceding|Browser time zone for this request)/.test(s)) return false;
-  // 新版 Codex 会把 AGENTS.md、打开的页面这些上下文当成用户消息塞在最前面，不是任务本身
-  if (/^# AGENTS\.md instructions|^<(user_instructions|external_codex_)/.test(s)) return false;
-  return true;
-}
 
 export function stepText(name, input) {
   const i = input || {};
@@ -206,7 +184,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 5;
+export const USAGE_CACHE_VERSION = 6;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -935,7 +913,7 @@ export class AgentUsage {
       }
     } else if (d.type === "user" && !d.isSidechain) {
       const c = d.message && d.message.content;
-      const text = typeof c === "string" ? c : Array.isArray(c) && !c.some((b) => b.type === "tool_result") ? c.filter((b) => b.type === "text").map((b) => b.text).join("") : "";
+      const text = cleanUserPrompt(typeof c === "string" ? c : Array.isArray(c) && !c.some((b) => b.type === "tool_result") ? c.filter((b) => b.type === "text").map((b) => b.text).join("") : "");
       if (isPromptText(text)) {
         day.prompts++;
         startRound(fc, ms, text, d.uuid || String(ms));
@@ -984,7 +962,7 @@ export class AgentUsage {
     }
     if (d.type === "response_item") {
       if (p.type === "message" && p.role === "user") {
-        const text = (Array.isArray(p.content) ? p.content : []).filter((b) => b && b.type === "input_text").map((b) => b.text || "").join("").trim();
+        const text = cleanUserPrompt((Array.isArray(p.content) ? p.content : []).filter((b) => b && b.type === "input_text").map((b) => b.text || "").join(""));
         if (text && isPromptText(text)) {
           day.prompts++;
           startRound(fc, ms, text, String(ms));
