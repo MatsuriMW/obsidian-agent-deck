@@ -87,7 +87,7 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 ## 安装与依赖
 
 ### 1. 安装插件
-目前尚未上架 Obsidian 社区插件市场，需手动安装（当前版本 **1.9.9.1**，需 Obsidian **1.4.0+** 桌面端）：
+目前尚未上架 Obsidian 社区插件市场，需手动安装（当前版本 **1.9.10**，需 Obsidian **1.4.0+** 桌面端）：
 
 1. 前往 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新产物中的 `main.js`、`manifest.json`、`styles.css`。
 2. 将这 3 个文件放入你的 Obsidian 库目录：`<Vault>/.obsidian/plugins/agent-deck/`。

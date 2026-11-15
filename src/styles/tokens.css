@@ -1,0 +1,34 @@
+/* 设计 Token：只作用域限定在 Agent Deck 自身容器内，避免污染笔记编辑区。
+   注：--ad-agent / --ad-agent-soft 由 JS 按当前 Agent 动态写入内联 style；
+   笔记编辑器内组件（见 editor.css）不处于这些容器下，因此需使用 Obsidian 原生变量或带 fallback。 */
+
+.ad-view,
+.ad-settings,
+.ad-modal,
+.ad-review {
+  --ad-radius: 14px;
+  --ad-radius-sm: 10px;
+  --ad-line: var(--background-modifier-border);
+  --ad-surface: var(--background-secondary);
+  --ad-surface-2: var(--background-secondary-alt);
+  --ad-ink: var(--text-normal);
+  --ad-muted: var(--text-muted);
+  --ad-faint: var(--text-faint);
+  --ad-accent: #746d94;
+  --ad-good: #6f8f7c;
+  --ad-warn: #a9845f;
+  --ad-bad: #a86f6d;
+  --ad-star: #b39a6a;
+  --ad-shadow: 0 10px 30px rgba(55, 48, 42, .08);
+  --ad-figure: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+}
+
+.ad-view,
+.ad-settings,
+.ad-modal {
+  text-align: left;
+}
+
+:is(.ad-view, .ad-modal) :is(input, select, textarea) {
+  text-align: left;
+}

@@ -1,0 +1,93 @@
+/* 全部关键帧动画、失焦降频与统一的 reduced-motion 降级（置于末尾确保优先级覆盖）。 */
+
+@keyframes ad-pulse {
+  0%, 100% { opacity: .75; }
+  50% { opacity: 1; }
+}
+
+@keyframes ad-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ad-warn) 0%, transparent); }
+  50% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--ad-warn) 14%, transparent); }
+}
+
+@keyframes ad-sweep {
+  0% { left: -50%; }
+  100% { left: 110%; }
+}
+
+@keyframes ad-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ad-land {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ad-agent) 45%, transparent); }
+  100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--ad-agent) 0%, transparent); }
+}
+
+@keyframes ad-ll-on {
+  0%, 100% { opacity: var(--ad-ll-idle); }
+  18%, 42% { opacity: 1; }
+  62% { opacity: var(--ad-ll-idle); }
+}
+
+@keyframes ad-prog-in {
+  from { opacity: 0; transform: translateY(-3px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes ad-prog-breathe {
+  50% { opacity: 0.5; }
+}
+
+@keyframes ad-db-in {
+  from { opacity: 0; transform: translateY(2px) scale(.7); }
+  to { opacity: 1; transform: none; }
+}
+
+body:not(.is-focused) .ad-prog[data-mode="run"] .ad-prog-tail {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ad-pill,
+  .ad-sess,
+  .ad-agentcard,
+  .ad-btn,
+  .ad-iconbtn {
+    transition: none !important;
+  }
+
+  .ad-records-chevron,
+  .ad-rt-row,
+  .ad-rt-footer-item,
+  .ad-rt-card,
+  .ad-rt-tl-item {
+    transition: none;
+  }
+
+  .ad-pill--running .ad-pill__wave,
+  .ad-pill--starting .ad-pill__wave,
+  .ad-state.is-live,
+  .ad-pill.is-pulse,
+  .ad-spin svg,
+  .ad-sess.is-landed,
+  .ad-agentcard.is-drop,
+  .ad-prog,
+  .ad-prog-tail {
+    animation: none !important;
+  }
+
+  .ad-sess.is-landed,
+  .ad-agentcard.is-drop {
+    transform: none !important;
+  }
+
+  .ad-background-progress .ad-pill__wave {
+    animation: none;
+  }
+
+  .ad-lattice__cell {
+    animation-delay: 0ms !important;
+    animation-duration: 1400ms !important;
+  }
+}

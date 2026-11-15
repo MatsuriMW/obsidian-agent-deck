@@ -1,0 +1,1484 @@
+/* 设置页：顶部导航、卡片与行布局、Agent 排序/折叠、目标选择器、思考强度滑杆、模型列表、草稿保存条与容器断点。
+   注：桌面设置页整体使用比侧栏更大的字号与控件尺寸，因此用 .ad-settings 限定覆写 atoms.css 基础尺寸。 */
+
+.ad-settings {
+  container: ad-settings / inline-size;
+  padding: 16px 16px 36px;
+  max-width: 1040px;
+  min-width: 0;
+  font-size: 13px;
+  --ad-radius: 10px;
+  --ad-accent: var(--interactive-accent);
+}
+
+.ad-settings,
+.ad-settings * {
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.ad-settings :is(input, select, textarea, button) {
+  text-align: left;
+}
+
+.ad-settings select {
+  text-align-last: left;
+}
+
+.ad-settings .ad-input--num {
+  text-align: left;
+  width: 76px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-settings .ad-target {
+  justify-content: flex-start;
+
+  &:hover {
+    transform: none;
+  }
+
+  &.is-on :is(.ad-glyph, .ad-target__hint) {
+    color: inherit;
+  }
+}
+
+.modal.mod-settings .vertical-tab-content.ad-settings {
+  padding-inline: 16px;
+}
+
+/* ---------- Header & sticky tab bar ---------- */
+
+.ad-set-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ad-settings .ad-brand__mark {
+  background: color-mix(in srgb, var(--interactive-accent) 9%, var(--background-primary));
+  color: var(--interactive-accent);
+  box-shadow: none;
+}
+
+.ad-settings .ad-brand__name {
+  font-size: 22px;
+  line-height: 1.2;
+  letter-spacing: -.02em;
+}
+
+.ad-settings .ad-brand__sub {
+  font-size: 12px;
+  margin-top: 5px;
+}
+
+.ad-set-nav {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--ad-line);
+  margin-bottom: 16px;
+  position: sticky;
+  top: 0;
+  background: var(--background-primary);
+  z-index: 3;
+  padding-top: 4px;
+}
+
+.ad-set-tab {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 6px;
+  appearance: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ad-muted);
+  padding: 10px 0 12px;
+  height: auto;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+
+  &:hover {
+    color: var(--ad-ink);
+    background: transparent;
+  }
+
+  &.is-on {
+    color: var(--ad-ink);
+    border-bottom-color: var(--interactive-accent);
+  }
+
+  &.is-dirty::after {
+    content: " •";
+    color: var(--ad-warn);
+  }
+
+  & .ad-tabicon {
+    display: inline-flex;
+    width: 15px;
+    height: 15px;
+  }
+}
+
+.ad-settings .ad-set-nav > .ad-set-tab {
+  background: transparent;
+  box-shadow: none;
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+}
+
+.ad-set-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ---------- Settings cards, rows & controls ---------- */
+
+.ad-settings :is(.ad-card, .ad-models-card) {
+  padding: 14px;
+  background: var(--background-primary);
+  box-shadow: none;
+}
+
+.theme-light .ad-card,
+.theme-light .ad-models-card {
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .02);
+}
+
+.ad-settings .ad-card__head {
+  margin-bottom: 12px;
+}
+
+.ad-settings .ad-card__title {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.ad-settings .ad-card__sub {
+  font-size: 12px;
+  line-height: 1.65;
+  margin-top: 6px;
+  max-width: 76ch;
+  overflow-wrap: anywhere;
+}
+
+.ad-settings .ad-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 38%);
+  column-gap: 20px;
+  row-gap: 10px;
+  align-items: center;
+  padding: 11px 0;
+
+  &:has(.ad-seg--many) {
+    grid-template-columns: minmax(0, 1fr);
+
+    & > .ad-row__right {
+      justify-content: flex-start;
+    }
+  }
+}
+
+.ad-settings .ad-row__name {
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+.ad-settings .ad-row__desc {
+  font-size: 12px;
+  margin-top: 5px;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.ad-settings .ad-row__right {
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.ad-settings :is(.ad-input, .ad-select, .ad-hotkey) {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 34px;
+  height: auto;
+  font-size: 13px;
+  line-height: 1.4;
+  border-radius: 7px;
+}
+
+.ad-settings :is(.ad-input, .ad-input--wide, .ad-select) {
+  width: 100%;
+}
+
+.ad-settings .ad-hotkey {
+  width: 148px;
+  text-align: left;
+  font-family: var(--ad-figure);
+
+  &.is-capturing {
+    border-color: var(--interactive-accent);
+    color: var(--interactive-accent);
+  }
+}
+
+.ad-settings .ad-switch {
+  padding: 0;
+  min-width: 38px;
+  width: 38px;
+  min-height: 22px;
+  height: 22px;
+
+  &.is-on {
+    background: var(--interactive-accent);
+  }
+}
+
+.ad-settings .ad-btn {
+  min-height: 34px;
+  height: auto;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 7px 12px;
+  border-radius: 7px;
+  white-space: normal;
+  box-shadow: none;
+
+  &:hover {
+    transform: none;
+  }
+}
+
+.ad-settings .ad-btnrow {
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ad-settings .ad-textarea {
+  font-size: 13px;
+  line-height: 1.65;
+  padding: 10px 12px;
+}
+
+.ad-settings .ad-hint {
+  font-size: 12px;
+  line-height: 1.65;
+  margin-top: 10px;
+}
+
+.ad-settings .ad-field {
+  margin-top: 18px;
+}
+
+.ad-settings .ad-field__label {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.ad-settings :is(button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 3px;
+}
+
+/* Choice groups use the available form width rather than squeezing the label. */
+
+.ad-settings .ad-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ad-settings .ad-row__right > .ad-seg:not(.ad-seg--many) {
+  width: 100%;
+}
+
+.ad-settings .ad-seg:not(.ad-seg--many) > .ad-seg__btn {
+  flex: 1;
+}
+
+.ad-settings :is(.ad-seg__btn, .ad-chip) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 6px;
+  min-height: 32px;
+  height: auto;
+  padding: 6px 10px;
+  border: 1px solid var(--ad-line);
+  border-radius: 7px;
+  background: var(--background-primary);
+  color: var(--ad-ink);
+  box-shadow: none;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.ad-settings :is(.ad-seg__btn, .ad-chip, .ad-target) {
+  &::before {
+    content: "✓";
+    display: inline-block;
+    width: 1em;
+    flex: none;
+    visibility: hidden;
+    font-weight: 700;
+  }
+
+  &.is-on {
+    background: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-color: var(--interactive-accent);
+    box-shadow: none;
+
+    &::before {
+      visibility: visible;
+    }
+  }
+}
+
+/* ---------- Agent cards & independent ordering ---------- */
+
+.ad-set-agents {
+  display: flex;
+  flex-direction: column;
+  margin-top: 14px;
+}
+
+.ad-set-agent {
+  padding: 14px 0;
+  min-width: 0;
+  border-top: 1px solid var(--ad-line);
+
+  &:first-child {
+    padding-top: 4px;
+    border-top: 0;
+  }
+
+  &:last-child {
+    padding-bottom: 0;
+  }
+
+  &.is-primary .ad-set-agent__state {
+    color: var(--interactive-accent);
+  }
+
+  &.is-off .ad-set-agent__identity,
+  &.is-off .ad-set-agent__meta {
+    opacity: .6;
+  }
+
+  & .ad-star svg {
+    width: 17px;
+    height: 17px;
+  }
+}
+
+.ad-settings .ad-set-agent .ad-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ad-set-agent__top {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.ad-set-agent__icon {
+  width: 32px;
+  height: 32px;
+  color: var(--ad-agent);
+}
+
+.ad-set-agent__identity {
+  min-width: 0;
+}
+
+.ad-set-agent__name {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.ad-set-agent__controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ad-set-agent__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 10px 0 0 44px;
+  color: var(--ad-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-set-agent__state {
+  margin-left: 0;
+}
+
+.ad-set-agent__config {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  margin: 14px 0 0 44px;
+}
+
+.ad-settings .ad-set-agent__config {
+  & .ad-row {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 12px;
+    padding: 0;
+    border: 0;
+  }
+
+  & .ad-row__desc {
+    display: none;
+  }
+
+  & .ad-btn {
+    font-size: 12px;
+
+    &.is-default {
+      color: var(--interactive-accent);
+      background: color-mix(in srgb, var(--interactive-accent) 9%, var(--background-primary));
+      border-color: color-mix(in srgb, var(--interactive-accent) 40%, var(--ad-line));
+    }
+  }
+}
+
+.ad-settings .ad-delegate-agent > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  cursor: pointer;
+}
+
+.ad-delegate-agent {
+  & > summary {
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::after {
+      content: "›";
+      margin-left: auto;
+      color: var(--ad-muted);
+      font-size: 20px;
+    }
+
+    & .ad-glyph {
+      display: inline-flex;
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  &[open] > summary::after {
+    transform: rotate(90deg);
+  }
+}
+
+.ad-delegate-agent__body {
+  padding-top: 10px;
+}
+
+.ad-settings-target {
+  display: flex;
+  flex: 1 1 150px;
+  min-width: 0;
+  align-items: center;
+  gap: 3px;
+  border-radius: 8px;
+
+  & > .ad-target {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.ad-settings .ad-settings-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  padding: 4px;
+  width: 22px;
+  height: 28px;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--ad-faint);
+  cursor: grab;
+}
+
+.ad-settings-grip {
+  & svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:hover,
+  &:focus-visible {
+    color: var(--ad-ink);
+  }
+}
+
+.ad-settings .is-drop-target {
+  outline: 2px solid var(--ad-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Diagnostics & paths ---------- */
+
+.ad-pathlist {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ad-pathrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--ad-line);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  & .ad-glyph {
+    width: 13px;
+    height: 13px;
+
+    & svg {
+      width: 12px;
+      height: 12px;
+    }
+  }
+
+  & svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+.ad-pathrow__name {
+  font-weight: 600;
+  min-width: 88px;
+}
+
+.ad-pathrow__path {
+  color: var(--ad-muted);
+  font-family: var(--ad-figure);
+  font-size: 9px;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ad-settings .ad-pathrow {
+  display: grid;
+  grid-template-columns: 18px minmax(110px, 1fr) minmax(0, 2fr) auto;
+  gap: 12px;
+  padding: 12px 0;
+  font-size: 12px;
+}
+
+.ad-settings .ad-pathrow__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ad-settings .ad-pathrow__path {
+  font-size: 11px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.ad-error-line {
+  font-size: 9px;
+  color: var(--ad-bad);
+  font-family: var(--ad-figure);
+  padding: 3px 0;
+  overflow-wrap: anywhere;
+}
+
+.ad-statline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--ad-muted);
+  margin-top: 8px;
+}
+
+/* ---------- Target picker ---------- */
+
+.ad-targetpick {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ad-target {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--ad-line);
+  background: var(--background-primary);
+  color: var(--ad-ink);
+  border-radius: 11px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all .16s ease;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--ad-agent) 40%, var(--ad-line));
+    transform: translateY(-1px);
+  }
+
+  &.is-on {
+    border-color: color-mix(in srgb, var(--ad-agent) 52%, var(--ad-line));
+    background: var(--ad-agent-soft);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--ad-agent) 12%, transparent);
+  }
+
+  & .ad-glyph {
+    color: var(--ad-agent);
+    width: 16px;
+    height: 16px;
+
+    & svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  & svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.ad-target__hint {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--ad-muted);
+}
+
+.ad-target--sm {
+  padding: 6px 9px;
+  font-size: 11px;
+  border-radius: 999px;
+}
+
+.ad-settings .ad-targetpick {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+
+  & .ad-target {
+    display: grid;
+    grid-template-columns: 14px 20px minmax(0, 1fr);
+    gap: 4px 9px;
+    padding: 12px;
+    text-align: left;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: none;
+  }
+
+  & .ad-target__hint {
+    grid-column: 3;
+    font-size: 11px;
+    line-height: 1.5;
+  }
+}
+
+/* ---------- Effort slider ---------- */
+
+/* 注意：.ad-settings .ad-effort* 与下面的 .ad-effort--big 同为 (0,2,0) 优先级，
+   .ad-settings .ad-effort__lab 必须前置以保留 .ad-effort--big .ad-effort__lab 的 9px 字号。 */
+.ad-settings .ad-effort {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.ad-settings .ad-effort--big {
+  height: 64px;
+}
+
+.ad-settings .ad-effort__lab {
+  font-size: 10px;
+}
+
+.ad-settings .ad-effort__rec {
+  font-size: 10px;
+  top: 43px;
+}
+
+.ad-settings .ad-advselect {
+  font-size: 11px;
+}
+
+.ad-effort {
+  position: relative;
+  width: 230px;
+  height: 34px;
+  flex: none;
+  padding: 8px 10px 0;
+}
+
+.ad-effort__track {
+  position: relative;
+  height: 5px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ad-accent) 62%, #c7c1b8),
+    color-mix(in srgb, var(--ad-accent) 18%, var(--background-modifier-border))
+  );
+}
+
+.ad-effort__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 50%;
+  background: linear-gradient(90deg, #8b9aac, #a49bbd);
+  border-radius: 999px;
+  opacity: .3;
+}
+
+.ad-effort__stops {
+  position: absolute;
+  inset: -6px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ad-effort__stop {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  &.is-on .ad-effort__dot {
+    width: 13px;
+    height: 13px;
+    border: 2px solid var(--background-primary);
+    background: linear-gradient(145deg, #8b9aac, #a49bbd);
+    box-shadow: 0 2px 7px rgba(116, 109, 148, .25);
+  }
+}
+
+.ad-effort__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--background-primary);
+  border: 1.5px solid color-mix(in srgb, var(--ad-muted) 60%, transparent);
+  transition: all .16s ease;
+}
+
+.ad-settings .ad-effort__stop.is-on .ad-effort__dot {
+  width: 16px;
+  height: 16px;
+  background: var(--interactive-accent, var(--ad-accent));
+  box-shadow: 0 0 0 2px var(--interactive-accent, var(--ad-accent));
+}
+
+.ad-effort__lab {
+  position: absolute;
+  top: 14px;
+  transform: translateX(-50%);
+  font-size: 8px;
+  color: var(--ad-faint);
+  white-space: nowrap;
+
+  &:first-of-type {
+    transform: translateX(0);
+  }
+
+  &:last-of-type {
+    transform: translateX(-100%);
+  }
+}
+
+.ad-effort--big {
+  width: 100%;
+  height: 54px;
+  padding: 14px 12px 0;
+
+  & .ad-effort__lab {
+    top: 22px;
+    font-size: 9px;
+  }
+}
+
+.ad-effort__rec {
+  position: absolute;
+  right: 0;
+  top: 38px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 8px;
+  color: var(--ad-faint);
+}
+
+.ad-advselect {
+  border: 0;
+  background: transparent;
+  color: var(--ad-faint);
+  font-size: 9px;
+  padding: 0;
+  box-shadow: none;
+}
+
+/* ---------- Models page ---------- */
+
+.ad-models-intro {
+  padding: 4px 2px 2px;
+}
+
+.ad-models-title {
+  font-size: 22px;
+  font-weight: 780;
+  letter-spacing: -.03em;
+}
+
+.ad-models-sub {
+  font-size: 11px;
+  color: var(--ad-muted);
+  margin-top: 3px;
+}
+
+.ad-models-card {
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-radius);
+  background: var(--ad-surface);
+  padding: 14px 16px;
+}
+
+.ad-models-sec {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ad-models-sec__sub {
+  font-size: 10px;
+  color: var(--ad-muted);
+}
+
+.ad-models-target {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* 注意：.ad-settings .ad-defrow__* 与 .ad-defrow--effort 同为 (0,2,0) 优先级，
+   必须前置以保留 .ad-defrow--effort 的 44% / 52% 分栏宽度。 */
+.ad-settings .ad-defrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 38%);
+  align-items: center;
+  gap: 20px;
+  padding: 14px 0;
+}
+
+.ad-settings .ad-defrow__left,
+.ad-settings .ad-defrow__right {
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+}
+
+.ad-settings .ad-defrow__name {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.ad-settings .ad-defrow__desc {
+  font-size: 12px;
+  line-height: 1.65;
+  margin-top: 5px;
+}
+
+.ad-defrow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--ad-line);
+
+  &:last-of-type {
+    border-bottom: 0;
+  }
+}
+
+.ad-defrow__left {
+  min-width: 0;
+  max-width: 58%;
+}
+
+.ad-defrow--effort {
+  & .ad-defrow__left {
+    max-width: 44%;
+  }
+
+  & .ad-defrow__right {
+    flex: 1 1 auto;
+    max-width: 52%;
+    display: block;
+  }
+
+  & .ad-effort {
+    width: 100%;
+  }
+}
+
+.ad-defrow__name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ad-defrow__desc {
+  font-size: 10px;
+  color: var(--ad-muted);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+
+.ad-defrow__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.ad-modelmeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 8px 0 2px;
+  font-size: 10px;
+  color: var(--ad-muted);
+}
+
+.ad-cap {
+  font-size: 9px;
+  border: 1px solid var(--ad-line);
+  border-radius: 999px;
+  padding: 1px 6px;
+  color: var(--ad-muted);
+}
+
+.ad-cost {
+  font-size: 9px;
+  color: var(--ad-faint);
+}
+
+.ad-defnote {
+  font-size: 10px;
+  color: var(--ad-faint);
+  padding-top: 4px;
+}
+
+.ad-picker-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+
+  & .ad-search {
+    flex: 1;
+  }
+}
+
+.ad-filters--models {
+  margin-top: 9px;
+}
+
+.ad-modellist {
+  margin-top: 4px;
+}
+
+.ad-modelgroup {
+  margin-top: 10px;
+
+  &[open] > summary.ad-modelgroup__head::before {
+    transform: rotate(90deg);
+  }
+}
+
+.ad-modelgroup__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--ad-muted);
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--ad-line);
+
+  & .ad-linkbtn {
+    margin-left: auto;
+  }
+}
+
+summary.ad-modelgroup__head,
+summary.ad-subdetails__head {
+  cursor: pointer;
+  list-style: none;
+}
+
+summary.ad-modelgroup__head::-webkit-details-marker,
+summary.ad-subdetails__head::-webkit-details-marker {
+  display: none;
+}
+
+summary.ad-modelgroup__head::before,
+summary.ad-subdetails__head::before {
+  content: "›";
+  display: inline-block;
+  font-size: 16px;
+  transition: transform .12s ease;
+}
+
+.ad-subdetails {
+  margin-top: 8px;
+  border-top: 1px solid var(--ad-line);
+
+  &[open] > summary.ad-subdetails__head::before {
+    transform: rotate(90deg);
+  }
+}
+
+.ad-subdetails__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ad-ink);
+  padding: 10px 0 4px;
+}
+
+.ad-subdetails__body {
+  padding-top: 2px;
+}
+
+.ad-modelrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 6px;
+  border-bottom: 1px solid var(--ad-line);
+  border-radius: 8px;
+  transition: background .15s ease;
+
+  &:hover,
+  &:focus {
+    background: var(--background-modifier-hover);
+    outline: none;
+  }
+
+  &.is-off {
+    opacity: .55;
+  }
+}
+
+.ad-modelrow:hover .ad-morebtn,
+.ad-modelrow:focus .ad-morebtn {
+  opacity: 1;
+}
+
+.ad-modelrow__left {
+  min-width: 0;
+}
+
+.ad-modelrow__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.ad-modelrow__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+  font-size: 9px;
+  color: var(--ad-muted);
+}
+
+.ad-modelrow__right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.ad-badge {
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 1px 4px;
+  background: var(--ad-ink);
+  color: var(--background-primary);
+}
+
+.ad-badge--soft {
+  background: var(--background-modifier-hover);
+  color: var(--ad-muted);
+}
+
+.ad-morebtn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ad-muted);
+  font-size: 14px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .15s ease, background .15s ease;
+
+  &:hover {
+    background: var(--background-modifier-hover);
+    color: var(--ad-ink);
+  }
+}
+
+.ad-models-note {
+  font-size: 9px;
+  color: var(--ad-faint);
+  margin-top: 10px;
+  line-height: 1.5;
+}
+
+.ad-taskrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--ad-line);
+
+  &:last-of-type {
+    border-bottom: 0;
+  }
+}
+
+.ad-taskrow__name {
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.ad-taskrow__desc {
+  font-size: 9px;
+  color: var(--ad-muted);
+  margin-top: 1px;
+}
+
+.ad-settings .ad-models-target {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.ad-settings .ad-models-title {
+  font-size: 20px;
+  letter-spacing: -.02em;
+}
+
+.ad-settings .ad-models-sub,
+.ad-settings .ad-models-sec__sub {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.ad-settings .ad-modelrow {
+  padding: 14px 2px;
+  gap: 16px;
+}
+
+.ad-settings .ad-modelrow__name {
+  flex-wrap: wrap;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.ad-settings .ad-modelrow__meta,
+.ad-settings .ad-modelgroup__head {
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ad-settings .ad-modelgroup__head {
+  padding: 12px 2px;
+}
+
+.ad-settings .ad-morebtn {
+  opacity: 1;
+}
+
+.ad-settings .ad-picker-tools {
+  flex-wrap: wrap;
+}
+
+.ad-settings .ad-about-guide {
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 16px;
+  padding: 11px 0;
+}
+
+.ad-settings .ad-about-guide__title {
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.ad-settings .ad-about-guide__text {
+  line-height: 1.75;
+}
+
+.ad-settings .ad-about-intro .ad-card__title {
+  font-size: 22px;
+}
+
+.ad-settings .ad-about-agent {
+  font-size: 12px;
+}
+
+/* ---------- Draft save bar ---------- */
+
+.ad-draftbar {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 14px;
+  border-radius: 999px;
+  background: #2b2926;
+  color: #fff;
+  box-shadow: 0 12px 34px rgba(40, 35, 30, .22);
+  font-size: 11px;
+
+  & .ad-btn {
+    padding: 5px 10px;
+    border-color: transparent;
+  }
+
+  & .ad-btn--ghost {
+    color: rgba(255, 255, 255, .9);
+
+    &:hover {
+      background: rgba(255, 255, 255, .1);
+    }
+  }
+
+  & .ad-btn--cta {
+    background: #fff;
+    color: #111;
+  }
+}
+
+.ad-draftbar__text {
+  color: rgba(255, 255, 255, .72);
+}
+
+.ad-draftbar--inline {
+  position: sticky;
+  top: 58px;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  margin: 0 0 12px;
+  width: fit-content;
+  z-index: 30;
+}
+
+.ad-settings .ad-draftbar {
+  position: sticky;
+  bottom: 0;
+  left: auto;
+  transform: none;
+  align-self: stretch;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  border: 1px solid var(--ad-line);
+  border-radius: 8px;
+  background: var(--background-secondary);
+  color: var(--ad-ink);
+  box-shadow: 0 -6px 20px color-mix(in srgb, var(--background-primary) 75%, transparent);
+  padding: 12px;
+}
+
+.ad-settings .ad-draftbar__text {
+  color: var(--ad-muted);
+  margin-right: auto;
+}
+
+/* 注意：.theme-light .ad-draftbar 与 .ad-settings .ad-draftbar 同为 (0,2,0) 优先级，
+   必须保留在后以维持浅色主题底栏深色背景与阴影。 */
+.theme-light .ad-draftbar {
+  background: #2b2926;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .18);
+}
+
+/* ---------- Settings responsive breakpoints ---------- */
+
+@container ad-settings (max-width: 520px) {
+  .ad-settings .ad-row,
+  /* 注意：.ad-settings .ad-defrow__* 与 .ad-defrow--effort 同为 (0,2,0) 优先级，
+   必须前置以保留 .ad-defrow--effort 的 44% / 52% 分栏宽度。 */
+.ad-settings .ad-defrow {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .ad-settings .ad-row__right {
+    justify-content: flex-start;
+  }
+
+  .ad-settings .ad-set-agent__config {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+
+    & > .ad-btn {
+      justify-self: start;
+    }
+
+    & .ad-row {
+      grid-template-columns: auto minmax(0, 1fr);
+    }
+  }
+
+  .ad-settings .ad-about-guide {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 5px;
+  }
+
+  .ad-settings .ad-defrow--effort .ad-defrow__right {
+    max-width: none;
+  }
+
+  .ad-settings .ad-pathrow {
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    gap: 6px 10px;
+  }
+
+  .ad-settings .ad-pathrow__path {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
+
+@container ad-settings (max-width: 420px) {
+  .ad-set-agent__top {
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .ad-set-agent__controls {
+    grid-column: 2;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .ad-set-agent__meta,
+  .ad-set-agent__config {
+    margin-left: 38px;
+  }
+
+  .ad-settings .ad-targetpick {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .ad-set-nav {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 340px) {
+  .ad-set-agents {
+    grid-template-columns: 1fr;
+  }
+
+  .ad-effort {
+    width: 180px;
+  }
+}

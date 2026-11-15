@@ -1,6 +1,6 @@
 {
   "name": "obsidian-agent-deck",
-  "version": "1.9.9.1",
+  "version": "1.9.10",
   "description": "Track local AI agents, delegate from notes, and review daily token usage and project activity in a dashboard.",
   "scripts": {
     "build": "node esbuild.config.mjs",

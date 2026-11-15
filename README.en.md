@@ -88,7 +88,7 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 ## Installation & Requirements
 
 ### 1. Installing the Plugin
-Agent Deck is not in the Obsidian community plugin directory yet. Install manually (current version **1.9.9.1**, requires Obsidian **1.4.0+** desktop):
+Agent Deck is not in the Obsidian community plugin directory yet. Install manually (current version **1.9.10**, requires Obsidian **1.4.0+** desktop):
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases).
 2. Place all 3 files in `<your-vault>/.obsidian/plugins/agent-deck/`.

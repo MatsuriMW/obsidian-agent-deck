@@ -1,0 +1,12 @@
+/* Agent Deck — 智能体甲板
+   Modular stylesheet entry bundled into root styles.css by esbuild.
+   Import order preserves base -> component -> settings/modal override cascade. */
+
+@import "./tokens.css";
+@import "./atoms.css";
+@import "./dashboard.css";
+@import "./editor.css";
+@import "./settings.css";
+@import "./modals.css";
+@import "./review.css";
+@import "./motion.css";

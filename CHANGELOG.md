@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.9.9.1
+## 1.9.10
 
 - **Claude CLI `env` 认证修复（#4）**：`runClaude()` 将 `--setting-sources` 由 `project` 调整为 `user,project`，使配置在 `~/.claude/settings.json` `env` 中的 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` 等凭据可在无头整理与 Dreaming 子进程中正常加载；同步更新 `JOURNAL_PROVIDERS.claude.loggedIn` 探测逻辑，识别 `env.ANTHROPIC_AUTH_TOKEN` 与 `~/.claude/settings.json` `env` 中的认证字段，避免自动挑选模型时误判未登录。
 - **AI 记录按视图与多格式导出**：顶层 AI 自动记录母块的视图菜单内新增「导出」子菜单，支持按当前视图（大纲／表格／卡片／时间线）导出展开后的 PDF 与独立 HTML（保留时间线时间戳与手写附注），新增无损 Markdown (`.md`)、结构化 JSON (`.json`)、UTF-8 BOM CSV (`.csv`) 文件导出，以及复制为 Markdown、Markdown 表格、纯文本与 JSON 以便数据复用。
