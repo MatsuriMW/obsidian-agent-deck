@@ -23,13 +23,13 @@ import {
   AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, syncDelegationSettings, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp, visibleMenuAgents, journalPath,
 } from "./constants.js";
 import {
-  AgentUsage, UsageStore, projectName, SUMMARY_VERSION,
+  AgentUsage, UsageStore, projectName, normalizeProjectRoot, SUMMARY_VERSION,
   cursorEventsDir, cursorHooksStatus, isCursorRunning,
   installCursorHooks as installCursorHooksHelper,
   uninstallCursorHooks as uninstallCursorHooksHelper,
   grokBotPersistenceDir,
 } from "./readers.js";
-import { Delegator, blockAt, freshTaskText, ancestorLines, delegationText, openSession as openSessionRaw, openExternal as openExternalRaw, findAgentBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
+import { Delegator, blockAt, freshTaskText, stripInternalIdentifiers, ancestorLines, delegationText, openSession as openSessionRaw, openExternal as openExternalRaw, findAgentBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
 import { AgentDeckSettingsTab } from "./settings.js";
@@ -65,6 +65,7 @@ import {
   formatWorkbenchTasksMarkdown,
   insertWorkbenchBlockLines,
   resolveSessionProject,
+  isWaitingSession,
   classifyTaskStatusColumn,
   buildBoardSiblingContext,
   STANDALONE_PROJECT_ID,
@@ -1266,8 +1267,8 @@ export default class AgentDeckPlugin extends Plugin {
       destination ||= cli && hasAgentCapability(agent, "terminalHandoff") ? "terminal" : defaultDestination(this, agent);
       if (!confirmed) {
         new ConfirmSendModal(this.app, {
-          agent, text: newSession ? freshTaskText(target.block.text) : target.block.text, path: item.path,
-          context: ancestorLines(target.lines, target.block.start),
+          agent, text: stripInternalIdentifiers(newSession ? freshTaskText(target.block.text) : target.block.text), path: item.path,
+          context: ancestorLines(target.lines, target.block.start).map((l) => stripInternalIdentifiers(l)),
           where: `${opts.model || this.defaultModel(agent) || t("客户端模型")} · ${opts.effort || this.settings.delegate[agent]?.effort || t("客户端强度")}`,
           destination, newSession,
         }, chosen => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: delegationText(target.lines, target.block, { newSession }), boardContext })).open();
@@ -1658,7 +1659,8 @@ export default class AgentDeckPlugin extends Plugin {
       for (const job of Object.values(this.jobs || {})) {
         if (!activeJob(job)) continue;
         const proj = resolveSessionProject({ cwd: job.cwd }) || STANDALONE_PROJECT_ID;
-        if (proj === projectId) ids.add(job.id);
+        const root = normalizeProjectRoot(job.cwd);
+        if (proj === projectId || (root && root === projectId)) ids.add(job.id);
       }
     }
     let stopped = 0;
@@ -1924,6 +1926,7 @@ export default class AgentDeckPlugin extends Plugin {
   // ---------- macOS menu bar ----------
   buildMenuBarState() {
     const cfg = this.settings;
+    const now = Date.now();
     const today = this.store.get(dayKeyToday(cfg));
     const live = this.liveSessions({ hours: 6 });
     const recent = this.recentSessions({ days: 1, limit: 120 });
@@ -1955,6 +1958,7 @@ export default class AgentDeckPlugin extends Plugin {
         url: acp ? `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(s.sid)}` : agent === "dsh" ? "dsh://open" : agent === "antigravity" ? "antigravity://" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
         copy: (agent === "dsh" || agent === "antigravity" || ["opencode", "qoder"].includes(agent) || AGENTS[agent].trackingOnly) ? s.sid : (agent === "codex" ? `codex resume ${s.sid}` : ""),
         _at: s.lastAt || 0,
+        _waiting: isLive && isWaitingSession({ ...s, state }, now),
       });
       return true;
     };
@@ -1968,7 +1972,7 @@ export default class AgentDeckPlugin extends Plugin {
           .sort((a, b) => menuRank(a.state) - menuRank(b.state) || (b.lastAt || 0) - (a.lastAt || 0));
         for (const s of lives) if (add(s, true, true) && ++count >= limit) break;
         if (count < limit) {
-          const cutoff = Date.now() - 6 * 3600e3;
+          const cutoff = now - 6 * 3600e3;
           const recs = recent.filter((x) => x.agent === agent && (x.lastAt || 0) >= cutoff).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
           for (const s of recs) if (add(s, true, false) && ++count >= limit) break;
         }
@@ -1976,18 +1980,18 @@ export default class AgentDeckPlugin extends Plugin {
         // Other agents only contribute running sessions, except WorkBuddy:
         // its waiting sessions are part of the daily loop and should be jumpable
         // from the menu bar too.
-        const wbWaiting = (state) => cfg.menuBarAgentScope === "all" && agent === "workbuddy" && ["wait", "quiet", "needs-approval"].includes(state);
+        const wbWaiting = (s) => cfg.menuBarAgentScope === "all" && agent === "workbuddy" && isWaitingSession(s, now);
         const rows = [
-          ...live.filter((x) => x.agent === agent && (x.state === "run" || wbWaiting(x.state))),
+          ...live.filter((x) => x.agent === agent && (x.state === "run" || wbWaiting(x))),
           ...recent.filter((x) => x.agent === agent && x.state === "run"),
         ].sort((a, b) => menuRank(a.state) - menuRank(b.state) || (b.lastAt || 0) - (a.lastAt || 0));
         for (const s of rows) if (add(s, false, true) && ++count >= limit) break;
       }
     }
     out.sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0) || menuRank(a.state) - menuRank(b.state) || (b._at || 0) - (a._at || 0));
-    for (const row of out) delete row._at;
     const running = out.filter((x) => x.state === "run").length;
-    const waiting = out.filter((x) => ["wait", "quiet", "needs-approval"].includes(x.state)).length;
+    const waiting = out.filter((x) => x._waiting).length;
+    for (const row of out) { delete row._at; delete row._waiting; }
     const short = running && waiting
       ? t("{run} 跑 · {wait} 等", { run: running, wait: waiting })
       : running ? t("{n} 在跑", { n: running }) : waiting ? t("{n} 等你", { n: waiting }) : t("空闲");
@@ -2015,7 +2019,7 @@ export default class AgentDeckPlugin extends Plugin {
       return {
         id: x, short: AGENTS[x].short, name: AGENTS[x].name, color: AGENTS[x].color, glyph: AGENTS[x].glyph,
         running: rows.filter((s) => s.state === "run").length,
-        waiting: rows.filter((s) => ["wait", "quiet", "needs-approval"].includes(s.state)).length,
+        waiting: rows.filter((s) => isWaitingSession(s, now)).length,
         primary: primaries.includes(x),
         today: mine && mine.wall ? fmtMin(mine.wall) : "",
       };

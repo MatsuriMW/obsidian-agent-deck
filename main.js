@@ -1,4 +1,4 @@
-/* Agent Deck 1.10.0 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.10.1 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1180,6 +1180,22 @@ var dialogs_default = {
   "\u5BF9\u6BD4\u5206\u6790\u3001\u4FE1\u606F\u63D0\u70BC\u4E0E\u8865\u5145": "Comparative analysis & synthesis",
   "\u6821\u5BF9\u4E0E\u6267\u884C": "Proofing & Execution",
   "\u7EC6\u8282\u68C0\u67E5\u4E0E\u89C4\u8303\u8F93\u51FA": "Detail verification & polished output",
+  "\u6DF1\u5EA6\u7814\u62A5\u5C0F\u961F": "Deep Research Team",
+  "\u4FE1\u6E90\u68C0\u7D22 + \u4EA4\u53C9\u6C42\u8BC1 + \u6D1E\u5BDF\u7EFC\u5408": "Source mining + Fact-checking + Synthesis",
+  "\u4FE1\u6E90\u68C0\u7D22": "Source Mining",
+  "\u641C\u96C6\u4E00\u624B\u6587\u732E\u3001\u6570\u636E\u53E3\u5F84\u4E0E\u6B63\u53CD\u6848\u4F8B": "Gather primary sources, data & counterexamples",
+  "\u4EA4\u53C9\u6C42\u8BC1": "Fact-Checking",
+  "\u6838\u5BF9\u5F15\u6587\u51FA\u5904\u3001\u4E8B\u5B9E\u8FB9\u754C\u4E0E\u903B\u8F91\u6F0F\u6D1E": "Verify citations, factual bounds & logic gaps",
+  "\u6D1E\u5BDF\u7EFC\u5408": "Insight Synthesis",
+  "\u63D0\u70BC\u6838\u5FC3\u8BBA\u70B9\u3001\u642D\u5EFA\u8BBA\u8BC1\u7ED3\u6784\u4E0E\u7ED3\u8BBA": "Distill core thesis, argument arc & takeaways",
+  "\u6DF1\u5EA6\u5199\u4F5C\u5C0F\u961F": "Editorial Writing Team",
+  "\u7ACB\u610F\u5927\u7EB2 + \u6B63\u6587\u8D77\u8349 + \u5BA1\u6821\u6DA6\u8272": "Outline & angle + Drafting + Copyediting",
+  "\u7ACB\u610F\u4E0E\u5927\u7EB2": "Angle & Outline",
+  "\u5B9A\u6838\u5FC3\u89C2\u70B9\u3001\u8BFB\u8005\u89C6\u89D2\u4E0E\u7AE0\u8282\u8282\u594F": "Define thesis, audience angle & section flow",
+  "\u6B63\u6587\u8D77\u8349": "Longform Drafting",
+  "\u6269\u5199\u8BBA\u636E\u6848\u4F8B\u3001\u4E32\u8054\u6BB5\u843D\u5E76\u4FDD\u6301\u53E3\u543B": "Expand arguments, examples & consistent voice",
+  "\u5BA1\u6821\u6DA6\u8272": "Copyediting",
+  "\u7CBE\u7B80\u5197\u4F59\u8868\u8FBE\u3001\u6253\u78E8\u91D1\u53E5\u4E0E\u6807\u9898\u94A9\u5B50": "Tighten prose, polish hooks & sharpen clarity",
   "\u8BF7\u5148\u8F93\u5165\u9879\u76EE\u76EE\u6807\u6216\u9700\u6C42\u63CF\u8FF0": "Enter a project goal or requirement first",
   "\u6A21\u578B\u8FD4\u56DE\u672A\u6309\u7ED3\u6784\u5316\u683C\u5F0F\u8F93\u51FA\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848": "Model output was not structured JSON; generated an editable draft from team roles",
   "\u672A\u8FDE\u4E0A\u6574\u7406\u6A21\u578B\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848\uFF1A{msg}": "Could not reach organizer model; generated an editable draft from team roles: {msg}",
@@ -5937,7 +5953,8 @@ function ingestCodexLine(ctx, line, fc, touched) {
   v.app = fc.app;
   v.title = usage.titles.get(sid) || v.title;
   if (d.type === "event_msg") {
-    if (p.type === "task_complete" || p.type === "turn_aborted") v.state = "wait";
+    if (p.type === "task_complete") v.state = fc.parentSid ? "done" : "wait";
+    else if (p.type === "turn_aborted") v.state = "cancelled";
     else if (p.type === "error") {
       v.state = "error";
       v.err = String(p.message || "").replace(/\s+/g, " ").slice(0, 80);
@@ -5969,8 +5986,8 @@ function ingestCodexLine(ctx, line, fc, touched) {
       v.state = "run";
     }
   }
-  if (v.lastText || v.state === "wait") {
-    finishRound(fc, ms, v.lastText, v.state === "wait");
+  if (v.lastText || v.state === "wait" || v.state === "done") {
+    finishRound(fc, ms, v.lastText, v.state === "wait" || v.state === "done");
     v.turns = fc.rounds ? fc.rounds.list.length : 0;
     v.rounds = fc.rounds ? fc.rounds.list : [];
   }
@@ -6238,6 +6255,7 @@ function ingestDshLine(ctx, line, fc, touched) {
     fc.app = "dsh";
     fc.createdAt = d.createdAt || fc.createdAt;
     if (d.parentSession) fc.parentSid = String(d.parentSession);
+    if (Number(d.delegationDepth) > 0) fc.isSubagent = true;
     const existing = usage.meta.get(fc.sid);
     usage.noteMeta(fc, fc.sid, { cwd: fc.cwd, app: "dsh", lastAt: existing?.lastAt || ms || d.createdAt || 0, ...fc.parentSid ? { parentSid: fc.parentSid } : {} });
     return;
@@ -6320,13 +6338,14 @@ function ingestDshLine(ctx, line, fc, touched) {
     }
   } else if (typ === "turn/end") {
     const reason = data.reason || {};
+    const isChild = !!(fc.parentSid || fc.isSubagent);
     if (reason.kind === "error") {
       v.state = "error";
       v.err = String(reason.error && reason.error.message || "").slice(0, 120);
-    } else if (reason.kind === "aborted") v.state = "wait";
-    else v.state = "wait";
+    } else if (reason.kind === "aborted") v.state = "cancelled";
+    else v.state = isChild ? "done" : "wait";
     v.step = "";
-    finishRound(fc, ms, v.lastText, v.state === "wait");
+    finishRound(fc, ms, v.lastText, v.state === "wait" || v.state === "done");
     v.turns = fc.rounds ? fc.rounds.list.length : 0;
     v.rounds = fc.rounds ? fc.rounds.list : [];
     const meta = usage.meta.get(sid) || {};
@@ -7383,24 +7402,25 @@ var MAX_TS = 2e4;
 var home2 = () => import_os5.default.homedir();
 var norm = (p) => String(p || "").replace(/^~(?=\/)/, home2());
 function isScratchCwd(cwd) {
-  const path10 = String(cwd || "").replace(/\/+$/, "");
-  if (!path10) return false;
-  const leaf = path10.split("/").pop() || "";
+  const p = String(cwd || "").replace(/\\/g, "/").replace(/\/+$/, "");
+  if (!p) return false;
+  const leaf = p.split("/").pop() || "";
   if (/^\d+-[0-9a-f-]{16,}$/i.test(leaf) || /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(leaf)) return true;
   if (/^[a-z]$/i.test(leaf)) return true;
   if (/^[a-z]{1,3}-[a-z]{1,3}$/i.test(leaf)) return true;
   if (leaf === "default-workspace") return true;
-  if (path10 === home2()) return true;
-  if (/\/Codex\/\d{4}-\d{2}-\d{2}\/[^/]+$/i.test(path10)) return true;
+  if (p === home2().replace(/\\/g, "/")) return true;
+  if (/\/Codex\/\d{4}-\d{2}-\d{2}(?:\/|$)/i.test(p)) return true;
   return false;
 }
 function projectName(cwd) {
   if (!cwd) return "?";
-  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(cwd)) return "WorkBuddy";
-  if (/\/\.dsh\/sessions\//.test(cwd)) return "DSH";
-  if (/\/\.gemini\/antigravity\//.test(cwd)) return "Antigravity";
-  const p = String(cwd).split("/.claude/worktrees/")[0].replace(/\/+$/, "");
-  return p === home2() ? "~" : p.split("/").pop() || p;
+  const normCwd = String(cwd).replace(/\\/g, "/");
+  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(normCwd)) return "WorkBuddy";
+  if (/\/\.dsh\/sessions\//.test(normCwd)) return "DSH";
+  if (/\/\.gemini\/antigravity\//.test(normCwd)) return "Antigravity";
+  const p = normCwd.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
+  return p === home2().replace(/\\/g, "/") ? "~" : p.split("/").pop() || p;
 }
 var WORKSPACE_MARKERS = [".git", "package.json", "pnpm-workspace.yaml", "pyproject.toml", "Cargo.toml", "go.mod", ".hg", ".obsidian"];
 function inferWorkspaceRoot(target) {
@@ -7425,13 +7445,62 @@ function inferWorkspaceRoot(target) {
   }
   return dir;
 }
-function sessionProjectName(cwd) {
-  const raw = String(cwd || "").trim();
+function normalizeProjectRoot(cwd) {
+  const raw = String(cwd || "").trim().replace(/\\/g, "/");
   if (!raw || raw === "~" || raw === "/") return "";
   if (isScratchCwd(raw)) return "";
   if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(raw) || /\/\.dsh\/sessions\//.test(raw) || /\/\.gemini\/antigravity\//.test(raw)) return "";
-  const name = projectName(raw);
+  const stripped = raw.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
+  if (!stripped || stripped === home2().replace(/\\/g, "/").replace(/\/+$/, "")) return "";
+  const name = projectName(stripped);
+  return !name || name === "?" || name === "~" ? "" : stripped;
+}
+function sessionProjectName(cwd) {
+  const root = normalizeProjectRoot(cwd);
+  if (!root) return "";
+  const name = projectName(root);
   return !name || name === "?" || name === "~" ? "" : name;
+}
+function disambiguateProjectLabels(entries = []) {
+  const byName = /* @__PURE__ */ new Map();
+  for (const e of entries) {
+    if (!e || !e.baseName) continue;
+    let list = byName.get(e.baseName);
+    if (!list) byName.set(e.baseName, list = []);
+    list.push(e);
+  }
+  const out = /* @__PURE__ */ new Map();
+  for (const [baseName, list] of byName) {
+    if (list.length <= 1) {
+      if (list[0]) out.set(list[0].key, baseName);
+      continue;
+    }
+    const parentsOf = list.map((e) => {
+      const segs = String(e.root || "").replace(/\\/g, "/").replace(/\/+$/, "").split("/").filter(Boolean);
+      return segs.slice(0, -1);
+    });
+    const maxDepth = Math.max(1, ...parentsOf.map((p) => p.length));
+    const resolved = new Array(list.length).fill("");
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      const counts = /* @__PURE__ */ new Map();
+      const candidates = list.map((_, idx) => {
+        if (resolved[idx]) return "";
+        const segs = parentsOf[idx];
+        const ctx = segs.length ? segs.slice(-depth).join("/") : "";
+        if (ctx) counts.set(ctx, (counts.get(ctx) || 0) + 1);
+        return ctx;
+      });
+      for (let idx = 0; idx < list.length; idx++) {
+        if (resolved[idx] || !candidates[idx]) continue;
+        if (counts.get(candidates[idx]) === 1 || depth === maxDepth) resolved[idx] = candidates[idx];
+      }
+      if (resolved.every(Boolean)) break;
+    }
+    for (let idx = 0; idx < list.length; idx++) {
+      out.set(list[idx].key, resolved[idx] ? `${baseName} (${resolved[idx]})` : baseName);
+    }
+  }
+  return out;
 }
 function cleanLive(v, now = Date.now()) {
   if (!v) return v;
@@ -7439,8 +7508,8 @@ function cleanLive(v, now = Date.now()) {
   else v.quiet = false;
   return v;
 }
-var USAGE_CACHE_VERSION = 11;
-var SUMMARY_VERSION = 2;
+var USAGE_CACHE_VERSION = 12;
+var SUMMARY_VERSION = 3;
 function packDay(day) {
   return { ...day, sess: [...day.sess instanceof Map ? day.sess : /* @__PURE__ */ new Map()] };
 }
@@ -8419,6 +8488,22 @@ var AgentUsage = class {
   ingestDsh(line, fc, touched) {
     return ingestDshLine(this._ingestCtx(), line, fc, touched);
   }
+  _resolveParentInfo(meta) {
+    let parentTitle = meta?.parentTitle || "";
+    let parentCwd = "";
+    let curSid = meta?.parentSid || "";
+    const seen = new Set(meta?.sid ? [meta.sid] : []);
+    for (let depth = 0; depth < 4 && curSid && !seen.has(curSid); depth++) {
+      seen.add(curSid);
+      const pm = this.meta.get(curSid);
+      if (!pm) break;
+      if (!parentTitle) parentTitle = pm.title || this.titles.get(pm.sid) || "";
+      if (!parentCwd && normalizeProjectRoot(pm.cwd)) parentCwd = pm.cwd;
+      if (parentTitle && parentCwd) break;
+      curSid = pm.parentSid || "";
+    }
+    return { parentTitle, parentCwd };
+  }
   // ----- derived -----
   summary(key) {
     var _a, _b, _c, _d;
@@ -8444,14 +8529,28 @@ var AgentUsage = class {
     if (!sessions.size) return null;
     const res = { wall: 0, agent: 0, sessions: sessions.size, prompts, calls: 0, out: 0, fresh: 0, cached: 0, segs: [], proj: {}, models: {}, list: [], by: {} };
     const spans = [];
+    const projEntries = /* @__PURE__ */ new Map();
     for (const s of sessions.values()) {
-      s.ts.sort((a2, b2) => a2 - b2);
-      s.label = s.proj;
-      if (isScratchCwd(s.cwd)) {
-        const meta = this.meta.get(s.sid);
+      const meta = this.meta.get(s.sid);
+      const { parentCwd } = meta ? this._resolveParentInfo(meta) : { parentCwd: "" };
+      const ownRoot = normalizeProjectRoot(s.cwd);
+      const effCwd = ownRoot ? s.cwd : parentCwd || s.cwd;
+      const effRoot = ownRoot || normalizeProjectRoot(parentCwd);
+      s._effCwd = effCwd;
+      s._effRoot = effRoot;
+      s.label = effRoot ? projectName(effRoot) : s.proj;
+      if (!effRoot && isScratchCwd(s.cwd)) {
         const title = String(meta?.title || s.text || "").replace(/\s+/g, " ").trim();
         if (title) s.label = title.slice(0, 24);
       }
+      if (effRoot && !projEntries.has(effRoot)) {
+        projEntries.set(effRoot, { key: effRoot, baseName: s.label, root: effRoot });
+      }
+    }
+    const disambiguated = disambiguateProjectLabels([...projEntries.values()]);
+    for (const s of sessions.values()) {
+      if (s._effRoot && disambiguated.has(s._effRoot)) s.label = disambiguated.get(s._effRoot);
+      s.ts.sort((a2, b2) => a2 - b2);
       let a = s.ts[0], b = a + 1;
       const g = (_a = res.by)[_b = s.agent] || (_a[_b] = { wall: 0, agent: 0, out: 0, fresh: 0, cached: 0, segs: [], calls: 0, prompts: asked[s.agent] || 0, models: {} });
       const push = () => {
@@ -8462,7 +8561,7 @@ var AgentUsage = class {
         res.agent += b - a;
         g.agent += b - a;
         g.segs.push([a, b]);
-        const pj = (_a2 = res.proj)[_b2 = s.label] || (_a2[_b2] = { min: 0, out: 0, cwd: s.cwd, agents: {} });
+        const pj = (_a2 = res.proj)[_b2 = s.label] || (_a2[_b2] = { min: 0, out: 0, cwd: s._effCwd || s.cwd, agents: {} });
         pj.min += b - a;
         pj.agents[s.agent] = (pj.agents[s.agent] || 0) + b - a;
       };
@@ -8557,9 +8656,10 @@ var AgentUsage = class {
       if (live.quiet && live.state === "run") live.state = "quiet";
       if (this.hidden(sid) && !["run", "running", "starting"].includes(live.state)) continue;
       seen.add(sid);
-      if (meta.parentSid && !meta.parentTitle) {
-        const pm = this.meta.get(meta.parentSid);
-        if (pm) meta.parentTitle = pm.title || this.titles.get(pm.sid) || "";
+      if (meta.parentSid) {
+        const { parentTitle, parentCwd } = this._resolveParentInfo(meta);
+        if (parentTitle && !meta.parentTitle) meta.parentTitle = parentTitle;
+        if (parentCwd && !meta.parentCwd) meta.parentCwd = parentCwd;
       }
       out.push({ ...meta, ...live, sid, agent: fc.agent, cwd: v.cwd || fc.cwd, app: v.app || fc.app, title: v.title || meta.title || this.titles.get(sid) || "", model: v.model || meta.model || "", tokens: (meta.out || 0) + (meta.fresh || 0), lastAt: v.at });
     }
@@ -8571,9 +8671,10 @@ var AgentUsage = class {
       if (!m.lastAt || m.lastAt < since) continue;
       if (agent && m.agent !== agent) continue;
       if (this.hidden(m.sid) && !["run", "running", "starting"].includes(m.state)) continue;
-      if (m.parentSid && !m.parentTitle) {
-        const pm = this.meta.get(m.parentSid);
-        if (pm) m.parentTitle = pm.title || this.titles.get(pm.sid) || "";
+      if (m.parentSid) {
+        const { parentTitle, parentCwd } = this._resolveParentInfo(m);
+        if (parentTitle && !m.parentTitle) m.parentTitle = parentTitle;
+        if (parentCwd && !m.parentCwd) m.parentCwd = parentCwd;
       }
       out.push({ ...m, title: m.title || this.titles.get(m.sid) || "", tokens: (m.out || 0) + (m.fresh || 0) });
     }
@@ -9313,13 +9414,25 @@ var usesDeckSessionLink = (id) => {
 
 // src/harness.js
 var CONTEXT_RESOLVERS = [];
+function stripInternalIdentifiers(text) {
+  const lines = String(text || "").split("\n");
+  const fenced = fencedLines(lines);
+  return lines.map((line, idx) => {
+    if (fenced.has(idx)) return line;
+    let out = line.replace(RECORD_PROVENANCE_RE, "");
+    const id = blockIdOf(out);
+    if (id && (isDeckBlockId(id) || isLegacyBlockId(id))) out = stripBlockId(out);
+    return out;
+  }).join("\n");
+}
 function withContext(contextLines, task) {
-  const ctx = (contextLines || []).filter((l) => l && l.trim());
-  if (!ctx.length) return task;
+  const cleanTask = stripInternalIdentifiers(task);
+  const ctx = (contextLines || []).map((l) => stripInternalIdentifiers(l)).filter((l) => l && l.trim());
+  if (!ctx.length) return cleanTask;
   return `${t("\u8FD9\u6761\u4EFB\u52A1\u5728\u7B14\u8BB0\u91CC\u6302\u7684\u4F4D\u7F6E\uFF0C\u53EA\u505A\u6700\u91CC\u9762\u8FD9\u4E00\u9879\uFF1A")}
 
 ${ctx.join("\n")}
-${task}`;
+${cleanTask}`;
 }
 function freshTaskText(text) {
   return String(text || "").split("\n").map((l, i) => i === 0 ? stripBlockId(l) : l).join("\n");
@@ -9405,7 +9518,7 @@ async function resolveWikilinkSnippets(plugin, file, refs = []) {
       } else {
         excerpt = allLines.slice(frontmatterEnd(allLines)).join("\n");
       }
-      const compact = clampExcerpt(excerpt);
+      const compact = clampExcerpt(stripInternalIdentifiers(excerpt));
       if (!compact) continue;
       const label = `[[${ref.target}${ref.subpath ? "#" + ref.subpath : ""}${ref.alias ? "|" + ref.alias : ""}]]`;
       snippets.push(`- ${label} (${dest.path}):
@@ -11618,7 +11731,7 @@ var RECORD_VIEW_LABELS = {
   cards: "\u5361\u7247",
   timeline: "\u65F6\u95F4\u7EBF"
 };
-var isBriefRecord = (line) => /💬\s+(?:第\d+轮[：:])?任务：.+；结论：/.test(line);
+var isBriefRecord = (line) => /💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?(?:任务：.+；结论：|Task:\s*.+;\s*Result:\s*.+)/.test(line);
 function groupPrefValue(map, group) {
   if (!map || !group) return void 0;
   for (const k of [group.key, group.stableKey]) {
@@ -11716,7 +11829,10 @@ function selectVisibleLines(lineNums, lines, mode = "latest1", summaryLines = []
   const count = { latest1: 1, latest3: 3, latest5: 5 }[mode];
   if (count) {
     const results = lineNums.filter((n) => /^(?:\s*(?:[-*+]|\d+[.)])\s+)?💬\s/.test(lines[n]) && !/💬\s+累计总结[：:]/.test(lines[n]));
-    const round = (n) => +(/<!-- ad-turn:[^:]+:(\d+) -->/.exec(lines[n]) || /第(\d+)轮[：:]/.exec(lines[n]) || [0, 0])[1];
+    const round = (n) => {
+      const m = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(lines[n]) || /(?:第(\d+)轮|Round\s+(\d+))[：:]/.exec(lines[n]);
+      return m ? +(m[1] || m[2]) : 0;
+    };
     return results.length ? results.sort((a, b) => round(b) - round(a) || b - a).slice(0, count).sort((a, b) => a - b) : summaryLines;
   }
   return summaryLines;
@@ -11737,8 +11853,8 @@ function cleanRecordText(raw) {
 }
 function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
   const raw = String(rawLine || "");
-  const turnMatch = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(raw) || /第(\d+)轮[：:]/.exec(raw);
-  const round = turnMatch ? Number(turnMatch[1]) : null;
+  const turnMatch = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(raw) || /(?:第(\d+)轮|Round\s+(\d+))[：:]/.exec(raw);
+  const round = turnMatch ? Number(turnMatch[1] || turnMatch[2]) : null;
   const link = parseLink(raw);
   const body = stripBoundSessionSuffix(cleanRecordText(raw).replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""), link);
   let kind = "result", kindLabel = "\u7ED3\u8BBA", content = body, meta = "", task = "", conclusion = "";
@@ -11749,8 +11865,8 @@ function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
   } else if (/^💬\s/.test(body)) {
     kind = "result";
     kindLabel = "\u7ED3\u8BBA";
-    content = body.replace(/^💬\s+(?:第\d+轮[：:])?\s*/, "");
-    const brief = /^任务：([\s\S]+?)；结论：([\s\S]+)$/.exec(content);
+    content = body.replace(/^💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?\s*/, "");
+    const brief = /^任务：([\s\S]+?)；结论：([\s\S]+)$/.exec(content) || /^Task:\s*([\s\S]+?);\s*Result:\s*([\s\S]+)$/.exec(content);
     if (brief) {
       task = brief[1].trim();
       conclusion = brief[2].trim();
@@ -11758,11 +11874,11 @@ function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
   } else if (/^❓\s/.test(body)) {
     kind = "question";
     kindLabel = "\u63D0\u95EE";
-    content = body.replace(/^❓\s+(?:第\d+轮[：:])?\s*/, "");
+    content = body.replace(/^❓\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?\s*/, "");
   } else if (/^📋\s/.test(body)) {
     kind = "plan";
     kindLabel = "\u6B65\u9AA4";
-    const rest = body.replace(/^📋\s+(?:第\d+轮[：:])?\s*/, "");
+    const rest = body.replace(/^📋\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?\s*/, "");
     const step = /^步骤\s+(\d+\/\d+)(?:\s*·\s*(.*))?$/.exec(rest);
     if (step) {
       meta = step[1];
@@ -12865,6 +12981,26 @@ var DEFAULT_TEAM_PRESETS = [
       { id: "gather", label: "\u8D44\u6599\u6574\u7406", preferredAgent: "antigravity", hint: "\u5BF9\u6BD4\u5206\u6790\u3001\u4FE1\u606F\u63D0\u70BC\u4E0E\u8865\u5145" },
       { id: "polish", label: "\u6821\u5BF9\u4E0E\u6267\u884C", preferredAgent: "qoder", hint: "\u7EC6\u8282\u68C0\u67E5\u4E0E\u89C4\u8303\u8F93\u51FA" }
     ]
+  },
+  {
+    id: "deep-research",
+    name: "\u6DF1\u5EA6\u7814\u62A5\u5C0F\u961F",
+    desc: "\u4FE1\u6E90\u68C0\u7D22 + \u4EA4\u53C9\u6C42\u8BC1 + \u6D1E\u5BDF\u7EFC\u5408",
+    roles: [
+      { id: "scout", label: "\u4FE1\u6E90\u68C0\u7D22", preferredAgent: "opencode", hint: "\u641C\u96C6\u4E00\u624B\u6587\u732E\u3001\u6570\u636E\u53E3\u5F84\u4E0E\u6B63\u53CD\u6848\u4F8B" },
+      { id: "verify", label: "\u4EA4\u53C9\u6C42\u8BC1", preferredAgent: "codex", hint: "\u6838\u5BF9\u5F15\u6587\u51FA\u5904\u3001\u4E8B\u5B9E\u8FB9\u754C\u4E0E\u903B\u8F91\u6F0F\u6D1E" },
+      { id: "synth", label: "\u6D1E\u5BDF\u7EFC\u5408", preferredAgent: "claude", hint: "\u63D0\u70BC\u6838\u5FC3\u8BBA\u70B9\u3001\u642D\u5EFA\u8BBA\u8BC1\u7ED3\u6784\u4E0E\u7ED3\u8BBA" }
+    ]
+  },
+  {
+    id: "editorial",
+    name: "\u6DF1\u5EA6\u5199\u4F5C\u5C0F\u961F",
+    desc: "\u7ACB\u610F\u5927\u7EB2 + \u6B63\u6587\u8D77\u8349 + \u5BA1\u6821\u6DA6\u8272",
+    roles: [
+      { id: "outline", label: "\u7ACB\u610F\u4E0E\u5927\u7EB2", preferredAgent: "claude", hint: "\u5B9A\u6838\u5FC3\u89C2\u70B9\u3001\u8BFB\u8005\u89C6\u89D2\u4E0E\u7AE0\u8282\u8282\u594F" },
+      { id: "draft", label: "\u6B63\u6587\u8D77\u8349", preferredAgent: "antigravity", hint: "\u6269\u5199\u8BBA\u636E\u6848\u4F8B\u3001\u4E32\u8054\u6BB5\u843D\u5E76\u4FDD\u6301\u53E3\u543B" },
+      { id: "edit", label: "\u5BA1\u6821\u6DA6\u8272", preferredAgent: "qoder", hint: "\u7CBE\u7B80\u5197\u4F59\u8868\u8FBE\u3001\u6253\u78E8\u91D1\u53E5\u4E0E\u6807\u9898\u94A9\u5B50" }
+    ]
   }
 ];
 var BOARD_COLUMNS = [
@@ -12874,8 +13010,24 @@ var BOARD_COLUMNS = [
   { id: "done", label: "DONE", targetKw: "DONE" }
 ];
 var RUNNING_STATES = /* @__PURE__ */ new Set(["run", "starting", "running", "busy"]);
-var WAITING_STATES = /* @__PURE__ */ new Set(["wait", "quiet", "needs-approval", "queued"]);
 var ATTENTION_STATES = /* @__PURE__ */ new Set(["needs-approval", "error", "limit"]);
+var WAIT_ACTIVE_MS = 30 * 6e4;
+function isWaitingSession(session, now = Date.now(), { maxWaitAgeMs = WAIT_ACTIVE_MS } = {}) {
+  if (!session) return false;
+  const st = session.state || "idle";
+  if (st === "needs-approval" || st === "queued") return true;
+  if (st !== "wait" && st !== "quiet") return false;
+  if (session.job && activeJob(session.job)) return true;
+  if (session.parentSid) return false;
+  if (!session.lastAt) return true;
+  return now - session.lastAt <= maxWaitAgeMs;
+}
+function isActiveNowSession(session, now = Date.now(), opts = {}) {
+  if (!session) return false;
+  const st = session.state || "idle";
+  if (RUNNING_STATES.has(st) || ATTENTION_STATES.has(st)) return true;
+  return isWaitingSession(session, now, opts);
+}
 function stateRank(state) {
   if (state === "needs-approval") return 0;
   if (RUNNING_STATES.has(state)) return 1;
@@ -12885,11 +13037,32 @@ function stateRank(state) {
   if (state === "done" || state === "cancelled") return 6;
   return 5;
 }
-function resolveSessionProject(session) {
-  const cwdName = sessionProjectName(session?.cwd || "");
-  if (cwdName) return cwdName;
+function resolveDirectProjectIdentity(session) {
+  const root = normalizeProjectRoot(session?.cwd || "");
+  if (root) return { name: sessionProjectName(root), root };
   const raw = String(session?.project || "").trim();
-  return raw && raw !== "?" && raw !== "~" ? raw : "";
+  if (raw && raw !== "?" && raw !== "~") return { name: raw, root: "" };
+  return { name: "", root: "" };
+}
+function resolveProjectIdentity(session, bySid = null) {
+  const direct = resolveDirectProjectIdentity(session);
+  if (direct.name) return direct;
+  let curSid = session?.parentSid || "";
+  const seen = new Set(session?.sid ? [session.sid] : []);
+  for (let depth = 0; depth < 4 && curSid && !seen.has(curSid); depth++) {
+    seen.add(curSid);
+    const parent = bySid?.get?.(curSid);
+    if (!parent) break;
+    const found = resolveDirectProjectIdentity(parent);
+    if (found.name) return found;
+    curSid = parent.parentSid || "";
+  }
+  const pRoot = normalizeProjectRoot(session?.parentCwd || "");
+  if (pRoot) return { name: sessionProjectName(pRoot), root: pRoot };
+  return { name: "", root: "" };
+}
+function resolveSessionProject(session, bySid = null) {
+  return resolveProjectIdentity(session, bySid).name;
 }
 function normalizeJobState(job) {
   if (!job) return "idle";
@@ -12938,18 +13111,22 @@ function mergeSessionsWithJobs(sessions = [], jobs = {}, agentEnabled = () => tr
   }
   return out;
 }
-function buildProjectGroups(sessions = [], { jobs = {}, agentEnabled = () => true } = {}) {
+function buildProjectGroups(sessions = [], { jobs = {}, agentEnabled = () => true, now = Date.now() } = {}) {
   const merged = mergeSessionsWithJobs(sessions, jobs, agentEnabled);
+  const bySid = new Map(merged.map((s) => [s.sid, s]));
   const byProj = /* @__PURE__ */ new Map();
   for (const s of merged) {
-    const proj = resolveSessionProject(s);
-    const id = proj || STANDALONE_PROJECT_ID;
-    let g = byProj.get(id);
+    const { name: baseName, root } = resolveProjectIdentity(s, bySid);
+    const key = root ? `root:${root}` : baseName ? `name:${baseName}` : STANDALONE_PROJECT_ID;
+    let g = byProj.get(key);
     if (!g) {
       g = {
-        id,
-        name: proj || t("\u72EC\u7ACB\u4F1A\u8BDD"),
-        isStandalone: !proj,
+        id: baseName || STANDALONE_PROJECT_ID,
+        name: baseName || t("\u72EC\u7ACB\u4F1A\u8BDD"),
+        baseName,
+        root,
+        key,
+        isStandalone: !baseName,
         cwds: [],
         agents: [],
         sessions: [],
@@ -12957,7 +13134,7 @@ function buildProjectGroups(sessions = [], { jobs = {}, agentEnabled = () => tru
         latestAt: 0,
         counts: { running: 0, waiting: 0, attention: 0, error: 0, limit: 0, queued: 0, total: 0 }
       };
-      byProj.set(id, g);
+      byProj.set(key, g);
     }
     g.sessions.push(s);
     if (s.cwd && !g.cwds.includes(s.cwd)) g.cwds.push(s.cwd);
@@ -12967,14 +13144,30 @@ function buildProjectGroups(sessions = [], { jobs = {}, agentEnabled = () => tru
     const st = s.state || "idle";
     g.counts.total += 1;
     if (RUNNING_STATES.has(st)) g.counts.running += 1;
-    if (WAITING_STATES.has(st)) g.counts.waiting += 1;
+    if (isWaitingSession(s, now)) g.counts.waiting += 1;
     if (ATTENTION_STATES.has(st)) g.counts.attention += 1;
     if (st === "error") g.counts.error += 1;
     if (st === "limit") g.counts.limit += 1;
     if (st === "queued") g.counts.queued += 1;
   }
   const groups = [...byProj.values()];
+  const namedBuckets = groups.filter((g) => !g.isStandalone);
+  const nameCounts = /* @__PURE__ */ new Map();
+  for (const g of namedBuckets) nameCounts.set(g.baseName, (nameCounts.get(g.baseName) || 0) + 1);
+  const labels = disambiguateProjectLabels(namedBuckets);
+  for (const g of namedBuckets) {
+    if ((nameCounts.get(g.baseName) || 0) > 1) {
+      g.id = g.root || g.key;
+      g.name = labels.get(g.key) || g.baseName;
+    } else {
+      g.id = g.baseName;
+      g.name = g.baseName;
+    }
+  }
   for (const g of groups) {
+    delete g.baseName;
+    delete g.root;
+    delete g.key;
     g.agents.sort((a, b) => AGENT_ORDER.indexOf(a) - AGENT_ORDER.indexOf(b));
     g.sessions.sort((a, b) => stateRank(a.state) - stateRank(b.state) || (b.lastAt || 0) - (a.lastAt || 0));
   }
@@ -13054,7 +13247,23 @@ function resolveTeamPresets(settings = {}) {
     "\u8D44\u6599\u6574\u7406": t("\u8D44\u6599\u6574\u7406"),
     "\u5BF9\u6BD4\u5206\u6790\u3001\u4FE1\u606F\u63D0\u70BC\u4E0E\u8865\u5145": t("\u5BF9\u6BD4\u5206\u6790\u3001\u4FE1\u606F\u63D0\u70BC\u4E0E\u8865\u5145"),
     "\u6821\u5BF9\u4E0E\u6267\u884C": t("\u6821\u5BF9\u4E0E\u6267\u884C"),
-    "\u7EC6\u8282\u68C0\u67E5\u4E0E\u89C4\u8303\u8F93\u51FA": t("\u7EC6\u8282\u68C0\u67E5\u4E0E\u89C4\u8303\u8F93\u51FA")
+    "\u7EC6\u8282\u68C0\u67E5\u4E0E\u89C4\u8303\u8F93\u51FA": t("\u7EC6\u8282\u68C0\u67E5\u4E0E\u89C4\u8303\u8F93\u51FA"),
+    "\u6DF1\u5EA6\u7814\u62A5\u5C0F\u961F": t("\u6DF1\u5EA6\u7814\u62A5\u5C0F\u961F"),
+    "\u4FE1\u6E90\u68C0\u7D22 + \u4EA4\u53C9\u6C42\u8BC1 + \u6D1E\u5BDF\u7EFC\u5408": t("\u4FE1\u6E90\u68C0\u7D22 + \u4EA4\u53C9\u6C42\u8BC1 + \u6D1E\u5BDF\u7EFC\u5408"),
+    "\u4FE1\u6E90\u68C0\u7D22": t("\u4FE1\u6E90\u68C0\u7D22"),
+    "\u641C\u96C6\u4E00\u624B\u6587\u732E\u3001\u6570\u636E\u53E3\u5F84\u4E0E\u6B63\u53CD\u6848\u4F8B": t("\u641C\u96C6\u4E00\u624B\u6587\u732E\u3001\u6570\u636E\u53E3\u5F84\u4E0E\u6B63\u53CD\u6848\u4F8B"),
+    "\u4EA4\u53C9\u6C42\u8BC1": t("\u4EA4\u53C9\u6C42\u8BC1"),
+    "\u6838\u5BF9\u5F15\u6587\u51FA\u5904\u3001\u4E8B\u5B9E\u8FB9\u754C\u4E0E\u903B\u8F91\u6F0F\u6D1E": t("\u6838\u5BF9\u5F15\u6587\u51FA\u5904\u3001\u4E8B\u5B9E\u8FB9\u754C\u4E0E\u903B\u8F91\u6F0F\u6D1E"),
+    "\u6D1E\u5BDF\u7EFC\u5408": t("\u6D1E\u5BDF\u7EFC\u5408"),
+    "\u63D0\u70BC\u6838\u5FC3\u8BBA\u70B9\u3001\u642D\u5EFA\u8BBA\u8BC1\u7ED3\u6784\u4E0E\u7ED3\u8BBA": t("\u63D0\u70BC\u6838\u5FC3\u8BBA\u70B9\u3001\u642D\u5EFA\u8BBA\u8BC1\u7ED3\u6784\u4E0E\u7ED3\u8BBA"),
+    "\u6DF1\u5EA6\u5199\u4F5C\u5C0F\u961F": t("\u6DF1\u5EA6\u5199\u4F5C\u5C0F\u961F"),
+    "\u7ACB\u610F\u5927\u7EB2 + \u6B63\u6587\u8D77\u8349 + \u5BA1\u6821\u6DA6\u8272": t("\u7ACB\u610F\u5927\u7EB2 + \u6B63\u6587\u8D77\u8349 + \u5BA1\u6821\u6DA6\u8272"),
+    "\u7ACB\u610F\u4E0E\u5927\u7EB2": t("\u7ACB\u610F\u4E0E\u5927\u7EB2"),
+    "\u5B9A\u6838\u5FC3\u89C2\u70B9\u3001\u8BFB\u8005\u89C6\u89D2\u4E0E\u7AE0\u8282\u8282\u594F": t("\u5B9A\u6838\u5FC3\u89C2\u70B9\u3001\u8BFB\u8005\u89C6\u89D2\u4E0E\u7AE0\u8282\u8282\u594F"),
+    "\u6B63\u6587\u8D77\u8349": t("\u6B63\u6587\u8D77\u8349"),
+    "\u6269\u5199\u8BBA\u636E\u6848\u4F8B\u3001\u4E32\u8054\u6BB5\u843D\u5E76\u4FDD\u6301\u53E3\u543B": t("\u6269\u5199\u8BBA\u636E\u6848\u4F8B\u3001\u4E32\u8054\u6BB5\u843D\u5E76\u4FDD\u6301\u53E3\u543B"),
+    "\u5BA1\u6821\u6DA6\u8272": t("\u5BA1\u6821\u6DA6\u8272"),
+    "\u7CBE\u7B80\u5197\u4F59\u8868\u8FBE\u3001\u6253\u78E8\u91D1\u53E5\u4E0E\u6807\u9898\u94A9\u5B50": t("\u7CBE\u7B80\u5197\u4F59\u8868\u8FBE\u3001\u6253\u78E8\u91D1\u53E5\u4E0E\u6807\u9898\u94A9\u5B50")
   })[s] || s;
   return DEFAULT_TEAM_PRESETS.map((preset) => {
     const saved = custom[preset.id];
@@ -13549,13 +13758,23 @@ function buildBoardSiblingContext(model, activeCardLine = -1) {
     for (const card of col.cards) {
       if (card.line === activeCardLine) continue;
       const who = card.agent ? ` (${AGENTS[card.agent]?.short || card.agent})` : "";
-      lines.push(`- [${col.id.toUpperCase()}] ${card.title}${who}`);
+      let title = String(card.title || "");
+      const mirrorSub = /#\^([a-z0-9-]+)$/i.exec(title);
+      if (mirrorSub && (isDeckBlockId(mirrorSub[1]) || isLegacyBlockId(mirrorSub[1]))) {
+        title = title.slice(0, mirrorSub.index).trim();
+      } else {
+        const id = blockIdOf(title);
+        if (id && (isDeckBlockId(id) || isLegacyBlockId(id))) title = stripBlockId(title);
+      }
+      lines.push(`- [${col.id.toUpperCase()}] ${title}${who}`);
       if (lines.length >= 10) break;
     }
     if (lines.length >= 10) break;
   }
   if (!lines.length) return "";
-  return `${t("\u540C\u770B\u677F\u534F\u540C\u5206\u5DE5\uFF08\u6BCD\u4EFB\u52A1\uFF1A{title}\uFF09\uFF1A", { title: model.title })}
+  const titleId = blockIdOf(model.title);
+  const cleanTitle = titleId && (isDeckBlockId(titleId) || isLegacyBlockId(titleId)) ? stripBlockId(model.title) : model.title;
+  return `${t("\u540C\u770B\u677F\u534F\u540C\u5206\u5DE5\uFF08\u6BCD\u4EFB\u52A1\uFF1A{title}\uFF09\uFF1A", { title: cleanTitle })}
 ${lines.join("\n")}`;
 }
 function moveTaskBoardCardStatus(text, cardLine, targetColumn) {
@@ -15248,9 +15467,9 @@ async function dispatchRefresh(plugin) {
 var VIEW_TYPE = "agent-deck-view";
 var RECENT_DAY_OPTIONS = [7, 30, 120];
 var MAX_RECENT_CARDS = 30;
-function filterRecentRows(rows, filter = "all") {
-  if (filter === "live") return rows.filter((x) => x.state === "run");
-  if (filter === "wait") return rows.filter((x) => ["wait", "quiet"].includes(x.state));
+function filterRecentRows(rows, filter = "all", now = Date.now()) {
+  if (filter === "live") return rows.filter((x) => ["run", "starting", "running", "busy"].includes(x.state));
+  if (filter === "wait") return rows.filter((x) => isWaitingSession(x, now));
   if (AGENTS[filter]) return rows.filter((x) => x.agent === filter);
   return rows;
 }
@@ -15379,11 +15598,12 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
     const dash = root.createDiv({ cls: "ad-dash" });
     if (this._bottomSlack > 0) dash.style.setProperty("--ad-slack", `${this._bottomSlack}px`);
     const p = this.plugin;
+    const now = Date.now();
     const todayKey = dayKeyToday(p.settings);
     const today = p.store.get(todayKey);
     const live = p.liveSessions({ hours: 6 });
     const running = live.filter((x) => ["run", "starting", "running"].includes(x.state) || x.agent && x.state === "busy");
-    const waiting = live.filter((x) => ["wait", "quiet", "needs-approval"].includes(x.state));
+    const waiting = live.filter((x) => isWaitingSession(x, now));
     const days = this.recentDays();
     const recent = p.recentSessions({ days, limit: 1e3 });
     const head = dash.createDiv({ cls: "ad-head" });
@@ -15495,7 +15715,7 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
     }
     const nowList = nowSec.createDiv({ cls: "ad-nowlist" });
     if (nowGroupBy === "project") {
-      const nowActive = live.filter((x) => ["run", "starting", "running", "busy", "wait", "quiet", "needs-approval", "error", "limit", "queued"].includes(x.state));
+      const nowActive = live.filter((x) => isActiveNowSession(x, now));
       this.renderNowProjects(nowList, nowActive);
     } else {
       const nowItems = this.nowOrdered([...running, ...waiting]).slice(0, 6);
@@ -26119,30 +26339,30 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
       `- DOING \u{1F916} Simulated Session \xB7 Table View ^${SHOWCASE_RECORD_KEYS.table}`,
       "  - \u2753 Round 1: Check module boundaries and confirm zero circular imports across `src/`.",
       "  - \u{1F4CB} Inspected `src/outline.js`, `src/harness.js`, and `src/project-workbench.js`.",
-      "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u68C0\u67E5\u6838\u5FC3\u6A21\u5757\u4F9D\u8D56\u65B9\u5411\uFF1B\u7ED3\u8BBA\uFF1A\u516C\u5171\u539F\u8BED\u5DF2\u6536\u53E3\uFF0C\u6A21\u5757\u56FE\u96F6\u73AF\u4F9D\u8D56\u3002",
+      "  - \u{1F4AC} Round 1: Task: audit core module dependency directions; Result: shared primitives extracted with zero circular imports.",
       "  - \u2753 Round 2: Verify `npm test` and i18n coverage before tagging the release.",
-      "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u9A8C\u8BC1\u6D4B\u8BD5\u4E0E\u53CC\u8BED\u952E\u5B8C\u6574\u6027\uFF1B\u7ED3\u8BBA\uFF1A\u5168\u90E8\u5355\u5143\u6D4B\u8BD5\u4E0E i18n \u6821\u9A8C\u901A\u8FC7\u3002",
+      "  - \u{1F4AC} Round 2: Task: run full unit tests and i18n checks; Result: all unit tests, architecture checks, and bilingual keys pass.",
       "  - \u23F1 Simulated 12m (demo placeholder \u2014 excluded from real analytics)",
       "",
       `- DONE \u{1F916} Simulated Session \xB7 Cards View ^${SHOWCASE_RECORD_KEYS.cards}`,
       "  - \u2753 Round 1: Design project-level Stop / Workbench quick actions on sidebar headers.",
       "  - \u{1F4CB} Added hover action strip for Open Folder, Team Workbench, and Batch Stop.",
-      "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u8865\u9F50\u4FA7\u8FB9\u680F\u9879\u76EE\u5FEB\u6377\u64CD\u4F5C\uFF1B\u7ED3\u8BBA\uFF1A\u5DF2\u652F\u6301\u4E00\u952E\u62C9\u8D77\u56E2\u961F\u5DE5\u4F5C\u53F0\u4E0E\u6279\u91CF\u505C\u6B62\u3002",
+      "  - \u{1F4AC} Round 1: Task: add project-level quick actions on sidebar headers; Result: supports one-click Team Workbench launch and batch stop.",
       "  - \u2753 Round 2: Ensure queued and rate-limited sessions appear in the sidebar with retry metadata.",
-      "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u8986\u76D6\u6392\u961F\u4E0E\u9650\u6D41\u72B6\u6001\u5C55\u793A\uFF1B\u7ED3\u8BBA\uFF1A\u652F\u6301\u6392\u961F\u4F4D\u7F6E\u3001\u51B7\u5374\u5269\u4F59\u65F6\u95F4\u4E0E\u539F\u56E0\u63D0\u793A\u3002",
+      "  - \u{1F4AC} Round 2: Task: display queued and rate-limited states; Result: shows queue position, cooldown remaining, and reason hints.",
       "  - \u23F1 Simulated 9m (demo placeholder \u2014 excluded from real analytics)",
       "",
       `- DOING \u{1F916} Simulated Session \xB7 Timeline View ^${SHOWCASE_RECORD_KEYS.timeline}`,
       "  - \u2753 Round 1: Prototype WorkFlowy-style Mirror Cards referencing shared tasks.",
       "  - \u{1F4CB} Added shared `parseMirrorRef` parser so analytics and journals never double-count mirrors.",
-      "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u652F\u6301\u770B\u677F\u5185\u5D4C\u955C\u50CF\u5361\u4E0E\u6E90\u4EFB\u52A1\u8DF3\u8F6C\uFF1B\u7ED3\u8BBA\uFF1A\u70B9\u51FB\u955C\u50CF\u5361\u6807\u9898\u53EF\u76F4\u63A5\u8DF3\u8F6C\u5230\u6E90\u884C\u3002",
+      "  - \u{1F4AC} Round 1: Task: support inline mirror cards and source jump in boards; Result: clicking a mirror card title jumps straight to its source line.",
       "  - \u2753 Round 2: Add Zoom breadcrumbs so deep task hierarchies stay clean inside boards.",
-      "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u652F\u6301\u591A\u5C42\u5D4C\u5957\u5B50\u7EC4 Zoom \u4E0B\u94BB\uFF1B\u7ED3\u8BBA\uFF1A\u53EF\u901A\u8FC7\u9762\u5305\u5C51\u5FEB\u901F\u9000\u56DE\u4EFB\u610F\u7236\u7EA7\u3002",
+      "  - \u{1F4AC} Round 2: Task: support multi-level nested group Zoom drill-down; Result: breadcrumbs navigate cleanly back to any parent level.",
       "  - \u23F1 Simulated 15m (demo placeholder \u2014 excluded from real analytics)",
       "",
       `- DONE \u{1F916} Simulated Session \xB7 Outline View ^${SHOWCASE_RECORD_KEYS.outline}`,
       "  - \u2753 Round 1: Keep raw Markdown outline lossless even when board or table decorations are active.",
-      "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u6821\u9A8C\u7EAF\u6587\u672C\u5927\u7EB2\u517C\u5BB9\u6027\uFF1B\u7ED3\u8BBA\uFF1A\u5173\u95ED\u88C5\u9970\u6216\u5728\u5176\u4ED6\u7F16\u8F91\u5668\u6253\u5F00\u65F6\u4ECD\u4FDD\u7559\u5B8C\u6574\u6811\u7ED3\u6784\u3002",
+      "  - \u{1F4AC} Round 1: Task: verify plain-text outline compatibility; Result: full tree structure stays intact even with decorations off or in external editors.",
       "  - \u23F1 Simulated 6m (demo placeholder \u2014 excluded from real analytics)",
       "",
       "## 3. Mirror Source Task (Referenced by the Board Above)",
@@ -27486,9 +27706,9 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
       if (!confirmed) {
         new ConfirmSendModal(this.app, {
           agent,
-          text: newSession ? freshTaskText(target.block.text) : target.block.text,
+          text: stripInternalIdentifiers(newSession ? freshTaskText(target.block.text) : target.block.text),
           path: item.path,
-          context: ancestorLines(target.lines, target.block.start),
+          context: ancestorLines(target.lines, target.block.start).map((l) => stripInternalIdentifiers(l)),
           where: `${opts.model || this.defaultModel(agent) || t("\u5BA2\u6237\u7AEF\u6A21\u578B")} \xB7 ${opts.effort || this.settings.delegate[agent]?.effort || t("\u5BA2\u6237\u7AEF\u5F3A\u5EA6")}`,
           destination,
           newSession
@@ -27828,7 +28048,8 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
       for (const job of Object.values(this.jobs || {})) {
         if (!activeJob(job)) continue;
         const proj = resolveSessionProject({ cwd: job.cwd }) || STANDALONE_PROJECT_ID;
-        if (proj === projectId) ids.add(job.id);
+        const root = normalizeProjectRoot(job.cwd);
+        if (proj === projectId || root && root === projectId) ids.add(job.id);
       }
     }
     let stopped = 0;
@@ -28077,6 +28298,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
   // ---------- macOS menu bar ----------
   buildMenuBarState() {
     const cfg = this.settings;
+    const now = Date.now();
     const today = this.store.get(dayKeyToday(cfg));
     const live = this.liveSessions({ hours: 6 });
     const recent = this.recentSessions({ days: 1, limit: 120 });
@@ -28114,7 +28336,8 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
         primary: !!primary,
         url: acp ? `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(s.sid)}` : agent === "dsh" ? "dsh://open" : agent === "antigravity" ? "antigravity://" : isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : url,
         copy: agent === "dsh" || agent === "antigravity" || ["opencode", "qoder"].includes(agent) || AGENTS[agent].trackingOnly ? s.sid : agent === "codex" ? `codex resume ${s.sid}` : "",
-        _at: s.lastAt || 0
+        _at: s.lastAt || 0,
+        _waiting: isLive && isWaitingSession({ ...s, state }, now)
       });
       return true;
     };
@@ -28127,23 +28350,26 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
         const lives = live.filter((x) => x.agent === agent).sort((a, b) => menuRank(a.state) - menuRank(b.state) || (b.lastAt || 0) - (a.lastAt || 0));
         for (const s of lives) if (add(s, true, true) && ++count >= limit) break;
         if (count < limit) {
-          const cutoff = Date.now() - 6 * 36e5;
+          const cutoff = now - 6 * 36e5;
           const recs = recent.filter((x) => x.agent === agent && (x.lastAt || 0) >= cutoff).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0));
           for (const s of recs) if (add(s, true, false) && ++count >= limit) break;
         }
       } else {
-        const wbWaiting = (state) => cfg.menuBarAgentScope === "all" && agent === "workbuddy" && ["wait", "quiet", "needs-approval"].includes(state);
+        const wbWaiting = (s) => cfg.menuBarAgentScope === "all" && agent === "workbuddy" && isWaitingSession(s, now);
         const rows = [
-          ...live.filter((x) => x.agent === agent && (x.state === "run" || wbWaiting(x.state))),
+          ...live.filter((x) => x.agent === agent && (x.state === "run" || wbWaiting(x))),
           ...recent.filter((x) => x.agent === agent && x.state === "run")
         ].sort((a, b) => menuRank(a.state) - menuRank(b.state) || (b.lastAt || 0) - (a.lastAt || 0));
         for (const s of rows) if (add(s, false, true) && ++count >= limit) break;
       }
     }
     out.sort((a, b) => (b.primary ? 1 : 0) - (a.primary ? 1 : 0) || menuRank(a.state) - menuRank(b.state) || (b._at || 0) - (a._at || 0));
-    for (const row of out) delete row._at;
     const running = out.filter((x) => x.state === "run").length;
-    const waiting = out.filter((x) => ["wait", "quiet", "needs-approval"].includes(x.state)).length;
+    const waiting = out.filter((x) => x._waiting).length;
+    for (const row of out) {
+      delete row._at;
+      delete row._waiting;
+    }
     const short = running && waiting ? t("{run} \u8DD1 \xB7 {wait} \u7B49", { run: running, wait: waiting }) : running ? t("{n} \u5728\u8DD1", { n: running }) : waiting ? t("{n} \u7B49\u4F60", { n: waiting }) : t("\u7A7A\u95F2");
     const summary = [];
     if (today) summary.push(t("\u4ECA\u5929 {time} \xB7 {tok} tok", { time: fmtMin(today.wall), tok: fmtTok(today.out) }));
@@ -28173,7 +28399,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
         color: AGENTS[x].color,
         glyph: AGENTS[x].glyph,
         running: rows.filter((s) => s.state === "run").length,
-        waiting: rows.filter((s) => ["wait", "quiet", "needs-approval"].includes(s.state)).length,
+        waiting: rows.filter((s) => isWaitingSession(s, now)).length,
         primary: primaries.includes(x),
         today: mine && mine.wall ? fmtMin(mine.wall) : ""
       };

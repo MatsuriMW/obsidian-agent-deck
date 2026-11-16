@@ -230,3 +230,29 @@ test("harness degrades to plain prompt when note reading is unavailable", async 
   assert.ok(!payload.prompt.includes("关联笔记上下文"));
   assert.match(payload.prompt, /无插件能力/);
 });
+
+test("harness strips internal ad block identifiers and provenance comments from delegation prompts", async () => {
+  const lines = [
+    "- TODO Agent Deck 发布推进 ^ad-demo-root",
+    "  - TODO 阶段二：工作台与联调 ^ad-demo-p2",
+    "    - TODO 实机验证 Obsidian 拖拽 @codex ^ad-demo-leaf",
+    "      - 💬 上轮记录 <!-- ad-turn:s1:1 -->",
+    "      ```md",
+    "      - TODO 示例块保留 ^ad-keep-in-fence",
+    "      ```",
+  ];
+  const block = { start: 2, end: 6, text: lines.slice(2).join("\n") };
+  const payload = await buildDelegationPayload({
+    plugin: { settings: { delegate: { confirmFirst: false } } },
+    file: { path: "日记/2026_11_16.md" },
+    lines,
+    block,
+  });
+  assert.ok(!payload.prompt.includes("^ad-demo-root"));
+  assert.ok(!payload.prompt.includes("^ad-demo-p2"));
+  assert.ok(!payload.prompt.includes("^ad-demo-leaf"));
+  assert.ok(!payload.prompt.includes("ad-turn:s1:1"));
+  assert.ok(payload.prompt.includes("^ad-keep-in-fence"), "fenced code examples stay intact");
+  assert.match(payload.prompt, /Agent Deck 发布推进/);
+  assert.match(payload.prompt, /实机验证 Obsidian 拖拽/);
+});

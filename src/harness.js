@@ -10,11 +10,25 @@ export { ancestorLines, extractWikilinkRefs };
 
 const CONTEXT_RESOLVERS = [];
 
+/** Strip internal Agent Deck block IDs and provenance comments outside fenced code blocks. */
+export function stripInternalIdentifiers(text) {
+  const lines = String(text || "").split("\n");
+  const fenced = J.fencedLines(lines);
+  return lines.map((line, idx) => {
+    if (fenced.has(idx)) return line;
+    let out = line.replace(J.RECORD_PROVENANCE_RE, "");
+    const id = J.blockIdOf(out);
+    if (id && (J.isDeckBlockId(id) || J.isLegacyBlockId(id))) out = J.stripBlockId(out);
+    return out;
+  }).join("\n");
+}
+
 // 母项上下文 + 要做的这一块：母项各占一行、保留原缩进，前面一句说明只做最里面那项。
 export function withContext(contextLines, task) {
-  const ctx = (contextLines || []).filter((l) => l && l.trim());
-  if (!ctx.length) return task;
-  return `${t("这条任务在笔记里挂的位置，只做最里面这一项：")}\n\n${ctx.join("\n")}\n${task}`;
+  const cleanTask = stripInternalIdentifiers(task);
+  const ctx = (contextLines || []).map((l) => stripInternalIdentifiers(l)).filter((l) => l && l.trim());
+  if (!ctx.length) return cleanTask;
+  return `${t("这条任务在笔记里挂的位置，只做最里面这一项：")}\n\n${ctx.join("\n")}\n${cleanTask}`;
 }
 
 export function freshTaskText(text) {
@@ -127,7 +141,7 @@ async function resolveWikilinkSnippets(plugin, file, refs = []) {
       } else {
         excerpt = allLines.slice(frontmatterEnd(allLines)).join("\n");
       }
-      const compact = clampExcerpt(excerpt);
+      const compact = clampExcerpt(stripInternalIdentifiers(excerpt));
       if (!compact) continue;
       const label = `[[${ref.target}${ref.subpath ? "#" + ref.subpath : ""}${ref.alias ? "|" + ref.alias : ""}]]`;
       snippets.push(`- ${label} (${dest.path}):\n${compact}`);

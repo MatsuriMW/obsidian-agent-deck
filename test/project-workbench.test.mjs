@@ -18,6 +18,9 @@ const {
   STANDALONE_PROJECT_ID,
   buildProjectGroups,
   planRecentProjectDisplay,
+  isWaitingSession,
+  isActiveNowSession,
+  WAIT_ACTIVE_MS,
   resolveTeamPresets,
   assignTeamToRoles,
   buildCopilotPlanPrompt,
@@ -127,7 +130,12 @@ test("planRecentProjectDisplay groups by project and respects maxCards cap", () 
 
 test("team presets avoid disabled and hit-limit agents while copilot parser validates JSON", () => {
   const presets = resolveTeamPresets({});
-  assert.ok(presets.length >= 3);
+  assert.ok(presets.length >= 5);
+  for (const id of ["deep-research", "editorial"]) {
+    const preset = presets.find((p) => p.id === id);
+    assert.ok(preset, `knowledge-work preset ${id} exists`);
+    assert.equal(preset.roles.length, 3, `${id} defines three distinct roles`);
+  }
   const assigned = assignTeamToRoles(presets[0], {
     availableAgents: ["claude", "codex", "dsh"],
     limitAgents: new Set(["codex"]),
@@ -516,6 +524,17 @@ test("Fractal board Stage A/B/C: inline card edits, subtree moves, mirror isolat
   assert.match(boardContext, /同看板协同分工/);
   assert.match(boardContext, /远端关联任务/);
 
+  const rawMirrorBoard = [
+    "- TODO 根看板 ^ad-raw-root",
+    "  - TODO 子任务 A ^ad-raw-a",
+    "  - ![[分形看板示例#^ad-demo-src]]",
+  ].join("\n");
+  const rawModel = buildTaskBoardModel(extractTaskBoardGroups(rawMirrorBoard)[0], null, { groupBy: "children" });
+  const cleanBoardContext = buildBoardSiblingContext(rawModel, 1);
+  assert.ok(!cleanBoardContext.includes("^ad-raw-root"));
+  assert.ok(!cleanBoardContext.includes("^ad-demo-src"));
+  assert.ok(cleanBoardContext.includes("分形看板示例"));
+
   const linkedPlugin = {
     settings: { delegate: { confirmFirst: false } },
     app: {
@@ -562,6 +581,9 @@ test("welcome showcase note builds bilingual boards, all four AI record views, a
   for (const lang of ["zh", "en"]) {
     const md = buildShowcaseMarkdown(lang);
     assert.ok(!md.includes("🔗"), `${lang} showcase must not bind fake 🔗 session links`);
+    if (lang === "en") {
+      assert.ok(!/[\u4e00-\u9fff]/.test(md), "en showcase must not contain leftover CJK text");
+    }
 
     const boardGroups = extractTaskBoardGroups(md);
     const rootBoard = boardGroups.find((g) => g.key === SHOWCASE_BOARD_KEY);
@@ -596,4 +618,35 @@ test("welcome showcase note builds bilingual boards, all four AI record views, a
   assert.equal(settings.taskBoardViews[SHOWCASE_BOARD_KEY], "outline");
   assert.equal(applyShowcaseDefaults(settings, { force: true }), true);
   assert.deepEqual(settings.taskBoardViews[SHOWCASE_BOARD_KEY], { mode: "board", groupBy: "children", zoomStack: [] });
+});
+
+test("buildProjectGroups isolates same-named folders, inherits parent project for subagents, and filters stale/child wait noise", () => {
+  const now = Date.now();
+  const sessions = [
+    { sid: "p1", agent: "codex", state: "wait", cwd: "/Users/x/team-a/work", lastAt: now - 5000, title: "Team A Work" },
+    { sid: "p2", agent: "claude", state: "run", cwd: "/Users/x/team-b/work", lastAt: now - 2000, title: "Team B Work" },
+    { sid: "c1", agent: "dsh", state: "done", cwd: "/Users/x/Documents/deepseek-harness/default-workspace", parentSid: "p1", lastAt: now - 1000, title: "DSH subagent" },
+    { sid: "c2", agent: "dsh", state: "run", cwd: "", parentCwd: "/Users/x/team-b/work", parentSid: "missing-parent", lastAt: now - 500, title: "Running child via parentCwd" },
+    { sid: "stale-main", agent: "dsh", state: "wait", cwd: "/Users/x/solo-proj", lastAt: now - WAIT_ACTIVE_MS - 60000, title: "Old ended turn" },
+    { sid: "child-wait", agent: "dsh", state: "wait", cwd: "/Users/x/team-a/work", parentSid: "p1", lastAt: now - 1000, title: "Child wait ignored" },
+  ];
+
+  const groups = buildProjectGroups(sessions, { now });
+  const teamA = groups.find((g) => g.id === "/Users/x/team-a/work");
+  const teamB = groups.find((g) => g.id === "/Users/x/team-b/work");
+  const soloProj = groups.find((g) => g.id === "solo-proj");
+  assert.ok(teamA && teamB, "same-named folders in different directories never merge");
+  assert.equal(teamA.name, "work (team-a)");
+  assert.equal(teamB.name, "work (team-b)");
+  assert.equal(teamA.sessions.some((s) => s.sid === "c1"), true, "subagent in default-workspace inherits parent project");
+  assert.equal(teamB.sessions.some((s) => s.sid === "c2"), true, "subagent with parentCwd inherits parent project even if parent is absent");
+  assert.equal(groups.some((g) => g.id === STANDALONE_PROJECT_ID), false, "no child leaked into standalone");
+  assert.equal(teamA.counts.waiting, 1, "only main recent wait counts as waiting, not child-wait");
+  assert.equal(soloProj.counts.waiting, 0, "stale wait past WAIT_ACTIVE_MS does not count as waiting");
+
+  assert.equal(isWaitingSession(sessions[0], now), true);
+  assert.equal(isWaitingSession(sessions[4], now), false);
+  assert.equal(isWaitingSession(sessions[5], now), false);
+  assert.equal(isActiveNowSession(sessions[4], now), false);
+  assert.equal(isActiveNowSession({ sid: "n1", agent: "dsh", state: "needs-approval", lastAt: now - WAIT_ACTIVE_MS - 60000 }, now), true);
 });

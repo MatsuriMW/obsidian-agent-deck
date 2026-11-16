@@ -11,6 +11,7 @@ import { AgentUsage, UsageStore, isScratchCwd, inferWorkspaceRoot, sessionProjec
 // --- which directories are machine workspaces -------------------------------
 for (const cwd of [
   '/Users/x/Documents/Codex/2026-11-13/zhe',
+  '/Users/x/Documents/Codex/2026-11-13/zhe/work',
   '/Users/x/Documents/Codex/2026-11-13/w-s',
   '/Users/x/Documents/Codex/2026-11-13/a',
   '/Users/x/Documents/Codex/2026-11-13/1-5031567a-cc11-4b71-a9ec-8a290ee39dc9',

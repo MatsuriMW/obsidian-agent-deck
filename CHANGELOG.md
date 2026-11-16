@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.1
+
+- **项目聚合隔离与子代理归属继承**：按规范化工作区根路径分组（合并 `/.claude/worktrees/...` 同时隔离不同路径下的同名目录，仅同名碰撞时在展示名附加区分父目录）；带 `parentSid` 的子代理（如 DSH `default-workspace`）通过 `parentSid` / `parentCwd` 继承母会话项目，不再落入「独立会话」；补齐 `/Codex/YYYY-MM-DD/...` 多级临时目录识别，递增 `USAGE_CACHE_VERSION = 12` 与 `SUMMARY_VERSION = 3`。
+- **DSH/Codex 子代理状态收口与「等你」列表降噪**：DSH `turn/end` 与 Codex `task_complete` 在子代理（`parentSid` / `delegationDepth > 0`）正常结束时标为 `done`、`aborted` / `turn_aborted` 标为 `cancelled`；侧栏「现在」、「最近的会话 → 等你」及 macOS 菜单栏等待计数排除子代理与超过 30 分钟的历史正常结束会话，保留 `needs-approval`、`queued`、活跃任务与近期主会话等待。
+- **工作台预设、Prompt 剥离与英文记录兼容**：新增「深度研报小队」与「深度写作小队」预设；委派上下文、双链摘录与同看板分工自动剥离内部 `^ad-*` 与 `<!-- ad-* -->` 标记；AI 记录视图与功能示例补齐英文 `Round N: Task: ...; Result: ...` 解析。
+
 ## 1.10.0
 
 - **按项目聚合的多 Agent 进程管理**：侧栏「现在」默认按工作区项目收拢多 Agent 活跃会话（纳入 `run`、`wait`、`needs-approval`、`error`、`limit`、`queued` 状态与未就绪委派任务），支持一键打开项目目录、直达项目工作台、批量停止本项目活跃任务与切回「列表」；「最近的会话」新增「按 Agent / 按项目」分组切换。

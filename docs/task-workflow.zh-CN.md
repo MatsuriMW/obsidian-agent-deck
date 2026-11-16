@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.10.0**（已发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.10.1**（已发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 双平台验证边界
 
@@ -14,6 +14,8 @@
 | 事项 | 范围与边界约束 | 参考 Spec / 模块 |
 | --- | --- | --- |
 | **Pi 支持 & 委派/块级粒度** | Pi 接入、委派卡片选模型/强度/记录粒度并记住偏好、已有 AI 块单独调粒度 | `acp-integration.zh-CN`、`src/delegation.js`, `src/dialog.js`, `src/ai-records.js`, `src/autolog.js` |
+| **Muse 追踪接入** | 实现对 Muse 会话的只读追踪、状态与对话读取 | `src/readers.js`, `src/agent-ingestors.js`, `src/constants.js` |
+| **Claude CLI 对话追踪复核** | 全链路排查并确认 Claude Code CLI 对话追踪（日志发现、状态、轮次同步与查看）可稳定跑通 | `src/readers.js`, `src/agent-ingestors.js`, `src/conversation.js` |
 | **技术债复核**（[MAT-479](https://linear.app/matsurimywaifu/issue/MAT-479)） | 逐项核实遗留问题状态并决定重构边界 | `src/readers.js`, `src/sync.js`, `src/view.js` |
 | **Windows 端适配** | 替换 `osascript`/POSIX 路径假定，打通终端唤醒、桌面交接与 WorkBuddy 自动发送 | `src/delegation.js`, `src/main.js`, `src/readers.js` |
 | **WorkFlowy 分形看板与多 Agent 编排** | 父块原地大纲↔看板双视图投影、Zoom/双链 Harness 上下文边界、同盘多 Agent 协同、单源镜像 | [`fractal-boards-roadmap`](specs/fractal-boards-roadmap.md)、`src/record-display.js`, `src/harness.js`, `src/agent-registry.js` |
@@ -69,3 +71,7 @@
     - Harness 上下文作用域与镜像硬隔离（`src/harness.js`, `src/outline.js`, `src/analytics.js`, `src/dream.js`）：委派自动解析最多 3 处 `[[双链]]`（`#^blockId` 定点块子树、`#标题` 章节、`![[...]]` 镜像嵌入、别名保留，同目标去重；定点块/章节缺失或笔记不可读时跳过而不注入整篇开头，自定义解析器补入的 `refs` 一并纳入），并注入同看板兄弟分工上下文（`buildBoardSiblingContext`）；看板支持 `![[笔记#^blockId]]` / `[[笔记#^blockId]]` 只读镜像卡投影（状态切换回写源笔记），`analytics.js` 与 `dream.js` 显式排除独立镜像行以防重复计数与重复抽取。
   - 后续已暂存 Linear `P-MAT-42`：`MAT-628`（P3：第二大脑显式项目上下文包 Context Pack 与记忆反哺闭环）。
   - 验证边界：macOS 已通过全量 `npm test`（含 `test/project-workbench.test.mjs`、`test/i18n.test.mjs`、`test/architecture-refactor.test.mjs`、`test/record-views.test.mjs`）、`npm run build`、`git diff --check`；Obsidian 真实 UI 交互实机与 Windows 端未实测。
+- **项目聚合去重、子代理归属继承与待处理列表降噪（`1.10.0` 后续本地修复）**：
+  - `src/readers.js`（`normalizeProjectRoot`、`disambiguateProjectLabels`、`isScratchCwd` 支持 `/Codex/YYYY-MM-DD/...` 多级临时目录、`_resolveParentInfo` 为 `liveSessions`/`sessions`/`summary` 补充 `parentCwd`；`USAGE_CACHE_VERSION = 12`、`SUMMARY_VERSION = 3`）与 `src/project-workbench.js`（`buildProjectGroups` 按规范化路径聚合、仅在同名不同目录时追加父级区分名并隔离 `id`、`resolveProjectIdentity` 通过 `parentSid`/`parentCwd` 继承母会话项目）消除同名不同路径串项目及 `default-workspace` 子代理落入「独立会话」问题。
+  - `src/agent-ingestors.js`（DSH `turn/end` 与 Codex `task_complete` 在 `parentSid`/`delegationDepth > 0` 子代理正常结束时收口为 `done`、中断/中止 `aborted` 收口为 `cancelled`）与 `src/project-workbench.js` / `src/view.js` / `src/main.js`（`isWaitingSession` / `isActiveNowSession`：排除子代理 `wait`/`quiet` 及超过 `WAIT_ACTIVE_MS = 30m` 的历史正常结束会话，保留 `needs-approval` / `queued` / 活跃任务，同步更新「现在」「等你」筛选与 macOS 菜单栏等待计数）。
+  - 验证边界：macOS 已通过全量 `npm test`、`npm run build`、`git diff --check`；Obsidian 真实界面与 Windows 端未实测。

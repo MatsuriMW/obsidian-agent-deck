@@ -85,27 +85,28 @@ const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
 // "project" labels, so the day summary labels them with the session title
 // instead. A real project folder keeps its name.
 export function isScratchCwd(cwd) {
-  const path = String(cwd || "").replace(/\/+$/, "");
-  if (!path) return false;
-  const leaf = path.split("/").pop() || "";
+  const p = String(cwd || "").replace(/\\/g, "/").replace(/\/+$/, "");
+  if (!p) return false;
+  const leaf = p.split("/").pop() || "";
   if (/^\d+-[0-9a-f-]{16,}$/i.test(leaf) || /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(leaf)) return true;
   // "a" and "w-s" are Codex slugs; "api", "web", "app", "ui", "go" are real
   // project folders, so a short name alone is not enough.
   if (/^[a-z]$/i.test(leaf)) return true;
   if (/^[a-z]{1,3}-[a-z]{1,3}$/i.test(leaf)) return true;
   if (leaf === "default-workspace") return true;
-  if (path === home()) return true;   // work started from the home folder has no project
-  if (/\/Codex\/\d{4}-\d{2}-\d{2}\/[^/]+$/i.test(path)) return true;
+  if (p === home().replace(/\\/g, "/")) return true;   // work started from the home folder has no project
+  if (/\/Codex\/\d{4}-\d{2}-\d{2}(?:\/|$)/i.test(p)) return true;
   return false;
 }
 
 export function projectName(cwd) {
   if (!cwd) return "?";
-  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(cwd)) return "WorkBuddy";
-  if (/\/\.dsh\/sessions\//.test(cwd)) return "DSH";
-  if (/\/\.gemini\/antigravity\//.test(cwd)) return "Antigravity";
-  const p = String(cwd).split("/.claude/worktrees/")[0].replace(/\/+$/, "");
-  return p === home() ? "~" : (p.split("/").pop() || p);
+  const normCwd = String(cwd).replace(/\\/g, "/");
+  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(normCwd)) return "WorkBuddy";
+  if (/\/\.dsh\/sessions\//.test(normCwd)) return "DSH";
+  if (/\/\.gemini\/antigravity\//.test(normCwd)) return "Antigravity";
+  const p = normCwd.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
+  return p === home().replace(/\\/g, "/") ? "~" : (p.split("/").pop() || p);
 }
 
 // Standalone / scratch directories have no concrete project folder and must
@@ -134,13 +135,67 @@ export function inferWorkspaceRoot(target) {
   return dir;
 }
 
-export function sessionProjectName(cwd) {
-  const raw = String(cwd || "").trim();
+export function normalizeProjectRoot(cwd) {
+  const raw = String(cwd || "").trim().replace(/\\/g, "/");
   if (!raw || raw === "~" || raw === "/") return "";
   if (isScratchCwd(raw)) return "";
   if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(raw) || /\/\.dsh\/sessions\//.test(raw) || /\/\.gemini\/antigravity\//.test(raw)) return "";
-  const name = projectName(raw);
+  const stripped = raw.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
+  if (!stripped || stripped === home().replace(/\\/g, "/").replace(/\/+$/, "")) return "";
+  const name = projectName(stripped);
+  return !name || name === "?" || name === "~" ? "" : stripped;
+}
+
+export function sessionProjectName(cwd) {
+  const root = normalizeProjectRoot(cwd);
+  if (!root) return "";
+  const name = projectName(root);
   return !name || name === "?" || name === "~" ? "" : name;
+}
+
+/**
+ * Disambiguate project display names only when two distinct roots share the same leaf folder name.
+ */
+export function disambiguateProjectLabels(entries = []) {
+  const byName = new Map();
+  for (const e of entries) {
+    if (!e || !e.baseName) continue;
+    let list = byName.get(e.baseName);
+    if (!list) byName.set(e.baseName, list = []);
+    list.push(e);
+  }
+  const out = new Map();
+  for (const [baseName, list] of byName) {
+    if (list.length <= 1) {
+      if (list[0]) out.set(list[0].key, baseName);
+      continue;
+    }
+    const parentsOf = list.map((e) => {
+      const segs = String(e.root || "").replace(/\\/g, "/").replace(/\/+$/, "").split("/").filter(Boolean);
+      return segs.slice(0, -1);
+    });
+    const maxDepth = Math.max(1, ...parentsOf.map((p) => p.length));
+    const resolved = new Array(list.length).fill("");
+    for (let depth = 1; depth <= maxDepth; depth++) {
+      const counts = new Map();
+      const candidates = list.map((_, idx) => {
+        if (resolved[idx]) return "";
+        const segs = parentsOf[idx];
+        const ctx = segs.length ? segs.slice(-depth).join("/") : "";
+        if (ctx) counts.set(ctx, (counts.get(ctx) || 0) + 1);
+        return ctx;
+      });
+      for (let idx = 0; idx < list.length; idx++) {
+        if (resolved[idx] || !candidates[idx]) continue;
+        if (counts.get(candidates[idx]) === 1 || depth === maxDepth) resolved[idx] = candidates[idx];
+      }
+      if (resolved.every(Boolean)) break;
+    }
+    for (let idx = 0; idx < list.length; idx++) {
+      out.set(list[idx].key, resolved[idx] ? `${baseName} (${resolved[idx]})` : baseName);
+    }
+  }
+  return out;
 }
 
 
@@ -156,11 +211,11 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 11;
+export const USAGE_CACHE_VERSION = 12;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
-export const SUMMARY_VERSION = 2;
+export const SUMMARY_VERSION = 3;
 
 // Three containers inside a file record are Maps/Sets, not plain JSON:
 // days[key].sess, tasks.{seen,map} and rounds.seen. Serialising them as-is would
@@ -1050,6 +1105,23 @@ export class AgentUsage {
 
   ingestDsh(line, fc, touched) { return ingestDshLine(this._ingestCtx(), line, fc, touched); }
 
+  _resolveParentInfo(meta) {
+    let parentTitle = meta?.parentTitle || "";
+    let parentCwd = "";
+    let curSid = meta?.parentSid || "";
+    const seen = new Set(meta?.sid ? [meta.sid] : []);
+    for (let depth = 0; depth < 4 && curSid && !seen.has(curSid); depth++) {
+      seen.add(curSid);
+      const pm = this.meta.get(curSid);
+      if (!pm) break;
+      if (!parentTitle) parentTitle = pm.title || this.titles.get(pm.sid) || "";
+      if (!parentCwd && normalizeProjectRoot(pm.cwd)) parentCwd = pm.cwd;
+      if (parentTitle && parentCwd) break;
+      curSid = pm.parentSid || "";
+    }
+    return { parentTitle, parentCwd };
+  }
+
   // ----- derived -----
   summary(key) {
     const sessions = new Map();
@@ -1074,21 +1146,33 @@ export class AgentUsage {
     if (!sessions.size) return null;
     const res = { wall: 0, agent: 0, sessions: sessions.size, prompts, calls: 0, out: 0, fresh: 0, cached: 0, segs: [], proj: {}, models: {}, list: [], by: {} };
     const spans = [];
+    const projEntries = new Map();
     for (const s of sessions.values()) {
-      s.ts.sort((a, b) => a - b);
-      // A scratch workspace gets the session title so the ranking reads as
-      // "the tasks that took the most time today" instead of folder slugs.
-      s.label = s.proj;
-      if (isScratchCwd(s.cwd)) {
-        const meta = this.meta.get(s.sid);
+      const meta = this.meta.get(s.sid);
+      const { parentCwd } = meta ? this._resolveParentInfo(meta) : { parentCwd: "" };
+      const ownRoot = normalizeProjectRoot(s.cwd);
+      const effCwd = ownRoot ? s.cwd : (parentCwd || s.cwd);
+      const effRoot = ownRoot || normalizeProjectRoot(parentCwd);
+      s._effCwd = effCwd;
+      s._effRoot = effRoot;
+      s.label = effRoot ? projectName(effRoot) : s.proj;
+      if (!effRoot && isScratchCwd(s.cwd)) {
         const title = String(meta?.title || s.text || "").replace(/\s+/g, " ").trim();
         if (title) s.label = title.slice(0, 24);
       }
+      if (effRoot && !projEntries.has(effRoot)) {
+        projEntries.set(effRoot, { key: effRoot, baseName: s.label, root: effRoot });
+      }
+    }
+    const disambiguated = disambiguateProjectLabels([...projEntries.values()]);
+    for (const s of sessions.values()) {
+      if (s._effRoot && disambiguated.has(s._effRoot)) s.label = disambiguated.get(s._effRoot);
+      s.ts.sort((a, b) => a - b);
       let a = s.ts[0], b = a + 1;
       const g = (res.by[s.agent] ||= { wall: 0, agent: 0, out: 0, fresh: 0, cached: 0, segs: [], calls: 0, prompts: asked[s.agent] || 0, models: {} });
       const push = () => {
         spans.push([a, b]); s.segs.push([a, b]); s.min += b - a; res.agent += b - a; g.agent += b - a; g.segs.push([a, b]);
-        const pj = (res.proj[s.label] ||= { min: 0, out: 0, cwd: s.cwd, agents: {} });
+        const pj = (res.proj[s.label] ||= { min: 0, out: 0, cwd: s._effCwd || s.cwd, agents: {} });
         pj.min += b - a; pj.agents[s.agent] = (pj.agents[s.agent] || 0) + b - a;
       };
       for (const t of s.ts.slice(1)) {
@@ -1158,7 +1242,11 @@ export class AgentUsage {
       // 归档了的不再当成待办；真要还在跑就留着
       if (this.hidden(sid) && !["run", "running", "starting"].includes(live.state)) continue;
       seen.add(sid);
-      if (meta.parentSid && !meta.parentTitle) { const pm = this.meta.get(meta.parentSid); if (pm) meta.parentTitle = pm.title || this.titles.get(pm.sid) || ""; }
+      if (meta.parentSid) {
+        const { parentTitle, parentCwd } = this._resolveParentInfo(meta);
+        if (parentTitle && !meta.parentTitle) meta.parentTitle = parentTitle;
+        if (parentCwd && !meta.parentCwd) meta.parentCwd = parentCwd;
+      }
       out.push({ ...meta, ...live, sid, agent: fc.agent, cwd: v.cwd || fc.cwd, app: v.app || fc.app, title: v.title || meta.title || this.titles.get(sid) || "", model: v.model || meta.model || "", tokens: (meta.out || 0) + (meta.fresh || 0), lastAt: v.at });
     }
     return out.sort((a, b) => b.lastAt - a.lastAt).slice(0, limit);
@@ -1170,7 +1258,11 @@ export class AgentUsage {
       if (!m.lastAt || m.lastAt < since) continue;
       if (agent && m.agent !== agent) continue;
       if (this.hidden(m.sid) && !["run", "running", "starting"].includes(m.state)) continue;
-      if (m.parentSid && !m.parentTitle) { const pm = this.meta.get(m.parentSid); if (pm) m.parentTitle = pm.title || this.titles.get(pm.sid) || ""; }
+      if (m.parentSid) {
+        const { parentTitle, parentCwd } = this._resolveParentInfo(m);
+        if (parentTitle && !m.parentTitle) m.parentTitle = parentTitle;
+        if (parentCwd && !m.parentCwd) m.parentCwd = parentCwd;
+      }
       out.push({ ...m, title: m.title || this.titles.get(m.sid) || "", tokens: (m.out || 0) + (m.fresh || 0) });
     }
     return out.sort((a, b) => b.lastAt - a.lastAt).slice(0, limit);

@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <clipPath id="roundClip">
+      <circle cx="512" cy="512" r="496" />
+    </clipPath>
+    <linearGradient id="bgGrad" x1="120" y1="80" x2="904" y2="960" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#282238" />
+      <stop offset="52%" stop-color="#181522" />
+      <stop offset="100%" stop-color="#100e17" />
+    </linearGradient>
+    <radialGradient id="glowViolet" cx="512" cy="400" r="460" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#867cb3" stop-opacity="0.28" />
+      <stop offset="65%" stop-color="#746d94" stop-opacity="0.06" />
+      <stop offset="100%" stop-color="#746d94" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glowSage" cx="680" cy="720" r="360" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6f8f7c" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#6f8f7c" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="topCardGrad" x1="304" y1="202" x2="720" y2="326" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#85a993" />
+      <stop offset="100%" stop-color="#61826e" />
+    </linearGradient>
+    <linearGradient id="midCardGrad" x1="256" y1="270" x2="768" y2="416" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#948ac0" />
+      <stop offset="100%" stop-color="#6a618f" />
+    </linearGradient>
+    <linearGradient id="frontCardGrad" x1="512" y1="342" x2="512" y2="820" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fdfcf9" />
+      <stop offset="100%" stop-color="#ece7dd" />
+    </linearGradient>
+    <linearGradient id="prismLeft" x1="390" y1="440" x2="512" y2="718" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#2b253a" />
+      <stop offset="100%" stop-color="#171420" />
+    </linearGradient>
+    <linearGradient id="prismRight" x1="512" y1="432" x2="648" y2="718" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8279aa" />
+      <stop offset="100%" stop-color="#5d5480" />
+    </linearGradient>
+    <linearGradient id="amberPip" x1="650" y1="414" x2="698" y2="462" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#d4a472" />
+      <stop offset="100%" stop-color="#b58353" />
+    </linearGradient>
+    <filter id="cardShadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#09070f" flood-opacity="0.48" />
+    </filter>
+    <filter id="midShadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#09070f" flood-opacity="0.38" />
+    </filter>
+  </defs>
+
+  <g clip-path="url(#roundClip)">
+    <rect x="16" y="16" width="992" height="992" fill="url(#bgGrad)" />
+    <rect x="16" y="16" width="992" height="992" fill="url(#glowViolet)" />
+    <rect x="16" y="16" width="992" height="992" fill="url(#glowSage)" />
+
+    <rect x="304" y="202" width="416" height="156" rx="44" fill="url(#topCardGrad)" />
+    <rect x="305.5" y="203.5" width="413" height="153" rx="42.5" stroke="#ffffff" stroke-opacity="0.22" stroke-width="3" />
+
+    <g filter="url(#midShadow)">
+      <rect x="256" y="270" width="512" height="192" rx="48" fill="url(#midCardGrad)" />
+      <rect x="257.5" y="271.5" width="509" height="189" rx="46.5" stroke="#ffffff" stroke-opacity="0.22" stroke-width="3" />
+    </g>
+
+    <g filter="url(#cardShadow)">
+      <rect x="208" y="342" width="608" height="478" rx="58" fill="url(#frontCardGrad)" />
+      <rect x="209.5" y="343.5" width="605" height="475" rx="56.5" stroke="#ffffff" stroke-opacity="0.92" stroke-width="3" />
+    </g>
+
+    <path d="M512 432 L362 720 L440 720 L512 576 Z" fill="url(#prismLeft)" />
+    <path d="M512 432 L512 576 L584 720 L662 720 Z" fill="url(#prismRight)" />
+    <polygon points="485,626 512,626 512,668 464,668" fill="#1e1929" />
+    <polygon points="512,626 539,626 560,668 512,668" fill="#5e5582" />
+    <circle cx="674" cy="438" r="24" fill="url(#amberPip)" />
+  </g>
+  <circle cx="512" cy="512" r="494" stroke="#ffffff" stroke-opacity="0.11" stroke-width="4" />
+</svg>

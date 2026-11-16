@@ -3,7 +3,7 @@
 import { AGENTS, AGENT_ORDER, truncate } from "./constants.js";
 import { t } from "./i18n.js";
 import { hasAgentCapability } from "./agent-registry.js";
-import { sessionProjectName } from "./readers.js";
+import { sessionProjectName, normalizeProjectRoot, disambiguateProjectLabels } from "./readers.js";
 import { activeJob, destinations } from "./workflow.js";
 import * as J from "./journal.js";
 import { parseMirrorRef } from "./outline.js";
@@ -42,6 +42,26 @@ export const DEFAULT_TEAM_PRESETS = [
       { id: "polish", label: "校对与执行", preferredAgent: "qoder", hint: "细节检查与规范输出" },
     ],
   },
+  {
+    id: "deep-research",
+    name: "深度研报小队",
+    desc: "信源检索 + 交叉求证 + 洞察综合",
+    roles: [
+      { id: "scout", label: "信源检索", preferredAgent: "opencode", hint: "搜集一手文献、数据口径与正反案例" },
+      { id: "verify", label: "交叉求证", preferredAgent: "codex", hint: "核对引文出处、事实边界与逻辑漏洞" },
+      { id: "synth", label: "洞察综合", preferredAgent: "claude", hint: "提炼核心论点、搭建论证结构与结论" },
+    ],
+  },
+  {
+    id: "editorial",
+    name: "深度写作小队",
+    desc: "立意大纲 + 正文起草 + 审校润色",
+    roles: [
+      { id: "outline", label: "立意与大纲", preferredAgent: "claude", hint: "定核心观点、读者视角与章节节奏" },
+      { id: "draft", label: "正文起草", preferredAgent: "antigravity", hint: "扩写论据案例、串联段落并保持口吻" },
+      { id: "edit", label: "审校润色", preferredAgent: "qoder", hint: "精简冗余表达、打磨金句与标题钩子" },
+    ],
+  },
 ];
 
 export const BOARD_COLUMNS = [
@@ -52,8 +72,26 @@ export const BOARD_COLUMNS = [
 ];
 
 const RUNNING_STATES = new Set(["run", "starting", "running", "busy"]);
-const WAITING_STATES = new Set(["wait", "quiet", "needs-approval", "queued"]);
 const ATTENTION_STATES = new Set(["needs-approval", "error", "limit"]);
+export const WAIT_ACTIVE_MS = 30 * 60e3;
+
+export function isWaitingSession(session, now = Date.now(), { maxWaitAgeMs = WAIT_ACTIVE_MS } = {}) {
+  if (!session) return false;
+  const st = session.state || "idle";
+  if (st === "needs-approval" || st === "queued") return true;
+  if (st !== "wait" && st !== "quiet") return false;
+  if (session.job && activeJob(session.job)) return true;
+  if (session.parentSid) return false;
+  if (!session.lastAt) return true;
+  return now - session.lastAt <= maxWaitAgeMs;
+}
+
+export function isActiveNowSession(session, now = Date.now(), opts = {}) {
+  if (!session) return false;
+  const st = session.state || "idle";
+  if (RUNNING_STATES.has(st) || ATTENTION_STATES.has(st)) return true;
+  return isWaitingSession(session, now, opts);
+}
 
 function stateRank(state) {
   if (state === "needs-approval") return 0;
@@ -65,11 +103,34 @@ function stateRank(state) {
   return 5;
 }
 
-export function resolveSessionProject(session) {
-  const cwdName = sessionProjectName(session?.cwd || "");
-  if (cwdName) return cwdName;
+function resolveDirectProjectIdentity(session) {
+  const root = normalizeProjectRoot(session?.cwd || "");
+  if (root) return { name: sessionProjectName(root), root };
   const raw = String(session?.project || "").trim();
-  return raw && raw !== "?" && raw !== "~" ? raw : "";
+  if (raw && raw !== "?" && raw !== "~") return { name: raw, root: "" };
+  return { name: "", root: "" };
+}
+
+export function resolveProjectIdentity(session, bySid = null) {
+  const direct = resolveDirectProjectIdentity(session);
+  if (direct.name) return direct;
+  let curSid = session?.parentSid || "";
+  const seen = new Set(session?.sid ? [session.sid] : []);
+  for (let depth = 0; depth < 4 && curSid && !seen.has(curSid); depth++) {
+    seen.add(curSid);
+    const parent = bySid?.get?.(curSid);
+    if (!parent) break;
+    const found = resolveDirectProjectIdentity(parent);
+    if (found.name) return found;
+    curSid = parent.parentSid || "";
+  }
+  const pRoot = normalizeProjectRoot(session?.parentCwd || "");
+  if (pRoot) return { name: sessionProjectName(pRoot), root: pRoot };
+  return { name: "", root: "" };
+}
+
+export function resolveSessionProject(session, bySid = null) {
+  return resolveProjectIdentity(session, bySid).name;
 }
 
 function normalizeJobState(job) {
@@ -124,18 +185,22 @@ export function mergeSessionsWithJobs(sessions = [], jobs = {}, agentEnabled = (
 /**
  * Group live/recent sessions and active jobs by workspace project for P0 process management.
  */
-export function buildProjectGroups(sessions = [], { jobs = {}, agentEnabled = () => true } = {}) {
+export function buildProjectGroups(sessions = [], { jobs = {}, agentEnabled = () => true, now = Date.now() } = {}) {
   const merged = mergeSessionsWithJobs(sessions, jobs, agentEnabled);
+  const bySid = new Map(merged.map((s) => [s.sid, s]));
   const byProj = new Map();
   for (const s of merged) {
-    const proj = resolveSessionProject(s);
-    const id = proj || STANDALONE_PROJECT_ID;
-    let g = byProj.get(id);
+    const { name: baseName, root } = resolveProjectIdentity(s, bySid);
+    const key = root ? `root:${root}` : (baseName ? `name:${baseName}` : STANDALONE_PROJECT_ID);
+    let g = byProj.get(key);
     if (!g) {
       g = {
-        id,
-        name: proj || t("独立会话"),
-        isStandalone: !proj,
+        id: baseName || STANDALONE_PROJECT_ID,
+        name: baseName || t("独立会话"),
+        baseName,
+        root,
+        key,
+        isStandalone: !baseName,
         cwds: [],
         agents: [],
         sessions: [],
@@ -143,7 +208,7 @@ export function buildProjectGroups(sessions = [], { jobs = {}, agentEnabled = ()
         latestAt: 0,
         counts: { running: 0, waiting: 0, attention: 0, error: 0, limit: 0, queued: 0, total: 0 },
       };
-      byProj.set(id, g);
+      byProj.set(key, g);
     }
     g.sessions.push(s);
     if (s.cwd && !g.cwds.includes(s.cwd)) g.cwds.push(s.cwd);
@@ -153,7 +218,7 @@ export function buildProjectGroups(sessions = [], { jobs = {}, agentEnabled = ()
     const st = s.state || "idle";
     g.counts.total += 1;
     if (RUNNING_STATES.has(st)) g.counts.running += 1;
-    if (WAITING_STATES.has(st)) g.counts.waiting += 1;
+    if (isWaitingSession(s, now)) g.counts.waiting += 1;
     if (ATTENTION_STATES.has(st)) g.counts.attention += 1;
     if (st === "error") g.counts.error += 1;
     if (st === "limit") g.counts.limit += 1;
@@ -161,7 +226,23 @@ export function buildProjectGroups(sessions = [], { jobs = {}, agentEnabled = ()
   }
 
   const groups = [...byProj.values()];
+  const namedBuckets = groups.filter((g) => !g.isStandalone);
+  const nameCounts = new Map();
+  for (const g of namedBuckets) nameCounts.set(g.baseName, (nameCounts.get(g.baseName) || 0) + 1);
+  const labels = disambiguateProjectLabels(namedBuckets);
+  for (const g of namedBuckets) {
+    if ((nameCounts.get(g.baseName) || 0) > 1) {
+      g.id = g.root || g.key;
+      g.name = labels.get(g.key) || g.baseName;
+    } else {
+      g.id = g.baseName;
+      g.name = g.baseName;
+    }
+  }
   for (const g of groups) {
+    delete g.baseName;
+    delete g.root;
+    delete g.key;
     g.agents.sort((a, b) => AGENT_ORDER.indexOf(a) - AGENT_ORDER.indexOf(b));
     g.sessions.sort((a, b) => stateRank(a.state) - stateRank(b.state) || (b.lastAt || 0) - (a.lastAt || 0));
   }
@@ -249,6 +330,22 @@ export function resolveTeamPresets(settings = {}) {
     "对比分析、信息提炼与补充": t("对比分析、信息提炼与补充"),
     "校对与执行": t("校对与执行"),
     "细节检查与规范输出": t("细节检查与规范输出"),
+    "深度研报小队": t("深度研报小队"),
+    "信源检索 + 交叉求证 + 洞察综合": t("信源检索 + 交叉求证 + 洞察综合"),
+    "信源检索": t("信源检索"),
+    "搜集一手文献、数据口径与正反案例": t("搜集一手文献、数据口径与正反案例"),
+    "交叉求证": t("交叉求证"),
+    "核对引文出处、事实边界与逻辑漏洞": t("核对引文出处、事实边界与逻辑漏洞"),
+    "洞察综合": t("洞察综合"),
+    "提炼核心论点、搭建论证结构与结论": t("提炼核心论点、搭建论证结构与结论"),
+    "深度写作小队": t("深度写作小队"),
+    "立意大纲 + 正文起草 + 审校润色": t("立意大纲 + 正文起草 + 审校润色"),
+    "立意与大纲": t("立意与大纲"),
+    "定核心观点、读者视角与章节节奏": t("定核心观点、读者视角与章节节奏"),
+    "正文起草": t("正文起草"),
+    "扩写论据案例、串联段落并保持口吻": t("扩写论据案例、串联段落并保持口吻"),
+    "审校润色": t("审校润色"),
+    "精简冗余表达、打磨金句与标题钩子": t("精简冗余表达、打磨金句与标题钩子"),
   }[s] || s);
   return DEFAULT_TEAM_PRESETS.map((preset) => {
     const saved = custom[preset.id];
@@ -792,13 +889,23 @@ export function buildBoardSiblingContext(model, activeCardLine = -1) {
     for (const card of col.cards) {
       if (card.line === activeCardLine) continue;
       const who = card.agent ? ` (${AGENTS[card.agent]?.short || card.agent})` : "";
-      lines.push(`- [${col.id.toUpperCase()}] ${card.title}${who}`);
+      let title = String(card.title || "");
+      const mirrorSub = /#\^([a-z0-9-]+)$/i.exec(title);
+      if (mirrorSub && (J.isDeckBlockId(mirrorSub[1]) || J.isLegacyBlockId(mirrorSub[1]))) {
+        title = title.slice(0, mirrorSub.index).trim();
+      } else {
+        const id = J.blockIdOf(title);
+        if (id && (J.isDeckBlockId(id) || J.isLegacyBlockId(id))) title = J.stripBlockId(title);
+      }
+      lines.push(`- [${col.id.toUpperCase()}] ${title}${who}`);
       if (lines.length >= 10) break;
     }
     if (lines.length >= 10) break;
   }
   if (!lines.length) return "";
-  return `${t("同看板协同分工（母任务：{title}）：", { title: model.title })}\n${lines.join("\n")}`;
+  const titleId = J.blockIdOf(model.title);
+  const cleanTitle = titleId && (J.isDeckBlockId(titleId) || J.isLegacyBlockId(titleId)) ? J.stripBlockId(model.title) : model.title;
+  return `${t("同看板协同分工（母任务：{title}）：", { title: cleanTitle })}\n${lines.join("\n")}`;
 }
 
 /**

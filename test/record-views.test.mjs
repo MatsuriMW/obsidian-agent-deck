@@ -133,6 +133,21 @@ import {
 
   const compactModel = buildTableModel([{ ...parseAiRecordRow('  - 💬 第1轮：只记结论'), line: 1, sig: 'r1' }]);
   assert.equal(compactModel.hasPromptCol, false, 'omits Task/Prompt column when empty across all rows');
+
+  const enBrief = parseAiRecordRow('  - 💬 Round 2: Task: audit module boundaries; Result: zero circular imports');
+  assert.equal(enBrief.kind, 'result');
+  assert.equal(enBrief.round, 2);
+  assert.equal(enBrief.task, 'audit module boundaries');
+  assert.equal(enBrief.conclusion, 'zero circular imports');
+
+  const enPaired = buildTableModel([
+    { ...parseAiRecordRow('  - ❓ Round 1: Check tests?'), line: 10, sig: 'eq1' },
+    { ...parseAiRecordRow('  - 💬 Round 1: All tests pass'), line: 11, sig: 'er1' },
+  ]);
+  assert.equal(enPaired.rows.length, 1);
+  assert.equal(enPaired.rows[0].round, 1);
+  assert.equal(enPaired.rows[0].prompt, 'Check tests?');
+  assert.equal(enPaired.rows[0].conclusion, 'All tests pass');
 }
 
 // 3. StateField view switching, per-parent persistence, table decorations, and GripWidget replacement.

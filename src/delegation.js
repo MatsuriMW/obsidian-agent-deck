@@ -18,7 +18,7 @@ import * as J from "./journal.js";
 import { mentionOptions, stripTaskMention, mentionTrigger } from "./task-mentions.js";
 import { hasAgentCapability, canContinueInApp } from "./agent-registry.js";
 import {
-  ancestorLines, withContext, freshTaskText,
+  ancestorLines, withContext, freshTaskText, stripInternalIdentifiers,
   buildDelegationPayload, buildPromptFromContext, createDelegationRunner, HarnessPipeline,
 } from "./harness.js";
 import {
@@ -49,6 +49,7 @@ export {
   ancestorLines,
   withContext,
   freshTaskText,
+  stripInternalIdentifiers,
   findAgentBinary,
   findDshBinary,
   findAgyBinary,

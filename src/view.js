@@ -7,15 +7,15 @@ import { agentIcon, setLucide, stateIcon } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { SESSION_MIME } from "./editor.js";
 import { t } from "./i18n.js";
-import { buildProjectGroups, planRecentProjectDisplay, STANDALONE_PROJECT_ID } from "./project-workbench.js";
+import { buildProjectGroups, planRecentProjectDisplay, isWaitingSession, isActiveNowSession, STANDALONE_PROJECT_ID } from "./project-workbench.js";
 
 export const VIEW_TYPE = "agent-deck-view";
 export const RECENT_DAY_OPTIONS = [7, 30, 120];
 export const MAX_RECENT_CARDS = 30;
 
-export function filterRecentRows(rows, filter = "all") {
-  if (filter === "live") return rows.filter((x) => x.state === "run");
-  if (filter === "wait") return rows.filter((x) => ["wait", "quiet"].includes(x.state));
+export function filterRecentRows(rows, filter = "all", now = Date.now()) {
+  if (filter === "live") return rows.filter((x) => ["run", "starting", "running", "busy"].includes(x.state));
+  if (filter === "wait") return rows.filter((x) => isWaitingSession(x, now));
   if (AGENTS[filter]) return rows.filter((x) => x.agent === filter);
   return rows;
 }
@@ -140,11 +140,12 @@ export class AgentDeckView extends ItemView {
     if (this._bottomSlack > 0) dash.style.setProperty("--ad-slack", `${this._bottomSlack}px`);
 
     const p = this.plugin;
+    const now = Date.now();
     const todayKey = dayKeyToday(p.settings);
     const today = p.store.get(todayKey);
     const live = p.liveSessions({ hours: 6 });
     const running = live.filter((x) => ["run", "starting", "running"].includes(x.state) || (x.agent && x.state === "busy"));
-    const waiting = live.filter((x) => ["wait", "quiet", "needs-approval"].includes(x.state));
+    const waiting = live.filter((x) => isWaitingSession(x, now));
     const days = this.recentDays();
     const recent = p.recentSessions({ days, limit: 1000 });
 
@@ -242,7 +243,7 @@ export class AgentDeckView extends ItemView {
     }
     const nowList = nowSec.createDiv({ cls: "ad-nowlist" });
     if (nowGroupBy === "project") {
-      const nowActive = live.filter((x) => ["run", "starting", "running", "busy", "wait", "quiet", "needs-approval", "error", "limit", "queued"].includes(x.state));
+      const nowActive = live.filter((x) => isActiveNowSession(x, now));
       this.renderNowProjects(nowList, nowActive);
     } else {
       const nowItems = this.nowOrdered([...running, ...waiting]).slice(0, 6);

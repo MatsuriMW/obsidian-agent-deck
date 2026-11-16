@@ -41,7 +41,7 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 - **Drag to bind**: Drop a session card onto an existing list item to bind it, or onto an empty line to create a new bound task. Regular bound sessions show a status pill. Background tasks show one progress row below the parent task with cancel/retry actions; it disappears when the answer is ready.
 
 ### 3. Project Workbench & In-Place Fractal Boards
-- **Team presets, Copilot planning & concurrent dispatch**: Open the **Project Workbench** from the sidebar, command palette, or task menu to pick from three built-in team presets (automatically routing around disabled or hit-limit agents and remembering per-project preferences), decompose goals into editable subtask drafts via the configured organizer model or quick local split, write standard `- TODO ... @agent` Markdown (placed inside the active journal band with pre-assigned block IDs), and dispatch multiple agents concurrently after review.
+- **Team presets, Copilot planning & concurrent dispatch**: Open the **Project Workbench** from the sidebar, command palette, or task menu to pick from five built-in team presets (covering engineering and knowledge work: Full-stack Dev, Debug & Refactor, Research & Docs, Deep Research, and Editorial Writing — automatically routing around disabled or hit-limit agents and remembering per-project preferences), decompose goals into editable subtask drafts via the configured organizer model or quick local split, write standard `- TODO ... @agent` Markdown (placed inside the active journal band with pre-assigned block IDs), and dispatch multiple agents concurrently after review.
 - **In-place Fractal Boards (Editing view)**: Any parent list item with 2 or more direct child tasks (status keywords, standard `[ ]` checkboxes, or `![[note#^blockId]]` mirrors) gets a `Board N` toggle right on its line:
   - **Dual column modes & recursive Zoom**: Switch between **By status** (`TODO / DOING / Wait / DONE`) and **By group** (direct child phases as columns, grandchild tasks as cards); click `↳` on any card with nested subtasks to zoom in with clickable breadcrumbs;
   - **Full in-board workflow**: Track completion progress, quick-add cards inline (`+ Card`), assign `@agent` per card, drag subtrees across columns or reorder cards (atomically rewriting standard Markdown without proprietary syntax), inspect transcripts, stop active runs, or batch-dispatch `TODO` cards with sibling board context injected via Harness;
@@ -50,10 +50,10 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 Demo order: team draft → Markdown outline → grouped board. See the [release notes](CHANGELOG.md#演示素材与验证范围) for observed behavior and pending acceptance checks.
 
 <p align="center">
-  <img src="assets/project-workbench.png" width="680" alt="Actual Obsidian Project Workbench with team roles, editable subtask drafts, and confirmation controls; no tasks dispatched">
+  <img src="assets/project-workbench.en.png" width="760" alt="Agent Deck Project Workbench in English: five built-in team presets including Deep Research Team and Editorial Writing Team, role assignments, and editable subtask drafts">
 </p>
 <p align="center">
-  <img src="assets/fractal-board-views.png" width="840" alt="In-place Fractal Board comparison: left shows standard Markdown outline with Board 4 toggle, status icons, @agent routing, and replies; right shows By-group Fractal Board with progress bar, quick-add, phase columns, dispatch/stop controls, and dashed mirror card">
+  <img src="assets/fractal-board-and-sidebar.en.png" width="840" alt="In-place Fractal Kanban Board in English alongside the project-grouped Agent Deck sidebar showing live running, queued, and waiting sessions">
 </p>
 
 > **Interactive 1.10.0 Welcome Showcase**: On your first launch after installing or upgrading to **1.10.0**, Agent Deck automatically creates and opens `Agent Deck/Welcome-1.10.0.md` (`功能示例-1.10.0.md` in Chinese UI) — a safe simulated sandbox (no real sessions or analytics affected) demonstrating the Fractal Board (with Zoom & mirror jump) and all four AI record views side by side. Reopen anytime via Command Palette → `Open 1.10.0 feature showcase note`.
@@ -64,10 +64,7 @@ Demo order: team draft → Markdown outline → grouped board. See the [release 
 - **Four persistent record views & view-aware export**: Switch any top-level AI record block in place between **Outline / Table / Cards / Timeline** (persisted per block without rewriting underlying Markdown), and export from the view menu's Export submenu as expanded view-aware PDF or standalone HTML, lossless Markdown (`.md`), structured JSON (`.json`), CSV (`.csv`), or clipboard snippets:
 
 <p align="center">
-  <img src="assets/ai-record-views-1.png" width="840" alt="AI auto-record views: Outline vs Table">
-</p>
-<p align="center">
-  <img src="assets/ai-record-views-2.png" width="840" alt="AI auto-record views: Cards vs Timeline">
+  <img src="assets/ai-record-views.en.png" width="840" alt="AI auto-record views in English: Table View and Cards View side by side inside the interactive 1.10.0 Welcome Showcase">
 </p>
 
 - **One-click tidy & archive**: **Tidy log** reorganizes the current daily note by template (in progress, to do, completed, framed by dividers). Only complete bounded sections are organized; outside notes stay unchanged. Notes without a complete frame receive empty sections; **Archive finished logs to…** moves completed AI blocks out of the journal into a target note grouped by date.
@@ -79,7 +76,10 @@ Demo order: team draft → Markdown outline → grouped board. See the [release 
 - Uses only locally tracked history; makes no extra model calls and never modifies your journal.
 
 <p align="center">
-  <img src="assets/dashboard.png" width="840" alt="Agent Deck Review Dashboard (side-by-side panels): left shows Token Heatmap, 24-hour Rhythm and Concurrency, and Agent breakdown; right shows Model breakdown and Project activity">
+  <img src="assets/dashboard-overview.en.png" width="840" alt="Agent Deck Review Dashboard in English showing Token activity heatmap, total tokens, active time, and sessions">
+</p>
+<p align="center">
+  <img src="assets/dashboard-agents-recent.en.png" width="840" alt="Agent Deck Review Dashboard 24-hour rhythm, By Agent and By Model breakdowns alongside project-grouped Recent sessions in the sidebar">
 </p>
 
 ### 6. macOS Menu Bar Helper, Dreaming & Bilingual UI

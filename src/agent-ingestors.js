@@ -252,7 +252,8 @@ export function ingestCodexLine(ctx, line, fc, touched) {
   const v = usage.liveOf(fc, sid, ms);
   v.cwd = fc.cwd; v.app = fc.app; v.title = usage.titles.get(sid) || v.title;
   if (d.type === "event_msg") {
-    if (p.type === "task_complete" || p.type === "turn_aborted") v.state = "wait";
+    if (p.type === "task_complete") v.state = fc.parentSid ? "done" : "wait";
+    else if (p.type === "turn_aborted") v.state = "cancelled";
     else if (p.type === "error") { v.state = "error"; v.err = String(p.message || "").replace(/\s+/g, " ").slice(0, 80); }
     else if (p.type === "task_started" || p.type === "user_message") v.state = "run";
     else if (p.type === "agent_message" && p.message) v.lastText = String(p.message);
@@ -279,8 +280,8 @@ export function ingestCodexLine(ctx, line, fc, touched) {
       v.state = "run";
     }
   }
-  if (v.lastText || v.state === "wait") {
-    finishRound(fc, ms, v.lastText, v.state === "wait");
+  if (v.lastText || v.state === "wait" || v.state === "done") {
+    finishRound(fc, ms, v.lastText, v.state === "wait" || v.state === "done");
     v.turns = fc.rounds ? fc.rounds.list.length : 0;
     v.rounds = fc.rounds ? fc.rounds.list : [];
   }
@@ -489,6 +490,7 @@ export function ingestDshLine(ctx, line, fc, touched) {
     fc.app = "dsh";
     fc.createdAt = d.createdAt || fc.createdAt;
     if (d.parentSession) fc.parentSid = String(d.parentSession);   // 子代理（delegationDepth ≥ 1）挂在母会话下面
+    if (Number(d.delegationDepth) > 0) fc.isSubagent = true;
     const existing = usage.meta.get(fc.sid);
     usage.noteMeta(fc, fc.sid, { cwd: fc.cwd, app: "dsh", lastAt: existing?.lastAt || ms || d.createdAt || 0, ...(fc.parentSid ? { parentSid: fc.parentSid } : {}) });
     return;
@@ -565,11 +567,12 @@ export function ingestDshLine(ctx, line, fc, touched) {
     }
   } else if (typ === "turn/end") {
     const reason = data.reason || {};
+    const isChild = !!(fc.parentSid || fc.isSubagent);
     if (reason.kind === "error") { v.state = "error"; v.err = String(reason.error && reason.error.message || "").slice(0, 120); }
-    else if (reason.kind === "aborted") v.state = "wait";
-    else v.state = "wait";
+    else if (reason.kind === "aborted") v.state = "cancelled";
+    else v.state = isChild ? "done" : "wait";
     v.step = "";
-    finishRound(fc, ms, v.lastText, v.state === "wait");
+    finishRound(fc, ms, v.lastText, v.state === "wait" || v.state === "done");
     v.turns = fc.rounds ? fc.rounds.list.length : 0;
     v.rounds = fc.rounds ? fc.rounds.list : [];
     const meta = usage.meta.get(sid) || {};

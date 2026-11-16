@@ -10,7 +10,7 @@ export const RECORD_VIEW_LABELS = {
   cards: "卡片",
   timeline: "时间线",
 };
-export const isBriefRecord = line => /💬\s+(?:第\d+轮[：:])?任务：.+；结论：/.test(line);
+export const isBriefRecord = line => /💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?(?:任务：.+；结论：|Task:\s*.+;\s*Result:\s*.+)/.test(line);
 
 function groupPrefValue(map, group) {
   if (!map || !group) return undefined;
@@ -127,7 +127,10 @@ function selectVisibleLines(lineNums, lines, mode = "latest1", summaryLines = []
   const count = { latest1: 1, latest3: 3, latest5: 5 }[mode];
   if (count) {
     const results = lineNums.filter((n) => /^(?:\s*(?:[-*+]|\d+[.)])\s+)?💬\s/.test(lines[n]) && !/💬\s+累计总结[：:]/.test(lines[n]));
-    const round = n => +( /<!-- ad-turn:[^:]+:(\d+) -->/.exec(lines[n]) || /第(\d+)轮[：:]/.exec(lines[n]) || [0, 0])[1];
+    const round = n => {
+      const m = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(lines[n]) || /(?:第(\d+)轮|Round\s+(\d+))[：:]/.exec(lines[n]);
+      return m ? +(m[1] || m[2]) : 0;
+    };
     return results.length ? results.sort((a, b) => round(b) - round(a) || b - a).slice(0, count).sort((a, b) => a - b) : summaryLines;
   }
   // expanded 模式被手动收起后也必须隐藏明细。
@@ -158,8 +161,8 @@ function cleanRecordText(raw) {
 
 export function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
   const raw = String(rawLine || "");
-  const turnMatch = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(raw) || /第(\d+)轮[：:]/.exec(raw);
-  const round = turnMatch ? Number(turnMatch[1]) : null;
+  const turnMatch = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(raw) || /(?:第(\d+)轮|Round\s+(\d+))[：:]/.exec(raw);
+  const round = turnMatch ? Number(turnMatch[1] || turnMatch[2]) : null;
   const link = J.parseLink(raw);
   const body = J.stripBoundSessionSuffix(cleanRecordText(raw).replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""), link);
 
@@ -169,15 +172,16 @@ export function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
     content = body.replace(/^💬\s+累计总结[：:]\s*/, "");
   } else if (/^💬\s/.test(body)) {
     kind = "result"; kindLabel = "结论";
-    content = body.replace(/^💬\s+(?:第\d+轮[：:])?\s*/, "");
-    const brief = /^任务：([\s\S]+?)；结论：([\s\S]+)$/.exec(content);
+    content = body.replace(/^💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?\s*/, "");
+    const brief = /^任务：([\s\S]+?)；结论：([\s\S]+)$/.exec(content)
+      || /^Task:\s*([\s\S]+?);\s*Result:\s*([\s\S]+)$/.exec(content);
     if (brief) { task = brief[1].trim(); conclusion = brief[2].trim(); }
   } else if (/^❓\s/.test(body)) {
     kind = "question"; kindLabel = "提问";
-    content = body.replace(/^❓\s+(?:第\d+轮[：:])?\s*/, "");
+    content = body.replace(/^❓\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?\s*/, "");
   } else if (/^📋\s/.test(body)) {
     kind = "plan"; kindLabel = "步骤";
-    const rest = body.replace(/^📋\s+(?:第\d+轮[：:])?\s*/, "");
+    const rest = body.replace(/^📋\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?\s*/, "");
     const step = /^步骤\s+(\d+\/\d+)(?:\s*·\s*(.*))?$/.exec(rest);
     if (step) { meta = step[1]; content = (step[2] || "").trim() || rest; }
     else content = rest;

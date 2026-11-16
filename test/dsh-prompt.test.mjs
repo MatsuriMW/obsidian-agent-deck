@@ -52,5 +52,44 @@ assert.equal(isPromptText("Elapsed since the preceding model-visible message: 2m
 assert.equal(cleanUserPrompt("Time sampled while preparing turn 1, step 1: x\nBrowser time zone for this request: Asia/Shanghai.\n\n做这件事"), "做这件事");
 assert.equal(isPromptText("把周报写完并发给组长"), true, "a normal prompt still counts");
 
+// DSH subagents (parentSession / delegationDepth >= 1) settle to "done" on turn/end,
+// aborted turns settle to "cancelled", and parentCwd is exposed for project inheritance.
+{
+  const subDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-dsh-sub-"));
+  const parentFile = path.join(subDir, "session-parent.jsonl.zstd");
+  const childFile = path.join(subDir, "sub-1.jsonl.zstd");
+  const abortedFile = path.join(subDir, "session-aborted.jsonl.zstd");
+  fs.writeFileSync(parentFile, zlib.zstdCompressSync(Buffer.from([
+    JSON.stringify({ type: "session", seq: 0, time: now - 50000, id: "session-parent", cwd: "/Users/x/work/alpha" }),
+    JSON.stringify({ type: "user/message", seq: 1, time: now - 49000, data: { content: [{ type: "text", text: "重构模块" }], source: { kind: "user" } } }),
+    JSON.stringify({ type: "turn/end", seq: 2, time: now - 48000, data: { reason: { kind: "completed" } } }),
+  ].join("\n") + "\n")));
+  fs.writeFileSync(childFile, zlib.zstdCompressSync(Buffer.from([
+    JSON.stringify({ type: "session", seq: 0, time: now - 40000, id: "sub-1", cwd: "/Users/x/Documents/deepseek-harness/default-workspace", parentSession: "session-parent", delegationDepth: 1 }),
+    JSON.stringify({ type: "user/message", seq: 1, time: now - 39000, data: { content: [{ type: "text", text: "跑单测" }], source: { kind: "user" } } }),
+    JSON.stringify({ type: "assistant/message", seq: 2, time: now - 38000, data: { message: { content: [{ type: "text", text: "全部通过" }] } } }),
+    JSON.stringify({ type: "turn/end", seq: 3, time: now - 37000, data: { reason: { kind: "completed" } } }),
+  ].join("\n") + "\n")));
+  fs.writeFileSync(abortedFile, zlib.zstdCompressSync(Buffer.from([
+    JSON.stringify({ type: "session", seq: 0, time: now - 30000, id: "session-aborted", cwd: "/Users/x/work/alpha" }),
+    JSON.stringify({ type: "user/message", seq: 1, time: now - 29000, data: { content: [{ type: "text", text: "取消这轮" }], source: { kind: "user" } } }),
+    JSON.stringify({ type: "turn/end", seq: 2, time: now - 28000, data: { reason: { kind: "aborted", reason: { kind: "user" } } } }),
+  ].join("\n") + "\n")));
+
+  const u2 = new AgentUsage({ settings, cfg: settings });
+  for (const f of [parentFile, childFile, abortedFile]) {
+    await u2.readDsh(f, { mtimeMs: fs.statSync(f).mtimeMs, size: fs.statSync(f).size }, new Set());
+  }
+  const live = u2.liveSessions({ since: now - 100000, limit: 20 });
+  const parent = live.find((s) => s.sid === "session-parent");
+  const child = live.find((s) => s.sid === "sub-1");
+  const aborted = live.find((s) => s.sid === "session-aborted");
+  assert.equal(parent.state, "wait");
+  assert.equal(child.state, "done", "DSH subagent completed turn settles to done, not wait");
+  assert.equal(child.parentCwd, "/Users/x/work/alpha", "child exposes parentCwd for project grouping");
+  assert.equal(aborted.state, "cancelled", "DSH aborted turn settles to cancelled, not wait");
+  fs.rmSync(subDir, { recursive: true, force: true });
+}
+
 fs.rmSync(dir, { recursive: true, force: true });
 console.log("PASS DSH logs: time-context and skill-catalogue messages never become the user's question");
