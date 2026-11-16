@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.9.11**（已发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.10.0**（已发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 双平台验证边界
 
@@ -66,6 +66,6 @@
   - **P1 协作小队预设、AI 副驾拆解与完整分形看板（阶段 A / B / C）**（`src/workbench-modal.js`, `src/fractal-board.js`, `src/harness.js`, `src/outline.js`, `src/analytics.js`, `src/dream.js`, `src/editor.js`, `src/styles/views/record-views.css`, `src/styles/views/modals.css`）：
     - `ProjectWorkbenchModal`（命令面板/侧栏项目卡/任务操作菜单均可唤起）：支持选择写入目标笔记（今日日记 / 当前笔记 / 自定义路径）、3 套内置协作小队预设（自动规避禁用与 `limit` 限额 Agent 并保存项目偏好）、`runJournalModel` 副驾结构化拆解与无模型本地兜底、多 Agent 并发默认优先后台执行（`background`）；写入时自动归入日记「正在做」活跃分区（若存在）并为每条子任务预分配唯一 `^blockId`，并发派发自动携带同看板兄弟分工上下文并打开目标笔记。
     - 原地分形看板（`src/fractal-board.js`, `settings.taskBoardViews`）：支持 `按状态分列`（`TODO`/`DOING`/`待确认`/`DONE`）与 `按子组分列`（子任务为列、孙任务为卡）双模式切换、任意嵌套子卡下钻聚焦（Zoom + 面包屑回溯）、顶栏进度条、看板内快捷新增子卡（`+ 子卡`，隔离 CM6 按键与拖放事件）、行内 `@agent` 切换、跨列/同列子树拖拽排序（`moveTaskBoardCardSubtree`）、以及在卡片内直接查看正文/停止运行/单卡派发。
-    - Harness 上下文作用域与镜像硬隔离（`src/harness.js`, `src/outline.js`, `src/analytics.js`, `src/dream.js`）：委派自动解析最多 3 篇 `[[双链]]`（含 `#^blockId` 定点块摘录）并注入同看板兄弟分工上下文（`buildBoardSiblingContext`）；看板支持 `![[笔记#^blockId]]` / `[[笔记#^blockId]]` 只读镜像卡投影（状态切换回写源笔记），`analytics.js` 与 `dream.js` 显式排除独立镜像行以防重复计数与重复抽取。
+    - Harness 上下文作用域与镜像硬隔离（`src/harness.js`, `src/outline.js`, `src/analytics.js`, `src/dream.js`）：委派自动解析最多 3 处 `[[双链]]`（`#^blockId` 定点块子树、`#标题` 章节、`![[...]]` 镜像嵌入、别名保留，同目标去重；定点块/章节缺失或笔记不可读时跳过而不注入整篇开头，自定义解析器补入的 `refs` 一并纳入），并注入同看板兄弟分工上下文（`buildBoardSiblingContext`）；看板支持 `![[笔记#^blockId]]` / `[[笔记#^blockId]]` 只读镜像卡投影（状态切换回写源笔记），`analytics.js` 与 `dream.js` 显式排除独立镜像行以防重复计数与重复抽取。
   - 后续已暂存 Linear `P-MAT-42`：`MAT-628`（P3：第二大脑显式项目上下文包 Context Pack 与记忆反哺闭环）。
   - 验证边界：macOS 已通过全量 `npm test`（含 `test/project-workbench.test.mjs`、`test/i18n.test.mjs`、`test/architecture-refactor.test.mjs`、`test/record-views.test.mjs`）、`npm run build`、`git diff --check`；Obsidian 真实 UI 交互实机与 Windows 端未实测。

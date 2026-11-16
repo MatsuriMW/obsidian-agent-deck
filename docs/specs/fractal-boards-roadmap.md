@@ -29,7 +29,7 @@ Agent Deck 当前已具备单母块多视图（`outline` / `table` / `cards` / `
   - 拖拽卡片跨列时，不造私有语法，直接通过 `note-updates.js` + `journal.js` 原子更新对应子行的标准状态关键词（如 `TODO` → `DOING`）。
 
 ### 阶段 B：大纲 Zoom + Harness 多 Agent 协同编排
-- **上下文作用域解析**：扩展 `src/harness.js` 的 `ContextResolver` 注册点（`registerContextResolver`），在用户“聚焦父块（Zoom）”时仅加载该父块及其母项链 + 显式 `[[双链]]` 摘要作为上下文，屏蔽无关同级块。
+- **上下文作用域解析**：扩展 `src/harness.js` 的 `ContextResolver` 注册点（`registerContextResolver`），在用户“聚焦父块（Zoom）”时仅加载该父块及其母项链 + 显式 `[[双链]]` 摘要作为上下文，屏蔽无关同级块。双链解析支持 `#^blockId` 定点块子树、`#标题` 章节、`![[...]]` 镜像嵌入与别名显示；同一目标去重、最多注入 3 处摘录，定点块或章节不存在时跳过而不是注入整篇开头；自定义解析器补入的 `refs` 也会在解析摘要前合并。
 - **同盘多 Agent 派发与结果收口**：借助 `src/agent-registry.js` 的能力声明，支持在看板内对不同子卡分别指定不同 Agent（例如后端给 Codex、前端/文档给 Claude Code、批量辅助给 OpenCode/DSH），各子块独立写入 `🔗` 与 `💬`，母块汇总整体进展。
 
 ### 阶段 C：双链镜像（Mirror）与统计严格隔离

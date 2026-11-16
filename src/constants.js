@@ -401,6 +401,7 @@ export const DEFAULTS = {
   lastTaskExportDir: "",
   archiveOrder: "prepend",
   viewOpened: false,   // 首次加载时把面板放进右侧栏；之后不再自动打开
+  welcomeShowcaseVersion: "",
   autoLogMerge: false,
   autoLogMergeThreshold: 10,
   autoLogSummaries: {},

@@ -1,4 +1,4 @@
-/* Agent Deck 1.9.11 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.10.0 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -60,6 +60,7 @@ var main_default = {
   "Dreaming\uFF1A\u5BFC\u51FA\u957F\u671F\u8BB0\u5FC6 Markdown \u526F\u672C": "Dreaming: export a Markdown copy of long-term memory",
   "\u5BFC\u5165\u87BA\u65CB\u65E5\u7A0B\u7684\u5386\u53F2\u7528\u91CF": "Import Nautilus Spiral usage history",
   "\u6E05\u7406\u5DF2\u7ED3\u675F\u7684\u59D4\u6D3E\u8BB0\u5F55": "Clean up finished delegation records",
+  "\u6253\u5F00 1.10.0 \u65B0\u529F\u80FD\u793A\u4F8B\u7B14\u8BB0": "Open 1.10.0 feature showcase note",
   // ----- notices: menu bar, scanning, importing -----
   "macOS \u83DC\u5355\u680F\u5DF2\u5173\u95ED\uFF0C\u8BF7\u5148\u5728\u300C\u8FFD\u8E2A\u300D\u91CC\u6253\u5F00": "The macOS menu bar is off \u2014 turn it on under Tracking first",
   "macOS \u83DC\u5355\u680F\u5DF2\u5173\u95ED\uFF0C\u8BF7\u5148\u5728\u300C\u8BB0\u5F55\u300D\u91CC\u6253\u5F00": "The macOS menu bar is off \u2014 turn it on under Recording first",
@@ -1999,6 +2000,7 @@ var DEFAULTS = {
   archiveOrder: "prepend",
   viewOpened: false,
   // 首次加载时把面板放进右侧栏；之后不再自动打开
+  welcomeShowcaseVersion: "",
   autoLogMerge: false,
   autoLogMergeThreshold: 10,
   autoLogSummaries: {},
@@ -2528,8 +2530,11 @@ function extractWikilinkRefs(lines = [], { embeds = false } = {}) {
   const refs = [];
   const seen = /* @__PURE__ */ new Set();
   const re = embeds ? EMBED_WIKILINK_RE : WIKILINK_RE;
-  for (const raw of lines) {
-    const line = String(raw || "");
+  const flat = lines.flatMap((line) => String(line ?? "").split("\n"));
+  const fenced = fencedLines(flat);
+  for (let i = 0; i < flat.length; i++) {
+    if (fenced.has(i)) continue;
+    const line = flat[i];
     for (const m of line.matchAll(re)) {
       const target = String(m[1] || "").trim();
       if (!target) continue;
@@ -26021,6 +26026,200 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
   }
 };
 
+// src/welcome-demo.js
+var SHOWCASE_VERSION = "1.10.0";
+var SHOWCASE_BOARD_KEY = "ad-demo-board";
+var SHOWCASE_MIRROR_SOURCE_KEY = "ad-demo-src";
+var SHOWCASE_RECORD_KEYS = {
+  table: "ad-demo-table",
+  cards: "ad-demo-cards",
+  timeline: "ad-demo-timeline",
+  outline: "ad-demo-outline"
+};
+function showcasePath(lang = currentLanguage()) {
+  return lang === "en" ? `Agent Deck/Welcome-${SHOWCASE_VERSION}.md` : `Agent Deck/\u529F\u80FD\u793A\u4F8B-${SHOWCASE_VERSION}.md`;
+}
+function applyShowcaseDefaults(settings, { force = false } = {}) {
+  if (!settings || typeof settings !== "object") return false;
+  let changed = false;
+  const boardViews = settings.taskBoardViews || (settings.taskBoardViews = {});
+  if (force || !Object.hasOwn(boardViews, SHOWCASE_BOARD_KEY)) {
+    boardViews[SHOWCASE_BOARD_KEY] = { mode: "board", groupBy: "children", zoomStack: [] };
+    changed = true;
+  }
+  const recordViews = settings.aiRecordViews || (settings.aiRecordViews = {});
+  const desiredViews = {
+    [SHOWCASE_RECORD_KEYS.table]: "table",
+    [SHOWCASE_RECORD_KEYS.cards]: "cards",
+    [SHOWCASE_RECORD_KEYS.timeline]: "timeline"
+  };
+  for (const [key, mode] of Object.entries(desiredViews)) {
+    if (force || !Object.hasOwn(recordViews, key)) {
+      recordViews[key] = mode;
+      changed = true;
+    }
+  }
+  if (force && Object.hasOwn(recordViews, SHOWCASE_RECORD_KEYS.outline)) {
+    delete recordViews[SHOWCASE_RECORD_KEYS.outline];
+    changed = true;
+  }
+  const expanded = settings.aiRecordExpanded || (settings.aiRecordExpanded = {});
+  const closed = settings.aiRecordClosed || (settings.aiRecordClosed = {});
+  for (const key of Object.values(SHOWCASE_RECORD_KEYS)) {
+    if (force) {
+      if (closed[key]) {
+        delete closed[key];
+        changed = true;
+      }
+      if (!expanded[key]) {
+        expanded[key] = true;
+        changed = true;
+      }
+    } else if (!Object.hasOwn(expanded, key) && !Object.hasOwn(closed, key)) {
+      expanded[key] = true;
+      changed = true;
+    }
+  }
+  return changed;
+}
+function buildShowcaseMarkdown(lang = currentLanguage()) {
+  const noteLink = showcasePath(lang).replace(/\.md$/i, "");
+  if (lang === "en") {
+    return [
+      `# Agent Deck ${SHOWCASE_VERSION} \u2014 Interactive Feature Showcase`,
+      "",
+      "> [!tip] Safe Simulated Sandbox",
+      `> All records below are local Markdown examples created for Agent Deck **v${SHOWCASE_VERSION}**. Nothing here connects to live CLI sessions or affects your token usage stats.`,
+      "> - **Sidebar Project Grouping**: Open the right Agent Deck panel and switch **Now / Recent** to **By project**. Hover a project header to open its folder, launch **Team Workbench**, or batch-stop active runs.",
+      "> - **In-Place Fractal Board**: Drag cards across columns, switch **By status / By group**, click **\u21B3** on a group card to Zoom in, or click **Team / Split** in the board toolbar.",
+      "> - **Reopen anytime**: Command Palette \u2192 `Open 1.10.0 feature showcase note`.",
+      "",
+      "## 1. In-Place Fractal Kanban Board (With Zoom & Mirror Cards)",
+      "",
+      `- TODO Agent Deck ${SHOWCASE_VERSION} Release Board (try switching By status / By group / Team / Outline) ^${SHOWCASE_BOARD_KEY}`,
+      `  - DOING Phase 1: Project Aggregation & Fractal Engine ^ad-demo-p1`,
+      "    - DONE Group sidebar sessions by project + priority state @codex",
+      "      - \u{1F4AC} Round 1: Task: aggregate active runs under project folders; Result: hitlimit, queued, and error states bubble to the top.",
+      "    - DOING Render CM6 in-place Kanban boards with drag-and-drop and Zoom @claude",
+      "      - \u{1F4AC} Round 1: Task: keep pure Markdown as single source of truth; Result: board columns project live CM6 widgets with subtree moves.",
+      "    - DELEGATED Resolve wikilink context packs in delegation prompts @opencode",
+      "      - \u{1F4CB} Read linked note sections and `^blockId` excerpts into delegation context.",
+      `  - TODO Phase 2: Team Workbench & Parallel Dispatch ^ad-demo-p2`,
+      "    - NEEDOK? Confirm default background execution for multi-agent team waves @claude",
+      "      - \u2753 Should team workbench waves default to background concurrent execution?",
+      "    - TOREVIEW Verify drag-and-drop indentation and mirror card navigation @codex",
+      "      - \u{1F4AC} Round 1: Task: test mirror card source jump; Result: ready for final Obsidian UI review.",
+      "  - TODO Polish bilingual changelog and release notes @qoder",
+      `  - ![[${noteLink}#^${SHOWCASE_MIRROR_SOURCE_KEY}]]`,
+      "",
+      "## 2. Four AI Record Views (Table \xB7 Cards \xB7 Timeline \xB7 Outline)",
+      "",
+      "Click the view pills on any task line below to switch freely between **Outline / Table / Cards / Timeline**:",
+      "",
+      `- DOING \u{1F916} Simulated Session \xB7 Table View ^${SHOWCASE_RECORD_KEYS.table}`,
+      "  - \u2753 Round 1: Check module boundaries and confirm zero circular imports across `src/`.",
+      "  - \u{1F4CB} Inspected `src/outline.js`, `src/harness.js`, and `src/project-workbench.js`.",
+      "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u68C0\u67E5\u6838\u5FC3\u6A21\u5757\u4F9D\u8D56\u65B9\u5411\uFF1B\u7ED3\u8BBA\uFF1A\u516C\u5171\u539F\u8BED\u5DF2\u6536\u53E3\uFF0C\u6A21\u5757\u56FE\u96F6\u73AF\u4F9D\u8D56\u3002",
+      "  - \u2753 Round 2: Verify `npm test` and i18n coverage before tagging the release.",
+      "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u9A8C\u8BC1\u6D4B\u8BD5\u4E0E\u53CC\u8BED\u952E\u5B8C\u6574\u6027\uFF1B\u7ED3\u8BBA\uFF1A\u5168\u90E8\u5355\u5143\u6D4B\u8BD5\u4E0E i18n \u6821\u9A8C\u901A\u8FC7\u3002",
+      "  - \u23F1 Simulated 12m (demo placeholder \u2014 excluded from real analytics)",
+      "",
+      `- DONE \u{1F916} Simulated Session \xB7 Cards View ^${SHOWCASE_RECORD_KEYS.cards}`,
+      "  - \u2753 Round 1: Design project-level Stop / Workbench quick actions on sidebar headers.",
+      "  - \u{1F4CB} Added hover action strip for Open Folder, Team Workbench, and Batch Stop.",
+      "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u8865\u9F50\u4FA7\u8FB9\u680F\u9879\u76EE\u5FEB\u6377\u64CD\u4F5C\uFF1B\u7ED3\u8BBA\uFF1A\u5DF2\u652F\u6301\u4E00\u952E\u62C9\u8D77\u56E2\u961F\u5DE5\u4F5C\u53F0\u4E0E\u6279\u91CF\u505C\u6B62\u3002",
+      "  - \u2753 Round 2: Ensure queued and rate-limited sessions appear in the sidebar with retry metadata.",
+      "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u8986\u76D6\u6392\u961F\u4E0E\u9650\u6D41\u72B6\u6001\u5C55\u793A\uFF1B\u7ED3\u8BBA\uFF1A\u652F\u6301\u6392\u961F\u4F4D\u7F6E\u3001\u51B7\u5374\u5269\u4F59\u65F6\u95F4\u4E0E\u539F\u56E0\u63D0\u793A\u3002",
+      "  - \u23F1 Simulated 9m (demo placeholder \u2014 excluded from real analytics)",
+      "",
+      `- DOING \u{1F916} Simulated Session \xB7 Timeline View ^${SHOWCASE_RECORD_KEYS.timeline}`,
+      "  - \u2753 Round 1: Prototype WorkFlowy-style Mirror Cards referencing shared tasks.",
+      "  - \u{1F4CB} Added shared `parseMirrorRef` parser so analytics and journals never double-count mirrors.",
+      "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u652F\u6301\u770B\u677F\u5185\u5D4C\u955C\u50CF\u5361\u4E0E\u6E90\u4EFB\u52A1\u8DF3\u8F6C\uFF1B\u7ED3\u8BBA\uFF1A\u70B9\u51FB\u955C\u50CF\u5361\u6807\u9898\u53EF\u76F4\u63A5\u8DF3\u8F6C\u5230\u6E90\u884C\u3002",
+      "  - \u2753 Round 2: Add Zoom breadcrumbs so deep task hierarchies stay clean inside boards.",
+      "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u652F\u6301\u591A\u5C42\u5D4C\u5957\u5B50\u7EC4 Zoom \u4E0B\u94BB\uFF1B\u7ED3\u8BBA\uFF1A\u53EF\u901A\u8FC7\u9762\u5305\u5C51\u5FEB\u901F\u9000\u56DE\u4EFB\u610F\u7236\u7EA7\u3002",
+      "  - \u23F1 Simulated 15m (demo placeholder \u2014 excluded from real analytics)",
+      "",
+      `- DONE \u{1F916} Simulated Session \xB7 Outline View ^${SHOWCASE_RECORD_KEYS.outline}`,
+      "  - \u2753 Round 1: Keep raw Markdown outline lossless even when board or table decorations are active.",
+      "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u6821\u9A8C\u7EAF\u6587\u672C\u5927\u7EB2\u517C\u5BB9\u6027\uFF1B\u7ED3\u8BBA\uFF1A\u5173\u95ED\u88C5\u9970\u6216\u5728\u5176\u4ED6\u7F16\u8F91\u5668\u6253\u5F00\u65F6\u4ECD\u4FDD\u7559\u5B8C\u6574\u6811\u7ED3\u6784\u3002",
+      "  - \u23F1 Simulated 6m (demo placeholder \u2014 excluded from real analytics)",
+      "",
+      "## 3. Mirror Source Task (Referenced by the Board Above)",
+      "",
+      `- DOING Align board tokens & light/dark theme variables ^${SHOWCASE_MIRROR_SOURCE_KEY}`,
+      "  - This is the canonical source block referenced by the mirror card inside the Kanban board above. Change its status (for example to `DONE`) and watch every mirror card stay in sync.",
+      ""
+    ].join("\n");
+  }
+  return [
+    `# Agent Deck ${SHOWCASE_VERSION} \xB7 \u65B0\u529F\u80FD\u4EA4\u4E92\u793A\u4F8B`,
+    "",
+    "> [!tip] \u7EAF\u51C0\u6A21\u62DF\u6C99\u76D2\uFF08\u4E0D\u4F1A\u5F71\u54CD\u771F\u5B9E\u4F1A\u8BDD\u4E0E\u7528\u91CF\u7EDF\u8BA1\uFF09",
+    `> \u672C\u7B14\u8BB0\u4E3A\u4F60\u9884\u7F6E\u4E86 **Agent Deck ${SHOWCASE_VERSION}** \u7684\u6838\u5FC3\u754C\u9762\u6A21\u62DF\u3002\u4F60\u53EF\u4EE5\u76F4\u63A5\u62D6\u62FD\u5361\u7247\u3001\u5207\u6362\u89C6\u56FE\u6216\u4F53\u9A8C\u5206\u5F62\u4E0B\u94BB\u2014\u2014\u6240\u6709\u5185\u5BB9\u5747\u4E3A\u7EAF Markdown \u793A\u4F8B\uFF0C**\u4E0D\u7ED1\u5B9A\u771F\u5B9E CLI \u4F1A\u8BDD\u3001\u4E0D\u6539\u5199\u65E5\u8BB0\u3001\u4E5F\u4E0D\u8BA1\u5165 Token \u7EDF\u8BA1**\u3002`,
+    "> - **\u4FA7\u8FB9\u680F\u300C\u6309\u9879\u76EE\u300D\u805A\u5408\uFF08P0\uFF09**\uFF1A\u5728\u53F3\u4FA7 Agent Deck \u9762\u677F\u628A **\u6B63\u5728\u8FDB\u884C / \u6700\u8FD1\u4F1A\u8BDD** \u5207\u5230 **\u6309\u9879\u76EE**\uFF0C\u60AC\u505C\u9879\u76EE\u6807\u9898\u53EF\u76F4\u8FBE\u300C\u6253\u5F00\u76EE\u5F55 / \u5C0F\u961F\u5DE5\u4F5C\u53F0 / \u4E00\u952E\u505C\u6B62\u8BE5\u9879\u76EE\u300D\u3002",
+    "> - **\u539F\u5730\u5206\u5F62\u770B\u677F + \u5C0F\u961F\u5DE5\u4F5C\u53F0\uFF08P1\uFF09**\uFF1A\u76F4\u63A5\u5728\u4E0B\u65B9\u770B\u677F\u62D6\u62FD\u5361\u7247\u8DE8\u5217\u3001\u70B9 **\u6309\u72B6\u6001\u5206\u5217 / \u6309\u5B50\u7EC4\u5206\u5217**\u3001\u70B9\u5B50\u7EC4\u5361\u7247\u7684 **\u21B3 Zoom** \u4E0B\u94BB\uFF0C\u6216\u70B9\u5DE5\u5177\u680F **\u5C0F\u961F / \u62C6\u89E3** \u4F53\u9A8C Copilot \u81EA\u52A8\u62C6\u89E3\u4E0E\u591A\u6A21\u578B\u5206\u5DE5\u3002",
+    "> - **\u968F\u65F6\u91CD\u5F00\u672C\u793A\u4F8B**\uFF1A\u547D\u4EE4\u9762\u677F\u641C\u7D22 `\u6253\u5F00 1.10.0 \u65B0\u529F\u80FD\u793A\u4F8B\u7B14\u8BB0`\u3002",
+    "",
+    "## 1. \u539F\u5730\u5206\u5F62\u770B\u677F\uFF08\u652F\u6301\u5B50\u7EC4\u4E0B\u94BB Zoom \u4E0E\u8DE8\u5757\u955C\u50CF\u5361\uFF09",
+    "",
+    `- TODO Agent Deck ${SHOWCASE_VERSION} \u53D1\u5E03\u534F\u540C\u770B\u677F\uFF08\u8BD5\u8BD5\u70B9\u53F3\u4E0A\u89D2\u300C\u6309\u72B6\u6001\u5206\u5217 / \u5C0F\u961F / \u5207\u56DE\u5927\u7EB2\u300D\uFF09 ^${SHOWCASE_BOARD_KEY}`,
+    "  - DOING \u9636\u6BB5\u4E00\uFF1A\u9879\u76EE\u805A\u5408\u4E0E\u5206\u5F62\u5F15\u64CE ^ad-demo-p1",
+    "    - DONE \u68B3\u7406\u53F3\u4FA7\u680F\u6309\u9879\u76EE\u5206\u7EC4\u4E0E\u72B6\u6001\u4F18\u5148\u7EA7 @codex",
+    "      - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u6309\u9879\u76EE\u76EE\u5F55\u4E0E\u6700\u540E\u6D3B\u8DC3\u65F6\u95F4\u805A\u5408\u4F1A\u8BDD\uFF1B\u7ED3\u8BBA\uFF1A\u5DF2\u5728\u4FA7\u8FB9\u680F\u4E0A\u7EBF\uFF0Chitlimit / queued / error \u72B6\u6001\u4F1A\u81EA\u52A8\u7F6E\u9876\u63D0\u793A\u3002",
+    "    - DOING \u5B9E\u73B0 CM6 \u539F\u5730\u5206\u5F62\u770B\u677F\u3001\u62D6\u62FD\u56DE\u5199\u4E0E Zoom \u9762\u5305\u5C51 @claude",
+    "      - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u4FDD\u6301\u7EAF Markdown \u4E3A\u552F\u4E00\u6570\u636E\u6E90\uFF1B\u7ED3\u8BBA\uFF1A\u5361\u7247\u62D6\u62FD\u4F1A\u76F4\u63A5\u6539\u5199\u7F29\u8FDB\u5C42\u7EA7\u4E0E\u72B6\u6001\u5173\u952E\u5B57\uFF0C\u652F\u6301\u4EFB\u610F\u5D4C\u5957\u5C42\u7EA7\u4E0B\u94BB\u3002",
+    "    - DELEGATED \u8865\u5145 Harness \u53CC\u94FE\u4E0A\u4E0B\u6587\u89E3\u6790 @opencode",
+    "      - \u{1F4CB} \u81EA\u52A8\u8BFB\u53D6\u4EFB\u52A1\u4E2D\u5F15\u7528\u7684 `[[\u53CC\u94FE\u7B14\u8BB0]]` \u4E0E `^blockId` \u7247\u6BB5\u5E76\u6CE8\u5165\u59D4\u6D3E\u4E0A\u4E0B\u6587\u3002",
+    "  - TODO \u9636\u6BB5\u4E8C\uFF1A\u5C0F\u961F\u5DE5\u4F5C\u53F0\u4E0E\u591A\u6A21\u578B\u5E76\u53D1 ^ad-demo-p2",
+    "    - NEEDOK? \u786E\u8BA4\u591A Agent \u5E76\u53D1\u9ED8\u8BA4\u8D70\u540E\u53F0\u7B56\u7565 @claude",
+    "      - \u2753 \u591A Agent \u5DE5\u4F5C\u53F0\u4E00\u952E\u6D3E\u53D1\u65F6\uFF0C\u786E\u8BA4\u6240\u6709\u5B50\u8282\u70B9\u9ED8\u8BA4\u8D70\u540E\u53F0\u5E76\u53D1\u3001\u4E0D\u62A2\u5360\u684C\u9762\u7EC8\u7AEF\uFF1F",
+    "    - TOREVIEW \u5B9E\u673A\u6838\u5BF9\u770B\u677F\u62D6\u62FD\u91CD\u6392\u4E0E\u955C\u50CF\u8DF3\u8F6C @codex",
+    "      - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u6838\u9A8C\u955C\u50CF\u5361\u70B9\u51FB\u4E0E\u6E90\u4EFB\u52A1\u540C\u6B65\uFF1B\u7ED3\u8BBA\uFF1A\u70B9\u51FB\u4E0A\u65B9\u955C\u50CF\u5361\u7247\u53EF\u8DF3\u81F3\u672C\u6587\u5E95\u90E8\u6E90\u4EFB\u52A1\u3002",
+    "  - TODO \u6574\u7406\u6F14\u793A\u622A\u56FE\u4E0E\u53D1\u7248\u8BF4\u660E @qoder",
+    `  - ![[${noteLink}#^${SHOWCASE_MIRROR_SOURCE_KEY}]]`,
+    "",
+    "## 2. AI \u81EA\u52A8\u8BB0\u5F55 \xB7 \u56DB\u79CD\u89C6\u56FE\u5BF9\u7167\uFF08\u8868\u683C \xB7 \u5361\u7247 \xB7 \u65F6\u95F4\u7EBF \xB7 \u5927\u7EB2\uFF09",
+    "",
+    "\u70B9\u51FB\u6BCF\u6761\u4EFB\u52A1\u53F3\u4FA7\u7684 **\u8BB0\u5F55 / \u89C6\u56FE\u5207\u6362\u6309\u94AE**\uFF08`\u5927\u7EB2 \xB7 \u8868\u683C \xB7 \u5361\u7247 \xB7 \u65F6\u95F4\u7EBF`\uFF09\uFF0C\u53EF\u4EE5\u76F4\u63A5\u5BF9\u6BD4\u540C\u4E00\u4EFD AI \u8BB0\u5F55\u5728\u4E0D\u540C\u89C6\u56FE\u4E0B\u7684\u6392\u7248\u6548\u679C\uFF1A",
+    "",
+    `- DOING \u{1F916} \u6A21\u62DF\u81EA\u52A8\u8BB0\u5F55 \xB7 \u8868\u683C\u89C6\u56FE\uFF08Table\uFF09 ^${SHOWCASE_RECORD_KEYS.table}`,
+    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u68C0\u67E5\u6838\u5FC3\u6A21\u5757\u4F9D\u8D56\u8FB9\u754C\uFF0C\u786E\u8BA4 `src/` \u4E0B\u65E0\u5FAA\u73AF\u5F15\u7528\u3002",
+    "  - \u{1F4CB} \u5DF2\u626B\u63CF `src/outline.js`\u3001`src/harness.js` \u4E0E `src/project-workbench.js` \u7684\u5BFC\u51FA\u4F9D\u8D56\u3002",
+    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u5BA1\u8BA1\u6A21\u5757\u804C\u8D23\u4E0E\u4F9D\u8D56\u65B9\u5411\uFF1B\u7ED3\u8BBA\uFF1A\u5171\u4EAB\u5927\u7EB2\u89E3\u6790\u539F\u8BED\u5DF2\u7EDF\u4E00\u62BD\u53D6\uFF0C\u96F6\u5FAA\u73AF\u4F9D\u8D56\u3002",
+    "  - \u2753 \u7B2C2\u8F6E\uFF1A\u53D1\u7248\u524D\u6838\u5BF9\u5168\u90E8\u5355\u5143\u6D4B\u8BD5\u4E0E\u53CC\u8BED\u7FFB\u8BD1\u952E\u8986\u76D6\u7387\u3002",
+    "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u8FD0\u884C\u5B8C\u6574\u6D4B\u8BD5\u4E0E\u6784\u5EFA\u94FE\u8DEF\uFF1B\u7ED3\u8BBA\uFF1A\u5355\u5143\u6D4B\u8BD5\u3001\u67B6\u6784\u6821\u9A8C\u4E0E i18n \u952E\u68C0\u67E5\u5168\u90E8\u901A\u8FC7\u3002",
+    "  - \u23F1 \u6A21\u62DF\u8017\u65F6 12 \u5206\u949F\uFF08\u793A\u4F8B\u5360\u4F4D\uFF0C\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
+    "",
+    `- DONE \u{1F916} \u6A21\u62DF\u81EA\u52A8\u8BB0\u5F55 \xB7 \u5361\u7247\u89C6\u56FE\uFF08Cards\uFF09 ^${SHOWCASE_RECORD_KEYS.cards}`,
+    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u5728\u4FA7\u8FB9\u680F\u9879\u76EE\u5934\u589E\u52A0\u6253\u5F00\u76EE\u5F55\u3001\u56E2\u961F\u5DE5\u4F5C\u53F0\u4E0E\u6279\u91CF\u505C\u6B62\u5165\u53E3\u3002",
+    "  - \u{1F4CB} \u590D\u7528\u4E86\u5DE5\u4F5C\u6D41\u5C42\u7684\u6D3B\u8DC3\u8FDB\u7A0B\u7D22\u5F15\u4E0E\u9879\u76EE\u540D\u5F52\u4E00\u5316\u903B\u8F91\u3002",
+    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u5B8C\u6210\u9879\u76EE\u7EA7\u60AC\u505C\u5FEB\u6377\u64CD\u4F5C\u680F\uFF1B\u7ED3\u8BBA\uFF1A\u652F\u6301\u5355\u9879\u76EE\u4E00\u952E\u6279\u91CF\u505C\u6B62\u4E0E\u76F4\u63A5\u6253\u5F00\u9879\u76EE\u5DE5\u4F5C\u53F0\u3002",
+    "  - \u2753 \u7B2C2\u8F6E\uFF1A\u8865\u5145\u6392\u961F\u4E0E\u9650\u6D41\u72B6\u6001\u5728\u4FA7\u8FB9\u680F\u548C\u5DE5\u4F5C\u533A\u5361\u7247\u4E2D\u7684\u63D0\u793A\u6587\u6848\u3002",
+    "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u9002\u914D hitlimit \u4E0E queued \u72B6\u6001\u5C55\u793A\uFF1B\u7ED3\u8BBA\uFF1A\u53EF\u5C55\u793A\u6392\u961F\u5E8F\u53F7\u3001\u9884\u8BA1\u51B7\u5374\u5269\u4F59\u4E0E\u5177\u4F53\u539F\u56E0\u3002",
+    "  - \u23F1 \u6A21\u62DF\u8017\u65F6 9 \u5206\u949F\uFF08\u793A\u4F8B\u5360\u4F4D\uFF0C\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
+    "",
+    `- DOING \u{1F916} \u6A21\u62DF\u81EA\u52A8\u8BB0\u5F55 \xB7 \u65F6\u95F4\u7EBF\u89C6\u56FE\uFF08Timeline\uFF09 ^${SHOWCASE_RECORD_KEYS.timeline}`,
+    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u8BBE\u8BA1 WorkFlowy \u98CE\u683C\u7684\u8DE8\u7B14\u8BB0\u955C\u50CF\u5361\u7247\u6E32\u67D3\u4E0E\u6E90\u884C\u540C\u6B65\u3002",
+    "  - \u{1F4CB} \u5F15\u5165\u5171\u4EAB `parseMirrorRef`\uFF0C\u786E\u4FDD\u7EDF\u8BA1\u5206\u6790\u4E0E\u6BCF\u65E5\u5F52\u6863\u4E0D\u4F1A\u91CD\u590D\u8BA1\u5165\u955C\u50CF\u4EFB\u52A1\u3002",
+    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u652F\u6301\u770B\u677F\u4E2D\u6E32\u67D3 `![[note#^blockId]]` \u955C\u50CF\u5361\uFF1B\u7ED3\u8BBA\uFF1A\u5C55\u793A\u6E90\u72B6\u6001\u3001Agent \u6807\u7B7E\u4E0E\u4E00\u952E\u8DF3\u8F6C\u56FE\u6807\u3002",
+    "  - \u2753 \u7B2C2\u8F6E\uFF1A\u4E3A\u6DF1\u5C42\u5927\u7EB2\u6811\u8865\u5168 Zoom \u4E0B\u94BB\u4E0E\u9762\u5305\u5C51\u5BFC\u822A\u3002",
+    "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u652F\u6301\u4EFB\u610F\u6DF1\u5EA6\u5B50\u7EC4\u4E0B\u94BB\u770B\u677F\uFF1B\u7ED3\u8BBA\uFF1A\u9876\u90E8\u9762\u5305\u5C51\u53EF\u4E00\u952E\u8FD4\u56DE\u4E0A\u5C42\u6216\u6839\u8282\u70B9\u3002",
+    "  - \u23F1 \u6A21\u62DF\u8017\u65F6 15 \u5206\u949F\uFF08\u793A\u4F8B\u5360\u4F4D\uFF0C\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
+    "",
+    `- DONE \u{1F916} \u6A21\u62DF\u81EA\u52A8\u8BB0\u5F55 \xB7 \u5927\u7EB2\u89C6\u56FE\uFF08Outline\uFF09 ^${SHOWCASE_RECORD_KEYS.outline}`,
+    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u786E\u8BA4\u5F00\u542F\u770B\u677F\u4E0E\u8868\u683C\u88C5\u9970\u540E\uFF0C\u7EAF\u6587\u672C\u5927\u7EB2\u4F9D\u7136\u4FDD\u6301 100% \u539F\u751F\u53EF\u8BFB\u3002",
+    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u9A8C\u8BC1\u65E0\u635F Markdown \u683C\u5F0F\uFF1B\u7ED3\u8BBA\uFF1A\u5173\u6389\u63D2\u4EF6\u6216\u5728\u4EFB\u610F\u7F16\u8F91\u5668\u4E2D\u67E5\u770B\uFF0C\u5C42\u7EA7\u7F29\u8FDB\u3001\u4EFB\u52A1\u72B6\u6001\u4E0E\u8BB0\u5F55\u7B26\u53F7\u5B8C\u6574\u4FDD\u7559\u3002",
+    "  - \u23F1 \u6A21\u62DF\u8017\u65F6 6 \u5206\u949F\uFF08\u793A\u4F8B\u5360\u4F4D\uFF0C\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
+    "",
+    "## 3. \u955C\u50CF\u6E90\u4EFB\u52A1\uFF08\u88AB\u4E0A\u65B9\u770B\u677F\u76F4\u63A5\u5F15\u7528\uFF09",
+    "",
+    `- DOING \u5BF9\u9F50\u6D45\u8272 / \u6DF1\u8272\u4E3B\u9898\u4E0E\u770B\u677F\u6837\u5F0F\u53D8\u91CF ^${SHOWCASE_MIRROR_SOURCE_KEY}`,
+    "  - \u8FD9\u662F\u4E0A\u65B9\u5206\u5F62\u770B\u677F\u91CC `\u955C\u50CF` \u5361\u7247\u6307\u5411\u7684\u6E90\u4EFB\u52A1\u3002\u8BD5\u7740\u628A\u8FD9\u91CC\u7684 `DOING` \u6539\u6210 `DONE`\uFF0C\u4E0A\u65B9\u770B\u677F\u91CC\u7684\u955C\u50CF\u5361\u7247\u4F1A\u540C\u6B65\u5207\u6362\u72B6\u6001\u3002",
+    ""
+  ].join("\n");
+}
+
 // src/main.js
 var fsp8 = import_fs12.default.promises;
 var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
@@ -26150,6 +26349,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     this.addCommand({ id: "dream-export", name: t("Dreaming\uFF1A\u5BFC\u51FA\u957F\u671F\u8BB0\u5FC6 Markdown \u526F\u672C"), callback: () => this.dreaming.exportMemory() });
     this.addCommand({ id: "import-nautilus", name: t("\u5BFC\u5165\u87BA\u65CB\u65E5\u7A0B\u7684\u5386\u53F2\u7528\u91CF"), callback: () => this.importNautilus(true) });
     this.addCommand({ id: "clean-jobs", name: t("\u6E05\u7406\u5DF2\u7ED3\u675F\u7684\u59D4\u6D3E\u8BB0\u5F55"), callback: () => this.cleanJobs() });
+    this.addCommand({ id: "open-welcome-showcase", name: t("\u6253\u5F00 1.10.0 \u65B0\u529F\u80FD\u793A\u4F8B\u7B14\u8BB0"), callback: () => this.openWelcomeShowcase() });
     this.registerObsidianProtocolHandler("agent-deck", async (params) => {
       if (params && params.do === "scan") return this.scanNow();
       if (params && params.do === "log") return this.autoLog.logNow();
@@ -26204,6 +26404,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
         }), 3500);
       }
       this.defer(() => this.recoverJobs(), 4e3);
+      this.defer(() => this.maybeOpenWelcomeShowcase().catch((e) => console.error("[agent-deck] showcase", e)), 600);
     });
   }
   onunload() {
@@ -26272,6 +26473,42 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     if (!leaf) return false;
     leaf.setViewState({ type: VIEW_TYPE, active: false });
     return true;
+  }
+  async maybeOpenWelcomeShowcase() {
+    if (this._unloaded) return false;
+    if (this.settings?.welcomeShowcaseVersion === SHOWCASE_VERSION) return false;
+    return Boolean(await this.openWelcomeShowcase({ force: false }));
+  }
+  async openWelcomeShowcase({ force = false } = {}) {
+    if (this._unloaded || !this.app?.vault?.getAbstractFileByPath || !this.app?.vault?.modify) return null;
+    const lang = currentLanguage();
+    const targetPath = showcasePath(lang);
+    const content = buildShowcaseMarkdown(lang);
+    const presetChanged = applyShowcaseDefaults(this.settings, { force });
+    let file = this.app.vault.getAbstractFileByPath(targetPath);
+    let created = false;
+    if (!file) {
+      const ensured = await this.ensureNoteFile(targetPath);
+      file = ensured.file;
+      created = true;
+    }
+    if (created || force) await this.app.vault.modify(file, content);
+    const prevVersion = this.settings.welcomeShowcaseVersion;
+    this.settings.welcomeShowcaseVersion = SHOWCASE_VERSION;
+    if (presetChanged || prevVersion !== SHOWCASE_VERSION) await this.saveSettings?.();
+    this.refreshUI?.();
+    dispatchRefresh(this);
+    let opened = null;
+    this.app.workspace?.iterateAllLeaves?.((leaf) => {
+      if (!opened && leaf?.view?.file?.path === targetPath) opened = leaf;
+    });
+    if (opened) {
+      this.app.workspace.revealLeaf(opened);
+    } else {
+      const leaf = this.app.workspace?.getLeaf?.("tab") || this.app.workspace?.getLeaf?.(false);
+      if (leaf?.openFile) await leaf.openFile(file, { active: true });
+    }
+    return targetPath;
   }
   async activateView() {
     let leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];

@@ -98,8 +98,12 @@ export function extractWikilinkRefs(lines = [], { embeds = false } = {}) {
   const refs = [];
   const seen = new Set();
   const re = embeds ? EMBED_WIKILINK_RE : WIKILINK_RE;
-  for (const raw of lines) {
-    const line = String(raw || "");
+  // 多行块文本按行展开；代码块内的示例链接不算上下文引用。
+  const flat = lines.flatMap((line) => String(line ?? "").split("\n"));
+  const fenced = fencedLines(flat);
+  for (let i = 0; i < flat.length; i++) {
+    if (fenced.has(i)) continue;
+    const line = flat[i];
     for (const m of line.matchAll(re)) {
       const target = String(m[1] || "").trim();
       if (!target) continue;

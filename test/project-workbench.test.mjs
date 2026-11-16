@@ -37,6 +37,17 @@ const { AGENT_ORDER } = await import("../src/constants.js");
 const { buildDelegationPayload } = await import("../src/harness.js");
 const { journalSources } = await import("../src/analytics.js");
 const { evidenceBlocks } = await import("../src/dream.js");
+const { aiRecordGroups } = await import("../src/ai-records.js");
+const { parseMirrorRef } = await import("../src/outline.js");
+const {
+  SHOWCASE_VERSION,
+  SHOWCASE_BOARD_KEY,
+  SHOWCASE_MIRROR_SOURCE_KEY,
+  SHOWCASE_RECORD_KEYS,
+  showcasePath,
+  applyShowcaseDefaults,
+  buildShowcaseMarkdown,
+} = await import("../src/welcome-demo.js");
 
 test("buildProjectGroups aggregates multi-agent sessions and pending jobs by project", () => {
   const now = Date.now();
@@ -542,4 +553,47 @@ test("Fractal board Stage A/B/C: inline card edits, subtree moves, mirror isolat
 
   const blocks = evidenceBlocks(mirrorNote, "daily/2026-11-16.md");
   assert.ok(!blocks.some((b) => b.text.includes("ad-remote")), "Dreaming never double-collects mirror lines");
+});
+
+test("welcome showcase note builds bilingual boards, all four AI record views, and self-resolving mirror link without fake session links", () => {
+  assert.equal(showcasePath("zh"), `Agent Deck/功能示例-${SHOWCASE_VERSION}.md`);
+  assert.equal(showcasePath("en"), `Agent Deck/Welcome-${SHOWCASE_VERSION}.md`);
+
+  for (const lang of ["zh", "en"]) {
+    const md = buildShowcaseMarkdown(lang);
+    assert.ok(!md.includes("🔗"), `${lang} showcase must not bind fake 🔗 session links`);
+
+    const boardGroups = extractTaskBoardGroups(md);
+    const rootBoard = boardGroups.find((g) => g.key === SHOWCASE_BOARD_KEY);
+    assert.ok(rootBoard, `${lang} root fractal board parsed`);
+    const model = buildTaskBoardModel(rootBoard, null, { groupBy: "children" });
+    assert.ok(model.columns.length >= 2, `${lang} board renders child group columns`);
+    const mirrorCards = model.columns.flatMap((c) => c.cards).filter((c) => c.isMirror && c.mirror);
+    assert.equal(mirrorCards.length, 1, `${lang} board includes one mirror card`);
+    assert.equal(mirrorCards[0].mirror.blockId, SHOWCASE_MIRROR_SOURCE_KEY);
+    assert.ok(md.includes(`^${SHOWCASE_MIRROR_SOURCE_KEY}`), `${lang} showcase defines mirror source block`);
+    assert.ok(parseMirrorRef(`- ${mirrorCards[0].mirror.raw}`), "mirror line matches parseMirrorRef");
+
+    const recGroups = aiRecordGroups(md);
+    for (const key of Object.values(SHOWCASE_RECORD_KEYS)) {
+      const grp = recGroups.find((g) => g.key === key && g.topLevel);
+      assert.ok(grp, `${lang} top-level AI record group ${key} parsed`);
+      assert.ok((grp.tableEntries || []).length >= 3, `${lang} ${key} has multi-round record entries`);
+    }
+  }
+
+  const settings = {};
+  assert.equal(applyShowcaseDefaults(settings), true);
+  assert.deepEqual(settings.taskBoardViews[SHOWCASE_BOARD_KEY], { mode: "board", groupBy: "children", zoomStack: [] });
+  assert.equal(settings.aiRecordViews[SHOWCASE_RECORD_KEYS.table], "table");
+  assert.equal(settings.aiRecordViews[SHOWCASE_RECORD_KEYS.cards], "cards");
+  assert.equal(settings.aiRecordViews[SHOWCASE_RECORD_KEYS.timeline], "timeline");
+  assert.equal(settings.aiRecordExpanded[SHOWCASE_RECORD_KEYS.outline], true);
+  // Idempotent on second run and respects user customization when force=false.
+  assert.equal(applyShowcaseDefaults(settings), false);
+  settings.taskBoardViews[SHOWCASE_BOARD_KEY] = "outline";
+  assert.equal(applyShowcaseDefaults(settings, { force: false }), false);
+  assert.equal(settings.taskBoardViews[SHOWCASE_BOARD_KEY], "outline");
+  assert.equal(applyShowcaseDefaults(settings, { force: true }), true);
+  assert.deepEqual(settings.taskBoardViews[SHOWCASE_BOARD_KEY], { mode: "board", groupBy: "children", zoomStack: [] });
 });

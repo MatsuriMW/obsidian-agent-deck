@@ -27,6 +27,7 @@ export default {
   "Dreaming：导出长期记忆 Markdown 副本": "Dreaming: export a Markdown copy of long-term memory",
   "导入螺旋日程的历史用量": "Import Nautilus Spiral usage history",
   "清理已结束的委派记录": "Clean up finished delegation records",
+  "打开 1.10.0 新功能示例笔记": "Open 1.10.0 feature showcase note",
 
   // ----- notices: menu bar, scanning, importing -----
   "macOS 菜单栏已关闭，请先在「追踪」里打开": "The macOS menu bar is off — turn it on under Tracking first",

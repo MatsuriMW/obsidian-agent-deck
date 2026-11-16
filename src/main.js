@@ -47,7 +47,7 @@ import { mentionOptions, mentionTrigger } from "./task-mentions.js";
 import { Dreaming } from "./dream.js";
 import { ConversationModal, AcpPermissionModal } from "./conversation-modal.js";
 import { registerTaskAgentSuggest } from "./mention-suggest.js";
-import { t } from "./i18n.js";
+import { t, currentLanguage } from "./i18n.js";
 import { registerTaskStatusMenu } from "./task-status.js";
 import {
   copyTaskMarkdown, copyTaskMarkdownTable, copyTaskPlainText, copyTaskJson,
@@ -70,6 +70,7 @@ import {
   STANDALONE_PROJECT_ID,
 } from "./project-workbench.js";
 import { setTaskBoardEffect, taskBoardMode } from "./fractal-board.js";
+import { SHOWCASE_VERSION, showcasePath, applyShowcaseDefaults, buildShowcaseMarkdown } from "./welcome-demo.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -200,6 +201,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "dream-export", name: t("Dreaming：导出长期记忆 Markdown 副本"), callback: () => this.dreaming.exportMemory() });
     this.addCommand({ id: "import-nautilus", name: t("导入螺旋日程的历史用量"), callback: () => this.importNautilus(true) });
     this.addCommand({ id: "clean-jobs", name: t("清理已结束的委派记录"), callback: () => this.cleanJobs() });
+    this.addCommand({ id: "open-welcome-showcase", name: t("打开 1.10.0 新功能示例笔记"), callback: () => this.openWelcomeShowcase() });
 
     this.registerObsidianProtocolHandler("agent-deck", async (params) => {
       if (params && params.do === "scan") return this.scanNow();
@@ -247,6 +249,7 @@ export default class AgentDeckPlugin extends Plugin {
         this.defer(() => this.importNautilus(false).catch(() => {}), 3500);
       }
       this.defer(() => this.recoverJobs(), 4000);
+      this.defer(() => this.maybeOpenWelcomeShowcase().catch((e) => console.error("[agent-deck] showcase", e)), 600);
     });
   }
 
@@ -304,6 +307,47 @@ export default class AgentDeckPlugin extends Plugin {
     if (!leaf) return false;
     leaf.setViewState({ type: VIEW_TYPE, active: false });
     return true;
+  }
+
+  async maybeOpenWelcomeShowcase() {
+    if (this._unloaded) return false;
+    if (this.settings?.welcomeShowcaseVersion === SHOWCASE_VERSION) return false;
+    return Boolean(await this.openWelcomeShowcase({ force: false }));
+  }
+
+  async openWelcomeShowcase({ force = false } = {}) {
+    if (this._unloaded || !this.app?.vault?.getAbstractFileByPath || !this.app?.vault?.modify) return null;
+    const lang = currentLanguage();
+    const targetPath = showcasePath(lang);
+    const content = buildShowcaseMarkdown(lang);
+    const presetChanged = applyShowcaseDefaults(this.settings, { force });
+
+    let file = this.app.vault.getAbstractFileByPath(targetPath);
+    let created = false;
+    if (!file) {
+      const ensured = await this.ensureNoteFile(targetPath);
+      file = ensured.file;
+      created = true;
+    }
+    if (created || force) await this.app.vault.modify(file, content);
+
+    const prevVersion = this.settings.welcomeShowcaseVersion;
+    this.settings.welcomeShowcaseVersion = SHOWCASE_VERSION;
+    if (presetChanged || prevVersion !== SHOWCASE_VERSION) await this.saveSettings?.();
+    this.refreshUI?.();
+    dispatchRefresh(this);
+
+    let opened = null;
+    this.app.workspace?.iterateAllLeaves?.((leaf) => {
+      if (!opened && leaf?.view?.file?.path === targetPath) opened = leaf;
+    });
+    if (opened) {
+      this.app.workspace.revealLeaf(opened);
+    } else {
+      const leaf = this.app.workspace?.getLeaf?.("tab") || this.app.workspace?.getLeaf?.(false);
+      if (leaf?.openFile) await leaf.openFile(file, { active: true });
+    }
+    return targetPath;
   }
 
   async activateView() {

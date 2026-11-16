@@ -47,12 +47,16 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
   - **看板内全流程操作**：支持进度条总览、快捷新增子卡（`+ 子卡`）、行内指派 `@agent`、跨列/跨组拖拽子树（原子改写标准 Markdown，不造私有语法）、单卡查看正文 / 停止 / 派发与一键「派发 TODO」（自动附带同看板兄弟分工上下文）；
   - **单源镜像卡**：通过 `- ![[笔记#^blockId]]` 或 `- [[笔记#^blockId]]` 引用其他笔记的任务卡，在看板内显示虚线 `镜像` 角标，改状态直接回写源笔记，且被 Dashboard 统计与 Dreaming 记忆提取自动跳过以防重复计数。
 
+演示顺序为小队草案 → Markdown 大纲 → 子组看板；实测范围与待验收项见 [发布说明](CHANGELOG.md#演示素材与验证范围)。
+
 <p align="center">
-  <img src="assets/fractal-board-outline.jpg" width="840" alt="标准 Markdown 大纲态：父任务行尾带「看板 4」切换按钮，下方保留完整状态图标、@agent 路由与 💬 记录">
+  <img src="assets/project-workbench.png" width="680" alt="真实 Obsidian 项目协作工作台：小队角色、可编辑子任务草案与写入前确认入口，未触发派发">
 </p>
 <p align="center">
-  <img src="assets/fractal-board-kanban.jpg" width="840" alt="原地分形看板态（按子组分列）：进度条、快捷新增子卡、阶段列、Agent 徽章、派发/停止与虚线镜像卡">
+  <img src="assets/fractal-board-views.png" width="840" alt="原地分形看板对照：左为标准 Markdown 大纲态（看板 4 切换、@agent 路由与记录），右为按子组分列的分形看板（进度条、快捷新增子卡、派发/停止与虚线镜像卡）">
 </p>
+
+> **首次安装 / 升级交互示例**：升级到 **1.10.0** 后首次打开 Obsidian 会自动生成并打开模拟示例笔记 `Agent Deck/功能示例-1.10.0.md`（不绑定真实会话，也不计入统计），同屏体验分形看板（含 Zoom 与同笔记镜像跳转）及 4 种 AI 记录视图；后续可通过命令面板「打开 1.10.0 新功能示例笔记」随时重开。
 
 ### 4. 人机共写日记、整理与归档
 - **自动记日记与回写**：定时扫描当日会话，自动匹配或新建日记任务行，实时同步状态、`⏱` 活动时段、每轮简略/标准/详细记录以及嵌套子会话 / Side Chat / Subagent 子块；新建 AI 自动记录母块默认使用 `**标题**` 加粗突出显示并带项目 / Bot 前缀，可在「设置 → 记录 → 日记与归档 → 更多设置 → 记录规则细则」自定义加粗、前缀、起止时间段、标题长度上限与 Grok Bot 无新对话自动 `DONE` 时长；后台回答不超过 500 字时完整写入子块，超过时返回 `Agent Deck/Answers/` 中的 Markdown 文件链接（含完整问题与回答、清除内部追踪标识，不另调总结模型）。普通会话结论默认 350 字，摘要中的长网址与文件路径折叠为可点击短链。
@@ -74,7 +78,7 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 - 统计 **Agent 分布**与**模型分布**（Token、轮均用量、缓存命中率等）并支持联动筛选；结合日记链接、标题、目录与别名自动汇总**项目投入**（支持按 Token / 耗时 / 会话数 / 名称与升降序排序）、手动修正项目归属、按日期下钻明细并跳回来源日记块或原会话；不调用额外模型，也不改写日记。
 
 <p align="center">
-  <img src="assets/dashboard.png" width="680" alt="Agent Deck 协作回顾 Dashboard：Token 热力图、24 小时作息与并发、Agent 与模型分布及项目投入">
+  <img src="assets/dashboard.png" width="840" alt="Agent Deck 协作回顾 Dashboard（并列双栏）：左为 Token 热力图、24 小时作息与并发及 Agent 分布，右为模型分布与项目投入明细">
 </p>
 
 ### 6. macOS 菜单栏助手、Dreaming 与双语界面
@@ -103,7 +107,7 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 ## 安装与依赖
 
 ### 1. 安装插件
-可在 Obsidian 社区插件市场直接安装，或从 GitHub Releases 手动下载（当前版本 **1.9.11**，需 Obsidian **1.4.0+** 桌面端）：
+可在 Obsidian 社区插件市场直接安装，或从 GitHub Releases 手动下载（当前版本 **1.10.0**，需 Obsidian **1.4.0+** 桌面端）：
 
 1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck** 并点击安装、启用。
 2. 或前往 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新产物中的 `main.js`、`manifest.json`、`styles.css`，放入 `<Vault>/.obsidian/plugins/agent-deck/` 后在「设置 → 第三方插件」中启用。

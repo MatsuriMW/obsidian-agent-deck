@@ -47,12 +47,16 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
   - **Full in-board workflow**: Track completion progress, quick-add cards inline (`+ Card`), assign `@agent` per card, drag subtrees across columns or reorder cards (atomically rewriting standard Markdown without proprietary syntax), inspect transcripts, stop active runs, or batch-dispatch `TODO` cards with sibling board context injected via Harness;
   - **Single-source mirror cards**: Reference tasks across notes via `- ![[note#^blockId]]` or `- [[note#^blockId]]` as dashed **Mirror** cards—status changes write back to the primary source note, while Dashboard analytics and Dreaming explicitly ignore mirror lines to prevent double counting.
 
+Demo order: team draft → Markdown outline → grouped board. See the [release notes](CHANGELOG.md#演示素材与验证范围) for observed behavior and pending acceptance checks.
+
 <p align="center">
-  <img src="assets/fractal-board-outline.jpg" width="840" alt="Standard Markdown outline view with the inline Board 4 toggle, status icons, @agent routing, and AI replies">
+  <img src="assets/project-workbench.png" width="680" alt="Actual Obsidian Project Workbench with team roles, editable subtask drafts, and confirmation controls; no tasks dispatched">
 </p>
 <p align="center">
-  <img src="assets/fractal-board-kanban.jpg" width="840" alt="In-place Fractal Board (By group mode) showing progress bar, quick-add bar, phase columns, Agent badges, dispatch/stop actions, and dashed mirror card">
+  <img src="assets/fractal-board-views.png" width="840" alt="In-place Fractal Board comparison: left shows standard Markdown outline with Board 4 toggle, status icons, @agent routing, and replies; right shows By-group Fractal Board with progress bar, quick-add, phase columns, dispatch/stop controls, and dashed mirror card">
 </p>
+
+> **Interactive 1.10.0 Welcome Showcase**: On your first launch after installing or upgrading to **1.10.0**, Agent Deck automatically creates and opens `Agent Deck/Welcome-1.10.0.md` (`功能示例-1.10.0.md` in Chinese UI) — a safe simulated sandbox (no real sessions or analytics affected) demonstrating the Fractal Board (with Zoom & mirror jump) and all four AI record views side by side. Reopen anytime via Command Palette → `Open 1.10.0 feature showcase note`.
 
 ### 4. Human–AI Journal, Organization & Archiving
 - **Auto-journaling & write-back**: Periodically matches or creates daily-note task lines for today's sessions and syncs status, `⏱` active spans, per-turn records (brief / standard / detailed), and nested child session / side-chat / subagent blocks. Newly generated top-level AI record titles default to bold Markdown (`**title**`) with project/bot prefixes, and can be customized under **Settings → Records → Journal & Archive → More settings → Record formatting rules** (title bolding, project/bot prefix, time range, max title length, and Grok Bot idle auto-DONE threshold). Background answers of up to 500 characters are written inline in full; longer answers return a link to a Markdown file under `Agent Deck/Answers/` containing the full question and answer with internal tracking metadata removed (no extra summary model called). Regular session conclusions default to 350 characters, with long addresses shortened to clickable labels.
@@ -75,7 +79,7 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 - Uses only locally tracked history; makes no extra model calls and never modifies your journal.
 
 <p align="center">
-  <img src="assets/dashboard.png" width="680" alt="Agent Deck Review Dashboard: token heatmap, 24-hour rhythm and concurrency, Agent and model breakdowns, and project activity">
+  <img src="assets/dashboard.png" width="840" alt="Agent Deck Review Dashboard (side-by-side panels): left shows Token Heatmap, 24-hour Rhythm and Concurrency, and Agent breakdown; right shows Model breakdown and Project activity">
 </p>
 
 ### 6. macOS Menu Bar Helper, Dreaming & Bilingual UI
@@ -104,7 +108,7 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 ## Installation & Requirements
 
 ### 1. Installing the Plugin
-Install directly from Obsidian Community Plugins, or download manually from GitHub Releases (current version **1.9.11**, requires Obsidian **1.4.0+** desktop):
+Install directly from Obsidian Community Plugins, or download manually from GitHub Releases (current version **1.10.0**, requires Obsidian **1.4.0+** desktop):
 
 1. Open **Settings → Community plugins → Browse** in Obsidian, search for **Agent Deck**, then install and enable it.
 2. Or download `main.js`, `manifest.json`, and `styles.css` from [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases), place them in `<your-vault>/.obsidian/plugins/agent-deck/`, and enable **Agent Deck** in **Settings → Community plugins**.
