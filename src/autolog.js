@@ -10,7 +10,7 @@ import { serializeNote } from "./note-updates.js";
 // 状态记在 settings.autoLogState：{ 日记日: { 会话号: { key, label, status, … } } }。
 
 import { Notice, MarkdownView } from "obsidian";
-import { AGENTS, AGENT_ORDER, dayKey, dayKeyToday, dayMinute, startOfDay, unionSegs, journalPath } from "./constants.js";
+import { AGENTS, AGENT_ORDER, dayKey, dayKeyToday, dayMinute, startOfDay, unionSegs, journalPath, resolveRecordRules } from "./constants.js";
 import * as J from "./journal.js";
 import { sessionProjectName } from "./readers.js";
 import { runJournalModel, safeLabel } from "./llm.js";
@@ -36,9 +36,22 @@ export class AutoLog {
   get minMinutes() { return Math.max(0, num(this.cfg.autoLogMinMinutes, 3)); }
   get batch() { return Math.max(1, Math.round(num(this.cfg.autoLogBatch, 8))); }
   agentOn(id) { return AGENT_ORDER.includes(id) && (this.cfg.autoLogAgents || {})[id] !== false; }
+  grokDoneMinutes(idle = Math.max(5, this.cfg.autoLogIdle || 10)) {
+    const raw = this.cfg.autoLogGrokBotDoneMinutes;
+    const n = raw == null ? 120 : Number(raw);
+    return Number.isFinite(n) && n > 0 ? Math.max(idle, n) : 0;
+  }
+  rules() { return resolveRecordRules(this.cfg); }
   projectOf(x) {
+    if (!this.rules().projectPrefix) return "";
     const cwd = x?.cwd || this.usage?.meta?.get(x?.sid)?.cwd || "";
-    return sessionProjectName(cwd);
+    const proj = sessionProjectName(cwd);
+    if (proj) return proj;
+    if (x?.agent === "grokbot") {
+      const meta = x?.sid ? this.usage?.meta?.get(x.sid) : null;
+      return String(meta?.title || x?.title || "").trim();
+    }
+    return "";
   }
 
   dayKey() { return dayKeyToday(this.cfg); }
@@ -145,14 +158,17 @@ export class AutoLog {
     if (!found) {
       if (!rec.fresh) return { text, gone: true };
       const isAuto = rec.created !== false || String(rec.label || "").startsWith("🤖");
+      const rules = this.rules();
       const rawLine = isAuto
         ? J.formatAutoTaskLine({
             prefix: "- ",
             kw,
             start: startClock || J.clock(0),
             end: endClock || startClock || J.clock(0),
-            title: J.formatProjectAutoTitle(rec.label, rec.proj || this.projectOf(x)),
+            title: J.formatProjectAutoTitle(rec.label, rec.proj || this.projectOf(x), rules.titleMax),
             blockId: preferId,
+            boldTitle: rules.boldTitle,
+            showTimeRange: rules.showTimeRange,
           })
         : status === "doing" ? `- DOING ${startClock || J.clock(0)} ${rec.label}`
         : status === "done" ? `- DONE ${endClock ? endClock + " " : ""}${rec.label}`
@@ -169,6 +185,7 @@ export class AutoLog {
     if (!p) return { text };
     const isAuto = Boolean(p.auto);
     if (isAuto) {
+      const rules = this.rules();
       const clockSpan = J.clockSpanFromLines(lines, found.line);
       const start = startClock || p.since || clockSpan?.start || "";
       const end = endClock || (p.until && p.until !== p.since ? p.until : clockSpan?.end) || p.until || p.since || start;
@@ -178,6 +195,7 @@ export class AutoLog {
         start,
         end,
         title: p.title, preserveTitle: true,
+        showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
         blockId: preferId,
       }), preferId);
       rec.blockId = eb.blockId;
@@ -259,8 +277,9 @@ export class AutoLog {
       for (const { x } of items) {
         const meta = this.usage.meta.get(x.sid) || {};
         const proj = this.projectOf(x);
-        const rawLabel = x.title || condenseUserPrompt((x.text || "").split(" / ")[0]);
-        const label = String(rawLabel || "").trim() ? J.formatProjectAutoTitle(rawLabel, proj) : "";
+        const promptText = condenseUserPrompt((x.text || "").split(" / ")[0]);
+        const rawLabel = (x.agent === "grokbot" && x.title === proj) ? (promptText || x.title) : (x.title || promptText);
+        const label = String(rawLabel || "").trim() ? J.formatProjectAutoTitle(rawLabel, proj, this.rules().titleMax) : "";
         const summary = J.oneSentenceConclusion(meta.lastText || "", 80);
         if (label) out.set(x.sid, { label, proj, summary, matchKey: null, done: false, todos: [], skip: false });
       }
@@ -281,7 +300,7 @@ export class AutoLog {
         if (!sid) continue;
         const meta = this.usage.meta.get(sid) || {};
         const proj = this.projectOf(item.x);
-        const label = String(a.label || "").trim() ? J.formatProjectAutoTitle(a.label, proj) : "";
+        const label = String(a.label || "").trim() ? J.formatProjectAutoTitle(a.label, proj, this.rules().titleMax) : "";
         const summary = safeLabel(a.summary || "", 60) || J.oneSentenceConclusion(meta.lastText || "", 80);
         const m = Number.isInteger(a.match) && open[a.match - 1] ? open[a.match - 1] : null;
         out.set(sid, {
@@ -312,7 +331,7 @@ export class AutoLog {
   // 跨日期会话留在原起始日日记，过了零点的新会话再记到今天。
   originDayOf(x, today) {
     const sid = x?.sid;
-    if (!sid) return today;
+    if (!sid || x?.agent === "grokbot") return today;
     for (const d of Object.keys(this.cfg.autoLogState || {}).sort()) {
       if (d >= today) continue;
       const rec = this.cfg.autoLogState[d]?.[sid];
@@ -390,6 +409,7 @@ export class AutoLog {
     try {
       if (!list.length) return true;
       const idle = Math.max(5, this.cfg.autoLogIdle || 10);
+      const grokDone = this.grokDoneMinutes(idle);
       const now = this.nowMin() + shiftMin;
       const st = this.state(day);
       snap = JSON.stringify(st);
@@ -408,6 +428,8 @@ export class AutoLog {
         if (!rec) {
           if (x.min < this.minMinutes && !arch.has(x.sid)) continue;
           todo.push({ x, active, fresh: true });
+        } else if (x.agent === "grokbot" && rec.status === "done" && rec.doneAtMin != null && last > rec.doneAtMin && active) {
+          todo.push({ x, active, fresh: true, sinceMs: rec.doneEndMs || 0 });
         } else if (rec.status === "doing" && !active && !rec.asked && !arch.has(x.sid)) todo.push({ x, active, rec });
         else live.push({ x, active, rec });
       }
@@ -424,10 +446,10 @@ export class AutoLog {
         const base = await this.read(file);
         const linked = J.linkMap(base);
         let text = base;
-        const digest = { doing: [], paused: [], done: [], archived: [], todo: [] };
+        const digest = { doing: [], paused: [], done: [], archived: [], idleDone: [], todo: [] };
         const clocks = new Set();
         const work = ((this.cfg.workLog ||= {})[day] ||= {});
-        for (const { x, active, fresh } of [...ask, ...todo.slice(this.batch), ...live]) {
+        for (const { x, active, fresh, sinceMs } of [...ask, ...todo.slice(this.batch), ...live]) {
           if (linked.has(x.sid)) continue;
           const a = ans.get(x.sid);
           const last = x.segs[x.segs.length - 1][1];
@@ -439,8 +461,9 @@ export class AutoLog {
             if (m && !active && m.state !== "doing" && m.state !== "paused") m = null;
             if (!m && !a.label) { st[x.sid] = { skip: true }; continue; }
             const label = m ? m.body : J.AUTO_MARK + a.label;
-            const blockId = (m && m.blockId) || J.makeBlockId(x.sid, x.agent, a.slug);
-            rec = st[x.sid] = { key: J.workKey(label), label, blockId, created: !m, agent: x.agent, proj: m ? "" : (a.proj || this.projectOf(x)), status: m ? m.state : null, fresh: !m };
+            const seed = sinceMs ? `${x.sid}:${sinceMs}` : x.sid;
+            const blockId = (m && m.blockId) || J.makeBlockId(seed, x.agent, a.slug);
+            rec = st[x.sid] = { key: J.workKey(label), label, blockId, created: !m, agent: x.agent, proj: m ? "" : (a.proj || this.projectOf(x)), status: m ? m.state : null, fresh: !m, ...(sinceMs ? { sinceMs } : {}) };
           }
           rec.min = x.min;
           if (a) rec.asked = !active;
@@ -465,13 +488,24 @@ export class AutoLog {
             delete rec.autoPaused;
           }
           const name = J.workKey(rec.label).replace(J.AUTO_MARK, "");
-          if (!manualState && this.allArchived(st, x.sid, rec, arch)) {
+          const grokIdleDone = x.agent === "grokbot" && grokDone > 0 && now - last >= grokDone && !(rec.hold && Date.now() < rec.hold);
+          const archDone = this.allArchived(st, x.sid, rec, arch);
+          if (!manualState && (archDone || grokIdleDone)) {
             text = this.autoLine(text, rec, x, "done").text;
             rec.status = "done";
+            if (x.agent === "grokbot") {
+              rec.doneAtMin = last;
+              rec.doneEndMs = (this.usage.meta.get(x.sid)?.lastAt) || Date.now();
+            }
             delete rec.fresh; delete rec.parkedAt; delete rec.hold; delete rec.autoPaused;
             clocks.add(rec.key);
-            digest.archived.push(`${name}（${x.min}m）`);
-            report.changes.push(t("DONE（已归档）：{name}（{min}m）", { name: rec.label, min: x.min }));
+            if (archDone) {
+              digest.archived.push(`${name}（${x.min}m）`);
+              report.changes.push(t("DONE（已归档）：{name}（{min}m）", { name: rec.label, min: x.min }));
+            } else {
+              digest.idleDone.push(`${name}（${x.min}m）`);
+              report.changes.push(t("DONE（长时间无新对话）：{name}（{min}m）", { name: rec.label, min: x.min }));
+            }
           } else if (!manualState && active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
             text = this.autoLine(text, rec, x, "doing").text;
             rec.status = "doing";
@@ -491,7 +525,10 @@ export class AutoLog {
           }
           if (a && !active && a.done && !rec.doneHint) { rec.doneHint = true; digest.done.push(`${name}（${x.min}m）`); report.changes.push(t("看着做完了：{name}", { name: rec.label })); }
           const meta = this.usage.meta.get(x.sid) || {};
-          const rounds = Array.isArray(meta.rounds) ? meta.rounds : [];
+          const rawRounds = Array.isArray(meta.rounds) ? meta.rounds : [];
+          const rounds = x.agent === "grokbot"
+            ? rawRounds.filter((r) => (!r?.at || dayKey(r.at, this.cfg) === day) && (!rec.sinceMs || !r?.at || r.at > rec.sinceMs))
+            : rawRounds;
           const rawSummary = (a && a.summary) || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? J.oneSentenceConclusion(meta.lastText, 90) : "");
           if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
           const pendingTodos = (a && !active && Array.isArray(a.todos) && !rec.todosAdded) ? a.todos : [];
@@ -550,22 +587,30 @@ export class AutoLog {
     }
   }
 
-  // 前几天记下、还挂着的行：会话归档了，就在它当天的日记里补成 DONE。
+  // 前几天记下、还挂着的行：会话归档了（或 Grok Bot 长时间无新对话），就在它当天的日记里补成 DONE。
   // 同一任务的会话全部归档才完成；日记正好被改过就跳过这一天。
   async archivePast(arch, today) {
-    if (!arch.size) return [];
+    const grokDone = this.grokDoneMinutes();
+    if (!arch.size && !grokDone) return [];
     const out = [];
     for (const day of Object.keys(this.cfg.autoLogState || {})) {
       if (day === today) continue;
       const file = this.journalFile(day);
       if (!file) continue;
       const st = this.cfg.autoLogState[day] || {};
-      const hits = Object.entries(st).filter(([sid, r]) => arch.has(sid) && r.key && !r.skip && !r.gone && r.status !== "done" && this.allArchived(st, sid, r, arch));
+      const list = (this.usage.summary(day) || {}).list || [];
+      const grokIdleDone = (sid, r) => {
+        if (r.agent !== "grokbot" || !grokDone) return false;
+        const x = list.find((s) => s.sid === sid && s.segs && s.segs.length);
+        const lastMin = x ? x.segs[x.segs.length - 1][1] : 0;
+        const lastMs = startOfDay(new Date(String(day).replace(/^(\d{4})\D(\d{2})\D(\d{2})$/, "$1-$2-$3") + "T12:00:00").getTime(), this.cfg) + lastMin * 60000;
+        return (Date.now() - lastMs) >= grokDone * 60000;
+      };
+      const hits = Object.entries(st).filter(([sid, r]) => r.key && !r.skip && !r.gone && r.status !== "done" && ((arch.has(sid) && this.allArchived(st, sid, r, arch)) || grokIdleDone(sid, r)));
       if (!hits.length) continue;
       const base = await this.read(file);
       let text = base;
       const before = new Map(hits.map(([sid, rec]) => [sid, { status: rec.status, autoPaused: rec.autoPaused, gone: rec.gone }]));
-      const list = (this.usage.summary(day) || {}).list || [];
       for (const [sid, rec] of hits) {
         const found = J.findTask(text, rec.key, rec.blockId || "", sid);
         if (!found) { rec.gone = true; continue; }
@@ -598,6 +643,7 @@ export class AutoLog {
       sec(t("▶ 在做"), d.doing),
       sec(t("⏸ {min} 分钟没动，先暂停了", { min: idle }), d.paused),
       sec(t("📦 会话归档了，记成做完"), d.archived),
+      sec(t("✅ 长时间无新对话，记成做完"), d.idleDone),
       sec(t("✅ 看着像是做完了，要标 DONE 自己改一下"), d.done),
       sec(t("📌 记了要你做的"), d.todo),
     ].filter(Boolean);

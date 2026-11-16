@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.9.10**（已修复发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.9.11**（已发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 双平台验证边界
 
@@ -13,7 +13,6 @@
 
 | 事项 | 范围与边界约束 | 参考 Spec / 模块 |
 | --- | --- | --- |
-| **Grok Bot（Sand）追踪** | 读取 `bot-sessions.json` 与 `session.jsonl`，按 Bot 多选过滤并与 Claude Code 共用会话去重 | `src/constants.js`, `src/readers.js`, `src/settings.js`, `src/view.js` |
 | **Pi 支持 & 委派/块级粒度** | Pi 接入、委派卡片选模型/强度/记录粒度并记住偏好、已有 AI 块单独调粒度 | `acp-integration.zh-CN`、`src/delegation.js`, `src/dialog.js`, `src/ai-records.js`, `src/autolog.js` |
 | **技术债复核**（[MAT-479](https://linear.app/matsurimywaifu/issue/MAT-479)） | 逐项核实遗留问题状态并决定重构边界 | `src/readers.js`, `src/sync.js`, `src/view.js` |
 | **Windows 端适配** | 替换 `osascript`/POSIX 路径假定，打通终端唤醒、桌面交接与 WorkBuddy 自动发送 | `src/delegation.js`, `src/main.js`, `src/readers.js` |
@@ -58,3 +57,7 @@
   - 委派探测与 Runner 生命周期：`src/delegation-runners.js` 合并 6 处 CLI 查找为 `findAgentBinary(agent, configured)`（保留 `find*Binary` 兼容包装并由 `src/delegation.js` / `src/main.js` 复用），并提取 `BaseRunner` 统一 `ClaudeRunner` / `QoderRunner` / `AcpRunner` 的 `cancel` / `done` / `fail` 结束流程。
   - 设置页与样式层：`src/settings.js` 新增 `rowToggle` / `rowSelect` / `rowSegmented` / `rowText` / `rowNumber` 与回调式 `row()`，消除 101 处 `:scope > .ad-row__right` DOM 查询，合并「AI 整理模型」与「Dreaming 模型」共用的来源/预设/API/推理强度/测连渲染；`src/styles/` 将控件尺寸变量、轻量按钮重置与可折叠 `<details>/<summary>` 三角样式收口到 `base/tokens.css` 与 `base/atoms.css`，减少 `views/settings.css` / `base/controls.css` / `views/modals.css` 的同构覆盖补丁。
   - 验证边界：macOS 已通过全量 `npm test`（含 `architecture-refactor.test.mjs` 零循环检查与 `i18n.test.mjs`）、`npm run build`、`git diff --check`；Obsidian UI 实机视觉抽查与 Windows 端未实测。
+- **Grok Bot 桌面会话追踪（[MAT-626](https://linear.app/matsurimywaifu/issue/MAT-626)） & AI 记录规则层**：
+  - Grok Bot（`com.anysphere.sand` 1.1.0）仅追踪集成：`src/grok-bot-sessions.js` 按真实持久化目录 `~/Library/Application Support/Grok Bot/sand-client-persistence/*.blob`（unpadded lowercase Base32 `roster.last-roster` + `transcript.replicas.<botId>`）读取；`grokBotTrackedBotIds` 默认全不选，在「记录 → 来源与扫描」的 Grok Bot 条目内折叠多选（隐藏 Bot 默认收起）；云端沙箱无本地逐条 token/模型，保留为 `0`/未提供；自动记录标题统一为 `Bot名 -> 实际生成标题`，无客户端归档，默认超过 `autoLogGrokBotDoneMinutes`（120 分钟）无新对话自动标为 `DONE`；`USAGE_CACHE_VERSION` 递增至 `11`。
+  - AI 记录格式规则层：`DEFAULT_RECORD_RULES` / `resolveRecordRules`（`src/constants.js`）收口 `boldTitle`（默认 `true`，仅新写/重建 AI 自动记录母块标题自动加粗 `**...**`，`preserveTitle` 与委派子项不加粗）、`projectPrefix`（默认 `true`）、`showTimeRange`（默认 `true`）与 `titleMax`（默认 `22`），并在「设置 → 记录 → 日记与归档 → 更多设置 → 记录规则细则」开放用户微调（联动 `journal.js`、`autolog.js`、`main.js`、`bindInto`）。
+  - 验证边界：macOS 已通过全量 `npm test`、`npm run build`、`swiftc -typecheck src/menubar.swift`、`git diff --check` 及本机真实 `sand-client-persistence` 目录只读解析校验；Obsidian 界面抽查与 Windows 端未实测。

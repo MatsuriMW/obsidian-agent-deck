@@ -11,8 +11,9 @@ import antigravity from "../assets/agents/antigravity.png";
 import opencode from "../assets/agents/opencode.png";
 import qoder from "../assets/agents/qoder.png";
 import cursor from "../assets/agents/cursor.png";
+import grokbot from "../assets/agents/grokbot.png";
 
-export const AGENT_IMAGES = { claude, codex, workbuddy, dsh, antigravity, opencode, qoder, cursor };
+export const AGENT_IMAGES = { claude, codex, workbuddy, dsh, antigravity, opencode, qoder, cursor, grokbot };
 
 export function agentImageBuffer(id) {
   const uri = AGENT_IMAGES[id];

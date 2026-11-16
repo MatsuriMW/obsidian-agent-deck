@@ -146,7 +146,7 @@ console.log('PASS real settings save keeps model groups in sync outside the Mode
 const modelsBody = render();
 assert.equal(modelsBody.all().filter(el=>el.classList.contains('ad-modelgroup')).length, AGENT_ORDER.length, 'Manage models includes all Agents');
 assert.equal(modelsBody.all().filter(el=>el.tag==='select').length, 0, 'Manage models removes duplicate default model/effort selectors');
-for (const id of ['workbuddy', 'cursor']) {
+for (const id of ['workbuddy', 'cursor', 'grokbot']) {
   const status=modelsBody.all().find(el=>el.classList.contains('ad-modelgroup')&&el.dataset.agent===id);
   assert.equal(status.tag,'div','client-managed model groups do not have an empty expand control');
 }

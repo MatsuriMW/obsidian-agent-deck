@@ -50,7 +50,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   al.ask = async (items) => { asked = items.map((i) => i.x.sid); return new Map(items.map(({ x }) => [x.sid, { label: "整理会话", summary: "", matchKey: null, done: false, todos: [], skip: false }])); };
   await al.run();
   check("minMinutes=1 lets 2-minute session in; disabled agent skipped", asked.join() === "a-short", asked);
-  check("auto item written for antigravity session", /DOING 🤖 \d\d:\d\d-\d\d:\d\d 整理会话 \^agy-/.test(p.journal), p.journal);
+  check("auto item written for antigravity session", /DOING 🤖 \d\d:\d\d-\d\d:\d\d \*\*整理会话\*\* \^agy-/.test(p.journal), p.journal);
 }
 { // 默认 3 分钟门槛照旧
   const p = fakePlugin("", [{ sid: "a-short", agent: "antigravity", min: 2, segs: nowSegs(2) }]);
@@ -139,7 +139,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const p = fakePlugin("", [x], {}, {autoLogProvider:"codex",autoLogPath:"/nonexistent/agent-deck-test-cli"});
   const al = new AutoLog(p);
   const r = await al.run({fallback:true});
-  check("CLI failure falls back to title and reports error", /DOING 🤖 \d\d:\d\d-\d\d:\d\d 修复配置/.test(p.journal) && !!r.error, {journal:p.journal,error:r.error});
+  check("CLI failure falls back to title and reports error", /DOING 🤖 \d\d:\d\d-\d\d:\d\d \*\*修复配置\*\*/.test(p.journal) && !!r.error, {journal:p.journal,error:r.error});
 }
 { // 归档时长不足也建项，并且最终直接 DONE
   const x = {sid:"archive-short",agent:"antigravity",min:1,segs:nowSegs(1)};
@@ -147,7 +147,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const al = new AutoLog(p);
   al.ask = async () => new Map([[x.sid,{label:"归档测试",todos:[]}]]);
   await al.run();
-  check("archived short session bypasses threshold and records DONE", /- DONE 🤖 \d\d:\d\d-\d\d:\d\d 归档测试/.test(p.journal) && p.journal.includes("⏱"), p.journal);
+  check("archived short session bypasses threshold and records DONE", /- DONE 🤖 \d\d:\d\d-\d\d:\d\d \*\*归档测试\*\*/.test(p.journal) && p.journal.includes("⏱"), p.journal);
 }
 { // 强制格式校验：DOING / PAUSED / DONE 均保持「状态 + 🤖 + 开始时间-最后时间 + 总结标题」，并自动浓缩路径/链接前缀
   const fs = await import("node:fs");
@@ -158,7 +158,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const al = new AutoLog(p);
   al.nowMin = () => 700;
   await al.run({ fallback: true });
-  check("PAUSED auto record includes 🤖 + start-end time + summarized title", /- PAUSED 🤖 10:00-10:25 克隆 chuanhugpt \^codex-/.test(p.journal), p.journal);
+  check("PAUSED auto record includes 🤖 + start-end time + summarized title", /- PAUSED 🤖 10:00-10:25 \*\*克隆 chuanhugpt\*\* \^codex-/.test(p.journal), p.journal);
 }
 
 

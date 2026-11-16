@@ -7,6 +7,24 @@ export const CONFIRM_FIRST = "先阅读任务及相关上下文。只有影响�
 
 export const STORE_VERSION = 1;
 
+export const DEFAULT_RECORD_RULES = {
+  boldTitle: true,        // 自动记录母块标题自动加粗 **...**
+  projectPrefix: true,    // 自动记录标题带 项目名 / Bot名 -> 前缀
+  showTimeRange: true,    // 自动记录母块显示 HH:MM-HH:MM 时间段
+  titleMax: 22,           // 自动记录生成标题最大字数
+};
+
+export function resolveRecordRules(cfg = {}) {
+  const raw = cfg?.recordRules || {};
+  const max = Number(raw.titleMax);
+  return {
+    boldTitle: raw.boldTitle !== false,
+    projectPrefix: raw.projectPrefix !== false,
+    showTimeRange: raw.showTimeRange !== false,
+    titleMax: Number.isFinite(max) && max >= 10 ? Math.min(60, Math.round(max)) : DEFAULT_RECORD_RULES.titleMax,
+  };
+}
+
 export const AGENTS = {
   claude: {
     id: "claude",
@@ -105,9 +123,22 @@ export const AGENTS = {
     desktopOnly: true,
     trackingOnly: true,
   },
+  grokbot: {
+    id: "grokbot",
+    name: "Grok Bot",
+    short: "Grok Bot",
+    glyph: "✧",
+    color: "#5b6472",
+    soft: "rgba(91,100,114,.13)",
+    kind: "grokbot",
+    where: ["~/Library/Application Support/Grok Bot/sand-client-persistence", t("Grok Bot 桌面版（按 Bot 多选追踪）")],
+    deep: "grokbot",
+    desktopOnly: true,
+    trackingOnly: true,
+  },
 };
 
-export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "cursor"];
+export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "cursor", "grokbot"];
 
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
@@ -328,7 +359,7 @@ export const CLAUDE_PERMISSIONS = [
 export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true },
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
   dayCutoff: 0,
@@ -340,6 +371,7 @@ export const DEFAULTS = {
   claudeDesktop: true,
   hideArchived: true,
   cursorHooksPrompted: false,
+  grokBotTrackedBotIds: [],
   // Human–AI journal: sessions written back into the daily note.
   journalFolder: "",       // 日记目录；留空自动检测（找不到就用「日记」）
   journalFormat: "",       // 日记文件名格式（moment 写法）；留空自动检测
@@ -377,8 +409,10 @@ export const DEFAULTS = {
   autoLogStartDelay: 1,    // 插件启动后第几分钟先整理一次，不用等满一个间隔
   autoLogMinMinutes: 3,    // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
   autoLogIdle: 10,         // 停了几分钟算 PAUSED
+  autoLogGrokBotDoneMinutes: 120, // Grok Bot 多久无新对话自动标为 DONE（0 关闭）
+  recordRules: { ...DEFAULT_RECORD_RULES },
   autoLogBatch: 8,         // 一轮最多问模型几个会话
-  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true },
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true },
   autoLogProvider: "auto",
   autoLogEffort: "low",
   autoLogModel: "",

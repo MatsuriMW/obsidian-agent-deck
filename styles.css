@@ -1,4 +1,4 @@
-/* Agent Deck 1.9.10 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.9.11 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -3215,6 +3215,49 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   height: 32px;
   color: var(--ad-agent);
 }
+.ad-settings .ad-set-agent[data-agent=grokbot] .ad-set-agent__icon img {
+  border-radius: 7px;
+  border: 1px solid var(--ad-line);
+}
+.ad-settings .ad-set-agent .ad-grokbot-picker {
+  margin: 10px 0 2px 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-radius-sm);
+  background: var(--ad-surface-2, var(--background-secondary));
+}
+.ad-settings .ad-set-agent .ad-grokbot-picker > .ad-subdetails__head {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ad-muted);
+  padding: 0;
+  margin: 0;
+}
+.ad-settings .ad-set-agent .ad-grokbot-picker[open] > .ad-subdetails__head {
+  margin-bottom: 8px;
+}
+.ad-settings .ad-set-agent .ad-grokbot-picker__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ad-settings .ad-set-agent .ad-grokbot-picker__chips {
+  gap: 5px;
+}
+.ad-settings .ad-set-agent .ad-grokbot-chip {
+  min-height: 27px;
+  padding: 4px 9px;
+  font-size: 11.5px;
+}
+.ad-settings .ad-set-agent .ad-grokbot-picker__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+.ad-settings .ad-set-agent .ad-grokbot-picker__foot .ad-linkbtn {
+  font-size: 11px;
+  color: var(--ad-muted);
+}
 .ad-settings .ad-set-agent .ad-set-agent__identity {
   min-width: 0;
 }
@@ -3541,7 +3584,8 @@ body.ad-dragging-session .markdown-source-view .cm-content {
     margin-top: 4px;
   }
   .ad-settings .ad-set-agent__meta,
-  .ad-settings .ad-set-agent__config {
+  .ad-settings .ad-set-agent__config,
+  .ad-settings .ad-grokbot-picker {
     margin-left: 38px;
   }
   .ad-settings .ad-targetpick {

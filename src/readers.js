@@ -33,6 +33,12 @@ import {
   packCursorState,
   unpackCursorState,
 } from "./cursor-sessions.js";
+import {
+  discoverGrokBotStorage,
+  parseGrokBotTranscript,
+  grokBotPersistenceDir,
+} from "./grok-bot-sessions.js";
+export { grokBotPersistenceDir };
 export {
   cursorEventsDir,
   cursorHooksStatus,
@@ -150,7 +156,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 10;
+export const USAGE_CACHE_VERSION = 11;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -378,6 +384,7 @@ export class AgentUsage {
     await this.readClaudeSideChats();
     this.applyClaudeDesktop();
     await this.readCursorMeta({ onlyAgent });
+    await this.readGrokBotSessions({ floor, onlyAgent, strictSince, touched });
     if (!onlyAgent && !strictSince) this.lastScan = Date.now();
     return touched;
   }
@@ -681,6 +688,143 @@ export class AgentUsage {
         }
       }
     }
+  }
+
+  async readGrokBotSessions({ floor = 0, onlyAgent = "", strictSince = false, touched = new Set() } = {}) {
+    if (onlyAgent && onlyAgent !== "grokbot") return;
+    const rawTracked = this.enabled("grokbot") && Array.isArray(this.settings.grokBotTrackedBotIds)
+      ? this.settings.grokBotTrackedBotIds.map((x) => String(x || "").trim()).filter(Boolean)
+      : [];
+    const tracked = new Set(rawTracked);
+
+    const pruneUnselected = (keep) => {
+      for (const [fileKey, fc] of [...this.files]) {
+        if (fc.agent !== "grokbot" || keep.has(fc.sid)) continue;
+        for (const day of fc.days?.keys() || []) touched.add(day);
+        this.files.delete(fileKey);
+        this.dirty = true;
+      }
+      for (const [sid, m] of [...this.meta]) {
+        if (m.agent === "grokbot" && !keep.has(sid)) {
+          this.meta.delete(sid);
+          this.dirty = true;
+        }
+      }
+    };
+
+    if (!tracked.size) {
+      pruneUnselected(tracked);
+      return;
+    }
+
+    const storage = discoverGrokBotStorage(
+      this.settings.grokBotPersistenceDir
+        ? { persistenceDir: this.settings.grokBotPersistenceDir }
+        : { homeDir: home() },
+    );
+    const activeTracked = new Set();
+    const scope = this.isPrimary("grokbot") ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+
+    for (const bot of storage.bots) {
+      if (!tracked.has(bot.id) || !bot.transcriptPath) continue;
+      let st;
+      try { st = await fsp.stat(bot.transcriptPath); } catch { continue; }
+      activeTracked.add(bot.id);
+      const key = `${bot.transcriptPath}#${bot.id}`;
+      const previous = this.files.get(key);
+      const awaiting = !!bot.awaitingUserResponse;
+      if (
+        previous &&
+        previous.size === st.size &&
+        previous.mtime === st.mtimeMs &&
+        previous.offset === scope &&
+        previous.metaRead === awaiting &&
+        previous.titles?.get(bot.id) === bot.name
+      ) {
+        continue;
+      }
+
+      let rawText;
+      try { rawText = await fsp.readFile(bot.transcriptPath, "utf8"); } catch { continue; }
+      const parsed = parseGrokBotTranscript(rawText, bot);
+      if (!parsed) continue;
+
+      const fc = {
+        path: key,
+        agent: "grokbot",
+        sid: bot.id,
+        id: bot.id,
+        cwd: "",
+        app: "desktop",
+        model: "",
+        size: st.size,
+        offset: scope,
+        mtime: st.mtimeMs,
+        metaRead: awaiting,
+        days: new Map(),
+        msgs: new Map(),
+        titles: new Map([[bot.id, bot.name]]),
+        live: null,
+      };
+      for (const day of previous?.days?.keys() || []) touched.add(day);
+
+      let firstText = "";
+      let firstEntryAt = 0;
+      for (const e of parsed.entries) {
+        if (!e.at) continue;
+        if (strictSince && e.at < floor) continue;
+        if (this.stale("grokbot", e.at) && !previous?.days.has(dayKey(e.at, this.cfg))) continue;
+        if (!firstEntryAt || e.at < firstEntryAt) firstEntryAt = e.at;
+        const { day, s } = this.touchSess(fc, touched, e.at, bot.id, "", "desktop");
+        const v = this.liveOf(fc, bot.id, e.at);
+        v.cwd = "";
+        v.app = "desktop";
+        v.title = bot.name;
+        if (e.role === "user" && e.text.trim()) {
+          day.prompts++;
+          startRound(fc, e.at, e.text, e.id);
+          if (!firstText) firstText = e.text.slice(0, 300);
+          s.text = firstText;
+          v.state = "run";
+        } else if (e.role === "assistant") {
+          if (e.isTurnReply && e.summaryText) {
+            v.lastText = e.summaryText;
+            finishRound(fc, e.at, e.summaryText, !e.isStreaming);
+          }
+          v.state = e.isStreaming ? "run" : "wait";
+        }
+      }
+
+      if (fc.live) {
+        fc.live.state = parsed.state;
+        fc.live.step = parsed.step;
+        fc.live.turns = fc.rounds?.list.length || 0;
+        fc.live.rounds = fc.rounds?.list || [];
+        this.noteMeta(fc, bot.id, {
+          ...fc.live,
+          title: bot.name || firstText,
+          text: firstText || bot.description || bot.lastPreview || "",
+          cwd: "",
+          app: "desktop",
+          model: "",
+          lastAt: fc.live.at,
+          startedAt: firstEntryAt || fc.live.at,
+          out: 0,
+          fresh: 0,
+          cached: 0,
+          calls: 0,
+          archived: false,
+        });
+        this.files.set(key, fc);
+        this.dirty = true;
+      } else if (previous) {
+        this.files.delete(key);
+        this.meta.delete(bot.id);
+        this.dirty = true;
+      }
+    }
+
+    pruneUnselected(activeTracked);
   }
 
   // 归档 = 做完：桌面版里归档的、Codex archived_sessions 里的都可以从会话列表里收起来

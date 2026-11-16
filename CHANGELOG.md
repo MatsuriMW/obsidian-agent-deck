@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.9.11
+
+- **Grok Bot（Sand）桌面端会话追踪**：新增 Grok Bot（`com.anysphere.sand`）只读追踪集成，读取本地 `sand-client-persistence` 中的对话与 Bot 列表；可在设置「记录 → 来源与扫描」的 **Grok Bot** 卡片内按 Bot 多选勾选追踪范围（默认全不选、隐藏 Bot 默认折叠），云端沙箱无本地逐条 token/模型时显示「用量未提供」且不做估算；自动记录标题统一为 `Bot名 -> 实际生成标题`，并在超过设定的无新对话时长（`autoLogGrokBotDoneMinutes`，默认 120 分钟）后自动标为 `DONE`（同日再续聊则新建活跃块）。
+- **AI 记录规则层（`recordRules`）与母块标题加粗**：所有 AI 自动记录与快捷绑定新生成的母块标题默认自动使用 Markdown `**标题**` 加粗显示（不重复包裹 `****`，已存在或用户改过名的标题及子块保持不变）；在「设置 → 记录 → 日记与归档 → 更多设置 → 记录规则细则」开放母块标题加粗、项目 / Bot 名前缀、起止时间段、标题最大字数与 Grok Bot 自动 DONE 时长配置。
+- **工程整理**：修复 `formatAutoTaskLine` 关闭起止时间段时的次轮回写、`mergeTasks` 合并 AI 行重复拼接 `🤖` 前缀、委派子项加粗隔离，并完成跨模块公共逻辑去重与 CSS 分层精简。
+
 ## 1.9.10
 
 - **Claude CLI `env` 认证修复（#4）**：`runClaude()` 将 `--setting-sources` 由 `project` 调整为 `user,project`，使配置在 `~/.claude/settings.json` `env` 中的 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` 等凭据可在无头整理与 Dreaming 子进程中正常加载；同步更新 `JOURNAL_PROVIDERS.claude.loggedIn` 探测逻辑，识别 `env.ANTHROPIC_AUTH_TOKEN` 与 `~/.claude/settings.json` `env` 中的认证字段，避免自动挑选模型时误判未登录。

@@ -7,7 +7,7 @@ import { archivePath } from "./journal-archive.js";
 import * as obsidianNs from "obsidian";
 import { App, PluginSettingTab, Notice, Modal, Menu } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, MODEL_CATALOG, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS, fmtTok, syncDelegationSettings, journalPath, detectJournalFormat,
+  AGENTS, AGENT_ORDER, MODEL_CATALOG, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS, DEFAULT_RECORD_RULES, resolveRecordRules, fmtTok, syncDelegationSettings, journalPath, detectJournalFormat,
 } from "./constants.js";
 import { notePath } from "./dream-entries.js";
 import { companionInstalled, dreamModelConfig } from "./dream.js";
@@ -20,6 +20,7 @@ import { delegateAgents } from "./agent-registry.js";
 import {
   detectJournalProviders, resolveJournalProvider, JOURNAL_PROVIDERS, API_PRESETS, fetchAgyModels, testJournalModel,
 } from "./llm.js";
+import { discoverGrokBotStorage } from "./grok-bot-sessions.js";
 
 const HOTKEY_MOD_SYMBOL = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘", ctrl: "⌃", alt: "⌥", cmd: "⌘" };
 
@@ -827,6 +828,78 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.display();
   }
 
+  renderGrokBotPicker(card, sessCountEl, s, p) {
+    const selected = new Set(Array.isArray(s.grokBotTrackedBotIds) ? s.grokBotTrackedBotIds : []);
+    const allBots = typeof p.grokBotBots === "function"
+      ? p.grokBotBots()
+      : discoverGrokBotStorage(s.grokBotPersistenceDir ? { persistenceDir: s.grokBotPersistenceDir } : {}).bots;
+    const bots = allBots.filter((bot) => bot.inRoster !== false || selected.has(bot.id));
+    const details = card.createEl("details", { cls: "ad-subdetails ad-grokbot-picker" });
+    details.open = typeof this._grokBotsOpen === "boolean" ? this._grokBotsOpen : selected.size === 0;
+    details.ontoggle = () => { this._grokBotsOpen = details.open; };
+    const summary = details.createEl("summary", { cls: "ad-subdetails__head" });
+    const summaryTitle = summary.createSpan({ cls: "ad-grokbot-picker__title" });
+    const updateSummary = () => {
+      if (!selected.size) {
+        summaryTitle.textContent = t("追踪 Bot · 未选择（点击勾选）");
+        return;
+      }
+      const names = bots.filter((b) => selected.has(b.id)).map((b) => b.name);
+      const preview = names.length > 3 ? t("{names} 等 {n} 个", { names: names.slice(0, 3).join("、"), n: names.length }) : names.join("、");
+      summaryTitle.textContent = preview
+        ? t("追踪 Bot · 已选 {n} 个（{preview}）", { n: selected.size, preview })
+        : t("追踪 Bot · 已选 {n} 个", { n: selected.size });
+    };
+    updateSummary();
+
+    const body = details.createDiv({ cls: "ad-grokbot-picker__body" });
+    if (!bots.length) {
+      body.createSpan({ cls: "ad-muted", text: t("未检测到本机 Grok Bot 对话缓存") });
+      return;
+    }
+
+    const activeBots = bots.filter((bot) => (!bot.isHidden && !bot.isRemoved) || selected.has(bot.id));
+    const hiddenBots = bots.filter((bot) => (bot.isHidden || bot.isRemoved) && !selected.has(bot.id));
+    const chips = body.createDiv({ cls: "ad-seg ad-seg--many ad-grokbot-picker__chips" });
+    const renderChips = () => {
+      chips.textContent = "";
+      const shown = this._showHiddenGrokBots ? [...activeBots, ...hiddenBots] : activeBots;
+      for (const bot of shown) {
+        const on = selected.has(bot.id);
+        const label = bot.isHidden || bot.isRemoved ? `${bot.name} (${t("已隐藏")})` : bot.name;
+        const b = chips.createEl("button", { cls: "ad-seg__btn ad-grokbot-chip" + (on ? " is-on" : ""), text: label, attr: { "aria-pressed": String(on), "data-bot-id": bot.id } });
+        b.onclick = async () => {
+          if (selected.has(bot.id)) selected.delete(bot.id);
+          else selected.add(bot.id);
+          s.grokBotTrackedBotIds = [...selected];
+          const nowOn = selected.has(bot.id);
+          b.classList.toggle("is-on", nowOn);
+          b.setAttribute("aria-pressed", String(nowOn));
+          updateSummary();
+          await p.saveSettings?.();
+          p.watchGrokBotPersistence?.();
+          await p.scanNow?.(false, { agent: "grokbot" });
+          const nextCount = [...(p.usage?.meta?.values?.() || [])].filter((x) => x.agent === "grokbot").length;
+          if (sessCountEl) sessCountEl.textContent = t("{n} 个会话", { n: nextCount });
+        };
+      }
+    };
+    renderChips();
+
+    if (hiddenBots.length) {
+      const foot = body.createDiv({ cls: "ad-grokbot-picker__foot" });
+      const toggleHidden = foot.createEl("button", {
+        cls: "ad-linkbtn",
+        text: this._showHiddenGrokBots ? t("收起已隐藏 Bot") : t("显示已隐藏（{n}）", { n: hiddenBots.length }),
+      });
+      toggleHidden.onclick = () => {
+        this._showHiddenGrokBots = !this._showHiddenGrokBots;
+        toggleHidden.textContent = this._showHiddenGrokBots ? t("收起已隐藏 Bot") : t("显示已隐藏（{n}）", { n: hiddenBots.length });
+        renderChips();
+      };
+    }
+  }
+
   // ---------- Recording ----------
   renderAgents(body) { return this.renderRecord(body); }
   renderTracking(body) { return this.renderRecord(body); }
@@ -860,9 +933,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       this.sortHandle(controls, grid, "tracking", id);
       const sessions = [...p.usage.meta.values()].filter((x) => x.agent === id);
       const stats = card.createDiv({ cls: "ad-set-agent__meta" });
-      stats.createSpan({ text: t("{n} 个会话", { n: sessions.length }) });
-      stats.createSpan({ text: fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
+      const sessCountEl = stats.createSpan({ text: t("{n} 个会话", { n: sessions.length }) });
+      stats.createSpan({ text: id === "grokbot" ? t("用量未提供") : fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
       stats.createSpan({ cls: "ad-set-agent__state", text: primary ? t("主力（全量）") : enabled ? t("追踪中") : t("已关闭") });
+      if (id === "grokbot" && enabled) this.renderGrokBotPicker(card, sessCountEl, s, p);
     }
     this.agentReorder(grid, "tracking", ".ad-set-agent");
     const sourceMore = this.subDetails(sourceCard, "source-more", t("更多设置"));
@@ -962,6 +1036,14 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.rowNumber(jr, t("💬 最多多少个字"), t("普通会话的结论长度；后台回答超过 500 字时返回完整问答文件"), s.resultMax || DEFAULTS.resultMax, 40, 2000, (v) => { s.resultMax = v; p.saveSettings(); });
     this.rowToggle(wb, t("归档的会话记成 DONE"), "", s.autoLogArchiveDone !== false, (v) => { s.autoLogArchiveDone = v; p.saveSettings(); });
     this.rowToggle(wb, t("整理完弹通知"), "", s.autoLogNotify !== false, (v) => { s.autoLogNotify = v; p.saveSettings(); });
+
+    const rulesBox = this.subDetails(jrMore, "record-rules", t("记录规则细则"));
+    const rules = (s.recordRules = resolveRecordRules(s));
+    this.rowToggle(rulesBox, t("母块标题自动加粗"), t("生成 AI 自动记录时用 **标题** 突出显示"), rules.boldTitle !== false, (v) => { rules.boldTitle = v; p.saveSettings(); });
+    this.rowToggle(rulesBox, t("标题自动带项目 / Bot 前缀"), t("工作区项目或 Grok Bot 自动加上「名称 -> 」"), rules.projectPrefix !== false, (v) => { rules.projectPrefix = v; p.saveSettings(); });
+    this.rowToggle(rulesBox, t("母块显示起止时间段"), t("在 🤖 后写入 HH:MM-HH:MM"), rules.showTimeRange !== false, (v) => { rules.showTimeRange = v; p.saveSettings(); });
+    this.rowNumber(rulesBox, t("生成标题最大字数"), t("10–60 字，默认 22"), rules.titleMax || DEFAULT_RECORD_RULES.titleMax, 10, 60, (v) => { rules.titleMax = Math.max(10, Math.min(60, Math.round(v))); p.saveSettings(); });
+    this.rowNumber(rulesBox, t("Grok Bot 无新对话自动 DONE（分钟）"), t("0 表示不自动标为 DONE；默认 120 分钟"), s.autoLogGrokBotDoneMinutes ?? DEFAULTS.autoLogGrokBotDoneMinutes, 0, 1440, (v) => { s.autoLogGrokBotDoneMinutes = Math.max(0, Math.round(v)); p.saveSettings(); });
 
     const tpl = this.subDetails(jrMore, "template-archive", t("整理日志模板与归档"));
     this.rowToggle(tpl, t("日志杂乱时提醒整理"), t("每新增 4 条记录提醒，每天最多 2 次"), s.organizeJournalSuggest !== false, (v) => { s.organizeJournalSuggest = v; p.saveSettings(); });

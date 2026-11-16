@@ -3,6 +3,7 @@ import { updateNote, serializeNote } from "./note-updates.js";
 import fs from "fs";
 import { desktopMessages } from "./desktop-sessions.js";
 import { buildCursorConversation, readCursorTranscript } from "./cursor-sessions.js";
+import { buildGrokBotConversation } from "./grok-bot-sessions.js";
 import * as J from "./journal.js";
 import { decompress } from "fzstd";
 import { createHash } from "crypto";
@@ -14,6 +15,7 @@ const textOf = (content) => typeof content === "string" ? content : (Array.isArr
 
 export function conversationMessages(agent, source, transcriptText = "") {
   if (agent === "cursor") return buildCursorConversation(source, transcriptText);
+  if (agent === "grokbot") return buildGrokBotConversation(source);
   const messages = [];
   const seen = new Map();
   for (const line of source.split("\n")) {
@@ -59,10 +61,11 @@ export async function readConversation(plugin, session, cache = new Map()) {
       messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));
       continue;
     }
-    const stat = await fs.promises.stat(file.path);
+    const realPath = file.path.includes("#") ? file.path.slice(0, file.path.lastIndexOf("#")) : file.path;
+    const stat = await fs.promises.stat(realPath);
     let entry = cache.get(file.path);
     if (session.agent === "cursor") {
-      const rawText = await fs.promises.readFile(file.path, "utf8");
+      const rawText = await fs.promises.readFile(realPath, "utf8");
       const tr = await readCursorTranscript(rawText, file.cursor?.transcript || "");
       if (!entry || entry.mtime !== stat.mtimeMs || entry.size !== stat.size || entry.tp !== tr.path || entry.tMtime !== tr.mtime || entry.tSize !== tr.size) {
         entry = {
@@ -79,7 +82,7 @@ export async function readConversation(plugin, session, cache = new Map()) {
       continue;
     }
     if (!entry || entry.mtime !== stat.mtimeMs || entry.size !== stat.size) {
-      const raw = await fs.promises.readFile(file.path);
+      const raw = await fs.promises.readFile(realPath);
       let bytes = raw;
       if (file.zstd) {
         try { bytes = decompress(raw); }

@@ -13,6 +13,7 @@ export const AGENT_ICONS = {
   opencode: "square-terminal",
   qoder: "circle-dot",
   cursor: "mouse-pointer-click",
+  grokbot: "bot",
 };
 
 export const STATE_ICONS = {

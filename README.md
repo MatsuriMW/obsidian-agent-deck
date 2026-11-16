@@ -27,7 +27,7 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 ## 核心功能
 
 ### 1. 多 Agent 会话追踪面板
-- **统一收拢 8 类本地 Agent**：支持 **Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder** 以及 **Cursor**（3.30.14+ Hooks，仅追踪）。
+- **统一收拢 9 类本地 Agent**：支持 **Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder**，以及 **Cursor**（3.30.14+ Hooks，仅追踪）与 **Grok Bot**（Sand 桌面端，按 Bot 多选，仅追踪）。
 - **实时状态与跳转**：区分运行中、等待回复、需要确认、到达限额、暂停、出错、已完成等状态；点击会话卡片可直接切回对应客户端或终端标签（支持范围见下文边界表）。
 - **主力、时间范围与全局搜索**：可设最多 2 个主力 Agent（追踪全部历史与跨天补记），其余已启用 Agent 读取当日活跃会话；「最近的会话」支持按 `7 天 / 30 天 / 120 天` 切换并按 Agent 叠放收拢；支持按标题、项目、模型、正文关键字搜索全部本地扫描到的会话，并查看最近 14 天协作趋势。
 
@@ -40,7 +40,7 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 - **拖拽绑定**：将面板中的会话卡片拖到已有任务行上完成绑定，或拖到空白行新建绑定任务；普通绑定会话在行尾显示状态 pill；后台执行在母块下方显示单条进度，保留取消与重试入口，回答结束后隐藏。
 
 ### 3. 人机共写日记、整理与归档
-- **自动记日记与回写**：定时扫描当日会话，自动匹配或新建日记任务行，实时同步状态、`⏱` 活动时段、每轮简略/标准/详细记录以及嵌套子会话 / Side Chat / Subagent 子块；后台回答不超过 500 字时完整写入子块；超过时返回 `Agent Deck/Answers/` 中的 Markdown 文件链接，文件包含完整问题与回答，清除内部追踪标识，不另调总结模型。普通会话结论默认 350 字，摘要中的长网址与文件路径折叠为可点击短链。
+- **自动记日记与回写**：定时扫描当日会话，自动匹配或新建日记任务行，实时同步状态、`⏱` 活动时段、每轮简略/标准/详细记录以及嵌套子会话 / Side Chat / Subagent 子块；新建 AI 自动记录母块默认使用 `**标题**` 加粗突出显示并带项目 / Bot 前缀，可在「设置 → 记录 → 日记与归档 → 更多设置 → 记录规则细则」自定义加粗、前缀、起止时间段、标题长度上限与 Grok Bot 无新对话自动 `DONE` 时长；后台回答不超过 500 字时完整写入子块，超过时返回 `Agent Deck/Answers/` 中的 Markdown 文件链接（含完整问题与回答、清除内部追踪标识，不另调总结模型）。普通会话结论默认 350 字，摘要中的长网址与文件路径折叠为可点击短链。
 - **标题保护与记录折叠**：保留用户手写修改过的 AI 标题不被覆盖；默认收起历史轮次仅展示最新结论；支持人工切换并锁定任务状态；内部追踪标识在编辑与阅读视图隐藏，并在完成或归档时自动清理。
 - **四种持久化记录视图与按视图导出**：支持同一条 AI 自动记录在**大纲 / 表格 / 卡片 / 时间线**间就地切换并按块记住视图偏好，不改写底层 Markdown；顶层视图菜单内的「导出」子菜单可按当前视图导出展开后的 PDF 与独立 HTML，也可导出无损 Markdown（`.md`）、结构化 JSON（`.json`）、CSV（`.csv`），或一键复制 Markdown / 表格 / 纯文本 / JSON。
 
@@ -81,17 +81,17 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 | **Qoder** | 支持 | 支持（`qodercli`） | 仅复制任务并唤起桌面端 | 支持（`qodercli`） | CLI 走终端恢复；桌面端复制会话号后手动选 |
 | **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起桌面端 | 支持（`codebuddy`） | 支持原生桌面会话直达与终端恢复 |
 | **Cursor** | 支持（3.30.14+ Hooks + 日志） | 不支持 | 不支持（仅追踪） | — | 仅打开应用并复制会话号 |
+| **Grok Bot** | 支持（按 Bot 多选） | 不支持 | 不支持（仅追踪） | — | 唤起 Grok Bot 桌面端 |
 
 ---
 
 ## 安装与依赖
 
 ### 1. 安装插件
-目前尚未上架 Obsidian 社区插件市场，需手动安装（当前版本 **1.9.10**，需 Obsidian **1.4.0+** 桌面端）：
+可在 Obsidian 社区插件市场直接安装，或从 GitHub Releases 手动下载（当前版本 **1.9.11**，需 Obsidian **1.4.0+** 桌面端）：
 
-1. 前往 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新产物中的 `main.js`、`manifest.json`、`styles.css`。
-2. 将这 3 个文件放入你的 Obsidian 库目录：`<Vault>/.obsidian/plugins/agent-deck/`。
-3. 在 Obsidian「设置 → 第三方插件」中启用 **Agent Deck**。
+1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck** 并点击安装、启用。
+2. 或前往 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新产物中的 `main.js`、`manifest.json`、`styles.css`，放入 `<Vault>/.obsidian/plugins/agent-deck/` 后在「设置 → 第三方插件」中启用。
 
 <details>
 <summary>从源码构建（仅开发者需要）</summary>
@@ -124,6 +124,7 @@ npm run build
 | **Qoder** | 后台与终端委派需安装并登录 `qodercli`；仅桌面复制交接需安装 Qoder 桌面端 |
 | **WorkBuddy** | 安装中国版 WorkBuddy 桌面端（终端交互需另装 `codebuddy` CLI） |
 | **Cursor** | 安装 Cursor 桌面端（3.30.14+），并在设置「来源与扫描 → 更多设置」中安装 Cursor Hooks（仅追踪） |
+| **Grok Bot** | 安装 Grok Bot 桌面端（Sand 客户端），并在设置「记录 → 来源与扫描」的 Grok Bot 卡片内勾选要追踪的 Bot（默认全不选，仅追踪） |
 | **自动记日记 / AI 总结 / Dreaming** | 任一已登录且额度可用的本地 CLI（`agy`、`claude`、`codex`、`qodercli`、`codebuddy`，含 `~/.claude/settings.json` 的 `env` 认证），或填写 **OpenAI 兼容 API**（支持 DeepSeek、OpenAI、OpenRouter、阿里云百炼 Qwen、本地 Ollama 预设或自定义地址；在「记录 → 整理模型」设置，Dreaming 默认跟随并可单独覆盖） |
 | **macOS 菜单栏助手** | 需 Xcode Command Line Tools 中的 `swiftc`（未安装时可运行 `xcode-select --install`）；不用可在设置中关闭 |
 
@@ -149,10 +150,11 @@ npm run build
    - **Antigravity**：CLI 会话与原 IDE 会话互不相通，暂不承诺自动识别归档；导出正文不包含工具执行结果、内部推理过程与附件。
    - **DeepSeek Harness**：桌面端仍在快速迭代中，稳定性有限，且暂不支持通过链接直达具体会话。
    - **OpenCode**：后台与桌面共享会话存储，但跳转打开桌面端后仍需手动选择对应会话。
+   - **Grok Bot**：仅支持桌面端（Sand）持久化只读追踪与按 Bot 多选过滤；不支持任务委派与终端交互，云端沙箱无本地逐条 token/模型时显示「用量未提供」且不作估算；无归档概念，默认超过设定时长无新对话自动标为 `DONE`。
 5. **终端交互委派的实测范围**
    - 在终端新开标签页自动运行交互式会话的功能，目前仅在 **Tern** 和 **Herdr** 上完成端到端实测；**系统终端（Terminal.app）、iTerm2、Warp** 尚未实测（Warp 无脚本接口，仅能前置窗口）。
 6. **规划中、尚未实现的功能**
-   - **阅读视图下的 AI 记录多视图渲染与看板视图**、**Grok Bot（Sand）会话追踪与按 Bot 过滤**、**Pi 支持**、**在委派确认弹窗内直接切换模型/强度/记录粒度**、**对已有 AI 块单独调整粒度**、**WorkBuddy 自动发送**，以及面向独立大纲 App 的 **LLM Wiki 自动摄入** 等能力仍在规划中，当前版本尚未提供。
+   - **阅读视图下的 AI 记录多视图渲染与看板视图**、**Pi 支持**、**在委派确认弹窗内直接切换模型/强度/记录粒度**、**对已有 AI 块单独调整粒度**、**WorkBuddy 自动发送**，以及面向独立大纲 App 的 **LLM Wiki 自动摄入** 等能力仍在规划中，当前版本尚未提供。
 
 ---
 

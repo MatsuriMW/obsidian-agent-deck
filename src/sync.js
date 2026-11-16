@@ -12,7 +12,7 @@ import { updateNote } from "./note-updates.js";
 // 不进撤销记录；正在用输入法打字的那一下不写，等下一轮。
 
 import { MarkdownView } from "obsidian";
-import { AGENTS, dayKey, dayKeyToday, dayMinute, fmtTok, fmtClock, journalPath } from "./constants.js";
+import { AGENTS, dayKey, dayKeyToday, dayMinute, fmtTok, fmtClock, journalPath, resolveRecordRules } from "./constants.js";
 import * as J from "./journal.js";
 import { runJournalModel, safeLabel } from "./llm.js";
 import { ensureTopRule } from "./organize-journal.js";
@@ -328,12 +328,14 @@ export class JournalSync {
       if (p.auto && !p.cb) {
         const { start, end } = this.sessionTimeSpan(k.sid, p, ls, n);
         const nextKw = want || cur.kw || "DOING";
+        const rules = resolveRecordRules(this.cfg);
         const nextLine = J.formatAutoTaskLine({
           prefix: p.prefix,
           kw: nextKw,
           start,
           end,
           title: p.title, preserveTitle: true,
+          showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
           blockId: p.blockId,
         });
         if (nextLine !== ls[n]) ls[n] = nextLine;
@@ -374,12 +376,14 @@ export class JournalSync {
       if (!p || p.cb || !p.kw) continue;
       if (p.auto) {
         const { start, end } = this.sessionTimeSpan(sid, p, ls, n);
+        const rules = resolveRecordRules(this.cfg);
         const nextLine = J.formatAutoTaskLine({
           prefix: p.prefix,
           kw,
           start,
           end,
           title: p.title, preserveTitle: true,
+          showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
           blockId: p.blockId,
         });
         if (nextLine !== ls[n]) {
@@ -411,12 +415,14 @@ export class JournalSync {
     const { start, end } = this.sessionTimeSpan(sid, p, lines, n);
     const lastClock = last != null ? J.clock(last) : end;
     if (p.auto && !p.cb) {
+      const rules = resolveRecordRules(this.cfg);
       lines[n] = J.formatAutoTaskLine({
         prefix: p.prefix,
         kw: "DONE",
         start: start || lastClock,
         end: lastClock || end || start,
         title: p.title, preserveTitle: true,
+        showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
         blockId: p.blockId,
       });
     } else {
@@ -495,6 +501,7 @@ export class JournalSync {
           start: fmtClock(d.created),
           end: fmtClock(d.active || d.created),
           title: J.summarizeAutoTitle(name),
+          boldTitle: false,
         }),
         J.linkLine(kidInd + unit, "claude", name, d.sid));
       return true;
@@ -615,9 +622,9 @@ export class JournalSync {
         }
         const name = J.summarizeAutoTitle(r.desc || r.type || "subagent");
         if (over) {
-          lines.splice(end + 1, 0, J.formatAutoTaskLine({ prefix: `${kidInd}- `, kw: k.kw, start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name }), ...this.finishKid(kidInd + unit, r));
+          lines.splice(end + 1, 0, J.formatAutoTaskLine({ prefix: `${kidInd}- `, kw: k.kw, start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name, boldTitle: false }), ...this.finishKid(kidInd + unit, r));
         } else {
-          lines.splice(end + 1, 0, J.formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name }), `${kidInd}${unit}- 🔗 子代理 \`${id}\``);
+          lines.splice(end + 1, 0, J.formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name, boldTitle: false }), `${kidInd}${unit}- 🔗 子代理 \`${id}\``);
         }
         return true;
       }
@@ -660,7 +667,7 @@ export class JournalSync {
       if (known.has(String(s.pid))) continue;
       const min = dayMinute(s.since || Date.now(), this.cfg);
       lines.splice(end + 1, 0,
-        J.formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: J.clock(min), end: J.clock(min), title: "side chat" }),
+        J.formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: J.clock(min), end: J.clock(min), title: "side chat", boldTitle: false }),
         `${kidInd}${unit}- 🔗 side chat \`pid ${s.pid}\``);
       changed = true;
       end += 2;

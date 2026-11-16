@@ -143,17 +143,18 @@ test("AutoLog prefixes project folder titles across all agents and keeps standal
   await al.run({ fallback: true, manual: true });
 
   for (const agent of AGENT_ORDER) {
-    assert.ok(noteText.includes(`proj-${agent} -> 完成 ${agent} 功能`), `${agent} folder session receives project prefix`);
+    assert.ok(noteText.includes(`**proj-${agent} -> 完成 ${agent} 功能**`), `${agent} folder session receives project prefix`);
   }
-  assert.ok(noteText.includes("🤖 01:30-01:38 单开 Antigravity 会话"));
+  assert.ok(noteText.includes("🤖 01:30-01:38 **单开 Antigravity 会话**"));
   assert.ok(!noteText.includes("Antigravity ->"), "standalone antigravity session must not get prefix");
-  assert.ok(noteText.includes("🤖 01:40-01:48 单开 DSH 会话"));
+  assert.ok(noteText.includes("🤖 01:40-01:48 **单开 DSH 会话**"));
   assert.ok(!noteText.includes("DSH ->"), "standalone DSH session must not get prefix");
 
-  // Re-running with user-edited title preserves manual edits without re-prefixing.
-  noteText = noteText.replace("proj-cursor -> 完成 cursor 功能", "我手动改过的 Cursor 标题");
+  // Re-running with user-edited title preserves manual edits without re-prefixing or re-bolding.
+  noteText = noteText.replace("**proj-cursor -> 完成 cursor 功能**", "我手动改过的 Cursor 标题");
   await al.run({ fallback: true, manual: true });
   assert.ok(noteText.includes("我手动改过的 Cursor 标题"), "user-edited title stays intact");
+  assert.ok(!noteText.includes("**我手动改过的 Cursor 标题**"), "user-edited title is not forcefully bolded");
   assert.ok(!noteText.includes("proj-cursor -> 我手动改过的"));
 });
 

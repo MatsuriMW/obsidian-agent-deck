@@ -1,4 +1,4 @@
-/* Agent Deck 1.9.10 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.9.11 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -891,6 +891,26 @@ var settings_default = {
   "\u901A\u8FC7 qodercli \u6216 Qoder \u684C\u9762\u7248\u59D4\u6D3E\u4EFB\u52A1": "Delegates tasks via qodercli or Qoder Desktop",
   "\u4F20\u7ED9 qodercli --reasoning-effort": "Passed to qodercli --reasoning-effort",
   "Cursor \u684C\u9762\u7248\uFF08Hooks + \u4F1A\u8BDD\u65E5\u5FD7\uFF09": "Cursor Desktop (Hooks + session logs)",
+  "Grok Bot \u684C\u9762\u7248\uFF08\u6309 Bot \u591A\u9009\u8FFD\u8E2A\uFF09": "Grok Bot Desktop (per-Bot multi-select tracking)",
+  "\u8FFD\u8E2A Bot \xB7 \u672A\u9009\u62E9\uFF08\u70B9\u51FB\u52FE\u9009\uFF09": "Tracked Bots \xB7 none selected (click to choose)",
+  "\u8FFD\u8E2A Bot \xB7 \u5DF2\u9009 {n} \u4E2A": "Tracked Bots \xB7 {n} selected",
+  "\u8FFD\u8E2A Bot \xB7 \u5DF2\u9009 {n} \u4E2A\uFF08{preview}\uFF09": "Tracked Bots \xB7 {n} selected ({preview})",
+  "{names} \u7B49 {n} \u4E2A": "{names} (+{n} total)",
+  "\u672A\u68C0\u6D4B\u5230\u672C\u673A Grok Bot \u5BF9\u8BDD\u7F13\u5B58": "No local Grok Bot conversation cache found.",
+  "\u5DF2\u9690\u85CF": "Hidden",
+  "\u663E\u793A\u5DF2\u9690\u85CF\uFF08{n}\uFF09": "Show hidden ({n})",
+  "\u6536\u8D77\u5DF2\u9690\u85CF Bot": "Hide hidden Bots",
+  "Grok Bot \u65E0\u65B0\u5BF9\u8BDD\u81EA\u52A8 DONE\uFF08\u5206\u949F\uFF09": "Auto-mark Grok Bot DONE after idle (minutes)",
+  "0 \u8868\u793A\u4E0D\u81EA\u52A8\u6807\u4E3A DONE\uFF1B\u9ED8\u8BA4 120 \u5206\u949F": "0 disables auto-DONE; default is 120 minutes",
+  "\u8BB0\u5F55\u89C4\u5219\u7EC6\u5219": "Record formatting rules",
+  "\u6BCD\u5757\u6807\u9898\u81EA\u52A8\u52A0\u7C97": "Bold parent block title automatically",
+  "\u751F\u6210 AI \u81EA\u52A8\u8BB0\u5F55\u65F6\u7528 **\u6807\u9898** \u7A81\u51FA\u663E\u793A": "Wrap generated AI record parent titles in **...**",
+  "\u6807\u9898\u81EA\u52A8\u5E26\u9879\u76EE / Bot \u524D\u7F00": "Prefix title with project or Bot name",
+  "\u5DE5\u4F5C\u533A\u9879\u76EE\u6216 Grok Bot \u81EA\u52A8\u52A0\u4E0A\u300C\u540D\u79F0 -> \u300D": "Automatically prepend 'Name -> ' for workspace projects and Grok Bots",
+  "\u6BCD\u5757\u663E\u793A\u8D77\u6B62\u65F6\u95F4\u6BB5": "Show start\u2013end time range on parent block",
+  "\u5728 \u{1F916} \u540E\u5199\u5165 HH:MM-HH:MM": "Include HH:MM-HH:MM after \u{1F916}",
+  "\u751F\u6210\u6807\u9898\u6700\u5927\u5B57\u6570": "Max generated title length",
+  "10\u201360 \u5B57\uFF0C\u9ED8\u8BA4 22": "10\u201360 characters; default is 22",
   "Cursor Hooks \u9700\u8981\u66F4\u65B0\uFF08{matched}/{total}\uFF09": "Cursor Hooks need an update ({matched}/{total})",
   "\u5DF2\u914D\u7F6E Cursor 3.30.14+ Hooks\uFF08{matched}/{total}\uFF09": "Cursor 3.30.14+ Hooks configured ({matched}/{total})",
   "\u672A\u5B89\u88C5 Cursor Hooks\uFF1B\u4EC5\u8FFD\u8E2A\u5B89\u88C5\u540E\u7684 Cursor 3.30.14+ \u65B0\u4F1A\u8BDD\u6216\u65B0\u5BF9\u8BDD\u8F6E\u6B21": "Cursor Hooks not installed; only new Cursor 3.30.14+ sessions or turns after installation are tracked",
@@ -1094,6 +1114,7 @@ var writers_default = {
   "\u65E5\u8BB0\u6B63\u5728\u88AB\u6539\uFF0C\u8FD9\u4E00\u8F6E\u6CA1\u5199": "The journal is being edited, so this round was not written",
   "\u4E0D\u518D\u7BA1\uFF1A{name}\uFF08\u8FD9\u4E00\u884C\u6CA1\u4E86\uFF09": "No longer tracking: {name} (the line is gone)",
   "DONE\uFF08\u5DF2\u5F52\u6863\uFF09\uFF1A{name}\uFF08{min}m\uFF09": "DONE (archived): {name} ({min}m)",
+  "DONE\uFF08\u957F\u65F6\u95F4\u65E0\u65B0\u5BF9\u8BDD\uFF09\uFF1A{name}\uFF08{min}m\uFF09": "DONE (idle timeout): {name} ({min}m)",
   "DOING\uFF1A{name}": "DOING: {name}",
   "PAUSED\uFF1A{name}\uFF08{min}m\uFF09": "PAUSED: {name} ({min}m)",
   "\u770B\u7740\u505A\u5B8C\u4E86\uFF1A{name}": "Looks finished: {name}",
@@ -1102,6 +1123,7 @@ var writers_default = {
   "\u25B6 \u5728\u505A": "\u25B6 In progress",
   "\u23F8 {min} \u5206\u949F\u6CA1\u52A8\uFF0C\u5148\u6682\u505C\u4E86": "\u23F8 No activity for {min} min, paused",
   "\u{1F4E6} \u4F1A\u8BDD\u5F52\u6863\u4E86\uFF0C\u8BB0\u6210\u505A\u5B8C": "\u{1F4E6} Session archived, recorded as done",
+  "\u2705 \u957F\u65F6\u95F4\u65E0\u65B0\u5BF9\u8BDD\uFF0C\u8BB0\u6210\u505A\u5B8C": "\u2705 Idle with no new messages, recorded as done",
   "\u2705 \u770B\u7740\u50CF\u662F\u505A\u5B8C\u4E86\uFF0C\u8981\u6807 DONE \u81EA\u5DF1\u6539\u4E00\u4E0B": "\u2705 Looks finished; change it to DONE yourself if it is",
   "\u{1F4CC} \u8BB0\u4E86\u8981\u4F60\u505A\u7684": "\u{1F4CC} Noted for you to do",
   "\u{1F916} \u6574\u7406\u4E86\u65E5\u8BB0": "\u{1F916} Journal organized",
@@ -1469,6 +1491,26 @@ function t(key, vars) {
 // src/constants.js
 var CONFIRM_FIRST = "\u5148\u9605\u8BFB\u4EFB\u52A1\u53CA\u76F8\u5173\u4E0A\u4E0B\u6587\u3002\u53EA\u6709\u5F71\u54CD\u9700\u6C42\u3001\u8303\u56F4\u6216\u9A8C\u6536\u7684\u95EE\u9898\u5C1A\u4E0D\u660E\u786E\u65F6\uFF0C\u624D\u96C6\u4E2D\u5411\u6211\u63D0\u95EE\uFF1B\u5DF2\u660E\u786E\u6216\u5DF2\u786E\u8BA4\u7684\u4FE1\u606F\u4E0D\u8981\u91CD\u590D\u8BE2\u95EE\u3002\u4FE1\u606F\u5145\u5206\u65F6\uFF0C\u7B80\u8981\u8BF4\u660E\u6267\u884C\u8BA1\u5212\u5E76\u7EE7\u7EED\u5B8C\u6210\u4EFB\u52A1\uFF0C\u8FD0\u884C\u5FC5\u8981\u68C0\u67E5\u540E\u6C47\u62A5\u7ED3\u679C\u3002\u8D85\u51FA\u5DF2\u6388\u6743\u8303\u56F4\u7684\u64CD\u4F5C\uFF0C\u5148\u5F81\u6C42\u786E\u8BA4\u3002";
 var STORE_VERSION = 1;
+var DEFAULT_RECORD_RULES = {
+  boldTitle: true,
+  // 自动记录母块标题自动加粗 **...**
+  projectPrefix: true,
+  // 自动记录标题带 项目名 / Bot名 -> 前缀
+  showTimeRange: true,
+  // 自动记录母块显示 HH:MM-HH:MM 时间段
+  titleMax: 22
+  // 自动记录生成标题最大字数
+};
+function resolveRecordRules(cfg = {}) {
+  const raw = cfg?.recordRules || {};
+  const max = Number(raw.titleMax);
+  return {
+    boldTitle: raw.boldTitle !== false,
+    projectPrefix: raw.projectPrefix !== false,
+    showTimeRange: raw.showTimeRange !== false,
+    titleMax: Number.isFinite(max) && max >= 10 ? Math.min(60, Math.round(max)) : DEFAULT_RECORD_RULES.titleMax
+  };
+}
 var AGENTS = {
   claude: {
     id: "claude",
@@ -1566,9 +1608,22 @@ var AGENTS = {
     deep: "cursor",
     desktopOnly: true,
     trackingOnly: true
+  },
+  grokbot: {
+    id: "grokbot",
+    name: "Grok Bot",
+    short: "Grok Bot",
+    glyph: "\u2727",
+    color: "#5b6472",
+    soft: "rgba(91,100,114,.13)",
+    kind: "grokbot",
+    where: ["~/Library/Application Support/Grok Bot/sand-client-persistence", t("Grok Bot \u684C\u9762\u7248\uFF08\u6309 Bot \u591A\u9009\u8FFD\u8E2A\uFF09")],
+    deep: "grokbot",
+    desktopOnly: true,
+    trackingOnly: true
   }
 };
-var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "cursor"];
+var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "cursor", "grokbot"];
 var MODEL_CATALOG = [
   { id: "antigravity-default", agent: "antigravity", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Antigravity", context: "\u2014", tags: [], note: t("\u4F7F\u7528\u670D\u52A1\u7AEF\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
   { id: "opencode-default", agent: "opencode", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "OpenCode", context: "\u2014", tags: [], note: t("\u4F7F\u7528\u670D\u52A1\u7AEF\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
@@ -1781,7 +1836,7 @@ var CLAUDE_PERMISSIONS = [
 var DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true },
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
   dayCutoff: 0,
@@ -1794,6 +1849,7 @@ var DEFAULTS = {
   claudeDesktop: true,
   hideArchived: true,
   cursorHooksPrompted: false,
+  grokBotTrackedBotIds: [],
   // Human–AI journal: sessions written back into the daily note.
   journalFolder: "",
   // 日记目录；留空自动检测（找不到就用「日记」）
@@ -1846,9 +1902,12 @@ var DEFAULTS = {
   // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
   autoLogIdle: 10,
   // 停了几分钟算 PAUSED
+  autoLogGrokBotDoneMinutes: 120,
+  // Grok Bot 多久无新对话自动标为 DONE（0 关闭）
+  recordRules: { ...DEFAULT_RECORD_RULES },
   autoLogBatch: 8,
   // 一轮最多问模型几个会话
-  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true },
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true },
   autoLogProvider: "auto",
   autoLogEffort: "low",
   autoLogModel: "",
@@ -2150,7 +2209,7 @@ function recommendPrimaryAgents(usage, now = Date.now()) {
 }
 
 // src/main.js
-var import_fs11 = __toESM(require("fs"), 1);
+var import_fs12 = __toESM(require("fs"), 1);
 
 // src/journal.js
 var import_crypto = require("crypto");
@@ -2242,8 +2301,8 @@ function formatSummaryLinks(raw, format = (text) => text) {
   const encode = (c) => c === "(" ? "%28" : c === ")" ? "%29" : encodeURIComponent(c);
   const target = (address2) => {
     if (/^(?:https?|file):/i.test(address2)) return address2.replace(/[()\s]/g, encode);
-    const path9 = address2.replace(/^~(?=\/)/, import_os.default.homedir()).replace(/\\/g, "/");
-    return (path9.startsWith("/") ? "file://" : "file:///") + path9.replace(/[()\s?#]/g, encode);
+    const path10 = address2.replace(/^~(?=\/)/, import_os.default.homedir()).replace(/\\/g, "/");
+    return (path10.startsWith("/") ? "file://" : "file:///") + path10.replace(/[()\s?#]/g, encode);
   };
   const address = (value) => /^(?:https?:\/\/|file:\/\/|[a-z]:[\\/]|~?\/)/i.test(value);
   const longPath = (value) => value.length >= 40 || /^(?:[a-z]:[\\/]|~\/|\/(?:Users|home|tmp|var|workspace|mnt|Volumes)\/)/i.test(value);
@@ -2404,8 +2463,8 @@ function blockIdOf(line) {
 function stripBlockId(s) {
   return String(s || "").replace(BLOCK_ID_RE, "").trimEnd();
 }
-var AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor" };
-var isDeckBlockId = (id) => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
+var AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor", grokbot: "grokbot" };
+var isDeckBlockId = (id) => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor|grokbot)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
 function normalizeTaskSlug(value) {
   const slug = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
   return /^[a-z][a-z0-9]{0,15}(?:-[a-z][a-z0-9]{0,15})?$/.test(slug) ? slug : "";
@@ -2512,9 +2571,16 @@ function prefixAutoTitle(title, project = "") {
   const stripped = body.replace(new RegExp(`^${esc}\\s*->\\s*`), "").trim();
   return `${proj} -> ${stripped || body}`;
 }
+function boldAutoTitle(title) {
+  const s = String(title || "").trim();
+  if (!s) return "";
+  const m = /^\*\*([\s\S]+)\*\*$/.exec(s);
+  if (m && !m[1].includes("**")) return s;
+  return `**${s}**`;
+}
 function formatProjectAutoTitle(raw, project = "", max = 22) {
   const proj = String(project || "").replace(/\s+/g, " ").trim();
-  let s = stripBlockId(String(raw || "")).replace(/^🤖\s*/, "").replace(TIME_SPAN_PREFIX_RE, "").replace(/^🤖\s*/, "").trim();
+  let s = stripBlockId(String(raw || "")).replace(/^🤖\s*/, "").replace(TIME_SPAN_PREFIX_RE, "").replace(/^🤖\s*/, "").replace(/^\*\*([\s\S]+)\*\*$/, "$1").trim();
   if (proj) {
     const esc = proj.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     s = s.replace(new RegExp(`^${esc}\\s*->\\s*`), "").trim();
@@ -2522,24 +2588,27 @@ function formatProjectAutoTitle(raw, project = "", max = 22) {
   const body = summarizeAutoTitle(s, max);
   return proj ? prefixAutoTitle(body, proj) : body;
 }
-function formatAutoTaskLine({ prefix = "- ", kw = "DOING", start = "", end = "", span = "", title = "", blockId = "", summarize = false, preserveTitle = false } = {}) {
+function formatAutoTaskLine({ prefix = "- ", kw = "DOING", start = "", end = "", span = "", title = "", blockId = "", summarize = false, preserveTitle = false, boldTitle = true, showTimeRange = true } = {}) {
   const existingId = blockId || blockIdOf(title);
   let cleanTitle = preserveTitle ? String(title || "") : stripBlockId(String(title || "")).replace(/^🤖\s*/, "").replace(TIME_SPAN_PREFIX_RE, "").replace(/^🤖\s*/, "").replace(TIME_SPAN_PREFIX_RE, "").trim();
   if (!preserveTitle && (summarize || !cleanTitle)) cleanTitle = summarizeAutoTitle(cleanTitle || title);
+  if (!preserveTitle && boldTitle && cleanTitle) cleanTitle = boldAutoTitle(cleanTitle);
   let timeRange = "";
-  if (span) {
-    const m = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?$/.exec(span.trim());
-    if (m) {
-      const s = `${pad(+m[1])}:${m[2]}`;
-      const e = m[3] ? `${pad(+m[3])}:${m[4]}` : s;
+  if (showTimeRange) {
+    if (span) {
+      const m = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?$/.exec(span.trim());
+      if (m) {
+        const s = `${pad(+m[1])}:${m[2]}`;
+        const e = m[3] ? `${pad(+m[3])}:${m[4]}` : s;
+        timeRange = `${s}-${e}`;
+      } else {
+        timeRange = span.trim();
+      }
+    } else if (start || end) {
+      const s = start || end;
+      const e = end || start;
       timeRange = `${s}-${e}`;
-    } else {
-      timeRange = span.trim();
     }
-  } else if (start || end) {
-    const s = start || end;
-    const e = end || start;
-    timeRange = `${s}-${e}`;
   }
   const raw = `${prefix}${kw ? kw + " " : ""}${AUTO_MARK}${timeRange ? timeRange + " " : ""}${cleanTitle}`;
   const head = (preserveTitle ? raw : raw.replace(/ {2,}/g, " ")).trimEnd();
@@ -2659,8 +2728,8 @@ function kwLine(raw) {
   return { kw, body: s, blockId };
 }
 function parseLink(line) {
-  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder|workbuddy|cursor)&sid=([^)]*)\)/.exec(line);
-  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(OpenCode|Qoder|Cursor)：/, "") };
+  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder|workbuddy|cursor|grokbot)&sid=([^)]*)\)/.exec(line);
+  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(OpenCode|Qoder|Cursor|Grok Bot)：/, "") };
   const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
   const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
@@ -2672,8 +2741,8 @@ function parseLink(line) {
 }
 function linkLine(indent, agent, title, sid) {
   const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
-  if (["opencode", "qoder", "cursor"].includes(agent)) {
-    const label = agent === "opencode" ? "OpenCode" : agent === "qoder" ? "Qoder" : "Cursor";
+  if (["opencode", "qoder", "cursor", "grokbot"].includes(agent)) {
+    const label = agent === "opencode" ? "OpenCode" : agent === "qoder" ? "Qoder" : agent === "cursor" ? "Cursor" : "Grok Bot";
     return `${indent}- \u{1F517} [${label}\uFF1A${safe}](obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(sid)})`;
   }
   if (agent === "claude") return `${indent}- \u{1F517} [Claude\uFF1A${safe}](claude://resume?session=${sid})`;
@@ -3031,7 +3100,7 @@ function clocksLast(text) {
   }
   return lines.join("\n");
 }
-function bindInto(text, at, s, { below = false } = {}) {
+function bindInto(text, at, s, { below = false, rules = null } = {}) {
   let lines = text.split("\n");
   const target = dropKind(lines, at, below);
   if (!target) return { text, error: t("\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A") };
@@ -3041,11 +3110,12 @@ function bindInto(text, at, s, { below = false } = {}) {
     if (had && had.sid === s.sid) return { text, error: t("\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u8FD9\u4E2A\u4F1A\u8BDD\u4E86") };
     if (had) return { text, error: t("\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u53E6\u4E00\u4E2A\u4F1A\u8BDD\uFF1B\u5148\u5220\u6389\u5B83\u4E0B\u9762\u7684 \u{1F517} \u884C") };
   }
+  const r = resolveRecordRules(rules ? { recordRules: rules } : {});
   const want = kwForState(s.state);
   const since = s.since || "";
   const until = s.until || since;
   const title = resultText(s.title || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD", 60);
-  const autoTitle = summarizeAutoTitle(s.title || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD");
+  const autoTitle = summarizeAutoTitle(s.title || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD", r.titleMax);
   const rescuedChildren = [];
   let rescuedBlockId = s.blockId || "";
   const anchor = lines[n];
@@ -3095,7 +3165,7 @@ function bindInto(text, at, s, { below = false } = {}) {
   if (target.kind === "bind") {
     const p = splitTask(lines[n]);
     if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
-      lines[n] = p.auto ? formatAutoTaskLine({ prefix: p.prefix, kw: want, start: p.since || since, end: p.until || until || p.since || since, title: p.title, preserveTitle: true, blockId: p.blockId }) : `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
+      lines[n] = p.auto ? formatAutoTaskLine({ prefix: p.prefix, kw: want, start: p.since || since, end: p.until || until || p.since || since, title: p.title, preserveTitle: true, showTimeRange: r.showTimeRange || Boolean(p.since || p.until), blockId: p.blockId }) : `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
     }
     const eb2 = maybeAddBlockId(lines[n]);
     lines[n] = eb2.line;
@@ -3123,7 +3193,7 @@ function bindInto(text, at, s, { below = false } = {}) {
     }
     const pm = /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[n]);
     prefix = !pm ? "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
-    const eb2 = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle }));
+    const eb2 = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle, boldTitle: r.boldTitle, showTimeRange: r.showTimeRange }));
     const item2 = eb2.line;
     const lead2 = (/^\s*/.exec(item2) || [""])[0];
     const ind2 = lead2 + (lead2 && !lead2.includes("	") ? "    " : "	");
@@ -3142,7 +3212,7 @@ function bindInto(text, at, s, { below = false } = {}) {
     const pm = prev >= 0 ? /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[prev]) : null;
     prefix = !pm || MARKER_RE.test(lines[prev]) ? pm ? (/^\s*/.exec(lines[markOwner(lines, prev)] || "") || [""])[0] + "- " : "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
   }
-  const eb = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle }));
+  const eb = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle, boldTitle: r.boldTitle, showTimeRange: r.showTimeRange }));
   const item = eb.line;
   if (target.kind === "below") {
     lines.splice(n + 1, 0, item);
@@ -3191,7 +3261,7 @@ function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
   const mergedUntil = ps.until && pd.until ? ps.until > pd.until ? ps.until : pd.until : pd.until || ps.until || mergedSince;
   const blockId = pd.blockId || ps.blockId || preferId || makeBlockId(keptBody);
   const keptIsAuto = keptBody.startsWith(AUTO_MARK.trim());
-  const headerRaw = keptIsAuto ? formatAutoTaskLine({ prefix: pd.prefix, kw: mergedKw, start: mergedSince, end: mergedUntil, title: keptBody, preserveTitle: true }) : `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
+  const headerRaw = keptIsAuto ? formatAutoTaskLine({ prefix: pd.prefix, kw: mergedKw, start: mergedSince, end: mergedUntil, title: pd.title, preserveTitle: true }) : `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
   const { line: mergedHeader } = ensureBlockId(headerRaw, blockId);
   const dstBase = width(lines[dstLine]);
   const srcBase = width(lines[srcLine]);
@@ -3846,9 +3916,9 @@ function squeezeBlank(text) {
 // src/journal-archive.js
 var ARCHIVE_TITLE = "# \u5DF2\u5B8C\u6210\u7684 AI \u4EFB\u52A1";
 function archivePath(value) {
-  const path9 = String(value || "").trim().replace(/\\/g, "/");
-  if (!path9 || path9.startsWith("/") || /^[a-z]:/i.test(path9) || path9.split("/").some((x) => !x || x === "." || x === "..") || !path9.endsWith(".md")) throw new Error(t("\u5F52\u6863\u4F4D\u7F6E\u5FC5\u987B\u662F\u5E93\u5185\u7684 .md \u6587\u4EF6\u8DEF\u5F84"));
-  return path9;
+  const path10 = String(value || "").trim().replace(/\\/g, "/");
+  if (!path10 || path10.startsWith("/") || /^[a-z]:/i.test(path10) || path10.split("/").some((x) => !x || x === "." || x === "..") || !path10.endsWith(".md")) throw new Error(t("\u5F52\u6863\u4F4D\u7F6E\u5FC5\u987B\u662F\u5E93\u5185\u7684 .md \u6587\u4EF6\u8DEF\u5F84"));
+  return path10;
 }
 function archiveDate(file) {
   const name = String(file?.basename || file?.path || "");
@@ -3942,8 +4012,8 @@ function mergeArchive(text, { date, blocks = [], turns = /* @__PURE__ */ new Map
   const out = renderArchive(archive);
   return crlf ? out.replace(/\n/g, "\r\n") : out;
 }
-async function ensureFolders(vault, path9) {
-  const parts = path9.split("/");
+async function ensureFolders(vault, path10) {
+  const parts = path10.split("/");
   parts.pop();
   let folder = "";
   for (const part of parts) {
@@ -3951,8 +4021,8 @@ async function ensureFolders(vault, path9) {
     if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
   }
 }
-async function archiveCompletedTo(plugin, file, base, plan, { path: path9, order = "prepend" } = {}) {
-  const targetPath = archivePath(path9);
+async function archiveCompletedTo(plugin, file, base, plan, { path: path10, order = "prepend" } = {}) {
+  const targetPath = archivePath(path10);
   if (targetPath === file.path) throw new Error(t("\u5F52\u6863\u6587\u4EF6\u4E0D\u80FD\u4E0E\u5F53\u524D\u65E5\u8BB0\u76F8\u540C"));
   const blocks = (plan.done || []).filter((entry) => entry.ai);
   if (!blocks.length) throw new Error(t("\u6CA1\u6709\u53EF\u5F52\u6863\u7684 AI \u4EFB\u52A1"));
@@ -4535,13 +4605,13 @@ function workspaceLabel(cwd) {
 }
 
 // src/main.js
-var import_path10 = __toESM(require("path"), 1);
-var import_os11 = __toESM(require("os"), 1);
+var import_path11 = __toESM(require("path"), 1);
+var import_os12 = __toESM(require("os"), 1);
 var import_child_process11 = require("child_process");
 var import_obsidian14 = require("obsidian");
 
 // src/readers.js
-var import_fs4 = __toESM(require("fs"), 1);
+var import_fs5 = __toESM(require("fs"), 1);
 
 // src/desktop-sessions.js
 var import_fs2 = __toESM(require("fs"), 1);
@@ -6154,9 +6224,379 @@ function ingestAgentLine(agent, ctx, line, fc, touched) {
   if (fn) return fn(ctx, line, fc, touched);
 }
 
-// src/readers.js
+// src/grok-bot-sessions.js
+var import_fs4 = __toESM(require("fs"), 1);
 var import_path3 = __toESM(require("path"), 1);
 var import_os4 = __toESM(require("os"), 1);
+var BASE32_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+var BASE32_LOOKUP = new Map([...BASE32_ALPHA].map((ch, idx) => [ch, idx]));
+function decodeSandBlobKey(filename) {
+  const stem = import_path3.default.basename(String(filename || "")).replace(/\.blob$/i, "").toUpperCase();
+  if (!stem || !/^[A-Z2-7]+$/.test(stem)) return "";
+  let bits = 0;
+  let value = 0;
+  const bytes = [];
+  for (const ch of stem) {
+    const v = BASE32_LOOKUP.get(ch);
+    if (v === void 0) return "";
+    value = value << 5 | v;
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push(value >>> bits & 255);
+    }
+  }
+  return Buffer.from(bytes).toString("utf8");
+}
+function grokBotDataDir(homeDir = import_os4.default.homedir(), platform = process.platform, env = process.env) {
+  if (platform === "win32") return import_path3.default.join(env.APPDATA || import_path3.default.join(homeDir, "AppData", "Roaming"), "Grok Bot");
+  if (platform === "darwin") return import_path3.default.join(homeDir, "Library", "Application Support", "Grok Bot");
+  return import_path3.default.join(env.XDG_CONFIG_HOME || import_path3.default.join(homeDir, ".config"), "Grok Bot");
+}
+var grokBotPersistenceDir = (homeDir = import_os4.default.homedir(), platform = process.platform, env = process.env) => import_path3.default.join(grokBotDataDir(homeDir, platform, env), "sand-client-persistence");
+function safeReadJsonSync(filePath) {
+  try {
+    return JSON.parse(import_fs4.default.readFileSync(filePath, "utf8"));
+  } catch {
+    return null;
+  }
+}
+function decodeAccountId(encoded) {
+  try {
+    return decodeURIComponent(encoded);
+  } catch {
+    return encoded;
+  }
+}
+function discoverGrokBotStorage(opts = {}) {
+  const dir = opts.persistenceDir || grokBotPersistenceDir(opts.homeDir, opts.platform, opts.env);
+  let names;
+  try {
+    names = import_fs4.default.readdirSync(dir);
+  } catch {
+    return { accountId: "", persistenceDir: dir, bots: [] };
+  }
+  let activeAccount = "";
+  const rosters = [];
+  const transcripts = /* @__PURE__ */ new Map();
+  for (const name of names) {
+    if (!name.endsWith(".blob")) continue;
+    const key = decodeSandBlobKey(name);
+    if (!key) continue;
+    const fullPath = import_path3.default.join(dir, name);
+    if (key === "sand.client.slice.client-meta.account-slot") {
+      const slot = safeReadJsonSync(fullPath);
+      if (typeof slot?.value === "string") activeAccount = slot.value;
+      continue;
+    }
+    const rosterMatch = /^sand\.client\.slice\.account\.([^.]+)\.roster\.last-roster$/.exec(key);
+    if (rosterMatch) {
+      rosters.push({ accountId: decodeAccountId(rosterMatch[1]), path: fullPath });
+      continue;
+    }
+    const trMatch = /^sand\.client\.slice\.account\.([^.]+)\.transcript\.replicas\.([^.]+)$/.exec(key);
+    if (trMatch) {
+      const accountId = decodeAccountId(trMatch[1]);
+      const botId = trMatch[2];
+      const existing = transcripts.get(botId);
+      if (!existing || activeAccount && accountId === activeAccount) {
+        transcripts.set(botId, { path: fullPath, accountId });
+      }
+    }
+  }
+  if (activeAccount) {
+    for (const name of names) {
+      if (!name.endsWith(".blob")) continue;
+      const key = decodeSandBlobKey(name);
+      const trMatch = /^sand\.client\.slice\.account\.([^.]+)\.transcript\.replicas\.([^.]+)$/.exec(key);
+      if (trMatch && decodeAccountId(trMatch[1]) === activeAccount) {
+        transcripts.set(trMatch[2], { path: import_path3.default.join(dir, name), accountId: activeAccount });
+      }
+    }
+  }
+  const activeRosters = activeAccount ? rosters.filter((r) => r.accountId === activeAccount) : [];
+  const orderedRosters = activeRosters.length ? activeRosters : rosters;
+  const botMap = /* @__PURE__ */ new Map();
+  for (const r of orderedRosters) {
+    const data = safeReadJsonSync(r.path);
+    const rows = Array.isArray(data?.value?.rows) ? data.value.rows : [];
+    for (const row of rows) {
+      const id = String(row?.id || "").trim();
+      if (!id || botMap.has(id)) continue;
+      const tr = transcripts.get(id);
+      const createdAt = Number(row.createdAt) || 0;
+      const updatedAt = Number(row.updatedAt) || 0;
+      const lastActivityAt = Number(row.lastActivityAt) || updatedAt || createdAt || 0;
+      botMap.set(id, {
+        id,
+        accountId: r.accountId,
+        name: String(row.name || row.title || id).trim() || id,
+        description: String(row.description || "").trim(),
+        isHidden: !!row.isHiddenFromSidebar,
+        isRemoved: !!row.isRemovedFromSidebar,
+        isGroup: !!row.isGroup,
+        inRoster: true,
+        createdAt,
+        updatedAt,
+        lastActivityAt,
+        awaitingUserResponse: row.awaitingUserResponse || null,
+        lastPreview: String(row.lastEntry?.text || row.lastEntry?.sessionPreview?.text || "").trim(),
+        transcriptPath: tr?.path || ""
+      });
+    }
+  }
+  for (const [botId, tr] of transcripts) {
+    if (botMap.has(botId)) continue;
+    botMap.set(botId, {
+      id: botId,
+      accountId: tr.accountId,
+      name: botId,
+      description: "",
+      isHidden: false,
+      isRemoved: false,
+      isGroup: false,
+      inRoster: false,
+      createdAt: 0,
+      updatedAt: 0,
+      lastActivityAt: 0,
+      awaitingUserResponse: null,
+      lastPreview: "",
+      transcriptPath: tr.path
+    });
+  }
+  const bots = [...botMap.values()].sort((a, b) => {
+    const aHidden = a.isHidden || a.isRemoved ? 1 : 0;
+    const bHidden = b.isHidden || b.isRemoved ? 1 : 0;
+    if (aHidden !== bHidden) return aHidden - bHidden;
+    if (b.lastActivityAt !== a.lastActivityAt) return b.lastActivityAt - a.lastActivityAt;
+    return a.name.localeCompare(b.name);
+  });
+  return { accountId: activeAccount || orderedRosters[0]?.accountId || "", persistenceDir: dir, bots };
+}
+function unescapeGrokPathContent(text) {
+  return String(text || "").replace(/\\([ \\~])/g, "$1").trim();
+}
+function normalizeGrokBotEntry(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  const at = Number(entry.timestampMs) || 0;
+  const seq = Number(entry.seq) || 0;
+  const id = String(entry.id || `${at}:${seq}`);
+  const kind = String(entry.kind || "");
+  if (kind === "message") {
+    const role = entry.role === "assistant" ? "assistant" : "user";
+    let text = unescapeGrokPathContent(entry.content);
+    if (!text) return null;
+    if (role === "user" && entry.fromAgent?.name && !text.startsWith("[")) {
+      text = `[\u6765\u81EA ${entry.fromAgent.name}] ${text}`;
+    }
+    return { id, kind, role, text, summaryText: text, at, seq, isStreaming: !!entry.isStreaming, step: "", needsApproval: false, isTurnReply: role === "assistant" };
+  }
+  if (kind === "user-attachment") {
+    const name = String(entry.file_name || "").trim();
+    if (!name) return null;
+    const text = entry.secondaryText ? `[\u9644\u4EF6: ${name} (${entry.secondaryText})]` : `[\u9644\u4EF6: ${name}]`;
+    return { id, kind, role: "user", text, summaryText: text, at, seq, isStreaming: false, step: "", needsApproval: false, isTurnReply: false };
+  }
+  if (kind === "send-message") {
+    const m = entry.message;
+    if (!m || typeof m !== "object") return null;
+    const author = entry.author?.name ? String(entry.author.name).trim() : "";
+    const withAuthor = (t2) => author && t2 ? `**${author}**: ${t2}` : t2;
+    const type = String(m.type || "");
+    if (type === "text") {
+      let text = String(m.content || "").trim();
+      if (!text && Array.isArray(m.images) && m.images.length) text = `[\u56FE\u7247 \xD7${m.images.length}]`;
+      if (!text) return null;
+      return {
+        id,
+        kind,
+        role: "assistant",
+        text: withAuthor(text),
+        summaryText: text,
+        at,
+        seq,
+        isStreaming: !!entry.isStreaming,
+        step: "",
+        needsApproval: false,
+        isTurnReply: true
+      };
+    }
+    if (type === "widget") {
+      const prompt = String(m.widget?.prompt || "").trim();
+      if (!prompt) return null;
+      const opts = Array.isArray(m.widget?.options) ? m.widget.options.map((o) => String(o?.label || o?.value || "").trim()).filter(Boolean) : [];
+      const full = opts.length ? `${prompt}
+- ${opts.join(" / ")}` : prompt;
+      return {
+        id,
+        kind,
+        role: "assistant",
+        text: withAuthor(full),
+        summaryText: prompt,
+        at,
+        seq,
+        isStreaming: false,
+        step: "",
+        needsApproval: false,
+        isTurnReply: true
+      };
+    }
+    if (type === "attachment") {
+      const label = String(m.file_name || m.alt || m.source_path || "").trim();
+      if (!label) return null;
+      const text = `[\u9644\u4EF6: ${label}]`;
+      return {
+        id,
+        kind,
+        role: "assistant",
+        text: withAuthor(text),
+        summaryText: text,
+        at,
+        seq,
+        isStreaming: false,
+        step: "",
+        needsApproval: false,
+        isTurnReply: false
+      };
+    }
+    if (type === "local-tool-permission") {
+      const ask = m.ask || {};
+      const action = String(ask.action || "tool").trim();
+      const target = String(ask.target || "").replace(/\s+/g, " ").trim();
+      const status = String(ask.status || "").trim();
+      const step = target ? `${action}: ${target.slice(0, 36)}` : action;
+      const text = `[\u6743\u9650\u8BF7\u6C42: ${action}] ${target}${status ? ` (${status})` : ""}`.trim();
+      return {
+        id,
+        kind,
+        role: "assistant",
+        text: withAuthor(text),
+        summaryText: "",
+        at,
+        seq,
+        isStreaming: false,
+        step,
+        needsApproval: status === "pending",
+        isTurnReply: false
+      };
+    }
+    if (type === "mobile-tool-permission") {
+      const perm = m.permission || {};
+      const status = String(perm.status || "").trim();
+      const title = String(m.title || perm.toolId || "permission").trim();
+      const text = `[\u8BBE\u5907\u6743\u9650: ${title}] ${String(m.body || "").trim()}`.trim();
+      return {
+        id,
+        kind,
+        role: "assistant",
+        text: withAuthor(text),
+        summaryText: "",
+        at,
+        seq,
+        isStreaming: false,
+        step: title,
+        needsApproval: status === "pending",
+        isTurnReply: false
+      };
+    }
+    if (type === "user-form") {
+      const fr = m.formRequest || {};
+      const title = String(fr.title || "").trim();
+      if (!title) return null;
+      return {
+        id,
+        kind,
+        role: "assistant",
+        text: withAuthor(`[\u8868\u5355: ${title}]`),
+        summaryText: "",
+        at,
+        seq,
+        isStreaming: false,
+        step: title,
+        needsApproval: !entry.formResolution,
+        isTurnReply: false
+      };
+    }
+    if (type === "email-offer") {
+      const text = String(m.summary || m.email || "").trim();
+      if (!text) return null;
+      return {
+        id,
+        kind,
+        role: "assistant",
+        text: withAuthor(text),
+        summaryText: text,
+        at,
+        seq,
+        isStreaming: false,
+        step: "",
+        needsApproval: false,
+        isTurnReply: true
+      };
+    }
+    if (type === "connector" || type === "scm-connect") {
+      const text = type === "connector" ? `[\u8FDE\u63A5\u5668: ${m.connector || ""}]` : `[\u8FDE\u63A5\u4ED3\u5E93: ${m.provider || ""}]`;
+      return {
+        id,
+        kind,
+        role: "assistant",
+        text: withAuthor(text),
+        summaryText: "",
+        at,
+        seq,
+        isStreaming: false,
+        step: "",
+        needsApproval: false,
+        isTurnReply: false
+      };
+    }
+  }
+  return null;
+}
+function parseGrokBotTranscript(rawText, botMeta = {}) {
+  let data;
+  try {
+    data = typeof rawText === "string" ? JSON.parse(rawText) : rawText;
+  } catch {
+    return null;
+  }
+  const value = data?.value && typeof data.value === "object" ? data.value : null;
+  if (!value) return null;
+  const rawEntries = Array.isArray(value.entries) ? value.entries : [];
+  const entries = rawEntries.map(normalizeGrokBotEntry).filter(Boolean).sort((a, b) => a.at - b.at || a.seq - b.seq);
+  const persistedAt = Number(value.persistedAt) || 0;
+  let startedAt = Number(botMeta.createdAt) || 0;
+  let lastAt = Number(botMeta.lastActivityAt) || persistedAt || 0;
+  for (const e of entries) {
+    if (e.at > 0 && (!startedAt || e.at < startedAt)) startedAt = e.at;
+    if (e.at > lastAt) lastAt = e.at;
+  }
+  const last = entries[entries.length - 1] || null;
+  let pendingApproval = false;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const e = entries[i];
+    if (e.role === "user" || e.isTurnReply) break;
+    if (e.needsApproval) {
+      pendingApproval = true;
+      break;
+    }
+  }
+  let state = "idle";
+  if (botMeta.awaitingUserResponse || pendingApproval) state = "needs-approval";
+  else if (last?.isStreaming || last?.role === "user") state = "run";
+  else if (last?.role === "assistant") state = "wait";
+  const step = state === "needs-approval" || state === "run" ? last?.step || "" : "";
+  return { persistedAt, entries, state, step, startedAt, lastAt };
+}
+function buildGrokBotConversation(rawText, botMeta = {}) {
+  const parsed = parseGrokBotTranscript(rawText, botMeta);
+  if (!parsed) return [];
+  return parsed.entries.filter((e) => e.text && e.text.trim()).map((e) => ({ role: e.role, text: e.text, at: e.at }));
+}
+
+// src/readers.js
+var import_path4 = __toESM(require("path"), 1);
+var import_os5 = __toESM(require("os"), 1);
 var import_child_process4 = require("child_process");
 
 // node_modules/fzstd/esm/index.mjs
@@ -6784,17 +7224,17 @@ function decompress(dat, buf) {
 var import_zlib = __toESM(require("zlib"), 1);
 var import_util = require("util");
 var import_crypto3 = require("crypto");
-var fsp2 = import_fs4.default.promises;
+var fsp2 = import_fs5.default.promises;
 var temporaryFile = (file) => `${file}.${(0, import_crypto3.randomUUID)()}.tmp`;
 function writeAtomicSync2(file, data) {
   const tmp = temporaryFile(file);
   try {
-    import_fs4.default.mkdirSync(import_path3.default.dirname(file), { recursive: true });
-    import_fs4.default.writeFileSync(tmp, data);
-    import_fs4.default.renameSync(tmp, file);
+    import_fs5.default.mkdirSync(import_path4.default.dirname(file), { recursive: true });
+    import_fs5.default.writeFileSync(tmp, data);
+    import_fs5.default.renameSync(tmp, file);
   } finally {
     try {
-      import_fs4.default.unlinkSync(tmp);
+      import_fs5.default.unlinkSync(tmp);
     } catch {
     }
   }
@@ -6804,18 +7244,18 @@ var gunzipAsync = (0, import_util.promisify)(import_zlib.default.gunzip);
 var AI_IDLE = 5;
 var LIVE_STALE = 90 * 1e3;
 var MAX_TS = 2e4;
-var home2 = () => import_os4.default.homedir();
+var home2 = () => import_os5.default.homedir();
 var norm = (p) => String(p || "").replace(/^~(?=\/)/, home2());
 function isScratchCwd(cwd) {
-  const path9 = String(cwd || "").replace(/\/+$/, "");
-  if (!path9) return false;
-  const leaf = path9.split("/").pop() || "";
+  const path10 = String(cwd || "").replace(/\/+$/, "");
+  if (!path10) return false;
+  const leaf = path10.split("/").pop() || "";
   if (/^\d+-[0-9a-f-]{16,}$/i.test(leaf) || /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(leaf)) return true;
   if (/^[a-z]$/i.test(leaf)) return true;
   if (/^[a-z]{1,3}-[a-z]{1,3}$/i.test(leaf)) return true;
   if (leaf === "default-workspace") return true;
-  if (path9 === home2()) return true;
-  if (/\/Codex\/\d{4}-\d{2}-\d{2}\/[^/]+$/i.test(path9)) return true;
+  if (path10 === home2()) return true;
+  if (/\/Codex\/\d{4}-\d{2}-\d{2}\/[^/]+$/i.test(path10)) return true;
   return false;
 }
 function projectName(cwd) {
@@ -6832,18 +7272,18 @@ function inferWorkspaceRoot(target) {
   if (!clean) return "";
   let dir = clean;
   try {
-    if (import_fs4.default.existsSync(clean) && !import_fs4.default.statSync(clean).isDirectory()) dir = import_path3.default.dirname(clean);
-    else if (!import_fs4.default.existsSync(clean) && /\.[a-z0-9]{1,8}$/i.test(import_path3.default.basename(clean))) dir = import_path3.default.dirname(clean);
+    if (import_fs5.default.existsSync(clean) && !import_fs5.default.statSync(clean).isDirectory()) dir = import_path4.default.dirname(clean);
+    else if (!import_fs5.default.existsSync(clean) && /\.[a-z0-9]{1,8}$/i.test(import_path4.default.basename(clean))) dir = import_path4.default.dirname(clean);
   } catch {
   }
   const homeDir = home2().replace(/[\\/]+$/, "");
   let cur = dir;
-  for (let depth = 0; depth < 8 && cur && cur !== import_path3.default.dirname(cur) && cur !== homeDir; depth++) {
+  for (let depth = 0; depth < 8 && cur && cur !== import_path4.default.dirname(cur) && cur !== homeDir; depth++) {
     try {
-      if (WORKSPACE_MARKERS.some((m) => import_fs4.default.existsSync(import_path3.default.join(cur, m)))) return cur;
+      if (WORKSPACE_MARKERS.some((m) => import_fs5.default.existsSync(import_path4.default.join(cur, m)))) return cur;
     } catch {
     }
-    const parent = import_path3.default.dirname(cur);
+    const parent = import_path4.default.dirname(cur);
     if (!parent || parent === cur) break;
     cur = parent;
   }
@@ -6863,7 +7303,7 @@ function cleanLive(v, now = Date.now()) {
   else v.quiet = false;
   return v;
 }
-var USAGE_CACHE_VERSION = 10;
+var USAGE_CACHE_VERSION = 11;
 var SUMMARY_VERSION = 2;
 function packDay(day) {
   return { ...day, sess: [...day.sess instanceof Map ? day.sess : /* @__PURE__ */ new Map()] };
@@ -7008,11 +7448,11 @@ var AgentUsage = class {
       try {
         const payload = this.cacheJSON();
         this.dirty = false;
-        await fsp2.mkdir(import_path3.default.dirname(file), { recursive: true });
+        await fsp2.mkdir(import_path4.default.dirname(file), { recursive: true });
         tmp = temporaryFile(file);
         await fsp2.writeFile(tmp, await gzipAsync(payload));
         if (epoch !== (this._cacheEpoch || 0)) return false;
-        import_fs4.default.renameSync(tmp, file);
+        import_fs5.default.renameSync(tmp, file);
         this.savedAt = Date.now();
         return true;
       } catch (e) {
@@ -7058,16 +7498,16 @@ var AgentUsage = class {
     const add = (dir, agent) => {
       if (this.enabled(agent)) out.push([norm(dir), agent]);
     };
-    add(import_path3.default.join(h, ".claude/projects"), "claude");
-    add(import_path3.default.join(h, ".config/claude/projects"), "claude");
-    for (const d of String(process.env.CLAUDE_CONFIG_DIR || "").split(",").filter(Boolean)) add(import_path3.default.join(d, "projects"), "claude");
-    add(process.env.CODEX_HOME ? import_path3.default.join(process.env.CODEX_HOME, "sessions") : import_path3.default.join(h, ".codex/sessions"), "codex");
-    add(process.env.CODEX_HOME ? import_path3.default.join(process.env.CODEX_HOME, "archived_sessions") : import_path3.default.join(h, ".codex/archived_sessions"), "codex");
-    add(import_path3.default.join(h, ".workbuddy/projects"), "workbuddy");
-    add(import_path3.default.join(h, ".codebuddy/projects"), "workbuddy");
-    add(import_path3.default.join(h, ".dsh/sessions"), "dsh");
-    add(import_path3.default.join(h, ".gemini/antigravity/brain"), "antigravity");
-    add(import_path3.default.join(h, ".qoder/projects"), "qoder");
+    add(import_path4.default.join(h, ".claude/projects"), "claude");
+    add(import_path4.default.join(h, ".config/claude/projects"), "claude");
+    for (const d of String(process.env.CLAUDE_CONFIG_DIR || "").split(",").filter(Boolean)) add(import_path4.default.join(d, "projects"), "claude");
+    add(process.env.CODEX_HOME ? import_path4.default.join(process.env.CODEX_HOME, "sessions") : import_path4.default.join(h, ".codex/sessions"), "codex");
+    add(process.env.CODEX_HOME ? import_path4.default.join(process.env.CODEX_HOME, "archived_sessions") : import_path4.default.join(h, ".codex/archived_sessions"), "codex");
+    add(import_path4.default.join(h, ".workbuddy/projects"), "workbuddy");
+    add(import_path4.default.join(h, ".codebuddy/projects"), "workbuddy");
+    add(import_path4.default.join(h, ".dsh/sessions"), "dsh");
+    add(import_path4.default.join(h, ".gemini/antigravity/brain"), "antigravity");
+    add(import_path4.default.join(h, ".qoder/projects"), "qoder");
     add(cursorEventsDir(h), "cursor");
     const seen = /* @__PURE__ */ new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
@@ -7088,7 +7528,7 @@ var AgentUsage = class {
       const files = await this.walk(root, agent === "dsh" || agent === "antigravity" ? 4 : 5, agent);
       for (const p of files) {
         if (agent === "qoder") {
-          const base = import_path3.default.basename(p).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
+          const base = import_path4.default.basename(p).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
           const baseSid = (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
           if ([...this.files.keys()].some((k) => k.endsWith(`#${baseSid}`))) continue;
         }
@@ -7117,18 +7557,19 @@ var AgentUsage = class {
     await this.readClaudeSideChats();
     this.applyClaudeDesktop();
     await this.readCursorMeta({ onlyAgent });
+    await this.readGrokBotSessions({ floor, onlyAgent, strictSince, touched });
     if (!onlyAgent && !strictSince) this.lastScan = Date.now();
     return touched;
   }
   desktopDatabases() {
     return [
-      [import_path3.default.join(home2(), ".local/share/opencode/opencode.db"), "opencode"],
-      [import_path3.default.join(home2(), "Library/Application Support/com.qoder.app.stable/main.sqlite"), "qoder"]
+      [import_path4.default.join(home2(), ".local/share/opencode/opencode.db"), "opencode"],
+      [import_path4.default.join(home2(), "Library/Application Support/com.qoder.app.stable/main.sqlite"), "qoder"]
     ];
   }
   async readDesktopDatabases({ floor, onlyAgent, strictSince, touched }) {
     for (const [db, agent] of this.desktopDatabases()) {
-      if (!this.enabled(agent) || onlyAgent && agent !== onlyAgent || !import_fs4.default.existsSync(db)) continue;
+      if (!this.enabled(agent) || onlyAgent && agent !== onlyAgent || !import_fs5.default.existsSync(db)) continue;
       try {
         const sessions = await desktopSessions(db, agent, !strictSince && this.isPrimary(agent) ? 0 : floor);
         const scope = this.isPrimary(agent) ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
@@ -7196,7 +7637,7 @@ var AgentUsage = class {
       return out;
     }
     for (const e of ents) {
-      const p = import_path3.default.join(dir, e.name);
+      const p = import_path4.default.join(dir, e.name);
       if (e.isDirectory()) {
         if (agent === "antigravity" && (e.name === "steps" || e.name === "chunks" || e.name === "browser_sandbox" || e.name === "scratch")) continue;
         if (depth > 0) out.push(...await this.walk(p, depth - 1, agent));
@@ -7211,7 +7652,7 @@ var AgentUsage = class {
     return out;
   }
   async readCodexTitles() {
-    const p = import_path3.default.join(process.env.CODEX_HOME || import_path3.default.join(home2(), ".codex"), "session_index.jsonl");
+    const p = import_path4.default.join(process.env.CODEX_HOME || import_path4.default.join(home2(), ".codex"), "session_index.jsonl");
     try {
       const st = await fsp2.stat(p);
       if (st.mtimeMs === this.codexIndexAt) return;
@@ -7234,9 +7675,9 @@ var AgentUsage = class {
   //   DeepSeek Harness：storages/workspace.json 的 global.archivedSessionIds
   async readCodexArchived() {
     const out = /* @__PURE__ */ new Set();
-    const codex = process.env.CODEX_HOME || import_path3.default.join(home2(), ".codex");
+    const codex = process.env.CODEX_HOME || import_path4.default.join(home2(), ".codex");
     try {
-      for (const f of await fsp2.readdir(import_path3.default.join(codex, "archived_sessions"))) {
+      for (const f of await fsp2.readdir(import_path4.default.join(codex, "archived_sessions"))) {
         const m = /([0-9a-f]{8}-[0-9a-f-]{27})\.jsonl$/.exec(f);
         if (m) out.add(m[1]);
       }
@@ -7249,7 +7690,7 @@ var AgentUsage = class {
         try {
           const states = (await fsp2.readdir(codex)).filter((f) => /^state_\d+\.sqlite$/.test(f)).sort();
           if (!states.length) return { archived: [], titles: [] };
-          const st = import_path3.default.join(codex, states[states.length - 1]);
+          const st = import_path4.default.join(codex, states[states.length - 1]);
           const [archived, titles] = await Promise.all([
             sqliteColumn(st, "select id from threads where archived = 1"),
             sqliteColumn(st, "select id || char(9) || replace(replace(title, char(10), ' '), char(9), ' ') from threads where title != '' and updated_at > strftime('%s','now') - 30*86400")
@@ -7259,10 +7700,10 @@ var AgentUsage = class {
           return { archived: [], titles: [] };
         }
       })();
-      const wbDb = import_path3.default.join(home2(), ".workbuddy/workbuddy.db");
+      const wbDb = import_path4.default.join(home2(), ".workbuddy/workbuddy.db");
       const wbArchTask = sqliteColumn(wbDb, "select id from sessions where status = 'archived' or deleted_at is not null");
       const wbRowsTask = sqliteColumn(wbDb, "select id || char(9) || replace(replace(coalesce(nullif(custom_title,''), title, ''), char(10), ' '), char(9), ' ') || char(9) || coalesce(cwd,'') || char(9) || coalesce(model,'') || char(9) || coalesce(group_title,'') || char(9) || coalesce(status,'') from sessions");
-      const dshTask = fsp2.readFile(import_path3.default.join(home2(), ".dsh/storages/workspace.json"), "utf8").then((s) => JSON.parse(s)).catch(() => null);
+      const dshTask = fsp2.readFile(import_path4.default.join(home2(), ".dsh/storages/workspace.json"), "utf8").then((s) => JSON.parse(s)).catch(() => null);
       const [codexRes, wbArch, wbRows, ws] = await Promise.all([codexTask, wbArchTask, wbRowsTask, dshTask]);
       for (const id of codexRes.archived) db.add(id);
       for (const row of codexRes.titles) {
@@ -7296,8 +7737,8 @@ var AgentUsage = class {
   // ~/.claude/projects 里的 .jsonl 照旧。sid 用 cliSessionId，和 .jsonl 同名。
   deskRoots() {
     const h = home2();
-    const base = process.platform === "darwin" ? import_path3.default.join(h, "Library/Application Support") : process.platform === "win32" ? process.env.APPDATA || import_path3.default.join(h, "AppData/Roaming") : process.env.XDG_CONFIG_HOME || import_path3.default.join(h, ".config");
-    return [import_path3.default.join(base, "Claude", "claude-code-sessions")];
+    const base = process.platform === "darwin" ? import_path4.default.join(h, "Library/Application Support") : process.platform === "win32" ? process.env.APPDATA || import_path4.default.join(h, "AppData/Roaming") : process.env.XDG_CONFIG_HOME || import_path4.default.join(h, ".config");
+    return [import_path4.default.join(base, "Claude", "claude-code-sessions")];
   }
   async readClaudeDesktop() {
     this.deskBySid.clear();
@@ -7313,7 +7754,7 @@ var AgentUsage = class {
         return;
       }
       for (const e of ents) {
-        const p = import_path3.default.join(dir, e.name);
+        const p = import_path4.default.join(dir, e.name);
         if (e.isDirectory()) {
           if (depth < 3) await walk(p, depth + 1);
           continue;
@@ -7449,6 +7890,130 @@ var AgentUsage = class {
       }
     }
   }
+  async readGrokBotSessions({ floor = 0, onlyAgent = "", strictSince = false, touched = /* @__PURE__ */ new Set() } = {}) {
+    if (onlyAgent && onlyAgent !== "grokbot") return;
+    const rawTracked = this.enabled("grokbot") && Array.isArray(this.settings.grokBotTrackedBotIds) ? this.settings.grokBotTrackedBotIds.map((x) => String(x || "").trim()).filter(Boolean) : [];
+    const tracked = new Set(rawTracked);
+    const pruneUnselected = (keep) => {
+      for (const [fileKey, fc] of [...this.files]) {
+        if (fc.agent !== "grokbot" || keep.has(fc.sid)) continue;
+        for (const day of fc.days?.keys() || []) touched.add(day);
+        this.files.delete(fileKey);
+        this.dirty = true;
+      }
+      for (const [sid, m] of [...this.meta]) {
+        if (m.agent === "grokbot" && !keep.has(sid)) {
+          this.meta.delete(sid);
+          this.dirty = true;
+        }
+      }
+    };
+    if (!tracked.size) {
+      pruneUnselected(tracked);
+      return;
+    }
+    const storage = discoverGrokBotStorage(
+      this.settings.grokBotPersistenceDir ? { persistenceDir: this.settings.grokBotPersistenceDir } : { homeDir: home2() }
+    );
+    const activeTracked = /* @__PURE__ */ new Set();
+    const scope = this.isPrimary("grokbot") ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+    for (const bot of storage.bots) {
+      if (!tracked.has(bot.id) || !bot.transcriptPath) continue;
+      let st;
+      try {
+        st = await fsp2.stat(bot.transcriptPath);
+      } catch {
+        continue;
+      }
+      activeTracked.add(bot.id);
+      const key = `${bot.transcriptPath}#${bot.id}`;
+      const previous = this.files.get(key);
+      const awaiting = !!bot.awaitingUserResponse;
+      if (previous && previous.size === st.size && previous.mtime === st.mtimeMs && previous.offset === scope && previous.metaRead === awaiting && previous.titles?.get(bot.id) === bot.name) {
+        continue;
+      }
+      let rawText;
+      try {
+        rawText = await fsp2.readFile(bot.transcriptPath, "utf8");
+      } catch {
+        continue;
+      }
+      const parsed = parseGrokBotTranscript(rawText, bot);
+      if (!parsed) continue;
+      const fc = {
+        path: key,
+        agent: "grokbot",
+        sid: bot.id,
+        id: bot.id,
+        cwd: "",
+        app: "desktop",
+        model: "",
+        size: st.size,
+        offset: scope,
+        mtime: st.mtimeMs,
+        metaRead: awaiting,
+        days: /* @__PURE__ */ new Map(),
+        msgs: /* @__PURE__ */ new Map(),
+        titles: /* @__PURE__ */ new Map([[bot.id, bot.name]]),
+        live: null
+      };
+      for (const day of previous?.days?.keys() || []) touched.add(day);
+      let firstText = "";
+      let firstEntryAt = 0;
+      for (const e of parsed.entries) {
+        if (!e.at) continue;
+        if (strictSince && e.at < floor) continue;
+        if (this.stale("grokbot", e.at) && !previous?.days.has(dayKey(e.at, this.cfg))) continue;
+        if (!firstEntryAt || e.at < firstEntryAt) firstEntryAt = e.at;
+        const { day, s } = this.touchSess(fc, touched, e.at, bot.id, "", "desktop");
+        const v = this.liveOf(fc, bot.id, e.at);
+        v.cwd = "";
+        v.app = "desktop";
+        v.title = bot.name;
+        if (e.role === "user" && e.text.trim()) {
+          day.prompts++;
+          startRound(fc, e.at, e.text, e.id);
+          if (!firstText) firstText = e.text.slice(0, 300);
+          s.text = firstText;
+          v.state = "run";
+        } else if (e.role === "assistant") {
+          if (e.isTurnReply && e.summaryText) {
+            v.lastText = e.summaryText;
+            finishRound(fc, e.at, e.summaryText, !e.isStreaming);
+          }
+          v.state = e.isStreaming ? "run" : "wait";
+        }
+      }
+      if (fc.live) {
+        fc.live.state = parsed.state;
+        fc.live.step = parsed.step;
+        fc.live.turns = fc.rounds?.list.length || 0;
+        fc.live.rounds = fc.rounds?.list || [];
+        this.noteMeta(fc, bot.id, {
+          ...fc.live,
+          title: bot.name || firstText,
+          text: firstText || bot.description || bot.lastPreview || "",
+          cwd: "",
+          app: "desktop",
+          model: "",
+          lastAt: fc.live.at,
+          startedAt: firstEntryAt || fc.live.at,
+          out: 0,
+          fresh: 0,
+          cached: 0,
+          calls: 0,
+          archived: false
+        });
+        this.files.set(key, fc);
+        this.dirty = true;
+      } else if (previous) {
+        this.files.delete(key);
+        this.meta.delete(bot.id);
+        this.dirty = true;
+      }
+    }
+    pruneUnselected(activeTracked);
+  }
   // 归档 = 做完：桌面版里归档的、Codex archived_sessions 里的都可以从会话列表里收起来
   hidden(sid) {
     if (this.settings.hideArchived === false) return false;
@@ -7458,7 +8023,7 @@ var AgentUsage = class {
   ensureFile(p, agent) {
     let fc = this.files.get(p);
     if (!fc) {
-      const base = import_path3.default.basename(p).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
+      const base = import_path4.default.basename(p).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
       const flat = p.replace(/\\/g, "/");
       const sm = /([0-9a-f]{8}-[0-9a-f-]{27})\/subagents\/agent-([^/]+)\.jsonl$/.exec(flat);
       const agm = agent === "antigravity" ? /\/brain\/([^/]+)\/\.system_generated\/logs\/transcript\.jsonl$/.exec(flat) : null;
@@ -7954,7 +8519,7 @@ var UsageStore = class {
         this.dirty = false;
         tmp = temporaryFile(this.file);
         await fsp2.writeFile(tmp, payload, "utf8");
-        if (epoch === (this._saveEpoch || 0)) import_fs4.default.renameSync(tmp, this.file);
+        if (epoch === (this._saveEpoch || 0)) import_fs5.default.renameSync(tmp, this.file);
       } catch (e) {
         this.dirty = true;
         throw e;
@@ -8008,7 +8573,7 @@ var UsageStore = class {
 };
 function sqliteColumn(db, sql) {
   return new Promise((resolve) => {
-    if (!import_fs4.default.existsSync(db)) return resolve([]);
+    if (!import_fs5.default.existsSync(db)) return resolve([]);
     (0, import_child_process4.execFile)("/usr/bin/sqlite3", ["-noheader", db, sql], { timeout: 5e3, maxBuffer: 4 * 1024 * 1024 }, (err2, out) => {
       if (err2) return resolve([]);
       resolve(String(out || "").split("\n").map((s) => s.trim()).filter(Boolean));
@@ -8018,23 +8583,23 @@ function sqliteColumn(db, sql) {
 
 // src/note-updates.js
 var queues = /* @__PURE__ */ new WeakMap();
-function serializeNote(plugin, path9, task) {
+function serializeNote(plugin, path10, task) {
   let pending = queues.get(plugin);
   if (!pending) queues.set(plugin, pending = /* @__PURE__ */ new Map());
-  const next = (pending.get(path9) || Promise.resolve()).catch(() => {
+  const next = (pending.get(path10) || Promise.resolve()).catch(() => {
   }).then(task);
-  pending.set(path9, next);
+  pending.set(path10, next);
   return next.finally(() => {
-    if (pending.get(path9) === next) pending.delete(path9);
+    if (pending.get(path10) === next) pending.delete(path10);
   });
 }
-function updateNote(plugin, path9, transform) {
-  return serializeNote(plugin, path9, async () => {
-    while (!plugin._unloaded && plugin.viewForPath?.(path9)?.editor.cm?.composing) {
+function updateNote(plugin, path10, transform) {
+  return serializeNote(plugin, path10, async () => {
+    while (!plugin._unloaded && plugin.viewForPath?.(path10)?.editor.cm?.composing) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     if (plugin._unloaded) return;
-    const view = plugin.viewForPath?.(path9);
+    const view = plugin.viewForPath?.(path10);
     if (view && (!view.getMode || view.getMode() === "source")) {
       const before2 = view.editor.getValue();
       const next2 = transform(before2);
@@ -8042,26 +8607,27 @@ function updateNote(plugin, path9, transform) {
       if (change) view.editor.transaction({ changes: [change] });
       return;
     }
-    const file = plugin.app?.vault?.getAbstractFileByPath(path9);
+    const file = plugin.app?.vault?.getAbstractFileByPath(path10);
     if (file && plugin.app.vault.process) {
       await plugin.app.vault.process(file, transform);
       return;
     }
-    const before = plugin.readNote ? await plugin.readNote(path9) : await plugin.app.vault.read(file);
+    const before = plugin.readNote ? await plugin.readNote(path10) : await plugin.app.vault.read(file);
     const next = transform(before);
     if (next !== before) {
-      if (plugin.writeNote) await plugin.writeNote(path9, next);
+      if (plugin.writeNote) await plugin.writeNote(path10, next);
       else await plugin.app.vault.modify(file, next);
     }
   });
 }
 
 // src/conversation.js
-var import_fs5 = __toESM(require("fs"), 1);
+var import_fs6 = __toESM(require("fs"), 1);
 var import_crypto4 = require("crypto");
 var textOf = (content) => typeof content === "string" ? content : (Array.isArray(content) ? content : []).filter((b) => ["text", "input_text", "output_text"].includes(b?.type)).map((b) => b.text || "").join("\n");
 function conversationMessages(agent, source, transcriptText = "") {
   if (agent === "cursor") return buildCursorConversation(source, transcriptText);
+  if (agent === "grokbot") return buildGrokBotConversation(source);
   const messages = [];
   const seen = /* @__PURE__ */ new Map();
   for (const line of source.split("\n")) {
@@ -8119,10 +8685,11 @@ async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map
       messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));
       continue;
     }
-    const stat = await import_fs5.default.promises.stat(file.path);
+    const realPath = file.path.includes("#") ? file.path.slice(0, file.path.lastIndexOf("#")) : file.path;
+    const stat = await import_fs6.default.promises.stat(realPath);
     let entry = cache.get(file.path);
     if (session.agent === "cursor") {
-      const rawText = await import_fs5.default.promises.readFile(file.path, "utf8");
+      const rawText = await import_fs6.default.promises.readFile(realPath, "utf8");
       const tr = await readCursorTranscript(rawText, file.cursor?.transcript || "");
       if (!entry || entry.mtime !== stat.mtimeMs || entry.size !== stat.size || entry.tp !== tr.path || entry.tMtime !== tr.mtime || entry.tSize !== tr.size) {
         entry = {
@@ -8139,7 +8706,7 @@ async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map
       continue;
     }
     if (!entry || entry.mtime !== stat.mtimeMs || entry.size !== stat.size) {
-      const raw = await import_fs5.default.promises.readFile(file.path);
+      const raw = await import_fs6.default.promises.readFile(realPath);
       let bytes = raw;
       if (file.zstd) {
         try {
@@ -8327,7 +8894,7 @@ async function linkArchive(plugin, session, archivePath2, title = "") {
 }
 
 // src/delegation.js
-var import_fs8 = __toESM(require("fs"), 1);
+var import_fs9 = __toESM(require("fs"), 1);
 
 // src/background-output.js
 var import_crypto5 = require("crypto");
@@ -8377,7 +8944,7 @@ async function saveBackgroundAnswer(plugin, job, round) {
   const n = round.n || 1, files = job.backgroundFiles || (job.backgroundFiles = {}), prior = files[n];
   const hash3 = (text) => (0, import_crypto5.createHash)("sha256").update(text).digest("hex");
   const suffix = hash3(job.sessionId || job.id).slice(0, 10);
-  const path9 = prior?.path || `Agent Deck/Answers/${name}-${suffix}-${n}.md`;
+  const path10 = prior?.path || `Agent Deck/Answers/${name}-${suffix}-${n}.md`;
   const body = `# ${title}
 
 ## \u95EE\u9898
@@ -8392,14 +8959,14 @@ ${reply}
   for (const folder of ["Agent Deck", "Agent Deck/Answers"]) await serializeNote(plugin, folder, async () => {
     if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
   });
-  await serializeNote(plugin, path9, async () => vault.getAbstractFileByPath(path9) || await vault.create(path9, body));
-  await updateNote(plugin, path9, (current) => {
+  await serializeNote(plugin, path10, async () => vault.getAbstractFileByPath(path10) || await vault.create(path10, body));
+  await updateNote(plugin, path10, (current) => {
     if (current === body) return current;
     if (!prior || hash3(current) !== prior.hash) throw new Error(t("\u95EE\u7B54\u6587\u4EF6\u5DF2\u88AB\u624B\u52A8\u4FEE\u6539\uFF0C\u5DF2\u4FDD\u7559\u539F\u6587\uFF0C\u8BF7\u53E6\u5B58\u540E\u91CD\u8BD5"));
     return body;
   });
-  files[n] = { path: path9, hash: hash3(body) };
-  return `\u{1F4C4} [[${path9}|\u5B8C\u6574\u95EE\u7B54]]`;
+  files[n] = { path: path10, hash: hash3(body) };
+  return `\u{1F4C4} [[${path10}|\u5B8C\u6574\u95EE\u7B54]]`;
 }
 function clearBackgroundPending(text, job, round) {
   const markers = [sessionMarker("summary-pending", job.sessionId, round), `<!-- ad-summary-pending:${job.sessionId}:${round} -->`];
@@ -8407,8 +8974,8 @@ function clearBackgroundPending(text, job, round) {
 }
 
 // src/delegation.js
-var import_path5 = __toESM(require("path"), 1);
-var import_os6 = __toESM(require("os"), 1);
+var import_path6 = __toESM(require("path"), 1);
+var import_os7 = __toESM(require("os"), 1);
 var import_child_process7 = require("child_process");
 
 // src/task-mentions.js
@@ -8560,6 +9127,18 @@ var CAPABILITIES = /* @__PURE__ */ new Map([
     archiveDetection: false,
     modelCatalog: false,
     sessionLinkScheme: "cursor"
+  }],
+  ["grokbot", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "grokbot"
   }]
 ]);
 function getAgentCapability(id) {
@@ -8710,20 +9289,20 @@ var HarnessPipeline = class {
 };
 
 // src/delegation-runners.js
-var import_fs7 = __toESM(require("fs"), 1);
-var import_path4 = __toESM(require("path"), 1);
-var import_os5 = __toESM(require("os"), 1);
+var import_fs8 = __toESM(require("fs"), 1);
+var import_path5 = __toESM(require("path"), 1);
+var import_os6 = __toESM(require("os"), 1);
 var import_crypto6 = require("crypto");
 var import_child_process6 = require("child_process");
 
 // src/codex-desktop.js
-var import_fs6 = __toESM(require("fs"), 1);
+var import_fs7 = __toESM(require("fs"), 1);
 var import_child_process5 = require("child_process");
 var import_readline = require("readline");
 function codexDesktopBinary(configured) {
   if (configured) return configured;
   const bundled = ["/Applications/Codex.app/Contents/Resources/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"];
-  return bundled.find((p) => import_fs6.default.existsSync(p)) || "codex";
+  return bundled.find((p) => import_fs7.default.existsSync(p)) || "codex";
 }
 var CodexDesktopRunner = class {
   constructor(delegator, job, openDesktop) {
@@ -8872,8 +9451,8 @@ var CodexDesktopRunner = class {
 };
 
 // src/delegation-runners.js
-var fsp3 = import_fs7.default.promises;
-var home3 = () => import_os5.default.homedir();
+var fsp3 = import_fs8.default.promises;
+var home3 = () => import_os6.default.homedir();
 var norm2 = (p) => String(p || "").replace(/^~(?=\/)/, home3());
 var AGENT_BINARY_SPECS = {
   codex: { fallback: "codex", candidates: () => [] },
@@ -8881,8 +9460,8 @@ var AGENT_BINARY_SPECS = {
     fallback: "dsh",
     candidates: () => [
       "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
-      import_path4.default.join(home3(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
-      import_path4.default.join(home3(), ".local/bin/dsh"),
+      import_path5.default.join(home3(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
+      import_path5.default.join(home3(), ".local/bin/dsh"),
       "/opt/homebrew/bin/dsh",
       "/usr/local/bin/dsh"
     ]
@@ -8890,7 +9469,7 @@ var AGENT_BINARY_SPECS = {
   antigravity: {
     fallback: "agy",
     candidates: () => [
-      import_path4.default.join(home3(), ".local/bin/agy"),
+      import_path5.default.join(home3(), ".local/bin/agy"),
       "/opt/homebrew/bin/agy",
       "/usr/local/bin/agy"
     ]
@@ -8899,8 +9478,8 @@ var AGENT_BINARY_SPECS = {
     fallback: "opencode",
     candidates: () => [
       "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
-      import_path4.default.join(home3(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
-      import_path4.default.join(home3(), ".local/bin/opencode"),
+      import_path5.default.join(home3(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
+      import_path5.default.join(home3(), ".local/bin/opencode"),
       "/opt/homebrew/bin/opencode",
       "/usr/local/bin/opencode"
     ]
@@ -8908,10 +9487,10 @@ var AGENT_BINARY_SPECS = {
   qoder: {
     fallback: "qodercli",
     candidates: () => [
-      import_path4.default.join(home3(), ".qoder/bin/qodercli/qodercli"),
-      import_path4.default.join(home3(), ".local/bin/qodercli"),
-      import_path4.default.join(home3(), ".local/bin/qoder"),
-      import_path4.default.join(home3(), ".qoder/entry/qoder"),
+      import_path5.default.join(home3(), ".qoder/bin/qodercli/qodercli"),
+      import_path5.default.join(home3(), ".local/bin/qodercli"),
+      import_path5.default.join(home3(), ".local/bin/qoder"),
+      import_path5.default.join(home3(), ".qoder/entry/qoder"),
       "/opt/homebrew/bin/qodercli",
       "/usr/local/bin/qodercli"
     ]
@@ -8919,7 +9498,7 @@ var AGENT_BINARY_SPECS = {
   workbuddy: {
     fallback: "codebuddy",
     candidates: () => [
-      import_path4.default.join(home3(), ".local/bin/codebuddy"),
+      import_path5.default.join(home3(), ".local/bin/codebuddy"),
       "/opt/homebrew/bin/codebuddy",
       "/usr/local/bin/codebuddy"
     ]
@@ -8927,7 +9506,7 @@ var AGENT_BINARY_SPECS = {
   claude: {
     fallback: "claude",
     candidates: () => [
-      import_path4.default.join(home3(), ".local/bin/claude"),
+      import_path5.default.join(home3(), ".local/bin/claude"),
       "/opt/homebrew/bin/claude",
       "/usr/local/bin/claude",
       "/usr/bin/claude"
@@ -8939,7 +9518,7 @@ function findBinary(configured, candidates, fallback) {
   if (custom) return norm2(custom);
   for (const p of candidates) {
     try {
-      if (import_fs7.default.existsSync(p)) return p;
+      if (import_fs8.default.existsSync(p)) return p;
     } catch {
     }
   }
@@ -8960,7 +9539,7 @@ function pickTrusted(list, vaultPath) {
   if (list.includes(vaultPath)) return vaultPath;
   const isDir = (p) => {
     try {
-      return import_fs7.default.statSync(p).isDirectory();
+      return import_fs8.default.statSync(p).isDirectory();
     } catch {
       return false;
     }
@@ -8974,7 +9553,7 @@ function pickTrusted(list, vaultPath) {
 }
 async function findTrustedDir(vaultPath) {
   try {
-    const projects = JSON.parse(await fsp3.readFile(import_path4.default.join(home3(), ".claude.json"), "utf8")).projects || {};
+    const projects = JSON.parse(await fsp3.readFile(import_path5.default.join(home3(), ".claude.json"), "utf8")).projects || {};
     return pickTrusted(Object.keys(projects).filter((p) => projects[p] && projects[p].hasTrustDialogAccepted), vaultPath);
   } catch {
     return vaultPath;
@@ -8982,7 +9561,7 @@ async function findTrustedDir(vaultPath) {
 }
 async function findCodexTrustedDir(vaultPath) {
   try {
-    const toml = await fsp3.readFile(import_path4.default.join(process.env.CODEX_HOME || import_path4.default.join(home3(), ".codex"), "config.toml"), "utf8");
+    const toml = await fsp3.readFile(import_path5.default.join(process.env.CODEX_HOME || import_path5.default.join(home3(), ".codex"), "config.toml"), "utf8");
     const list = [...toml.matchAll(/^\[projects\."([^"]+)"\]\s*\n\s*trust_level\s*=\s*"trusted"/gm)].map((m) => m[1]);
     return pickTrusted(list, vaultPath);
   } catch {
@@ -8992,7 +9571,7 @@ async function findCodexTrustedDir(vaultPath) {
 function cleanEnv(extra = {}) {
   const env = { ...process.env, ...extra };
   const parts = new Set(String(env.PATH || "").split(":").filter(Boolean));
-  for (const p of [import_path4.default.join(home3(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]) parts.add(p);
+  for (const p of [import_path5.default.join(home3(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]) parts.add(p);
   env.PATH = [...parts].join(":");
   return env;
 }
@@ -9676,8 +10255,8 @@ function getRunnerClasses(overrides = {}) {
 }
 
 // src/delegation.js
-var fsp4 = import_fs8.default.promises;
-var home4 = () => import_os6.default.homedir();
+var fsp4 = import_fs9.default.promises;
+var home4 = () => import_os7.default.homedir();
 var norm3 = (p) => String(p || "").replace(/^~(?=\/)/, home4());
 var BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 var LINK_RE2 = LINK_RE;
@@ -9752,17 +10331,17 @@ function openExternal(url) {
     return false;
   }
 }
-var appInstalled = (name) => ["/Applications", import_path5.default.join(home4(), "Applications")].some((d) => import_fs8.default.existsSync(import_path5.default.join(d, name)));
+var appInstalled = (name) => ["/Applications", import_path6.default.join(home4(), "Applications")].some((d) => import_fs9.default.existsSync(import_path6.default.join(d, name)));
 var TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable", tern: "so.stencil.tern", herdr: "dev.herdr.app" };
 var TERMINAL_APP = { herdr: "Herdr.app", tern: "Tern.app", iterm: "iTerm.app", warp: "Warp.app", terminal: "Terminal.app" };
 var TERMINAL_ORDER = ["herdr", "tern", "iterm", "warp", "terminal"];
 var HERDR_SPACE = "spagentdeck";
-var findBin = (name) => [import_path5.default.join(home4(), ".local/bin", name), `/opt/homebrew/bin/${name}`, `/usr/local/bin/${name}`].find((p) => import_fs8.default.existsSync(p)) || "";
+var findBin = (name) => [import_path6.default.join(home4(), ".local/bin", name), `/opt/homebrew/bin/${name}`, `/usr/local/bin/${name}`].find((p) => import_fs9.default.existsSync(p)) || "";
 var TERN_BIN = "/Applications/Tern.app/Contents/MacOS/tern";
 var TERN_SESSION = "Agent Deck";
 var osa = (script) => new Promise((resolve) => (0, import_child_process7.execFile)("/usr/bin/osascript", ["-e", script], { timeout: 8e3 }, (err2, out) => resolve(err2 ? null : String(out || "").trim())));
 var run = (bin, args) => new Promise((resolve) => (0, import_child_process7.execFile)(bin, args, { timeout: 8e3, maxBuffer: 8 << 20 }, (err2, out) => resolve(err2 ? "" : String(out || ""))));
-var DETECTED_FILE = () => import_path5.default.join(home4(), ".agent-deck", "terminal.json");
+var DETECTED_FILE = () => import_path6.default.join(home4(), ".agent-deck", "terminal.json");
 var usable = (t2) => t2 === "terminal" || appInstalled(TERMINAL_APP[t2]) && (t2 !== "herdr" || !!findBin("hc"));
 async function pickTerminal(which = "auto") {
   if (TERMINAL_APP[which]) return usable(which) ? which : "terminal";
@@ -9777,7 +10356,7 @@ async function pickTerminal(which = "auto") {
   const seen = TERMINAL_ORDER.filter((t2) => count[t2]).sort((a, b) => count[b] - count[a])[0];
   if (seen) {
     try {
-      await fsp4.mkdir(import_path5.default.dirname(DETECTED_FILE()), { recursive: true });
+      await fsp4.mkdir(import_path6.default.dirname(DETECTED_FILE()), { recursive: true });
       await fsp4.writeFile(DETECTED_FILE(), JSON.stringify({ terminal: seen, at: Date.now() }));
     } catch {
     }
@@ -9794,7 +10373,7 @@ async function pickTerminal(which = "auto") {
 }
 var TERMINAL_NAME = { herdr: "Herdr", tern: "Tern", iterm: "iTerm2", warp: "Warp", terminal: t("\u7CFB\u7EDF\u7EC8\u7AEF") };
 async function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
-  const dir = cwd && import_fs8.default.existsSync(cwd) ? cwd : home4();
+  const dir = cwd && import_fs9.default.existsSync(cwd) ? cwd : home4();
   const term = await pickTerminal(which);
   if (term === "herdr") {
     const hc = findBin("hc"), app = findBin("herdr-app");
@@ -9819,10 +10398,10 @@ async function openTerminal(command, cwd = "", which = "auto", title = "Claude",
   }
   if (term === "warp") {
     try {
-      const d = import_path5.default.join(home4(), ".warp/launch_configurations");
-      import_fs8.default.mkdirSync(d, { recursive: true });
+      const d = import_path6.default.join(home4(), ".warp/launch_configurations");
+      import_fs9.default.mkdirSync(d, { recursive: true });
       const q = (s) => JSON.stringify(String(s));
-      import_fs8.default.writeFileSync(import_path5.default.join(d, "agent-deck-resume.yaml"), [
+      import_fs9.default.writeFileSync(import_path6.default.join(d, "agent-deck-resume.yaml"), [
         "---",
         "name: agent-deck-resume",
         "windows:",
@@ -9839,7 +10418,7 @@ async function openTerminal(command, cwd = "", which = "auto", title = "Claude",
     } catch {
     }
   }
-  if (term === "tern" && import_fs8.default.existsSync(TERN_BIN)) {
+  if (term === "tern" && import_fs9.default.existsSync(TERN_BIN)) {
     const launch = ["--cwd", dir, "--", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`];
     (async () => {
       const tryOnce = async () => {
@@ -9893,7 +10472,7 @@ async function cliProcess(agent, sid) {
   if (!sid) return null;
   let pid = 0;
   if (agent === "claude") {
-    const dir = import_path5.default.join(home4(), ".claude/sessions");
+    const dir = import_path6.default.join(home4(), ".claude/sessions");
     let names = [];
     try {
       names = (await fsp4.readdir(dir)).filter((n) => /^\d+\.json$/.test(n));
@@ -9902,7 +10481,7 @@ async function cliProcess(agent, sid) {
     }
     for (const n of names) {
       try {
-        const j = JSON.parse(await fsp4.readFile(import_path5.default.join(dir, n), "utf8"));
+        const j = JSON.parse(await fsp4.readFile(import_path6.default.join(dir, n), "utf8"));
         if (j.sessionId === sid && (j.entrypoint || "cli") === "cli") {
           pid = Number(j.pid) || Number(n.split(".")[0]);
           break;
@@ -9982,7 +10561,7 @@ end repeat
 end tell
 return ""`);
     if (ok === "ok") return "tab";
-  } else if (proc.host === "tern" && import_fs8.default.existsSync(TERN_BIN)) {
+  } else if (proc.host === "tern" && import_fs9.default.existsSync(TERN_BIN)) {
     const chain = /* @__PURE__ */ new Set([proc.pid]);
     for (let i = 0, p = proc.pid; i < 12 && p > 1; i++) {
       p = Number((await run("/bin/ps", ["-o", "ppid=", "-p", String(p)])).trim()) || 0;
@@ -10060,7 +10639,8 @@ var AGENT_APPS = {
   antigravity: { bundle: "com.google.antigravity", url: "antigravity://" },
   opencode: { bundle: "ai.opencode.desktop", url: "opencode://" },
   qoder: { bundle: "com.qoder.app", url: "qoder://" },
-  cursor: { bundle: "com.todesktop.230313mzl4w4u92", url: "cursor://" }
+  cursor: { bundle: "com.todesktop.230313mzl4w4u92", url: "cursor://" },
+  grokbot: { bundle: "com.anysphere.sand", url: "grokbot://" }
 };
 function openAgentApp(agent) {
   const app = AGENT_APPS[agent];
@@ -10098,7 +10678,7 @@ function openSession(plugin, agent, sid, app = "", session = null) {
     plugin.notice(t("\u8FD9\u4E2A\u4F1A\u8BDD\u8FD8\u6CA1\u6709\u4F1A\u8BDD\u53F7\uFF0C\u7A0D\u7B49\u4E00\u79D2\u518D\u70B9"));
     return false;
   }
-  if (["opencode", "qoder", "cursor"].includes(agent)) {
+  if (["opencode", "qoder", "cursor", "grokbot"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = session && session.cwd || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
       return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);
@@ -10375,9 +10955,9 @@ ${body}`, 12e3);
     const effort = opts.effort || this.C[agent]?.effort || "high";
     if (agent === "codex") extra += " " + codexCliArgs(this.plugin, opts).map(shellQuote).join(" ");
     else if (agent === "claude") extra += ` --model ${shellQuote(model)} --effort ${shellQuote(effort)}`;
-    const dir = import_path5.default.join(import_os6.default.tmpdir(), "agent-deck");
+    const dir = import_path6.default.join(import_os7.default.tmpdir(), "agent-deck");
     await fsp4.mkdir(dir, { recursive: true });
-    const taskFile = import_path5.default.join(dir, `task-${Date.now().toString(36)}.txt`);
+    const taskFile = import_path6.default.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp4.writeFile(taskFile, prompt, "utf8");
     const bin = findAgentBinary(agent, this.C[agent]?.path || "");
     const job = this.buildJobBase({
@@ -10467,10 +11047,10 @@ ${body}`, 12e3);
   }
   async writeLink(job, sid) {
     if (!this.C.writeLink) return;
-    const path9 = job.path;
+    const path10 = job.path;
     const existing = job.blockId || blockIdOf(job.lineText);
     const blockId = existing || (this.plugin.taskBlockId ? await this.plugin.taskBlockId(sid, job.agent, job.name) : makeBlockId(sid, job.agent, job.name));
-    await updateNote(this.plugin, path9, (text) => {
+    await updateNote(this.plugin, path10, (text) => {
       const lines = text.split("\n");
       let at = job.blockId ? lines.findIndex((l) => blockIdOf(l) === job.blockId) : -1;
       if (at < 0) at = lines.findIndex((l) => l === job.lineText);
@@ -10692,8 +11272,11 @@ var qoder_default = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAA
 // assets/agents/cursor.png
 var cursor_default = "data:image/png;base64,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";
 
+// assets/agents/grokbot.png
+var grokbot_default = "data:image/png;base64,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";
+
 // src/agent-assets.js
-var AGENT_IMAGES = { claude: claude_default, codex: codex_default, workbuddy: workbuddy_default, dsh: dsh_default, antigravity: antigravity_default, opencode: opencode_default, qoder: qoder_default, cursor: cursor_default };
+var AGENT_IMAGES = { claude: claude_default, codex: codex_default, workbuddy: workbuddy_default, dsh: dsh_default, antigravity: antigravity_default, opencode: opencode_default, qoder: qoder_default, cursor: cursor_default, grokbot: grokbot_default };
 function agentImageBuffer(id) {
   const uri = AGENT_IMAGES[id];
   if (!uri) return null;
@@ -10709,7 +11292,8 @@ var AGENT_ICONS = {
   antigravity: "sparkles",
   opencode: "square-terminal",
   qoder: "circle-dot",
-  cursor: "mouse-pointer-click"
+  cursor: "mouse-pointer-click",
+  grokbot: "bot"
 };
 var STATE_ICONS = {
   run: "loader-circle",
@@ -11465,8 +12049,8 @@ var ViewToggleWidget = class extends import_view2.WidgetType {
       };
       if (this.plugin.openRecordViewMenu) {
         const info = view.state.field?.(this.plugin.editorInfoField, false);
-        const path9 = info?.file?.path || "";
-        this.plugin.openRecordViewMenu(e, { path: path9, line: this.line, key: this.key, viewMode: this.viewMode, onSelect: select });
+        const path10 = info?.file?.path || "";
+        this.plugin.openRecordViewMenu(e, { path: path10, line: this.line, key: this.key, viewMode: this.viewMode, onSelect: select });
       } else {
         select(this.viewMode === "table" ? "outline" : "table");
       }
@@ -12010,8 +12594,8 @@ function renderAIRecords(el, plugin, ctx) {
 
 // src/external-state.js
 var import_promises = __toESM(require("fs/promises"), 1);
-var import_os7 = __toESM(require("os"), 1);
-var import_path6 = __toESM(require("path"), 1);
+var import_os8 = __toESM(require("os"), 1);
+var import_path7 = __toESM(require("path"), 1);
 var import_child_process8 = require("child_process");
 var AI_IDLE_MIN = 5;
 var TOK_BLOCK_MAX = 30;
@@ -12040,7 +12624,7 @@ function readProcessList() {
   });
 }
 async function scanAgentWait({
-  dir = import_path6.default.join(import_os7.default.homedir(), ".local", "state", "agent-wait"),
+  dir = import_path7.default.join(import_os8.default.homedir(), ".local", "state", "agent-wait"),
   prev = /* @__PURE__ */ new Map(),
   psText = null,
   now = Date.now()
@@ -12055,7 +12639,7 @@ async function scanAgentWait({
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
     try {
-      const d = JSON.parse(await import_promises.default.readFile(import_path6.default.join(dir, name), "utf8"));
+      const d = JSON.parse(await import_promises.default.readFile(import_path7.default.join(dir, name), "utf8"));
       if (d && d.sid && d.at) out.set(d.sid, d);
     } catch {
     }
@@ -12079,7 +12663,7 @@ async function scanAgentWait({
   return out;
 }
 async function scanLimitQueue({
-  file = import_path6.default.join(import_os7.default.homedir(), ".local", "state", "limit-resume", "queue.json")
+  file = import_path7.default.join(import_os8.default.homedir(), ".local", "state", "limit-resume", "queue.json")
 } = {}) {
   const out = /* @__PURE__ */ new Map();
   try {
@@ -12573,19 +13157,19 @@ function dndHandlers(plugin) {
       const sel = view.state.selection.main;
       if (sel.empty) return false;
       const info = view.state.field(plugin.editorInfoField, false);
-      const path9 = info && info.file && info.file.path;
-      if (!path9) return false;
+      const path10 = info && info.file && info.file.path;
+      if (!path10) return false;
       const n = view.state.doc.lineAt(sel.from).number - 1;
-      plugin.noteDragItem({ path: path9, line: n, lineText: view.state.doc.line(n + 1).text });
+      plugin.noteDragItem({ path: path10, line: n, lineText: view.state.doc.line(n + 1).text });
       return false;
     }
   }));
 }
 var GripWidget = class extends import_view3.WidgetType {
-  constructor(plugin, path9, line, text) {
+  constructor(plugin, path10, line, text) {
     super();
     this.plugin = plugin;
-    this.path = path9;
+    this.path = path10;
     this.line = line;
     this.text = text;
   }
@@ -12638,10 +13222,10 @@ function sigFor(x) {
   return [x.kind, x.job && x.job.id, x.job && x.job.state, s && s.sid, s && s.state, s && s.step, s && s.turns, s && s.tokens, td && `${td.done}/${td.total}:${td.cur || ""}`, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
 }
 var PillWidget = class extends import_view3.WidgetType {
-  constructor(plugin, path9, line, info) {
+  constructor(plugin, path10, line, info) {
     super();
     this.plugin = plugin;
-    this.path = path9;
+    this.path = path10;
     this.line = line;
     this.info = info;
     this.sig = sigFor(info);
@@ -12886,10 +13470,10 @@ function paintLineProgress(el, info) {
   }
 }
 var LineProgressWidget = class extends import_view3.WidgetType {
-  constructor(plugin, path9, line, info) {
+  constructor(plugin, path10, line, info) {
     super();
     this.plugin = plugin;
-    this.path = path9;
+    this.path = path10;
     this.line = line;
     this.info = info;
     this.sig = JSON.stringify(info);
@@ -12956,10 +13540,10 @@ function saidHandlers(plugin) {
 function buildDecorations(view, plugin) {
   const builder = new import_state2.RangeSetBuilder();
   const info = view.state.field(plugin.editorInfoField, false);
-  const path9 = info && info.file && info.file.path;
-  if (!path9 || !plugin.settings.showEditorPills) return builder.finish();
+  const path10 = info && info.file && info.file.path;
+  if (!path10 || !plugin.settings.showEditorPills) return builder.finish();
   const doc = view.state.doc;
-  const map = plugin.lineMap(path9, doc);
+  const map = plugin.lineMap(path10, doc);
   const seen = /* @__PURE__ */ new Set();
   const sel = view.state.selection.main;
   const cursorLine = plugin._lastEditor === view && sel.empty ? doc.lineAt(sel.head).number - 1 : -1;
@@ -12971,7 +13555,7 @@ function buildDecorations(view, plugin) {
       if (!seen.has(n)) {
         seen.add(n);
         const text = line.text;
-        const job = plugin.jobAtLine(path9, n, text);
+        const job = plugin.jobAtLine(path10, n, text);
         const session = map.sessionByParent.get(n) || null;
         if ((session || job?.sessionId) && plugin.nautilusOwnsLine(text, session || { sid: job.sessionId }, job?.destination !== "background")) {
           if (line.to >= to) break;
@@ -12996,16 +13580,16 @@ function buildDecorations(view, plugin) {
         const displayState = plugin.aiRecordDisplayField ? view.state.field(plugin.aiRecordDisplayField, false) : null;
         const isTopLevelAiParent = Boolean(displayState?.topLevelLines?.has(n));
         if (n === cursorLine && !isTopLevelAiParent && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && (kwLine(text) || CONTEXT_RECORD_RE.test(text))) {
-          builder.add(line.to, line.to, import_view3.Decoration.widget({ widget: new GripWidget(plugin, path9, n, text), side: 1, block: false }));
+          builder.add(line.to, line.to, import_view3.Decoration.widget({ widget: new GripWidget(plugin, path10, n, text), side: 1, block: false }));
         }
         const prog = line.length < 2e3 && plugin.lineProgressInfo ? plugin.lineProgressInfo(text, map.lines, n, session, job) : null;
         if (!prog && typeof import_view3.Decoration.line === "function" && (RESULT_LINE_RE.test(text) || SUB_LINE_RE.test(text))) {
           builder.add(line.from, line.from, import_view3.Decoration.line({ class: "ad-said" }));
         }
         if (prog) {
-          builder.add(line.to, line.to, import_view3.Decoration.widget({ widget: new LineProgressWidget(plugin, path9, n, prog), side: 1, block: false }));
+          builder.add(line.to, line.to, import_view3.Decoration.widget({ widget: new LineProgressWidget(plugin, path10, n, prog), side: 1, block: false }));
         } else if (state && !isDoneLine(text)) {
-          const widget = new PillWidget(plugin, path9, n, state);
+          const widget = new PillWidget(plugin, path10, n, state);
           builder.add(line.to, line.to, import_view3.Decoration.widget({ widget, side: 1, block: false }));
         }
       }
@@ -13326,7 +13910,7 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
       };
     }
     const filters = recHead.createDiv({ cls: "ad-filters" });
-    for (const [id, label] of [["all", t("\u5168\u90E8")], ["live", t("\u5728\u8DD1")], ["wait", t("\u7B49\u4F60")], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"], ["antigravity", "Antigravity"], ["opencode", "OpenCode"], ["qoder", "Qoder"], ["cursor", "Cursor"]]) {
+    for (const [id, label] of [["all", t("\u5168\u90E8")], ["live", t("\u5728\u8DD1")], ["wait", t("\u7B49\u4F60")], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"], ["antigravity", "Antigravity"], ["opencode", "OpenCode"], ["qoder", "Qoder"], ["cursor", "Cursor"], ["grokbot", "Grok Bot"]]) {
       const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
       b.onclick = () => {
         this._bottomSlack = 0;
@@ -14145,8 +14729,8 @@ function dateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 var isoDay = (key) => String(key).replace(/^(\d{4})\D(\d{2})\D(\d{2})$/, "$1-$2-$3");
-function dayFromNotePath(path9 = "") {
-  const m = /(\d{4})[-_/](\d{2})[-_/](\d{2})/.exec(String(path9 || ""));
+function dayFromNotePath(path10 = "") {
+  const m = /(\d{4})[-_/](\d{2})[-_/](\d{2})/.exec(String(path10 || ""));
   return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
 }
 function shiftDay(key, n) {
@@ -14156,7 +14740,7 @@ function shiftDay(key, n) {
 function heatLevel(tokens, max) {
   return tokens > 0 ? Math.max(1, Math.min(4, Math.ceil(4 * Math.sqrt(tokens / Math.max(1, max))))) : 0;
 }
-function journalSources(text, path9, { autoState = null } = {}) {
+function journalSources(text, path10, { autoState = null } = {}) {
   const lines = text.split("\n"), fenced = fencedLines(lines), owners = ownersOf(lines, fenced), out = [];
   const seen = /* @__PURE__ */ new Set();
   const collectBlock = (owner) => {
@@ -14164,7 +14748,7 @@ function journalSources(text, path9, { autoState = null } = {}) {
     for (let p = owners[owner]; p >= 0; p = owners[p]) parents.unshift(lines[p]);
     const end = subtreeEnd(lines, owner);
     const own = lines.slice(owner, end).filter((_, n) => !fenced.has(owner + n) && (n === 0 || owners[owner + n] === owner));
-    return { path: path9, line: owner, blockId: blockIdOf(lines[owner]), text: [...parents, ...own].join("\n") };
+    return { path: path10, line: owner, blockId: blockIdOf(lines[owner]), text: [...parents, ...own].join("\n") };
   };
   for (let i = 0; i < lines.length; i++) {
     if (fenced.has(i)) continue;
@@ -14634,7 +15218,7 @@ var DashboardData = class {
     if (p.settings.doneArchivePath) paths.add(p.settings.doneArchivePath);
     const sources = /* @__PURE__ */ new Map();
     let unreadable = 0;
-    const files = [...paths].map((path9) => vault.getAbstractFileByPath(path9)).filter((f) => f?.extension === "md");
+    const files = [...paths].map((path10) => vault.getAbstractFileByPath(path10)).filter((f) => f?.extension === "md");
     for (let i = 0; i < files.length; i += 6) {
       await Promise.all(files.slice(i, i + 6).map(async (file) => {
         try {
@@ -14661,7 +15245,7 @@ var DashboardData = class {
       }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
-    for (const path9 of this.cache.keys()) if (!paths.has(path9)) this.cache.delete(path9);
+    for (const path10 of this.cache.keys()) if (!paths.has(path10)) this.cache.delete(path10);
     const pages = vault.getMarkdownFiles().filter((f) => !paths.has(f.path) && !f.path.startsWith("Agent Deck/Conversations/") && !/^\d{4}[-_/]\d{2}[-_/]\d{2}$/.test(f.basename)).map((file) => {
       const aliases = metadata.getFileCache(file)?.frontmatter?.aliases;
       return { path: file.path, name: file.basename, aliases: typeof aliases === "string" ? [aliases] : Array.isArray(aliases) ? aliases.filter((a) => typeof a === "string") : [] };
@@ -15421,16 +16005,16 @@ var import_crypto9 = require("crypto");
 
 // src/dream-sharing.js
 var import_promises2 = __toESM(require("fs/promises"), 1);
-var import_path7 = __toESM(require("path"), 1);
-var import_os8 = __toESM(require("os"), 1);
+var import_path8 = __toESM(require("path"), 1);
+var import_os9 = __toESM(require("os"), 1);
 var import_crypto8 = require("crypto");
 var import_child_process9 = require("child_process");
 var import_util2 = require("util");
 var exec = (0, import_util2.promisify)(import_child_process9.execFile);
 function externalMemoryPath(value) {
-  const target = String(value || "").trim().replace(/^~(?=\/)/, import_os8.default.homedir());
-  if (!import_path7.default.isAbsolute(target) || import_path7.default.extname(target).toLowerCase() !== ".md") throw new Error(t("\u5171\u4EAB\u76EE\u6807\u5FC5\u987B\u662F\u5916\u90E8 Markdown \u6587\u4EF6\u7684\u7EDD\u5BF9\u8DEF\u5F84"));
-  return import_path7.default.normalize(target);
+  const target = String(value || "").trim().replace(/^~(?=\/)/, import_os9.default.homedir());
+  if (!import_path8.default.isAbsolute(target) || import_path8.default.extname(target).toLowerCase() !== ".md") throw new Error(t("\u5171\u4EAB\u76EE\u6807\u5FC5\u987B\u662F\u5916\u90E8 Markdown \u6587\u4EF6\u7684\u7EDD\u5BF9\u8DEF\u5F84"));
+  return import_path8.default.normalize(target);
 }
 function sharedMemory(text) {
   const lines = text.split("\n");
@@ -15473,7 +16057,7 @@ var DreamSharing = class {
       const text = await this.readMemory();
       if (typeof text !== "string") throw new Error(t("\u8FD8\u6CA1\u6709\u957F\u671F\u8BB0\u5FC6\uFF0C\u8BF7\u5148\u8FD0\u884C Dreaming"));
       if (this.plugin.vaultPath) {
-        const source = import_path7.default.resolve(this.plugin.vaultPath, this.plugin.settings.dream.path);
+        const source = import_path8.default.resolve(this.plugin.vaultPath, this.plugin.settings.dream.path);
         const realTarget = await import_promises2.default.realpath(target).catch((e) => {
           if (e.code !== "ENOENT") throw e;
           return target;
@@ -15484,12 +16068,12 @@ var DreamSharing = class {
         });
         if (realTarget === realSource) throw new Error(t("\u5171\u4EAB\u76EE\u6807\u4E0D\u80FD\u8986\u76D6\u539F\u957F\u671F\u8BB0\u5FC6\u7B14\u8BB0"));
       }
-      const git = async (args, cwd = import_path7.default.dirname(target)) => (await exec("git", ["--literal-pathspecs", ...args], { cwd, timeout: 6e4, maxBuffer: 1024 * 1024 })).stdout.trim();
+      const git = async (args, cwd = import_path8.default.dirname(target)) => (await exec("git", ["--literal-pathspecs", ...args], { cwd, timeout: 6e4, maxBuffer: 1024 * 1024 })).stdout.trim();
       let root, relative, branch;
       if (gitPush) {
         root = await git(["rev-parse", "--show-toplevel"]);
-        relative = import_path7.default.relative(await import_promises2.default.realpath(root), import_path7.default.join(await import_promises2.default.realpath(import_path7.default.dirname(target)), import_path7.default.basename(target)));
-        if (relative.startsWith(".." + import_path7.default.sep) || import_path7.default.isAbsolute(relative) || relative.split(import_path7.default.sep).includes(".git")) throw new Error(t("\u5171\u4EAB\u6587\u4EF6\u5FC5\u987B\u4F4D\u4E8E Git \u4ED3\u5E93\u5DE5\u4F5C\u533A\u5185"));
+        relative = import_path8.default.relative(await import_promises2.default.realpath(root), import_path8.default.join(await import_promises2.default.realpath(import_path8.default.dirname(target)), import_path8.default.basename(target)));
+        if (relative.startsWith(".." + import_path8.default.sep) || import_path8.default.isAbsolute(relative) || relative.split(import_path8.default.sep).includes(".git")) throw new Error(t("\u5171\u4EAB\u6587\u4EF6\u5FC5\u987B\u4F4D\u4E8E Git \u4ED3\u5E93\u5DE5\u4F5C\u533A\u5185"));
         branch = await git(["symbolic-ref", "--short", "HEAD"], root);
         await git(["remote", "get-url", "origin"], root);
       }
@@ -15500,7 +16084,7 @@ var DreamSharing = class {
         return null;
       });
       if (old !== snapshot) {
-        await import_promises2.default.mkdir(import_path7.default.dirname(target), { recursive: true });
+        await import_promises2.default.mkdir(import_path8.default.dirname(target), { recursive: true });
         const temp = `${target}.${(0, import_crypto8.randomUUID)()}.tmp`;
         try {
           await import_promises2.default.writeFile(temp, snapshot, { flag: "wx" });
@@ -15574,12 +16158,12 @@ function dreamModelConfig(cfg = {}) {
     autoLogApiKey: apiKey || cfg.autoLogApiKey || ""
   };
 }
-function evidenceBlocks(text, path9, { aiOnly = false } = {}) {
+function evidenceBlocks(text, path10, { aiOnly = false } = {}) {
   const lines = text.split("\n"), blocks = [], stack = [], directAiOwners = /* @__PURE__ */ new Set();
   const fenced = fencedLines(lines), start = frontmatterEnd(lines);
   let block = null, nextItemId = 1;
   const flush = () => {
-    if (block?.text.trim() && !SEP_ONLY_RE.test(block.text)) blocks.push({ ...block, key: hash2(path9 + "\n" + block.kind + "\n" + block.text) });
+    if (block?.text.trim() && !SEP_ONLY_RE.test(block.text)) blocks.push({ ...block, key: hash2(path10 + "\n" + block.kind + "\n" + block.text) });
     block = null;
   };
   for (let n = start; n < lines.length; n++) {
@@ -15615,7 +16199,7 @@ function evidenceBlocks(text, path9, { aiOnly = false } = {}) {
     for (let offset = 0; offset < Math.max(1, line.length); offset += 3e3) {
       const part = line.slice(offset, offset + 3e3);
       if (block && (block.kind !== kind || block.text.length + part.length + 1 > 3e3)) flush();
-      if (!block) block = { path: path9, kind, line: n + 1, endLine: n + 1, text: "", _itemId: itemId, _aiRelevant: aiRelevant };
+      if (!block) block = { path: path10, kind, line: n + 1, endLine: n + 1, text: "", _itemId: itemId, _aiRelevant: aiRelevant };
       block.text += (block.text ? "\n" : "") + part;
       block.endLine = n + 1;
     }
@@ -16946,6 +17530,72 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     new import_obsidian5.Notice(t("Models \u5DF2\u4FDD\u5B58"));
     this.display();
   }
+  renderGrokBotPicker(card, sessCountEl, s, p) {
+    const selected = new Set(Array.isArray(s.grokBotTrackedBotIds) ? s.grokBotTrackedBotIds : []);
+    const allBots = typeof p.grokBotBots === "function" ? p.grokBotBots() : discoverGrokBotStorage(s.grokBotPersistenceDir ? { persistenceDir: s.grokBotPersistenceDir } : {}).bots;
+    const bots = allBots.filter((bot) => bot.inRoster !== false || selected.has(bot.id));
+    const details = card.createEl("details", { cls: "ad-subdetails ad-grokbot-picker" });
+    details.open = typeof this._grokBotsOpen === "boolean" ? this._grokBotsOpen : selected.size === 0;
+    details.ontoggle = () => {
+      this._grokBotsOpen = details.open;
+    };
+    const summary = details.createEl("summary", { cls: "ad-subdetails__head" });
+    const summaryTitle = summary.createSpan({ cls: "ad-grokbot-picker__title" });
+    const updateSummary = () => {
+      if (!selected.size) {
+        summaryTitle.textContent = t("\u8FFD\u8E2A Bot \xB7 \u672A\u9009\u62E9\uFF08\u70B9\u51FB\u52FE\u9009\uFF09");
+        return;
+      }
+      const names = bots.filter((b) => selected.has(b.id)).map((b) => b.name);
+      const preview = names.length > 3 ? t("{names} \u7B49 {n} \u4E2A", { names: names.slice(0, 3).join("\u3001"), n: names.length }) : names.join("\u3001");
+      summaryTitle.textContent = preview ? t("\u8FFD\u8E2A Bot \xB7 \u5DF2\u9009 {n} \u4E2A\uFF08{preview}\uFF09", { n: selected.size, preview }) : t("\u8FFD\u8E2A Bot \xB7 \u5DF2\u9009 {n} \u4E2A", { n: selected.size });
+    };
+    updateSummary();
+    const body = details.createDiv({ cls: "ad-grokbot-picker__body" });
+    if (!bots.length) {
+      body.createSpan({ cls: "ad-muted", text: t("\u672A\u68C0\u6D4B\u5230\u672C\u673A Grok Bot \u5BF9\u8BDD\u7F13\u5B58") });
+      return;
+    }
+    const activeBots = bots.filter((bot) => !bot.isHidden && !bot.isRemoved || selected.has(bot.id));
+    const hiddenBots = bots.filter((bot) => (bot.isHidden || bot.isRemoved) && !selected.has(bot.id));
+    const chips = body.createDiv({ cls: "ad-seg ad-seg--many ad-grokbot-picker__chips" });
+    const renderChips = () => {
+      chips.textContent = "";
+      const shown = this._showHiddenGrokBots ? [...activeBots, ...hiddenBots] : activeBots;
+      for (const bot of shown) {
+        const on = selected.has(bot.id);
+        const label = bot.isHidden || bot.isRemoved ? `${bot.name} (${t("\u5DF2\u9690\u85CF")})` : bot.name;
+        const b = chips.createEl("button", { cls: "ad-seg__btn ad-grokbot-chip" + (on ? " is-on" : ""), text: label, attr: { "aria-pressed": String(on), "data-bot-id": bot.id } });
+        b.onclick = async () => {
+          if (selected.has(bot.id)) selected.delete(bot.id);
+          else selected.add(bot.id);
+          s.grokBotTrackedBotIds = [...selected];
+          const nowOn = selected.has(bot.id);
+          b.classList.toggle("is-on", nowOn);
+          b.setAttribute("aria-pressed", String(nowOn));
+          updateSummary();
+          await p.saveSettings?.();
+          p.watchGrokBotPersistence?.();
+          await p.scanNow?.(false, { agent: "grokbot" });
+          const nextCount = [...p.usage?.meta?.values?.() || []].filter((x) => x.agent === "grokbot").length;
+          if (sessCountEl) sessCountEl.textContent = t("{n} \u4E2A\u4F1A\u8BDD", { n: nextCount });
+        };
+      }
+    };
+    renderChips();
+    if (hiddenBots.length) {
+      const foot = body.createDiv({ cls: "ad-grokbot-picker__foot" });
+      const toggleHidden = foot.createEl("button", {
+        cls: "ad-linkbtn",
+        text: this._showHiddenGrokBots ? t("\u6536\u8D77\u5DF2\u9690\u85CF Bot") : t("\u663E\u793A\u5DF2\u9690\u85CF\uFF08{n}\uFF09", { n: hiddenBots.length })
+      });
+      toggleHidden.onclick = () => {
+        this._showHiddenGrokBots = !this._showHiddenGrokBots;
+        toggleHidden.textContent = this._showHiddenGrokBots ? t("\u6536\u8D77\u5DF2\u9690\u85CF Bot") : t("\u663E\u793A\u5DF2\u9690\u85CF\uFF08{n}\uFF09", { n: hiddenBots.length });
+        renderChips();
+      };
+    }
+  }
   // ---------- Recording ----------
   renderAgents(body) {
     return this.renderRecord(body);
@@ -16980,9 +17630,10 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       this.sortHandle(controls, grid, "tracking", id);
       const sessions = [...p.usage.meta.values()].filter((x) => x.agent === id);
       const stats2 = card.createDiv({ cls: "ad-set-agent__meta" });
-      stats2.createSpan({ text: t("{n} \u4E2A\u4F1A\u8BDD", { n: sessions.length }) });
-      stats2.createSpan({ text: fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
+      const sessCountEl = stats2.createSpan({ text: t("{n} \u4E2A\u4F1A\u8BDD", { n: sessions.length }) });
+      stats2.createSpan({ text: id === "grokbot" ? t("\u7528\u91CF\u672A\u63D0\u4F9B") : fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
       stats2.createSpan({ cls: "ad-set-agent__state", text: primary ? t("\u4E3B\u529B\uFF08\u5168\u91CF\uFF09") : enabled ? t("\u8FFD\u8E2A\u4E2D") : t("\u5DF2\u5173\u95ED") });
+      if (id === "grokbot" && enabled) this.renderGrokBotPicker(card, sessCountEl, s, p);
     }
     this.agentReorder(grid, "tracking", ".ad-set-agent");
     const sourceMore = this.subDetails(sourceCard, "source-more", t("\u66F4\u591A\u8BBE\u7F6E"));
@@ -17159,6 +17810,28 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     });
     this.rowToggle(wb, t("\u6574\u7406\u5B8C\u5F39\u901A\u77E5"), "", s.autoLogNotify !== false, (v) => {
       s.autoLogNotify = v;
+      p.saveSettings();
+    });
+    const rulesBox = this.subDetails(jrMore, "record-rules", t("\u8BB0\u5F55\u89C4\u5219\u7EC6\u5219"));
+    const rules = s.recordRules = resolveRecordRules(s);
+    this.rowToggle(rulesBox, t("\u6BCD\u5757\u6807\u9898\u81EA\u52A8\u52A0\u7C97"), t("\u751F\u6210 AI \u81EA\u52A8\u8BB0\u5F55\u65F6\u7528 **\u6807\u9898** \u7A81\u51FA\u663E\u793A"), rules.boldTitle !== false, (v) => {
+      rules.boldTitle = v;
+      p.saveSettings();
+    });
+    this.rowToggle(rulesBox, t("\u6807\u9898\u81EA\u52A8\u5E26\u9879\u76EE / Bot \u524D\u7F00"), t("\u5DE5\u4F5C\u533A\u9879\u76EE\u6216 Grok Bot \u81EA\u52A8\u52A0\u4E0A\u300C\u540D\u79F0 -> \u300D"), rules.projectPrefix !== false, (v) => {
+      rules.projectPrefix = v;
+      p.saveSettings();
+    });
+    this.rowToggle(rulesBox, t("\u6BCD\u5757\u663E\u793A\u8D77\u6B62\u65F6\u95F4\u6BB5"), t("\u5728 \u{1F916} \u540E\u5199\u5165 HH:MM-HH:MM"), rules.showTimeRange !== false, (v) => {
+      rules.showTimeRange = v;
+      p.saveSettings();
+    });
+    this.rowNumber(rulesBox, t("\u751F\u6210\u6807\u9898\u6700\u5927\u5B57\u6570"), t("10\u201360 \u5B57\uFF0C\u9ED8\u8BA4 22"), rules.titleMax || DEFAULT_RECORD_RULES.titleMax, 10, 60, (v) => {
+      rules.titleMax = Math.max(10, Math.min(60, Math.round(v)));
+      p.saveSettings();
+    });
+    this.rowNumber(rulesBox, t("Grok Bot \u65E0\u65B0\u5BF9\u8BDD\u81EA\u52A8 DONE\uFF08\u5206\u949F\uFF09"), t("0 \u8868\u793A\u4E0D\u81EA\u52A8\u6807\u4E3A DONE\uFF1B\u9ED8\u8BA4 120 \u5206\u949F"), s.autoLogGrokBotDoneMinutes ?? DEFAULTS.autoLogGrokBotDoneMinutes, 0, 1440, (v) => {
+      s.autoLogGrokBotDoneMinutes = Math.max(0, Math.round(v));
       p.saveSettings();
     });
     const tpl = this.subDetails(jrMore, "template-archive", t("\u6574\u7406\u65E5\u5FD7\u6A21\u677F\u4E0E\u5F52\u6863"));
@@ -17939,10 +18612,10 @@ var AddModelModal = class extends import_obsidian5.Modal {
 // src/dialog.js
 var import_obsidian6 = require("obsidian");
 var DelegateOptionsModal = class extends import_obsidian6.Modal {
-  constructor(app, plugin, path9, line) {
+  constructor(app, plugin, path10, line) {
     super(app);
     this.plugin = plugin;
-    this.path = path9;
+    this.path = path10;
     this.line = line;
     this.agent = plugin.defaultTarget();
     this.model = plugin.defaultModel(this.agent);
@@ -18153,11 +18826,11 @@ var DelegateOptionsModal = class extends import_obsidian6.Modal {
   }
 };
 var ConfirmSendModal = class extends import_obsidian6.Modal {
-  constructor(app, { agent, text, path: path9, where, destination, newSession = false, context = [] }, onSend) {
+  constructor(app, { agent, text, path: path10, where, destination, newSession = false, context = [] }, onSend) {
     super(app);
     this.agent = agent;
     this.text = text;
-    this.path = path9;
+    this.path = path10;
     this.where = where;
     this.destination = destination || destinations(agent)[0]?.id;
     this.newSession = newSession;
@@ -18308,9 +18981,9 @@ var ArchiveTargetModal = class extends import_obsidian6.Modal {
 };
 
 // src/menubar.js
-var import_fs9 = __toESM(require("fs"), 1);
-var import_path8 = __toESM(require("path"), 1);
-var import_os9 = __toESM(require("os"), 1);
+var import_fs10 = __toESM(require("fs"), 1);
+var import_path9 = __toESM(require("path"), 1);
+var import_os10 = __toESM(require("os"), 1);
 var import_crypto10 = __toESM(require("crypto"), 1);
 var import_child_process10 = require("child_process");
 
@@ -18442,6 +19115,7 @@ struct MenuSession: Decodable, Identifiable {
         case "workbuddy": return "WorkBuddy"
         case "dsh": return "DSH"
         case "cursor": return "Cursor"
+        case "grokbot": return "Grok Bot"
         default: return agentName
         }
     }
@@ -18970,6 +19644,13 @@ enum DeckAgents {
                 color: .solid("#5F7D95", "#89A7BF"),
                 tint: .solid("#E7EDF2", "#1F2932"),
                 glyph: "\u25B8", short: "Cursor"
+            )
+        case "grokbot":
+            return AgentStyle(
+                id: "grokbot",
+                color: .solid("#5B6472", "#9DA7B8"),
+                tint: .solid("#EBEEF2", "#222730"),
+                glyph: "\u2727", short: "Grok Bot"
             )
         default:
             let base = Color(hex: fallbackColor)
@@ -20009,8 +20690,8 @@ app.run()
 `;
 
 // src/menubar.js
-var fsp6 = import_fs9.default.promises;
-var home5 = () => import_os9.default.homedir();
+var fsp6 = import_fs10.default.promises;
+var home5 = () => import_os10.default.homedir();
 var LABEL_KEYS = [
   "\u7B49\u5F85 Agent Deck\u2026",
   "\u5728\u8DD1",
@@ -20062,14 +20743,14 @@ var MenuBarBridge = class {
   constructor(plugin) {
     this.plugin = plugin;
     this._timers = new ManagedTimers();
-    this.dir = import_path8.default.join(home5(), ".agent-deck");
-    this.appPath = import_path8.default.join(this.dir, "AgentDeckMenuBar.app");
-    this.binPath = import_path8.default.join(this.appPath, "Contents", "MacOS", "AgentDeckMenuBar");
-    this.infoPath = import_path8.default.join(this.appPath, "Contents", "Info.plist");
-    this.srcPath = import_path8.default.join(this.dir, "AgentDeckMenuBar.swift");
-    this.statePath = import_path8.default.join(this.dir, "menubar.json");
-    this.pidPath = import_path8.default.join(this.dir, "menubar.pid");
-    this.hashPath = import_path8.default.join(this.dir, "menubar.sha");
+    this.dir = import_path9.default.join(home5(), ".agent-deck");
+    this.appPath = import_path9.default.join(this.dir, "AgentDeckMenuBar.app");
+    this.binPath = import_path9.default.join(this.appPath, "Contents", "MacOS", "AgentDeckMenuBar");
+    this.infoPath = import_path9.default.join(this.appPath, "Contents", "Info.plist");
+    this.srcPath = import_path9.default.join(this.dir, "AgentDeckMenuBar.swift");
+    this.statePath = import_path9.default.join(this.dir, "menubar.json");
+    this.pidPath = import_path9.default.join(this.dir, "menubar.pid");
+    this.hashPath = import_path9.default.join(this.dir, "menubar.sha");
     this.timer = null;
     this.lastJson = "";
     this.disabled = false;
@@ -20080,7 +20761,7 @@ var MenuBarBridge = class {
   }
   isAlive() {
     try {
-      const pid = Number(import_fs9.default.readFileSync(this.pidPath, "utf8").trim());
+      const pid = Number(import_fs10.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
         process.kill(pid, 0);
         return true;
@@ -20112,9 +20793,9 @@ var MenuBarBridge = class {
   }
   // 官方 App 图标给 SwiftUI 用：和 main.js 里嵌的是同一份 PNG
   writeAgentIcons() {
-    const dir = import_path8.default.join(this.dir, "agents");
+    const dir = import_path9.default.join(this.dir, "agents");
     try {
-      import_fs9.default.mkdirSync(dir, { recursive: true });
+      import_fs10.default.mkdirSync(dir, { recursive: true });
     } catch {
       return;
     }
@@ -20122,12 +20803,12 @@ var MenuBarBridge = class {
       try {
         const buf = agentImageBuffer(id);
         if (!buf) continue;
-        const p = import_path8.default.join(dir, `${id}.png`);
+        const p = import_path9.default.join(dir, `${id}.png`);
         try {
-          if (import_fs9.default.statSync(p).size === buf.length) continue;
+          if (import_fs10.default.statSync(p).size === buf.length) continue;
         } catch {
         }
-        import_fs9.default.writeFileSync(p, buf);
+        import_fs10.default.writeFileSync(p, buf);
       } catch {
       }
     }
@@ -20142,7 +20823,7 @@ var MenuBarBridge = class {
       oldHash = (await fsp6.readFile(this.hashPath, "utf8")).trim();
     } catch {
     }
-    const hasBinary = import_fs9.default.existsSync(this.binPath);
+    const hasBinary = import_fs10.default.existsSync(this.binPath);
     const compiled = !hasBinary || oldHash !== hash3;
     if (compiled) {
       await this.compile(hash3);
@@ -20159,12 +20840,12 @@ var MenuBarBridge = class {
     this.timer = this._timers.setInterval(() => safeRun("menubar:update", () => this.update()), 1800);
   }
   async compile(hash3) {
-    if (!import_fs9.default.existsSync("/usr/bin/swiftc")) {
+    if (!import_fs10.default.existsSync("/usr/bin/swiftc")) {
       throw new Error(t("\u627E\u4E0D\u5230 /usr/bin/swiftc\u3002\u5B89\u88C5 Xcode Command Line Tools\uFF08xcode-select --install\uFF09\u540E\u518D\u8BD5\u3002"));
     }
     this.plugin.notice(t("\u6B63\u5728\u51C6\u5907 macOS \u83DC\u5355\u680F\uFF08\u7B2C\u4E00\u6B21\u8981\u7F16\u8BD1\u4E00\u4E2A\u5C0F\u52A9\u624B\uFF0C\u7EA6\u51E0\u79D2\uFF09\u2026"), 6e3);
     await new Promise((resolve) => this.killExisting(resolve));
-    await fsp6.mkdir(import_path8.default.join(this.appPath, "Contents", "MacOS"), { recursive: true });
+    await fsp6.mkdir(import_path9.default.join(this.appPath, "Contents", "MacOS"), { recursive: true });
     await fsp6.writeFile(this.srcPath, menubar_default2, "utf8");
     await fsp6.writeFile(this.infoPath, INFO_PLIST, "utf8");
     const tmp = this.binPath + ".new";
@@ -20223,7 +20904,7 @@ var MenuBarBridge = class {
   }
   killExisting(done) {
     try {
-      const pid = Number(import_fs9.default.readFileSync(this.pidPath, "utf8").trim());
+      const pid = Number(import_fs10.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
         try {
           process.kill(pid, "SIGTERM");
@@ -20233,7 +20914,7 @@ var MenuBarBridge = class {
     } catch {
     }
     try {
-      import_fs9.default.unlinkSync(this.pidPath);
+      import_fs10.default.unlinkSync(this.pidPath);
     } catch {
     }
     const pattern = this.binPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "( |$)";
@@ -20245,8 +20926,8 @@ var MenuBarBridge = class {
   }
   show() {
     try {
-      import_fs9.default.mkdirSync(this.dir, { recursive: true });
-      import_fs9.default.writeFileSync(import_path8.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
+      import_fs10.default.mkdirSync(this.dir, { recursive: true });
+      import_fs10.default.writeFileSync(import_path9.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
     } catch (e) {
       console.error("[agent-deck] menu bar show", e);
     }
@@ -20261,9 +20942,9 @@ var MenuBarBridge = class {
       this.lastJson = body;
       const json2 = JSON.stringify({ updatedAt, ...rest, labels: menuLabels() });
       const tmp = this.statePath + ".tmp";
-      import_fs9.default.mkdirSync(this.dir, { recursive: true });
-      import_fs9.default.writeFileSync(tmp, json2, "utf8");
-      import_fs9.default.renameSync(tmp, this.statePath);
+      import_fs10.default.mkdirSync(this.dir, { recursive: true });
+      import_fs10.default.writeFileSync(tmp, json2, "utf8");
+      import_fs10.default.renameSync(tmp, this.statePath);
     } catch (e) {
       console.error("[agent-deck] menu bar state", e);
     }
@@ -20372,9 +21053,24 @@ var AutoLog = class {
   agentOn(id) {
     return AGENT_ORDER.includes(id) && (this.cfg.autoLogAgents || {})[id] !== false;
   }
+  grokDoneMinutes(idle = Math.max(5, this.cfg.autoLogIdle || 10)) {
+    const raw = this.cfg.autoLogGrokBotDoneMinutes;
+    const n = raw == null ? 120 : Number(raw);
+    return Number.isFinite(n) && n > 0 ? Math.max(idle, n) : 0;
+  }
+  rules() {
+    return resolveRecordRules(this.cfg);
+  }
   projectOf(x) {
+    if (!this.rules().projectPrefix) return "";
     const cwd = x?.cwd || this.usage?.meta?.get(x?.sid)?.cwd || "";
-    return sessionProjectName(cwd);
+    const proj = sessionProjectName(cwd);
+    if (proj) return proj;
+    if (x?.agent === "grokbot") {
+      const meta = x?.sid ? this.usage?.meta?.get(x.sid) : null;
+      return String(meta?.title || x?.title || "").trim();
+    }
+    return "";
   }
   dayKey() {
     return dayKeyToday(this.cfg);
@@ -20481,13 +21177,16 @@ var AutoLog = class {
     if (!found) {
       if (!rec.fresh) return { text, gone: true };
       const isAuto2 = rec.created !== false || String(rec.label || "").startsWith("\u{1F916}");
+      const rules = this.rules();
       const rawLine = isAuto2 ? formatAutoTaskLine({
         prefix: "- ",
         kw,
         start: startClock || clock(0),
         end: endClock || startClock || clock(0),
-        title: formatProjectAutoTitle(rec.label, rec.proj || this.projectOf(x)),
-        blockId: preferId
+        title: formatProjectAutoTitle(rec.label, rec.proj || this.projectOf(x), rules.titleMax),
+        blockId: preferId,
+        boldTitle: rules.boldTitle,
+        showTimeRange: rules.showTimeRange
       }) : status === "doing" ? `- DOING ${startClock || clock(0)} ${rec.label}` : status === "done" ? `- DONE ${endClock ? endClock + " " : ""}${rec.label}` : `- PAUSED ${rec.label}`;
       const eb2 = ensureBlockId(rawLine, preferId);
       rec.blockId = eb2.blockId;
@@ -20501,6 +21200,7 @@ var AutoLog = class {
     if (!p) return { text };
     const isAuto = Boolean(p.auto);
     if (isAuto) {
+      const rules = this.rules();
       const clockSpan = clockSpanFromLines(lines, found.line);
       const start = startClock || p.since || clockSpan?.start || "";
       const end = endClock || (p.until && p.until !== p.since ? p.until : clockSpan?.end) || p.until || p.since || start;
@@ -20511,6 +21211,7 @@ var AutoLog = class {
         end,
         title: p.title,
         preserveTitle: true,
+        showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
         blockId: preferId
       }), preferId);
       rec.blockId = eb2.blockId;
@@ -20593,8 +21294,9 @@ var AutoLog = class {
       for (const { x } of items) {
         const meta = this.usage.meta.get(x.sid) || {};
         const proj = this.projectOf(x);
-        const rawLabel = x.title || condenseUserPrompt((x.text || "").split(" / ")[0]);
-        const label = String(rawLabel || "").trim() ? formatProjectAutoTitle(rawLabel, proj) : "";
+        const promptText = condenseUserPrompt((x.text || "").split(" / ")[0]);
+        const rawLabel = x.agent === "grokbot" && x.title === proj ? promptText || x.title : x.title || promptText;
+        const label = String(rawLabel || "").trim() ? formatProjectAutoTitle(rawLabel, proj, this.rules().titleMax) : "";
         const summary = oneSentenceConclusion(meta.lastText || "", 80);
         if (label) out.set(x.sid, { label, proj, summary, matchKey: null, done: false, todos: [], skip: false });
       }
@@ -20616,7 +21318,7 @@ var AutoLog = class {
         if (!sid) continue;
         const meta = this.usage.meta.get(sid) || {};
         const proj = this.projectOf(item.x);
-        const label = String(a.label || "").trim() ? formatProjectAutoTitle(a.label, proj) : "";
+        const label = String(a.label || "").trim() ? formatProjectAutoTitle(a.label, proj, this.rules().titleMax) : "";
         const summary = safeLabel(a.summary || "", 60) || oneSentenceConclusion(meta.lastText || "", 80);
         const m = Number.isInteger(a.match) && open[a.match - 1] ? open[a.match - 1] : null;
         out.set(sid, {
@@ -20645,7 +21347,7 @@ var AutoLog = class {
   // 跨日期会话留在原起始日日记，过了零点的新会话再记到今天。
   originDayOf(x, today) {
     const sid = x?.sid;
-    if (!sid) return today;
+    if (!sid || x?.agent === "grokbot") return today;
     for (const d of Object.keys(this.cfg.autoLogState || {}).sort()) {
       if (d >= today) continue;
       const rec = this.cfg.autoLogState[d]?.[sid];
@@ -20725,6 +21427,7 @@ var AutoLog = class {
     try {
       if (!list.length) return true;
       const idle = Math.max(5, this.cfg.autoLogIdle || 10);
+      const grokDone = this.grokDoneMinutes(idle);
       const now = this.nowMin() + shiftMin;
       const st = this.state(day);
       snap = JSON.stringify(st);
@@ -20743,6 +21446,8 @@ var AutoLog = class {
         if (!rec) {
           if (x.min < this.minMinutes && !arch.has(x.sid)) continue;
           todo.push({ x, active, fresh: true });
+        } else if (x.agent === "grokbot" && rec.status === "done" && rec.doneAtMin != null && last > rec.doneAtMin && active) {
+          todo.push({ x, active, fresh: true, sinceMs: rec.doneEndMs || 0 });
         } else if (rec.status === "doing" && !active && !rec.asked && !arch.has(x.sid)) todo.push({ x, active, rec });
         else live.push({ x, active, rec });
       }
@@ -20760,10 +21465,10 @@ var AutoLog = class {
         const base2 = await this.read(file);
         const linked2 = linkMap(base2);
         let text = base2;
-        const digest = { doing: [], paused: [], done: [], archived: [], todo: [] };
+        const digest = { doing: [], paused: [], done: [], archived: [], idleDone: [], todo: [] };
         const clocks = /* @__PURE__ */ new Set();
         const work = (_b = (_a = this.cfg).workLog || (_a.workLog = {}))[day] || (_b[day] = {});
-        for (const { x, active, fresh } of [...ask, ...todo.slice(this.batch), ...live]) {
+        for (const { x, active, fresh, sinceMs } of [...ask, ...todo.slice(this.batch), ...live]) {
           if (linked2.has(x.sid)) continue;
           const a = ans.get(x.sid);
           const last = x.segs[x.segs.length - 1][1];
@@ -20781,8 +21486,9 @@ var AutoLog = class {
               continue;
             }
             const label = m ? m.body : AUTO_MARK + a.label;
-            const blockId = m && m.blockId || makeBlockId(x.sid, x.agent, a.slug);
-            rec = st[x.sid] = { key: workKey(label), label, blockId, created: !m, agent: x.agent, proj: m ? "" : a.proj || this.projectOf(x), status: m ? m.state : null, fresh: !m };
+            const seed = sinceMs ? `${x.sid}:${sinceMs}` : x.sid;
+            const blockId = m && m.blockId || makeBlockId(seed, x.agent, a.slug);
+            rec = st[x.sid] = { key: workKey(label), label, blockId, created: !m, agent: x.agent, proj: m ? "" : a.proj || this.projectOf(x), status: m ? m.state : null, fresh: !m, ...sinceMs ? { sinceMs } : {} };
           }
           rec.min = x.min;
           if (a) rec.asked = !active;
@@ -20812,16 +21518,27 @@ var AutoLog = class {
             delete rec.autoPaused;
           }
           const name = workKey(rec.label).replace(AUTO_MARK, "");
-          if (!manualState && this.allArchived(st, x.sid, rec, arch)) {
+          const grokIdleDone = x.agent === "grokbot" && grokDone > 0 && now - last >= grokDone && !(rec.hold && Date.now() < rec.hold);
+          const archDone = this.allArchived(st, x.sid, rec, arch);
+          if (!manualState && (archDone || grokIdleDone)) {
             text = this.autoLine(text, rec, x, "done").text;
             rec.status = "done";
+            if (x.agent === "grokbot") {
+              rec.doneAtMin = last;
+              rec.doneEndMs = this.usage.meta.get(x.sid)?.lastAt || Date.now();
+            }
             delete rec.fresh;
             delete rec.parkedAt;
             delete rec.hold;
             delete rec.autoPaused;
             clocks.add(rec.key);
-            digest.archived.push(`${name}\uFF08${x.min}m\uFF09`);
-            report.changes.push(t("DONE\uFF08\u5DF2\u5F52\u6863\uFF09\uFF1A{name}\uFF08{min}m\uFF09", { name: rec.label, min: x.min }));
+            if (archDone) {
+              digest.archived.push(`${name}\uFF08${x.min}m\uFF09`);
+              report.changes.push(t("DONE\uFF08\u5DF2\u5F52\u6863\uFF09\uFF1A{name}\uFF08{min}m\uFF09", { name: rec.label, min: x.min }));
+            } else {
+              digest.idleDone.push(`${name}\uFF08${x.min}m\uFF09`);
+              report.changes.push(t("DONE\uFF08\u957F\u65F6\u95F4\u65E0\u65B0\u5BF9\u8BDD\uFF09\uFF1A{name}\uFF08{min}m\uFF09", { name: rec.label, min: x.min }));
+            }
           } else if (!manualState && active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
             text = this.autoLine(text, rec, x, "doing").text;
             rec.status = "doing";
@@ -20850,7 +21567,8 @@ var AutoLog = class {
             report.changes.push(t("\u770B\u7740\u505A\u5B8C\u4E86\uFF1A{name}", { name: rec.label }));
           }
           const meta = this.usage.meta.get(x.sid) || {};
-          const rounds = Array.isArray(meta.rounds) ? meta.rounds : [];
+          const rawRounds = Array.isArray(meta.rounds) ? meta.rounds : [];
+          const rounds = x.agent === "grokbot" ? rawRounds.filter((r) => (!r?.at || dayKey(r.at, this.cfg) === day) && (!rec.sinceMs || !r?.at || r.at > rec.sinceMs)) : rawRounds;
           const rawSummary = a && a.summary || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? oneSentenceConclusion(meta.lastText, 90) : "");
           if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
           const pendingTodos = a && !active && Array.isArray(a.todos) && !rec.todosAdded ? a.todos : [];
@@ -20915,22 +21633,30 @@ var AutoLog = class {
       throw e;
     }
   }
-  // 前几天记下、还挂着的行：会话归档了，就在它当天的日记里补成 DONE。
+  // 前几天记下、还挂着的行：会话归档了（或 Grok Bot 长时间无新对话），就在它当天的日记里补成 DONE。
   // 同一任务的会话全部归档才完成；日记正好被改过就跳过这一天。
   async archivePast(arch, today) {
-    if (!arch.size) return [];
+    const grokDone = this.grokDoneMinutes();
+    if (!arch.size && !grokDone) return [];
     const out = [];
     for (const day of Object.keys(this.cfg.autoLogState || {})) {
       if (day === today) continue;
       const file = this.journalFile(day);
       if (!file) continue;
       const st = this.cfg.autoLogState[day] || {};
-      const hits = Object.entries(st).filter(([sid, r]) => arch.has(sid) && r.key && !r.skip && !r.gone && r.status !== "done" && this.allArchived(st, sid, r, arch));
+      const list = (this.usage.summary(day) || {}).list || [];
+      const grokIdleDone = (sid, r) => {
+        if (r.agent !== "grokbot" || !grokDone) return false;
+        const x = list.find((s) => s.sid === sid && s.segs && s.segs.length);
+        const lastMin = x ? x.segs[x.segs.length - 1][1] : 0;
+        const lastMs = startOfDay((/* @__PURE__ */ new Date(String(day).replace(/^(\d{4})\D(\d{2})\D(\d{2})$/, "$1-$2-$3") + "T12:00:00")).getTime(), this.cfg) + lastMin * 6e4;
+        return Date.now() - lastMs >= grokDone * 6e4;
+      };
+      const hits = Object.entries(st).filter(([sid, r]) => r.key && !r.skip && !r.gone && r.status !== "done" && (arch.has(sid) && this.allArchived(st, sid, r, arch) || grokIdleDone(sid, r)));
       if (!hits.length) continue;
       const base = await this.read(file);
       let text = base;
       const before = new Map(hits.map(([sid, rec]) => [sid, { status: rec.status, autoPaused: rec.autoPaused, gone: rec.gone }]));
-      const list = (this.usage.summary(day) || {}).list || [];
       for (const [sid, rec] of hits) {
         const found = findTask(text, rec.key, rec.blockId || "", sid);
         if (!found) {
@@ -20971,6 +21697,7 @@ var AutoLog = class {
       sec(t("\u25B6 \u5728\u505A"), d.doing),
       sec(t("\u23F8 {min} \u5206\u949F\u6CA1\u52A8\uFF0C\u5148\u6682\u505C\u4E86", { min: idle }), d.paused),
       sec(t("\u{1F4E6} \u4F1A\u8BDD\u5F52\u6863\u4E86\uFF0C\u8BB0\u6210\u505A\u5B8C"), d.archived),
+      sec(t("\u2705 \u957F\u65F6\u95F4\u65E0\u65B0\u5BF9\u8BDD\uFF0C\u8BB0\u6210\u505A\u5B8C"), d.idleDone),
       sec(t("\u2705 \u770B\u7740\u50CF\u662F\u505A\u5B8C\u4E86\uFF0C\u8981\u6807 DONE \u81EA\u5DF1\u6539\u4E00\u4E0B"), d.done),
       sec(t("\u{1F4CC} \u8BB0\u4E86\u8981\u4F60\u505A\u7684"), d.todo)
     ].filter(Boolean);
@@ -21321,6 +22048,7 @@ var JournalSync = class {
       if (p.auto && !p.cb) {
         const { start, end } = this.sessionTimeSpan(k.sid, p, ls, n);
         const nextKw = want || cur.kw || "DOING";
+        const rules = resolveRecordRules(this.cfg);
         const nextLine2 = formatAutoTaskLine({
           prefix: p.prefix,
           kw: nextKw,
@@ -21328,6 +22056,7 @@ var JournalSync = class {
           end,
           title: p.title,
           preserveTitle: true,
+          showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
           blockId: p.blockId
         });
         if (nextLine2 !== ls[n]) ls[n] = nextLine2;
@@ -21367,6 +22096,7 @@ var JournalSync = class {
       if (!p || p.cb || !p.kw) continue;
       if (p.auto) {
         const { start, end } = this.sessionTimeSpan(sid, p, ls, n);
+        const rules = resolveRecordRules(this.cfg);
         const nextLine = formatAutoTaskLine({
           prefix: p.prefix,
           kw,
@@ -21374,6 +22104,7 @@ var JournalSync = class {
           end,
           title: p.title,
           preserveTitle: true,
+          showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
           blockId: p.blockId
         });
         if (nextLine !== ls[n]) {
@@ -21407,6 +22138,7 @@ var JournalSync = class {
     const { start, end } = this.sessionTimeSpan(sid, p, lines, n);
     const lastClock = last != null ? clock(last) : end;
     if (p.auto && !p.cb) {
+      const rules = resolveRecordRules(this.cfg);
       lines[n] = formatAutoTaskLine({
         prefix: p.prefix,
         kw: "DONE",
@@ -21414,6 +22146,7 @@ var JournalSync = class {
         end: lastClock || end || start,
         title: p.title,
         preserveTitle: true,
+        showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
         blockId: p.blockId
       });
     } else {
@@ -21511,7 +22244,8 @@ var JournalSync = class {
           kw: "DOING",
           start: fmtClock(d.created),
           end: fmtClock(d.active || d.created),
-          title: summarizeAutoTitle(name)
+          title: summarizeAutoTitle(name),
+          boldTitle: false
         }),
         linkLine(kidInd + unit, "claude", name, d.sid)
       );
@@ -21639,9 +22373,9 @@ var JournalSync = class {
         }
         const name = summarizeAutoTitle(r.desc || r.type || "subagent");
         if (over) {
-          lines.splice(end + 1, 0, formatAutoTaskLine({ prefix: `${kidInd}- `, kw: k.kw, start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name }), ...this.finishKid(kidInd + unit, r));
+          lines.splice(end + 1, 0, formatAutoTaskLine({ prefix: `${kidInd}- `, kw: k.kw, start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name, boldTitle: false }), ...this.finishKid(kidInd + unit, r));
         } else {
-          lines.splice(end + 1, 0, formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name }), `${kidInd}${unit}- \u{1F517} \u5B50\u4EE3\u7406 \`${id}\``);
+          lines.splice(end + 1, 0, formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: fmtClock(r.start), end: fmtClock(r.at || r.start), title: name, boldTitle: false }), `${kidInd}${unit}- \u{1F517} \u5B50\u4EE3\u7406 \`${id}\``);
         }
         return true;
       }
@@ -21694,7 +22428,7 @@ var JournalSync = class {
       lines.splice(
         end + 1,
         0,
-        formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: clock(min), end: clock(min), title: "side chat" }),
+        formatAutoTaskLine({ prefix: `${kidInd}- `, kw: "DOING", start: clock(min), end: clock(min), title: "side chat", boldTitle: false }),
         `${kidInd}${unit}- \u{1F517} side chat \`pid ${s.pid}\``
       );
       changed = true;
@@ -22175,10 +22909,10 @@ function registerTaskStatusMenu(plugin) {
 }
 
 // src/task-export.js
-var import_fs10 = __toESM(require("fs"), 1);
+var import_fs11 = __toESM(require("fs"), 1);
 var import_promises3 = __toESM(require("fs/promises"), 1);
-var import_os10 = __toESM(require("os"), 1);
-var import_path9 = __toESM(require("path"), 1);
+var import_os11 = __toESM(require("os"), 1);
+var import_path10 = __toESM(require("path"), 1);
 var import_obsidian13 = require("obsidian");
 var SAFE_HREF_RE = /^(?:https?:|mailto:|obsidian:|claude:|codex:|workbuddy:|dsh:|antigravity:|opencode:|qoder:|cursor:|\/|#|\.\.?\/)/i;
 function dedentVisualLines(lines, cols) {
@@ -22363,17 +23097,17 @@ function getElectronRemote() {
 }
 function initialExportDir(plugin, sourcePath = "") {
   const saved = String(plugin.settings?.lastTaskExportDir || "").trim();
-  if (saved && import_fs10.default.existsSync(saved)) return saved;
+  if (saved && import_fs11.default.existsSync(saved)) return saved;
   const vaultBase = plugin.app?.vault?.adapter?.basePath || "";
   if (vaultBase && sourcePath) {
-    const noteDir = import_path9.default.dirname(import_path9.default.join(vaultBase, sourcePath));
-    if (import_fs10.default.existsSync(noteDir)) return noteDir;
+    const noteDir = import_path10.default.dirname(import_path10.default.join(vaultBase, sourcePath));
+    if (import_fs11.default.existsSync(noteDir)) return noteDir;
   }
-  return vaultBase || import_os10.default.homedir();
+  return vaultBase || import_os11.default.homedir();
 }
 function rememberExportDir(plugin, filePath) {
   if (!plugin.settings || !filePath) return;
-  plugin.settings.lastTaskExportDir = import_path9.default.dirname(filePath);
+  plugin.settings.lastTaskExportDir = import_path10.default.dirname(filePath);
   plugin.saveSettings?.();
 }
 function ensureExt(filePath, ext) {
@@ -22389,12 +23123,12 @@ async function ensureVaultFolders(vault, relPath) {
   }
 }
 async function writeExportFile(plugin, chosenPath, content) {
-  const abs = import_path9.default.resolve(chosenPath);
+  const abs = import_path10.default.resolve(chosenPath);
   const vaultBase = plugin.app?.vault?.adapter?.basePath;
   if (vaultBase) {
-    const rel = import_path9.default.relative(import_path9.default.resolve(vaultBase), abs);
-    if (rel && !rel.startsWith("..") && !import_path9.default.isAbsolute(rel)) {
-      const vaultPath = rel.split(import_path9.default.sep).join("/");
+    const rel = import_path10.default.relative(import_path10.default.resolve(vaultBase), abs);
+    if (rel && !rel.startsWith("..") && !import_path10.default.isAbsolute(rel)) {
+      const vaultPath = rel.split(import_path10.default.sep).join("/");
       const vault = plugin.app.vault;
       await ensureVaultFolders(vault, vaultPath);
       const existing = vault.getAbstractFileByPath(vaultPath);
@@ -22403,7 +23137,7 @@ async function writeExportFile(plugin, chosenPath, content) {
       return { path: vaultPath, insideVault: true };
     }
   }
-  await import_promises3.default.mkdir(import_path9.default.dirname(abs), { recursive: true });
+  await import_promises3.default.mkdir(import_path10.default.dirname(abs), { recursive: true });
   await import_promises3.default.writeFile(abs, content, "utf8");
   return { path: abs, insideVault: false };
 }
@@ -22955,51 +23689,51 @@ function buildTaskPlainText(extracted, sourcePath = "") {
   return `${lines.join("\n").replace(/\n+$/, "")}
 `;
 }
-async function copyTaskFormatted(plugin, path9, line, { buildText, successMsg, viewMode = "" }) {
-  const text = await plugin.readNote(path9);
-  const extracted = extractTaskBlock(text, line, path9, plugin);
+async function copyTaskFormatted(plugin, path10, line, { buildText, successMsg, viewMode = "" }) {
+  const text = await plugin.readNote(path10);
+  const extracted = extractTaskBlock(text, line, path10, plugin);
   if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
-  const output = buildText(extracted, path9, { viewMode });
+  const output = buildText(extracted, path10, { viewMode });
   if (!writeClipboard(output)) return plugin.notice(t("\u5199\u5165\u526A\u8D34\u677F\u5931\u8D25"));
   plugin.notice(successMsg);
 }
-async function copyTaskMarkdown(plugin, path9, line) {
-  return copyTaskFormatted(plugin, path9, line, {
+async function copyTaskMarkdown(plugin, path10, line) {
+  return copyTaskFormatted(plugin, path10, line, {
     buildText: (extracted) => `${extracted.markdown}
 `,
     successMsg: t("\u5DF2\u6309 Markdown \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskMarkdownTable(plugin, path9, line) {
-  return copyTaskFormatted(plugin, path9, line, {
+async function copyTaskMarkdownTable(plugin, path10, line) {
+  return copyTaskFormatted(plugin, path10, line, {
     buildText: (extracted, src) => buildTaskMarkdownTable(extracted, src),
     successMsg: t("\u5DF2\u6309 Markdown \u8868\u683C\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskPlainText(plugin, path9, line) {
-  return copyTaskFormatted(plugin, path9, line, {
+async function copyTaskPlainText(plugin, path10, line) {
+  return copyTaskFormatted(plugin, path10, line, {
     buildText: (extracted, src) => buildTaskPlainText(extracted, src),
     successMsg: t("\u5DF2\u6309\u7EAF\u6587\u672C\u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskJson(plugin, path9, line, options = {}) {
-  return copyTaskFormatted(plugin, path9, line, {
+async function copyTaskJson(plugin, path10, line, options = {}) {
+  return copyTaskFormatted(plugin, path10, line, {
     buildText: (extracted, src, opts) => buildTaskExportJson(extracted, src, opts),
     successMsg: t("\u5DF2\u6309 JSON \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F"),
     viewMode: options.viewMode || ""
   });
 }
-async function renderMarkdownFragment(plugin, md, path9, comp) {
+async function renderMarkdownFragment(plugin, md, path10, comp) {
   if (!md) return "";
   const host = document.createElement("div");
   try {
-    await import_obsidian13.MarkdownRenderer.render(plugin.app, md, host, path9, comp);
+    await import_obsidian13.MarkdownRenderer.render(plugin.app, md, host, path10, comp);
     return host.innerHTML;
   } finally {
     host.remove();
   }
 }
-async function renderTaskHtmlForExport(plugin, extracted, path9, viewMode) {
+async function renderTaskHtmlForExport(plugin, extracted, path10, viewMode) {
   const effectiveView = resolveExportView(extracted, viewMode);
   const comp = new import_obsidian13.Component();
   comp.load();
@@ -23007,11 +23741,11 @@ async function renderTaskHtmlForExport(plugin, extracted, path9, viewMode) {
     let outlineBodyHtml = "";
     let extraNotesHtml = "";
     if (effectiveView === "outline" || !extracted.structured) {
-      outlineBodyHtml = await renderMarkdownFragment(plugin, extracted.markdown, path9, comp);
+      outlineBodyHtml = await renderMarkdownFragment(plugin, extracted.markdown, path10, comp);
     } else if (extracted.structured.extraMarkdown) {
-      extraNotesHtml = await renderMarkdownFragment(plugin, extracted.structured.extraMarkdown, path9, comp);
+      extraNotesHtml = await renderMarkdownFragment(plugin, extracted.structured.extraMarkdown, path10, comp);
     }
-    return buildTaskViewHtmlDocument(extracted, path9, {
+    return buildTaskViewHtmlDocument(extracted, path10, {
       viewMode: effectiveView,
       outlineBodyHtml,
       extraNotesHtml
@@ -23020,7 +23754,7 @@ async function renderTaskHtmlForExport(plugin, extracted, path9, viewMode) {
     comp.unload();
   }
 }
-async function prepareExportTarget(plugin, path9, line, {
+async function prepareExportTarget(plugin, path10, line, {
   ext,
   filterName,
   dialogTitle,
@@ -23033,8 +23767,8 @@ async function prepareExportTarget(plugin, path9, line, {
     plugin.notice(unavailableMsg);
     return null;
   }
-  const text = await plugin.readNote(path9);
-  const extracted = extractTaskBlock(text, line, path9, plugin);
+  const text = await plugin.readNote(path10);
+  const extracted = extractTaskBlock(text, line, path10, plugin);
   if (!extracted) {
     plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
     return null;
@@ -23043,20 +23777,20 @@ async function prepareExportTarget(plugin, path9, line, {
   const title = typeof dialogTitle === "function" ? dialogTitle(effectiveView) : dialogTitle;
   const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
     title,
-    defaultPath: import_path9.default.join(initialExportDir(plugin, path9), `${extracted.suggestedName}${ext}`),
+    defaultPath: import_path10.default.join(initialExportDir(plugin, path10), `${extracted.suggestedName}${ext}`),
     filters: [{ name: filterName, extensions: [ext.replace(/^\./, "")] }]
   });
   if (picked.canceled || !picked.filePath) return null;
   const targetFile = ensureExt(picked.filePath, ext);
   const vaultBase = plugin.app?.vault?.adapter?.basePath;
-  if (ext === ".md" && vaultBase && import_path9.default.resolve(import_path9.default.join(vaultBase, path9)) === import_path9.default.resolve(targetFile)) {
+  if (ext === ".md" && vaultBase && import_path10.default.resolve(import_path10.default.join(vaultBase, path10)) === import_path10.default.resolve(targetFile)) {
     plugin.notice(t("\u4E0D\u80FD\u8986\u76D6\u5F53\u524D\u6240\u5728\u7B14\u8BB0"));
     return null;
   }
   return { remote, extracted, effectiveView, targetFile };
 }
-async function exportTaskToPdf(plugin, path9, line, options = {}) {
-  const prep = await prepareExportTarget(plugin, path9, line, {
+async function exportTaskToPdf(plugin, path10, line, options = {}) {
+  const prep = await prepareExportTarget(plugin, path10, line, {
     ext: ".pdf",
     filterName: "PDF",
     requireWindow: true,
@@ -23069,8 +23803,8 @@ async function exportTaskToPdf(plugin, path9, line, options = {}) {
   let win = null;
   let tmpHtml = "";
   try {
-    const html = await renderTaskHtmlForExport(plugin, extracted, path9, effectiveView);
-    tmpHtml = import_path9.default.join(import_os10.default.tmpdir(), `agent-deck-pdf-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
+    const html = await renderTaskHtmlForExport(plugin, extracted, path10, effectiveView);
+    tmpHtml = import_path10.default.join(import_os11.default.tmpdir(), `agent-deck-pdf-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
     await import_promises3.default.writeFile(tmpHtml, html, "utf8");
     win = new remote.BrowserWindow({
       show: false,
@@ -23080,7 +23814,7 @@ async function exportTaskToPdf(plugin, path9, line, options = {}) {
     });
     await win.loadFile(tmpHtml);
     const pdfData = await win.webContents.printToPDF({ printBackground: true, pageSize: "A4" });
-    await import_promises3.default.mkdir(import_path9.default.dirname(targetPdf), { recursive: true });
+    await import_promises3.default.mkdir(import_path10.default.dirname(targetPdf), { recursive: true });
     await import_promises3.default.writeFile(targetPdf, pdfData);
     rememberExportDir(plugin, targetPdf);
     plugin.notice(t("\u5DF2\u5BFC\u51FA PDF\uFF1A{path}", { path: targetPdf }));
@@ -23092,17 +23826,17 @@ async function exportTaskToPdf(plugin, path9, line, options = {}) {
     });
   }
 }
-async function exportTaskToTextFile(plugin, path9, line, { ext, filterName, dialogTitle, buildContent, onSuccess, viewMode = "" }) {
-  const prep = await prepareExportTarget(plugin, path9, line, { ext, filterName, dialogTitle, viewMode });
+async function exportTaskToTextFile(plugin, path10, line, { ext, filterName, dialogTitle, buildContent, onSuccess, viewMode = "" }) {
+  const prep = await prepareExportTarget(plugin, path10, line, { ext, filterName, dialogTitle, viewMode });
   if (!prep) return;
   const { extracted, effectiveView, targetFile } = prep;
-  const content = await buildContent(extracted, path9, { viewMode: effectiveView });
+  const content = await buildContent(extracted, path10, { viewMode: effectiveView });
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
   plugin.notice(onSuccess(written.path));
 }
-async function exportTaskToHtml(plugin, path9, line, options = {}) {
-  return exportTaskToTextFile(plugin, path9, line, {
+async function exportTaskToHtml(plugin, path10, line, options = {}) {
+  return exportTaskToTextFile(plugin, path10, line, {
     ext: ".html",
     filterName: "HTML",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A HTML"),
@@ -23111,8 +23845,8 @@ async function exportTaskToHtml(plugin, path9, line, options = {}) {
     onSuccess: (p) => t("\u5DF2\u5BFC\u51FA HTML\uFF1A{path}", { path: p })
   });
 }
-async function exportTaskToMarkdown(plugin, path9, line) {
-  return exportTaskToTextFile(plugin, path9, line, {
+async function exportTaskToMarkdown(plugin, path10, line) {
+  return exportTaskToTextFile(plugin, path10, line, {
     ext: ".md",
     filterName: "Markdown",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A Markdown"),
@@ -23120,8 +23854,8 @@ async function exportTaskToMarkdown(plugin, path9, line) {
     onSuccess: (p) => t("\u5DF2\u5BFC\u51FA Markdown\uFF1A{path}", { path: p })
   });
 }
-async function exportTaskToJson(plugin, path9, line, options = {}) {
-  return exportTaskToTextFile(plugin, path9, line, {
+async function exportTaskToJson(plugin, path10, line, options = {}) {
+  return exportTaskToTextFile(plugin, path10, line, {
     ext: ".json",
     filterName: "JSON",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A JSON"),
@@ -23130,8 +23864,8 @@ async function exportTaskToJson(plugin, path9, line, options = {}) {
     onSuccess: (p) => t("\u5DF2\u5BFC\u51FA JSON\uFF1A{path}", { path: p })
   });
 }
-async function exportTaskToCsv(plugin, path9, line) {
-  return exportTaskToTextFile(plugin, path9, line, {
+async function exportTaskToCsv(plugin, path10, line) {
+  return exportTaskToTextFile(plugin, path10, line, {
     ext: ".csv",
     filterName: "CSV",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A CSV"),
@@ -23139,30 +23873,30 @@ async function exportTaskToCsv(plugin, path9, line) {
     onSuccess: (p) => t("\u5DF2\u5BFC\u51FA CSV\uFF1A{path}", { path: p })
   });
 }
-async function saveTaskAsFile(plugin, path9, line) {
-  const prep = await prepareExportTarget(plugin, path9, line, {
+async function saveTaskAsFile(plugin, path10, line) {
+  const prep = await prepareExportTarget(plugin, path10, line, {
     ext: ".md",
     filterName: "Markdown",
     dialogTitle: t("\u53E6\u5B58\u4E3A\u4EFB\u52A1\u4E0E\u5BF9\u8BDD")
   });
   if (!prep) return;
   const { extracted, targetFile } = prep;
-  const content = buildTaskExportDocument(extracted, path9);
+  const content = buildTaskExportDocument(extracted, path10);
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
-  const latest = await plugin.readNote(path9);
-  const check = extractTaskBlock(latest, line, path9, plugin);
+  const latest = await plugin.readNote(path10);
+  const check = extractTaskBlock(latest, line, path10, plugin);
   if (!check || check.rawText !== extracted.rawText) {
     return plugin.notice(t("\u539F\u7B14\u8BB0\u5185\u5BB9\u521A\u6709\u53D8\u5316\uFF0C\u5DF2\u4FDD\u5B58\u526F\u672C\u5230 {path}\uFF0C\u539F\u6587\u4FDD\u7559", { path: written.path }));
   }
   const updated = removeTaskBlockFromNote(latest, check.start, check.end);
-  await plugin.writeNote(path9, updated);
+  await plugin.writeNote(path10, updated);
   plugin.refreshUI?.();
   plugin.notice(t("\u5DF2\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u672C\uFF1A{path}", { path: written.path }));
 }
 
 // src/main.js
-var fsp8 = import_fs11.default.promises;
+var fsp8 = import_fs12.default.promises;
 var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
 var AgentDeckPlugin = class extends import_obsidian14.Plugin {
   async onload() {
@@ -23193,11 +23927,11 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     this.agentShortNames = Object.fromEntries(Object.entries(AGENTS).map(([id, a]) => [id, a.short || a.name || id]));
     this.vaultPath = this.app.vault.adapter.getBasePath ? this.app.vault.adapter.getBasePath() : "";
     this.manifestDir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
-    this.pluginDir = import_path10.default.join(this.vaultPath, this.manifestDir);
-    this.usageFile = import_path10.default.join(this.pluginDir, "usage.json");
+    this.pluginDir = import_path11.default.join(this.vaultPath, this.manifestDir);
+    this.usageFile = import_path11.default.join(this.pluginDir, "usage.json");
     this.store = new UsageStore(this, this.settings);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
-    this.usageCacheFile = import_path10.default.join(import_os11.default.homedir(), ".agent-deck", "usage-cache.json.gz");
+    this.usageCacheFile = import_path11.default.join(import_os12.default.homedir(), ".agent-deck", "usage-cache.json.gz");
     this.editorInfoField = import_obsidian14.editorInfoField;
     this.delegator = new Delegator(this);
     this.menubar = new MenuBarBridge(this);
@@ -23320,6 +24054,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       }), 2500);
       this.scheduleScan();
       this.watchCursorEvents();
+      this.watchGrokBotPersistence();
       this.registerInterval(window.setInterval(() => safeRun("autoLog:tick", () => this.autoLog.tick(), { breaker: this._faultBreakers?.autoLog }), 60 * 1e3));
       this.registerInterval(window.setInterval(() => safeRun("dream:tick", () => this.dreaming.tick(), { breaker: this._faultBreakers?.dreaming }), 60 * 1e3));
       this.registerInterval(window.setInterval(() => safeRun("externalState:poll", () => this.pollExternalState(), { breaker: this._faultBreakers?.externalState }), 10 * 1e3));
@@ -23351,6 +24086,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     this._scanTimer = null;
     this._refreshTimer = null;
     this.closeCursorWatcher();
+    this.closeGrokBotWatcher();
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
       try {
@@ -23454,9 +24190,10 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
   }
   watchCursorEvents() {
     this.closeCursorWatcher();
+    this.closeGrokBotWatcher();
     if (this._unloaded || !this.agentEnabled("cursor")) return;
     const dir = cursorEventsDir();
-    if (!import_fs11.default.existsSync(dir)) return;
+    if (!import_fs12.default.existsSync(dir)) return;
     const scheduleCursor = () => {
       if (this._unloaded) return;
       clearTimeout(this._cursorWatchTimer);
@@ -23467,7 +24204,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       }, 350);
     };
     try {
-      this._cursorWatcher = import_fs11.default.watch(dir, { persistent: false }, scheduleCursor);
+      this._cursorWatcher = import_fs12.default.watch(dir, { persistent: false }, scheduleCursor);
     } catch {
     }
   }
@@ -23479,6 +24216,35 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     } catch {
     }
     this._cursorWatcher = null;
+  }
+  watchGrokBotPersistence() {
+    this.closeGrokBotWatcher();
+    const tracked = Array.isArray(this.settings.grokBotTrackedBotIds) ? this.settings.grokBotTrackedBotIds.filter(Boolean) : [];
+    if (this._unloaded || !this.agentEnabled("grokbot") || !tracked.length) return;
+    const dir = this.settings.grokBotPersistenceDir || grokBotPersistenceDir();
+    if (!import_fs12.default.existsSync(dir)) return;
+    const scheduleGrok = () => {
+      if (this._unloaded) return;
+      clearTimeout(this._grokWatchTimer);
+      this._grokWatchTimer = setTimeout(() => {
+        if (this._unloaded) return;
+        if (this._scanning) return scheduleGrok();
+        this.scanNow(false, { agent: "grokbot" });
+      }, 350);
+    };
+    try {
+      this._grokWatcher = import_fs12.default.watch(dir, { persistent: false }, scheduleGrok);
+    } catch {
+    }
+  }
+  closeGrokBotWatcher() {
+    clearTimeout(this._grokWatchTimer);
+    this._grokWatchTimer = null;
+    try {
+      this._grokWatcher?.close();
+    } catch {
+    }
+    this._grokWatcher = null;
   }
   cursorHooksStatus() {
     return cursorHooksStatus();
@@ -23642,10 +24408,10 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     new import_obsidian14.Notice(t("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97"));
   }
   async importNautilus(manual = false) {
-    const dir = import_path10.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
+    const dir = import_path11.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
     let raw;
     try {
-      raw = await fsp8.readFile(import_path10.default.join(dir, "ai-usage.json"), "utf8");
+      raw = await fsp8.readFile(import_path11.default.join(dir, "ai-usage.json"), "utf8");
     } catch {
       if (manual) new import_obsidian14.Notice(t("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json"));
       return;
@@ -23780,6 +24546,8 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     this.settings.primaryAgents = list.length ? list : [agent];
     ((_a = this.settings).agents || (_a.agents = {}))[agent] = true;
     await this.saveSettings();
+    if (agent === "grokbot") this.watchGrokBotPersistence();
+    if (agent === "cursor") this.watchCursorEvents();
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
@@ -23797,6 +24565,8 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       ((_c = (_b = this.settings).ui || (_b.ui = {})).agentOrders || (_c.agentOrders = {})).tracking = order.filter((id) => id !== agent).concat(agent);
     }
     await this.saveSettings();
+    if (agent === "grokbot") this.watchGrokBotPersistence();
+    if (agent === "cursor") this.watchCursorEvents();
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
@@ -24061,8 +24831,8 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     return parts.filter(Boolean).join("\n");
   }
   // ---------- note line map ----------
-  lineMap(path9, doc) {
-    const cached2 = this._lineMaps[path9];
+  lineMap(path10, doc) {
+    const cached2 = this._lineMaps[path10];
     if (cached2 && cached2.doc === doc) return cached2.map;
     const lines = doc.toString().split("\n");
     const owners = ownersOf(lines), fenced = fencedLines(lines);
@@ -24109,11 +24879,11 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       }
     }
     const map = { doc, lines, sessionByParent, linkByLine };
-    this._lineMaps[path9] = { doc, map };
+    this._lineMaps[path10] = { doc, map };
     return map;
   }
-  jobAtLine(path9, line, text) {
-    const jobs = Object.values(this.jobs).filter((j) => j.path === path9);
+  jobAtLine(path10, line, text) {
+    const jobs = Object.values(this.jobs).filter((j) => j.path === path10);
     const bid = blockIdOf(text);
     let best = null;
     for (const j of jobs) {
@@ -24140,11 +24910,11 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     });
   }
   // 编辑器里找打开着这篇笔记的那个 MarkdownView（不一定是当前激活的：拖拽时焦点常在面板上）
-  viewForPath(path9) {
+  viewForPath(path10) {
     let found = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!found && v instanceof import_obsidian14.MarkdownView && v.file && v.file.path === path9 && v.editor) found = v;
+      if (!found && v instanceof import_obsidian14.MarkdownView && v.file && v.file.path === path10 && v.editor) found = v;
     });
     return found;
   }
@@ -24195,7 +24965,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       until,
       dropKey: rec && rec.created && rec.key ? rec.key : null,
       blockId: blockId || ""
-    }, { below, ensureBlockId: true });
+    }, { below, ensureBlockId: true, rules: this.settings.recordRules });
     if (res.error) return this.notice(res.error, 6e3);
     const change = diffLines(text, res.text);
     if (change) view.editor.transaction({ changes: [change] });
@@ -24359,7 +25129,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     if (view && this.sessionsAtTask(item.path, item.line, view.editor.getValue().split("\n")).length) return this.taskActions(item.path, item.line);
     return this.delegateDrop(this.defaultTarget(), item);
   }
-  sessionsAtTask(path9, line, lines) {
+  sessionsAtTask(path10, line, lines) {
     const block = blockAt(lines, line);
     if (!block) return [];
     const bid = blockIdOf(lines[block.start]);
@@ -24374,7 +25144,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       found.set(`${link.agent}:${link.sid}`, { ...this.usage.meta.get(link.sid), ...link });
     }
     for (const job of Object.values(this.jobs)) {
-      if (job.path !== path9 || !(bid && job.blockId === bid || job.lineText === lines[block.start])) continue;
+      if (job.path !== path10 || !(bid && job.blockId === bid || job.lineText === lines[block.start])) continue;
       found.set(`${job.agent}:${job.sessionId || job.id}`, { ...this.usage.meta.get(job.sessionId), ...job, sid: job.sessionId });
     }
     return [...found.values()];
@@ -24388,12 +25158,12 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     if (hasAgentCapability(session.agent, "waitDesktopUntilDone") && activeJob(job)) return this.notice(t("\u9996\u8F6E\u4ECD\u5728\u6267\u884C\uFF0C\u7ED3\u675F\u540E\u518D\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD"));
     return openSession(this, session.agent, session.sid, session.app, session);
   }
-  taskActions(path9, line, event) {
-    const view = this.viewForPath(path9);
+  taskActions(path10, line, event) {
+    const view = this.viewForPath(path10);
     if (!view) return;
     const lines = view.editor.getValue().split("\n"), block = blockAt(lines, line);
     if (!block) return;
-    const sessions = this.sessionsAtTask(path9, line, lines);
+    const sessions = this.sessionsAtTask(path10, line, lines);
     const menu = new import_obsidian14.Menu();
     for (const [index, session] of sessions.entries()) {
       const title = `${AGENTS[session.agent]?.name || session.agent} \xB7 ${t("\u4F1A\u8BDD {n}", { n: index + 1 })}`;
@@ -24404,7 +25174,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       else if (session.handoff && !session.sid && activeJob(session)) menu.addItem((mi) => mi.setTitle(t("\u53D6\u6D88\u4EA4\u63A5 \xB7 {title}", { title })).onClick(() => this.cancelJob(session.id)));
       menu.addSeparator();
     }
-    for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem((mi) => mi.setTitle(t("\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path: path9, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem((mi) => mi.setTitle(t("\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path: path10, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
     menu.addItem((mi) => mi.setTitle(t("\u7ED1\u5B9A\u6216\u5408\u5E76\u5230\u5176\u4ED6\u4EFB\u52A1")).onClick(() => {
       view.editor.setCursor({ line: block.start, ch: 0 });
       this.openMergeTaskForEditor(view.editor, view);
@@ -24417,7 +25187,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     const icons = { outline: "list-tree", table: "table", cards: "layout-grid", timeline: "history" };
     setLucide(el, icons[viewMode] || "list-tree");
   }
-  populateRecordExportMenu(sub, { path: path9 = "", line = 0, viewMode = "outline" } = {}) {
+  populateRecordExportMenu(sub, { path: path10 = "", line = 0, viewMode = "outline" } = {}) {
     const viewLabels = {
       outline: t("\u5927\u7EB2"),
       table: t("\u8868\u683C"),
@@ -24425,20 +25195,20 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       timeline: t("\u65F6\u95F4\u7EBF")
     };
     const activeViewLabel = viewLabels[viewMode] || viewLabels.outline;
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A PDF\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("file-text").onClick(() => exportTaskToPdf(this, path9, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A HTML\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("globe").onClick(() => exportTaskToHtml(this, path9, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A Markdown (.md)")).setIcon("file-code").onClick(() => exportTaskToMarkdown(this, path9, line)));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A JSON (.json)")).setIcon("braces").onClick(() => exportTaskToJson(this, path9, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A CSV (.csv)")).setIcon("table").onClick(() => exportTaskToCsv(this, path9, line)));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A PDF\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("file-text").onClick(() => exportTaskToPdf(this, path10, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A HTML\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("globe").onClick(() => exportTaskToHtml(this, path10, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A Markdown (.md)")).setIcon("file-code").onClick(() => exportTaskToMarkdown(this, path10, line)));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A JSON (.json)")).setIcon("braces").onClick(() => exportTaskToJson(this, path10, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A CSV (.csv)")).setIcon("table").onClick(() => exportTaskToCsv(this, path10, line)));
     sub.addSeparator();
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path9, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown \u8868\u683C")).setIcon("table").onClick(() => copyTaskMarkdownTable(this, path9, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A\u7EAF\u6587\u672C")).setIcon("align-left").onClick(() => copyTaskPlainText(this, path9, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A JSON")).setIcon("copy").onClick(() => copyTaskJson(this, path9, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path10, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown \u8868\u683C")).setIcon("table").onClick(() => copyTaskMarkdownTable(this, path10, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A\u7EAF\u6587\u672C")).setIcon("align-left").onClick(() => copyTaskPlainText(this, path10, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A JSON")).setIcon("copy").onClick(() => copyTaskJson(this, path10, line, { viewMode })));
     sub.addSeparator();
-    sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path9, line)));
+    sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path10, line)));
   }
-  openRecordViewMenu(event, { path: path9 = "", line = 0, viewMode = "outline", onSelect } = {}) {
+  openRecordViewMenu(event, { path: path10 = "", line = 0, viewMode = "outline", onSelect } = {}) {
     const menu = new import_obsidian14.Menu();
     const views = [
       ["outline", t("\u5927\u7EB2"), "list-tree"],
@@ -24451,9 +25221,9 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
         mi.setTitle(label).setIcon(icon).setChecked(viewMode === id).onClick(() => onSelect?.(id));
       });
     }
-    if (path9) {
+    if (path10) {
       menu.addSeparator();
-      const opts = { path: path9, line, viewMode };
+      const opts = { path: path10, line, viewMode };
       menu.addItem((mi) => {
         mi.setTitle(t("\u5BFC\u51FA")).setIcon("download");
         if (typeof mi.setSubmenu === "function") {
@@ -24539,15 +25309,15 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     });
   }
   // ---------- editor actions ----------
-  async delegateAtLine(path9, line) {
-    const file = this.app.vault.getAbstractFileByPath(path9);
+  async delegateAtLine(path10, line) {
+    const file = this.app.vault.getAbstractFileByPath(path10);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
     const view = this.app.workspace.getActiveViewOfType(import_obsidian14.MarkdownView);
-    const lines = view && view.file && view.file.path === path9 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
-    return this.delegateDrop(this.defaultTarget(), { path: path9, line, lineText: lines[line] });
+    const lines = view && view.file && view.file.path === path10 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
+    return this.delegateDrop(this.defaultTarget(), { path: path10, line, lineText: lines[line] });
   }
-  openDelegateModal(path9, line) {
-    new DelegateOptionsModal(this.app, this, path9, line).open();
+  openDelegateModal(path10, line) {
+    new DelegateOptionsModal(this.app, this, path10, line).open();
   }
   // Which journal the two commands act on: the note you are looking at when it
   // sits next to today's journal, otherwise today's journal.
@@ -24657,12 +25427,12 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
   }
   openSessionForEditor(editor, view) {
     if (!view || !view.file) return;
-    const path9 = view.file.path, line = editor.getCursor().line;
-    const map = this.lineMap(path9, editor.cm.state.doc);
+    const path10 = view.file.path, line = editor.getCursor().line;
+    const map = this.lineMap(path10, editor.cm.state.doc);
     let s = map.sessionByParent.get(line);
     if (!s) {
       const text = editor.getLine(line);
-      const job = this.jobAtLine(path9, line, text);
+      const job = this.jobAtLine(path10, line, text);
       if (job) return this.openJob(job.id);
     }
     if (!s) return this.notice(t("\u8FD9\u4E00\u884C\u4E0B\u9762\u6CA1\u6709 \u{1F517} \u7ED1\u5B9A"));
@@ -24688,7 +25458,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       const a = AGENTS[agent];
       const state = isLive ? s.state || "idle" : "recent";
       const kw = menuKeyword(state);
-      const where = ["claude", "qoder", "workbuddy"].includes(agent) ? s.app === "cli" ? t("\u7EC8\u7AEF") : t("\u684C\u9762\u7248") : agent === "codex" ? isCodexDesktop(s.app) ? t("\u684C\u9762\u7248") : "CLI" : ["opencode", "cursor"].includes(agent) ? t("\u684C\u9762\u7248") : agent === "antigravity" ? s.job?.transport === "acp" ? t("\u540E\u53F0\u6267\u884C") : "IDE" : "Harness";
+      const where = ["claude", "qoder", "workbuddy"].includes(agent) ? s.app === "cli" ? t("\u7EC8\u7AEF") : t("\u684C\u9762\u7248") : agent === "codex" ? isCodexDesktop(s.app) ? t("\u684C\u9762\u7248") : "CLI" : ["opencode", "cursor", "grokbot"].includes(agent) ? t("\u684C\u9762\u7248") : agent === "antigravity" ? s.job?.transport === "acp" ? t("\u540E\u53F0\u6267\u884C") : "IDE" : "Harness";
       const acp = agent === "antigravity" && s.job?.transport === "acp";
       const url = usesDeckSessionLink(agent) ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : sessionDeepLink(agent, s.sid);
       const prog = this.sessionProgressText(s);
@@ -24791,7 +25561,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     };
   }
   async restoreNautilusAgentBar() {
-    const p = import_path10.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    const p = import_path11.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     try {
       const data = JSON.parse(await fsp8.readFile(p, "utf8"));
       if (data.agentStatus !== true) {
@@ -24816,7 +25586,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
   }
   async hideNautilusAgentBar() {
     if (this.settings.menuBarHideNautilus === false) return;
-    const p = import_path10.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    const p = import_path11.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     let data = null;
     try {
       data = JSON.parse(await fsp8.readFile(p, "utf8"));
@@ -24929,22 +25699,22 @@ ${body}` });
   openExternal(url) {
     return openExternal(url);
   }
-  async readNote(path9) {
-    const view = this.viewForPath(path9);
+  async readNote(path10) {
+    const view = this.viewForPath(path10);
     if (view) return view.editor.getValue();
-    const file = this.app.vault.getAbstractFileByPath(path9);
-    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path9 }));
+    const file = this.app.vault.getAbstractFileByPath(path10);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path10 }));
     return await this.app.vault.read(file);
   }
-  async writeNote(path9, text) {
-    const view = this.viewForPath(path9);
+  async writeNote(path10, text) {
+    const view = this.viewForPath(path10);
     if (view) {
       const change = diffLines(view.editor.getValue(), text);
       if (change) view.editor.transaction({ changes: [change] });
       return;
     }
-    const file = this.app.vault.getAbstractFileByPath(path9);
-    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path9 }));
+    const file = this.app.vault.getAbstractFileByPath(path10);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path10 }));
     await this.app.vault.process(file, () => text);
   }
   async checkBinary(kind) {

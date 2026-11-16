@@ -27,6 +27,7 @@ import {
   cursorEventsDir, cursorHooksStatus, isCursorRunning,
   installCursorHooks as installCursorHooksHelper,
   uninstallCursorHooks as uninstallCursorHooksHelper,
+  grokBotPersistenceDir,
 } from "./readers.js";
 import { Delegator, blockAt, freshTaskText, ancestorLines, delegationText, openSession as openSessionRaw, openExternal as openExternalRaw, findAgentBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
@@ -210,6 +211,7 @@ export default class AgentDeckPlugin extends Plugin {
       if (this.settings.menuBarHideNautilus !== false) this.defer(() => this.hideNautilusAgentBar().catch(() => {}), 2500);
       this.scheduleScan();
       this.watchCursorEvents();
+      this.watchGrokBotPersistence();
       this.registerInterval(window.setInterval(() => safeRun("autoLog:tick", () => this.autoLog.tick(), { breaker: this._faultBreakers?.autoLog }), 60 * 1000));
       this.registerInterval(window.setInterval(() => safeRun("dream:tick", () => this.dreaming.tick(), { breaker: this._faultBreakers?.dreaming }), 60 * 1000));
       this.registerInterval(window.setInterval(() => safeRun("externalState:poll", () => this.pollExternalState(), { breaker: this._faultBreakers?.externalState }), 10 * 1000));
@@ -235,6 +237,7 @@ export default class AgentDeckPlugin extends Plugin {
     this._scanTimer = null;
     this._refreshTimer = null;
     this.closeCursorWatcher();
+    this.closeGrokBotWatcher();
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
       try { if (runner.constructor && ["AcpRunner", "CodexDesktopRunner", "QoderRunner"].includes(runner.constructor.name)) runner.cancel(); } catch { /* already gone */ }
@@ -327,6 +330,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   watchCursorEvents() {
     this.closeCursorWatcher();
+    this.closeGrokBotWatcher();
     if (this._unloaded || !this.agentEnabled("cursor")) return;
     const dir = cursorEventsDir();
     if (!fs.existsSync(dir)) return;
@@ -349,6 +353,33 @@ export default class AgentDeckPlugin extends Plugin {
     this._cursorWatchTimer = null;
     try { this._cursorWatcher?.close(); } catch { /* already closed */ }
     this._cursorWatcher = null;
+  }
+
+  watchGrokBotPersistence() {
+    this.closeGrokBotWatcher();
+    const tracked = Array.isArray(this.settings.grokBotTrackedBotIds) ? this.settings.grokBotTrackedBotIds.filter(Boolean) : [];
+    if (this._unloaded || !this.agentEnabled("grokbot") || !tracked.length) return;
+    const dir = this.settings.grokBotPersistenceDir || grokBotPersistenceDir();
+    if (!fs.existsSync(dir)) return;
+    const scheduleGrok = () => {
+      if (this._unloaded) return;
+      clearTimeout(this._grokWatchTimer);
+      this._grokWatchTimer = setTimeout(() => {
+        if (this._unloaded) return;
+        if (this._scanning) return scheduleGrok();
+        this.scanNow(false, { agent: "grokbot" });
+      }, 350);
+    };
+    try {
+      this._grokWatcher = fs.watch(dir, { persistent: false }, scheduleGrok);
+    } catch { /* ignore unsupported fs.watch */ }
+  }
+
+  closeGrokBotWatcher() {
+    clearTimeout(this._grokWatchTimer);
+    this._grokWatchTimer = null;
+    try { this._grokWatcher?.close(); } catch { /* already closed */ }
+    this._grokWatcher = null;
   }
 
   cursorHooksStatus() {
@@ -628,6 +659,8 @@ export default class AgentDeckPlugin extends Plugin {
     this.settings.primaryAgents = list.length ? list : [agent];
     (this.settings.agents ||= {})[agent] = true;
     await this.saveSettings();
+    if (agent === "grokbot") this.watchGrokBotPersistence();
+    if (agent === "cursor") this.watchCursorEvents();
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
@@ -642,6 +675,8 @@ export default class AgentDeckPlugin extends Plugin {
       ((this.settings.ui ||= {}).agentOrders ||= {}).tracking = order.filter(id => id !== agent).concat(agent);
     }
     await this.saveSettings();
+    if (agent === "grokbot") this.watchGrokBotPersistence();
+    if (agent === "cursor") this.watchCursorEvents();
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
@@ -1020,7 +1055,7 @@ export default class AgentDeckPlugin extends Plugin {
       state: (live && live.state) || meta.state || "idle", since, until,
       dropKey: rec && rec.created && rec.key ? rec.key : null,
       blockId: blockId || "",
-    }, { below, ensureBlockId: true });
+    }, { below, ensureBlockId: true, rules: this.settings.recordRules });
     if (res.error) return this.notice(res.error, 6000);
     const change = J.diffLines(text, res.text);
     if (change) view.editor.transaction({ changes: [change] });
@@ -1559,7 +1594,7 @@ export default class AgentDeckPlugin extends Plugin {
       const a = AGENTS[agent];
       const state = isLive ? (s.state || "idle") : "recent";
       const kw = menuKeyword(state);
-      const where = ["claude", "qoder", "workbuddy"].includes(agent) ? (s.app === "cli" ? t("终端") : t("桌面版")) : agent === "codex" ? (isCodexDesktop(s.app) ? t("桌面版") : "CLI") : ["opencode", "cursor"].includes(agent) ? t("桌面版") : agent === "antigravity" ? (s.job?.transport === "acp" ? t("后台执行") : "IDE") : "Harness";
+      const where = ["claude", "qoder", "workbuddy"].includes(agent) ? (s.app === "cli" ? t("终端") : t("桌面版")) : agent === "codex" ? (isCodexDesktop(s.app) ? t("桌面版") : "CLI") : ["opencode", "cursor", "grokbot"].includes(agent) ? t("桌面版") : agent === "antigravity" ? (s.job?.transport === "acp" ? t("后台执行") : "IDE") : "Harness";
       const acp = agent === "antigravity" && s.job?.transport === "acp";
       const url = usesDeckSessionLink(agent) ? `obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(s.sid)}` : sessionDeepLink(agent, s.sid);
       const prog = this.sessionProgressText(s);

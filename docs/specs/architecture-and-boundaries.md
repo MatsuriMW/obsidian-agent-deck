@@ -24,7 +24,7 @@
 | 层级 | 核心文件 | 职责与关键锚点 |
 | --- | --- | --- |
 | 入口与设置 | `main.js`, `runtime-guard.js`, `constants.js`, `settings.js`, `settings-agents.js`, `model-groups.js` | 生命周期、`ManagedTimers` / `CircuitBreaker` / `safeRun` 定时隔离、`AGENTS` 元数据、`STORE_VERSION = 1`、Agent 排序/主力推荐、模型分组；`openTerminalAt`（`main.js`） |
-| 会话适配器 | `readers.js`, `agent-ingestors.js`, `cursor-sessions.js`, `desktop-sessions.js`, `codex-desktop.js`, `prompt-text.js`, `external-state.js` | 可扩展 Agent 日志解析注册表（`registerAgentIngestor`）、只读解析 8 家 Agent 日志/SQLite/Hooks/进程与外部排队状态；`USAGE_CACHE_VERSION = 10`（`readers.js`）；`cleanUserPrompt` / `isPromptText`（`prompt-text.js`） |
+| 会话适配器 | `readers.js`, `agent-ingestors.js`, `cursor-sessions.js`, `grok-bot-sessions.js`, `desktop-sessions.js`, `codex-desktop.js`, `prompt-text.js`, `external-state.js` | 可扩展 Agent 日志解析注册表（`registerAgentIngestor`）、只读解析 9 家 Agent 日志/SQLite/Hooks/Persistence Blob/进程与外部排队状态；`USAGE_CACHE_VERSION = 11`（`readers.js`）；`cleanUserPrompt` / `isPromptText`（`prompt-text.js`） |
 | 委派与控制 | `agent-registry.js`, `harness.js`, `delegation-runners.js`, `delegation.js`, `workflow.js`, `attention.js`, `conversation.js`, `conversation-modal.js`, `dialog.js` | 声明式 Agent 能力注册、可扩展 Harness 管道与大纲/双链上下文解析、可扩展 Runner 注册表（`registerRunnerClass`）、工作位置选择、权限弹窗、只读对话查看与归档；`openTerminal` / `osa`（`delegation.js`） |
 | 日记与整理 | `outline.js`, `journal.js`, `autolog.js`, `note-updates.js`, `task-status.js`, `task-id.js`, `task-mentions.js`, `summary-links.js`, `background-output.js`, `organize-journal.js`, `journal-organizer.js`, `journal-layout.js`, `journal-archive.js`, `task-export.js`, `sync.js` | 共享只读大纲/双链原语（`outline.js`）、按文件排队写入、AI 总结、短链 `[🔗](url)`、语义块号生成与清理、整理/按视图导出（PDF/HTML/MD/JSON/CSV/剪贴板）与归档 |
 | 编辑器与渲染 | `editor.js`, `ai-records.js`, `record-display.js`, `fold-actions.js`, `fold-integration.js`, `log-detail.js`, `mention-suggest.js` | CodeMirror 扩展、阅读后处理、记录折叠、视图持久化（`key` + `stableKey`）、隐藏内部编号、`@` 补全 |
@@ -35,7 +35,7 @@
 
 持久化位置：插件状态在 Vault `data.json`；用量汇总在插件目录 `usage.json`；解析缓存在 `~/.agent-deck/usage-cache.json.gz`。
 
-## 3. 八家 Agent 能力边界
+## 3. 九家 Agent 能力边界
 
 插件内对话窗口只读查看与归档，不设续聊输入框；写入格式、短链、标题保护、块号清理与 token 让渡统一走公共规则。
 
@@ -49,6 +49,7 @@
 | Qoder | `~/.qoder/projects` / 桌面 `main.sqlite` | 桌面、后台、终端 | CLI 与桌面 SQLite 不互通；后台走 `qodercli`（终端 `-r` 续聊），桌面复制交接 |
 | WorkBuddy | `~/.workbuddy/projects` / `workbuddy.db` | 桌面、终端 | 仅支持中国版；桌面复制等待粘贴，终端跑 `codebuddy`（与桌面不互通）；无后台执行 |
 | Cursor | `~/.agent-deck/cursor-events/*.jsonl`（Cursor 3.30.14+ Hooks）+ 可选 WAL SQLite / transcript 元数据补全 | 桌面（仅追踪） | 显式安装 `~/.cursor/hooks.json` 后生效；不做旧版兼容与历史回填；对话视图/归档含工具时间线与折叠长结果；打开桌面端并复制会话号 |
+| Grok Bot | `~/Library/Application Support/Grok Bot/sand-client-persistence/*.blob`（Base32 `last-roster` + `transcript.replicas`） | 桌面（仅追踪） | 按 `grokBotTrackedBotIds` 多选过滤（默认全不选）；云端沙箱无本地逐条 token/模型，保留为 `0`/未提供；打开 `grokbot://` / `com.anysphere.sand` 并复制 Bot 会话号 |
 
 ## 4. 双平台与外部集成边界
 

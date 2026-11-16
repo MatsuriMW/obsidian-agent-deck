@@ -396,6 +396,7 @@ export const AGENT_APPS = {
   opencode: { bundle: "ai.opencode.desktop", url: "opencode://" },
   qoder: { bundle: "com.qoder.app", url: "qoder://" },
   cursor: { bundle: "com.todesktop.230313mzl4w4u92", url: "cursor://" },
+  grokbot: { bundle: "com.anysphere.sand", url: "grokbot://" },
 };
 
 export function openAgentApp(agent) {
@@ -425,7 +426,7 @@ function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
 
 export function openSession(plugin, agent, sid, app = "", session = null) {
   if (!sid) { plugin.notice(t("这个会话还没有会话号，稍等一秒再点")); return false; }
-  if (["opencode", "qoder", "cursor"].includes(agent)) {
+  if (["opencode", "qoder", "cursor", "grokbot"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
       return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);

@@ -6,7 +6,7 @@
 // takes text in and returns text out, so it can be tested without Obsidian.
 
 import { createHash } from "crypto";
-import { pad, fmtTok } from "./constants.js";
+import { pad, fmtTok, resolveRecordRules } from "./constants.js";
 import { t } from "./i18n.js";
 import { detailForRound } from "./log-detail.js";
 import { cleanUserPrompt, condenseUserPrompt } from "./prompt-text.js";
@@ -76,8 +76,8 @@ export function stripBlockId(s) {
   return String(s || "").replace(BLOCK_ID_RE, "").trimEnd();
 }
 
-const AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor" };
-export const isDeckBlockId = id => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
+const AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor", grokbot: "grokbot" };
+export const isDeckBlockId = id => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor|grokbot)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
 export function normalizeTaskSlug(value) {
   const slug = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
   return /^[a-z][a-z0-9]{0,15}(?:-[a-z][a-z0-9]{0,15})?$/.test(slug) ? slug : "";
@@ -221,12 +221,21 @@ export function prefixAutoTitle(title, project = "") {
   return `${proj} -> ${stripped || body}`;
 }
 
+export function boldAutoTitle(title) {
+  const s = String(title || "").trim();
+  if (!s) return "";
+  const m = /^\*\*([\s\S]+)\*\*$/.exec(s);
+  if (m && !m[1].includes("**")) return s;
+  return `**${s}**`;
+}
+
 export function formatProjectAutoTitle(raw, project = "", max = 22) {
   const proj = String(project || "").replace(/\s+/g, " ").trim();
   let s = stripBlockId(String(raw || ""))
     .replace(/^🤖\s*/, "")
     .replace(TIME_SPAN_PREFIX_RE, "")
     .replace(/^🤖\s*/, "")
+    .replace(/^\*\*([\s\S]+)\*\*$/, "$1")
     .trim();
   if (proj) {
     const esc = proj.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -237,7 +246,7 @@ export function formatProjectAutoTitle(raw, project = "", max = 22) {
 }
 
 // 统一生成 AI 自动记录标题行：任务状态 + 🤖 + 开始对话时间-最后一次对话时间 + 文字标题 (+ ^blockId)
-export function formatAutoTaskLine({ prefix = "- ", kw = "DOING", start = "", end = "", span = "", title = "", blockId = "", summarize = false, preserveTitle = false } = {}) {
+export function formatAutoTaskLine({ prefix = "- ", kw = "DOING", start = "", end = "", span = "", title = "", blockId = "", summarize = false, preserveTitle = false, boldTitle = true, showTimeRange = true } = {}) {
   const existingId = blockId || blockIdOf(title);
   let cleanTitle = preserveTitle ? String(title || "") : stripBlockId(String(title || ""))
     .replace(/^🤖\s*/, "")
@@ -246,20 +255,23 @@ export function formatAutoTaskLine({ prefix = "- ", kw = "DOING", start = "", en
     .replace(TIME_SPAN_PREFIX_RE, "")
     .trim();
   if (!preserveTitle && (summarize || !cleanTitle)) cleanTitle = summarizeAutoTitle(cleanTitle || title);
+  if (!preserveTitle && boldTitle && cleanTitle) cleanTitle = boldAutoTitle(cleanTitle);
   let timeRange = "";
-  if (span) {
-    const m = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?$/.exec(span.trim());
-    if (m) {
-      const s = `${pad(+m[1])}:${m[2]}`;
-      const e = m[3] ? `${pad(+m[3])}:${m[4]}` : s;
+  if (showTimeRange) {
+    if (span) {
+      const m = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?$/.exec(span.trim());
+      if (m) {
+        const s = `${pad(+m[1])}:${m[2]}`;
+        const e = m[3] ? `${pad(+m[3])}:${m[4]}` : s;
+        timeRange = `${s}-${e}`;
+      } else {
+        timeRange = span.trim();
+      }
+    } else if (start || end) {
+      const s = start || end;
+      const e = end || start;
       timeRange = `${s}-${e}`;
-    } else {
-      timeRange = span.trim();
     }
-  } else if (start || end) {
-    const s = start || end;
-    const e = end || start;
-    timeRange = `${s}-${e}`;
   }
   const raw = `${prefix}${kw ? kw + " " : ""}${AUTO_MARK}${timeRange ? timeRange + " " : ""}${cleanTitle}`;
   const head = (preserveTitle ? raw : raw.replace(/ {2,}/g, " ")).trimEnd();
@@ -385,8 +397,8 @@ export function kwLine(raw) {
 }
 
 export function parseLink(line) {
-  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder|workbuddy|cursor)&sid=([^)]*)\)/.exec(line);
-  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(OpenCode|Qoder|Cursor)：/, "") };
+  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder|workbuddy|cursor|grokbot)&sid=([^)]*)\)/.exec(line);
+  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(OpenCode|Qoder|Cursor|Grok Bot)：/, "") };
   const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
   const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
@@ -399,8 +411,8 @@ export function parseLink(line) {
 
 export function linkLine(indent, agent, title, sid) {
   const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
-  if (["opencode", "qoder", "cursor"].includes(agent)) {
-    const label = agent === "opencode" ? "OpenCode" : agent === "qoder" ? "Qoder" : "Cursor";
+  if (["opencode", "qoder", "cursor", "grokbot"].includes(agent)) {
+    const label = agent === "opencode" ? "OpenCode" : agent === "qoder" ? "Qoder" : agent === "cursor" ? "Cursor" : "Grok Bot";
     return `${indent}- 🔗 [${label}：${safe}](obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(sid)})`;
   }
   if (agent === "claude") return `${indent}- 🔗 [Claude：${safe}](claude://resume?session=${sid})`;
@@ -869,7 +881,7 @@ export function clocksLast(text) {
 //   · 一个会话只绑一处：别处已有的 🔗 先摘掉；自动记日记替它新写过的「🤖 …」那一项（按 blockId 或 dropKey）一起合并收掉
 //   · 原文不动，只在前面换上状态关键词（TODO / 没写关键词的 → DOING / TOREVIEW …；DONE、PAUSED 这些你定的不碰）
 // 返回 { text, line, kind, blockId } 或 { text, error }
-export function bindInto(text, at, s, { below = false } = {}) {
+export function bindInto(text, at, s, { below = false, rules = null } = {}) {
   let lines = text.split("\n");
   const target = dropKind(lines, at, below);
   if (!target) return { text, error: t("这一行放不了会话：拖到列表项、空的列表项或空行上") };
@@ -879,11 +891,12 @@ export function bindInto(text, at, s, { below = false } = {}) {
     if (had && had.sid === s.sid) return { text, error: t("这一项已经绑着这个会话了") };
     if (had) return { text, error: t("这一项已经绑着另一个会话；先删掉它下面的 🔗 行") };
   }
+  const r = resolveRecordRules(rules ? { recordRules: rules } : {});
   const want = kwForState(s.state);
   const since = s.since || "";
   const until = s.until || since;
   const title = resultText(s.title || "没起名的会话", 60);
-  const autoTitle = summarizeAutoTitle(s.title || "没起名的会话");
+  const autoTitle = summarizeAutoTitle(s.title || "没起名的会话", r.titleMax);
   const rescuedChildren = [];
   let rescuedBlockId = s.blockId || "";
 
@@ -935,7 +948,7 @@ export function bindInto(text, at, s, { below = false } = {}) {
     const p = splitTask(lines[n]);
     if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
       lines[n] = p.auto
-        ? formatAutoTaskLine({ prefix: p.prefix, kw: want, start: p.since || since, end: p.until || until || p.since || since, title: p.title, preserveTitle: true, blockId: p.blockId })
+        ? formatAutoTaskLine({ prefix: p.prefix, kw: want, start: p.since || since, end: p.until || until || p.since || since, title: p.title, preserveTitle: true, showTimeRange: r.showTimeRange || Boolean(p.since || p.until), blockId: p.blockId })
         : `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
     }
     const eb = maybeAddBlockId(lines[n]);
@@ -962,7 +975,7 @@ export function bindInto(text, at, s, { below = false } = {}) {
     }
     const pm = /^(\s*)([-*+]|(\d+)([.)]))\s+/.exec(lines[n]);
     prefix = !pm ? "- " : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
-    const eb = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle }));
+    const eb = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle, boldTitle: r.boldTitle, showTimeRange: r.showTimeRange }));
     const item = eb.line;
     const lead = (/^\s*/.exec(item) || [""])[0];
     const ind = lead + (lead && !lead.includes("\t") ? "    " : "\t");
@@ -978,7 +991,7 @@ export function bindInto(text, at, s, { below = false } = {}) {
     prefix = !pm || MARKER_RE.test(lines[prev]) ? (pm ? (/^\s*/.exec(lines[markOwner(lines, prev)] || "") || [""])[0] + "- " : "- ")
       : pm[3] ? `${pm[1]}${+pm[3] + 1}${pm[4]} ` : `${pm[1]}${pm[2]} `;
   }
-  const eb = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle }));
+  const eb = maybeAddBlockId(formatAutoTaskLine({ prefix, kw: want, start: since, end: until, title: autoTitle, boldTitle: r.boldTitle, showTimeRange: r.showTimeRange }));
   const item = eb.line;
   if (target.kind === "below") { lines.splice(n + 1, 0, item); n = n + 1; }
   else if (target.kind === "new" && lines[n + 1] && lines[n + 1].trim() && !LIST_RE.test(lines[n + 1])) lines.splice(n, 0, item);   // 空行下面紧接一段文字：空行留着，不然那段会变成这一项的续行
@@ -1040,7 +1053,7 @@ export function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
   const blockId = pd.blockId || ps.blockId || preferId || makeBlockId(keptBody);
   const keptIsAuto = keptBody.startsWith(AUTO_MARK.trim());
   const headerRaw = keptIsAuto
-    ? formatAutoTaskLine({ prefix: pd.prefix, kw: mergedKw, start: mergedSince, end: mergedUntil, title: keptBody, preserveTitle: true })
+    ? formatAutoTaskLine({ prefix: pd.prefix, kw: mergedKw, start: mergedSince, end: mergedUntil, title: pd.title, preserveTitle: true })
     : `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
   const { line: mergedHeader } = ensureBlockId(headerRaw, blockId);
 

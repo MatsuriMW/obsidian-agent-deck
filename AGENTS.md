@@ -8,7 +8,7 @@
 ## 核心不变式
 1. **笔记无损**：保留手写内容、代码块、会话链接与用户改过的 AI 标题（跳过空格压缩与前缀剥离）；模型调用不得占用按文件排队的写入锁。
 2. **适配器隔离**：客户端差异留在适配器层；写入格式、短链 `[🔗](url)`、块号清理与 token 让渡走公共统一规则。
-3. **口径诚实与缓存迁移**：`data.json`（`STORE_VERSION = 1`）与 `usage.json` 无损迁移；改动日志解析或清洗规则时递增 `src/readers.js` 的 `USAGE_CACHE_VERSION`（当前 `10`）；缺失 token 与活跃耗时绝不估算。
+3. **口径诚实与缓存迁移**：`data.json`（`STORE_VERSION = 1`）与 `usage.json` 无损迁移；改动日志解析或清洗规则时递增 `src/readers.js` 的 `USAGE_CACHE_VERSION`（当前 `11`）；缺失 token 与活跃耗时绝不估算。
 4. **UI 与双语**：复用 [`src/styles/base/tokens.css`](src/styles/base/tokens.css) `--ad-*` 变量（样式只改 `src/styles/`，构建输出 `styles.css`），默认左对齐，设置页 5 页且每项唯一入口；文案遵循 [`docs/specs/ui-language.md`](docs/specs/ui-language.md)（菜单栏同步 `src/menubar.swift` 与 `src/locales/en/menubar.js`）。
 5. **双平台诚实**：`darwin` 专属能力（如 `src/menubar.js`）在 Windows 无报错降级；单平台实测不外推为双平台通过。
 

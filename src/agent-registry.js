@@ -106,6 +106,18 @@ const CAPABILITIES = new Map([
     modelCatalog: false,
     sessionLinkScheme: "cursor",
   }],
+  ["grokbot", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "grokbot",
+  }],
 ]);
 
 export function registerAgentCapability(id, capability = {}) {
