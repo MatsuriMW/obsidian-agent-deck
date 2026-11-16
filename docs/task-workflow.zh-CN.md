@@ -6,7 +6,7 @@
 
 | 平台 | 已验证范围 | 未覆盖 / 已知代码缺口 |
 | --- | --- | --- |
-| **macOS** | 全量 `npm test`、构建、Vault 热重载、Dashboard、标题保护、token 显示、Qoder CLI 同会话 | 终端交互仅实测 Tern / Herdr；7 家客户端全量委派未逐一复测 |
+| **macOS** | 全量 `npm test`、构建、Vault 安装与热重载（`1.10.1`）、Dashboard、标题保护、token 显示、Qoder CLI 同会话 | 终端交互仅实测 Tern / Herdr；7 家可委派客户端全量派发与 Obsidian 新版界面抽查未逐一复测 |
 | **Windows** | 尚未实机运行验证 | `src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）仍依赖 macOS `osascript`/终端；`src/readers.js` 在 `win32` 跳过 `claudeDesktop`；CLI 探测与路径短链待实测 |
 
 ## 活跃 Backlog（均未排期）
@@ -14,8 +14,8 @@
 | 事项 | 范围与边界约束 | 参考 Spec / 模块 |
 | --- | --- | --- |
 | **Pi 支持 & 委派/块级粒度** | Pi 接入、委派卡片选模型/强度/记录粒度并记住偏好、已有 AI 块单独调粒度 | `acp-integration.zh-CN`、`src/delegation.js`, `src/dialog.js`, `src/ai-records.js`, `src/autolog.js` |
-| **Muse 追踪接入** | 实现对 Muse 会话的只读追踪、状态与对话读取 | `src/readers.js`, `src/agent-ingestors.js`, `src/constants.js` |
-| **Claude CLI 对话追踪复核** | 全链路排查并确认 Claude Code CLI 对话追踪（日志发现、状态、轮次同步与查看）可稳定跑通 | `src/readers.js`, `src/agent-ingestors.js`, `src/conversation.js` |
+| **Muse 追踪接入**（[MAT-629](https://linear.app/matsurimywaifu/issue/MAT-629)） | 实现对 Muse 会话的只读追踪、状态与对话读取 | `src/readers.js`, `src/agent-ingestors.js`, `src/constants.js` |
+| **Claude CLI 对话追踪复核**（[MAT-630](https://linear.app/matsurimywaifu/issue/MAT-630)） | 全链路排查并确认 Claude Code CLI 对话追踪（日志发现、状态、轮次同步与查看）可稳定跑通 | `src/readers.js`, `src/agent-ingestors.js`, `src/conversation.js` |
 | **技术债复核**（[MAT-479](https://linear.app/matsurimywaifu/issue/MAT-479)） | 逐项核实遗留问题状态并决定重构边界 | `src/readers.js`, `src/sync.js`, `src/view.js` |
 | **Windows 端适配** | 替换 `osascript`/POSIX 路径假定，打通终端唤醒、桌面交接与 WorkBuddy 自动发送 | `src/delegation.js`, `src/main.js`, `src/readers.js` |
 | **WorkFlowy 分形看板与多 Agent 编排** | 父块原地大纲↔看板双视图投影、Zoom/双链 Harness 上下文边界、同盘多 Agent 协同、单源镜像 | [`fractal-boards-roadmap`](specs/fractal-boards-roadmap.md)、`src/record-display.js`, `src/harness.js`, `src/agent-registry.js` |
@@ -63,15 +63,16 @@
   - Grok Bot（`com.anysphere.sand` 1.1.0）仅追踪集成：`src/grok-bot-sessions.js` 按真实持久化目录 `~/Library/Application Support/Grok Bot/sand-client-persistence/*.blob`（unpadded lowercase Base32 `roster.last-roster` + `transcript.replicas.<botId>`）读取；`grokBotTrackedBotIds` 默认全不选，在「记录 → 来源与扫描」的 Grok Bot 条目内折叠多选（隐藏 Bot 默认收起）；云端沙箱无本地逐条 token/模型，保留为 `0`/未提供；自动记录标题统一为 `Bot名 -> 实际生成标题`，无客户端归档，默认超过 `autoLogGrokBotDoneMinutes`（120 分钟）无新对话自动标为 `DONE`；`USAGE_CACHE_VERSION` 递增至 `11`。
   - AI 记录格式规则层：`DEFAULT_RECORD_RULES` / `resolveRecordRules`（`src/constants.js`）收口 `boldTitle`（默认 `true`，仅新写/重建 AI 自动记录母块标题自动加粗 `**...**`，`preserveTitle` 与委派子项不加粗）、`projectPrefix`（默认 `true`）、`showTimeRange`（默认 `true`）与 `titleMax`（默认 `22`），并在「设置 → 记录 → 日记与归档 → 更多设置 → 记录规则细则」开放用户微调（联动 `journal.js`、`autolog.js`、`main.js`、`bindInto`）。
   - 验证边界：macOS 已通过全量 `npm test`、`npm run build`、`swiftc -typecheck src/menubar.swift`、`git diff --check` 及本机真实 `sand-client-persistence` 目录只读解析校验；Obsidian 界面抽查与 Windows 端未实测。
-- **P0/P1 项目协作工作台与分形看板（分支 `feat/project-workbench`）**：
-  - **P0 按项目聚合多 Agent 进程管理**（`src/project-workbench.js`, `src/view.js`, `src/main.js`, `src/styles/views/dashboard-cards.css`）：侧栏「现在」默认支持「按项目 / 列表」视图切换（`settings.ui.nowGroupBy`，纳入 `run` / `wait` / `needs-approval` / `error` / `limit` / `queued` 全量活跃状态），将同项目多 Agent 会话与未就绪委派任务收拢到可折叠 `.ad-projgroup` 卡片（未生成 `sessionId` 的待认领任务点击直达原笔记行），展示参与 Agent 徽章与在跑/等你/异常计数，并提供打开项目目录（`openProjectFolder`）、项目级一键停止（`cancelProjectJobs`）与工作台入口；「最近的会话」新增「按 Agent / 按项目」分组切换（`settings.ui.recentGroupBy`）。
+- **P0/P1 项目协作工作台与分形看板（`1.10.0` 合入 `main`）**：
+  - **P0 按项目聚合多 Agent 进程管理**（`src/project-workbench.js`, `src/view.js`, `src/main.js`, `src/styles/views/dashboard-cards.css`）：侧栏「现在」默认支持「按项目 / 列表」视图切换（`settings.ui.nowGroupBy`），将同项目多 Agent 会话与未就绪委派任务收拢到可折叠 `.ad-projgroup` 卡片（未生成 `sessionId` 的待认领任务点击直达原笔记行），展示参与 Agent 徽章与在跑/等你/异常计数，并提供打开项目目录（`openProjectFolder`）、项目级一键停止（`cancelProjectJobs`）与工作台入口；「最近的会话」新增「按 Agent / 按项目」分组切换（`settings.ui.recentGroupBy`）。
   - **P1 协作小队预设、AI 副驾拆解与完整分形看板（阶段 A / B / C）**（`src/workbench-modal.js`, `src/fractal-board.js`, `src/harness.js`, `src/outline.js`, `src/analytics.js`, `src/dream.js`, `src/editor.js`, `src/styles/views/record-views.css`, `src/styles/views/modals.css`）：
-    - `ProjectWorkbenchModal`（命令面板/侧栏项目卡/任务操作菜单均可唤起）：支持选择写入目标笔记（今日日记 / 当前笔记 / 自定义路径）、3 套内置协作小队预设（自动规避禁用与 `limit` 限额 Agent 并保存项目偏好）、`runJournalModel` 副驾结构化拆解与无模型本地兜底、多 Agent 并发默认优先后台执行（`background`）；写入时自动归入日记「正在做」活跃分区（若存在）并为每条子任务预分配唯一 `^blockId`，并发派发自动携带同看板兄弟分工上下文并打开目标笔记。
+    - `ProjectWorkbenchModal`（命令面板/侧栏项目卡/任务操作菜单均可唤起）：支持选择写入目标笔记（今日日记 / 当前笔记 / 自定义路径）、5 套内置协作小队预设（全栈/排错/调研文档/深度研报/深度写作，自动规避禁用与 `limit` 限额 Agent 并保存项目偏好）、`runJournalModel` 副驾结构化拆解与无模型本地兜底、多 Agent 并发默认优先后台执行（`background`）；写入时自动归入日记「正在做」活跃分区（若存在）并为每条子任务预分配唯一 `^blockId`，并发派发自动携带同看板兄弟分工上下文并打开目标笔记。
     - 原地分形看板（`src/fractal-board.js`, `settings.taskBoardViews`）：支持 `按状态分列`（`TODO`/`DOING`/`待确认`/`DONE`）与 `按子组分列`（子任务为列、孙任务为卡）双模式切换、任意嵌套子卡下钻聚焦（Zoom + 面包屑回溯）、顶栏进度条、看板内快捷新增子卡（`+ 子卡`，隔离 CM6 按键与拖放事件）、行内 `@agent` 切换、跨列/同列子树拖拽排序（`moveTaskBoardCardSubtree`）、以及在卡片内直接查看正文/停止运行/单卡派发。
-    - Harness 上下文作用域与镜像硬隔离（`src/harness.js`, `src/outline.js`, `src/analytics.js`, `src/dream.js`）：委派自动解析最多 3 处 `[[双链]]`（`#^blockId` 定点块子树、`#标题` 章节、`![[...]]` 镜像嵌入、别名保留，同目标去重；定点块/章节缺失或笔记不可读时跳过而不注入整篇开头，自定义解析器补入的 `refs` 一并纳入），并注入同看板兄弟分工上下文（`buildBoardSiblingContext`）；看板支持 `![[笔记#^blockId]]` / `[[笔记#^blockId]]` 只读镜像卡投影（状态切换回写源笔记），`analytics.js` 与 `dream.js` 显式排除独立镜像行以防重复计数与重复抽取。
-  - 后续已暂存 Linear `P-MAT-42`：`MAT-628`（P3：第二大脑显式项目上下文包 Context Pack 与记忆反哺闭环）。
-  - 验证边界：macOS 已通过全量 `npm test`（含 `test/project-workbench.test.mjs`、`test/i18n.test.mjs`、`test/architecture-refactor.test.mjs`、`test/record-views.test.mjs`）、`npm run build`、`git diff --check`；Obsidian 真实 UI 交互实机与 Windows 端未实测。
-- **项目聚合去重、子代理归属继承与待处理列表降噪（`1.10.0` 后续本地修复）**：
+    - Harness 上下文作用域与镜像硬隔离（`src/harness.js`, `src/outline.js`, `src/analytics.js`, `src/dream.js`）：委派自动解析最多 3 处 `[[双链]]`（`#^blockId` 定点块子树、`#标题` 章节、`![[...]]` 镜像嵌入、别名保留，同目标去重；定点块/章节缺失或笔记不可读时跳过而不注入整篇开头，自定义解析器补入的 `refs` 一并纳入），注入同看板兄弟分工上下文（`buildBoardSiblingContext`），并经 `stripInternalIdentifiers` 剥离内部 `^ad-*` 与 `<!-- ad-* -->` 标记；看板支持 `![[笔记#^blockId]]` / `[[笔记#^blockId]]` 只读镜像卡投影（状态切换回写源笔记），`analytics.js` 与 `dream.js` 显式排除独立镜像行以防重复计数与重复抽取。
+  - **交互示例笔记**：`src/welcome-demo.js`（`SHOWCASE_VERSION = "1.10.0"`）支持首次升级自动打开中英文纯文本模拟看板与四视图示例笔记，命令面板可重开，不影响统计与追踪。
+  - 后续已暂存 Linear `P-MAT-42`：`MAT-628`（P3：第二大脑显式项目上下文包 Context Pack 与记忆反哺闭环）、`MAT-629`（Muse 会话追踪）、`MAT-630`（Claude CLI 对话追踪复核）。
+- **项目聚合去重、子代理归属继承、待处理降噪与英文兼容（`1.10.1` 已发版）**：
   - `src/readers.js`（`normalizeProjectRoot`、`disambiguateProjectLabels`、`isScratchCwd` 支持 `/Codex/YYYY-MM-DD/...` 多级临时目录、`_resolveParentInfo` 为 `liveSessions`/`sessions`/`summary` 补充 `parentCwd`；`USAGE_CACHE_VERSION = 12`、`SUMMARY_VERSION = 3`）与 `src/project-workbench.js`（`buildProjectGroups` 按规范化路径聚合、仅在同名不同目录时追加父级区分名并隔离 `id`、`resolveProjectIdentity` 通过 `parentSid`/`parentCwd` 继承母会话项目）消除同名不同路径串项目及 `default-workspace` 子代理落入「独立会话」问题。
   - `src/agent-ingestors.js`（DSH `turn/end` 与 Codex `task_complete` 在 `parentSid`/`delegationDepth > 0` 子代理正常结束时收口为 `done`、中断/中止 `aborted` 收口为 `cancelled`）与 `src/project-workbench.js` / `src/view.js` / `src/main.js`（`isWaitingSession` / `isActiveNowSession`：排除子代理 `wait`/`quiet` 及超过 `WAIT_ACTIVE_MS = 30m` 的历史正常结束会话，保留 `needs-approval` / `queued` / 活跃任务，同步更新「现在」「等你」筛选与 macOS 菜单栏等待计数）。
-  - 验证边界：macOS 已通过全量 `npm test`、`npm run build`、`git diff --check`；Obsidian 真实界面与 Windows 端未实测。
+  - `src/ai-records.js`、`src/welcome-demo.js`、`README.en.md`、`LICENSE` 与 `assets/`：补齐英文 `Round N: Task: ...; Result: ...` 记录解析、英文截图与品牌图标资源，规范化 Apache-2.0 `LICENSE` 版权声明。
+  - 验证边界：macOS 已通过全量 `npm test`、`npm run build`、`git diff --check`，GitHub Release `1.10.1` 构建发布成功，并已安装至 `马自立` Vault 完成热重载；Obsidian 真实界面交互复验与 Windows 端未实测。

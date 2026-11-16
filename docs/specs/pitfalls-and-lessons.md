@@ -7,3 +7,4 @@
 - **子进程输出与 ACP 权限**：Claude `stdout` 流式排水等 `close`、Qoder `exit` 不丢缓冲且不 trim 首尾空白、Codex 同轮多段回复按消息 ID 去重；ACP 权限 `optionId` 读服务端返回值，进程未返结果即退出（含 code 0）按失败处理，`finished` 阶段不阻断取消与清理。
 - **会话隔离边界**：CodeBuddy CLI（`~/.codebuddy/projects`）与国内版 WorkBuddy 桌面（`~/.workbuddy`）、`qodercli`（`~/.qoder/projects`）与 Qoder 桌面 SQLite 均不互通，不可跨端续聊。
 - **总结与标题保护**：普通会话不能截取回复开头代替总结或生成后硬截断；后台回答不再生成总结，按 500 字分流到完整原文或干净问答文件，不能把扫描器的截短预览当原文；保留用户改过的 AI 标题时必须跳过空格压缩与时间前缀剥离，并防止历史标记触发重排。
+- **同名项目聚合与子代理等待降噪**：项目分组不能直接用末级目录名当键，必须以规范化根路径隔离并在同名碰撞时附加父目录区分；子代理 `turn/end` / `task_complete` 应标为 `done`（`aborted` 标 `cancelled`）并通过 `parentSid` / `parentCwd` 继承母会话项目，避免落入「独立会话」或污染「等你」列表。
