@@ -70,6 +70,10 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
   <img src="assets/ai-record-views-2.png" width="840" alt="AI 自动记录视图对比：卡片视图与时间线视图">
 </p>
 
+- **大纲编辑快捷键与批量任务状态**：新增 `⌥⌘↑` **跳到母块**（连按逐级向上，光标停在行尾 `^blockId` 之前）、`⌥⌘⇧↑` **跳到最上一级顶格母块**、`⌥⌘↓` **合并成组（Group rows）**，以及命令面板 / 编辑器右键菜单里的 **批量调整选中块的任务状态…**（Windows / Linux 以 `Ctrl+Alt` 替代 `⌥⌘`）：
+  - **合并成组专为 AI 自动记录而设**：在日记里框选或点选任意多条 AI 自动记录（含各自子项），一次按键就在最浅缩进处上方新建空母块、把选中的记录整体降一级收进去，遵循 Obsidian 的 `useTab` / `tabSize` 设置，光标直接停在新母块上。合并后的母块行尾立刻出现「看板 N」，原地切成看板就能按状态或子组回顾这一批记录——巡检一天里散落各处的 Agent 干活记录非常好用。
+  - **多选批量改状态**：拖拽框选、跨层选区与多光标（`Cmd+Click`）都支持，按所选最浅的根列表项去重，不会误改 `💬` / `🔗` 等内部记录行或子项；含关键词任务、无关键词普通列表项与 `[ ]` / `[/]` / `[x]` / `[-]` 复选框都能一次改完，整批只占一步撤销，AI 条目的人工状态锁定与「恢复自动跟随」照常生效。
+
 - **一键整理与归档**：**整理日志**可按模板重排当天日记（正在做、还要做、已完成，各区之间与首尾有分割线），只整理完整分区内部，区外笔记保持原样；无完整分区时只建立空分区；**归档已完成的日志到…** 可将已完成的 AI 任务移出日记并按日期沉淀到指定笔记。
 - **兼容螺旋日程**：可与 [螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 配套使用，由 Agent Deck 接管 AI 写入、螺旋保留排程与进度展示（螺旋未展示同会话 token 时由 Agent Deck 补全显示）。
 
@@ -107,7 +111,7 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 ## 安装与依赖
 
 ### 1. 安装插件
-可在 Obsidian 社区插件市场直接安装，或从 GitHub Releases 手动下载（当前版本 **1.10.0**，需 Obsidian **1.4.0+** 桌面端）：
+可在 Obsidian 社区插件市场直接安装，或从 GitHub Releases 手动下载（当前版本 **1.10.3**，需 Obsidian **1.4.0+** 桌面端）：
 
 1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck** 并点击安装、启用。
 2. 或前往 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新产物中的 `main.js`、`manifest.json`、`styles.css`，放入 `<Vault>/.obsidian/plugins/agent-deck/` 后在「设置 → 第三方插件」中启用。

@@ -67,6 +67,10 @@ Demo order: team draft → Markdown outline → grouped board. See the [release 
   <img src="assets/ai-record-views.en.png" width="840" alt="AI auto-record views in English: Table View and Cards View side by side inside the interactive 1.10.0 Welcome Showcase">
 </p>
 
+- **Outline shortcuts & batch task status**: `⌥⌘↑` **Go to ancestor** (press repeatedly to climb; the cursor lands just before the trailing `^blockId`), `⌥⌘⇧↑` **Go to top-level ancestor**, `⌥⌘↓` **Group rows**, plus **Batch update task status…** from the command palette or the editor context menu (`Ctrl+Alt` replaces `⌥⌘` on Windows / Linux):
+  - **Group rows is designed for AI auto-records**: select any number of AI record blocks (children included) in the journal and one keystroke inserts an empty parent at their shallowest indent and demotes the whole selection beneath it — following Obsidian's `useTab` / `tabSize` and leaving the cursor on the new parent. The new parent immediately gets a `Board N` toggle, so you can flip to the in-place board and review that batch by status or group: the quickest way to audit a day of scattered agent runs.
+  - **Batch status changes**: drag-selected, cross-level and multi-cursor (`Cmd+Click`) selections are deduplicated to their shallowest root list items, so internal `💬` / `🔗` record lines and child items are never mis-edited; keyworded tasks, plain list items and `[ ]` / `[/]` / `[x]` / `[-]` checkboxes update in a single transaction (one undo step), and AI manual status locks / "resume automatic status" keep working.
+
 - **One-click tidy & archive**: **Tidy log** reorganizes the current daily note by template (in progress, to do, completed, framed by dividers). Only complete bounded sections are organized; outside notes stay unchanged. Notes without a complete frame receive empty sections; **Archive finished logs to…** moves completed AI blocks out of the journal into a target note grouped by date.
 - **Nautilus Spiral compatibility**: Works alongside [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) by letting Agent Deck handle AI note writes while Nautilus keeps scheduling and tracking displays (Agent Deck restores token display whenever Nautilus does not show tokens for the same session).
 
@@ -108,7 +112,7 @@ Demo order: team draft → Markdown outline → grouped board. See the [release 
 ## Installation & Requirements
 
 ### 1. Installing the Plugin
-Install directly from Obsidian Community Plugins, or download manually from GitHub Releases (current version **1.10.0**, requires Obsidian **1.4.0+** desktop):
+Install directly from Obsidian Community Plugins, or download manually from GitHub Releases (current version **1.10.3**, requires Obsidian **1.4.0+** desktop):
 
 1. Open **Settings → Community plugins → Browse** in Obsidian, search for **Agent Deck**, then install and enable it.
 2. Or download `main.js`, `manifest.json`, and `styles.css` from [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases), place them in `<your-vault>/.obsidian/plugins/agent-deck/`, and enable **Agent Deck** in **Settings → Community plugins**.
