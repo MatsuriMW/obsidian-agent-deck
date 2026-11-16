@@ -19,6 +19,12 @@
   overflow-y: auto;
   overflow-x: hidden;
 
+  /* 防止缩小 --input-height 的主题压扁弹窗内保留 6px 上下内边距的下拉框（排除无上下内边距的 .ad-wb-select） */
+  & select:is(.ad-input, .ad-select):not(.ad-wb-select) {
+    height: auto;
+    min-height: 30px;
+  }
+
   & .ad-modalhead__title {
     font-size: 17px;
     font-weight: 750;
@@ -179,16 +185,6 @@
   width: auto;
   padding: 20px 20px 0;
   max-height: 80vh;
-
-  /* Obsidian 核心样式给所有 <select> 钉死 height: var(--input-height)（line-height 1.3、
-     垂直内边距 0）；主题把 --input-height 缩到 ~30px 以下（如 OnePage 在 body.mod-macos
-     下设 24px）时，叠加 .ad-input 自身的 6px 垂直内边距后内容区不足 12px 字号所需行高，
-     中文选项文字下 1/3 被裁。设置页因 .ad-settings 已有 height:auto 不受影响，唯独此
-     弹窗缺兜底。放开高度按内容撑开；默认主题下无视觉变化。 */
-  & select.ad-input {
-    height: auto;
-    min-height: 30px;
-  }
 
   & .ad-send__head {
     display: flex;

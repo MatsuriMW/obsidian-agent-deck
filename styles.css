@@ -4043,6 +4043,10 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   overflow-y: auto;
   overflow-x: hidden;
 }
+.ad-modal select:is(.ad-input, .ad-select):not(.ad-wb-select) {
+  height: auto;
+  min-height: 30px;
+}
 .ad-modal .ad-modalhead__title {
   font-size: 17px;
   font-weight: 750;
