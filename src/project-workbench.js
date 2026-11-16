@@ -532,14 +532,22 @@ export function classifyTaskStatusColumn(kw = "", state = "") {
   return "todo";
 }
 
-function cleanBoardCardTitle(rawBody = "", trigger = "@") {
+function boardCardTitleSource(rawBody = "", trigger = "@") {
   const withoutMention = stripTaskMention(rawBody, trigger);
-  return J.stripInlineTitleMarkup(
-    J.stripBlockId(withoutMention)
-      .replace(/^🤖\s*/u, "")
-      .replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "")
-      .trim(),
-  );
+  return J.stripBlockId(withoutMention)
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/^🤖\s*/u, "")
+    .replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "")
+    .trim();
+}
+
+function cleanBoardCardTitle(rawBody = "", trigger = "@") {
+  return J.stripInlineTitleMarkup(boardCardTitleSource(rawBody, trigger));
+}
+
+/** Card title source with inline Markdown kept for board rendering. */
+export function cleanBoardCardTitleMarkdown(rawBody = "", trigger = "@") {
+  return boardCardTitleSource(rawBody, trigger).replace(/\s+/g, " ").trim();
 }
 
 /**
@@ -597,13 +605,17 @@ export function extractTaskBoardGroups(text, { trackedIds = new Set(), trigger =
             subEnd = s;
             if (!fenced.has(s) && !subLink) subLink = J.parseLink(lines[s]);
           }
+          const subTitleMarkdown = subMirror
+            ? (subMirror.alias || subMirror.target)
+            : (cleanBoardCardTitleMarkdown(subKw.body, trigger) || subKw.body);
           subCards.push({
             line: m,
             endLine: subEnd,
             kw: subKw?.kw || "TODO",
             column: classifyTaskStatusColumn(subKw?.kw || "TODO"),
             blockId: subKw?.blockId || "",
-            title: subMirror ? (subMirror.alias || subMirror.target) : (cleanBoardCardTitle(subKw.body, trigger) || subKw.body),
+            title: subMirror ? (subMirror.alias || subMirror.target) : (cleanBoardCardTitle(subKw.body, trigger) || subTitleMarkdown),
+            titleMarkdown: subTitleMarkdown,
             agent: subLink?.agent || subMention?.agent || "",
             sid: subLink?.sid || "",
             hasLink: Boolean(subLink),
@@ -617,13 +629,17 @@ export function extractTaskBoardGroups(text, { trackedIds = new Set(), trigger =
     }
 
     const bodyText = childKw?.body || mirror?.alias || mirror?.target || "";
+    const titleMarkdown = mirror
+      ? (mirror.alias || `${mirror.target}#^${mirror.blockId}`)
+      : (cleanBoardCardTitleMarkdown(bodyText, trigger) || bodyText);
     return {
       line: k,
       endLine: cardEnd,
       kw: childKw?.kw || "TODO",
       column: classifyTaskStatusColumn(childKw?.kw || "TODO"),
       blockId: childKw?.blockId || "",
-      title: mirror ? (mirror.alias || `${mirror.target}#^${mirror.blockId}`) : (cleanBoardCardTitle(bodyText, trigger) || bodyText),
+      title: mirror ? titleMarkdown : (cleanBoardCardTitle(bodyText, trigger) || titleMarkdown),
+      titleMarkdown,
       agent: link?.agent || mention?.agent || "",
       sid: link?.sid || "",
       hasLink: Boolean(link),
@@ -709,6 +725,7 @@ function enrichCardWithRuntime(card, plugin, resolveMirror = null) {
       base = {
         ...base,
         title: resolved.title || base.title,
+        titleMarkdown: resolved.titleMarkdown || resolved.title || base.titleMarkdown || base.title,
         kw: resolved.kw || base.kw,
         column: resolved.column || base.column,
         agent: resolved.agent || base.agent,
@@ -738,7 +755,45 @@ function enrichCardWithRuntime(card, plugin, resolveMirror = null) {
   };
 }
 
-export function buildTaskBoardModel(group, plugin = null, { groupBy = "status", resolveMirror = null } = {}) {
+export function boardCardPinId(card) {
+  if (!card) return "";
+  if (card.isMirror && card.mirror?.blockId) {
+    return `mirror:${String(card.mirror.target || "").trim()}#${card.mirror.blockId}`;
+  }
+  if (card.blockId) return `block:${card.blockId}`;
+  const title = String(card.title || "").trim();
+  return title ? `title:${title}` : "";
+}
+
+export function sortBoardCardsByPins(columns, pinnedIds = []) {
+  const pins = new Set(pinnedIds || []);
+  if (!columns || !pins.size) return columns;
+  for (const col of columns) {
+    if (!Array.isArray(col?.cards)) continue;
+    col.cards = col.cards
+      .map((card, index) => ({ card, index, pinned: pins.has(boardCardPinId(card)) ? 0 : 1 }))
+      .sort((a, b) => a.pinned - b.pinned || a.index - b.index)
+      .map((item) => item.card);
+  }
+  return columns;
+}
+
+/** Remember display-only pin ids for one board, without touching the Markdown source. */
+export function applyTaskBoardPins(settings, boardKey, ids = [], pinned = true) {
+  if (!settings || !boardKey) return [];
+  const pins = (settings.taskBoardPins ||= {});
+  const list = new Set(Array.isArray(pins[boardKey]) ? pins[boardKey] : []);
+  for (const id of ids) {
+    if (!id) continue;
+    if (pinned) list.add(id);
+    else list.delete(id);
+  }
+  if (list.size) pins[boardKey] = [...list];
+  else delete pins[boardKey];
+  return [...list];
+}
+
+export function buildTaskBoardModel(group, plugin = null, { groupBy = "status", resolveMirror = null, pinnedIds = [] } = {}) {
   const enriched = (group?.cards || []).map((c) => enrichCardWithRuntime(c, plugin, resolveMirror));
   const groupedCards = enriched.filter((c) => (c.subCards || []).length > 0);
   const canGroupByChildren = groupedCards.length > 0;
@@ -771,6 +826,7 @@ export function buildTaskBoardModel(group, plugin = null, { groupBy = "status", 
   }
 
   const allCards = activeGroupBy === "children" ? columns.flatMap((c) => c.cards) : enriched;
+  sortBoardCardsByPins(columns, pinnedIds);
   const doneCount = allCards.filter((c) => c.column === "done").length;
   const doingCount = allCards.filter((c) => c.column === "doing").length;
   const reviewCount = allCards.filter((c) => c.column === "review").length;
@@ -861,7 +917,7 @@ export function moveTaskBoardCardSubtree(text, cardLine, { targetColumn = "", be
   });
 
   let insertAt = -1;
-  if (beforeLine >= 0 && beforeLine < lines.length) {
+  if (beforeLine >= 0 && beforeLine <= lines.length) {
     insertAt = beforeLine;
   } else if (targetParentLine >= 0 && targetParentLine < lines.length) {
     const pW = J.width(lines[targetParentLine]);
@@ -876,6 +932,36 @@ export function moveTaskBoardCardSubtree(text, cardLine, { targetColumn = "", be
   lines.splice(cardLine, count);
   const adjustedAt = insertAt > cardLine ? insertAt - count : insertAt;
   lines.splice(adjustedAt, 0, ...reindented);
+  return lines.join("\n");
+}
+
+/**
+ * Delete whole board card subtrees (the task line plus its records and child lines).
+ * Selected line numbers are resolved against the original text first, so overlapping
+ * or nested selections can never shift later deletions onto unrelated lines.
+ */
+export function deleteTaskBoardCards(text, cardLines = []) {
+  const lines = String(text || "").split("\n");
+  const unique = [...new Set((cardLines || []).filter((n) => Number.isInteger(n) && n >= 0))];
+  const ranges = [];
+  for (const line of unique) {
+    if (line >= lines.length || !J.LIST_RE.test(lines[line])) continue;
+    const width = J.width(lines[line]);
+    let end = line + 1;
+    while (end < lines.length && (!lines[end].trim() || J.width(lines[end]) > width)) end += 1;
+    while (end > line + 1 && !lines[end - 1].trim()) end -= 1;
+    ranges.push({ from: line, to: end });
+  }
+  ranges.sort((a, b) => a.from - b.from);
+  const merged = [];
+  for (const range of ranges) {
+    const last = merged.at(-1);
+    if (last && range.from <= last.to) last.to = Math.max(last.to, range.to);
+    else merged.push({ ...range });
+  }
+  for (let i = merged.length - 1; i >= 0; i -= 1) {
+    lines.splice(merged[i].from, merged[i].to - merged[i].from);
+  }
   return lines.join("\n");
 }
 

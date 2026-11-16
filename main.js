@@ -1,4 +1,4 @@
-/* Agent Deck 1.10.4 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.10.5 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -418,6 +418,22 @@ var view_default = {
   "\u505C\u6B62": "Stop",
   "\u6B63\u6587": "Transcript",
   "\u672A\u5206\u7EC4": "Ungrouped",
+  "\u9009\u62E9\u672C\u5217\u5361\u7247": "Select cards in this column",
+  "\u9009\u62E9\u5361\u7247": "Select card",
+  "\u5DF2\u9009 {n} \u5F20": "{n} selected",
+  "\u6539\u4E3A\u72B6\u6001": "Change status",
+  "\u5220\u9664 {n} \u5F20\u5361\u7247": "Delete {n} cards",
+  "\u6E05\u7A7A\u9009\u62E9": "Clear selection",
+  "\u7F6E\u9876\u6240\u9009": "Pin selected",
+  "\u7F6E\u9876\uFF08\u79FB\u5230\u672C\u5217\u6700\u524D\uFF09": "Pin to the top of this column",
+  "\u5220\u9664": "Delete",
+  "\u786E\u8BA4\u5220\u9664 {n} \u5F20": "Confirm delete {n}",
+  "\u6E05\u7A7A": "Clear",
+  "\u6240\u9009\u5361\u7247\u4E2D\u6CA1\u6709\u53EF\u6539\u72B6\u6001\u7684\u5361\uFF08\u955C\u50CF\u5361\u8BF7\u5230\u6E90\u7B14\u8BB0\u4FEE\u6539\uFF09": "No editable cards selected (change mirror cards in their source note)",
+  "\u5F53\u524D\u7B14\u8BB0\u6CA1\u6709\u53EF\u5199\u5165\u7684\u7F16\u8F91\u5668": "This note has no writable editor",
+  "\u955C\u50CF\u5361\u4E0D\u80FD\u5220\u9664\uFF0C\u8BF7\u5230\u6E90\u7B14\u8BB0\u4FEE\u6539": "Mirror cards cannot be deleted here; edit the source note",
+  "\u5DF2\u8DF3\u8FC7 {n} \u5F20\u955C\u50CF\u5361\uFF08\u8BF7\u5230\u6E90\u7B14\u8BB0\u4FEE\u6539\uFF09": "Skipped {n} mirror card(s); edit the source note",
+  "\u5DF2\u5220\u9664 {n} \u5F20\u5361\u7247": "Deleted {n} cards",
   "\u6253\u5F00\u9879\u76EE\u76EE\u5F55\uFF1A{cwd}": "Open project folder: {cwd}",
   "\u{1F9ED} \u7BA1\u5BB6 {agent} \u5F85\u547D\u4E2D \xB7 \u961F\u5458\u5DF2\u5B8C\u6210 {done}/{total}": "\u{1F9ED} Steward {agent} standing by \xB7 {done}/{total} finished",
   "\u{1F9ED} \u7BA1\u5BB6 {agent} \u6B63\u5728\u6536\u96C6 {total} \u4F4D\u961F\u5458\u7ED3\u679C\u5E76\u63A8\u8FDB\uFF08\u7B2C {round} \u8F6E\uFF09\u2026": "\u{1F9ED} Steward {agent} collecting {total} results & advancing (round {round})\u2026",
@@ -2051,6 +2067,7 @@ var DEFAULTS = {
   aiRecordClosed: {},
   aiRecordViews: {},
   taskBoardViews: {},
+  taskBoardPins: {},
   projectTeams: { presets: {}, byProject: {}, stewards: {} },
   workbenchWaves: {},
   aiRecordDisplay: "latest1",
@@ -4935,7 +4952,7 @@ function workspaceLabel(cwd) {
 var import_path11 = __toESM(require("path"), 1);
 var import_os12 = __toESM(require("os"), 1);
 var import_child_process11 = require("child_process");
-var import_obsidian15 = require("obsidian");
+var import_obsidian16 = require("obsidian");
 
 // src/readers.js
 var import_fs5 = __toESM(require("fs"), 1);
@@ -11770,7 +11787,7 @@ ${body}`, 12e3);
 };
 
 // src/view.js
-var import_obsidian3 = require("obsidian");
+var import_obsidian5 = require("obsidian");
 
 // src/icons.js
 var import_obsidian2 = require("obsidian");
@@ -13125,6 +13142,7 @@ function renderAIRecords(el, plugin, ctx) {
 // src/fractal-board.js
 var import_view3 = require("@codemirror/view");
 var import_state2 = require("@codemirror/state");
+var import_obsidian4 = require("obsidian");
 
 // src/project-workbench.js
 var STANDALONE_PROJECT_ID = "__standalone__";
@@ -13614,11 +13632,15 @@ function classifyTaskStatusColumn(kw = "", state = "") {
   if (["NEEDOK", "TOREVIEW", "WAITING", "WAIT", "PAUSED", "SUSPENDED", "ERRORED", "HITLIMIT"].includes(upper) || state === "needs-approval" || state === "error" || state === "limit") return "review";
   return "todo";
 }
-function cleanBoardCardTitle(rawBody = "", trigger = "@") {
+function boardCardTitleSource(rawBody = "", trigger = "@") {
   const withoutMention = stripTaskMention(rawBody, trigger);
-  return stripInlineTitleMarkup(
-    stripBlockId(withoutMention).replace(/^🤖\s*/u, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "").trim()
-  );
+  return stripBlockId(withoutMention).replace(/<!--[\s\S]*?-->/g, "").replace(/^🤖\s*/u, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "").trim();
+}
+function cleanBoardCardTitle(rawBody = "", trigger = "@") {
+  return stripInlineTitleMarkup(boardCardTitleSource(rawBody, trigger));
+}
+function cleanBoardCardTitleMarkdown(rawBody = "", trigger = "@") {
+  return boardCardTitleSource(rawBody, trigger).replace(/\s+/g, " ").trim();
 }
 function extractTaskBoardGroups(text, { trackedIds: trackedIds2 = /* @__PURE__ */ new Set(), trigger = "@" } = {}) {
   if (!text) return [];
@@ -13677,13 +13699,15 @@ function extractTaskBoardGroups(text, { trackedIds: trackedIds2 = /* @__PURE__ *
             subEnd = s;
             if (!fenced.has(s) && !subLink) subLink = parseLink(lines[s]);
           }
+          const subTitleMarkdown = subMirror ? subMirror.alias || subMirror.target : cleanBoardCardTitleMarkdown(subKw.body, trigger) || subKw.body;
           subCards.push({
             line: m,
             endLine: subEnd,
             kw: subKw?.kw || "TODO",
             column: classifyTaskStatusColumn(subKw?.kw || "TODO"),
             blockId: subKw?.blockId || "",
-            title: subMirror ? subMirror.alias || subMirror.target : cleanBoardCardTitle(subKw.body, trigger) || subKw.body,
+            title: subMirror ? subMirror.alias || subMirror.target : cleanBoardCardTitle(subKw.body, trigger) || subTitleMarkdown,
+            titleMarkdown: subTitleMarkdown,
             agent: subLink?.agent || subMention?.agent || "",
             sid: subLink?.sid || "",
             hasLink: Boolean(subLink),
@@ -13696,13 +13720,15 @@ function extractTaskBoardGroups(text, { trackedIds: trackedIds2 = /* @__PURE__ *
       }
     }
     const bodyText = childKw?.body || mirror?.alias || mirror?.target || "";
+    const titleMarkdown = mirror ? mirror.alias || `${mirror.target}#^${mirror.blockId}` : cleanBoardCardTitleMarkdown(bodyText, trigger) || bodyText;
     return {
       line: k,
       endLine: cardEnd,
       kw: childKw?.kw || "TODO",
       column: classifyTaskStatusColumn(childKw?.kw || "TODO"),
       blockId: childKw?.blockId || "",
-      title: mirror ? mirror.alias || `${mirror.target}#^${mirror.blockId}` : cleanBoardCardTitle(bodyText, trigger) || bodyText,
+      title: mirror ? titleMarkdown : cleanBoardCardTitle(bodyText, trigger) || titleMarkdown,
+      titleMarkdown,
       agent: link?.agent || mention?.agent || "",
       sid: link?.sid || "",
       hasLink: Boolean(link),
@@ -13782,6 +13808,7 @@ function enrichCardWithRuntime(card, plugin, resolveMirror = null) {
       base = {
         ...base,
         title: resolved.title || base.title,
+        titleMarkdown: resolved.titleMarkdown || resolved.title || base.titleMarkdown || base.title,
         kw: resolved.kw || base.kw,
         column: resolved.column || base.column,
         agent: resolved.agent || base.agent,
@@ -13808,7 +13835,38 @@ function enrichCardWithRuntime(card, plugin, resolveMirror = null) {
     step: job?.step || liveMeta?.step || ""
   };
 }
-function buildTaskBoardModel(group, plugin = null, { groupBy = "status", resolveMirror = null } = {}) {
+function boardCardPinId(card) {
+  if (!card) return "";
+  if (card.isMirror && card.mirror?.blockId) {
+    return `mirror:${String(card.mirror.target || "").trim()}#${card.mirror.blockId}`;
+  }
+  if (card.blockId) return `block:${card.blockId}`;
+  const title = String(card.title || "").trim();
+  return title ? `title:${title}` : "";
+}
+function sortBoardCardsByPins(columns, pinnedIds = []) {
+  const pins = new Set(pinnedIds || []);
+  if (!columns || !pins.size) return columns;
+  for (const col of columns) {
+    if (!Array.isArray(col?.cards)) continue;
+    col.cards = col.cards.map((card, index) => ({ card, index, pinned: pins.has(boardCardPinId(card)) ? 0 : 1 })).sort((a, b) => a.pinned - b.pinned || a.index - b.index).map((item) => item.card);
+  }
+  return columns;
+}
+function applyTaskBoardPins(settings, boardKey, ids = [], pinned = true) {
+  if (!settings || !boardKey) return [];
+  const pins = settings.taskBoardPins || (settings.taskBoardPins = {});
+  const list = new Set(Array.isArray(pins[boardKey]) ? pins[boardKey] : []);
+  for (const id of ids) {
+    if (!id) continue;
+    if (pinned) list.add(id);
+    else list.delete(id);
+  }
+  if (list.size) pins[boardKey] = [...list];
+  else delete pins[boardKey];
+  return [...list];
+}
+function buildTaskBoardModel(group, plugin = null, { groupBy = "status", resolveMirror = null, pinnedIds = [] } = {}) {
   const enriched = (group?.cards || []).map((c) => enrichCardWithRuntime(c, plugin, resolveMirror));
   const groupedCards = enriched.filter((c) => (c.subCards || []).length > 0);
   const canGroupByChildren = groupedCards.length > 0;
@@ -13839,6 +13897,7 @@ function buildTaskBoardModel(group, plugin = null, { groupBy = "status", resolve
     }
   }
   const allCards = activeGroupBy === "children" ? columns.flatMap((c) => c.cards) : enriched;
+  sortBoardCardsByPins(columns, pinnedIds);
   const doneCount = allCards.filter((c) => c.column === "done").length;
   const doingCount = allCards.filter((c) => c.column === "doing").length;
   const reviewCount = allCards.filter((c) => c.column === "review").length;
@@ -13912,7 +13971,7 @@ function moveTaskBoardCardSubtree(text, cardLine, { targetColumn = "", beforeLin
     return l.startsWith(srcIndent) ? targetIndent + l.slice(srcIndent.length) : l;
   });
   let insertAt = -1;
-  if (beforeLine >= 0 && beforeLine < lines.length) {
+  if (beforeLine >= 0 && beforeLine <= lines.length) {
     insertAt = beforeLine;
   } else if (targetParentLine >= 0 && targetParentLine < lines.length) {
     const pW = width(lines[targetParentLine]);
@@ -13926,6 +13985,30 @@ function moveTaskBoardCardSubtree(text, cardLine, { targetColumn = "", beforeLin
   lines.splice(cardLine, count);
   const adjustedAt = insertAt > cardLine ? insertAt - count : insertAt;
   lines.splice(adjustedAt, 0, ...reindented);
+  return lines.join("\n");
+}
+function deleteTaskBoardCards(text, cardLines = []) {
+  const lines = String(text || "").split("\n");
+  const unique = [...new Set((cardLines || []).filter((n) => Number.isInteger(n) && n >= 0))];
+  const ranges = [];
+  for (const line of unique) {
+    if (line >= lines.length || !LIST_RE.test(lines[line])) continue;
+    const width2 = width(lines[line]);
+    let end = line + 1;
+    while (end < lines.length && (!lines[end].trim() || width(lines[end]) > width2)) end += 1;
+    while (end > line + 1 && !lines[end - 1].trim()) end -= 1;
+    ranges.push({ from: line, to: end });
+  }
+  ranges.sort((a, b) => a.from - b.from);
+  const merged = [];
+  for (const range of ranges) {
+    const last = merged.at(-1);
+    if (last && range.from <= last.to) last.to = Math.max(last.to, range.to);
+    else merged.push({ ...range });
+  }
+  for (let i = merged.length - 1; i >= 0; i -= 1) {
+    lines.splice(merged[i].from, merged[i].to - merged[i].from);
+  }
   return lines.join("\n");
 }
 function buildBoardSiblingContext(model, activeCardLine = -1) {
@@ -14335,9 +14418,346 @@ function findActiveWaveForBoard(waves = {}, { path: path10 = "", parentBlockId =
   return candidates[0] || null;
 }
 
+// src/task-status.js
+var import_obsidian3 = require("obsidian");
+var STATUS_TOKEN = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)([A-Z][A-Z0-9_-]*)(?=\s|$)/;
+var LIST_STATUS_LEAD = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(.*)$/;
+var EXTRA_STATE_KWS = ["YES", "NO", "MAYBE", "ARCHIVED"];
+function knownTaskKeywords(app = null) {
+  const words = /* @__PURE__ */ new Set([...TASK_KWS.split("|"), ...EXTRA_STATE_KWS]);
+  for (const p of Object.values(app?.plugins?.plugins || {})) {
+    for (const [key, value] of Object.entries(p?.settings || {})) {
+      if (/^additional.*Keywords$/.test(key) && Array.isArray(value)) {
+        for (const kw of value) {
+          if (/^[A-Z][A-Z0-9_-]*$/.test(kw)) words.add(kw);
+        }
+      }
+    }
+  }
+  return words;
+}
+function updateCheckboxPrefix(prefix, keyword) {
+  if (!/\[[ xX/\-]\]/.test(prefix)) return prefix;
+  const box = !keyword ? " " : DONE_KWS.includes(keyword) ? keyword.startsWith("CANCEL") ? "-" : "x" : keyword === "DOING" ? "/" : " ";
+  return prefix.replace(/\[[ xX/\-]\]/, `[${box}]`);
+}
+function replaceTaskStatus(raw, keyword) {
+  if (!/^[A-Z][A-Z0-9_-]*$/.test(keyword)) return null;
+  const match = STATUS_TOKEN.exec(raw);
+  if (!match) return null;
+  const prefix = updateCheckboxPrefix(match[1], keyword);
+  return prefix + keyword + raw.slice(match[0].length);
+}
+function setTaskLineStatus(raw, keyword, { knownKeywords = null } = {}) {
+  if (keyword !== "" && !/^[A-Z][A-Z0-9_-]*$/.test(keyword)) return null;
+  const lead = LIST_STATUS_LEAD.exec(raw);
+  if (!lead) return null;
+  const known = knownKeywords || knownTaskKeywords();
+  const prefix = updateCheckboxPrefix(lead[1], keyword);
+  const rest = lead[2] || "";
+  const firstToken = /^([A-Z][A-Z0-9_-]*)(?=\s|$)(?:\s+)?/.exec(rest);
+  if (firstToken && known.has(firstToken[1])) {
+    const tail = rest.slice(firstToken[0].length);
+    return keyword ? `${prefix}${keyword}${tail ? " " + tail : ""}` : `${prefix}${tail}`;
+  }
+  if (!keyword) return null;
+  return `${prefix}${keyword}${rest ? " " + rest : ""}`;
+}
+function selectionLineRanges(doc, selection) {
+  const ranges = selection?.ranges?.length ? selection.ranges : selection ? [selection] : [];
+  return ranges.map((r) => {
+    const fromLine = doc.lineAt(r.from).number - 1;
+    let toLine = doc.lineAt(r.to).number - 1;
+    if (toLine > fromLine && r.to === doc.line(toLine + 1).from) toLine -= 1;
+    return { fromLine, toLine };
+  });
+}
+function selectedTaskLines(doc, selection) {
+  if (!doc || !selection) return [];
+  const text = doc.toString();
+  const lines = text.split("\n");
+  const fenced = fencedLines(lines);
+  return collectSelectedRootLines(lines, selectionLineRanges(doc, selection), {
+    fenced,
+    skipLine: (line) => RECORD_LINE_RE.test(line)
+  });
+}
+function locateStatusTask(text, target) {
+  const lines = text.split("\n"), fenced = fencedLines(lines);
+  const id = blockIdOf(target.raw);
+  const hits = lines.flatMap((raw, n) => !fenced.has(n) && LIST_RE.test(raw) && (id ? blockIdOf(raw) === id : raw === target.raw) ? [n] : []);
+  if (hits.length !== 1) return -1;
+  return hits[0];
+}
+function suggestedStatus(settings, usage, text, n) {
+  const lines = text.split("\n"), owners = ownersOf(lines), ids = /* @__PURE__ */ new Set();
+  for (let i = n + 1; i < lines.length; i++) {
+    if (lines[i].trim() && width(lines[i]) <= width(lines[n])) break;
+    const link = owners[i] === n && parseLink(lines[i]);
+    if (link) ids.add(link.sid);
+  }
+  const bid = blockIdOf(lines[n]);
+  if (bid) {
+    for (const day of Object.values(settings.autoLogState || {})) for (const [sid, r] of Object.entries(day || {})) if (r?.blockId === bid && !r.skip && !r.gone) ids.add(sid);
+  }
+  if (!ids.size) return "";
+  if (settings.autoLogArchiveDone !== false && [...ids].every((sid) => usage.archived?.has(sid) || usage.archivedClaude?.has(sid))) return "DONE";
+  const states = [...ids].map((sid) => usage.meta.get(sid)?.state).filter(Boolean);
+  if (states.some((state) => ["run", "running", "starting"].includes(state))) return "DOING";
+  return states.map((state) => STATE_KW[state]).find(Boolean) || "";
+}
+async function applyStatusChoice(plugin, target, keyword) {
+  const settings = plugin.settings;
+  let id = blockIdOf(target.raw);
+  if (!id && plugin.taskBlockId && !DONE_KWS.includes(keyword)) {
+    const text = await plugin.readNote(target.path), n = locateStatusTask(text, target);
+    if (n < 0) throw new Error(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
+    const link = linkUnder(text.split("\n"), n), task = kwLine(target.raw);
+    if (link || task?.body.startsWith("\u{1F916}")) id = await plugin.taskBlockId(link?.sid || "", link?.agent || "", task.body.replace(/^🤖\s*/, ""));
+  }
+  let previous, changed = false;
+  const transform = (text) => {
+    const n = locateStatusTask(text, target);
+    if (n < 0) throw new Error(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
+    const lines = text.split("\n");
+    const link = linkUnder(lines, n);
+    id || (id = makeBlockId(link?.sid || "", link?.agent));
+    const next = keyword || suggestedStatus(settings, plugin.usage, text, n);
+    if (!next) throw new Error(t("\u6CA1\u6709\u53EF\u8DDF\u968F\u7684\u4F1A\u8BDD\u72B6\u6001"));
+    const raw = replaceTaskStatus(lines[n], next);
+    if (!raw) throw new Error(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
+    previous = settings.manualTaskStates?.[id];
+    const locks = settings.manualTaskStates || (settings.manualTaskStates = {});
+    if (keyword) locks[id] = next;
+    else delete locks[id];
+    changed = true;
+    lines[n] = ensureBlockId(raw, id).line;
+    return cleanCompletedIdentifiers(lines.join("\n"));
+  };
+  try {
+    const view = plugin.viewForPath(target.path);
+    if (view) {
+      const before = view.editor.getValue();
+      const after = transform(before);
+      const diff = diffLines(before, after);
+      if (diff) view.editor.transaction({ changes: [diff] });
+    } else {
+      const file = plugin.app.vault.getAbstractFileByPath(target.path);
+      if (!file) throw new Error(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
+      await plugin.app.vault.process(file, transform);
+    }
+  } catch (error) {
+    if (changed) {
+      if (previous === void 0) delete settings.manualTaskStates[id];
+      else settings.manualTaskStates[id] = previous;
+    }
+    throw error;
+  }
+  await plugin.saveSettings();
+  plugin.refreshUI();
+}
+async function applyBatchStatusChoice(plugin, editor, lineNumbers, keyword) {
+  const unique = [...new Set((lineNumbers || []).filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b);
+  if (!unique.length || !editor) return 0;
+  const settings = plugin.settings || {};
+  const known = knownTaskKeywords(plugin.app);
+  const before = editor.getValue();
+  const lines = before.split("\n");
+  const rollbacks = [];
+  let updatedCount = 0;
+  for (const n of unique) {
+    if (n >= lines.length || !LIST_RE.test(lines[n] || "")) continue;
+    const rawLine = lines[n];
+    const nextKw = keyword === null ? suggestedStatus(settings, plugin.usage, before, n) : keyword;
+    if (keyword === null && !nextKw) continue;
+    const replaced = setTaskLineStatus(rawLine, nextKw, { knownKeywords: known });
+    if (!replaced || replaced === rawLine) continue;
+    let id = blockIdOf(rawLine);
+    const link = linkUnder(lines, n);
+    const task = kwLine(rawLine);
+    const isAi = Boolean(id || link || task?.body?.startsWith("\u{1F916}"));
+    let finalLine = replaced;
+    if (isAi) {
+      id || (id = makeBlockId(link?.sid || "", link?.agent));
+      rollbacks.push([id, settings.manualTaskStates?.[id]]);
+      const locks = settings.manualTaskStates || (settings.manualTaskStates = {});
+      if (keyword) locks[id] = nextKw;
+      else delete locks[id];
+      if (!DONE_KWS.includes(nextKw) && nextKw !== "") finalLine = ensureBlockId(replaced, id).line;
+    }
+    lines[n] = finalLine;
+    updatedCount += 1;
+  }
+  if (!updatedCount) {
+    if (keyword === null) throw new Error(t("\u6CA1\u6709\u53EF\u8DDF\u968F\u7684\u4F1A\u8BDD\u72B6\u6001"));
+    return 0;
+  }
+  const after = cleanCompletedIdentifiers(lines.join("\n"));
+  try {
+    const diff = diffLines(before, after);
+    if (diff) {
+      if (typeof editor.transaction === "function") editor.transaction({ changes: [diff] });
+      else if (editor.cm) editor.cm.dispatch({ changes: { from: editor.posToOffset(diff.from), to: editor.posToOffset(diff.to), insert: diff.text } });
+    }
+  } catch (error) {
+    for (const [id, prev] of rollbacks) {
+      if (prev === void 0) delete settings.manualTaskStates[id];
+      else settings.manualTaskStates[id] = prev;
+    }
+    throw error;
+  }
+  await plugin.saveSettings?.();
+  plugin.refreshUI?.();
+  return updatedCount;
+}
+function appendStatusChoices(menu, plugin, { currentKeyword = "", suggested = "", hasSuggested = false, allowClear = false, onChoose, position }) {
+  for (const keyword of ["TODO", "DOING", "PAUSED", "DONE", "CANCELED"]) {
+    menu.addItem((item) => item.setTitle(keyword).setChecked(Boolean(currentKeyword && keyword === currentKeyword)).onClick(() => onChoose(keyword)));
+  }
+  const groups = [
+    [t("\u7B49\u5F85\u4E0E\u7A0D\u540E"), ["LATER", "WAITING", "WAIT", "SUSPENDED"]],
+    [t("AI \u72B6\u6001"), [...AGENT_KWS]],
+    [t("\u5176\u4ED6\u5173\u952E\u8BCD"), ["IN-PROGRESS", "CANCELLED", "FAILED"]]
+  ];
+  const known = new Set(TASK_KWS.split("|"));
+  for (const p of Object.values(plugin.app?.plugins?.plugins || {})) {
+    for (const [key, value] of Object.entries(p.settings || {})) {
+      if (/^additional.*Keywords$/.test(key) && Array.isArray(value)) {
+        for (const kw of value) {
+          if (/^[A-Z][A-Z0-9_-]*$/.test(kw) && !known.has(kw)) {
+            groups[2][1].push(kw);
+            known.add(kw);
+          }
+        }
+      }
+    }
+  }
+  for (const [title, keywords] of groups) {
+    menu.addItem((item) => {
+      item.setTitle(title);
+      if (typeof item.setSubmenu === "function") {
+        const sub = item.setSubmenu();
+        for (const kw of keywords) sub.addItem((i) => i.setTitle(kw).setChecked(Boolean(currentKeyword && kw === currentKeyword)).onClick(() => onChoose(kw)));
+      } else {
+        item.onClick(() => {
+          const sub = new import_obsidian3.Menu();
+          for (const kw of keywords) sub.addItem((i) => i.setTitle(kw).setChecked(Boolean(currentKeyword && kw === currentKeyword)).onClick(() => onChoose(kw)));
+          sub.showAtPosition(position);
+        });
+      }
+    });
+  }
+  if (allowClear) {
+    menu.addItem((item) => item.setTitle(t("\u6E05\u9664\u72B6\u6001\u5173\u952E\u8BCD")).onClick(() => onChoose("")));
+  }
+  menu.addSeparator();
+  menu.addItem(
+    (item) => item.setTitle(suggested ? t("\u6062\u590D\u81EA\u52A8\u8DDF\u968F\uFF1A{state}", { state: suggested }) : hasSuggested ? t("\u6062\u590D\u81EA\u52A8\u8DDF\u968F") : t("\u6CA1\u6709\u53EF\u8DDF\u968F\u7684\u4F1A\u8BDD\u72B6\u6001")).setDisabled(!suggested && !hasSuggested).onClick(() => onChoose(null))
+  );
+}
+function populateBatchStatusMenu(menu, plugin, editor, lineNumbers, position = { x: 0, y: 0 }) {
+  const before = editor.getValue();
+  const hasSuggested = lineNumbers.some((n) => Boolean(suggestedStatus(plugin.settings || {}, plugin.usage || { meta: /* @__PURE__ */ new Map() }, before, n)));
+  appendStatusChoices(menu, plugin, {
+    hasSuggested,
+    allowClear: true,
+    position,
+    onChoose: (kw) => applyBatchStatusChoice(plugin, editor, lineNumbers, kw).then((count) => {
+      if (count && lineNumbers.length > 1) new import_obsidian3.Notice(t("\u5DF2\u66F4\u65B0 {n} \u4E2A\u5757\u7684\u72B6\u6001", { n: count }));
+    }).catch((error) => new import_obsidian3.Notice(error.message))
+  });
+}
+function openBatchStatusMenu(plugin, editor, position = null) {
+  const cm = editor?.cm;
+  const lineNumbers = cm ? selectedTaskLines(cm.state.doc, cm.state.selection) : [];
+  if (!lineNumbers.length) {
+    new import_obsidian3.Notice(t("\u8BF7\u5148\u9009\u4E2D\u8981\u8C03\u6574\u72B6\u6001\u7684\u5217\u8868\u9879"));
+    return null;
+  }
+  let pos = position;
+  if (!pos && cm) {
+    const coords = cm.coordsAtPos?.(cm.state.selection.main.head);
+    pos = coords ? { x: coords.left, y: coords.bottom } : { x: 120, y: 120 };
+  }
+  const menu = new import_obsidian3.Menu();
+  menu.addItem(
+    (item) => item.setTitle(lineNumbers.length > 1 ? t("\u6279\u91CF\u8C03\u6574 {n} \u4E2A\u5757\u7684\u4EFB\u52A1\u72B6\u6001", { n: lineNumbers.length }) : t("\u8C03\u6574\u5F53\u524D\u5757\u7684\u4EFB\u52A1\u72B6\u6001")).setDisabled(true)
+  );
+  populateBatchStatusMenu(menu, plugin, editor, lineNumbers, pos);
+  menu.showAtPosition(pos || { x: 120, y: 120 });
+  return menu;
+}
+async function statusMenu(plugin, target, position) {
+  const text = await plugin.readNote(target.path), n = locateStatusTask(text, target);
+  if (n < 0) return new import_obsidian3.Notice(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
+  const view = plugin.viewForPath?.(target.path);
+  const cm = view?.editor?.cm;
+  const selected = cm ? selectedTaskLines(cm.state.doc, cm.state.selection) : [];
+  if (view?.editor && selected.length >= 2 && selected.includes(n)) {
+    return openBatchStatusMenu(plugin, view.editor, position);
+  }
+  const suggested = suggestedStatus(plugin.settings, plugin.usage, text, n), menu = new import_obsidian3.Menu();
+  const choose = (keyword) => applyStatusChoice(plugin, target, keyword).catch((error) => new import_obsidian3.Notice(error.message));
+  menu.addItem((item) => item.setTitle(isManualTask(plugin.settings, text.split("\n")[n]) ? t("\u4EBA\u5DE5\u7BA1\u7406\uFF1AAI \u4E0D\u8986\u76D6\u6B64\u4EFB\u52A1\u72B6\u6001") : suggested ? t("\u72B6\u6001\u7531\u4F1A\u8BDD\u81EA\u52A8\u540C\u6B65") : t("\u9009\u62E9\u4E00\u4E2A\u4EFB\u52A1\u72B6\u6001")).setDisabled(true));
+  appendStatusChoices(menu, plugin, { currentKeyword: target.keyword, suggested, position, onChoose: choose });
+  menu.showAtPosition(position);
+}
+function registerTaskStatusMenu(plugin) {
+  plugin.registerMarkdownPostProcessor((el, ctx) => {
+    const section = ctx.getSectionInfo(el);
+    if (!section) return;
+    const lines = section.text.split("\n"), fenced = fencedLines(lines), source = [];
+    for (let n = section.lineStart; n <= section.lineEnd; n++) if (!fenced.has(n) && LIST_RE.test(lines[n] || "")) source.push(n);
+    const items = [...el.querySelectorAll("li")];
+    if (items.length !== source.length) return;
+    items.forEach((li, i) => {
+      li.dataset.adStatusPath = ctx.sourcePath;
+      li.dataset.adStatusRaw = lines[source[i]];
+    });
+  });
+  const locate = (element) => {
+    const keyword = element?.closest?.("[data-task-keyword]");
+    if (!keyword) return null;
+    let target = null;
+    plugin.app.workspace.iterateAllLeaves((leaf) => {
+      const view = leaf.view, cm = view.editor?.cm;
+      if (!cm || !view.file || !cm.dom.contains(keyword)) return;
+      const line = cm.state.doc.lineAt(cm.posAtDOM(keyword));
+      if (fencedLines(cm.state.doc.toString().split("\n")).has(line.number - 1)) return;
+      target = { path: view.file.path, raw: line.text, keyword: keyword.dataset.taskKeyword };
+    });
+    if (!target) {
+      const li = keyword.closest("li[data-ad-status-path]");
+      if (li) target = { path: li.dataset.adStatusPath, raw: li.dataset.adStatusRaw, keyword: keyword.dataset.taskKeyword };
+    }
+    return target && STATUS_TOKEN.exec(target.raw)?.[2] === target.keyword ? target : null;
+  };
+  for (const type of ["mousedown", "click", "keydown"]) plugin.registerDomEvent(document, type, (event) => {
+    if (type === "keydown" && !["Enter", " "].includes(event.key)) return;
+    if (type !== "keydown" && event.button !== 0) return;
+    const target = locate(event.target);
+    if (!target) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (type !== "mousedown") {
+      const rect = event.target.getBoundingClientRect?.();
+      const position = { x: event.clientX ?? rect?.left ?? 0, y: event.clientY ?? rect?.bottom ?? 0 };
+      statusMenu(plugin, target, position).catch((error) => new import_obsidian3.Notice(error.message));
+    }
+  }, true);
+}
+
 // src/fractal-board.js
 var setTaskBoardEffect = import_state2.StateEffect.define();
 var BOARD_CARD_MIME = "application/x-agent-deck-board-card";
+var BOARD_LIST_BUDGET = 320;
+var boardSelections = /* @__PURE__ */ new Map();
+function boardPinIds(settings, group) {
+  const pins = settings?.taskBoardPins;
+  if (!pins || !group) return [];
+  const list = pins[group.key] ?? pins[group.stableKey];
+  return Array.isArray(list) ? list : [];
+}
 function taskBoardPref(settings, group) {
   const map = settings?.taskBoardViews;
   const fallback = { mode: "outline", groupBy: "status", zoomStack: [] };
@@ -14416,7 +14836,7 @@ var BoardToggleWidget = class extends import_view3.WidgetType {
   }
 };
 var TaskBoardWidget = class extends import_view3.WidgetType {
-  constructor(plugin, rootGroup, activeGroup, model, pref, breadcrumbs, sourcePath) {
+  constructor(plugin, rootGroup, activeGroup, model, pref, breadcrumbs, sourcePath, pinnedIds = []) {
     super();
     this.plugin = plugin;
     this.rootGroup = rootGroup;
@@ -14425,6 +14845,10 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
     this.pref = pref;
     this.breadcrumbs = breadcrumbs;
     this.sourcePath = sourcePath;
+    this.pinnedIds = pinnedIds;
+    this.pinnedSet = new Set(pinnedIds);
+    this.boardKey = activeGroup.key || activeGroup.stableKey || "";
+    this.selKey = `${sourcePath || ""}::${this.boardKey}`;
     this.activeWave = findActiveWaveForBoard(plugin?.settings?.workbenchWaves, {
       path: sourcePath,
       parentBlockId: activeGroup.key,
@@ -14444,12 +14868,15 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
       groupBy: model.groupBy,
       wave: waveSig,
       crumbs: breadcrumbs.map((b) => b.key),
+      pins: pinnedIds,
       cols: model.columns.map((c) => [c.id, c.cards.map((k) => [
         k.line,
         k.kw,
         k.title,
+        k.titleMarkdown,
         k.agent,
         k.liveState,
+        k.step,
         k.latestConclusion,
         k.childCardCount,
         k.isMirror
@@ -14458,6 +14885,190 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
   }
   eq(other) {
     return other.sig === this.sig && other.sourcePath === this.sourcePath;
+  }
+  selectionSet() {
+    let set = boardSelections.get(this.selKey);
+    if (!set) boardSelections.set(this.selKey, set = /* @__PURE__ */ new Set());
+    return set;
+  }
+  selectedCards() {
+    const ids = this.selectionSet();
+    return this.model.columns.flatMap((col) => col.cards).filter((card) => ids.has(boardCardPinId(card)));
+  }
+  savePins(cards, pinned) {
+    const ids = cards.map(boardCardPinId).filter(Boolean);
+    if (!ids.length || !this.boardKey) return;
+    applyTaskBoardPins(this.plugin.settings, this.boardKey, ids, pinned);
+    this.plugin.saveSettings?.();
+    this.plugin.refreshUI?.();
+  }
+  async applyBulkStatus(keyword) {
+    const selected = this.selectedCards();
+    const editable = selected.filter((card) => !card.isMirror);
+    if (!editable.length) {
+      this.plugin.notice?.(t("\u6240\u9009\u5361\u7247\u4E2D\u6CA1\u6709\u53EF\u6539\u72B6\u6001\u7684\u5361\uFF08\u955C\u50CF\u5361\u8BF7\u5230\u6E90\u7B14\u8BB0\u4FEE\u6539\uFF09"));
+      return;
+    }
+    const editor = this.plugin.viewForPath?.(this.sourcePath)?.editor;
+    if (!editor) {
+      this.plugin.notice?.(t("\u5F53\u524D\u7B14\u8BB0\u6CA1\u6709\u53EF\u5199\u5165\u7684\u7F16\u8F91\u5668"));
+      return;
+    }
+    try {
+      await applyBatchStatusChoice(this.plugin, editor, editable.map((card) => card.line), keyword);
+      const skipped = selected.length - editable.length;
+      if (skipped) this.plugin.notice?.(t("\u5DF2\u8DF3\u8FC7 {n} \u5F20\u955C\u50CF\u5361\uFF08\u8BF7\u5230\u6E90\u7B14\u8BB0\u4FEE\u6539\uFF09", { n: skipped }));
+    } catch (error) {
+      this.plugin.notice?.(String(error?.message || error));
+    }
+  }
+  async deleteSelectedCards() {
+    const selected = this.selectedCards();
+    const editable = selected.filter((card) => !card.isMirror);
+    if (!editable.length) {
+      this.plugin.notice?.(t("\u955C\u50CF\u5361\u4E0D\u80FD\u5220\u9664\uFF0C\u8BF7\u5230\u6E90\u7B14\u8BB0\u4FEE\u6539"));
+      return;
+    }
+    if (!this.sourcePath) return;
+    try {
+      await updateNote(
+        this.plugin,
+        this.sourcePath,
+        (text) => deleteTaskBoardCards(text, editable.map((card) => card.line))
+      );
+      const ids = this.selectionSet();
+      for (const card of editable) ids.delete(boardCardPinId(card));
+      applyTaskBoardPins(this.plugin.settings, this.boardKey, editable.map(boardCardPinId).filter(Boolean), false);
+      this.plugin.saveSettings?.();
+      this.plugin.notice?.(t("\u5DF2\u5220\u9664 {n} \u5F20\u5361\u7247", { n: editable.length }));
+      const skipped = selected.length - editable.length;
+      if (skipped) this.plugin.notice?.(t("\u5DF2\u8DF3\u8FC7 {n} \u5F20\u955C\u50CF\u5361\uFF08\u8BF7\u5230\u6E90\u7B14\u8BB0\u4FEE\u6539\uFF09", { n: skipped }));
+      this.plugin.refreshUI?.();
+    } catch (error) {
+      this.plugin.notice?.(String(error?.message || error));
+    }
+  }
+  renderMarkdown(text, el) {
+    const value = String(text || "");
+    if (!value) return Promise.resolve();
+    const app = this.plugin?.app;
+    if (!app || typeof import_obsidian4.MarkdownRenderer?.render !== "function") {
+      el.textContent = value;
+      return Promise.resolve();
+    }
+    try {
+      if (!this._renderComponent) {
+        this._renderComponent = new import_obsidian4.Component();
+        this._renderComponent.load();
+      }
+      return import_obsidian4.MarkdownRenderer.render(app, value, el, this.sourcePath || "", this._renderComponent).catch(() => {
+        el.textContent = value;
+      });
+    } catch {
+      el.textContent = value;
+      return Promise.resolve();
+    }
+  }
+  openContextMenu(event, card) {
+    let selected = this.selectedCards();
+    const clickedId = card ? boardCardPinId(card) : "";
+    if (!selected.length) {
+      if (!clickedId) return;
+      this.selectionSet().add(clickedId);
+      this._syncBulk?.();
+      selected = this.selectedCards();
+    } else if (clickedId && selected.length === 1 && boardCardPinId(selected[0]) !== clickedId) {
+      this.selectionSet().clear();
+      this.selectionSet().add(clickedId);
+      this._syncBulk?.();
+      selected = this.selectedCards();
+    }
+    if (!selected.length) return;
+    const editable = selected.filter((item) => !item.isMirror);
+    const menu = new import_obsidian4.Menu();
+    menu.addItem((item) => item.setTitle(t("\u5DF2\u9009 {n} \u5F20", { n: selected.length })).setDisabled(true));
+    menu.addSeparator();
+    const singleMirror = selected.length === 1 && selected[0].isMirror ? selected[0] : null;
+    const mirrorColumns = { TODO: "todo", DOING: "doing", NEEDOK: "review", DONE: "done" };
+    menu.addItem((item) => {
+      item.setTitle(t("\u6539\u4E3A\u72B6\u6001"));
+      const choices = [["TODO", "TODO"], ["DOING", "DOING"], ["NEEDOK", t("\u5F85\u786E\u8BA4")], ["DONE", "DONE"]];
+      const choose = (keyword) => {
+        if (singleMirror) {
+          this.moveCard(singleMirror, { targetColumn: mirrorColumns[keyword] }).catch((error) => this.plugin.notice?.(String(error?.message || error)));
+        } else {
+          this.applyBulkStatus(keyword);
+        }
+      };
+      if (typeof item.setSubmenu === "function") {
+        const sub = item.setSubmenu();
+        for (const [keyword, label] of choices) {
+          sub.addItem((entry) => entry.setTitle(label).onClick(() => choose(keyword)));
+        }
+      } else {
+        item.onClick(() => {
+          const sub = new import_obsidian4.Menu();
+          for (const [keyword, label] of choices) {
+            sub.addItem((entry) => entry.setTitle(label).onClick(() => choose(keyword)));
+          }
+          sub.showAtPosition({ x: event.clientX, y: event.clientY });
+        });
+      }
+      if (!editable.length && !singleMirror) item.setDisabled(true);
+    });
+    if (selected.length === 1) {
+      const target = selected[0];
+      const addSingle = (title, onClick) => {
+        menu.addItem((item) => item.setTitle(title).onClick(onClick));
+      };
+      if (target.activeJob && this.plugin?.cancelJob) {
+        addSingle(t("\u505C\u6B62"), () => this.plugin.cancelJob(target.activeJob.id));
+      } else if (target.sid && this.plugin?.openConversation) {
+        addSingle(t("\u6B63\u6587"), () => this.plugin.openConversation({ sid: target.sid, agent: target.agent }));
+      }
+      if (target.column === "todo" && !target.hasLink && !target.activeJob && !target.isMirror && this.plugin?.delegateAtLine && this.sourcePath) {
+        addSingle(t("\u6D3E\u53D1"), () => this.plugin.delegateAtLine(this.sourcePath, target.line, {
+          boardContext: buildBoardSiblingContext(this.model, target.line)
+        }));
+      }
+    }
+    menu.addSeparator();
+    menu.addItem((item) => item.setTitle(t("\u7F6E\u9876\u6240\u9009")).onClick(() => this.savePins(selected, true)));
+    menu.addItem((item) => item.setTitle(t("\u53D6\u6D88\u7F6E\u9876")).onClick(() => this.savePins(selected, false)));
+    if (editable.length) {
+      menu.addSeparator();
+      menu.addItem((item) => {
+        item.setTitle(t("\u5220\u9664 {n} \u5F20\u5361\u7247", { n: editable.length }));
+        const addConfirm = (sub) => {
+          sub.addItem((entry) => entry.setTitle(t("\u786E\u8BA4\u5220\u9664 {n} \u5F20", { n: editable.length })).onClick(() => this.deleteSelectedCards()));
+          sub.addItem((entry) => entry.setTitle(t("\u53D6\u6D88")));
+        };
+        if (typeof item.setSubmenu === "function") {
+          addConfirm(item.setSubmenu());
+        } else {
+          item.onClick(() => {
+            const confirm = new import_obsidian4.Menu();
+            addConfirm(confirm);
+            confirm.showAtPosition({ x: event.clientX, y: event.clientY });
+          });
+        }
+      });
+    }
+    menu.addItem((item) => item.setTitle(t("\u6E05\u7A7A\u9009\u62E9")).onClick(() => {
+      this.selectionSet().clear();
+      this._syncBulk?.();
+    }));
+    menu.showAtMouseEvent(event);
+  }
+  destroy() {
+    this._resizeObserver?.disconnect?.();
+    this._resizeObserver = null;
+    this._renderComponent?.unload?.();
+    this._renderComponent = null;
+    this._syncBulk = null;
+    this._scheduleCap = null;
+    if (this._capRaf) cancelAnimationFrame(this._capRaf);
+    this._capRaf = 0;
   }
   jumpTo(view, line) {
     const stDoc = view.state.doc;
@@ -14503,6 +15114,8 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
   }
   toDOM(view) {
     const doc = view.dom.ownerDocument;
+    this._renderComponent?.unload?.();
+    this._renderComponent = null;
     const wrap = doc.createElement("div");
     wrap.className = "ad-board-wrap";
     wrap.setAttribute("contenteditable", "false");
@@ -14717,8 +15330,121 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         submitNew();
       }
     });
+    const allCards = this.model.columns.flatMap((col) => col.cards);
+    const cardId = (card) => boardCardPinId(card);
+    const selection = this.selectionSet();
+    const liveIds = new Set(allCards.map(cardId).filter(Boolean));
+    for (const id of [...selection]) if (!liveIds.has(id)) selection.delete(id);
+    const bulk = wrap.appendChild(doc.createElement("div"));
+    bulk.className = "ad-board__bulk";
+    bulk.hidden = true;
+    const bulkCount = bulk.appendChild(doc.createElement("span"));
+    bulkCount.className = "ad-board__bulkcount";
+    const bulkActs = bulk.appendChild(doc.createElement("div"));
+    bulkActs.className = "ad-board__bulkacts";
+    const checkInputs = [];
+    const colChecks = [];
+    const statusButtons = [];
+    let pinOnBtn = null;
+    let pinOffBtn = null;
+    let deleteBtn = null;
+    let deleteArmed = false;
+    let deleteTimer = 0;
+    const disarmDelete = () => {
+      deleteArmed = false;
+      clearTimeout(deleteTimer);
+      if (deleteBtn) {
+        deleteBtn.textContent = t("\u5220\u9664");
+        deleteBtn.classList.remove("is-armed");
+      }
+    };
+    const syncChecks = () => {
+      for (const item of checkInputs) item.input.checked = selection.has(item.id);
+      for (const item of colChecks) {
+        const ids = item.col.cards.filter((card) => !card.isMirror).map(cardId).filter(Boolean);
+        const selected = ids.filter((id) => selection.has(id)).length;
+        item.input.checked = ids.length > 0 && selected === ids.length;
+        item.input.indeterminate = selected > 0 && selected < ids.length;
+        item.input.disabled = ids.length === 0;
+      }
+    };
+    const syncBulk = () => {
+      const selected = allCards.filter((card) => selection.has(cardId(card)));
+      const editable = selected.filter((card) => !card.isMirror);
+      bulk.hidden = selected.length === 0;
+      bulkCount.textContent = t("\u5DF2\u9009 {n} \u5F20", { n: selected.length });
+      for (const btn of statusButtons) btn.disabled = editable.length === 0;
+      if (pinOnBtn) pinOnBtn.disabled = selected.length === 0;
+      if (pinOffBtn) pinOffBtn.disabled = selected.length === 0;
+      if (deleteBtn) deleteBtn.disabled = editable.length === 0;
+      if (!editable.length) disarmDelete();
+      syncChecks();
+    };
+    this._syncBulk = syncBulk;
+    const bulkButton = (label, className = "ad-board__btn") => {
+      const btn = bulkActs.appendChild(doc.createElement("button"));
+      btn.type = "button";
+      btn.className = className;
+      btn.textContent = label;
+      btn.addEventListener("mousedown", (e) => e.stopPropagation());
+      return btn;
+    };
+    for (const [keyword, label] of [["TODO", "TODO"], ["DOING", "DOING"], ["NEEDOK", t("\u5F85\u786E\u8BA4")], ["DONE", "DONE"]]) {
+      const btn = bulkButton(label);
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.applyBulkStatus(keyword);
+      });
+      statusButtons.push(btn);
+    }
+    pinOnBtn = bulkButton(t("\u7F6E\u9876\u6240\u9009"));
+    pinOnBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.savePins(this.selectedCards(), true);
+    });
+    pinOffBtn = bulkButton(t("\u53D6\u6D88\u7F6E\u9876"));
+    pinOffBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.savePins(this.selectedCards(), false);
+    });
+    deleteBtn = bulkButton(t("\u5220\u9664"), "ad-board__btn is-danger");
+    deleteBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const editable = this.selectedCards().filter((card) => !card.isMirror);
+      if (!editable.length) return;
+      if (!deleteArmed) {
+        deleteArmed = true;
+        deleteBtn.textContent = t("\u786E\u8BA4\u5220\u9664 {n} \u5F20", { n: editable.length });
+        deleteBtn.classList.add("is-armed");
+        clearTimeout(deleteTimer);
+        deleteTimer = setTimeout(disarmDelete, 8e3);
+        return;
+      }
+      disarmDelete();
+      await this.deleteSelectedCards();
+    });
+    const clearBtn = bulkButton(t("\u6E05\u7A7A"));
+    clearBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      selection.clear();
+      disarmDelete();
+      syncBulk();
+    });
     const cols = wrap.appendChild(doc.createElement("div"));
     cols.className = "ad-board__cols";
+    const renderTasks = [];
+    cols.addEventListener("contextmenu", (e) => {
+      if (e.target?.closest?.(".ad-board__card")) return;
+      if (!this.selectionSet().size) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.openContextMenu(e, null);
+    });
     if (this.model.columns.length > 4) {
       cols.style.gridTemplateColumns = `repeat(${Math.min(this.model.columns.length, 5)}, minmax(150px, 1fr))`;
     }
@@ -14728,7 +15454,27 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
       colEl.dataset.column = col.id;
       const colHead = colEl.appendChild(doc.createElement("div"));
       colHead.className = "ad-board__colhead";
-      const colName = colHead.appendChild(doc.createElement("span"));
+      const colNameWrap = colHead.appendChild(doc.createElement("span"));
+      colNameWrap.className = "ad-board__colname";
+      const colCheck = colNameWrap.appendChild(doc.createElement("input"));
+      colCheck.type = "checkbox";
+      colCheck.className = "ad-board__check ad-board__check--column";
+      colCheck.title = t("\u9009\u62E9\u672C\u5217\u5361\u7247");
+      colCheck.setAttribute("aria-label", colCheck.title);
+      colCheck.addEventListener("mousedown", (e) => e.stopPropagation());
+      colCheck.addEventListener("click", (e) => e.stopPropagation());
+      colCheck.addEventListener("change", (e) => {
+        e.stopPropagation();
+        const ids = col.cards.filter((card) => !card.isMirror).map(cardId).filter(Boolean);
+        for (const id of ids) {
+          if (colCheck.checked) selection.add(id);
+          else selection.delete(id);
+        }
+        disarmDelete();
+        syncBulk();
+      });
+      colChecks.push({ input: colCheck, col });
+      const colName = colNameWrap.appendChild(doc.createElement("span"));
       colName.textContent = col.id === "review" ? t("\u5F85\u786E\u8BA4") : col.label;
       const colCount = colHead.appendChild(doc.createElement("span"));
       colCount.className = "ad-board__colcount";
@@ -14754,11 +15500,22 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
           const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
           if (!payload || !Number.isInteger(payload.line)) return;
           const cardObj = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
-          if (!cardObj) return;
+          if (!cardObj || cardObj.isMirror) return;
           if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
-            if (payload.column !== col.id) this.moveCard(cardObj, { targetParentLine: col.targetParentLine });
-          } else if (payload.column !== col.id) {
-            this.moveCard(cardObj, { targetColumn: col.id });
+            const last = col.cards[col.cards.length - 1];
+            if (!last) this.moveCard(cardObj, { targetParentLine: col.targetParentLine });
+            else this.moveCard(cardObj, { beforeLine: last.endLine + 1, targetParentLine: col.targetParentLine });
+            return;
+          }
+          if (payload.column !== col.id) {
+            const last = col.cards[col.cards.length - 1];
+            if (!last) this.moveCard(cardObj, { targetColumn: col.id });
+            else this.moveCard(cardObj, { targetColumn: col.id, beforeLine: last.endLine + 1 });
+            return;
+          }
+          if (col.cards.length > 1) {
+            const last = col.cards[col.cards.length - 1];
+            if (last.line !== cardObj.line) this.moveCard(cardObj, { beforeLine: last.endLine + 1 });
           }
         } catch {
         }
@@ -14770,52 +15527,97 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         continue;
       }
       for (const card of col.cards) {
+        const pinId = cardId(card);
+        const pinned = this.pinnedSet.has(pinId);
         const cardEl = list.appendChild(doc.createElement("div"));
-        cardEl.className = `ad-board__card${card.activeJob ? " is-live" : ""}${card.isMirror ? " is-mirror" : ""}`;
+        cardEl.className = `ad-board__card${card.activeJob ? " is-live" : ""}${card.isMirror ? " is-mirror" : ""}${pinned ? " is-pinned" : ""}`;
         cardEl.draggable = true;
         if (card.agent && AGENTS[card.agent]) {
           cardEl.style.setProperty("--ad-agent", AGENTS[card.agent].color);
           cardEl.style.setProperty("--ad-agent-soft", AGENTS[card.agent].soft);
         }
         cardEl.addEventListener("dragstart", (e) => {
+          if (e.target?.tagName === "INPUT") {
+            e.preventDefault();
+            return;
+          }
           e.stopPropagation();
           e.dataTransfer.setData(BOARD_CARD_MIME, JSON.stringify({ line: card.line, column: col.id }));
           e.dataTransfer.effectAllowed = "move";
           cardEl.classList.add("is-dragging");
         });
         cardEl.addEventListener("dragend", () => cardEl.classList.remove("is-dragging"));
+        cardEl.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.openContextMenu(e, card);
+        });
         cardEl.addEventListener("dragover", (e) => {
           if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
           e.preventDefault();
           e.stopPropagation();
-          cardEl.classList.add("is-drop-before");
+          const rect = cardEl.getBoundingClientRect();
+          const after = e.clientY > rect.top + rect.height / 2;
+          cardEl.classList.toggle("is-drop-after", after);
+          cardEl.classList.toggle("is-drop-before", !after);
+          colEl.classList.remove("is-drop");
         });
-        cardEl.addEventListener("dragleave", () => cardEl.classList.remove("is-drop-before"));
+        cardEl.addEventListener("dragleave", () => {
+          cardEl.classList.remove("is-drop-before", "is-drop-after");
+        });
         cardEl.addEventListener("drop", (e) => {
           if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
           e.preventDefault();
           e.stopPropagation();
-          cardEl.classList.remove("is-drop-before");
+          cardEl.classList.remove("is-drop-before", "is-drop-after");
           try {
             const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
             if (!payload || !Number.isInteger(payload.line) || payload.line === card.line) return;
             const dragged = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
             if (!dragged || dragged.isMirror) return;
+            const rect = cardEl.getBoundingClientRect();
+            const after = e.clientY > rect.top + rect.height / 2;
+            const beforeLine = after ? Number.isInteger(card.endLine) ? card.endLine + 1 : card.line + 1 : card.line;
             if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
-              this.moveCard(dragged, { beforeLine: card.line, targetParentLine: col.targetParentLine });
+              this.moveCard(dragged, { beforeLine, targetParentLine: col.targetParentLine });
             } else {
-              this.moveCard(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine: card.line });
+              this.moveCard(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine });
             }
           } catch {
           }
         });
         const topRow = cardEl.appendChild(doc.createElement("div"));
         topRow.className = "ad-board__cardtop";
-        const title = topRow.appendChild(doc.createElement("div"));
-        title.className = "ad-board__cardtitle";
-        title.textContent = card.title;
+        const lead = topRow.appendChild(doc.createElement("div"));
+        lead.className = "ad-board__cardlead";
+        const check = lead.appendChild(doc.createElement("input"));
+        check.type = "checkbox";
+        check.className = "ad-board__check";
+        check.checked = selection.has(pinId);
+        check.disabled = !pinId;
+        check.title = t("\u9009\u62E9\u5361\u7247");
+        check.setAttribute("aria-label", check.title);
+        check.addEventListener("mousedown", (e) => e.stopPropagation());
+        check.addEventListener("click", (e) => e.stopPropagation());
+        check.addEventListener("dragstart", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        check.addEventListener("change", (e) => {
+          e.stopPropagation();
+          if (!pinId) return;
+          if (check.checked) selection.add(pinId);
+          else selection.delete(pinId);
+          disarmDelete();
+          syncBulk();
+        });
+        checkInputs.push({ input: check, id: pinId });
+        const title = lead.appendChild(doc.createElement("div"));
+        title.className = "ad-board__cardtitle ad-board__md";
         title.title = card.isMirror && card.mirrorTarget?.path ? t("\u70B9\u51FB\u6253\u5F00\u955C\u50CF\u6E90\uFF1A{path}", { path: card.mirrorTarget.path }) : t("\u70B9\u51FB\u5207\u56DE\u5927\u7EB2\u5B9A\u4F4D\u7F16\u8F91");
+        renderTasks.push(this.renderMarkdown(card.titleMarkdown || card.title, title));
         title.addEventListener("click", (e) => {
+          if (e.target?.closest?.("a, .internal-link, .external-link, .tag, .cm-hashtag")) return;
           e.preventDefault();
           e.stopPropagation();
           if (card.isMirror && card.mirrorTarget?.path && this.plugin?.openMirrorSource) {
@@ -14842,10 +15644,25 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
           mBadge.textContent = t("\u955C\u50CF");
           mBadge.title = card.mirrorTarget?.path || `${card.mirror?.target}#${card.mirror?.blockId}`;
         }
+        const pinBtn = topRow.appendChild(doc.createElement("button"));
+        pinBtn.type = "button";
+        pinBtn.className = `ad-board__pin${pinned ? " is-on" : ""}`;
+        pinBtn.textContent = "\u{1F4CC}";
+        pinBtn.title = pinned ? t("\u53D6\u6D88\u7F6E\u9876") : t("\u7F6E\u9876\uFF08\u79FB\u5230\u672C\u5217\u6700\u524D\uFF09");
+        pinBtn.setAttribute("aria-label", pinBtn.title);
+        pinBtn.addEventListener("mousedown", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+        pinBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.savePins([card], !pinned);
+        });
         if (card.step || card.latestConclusion) {
           const note = cardEl.appendChild(doc.createElement("div"));
-          note.className = "ad-board__cardnote";
-          note.textContent = truncate(card.step || card.latestConclusion, 88);
+          note.className = "ad-board__cardnote ad-board__md";
+          renderTasks.push(this.renderMarkdown(truncate(card.step || card.latestConclusion, 88), note));
         }
         const foot = cardEl.appendChild(doc.createElement("div"));
         foot.className = "ad-board__cardfoot";
@@ -14873,56 +15690,54 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
           badge.className = "ad-board__agent";
           badge.textContent = card.agent ? AGENTS[card.agent]?.short || card.agent : t("\u672A\u6307\u5B9A");
         }
-        const cardActions = foot.appendChild(doc.createElement("div"));
-        cardActions.className = "ad-board__cardbtns";
-        if (card.activeJob && this.plugin?.cancelJob) {
-          const stopBtn = cardActions.appendChild(doc.createElement("button"));
-          stopBtn.type = "button";
-          stopBtn.className = "ad-board__mini is-danger";
-          stopBtn.textContent = t("\u505C\u6B62");
-          stopBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.plugin.cancelJob(card.activeJob.id);
-          });
-        } else if (card.sid && this.plugin?.openConversation) {
-          const chatBtn = cardActions.appendChild(doc.createElement("button"));
-          chatBtn.type = "button";
-          chatBtn.className = "ad-board__mini";
-          chatBtn.textContent = t("\u6B63\u6587");
-          chatBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.plugin.openConversation({ sid: card.sid, agent: card.agent });
-          });
-        }
-        if (card.column === "todo" && !card.hasLink && !card.activeJob && !card.isMirror && this.plugin?.delegateAtLine && this.sourcePath) {
-          const sendBtn = cardActions.appendChild(doc.createElement("button"));
-          sendBtn.type = "button";
-          sendBtn.className = "ad-board__mini";
-          sendBtn.textContent = t("\u6D3E\u53D1");
-          sendBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.plugin.delegateAtLine(this.sourcePath, card.line, {
-              boardContext: buildBoardSiblingContext(this.model, card.line)
-            });
-          });
-        }
-        if (this.model.groupBy === "status") {
-          const nextCol = card.column === "todo" ? "doing" : card.column === "doing" ? "done" : card.column === "review" ? "done" : "todo";
-          const nextLabel = nextCol === "doing" ? "\u2192 DOING" : nextCol === "done" ? "\u2192 DONE" : "\u2192 TODO";
-          const stepBtn = cardActions.appendChild(doc.createElement("button"));
-          stepBtn.type = "button";
-          stepBtn.className = "ad-board__mini";
-          stepBtn.textContent = nextLabel;
-          stepBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.moveCard(card, { targetColumn: nextCol });
-          });
-        }
       }
+    }
+    syncBulk();
+    const capColumnLists = () => {
+      if (!wrap.isConnected) return;
+      for (const list of cols.querySelectorAll(".ad-board__collist")) {
+        const cards = [...list.querySelectorAll(".ad-board__card")];
+        list.style.maxHeight = "";
+        list.classList.remove("is-capped");
+        if (cards.length <= 3) continue;
+        const gap = parseFloat(getComputedStyle(list).rowGap) || 6;
+        const heights = cards.map((el) => el.getBoundingClientRect().height);
+        if (heights.some((height) => height <= 0)) continue;
+        const fourHeights = heights.slice(0, 4).reduce((sum, height) => sum + height, 0) + gap * 3;
+        const visible = fourHeights <= BOARD_LIST_BUDGET ? 4 : 3;
+        if (cards.length <= visible) continue;
+        const cap = heights.slice(0, visible).reduce((sum, height) => sum + height, 0) + gap * (visible - 1);
+        list.style.maxHeight = `${Math.ceil(cap + 1)}px`;
+        list.classList.add("is-capped");
+      }
+    };
+    const scheduleCap = (attempt = 0) => {
+      requestAnimationFrame(() => {
+        if (!wrap.isConnected) {
+          if (attempt < 3) scheduleCap(attempt + 1);
+          return;
+        }
+        capColumnLists();
+      });
+    };
+    this._scheduleCap = scheduleCap;
+    scheduleCap();
+    Promise.allSettled(renderTasks).then(() => this._scheduleCap?.());
+    this._resizeObserver?.disconnect?.();
+    if (typeof ResizeObserver === "function") {
+      let lastWidth = 0;
+      const observer = new ResizeObserver((entries) => {
+        const width2 = Math.round(entries[0]?.contentRect?.width || 0);
+        if (!width2 || Math.abs(width2 - lastWidth) < 2) return;
+        lastWidth = width2;
+        if (this._capRaf) cancelAnimationFrame(this._capRaf);
+        this._capRaf = requestAnimationFrame(() => {
+          this._capRaf = 0;
+          capColumnLists();
+        });
+      });
+      observer.observe(wrap);
+      this._resizeObserver = observer;
     }
     return wrap;
   }
@@ -14969,9 +15784,14 @@ function taskBoardExtension(plugin, refreshEffect2) {
       if (pref.mode === "board") {
         boardLines.add(g.line);
         const { activeGroup, breadcrumbs } = resolveActiveBoardAndBreadcrumbs(g, groups, pref);
-        const model = buildTaskBoardModel(activeGroup, plugin, { groupBy: pref.groupBy, resolveMirror });
+        const pinnedIds = boardPinIds(plugin.settings, activeGroup);
+        const model = buildTaskBoardModel(activeGroup, plugin, {
+          groupBy: pref.groupBy,
+          resolveMirror,
+          pinnedIds
+        });
         ranges.push(import_view3.Decoration.widget({
-          widget: new TaskBoardWidget(plugin, g, activeGroup, model, pref, breadcrumbs, sourcePath),
+          widget: new TaskBoardWidget(plugin, g, activeGroup, model, pref, breadcrumbs, sourcePath, pinnedIds),
           block: true,
           side: 1
         }).range(doc.line(g.line + 1).to));
@@ -16137,7 +16957,7 @@ function planRecentDisplay(rows, { filter = "all", expanded = /* @__PURE__ */ ne
     groups: planned
   };
 }
-var AgentDeckView = class extends import_obsidian3.ItemView {
+var AgentDeckView = class extends import_obsidian5.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -16933,7 +17753,7 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
     const more = top.createEl("button", { cls: "ad-linkbtn ad-agentcard__more", attr: { "aria-label": t("\u7BA1\u7406 {name} \u5361\u7247", { name: a.name }) } });
     setLucide(more, "ellipsis");
     more.onclick = (e) => {
-      const menu = new import_obsidian3.Menu();
+      const menu = new import_obsidian5.Menu();
       menu.addItem((item) => item.setTitle(t("\u626B\u63CF\u6700\u8FD1 7 \u5929\u7684\u4F1A\u8BDD")).setIcon("refresh-cw").onClick(() => p.scanNow(false, { agent: id, days: 7 })));
       menu.addItem((item) => item.setTitle(pinned ? t("\u53D6\u6D88\u7F6E\u9876") : t("\u7F6E\u9876\u5361\u7247")).setIcon(pinned ? "pin-off" : "pin").onClick(() => this.updateAgentCards((layout) => {
         layout.pinned = pinned ? layout.pinned.filter((x) => x !== id) : [...layout.pinned, id];
@@ -17129,7 +17949,7 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
       };
       card.addEventListener("contextmenu", (e) => {
         e.preventDefault();
-        const m = new import_obsidian3.Menu();
+        const m = new import_obsidian5.Menu();
         m.addItem((i) => i.setTitle(t("\u6253\u5F00\u4F1A\u8BDD")).setIcon("arrow-up-right").onClick(open));
         m.addItem((i) => i.setTitle(t("\u4ECE\u300C\u73B0\u5728\u300D\u79FB\u9664")).setIcon("x").onClick(() => this.removeFromNow(s.sid)));
         m.showAtMouseEvent(e);
@@ -17201,7 +18021,7 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
     if (sub) e.createDiv({ cls: "ad-empty__sub", text: sub });
   }
 };
-var AgentCardsModal = class extends import_obsidian3.Modal {
+var AgentCardsModal = class extends import_obsidian5.Modal {
   constructor(view) {
     super(view.app);
     this.view = view;
@@ -17294,7 +18114,7 @@ function stateChip(s) {
 }
 
 // src/dashboard.js
-var import_obsidian4 = require("obsidian");
+var import_obsidian6 = require("obsidian");
 
 // src/analytics.js
 function calendarDays(from, to) {
@@ -17860,7 +18680,7 @@ var DashboardData = class {
 
 // src/dashboard.js
 var DASHBOARD_TYPE = "agent-deck-dashboard";
-var ProjectPicker = class extends import_obsidian4.FuzzySuggestModal {
+var ProjectPicker = class extends import_obsidian6.FuzzySuggestModal {
   constructor(view, row) {
     super(view.app);
     this.view = view;
@@ -17887,7 +18707,7 @@ var ProjectPicker = class extends import_obsidian4.FuzzySuggestModal {
     }
   }
 };
-var DashboardView = class extends import_obsidian4.ItemView {
+var DashboardView = class extends import_obsidian6.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -18536,7 +19356,7 @@ var DashboardView = class extends import_obsidian4.ItemView {
 
 // src/settings.js
 var obsidianNs = __toESM(require("obsidian"), 1);
-var import_obsidian5 = require("obsidian");
+var import_obsidian7 = require("obsidian");
 
 // src/dream-entries.js
 var import_crypto7 = require("crypto");
@@ -19193,7 +20013,7 @@ var TABS = [
   ["experimental", "\u5B9E\u9A8C\u529F\u80FD", "flask-conical"],
   ["about", "\u5173\u4E8E", "info"]
 ];
-var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
+var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -19459,9 +20279,9 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       if (showAgyRefresh && resolved === "agy") {
         this.bigButton(rr, t("\u5237\u65B0\u5217\u8868"), async () => {
           const list = await fetchAgyModels(agyPath);
-          if (!list.length) return new import_obsidian5.Notice(t("\u6CA1\u6709\u8BFB\u5230\u53EF\u7528 agy \u6A21\u578B"));
+          if (!list.length) return new import_obsidian7.Notice(t("\u6CA1\u6709\u8BFB\u5230\u53EF\u7528 agy \u6A21\u578B"));
           this._agyJournalModels = list;
-          new import_obsidian5.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A agy \u6A21\u578B", { n: list.length }));
+          new import_obsidian7.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A agy \u6A21\u578B", { n: list.length }));
           this.display();
         });
       }
@@ -19471,12 +20291,12 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     this.row(parent, label, desc, (rr) => {
       this.textInput(rr, value, placeholder, onChange, wide ? "ad-input--wide" : "");
       this.bigButton(rr, t("\u6D4B\u8BD5\u8FDE\u63A5"), async () => {
-        new import_obsidian5.Notice(pendingText, 2500);
+        new import_obsidian7.Notice(pendingText, 2500);
         try {
           const reply = await testFn();
-          new import_obsidian5.Notice(t("\u6574\u7406\u6A21\u578B\u53EF\u7528\uFF1A{reply}", { reply: reply.slice(0, 60) || "OK" }), 5e3);
+          new import_obsidian7.Notice(t("\u6574\u7406\u6A21\u578B\u53EF\u7528\uFF1A{reply}", { reply: reply.slice(0, 60) || "OK" }), 5e3);
         } catch (e) {
-          new import_obsidian5.Notice(t("\u6574\u7406\u6A21\u578B\u4E0D\u53EF\u7528\uFF1A{msg}", { msg: e?.message || String(e) }), 8e3);
+          new import_obsidian7.Notice(t("\u6574\u7406\u6A21\u578B\u4E0D\u53EF\u7528\uFF1A{msg}", { msg: e?.message || String(e) }), 8e3);
         }
       });
     });
@@ -19621,7 +20441,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     const test = claudeMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(test, t("\u68C0\u67E5 claude"), async () => {
       const r = await p.checkBinary("claude");
-      new import_obsidian5.Notice(r, 6e3);
+      new import_obsidian7.Notice(r, 6e3);
     });
     this.bigButton(test, t("\u5728\u7EC8\u7AEF\u91CC\u7EED\u8FD9\u4E2A\u76EE\u5F55"), () => p.openTerminalAt(d.claude.cwd || p.vaultPath, "claude"));
     claude.appendChild(claudeMore.parentElement);
@@ -19651,7 +20471,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
         p.saveSettings();
       }, "ad-input--wide");
     }
-    this.bigButton(codexMore.createDiv({ cls: "ad-btnrow" }), t("\u68C0\u67E5 codex"), async () => new import_obsidian5.Notice(await p.checkBinary("codex"), 6e3));
+    this.bigButton(codexMore.createDiv({ cls: "ad-btnrow" }), t("\u68C0\u67E5 codex"), async () => new import_obsidian7.Notice(await p.checkBinary("codex"), 6e3));
     codex.appendChild(codexMore.parentElement);
     const dsh = this.agentCard(body, "dsh", "DeepSeek Harness", "");
     this.modelSelect(dsh, "dsh", p.defaultModel("dsh"), (v) => {
@@ -19683,15 +20503,15 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     this.bigButton(dtest, t("\u8BFB\u53D6 Harness \u53EF\u7528\u6A21\u578B"), async () => {
       try {
         const models = await p.refreshDshModels();
-        new import_obsidian5.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A\u6A21\u578B\uFF0C\u5305\u542B Harness \u4E2D\u914D\u7F6E\u7684\u81EA\u5B9A\u4E49\u6A21\u578B", { n: models.length }));
+        new import_obsidian7.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A\u6A21\u578B\uFF0C\u5305\u542B Harness \u4E2D\u914D\u7F6E\u7684\u81EA\u5B9A\u4E49\u6A21\u578B", { n: models.length }));
         this.display();
       } catch (e) {
-        new import_obsidian5.Notice(t("\u8BFB\u53D6\u5931\u8D25\uFF1A{msg}", { msg: e.message }), 8e3);
+        new import_obsidian7.Notice(t("\u8BFB\u53D6\u5931\u8D25\uFF1A{msg}", { msg: e.message }), 8e3);
       }
     });
     this.bigButton(dtest, t("\u68C0\u67E5 dsh"), async () => {
       const r = await p.checkBinary("dsh");
-      new import_obsidian5.Notice(r, 6e3);
+      new import_obsidian7.Notice(r, 6e3);
     });
     dsh.appendChild(dshMore.parentElement);
     const agy = this.agentCard(body, "antigravity", "Antigravity ACP", t("\u5B89\u88C5 agy CLI \u540E\u8FD0\u884C agy acp --login \u767B\u5F55"));
@@ -19714,13 +20534,13 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     this.bigButton(atest, t("\u8BFB\u53D6 Antigravity \u53EF\u7528\u6A21\u578B"), async () => {
       try {
         const models = await p.refreshAcpModels("antigravity");
-        new import_obsidian5.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A\u6A21\u578B", { n: models.length }));
+        new import_obsidian7.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A\u6A21\u578B", { n: models.length }));
         this.display();
       } catch (e) {
-        new import_obsidian5.Notice(t("\u8BFB\u53D6\u5931\u8D25\uFF1A{msg}", { msg: e.message }), 8e3);
+        new import_obsidian7.Notice(t("\u8BFB\u53D6\u5931\u8D25\uFF1A{msg}", { msg: e.message }), 8e3);
       }
     });
-    this.bigButton(atest, t("\u68C0\u67E5 agy"), async () => new import_obsidian5.Notice(await p.checkBinary("antigravity"), 6e3));
+    this.bigButton(atest, t("\u68C0\u67E5 agy"), async () => new import_obsidian7.Notice(await p.checkBinary("antigravity"), 6e3));
     agy.appendChild(agyMore.parentElement);
     const opencode = this.agentCard(body, "opencode", "OpenCode", t("\u901A\u8FC7 OpenCode.app \u5185\u7F6E\u7684 opencode-cli acp \u540E\u53F0\u59D4\u6D3E\uFF0C\u4E5F\u53EF\u6253\u5F00\u684C\u9762\u7AEF\u6216\u7EC8\u7AEF"));
     this.modelSelect(opencode, "opencode", p.defaultModel("opencode"), (v) => {
@@ -19750,13 +20570,13 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     this.bigButton(octest, t("\u8BFB\u53D6 OpenCode \u53EF\u7528\u6A21\u578B"), async () => {
       try {
         const models = await p.refreshAcpModels("opencode");
-        new import_obsidian5.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A\u6A21\u578B", { n: models.length }));
+        new import_obsidian7.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A\u6A21\u578B", { n: models.length }));
         this.display();
       } catch (e) {
-        new import_obsidian5.Notice(t("\u8BFB\u53D6\u5931\u8D25\uFF1A{msg}", { msg: e.message }), 8e3);
+        new import_obsidian7.Notice(t("\u8BFB\u53D6\u5931\u8D25\uFF1A{msg}", { msg: e.message }), 8e3);
       }
     });
-    this.bigButton(octest, t("\u68C0\u67E5 opencode"), async () => new import_obsidian5.Notice(await p.checkBinary("opencode"), 6e3));
+    this.bigButton(octest, t("\u68C0\u67E5 opencode"), async () => new import_obsidian7.Notice(await p.checkBinary("opencode"), 6e3));
     opencode.appendChild(opencodeMore.parentElement);
     const qoder = this.agentCard(body, "qoder", "Qoder", t("\u5DF2\u767B\u5F55 qodercli \u65F6\u540E\u53F0\u76F4\u63A5\u6267\u884C\uFF1B\u672A\u767B\u5F55\u65F6\u81EA\u52A8\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00 Qoder \u684C\u9762\u7248\u4EA4\u63A5"));
     this.modelSelect(qoder, "qoder", p.defaultModel("qoder"), (v) => {
@@ -19780,7 +20600,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       }, "ad-input--wide");
     }
     const qtest = qoderMore.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(qtest, t("\u68C0\u67E5 qoder"), async () => new import_obsidian5.Notice(await p.checkBinary("qoder"), 6e3));
+    this.bigButton(qtest, t("\u68C0\u67E5 qoder"), async () => new import_obsidian7.Notice(await p.checkBinary("qoder"), 6e3));
     this.bigButton(qtest, t("\u767B\u5F55 qoder CLI"), () => p.openTerminalAt(d.qoder.cwd || p.vaultPath, "qoder login"));
     qoder.appendChild(qoderMore.parentElement);
     const sharedAgents = this.card(body, t("\u516C\u5171\u7EC8\u7AEF\u4E0E\u5176\u4F59 Agent"), "");
@@ -19808,7 +20628,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     this.rowText(rulesMore, t("\u89E6\u53D1\u7B26\u53F7"), t("\u9ED8\u8BA4 @\uFF0C\u524D\u9762\u9700\u7A7A\u683C"), d.mentionTrigger || "@", "@", (v) => {
       const trigger = v.trim();
       if (!trigger || /[\s`\p{L}\p{N}]/u.test(trigger)) {
-        new import_obsidian5.Notice(t("\u8BF7\u586B\u5199\u4E0D\u542B\u7A7A\u683C\u3001\u5B57\u6BCD\u3001\u6570\u5B57\u6216\u53CD\u5F15\u53F7\u7684\u7B26\u53F7"));
+        new import_obsidian7.Notice(t("\u8BF7\u586B\u5199\u4E0D\u542B\u7A7A\u683C\u3001\u5B57\u6BCD\u3001\u6570\u5B57\u6216\u53CD\u5F15\u53F7\u7684\u7B26\u53F7"));
         return;
       }
       d.mentionTrigger = trigger;
@@ -20012,7 +20832,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     const more = right.createEl("button", { cls: "ad-morebtn", text: "\u22EF" });
     more.onclick = (e) => {
       e.stopPropagation();
-      const menu = new import_obsidian5.Menu();
+      const menu = new import_obsidian7.Menu();
       menu.addItem((it) => it.setTitle(pinned ? t("\u53D6\u6D88\u7F6E\u9876") : t("\u7F6E\u9876")).setIcon(pinned ? "pin-off" : "pin").onClick(() => {
         const i = d.pinned.indexOf(m.id);
         if (pinned && i >= 0) d.pinned.splice(i, 1);
@@ -20110,7 +20930,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     }
     this.draft = catalogSnapshot(p.settings.models);
     p.saveSettings();
-    new import_obsidian5.Notice(t("Models \u5DF2\u4FDD\u5B58"));
+    new import_obsidian7.Notice(t("Models \u5DF2\u4FDD\u5B58"));
     this.display();
   }
   renderGrokBotPicker(card, sessCountEl, s, p) {
@@ -20469,7 +21289,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
             p.saveSettings();
           } catch (error) {
             input.value = s.journalLayout.titles[key];
-            new import_obsidian5.Notice(error.message);
+            new import_obsidian7.Notice(error.message);
           }
         });
       }
@@ -20479,7 +21299,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
         s.doneArchivePath = archivePath(v);
         p.saveSettings();
       } catch (e) {
-        new import_obsidian5.Notice(e.message);
+        new import_obsidian7.Notice(e.message);
       }
     }, "ad-input--wide");
     this.rowSegmented(tpl, t("\u5F52\u6863\u987A\u5E8F"), "", [{ id: "prepend", label: t("\u63D2\u5230\u5F00\u5934") }, { id: "append", label: t("\u8FFD\u52A0\u5230\u672B\u5C3E") }], s.archiveOrder || "prepend", (v) => {
@@ -20724,7 +21544,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
         s.menuBarHotkey = hotkeySpecFromEvent(event, key);
         p.saveSettings();
         p.menubar?.update(true);
-        new import_obsidian5.Notice(t("\u83DC\u5355\u680F\u5FEB\u6377\u952E\u5DF2\u4FDD\u5B58\uFF0C\u7EA6 2 \u79D2\u5185\u751F\u6548"));
+        new import_obsidian7.Notice(t("\u83DC\u5355\u680F\u5FEB\u6377\u952E\u5DF2\u4FDD\u5B58\uFF0C\u7EA6 2 \u79D2\u5185\u751F\u6548"));
         hkInput.value = hotkeyDisplay(s.menuBarHotkey);
         hkInput.classList.remove("is-capturing");
         hkInput.blur();
@@ -20868,7 +21688,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
         s.path = notePath(v);
         p.saveSettings();
       } catch (e) {
-        new import_obsidian5.Notice(e.message);
+        new import_obsidian7.Notice(e.message);
       }
     }, "ad-input--wide");
     if (companionInstalled(p.app)) {
@@ -20906,7 +21726,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
         c.path = v.trim() ? externalMemoryPath(v) : "";
         p.saveSettings();
       } catch (e) {
-        new import_obsidian5.Notice(e.message);
+        new import_obsidian7.Notice(e.message);
       }
     }, "ad-input--wide");
     const shareMore = this.subDetails(shared, "share-more", t("\u66F4\u591A\u8BBE\u7F6E"));
@@ -20955,7 +21775,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       try {
         await p.setExperimentalDashboard(enabled);
       } catch (error) {
-        new import_obsidian5.Notice(t("\u8BBE\u7F6E\u4FDD\u5B58\u5931\u8D25\uFF1A{error}", { error: error.message }));
+        new import_obsidian7.Notice(t("\u8BBE\u7F6E\u4FDD\u5B58\u5931\u8D25\uFF1A{error}", { error: error.message }));
       }
       this.display();
     });
@@ -21002,7 +21822,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     this.bigButton(btns, t("\u590D\u5236\u8C03\u8BD5\u4FE1\u606F"), async () => {
       const text = JSON.stringify({ version: p.manifest.version, settings: p.settings, files: p.usage.files.size, sessions: p.usage.meta.size, errors: p.usage.errors }, null, 2);
       await navigator.clipboard.writeText(text);
-      new import_obsidian5.Notice(t("\u8C03\u8BD5\u4FE1\u606F\u5DF2\u590D\u5236"));
+      new import_obsidian7.Notice(t("\u8C03\u8BD5\u4FE1\u606F\u5DF2\u590D\u5236"));
     });
   }
   renderAboutDiagram(el) {
@@ -21107,7 +21927,7 @@ function strength(n, dots = false) {
   if (dots) return "\u25CF".repeat(n) + "\u25CB".repeat(5 - n);
   return ["", "Very light", "Light", "Balanced", "Strong", "Deepest"][n] || "Balanced";
 }
-var AddModelModal = class extends import_obsidian5.Modal {
+var AddModelModal = class extends import_obsidian7.Modal {
   constructor(app, plugin, onAdd, existing = null) {
     super(app);
     this.plugin = plugin;
@@ -21174,7 +21994,7 @@ var AddModelModal = class extends import_obsidian5.Modal {
     const add = bar.createEl("button", { cls: "ad-btn ad-btn--cta", text: this.existing ? t("\u4FDD\u5B58") : t("\u6DFB\u52A0") });
     add.onclick = () => {
       const name = this.name.trim() || this.model.trim();
-      if (!name || !this.model.trim()) return new import_obsidian5.Notice(t("\u663E\u793A\u540D\u548C model \u81F3\u5C11\u586B\u4E00\u4E2A"));
+      if (!name || !this.model.trim()) return new import_obsidian7.Notice(t("\u663E\u793A\u540D\u548C model \u81F3\u5C11\u586B\u4E00\u4E2A"));
       const id = this.existing?.id || `custom-${this.agent}-${Date.now().toString(36)}`;
       const m = {
         id,
@@ -21203,8 +22023,8 @@ var AddModelModal = class extends import_obsidian5.Modal {
 };
 
 // src/dialog.js
-var import_obsidian6 = require("obsidian");
-var DelegateOptionsModal = class extends import_obsidian6.Modal {
+var import_obsidian8 = require("obsidian");
+var DelegateOptionsModal = class extends import_obsidian8.Modal {
   constructor(app, plugin, path10, line) {
     super(app);
     this.plugin = plugin;
@@ -21244,7 +22064,7 @@ var DelegateOptionsModal = class extends import_obsidian6.Modal {
       this.model = selected.model || this.plugin.defaultModel(this.agent);
       this.effort = selected.effort || this.plugin.settings.delegate[this.agent]?.effort || "high";
     } catch (e) {
-      new import_obsidian6.Notice(e.message);
+      new import_obsidian8.Notice(e.message);
       this.close();
       return;
     }
@@ -21310,7 +22130,7 @@ var DelegateOptionsModal = class extends import_obsidian6.Modal {
           await p.refreshAcpModels(this.agent);
           this.render();
         } catch (e) {
-          new import_obsidian6.Notice(e.message);
+          new import_obsidian8.Notice(e.message);
           refresh.disabled = false;
         }
       };
@@ -21410,7 +22230,7 @@ var DelegateOptionsModal = class extends import_obsidian6.Modal {
         go.removeAttribute("disabled");
         setLucide(goIcon, "send");
         label.textContent = "Delegate";
-        new import_obsidian6.Notice(String(e.message || e), 6e3);
+        new import_obsidian8.Notice(String(e.message || e), 6e3);
       }
     };
   }
@@ -21418,7 +22238,7 @@ var DelegateOptionsModal = class extends import_obsidian6.Modal {
     this.contentEl.empty();
   }
 };
-var ConfirmSendModal = class extends import_obsidian6.Modal {
+var ConfirmSendModal = class extends import_obsidian8.Modal {
   constructor(app, { agent, text, path: path10, where, destination, newSession = false, context = [] }, onSend) {
     super(app);
     this.agent = agent;
@@ -21503,7 +22323,7 @@ function destinationPicker(parent, agent, value, onChange) {
   select.onchange = update;
   update();
 }
-var ArchiveTargetModal = class extends import_obsidian6.Modal {
+var ArchiveTargetModal = class extends import_obsidian8.Modal {
   constructor(app, plugin, file, base, plan) {
     super(app);
     this.plugin = plugin;
@@ -23929,7 +24749,7 @@ var MenuBarBridge = class {
 };
 
 // src/fold-integration.js
-var import_obsidian7 = require("obsidian");
+var import_obsidian9 = require("obsidian");
 var import_language3 = require("@codemirror/language");
 
 // src/fold-actions.js
@@ -23954,7 +24774,7 @@ function integrateRecordFolding(plugin) {
     if (!command?.checkCallback) continue;
     const original = command.checkCallback;
     const wrapped = function(checking) {
-      const view = plugin.app.workspace.getActiveViewOfType(import_obsidian7.MarkdownView);
+      const view = plugin.app.workspace.getActiveViewOfType(import_obsidian9.MarkdownView);
       const cm = view?.editor?.cm;
       const value = cm?.state.field(plugin.aiRecordDisplayField, false);
       if (!value) return original.apply(this, arguments);
@@ -23993,7 +24813,7 @@ function integrateRecordFolding(plugin) {
 }
 
 // src/autolog.js
-var import_obsidian8 = require("obsidian");
+var import_obsidian10 = require("obsidian");
 var agentName = (id) => AGENTS[id]?.short || id;
 var num = (v, d) => Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d;
 var BLOCKED_KW = {
@@ -24105,7 +24925,7 @@ var AutoLog = class {
     let view = null;
     this.p.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!view && v instanceof import_obsidian8.MarkdownView && v.file && v.file.path === file.path && v.getMode && v.getMode() === "source") view = v;
+      if (!view && v instanceof import_obsidian10.MarkdownView && v.file && v.file.path === file.path && v.getMode && v.getMode() === "source") view = v;
     });
     return view;
   }
@@ -24760,7 +25580,7 @@ var AutoLog = class {
       sec(t("\u{1F4CC} \u8BB0\u4E86\u8981\u4F60\u505A\u7684"), d.todo)
     ].filter(Boolean);
     if (!parts.length) return;
-    new import_obsidian8.Notice(t("\u{1F916} \u6574\u7406\u4E86\u65E5\u8BB0") + "\n" + parts.join("\n\n"), 9e3);
+    new import_obsidian10.Notice(t("\u{1F916} \u6574\u7406\u4E86\u65E5\u8BB0") + "\n" + parts.join("\n\n"), 9e3);
   }
   // 手动整理：一轮最多问 autoLogBatch 个，接着问到问完
   async logNow() {
@@ -24774,7 +25594,7 @@ var AutoLog = class {
     }
     this._at = Date.now();
     const msg = error && !changes.length ? t("\u6CA1\u6574\u7406\u6210\uFF1A{error}", { error }) : changes.length ? t("\u6574\u7406\u8FDB\u65E5\u8BB0\u4E86\uFF1A") + "\n" + changes.join("\n") + (error ? "\n" + t("\uFF08\u6A21\u578B\u6CA1\u95EE\u5230\uFF0C\u65B0\u4F1A\u8BDD\u5148\u7528\u5B83\u81EA\u5DF1\u7684\u6807\u9898\u8BB0\u7684\uFF1A{error}\uFF09", { error }) : "") : t("\u6CA1\u6709\u8981\u6539\u7684\uFF1A\u4F1A\u8BDD\u90FD\u5DF2\u7ECF\u8BB0\u8FC7\u4E86\uFF0C\u6216\u8005\u8FD8\u592A\u77ED\uFF08\u4E0D\u5230 {min} \u5206\u949F\uFF09", { min: this.minMinutes });
-    new import_obsidian8.Notice(msg, 9e3);
+    new import_obsidian10.Notice(msg, 9e3);
     this.p.refreshUI();
     return { changes, error };
   }
@@ -24791,7 +25611,7 @@ var AutoLog = class {
 };
 
 // src/sync.js
-var import_obsidian9 = require("obsidian");
+var import_obsidian11 = require("obsidian");
 var STATE_KW2 = STATE_KW;
 var JournalSync = class {
   constructor(plugin) {
@@ -24842,7 +25662,7 @@ var JournalSync = class {
     const out = [];
     this.p.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (v instanceof import_obsidian9.MarkdownView && v.file && v.editor && v.editor.cm) {
+      if (v instanceof import_obsidian11.MarkdownView && v.file && v.editor && v.editor.cm) {
         try {
           const doc = v.editor.cm.state.doc.toString();
           if (doc.includes("\u{1F517}") || doc.includes("^") && taskItems(doc).some((task) => isDeckBlockId(task.blockId))) out.push(v);
@@ -25522,7 +26342,7 @@ var JournalSync = class {
 };
 
 // src/conversation-modal.js
-var import_obsidian10 = require("obsidian");
+var import_obsidian12 = require("obsidian");
 function sessionSubtitle(session = {}) {
   const parts = [];
   const cwd = String(session.cwd || "").trim().replace(/[/\\]+$/, "");
@@ -25538,7 +26358,7 @@ function actionButton(parent, label, iconName, cls = "ad-btn") {
   btn.createSpan({ text: label });
   return btn;
 }
-var ConversationModal = class extends import_obsidian10.Modal {
+var ConversationModal = class extends import_obsidian12.Modal {
   constructor(app, plugin, session) {
     super(app);
     this.plugin = plugin;
@@ -25569,9 +26389,9 @@ var ConversationModal = class extends import_obsidian10.Modal {
       try {
         const file = await archiveConversation(this.plugin, this.session);
         await this.app.workspace.getLeaf(false).openFile(file);
-        new import_obsidian10.Notice(t("\u5DF2\u5F52\u6863\uFF1A{path}", { path: file.path }));
+        new import_obsidian12.Notice(t("\u5DF2\u5F52\u6863\uFF1A{path}", { path: file.path }));
       } catch (e) {
-        new import_obsidian10.Notice(e.message);
+        new import_obsidian12.Notice(e.message);
       } finally {
         archive.disabled = false;
       }
@@ -25625,7 +26445,7 @@ var ConversationModal = class extends import_obsidian10.Modal {
       if (this.closed || signature === this.signature) return;
       this.signature = signature;
       this.renderComponent?.unload();
-      this.renderComponent = new import_obsidian10.Component();
+      this.renderComponent = new import_obsidian12.Component();
       this.renderComponent.load();
       this.messagesEl.empty();
       if (!messages.length) {
@@ -25648,7 +26468,7 @@ var ConversationModal = class extends import_obsidian10.Modal {
         }
         if (m.text) {
           const body = item.createDiv({ cls: "ad-conv-msg__body" });
-          await import_obsidian10.MarkdownRenderer.render(this.app, m.text, body, "", this.renderComponent);
+          await import_obsidian12.MarkdownRenderer.render(this.app, m.text, body, "", this.renderComponent);
           if (this.closed) return;
         }
         if (Array.isArray(m.tools) && m.tools.length) this.renderTools(item, m.tools);
@@ -25717,7 +26537,7 @@ var ConversationModal = class extends import_obsidian10.Modal {
     this.contentEl.empty();
   }
 };
-var AcpPermissionModal = class extends import_obsidian10.Modal {
+var AcpPermissionModal = class extends import_obsidian12.Modal {
   constructor(app, info, resolve) {
     super(app);
     this.info = info;
@@ -25755,8 +26575,8 @@ var AcpPermissionModal = class extends import_obsidian10.Modal {
 };
 
 // src/mention-suggest.js
-var import_obsidian11 = require("obsidian");
-var TaskAgentSuggest = class extends import_obsidian11.EditorSuggest {
+var import_obsidian13 = require("obsidian");
+var TaskAgentSuggest = class extends import_obsidian13.EditorSuggest {
   constructor(plugin) {
     super(plugin.app);
     this.plugin = plugin;
@@ -25811,341 +26631,12 @@ function registerTaskAgentSuggest(plugin) {
   if (index > 0) suggests.unshift(...suggests.splice(index, 1));
 }
 
-// src/task-status.js
-var import_obsidian12 = require("obsidian");
-var STATUS_TOKEN = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)([A-Z][A-Z0-9_-]*)(?=\s|$)/;
-var LIST_STATUS_LEAD = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(.*)$/;
-var EXTRA_STATE_KWS = ["YES", "NO", "MAYBE", "ARCHIVED"];
-function knownTaskKeywords(app = null) {
-  const words = /* @__PURE__ */ new Set([...TASK_KWS.split("|"), ...EXTRA_STATE_KWS]);
-  for (const p of Object.values(app?.plugins?.plugins || {})) {
-    for (const [key, value] of Object.entries(p?.settings || {})) {
-      if (/^additional.*Keywords$/.test(key) && Array.isArray(value)) {
-        for (const kw of value) {
-          if (/^[A-Z][A-Z0-9_-]*$/.test(kw)) words.add(kw);
-        }
-      }
-    }
-  }
-  return words;
-}
-function updateCheckboxPrefix(prefix, keyword) {
-  if (!/\[[ xX/\-]\]/.test(prefix)) return prefix;
-  const box = !keyword ? " " : DONE_KWS.includes(keyword) ? keyword.startsWith("CANCEL") ? "-" : "x" : keyword === "DOING" ? "/" : " ";
-  return prefix.replace(/\[[ xX/\-]\]/, `[${box}]`);
-}
-function replaceTaskStatus(raw, keyword) {
-  if (!/^[A-Z][A-Z0-9_-]*$/.test(keyword)) return null;
-  const match = STATUS_TOKEN.exec(raw);
-  if (!match) return null;
-  const prefix = updateCheckboxPrefix(match[1], keyword);
-  return prefix + keyword + raw.slice(match[0].length);
-}
-function setTaskLineStatus(raw, keyword, { knownKeywords = null } = {}) {
-  if (keyword !== "" && !/^[A-Z][A-Z0-9_-]*$/.test(keyword)) return null;
-  const lead = LIST_STATUS_LEAD.exec(raw);
-  if (!lead) return null;
-  const known = knownKeywords || knownTaskKeywords();
-  const prefix = updateCheckboxPrefix(lead[1], keyword);
-  const rest = lead[2] || "";
-  const firstToken = /^([A-Z][A-Z0-9_-]*)(?=\s|$)(?:\s+)?/.exec(rest);
-  if (firstToken && known.has(firstToken[1])) {
-    const tail = rest.slice(firstToken[0].length);
-    return keyword ? `${prefix}${keyword}${tail ? " " + tail : ""}` : `${prefix}${tail}`;
-  }
-  if (!keyword) return null;
-  return `${prefix}${keyword}${rest ? " " + rest : ""}`;
-}
-function selectionLineRanges(doc, selection) {
-  const ranges = selection?.ranges?.length ? selection.ranges : selection ? [selection] : [];
-  return ranges.map((r) => {
-    const fromLine = doc.lineAt(r.from).number - 1;
-    let toLine = doc.lineAt(r.to).number - 1;
-    if (toLine > fromLine && r.to === doc.line(toLine + 1).from) toLine -= 1;
-    return { fromLine, toLine };
-  });
-}
-function selectedTaskLines(doc, selection) {
-  if (!doc || !selection) return [];
-  const text = doc.toString();
-  const lines = text.split("\n");
-  const fenced = fencedLines(lines);
-  return collectSelectedRootLines(lines, selectionLineRanges(doc, selection), {
-    fenced,
-    skipLine: (line) => RECORD_LINE_RE.test(line)
-  });
-}
-function locateStatusTask(text, target) {
-  const lines = text.split("\n"), fenced = fencedLines(lines);
-  const id = blockIdOf(target.raw);
-  const hits = lines.flatMap((raw, n) => !fenced.has(n) && LIST_RE.test(raw) && (id ? blockIdOf(raw) === id : raw === target.raw) ? [n] : []);
-  if (hits.length !== 1) return -1;
-  return hits[0];
-}
-function suggestedStatus(settings, usage, text, n) {
-  const lines = text.split("\n"), owners = ownersOf(lines), ids = /* @__PURE__ */ new Set();
-  for (let i = n + 1; i < lines.length; i++) {
-    if (lines[i].trim() && width(lines[i]) <= width(lines[n])) break;
-    const link = owners[i] === n && parseLink(lines[i]);
-    if (link) ids.add(link.sid);
-  }
-  const bid = blockIdOf(lines[n]);
-  if (bid) {
-    for (const day of Object.values(settings.autoLogState || {})) for (const [sid, r] of Object.entries(day || {})) if (r?.blockId === bid && !r.skip && !r.gone) ids.add(sid);
-  }
-  if (!ids.size) return "";
-  if (settings.autoLogArchiveDone !== false && [...ids].every((sid) => usage.archived?.has(sid) || usage.archivedClaude?.has(sid))) return "DONE";
-  const states = [...ids].map((sid) => usage.meta.get(sid)?.state).filter(Boolean);
-  if (states.some((state) => ["run", "running", "starting"].includes(state))) return "DOING";
-  return states.map((state) => STATE_KW[state]).find(Boolean) || "";
-}
-async function applyStatusChoice(plugin, target, keyword) {
-  const settings = plugin.settings;
-  let id = blockIdOf(target.raw);
-  if (!id && plugin.taskBlockId && !DONE_KWS.includes(keyword)) {
-    const text = await plugin.readNote(target.path), n = locateStatusTask(text, target);
-    if (n < 0) throw new Error(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
-    const link = linkUnder(text.split("\n"), n), task = kwLine(target.raw);
-    if (link || task?.body.startsWith("\u{1F916}")) id = await plugin.taskBlockId(link?.sid || "", link?.agent || "", task.body.replace(/^🤖\s*/, ""));
-  }
-  let previous, changed = false;
-  const transform = (text) => {
-    const n = locateStatusTask(text, target);
-    if (n < 0) throw new Error(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
-    const lines = text.split("\n");
-    const link = linkUnder(lines, n);
-    id || (id = makeBlockId(link?.sid || "", link?.agent));
-    const next = keyword || suggestedStatus(settings, plugin.usage, text, n);
-    if (!next) throw new Error(t("\u6CA1\u6709\u53EF\u8DDF\u968F\u7684\u4F1A\u8BDD\u72B6\u6001"));
-    const raw = replaceTaskStatus(lines[n], next);
-    if (!raw) throw new Error(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
-    previous = settings.manualTaskStates?.[id];
-    const locks = settings.manualTaskStates || (settings.manualTaskStates = {});
-    if (keyword) locks[id] = next;
-    else delete locks[id];
-    changed = true;
-    lines[n] = ensureBlockId(raw, id).line;
-    return cleanCompletedIdentifiers(lines.join("\n"));
-  };
-  try {
-    const view = plugin.viewForPath(target.path);
-    if (view) {
-      const before = view.editor.getValue();
-      const after = transform(before);
-      const diff = diffLines(before, after);
-      if (diff) view.editor.transaction({ changes: [diff] });
-    } else {
-      const file = plugin.app.vault.getAbstractFileByPath(target.path);
-      if (!file) throw new Error(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
-      await plugin.app.vault.process(file, transform);
-    }
-  } catch (error) {
-    if (changed) {
-      if (previous === void 0) delete settings.manualTaskStates[id];
-      else settings.manualTaskStates[id] = previous;
-    }
-    throw error;
-  }
-  await plugin.saveSettings();
-  plugin.refreshUI();
-}
-async function applyBatchStatusChoice(plugin, editor, lineNumbers, keyword) {
-  const unique = [...new Set((lineNumbers || []).filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b);
-  if (!unique.length || !editor) return 0;
-  const settings = plugin.settings || {};
-  const known = knownTaskKeywords(plugin.app);
-  const before = editor.getValue();
-  const lines = before.split("\n");
-  const rollbacks = [];
-  let updatedCount = 0;
-  for (const n of unique) {
-    if (n >= lines.length || !LIST_RE.test(lines[n] || "")) continue;
-    const rawLine = lines[n];
-    const nextKw = keyword === null ? suggestedStatus(settings, plugin.usage, before, n) : keyword;
-    if (keyword === null && !nextKw) continue;
-    const replaced = setTaskLineStatus(rawLine, nextKw, { knownKeywords: known });
-    if (!replaced || replaced === rawLine) continue;
-    let id = blockIdOf(rawLine);
-    const link = linkUnder(lines, n);
-    const task = kwLine(rawLine);
-    const isAi = Boolean(id || link || task?.body?.startsWith("\u{1F916}"));
-    let finalLine = replaced;
-    if (isAi) {
-      id || (id = makeBlockId(link?.sid || "", link?.agent));
-      rollbacks.push([id, settings.manualTaskStates?.[id]]);
-      const locks = settings.manualTaskStates || (settings.manualTaskStates = {});
-      if (keyword) locks[id] = nextKw;
-      else delete locks[id];
-      if (!DONE_KWS.includes(nextKw) && nextKw !== "") finalLine = ensureBlockId(replaced, id).line;
-    }
-    lines[n] = finalLine;
-    updatedCount += 1;
-  }
-  if (!updatedCount) {
-    if (keyword === null) throw new Error(t("\u6CA1\u6709\u53EF\u8DDF\u968F\u7684\u4F1A\u8BDD\u72B6\u6001"));
-    return 0;
-  }
-  const after = cleanCompletedIdentifiers(lines.join("\n"));
-  try {
-    const diff = diffLines(before, after);
-    if (diff) {
-      if (typeof editor.transaction === "function") editor.transaction({ changes: [diff] });
-      else if (editor.cm) editor.cm.dispatch({ changes: { from: editor.posToOffset(diff.from), to: editor.posToOffset(diff.to), insert: diff.text } });
-    }
-  } catch (error) {
-    for (const [id, prev] of rollbacks) {
-      if (prev === void 0) delete settings.manualTaskStates[id];
-      else settings.manualTaskStates[id] = prev;
-    }
-    throw error;
-  }
-  await plugin.saveSettings?.();
-  plugin.refreshUI?.();
-  return updatedCount;
-}
-function appendStatusChoices(menu, plugin, { currentKeyword = "", suggested = "", hasSuggested = false, allowClear = false, onChoose, position }) {
-  for (const keyword of ["TODO", "DOING", "PAUSED", "DONE", "CANCELED"]) {
-    menu.addItem((item) => item.setTitle(keyword).setChecked(Boolean(currentKeyword && keyword === currentKeyword)).onClick(() => onChoose(keyword)));
-  }
-  const groups = [
-    [t("\u7B49\u5F85\u4E0E\u7A0D\u540E"), ["LATER", "WAITING", "WAIT", "SUSPENDED"]],
-    [t("AI \u72B6\u6001"), [...AGENT_KWS]],
-    [t("\u5176\u4ED6\u5173\u952E\u8BCD"), ["IN-PROGRESS", "CANCELLED", "FAILED"]]
-  ];
-  const known = new Set(TASK_KWS.split("|"));
-  for (const p of Object.values(plugin.app?.plugins?.plugins || {})) {
-    for (const [key, value] of Object.entries(p.settings || {})) {
-      if (/^additional.*Keywords$/.test(key) && Array.isArray(value)) {
-        for (const kw of value) {
-          if (/^[A-Z][A-Z0-9_-]*$/.test(kw) && !known.has(kw)) {
-            groups[2][1].push(kw);
-            known.add(kw);
-          }
-        }
-      }
-    }
-  }
-  for (const [title, keywords] of groups) {
-    menu.addItem((item) => {
-      item.setTitle(title);
-      if (typeof item.setSubmenu === "function") {
-        const sub = item.setSubmenu();
-        for (const kw of keywords) sub.addItem((i) => i.setTitle(kw).setChecked(Boolean(currentKeyword && kw === currentKeyword)).onClick(() => onChoose(kw)));
-      } else {
-        item.onClick(() => {
-          const sub = new import_obsidian12.Menu();
-          for (const kw of keywords) sub.addItem((i) => i.setTitle(kw).setChecked(Boolean(currentKeyword && kw === currentKeyword)).onClick(() => onChoose(kw)));
-          sub.showAtPosition(position);
-        });
-      }
-    });
-  }
-  if (allowClear) {
-    menu.addItem((item) => item.setTitle(t("\u6E05\u9664\u72B6\u6001\u5173\u952E\u8BCD")).onClick(() => onChoose("")));
-  }
-  menu.addSeparator();
-  menu.addItem(
-    (item) => item.setTitle(suggested ? t("\u6062\u590D\u81EA\u52A8\u8DDF\u968F\uFF1A{state}", { state: suggested }) : hasSuggested ? t("\u6062\u590D\u81EA\u52A8\u8DDF\u968F") : t("\u6CA1\u6709\u53EF\u8DDF\u968F\u7684\u4F1A\u8BDD\u72B6\u6001")).setDisabled(!suggested && !hasSuggested).onClick(() => onChoose(null))
-  );
-}
-function populateBatchStatusMenu(menu, plugin, editor, lineNumbers, position = { x: 0, y: 0 }) {
-  const before = editor.getValue();
-  const hasSuggested = lineNumbers.some((n) => Boolean(suggestedStatus(plugin.settings || {}, plugin.usage || { meta: /* @__PURE__ */ new Map() }, before, n)));
-  appendStatusChoices(menu, plugin, {
-    hasSuggested,
-    allowClear: true,
-    position,
-    onChoose: (kw) => applyBatchStatusChoice(plugin, editor, lineNumbers, kw).then((count) => {
-      if (count && lineNumbers.length > 1) new import_obsidian12.Notice(t("\u5DF2\u66F4\u65B0 {n} \u4E2A\u5757\u7684\u72B6\u6001", { n: count }));
-    }).catch((error) => new import_obsidian12.Notice(error.message))
-  });
-}
-function openBatchStatusMenu(plugin, editor, position = null) {
-  const cm = editor?.cm;
-  const lineNumbers = cm ? selectedTaskLines(cm.state.doc, cm.state.selection) : [];
-  if (!lineNumbers.length) {
-    new import_obsidian12.Notice(t("\u8BF7\u5148\u9009\u4E2D\u8981\u8C03\u6574\u72B6\u6001\u7684\u5217\u8868\u9879"));
-    return null;
-  }
-  let pos = position;
-  if (!pos && cm) {
-    const coords = cm.coordsAtPos?.(cm.state.selection.main.head);
-    pos = coords ? { x: coords.left, y: coords.bottom } : { x: 120, y: 120 };
-  }
-  const menu = new import_obsidian12.Menu();
-  menu.addItem(
-    (item) => item.setTitle(lineNumbers.length > 1 ? t("\u6279\u91CF\u8C03\u6574 {n} \u4E2A\u5757\u7684\u4EFB\u52A1\u72B6\u6001", { n: lineNumbers.length }) : t("\u8C03\u6574\u5F53\u524D\u5757\u7684\u4EFB\u52A1\u72B6\u6001")).setDisabled(true)
-  );
-  populateBatchStatusMenu(menu, plugin, editor, lineNumbers, pos);
-  menu.showAtPosition(pos || { x: 120, y: 120 });
-  return menu;
-}
-async function statusMenu(plugin, target, position) {
-  const text = await plugin.readNote(target.path), n = locateStatusTask(text, target);
-  if (n < 0) return new import_obsidian12.Notice(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
-  const view = plugin.viewForPath?.(target.path);
-  const cm = view?.editor?.cm;
-  const selected = cm ? selectedTaskLines(cm.state.doc, cm.state.selection) : [];
-  if (view?.editor && selected.length >= 2 && selected.includes(n)) {
-    return openBatchStatusMenu(plugin, view.editor, position);
-  }
-  const suggested = suggestedStatus(plugin.settings, plugin.usage, text, n), menu = new import_obsidian12.Menu();
-  const choose = (keyword) => applyStatusChoice(plugin, target, keyword).catch((error) => new import_obsidian12.Notice(error.message));
-  menu.addItem((item) => item.setTitle(isManualTask(plugin.settings, text.split("\n")[n]) ? t("\u4EBA\u5DE5\u7BA1\u7406\uFF1AAI \u4E0D\u8986\u76D6\u6B64\u4EFB\u52A1\u72B6\u6001") : suggested ? t("\u72B6\u6001\u7531\u4F1A\u8BDD\u81EA\u52A8\u540C\u6B65") : t("\u9009\u62E9\u4E00\u4E2A\u4EFB\u52A1\u72B6\u6001")).setDisabled(true));
-  appendStatusChoices(menu, plugin, { currentKeyword: target.keyword, suggested, position, onChoose: choose });
-  menu.showAtPosition(position);
-}
-function registerTaskStatusMenu(plugin) {
-  plugin.registerMarkdownPostProcessor((el, ctx) => {
-    const section = ctx.getSectionInfo(el);
-    if (!section) return;
-    const lines = section.text.split("\n"), fenced = fencedLines(lines), source = [];
-    for (let n = section.lineStart; n <= section.lineEnd; n++) if (!fenced.has(n) && LIST_RE.test(lines[n] || "")) source.push(n);
-    const items = [...el.querySelectorAll("li")];
-    if (items.length !== source.length) return;
-    items.forEach((li, i) => {
-      li.dataset.adStatusPath = ctx.sourcePath;
-      li.dataset.adStatusRaw = lines[source[i]];
-    });
-  });
-  const locate = (element) => {
-    const keyword = element?.closest?.("[data-task-keyword]");
-    if (!keyword) return null;
-    let target = null;
-    plugin.app.workspace.iterateAllLeaves((leaf) => {
-      const view = leaf.view, cm = view.editor?.cm;
-      if (!cm || !view.file || !cm.dom.contains(keyword)) return;
-      const line = cm.state.doc.lineAt(cm.posAtDOM(keyword));
-      if (fencedLines(cm.state.doc.toString().split("\n")).has(line.number - 1)) return;
-      target = { path: view.file.path, raw: line.text, keyword: keyword.dataset.taskKeyword };
-    });
-    if (!target) {
-      const li = keyword.closest("li[data-ad-status-path]");
-      if (li) target = { path: li.dataset.adStatusPath, raw: li.dataset.adStatusRaw, keyword: keyword.dataset.taskKeyword };
-    }
-    return target && STATUS_TOKEN.exec(target.raw)?.[2] === target.keyword ? target : null;
-  };
-  for (const type of ["mousedown", "click", "keydown"]) plugin.registerDomEvent(document, type, (event) => {
-    if (type === "keydown" && !["Enter", " "].includes(event.key)) return;
-    if (type !== "keydown" && event.button !== 0) return;
-    const target = locate(event.target);
-    if (!target) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    if (type !== "mousedown") {
-      const rect = event.target.getBoundingClientRect?.();
-      const position = { x: event.clientX ?? rect?.left ?? 0, y: event.clientY ?? rect?.bottom ?? 0 };
-      statusMenu(plugin, target, position).catch((error) => new import_obsidian12.Notice(error.message));
-    }
-  }, true);
-}
-
 // src/task-export.js
 var import_fs11 = __toESM(require("fs"), 1);
 var import_promises3 = __toESM(require("fs/promises"), 1);
 var import_os11 = __toESM(require("os"), 1);
 var import_path10 = __toESM(require("path"), 1);
-var import_obsidian13 = require("obsidian");
+var import_obsidian14 = require("obsidian");
 var SAFE_HREF_RE = /^(?:https?:|mailto:|obsidian:|claude:|codex:|workbuddy:|dsh:|antigravity:|opencode:|qoder:|cursor:|\/|#|\.\.?\/)/i;
 function dedentVisualLines(lines, cols) {
   if (!cols) return [...lines];
@@ -26959,7 +27450,7 @@ async function renderMarkdownFragment(plugin, md, path10, comp) {
   if (!md) return "";
   const host = document.createElement("div");
   try {
-    await import_obsidian13.MarkdownRenderer.render(plugin.app, md, host, path10, comp);
+    await import_obsidian14.MarkdownRenderer.render(plugin.app, md, host, path10, comp);
     return host.innerHTML;
   } finally {
     host.remove();
@@ -26967,7 +27458,7 @@ async function renderMarkdownFragment(plugin, md, path10, comp) {
 }
 async function renderTaskHtmlForExport(plugin, extracted, path10, viewMode) {
   const effectiveView = resolveExportView(extracted, viewMode);
-  const comp = new import_obsidian13.Component();
+  const comp = new import_obsidian14.Component();
   comp.load();
   try {
     let outlineBodyHtml = "";
@@ -27128,8 +27619,8 @@ async function saveTaskAsFile(plugin, path10, line) {
 }
 
 // src/workbench-modal.js
-var import_obsidian14 = require("obsidian");
-var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
+var import_obsidian15 = require("obsidian");
+var ProjectWorkbenchModal = class extends import_obsidian15.Modal {
   constructor(app, plugin, opts = {}) {
     super(app);
     this.plugin = plugin;
@@ -27257,7 +27748,7 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
   }
   async runCopilotPlan() {
     if (!this.goal.trim()) {
-      new import_obsidian14.Notice(t("\u8BF7\u5148\u8F93\u5165\u9879\u76EE\u76EE\u6807\u6216\u9700\u6C42\u63CF\u8FF0"));
+      new import_obsidian15.Notice(t("\u8BF7\u5148\u8F93\u5165\u9879\u76EE\u76EE\u6807\u6216\u9700\u6C42\u63CF\u8FF0"));
       return;
     }
     this.planning = true;
@@ -27286,11 +27777,11 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
         }));
       } else {
         this.applyFallbackPlan();
-        new import_obsidian14.Notice(t("\u6A21\u578B\u8FD4\u56DE\u672A\u6309\u7ED3\u6784\u5316\u683C\u5F0F\u8F93\u51FA\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848"));
+        new import_obsidian15.Notice(t("\u6A21\u578B\u8FD4\u56DE\u672A\u6309\u7ED3\u6784\u5316\u683C\u5F0F\u8F93\u51FA\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848"));
       }
     } catch (e) {
       this.applyFallbackPlan();
-      new import_obsidian14.Notice(t("\u672A\u8FDE\u4E0A\u6574\u7406\u6A21\u578B\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848\uFF1A{msg}", { msg: e.message || e }), 5e3);
+      new import_obsidian15.Notice(t("\u672A\u8FDE\u4E0A\u6574\u7406\u6A21\u578B\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848\uFF1A{msg}", { msg: e.message || e }), 5e3);
     } finally {
       this.planning = false;
       this.render();
@@ -27299,7 +27790,7 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
   async commitTasks({ dispatch = false } = {}) {
     const active2 = this.subtasks.filter((s) => s.checked !== false && String(s.title || "").trim());
     if (!active2.length) {
-      new import_obsidian14.Notice(t("\u8BF7\u81F3\u5C11\u4FDD\u7559\u4E00\u6761\u8981\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
+      new import_obsidian15.Notice(t("\u8BF7\u81F3\u5C11\u4FDD\u7559\u4E00\u6761\u8981\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
       return;
     }
     this.dispatching = true;
@@ -27332,13 +27823,13 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
           } : { enabled: false }
         });
       } else {
-        new import_obsidian14.Notice(t("\u5DF2\u5C06 {n} \u6761\u534F\u4F5C\u5B50\u4EFB\u52A1\u5199\u5165\u7B14\u8BB0", { n: active2.length }));
+        new import_obsidian15.Notice(t("\u5DF2\u5C06 {n} \u6761\u534F\u4F5C\u5B50\u4EFB\u52A1\u5199\u5165\u7B14\u8BB0", { n: active2.length }));
       }
       this.close();
     } catch (e) {
       this.dispatching = false;
       this.render();
-      new import_obsidian14.Notice(String(e.message || e), 6e3);
+      new import_obsidian15.Notice(String(e.message || e), 6e3);
     }
   }
   render() {
@@ -27792,7 +28283,7 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
 // src/main.js
 var fsp8 = import_fs12.default.promises;
 var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
-var AgentDeckPlugin = class extends import_obsidian15.Plugin {
+var AgentDeckPlugin = class extends import_obsidian16.Plugin {
   async onload() {
     const data = await this.loadData();
     this.settings = syncDelegationSettings(deepMerge(DEFAULTS, data || {}), data || {});
@@ -27833,7 +28324,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     this.store = new UsageStore(this, this.settings);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
     this.usageCacheFile = import_path11.default.join(import_os12.default.homedir(), ".agent-deck", "usage-cache.json.gz");
-    this.editorInfoField = import_obsidian15.editorInfoField;
+    this.editorInfoField = import_obsidian16.editorInfoField;
     this._launchingWaves = /* @__PURE__ */ new Set();
     this._finalizingWaves = /* @__PURE__ */ new Set();
     this.delegator = new Delegator(this);
@@ -27876,7 +28367,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
       }));
     }
     this.registerMarkdownPostProcessor((el, ctx) => {
-      const child = new import_obsidian15.MarkdownRenderChild(el);
+      const child = new import_obsidian16.MarkdownRenderChild(el);
       child.onunload = renderAIRecords(el, this, ctx);
       ctx.addChild(child);
     });
@@ -27887,7 +28378,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
       id: "open-project-workbench",
       name: t("\u6253\u5F00\u9879\u76EE\u534F\u4F5C\u5DE5\u4F5C\u53F0\uFF1A\u5C0F\u961F\u7F16\u6392\u4E0E\u62C6\u89E3\u6D3E\u53D1"),
       callback: () => {
-        const view = this.app.workspace.getActiveViewOfType(import_obsidian15.MarkdownView);
+        const view = this.app.workspace.getActiveViewOfType(import_obsidian16.MarkdownView);
         const line = view?.file ? view.editor.getCursor().line : -1;
         this.openProjectWorkbench(view?.file && line >= 0 && blockAt(view.editor.getValue().split("\n"), line) ? { path: view.file.path, line } : {});
       }
@@ -28331,7 +28822,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
         this._cursorPromptNotice?.hide();
         this._cursorPromptNotice = null;
       };
-      this._cursorPromptNotice = new import_obsidian15.Notice(fragment, 0);
+      this._cursorPromptNotice = new import_obsidian16.Notice(fragment, 0);
       return true;
     } finally {
       this._promptingCursorHooks = false;
@@ -28395,8 +28886,8 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
       if (!scoped) this.maybePromptCursorHooks?.().catch(() => {
       });
-      if (force) new import_obsidian15.Notice(t("Agent Deck\uFF1A\u8BFB\u5230 {files} \u4E2A\u65E5\u5FD7\uFF0C{days} \u5929\u6709\u5185\u5BB9", { files: this.usage.files.size, days: touched.size }), 4e3);
-      if (agent && days) new import_obsidian15.Notice(t("{name}\uFF1A\u6700\u8FD1 {days} \u5929\u7684\u4F1A\u8BDD\u5DF2\u626B\u63CF", { name: AGENTS[agent].name, days }), 4e3);
+      if (force) new import_obsidian16.Notice(t("Agent Deck\uFF1A\u8BFB\u5230 {files} \u4E2A\u65E5\u5FD7\uFF0C{days} \u5929\u6709\u5185\u5BB9", { files: this.usage.files.size, days: touched.size }), 4e3);
+      if (agent && days) new import_obsidian16.Notice(t("{name}\uFF1A\u6700\u8FD1 {days} \u5929\u7684\u4F1A\u8BDD\u5DF2\u626B\u63CF", { name: AGENTS[agent].name, days }), 4e3);
     } catch (e) {
       console.error("[agent-deck] scan", e);
       this.notice(t("\u626B\u63CF\u4F1A\u8BDD\u5931\u8D25\uFF1A{error}", { error: e && e.message || e }), 8e3);
@@ -28412,7 +28903,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     this.usage.titles.clear();
     await this.store.save();
     await this.scanNow(true);
-    new import_obsidian15.Notice(t("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97"));
+    new import_obsidian16.Notice(t("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97"));
   }
   async importNautilus(manual = false) {
     const dir = import_path11.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
@@ -28420,14 +28911,14 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     try {
       raw = await fsp8.readFile(import_path11.default.join(dir, "ai-usage.json"), "utf8");
     } catch {
-      if (manual) new import_obsidian15.Notice(t("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json"));
+      if (manual) new import_obsidian16.Notice(t("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json"));
       return;
     }
     let src;
     try {
       src = JSON.parse(raw);
     } catch {
-      if (manual) new import_obsidian15.Notice(t("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25"));
+      if (manual) new import_obsidian16.Notice(t("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25"));
       return;
     }
     const days = src.days || {};
@@ -28445,7 +28936,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     }
     this.store.imported = { ...this.store.imported || {}, nautilus: Date.now() };
     await this.store.save();
-    if (manual || added) new import_obsidian15.Notice(t("Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 {days} \u5929\u5386\u53F2", { days: added }));
+    if (manual || added) new import_obsidian16.Notice(t("Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 {days} \u5929\u5386\u53F2", { days: added }));
     this.refreshUI();
   }
   recoverJobs() {
@@ -28565,12 +29056,12 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
-    new import_obsidian15.Notice(t("Agent Deck \u4E3B\u529B\uFF1A{agents}", { agents: this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ") }));
+    new import_obsidian16.Notice(t("Agent Deck \u4E3B\u529B\uFF1A{agents}", { agents: this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ") }));
   }
   async setAgentEnabled(agent, on) {
     var _a, _b, _c;
     if (this.isPrimary(agent) && !on) {
-      new import_obsidian15.Notice(t("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389"));
+      new import_obsidian16.Notice(t("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389"));
       return;
     }
     ((_a = this.settings).agents || (_a.agents = {}))[agent] = !!on;
@@ -28928,7 +29419,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     let found = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!found && v instanceof import_obsidian15.MarkdownView && v.file && v.file.path === path10 && v.editor) found = v;
+      if (!found && v instanceof import_obsidian16.MarkdownView && v.file && v.file.path === path10 && v.editor) found = v;
     });
     return found;
   }
@@ -28941,7 +29432,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     let view = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!view && v instanceof import_obsidian15.MarkdownView && v.editor && v.editor.cm === cm) view = v;
+      if (!view && v instanceof import_obsidian16.MarkdownView && v.editor && v.editor.cm === cm) view = v;
     });
     if (!view || !data || !data.sid) return;
     const sid = data.sid;
@@ -28994,11 +29485,11 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
   }
   // 把笔记里的第 srcLine 条任务合并/绑定到第 dstLine 条任务上（不管是 🤖 自动记的还是人写的）
   mergeTaskLines(cmOrView, srcLine, dstLine, srcLineText = "") {
-    let view = cmOrView instanceof import_obsidian15.MarkdownView ? cmOrView : null;
+    let view = cmOrView instanceof import_obsidian16.MarkdownView ? cmOrView : null;
     if (!view) {
       this.app.workspace.iterateAllLeaves((leaf) => {
         const v = leaf.view;
-        if (!view && v instanceof import_obsidian15.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
+        if (!view && v instanceof import_obsidian16.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
       });
     }
     if (!view || !view.editor) return;
@@ -29052,7 +29543,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     }
     const candidates = taskItems(lines.join("\n")).filter((t2) => t2.line !== taskLine);
     if (!candidates.length) return this.notice(t("\u5F53\u524D\u7B14\u8BB0\u91CC\u6CA1\u6709\u522B\u7684\u4EFB\u52A1\u6761\u76EE\u53EF\u5408\u5E76"));
-    const menu = new import_obsidian15.Menu();
+    const menu = new import_obsidian16.Menu();
     for (const c of candidates.slice(0, 20)) {
       menu.addItem((mi) => {
         const tag = c.auto ? "\u{1F916} " : "";
@@ -29178,7 +29669,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     const lines = view.editor.getValue().split("\n"), block = blockAt(lines, line);
     if (!block) return;
     const sessions = this.sessionsAtTask(path10, line, lines);
-    const menu = new import_obsidian15.Menu();
+    const menu = new import_obsidian16.Menu();
     for (const [index, session] of sessions.entries()) {
       const title = `${AGENTS[session.agent]?.name || session.agent} \xB7 ${t("\u4F1A\u8BDD {n}", { n: index + 1 })}`;
       if (canOpenClient(session)) menu.addItem((mi) => mi.setTitle(t("\u7EE7\u7EED\u5BF9\u8BDD \xB7 {title}", { title })).setDisabled(!session.sid).onClick(() => this.openClientSession(session)));
@@ -29225,7 +29716,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path10, line)));
   }
   openRecordViewMenu(event, { path: path10 = "", line = 0, viewMode = "outline", onSelect } = {}) {
-    const menu = new import_obsidian15.Menu();
+    const menu = new import_obsidian16.Menu();
     const views = [
       ["outline", t("\u5927\u7EB2"), "list-tree"],
       ["table", t("\u8868\u683C"), "table"],
@@ -29246,7 +29737,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
           this.populateRecordExportMenu(mi.setSubmenu(), opts);
         } else {
           mi.onClick(() => {
-            const sub = new import_obsidian15.Menu();
+            const sub = new import_obsidian16.Menu();
             this.populateRecordExportMenu(sub, opts);
             if (event) sub.showAtMouseEvent(event);
           });
@@ -29274,7 +29765,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     const current = this.viewForPath(item.path);
     if (current && this.sessionsAtTask(item.path, item.line, current.editor.getValue().split("\n")).length) return this.taskActions(item.path, item.line, e);
     const main = this.defaultTarget();
-    const menu = new import_obsidian15.Menu();
+    const menu = new import_obsidian16.Menu();
     for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x) && !AGENTS[x].trackingOnly)) {
       menu.addItem((mi) => {
         mi.setTitle(AGENTS[id].name + (id === main ? " \xB7 " + t("\u4E3B\u529B") : ""));
@@ -29328,7 +29819,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
   async delegateAtLine(path10, line, extraOpts = {}) {
     const file = this.app.vault.getAbstractFileByPath(path10);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian15.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian16.MarkdownView);
     const lines = view && view.file && view.file.path === path10 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     return this.delegateDrop(this.defaultTarget(), { path: path10, line, lineText: lines[line] }, null, extraOpts);
   }
@@ -30134,8 +30625,10 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
               }
             }
           }
+          const titleMarkdown = cleanBoardCardTitleMarkdown(task.body);
           const next = {
             title: stripInlineTitleMarkup(stripBlockId(task.body).replace(/^🤖\s*/u, "")),
+            titleMarkdown,
             kw: task.kw || "TODO",
             column: classifyTaskStatusColumn(task.kw || "TODO"),
             agent: link?.agent || "",
@@ -30408,7 +30901,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
       fragment.createEl("div", { text: `${title}
 ${body}` });
       fragment.createEl("button", { text: t("\u524D\u5F80\u5904\u7406") }).onclick = open;
-      const alert = { open, notice: new import_obsidian15.Notice(fragment, 0) };
+      const alert = { open, notice: new import_obsidian16.Notice(fragment, 0) };
       try {
         alert.system = new Notification(title, { body, tag: `agent-deck:${key}` });
         alert.system.onclick = () => {
@@ -30425,7 +30918,7 @@ ${body}` });
   // ---------- misc ----------
   notice(msg, ms) {
     try {
-      new import_obsidian15.Notice(msg, ms);
+      new import_obsidian16.Notice(msg, ms);
     } catch {
       console.log("[agent-deck]", msg);
     }

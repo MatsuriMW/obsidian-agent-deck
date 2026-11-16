@@ -3,6 +3,7 @@
 
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { StateEffect, StateField } from "@codemirror/state";
+import { Component, MarkdownRenderer, Menu } from "obsidian";
 import { AGENTS, truncate } from "./constants.js";
 import { t } from "./i18n.js";
 import { recordRuns, trackedBlockIds } from "./ai-records.js";
@@ -17,12 +18,25 @@ import {
   delegableAgents,
   findActiveWaveForBoard,
   isTerminalWorkerState,
+  boardCardPinId,
+  applyTaskBoardPins,
+  deleteTaskBoardCards,
 } from "./project-workbench.js";
 import { updateNote } from "./note-updates.js";
 import { mentionTrigger } from "./task-mentions.js";
+import { applyBatchStatusChoice } from "./task-status.js";
 
 export const setTaskBoardEffect = StateEffect.define();
 const BOARD_CARD_MIME = "application/x-agent-deck-board-card";
+const BOARD_LIST_BUDGET = 320;
+const boardSelections = new Map();
+
+function boardPinIds(settings, group) {
+  const pins = settings?.taskBoardPins;
+  if (!pins || !group) return [];
+  const list = pins[group.key] ?? pins[group.stableKey];
+  return Array.isArray(list) ? list : [];
+}
 
 export function taskBoardPref(settings, group) {
   const map = settings?.taskBoardViews;
@@ -106,7 +120,7 @@ class BoardToggleWidget extends WidgetType {
 }
 
 class TaskBoardWidget extends WidgetType {
-  constructor(plugin, rootGroup, activeGroup, model, pref, breadcrumbs, sourcePath) {
+  constructor(plugin, rootGroup, activeGroup, model, pref, breadcrumbs, sourcePath, pinnedIds = []) {
     super();
     this.plugin = plugin;
     this.rootGroup = rootGroup;
@@ -115,6 +129,10 @@ class TaskBoardWidget extends WidgetType {
     this.pref = pref;
     this.breadcrumbs = breadcrumbs;
     this.sourcePath = sourcePath;
+    this.pinnedIds = pinnedIds;
+    this.pinnedSet = new Set(pinnedIds);
+    this.boardKey = activeGroup.key || activeGroup.stableKey || "";
+    this.selKey = `${sourcePath || ""}::${this.boardKey}`;
     this.activeWave = findActiveWaveForBoard(plugin?.settings?.workbenchWaves, {
       path: sourcePath,
       parentBlockId: activeGroup.key,
@@ -136,13 +154,197 @@ class TaskBoardWidget extends WidgetType {
       groupBy: model.groupBy,
       wave: waveSig,
       crumbs: breadcrumbs.map((b) => b.key),
+      pins: pinnedIds,
       cols: model.columns.map((c) => [c.id, c.cards.map((k) => [
-        k.line, k.kw, k.title, k.agent, k.liveState, k.latestConclusion, k.childCardCount, k.isMirror,
+        k.line, k.kw, k.title, k.titleMarkdown, k.agent, k.liveState, k.step, k.latestConclusion, k.childCardCount, k.isMirror,
       ])]),
     });
   }
   eq(other) {
     return other.sig === this.sig && other.sourcePath === this.sourcePath;
+  }
+  selectionSet() {
+    let set = boardSelections.get(this.selKey);
+    if (!set) boardSelections.set(this.selKey, set = new Set());
+    return set;
+  }
+  selectedCards() {
+    const ids = this.selectionSet();
+    return this.model.columns.flatMap((col) => col.cards).filter((card) => ids.has(boardCardPinId(card)));
+  }
+  savePins(cards, pinned) {
+    const ids = cards.map(boardCardPinId).filter(Boolean);
+    if (!ids.length || !this.boardKey) return;
+    applyTaskBoardPins(this.plugin.settings, this.boardKey, ids, pinned);
+    this.plugin.saveSettings?.();
+    this.plugin.refreshUI?.();
+  }
+  async applyBulkStatus(keyword) {
+    const selected = this.selectedCards();
+    const editable = selected.filter((card) => !card.isMirror);
+    if (!editable.length) {
+      this.plugin.notice?.(t("所选卡片中没有可改状态的卡（镜像卡请到源笔记修改）"));
+      return;
+    }
+    const editor = this.plugin.viewForPath?.(this.sourcePath)?.editor;
+    if (!editor) {
+      this.plugin.notice?.(t("当前笔记没有可写入的编辑器"));
+      return;
+    }
+    try {
+      await applyBatchStatusChoice(this.plugin, editor, editable.map((card) => card.line), keyword);
+      const skipped = selected.length - editable.length;
+      if (skipped) this.plugin.notice?.(t("已跳过 {n} 张镜像卡（请到源笔记修改）", { n: skipped }));
+    } catch (error) {
+      this.plugin.notice?.(String(error?.message || error));
+    }
+  }
+  async deleteSelectedCards() {
+    const selected = this.selectedCards();
+    const editable = selected.filter((card) => !card.isMirror);
+    if (!editable.length) {
+      this.plugin.notice?.(t("镜像卡不能删除，请到源笔记修改"));
+      return;
+    }
+    if (!this.sourcePath) return;
+    try {
+      await updateNote(this.plugin, this.sourcePath, (text) =>
+        deleteTaskBoardCards(text, editable.map((card) => card.line)),
+      );
+      const ids = this.selectionSet();
+      for (const card of editable) ids.delete(boardCardPinId(card));
+      applyTaskBoardPins(this.plugin.settings, this.boardKey, editable.map(boardCardPinId).filter(Boolean), false);
+      this.plugin.saveSettings?.();
+      this.plugin.notice?.(t("已删除 {n} 张卡片", { n: editable.length }));
+      const skipped = selected.length - editable.length;
+      if (skipped) this.plugin.notice?.(t("已跳过 {n} 张镜像卡（请到源笔记修改）", { n: skipped }));
+      this.plugin.refreshUI?.();
+    } catch (error) {
+      this.plugin.notice?.(String(error?.message || error));
+    }
+  }
+  renderMarkdown(text, el) {
+    const value = String(text || "");
+    if (!value) return Promise.resolve();
+    const app = this.plugin?.app;
+    if (!app || typeof MarkdownRenderer?.render !== "function") {
+      el.textContent = value;
+      return Promise.resolve();
+    }
+    try {
+      if (!this._renderComponent) {
+        this._renderComponent = new Component();
+        this._renderComponent.load();
+      }
+      return MarkdownRenderer.render(app, value, el, this.sourcePath || "", this._renderComponent).catch(() => {
+        el.textContent = value;
+      });
+    } catch {
+      el.textContent = value;
+      return Promise.resolve();
+    }
+  }
+  openContextMenu(event, card) {
+    let selected = this.selectedCards();
+    const clickedId = card ? boardCardPinId(card) : "";
+    if (!selected.length) {
+      if (!clickedId) return;
+      this.selectionSet().add(clickedId);
+      this._syncBulk?.();
+      selected = this.selectedCards();
+    } else if (clickedId && selected.length === 1 && boardCardPinId(selected[0]) !== clickedId) {
+      this.selectionSet().clear();
+      this.selectionSet().add(clickedId);
+      this._syncBulk?.();
+      selected = this.selectedCards();
+    }
+    if (!selected.length) return;
+    const editable = selected.filter((item) => !item.isMirror);
+    const menu = new Menu();
+    menu.addItem((item) => item.setTitle(t("已选 {n} 张", { n: selected.length })).setDisabled(true));
+    menu.addSeparator();
+    const singleMirror = selected.length === 1 && selected[0].isMirror ? selected[0] : null;
+    const mirrorColumns = { TODO: "todo", DOING: "doing", NEEDOK: "review", DONE: "done" };
+    menu.addItem((item) => {
+      item.setTitle(t("改为状态"));
+      const choices = [["TODO", "TODO"], ["DOING", "DOING"], ["NEEDOK", t("待确认")], ["DONE", "DONE"]];
+      const choose = (keyword) => {
+        if (singleMirror) {
+          this.moveCard(singleMirror, { targetColumn: mirrorColumns[keyword] })
+            .catch((error) => this.plugin.notice?.(String(error?.message || error)));
+        } else {
+          this.applyBulkStatus(keyword);
+        }
+      };
+      if (typeof item.setSubmenu === "function") {
+        const sub = item.setSubmenu();
+        for (const [keyword, label] of choices) {
+          sub.addItem((entry) => entry.setTitle(label).onClick(() => choose(keyword)));
+        }
+      } else {
+        item.onClick(() => {
+          const sub = new Menu();
+          for (const [keyword, label] of choices) {
+            sub.addItem((entry) => entry.setTitle(label).onClick(() => choose(keyword)));
+          }
+          sub.showAtPosition({ x: event.clientX, y: event.clientY });
+        });
+      }
+      if (!editable.length && !singleMirror) item.setDisabled(true);
+    });
+    if (selected.length === 1) {
+      const target = selected[0];
+      const addSingle = (title, onClick) => {
+        menu.addItem((item) => item.setTitle(title).onClick(onClick));
+      };
+      if (target.activeJob && this.plugin?.cancelJob) {
+        addSingle(t("停止"), () => this.plugin.cancelJob(target.activeJob.id));
+      } else if (target.sid && this.plugin?.openConversation) {
+        addSingle(t("正文"), () => this.plugin.openConversation({ sid: target.sid, agent: target.agent }));
+      }
+      if (target.column === "todo" && !target.hasLink && !target.activeJob && !target.isMirror && this.plugin?.delegateAtLine && this.sourcePath) {
+        addSingle(t("派发"), () => this.plugin.delegateAtLine(this.sourcePath, target.line, {
+          boardContext: buildBoardSiblingContext(this.model, target.line),
+        }));
+      }
+    }
+    menu.addSeparator();
+    menu.addItem((item) => item.setTitle(t("置顶所选")).onClick(() => this.savePins(selected, true)));
+    menu.addItem((item) => item.setTitle(t("取消置顶")).onClick(() => this.savePins(selected, false)));
+    if (editable.length) {
+      menu.addSeparator();
+      menu.addItem((item) => {
+        item.setTitle(t("删除 {n} 张卡片", { n: editable.length }));
+        const addConfirm = (sub) => {
+          sub.addItem((entry) => entry.setTitle(t("确认删除 {n} 张", { n: editable.length })).onClick(() => this.deleteSelectedCards()));
+          sub.addItem((entry) => entry.setTitle(t("取消")));
+        };
+        if (typeof item.setSubmenu === "function") {
+          addConfirm(item.setSubmenu());
+        } else {
+          item.onClick(() => {
+            const confirm = new Menu();
+            addConfirm(confirm);
+            confirm.showAtPosition({ x: event.clientX, y: event.clientY });
+          });
+        }
+      });
+    }
+    menu.addItem((item) => item.setTitle(t("清空选择")).onClick(() => {
+      this.selectionSet().clear();
+      this._syncBulk?.();
+    }));
+    menu.showAtMouseEvent(event);
+  }
+  destroy() {
+    this._resizeObserver?.disconnect?.();
+    this._resizeObserver = null;
+    this._renderComponent?.unload?.();
+    this._renderComponent = null;
+    this._syncBulk = null;
+    this._scheduleCap = null;
+    if (this._capRaf) cancelAnimationFrame(this._capRaf);
+    this._capRaf = 0;
   }
   jumpTo(view, line) {
     const stDoc = view.state.doc;
@@ -182,6 +384,8 @@ class TaskBoardWidget extends WidgetType {
   }
   toDOM(view) {
     const doc = view.dom.ownerDocument;
+    this._renderComponent?.unload?.();
+    this._renderComponent = null;
     const wrap = doc.createElement("div");
     wrap.className = "ad-board-wrap";
     wrap.setAttribute("contenteditable", "false");
@@ -403,9 +607,128 @@ class TaskBoardWidget extends WidgetType {
       if (e.key === "Enter" && !e.isComposing) { e.preventDefault(); submitNew(); }
     });
 
-    // 4. Kanban columns
+    // 4. Bulk selection bar (hidden until at least one card is selected)
+    const allCards = this.model.columns.flatMap((col) => col.cards);
+    const cardId = (card) => boardCardPinId(card);
+    const selection = this.selectionSet();
+    const liveIds = new Set(allCards.map(cardId).filter(Boolean));
+    for (const id of [...selection]) if (!liveIds.has(id)) selection.delete(id);
+
+    const bulk = wrap.appendChild(doc.createElement("div"));
+    bulk.className = "ad-board__bulk";
+    bulk.hidden = true;
+    const bulkCount = bulk.appendChild(doc.createElement("span"));
+    bulkCount.className = "ad-board__bulkcount";
+    const bulkActs = bulk.appendChild(doc.createElement("div"));
+    bulkActs.className = "ad-board__bulkacts";
+
+    const checkInputs = [];
+    const colChecks = [];
+    const statusButtons = [];
+    let pinOnBtn = null;
+    let pinOffBtn = null;
+    let deleteBtn = null;
+    let deleteArmed = false;
+    let deleteTimer = 0;
+
+    const disarmDelete = () => {
+      deleteArmed = false;
+      clearTimeout(deleteTimer);
+      if (deleteBtn) {
+        deleteBtn.textContent = t("删除");
+        deleteBtn.classList.remove("is-armed");
+      }
+    };
+    const syncChecks = () => {
+      for (const item of checkInputs) item.input.checked = selection.has(item.id);
+      for (const item of colChecks) {
+        const ids = item.col.cards.filter((card) => !card.isMirror).map(cardId).filter(Boolean);
+        const selected = ids.filter((id) => selection.has(id)).length;
+        item.input.checked = ids.length > 0 && selected === ids.length;
+        item.input.indeterminate = selected > 0 && selected < ids.length;
+        item.input.disabled = ids.length === 0;
+      }
+    };
+    const syncBulk = () => {
+      const selected = allCards.filter((card) => selection.has(cardId(card)));
+      const editable = selected.filter((card) => !card.isMirror);
+      bulk.hidden = selected.length === 0;
+      bulkCount.textContent = t("已选 {n} 张", { n: selected.length });
+      for (const btn of statusButtons) btn.disabled = editable.length === 0;
+      if (pinOnBtn) pinOnBtn.disabled = selected.length === 0;
+      if (pinOffBtn) pinOffBtn.disabled = selected.length === 0;
+      if (deleteBtn) deleteBtn.disabled = editable.length === 0;
+      if (!editable.length) disarmDelete();
+      syncChecks();
+    };
+    this._syncBulk = syncBulk;
+    const bulkButton = (label, className = "ad-board__btn") => {
+      const btn = bulkActs.appendChild(doc.createElement("button"));
+      btn.type = "button";
+      btn.className = className;
+      btn.textContent = label;
+      btn.addEventListener("mousedown", (e) => e.stopPropagation());
+      return btn;
+    };
+
+    for (const [keyword, label] of [["TODO", "TODO"], ["DOING", "DOING"], ["NEEDOK", t("待确认")], ["DONE", "DONE"]]) {
+      const btn = bulkButton(label);
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.applyBulkStatus(keyword);
+      });
+      statusButtons.push(btn);
+    }
+    pinOnBtn = bulkButton(t("置顶所选"));
+    pinOnBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.savePins(this.selectedCards(), true);
+    });
+    pinOffBtn = bulkButton(t("取消置顶"));
+    pinOffBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.savePins(this.selectedCards(), false);
+    });
+    deleteBtn = bulkButton(t("删除"), "ad-board__btn is-danger");
+    deleteBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const editable = this.selectedCards().filter((card) => !card.isMirror);
+      if (!editable.length) return;
+      if (!deleteArmed) {
+        deleteArmed = true;
+        deleteBtn.textContent = t("确认删除 {n} 张", { n: editable.length });
+        deleteBtn.classList.add("is-armed");
+        clearTimeout(deleteTimer);
+        deleteTimer = setTimeout(disarmDelete, 8000);
+        return;
+      }
+      disarmDelete();
+      await this.deleteSelectedCards();
+    });
+    const clearBtn = bulkButton(t("清空"));
+    clearBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      selection.clear();
+      disarmDelete();
+      syncBulk();
+    });
+
+    // 5. Kanban columns
     const cols = wrap.appendChild(doc.createElement("div"));
     cols.className = "ad-board__cols";
+    const renderTasks = [];
+    cols.addEventListener("contextmenu", (e) => {
+      if (e.target?.closest?.(".ad-board__card")) return;
+      if (!this.selectionSet().size) return;
+      e.preventDefault();
+      e.stopPropagation();
+      this.openContextMenu(e, null);
+    });
     if (this.model.columns.length > 4) {
       cols.style.gridTemplateColumns = `repeat(${Math.min(this.model.columns.length, 5)}, minmax(150px, 1fr))`;
     }
@@ -417,7 +740,27 @@ class TaskBoardWidget extends WidgetType {
 
       const colHead = colEl.appendChild(doc.createElement("div"));
       colHead.className = "ad-board__colhead";
-      const colName = colHead.appendChild(doc.createElement("span"));
+      const colNameWrap = colHead.appendChild(doc.createElement("span"));
+      colNameWrap.className = "ad-board__colname";
+      const colCheck = colNameWrap.appendChild(doc.createElement("input"));
+      colCheck.type = "checkbox";
+      colCheck.className = "ad-board__check ad-board__check--column";
+      colCheck.title = t("选择本列卡片");
+      colCheck.setAttribute("aria-label", colCheck.title);
+      colCheck.addEventListener("mousedown", (e) => e.stopPropagation());
+      colCheck.addEventListener("click", (e) => e.stopPropagation());
+      colCheck.addEventListener("change", (e) => {
+        e.stopPropagation();
+        const ids = col.cards.filter((card) => !card.isMirror).map(cardId).filter(Boolean);
+        for (const id of ids) {
+          if (colCheck.checked) selection.add(id);
+          else selection.delete(id);
+        }
+        disarmDelete();
+        syncBulk();
+      });
+      colChecks.push({ input: colCheck, col });
+      const colName = colNameWrap.appendChild(doc.createElement("span"));
       colName.textContent = col.id === "review" ? t("待确认") : col.label;
       const colCount = colHead.appendChild(doc.createElement("span"));
       colCount.className = "ad-board__colcount";
@@ -445,11 +788,22 @@ class TaskBoardWidget extends WidgetType {
           const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
           if (!payload || !Number.isInteger(payload.line)) return;
           const cardObj = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
-          if (!cardObj) return;
+          if (!cardObj || cardObj.isMirror) return;
           if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
-            if (payload.column !== col.id) this.moveCard(cardObj, { targetParentLine: col.targetParentLine });
-          } else if (payload.column !== col.id) {
-            this.moveCard(cardObj, { targetColumn: col.id });
+            const last = col.cards[col.cards.length - 1];
+            if (!last) this.moveCard(cardObj, { targetParentLine: col.targetParentLine });
+            else this.moveCard(cardObj, { beforeLine: last.endLine + 1, targetParentLine: col.targetParentLine });
+            return;
+          }
+          if (payload.column !== col.id) {
+            const last = col.cards[col.cards.length - 1];
+            if (!last) this.moveCard(cardObj, { targetColumn: col.id });
+            else this.moveCard(cardObj, { targetColumn: col.id, beforeLine: last.endLine + 1 });
+            return;
+          }
+          if (col.cards.length > 1) {
+            const last = col.cards[col.cards.length - 1];
+            if (last.line !== cardObj.line) this.moveCard(cardObj, { beforeLine: last.endLine + 1 });
           }
         } catch { /* ignore invalid drag payload */ }
       });
@@ -462,8 +816,10 @@ class TaskBoardWidget extends WidgetType {
       }
 
       for (const card of col.cards) {
+        const pinId = cardId(card);
+        const pinned = this.pinnedSet.has(pinId);
         const cardEl = list.appendChild(doc.createElement("div"));
-        cardEl.className = `ad-board__card${card.activeJob ? " is-live" : ""}${card.isMirror ? " is-mirror" : ""}`;
+        cardEl.className = `ad-board__card${card.activeJob ? " is-live" : ""}${card.isMirror ? " is-mirror" : ""}${pinned ? " is-pinned" : ""}`;
         cardEl.draggable = true;
         if (card.agent && AGENTS[card.agent]) {
           cardEl.style.setProperty("--ad-agent", AGENTS[card.agent].color);
@@ -471,46 +827,87 @@ class TaskBoardWidget extends WidgetType {
         }
 
         cardEl.addEventListener("dragstart", (e) => {
+          if (e.target?.tagName === "INPUT") {
+            e.preventDefault();
+            return;
+          }
           e.stopPropagation();
           e.dataTransfer.setData(BOARD_CARD_MIME, JSON.stringify({ line: card.line, column: col.id }));
           e.dataTransfer.effectAllowed = "move";
           cardEl.classList.add("is-dragging");
         });
         cardEl.addEventListener("dragend", () => cardEl.classList.remove("is-dragging"));
+        cardEl.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.openContextMenu(e, card);
+        });
         cardEl.addEventListener("dragover", (e) => {
           if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
           e.preventDefault();
           e.stopPropagation();
-          cardEl.classList.add("is-drop-before");
+          const rect = cardEl.getBoundingClientRect();
+          const after = e.clientY > rect.top + rect.height / 2;
+          cardEl.classList.toggle("is-drop-after", after);
+          cardEl.classList.toggle("is-drop-before", !after);
+          colEl.classList.remove("is-drop");
         });
-        cardEl.addEventListener("dragleave", () => cardEl.classList.remove("is-drop-before"));
+        cardEl.addEventListener("dragleave", () => {
+          cardEl.classList.remove("is-drop-before", "is-drop-after");
+        });
         cardEl.addEventListener("drop", (e) => {
           if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
           e.preventDefault();
           e.stopPropagation();
-          cardEl.classList.remove("is-drop-before");
+          cardEl.classList.remove("is-drop-before", "is-drop-after");
           try {
             const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
             if (!payload || !Number.isInteger(payload.line) || payload.line === card.line) return;
             const dragged = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
             if (!dragged || dragged.isMirror) return;
+            const rect = cardEl.getBoundingClientRect();
+            const after = e.clientY > rect.top + rect.height / 2;
+            const beforeLine = after ? (Number.isInteger(card.endLine) ? card.endLine + 1 : card.line + 1) : card.line;
             if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
-              this.moveCard(dragged, { beforeLine: card.line, targetParentLine: col.targetParentLine });
+              this.moveCard(dragged, { beforeLine, targetParentLine: col.targetParentLine });
             } else {
-              this.moveCard(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine: card.line });
+              this.moveCard(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine });
             }
           } catch { /* ignore */ }
         });
 
         const topRow = cardEl.appendChild(doc.createElement("div"));
         topRow.className = "ad-board__cardtop";
-        const title = topRow.appendChild(doc.createElement("div"));
-        title.className = "ad-board__cardtitle";
-        title.textContent = card.title;
+        const lead = topRow.appendChild(doc.createElement("div"));
+        lead.className = "ad-board__cardlead";
+        const check = lead.appendChild(doc.createElement("input"));
+        check.type = "checkbox";
+        check.className = "ad-board__check";
+        check.checked = selection.has(pinId);
+        check.disabled = !pinId;
+        check.title = t("选择卡片");
+        check.setAttribute("aria-label", check.title);
+        check.addEventListener("mousedown", (e) => e.stopPropagation());
+        check.addEventListener("click", (e) => e.stopPropagation());
+        check.addEventListener("dragstart", (e) => { e.preventDefault(); e.stopPropagation(); });
+        check.addEventListener("change", (e) => {
+          e.stopPropagation();
+          if (!pinId) return;
+          if (check.checked) selection.add(pinId);
+          else selection.delete(pinId);
+          disarmDelete();
+          syncBulk();
+        });
+        checkInputs.push({ input: check, id: pinId });
+
+        const title = lead.appendChild(doc.createElement("div"));
+        title.className = "ad-board__cardtitle ad-board__md";
         title.title = card.isMirror && card.mirrorTarget?.path
           ? t("点击打开镜像源：{path}", { path: card.mirrorTarget.path })
           : t("点击切回大纲定位编辑");
+        renderTasks.push(this.renderMarkdown(card.titleMarkdown || card.title, title));
         title.addEventListener("click", (e) => {
+          if (e.target?.closest?.("a, .internal-link, .external-link, .tag, .cm-hashtag")) return;
           e.preventDefault();
           e.stopPropagation();
           if (card.isMirror && card.mirrorTarget?.path && this.plugin?.openMirrorSource) {
@@ -539,10 +936,23 @@ class TaskBoardWidget extends WidgetType {
           mBadge.title = card.mirrorTarget?.path || `${card.mirror?.target}#${card.mirror?.blockId}`;
         }
 
+        const pinBtn = topRow.appendChild(doc.createElement("button"));
+        pinBtn.type = "button";
+        pinBtn.className = `ad-board__pin${pinned ? " is-on" : ""}`;
+        pinBtn.textContent = "📌";
+        pinBtn.title = pinned ? t("取消置顶") : t("置顶（移到本列最前）");
+        pinBtn.setAttribute("aria-label", pinBtn.title);
+        pinBtn.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+        pinBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.savePins([card], !pinned);
+        });
+
         if (card.step || card.latestConclusion) {
           const note = cardEl.appendChild(doc.createElement("div"));
-          note.className = "ad-board__cardnote";
-          note.textContent = truncate(card.step || card.latestConclusion, 88);
+          note.className = "ad-board__cardnote ad-board__md";
+          renderTasks.push(this.renderMarkdown(truncate(card.step || card.latestConclusion, 88), note));
         }
 
         const foot = cardEl.appendChild(doc.createElement("div"));
@@ -573,58 +983,57 @@ class TaskBoardWidget extends WidgetType {
           badge.textContent = card.agent ? (AGENTS[card.agent]?.short || card.agent) : t("未指定");
         }
 
-        const cardActions = foot.appendChild(doc.createElement("div"));
-        cardActions.className = "ad-board__cardbtns";
-        if (card.activeJob && this.plugin?.cancelJob) {
-          const stopBtn = cardActions.appendChild(doc.createElement("button"));
-          stopBtn.type = "button";
-          stopBtn.className = "ad-board__mini is-danger";
-          stopBtn.textContent = t("停止");
-          stopBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.plugin.cancelJob(card.activeJob.id);
-          });
-        } else if (card.sid && this.plugin?.openConversation) {
-          const chatBtn = cardActions.appendChild(doc.createElement("button"));
-          chatBtn.type = "button";
-          chatBtn.className = "ad-board__mini";
-          chatBtn.textContent = t("正文");
-          chatBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.plugin.openConversation({ sid: card.sid, agent: card.agent });
-          });
-        }
-
-        if (card.column === "todo" && !card.hasLink && !card.activeJob && !card.isMirror && this.plugin?.delegateAtLine && this.sourcePath) {
-          const sendBtn = cardActions.appendChild(doc.createElement("button"));
-          sendBtn.type = "button";
-          sendBtn.className = "ad-board__mini";
-          sendBtn.textContent = t("派发");
-          sendBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.plugin.delegateAtLine(this.sourcePath, card.line, {
-              boardContext: buildBoardSiblingContext(this.model, card.line),
-            });
-          });
-        }
-
-        if (this.model.groupBy === "status") {
-          const nextCol = card.column === "todo" ? "doing" : card.column === "doing" ? "done" : card.column === "review" ? "done" : "todo";
-          const nextLabel = nextCol === "doing" ? "→ DOING" : nextCol === "done" ? "→ DONE" : "→ TODO";
-          const stepBtn = cardActions.appendChild(doc.createElement("button"));
-          stepBtn.type = "button";
-          stepBtn.className = "ad-board__mini";
-          stepBtn.textContent = nextLabel;
-          stepBtn.addEventListener("click", (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            this.moveCard(card, { targetColumn: nextCol });
-          });
-        }
       }
+    }
+
+    syncBulk();
+
+    // 6. Cap each column to roughly three normal cards (four when every card is short).
+    const capColumnLists = () => {
+      if (!wrap.isConnected) return;
+      for (const list of cols.querySelectorAll(".ad-board__collist")) {
+        const cards = [...list.querySelectorAll(".ad-board__card")];
+        list.style.maxHeight = "";
+        list.classList.remove("is-capped");
+        if (cards.length <= 3) continue;
+        const gap = parseFloat(getComputedStyle(list).rowGap) || 6;
+        const heights = cards.map((el) => el.getBoundingClientRect().height);
+        if (heights.some((height) => height <= 0)) continue;
+        const fourHeights = heights.slice(0, 4).reduce((sum, height) => sum + height, 0) + gap * 3;
+        const visible = fourHeights <= BOARD_LIST_BUDGET ? 4 : 3;
+        if (cards.length <= visible) continue;
+        const cap = heights.slice(0, visible).reduce((sum, height) => sum + height, 0) + gap * (visible - 1);
+        list.style.maxHeight = `${Math.ceil(cap + 1)}px`;
+        list.classList.add("is-capped");
+      }
+    };
+    const scheduleCap = (attempt = 0) => {
+      requestAnimationFrame(() => {
+        if (!wrap.isConnected) {
+          if (attempt < 3) scheduleCap(attempt + 1);
+          return;
+        }
+        capColumnLists();
+      });
+    };
+    this._scheduleCap = scheduleCap;
+    scheduleCap();
+    Promise.allSettled(renderTasks).then(() => this._scheduleCap?.());
+    this._resizeObserver?.disconnect?.();
+    if (typeof ResizeObserver === "function") {
+      let lastWidth = 0;
+      const observer = new ResizeObserver((entries) => {
+        const width = Math.round(entries[0]?.contentRect?.width || 0);
+        if (!width || Math.abs(width - lastWidth) < 2) return;
+        lastWidth = width;
+        if (this._capRaf) cancelAnimationFrame(this._capRaf);
+        this._capRaf = requestAnimationFrame(() => {
+          this._capRaf = 0;
+          capColumnLists();
+        });
+      });
+      observer.observe(wrap);
+      this._resizeObserver = observer;
     }
     return wrap;
   }
@@ -677,9 +1086,14 @@ export function taskBoardExtension(plugin, refreshEffect) {
       if (pref.mode === "board") {
         boardLines.add(g.line);
         const { activeGroup, breadcrumbs } = resolveActiveBoardAndBreadcrumbs(g, groups, pref);
-        const model = buildTaskBoardModel(activeGroup, plugin, { groupBy: pref.groupBy, resolveMirror });
+        const pinnedIds = boardPinIds(plugin.settings, activeGroup);
+        const model = buildTaskBoardModel(activeGroup, plugin, {
+          groupBy: pref.groupBy,
+          resolveMirror,
+          pinnedIds,
+        });
         ranges.push(Decoration.widget({
-          widget: new TaskBoardWidget(plugin, g, activeGroup, model, pref, breadcrumbs, sourcePath),
+          widget: new TaskBoardWidget(plugin, g, activeGroup, model, pref, breadcrumbs, sourcePath, pinnedIds),
           block: true,
           side: 1,
         }).range(doc.line(g.line + 1).to));

@@ -394,6 +394,7 @@ export const DEFAULTS = {
   aiRecordClosed: {},
   aiRecordViews: {},
   taskBoardViews: {},
+  taskBoardPins: {},
   projectTeams: { presets: {}, byProject: {}, stewards: {} },
   workbenchWaves: {},
   aiRecordDisplay: "latest1", // collapsed 折叠 / expanded 展开 / latest1、latest3、latest5 最近 N 条 AI 结论

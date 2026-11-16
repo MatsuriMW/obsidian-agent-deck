@@ -10,7 +10,7 @@ import esbuild from "esbuild";
 register(
   "data:text/javascript," +
     encodeURIComponent(
-      `export async function resolve(s,c,n){if(s==='obsidian')return {url:'data:text/javascript,export class MarkdownView{};export class Notice{};export class ItemView{constructor(l){Object.assign(this,l)}registerEvent(){}};export class Menu{};export class Modal{};',shortCircuit:true};return n(s,c)}`,
+      `export async function resolve(s,c,n){if(s==='obsidian')return {url:'data:text/javascript,export class MarkdownView{};export class Notice{};export class ItemView{constructor(l){Object.assign(this,l)}registerEvent(){}};export class Menu{};export class Modal{};export class Component{load(){return this}unload(){}};export const MarkdownRenderer={render:async()=>{}};',shortCircuit:true};return n(s,c)}`,
     ),
 );
 
@@ -34,6 +34,10 @@ const {
   insertTaskBoardCard,
   setTaskBoardCardAgent,
   moveTaskBoardCardSubtree,
+  boardCardPinId,
+  sortBoardCardsByPins,
+  applyTaskBoardPins,
+  deleteTaskBoardCards,
   buildBoardSiblingContext,
   MAX_STEWARD_ROUNDS,
   resolveStewardConfig,
@@ -395,6 +399,7 @@ test("taskBoardExtension toggles board mode, persists taskBoardViews, and hides 
     format: "esm",
     platform: "node",
     loader: { ".png": "dataurl" },
+    external: ["obsidian"],
     write: false,
     plugins: [{
       name: "cm-board",
@@ -506,6 +511,88 @@ test("taskBoardExtension toggles board mode, persists taskBoardViews, and hides 
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test("Fractal board pins, bulk delete, and column-end moves stay Markdown-native", async () => {
+  const note = [
+    "- TODO 根看板 ^ad-root",
+    "  - TODO 卡片 A ^ad-a",
+    "    - 补充细节",
+    "    - 💬 记录一",
+    "  - TODO 卡片 B ^ad-b",
+    "  - DONE 卡片 C",
+    "- TODO 尾项",
+  ].join("\n");
+
+  assert.equal(boardCardPinId({ blockId: "ad-a", title: "A" }), "block:ad-a");
+  assert.equal(boardCardPinId({ isMirror: true, mirror: { target: "其他笔记", blockId: "ad-m" }, title: "M" }), "mirror:其他笔记#ad-m");
+  assert.equal(boardCardPinId({ title: "  没有块号  " }), "title:没有块号");
+
+  const columns = [{ id: "todo", cards: [
+    { blockId: "a", title: "A" },
+    { blockId: "b", title: "B" },
+    { blockId: "c", title: "C" },
+  ] }];
+  sortBoardCardsByPins(columns, ["block:c"]);
+  assert.deepEqual(columns[0].cards.map((card) => card.blockId), ["c", "a", "b"]);
+  const plainColumns = [{ id: "todo", cards: [{ blockId: "a" }, { blockId: "b" }] }];
+  sortBoardCardsByPins(plainColumns, []);
+  assert.deepEqual(plainColumns[0].cards.map((card) => card.blockId), ["a", "b"]);
+
+  const settings = {};
+  applyTaskBoardPins(settings, "board:root", ["block:b"], true);
+  assert.deepEqual(settings.taskBoardPins["board:root"], ["block:b"]);
+  applyTaskBoardPins(settings, "board:root", ["block:b"], false);
+  assert.equal(settings.taskBoardPins["board:root"], undefined);
+
+  const mdTitleNote = [
+    "- TODO Markdown 根 ^ad-md-root",
+    "  - TODO **粗体** 子卡 ^ad-md-a",
+    "  - TODO 普通子卡 ^ad-md-b",
+  ].join("\n");
+  const mdGroup = extractTaskBoardGroups(mdTitleNote).find((g) => g.key === "ad-md-root");
+  assert.equal(mdGroup.cards[0].titleMarkdown, "**粗体** 子卡", "board keeps inline Markdown for rendering");
+  assert.equal(mdGroup.cards[0].title, "粗体 子卡", "plain title stays markup-free for pins and context");
+
+  const group = extractTaskBoardGroups(note).find((g) => g.key === "ad-root");
+  const model = buildTaskBoardModel(group, { jobs: {} }, { pinnedIds: ["block:ad-b"] });
+  assert.deepEqual(model.columns.find((c) => c.id === "todo").cards.map((card) => card.blockId), ["ad-b", "ad-a"]);
+
+  const childGroups = extractTaskBoardGroups([
+    "- TODO 子组根 ^ad-child-root",
+    "  - TODO 组一 ^ad-g1",
+    "    - TODO 子卡 A ^ad-ca",
+    "    - TODO 子卡 B ^ad-cb",
+    "  - TODO 组二 ^ad-g2",
+    "    - TODO 子卡 C ^ad-cc",
+    "    - TODO 子卡 D ^ad-cd",
+  ].join("\n"));
+  const childModel = buildTaskBoardModel(childGroups.find((g) => g.key === "ad-child-root"), { jobs: {} }, {
+    groupBy: "children",
+    pinnedIds: ["block:ad-cb"],
+  });
+  assert.deepEqual(childModel.columns[0].cards.map((card) => card.blockId), ["ad-cb", "ad-ca"]);
+
+  const deleted = deleteTaskBoardCards(note, [1]);
+  assert.ok(!deleted.includes("卡片 A"));
+  assert.ok(!deleted.includes("补充细节"));
+  assert.ok(!deleted.includes("记录一"));
+  assert.ok(deleted.includes("卡片 B"));
+  assert.ok(deleted.includes("尾项"));
+
+  const deletedMany = deleteTaskBoardCards(note, [1, 4]);
+  assert.ok(!deletedMany.includes("卡片 A"));
+  assert.ok(!deletedMany.includes("卡片 B"));
+  assert.ok(deletedMany.includes("卡片 C"));
+  assert.ok(deletedMany.includes("尾项"));
+
+  const nestedSelection = deleteTaskBoardCards(note, [1, 2]);
+  assert.ok(!nestedSelection.includes("卡片 A"));
+  assert.ok(nestedSelection.includes("卡片 B"));
+
+  const appendNote = ["- TODO 根 ^r", "  - TODO A ^a", "  - TODO B ^b"].join("\n");
+  const appended = moveTaskBoardCardSubtree(appendNote, 1, { beforeLine: 3 });
+  assert.equal(appended, ["- TODO 根 ^r", "  - TODO B ^b", "  - TODO A ^a"].join("\n"));
 });
 
 test("Fractal board Stage A/B/C: inline card edits, subtree moves, mirror isolation, and Harness context", async () => {

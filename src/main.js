@@ -72,6 +72,7 @@ import {
   isWaitingSession,
   classifyTaskStatusColumn,
   buildBoardSiblingContext,
+  cleanBoardCardTitleMarkdown,
   delegableAgents,
   limitAgentsFromSessions,
   resolveStewardConfig,
@@ -2463,8 +2464,10 @@ export default class AgentDeckPlugin extends Plugin {
               }
             }
           }
+          const titleMarkdown = cleanBoardCardTitleMarkdown(task.body);
           const next = {
             title: J.stripInlineTitleMarkup(J.stripBlockId(task.body).replace(/^🤖\s*/u, "")),
+            titleMarkdown,
             kw: task.kw || "TODO",
             column: classifyTaskStatusColumn(task.kw || "TODO"),
             agent: link?.agent || "",
