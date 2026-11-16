@@ -1,4 +1,4 @@
-/* Agent Deck 1.10.1 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.10.2 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1244,6 +1244,7 @@ var writers_default = {
   "DONE\uFF08\u957F\u65F6\u95F4\u65E0\u65B0\u5BF9\u8BDD\uFF09\uFF1A{name}\uFF08{min}m\uFF09": "DONE (idle timeout): {name} ({min}m)",
   "DOING\uFF1A{name}": "DOING: {name}",
   "PAUSED\uFF1A{name}\uFF08{min}m\uFF09": "PAUSED: {name} ({min}m)",
+  "{kw}\uFF1A{name}\uFF08{min}m\uFF09": "{kw}: {name} ({min}m)",
   "\u770B\u7740\u505A\u5B8C\u4E86\uFF1A{name}": "Looks finished: {name}",
   "\u5F85\u62CD\u677F\uFF08\u6302\u5728 {name} \u4E0B\uFF09\uFF1A{text}": "Needs your decision (under {name}): {text}",
   "**{head}\uFF08{n} \u4EF6\uFF09**": "**{head} ({n})**",
@@ -22996,6 +22997,12 @@ function integrateRecordFolding(plugin) {
 var import_obsidian8 = require("obsidian");
 var agentName = (id) => AGENTS[id]?.short || id;
 var num = (v, d) => Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d;
+var BLOCKED_KW = {
+  "needs-approval": "NEEDOK",
+  error: "ERRORED",
+  limit: "HITLIMIT",
+  queued: "QUEUED"
+};
 var AutoLog = class {
   constructor(plugin) {
     this.p = plugin;
@@ -23026,6 +23033,11 @@ var AutoLog = class {
   }
   rules() {
     return resolveRecordRules(this.cfg);
+  }
+  blockedKeyword(sid) {
+    const meta = sid && this.usage?.meta?.get(sid) || {};
+    const applied = this.p?.applyExternalState ? this.p.applyExternalState({ ...meta, sid }) : meta;
+    return BLOCKED_KW[applied?.state || meta.state || ""] || "";
   }
   projectOf(x) {
     if (!this.rules().projectPrefix) return "";
@@ -23137,7 +23149,7 @@ var AutoLog = class {
     const metaEndClock = endMs ? clock(dayMinute(endMs, this.cfg)) : "";
     const metaStartClock = !first && meta.startedAt ? clock(dayMinute(meta.startedAt, this.cfg)) : "";
     const preferId = found && found.blockId || rec.blockId || makeBlockId(sid || rec.key, x?.agent || rec.agent, rec.slug);
-    const kw = status === "doing" ? "DOING" : status === "done" ? "DONE" : "PAUSED";
+    const kw = status === "doing" ? "DOING" : status === "done" ? "DONE" : status === "paused" ? "PAUSED" : AGENT_KWS.includes(status) ? status : "PAUSED";
     const startClock = first != null ? clock(first) : metaStartClock;
     const endClock = status === "done" && metaEndClock ? metaEndClock : last != null ? clock(last) : metaEndClock || startClock;
     if (!found) {
@@ -23153,7 +23165,7 @@ var AutoLog = class {
         blockId: preferId,
         boldTitle: rules.boldTitle,
         showTimeRange: rules.showTimeRange
-      }) : status === "doing" ? `- DOING ${startClock || clock(0)} ${rec.label}` : status === "done" ? `- DONE ${endClock ? endClock + " " : ""}${rec.label}` : `- PAUSED ${rec.label}`;
+      }) : status === "doing" ? `- DOING ${startClock || clock(0)} ${rec.label}` : status === "done" ? `- DONE ${endClock ? endClock + " " : ""}${rec.label}` : `- ${kw} ${rec.label}`;
       const eb2 = ensureBlockId(rawLine, preferId);
       rec.blockId = eb2.blockId;
       rec.label = kwLine(eb2.line)?.body || rec.label;
@@ -23190,7 +23202,7 @@ var AutoLog = class {
     const cleanRest = stripBlockId(p.rest).replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
     const body = cleanRest;
     const since = segs.length ? clock(first) : p.since || clock(0);
-    const nextRaw = status === "doing" ? `${p.prefix}DOING ${since} ${body}`.trimEnd() : status === "done" ? `${p.prefix}DONE ${endClock ? endClock + " " : ""}${body}`.trimEnd() : `${p.prefix}PAUSED ${body}`.trimEnd();
+    const nextRaw = status === "doing" ? `${p.prefix}DOING ${since} ${body}`.trimEnd() : status === "done" ? `${p.prefix}DONE ${endClock ? endClock + " " : ""}${body}`.trimEnd() : `${p.prefix}${kw} ${body}`.trimEnd();
     const eb = ensureBlockId(nextRaw, preferId);
     rec.blockId = eb.blockId;
     rec.key = workKey(body);
@@ -23477,15 +23489,18 @@ var AutoLog = class {
             rec.status = "done";
             continue;
           }
-          if (rec.status && cur !== rec.status && cur) {
+          if (rec.status && found && (cur !== rec.status || rec.autoKw && found.kw !== rec.autoKw)) {
             if (cur === "doing") rec.hold = Date.now() + 2 * 36e5;
             else rec.parkedAt = last;
             rec.status = cur;
             delete rec.autoPaused;
+            delete rec.autoKw;
           }
           const name = workKey(rec.label).replace(AUTO_MARK, "");
           const grokIdleDone = x.agent === "grokbot" && grokDone > 0 && now - last >= grokDone && !(rec.hold && Date.now() < rec.hold);
           const archDone = this.allArchived(st, x.sid, rec, arch);
+          const blockedKw = this.blockedKeyword(x.sid);
+          const doneReview = !active && !blockedKw && Boolean(a && a.done || rec.doneHint);
           if (!manualState && (archDone || grokIdleDone)) {
             text = this.autoLine(text, rec, x, "done").text;
             rec.status = "done";
@@ -23497,6 +23512,8 @@ var AutoLog = class {
             delete rec.parkedAt;
             delete rec.hold;
             delete rec.autoPaused;
+            delete rec.autoKw;
+            delete rec.doneHint;
             clocks.add(rec.key);
             if (archDone) {
               digest.archived.push(`${name}\uFF08${x.min}m\uFF09`);
@@ -23505,20 +23522,53 @@ var AutoLog = class {
               digest.idleDone.push(`${name}\uFF08${x.min}m\uFF09`);
               report.changes.push(t("DONE\uFF08\u957F\u65F6\u95F4\u65E0\u65B0\u5BF9\u8BDD\uFF09\uFF1A{name}\uFF08{min}m\uFF09", { name: rec.label, min: x.min }));
             }
+          } else if (!manualState && blockedKw && !(rec.parkedAt != null && last <= rec.parkedAt && !rec.autoPaused)) {
+            const changed = !found || found.kw !== blockedKw;
+            text = this.autoLine(text, rec, x, blockedKw).text;
+            rec.status = "paused";
+            rec.autoPaused = true;
+            rec.autoKw = blockedKw;
+            rec.parkedAt = last;
+            delete rec.fresh;
+            delete rec.doneHint;
+            if (changed) {
+              clocks.add(rec.key);
+              report.changes.push(t("{kw}\uFF1A{name}\uFF08{min}m\uFF09", { kw: blockedKw, name: rec.label, min: x.min }));
+            }
           } else if (!manualState && active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
             text = this.autoLine(text, rec, x, "doing").text;
             rec.status = "doing";
             delete rec.parkedAt;
             delete rec.fresh;
             delete rec.autoPaused;
+            delete rec.autoKw;
+            delete rec.doneHint;
             digest.doing.push(name);
             report.changes.push(t("DOING\uFF1A{name}", { name: rec.label }));
           } else if (!manualState && active && cur === "doing") {
             text = this.autoLine(text, rec, x, "doing").text;
+            rec.status = "doing";
+            delete rec.parkedAt;
+            delete rec.autoPaused;
+            delete rec.autoKw;
+            delete rec.doneHint;
+          } else if (!manualState && doneReview && !(rec.hold && Date.now() < rec.hold) && (cur === "doing" || rec.fresh || rec.autoKw === "PAUSED" || rec.autoKw === "TOREVIEW")) {
+            const changed = !found || found.kw !== "TOREVIEW";
+            text = this.autoLine(text, rec, x, "TOREVIEW").text;
+            rec.status = "paused";
+            rec.autoPaused = true;
+            rec.autoKw = "TOREVIEW";
+            rec.parkedAt = last;
+            delete rec.fresh;
+            if (changed) {
+              clocks.add(rec.key);
+              report.changes.push(t("{kw}\uFF1A{name}\uFF08{min}m\uFF09", { kw: "TOREVIEW", name: rec.label, min: x.min }));
+            }
           } else if (!manualState && !active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
             text = this.autoLine(text, rec, x, "paused").text;
             rec.status = "paused";
             rec.autoPaused = true;
+            rec.autoKw = "PAUSED";
             rec.parkedAt = last;
             delete rec.fresh;
             clocks.add(rec.key);
@@ -23530,7 +23580,7 @@ var AutoLog = class {
           if (a && !active && a.done && !rec.doneHint) {
             rec.doneHint = true;
             digest.done.push(`${name}\uFF08${x.min}m\uFF09`);
-            report.changes.push(t("\u770B\u7740\u505A\u5B8C\u4E86\uFF1A{name}", { name: rec.label }));
+            if (rec.autoKw !== "TOREVIEW") report.changes.push(t("\u770B\u7740\u505A\u5B8C\u4E86\uFF1A{name}", { name: rec.label }));
           }
           const meta = this.usage.meta.get(x.sid) || {};
           const rawRounds = Array.isArray(meta.rounds) ? meta.rounds : [];

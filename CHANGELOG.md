@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.2
+
+- **自动记录复用阻塞与待查看关键词**：`AutoLog` 不新增关键词，复用现有 `AGENT_KWS`；当会话处于 `needs-approval` / `error` / `limit` / `queued` 时分别记录为 `NEEDOK` / `ERRORED` / `HITLIMIT` / `QUEUED`，模型判定整件事完成（`done: true`）且闲置时切为 `TOREVIEW`，正常停顿保留 `PAUSED`；会话恢复运行后自动切回 `DOING`。
+
 ## 1.10.1
 
 - **项目聚合隔离与子代理归属继承**：按规范化工作区根路径分组（合并 `/.claude/worktrees/...` 同时隔离不同路径下的同名目录，仅同名碰撞时在展示名附加区分父目录）；带 `parentSid` 的子代理（如 DSH `default-workspace`）通过 `parentSid` / `parentCwd` 继承母会话项目，不再落入「独立会话」；补齐 `/Codex/YYYY-MM-DD/...` 多级临时目录识别，递增 `USAGE_CACHE_VERSION = 12` 与 `SUMMARY_VERSION = 3`。

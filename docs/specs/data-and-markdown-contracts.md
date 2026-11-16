@@ -2,7 +2,7 @@
 
 ## 1. 日记任务行与 AI 记录
 
-- **标题格式与记录规则层（`recordRules`）**：默认生成 `任务状态 + 🤖 + HH:MM-HH:MM + **总结标题**`（自动剥离原始路径、URL 与口语前缀；工作区项目与 Grok Bot 会话自动带 `项目名 -> ` / `Bot名 -> ` 前缀，整段标题默认使用 Markdown `**...**` 加粗且不双重包裹）。规则细则统一由 `DEFAULT_RECORD_RULES` / `resolveRecordRules` 管理，并在「设置 → 记录 → 日记与归档 → 更多设置 → 记录规则细则」开放配置：`boldTitle`（母块标题自动加粗，默认开）、`projectPrefix`（项目/Bot 名前缀，默认开）、`showTimeRange`（起止时段，默认开）、`titleMax`（标题字数上限，默认 `22`）及 `autoLogGrokBotDoneMinutes`（Grok Bot 闲置自动 `DONE` 分钟数，默认 `120`）；子块（如委派/旁聊子项）不套用母块加粗。
+- **标题格式与记录规则层（`recordRules`）**：默认生成 `任务状态 + 🤖 + HH:MM-HH:MM + **总结标题**`（自动剥离原始路径、URL 与口语前缀；工作区项目与 Grok Bot 会话自动带 `项目名 -> ` / `Bot名 -> ` 前缀，整段标题默认使用 Markdown `**...**` 加粗且不双重包裹）。规则细则统一由 `DEFAULT_RECORD_RULES` / `resolveRecordRules` 管理，并在「设置 → 记录 → 日记与归档 → 更多设置 → 记录规则细则」开放配置：`boldTitle`（母块标题自动加粗，默认开）、`projectPrefix`（项目/Bot 名前缀，默认开）、`showTimeRange`（起止时段，默认开）、`titleMax`（标题字数上限，默认 `22`）及 `autoLogGrokBotDoneMinutes`（Grok Bot 闲置自动 `DONE` 分钟数，默认 `120`）；子块（如委派/旁聊子项）不套用母块加粗。自动记录关键词复用既有词表：进行中为 `DOING`，正常停顿为 `PAUSED`，模型判断整件事做完的停顿态切为 `TOREVIEW`，阻塞/异常态（`needs-approval` / `error` / `limit` / `queued`）对应 `NEEDOK` / `ERRORED` / `HITLIMIT` / `QUEUED`，归档或长闲置才记 `DONE`。
 - **用户标题保护**：已写出的父项标题与用户手写修改过的 AI 标题按原文保留（`preserveTitle`），跳过空格压缩、时间前缀剥离与重复加粗，不因状态切换或整理而覆盖。
 - **关键词**：`DOING` / `NOW` / `IN-PROGRESS`（进行中）、`TOREVIEW`（待查看）、`NEEDOK`（待授权）、`ERRORED` / `FAILED`、`HITLIMIT`、`QUEUED`、`DELEGATED`、`TODO` / `LATER`、`PAUSED` / `SUSPENDED`、`WAITING` / `WAIT`、`DONE`、`CANCELED` / `CANCELLED`、`TODOFORAI` / `TODO4AI` / `TODO2AI` / `TODOTOAI`；支持 `[ ]` `[/]` `[x]` `[-]`。人工改写关键词锁定自动状态同步（内容仍继续记录）。
 - **摘要短链与 AI 总结**：

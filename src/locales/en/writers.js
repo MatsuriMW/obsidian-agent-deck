@@ -13,6 +13,7 @@ export default {
   "DONE（长时间无新对话）：{name}（{min}m）": "DONE (idle timeout): {name} ({min}m)",
   "DOING：{name}": "DOING: {name}",
   "PAUSED：{name}（{min}m）": "PAUSED: {name} ({min}m)",
+  "{kw}：{name}（{min}m）": "{kw}: {name} ({min}m)",
   "看着做完了：{name}": "Looks finished: {name}",
   "待拍板（挂在 {name} 下）：{text}": "Needs your decision (under {name}): {text}",
   "**{head}（{n} 件）**": "**{head} ({n})**",

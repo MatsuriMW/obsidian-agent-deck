@@ -419,5 +419,61 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
     && files[`日记/${yesterday}.md`].includes("继续排查构建"),
     files);
 }
+{ // 自动记录区分阻塞态（NEEDOK / ERRORED / HITLIMIT / QUEUED）与 model done→TOREVIEW；正常停顿仍为 PAUSED
+  const list = [
+    { sid: "blk-perm", agent: "claude", min: 5, segs: [[600, 605]], title: "需授权操作" },
+    { sid: "blk-err", agent: "codex", min: 5, segs: [[610, 615]], title: "编译报错" },
+    { sid: "blk-lim", agent: "codex", min: 5, segs: [[620, 625]], title: "额度用尽" },
+    { sid: "blk-que", agent: "claude", min: 5, segs: [[630, 635]], title: "排队等待" },
+    { sid: "done-rev", agent: "dsh", min: 6, segs: [[640, 646]], title: "整件事已完成" },
+    { sid: "norm-pause", agent: "dsh", min: 6, segs: [[650, 656]], title: "中途暂歇" },
+  ];
+  const meta = {
+    "blk-perm": { state: "needs-approval" },
+    "blk-err": { state: "error" },
+    "blk-lim": { state: "limit" },
+    "blk-que": { state: "queued" },
+    "done-rev": { state: "wait" },
+    "norm-pause": { state: "wait" },
+  };
+  const p = fakePlugin("", list, meta);
+  const al = new AutoLog(p);
+  al.nowMin = () => 700;
+  al.ask = async (items) => new Map(items.map(({ x }) => [x.sid, {
+    label: x.title,
+    summary: "",
+    matchKey: null,
+    done: x.sid === "done-rev",
+    todos: [],
+    skip: false,
+  }]));
+  await al.run();
+  check("blocked sessions record NEEDOK/ERRORED/HITLIMIT/QUEUED instead of PAUSED",
+    p.journal.includes("- NEEDOK 🤖 10:00-10:05 **需授权操作**")
+    && p.journal.includes("- ERRORED 🤖 10:10-10:15 **编译报错**")
+    && p.journal.includes("- HITLIMIT 🤖 10:20-10:25 **额度用尽**")
+    && p.journal.includes("- QUEUED 🤖 10:30-10:35 **排队等待**"),
+    p.journal);
+  check("model done=true inactive session moves to TOREVIEW while normal wait stays PAUSED",
+    p.journal.includes("- TOREVIEW 🤖 10:40-10:46 **整件事已完成**")
+    && p.journal.includes("- PAUSED 🤖 10:50-10:56 **中途暂歇**"),
+    p.journal);
+  // Second pass with no changes keeps TOREVIEW and NEEDOK intact without flipping to DOING.
+  await al.run();
+  check("second pass preserves TOREVIEW and NEEDOK without false user-edit hold",
+    p.journal.includes("- TOREVIEW 🤖 10:40-10:46 **整件事已完成**")
+    && p.journal.includes("- NEEDOK 🤖 10:00-10:05 **需授权操作**"),
+    p.journal);
+  // Resuming blk-perm and done-rev switches them back to DOING.
+  p.usage.meta.get("blk-perm").state = "run";
+  p.usage.meta.get("done-rev").state = "run";
+  list[0].segs = [[600, 700]];
+  list[4].segs = [[640, 700]];
+  await al.run();
+  check("resumed blocked and TOREVIEW items switch back to DOING",
+    p.journal.includes("- DOING 🤖 10:00-11:40 **需授权操作**")
+    && p.journal.includes("- DOING 🤖 10:40-11:40 **整件事已完成**"),
+    p.journal);
+}
 if (fail) { console.log(`${fail} failed`); process.exit(1); }
 console.log("all passed");

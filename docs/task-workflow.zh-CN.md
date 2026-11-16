@@ -1,12 +1,12 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.10.1**（已发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.10.2**（已发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 双平台验证边界
 
 | 平台 | 已验证范围 | 未覆盖 / 已知代码缺口 |
 | --- | --- | --- |
-| **macOS** | 全量 `npm test`、构建、Vault 安装与热重载（`1.10.1`）、Dashboard、标题保护、token 显示、Qoder CLI 同会话 | 终端交互仅实测 Tern / Herdr；7 家可委派客户端全量派发与 Obsidian 新版界面抽查未逐一复测 |
+| **macOS** | 全量 `npm test`、构建、Vault 安装与热重载（`1.10.2`）、Dashboard、标题保护、token 显示、Qoder CLI 同会话 | 终端交互仅实测 Tern / Herdr；7 家可委派客户端全量派发与 Obsidian 新版界面抽查未逐一复测 |
 | **Windows** | 尚未实机运行验证 | `src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）仍依赖 macOS `osascript`/终端；`src/readers.js` 在 `win32` 跳过 `claudeDesktop`；CLI 探测与路径短链待实测 |
 
 ## 活跃 Backlog（均未排期）
@@ -76,3 +76,6 @@
   - `src/agent-ingestors.js`（DSH `turn/end` 与 Codex `task_complete` 在 `parentSid`/`delegationDepth > 0` 子代理正常结束时收口为 `done`、中断/中止 `aborted` 收口为 `cancelled`）与 `src/project-workbench.js` / `src/view.js` / `src/main.js`（`isWaitingSession` / `isActiveNowSession`：排除子代理 `wait`/`quiet` 及超过 `WAIT_ACTIVE_MS = 30m` 的历史正常结束会话，保留 `needs-approval` / `queued` / 活跃任务，同步更新「现在」「等你」筛选与 macOS 菜单栏等待计数）。
   - `src/ai-records.js`、`src/welcome-demo.js`、`README.en.md`、`LICENSE` 与 `assets/`：补齐英文 `Round N: Task: ...; Result: ...` 记录解析、英文截图与品牌图标资源，规范化 Apache-2.0 `LICENSE` 版权声明。
   - 验证边界：macOS 已通过全量 `npm test`、`npm run build`、`git diff --check`，GitHub Release `1.10.1` 构建发布成功，并已安装至 `马自立` Vault 完成热重载；Obsidian 真实界面交互复验与 Windows 端未实测。
+- **自动记录关键词状态区分（`1.10.2` 已发版）**：
+  - `src/autolog.js` 与 `src/locales/en/writers.js`：不新增关键词，复用现有 `AGENT_KWS`；`AutoLog` 在会话处于 `needs-approval` / `error` / `limit` / `queued` 时写出 `NEEDOK` / `ERRORED` / `HITLIMIT` / `QUEUED`，在模型判定 `done: true` 且闲置时切为 `TOREVIEW`，正常停顿保留 `PAUSED`（续聊恢复活跃后自动切回 `DOING`）。
+  - 验证边界：macOS 已通过全量 `npm test`（含 `test/autolog.test.mjs`、`test/i18n.test.mjs`）、`npm run build`、`git diff --check`、GitHub Release `1.10.2` 与 `马自立` Vault 安装热重载；Obsidian 实机与 Windows 端未实测。
