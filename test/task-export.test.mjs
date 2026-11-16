@@ -16,6 +16,7 @@ const cmStub = [
   "export const EditorState = { transactionFilter: { of: () => ({}) } };",
   "export const StateEffect = { define: () => ({}) };",
   "export const StateField = { define: () => ({}) };",
+  "export function syntaxTree() { return { resolveInner: () => null }; }",
   "export const foldedRanges = () => ({ between() {} });",
   "export const foldEffect = {};",
   "export const unfoldEffect = {};",

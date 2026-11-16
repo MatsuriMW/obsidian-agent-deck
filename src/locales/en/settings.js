@@ -132,6 +132,10 @@ export default {
   "整理超时（秒）": "Summary timeout (seconds)",
   "润色超时（秒）": "Polish timeout (seconds)",
   "扫描间隔（秒）": "Scan interval (seconds)",
+  "首次记录最近多少轮": "Rounds recorded on first sight",
+  "关键词配色与图标": "Keyword colours and icons",
+  "Logseq 风格的关键词颜色与图标；同时开着 Logseq Style Tasks 时，请关掉它的「格式化任务关键词」": "Logseq-style keyword colours and icons. When Logseq Style Tasks is enabled too, turn off its \"Format task keywords\" setting.",
+  "第一次接入某个会话 / Bot 时只补最近几轮；之后只记当天产生的新轮次": "Only the latest rounds are backfilled the first time a session or bot is hooked; afterwards only rounds produced today are recorded.",
   "整理间隔（分钟）": "Journal interval (minutes)",
   "暂停判定（分钟）": "Pause threshold (minutes)",
 

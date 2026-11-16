@@ -1015,10 +1015,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       { id: "latest3", label: t("最新三条") },
       { id: "latest1", label: t("最新一条") },
     ], s.aiRecordDisplay || DEFAULTS.aiRecordDisplay, (v) => { s.aiRecordDisplay = v; p.saveSettings(); p.refreshUI(); this.display(); });
+    this.rowToggle(jr, t("关键词配色与图标"), t("Logseq 风格的关键词颜色与图标；同时开着 Logseq Style Tasks 时，请关掉它的「格式化任务关键词」"), s.keywordStyle !== false, (v) => { s.keywordStyle = v; p.saveSettings(); p.refreshUI(); this.display(); });
     const jrMore = this.subDetails(jr, "recording-more", t("更多设置"));
     jrMore.appendChild(grain);
     this.rowToggle(jrMore, t("累积后自动合并总结"), "", !!s.autoLogMerge, (v) => { s.autoLogMerge = v; p.saveSettings(); this.display(); });
     this.rowNumber(jrMore, t("累积多少条结论后合并"), t("至少 2 条"), s.autoLogMergeThreshold || 10, 2, 100, (v) => { s.autoLogMergeThreshold = Math.round(v); p.saveSettings(); });
+    this.rowNumber(jrMore, t("首次记录最近多少轮"), t("第一次接入某个会话 / Bot 时只补最近几轮；之后只记当天产生的新轮次"), s.autoLogFirstRounds || DEFAULTS.autoLogFirstRounds, 1, 100, (v) => { s.autoLogFirstRounds = Math.max(1, Math.round(v)); p.saveSettings(); });
 
     const wb = jrMore;
     this.rowToggle(wb, t("把状态改成 DELEGATED"), "", d.markStatus !== false, (v) => { d.markStatus = v; p.saveSettings(); });

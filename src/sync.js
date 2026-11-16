@@ -12,7 +12,7 @@ import { updateNote } from "./note-updates.js";
 // 不进撤销记录；正在用输入法打字的那一下不写，等下一轮。
 
 import { MarkdownView } from "obsidian";
-import { AGENTS, dayKey, dayKeyToday, dayMinute, fmtTok, fmtClock, journalPath, resolveRecordRules } from "./constants.js";
+import { AGENTS, dayKey, dayKeyToday, dayMinute, fmtTok, fmtClock, journalPath, resolveRecordRules, trackedRounds, seenSessions, startOfDay } from "./constants.js";
 import * as J from "./journal.js";
 import { runJournalModel, safeLabel } from "./llm.js";
 import { ensureTopRule } from "./organize-journal.js";
@@ -237,6 +237,9 @@ export class JournalSync {
       }
     }
     const backgroundJobs = new Map(Object.values(this.p.jobs || {}).filter(job => job.destination === "background").map(job => [job.sessionId, job]));
+    // 「见过的会话」与当天起点每次回写只算一遍，别放进逐会话循环
+    const seen = seenSessions(this.cfg);
+    const todayStart = startOfDay(Date.now(), this.cfg);
     let out = text;
     for (const [sid, info] of targets) {
       const m = this.usage.meta.get(sid);
@@ -254,7 +257,12 @@ export class JournalSync {
       const waiting = m.state === "wait" || m.state === "quiet";
       const isDone = this.archived(sid);
       if (this.cfg.autoLogGranularity === "paused" && !isDone && daySt[sid]?.status !== "paused") continue;
-      const rounds = Array.isArray(m.rounds) ? m.rounds : [];
+      const allRounds = Array.isArray(m.rounds) ? m.rounds : [];
+      const first = seen[sid] == null;
+      // 第一次接入只补最近几轮；之后只补当天产生的轮次，之前的历史不再重复写进来
+      const rounds = trackedRounds(allRounds, { first, since: todayStart, max: this.cfg.autoLogFirstRounds });
+      if (first) seen[sid] = Date.now();
+      if (allRounds.length && !rounds.length) continue;
       const said = String(m.lastText || "").trim();
       let summary = "";
       if (waiting || isDone) {

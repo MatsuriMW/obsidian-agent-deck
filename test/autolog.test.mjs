@@ -5,7 +5,7 @@ export async function resolve(spec, ctx, next) {
   if (spec === "obsidian") return { url: "data:text/javascript,export class Notice{constructor(){}};export class MarkdownView{}", shortCircuit: true };
   return next(spec, ctx);
 }`));
-const { DEFAULTS, deepMerge, dayKeyToday, dayMinute } = await import("../src/constants.js");
+const { DEFAULTS, deepMerge, dayKeyToday, dayMinute, trackedRounds, startOfDay } = await import("../src/constants.js");
 const { readJournalLayout } = await import("../src/journal-layout.js");
 const { AutoLog } = await import("../src/autolog.js");
 const { resolveCliModel, codexCliArgs } = await import("../src/delegation.js");
@@ -15,20 +15,35 @@ let fail = 0;
 const check = (name, ok, out) => { console.log((ok ? "PASS " : "FAIL ") + name); if (!ok) { fail++; console.log(out); } };
 
 // 假插件：日记文件放在内存里，会话列表和 meta 由测试给
-function fakePlugin(journal, list, meta = {}, cfg = {}) {
+// opts.missingJournal 让今天的日记一开始不存在；opts.template 给「日记」核心插件的模板
+function fakePlugin(journal, list, meta = {}, cfg = {}, opts = {}) {
   const settings = deepMerge(DEFAULTS, cfg);
   const day = dayKeyToday(settings);
   const file = { path: `日记/${day}.md`, extension: "md" };
+  const tpl = opts.template ? { path: opts.template.path, extension: "md" } : null;
+  const files = new Map();
+  if (!opts.missingJournal) files.set(file.path, file);
   const p = {
-    settings, journal, day,
+    settings, journal, day, files,
     app: {
       vault: {
-        getAbstractFileByPath: (path) => (path === file.path ? file : null),
-        read: async () => p.journal,
+        getAbstractFileByPath: (path) => files.get(path) || (tpl && path === tpl.path ? tpl : null),
+        read: async (f) => (f === tpl ? opts.template.text : p.journal),
         process: async (_f, fn) => { p.journal = fn(p.journal); },
+        createFolder: async (path) => { files.set(path, { path }); },
+        create: async (path, content) => { const f = { path, extension: "md" }; files.set(path, f); p.journal = content; return f; },
       },
       workspace: { iterateAllLeaves() {} },
       plugins: { plugins: {} },
+      internalPlugins: tpl ? {
+        getPluginById: (id) => (id === "daily-notes"
+          ? { enabled: true, instance: { options: { folder: "日记", format: "YYYY_MM_DD", template: tpl.path } } }
+          : id === "templates" ? { enabled: true, instance: { options: { dateFormat: "YYYY-MM-DD", timeFormat: "HH:mm" } } } : null),
+      } : undefined,
+    },
+    ensureNoteFile: async (path, content = "") => {
+      const f = p.app.vault.getAbstractFileByPath(path) || await p.app.vault.create(path, content);
+      return { path, file: f };
     },
     usage: { summary: () => ({ list }), meta: new Map(Object.entries(meta)), archived: new Set(), archivedClaude: new Set() },
     saveSettings: async () => {},
@@ -148,6 +163,79 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   al.ask = async () => new Map([[x.sid,{label:"归档测试",todos:[]}]]);
   await al.run();
   check("archived short session bypasses threshold and records DONE", /- DONE 🤖 \d\d:\d\d-\d\d:\d\d \*\*归档测试\*\*/.test(p.journal) && p.journal.includes("⏱"), p.journal);
+}
+{ // 今天的日记还没有：按「日记」核心插件的模板建一篇，再照常写入；新默认值也跟着走
+  check("automatic session recording is on by default", DEFAULTS.autoLog === true, DEFAULTS.autoLog);
+  check("scan interval defaults to 30 seconds", DEFAULTS.pollSeconds === 30, DEFAULTS.pollSeconds);
+  const tpl = { path: "模板/日记模板.md", text: "# {{title}}\n\n日期：{{date:YYYY/MM/DD}} {{time:HH:mm}}\n" };
+  const x = { sid: "create-journal", agent: "codex", min: 6, segs: nowSegs(6), title: "建日记" };
+  const p = fakePlugin("", [x], {}, {}, { missingJournal: true, template: tpl });
+  const al = new AutoLog(p);
+  al.ask = async (items) => new Map(items.map(({ x: s }) => [s.sid, { label: "新建日记", todos: [] }]));
+  const r = await al.run();
+  const created = p.files.get(`日记/${p.day}.md`);
+  check("missing journal is created as a note", !!created, [...p.files.keys()]);
+  check("created journal carries the daily-note template with variables filled in",
+    p.journal.startsWith(`# ${p.day}\n\n日期：`) && /^日期：\d{4}\/\d\d\/\d\d \d\d:\d\d$/m.test(p.journal) && !p.journal.includes("{{"), p.journal);
+  check("created journal then receives the session block", /DOING 🤖 \d\d:\d\d-\d\d:\d\d \*\*新建日记\*\*/.test(p.journal) && !r.error, { journal: p.journal, error: r.error });
+}
+{ // 没配日记模板时建空笔记，分区骨架由 placeBlock 生成
+  const x = { sid: "create-empty", agent: "codex", min: 6, segs: nowSegs(6), title: "空模板" };
+  const p = fakePlugin("", [x], {}, {}, { missingJournal: true });
+  const al = new AutoLog(p);
+  al.ask = async (items) => new Map(items.map(({ x: s }) => [s.sid, { label: "空模板建日记", todos: [] }]));
+  const r = await al.run();
+  check("journal created without a template gets the built-in layout and the record",
+    p.journal.includes("## 正在做") && /DOING 🤖 .*空模板建日记/.test(p.journal) && !r.error, { journal: p.journal.slice(0, 400), error: r.error });
+}
+{ // 轮次窗口：第一次接入只取最近 N 轮，之后只取当天产生的轮次
+  const now = Date.now(), old = now - 3 * 86400e3;
+  const r = (n, at) => ({ n, at, ask: `问${n}`, said: `答${n}` });
+  const rounds = [r(1, old), r(2, old), r(3, now)];
+  check("first sight keeps only the latest N rounds", trackedRounds(rounds, { first: true, max: 2 }).map((x) => x.n).join() === "2,3");
+  const since = startOfDay(Date.now(), DEFAULTS);
+  check("afterwards only rounds produced today are tracked", trackedRounds(rounds, { since }).map((x) => x.n).join() === "3");
+  check("rounds without a timestamp survive the day filter", trackedRounds([{ n: 1 }, r(2, old)], { since }).length === 1);
+}
+{ // 第一次接入一个有很多历史的会话：只补最近 autoLogFirstRounds 轮；之后再跑只追加当天的
+  const now = Date.now(), old = now - 3 * 86400e3;
+  const rounds = [];
+  for (let i = 1; i <= 25; i++) rounds.push({ n: i, at: i <= 15 ? old : now, ask: `需求${i}`, said: `结论${i}` });
+  const x = { sid: "window-first", agent: "codex", min: 30, segs: nowSegs(30), title: "老会话" };
+  const p = fakePlugin("", [x], { "window-first": { agent: "codex", state: "wait", rounds, lastText: "结论25" } });
+  const al = new AutoLog(p);
+  al.ask = async (items) => new Map(items.map(({ x: s }) => [s.sid, { label: "历史会话", todos: [] }]));
+  await al.run();
+  const marks = (text) => [...text.matchAll(/<!-- ad-turn:[^:]+:(\d+) -->/g)].map((m) => +m[1]);
+  check("first sight backfills only the latest 10 rounds", marks(p.journal).length === 10 && Math.min(...marks(p.journal)) === 16 && Math.max(...marks(p.journal)) === 25, marks(p.journal));
+  check("first sight is remembered per session", !!p.settings.autoLogSeen["window-first"], p.settings.autoLogSeen);
+  p.usage.meta.get("window-first").rounds.push({ n: 26, at: Date.now(), ask: "需求26", said: "结论26" });
+  await al.run();
+  check("later passes only add today's new round", marks(p.journal).length === 11 && marks(p.journal).includes(26) && !marks(p.journal).includes(15), marks(p.journal));
+}
+{ // 🔗 绑定的会话遵守同一窗口：见过之后旧轮次不再写进来
+  const now = Date.now(), old = now - 2 * 86400e3;
+  const rounds = Array.from({ length: 12 }, (_, i) => ({ n: i + 1, at: i < 8 ? old : now, ask: `问${i + 1}`, said: `答${i + 1}` }));
+  const sid = "11111111-2222-3333-4444-555555555555";
+  const make = (list = rounds) => fakePlugin("", [], { [sid]: { agent: "codex", state: "wait", rounds: list } });
+  const text = `- TOREVIEW 任务\n\t- 🔗 [Codex](codex://threads/${sid})\n`;
+  const marks = (out) => [...out.matchAll(/<!-- ad-turn:[^:]+:(\d+) -->/g)].map((m) => +m[1]);
+  const p1 = make();
+  const js1 = new JournalSync(p1);
+  const first = js1.results(text);
+  check("linked session on first sight keeps the latest 10 rounds", marks(first).length === 10 && Math.min(...marks(first)) === 3, marks(first));
+  p1.usage.meta.get(sid).rounds.push({ n: 13, at: Date.now(), ask: "问13", said: "答13" });
+  const again = js1.results(first);
+  check("linked session afterwards appends today's new round only", marks(again).length === 11 && marks(again).includes(13) && !marks(again).includes(2), marks(again));
+  const p2 = make(rounds.slice(0, 12));
+  p2.settings.autoLogSeen = { [sid]: Date.now() };
+  const seen = new JournalSync(p2).results(text);
+  check("a seen linked session gets today's rounds only", marks(seen).sort((a, b) => a - b).join() === "9,10,11,12", marks(seen));
+}
+{ // 没有会话可记时不去建当天的日记
+  const p = fakePlugin("", [], {}, {}, { missingJournal: true });
+  const r = await new AutoLog(p).run();
+  check("no sessions means no journal is created", p.files.size === 0 && !r.error, [...p.files.keys()]);
 }
 { // 强制格式校验：DOING / PAUSED / DONE 均保持「状态 + 🤖 + 开始时间-最后时间 + 总结标题」，并自动浓缩路径/链接前缀
   const fs = await import("node:fs");

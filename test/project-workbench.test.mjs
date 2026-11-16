@@ -385,6 +385,9 @@ test("taskBoardExtension toggles board mode, persists taskBoardViews, and hides 
     export const EditorView = { decorations: { from: () => ({}) }, atomicRanges: { of: () => ({}) } };
     export const StateEffect = { define: () => { const t = { of: (value) => ({ type: t, value, is: (x) => x === t }) }; return t; } };
     export const StateField = { define: (c) => c };
+    export class RangeSetBuilder { constructor() { this.items = []; } add() {} finish() { return []; } }
+    export function syntaxTree() { return { resolveInner: () => null }; }
+    export const ViewPlugin = { fromClass: () => ({}) };
   `;
   const bundle = await esbuild.build({
     stdin: { contents: "export * from './src/fractal-board.js';", resolveDir: path.resolve(import.meta.dirname, "..") },
@@ -825,6 +828,8 @@ test("AgentDeckPlugin end-to-end wave orchestration triggers Steward on completi
     export const EditorState = { create: () => ({}) };
     export const StateEffect = { define: () => ({ of: () => ({}), is: () => false }) };
     export const StateField = { define: () => ({}) };
+    export class RangeSetBuilder { constructor() { this.items = []; } add() {} finish() { return []; } }
+    export function syntaxTree() { return { resolveInner: () => null }; }
     export const foldedRanges = () => ({});
     export const foldEffect = {};
     export const unfoldEffect = {};

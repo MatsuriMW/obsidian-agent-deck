@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.10.3**（已发版，2026-11-16）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.10.4**（已发版，2026-11-16）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 双平台验证边界
 
@@ -26,6 +26,17 @@
 - **快捷键**（macOS `Alt` = `Option`）：`Ctrl+Alt+D` 委派/任务菜单 · `Ctrl+Alt+A` 续聊/停止/重派 · `Ctrl+Alt+C` 查看与保存对话 · `Ctrl+Alt+N` 下一条待确认 · `Ctrl+Alt+X` 停止执行 · `Ctrl+Alt+J` 跳到「正在做」 · `Ctrl+Alt+L` 整理日志 · `⌥⌘↑` 跳到母块（连按逐级向上）· `⌥⌘⇧↑` 跳到最上一级顶格母块 · `⌥⌘↓` 合并成组（Group rows）· `⌃⌥⌘D` macOS 菜单栏。
 - **关键词**：`DOING` / `NOW` / `IN-PROGRESS`、`TOREVIEW`、`NEEDOK`、`ERRORED` / `FAILED`、`HITLIMIT`、`QUEUED`、`DELEGATED`、`TODO` / `LATER`、`PAUSED` / `SUSPENDED`、`WAITING` / `WAIT`、`DONE`、`CANCELED` / `CANCELLED`、`TODOFORAI` / `TODO4AI` / `TODO2AI` / `TODOTOAI`，及 `[ ]` `[/]` `[x]` `[-]`。
 - **整理与归档**：**整理日志**默认按 `---` → 正在做 → `---` → 还要做 → `---` → 已完成 → `---` 排列，只整理完整分区内的 **AI** 条目，非 AI 手写条目与区外笔记保持原位；无完整分区时只建立空分区。**归档已完成的日志到…** 仅移出已完成 **AI** 块（默认 `Agent Deck/done/已完成任务.md`），先写归档再删源。
+
+## 本地修改（2026-11-16，1.10.3）
+
+- **自动会话记录默认打开 & 扫描间隔 30 秒**：`DEFAULTS.autoLog` 改为 `true`、`DEFAULTS.pollSeconds` 由 `60` 改为 `30`（`scheduleScan` 兜底值同步），`onload` 用一次性标记 `settings.defaultsMigratedAutoLog` 把老库也迁到新默认，之后用户手动改就尊重（`src/constants.js`、`src/main.js`）。
+- **当天日记不存在就建一篇**：`AutoLog.run` 在确有会话要写、当天日记缺失时，经 `plugin.ensureNoteFile`（新增可选 `content` 参数）按 Obsidian「日记」核心插件配置的模板建笔记，模板变量 `{{title}}` / `{{date}}` / `{{time}}` / `{{date:…}}` / `{{time:…}}` 按「模板」插件的日期时间格式替换，无模板则建空文件；AI 分区骨架仍交给 `placeBlock`，没有需要记录的会话不建笔记（`src/autolog.js`）。
+- **AI 自动记录只追最近的活动**：新增设置 `settings.autoLogFirstRounds`（默认 `10`，「记录 → 日记与归档 → 更多设置 → 首次记录最近多少轮」）与「见过的会话」标记 `settings.autoLogSeen`（180 天懒清理、封顶 2000 条，老库从 `autoLogState` 播种）；第一次接入某个会话 / Bot 只补最近 N 轮，之后同一个会话只补当天产生的轮次（按「日记日期分界」，跨日延续也按今天），更早的历史不再写进笔记。窗口统一由 `trackedRounds()`（`src/constants.js`）与 `seenSessions()` 实现，自动建项（`src/autolog.js`）与 🔗 回写（`src/sync.js`）同规则；已有笔记内容不裁剪，委派/后台答案回写（`src/delegation.js`）仍用它自己那一轮的结论。
+- **首次安装把面板放进右侧栏并展开**：`openPanelOnce()` 在 `settings.viewOpened` 尚未置位时，除 `getRightLeaf` 放面板外再调 `rightSplit.expand()`，新库一装就能看见面板；已装过的库不动（`src/main.js`、`test/startup.test.mjs` 新增用例）。
+- **AI 自动记录 DONE 不再有贯穿黑线**（改在 `logseq-style-tasks` 仓库，不属于本仓库 diff）：TODOseq 新增 `src/utils/agent-deck-records.ts`（`🤖` 标记判定 + `markAgentDeckRecords`），编辑器给带 `🤖` 的行加 `todoseq-agent-record` 行类、阅读视图给最近的 `li/td/p/.todoseq-task` 加同类，`styles.css` 用该类比掉的 `todoseq-completed-keyword` / `todoseq-completed-task-text` 删除线；手写 `DONE` 仍照旧划线。TODOseq 全量测试 5338 通过、3 个既有日期时区用例（`dashboard-renderer`、`search-open-ranges`、`search-started`）在干净树上同样失败，与本改动无关；`npm run build` 通过，`马自立` Vault 覆盖安装并热重载后实测 `DONE 🤖` 行 `line-through` 为 0。
+- **README 增加 Group rows 效果图**：把用户截图转成 `assets/group-rows-merged.png`（1478×1098），中英文 README 在「合并成组（Group rows）」小节各插一张居中图（`width="840"`）。
+- **任务关键词视觉搬到 Agent Deck（1:1 复刻 TODOseq）**：新增 `src/keyword-style.js` 与 `src/styles/views/keyword.css`（关键词配色、`tsq-ico` 图标、切词动画、完成/归档文字整套沿用 TODOseq 的类名与 `--tsq-*` 变量，数据与样式从 `logseq-style-tasks` 拷贝）。编辑器走两条 ViewPlugin（配色/完成态 + 图标），阅读视图走 `registerMarkdownPostProcessor`；AI 自动记录（行内 🤖）即使 `DONE` 也不加 `todoseq-completed-*`，手写任务照旧划线。让位按层判断：TODOseq 的 `formatTaskKeywords` / `keywordIcons` 任一开着，本插件对应那层不渲染，避免双图标。开关「记录 → 日记与归档 → 关键词配色与图标」（`settings.keywordStyle`，默认开）。
+- macOS 验证：`npm test`（含 `test/autolog.test.mjs` 新增「缺日记就建」「无会话不建」用例与两项默认值断言）、`npm run build`、`git diff --check` 通过；`马自立` Vault 安装并热重载后确认 `data.json` 迁移为 `autoLog: true`、`pollSeconds: 30`、`defaultsMigratedAutoLog: true`，笔记内容无额外写入。模板建笔记只在单测里验证——当天日记已存在，未在真实 Vault 触发；该库「日记」核心插件未配模板，Windows 未实测。
 
 ## 本地修改（2026-11-15，1.9.8）
 

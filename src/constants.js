@@ -365,7 +365,7 @@ export const DEFAULTS = {
   dayCutoff: 0,
   experimentalDashboard: true,
   dashboardProjects: {},    // 会话 → 项目页面路径；缺省自动识别，空字符串手动未归类
-  pollSeconds: 60,
+  pollSeconds: 30,
   fullHistoryDays: 14,
   // Claude desktop session list: identifies side chats (spawnedFrom) and archive state.
   claudeDesktop: true,
@@ -389,7 +389,7 @@ export const DEFAULTS = {
   cliTerminal: "auto",     // 主力终端：auto 按这台电脑的情况挑（见 delegation.js pickTerminal）/ terminal / iterm / warp / tern / herdr
   delegateInTerminal: false,  // 拖到 Claude Code / Codex 上默认在主力终端里开交互式会话（按住 ⌘ 反过来）
   yieldToNautilus: true,   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
-  autoLog: false,
+  autoLog: true,           // 默认打开：活跃会话自动建项并记进今天的日记
   aiRecordExpanded: {},
   aiRecordClosed: {},
   aiRecordViews: {},
@@ -414,6 +414,9 @@ export const DEFAULTS = {
   autoLogMinMinutes: 3,    // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
   autoLogIdle: 10,         // 停了几分钟算 PAUSED
   autoLogGrokBotDoneMinutes: 120, // Grok Bot 多久无新对话自动标为 DONE（0 关闭）
+  autoLogFirstRounds: 10,  // 第一次接入某个会话 / Bot 时只补最近几轮，之后只跟当天的新轮次
+  autoLogSeen: {},         // 会话号 → 第一次记进日记的时间；按 180 天懒清理，用来区分「第一次接入」
+  keywordStyle: true,      // 关键词配色与 tsq-ico 图标；TODOseq 自己在格式化时让位
   recordRules: { ...DEFAULT_RECORD_RULES },
   autoLogBatch: 8,         // 一轮最多问模型几个会话
   autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true },
@@ -560,12 +563,14 @@ export function fmtKey(d = new Date(), cfg = {}) {
 // 日记目录 journalFolder 留空也自动：「日记」核心插件 → Periodic Notes → 「日记」。
 const GUESS_FORMATS = ["YYYY_MM_DD", "YYYY-MM-DD", "YYYYMMDD", "YYYY.MM.DD", "YYYY年MM月DD日", "YYYY年M月D日", "YYYY/MM/YYYY-MM-DD", "YYYY/YYYY-MM-DD", "YYYY-MM/YYYY-MM-DD", "YYYY/MM/DD"];
 const TOKEN_RE = /\[[^\]]*\]|YYYY|YY|MM|M|DD|D/g;
+// 日记模板的 {{date:…}} / {{time:…}} 也走这里，所以还要认时钟 token
+const FMT_TOKEN_RE = /\[[^\]]*\]|YYYY|YY|MM|M|DD|D|HH|H|mm|m|ss|s/g;
 
 export function formatDate(d, fmt) {
-  const m = globalThis.moment;
-  if (typeof m === "function") return m(d).format(fmt);
-  const v = { YYYY: d.getFullYear(), YY: String(d.getFullYear()).slice(2), MM: pad(d.getMonth() + 1), M: d.getMonth() + 1, DD: pad(d.getDate()), D: d.getDate() };
-  return fmt.replace(TOKEN_RE, (t) => (t[0] === "[" ? t.slice(1, -1) : String(v[t])));
+  const mom = globalThis.moment;
+  if (typeof mom === "function") return mom(d).format(fmt);
+  const v = { YYYY: d.getFullYear(), YY: String(d.getFullYear()).slice(2), MM: pad(d.getMonth() + 1), M: d.getMonth() + 1, DD: pad(d.getDate()), D: d.getDate(), HH: pad(d.getHours()), H: d.getHours(), mm: pad(d.getMinutes()), m: d.getMinutes(), ss: pad(d.getSeconds()), s: d.getSeconds() };
+  return fmt.replace(FMT_TOKEN_RE, (t) => (t[0] === "[" ? t.slice(1, -1) : String(v[t])));
 }
 
 function formatRegex(fmt) {
@@ -640,6 +645,29 @@ export function startOfDay(ms, cfg = {}) {
 export function dayMinute(ms, cfg = {}) {
   const start = startOfDay(ms, cfg);
   return Math.round((ms - start) / 60000);
+}
+// 「见过的会话」：第一次接入只补最近几轮，之后只跟当天。标记按 180 天懒清理、封顶 2000 条；
+// 老版本只存了 autoLogState 的会话也算见过，升级后不会回头补历史。
+export function seenSessions(cfg = {}) {
+  const seen = (cfg.autoLogSeen ||= {});
+  const floor = Date.now() - 180 * 86400e3;
+  for (const [sid, at] of Object.entries(seen)) if (!(Number(at) > floor)) delete seen[sid];
+  for (const day of Object.keys(cfg.autoLogState || {})) {
+    for (const sid of Object.keys(cfg.autoLogState[day] || {})) if (seen[sid] == null) seen[sid] = Date.now();
+  }
+  const keys = Object.keys(seen);
+  if (keys.length > 2000) {
+    cfg.autoLogSeen = Object.fromEntries(keys.sort((a, b) => Number(seen[b]) - Number(seen[a])).slice(0, 2000).map((sid) => [sid, seen[sid]]));
+  }
+  return cfg.autoLogSeen;
+}
+
+// 每个会话只追最近的活动：第一次接入（没有「见过」标记）取最近 max 轮，之后只取当天产生的轮次。
+// since 是当天的起点毫秒（见 startOfDay），比逐轮格式化日期便宜；没时间戳的轮次分不出是哪天的，保留。
+export function trackedRounds(rounds, { first = false, since = 0, max = 10 } = {}) {
+  const list = (Array.isArray(rounds) ? rounds : []).filter(Boolean);
+  if (first) return list.slice(-Math.max(1, Math.min(200, Math.round(Number(max)) || 10)));
+  return since ? list.filter((r) => !r.at || r.at >= since) : list;
 }
 export function fmtTok(n) {
   n = Number(n) || 0;

@@ -10,7 +10,7 @@ import { serializeNote } from "./note-updates.js";
 // 状态记在 settings.autoLogState：{ 日记日: { 会话号: { key, label, status, … } } }。
 
 import { Notice, MarkdownView } from "obsidian";
-import { AGENTS, AGENT_ORDER, dayKey, dayKeyToday, dayMinute, startOfDay, unionSegs, journalPath, resolveRecordRules } from "./constants.js";
+import { AGENTS, AGENT_ORDER, dayKey, dayKeyToday, dayMinute, startOfDay, unionSegs, journalPath, resolveRecordRules, formatDate, trackedRounds, seenSessions } from "./constants.js";
 import * as J from "./journal.js";
 import { sessionProjectName } from "./readers.js";
 import { runJournalModel, safeLabel } from "./llm.js";
@@ -27,6 +27,16 @@ const BLOCKED_KW = {
   limit: "HITLIMIT",
   queued: "QUEUED",
 };
+
+// 「日记」核心插件的模板认这些变量：{{title}}、{{date}}、{{time}}，以及带 moment 格式的
+// {{date:YYYY-MM-DD}} / {{time:HH:mm}}；没写格式就按「模板」插件里的日期/时间格式。
+function expandJournalTemplate(text, { title = "", now = new Date(), dateFormat = "YYYY-MM-DD", timeFormat = "HH:mm" } = {}) {
+  return String(text).replace(/\{\{\s*(date|time|title)\s*(?::([^{}]*))?\s*\}\}/g, (_, name, fmt) => {
+    if (name === "title") return title;
+    const format = String(fmt || "").trim() || (name === "date" ? dateFormat : timeFormat);
+    return formatDate(now, format);
+  });
+}
 
 export class AutoLog {
   constructor(plugin) {
@@ -72,6 +82,32 @@ export class AutoLog {
   journalFile(day) {
     const f = this.p.app.vault.getAbstractFileByPath(this.journalPath(day));
     return f && f.extension === "md" ? f : null;
+  }
+
+  // 今天的日记还没建：按「日记」核心插件的模板建一篇，AI 分区骨架照旧交给 placeBlock
+  async createJournal(day) {
+    const path = this.journalPath(day);
+    if (typeof this.p.ensureNoteFile !== "function") return null;
+    const { file } = await this.p.ensureNoteFile(path, await this.journalTemplate(path));
+    return file || null;
+  }
+
+  async journalTemplate(path) {
+    const app = this.p.app;
+    let tplPath = "";
+    try {
+      const dn = app.internalPlugins?.getPluginById?.("daily-notes");
+      if (dn?.enabled) tplPath = String(dn.instance?.options?.template || "").trim();
+    } catch { /* 没有这个接口 */ }
+    if (!tplPath) return "";
+    const file = app.vault.getAbstractFileByPath(tplPath) || app.vault.getAbstractFileByPath(`${tplPath}.md`) || app.metadataCache?.getFirstLinkpathDest?.(tplPath, "");
+    if (!file || typeof file.extension !== "string") return "";
+    let text = "";
+    try { text = await app.vault.read(file); } catch { return ""; }
+    let format = {};
+    try { format = app.internalPlugins?.getPluginById?.("templates")?.instance?.options || {}; } catch { /* 没有这个接口 */ }
+    const title = path.slice(path.lastIndexOf("/") + 1).replace(/\.md$/, "");
+    return expandJournalTemplate(text, { title, dateFormat: format.dateFormat, timeFormat: format.timeFormat });
   }
 
   viewFor(file) {
@@ -364,10 +400,10 @@ export class AutoLog {
     this._busy = true;
     try {
       const day = this.dayKey();
-      const file = this.journalFile(day);
-      if (!file) { report.error = t("今天的日记 {path} 还没建", { path: this.journalPath(day) }); return report; }
       const data = this.usage.summary(day);
       if (!data || !data.list || !data.list.length) return report;
+      const file = this.journalFile(day) || await this.createJournal(day);
+      if (!file) { report.error = t("今天的日记 {path} 还没建", { path: this.journalPath(day) }); return report; }
       const arch = this.archived();
       const todayList = [], crossByOrigin = new Map();
       for (const x of data.list) {
@@ -460,6 +496,8 @@ export class AutoLog {
         const digest = { doing: [], paused: [], done: [], archived: [], idleDone: [], todo: [] };
         const clocks = new Set();
         const work = ((this.cfg.workLog ||= {})[day] ||= {});
+        const seen = seenSessions(this.cfg);
+        const todayStart = startOfDay(Date.now(), this.cfg);
         for (const { x, active, fresh, sinceMs } of [...ask, ...todo.slice(this.batch), ...live]) {
           if (linked.has(x.sid)) continue;
           const a = ans.get(x.sid);
@@ -563,9 +601,10 @@ export class AutoLog {
           }
           const meta = this.usage.meta.get(x.sid) || {};
           const rawRounds = Array.isArray(meta.rounds) ? meta.rounds : [];
-          const rounds = x.agent === "grokbot"
-            ? rawRounds.filter((r) => (!r?.at || dayKey(r.at, this.cfg) === day) && (!rec.sinceMs || !r?.at || r.at > rec.sinceMs))
-            : rawRounds;
+          const first = seen[x.sid] == null;
+          const rounds = trackedRounds(rawRounds, { first, since: todayStart, max: this.cfg.autoLogFirstRounds })
+            .filter((r) => x.agent !== "grokbot" || !rec.sinceMs || !r.at || r.at > rec.sinceMs);
+          if (first) seen[x.sid] = Date.now();
           const rawSummary = (a && a.summary) || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? J.oneSentenceConclusion(meta.lastText, 90) : "");
           if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
           const pendingTodos = (a && !active && Array.isArray(a.todos) && !rec.todosAdded) ? a.todos : [];

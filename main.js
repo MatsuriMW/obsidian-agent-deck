@@ -1,4 +1,4 @@
-/* Agent Deck 1.10.3 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.10.4 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -558,6 +558,10 @@ var settings_default = {
   "\u6574\u7406\u8D85\u65F6\uFF08\u79D2\uFF09": "Summary timeout (seconds)",
   "\u6DA6\u8272\u8D85\u65F6\uFF08\u79D2\uFF09": "Polish timeout (seconds)",
   "\u626B\u63CF\u95F4\u9694\uFF08\u79D2\uFF09": "Scan interval (seconds)",
+  "\u9996\u6B21\u8BB0\u5F55\u6700\u8FD1\u591A\u5C11\u8F6E": "Rounds recorded on first sight",
+  "\u5173\u952E\u8BCD\u914D\u8272\u4E0E\u56FE\u6807": "Keyword colours and icons",
+  "Logseq \u98CE\u683C\u7684\u5173\u952E\u8BCD\u989C\u8272\u4E0E\u56FE\u6807\uFF1B\u540C\u65F6\u5F00\u7740 Logseq Style Tasks \u65F6\uFF0C\u8BF7\u5173\u6389\u5B83\u7684\u300C\u683C\u5F0F\u5316\u4EFB\u52A1\u5173\u952E\u8BCD\u300D": 'Logseq-style keyword colours and icons. When Logseq Style Tasks is enabled too, turn off its "Format task keywords" setting.',
+  "\u7B2C\u4E00\u6B21\u63A5\u5165\u67D0\u4E2A\u4F1A\u8BDD / Bot \u65F6\u53EA\u8865\u6700\u8FD1\u51E0\u8F6E\uFF1B\u4E4B\u540E\u53EA\u8BB0\u5F53\u5929\u4EA7\u751F\u7684\u65B0\u8F6E\u6B21": "Only the latest rounds are backfilled the first time a session or bot is hooked; afterwards only rounds produced today are recorded.",
   "\u6574\u7406\u95F4\u9694\uFF08\u5206\u949F\uFF09": "Journal interval (minutes)",
   "\u6682\u505C\u5224\u5B9A\uFF08\u5206\u949F\uFF09": "Pause threshold (minutes)",
   "\u7EC8\u7AEF\u4E0E\u4F1A\u8BDD\u8DF3\u8F6C": "Terminal and session navigation",
@@ -2010,7 +2014,7 @@ var DEFAULTS = {
   experimentalDashboard: true,
   dashboardProjects: {},
   // 会话 → 项目页面路径；缺省自动识别，空字符串手动未归类
-  pollSeconds: 60,
+  pollSeconds: 30,
   fullHistoryDays: 14,
   // Claude desktop session list: identifies side chats (spawnedFrom) and archive state.
   claudeDesktop: true,
@@ -2041,7 +2045,8 @@ var DEFAULTS = {
   // 拖到 Claude Code / Codex 上默认在主力终端里开交互式会话（按住 ⌘ 反过来）
   yieldToNautilus: true,
   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
-  autoLog: false,
+  autoLog: true,
+  // 默认打开：活跃会话自动建项并记进今天的日记
   aiRecordExpanded: {},
   aiRecordClosed: {},
   aiRecordViews: {},
@@ -2075,6 +2080,12 @@ var DEFAULTS = {
   // 停了几分钟算 PAUSED
   autoLogGrokBotDoneMinutes: 120,
   // Grok Bot 多久无新对话自动标为 DONE（0 关闭）
+  autoLogFirstRounds: 10,
+  // 第一次接入某个会话 / Bot 时只补最近几轮，之后只跟当天的新轮次
+  autoLogSeen: {},
+  // 会话号 → 第一次记进日记的时间；按 180 天懒清理，用来区分「第一次接入」
+  keywordStyle: true,
+  // 关键词配色与 tsq-ico 图标；TODOseq 自己在格式化时让位
   recordRules: { ...DEFAULT_RECORD_RULES },
   autoLogBatch: 8,
   // 一轮最多问模型几个会话
@@ -2225,11 +2236,12 @@ function fmtKey(d = /* @__PURE__ */ new Date(), cfg = {}) {
 }
 var GUESS_FORMATS = ["YYYY_MM_DD", "YYYY-MM-DD", "YYYYMMDD", "YYYY.MM.DD", "YYYY\u5E74MM\u6708DD\u65E5", "YYYY\u5E74M\u6708D\u65E5", "YYYY/MM/YYYY-MM-DD", "YYYY/YYYY-MM-DD", "YYYY-MM/YYYY-MM-DD", "YYYY/MM/DD"];
 var TOKEN_RE = /\[[^\]]*\]|YYYY|YY|MM|M|DD|D/g;
+var FMT_TOKEN_RE = /\[[^\]]*\]|YYYY|YY|MM|M|DD|D|HH|H|mm|m|ss|s/g;
 function formatDate(d, fmt) {
-  const m = globalThis.moment;
-  if (typeof m === "function") return m(d).format(fmt);
-  const v = { YYYY: d.getFullYear(), YY: String(d.getFullYear()).slice(2), MM: pad(d.getMonth() + 1), M: d.getMonth() + 1, DD: pad(d.getDate()), D: d.getDate() };
-  return fmt.replace(TOKEN_RE, (t2) => t2[0] === "[" ? t2.slice(1, -1) : String(v[t2]));
+  const mom = globalThis.moment;
+  if (typeof mom === "function") return mom(d).format(fmt);
+  const v = { YYYY: d.getFullYear(), YY: String(d.getFullYear()).slice(2), MM: pad(d.getMonth() + 1), M: d.getMonth() + 1, DD: pad(d.getDate()), D: d.getDate(), HH: pad(d.getHours()), H: d.getHours(), mm: pad(d.getMinutes()), m: d.getMinutes(), ss: pad(d.getSeconds()), s: d.getSeconds() };
+  return fmt.replace(FMT_TOKEN_RE, (t2) => t2[0] === "[" ? t2.slice(1, -1) : String(v[t2]));
 }
 function formatRegex(fmt) {
   const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -2303,6 +2315,24 @@ function startOfDay(ms, cfg = {}) {
 function dayMinute(ms, cfg = {}) {
   const start = startOfDay(ms, cfg);
   return Math.round((ms - start) / 6e4);
+}
+function seenSessions(cfg = {}) {
+  const seen = cfg.autoLogSeen || (cfg.autoLogSeen = {});
+  const floor = Date.now() - 180 * 864e5;
+  for (const [sid, at] of Object.entries(seen)) if (!(Number(at) > floor)) delete seen[sid];
+  for (const day of Object.keys(cfg.autoLogState || {})) {
+    for (const sid of Object.keys(cfg.autoLogState[day] || {})) if (seen[sid] == null) seen[sid] = Date.now();
+  }
+  const keys = Object.keys(seen);
+  if (keys.length > 2e3) {
+    cfg.autoLogSeen = Object.fromEntries(keys.sort((a, b) => Number(seen[b]) - Number(seen[a])).slice(0, 2e3).map((sid) => [sid, seen[sid]]));
+  }
+  return cfg.autoLogSeen;
+}
+function trackedRounds(rounds, { first = false, since = 0, max = 10 } = {}) {
+  const list = (Array.isArray(rounds) ? rounds : []).filter(Boolean);
+  if (first) return list.slice(-Math.max(1, Math.min(200, Math.round(Number(max)) || 10)));
+  return since ? list.filter((r) => !r.at || r.at >= since) : list;
 }
 function fmtTok(n) {
   n = Number(n) || 0;
@@ -3742,9 +3772,9 @@ function readJournalLayout(text) {
   const rawTail = normalized2.slice(vLines[closeAt].endOffset);
   return { rawHead, rawTail, head: rawHead.trimEnd(), tail: rawTail.trim(), sections, layout: { order, titles } };
 }
-function renderJournalLayout({ head, done, active, todo = "", notes = "", tail = "" }, value) {
+function renderJournalLayout({ head, done, active: active2, todo = "", notes = "", tail = "" }, value) {
   const layout = journalLayout(value);
-  const content = { done, active, todo, notes };
+  const content = { done, active: active2, todo, notes };
   const bands = layout.order.map((key) => {
     const title = layout.titles[key];
     return [`<!-- agent-deck:section:${key}:${title ? "heading" : "plain"} -->`, ...title ? [`## ${title}`] : [], content[key].replace(/\n*$/, ""), `<!-- agent-deck:section:${key}:end -->`].filter((line, i) => line || i !== (title ? 2 : 1)).join("\n");
@@ -3847,9 +3877,9 @@ function planBoundedJournal(text, options, custom) {
   const combinedActive = ["active", "todo", "done"].flatMap((key) => sectionPlans[key].active.map((entry) => ({ ...entry, _sec: key })));
   const byActiveOrder = (a, b) => rank(a.keyword) - rank(b.keyword) || b.turns - a.turns || secOrder[a._sec] - secOrder[b._sec] || a.at - b.at;
   const todo = combinedActive.filter((entry) => pending.has(entry.keyword)).sort(byActiveOrder);
-  const active = combinedActive.filter((entry) => !pending.has(entry.keyword)).sort(byActiveOrder);
+  const active2 = combinedActive.filter((entry) => !pending.has(entry.keyword)).sort(byActiveOrder);
   const organized = (entry, key) => !!region?.sections[key]?.text.includes(entry.text);
-  for (const entry of active) entry.organized = organized(entry, "active");
+  for (const entry of active2) entry.organized = organized(entry, "active");
   for (const entry of todo) entry.organized = organized(entry, "todo");
   for (const entry of done) entry.organized = organized(entry, "done");
   const sectionRest = {
@@ -3867,12 +3897,12 @@ function planBoundedJournal(text, options, custom) {
     layout,
     bounded: true,
     done,
-    active,
+    active: active2,
     todo,
     sectionRest,
     rest: sectionRest.todo,
     insertAt: region?.sections.active?.end ?? null,
-    count: { done: done.length, active: active.length + todo.length, total: done.length + active.length + todo.length }
+    count: { done: done.length, active: active2.length + todo.length, total: done.length + active2.length + todo.length }
   };
 }
 function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* @__PURE__ */ new Set(), turns = /* @__PURE__ */ new Map(), layout, boundedBody = false } = {}) {
@@ -3938,7 +3968,7 @@ ${custom.sections.active.text}
     while (n < lines.length && !lines[n].trim()) n++;
     if (n < lines.length && isRule(lines[n])) drop.add(n);
   }
-  const done = [], active = [];
+  const done = [], active2 = [];
   const moved = [];
   const owner = ownersOf(lines);
   const inActiveBand = (n) => generated.some((sec) => sec.active && n > sec.line && n < sec.end);
@@ -4041,7 +4071,7 @@ ${custom.sections.active.text}
     const activeChunk = normalizeChunkHeader(lines.slice(i, end), false, container);
     const block = blockText(activeChunk, 0, activeChunk.length);
     const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
-    active.push({ text: block, keyword: k.kw || "TODO", turns: count, blockId: k.blockId || "", at: i, organized: inBand(i, false) });
+    active2.push({ text: block, keyword: k.kw || "TODO", turns: count, blockId: k.blockId || "", at: i, organized: inBand(i, false) });
     dropSubheadAbove(i);
     moved.push([i, end]);
     cursor = end;
@@ -4064,7 +4094,7 @@ ${custom.sections.active.text}
       const block = blockText(chunk, 0, chunk.length);
       const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
       if (doneKw || archivedOut || allKidsDone) done.push({ text: block, blockId: k.blockId || "", turns: count, ai, sid: [...sids], at: i, organized: false });
-      else active.push({ text: block, keyword: k.kw || "TODO", turns: count, blockId: k.blockId || "", at: i, organized: false });
+      else active2.push({ text: block, keyword: k.kw || "TODO", turns: count, blockId: k.blockId || "", at: i, organized: false });
       adopted.push([i, end]);
       i = end - 1;
     }
@@ -4101,7 +4131,7 @@ ${custom.sections.active.text}
     if (drop.has(p) || LEGACY_HEADINGS.includes(title) || title === DONE_HEADING || title === ACTIVE_HEADING || movedAt[p]) drop.add(n);
   }
   done.sort((a, b) => b.turns - a.turns || a.at - b.at);
-  active.sort((a, b) => rank(a.keyword) - rank(b.keyword) || b.turns - a.turns || a.at - b.at);
+  active2.sort((a, b) => rank(a.keyword) - rank(b.keyword) || b.turns - a.turns || a.at - b.at);
   const rest = [];
   let removed = false;
   for (let i = headEnd; i < lines.length; i++) {
@@ -4125,10 +4155,10 @@ ${custom.sections.active.text}
     layout,
     crlf,
     done,
-    active,
+    active: active2,
     rest: kept.join("\n"),
     insertAt,
-    count: { done: done.length, active: active.length, total: done.length + active.length }
+    count: { done: done.length, active: active2.length, total: done.length + active2.length }
   };
 }
 function ensureTopRule(text) {
@@ -4150,7 +4180,7 @@ function ensureTopRule(text) {
   }
   return String(text || "");
 }
-function renderJournal(plan, { done = true, active = true, skip = null, layout = plan.layout } = {}) {
+function renderJournal(plan, { done = true, active: active2 = true, skip = null, layout = plan.layout } = {}) {
   const finished = done ? plan.done.filter((entry) => !(skip && (entry.blockId ? skip.has(entry.blockId) : skip.has(entry.text)))).map((entry) => ({ ...entry, text: entry.ai ? cleanCompletedIdentifiers(entry.text, /* @__PURE__ */ new Set([entry.blockId])) : entry.text })) : [];
   if (plan.bounded) {
     const joinSection = (aiText, restText) => [aiText, restText].filter(Boolean).join("\n\n");
@@ -4159,15 +4189,15 @@ function renderJournal(plan, { done = true, active = true, skip = null, layout =
       head: plan.head,
       tail: plan.tail,
       done: joinSection(finished.map((entry) => entry.text).join("\n"), rest2.done),
-      active: joinSection(active ? plan.active.map((entry) => cleanCompletedIdentifiers(entry.text)).join("\n") : "", rest2.active),
-      todo: joinSection(active ? plan.todo.map((entry) => cleanCompletedIdentifiers(entry.text)).join("\n") : "", rest2.todo)
+      active: joinSection(active2 ? plan.active.map((entry) => cleanCompletedIdentifiers(entry.text)).join("\n") : "", rest2.active),
+      todo: joinSection(active2 ? plan.todo.map((entry) => cleanCompletedIdentifiers(entry.text)).join("\n") : "", rest2.todo)
     }, layout);
     return plan.crlf ? out2.replace(/\n/g, "\r\n") : out2;
   }
   const bands = [];
   const activeBody = [];
   if (finished.length) bands.push([DONE_HEADING, ...finished.map((entry) => entry.text)].join("\n"));
-  if (active && plan.active.length) {
+  if (active2 && plan.active.length) {
     let previous = "";
     for (const entry of plan.active) {
       if (entry.keyword !== previous) {
@@ -5888,9 +5918,9 @@ function buildTaskTodo(tk) {
   const list = [...tk.map.values()].filter((t2) => t2.status !== "deleted");
   if (!list.length) return null;
   const done = list.filter((t2) => t2.status === "completed" || t2.status === "done").length;
-  const active = list.find((t2) => t2.status === "in_progress");
+  const active2 = list.find((t2) => t2.status === "in_progress");
   const next = list.find((t2) => t2.status === "pending");
-  const rawCur = active ? active.activeForm || active.subject : done < list.length && next ? next.subject || next.activeForm : "";
+  const rawCur = active2 ? active2.activeForm || active2.subject : done < list.length && next ? next.subject || next.activeForm : "";
   const items = list.map((t2) => ({ id: t2.id, text: t2.subject || t2.activeForm || `#${t2.id}`, activeForm: t2.activeForm || "", status: t2.status }));
   return { done, total: list.length, cur: String(rawCur || "").replace(/\s+/g, " ").slice(0, 36), items };
 }
@@ -9230,8 +9260,8 @@ function conversationPath(session, messages = []) {
   return `Agent Deck/Conversations/${safeTitle}-${agent}-${hash3}.md`;
 }
 async function archiveConversation(plugin, session, { messages: suppliedMessages } = {}) {
-  const active = Object.values(plugin.jobs).find((j) => j.agent === session.agent && j.sessionId === (session.sid || session.sessionId));
-  if (["starting", "running", "needs-approval"].includes(active?.state)) throw new Error(t("\u8BF7\u7B49\u5F53\u524D\u8FD9\u4E00\u8F6E\u7ED3\u675F\u540E\u518D\u5F52\u6863"));
+  const active2 = Object.values(plugin.jobs).find((j) => j.agent === session.agent && j.sessionId === (session.sid || session.sessionId));
+  if (["starting", "running", "needs-approval"].includes(active2?.state)) throw new Error(t("\u8BF7\u7B49\u5F53\u524D\u8FD9\u4E00\u8F6E\u7ED3\u675F\u540E\u518D\u5F52\u6863"));
   const messages = suppliedMessages || await readConversation(plugin, session);
   if (!messages.length) throw new Error(t("\u6682\u672A\u8BFB\u53D6\u5230\u5BF9\u8BDD\u6B63\u6587\uFF0C\u8BF7\u626B\u63CF\u4F1A\u8BDD\u540E\u91CD\u8BD5"));
   const vault = plugin.app.vault;
@@ -14255,10 +14285,10 @@ function setTaskBlockKeywordById(text = "", { blockId = "", title = "", keyword 
   return lines.join("\n");
 }
 function appendSubtasksToParentBlock(text = "", { parentBlockId = "", parentTitle = "", subtasks = [], assignBlockIds = true, keyword = "TODO" } = {}) {
-  const active = (subtasks || []).filter((s) => s && s.checked !== false && String(s.title || "").trim());
+  const active2 = (subtasks || []).filter((s) => s && s.checked !== false && String(s.title || "").trim());
   const lines = String(text || "").split("\n");
   const parentLine = findParentBlockLine(lines, { parentBlockId, parentTitle });
-  if (parentLine < 0 || !active.length) return { text, parentLine, addedLines: [] };
+  if (parentLine < 0 || !active2.length) return { text, parentLine, addedLines: [] };
   const parentW = width(lines[parentLine]);
   const childIndent2 = childIndent(lines, parentLine);
   const detailIndent = `${childIndent2}	`;
@@ -14270,7 +14300,7 @@ function appendSubtasksToParentBlock(text = "", { parentBlockId = "", parentTitl
   const inserted = [];
   const addedLines = [];
   let cursor = insertAt;
-  for (const item of active) {
+  for (const item of active2) {
     const title = String(item.title || "").trim();
     const agent = String(item.agent || "").trim();
     const blockId = item.blockId || (assignBlockIds ? makeBlockId("", agent || "ad", "wb") : "");
@@ -15214,8 +15244,8 @@ function buildLineProgressInfo(plugin, rawLine, lines, lineIndex, session = null
   const est = manualPct == null ? parseEstimatedDuration(rawLine, plugin.settings, now) : null;
   const sid = session?.sid || job?.sessionId || "";
   const archived = !!(sid && plugin.usage?.hidden?.(sid));
-  const active = Boolean(session || job);
-  if (manualPct == null && !est && !active) return null;
+  const active2 = Boolean(session || job);
+  if (manualPct == null && !est && !active2) return null;
   const meta = sid && plugin.usage?.meta?.get(sid) || session || {};
   const enriched = sid && plugin.applyExternalState ? plugin.applyExternalState({ ...meta, ...session, sid }) : session || meta;
   const jobActive = job && ["starting", "running", "needs-approval"].includes(job.state);
@@ -15240,7 +15270,7 @@ function buildLineProgressInfo(plugin, rawLine, lines, lineIndex, session = null
     lead = est.lead;
   }
   const parts = lead ? [lead] : [];
-  if (active) {
+  if (active2) {
     const lastAt = enriched.lastAt || job?.endedAt || job?.startedAt || 0;
     const quiet = lastAt ? Math.max(0, Math.round((now - lastAt) / 6e4)) : 0;
     let stateText = "";
@@ -17461,15 +17491,15 @@ function summarizeHourlyRhythm(dayEvents) {
       const slot = perHour[h];
       if (!slot) continue;
       slot.events.sort((x, y) => x[0] - y[0] || x[1] - y[1]);
-      let active = 0, prev = 0, deduped = 0, concurrent = 0, peak = 0;
+      let active2 = 0, prev = 0, deduped = 0, concurrent = 0, peak = 0;
       for (const [pos, delta] of slot.events) {
-        if (pos > prev && active > 0) {
+        if (pos > prev && active2 > 0) {
           const dx = pos - prev;
           deduped += dx;
-          if (active >= 2) concurrent += dx;
-          if (active > peak) peak = active;
+          if (active2 >= 2) concurrent += dx;
+          if (active2 > peak) peak = active2;
         }
-        active += delta;
+        active2 += delta;
         prev = pos;
       }
       hours[h].minutes += deduped;
@@ -18366,13 +18396,13 @@ var DashboardView = class extends import_obsidian4.ItemView {
       ["wall", t("\u6D3B\u8DC3\u8017\u65F6")],
       ["sessions", t("\u4F1A\u8BDD\u6570")]
     ]) {
-      const active = this.projectSortBy === key;
+      const active2 = this.projectSortBy === key;
       const th = header.createEl("th", {
-        attr: { scope: "col", "aria-sort": active ? this.projectSortDir === "asc" ? "ascending" : "descending" : "none" }
+        attr: { scope: "col", "aria-sort": active2 ? this.projectSortDir === "asc" ? "ascending" : "descending" : "none" }
       });
-      const text = active ? `${label} ${this.projectSortDir === "asc" ? "\u2191" : "\u2193"}` : label;
-      const sortBtn = this.button(th, text, () => this.setProjectSort(key), "ad-review__th-sort" + (active ? " is-active" : ""));
-      sortBtn.setAttribute("aria-pressed", String(active));
+      const text = active2 ? `${label} ${this.projectSortDir === "asc" ? "\u2191" : "\u2193"}` : label;
+      const sortBtn = this.button(th, text, () => this.setProjectSort(key), "ad-review__th-sort" + (active2 ? " is-active" : ""));
+      sortBtn.setAttribute("aria-pressed", String(active2));
     }
     const body = table.createEl("tbody"), max = Math.max(1, data.projectsMaxTokens || data.projects.reduce((m, p) => Math.max(m, p.tokens), 0));
     for (const project of data.projects) {
@@ -18795,7 +18825,7 @@ function matchVerbatimQuote(sourceText, quote2) {
 function parseMemories(answer, sources, entries = [], { strict = true, report = null } = {}) {
   const data = strict ? JSON.parse(answer.trim().replace(/^```(?:json)?\s*|\s*```$/g, "")) : extractDreamJson(answer);
   if (!data || !Array.isArray(data.memories) || strict && data.memories.length > 12) throw new Error(t("Dreaming \u8FD4\u56DE\u7684\u8BB0\u5FC6\u683C\u5F0F\u4E0D\u6B63\u786E"));
-  const seen = /* @__PURE__ */ new Set(), active = new Set(entries.filter((e) => e.state === "\u6709\u6548").map((e) => e.id));
+  const seen = /* @__PURE__ */ new Set(), active2 = new Set(entries.filter((e) => e.state === "\u6709\u6548").map((e) => e.id));
   const rawList = strict ? data.memories : data.memories.slice(0, 12);
   const out = [];
   for (const m of rawList) {
@@ -18847,7 +18877,7 @@ function parseMemories(answer, sources, entries = [], { strict = true, report = 
       }
     }
     const replaces = m.replaces || [];
-    if (!Array.isArray(replaces) || replaces.some((id2) => !active.has(id2))) {
+    if (!Array.isArray(replaces) || replaces.some((id2) => !active2.has(id2))) {
       fail(t("Dreaming \u8981\u66FF\u4EE3\u7684\u8BB0\u5FC6\u4E0D\u5B58\u5728\u6216\u5DF2\u5931\u6548"));
       continue;
     }
@@ -19201,8 +19231,8 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     this.tab = this.normalizeTab(this.tab);
     syncDelegationSettings(this.plugin.settings);
     const { containerEl } = this;
-    const active = (containerEl.ownerDocument || document).activeElement;
-    const focusSearch = !!(active && active.classList && active.classList.contains("ad-search__input"));
+    const active2 = (containerEl.ownerDocument || document).activeElement;
+    const focusSearch = !!(active2 && active2.classList && active2.classList.contains("ad-search__input"));
     if (this._draftBar) {
       try {
         this._draftBar.remove();
@@ -20073,9 +20103,9 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
         p.settings.delegate[agent].model = fallback;
         p.settings.models.defaultByAgent[agent] = fallback;
       }
-      const active = p.defaultModel ? p.defaultModel(agent) : p.settings.delegate[agent]?.model;
-      if (active && !p.settings.models.enabled.includes(active)) {
-        p.settings.models.enabled.push(active);
+      const active2 = p.defaultModel ? p.defaultModel(agent) : p.settings.delegate[agent]?.model;
+      if (active2 && !p.settings.models.enabled.includes(active2)) {
+        p.settings.models.enabled.push(active2);
       }
     }
     this.draft = catalogSnapshot(p.settings.models);
@@ -20314,6 +20344,12 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       p.refreshUI();
       this.display();
     });
+    this.rowToggle(jr, t("\u5173\u952E\u8BCD\u914D\u8272\u4E0E\u56FE\u6807"), t("Logseq \u98CE\u683C\u7684\u5173\u952E\u8BCD\u989C\u8272\u4E0E\u56FE\u6807\uFF1B\u540C\u65F6\u5F00\u7740 Logseq Style Tasks \u65F6\uFF0C\u8BF7\u5173\u6389\u5B83\u7684\u300C\u683C\u5F0F\u5316\u4EFB\u52A1\u5173\u952E\u8BCD\u300D"), s.keywordStyle !== false, (v) => {
+      s.keywordStyle = v;
+      p.saveSettings();
+      p.refreshUI();
+      this.display();
+    });
     const jrMore = this.subDetails(jr, "recording-more", t("\u66F4\u591A\u8BBE\u7F6E"));
     jrMore.appendChild(grain);
     this.rowToggle(jrMore, t("\u7D2F\u79EF\u540E\u81EA\u52A8\u5408\u5E76\u603B\u7ED3"), "", !!s.autoLogMerge, (v) => {
@@ -20323,6 +20359,10 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     });
     this.rowNumber(jrMore, t("\u7D2F\u79EF\u591A\u5C11\u6761\u7ED3\u8BBA\u540E\u5408\u5E76"), t("\u81F3\u5C11 2 \u6761"), s.autoLogMergeThreshold || 10, 2, 100, (v) => {
       s.autoLogMergeThreshold = Math.round(v);
+      p.saveSettings();
+    });
+    this.rowNumber(jrMore, t("\u9996\u6B21\u8BB0\u5F55\u6700\u8FD1\u591A\u5C11\u8F6E"), t("\u7B2C\u4E00\u6B21\u63A5\u5165\u67D0\u4E2A\u4F1A\u8BDD / Bot \u65F6\u53EA\u8865\u6700\u8FD1\u51E0\u8F6E\uFF1B\u4E4B\u540E\u53EA\u8BB0\u5F53\u5929\u4EA7\u751F\u7684\u65B0\u8F6E\u6B21"), s.autoLogFirstRounds || DEFAULTS.autoLogFirstRounds, 1, 100, (v) => {
+      s.autoLogFirstRounds = Math.max(1, Math.round(v));
       p.saveSettings();
     });
     const wb = jrMore;
@@ -21532,6 +21572,379 @@ var ArchiveTargetModal = class extends import_obsidian6.Modal {
     this.contentEl.empty();
   }
 };
+
+// src/keyword-style.js
+var import_view5 = require("@codemirror/view");
+var import_state4 = require("@codemirror/state");
+var import_language2 = require("@codemirror/language");
+var escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var P = (d, cls) => `<path${cls ? ` class="${cls}"` : ""} d="${d}"${cls && cls.includes("draw") ? ' pathLength="1"' : ""}/>`;
+var ICON = {
+  todo: [
+    "M10.1 2.182a10 10 0 0 1 3.8 0",
+    "M17.609 3.721a10 10 0 0 1 2.69 2.7",
+    "M21.818 10.1a10 10 0 0 1 0 3.8",
+    "M20.279 17.609a10 10 0 0 1-2.7 2.69",
+    "M13.9 21.818a10 10 0 0 1-3.8 0",
+    "M6.391 20.279a10 10 0 0 1-2.69-2.7",
+    "M2.182 13.9a10 10 0 0 1 0-3.8",
+    "M3.721 6.391a10 10 0 0 1 2.7-2.69"
+  ].map(
+    (d, i) => `<path class="seg" style="--i:${i}" d="${d}"/>`
+  ).join(""),
+  bot: P("M12 8V4H8") + '<rect x="4" y="8" width="16" height="12" rx="2"/>' + P("M2 14h2") + P("M20 14h2") + '<g class="eyes"><line x1="15" x2="15" y1="13" y2="15"/><line x1="9" x2="9" y1="13" y2="15"/></g>',
+  doing: P("M21 12a9 9 0 1 1-6.219-8.56", "spin"),
+  done: '<circle cx="12" cy="12" r="10"/>' + P("m9 12 2 2 4-4", "draw"),
+  paused: '<rect class="l" x="6" y="4" width="4" height="16" rx="1"/><rect class="r" x="14" y="4" width="4" height="16" rx="1"/>',
+  waiting: '<g class="flip">' + P("M5 22h14") + P("M5 2h14") + P(
+    "M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"
+  ) + P(
+    "M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"
+  ) + "</g>",
+  suspended: '<g class="wob">' + [
+    "m10 20-1.25-2.5L6 18",
+    "M10 4 8.75 6.5 6 6",
+    "m14 20 1.25-2.5L18 18",
+    "m14 4 1.25 2.5L18 6",
+    "m17 21-3-6h-4",
+    "m17 3-3 6 1.5 3",
+    "M2 12h6.5L10 9",
+    "m20 10-1.5 2 1.5 2",
+    "M22 12h-6.5L14 15",
+    "m4 10 1.5 2L4 14",
+    "m7 21 3-6-1.5-3",
+    "m7 3 3 6h4"
+  ].map((d) => P(d)).join("") + "</g>",
+  cancelled: '<circle class="draw" pathLength="1" cx="12" cy="12" r="10"/>' + P("m4.9 4.9 14.2 14.2", "draw slash"),
+  failed: P("M18 6 6 18", "draw") + P("m6 6 12 12", "draw late"),
+  review: P(
+    "M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0",
+    "lid"
+  ) + '<circle class="pupil" cx="12" cy="12" r="3"/>',
+  needok: '<g class="wave">' + P("M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2") + P("M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2") + P("M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8") + P(
+    "M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"
+  ) + "</g>",
+  errored: '<g class="shake">' + P(
+    "M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"
+  ) + '<line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></g>',
+  hitlimit: P("m12 14 4-4", "needle") + P("M3.34 19a10 10 0 1 1 17.32 0"),
+  delegated: '<g class="fly">' + P(
+    "M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"
+  ) + P("m21.854 2.147-10.94 10.939") + '</g><path class="trail" stroke-dasharray="2 2" d="M -3 28 C -0.5 26.8 1.6 24.6 3.3 22 C 4.8 19.7 5.2 17.6 4.2 16.1 C 3.2 14.7 1.4 14.5 0.3 15.8 C -0.9 17.2 -0.6 19.4 1.2 20.4 C 3.4 21.5 6.4 19.4 9 15.8"/>',
+  yes: '<g class="thumb">' + P("M7 10v12") + P(
+    "M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"
+  ) + "</g>",
+  no: '<g class="thumb">' + P("M17 14V2") + P(
+    "M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"
+  ) + "</g>",
+  maybe: '<circle cx="12" cy="12" r="10"/><g class="q">' + P("M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3") + P("M12 17h.01") + "</g>",
+  queued: '<g class="ring">' + P("M18 20.5L19.5 22") + P("M6 20.5L4.5 22") + P(
+    "M21 13C21 17.968 16.968 22 12 22C7.032 22 3 17.968 3 13C3 8.032 7.032 4 12 4C16.968 4 21 8.032 21 13Z"
+  ) + P(
+    "M15.339 15.862L12.549 14.197C12.063 13.909 11.667 13.216 11.667 12.649V8.95898"
+  ) + '</g><g class="bells">' + P("M18 2L21.747 5.31064") + P("M6 2L2.25304 5.31064") + "</g>"
+};
+var KIND = {
+  TODO: "todo",
+  LATER: "todo",
+  TODOFORAI: "bot",
+  TODO4AI: "bot",
+  TODO2AI: "bot",
+  TODOTOAI: "bot",
+  DOING: "doing",
+  NOW: "doing",
+  "IN-PROGRESS": "doing",
+  DONE: "done",
+  PAUSED: "paused",
+  WAITING: "waiting",
+  WAIT: "waiting",
+  SUSPENDED: "suspended",
+  CANCELLED: "cancelled",
+  CANCELED: "cancelled",
+  FAILED: "failed",
+  TOREVIEW: "review",
+  NEEDOK: "needok",
+  ERRORED: "errored",
+  HITLIMIT: "hitlimit",
+  QUEUED: "queued",
+  DELEGATED: "delegated",
+  YES: "yes",
+  NO: "no",
+  MAYBE: "maybe"
+};
+var AI_MARK = AUTO_MARK.trim();
+var compiled = null;
+function keywordRegex() {
+  if (!compiled) {
+    const alternation = TASK_KWS.split("|").sort((a, b) => b.length - a.length).map(escape).join("|");
+    compiled = new RegExp(
+      `^(\\s*(?:>\\s*)*(?:(?:#{1,6}|[-*+]|\\d+[.)])\\s+)?(?:\\[[ xX/\\-]\\]\\s+)?(?:\\*\\*\\d{1,2}[:\uFF1A]\\d{2}\\*\\*\\s*)?)(${alternation})(?=\\s|$)`,
+      "u"
+    );
+  }
+  return compiled;
+}
+function keywordOf(text) {
+  const m = keywordRegex().exec(String(text));
+  return m ? { at: m[1].length, keyword: m[2] } : null;
+}
+var isAiRecordLine = (text) => String(text).includes(AI_MARK);
+var isDoneKeyword = (keyword) => DONE_KWS.includes(keyword);
+function todoSetting(plugin, key) {
+  try {
+    const plugins = plugin.app?.plugins?.plugins || {};
+    const todo = plugins["logseq-style-tasks"] || plugins["todoseq"];
+    return todo?.settings ? todo.settings[key] : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function todoSeqFormatsKeywords(plugin) {
+  const value = todoSetting(plugin, "formatTaskKeywords");
+  return value !== void 0 && value !== false;
+}
+function todoSeqRendersIcons(plugin) {
+  const value = todoSetting(plugin, "keywordIcons");
+  return value !== void 0 && value !== false;
+}
+var active = (plugin) => plugin.settings.keywordStyle !== false && !todoSeqFormatsKeywords(plugin);
+var activeIcons = (plugin) => plugin.settings.keywordStyle !== false && !todoSeqRendersIcons(plugin);
+var inCode = (view, pos) => {
+  try {
+    for (let n = (0, import_language2.syntaxTree)(view.state).resolveInner(pos, 1); n; n = n.parent) {
+      if (/codeblock|inline-code|frontmatter|hmd-code/i.test(n.name)) return true;
+    }
+  } catch {
+  }
+  return false;
+};
+var kindOf = (keyword) => KIND[keyword] || null;
+var Icon = class extends import_view5.WidgetType {
+  constructor(keyword, kind, fire) {
+    super();
+    this.keyword = keyword;
+    this.kind = kind;
+    this.fire = fire;
+  }
+  eq(other) {
+    return other.keyword === this.keyword && other.kind === this.kind && other.fire === this.fire;
+  }
+  toDOM() {
+    const el = document.createElement("span");
+    el.className = `tsq-ico tsq-ico-${this.kind}${this.fire ? " is-fire" : ""}`;
+    el.setAttribute("data-kw", this.keyword);
+    el.setAttribute("aria-hidden", "true");
+    const svg = new DOMParser().parseFromString(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[this.kind] || ""}</svg>`,
+      "image/svg+xml"
+    ).documentElement;
+    el.appendChild(document.importNode(svg, true));
+    return el;
+  }
+  ignoreEvent() {
+    return false;
+  }
+};
+function keywordMarksExtension(plugin) {
+  return import_view5.ViewPlugin.fromClass(
+    class {
+      constructor(view) {
+        this.decorations = this.build(view);
+      }
+      update(update) {
+        if (update.docChanged || update.viewportChanged) {
+          this.decorations = this.build(update.view);
+        }
+      }
+      build(view) {
+        const out = new import_state4.RangeSetBuilder();
+        if (!active(plugin)) return out.finish();
+        const doc = view.state.doc;
+        for (const { from, to } of view.visibleRanges) {
+          let pos = from;
+          while (pos <= to) {
+            const line = doc.lineAt(pos);
+            const hit = keywordOf(line.text);
+            if (hit && !inCode(view, line.from)) {
+              const start = line.from + hit.at;
+              const end = start + hit.keyword.length;
+              const done = isDoneKeyword(hit.keyword);
+              const aiRecord = isAiRecordLine(line.text);
+              const heading = /^\s*(?:>\s*)*#{1,6}\s+/.test(line.text);
+              out.add(
+                start,
+                end,
+                import_view5.Decoration.mark({
+                  class: "todoseq-keyword-formatted" + (done && !aiRecord ? " todoseq-completed-keyword" : "") + (heading ? " todoseq-heading-task-keyword" : ""),
+                  attributes: { "data-task-keyword": hit.keyword }
+                })
+              );
+              if (done && !aiRecord && end < line.to) {
+                out.add(
+                  end,
+                  line.to,
+                  import_view5.Decoration.mark({ class: "todoseq-completed-task-text" })
+                );
+              }
+            }
+            pos = line.to + 1;
+          }
+        }
+        return out.finish();
+      }
+    },
+    { decorations: (v) => v.decorations }
+  );
+}
+var FIRE_MS = 2500;
+function keywordIconsExtension(plugin) {
+  return import_view5.ViewPlugin.fromClass(
+    class {
+      constructor(view) {
+        this.fires = /* @__PURE__ */ new Map();
+        this.seq = 0;
+        this.decorations = this.build(view);
+      }
+      /** 去掉关键词、时间和优先级后的正文：只改关键词时它不变 */
+      bodyOf(text) {
+        return text.replace(keywordRegex(), "$1").replace(
+          /^\s*(?:>\s*)*(?:(?:[-*+]|\d+[.)])\s+)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/,
+          ""
+        ).replace(
+          /^\s*(?:\[#[ABC]\]\s*)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～]\s*\d{1,2}[:：]\d{2})?\s*)?(?:\[#[ABC]\]\s*)?/,
+          ""
+        ).trim();
+      }
+      update(update) {
+        if (update.docChanged && activeIcons(plugin)) {
+          const now = Date.now();
+          const moved = /* @__PURE__ */ new Map();
+          for (const [pos, f] of this.fires) {
+            if (now - f.at < FIRE_MS) moved.set(update.changes.mapPos(pos, 1), f);
+          }
+          this.fires = moved;
+          const before = update.startState.doc;
+          const after = update.state.doc;
+          const fresh = [];
+          let lines = 0;
+          update.changes.iterChangedRanges((fromA, toA, fromB, toB) => {
+            const was = /* @__PURE__ */ new Map();
+            for (let n = before.lineAt(fromA).number, end = before.lineAt(toA).number; n <= end && lines < 50; n++, lines++) {
+              const text = before.line(n).text;
+              was.set(this.bodyOf(text), keywordOf(text)?.keyword || "");
+            }
+            for (let n = after.lineAt(fromB).number, end = after.lineAt(toB).number; n <= end && lines < 100; n++, lines++) {
+              const line = after.line(n);
+              const hit = keywordOf(line.text);
+              if (!hit) continue;
+              const old = was.get(this.bodyOf(line.text));
+              if (old !== void 0 && old !== hit.keyword) fresh.push([line.from, hit.keyword]);
+            }
+          });
+          if (fresh.length && fresh.length <= 5) {
+            for (const [pos, keyword] of fresh) {
+              this.fires.set(pos, { keyword, id: ++this.seq, at: now });
+            }
+          }
+        }
+        if (update.docChanged || update.viewportChanged || this.fires.size) {
+          this.decorations = this.build(update.view);
+        }
+      }
+      build(view) {
+        const out = new import_state4.RangeSetBuilder();
+        if (!activeIcons(plugin)) return out.finish();
+        const doc = view.state.doc;
+        const now = Date.now();
+        for (const [pos, f] of this.fires) {
+          if (now - f.at >= FIRE_MS) this.fires.delete(pos);
+        }
+        let next = 0;
+        for (const { from, to } of view.visibleRanges) {
+          for (let pos = Math.max(from, next); pos <= to; ) {
+            const line = doc.lineAt(pos);
+            const hit = keywordOf(line.text);
+            const kind = hit && kindOf(hit.keyword);
+            if (hit && kind && !inCode(view, line.from)) {
+              const f = this.fires.get(line.from);
+              const fire = f && f.keyword === hit.keyword ? f.id : 0;
+              out.add(
+                line.from + hit.at,
+                line.from + hit.at,
+                import_view5.Decoration.widget({
+                  widget: new Icon(hit.keyword, kind, fire),
+                  side: -1
+                })
+              );
+            }
+            pos = next = line.to + 1;
+          }
+        }
+        return out.finish();
+      }
+    },
+    { decorations: (v) => v.decorations }
+  );
+}
+var BLOCK_CHILD_RE = /^(UL|OL|DIV|BLOCKQUOTE|PRE|TABLE|H[1-6])$/;
+function firstTextChild(el) {
+  for (const node of el.childNodes) {
+    if (node.nodeType === 3 && node.textContent && node.textContent.trim()) return node;
+  }
+  return null;
+}
+function wrapRemainder(doc, keywordSpan) {
+  const wrap = doc.createElement("span");
+  wrap.className = "todoseq-completed-task-text";
+  let cur = keywordSpan.nextSibling;
+  while (cur) {
+    const next = cur.nextSibling;
+    if (cur.nodeType === 1 && BLOCK_CHILD_RE.test(cur.tagName)) break;
+    wrap.append(cur);
+    cur = next;
+  }
+  if (wrap.childNodes.length) keywordSpan.after(wrap);
+}
+var LOOKS_LIKE_TASK = /^\s*(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)?(?:\[[ xX/\-]\]\s+)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?[A-Z][A-Z-]*\b/;
+var TASK_HOSTS = "li, p, h1, h2, h3, h4, h5, h6";
+var IN_CODE = "pre, code, .table-cell-wrapper";
+function applyKeywordStyle(root) {
+  const host = root.querySelectorAll ? root : null;
+  if (!host) return;
+  for (const el of root.querySelectorAll(TASK_HOSTS)) {
+    const node = firstTextChild(el);
+    const text = node && node.textContent;
+    if (!text || !LOOKS_LIKE_TASK.test(text)) continue;
+    if (el.closest(IN_CODE)) continue;
+    if (el.querySelector(".todoseq-keyword-formatted")) continue;
+    const hit = keywordOf(text);
+    if (!hit) continue;
+    const before = text.slice(0, hit.at);
+    const rest = text.slice(hit.at + hit.keyword.length);
+    const doc = el.ownerDocument;
+    const kw = doc.createElement("span");
+    const done = isDoneKeyword(hit.keyword);
+    const heading = /^H[1-6]$/.test(el.tagName);
+    const aiRecord = isAiRecordLine(el.textContent);
+    kw.className = "todoseq-keyword-formatted" + (done && !aiRecord ? " todoseq-completed-keyword" : "") + (heading ? " todoseq-heading-task-keyword" : "");
+    kw.setAttribute("data-task-keyword", hit.keyword);
+    kw.textContent = hit.keyword;
+    const frag = doc.createDocumentFragment();
+    if (before) frag.append(before);
+    frag.append(kw);
+    node.replaceWith(frag);
+    if (!rest) continue;
+    const tail = doc.createTextNode(rest);
+    kw.after(tail);
+    if (done && !aiRecord) wrapRemainder(doc, kw);
+  }
+}
+function keywordPostProcessor(plugin) {
+  return (el) => {
+    if (!active(plugin)) return;
+    applyKeywordStyle(el);
+  };
+}
 
 // src/menubar.js
 var import_fs10 = __toESM(require("fs"), 1);
@@ -23377,18 +23790,18 @@ var MenuBarBridge = class {
     } catch {
     }
     const hasBinary = import_fs10.default.existsSync(this.binPath);
-    const compiled = !hasBinary || oldHash !== hash3;
-    if (compiled) {
+    const compiled2 = !hasBinary || oldHash !== hash3;
+    if (compiled2) {
       await this.compile(hash3);
     }
     if (!this.enabled) return;
     this.plugin.settings.showMenuBar = true;
     this.plugin.settingTab?.mbSwitch?.setOn(true);
-    if (compiled) await this.plugin.saveSettings();
+    if (compiled2) await this.plugin.saveSettings();
     if (!this.enabled) return;
     if (this._timers.disposed) this._timers = new ManagedTimers();
     this.update(true);
-    if (compiled || !this.isAlive()) this.launch();
+    if (compiled2 || !this.isAlive()) this.launch();
     this._timers.clear(this.timer);
     this.timer = this._timers.setInterval(() => safeRun("menubar:update", () => this.update()), 1800);
   }
@@ -23517,7 +23930,7 @@ var MenuBarBridge = class {
 
 // src/fold-integration.js
 var import_obsidian7 = require("obsidian");
-var import_language2 = require("@codemirror/language");
+var import_language3 = require("@codemirror/language");
 
 // src/fold-actions.js
 var RECORD_FOLD_COMMANDS = {
@@ -23554,14 +23967,14 @@ function integrateRecordFolding(plugin) {
       const current = aiRecordGroups(cm.state.doc.toString(), plugin.recordTrackedIds());
       const keys = new Set(spec.all ? current.map((g) => g.key) : targets.map((g) => g.key));
       const effects = [];
-      (0, import_language2.foldedRanges)(cm.state).between(0, cm.state.doc.length, (from, to) => {
+      (0, import_language3.foldedRanges)(cm.state).between(0, cm.state.doc.length, (from, to) => {
         const hit = current.some((g) => {
           if (!keys.has(g.key) || !g.records.length) return false;
           const start = cm.state.doc.line(g.line + 1).from;
           const end = cm.state.doc.line(g.records[g.records.length - 1] + 1).to;
           return from > start && from <= end;
         });
-        if (hit) effects.push(import_language2.unfoldEffect.of({ from, to }));
+        if (hit) effects.push(import_language3.unfoldEffect.of({ from, to }));
       });
       effects.push(setRecordsOpenEffect.of({ keys: [...keys], open }));
       cm.dispatch({ effects });
@@ -23589,6 +24002,13 @@ var BLOCKED_KW = {
   limit: "HITLIMIT",
   queued: "QUEUED"
 };
+function expandJournalTemplate(text, { title = "", now = /* @__PURE__ */ new Date(), dateFormat = "YYYY-MM-DD", timeFormat = "HH:mm" } = {}) {
+  return String(text).replace(/\{\{\s*(date|time|title)\s*(?::([^{}]*))?\s*\}\}/g, (_, name, fmt) => {
+    if (name === "title") return title;
+    const format = String(fmt || "").trim() || (name === "date" ? dateFormat : timeFormat);
+    return formatDate(now, format);
+  });
+}
 var AutoLog = class {
   constructor(plugin) {
     this.p = plugin;
@@ -23648,6 +24068,38 @@ var AutoLog = class {
   journalFile(day) {
     const f = this.p.app.vault.getAbstractFileByPath(this.journalPath(day));
     return f && f.extension === "md" ? f : null;
+  }
+  // 今天的日记还没建：按「日记」核心插件的模板建一篇，AI 分区骨架照旧交给 placeBlock
+  async createJournal(day) {
+    const path10 = this.journalPath(day);
+    if (typeof this.p.ensureNoteFile !== "function") return null;
+    const { file } = await this.p.ensureNoteFile(path10, await this.journalTemplate(path10));
+    return file || null;
+  }
+  async journalTemplate(path10) {
+    const app = this.p.app;
+    let tplPath = "";
+    try {
+      const dn = app.internalPlugins?.getPluginById?.("daily-notes");
+      if (dn?.enabled) tplPath = String(dn.instance?.options?.template || "").trim();
+    } catch {
+    }
+    if (!tplPath) return "";
+    const file = app.vault.getAbstractFileByPath(tplPath) || app.vault.getAbstractFileByPath(`${tplPath}.md`) || app.metadataCache?.getFirstLinkpathDest?.(tplPath, "");
+    if (!file || typeof file.extension !== "string") return "";
+    let text = "";
+    try {
+      text = await app.vault.read(file);
+    } catch {
+      return "";
+    }
+    let format = {};
+    try {
+      format = app.internalPlugins?.getPluginById?.("templates")?.instance?.options || {};
+    } catch {
+    }
+    const title = path10.slice(path10.lastIndexOf("/") + 1).replace(/\.md$/, "");
+    return expandJournalTemplate(text, { title, dateFormat: format.dateFormat, timeFormat: format.timeFormat });
   }
   viewFor(file) {
     let view = null;
@@ -23824,12 +24276,12 @@ var AutoLog = class {
   }
   // 让本机的小模型看一眼这几个会话：起名字、对上日记里哪一行、提炼一句话结论
   async ask(items, open, fallback = false) {
-    const blocks = items.map(({ x, active }, i) => {
+    const blocks = items.map(({ x, active: active2 }, i) => {
       const meta = this.usage.meta.get(x.sid) || {};
       const last = String(meta.lastText || "").replace(/\d{12,}/g, "\u2026").replace(/\s+/g, " ").trim().slice(-700);
       const opening = condenseUserPrompt(x.text || "").replace(/\d{12,}/g, "\u2026").slice(0, 200);
       return [
-        `#s${i + 1} [${agentName(x.agent)}] \u6807\u9898\uFF1A${x.title || "\uFF08\u6CA1\u6709\uFF09"}\uFF1B\u7D2F\u8BA1 ${x.min} \u5206\u949F\uFF1B\u73B0\u5728\uFF1A${active ? "\u8FD8\u5728\u8FDB\u884C" : "\u5DF2\u7ECF\u505C\u4E86"}`,
+        `#s${i + 1} [${agentName(x.agent)}] \u6807\u9898\uFF1A${x.title || "\uFF08\u6CA1\u6709\uFF09"}\uFF1B\u7D2F\u8BA1 ${x.min} \u5206\u949F\uFF1B\u73B0\u5728\uFF1A${active2 ? "\u8FD8\u5728\u8FDB\u884C" : "\u5DF2\u7ECF\u505C\u4E86"}`,
         opening ? `\u5F00\u5934\u8BF4\u7684\uFF1A${opening}` : "",
         last ? `\u6700\u540E\u4E00\u6761\u56DE\u590D\u7684\u7ED3\u5C3E\uFF1A${last}` : ""
       ].filter(Boolean).join("\n");
@@ -23932,13 +24384,13 @@ var AutoLog = class {
     this._busy = true;
     try {
       const day = this.dayKey();
-      const file = this.journalFile(day);
+      const data = this.usage.summary(day);
+      if (!data || !data.list || !data.list.length) return report;
+      const file = this.journalFile(day) || await this.createJournal(day);
       if (!file) {
         report.error = t("\u4ECA\u5929\u7684\u65E5\u8BB0 {path} \u8FD8\u6CA1\u5EFA", { path: this.journalPath(day) });
         return report;
       }
-      const data = this.usage.summary(day);
-      if (!data || !data.list || !data.list.length) return report;
       const arch = this.archived();
       const todayList = [], crossByOrigin = /* @__PURE__ */ new Map();
       for (const x of data.list) {
@@ -24004,16 +24456,16 @@ var AutoLog = class {
         if (!this.agentOn(x.agent) || background.has(x.sid)) continue;
         if (linked.has(x.sid)) continue;
         const last = x.segs[x.segs.length - 1][1];
-        const active = now - last <= idle;
+        const active2 = now - last <= idle;
         const rec = st[x.sid];
         if (rec && (rec.skip || rec.gone)) continue;
         if (!rec) {
           if (x.min < this.minMinutes && !arch.has(x.sid)) continue;
-          todo.push({ x, active, fresh: true });
-        } else if (x.agent === "grokbot" && rec.status === "done" && rec.doneAtMin != null && last > rec.doneAtMin && active) {
-          todo.push({ x, active, fresh: true, sinceMs: rec.doneEndMs || 0 });
-        } else if (rec.status === "doing" && !active && !rec.asked && !arch.has(x.sid)) todo.push({ x, active, rec });
-        else live.push({ x, active, rec });
+          todo.push({ x, active: active2, fresh: true });
+        } else if (x.agent === "grokbot" && rec.status === "done" && rec.doneAtMin != null && last > rec.doneAtMin && active2) {
+          todo.push({ x, active: active2, fresh: true, sinceMs: rec.doneEndMs || 0 });
+        } else if (rec.status === "doing" && !active2 && !rec.asked && !arch.has(x.sid)) todo.push({ x, active: active2, rec });
+        else live.push({ x, active: active2, rec });
       }
       const ask = todo.slice(0, this.batch);
       let ans = /* @__PURE__ */ new Map();
@@ -24032,7 +24484,9 @@ var AutoLog = class {
         const digest = { doing: [], paused: [], done: [], archived: [], idleDone: [], todo: [] };
         const clocks = /* @__PURE__ */ new Set();
         const work = (_b = (_a = this.cfg).workLog || (_a.workLog = {}))[day] || (_b[day] = {});
-        for (const { x, active, fresh, sinceMs } of [...ask, ...todo.slice(this.batch), ...live]) {
+        const seen = seenSessions(this.cfg);
+        const todayStart = startOfDay(Date.now(), this.cfg);
+        for (const { x, active: active2, fresh, sinceMs } of [...ask, ...todo.slice(this.batch), ...live]) {
           if (linked2.has(x.sid)) continue;
           const a = ans.get(x.sid);
           const last = x.segs[x.segs.length - 1][1];
@@ -24044,7 +24498,7 @@ var AutoLog = class {
               continue;
             }
             let m = a.matchKey ? taskItems(text).find((i) => i.state === "open" && i.key === a.matchKey) : null;
-            if (m && !active && m.state !== "doing" && m.state !== "paused") m = null;
+            if (m && !active2 && m.state !== "doing" && m.state !== "paused") m = null;
             if (!m && !a.label) {
               st[x.sid] = { skip: true };
               continue;
@@ -24055,8 +24509,8 @@ var AutoLog = class {
             rec = st[x.sid] = { key: workKey(label), label, blockId, created: !m, agent: x.agent, proj: m ? "" : a.proj || this.projectOf(x), status: m ? m.state : null, fresh: !m, ...sinceMs ? { sinceMs } : {} };
           }
           rec.min = x.min;
-          if (a) rec.asked = !active;
-          if (active) delete rec.asked;
+          if (a) rec.asked = !active2;
+          if (active2) delete rec.asked;
           const found = findTask(text, rec.key, rec.blockId || "", x.sid);
           if (!found && !rec.fresh) {
             rec.gone = true;
@@ -24086,7 +24540,7 @@ var AutoLog = class {
           const grokIdleDone = x.agent === "grokbot" && grokDone > 0 && now - last >= grokDone && !(rec.hold && Date.now() < rec.hold);
           const archDone = this.allArchived(st, x.sid, rec, arch);
           const blockedKw = this.blockedKeyword(x.sid);
-          const doneReview = !active && !blockedKw && Boolean(a && a.done || rec.doneHint);
+          const doneReview = !active2 && !blockedKw && Boolean(a && a.done || rec.doneHint);
           if (!manualState && (archDone || grokIdleDone)) {
             text = this.autoLine(text, rec, x, "done").text;
             rec.status = "done";
@@ -24121,7 +24575,7 @@ var AutoLog = class {
               clocks.add(rec.key);
               report.changes.push(t("{kw}\uFF1A{name}\uFF08{min}m\uFF09", { kw: blockedKw, name: rec.label, min: x.min }));
             }
-          } else if (!manualState && active && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
+          } else if (!manualState && active2 && cur !== "doing" && !(rec.parkedAt != null && last <= rec.parkedAt)) {
             text = this.autoLine(text, rec, x, "doing").text;
             rec.status = "doing";
             delete rec.parkedAt;
@@ -24131,7 +24585,7 @@ var AutoLog = class {
             delete rec.doneHint;
             digest.doing.push(name);
             report.changes.push(t("DOING\uFF1A{name}", { name: rec.label }));
-          } else if (!manualState && active && cur === "doing") {
+          } else if (!manualState && active2 && cur === "doing") {
             text = this.autoLine(text, rec, x, "doing").text;
             rec.status = "doing";
             delete rec.parkedAt;
@@ -24150,7 +24604,7 @@ var AutoLog = class {
               clocks.add(rec.key);
               report.changes.push(t("{kw}\uFF1A{name}\uFF08{min}m\uFF09", { kw: "TOREVIEW", name: rec.label, min: x.min }));
             }
-          } else if (!manualState && !active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
+          } else if (!manualState && !active2 && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
             text = this.autoLine(text, rec, x, "paused").text;
             rec.status = "paused";
             rec.autoPaused = true;
@@ -24160,22 +24614,24 @@ var AutoLog = class {
             clocks.add(rec.key);
             digest.paused.push(`${name}\uFF08${x.min}m\uFF09`);
             report.changes.push(t("PAUSED\uFF1A{name}\uFF08{min}m\uFF09", { name: rec.label, min: x.min }));
-          } else if (!manualState && !active && cur === "paused") {
+          } else if (!manualState && !active2 && cur === "paused") {
             text = this.autoLine(text, rec, x, "paused").text;
           }
-          if (a && !active && a.done && !rec.doneHint) {
+          if (a && !active2 && a.done && !rec.doneHint) {
             rec.doneHint = true;
             digest.done.push(`${name}\uFF08${x.min}m\uFF09`);
             if (rec.autoKw !== "TOREVIEW") report.changes.push(t("\u770B\u7740\u505A\u5B8C\u4E86\uFF1A{name}", { name: rec.label }));
           }
           const meta = this.usage.meta.get(x.sid) || {};
           const rawRounds = Array.isArray(meta.rounds) ? meta.rounds : [];
-          const rounds = x.agent === "grokbot" ? rawRounds.filter((r) => (!r?.at || dayKey(r.at, this.cfg) === day) && (!rec.sinceMs || !r?.at || r.at > rec.sinceMs)) : rawRounds;
-          const rawSummary = a && a.summary || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? oneSentenceConclusion(meta.lastText, 90) : "");
+          const first = seen[x.sid] == null;
+          const rounds = trackedRounds(rawRounds, { first, since: todayStart, max: this.cfg.autoLogFirstRounds }).filter((r) => x.agent !== "grokbot" || !rec.sinceMs || !r.at || r.at > rec.sinceMs);
+          if (first) seen[x.sid] = Date.now();
+          const rawSummary = a && a.summary || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active2) ? oneSentenceConclusion(meta.lastText, 90) : "");
           if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
-          const pendingTodos = a && !active && Array.isArray(a.todos) && !rec.todosAdded ? a.todos : [];
-          const taskTodo = x.agent === "claude" && (!active || meta.state === "wait" || meta.state === "quiet") ? meta.todo || null : null;
-          if ((this.cfg.autoLogGranularity !== "paused" || !active || arch.has(x.sid)) && (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo)) {
+          const pendingTodos = a && !active2 && Array.isArray(a.todos) && !rec.todosAdded ? a.todos : [];
+          const taskTodo = x.agent === "claude" && (!active2 || meta.state === "wait" || meta.state === "quiet") ? meta.todo || null : null;
+          if ((this.cfg.autoLogGranularity !== "paused" || !active2 || arch.has(x.sid)) && (rawSummary || pendingTodos.length || rounds.length > 1 || taskTodo)) {
             const synced = syncSessionEntry(text, {
               granularity: this.cfg.autoLogGranularity,
               compact: this.cfg.autoLogSummaries?.[day]?.[x.sid],
@@ -24186,7 +24642,7 @@ var AutoLog = class {
               blockId: rec.blockId || "",
               key: rec.key,
               said: rawSummary,
-              rounds: !active || meta.state === "wait" || meta.state === "quiet" ? rounds : rounds.slice(0, -1),
+              rounds: !active2 || meta.state === "wait" || meta.state === "quiet" ? rounds : rounds.slice(0, -1),
               todos: pendingTodos,
               taskTodo,
               ensureId: true
@@ -24560,6 +25016,8 @@ var JournalSync = class {
       }
     }
     const backgroundJobs = new Map(Object.values(this.p.jobs || {}).filter((job) => job.destination === "background").map((job) => [job.sessionId, job]));
+    const seen = seenSessions(this.cfg);
+    const todayStart = startOfDay(Date.now(), this.cfg);
     let out = text;
     for (const [sid, info] of targets) {
       const m = this.usage.meta.get(sid);
@@ -24575,7 +25033,11 @@ var JournalSync = class {
       const waiting = m.state === "wait" || m.state === "quiet";
       const isDone = this.archived(sid);
       if (this.cfg.autoLogGranularity === "paused" && !isDone && daySt[sid]?.status !== "paused") continue;
-      const rounds = Array.isArray(m.rounds) ? m.rounds : [];
+      const allRounds = Array.isArray(m.rounds) ? m.rounds : [];
+      const first = seen[sid] == null;
+      const rounds = trackedRounds(allRounds, { first, since: todayStart, max: this.cfg.autoLogFirstRounds });
+      if (first) seen[sid] = Date.now();
+      if (allRounds.length && !rounds.length) continue;
       const said = String(m.lastText || "").trim();
       let summary = "";
       if (waiting || isDone) {
@@ -26719,8 +27181,8 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
       } catch {
       }
     } else if (!this.targetPath) {
-      const active = this.app.workspace.getActiveFile?.();
-      if (active?.extension === "md") this.targetPath = active.path;
+      const active2 = this.app.workspace.getActiveFile?.();
+      if (active2?.extension === "md") this.targetPath = active2.path;
       else if (p.journalSync?.todayJournal) {
         const today = p.journalSync.todayJournal();
         this.targetPath = today?.path || "";
@@ -26835,8 +27297,8 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
     }
   }
   async commitTasks({ dispatch = false } = {}) {
-    const active = this.subtasks.filter((s) => s.checked !== false && String(s.title || "").trim());
-    if (!active.length) {
+    const active2 = this.subtasks.filter((s) => s.checked !== false && String(s.title || "").trim());
+    if (!active2.length) {
       new import_obsidian14.Notice(t("\u8BF7\u81F3\u5C11\u4FDD\u7559\u4E00\u6761\u8981\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
       return;
     }
@@ -26849,8 +27311,8 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
         path: this.targetPath,
         line: this.targetLine,
         parentTitle,
-        subtasks: active,
-        enableBoard: active.length >= 2
+        subtasks: active2,
+        enableBoard: active2.length >= 2
       });
       if (dispatch) {
         await this.plugin.dispatchWorkbenchTasks({
@@ -26870,7 +27332,7 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
           } : { enabled: false }
         });
       } else {
-        new import_obsidian14.Notice(t("\u5DF2\u5C06 {n} \u6761\u534F\u4F5C\u5B50\u4EFB\u52A1\u5199\u5165\u7B14\u8BB0", { n: active.length }));
+        new import_obsidian14.Notice(t("\u5DF2\u5C06 {n} \u6761\u534F\u4F5C\u5B50\u4EFB\u52A1\u5199\u5165\u7B14\u8BB0", { n: active2.length }));
       }
       this.close();
     } catch (e) {
@@ -27345,6 +27807,13 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     this.settings.jobs = this.settings.jobs && typeof this.settings.jobs === "object" ? this.settings.jobs : {};
     setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 0) * 60);
     this.jobs = this.settings.jobs;
+    if (!this.settings.defaultsMigratedAutoLog) {
+      this.settings.autoLog = true;
+      this.settings.pollSeconds = 30;
+      this.settings.defaultsMigratedAutoLog = true;
+      this.saveSettings().catch(() => {
+      });
+    }
     this.attentionTracker = new AttentionTracker();
     this.attentionAlerts = /* @__PURE__ */ new Map();
     this.extState = { perm: /* @__PURE__ */ new Map(), queue: /* @__PURE__ */ new Map(), sig: "" };
@@ -27382,7 +27851,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     this.registerView(DASHBOARD_TYPE, (leaf) => new DashboardView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
-    this.registerEditorExtension(createEditorExtension(this));
+    this.registerEditorExtension([...createEditorExtension(this) || [], keywordMarksExtension(this), keywordIconsExtension(this)]);
     registerTaskAgentSuggest(this);
     registerTaskStatusMenu(this);
     if (typeof this.app.workspace?.on === "function") {
@@ -27411,6 +27880,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
       child.onunload = renderAIRecords(el, this, ctx);
       ctx.addChild(child);
     });
+    this.registerMarkdownPostProcessor(keywordPostProcessor(this));
     this.setupRibbon();
     this.addCommand({ id: "open-dashboard", name: t("\u6253\u5F00 Agent Deck \u9762\u677F"), callback: () => this.activateView() });
     this.addCommand({
@@ -27619,9 +28089,9 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     else this.menubar?.stop();
     this.refreshUI();
   }
-  // A new install should not look empty: put the panel in the right sidebar the
-  // first time the plugin ever loads. `viewOpened` makes it one-shot, and an
-  // existing leaf is left alone so a pinned position survives updates.
+  // A new install should not look empty: put the panel in the right sidebar and
+  // open that sidebar the first time the plugin ever loads. `viewOpened` makes it
+  // one-shot, and an existing leaf is left alone so a pinned position survives updates.
   openPanelOnce() {
     if (this.settings.viewOpened) return false;
     this.settings.viewOpened = true;
@@ -27630,6 +28100,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     const leaf = this.app.workspace.getRightLeaf(false);
     if (!leaf) return false;
     leaf.setViewState({ type: VIEW_TYPE, active: false });
+    this.app.workspace.rightSplit?.expand?.();
     return true;
   }
   async maybeOpenWelcomeShowcase() {
@@ -27719,7 +28190,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
   scheduleScan() {
     this._timers?.clear?.(this._scanTimer);
     clearInterval(this._scanTimer);
-    const sec = clamp(Number(this.settings.pollSeconds) || 60, 5, 300);
+    const sec = clamp(Number(this.settings.pollSeconds) || 30, 5, 300);
     const run2 = () => safeRun("scan:periodic", () => this.scanNow(false));
     this._scanTimer = typeof this._timers?.setInterval === "function" ? this._timers.setInterval(run2, sec * 1e3) : setInterval(run2, sec * 1e3);
   }
@@ -29079,7 +29550,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     if (!editor?.cm) return null;
     return openBatchStatusMenu(this, editor);
   }
-  async ensureNoteFile(targetPath) {
+  async ensureNoteFile(targetPath, content = "") {
     const pathStr = String(targetPath || "").trim() || journalPath(this.app, this.settings);
     let file = this.app.vault.getAbstractFileByPath(pathStr);
     if (file) return { path: pathStr, file };
@@ -29090,7 +29561,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
       dir = dir ? `${dir}/${part}` : part;
       if (!this.app.vault.getAbstractFileByPath(dir)) await this.app.vault.createFolder(dir);
     }
-    file = await this.app.vault.create(pathStr, "");
+    file = await this.app.vault.create(pathStr, content);
     return { path: pathStr, file };
   }
   async writeWorkbenchTasks({ path: path10 = "", line = -1, parentTitle = "", subtasks = [], enableBoard = true } = {}) {

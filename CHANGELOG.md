@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.10.4
+
+- **自动会话记录默认打开、扫描间隔 30 秒**：`DEFAULTS.autoLog` 改为开、`DEFAULTS.pollSeconds` 由 `60` 改为 `30`（`scheduleScan` 兜底值同步）；`onload` 用一次性标记 `settings.defaultsMigratedAutoLog` 把老库也迁到新默认，之后用户手动改就尊重。
+- **当天日记缺失时按模板创建**：确有会话要写而当天日记不存在时，经 `plugin.ensureNoteFile` 按 Obsidian「日记」核心插件的模板建笔记，模板变量 `{{title}}` / `{{date}}` / `{{time}}` / `{{date:…}}` / `{{time:…}}` 按「模板」插件的日期时间格式替换，无模板则建空文件；AI 分区骨架仍交给 `placeBlock`，没有要记录的会话不建笔记。
+- **AI 自动记录只追最近的活动**：新增「首次记录最近多少轮」（`settings.autoLogFirstRounds`，默认 `10`）；第一次接入某个会话 / Bot 只补最近 N 轮，之后同一个会话只跟当天产生的轮次（按「日记日期分界」，跨日延续也按今天），更早的历史不再写回笔记。「见过的会话」记在 `settings.autoLogSeen`（180 天懒清理、封顶 2000 条，老库从 `autoLogState` 播种）；自动建项（`src/autolog.js`）与 🔗 回写（`src/sync.js`）同规则，已有笔记内容不裁剪。
+- **任务关键词的配色与图标（与 Logseq Style Tasks 一比一）**：编辑器与阅读视图给所有任务关键词上色并带 `tsq-ico` 图标，完成/归档态文字与切换关键词时的动画都与 TODOseq 一致；AI 自动记录即使 `DONE` 也不加贯穿删除线，手写任务照旧。TODOseq 在管配色或图标时按层让位，避免重复渲染；开关在「记录 → 日记与归档 → 关键词配色与图标」。
+- **首次安装把面板放进右侧栏并展开**：`openPanelOnce()` 在 `settings.viewOpened` 尚未置位时，除放入右侧栏外再展开右侧栏，新库装上就能看见；已装过的库不动。
+- **README 增加「合并成组（Group rows）」效果图**：中英文 README 在对应小节各插一张居中截图。
+- **性能**：轮次窗口的当天过滤改为 `startOfDay` 毫秒比较（2000 轮 0.355 ms → 0.039 ms）；「见过的会话」查询提到逐会话循环外；阅读视图关键词标记先做廉价预筛；两条关键词 ViewPlugin 在 80 行可见范围各约 0.8 ms。
+
 ## 1.10.3
 
 - **大纲「跳到母块」与「合并成组」**：新增「跳到母块（`Mod+Alt+ArrowUp`，连续按逐级向上）」「跳到最上一级的顶格母块（`Mod+Alt+Shift+ArrowUp`）」与「合并成组（Group rows，`Mod+Alt+ArrowDown`）」命令，并在编辑器右键菜单提供「合并成组（Group rows）」；跳转停在行尾 `^blockId` 之前，遇到顶格段落或标题即视为边界；合并成组按选区覆盖块（含各自子项）的最浅缩进在上方新建空母块、把选中块整体降一级，遵循 Obsidian `useTab` / `tabSize` 设置，光标直接落在新母块输入位。

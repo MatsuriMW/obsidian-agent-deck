@@ -97,3 +97,30 @@ console.log('PASS startup barrier, unload during restore, shared live snapshot, 
  lines[0]='- DONE task ^ad-test';
  assert.equal(p.redundantSessionLink(group,lines),-1,'DONE has no replacement progress row');
 }
+
+{
+ // 首次安装：面板放进右侧栏，并把右侧栏一起展开；之后不再自动打开
+ const p=new AgentDeckPlugin();
+ const calls=[];let expanded=0;
+ p.settings={viewOpened:false};
+ p.saveSettings=async()=>{calls.push('save');};
+ p.app={workspace:{
+  getLeavesOfType:()=>[],
+  getRightLeaf:()=>({setViewState:async(state)=>{calls.push(`set:${state.type}:${state.active}`);}}),
+  rightSplit:{expand:()=>{expanded++;}},
+ }};
+ assert.equal(p.openPanelOnce(),true,'first load opens the panel once');
+ assert.equal(p.settings.viewOpened,true,'one-shot flag is persisted');
+ assert.equal(calls.length,2,calls);
+ assert.equal(calls[0],'save','the one-shot flag is saved before touching the layout');
+ assert.ok(String(calls[1]).startsWith('set:')&&String(calls[1]).endsWith(':false'),calls[1]);
+ assert.equal(expanded,1,'the right sidebar is expanded for a fresh install');
+ assert.equal(p.openPanelOnce(),false,'later loads leave it alone');
+ assert.equal(expanded,1,'a second load must not expand the sidebar again');
+
+ const again=new AgentDeckPlugin();
+ again.settings={viewOpened:true};
+ again.saveSettings=async()=>{throw new Error('should not save');};
+ again.app={workspace:{getLeavesOfType:()=>[],getRightLeaf:()=>({setViewState:async()=>{throw new Error('should not open');}}),rightSplit:{expand(){throw new Error('should not expand');}}}};
+ assert.equal(again.openPanelOnce(),false,'an existing install keeps its panel position untouched');
+}

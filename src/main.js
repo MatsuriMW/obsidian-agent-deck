@@ -37,6 +37,7 @@ import { syncModelGroups } from "./model-groups.js";
 import { DelegateOptionsModal, ConfirmSendModal, ArchiveTargetModal } from "./dialog.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
+import { keywordMarksExtension, keywordIconsExtension, keywordPostProcessor } from "./keyword-style.js";
 import { MenuBarBridge } from "./menubar.js";
 import { integrateRecordFolding } from "./fold-integration.js";
 import { renderAIRecords } from "./record-display.js";
@@ -108,6 +109,13 @@ export default class AgentDeckPlugin extends Plugin {
     this.settings.jobs = this.settings.jobs && typeof this.settings.jobs === "object" ? this.settings.jobs : {};
     J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 0) * 60);
     this.jobs = this.settings.jobs;
+    // 自动会话记录改为默认打开、扫描间隔改为 30 秒：老库也迁一次，之后再手动改就尊重用户的
+    if (!this.settings.defaultsMigratedAutoLog) {
+      this.settings.autoLog = true;
+      this.settings.pollSeconds = 30;
+      this.settings.defaultsMigratedAutoLog = true;
+      this.saveSettings().catch(() => {});
+    }
     this.attentionTracker = new AttentionTracker();
     this.attentionAlerts = new Map();
     this.extState = { perm: new Map(), queue: new Map(), sig: "" };
@@ -147,7 +155,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.registerView(DASHBOARD_TYPE, (leaf) => new DashboardView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
-    this.registerEditorExtension(createEditorExtension(this));
+    this.registerEditorExtension([...(createEditorExtension(this) || []), keywordMarksExtension(this), keywordIconsExtension(this)]);
     registerTaskAgentSuggest(this);
     registerTaskStatusMenu(this);
     if (typeof this.app.workspace?.on === "function") {
@@ -176,6 +184,9 @@ export default class AgentDeckPlugin extends Plugin {
       child.onunload = renderAIRecords(el, this, ctx);
       ctx.addChild(child);
     });
+
+    // 关键词配色与完成态文字：TODOseq 不在管的时候由这边渲染（编辑器和阅读视图一致）
+    this.registerMarkdownPostProcessor(keywordPostProcessor(this));
 
     this.setupRibbon();
 
@@ -364,9 +375,9 @@ export default class AgentDeckPlugin extends Plugin {
     this.refreshUI();
   }
 
-  // A new install should not look empty: put the panel in the right sidebar the
-  // first time the plugin ever loads. `viewOpened` makes it one-shot, and an
-  // existing leaf is left alone so a pinned position survives updates.
+  // A new install should not look empty: put the panel in the right sidebar and
+  // open that sidebar the first time the plugin ever loads. `viewOpened` makes it
+  // one-shot, and an existing leaf is left alone so a pinned position survives updates.
   openPanelOnce() {
     if (this.settings.viewOpened) return false;
     this.settings.viewOpened = true;
@@ -375,6 +386,7 @@ export default class AgentDeckPlugin extends Plugin {
     const leaf = this.app.workspace.getRightLeaf(false);
     if (!leaf) return false;
     leaf.setViewState({ type: VIEW_TYPE, active: false });
+    this.app.workspace.rightSplit?.expand?.();
     return true;
   }
 
@@ -463,7 +475,7 @@ export default class AgentDeckPlugin extends Plugin {
   scheduleScan() {
     this._timers?.clear?.(this._scanTimer);
     clearInterval(this._scanTimer);
-    const sec = clamp(Number(this.settings.pollSeconds) || 60, 5, 300);
+    const sec = clamp(Number(this.settings.pollSeconds) || 30, 5, 300);
     const run = () => safeRun("scan:periodic", () => this.scanNow(false));
     this._scanTimer = typeof this._timers?.setInterval === "function" ? this._timers.setInterval(run, sec * 1000) : setInterval(run, sec * 1000);
   }
@@ -1827,7 +1839,7 @@ export default class AgentDeckPlugin extends Plugin {
     return openBatchStatusMenu(this, editor);
   }
 
-  async ensureNoteFile(targetPath) {
+  async ensureNoteFile(targetPath, content = "") {
     const pathStr = String(targetPath || "").trim() || journalPath(this.app, this.settings);
     let file = this.app.vault.getAbstractFileByPath(pathStr);
     if (file) return { path: pathStr, file };
@@ -1838,7 +1850,7 @@ export default class AgentDeckPlugin extends Plugin {
       dir = dir ? `${dir}/${part}` : part;
       if (!this.app.vault.getAbstractFileByPath(dir)) await this.app.vault.createFolder(dir);
     }
-    file = await this.app.vault.create(pathStr, "");
+    file = await this.app.vault.create(pathStr, content);
     return { path: pathStr, file };
   }
 
