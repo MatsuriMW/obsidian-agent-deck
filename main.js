@@ -1,4 +1,4 @@
-/* Agent Deck 1.10.2 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.10.3 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -249,7 +249,36 @@ var main_default = {
   "\u5DF2\u5E76\u53D1\u6D3E\u53D1 {n} \u4E2A\u534F\u4F5C\u5B50\u4EFB\u52A1": "Dispatched {n} collaborative subtasks",
   "{n} \u4E2A\u5B50\u4EFB\u52A1\u6D3E\u53D1\u5931\u8D25\uFF1A{err}": "{n} subtasks failed to dispatch: {err}",
   "\u6CA1\u6709\u5F85\u6D3E\u53D1\u7684 TODO \u5B50\u4EFB\u52A1": "No pending TODO subtasks to dispatch",
-  "\u534F\u4F5C\u9879\u76EE": "Collaborative project"
+  "\u534F\u4F5C\u9879\u76EE": "Collaborative project",
+  "\u5DF2\u5E76\u53D1\u6D3E\u53D1 {n} \u4E2A\u534F\u4F5C\u5B50\u4EFB\u52A1\uFF1B\u5B8C\u6210\u540E\u5C06\u7531\u7BA1\u5BB6 {agent} \u6C47\u603B\u63A8\u8FDB": "Dispatched {n} subtasks; Steward {agent} will synthesize & advance on completion",
+  "\u{1F9ED} \u7BA1\u5BB6\u6C47\u603B\u4E0E\u63A8\u8FDB\uFF08\u7B2C {n} \u8F6E\uFF09": "\u{1F9ED} Steward synthesis & next steps (round {n})",
+  "\u{1F9ED} \u7BA1\u5BB6\u6C47\u603B\u4E0E\u63A8\u8FDB": "\u{1F9ED} Steward synthesis & next steps",
+  "\u627E\u4E0D\u5230\u7236\u4EFB\u52A1\u5757\uFF0C\u65E0\u6CD5\u5199\u5165\u7BA1\u5BB6\u4EFB\u52A1": "Could not locate parent task block to insert Steward task",
+  "\u627E\u4E0D\u5230\u5DF2\u5199\u5165\u7684\u7BA1\u5BB6\u4EFB\u52A1\u884C": "Could not locate inserted Steward task line",
+  "\u{1F9ED} \u961F\u5458\u5DF2\u5168\u90E8\u5B8C\u6210\uFF0C\u7BA1\u5BB6 {agent} \u5F00\u59CB\u6C47\u603B\u5E76\u7EE7\u7EED\u63A8\u8FDB": "\u{1F9ED} All workers finished; Steward {agent} is synthesizing & advancing",
+  "\u672A\u77E5\u9519\u8BEF": "Unknown error",
+  "\u26A0\uFE0F \u7BA1\u5BB6\u6C47\u603B\u542F\u52A8\u5931\u8D25\uFF1A{err}": "\u26A0\uFE0F Could not start Steward synthesis: {err}",
+  "\u7BA1\u5BB6\u6267\u884C\u5931\u8D25": "Steward run failed",
+  "\u26A0\uFE0F \u7BA1\u5BB6\u6C47\u603B\u5931\u8D25\uFF1A{err}": "\u26A0\uFE0F Steward synthesis failed: {err}",
+  "\u{1F9ED} \u7BA1\u5BB6\u5DF2\u5B8C\u6210\u7B2C {round} \u8F6E\u6C47\u603B\uFF0C\u81EA\u52A8\u7EED\u6D3E {n} \u6761\u540E\u7EED\u4EFB\u52A1": "\u{1F9ED} Steward finished round {round} and auto-dispatched {n} follow-up tasks",
+  "\u{1F9ED} \u7BA1\u5BB6\u5DF2\u5B8C\u6210\u6C47\u603B\uFF0C\u5E76\u751F\u6210 {n} \u6761\u540E\u7EED TODO\uFF08\u53EF\u5728\u770B\u677F\u7EE7\u7EED\u6D3E\u53D1\uFF09": "\u{1F9ED} Steward finished synthesis and added {n} follow-up TODOs (ready to dispatch on board)",
+  "\u{1F9ED} \u7BA1\u5BB6\u5DF2\u5B8C\u6210\u6C47\u603B\uFF1A{summary}": "\u{1F9ED} Steward finished synthesis: {summary}",
+  "\u{1F9ED} \u7BA1\u5BB6\u5DF2\u5B8C\u6210\u672C\u8F6E\u6C47\u603B\u4E0E\u63A8\u8FDB": "\u{1F9ED} Steward finished this round of synthesis & advancement",
+  // Outline navigation, Group rows & batch task status
+  "\u8DF3\u5230\u6BCD\u5757\uFF08\u8FDE\u6309\u4E00\u5C42\u5C42\u5F80\u4E0A\uFF09": "Go to ancestor block (press repeatedly to climb)",
+  "\u8DF3\u5230\u6700\u4E0A\u4E00\u7EA7\u7684\u9876\u683C\u6BCD\u5757": "Go to top-level ancestor block",
+  "\u5408\u5E76\u6210\u7EC4\uFF08Group rows\uFF1A\u9009\u4E2D\u5757\u964D\u4E00\u7EA7\u5E76\u65B0\u5EFA\u6BCD\u5757\uFF09": "Group rows: indent selection under a new parent bullet",
+  "\u5408\u5E76\u6210\u7EC4\uFF08Group rows\uFF09": "Group rows",
+  "\u6279\u91CF\u8C03\u6574\u9009\u4E2D\u5757\u7684\u4EFB\u52A1\u72B6\u6001\u2026": "Batch update task status for selected blocks\u2026",
+  "\u6279\u91CF\u8C03\u6574 {n} \u4E2A\u5757\u7684\u72B6\u6001": "Batch set status ({n} blocks)",
+  "\u6279\u91CF\u8C03\u6574 {n} \u4E2A\u5757\u7684\u4EFB\u52A1\u72B6\u6001": "Batch update task status ({n} blocks)",
+  "\u8C03\u6574\u5F53\u524D\u5757\u7684\u4EFB\u52A1\u72B6\u6001": "Update current block task status",
+  "\u4E0D\u5728\u5217\u8868\u91CC": "Not in a list item",
+  "\u5DF2\u7ECF\u662F\u9876\u5C42": "Already at top level",
+  "\u6E05\u9664\u72B6\u6001\u5173\u952E\u8BCD": "Clear status keyword",
+  "\u6062\u590D\u81EA\u52A8\u8DDF\u968F": "Resume automatic status",
+  "\u5DF2\u66F4\u65B0 {n} \u4E2A\u5757\u7684\u72B6\u6001": "Updated status for {n} blocks",
+  "\u8BF7\u5148\u9009\u4E2D\u8981\u8C03\u6574\u72B6\u6001\u7684\u5217\u8868\u9879": "Select list items to update status first"
 };
 
 // src/locales/en/view.js
@@ -389,7 +418,15 @@ var view_default = {
   "\u505C\u6B62": "Stop",
   "\u6B63\u6587": "Transcript",
   "\u672A\u5206\u7EC4": "Ungrouped",
-  "\u6253\u5F00\u9879\u76EE\u76EE\u5F55\uFF1A{cwd}": "Open project folder: {cwd}"
+  "\u6253\u5F00\u9879\u76EE\u76EE\u5F55\uFF1A{cwd}": "Open project folder: {cwd}",
+  "\u{1F9ED} \u7BA1\u5BB6 {agent} \u5F85\u547D\u4E2D \xB7 \u961F\u5458\u5DF2\u5B8C\u6210 {done}/{total}": "\u{1F9ED} Steward {agent} standing by \xB7 {done}/{total} finished",
+  "\u{1F9ED} \u7BA1\u5BB6 {agent} \u6B63\u5728\u6536\u96C6 {total} \u4F4D\u961F\u5458\u7ED3\u679C\u5E76\u63A8\u8FDB\uFF08\u7B2C {round} \u8F6E\uFF09\u2026": "\u{1F9ED} Steward {agent} collecting {total} results & advancing (round {round})\u2026",
+  "\u26A0\uFE0F \u7BA1\u5BB6 {agent} \u6C47\u603B\u5931\u8D25\uFF1A{err}": "\u26A0\uFE0F Steward {agent} synthesis failed: {err}",
+  "\u7ACB\u5373\u6C47\u603B": "Summarize now",
+  "\u505C\u6B62\u7BA1\u5BB6": "Stop Steward",
+  "\u53D6\u6D88\u7BA1\u5BB6": "Cancel Steward",
+  "\u91CD\u8BD5\u6C47\u603B": "Retry",
+  "\u5FFD\u7565": "Dismiss"
 };
 
 // src/locales/en/settings.js
@@ -1228,7 +1265,9 @@ var dialogs_default = {
   "\u540C\u770B\u677F\u534F\u540C\u5206\u5DE5\uFF08\u6BCD\u4EFB\u52A1\uFF1A{title}\uFF09\uFF1A": "Sibling board assignments (Parent: {title}):",
   "\u5199\u5165\u76EE\u6807\u7B14\u8BB0": "Target note",
   "\u7559\u7A7A\u5219\u5199\u5165\u4ECA\u65E5\u65E5\u8BB0": "Leave blank to use today's journal",
-  "\u5F53\u524D\u7B14\u8BB0": "Active note"
+  "\u5F53\u524D\u7B14\u8BB0": "Active note",
+  "\u7BA1\u5BB6 Agent\uFF08\u961F\u5458\u5168\u90E8\u5B8C\u6210\u540E\u81EA\u52A8\u6C47\u603B\u5E76\u7EE7\u7EED\u63A8\u8FDB\uFF09": "Steward Agent (auto-synthesize and advance once team finishes)",
+  "\u81EA\u52A8\u7EED\u6D3E\u7BA1\u5BB6\u751F\u6210\u7684\u540E\u7EED TODO\uFF08\u6700\u591A 2 \u8F6E\uFF09": "Auto-dispatch follow-up TODOs generated by Steward (up to 2 rounds)"
 };
 
 // src/locales/en/writers.js
@@ -2007,7 +2046,8 @@ var DEFAULTS = {
   aiRecordClosed: {},
   aiRecordViews: {},
   taskBoardViews: {},
-  projectTeams: { presets: {}, byProject: {} },
+  projectTeams: { presets: {}, byProject: {}, stewards: {} },
+  workbenchWaves: {},
   aiRecordDisplay: "latest1",
   // collapsed 折叠 / expanded 展开 / latest1、latest3、latest5 最近 N 条 AI 结论
   autoLogGranularity: "round",
@@ -2564,6 +2604,104 @@ function extractWikilinkRefs(lines = [], { embeds = false } = {}) {
     }
   }
   return refs;
+}
+var CHECKBOX_PREFIX_RE = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]*(?:\[.\][ \t]+)?/;
+function itemLineFor(lines, line) {
+  if (!Array.isArray(lines) || line < 0 || line >= lines.length) return -1;
+  const first = lines[line];
+  if (!first || !first.trim()) return -1;
+  if (LIST_RE.test(first)) return line;
+  const w = width(first);
+  if (w === 0) return -1;
+  for (let i = line - 1; i >= 0; i--) {
+    const l = lines[i];
+    if (!l || !l.trim()) continue;
+    if (LIST_RE.test(l) && width(l) < w) return i;
+    if (width(l) === 0 && !LIST_RE.test(l)) return -1;
+  }
+  return -1;
+}
+function parentItem(lines, item) {
+  if (!Array.isArray(lines) || item < 0 || item >= lines.length) return -1;
+  const w = width(lines[item]);
+  if (w === 0) return -1;
+  for (let i = item - 1; i >= 0; i--) {
+    const l = lines[i];
+    if (!l || !l.trim() || width(l) >= w) continue;
+    if (LIST_RE.test(l)) return i;
+    if (width(l) === 0 || /^\s*#{1,6}\s/.test(l)) return -1;
+  }
+  return -1;
+}
+function contentSpan(line) {
+  const s = String(line || "");
+  const m = CHECKBOX_PREFIX_RE.exec(s);
+  const from = m ? m[0].length : 0;
+  return { from, to: Math.max(from, s.replace(/\s+\^[\w-]+\s*$/, "").replace(/\s+$/, "").length) };
+}
+function blockLinesForRange(lines, fromLine, toLine = fromLine) {
+  const start = itemLineFor(lines, fromLine);
+  if (start < 0) return null;
+  let end = subtreeEnd(lines, start) - 1;
+  if (toLine > end) {
+    const last = itemLineFor(lines, toLine);
+    end = Math.max(end, toLine, last >= 0 ? subtreeEnd(lines, last) - 1 : toLine);
+  }
+  return { start, end };
+}
+function groupRowsEdit(lines, ranges = [], indentUnit = "	") {
+  const bounds = [];
+  for (const r of ranges) {
+    const b = blockLinesForRange(lines, r.fromLine, r.toLine);
+    if (b) bounds.push(b);
+  }
+  if (!bounds.length) return null;
+  const startLine = Math.min(...bounds.map((b) => b.start));
+  const endLine = Math.max(...bounds.map((b) => b.end));
+  const slice = lines.slice(startLine, endLine + 1);
+  let baseLine = null;
+  for (const l of slice) {
+    if (l.trim() && (baseLine === null || width(l) < width(baseLine))) baseLine = l;
+  }
+  if (baseLine === null) return null;
+  const baseIndent = (/^[ \t]*/.exec(baseLine) || [""])[0];
+  const head = `${baseIndent}- `;
+  const body = slice.map((l) => l.trim() ? indentUnit + l : l).join("\n");
+  return {
+    startLine,
+    endLine,
+    insertText: `${head}
+${body}`,
+    cursorOffset: head.length
+  };
+}
+function collectSelectedRootLines(lines, ranges = [], { fenced = null, skipLine = null } = {}) {
+  const fenceSet = fenced || fencedLines(lines);
+  const picked = /* @__PURE__ */ new Set();
+  for (const r of ranges) {
+    const fromLine = Math.max(0, r.fromLine);
+    const toLine = Math.min(lines.length - 1, Math.max(fromLine, r.toLine));
+    const items = [];
+    for (let i = fromLine; i <= toLine; i++) {
+      if (fenceSet.has(i) || !lines[i]?.trim()) continue;
+      if (skipLine && skipLine(lines[i], i)) continue;
+      const it = itemLineFor(lines, i);
+      if (it < 0 || fenceSet.has(it)) continue;
+      if (skipLine && skipLine(lines[it], it)) continue;
+      if (it === i || i === fromLine) items.push(it);
+    }
+    if (!items.length) continue;
+    const minW = Math.min(...items.map((l) => width(lines[l])));
+    for (let l of items) {
+      while (width(lines[l]) > minW) {
+        const p = parentItem(lines, l);
+        if (p < 0) break;
+        l = p;
+      }
+      if (width(lines[l]) === minW) picked.add(l);
+    }
+  }
+  return [...picked].sort((a, b) => a - b);
 }
 
 // src/journal.js
@@ -3852,25 +3990,40 @@ ${custom.sections.active.text}
     }
     return chunkLines;
   };
-  let cursor = headEnd;
-  for (let i = headEnd; i < regionEnd; i++) {
-    if (i < cursor || fence.has(i) || drop.has(i) || !LIST_RE.test(lines[i])) continue;
-    const k = kwLine(lines[i]);
-    if (!k) continue;
-    const indent = width(lines[i]);
-    let end = i + 1;
-    while (end < regionEnd && (!lines[end].trim() || width(lines[end]) > indent)) end++;
+  const inspectEntry = (row, limit) => {
+    const k = kwLine(lines[row]);
+    if (!k) return null;
+    const indent = width(lines[row]);
+    let end = row + 1;
+    while (end < limit && (!lines[end].trim() || width(lines[end]) > indent)) end++;
     const sids = new Set(tracked.get(k.blockId) || []);
-    for (let n = i + 1; n < end; n++) {
-      if (owner[n] !== i) continue;
+    for (let n = row + 1; n < end; n++) {
+      if (owner[n] !== row) continue;
       const link = parseLink(lines[n]);
       if (link) sids.add(link.sid);
     }
     const body = String(k.body || "");
     const ai = sids.size > 0 || isDeckBlockId(k.blockId) || tracked.has(k.blockId) || body.startsWith("\u{1F916}");
+    return { k, end, sids, body, ai };
+  };
+  const hasOpenNestedAiChild = (startIdx, endIdx) => {
+    for (let n = startIdx + 1; n < endIdx; n++) {
+      if (fence.has(n) || !LIST_RE.test(lines[n]) || RECORD_LINE_RE.test(lines[n])) continue;
+      const child = inspectEntry(n, endIdx);
+      if (child?.ai && child.k.kw && !DONE_KWS.includes(child.k.kw)) return true;
+    }
+    return false;
+  };
+  let cursor = headEnd;
+  for (let i = headEnd; i < regionEnd; i++) {
+    if (i < cursor || fence.has(i) || drop.has(i) || !LIST_RE.test(lines[i])) continue;
+    if (width(lines[i]) > 0) continue;
+    const entry = inspectEntry(i, regionEnd);
+    if (!entry) continue;
+    const { k, end, sids, body, ai } = entry;
     const doneKw = DONE_KWS.includes(k.kw);
     if (!ai && !(inBand(i, true) && !boundedBody && doneKw)) continue;
-    const archivedOut = sids.size > 0 && [...sids].every((sid) => archived.has(sid));
+    const archivedOut = sids.size > 0 && [...sids].every((sid) => archived.has(sid)) && !hasOpenNestedAiChild(i, end);
     const container = !k.kw && body.startsWith("\u{1F916}");
     const kids = container ? childKeywords(i, end) : [];
     const allKidsDone = kids.length > 0 && kids.every((kw) => DONE_KWS.includes(kw));
@@ -3897,22 +4050,13 @@ ${custom.sections.active.text}
   if (generated.length) {
     for (let i = start; i < headEnd; i++) {
       if (fence.has(i) || !LIST_RE.test(lines[i])) continue;
-      const k = kwLine(lines[i]);
-      if (!k) continue;
-      const indent = width(lines[i]);
-      let end = i + 1;
-      while (end < headEnd && (!lines[end].trim() || width(lines[end]) > indent)) end++;
-      const sids = new Set(tracked.get(k.blockId) || []);
-      for (let n = i + 1; n < end; n++) {
-        if (owner[n] !== i) continue;
-        const link = parseLink(lines[n]);
-        if (link) sids.add(link.sid);
-      }
-      const body = String(k.body || "");
-      const ai = sids.size > 0 || isDeckBlockId(k.blockId) || tracked.has(k.blockId) || body.startsWith("\u{1F916}");
+      if (width(lines[i]) > 0) continue;
+      const entry = inspectEntry(i, headEnd);
+      if (!entry) continue;
+      const { k, end, sids, body, ai } = entry;
       if (!ai) continue;
       const doneKw = DONE_KWS.includes(k.kw);
-      const archivedOut = sids.size > 0 && [...sids].every((sid) => archived.has(sid));
+      const archivedOut = sids.size > 0 && [...sids].every((sid) => archived.has(sid)) && !hasOpenNestedAiChild(i, end);
       const container = !k.kw && body.startsWith("\u{1F916}");
       const kids = container ? childKeywords(i, end) : [];
       const allKidsDone = kids.length > 0 && kids.every((kw) => DONE_KWS.includes(kw));
@@ -11573,6 +11717,8 @@ ${body}`, 12e3);
       job.endedAt = Date.now();
       this.saveJobs();
     }
+    this.harness.run("onCancel", { job }).catch(() => {
+    });
     this.refreshUI();
     return true;
   }
@@ -13807,6 +13953,357 @@ function moveTaskBoardCardStatus(text, cardLine, targetColumn) {
   }
   return lines.join("\n");
 }
+var MAX_STEWARD_ROUNDS = 2;
+function resolveStewardConfig(settings = {}, { presetId = "", projectName: projectName2 = "", availableAgents = [], limitAgents = /* @__PURE__ */ new Set(), defaultAgent = "" } = {}) {
+  const stewards = settings?.projectTeams?.stewards || {};
+  const byProject = stewards.byProject || {};
+  const byPreset = stewards.byPreset || {};
+  const cfg = projectName2 && byProject[projectName2] || presetId && byPreset[presetId] || stewards.default || {};
+  const preferred = cfg.agent || defaultAgent || "claude";
+  const resolved = resolveRoleAgent(preferred, {
+    availableAgents,
+    limitAgents,
+    fallbackAgent: defaultAgent || "claude"
+  });
+  return {
+    enabled: cfg.enabled !== false,
+    agent: resolved.agent,
+    fallbackFrom: resolved.fallbackFrom,
+    limited: resolved.limited,
+    autoContinue: cfg.autoContinue === true
+  };
+}
+function isTerminalWorkerState(state = "") {
+  return state === "done" || state === "error" || state === "cancelled";
+}
+function createWorkbenchWave({
+  id = "",
+  path: path10 = "",
+  parentBlockId = "",
+  parentTitle = "",
+  projectName: projectName2 = "",
+  goal = "",
+  cwd = "",
+  round = 1,
+  steward = {},
+  workers = []
+} = {}) {
+  const now = Date.now();
+  return {
+    id: id || `wave-${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    path: String(path10 || ""),
+    parentBlockId: String(parentBlockId || ""),
+    parentTitle: String(parentTitle || ""),
+    projectName: String(projectName2 || ""),
+    goal: String(goal || parentTitle || ""),
+    cwd: String(cwd || ""),
+    round: Math.max(1, Number(round) || 1),
+    state: "waiting",
+    createdAt: now,
+    updatedAt: now,
+    summary: "",
+    error: "",
+    nextTaskCount: 0,
+    steward: {
+      enabled: steward.enabled !== false,
+      agent: String(steward.agent || "claude"),
+      destination: String(steward.destination || "background"),
+      autoContinue: steward.autoContinue === true,
+      jobId: "",
+      blockId: ""
+    },
+    workers: (workers || []).map((w) => ({
+      jobId: String(w.jobId || ""),
+      blockId: String(w.blockId || ""),
+      line: Number.isInteger(w.line) ? w.line : -1,
+      title: String(w.title || ""),
+      agent: String(w.agent || ""),
+      state: String(w.state || "running"),
+      result: String(w.result || ""),
+      error: String(w.error || ""),
+      sessionId: String(w.sessionId || ""),
+      endedAt: Number(w.endedAt) || 0
+    }))
+  };
+}
+function resolveSyncedWorkerState(worker, job, metaMap) {
+  if (!job) return { state: worker.state || "running", result: worker.result || "", error: worker.error || "", sessionId: worker.sessionId || "", endedAt: worker.endedAt || 0 };
+  const sid = job.sessionId || worker.sessionId || "";
+  const meta = sid && metaMap ? metaMap.get(sid) : null;
+  let state = job.state || worker.state || "running";
+  let result = job.result || worker.result || "";
+  let error = job.error || worker.error || "";
+  let endedAt = job.endedAt || worker.endedAt || 0;
+  if (job.handoff && state === "bound" && meta) {
+    const hasReply = Boolean(meta.rounds?.some((r) => r?.said) || meta.lastText);
+    if (meta.state === "done" || meta.state === "error" || meta.state === "cancelled" || meta.state === "wait" && hasReply) {
+      state = meta.state === "error" ? "error" : meta.state === "cancelled" ? "cancelled" : "done";
+      endedAt = endedAt || meta.lastAt || Date.now();
+    }
+  } else if (state === "starting" || state === "running" || state === "needs-approval" || state === "bound") {
+    state = "running";
+  }
+  if (!result && meta) {
+    result = meta.rounds?.at(-1)?.said || meta.lastText || "";
+  }
+  if (!result && Array.isArray(job.conversation)) {
+    const lastAssistant = [...job.conversation].reverse().find((m) => m?.role === "assistant" && m.text);
+    if (lastAssistant) result = lastAssistant.text;
+  }
+  return { state, result, error, sessionId: sid, endedAt };
+}
+function syncWaveWithState(wave, jobs = {}, metaMap = null) {
+  if (!wave || !Array.isArray(wave.workers)) {
+    return { wave, changed: false, allSettled: false, counts: { total: 0, done: 0, error: 0, cancelled: 0, running: 0 } };
+  }
+  let changed = false;
+  for (const worker of wave.workers) {
+    const job = worker.jobId ? jobs?.[worker.jobId] : null;
+    const next = resolveSyncedWorkerState(worker, job, metaMap);
+    if (next.state !== worker.state || next.sessionId !== worker.sessionId || next.result && next.result !== worker.result || next.error && next.error !== worker.error) {
+      worker.state = next.state;
+      worker.sessionId = next.sessionId;
+      if (next.result) worker.result = next.result;
+      if (next.error) worker.error = next.error;
+      if (next.endedAt) worker.endedAt = next.endedAt;
+      changed = true;
+    }
+  }
+  const total = wave.workers.length;
+  const done = wave.workers.filter((w) => w.state === "done").length;
+  const error = wave.workers.filter((w) => w.state === "error").length;
+  const cancelled = wave.workers.filter((w) => w.state === "cancelled").length;
+  const running = total - done - error - cancelled;
+  if (changed) wave.updatedAt = Date.now();
+  return {
+    wave,
+    changed,
+    allSettled: total > 0 && running === 0,
+    counts: { total, done, error, cancelled, running }
+  };
+}
+function findParentBlockLine(lines, { parentBlockId = "", parentTitle = "" } = {}) {
+  if (parentBlockId) {
+    const byId = lines.findIndex((l) => blockIdOf(l) === parentBlockId);
+    if (byId >= 0) return byId;
+  }
+  if (parentTitle) {
+    const target = cleanBoardCardTitle(parentTitle).toLowerCase();
+    return lines.findIndex((l) => {
+      const kw = kwLine(l);
+      return kw && cleanBoardCardTitle(kw.body).toLowerCase() === target;
+    });
+  }
+  return -1;
+}
+function extractBlockResultText(noteText = "", { blockId = "", title = "" } = {}) {
+  const lines = String(noteText || "").split("\n");
+  const idx = findParentBlockLine(lines, { parentBlockId: blockId, parentTitle: title });
+  if (idx < 0) return { summary: "", answerLink: "" };
+  const baseW = width(lines[idx]);
+  const comments = [];
+  let answerLink = "";
+  for (let i = idx + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) <= baseW) break;
+    const trimmed = lines[i].trim();
+    const ansMatch = /\[[^\]]+\]\(([^)]*Answers\/[^)]+\.md)\)/i.exec(trimmed);
+    if (ansMatch) answerLink = ansMatch[1];
+    if (/^[-*+]\s+💬\s/.test(trimmed)) {
+      const clean = trimmed.replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:]\s*)?/, "").replace(RECORD_PROVENANCE_RE, "").trim();
+      if (clean) comments.push(clean);
+    }
+  }
+  return { summary: comments.join("\n"), answerLink };
+}
+function collectWaveWorkerReports(wave, { jobs = {}, metaMap = null, noteText = "" } = {}) {
+  return (wave?.workers || []).map((worker, idx) => {
+    const job = worker.jobId ? jobs?.[worker.jobId] : null;
+    const synced = resolveSyncedWorkerState(worker, job, metaMap);
+    const noteInfo = noteText ? extractBlockResultText(noteText, { blockId: worker.blockId, title: worker.title }) : { summary: "", answerLink: "" };
+    const rawOutput = String(synced.result || noteInfo.summary || "").trim();
+    return {
+      index: idx + 1,
+      title: worker.title,
+      agent: worker.agent,
+      state: synced.state,
+      sessionId: synced.sessionId,
+      output: truncate(rawOutput, 2e3),
+      error: String(synced.error || "").trim(),
+      answerLink: noteInfo.answerLink
+    };
+  });
+}
+function buildStewardPrompt({ wave, reports = [], projectName: projectName2 = "", availableAgents = [] } = {}) {
+  const agentsList = availableAgents.length ? availableAgents.map((id) => `${id} (${AGENTS[id]?.name || id})`).join(", ") : "claude";
+  const round = Math.max(1, Number(wave?.round) || 1);
+  const statusLabels = /* @__PURE__ */ new Map([
+    ["done", "\u5DF2\u5B8C\u6210"],
+    ["error", "\u6267\u884C\u5931\u8D25"],
+    ["cancelled", "\u5DF2\u53D6\u6D88"],
+    ["running", "\u4ECD\u5728\u8FDB\u884C\u4E2D"]
+  ]);
+  const workerSections = reports.map((r) => {
+    const lines = [`### \u961F\u5458 ${r.index}\uFF1A${r.title} (@${r.agent}) \u2014 ${statusLabels.get(r.state) || r.state}`];
+    if (r.error) lines.push(`- \u5931\u8D25/\u5F02\u5E38\u4FE1\u606F\uFF1A${r.error}`);
+    if (r.answerLink) lines.push(`- \u5B8C\u6574\u95EE\u7B54\u5F52\u6863\uFF1A${r.answerLink}`);
+    if (r.output) lines.push(`- \u6267\u884C\u7ED3\u679C\uFF1A
+${r.output}`);
+    else if (!r.error) lines.push("- \u6267\u884C\u7ED3\u679C\uFF1A\uFF08\u6682\u65E0\u6587\u672C\u8F93\u51FA\uFF0C\u8BF7\u7ED3\u5408\u5DE5\u4F5C\u76EE\u5F55\u5B9E\u9645\u53D8\u52A8\u6838\u67E5\uFF09");
+    return lines.join("\n");
+  }).join("\n\n");
+  return [
+    `\u4F60\u662F\u672C\u6B21\u591A Agent \u534F\u4F5C\u6CE2\u6B21\uFF08\u7B2C ${round} \u8F6E\uFF09\u7684\u7BA1\u5BB6 Agent\uFF08Coordinator / Steward\uFF09\u3002\u5404\u4E2A\u961F\u5458\u5DF2\u7ECF\u5B8C\u6210\u672C\u8F6E\u6267\u884C\uFF0C\u8BF7\u4F60\u6536\u96C6\u5168\u90E8\u7ED3\u679C\u3001\u6838\u67E5\u843D\u5730\u60C5\u51B5\u5E76\u7EE7\u7EED\u63A8\u8FDB\u3002`,
+    projectName2 || wave?.projectName ? `\u9879\u76EE\u540D\u79F0\uFF1A${projectName2 || wave.projectName}` : "",
+    wave?.cwd ? `\u5DE5\u4F5C\u76EE\u5F55\uFF1A${wave.cwd}` : "",
+    wave?.goal ? `\u603B\u4F53\u76EE\u6807\uFF1A
+${wave.goal}` : "",
+    workerSections ? `\u5404\u961F\u5458\u6267\u884C\u7ED3\u679C\u6C47\u603B\uFF1A
+
+${workerSections}` : "",
+    [
+      "\u8BF7\u4F60\u6309\u4EE5\u4E0B\u6B65\u9AA4\u63A8\u8FDB\u5E76\u6C47\u62A5\uFF1A",
+      "1. \u5BF9\u7167\u603B\u4F53\u76EE\u6807\u4E0E\u5DE5\u4F5C\u76EE\u5F55\u4E2D\u7684\u5B9E\u9645\u6587\u4EF6/\u4EE3\u7801\u53D8\u52A8\uFF0C\u6838\u67E5\u5404\u961F\u5458\u4EA7\u51FA\u662F\u5426\u4E00\u81F4\u3001\u6709\u65E0\u9057\u6F0F\u3001\u51B2\u7A81\u6216\u672A\u95ED\u73AF\u7684\u5931\u8D25\u9879\uFF1B\u5982\u5DE5\u4F5C\u76EE\u5F55\u4E2D\u6709\u53EF\u76F4\u63A5\u5B8C\u6210\u7684\u96C6\u6210\u9A8C\u8BC1\u3001\u6D4B\u8BD5\u6216\u6536\u5C3E\u4FEE\u8865\uFF0C\u8BF7\u76F4\u63A5\u5B8C\u6210\u5E76\u786E\u8BA4\u7ED3\u679C\u3002",
+      "2. \u5728\u56DE\u7B54\u6B63\u6587\u7ED9\u51FA\u7B80\u660E\u6E05\u6670\u7684\u300A\u672C\u8F6E\u9A8C\u6536\u4E0E\u6C47\u603B\u7ED3\u8BBA\u300B\uFF08\u5DF2\u5B8C\u6210\u5185\u5BB9\u3001\u5173\u952E\u4EA7\u51FA\u6216\u6587\u4EF6\u3001\u5F85\u5904\u7406\u98CE\u9669/\u5361\u70B9\uFF09\u3002",
+      "3. \u5728\u56DE\u7B54\u6700\u540E\u9644\u4E00\u4E2A JSON \u4EE3\u7801\u5757\u6807\u660E\u4E0B\u4E00\u6B65\u51B3\u7B56\uFF08nextTasks \u6700\u591A 6 \u6761\uFF0Cagent \u5FC5\u987B\u4ECE\u53EF\u7528 Agent ID \u4E2D\u9009\u62E9\uFF09\uFF1A",
+      `\u53EF\u7528 Agent ID\uFF1A${agentsList}`,
+      '```json\n{"status":"done|continue|needs-review","summary":"\u4E00\u53E5\u8BDD\u603B\u7ED3\u672C\u8F6E\u8FDB\u5C55\u4E0E\u7ED3\u8BBA","nextTasks":[{"title":"\u4E0B\u4E00\u6B65\u5177\u4F53\u5B50\u4EFB\u52A1\u6807\u9898\uFF08\u4E0D\u8D85\u8FC728\u5B57\uFF09","agent":"agent_id","detail":"\u9A8C\u6536\u8981\u6C42\u6216\u8865\u5145\u8BF4\u660E\uFF08\u4E0D\u8D85\u8FC780\u5B57\uFF09"}]}\n```',
+      '- \u82E5\u603B\u4F53\u76EE\u6807\u5DF2\u95ED\u73AF\u4E14\u65E0\u9700\u540E\u7EED\u6D3E\u53D1\uFF0C\u8BBE `"status": "done"` \u4E14 `"nextTasks": []`\u3002',
+      '- \u82E5\u4ECD\u9700\u7EE7\u7EED\u63A8\u8FDB\u4E0B\u4E00\u6CE2\u4EFB\u52A1\u6216\u4FEE\u590D\u5931\u8D25\u5B50\u4EFB\u52A1\uFF0C\u8BBE `"status": "continue"` \u5E76\u5217\u51FA `"nextTasks"`\u3002',
+      '- \u82E5\u9700\u7528\u6237\u786E\u8BA4\u6743\u9650\u3001\u65B9\u6848\u5206\u6B67\u6216\u4EBA\u5DE5\u62CD\u677F\uFF0C\u8BBE `"status": "needs-review"`\u3002'
+    ].join("\n")
+  ].filter(Boolean).join("\n\n");
+}
+function extractLastJsonObject(raw = "") {
+  const text = String(raw || "").trim();
+  const blocks = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    try {
+      const obj = extractJsonObject(blocks[i][1]);
+      if (obj && typeof obj === "object") return obj;
+    } catch {
+    }
+  }
+  return extractJsonObject(text);
+}
+function parseStewardOutcome(raw = "", { availableAgents = ["claude"], defaultAgent = "claude" } = {}) {
+  let parsed = null;
+  try {
+    parsed = extractLastJsonObject(raw);
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const rawStatus = String(parsed.status || "").trim().toLowerCase();
+  const status = ["done", "continue", "needs-review"].includes(rawStatus) ? rawStatus : "";
+  const summary = truncate(String(parsed.summary || "").replace(/\s+/g, " ").trim(), 180);
+  const pool = availableAgents.length ? availableAgents : [defaultAgent || "claude"];
+  const fallback = pool.includes(defaultAgent) ? defaultAgent : pool[0];
+  const nextTasks = Array.isArray(parsed.nextTasks) ? parsed.nextTasks.slice(0, 6).map((item) => {
+    const title = truncate(String(item?.title || "").replace(/\s+/g, " ").trim(), 48);
+    if (!title) return null;
+    const rawAgent = String(item?.agent || "").trim().toLowerCase();
+    const agent = pool.includes(rawAgent) ? rawAgent : fallback;
+    const detail = String(item?.detail || "").replace(/\s+/g, " ").trim().slice(0, 160);
+    return { checked: true, title, agent, detail };
+  }).filter(Boolean) : [];
+  if (!status && !summary && !nextTasks.length) return null;
+  return {
+    status: status || (nextTasks.length ? "continue" : "done"),
+    summary,
+    nextTasks
+  };
+}
+function updateTaskBlockStatusById(text = "", { blockId = "", title = "", targetColumn = "", onlyFromColumns = [] } = {}) {
+  if (!targetColumn) return text;
+  const lines = String(text || "").split("\n");
+  const idx = findParentBlockLine(lines, { parentBlockId: blockId, parentTitle: title });
+  if (idx < 0) return text;
+  if (Array.isArray(onlyFromColumns) && onlyFromColumns.length) {
+    const curKw = kwLine(lines[idx])?.kw || "TODO";
+    const curCol = classifyTaskStatusColumn(curKw);
+    if (!onlyFromColumns.includes(curCol)) return text;
+  }
+  return moveTaskBoardCardStatus(lines.join("\n"), idx, targetColumn);
+}
+function setTaskBlockKeywordById(text = "", { blockId = "", title = "", keyword = "", onlyIfKeywords = [] } = {}) {
+  if (!keyword) return text;
+  const lines = String(text || "").split("\n");
+  const idx = findParentBlockLine(lines, { parentBlockId: blockId, parentTitle: title });
+  if (idx < 0) return text;
+  const raw = lines[idx];
+  const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(.*)$/.exec(raw);
+  if (!m) return text;
+  const prefix = m[1];
+  const stamp = m[2] || "";
+  let rest = m[3];
+  const cb = /^\[([ xX\/\-])\]\s*/.exec(rest);
+  let cbStr = "";
+  if (cb) {
+    const upper = keyword.toUpperCase();
+    const mark = upper === "DONE" ? "x" : ["DOING", "DELEGATED"].includes(upper) ? "/" : upper === "CANCELED" || upper === "CANCELLED" ? "-" : " ";
+    cbStr = `[${mark}] `;
+    rest = rest.slice(cb[0].length);
+  }
+  const kwMatch = new RegExp(`^(${TASK_KWS})(?=\\s|$)\\s*`, "i").exec(rest);
+  const currentKw = kwMatch ? kwMatch[1].toUpperCase() : "";
+  if (Array.isArray(onlyIfKeywords) && onlyIfKeywords.length && !onlyIfKeywords.map((k) => k.toUpperCase()).includes(currentKw)) {
+    return text;
+  }
+  if (kwMatch) rest = rest.slice(kwMatch[0].length);
+  lines[idx] = `${prefix}${stamp}${cbStr}${keyword} ${rest}`.trimEnd();
+  return lines.join("\n");
+}
+function appendSubtasksToParentBlock(text = "", { parentBlockId = "", parentTitle = "", subtasks = [], assignBlockIds = true, keyword = "TODO" } = {}) {
+  const active = (subtasks || []).filter((s) => s && s.checked !== false && String(s.title || "").trim());
+  const lines = String(text || "").split("\n");
+  const parentLine = findParentBlockLine(lines, { parentBlockId, parentTitle });
+  if (parentLine < 0 || !active.length) return { text, parentLine, addedLines: [] };
+  const parentW = width(lines[parentLine]);
+  const childIndent2 = childIndent(lines, parentLine);
+  const detailIndent = `${childIndent2}	`;
+  let insertAt = parentLine + 1;
+  while (insertAt < lines.length && (!lines[insertAt].trim() || width(lines[insertAt]) > parentW)) {
+    insertAt += 1;
+  }
+  while (insertAt > parentLine + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
+  const inserted = [];
+  const addedLines = [];
+  let cursor = insertAt;
+  for (const item of active) {
+    const title = String(item.title || "").trim();
+    const agent = String(item.agent || "").trim();
+    const blockId = item.blockId || (assignBlockIds ? makeBlockId("", agent || "ad", "wb") : "");
+    const mention = agent ? ` @${agent}` : "";
+    const bid = blockId ? ` ^${blockId}` : "";
+    inserted.push(`${childIndent2}- ${keyword} ${title}${mention}${bid}`);
+    addedLines.push({
+      line: cursor,
+      blockId,
+      agent,
+      destination: item.destination || "",
+      title
+    });
+    cursor += 1;
+    if (item.detail && String(item.detail).trim()) {
+      inserted.push(`${detailIndent}- ${String(item.detail).trim()}`);
+      cursor += 1;
+    }
+  }
+  lines.splice(insertAt, 0, ...inserted);
+  return { text: lines.join("\n"), parentLine, addedLines };
+}
+function findActiveWaveForBoard(waves = {}, { path: path10 = "", parentBlockId = "", parentTitle = "" } = {}) {
+  const candidates = Object.values(waves || {}).filter((w) => {
+    if (!w || path10 && w.path !== path10) return false;
+    if (!["waiting", "running", "error"].includes(w.state)) return false;
+    if (parentBlockId && w.parentBlockId && w.parentBlockId === parentBlockId) return true;
+    if (parentTitle && w.parentTitle && cleanBoardCardTitle(w.parentTitle) === cleanBoardCardTitle(parentTitle)) return true;
+    return false;
+  });
+  candidates.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+  return candidates[0] || null;
+}
 
 // src/fractal-board.js
 var setTaskBoardEffect = import_state2.StateEffect.define();
@@ -13898,11 +14395,24 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
     this.pref = pref;
     this.breadcrumbs = breadcrumbs;
     this.sourcePath = sourcePath;
+    this.activeWave = findActiveWaveForBoard(plugin?.settings?.workbenchWaves, {
+      path: sourcePath,
+      parentBlockId: activeGroup.key,
+      parentTitle: model.title
+    });
+    const waveSig = this.activeWave ? [
+      this.activeWave.id,
+      this.activeWave.state,
+      this.activeWave.round,
+      this.activeWave.error,
+      (this.activeWave.workers || []).map((w) => w.state).join(",")
+    ] : null;
     this.sig = JSON.stringify({
       rootKey: rootGroup.key,
       key: model.key,
       line: model.line,
       groupBy: model.groupBy,
+      wave: waveSig,
       crumbs: breadcrumbs.map((b) => b.key),
       cols: model.columns.map((c) => [c.id, c.cards.map((k) => [
         k.line,
@@ -14058,6 +14568,82 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
       e.stopPropagation();
       view.dispatch({ effects: setTaskBoardEffect.of({ key: this.rootGroup.key, mode: "outline" }) });
     });
+    if (this.activeWave) {
+      const wave = this.activeWave;
+      const stewardName = AGENTS[wave.steward?.agent]?.short || wave.steward?.agent || "Agent";
+      const workers = wave.workers || [];
+      const settled = workers.filter((w) => isTerminalWorkerState(w.state)).length;
+      const bar2 = wrap.appendChild(doc.createElement("div"));
+      bar2.className = `ad-board__steward is-${wave.state}`;
+      const info = bar2.appendChild(doc.createElement("span"));
+      info.className = "ad-board__steward-text";
+      if (wave.state === "waiting") {
+        info.textContent = t("\u{1F9ED} \u7BA1\u5BB6 {agent} \u5F85\u547D\u4E2D \xB7 \u961F\u5458\u5DF2\u5B8C\u6210 {done}/{total}", {
+          agent: stewardName,
+          done: settled,
+          total: workers.length
+        });
+      } else if (wave.state === "running") {
+        info.textContent = t("\u{1F9ED} \u7BA1\u5BB6 {agent} \u6B63\u5728\u6536\u96C6 {total} \u4F4D\u961F\u5458\u7ED3\u679C\u5E76\u63A8\u8FDB\uFF08\u7B2C {round} \u8F6E\uFF09\u2026", {
+          agent: stewardName,
+          total: workers.length,
+          round: wave.round || 1
+        });
+      } else if (wave.state === "error") {
+        info.textContent = t("\u26A0\uFE0F \u7BA1\u5BB6 {agent} \u6C47\u603B\u5931\u8D25\uFF1A{err}", {
+          agent: stewardName,
+          err: truncate(wave.error || t("\u672A\u77E5\u9519\u8BEF"), 60)
+        });
+      }
+      const barBtns = bar2.appendChild(doc.createElement("div"));
+      barBtns.className = "ad-board__actions";
+      if (wave.state === "waiting" && this.plugin?.runStewardWaveNow) {
+        const nowBtn = barBtns.appendChild(doc.createElement("button"));
+        nowBtn.type = "button";
+        nowBtn.className = "ad-board__btn is-primary";
+        nowBtn.textContent = t("\u7ACB\u5373\u6C47\u603B");
+        nowBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.plugin.runStewardWaveNow(wave.id);
+        });
+      }
+      if ((wave.state === "waiting" || wave.state === "running") && this.plugin?.cancelWorkbenchWave) {
+        const stopBtn = barBtns.appendChild(doc.createElement("button"));
+        stopBtn.type = "button";
+        stopBtn.className = "ad-board__btn";
+        stopBtn.textContent = wave.state === "running" ? t("\u505C\u6B62\u7BA1\u5BB6") : t("\u53D6\u6D88\u7BA1\u5BB6");
+        stopBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.plugin.cancelWorkbenchWave(wave.id);
+        });
+      }
+      if (wave.state === "error") {
+        if (this.plugin?.retryStewardWave) {
+          const retryBtn = barBtns.appendChild(doc.createElement("button"));
+          retryBtn.type = "button";
+          retryBtn.className = "ad-board__btn is-primary";
+          retryBtn.textContent = t("\u91CD\u8BD5\u6C47\u603B");
+          retryBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.plugin.retryStewardWave(wave.id);
+          });
+        }
+        if (this.plugin?.cancelWorkbenchWave) {
+          const closeBtn = barBtns.appendChild(doc.createElement("button"));
+          closeBtn.type = "button";
+          closeBtn.className = "ad-board__btn";
+          closeBtn.textContent = t("\u5FFD\u7565");
+          closeBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.plugin.cancelWorkbenchWave(wave.id);
+          });
+        }
+      }
+    }
     const addAgents = this.plugin?.agentEnabled ? delegableAgents(this.plugin) : [];
     const quickBar = wrap.appendChild(doc.createElement("div"));
     quickBar.className = "ad-board__quickadd";
@@ -24766,16 +25352,66 @@ function registerTaskAgentSuggest(plugin) {
 // src/task-status.js
 var import_obsidian12 = require("obsidian");
 var STATUS_TOKEN = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)([A-Z][A-Z0-9_-]*)(?=\s|$)/;
+var LIST_STATUS_LEAD = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(.*)$/;
+var EXTRA_STATE_KWS = ["YES", "NO", "MAYBE", "ARCHIVED"];
+function knownTaskKeywords(app = null) {
+  const words = /* @__PURE__ */ new Set([...TASK_KWS.split("|"), ...EXTRA_STATE_KWS]);
+  for (const p of Object.values(app?.plugins?.plugins || {})) {
+    for (const [key, value] of Object.entries(p?.settings || {})) {
+      if (/^additional.*Keywords$/.test(key) && Array.isArray(value)) {
+        for (const kw of value) {
+          if (/^[A-Z][A-Z0-9_-]*$/.test(kw)) words.add(kw);
+        }
+      }
+    }
+  }
+  return words;
+}
+function updateCheckboxPrefix(prefix, keyword) {
+  if (!/\[[ xX/\-]\]/.test(prefix)) return prefix;
+  const box = !keyword ? " " : DONE_KWS.includes(keyword) ? keyword.startsWith("CANCEL") ? "-" : "x" : keyword === "DOING" ? "/" : " ";
+  return prefix.replace(/\[[ xX/\-]\]/, `[${box}]`);
+}
 function replaceTaskStatus(raw, keyword) {
   if (!/^[A-Z][A-Z0-9_-]*$/.test(keyword)) return null;
   const match = STATUS_TOKEN.exec(raw);
   if (!match) return null;
-  let prefix = match[1];
-  if (/\[[ xX/\-]\]/.test(prefix)) {
-    const box = DONE_KWS.includes(keyword) ? keyword.startsWith("CANCEL") ? "-" : "x" : keyword === "DOING" ? "/" : " ";
-    prefix = prefix.replace(/\[[ xX/\-]\]/, `[${box}]`);
-  }
+  const prefix = updateCheckboxPrefix(match[1], keyword);
   return prefix + keyword + raw.slice(match[0].length);
+}
+function setTaskLineStatus(raw, keyword, { knownKeywords = null } = {}) {
+  if (keyword !== "" && !/^[A-Z][A-Z0-9_-]*$/.test(keyword)) return null;
+  const lead = LIST_STATUS_LEAD.exec(raw);
+  if (!lead) return null;
+  const known = knownKeywords || knownTaskKeywords();
+  const prefix = updateCheckboxPrefix(lead[1], keyword);
+  const rest = lead[2] || "";
+  const firstToken = /^([A-Z][A-Z0-9_-]*)(?=\s|$)(?:\s+)?/.exec(rest);
+  if (firstToken && known.has(firstToken[1])) {
+    const tail = rest.slice(firstToken[0].length);
+    return keyword ? `${prefix}${keyword}${tail ? " " + tail : ""}` : `${prefix}${tail}`;
+  }
+  if (!keyword) return null;
+  return `${prefix}${keyword}${rest ? " " + rest : ""}`;
+}
+function selectionLineRanges(doc, selection) {
+  const ranges = selection?.ranges?.length ? selection.ranges : selection ? [selection] : [];
+  return ranges.map((r) => {
+    const fromLine = doc.lineAt(r.from).number - 1;
+    let toLine = doc.lineAt(r.to).number - 1;
+    if (toLine > fromLine && r.to === doc.line(toLine + 1).from) toLine -= 1;
+    return { fromLine, toLine };
+  });
+}
+function selectedTaskLines(doc, selection) {
+  if (!doc || !selection) return [];
+  const text = doc.toString();
+  const lines = text.split("\n");
+  const fenced = fencedLines(lines);
+  return collectSelectedRootLines(lines, selectionLineRanges(doc, selection), {
+    fenced,
+    skipLine: (line) => RECORD_LINE_RE.test(line)
+  });
 }
 function locateStatusTask(text, target) {
   const lines = text.split("\n"), fenced = fencedLines(lines);
@@ -24851,32 +25487,150 @@ async function applyStatusChoice(plugin, target, keyword) {
   await plugin.saveSettings();
   plugin.refreshUI();
 }
-async function statusMenu(plugin, target, position) {
-  const text = await plugin.readNote(target.path), n = locateStatusTask(text, target);
-  if (n < 0) return new import_obsidian12.Notice(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
-  const suggested = suggestedStatus(plugin.settings, plugin.usage, text, n), menu = new import_obsidian12.Menu();
-  const choose = (keyword) => applyStatusChoice(plugin, target, keyword).catch((error) => new import_obsidian12.Notice(error.message));
-  menu.addItem((item) => item.setTitle(isManualTask(plugin.settings, text.split("\n")[n]) ? t("\u4EBA\u5DE5\u7BA1\u7406\uFF1AAI \u4E0D\u8986\u76D6\u6B64\u4EFB\u52A1\u72B6\u6001") : suggested ? t("\u72B6\u6001\u7531\u4F1A\u8BDD\u81EA\u52A8\u540C\u6B65") : t("\u9009\u62E9\u4E00\u4E2A\u4EFB\u52A1\u72B6\u6001")).setDisabled(true));
-  for (const keyword of ["TODO", "DOING", "PAUSED", "DONE", "CANCELED"]) menu.addItem((item) => item.setTitle(keyword).setChecked(keyword === target.keyword).onClick(() => choose(keyword)));
+async function applyBatchStatusChoice(plugin, editor, lineNumbers, keyword) {
+  const unique = [...new Set((lineNumbers || []).filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b);
+  if (!unique.length || !editor) return 0;
+  const settings = plugin.settings || {};
+  const known = knownTaskKeywords(plugin.app);
+  const before = editor.getValue();
+  const lines = before.split("\n");
+  const rollbacks = [];
+  let updatedCount = 0;
+  for (const n of unique) {
+    if (n >= lines.length || !LIST_RE.test(lines[n] || "")) continue;
+    const rawLine = lines[n];
+    const nextKw = keyword === null ? suggestedStatus(settings, plugin.usage, before, n) : keyword;
+    if (keyword === null && !nextKw) continue;
+    const replaced = setTaskLineStatus(rawLine, nextKw, { knownKeywords: known });
+    if (!replaced || replaced === rawLine) continue;
+    let id = blockIdOf(rawLine);
+    const link = linkUnder(lines, n);
+    const task = kwLine(rawLine);
+    const isAi = Boolean(id || link || task?.body?.startsWith("\u{1F916}"));
+    let finalLine = replaced;
+    if (isAi) {
+      id || (id = makeBlockId(link?.sid || "", link?.agent));
+      rollbacks.push([id, settings.manualTaskStates?.[id]]);
+      const locks = settings.manualTaskStates || (settings.manualTaskStates = {});
+      if (keyword) locks[id] = nextKw;
+      else delete locks[id];
+      if (!DONE_KWS.includes(nextKw) && nextKw !== "") finalLine = ensureBlockId(replaced, id).line;
+    }
+    lines[n] = finalLine;
+    updatedCount += 1;
+  }
+  if (!updatedCount) {
+    if (keyword === null) throw new Error(t("\u6CA1\u6709\u53EF\u8DDF\u968F\u7684\u4F1A\u8BDD\u72B6\u6001"));
+    return 0;
+  }
+  const after = cleanCompletedIdentifiers(lines.join("\n"));
+  try {
+    const diff = diffLines(before, after);
+    if (diff) {
+      if (typeof editor.transaction === "function") editor.transaction({ changes: [diff] });
+      else if (editor.cm) editor.cm.dispatch({ changes: { from: editor.posToOffset(diff.from), to: editor.posToOffset(diff.to), insert: diff.text } });
+    }
+  } catch (error) {
+    for (const [id, prev] of rollbacks) {
+      if (prev === void 0) delete settings.manualTaskStates[id];
+      else settings.manualTaskStates[id] = prev;
+    }
+    throw error;
+  }
+  await plugin.saveSettings?.();
+  plugin.refreshUI?.();
+  return updatedCount;
+}
+function appendStatusChoices(menu, plugin, { currentKeyword = "", suggested = "", hasSuggested = false, allowClear = false, onChoose, position }) {
+  for (const keyword of ["TODO", "DOING", "PAUSED", "DONE", "CANCELED"]) {
+    menu.addItem((item) => item.setTitle(keyword).setChecked(Boolean(currentKeyword && keyword === currentKeyword)).onClick(() => onChoose(keyword)));
+  }
   const groups = [
     [t("\u7B49\u5F85\u4E0E\u7A0D\u540E"), ["LATER", "WAITING", "WAIT", "SUSPENDED"]],
-    [t("AI \u72B6\u6001"), AGENT_KWS],
+    [t("AI \u72B6\u6001"), [...AGENT_KWS]],
     [t("\u5176\u4ED6\u5173\u952E\u8BCD"), ["IN-PROGRESS", "CANCELLED", "FAILED"]]
   ];
   const known = new Set(TASK_KWS.split("|"));
-  for (const p of Object.values(plugin.app.plugins?.plugins || {})) for (const [key, value] of Object.entries(p.settings || {})) if (/^additional.*Keywords$/.test(key) && Array.isArray(value)) {
-    for (const kw of value) if (/^[A-Z][A-Z0-9_-]*$/.test(kw) && !known.has(kw)) {
-      groups[2][1].push(kw);
-      known.add(kw);
+  for (const p of Object.values(plugin.app?.plugins?.plugins || {})) {
+    for (const [key, value] of Object.entries(p.settings || {})) {
+      if (/^additional.*Keywords$/.test(key) && Array.isArray(value)) {
+        for (const kw of value) {
+          if (/^[A-Z][A-Z0-9_-]*$/.test(kw) && !known.has(kw)) {
+            groups[2][1].push(kw);
+            known.add(kw);
+          }
+        }
+      }
     }
   }
-  for (const [title, keywords] of groups) menu.addItem((item) => item.setTitle(title).onClick(() => {
-    const sub = new import_obsidian12.Menu();
-    for (const kw of keywords) sub.addItem((i) => i.setTitle(kw).setChecked(kw === target.keyword).onClick(() => choose(kw)));
-    sub.showAtPosition(position);
-  }));
+  for (const [title, keywords] of groups) {
+    menu.addItem((item) => {
+      item.setTitle(title);
+      if (typeof item.setSubmenu === "function") {
+        const sub = item.setSubmenu();
+        for (const kw of keywords) sub.addItem((i) => i.setTitle(kw).setChecked(Boolean(currentKeyword && kw === currentKeyword)).onClick(() => onChoose(kw)));
+      } else {
+        item.onClick(() => {
+          const sub = new import_obsidian12.Menu();
+          for (const kw of keywords) sub.addItem((i) => i.setTitle(kw).setChecked(Boolean(currentKeyword && kw === currentKeyword)).onClick(() => onChoose(kw)));
+          sub.showAtPosition(position);
+        });
+      }
+    });
+  }
+  if (allowClear) {
+    menu.addItem((item) => item.setTitle(t("\u6E05\u9664\u72B6\u6001\u5173\u952E\u8BCD")).onClick(() => onChoose("")));
+  }
   menu.addSeparator();
-  menu.addItem((item) => item.setTitle(suggested ? t("\u6062\u590D\u81EA\u52A8\u8DDF\u968F\uFF1A{state}", { state: suggested }) : t("\u6CA1\u6709\u53EF\u8DDF\u968F\u7684\u4F1A\u8BDD\u72B6\u6001")).setDisabled(!suggested).onClick(() => choose(null)));
+  menu.addItem(
+    (item) => item.setTitle(suggested ? t("\u6062\u590D\u81EA\u52A8\u8DDF\u968F\uFF1A{state}", { state: suggested }) : hasSuggested ? t("\u6062\u590D\u81EA\u52A8\u8DDF\u968F") : t("\u6CA1\u6709\u53EF\u8DDF\u968F\u7684\u4F1A\u8BDD\u72B6\u6001")).setDisabled(!suggested && !hasSuggested).onClick(() => onChoose(null))
+  );
+}
+function populateBatchStatusMenu(menu, plugin, editor, lineNumbers, position = { x: 0, y: 0 }) {
+  const before = editor.getValue();
+  const hasSuggested = lineNumbers.some((n) => Boolean(suggestedStatus(plugin.settings || {}, plugin.usage || { meta: /* @__PURE__ */ new Map() }, before, n)));
+  appendStatusChoices(menu, plugin, {
+    hasSuggested,
+    allowClear: true,
+    position,
+    onChoose: (kw) => applyBatchStatusChoice(plugin, editor, lineNumbers, kw).then((count) => {
+      if (count && lineNumbers.length > 1) new import_obsidian12.Notice(t("\u5DF2\u66F4\u65B0 {n} \u4E2A\u5757\u7684\u72B6\u6001", { n: count }));
+    }).catch((error) => new import_obsidian12.Notice(error.message))
+  });
+}
+function openBatchStatusMenu(plugin, editor, position = null) {
+  const cm = editor?.cm;
+  const lineNumbers = cm ? selectedTaskLines(cm.state.doc, cm.state.selection) : [];
+  if (!lineNumbers.length) {
+    new import_obsidian12.Notice(t("\u8BF7\u5148\u9009\u4E2D\u8981\u8C03\u6574\u72B6\u6001\u7684\u5217\u8868\u9879"));
+    return null;
+  }
+  let pos = position;
+  if (!pos && cm) {
+    const coords = cm.coordsAtPos?.(cm.state.selection.main.head);
+    pos = coords ? { x: coords.left, y: coords.bottom } : { x: 120, y: 120 };
+  }
+  const menu = new import_obsidian12.Menu();
+  menu.addItem(
+    (item) => item.setTitle(lineNumbers.length > 1 ? t("\u6279\u91CF\u8C03\u6574 {n} \u4E2A\u5757\u7684\u4EFB\u52A1\u72B6\u6001", { n: lineNumbers.length }) : t("\u8C03\u6574\u5F53\u524D\u5757\u7684\u4EFB\u52A1\u72B6\u6001")).setDisabled(true)
+  );
+  populateBatchStatusMenu(menu, plugin, editor, lineNumbers, pos);
+  menu.showAtPosition(pos || { x: 120, y: 120 });
+  return menu;
+}
+async function statusMenu(plugin, target, position) {
+  const text = await plugin.readNote(target.path), n = locateStatusTask(text, target);
+  if (n < 0) return new import_obsidian12.Notice(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
+  const view = plugin.viewForPath?.(target.path);
+  const cm = view?.editor?.cm;
+  const selected = cm ? selectedTaskLines(cm.state.doc, cm.state.selection) : [];
+  if (view?.editor && selected.length >= 2 && selected.includes(n)) {
+    return openBatchStatusMenu(plugin, view.editor, position);
+  }
+  const suggested = suggestedStatus(plugin.settings, plugin.usage, text, n), menu = new import_obsidian12.Menu();
+  const choose = (keyword) => applyStatusChoice(plugin, target, keyword).catch((error) => new import_obsidian12.Notice(error.message));
+  menu.addItem((item) => item.setTitle(isManualTask(plugin.settings, text.split("\n")[n]) ? t("\u4EBA\u5DE5\u7BA1\u7406\uFF1AAI \u4E0D\u8986\u76D6\u6B64\u4EFB\u52A1\u72B6\u6001") : suggested ? t("\u72B6\u6001\u7531\u4F1A\u8BDD\u81EA\u52A8\u540C\u6B65") : t("\u9009\u62E9\u4E00\u4E2A\u4EFB\u52A1\u72B6\u6001")).setDisabled(true));
+  appendStatusChoices(menu, plugin, { currentKeyword: target.keyword, suggested, position, onChoose: choose });
   menu.showAtPosition(position);
 }
 function registerTaskStatusMenu(plugin) {
@@ -25926,9 +26680,25 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
     this.goal = opts.goal || "";
     this.presetId = "fullstack";
     this.roleOverrides = {};
+    this.stewardEnabled = true;
+    this.stewardAgent = "";
+    this.stewardAutoContinue = false;
     this.subtasks = [];
     this.planning = false;
     this.dispatching = false;
+  }
+  syncStewardFromSettings() {
+    const defaultAgent = this.availableAgents.includes(this.plugin.defaultTarget?.()) ? this.plugin.defaultTarget() : this.availableAgents[0] || "claude";
+    const cfg = resolveStewardConfig(this.plugin.settings, {
+      presetId: this.presetId,
+      projectName: this.projectName,
+      availableAgents: this.availableAgents,
+      limitAgents: this.limitAgents,
+      defaultAgent
+    });
+    this.stewardEnabled = cfg.enabled;
+    this.stewardAgent = cfg.agent;
+    this.stewardAutoContinue = cfg.autoContinue;
   }
   async onOpen() {
     const { contentEl, modalEl } = this;
@@ -25964,6 +26734,7 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
     if (this.projectName && savedByProj[this.projectName]) {
       this.presetId = savedByProj[this.projectName];
     }
+    this.syncStewardFromSettings();
     if (!this.subtasks.length && this.goal) {
       this.applyFallbackPlan();
     }
@@ -25987,16 +26758,29 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
     });
   }
   saveTeamPreference() {
-    var _a;
+    var _a, _b, _c;
     const p = this.plugin;
-    const teams = (_a = p.settings).projectTeams || (_a.projectTeams = { presets: {}, byProject: {} });
+    const teams = (_a = p.settings).projectTeams || (_a.projectTeams = { presets: {}, byProject: {}, stewards: {} });
     teams.presets || (teams.presets = {});
     teams.byProject || (teams.byProject = {});
+    teams.stewards || (teams.stewards = {});
+    (_b = teams.stewards).byPreset || (_b.byPreset = {});
+    (_c = teams.stewards).byProject || (_c.byProject = {});
     if (this.projectName) teams.byProject[this.projectName] = this.presetId;
     if (Object.keys(this.roleOverrides).length) {
       teams.presets[this.presetId] = {
         roleAgents: { ...teams.presets[this.presetId]?.roleAgents || {}, ...this.roleOverrides }
       };
+    }
+    if (this.stewardAgent) {
+      const entry = {
+        enabled: this.stewardEnabled !== false,
+        agent: this.stewardAgent,
+        autoContinue: this.stewardAutoContinue === true
+      };
+      teams.stewards.default = entry;
+      teams.stewards.byPreset[this.presetId] = entry;
+      if (this.projectName) teams.stewards.byProject[this.projectName] = entry;
     }
     p.saveSettings?.();
   }
@@ -26074,7 +26858,16 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
           lines: saved.lines,
           subtaskLines: saved.subtaskLines,
           cwd: this.cwd.trim(),
-          parentTitle
+          parentTitle,
+          parentBlockId: saved.parentBlockId || "",
+          projectName: this.projectName,
+          goal: this.goal.trim() || parentTitle,
+          steward: this.stewardEnabled && this.stewardAgent ? {
+            enabled: true,
+            agent: this.stewardAgent,
+            destination: this.teamDestination(this.stewardAgent),
+            autoContinue: this.stewardAutoContinue
+          } : { enabled: false }
         });
       } else {
         new import_obsidian14.Notice(t("\u5DF2\u5C06 {n} \u6761\u534F\u4F5C\u5B50\u4EFB\u52A1\u5199\u5165\u7B14\u8BB0", { n: active.length }));
@@ -26156,6 +26949,7 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
       btn.onclick = () => {
         this.presetId = preset.id;
         this.roleOverrides = {};
+        this.syncStewardFromSettings();
         this.render();
       };
     }
@@ -26178,6 +26972,49 @@ var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
         this.saveTeamPreference();
         this.render();
       };
+    }
+    const stewardBox = teamField.createDiv({ cls: "ad-wb-steward" });
+    const stewardTop = stewardBox.createDiv({ cls: "ad-wb-steward__top" });
+    const stewardToggle = stewardTop.createEl("label", { cls: "ad-wb-steward__check" });
+    const stewardCb = stewardToggle.createEl("input", { attr: { type: "checkbox" } });
+    stewardCb.checked = this.stewardEnabled !== false;
+    stewardCb.onchange = () => {
+      this.stewardEnabled = stewardCb.checked;
+      this.saveTeamPreference();
+      this.render();
+    };
+    stewardToggle.createSpan({
+      cls: "ad-wb-role__name",
+      text: t("\u7BA1\u5BB6 Agent\uFF08\u961F\u5458\u5168\u90E8\u5B8C\u6210\u540E\u81EA\u52A8\u6C47\u603B\u5E76\u7EE7\u7EED\u63A8\u8FDB\uFF09")
+    });
+    const stewardPick = stewardTop.createDiv({ cls: "ad-wb-role__pick" });
+    const activeSteward = this.availableAgents.includes(this.stewardAgent) ? this.stewardAgent : this.availableAgents[0] || "claude";
+    agentIcon(stewardPick.createSpan({ cls: "ad-glyph" }), activeSteward);
+    const stewardSel = stewardPick.createEl("select", { cls: "ad-input ad-wb-select" });
+    for (const id of this.availableAgents) {
+      const suffix = this.limitAgents.has(id) ? ` (${t("\u9650\u989D")})` : "";
+      stewardSel.createEl("option", { text: `${AGENTS[id]?.short || id}${suffix}`, attr: { value: id } });
+    }
+    stewardSel.value = activeSteward;
+    stewardSel.disabled = !this.stewardEnabled;
+    stewardSel.onchange = () => {
+      this.stewardAgent = stewardSel.value;
+      this.saveTeamPreference();
+      this.render();
+    };
+    if (this.stewardEnabled) {
+      const stewardSub = stewardBox.createDiv({ cls: "ad-wb-steward__sub" });
+      const autoLabel = stewardSub.createEl("label", { cls: "ad-wb-steward__check" });
+      const autoCb = autoLabel.createEl("input", { attr: { type: "checkbox" } });
+      autoCb.checked = this.stewardAutoContinue === true;
+      autoCb.onchange = () => {
+        this.stewardAutoContinue = autoCb.checked;
+        this.saveTeamPreference();
+      };
+      autoLabel.createSpan({
+        cls: "ad-wb-role__hint",
+        text: t("\u81EA\u52A8\u7EED\u6D3E\u7BA1\u5BB6\u751F\u6210\u7684\u540E\u7EED TODO\uFF08\u6700\u591A 2 \u8F6E\uFF09")
+      });
     }
     const goalField = contentEl.createDiv({ cls: "ad-field" });
     goalField.createDiv({ cls: "ad-field__label", text: t("\u9879\u76EE\u76EE\u6807 / \u5F85\u62C6\u89E3\u4EFB\u52A1") });
@@ -26528,7 +27365,14 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
     this.usageCacheFile = import_path11.default.join(import_os12.default.homedir(), ".agent-deck", "usage-cache.json.gz");
     this.editorInfoField = import_obsidian15.editorInfoField;
+    this._launchingWaves = /* @__PURE__ */ new Set();
+    this._finalizingWaves = /* @__PURE__ */ new Set();
     this.delegator = new Delegator(this);
+    this.delegator.harness?.use?.({
+      afterResult: ({ job }) => this.onWorkbenchJobSettled(job),
+      onError: ({ job }) => this.onWorkbenchJobSettled(job),
+      onCancel: ({ job }) => this.onWorkbenchJobSettled(job)
+    });
     this.menubar = new MenuBarBridge(this);
     this.autoLog = new AutoLog(this);
     this.dreaming = new Dreaming(this);
@@ -26541,6 +27385,27 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     this.registerEditorExtension(createEditorExtension(this));
     registerTaskAgentSuggest(this);
     registerTaskStatusMenu(this);
+    if (typeof this.app.workspace?.on === "function") {
+      this.registerEvent(this.app.workspace.on("editor-menu", (menu, editor) => {
+        const cm = editor?.cm;
+        if (!cm) return;
+        const selected = selectedTaskLines(cm.state.doc, cm.state.selection);
+        if (!selected.length) return;
+        if (selected.length >= 2) {
+          menu.addItem((item) => {
+            item.setTitle(t("\u6279\u91CF\u8C03\u6574 {n} \u4E2A\u5757\u7684\u72B6\u6001", { n: selected.length })).setIcon("check-square");
+            if (typeof item.setSubmenu === "function") {
+              populateBatchStatusMenu(item.setSubmenu(), this, editor, selected);
+            } else {
+              item.onClick(() => openBatchStatusMenu(this, editor));
+            }
+          });
+        }
+        menu.addItem(
+          (item) => item.setTitle(t("\u5408\u5E76\u6210\u7EC4\uFF08Group rows\uFF09")).setIcon("folder-plus").onClick(() => this.groupRows(cm))
+        );
+      }));
+    }
     this.registerMarkdownPostProcessor((el, ctx) => {
       const child = new import_obsidian15.MarkdownRenderChild(el);
       child.onunload = renderAIRecords(el, this, ctx);
@@ -26561,6 +27426,29 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
       id: "toggle-task-board",
       name: t("\u5F53\u524D\u4EFB\u52A1\uFF1A\u5207\u6362\u5206\u5F62\u770B\u677F / \u5927\u7EB2\u89C6\u56FE"),
       editorCallback: (editor, view) => this.toggleTaskBoardAt(editor, view)
+    });
+    this.addCommand({
+      id: "go-to-ancestor",
+      name: t("\u8DF3\u5230\u6BCD\u5757\uFF08\u8FDE\u6309\u4E00\u5C42\u5C42\u5F80\u4E0A\uFF09"),
+      hotkeys: [{ modifiers: ["Mod", "Alt"], key: "ArrowUp" }],
+      editorCallback: (editor) => editor.cm && this.goToAncestor(editor.cm, false)
+    });
+    this.addCommand({
+      id: "go-to-top-ancestor",
+      name: t("\u8DF3\u5230\u6700\u4E0A\u4E00\u7EA7\u7684\u9876\u683C\u6BCD\u5757"),
+      hotkeys: [{ modifiers: ["Mod", "Alt", "Shift"], key: "ArrowUp" }],
+      editorCallback: (editor) => editor.cm && this.goToAncestor(editor.cm, true)
+    });
+    this.addCommand({
+      id: "group-rows",
+      name: t("\u5408\u5E76\u6210\u7EC4\uFF08Group rows\uFF1A\u9009\u4E2D\u5757\u964D\u4E00\u7EA7\u5E76\u65B0\u5EFA\u6BCD\u5757\uFF09"),
+      hotkeys: [{ modifiers: ["Mod", "Alt"], key: "ArrowDown" }],
+      editorCallback: (editor) => editor.cm && this.groupRows(editor.cm)
+    });
+    this.addCommand({
+      id: "batch-task-status",
+      name: t("\u6279\u91CF\u8C03\u6574\u9009\u4E2D\u5757\u7684\u4EFB\u52A1\u72B6\u6001\u2026"),
+      editorCallback: (editor) => this.openBatchStatusAt(editor)
     });
     this.addCommand({ id: "open-review", name: t("\u6253\u5F00 Agent Deck \u56DE\u987E Dashboard"), checkCallback: (checking) => {
       if (this.settings.experimentalDashboard === false) return false;
@@ -27028,6 +27916,7 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
       this.store.prune();
       this.delegator.resolveHandoffs(this.usage);
       this.delegator.retryBackgroundResults?.();
+      this.syncWorkbenchWaves?.().catch((e) => console.error("[agent-deck] wave sync", e));
       this.usage.maybeSaveCache(this.usageCacheFile);
       await this.refreshExternalState?.().catch(() => {
       });
@@ -27112,11 +28001,18 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
         this.saveJobs();
       }
     }
+    this.syncWorkbenchWaves?.().catch((e) => console.error("[agent-deck] wave recover", e));
     this.refreshUI();
   }
   cleanJobs() {
     const cutoff = Date.now() - 7 * 864e5;
     for (const [id, job] of Object.entries(this.jobs)) if (job.endedAt && job.endedAt < cutoff) delete this.jobs[id];
+    const waves = this.settings.workbenchWaves || {};
+    for (const [id, wave] of Object.entries(waves)) {
+      if (wave && ["done", "error", "cancelled"].includes(wave.state) && (wave.updatedAt || wave.createdAt || 0) < cutoff) {
+        delete waves[id];
+      }
+    }
     this.saveSettings();
     this.refreshUI();
   }
@@ -28129,6 +29025,60 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     const next = taskBoardMode(this.settings, hit) === "board" ? "outline" : "board";
     editor.cm.dispatch({ effects: setTaskBoardEffect.of({ key: hit.key, mode: next }) });
   }
+  goToAncestor(cmView, top = false) {
+    if (!cmView) return false;
+    const doc = cmView.state.doc;
+    const lines = doc.toString().split("\n");
+    const headLine = doc.lineAt(cmView.state.selection.main.head).number - 1;
+    const from = itemLineFor(lines, headLine);
+    if (from < 0) {
+      this.notice(t("\u4E0D\u5728\u5217\u8868\u91CC"));
+      return false;
+    }
+    let target = parentItem(lines, from);
+    if (target < 0) {
+      this.notice(t("\u5DF2\u7ECF\u662F\u9876\u5C42"));
+      return false;
+    }
+    if (top) {
+      for (let p = parentItem(lines, target); p >= 0; p = parentItem(lines, p)) target = p;
+    }
+    const line = doc.line(target + 1);
+    const span = contentSpan(line.text);
+    cmView.dispatch({
+      selection: { anchor: line.from + span.to },
+      scrollIntoView: true
+    });
+    cmView.focus?.();
+    return true;
+  }
+  groupRows(cmView) {
+    if (!cmView) return false;
+    const doc = cmView.state.doc;
+    const lines = doc.toString().split("\n");
+    const ranges = selectionLineRanges(doc, cmView.state.selection);
+    const useTab = this.app?.vault?.getConfig?.("useTab") !== false;
+    const tabSize = Number(this.app?.vault?.getConfig?.("tabSize")) || 4;
+    const unit = useTab ? "	" : " ".repeat(tabSize);
+    const edit = groupRowsEdit(lines, ranges, unit);
+    if (!edit) {
+      this.notice(t("\u4E0D\u5728\u5217\u8868\u91CC"));
+      return false;
+    }
+    const from = doc.line(edit.startLine + 1).from;
+    const to = doc.line(edit.endLine + 1).to;
+    cmView.dispatch({
+      changes: { from, to, insert: edit.insertText },
+      selection: { anchor: from + edit.cursorOffset },
+      scrollIntoView: true
+    });
+    cmView.focus?.();
+    return true;
+  }
+  openBatchStatusAt(editor) {
+    if (!editor?.cm) return null;
+    return openBatchStatusMenu(this, editor);
+  }
   async ensureNoteFile(targetPath) {
     const pathStr = String(targetPath || "").trim() || journalPath(this.app, this.settings);
     let file = this.app.vault.getAbstractFileByPath(pathStr);
@@ -28150,12 +29100,16 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     const activeSubtasks = (subtasks || []).filter((s) => s && s.checked !== false && String(s.title || "").trim());
     if (!activeSubtasks.length) throw new Error(t("\u6CA1\u6709\u53EF\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
     let parentLine = -1;
+    let parentBlockId = "";
     let subtaskLines = [];
     let finalLines = [];
     await updateNote(this, targetPath, (before) => {
       const lines = before ? before.split("\n") : [];
       const existingBlock = line >= 0 ? blockAt(lines, line) : null;
       if (existingBlock) {
+        const ensuredParent = ensureBlockId(lines[existingBlock.start], makeBlockId("", "ad", "wb"));
+        lines[existingBlock.start] = ensuredParent.line;
+        parentBlockId = ensuredParent.blockId;
         const indent = (/^\s*/.exec(lines[existingBlock.start]) || [""])[0];
         const childIndentStr = childIndent(lines, existingBlock.start).slice(indent.length) || "	";
         const snippet = formatWorkbenchTasksMarkdown({
@@ -28173,7 +29127,13 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
         subtaskLines = [];
         let cursor = insertAt;
         for (const item of activeSubtasks) {
-          subtaskLines.push({ line: cursor, agent: item.agent, destination: item.destination, title: item.title });
+          subtaskLines.push({
+            line: cursor,
+            blockId: blockIdOf(lines[cursor]),
+            agent: item.agent,
+            destination: item.destination,
+            title: item.title
+          });
           cursor += 1 + (item.detail && item.detail.trim() ? 1 : 0);
         }
       } else {
@@ -28189,10 +29149,17 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
         const placed = insertWorkbenchBlockLines(lines, inserted);
         lines.splice(0, lines.length, ...placed.lines);
         parentLine = placed.parentLine;
+        parentBlockId = blockIdOf(lines[parentLine]);
         subtaskLines = [];
         let cursor = parentLine + 1;
         for (const item of activeSubtasks) {
-          subtaskLines.push({ line: cursor, agent: item.agent, destination: item.destination, title: item.title });
+          subtaskLines.push({
+            line: cursor,
+            blockId: blockIdOf(lines[cursor]),
+            agent: item.agent,
+            destination: item.destination,
+            title: item.title
+          });
           cursor += 1 + (item.detail && item.detail.trim() ? 1 : 0);
         }
       }
@@ -28218,9 +29185,21 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     if (!this.viewForPath(targetPath) && this.app.workspace.getLeaf) {
       await this.openMirrorSource(targetPath, Math.max(0, parentLine));
     }
-    return { path: targetPath, lines: finalLines, parentLine, subtaskLines };
+    return { path: targetPath, lines: finalLines, parentLine, parentBlockId, subtaskLines };
   }
-  async dispatchWorkbenchTasks({ path: path10, lines, subtaskLines = [], cwd = "", parentTitle = "" } = {}) {
+  async dispatchWorkbenchTasks({
+    path: path10,
+    lines,
+    subtaskLines = [],
+    cwd = "",
+    parentTitle = "",
+    parentBlockId = "",
+    projectName: projectName2 = "",
+    goal = "",
+    steward = null,
+    round = 1
+  } = {}) {
+    var _a;
     const file = this.app.vault.getAbstractFileByPath(path10);
     if (!file) throw new Error(t("\u627E\u4E0D\u5230\u76EE\u6807\u7B14\u8BB0\uFF1A{path}", { path: path10 }));
     const freshLines = lines || (await this.readNote(path10)).split("\n");
@@ -28249,35 +29228,412 @@ var AgentDeckPlugin = class extends import_obsidian15.Plugin {
     );
     const failed = results.filter((r) => r.status === "rejected");
     const okCount = results.length - failed.length;
-    if (okCount) this.notice(t("\u5DF2\u5E76\u53D1\u6D3E\u53D1 {n} \u4E2A\u534F\u4F5C\u5B50\u4EFB\u52A1", { n: okCount }));
+    const stewardCfg = steward && steward.enabled !== false && steward.agent ? steward : null;
+    if (okCount && stewardCfg) {
+      this.notice(t("\u5DF2\u5E76\u53D1\u6D3E\u53D1 {n} \u4E2A\u534F\u4F5C\u5B50\u4EFB\u52A1\uFF1B\u5B8C\u6210\u540E\u5C06\u7531\u7BA1\u5BB6 {agent} \u6C47\u603B\u63A8\u8FDB", {
+        n: okCount,
+        agent: AGENTS[stewardCfg.agent]?.short || stewardCfg.agent
+      }));
+    } else if (okCount) {
+      this.notice(t("\u5DF2\u5E76\u53D1\u6D3E\u53D1 {n} \u4E2A\u534F\u4F5C\u5B50\u4EFB\u52A1", { n: okCount }));
+    }
     if (failed.length) {
       const firstErr = failed[0].reason?.message || String(failed[0].reason || "");
       this.notice(t("{n} \u4E2A\u5B50\u4EFB\u52A1\u6D3E\u53D1\u5931\u8D25\uFF1A{err}", { n: failed.length, err: firstErr }), 8e3);
+    }
+    if (okCount > 0 && stewardCfg) {
+      const workers = tasks.map(({ item, block }, idx) => {
+        const r = results[idx];
+        const job = r.status === "fulfilled" ? r.value : null;
+        return {
+          jobId: job?.id || "",
+          blockId: item.blockId || job?.blockId || blockIdOf(freshLines[block.start]),
+          line: item.line,
+          title: item.title,
+          agent: item.agent,
+          state: r.status === "fulfilled" ? job?.state || "running" : "error",
+          error: r.status === "rejected" ? r.reason?.message || String(r.reason || "") : "",
+          sessionId: job?.sessionId || ""
+        };
+      });
+      const wave = createWorkbenchWave({
+        path: path10,
+        parentBlockId,
+        parentTitle: parentTitle || t("\u534F\u4F5C\u9879\u76EE"),
+        projectName: projectName2,
+        goal: goal || parentTitle || t("\u534F\u4F5C\u9879\u76EE"),
+        cwd,
+        round,
+        steward: stewardCfg,
+        workers
+      });
+      (_a = this.settings).workbenchWaves || (_a.workbenchWaves = {});
+      this.settings.workbenchWaves[wave.id] = wave;
+      if (parentBlockId || parentTitle) {
+        await updateNote(this, path10, (text) => updateTaskBlockStatusById(text, {
+          blockId: parentBlockId,
+          title: parentTitle,
+          targetColumn: "doing",
+          onlyFromColumns: ["todo"]
+        })).catch(() => {
+        });
+      }
+      await this.saveSettings();
+      await this.syncWorkbenchWaves();
     }
     this.refreshUI();
   }
   async dispatchBoardGroup(path10, parentLine, { model: providedModel = null } = {}) {
     const file = this.app.vault.getAbstractFileByPath(path10);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    const text = await this.readNote(path10);
-    const lines = text.split("\n");
+    let text = await this.readNote(path10);
+    let lines = text.split("\n");
     const groups = extractTaskBoardGroups(text, {
       trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : /* @__PURE__ */ new Set(),
       trigger: mentionTrigger(this)
     });
     const grp = groups.find((g) => g.line === parentLine);
     if (!grp) return;
+    let parentBlockId = blockIdOf(lines[parentLine]);
+    if (!parentBlockId) {
+      const generated = makeBlockId("", "ad", "wb");
+      await updateNote(this, path10, (cur) => {
+        const curLines = cur.split("\n");
+        if (!curLines[parentLine]) return cur;
+        const ensured = ensureBlockId(curLines[parentLine], generated);
+        curLines[parentLine] = ensured.line;
+        parentBlockId = ensured.blockId;
+        return curLines.join("\n");
+      });
+      text = await this.readNote(path10);
+      lines = text.split("\n");
+    }
     const model = providedModel || buildTaskBoardModel(grp, this);
     const pending = model.columns.flatMap((c) => c.cards).filter((c) => c.column === "todo" && !c.hasLink && !c.activeJob && !c.isMirror);
     if (!pending.length) return this.notice(t("\u6CA1\u6709\u5F85\u6D3E\u53D1\u7684 TODO \u5B50\u4EFB\u52A1"));
     const subtaskLines = pending.map((card) => ({
       line: card.line,
+      blockId: card.blockId || blockIdOf(lines[card.line]),
       agent: card.agent || this.defaultTarget(),
       destination: void 0,
       title: card.title,
       boardContext: buildBoardSiblingContext(model, card.line)
     }));
-    await this.dispatchWorkbenchTasks({ path: path10, lines, subtaskLines });
+    const existingWave = findActiveWaveForBoard(this.settings.workbenchWaves, {
+      path: path10,
+      parentBlockId,
+      parentTitle: model.title
+    });
+    const available = delegableAgents(this);
+    const limitAgents = limitAgentsFromSessions(this.liveSessions?.({ hours: 6 }) || []);
+    const steward = existingWave ? { enabled: false } : resolveStewardConfig(this.settings, {
+      availableAgents: available,
+      limitAgents,
+      defaultAgent: this.defaultTarget?.()
+    });
+    await this.dispatchWorkbenchTasks({
+      path: path10,
+      lines,
+      subtaskLines,
+      parentTitle: model.title,
+      parentBlockId,
+      goal: model.title,
+      steward: steward.enabled ? { ...steward, destination: "background" } : { enabled: false }
+    });
+  }
+  async onWorkbenchJobSettled(job) {
+    if (!job || this._unloaded) return;
+    const waves = this.settings.workbenchWaves || {};
+    for (const wave of Object.values(waves)) {
+      if (!wave) continue;
+      if (wave.state === "running" && wave.steward?.jobId === job.id) {
+        await this.finalizeStewardWave(wave, job);
+        return;
+      }
+      if (wave.state === "waiting" && (wave.workers || []).some((w) => w.jobId === job.id)) {
+        const blockId = job.blockId || wave.workers.find((w) => w.jobId === job.id)?.blockId || "";
+        if (blockId && wave.path) {
+          const targetKw = job.state === "done" ? "TOREVIEW" : job.state === "error" ? "ERRORED" : job.state === "cancelled" ? "CANCELED" : "";
+          if (targetKw) {
+            await updateNote(this, wave.path, (text) => setTaskBlockKeywordById(text, {
+              blockId,
+              title: job.name,
+              keyword: targetKw,
+              onlyIfKeywords: ["DELEGATED", "DOING", "TODO"]
+            })).catch(() => {
+            });
+          }
+        }
+      }
+    }
+    await this.syncWorkbenchWaves();
+  }
+  async syncWorkbenchWaves() {
+    if (this._unloaded) return;
+    const waves = this.settings.workbenchWaves || {};
+    let dirty = false;
+    const toLaunch = [];
+    const toFinalize = [];
+    for (const wave of Object.values(waves)) {
+      if (!wave) continue;
+      if (wave.state === "waiting") {
+        const synced = syncWaveWithState(wave, this.jobs, this.usage?.meta);
+        if (synced.changed) dirty = true;
+        if (synced.allSettled) toLaunch.push(wave.id);
+      } else if (wave.state === "running" && wave.steward?.jobId) {
+        const sJob = this.jobs?.[wave.steward.jobId];
+        if (sJob && isTerminalWorkerState(sJob.state)) {
+          toFinalize.push({ wave, job: sJob });
+        }
+      }
+    }
+    if (dirty) {
+      await this.saveSettings();
+      this.refreshUI();
+    }
+    for (const waveId of toLaunch) await this.launchStewardForWave(waveId);
+    for (const { wave, job } of toFinalize) await this.finalizeStewardWave(wave, job);
+  }
+  async launchStewardForWave(waveId, { force = false } = {}) {
+    if (this._unloaded) return;
+    const wave = this.settings.workbenchWaves?.[waveId];
+    if (!wave || wave.state !== "waiting") return;
+    if (this._launchingWaves.has(waveId)) return;
+    const synced = syncWaveWithState(wave, this.jobs, this.usage?.meta);
+    if (!force && !synced.allSettled) return;
+    const file = this.app.vault.getAbstractFileByPath(wave.path);
+    if (!file) {
+      wave.state = "error";
+      wave.error = t("\u627E\u4E0D\u5230\u76EE\u6807\u7B14\u8BB0\uFF1A{path}", { path: wave.path });
+      wave.updatedAt = Date.now();
+      await this.saveSettings();
+      this.refreshUI();
+      return;
+    }
+    this._launchingWaves.add(waveId);
+    wave.state = "running";
+    wave.error = "";
+    wave.updatedAt = Date.now();
+    await this.saveSettings();
+    this.refreshUI();
+    try {
+      const noteText = await this.readNote(wave.path);
+      const reports = collectWaveWorkerReports(wave, { jobs: this.jobs, metaMap: this.usage?.meta, noteText });
+      const available = delegableAgents(this);
+      const stewardAgent = available.includes(wave.steward?.agent) ? wave.steward.agent : available[0] || "claude";
+      wave.steward.agent = stewardAgent;
+      const stewardPrompt = buildStewardPrompt({
+        wave,
+        reports,
+        projectName: wave.projectName,
+        availableAgents: available
+      });
+      const stewardTitle = wave.round > 1 ? t("\u{1F9ED} \u7BA1\u5BB6\u6C47\u603B\u4E0E\u63A8\u8FDB\uFF08\u7B2C {n} \u8F6E\uFF09", { n: wave.round }) : t("\u{1F9ED} \u7BA1\u5BB6\u6C47\u603B\u4E0E\u63A8\u8FDB");
+      const stewardBlockId = makeBlockId("", stewardAgent, "st");
+      let insertedInfo = null;
+      await updateNote(this, wave.path, (text) => {
+        const res = appendSubtasksToParentBlock(text, {
+          parentBlockId: wave.parentBlockId,
+          parentTitle: wave.parentTitle,
+          subtasks: [{ title: stewardTitle, agent: stewardAgent, blockId: stewardBlockId }],
+          assignBlockIds: true,
+          keyword: "TODO"
+        });
+        insertedInfo = res;
+        return res.text;
+      });
+      if (!insertedInfo?.addedLines?.length) {
+        throw new Error(t("\u627E\u4E0D\u5230\u7236\u4EFB\u52A1\u5757\uFF0C\u65E0\u6CD5\u5199\u5165\u7BA1\u5BB6\u4EFB\u52A1"));
+      }
+      const freshLines = (await this.readNote(wave.path)).split("\n");
+      const idx = freshLines.findIndex((l) => blockIdOf(l) === stewardBlockId);
+      const block = idx >= 0 ? blockAt(freshLines, idx) : null;
+      if (!block) throw new Error(t("\u627E\u4E0D\u5230\u5DF2\u5199\u5165\u7684\u7BA1\u5BB6\u4EFB\u52A1\u884C"));
+      const stewardJob = await this.delegator.delegate({
+        file,
+        lines: freshLines,
+        block,
+        agent: stewardAgent,
+        destination: wave.steward.destination || "background",
+        cwd: wave.cwd || void 0,
+        boardContext: stewardPrompt
+      });
+      wave.steward.jobId = stewardJob?.id || "";
+      wave.steward.blockId = stewardBlockId;
+      wave.updatedAt = Date.now();
+      await this.saveSettings();
+      this.refreshUI();
+      this.notice(t("\u{1F9ED} \u961F\u5458\u5DF2\u5168\u90E8\u5B8C\u6210\uFF0C\u7BA1\u5BB6 {agent} \u5F00\u59CB\u6C47\u603B\u5E76\u7EE7\u7EED\u63A8\u8FDB", {
+        agent: AGENTS[stewardAgent]?.short || stewardAgent
+      }), 8e3);
+      if (stewardJob && isTerminalWorkerState(stewardJob.state)) {
+        await this.finalizeStewardWave(wave, stewardJob);
+      }
+    } catch (e) {
+      wave.state = "error";
+      wave.error = String(e?.message || e || t("\u672A\u77E5\u9519\u8BEF"));
+      wave.updatedAt = Date.now();
+      await this.saveSettings();
+      this.refreshUI();
+      this.notice(t("\u26A0\uFE0F \u7BA1\u5BB6\u6C47\u603B\u542F\u52A8\u5931\u8D25\uFF1A{err}", { err: wave.error }), 8e3);
+    } finally {
+      this._launchingWaves.delete(waveId);
+    }
+  }
+  async finalizeStewardWave(wave, stewardJob) {
+    if (!wave || wave.state !== "running" || this._unloaded) return;
+    if (this._finalizingWaves.has(wave.id)) return;
+    this._finalizingWaves.add(wave.id);
+    try {
+      if (stewardJob.state === "error") {
+        if (wave.steward?.blockId && wave.path) {
+          await updateNote(this, wave.path, (text) => setTaskBlockKeywordById(text, {
+            blockId: wave.steward.blockId,
+            keyword: "ERRORED",
+            onlyIfKeywords: ["DELEGATED", "DOING", "TODO"]
+          })).catch(() => {
+          });
+        }
+        wave.state = "error";
+        wave.error = stewardJob.error || t("\u7BA1\u5BB6\u6267\u884C\u5931\u8D25");
+        wave.updatedAt = Date.now();
+        await this.saveSettings();
+        this.refreshUI();
+        this.notice(t("\u26A0\uFE0F \u7BA1\u5BB6\u6C47\u603B\u5931\u8D25\uFF1A{err}", { err: wave.error }), 8e3);
+        return;
+      }
+      if (stewardJob.state === "cancelled") {
+        if (wave.steward?.blockId && wave.path) {
+          await updateNote(this, wave.path, (text) => setTaskBlockKeywordById(text, {
+            blockId: wave.steward.blockId,
+            keyword: "CANCELED",
+            onlyIfKeywords: ["DELEGATED", "DOING", "TODO"]
+          })).catch(() => {
+          });
+        }
+        wave.state = "cancelled";
+        wave.updatedAt = Date.now();
+        await this.saveSettings();
+        this.refreshUI();
+        return;
+      }
+      const available = delegableAgents(this);
+      const raw = stewardJob.result || stewardJob.lastText || "";
+      const outcome = parseStewardOutcome(raw, {
+        availableAgents: available,
+        defaultAgent: wave.steward?.agent || this.defaultTarget?.() || "claude"
+      });
+      const nextTasks = outcome?.nextTasks || [];
+      let addedNextLines = [];
+      if (wave.path) {
+        await updateNote(this, wave.path, (text) => {
+          let next = text;
+          if (wave.steward?.blockId) {
+            next = setTaskBlockKeywordById(next, {
+              blockId: wave.steward.blockId,
+              keyword: outcome?.status === "needs-review" ? "NEEDOK" : "DONE",
+              onlyIfKeywords: ["DELEGATED", "DOING", "TODO"]
+            });
+          }
+          for (const w of wave.workers || []) {
+            if (w.state === "done" && w.blockId) {
+              next = setTaskBlockKeywordById(next, {
+                blockId: w.blockId,
+                title: w.title,
+                keyword: "DONE",
+                onlyIfKeywords: ["TOREVIEW", "DELEGATED"]
+              });
+            }
+          }
+          if (nextTasks.length) {
+            const appended = appendSubtasksToParentBlock(next, {
+              parentBlockId: wave.parentBlockId,
+              parentTitle: wave.parentTitle,
+              subtasks: nextTasks,
+              assignBlockIds: true,
+              keyword: "TODO"
+            });
+            next = appended.text;
+            addedNextLines = appended.addedLines || [];
+          } else {
+            const hasFailed = (wave.workers || []).some((w) => w.state === "error" || w.state === "cancelled");
+            const parentTargetKw = outcome?.status === "needs-review" ? "NEEDOK" : outcome?.status === "done" || !hasFailed ? "TOREVIEW" : "";
+            if (parentTargetKw) {
+              next = setTaskBlockKeywordById(next, {
+                blockId: wave.parentBlockId,
+                title: wave.parentTitle,
+                keyword: parentTargetKw,
+                onlyIfKeywords: ["TODO", "DOING"]
+              });
+            }
+          }
+          return next;
+        }).catch((e) => console.error("[agent-deck] finalizeStewardWave note update", e));
+      }
+      wave.state = "done";
+      wave.summary = outcome?.summary || "";
+      wave.nextTaskCount = addedNextLines.length;
+      wave.updatedAt = Date.now();
+      await this.saveSettings();
+      this.refreshUI();
+      if (addedNextLines.length) {
+        if (wave.steward?.autoContinue && (wave.round || 1) < MAX_STEWARD_ROUNDS) {
+          this.notice(t("\u{1F9ED} \u7BA1\u5BB6\u5DF2\u5B8C\u6210\u7B2C {round} \u8F6E\u6C47\u603B\uFF0C\u81EA\u52A8\u7EED\u6D3E {n} \u6761\u540E\u7EED\u4EFB\u52A1", {
+            round: wave.round || 1,
+            n: addedNextLines.length
+          }), 8e3);
+          await this.dispatchWorkbenchTasks({
+            path: wave.path,
+            subtaskLines: addedNextLines,
+            cwd: wave.cwd,
+            parentTitle: wave.parentTitle,
+            parentBlockId: wave.parentBlockId,
+            projectName: wave.projectName,
+            goal: wave.goal,
+            steward: {
+              enabled: true,
+              agent: wave.steward.agent,
+              destination: wave.steward.destination || "background",
+              autoContinue: wave.steward.autoContinue
+            },
+            round: (wave.round || 1) + 1
+          });
+        } else {
+          this.notice(t("\u{1F9ED} \u7BA1\u5BB6\u5DF2\u5B8C\u6210\u6C47\u603B\uFF0C\u5E76\u751F\u6210 {n} \u6761\u540E\u7EED TODO\uFF08\u53EF\u5728\u770B\u677F\u7EE7\u7EED\u6D3E\u53D1\uFF09", {
+            n: addedNextLines.length
+          }), 8e3);
+        }
+      } else {
+        this.notice(wave.summary ? t("\u{1F9ED} \u7BA1\u5BB6\u5DF2\u5B8C\u6210\u6C47\u603B\uFF1A{summary}", { summary: wave.summary }) : t("\u{1F9ED} \u7BA1\u5BB6\u5DF2\u5B8C\u6210\u672C\u8F6E\u6C47\u603B\u4E0E\u63A8\u8FDB"), 8e3);
+      }
+    } finally {
+      this._finalizingWaves.delete(wave.id);
+    }
+  }
+  runStewardWaveNow(waveId) {
+    return this.launchStewardForWave(waveId, { force: true });
+  }
+  async retryStewardWave(waveId) {
+    const wave = this.settings.workbenchWaves?.[waveId];
+    if (!wave) return;
+    wave.state = "waiting";
+    wave.error = "";
+    wave.steward.jobId = "";
+    wave.steward.blockId = "";
+    wave.updatedAt = Date.now();
+    await this.saveSettings();
+    return this.launchStewardForWave(waveId, { force: true });
+  }
+  async cancelWorkbenchWave(waveId) {
+    const wave = this.settings.workbenchWaves?.[waveId];
+    if (!wave) return;
+    if (wave.state === "running" && wave.steward?.jobId) {
+      this.delegator.cancel(wave.steward.jobId);
+    }
+    wave.state = "cancelled";
+    wave.updatedAt = Date.now();
+    await this.saveSettings();
+    this.refreshUI();
   }
   primeMirrorCache(refs = [], sourcePath = "") {
     if (!refs.length || this._primingMirrors) return;

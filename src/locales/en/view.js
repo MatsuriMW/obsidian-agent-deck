@@ -158,4 +158,12 @@ export default {
   "正文": "Transcript",
   "未分组": "Ungrouped",
   "打开项目目录：{cwd}": "Open project folder: {cwd}",
+  "🧭 管家 {agent} 待命中 · 队员已完成 {done}/{total}": "🧭 Steward {agent} standing by · {done}/{total} finished",
+  "🧭 管家 {agent} 正在收集 {total} 位队员结果并推进（第 {round} 轮）…": "🧭 Steward {agent} collecting {total} results & advancing (round {round})…",
+  "⚠️ 管家 {agent} 汇总失败：{err}": "⚠️ Steward {agent} synthesis failed: {err}",
+  "立即汇总": "Summarize now",
+  "停止管家": "Stop Steward",
+  "取消管家": "Cancel Steward",
+  "重试汇总": "Retry",
+  "忽略": "Dismiss",
 };

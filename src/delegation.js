@@ -940,6 +940,7 @@ export class Delegator {
     if (!job) return false;
     if (runner) runner.cancel();
     else { job.state = "cancelled"; job.endedAt = Date.now(); this.saveJobs(); }
+    this.harness.run("onCancel", { job }).catch(() => {});
     this.refreshUI();
     return true;
   }

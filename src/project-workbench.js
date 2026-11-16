@@ -942,3 +942,386 @@ export function moveTaskBoardCardStatus(text, cardLine, targetColumn) {
   }
   return lines.join("\n");
 }
+
+export const MAX_STEWARD_ROUNDS = 2;
+
+export function resolveStewardConfig(
+  settings = {},
+  { presetId = "", projectName = "", availableAgents = [], limitAgents = new Set(), defaultAgent = "" } = {},
+) {
+  const stewards = settings?.projectTeams?.stewards || {};
+  const byProject = stewards.byProject || {};
+  const byPreset = stewards.byPreset || {};
+  const cfg = (projectName && byProject[projectName])
+    || (presetId && byPreset[presetId])
+    || stewards.default
+    || {};
+  const preferred = cfg.agent || defaultAgent || "claude";
+  const resolved = resolveRoleAgent(preferred, {
+    availableAgents,
+    limitAgents,
+    fallbackAgent: defaultAgent || "claude",
+  });
+  return {
+    enabled: cfg.enabled !== false,
+    agent: resolved.agent,
+    fallbackFrom: resolved.fallbackFrom,
+    limited: resolved.limited,
+    autoContinue: cfg.autoContinue === true,
+  };
+}
+
+export function isTerminalWorkerState(state = "") {
+  return state === "done" || state === "error" || state === "cancelled";
+}
+
+export function createWorkbenchWave({
+  id = "",
+  path = "",
+  parentBlockId = "",
+  parentTitle = "",
+  projectName = "",
+  goal = "",
+  cwd = "",
+  round = 1,
+  steward = {},
+  workers = [],
+} = {}) {
+  const now = Date.now();
+  return {
+    id: id || `wave-${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+    path: String(path || ""),
+    parentBlockId: String(parentBlockId || ""),
+    parentTitle: String(parentTitle || ""),
+    projectName: String(projectName || ""),
+    goal: String(goal || parentTitle || ""),
+    cwd: String(cwd || ""),
+    round: Math.max(1, Number(round) || 1),
+    state: "waiting",
+    createdAt: now,
+    updatedAt: now,
+    summary: "",
+    error: "",
+    nextTaskCount: 0,
+    steward: {
+      enabled: steward.enabled !== false,
+      agent: String(steward.agent || "claude"),
+      destination: String(steward.destination || "background"),
+      autoContinue: steward.autoContinue === true,
+      jobId: "",
+      blockId: "",
+    },
+    workers: (workers || []).map((w) => ({
+      jobId: String(w.jobId || ""),
+      blockId: String(w.blockId || ""),
+      line: Number.isInteger(w.line) ? w.line : -1,
+      title: String(w.title || ""),
+      agent: String(w.agent || ""),
+      state: String(w.state || "running"),
+      result: String(w.result || ""),
+      error: String(w.error || ""),
+      sessionId: String(w.sessionId || ""),
+      endedAt: Number(w.endedAt) || 0,
+    })),
+  };
+}
+
+function resolveSyncedWorkerState(worker, job, metaMap) {
+  if (!job) return { state: worker.state || "running", result: worker.result || "", error: worker.error || "", sessionId: worker.sessionId || "", endedAt: worker.endedAt || 0 };
+  const sid = job.sessionId || worker.sessionId || "";
+  const meta = sid && metaMap ? metaMap.get(sid) : null;
+  let state = job.state || worker.state || "running";
+  let result = job.result || worker.result || "";
+  let error = job.error || worker.error || "";
+  let endedAt = job.endedAt || worker.endedAt || 0;
+
+  if (job.handoff && state === "bound" && meta) {
+    const hasReply = Boolean(meta.rounds?.some((r) => r?.said) || meta.lastText);
+    if (meta.state === "done" || meta.state === "error" || meta.state === "cancelled" || (meta.state === "wait" && hasReply)) {
+      state = meta.state === "error" ? "error" : (meta.state === "cancelled" ? "cancelled" : "done");
+      endedAt = endedAt || meta.lastAt || Date.now();
+    }
+  } else if (state === "starting" || state === "running" || state === "needs-approval" || state === "bound") {
+    state = "running";
+  }
+
+  if (!result && meta) {
+    result = meta.rounds?.at(-1)?.said || meta.lastText || "";
+  }
+  if (!result && Array.isArray(job.conversation)) {
+    const lastAssistant = [...job.conversation].reverse().find((m) => m?.role === "assistant" && m.text);
+    if (lastAssistant) result = lastAssistant.text;
+  }
+  return { state, result, error, sessionId: sid, endedAt };
+}
+
+export function syncWaveWithState(wave, jobs = {}, metaMap = null) {
+  if (!wave || !Array.isArray(wave.workers)) {
+    return { wave, changed: false, allSettled: false, counts: { total: 0, done: 0, error: 0, cancelled: 0, running: 0 } };
+  }
+  let changed = false;
+  for (const worker of wave.workers) {
+    const job = worker.jobId ? jobs?.[worker.jobId] : null;
+    const next = resolveSyncedWorkerState(worker, job, metaMap);
+    if (
+      next.state !== worker.state ||
+      next.sessionId !== worker.sessionId ||
+      (next.result && next.result !== worker.result) ||
+      (next.error && next.error !== worker.error)
+    ) {
+      worker.state = next.state;
+      worker.sessionId = next.sessionId;
+      if (next.result) worker.result = next.result;
+      if (next.error) worker.error = next.error;
+      if (next.endedAt) worker.endedAt = next.endedAt;
+      changed = true;
+    }
+  }
+  const total = wave.workers.length;
+  const done = wave.workers.filter((w) => w.state === "done").length;
+  const error = wave.workers.filter((w) => w.state === "error").length;
+  const cancelled = wave.workers.filter((w) => w.state === "cancelled").length;
+  const running = total - done - error - cancelled;
+  if (changed) wave.updatedAt = Date.now();
+  return {
+    wave,
+    changed,
+    allSettled: total > 0 && running === 0,
+    counts: { total, done, error, cancelled, running },
+  };
+}
+
+function findParentBlockLine(lines, { parentBlockId = "", parentTitle = "" } = {}) {
+  if (parentBlockId) {
+    const byId = lines.findIndex((l) => J.blockIdOf(l) === parentBlockId);
+    if (byId >= 0) return byId;
+  }
+  if (parentTitle) {
+    const target = cleanBoardCardTitle(parentTitle).toLowerCase();
+    return lines.findIndex((l) => {
+      const kw = J.kwLine(l);
+      return kw && cleanBoardCardTitle(kw.body).toLowerCase() === target;
+    });
+  }
+  return -1;
+}
+
+export function extractBlockResultText(noteText = "", { blockId = "", title = "" } = {}) {
+  const lines = String(noteText || "").split("\n");
+  const idx = findParentBlockLine(lines, { parentBlockId: blockId, parentTitle: title });
+  if (idx < 0) return { summary: "", answerLink: "" };
+  const baseW = J.width(lines[idx]);
+  const comments = [];
+  let answerLink = "";
+  for (let i = idx + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (J.width(lines[i]) <= baseW) break;
+    const trimmed = lines[i].trim();
+    const ansMatch = /\[[^\]]+\]\(([^)]*Answers\/[^)]+\.md)\)/i.exec(trimmed);
+    if (ansMatch) answerLink = ansMatch[1];
+    if (/^[-*+]\s+💬\s/.test(trimmed)) {
+      const clean = trimmed
+        .replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:]\s*)?/, "")
+        .replace(J.RECORD_PROVENANCE_RE, "")
+        .trim();
+      if (clean) comments.push(clean);
+    }
+  }
+  return { summary: comments.join("\n"), answerLink };
+}
+
+export function collectWaveWorkerReports(wave, { jobs = {}, metaMap = null, noteText = "" } = {}) {
+  return (wave?.workers || []).map((worker, idx) => {
+    const job = worker.jobId ? jobs?.[worker.jobId] : null;
+    const synced = resolveSyncedWorkerState(worker, job, metaMap);
+    const noteInfo = noteText ? extractBlockResultText(noteText, { blockId: worker.blockId, title: worker.title }) : { summary: "", answerLink: "" };
+    const rawOutput = String(synced.result || noteInfo.summary || "").trim();
+    return {
+      index: idx + 1,
+      title: worker.title,
+      agent: worker.agent,
+      state: synced.state,
+      sessionId: synced.sessionId,
+      output: truncate(rawOutput, 2000),
+      error: String(synced.error || "").trim(),
+      answerLink: noteInfo.answerLink,
+    };
+  });
+}
+
+export function buildStewardPrompt({ wave, reports = [], projectName = "", availableAgents = [] } = {}) {
+  const agentsList = availableAgents.length
+    ? availableAgents.map((id) => `${id} (${AGENTS[id]?.name || id})`).join(", ")
+    : "claude";
+  const round = Math.max(1, Number(wave?.round) || 1);
+  const statusLabels = new Map([
+    ["done", "已完成"],
+    ["error", "执行失败"],
+    ["cancelled", "已取消"],
+    ["running", "仍在进行中"],
+  ]);
+  const workerSections = reports.map((r) => {
+    const lines = [`### 队员 ${r.index}：${r.title} (@${r.agent}) — ${statusLabels.get(r.state) || r.state}`];
+    if (r.error) lines.push(`- 失败/异常信息：${r.error}`);
+    if (r.answerLink) lines.push(`- 完整问答归档：${r.answerLink}`);
+    if (r.output) lines.push(`- 执行结果：\n${r.output}`);
+    else if (!r.error) lines.push("- 执行结果：（暂无文本输出，请结合工作目录实际变动核查）");
+    return lines.join("\n");
+  }).join("\n\n");
+
+  return [
+    `你是本次多 Agent 协作波次（第 ${round} 轮）的管家 Agent（Coordinator / Steward）。各个队员已经完成本轮执行，请你收集全部结果、核查落地情况并继续推进。`,
+    projectName || wave?.projectName ? `项目名称：${projectName || wave.projectName}` : "",
+    wave?.cwd ? `工作目录：${wave.cwd}` : "",
+    wave?.goal ? `总体目标：\n${wave.goal}` : "",
+    workerSections ? `各队员执行结果汇总：\n\n${workerSections}` : "",
+    [
+      "请你按以下步骤推进并汇报：",
+      "1. 对照总体目标与工作目录中的实际文件/代码变动，核查各队员产出是否一致、有无遗漏、冲突或未闭环的失败项；如工作目录中有可直接完成的集成验证、测试或收尾修补，请直接完成并确认结果。",
+      "2. 在回答正文给出简明清晰的《本轮验收与汇总结论》（已完成内容、关键产出或文件、待处理风险/卡点）。",
+      "3. 在回答最后附一个 JSON 代码块标明下一步决策（nextTasks 最多 6 条，agent 必须从可用 Agent ID 中选择）：",
+      `可用 Agent ID：${agentsList}`,
+      '```json\n{"status":"done|continue|needs-review","summary":"一句话总结本轮进展与结论","nextTasks":[{"title":"下一步具体子任务标题（不超过28字）","agent":"agent_id","detail":"验收要求或补充说明（不超过80字）"}]}\n```',
+      '- 若总体目标已闭环且无需后续派发，设 `"status": "done"` 且 `"nextTasks": []`。',
+      '- 若仍需继续推进下一波任务或修复失败子任务，设 `"status": "continue"` 并列出 `"nextTasks"`。',
+      '- 若需用户确认权限、方案分歧或人工拍板，设 `"status": "needs-review"`。',
+    ].join("\n"),
+  ].filter(Boolean).join("\n\n");
+}
+
+function extractLastJsonObject(raw = "") {
+  const text = String(raw || "").trim();
+  const blocks = [...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)];
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    try {
+      const obj = extractJsonObject(blocks[i][1]);
+      if (obj && typeof obj === "object") return obj;
+    } catch { /* try previous fenced block */ }
+  }
+  return extractJsonObject(text);
+}
+
+export function parseStewardOutcome(raw = "", { availableAgents = ["claude"], defaultAgent = "claude" } = {}) {
+  let parsed = null;
+  try { parsed = extractLastJsonObject(raw); } catch { return null; }
+  if (!parsed || typeof parsed !== "object") return null;
+  const rawStatus = String(parsed.status || "").trim().toLowerCase();
+  const status = ["done", "continue", "needs-review"].includes(rawStatus) ? rawStatus : "";
+  const summary = truncate(String(parsed.summary || "").replace(/\s+/g, " ").trim(), 180);
+  const pool = availableAgents.length ? availableAgents : [defaultAgent || "claude"];
+  const fallback = pool.includes(defaultAgent) ? defaultAgent : pool[0];
+  const nextTasks = Array.isArray(parsed.nextTasks)
+    ? parsed.nextTasks.slice(0, 6).map((item) => {
+        const title = truncate(String(item?.title || "").replace(/\s+/g, " ").trim(), 48);
+        if (!title) return null;
+        const rawAgent = String(item?.agent || "").trim().toLowerCase();
+        const agent = pool.includes(rawAgent) ? rawAgent : fallback;
+        const detail = String(item?.detail || "").replace(/\s+/g, " ").trim().slice(0, 160);
+        return { checked: true, title, agent, detail };
+      }).filter(Boolean)
+    : [];
+  if (!status && !summary && !nextTasks.length) return null;
+  return {
+    status: status || (nextTasks.length ? "continue" : "done"),
+    summary,
+    nextTasks,
+  };
+}
+
+export function updateTaskBlockStatusById(text = "", { blockId = "", title = "", targetColumn = "", onlyFromColumns = [] } = {}) {
+  if (!targetColumn) return text;
+  const lines = String(text || "").split("\n");
+  const idx = findParentBlockLine(lines, { parentBlockId: blockId, parentTitle: title });
+  if (idx < 0) return text;
+  if (Array.isArray(onlyFromColumns) && onlyFromColumns.length) {
+    const curKw = J.kwLine(lines[idx])?.kw || "TODO";
+    const curCol = classifyTaskStatusColumn(curKw);
+    if (!onlyFromColumns.includes(curCol)) return text;
+  }
+  return moveTaskBoardCardStatus(lines.join("\n"), idx, targetColumn);
+}
+
+export function setTaskBlockKeywordById(text = "", { blockId = "", title = "", keyword = "", onlyIfKeywords = [] } = {}) {
+  if (!keyword) return text;
+  const lines = String(text || "").split("\n");
+  const idx = findParentBlockLine(lines, { parentBlockId: blockId, parentTitle: title });
+  if (idx < 0) return text;
+  const raw = lines[idx];
+  const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(.*)$/.exec(raw);
+  if (!m) return text;
+  const prefix = m[1];
+  const stamp = m[2] || "";
+  let rest = m[3];
+  const cb = /^\[([ xX\/\-])\]\s*/.exec(rest);
+  let cbStr = "";
+  if (cb) {
+    const upper = keyword.toUpperCase();
+    const mark = upper === "DONE" ? "x" : ["DOING", "DELEGATED"].includes(upper) ? "/" : upper === "CANCELED" || upper === "CANCELLED" ? "-" : " ";
+    cbStr = `[${mark}] `;
+    rest = rest.slice(cb[0].length);
+  }
+  const kwMatch = new RegExp(`^(${J.TASK_KWS})(?=\\s|$)\\s*`, "i").exec(rest);
+  const currentKw = kwMatch ? kwMatch[1].toUpperCase() : "";
+  if (Array.isArray(onlyIfKeywords) && onlyIfKeywords.length && !onlyIfKeywords.map((k) => k.toUpperCase()).includes(currentKw)) {
+    return text;
+  }
+  if (kwMatch) rest = rest.slice(kwMatch[0].length);
+  lines[idx] = `${prefix}${stamp}${cbStr}${keyword} ${rest}`.trimEnd();
+  return lines.join("\n");
+}
+
+export function appendSubtasksToParentBlock(
+  text = "",
+  { parentBlockId = "", parentTitle = "", subtasks = [], assignBlockIds = true, keyword = "TODO" } = {},
+) {
+  const active = (subtasks || []).filter((s) => s && s.checked !== false && String(s.title || "").trim());
+  const lines = String(text || "").split("\n");
+  const parentLine = findParentBlockLine(lines, { parentBlockId, parentTitle });
+  if (parentLine < 0 || !active.length) return { text, parentLine, addedLines: [] };
+  const parentW = J.width(lines[parentLine]);
+  const childIndent = J.childIndent(lines, parentLine);
+  const detailIndent = `${childIndent}\t`;
+  let insertAt = parentLine + 1;
+  while (insertAt < lines.length && (!lines[insertAt].trim() || J.width(lines[insertAt]) > parentW)) {
+    insertAt += 1;
+  }
+  while (insertAt > parentLine + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
+
+  const inserted = [];
+  const addedLines = [];
+  let cursor = insertAt;
+  for (const item of active) {
+    const title = String(item.title || "").trim();
+    const agent = String(item.agent || "").trim();
+    const blockId = item.blockId || (assignBlockIds ? J.makeBlockId("", agent || "ad", "wb") : "");
+    const mention = agent ? ` @${agent}` : "";
+    const bid = blockId ? ` ^${blockId}` : "";
+    inserted.push(`${childIndent}- ${keyword} ${title}${mention}${bid}`);
+    addedLines.push({
+      line: cursor,
+      blockId,
+      agent,
+      destination: item.destination || "",
+      title,
+    });
+    cursor += 1;
+    if (item.detail && String(item.detail).trim()) {
+      inserted.push(`${detailIndent}- ${String(item.detail).trim()}`);
+      cursor += 1;
+    }
+  }
+  lines.splice(insertAt, 0, ...inserted);
+  return { text: lines.join("\n"), parentLine, addedLines };
+}
+
+export function findActiveWaveForBoard(waves = {}, { path = "", parentBlockId = "", parentTitle = "" } = {}) {
+  const candidates = Object.values(waves || {}).filter((w) => {
+    if (!w || (path && w.path !== path)) return false;
+    if (!["waiting", "running", "error"].includes(w.state)) return false;
+    if (parentBlockId && w.parentBlockId && w.parentBlockId === parentBlockId) return true;
+    if (parentTitle && w.parentTitle && cleanBoardCardTitle(w.parentTitle) === cleanBoardCardTitle(parentTitle)) return true;
+    return false;
+  });
+  candidates.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+  return candidates[0] || null;
+}

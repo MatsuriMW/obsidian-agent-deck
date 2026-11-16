@@ -117,3 +117,113 @@ export function extractWikilinkRefs(lines = [], { embeds = false } = {}) {
   }
   return refs;
 }
+
+const CHECKBOX_PREFIX_RE = /^[ \t]*(?:[-*+]|\d+[.)])[ \t]*(?:\[.\][ \t]+)?/;
+
+/** Resolve the list item line index owning `line` (or -1 if blank or non-list). */
+export function itemLineFor(lines, line) {
+  if (!Array.isArray(lines) || line < 0 || line >= lines.length) return -1;
+  const first = lines[line];
+  if (!first || !first.trim()) return -1;
+  if (LIST_RE.test(first)) return line;
+  const w = width(first);
+  if (w === 0) return -1;
+  for (let i = line - 1; i >= 0; i--) {
+    const l = lines[i];
+    if (!l || !l.trim()) continue;
+    if (LIST_RE.test(l) && width(l) < w) return i;
+    if (width(l) === 0 && !LIST_RE.test(l)) return -1;
+  }
+  return -1;
+}
+
+/** Find the direct parent list item of `item`, or -1 if already top-level. */
+export function parentItem(lines, item) {
+  if (!Array.isArray(lines) || item < 0 || item >= lines.length) return -1;
+  const w = width(lines[item]);
+  if (w === 0) return -1;
+  for (let i = item - 1; i >= 0; i--) {
+    const l = lines[i];
+    if (!l || !l.trim() || width(l) >= w) continue;
+    if (LIST_RE.test(l)) return i;
+    if (width(l) === 0 || /^\s*#{1,6}\s/.test(l)) return -1;
+  }
+  return -1;
+}
+
+/** Character range [from, to] of a list item's text content, excluding trailing ^blockId. */
+export function contentSpan(line) {
+  const s = String(line || "");
+  const m = CHECKBOX_PREFIX_RE.exec(s);
+  const from = m ? m[0].length : 0;
+  return { from, to: Math.max(from, s.replace(/\s+\^[\w-]+\s*$/, "").replace(/\s+$/, "").length) };
+}
+
+/** Inclusive { start, end } list block span covering fromLine..toLine, or null if not in a list. */
+export function blockLinesForRange(lines, fromLine, toLine = fromLine) {
+  const start = itemLineFor(lines, fromLine);
+  if (start < 0) return null;
+  let end = subtreeEnd(lines, start) - 1;
+  if (toLine > end) {
+    const last = itemLineFor(lines, toLine);
+    end = Math.max(end, toLine, last >= 0 ? subtreeEnd(lines, last) - 1 : toLine);
+  }
+  return { start, end };
+}
+
+/** Build a Group rows transformation: indent covered blocks by one level under a new empty parent bullet. */
+export function groupRowsEdit(lines, ranges = [], indentUnit = "\t") {
+  const bounds = [];
+  for (const r of ranges) {
+    const b = blockLinesForRange(lines, r.fromLine, r.toLine);
+    if (b) bounds.push(b);
+  }
+  if (!bounds.length) return null;
+  const startLine = Math.min(...bounds.map((b) => b.start));
+  const endLine = Math.max(...bounds.map((b) => b.end));
+  const slice = lines.slice(startLine, endLine + 1);
+  let baseLine = null;
+  for (const l of slice) {
+    if (l.trim() && (baseLine === null || width(l) < width(baseLine))) baseLine = l;
+  }
+  if (baseLine === null) return null;
+  const baseIndent = (/^[ \t]*/.exec(baseLine) || [""])[0];
+  const head = `${baseIndent}- `;
+  const body = slice.map((l) => (l.trim() ? indentUnit + l : l)).join("\n");
+  return {
+    startLine,
+    endLine,
+    insertText: `${head}\n${body}`,
+    cursorOffset: head.length,
+  };
+}
+
+/** Collect unique root list item line indices covered by one or more selection ranges. */
+export function collectSelectedRootLines(lines, ranges = [], { fenced = null, skipLine = null } = {}) {
+  const fenceSet = fenced || fencedLines(lines);
+  const picked = new Set();
+  for (const r of ranges) {
+    const fromLine = Math.max(0, r.fromLine);
+    const toLine = Math.min(lines.length - 1, Math.max(fromLine, r.toLine));
+    const items = [];
+    for (let i = fromLine; i <= toLine; i++) {
+      if (fenceSet.has(i) || !lines[i]?.trim()) continue;
+      if (skipLine && skipLine(lines[i], i)) continue;
+      const it = itemLineFor(lines, i);
+      if (it < 0 || fenceSet.has(it)) continue;
+      if (skipLine && skipLine(lines[it], it)) continue;
+      if (it === i || i === fromLine) items.push(it);
+    }
+    if (!items.length) continue;
+    const minW = Math.min(...items.map((l) => width(lines[l])));
+    for (let l of items) {
+      while (width(lines[l]) > minW) {
+        const p = parentItem(lines, l);
+        if (p < 0) break;
+        l = p;
+      }
+      if (width(lines[l]) === minW) picked.add(l);
+    }
+  }
+  return [...picked].sort((a, b) => a - b);
+}

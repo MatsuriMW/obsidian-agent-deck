@@ -20,6 +20,7 @@ assert.equal(unorganizedRecordKeys(planJournal('- DONE 一\n- DONE 二\n- DONE �
 assert.equal(unorganizedRecordKeys(planJournal(records(1)+'  - ❓ 第2轮：问题\n  - 💬 第2轮：结论\n')).length,1,'a task and all child records count as one');
 const custom=renderJournal(planJournal(records(4),{layout:{order:['notes','active','done'],titles:{notes:'Notes',active:'Working',done:'Delivered'}}}));
 assert.equal(unorganizedRecordKeys(planJournal(custom)).length,0,'custom template sections count as organized');
+assert.equal(unorganizedRecordKeys(planJournal('- [[开发日志]]\n\t- TOREVIEW 🤖 A ^ad-a\n\t- PAUSED 🤖 B ^ad-b\n\t- DOING 🤖 C ^ad-c\n\t- DONE 🤖 D ^ad-d\n')).length,0,'AI records manually grouped under a non-AI parent do not trigger organize nag');
 let current={path:'日记/2026_11_14.md'},text=records(3),saves=0,cleanup;
 const writes=[],events={};
 const view={get file(){return current},editor:{cm:{composing:false}}};

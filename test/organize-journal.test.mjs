@@ -73,11 +73,10 @@ assert.ok(sorted.indexOf('### DOING') < sorted.indexOf('### TOREVIEW'));
 assert.ok(sorted.indexOf('### TOREVIEW') < sorted.indexOf('### PAUSED'));
 assert.ok(sorted.indexOf('十轮') < sorted.indexOf('一轮'));
 
-// An AI child nested under a hand-written parent moves; the parent stays.
+// Indented (non-top-level) AI children under any parent stay untouched in place.
 const nested = '- 手写父项\n  - TODO AI 子项 ^ad-child\n    - 💬 记录\n  - 手写兄弟\n';
 const nestedOut = renderJournal(planJournal(nested));
-assert.ok(nestedOut.includes('- 手写父项\n  - 手写兄弟'));
-assert.ok(nestedOut.includes(`${ACTIVE_HEADING}\n### TODO\n- TODO AI 子项 ^ad-child`));
+assert.equal(nestedOut, nested, 'indented AI children under a manual parent are not touched');
 
 // A rule the user wrote under their own text is theirs; only the ones this
 // function generates are rebuilt.
@@ -237,6 +236,49 @@ assert.equal(taskLineAt(['', '- TODO 孤立'], 0), -1, 'a blank line has no bloc
   const out = renderJournal(planJournal(doc));
   const order = ['乙', '甲', '丙'].map((n) => out.indexOf(`DONE ${n}`));
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'finished band sorted by turns, ties keep order');
+}
+
+{
+  // 用户手动把多个 AI 日志合并/缩进到非 AI 父项下（无论在框内或框外规则上方），整理日志不得拆散或篡改层级
+  const grouped = [
+    '- [[Agent Deck开发日志]]',
+    '\t- TOREVIEW 🤖 21:07-21:21 agent-deck -> 子任务甲 ^ad-g1',
+    '\t\t- 💬 第2轮：结论甲',
+    '\t- PAUSED 🤖 17:33-18:57 agent-deck -> 子任务乙 ^ad-g2',
+    '\t\t- 💬 第16轮：结论乙',
+    '\t- DONE 🤖 06:44-07:11 agent-deck -> 已完成子项 ^ad-g3',
+    '',
+    '---',
+    '## 进行中',
+    '### DOING',
+    '- DOING 独立未分组 ^ad-solo',
+    '',
+    '---',
+    '',
+    '- 随手笔记',
+  ].join('\n');
+  const out = renderJournal(planJournal(grouped));
+  assert.ok(
+    out.startsWith('- [[Agent Deck开发日志]]\n\t- TOREVIEW 🤖 21:07-21:21 agent-deck -> 子任务甲 ^ad-g1\n\t\t- 💬 第2轮：结论甲\n\t- PAUSED 🤖 17:33-18:57 agent-deck -> 子任务乙 ^ad-g2\n\t\t- 💬 第16轮：结论乙\n\t- DONE 🤖 06:44-07:11 agent-deck -> 已完成子项 ^ad-g3'),
+    'manually grouped AI logs above the frame stay intact with original hierarchy',
+  );
+  assert.equal((out.match(/子任务甲/g) || []).length, 1);
+  assert.equal((out.match(/已完成子项/g) || []).length, 1);
+  assert.equal(renderJournal(planJournal(out)), out, 'manual group stays untouched across repeated runs');
+}
+
+{
+  // 把未完成的 AI 日志缩进到另一条已归档 AI 日志下时，保留嵌套层级且不因父会话归档误翻为 DONE
+  const archivedSid = '22222222-3333-4444-5555-666666666666';
+  const mergedAi = [
+    `- PAUSED 🤖 父记录 ^ad-p`,
+    `\t- 🔗 [Codex](codex://threads/${archivedSid})`,
+    `\t- DOING 🤖 合并进来的子记录 ^ad-c`,
+    `\t\t- 💬 还在推进`,
+  ].join('\n');
+  const out = renderJournal(planJournal(mergedAi, { archived: new Set([archivedSid]) }));
+  assert.ok(out.includes('## 进行中'), 'stays active while nested AI child is still open');
+  assert.ok(out.includes('\t- DOING 🤖 合并进来的子记录 ^ad-c'), 'nested AI child hierarchy preserved');
 }
 
 console.log('PASS journal layout: finished band on top, rule, grouped AI log, rule, user notes; front matter, fences, nesting and idempotence preserved');

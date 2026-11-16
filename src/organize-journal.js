@@ -262,28 +262,43 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
     }
     return chunkLines;
   };
-  let cursor = headEnd;
-  for (let i = headEnd; i < regionEnd; i++) {
-    if (i < cursor || fence.has(i) || drop.has(i) || !J.LIST_RE.test(lines[i])) continue;
-    const k = J.kwLine(lines[i]);
-    if (!k) continue;
-    const indent = J.width(lines[i]);
-    let end = i + 1;
-    while (end < regionEnd && (!lines[end].trim() || J.width(lines[end]) > indent)) end++;
-
+  const inspectEntry = (row, limit) => {
+    const k = J.kwLine(lines[row]);
+    if (!k) return null;
+    const indent = J.width(lines[row]);
+    let end = row + 1;
+    while (end < limit && (!lines[end].trim() || J.width(lines[end]) > indent)) end++;
     const sids = new Set(tracked.get(k.blockId) || []);
-    for (let n = i + 1; n < end; n++) {
-      if (owner[n] !== i) continue;
+    for (let n = row + 1; n < end; n++) {
+      if (owner[n] !== row) continue;
       const link = J.parseLink(lines[n]);
       if (link) sids.add(link.sid);
     }
     const body = String(k.body || '');
     const ai = sids.size > 0 || J.isDeckBlockId(k.blockId) || tracked.has(k.blockId) || body.startsWith('🤖');
+    return { k, end, sids, body, ai };
+  };
+  const hasOpenNestedAiChild = (startIdx, endIdx) => {
+    for (let n = startIdx + 1; n < endIdx; n++) {
+      if (fence.has(n) || !J.LIST_RE.test(lines[n]) || J.RECORD_LINE_RE.test(lines[n])) continue;
+      const child = inspectEntry(n, endIdx);
+      if (child?.ai && child.k.kw && !J.DONE_KWS.includes(child.k.kw)) return true;
+    }
+    return false;
+  };
+  let cursor = headEnd;
+  for (let i = headEnd; i < regionEnd; i++) {
+    if (i < cursor || fence.has(i) || drop.has(i) || !J.LIST_RE.test(lines[i])) continue;
+    // 仅整理顶格（indent === 0）的 AI 记录块；不顶格的缩进条目（包括合并分组的子项）一律不动。
+    if (J.width(lines[i]) > 0) continue;
+    const entry = inspectEntry(i, regionEnd);
+    if (!entry) continue;
+    const { k, end, sids, body, ai } = entry;
     const doneKw = J.DONE_KWS.includes(k.kw);
     // Only AI entries are organized; items already inside the generated done
     // band remain there so identifier cleanup stays idempotent on rescans.
     if (!ai && !(inBand(i, true) && !boundedBody && doneKw)) continue;
-    const archivedOut = sids.size > 0 && [...sids].every((sid) => archived.has(sid));
+    const archivedOut = sids.size > 0 && [...sids].every((sid) => archived.has(sid)) && !hasOpenNestedAiChild(i, end);
     // journal-tidy 的分组容器：没有状态关键词、只标 🤖 的行。里面的记录全是 DONE 就整块算完成，
     // 还有没做完的就整块留在进行中；子块不拆散。
     const container = !k.kw && body.startsWith('🤖');
@@ -321,22 +336,13 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
   if (generated.length) {
     for (let i = start; i < headEnd; i++) {
       if (fence.has(i) || !J.LIST_RE.test(lines[i])) continue;
-      const k = J.kwLine(lines[i]);
-      if (!k) continue;
-      const indent = J.width(lines[i]);
-      let end = i + 1;
-      while (end < headEnd && (!lines[end].trim() || J.width(lines[end]) > indent)) end++;
-      const sids = new Set(tracked.get(k.blockId) || []);
-      for (let n = i + 1; n < end; n++) {
-        if (owner[n] !== i) continue;
-        const link = J.parseLink(lines[n]);
-        if (link) sids.add(link.sid);
-      }
-      const body = String(k.body || '');
-      const ai = sids.size > 0 || J.isDeckBlockId(k.blockId) || tracked.has(k.blockId) || body.startsWith('🤖');
+      if (J.width(lines[i]) > 0) continue;
+      const entry = inspectEntry(i, headEnd);
+      if (!entry) continue;
+      const { k, end, sids, body, ai } = entry;
       if (!ai) continue;
       const doneKw = J.DONE_KWS.includes(k.kw);
-      const archivedOut = sids.size > 0 && [...sids].every((sid) => archived.has(sid));
+      const archivedOut = sids.size > 0 && [...sids].every((sid) => archived.has(sid)) && !hasOpenNestedAiChild(i, end);
       const container = !k.kw && body.startsWith('🤖');
       const kids = container ? childKeywords(i, end) : [];
       const allKidsDone = kids.length > 0 && kids.every((kw) => J.DONE_KWS.includes(kw));

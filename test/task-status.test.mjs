@@ -54,3 +54,108 @@ console.log('PASS manual status, automatic resume, AutoLog/archive protection an
  assert.ok(options.includes('MAYBE'),'other custom keywords are preserved');
  delete globalThis.document;delete globalThis.__statusMenus;
 }
+
+{
+  const { setTaskLineStatus, selectedTaskLines, applyBatchStatusChoice, registerTaskStatusMenu } = await import('../src/task-status.js');
+  // setTaskLineStatus handles plain bullets, checkboxes, known keywords, and clearing without eating plain uppercase words like API.
+  assert.equal(setTaskLineStatus('- API 设计', 'TODO'), '- TODO API 设计');
+  assert.equal(setTaskLineStatus('- [ ] API 设计', 'DOING'), '- [/] DOING API 设计');
+  assert.equal(setTaskLineStatus('- DOING API 设计', 'DONE'), '- DONE API 设计');
+  assert.equal(setTaskLineStatus('- [x] DONE 任务', ''), '- [ ] 任务');
+
+  // Batch update across multiple selected blocks (mixed AI + manual + plain + nested record lines skipped).
+  const batchLines = [
+    '- DOING 任务甲 ^ad-b1',
+    `  - 🔗 [Codex](codex://threads/${sid})`,
+    '  - 💬 结论甲',
+    '- [ ] 任务乙',
+    '- API 规划 ^ad-b3',
+  ];
+  let batchText = batchLines.join('\n');
+  const makeDoc = (str) => {
+    const arr = str.split('\n');
+    const starts = [];
+    let off = 0;
+    for (const l of arr) { starts.push(off); off += l.length + 1; }
+    return {
+      length: str.length,
+      lines: arr.length,
+      toString: () => str,
+      line(n) { const from = starts[n - 1]; return { number: n, from, to: from + arr[n - 1].length, text: arr[n - 1] }; },
+      lineAt(pos) {
+        let idx = arr.length - 1;
+        for (let i = 0; i < starts.length; i++) if (pos >= starts[i]) idx = i;
+        return this.line(idx + 1);
+      },
+    };
+  };
+  let doc = makeDoc(batchText);
+  const picked = selectedTaskLines(doc, { ranges: [{ from: 0, to: batchText.length }] });
+  assert.deepEqual(picked, [0, 3, 4], 'selects all three root blocks while ignoring 🔗 and 💬 children');
+
+  let txCount = 0;
+  const fakeEditor = {
+    getValue: () => batchText,
+    transaction({ changes }) {
+      txCount += 1;
+      for (const c of changes) {
+        const lines = batchText.split('\n');
+        const fromOff = lines.slice(0, c.from.line).reduce((s, l) => s + l.length + 1, 0) + c.from.ch;
+        const toOff = lines.slice(0, c.to.line).reduce((s, l) => s + l.length + 1, 0) + c.to.ch;
+        batchText = batchText.slice(0, fromOff) + c.text + batchText.slice(toOff);
+        doc = makeDoc(batchText);
+      }
+    },
+    cm: {
+      dom: { contains: () => false },
+      state: { get doc() { return doc; }, selection: { ranges: [{ from: 0, to: batchText.length }], main: { head: 0 } } },
+    },
+  };
+  const batchPlugin = {
+    settings: { manualTaskStates: {} },
+    usage,
+    app: { plugins: { plugins: {} }, workspace: { iterateAllLeaves() {} } },
+    saveSettings: async () => {},
+    refreshUI() {},
+  };
+  const count = await applyBatchStatusChoice(batchPlugin, fakeEditor, picked, 'PAUSED');
+  assert.equal(count, 3);
+  assert.equal(txCount, 1, 'entire batch applies in a single undoable editor transaction');
+  assert.deepEqual(batchText.split('\n')[0], '- PAUSED 任务甲 ^ad-b1');
+  assert.deepEqual(batchText.split('\n')[3], '- [ ] PAUSED 任务乙');
+  assert.deepEqual(batchText.split('\n')[4], '- PAUSED API 规划 ^ad-b3');
+  assert.equal(batchPlugin.settings.manualTaskStates['ad-b1'], 'PAUSED');
+  assert.equal(batchPlugin.settings.manualTaskStates['ad-b3'], 'PAUSED');
+
+  // Marking batch DONE flips checkboxes, cleans internal ^ad-* IDs, and clears manual locks.
+  const doneCount = await applyBatchStatusChoice(batchPlugin, fakeEditor, [0, 3, 4], 'DONE');
+  assert.equal(doneCount, 3);
+  assert.ok(batchText.includes('- DONE 任务甲\n'));
+  assert.ok(batchText.includes('- [x] DONE 任务乙\n'));
+  assert.ok(batchText.endsWith('- DONE API 规划'));
+
+  // Clicking a status badge while multiple blocks are selected opens batch menu for all selected blocks.
+  globalThis.document = {};
+  const handlers = {};
+  const token = { dataset: { taskKeyword: 'DONE' }, closest(s) { return s === '[data-task-keyword]' ? this : null; }, getBoundingClientRect: () => ({ left: 5, bottom: 10 }) };
+  fakeEditor.cm.dom.contains = (el) => el === token;
+  fakeEditor.cm.posAtDOM = () => 0;
+  fakeEditor.cm.state.selection = { ranges: [{ from: 0, to: batchText.length }], main: { head: 0 } };
+  batchPlugin.viewForPath = () => ({ editor: fakeEditor });
+  batchPlugin.readNote = async () => batchText;
+  batchPlugin.registerDomEvent = (el, type, fn) => { handlers[type] = fn; };
+  batchPlugin.registerMarkdownPostProcessor = () => {};
+  batchPlugin.app.workspace.iterateAllLeaves = (fn) => fn({ view: { file: { path: 'batch.md' }, editor: fakeEditor } });
+  registerTaskStatusMenu(batchPlugin);
+  handlers.click({ target: token, button: 0, clientX: 5, clientY: 10, preventDefault() {}, stopImmediatePropagation() {} });
+  await new Promise((r) => setTimeout(r, 0));
+  const batchMenu = globalThis.__statusMenus.at(-1);
+  assert.match(batchMenu.items[0].title, /3/);
+  await batchMenu.items.find((i) => i.title === 'TODO').click();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.ok(batchText.includes('- TODO 任务甲'));
+  assert.ok(batchText.includes('- [ ] TODO 任务乙'));
+  assert.ok(batchText.includes('- TODO API 规划'));
+  delete globalThis.document;
+  delete globalThis.__statusMenus;
+}

@@ -35,6 +35,17 @@ const {
   setTaskBoardCardAgent,
   moveTaskBoardCardSubtree,
   buildBoardSiblingContext,
+  MAX_STEWARD_ROUNDS,
+  resolveStewardConfig,
+  createWorkbenchWave,
+  syncWaveWithState,
+  collectWaveWorkerReports,
+  buildStewardPrompt,
+  parseStewardOutcome,
+  appendSubtasksToParentBlock,
+  setTaskBlockKeywordById,
+  updateTaskBlockStatusById,
+  findActiveWaveForBoard,
 } = await import("../src/project-workbench.js");
 const { AGENT_ORDER } = await import("../src/constants.js");
 const { buildDelegationPayload } = await import("../src/harness.js");
@@ -284,6 +295,7 @@ test("AgentDeckView renders P0 project groups in Now and supports project groupi
     bundle: true,
     format: "esm",
     platform: "node",
+    loader: { ".png": "dataurl" },
     write: false,
     plugins: [{
       name: "wb-view-mock",
@@ -379,6 +391,7 @@ test("taskBoardExtension toggles board mode, persists taskBoardViews, and hides 
     bundle: true,
     format: "esm",
     platform: "node",
+    loader: { ".png": "dataurl" },
     write: false,
     plugins: [{
       name: "cm-board",
@@ -423,6 +436,28 @@ test("taskBoardExtension toggles board mode, persists taskBoardViews, and hides 
     assert.equal(v1.boardLines.size, 1);
     assert.equal(v1.decorations.filter((d) => d.spec.block && d.spec.widget?.model).length, 1);
     assert.equal(v1.decorations.filter((d) => d.spec.inclusive === false).length, 1, "child lines are replaced when board is open");
+
+    // Steward active wave updates TaskBoardWidget signature and exposes activeWave state.
+    plugin.settings.workbenchWaves = {
+      w1: {
+        id: "w1",
+        path: "",
+        parentBlockId: "ad-proj-1",
+        parentTitle: "父项目",
+        round: 1,
+        state: "waiting",
+        steward: { agent: "claude" },
+        workers: [{ state: "done" }, { state: "running" }],
+      },
+    };
+    const vWave = field.update(v1, {
+      docChanged: false,
+      state: { doc },
+      effects: [setTaskBoardEffect.of({ key: "ad-proj-1", mode: "board" })],
+    });
+    const wBoard = vWave.decorations.find((d) => d.spec.block && d.spec.widget?.model).spec.widget;
+    assert.equal(wBoard.activeWave?.id, "w1");
+    assert.notEqual(wBoard.sig, v1.decorations.find((d) => d.spec.block && d.spec.widget?.model).spec.widget.sig);
 
     // Zoom into a nested child sub-board + toggle groupBy = children.
     const nestedSrc = [
@@ -649,4 +684,416 @@ test("buildProjectGroups isolates same-named folders, inherits parent project fo
   assert.equal(isWaitingSession(sessions[5], now), false);
   assert.equal(isActiveNowSession(sessions[4], now), false);
   assert.equal(isActiveNowSession({ sid: "n1", agent: "dsh", state: "needs-approval", lastAt: now - WAIT_ACTIVE_MS - 60000 }, now), true);
+});
+
+test("Steward config, wave sync, worker report collection, prompt builder, and Markdown updates", () => {
+  const cfg = resolveStewardConfig(
+    {
+      projectTeams: {
+        stewards: {
+          byProject: { "agent-deck": { enabled: true, agent: "codex", autoContinue: true } },
+        },
+      },
+    },
+    {
+      projectName: "agent-deck",
+      availableAgents: ["claude", "codex", "dsh"],
+      limitAgents: new Set(["codex"]),
+    },
+  );
+  assert.equal(cfg.enabled, true);
+  assert.equal(cfg.agent, "claude", "hit-limit steward falls back to healthy agent");
+  assert.equal(cfg.limited, true);
+  assert.equal(cfg.autoContinue, true);
+
+  const wave = createWorkbenchWave({
+    id: "wave-1",
+    path: "daily/2026-11-16.md",
+    parentBlockId: "ad-parent-1",
+    parentTitle: "重构派发链路",
+    projectName: "agent-deck",
+    goal: "完成管家收集与继续推进",
+    cwd: "/work/agent-deck",
+    steward: { enabled: true, agent: "claude", destination: "background", autoContinue: false },
+    workers: [
+      { jobId: "j1", blockId: "ad-w1", title: "后端接口", agent: "codex", state: "running" },
+      { jobId: "j2", blockId: "ad-w2", title: "前端交互", agent: "dsh", state: "running" },
+    ],
+  });
+
+  const jobs = {
+    j1: { id: "j1", state: "done", sessionId: "s1", result: "已新增 /api/wave 接口并通过单测。" },
+    j2: { id: "j2", state: "bound", handoff: true, sessionId: "s2" },
+  };
+  const metaMap = new Map([
+    ["s2", { state: "wait", lastAt: Date.now(), rounds: [{ n: 1, said: "UI 按钮与状态条已补齐。" }] }],
+  ]);
+
+  const synced = syncWaveWithState(wave, jobs, metaMap);
+  assert.equal(synced.allSettled, true);
+  assert.deepEqual(synced.counts, { total: 2, done: 2, error: 0, cancelled: 0, running: 0 });
+
+  const noteText = [
+    "- DOING 重构派发链路 ^ad-parent-1",
+    "\t- TOREVIEW 后端接口 @codex ^ad-w1",
+    "\t\t- 💬 第1轮：已新增接口",
+    "\t\t- 🔗 [完整问答](Agent%20Deck/Answers/j1.md)",
+    "\t- TOREVIEW 前端交互 @dsh ^ad-w2",
+  ].join("\n");
+  const reports = collectWaveWorkerReports(wave, { jobs, metaMap, noteText });
+  assert.equal(reports.length, 2);
+  assert.match(reports[0].output, /已新增 \/api\/wave 接口/);
+  assert.equal(reports[0].answerLink, "Agent%20Deck/Answers/j1.md");
+  assert.match(reports[1].output, /UI 按钮与状态条已补齐/);
+
+  const prompt = buildStewardPrompt({ wave, reports, availableAgents: ["claude", "codex", "dsh"] });
+  assert.match(prompt, /管家 Agent/);
+  assert.match(prompt, /后端接口/);
+  assert.match(prompt, /UI 按钮与状态条已补齐/);
+
+  const rawReply = [
+    "先检查示例对象 `{\"not\":\"this\"}`。",
+    "《本轮验收与汇总结论》：前后端主体已完成，还差集成回归测试。",
+    "```json",
+    JSON.stringify({
+      status: "continue",
+      summary: "主体完成，待补集成测试",
+      nextTasks: [
+        { title: "补充波次集成测试", agent: "codex", detail: "覆盖自动触发与续派" },
+        { title: "不可用代理回退测试", agent: "cursor", detail: "应回退到默认 Agent" },
+      ],
+    }),
+    "```",
+  ].join("\n");
+  const outcome = parseStewardOutcome(rawReply, { availableAgents: ["claude", "codex"], defaultAgent: "claude" });
+  assert.equal(outcome.status, "continue");
+  assert.equal(outcome.summary, "主体完成，待补集成测试");
+  assert.equal(outcome.nextTasks.length, 2);
+  assert.equal(outcome.nextTasks[0].agent, "codex");
+  assert.equal(outcome.nextTasks[1].agent, "claude");
+
+  const appended = appendSubtasksToParentBlock(noteText, {
+    parentBlockId: "ad-parent-1",
+    subtasks: outcome.nextTasks,
+    assignBlockIds: true,
+    keyword: "TODO",
+  });
+  assert.equal(appended.addedLines.length, 2);
+  assert.match(appended.text, /\t- TODO 补充波次集成测试 @codex \^[a-z0-9-]+/);
+
+  // Status update guards preserve user-edited DONE items.
+  const preserved = setTaskBlockKeywordById(
+    "- DONE 手工已完 ^ad-manual\n- DELEGATED 队员中 ^ad-w1",
+    { blockId: "ad-manual", keyword: "TOREVIEW", onlyIfKeywords: ["DELEGATED"] },
+  );
+  assert.ok(preserved.startsWith("- DONE 手工已完 ^ad-manual"));
+
+  const moved = updateTaskBlockStatusById(noteText, {
+    blockId: "ad-parent-1",
+    targetColumn: "review",
+    onlyFromColumns: ["doing"],
+  });
+  assert.ok(moved.startsWith("- NEEDOK 重构派发链路 ^ad-parent-1"));
+
+  assert.equal(
+    findActiveWaveForBoard({ [wave.id]: wave }, { path: "daily/2026-11-16.md", parentBlockId: "ad-parent-1" })?.id,
+    "wave-1",
+  );
+});
+
+test("AgentDeckPlugin end-to-end wave orchestration triggers Steward on completion and supports bounded auto-continue", async () => {
+  const obsidianStub = `
+    export class Plugin {};
+    export class Modal {};
+    export class ItemView {};
+    export class Menu {};
+    export class MarkdownView {};
+    export class MarkdownRenderChild {};
+    export class MarkdownRenderer {};
+    export class Component {};
+    export class Notice { constructor(m){ this.m = m; } hide(){} };
+    export class PluginSettingTab {};
+    export function setIcon(){};
+    export const editorInfoField = {};
+  `;
+  const cmStub = `
+    export class WidgetType {};
+    export const Decoration = { set: () => [], replace: () => ({ range: () => ({}) }), widget: () => ({ range: () => ({}) }) };
+    export const EditorView = { decorations: { from: () => ({}) }, atomicRanges: { of: () => ({}) }, scrollIntoView: () => ({}) };
+    export const EditorSelection = { cursor: (p) => ({ anchor: p, head: p }) };
+    export const ViewPlugin = { fromClass: () => ({}) };
+    export const EditorState = { create: () => ({}) };
+    export const StateEffect = { define: () => ({ of: () => ({}), is: () => false }) };
+    export const StateField = { define: () => ({}) };
+    export const foldedRanges = () => ({});
+    export const foldEffect = {};
+    export const unfoldEffect = {};
+  `;
+  const extraStubs = {
+    electron: "export const shell = { openExternal(){} };",
+    "./editor.js": "export const editorInfoField = {}; export const createEditorExtension = () => []; export function dispatchRefresh(){}; export const ITEM_MIME = 'x';",
+    "./fold-integration.js": "export function integrateRecordFolding(){}",
+    "./mention-suggest.js": "export function registerTaskAgentSuggest(){}",
+    "./view.js": "export class AgentDeckView {}; export const VIEW_TYPE = 'ad-view';",
+    "./dashboard.js": "export class DashboardView {}; export const DASHBOARD_TYPE = 'ad-dash';",
+    "./settings.js": "export class AgentDeckSettingsTab {}; export function syncDelegationSettings(s){ return s; }",
+    "./menubar.js": "export class MenuBarBridge { constructor(){} start(){ return Promise.resolve(); } stop(){} }",
+  };
+  const bundle = await esbuild.build({
+    stdin: { contents: "export { default as AgentDeckPlugin } from './src/main.js';", resolveDir: path.resolve(import.meta.dirname, "..") },
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    loader: { ".png": "dataurl" },
+    write: false,
+    external: ["@codemirror/*"],
+    plugins: [{
+      name: "main-wave-test",
+      setup(b) {
+        b.onResolve({ filter: /^(obsidian|electron|\..*)$/ }, (a) => {
+          if (a.path === "obsidian") return { path: "obsidian", namespace: "stub" };
+          if (extraStubs[a.path]) return { path: a.path, namespace: "stub" };
+          return undefined;
+        });
+        b.onResolve({ filter: /^@codemirror\// }, (a) => ({ path: a.path, namespace: "cm" }));
+        b.onLoad({ filter: /.*/, namespace: "stub" }, (a) => ({
+          contents: a.path === "obsidian" ? obsidianStub : extraStubs[a.path],
+        }));
+        b.onLoad({ filter: /.*/, namespace: "cm" }, () => ({ contents: cmStub }));
+      },
+    }],
+  });
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-wave-e2e-"));
+  const modFile = path.join(tmpDir, "plugin.mjs");
+  fs.writeFileSync(modFile, bundle.outputFiles[0].text);
+  try {
+    const { AgentDeckPlugin } = await import(pathToFileURL(modFile));
+    const notes = new Map([["daily/2026-11-16.md", "## 正在做\n"]]);
+    const plugin = new AgentDeckPlugin();
+    plugin.app = {
+      vault: {
+        getAbstractFileByPath: (p) => (notes.has(p) ? { path: p, extension: "md" } : null),
+        read: async (f) => notes.get(typeof f === "string" ? f : f.path) || "",
+        modify: async (f, text) => { notes.set(typeof f === "string" ? f : f.path, text); },
+        process: async (f, fn) => {
+          const p = typeof f === "string" ? f : f.path;
+          const next = fn(notes.get(p) || "");
+          notes.set(p, next);
+          return next;
+        },
+        create: async (p, text) => { notes.set(p, text); return { path: p, extension: "md" }; },
+        createFolder: async () => {},
+      },
+      workspace: { getLeavesOfType: () => [], getActiveFile: () => null },
+      metadataCache: { getFirstLinkpathDest: () => null },
+    };
+    plugin.settings = {
+      agents: { claude: true, codex: true, dsh: true },
+      taskBoardViews: {},
+      workbenchWaves: {},
+      projectTeams: { presets: {}, byProject: {}, stewards: {} },
+    };
+    plugin.jobs = {};
+    plugin.usage = { meta: new Map() };
+    plugin.liveSessions = () => [];
+    plugin.defaultTarget = () => "claude";
+    plugin.agentEnabled = (id) => ["claude", "codex", "dsh"].includes(id);
+    plugin.saveData = async () => {};
+    plugin.saveSettings = async () => {};
+    plugin.readNote = async (p) => notes.get(p) || "";
+    plugin.refreshUI = () => {};
+    plugin.viewForPath = () => null;
+    plugin.openMirrorSource = async () => {};
+    plugin._launchingWaves = new Set();
+    plugin._finalizingWaves = new Set();
+    const notices = [];
+    plugin.notice = (msg) => notices.push(msg);
+
+    let seq = 0;
+    const delegatedCalls = [];
+    plugin.delegator = {
+      delegate: async (opts) => {
+        seq += 1;
+        const job = {
+          id: `job-${seq}`,
+          agent: opts.agent,
+          name: opts.block.text.split("\n")[0],
+          blockId: opts.block.text.match(/\^([a-z0-9-]+)/i)?.[1] || "",
+          path: opts.file.path,
+          state: "running",
+          sessionId: `sid-${seq}`,
+          result: "",
+        };
+        plugin.jobs[job.id] = job;
+        delegatedCalls.push({ job, opts });
+        return job;
+      },
+      cancel: () => {},
+    };
+
+    const saved = await plugin.writeWorkbenchTasks({
+      path: "daily/2026-11-16.md",
+      parentTitle: "端到端协同测试",
+      subtasks: [
+        { checked: true, title: "子任务一", agent: "codex", destination: "background" },
+        { checked: true, title: "子任务二", agent: "dsh", destination: "background" },
+      ],
+      enableBoard: true,
+    });
+    assert.ok(saved.parentBlockId);
+    assert.equal(saved.subtaskLines.length, 2);
+
+    await plugin.dispatchWorkbenchTasks({
+      path: saved.path,
+      lines: saved.lines,
+      subtaskLines: saved.subtaskLines,
+      cwd: "/work/demo",
+      parentTitle: "端到端协同测试",
+      parentBlockId: saved.parentBlockId,
+      goal: "实现并验证端到端功能",
+      steward: { enabled: true, agent: "claude", destination: "background", autoContinue: true },
+    });
+
+    const wave1 = Object.values(plugin.settings.workbenchWaves)[0];
+    assert.ok(wave1);
+    assert.equal(wave1.state, "waiting");
+    assert.equal(delegatedCalls.length, 2);
+    assert.match(notes.get("daily/2026-11-16.md"), /^- DOING 端到端协同测试/m);
+
+    // Worker 1 settles -> Steward must NOT launch yet.
+    const j1 = delegatedCalls[0].job;
+    j1.state = "done";
+    j1.result = "子任务一完成了后端 API";
+    await plugin.onWorkbenchJobSettled(j1);
+    assert.equal(wave1.state, "waiting");
+    assert.equal(delegatedCalls.length, 2);
+    assert.match(notes.get("daily/2026-11-16.md"), /TOREVIEW 子任务一/);
+
+    // Worker 2 settles -> Steward launches automatically with both worker outputs!
+    const j2 = delegatedCalls[1].job;
+    j2.state = "done";
+    j2.result = "子任务二完成了文档与校验";
+    await plugin.onWorkbenchJobSettled(j2);
+    assert.equal(wave1.state, "running");
+    assert.equal(delegatedCalls.length, 3);
+    const stewardCall = delegatedCalls[2];
+    assert.equal(stewardCall.job.agent, "claude");
+    assert.match(stewardCall.opts.boardContext, /子任务一完成了后端 API/);
+    assert.match(stewardCall.opts.boardContext, /子任务二完成了文档与校验/);
+    assert.match(notes.get("daily/2026-11-16.md"), /🧭 管家汇总与推进/);
+
+    // Steward finishes Round 1 with 1 follow-up task -> autoContinue dispatches Round 2!
+    stewardCall.job.state = "done";
+    stewardCall.job.result = [
+      "已核查前两项产出，补充一条集成验证任务。",
+      "```json",
+      JSON.stringify({
+        status: "continue",
+        summary: "进入第 2 轮集成验证",
+        nextTasks: [{ title: "第2轮集成验证", agent: "codex", detail: "跑通端到端测试" }],
+      }),
+      "```",
+    ].join("\n");
+    await plugin.onWorkbenchJobSettled(stewardCall.job);
+    assert.equal(wave1.state, "done");
+    assert.equal(delegatedCalls.length, 4, "autoContinue dispatches Round 2 worker");
+    assert.match(notes.get("daily/2026-11-16.md"), /DONE 子任务一/);
+    assert.match(notes.get("daily/2026-11-16.md"), /DONE 🧭 管家汇总与推进/);
+    assert.match(notes.get("daily/2026-11-16.md"), /第2轮集成验证/);
+
+    const wave2 = Object.values(plugin.settings.workbenchWaves).find((w) => w.round === 2);
+    assert.ok(wave2 && wave2.state === "waiting");
+
+    // Round 2 worker finishes -> Round 2 Steward runs -> even if it suggests nextTasks, MAX_STEWARD_ROUNDS stops auto-loop!
+    const j4 = delegatedCalls[3].job;
+    j4.state = "done";
+    j4.result = "端到端测试全部通过";
+    await plugin.onWorkbenchJobSettled(j4);
+    assert.equal(delegatedCalls.length, 5, "Round 2 Steward launched");
+    const steward2 = delegatedCalls[4].job;
+    steward2.state = "done";
+    steward2.result = '```json\n{"status":"done","summary":"全部完成","nextTasks":[]}\n```';
+    await plugin.onWorkbenchJobSettled(steward2);
+    assert.equal(wave2.state, "done");
+    assert.equal(delegatedCalls.length, 5, "no runaway round 3");
+    assert.match(notes.get("daily/2026-11-16.md"), /^- TOREVIEW 端到端协同测试/m);
+    assert.ok(MAX_STEWARD_ROUNDS === 2);
+
+    // Manual "runStewardWaveNow" & error retry & cancel paths.
+    const saved2 = await plugin.writeWorkbenchTasks({
+      path: "daily/2026-11-16.md",
+      parentTitle: "手动汇总测试",
+      subtasks: [{ checked: true, title: "慢任务", agent: "codex", destination: "background" }],
+      enableBoard: true,
+    });
+    await plugin.dispatchWorkbenchTasks({
+      path: saved2.path,
+      lines: saved2.lines,
+      subtaskLines: saved2.subtaskLines,
+      parentTitle: "手动汇总测试",
+      parentBlockId: saved2.parentBlockId,
+      steward: { enabled: true, agent: "claude", destination: "background", autoContinue: false },
+    });
+    const manualWave = Object.values(plugin.settings.workbenchWaves).find((w) => w.parentBlockId === saved2.parentBlockId);
+    assert.equal(manualWave.state, "waiting");
+    await plugin.runStewardWaveNow(manualWave.id);
+    assert.equal(manualWave.state, "running");
+    const manualStewardJob = delegatedCalls.at(-1).job;
+    manualStewardJob.state = "error";
+    manualStewardJob.error = "timeout";
+    await plugin.onWorkbenchJobSettled(manualStewardJob);
+    assert.equal(manualWave.state, "error");
+    assert.match(notes.get("daily/2026-11-16.md"), /ERRORED 🧭 管家汇总与推进/);
+    await plugin.cancelWorkbenchWave(manualWave.id);
+    assert.equal(manualWave.state, "cancelled");
+
+    // Verify plugin.goToAncestor and plugin.groupRows directly on a CM6-like view.
+    let outlineText = ["- 母项 ^ad-anc", "\t- 子项甲", "\t- 子项乙"].join("\n");
+    const makeDoc = (str) => {
+      const arr = str.split("\n");
+      const starts = [];
+      let off = 0;
+      for (const l of arr) { starts.push(off); off += l.length + 1; }
+      return {
+        length: str.length,
+        lines: arr.length,
+        toString: () => str,
+        line(n) { const from = starts[n - 1]; return { number: n, from, to: from + arr[n - 1].length, text: arr[n - 1] }; },
+        lineAt(pos) {
+          let idx = arr.length - 1;
+          for (let i = 0; i < starts.length; i++) if (pos >= starts[i]) idx = i;
+          return this.line(idx + 1);
+        },
+      };
+    };
+    let cmDoc = makeDoc(outlineText);
+    const cmState = {
+      get doc() { return cmDoc; },
+      selection: { ranges: [{ from: cmDoc.line(2).from, to: cmDoc.line(2).from }], main: { head: cmDoc.line(2).from } },
+    };
+    const cmView = {
+      state: cmState,
+      focus() {},
+      dispatch({ changes, selection }) {
+        if (changes) {
+          outlineText = outlineText.slice(0, changes.from) + changes.insert + outlineText.slice(changes.to);
+          cmDoc = makeDoc(outlineText);
+        }
+        if (selection) {
+          const sel = { anchor: selection.anchor, head: selection.head ?? selection.anchor };
+          cmState.selection = { ranges: [sel], main: sel };
+        }
+      },
+    };
+    assert.equal(plugin.goToAncestor(cmView, false), true);
+    assert.equal(cmState.selection.main.head, cmDoc.line(1).from + "- 母项".length, "cursor lands before ^ad-anc");
+    const line2From = cmDoc.line(2).from;
+    const line3To = cmDoc.line(3).to;
+    cmState.selection = { ranges: [{ from: line2From, to: line3To }], main: { head: line3To } };
+    assert.equal(plugin.groupRows(cmView), true);
+    assert.equal(outlineText, ["- 母项 ^ad-anc", "\t- ", "\t\t- 子项甲", "\t\t- 子项乙"].join("\n"));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });

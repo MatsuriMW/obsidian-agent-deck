@@ -699,6 +699,36 @@
     color: var(--ad-muted);
   }
 
+  & .ad-wb-steward {
+    margin-top: 8px;
+    padding: 8px 10px;
+    border: 1px dashed color-mix(in srgb, var(--ad-accent, var(--interactive-accent)) 42%, var(--ad-line));
+    border-radius: var(--ad-radius-sm);
+    background: color-mix(in srgb, var(--ad-accent, var(--interactive-accent)) 5%, var(--ad-surface));
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  & .ad-wb-steward__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  & .ad-wb-steward__sub {
+    padding-left: 20px;
+  }
+
+  & .ad-wb-steward__check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    min-width: 0;
+  }
+
   & .ad-wb-role__pick {
     display: inline-flex;
     align-items: center;

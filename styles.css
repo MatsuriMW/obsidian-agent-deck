@@ -1,4 +1,4 @@
-/* Agent Deck 1.10.2 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.10.3 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -3090,6 +3090,29 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   gap: 6px;
   flex: none;
 }
+.ad-board-wrap .ad-board__steward {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--interactive-accent) 32%, var(--background-modifier-border));
+  background: color-mix(in srgb, var(--interactive-accent) 7%, var(--background-primary));
+  font-size: 11.5px;
+  color: var(--text-normal);
+}
+.ad-board-wrap .ad-board__steward.is-error {
+  border-color: color-mix(in srgb, var(--text-error, #a86f6d) 45%, var(--background-modifier-border));
+  background: color-mix(in srgb, var(--text-error, #a86f6d) 8%, var(--background-primary));
+}
+.ad-board-wrap .ad-board__steward-text {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
 .ad-board-wrap .ad-board__btn {
   height: 22px;
   min-height: 0;
@@ -4611,6 +4634,32 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-workbench .ad-wb-role__hint {
   font-size: 11px;
   color: var(--ad-muted);
+}
+.ad-workbench .ad-wb-steward {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px dashed color-mix(in srgb, var(--ad-accent, var(--interactive-accent)) 42%, var(--ad-line));
+  border-radius: var(--ad-radius-sm);
+  background: color-mix(in srgb, var(--ad-accent, var(--interactive-accent)) 5%, var(--ad-surface));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ad-workbench .ad-wb-steward__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.ad-workbench .ad-wb-steward__sub {
+  padding-left: 20px;
+}
+.ad-workbench .ad-wb-steward__check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  min-width: 0;
 }
 .ad-workbench .ad-wb-role__pick {
   display: inline-flex;

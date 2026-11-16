@@ -15,6 +15,8 @@ import {
   setTaskBoardCardAgent,
   buildBoardSiblingContext,
   delegableAgents,
+  findActiveWaveForBoard,
+  isTerminalWorkerState,
 } from "./project-workbench.js";
 import { updateNote } from "./note-updates.js";
 import { mentionTrigger } from "./task-mentions.js";
@@ -113,11 +115,26 @@ class TaskBoardWidget extends WidgetType {
     this.pref = pref;
     this.breadcrumbs = breadcrumbs;
     this.sourcePath = sourcePath;
+    this.activeWave = findActiveWaveForBoard(plugin?.settings?.workbenchWaves, {
+      path: sourcePath,
+      parentBlockId: activeGroup.key,
+      parentTitle: model.title,
+    });
+    const waveSig = this.activeWave
+      ? [
+          this.activeWave.id,
+          this.activeWave.state,
+          this.activeWave.round,
+          this.activeWave.error,
+          (this.activeWave.workers || []).map((w) => w.state).join(","),
+        ]
+      : null;
     this.sig = JSON.stringify({
       rootKey: rootGroup.key,
       key: model.key,
       line: model.line,
       groupBy: model.groupBy,
+      wave: waveSig,
       crumbs: breadcrumbs.map((b) => b.key),
       cols: model.columns.map((c) => [c.id, c.cards.map((k) => [
         k.line, k.kw, k.title, k.agent, k.liveState, k.latestConclusion, k.childCardCount, k.isMirror,
@@ -269,6 +286,84 @@ class TaskBoardWidget extends WidgetType {
       e.stopPropagation();
       view.dispatch({ effects: setTaskBoardEffect.of({ key: this.rootGroup.key, mode: "outline" }) });
     });
+
+    if (this.activeWave) {
+      const wave = this.activeWave;
+      const stewardName = AGENTS[wave.steward?.agent]?.short || wave.steward?.agent || "Agent";
+      const workers = wave.workers || [];
+      const settled = workers.filter((w) => isTerminalWorkerState(w.state)).length;
+      const bar = wrap.appendChild(doc.createElement("div"));
+      bar.className = `ad-board__steward is-${wave.state}`;
+      const info = bar.appendChild(doc.createElement("span"));
+      info.className = "ad-board__steward-text";
+      if (wave.state === "waiting") {
+        info.textContent = t("🧭 管家 {agent} 待命中 · 队员已完成 {done}/{total}", {
+          agent: stewardName,
+          done: settled,
+          total: workers.length,
+        });
+      } else if (wave.state === "running") {
+        info.textContent = t("🧭 管家 {agent} 正在收集 {total} 位队员结果并推进（第 {round} 轮）…", {
+          agent: stewardName,
+          total: workers.length,
+          round: wave.round || 1,
+        });
+      } else if (wave.state === "error") {
+        info.textContent = t("⚠️ 管家 {agent} 汇总失败：{err}", {
+          agent: stewardName,
+          err: truncate(wave.error || t("未知错误"), 60),
+        });
+      }
+
+      const barBtns = bar.appendChild(doc.createElement("div"));
+      barBtns.className = "ad-board__actions";
+      if (wave.state === "waiting" && this.plugin?.runStewardWaveNow) {
+        const nowBtn = barBtns.appendChild(doc.createElement("button"));
+        nowBtn.type = "button";
+        nowBtn.className = "ad-board__btn is-primary";
+        nowBtn.textContent = t("立即汇总");
+        nowBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.plugin.runStewardWaveNow(wave.id);
+        });
+      }
+      if ((wave.state === "waiting" || wave.state === "running") && this.plugin?.cancelWorkbenchWave) {
+        const stopBtn = barBtns.appendChild(doc.createElement("button"));
+        stopBtn.type = "button";
+        stopBtn.className = "ad-board__btn";
+        stopBtn.textContent = wave.state === "running" ? t("停止管家") : t("取消管家");
+        stopBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.plugin.cancelWorkbenchWave(wave.id);
+        });
+      }
+      if (wave.state === "error") {
+        if (this.plugin?.retryStewardWave) {
+          const retryBtn = barBtns.appendChild(doc.createElement("button"));
+          retryBtn.type = "button";
+          retryBtn.className = "ad-board__btn is-primary";
+          retryBtn.textContent = t("重试汇总");
+          retryBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.plugin.retryStewardWave(wave.id);
+          });
+        }
+        if (this.plugin?.cancelWorkbenchWave) {
+          const closeBtn = barBtns.appendChild(doc.createElement("button"));
+          closeBtn.type = "button";
+          closeBtn.className = "ad-board__btn";
+          closeBtn.textContent = t("忽略");
+          closeBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.plugin.cancelWorkbenchWave(wave.id);
+          });
+        }
+      }
+    }
 
     // 3. Inline quick-add card bar
     const addAgents = this.plugin?.agentEnabled ? delegableAgents(this.plugin) : [];

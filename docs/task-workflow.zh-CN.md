@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.10.2**（已发版）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.10.3**（已发版，2026-11-16）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 双平台验证边界
 
@@ -23,7 +23,7 @@
 
 ## 操作速查（同步至库内 `README-交接.md`）
 
-- **快捷键**（macOS `Alt` = `Option`）：`Ctrl+Alt+D` 委派/任务菜单 · `Ctrl+Alt+A` 续聊/停止/重派 · `Ctrl+Alt+C` 查看与保存对话 · `Ctrl+Alt+N` 下一条待确认 · `Ctrl+Alt+X` 停止执行 · `Ctrl+Alt+J` 跳到「正在做」 · `Ctrl+Alt+L` 整理日志 · `⌃⌥⌘D` macOS 菜单栏。
+- **快捷键**（macOS `Alt` = `Option`）：`Ctrl+Alt+D` 委派/任务菜单 · `Ctrl+Alt+A` 续聊/停止/重派 · `Ctrl+Alt+C` 查看与保存对话 · `Ctrl+Alt+N` 下一条待确认 · `Ctrl+Alt+X` 停止执行 · `Ctrl+Alt+J` 跳到「正在做」 · `Ctrl+Alt+L` 整理日志 · `⌥⌘↑` 跳到母块（连按逐级向上）· `⌥⌘⇧↑` 跳到最上一级顶格母块 · `⌥⌘↓` 合并成组（Group rows）· `⌃⌥⌘D` macOS 菜单栏。
 - **关键词**：`DOING` / `NOW` / `IN-PROGRESS`、`TOREVIEW`、`NEEDOK`、`ERRORED` / `FAILED`、`HITLIMIT`、`QUEUED`、`DELEGATED`、`TODO` / `LATER`、`PAUSED` / `SUSPENDED`、`WAITING` / `WAIT`、`DONE`、`CANCELED` / `CANCELLED`、`TODOFORAI` / `TODO4AI` / `TODO2AI` / `TODOTOAI`，及 `[ ]` `[/]` `[x]` `[-]`。
 - **整理与归档**：**整理日志**默认按 `---` → 正在做 → `---` → 还要做 → `---` → 已完成 → `---` 排列，只整理完整分区内的 **AI** 条目，非 AI 手写条目与区外笔记保持原位；无完整分区时只建立空分区。**归档已完成的日志到…** 仅移出已完成 **AI** 块（默认 `Agent Deck/done/已完成任务.md`），先写归档再删源。
 
@@ -79,3 +79,17 @@
 - **自动记录关键词状态区分（`1.10.2` 已发版）**：
   - `src/autolog.js` 与 `src/locales/en/writers.js`：不新增关键词，复用现有 `AGENT_KWS`；`AutoLog` 在会话处于 `needs-approval` / `error` / `limit` / `queued` 时写出 `NEEDOK` / `ERRORED` / `HITLIMIT` / `QUEUED`，在模型判定 `done: true` 且闲置时切为 `TOREVIEW`，正常停顿保留 `PAUSED`（续聊恢复活跃后自动切回 `DOING`）。
   - 验证边界：macOS 已通过全量 `npm test`（含 `test/autolog.test.mjs`、`test/i18n.test.mjs`）、`npm run build`、`git diff --check`、GitHub Release `1.10.2` 与 `马自立` Vault 安装热重载；Obsidian 实机与 Windows 端未实测。
+- **工作台管家 Agent（Steward）波次收口与自动推进（`1.10.3` 已发版）**：
+  - `src/project-workbench.js`, `src/workbench-modal.js`, `src/fractal-board.js`, `src/main.js`, `src/delegation.js`, `src/constants.js`：
+    - `ProjectWorkbenchModal` 新增「管家 Agent（队员全部完成后自动汇总并继续推进）」配置与「自动续派管家生成的后续 TODO（最多 2 轮）」开关（持久化至 `settings.projectTeams.stewards`）；`dispatchWorkbenchTasks` 与分形看板「派发 TODO」在派发后自动创建持久化波次 `settings.workbenchWaves`。
+    - 借助 `Delegator` 钩子（`afterResult`/`onError`/`onCancel`）与 `scanNow`/`recoverJobs` 同步各队员（含 `handoff` 会话）状态并回写子任务状态（`DELEGATED` → `TOREVIEW`/`ERRORED`/`CANCELED`）；全员收口后自动插入 `🧭 管家汇总与推进` 子卡并带全部队员产出与项目上下文派发给管家 Agent。
+    - 管家完成后解析可选结构化决策（`done` / `continue` / `needs-review` 与 `nextTasks`），更新已核查队员与父任务状态（`DONE`/`TOREVIEW`/`NEEDOK`），并把后续 `TODO` 写回分形看板（勾选自动续派时按 `MAX_STEWARD_ROUNDS = 2` 上限自动续派下一轮）；分形看板顶部提供实时管家状态栏与「立即汇总」「停止/取消管家」「重试汇总」操作。
+  - 验证边界：macOS 已通过全量 `npm test`（含 `test/project-workbench.test.mjs` 管家与端到端波次回归、`test/i18n.test.mjs`、`test/errors-i18n.test.mjs`、`test/architecture-refactor.test.mjs`）、`npm run build`、`git diff --check`、GitHub Release `1.10.3` 与 `马自立` Vault 安装热重载；Obsidian 真实界面点击与真实 CLI 多 Agent 实跑及 Windows 端尚未实测。
+- **整理日志仅调整顶格 AI 记录块（`1.10.3` 已发版）**：
+  - `src/organize-journal.js`（`planJournal`）：整理日志与规则上方收编仅处理顶格（`J.width(lines[i]) === 0`）的 AI 记录块；所有不顶格的缩进条目（无论挂在 `- [[Agent Deck开发日志]]` 等手写分组下、还是缩进嵌套在其他任务下）一律原位保留不拆散、不移动，也不触发 `JournalOrganizer` 散落提醒；已缩进嵌套在 AI 父项下的开放子任务同时阻止父块因归档误翻 `DONE`。
+  - 验证边界：macOS 已通过全量 `npm test`（含 `test/organize-journal.test.mjs`、`test/bounded-journal.test.mjs`、`test/journal-organizer.test.mjs`）、`npm run build`、`git diff --check`、GitHub Release `1.10.3` 与 `马自立` Vault 安装热重载；Obsidian 真实界面与 Windows 端未实测。
+- **大纲「跳到母块」「Group rows」与多选块批量调整任务状态（`1.10.3` 已发版）**：
+  - `src/outline.js`、`src/task-status.js`、`src/main.js`、`src/locales/en/main.js`：
+    - 复用并适配 Emacs Logseq Inspired Outline 的 `itemLineFor` / `parentItem` / `contentSpan` / `blockLinesForRange` / `groupRowsEdit` / `collectSelectedRootLines`：新增命令「跳到母块（`Mod+Alt+ArrowUp`）」「跳到最上一级的顶格母块（`Mod+Alt+Shift+ArrowUp`）」与「合并成组（Group rows，`Mod+Alt+ArrowDown`）」，跳到母块时光标停在行尾 `^blockId` 前，合并成组自动按选中最浅缩进新建空母块并将选中块整体降一级。
+    - 支持框选、多光标选区、编辑器右键菜单（`editor-menu`）、命令面板「批量调整选中块的任务状态…」以及多选状态下直接点击任一状态徽章，一次性原子更新所有选中根列表项的状态关键词（兼容无关键词普通列表项、`[ ]`/`[/]`/`[x]`/`[-]` 复选框及 `manualTaskStates` 人工锁定与回滚，支持单步撤销）。
+  - 验证边界：macOS 已通过全量 `npm test`（含 `test/architecture-refactor.test.mjs`、`test/task-status.test.mjs`、`test/project-workbench.test.mjs`、`test/i18n.test.mjs`）、`npm run build`、`git diff --check`、GitHub Release `1.10.3` 与 `马自立` Vault 安装热重载；Obsidian 真实快捷键/右键菜单交互与 Windows 端未实测。已知边界：Group rows 跨选到顶格段落或代码围栏时会把该内容同样缩进一级（整体平移、渲染等价），未做拒绝提示。

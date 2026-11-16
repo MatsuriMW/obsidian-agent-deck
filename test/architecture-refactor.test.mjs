@@ -24,7 +24,10 @@ import {
   createDelegationRunner,
   HarnessPipeline,
 } from "../src/harness.js";
-import { fencedLines, frontmatterEnd, ownersOf, subtreeEnd, ancestorLines } from "../src/outline.js";
+import {
+  fencedLines, frontmatterEnd, ownersOf, subtreeEnd, ancestorLines,
+  itemLineFor, parentItem, contentSpan, blockLinesForRange, groupRowsEdit, collectSelectedRootLines,
+} from "../src/outline.js";
 import { registerAgentIngestor, getAgentIngestor, ingestAgentLine } from "../src/agent-ingestors.js";
 import { registerRunnerClass, getRunnerClasses } from "../src/delegation-runners.js";
 
@@ -216,4 +219,44 @@ test("outline, agent-ingestors, and delegation-runners extension points work wit
   class DummyRunner {}
   registerRunnerClass("customRunner", DummyRunner);
   assert.equal(getRunnerClasses().customRunner, DummyRunner);
+});
+
+test("outline navigation, groupRowsEdit, and multi-block selection helpers", () => {
+  const doc = [
+    "- 顶级母块 ^ad-root",
+    "\t- DOING 子任务一",
+    "\t  续行说明",
+    "\t\t- 孙任务",
+    "\t- TODO 子任务二 ^ad-c2",
+    "- 顶级兄弟",
+    "普通段落",
+  ];
+  assert.equal(itemLineFor(doc, 2), 1, "continuation line resolves to owning list item");
+  assert.equal(itemLineFor(doc, 6), -1, "plain top-level paragraph is not in a list");
+  assert.equal(parentItem(doc, 3), 1);
+  assert.equal(parentItem(doc, 1), 0);
+  assert.equal(parentItem(doc, 0), -1);
+
+  const span = contentSpan("- [ ] TODO 标题文字 ^ad-123  ");
+  assert.equal("- [ ] TODO 标题文字 ^ad-123  ".slice(span.from, span.to), "TODO 标题文字");
+
+  assert.deepEqual(blockLinesForRange(doc, 1, 4), { start: 1, end: 4 });
+
+  // Group rows wraps selected sibling blocks under a new empty parent at their shallowest indent.
+  const grouped = groupRowsEdit(doc, [{ fromLine: 1, toLine: 4 }], "\t");
+  assert.equal(grouped.startLine, 1);
+  assert.equal(grouped.endLine, 4);
+  assert.equal(grouped.cursorOffset, 3);
+  assert.equal(grouped.insertText, [
+    "\t- ",
+    "\t\t- DOING 子任务一",
+    "\t\t  续行说明",
+    "\t\t\t- 孙任务",
+    "\t\t- TODO 子任务二 ^ad-c2",
+  ].join("\n"));
+
+  // Contiguous mixed-depth selection keeps shallowest root items; multi-cursor keeps each cursor's item.
+  assert.deepEqual(collectSelectedRootLines(doc, [{ fromLine: 1, toLine: 4 }]), [1, 4]);
+  assert.deepEqual(collectSelectedRootLines(doc, [{ fromLine: 0, toLine: 3 }]), [0]);
+  assert.deepEqual(collectSelectedRootLines(doc, [{ fromLine: 1, toLine: 1 }, { fromLine: 5, toLine: 5 }]), [1, 5]);
 });

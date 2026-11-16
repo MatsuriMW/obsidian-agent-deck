@@ -14,6 +14,7 @@ import {
   delegableAgents,
   limitAgentsFromSessions,
   assignTeamToRoles,
+  resolveStewardConfig,
   buildCopilotPlanPrompt,
   parseCopilotPlanResponse,
   fallbackCopilotPlan,
@@ -32,9 +33,28 @@ export class ProjectWorkbenchModal extends Modal {
     this.goal = opts.goal || "";
     this.presetId = "fullstack";
     this.roleOverrides = {};
+    this.stewardEnabled = true;
+    this.stewardAgent = "";
+    this.stewardAutoContinue = false;
     this.subtasks = [];
     this.planning = false;
     this.dispatching = false;
+  }
+
+  syncStewardFromSettings() {
+    const defaultAgent = this.availableAgents.includes(this.plugin.defaultTarget?.())
+      ? this.plugin.defaultTarget()
+      : (this.availableAgents[0] || "claude");
+    const cfg = resolveStewardConfig(this.plugin.settings, {
+      presetId: this.presetId,
+      projectName: this.projectName,
+      availableAgents: this.availableAgents,
+      limitAgents: this.limitAgents,
+      defaultAgent,
+    });
+    this.stewardEnabled = cfg.enabled;
+    this.stewardAgent = cfg.agent;
+    this.stewardAutoContinue = cfg.autoContinue;
   }
 
   async onOpen() {
@@ -74,6 +94,7 @@ export class ProjectWorkbenchModal extends Modal {
     if (this.projectName && savedByProj[this.projectName]) {
       this.presetId = savedByProj[this.projectName];
     }
+    this.syncStewardFromSettings();
 
     if (!this.subtasks.length && this.goal) {
       this.applyFallbackPlan();
@@ -103,14 +124,27 @@ export class ProjectWorkbenchModal extends Modal {
 
   saveTeamPreference() {
     const p = this.plugin;
-    const teams = (p.settings.projectTeams ||= { presets: {}, byProject: {} });
+    const teams = (p.settings.projectTeams ||= { presets: {}, byProject: {}, stewards: {} });
     teams.presets ||= {};
     teams.byProject ||= {};
+    teams.stewards ||= {};
+    teams.stewards.byPreset ||= {};
+    teams.stewards.byProject ||= {};
     if (this.projectName) teams.byProject[this.projectName] = this.presetId;
     if (Object.keys(this.roleOverrides).length) {
       teams.presets[this.presetId] = {
         roleAgents: { ...(teams.presets[this.presetId]?.roleAgents || {}), ...this.roleOverrides },
       };
+    }
+    if (this.stewardAgent) {
+      const entry = {
+        enabled: this.stewardEnabled !== false,
+        agent: this.stewardAgent,
+        autoContinue: this.stewardAutoContinue === true,
+      };
+      teams.stewards.default = entry;
+      teams.stewards.byPreset[this.presetId] = entry;
+      if (this.projectName) teams.stewards.byProject[this.projectName] = entry;
     }
     p.saveSettings?.();
   }
@@ -196,6 +230,17 @@ export class ProjectWorkbenchModal extends Modal {
           subtaskLines: saved.subtaskLines,
           cwd: this.cwd.trim(),
           parentTitle,
+          parentBlockId: saved.parentBlockId || "",
+          projectName: this.projectName,
+          goal: this.goal.trim() || parentTitle,
+          steward: this.stewardEnabled && this.stewardAgent
+            ? {
+                enabled: true,
+                agent: this.stewardAgent,
+                destination: this.teamDestination(this.stewardAgent),
+                autoContinue: this.stewardAutoContinue,
+              }
+            : { enabled: false },
         });
       } else {
         new Notice(t("已将 {n} 条协作子任务写入笔记", { n: active.length }));
@@ -279,6 +324,7 @@ export class ProjectWorkbenchModal extends Modal {
       btn.onclick = () => {
         this.presetId = preset.id;
         this.roleOverrides = {};
+        this.syncStewardFromSettings();
         this.render();
       };
     }
@@ -303,6 +349,54 @@ export class ProjectWorkbenchModal extends Modal {
         this.saveTeamPreference();
         this.render();
       };
+    }
+
+    const stewardBox = teamField.createDiv({ cls: "ad-wb-steward" });
+    const stewardTop = stewardBox.createDiv({ cls: "ad-wb-steward__top" });
+    const stewardToggle = stewardTop.createEl("label", { cls: "ad-wb-steward__check" });
+    const stewardCb = stewardToggle.createEl("input", { attr: { type: "checkbox" } });
+    stewardCb.checked = this.stewardEnabled !== false;
+    stewardCb.onchange = () => {
+      this.stewardEnabled = stewardCb.checked;
+      this.saveTeamPreference();
+      this.render();
+    };
+    stewardToggle.createSpan({
+      cls: "ad-wb-role__name",
+      text: t("管家 Agent（队员全部完成后自动汇总并继续推进）"),
+    });
+
+    const stewardPick = stewardTop.createDiv({ cls: "ad-wb-role__pick" });
+    const activeSteward = this.availableAgents.includes(this.stewardAgent)
+      ? this.stewardAgent
+      : (this.availableAgents[0] || "claude");
+    agentIcon(stewardPick.createSpan({ cls: "ad-glyph" }), activeSteward);
+    const stewardSel = stewardPick.createEl("select", { cls: "ad-input ad-wb-select" });
+    for (const id of this.availableAgents) {
+      const suffix = this.limitAgents.has(id) ? ` (${t("限额")})` : "";
+      stewardSel.createEl("option", { text: `${AGENTS[id]?.short || id}${suffix}`, attr: { value: id } });
+    }
+    stewardSel.value = activeSteward;
+    stewardSel.disabled = !this.stewardEnabled;
+    stewardSel.onchange = () => {
+      this.stewardAgent = stewardSel.value;
+      this.saveTeamPreference();
+      this.render();
+    };
+
+    if (this.stewardEnabled) {
+      const stewardSub = stewardBox.createDiv({ cls: "ad-wb-steward__sub" });
+      const autoLabel = stewardSub.createEl("label", { cls: "ad-wb-steward__check" });
+      const autoCb = autoLabel.createEl("input", { attr: { type: "checkbox" } });
+      autoCb.checked = this.stewardAutoContinue === true;
+      autoCb.onchange = () => {
+        this.stewardAutoContinue = autoCb.checked;
+        this.saveTeamPreference();
+      };
+      autoLabel.createSpan({
+        cls: "ad-wb-role__hint",
+        text: t("自动续派管家生成的后续 TODO（最多 2 轮）"),
+      });
     }
 
     // 3. Goal & copilot planning

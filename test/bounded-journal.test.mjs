@@ -38,4 +38,42 @@ const out = organize(crlf);
 assert.ok(out.startsWith(above.replace(/\n/g, '\r\n')) && out.endsWith(below.replace(/\n/g, '\r\n')));
 assert.equal(/[^\r]\n/.test(out), false);
 assert.equal(organize(out), out);
+
+// 用户在「正在做」区里新建父项并把多条 AI 记录缩进合并分组后，整理日志不拆散、不降级，也不触发分散提醒
+const groupedTree = [
+  '- [[Agent Deck开发日志]]',
+  '\t- TOREVIEW 🤖 21:07-21:21 agent-deck -> 使用这个写入并派发之后 ^ad-1',
+  '\t\t- 💬 第2轮：任务：完成；结论：通过',
+  '\t- PAUSED 🤖 17:33-18:57 agent-deck -> 设计项目级工作台 ^ad-2',
+  '\t\t- 💬 第16轮：任务：总结；结论：完成',
+  '\t- DONE 🤖 06:44-07:11 agent-deck -> 重构样式表源码 ^ad-3',
+].join('\n');
+const groupedBody = [
+  '<!-- agent-deck:layout:start -->',
+  '',
+  '---',
+  '<!-- agent-deck:section:active:heading -->',
+  '## 正在做',
+  groupedTree,
+  '<!-- agent-deck:section:active:end -->',
+  '',
+  '---',
+  '<!-- agent-deck:section:todo:heading -->',
+  '## 还要做',
+  '<!-- agent-deck:section:todo:end -->',
+  '',
+  '---',
+  '<!-- agent-deck:section:done:heading -->',
+  '## 已完成',
+  '<!-- agent-deck:section:done:end -->',
+  '',
+  '---',
+  '<!-- agent-deck:layout:end -->',
+  '',
+].join('\n');
+const groupedPlan = planJournal(groupedBody, options);
+assert.equal(groupedPlan.count.total, 0, 'grouped records under a manual parent are not extracted');
+assert.equal(organize(groupedBody), groupedBody, 'manually grouped AI logs inside bounded section stay byte-for-byte unchanged');
+assert.equal(readJournalLayout(organize(groupedBody)).sections.active.text, groupedTree);
+
 console.log('PASS bounded journal: active/todo/done, exact outside preservation, empty initialization, legacy migration, fences, CRLF and idempotence');
