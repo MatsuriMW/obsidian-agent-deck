@@ -12,6 +12,7 @@ import https from "https";
 import { spawn, execFile } from "child_process";
 import { t } from "./i18n.js";
 import { summarizeAutoTitle, stripTaskKeyword } from "./journal.js";
+import { mergePathEnv, resolveExecutable, spawnOptions, wrapSpawnCommand } from "./platform.js";
 
 const home = () => os.homedir();
 
@@ -22,29 +23,18 @@ function workDir() {
 }
 
 function buildEnv(env = process.env) {
-  const extra = [path.join(home(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"];
-  const cur = String(env.PATH || "").split(path.delimiter).filter(Boolean);
-  return { ...env, PATH: [...new Set([...extra, ...cur])].join(path.delimiter) };
+  return mergePathEnv(env, { homeDir: home() });
 }
 
 function resolveBin(name, configured = "", homeDir = home(), env = process.env) {
   const custom = String(configured || "").trim();
   if (custom) return custom;
-  const exts = process.platform === "win32" ? [".exe", ".cmd", ".bat", ""] : [""];
-  const dirs = [
-    path.join(homeDir, ".local", "bin"),
-    path.join(homeDir, ".qoder", "bin", "qodercli"),
-    "/opt/homebrew/bin",
-    "/usr/local/bin",
-    ...String(env.PATH || "").split(path.delimiter).filter(Boolean),
-  ];
-  for (const dir of dirs) {
-    for (const ext of exts) {
-      const p = path.join(dir, `${name}${ext}`);
-      try { if (fs.existsSync(p) && fs.statSync(p).isFile()) return p; } catch { /* next */ }
-    }
-  }
-  return "";
+  const resolved = resolveExecutable(name, "", {
+    candidates: [path.join(homeDir, ".qoder", "bin", "qodercli", "qodercli")],
+    homeDir,
+    env,
+  });
+  return resolved === name ? "" : resolved;
 }
 
 function hasClaudeSettingsAuth(homeDir) {
@@ -163,7 +153,8 @@ function runProcess(bin, args, { label, timeout = 120, stdin = null, env = build
   return new Promise((resolve, reject) => {
     let child;
     const stdio = stdin == null ? ["ignore", "pipe", "pipe"] : ["pipe", "pipe", "pipe"];
-    try { child = spawn(bin, args, { cwd: workDir(), env, stdio }); }
+    const launch = wrapSpawnCommand(bin, args, { env });
+    try { child = spawn(launch.command, launch.args, spawnOptions(launch, { cwd: workDir(), env, stdio })); }
     catch (e) { return reject(new Error(t("启动 {name} 失败：{msg}", { name: label, msg: e.message }))); }
     let out = "", err = "";
     child.stdout.on("data", (d) => { out += d; });
@@ -199,7 +190,9 @@ export async function runCodex(prompt, { bin = "codex", model = "", effort = "lo
       const args = ["exec", "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never", "--disable", "shell_tool", "-c", 'web_search="disabled"', "-c", "features.multi_agent=false", "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--output-last-message", output];
       if (model) args.push("--model", model);
       args.push("-");
-      const child = spawn(bin, args, { cwd: dir, env: buildEnv(), stdio: ["pipe", "ignore", "pipe"] });
+      const env = buildEnv();
+      const launch = wrapSpawnCommand(bin, args, { env });
+      const child = spawn(launch.command, launch.args, spawnOptions(launch, { cwd: dir, env, stdio: ["pipe", "ignore", "pipe"] }));
       let err = "";
       child.stderr.on("data", (d) => { err = (err + d).slice(-2000); });
       const timer = setTimeout(() => { child.kill(); reject(new Error(t("codex 等了 {n} 秒没回来", { n: timeout }))); }, timeout * 1000);
@@ -308,8 +301,10 @@ export async function runOpenAiApi(prompt, { url = "", apiKey = "", model = "", 
 
 export function fetchAgyModels(configured = "") {
   const bin = resolveBin("agy", configured) || "agy";
+  const env = buildEnv();
+  const launch = wrapSpawnCommand(bin, ["models"], { env });
   return new Promise((resolve) => {
-    execFile(bin, ["models"], { env: buildEnv(), timeout: 10000, maxBuffer: 1 << 20 }, (err, out) => {
+    execFile(launch.command, launch.args, spawnOptions(launch, { env, timeout: 10000, maxBuffer: 1 << 20 }), (err, out) => {
       if (err) return resolve([]);
       const list = String(out || "").split("\n").map((l) => l.split("\t")[0].trim()).filter((id) => id && !id.startsWith("Fetching"));
       resolve([...new Set(list)]);

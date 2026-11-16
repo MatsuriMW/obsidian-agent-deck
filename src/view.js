@@ -606,6 +606,7 @@ export class AgentDeckView extends ItemView {
     const cliCapable = ["claude", "codex", "opencode", "qoder", "workbuddy"].includes(id);
     const hint = handoff ? t("交给 {name}", { name: a.short }) : t("委派给 {name}", { name: a.short });
     // 设置里「默认在终端里委派」开着时反过来：不按 ⌘ 在终端里开，按住 ⌘ 走原来的后台 / 客户端
+    const isMod = (e) => !!(process.platform === "darwin" ? e.metaKey : (e.ctrlKey || e.metaKey));
     const toTerm = (meta) => cliCapable && (!!meta !== !!p.settings.delegateInTerminal);
     const hintFor = (meta) => (toTerm(meta) ? t("在终端里开 {name}", { name: a.short }) : hint);
     if (!a.trackingOnly) card.setAttr("data-drop-hint", hintFor(false));
@@ -615,8 +616,8 @@ export class AgentDeckView extends ItemView {
       e.preventDefault();
       e.dataTransfer.dropEffect = "copy";
       card.addClass("is-drop");
-      card.toggleClass("is-cli", toTerm(e.metaKey));
-      card.setAttr("data-drop-hint", hintFor(e.metaKey));
+      card.toggleClass("is-cli", toTerm(isMod(e)));
+      card.setAttr("data-drop-hint", hintFor(isMod(e)));
     });
     card.addEventListener("dragleave", (e) => { if (!a.trackingOnly && !card.contains(e.relatedTarget)) { card.removeClass("is-drop"); card.removeClass("is-cli"); card.setAttr("data-drop-hint", hintFor(false)); } });
     card.addEventListener("drop", (e) => {
@@ -626,7 +627,7 @@ export class AgentDeckView extends ItemView {
       card.removeClass("is-drop");
       card.removeClass("is-cli");
       card.setAttr("data-drop-hint", hintFor(false));
-      p.delegateDrop(id, p.readItemDrag(e), null, { cli: toTerm(e.metaKey) });
+      p.delegateDrop(id, p.readItemDrag(e), null, { cli: toTerm(isMod(e)) });
     });
     const top = card.createDiv({ cls: "ad-agentcard__top" });
     const grip = top.createEl("button", { cls: "ad-agentcard__grip ad-linkbtn", attr: { draggable: "true", "aria-label": t("拖动排序；方向键调整位置"), title: t("拖动排序；方向键调整位置") } });

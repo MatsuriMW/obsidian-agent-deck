@@ -8,6 +8,7 @@ import fs from "fs";
 import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 export { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 import { desktopSessions, desktopMessages } from "./desktop-sessions.js";
+import { expandHome, userDataDir, localDataDir, sqlite3Binary } from "./platform.js";
 import {
   stepText,
   todoOf,
@@ -78,34 +79,41 @@ const LIVE_STALE = 90 * 1000;   // a running session with no new event for this 
 const MAX_TS = 20000;
 
 const home = () => os.homedir();
-const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
+const norm = (p) => expandHome(p, home());
+const normSlashes = (p) => String(p || "").replace(/[\\/]+$/, "").replace(/\\/g, "/");
+const sameDir = (a, b) => {
+  const na = normSlashes(a);
+  const nb = normSlashes(b);
+  if (!na || !nb) return false;
+  return /^[a-z]:\//i.test(na) || /^[a-z]:\//i.test(nb) ? na.toLowerCase() === nb.toLowerCase() : na === nb;
+};
 
 // Codex (and DSH's default workspace) create a folder per task, so the folder
 // name is a machine slug: "a", "dui", "w-s", a session id. Those are useless as
 // "project" labels, so the day summary labels them with the session title
 // instead. A real project folder keeps its name.
 export function isScratchCwd(cwd) {
-  const path = String(cwd || "").replace(/\/+$/, "");
-  if (!path) return false;
-  const leaf = path.split("/").pop() || "";
+  const p = normSlashes(cwd);
+  if (!p) return false;
+  const leaf = p.split("/").pop() || "";
   if (/^\d+-[0-9a-f-]{16,}$/i.test(leaf) || /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(leaf)) return true;
   // "a" and "w-s" are Codex slugs; "api", "web", "app", "ui", "go" are real
   // project folders, so a short name alone is not enough.
   if (/^[a-z]$/i.test(leaf)) return true;
   if (/^[a-z]{1,3}-[a-z]{1,3}$/i.test(leaf)) return true;
   if (leaf === "default-workspace") return true;
-  if (path === home()) return true;   // work started from the home folder has no project
-  if (/\/Codex\/\d{4}-\d{2}-\d{2}\/[^/]+$/i.test(path)) return true;
+  if (sameDir(p, home())) return true;   // work started from the home folder has no project
+  if (/\/Codex\/\d{4}-\d{2}-\d{2}\/[^/]+$/i.test(p)) return true;
   return false;
 }
 
 export function projectName(cwd) {
   if (!cwd) return "?";
-  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(cwd)) return "WorkBuddy";
-  if (/\/\.dsh\/sessions\//.test(cwd)) return "DSH";
-  if (/\/\.gemini\/antigravity\//.test(cwd)) return "Antigravity";
-  const p = String(cwd).split("/.claude/worktrees/")[0].replace(/\/+$/, "");
-  return p === home() ? "~" : (p.split("/").pop() || p);
+  if (/[\\/]WorkBuddy[\\/]\d{4}-\d\d-\d\d/.test(cwd)) return "WorkBuddy";
+  if (/[\\/]\.dsh[\\/]sessions[\\/]/.test(cwd)) return "DSH";
+  if (/[\\/]\.gemini[\\/]antigravity[\\/]/.test(cwd)) return "Antigravity";
+  const p = String(cwd).split(/[\\/]\.claude[\\/]worktrees[\\/]/)[0].replace(/[\\/]+$/, "");
+  return sameDir(p, home()) ? "~" : (p.split(/[\\/]/).pop() || p);
 }
 
 // Standalone / scratch directories have no concrete project folder and must
@@ -136,9 +144,9 @@ export function inferWorkspaceRoot(target) {
 
 export function sessionProjectName(cwd) {
   const raw = String(cwd || "").trim();
-  if (!raw || raw === "~" || raw === "/") return "";
+  if (!raw || raw === "~" || raw === "/" || /^[a-z]:[\\/]?$/i.test(raw)) return "";
   if (isScratchCwd(raw)) return "";
-  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(raw) || /\/\.dsh\/sessions\//.test(raw) || /\/\.gemini\/antigravity\//.test(raw)) return "";
+  if (/[\\/]WorkBuddy[\\/]\d{4}-\d\d-\d\d/.test(raw) || /[\\/]\.dsh[\\/]sessions[\\/]/.test(raw) || /[\\/]\.gemini[\\/]antigravity[\\/]/.test(raw)) return "";
   const name = projectName(raw);
   return !name || name === "?" || name === "~" ? "" : name;
 }
@@ -390,9 +398,14 @@ export class AgentUsage {
   }
 
   desktopDatabases() {
+    const h = home();
+    const u = userDataDir(h);
+    const l = localDataDir(h);
     return [
-      [path.join(home(), ".local/share/opencode/opencode.db"), "opencode"],
-      [path.join(home(), "Library/Application Support/com.qoder.app.stable/main.sqlite"), "qoder"],
+      [path.join(h, ".local", "share", "opencode", "opencode.db"), "opencode"],
+      ...(process.platform === "win32" ? [[path.join(l, "opencode", "opencode.db"), "opencode"], [path.join(u, "opencode", "opencode.db"), "opencode"]] : []),
+      [path.join(u, "com.qoder.app.stable", "main.sqlite"), "qoder"],
+      ...(process.platform !== "darwin" ? [[path.join(u, "Qoder", "main.sqlite"), "qoder"]] : []),
     ];
   }
 
@@ -531,7 +544,7 @@ export class AgentUsage {
         if (m) {
           if (!m.title && cleanTitle) m.title = cleanTitle;
           if (!m.model && model && model !== "auto") m.model = model;
-          if (groupTitle && (!m.cwd || /\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(m.cwd))) m.cwd = groupTitle;
+          if (groupTitle && (!m.cwd || /[\\/]WorkBuddy[\\/]\d{4}-\d\d-\d\d/.test(m.cwd))) m.cwd = groupTitle;
         }
       }
       for (const id of (ws && ws.global && ws.global.archivedSessionIds) || []) db.add(String(id));
@@ -547,11 +560,7 @@ export class AgentUsage {
   // spawnedFrom.sessionId 是母会话的 local_ 号；归档也只是把 isArchived 设成 true，
   // ~/.claude/projects 里的 .jsonl 照旧。sid 用 cliSessionId，和 .jsonl 同名。
   deskRoots() {
-    const h = home();
-    const base = process.platform === "darwin" ? path.join(h, "Library/Application Support")
-      : process.platform === "win32" ? (process.env.APPDATA || path.join(h, "AppData/Roaming"))
-      : (process.env.XDG_CONFIG_HOME || path.join(h, ".config"));
-    return [path.join(base, "Claude", "claude-code-sessions")];
+    return [path.join(userDataDir(home()), "Claude", "claude-code-sessions")];
   }
 
   async readClaudeDesktop() {
@@ -1292,11 +1301,12 @@ export class UsageStore {
 }
 
 
-// 查一列（只跑 select）：macOS 自带 /usr/bin/sqlite3。不加 -readonly：WAL 模式的库（Codex）只读打不开。查不到返回空数组。
+// 查一列（只跑 select）：macOS 自带 /usr/bin/sqlite3，Windows 按 PATH/Scoop/Chocolatey 查找 sqlite3.exe。不加 -readonly：WAL 模式的库（Codex）只读打不开。查不到返回空数组。
 function sqliteColumn(db, sql) {
   return new Promise((resolve) => {
-    if (!fs.existsSync(db)) return resolve([]);
-    execFile("/usr/bin/sqlite3", ["-noheader", db, sql], { timeout: 5000, maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
+    const bin = sqlite3Binary();
+    if (!bin || !fs.existsSync(db)) return resolve([]);
+    execFile(bin, ["-noheader", db, sql], { timeout: 5000, maxBuffer: 4 * 1024 * 1024, windowsHide: true }, (err, out) => {
       if (err) return resolve([]);
       resolve(String(out || "").split("\n").map((s) => s.trim()).filter(Boolean));
     });

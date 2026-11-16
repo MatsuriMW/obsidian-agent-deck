@@ -23,7 +23,7 @@
 
 | 层级 | 核心文件 | 职责与关键锚点 |
 | --- | --- | --- |
-| 入口与设置 | `main.js`, `runtime-guard.js`, `constants.js`, `settings.js`, `settings-agents.js`, `model-groups.js` | 生命周期、`ManagedTimers` / `CircuitBreaker` / `safeRun` 定时隔离、`AGENTS` 元数据、`STORE_VERSION = 1`、Agent 排序/主力推荐、模型分组；`openTerminalAt`（`main.js`） |
+| 入口与设置 | `main.js`, `platform.js`, `runtime-guard.js`, `constants.js`, `settings.js`, `settings-agents.js`, `model-groups.js` | 生命周期、`src/platform.js` 跨平台无环叶子层（路径、`PATH` 分隔符、`.cmd` shim 解包/包装、`sqlite3` 与 Windows 终端探测）、`ManagedTimers` / `CircuitBreaker` / `safeRun` 定时隔离、`AGENTS` 元数据、`STORE_VERSION = 1`、Agent 排序/主力推荐、模型分组；`openTerminalAt`（`main.js`） |
 | 会话适配器 | `readers.js`, `agent-ingestors.js`, `cursor-sessions.js`, `grok-bot-sessions.js`, `desktop-sessions.js`, `codex-desktop.js`, `prompt-text.js`, `external-state.js` | 可扩展 Agent 日志解析注册表（`registerAgentIngestor`）、只读解析 9 家 Agent 日志/SQLite/Hooks/Persistence Blob/进程与外部排队状态；`USAGE_CACHE_VERSION = 11`（`readers.js`）；`cleanUserPrompt` / `isPromptText`（`prompt-text.js`） |
 | 委派与控制 | `agent-registry.js`, `harness.js`, `delegation-runners.js`, `delegation.js`, `workflow.js`, `attention.js`, `conversation.js`, `conversation-modal.js`, `dialog.js` | 声明式 Agent 能力注册、可扩展 Harness 管道与大纲/双链上下文解析、可扩展 Runner 注册表（`registerRunnerClass`）、工作位置选择、权限弹窗、只读对话查看与归档；`openTerminal` / `osa`（`delegation.js`） |
 | 日记与整理 | `outline.js`, `journal.js`, `autolog.js`, `note-updates.js`, `task-status.js`, `task-id.js`, `task-mentions.js`, `summary-links.js`, `background-output.js`, `organize-journal.js`, `journal-organizer.js`, `journal-layout.js`, `journal-archive.js`, `task-export.js`, `sync.js` | 共享只读大纲/双链原语（`outline.js`）、按文件排队写入、AI 总结、短链 `[🔗](url)`、语义块号生成与清理、整理/按视图导出（PDF/HTML/MD/JSON/CSV/剪贴板）与归档 |
@@ -55,6 +55,5 @@
 
 - **可选集成**：Magpie、Multica、螺旋日程、Telegram Companion、Bullet 折叠与个人主库路径必须运行时探测；`manifest.json` / `package.json` 描述不带冗余 `"Obsidian"`。
 - **macOS 专属与 Windows 热点**：
-  - 已隔离：`src/menubar.js` 限 `process.platform === "darwin"`；`src/readers.js` 区分 `APPDATA` 与 `Library/Application Support`，并在 `win32` 跳过 `claudeDesktop`。
-  - 待适配：`src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）。
-  - 当前验证范围：macOS 已测、Windows 未测。
+  - 已完成基础适配层：`src/menubar.js` 限 `process.platform === "darwin"`；`src/platform.js` 收口 `userDataDir` / `localDataDir` / `mergePathEnv`（`;` 分隔 + `%APPDATA%\npm` / WinGet / Scoop）/ `wrapSpawnCommand`（优先将 npm `.cmd` shim 直接解包到 `node.exe <script>`，其余 `.cmd`/`.bat` 走 `cmd.exe /d /s /c` + `windowsVerbatimArguments`）/ `sqlite3Binary` / `openUrlCrossPlatform` / `windowsShellBinary`；`src/delegation.js`（`openTerminal` / `pickTerminal` / `cliProcess` / `focusCliSession` / `openAgentApp` / `handoffCli`）、`src/main.js`（`openTerminalAt` / `checkBinary`）、`src/settings.js`（Windows `cliTerminal` 仅展示 `Windows Terminal` / `PowerShell`）、`src/view.js` / `src/editor.js`（非 macOS `Ctrl` 映射）、`src/readers.js` / `src/agent-ingestors.js`（`\` 路径与 `sqliteColumn`）及 `src/cursor-sessions.js`（Windows `node.exe` 与引号处理）均已兼容。
+  - 当前验证范围：macOS 全量 `npm test` 与构建已通过（含 `test/platform-win.test.mjs` 跨平台模拟单测）；Windows 真实机器端到端未实测（且未安装 `sqlite3.exe` 时 Qoder/OpenCode/Cursor/Codex/WorkBuddy SQLite 读取会静默返回空）。

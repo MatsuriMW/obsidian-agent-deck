@@ -7,7 +7,7 @@
 | 平台 | 已验证范围 | 未覆盖 / 已知代码缺口 |
 | --- | --- | --- |
 | **macOS** | 全量 `npm test`、构建、Vault 热重载、Dashboard、标题保护、token 显示、Qoder CLI 同会话 | 终端交互仅实测 Tern / Herdr；7 家客户端全量委派未逐一复测 |
-| **Windows** | 尚未实机运行验证 | `src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）仍依赖 macOS `osascript`/终端；`src/readers.js` 在 `win32` 跳过 `claudeDesktop`；CLI 探测与路径短链待实测 |
+| **Windows** | 尚未实机运行验证（仅在 macOS 完成 `test/platform-win.test.mjs` 模拟单测） | 已在代码层完成 `src/platform.js`、`.cmd` shim 包装/解包、Windows Terminal/PowerShell 终端拉起、`APPDATA`/`LOCALAPPDATA` 目录、`\` 路径解析、`Ctrl` 修饰键与 `sqlite3.exe` 探测降级；未装 `sqlite3.exe` 时 SQLite 元数据返回空，实机委派/终端/桌面协议唤起与 Cursor Hooks 待 Windows 实测 |
 
 ## 活跃 Backlog（均未排期）
 
@@ -61,3 +61,7 @@
   - Grok Bot（`com.anysphere.sand` 1.1.0）仅追踪集成：`src/grok-bot-sessions.js` 按真实持久化目录 `~/Library/Application Support/Grok Bot/sand-client-persistence/*.blob`（unpadded lowercase Base32 `roster.last-roster` + `transcript.replicas.<botId>`）读取；`grokBotTrackedBotIds` 默认全不选，在「记录 → 来源与扫描」的 Grok Bot 条目内折叠多选（隐藏 Bot 默认收起）；云端沙箱无本地逐条 token/模型，保留为 `0`/未提供；自动记录标题统一为 `Bot名 -> 实际生成标题`，无客户端归档，默认超过 `autoLogGrokBotDoneMinutes`（120 分钟）无新对话自动标为 `DONE`；`USAGE_CACHE_VERSION` 递增至 `11`。
   - AI 记录格式规则层：`DEFAULT_RECORD_RULES` / `resolveRecordRules`（`src/constants.js`）收口 `boldTitle`（默认 `true`，仅新写/重建 AI 自动记录母块标题自动加粗 `**...**`，`preserveTitle` 与委派子项不加粗）、`projectPrefix`（默认 `true`）、`showTimeRange`（默认 `true`）与 `titleMax`（默认 `22`），并在「设置 → 记录 → 日记与归档 → 更多设置 → 记录规则细则」开放用户微调（联动 `journal.js`、`autolog.js`、`main.js`、`bindInto`）。
   - 验证边界：macOS 已通过全量 `npm test`、`npm run build`、`swiftc -typecheck src/menubar.swift`、`git diff --check` 及本机真实 `sand-client-persistence` 目录只读解析校验；Obsidian 界面抽查与 Windows 端未实测。
+- **Windows 兼容层补全（本地工作区，未发版）**：
+  - 统一平台叶子层 `src/platform.js`：`mergePathEnv`（`;` 分隔 PATH 与 `%APPDATA%\npm` / WinGet / Scoop）、`resolveExecutable`（含 Windows Store App Execution Alias `lstatSync` 回退）、`nodeBinary`、`wrapSpawnCommand`（优先解包 npm `.cmd` shim 直接用 `node.exe` 执行 `.js` 入口以无损传递多行提示词与特殊字符，其余 `.cmd`/`.bat` 用 `cmd.exe /d /s /c` + `windowsVerbatimArguments`）、`spawnOptions`（统一 `windowsHide: true`）、`sqlite3Binary`、`openUrlCrossPlatform`、`windowsShellBinary`。
+  - 跨平台断点修复：`src/delegation-runners.js`、`src/codex-desktop.js`、`src/llm.js`、`src/main.js`（`checkBinary` 补用 `cleanEnv()`、`openTerminalAt`、`openPluginDir` 用 `pathToFileURL`）、`src/delegation.js`（Windows Terminal / PowerShell、`openAgentApp`、`openSession` CLI 路径、PowerShell `Get-Content` 读任务文件）、`src/readers.js`（`sqliteColumn` 改用 `sqlite3Binary()`、`isScratchCwd` / `projectName` / `sessionProjectName` 支持 `\` 与盘符根）、`src/agent-ingestors.js`（Windows 文件名与 `@[C:\...]` 工作区提取）、`src/cursor-sessions.js`（Windows `node.exe` 查找与不破坏反斜杠的引号转义）、`src/dream-sharing.js`（`~\` 展开）、`src/settings.js`（Windows 主力终端下拉仅显示 `Windows Terminal` / `PowerShell`）、`src/view.js` 与 `src/editor.js`（非 macOS 使用 `Ctrl` 替代 `⌘` 拖拽/点击）。
+  - 验证边界：macOS 全量 `npm test`（含 `test/platform-win.test.mjs`、`test/architecture-refactor.test.mjs`、`test/i18n.test.mjs`）、`npm run build` 与 `git diff --check` 已通过；真实 Windows 机器端到端未实测。

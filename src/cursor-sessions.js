@@ -9,6 +9,7 @@ import os from "os";
 import { execFile } from "child_process";
 import { randomUUID } from "crypto";
 import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
+import { nodeBinary, sqlite3Binary } from "./platform.js";
 
 const fsp = fs.promises;
 
@@ -68,26 +69,12 @@ function writeAtomicSync(file, data, mode) {
   } finally { try { fs.unlinkSync(tmp); } catch { /* committed or absent */ } }
 }
 
-const quoteShell = (s) => `"${String(s || "").replace(/(["\\$`])/g, "\\$1")}"`;
+const quoteShell = (s, platform = process.platform) => platform === "win32"
+  ? `"${String(s || "").replace(/"/g, '\\"')}"`
+  : `"${String(s || "").replace(/(["\\$`])/g, "\\$1")}"`;
 
-export function findNodeBinary(homeDir = os.homedir()) {
-  const baseExec = path.basename(process.execPath || "").toLowerCase();
-  if (baseExec === "node" || baseExec === "node.exe") return process.execPath;
-  const candidates = [
-    "/opt/homebrew/bin/node",
-    "/usr/local/bin/node",
-  ];
-  try {
-    const nvmDir = path.join(homeDir, ".nvm", "versions", "node");
-    if (fs.existsSync(nvmDir)) {
-      const vers = fs.readdirSync(nvmDir).sort().reverse();
-      for (const v of vers) candidates.push(path.join(nvmDir, v, "bin", "node"));
-    }
-  } catch { /* no nvm */ }
-  for (const c of candidates) {
-    try { if (fs.existsSync(c)) return c; } catch { /* ignore */ }
-  }
-  return "node";
+export function findNodeBinary(homeDir = os.homedir(), platform = process.platform, env = process.env) {
+  return nodeBinary({ homeDir, platform, env });
 }
 
 export function cursorHookScript() {
@@ -266,21 +253,21 @@ export function cursorHooksStatus({ homeDir = os.homedir() } = {}) {
   return { installed, outdated, matchedEvents, totalEvents: CURSOR_HOOK_EVENTS.length, scriptExists, scriptPath, hooksPath };
 }
 
-export function installCursorHooks({ homeDir = os.homedir(), nodePath = "" } = {}) {
+export function installCursorHooks({ homeDir = os.homedir(), nodePath = "", platform = process.platform, env = process.env } = {}) {
   const scriptPath = cursorHookScriptPath(homeDir);
   const hooksPath = cursorHooksJsonPath(homeDir);
   const eventsDir = cursorEventsDir(homeDir);
   fs.mkdirSync(eventsDir, { recursive: true });
   writeAtomicSync(scriptPath, cursorHookScript(), 0o755);
 
-  const node = nodePath || findNodeBinary(homeDir);
+  const node = nodePath || findNodeBinary(homeDir, platform, env);
   const cfg = readHooksJson(hooksPath);
   if (!Number.isFinite(cfg.version) || cfg.version < 1) cfg.version = 1;
   const hooks = cfg.hooks && typeof cfg.hooks === "object" && !Array.isArray(cfg.hooks) ? { ...cfg.hooks } : {};
 
   for (const ev of CURSOR_HOOK_EVENTS) {
     const existing = Array.isArray(hooks[ev]) ? hooks[ev].filter((e) => !isDeckHookEntry(e)) : [];
-    existing.push({ command: `${quoteShell(node)} ${quoteShell(scriptPath)} ${ev}` });
+    existing.push({ command: `${quoteShell(node, platform)} ${quoteShell(scriptPath, platform)} ${ev}` });
     hooks[ev] = existing;
   }
   cfg.hooks = hooks;
@@ -311,7 +298,7 @@ export function isCursorRunning({ platform = process.platform, exec = execFile }
   const cmd = platform === "win32" ? "tasklist" : platform === "darwin" ? "/bin/ps" : "ps";
   const args = platform === "win32" ? ["/FI", "IMAGENAME eq Cursor.exe", "/FO", "CSV", "/NH"] : ["-eo", "comm="];
   return new Promise((resolve) => {
-    exec(cmd, args, { timeout: 2000, maxBuffer: 1 << 20 }, (err, out) => {
+    exec(cmd, args, { timeout: 2000, maxBuffer: 1 << 20, windowsHide: true }, (err, out) => {
       if (err) return resolve(false);
       const text = String(out || "");
       if (platform === "win32") return resolve(/"cursor\.exe"/i.test(text));
@@ -325,9 +312,10 @@ export function isCursorRunning({ platform = process.platform, exec = execFile }
 
 function sqliteRows(db, sql) {
   return new Promise((resolve) => {
-    if (!fs.existsSync(db)) return resolve([]);
+    const bin = sqlite3Binary();
+    if (!bin || !fs.existsSync(db)) return resolve([]);
     // Omit -readonly so WAL-mode Cursor databases reflect uncommitted WAL writes.
-    execFile("/usr/bin/sqlite3", ["-noheader", "-separator", "\t", db, sql], { timeout: 5000, maxBuffer: 4 << 20 }, (err, out) => {
+    execFile(bin, ["-noheader", "-separator", "\t", db, sql], { timeout: 5000, maxBuffer: 4 << 20, windowsHide: true }, (err, out) => {
       if (err) return resolve([]);
       resolve(String(out || "").split("\n").map((s) => s.trimEnd()).filter(Boolean));
     });

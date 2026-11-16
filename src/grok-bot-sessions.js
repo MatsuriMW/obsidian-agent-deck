@@ -9,6 +9,7 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { userDataDir } from "./platform.js";
 
 const BASE32_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 const BASE32_LOOKUP = new Map([...BASE32_ALPHA].map((ch, idx) => [ch, idx]));
@@ -50,9 +51,7 @@ export function encodeSandBlobKey(key) {
 }
 
 export function grokBotDataDir(homeDir = os.homedir(), platform = process.platform, env = process.env) {
-  if (platform === "win32") return path.join(env.APPDATA || path.join(homeDir, "AppData", "Roaming"), "Grok Bot");
-  if (platform === "darwin") return path.join(homeDir, "Library", "Application Support", "Grok Bot");
-  return path.join(env.XDG_CONFIG_HOME || path.join(homeDir, ".config"), "Grok Bot");
+  return path.join(userDataDir(homeDir, platform, env), "Grok Bot");
 }
 
 export const grokBotPersistenceDir = (homeDir = os.homedir(), platform = process.platform, env = process.env) =>

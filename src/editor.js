@@ -46,12 +46,13 @@ const dropField = StateField.define({
 });
 
 const hasType = (e, type) => !!(e.dataTransfer && [...e.dataTransfer.types].includes(type));
+const isModKey = (e) => !!(process.platform === "darwin" ? e.metaKey : (e.ctrlKey || e.metaKey));
 
 function dropTarget(view, e) {
   const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }, false);
   if (pos == null) return null;
   const n = view.state.doc.lineAt(pos).number - 1;
-  return J.dropKind(view.state.doc.toString().split("\n"), n, !!e.metaKey);   // 按住 ⌘：在下面新建一项，不绑这一项
+  return J.dropKind(view.state.doc.toString().split("\n"), n, isModKey(e));   // 按住 ⌘/Ctrl：在下面新建一项，不绑这一项
 }
 
 function mergeTarget(view, e, plugin) {
@@ -109,7 +110,7 @@ function dndHandlers(plugin) {
         show(view, null);
         let data = null;
         try { data = JSON.parse(e.dataTransfer.getData(SESSION_MIME)); } catch { /* bad payload */ }
-        if (data && target) plugin.bindSessionAt(view, target.line, data, { below: !!e.metaKey });
+        if (data && target) plugin.bindSessionAt(view, target.line, data, { below: isModKey(e) });
         else if (data) plugin.notice(tr("这一行放不了会话：拖到列表项、空的列表项或空行上"));
         return true;
       }
@@ -166,7 +167,7 @@ class GripWidget extends WidgetType {
       e.stopPropagation();
       if (e.detail > 1) return;
       clearTimeout(clickTimer);
-      if (e.metaKey) return this.plugin.gripPick(item, e);
+      if (isModKey(e)) return this.plugin.gripPick(item, e);
       clickTimer = setTimeout(() => this.plugin.gripSend(item), 260);
     });
     el.addEventListener("dblclick", (e) => {

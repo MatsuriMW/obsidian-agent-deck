@@ -34,7 +34,7 @@ export function unquoteArgs(args) {
 export function stepText(name, input) {
   const i = input || {};
   const n = String(name || "");
-  const base = (x) => String(x || "").split("/").pop();
+  const base = (x) => String(x || "").split(/[\\/]/).pop();
   const cut = (x) => { x = String(x || "").replace(/\s+/g, " ").trim(); return x.length > 34 ? x.slice(0, 33) + "…" : x; };
   if (/^(bash|shell|local_shell_call|exec_command|shell_command|run_command)$/i.test(n)) return cut(i.description || i.toolSummary || (Array.isArray(i.command) ? i.command[i.command.length - 1] : i.command || i.cmd || i.CommandLine) || t("跑命令"));
   if (/^(edit|multiedit|notebookedit|apply_patch|str_replace_editor|edit_file|replace_file_content|multi_replace_file_content)$/i.test(n)) return cut(t("改 {file}", { file: base(i.file_path || i.notebook_path || i.path || i.Path || i.TargetFile) || t("文件") }));
@@ -396,7 +396,7 @@ export function ingestAntigravityLine(ctx, line, fc, touched) {
     const mMod = /Model Selection` from `[^`]*` to `([^`]+)`/.exec(raw);
     if (mMod) fc.model = mMod[1];
     const text = cleanUserPrompt(raw);
-    const mPath = /@\[(\/[^\]]+)\]/.exec(text) || /(\/Users\/[^\s`"'<>)\]]+)/.exec(text);
+    const mPath = /@\[((?:\/|[a-zA-Z]:[\\/])[^\]]+)\]/.exec(text) || /(\/Users\/[^\s`"'<>)\]]+|[a-zA-Z]:\\Users\\[^\s`"'<>)\]]+)/.exec(text);
     if (mPath && !fc.cwd) {
       fc.cwd = ctx.inferWorkspaceRoot(mPath[1]);
     }
@@ -431,7 +431,8 @@ export function ingestAntigravityLine(ctx, line, fc, touched) {
       for (const tc of tools) {
         const inp = unquoteArgs(tc.args);
         const p0 = inp.Path || inp.TargetFile || inp.SearchPath || inp.DirectoryPath || "";
-        if (p0 && typeof p0 === "string" && p0.startsWith("/") && (!fc.cwd || fc.cwd === "~") && !p0.includes("/.gemini/")) {
+        const isAbs = typeof p0 === "string" && (p0.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(p0));
+        if (p0 && isAbs && (!fc.cwd || fc.cwd === "~") && !/[\\/]\.gemini[\\/]/.test(p0)) {
           fc.cwd = ctx.inferWorkspaceRoot(p0);
           s.cwd = fc.cwd; s.proj = ctx.projectName(fc.cwd);
         }

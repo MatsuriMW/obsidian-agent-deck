@@ -532,7 +532,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     qoder.appendChild(qoderMore.parentElement);
 
     const sharedAgents = this.card(body, t("公共终端与其余 Agent"), "");
-    this.rowSelect(sharedAgents, t("主力终端"), t("用于终端委派和恢复会话"), [{ id: "auto", label: t("自动") }, { id: "terminal", label: t("系统终端") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
+    const terminalOptions = process.platform === "win32"
+      ? [{ id: "auto", label: t("自动") }, { id: "wt", label: "Windows Terminal" }, { id: "powershell", label: "PowerShell" }]
+      : [{ id: "auto", label: t("自动") }, { id: "terminal", label: t("系统终端") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }];
+    this.rowSelect(sharedAgents, t("主力终端"), t("用于终端委派和恢复会话"), terminalOptions, s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
     this.rowToggle(sharedAgents, t("默认在终端委派"), t("适用于 Claude Code、Codex、OpenCode 和 Qoder"), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
     for (const id of ["workbuddy"]) {
       const r = this.row(sharedAgents, AGENTS[id].name, "", t("客户端交接 · 在客户端选择模型"));

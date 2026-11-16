@@ -1,6 +1,7 @@
 // Desktop databases are read in a transaction; no daemon, model call or database write.
 import fs from "fs";
 import { execFile } from "child_process";
+import { sqlite3Binary } from "./platform.js";
 
 const quote = (value) => "'" + String(value).replaceAll("'", "''") + "'";
 const json = (value, fallback = {}) => { try { return typeof value === "string" ? JSON.parse(value) : value || fallback; } catch { return fallback; } };
@@ -8,9 +9,10 @@ export const desktopTime = (value) => typeof value === "number" ? value : Date.p
 const modelName = (value) => { const m = json(value, value); return typeof m === "string" ? m : m?.modelID || m?.id || ""; };
 
 export function desktopQuery(db, sql) {
-  if (!fs.existsSync(db)) return Promise.resolve([]);
+  const bin = sqlite3Binary();
+  if (!bin || !fs.existsSync(db)) return Promise.resolve([]);
   return new Promise((resolve, reject) => {
-    execFile("/usr/bin/sqlite3", ["-readonly", "-json", "-cmd", ".timeout 2000", db, `BEGIN; ${sql}; COMMIT;`], { timeout: 10000, maxBuffer: 64 << 20 }, (err, out) => {
+    execFile(bin, ["-readonly", "-json", "-cmd", ".timeout 2000", db, `BEGIN; ${sql}; COMMIT;`], { timeout: 10000, maxBuffer: 64 << 20, windowsHide: true }, (err, out) => {
       if (err) return reject(err);
       try { resolve(JSON.parse(out || "[]")); } catch (e) { reject(e); }
     });

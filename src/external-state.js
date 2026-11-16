@@ -30,8 +30,10 @@ function psElapsedSeconds(text) {
 }
 
 function readProcessList() {
+  if (process.platform === "win32") return Promise.resolve("");
+  const psBin = process.platform === "darwin" ? "/bin/ps" : "ps";
   return new Promise((resolve) => {
-    execFile("/bin/ps", ["-A", "-o", "pid=,ppid=,etime=,args="], { maxBuffer: 16e6 }, (err, stdout) => {
+    execFile(psBin, ["-A", "-o", "pid=,ppid=,etime=,args="], { maxBuffer: 16e6 }, (err, stdout) => {
       resolve(err ? "" : String(stdout || ""));
     });
   });

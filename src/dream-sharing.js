@@ -7,10 +7,11 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import { memoryEntries } from "./dream-entries.js";
 import { t } from "./i18n.js";
+import { expandHome } from "./platform.js";
 
 const exec = promisify(execFile);
 export function externalMemoryPath(value) {
-  const target = String(value || "").trim().replace(/^~(?=\/)/, os.homedir());
+  const target = expandHome(value, os.homedir());
   if (!path.isAbsolute(target) || path.extname(target).toLowerCase() !== ".md") throw new Error(t("共享目标必须是外部 Markdown 文件的绝对路径"));
   return path.normalize(target);
 }
@@ -53,7 +54,7 @@ export class DreamSharing {
         const realSource = await fs.realpath(source).catch(e => { if (e.code !== "ENOENT") throw e; return source; });
         if (realTarget === realSource) throw new Error(t("共享目标不能覆盖原长期记忆笔记"));
       }
-      const git = async (args, cwd = path.dirname(target)) => (await exec("git", ["--literal-pathspecs", ...args], { cwd, timeout: 60000, maxBuffer: 1024 * 1024 })).stdout.trim();
+      const git = async (args, cwd = path.dirname(target)) => (await exec("git", ["--literal-pathspecs", ...args], { cwd, timeout: 60000, maxBuffer: 1024 * 1024, windowsHide: true })).stdout.trim();
       let root, relative, branch;
       if (gitPush) {
         // Validate the repository before writing. Never stage or commit unrelated files.

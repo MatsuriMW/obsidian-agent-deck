@@ -11,10 +11,11 @@ import { spawn, execFile } from "child_process";
 import { AGENTS, DEFAULTS, MODEL_CATALOG, truncate } from "./constants.js";
 import { CodexDesktopRunner } from "./codex-desktop.js";
 import { t } from "./i18n.js";
+import { expandHome, localDataDir, mergePathEnv, resolveExecutable, spawnOptions, wrapSpawnCommand } from "./platform.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
-const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
+const norm = (p) => expandHome(p, home());
 
 const AGENT_BINARY_SPECS = {
   codex: { fallback: "codex", candidates: () => [] },
@@ -69,6 +70,7 @@ const AGENT_BINARY_SPECS = {
     fallback: "claude",
     candidates: () => [
       path.join(home(), ".local/bin/claude"),
+      path.join(localDataDir(), "Programs", "claude", "claude.exe"),
       "/opt/homebrew/bin/claude",
       "/usr/local/bin/claude",
       "/usr/bin/claude",
@@ -77,12 +79,7 @@ const AGENT_BINARY_SPECS = {
 };
 
 function findBinary(configured, candidates, fallback) {
-  const custom = configured && String(configured).trim();
-  if (custom) return norm(custom);
-  for (const p of candidates) {
-    try { if (fs.existsSync(p)) return p; } catch { /* next */ }
-  }
-  return fallback;
+  return resolveExecutable(fallback, configured, { candidates, homeDir: home() });
 }
 
 export function findAgentBinary(agent, configured = "") {
@@ -104,8 +101,13 @@ export const findClaudeBinary = (configured = "") => findAgentBinary("claude", c
 function pickTrusted(list, vaultPath) {
   if (list.includes(vaultPath)) return vaultPath;
   const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
-  const trusted = list.filter((p) => isDir(p) && !/^\/(private\/)?(tmp|var)\//.test(p));
-  const notAncestor = trusted.filter((p) => p !== vaultPath && !String(vaultPath).startsWith(p.replace(/\/+$/, "") + "/"));
+  const isTemp = (p) => /^\/(?:private\/)?(?:tmp|var)\//i.test(p) || /^[a-z]:[\\/].*[\\/]temp(?:[\\/]|$)/i.test(p);
+  const trusted = list.filter((p) => isDir(p) && !isTemp(p));
+  const vp = String(vaultPath || "");
+  const notAncestor = trusted.filter((p) => {
+    const clean = p.replace(/[\\/]+$/, "");
+    return p !== vp && !vp.startsWith(clean + "/") && !vp.startsWith(clean + "\\");
+  });
   notAncestor.sort((a, b) => a.length - b.length);
   if (notAncestor.length) return notAncestor[0];
   trusted.sort((a, b) => a.length - b.length);
@@ -128,11 +130,7 @@ export async function findCodexTrustedDir(vaultPath) {
 }
 
 export function cleanEnv(extra = {}) {
-  const env = { ...process.env, ...extra };
-  const parts = new Set(String(env.PATH || "").split(":").filter(Boolean));
-  for (const p of [path.join(home(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]) parts.add(p);
-  env.PATH = [...parts].join(":");
-  return env;
+  return mergePathEnv(process.env, { extra, homeDir: home() });
 }
 
 function splitArgs(s) {
@@ -147,7 +145,8 @@ function spawnCapture(bin, args, { cwd, env, timeout = 30000 }) {
   return new Promise((resolve) => {
     let out = "", err = "", done = false;
     let child;
-    try { child = spawn(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }); }
+    const launch = wrapSpawnCommand(bin, args, { env });
+    try { child = spawn(launch.command, launch.args, spawnOptions(launch, { cwd, env, stdio: ["ignore", "pipe", "pipe"] })); }
     catch (e) { return resolve({ ok: false, out: "", err: String(e && e.message || e) }); }
     const timer = setTimeout(() => { if (!done) { done = true; try { child.kill("SIGTERM"); } catch { /* gone */ } resolve({ ok: false, out, err: err || t("超时") }); } }, timeout);
     child.stdout.on("data", (b) => { out += b.toString(); if (out.length > 20000) out = out.slice(-20000); });
@@ -159,7 +158,8 @@ function spawnCapture(bin, args, { cwd, env, timeout = 30000 }) {
 
 function execCapture(bin, args, { cwd, env, timeout = 10000 } = {}) {
   return new Promise((resolve) => {
-    execFile(bin, args, { cwd, env, timeout, maxBuffer: 8 * 1024 * 1024 }, (err, out, errOut) => {
+    const launch = wrapSpawnCommand(bin, args, { env });
+    execFile(launch.command, launch.args, spawnOptions(launch, { cwd, env, timeout, maxBuffer: 8 * 1024 * 1024 }), (err, out, errOut) => {
       resolve({ ok: !err, out: String(out || ""), err: String(errOut || (err && err.message) || "") });
     });
   });
@@ -344,7 +344,9 @@ export class ClaudeRunner extends BaseRunner {
     const sid = randomUUID();
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = `${bin} ${args2.slice(0, -2).join(" ")} …`;
-    const child = spawn(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    const env = cleanEnv();
+    const launch = wrapSpawnCommand(bin, args2, { env });
+    const child = spawn(launch.command, launch.args, spawnOptions(launch, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }));
     this.child = child;
     this.fallbackStarted = true;
     this.job.sessionId = sid;
@@ -417,7 +419,9 @@ export class ClaudeRunner extends BaseRunner {
     if (reason !== "cancel") return;
     if (this.short) {
       const bin = findClaudeBinary(this.d.settings.delegate.claude.path || "");
-      execFile(bin, ["stop", this.short], { env: cleanEnv() }, () => {});
+      const env = cleanEnv();
+      const launch = wrapSpawnCommand(bin, ["stop", this.short], { env });
+      execFile(launch.command, launch.args, spawnOptions(launch, { env }), () => {});
     }
     this._killChild();
   }
@@ -456,7 +460,9 @@ export class QoderRunner extends BaseRunner {
     for (const a of splitArgs(cfg.extraArgs || "")) args.push(a);
     args.push("--", opts.prompt);
     this.job.command = [bin, ...args.slice(0, -1), "<prompt>"].join(" ");
-    const child = spawn(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    const env = cleanEnv();
+    const launch = wrapSpawnCommand(bin, args, { env });
+    const child = spawn(launch.command, launch.args, spawnOptions(launch, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }));
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -553,7 +559,9 @@ export class AcpRunner extends BaseRunner {
     const model = opts.model || cfg.model || (this.agent === "dsh" ? "deepseek-v4-pro" : "");
     const effort = opts.effort || cfg.effort || (this.agent === "dsh" ? "high" : "");
     this.job.command = `${bin} acp`;
-    const child = spawn(bin, ["acp", ...splitArgs(cfg.extraArgs || "")], { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    const env = cleanEnv();
+    const launch = wrapSpawnCommand(bin, ["acp", ...splitArgs(cfg.extraArgs || "")], { env });
+    const child = spawn(launch.command, launch.args, spawnOptions(launch, { cwd, env, stdio: ["pipe", "pipe", "pipe"] }));
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();

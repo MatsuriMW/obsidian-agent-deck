@@ -16,6 +16,7 @@ import { defaultDestination, activeJob, canOpenClient } from "./workflow.js";
 import path from "path";
 import os from "os";
 import { execFile } from "child_process";
+import { pathToFileURL } from "url";
 import {
   Plugin, Notice, MarkdownView, MarkdownRenderChild, Menu, editorInfoField,
 } from "obsidian";
@@ -29,7 +30,7 @@ import {
   uninstallCursorHooks as uninstallCursorHooksHelper,
   grokBotPersistenceDir,
 } from "./readers.js";
-import { Delegator, blockAt, freshTaskText, ancestorLines, delegationText, openSession as openSessionRaw, openExternal as openExternalRaw, findAgentBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
+import { Delegator, blockAt, freshTaskText, ancestorLines, delegationText, openSession as openSessionRaw, openExternal as openExternalRaw, openTerminal, findAgentBinary, wrapSpawnCommand, spawnOptions, cleanEnv, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
 import { AgentDeckSettingsTab } from "./settings.js";
@@ -1804,8 +1805,10 @@ export default class AgentDeckPlugin extends Plugin {
 
   async checkBinary(kind) {
     const bin = findAgentBinary(kind, this.settings.delegate?.[kind]?.path || "");
+    const env = cleanEnv();
+    const launch = wrapSpawnCommand(bin, ["--version"], { env });
     return await new Promise((resolve) => {
-      execFile(bin, ["--version"], { timeout: 10000, env: process.env }, (err, out, errOut) => {
+      execFile(launch.command, launch.args, spawnOptions(launch, { timeout: 10000, env }), (err, out, errOut) => {
         if (err) resolve(t("{kind} 没找到或不能运行：{error}", { kind, error: String(err.message || err) }) + "\n" + String(errOut || "").slice(0, 300));
         else resolve(`${kind}：${String(out || "").trim()}`);
       });
@@ -1813,8 +1816,12 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   openTerminalAt(cwd, cmd) {
-    const script = `tell application "Terminal"\nactivate\ndo script ${JSON.stringify(`cd ${JSON.stringify(cwd)} && ${cmd}`)}\nend tell`;
-    try { execFile("/usr/bin/osascript", ["-e", script], () => {}); } catch (e) { this.notice(String(e.message || e)); }
+    if (process.platform === "darwin") {
+      const script = `tell application "Terminal"\nactivate\ndo script ${JSON.stringify(`cd ${JSON.stringify(cwd)} && ${cmd}`)}\nend tell`;
+      try { execFile("/usr/bin/osascript", ["-e", script], () => {}); } catch (e) { this.notice(String(e.message || e)); }
+      return;
+    }
+    openTerminal(cmd, cwd, this.settings.cliTerminal || "auto", cmd).catch((e) => this.notice(String(e.message || e)));
   }
 
   openPluginDir() {
@@ -1822,7 +1829,7 @@ export default class AgentDeckPlugin extends Plugin {
       const { shell } = require("electron");
       if (shell && shell.openPath) return shell.openPath(this.pluginDir);
     } catch { /* fallback */ }
-    openExternalRaw("file://" + this.pluginDir);
+    openExternalRaw(pathToFileURL(this.pluginDir).href);
   }
 }
 

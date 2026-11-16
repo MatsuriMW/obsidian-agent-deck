@@ -43,6 +43,7 @@ import {
   getRunnerClasses,
   registerRunnerClass,
 } from "./delegation-runners.js";
+import { openUrlCrossPlatform, shellQuote as quoteShellArg, pwshQuote, spawnOptions, windowsShellBinary, wrapSpawnCommand } from "./platform.js";
 import { t } from "./i18n.js";
 
 export {
@@ -56,6 +57,8 @@ export {
   findQoderBinary,
   findWorkbuddyBinary,
   findClaudeBinary,
+  wrapSpawnCommand,
+  spawnOptions,
   findTrustedDir,
   findCodexTrustedDir,
   cleanEnv,
@@ -147,11 +150,7 @@ export function linkLine(indent, agent, name, sid) {
 }
 
 export function openExternal(url) {
-  try {
-    const { shell } = require("electron");
-    if (shell && typeof shell.openExternal === "function") { shell.openExternal(url); return true; }
-  } catch { /* not electron */ }
-  try { execFile("/usr/bin/open", [url], () => {}); return true; } catch { return false; }
+  return openUrlCrossPlatform(url);
 }
 
 const appInstalled = (name) => ["/Applications", path.join(home(), "Applications")].some((d) => fs.existsSync(path.join(d, name)));
@@ -171,6 +170,8 @@ const run = (bin, args) => new Promise((resolve) => execFile(bin, args, { timeou
 const DETECTED_FILE = () => path.join(home(), ".agent-deck", "terminal.json");
 const usable = (t) => t === "terminal" || (appInstalled(TERMINAL_APP[t]) && (t !== "herdr" || !!findBin("hc")));
 export async function pickTerminal(which = "auto") {
+  if (process.platform === "win32") return windowsShellBinary(which).which;
+  if (process.platform !== "darwin") return "terminal";
   if (TERMINAL_APP[which]) return usable(which) ? which : "terminal";
   const ps = await run("/bin/ps", ["-ax", "-o", "pid=,tty=,comm="]);
   const count = {};
@@ -191,11 +192,49 @@ export async function pickTerminal(which = "auto") {
   return TERMINAL_ORDER.find(usable) || "terminal";
 }
 
-export const TERMINAL_NAME = { herdr: "Herdr", tern: "Tern", iterm: "iTerm2", warp: "Warp", terminal: t("系统终端") };
+export const TERMINAL_NAME = { herdr: "Herdr", tern: "Tern", iterm: "iTerm2", warp: "Warp", wt: "Windows Terminal", powershell: "PowerShell", terminal: t("系统终端") };
 
 // 在终端里开一个标签跑 command，返回实际用的终端（auto 时是挑出来的那个）
 export async function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
   const dir = cwd && fs.existsSync(cwd) ? cwd : home();
+  if (process.platform === "win32") {
+    const winDir = dir.replace(/^([a-zA-Z]:)\\$/, "$1/");
+    const tabTitle = title || "Agent Deck";
+    const env = cleanEnv();
+    const { which: winWhich, wt, shellBin } = windowsShellBinary(which, { env });
+    const psScript = `Set-Location -LiteralPath ${pwshQuote(winDir)}; ${command}`;
+    if (winWhich === "wt" && wt) {
+      try {
+        const child = spawn(wt, [...(background ? ["-w", "0"] : []), "new-tab", "-d", winDir, "--title", tabTitle, shellBin, "-NoExit", "-Command", psScript], { env, detached: true, stdio: "ignore" });
+        child.on("error", () => {});
+        child.unref();
+        return "wt";
+      } catch { /* fallback to direct PowerShell */ }
+    }
+    try {
+      const child = spawn(shellBin, ["-NoExit", "-Command", psScript], { cwd: dir, env, detached: true, stdio: "ignore" });
+      child.on("error", () => {});
+      child.unref();
+    } catch { /* not launchable */ }
+    return "powershell";
+  }
+  if (process.platform !== "darwin") {
+    const script = `cd ${quoteShellArg(dir, "linux")} && ${command}; exec "\${SHELL:-/bin/sh}" -l`;
+    const candidates = [
+      ["x-terminal-emulator", ["-e", "/bin/sh", "-lc", script]],
+      ["gnome-terminal", ["--", "/bin/sh", "-lc", script]],
+      ["konsole", ["-e", "/bin/sh", "-lc", script]],
+      ["xfce4-terminal", ["-e", `/bin/sh -lc ${quoteShellArg(script, "linux")}`]],
+    ];
+    for (const [bin, args] of candidates) {
+      try {
+        const child = spawn(bin, args, { cwd: dir, detached: true, stdio: "ignore" });
+        child.unref();
+        return "terminal";
+      } catch { /* try next */ }
+    }
+    return "";
+  }
   const term = await pickTerminal(which);
   // Herdr：用 hc 起终端，带上 Herdr 的空间 / 标签记号它就出现在窗口里（窗口没开也行，开窗时就在）。
   // 委派放进「Agent Deck」空间、不切过去；resume 这类你点出来的，切过去并把 Herdr 叫到前台。跑完回到 shell，标签留着
@@ -262,7 +301,7 @@ export async function openTerminal(command, cwd = "", which = "auto", title = "C
 //   Claude Code：每个交互进程写一份 ~/.claude/sessions/<pid>.json，里面有 sessionId；
 //   Codex：找带 tty 的 codex 进程，看它开着的文件里有没有这个会话的 rollout-…-<sid>.jsonl。
 export async function cliProcess(agent, sid) {
-  if (!sid) return null;
+  if (process.platform !== "darwin" || !sid) return null;
   let pid = 0;
   if (agent === "claude") {
     const dir = path.join(home(), ".claude/sessions");
@@ -308,6 +347,7 @@ async function terminalHost(pid) {
 // 切到正在跑这个会话的那个终端标签。Terminal / iTerm2 按 tty 找到标签选中、窗口提到最前；
 // Warp 没有脚本接口，只能把 Warp 叫到前台。返回 "tab"（切到了标签）/ "app"（只叫到了前台）/ ""（没找到）
 export async function focusCliSession(agent, sid) {
+  if (process.platform !== "darwin") return "";
   const proc = await cliProcess(agent, sid);
   if (!proc) return "";
   const tty = JSON.stringify(proc.tty);
@@ -402,6 +442,7 @@ export const AGENT_APPS = {
 export function openAgentApp(agent) {
   const app = AGENT_APPS[agent];
   if (!app) return Promise.resolve(false);
+  if (process.platform !== "darwin") return Promise.resolve(openExternal(app.url));
   return new Promise((resolve) => {
     execFile("/usr/bin/open", ["-b", app.bundle], (err) => {
       if (!err) return resolve(true);
@@ -429,7 +470,9 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
   if (["opencode", "qoder", "cursor", "grokbot"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
-      return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);
+      const bin = findQoderBinary(plugin.settings.delegate?.qoder?.path || "");
+      const cmd = `${process.platform === "win32" ? "& " : ""}${shellQuote(bin)} -r ${shellQuote(sid)}`;
+      return focusOrResume(plugin, agent, sid, cmd, cwd);
     }
     copyText(sid);
     openAgentApp(agent).then((ok) => plugin.notice(ok ? t("已打开 {agent}；会话号已复制，请在客户端选择会话", { agent: AGENTS[agent].name }) : t("没打开 {agent}：本机好像没装", { agent: AGENTS[agent].name })));
@@ -439,7 +482,10 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     // 终端里起的会话：还开着就切到那个终端标签；关了才在新标签里 cd 到会话原来的目录 claude --resume。设置里可以改成走桌面版
     if (app === "cli" && plugin.settings.cliOpen !== "desktop") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
-      return focusOrResume(plugin, agent, sid, `claude --resume ${sid}`, cwd);
+      const cmd = process.platform === "win32"
+        ? `& ${shellQuote(findClaudeBinary(plugin.settings?.delegate?.claude?.path || ""))} --resume ${shellQuote(sid)}`
+        : `claude --resume ${sid}`;
+      return focusOrResume(plugin, agent, sid, cmd, cwd);
     }
     openExternal(`claude://resume?session=${sid}`);
     return true;
@@ -447,7 +493,9 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
   if (agent === "workbuddy") {
     const meta = session || (plugin.usage && plugin.usage.meta.get(sid)) || {};
     if ((app === "cli" || meta.app === "cli")) {
-      return focusOrResume(plugin, agent, sid, `${shellQuote(findWorkbuddyBinary(plugin.settings?.delegate?.workbuddy?.path || ""))} -r ${shellQuote(sid)}`, meta.cwd || "");
+      const bin = findWorkbuddyBinary(plugin.settings?.delegate?.workbuddy?.path || "");
+      const cmd = `${process.platform === "win32" ? "& " : ""}${shellQuote(bin)} -r ${shellQuote(sid)}`;
+      return focusOrResume(plugin, agent, sid, cmd, meta.cwd || "");
     }
     openExternal(`workbuddy://chat/${encodeURIComponent(sid)}`);
     return true;
@@ -456,7 +504,10 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     // 命令行里起的（codex / codex exec）：开着就切到那个终端标签，关了才 codex resume；桌面版里的用 codex://threads/<id> 回桌面版
     const meta = session || (plugin.usage && plugin.usage.meta.get(sid)) || {};
     if (!isCodexDesktop(app || meta.app) && plugin.settings.cliOpen !== "desktop") {
-      return focusOrResume(plugin, agent, sid, `codex resume ${sid}`, meta.cwd || "");
+      const cmd = process.platform === "win32"
+        ? `& ${shellQuote(findAgentBinary("codex", plugin.settings?.delegate?.codex?.path || ""))} resume ${shellQuote(sid)}`
+        : `codex resume ${sid}`;
+      return focusOrResume(plugin, agent, sid, cmd, meta.cwd || "");
     }
     openExternal(`codex://threads/${sid}`);
     copyText(`codex resume ${sid}`);
@@ -466,7 +517,7 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     // The desktop build currently only exposes dsh://open (focus the client). Keep the
     // session id on the clipboard and say so, instead of pretending to deep-link a row.
     openExternal("dsh://open");
-    try { navigator.clipboard.writeText(sid); } catch { /* clipboard */ }
+    copyText(sid);
     plugin.notice(t("已打开 DeepSeek Harness；会话号已复制"));
     return true;
   }
@@ -479,7 +530,7 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
   return false;
 }
 
-const shellQuote = (s) => "'" + String(s).replace(/'/g, "'\"'\"'") + "'";
+const shellQuote = (s) => quoteShellArg(s, process.platform);
 
 export class Delegator {
   constructor(plugin) {
@@ -710,19 +761,22 @@ export class Delegator {
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     let cmd;
+    const isWin = process.platform === "win32";
+    const invokeBin = isWin ? `& ${shellQuote(bin)}` : shellQuote(bin);
+    const readTask = isWin ? `(Get-Content -Raw -Encoding UTF8 ${shellQuote(taskFile)})` : `"$(cat ${shellQuote(taskFile)})"`;
     if (agent === "opencode") {
       const auto = this.C.opencode?.autoApprove ? " --auto" : "";
-      cmd = `${shellQuote(bin)}${auto} --prompt "$(cat ${shellQuote(taskFile)})" ${shellQuote(cwd)}`;
+      cmd = `${invokeBin}${auto} --prompt ${readTask} ${shellQuote(cwd)}`;
     } else if (agent === "qoder") {
       const perm = qoderPermissionArgs(opts.permission || this.C.qoder?.permission || "auto").map(shellQuote).join(" ");
       const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
-      cmd = `${shellQuote(bin)} -w ${shellQuote(cwd)}${addDir} ${perm} -m ${shellQuote(model)} --reasoning-effort ${shellQuote(effort)} -n ${shellQuote(name)} -- "$(cat ${shellQuote(taskFile)})"`;
+      cmd = `${invokeBin} -w ${shellQuote(cwd)}${addDir} ${perm} -m ${shellQuote(model)} --reasoning-effort ${shellQuote(effort)} -n ${shellQuote(name)} -- ${readTask}`;
     } else if (agent === "workbuddy") {
       const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
-      cmd = `${shellQuote(bin)}${addDir} -- "$(cat ${shellQuote(taskFile)})"`;
+      cmd = `${invokeBin}${addDir} -- ${readTask}`;
     } else {
       // 任务前面加 --：任务常以「- TODO」开头，不加会被当成命令行参数（unknown option）
-      cmd = `${shellQuote(bin)}${extra} -- "$(cat ${shellQuote(taskFile)})"`;
+      cmd = `${invokeBin}${extra} -- ${readTask}`;
     }
     const term = await openTerminal(cmd, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
     this.plugin.notice(t("已在 {terminal} 里开 {agent}", { terminal: term === "terminal" ? t("系统终端") : (TERMINAL_NAME[term] || t("终端")), agent: AGENTS[agent]?.name || agent }), 6000);

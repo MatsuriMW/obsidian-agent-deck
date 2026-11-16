@@ -1,13 +1,17 @@
 // Persist the first turn through App Server, release it, then continue in Desktop.
 import fs from "fs";
+import path from "path";
 import { spawn } from "child_process";
 import { createInterface } from "readline";
 import { t } from "./i18n.js";
+import { localDataDir, mergePathEnv, resolveExecutable, spawnOptions, wrapSpawnCommand } from "./platform.js";
 
 export function codexDesktopBinary(configured) {
   if (configured) return configured;
-  const bundled = ["/Applications/Codex.app/Contents/Resources/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"];
-  return bundled.find(p => fs.existsSync(p)) || "codex";
+  const bundled = process.platform === "win32"
+    ? [path.join(localDataDir(), "Programs", "Codex", "Codex.exe")]
+    : ["/Applications/Codex.app/Contents/Resources/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"];
+  return resolveExecutable("codex", "", { candidates: bundled });
 }
 
 export class CodexDesktopRunner {
@@ -30,7 +34,9 @@ export class CodexDesktopRunner {
     try {
       this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
       const cfg = this.d.settings.delegate.codex;
-      this.child = spawn(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
+      const env = mergePathEnv(process.env);
+      const launch = wrapSpawnCommand(codexDesktopBinary(cfg.path), ["app-server"], { env });
+      this.child = spawn(launch.command, launch.args, spawnOptions(launch, { cwd: this.job.cwd, env, stdio: ["pipe", "pipe", "pipe"] }));
       this.closed = new Promise(resolve => this.child.once("close", resolve));
       this.child.on("error", error => this.finish("error", error.message));
       this.child.stdin.on("error", error => { if (!this.finished) this.finish("error", error.message); });
