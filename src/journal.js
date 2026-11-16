@@ -39,8 +39,30 @@ export const CLOCK_RE = /^\s*[-*+]\s+⏱/;
 export const QUESTION_RE = /^\s*[-*+]\s+❓/;
 export const PLAN_RE = /^\s*[-*+]\s+📋/;
 export const CONTEXT_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋)\s/;
+export const RECORD_ICON_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋|⏱|🔗)\s/;
 // 本插件写下的记录行（和 ai-records.js 的 AI_RECORD_RE 一致），⏱ 也在其中
 export const RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
+export const RECORD_PROVENANCE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/g;
+export const RECORD_PROVENANCE_LINE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
+const TASK_KW_LEAD_RE = new RegExp(`^\\s*(?:${TASK_KWS})\\s+`, "i");
+const TASK_KW_BULLET_LEAD_RE = new RegExp(`^\\s*(?:[-*+]\\s+)?(?:${TASK_KWS})\\s+`, "i");
+export function stripTaskKeyword(raw, { allowBullet = false } = {}) {
+  return String(raw || "").replace(allowBullet ? TASK_KW_BULLET_LEAD_RE : TASK_KW_LEAD_RE, "");
+}
+export function stripInlineTitleMarkup(raw, { stripHash = false } = {}) {
+  return String(raw || "")
+    .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, "$2")
+    .replace(/\[([^\]\n]+)\]\([^)\n]+\)/g, "$1")
+    .replace(stripHash ? /[*_`~#]/g : /[*_`~]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+export function stripBoundSessionSuffix(line, link = parseLink(line)) {
+  const s = String(line || "");
+  if (!link?.sid) return s;
+  const suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(s);
+  return suffix?.[1] === link.sid ? s.slice(0, suffix.index).trimEnd() : s;
+}
 export const KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
 export const AUTO_MARK = "🤖 ";
 export const BLOCK_ID_RE = /\s+\^([A-Za-z0-9-]+)\s*$/;
@@ -60,7 +82,7 @@ export function normalizeTaskSlug(value) {
   const slug = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
   return /^[a-z][a-z0-9]{0,15}(?:-[a-z][a-z0-9]{0,15})?$/.test(slug) ? slug : "";
 }
-const isLegacyBlockId = id => /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id || "");
+export const isLegacyBlockId = id => /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id || "");
 const shortSessionId = seed => BigInt("0x" + createHash("sha256").update(String(seed)).digest("hex").slice(0, 12)).toString(36).padStart(10, "0");
 export const sessionMarker = (kind, sid, round) => `<!-- ad-${kind}:${shortSessionId(sid)}:${round} -->`;
 export const turnMarker = (sid, round) => sessionMarker("turn", sid, round);
@@ -82,12 +104,11 @@ export function cleanCompletedIdentifiers(text, trackedIds = new Set()) {
   const crlf = /\r\n/.test(text);
   const lines = text.replace(/\r\n/g, "\n").split("\n"), fenced = fencedLines(lines), owners = ownersOf(lines), ai = new Set();
   const record = raw => RECORD_LINE_RE.test(raw) || /^\s*[-*+]\s+⏳\s/.test(raw);
-  const marker = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
   for (let i = 0; i < lines.length; i++) {
     if (fenced.has(i)) continue;
     const k = LIST_RE.test(lines[i]) && kwLine(lines[i]);
     if (k && (k.body.startsWith("🤖") || isDeckBlockId(k.blockId) || trackedIds.has(k.blockId))) ai.add(i);
-    if ((parseLink(lines[i]) || (record(lines[i]) && marker.test(lines[i]))) && owners[i] >= 0) ai.add(owners[i]);
+    if ((parseLink(lines[i]) || (record(lines[i]) && RECORD_PROVENANCE_LINE_RE.test(lines[i]))) && owners[i] >= 0) ai.add(owners[i]);
   }
   const stack = [];
   for (let i = 0; i < lines.length; i++) {
@@ -100,7 +121,7 @@ export function cleanCompletedIdentifiers(text, trackedIds = new Set()) {
     if (i !== parent && !record(lines[i])) continue;
     const id = blockIdOf(lines[i]);
     if (isDeckBlockId(id) || (i === parent && isLegacyBlockId(id))) lines[i] = stripBlockId(lines[i]);
-    if (record(lines[i])) lines[i] = lines[i].replace(marker, "");
+    if (record(lines[i])) lines[i] = lines[i].replace(RECORD_PROVENANCE_LINE_RE, "");
   }
   return lines.join(crlf ? "\r\n" : "\n");
 }
@@ -151,11 +172,12 @@ const TIME_SPAN_PREFIX_RE = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d
 
 // 把原始会话标题或首句提示词浓缩成简洁的任务标题（去掉路径、链接、口水前缀和过长从句）
 export function summarizeAutoTitle(raw, max = 22) {
-  let s = stripBlockId(String(raw || ""))
-    .replace(/[\r\n←`*=~[\]|]/g, " ")
-    .replace(/^🤖\s*/, "")
-    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
-    .replace(/^\s*(?:TODO|DOING|DONE|SUSPENDED|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+/i, "")
+  let s = stripTaskKeyword(
+    stripBlockId(String(raw || ""))
+      .replace(/[\r\n←`*=~[\]|]/g, " ")
+      .replace(/^🤖\s*/, "")
+      .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""),
+  )
     .replace(/^🤖\s*/, "")
     .replace(TIME_SPAN_PREFIX_RE, "")
     .replace(/^🤖\s*/, "")
@@ -748,7 +770,8 @@ export function kidIdent(line) {
   const m = /^\s*[-*+]\s+⏱.*·\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`\s*$/.exec(line);
   return m ? { kind: m[1] === "子代理" ? "sub" : "side", id: m[2], open: false } : null;
 }
-export const kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(/^\s*(?:\d+[.)、]\s*)?(?:(?:TODO|DOING|LATER|NOW|WAITING|WAIT|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*)?/, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
+const KID_NORM_RE = new RegExp(`^\\s*(?:\\d+[.)、]\\s*)?(?:(?:${TASK_KWS})\\s+)?(?:\\d{1,2}[:：]\\d{2}(?:\\s*[-–~～到至]\\s*\\d{1,2}[:：]\\d{2})?\\s*)?`);
+export const kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(KID_NORM_RE, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
 export function kidMatch(body, desc) {
   const a = kidNorm(body), d = kidNorm(desc);
   if (a.length < 4 || d.length < 4) return false;

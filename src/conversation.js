@@ -171,15 +171,11 @@ function cleanConversationLabel(raw) {
     .map((line) => line.trim())
     .filter((line) => line && !CONTEXT_HEADER_RE.test(line))
     .join(" ");
-  return cleaned
-    .replace(/^\s*(?:[-*+]|\d+[.)])\s*/, "")
-    .replace(/^(?:TODO|DOING|DONE|PAUSED|LATER|NOW|WAIT|WAITING|CANCELED|CANCELLED|DELEGATED|TOREVIEW|NEEDOK|ERRORED|HITLIMIT)\s+/i, "")
-    .replace(/^🤖\s*/, "")
-    .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, "$2")
-    .replace(/\[([^\]\n]+)\]\([^)\n]+\)/g, "$1")
-    .replace(/[*_`~#]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return J.stripInlineTitleMarkup(
+    J.stripTaskKeyword(cleaned.replace(/^\s*(?:[-*+]|\d+[.)])\s*/, ""))
+      .replace(/^🤖\s*/, ""),
+    { stripHash: true },
+  );
 }
 
 export function conversationTitle(session = {}, messages = []) {

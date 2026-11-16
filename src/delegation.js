@@ -22,6 +22,7 @@ import {
   buildDelegationPayload, buildPromptFromContext, createDelegationRunner, HarnessPipeline,
 } from "./harness.js";
 import {
+  findAgentBinary,
   findDshBinary,
   findAgyBinary,
   findOpenCodeBinary,
@@ -48,6 +49,7 @@ export {
   ancestorLines,
   withContext,
   freshTaskText,
+  findAgentBinary,
   findDshBinary,
   findAgyBinary,
   findOpenCodeBinary,
@@ -687,7 +689,7 @@ export class Delegator {
     await fsp.mkdir(dir, { recursive: true });
     const taskFile = path.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp.writeFile(taskFile, prompt, "utf8");
-    const bin = agent === "codex" ? (this.C.codex?.path || "codex") : agent === "opencode" ? findOpenCodeBinary(this.C.opencode?.path || "") : agent === "qoder" ? findQoderBinary(this.C.qoder?.path || "") : agent === "workbuddy" ? findWorkbuddyBinary(this.C.workbuddy?.path || "") : findClaudeBinary(this.C.claude?.path || "");
+    const bin = findAgentBinary(agent, this.C[agent]?.path || "");
     const job = this.buildJobBase({
       agent,
       name,

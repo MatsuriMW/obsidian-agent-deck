@@ -88,7 +88,7 @@ export function resolveProjects(rows, pages, overrides = {}) {
   const evidence = rows.map(row => {
     const sources = row.sources || [], text = sources.map(s => s.text || "").join("\n");
     const links = new Set(sources.flatMap(s => s.links || []));
-    const title = String(row.title || "").replace(/^\s*(?:[-*+]\s+)?(?:TODO|DOING|DONE|TOREVIEW|PAUSED|DELEGATED)\s+/, "").replace(/[（(]来自 Obsidian[：:][\s\S]*$/, "");
+    const title = J.stripTaskKeyword(String(row.title || ""), { allowBullet: true }).replace(/[（(]来自 Obsidian[：:][\s\S]*$/, "");
     const titleKey = normalized(title), cwdKey = normalized(row.cwd), textKey = normalized(text);
     const strength = (page, value, key) => {
       let n = 0;

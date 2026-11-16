@@ -6,8 +6,10 @@ import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { foldedRanges, foldEffect, unfoldEffect } from "@codemirror/language";
 import {
   aiRecordGroups, recordRuns, adBlockIdRanges, layoutMarkerRanges, hiddenBlockId, redirectHiddenTailTransaction,
-  recordIsOpen, recordStartsOpen, visibleRecords, visibleTableEntries, RECORD_VIEWS, recordViewMode, parseAiRecordRow, buildTableModel, isBriefRecord,
-  trackedBlockIds, blockSessionMap, collectGroupSids, roundStartedAt, localDayKey, formatTimelineAt, formatTimelineFull,
+  recordIsOpen, recordStartsOpen, visibleRecords, visibleTableEntries, RECORD_VIEWS, RECORD_MARKER_BODY_RE,
+  recordViewMode, recordViewLabel, recordBadgeLabel, recordStepLabel, timelineSpanMeta, footerMetaText,
+  buildTableModel, buildGroupTableRows, tokenizeInlineMarkdown, isBriefRecord,
+  trackedBlockIds, blockSessionMap, formatTimelineAt, formatTimelineFull,
 } from "./ai-records.js";
 import { isDeckBlockId } from "./journal.js";
 import { t } from "./i18n.js";
@@ -91,12 +93,6 @@ class RecordsToggle extends WidgetType {
   ignoreEvent() { return true; }
 }
 
-const VIEW_LABELS = {
-  outline: "大纲",
-  table: "表格",
-  cards: "卡片",
-  timeline: "时间线",
-};
 const EMPTY_VIEW_LABELS = {
   table: "表格视图 · 已收起 {n} 条记录",
   cards: "卡片视图 · 已收起 {n} 条记录",
@@ -110,36 +106,41 @@ const VIEW_FALLBACK_ICON = {
 };
 
 function renderInlineText(doc, container, text, sourcePath, plugin) {
-  const s = String(text || "");
-  const tokenRe = /\[([^\]\n]+)\]\(([^)\s]+(?:\([^)]*\))?[^)\s]*)\)|`([^`\n]+)`|\*\*([^*\n]+)\*\*/g;
-  let last = 0, m;
-  while ((m = tokenRe.exec(s))) {
-    if (m.index > last) container.appendChild(doc.createTextNode(s.slice(last, m.index)));
-    if (m[1] != null) {
+  for (const tok of tokenizeInlineMarkdown(text)) {
+    if (tok.type === "text") {
+      container.appendChild(doc.createTextNode(tok.text));
+    } else if (tok.type === "link") {
       const a = doc.createElement("a");
       a.className = "ad-rt-link";
-      a.textContent = m[1];
-      a.href = m[2];
-      a.title = m[2];
+      a.textContent = tok.label;
+      a.href = tok.href;
+      a.title = tok.href;
       a.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        plugin.openRecordLink?.(m[2], sourcePath);
+        plugin.openRecordLink?.(tok.href, sourcePath);
       });
       container.appendChild(a);
-    } else if (m[3] != null) {
+    } else if (tok.type === "wikilink") {
+      const span = doc.createElement("span");
+      span.className = "ad-wikilink";
+      span.textContent = tok.label;
+      container.appendChild(span);
+    } else if (tok.type === "code") {
       const code = doc.createElement("code");
       code.className = "ad-rt-code";
-      code.textContent = m[3];
+      code.textContent = tok.text;
       container.appendChild(code);
-    } else if (m[4] != null) {
+    } else if (tok.type === "bold") {
       const strong = doc.createElement("strong");
-      strong.textContent = m[4];
+      strong.textContent = tok.text;
       container.appendChild(strong);
+    } else if (tok.type === "italic") {
+      const em = doc.createElement("em");
+      em.textContent = tok.text;
+      container.appendChild(em);
     }
-    last = m.index + m[0].length;
   }
-  if (last < s.length) container.appendChild(doc.createTextNode(s.slice(last)));
 }
 
 class ViewToggleWidget extends WidgetType {
@@ -169,7 +170,7 @@ class ViewToggleWidget extends WidgetType {
 
     const label = btn.appendChild(doc.createElement("span"));
     label.className = "ad-view-toggle__label";
-    label.textContent = t(VIEW_LABELS[this.viewMode] || "大纲");
+    label.textContent = recordViewLabel(this.viewMode);
 
     const chev = btn.appendChild(doc.createElement("span"));
     chev.className = "ad-view-toggle__chev";
@@ -239,7 +240,7 @@ class RecordViewWidget extends WidgetType {
     if (row.type === "span" || row.round == null) {
       const badge = parent.appendChild(doc.createElement("span"));
       badge.className = `ad-rt-badge ad-rt-badge--${row.badgeKind || "result"}`;
-      badge.textContent = t(row.badge || "结论");
+      badge.textContent = recordBadgeLabel(row.badgeKind, row.badge);
       return badge;
     }
     const label = parent.appendChild(doc.createElement("span"));
@@ -248,10 +249,11 @@ class RecordViewWidget extends WidgetType {
     return label;
   }
   appendStepTag(doc, parent, row) {
-    if (!row.promptStep) return;
+    const label = recordStepLabel(row);
+    if (!label) return;
     const stepTag = parent.appendChild(doc.createElement("span"));
     stepTag.className = "ad-rt-step";
-    stepTag.textContent = row.promptMeta ? t("步骤 {step}", { step: row.promptMeta }) : t("步骤");
+    stepTag.textContent = label;
   }
   appendChildren(doc, view, td, children) {
     if (!children?.length) return;
@@ -362,9 +364,7 @@ class RecordViewWidget extends WidgetType {
     }
   }
   renderTimeline(doc, view, wrap, { rows }) {
-    const times = rows.map((r) => Number(r.startedAt) || 0).filter((ms) => ms > 0);
-    const timed = times.length > 0;
-    const dated = times.length > 1 && new Set(times.map(localDayKey)).size > 1;
+    const { timed, dated } = timelineSpanMeta(rows);
     const list = wrap.appendChild(doc.createElement("div"));
     list.className = "ad-rt-timeline" + (timed ? " ad-rt-timeline--timed" : "") + (dated ? " ad-rt-timeline--dated" : "");
     for (const row of rows) {
@@ -418,10 +418,11 @@ class RecordViewWidget extends WidgetType {
       const body = lineEl.appendChild(doc.createElement("span"));
       body.className = "ad-rt-footer-body";
       renderInlineText(doc, body, item.content, this.sourcePath, this.plugin);
-      if (item.meta) {
+      const metaText = footerMetaText(item);
+      if (metaText) {
         const metaEl = lineEl.appendChild(doc.createElement("span"));
         metaEl.className = "ad-rt-footer-meta";
-        metaEl.textContent = item.kind === "clock" ? `· ${item.meta}` : item.meta;
+        metaEl.textContent = metaText;
       }
       this.bindJump(lineEl, view, item.line);
     }
@@ -531,17 +532,10 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
 
       if (viewMode !== "outline") {
         const visibleEntries = visibleTableEntries(group, lines, mode, open, duplicate);
-        const groupSids = viewMode === "timeline"
-          ? collectGroupSids(group, lines, (sidsByBlock ||= blockSessionMap(plugin)))
-          : null;
-        const rows = visibleEntries.map((entry) => {
-          const parsed = parseAiRecordRow(lines[entry.line], entry.children, agentNames);
-          return {
-            ...parsed,
-            line: entry.line,
-            startedAt: groupSids ? roundStartedAt(plugin, lines[entry.line], parsed.round, groupSids) : 0,
-            sig: [lines[entry.line], ...entry.children].join("\n"),
-          };
+        const rows = buildGroupTableRows(group, visibleEntries, lines, plugin, {
+          includeTime: viewMode === "timeline",
+          blockMap: viewMode === "timeline" ? (sidsByBlock ||= blockSessionMap(plugin)) : null,
+          agentNames,
         });
         const summaryCount = tableAll.filter((e) => /💬\s+累计总结[：:]/.test(lines[e.line])).length;
         ranges.push(Decoration.widget({ widget: new RecordsToggle(group.key, tableAll.length, open, mode, summaryCount > 0), side: 2 }).range(doc.line(group.line + 1).to));
@@ -696,7 +690,7 @@ export function renderAIRecords(el, plugin, ctx) {
     const parent = list.parentElement.closest("li");
     if (!parent) continue;
     const own = [...parent.childNodes].filter((n) => n !== list && n.nodeName !== "UL" && n.nodeName !== "OL").map((n) => n.textContent).join("");
-    const records = [...list.children].filter((li) => !li.querySelector('ul, ol') && !li.id && !li.dataset.blockId && /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/.test(li.textContent.trim()));
+    const records = [...list.children].filter((li) => !li.querySelector('ul, ol') && !li.id && !li.dataset.blockId && RECORD_MARKER_BODY_RE.test(li.textContent.trim()));
     const section = ctx?.getSectionInfo?.(el);
     const first = section && section.text.split("\n")[(section.lineStart || 0) + (Number(parent.dataset.line) || 0)];
     const key = parent.id || parent.dataset.blockId || (first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1]);

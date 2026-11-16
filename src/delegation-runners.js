@@ -16,69 +16,90 @@ const fsp = fs.promises;
 const home = () => os.homedir();
 const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
 
-export function findDshBinary(configured = "") {
-  if (configured.trim()) return norm(configured.trim());
-  const candidates = [
-    "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
-    path.join(home(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
-    path.join(home(), ".local/bin/dsh"),
-    "/opt/homebrew/bin/dsh",
-    "/usr/local/bin/dsh",
-  ];
-  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
-  return "dsh";
+const AGENT_BINARY_SPECS = {
+  codex: { fallback: "codex", candidates: () => [] },
+  dsh: {
+    fallback: "dsh",
+    candidates: () => [
+      "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
+      path.join(home(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
+      path.join(home(), ".local/bin/dsh"),
+      "/opt/homebrew/bin/dsh",
+      "/usr/local/bin/dsh",
+    ],
+  },
+  antigravity: {
+    fallback: "agy",
+    candidates: () => [
+      path.join(home(), ".local/bin/agy"),
+      "/opt/homebrew/bin/agy",
+      "/usr/local/bin/agy",
+    ],
+  },
+  opencode: {
+    fallback: "opencode",
+    candidates: () => [
+      "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
+      path.join(home(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
+      path.join(home(), ".local/bin/opencode"),
+      "/opt/homebrew/bin/opencode",
+      "/usr/local/bin/opencode",
+    ],
+  },
+  qoder: {
+    fallback: "qodercli",
+    candidates: () => [
+      path.join(home(), ".qoder/bin/qodercli/qodercli"),
+      path.join(home(), ".local/bin/qodercli"),
+      path.join(home(), ".local/bin/qoder"),
+      path.join(home(), ".qoder/entry/qoder"),
+      "/opt/homebrew/bin/qodercli",
+      "/usr/local/bin/qodercli",
+    ],
+  },
+  workbuddy: {
+    fallback: "codebuddy",
+    candidates: () => [
+      path.join(home(), ".local/bin/codebuddy"),
+      "/opt/homebrew/bin/codebuddy",
+      "/usr/local/bin/codebuddy",
+    ],
+  },
+  claude: {
+    fallback: "claude",
+    candidates: () => [
+      path.join(home(), ".local/bin/claude"),
+      "/opt/homebrew/bin/claude",
+      "/usr/local/bin/claude",
+      "/usr/bin/claude",
+    ],
+  },
+};
+
+function findBinary(configured, candidates, fallback) {
+  const custom = configured && String(configured).trim();
+  if (custom) return norm(custom);
+  for (const p of candidates) {
+    try { if (fs.existsSync(p)) return p; } catch { /* next */ }
+  }
+  return fallback;
 }
 
-export function findAgyBinary(configured = "") {
-  if (configured.trim()) return norm(configured.trim());
-  const candidates = [path.join(home(), ".local/bin/agy"), "/opt/homebrew/bin/agy", "/usr/local/bin/agy"];
-  return candidates.find((p) => fs.existsSync(p)) || "agy";
+export function findAgentBinary(agent, configured = "") {
+  const spec = AGENT_BINARY_SPECS[agent];
+  if (!spec) {
+    const custom = configured && String(configured).trim();
+    return custom ? norm(custom) : agent || "";
+  }
+  return findBinary(configured, spec.candidates(), spec.fallback);
 }
 
-export function findOpenCodeBinary(configured = "") {
-  if (configured && configured.trim()) return norm(configured.trim());
-  const candidates = [
-    "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
-    path.join(home(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
-    path.join(home(), ".local/bin/opencode"),
-    "/opt/homebrew/bin/opencode",
-    "/usr/local/bin/opencode",
-  ];
-  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
-  return "opencode";
-}
-
-export function findQoderBinary(configured = "") {
-  if (configured && configured.trim()) return norm(configured.trim());
-  const candidates = [
-    path.join(home(), ".qoder/bin/qodercli/qodercli"),
-    path.join(home(), ".local/bin/qodercli"),
-    path.join(home(), ".local/bin/qoder"),
-    path.join(home(), ".qoder/entry/qoder"),
-    "/opt/homebrew/bin/qodercli",
-    "/usr/local/bin/qodercli",
-  ];
-  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
-  return "qodercli";
-}
-
-export function findWorkbuddyBinary(configured = "") {
-  if (configured && configured.trim()) return norm(configured.trim());
-  const candidates = [
-    path.join(home(), ".local/bin/codebuddy"),
-    "/opt/homebrew/bin/codebuddy",
-    "/usr/local/bin/codebuddy",
-  ];
-  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
-  return "codebuddy";
-}
-
-export function findClaudeBinary(configured = "") {
-  if (configured && configured.trim()) return norm(configured.trim());
-  const candidates = [path.join(home(), ".local/bin/claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", "/usr/bin/claude"];
-  for (const p of candidates) { try { if (fs.existsSync(p)) return p; } catch { /* next */ } }
-  return "claude";
-}
+export const findDshBinary = (configured = "") => findAgentBinary("dsh", configured);
+export const findAgyBinary = (configured = "") => findAgentBinary("antigravity", configured);
+export const findOpenCodeBinary = (configured = "") => findAgentBinary("opencode", configured);
+export const findQoderBinary = (configured = "") => findAgentBinary("qoder", configured);
+export const findWorkbuddyBinary = (configured = "") => findAgentBinary("workbuddy", configured);
+export const findClaudeBinary = (configured = "") => findAgentBinary("claude", configured);
 
 function pickTrusted(list, vaultPath) {
   if (list.includes(vaultPath)) return vaultPath;
@@ -195,15 +216,80 @@ export function dshModels(configOptions) {
   return acpModels("dsh", configOptions);
 }
 
-// ----- Claude Code -----
-export class ClaudeRunner {
+// ----- Shared runner lifecycle base -----
+class BaseRunner {
   constructor(delegator, job) {
     this.d = delegator;
     this.job = job;
     this.child = null;
-    this.short = "";
-    this.pollTimer = null;
     this.finished = false;
+    this.timer = null;
+    this.sessionTimer = null;
+    this.pollTimer = null;
+  }
+
+  _clearTimers() {
+    clearTimeout(this.timer);
+    clearTimeout(this.sessionTimer);
+    clearTimeout(this.pollTimer);
+    this.timer = null;
+    this.sessionTimer = null;
+    this.pollTimer = null;
+  }
+
+  _finish(state, beforeSave) {
+    if (this.finished) return false;
+    this.finished = true;
+    this._clearTimers();
+    beforeSave?.();
+    this.job.state = state;
+    this.job.endedAt = Date.now();
+    this.d.saveJobs();
+    return true;
+  }
+
+  _recordAssistantText(text, { updateLastText = false } = {}) {
+    if (!text) return;
+    this.job.result = text;
+    if (updateLastText) this.job.lastText = text.slice(-2000);
+    this.job.conversation ||= [];
+    this.job.conversation.push({ role: "assistant", text, at: Date.now() });
+  }
+
+  _killChild() {
+    if (this.child) {
+      try { this.child.kill("SIGTERM"); } catch { /* gone */ }
+    }
+  }
+
+  cancel() {
+    if (!this._finish("cancelled", () => this.onCleanup("cancel"))) return;
+    this.onAfterCancel?.();
+  }
+
+  done(result) {
+    if (!this._finish("done", () => this.onDoneCleanup?.(result))) return;
+    this.onAfterDone?.();
+    this.d.onDone(this.job);
+  }
+
+  fail(message) {
+    if (!this._finish("error", () => {
+      this.onCleanup("fail");
+      this.job.error = String(message || "").slice(0, 500);
+    })) return;
+    this.onAfterFail?.();
+    this.d.onError(this.job);
+  }
+
+  onCleanup(_reason) {}
+}
+
+// ----- Claude Code -----
+export class ClaudeRunner extends BaseRunner {
+  constructor(delegator, job) {
+    super(delegator, job);
+    this.short = "";
   }
 
   async start(opts) {
@@ -327,39 +413,13 @@ export class ClaudeRunner {
     return out;
   }
 
-  cancel() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.pollTimer);
+  onCleanup(reason) {
+    if (reason !== "cancel") return;
     if (this.short) {
       const bin = findClaudeBinary(this.d.settings.delegate.claude.path || "");
       execFile(bin, ["stop", this.short], { env: cleanEnv() }, () => {});
     }
-    if (this.child) { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }
-    this.job.state = "cancelled";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-  }
-
-  done() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.pollTimer);
-    this.job.state = "done";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.d.onDone(this.job);
-  }
-
-  fail(message) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.pollTimer);
-    this.job.state = "error";
-    this.job.error = String(message || "").slice(0, 500);
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.d.onError(this.job);
+    this._killChild();
   }
 }
 
@@ -371,14 +431,9 @@ export function qoderPermissionArgs(permission) {
   return ["--permission-mode", "auto"];
 }
 
-export class QoderRunner {
+export class QoderRunner extends BaseRunner {
   constructor(delegator, job) {
-    this.d = delegator;
-    this.job = job;
-    this.child = null;
-    this.finished = false;
-    this.sessionTimer = null;
-    this.timer = null;
+    super(delegator, job);
   }
 
   async start(opts) {
@@ -463,70 +518,37 @@ export class QoderRunner {
     this.d.refreshUI();
   }
 
-  cancel() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.sessionTimer);
-    clearTimeout(this.timer);
-    if (this.child) { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }
-    this.job.state = "cancelled";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
+  onCleanup() {
+    this._killChild();
+  }
+
+  onDoneCleanup(result) {
+    this._recordAssistantText(result, { updateLastText: true });
+  }
+
+  onAfterCancel() {
     this.d.refreshUI();
-  }
-
-  done(result) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
-    this.job.state = "done";
-    this.job.endedAt = Date.now();
-    if (result) {
-      this.job.result = result;
-      this.job.lastText = result.slice(-2000);
-      this.job.conversation ||= [];
-      this.job.conversation.push({ role: "assistant", text: result, at: Date.now() });
-    }
-    this.d.saveJobs();
-    this.d.onDone(this.job);
-  }
-
-  fail(message) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.sessionTimer);
-    clearTimeout(this.timer);
-    if (this.child) { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }
-    this.job.state = "error";
-    this.job.error = String(message || "").slice(0, 500);
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.d.onError(this.job);
   }
 }
 
 // ----- Local ACP agents: Harness, Antigravity, and OpenCode -----
-export class AcpRunner {
+export class AcpRunner extends BaseRunner {
   constructor(delegator, job) {
-    this.d = delegator;
+    super(delegator, job);
     this.agent = job.agent || "dsh";
     this.label = AGENTS[this.agent]?.name || this.agent;
-    this.job = job;
-    this.child = null;
     this.buf = "";
     this.nextId = 1;
     this.pending = new Map();
-    this.finished = false;
     this.assistantText = "";
     this.lastStep = "";
     this.sessionId = "";
-    this.timer = null;
   }
 
   async start(opts) {
     const d = this.d;
     const cfg = d.settings.delegate[this.agent];
-    const bin = this.agent === "antigravity" ? findAgyBinary(cfg.path || "") : this.agent === "opencode" ? findOpenCodeBinary(cfg.path || "") : findDshBinary(cfg.path || "");
+    const bin = findAgentBinary(this.agent, cfg.path || "");
     const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
     const model = opts.model || cfg.model || (this.agent === "dsh" ? "deepseek-v4-pro" : "");
     const effort = opts.effort || cfg.effort || (this.agent === "dsh" ? "high" : "");
@@ -699,51 +721,32 @@ export class AcpRunner {
     });
   }
 
-  cancel() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
+  onCleanup(reason) {
     this.permissionModal?.close();
     this.clearPending();
-    if (this.sessionId) { try { this.send({ jsonrpc: "2.0", method: "session/cancel", params: { sessionId: this.sessionId } }); } catch { /* closed */ } }
-    this.close();
-    this.job.state = "cancelled";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
+    if (reason === "cancel") {
+      if (this.sessionId) { try { this.send({ jsonrpc: "2.0", method: "session/cancel", params: { sessionId: this.sessionId } }); } catch { /* closed */ } }
+      this.close();
+    }
+  }
+
+  onAfterCancel() {
     this.d.refreshUI();
   }
 
-  done(result) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
+  onDoneCleanup(result) {
     this.permissionModal?.close();
     this.clearPending();
-    this.job.state = "done";
-    this.job.endedAt = Date.now();
     this.job.stopReason = result && result.stopReason || "";
-    if (this.assistantText) {
-      this.job.result = this.assistantText;
-      this.job.conversation ||= [];
-      this.job.conversation.push({ role: "assistant", text: this.assistantText, at: Date.now() });
-    }
-    this.d.saveJobs();
-    this.close();
-    this.d.onDone(this.job);
+    this._recordAssistantText(this.assistantText);
   }
 
-  fail(message) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
-    this.permissionModal?.close();
-    this.clearPending();
-    this.job.state = "error";
-    this.job.error = String(message || "").slice(0, 500);
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
+  onAfterDone() {
     this.close();
-    this.d.onError(this.job);
+  }
+
+  onAfterFail() {
+    this.close();
   }
 
   clearPending() {

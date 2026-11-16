@@ -1,6 +1,7 @@
 // Consolidate written evidence into portable Markdown; never rewrite user sections.
 import { createHash } from "crypto";
 import { dayKey, journalPath } from "./constants.js";
+import { RECORD_ICON_RE } from "./journal.js";
 import { AI_RECORD_RE } from "./ai-records.js";
 import { LIST_RE, width, fencedLines, frontmatterEnd } from "./outline.js";
 import { runJournalModel } from "./llm.js";
@@ -27,7 +28,6 @@ export function profileWithDream(profile, memory) {
 }
 
 const AI_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:[A-Z-]+\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s+)?🤖/;
-const CHILD_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋|⏱|🔗)\s/;
 const AD_COMMENT_RE = /[ \t]*<!--\s*ad-[a-z0-9-]+(?::[^>]+)?\s*-->[ \t]*$/g;
 const SEP_ONLY_RE = /^(?:\s*(?:[-*+]|\d+[.)])?\s*[-_*]{3,}\s*)+$/;
 
@@ -77,7 +77,7 @@ export function evidenceBlocks(text, path, { aiOnly = false } = {}) {
       while (stack.length && stack.at(-1).indent >= indent) stack.pop();
       const isQuestion = /^\s*(?:[-*+]|\d+[.)])\s+❓\s/.test(line);
       const isAiLine = AI_RECORD_RE.test(line) || AI_LINE_RE.test(line);
-      const isChildRecord = CHILD_RECORD_RE.test(line);
+      const isChildRecord = RECORD_ICON_RE.test(line);
       const parent = stack.at(-1);
       kind = isQuestion ? "user" : isAiLine ? "ai" : parent?.kind || "user";
       if (isChildRecord && parent?.itemId) directAiOwners.add(parent.itemId);

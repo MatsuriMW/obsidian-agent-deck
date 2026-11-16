@@ -12,7 +12,9 @@
 /* ---------- 1. 基础委派弹窗与权限审批外框 ---------- */
 
 .ad-modal {
-  width: min(540px, 94vw);
+  --ad-modal-w: min(540px, 94vw);
+
+  width: var(--ad-modal-w);
   max-height: 84vh;
   overflow-y: auto;
   overflow-x: hidden;
@@ -95,8 +97,9 @@
   width: min(600px, 94vw);
 }
 
-.ad-modal.ad-cardmanager {
-  width: 100%;
+.ad-cardmanager {
+  --ad-modal-w: 100%;
+
   box-sizing: border-box;
 
   & .ad-cardmanager__list {

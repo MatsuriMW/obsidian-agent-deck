@@ -16,6 +16,7 @@
 - **表面与文字**：`--ad-surface` / `--ad-surface-2` / `--ad-ink` / `--ad-muted` / `--ad-faint` / `--ad-line`（映射 Obsidian `--background-*`、`--text-*`、`--background-modifier-*`）。
 - **语义与识别色**：`--ad-accent: #746d94`、`--ad-good: #6f8f7c`、`--ad-warn: #a9845f`、`--ad-bad: #a86f6d`、`--ad-star: #b39a6a`；Agent 识别色由 JS 动态写入 `--ad-agent` / `--ad-agent-soft`。
 - **圆角、阴影与数字**：`--ad-radius: 14px`、`--ad-radius-sm: 10px`、`--ad-shadow: 0 10px 30px rgba(55, 48, 42, .08)`、`--ad-figure: "SF Mono", "JetBrains Mono", ui-monospace, monospace`。
+- **控件与浮层 Token**：`base/tokens.css` 提供 `--ad-ctrl-*`、`--ad-input-wide-w`、`--ad-input-num-w`、`--ad-btn-*`、`--ad-seg-on-shadow`、`--ad-btn-hover-y`，设置页（`.ad-settings`）通过覆写变量而非重复样式补丁切换桌面尺寸与扁平态；`base/atoms.css` 统一收纳按钮/输入框/开关基础重置与 `<details>/<summary>` 折叠三角（`ad-modelgroup__head`、`ad-subdetails__head`、`.ad-delegate-agent > summary`）；弹窗通过 `--ad-modal-w` 控制宽度（`.ad-cardmanager` 覆盖为 `100%`）。
 - **容器外 DOM**：`views/editor.css`、`views/record-views.css` 及挂在 `body` 的 `.ad-fly-layer` 直接挂载于 Obsidian DOM，不在上述容器内，须使用 Obsidian 原生变量或显式 fallback。
 
 ## 3. 布局与交互约束

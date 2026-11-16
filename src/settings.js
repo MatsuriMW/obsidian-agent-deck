@@ -253,9 +253,102 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     left.createDiv({ cls: "ad-row__name", text: name });
     if (desc) left.createDiv({ cls: "ad-row__desc", text: desc });
     const rr = r.createDiv({ cls: "ad-row__right" });
-    if (typeof right === "string") rr.createSpan({ cls: "ad-row__value", text: right });
+    if (typeof right === "function") right(rr, r);
+    else if (typeof right === "string") rr.createSpan({ cls: "ad-row__value", text: right });
     else if (right) rr.appendChild(right);
     return r;
+  }
+
+  rowToggle(parent, name, desc, value, onChange, disabled = false) {
+    let el;
+    this.row(parent, name, desc, (rr) => { el = this.toggle(rr, value, onChange, disabled); });
+    return el;
+  }
+
+  rowSegmented(parent, name, desc, options, value, onChange, cls = "") {
+    let el;
+    this.row(parent, name, desc, (rr) => { el = this.segmented(rr, options, value, onChange, cls); });
+    return el;
+  }
+
+  rowSelect(parent, name, desc, options, value, onChange, cls = "") {
+    let el;
+    this.row(parent, name, desc, (rr) => { el = this.selectInput(rr, options, value, onChange, cls); });
+    return el;
+  }
+
+  rowText(parent, name, desc, value, placeholder, onChange, cls = "") {
+    let el;
+    this.row(parent, name, desc, (rr) => { el = this.textInput(rr, value, placeholder, onChange, cls); });
+    return el;
+  }
+
+  rowNumber(parent, name, desc, value, min, max, onChange) {
+    let el;
+    this.row(parent, name, desc, (rr) => { el = this.numberInput(rr, value, min, max, onChange); });
+    return el;
+  }
+
+  detectedProviderChoices(detected, firstOption) {
+    return [
+      firstOption,
+      ...detected.providers.map((x) => ({
+        id: x.id,
+        label: `${x.label} ${x.available ? t("（已登录）") : x.found ? t("（未登录）") : t("（未安装）")}`,
+      })),
+      { id: "api", label: t("自定义 API（OpenAI 兼容）") },
+    ];
+  }
+
+  providerPresetRow(parent, { label, desc, resolved, emptyLabel, value, onChange, showAgyRefresh = false, agyPath = "" }) {
+    const spec = JOURNAL_PROVIDERS[resolved];
+    const presetModels = [...new Set([
+      ...(resolved === "agy" && this._agyJournalModels?.length ? this._agyJournalModels : []),
+      ...(spec?.models || []),
+    ])];
+    if (resolved === "api" || !presetModels.length) return;
+    this.row(parent, label, desc, (rr) => {
+      this.selectInput(
+        rr,
+        [{ id: "", label: emptyLabel }, ...presetModels.map((m) => ({ id: m, label: m }))],
+        presetModels.includes(value) ? value : "",
+        onChange,
+      );
+      if (showAgyRefresh && resolved === "agy") {
+        this.bigButton(rr, t("刷新列表"), async () => {
+          const list = await fetchAgyModels(agyPath);
+          if (!list.length) return new Notice(t("没有读到可用 agy 模型"));
+          this._agyJournalModels = list;
+          new Notice(t("已读取 {n} 个 agy 模型", { n: list.length }));
+          this.display();
+        });
+      }
+    });
+  }
+
+  renderModelTestRow(parent, { label, desc, value, placeholder, wide, onChange, pendingText, testFn }) {
+    this.row(parent, label, desc, (rr) => {
+      this.textInput(rr, value, placeholder, onChange, wide ? "ad-input--wide" : "");
+      this.bigButton(rr, t("测试连接"), async () => {
+        new Notice(pendingText, 2500);
+        try {
+          const reply = await testFn();
+          new Notice(t("整理模型可用：{reply}", { reply: reply.slice(0, 60) || "OK" }), 5000);
+        } catch (e) {
+          new Notice(t("整理模型不可用：{msg}", { msg: e?.message || String(e) }), 8000);
+        }
+      });
+    });
+  }
+
+  renderApiCredentialsAndEffort(parent, { showApi, showEffort, urlLabel, urlValue, onUrlChange, keyLabel, keyValue, onKeyChange, effortLabel, effortValue, onEffortChange }) {
+    if (showApi) {
+      this.rowText(parent, urlLabel, t("填写服务商接口地址（自动补齐 /chat/completions）"), urlValue, "https://api.deepseek.com", onUrlChange, "ad-input--wide");
+      const keyInput = this.rowText(parent, keyLabel, t("保存于插件设置 data.json 中"), keyValue, t("输入 API Key（本地 Ollama 可留空）"), onKeyChange, "ad-input--wide");
+      keyInput.type = "password";
+    } else if (showEffort) {
+      this.rowSegmented(parent, effortLabel, "", EFFORTS.codex, effortValue, onEffortChange);
+    }
   }
 
   toggle(parent, value, onChange, disabled = false) {
@@ -344,23 +437,15 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const claude = this.agentCard(body, "claude", "Claude Code", "");
     this.modelSelect(claude, "claude", p.defaultModel("claude"), (v) => { this.setDefaultModel("claude", v); this.display(); });
     this.effortControl(claude, "claude", d.claude.effort, (v) => { this.setDefaultEffort("claude", v); this.display(); });
-    const permRow = this.row(claude, t("权限模式"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件"), null);
-    this.segmented(permRow.querySelector(":scope > .ad-row__right"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => { d.claude.permission = v; p.saveSettings(); this.display(); });
+    this.rowSegmented(claude, t("权限模式"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => { d.claude.permission = v; p.saveSettings(); this.display(); });
     const claudeMore = this.subDetails(claude, "claude-more", t("更多设置"));
-    const claudePathRow = this.row(claudeMore, t("命令行路径"), t("留空自动查找"), null);
-    this.textInput(claudePathRow.querySelector(":scope > .ad-row__right"), d.claude.path || "", t("自动查找"), (v) => { d.claude.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
-    const cwdRow = this.row(claude, t("工作目录"), t("留空使用库根目录"), null);
-    this.textInput(cwdRow.querySelector(":scope > .ad-row__right"), d.claude.cwd, t("留空 = 库根目录"), (v) => { d.claude.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
-    const openDesk = this.row(claudeMore, t("完成后自动在桌面版打开"), "", null);
-    this.toggle(openDesk.querySelector(":scope > .ad-row__right"), d.claude.openDesktop === true, (v) => { d.claude.openDesktop = v; p.saveSettings(); });
-    const addVault = this.row(claudeMore, t("把当前库也加进可读目录"), "", null);
-    this.toggle(addVault.querySelector(":scope > .ad-row__right"), d.claude.addVault !== false, (v) => { d.claude.addVault = v; p.saveSettings(); });
-    const trust = this.row(claudeMore, t("库没被信任时自动换个目录"), t("使用已信任目录，并添加当前库的访问路径"), null);
-    this.toggle(trust.querySelector(":scope > .ad-row__right"), d.claude.autoTrustedCwd !== false, (v) => { d.claude.autoTrustedCwd = v; p.saveSettings(); });
-    const bg = this.row(claudeMore, t("使用 claude --bg 后台服务"), t("由 Claude 后台服务管理会话"), null);
-    this.toggle(bg.querySelector(":scope > .ad-row__right"), d.claude.useBackground === true, (v) => { d.claude.useBackground = v; p.saveSettings(); });
-    const extra = this.row(claudeMore, t("额外参数"), t("传给 Claude CLI 的参数"), null);
-    this.textInput(extra.querySelector(":scope > .ad-row__right"), d.claude.extraArgs, t("可留空"), (v) => { d.claude.extraArgs = v; p.saveSettings(); }, "ad-input--wide");
+    this.rowText(claudeMore, t("命令行路径"), t("留空自动查找"), d.claude.path || "", t("自动查找"), (v) => { d.claude.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
+    this.rowText(claude, t("工作目录"), t("留空使用库根目录"), d.claude.cwd, t("留空 = 库根目录"), (v) => { d.claude.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
+    this.rowToggle(claudeMore, t("完成后自动在桌面版打开"), "", d.claude.openDesktop === true, (v) => { d.claude.openDesktop = v; p.saveSettings(); });
+    this.rowToggle(claudeMore, t("把当前库也加进可读目录"), "", d.claude.addVault !== false, (v) => { d.claude.addVault = v; p.saveSettings(); });
+    this.rowToggle(claudeMore, t("库没被信任时自动换个目录"), t("使用已信任目录，并添加当前库的访问路径"), d.claude.autoTrustedCwd !== false, (v) => { d.claude.autoTrustedCwd = v; p.saveSettings(); });
+    this.rowToggle(claudeMore, t("使用 claude --bg 后台服务"), t("由 Claude 后台服务管理会话"), d.claude.useBackground === true, (v) => { d.claude.useBackground = v; p.saveSettings(); });
+    this.rowText(claudeMore, t("额外参数"), t("传给 Claude CLI 的参数"), d.claude.extraArgs, t("可留空"), (v) => { d.claude.extraArgs = v; p.saveSettings(); }, "ad-input--wide");
     const test = claudeMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(test, t("检查 claude"), async () => { const r = await p.checkBinary("claude"); new Notice(r, 6000); });
     this.bigButton(test, t("在终端里续这个目录"), () => p.openTerminalAt(d.claude.cwd || p.vaultPath, "claude"));
@@ -368,16 +453,13 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     claude.appendChild(claudeMore.parentElement);
 
     const codex = this.agentCard(body, "codex", "Codex", "");
-    const transport = this.row(codex, t("派发到"), "", null);
-    this.segmented(transport.querySelector(":scope > .ad-row__right"), [{ id: "desktop", label: t("Codex 桌面版") }, { id: "terminal", label: t("终端") }], d.codex.transport || "desktop", (v) => { d.codex.transport = v; p.saveSettings(); this.display(); });
+    this.rowSegmented(codex, t("派发到"), "", [{ id: "desktop", label: t("Codex 桌面版") }, { id: "terminal", label: t("终端") }], d.codex.transport || "desktop", (v) => { d.codex.transport = v; p.saveSettings(); this.display(); });
     this.modelSelect(codex, "codex", p.defaultModel("codex"), (v) => { this.setDefaultModel("codex", v); this.display(); });
     this.effortControl(codex, "codex", d.codex.effort, (v) => { this.setDefaultEffort("codex", v); this.display(); });
-    const sandbox = this.row(codex, t("沙箱模式"), t("read-only：只读；workspace-write：允许修改工作目录"), null);
-    this.segmented(sandbox.querySelector(":scope > .ad-row__right"), ["read-only", "workspace-write"].map((id) => ({ id, label: id })), d.codex.sandbox, (v) => { d.codex.sandbox = v; p.saveSettings(); this.display(); });
+    this.rowSegmented(codex, t("沙箱模式"), t("read-only：只读；workspace-write：允许修改工作目录"), ["read-only", "workspace-write"].map((id) => ({ id, label: id })), d.codex.sandbox, (v) => { d.codex.sandbox = v; p.saveSettings(); this.display(); });
     const codexMore = this.subDetails(codex, "codex-more", t("更多设置"));
     for (const [key, label, hint] of [["path", t("codex 程序路径"), t("桌面模式留空优先使用 Desktop 自带程序；终端模式从 PATH 查找")], ["cwd", t("工作目录"), t("留空 = 库根目录")]]) {
-      const r = this.row(key === "cwd" ? codex : codexMore, label, hint, null);
-      this.textInput(r.querySelector(":scope > .ad-row__right"), d.codex[key], hint, (v) => { d.codex[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
+      this.rowText(key === "cwd" ? codex : codexMore, label, hint, d.codex[key], hint, (v) => { d.codex[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
     this.bigButton(codexMore.createDiv({ cls: "ad-btnrow" }), t("检查 codex"), async () => new Notice(await p.checkBinary("codex"), 6000));
 
@@ -386,15 +468,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const dsh = this.agentCard(body, "dsh", "DeepSeek Harness", "");
     this.modelSelect(dsh, "dsh", p.defaultModel("dsh"), (v) => { this.setDefaultModel("dsh", v); this.display(); });
     this.effortControl(dsh, "dsh", d.dsh.effort, (v) => { this.setDefaultEffort("dsh", v); this.display(); });
-    const route = this.row(dsh, t("自动允许工具调用"), t("关闭后逐次确认工具权限"), null);
-    this.toggle(route.querySelector(":scope > .ad-row__right"), d.dsh.autoApprove === true, (v) => { d.dsh.autoApprove = v; p.saveSettings(); });
+    this.rowToggle(dsh, t("自动允许工具调用"), t("关闭后逐次确认工具权限"), d.dsh.autoApprove === true, (v) => { d.dsh.autoApprove = v; p.saveSettings(); });
     const dshMore = this.subDetails(dsh, "dsh-more", t("更多设置"));
-    const dshPathRow = this.row(dshMore, t("命令行路径"), t("留空自动查找"), null);
-    this.textInput(dshPathRow.querySelector(":scope > .ad-row__right"), d.dsh.path || "", t("自动查找"), (v) => { d.dsh.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
-    const dcwd = this.row(dsh, t("工作目录"), t("留空使用库根目录"), null);
-    this.textInput(dcwd.querySelector(":scope > .ad-row__right"), d.dsh.cwd, t("留空 = 库根目录"), (v) => { d.dsh.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
-    const dextra = this.row(dshMore, t("额外 ACP 参数"), t("可留空"), null);
-    this.textInput(dextra.querySelector(":scope > .ad-row__right"), d.dsh.extraArgs, t("可留空"), (v) => { d.dsh.extraArgs = v; p.saveSettings(); }, "ad-input--wide");
+    this.rowText(dshMore, t("命令行路径"), t("留空自动查找"), d.dsh.path || "", t("自动查找"), (v) => { d.dsh.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
+    this.rowText(dsh, t("工作目录"), t("留空使用库根目录"), d.dsh.cwd, t("留空 = 库根目录"), (v) => { d.dsh.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
+    this.rowText(dshMore, t("额外 ACP 参数"), t("可留空"), d.dsh.extraArgs, t("可留空"), (v) => { d.dsh.extraArgs = v; p.saveSettings(); }, "ad-input--wide");
     const dtest = dshMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(dtest, t("读取 Harness 可用模型"), async () => {
       try { const models = await p.refreshDshModels(); new Notice(t("已读取 {n} 个模型，包含 Harness 中配置的自定义模型", { n: models.length })); this.display(); }
@@ -409,8 +487,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.effortControl(agy, "antigravity", d.antigravity.effort, (v) => { this.setDefaultEffort("antigravity", v); this.display(); });
     const agyMore = this.subDetails(agy, "agy-more", t("更多设置"));
     for (const [key, label, hint] of [["path", t("agy 程序路径"), t("留空自动查找，例如 ~/.local/bin/agy")], ["cwd", t("工作目录"), t("留空 = 库根目录")]]) {
-      const r = this.row(key === "cwd" ? agy : agyMore, label, hint, null);
-      this.textInput(r.querySelector(":scope > .ad-row__right"), d.antigravity[key], hint, (v) => { d.antigravity[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
+      this.rowText(key === "cwd" ? agy : agyMore, label, hint, d.antigravity[key], hint, (v) => { d.antigravity[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
     const atest = agyMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(atest, t("读取 Antigravity 可用模型"), async () => {
@@ -424,14 +501,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const opencode = this.agentCard(body, "opencode", "OpenCode", t("通过 OpenCode.app 内置的 opencode-cli acp 后台委派，也可打开桌面端或终端"));
     this.modelSelect(opencode, "opencode", p.defaultModel("opencode"), (v) => { this.setDefaultModel("opencode", v); this.display(); });
     this.effortControl(opencode, "opencode", d.opencode.effort, (v) => { this.setDefaultEffort("opencode", v); this.display(); });
-    const ocRoute = this.row(opencode, t("自动允许工具调用"), t("关闭后逐次确认工具权限"), null);
-    this.toggle(ocRoute.querySelector(":scope > .ad-row__right"), d.opencode.autoApprove === true, (v) => { d.opencode.autoApprove = v; p.saveSettings(); });
+    this.rowToggle(opencode, t("自动允许工具调用"), t("关闭后逐次确认工具权限"), d.opencode.autoApprove === true, (v) => { d.opencode.autoApprove = v; p.saveSettings(); });
     const opencodeMore = this.subDetails(opencode, "opencode-more", t("更多设置"));
-    const ocDesk = this.row(opencodeMore, t("完成后自动在桌面版打开"), "", null);
-    this.toggle(ocDesk.querySelector(":scope > .ad-row__right"), d.opencode.openDesktop === true, (v) => { d.opencode.openDesktop = v; p.saveSettings(); });
+    this.rowToggle(opencodeMore, t("完成后自动在桌面版打开"), "", d.opencode.openDesktop === true, (v) => { d.opencode.openDesktop = v; p.saveSettings(); });
     for (const [key, label, hint] of [["path", t("命令行路径"), t("留空自动查找（含 OpenCode.app 内置 CLI）")], ["cwd", t("工作目录"), t("留空 = 库根目录")], ["extraArgs", t("额外 ACP 参数"), t("可留空")]]) {
-      const r = this.row(key === "cwd" ? opencode : opencodeMore, label, hint, null);
-      this.textInput(r.querySelector(":scope > .ad-row__right"), d.opencode[key] || "", hint, (v) => { d.opencode[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
+      this.rowText(key === "cwd" ? opencode : opencodeMore, label, hint, d.opencode[key] || "", hint, (v) => { d.opencode[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
     const octest = opencodeMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(octest, t("读取 OpenCode 可用模型"), async () => {
@@ -445,12 +519,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const qoder = this.agentCard(body, "qoder", "Qoder", t("已登录 qodercli 时后台直接执行；未登录时自动复制任务并打开 Qoder 桌面版交接"));
     this.modelSelect(qoder, "qoder", p.defaultModel("qoder"), (v) => { this.setDefaultModel("qoder", v); this.display(); });
     this.effortControl(qoder, "qoder", d.qoder.effort, (v) => { this.setDefaultEffort("qoder", v); this.display(); });
-    const qPermRow = this.row(qoder, t("权限模式"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件"), null);
-    this.segmented(qPermRow.querySelector(":scope > .ad-row__right"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => { d.qoder.permission = v; p.saveSettings(); this.display(); });
+    this.rowSegmented(qoder, t("权限模式"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => { d.qoder.permission = v; p.saveSettings(); this.display(); });
     const qoderMore = this.subDetails(qoder, "qoder-more", t("更多设置"));
     for (const [key, label, hint] of [["path", t("命令行路径"), t("留空自动查找（~/.qoder/bin/qodercli/qodercli）")], ["cwd", t("工作目录"), t("留空 = 库根目录")], ["extraArgs", t("额外参数"), t("可留空")]]) {
-      const r = this.row(key === "cwd" ? qoder : qoderMore, label, hint, null);
-      this.textInput(r.querySelector(":scope > .ad-row__right"), d.qoder[key] || "", hint, (v) => { d.qoder[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
+      this.rowText(key === "cwd" ? qoder : qoderMore, label, hint, d.qoder[key] || "", hint, (v) => { d.qoder[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
     const qtest = qoderMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(qtest, t("检查 qoder"), async () => new Notice(await p.checkBinary("qoder"), 6000));
@@ -459,10 +531,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     qoder.appendChild(qoderMore.parentElement);
 
     const sharedAgents = this.card(body, t("公共终端与其余 Agent"), "");
-    const dt = this.row(sharedAgents, t("主力终端"), t("用于终端委派和恢复会话"), null);
-    this.selectInput(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: t("自动") }, { id: "terminal", label: t("系统终端") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
-    const dd = this.row(sharedAgents, t("默认在终端委派"), t("适用于 Claude Code、Codex、OpenCode 和 Qoder"), null);
-    this.toggle(dd.querySelector(":scope > .ad-row__right"), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
+    this.rowSelect(sharedAgents, t("主力终端"), t("用于终端委派和恢复会话"), [{ id: "auto", label: t("自动") }, { id: "terminal", label: t("系统终端") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
+    this.rowToggle(sharedAgents, t("默认在终端委派"), t("适用于 Claude Code、Codex、OpenCode 和 Qoder"), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
     for (const id of ["workbuddy"]) {
       const r = this.row(sharedAgents, AGENTS[id].name, "", t("客户端交接 · 在客户端选择模型"));
       r.dataset.agent = id;
@@ -473,11 +543,9 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
     // 4. 委派 → 发送规则
     const rules = this.card(body, t("发送规则"), t("任务行 Agent 补全、提示词前后缀和委派附加要求"));
-    const suggestRow = this.row(rules, t("输入时显示候选菜单"), t("输入触发符选择 Agent、模型和强度"), null);
-    this.toggle(suggestRow.querySelector(":scope > .ad-row__right"), d.mentionSuggest !== false, (v) => { d.mentionSuggest = v; p.saveSettings(); });
+    this.rowToggle(rules, t("输入时显示候选菜单"), t("输入触发符选择 Agent、模型和强度"), d.mentionSuggest !== false, (v) => { d.mentionSuggest = v; p.saveSettings(); });
     const rulesMore = this.subDetails(rules, "rules-more", t("更多设置"));
-    const triggerRow = this.row(rulesMore, t("触发符号"), t("默认 @，前面需空格"), null);
-    this.textInput(triggerRow.querySelector(":scope > .ad-row__right"), d.mentionTrigger || "@", "@", (v) => {
+    this.rowText(rulesMore, t("触发符号"), t("默认 @，前面需空格"), d.mentionTrigger || "@", "@", (v) => {
       const trigger = v.trim();
       if (!trigger || /[\s`\p{L}\p{N}]/u.test(trigger)) { new Notice(t("请填写不含空格、字母、数字或反引号的符号")); return; }
       d.mentionTrigger = trigger; p.saveSettings();
@@ -492,8 +560,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const sufTa = suf.createEl("textarea", { cls: "ad-textarea", attr: { placeholder: t("例如：做完把改动文件列出来。"), rows: "2" } });
     sufTa.value = d.promptSuffix || "";
     sufTa.onchange = () => { d.promptSuffix = sufTa.value; p.saveSettings(); };
-    const rc = this.row(rules, t("委派附加要求"), t("追加到每次委派消息末尾"), null);
-    this.toggle(rc.querySelector(":scope > .ad-row__right"), d.confirmFirst !== false, (v) => { d.confirmFirst = v; p.saveSettings(); });
+    this.rowToggle(rules, t("委派附加要求"), t("追加到每次委派消息末尾"), d.confirmFirst !== false, (v) => { d.confirmFirst = v; p.saveSettings(); });
     const confirm = rulesMore.createDiv({ cls: "ad-field" });
     confirm.createDiv({ cls: "ad-field__label", text: t("附加要求正文（可自定义）") });
     const confirmTa = confirm.createEl("textarea", { cls: "ad-textarea", attr: { rows: "5" } });
@@ -519,29 +586,28 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   }
 
   modelSelect(parent, agent, value, onChange) {
-    const row = this.row(parent, t("默认模型"), "", null);
     const all = this.plugin.modelsFor(agent);
     const models = agent === "codex" ? all : all.filter((m) => this.plugin.modelEnabled(m.id));
     if (!models.length) models.push(...all);
     if (value && !models.some((m) => m.id === value)) models.push(this.plugin.modelById(value) || { id: value, name: value });
-    return this.selectInput(row.querySelector(":scope > .ad-row__right"), models.map((m) => ({ id: m.id, label: m.name })), value, onChange);
+    return this.rowSelect(parent, t("默认模型"), "", models.map((m) => ({ id: m.id, label: m.name })), value, onChange);
   }
 
   effortControl(parent, agent, value, onChange) {
-    const row = this.row(parent, t("默认强度"), "", null);
-    const right = row.querySelector(":scope > .ad-row__right");
-    const wrap = right.createDiv({ cls: "ad-effort" });
-    const opts = EFFORTS[agent] || EFFORTS.claude;
-    const track = wrap.createDiv({ cls: "ad-effort__track" });
-    const fill = track.createDiv({ cls: "ad-effort__fill" });
-    const stops = track.createDiv({ cls: "ad-effort__stops" });
-    const idx = Math.max(0, opts.findIndex((x) => x.id === value));
-    fill.style.width = `${(idx / Math.max(1, opts.length - 1)) * 100}%`;
-    opts.forEach((o, i) => {
-      const b = stops.createEl("button", { cls: "ad-effort__stop" + (o.id === value ? " is-on" : ""), attr: { "aria-label": o.label, "aria-pressed": String(o.id === value) } });
-      b.createSpan({ cls: "ad-effort__dot" });
-      b.onclick = () => onChange(o.id);
-      wrap.createEl("span", { cls: "ad-effort__lab", attr: { style: `left:${(i / Math.max(1, opts.length - 1)) * 100}%` }, text: o.label });
+    this.row(parent, t("默认强度"), "", (right) => {
+      const wrap = right.createDiv({ cls: "ad-effort" });
+      const opts = EFFORTS[agent] || EFFORTS.claude;
+      const track = wrap.createDiv({ cls: "ad-effort__track" });
+      const fill = track.createDiv({ cls: "ad-effort__fill" });
+      const stops = track.createDiv({ cls: "ad-effort__stops" });
+      const idx = Math.max(0, opts.findIndex((x) => x.id === value));
+      fill.style.width = `${(idx / Math.max(1, opts.length - 1)) * 100}%`;
+      opts.forEach((o, i) => {
+        const b = stops.createEl("button", { cls: "ad-effort__stop" + (o.id === value ? " is-on" : ""), attr: { "aria-label": o.label, "aria-pressed": String(o.id === value) } });
+        b.createSpan({ cls: "ad-effort__dot" });
+        b.onclick = () => onChange(o.id);
+        wrap.createEl("span", { cls: "ad-effort__lab", attr: { style: `left:${(i / Math.max(1, opts.length - 1)) * 100}%` }, text: o.label });
+      });
     });
   }
 
@@ -800,14 +866,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     }
     this.agentReorder(grid, "tracking", ".ad-set-agent");
     const sourceMore = this.subDetails(sourceCard, "source-more", t("更多设置"));
-    const r1 = this.row(sourceMore, t("日记日期分界"), t("此时刻之前计入前一天"), null);
-    this.numberInput(r1.querySelector(":scope > .ad-row__right"), s.dayCutoff, 0, 12, (v) => { s.dayCutoff = v; p.saveSettings(); p.scheduleScan(); });
-    const r2 = this.row(sourceMore, t("扫描间隔（秒）"), "", null);
-    this.numberInput(r2.querySelector(":scope > .ad-row__right"), s.pollSeconds, 5, 300, (v) => { s.pollSeconds = v; p.saveSettings(); p.scheduleScan(); });
-    const r4 = this.row(sourceMore, t("主力读多少天历史"), t("非主力读取当天会话"), null);
-    this.numberInput(r4.querySelector(":scope > .ad-row__right"), s.fullHistoryDays, 1, 365, (v) => { s.fullHistoryDays = v; p.saveSettings(); p.scanNow(true); });
-    const d1 = this.row(sourceMore, t("识别 side chat 和母子关系"), t("Claude 桌面版子会话与母子关联"), null);
-    this.toggle(d1.querySelector(":scope > .ad-row__right"), s.claudeDesktop !== false, (v) => { s.claudeDesktop = v; p.saveSettings(); p.scanNow(true); });
+    this.rowNumber(sourceMore, t("日记日期分界"), t("此时刻之前计入前一天"), s.dayCutoff, 0, 12, (v) => { s.dayCutoff = v; p.saveSettings(); p.scheduleScan(); });
+    this.rowNumber(sourceMore, t("扫描间隔（秒）"), "", s.pollSeconds, 5, 300, (v) => { s.pollSeconds = v; p.saveSettings(); p.scheduleScan(); });
+    this.rowNumber(sourceMore, t("主力读多少天历史"), t("非主力读取当天会话"), s.fullHistoryDays, 1, 365, (v) => { s.fullHistoryDays = v; p.saveSettings(); p.scanNow(true); });
+    this.rowToggle(sourceMore, t("识别 side chat 和母子关系"), t("Claude 桌面版子会话与母子关联"), s.claudeDesktop !== false, (v) => { s.claudeDesktop = v; p.saveSettings(); p.scanNow(true); });
     if (typeof p.cursorHooksStatus === "function") {
       const ch = p.cursorHooksStatus();
       const statusText = ch.outdated
@@ -815,18 +877,18 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         : ch.installed
           ? t("已配置 Cursor 3.30.14+ Hooks（{matched}/{total}）", { matched: ch.matchedEvents, total: ch.totalEvents })
           : t("未安装 Cursor Hooks；仅追踪安装后的 Cursor 3.30.14+ 新会话或新对话轮次");
-      const curRow = this.row(sourceMore, "Cursor Hooks", statusText, null);
-      const curRight = curRow.querySelector(":scope > .ad-row__right");
-      this.bigButton(curRight, ch.installed && !ch.outdated ? t("更新 Hooks") : t("安装 Hooks"), () => {
-        try { p.installCursorHooks(); } catch (e) { p.notice?.(e.message || String(e)); }
-        this.display();
-      });
-      if (ch.installed || ch.matchedEvents > 0 || ch.scriptExists) {
-        this.bigButton(curRight, t("卸载 Hooks"), () => {
-          try { p.uninstallCursorHooks(); } catch (e) { p.notice?.(e.message || String(e)); }
+      this.row(sourceMore, "Cursor Hooks", statusText, (curRight) => {
+        this.bigButton(curRight, ch.installed && !ch.outdated ? t("更新 Hooks") : t("安装 Hooks"), () => {
+          try { p.installCursorHooks(); } catch (e) { p.notice?.(e.message || String(e)); }
           this.display();
         });
-      }
+        if (ch.installed || ch.matchedEvents > 0 || ch.scriptExists) {
+          this.bigButton(curRight, t("卸载 Hooks"), () => {
+            try { p.uninstallCursorHooks(); } catch (e) { p.notice?.(e.message || String(e)); }
+            this.display();
+          });
+        }
+      });
     }
     const scanBar = sourceCard.createDiv({ cls: "ad-btnrow" });
     this.bigButton(scanBar, t("立即扫描"), () => p.scanNow(), "mod-cta");
@@ -849,32 +911,30 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
     // 2. 记录 → 日记与归档
     const jr = this.card(body, t("日记与归档"), t("将会话记录写入今天的日记"));
-    const master = this.row(jr, t("启用日记写入"), "", null);
-    this.toggle(master.querySelector(":scope > .ad-row__right"), s.journalAutoWrite !== false, (v) => { s.journalAutoWrite = v; p.saveSettings(); });
+    this.rowToggle(jr, t("启用日记写入"), "", s.journalAutoWrite !== false, (v) => { s.journalAutoWrite = v; p.saveSettings(); });
     const det = detectJournalFormat(this.app, s);
-    const jf = this.row(jr, t("日记目录"), t("当前：{folder}；今天：{path}", { folder: det.folder || t("库根目录"), source: det.folderSource, path: journalPath(this.app, s) }), null);
-    this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "", t("自动：{folder}", { folder: det.folder || t("库根目录") }), (v) => { s.journalFolder = v.trim(); p.saveSettings(); this.display(); });
-    const jfmt = this.row(jr, t("日记文件名格式"), t("例如 YYYY-MM-DD；当前：{format}", { format: det.format, source: det.source }), null);
-    this.textInput(jfmt.querySelector(":scope > .ad-row__right"), s.journalFormat || "", t("自动：{format}", { format: det.format }), (v) => { s.journalFormat = v.trim(); p.saveSettings(); this.display(); });
-    const ja = this.row(jr, t("自动会话记录"), t("自动将活跃会话建项并记入今日日记"), null);
-    this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => { s.autoLog = v; p.saveSettings(); });
-    const jag = this.row(jr, t("记哪几个 Agent"), t("选择自动建项的 Agent"), null);
-    const agBox = jag.querySelector(":scope > .ad-row__right").createDiv({ cls: "ad-seg ad-seg--many" });
-    const agOn = (s.autoLogAgents ||= {});
-    for (const id of AGENT_ORDER) {
-      const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id, attr: { "aria-pressed": String(agOn[id] !== false) } });
-      b.onclick = () => { agOn[id] = agOn[id] === false; b.classList.toggle("is-on", agOn[id] !== false); b.setAttribute("aria-pressed", String(agOn[id] !== false)); p.saveSettings(); };
-    }
-    const grain = this.row(jr, t("自动记录颗粒度"), t("选择记录的时机"), null);
-    this.segmented(grain.querySelector(":scope > .ad-row__right"), [{ id: "latest", label: t("最新进展") }, { id: "round", label: t("每轮记录") }, { id: "paused", label: t("停歇或归档") }], s.autoLogGranularity || DEFAULTS.autoLogGranularity, (v) => { s.autoLogGranularity = v; p.saveSettings(); this.display(); });
-    const jdetail = this.row(jr, t("自动日志详细程度"), "", null);
+    this.rowText(jr, t("日记目录"), t("当前：{folder}；今天：{path}", { folder: det.folder || t("库根目录"), source: det.folderSource, path: journalPath(this.app, s) }), s.journalFolder || "", t("自动：{folder}", { folder: det.folder || t("库根目录") }), (v) => { s.journalFolder = v.trim(); p.saveSettings(); this.display(); });
+    this.rowText(jr, t("日记文件名格式"), t("例如 YYYY-MM-DD；当前：{format}", { format: det.format, source: det.source }), s.journalFormat || "", t("自动：{format}", { format: det.format }), (v) => { s.journalFormat = v.trim(); p.saveSettings(); this.display(); });
+    this.rowToggle(jr, t("自动会话记录"), t("自动将活跃会话建项并记入今日日记"), s.autoLog === true, (v) => { s.autoLog = v; p.saveSettings(); });
+    this.row(jr, t("记哪几个 Agent"), t("选择自动建项的 Agent"), (rr) => {
+      const agBox = rr.createDiv({ cls: "ad-seg ad-seg--many" });
+      const agOn = (s.autoLogAgents ||= {});
+      for (const id of AGENT_ORDER) {
+        const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id, attr: { "aria-pressed": String(agOn[id] !== false) } });
+        b.onclick = () => { agOn[id] = agOn[id] === false; b.classList.toggle("is-on", agOn[id] !== false); b.setAttribute("aria-pressed", String(agOn[id] !== false)); p.saveSettings(); };
+      }
+    });
+    const grain = this.row(jr, t("自动记录颗粒度"), t("选择记录的时机"), (rr) => {
+      this.segmented(rr, [{ id: "latest", label: t("最新进展") }, { id: "round", label: t("每轮记录") }, { id: "paused", label: t("停歇或归档") }], s.autoLogGranularity || DEFAULTS.autoLogGranularity, (v) => { s.autoLogGranularity = v; p.saveSettings(); this.display(); });
+    });
+    const jdetail = this.row(jr, t("自动日志详细程度"), "", (rr) => {
+      this.segmented(rr, [{ id: "brief", label: t("简略（默认）") }, { id: "standard", label: t("标准") }, { id: "detailed", label: t("详细") }], s.autoLogDetail || "brief", (v) => { changeLogDetail(s, v); p.saveSettings(); this.display(); });
+    });
     const detailDesc = jdetail.querySelector(":scope > .ad-row__left");
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("简略：任务和结论合成一段") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("标准：提问、回答各一句") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("详细：保留提问、回复摘录和步骤") });
-    this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: t("简略（默认）") }, { id: "standard", label: t("标准") }, { id: "detailed", label: t("详细") }], s.autoLogDetail || "brief", (v) => { changeLogDetail(s, v); p.saveSettings(); this.display(); });
-    const rmode = this.row(jr, t("AI 记录显示方式"), t("控制笔记中默认展开的记录"), null);
-    this.segmented(rmode.querySelector(":scope > .ad-row__right"), [
+    this.rowSegmented(jr, t("AI 记录显示方式"), t("控制笔记中默认展开的记录"), [
       { id: "collapsed", label: t("默认折叠") },
       { id: "expanded", label: t("默认展开") },
       { id: "latest5", label: t("最新五条") },
@@ -883,68 +943,60 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     ], s.aiRecordDisplay || DEFAULTS.aiRecordDisplay, (v) => { s.aiRecordDisplay = v; p.saveSettings(); p.refreshUI(); this.display(); });
     const jrMore = this.subDetails(jr, "recording-more", t("更多设置"));
     jrMore.appendChild(grain);
-    const merge = this.row(jrMore, t("累积后自动合并总结"), "", null);
-    this.toggle(merge.querySelector(":scope > .ad-row__right"), !!s.autoLogMerge, (v) => { s.autoLogMerge = v; p.saveSettings(); this.display(); });
-    const mergeN = this.row(jrMore, t("累积多少条结论后合并"), t("至少 2 条"), null);
-    this.numberInput(mergeN.querySelector(":scope > .ad-row__right"), s.autoLogMergeThreshold || 10, 2, 100, (v) => { s.autoLogMergeThreshold = Math.round(v); p.saveSettings(); });
+    this.rowToggle(jrMore, t("累积后自动合并总结"), "", !!s.autoLogMerge, (v) => { s.autoLogMerge = v; p.saveSettings(); this.display(); });
+    this.rowNumber(jrMore, t("累积多少条结论后合并"), t("至少 2 条"), s.autoLogMergeThreshold || 10, 2, 100, (v) => { s.autoLogMergeThreshold = Math.round(v); p.saveSettings(); });
 
     const wb = jrMore;
-    const dm1 = this.row(wb, t("把状态改成 DELEGATED"), "", null);
-    this.toggle(dm1.querySelector(":scope > .ad-row__right"), d.markStatus !== false, (v) => { d.markStatus = v; p.saveSettings(); });
-    const dm2 = this.row(wb, t("写 🔗 绑定行"), t("删除绑定行可解除关联"), null);
-    this.toggle(dm2.querySelector(":scope > .ad-row__right"), d.writeLink !== false, (v) => { d.writeLink = v; p.saveSettings(); });
-    const dm3 = this.row(wb, t("委派任务回写"), t("委派完成后写 💬 结论"), null);
-    this.toggle(dm3.querySelector(":scope > .ad-row__right"), s.autoWriteResult !== false, (v) => { s.autoWriteResult = v; p.saveSettings(); });
-    const js = this.row(wb, t("回写日记"), t("更新已绑定任务的状态与结论"), null);
-    this.toggle(js.querySelector(":scope > .ad-row__right"), s.journalSync !== false, (v) => { s.journalSync = v; p.saveSettings(); });
+    this.rowToggle(wb, t("把状态改成 DELEGATED"), "", d.markStatus !== false, (v) => { d.markStatus = v; p.saveSettings(); });
+    this.rowToggle(wb, t("写 🔗 绑定行"), t("删除绑定行可解除关联"), d.writeLink !== false, (v) => { d.writeLink = v; p.saveSettings(); });
+    this.rowToggle(wb, t("委派任务回写"), t("委派完成后写 💬 结论"), s.autoWriteResult !== false, (v) => { s.autoWriteResult = v; p.saveSettings(); });
+    this.rowToggle(wb, t("回写日记"), t("更新已绑定任务的状态与结论"), s.journalSync !== false, (v) => { s.journalSync = v; p.saveSettings(); });
     for (const [key, label, desc] of [
       ["resultBack", t("会话结论写回（💬）"), ""],
       ["agentKw", t("状态关键词跟着会话"), ""],
       ["autoLogKw", t("自动记的条目也跟着切状态"), ""],
       ["kidBlocks", t("子会话和 side chat 子块"), ""],
     ]) {
-      const row = this.row(wb, label, desc, null);
-      this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] !== false, (v) => { s[key] = v; p.saveSettings(); });
+      this.rowToggle(wb, label, desc, s[key] !== false, (v) => { s[key] = v; p.saveSettings(); });
     }
-    const rMax = this.row(jr, t("💬 最多多少个字"), t("普通会话的结论长度；后台回答超过 500 字时返回完整问答文件"), null);
-    this.numberInput(rMax.querySelector(":scope > .ad-row__right"), s.resultMax || DEFAULTS.resultMax, 40, 2000, (v) => { s.resultMax = v; p.saveSettings(); });
-    const jd = this.row(wb, t("归档的会话记成 DONE"), "", null);
-    this.toggle(jd.querySelector(":scope > .ad-row__right"), s.autoLogArchiveDone !== false, (v) => { s.autoLogArchiveDone = v; p.saveSettings(); });
-    const jn = this.row(wb, t("整理完弹通知"), "", null);
-    this.toggle(jn.querySelector(":scope > .ad-row__right"), s.autoLogNotify !== false, (v) => { s.autoLogNotify = v; p.saveSettings(); });
+    this.rowNumber(jr, t("💬 最多多少个字"), t("普通会话的结论长度；后台回答超过 500 字时返回完整问答文件"), s.resultMax || DEFAULTS.resultMax, 40, 2000, (v) => { s.resultMax = v; p.saveSettings(); });
+    this.rowToggle(wb, t("归档的会话记成 DONE"), "", s.autoLogArchiveDone !== false, (v) => { s.autoLogArchiveDone = v; p.saveSettings(); });
+    this.rowToggle(wb, t("整理完弹通知"), "", s.autoLogNotify !== false, (v) => { s.autoLogNotify = v; p.saveSettings(); });
 
     const tpl = this.subDetails(jrMore, "template-archive", t("整理日志模板与归档"));
-    const suggest = this.row(tpl, t("日志杂乱时提醒整理"), t("每新增 4 条记录提醒，每天最多 2 次"), null);
-    this.toggle(suggest.querySelector(":scope > .ad-row__right"), s.organizeJournalSuggest !== false, (v) => { s.organizeJournalSuggest = v; p.saveSettings(); });
-    const templateRow = this.row(tpl, t("整理模板"), t("设置笔记分区的标题和顺序"), null);
-    const template = templateRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
-    for (const [value, label] of [["auto", t("跟随界面（默认）")], ["zh", t("中文模板")], ["en", "English template"], ["custom", t("自定义模板")]]) template.createEl("option", { text: label, attr: { value } });
-    template.value = s.journalLayout ? "custom" : s.journalLayoutLanguage || "auto";
-    template.onchange = () => {
-      if (template.value === "custom") s.journalLayout = builtinJournalLayout(s.journalLayoutLanguage === "auto" ? currentLanguage() : s.journalLayoutLanguage || currentLanguage());
-      else { s.journalLayout = null; s.journalLayoutLanguage = template.value; }
-      p.saveSettings(); this.display();
-    };
+    this.rowToggle(tpl, t("日志杂乱时提醒整理"), t("每新增 4 条记录提醒，每天最多 2 次"), s.organizeJournalSuggest !== false, (v) => { s.organizeJournalSuggest = v; p.saveSettings(); });
+    this.rowSelect(
+      tpl,
+      t("整理模板"),
+      t("设置笔记分区的标题和顺序"),
+      [["auto", t("跟随界面（默认）")], ["zh", t("中文模板")], ["en", "English template"], ["custom", t("自定义模板")]].map(([id, label]) => ({ id, label })),
+      s.journalLayout ? "custom" : s.journalLayoutLanguage || "auto",
+      (val) => {
+        if (val === "custom") s.journalLayout = builtinJournalLayout(s.journalLayoutLanguage === "auto" ? currentLanguage() : s.journalLayoutLanguage || currentLanguage());
+        else { s.journalLayout = null; s.journalLayoutLanguage = val; }
+        p.saveSettings(); this.display();
+      },
+    );
     if (s.journalLayout) {
       s.journalLayout = configuredJournalLayout(s);
       const names = { active: t("正在做"), todo: t("还要做"), done: t("已完成") };
-      const orderRow = this.row(tpl, t("分区顺序"), "", null);
-      const orderSel = orderRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
-      for (const keys of [["active", "todo", "done"], ["active", "done", "todo"], ["todo", "active", "done"], ["todo", "done", "active"], ["done", "active", "todo"], ["done", "todo", "active"]]) orderSel.createEl("option", { text: keys.map((key) => names[key]).join(" → "), attr: { value: keys.join(",") } });
-      orderSel.value = s.journalLayout.order.join(",");
-      orderSel.onchange = () => { s.journalLayout = journalLayout({ ...s.journalLayout, order: orderSel.value.split(",") }); p.saveSettings(); };
+      this.rowSelect(
+        tpl,
+        t("分区顺序"),
+        "",
+        [["active", "todo", "done"], ["active", "done", "todo"], ["todo", "active", "done"], ["todo", "done", "active"], ["done", "active", "todo"], ["done", "todo", "active"]].map((keys) => ({ id: keys.join(","), label: keys.map((key) => names[key]).join(" → ") })),
+        s.journalLayout.order.join(","),
+        (val) => { s.journalLayout = journalLayout({ ...s.journalLayout, order: val.split(",") }); p.saveSettings(); },
+      );
       for (const key of JOURNAL_LAYOUT_DEFAULT.order) {
-        const row = this.row(tpl, t("{section}标题", { section: names[key] }), "", null);
-        const input = this.textInput(row.querySelector(":scope > .ad-row__right"), s.journalLayout.titles[key], names[key], (value) => {
+        const input = this.rowText(tpl, t("{section}标题", { section: names[key] }), "", s.journalLayout.titles[key], names[key], (value) => {
           try { s.journalLayout = journalLayout({ ...s.journalLayout, titles: { ...s.journalLayout.titles, [key]: value } }); p.saveSettings(); }
           catch (error) { input.value = s.journalLayout.titles[key]; new Notice(error.message); }
         });
       }
     }
-    const archive = this.row(tpl, t("默认归档位置"), t("库内 Markdown 路径"), null);
-    this.textInput(archive.querySelector(":scope > .ad-row__right"), s.doneArchivePath, DEFAULTS.doneArchivePath, (v) => { try { s.doneArchivePath = archivePath(v); p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
-    const archOrder = this.row(tpl, t("归档顺序"), "", null);
-    this.segmented(archOrder.querySelector(":scope > .ad-row__right"), [{ id: "prepend", label: t("插到开头") }, { id: "append", label: t("追加到末尾") }], s.archiveOrder || "prepend", (v) => { s.archiveOrder = v; p.saveSettings(); });
+    this.rowText(tpl, t("默认归档位置"), t("库内 Markdown 路径"), s.doneArchivePath, DEFAULTS.doneArchivePath, (v) => { try { s.doneArchivePath = archivePath(v); p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
+    this.rowSegmented(tpl, t("归档顺序"), "", [{ id: "prepend", label: t("插到开头") }, { id: "append", label: t("追加到末尾") }], s.archiveOrder || "prepend", (v) => { s.archiveOrder = v; p.saveSettings(); });
     const jrBtns = jr.createDiv({ cls: "ad-btnrow" });
     this.bigButton(jrBtns, t("现在整理一次"), () => p.autoLog.logNow());
     this.bigButton(tpl.createDiv({ cls: "ad-btnrow" }), t("恢复默认整理模板"), () => { s.journalLayout = null; s.journalLayoutLanguage = "auto"; p.saveSettings(); this.display(); });
@@ -961,21 +1013,13 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const curProvider = s.autoLogProvider || "auto";
     const resolved = resolveJournalProvider(s);
     const autoTarget = detected.providers.find((x) => x.id === detected.recommended);
-    const providerOptions = [
-      {
-        id: "auto",
-        label: autoTarget?.available
-          ? t("自动挑选本机 CLI（当前：{name}）", { name: autoTarget.label })
-          : t("自动挑选本机 CLI"),
-      },
-      ...detected.providers.map((x) => ({
-        id: x.id,
-        label: `${x.label} ${x.available ? t("（已登录）") : x.found ? t("（未登录）") : t("（未安装）")}`,
-      })),
-      { id: "api", label: t("自定义 API（OpenAI 兼容）") },
-    ];
-    const jprovider = this.row(modelCard, t("整理使用的模型来源"), t("自动检测本机已登录 CLI，或自填兼容 OpenAI 格式的 API"), null);
-    this.selectInput(jprovider.querySelector(":scope > .ad-row__right"), providerOptions, curProvider, (v) => {
+    const providerOptions = this.detectedProviderChoices(detected, {
+      id: "auto",
+      label: autoTarget?.available
+        ? t("自动挑选本机 CLI（当前：{name}）", { name: autoTarget.label })
+        : t("自动挑选本机 CLI"),
+    });
+    this.rowSelect(modelCard, t("整理使用的模型来源"), t("自动检测本机已登录 CLI，或自填兼容 OpenAI 格式的 API"), providerOptions, curProvider, (v) => {
       s.autoLogProvider = v;
       s.autoLogModel = v === "auto" ? "" : (JOURNAL_PROVIDERS[v]?.defaultModel || "");
       s.roundPolishModel = "";
@@ -985,10 +1029,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     });
 
     if (resolved === "api") {
-      const presetRow = this.row(modelCard, t("API 预设"), t("快捷填入地址与默认模型"), null);
       const matchedPreset = API_PRESETS.find((x) => x.url === (s.autoLogApiUrl || "").trim())?.id || "custom";
-      this.selectInput(
-        presetRow.querySelector(":scope > .ad-row__right"),
+      this.rowSelect(
+        modelCard,
+        t("API 预设"),
+        t("快捷填入地址与默认模型"),
         [{ id: "custom", label: t("手动填写") }, ...API_PRESETS.map((x) => ({ id: x.id, label: x.id === "ollama" ? t("本地 Ollama") : x.label }))],
         matchedPreset,
         (id) => {
@@ -1000,86 +1045,65 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
           this.display();
         },
       );
-      const urlRow = this.row(modelCard, "API Base URL", t("填写服务商接口地址（自动补齐 /chat/completions）"), null);
-      this.textInput(urlRow.querySelector(":scope > .ad-row__right"), s.autoLogApiUrl || "", "https://api.deepseek.com", (v) => { s.autoLogApiUrl = v.trim(); p.saveSettings(); }, "ad-input--wide");
-      const keyRow = this.row(modelCard, "API Key", t("保存于插件设置 data.json 中"), null);
-      const keyInput = this.textInput(keyRow.querySelector(":scope > .ad-row__right"), s.autoLogApiKey || "", t("输入 API Key（本地 Ollama 可留空）"), (v) => { s.autoLogApiKey = v.trim(); p.saveSettings(); }, "ad-input--wide");
-      keyInput.type = "password";
-    } else if (resolved === "codex") {
-      const effort = this.row(modelCard, t("整理与润色的推理强度"), "", null);
-      this.segmented(effort.querySelector(":scope > .ad-row__right"), EFFORTS.codex, s.autoLogEffort || "low", (v) => { s.autoLogEffort = v; p.saveSettings(); this.display(); });
     }
+    this.renderApiCredentialsAndEffort(modelCard, {
+      showApi: resolved === "api",
+      showEffort: resolved === "codex",
+      urlLabel: "API Base URL",
+      urlValue: s.autoLogApiUrl || "",
+      onUrlChange: (v) => { s.autoLogApiUrl = v.trim(); p.saveSettings(); },
+      keyLabel: "API Key",
+      keyValue: s.autoLogApiKey || "",
+      onKeyChange: (v) => { s.autoLogApiKey = v.trim(); p.saveSettings(); },
+      effortLabel: t("整理与润色的推理强度"),
+      effortValue: s.autoLogEffort || "low",
+      onEffortChange: (v) => { s.autoLogEffort = v; p.saveSettings(); this.display(); },
+    });
 
     const spec = JOURNAL_PROVIDERS[resolved];
-    const presetModels = [...new Set([...(resolved === "agy" && this._agyJournalModels?.length ? this._agyJournalModels : []), ...(spec?.models || [])])];
-    if (resolved !== "api" && presetModels.length) {
-      const quickRow = this.row(modelCard, t("常用模型预设"), t("点选可填入下方模型框"), null);
-      const quickRight = quickRow.querySelector(":scope > .ad-row__right");
-      const curModel = s.autoLogModel || spec?.defaultModel || "";
-      this.selectInput(
-        quickRight,
-        [{ id: "", label: t("自定义输入") }, ...presetModels.map((m) => ({ id: m, label: m }))],
-        presetModels.includes(curModel) ? curModel : "",
-        (m) => { if (m) { s.autoLogModel = m; p.saveSettings(); this.display(); } },
-      );
-      if (resolved === "agy") {
-        this.bigButton(quickRight, t("刷新列表"), async () => {
-          const list = await fetchAgyModels(s.autoLogPath || s.delegate?.antigravity?.path || "");
-          if (!list.length) return new Notice(t("没有读到可用 agy 模型"));
-          this._agyJournalModels = list;
-          new Notice(t("已读取 {n} 个 agy 模型", { n: list.length }));
-          this.display();
-        });
-      }
-    }
+    this.providerPresetRow(modelCard, {
+      label: t("常用模型预设"),
+      desc: t("点选可填入下方模型框"),
+      resolved,
+      emptyLabel: t("自定义输入"),
+      value: s.autoLogModel || spec?.defaultModel || "",
+      onChange: (m) => { if (m) { s.autoLogModel = m; p.saveSettings(); this.display(); } },
+      showAgyRefresh: true,
+      agyPath: s.autoLogPath || s.delegate?.antigravity?.path || "",
+    });
 
     const modelPlaceholder = resolved === "api" ? "deepseek-chat" : (spec?.defaultModel || t("留空用 CLI 默认模型"));
-    const jm = this.row(modelCard, t("整理用的模型"), t("填写模型名或别名；留空使用当前方式默认模型"), null);
-    const jmRight = jm.querySelector(":scope > .ad-row__right");
-    this.textInput(jmRight, s.autoLogModel || "", modelPlaceholder, (v) => { s.autoLogModel = v.trim(); p.saveSettings(); }, resolved === "api" ? "ad-input--wide" : "");
-    this.bigButton(jmRight, t("测试连接"), async () => {
-      new Notice(t("正在测试整理模型连接…"), 2500);
-      try {
-        const reply = await testJournalModel(s);
-        new Notice(t("整理模型可用：{reply}", { reply: reply.slice(0, 60) || "OK" }), 5000);
-      } catch (e) {
-        new Notice(t("整理模型不可用：{msg}", { msg: e?.message || String(e) }), 8000);
-      }
+    this.renderModelTestRow(modelCard, {
+      label: t("整理用的模型"),
+      desc: t("填写模型名或别名；留空使用当前方式默认模型"),
+      value: s.autoLogModel || "",
+      placeholder: modelPlaceholder,
+      wide: resolved === "api",
+      onChange: (v) => { s.autoLogModel = v.trim(); p.saveSettings(); },
+      pendingText: t("正在测试整理模型连接…"),
+      testFn: () => testJournalModel(s),
     });
 
     const modelMore = this.subDetails(modelCard, "model-more", t("更多设置"));
-    const jt = this.row(modelMore, t("整理超时（秒）"), "", null);
-    this.numberInput(jt.querySelector(":scope > .ad-row__right"), s.autoLogTimeout || 120, 10, 600, (v) => { s.autoLogTimeout = v; p.saveSettings(); });
-    const jfb = this.row(modelMore, t("整理失败时使用会话标题"), "", null);
-    this.toggle(jfb.querySelector(":scope > .ad-row__right"), s.autoLogFallback !== false, (v) => { s.autoLogFallback = v; p.saveSettings(); });
+    this.rowNumber(modelMore, t("整理超时（秒）"), "", s.autoLogTimeout || 120, 10, 600, (v) => { s.autoLogTimeout = v; p.saveSettings(); });
+    this.rowToggle(modelMore, t("整理失败时使用会话标题"), "", s.autoLogFallback !== false, (v) => { s.autoLogFallback = v; p.saveSettings(); });
     if (resolved !== "api") {
-      const jp = this.row(modelMore, t("整理 CLI 路径"), t("留空自动查找或沿用委派路径"), null);
-      this.textInput(jp.querySelector(":scope > .ad-row__right"), s.autoLogPath || "", t("自动找"), (v) => { s.autoLogPath = v.trim(); p.saveSettings(); }, "ad-input--wide");
+      this.rowText(modelMore, t("整理 CLI 路径"), t("留空自动查找或沿用委派路径"), s.autoLogPath || "", t("自动找"), (v) => { s.autoLogPath = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
-    const jrp = this.row(modelMore, t("每轮结论让模型润色"), t("适用于简略和标准记录"), null);
-    this.toggle(jrp.querySelector(":scope > .ad-row__right"), s.roundPolish !== false, (v) => { s.roundPolish = v; p.saveSettings(); });
-    const jrm = this.row(modelMore, t("润色用的模型"), t("留空沿用整理模型"), null);
-    this.textInput(jrm.querySelector(":scope > .ad-row__right"), s.roundPolishModel || "", t("同整理用的模型"), (v) => { s.roundPolishModel = v.trim(); p.saveSettings(); });
-    const jrt = this.row(modelMore, t("润色超时（秒）"), "", null);
-    this.numberInput(jrt.querySelector(":scope > .ad-row__right"), s.roundPolishTimeout || 30, 5, 300, (v) => { s.roundPolishTimeout = v; p.saveSettings(); });
+    this.rowToggle(modelMore, t("每轮结论让模型润色"), t("适用于简略和标准记录"), s.roundPolish !== false, (v) => { s.roundPolish = v; p.saveSettings(); });
+    this.rowText(modelMore, t("润色用的模型"), t("留空沿用整理模型"), s.roundPolishModel || "", t("同整理用的模型"), (v) => { s.roundPolishModel = v.trim(); p.saveSettings(); });
+    this.rowNumber(modelMore, t("润色超时（秒）"), "", s.roundPolishTimeout || 30, 5, 300, (v) => { s.roundPolishTimeout = v; p.saveSettings(); });
     const sched = modelMore;
-    const je = this.row(sched, t("整理间隔（分钟）"), t("至少 5 分钟"), null);
-    this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => { s.autoLogEvery = v; p.saveSettings(); });
-    const jst = this.row(sched, t("首次整理延迟（分钟）"), "", null);
-    this.numberInput(jst.querySelector(":scope > .ad-row__right"), s.autoLogStartDelay ?? 1, 1, 240, (v) => { s.autoLogStartDelay = v; p.saveSettings(); });
-    const jmin = this.row(sched, t("最短记录时长（分钟）"), t("0 表示立即记录"), null);
-    this.numberInput(jmin.querySelector(":scope > .ad-row__right"), s.autoLogMinMinutes ?? 3, 0, 120, (v) => { s.autoLogMinMinutes = v; p.saveSettings(); });
-    const jid = this.row(sched, t("暂停判定（分钟）"), t("至少 5 分钟"), null);
-    this.numberInput(jid.querySelector(":scope > .ad-row__right"), s.autoLogIdle || 10, 5, 480, (v) => { s.autoLogIdle = v; p.saveSettings(); });
-    const jb = this.row(sched, t("每批会话数"), "", null);
-    this.numberInput(jb.querySelector(":scope > .ad-row__right"), s.autoLogBatch || 8, 1, 20, (v) => { s.autoLogBatch = v; p.saveSettings(); });
+    this.rowNumber(sched, t("整理间隔（分钟）"), t("至少 5 分钟"), s.autoLogEvery || 20, 5, 240, (v) => { s.autoLogEvery = v; p.saveSettings(); });
+    this.rowNumber(sched, t("首次整理延迟（分钟）"), "", s.autoLogStartDelay ?? 1, 1, 240, (v) => { s.autoLogStartDelay = v; p.saveSettings(); });
+    this.rowNumber(sched, t("最短记录时长（分钟）"), t("0 表示立即记录"), s.autoLogMinMinutes ?? 3, 0, 120, (v) => { s.autoLogMinMinutes = v; p.saveSettings(); });
+    this.rowNumber(sched, t("暂停判定（分钟）"), t("至少 5 分钟"), s.autoLogIdle || 10, 5, 480, (v) => { s.autoLogIdle = v; p.saveSettings(); });
+    this.rowNumber(sched, t("每批会话数"), "", s.autoLogBatch || 8, 1, 20, (v) => { s.autoLogBatch = v; p.saveSettings(); });
 
     // 4. 记录 → 展示与维护
     const ui = this.card(body, t("展示与维护"), t("会话打开方式、面板、编辑器与菜单栏显示、缓存维护"));
-    const dc = this.row(ui, t("终端会话打开方式"), "", null);
-    this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: t("终端") }, { id: "desktop", label: t("桌面版") }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => { s.cliOpen = v; p.saveSettings(); this.display(); });
-    const d2 = this.row(ui, t("归档的会话不再列出"), "", null);
-    this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => { s.hideArchived = v; p.saveSettings(); p.refreshUI(); });
+    this.rowSegmented(ui, t("终端会话打开方式"), "", [{ id: "terminal", label: t("终端") }, { id: "desktop", label: t("桌面版") }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => { s.cliOpen = v; p.saveSettings(); this.display(); });
+    this.rowToggle(ui, t("归档的会话不再列出"), "", s.hideArchived !== false, (v) => { s.hideArchived = v; p.saveSettings(); p.refreshUI(); });
     for (const [key, label, desc, fallback] of [
       ["showEditorPills", t("任务行上的会话状态按钮"), "", true],
       ["lineProgress", t("显示任务行进度条与 token 块"), t("在 AI 任务行下方渲染 ASCII 进度条与紫色 token 方块"), true],
@@ -1087,69 +1111,61 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       ["showRibbonIcon", t("左侧栏图标"), "", true],
       ["openDashboardOnStartup", t("启动时打开面板"), "", false],
     ]) {
-      const row = this.row(ui, label, desc, null);
-      this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] === undefined ? fallback : s[key] !== false, (v) => { s[key] = v; p.saveSettings(); p.applyUiSettings(); });
+      this.rowToggle(ui, label, desc, s[key] === undefined ? fallback : s[key] !== false, (v) => { s[key] = v; p.saveSettings(); p.applyUiSettings(); });
     }
     const uiMore = this.subDetails(ui, "display-more", t("更多设置"));
-    const bars = this.row(uiMore, t("最近 14 天的条形图"), "", null);
-    this.toggle(bars.querySelector(":scope > .ad-row__right"), s.ui.showUsageBars !== false, (v) => { s.ui.showUsageBars = v; p.saveSettings(); p.refreshUI(); });
-    const spark = this.row(uiMore, t("每个 Agent 的小火花线"), "", null);
-    this.toggle(spark.querySelector(":scope > .ad-row__right"), s.ui.showSparkline !== false, (v) => { s.ui.showSparkline = v; p.saveSettings(); p.refreshUI(); });
+    this.rowToggle(uiMore, t("最近 14 天的条形图"), "", s.ui.showUsageBars !== false, (v) => { s.ui.showUsageBars = v; p.saveSettings(); p.refreshUI(); });
+    this.rowToggle(uiMore, t("每个 Agent 的小火花线"), "", s.ui.showSparkline !== false, (v) => { s.ui.showSparkline = v; p.saveSettings(); p.refreshUI(); });
 
-    const mb = this.row(ui, t("macOS 菜单栏"), "", null);
-    this.mbSwitch = this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => { s.showMenuBar = v; p.saveSettings(); p.applyUiSettings(); });
-    const ma = this.row(uiMore, t("菜单栏显示哪些 Agent"), "", null);
-    this.segmented(ma.querySelector(":scope > .ad-row__right"), [{ id: "primary-running", label: t("主力与在跑的") }, { id: "all", label: t("全部已启用") }], s.menuBarAgentScope || "primary-running", (v) => { s.menuBarAgentScope = v; p.saveSettings(); p.menubar?.update(true); this.display(); });
+    this.mbSwitch = this.rowToggle(ui, t("macOS 菜单栏"), "", s.showMenuBar !== false, (v) => { s.showMenuBar = v; p.saveSettings(); p.applyUiSettings(); });
+    this.rowSegmented(uiMore, t("菜单栏显示哪些 Agent"), "", [{ id: "primary-running", label: t("主力与在跑的") }, { id: "all", label: t("全部已启用") }], s.menuBarAgentScope || "primary-running", (v) => { s.menuBarAgentScope = v; p.saveSettings(); p.menubar?.update(true); this.display(); });
     for (const [key, label, desc, min, max] of [
       ["menuBarPrimaryLimit", t("菜单栏：主力最多几个"), "", 3, 12],
       ["menuBarOtherLimit", t("菜单栏：其它 Agent 最多几个"), "", 1, 6],
     ]) {
-      const row = this.row(uiMore, label, desc, null);
-      this.numberInput(row.querySelector(":scope > .ad-row__right"), s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => { s[key] = v; p.saveSettings(); p.refreshUI(); });
+      this.rowNumber(uiMore, label, desc, s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => { s[key] = v; p.saveSettings(); p.refreshUI(); });
     }
-    const hkRow = this.row(ui, t("菜单栏快捷键"), t("点输入框后按组合键，需包含 ⌃、⌥ 或 ⌘"), null);
-    const hkRight = hkRow.querySelector(":scope > .ad-row__right");
-    const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": t("菜单栏快捷键") } });
-    hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-    hkInput.addEventListener("focus", () => {
-      hkInput.value = t("按下组合键…");
-      hkInput.classList.add("is-capturing");
+    this.row(ui, t("菜单栏快捷键"), t("点输入框后按组合键，需包含 ⌃、⌥ 或 ⌘"), (hkRight) => {
+      const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": t("菜单栏快捷键") } });
+      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+      hkInput.addEventListener("focus", () => {
+        hkInput.value = t("按下组合键…");
+        hkInput.classList.add("is-capturing");
+      });
+      hkInput.addEventListener("blur", () => {
+        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+        hkInput.classList.remove("is-capturing");
+      });
+      hkInput.addEventListener("input", () => {
+        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+      });
+      hkInput.addEventListener("keydown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.key === "Escape") { hkInput.blur(); return; }
+        if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
+        const key = hotkeyKeyFromEvent(event);
+        if (!key) { hkInput.value = t("只支持 A–Z / 0–9 / F1–F12"); return; }
+        if (!event.ctrlKey && !event.altKey && !event.metaKey) { hkInput.value = t("至少加 ⌃ / ⌥ / ⌘"); return; }
+        s.menuBarHotkey = hotkeySpecFromEvent(event, key);
+        p.saveSettings();
+        p.menubar?.update(true);
+        new Notice(t("菜单栏快捷键已保存，约 2 秒内生效"));
+        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+        hkInput.classList.remove("is-capturing");
+        hkInput.blur();
+      }, true);
+      const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: t("默认") });
+      hkReset.onclick = () => {
+        s.menuBarHotkey = DEFAULTS.menuBarHotkey;
+        p.saveSettings();
+        p.menubar?.update(true);
+        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+      };
     });
-    hkInput.addEventListener("blur", () => {
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      hkInput.classList.remove("is-capturing");
-    });
-    hkInput.addEventListener("input", () => {
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-    });
-    hkInput.addEventListener("keydown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.key === "Escape") { hkInput.blur(); return; }
-      if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
-      const key = hotkeyKeyFromEvent(event);
-      if (!key) { hkInput.value = t("只支持 A–Z / 0–9 / F1–F12"); return; }
-      if (!event.ctrlKey && !event.altKey && !event.metaKey) { hkInput.value = t("至少加 ⌃ / ⌥ / ⌘"); return; }
-      s.menuBarHotkey = hotkeySpecFromEvent(event, key);
-      p.saveSettings();
-      p.menubar?.update(true);
-      new Notice(t("菜单栏快捷键已保存，约 2 秒内生效"));
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      hkInput.classList.remove("is-capturing");
-      hkInput.blur();
-    }, true);
-    const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: t("默认") });
-    hkReset.onclick = () => {
-      s.menuBarHotkey = DEFAULTS.menuBarHotkey;
-      p.saveSettings();
-      p.menubar?.update(true);
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-    };
 
-    const dn = this.row(uiMore, t("使用螺旋日程的进度显示"), "", null);
-    this.toggle(dn.querySelector(":scope > .ad-row__right"), s.yieldToNautilus !== false, (v) => { s.yieldToNautilus = v; p.saveSettings(); p.refreshUI(); });
-    const nautRow = this.row(uiMore, t("关闭螺旋日程右下角的 Agent 汇总"), "", null);
-    this.toggle(nautRow.querySelector(":scope > .ad-row__right"), s.menuBarHideNautilus !== false, (v) => { s.menuBarHideNautilus = v; p.saveSettings(); if (v) p.hideNautilusAgentBar().catch(() => {}); else p.restoreNautilusAgentBar().catch(() => {}); });
+    this.rowToggle(uiMore, t("使用螺旋日程的进度显示"), "", s.yieldToNautilus !== false, (v) => { s.yieldToNautilus = v; p.saveSettings(); p.refreshUI(); });
+    this.rowToggle(uiMore, t("关闭螺旋日程右下角的 Agent 汇总"), "", s.menuBarHideNautilus !== false, (v) => { s.menuBarHideNautilus = v; p.saveSettings(); if (v) p.hideNautilusAgentBar().catch(() => {}); else p.restoreNautilusAgentBar().catch(() => {}); });
 
     const btn = uiMore.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btn, t("重启菜单栏"), () => p.menubar?.restart());
@@ -1169,11 +1185,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   renderDream(body) {
     const p = this.plugin, s = p.settings.dream;
     const card = this.card(body, t("Dreaming · 长期记忆"), t("从近 14 天日志提炼记忆，保存到笔记"));
-    const auto = this.row(card, t("每天自动整理"), "", null);
-    this.toggle(auto.querySelector(":scope > .ad-row__right"), s.enabled, (v) => { s.enabled = v; p.saveSettings(); });
-    const scopeRow = this.row(card, t("Dreaming 采集范围"), t("控制 Dreaming 只读取带 AI 自动记录的条目，还是读取全部日记与任务"), null);
-    this.segmented(
-      scopeRow.querySelector(":scope > .ad-row__right"),
+    this.rowToggle(card, t("每天自动整理"), "", s.enabled, (v) => { s.enabled = v; p.saveSettings(); });
+    this.rowSegmented(
+      card,
+      t("Dreaming 采集范围"),
+      t("控制 Dreaming 只读取带 AI 自动记录的条目，还是读取全部日记与任务"),
       [
         { id: "all", label: t("全部日记与任务") },
         { id: "ai-records", label: t("仅 AI 自动记录条目") },
@@ -1190,77 +1206,66 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const effectiveCfg = dreamModelConfig(baseCfg);
     const effectiveProvider = resolveJournalProvider(effectiveCfg);
     const effectiveSpec = JOURNAL_PROVIDERS[effectiveProvider];
-    const dprovider = this.row(card, t("Dreaming 模型来源"), t("默认跟随「AI 自动记录」使用的 CLI 与模型，也可单独切换"), null);
-    this.selectInput(
-      dprovider.querySelector(":scope > .ad-row__right"),
-      [
-        {
-          id: "",
-          label: t("跟随 AI 自动记录（当前：{name}）", {
-            name: baseModel ? `${JOURNAL_PROVIDERS[baseProvider]?.label || baseProvider} / ${baseModel}` : (JOURNAL_PROVIDERS[baseProvider]?.label || baseProvider),
-          }),
-        },
-        ...detected.providers.map((x) => ({
-          id: x.id,
-          label: `${x.label} ${x.available ? t("（已登录）") : x.found ? t("（未登录）") : t("（未安装）")}`,
-        })),
-        { id: "api", label: t("自定义 API（OpenAI 兼容）") },
-      ],
+    const dreamChoices = this.detectedProviderChoices(detected, {
+      id: "",
+      label: t("跟随 AI 自动记录（当前：{name}）", {
+        name: baseModel ? `${JOURNAL_PROVIDERS[baseProvider]?.label || baseProvider} / ${baseModel}` : (JOURNAL_PROVIDERS[baseProvider]?.label || baseProvider),
+      }),
+    });
+    this.rowSelect(
+      card,
+      t("Dreaming 模型来源"),
+      t("默认跟随「AI 自动记录」使用的 CLI 与模型，也可单独切换"),
+      dreamChoices,
       curDreamProvider,
       (v) => {
         s.provider = v;
-        if (!v) s.model = "";
-        else s.model = JOURNAL_PROVIDERS[v]?.defaultModel || "";
+        s.model = v ? (JOURNAL_PROVIDERS[v]?.defaultModel || "") : "";
         p.saveSettings();
         this.display();
       },
     );
 
-    const dreamPresets = [...new Set([...(effectiveProvider === "agy" && this._agyJournalModels?.length ? this._agyJournalModels : []), ...(effectiveSpec?.models || [])])];
-    if (effectiveProvider !== "api" && dreamPresets.length) {
-      const quickRow = this.row(card, t("Dreaming 模型预设"), t("点选可单独指定 Dreaming 使用的模型"), null);
-      const quickRight = quickRow.querySelector(":scope > .ad-row__right");
-      const curModel = s.model || "";
-      this.selectInput(
-        quickRight,
-        [{ id: "", label: curDreamProvider ? t("自定义输入") : t("跟随 AI 自动记录") }, ...dreamPresets.map((m) => ({ id: m, label: m }))],
-        dreamPresets.includes(curModel) ? curModel : "",
-        (m) => { s.model = m; p.saveSettings(); this.display(); },
-      );
-    }
+    this.providerPresetRow(card, {
+      label: t("Dreaming 模型预设"),
+      desc: t("点选可单独指定 Dreaming 使用的模型"),
+      resolved: effectiveProvider,
+      emptyLabel: curDreamProvider ? t("自定义输入") : t("跟随 AI 自动记录"),
+      value: s.model || "",
+      onChange: (m) => { s.model = m; p.saveSettings(); this.display(); },
+    });
 
     const dreamModelPlaceholder = !curDreamProvider
       ? (baseModel ? t("跟随：{model}", { model: baseModel }) : (effectiveSpec?.defaultModel || t("跟随 AI 自动记录")))
       : (effectiveProvider === "api" ? "deepseek-chat" : (effectiveSpec?.defaultModel || t("留空用 CLI 默认模型")));
-    const dm = this.row(card, t("Dreaming 模型"), t("留空跟随 AI 自动记录；填写可单独覆盖模型"), null);
-    const dmRight = dm.querySelector(":scope > .ad-row__right");
-    this.textInput(dmRight, s.model || "", dreamModelPlaceholder, (v) => { s.model = v.trim(); p.saveSettings(); }, effectiveProvider === "api" ? "ad-input--wide" : "");
-    this.bigButton(dmRight, t("测试连接"), async () => {
-      new Notice(t("正在测试 Dreaming 模型连接…"), 2500);
-      try {
-        const reply = await testJournalModel(dreamModelConfig(p.settings));
-        new Notice(t("整理模型可用：{reply}", { reply: reply.slice(0, 60) || "OK" }), 5000);
-      } catch (e) {
-        new Notice(t("整理模型不可用：{msg}", { msg: e?.message || String(e) }), 8000);
-      }
+    this.renderModelTestRow(card, {
+      label: t("Dreaming 模型"),
+      desc: t("留空跟随 AI 自动记录；填写可单独覆盖模型"),
+      value: s.model || "",
+      placeholder: dreamModelPlaceholder,
+      wide: effectiveProvider === "api",
+      onChange: (v) => { s.model = v.trim(); p.saveSettings(); },
+      pendingText: t("正在测试 Dreaming 模型连接…"),
+      testFn: () => testJournalModel(dreamModelConfig(p.settings)),
     });
 
     const dreamMore = this.subDetails(card, "dream-more", t("更多设置"));
-    if (curDreamProvider === "api") {
-      const urlRow = this.row(dreamMore, "Dreaming API Base URL", t("填写服务商接口地址（自动补齐 /chat/completions）"), null);
-      this.textInput(urlRow.querySelector(":scope > .ad-row__right"), s.apiUrl || "", "https://api.deepseek.com", (v) => { s.apiUrl = v.trim(); p.saveSettings(); }, "ad-input--wide");
-      const keyRow = this.row(dreamMore, "Dreaming API Key", t("保存于插件设置 data.json 中"), null);
-      const keyInput = this.textInput(keyRow.querySelector(":scope > .ad-row__right"), s.apiKey || "", t("输入 API Key（本地 Ollama 可留空）"), (v) => { s.apiKey = v.trim(); p.saveSettings(); }, "ad-input--wide");
-      keyInput.type = "password";
-    } else if (curDreamProvider === "codex") {
-      const effortRow = this.row(dreamMore, t("Dreaming 推理强度"), "", null);
-      this.segmented(effortRow.querySelector(":scope > .ad-row__right"), EFFORTS.codex, s.effort || p.settings.autoLogEffort || "low", (v) => { s.effort = v; p.saveSettings(); this.display(); });
-    }
-    const file = this.row(dreamMore, t("长期记忆笔记"), t("库内 Markdown 路径"), null);
-    this.textInput(file.querySelector(":scope > .ad-row__right"), s.path, "Agent Deck/长期记忆.md", (v) => { try { s.path = notePath(v); p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
+    this.renderApiCredentialsAndEffort(dreamMore, {
+      showApi: curDreamProvider === "api",
+      showEffort: curDreamProvider === "codex",
+      urlLabel: "Dreaming API Base URL",
+      urlValue: s.apiUrl || "",
+      onUrlChange: (v) => { s.apiUrl = v.trim(); p.saveSettings(); },
+      keyLabel: "Dreaming API Key",
+      keyValue: s.apiKey || "",
+      onKeyChange: (v) => { s.apiKey = v.trim(); p.saveSettings(); },
+      effortLabel: t("Dreaming 推理强度"),
+      effortValue: s.effort || p.settings.autoLogEffort || "low",
+      onEffortChange: (v) => { s.effort = v; p.saveSettings(); this.display(); },
+    });
+    this.rowText(dreamMore, t("长期记忆笔记"), t("库内 Markdown 路径"), s.path, "Agent Deck/长期记忆.md", (v) => { try { s.path = notePath(v); p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
     if (companionInstalled(p.app)) {
-      const sync = this.row(dreamMore, t("同步到 Telegram Companion 陪伴档案"), t("同步有效记忆，最多 6000 字"), null);
-      this.toggle(sync.querySelector(":scope > .ad-row__right"), s.syncProfile, (v) => { s.syncProfile = v; p.saveSettings(); });
+      this.rowToggle(dreamMore, t("同步到 Telegram Companion 陪伴档案"), t("同步有效记忆，最多 6000 字"), s.syncProfile, (v) => { s.syncProfile = v; p.saveSettings(); });
     }
     const actions = card.createDiv({ cls: "ad-btnrow" });
     const run = this.bigButton(actions, t("现在 Dream 一次"), async () => {
@@ -1279,15 +1284,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
     const c = s.share, sharing = p.dreaming.sharing;
     const shared = this.card(body, t("与其他 Agent 共享记忆"), t("将记忆导出到固定文件，供其他 Agent 读取"));
-    const enabled = this.row(shared, t("自动同步共享记忆"), t("Dream 完成后同步，并按下方间隔定期同步"), null);
-    this.toggle(enabled.querySelector(":scope > .ad-row__right"), c.enabled, (v) => { c.enabled = v; p.saveSettings(); });
-    const target = this.row(shared, t("共享文件路径"), t("绝对路径，支持 ~/"), null);
-    this.textInput(target.querySelector(":scope > .ad-row__right"), c.path, "/Users/me/shared-agent-memory/memory.md", (v) => { try { c.path = v.trim() ? externalMemoryPath(v) : ""; p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
+    this.rowToggle(shared, t("自动同步共享记忆"), t("Dream 完成后同步，并按下方间隔定期同步"), c.enabled, (v) => { c.enabled = v; p.saveSettings(); });
+    this.rowText(shared, t("共享文件路径"), t("绝对路径，支持 ~/"), c.path, "/Users/me/shared-agent-memory/memory.md", (v) => { try { c.path = v.trim() ? externalMemoryPath(v) : ""; p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
     const shareMore = this.subDetails(shared, "share-more", t("更多设置"));
-    const interval = this.row(shareMore, t("定期同步间隔（小时）"), t("1–168 小时"), null);
-    this.numberInput(interval.querySelector(":scope > .ad-row__right"), c.intervalHours, 1, 168, (v) => { c.intervalHours = v; p.saveSettings(); });
-    const git = this.row(shareMore, t("同步后提交并推送 Git"), t("共享文件需位于 Git 仓库中；推送到 origin 当前分支"), null);
-    this.toggle(git.querySelector(":scope > .ad-row__right"), c.gitPush, (v) => { c.gitPush = v; p.saveSettings(); });
+    this.rowNumber(shareMore, t("定期同步间隔（小时）"), t("1–168 小时"), c.intervalHours, 1, 168, (v) => { c.intervalHours = v; p.saveSettings(); });
+    this.rowToggle(shareMore, t("同步后提交并推送 Git"), t("共享文件需位于 Git 仓库中；推送到 origin 当前分支"), c.gitPush, (v) => { c.gitPush = v; p.saveSettings(); });
     const syncNow = this.bigButton(shared.createDiv({ cls: "ad-btnrow" }), t("立即同步共享记忆"), async () => {
       const task = sharing.sync(); update();
       try { await task; } finally { update(); }
@@ -1317,8 +1318,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   renderExperimental(body) {
     const p = this.plugin;
     const card = this.card(body, t("实验功能"));
-    const row = this.row(card, t("AI 协作回顾"), t("默认开启。查看 token 热力图、项目投入和历史记录；关闭后隐藏入口并关闭回顾页，保留统计数据。"), null);
-    this.toggle(row.querySelector(":scope > .ad-row__right"), p.settings.experimentalDashboard !== false, async (enabled) => {
+    this.rowToggle(card, t("AI 协作回顾"), t("默认开启。查看 token 热力图、项目投入和历史记录；关闭后隐藏入口并关闭回顾页，保留统计数据。"), p.settings.experimentalDashboard !== false, async (enabled) => {
       try { await p.setExperimentalDashboard(enabled); }
       catch (error) { new Notice(t("设置保存失败：{error}", { error: error.message })); }
       this.display();

@@ -22,6 +22,18 @@
   font-size: 13px;
   --ad-radius: 10px;
   --ad-accent: var(--interactive-accent);
+  --ad-ctrl-min-h: 34px;
+  --ad-ctrl-radius: 7px;
+  --ad-ctrl-font: 13px;
+  --ad-ctrl-line: 1.4;
+  --ad-input-wide-w: 100%;
+  --ad-input-num-w: 76px;
+  --ad-btn-min-h: 34px;
+  --ad-btn-radius: 7px;
+  --ad-btn-font: 12px;
+  --ad-btn-line: 1.4;
+  --ad-btn-hover-y: 0;
+  --ad-seg-on-shadow: none;
   text-align: left;
 
   &,
@@ -40,7 +52,6 @@
 
   & .ad-input--num {
     text-align: left;
-    width: 76px;
     font-variant-numeric: tabular-nums;
   }
 
@@ -200,19 +211,19 @@
   & :is(.ad-input, .ad-select, .ad-hotkey) {
     min-width: 0;
     max-width: 100%;
-    min-height: 34px;
-    height: auto;
-    font-size: 13px;
-    line-height: 1.4;
-    border-radius: 7px;
   }
 
-  & :is(.ad-input, .ad-input--wide, .ad-select) {
+  & :is(.ad-input, .ad-select) {
     width: 100%;
   }
 
   & .ad-hotkey {
     width: 148px;
+    min-height: var(--ad-ctrl-min-h);
+    height: auto;
+    font-size: var(--ad-ctrl-font);
+    line-height: var(--ad-ctrl-line);
+    border-radius: var(--ad-ctrl-radius);
     font-family: var(--ad-figure);
 
     &.is-capturing {
@@ -234,18 +245,8 @@
   }
 
   & .ad-btn {
-    min-height: 34px;
-    height: auto;
-    font-size: 12px;
-    line-height: 1.4;
     padding: 7px 12px;
-    border-radius: 7px;
     white-space: normal;
-    box-shadow: none;
-
-    &:hover {
-      transform: none;
-    }
   }
 
   & .ad-btnrow {
@@ -326,7 +327,6 @@
       background: var(--interactive-accent);
       color: var(--text-on-accent);
       border-color: var(--interactive-accent);
-      box-shadow: none;
 
       &::before {
         visibility: visible;
@@ -387,30 +387,10 @@
     }
   }
 
-  /* ---- 可折叠 details/summary 通用三角重置 ---- */
-  & :is(summary.ad-modelgroup__head, summary.ad-subdetails__head, .ad-delegate-agent > summary) {
-    cursor: pointer;
-    list-style: none;
-
-    &::-webkit-details-marker {
-      display: none;
-    }
-  }
-
-  & :is(summary.ad-modelgroup__head, summary.ad-subdetails__head)::before {
-    content: "›";
-    display: inline-block;
-    font-size: 16px;
-    transition: transform .12s ease;
-  }
-
+  /* ---- 可折叠子区块头部样式（三角重置与旋转动画已收敛在 base/atoms.css） ---- */
   & .ad-subdetails {
     margin-top: 8px;
     border-top: 1px solid var(--ad-line);
-
-    &[open] > summary.ad-subdetails__head::before {
-      transform: rotate(90deg);
-    }
 
     & .ad-subdetails__head {
       display: flex;

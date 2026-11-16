@@ -338,10 +338,6 @@
         margin-left: auto;
       }
     }
-
-    &[open] > summary.ad-modelgroup__head::before {
-      transform: rotate(90deg);
-    }
   }
 
   & .ad-modelrow {
@@ -398,15 +394,11 @@
     }
 
     & .ad-morebtn {
-      appearance: none;
-      border: 0;
-      background: transparent;
       color: var(--ad-muted);
       font-size: 14px;
       width: 22px;
       height: 22px;
       border-radius: 6px;
-      cursor: pointer;
       transition: opacity .15s ease, background .15s ease;
 
       &:hover {

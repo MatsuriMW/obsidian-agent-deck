@@ -35,6 +35,18 @@
   /* 浮层阴影与等宽数字字体（用于耗时、Token、轮次序号对齐） */
   --ad-shadow: 0 10px 30px rgba(55, 48, 42, .08);
   --ad-figure: "SF Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  /* 跨上下文控件尺寸 Token（默认紧凑，设置页等宽屏上下文可覆写变量） */
+  --ad-ctrl-min-h: 0;
+  --ad-ctrl-radius: 8px;
+  --ad-ctrl-font: 12px;
+  --ad-ctrl-line: normal;
+  --ad-input-wide-w: 220px;
+  --ad-input-num-w: 62px;
+  --ad-btn-min-h: 0;
+  --ad-btn-radius: 9px;
+  --ad-btn-font: 12px;
+  --ad-btn-line: normal;
 }
 
 /* ---------- 2. 全局默认左对齐与键盘焦点环 ---------- */

@@ -29,14 +29,17 @@
 
 /* ---------- 2. 按钮家族 ---------- */
 
-/* 无边框轻量按钮：共用重置（文字链接、分段按钮、星标、折叠箭头） */
+/* 无边框轻量按钮：共用重置（文字链接、分段按钮、星标、折叠箭头、更多菜单） */
 .ad-linkbtn,
 .ad-seg__btn,
 .ad-star,
-.ad-arrow {
+.ad-arrow,
+.ad-morebtn {
   appearance: none;
   border: 0;
   background: transparent;
+  box-shadow: none;
+  height: auto;
   cursor: pointer;
 }
 
@@ -46,11 +49,12 @@
   appearance: none;
   border: 1px solid var(--ad-line);
   background: var(--background-primary);
-  border-radius: 9px;
+  box-shadow: none;
+  border-radius: var(--ad-btn-radius, 9px);
   cursor: pointer;
 
   &:hover {
-    transform: translateY(-1px);
+    transform: translateY(var(--ad-btn-hover-y, -1px));
     background: var(--background-modifier-hover);
   }
 }
@@ -89,8 +93,11 @@
 
 .ad-btn {
   color: var(--ad-ink);
+  min-height: var(--ad-btn-min-h, 0);
+  height: auto;
   padding: 7px 12px;
-  font-size: 12px;
+  font-size: var(--ad-btn-font, 12px);
+  line-height: var(--ad-btn-line, normal);
   font-weight: 600;
   transition: transform .15s ease, background .15s ease, border-color .15s ease;
 
@@ -275,9 +282,10 @@
   border: 1px solid var(--ad-line);
   background: var(--background-primary);
   color: var(--ad-ink);
-  border-radius: 8px;
+  border-radius: var(--ad-ctrl-radius, 8px);
   padding: 6px 9px;
-  font-size: 12px;
+  font-size: var(--ad-ctrl-font, 12px);
+  line-height: var(--ad-ctrl-line, normal);
   box-shadow: none;
 
   &:focus {
@@ -286,12 +294,18 @@
   }
 }
 
+.ad-input,
+.ad-select {
+  min-height: var(--ad-ctrl-min-h, 0);
+  height: auto;
+}
+
 .ad-input--wide {
-  width: 220px;
+  width: var(--ad-input-wide-w, 220px);
 }
 
 .ad-input--num {
-  width: 62px;
+  width: var(--ad-input-num-w, 62px);
   text-align: center;
 }
 
@@ -340,7 +354,7 @@
     &.is-on {
       background: var(--background-primary);
       color: var(--ad-ink);
-      box-shadow: 0 1px 3px rgba(0, 0, 0, .12);
+      box-shadow: var(--ad-seg-on-shadow, 0 1px 3px rgba(0, 0, 0, .12));
     }
   }
 }
@@ -441,6 +455,27 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+/* 可折叠 details/summary 通用三角重置与展开动画（模型分组、子设置、委派 Agent 详情共用） */
+:is(summary.ad-modelgroup__head, summary.ad-subdetails__head, .ad-delegate-agent > summary) {
+  cursor: pointer;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+}
+
+:is(summary.ad-modelgroup__head, summary.ad-subdetails__head)::before {
+  content: "›";
+  display: inline-block;
+  font-size: 16px;
+  transition: transform .12s ease;
+}
+
+details[open] > :is(summary.ad-modelgroup__head, summary.ad-subdetails__head)::before {
+  transform: rotate(90deg);
 }
 
 /* ---------- 7. Lucide 图标、Agent 徽标与底部状态栏 ---------- */

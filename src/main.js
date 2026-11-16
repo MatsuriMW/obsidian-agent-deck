@@ -28,7 +28,7 @@ import {
   installCursorHooks as installCursorHooksHelper,
   uninstallCursorHooks as uninstallCursorHooksHelper,
 } from "./readers.js";
-import { Delegator, blockAt, freshTaskText, ancestorLines, delegationText, openSession as openSessionRaw, openExternal as openExternalRaw, findClaudeBinary, findDshBinary, findAgyBinary, findOpenCodeBinary, findQoderBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
+import { Delegator, blockAt, freshTaskText, ancestorLines, delegationText, openSession as openSessionRaw, openExternal as openExternalRaw, findAgentBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
 import { AgentDeckSettingsTab } from "./settings.js";
@@ -1768,7 +1768,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   async checkBinary(kind) {
-    const bin = kind === "codex" ? this.settings.delegate?.codex?.path || "codex" : kind === "antigravity" ? findAgyBinary(this.settings.delegate?.antigravity?.path || "") : kind === "dsh" ? findDshBinary(this.settings.delegate?.dsh?.path || "") : kind === "opencode" ? findOpenCodeBinary(this.settings.delegate?.opencode?.path || "") : kind === "qoder" ? findQoderBinary(this.settings.delegate?.qoder?.path || "") : findClaudeBinary(this.settings.delegate?.claude?.path || "");
+    const bin = findAgentBinary(kind, this.settings.delegate?.[kind]?.path || "");
     return await new Promise((resolve) => {
       execFile(bin, ["--version"], { timeout: 10000, env: process.env }, (err, out, errOut) => {
         if (err) resolve(t("{kind} 没找到或不能运行：{error}", { kind, error: String(err.message || err) }) + "\n" + String(errOut || "").slice(0, 300));

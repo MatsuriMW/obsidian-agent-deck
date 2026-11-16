@@ -11,7 +11,7 @@ import http from "http";
 import https from "https";
 import { spawn, execFile } from "child_process";
 import { t } from "./i18n.js";
-import { summarizeAutoTitle } from "./journal.js";
+import { summarizeAutoTitle, stripTaskKeyword } from "./journal.js";
 
 const home = () => os.homedir();
 
@@ -351,9 +351,7 @@ export async function testJournalModel(cfg = {}) {
 // 模型没装 / 没登录时的兜底名字：从会话标题或用户第一句话里浓缩成简短总结标题
 export function safeLabel(s, max = 40) {
   if (max <= 40) return summarizeAutoTitle(s, Math.min(max, 22));
-  const t0 = String(s || "")
-    .replace(/[\r\n←`*=~[\]|]/g, " ")
-    .replace(/^\s*(?:[-*+]\s+)?(?:TODO|DOING|DONE|SUSPENDED|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+/i, "")
+  const t0 = stripTaskKeyword(String(s || "").replace(/[\r\n←`*=~[\]|]/g, " "), { allowBullet: true })
     .replace(/(\d)[:：](\d)/g, "$1.$2")
     .replace(/\s+/g, " ")
     .replace(/[。；;，,\s]+$/, "")

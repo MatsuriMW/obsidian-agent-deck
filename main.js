@@ -2376,7 +2376,24 @@ var RESULT_RE = /^\s*[-*+]\s+💬/;
 var CLOCK_RE = /^\s*[-*+]\s+⏱/;
 var QUESTION_RE = /^\s*[-*+]\s+❓/;
 var CONTEXT_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋)\s/;
+var RECORD_ICON_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋|⏱|🔗)\s/;
 var RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
+var RECORD_PROVENANCE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/g;
+var RECORD_PROVENANCE_LINE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
+var TASK_KW_LEAD_RE = new RegExp(`^\\s*(?:${TASK_KWS})\\s+`, "i");
+var TASK_KW_BULLET_LEAD_RE = new RegExp(`^\\s*(?:[-*+]\\s+)?(?:${TASK_KWS})\\s+`, "i");
+function stripTaskKeyword(raw, { allowBullet = false } = {}) {
+  return String(raw || "").replace(allowBullet ? TASK_KW_BULLET_LEAD_RE : TASK_KW_LEAD_RE, "");
+}
+function stripInlineTitleMarkup(raw, { stripHash = false } = {}) {
+  return String(raw || "").replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, "$2").replace(/\[([^\]\n]+)\]\([^)\n]+\)/g, "$1").replace(stripHash ? /[*_`~#]/g : /[*_`~]/g, "").replace(/\s+/g, " ").trim();
+}
+function stripBoundSessionSuffix(line, link = parseLink(line)) {
+  const s = String(line || "");
+  if (!link?.sid) return s;
+  const suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(s);
+  return suffix?.[1] === link.sid ? s.slice(0, suffix.index).trimEnd() : s;
+}
 var KID_LINK_RE = /^\s*[-*+]\s+🔗\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`/;
 var AUTO_MARK = "\u{1F916} ";
 var BLOCK_ID_RE = /\s+\^([A-Za-z0-9-]+)\s*$/;
@@ -2411,12 +2428,11 @@ function cleanCompletedIdentifiers(text, trackedIds2 = /* @__PURE__ */ new Set()
   const crlf = /\r\n/.test(text);
   const lines = text.replace(/\r\n/g, "\n").split("\n"), fenced = fencedLines(lines), owners = ownersOf(lines), ai = /* @__PURE__ */ new Set();
   const record = (raw) => RECORD_LINE_RE.test(raw) || /^\s*[-*+]\s+⏳\s/.test(raw);
-  const marker = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
   for (let i = 0; i < lines.length; i++) {
     if (fenced.has(i)) continue;
     const k = LIST_RE.test(lines[i]) && kwLine(lines[i]);
     if (k && (k.body.startsWith("\u{1F916}") || isDeckBlockId(k.blockId) || trackedIds2.has(k.blockId))) ai.add(i);
-    if ((parseLink(lines[i]) || record(lines[i]) && marker.test(lines[i])) && owners[i] >= 0) ai.add(owners[i]);
+    if ((parseLink(lines[i]) || record(lines[i]) && RECORD_PROVENANCE_LINE_RE.test(lines[i])) && owners[i] >= 0) ai.add(owners[i]);
   }
   const stack = [];
   for (let i = 0; i < lines.length; i++) {
@@ -2429,7 +2445,7 @@ function cleanCompletedIdentifiers(text, trackedIds2 = /* @__PURE__ */ new Set()
     if (i !== parent && !record(lines[i])) continue;
     const id = blockIdOf(lines[i]);
     if (isDeckBlockId(id) || i === parent && isLegacyBlockId(id)) lines[i] = stripBlockId(lines[i]);
-    if (record(lines[i])) lines[i] = lines[i].replace(marker, "");
+    if (record(lines[i])) lines[i] = lines[i].replace(RECORD_PROVENANCE_LINE_RE, "");
   }
   return lines.join(crlf ? "\r\n" : "\n");
 }
@@ -2473,7 +2489,9 @@ var durTag = (m) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? m % 60 + "m" : "
 var workKey = (label) => stripBlockId(String(label || "")).replace(/\s*←\s*\S+\s*$/, "").trim();
 var TIME_SPAN_PREFIX_RE = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?\s*/;
 function summarizeAutoTitle(raw, max = 22) {
-  let s = stripBlockId(String(raw || "")).replace(/[\r\n←`*=~[\]|]/g, " ").replace(/^🤖\s*/, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:TODO|DOING|DONE|SUSPENDED|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+/i, "").replace(/^🤖\s*/, "").replace(TIME_SPAN_PREFIX_RE, "").replace(/^🤖\s*/, "").replace(/Files mentioned by the user:\s*(?:##\s*\S+\s*)*/gi, " ").replace(/<[^>]+>/g, " ").replace(/https?:\/\/[^\s/，,。；;）)]+(?:\/[^\s/，,。；;）)]+)*\/([A-Za-z0-9._-]+?)(?:\.git)?(?:[/?#][^\s，,。；;）)]*)?(?=$|[\s，,。；;）)])/gi, " $1 ").replace(/https?:\/\/[^\s，,。；;）)]+/gi, " ").trim();
+  let s = stripTaskKeyword(
+    stripBlockId(String(raw || "")).replace(/[\r\n←`*=~[\]|]/g, " ").replace(/^🤖\s*/, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
+  ).replace(/^🤖\s*/, "").replace(TIME_SPAN_PREFIX_RE, "").replace(/^🤖\s*/, "").replace(/Files mentioned by the user:\s*(?:##\s*\S+\s*)*/gi, " ").replace(/<[^>]+>/g, " ").replace(/https?:\/\/[^\s/，,。；;）)]+(?:\/[^\s/，,。；;）)]+)*\/([A-Za-z0-9._-]+?)(?:\.git)?(?:[/?#][^\s，,。；;）)]*)?(?=$|[\s，,。；;）)])/gi, " $1 ").replace(/https?:\/\/[^\s，,。；;）)]+/gi, " ").trim();
   const pathMatch = /(?:\/Users\/|~\/)(?:[^\s/\\]|\\ )+\/([A-Za-z0-9._\u4e00-\u9fa5-]+)\/?/.exec(s);
   const pathBase = pathMatch ? pathMatch[1] : "";
   s = s.replace(/(?:仓库|项目|目录|路径|位置|文件)[：:]\s*(?:\/Users\/|~\/)(?:[^\s，,。；;）)]|\\ )+/g, " ").replace(/(?:\/Users\/|~\/)(?:[^\s，,。；;）)]|\\ )+/g, " ").replace(/[（(][^）)]{14,}[）)]/g, " ").replace(/[，,。；;]\s*(?:位置在|路径在|目录在|地址在|文件在|它位于|位于|顺着|有问题问我).*$/i, "").replace(/^(?:你好|哈喽|嗨|请问|麻烦|请帮我|帮我|请你|我想让你|我想|我要|咱们|我们|现在|再|先|顺便|另外|还有)(?:先|再)?(?:把|给|对)?\s*/i, "").replace(/^(?:继续)?(更新|修改|调整|优化|整理|检查|修复|排查|查看|看看|处理|实现|重构|分析)一下\s*/i, "$1").replace(/这个\s*(?:obsidian\s*)?插件/gi, "\u63D2\u4EF6").replace(/(\d)[:：](\d)/g, "$1.$2").replace(/\s+/g, " ").replace(/^[，,。；;：:、\s]+|[，,。；;：:、….\s]+$/g, "").trim();
@@ -2939,7 +2957,8 @@ function kidIdent(line) {
   const m = /^\s*[-*+]\s+⏱.*·\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`\s*$/.exec(line);
   return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2], open: false } : null;
 }
-var kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(/^\s*(?:\d+[.)、]\s*)?(?:(?:TODO|DOING|LATER|NOW|WAITING|WAIT|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*)?/, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
+var KID_NORM_RE = new RegExp(`^\\s*(?:\\d+[.)\u3001]\\s*)?(?:(?:${TASK_KWS})\\s+)?(?:\\d{1,2}[:\uFF1A]\\d{2}(?:\\s*[-\u2013~\uFF5E\u5230\u81F3]\\s*\\d{1,2}[:\uFF1A]\\d{2})?\\s*)?`);
+var kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(KID_NORM_RE, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
 function kidMatch(body, desc) {
   const a = kidNorm(body), d = kidNorm(desc);
   if (a.length < 4 || d.length < 4) return false;
@@ -4416,7 +4435,7 @@ async function testJournalModel(cfg = {}) {
 }
 function safeLabel(s, max = 40) {
   if (max <= 40) return summarizeAutoTitle(s, Math.min(max, 22));
-  const t0 = String(s || "").replace(/[\r\n←`*=~[\]|]/g, " ").replace(/^\s*(?:[-*+]\s+)?(?:TODO|DOING|DONE|SUSPENDED|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)\s+/i, "").replace(/(\d)[:：](\d)/g, "$1.$2").replace(/\s+/g, " ").replace(/[。；;，,\s]+$/, "").trim();
+  const t0 = stripTaskKeyword(String(s || "").replace(/[\r\n←`*=~[\]|]/g, " "), { allowBullet: true }).replace(/(\d)[:：](\d)/g, "$1.$2").replace(/\s+/g, " ").replace(/[。；;，,\s]+$/, "").trim();
   const chars = [...t0];
   return (chars.length > max ? chars.slice(0, max).join("").trim() + "\u2026" : t0).slice(0, max + 1);
 }
@@ -8209,7 +8228,10 @@ var UUID_LIKE_RE = /^[a-z]+-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$|^[0-9a-
 var CONTEXT_HEADER_RE = /^(?:这条任务在笔记里挂的位置[，,:：]?|（来自 Obsidian：.*）).*$/;
 function cleanConversationLabel(raw) {
   const cleaned = stripBlockId(String(raw || "")).split("\n").map((line) => line.trim()).filter((line) => line && !CONTEXT_HEADER_RE.test(line)).join(" ");
-  return cleaned.replace(/^\s*(?:[-*+]|\d+[.)])\s*/, "").replace(/^(?:TODO|DOING|DONE|PAUSED|LATER|NOW|WAIT|WAITING|CANCELED|CANCELLED|DELEGATED|TOREVIEW|NEEDOK|ERRORED|HITLIMIT)\s+/i, "").replace(/^🤖\s*/, "").replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, "$2").replace(/\[([^\]\n]+)\]\([^)\n]+\)/g, "$1").replace(/[*_`~#]/g, "").replace(/\s+/g, " ").trim();
+  return stripInlineTitleMarkup(
+    stripTaskKeyword(cleaned.replace(/^\s*(?:[-*+]|\d+[.)])\s*/, "")).replace(/^🤖\s*/, ""),
+    { stripHash: true }
+  );
 }
 function conversationTitle(session = {}, messages = []) {
   const candidates = [];
@@ -8853,89 +8875,87 @@ var CodexDesktopRunner = class {
 var fsp3 = import_fs7.default.promises;
 var home3 = () => import_os5.default.homedir();
 var norm2 = (p) => String(p || "").replace(/^~(?=\/)/, home3());
-function findDshBinary(configured = "") {
-  if (configured.trim()) return norm2(configured.trim());
-  const candidates = [
-    "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
-    import_path4.default.join(home3(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
-    import_path4.default.join(home3(), ".local/bin/dsh"),
-    "/opt/homebrew/bin/dsh",
-    "/usr/local/bin/dsh"
-  ];
+var AGENT_BINARY_SPECS = {
+  codex: { fallback: "codex", candidates: () => [] },
+  dsh: {
+    fallback: "dsh",
+    candidates: () => [
+      "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
+      import_path4.default.join(home3(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
+      import_path4.default.join(home3(), ".local/bin/dsh"),
+      "/opt/homebrew/bin/dsh",
+      "/usr/local/bin/dsh"
+    ]
+  },
+  antigravity: {
+    fallback: "agy",
+    candidates: () => [
+      import_path4.default.join(home3(), ".local/bin/agy"),
+      "/opt/homebrew/bin/agy",
+      "/usr/local/bin/agy"
+    ]
+  },
+  opencode: {
+    fallback: "opencode",
+    candidates: () => [
+      "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
+      import_path4.default.join(home3(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
+      import_path4.default.join(home3(), ".local/bin/opencode"),
+      "/opt/homebrew/bin/opencode",
+      "/usr/local/bin/opencode"
+    ]
+  },
+  qoder: {
+    fallback: "qodercli",
+    candidates: () => [
+      import_path4.default.join(home3(), ".qoder/bin/qodercli/qodercli"),
+      import_path4.default.join(home3(), ".local/bin/qodercli"),
+      import_path4.default.join(home3(), ".local/bin/qoder"),
+      import_path4.default.join(home3(), ".qoder/entry/qoder"),
+      "/opt/homebrew/bin/qodercli",
+      "/usr/local/bin/qodercli"
+    ]
+  },
+  workbuddy: {
+    fallback: "codebuddy",
+    candidates: () => [
+      import_path4.default.join(home3(), ".local/bin/codebuddy"),
+      "/opt/homebrew/bin/codebuddy",
+      "/usr/local/bin/codebuddy"
+    ]
+  },
+  claude: {
+    fallback: "claude",
+    candidates: () => [
+      import_path4.default.join(home3(), ".local/bin/claude"),
+      "/opt/homebrew/bin/claude",
+      "/usr/local/bin/claude",
+      "/usr/bin/claude"
+    ]
+  }
+};
+function findBinary(configured, candidates, fallback) {
+  const custom = configured && String(configured).trim();
+  if (custom) return norm2(custom);
   for (const p of candidates) {
     try {
       if (import_fs7.default.existsSync(p)) return p;
     } catch {
     }
   }
-  return "dsh";
+  return fallback;
 }
-function findAgyBinary(configured = "") {
-  if (configured.trim()) return norm2(configured.trim());
-  const candidates = [import_path4.default.join(home3(), ".local/bin/agy"), "/opt/homebrew/bin/agy", "/usr/local/bin/agy"];
-  return candidates.find((p) => import_fs7.default.existsSync(p)) || "agy";
-}
-function findOpenCodeBinary(configured = "") {
-  if (configured && configured.trim()) return norm2(configured.trim());
-  const candidates = [
-    "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
-    import_path4.default.join(home3(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
-    import_path4.default.join(home3(), ".local/bin/opencode"),
-    "/opt/homebrew/bin/opencode",
-    "/usr/local/bin/opencode"
-  ];
-  for (const p of candidates) {
-    try {
-      if (import_fs7.default.existsSync(p)) return p;
-    } catch {
-    }
+function findAgentBinary(agent, configured = "") {
+  const spec = AGENT_BINARY_SPECS[agent];
+  if (!spec) {
+    const custom = configured && String(configured).trim();
+    return custom ? norm2(custom) : agent || "";
   }
-  return "opencode";
+  return findBinary(configured, spec.candidates(), spec.fallback);
 }
-function findQoderBinary(configured = "") {
-  if (configured && configured.trim()) return norm2(configured.trim());
-  const candidates = [
-    import_path4.default.join(home3(), ".qoder/bin/qodercli/qodercli"),
-    import_path4.default.join(home3(), ".local/bin/qodercli"),
-    import_path4.default.join(home3(), ".local/bin/qoder"),
-    import_path4.default.join(home3(), ".qoder/entry/qoder"),
-    "/opt/homebrew/bin/qodercli",
-    "/usr/local/bin/qodercli"
-  ];
-  for (const p of candidates) {
-    try {
-      if (import_fs7.default.existsSync(p)) return p;
-    } catch {
-    }
-  }
-  return "qodercli";
-}
-function findWorkbuddyBinary(configured = "") {
-  if (configured && configured.trim()) return norm2(configured.trim());
-  const candidates = [
-    import_path4.default.join(home3(), ".local/bin/codebuddy"),
-    "/opt/homebrew/bin/codebuddy",
-    "/usr/local/bin/codebuddy"
-  ];
-  for (const p of candidates) {
-    try {
-      if (import_fs7.default.existsSync(p)) return p;
-    } catch {
-    }
-  }
-  return "codebuddy";
-}
-function findClaudeBinary(configured = "") {
-  if (configured && configured.trim()) return norm2(configured.trim());
-  const candidates = [import_path4.default.join(home3(), ".local/bin/claude"), "/opt/homebrew/bin/claude", "/usr/local/bin/claude", "/usr/bin/claude"];
-  for (const p of candidates) {
-    try {
-      if (import_fs7.default.existsSync(p)) return p;
-    } catch {
-    }
-  }
-  return "claude";
-}
+var findQoderBinary = (configured = "") => findAgentBinary("qoder", configured);
+var findWorkbuddyBinary = (configured = "") => findAgentBinary("workbuddy", configured);
+var findClaudeBinary = (configured = "") => findAgentBinary("claude", configured);
 function pickTrusted(list, vaultPath) {
   if (list.includes(vaultPath)) return vaultPath;
   const isDir = (p) => {
@@ -9072,14 +9092,74 @@ function acpModels(agent, configOptions) {
   }
   return result;
 }
-var ClaudeRunner = class {
+var BaseRunner = class {
   constructor(delegator, job) {
     this.d = delegator;
     this.job = job;
     this.child = null;
-    this.short = "";
-    this.pollTimer = null;
     this.finished = false;
+    this.timer = null;
+    this.sessionTimer = null;
+    this.pollTimer = null;
+  }
+  _clearTimers() {
+    clearTimeout(this.timer);
+    clearTimeout(this.sessionTimer);
+    clearTimeout(this.pollTimer);
+    this.timer = null;
+    this.sessionTimer = null;
+    this.pollTimer = null;
+  }
+  _finish(state, beforeSave) {
+    if (this.finished) return false;
+    this.finished = true;
+    this._clearTimers();
+    beforeSave?.();
+    this.job.state = state;
+    this.job.endedAt = Date.now();
+    this.d.saveJobs();
+    return true;
+  }
+  _recordAssistantText(text, { updateLastText = false } = {}) {
+    var _a;
+    if (!text) return;
+    this.job.result = text;
+    if (updateLastText) this.job.lastText = text.slice(-2e3);
+    (_a = this.job).conversation || (_a.conversation = []);
+    this.job.conversation.push({ role: "assistant", text, at: Date.now() });
+  }
+  _killChild() {
+    if (this.child) {
+      try {
+        this.child.kill("SIGTERM");
+      } catch {
+      }
+    }
+  }
+  cancel() {
+    if (!this._finish("cancelled", () => this.onCleanup("cancel"))) return;
+    this.onAfterCancel?.();
+  }
+  done(result) {
+    if (!this._finish("done", () => this.onDoneCleanup?.(result))) return;
+    this.onAfterDone?.();
+    this.d.onDone(this.job);
+  }
+  fail(message) {
+    if (!this._finish("error", () => {
+      this.onCleanup("fail");
+      this.job.error = String(message || "").slice(0, 500);
+    })) return;
+    this.onAfterFail?.();
+    this.d.onError(this.job);
+  }
+  onCleanup(_reason) {
+  }
+};
+var ClaudeRunner = class extends BaseRunner {
+  constructor(delegator, job) {
+    super(delegator, job);
+    this.short = "";
   }
   async start(opts) {
     const d = this.d;
@@ -9205,43 +9285,14 @@ var ClaudeRunner = class {
     if (addVault) out.push("--add-dir", this.d.vaultPath);
     return out;
   }
-  cancel() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.pollTimer);
+  onCleanup(reason) {
+    if (reason !== "cancel") return;
     if (this.short) {
       const bin = findClaudeBinary(this.d.settings.delegate.claude.path || "");
       (0, import_child_process6.execFile)(bin, ["stop", this.short], { env: cleanEnv() }, () => {
       });
     }
-    if (this.child) {
-      try {
-        this.child.kill("SIGTERM");
-      } catch {
-      }
-    }
-    this.job.state = "cancelled";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-  }
-  done() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.pollTimer);
-    this.job.state = "done";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.d.onDone(this.job);
-  }
-  fail(message) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.pollTimer);
-    this.job.state = "error";
-    this.job.error = String(message || "").slice(0, 500);
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.d.onError(this.job);
+    this._killChild();
   }
 };
 function qoderPermissionArgs(permission) {
@@ -9250,14 +9301,9 @@ function qoderPermissionArgs(permission) {
   if (permission === "manual") return ["--permission-mode", "default"];
   return ["--permission-mode", "auto"];
 }
-var QoderRunner = class {
+var QoderRunner = class extends BaseRunner {
   constructor(delegator, job) {
-    this.d = delegator;
-    this.job = job;
-    this.child = null;
-    this.finished = false;
-    this.sessionTimer = null;
-    this.timer = null;
+    super(delegator, job);
   }
   async start(opts) {
     var _a;
@@ -9341,77 +9387,33 @@ ${out}`.trim();
     this.d.notice(t("\u{1F4CB} Qoder CLI \u5C1A\u672A\u767B\u5F55\uFF0C\u5DF2\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00 Qoder \u684C\u9762\u7248\uFF08\u4E5F\u53EF\u5728\u8BBE\u7F6E\u91CC\u767B\u5F55 CLI\uFF09"), 1e4);
     this.d.refreshUI();
   }
-  cancel() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.sessionTimer);
-    clearTimeout(this.timer);
-    if (this.child) {
-      try {
-        this.child.kill("SIGTERM");
-      } catch {
-      }
-    }
-    this.job.state = "cancelled";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
+  onCleanup() {
+    this._killChild();
+  }
+  onDoneCleanup(result) {
+    this._recordAssistantText(result, { updateLastText: true });
+  }
+  onAfterCancel() {
     this.d.refreshUI();
   }
-  done(result) {
-    var _a;
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
-    this.job.state = "done";
-    this.job.endedAt = Date.now();
-    if (result) {
-      this.job.result = result;
-      this.job.lastText = result.slice(-2e3);
-      (_a = this.job).conversation || (_a.conversation = []);
-      this.job.conversation.push({ role: "assistant", text: result, at: Date.now() });
-    }
-    this.d.saveJobs();
-    this.d.onDone(this.job);
-  }
-  fail(message) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.sessionTimer);
-    clearTimeout(this.timer);
-    if (this.child) {
-      try {
-        this.child.kill("SIGTERM");
-      } catch {
-      }
-    }
-    this.job.state = "error";
-    this.job.error = String(message || "").slice(0, 500);
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
-    this.d.onError(this.job);
-  }
 };
-var AcpRunner = class {
+var AcpRunner = class extends BaseRunner {
   constructor(delegator, job) {
-    this.d = delegator;
+    super(delegator, job);
     this.agent = job.agent || "dsh";
     this.label = AGENTS[this.agent]?.name || this.agent;
-    this.job = job;
-    this.child = null;
     this.buf = "";
     this.nextId = 1;
     this.pending = /* @__PURE__ */ new Map();
-    this.finished = false;
     this.assistantText = "";
     this.lastStep = "";
     this.sessionId = "";
-    this.timer = null;
   }
   async start(opts) {
     var _a;
     const d = this.d;
     const cfg = d.settings.delegate[this.agent];
-    const bin = this.agent === "antigravity" ? findAgyBinary(cfg.path || "") : this.agent === "opencode" ? findOpenCodeBinary(cfg.path || "") : findDshBinary(cfg.path || "");
+    const bin = findAgentBinary(this.agent, cfg.path || "");
     const cwd = norm2(opts.cwd || cfg.cwd || d.vaultPath);
     const model = opts.model || cfg.model || (this.agent === "dsh" ? "deepseek-v4-pro" : "");
     const effort = opts.effort || cfg.effort || (this.agent === "dsh" ? "high" : "");
@@ -9602,55 +9604,33 @@ var AcpRunner = class {
       this.send({ jsonrpc: "2.0", id, method, params });
     });
   }
-  cancel() {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
+  onCleanup(reason) {
     this.permissionModal?.close();
     this.clearPending();
-    if (this.sessionId) {
-      try {
-        this.send({ jsonrpc: "2.0", method: "session/cancel", params: { sessionId: this.sessionId } });
-      } catch {
+    if (reason === "cancel") {
+      if (this.sessionId) {
+        try {
+          this.send({ jsonrpc: "2.0", method: "session/cancel", params: { sessionId: this.sessionId } });
+        } catch {
+        }
       }
+      this.close();
     }
-    this.close();
-    this.job.state = "cancelled";
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
+  }
+  onAfterCancel() {
     this.d.refreshUI();
   }
-  done(result) {
-    var _a;
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
+  onDoneCleanup(result) {
     this.permissionModal?.close();
     this.clearPending();
-    this.job.state = "done";
-    this.job.endedAt = Date.now();
     this.job.stopReason = result && result.stopReason || "";
-    if (this.assistantText) {
-      this.job.result = this.assistantText;
-      (_a = this.job).conversation || (_a.conversation = []);
-      this.job.conversation.push({ role: "assistant", text: this.assistantText, at: Date.now() });
-    }
-    this.d.saveJobs();
-    this.close();
-    this.d.onDone(this.job);
+    this._recordAssistantText(this.assistantText);
   }
-  fail(message) {
-    if (this.finished) return;
-    this.finished = true;
-    clearTimeout(this.timer);
-    this.permissionModal?.close();
-    this.clearPending();
-    this.job.state = "error";
-    this.job.error = String(message || "").slice(0, 500);
-    this.job.endedAt = Date.now();
-    this.d.saveJobs();
+  onAfterDone() {
     this.close();
-    this.d.onError(this.job);
+  }
+  onAfterFail() {
+    this.close();
   }
   clearPending() {
     for (const p of this.pending.values()) {
@@ -10399,7 +10379,7 @@ ${body}`, 12e3);
     await fsp4.mkdir(dir, { recursive: true });
     const taskFile = import_path5.default.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp4.writeFile(taskFile, prompt, "utf8");
-    const bin = agent === "codex" ? this.C.codex?.path || "codex" : agent === "opencode" ? findOpenCodeBinary(this.C.opencode?.path || "") : agent === "qoder" ? findQoderBinary(this.C.qoder?.path || "") : agent === "workbuddy" ? findWorkbuddyBinary(this.C.workbuddy?.path || "") : findClaudeBinary(this.C.claude?.path || "");
+    const bin = findAgentBinary(agent, this.C[agent]?.path || "");
     const job = this.buildJobBase({
       agent,
       name,
@@ -10808,8 +10788,15 @@ var import_state = require("@codemirror/state");
 var import_language = require("@codemirror/language");
 
 // src/ai-records.js
-var AI_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
+var AI_RECORD_RE = RECORD_LINE_RE;
+var RECORD_MARKER_BODY_RE = /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/;
 var RECORD_VIEWS = /* @__PURE__ */ new Set(["outline", "table", "cards", "timeline"]);
+var RECORD_VIEW_LABELS = {
+  outline: "\u5927\u7EB2",
+  table: "\u8868\u683C",
+  cards: "\u5361\u7247",
+  timeline: "\u65F6\u95F4\u7EBF"
+};
 var isBriefRecord = (line) => /💬\s+(?:第\d+轮[：:])?任务：.+；结论：/.test(line);
 function groupPrefValue(map, group) {
   if (!map || !group) return void 0;
@@ -10924,7 +10911,6 @@ function visibleTableEntries(group, lines, mode = "latest1", open = false, redun
   const kept = new Set(selectVisibleLines(lineNums, lines, mode, summaries));
   return entries.filter((e) => kept.has(e.line));
 }
-var RECORD_PROVENANCE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/g;
 function cleanRecordText(raw) {
   return String(raw || "").replace(RECORD_PROVENANCE_RE, "").replace(/(?:[ \t]+|^)\^[a-z0-9-]+(?:\S*)?[ \t]*$/i, "").trim();
 }
@@ -10933,11 +10919,7 @@ function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
   const turnMatch = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(raw) || /第(\d+)轮[：:]/.exec(raw);
   const round = turnMatch ? Number(turnMatch[1]) : null;
   const link = parseLink(raw);
-  let body = cleanRecordText(raw).replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "");
-  if (link) {
-    const suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(body);
-    if (suffix?.[1] === link.sid) body = body.slice(0, suffix.index).trimEnd();
-  }
+  const body = stripBoundSessionSuffix(cleanRecordText(raw).replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""), link);
   let kind = "result", kindLabel = "\u7ED3\u8BBA", content = body, meta = "", task = "", conclusion = "";
   if (/^💬\s+累计总结[：:]/.test(body)) {
     kind = "summary";
@@ -11106,7 +11088,7 @@ function recordRuns(records) {
   return runs;
 }
 function hiddenBlockId(id, trackedIds2 = /* @__PURE__ */ new Set()) {
-  return isDeckBlockId(id) || /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id) || trackedIds2.has(id);
+  return isDeckBlockId(id) || isLegacyBlockId(id) || trackedIds2.has(id);
 }
 var LAYOUT_MARKER_RE = /^<!-- agent-deck:(?:layout:(?:start|end)|section:(?:done|active|todo|notes):(?:heading|plain|end)) -->$/;
 function layoutMarkerRanges(text) {
@@ -11257,6 +11239,60 @@ function formatTimelineFull(ms) {
   const d = new Date(ms);
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 }
+function recordViewLabel(viewMode) {
+  return t(RECORD_VIEW_LABELS[viewMode] || RECORD_VIEW_LABELS.outline);
+}
+function recordBadgeLabel(kind, fallback = "") {
+  if (fallback === "\u603B\u7ED3" || kind === "summary") return t("\u603B\u7ED3");
+  if (fallback === "\u5F85\u786E\u8BA4" || kind === "todo") return t("\u5F85\u786E\u8BA4");
+  if (fallback === "\u63D0\u95EE" || kind === "question") return t("\u63D0\u95EE");
+  if (fallback === "\u6B65\u9AA4" || kind === "plan") return t("\u6B65\u9AA4");
+  return t("\u7ED3\u8BBA");
+}
+function recordStepLabel(row) {
+  if (!row?.promptStep) return "";
+  return row.promptMeta ? t("\u6B65\u9AA4 {step}", { step: row.promptMeta }) : t("\u6B65\u9AA4");
+}
+function timelineSpanMeta(rows = []) {
+  const times = rows.map((r) => Number(r.startedAt) || 0).filter((ms) => ms > 0);
+  const timed = times.length > 0;
+  const dated = times.length > 1 && new Set(times.map(localDayKey)).size > 1;
+  return { timed, dated };
+}
+function footerMetaText(item) {
+  if (!item?.meta) return "";
+  return item.kind === "clock" ? `\xB7 ${item.meta}` : item.meta;
+}
+function buildGroupTableRows(group, entries, lines, plugin, { includeTime = false, blockMap = null, agentNames = null } = {}) {
+  const groupSids = includeTime ? collectGroupSids(group, lines, blockMap || blockSessionMap(plugin)) : null;
+  return entries.map((entry) => {
+    const parsed = parseAiRecordRow(lines[entry.line], entry.children, agentNames);
+    return {
+      ...parsed,
+      line: entry.line,
+      startedAt: groupSids ? roundStartedAt(plugin, lines[entry.line], parsed.round, groupSids) : 0,
+      sig: [lines[entry.line], ...entry.children].join("\n")
+    };
+  });
+}
+function tokenizeInlineMarkdown(text) {
+  const s = String(text || "");
+  const tokenRe = /\[([^\]\n]+)\]\(([^)\s]+(?:\([^)]*\))?[^)\s]*)\)|\[\[([^\]|\n]+?)(?:\|([^\]\n]+))?\]\]|`([^`\n]+)`|\*\*([^*\n]+)\*\*|\*([^*\n]+)\*/g;
+  const tokens = [];
+  let last = 0;
+  let m;
+  while (m = tokenRe.exec(s)) {
+    if (m.index > last) tokens.push({ type: "text", text: s.slice(last, m.index) });
+    if (m[1] != null) tokens.push({ type: "link", label: m[1], href: String(m[2] || "").trim() });
+    else if (m[3] != null) tokens.push({ type: "wikilink", target: m[3], label: m[4] || m[3] });
+    else if (m[5] != null) tokens.push({ type: "code", text: m[5] });
+    else if (m[6] != null) tokens.push({ type: "bold", text: m[6] });
+    else if (m[7] != null) tokens.push({ type: "italic", text: m[7] });
+    last = m.index + m[0].length;
+  }
+  if (last < s.length) tokens.push({ type: "text", text: s.slice(last) });
+  return tokens;
+}
 
 // src/record-display.js
 var MODES2 = /* @__PURE__ */ new Set(["collapsed", "expanded", "latest5", "latest3", "latest1"]);
@@ -11336,12 +11372,6 @@ var RecordsToggle = class extends import_view2.WidgetType {
     return true;
   }
 };
-var VIEW_LABELS = {
-  outline: "\u5927\u7EB2",
-  table: "\u8868\u683C",
-  cards: "\u5361\u7247",
-  timeline: "\u65F6\u95F4\u7EBF"
-};
 var EMPTY_VIEW_LABELS = {
   table: "\u8868\u683C\u89C6\u56FE \xB7 \u5DF2\u6536\u8D77 {n} \u6761\u8BB0\u5F55",
   cards: "\u5361\u7247\u89C6\u56FE \xB7 \u5DF2\u6536\u8D77 {n} \u6761\u8BB0\u5F55",
@@ -11354,36 +11384,41 @@ var VIEW_FALLBACK_ICON = {
   timeline: '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 3v10M5 4.5h8M5 8h6M5 11.5h8"/></svg>'
 };
 function renderInlineText(doc, container, text, sourcePath, plugin) {
-  const s = String(text || "");
-  const tokenRe = /\[([^\]\n]+)\]\(([^)\s]+(?:\([^)]*\))?[^)\s]*)\)|`([^`\n]+)`|\*\*([^*\n]+)\*\*/g;
-  let last = 0, m;
-  while (m = tokenRe.exec(s)) {
-    if (m.index > last) container.appendChild(doc.createTextNode(s.slice(last, m.index)));
-    if (m[1] != null) {
+  for (const tok of tokenizeInlineMarkdown(text)) {
+    if (tok.type === "text") {
+      container.appendChild(doc.createTextNode(tok.text));
+    } else if (tok.type === "link") {
       const a = doc.createElement("a");
       a.className = "ad-rt-link";
-      a.textContent = m[1];
-      a.href = m[2];
-      a.title = m[2];
+      a.textContent = tok.label;
+      a.href = tok.href;
+      a.title = tok.href;
       a.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
-        plugin.openRecordLink?.(m[2], sourcePath);
+        plugin.openRecordLink?.(tok.href, sourcePath);
       });
       container.appendChild(a);
-    } else if (m[3] != null) {
+    } else if (tok.type === "wikilink") {
+      const span = doc.createElement("span");
+      span.className = "ad-wikilink";
+      span.textContent = tok.label;
+      container.appendChild(span);
+    } else if (tok.type === "code") {
       const code = doc.createElement("code");
       code.className = "ad-rt-code";
-      code.textContent = m[3];
+      code.textContent = tok.text;
       container.appendChild(code);
-    } else if (m[4] != null) {
+    } else if (tok.type === "bold") {
       const strong = doc.createElement("strong");
-      strong.textContent = m[4];
+      strong.textContent = tok.text;
       container.appendChild(strong);
+    } else if (tok.type === "italic") {
+      const em = doc.createElement("em");
+      em.textContent = tok.text;
+      container.appendChild(em);
     }
-    last = m.index + m[0].length;
   }
-  if (last < s.length) container.appendChild(doc.createTextNode(s.slice(last)));
 }
 var ViewToggleWidget = class extends import_view2.WidgetType {
   constructor(plugin, key, line, viewMode) {
@@ -11412,7 +11447,7 @@ var ViewToggleWidget = class extends import_view2.WidgetType {
     else ico.innerHTML = VIEW_FALLBACK_ICON[this.viewMode] || VIEW_FALLBACK_ICON.outline;
     const label = btn.appendChild(doc.createElement("span"));
     label.className = "ad-view-toggle__label";
-    label.textContent = t(VIEW_LABELS[this.viewMode] || "\u5927\u7EB2");
+    label.textContent = recordViewLabel(this.viewMode);
     const chev = btn.appendChild(doc.createElement("span"));
     chev.className = "ad-view-toggle__chev";
     chev.textContent = "\u25BE";
@@ -11486,7 +11521,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
     if (row.type === "span" || row.round == null) {
       const badge = parent.appendChild(doc.createElement("span"));
       badge.className = `ad-rt-badge ad-rt-badge--${row.badgeKind || "result"}`;
-      badge.textContent = t(row.badge || "\u7ED3\u8BBA");
+      badge.textContent = recordBadgeLabel(row.badgeKind, row.badge);
       return badge;
     }
     const label = parent.appendChild(doc.createElement("span"));
@@ -11495,10 +11530,11 @@ var RecordViewWidget = class extends import_view2.WidgetType {
     return label;
   }
   appendStepTag(doc, parent, row) {
-    if (!row.promptStep) return;
+    const label = recordStepLabel(row);
+    if (!label) return;
     const stepTag = parent.appendChild(doc.createElement("span"));
     stepTag.className = "ad-rt-step";
-    stepTag.textContent = row.promptMeta ? t("\u6B65\u9AA4 {step}", { step: row.promptMeta }) : t("\u6B65\u9AA4");
+    stepTag.textContent = label;
   }
   appendChildren(doc, view, td, children) {
     if (!children?.length) return;
@@ -11607,9 +11643,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
     }
   }
   renderTimeline(doc, view, wrap, { rows }) {
-    const times = rows.map((r) => Number(r.startedAt) || 0).filter((ms) => ms > 0);
-    const timed = times.length > 0;
-    const dated = times.length > 1 && new Set(times.map(localDayKey)).size > 1;
+    const { timed, dated } = timelineSpanMeta(rows);
     const list = wrap.appendChild(doc.createElement("div"));
     list.className = "ad-rt-timeline" + (timed ? " ad-rt-timeline--timed" : "") + (dated ? " ad-rt-timeline--dated" : "");
     for (const row of rows) {
@@ -11663,10 +11697,11 @@ var RecordViewWidget = class extends import_view2.WidgetType {
       const body = lineEl.appendChild(doc.createElement("span"));
       body.className = "ad-rt-footer-body";
       renderInlineText(doc, body, item.content, this.sourcePath, this.plugin);
-      if (item.meta) {
+      const metaText = footerMetaText(item);
+      if (metaText) {
         const metaEl = lineEl.appendChild(doc.createElement("span"));
         metaEl.className = "ad-rt-footer-meta";
-        metaEl.textContent = item.kind === "clock" ? `\xB7 ${item.meta}` : item.meta;
+        metaEl.textContent = metaText;
       }
       this.bindJump(lineEl, view, item.line);
     }
@@ -11771,15 +11806,10 @@ function aiRecordDisplayExtension(plugin, refreshEffect2) {
       if (isTopLevel) topLevelLines.add(group.line);
       if (viewMode !== "outline") {
         const visibleEntries = visibleTableEntries(group, lines, mode, open, duplicate);
-        const groupSids = viewMode === "timeline" ? collectGroupSids(group, lines, sidsByBlock || (sidsByBlock = blockSessionMap(plugin))) : null;
-        const rows = visibleEntries.map((entry) => {
-          const parsed = parseAiRecordRow(lines[entry.line], entry.children, agentNames);
-          return {
-            ...parsed,
-            line: entry.line,
-            startedAt: groupSids ? roundStartedAt(plugin, lines[entry.line], parsed.round, groupSids) : 0,
-            sig: [lines[entry.line], ...entry.children].join("\n")
-          };
+        const rows = buildGroupTableRows(group, visibleEntries, lines, plugin, {
+          includeTime: viewMode === "timeline",
+          blockMap: viewMode === "timeline" ? sidsByBlock || (sidsByBlock = blockSessionMap(plugin)) : null,
+          agentNames
         });
         const summaryCount = tableAll.filter((e) => /💬\s+累计总结[：:]/.test(lines[e.line])).length;
         ranges.push(import_view2.Decoration.widget({ widget: new RecordsToggle(group.key, tableAll.length, open, mode, summaryCount > 0), side: 2 }).range(doc.line(group.line + 1).to));
@@ -11932,7 +11962,7 @@ function renderAIRecords(el, plugin, ctx) {
     const parent = list.parentElement.closest("li");
     if (!parent) continue;
     const own = [...parent.childNodes].filter((n) => n !== list && n.nodeName !== "UL" && n.nodeName !== "OL").map((n) => n.textContent).join("");
-    const records = [...list.children].filter((li) => !li.querySelector("ul, ol") && !li.id && !li.dataset.blockId && /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/.test(li.textContent.trim()));
+    const records = [...list.children].filter((li) => !li.querySelector("ul, ol") && !li.id && !li.dataset.blockId && RECORD_MARKER_BODY_RE.test(li.textContent.trim()));
     const section = ctx?.getSectionInfo?.(el);
     const first = section && section.text.split("\n")[(section.lineStart || 0) + (Number(parent.dataset.line) || 0)];
     const key = parent.id || parent.dataset.blockId || first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1];
@@ -14187,7 +14217,7 @@ function resolveProjects(rows, pages, overrides = {}) {
   const evidence = rows.map((row) => {
     const sources = row.sources || [], text = sources.map((s) => s.text || "").join("\n");
     const links = new Set(sources.flatMap((s) => s.links || []));
-    const title = String(row.title || "").replace(/^\s*(?:[-*+]\s+)?(?:TODO|DOING|DONE|TOREVIEW|PAUSED|DELEGATED)\s+/, "").replace(/[（(]来自 Obsidian[：:][\s\S]*$/, "");
+    const title = stripTaskKeyword(String(row.title || ""), { allowBullet: true }).replace(/[（(]来自 Obsidian[：:][\s\S]*$/, "");
     const titleKey = normalized(title), cwdKey = normalized(row.cwd), textKey = normalized(text);
     const strength2 = (page, value, key) => {
       let n = 0;
@@ -15522,7 +15552,6 @@ ${DREAM_END}`;
   return start < 0 ? profile.trimEnd() + "\n\n" + section + "\n" : profile.slice(0, start) + section + profile.slice(end + DREAM_END.length);
 }
 var AI_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:[A-Z-]+\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s+)?🤖/;
-var CHILD_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋|⏱|🔗)\s/;
 var AD_COMMENT_RE = /[ \t]*<!--\s*ad-[a-z0-9-]+(?::[^>]+)?\s*-->[ \t]*$/g;
 var SEP_ONLY_RE = /^(?:\s*(?:[-*+]|\d+[.)])?\s*[-_*]{3,}\s*)+$/;
 function dreamModelConfig(cfg = {}) {
@@ -15569,7 +15598,7 @@ function evidenceBlocks(text, path9, { aiOnly = false } = {}) {
       while (stack.length && stack.at(-1).indent >= indent) stack.pop();
       const isQuestion = /^\s*(?:[-*+]|\d+[.)])\s+❓\s/.test(line);
       const isAiLine = AI_RECORD_RE.test(line) || AI_LINE_RE.test(line);
-      const isChildRecord = CHILD_RECORD_RE.test(line);
+      const isChildRecord = RECORD_ICON_RE.test(line);
       const parent = stack.at(-1);
       kind = isQuestion ? "user" : isAiLine ? "ai" : parent?.kind || "user";
       if (isChildRecord && parent?.itemId) directAiOwners.add(parent.itemId);
@@ -16196,9 +16225,103 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     left.createDiv({ cls: "ad-row__name", text: name });
     if (desc) left.createDiv({ cls: "ad-row__desc", text: desc });
     const rr = r.createDiv({ cls: "ad-row__right" });
-    if (typeof right === "string") rr.createSpan({ cls: "ad-row__value", text: right });
+    if (typeof right === "function") right(rr, r);
+    else if (typeof right === "string") rr.createSpan({ cls: "ad-row__value", text: right });
     else if (right) rr.appendChild(right);
     return r;
+  }
+  rowToggle(parent, name, desc, value, onChange, disabled = false) {
+    let el;
+    this.row(parent, name, desc, (rr) => {
+      el = this.toggle(rr, value, onChange, disabled);
+    });
+    return el;
+  }
+  rowSegmented(parent, name, desc, options, value, onChange, cls = "") {
+    let el;
+    this.row(parent, name, desc, (rr) => {
+      el = this.segmented(rr, options, value, onChange, cls);
+    });
+    return el;
+  }
+  rowSelect(parent, name, desc, options, value, onChange, cls = "") {
+    let el;
+    this.row(parent, name, desc, (rr) => {
+      el = this.selectInput(rr, options, value, onChange, cls);
+    });
+    return el;
+  }
+  rowText(parent, name, desc, value, placeholder, onChange, cls = "") {
+    let el;
+    this.row(parent, name, desc, (rr) => {
+      el = this.textInput(rr, value, placeholder, onChange, cls);
+    });
+    return el;
+  }
+  rowNumber(parent, name, desc, value, min, max, onChange) {
+    let el;
+    this.row(parent, name, desc, (rr) => {
+      el = this.numberInput(rr, value, min, max, onChange);
+    });
+    return el;
+  }
+  detectedProviderChoices(detected, firstOption) {
+    return [
+      firstOption,
+      ...detected.providers.map((x) => ({
+        id: x.id,
+        label: `${x.label} ${x.available ? t("\uFF08\u5DF2\u767B\u5F55\uFF09") : x.found ? t("\uFF08\u672A\u767B\u5F55\uFF09") : t("\uFF08\u672A\u5B89\u88C5\uFF09")}`
+      })),
+      { id: "api", label: t("\u81EA\u5B9A\u4E49 API\uFF08OpenAI \u517C\u5BB9\uFF09") }
+    ];
+  }
+  providerPresetRow(parent, { label, desc, resolved, emptyLabel, value, onChange, showAgyRefresh = false, agyPath = "" }) {
+    const spec = JOURNAL_PROVIDERS[resolved];
+    const presetModels = [.../* @__PURE__ */ new Set([
+      ...resolved === "agy" && this._agyJournalModels?.length ? this._agyJournalModels : [],
+      ...spec?.models || []
+    ])];
+    if (resolved === "api" || !presetModels.length) return;
+    this.row(parent, label, desc, (rr) => {
+      this.selectInput(
+        rr,
+        [{ id: "", label: emptyLabel }, ...presetModels.map((m) => ({ id: m, label: m }))],
+        presetModels.includes(value) ? value : "",
+        onChange
+      );
+      if (showAgyRefresh && resolved === "agy") {
+        this.bigButton(rr, t("\u5237\u65B0\u5217\u8868"), async () => {
+          const list = await fetchAgyModels(agyPath);
+          if (!list.length) return new import_obsidian5.Notice(t("\u6CA1\u6709\u8BFB\u5230\u53EF\u7528 agy \u6A21\u578B"));
+          this._agyJournalModels = list;
+          new import_obsidian5.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A agy \u6A21\u578B", { n: list.length }));
+          this.display();
+        });
+      }
+    });
+  }
+  renderModelTestRow(parent, { label, desc, value, placeholder, wide, onChange, pendingText, testFn }) {
+    this.row(parent, label, desc, (rr) => {
+      this.textInput(rr, value, placeholder, onChange, wide ? "ad-input--wide" : "");
+      this.bigButton(rr, t("\u6D4B\u8BD5\u8FDE\u63A5"), async () => {
+        new import_obsidian5.Notice(pendingText, 2500);
+        try {
+          const reply = await testFn();
+          new import_obsidian5.Notice(t("\u6574\u7406\u6A21\u578B\u53EF\u7528\uFF1A{reply}", { reply: reply.slice(0, 60) || "OK" }), 5e3);
+        } catch (e) {
+          new import_obsidian5.Notice(t("\u6574\u7406\u6A21\u578B\u4E0D\u53EF\u7528\uFF1A{msg}", { msg: e?.message || String(e) }), 8e3);
+        }
+      });
+    });
+  }
+  renderApiCredentialsAndEffort(parent, { showApi, showEffort, urlLabel, urlValue, onUrlChange, keyLabel, keyValue, onKeyChange, effortLabel, effortValue, onEffortChange }) {
+    if (showApi) {
+      this.rowText(parent, urlLabel, t("\u586B\u5199\u670D\u52A1\u5546\u63A5\u53E3\u5730\u5740\uFF08\u81EA\u52A8\u8865\u9F50 /chat/completions\uFF09"), urlValue, "https://api.deepseek.com", onUrlChange, "ad-input--wide");
+      const keyInput = this.rowText(parent, keyLabel, t("\u4FDD\u5B58\u4E8E\u63D2\u4EF6\u8BBE\u7F6E data.json \u4E2D"), keyValue, t("\u8F93\u5165 API Key\uFF08\u672C\u5730 Ollama \u53EF\u7559\u7A7A\uFF09"), onKeyChange, "ad-input--wide");
+      keyInput.type = "password";
+    } else if (showEffort) {
+      this.rowSegmented(parent, effortLabel, "", EFFORTS.codex, effortValue, onEffortChange);
+    }
   }
   toggle(parent, value, onChange, disabled = false) {
     const b = parent.createEl("button", { cls: "ad-switch" + (value ? " is-on" : "") + (disabled ? " is-disabled" : ""), attr: { role: "switch", "aria-checked": String(!!value) } });
@@ -16294,45 +16417,37 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       this.setDefaultEffort("claude", v);
       this.display();
     });
-    const permRow = this.row(claude, t("\u6743\u9650\u6A21\u5F0F"), t("plan\uFF1A\u89C4\u5212\uFF1Bauto\uFF1A\u81EA\u52A8\u5224\u65AD\uFF1BacceptEdits\uFF1A\u5141\u8BB8\u4FEE\u6539\u6587\u4EF6"), null);
-    this.segmented(permRow.querySelector(":scope > .ad-row__right"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => {
+    this.rowSegmented(claude, t("\u6743\u9650\u6A21\u5F0F"), t("plan\uFF1A\u89C4\u5212\uFF1Bauto\uFF1A\u81EA\u52A8\u5224\u65AD\uFF1BacceptEdits\uFF1A\u5141\u8BB8\u4FEE\u6539\u6587\u4EF6"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => {
       d.claude.permission = v;
       p.saveSettings();
       this.display();
     });
     const claudeMore = this.subDetails(claude, "claude-more", t("\u66F4\u591A\u8BBE\u7F6E"));
-    const claudePathRow = this.row(claudeMore, t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E"), null);
-    this.textInput(claudePathRow.querySelector(":scope > .ad-row__right"), d.claude.path || "", t("\u81EA\u52A8\u67E5\u627E"), (v) => {
+    this.rowText(claudeMore, t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E"), d.claude.path || "", t("\u81EA\u52A8\u67E5\u627E"), (v) => {
       d.claude.path = v.trim();
       p.saveSettings();
     }, "ad-input--wide");
-    const cwdRow = this.row(claude, t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A\u4F7F\u7528\u5E93\u6839\u76EE\u5F55"), null);
-    this.textInput(cwdRow.querySelector(":scope > .ad-row__right"), d.claude.cwd, t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55"), (v) => {
+    this.rowText(claude, t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A\u4F7F\u7528\u5E93\u6839\u76EE\u5F55"), d.claude.cwd, t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55"), (v) => {
       d.claude.cwd = v.trim();
       p.saveSettings();
     }, "ad-input--wide");
-    const openDesk = this.row(claudeMore, t("\u5B8C\u6210\u540E\u81EA\u52A8\u5728\u684C\u9762\u7248\u6253\u5F00"), "", null);
-    this.toggle(openDesk.querySelector(":scope > .ad-row__right"), d.claude.openDesktop === true, (v) => {
+    this.rowToggle(claudeMore, t("\u5B8C\u6210\u540E\u81EA\u52A8\u5728\u684C\u9762\u7248\u6253\u5F00"), "", d.claude.openDesktop === true, (v) => {
       d.claude.openDesktop = v;
       p.saveSettings();
     });
-    const addVault = this.row(claudeMore, t("\u628A\u5F53\u524D\u5E93\u4E5F\u52A0\u8FDB\u53EF\u8BFB\u76EE\u5F55"), "", null);
-    this.toggle(addVault.querySelector(":scope > .ad-row__right"), d.claude.addVault !== false, (v) => {
+    this.rowToggle(claudeMore, t("\u628A\u5F53\u524D\u5E93\u4E5F\u52A0\u8FDB\u53EF\u8BFB\u76EE\u5F55"), "", d.claude.addVault !== false, (v) => {
       d.claude.addVault = v;
       p.saveSettings();
     });
-    const trust = this.row(claudeMore, t("\u5E93\u6CA1\u88AB\u4FE1\u4EFB\u65F6\u81EA\u52A8\u6362\u4E2A\u76EE\u5F55"), t("\u4F7F\u7528\u5DF2\u4FE1\u4EFB\u76EE\u5F55\uFF0C\u5E76\u6DFB\u52A0\u5F53\u524D\u5E93\u7684\u8BBF\u95EE\u8DEF\u5F84"), null);
-    this.toggle(trust.querySelector(":scope > .ad-row__right"), d.claude.autoTrustedCwd !== false, (v) => {
+    this.rowToggle(claudeMore, t("\u5E93\u6CA1\u88AB\u4FE1\u4EFB\u65F6\u81EA\u52A8\u6362\u4E2A\u76EE\u5F55"), t("\u4F7F\u7528\u5DF2\u4FE1\u4EFB\u76EE\u5F55\uFF0C\u5E76\u6DFB\u52A0\u5F53\u524D\u5E93\u7684\u8BBF\u95EE\u8DEF\u5F84"), d.claude.autoTrustedCwd !== false, (v) => {
       d.claude.autoTrustedCwd = v;
       p.saveSettings();
     });
-    const bg = this.row(claudeMore, t("\u4F7F\u7528 claude --bg \u540E\u53F0\u670D\u52A1"), t("\u7531 Claude \u540E\u53F0\u670D\u52A1\u7BA1\u7406\u4F1A\u8BDD"), null);
-    this.toggle(bg.querySelector(":scope > .ad-row__right"), d.claude.useBackground === true, (v) => {
+    this.rowToggle(claudeMore, t("\u4F7F\u7528 claude --bg \u540E\u53F0\u670D\u52A1"), t("\u7531 Claude \u540E\u53F0\u670D\u52A1\u7BA1\u7406\u4F1A\u8BDD"), d.claude.useBackground === true, (v) => {
       d.claude.useBackground = v;
       p.saveSettings();
     });
-    const extra = this.row(claudeMore, t("\u989D\u5916\u53C2\u6570"), t("\u4F20\u7ED9 Claude CLI \u7684\u53C2\u6570"), null);
-    this.textInput(extra.querySelector(":scope > .ad-row__right"), d.claude.extraArgs, t("\u53EF\u7559\u7A7A"), (v) => {
+    this.rowText(claudeMore, t("\u989D\u5916\u53C2\u6570"), t("\u4F20\u7ED9 Claude CLI \u7684\u53C2\u6570"), d.claude.extraArgs, t("\u53EF\u7559\u7A7A"), (v) => {
       d.claude.extraArgs = v;
       p.saveSettings();
     }, "ad-input--wide");
@@ -16344,8 +16459,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     this.bigButton(test, t("\u5728\u7EC8\u7AEF\u91CC\u7EED\u8FD9\u4E2A\u76EE\u5F55"), () => p.openTerminalAt(d.claude.cwd || p.vaultPath, "claude"));
     claude.appendChild(claudeMore.parentElement);
     const codex = this.agentCard(body, "codex", "Codex", "");
-    const transport = this.row(codex, t("\u6D3E\u53D1\u5230"), "", null);
-    this.segmented(transport.querySelector(":scope > .ad-row__right"), [{ id: "desktop", label: t("Codex \u684C\u9762\u7248") }, { id: "terminal", label: t("\u7EC8\u7AEF") }], d.codex.transport || "desktop", (v) => {
+    this.rowSegmented(codex, t("\u6D3E\u53D1\u5230"), "", [{ id: "desktop", label: t("Codex \u684C\u9762\u7248") }, { id: "terminal", label: t("\u7EC8\u7AEF") }], d.codex.transport || "desktop", (v) => {
       d.codex.transport = v;
       p.saveSettings();
       this.display();
@@ -16358,16 +16472,14 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       this.setDefaultEffort("codex", v);
       this.display();
     });
-    const sandbox = this.row(codex, t("\u6C99\u7BB1\u6A21\u5F0F"), t("read-only\uFF1A\u53EA\u8BFB\uFF1Bworkspace-write\uFF1A\u5141\u8BB8\u4FEE\u6539\u5DE5\u4F5C\u76EE\u5F55"), null);
-    this.segmented(sandbox.querySelector(":scope > .ad-row__right"), ["read-only", "workspace-write"].map((id) => ({ id, label: id })), d.codex.sandbox, (v) => {
+    this.rowSegmented(codex, t("\u6C99\u7BB1\u6A21\u5F0F"), t("read-only\uFF1A\u53EA\u8BFB\uFF1Bworkspace-write\uFF1A\u5141\u8BB8\u4FEE\u6539\u5DE5\u4F5C\u76EE\u5F55"), ["read-only", "workspace-write"].map((id) => ({ id, label: id })), d.codex.sandbox, (v) => {
       d.codex.sandbox = v;
       p.saveSettings();
       this.display();
     });
     const codexMore = this.subDetails(codex, "codex-more", t("\u66F4\u591A\u8BBE\u7F6E"));
     for (const [key, label, hint] of [["path", t("codex \u7A0B\u5E8F\u8DEF\u5F84"), t("\u684C\u9762\u6A21\u5F0F\u7559\u7A7A\u4F18\u5148\u4F7F\u7528 Desktop \u81EA\u5E26\u7A0B\u5E8F\uFF1B\u7EC8\u7AEF\u6A21\u5F0F\u4ECE PATH \u67E5\u627E")], ["cwd", t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55")]]) {
-      const r = this.row(key === "cwd" ? codex : codexMore, label, hint, null);
-      this.textInput(r.querySelector(":scope > .ad-row__right"), d.codex[key], hint, (v) => {
+      this.rowText(key === "cwd" ? codex : codexMore, label, hint, d.codex[key], hint, (v) => {
         d.codex[key] = v.trim();
         p.saveSettings();
       }, "ad-input--wide");
@@ -16383,24 +16495,20 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       this.setDefaultEffort("dsh", v);
       this.display();
     });
-    const route = this.row(dsh, t("\u81EA\u52A8\u5141\u8BB8\u5DE5\u5177\u8C03\u7528"), t("\u5173\u95ED\u540E\u9010\u6B21\u786E\u8BA4\u5DE5\u5177\u6743\u9650"), null);
-    this.toggle(route.querySelector(":scope > .ad-row__right"), d.dsh.autoApprove === true, (v) => {
+    this.rowToggle(dsh, t("\u81EA\u52A8\u5141\u8BB8\u5DE5\u5177\u8C03\u7528"), t("\u5173\u95ED\u540E\u9010\u6B21\u786E\u8BA4\u5DE5\u5177\u6743\u9650"), d.dsh.autoApprove === true, (v) => {
       d.dsh.autoApprove = v;
       p.saveSettings();
     });
     const dshMore = this.subDetails(dsh, "dsh-more", t("\u66F4\u591A\u8BBE\u7F6E"));
-    const dshPathRow = this.row(dshMore, t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E"), null);
-    this.textInput(dshPathRow.querySelector(":scope > .ad-row__right"), d.dsh.path || "", t("\u81EA\u52A8\u67E5\u627E"), (v) => {
+    this.rowText(dshMore, t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E"), d.dsh.path || "", t("\u81EA\u52A8\u67E5\u627E"), (v) => {
       d.dsh.path = v.trim();
       p.saveSettings();
     }, "ad-input--wide");
-    const dcwd = this.row(dsh, t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A\u4F7F\u7528\u5E93\u6839\u76EE\u5F55"), null);
-    this.textInput(dcwd.querySelector(":scope > .ad-row__right"), d.dsh.cwd, t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55"), (v) => {
+    this.rowText(dsh, t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A\u4F7F\u7528\u5E93\u6839\u76EE\u5F55"), d.dsh.cwd, t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55"), (v) => {
       d.dsh.cwd = v.trim();
       p.saveSettings();
     }, "ad-input--wide");
-    const dextra = this.row(dshMore, t("\u989D\u5916 ACP \u53C2\u6570"), t("\u53EF\u7559\u7A7A"), null);
-    this.textInput(dextra.querySelector(":scope > .ad-row__right"), d.dsh.extraArgs, t("\u53EF\u7559\u7A7A"), (v) => {
+    this.rowText(dshMore, t("\u989D\u5916 ACP \u53C2\u6570"), t("\u53EF\u7559\u7A7A"), d.dsh.extraArgs, t("\u53EF\u7559\u7A7A"), (v) => {
       d.dsh.extraArgs = v;
       p.saveSettings();
     }, "ad-input--wide");
@@ -16430,8 +16538,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     });
     const agyMore = this.subDetails(agy, "agy-more", t("\u66F4\u591A\u8BBE\u7F6E"));
     for (const [key, label, hint] of [["path", t("agy \u7A0B\u5E8F\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\uFF0C\u4F8B\u5982 ~/.local/bin/agy")], ["cwd", t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55")]]) {
-      const r = this.row(key === "cwd" ? agy : agyMore, label, hint, null);
-      this.textInput(r.querySelector(":scope > .ad-row__right"), d.antigravity[key], hint, (v) => {
+      this.rowText(key === "cwd" ? agy : agyMore, label, hint, d.antigravity[key], hint, (v) => {
         d.antigravity[key] = v.trim();
         p.saveSettings();
       }, "ad-input--wide");
@@ -16457,20 +16564,17 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       this.setDefaultEffort("opencode", v);
       this.display();
     });
-    const ocRoute = this.row(opencode, t("\u81EA\u52A8\u5141\u8BB8\u5DE5\u5177\u8C03\u7528"), t("\u5173\u95ED\u540E\u9010\u6B21\u786E\u8BA4\u5DE5\u5177\u6743\u9650"), null);
-    this.toggle(ocRoute.querySelector(":scope > .ad-row__right"), d.opencode.autoApprove === true, (v) => {
+    this.rowToggle(opencode, t("\u81EA\u52A8\u5141\u8BB8\u5DE5\u5177\u8C03\u7528"), t("\u5173\u95ED\u540E\u9010\u6B21\u786E\u8BA4\u5DE5\u5177\u6743\u9650"), d.opencode.autoApprove === true, (v) => {
       d.opencode.autoApprove = v;
       p.saveSettings();
     });
     const opencodeMore = this.subDetails(opencode, "opencode-more", t("\u66F4\u591A\u8BBE\u7F6E"));
-    const ocDesk = this.row(opencodeMore, t("\u5B8C\u6210\u540E\u81EA\u52A8\u5728\u684C\u9762\u7248\u6253\u5F00"), "", null);
-    this.toggle(ocDesk.querySelector(":scope > .ad-row__right"), d.opencode.openDesktop === true, (v) => {
+    this.rowToggle(opencodeMore, t("\u5B8C\u6210\u540E\u81EA\u52A8\u5728\u684C\u9762\u7248\u6253\u5F00"), "", d.opencode.openDesktop === true, (v) => {
       d.opencode.openDesktop = v;
       p.saveSettings();
     });
     for (const [key, label, hint] of [["path", t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\uFF08\u542B OpenCode.app \u5185\u7F6E CLI\uFF09")], ["cwd", t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55")], ["extraArgs", t("\u989D\u5916 ACP \u53C2\u6570"), t("\u53EF\u7559\u7A7A")]]) {
-      const r = this.row(key === "cwd" ? opencode : opencodeMore, label, hint, null);
-      this.textInput(r.querySelector(":scope > .ad-row__right"), d.opencode[key] || "", hint, (v) => {
+      this.rowText(key === "cwd" ? opencode : opencodeMore, label, hint, d.opencode[key] || "", hint, (v) => {
         d.opencode[key] = v.trim();
         p.saveSettings();
       }, "ad-input--wide");
@@ -16496,16 +16600,14 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       this.setDefaultEffort("qoder", v);
       this.display();
     });
-    const qPermRow = this.row(qoder, t("\u6743\u9650\u6A21\u5F0F"), t("plan\uFF1A\u89C4\u5212\uFF1Bauto\uFF1A\u81EA\u52A8\u5224\u65AD\uFF1BacceptEdits\uFF1A\u5141\u8BB8\u4FEE\u6539\u6587\u4EF6"), null);
-    this.segmented(qPermRow.querySelector(":scope > .ad-row__right"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => {
+    this.rowSegmented(qoder, t("\u6743\u9650\u6A21\u5F0F"), t("plan\uFF1A\u89C4\u5212\uFF1Bauto\uFF1A\u81EA\u52A8\u5224\u65AD\uFF1BacceptEdits\uFF1A\u5141\u8BB8\u4FEE\u6539\u6587\u4EF6"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => {
       d.qoder.permission = v;
       p.saveSettings();
       this.display();
     });
     const qoderMore = this.subDetails(qoder, "qoder-more", t("\u66F4\u591A\u8BBE\u7F6E"));
     for (const [key, label, hint] of [["path", t("\u547D\u4EE4\u884C\u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\uFF08~/.qoder/bin/qodercli/qodercli\uFF09")], ["cwd", t("\u5DE5\u4F5C\u76EE\u5F55"), t("\u7559\u7A7A = \u5E93\u6839\u76EE\u5F55")], ["extraArgs", t("\u989D\u5916\u53C2\u6570"), t("\u53EF\u7559\u7A7A")]]) {
-      const r = this.row(key === "cwd" ? qoder : qoderMore, label, hint, null);
-      this.textInput(r.querySelector(":scope > .ad-row__right"), d.qoder[key] || "", hint, (v) => {
+      this.rowText(key === "cwd" ? qoder : qoderMore, label, hint, d.qoder[key] || "", hint, (v) => {
         d.qoder[key] = v.trim();
         p.saveSettings();
       }, "ad-input--wide");
@@ -16515,14 +16617,12 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     this.bigButton(qtest, t("\u767B\u5F55 qoder CLI"), () => p.openTerminalAt(d.qoder.cwd || p.vaultPath, "qoder login"));
     qoder.appendChild(qoderMore.parentElement);
     const sharedAgents = this.card(body, t("\u516C\u5171\u7EC8\u7AEF\u4E0E\u5176\u4F59 Agent"), "");
-    const dt = this.row(sharedAgents, t("\u4E3B\u529B\u7EC8\u7AEF"), t("\u7528\u4E8E\u7EC8\u7AEF\u59D4\u6D3E\u548C\u6062\u590D\u4F1A\u8BDD"), null);
-    this.selectInput(dt.querySelector(":scope > .ad-row__right"), [{ id: "auto", label: t("\u81EA\u52A8") }, { id: "terminal", label: t("\u7CFB\u7EDF\u7EC8\u7AEF") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => {
+    this.rowSelect(sharedAgents, t("\u4E3B\u529B\u7EC8\u7AEF"), t("\u7528\u4E8E\u7EC8\u7AEF\u59D4\u6D3E\u548C\u6062\u590D\u4F1A\u8BDD"), [{ id: "auto", label: t("\u81EA\u52A8") }, { id: "terminal", label: t("\u7CFB\u7EDF\u7EC8\u7AEF") }, { id: "iterm", label: "iTerm2" }, { id: "warp", label: "Warp" }, { id: "tern", label: "Tern" }, { id: "herdr", label: "Herdr" }], s.cliTerminal || "auto", (v) => {
       s.cliTerminal = v;
       p.saveSettings();
       this.display();
     });
-    const dd = this.row(sharedAgents, t("\u9ED8\u8BA4\u5728\u7EC8\u7AEF\u59D4\u6D3E"), t("\u9002\u7528\u4E8E Claude Code\u3001Codex\u3001OpenCode \u548C Qoder"), null);
-    this.toggle(dd.querySelector(":scope > .ad-row__right"), !!s.delegateInTerminal, (v) => {
+    this.rowToggle(sharedAgents, t("\u9ED8\u8BA4\u5728\u7EC8\u7AEF\u59D4\u6D3E"), t("\u9002\u7528\u4E8E Claude Code\u3001Codex\u3001OpenCode \u548C Qoder"), !!s.delegateInTerminal, (v) => {
       s.delegateInTerminal = v;
       p.saveSettings();
       p.refreshUI();
@@ -16533,14 +16633,12 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     }
     this.renderModels(body);
     const rules = this.card(body, t("\u53D1\u9001\u89C4\u5219"), t("\u4EFB\u52A1\u884C Agent \u8865\u5168\u3001\u63D0\u793A\u8BCD\u524D\u540E\u7F00\u548C\u59D4\u6D3E\u9644\u52A0\u8981\u6C42"));
-    const suggestRow = this.row(rules, t("\u8F93\u5165\u65F6\u663E\u793A\u5019\u9009\u83DC\u5355"), t("\u8F93\u5165\u89E6\u53D1\u7B26\u9009\u62E9 Agent\u3001\u6A21\u578B\u548C\u5F3A\u5EA6"), null);
-    this.toggle(suggestRow.querySelector(":scope > .ad-row__right"), d.mentionSuggest !== false, (v) => {
+    this.rowToggle(rules, t("\u8F93\u5165\u65F6\u663E\u793A\u5019\u9009\u83DC\u5355"), t("\u8F93\u5165\u89E6\u53D1\u7B26\u9009\u62E9 Agent\u3001\u6A21\u578B\u548C\u5F3A\u5EA6"), d.mentionSuggest !== false, (v) => {
       d.mentionSuggest = v;
       p.saveSettings();
     });
     const rulesMore = this.subDetails(rules, "rules-more", t("\u66F4\u591A\u8BBE\u7F6E"));
-    const triggerRow = this.row(rulesMore, t("\u89E6\u53D1\u7B26\u53F7"), t("\u9ED8\u8BA4 @\uFF0C\u524D\u9762\u9700\u7A7A\u683C"), null);
-    this.textInput(triggerRow.querySelector(":scope > .ad-row__right"), d.mentionTrigger || "@", "@", (v) => {
+    this.rowText(rulesMore, t("\u89E6\u53D1\u7B26\u53F7"), t("\u9ED8\u8BA4 @\uFF0C\u524D\u9762\u9700\u7A7A\u683C"), d.mentionTrigger || "@", "@", (v) => {
       const trigger = v.trim();
       if (!trigger || /[\s`\p{L}\p{N}]/u.test(trigger)) {
         new import_obsidian5.Notice(t("\u8BF7\u586B\u5199\u4E0D\u542B\u7A7A\u683C\u3001\u5B57\u6BCD\u3001\u6570\u5B57\u6216\u53CD\u5F15\u53F7\u7684\u7B26\u53F7"));
@@ -16565,8 +16663,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       d.promptSuffix = sufTa.value;
       p.saveSettings();
     };
-    const rc = this.row(rules, t("\u59D4\u6D3E\u9644\u52A0\u8981\u6C42"), t("\u8FFD\u52A0\u5230\u6BCF\u6B21\u59D4\u6D3E\u6D88\u606F\u672B\u5C3E"), null);
-    this.toggle(rc.querySelector(":scope > .ad-row__right"), d.confirmFirst !== false, (v) => {
+    this.rowToggle(rules, t("\u59D4\u6D3E\u9644\u52A0\u8981\u6C42"), t("\u8FFD\u52A0\u5230\u6BCF\u6B21\u59D4\u6D3E\u6D88\u606F\u672B\u5C3E"), d.confirmFirst !== false, (v) => {
       d.confirmFirst = v;
       p.saveSettings();
     });
@@ -16596,28 +16693,27 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     return this.plugin.saveSettings();
   }
   modelSelect(parent, agent, value, onChange) {
-    const row = this.row(parent, t("\u9ED8\u8BA4\u6A21\u578B"), "", null);
     const all = this.plugin.modelsFor(agent);
     const models = agent === "codex" ? all : all.filter((m) => this.plugin.modelEnabled(m.id));
     if (!models.length) models.push(...all);
     if (value && !models.some((m) => m.id === value)) models.push(this.plugin.modelById(value) || { id: value, name: value });
-    return this.selectInput(row.querySelector(":scope > .ad-row__right"), models.map((m) => ({ id: m.id, label: m.name })), value, onChange);
+    return this.rowSelect(parent, t("\u9ED8\u8BA4\u6A21\u578B"), "", models.map((m) => ({ id: m.id, label: m.name })), value, onChange);
   }
   effortControl(parent, agent, value, onChange) {
-    const row = this.row(parent, t("\u9ED8\u8BA4\u5F3A\u5EA6"), "", null);
-    const right = row.querySelector(":scope > .ad-row__right");
-    const wrap = right.createDiv({ cls: "ad-effort" });
-    const opts = EFFORTS[agent] || EFFORTS.claude;
-    const track = wrap.createDiv({ cls: "ad-effort__track" });
-    const fill2 = track.createDiv({ cls: "ad-effort__fill" });
-    const stops = track.createDiv({ cls: "ad-effort__stops" });
-    const idx = Math.max(0, opts.findIndex((x) => x.id === value));
-    fill2.style.width = `${idx / Math.max(1, opts.length - 1) * 100}%`;
-    opts.forEach((o, i) => {
-      const b = stops.createEl("button", { cls: "ad-effort__stop" + (o.id === value ? " is-on" : ""), attr: { "aria-label": o.label, "aria-pressed": String(o.id === value) } });
-      b.createSpan({ cls: "ad-effort__dot" });
-      b.onclick = () => onChange(o.id);
-      wrap.createEl("span", { cls: "ad-effort__lab", attr: { style: `left:${i / Math.max(1, opts.length - 1) * 100}%` }, text: o.label });
+    this.row(parent, t("\u9ED8\u8BA4\u5F3A\u5EA6"), "", (right) => {
+      const wrap = right.createDiv({ cls: "ad-effort" });
+      const opts = EFFORTS[agent] || EFFORTS.claude;
+      const track = wrap.createDiv({ cls: "ad-effort__track" });
+      const fill2 = track.createDiv({ cls: "ad-effort__fill" });
+      const stops = track.createDiv({ cls: "ad-effort__stops" });
+      const idx = Math.max(0, opts.findIndex((x) => x.id === value));
+      fill2.style.width = `${idx / Math.max(1, opts.length - 1) * 100}%`;
+      opts.forEach((o, i) => {
+        const b = stops.createEl("button", { cls: "ad-effort__stop" + (o.id === value ? " is-on" : ""), attr: { "aria-label": o.label, "aria-pressed": String(o.id === value) } });
+        b.createSpan({ cls: "ad-effort__dot" });
+        b.onclick = () => onChange(o.id);
+        wrap.createEl("span", { cls: "ad-effort__lab", attr: { style: `left:${i / Math.max(1, opts.length - 1) * 100}%` }, text: o.label });
+      });
     });
   }
   // ---------- Manage Models (inside Delegation) ----------
@@ -16890,26 +16986,22 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     }
     this.agentReorder(grid, "tracking", ".ad-set-agent");
     const sourceMore = this.subDetails(sourceCard, "source-more", t("\u66F4\u591A\u8BBE\u7F6E"));
-    const r1 = this.row(sourceMore, t("\u65E5\u8BB0\u65E5\u671F\u5206\u754C"), t("\u6B64\u65F6\u523B\u4E4B\u524D\u8BA1\u5165\u524D\u4E00\u5929"), null);
-    this.numberInput(r1.querySelector(":scope > .ad-row__right"), s.dayCutoff, 0, 12, (v) => {
+    this.rowNumber(sourceMore, t("\u65E5\u8BB0\u65E5\u671F\u5206\u754C"), t("\u6B64\u65F6\u523B\u4E4B\u524D\u8BA1\u5165\u524D\u4E00\u5929"), s.dayCutoff, 0, 12, (v) => {
       s.dayCutoff = v;
       p.saveSettings();
       p.scheduleScan();
     });
-    const r2 = this.row(sourceMore, t("\u626B\u63CF\u95F4\u9694\uFF08\u79D2\uFF09"), "", null);
-    this.numberInput(r2.querySelector(":scope > .ad-row__right"), s.pollSeconds, 5, 300, (v) => {
+    this.rowNumber(sourceMore, t("\u626B\u63CF\u95F4\u9694\uFF08\u79D2\uFF09"), "", s.pollSeconds, 5, 300, (v) => {
       s.pollSeconds = v;
       p.saveSettings();
       p.scheduleScan();
     });
-    const r4 = this.row(sourceMore, t("\u4E3B\u529B\u8BFB\u591A\u5C11\u5929\u5386\u53F2"), t("\u975E\u4E3B\u529B\u8BFB\u53D6\u5F53\u5929\u4F1A\u8BDD"), null);
-    this.numberInput(r4.querySelector(":scope > .ad-row__right"), s.fullHistoryDays, 1, 365, (v) => {
+    this.rowNumber(sourceMore, t("\u4E3B\u529B\u8BFB\u591A\u5C11\u5929\u5386\u53F2"), t("\u975E\u4E3B\u529B\u8BFB\u53D6\u5F53\u5929\u4F1A\u8BDD"), s.fullHistoryDays, 1, 365, (v) => {
       s.fullHistoryDays = v;
       p.saveSettings();
       p.scanNow(true);
     });
-    const d1 = this.row(sourceMore, t("\u8BC6\u522B side chat \u548C\u6BCD\u5B50\u5173\u7CFB"), t("Claude \u684C\u9762\u7248\u5B50\u4F1A\u8BDD\u4E0E\u6BCD\u5B50\u5173\u8054"), null);
-    this.toggle(d1.querySelector(":scope > .ad-row__right"), s.claudeDesktop !== false, (v) => {
+    this.rowToggle(sourceMore, t("\u8BC6\u522B side chat \u548C\u6BCD\u5B50\u5173\u7CFB"), t("Claude \u684C\u9762\u7248\u5B50\u4F1A\u8BDD\u4E0E\u6BCD\u5B50\u5173\u8054"), s.claudeDesktop !== false, (v) => {
       s.claudeDesktop = v;
       p.saveSettings();
       p.scanNow(true);
@@ -16917,26 +17009,26 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     if (typeof p.cursorHooksStatus === "function") {
       const ch = p.cursorHooksStatus();
       const statusText = ch.outdated ? t("Cursor Hooks \u9700\u8981\u66F4\u65B0\uFF08{matched}/{total}\uFF09", { matched: ch.matchedEvents, total: ch.totalEvents }) : ch.installed ? t("\u5DF2\u914D\u7F6E Cursor 3.30.14+ Hooks\uFF08{matched}/{total}\uFF09", { matched: ch.matchedEvents, total: ch.totalEvents }) : t("\u672A\u5B89\u88C5 Cursor Hooks\uFF1B\u4EC5\u8FFD\u8E2A\u5B89\u88C5\u540E\u7684 Cursor 3.30.14+ \u65B0\u4F1A\u8BDD\u6216\u65B0\u5BF9\u8BDD\u8F6E\u6B21");
-      const curRow = this.row(sourceMore, "Cursor Hooks", statusText, null);
-      const curRight = curRow.querySelector(":scope > .ad-row__right");
-      this.bigButton(curRight, ch.installed && !ch.outdated ? t("\u66F4\u65B0 Hooks") : t("\u5B89\u88C5 Hooks"), () => {
-        try {
-          p.installCursorHooks();
-        } catch (e) {
-          p.notice?.(e.message || String(e));
-        }
-        this.display();
-      });
-      if (ch.installed || ch.matchedEvents > 0 || ch.scriptExists) {
-        this.bigButton(curRight, t("\u5378\u8F7D Hooks"), () => {
+      this.row(sourceMore, "Cursor Hooks", statusText, (curRight) => {
+        this.bigButton(curRight, ch.installed && !ch.outdated ? t("\u66F4\u65B0 Hooks") : t("\u5B89\u88C5 Hooks"), () => {
           try {
-            p.uninstallCursorHooks();
+            p.installCursorHooks();
           } catch (e) {
             p.notice?.(e.message || String(e));
           }
           this.display();
         });
-      }
+        if (ch.installed || ch.matchedEvents > 0 || ch.scriptExists) {
+          this.bigButton(curRight, t("\u5378\u8F7D Hooks"), () => {
+            try {
+              p.uninstallCursorHooks();
+            } catch (e) {
+              p.notice?.(e.message || String(e));
+            }
+            this.display();
+          });
+        }
+      });
     }
     const scanBar = sourceCard.createDiv({ cls: "ad-btnrow" });
     this.bigButton(scanBar, t("\u7ACB\u5373\u626B\u63CF"), () => p.scanNow(), "mod-cta");
@@ -16956,59 +17048,57 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     }
     sourceCard.appendChild(sourceMore.parentElement);
     const jr = this.card(body, t("\u65E5\u8BB0\u4E0E\u5F52\u6863"), t("\u5C06\u4F1A\u8BDD\u8BB0\u5F55\u5199\u5165\u4ECA\u5929\u7684\u65E5\u8BB0"));
-    const master = this.row(jr, t("\u542F\u7528\u65E5\u8BB0\u5199\u5165"), "", null);
-    this.toggle(master.querySelector(":scope > .ad-row__right"), s.journalAutoWrite !== false, (v) => {
+    this.rowToggle(jr, t("\u542F\u7528\u65E5\u8BB0\u5199\u5165"), "", s.journalAutoWrite !== false, (v) => {
       s.journalAutoWrite = v;
       p.saveSettings();
     });
     const det = detectJournalFormat(this.app, s);
-    const jf = this.row(jr, t("\u65E5\u8BB0\u76EE\u5F55"), t("\u5F53\u524D\uFF1A{folder}\uFF1B\u4ECA\u5929\uFF1A{path}", { folder: det.folder || t("\u5E93\u6839\u76EE\u5F55"), source: det.folderSource, path: journalPath(this.app, s) }), null);
-    this.textInput(jf.querySelector(":scope > .ad-row__right"), s.journalFolder || "", t("\u81EA\u52A8\uFF1A{folder}", { folder: det.folder || t("\u5E93\u6839\u76EE\u5F55") }), (v) => {
+    this.rowText(jr, t("\u65E5\u8BB0\u76EE\u5F55"), t("\u5F53\u524D\uFF1A{folder}\uFF1B\u4ECA\u5929\uFF1A{path}", { folder: det.folder || t("\u5E93\u6839\u76EE\u5F55"), source: det.folderSource, path: journalPath(this.app, s) }), s.journalFolder || "", t("\u81EA\u52A8\uFF1A{folder}", { folder: det.folder || t("\u5E93\u6839\u76EE\u5F55") }), (v) => {
       s.journalFolder = v.trim();
       p.saveSettings();
       this.display();
     });
-    const jfmt = this.row(jr, t("\u65E5\u8BB0\u6587\u4EF6\u540D\u683C\u5F0F"), t("\u4F8B\u5982 YYYY-MM-DD\uFF1B\u5F53\u524D\uFF1A{format}", { format: det.format, source: det.source }), null);
-    this.textInput(jfmt.querySelector(":scope > .ad-row__right"), s.journalFormat || "", t("\u81EA\u52A8\uFF1A{format}", { format: det.format }), (v) => {
+    this.rowText(jr, t("\u65E5\u8BB0\u6587\u4EF6\u540D\u683C\u5F0F"), t("\u4F8B\u5982 YYYY-MM-DD\uFF1B\u5F53\u524D\uFF1A{format}", { format: det.format, source: det.source }), s.journalFormat || "", t("\u81EA\u52A8\uFF1A{format}", { format: det.format }), (v) => {
       s.journalFormat = v.trim();
       p.saveSettings();
       this.display();
     });
-    const ja = this.row(jr, t("\u81EA\u52A8\u4F1A\u8BDD\u8BB0\u5F55"), t("\u81EA\u52A8\u5C06\u6D3B\u8DC3\u4F1A\u8BDD\u5EFA\u9879\u5E76\u8BB0\u5165\u4ECA\u65E5\u65E5\u8BB0"), null);
-    this.toggle(ja.querySelector(":scope > .ad-row__right"), s.autoLog === true, (v) => {
+    this.rowToggle(jr, t("\u81EA\u52A8\u4F1A\u8BDD\u8BB0\u5F55"), t("\u81EA\u52A8\u5C06\u6D3B\u8DC3\u4F1A\u8BDD\u5EFA\u9879\u5E76\u8BB0\u5165\u4ECA\u65E5\u65E5\u8BB0"), s.autoLog === true, (v) => {
       s.autoLog = v;
       p.saveSettings();
     });
-    const jag = this.row(jr, t("\u8BB0\u54EA\u51E0\u4E2A Agent"), t("\u9009\u62E9\u81EA\u52A8\u5EFA\u9879\u7684 Agent"), null);
-    const agBox = jag.querySelector(":scope > .ad-row__right").createDiv({ cls: "ad-seg ad-seg--many" });
-    const agOn = s.autoLogAgents || (s.autoLogAgents = {});
-    for (const id of AGENT_ORDER) {
-      const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id, attr: { "aria-pressed": String(agOn[id] !== false) } });
-      b.onclick = () => {
-        agOn[id] = agOn[id] === false;
-        b.classList.toggle("is-on", agOn[id] !== false);
-        b.setAttribute("aria-pressed", String(agOn[id] !== false));
-        p.saveSettings();
-      };
-    }
-    const grain = this.row(jr, t("\u81EA\u52A8\u8BB0\u5F55\u9897\u7C92\u5EA6"), t("\u9009\u62E9\u8BB0\u5F55\u7684\u65F6\u673A"), null);
-    this.segmented(grain.querySelector(":scope > .ad-row__right"), [{ id: "latest", label: t("\u6700\u65B0\u8FDB\u5C55") }, { id: "round", label: t("\u6BCF\u8F6E\u8BB0\u5F55") }, { id: "paused", label: t("\u505C\u6B47\u6216\u5F52\u6863") }], s.autoLogGranularity || DEFAULTS.autoLogGranularity, (v) => {
-      s.autoLogGranularity = v;
-      p.saveSettings();
-      this.display();
+    this.row(jr, t("\u8BB0\u54EA\u51E0\u4E2A Agent"), t("\u9009\u62E9\u81EA\u52A8\u5EFA\u9879\u7684 Agent"), (rr) => {
+      const agBox = rr.createDiv({ cls: "ad-seg ad-seg--many" });
+      const agOn = s.autoLogAgents || (s.autoLogAgents = {});
+      for (const id of AGENT_ORDER) {
+        const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id, attr: { "aria-pressed": String(agOn[id] !== false) } });
+        b.onclick = () => {
+          agOn[id] = agOn[id] === false;
+          b.classList.toggle("is-on", agOn[id] !== false);
+          b.setAttribute("aria-pressed", String(agOn[id] !== false));
+          p.saveSettings();
+        };
+      }
     });
-    const jdetail = this.row(jr, t("\u81EA\u52A8\u65E5\u5FD7\u8BE6\u7EC6\u7A0B\u5EA6"), "", null);
+    const grain = this.row(jr, t("\u81EA\u52A8\u8BB0\u5F55\u9897\u7C92\u5EA6"), t("\u9009\u62E9\u8BB0\u5F55\u7684\u65F6\u673A"), (rr) => {
+      this.segmented(rr, [{ id: "latest", label: t("\u6700\u65B0\u8FDB\u5C55") }, { id: "round", label: t("\u6BCF\u8F6E\u8BB0\u5F55") }, { id: "paused", label: t("\u505C\u6B47\u6216\u5F52\u6863") }], s.autoLogGranularity || DEFAULTS.autoLogGranularity, (v) => {
+        s.autoLogGranularity = v;
+        p.saveSettings();
+        this.display();
+      });
+    });
+    const jdetail = this.row(jr, t("\u81EA\u52A8\u65E5\u5FD7\u8BE6\u7EC6\u7A0B\u5EA6"), "", (rr) => {
+      this.segmented(rr, [{ id: "brief", label: t("\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09") }, { id: "standard", label: t("\u6807\u51C6") }, { id: "detailed", label: t("\u8BE6\u7EC6") }], s.autoLogDetail || "brief", (v) => {
+        changeLogDetail(s, v);
+        p.saveSettings();
+        this.display();
+      });
+    });
     const detailDesc = jdetail.querySelector(":scope > .ad-row__left");
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u7B80\u7565\uFF1A\u4EFB\u52A1\u548C\u7ED3\u8BBA\u5408\u6210\u4E00\u6BB5") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u6807\u51C6\uFF1A\u63D0\u95EE\u3001\u56DE\u7B54\u5404\u4E00\u53E5") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u8BE6\u7EC6\uFF1A\u4FDD\u7559\u63D0\u95EE\u3001\u56DE\u590D\u6458\u5F55\u548C\u6B65\u9AA4") });
-    this.segmented(jdetail.querySelector(":scope > .ad-row__right"), [{ id: "brief", label: t("\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09") }, { id: "standard", label: t("\u6807\u51C6") }, { id: "detailed", label: t("\u8BE6\u7EC6") }], s.autoLogDetail || "brief", (v) => {
-      changeLogDetail(s, v);
-      p.saveSettings();
-      this.display();
-    });
-    const rmode = this.row(jr, t("AI \u8BB0\u5F55\u663E\u793A\u65B9\u5F0F"), t("\u63A7\u5236\u7B14\u8BB0\u4E2D\u9ED8\u8BA4\u5C55\u5F00\u7684\u8BB0\u5F55"), null);
-    this.segmented(rmode.querySelector(":scope > .ad-row__right"), [
+    this.rowSegmented(jr, t("AI \u8BB0\u5F55\u663E\u793A\u65B9\u5F0F"), t("\u63A7\u5236\u7B14\u8BB0\u4E2D\u9ED8\u8BA4\u5C55\u5F00\u7684\u8BB0\u5F55"), [
       { id: "collapsed", label: t("\u9ED8\u8BA4\u6298\u53E0") },
       { id: "expanded", label: t("\u9ED8\u8BA4\u5C55\u5F00") },
       { id: "latest5", label: t("\u6700\u65B0\u4E94\u6761") },
@@ -17022,35 +17112,29 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     });
     const jrMore = this.subDetails(jr, "recording-more", t("\u66F4\u591A\u8BBE\u7F6E"));
     jrMore.appendChild(grain);
-    const merge = this.row(jrMore, t("\u7D2F\u79EF\u540E\u81EA\u52A8\u5408\u5E76\u603B\u7ED3"), "", null);
-    this.toggle(merge.querySelector(":scope > .ad-row__right"), !!s.autoLogMerge, (v) => {
+    this.rowToggle(jrMore, t("\u7D2F\u79EF\u540E\u81EA\u52A8\u5408\u5E76\u603B\u7ED3"), "", !!s.autoLogMerge, (v) => {
       s.autoLogMerge = v;
       p.saveSettings();
       this.display();
     });
-    const mergeN = this.row(jrMore, t("\u7D2F\u79EF\u591A\u5C11\u6761\u7ED3\u8BBA\u540E\u5408\u5E76"), t("\u81F3\u5C11 2 \u6761"), null);
-    this.numberInput(mergeN.querySelector(":scope > .ad-row__right"), s.autoLogMergeThreshold || 10, 2, 100, (v) => {
+    this.rowNumber(jrMore, t("\u7D2F\u79EF\u591A\u5C11\u6761\u7ED3\u8BBA\u540E\u5408\u5E76"), t("\u81F3\u5C11 2 \u6761"), s.autoLogMergeThreshold || 10, 2, 100, (v) => {
       s.autoLogMergeThreshold = Math.round(v);
       p.saveSettings();
     });
     const wb = jrMore;
-    const dm1 = this.row(wb, t("\u628A\u72B6\u6001\u6539\u6210 DELEGATED"), "", null);
-    this.toggle(dm1.querySelector(":scope > .ad-row__right"), d.markStatus !== false, (v) => {
+    this.rowToggle(wb, t("\u628A\u72B6\u6001\u6539\u6210 DELEGATED"), "", d.markStatus !== false, (v) => {
       d.markStatus = v;
       p.saveSettings();
     });
-    const dm2 = this.row(wb, t("\u5199 \u{1F517} \u7ED1\u5B9A\u884C"), t("\u5220\u9664\u7ED1\u5B9A\u884C\u53EF\u89E3\u9664\u5173\u8054"), null);
-    this.toggle(dm2.querySelector(":scope > .ad-row__right"), d.writeLink !== false, (v) => {
+    this.rowToggle(wb, t("\u5199 \u{1F517} \u7ED1\u5B9A\u884C"), t("\u5220\u9664\u7ED1\u5B9A\u884C\u53EF\u89E3\u9664\u5173\u8054"), d.writeLink !== false, (v) => {
       d.writeLink = v;
       p.saveSettings();
     });
-    const dm3 = this.row(wb, t("\u59D4\u6D3E\u4EFB\u52A1\u56DE\u5199"), t("\u59D4\u6D3E\u5B8C\u6210\u540E\u5199 \u{1F4AC} \u7ED3\u8BBA"), null);
-    this.toggle(dm3.querySelector(":scope > .ad-row__right"), s.autoWriteResult !== false, (v) => {
+    this.rowToggle(wb, t("\u59D4\u6D3E\u4EFB\u52A1\u56DE\u5199"), t("\u59D4\u6D3E\u5B8C\u6210\u540E\u5199 \u{1F4AC} \u7ED3\u8BBA"), s.autoWriteResult !== false, (v) => {
       s.autoWriteResult = v;
       p.saveSettings();
     });
-    const js = this.row(wb, t("\u56DE\u5199\u65E5\u8BB0"), t("\u66F4\u65B0\u5DF2\u7ED1\u5B9A\u4EFB\u52A1\u7684\u72B6\u6001\u4E0E\u7ED3\u8BBA"), null);
-    this.toggle(js.querySelector(":scope > .ad-row__right"), s.journalSync !== false, (v) => {
+    this.rowToggle(wb, t("\u56DE\u5199\u65E5\u8BB0"), t("\u66F4\u65B0\u5DF2\u7ED1\u5B9A\u4EFB\u52A1\u7684\u72B6\u6001\u4E0E\u7ED3\u8BBA"), s.journalSync !== false, (v) => {
       s.journalSync = v;
       p.saveSettings();
     });
@@ -17060,60 +17144,60 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       ["autoLogKw", t("\u81EA\u52A8\u8BB0\u7684\u6761\u76EE\u4E5F\u8DDF\u7740\u5207\u72B6\u6001"), ""],
       ["kidBlocks", t("\u5B50\u4F1A\u8BDD\u548C side chat \u5B50\u5757"), ""]
     ]) {
-      const row = this.row(wb, label, desc, null);
-      this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] !== false, (v) => {
+      this.rowToggle(wb, label, desc, s[key] !== false, (v) => {
         s[key] = v;
         p.saveSettings();
       });
     }
-    const rMax = this.row(jr, t("\u{1F4AC} \u6700\u591A\u591A\u5C11\u4E2A\u5B57"), t("\u666E\u901A\u4F1A\u8BDD\u7684\u7ED3\u8BBA\u957F\u5EA6\uFF1B\u540E\u53F0\u56DE\u7B54\u8D85\u8FC7 500 \u5B57\u65F6\u8FD4\u56DE\u5B8C\u6574\u95EE\u7B54\u6587\u4EF6"), null);
-    this.numberInput(rMax.querySelector(":scope > .ad-row__right"), s.resultMax || DEFAULTS.resultMax, 40, 2e3, (v) => {
+    this.rowNumber(jr, t("\u{1F4AC} \u6700\u591A\u591A\u5C11\u4E2A\u5B57"), t("\u666E\u901A\u4F1A\u8BDD\u7684\u7ED3\u8BBA\u957F\u5EA6\uFF1B\u540E\u53F0\u56DE\u7B54\u8D85\u8FC7 500 \u5B57\u65F6\u8FD4\u56DE\u5B8C\u6574\u95EE\u7B54\u6587\u4EF6"), s.resultMax || DEFAULTS.resultMax, 40, 2e3, (v) => {
       s.resultMax = v;
       p.saveSettings();
     });
-    const jd = this.row(wb, t("\u5F52\u6863\u7684\u4F1A\u8BDD\u8BB0\u6210 DONE"), "", null);
-    this.toggle(jd.querySelector(":scope > .ad-row__right"), s.autoLogArchiveDone !== false, (v) => {
+    this.rowToggle(wb, t("\u5F52\u6863\u7684\u4F1A\u8BDD\u8BB0\u6210 DONE"), "", s.autoLogArchiveDone !== false, (v) => {
       s.autoLogArchiveDone = v;
       p.saveSettings();
     });
-    const jn = this.row(wb, t("\u6574\u7406\u5B8C\u5F39\u901A\u77E5"), "", null);
-    this.toggle(jn.querySelector(":scope > .ad-row__right"), s.autoLogNotify !== false, (v) => {
+    this.rowToggle(wb, t("\u6574\u7406\u5B8C\u5F39\u901A\u77E5"), "", s.autoLogNotify !== false, (v) => {
       s.autoLogNotify = v;
       p.saveSettings();
     });
     const tpl = this.subDetails(jrMore, "template-archive", t("\u6574\u7406\u65E5\u5FD7\u6A21\u677F\u4E0E\u5F52\u6863"));
-    const suggest = this.row(tpl, t("\u65E5\u5FD7\u6742\u4E71\u65F6\u63D0\u9192\u6574\u7406"), t("\u6BCF\u65B0\u589E 4 \u6761\u8BB0\u5F55\u63D0\u9192\uFF0C\u6BCF\u5929\u6700\u591A 2 \u6B21"), null);
-    this.toggle(suggest.querySelector(":scope > .ad-row__right"), s.organizeJournalSuggest !== false, (v) => {
+    this.rowToggle(tpl, t("\u65E5\u5FD7\u6742\u4E71\u65F6\u63D0\u9192\u6574\u7406"), t("\u6BCF\u65B0\u589E 4 \u6761\u8BB0\u5F55\u63D0\u9192\uFF0C\u6BCF\u5929\u6700\u591A 2 \u6B21"), s.organizeJournalSuggest !== false, (v) => {
       s.organizeJournalSuggest = v;
       p.saveSettings();
     });
-    const templateRow = this.row(tpl, t("\u6574\u7406\u6A21\u677F"), t("\u8BBE\u7F6E\u7B14\u8BB0\u5206\u533A\u7684\u6807\u9898\u548C\u987A\u5E8F"), null);
-    const template = templateRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
-    for (const [value, label] of [["auto", t("\u8DDF\u968F\u754C\u9762\uFF08\u9ED8\u8BA4\uFF09")], ["zh", t("\u4E2D\u6587\u6A21\u677F")], ["en", "English template"], ["custom", t("\u81EA\u5B9A\u4E49\u6A21\u677F")]]) template.createEl("option", { text: label, attr: { value } });
-    template.value = s.journalLayout ? "custom" : s.journalLayoutLanguage || "auto";
-    template.onchange = () => {
-      if (template.value === "custom") s.journalLayout = builtinJournalLayout(s.journalLayoutLanguage === "auto" ? currentLanguage() : s.journalLayoutLanguage || currentLanguage());
-      else {
-        s.journalLayout = null;
-        s.journalLayoutLanguage = template.value;
+    this.rowSelect(
+      tpl,
+      t("\u6574\u7406\u6A21\u677F"),
+      t("\u8BBE\u7F6E\u7B14\u8BB0\u5206\u533A\u7684\u6807\u9898\u548C\u987A\u5E8F"),
+      [["auto", t("\u8DDF\u968F\u754C\u9762\uFF08\u9ED8\u8BA4\uFF09")], ["zh", t("\u4E2D\u6587\u6A21\u677F")], ["en", "English template"], ["custom", t("\u81EA\u5B9A\u4E49\u6A21\u677F")]].map(([id, label]) => ({ id, label })),
+      s.journalLayout ? "custom" : s.journalLayoutLanguage || "auto",
+      (val) => {
+        if (val === "custom") s.journalLayout = builtinJournalLayout(s.journalLayoutLanguage === "auto" ? currentLanguage() : s.journalLayoutLanguage || currentLanguage());
+        else {
+          s.journalLayout = null;
+          s.journalLayoutLanguage = val;
+        }
+        p.saveSettings();
+        this.display();
       }
-      p.saveSettings();
-      this.display();
-    };
+    );
     if (s.journalLayout) {
       s.journalLayout = configuredJournalLayout(s);
       const names = { active: t("\u6B63\u5728\u505A"), todo: t("\u8FD8\u8981\u505A"), done: t("\u5DF2\u5B8C\u6210") };
-      const orderRow = this.row(tpl, t("\u5206\u533A\u987A\u5E8F"), "", null);
-      const orderSel = orderRow.querySelector(":scope > .ad-row__right").createEl("select", { cls: "ad-select" });
-      for (const keys of [["active", "todo", "done"], ["active", "done", "todo"], ["todo", "active", "done"], ["todo", "done", "active"], ["done", "active", "todo"], ["done", "todo", "active"]]) orderSel.createEl("option", { text: keys.map((key) => names[key]).join(" \u2192 "), attr: { value: keys.join(",") } });
-      orderSel.value = s.journalLayout.order.join(",");
-      orderSel.onchange = () => {
-        s.journalLayout = journalLayout({ ...s.journalLayout, order: orderSel.value.split(",") });
-        p.saveSettings();
-      };
+      this.rowSelect(
+        tpl,
+        t("\u5206\u533A\u987A\u5E8F"),
+        "",
+        [["active", "todo", "done"], ["active", "done", "todo"], ["todo", "active", "done"], ["todo", "done", "active"], ["done", "active", "todo"], ["done", "todo", "active"]].map((keys) => ({ id: keys.join(","), label: keys.map((key) => names[key]).join(" \u2192 ") })),
+        s.journalLayout.order.join(","),
+        (val) => {
+          s.journalLayout = journalLayout({ ...s.journalLayout, order: val.split(",") });
+          p.saveSettings();
+        }
+      );
       for (const key of JOURNAL_LAYOUT_DEFAULT.order) {
-        const row = this.row(tpl, t("{section}\u6807\u9898", { section: names[key] }), "", null);
-        const input = this.textInput(row.querySelector(":scope > .ad-row__right"), s.journalLayout.titles[key], names[key], (value) => {
+        const input = this.rowText(tpl, t("{section}\u6807\u9898", { section: names[key] }), "", s.journalLayout.titles[key], names[key], (value) => {
           try {
             s.journalLayout = journalLayout({ ...s.journalLayout, titles: { ...s.journalLayout.titles, [key]: value } });
             p.saveSettings();
@@ -17124,8 +17208,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
         });
       }
     }
-    const archive = this.row(tpl, t("\u9ED8\u8BA4\u5F52\u6863\u4F4D\u7F6E"), t("\u5E93\u5185 Markdown \u8DEF\u5F84"), null);
-    this.textInput(archive.querySelector(":scope > .ad-row__right"), s.doneArchivePath, DEFAULTS.doneArchivePath, (v) => {
+    this.rowText(tpl, t("\u9ED8\u8BA4\u5F52\u6863\u4F4D\u7F6E"), t("\u5E93\u5185 Markdown \u8DEF\u5F84"), s.doneArchivePath, DEFAULTS.doneArchivePath, (v) => {
       try {
         s.doneArchivePath = archivePath(v);
         p.saveSettings();
@@ -17133,8 +17216,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
         new import_obsidian5.Notice(e.message);
       }
     }, "ad-input--wide");
-    const archOrder = this.row(tpl, t("\u5F52\u6863\u987A\u5E8F"), "", null);
-    this.segmented(archOrder.querySelector(":scope > .ad-row__right"), [{ id: "prepend", label: t("\u63D2\u5230\u5F00\u5934") }, { id: "append", label: t("\u8FFD\u52A0\u5230\u672B\u5C3E") }], s.archiveOrder || "prepend", (v) => {
+    this.rowSegmented(tpl, t("\u5F52\u6863\u987A\u5E8F"), "", [{ id: "prepend", label: t("\u63D2\u5230\u5F00\u5934") }, { id: "append", label: t("\u8FFD\u52A0\u5230\u672B\u5C3E") }], s.archiveOrder || "prepend", (v) => {
       s.archiveOrder = v;
       p.saveSettings();
     });
@@ -17154,19 +17236,11 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     const curProvider = s.autoLogProvider || "auto";
     const resolved = resolveJournalProvider(s);
     const autoTarget = detected.providers.find((x) => x.id === detected.recommended);
-    const providerOptions = [
-      {
-        id: "auto",
-        label: autoTarget?.available ? t("\u81EA\u52A8\u6311\u9009\u672C\u673A CLI\uFF08\u5F53\u524D\uFF1A{name}\uFF09", { name: autoTarget.label }) : t("\u81EA\u52A8\u6311\u9009\u672C\u673A CLI")
-      },
-      ...detected.providers.map((x) => ({
-        id: x.id,
-        label: `${x.label} ${x.available ? t("\uFF08\u5DF2\u767B\u5F55\uFF09") : x.found ? t("\uFF08\u672A\u767B\u5F55\uFF09") : t("\uFF08\u672A\u5B89\u88C5\uFF09")}`
-      })),
-      { id: "api", label: t("\u81EA\u5B9A\u4E49 API\uFF08OpenAI \u517C\u5BB9\uFF09") }
-    ];
-    const jprovider = this.row(modelCard, t("\u6574\u7406\u4F7F\u7528\u7684\u6A21\u578B\u6765\u6E90"), t("\u81EA\u52A8\u68C0\u6D4B\u672C\u673A\u5DF2\u767B\u5F55 CLI\uFF0C\u6216\u81EA\u586B\u517C\u5BB9 OpenAI \u683C\u5F0F\u7684 API"), null);
-    this.selectInput(jprovider.querySelector(":scope > .ad-row__right"), providerOptions, curProvider, (v) => {
+    const providerOptions = this.detectedProviderChoices(detected, {
+      id: "auto",
+      label: autoTarget?.available ? t("\u81EA\u52A8\u6311\u9009\u672C\u673A CLI\uFF08\u5F53\u524D\uFF1A{name}\uFF09", { name: autoTarget.label }) : t("\u81EA\u52A8\u6311\u9009\u672C\u673A CLI")
+    });
+    this.rowSelect(modelCard, t("\u6574\u7406\u4F7F\u7528\u7684\u6A21\u578B\u6765\u6E90"), t("\u81EA\u52A8\u68C0\u6D4B\u672C\u673A\u5DF2\u767B\u5F55 CLI\uFF0C\u6216\u81EA\u586B\u517C\u5BB9 OpenAI \u683C\u5F0F\u7684 API"), providerOptions, curProvider, (v) => {
       s.autoLogProvider = v;
       s.autoLogModel = v === "auto" ? "" : JOURNAL_PROVIDERS[v]?.defaultModel || "";
       s.roundPolishModel = "";
@@ -17175,10 +17249,11 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       this.display();
     });
     if (resolved === "api") {
-      const presetRow = this.row(modelCard, t("API \u9884\u8BBE"), t("\u5FEB\u6377\u586B\u5165\u5730\u5740\u4E0E\u9ED8\u8BA4\u6A21\u578B"), null);
       const matchedPreset = API_PRESETS.find((x) => x.url === (s.autoLogApiUrl || "").trim())?.id || "custom";
-      this.selectInput(
-        presetRow.querySelector(":scope > .ad-row__right"),
+      this.rowSelect(
+        modelCard,
+        t("API \u9884\u8BBE"),
+        t("\u5FEB\u6377\u586B\u5165\u5730\u5740\u4E0E\u9ED8\u8BA4\u6A21\u578B"),
         [{ id: "custom", label: t("\u624B\u52A8\u586B\u5199") }, ...API_PRESETS.map((x) => ({ id: x.id, label: x.id === "ollama" ? t("\u672C\u5730 Ollama") : x.label }))],
         matchedPreset,
         (id) => {
@@ -17190,137 +17265,116 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
           this.display();
         }
       );
-      const urlRow = this.row(modelCard, "API Base URL", t("\u586B\u5199\u670D\u52A1\u5546\u63A5\u53E3\u5730\u5740\uFF08\u81EA\u52A8\u8865\u9F50 /chat/completions\uFF09"), null);
-      this.textInput(urlRow.querySelector(":scope > .ad-row__right"), s.autoLogApiUrl || "", "https://api.deepseek.com", (v) => {
+    }
+    this.renderApiCredentialsAndEffort(modelCard, {
+      showApi: resolved === "api",
+      showEffort: resolved === "codex",
+      urlLabel: "API Base URL",
+      urlValue: s.autoLogApiUrl || "",
+      onUrlChange: (v) => {
         s.autoLogApiUrl = v.trim();
         p.saveSettings();
-      }, "ad-input--wide");
-      const keyRow = this.row(modelCard, "API Key", t("\u4FDD\u5B58\u4E8E\u63D2\u4EF6\u8BBE\u7F6E data.json \u4E2D"), null);
-      const keyInput = this.textInput(keyRow.querySelector(":scope > .ad-row__right"), s.autoLogApiKey || "", t("\u8F93\u5165 API Key\uFF08\u672C\u5730 Ollama \u53EF\u7559\u7A7A\uFF09"), (v) => {
+      },
+      keyLabel: "API Key",
+      keyValue: s.autoLogApiKey || "",
+      onKeyChange: (v) => {
         s.autoLogApiKey = v.trim();
         p.saveSettings();
-      }, "ad-input--wide");
-      keyInput.type = "password";
-    } else if (resolved === "codex") {
-      const effort = this.row(modelCard, t("\u6574\u7406\u4E0E\u6DA6\u8272\u7684\u63A8\u7406\u5F3A\u5EA6"), "", null);
-      this.segmented(effort.querySelector(":scope > .ad-row__right"), EFFORTS.codex, s.autoLogEffort || "low", (v) => {
+      },
+      effortLabel: t("\u6574\u7406\u4E0E\u6DA6\u8272\u7684\u63A8\u7406\u5F3A\u5EA6"),
+      effortValue: s.autoLogEffort || "low",
+      onEffortChange: (v) => {
         s.autoLogEffort = v;
         p.saveSettings();
         this.display();
-      });
-    }
-    const spec = JOURNAL_PROVIDERS[resolved];
-    const presetModels = [.../* @__PURE__ */ new Set([...resolved === "agy" && this._agyJournalModels?.length ? this._agyJournalModels : [], ...spec?.models || []])];
-    if (resolved !== "api" && presetModels.length) {
-      const quickRow = this.row(modelCard, t("\u5E38\u7528\u6A21\u578B\u9884\u8BBE"), t("\u70B9\u9009\u53EF\u586B\u5165\u4E0B\u65B9\u6A21\u578B\u6846"), null);
-      const quickRight = quickRow.querySelector(":scope > .ad-row__right");
-      const curModel = s.autoLogModel || spec?.defaultModel || "";
-      this.selectInput(
-        quickRight,
-        [{ id: "", label: t("\u81EA\u5B9A\u4E49\u8F93\u5165") }, ...presetModels.map((m) => ({ id: m, label: m }))],
-        presetModels.includes(curModel) ? curModel : "",
-        (m) => {
-          if (m) {
-            s.autoLogModel = m;
-            p.saveSettings();
-            this.display();
-          }
-        }
-      );
-      if (resolved === "agy") {
-        this.bigButton(quickRight, t("\u5237\u65B0\u5217\u8868"), async () => {
-          const list = await fetchAgyModels(s.autoLogPath || s.delegate?.antigravity?.path || "");
-          if (!list.length) return new import_obsidian5.Notice(t("\u6CA1\u6709\u8BFB\u5230\u53EF\u7528 agy \u6A21\u578B"));
-          this._agyJournalModels = list;
-          new import_obsidian5.Notice(t("\u5DF2\u8BFB\u53D6 {n} \u4E2A agy \u6A21\u578B", { n: list.length }));
-          this.display();
-        });
-      }
-    }
-    const modelPlaceholder = resolved === "api" ? "deepseek-chat" : spec?.defaultModel || t("\u7559\u7A7A\u7528 CLI \u9ED8\u8BA4\u6A21\u578B");
-    const jm = this.row(modelCard, t("\u6574\u7406\u7528\u7684\u6A21\u578B"), t("\u586B\u5199\u6A21\u578B\u540D\u6216\u522B\u540D\uFF1B\u7559\u7A7A\u4F7F\u7528\u5F53\u524D\u65B9\u5F0F\u9ED8\u8BA4\u6A21\u578B"), null);
-    const jmRight = jm.querySelector(":scope > .ad-row__right");
-    this.textInput(jmRight, s.autoLogModel || "", modelPlaceholder, (v) => {
-      s.autoLogModel = v.trim();
-      p.saveSettings();
-    }, resolved === "api" ? "ad-input--wide" : "");
-    this.bigButton(jmRight, t("\u6D4B\u8BD5\u8FDE\u63A5"), async () => {
-      new import_obsidian5.Notice(t("\u6B63\u5728\u6D4B\u8BD5\u6574\u7406\u6A21\u578B\u8FDE\u63A5\u2026"), 2500);
-      try {
-        const reply = await testJournalModel(s);
-        new import_obsidian5.Notice(t("\u6574\u7406\u6A21\u578B\u53EF\u7528\uFF1A{reply}", { reply: reply.slice(0, 60) || "OK" }), 5e3);
-      } catch (e) {
-        new import_obsidian5.Notice(t("\u6574\u7406\u6A21\u578B\u4E0D\u53EF\u7528\uFF1A{msg}", { msg: e?.message || String(e) }), 8e3);
       }
     });
+    const spec = JOURNAL_PROVIDERS[resolved];
+    this.providerPresetRow(modelCard, {
+      label: t("\u5E38\u7528\u6A21\u578B\u9884\u8BBE"),
+      desc: t("\u70B9\u9009\u53EF\u586B\u5165\u4E0B\u65B9\u6A21\u578B\u6846"),
+      resolved,
+      emptyLabel: t("\u81EA\u5B9A\u4E49\u8F93\u5165"),
+      value: s.autoLogModel || spec?.defaultModel || "",
+      onChange: (m) => {
+        if (m) {
+          s.autoLogModel = m;
+          p.saveSettings();
+          this.display();
+        }
+      },
+      showAgyRefresh: true,
+      agyPath: s.autoLogPath || s.delegate?.antigravity?.path || ""
+    });
+    const modelPlaceholder = resolved === "api" ? "deepseek-chat" : spec?.defaultModel || t("\u7559\u7A7A\u7528 CLI \u9ED8\u8BA4\u6A21\u578B");
+    this.renderModelTestRow(modelCard, {
+      label: t("\u6574\u7406\u7528\u7684\u6A21\u578B"),
+      desc: t("\u586B\u5199\u6A21\u578B\u540D\u6216\u522B\u540D\uFF1B\u7559\u7A7A\u4F7F\u7528\u5F53\u524D\u65B9\u5F0F\u9ED8\u8BA4\u6A21\u578B"),
+      value: s.autoLogModel || "",
+      placeholder: modelPlaceholder,
+      wide: resolved === "api",
+      onChange: (v) => {
+        s.autoLogModel = v.trim();
+        p.saveSettings();
+      },
+      pendingText: t("\u6B63\u5728\u6D4B\u8BD5\u6574\u7406\u6A21\u578B\u8FDE\u63A5\u2026"),
+      testFn: () => testJournalModel(s)
+    });
     const modelMore = this.subDetails(modelCard, "model-more", t("\u66F4\u591A\u8BBE\u7F6E"));
-    const jt = this.row(modelMore, t("\u6574\u7406\u8D85\u65F6\uFF08\u79D2\uFF09"), "", null);
-    this.numberInput(jt.querySelector(":scope > .ad-row__right"), s.autoLogTimeout || 120, 10, 600, (v) => {
+    this.rowNumber(modelMore, t("\u6574\u7406\u8D85\u65F6\uFF08\u79D2\uFF09"), "", s.autoLogTimeout || 120, 10, 600, (v) => {
       s.autoLogTimeout = v;
       p.saveSettings();
     });
-    const jfb = this.row(modelMore, t("\u6574\u7406\u5931\u8D25\u65F6\u4F7F\u7528\u4F1A\u8BDD\u6807\u9898"), "", null);
-    this.toggle(jfb.querySelector(":scope > .ad-row__right"), s.autoLogFallback !== false, (v) => {
+    this.rowToggle(modelMore, t("\u6574\u7406\u5931\u8D25\u65F6\u4F7F\u7528\u4F1A\u8BDD\u6807\u9898"), "", s.autoLogFallback !== false, (v) => {
       s.autoLogFallback = v;
       p.saveSettings();
     });
     if (resolved !== "api") {
-      const jp = this.row(modelMore, t("\u6574\u7406 CLI \u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\u6216\u6CBF\u7528\u59D4\u6D3E\u8DEF\u5F84"), null);
-      this.textInput(jp.querySelector(":scope > .ad-row__right"), s.autoLogPath || "", t("\u81EA\u52A8\u627E"), (v) => {
+      this.rowText(modelMore, t("\u6574\u7406 CLI \u8DEF\u5F84"), t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\u6216\u6CBF\u7528\u59D4\u6D3E\u8DEF\u5F84"), s.autoLogPath || "", t("\u81EA\u52A8\u627E"), (v) => {
         s.autoLogPath = v.trim();
         p.saveSettings();
       }, "ad-input--wide");
     }
-    const jrp = this.row(modelMore, t("\u6BCF\u8F6E\u7ED3\u8BBA\u8BA9\u6A21\u578B\u6DA6\u8272"), t("\u9002\u7528\u4E8E\u7B80\u7565\u548C\u6807\u51C6\u8BB0\u5F55"), null);
-    this.toggle(jrp.querySelector(":scope > .ad-row__right"), s.roundPolish !== false, (v) => {
+    this.rowToggle(modelMore, t("\u6BCF\u8F6E\u7ED3\u8BBA\u8BA9\u6A21\u578B\u6DA6\u8272"), t("\u9002\u7528\u4E8E\u7B80\u7565\u548C\u6807\u51C6\u8BB0\u5F55"), s.roundPolish !== false, (v) => {
       s.roundPolish = v;
       p.saveSettings();
     });
-    const jrm = this.row(modelMore, t("\u6DA6\u8272\u7528\u7684\u6A21\u578B"), t("\u7559\u7A7A\u6CBF\u7528\u6574\u7406\u6A21\u578B"), null);
-    this.textInput(jrm.querySelector(":scope > .ad-row__right"), s.roundPolishModel || "", t("\u540C\u6574\u7406\u7528\u7684\u6A21\u578B"), (v) => {
+    this.rowText(modelMore, t("\u6DA6\u8272\u7528\u7684\u6A21\u578B"), t("\u7559\u7A7A\u6CBF\u7528\u6574\u7406\u6A21\u578B"), s.roundPolishModel || "", t("\u540C\u6574\u7406\u7528\u7684\u6A21\u578B"), (v) => {
       s.roundPolishModel = v.trim();
       p.saveSettings();
     });
-    const jrt = this.row(modelMore, t("\u6DA6\u8272\u8D85\u65F6\uFF08\u79D2\uFF09"), "", null);
-    this.numberInput(jrt.querySelector(":scope > .ad-row__right"), s.roundPolishTimeout || 30, 5, 300, (v) => {
+    this.rowNumber(modelMore, t("\u6DA6\u8272\u8D85\u65F6\uFF08\u79D2\uFF09"), "", s.roundPolishTimeout || 30, 5, 300, (v) => {
       s.roundPolishTimeout = v;
       p.saveSettings();
     });
     const sched = modelMore;
-    const je = this.row(sched, t("\u6574\u7406\u95F4\u9694\uFF08\u5206\u949F\uFF09"), t("\u81F3\u5C11 5 \u5206\u949F"), null);
-    this.numberInput(je.querySelector(":scope > .ad-row__right"), s.autoLogEvery || 20, 5, 240, (v) => {
+    this.rowNumber(sched, t("\u6574\u7406\u95F4\u9694\uFF08\u5206\u949F\uFF09"), t("\u81F3\u5C11 5 \u5206\u949F"), s.autoLogEvery || 20, 5, 240, (v) => {
       s.autoLogEvery = v;
       p.saveSettings();
     });
-    const jst = this.row(sched, t("\u9996\u6B21\u6574\u7406\u5EF6\u8FDF\uFF08\u5206\u949F\uFF09"), "", null);
-    this.numberInput(jst.querySelector(":scope > .ad-row__right"), s.autoLogStartDelay ?? 1, 1, 240, (v) => {
+    this.rowNumber(sched, t("\u9996\u6B21\u6574\u7406\u5EF6\u8FDF\uFF08\u5206\u949F\uFF09"), "", s.autoLogStartDelay ?? 1, 1, 240, (v) => {
       s.autoLogStartDelay = v;
       p.saveSettings();
     });
-    const jmin = this.row(sched, t("\u6700\u77ED\u8BB0\u5F55\u65F6\u957F\uFF08\u5206\u949F\uFF09"), t("0 \u8868\u793A\u7ACB\u5373\u8BB0\u5F55"), null);
-    this.numberInput(jmin.querySelector(":scope > .ad-row__right"), s.autoLogMinMinutes ?? 3, 0, 120, (v) => {
+    this.rowNumber(sched, t("\u6700\u77ED\u8BB0\u5F55\u65F6\u957F\uFF08\u5206\u949F\uFF09"), t("0 \u8868\u793A\u7ACB\u5373\u8BB0\u5F55"), s.autoLogMinMinutes ?? 3, 0, 120, (v) => {
       s.autoLogMinMinutes = v;
       p.saveSettings();
     });
-    const jid = this.row(sched, t("\u6682\u505C\u5224\u5B9A\uFF08\u5206\u949F\uFF09"), t("\u81F3\u5C11 5 \u5206\u949F"), null);
-    this.numberInput(jid.querySelector(":scope > .ad-row__right"), s.autoLogIdle || 10, 5, 480, (v) => {
+    this.rowNumber(sched, t("\u6682\u505C\u5224\u5B9A\uFF08\u5206\u949F\uFF09"), t("\u81F3\u5C11 5 \u5206\u949F"), s.autoLogIdle || 10, 5, 480, (v) => {
       s.autoLogIdle = v;
       p.saveSettings();
     });
-    const jb = this.row(sched, t("\u6BCF\u6279\u4F1A\u8BDD\u6570"), "", null);
-    this.numberInput(jb.querySelector(":scope > .ad-row__right"), s.autoLogBatch || 8, 1, 20, (v) => {
+    this.rowNumber(sched, t("\u6BCF\u6279\u4F1A\u8BDD\u6570"), "", s.autoLogBatch || 8, 1, 20, (v) => {
       s.autoLogBatch = v;
       p.saveSettings();
     });
     const ui = this.card(body, t("\u5C55\u793A\u4E0E\u7EF4\u62A4"), t("\u4F1A\u8BDD\u6253\u5F00\u65B9\u5F0F\u3001\u9762\u677F\u3001\u7F16\u8F91\u5668\u4E0E\u83DC\u5355\u680F\u663E\u793A\u3001\u7F13\u5B58\u7EF4\u62A4"));
-    const dc = this.row(ui, t("\u7EC8\u7AEF\u4F1A\u8BDD\u6253\u5F00\u65B9\u5F0F"), "", null);
-    this.segmented(dc.querySelector(":scope > .ad-row__right"), [{ id: "terminal", label: t("\u7EC8\u7AEF") }, { id: "desktop", label: t("\u684C\u9762\u7248") }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => {
+    this.rowSegmented(ui, t("\u7EC8\u7AEF\u4F1A\u8BDD\u6253\u5F00\u65B9\u5F0F"), "", [{ id: "terminal", label: t("\u7EC8\u7AEF") }, { id: "desktop", label: t("\u684C\u9762\u7248") }], s.cliOpen === "desktop" ? "desktop" : "terminal", (v) => {
       s.cliOpen = v;
       p.saveSettings();
       this.display();
     });
-    const d2 = this.row(ui, t("\u5F52\u6863\u7684\u4F1A\u8BDD\u4E0D\u518D\u5217\u51FA"), "", null);
-    this.toggle(d2.querySelector(":scope > .ad-row__right"), s.hideArchived !== false, (v) => {
+    this.rowToggle(ui, t("\u5F52\u6863\u7684\u4F1A\u8BDD\u4E0D\u518D\u5217\u51FA"), "", s.hideArchived !== false, (v) => {
       s.hideArchived = v;
       p.saveSettings();
       p.refreshUI();
@@ -17332,34 +17386,29 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       ["showRibbonIcon", t("\u5DE6\u4FA7\u680F\u56FE\u6807"), "", true],
       ["openDashboardOnStartup", t("\u542F\u52A8\u65F6\u6253\u5F00\u9762\u677F"), "", false]
     ]) {
-      const row = this.row(ui, label, desc, null);
-      this.toggle(row.querySelector(":scope > .ad-row__right"), s[key] === void 0 ? fallback : s[key] !== false, (v) => {
+      this.rowToggle(ui, label, desc, s[key] === void 0 ? fallback : s[key] !== false, (v) => {
         s[key] = v;
         p.saveSettings();
         p.applyUiSettings();
       });
     }
     const uiMore = this.subDetails(ui, "display-more", t("\u66F4\u591A\u8BBE\u7F6E"));
-    const bars = this.row(uiMore, t("\u6700\u8FD1 14 \u5929\u7684\u6761\u5F62\u56FE"), "", null);
-    this.toggle(bars.querySelector(":scope > .ad-row__right"), s.ui.showUsageBars !== false, (v) => {
+    this.rowToggle(uiMore, t("\u6700\u8FD1 14 \u5929\u7684\u6761\u5F62\u56FE"), "", s.ui.showUsageBars !== false, (v) => {
       s.ui.showUsageBars = v;
       p.saveSettings();
       p.refreshUI();
     });
-    const spark = this.row(uiMore, t("\u6BCF\u4E2A Agent \u7684\u5C0F\u706B\u82B1\u7EBF"), "", null);
-    this.toggle(spark.querySelector(":scope > .ad-row__right"), s.ui.showSparkline !== false, (v) => {
+    this.rowToggle(uiMore, t("\u6BCF\u4E2A Agent \u7684\u5C0F\u706B\u82B1\u7EBF"), "", s.ui.showSparkline !== false, (v) => {
       s.ui.showSparkline = v;
       p.saveSettings();
       p.refreshUI();
     });
-    const mb = this.row(ui, t("macOS \u83DC\u5355\u680F"), "", null);
-    this.mbSwitch = this.toggle(mb.querySelector(":scope > .ad-row__right"), s.showMenuBar !== false, (v) => {
+    this.mbSwitch = this.rowToggle(ui, t("macOS \u83DC\u5355\u680F"), "", s.showMenuBar !== false, (v) => {
       s.showMenuBar = v;
       p.saveSettings();
       p.applyUiSettings();
     });
-    const ma = this.row(uiMore, t("\u83DC\u5355\u680F\u663E\u793A\u54EA\u4E9B Agent"), "", null);
-    this.segmented(ma.querySelector(":scope > .ad-row__right"), [{ id: "primary-running", label: t("\u4E3B\u529B\u4E0E\u5728\u8DD1\u7684") }, { id: "all", label: t("\u5168\u90E8\u5DF2\u542F\u7528") }], s.menuBarAgentScope || "primary-running", (v) => {
+    this.rowSegmented(uiMore, t("\u83DC\u5355\u680F\u663E\u793A\u54EA\u4E9B Agent"), "", [{ id: "primary-running", label: t("\u4E3B\u529B\u4E0E\u5728\u8DD1\u7684") }, { id: "all", label: t("\u5168\u90E8\u5DF2\u542F\u7528") }], s.menuBarAgentScope || "primary-running", (v) => {
       s.menuBarAgentScope = v;
       p.saveSettings();
       p.menubar?.update(true);
@@ -17369,68 +17418,65 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       ["menuBarPrimaryLimit", t("\u83DC\u5355\u680F\uFF1A\u4E3B\u529B\u6700\u591A\u51E0\u4E2A"), "", 3, 12],
       ["menuBarOtherLimit", t("\u83DC\u5355\u680F\uFF1A\u5176\u5B83 Agent \u6700\u591A\u51E0\u4E2A"), "", 1, 6]
     ]) {
-      const row = this.row(uiMore, label, desc, null);
-      this.numberInput(row.querySelector(":scope > .ad-row__right"), s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => {
+      this.rowNumber(uiMore, label, desc, s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => {
         s[key] = v;
         p.saveSettings();
         p.refreshUI();
       });
     }
-    const hkRow = this.row(ui, t("\u83DC\u5355\u680F\u5FEB\u6377\u952E"), t("\u70B9\u8F93\u5165\u6846\u540E\u6309\u7EC4\u5408\u952E\uFF0C\u9700\u5305\u542B \u2303\u3001\u2325 \u6216 \u2318"), null);
-    const hkRight = hkRow.querySelector(":scope > .ad-row__right");
-    const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": t("\u83DC\u5355\u680F\u5FEB\u6377\u952E") } });
-    hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-    hkInput.addEventListener("focus", () => {
-      hkInput.value = t("\u6309\u4E0B\u7EC4\u5408\u952E\u2026");
-      hkInput.classList.add("is-capturing");
-    });
-    hkInput.addEventListener("blur", () => {
+    this.row(ui, t("\u83DC\u5355\u680F\u5FEB\u6377\u952E"), t("\u70B9\u8F93\u5165\u6846\u540E\u6309\u7EC4\u5408\u952E\uFF0C\u9700\u5305\u542B \u2303\u3001\u2325 \u6216 \u2318"), (hkRight) => {
+      const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": t("\u83DC\u5355\u680F\u5FEB\u6377\u952E") } });
       hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      hkInput.classList.remove("is-capturing");
-    });
-    hkInput.addEventListener("input", () => {
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-    });
-    hkInput.addEventListener("keydown", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.key === "Escape") {
+      hkInput.addEventListener("focus", () => {
+        hkInput.value = t("\u6309\u4E0B\u7EC4\u5408\u952E\u2026");
+        hkInput.classList.add("is-capturing");
+      });
+      hkInput.addEventListener("blur", () => {
+        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+        hkInput.classList.remove("is-capturing");
+      });
+      hkInput.addEventListener("input", () => {
+        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+      });
+      hkInput.addEventListener("keydown", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.key === "Escape") {
+          hkInput.blur();
+          return;
+        }
+        if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
+        const key = hotkeyKeyFromEvent(event);
+        if (!key) {
+          hkInput.value = t("\u53EA\u652F\u6301 A\u2013Z / 0\u20139 / F1\u2013F12");
+          return;
+        }
+        if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+          hkInput.value = t("\u81F3\u5C11\u52A0 \u2303 / \u2325 / \u2318");
+          return;
+        }
+        s.menuBarHotkey = hotkeySpecFromEvent(event, key);
+        p.saveSettings();
+        p.menubar?.update(true);
+        new import_obsidian5.Notice(t("\u83DC\u5355\u680F\u5FEB\u6377\u952E\u5DF2\u4FDD\u5B58\uFF0C\u7EA6 2 \u79D2\u5185\u751F\u6548"));
+        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+        hkInput.classList.remove("is-capturing");
         hkInput.blur();
-        return;
-      }
-      if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
-      const key = hotkeyKeyFromEvent(event);
-      if (!key) {
-        hkInput.value = t("\u53EA\u652F\u6301 A\u2013Z / 0\u20139 / F1\u2013F12");
-        return;
-      }
-      if (!event.ctrlKey && !event.altKey && !event.metaKey) {
-        hkInput.value = t("\u81F3\u5C11\u52A0 \u2303 / \u2325 / \u2318");
-        return;
-      }
-      s.menuBarHotkey = hotkeySpecFromEvent(event, key);
-      p.saveSettings();
-      p.menubar?.update(true);
-      new import_obsidian5.Notice(t("\u83DC\u5355\u680F\u5FEB\u6377\u952E\u5DF2\u4FDD\u5B58\uFF0C\u7EA6 2 \u79D2\u5185\u751F\u6548"));
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      hkInput.classList.remove("is-capturing");
-      hkInput.blur();
-    }, true);
-    const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: t("\u9ED8\u8BA4") });
-    hkReset.onclick = () => {
-      s.menuBarHotkey = DEFAULTS.menuBarHotkey;
-      p.saveSettings();
-      p.menubar?.update(true);
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-    };
-    const dn = this.row(uiMore, t("\u4F7F\u7528\u87BA\u65CB\u65E5\u7A0B\u7684\u8FDB\u5EA6\u663E\u793A"), "", null);
-    this.toggle(dn.querySelector(":scope > .ad-row__right"), s.yieldToNautilus !== false, (v) => {
+      }, true);
+      const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: t("\u9ED8\u8BA4") });
+      hkReset.onclick = () => {
+        s.menuBarHotkey = DEFAULTS.menuBarHotkey;
+        p.saveSettings();
+        p.menubar?.update(true);
+        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+      };
+    });
+    this.rowToggle(uiMore, t("\u4F7F\u7528\u87BA\u65CB\u65E5\u7A0B\u7684\u8FDB\u5EA6\u663E\u793A"), "", s.yieldToNautilus !== false, (v) => {
       s.yieldToNautilus = v;
       p.saveSettings();
       p.refreshUI();
     });
-    const nautRow = this.row(uiMore, t("\u5173\u95ED\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B"), "", null);
-    this.toggle(nautRow.querySelector(":scope > .ad-row__right"), s.menuBarHideNautilus !== false, (v) => {
+    this.rowToggle(uiMore, t("\u5173\u95ED\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B"), "", s.menuBarHideNautilus !== false, (v) => {
       s.menuBarHideNautilus = v;
       p.saveSettings();
       if (v) p.hideNautilusAgentBar().catch(() => {
@@ -17455,14 +17501,14 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
   renderDream(body) {
     const p = this.plugin, s = p.settings.dream;
     const card = this.card(body, t("Dreaming \xB7 \u957F\u671F\u8BB0\u5FC6"), t("\u4ECE\u8FD1 14 \u5929\u65E5\u5FD7\u63D0\u70BC\u8BB0\u5FC6\uFF0C\u4FDD\u5B58\u5230\u7B14\u8BB0"));
-    const auto = this.row(card, t("\u6BCF\u5929\u81EA\u52A8\u6574\u7406"), "", null);
-    this.toggle(auto.querySelector(":scope > .ad-row__right"), s.enabled, (v) => {
+    this.rowToggle(card, t("\u6BCF\u5929\u81EA\u52A8\u6574\u7406"), "", s.enabled, (v) => {
       s.enabled = v;
       p.saveSettings();
     });
-    const scopeRow = this.row(card, t("Dreaming \u91C7\u96C6\u8303\u56F4"), t("\u63A7\u5236 Dreaming \u53EA\u8BFB\u53D6\u5E26 AI \u81EA\u52A8\u8BB0\u5F55\u7684\u6761\u76EE\uFF0C\u8FD8\u662F\u8BFB\u53D6\u5168\u90E8\u65E5\u8BB0\u4E0E\u4EFB\u52A1"), null);
-    this.segmented(
-      scopeRow.querySelector(":scope > .ad-row__right"),
+    this.rowSegmented(
+      card,
+      t("Dreaming \u91C7\u96C6\u8303\u56F4"),
+      t("\u63A7\u5236 Dreaming \u53EA\u8BFB\u53D6\u5E26 AI \u81EA\u52A8\u8BB0\u5F55\u7684\u6761\u76EE\uFF0C\u8FD8\u662F\u8BFB\u53D6\u5168\u90E8\u65E5\u8BB0\u4E0E\u4EFB\u52A1"),
       [
         { id: "all", label: t("\u5168\u90E8\u65E5\u8BB0\u4E0E\u4EFB\u52A1") },
         { id: "ai-records", label: t("\u4EC5 AI \u81EA\u52A8\u8BB0\u5F55\u6761\u76EE") }
@@ -17482,86 +17528,76 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     const effectiveCfg = dreamModelConfig(baseCfg);
     const effectiveProvider = resolveJournalProvider(effectiveCfg);
     const effectiveSpec = JOURNAL_PROVIDERS[effectiveProvider];
-    const dprovider = this.row(card, t("Dreaming \u6A21\u578B\u6765\u6E90"), t("\u9ED8\u8BA4\u8DDF\u968F\u300CAI \u81EA\u52A8\u8BB0\u5F55\u300D\u4F7F\u7528\u7684 CLI \u4E0E\u6A21\u578B\uFF0C\u4E5F\u53EF\u5355\u72EC\u5207\u6362"), null);
-    this.selectInput(
-      dprovider.querySelector(":scope > .ad-row__right"),
-      [
-        {
-          id: "",
-          label: t("\u8DDF\u968F AI \u81EA\u52A8\u8BB0\u5F55\uFF08\u5F53\u524D\uFF1A{name}\uFF09", {
-            name: baseModel ? `${JOURNAL_PROVIDERS[baseProvider]?.label || baseProvider} / ${baseModel}` : JOURNAL_PROVIDERS[baseProvider]?.label || baseProvider
-          })
-        },
-        ...detected.providers.map((x) => ({
-          id: x.id,
-          label: `${x.label} ${x.available ? t("\uFF08\u5DF2\u767B\u5F55\uFF09") : x.found ? t("\uFF08\u672A\u767B\u5F55\uFF09") : t("\uFF08\u672A\u5B89\u88C5\uFF09")}`
-        })),
-        { id: "api", label: t("\u81EA\u5B9A\u4E49 API\uFF08OpenAI \u517C\u5BB9\uFF09") }
-      ],
+    const dreamChoices = this.detectedProviderChoices(detected, {
+      id: "",
+      label: t("\u8DDF\u968F AI \u81EA\u52A8\u8BB0\u5F55\uFF08\u5F53\u524D\uFF1A{name}\uFF09", {
+        name: baseModel ? `${JOURNAL_PROVIDERS[baseProvider]?.label || baseProvider} / ${baseModel}` : JOURNAL_PROVIDERS[baseProvider]?.label || baseProvider
+      })
+    });
+    this.rowSelect(
+      card,
+      t("Dreaming \u6A21\u578B\u6765\u6E90"),
+      t("\u9ED8\u8BA4\u8DDF\u968F\u300CAI \u81EA\u52A8\u8BB0\u5F55\u300D\u4F7F\u7528\u7684 CLI \u4E0E\u6A21\u578B\uFF0C\u4E5F\u53EF\u5355\u72EC\u5207\u6362"),
+      dreamChoices,
       curDreamProvider,
       (v) => {
         s.provider = v;
-        if (!v) s.model = "";
-        else s.model = JOURNAL_PROVIDERS[v]?.defaultModel || "";
+        s.model = v ? JOURNAL_PROVIDERS[v]?.defaultModel || "" : "";
         p.saveSettings();
         this.display();
       }
     );
-    const dreamPresets = [.../* @__PURE__ */ new Set([...effectiveProvider === "agy" && this._agyJournalModels?.length ? this._agyJournalModels : [], ...effectiveSpec?.models || []])];
-    if (effectiveProvider !== "api" && dreamPresets.length) {
-      const quickRow = this.row(card, t("Dreaming \u6A21\u578B\u9884\u8BBE"), t("\u70B9\u9009\u53EF\u5355\u72EC\u6307\u5B9A Dreaming \u4F7F\u7528\u7684\u6A21\u578B"), null);
-      const quickRight = quickRow.querySelector(":scope > .ad-row__right");
-      const curModel = s.model || "";
-      this.selectInput(
-        quickRight,
-        [{ id: "", label: curDreamProvider ? t("\u81EA\u5B9A\u4E49\u8F93\u5165") : t("\u8DDF\u968F AI \u81EA\u52A8\u8BB0\u5F55") }, ...dreamPresets.map((m) => ({ id: m, label: m }))],
-        dreamPresets.includes(curModel) ? curModel : "",
-        (m) => {
-          s.model = m;
-          p.saveSettings();
-          this.display();
-        }
-      );
-    }
-    const dreamModelPlaceholder = !curDreamProvider ? baseModel ? t("\u8DDF\u968F\uFF1A{model}", { model: baseModel }) : effectiveSpec?.defaultModel || t("\u8DDF\u968F AI \u81EA\u52A8\u8BB0\u5F55") : effectiveProvider === "api" ? "deepseek-chat" : effectiveSpec?.defaultModel || t("\u7559\u7A7A\u7528 CLI \u9ED8\u8BA4\u6A21\u578B");
-    const dm = this.row(card, t("Dreaming \u6A21\u578B"), t("\u7559\u7A7A\u8DDF\u968F AI \u81EA\u52A8\u8BB0\u5F55\uFF1B\u586B\u5199\u53EF\u5355\u72EC\u8986\u76D6\u6A21\u578B"), null);
-    const dmRight = dm.querySelector(":scope > .ad-row__right");
-    this.textInput(dmRight, s.model || "", dreamModelPlaceholder, (v) => {
-      s.model = v.trim();
-      p.saveSettings();
-    }, effectiveProvider === "api" ? "ad-input--wide" : "");
-    this.bigButton(dmRight, t("\u6D4B\u8BD5\u8FDE\u63A5"), async () => {
-      new import_obsidian5.Notice(t("\u6B63\u5728\u6D4B\u8BD5 Dreaming \u6A21\u578B\u8FDE\u63A5\u2026"), 2500);
-      try {
-        const reply = await testJournalModel(dreamModelConfig(p.settings));
-        new import_obsidian5.Notice(t("\u6574\u7406\u6A21\u578B\u53EF\u7528\uFF1A{reply}", { reply: reply.slice(0, 60) || "OK" }), 5e3);
-      } catch (e) {
-        new import_obsidian5.Notice(t("\u6574\u7406\u6A21\u578B\u4E0D\u53EF\u7528\uFF1A{msg}", { msg: e?.message || String(e) }), 8e3);
+    this.providerPresetRow(card, {
+      label: t("Dreaming \u6A21\u578B\u9884\u8BBE"),
+      desc: t("\u70B9\u9009\u53EF\u5355\u72EC\u6307\u5B9A Dreaming \u4F7F\u7528\u7684\u6A21\u578B"),
+      resolved: effectiveProvider,
+      emptyLabel: curDreamProvider ? t("\u81EA\u5B9A\u4E49\u8F93\u5165") : t("\u8DDF\u968F AI \u81EA\u52A8\u8BB0\u5F55"),
+      value: s.model || "",
+      onChange: (m) => {
+        s.model = m;
+        p.saveSettings();
+        this.display();
       }
     });
+    const dreamModelPlaceholder = !curDreamProvider ? baseModel ? t("\u8DDF\u968F\uFF1A{model}", { model: baseModel }) : effectiveSpec?.defaultModel || t("\u8DDF\u968F AI \u81EA\u52A8\u8BB0\u5F55") : effectiveProvider === "api" ? "deepseek-chat" : effectiveSpec?.defaultModel || t("\u7559\u7A7A\u7528 CLI \u9ED8\u8BA4\u6A21\u578B");
+    this.renderModelTestRow(card, {
+      label: t("Dreaming \u6A21\u578B"),
+      desc: t("\u7559\u7A7A\u8DDF\u968F AI \u81EA\u52A8\u8BB0\u5F55\uFF1B\u586B\u5199\u53EF\u5355\u72EC\u8986\u76D6\u6A21\u578B"),
+      value: s.model || "",
+      placeholder: dreamModelPlaceholder,
+      wide: effectiveProvider === "api",
+      onChange: (v) => {
+        s.model = v.trim();
+        p.saveSettings();
+      },
+      pendingText: t("\u6B63\u5728\u6D4B\u8BD5 Dreaming \u6A21\u578B\u8FDE\u63A5\u2026"),
+      testFn: () => testJournalModel(dreamModelConfig(p.settings))
+    });
     const dreamMore = this.subDetails(card, "dream-more", t("\u66F4\u591A\u8BBE\u7F6E"));
-    if (curDreamProvider === "api") {
-      const urlRow = this.row(dreamMore, "Dreaming API Base URL", t("\u586B\u5199\u670D\u52A1\u5546\u63A5\u53E3\u5730\u5740\uFF08\u81EA\u52A8\u8865\u9F50 /chat/completions\uFF09"), null);
-      this.textInput(urlRow.querySelector(":scope > .ad-row__right"), s.apiUrl || "", "https://api.deepseek.com", (v) => {
+    this.renderApiCredentialsAndEffort(dreamMore, {
+      showApi: curDreamProvider === "api",
+      showEffort: curDreamProvider === "codex",
+      urlLabel: "Dreaming API Base URL",
+      urlValue: s.apiUrl || "",
+      onUrlChange: (v) => {
         s.apiUrl = v.trim();
         p.saveSettings();
-      }, "ad-input--wide");
-      const keyRow = this.row(dreamMore, "Dreaming API Key", t("\u4FDD\u5B58\u4E8E\u63D2\u4EF6\u8BBE\u7F6E data.json \u4E2D"), null);
-      const keyInput = this.textInput(keyRow.querySelector(":scope > .ad-row__right"), s.apiKey || "", t("\u8F93\u5165 API Key\uFF08\u672C\u5730 Ollama \u53EF\u7559\u7A7A\uFF09"), (v) => {
+      },
+      keyLabel: "Dreaming API Key",
+      keyValue: s.apiKey || "",
+      onKeyChange: (v) => {
         s.apiKey = v.trim();
         p.saveSettings();
-      }, "ad-input--wide");
-      keyInput.type = "password";
-    } else if (curDreamProvider === "codex") {
-      const effortRow = this.row(dreamMore, t("Dreaming \u63A8\u7406\u5F3A\u5EA6"), "", null);
-      this.segmented(effortRow.querySelector(":scope > .ad-row__right"), EFFORTS.codex, s.effort || p.settings.autoLogEffort || "low", (v) => {
+      },
+      effortLabel: t("Dreaming \u63A8\u7406\u5F3A\u5EA6"),
+      effortValue: s.effort || p.settings.autoLogEffort || "low",
+      onEffortChange: (v) => {
         s.effort = v;
         p.saveSettings();
         this.display();
-      });
-    }
-    const file = this.row(dreamMore, t("\u957F\u671F\u8BB0\u5FC6\u7B14\u8BB0"), t("\u5E93\u5185 Markdown \u8DEF\u5F84"), null);
-    this.textInput(file.querySelector(":scope > .ad-row__right"), s.path, "Agent Deck/\u957F\u671F\u8BB0\u5FC6.md", (v) => {
+      }
+    });
+    this.rowText(dreamMore, t("\u957F\u671F\u8BB0\u5FC6\u7B14\u8BB0"), t("\u5E93\u5185 Markdown \u8DEF\u5F84"), s.path, "Agent Deck/\u957F\u671F\u8BB0\u5FC6.md", (v) => {
       try {
         s.path = notePath(v);
         p.saveSettings();
@@ -17570,8 +17606,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       }
     }, "ad-input--wide");
     if (companionInstalled(p.app)) {
-      const sync = this.row(dreamMore, t("\u540C\u6B65\u5230 Telegram Companion \u966A\u4F34\u6863\u6848"), t("\u540C\u6B65\u6709\u6548\u8BB0\u5FC6\uFF0C\u6700\u591A 6000 \u5B57"), null);
-      this.toggle(sync.querySelector(":scope > .ad-row__right"), s.syncProfile, (v) => {
+      this.rowToggle(dreamMore, t("\u540C\u6B65\u5230 Telegram Companion \u966A\u4F34\u6863\u6848"), t("\u540C\u6B65\u6709\u6548\u8BB0\u5FC6\uFF0C\u6700\u591A 6000 \u5B57"), s.syncProfile, (v) => {
         s.syncProfile = v;
         p.saveSettings();
       });
@@ -17596,13 +17631,11 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
     card.appendChild(dreamMore.parentElement);
     const c = s.share, sharing = p.dreaming.sharing;
     const shared = this.card(body, t("\u4E0E\u5176\u4ED6 Agent \u5171\u4EAB\u8BB0\u5FC6"), t("\u5C06\u8BB0\u5FC6\u5BFC\u51FA\u5230\u56FA\u5B9A\u6587\u4EF6\uFF0C\u4F9B\u5176\u4ED6 Agent \u8BFB\u53D6"));
-    const enabled = this.row(shared, t("\u81EA\u52A8\u540C\u6B65\u5171\u4EAB\u8BB0\u5FC6"), t("Dream \u5B8C\u6210\u540E\u540C\u6B65\uFF0C\u5E76\u6309\u4E0B\u65B9\u95F4\u9694\u5B9A\u671F\u540C\u6B65"), null);
-    this.toggle(enabled.querySelector(":scope > .ad-row__right"), c.enabled, (v) => {
+    this.rowToggle(shared, t("\u81EA\u52A8\u540C\u6B65\u5171\u4EAB\u8BB0\u5FC6"), t("Dream \u5B8C\u6210\u540E\u540C\u6B65\uFF0C\u5E76\u6309\u4E0B\u65B9\u95F4\u9694\u5B9A\u671F\u540C\u6B65"), c.enabled, (v) => {
       c.enabled = v;
       p.saveSettings();
     });
-    const target = this.row(shared, t("\u5171\u4EAB\u6587\u4EF6\u8DEF\u5F84"), t("\u7EDD\u5BF9\u8DEF\u5F84\uFF0C\u652F\u6301 ~/"), null);
-    this.textInput(target.querySelector(":scope > .ad-row__right"), c.path, "/Users/me/shared-agent-memory/memory.md", (v) => {
+    this.rowText(shared, t("\u5171\u4EAB\u6587\u4EF6\u8DEF\u5F84"), t("\u7EDD\u5BF9\u8DEF\u5F84\uFF0C\u652F\u6301 ~/"), c.path, "/Users/me/shared-agent-memory/memory.md", (v) => {
       try {
         c.path = v.trim() ? externalMemoryPath(v) : "";
         p.saveSettings();
@@ -17611,13 +17644,11 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
       }
     }, "ad-input--wide");
     const shareMore = this.subDetails(shared, "share-more", t("\u66F4\u591A\u8BBE\u7F6E"));
-    const interval = this.row(shareMore, t("\u5B9A\u671F\u540C\u6B65\u95F4\u9694\uFF08\u5C0F\u65F6\uFF09"), t("1\u2013168 \u5C0F\u65F6"), null);
-    this.numberInput(interval.querySelector(":scope > .ad-row__right"), c.intervalHours, 1, 168, (v) => {
+    this.rowNumber(shareMore, t("\u5B9A\u671F\u540C\u6B65\u95F4\u9694\uFF08\u5C0F\u65F6\uFF09"), t("1\u2013168 \u5C0F\u65F6"), c.intervalHours, 1, 168, (v) => {
       c.intervalHours = v;
       p.saveSettings();
     });
-    const git = this.row(shareMore, t("\u540C\u6B65\u540E\u63D0\u4EA4\u5E76\u63A8\u9001 Git"), t("\u5171\u4EAB\u6587\u4EF6\u9700\u4F4D\u4E8E Git \u4ED3\u5E93\u4E2D\uFF1B\u63A8\u9001\u5230 origin \u5F53\u524D\u5206\u652F"), null);
-    this.toggle(git.querySelector(":scope > .ad-row__right"), c.gitPush, (v) => {
+    this.rowToggle(shareMore, t("\u540C\u6B65\u540E\u63D0\u4EA4\u5E76\u63A8\u9001 Git"), t("\u5171\u4EAB\u6587\u4EF6\u9700\u4F4D\u4E8E Git \u4ED3\u5E93\u4E2D\uFF1B\u63A8\u9001\u5230 origin \u5F53\u524D\u5206\u652F"), c.gitPush, (v) => {
       c.gitPush = v;
       p.saveSettings();
     });
@@ -17654,8 +17685,7 @@ var AgentDeckSettingsTab = class extends import_obsidian5.PluginSettingTab {
   renderExperimental(body) {
     const p = this.plugin;
     const card = this.card(body, t("\u5B9E\u9A8C\u529F\u80FD"));
-    const row = this.row(card, t("AI \u534F\u4F5C\u56DE\u987E"), t("\u9ED8\u8BA4\u5F00\u542F\u3002\u67E5\u770B token \u70ED\u529B\u56FE\u3001\u9879\u76EE\u6295\u5165\u548C\u5386\u53F2\u8BB0\u5F55\uFF1B\u5173\u95ED\u540E\u9690\u85CF\u5165\u53E3\u5E76\u5173\u95ED\u56DE\u987E\u9875\uFF0C\u4FDD\u7559\u7EDF\u8BA1\u6570\u636E\u3002"), null);
-    this.toggle(row.querySelector(":scope > .ad-row__right"), p.settings.experimentalDashboard !== false, async (enabled) => {
+    this.rowToggle(card, t("AI \u534F\u4F5C\u56DE\u987E"), t("\u9ED8\u8BA4\u5F00\u542F\u3002\u67E5\u770B token \u70ED\u529B\u56FE\u3001\u9879\u76EE\u6295\u5165\u548C\u5386\u53F2\u8BB0\u5F55\uFF1B\u5173\u95ED\u540E\u9690\u85CF\u5165\u53E3\u5E76\u5173\u95ED\u56DE\u987E\u9875\uFF0C\u4FDD\u7559\u7EDF\u8BA1\u6570\u636E\u3002"), p.settings.experimentalDashboard !== false, async (enabled) => {
       try {
         await p.setExperimentalDashboard(enabled);
       } catch (error) {
@@ -22150,8 +22180,6 @@ var import_promises3 = __toESM(require("fs/promises"), 1);
 var import_os10 = __toESM(require("os"), 1);
 var import_path9 = __toESM(require("path"), 1);
 var import_obsidian13 = require("obsidian");
-var RECORD_COMMENT_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
-var UUID_RE = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 var SAFE_HREF_RE = /^(?:https?:|mailto:|obsidian:|claude:|codex:|workbuddy:|dsh:|antigravity:|opencode:|qoder:|cursor:|\/|#|\.\.?\/)/i;
 function dedentVisualLines(lines, cols) {
   if (!cols) return [...lines];
@@ -22173,13 +22201,10 @@ function dedentVisualLines(lines, cols) {
 }
 function cleanExportLine(raw, inFence) {
   if (inFence) return raw;
-  let line = raw.replace(RECORD_COMMENT_RE, "");
+  let line = raw.replace(RECORD_PROVENANCE_LINE_RE, "");
   const id = blockIdOf(line);
-  if (id && (isDeckBlockId(id) || UUID_RE.test(id))) line = stripBlockId(line);
-  const link = parseLink(line);
-  const suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(line);
-  if (link && suffix?.[1] === link.sid) line = line.slice(0, suffix.index).trimEnd();
-  return line;
+  if (id && (isDeckBlockId(id) || isLegacyBlockId(id))) line = stripBlockId(line);
+  return stripBoundSessionSuffix(line);
 }
 function sanitizeFilePart(raw, fallback = "task", max = 60) {
   const s = String(raw || "").replace(/\.\.+/g, "-").replace(/[\\/:*?"<>|[\]#^]/g, "-").replace(/\s+/g, " ").trim().replace(/^[-.\s]+|[-.\s]+$/g, "").slice(0, max).trim();
@@ -22188,7 +22213,9 @@ function sanitizeFilePart(raw, fallback = "task", max = 60) {
 function deriveTitle(rawHead) {
   const part = splitTask(rawHead);
   let raw = part ? part.rest : String(rawHead || "").replace(/^\s*(?:[-*+]|\d+[.)])\s*/, "");
-  raw = stripBlockId(raw).replace(/^🤖\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, "$2").replace(/\[([^\]\n]+)\]\([^)\n]+\)/g, "$1").replace(/[*_`~]/g, "").replace(/\s+/g, " ").trim();
+  raw = stripInlineTitleMarkup(
+    stripBlockId(raw).replace(/^🤖\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "")
+  );
   return raw || t("AI \u5BF9\u8BDD\u4EFB\u52A1");
 }
 function deriveCategory(title, rawLines) {
@@ -22223,21 +22250,18 @@ function deriveDate(sourcePath = "") {
 }
 function extractStructuredRecords(lines, blockStart, blockEnd, cleanedLines, plugin) {
   const ids = trackedBlockIds(plugin);
+  const blockMap = blockSessionMap(plugin);
   const groups = aiRecordGroups(lines.join("\n"), ids);
   const group = groups.find((g) => g.line === blockStart) || null;
   if (!group) return null;
   const duplicate = plugin?.redundantSessionLink?.(group, lines) ?? -1;
   const entries = (group.tableEntries || []).filter((e) => e.line !== duplicate);
-  const sids = collectGroupSids(group, lines, blockSessionMap(plugin));
+  const sids = collectGroupSids(group, lines, blockMap);
   const agentNames = plugin?.agentShortNames || Object.fromEntries(Object.entries(AGENTS).map(([id, a]) => [id, a.short || a.name || id]));
-  const parsedRows = entries.map((entry) => {
-    const parsed = parseAiRecordRow(lines[entry.line], entry.children, agentNames);
-    return {
-      ...parsed,
-      line: entry.line,
-      startedAt: roundStartedAt(plugin, lines[entry.line], parsed.round, sids),
-      sig: [lines[entry.line], ...entry.children].join("\n")
-    };
+  const parsedRows = buildGroupTableRows(group, entries, lines, plugin, {
+    includeTime: true,
+    blockMap,
+    agentNames
   });
   const model = buildTableModel(parsedRows);
   const covered = new Set((group.tableEntries || []).flatMap((e) => e.lineNumbers || []));
@@ -22386,12 +22410,6 @@ async function writeExportFile(plugin, chosenPath, content) {
 function escapeHtml(raw) {
   return String(raw || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
-function viewLabel(viewMode) {
-  if (viewMode === "table") return t("\u8868\u683C");
-  if (viewMode === "cards") return t("\u5361\u7247");
-  if (viewMode === "timeline") return t("\u65F6\u95F4\u7EBF");
-  return t("\u5927\u7EB2");
-}
 function resolveExportView(extracted, requestedView = "") {
   const candidate = RECORD_VIEWS.has(requestedView) ? requestedView : extracted?.viewMode || "outline";
   if (candidate !== "outline" && !extracted?.structured?.rows?.length && !extracted?.structured?.footer?.length) {
@@ -22400,52 +22418,31 @@ function resolveExportView(extracted, requestedView = "") {
   return candidate;
 }
 function renderInlineHtml(text) {
-  const s = String(text || "");
-  const tokenRe = /\[([^\]\n]+)\]\(([^)\s]+(?:\([^)]*\))?[^)\s]*)\)|\[\[([^\]|\n]+?)(?:\|([^\]\n]+))?\]\]|`([^`\n]+)`|\*\*([^*\n]+)\*\*|\*([^*\n]+)\*/g;
-  let out = "";
-  let last = 0;
-  let m;
-  while (m = tokenRe.exec(s)) {
-    if (m.index > last) out += escapeHtml(s.slice(last, m.index)).replace(/\n/g, "<br />");
-    if (m[1] != null) {
-      const href = String(m[2] || "").trim();
-      if (SAFE_HREF_RE.test(href) || !/^[a-z][a-z0-9+.-]*:/i.test(href)) {
-        out += `<a class="ad-rt-link" href="${escapeHtml(href)}">${escapeHtml(m[1])}</a>`;
-      } else {
-        out += escapeHtml(m[1]);
+  return tokenizeInlineMarkdown(text).map((tok) => {
+    if (tok.type === "text") return escapeHtml(tok.text).replace(/\n/g, "<br />");
+    if (tok.type === "link") {
+      if (SAFE_HREF_RE.test(tok.href) || !/^[a-z][a-z0-9+.-]*:/i.test(tok.href)) {
+        return `<a class="ad-rt-link" href="${escapeHtml(tok.href)}">${escapeHtml(tok.label)}</a>`;
       }
-    } else if (m[3] != null) {
-      out += `<span class="ad-wikilink">${escapeHtml(m[4] || m[3])}</span>`;
-    } else if (m[5] != null) {
-      out += `<code class="ad-rt-code">${escapeHtml(m[5])}</code>`;
-    } else if (m[6] != null) {
-      out += `<strong>${escapeHtml(m[6])}</strong>`;
-    } else if (m[7] != null) {
-      out += `<em>${escapeHtml(m[7])}</em>`;
+      return escapeHtml(tok.label);
     }
-    last = m.index + m[0].length;
-  }
-  if (last < s.length) out += escapeHtml(s.slice(last)).replace(/\n/g, "<br />");
-  return out;
-}
-function badgeLabel(kind, fallback = "") {
-  if (fallback === "\u603B\u7ED3" || kind === "summary") return t("\u603B\u7ED3");
-  if (fallback === "\u5F85\u786E\u8BA4" || kind === "todo") return t("\u5F85\u786E\u8BA4");
-  if (fallback === "\u63D0\u95EE" || kind === "question") return t("\u63D0\u95EE");
-  if (fallback === "\u6B65\u9AA4" || kind === "plan") return t("\u6B65\u9AA4");
-  return t("\u7ED3\u8BBA");
+    if (tok.type === "wikilink") return `<span class="ad-wikilink">${escapeHtml(tok.label)}</span>`;
+    if (tok.type === "code") return `<code class="ad-rt-code">${escapeHtml(tok.text)}</code>`;
+    if (tok.type === "bold") return `<strong>${escapeHtml(tok.text)}</strong>`;
+    if (tok.type === "italic") return `<em>${escapeHtml(tok.text)}</em>`;
+    return "";
+  }).join("");
 }
 function renderRoundMarkerHtml(row) {
   if (row.type === "span" || row.round == null) {
     const kind = escapeHtml(row.badgeKind || "result");
-    return `<span class="ad-rt-badge ad-rt-badge--${kind}">${escapeHtml(badgeLabel(row.badgeKind, row.badge))}</span>`;
+    return `<span class="ad-rt-badge ad-rt-badge--${kind}">${escapeHtml(recordBadgeLabel(row.badgeKind, row.badge))}</span>`;
   }
   return `<span class="ad-rt-round-num">#${row.round}</span>`;
 }
 function renderStepTagHtml(row) {
-  if (!row.promptStep) return "";
-  const label = row.promptMeta ? t("\u6B65\u9AA4 {step}", { step: row.promptMeta }) : t("\u6B65\u9AA4");
-  return `<span class="ad-rt-step">${escapeHtml(label)}</span>`;
+  const label = recordStepLabel(row);
+  return label ? `<span class="ad-rt-step">${escapeHtml(label)}</span>` : "";
 }
 function renderChildrenHtml(children) {
   if (!children?.length) return "";
@@ -22481,9 +22478,7 @@ function renderCardsViewHtml(model) {
   return `<div class="ad-rt-cards">${cards}</div>`;
 }
 function renderTimelineViewHtml(model) {
-  const times = model.rows.map((r) => Number(r.startedAt) || 0).filter((ms) => ms > 0);
-  const timed = times.length > 0;
-  const dated = times.length > 1 && new Set(times.map(localDayKey)).size > 1;
+  const { timed, dated } = timelineSpanMeta(model.rows);
   const cls = `ad-rt-timeline${timed ? " ad-rt-timeline--timed" : ""}${dated ? " ad-rt-timeline--dated" : ""}`;
   const items = model.rows.map((row) => {
     const kind = escapeHtml(row.badgeKind || "result");
@@ -22498,7 +22493,8 @@ function renderFooterHtml(footer) {
   if (!footer?.length) return "";
   const items = footer.map((item) => {
     const ico = item.kind === "clock" ? "\u23F1" : "\u{1F517}";
-    const metaText = item.meta ? `<span class="ad-rt-footer-meta">${escapeHtml(item.kind === "clock" ? `\xB7 ${item.meta}` : item.meta)}</span>` : "";
+    const meta = footerMetaText(item);
+    const metaText = meta ? `<span class="ad-rt-footer-meta">${escapeHtml(meta)}</span>` : "";
     return `<div class="ad-rt-footer-item"><span class="ad-rt-footer-ico">${ico}</span><span class="ad-rt-footer-body">${renderInlineHtml(item.content)}</span>${metaText}</div>`;
   }).join("");
   return `<div class="ad-rt-footer">${items}</div>`;
@@ -22508,7 +22504,7 @@ function fallbackMarkdownHtml(md) {
 }
 function buildTaskViewHtmlDocument(extracted, sourcePath = "", { viewMode = "", outlineBodyHtml = "", extraNotesHtml = "" } = {}) {
   const effectiveView = resolveExportView(extracted, viewMode);
-  const label = viewLabel(effectiveView);
+  const label = recordViewLabel(effectiveView);
   const chips = [
     `<span class="ad-ex-chip ad-ex-chip--view">${escapeHtml(t("\u89C6\u56FE\uFF1A{view}", { view: label }))}</span>`
   ];
@@ -22818,8 +22814,7 @@ function buildTaskViewHtmlDocument(extracted, sourcePath = "", { viewMode = "", 
 </html>`;
 }
 function rowTypeLabel(row) {
-  if (row.promptStep) return row.promptMeta ? t("\u6B65\u9AA4 {step}", { step: row.promptMeta }) : t("\u6B65\u9AA4");
-  return badgeLabel(row.badgeKind, row.badge);
+  return recordStepLabel(row) || recordBadgeLabel(row.badgeKind, row.badge);
 }
 function buildTaskExportJson(extracted, sourcePath = "", { viewMode = "" } = {}) {
   const effectiveView = resolveExportView(extracted, viewMode);
@@ -23025,23 +23020,52 @@ async function renderTaskHtmlForExport(plugin, extracted, path9, viewMode) {
     comp.unload();
   }
 }
-async function exportTaskToPdf(plugin, path9, line, options = {}) {
+async function prepareExportTarget(plugin, path9, line, {
+  ext,
+  filterName,
+  dialogTitle,
+  requireWindow = false,
+  unavailableMsg = t("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u9009\u62E9\u4FDD\u5B58\u4F4D\u7F6E"),
+  viewMode = ""
+}) {
   const remote = getElectronRemote();
-  if (!remote?.dialog || !remote?.BrowserWindow) {
-    return plugin.notice(t("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u5BFC\u51FA PDF"));
+  if (!remote?.dialog || requireWindow && !remote?.BrowserWindow) {
+    plugin.notice(unavailableMsg);
+    return null;
   }
   const text = await plugin.readNote(path9);
   const extracted = extractTaskBlock(text, line, path9, plugin);
-  if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
-  const effectiveView = resolveExportView(extracted, options.viewMode);
-  const startDir = initialExportDir(plugin, path9);
+  if (!extracted) {
+    plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
+    return null;
+  }
+  const effectiveView = resolveExportView(extracted, viewMode);
+  const title = typeof dialogTitle === "function" ? dialogTitle(effectiveView) : dialogTitle;
   const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
-    title: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A PDF\uFF08{view}\uFF09", { view: viewLabel(effectiveView) }),
-    defaultPath: import_path9.default.join(startDir, `${extracted.suggestedName}.pdf`),
-    filters: [{ name: "PDF", extensions: ["pdf"] }]
+    title,
+    defaultPath: import_path9.default.join(initialExportDir(plugin, path9), `${extracted.suggestedName}${ext}`),
+    filters: [{ name: filterName, extensions: [ext.replace(/^\./, "")] }]
   });
-  if (picked.canceled || !picked.filePath) return;
-  const targetPdf = ensureExt(picked.filePath, ".pdf");
+  if (picked.canceled || !picked.filePath) return null;
+  const targetFile = ensureExt(picked.filePath, ext);
+  const vaultBase = plugin.app?.vault?.adapter?.basePath;
+  if (ext === ".md" && vaultBase && import_path9.default.resolve(import_path9.default.join(vaultBase, path9)) === import_path9.default.resolve(targetFile)) {
+    plugin.notice(t("\u4E0D\u80FD\u8986\u76D6\u5F53\u524D\u6240\u5728\u7B14\u8BB0"));
+    return null;
+  }
+  return { remote, extracted, effectiveView, targetFile };
+}
+async function exportTaskToPdf(plugin, path9, line, options = {}) {
+  const prep = await prepareExportTarget(plugin, path9, line, {
+    ext: ".pdf",
+    filterName: "PDF",
+    requireWindow: true,
+    unavailableMsg: t("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u5BFC\u51FA PDF"),
+    viewMode: options.viewMode || "",
+    dialogTitle: (effectiveView2) => t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A PDF\uFF08{view}\uFF09", { view: recordViewLabel(effectiveView2) })
+  });
+  if (!prep) return;
+  const { remote, extracted, effectiveView, targetFile: targetPdf } = prep;
   let win = null;
   let tmpHtml = "";
   try {
@@ -23069,26 +23093,10 @@ async function exportTaskToPdf(plugin, path9, line, options = {}) {
   }
 }
 async function exportTaskToTextFile(plugin, path9, line, { ext, filterName, dialogTitle, buildContent, onSuccess, viewMode = "" }) {
-  const remote = getElectronRemote();
-  if (!remote?.dialog) {
-    return plugin.notice(t("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u9009\u62E9\u4FDD\u5B58\u4F4D\u7F6E"));
-  }
-  const text = await plugin.readNote(path9);
-  const extracted = extractTaskBlock(text, line, path9, plugin);
-  if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
-  const startDir = initialExportDir(plugin, path9);
-  const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
-    title: dialogTitle,
-    defaultPath: import_path9.default.join(startDir, `${extracted.suggestedName}${ext}`),
-    filters: [{ name: filterName, extensions: [ext.replace(/^\./, "")] }]
-  });
-  if (picked.canceled || !picked.filePath) return;
-  const targetFile = ensureExt(picked.filePath, ext);
-  const vaultBase = plugin.app?.vault?.adapter?.basePath;
-  if (ext === ".md" && vaultBase && import_path9.default.resolve(import_path9.default.join(vaultBase, path9)) === import_path9.default.resolve(targetFile)) {
-    return plugin.notice(t("\u4E0D\u80FD\u8986\u76D6\u5F53\u524D\u6240\u5728\u7B14\u8BB0"));
-  }
-  const content = await buildContent(extracted, path9, { viewMode });
+  const prep = await prepareExportTarget(plugin, path9, line, { ext, filterName, dialogTitle, viewMode });
+  if (!prep) return;
+  const { extracted, effectiveView, targetFile } = prep;
+  const content = await buildContent(extracted, path9, { viewMode: effectiveView });
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
   plugin.notice(onSuccess(written.path));
@@ -23132,25 +23140,13 @@ async function exportTaskToCsv(plugin, path9, line) {
   });
 }
 async function saveTaskAsFile(plugin, path9, line) {
-  const remote = getElectronRemote();
-  if (!remote?.dialog) {
-    return plugin.notice(t("\u5F53\u524D\u73AF\u5883\u4E0D\u652F\u6301\u9009\u62E9\u4FDD\u5B58\u4F4D\u7F6E"));
-  }
-  const base = await plugin.readNote(path9);
-  const extracted = extractTaskBlock(base, line, path9, plugin);
-  if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
-  const startDir = initialExportDir(plugin, path9);
-  const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
-    title: t("\u53E6\u5B58\u4E3A\u4EFB\u52A1\u4E0E\u5BF9\u8BDD"),
-    defaultPath: import_path9.default.join(startDir, `${extracted.suggestedName}.md`),
-    filters: [{ name: "Markdown", extensions: ["md"] }]
+  const prep = await prepareExportTarget(plugin, path9, line, {
+    ext: ".md",
+    filterName: "Markdown",
+    dialogTitle: t("\u53E6\u5B58\u4E3A\u4EFB\u52A1\u4E0E\u5BF9\u8BDD")
   });
-  if (picked.canceled || !picked.filePath) return;
-  const targetFile = ensureExt(picked.filePath, ".md");
-  const vaultBase = plugin.app?.vault?.adapter?.basePath;
-  if (vaultBase && import_path9.default.resolve(import_path9.default.join(vaultBase, path9)) === import_path9.default.resolve(targetFile)) {
-    return plugin.notice(t("\u4E0D\u80FD\u8986\u76D6\u5F53\u524D\u6240\u5728\u7B14\u8BB0"));
-  }
+  if (!prep) return;
+  const { extracted, targetFile } = prep;
   const content = buildTaskExportDocument(extracted, path9);
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
@@ -24952,7 +24948,7 @@ ${body}` });
     await this.app.vault.process(file, () => text);
   }
   async checkBinary(kind) {
-    const bin = kind === "codex" ? this.settings.delegate?.codex?.path || "codex" : kind === "antigravity" ? findAgyBinary(this.settings.delegate?.antigravity?.path || "") : kind === "dsh" ? findDshBinary(this.settings.delegate?.dsh?.path || "") : kind === "opencode" ? findOpenCodeBinary(this.settings.delegate?.opencode?.path || "") : kind === "qoder" ? findQoderBinary(this.settings.delegate?.qoder?.path || "") : findClaudeBinary(this.settings.delegate?.claude?.path || "");
+    const bin = findAgentBinary(kind, this.settings.delegate?.[kind]?.path || "");
     return await new Promise((resolve) => {
       (0, import_child_process11.execFile)(bin, ["--version"], { timeout: 1e4, env: process.env }, (err2, out, errOut) => {
         if (err2) resolve(t("{kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A{error}", { kind, error: String(err2.message || err2) }) + "\n" + String(errOut || "").slice(0, 300));

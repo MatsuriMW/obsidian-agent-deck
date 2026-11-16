@@ -1,7 +1,15 @@
 // AI 记录的显示范围；只管直属记录，不隐藏手写笔记与子任务。
 import * as J from "./journal.js";
-export const AI_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
+import { t } from "./i18n.js";
+export const AI_RECORD_RE = J.RECORD_LINE_RE;
+export const RECORD_MARKER_BODY_RE = /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/;
 export const RECORD_VIEWS = new Set(["outline", "table", "cards", "timeline"]);
+export const RECORD_VIEW_LABELS = {
+  outline: "大纲",
+  table: "表格",
+  cards: "卡片",
+  timeline: "时间线",
+};
 export const isBriefRecord = line => /💬\s+(?:第\d+轮[：:])?任务：.+；结论：/.test(line);
 
 function groupPrefValue(map, group) {
@@ -141,11 +149,9 @@ export function visibleTableEntries(group, lines, mode = "latest1", open = false
   return entries.filter((e) => kept.has(e.line));
 }
 
-const RECORD_PROVENANCE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/g;
-
 function cleanRecordText(raw) {
   return String(raw || "")
-    .replace(RECORD_PROVENANCE_RE, "")
+    .replace(J.RECORD_PROVENANCE_RE, "")
     .replace(/(?:[ \t]+|^)\^[a-z0-9-]+(?:\S*)?[ \t]*$/i, "")
     .trim();
 }
@@ -155,11 +161,7 @@ export function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
   const turnMatch = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(raw) || /第(\d+)轮[：:]/.exec(raw);
   const round = turnMatch ? Number(turnMatch[1]) : null;
   const link = J.parseLink(raw);
-  let body = cleanRecordText(raw).replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "");
-  if (link) {
-    const suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(body);
-    if (suffix?.[1] === link.sid) body = body.slice(0, suffix.index).trimEnd();
-  }
+  const body = J.stripBoundSessionSuffix(cleanRecordText(raw).replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""), link);
 
   let kind = "result", kindLabel = "结论", content = body, meta = "", task = "", conclusion = "";
   if (/^💬\s+累计总结[：:]/.test(body)) {
@@ -328,7 +330,7 @@ export function recordRuns(records) {
 
 // 块 ID 留在 Markdown 中，仅返回要在编辑器隐藏的字符范围。
 export function hiddenBlockId(id, trackedIds = new Set()) {
-  return J.isDeckBlockId(id) || /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id) || trackedIds.has(id);
+  return J.isDeckBlockId(id) || J.isLegacyBlockId(id) || trackedIds.has(id);
 }
 
 const LAYOUT_MARKER_RE = /^<!-- agent-deck:(?:layout:(?:start|end)|section:(?:done|active|todo|notes):(?:heading|plain|end)) -->$/;
@@ -491,4 +493,65 @@ export function formatTimelineAt(ms, showDate = false) {
 export function formatTimelineFull(ms) {
   const d = new Date(ms);
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+
+export function recordViewLabel(viewMode) {
+  return t(RECORD_VIEW_LABELS[viewMode] || RECORD_VIEW_LABELS.outline);
+}
+
+export function recordBadgeLabel(kind, fallback = "") {
+  if (fallback === "总结" || kind === "summary") return t("总结");
+  if (fallback === "待确认" || kind === "todo") return t("待确认");
+  if (fallback === "提问" || kind === "question") return t("提问");
+  if (fallback === "步骤" || kind === "plan") return t("步骤");
+  return t("结论");
+}
+
+export function recordStepLabel(row) {
+  if (!row?.promptStep) return "";
+  return row.promptMeta ? t("步骤 {step}", { step: row.promptMeta }) : t("步骤");
+}
+
+export function timelineSpanMeta(rows = []) {
+  const times = rows.map((r) => Number(r.startedAt) || 0).filter((ms) => ms > 0);
+  const timed = times.length > 0;
+  const dated = times.length > 1 && new Set(times.map(localDayKey)).size > 1;
+  return { timed, dated };
+}
+
+export function footerMetaText(item) {
+  if (!item?.meta) return "";
+  return item.kind === "clock" ? `· ${item.meta}` : item.meta;
+}
+
+export function buildGroupTableRows(group, entries, lines, plugin, { includeTime = false, blockMap = null, agentNames = null } = {}) {
+  const groupSids = includeTime ? collectGroupSids(group, lines, blockMap || blockSessionMap(plugin)) : null;
+  return entries.map((entry) => {
+    const parsed = parseAiRecordRow(lines[entry.line], entry.children, agentNames);
+    return {
+      ...parsed,
+      line: entry.line,
+      startedAt: groupSids ? roundStartedAt(plugin, lines[entry.line], parsed.round, groupSids) : 0,
+      sig: [lines[entry.line], ...entry.children].join("\n"),
+    };
+  });
+}
+
+export function tokenizeInlineMarkdown(text) {
+  const s = String(text || "");
+  const tokenRe = /\[([^\]\n]+)\]\(([^)\s]+(?:\([^)]*\))?[^)\s]*)\)|\[\[([^\]|\n]+?)(?:\|([^\]\n]+))?\]\]|`([^`\n]+)`|\*\*([^*\n]+)\*\*|\*([^*\n]+)\*/g;
+  const tokens = [];
+  let last = 0;
+  let m;
+  while ((m = tokenRe.exec(s))) {
+    if (m.index > last) tokens.push({ type: "text", text: s.slice(last, m.index) });
+    if (m[1] != null) tokens.push({ type: "link", label: m[1], href: String(m[2] || "").trim() });
+    else if (m[3] != null) tokens.push({ type: "wikilink", target: m[3], label: m[4] || m[3] });
+    else if (m[5] != null) tokens.push({ type: "code", text: m[5] });
+    else if (m[6] != null) tokens.push({ type: "bold", text: m[6] });
+    else if (m[7] != null) tokens.push({ type: "italic", text: m[7] });
+    last = m.index + m[0].length;
+  }
+  if (last < s.length) tokens.push({ type: "text", text: s.slice(last) });
+  return tokens;
 }

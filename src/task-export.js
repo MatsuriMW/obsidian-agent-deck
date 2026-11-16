@@ -7,14 +7,13 @@ import * as J from "./journal.js";
 import { AGENTS } from "./constants.js";
 import { blockAt } from "./delegation.js";
 import {
-  RECORD_VIEWS, aiRecordGroups, recordViewMode, parseAiRecordRow, buildTableModel,
-  trackedBlockIds, blockSessionMap, collectGroupSids, roundStartedAt,
-  localDayKey, formatTimelineAt, formatTimelineFull,
+  RECORD_VIEWS, aiRecordGroups, recordViewMode, buildTableModel, buildGroupTableRows,
+  recordViewLabel, recordBadgeLabel, recordStepLabel, timelineSpanMeta, footerMetaText,
+  tokenizeInlineMarkdown, trackedBlockIds, collectGroupSids, blockSessionMap,
+  formatTimelineAt, formatTimelineFull,
 } from "./ai-records.js";
 import { t } from "./i18n.js";
 
-const RECORD_COMMENT_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
-const UUID_RE = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 const SAFE_HREF_RE = /^(?:https?:|mailto:|obsidian:|claude:|codex:|workbuddy:|dsh:|antigravity:|opencode:|qoder:|cursor:|\/|#|\.\.?\/)/i;
 
 function dedentVisualLines(lines, cols) {
@@ -34,13 +33,10 @@ function dedentVisualLines(lines, cols) {
 
 function cleanExportLine(raw, inFence) {
   if (inFence) return raw;
-  let line = raw.replace(RECORD_COMMENT_RE, "");
+  let line = raw.replace(J.RECORD_PROVENANCE_LINE_RE, "");
   const id = J.blockIdOf(line);
-  if (id && (J.isDeckBlockId(id) || UUID_RE.test(id))) line = J.stripBlockId(line);
-  const link = J.parseLink(line);
-  const suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(line);
-  if (link && suffix?.[1] === link.sid) line = line.slice(0, suffix.index).trimEnd();
-  return line;
+  if (id && (J.isDeckBlockId(id) || J.isLegacyBlockId(id))) line = J.stripBlockId(line);
+  return J.stripBoundSessionSuffix(line);
 }
 
 function sanitizeFilePart(raw, fallback = "task", max = 60) {
@@ -58,14 +54,11 @@ function sanitizeFilePart(raw, fallback = "task", max = 60) {
 function deriveTitle(rawHead) {
   const part = J.splitTask(rawHead);
   let raw = part ? part.rest : String(rawHead || "").replace(/^\s*(?:[-*+]|\d+[.)])\s*/, "");
-  raw = J.stripBlockId(raw)
-    .replace(/^🤖\s*/, "")
-    .replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "")
-    .replace(/\[\[([^\]|]+\|)?([^\]]+)\]\]/g, "$2")
-    .replace(/\[([^\]\n]+)\]\([^)\n]+\)/g, "$1")
-    .replace(/[*_`~]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  raw = J.stripInlineTitleMarkup(
+    J.stripBlockId(raw)
+      .replace(/^🤖\s*/, "")
+      .replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, ""),
+  );
   return raw || t("AI 对话任务");
 }
 
@@ -103,24 +96,21 @@ function deriveDate(sourcePath = "") {
 
 function extractStructuredRecords(lines, blockStart, blockEnd, cleanedLines, plugin) {
   const ids = trackedBlockIds(plugin);
+  const blockMap = blockSessionMap(plugin);
   const groups = aiRecordGroups(lines.join("\n"), ids);
   const group = groups.find((g) => g.line === blockStart) || null;
   if (!group) return null;
 
   const duplicate = plugin?.redundantSessionLink?.(group, lines) ?? -1;
   const entries = (group.tableEntries || []).filter((e) => e.line !== duplicate);
-  const sids = collectGroupSids(group, lines, blockSessionMap(plugin));
+  const sids = collectGroupSids(group, lines, blockMap);
   const agentNames = plugin?.agentShortNames
     || Object.fromEntries(Object.entries(AGENTS).map(([id, a]) => [id, a.short || a.name || id]));
 
-  const parsedRows = entries.map((entry) => {
-    const parsed = parseAiRecordRow(lines[entry.line], entry.children, agentNames);
-    return {
-      ...parsed,
-      line: entry.line,
-      startedAt: roundStartedAt(plugin, lines[entry.line], parsed.round, sids),
-      sig: [lines[entry.line], ...entry.children].join("\n"),
-    };
+  const parsedRows = buildGroupTableRows(group, entries, lines, plugin, {
+    includeTime: true,
+    blockMap,
+    agentNames,
   });
 
   const model = buildTableModel(parsedRows);
@@ -289,13 +279,6 @@ function escapeHtml(raw) {
     .replace(/"/g, "&quot;");
 }
 
-function viewLabel(viewMode) {
-  if (viewMode === "table") return t("表格");
-  if (viewMode === "cards") return t("卡片");
-  if (viewMode === "timeline") return t("时间线");
-  return t("大纲");
-}
-
 function resolveExportView(extracted, requestedView = "") {
   const candidate = RECORD_VIEWS.has(requestedView) ? requestedView : (extracted?.viewMode || "outline");
   if (candidate !== "outline" && !extracted?.structured?.rows?.length && !extracted?.structured?.footer?.length) {
@@ -305,55 +288,33 @@ function resolveExportView(extracted, requestedView = "") {
 }
 
 function renderInlineHtml(text) {
-  const s = String(text || "");
-  const tokenRe = /\[([^\]\n]+)\]\(([^)\s]+(?:\([^)]*\))?[^)\s]*)\)|\[\[([^\]|\n]+?)(?:\|([^\]\n]+))?\]\]|`([^`\n]+)`|\*\*([^*\n]+)\*\*|\*([^*\n]+)\*/g;
-  let out = "";
-  let last = 0;
-  let m;
-  while ((m = tokenRe.exec(s))) {
-    if (m.index > last) out += escapeHtml(s.slice(last, m.index)).replace(/\n/g, "<br />");
-    if (m[1] != null) {
-      const href = String(m[2] || "").trim();
-      if (SAFE_HREF_RE.test(href) || !/^[a-z][a-z0-9+.-]*:/i.test(href)) {
-        out += `<a class="ad-rt-link" href="${escapeHtml(href)}">${escapeHtml(m[1])}</a>`;
-      } else {
-        out += escapeHtml(m[1]);
+  return tokenizeInlineMarkdown(text).map((tok) => {
+    if (tok.type === "text") return escapeHtml(tok.text).replace(/\n/g, "<br />");
+    if (tok.type === "link") {
+      if (SAFE_HREF_RE.test(tok.href) || !/^[a-z][a-z0-9+.-]*:/i.test(tok.href)) {
+        return `<a class="ad-rt-link" href="${escapeHtml(tok.href)}">${escapeHtml(tok.label)}</a>`;
       }
-    } else if (m[3] != null) {
-      out += `<span class="ad-wikilink">${escapeHtml(m[4] || m[3])}</span>`;
-    } else if (m[5] != null) {
-      out += `<code class="ad-rt-code">${escapeHtml(m[5])}</code>`;
-    } else if (m[6] != null) {
-      out += `<strong>${escapeHtml(m[6])}</strong>`;
-    } else if (m[7] != null) {
-      out += `<em>${escapeHtml(m[7])}</em>`;
+      return escapeHtml(tok.label);
     }
-    last = m.index + m[0].length;
-  }
-  if (last < s.length) out += escapeHtml(s.slice(last)).replace(/\n/g, "<br />");
-  return out;
-}
-
-function badgeLabel(kind, fallback = "") {
-  if (fallback === "总结" || kind === "summary") return t("总结");
-  if (fallback === "待确认" || kind === "todo") return t("待确认");
-  if (fallback === "提问" || kind === "question") return t("提问");
-  if (fallback === "步骤" || kind === "plan") return t("步骤");
-  return t("结论");
+    if (tok.type === "wikilink") return `<span class="ad-wikilink">${escapeHtml(tok.label)}</span>`;
+    if (tok.type === "code") return `<code class="ad-rt-code">${escapeHtml(tok.text)}</code>`;
+    if (tok.type === "bold") return `<strong>${escapeHtml(tok.text)}</strong>`;
+    if (tok.type === "italic") return `<em>${escapeHtml(tok.text)}</em>`;
+    return "";
+  }).join("");
 }
 
 function renderRoundMarkerHtml(row) {
   if (row.type === "span" || row.round == null) {
     const kind = escapeHtml(row.badgeKind || "result");
-    return `<span class="ad-rt-badge ad-rt-badge--${kind}">${escapeHtml(badgeLabel(row.badgeKind, row.badge))}</span>`;
+    return `<span class="ad-rt-badge ad-rt-badge--${kind}">${escapeHtml(recordBadgeLabel(row.badgeKind, row.badge))}</span>`;
   }
   return `<span class="ad-rt-round-num">#${row.round}</span>`;
 }
 
 function renderStepTagHtml(row) {
-  if (!row.promptStep) return "";
-  const label = row.promptMeta ? t("步骤 {step}", { step: row.promptMeta }) : t("步骤");
-  return `<span class="ad-rt-step">${escapeHtml(label)}</span>`;
+  const label = recordStepLabel(row);
+  return label ? `<span class="ad-rt-step">${escapeHtml(label)}</span>` : "";
 }
 
 function renderChildrenHtml(children) {
@@ -403,9 +364,7 @@ function renderCardsViewHtml(model) {
 }
 
 function renderTimelineViewHtml(model) {
-  const times = model.rows.map((r) => Number(r.startedAt) || 0).filter((ms) => ms > 0);
-  const timed = times.length > 0;
-  const dated = times.length > 1 && new Set(times.map(localDayKey)).size > 1;
+  const { timed, dated } = timelineSpanMeta(model.rows);
   const cls = `ad-rt-timeline${timed ? " ad-rt-timeline--timed" : ""}${dated ? " ad-rt-timeline--dated" : ""}`;
   const items = model.rows.map((row) => {
     const kind = escapeHtml(row.badgeKind || "result");
@@ -425,7 +384,8 @@ function renderFooterHtml(footer) {
   if (!footer?.length) return "";
   const items = footer.map((item) => {
     const ico = item.kind === "clock" ? "⏱" : "🔗";
-    const metaText = item.meta ? `<span class="ad-rt-footer-meta">${escapeHtml(item.kind === "clock" ? `· ${item.meta}` : item.meta)}</span>` : "";
+    const meta = footerMetaText(item);
+    const metaText = meta ? `<span class="ad-rt-footer-meta">${escapeHtml(meta)}</span>` : "";
     return `<div class="ad-rt-footer-item"><span class="ad-rt-footer-ico">${ico}</span><span class="ad-rt-footer-body">${renderInlineHtml(item.content)}</span>${metaText}</div>`;
   }).join("");
   return `<div class="ad-rt-footer">${items}</div>`;
@@ -437,7 +397,7 @@ function fallbackMarkdownHtml(md) {
 
 export function buildTaskViewHtmlDocument(extracted, sourcePath = "", { viewMode = "", outlineBodyHtml = "", extraNotesHtml = "" } = {}) {
   const effectiveView = resolveExportView(extracted, viewMode);
-  const label = viewLabel(effectiveView);
+  const label = recordViewLabel(effectiveView);
   const chips = [
     `<span class="ad-ex-chip ad-ex-chip--view">${escapeHtml(t("视图：{view}", { view: label }))}</span>`,
   ];
@@ -754,8 +714,7 @@ export function buildTaskViewHtmlDocument(extracted, sourcePath = "", { viewMode
 }
 
 function rowTypeLabel(row) {
-  if (row.promptStep) return row.promptMeta ? t("步骤 {step}", { step: row.promptMeta }) : t("步骤");
-  return badgeLabel(row.badgeKind, row.badge);
+  return recordStepLabel(row) || recordBadgeLabel(row.badgeKind, row.badge);
 }
 
 export function buildTaskExportJson(extracted, sourcePath = "", { viewMode = "" } = {}) {
@@ -985,25 +944,53 @@ async function renderTaskHtmlForExport(plugin, extracted, path, viewMode) {
   }
 }
 
-export async function exportTaskToPdf(plugin, path, line, options = {}) {
+async function prepareExportTarget(plugin, path, line, {
+  ext,
+  filterName,
+  dialogTitle,
+  requireWindow = false,
+  unavailableMsg = t("当前环境不支持选择保存位置"),
+  viewMode = "",
+}) {
   const remote = getElectronRemote();
-  if (!remote?.dialog || !remote?.BrowserWindow) {
-    return plugin.notice(t("当前环境不支持导出 PDF"));
+  if (!remote?.dialog || (requireWindow && !remote?.BrowserWindow)) {
+    plugin.notice(unavailableMsg);
+    return null;
   }
   const text = await plugin.readNote(path);
   const extracted = extractTaskBlock(text, line, path, plugin);
-  if (!extracted) return plugin.notice(t("未找到可导出的任务块"));
-
-  const effectiveView = resolveExportView(extracted, options.viewMode);
-  const startDir = initialExportDir(plugin, path);
+  if (!extracted) {
+    plugin.notice(t("未找到可导出的任务块"));
+    return null;
+  }
+  const effectiveView = resolveExportView(extracted, viewMode);
+  const title = typeof dialogTitle === "function" ? dialogTitle(effectiveView) : dialogTitle;
   const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
-    title: t("导出任务与对话为 PDF（{view}）", { view: viewLabel(effectiveView) }),
-    defaultPath: pathMod.join(startDir, `${extracted.suggestedName}.pdf`),
-    filters: [{ name: "PDF", extensions: ["pdf"] }],
+    title,
+    defaultPath: pathMod.join(initialExportDir(plugin, path), `${extracted.suggestedName}${ext}`),
+    filters: [{ name: filterName, extensions: [ext.replace(/^\./, "")] }],
   });
-  if (picked.canceled || !picked.filePath) return;
+  if (picked.canceled || !picked.filePath) return null;
+  const targetFile = ensureExt(picked.filePath, ext);
+  const vaultBase = plugin.app?.vault?.adapter?.basePath;
+  if (ext === ".md" && vaultBase && pathMod.resolve(pathMod.join(vaultBase, path)) === pathMod.resolve(targetFile)) {
+    plugin.notice(t("不能覆盖当前所在笔记"));
+    return null;
+  }
+  return { remote, extracted, effectiveView, targetFile };
+}
 
-  const targetPdf = ensureExt(picked.filePath, ".pdf");
+export async function exportTaskToPdf(plugin, path, line, options = {}) {
+  const prep = await prepareExportTarget(plugin, path, line, {
+    ext: ".pdf",
+    filterName: "PDF",
+    requireWindow: true,
+    unavailableMsg: t("当前环境不支持导出 PDF"),
+    viewMode: options.viewMode || "",
+    dialogTitle: (effectiveView) => t("导出任务与对话为 PDF（{view}）", { view: recordViewLabel(effectiveView) }),
+  });
+  if (!prep) return;
+  const { remote, extracted, effectiveView, targetFile: targetPdf } = prep;
   let win = null;
   let tmpHtml = "";
   try {
@@ -1031,28 +1018,10 @@ export async function exportTaskToPdf(plugin, path, line, options = {}) {
 }
 
 async function exportTaskToTextFile(plugin, path, line, { ext, filterName, dialogTitle, buildContent, onSuccess, viewMode = "" }) {
-  const remote = getElectronRemote();
-  if (!remote?.dialog) {
-    return plugin.notice(t("当前环境不支持选择保存位置"));
-  }
-  const text = await plugin.readNote(path);
-  const extracted = extractTaskBlock(text, line, path, plugin);
-  if (!extracted) return plugin.notice(t("未找到可导出的任务块"));
-
-  const startDir = initialExportDir(plugin, path);
-  const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
-    title: dialogTitle,
-    defaultPath: pathMod.join(startDir, `${extracted.suggestedName}${ext}`),
-    filters: [{ name: filterName, extensions: [ext.replace(/^\./, "")] }],
-  });
-  if (picked.canceled || !picked.filePath) return;
-
-  const targetFile = ensureExt(picked.filePath, ext);
-  const vaultBase = plugin.app?.vault?.adapter?.basePath;
-  if (ext === ".md" && vaultBase && pathMod.resolve(pathMod.join(vaultBase, path)) === pathMod.resolve(targetFile)) {
-    return plugin.notice(t("不能覆盖当前所在笔记"));
-  }
-  const content = await buildContent(extracted, path, { viewMode });
+  const prep = await prepareExportTarget(plugin, path, line, { ext, filterName, dialogTitle, viewMode });
+  if (!prep) return;
+  const { extracted, effectiveView, targetFile } = prep;
+  const content = await buildContent(extracted, path, { viewMode: effectiveView });
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
   plugin.notice(onSuccess(written.path));
@@ -1101,28 +1070,13 @@ export async function exportTaskToCsv(plugin, path, line) {
 }
 
 export async function saveTaskAsFile(plugin, path, line) {
-  const remote = getElectronRemote();
-  if (!remote?.dialog) {
-    return plugin.notice(t("当前环境不支持选择保存位置"));
-  }
-  const base = await plugin.readNote(path);
-  const extracted = extractTaskBlock(base, line, path, plugin);
-  if (!extracted) return plugin.notice(t("未找到可导出的任务块"));
-
-  const startDir = initialExportDir(plugin, path);
-  const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
-    title: t("另存为任务与对话"),
-    defaultPath: pathMod.join(startDir, `${extracted.suggestedName}.md`),
-    filters: [{ name: "Markdown", extensions: ["md"] }],
+  const prep = await prepareExportTarget(plugin, path, line, {
+    ext: ".md",
+    filterName: "Markdown",
+    dialogTitle: t("另存为任务与对话"),
   });
-  if (picked.canceled || !picked.filePath) return;
-
-  const targetFile = ensureExt(picked.filePath, ".md");
-  const vaultBase = plugin.app?.vault?.adapter?.basePath;
-  if (vaultBase && pathMod.resolve(pathMod.join(vaultBase, path)) === pathMod.resolve(targetFile)) {
-    return plugin.notice(t("不能覆盖当前所在笔记"));
-  }
-
+  if (!prep) return;
+  const { extracted, targetFile } = prep;
   const content = buildTaskExportDocument(extracted, path);
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
