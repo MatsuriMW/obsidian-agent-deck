@@ -1,4 +1,4 @@
-/* Agent Deck 1.10.5 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.10.6 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -432,6 +432,8 @@ var view_default = {
   "\u6240\u9009\u5361\u7247\u4E2D\u6CA1\u6709\u53EF\u6539\u72B6\u6001\u7684\u5361\uFF08\u955C\u50CF\u5361\u8BF7\u5230\u6E90\u7B14\u8BB0\u4FEE\u6539\uFF09": "No editable cards selected (change mirror cards in their source note)",
   "\u5F53\u524D\u7B14\u8BB0\u6CA1\u6709\u53EF\u5199\u5165\u7684\u7F16\u8F91\u5668": "This note has no writable editor",
   "\u955C\u50CF\u5361\u4E0D\u80FD\u5220\u9664\uFF0C\u8BF7\u5230\u6E90\u7B14\u8BB0\u4FEE\u6539": "Mirror cards cannot be deleted here; edit the source note",
+  "\u955C\u50CF\u5361\u8FD8\u6CA1\u89E3\u6790\u5230\u6E90\u7B14\u8BB0\uFF0C\u8BF7\u7A0D\u540E\u5237\u65B0\u6216\u6253\u5F00\u6E90\u7B14\u8BB0\u4FEE\u6539": "This mirror card has not resolved to its source note yet. Refresh, or edit the source note.",
+  "\u955C\u50CF\u6E90\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u5237\u65B0\u770B\u677F\u540E\u91CD\u8BD5": "The mirror source task changed. Refresh the board and try again.",
   "\u5DF2\u8DF3\u8FC7 {n} \u5F20\u955C\u50CF\u5361\uFF08\u8BF7\u5230\u6E90\u7B14\u8BB0\u4FEE\u6539\uFF09": "Skipped {n} mirror card(s); edit the source note",
   "\u5DF2\u5220\u9664 {n} \u5F20\u5361\u7247": "Deleted {n} cards",
   "\u6253\u5F00\u9879\u76EE\u76EE\u5F55\uFF1A{cwd}": "Open project folder: {cwd}",
@@ -13796,6 +13798,13 @@ function extractTaskBoardGroups(text, { trackedIds: trackedIds2 = /* @__PURE__ *
     for (const card of g.cards) {
       const sub = byLine.get(card.line);
       if (sub) card.subBoardKey = sub.key;
+      for (const child of card.subCards || []) {
+        const subChild = byLine.get(child.line);
+        if (!subChild) continue;
+        child.subBoardKey = subChild.key;
+        child.childCardCount = subChild.cards.length;
+        child.childDoneCount = subChild.cards.filter((entry) => entry.column === "done").length;
+      }
     }
   }
   return out;
@@ -14758,6 +14767,10 @@ function boardPinIds(settings, group) {
   const list = pins[group.key] ?? pins[group.stableKey];
   return Array.isArray(list) ? list : [];
 }
+function boardSelectionId(card) {
+  const id = boardCardPinId(card);
+  return id ? `${id}#${Number.isInteger(card?.line) ? card.line : ""}` : "";
+}
 function taskBoardPref(settings, group) {
   const map = settings?.taskBoardViews;
   const fallback = { mode: "outline", groupBy: "status", zoomStack: [] };
@@ -14878,8 +14891,12 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         k.liveState,
         k.step,
         k.latestConclusion,
+        k.endLine,
+        k.hasLink,
         k.childCardCount,
-        k.isMirror
+        k.childDoneCount,
+        k.isMirror,
+        k.mirrorTarget ? [k.mirrorTarget.path, k.mirrorTarget.line, k.mirrorTarget.blockId] : null
       ])])
     });
   }
@@ -14893,14 +14910,21 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
   }
   selectedCards() {
     const ids = this.selectionSet();
-    return this.model.columns.flatMap((col) => col.cards).filter((card) => ids.has(boardCardPinId(card)));
+    return this.model.columns.flatMap((col) => col.cards).filter((card) => ids.has(boardSelectionId(card)));
   }
   savePins(cards, pinned) {
     const ids = cards.map(boardCardPinId).filter(Boolean);
     if (!ids.length || !this.boardKey) return;
     applyTaskBoardPins(this.plugin.settings, this.boardKey, ids, pinned);
-    this.plugin.saveSettings?.();
+    this.saveSettingsSafe();
     this.plugin.refreshUI?.();
+  }
+  saveSettingsSafe() {
+    try {
+      Promise.resolve(this.plugin.saveSettings?.()).catch(() => {
+      });
+    } catch {
+    }
   }
   async applyBulkStatus(keyword) {
     const selected = this.selectedCards();
@@ -14937,9 +14961,9 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         (text) => deleteTaskBoardCards(text, editable.map((card) => card.line))
       );
       const ids = this.selectionSet();
-      for (const card of editable) ids.delete(boardCardPinId(card));
+      for (const card of editable) ids.delete(boardSelectionId(card));
       applyTaskBoardPins(this.plugin.settings, this.boardKey, editable.map(boardCardPinId).filter(Boolean), false);
-      this.plugin.saveSettings?.();
+      this.saveSettingsSafe();
       this.plugin.notice?.(t("\u5DF2\u5220\u9664 {n} \u5F20\u5361\u7247", { n: editable.length }));
       const skipped = selected.length - editable.length;
       if (skipped) this.plugin.notice?.(t("\u5DF2\u8DF3\u8FC7 {n} \u5F20\u955C\u50CF\u5361\uFF08\u8BF7\u5230\u6E90\u7B14\u8BB0\u4FEE\u6539\uFF09", { n: skipped }));
@@ -14971,13 +14995,14 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
   }
   openContextMenu(event, card) {
     let selected = this.selectedCards();
-    const clickedId = card ? boardCardPinId(card) : "";
+    const clickedId = card ? boardSelectionId(card) : "";
+    const selectedIds = new Set(selected.map((item) => boardSelectionId(item)));
     if (!selected.length) {
       if (!clickedId) return;
       this.selectionSet().add(clickedId);
       this._syncBulk?.();
       selected = this.selectedCards();
-    } else if (clickedId && selected.length === 1 && boardCardPinId(selected[0]) !== clickedId) {
+    } else if (clickedId && !selectedIds.has(clickedId)) {
       this.selectionSet().clear();
       this.selectionSet().add(clickedId);
       this._syncBulk?.();
@@ -15083,13 +15108,17 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
     view.focus?.();
   }
   async moveCard(card, { targetColumn = "", beforeLine = -1, targetParentLine = -1 } = {}) {
-    if (card?.isMirror && card.mirrorTarget?.path) {
+    if (card?.isMirror) {
       if (!targetColumn) return;
-      await updateNote(
-        this.plugin,
-        card.mirrorTarget.path,
-        (text) => moveTaskBoardCardStatus(text, card.mirrorTarget.line, targetColumn)
-      );
+      if (!card.mirrorTarget?.path || !card.mirrorTarget?.blockId) {
+        this.plugin.notice?.(t("\u955C\u50CF\u5361\u8FD8\u6CA1\u89E3\u6790\u5230\u6E90\u7B14\u8BB0\uFF0C\u8BF7\u7A0D\u540E\u5237\u65B0\u6216\u6253\u5F00\u6E90\u7B14\u8BB0\u4FEE\u6539"));
+        return;
+      }
+      await updateNote(this.plugin, card.mirrorTarget.path, (text) => {
+        const task = findTaskByBlockId(text, card.mirrorTarget.blockId);
+        if (!task) throw new Error(t("\u955C\u50CF\u6E90\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u5237\u65B0\u770B\u677F\u540E\u91CD\u8BD5"));
+        return moveTaskBoardCardStatus(text, task.line, targetColumn);
+      });
       return;
     }
     if (!this.sourcePath) return;
@@ -15098,6 +15127,9 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
       this.sourcePath,
       (text) => moveTaskBoardCardSubtree(text, card.line, { targetColumn, beforeLine, targetParentLine })
     );
+  }
+  moveCardSafe(card, opts) {
+    this.moveCard(card, opts).catch((error) => this.plugin.notice?.(String(error?.message || error)));
   }
   async addCard(title, column, agent) {
     if (!this.sourcePath || !String(title || "").trim()) return;
@@ -15312,7 +15344,11 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
       const val = addInput.value.trim();
       if (!val) return;
       addInput.value = "";
-      await this.addCard(val, "todo", addAgentSel.value);
+      try {
+        await this.addCard(val, "todo", addAgentSel.value);
+      } catch (error) {
+        this.plugin.notice?.(String(error?.message || error));
+      }
     };
     addInput.addEventListener("mousedown", (e) => e.stopPropagation());
     addInput.addEventListener("click", (e) => e.stopPropagation());
@@ -15331,7 +15367,7 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
       }
     });
     const allCards = this.model.columns.flatMap((col) => col.cards);
-    const cardId = (card) => boardCardPinId(card);
+    const cardId = (card) => boardSelectionId(card);
     const selection = this.selectionSet();
     const liveIds = new Set(allCards.map(cardId).filter(Boolean));
     for (const id of [...selection]) if (!liveIds.has(id)) selection.delete(id);
@@ -15503,19 +15539,19 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
           if (!cardObj || cardObj.isMirror) return;
           if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
             const last = col.cards[col.cards.length - 1];
-            if (!last) this.moveCard(cardObj, { targetParentLine: col.targetParentLine });
-            else this.moveCard(cardObj, { beforeLine: last.endLine + 1, targetParentLine: col.targetParentLine });
+            if (!last) this.moveCardSafe(cardObj, { targetParentLine: col.targetParentLine });
+            else this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1, targetParentLine: col.targetParentLine });
             return;
           }
           if (payload.column !== col.id) {
             const last = col.cards[col.cards.length - 1];
-            if (!last) this.moveCard(cardObj, { targetColumn: col.id });
-            else this.moveCard(cardObj, { targetColumn: col.id, beforeLine: last.endLine + 1 });
+            if (!last) this.moveCardSafe(cardObj, { targetColumn: col.id });
+            else this.moveCardSafe(cardObj, { targetColumn: col.id, beforeLine: last.endLine + 1 });
             return;
           }
           if (col.cards.length > 1) {
             const last = col.cards[col.cards.length - 1];
-            if (last.line !== cardObj.line) this.moveCard(cardObj, { beforeLine: last.endLine + 1 });
+            if (last.line !== cardObj.line) this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1 });
           }
         } catch {
         }
@@ -15527,11 +15563,12 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         continue;
       }
       for (const card of col.cards) {
-        const pinId = cardId(card);
+        const pinId = boardCardPinId(card);
+        const selectId = boardSelectionId(card);
         const pinned = this.pinnedSet.has(pinId);
         const cardEl = list.appendChild(doc.createElement("div"));
         cardEl.className = `ad-board__card${card.activeJob ? " is-live" : ""}${card.isMirror ? " is-mirror" : ""}${pinned ? " is-pinned" : ""}`;
-        cardEl.draggable = true;
+        cardEl.draggable = !card.isMirror;
         if (card.agent && AGENTS[card.agent]) {
           cardEl.style.setProperty("--ad-agent", AGENTS[card.agent].color);
           cardEl.style.setProperty("--ad-agent-soft", AGENTS[card.agent].soft);
@@ -15579,9 +15616,9 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
             const after = e.clientY > rect.top + rect.height / 2;
             const beforeLine = after ? Number.isInteger(card.endLine) ? card.endLine + 1 : card.line + 1 : card.line;
             if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
-              this.moveCard(dragged, { beforeLine, targetParentLine: col.targetParentLine });
+              this.moveCardSafe(dragged, { beforeLine, targetParentLine: col.targetParentLine });
             } else {
-              this.moveCard(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine });
+              this.moveCardSafe(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine });
             }
           } catch {
           }
@@ -15593,8 +15630,8 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         const check = lead.appendChild(doc.createElement("input"));
         check.type = "checkbox";
         check.className = "ad-board__check";
-        check.checked = selection.has(pinId);
-        check.disabled = !pinId;
+        check.checked = selection.has(selectId);
+        check.disabled = !selectId;
         check.title = t("\u9009\u62E9\u5361\u7247");
         check.setAttribute("aria-label", check.title);
         check.addEventListener("mousedown", (e) => e.stopPropagation());
@@ -15605,13 +15642,13 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         });
         check.addEventListener("change", (e) => {
           e.stopPropagation();
-          if (!pinId) return;
-          if (check.checked) selection.add(pinId);
-          else selection.delete(pinId);
+          if (!selectId) return;
+          if (check.checked) selection.add(selectId);
+          else selection.delete(selectId);
           disarmDelete();
           syncBulk();
         });
-        checkInputs.push({ input: check, id: pinId });
+        checkInputs.push({ input: check, id: selectId });
         const title = lead.appendChild(doc.createElement("div"));
         title.className = "ad-board__cardtitle ad-board__md";
         title.title = card.isMirror && card.mirrorTarget?.path ? t("\u70B9\u51FB\u6253\u5F00\u955C\u50CF\u6E90\uFF1A{path}", { path: card.mirrorTarget.path }) : t("\u70B9\u51FB\u5207\u56DE\u5927\u7EB2\u5B9A\u4F4D\u7F16\u8F91");
@@ -15660,9 +15697,11 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
           this.savePins([card], !pinned);
         });
         if (card.step || card.latestConclusion) {
+          const noteText = card.step || card.latestConclusion;
           const note = cardEl.appendChild(doc.createElement("div"));
           note.className = "ad-board__cardnote ad-board__md";
-          renderTasks.push(this.renderMarkdown(truncate(card.step || card.latestConclusion, 88), note));
+          note.title = noteText;
+          renderTasks.push(this.renderMarkdown(noteText, note));
         }
         const foot = cardEl.appendChild(doc.createElement("div"));
         foot.className = "ad-board__cardfoot";
@@ -15683,7 +15722,7 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
           sel.addEventListener("keydown", (e) => e.stopPropagation());
           sel.addEventListener("change", (e) => {
             e.stopPropagation();
-            this.setCardAgent(card.line, sel.value);
+            this.setCardAgent(card.line, sel.value).catch((error) => this.plugin.notice?.(String(error?.message || error)));
           });
         } else {
           const badge = foot.appendChild(doc.createElement("span"));
@@ -15722,7 +15761,13 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
     };
     this._scheduleCap = scheduleCap;
     scheduleCap();
-    Promise.allSettled(renderTasks).then(() => this._scheduleCap?.());
+    Promise.allSettled(renderTasks).then(() => {
+      for (const img of wrap.querySelectorAll("img")) {
+        if (img.complete) continue;
+        img.addEventListener("load", () => this._scheduleCap?.(), { once: true });
+      }
+      this._scheduleCap?.();
+    });
     this._resizeObserver?.disconnect?.();
     if (typeof ResizeObserver === "function") {
       let lastWidth = 0;

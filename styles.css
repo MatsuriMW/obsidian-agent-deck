@@ -1,4 +1,4 @@
-/* Agent Deck 1.10.5 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.10.6 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -3842,6 +3842,8 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   line-height: 1.4;
   color: var(--text-muted);
   overflow-wrap: anywhere;
+  max-height: calc(1.4em * 4);
+  overflow: hidden;
 }
 .ad-board-wrap .ad-board__cardfoot {
   display: flex;

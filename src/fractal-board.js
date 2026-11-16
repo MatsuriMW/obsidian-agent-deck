@@ -24,6 +24,7 @@ import {
 } from "./project-workbench.js";
 import { updateNote } from "./note-updates.js";
 import { mentionTrigger } from "./task-mentions.js";
+import { findTaskByBlockId } from "./journal.js";
 import { applyBatchStatusChoice } from "./task-status.js";
 
 export const setTaskBoardEffect = StateEffect.define();
@@ -36,6 +37,11 @@ function boardPinIds(settings, group) {
   if (!pins || !group) return [];
   const list = pins[group.key] ?? pins[group.stableKey];
   return Array.isArray(list) ? list : [];
+}
+
+function boardSelectionId(card) {
+  const id = boardCardPinId(card);
+  return id ? `${id}#${Number.isInteger(card?.line) ? card.line : ""}` : "";
 }
 
 export function taskBoardPref(settings, group) {
@@ -156,7 +162,9 @@ class TaskBoardWidget extends WidgetType {
       crumbs: breadcrumbs.map((b) => b.key),
       pins: pinnedIds,
       cols: model.columns.map((c) => [c.id, c.cards.map((k) => [
-        k.line, k.kw, k.title, k.titleMarkdown, k.agent, k.liveState, k.step, k.latestConclusion, k.childCardCount, k.isMirror,
+        k.line, k.kw, k.title, k.titleMarkdown, k.agent, k.liveState, k.step, k.latestConclusion,
+        k.endLine, k.hasLink, k.childCardCount, k.childDoneCount, k.isMirror,
+        k.mirrorTarget ? [k.mirrorTarget.path, k.mirrorTarget.line, k.mirrorTarget.blockId] : null,
       ])]),
     });
   }
@@ -170,14 +178,19 @@ class TaskBoardWidget extends WidgetType {
   }
   selectedCards() {
     const ids = this.selectionSet();
-    return this.model.columns.flatMap((col) => col.cards).filter((card) => ids.has(boardCardPinId(card)));
+    return this.model.columns.flatMap((col) => col.cards).filter((card) => ids.has(boardSelectionId(card)));
   }
   savePins(cards, pinned) {
     const ids = cards.map(boardCardPinId).filter(Boolean);
     if (!ids.length || !this.boardKey) return;
     applyTaskBoardPins(this.plugin.settings, this.boardKey, ids, pinned);
-    this.plugin.saveSettings?.();
+    this.saveSettingsSafe();
     this.plugin.refreshUI?.();
+  }
+  saveSettingsSafe() {
+    try {
+      Promise.resolve(this.plugin.saveSettings?.()).catch(() => {});
+    } catch { /* settings persistence is best-effort */ }
   }
   async applyBulkStatus(keyword) {
     const selected = this.selectedCards();
@@ -212,9 +225,9 @@ class TaskBoardWidget extends WidgetType {
         deleteTaskBoardCards(text, editable.map((card) => card.line)),
       );
       const ids = this.selectionSet();
-      for (const card of editable) ids.delete(boardCardPinId(card));
+      for (const card of editable) ids.delete(boardSelectionId(card));
       applyTaskBoardPins(this.plugin.settings, this.boardKey, editable.map(boardCardPinId).filter(Boolean), false);
-      this.plugin.saveSettings?.();
+      this.saveSettingsSafe();
       this.plugin.notice?.(t("已删除 {n} 张卡片", { n: editable.length }));
       const skipped = selected.length - editable.length;
       if (skipped) this.plugin.notice?.(t("已跳过 {n} 张镜像卡（请到源笔记修改）", { n: skipped }));
@@ -246,13 +259,14 @@ class TaskBoardWidget extends WidgetType {
   }
   openContextMenu(event, card) {
     let selected = this.selectedCards();
-    const clickedId = card ? boardCardPinId(card) : "";
+    const clickedId = card ? boardSelectionId(card) : "";
+    const selectedIds = new Set(selected.map((item) => boardSelectionId(item)));
     if (!selected.length) {
       if (!clickedId) return;
       this.selectionSet().add(clickedId);
       this._syncBulk?.();
       selected = this.selectedCards();
-    } else if (clickedId && selected.length === 1 && boardCardPinId(selected[0]) !== clickedId) {
+    } else if (clickedId && !selectedIds.has(clickedId)) {
       this.selectionSet().clear();
       this.selectionSet().add(clickedId);
       this._syncBulk?.();
@@ -359,17 +373,26 @@ class TaskBoardWidget extends WidgetType {
     view.focus?.();
   }
   async moveCard(card, { targetColumn = "", beforeLine = -1, targetParentLine = -1 } = {}) {
-    if (card?.isMirror && card.mirrorTarget?.path) {
+    if (card?.isMirror) {
       if (!targetColumn) return;
-      await updateNote(this.plugin, card.mirrorTarget.path, (text) =>
-        moveTaskBoardCardStatus(text, card.mirrorTarget.line, targetColumn),
-      );
+      if (!card.mirrorTarget?.path || !card.mirrorTarget?.blockId) {
+        this.plugin.notice?.(t("镜像卡还没解析到源笔记，请稍后刷新或打开源笔记修改"));
+        return;
+      }
+      await updateNote(this.plugin, card.mirrorTarget.path, (text) => {
+        const task = findTaskByBlockId(text, card.mirrorTarget.blockId);
+        if (!task) throw new Error(t("镜像源任务已变化，请刷新看板后重试"));
+        return moveTaskBoardCardStatus(text, task.line, targetColumn);
+      });
       return;
     }
     if (!this.sourcePath) return;
     await updateNote(this.plugin, this.sourcePath, (text) =>
       moveTaskBoardCardSubtree(text, card.line, { targetColumn, beforeLine, targetParentLine }),
     );
+  }
+  moveCardSafe(card, opts) {
+    this.moveCard(card, opts).catch((error) => this.plugin.notice?.(String(error?.message || error)));
   }
   async addCard(title, column, agent) {
     if (!this.sourcePath || !String(title || "").trim()) return;
@@ -595,7 +618,11 @@ class TaskBoardWidget extends WidgetType {
       const val = addInput.value.trim();
       if (!val) return;
       addInput.value = "";
-      await this.addCard(val, "todo", addAgentSel.value);
+      try {
+        await this.addCard(val, "todo", addAgentSel.value);
+      } catch (error) {
+        this.plugin.notice?.(String(error?.message || error));
+      }
     };
     addInput.addEventListener("mousedown", (e) => e.stopPropagation());
     addInput.addEventListener("click", (e) => e.stopPropagation());
@@ -609,7 +636,7 @@ class TaskBoardWidget extends WidgetType {
 
     // 4. Bulk selection bar (hidden until at least one card is selected)
     const allCards = this.model.columns.flatMap((col) => col.cards);
-    const cardId = (card) => boardCardPinId(card);
+    const cardId = (card) => boardSelectionId(card);
     const selection = this.selectionSet();
     const liveIds = new Set(allCards.map(cardId).filter(Boolean));
     for (const id of [...selection]) if (!liveIds.has(id)) selection.delete(id);
@@ -791,19 +818,19 @@ class TaskBoardWidget extends WidgetType {
           if (!cardObj || cardObj.isMirror) return;
           if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
             const last = col.cards[col.cards.length - 1];
-            if (!last) this.moveCard(cardObj, { targetParentLine: col.targetParentLine });
-            else this.moveCard(cardObj, { beforeLine: last.endLine + 1, targetParentLine: col.targetParentLine });
+            if (!last) this.moveCardSafe(cardObj, { targetParentLine: col.targetParentLine });
+            else this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1, targetParentLine: col.targetParentLine });
             return;
           }
           if (payload.column !== col.id) {
             const last = col.cards[col.cards.length - 1];
-            if (!last) this.moveCard(cardObj, { targetColumn: col.id });
-            else this.moveCard(cardObj, { targetColumn: col.id, beforeLine: last.endLine + 1 });
+            if (!last) this.moveCardSafe(cardObj, { targetColumn: col.id });
+            else this.moveCardSafe(cardObj, { targetColumn: col.id, beforeLine: last.endLine + 1 });
             return;
           }
           if (col.cards.length > 1) {
             const last = col.cards[col.cards.length - 1];
-            if (last.line !== cardObj.line) this.moveCard(cardObj, { beforeLine: last.endLine + 1 });
+            if (last.line !== cardObj.line) this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1 });
           }
         } catch { /* ignore invalid drag payload */ }
       });
@@ -816,11 +843,12 @@ class TaskBoardWidget extends WidgetType {
       }
 
       for (const card of col.cards) {
-        const pinId = cardId(card);
+        const pinId = boardCardPinId(card);
+        const selectId = boardSelectionId(card);
         const pinned = this.pinnedSet.has(pinId);
         const cardEl = list.appendChild(doc.createElement("div"));
         cardEl.className = `ad-board__card${card.activeJob ? " is-live" : ""}${card.isMirror ? " is-mirror" : ""}${pinned ? " is-pinned" : ""}`;
-        cardEl.draggable = true;
+        cardEl.draggable = !card.isMirror;
         if (card.agent && AGENTS[card.agent]) {
           cardEl.style.setProperty("--ad-agent", AGENTS[card.agent].color);
           cardEl.style.setProperty("--ad-agent-soft", AGENTS[card.agent].soft);
@@ -869,9 +897,9 @@ class TaskBoardWidget extends WidgetType {
             const after = e.clientY > rect.top + rect.height / 2;
             const beforeLine = after ? (Number.isInteger(card.endLine) ? card.endLine + 1 : card.line + 1) : card.line;
             if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
-              this.moveCard(dragged, { beforeLine, targetParentLine: col.targetParentLine });
+              this.moveCardSafe(dragged, { beforeLine, targetParentLine: col.targetParentLine });
             } else {
-              this.moveCard(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine });
+              this.moveCardSafe(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine });
             }
           } catch { /* ignore */ }
         });
@@ -883,8 +911,8 @@ class TaskBoardWidget extends WidgetType {
         const check = lead.appendChild(doc.createElement("input"));
         check.type = "checkbox";
         check.className = "ad-board__check";
-        check.checked = selection.has(pinId);
-        check.disabled = !pinId;
+        check.checked = selection.has(selectId);
+        check.disabled = !selectId;
         check.title = t("选择卡片");
         check.setAttribute("aria-label", check.title);
         check.addEventListener("mousedown", (e) => e.stopPropagation());
@@ -892,13 +920,13 @@ class TaskBoardWidget extends WidgetType {
         check.addEventListener("dragstart", (e) => { e.preventDefault(); e.stopPropagation(); });
         check.addEventListener("change", (e) => {
           e.stopPropagation();
-          if (!pinId) return;
-          if (check.checked) selection.add(pinId);
-          else selection.delete(pinId);
+          if (!selectId) return;
+          if (check.checked) selection.add(selectId);
+          else selection.delete(selectId);
           disarmDelete();
           syncBulk();
         });
-        checkInputs.push({ input: check, id: pinId });
+        checkInputs.push({ input: check, id: selectId });
 
         const title = lead.appendChild(doc.createElement("div"));
         title.className = "ad-board__cardtitle ad-board__md";
@@ -950,9 +978,11 @@ class TaskBoardWidget extends WidgetType {
         });
 
         if (card.step || card.latestConclusion) {
+          const noteText = card.step || card.latestConclusion;
           const note = cardEl.appendChild(doc.createElement("div"));
           note.className = "ad-board__cardnote ad-board__md";
-          renderTasks.push(this.renderMarkdown(truncate(card.step || card.latestConclusion, 88), note));
+          note.title = noteText;
+          renderTasks.push(this.renderMarkdown(noteText, note));
         }
 
         const foot = cardEl.appendChild(doc.createElement("div"));
@@ -975,7 +1005,8 @@ class TaskBoardWidget extends WidgetType {
           sel.addEventListener("keydown", (e) => e.stopPropagation());
           sel.addEventListener("change", (e) => {
             e.stopPropagation();
-            this.setCardAgent(card.line, sel.value);
+            this.setCardAgent(card.line, sel.value)
+              .catch((error) => this.plugin.notice?.(String(error?.message || error)));
           });
         } else {
           const badge = foot.appendChild(doc.createElement("span"));
@@ -1018,7 +1049,13 @@ class TaskBoardWidget extends WidgetType {
     };
     this._scheduleCap = scheduleCap;
     scheduleCap();
-    Promise.allSettled(renderTasks).then(() => this._scheduleCap?.());
+    Promise.allSettled(renderTasks).then(() => {
+      for (const img of wrap.querySelectorAll("img")) {
+        if (img.complete) continue;
+        img.addEventListener("load", () => this._scheduleCap?.(), { once: true });
+      }
+      this._scheduleCap?.();
+    });
     this._resizeObserver?.disconnect?.();
     if (typeof ResizeObserver === "function") {
       let lastWidth = 0;

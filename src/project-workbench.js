@@ -712,6 +712,13 @@ export function extractTaskBoardGroups(text, { trackedIds = new Set(), trigger =
     for (const card of g.cards) {
       const sub = byLine.get(card.line);
       if (sub) card.subBoardKey = sub.key;
+      for (const child of card.subCards || []) {
+        const subChild = byLine.get(child.line);
+        if (!subChild) continue;
+        child.subBoardKey = subChild.key;
+        child.childCardCount = subChild.cards.length;
+        child.childDoneCount = subChild.cards.filter((entry) => entry.column === "done").length;
+      }
     }
   }
   return out;

@@ -573,6 +573,20 @@ test("Fractal board pins, bulk delete, and column-end moves stay Markdown-native
   });
   assert.deepEqual(childModel.columns[0].cards.map((card) => card.blockId), ["ad-cb", "ad-ca"]);
 
+  const nestedGroups = extractTaskBoardGroups([
+    "- TODO 嵌套根 ^ad-nested-root",
+    "  - TODO 阶段 ^ad-nested-phase",
+    "    - TODO 子卡 ^ad-nested-child",
+    "      - TODO 孙卡 1",
+    "      - TODO 孙卡 2",
+    "  - TODO 另一组 ^ad-nested-other",
+    "    - TODO 普通卡",
+  ].join("\n"));
+  const nestedPhase = nestedGroups.find((g) => g.key === "ad-nested-root").cards.find((card) => card.key === "ad-nested-phase") || nestedGroups.find((g) => g.key === "ad-nested-root").cards[0];
+  assert.equal(nestedPhase.subCards[0].subBoardKey, "ad-nested-child", "group columns expose nested zoom targets");
+  assert.equal(nestedPhase.subCards[0].childCardCount, 2, "nested zoom cards expose their child count");
+  assert.equal(nestedPhase.subCards[0].childDoneCount, 0, "nested zoom cards expose their done count");
+
   const deleted = deleteTaskBoardCards(note, [1]);
   assert.ok(!deleted.includes("卡片 A"));
   assert.ok(!deleted.includes("补充细节"));

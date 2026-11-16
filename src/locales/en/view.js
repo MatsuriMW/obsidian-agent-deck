@@ -171,6 +171,8 @@ export default {
   "所选卡片中没有可改状态的卡（镜像卡请到源笔记修改）": "No editable cards selected (change mirror cards in their source note)",
   "当前笔记没有可写入的编辑器": "This note has no writable editor",
   "镜像卡不能删除，请到源笔记修改": "Mirror cards cannot be deleted here; edit the source note",
+  "镜像卡还没解析到源笔记，请稍后刷新或打开源笔记修改": "This mirror card has not resolved to its source note yet. Refresh, or edit the source note.",
+  "镜像源任务已变化，请刷新看板后重试": "The mirror source task changed. Refresh the board and try again.",
   "已跳过 {n} 张镜像卡（请到源笔记修改）": "Skipped {n} mirror card(s); edit the source note",
   "已删除 {n} 张卡片": "Deleted {n} cards",
   "打开项目目录：{cwd}": "Open project folder: {cwd}",

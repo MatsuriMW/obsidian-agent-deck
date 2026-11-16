@@ -1043,6 +1043,8 @@
     line-height: 1.4;
     color: var(--text-muted);
     overflow-wrap: anywhere;
+    max-height: calc(1.4em * 4);
+    overflow: hidden;
   }
 
   & .ad-board__cardfoot {
