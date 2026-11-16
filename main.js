@@ -235,7 +235,20 @@ var main_default = {
   "\u663E\u793A\u4EFB\u52A1\u884C\u8FDB\u5EA6\u6761\u4E0E token \u5757": "Show inline progress bar & token blocks",
   "\u5728 AI \u4EFB\u52A1\u884C\u4E0B\u65B9\u6E32\u67D3 ASCII \u8FDB\u5EA6\u6761\u4E0E\u7D2B\u8272 token \u65B9\u5757": "Render ASCII # progress bar and purple token blocks below active AI task lines",
   "\u70B9\u51FB\u6253\u5F00\u4F1A\u8BDD \xB7 \u53F3\u952E\u66F4\u591A\u64CD\u4F5C": "Click to open session \xB7 Right-click for actions",
-  "\u63D0\u95EE\u65F6\u95F4\uFF1A{time}": "Asked at {time}"
+  "\u63D0\u95EE\u65F6\u95F4\uFF1A{time}": "Asked at {time}",
+  // Project workbench & fractal board commands
+  "\u6253\u5F00\u9879\u76EE\u534F\u4F5C\u5DE5\u4F5C\u53F0\uFF1A\u5C0F\u961F\u7F16\u6392\u4E0E\u62C6\u89E3\u6D3E\u53D1": "Open Project Workbench: team setup & concurrent dispatch",
+  "\u5F53\u524D\u4EFB\u52A1\uFF1A\u5207\u6362\u5206\u5F62\u770B\u677F / \u5927\u7EB2\u89C6\u56FE": "Current task: toggle fractal board / outline",
+  "\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u62C6\u89E3\u5E76\u5206\u914D\u5C0F\u961F": "Plan & assign team in Project Workbench",
+  "\u5DF2\u505C\u6B62\u8BE5\u9879\u76EE\u7684 {n} \u4E2A\u6D3B\u8DC3\u4EFB\u52A1": "Stopped {n} active tasks for this project",
+  "\u8BE5\u9879\u76EE\u6CA1\u6709\u53EF\u505C\u6B62\u7684\u6D3B\u8DC3\u4EFB\u52A1": "No active tasks to stop for this project",
+  "\u8BF7\u628A\u5149\u6807\u653E\u5728\u5305\u542B 2 \u4E2A\u4EE5\u4E0A\u5B50\u4EFB\u52A1\u7684\u7236\u4EFB\u52A1\u4E0A": "Place cursor on a parent task with at least 2 subtasks",
+  "\u6CA1\u6709\u53EF\u5199\u5165\u7684\u5B50\u4EFB\u52A1": "No subtasks to write",
+  "\u627E\u4E0D\u5230\u76EE\u6807\u7B14\u8BB0\uFF1A{path}": "Could not find target note: {path}",
+  "\u5DF2\u5E76\u53D1\u6D3E\u53D1 {n} \u4E2A\u534F\u4F5C\u5B50\u4EFB\u52A1": "Dispatched {n} collaborative subtasks",
+  "{n} \u4E2A\u5B50\u4EFB\u52A1\u6D3E\u53D1\u5931\u8D25\uFF1A{err}": "{n} subtasks failed to dispatch: {err}",
+  "\u6CA1\u6709\u5F85\u6D3E\u53D1\u7684 TODO \u5B50\u4EFB\u52A1": "No pending TODO subtasks to dispatch",
+  "\u534F\u4F5C\u9879\u76EE": "Collaborative project"
 };
 
 // src/locales/en/view.js
@@ -342,7 +355,40 @@ var view_default = {
   "\u5F52\u6863\u5DF2\u5B8C\u6210\u7684\u65E5\u5FD7\u5230\u2026": "Archive finished logs to\u2026",
   "\u628A\u5DF2\u5B8C\u6210\u7684 AI \u65E5\u5FD7\u79FB\u51FA\u8FD9\u7BC7\u65E5\u8BB0\uFF0C\u5199\u8FDB\u4F60\u9009\u7684\u5F52\u6863\u6587\u4EF6": "Move the finished AI log out of this journal into an archive file you pick",
   // Project rows under the day timeline
-  "{project} \xB7 \u4ECA\u5929 {time}": "{project} \xB7 {time} today"
+  "{project} \xB7 \u4ECA\u5929 {time}": "{project} \xB7 {time} today",
+  // Project-first process view & Fractal board
+  "\u6253\u5F00\u9879\u76EE\u5DE5\u4F5C\u53F0\uFF08\u5C0F\u961F\u7F16\u6392\u4E0E\u62C6\u89E3\u6D3E\u53D1\uFF09": "Open Project Workbench (team setup & task planning)",
+  "\u6309\u9879\u76EE": "By project",
+  "\u5217\u8868": "List",
+  "\u6309 Agent": "By agent",
+  "{n} \u5F02\u5E38": "{n} issues",
+  "\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u7F16\u6392\u5C0F\u961F": "Configure team in Project Workbench",
+  "\u505C\u6B62\u672C\u9879\u76EE\u7684\u6D3B\u8DC3\u4EFB\u52A1": "Stop active tasks in this project",
+  "{project} \xB7 \u5171 {total} \u6761\u5BF9\u8BDD \xB7 \u70B9\u51FB\u5C55\u5F00 +{more}": "{project} \xB7 {total} sessions \xB7 click to expand +{more}",
+  "{project} \xB7 \u5171 {total} \u6761\u5BF9\u8BDD": "{project} \xB7 {total} sessions",
+  "\u5207\u56DE\u5927\u7EB2\u89C6\u56FE": "Switch back to outline",
+  "\u5207\u6362\u4E3A\u5206\u5F62\u770B\u677F\uFF08{n} \u5F20\u5B50\u5361\uFF09": "Switch to fractal board ({n} cards)",
+  "\u770B\u677F {n}": "Board {n}",
+  "\u5206\u5F62\u770B\u677F": "Fractal board",
+  "\u5C0F\u961F / \u62C6\u89E3": "Team / Plan",
+  "\u6D3E\u53D1 TODO ({n})": "Dispatch TODO ({n})",
+  "\u5207\u56DE\u5927\u7EB2": "Outline",
+  "\u7A7A": "Empty",
+  "\u70B9\u51FB\u5207\u56DE\u5927\u7EB2\u5B9A\u4F4D\u7F16\u8F91": "Click to jump to outline for editing",
+  "\u672A\u6307\u5B9A": "Unassigned",
+  "\u6D3E\u53D1": "Send",
+  "\u6309\u72B6\u6001\u5206\u5217": "By status",
+  "\u6309\u5B50\u7EC4\u5206\u5217": "By group",
+  "\u65B0\u589E\u5B50\u5361\u5230 {title}\u2026\uFF08\u56DE\u8F66\u5199\u5165 TODO\uFF09": "Add card to {title}\u2026 (Enter to create TODO)",
+  "\u4E0D\u6307\u5B9A Agent": "No Agent",
+  "+ \u5B50\u5361": "+ Card",
+  "\u70B9\u51FB\u6253\u5F00\u955C\u50CF\u6E90\uFF1A{path}": "Click to open mirror source: {path}",
+  "\u4E0B\u94BB\u805A\u7126\u5230\u5B50\u770B\u677F": "Zoom into sub-board",
+  "\u955C\u50CF": "Mirror",
+  "\u505C\u6B62": "Stop",
+  "\u6B63\u6587": "Transcript",
+  "\u672A\u5206\u7EC4": "Ungrouped",
+  "\u6253\u5F00\u9879\u76EE\u76EE\u5F55\uFF1A{cwd}": "Open project folder: {cwd}"
 };
 
 // src/locales/en/settings.js
@@ -1101,7 +1147,71 @@ var dialogs_default = {
   "\u6267\u884C\u4E2D": "Running",
   "\u67E5\u770B\u5DE5\u5177\u53C2\u6570": "View tool input",
   "\u672A\u91C7\u96C6\u5230\u5DE5\u5177\u7ED3\u679C": "Tool result was not captured",
-  "\u5C55\u5F00\u5DE5\u5177\u7ED3\u679C\uFF08{count} \u5B57\u7B26\uFF09": "Show tool output ({count} chars)"
+  "\u5C55\u5F00\u5DE5\u5177\u7ED3\u679C\uFF08{count} \u5B57\u7B26\uFF09": "Show tool output ({count} chars)",
+  // Project Workbench & Team Presets
+  "\u7B49\u4F60\u5728\u5BA2\u6237\u7AEF\u53D1\u51FA": "Waiting for you to send in client",
+  "\u72EC\u7ACB\u4F1A\u8BDD": "Standalone sessions",
+  "\u534F\u4F5C\u4EFB\u52A1": "Collaborative task",
+  "\u4E3B\u8D23\u6267\u884C": "Lead execution",
+  "\u63A8\u8FDB\u9879\u76EE\u5F00\u53D1": "Advance project development",
+  "\u9879\u76EE\u534F\u540C\u4EFB\u52A1": "Project collaborative task",
+  "\u5168\u6808\u5F00\u53D1\u5C0F\u961F": "Full-stack Dev Team",
+  "\u67B6\u6784\u4E0E\u540E\u7AEF + \u529F\u80FD\u4E0E\u96C6\u6210 + \u63A2\u7D22\u4E0E\u6279\u5904\u7406": "Architecture & Backend + Features & Integration + Exploration",
+  "\u67B6\u6784\u4E0E\u540E\u7AEF": "Architecture & Backend",
+  "\u63A5\u53E3\u8BBE\u8BA1\u3001\u6838\u5FC3\u903B\u8F91\u3001\u5355\u6D4B\u9A8C\u8BC1": "API design, core logic, unit tests",
+  "\u529F\u80FD\u4E0E\u96C6\u6210": "Features & Integration",
+  "\u7AEF\u5230\u7AEF\u5B9E\u73B0\u3001\u91CD\u6784\u4E0E\u8054\u8C03\u6536\u5C3E": "End-to-end implementation, refactor, integration",
+  "\u63A2\u7D22\u4E0E\u6279\u5904\u7406": "Exploration & Batch",
+  "\u4EE3\u7801\u68C0\u7D22\u3001\u8F85\u52A9\u811A\u672C\u3001\u6587\u6863\u8349\u7A3F": "Code search, helper scripts, doc drafts",
+  "\u6392\u9519\u91CD\u6784\u5C0F\u961F": "Debug & Refactor Team",
+  "\u6839\u56E0\u5B9A\u4F4D + \u8865\u4E01\u4E0E\u6D4B\u8BD5 + \u4EA4\u53C9\u590D\u6838": "Root-cause triage + Fix & Tests + Cross-review",
+  "\u6839\u56E0\u5B9A\u4F4D": "Root-cause Triage",
+  "\u590D\u73B0\u95EE\u9898\u3001\u68B3\u7406\u8C03\u7528\u94FE\u4E0E\u8FB9\u754C": "Reproduce issue, trace call paths & edge cases",
+  "\u8865\u4E01\u4E0E\u6D4B\u8BD5": "Fix & Tests",
+  "\u6700\u5C0F\u5316\u4FEE\u590D\u5E76\u8865\u9F50\u56DE\u5F52\u6D4B\u8BD5": "Minimal fix with regression tests",
+  "\u4EA4\u53C9\u590D\u6838": "Cross-review",
+  "\u8FB9\u754C\u68C0\u67E5\u4E0E\u56DE\u5F52\u98CE\u9669\u5BA1\u67E5": "Edge-case & regression risk review",
+  "\u8C03\u7814\u4E0E\u6587\u6863\u5C0F\u961F": "Research & Docs Team",
+  "\u65B9\u6848\u8BBE\u8BA1 + \u8D44\u6599\u6574\u7406 + \u6821\u5BF9\u6267\u884C": "Solution design + Synthesis + Proofing",
+  "\u65B9\u6848\u8BBE\u8BA1": "Solution Design",
+  "\u62C6\u89E3\u601D\u8DEF\u3001\u68B3\u7406\u7ED3\u6784\u4E0E\u5173\u952E\u7ED3\u8BBA": "Structure ideas, outline & key conclusions",
+  "\u8D44\u6599\u6574\u7406": "Information Synthesis",
+  "\u5BF9\u6BD4\u5206\u6790\u3001\u4FE1\u606F\u63D0\u70BC\u4E0E\u8865\u5145": "Comparative analysis & synthesis",
+  "\u6821\u5BF9\u4E0E\u6267\u884C": "Proofing & Execution",
+  "\u7EC6\u8282\u68C0\u67E5\u4E0E\u89C4\u8303\u8F93\u51FA": "Detail verification & polished output",
+  "\u8BF7\u5148\u8F93\u5165\u9879\u76EE\u76EE\u6807\u6216\u9700\u6C42\u63CF\u8FF0": "Enter a project goal or requirement first",
+  "\u6A21\u578B\u8FD4\u56DE\u672A\u6309\u7ED3\u6784\u5316\u683C\u5F0F\u8F93\u51FA\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848": "Model output was not structured JSON; generated an editable draft from team roles",
+  "\u672A\u8FDE\u4E0A\u6574\u7406\u6A21\u578B\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848\uFF1A{msg}": "Could not reach organizer model; generated an editable draft from team roles: {msg}",
+  "\u8BF7\u81F3\u5C11\u4FDD\u7559\u4E00\u6761\u8981\u5199\u5165\u7684\u5B50\u4EFB\u52A1": "Keep at least one subtask to write",
+  "\u5DF2\u5C06 {n} \u6761\u534F\u4F5C\u5B50\u4EFB\u52A1\u5199\u5165\u7B14\u8BB0": "Wrote {n} collaborative subtasks to the note",
+  "\u9879\u76EE\u534F\u4F5C\u5DE5\u4F5C\u53F0": "Project Workbench",
+  "\u914D\u7F6E Agent \u534F\u4F5C\u5C0F\u961F\uFF0C\u62C6\u89E3\u4EFB\u52A1\u5E76\u5728\u786E\u8BA4\u540E\u5E76\u53D1\u6D3E\u53D1\uFF0C\u8BB0\u5F55\u81EA\u52A8\u843D\u76D8\u5230 Markdown": "Set up an Agent team, decompose tasks, dispatch concurrently on confirmation, and persist records to Markdown",
+  "\u9879\u76EE\u540D\u79F0": "Project name",
+  "\u4F8B\u5982\uFF1Aagent-deck": "e.g. agent-deck",
+  "\u5DE5\u4F5C\u76EE\u5F55 (cwd)": "Working directory (cwd)",
+  "\u5199\u5165\u4F4D\u7F6E\uFF1A{path} \u7B2C {line} \u884C\u4E0B\u65B9\uFF08\u81EA\u52A8\u542F\u7528\u5206\u5F62\u770B\u677F\uFF09": "Target: below line {line} of {path} (auto-enables fractal board)",
+  "\u5199\u5165\u4F4D\u7F6E\uFF1A{path}\uFF08\u7559\u7A7A\u5219\u5199\u5165\u4ECA\u65E5\u65E5\u8BB0\uFF09": "Target: {path} (uses today's journal if empty)",
+  "\u4ECA\u65E5\u65E5\u8BB0": "Today's journal",
+  "Agent \u534F\u4F5C\u5C0F\u961F\u9884\u8BBE": "Agent Team Presets",
+  "\u9879\u76EE\u76EE\u6807 / \u5F85\u62C6\u89E3\u4EFB\u52A1": "Project Goal / Task to Plan",
+  "\u63CF\u8FF0\u8FD9\u4E00\u9636\u6BB5\u8981\u63A8\u8FDB\u7684\u76EE\u6807\uFF0C\u6216\u76F4\u63A5\u8D34\u5165\u591A\u884C\u8981\u70B9\u2026": "Describe the milestone goal or paste multi-line bullet points\u2026",
+  "\u6B63\u5728\u62C6\u89E3\u4EFB\u52A1\u2026": "Planning tasks\u2026",
+  "AI \u526F\u9A7E\u62C6\u89E3\u5E76\u914D\u961F": "Copilot Plan & Assign",
+  "\u6309\u5C0F\u961F\u5FEB\u901F\u62C6\u5206": "Quick Split by Team",
+  "+ \u6DFB\u52A0\u5B50\u4EFB\u52A1": "+ Add Subtask",
+  "\u65B0\u589E\u4EFB\u52A1": "New Task",
+  "\u5F85\u6D3E\u53D1\u5B50\u4EFB\u52A1\u8349\u6848\uFF08{n} \u6761\u5DF2\u9009\uFF09": "Subtask Drafts ({n} selected)",
+  "\u8F93\u5165\u76EE\u6807\u540E\u70B9\u51FB\u300CAI \u526F\u9A7E\u62C6\u89E3\u5E76\u914D\u961F\u300D\u6216\u300C\u6309\u5C0F\u961F\u5FEB\u901F\u62C6\u5206\u300D\u751F\u6210\u5B50\u4EFB\u52A1\u8349\u6848\u3002": "Enter a goal above and click Copilot Plan & Assign or Quick Split by Team.",
+  "\u5B50\u4EFB\u52A1\u6807\u9898": "Subtask title",
+  "\u8865\u5145\u8981\u6C42\u6216\u9A8C\u6536\u6807\u51C6\uFF08\u53EF\u9009\uFF09": "Extra criteria or notes (optional)",
+  "\u4EC5\u5199\u5165 Markdown": "Write Markdown Only",
+  "\u6B63\u5728\u6D3E\u53D1\u2026": "Dispatching\u2026",
+  "\u5199\u5165\u5E76\u5E76\u53D1\u6D3E\u53D1 ({n})": "Write & Dispatch ({n})",
+  "\u5173\u8054\u7B14\u8BB0\u4E0A\u4E0B\u6587\uFF08[[\u53CC\u94FE]]\uFF09\uFF1A": "Linked note context ([[wikilinks]]):",
+  "\u540C\u770B\u677F\u534F\u540C\u5206\u5DE5\uFF08\u6BCD\u4EFB\u52A1\uFF1A{title}\uFF09\uFF1A": "Sibling board assignments (Parent: {title}):",
+  "\u5199\u5165\u76EE\u6807\u7B14\u8BB0": "Target note",
+  "\u7559\u7A7A\u5219\u5199\u5165\u4ECA\u65E5\u65E5\u8BB0": "Leave blank to use today's journal",
+  "\u5F53\u524D\u7B14\u8BB0": "Active note"
 };
 
 // src/locales/en/writers.js
@@ -1878,6 +1988,8 @@ var DEFAULTS = {
   aiRecordExpanded: {},
   aiRecordClosed: {},
   aiRecordViews: {},
+  taskBoardViews: {},
+  projectTeams: { presets: {}, byProject: {} },
   aiRecordDisplay: "latest1",
   // collapsed 折叠 / expanded 展开 / latest1、latest3、latest5 最近 N 条 AI 结论
   autoLogGranularity: "round",
@@ -1997,6 +2109,8 @@ var DEFAULTS = {
     showSparkline: true,
     showUsageBars: true,
     recentDays: 7,
+    nowGroupBy: "project",
+    recentGroupBy: "agent",
     agentCards: { order: [...AGENT_ORDER], hidden: [], pinned: [] }
   },
   jobs: {},
@@ -2330,6 +2444,18 @@ function formatSummaryLinks(raw, format = (text) => text) {
 // src/outline.js
 var LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 var WIKILINK_RE = /(?<!!)\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
+var EMBED_WIKILINK_RE = /!?\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
+var MIRROR_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:(?:TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)\s+)?(!?\[\[([^\]|#]+)#\^([A-Za-z0-9-]+)(?:\|([^\]]+))?\]\])\s*$/i;
+function parseMirrorRef(line) {
+  const m = MIRROR_LINE_RE.exec(String(line || ""));
+  if (!m) return null;
+  return {
+    raw: m[1],
+    target: String(m[2] || "").trim(),
+    blockId: String(m[3] || "").trim(),
+    alias: String(m[4] || "").trim()
+  };
+}
 function width(line) {
   let w = 0;
   for (const c of (/^\s*/.exec(line) || [""])[0]) w += c === "	" ? 4 : 1;
@@ -2398,12 +2524,13 @@ function ancestorLines(lines, at, fenced = fencedLines(lines)) {
   }
   return stack.flatMap((item) => item.body);
 }
-function extractWikilinkRefs(lines = []) {
+function extractWikilinkRefs(lines = [], { embeds = false } = {}) {
   const refs = [];
   const seen = /* @__PURE__ */ new Set();
+  const re = embeds ? EMBED_WIKILINK_RE : WIKILINK_RE;
   for (const raw of lines) {
     const line = String(raw || "");
-    for (const m of line.matchAll(WIKILINK_RE)) {
+    for (const m of line.matchAll(re)) {
       const target = String(m[1] || "").trim();
       if (!target) continue;
       const subpath = String(m[2] || "").trim();
@@ -2969,6 +3096,10 @@ function taskItems(text) {
     out.push({ line: i, kw: k.kw, body: k.body, key: workKey(k.body), auto: k.body.startsWith(AUTO_MARK.trim()), blockId: k.blockId || "", indent: width(lines[i]), state: st });
   }
   return out;
+}
+function findTaskByBlockId(text, blockId) {
+  if (!blockId) return null;
+  return taskItems(text).find((i) => i.blockId === blockId) || null;
 }
 function findTask(text, key, blockId = "", sid = "") {
   const items = taskItems(text);
@@ -4608,7 +4739,7 @@ function workspaceLabel(cwd) {
 var import_path11 = __toESM(require("path"), 1);
 var import_os12 = __toESM(require("os"), 1);
 var import_child_process11 = require("child_process");
-var import_obsidian14 = require("obsidian");
+var import_obsidian15 = require("obsidian");
 
 // src/readers.js
 var import_fs5 = __toESM(require("fs"), 1);
@@ -9188,23 +9319,120 @@ ${task}`;
 function freshTaskText(text) {
   return String(text || "").split("\n").map((l, i) => i === 0 ? stripBlockId(l) : l).join("\n");
 }
-async function resolveDelegationContext({ file = null, lines = [], block, opts = {}, extraResolvers = [] } = {}) {
+var MAX_LINKED_NOTES = 3;
+var LINK_EXCERPT_MAX_LINES = 12;
+var LINK_EXCERPT_MAX_CHARS = 600;
+function dedupeWikilinkRefs(refs = []) {
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const raw of refs) {
+    const target = String(raw?.target || "").trim();
+    if (!target) continue;
+    const subpath = String(raw?.subpath || "").trim();
+    const alias = String(raw?.alias || "").trim();
+    const key = `${target}#${subpath}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ target, subpath, alias });
+  }
+  return out;
+}
+function headingSection(lines, title) {
+  const want = String(title || "").trim();
+  if (!want) return null;
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^(#{1,6})\s+(.*)$/.exec(lines[i]);
+    if (!m || m[2].replace(/#+\s*$/, "").trim() !== want) continue;
+    const level = m[1].length;
+    let end = i + 1;
+    while (end < lines.length) {
+      const next = /^(#{1,6})\s+/.exec(lines[end]);
+      if (next && next[1].length <= level) break;
+      end++;
+    }
+    return lines.slice(i, end).join("\n");
+  }
+  return null;
+}
+function clampExcerpt(text, maxLines = LINK_EXCERPT_MAX_LINES, maxChars = LINK_EXCERPT_MAX_CHARS) {
+  const picked = [];
+  let size = 0;
+  for (const line of String(text || "").split("\n")) {
+    if (picked.length >= maxLines) break;
+    const next = size + (picked.length ? 1 : 0) + line.length;
+    if (picked.length && next > maxChars) break;
+    picked.push(line);
+    size = next;
+  }
+  const out = picked.join("\n").trim();
+  return out.length > maxChars ? out.slice(0, maxChars).trimEnd() : out;
+}
+async function resolveWikilinkSnippets(plugin, file, refs = []) {
+  if (!refs.length || !plugin?.readNote || !plugin?.app?.metadataCache?.getFirstLinkpathDest) return "";
+  const snippets = [];
+  const seen = /* @__PURE__ */ new Set();
+  const rawCache = /* @__PURE__ */ new Map();
+  for (const ref of refs) {
+    if (snippets.length >= MAX_LINKED_NOTES) break;
+    const dest = plugin.app.metadataCache.getFirstLinkpathDest(ref.target, file?.path || "");
+    if (!dest?.path || dest.extension !== "md") continue;
+    if (dest.path === file?.path && !ref.subpath) continue;
+    const key = `${dest.path}#${ref.subpath || ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    try {
+      let raw = rawCache.get(dest.path);
+      if (raw == null) {
+        raw = await plugin.readNote(dest.path);
+        rawCache.set(dest.path, raw);
+      }
+      const allLines = String(raw || "").split("\n");
+      let excerpt = "";
+      if (ref.subpath?.startsWith("^")) {
+        const bid = ref.subpath.slice(1);
+        const idx = allLines.findIndex((l) => blockIdOf(l) === bid);
+        if (idx < 0) continue;
+        const end = subtreeEnd(allLines, idx);
+        excerpt = allLines.slice(idx, end).join("\n");
+      } else if (ref.subpath) {
+        excerpt = headingSection(allLines, ref.subpath) || "";
+        if (!excerpt) continue;
+      } else {
+        excerpt = allLines.slice(frontmatterEnd(allLines)).join("\n");
+      }
+      const compact = clampExcerpt(excerpt);
+      if (!compact) continue;
+      const label = `[[${ref.target}${ref.subpath ? "#" + ref.subpath : ""}${ref.alias ? "|" + ref.alias : ""}]]`;
+      snippets.push(`- ${label} (${dest.path}):
+${compact}`);
+    } catch {
+    }
+  }
+  return snippets.length ? `${t("\u5173\u8054\u7B14\u8BB0\u4E0A\u4E0B\u6587\uFF08[[\u53CC\u94FE]]\uFF09\uFF1A")}
+${snippets.join("\n")}` : "";
+}
+async function resolveDelegationContext({ plugin = null, file = null, lines = [], block, opts = {}, extraResolvers = [] } = {}) {
   const outlineAncestors = Array.isArray(opts.contextLines) ? opts.contextLines : Array.isArray(lines) && block ? ancestorLines(lines, block.start) : [];
   const context = {
+    plugin,
     file,
     lines,
     block,
     opts,
     contextLines: [...outlineAncestors],
-    refs: extractWikilinkRefs([...outlineAncestors, ...block ? [block.text] : []]),
+    refs: extractWikilinkRefs([...outlineAncestors, ...block ? [block.text] : []], { embeds: true }),
     extraSections: []
   };
+  if (opts?.boardContext && String(opts.boardContext).trim()) {
+    context.extraSections.push(String(opts.boardContext).trim());
+  }
+  const resolverSections = [];
   for (const resolver of [...CONTEXT_RESOLVERS, ...extraResolvers]) {
     if (!resolver || typeof resolver.resolve !== "function") continue;
     try {
       const out = await resolver.resolve(context);
       if (out?.section && typeof out.section === "string" && out.section.trim()) {
-        context.extraSections.push(out.section.trim());
+        resolverSections.push(out.section.trim());
       }
       if (Array.isArray(out?.refs) && out.refs.length) {
         context.refs.push(...out.refs);
@@ -9213,6 +9441,10 @@ async function resolveDelegationContext({ file = null, lines = [], block, opts =
       console.error(`[agent-deck] context resolver ${resolver.name || "anon"}`, e);
     }
   }
+  context.refs = dedupeWikilinkRefs(context.refs);
+  const linkedSection = await resolveWikilinkSnippets(plugin, file, context.refs);
+  if (linkedSection) context.extraSections.push(linkedSection);
+  context.extraSections.push(...resolverSections);
   return context;
 }
 function buildPromptFromContext(plugin, { block, file = null, contextLines = [], extraSections = [], newSession = false, promptSuffix = "" } = {}) {
@@ -9234,7 +9466,7 @@ function buildPromptFromContext(plugin, { block, file = null, contextLines = [],
   return parts.filter(Boolean).join("\n\n");
 }
 async function buildDelegationPayload({ plugin, file, lines, block, opts = {}, extraResolvers = [] }) {
-  const resolved = await resolveDelegationContext({ file, lines, block, opts, extraResolvers });
+  const resolved = await resolveDelegationContext({ plugin, file, lines, block, opts, extraResolvers });
   const trigger = mentionTrigger(plugin);
   const question = stripTaskMention(withContext(resolved.contextLines, freshTaskText(block?.text || "")), trigger);
   const prompt = buildPromptFromContext(plugin, {
@@ -11363,8 +11595,8 @@ function lattice(parent, pattern = "orbit", { step = 95, cls = "" } = {}) {
 }
 
 // src/editor.js
-var import_view3 = require("@codemirror/view");
-var import_state2 = require("@codemirror/state");
+var import_view4 = require("@codemirror/view");
+var import_state3 = require("@codemirror/state");
 
 // src/record-display.js
 var import_view2 = require("@codemirror/view");
@@ -12592,6 +12824,1355 @@ function renderAIRecords(el, plugin, ctx) {
   return () => cleanups.forEach((cleanup) => cleanup());
 }
 
+// src/fractal-board.js
+var import_view3 = require("@codemirror/view");
+var import_state2 = require("@codemirror/state");
+
+// src/project-workbench.js
+var STANDALONE_PROJECT_ID = "__standalone__";
+var DEFAULT_TEAM_PRESETS = [
+  {
+    id: "fullstack",
+    name: "\u5168\u6808\u5F00\u53D1\u5C0F\u961F",
+    desc: "\u67B6\u6784\u4E0E\u540E\u7AEF + \u529F\u80FD\u4E0E\u96C6\u6210 + \u63A2\u7D22\u4E0E\u6279\u5904\u7406",
+    roles: [
+      { id: "arch", label: "\u67B6\u6784\u4E0E\u540E\u7AEF", preferredAgent: "codex", hint: "\u63A5\u53E3\u8BBE\u8BA1\u3001\u6838\u5FC3\u903B\u8F91\u3001\u5355\u6D4B\u9A8C\u8BC1" },
+      { id: "impl", label: "\u529F\u80FD\u4E0E\u96C6\u6210", preferredAgent: "claude", hint: "\u7AEF\u5230\u7AEF\u5B9E\u73B0\u3001\u91CD\u6784\u4E0E\u8054\u8C03\u6536\u5C3E" },
+      { id: "explore", label: "\u63A2\u7D22\u4E0E\u6279\u5904\u7406", preferredAgent: "opencode", hint: "\u4EE3\u7801\u68C0\u7D22\u3001\u8F85\u52A9\u811A\u672C\u3001\u6587\u6863\u8349\u7A3F" }
+    ]
+  },
+  {
+    id: "debug",
+    name: "\u6392\u9519\u91CD\u6784\u5C0F\u961F",
+    desc: "\u6839\u56E0\u5B9A\u4F4D + \u8865\u4E01\u4E0E\u6D4B\u8BD5 + \u4EA4\u53C9\u590D\u6838",
+    roles: [
+      { id: "triage", label: "\u6839\u56E0\u5B9A\u4F4D", preferredAgent: "claude", hint: "\u590D\u73B0\u95EE\u9898\u3001\u68B3\u7406\u8C03\u7528\u94FE\u4E0E\u8FB9\u754C" },
+      { id: "fix", label: "\u8865\u4E01\u4E0E\u6D4B\u8BD5", preferredAgent: "codex", hint: "\u6700\u5C0F\u5316\u4FEE\u590D\u5E76\u8865\u9F50\u56DE\u5F52\u6D4B\u8BD5" },
+      { id: "review", label: "\u4EA4\u53C9\u590D\u6838", preferredAgent: "dsh", hint: "\u8FB9\u754C\u68C0\u67E5\u4E0E\u56DE\u5F52\u98CE\u9669\u5BA1\u67E5" }
+    ]
+  },
+  {
+    id: "research",
+    name: "\u8C03\u7814\u4E0E\u6587\u6863\u5C0F\u961F",
+    desc: "\u65B9\u6848\u8BBE\u8BA1 + \u8D44\u6599\u6574\u7406 + \u6821\u5BF9\u6267\u884C",
+    roles: [
+      { id: "design", label: "\u65B9\u6848\u8BBE\u8BA1", preferredAgent: "claude", hint: "\u62C6\u89E3\u601D\u8DEF\u3001\u68B3\u7406\u7ED3\u6784\u4E0E\u5173\u952E\u7ED3\u8BBA" },
+      { id: "gather", label: "\u8D44\u6599\u6574\u7406", preferredAgent: "antigravity", hint: "\u5BF9\u6BD4\u5206\u6790\u3001\u4FE1\u606F\u63D0\u70BC\u4E0E\u8865\u5145" },
+      { id: "polish", label: "\u6821\u5BF9\u4E0E\u6267\u884C", preferredAgent: "qoder", hint: "\u7EC6\u8282\u68C0\u67E5\u4E0E\u89C4\u8303\u8F93\u51FA" }
+    ]
+  }
+];
+var BOARD_COLUMNS = [
+  { id: "todo", label: "TODO", targetKw: "TODO" },
+  { id: "doing", label: "DOING", targetKw: "DOING" },
+  { id: "review", label: "\u5F85\u786E\u8BA4", targetKw: "NEEDOK" },
+  { id: "done", label: "DONE", targetKw: "DONE" }
+];
+var RUNNING_STATES = /* @__PURE__ */ new Set(["run", "starting", "running", "busy"]);
+var WAITING_STATES = /* @__PURE__ */ new Set(["wait", "quiet", "needs-approval", "queued"]);
+var ATTENTION_STATES = /* @__PURE__ */ new Set(["needs-approval", "error", "limit"]);
+function stateRank(state) {
+  if (state === "needs-approval") return 0;
+  if (RUNNING_STATES.has(state)) return 1;
+  if (state === "error" || state === "limit") return 2;
+  if (state === "wait" || state === "quiet") return 3;
+  if (state === "queued") return 4;
+  if (state === "done" || state === "cancelled") return 6;
+  return 5;
+}
+function resolveSessionProject(session) {
+  const cwdName = sessionProjectName(session?.cwd || "");
+  if (cwdName) return cwdName;
+  const raw = String(session?.project || "").trim();
+  return raw && raw !== "?" && raw !== "~" ? raw : "";
+}
+function normalizeJobState(job) {
+  if (!job) return "idle";
+  if (job.state === "needs-approval") return "needs-approval";
+  if (job.state === "starting" || job.state === "running") return "run";
+  return job.state || "idle";
+}
+function mergeSessionsWithJobs(sessions = [], jobs = {}, agentEnabled = () => true) {
+  const out = [];
+  const seenKey = /* @__PURE__ */ new Set();
+  const jobBySid = /* @__PURE__ */ new Map();
+  for (const job of Object.values(jobs || {})) {
+    if (!job || !agentEnabled(job.agent)) continue;
+    if (job.sessionId) jobBySid.set(`${job.agent}:${job.sessionId}`, job);
+  }
+  for (const s of sessions || []) {
+    if (!s || !agentEnabled(s.agent)) continue;
+    const key = `${s.agent}:${s.sid}`;
+    const job = s.job || jobBySid.get(key) || null;
+    const state = job && activeJob(job) ? normalizeJobState(job) : s.state || "idle";
+    out.push({ ...s, state, job: job || s.job || null });
+    seenKey.add(key);
+  }
+  for (const job of Object.values(jobs || {})) {
+    if (!job || !agentEnabled(job.agent)) continue;
+    if (!activeJob(job)) continue;
+    const sid = job.sessionId || job.id;
+    const key = `${job.agent}:${sid}`;
+    if (seenKey.has(key)) continue;
+    seenKey.add(key);
+    out.push({
+      sid,
+      agent: job.agent,
+      title: job.name || AGENTS[job.agent]?.name || job.agent,
+      text: job.blockText || job.question || "",
+      cwd: job.cwd || "",
+      app: job.app || "",
+      state: normalizeJobState(job),
+      step: job.step || (job.handoff ? t("\u7B49\u4F60\u5728\u5BA2\u6237\u7AEF\u53D1\u51FA") : t("\u6B63\u5728\u542F\u52A8\u4F1A\u8BDD\u2026")),
+      lastAt: job.endedAt || job.startedAt || Date.now(),
+      tokens: job.tokens || 0,
+      model: job.model || "",
+      job,
+      isPendingJob: true
+    });
+  }
+  return out;
+}
+function buildProjectGroups(sessions = [], { jobs = {}, agentEnabled = () => true } = {}) {
+  const merged = mergeSessionsWithJobs(sessions, jobs, agentEnabled);
+  const byProj = /* @__PURE__ */ new Map();
+  for (const s of merged) {
+    const proj = resolveSessionProject(s);
+    const id = proj || STANDALONE_PROJECT_ID;
+    let g = byProj.get(id);
+    if (!g) {
+      g = {
+        id,
+        name: proj || t("\u72EC\u7ACB\u4F1A\u8BDD"),
+        isStandalone: !proj,
+        cwds: [],
+        agents: [],
+        sessions: [],
+        activeJobIds: [],
+        latestAt: 0,
+        counts: { running: 0, waiting: 0, attention: 0, error: 0, limit: 0, queued: 0, total: 0 }
+      };
+      byProj.set(id, g);
+    }
+    g.sessions.push(s);
+    if (s.cwd && !g.cwds.includes(s.cwd)) g.cwds.push(s.cwd);
+    if (s.agent && !g.agents.includes(s.agent)) g.agents.push(s.agent);
+    if (s.job && activeJob(s.job) && !g.activeJobIds.includes(s.job.id)) g.activeJobIds.push(s.job.id);
+    if ((s.lastAt || 0) > g.latestAt) g.latestAt = s.lastAt || 0;
+    const st = s.state || "idle";
+    g.counts.total += 1;
+    if (RUNNING_STATES.has(st)) g.counts.running += 1;
+    if (WAITING_STATES.has(st)) g.counts.waiting += 1;
+    if (ATTENTION_STATES.has(st)) g.counts.attention += 1;
+    if (st === "error") g.counts.error += 1;
+    if (st === "limit") g.counts.limit += 1;
+    if (st === "queued") g.counts.queued += 1;
+  }
+  const groups = [...byProj.values()];
+  for (const g of groups) {
+    g.agents.sort((a, b) => AGENT_ORDER.indexOf(a) - AGENT_ORDER.indexOf(b));
+    g.sessions.sort((a, b) => stateRank(a.state) - stateRank(b.state) || (b.lastAt || 0) - (a.lastAt || 0));
+  }
+  groups.sort((a, b) => {
+    const att = (b.counts.attention > 0 ? 1 : 0) - (a.counts.attention > 0 ? 1 : 0);
+    if (att) return att;
+    const run2 = (b.counts.running > 0 ? 1 : 0) - (a.counts.running > 0 ? 1 : 0);
+    if (run2) return run2;
+    if (a.isStandalone !== b.isStandalone) return a.isStandalone ? 1 : -1;
+    const wait = (b.counts.waiting > 0 ? 1 : 0) - (a.counts.waiting > 0 ? 1 : 0);
+    if (wait) return wait;
+    return (b.latestAt || 0) - (a.latestAt || 0) || a.name.localeCompare(b.name);
+  });
+  return groups;
+}
+function planRecentProjectDisplay(rows = [], { expanded = /* @__PURE__ */ new Set(), maxCards = 30, jobs = {}, agentEnabled = () => true } = {}) {
+  const groups = buildProjectGroups(rows, { jobs, agentEnabled }).slice(0, maxCards);
+  let extraBudget = Math.max(0, maxCards - groups.length);
+  let renderedCount = 0;
+  const planned = groups.map((g) => {
+    const isSingle = g.sessions.length === 1;
+    const isExpanded = !isSingle && expanded.has(g.id);
+    const extra = isExpanded ? Math.min(g.sessions.length - 1, extraBudget) : 0;
+    extraBudget -= extra;
+    const visibleItems = g.sessions.slice(0, 1 + extra);
+    renderedCount += visibleItems.length;
+    return {
+      ...g,
+      items: g.sessions,
+      visibleItems,
+      expanded: isExpanded,
+      stacked: !isSingle && !isExpanded,
+      unshownCount: Math.max(0, g.sessions.length - visibleItems.length)
+    };
+  });
+  return {
+    mode: "project",
+    total: rows.length,
+    renderedCount,
+    hiddenCount: Math.max(0, rows.length - renderedCount),
+    groups: planned
+  };
+}
+function delegableAgents(plugin) {
+  return AGENT_ORDER.filter((id) => (plugin?.agentEnabled ? plugin.agentEnabled(id) : true) && hasAgentCapability(id, "delegate"));
+}
+function limitAgentsFromSessions(sessions = []) {
+  const limited = /* @__PURE__ */ new Set();
+  for (const s of sessions || []) {
+    if (s?.agent && s.state === "limit") limited.add(s.agent);
+  }
+  return limited;
+}
+function resolveTeamPresets(settings = {}) {
+  const custom = settings?.projectTeams?.presets || {};
+  const labelOf = (s) => ({
+    "\u5168\u6808\u5F00\u53D1\u5C0F\u961F": t("\u5168\u6808\u5F00\u53D1\u5C0F\u961F"),
+    "\u67B6\u6784\u4E0E\u540E\u7AEF + \u529F\u80FD\u4E0E\u96C6\u6210 + \u63A2\u7D22\u4E0E\u6279\u5904\u7406": t("\u67B6\u6784\u4E0E\u540E\u7AEF + \u529F\u80FD\u4E0E\u96C6\u6210 + \u63A2\u7D22\u4E0E\u6279\u5904\u7406"),
+    "\u67B6\u6784\u4E0E\u540E\u7AEF": t("\u67B6\u6784\u4E0E\u540E\u7AEF"),
+    "\u63A5\u53E3\u8BBE\u8BA1\u3001\u6838\u5FC3\u903B\u8F91\u3001\u5355\u6D4B\u9A8C\u8BC1": t("\u63A5\u53E3\u8BBE\u8BA1\u3001\u6838\u5FC3\u903B\u8F91\u3001\u5355\u6D4B\u9A8C\u8BC1"),
+    "\u529F\u80FD\u4E0E\u96C6\u6210": t("\u529F\u80FD\u4E0E\u96C6\u6210"),
+    "\u7AEF\u5230\u7AEF\u5B9E\u73B0\u3001\u91CD\u6784\u4E0E\u8054\u8C03\u6536\u5C3E": t("\u7AEF\u5230\u7AEF\u5B9E\u73B0\u3001\u91CD\u6784\u4E0E\u8054\u8C03\u6536\u5C3E"),
+    "\u63A2\u7D22\u4E0E\u6279\u5904\u7406": t("\u63A2\u7D22\u4E0E\u6279\u5904\u7406"),
+    "\u4EE3\u7801\u68C0\u7D22\u3001\u8F85\u52A9\u811A\u672C\u3001\u6587\u6863\u8349\u7A3F": t("\u4EE3\u7801\u68C0\u7D22\u3001\u8F85\u52A9\u811A\u672C\u3001\u6587\u6863\u8349\u7A3F"),
+    "\u6392\u9519\u91CD\u6784\u5C0F\u961F": t("\u6392\u9519\u91CD\u6784\u5C0F\u961F"),
+    "\u6839\u56E0\u5B9A\u4F4D + \u8865\u4E01\u4E0E\u6D4B\u8BD5 + \u4EA4\u53C9\u590D\u6838": t("\u6839\u56E0\u5B9A\u4F4D + \u8865\u4E01\u4E0E\u6D4B\u8BD5 + \u4EA4\u53C9\u590D\u6838"),
+    "\u6839\u56E0\u5B9A\u4F4D": t("\u6839\u56E0\u5B9A\u4F4D"),
+    "\u590D\u73B0\u95EE\u9898\u3001\u68B3\u7406\u8C03\u7528\u94FE\u4E0E\u8FB9\u754C": t("\u590D\u73B0\u95EE\u9898\u3001\u68B3\u7406\u8C03\u7528\u94FE\u4E0E\u8FB9\u754C"),
+    "\u8865\u4E01\u4E0E\u6D4B\u8BD5": t("\u8865\u4E01\u4E0E\u6D4B\u8BD5"),
+    "\u6700\u5C0F\u5316\u4FEE\u590D\u5E76\u8865\u9F50\u56DE\u5F52\u6D4B\u8BD5": t("\u6700\u5C0F\u5316\u4FEE\u590D\u5E76\u8865\u9F50\u56DE\u5F52\u6D4B\u8BD5"),
+    "\u4EA4\u53C9\u590D\u6838": t("\u4EA4\u53C9\u590D\u6838"),
+    "\u8FB9\u754C\u68C0\u67E5\u4E0E\u56DE\u5F52\u98CE\u9669\u5BA1\u67E5": t("\u8FB9\u754C\u68C0\u67E5\u4E0E\u56DE\u5F52\u98CE\u9669\u5BA1\u67E5"),
+    "\u8C03\u7814\u4E0E\u6587\u6863\u5C0F\u961F": t("\u8C03\u7814\u4E0E\u6587\u6863\u5C0F\u961F"),
+    "\u65B9\u6848\u8BBE\u8BA1 + \u8D44\u6599\u6574\u7406 + \u6821\u5BF9\u6267\u884C": t("\u65B9\u6848\u8BBE\u8BA1 + \u8D44\u6599\u6574\u7406 + \u6821\u5BF9\u6267\u884C"),
+    "\u65B9\u6848\u8BBE\u8BA1": t("\u65B9\u6848\u8BBE\u8BA1"),
+    "\u62C6\u89E3\u601D\u8DEF\u3001\u68B3\u7406\u7ED3\u6784\u4E0E\u5173\u952E\u7ED3\u8BBA": t("\u62C6\u89E3\u601D\u8DEF\u3001\u68B3\u7406\u7ED3\u6784\u4E0E\u5173\u952E\u7ED3\u8BBA"),
+    "\u8D44\u6599\u6574\u7406": t("\u8D44\u6599\u6574\u7406"),
+    "\u5BF9\u6BD4\u5206\u6790\u3001\u4FE1\u606F\u63D0\u70BC\u4E0E\u8865\u5145": t("\u5BF9\u6BD4\u5206\u6790\u3001\u4FE1\u606F\u63D0\u70BC\u4E0E\u8865\u5145"),
+    "\u6821\u5BF9\u4E0E\u6267\u884C": t("\u6821\u5BF9\u4E0E\u6267\u884C"),
+    "\u7EC6\u8282\u68C0\u67E5\u4E0E\u89C4\u8303\u8F93\u51FA": t("\u7EC6\u8282\u68C0\u67E5\u4E0E\u89C4\u8303\u8F93\u51FA")
+  })[s] || s;
+  return DEFAULT_TEAM_PRESETS.map((preset) => {
+    const saved = custom[preset.id];
+    const roleOverrides = saved?.roleAgents || {};
+    return {
+      ...preset,
+      name: labelOf(preset.name),
+      desc: labelOf(preset.desc),
+      roles: preset.roles.map((r) => ({
+        ...r,
+        label: labelOf(r.label),
+        hint: labelOf(r.hint),
+        preferredAgent: roleOverrides[r.id] || r.preferredAgent
+      }))
+    };
+  });
+}
+function resolveRoleAgent(preferredAgent, { availableAgents = [], limitAgents = /* @__PURE__ */ new Set(), fallbackAgent = "" } = {}) {
+  const pool = availableAgents.length ? availableAgents : ["claude"];
+  if (preferredAgent && pool.includes(preferredAgent) && !limitAgents.has(preferredAgent)) {
+    return { agent: preferredAgent, fallbackFrom: "", limited: false };
+  }
+  const healthy = pool.find((id) => !limitAgents.has(id));
+  if (healthy) {
+    return {
+      agent: healthy,
+      fallbackFrom: preferredAgent && preferredAgent !== healthy ? preferredAgent : "",
+      limited: Boolean(preferredAgent && limitAgents.has(preferredAgent))
+    };
+  }
+  const kept = preferredAgent && pool.includes(preferredAgent) ? preferredAgent : fallbackAgent && pool.includes(fallbackAgent) ? fallbackAgent : pool[0];
+  return { agent: kept, fallbackFrom: "", limited: limitAgents.has(kept) };
+}
+function assignTeamToRoles(preset, { availableAgents = [], limitAgents = /* @__PURE__ */ new Set(), overrides = {}, defaultDestinationFn } = {}) {
+  return (preset?.roles || []).map((role) => {
+    const chosen = overrides[role.id] || role.preferredAgent;
+    const resolved = resolveRoleAgent(chosen, { availableAgents, limitAgents });
+    const dests = destinations(resolved.agent);
+    const defaultDest = defaultDestinationFn ? defaultDestinationFn(resolved.agent) : dests.find((d) => d.id === "background")?.id || dests[0]?.id || "background";
+    return {
+      ...role,
+      agent: resolved.agent,
+      fallbackFrom: resolved.fallbackFrom,
+      limited: resolved.limited,
+      destination: defaultDest
+    };
+  });
+}
+function buildCopilotPlanPrompt({ goal = "", projectName: projectName2 = "", cwd = "", contextLines = [], roles = [], availableAgents = [] } = {}) {
+  const roleDesc = roles.map((r) => `- ${r.label} (\u5EFA\u8BAE ${r.agent}): ${r.hint}`).join("\n");
+  const agentsDesc = availableAgents.map((id) => `${id} (${AGENTS[id]?.name || id})`).join(", ");
+  const ctx = contextLines.filter((l) => l && l.trim()).slice(-6).join("\n");
+  return [
+    "\u4F60\u662F\u9879\u76EE\u5DE5\u4F5C\u53F0\u7684\u4EFB\u52A1\u62C6\u89E3\u526F\u9A7E\u3002\u8BF7\u6839\u636E\u9879\u76EE\u76EE\u6807\uFF0C\u62C6\u89E3\u51FA 2 \u5230 5 \u4E2A\u53EF\u5E76\u884C\u6216\u5206\u6B65\u59D4\u6D3E\u7ED9\u4E0D\u540C Agent \u7684\u6E05\u6670\u5B50\u4EFB\u52A1\uFF0C\u53EA\u8F93\u51FA\u5408\u6CD5 JSON\uFF0C\u4E0D\u8981\u8F93\u51FA Markdown \u89E3\u91CA\u6216\u591A\u4F59\u6587\u5B57\u3002",
+    'JSON \u683C\u5F0F\uFF1A{"summary":"\u4E00\u53E5\u8BDD\u9879\u76EE\u76EE\u6807","subtasks":[{"title":"\u7B80\u6D01\u53EF\u6267\u884C\u5B50\u4EFB\u52A1\u6807\u9898\uFF08\u4E0D\u8D85\u8FC728\u5B57\uFF09","role":"\u89D2\u8272\u540D","agent":"agent_id","detail":"\u9A8C\u6536\u8981\u6C42\u6216\u8865\u5145\u8BF4\u660E\uFF08\u4E0D\u8D85\u8FC780\u5B57\uFF09"}]}',
+    projectName2 ? `\u9879\u76EE\u540D\uFF1A${projectName2}` : "",
+    cwd ? `\u5DE5\u4F5C\u76EE\u5F55\uFF1A${cwd}` : "",
+    `\u53EF\u7528 Agent ID\uFF08agent \u5B57\u6BB5\u5FC5\u987B\u4ECE\u8FD9\u91CC\u9009\uFF09\uFF1A${agentsDesc || "claude"}`,
+    roleDesc ? `\u5F53\u524D\u5C0F\u961F\u5206\u5DE5\uFF1A
+${roleDesc}` : "",
+    ctx ? `\u76F8\u5173\u7236\u7EA7\u4E0A\u4E0B\u6587\uFF1A
+${ctx}` : "",
+    `\u5F85\u62C6\u89E3\u76EE\u6807\uFF1A
+${String(goal || "").trim()}`
+  ].filter(Boolean).join("\n\n");
+}
+function extractJsonObject(raw) {
+  const text = String(raw || "").trim();
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/i.exec(text);
+  const candidate = fenced ? fenced[1].trim() : text;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  return JSON.parse(candidate.slice(start, end + 1));
+}
+function parseCopilotPlanResponse(raw, { availableAgents = ["claude"], roles = [], defaultAgent = "claude" } = {}) {
+  let parsed = null;
+  try {
+    parsed = extractJsonObject(raw);
+  } catch {
+    return null;
+  }
+  if (!parsed || !Array.isArray(parsed.subtasks) || !parsed.subtasks.length) return null;
+  const pool = availableAgents.length ? availableAgents : [defaultAgent || "claude"];
+  const fallback = pool.includes(defaultAgent) ? defaultAgent : pool[0];
+  const subtasks = parsed.subtasks.slice(0, 8).map((item, idx) => {
+    const title = truncate(String(item?.title || "").replace(/\s+/g, " ").trim(), 48);
+    if (!title) return null;
+    const roleName = String(item?.role || "").trim();
+    const matchedRole = roles.find((r) => r.label === roleName || r.id === roleName) || roles[idx % Math.max(1, roles.length)];
+    const rawAgent = String(item?.agent || "").trim().toLowerCase();
+    const agent = pool.includes(rawAgent) ? rawAgent : matchedRole && pool.includes(matchedRole.agent) ? matchedRole.agent : fallback;
+    return {
+      checked: true,
+      title,
+      role: roleName || matchedRole?.label || t("\u534F\u4F5C\u4EFB\u52A1"),
+      agent,
+      detail: String(item?.detail || "").replace(/\s+/g, " ").trim().slice(0, 160)
+    };
+  }).filter(Boolean);
+  if (!subtasks.length) return null;
+  return {
+    summary: String(parsed.summary || "").trim(),
+    subtasks
+  };
+}
+function fallbackCopilotPlan({ goal = "", roles = [], defaultAgent = "claude" } = {}) {
+  const lines = String(goal || "").split(/\r?\n/).map((l) => l.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").trim()).filter(Boolean);
+  const activeRoles = roles.length ? roles : [{ label: t("\u4E3B\u8D23\u6267\u884C"), agent: defaultAgent || "claude" }];
+  if (lines.length >= 2) {
+    return {
+      summary: lines[0],
+      subtasks: lines.slice(0, 8).map((line, i) => {
+        const role = activeRoles[i % activeRoles.length];
+        return { checked: true, title: truncate(line, 48), role: role.label, agent: role.agent || defaultAgent, detail: "" };
+      })
+    };
+  }
+  const core = truncate(lines[0] || t("\u63A8\u8FDB\u9879\u76EE\u5F00\u53D1"), 36);
+  return {
+    summary: core,
+    subtasks: activeRoles.map((role) => ({
+      checked: true,
+      title: `${role.label}\uFF1A${core}`,
+      role: role.label,
+      agent: role.agent || defaultAgent,
+      detail: role.hint || ""
+    }))
+  };
+}
+function formatWorkbenchTasksMarkdown({ parentTitle = "", subtasks = [], indent = "", childIndentStr = "	", includeParent = true, assignBlockIds = false } = {}) {
+  const lines = [];
+  const subIndent = includeParent ? `${indent}${childIndentStr}` : indent;
+  const detailIndent = `${subIndent}	`;
+  if (includeParent) {
+    const parentId = assignBlockIds ? ` ^${makeBlockId("", "ad", "wb")}` : "";
+    lines.push(`${indent}- TODO ${String(parentTitle || t("\u9879\u76EE\u534F\u540C\u4EFB\u52A1")).trim()}${parentId}`);
+  }
+  for (const item of subtasks) {
+    if (!item || item.checked === false) continue;
+    const title = String(item.title || "").trim();
+    if (!title) continue;
+    const mention = item.agent ? ` @${item.agent}` : "";
+    const bid = assignBlockIds ? ` ^${makeBlockId("", item.agent || "ad", "wb")}` : "";
+    lines.push(`${subIndent}- TODO ${title}${mention}${bid}`);
+    if (item.detail && item.detail.trim()) {
+      lines.push(`${detailIndent}- ${item.detail.trim()}`);
+    }
+  }
+  return lines.join("\n");
+}
+function insertWorkbenchBlockLines(lines = [], inserted = []) {
+  const out = [...lines];
+  const activeEndIdx = out.findIndex((l) => l.trim() === "<!-- agent-deck:section:active:end -->");
+  if (activeEndIdx >= 0) {
+    let insertAt = activeEndIdx;
+    while (insertAt > 0 && !out[insertAt - 1].trim()) insertAt -= 1;
+    out.splice(insertAt, 0, ...inserted);
+    return { lines: out, parentLine: insertAt };
+  }
+  while (out.length && !out[out.length - 1].trim()) out.pop();
+  if (out.length) out.push("");
+  const parentLine = out.length;
+  out.push(...inserted);
+  return { lines: out, parentLine };
+}
+function classifyTaskStatusColumn(kw = "", state = "") {
+  const upper = String(kw || "").toUpperCase();
+  if (["DONE", "CANCELED", "CANCELLED", "FAILED"].includes(upper) || state === "done" || state === "cancelled") return "done";
+  if (["DOING", "NOW", "IN-PROGRESS", "DELEGATED"].includes(upper) || state === "run") return "doing";
+  if (["NEEDOK", "TOREVIEW", "WAITING", "WAIT", "PAUSED", "SUSPENDED", "ERRORED", "HITLIMIT"].includes(upper) || state === "needs-approval" || state === "error" || state === "limit") return "review";
+  return "todo";
+}
+function cleanBoardCardTitle(rawBody = "", trigger = "@") {
+  const withoutMention = stripTaskMention(rawBody, trigger);
+  return stripInlineTitleMarkup(
+    stripBlockId(withoutMention).replace(/^🤖\s*/u, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "").trim()
+  );
+}
+function extractTaskBoardGroups(text, { trackedIds: trackedIds2 = /* @__PURE__ */ new Set(), trigger = "@" } = {}) {
+  if (!text) return [];
+  const lines = String(text).split("\n");
+  const fenced = fencedLines(lines);
+  const titleCounts = /* @__PURE__ */ new Map();
+  const out = [];
+  const parseChildCard = (k, endLine, directChildIndent) => {
+    const mirror = parseMirrorRef(lines[k]);
+    const childKw = kwLine(lines[k]);
+    if (!mirror && (!childKw || !childKw.kw)) return null;
+    let cardEnd = k;
+    for (let m = k + 1; m <= endLine; m++) {
+      if (!lines[m].trim()) continue;
+      if (width(lines[m]) <= directChildIndent) break;
+      cardEnd = m;
+    }
+    let mention = null;
+    try {
+      mention = taskMention(lines[k], trigger);
+    } catch {
+      mention = null;
+    }
+    let link = null;
+    let latestConclusion = "";
+    const subCards = [];
+    let subIndent = -1;
+    for (let m = k + 1; m <= cardEnd; m++) {
+      if (fenced.has(m)) continue;
+      if (!lines[m].trim()) continue;
+      const w = width(lines[m]);
+      if (subIndent < 0) subIndent = w;
+      if (!link) {
+        const parsedLink = parseLink(lines[m]);
+        if (parsedLink) link = parsedLink;
+      }
+      const trimmed = lines[m].trim();
+      if (/^[-*+]\s+💬\s/.test(trimmed)) {
+        latestConclusion = trimmed.replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:])?\s*/, "").replace(RECORD_PROVENANCE_RE, "").trim();
+      }
+      if (w === subIndent && LIST_RE.test(lines[m]) && !RECORD_LINE_RE.test(lines[m])) {
+        const subKw = kwLine(lines[m]);
+        const subMirror = parseMirrorRef(lines[m]);
+        if (subMirror || subKw && subKw.kw) {
+          let subMention = null;
+          try {
+            subMention = taskMention(lines[m], trigger);
+          } catch {
+            subMention = null;
+          }
+          let subLink = null;
+          let subEnd = m;
+          for (let s = m + 1; s <= cardEnd; s++) {
+            if (!lines[s].trim()) continue;
+            if (width(lines[s]) <= subIndent) break;
+            subEnd = s;
+            if (!fenced.has(s) && !subLink) subLink = parseLink(lines[s]);
+          }
+          subCards.push({
+            line: m,
+            endLine: subEnd,
+            kw: subKw?.kw || "TODO",
+            column: classifyTaskStatusColumn(subKw?.kw || "TODO"),
+            blockId: subKw?.blockId || "",
+            title: subMirror ? subMirror.alias || subMirror.target : cleanBoardCardTitle(subKw.body, trigger) || subKw.body,
+            agent: subLink?.agent || subMention?.agent || "",
+            sid: subLink?.sid || "",
+            hasLink: Boolean(subLink),
+            latestConclusion: "",
+            mirror: subMirror,
+            isMirror: Boolean(subMirror),
+            parentLine: k
+          });
+        }
+      }
+    }
+    const bodyText = childKw?.body || mirror?.alias || mirror?.target || "";
+    return {
+      line: k,
+      endLine: cardEnd,
+      kw: childKw?.kw || "TODO",
+      column: classifyTaskStatusColumn(childKw?.kw || "TODO"),
+      blockId: childKw?.blockId || "",
+      title: mirror ? mirror.alias || `${mirror.target}#^${mirror.blockId}` : cleanBoardCardTitle(bodyText, trigger) || bodyText,
+      agent: link?.agent || mention?.agent || "",
+      sid: link?.sid || "",
+      hasLink: Boolean(link),
+      latestConclusion,
+      mirror,
+      isMirror: Boolean(mirror),
+      subCards,
+      childCardCount: subCards.length,
+      childDoneCount: subCards.filter((c) => c.column === "done").length,
+      subBoardKey: ""
+    };
+  };
+  for (let i = 0; i < lines.length; i++) {
+    if (fenced.has(i) || !LIST_RE.test(lines[i])) continue;
+    if (RECORD_LINE_RE.test(lines[i])) continue;
+    const parentKw = kwLine(lines[i]);
+    if (!parentKw) continue;
+    const parentIndent = width(lines[i]);
+    let endLine = i;
+    for (let k = i + 1; k < lines.length; k++) {
+      if (!lines[k].trim()) continue;
+      if (width(lines[k]) <= parentIndent) break;
+      endLine = k;
+    }
+    if (endLine === i) continue;
+    let directChildIndent = -1;
+    for (let k = i + 1; k <= endLine; k++) {
+      if (fenced.has(k) || !lines[k].trim()) continue;
+      directChildIndent = width(lines[k]);
+      break;
+    }
+    if (directChildIndent <= parentIndent) continue;
+    const cards = [];
+    for (let k = i + 1; k <= endLine; k++) {
+      if (fenced.has(k) || !lines[k].trim()) continue;
+      if (width(lines[k]) !== directChildIndent) continue;
+      if (!LIST_RE.test(lines[k]) || RECORD_LINE_RE.test(lines[k])) continue;
+      const card = parseChildCard(k, endLine, directChildIndent);
+      if (!card) continue;
+      cards.push(card);
+      k = card.endLine;
+    }
+    if (cards.length < 2) continue;
+    const baseTitle = cleanBoardCardTitle(parentKw.body, trigger) || parentKw.body;
+    const occ = (titleCounts.get(baseTitle) || 0) + 1;
+    titleCounts.set(baseTitle, occ);
+    const stableKey = `board:${baseTitle}${occ > 1 ? `#${occ}` : ""}`;
+    const key = parentKw.blockId || stableKey;
+    out.push({
+      key,
+      stableKey,
+      line: i,
+      endLine,
+      indent: parentIndent,
+      title: baseTitle,
+      kw: parentKw.kw,
+      tracked: Boolean(isDeckBlockId(parentKw.blockId) || trackedIds2.has(parentKw.blockId) || parentKw.body.startsWith("\u{1F916}")),
+      cards,
+      topLevel: true
+    });
+  }
+  const byLine = new Map(out.map((g) => [g.line, g]));
+  for (const g of out) {
+    g.topLevel = !out.some((outer) => outer !== g && outer.line < g.line && g.line <= outer.endLine);
+    for (const card of g.cards) {
+      const sub = byLine.get(card.line);
+      if (sub) card.subBoardKey = sub.key;
+    }
+  }
+  return out;
+}
+function enrichCardWithRuntime(card, plugin, resolveMirror = null) {
+  let base = { ...card };
+  if (base.isMirror && base.mirror && typeof resolveMirror === "function") {
+    const resolved = resolveMirror(base.mirror);
+    if (resolved) {
+      base = {
+        ...base,
+        title: resolved.title || base.title,
+        kw: resolved.kw || base.kw,
+        column: resolved.column || base.column,
+        agent: resolved.agent || base.agent,
+        sid: resolved.sid || base.sid,
+        hasLink: Boolean(resolved.hasLink || base.hasLink),
+        latestConclusion: resolved.latestConclusion || base.latestConclusion,
+        mirrorTarget: resolved.mirrorTarget || null
+      };
+    }
+  }
+  const jobs = Object.values(plugin?.jobs || {});
+  const job = jobs.find(
+    (j) => base.blockId && j.blockId === base.blockId || base.sid && j.sessionId === base.sid || j.line === base.line && j.name && base.title.includes(j.name.slice(0, 12))
+  );
+  const liveMeta = base.sid ? plugin?.usage?.meta?.get?.(base.sid) : null;
+  const effectiveState = job && activeJob(job) ? normalizeJobState(job) : liveMeta?.state || "";
+  const colId = effectiveState ? classifyTaskStatusColumn(base.kw, effectiveState) : base.column;
+  return {
+    ...base,
+    column: colId,
+    agent: job?.agent || base.agent,
+    activeJob: job && activeJob(job) ? job : null,
+    liveState: effectiveState,
+    step: job?.step || liveMeta?.step || ""
+  };
+}
+function buildTaskBoardModel(group, plugin = null, { groupBy = "status", resolveMirror = null } = {}) {
+  const enriched = (group?.cards || []).map((c) => enrichCardWithRuntime(c, plugin, resolveMirror));
+  const groupedCards = enriched.filter((c) => (c.subCards || []).length > 0);
+  const canGroupByChildren = groupedCards.length > 0;
+  const activeGroupBy = groupBy === "children" && canGroupByChildren ? "children" : "status";
+  let columns;
+  if (activeGroupBy === "children") {
+    columns = groupedCards.map((parent) => ({
+      id: `parent:${parent.line}`,
+      label: truncate(parent.title, 26),
+      targetParentLine: parent.line,
+      cards: (parent.subCards || []).map((sc) => enrichCardWithRuntime(sc, plugin, resolveMirror))
+    }));
+    const leaves = enriched.filter((c) => !(c.subCards || []).length);
+    if (leaves.length) {
+      columns.push({
+        id: `parent:${group.line}`,
+        label: t("\u672A\u5206\u7EC4"),
+        targetParentLine: group.line,
+        cards: leaves
+      });
+    }
+  } else {
+    columns = BOARD_COLUMNS.map((col) => ({ ...col, cards: [] }));
+    const byCol = new Map(columns.map((c) => [c.id, c]));
+    for (const card of enriched) {
+      const col = byCol.get(card.column) || columns[0];
+      col.cards.push(card);
+    }
+  }
+  const allCards = activeGroupBy === "children" ? columns.flatMap((c) => c.cards) : enriched;
+  const doneCount = allCards.filter((c) => c.column === "done").length;
+  const doingCount = allCards.filter((c) => c.column === "doing").length;
+  const reviewCount = allCards.filter((c) => c.column === "review").length;
+  const todoCount = allCards.filter((c) => c.column === "todo").length;
+  return {
+    key: group.key,
+    stableKey: group.stableKey,
+    line: group.line,
+    title: group.title,
+    groupBy: activeGroupBy,
+    canGroupByChildren,
+    columns,
+    stats: {
+      total: allCards.length,
+      done: doneCount,
+      doing: doingCount,
+      review: reviewCount,
+      todo: todoCount,
+      progressPct: allCards.length ? Math.round(doneCount / allCards.length * 100) : 0
+    },
+    todoDispatchCount: allCards.filter((c) => c.column === "todo" && !c.hasLink && !c.activeJob && !c.isMirror).length
+  };
+}
+function insertTaskBoardCard(text, parentLine, { title = "", column = "todo", agent = "" } = {}) {
+  const cleanTitle = String(title || "").trim();
+  if (!cleanTitle) return text;
+  const lines = String(text || "").split("\n");
+  if (parentLine < 0 || parentLine >= lines.length) return text;
+  const col = BOARD_COLUMNS.find((c) => c.id === column) || BOARD_COLUMNS[0];
+  const indent = childIndent(lines, parentLine);
+  let insertAt = parentLine + 1;
+  const parentW = width(lines[parentLine]);
+  while (insertAt < lines.length && (!lines[insertAt].trim() || width(lines[insertAt]) > parentW)) {
+    insertAt += 1;
+  }
+  const mention = agent ? ` @${agent}` : "";
+  lines.splice(insertAt, 0, `${indent}- ${col.targetKw} ${cleanTitle}${mention}`);
+  return lines.join("\n");
+}
+function setTaskBoardCardAgent(text, cardLine, agent = "", trigger = "@") {
+  const lines = String(text || "").split("\n");
+  if (cardLine < 0 || cardLine >= lines.length) return text;
+  const raw = lines[cardLine];
+  const blockId = blockIdOf(raw);
+  const withoutId = stripBlockId(raw);
+  const cleaned = stripTaskMention(withoutId, trigger).trimEnd();
+  const nextBody = agent ? `${cleaned} ${trigger}${agent}` : cleaned;
+  lines[cardLine] = blockId ? `${nextBody} ^${blockId}` : nextBody;
+  return lines.join("\n");
+}
+function moveTaskBoardCardSubtree(text, cardLine, { targetColumn = "", beforeLine = -1, targetParentLine = -1 } = {}) {
+  let working = text;
+  if (targetColumn) {
+    working = moveTaskBoardCardStatus(working, cardLine, targetColumn);
+  }
+  if (beforeLine < 0 && targetParentLine < 0) return working;
+  const lines = working.split("\n");
+  if (cardLine < 0 || cardLine >= lines.length) return working;
+  const srcW = width(lines[cardLine]);
+  let srcEnd = cardLine + 1;
+  while (srcEnd < lines.length && (!lines[srcEnd].trim() || width(lines[srcEnd]) > srcW)) srcEnd += 1;
+  while (srcEnd > cardLine + 1 && !lines[srcEnd - 1].trim()) srcEnd -= 1;
+  const chunk = lines.slice(cardLine, srcEnd);
+  let targetIndent = (/^\s*/.exec(lines[cardLine]) || [""])[0];
+  if (targetParentLine >= 0 && targetParentLine < lines.length) {
+    targetIndent = childIndent(lines, targetParentLine);
+  }
+  const srcIndent = (/^\s*/.exec(chunk[0]) || [""])[0];
+  const reindented = chunk.map((l) => {
+    if (!l.trim()) return l;
+    return l.startsWith(srcIndent) ? targetIndent + l.slice(srcIndent.length) : l;
+  });
+  let insertAt = -1;
+  if (beforeLine >= 0 && beforeLine < lines.length) {
+    insertAt = beforeLine;
+  } else if (targetParentLine >= 0 && targetParentLine < lines.length) {
+    const pW = width(lines[targetParentLine]);
+    let pEnd = targetParentLine + 1;
+    while (pEnd < lines.length && (!lines[pEnd].trim() || width(lines[pEnd]) > pW)) pEnd += 1;
+    while (pEnd > targetParentLine + 1 && !lines[pEnd - 1].trim()) pEnd -= 1;
+    insertAt = pEnd;
+  }
+  if (insertAt < 0 || insertAt >= cardLine && insertAt <= srcEnd) return working;
+  const count = srcEnd - cardLine;
+  lines.splice(cardLine, count);
+  const adjustedAt = insertAt > cardLine ? insertAt - count : insertAt;
+  lines.splice(adjustedAt, 0, ...reindented);
+  return lines.join("\n");
+}
+function buildBoardSiblingContext(model, activeCardLine = -1) {
+  if (!model || !Array.isArray(model.columns)) return "";
+  const lines = [];
+  for (const col of model.columns) {
+    for (const card of col.cards) {
+      if (card.line === activeCardLine) continue;
+      const who = card.agent ? ` (${AGENTS[card.agent]?.short || card.agent})` : "";
+      lines.push(`- [${col.id.toUpperCase()}] ${card.title}${who}`);
+      if (lines.length >= 10) break;
+    }
+    if (lines.length >= 10) break;
+  }
+  if (!lines.length) return "";
+  return `${t("\u540C\u770B\u677F\u534F\u540C\u5206\u5DE5\uFF08\u6BCD\u4EFB\u52A1\uFF1A{title}\uFF09\uFF1A", { title: model.title })}
+${lines.join("\n")}`;
+}
+function moveTaskBoardCardStatus(text, cardLine, targetColumn) {
+  const col = BOARD_COLUMNS.find((c) => c.id === targetColumn);
+  if (!col) return text;
+  const lines = String(text || "").split("\n");
+  if (cardLine < 0 || cardLine >= lines.length) return text;
+  const raw = lines[cardLine];
+  const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(.*)$/.exec(raw);
+  if (!m) return text;
+  const prefix = m[1];
+  const stamp = m[2] || "";
+  let rest = m[3];
+  const cb = /^\[([ xX\/\-])\]\s*/.exec(rest);
+  let cbStr = "";
+  if (cb) {
+    const mark = targetColumn === "done" ? "x" : targetColumn === "doing" ? "/" : " ";
+    cbStr = `[${mark}] `;
+    rest = rest.slice(cb[0].length);
+  }
+  const kwMatch = new RegExp(`^(${TASK_KWS})(?=\\s|$)\\s*`, "i").exec(rest);
+  if (kwMatch) {
+    rest = rest.slice(kwMatch[0].length);
+    lines[cardLine] = `${prefix}${stamp}${cbStr}${col.targetKw} ${rest}`.trimEnd();
+  } else if (cb) {
+    lines[cardLine] = `${prefix}${stamp}${cbStr}${rest}`.trimEnd();
+  } else {
+    lines[cardLine] = `${prefix}${stamp}${col.targetKw} ${rest}`.trimEnd();
+  }
+  return lines.join("\n");
+}
+
+// src/fractal-board.js
+var setTaskBoardEffect = import_state2.StateEffect.define();
+var BOARD_CARD_MIME = "application/x-agent-deck-board-card";
+function taskBoardPref(settings, group) {
+  const map = settings?.taskBoardViews;
+  const fallback = { mode: "outline", groupBy: "status", zoomStack: [] };
+  if (!map || !group) return fallback;
+  for (const k of [group.key, group.stableKey]) {
+    if (!k || !Object.hasOwn(map, k)) continue;
+    const raw = map[k];
+    if (raw === "board") return { mode: "board", groupBy: "status", zoomStack: [] };
+    if (raw && typeof raw === "object") {
+      return {
+        mode: raw.mode === "board" ? "board" : "outline",
+        groupBy: raw.groupBy === "children" ? "children" : "status",
+        zoomStack: Array.isArray(raw.zoomStack) ? raw.zoomStack.filter(Boolean) : []
+      };
+    }
+  }
+  return fallback;
+}
+function taskBoardMode(settings, group) {
+  return taskBoardPref(settings, group).mode;
+}
+function rememberBoardPref(plugin, key, patch, stableKey = "") {
+  var _a;
+  const views = (_a = plugin.settings).taskBoardViews || (_a.taskBoardViews = {});
+  const keys = [key, stableKey].filter((k, i, a) => k && a.indexOf(k) === i);
+  const current = taskBoardPref(plugin.settings, { key, stableKey });
+  const next = { ...current, ...patch };
+  if (next.mode !== "board") {
+    for (const k of keys) delete views[k];
+  } else {
+    const val = next.groupBy === "status" && !next.zoomStack.length ? "board" : { mode: "board", groupBy: next.groupBy, zoomStack: next.zoomStack };
+    for (const k of keys) views[k] = val;
+  }
+  plugin.saveSettings?.();
+  plugin.refreshUI?.();
+}
+var BOARD_ICON_SVG = '<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="2" y="2.5" width="3.5" height="11" rx="1"/><rect x="6.5" y="2.5" width="3.5" height="7.5" rx="1"/><rect x="11" y="2.5" width="3" height="9.5" rx="1"/></svg>';
+var BoardToggleWidget = class extends import_view3.WidgetType {
+  constructor(plugin, key, line, mode, count) {
+    super();
+    this.plugin = plugin;
+    this.key = key;
+    this.line = line;
+    this.mode = mode;
+    this.count = count;
+  }
+  eq(other) {
+    return other.key === this.key && other.line === this.line && other.mode === this.mode && other.count === this.count;
+  }
+  toDOM(view) {
+    const doc = view.dom.ownerDocument;
+    const btn = doc.createElement("button");
+    btn.type = "button";
+    btn.className = `ad-board-toggle${this.mode === "board" ? " is-on" : ""}`;
+    btn.title = this.mode === "board" ? t("\u5207\u56DE\u5927\u7EB2\u89C6\u56FE") : t("\u5207\u6362\u4E3A\u5206\u5F62\u770B\u677F\uFF08{n} \u5F20\u5B50\u5361\uFF09", { n: this.count });
+    btn.setAttribute("aria-label", btn.title);
+    const ico = btn.appendChild(doc.createElement("span"));
+    ico.className = "ad-board-toggle__ico";
+    ico.innerHTML = BOARD_ICON_SVG;
+    const label = btn.appendChild(doc.createElement("span"));
+    label.textContent = this.mode === "board" ? t("\u5927\u7EB2") : t("\u770B\u677F {n}", { n: this.count });
+    btn.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const next = this.mode === "board" ? "outline" : "board";
+      view.dispatch({ effects: setTaskBoardEffect.of({ key: this.key, mode: next }) });
+    });
+    return btn;
+  }
+  ignoreEvent() {
+    return true;
+  }
+};
+var TaskBoardWidget = class extends import_view3.WidgetType {
+  constructor(plugin, rootGroup, activeGroup, model, pref, breadcrumbs, sourcePath) {
+    super();
+    this.plugin = plugin;
+    this.rootGroup = rootGroup;
+    this.activeGroup = activeGroup;
+    this.model = model;
+    this.pref = pref;
+    this.breadcrumbs = breadcrumbs;
+    this.sourcePath = sourcePath;
+    this.sig = JSON.stringify({
+      rootKey: rootGroup.key,
+      key: model.key,
+      line: model.line,
+      groupBy: model.groupBy,
+      crumbs: breadcrumbs.map((b) => b.key),
+      cols: model.columns.map((c) => [c.id, c.cards.map((k) => [
+        k.line,
+        k.kw,
+        k.title,
+        k.agent,
+        k.liveState,
+        k.latestConclusion,
+        k.childCardCount,
+        k.isMirror
+      ])])
+    });
+  }
+  eq(other) {
+    return other.sig === this.sig && other.sourcePath === this.sourcePath;
+  }
+  jumpTo(view, line) {
+    const stDoc = view.state.doc;
+    const target = Math.min(Math.max(0, line), Math.max(0, (stDoc.lines || 1) - 1));
+    const lineObj = stDoc.line(target + 1);
+    const leading = (/^\s*/.exec(lineObj.text || "") || [""])[0].length;
+    view.dispatch({
+      effects: [setTaskBoardEffect.of({ key: this.rootGroup.key, mode: "outline" })],
+      selection: { anchor: lineObj.from + leading },
+      scrollIntoView: true
+    });
+    view.focus?.();
+  }
+  async moveCard(card, { targetColumn = "", beforeLine = -1, targetParentLine = -1 } = {}) {
+    if (card?.isMirror && card.mirrorTarget?.path) {
+      if (!targetColumn) return;
+      await updateNote(
+        this.plugin,
+        card.mirrorTarget.path,
+        (text) => moveTaskBoardCardStatus(text, card.mirrorTarget.line, targetColumn)
+      );
+      return;
+    }
+    if (!this.sourcePath) return;
+    await updateNote(
+      this.plugin,
+      this.sourcePath,
+      (text) => moveTaskBoardCardSubtree(text, card.line, { targetColumn, beforeLine, targetParentLine })
+    );
+  }
+  async addCard(title, column, agent) {
+    if (!this.sourcePath || !String(title || "").trim()) return;
+    await updateNote(
+      this.plugin,
+      this.sourcePath,
+      (text) => insertTaskBoardCard(text, this.activeGroup.line, { title, column, agent })
+    );
+  }
+  async setCardAgent(cardLine, agent) {
+    if (!this.sourcePath) return;
+    const trigger = mentionTrigger(this.plugin);
+    await updateNote(this.plugin, this.sourcePath, (text) => setTaskBoardCardAgent(text, cardLine, agent, trigger));
+  }
+  toDOM(view) {
+    const doc = view.dom.ownerDocument;
+    const wrap = doc.createElement("div");
+    wrap.className = "ad-board-wrap";
+    wrap.setAttribute("contenteditable", "false");
+    wrap.addEventListener("dragover", (e) => {
+      if (e.dataTransfer && [...e.dataTransfer.types].includes(BOARD_CARD_MIME)) e.stopPropagation();
+    });
+    wrap.addEventListener("drop", (e) => {
+      if (e.dataTransfer && [...e.dataTransfer.types].includes(BOARD_CARD_MIME)) e.stopPropagation();
+    });
+    if (this.breadcrumbs.length > 1) {
+      const crumbsEl = wrap.appendChild(doc.createElement("div"));
+      crumbsEl.className = "ad-board__crumbs";
+      this.breadcrumbs.forEach((crumb, idx) => {
+        if (idx > 0) {
+          const sep = crumbsEl.appendChild(doc.createElement("span"));
+          sep.className = "ad-board__crumbsep";
+          sep.textContent = "\u203A";
+        }
+        const isLast = idx === this.breadcrumbs.length - 1;
+        const btn = crumbsEl.appendChild(doc.createElement("button"));
+        btn.type = "button";
+        btn.className = `ad-board__crumb${isLast ? " is-current" : ""}`;
+        btn.textContent = truncate(crumb.title, 28);
+        if (!isLast) {
+          btn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const nextStack = idx === 0 ? [] : this.breadcrumbs.slice(1, idx + 1).map((b) => b.key);
+            view.dispatch({ effects: setTaskBoardEffect.of({ key: this.rootGroup.key, zoomStack: nextStack }) });
+          });
+        }
+      });
+    }
+    const head = wrap.appendChild(doc.createElement("div"));
+    head.className = "ad-board__head";
+    const titleBox = head.appendChild(doc.createElement("div"));
+    titleBox.className = "ad-board__titlebox";
+    const titleEl = titleBox.appendChild(doc.createElement("div"));
+    titleEl.className = "ad-board__title";
+    titleEl.textContent = truncate(this.model.title || t("\u5206\u5F62\u770B\u677F"), 44);
+    const progMeta = titleBox.appendChild(doc.createElement("div"));
+    progMeta.className = "ad-board__progress";
+    const bar = progMeta.appendChild(doc.createElement("span"));
+    bar.className = "ad-board__progbar";
+    const fill2 = bar.appendChild(doc.createElement("span"));
+    fill2.className = "ad-board__progfill";
+    fill2.style.width = `${this.model.stats.progressPct}%`;
+    const pct = progMeta.appendChild(doc.createElement("span"));
+    pct.className = "ad-board__progtext";
+    pct.textContent = `${this.model.stats.done}/${this.model.stats.total} \xB7 ${this.model.stats.progressPct}%`;
+    const actions = head.appendChild(doc.createElement("div"));
+    actions.className = "ad-board__actions";
+    if (this.model.canGroupByChildren) {
+      const nextMode = this.model.groupBy === "children" ? "status" : "children";
+      const grpBtn = actions.appendChild(doc.createElement("button"));
+      grpBtn.type = "button";
+      grpBtn.className = `ad-board__btn${this.model.groupBy === "children" ? " is-primary" : ""}`;
+      grpBtn.textContent = this.model.groupBy === "children" ? t("\u6309\u72B6\u6001\u5206\u5217") : t("\u6309\u5B50\u7EC4\u5206\u5217");
+      grpBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        view.dispatch({ effects: setTaskBoardEffect.of({ key: this.rootGroup.key, groupBy: nextMode }) });
+      });
+    }
+    if (this.plugin?.openProjectWorkbench && this.sourcePath) {
+      const planBtn = actions.appendChild(doc.createElement("button"));
+      planBtn.type = "button";
+      planBtn.className = "ad-board__btn";
+      planBtn.textContent = t("\u5C0F\u961F / \u62C6\u89E3");
+      planBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.plugin.openProjectWorkbench({ path: this.sourcePath, line: this.activeGroup.line });
+      });
+    }
+    if (this.model.todoDispatchCount > 0 && this.plugin?.dispatchBoardGroup && this.sourcePath) {
+      const runBtn = actions.appendChild(doc.createElement("button"));
+      runBtn.type = "button";
+      runBtn.className = "ad-board__btn is-primary";
+      runBtn.textContent = t("\u6D3E\u53D1 TODO ({n})", { n: this.model.todoDispatchCount });
+      runBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.plugin.dispatchBoardGroup(this.sourcePath, this.activeGroup.line, { model: this.model });
+      });
+    }
+    const backBtn = actions.appendChild(doc.createElement("button"));
+    backBtn.type = "button";
+    backBtn.className = "ad-board__btn";
+    backBtn.textContent = t("\u5207\u56DE\u5927\u7EB2");
+    backBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      view.dispatch({ effects: setTaskBoardEffect.of({ key: this.rootGroup.key, mode: "outline" }) });
+    });
+    const addAgents = this.plugin?.agentEnabled ? delegableAgents(this.plugin) : [];
+    const quickBar = wrap.appendChild(doc.createElement("div"));
+    quickBar.className = "ad-board__quickadd";
+    const addInput = quickBar.appendChild(doc.createElement("input"));
+    addInput.type = "text";
+    addInput.className = "ad-board__quickinput";
+    addInput.placeholder = t("\u65B0\u589E\u5B50\u5361\u5230 {title}\u2026\uFF08\u56DE\u8F66\u5199\u5165 TODO\uFF09", { title: truncate(this.model.title, 18) });
+    const addAgentSel = quickBar.appendChild(doc.createElement("select"));
+    addAgentSel.className = "ad-board__quickselect";
+    const emptyOpt = addAgentSel.appendChild(doc.createElement("option"));
+    emptyOpt.value = "";
+    emptyOpt.textContent = t("\u4E0D\u6307\u5B9A Agent");
+    for (const id of addAgents) {
+      const opt = addAgentSel.appendChild(doc.createElement("option"));
+      opt.value = id;
+      opt.textContent = AGENTS[id]?.short || id;
+    }
+    const addBtn = quickBar.appendChild(doc.createElement("button"));
+    addBtn.type = "button";
+    addBtn.className = "ad-board__btn";
+    addBtn.textContent = t("+ \u5B50\u5361");
+    const submitNew = async () => {
+      const val = addInput.value.trim();
+      if (!val) return;
+      addInput.value = "";
+      await this.addCard(val, "todo", addAgentSel.value);
+    };
+    addInput.addEventListener("mousedown", (e) => e.stopPropagation());
+    addInput.addEventListener("click", (e) => e.stopPropagation());
+    addAgentSel.addEventListener("mousedown", (e) => e.stopPropagation());
+    addAgentSel.addEventListener("keydown", (e) => e.stopPropagation());
+    addBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      submitNew();
+    });
+    addInput.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter" && !e.isComposing) {
+        e.preventDefault();
+        submitNew();
+      }
+    });
+    const cols = wrap.appendChild(doc.createElement("div"));
+    cols.className = "ad-board__cols";
+    if (this.model.columns.length > 4) {
+      cols.style.gridTemplateColumns = `repeat(${Math.min(this.model.columns.length, 5)}, minmax(150px, 1fr))`;
+    }
+    for (const col of this.model.columns) {
+      const colEl = cols.appendChild(doc.createElement("div"));
+      colEl.className = `ad-board__col ad-board__col--${col.id.startsWith("parent:") ? "group" : col.id}`;
+      colEl.dataset.column = col.id;
+      const colHead = colEl.appendChild(doc.createElement("div"));
+      colHead.className = "ad-board__colhead";
+      const colName = colHead.appendChild(doc.createElement("span"));
+      colName.textContent = col.id === "review" ? t("\u5F85\u786E\u8BA4") : col.label;
+      const colCount = colHead.appendChild(doc.createElement("span"));
+      colCount.className = "ad-board__colcount";
+      colCount.textContent = String(col.cards.length);
+      const list = colEl.appendChild(doc.createElement("div"));
+      list.className = "ad-board__collist";
+      colEl.addEventListener("dragover", (e) => {
+        if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = "move";
+        colEl.classList.add("is-drop");
+      });
+      colEl.addEventListener("dragleave", (e) => {
+        if (!colEl.contains(e.relatedTarget)) colEl.classList.remove("is-drop");
+      });
+      colEl.addEventListener("drop", (e) => {
+        if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        colEl.classList.remove("is-drop");
+        try {
+          const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
+          if (!payload || !Number.isInteger(payload.line)) return;
+          const cardObj = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
+          if (!cardObj) return;
+          if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
+            if (payload.column !== col.id) this.moveCard(cardObj, { targetParentLine: col.targetParentLine });
+          } else if (payload.column !== col.id) {
+            this.moveCard(cardObj, { targetColumn: col.id });
+          }
+        } catch {
+        }
+      });
+      if (!col.cards.length) {
+        const empty = list.appendChild(doc.createElement("div"));
+        empty.className = "ad-board__empty";
+        empty.textContent = t("\u7A7A");
+        continue;
+      }
+      for (const card of col.cards) {
+        const cardEl = list.appendChild(doc.createElement("div"));
+        cardEl.className = `ad-board__card${card.activeJob ? " is-live" : ""}${card.isMirror ? " is-mirror" : ""}`;
+        cardEl.draggable = true;
+        if (card.agent && AGENTS[card.agent]) {
+          cardEl.style.setProperty("--ad-agent", AGENTS[card.agent].color);
+          cardEl.style.setProperty("--ad-agent-soft", AGENTS[card.agent].soft);
+        }
+        cardEl.addEventListener("dragstart", (e) => {
+          e.stopPropagation();
+          e.dataTransfer.setData(BOARD_CARD_MIME, JSON.stringify({ line: card.line, column: col.id }));
+          e.dataTransfer.effectAllowed = "move";
+          cardEl.classList.add("is-dragging");
+        });
+        cardEl.addEventListener("dragend", () => cardEl.classList.remove("is-dragging"));
+        cardEl.addEventListener("dragover", (e) => {
+          if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          cardEl.classList.add("is-drop-before");
+        });
+        cardEl.addEventListener("dragleave", () => cardEl.classList.remove("is-drop-before"));
+        cardEl.addEventListener("drop", (e) => {
+          if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          cardEl.classList.remove("is-drop-before");
+          try {
+            const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
+            if (!payload || !Number.isInteger(payload.line) || payload.line === card.line) return;
+            const dragged = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
+            if (!dragged || dragged.isMirror) return;
+            if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
+              this.moveCard(dragged, { beforeLine: card.line, targetParentLine: col.targetParentLine });
+            } else {
+              this.moveCard(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine: card.line });
+            }
+          } catch {
+          }
+        });
+        const topRow = cardEl.appendChild(doc.createElement("div"));
+        topRow.className = "ad-board__cardtop";
+        const title = topRow.appendChild(doc.createElement("div"));
+        title.className = "ad-board__cardtitle";
+        title.textContent = card.title;
+        title.title = card.isMirror && card.mirrorTarget?.path ? t("\u70B9\u51FB\u6253\u5F00\u955C\u50CF\u6E90\uFF1A{path}", { path: card.mirrorTarget.path }) : t("\u70B9\u51FB\u5207\u56DE\u5927\u7EB2\u5B9A\u4F4D\u7F16\u8F91");
+        title.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (card.isMirror && card.mirrorTarget?.path && this.plugin?.openMirrorSource) {
+            this.plugin.openMirrorSource(card.mirrorTarget.path, card.mirrorTarget.line);
+          } else {
+            this.jumpTo(view, card.line);
+          }
+        });
+        if (card.subBoardKey) {
+          const zoomBtn = topRow.appendChild(doc.createElement("button"));
+          zoomBtn.type = "button";
+          zoomBtn.className = "ad-board__zoom";
+          zoomBtn.textContent = `\u21B3 ${card.childDoneCount}/${card.childCardCount}`;
+          zoomBtn.title = t("\u4E0B\u94BB\u805A\u7126\u5230\u5B50\u770B\u677F");
+          zoomBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const nextStack = [...this.pref.zoomStack || [], card.subBoardKey];
+            view.dispatch({ effects: setTaskBoardEffect.of({ key: this.rootGroup.key, zoomStack: nextStack }) });
+          });
+        } else if (card.isMirror) {
+          const mBadge = topRow.appendChild(doc.createElement("span"));
+          mBadge.className = "ad-board__mirror";
+          mBadge.textContent = t("\u955C\u50CF");
+          mBadge.title = card.mirrorTarget?.path || `${card.mirror?.target}#${card.mirror?.blockId}`;
+        }
+        if (card.step || card.latestConclusion) {
+          const note = cardEl.appendChild(doc.createElement("div"));
+          note.className = "ad-board__cardnote";
+          note.textContent = truncate(card.step || card.latestConclusion, 88);
+        }
+        const foot = cardEl.appendChild(doc.createElement("div"));
+        foot.className = "ad-board__cardfoot";
+        if (!card.hasLink && !card.activeJob && !card.isMirror && addAgents.length) {
+          const sel = foot.appendChild(doc.createElement("select"));
+          sel.className = "ad-board__agentsel";
+          const none = sel.appendChild(doc.createElement("option"));
+          none.value = "";
+          none.textContent = t("\u672A\u6307\u5B9A");
+          for (const id of addAgents) {
+            const o = sel.appendChild(doc.createElement("option"));
+            o.value = id;
+            o.textContent = AGENTS[id]?.short || id;
+          }
+          sel.value = addAgents.includes(card.agent) ? card.agent : "";
+          sel.addEventListener("mousedown", (e) => e.stopPropagation());
+          sel.addEventListener("click", (e) => e.stopPropagation());
+          sel.addEventListener("keydown", (e) => e.stopPropagation());
+          sel.addEventListener("change", (e) => {
+            e.stopPropagation();
+            this.setCardAgent(card.line, sel.value);
+          });
+        } else {
+          const badge = foot.appendChild(doc.createElement("span"));
+          badge.className = "ad-board__agent";
+          badge.textContent = card.agent ? AGENTS[card.agent]?.short || card.agent : t("\u672A\u6307\u5B9A");
+        }
+        const cardActions = foot.appendChild(doc.createElement("div"));
+        cardActions.className = "ad-board__cardbtns";
+        if (card.activeJob && this.plugin?.cancelJob) {
+          const stopBtn = cardActions.appendChild(doc.createElement("button"));
+          stopBtn.type = "button";
+          stopBtn.className = "ad-board__mini is-danger";
+          stopBtn.textContent = t("\u505C\u6B62");
+          stopBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.plugin.cancelJob(card.activeJob.id);
+          });
+        } else if (card.sid && this.plugin?.openConversation) {
+          const chatBtn = cardActions.appendChild(doc.createElement("button"));
+          chatBtn.type = "button";
+          chatBtn.className = "ad-board__mini";
+          chatBtn.textContent = t("\u6B63\u6587");
+          chatBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.plugin.openConversation({ sid: card.sid, agent: card.agent });
+          });
+        }
+        if (card.column === "todo" && !card.hasLink && !card.activeJob && !card.isMirror && this.plugin?.delegateAtLine && this.sourcePath) {
+          const sendBtn = cardActions.appendChild(doc.createElement("button"));
+          sendBtn.type = "button";
+          sendBtn.className = "ad-board__mini";
+          sendBtn.textContent = t("\u6D3E\u53D1");
+          sendBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.plugin.delegateAtLine(this.sourcePath, card.line, {
+              boardContext: buildBoardSiblingContext(this.model, card.line)
+            });
+          });
+        }
+        if (this.model.groupBy === "status") {
+          const nextCol = card.column === "todo" ? "doing" : card.column === "doing" ? "done" : card.column === "review" ? "done" : "todo";
+          const nextLabel = nextCol === "doing" ? "\u2192 DOING" : nextCol === "done" ? "\u2192 DONE" : "\u2192 TODO";
+          const stepBtn = cardActions.appendChild(doc.createElement("button"));
+          stepBtn.type = "button";
+          stepBtn.className = "ad-board__mini";
+          stepBtn.textContent = nextLabel;
+          stepBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.moveCard(card, { targetColumn: nextCol });
+          });
+        }
+      }
+    }
+    return wrap;
+  }
+  ignoreEvent() {
+    return true;
+  }
+};
+function resolveActiveBoardAndBreadcrumbs(rootGroup, allGroups, pref) {
+  const stack = pref.zoomStack || [];
+  const crumbs = [rootGroup];
+  let current = rootGroup;
+  for (const key of stack) {
+    const next = allGroups.find((g) => (g.key === key || g.stableKey === key) && g.line > current.line && g.endLine <= current.endLine);
+    if (!next) break;
+    crumbs.push(next);
+    current = next;
+  }
+  return { activeGroup: current, breadcrumbs: crumbs };
+}
+function taskBoardExtension(plugin, refreshEffect2) {
+  const build = (state) => {
+    const ranges = [];
+    const doc = state.doc;
+    const text = doc.toString();
+    const info = state.field?.(plugin.editorInfoField, false);
+    const sourcePath = info?.file?.path || "";
+    const ids = trackedBlockIds(plugin);
+    const trigger = mentionTrigger(plugin);
+    const groups = extractTaskBoardGroups(text, { trackedIds: ids, trigger });
+    const boardLines = /* @__PURE__ */ new Set();
+    const mirrorCache = plugin._mirrorBoardCache || null;
+    const resolveMirror = mirrorCache ? (ref) => mirrorCache.get(`${ref.target}#${ref.blockId}`) || null : null;
+    if (plugin?.primeMirrorCache && sourcePath) {
+      const mirrorRefs = groups.flatMap((g) => g.cards.filter((c) => c.isMirror && c.mirror).map((c) => c.mirror));
+      if (mirrorRefs.length) plugin.primeMirrorCache(mirrorRefs, sourcePath);
+    }
+    for (const g of groups) {
+      if (!g.topLevel) continue;
+      const pref = taskBoardPref(plugin.settings, g);
+      ranges.push(import_view3.Decoration.widget({
+        widget: new BoardToggleWidget(plugin, g.key, g.line, pref.mode, g.cards.length),
+        side: 4
+      }).range(doc.line(g.line + 1).to));
+      if (pref.mode === "board") {
+        boardLines.add(g.line);
+        const { activeGroup, breadcrumbs } = resolveActiveBoardAndBreadcrumbs(g, groups, pref);
+        const model = buildTaskBoardModel(activeGroup, plugin, { groupBy: pref.groupBy, resolveMirror });
+        ranges.push(import_view3.Decoration.widget({
+          widget: new TaskBoardWidget(plugin, g, activeGroup, model, pref, breadcrumbs, sourcePath),
+          block: true,
+          side: 1
+        }).range(doc.line(g.line + 1).to));
+        const hidden = [];
+        for (let ln = g.line + 1; ln <= g.endLine; ln++) hidden.push(ln);
+        for (const run2 of recordRuns(hidden)) {
+          const from = Math.max(0, doc.line(run2.from + 1).from - 1);
+          const to = doc.line(run2.to + 1).to;
+          ranges.push(import_view3.Decoration.replace({ inclusive: false }).range(from, to));
+        }
+      }
+    }
+    return { decorations: import_view3.Decoration.set(ranges, true), boardLines };
+  };
+  const field = import_state2.StateField.define({
+    create: (state) => build(state),
+    update(value, tr) {
+      let changed = tr.docChanged;
+      const groups = changed || tr.effects.some((e) => e.is(setTaskBoardEffect)) ? extractTaskBoardGroups(tr.state.doc.toString(), { trackedIds: trackedBlockIds(plugin), trigger: mentionTrigger(plugin) }) : null;
+      for (const e of tr.effects) {
+        if (e.is(setTaskBoardEffect)) {
+          const group = groups?.find((g) => g.key === e.value.key || g.stableKey === e.value.key);
+          const patch = {};
+          if (e.value.mode !== void 0) patch.mode = e.value.mode;
+          if (e.value.groupBy !== void 0) patch.groupBy = e.value.groupBy;
+          if (e.value.zoomStack !== void 0) patch.zoomStack = e.value.zoomStack;
+          rememberBoardPref(plugin, e.value.key, patch, group?.stableKey || e.value.stableKey);
+          changed = true;
+        }
+        if (refreshEffect2 && e.is(refreshEffect2)) changed = true;
+      }
+      return changed ? build(tr.state) : value;
+    },
+    provide: (f) => [
+      import_view3.EditorView.decorations.from(f, (v) => v.decorations),
+      import_view3.EditorView.atomicRanges.of((view) => view.state.field(f).decorations)
+    ]
+  });
+  plugin.taskBoardField = field;
+  return field;
+}
+
 // src/external-state.js
 var import_promises = __toESM(require("fs/promises"), 1);
 var import_os8 = __toESM(require("os"), 1);
@@ -13047,27 +14628,27 @@ function bindConnectedInterval(el, prop, tick, ms, host = globalThis) {
 }
 
 // src/editor.js
-var refreshEffect = import_state2.StateEffect.define();
+var refreshEffect = import_state3.StateEffect.define();
 var SESSION_MIME = "application/x-agent-deck-session";
 var ITEM_MIME = "application/x-agent-deck-item";
 var DROP_LABEL = { bind: "\u7ED1\u5B9A", fill: "\u65B0\u5EFA\u4E00\u9879", new: "\u65B0\u5EFA\u4E00\u9879", below: "\u5728\u4E0B\u9762\u65B0\u5EFA", after: "\u5728\u4E0B\u9762\u65B0\u5EFA", merge: "\u5408\u5E76\u5230\u8FD9\u4E00\u9879" };
-var setDrop = import_state2.StateEffect.define();
-var dropField = import_state2.StateField.define({
-  create: () => import_view3.Decoration.none,
+var setDrop = import_state3.StateEffect.define();
+var dropField = import_state3.StateField.define({
+  create: () => import_view4.Decoration.none,
   update(deco, tr) {
     deco = deco.map(tr.changes);
     for (const e of tr.effects) {
       if (!e.is(setDrop)) continue;
       if (!e.value) {
-        deco = import_view3.Decoration.none;
+        deco = import_view4.Decoration.none;
         continue;
       }
       const line = tr.state.doc.line(e.value.line + 1);
-      deco = import_view3.Decoration.set([import_view3.Decoration.line({ class: `ad-drop-line ad-drop-line--${e.value.kind}`, attributes: { "data-ad-drop": tr(DROP_LABEL[e.value.kind] || "") } }).range(line.from)]);
+      deco = import_view4.Decoration.set([import_view4.Decoration.line({ class: `ad-drop-line ad-drop-line--${e.value.kind}`, attributes: { "data-ad-drop": tr(DROP_LABEL[e.value.kind] || "") } }).range(line.from)]);
     }
     return deco;
   },
-  provide: (f) => import_view3.EditorView.decorations.from(f)
+  provide: (f) => import_view4.EditorView.decorations.from(f)
 });
 var hasType = (e, type) => !!(e.dataTransfer && [...e.dataTransfer.types].includes(type));
 function dropTarget(view, e) {
@@ -13098,7 +14679,7 @@ function dndHandlers(plugin) {
     last = key;
     view.dispatch({ effects: setDrop.of(t2) });
   };
-  return import_state2.Prec.highest(import_view3.EditorView.domEventHandlers({
+  return import_state3.Prec.highest(import_view4.EditorView.domEventHandlers({
     dragover(e, view) {
       if (hasType(e, SESSION_MIME)) {
         e.preventDefault();
@@ -13165,7 +14746,7 @@ function dndHandlers(plugin) {
     }
   }));
 }
-var GripWidget = class extends import_view3.WidgetType {
+var GripWidget = class extends import_view4.WidgetType {
   constructor(plugin, path10, line, text) {
     super();
     this.plugin = plugin;
@@ -13221,7 +14802,7 @@ function sigFor(x) {
   const td = s && s.todo;
   return [x.kind, x.job && x.job.id, x.job && x.job.state, s && s.sid, s && s.state, s && s.step, s && s.turns, s && s.tokens, td && `${td.done}/${td.total}:${td.cur || ""}`, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
 }
-var PillWidget = class extends import_view3.WidgetType {
+var PillWidget = class extends import_view4.WidgetType {
   constructor(plugin, path10, line, info) {
     super();
     this.plugin = plugin;
@@ -13469,7 +15050,7 @@ function paintLineProgress(el, info) {
     el._pct.textContent = "";
   }
 }
-var LineProgressWidget = class extends import_view3.WidgetType {
+var LineProgressWidget = class extends import_view4.WidgetType {
   constructor(plugin, path10, line, info) {
     super();
     this.plugin = plugin;
@@ -13515,7 +15096,7 @@ var LineProgressWidget = class extends import_view3.WidgetType {
   }
 };
 function saidHandlers(plugin) {
-  return import_view3.EditorView.domEventHandlers({
+  return import_view4.EditorView.domEventHandlers({
     dblclick(ev, view) {
       const lineEl = ev.target && ev.target.closest && ev.target.closest(".cm-line.ad-said");
       if (!lineEl) return false;
@@ -13538,7 +15119,7 @@ function saidHandlers(plugin) {
   });
 }
 function buildDecorations(view, plugin) {
-  const builder = new import_state2.RangeSetBuilder();
+  const builder = new import_state3.RangeSetBuilder();
   const info = view.state.field(plugin.editorInfoField, false);
   const path10 = info && info.file && info.file.path;
   if (!path10 || !plugin.settings.showEditorPills) return builder.finish();
@@ -13578,19 +15159,20 @@ function buildDecorations(view, plugin) {
         }
         if (job?.destination === "background" && state?.kind === "done") state = null;
         const displayState = plugin.aiRecordDisplayField ? view.state.field(plugin.aiRecordDisplayField, false) : null;
-        const isTopLevelAiParent = Boolean(displayState?.topLevelLines?.has(n));
+        const boardState = plugin.taskBoardField ? view.state.field(plugin.taskBoardField, false) : null;
+        const isTopLevelAiParent = Boolean(displayState?.topLevelLines?.has(n) || boardState?.boardLines?.has(n));
         if (n === cursorLine && !isTopLevelAiParent && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && (kwLine(text) || CONTEXT_RECORD_RE.test(text))) {
-          builder.add(line.to, line.to, import_view3.Decoration.widget({ widget: new GripWidget(plugin, path10, n, text), side: 1, block: false }));
+          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new GripWidget(plugin, path10, n, text), side: 1, block: false }));
         }
         const prog = line.length < 2e3 && plugin.lineProgressInfo ? plugin.lineProgressInfo(text, map.lines, n, session, job) : null;
-        if (!prog && typeof import_view3.Decoration.line === "function" && (RESULT_LINE_RE.test(text) || SUB_LINE_RE.test(text))) {
-          builder.add(line.from, line.from, import_view3.Decoration.line({ class: "ad-said" }));
+        if (!prog && typeof import_view4.Decoration.line === "function" && (RESULT_LINE_RE.test(text) || SUB_LINE_RE.test(text))) {
+          builder.add(line.from, line.from, import_view4.Decoration.line({ class: "ad-said" }));
         }
         if (prog) {
-          builder.add(line.to, line.to, import_view3.Decoration.widget({ widget: new LineProgressWidget(plugin, path10, n, prog), side: 1, block: false }));
+          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new LineProgressWidget(plugin, path10, n, prog), side: 1, block: false }));
         } else if (state && !isDoneLine(text)) {
           const widget = new PillWidget(plugin, path10, n, state);
-          builder.add(line.to, line.to, import_view3.Decoration.widget({ widget, side: 1, block: false }));
+          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget, side: 1, block: false }));
         }
       }
       if (line.to >= to) break;
@@ -13642,7 +15224,7 @@ function createEditorExtension(plugin) {
       }
     }
   };
-  return [import_view3.ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin), saidHandlers(plugin), aiRecordDisplayExtension(plugin, refreshEffect)];
+  return [import_view4.ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin), saidHandlers(plugin), aiRecordDisplayExtension(plugin, refreshEffect), taskBoardExtension(plugin, refreshEffect)];
 }
 async function dispatchRefresh(plugin) {
   plugin.app.workspace.iterateAllLeaves((leaf) => {
@@ -13721,12 +15303,20 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
     this.filter = "all";
     this.search = "";
     this.expandedAgents = /* @__PURE__ */ new Set();
+    this.expandedProjects = /* @__PURE__ */ new Set();
+    this.collapsedNowProjects = /* @__PURE__ */ new Set();
     this._scroll = 0;
     this._bottomSlack = 0;
   }
   recentDays() {
     const v = Number(this.plugin.settings?.ui?.recentDays);
     return RECENT_DAY_OPTIONS.includes(v) ? v : 7;
+  }
+  nowGroupBy() {
+    return this.plugin.settings?.ui?.nowGroupBy === "flat" ? "flat" : "project";
+  }
+  recentGroupBy() {
+    return this.plugin.settings?.ui?.recentGroupBy === "project" ? "project" : "agent";
   }
   getViewType() {
     return VIEW_TYPE;
@@ -13796,6 +15386,9 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
     setLucide(search.createSpan({ cls: "ad-search__icon" }), "search");
     const input = search.createEl("input", { cls: "ad-search__input", attr: { placeholder: t("\u641C\u4F1A\u8BDD\uFF1A\u6807\u9898\u3001\u9879\u76EE\u3001\u7B2C\u4E00\u6B65\u2026"), value: this.search } });
     const actions = head.createDiv({ cls: "ad-head__actions" });
+    const workbenchBtn = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("\u6253\u5F00\u9879\u76EE\u5DE5\u4F5C\u53F0\uFF08\u5C0F\u961F\u7F16\u6392\u4E0E\u62C6\u89E3\u6D3E\u53D1\uFF09") } });
+    setLucide(workbenchBtn.createSpan({ cls: "ad-iconbtn__icon" }), "folder-kanban");
+    workbenchBtn.onclick = () => p.openProjectWorkbench?.();
     if (p.settings.experimentalDashboard !== false) {
       const review = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("\u6253\u5F00 Agent Deck \u56DE\u987E Dashboard") } });
       setLucide(review.createSpan({ cls: "ad-iconbtn__icon" }), "chart-no-axes-combined");
@@ -13882,12 +15475,29 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
       hero.createDiv({ cls: "ad-hero__hint", text: t("\u4ECA\u5929\u8FD8\u6CA1\u6709\u4F1A\u8BDD") });
     }
     const nowSec = dash.createDiv({ cls: "ad-sec ad-sec--now" });
+    const nowGroupBy = this.nowGroupBy();
     const nowHead = this.secHead(nowSec, t("\u73B0\u5728"), t("{run} \u4E2A\u5728\u8DD1 \xB7 {wait} \u4E2A\u7B49\u4F60", { run: running.length, wait: waiting.length }));
+    const nowSwitch = nowHead.createDiv({ cls: "ad-range" });
+    for (const [id, label] of [["project", t("\u6309\u9879\u76EE")], ["flat", t("\u5217\u8868")]]) {
+      const b = nowSwitch.createEl("button", { cls: "ad-chip ad-nowgroup__btn" + (nowGroupBy === id ? " is-on" : ""), text: label });
+      b.onclick = () => {
+        var _a;
+        if (this.nowGroupBy() === id) return;
+        ((_a = p.settings).ui || (_a.ui = {})).nowGroupBy = id;
+        p.saveSettings();
+        this.render();
+      };
+    }
     const nowList = nowSec.createDiv({ cls: "ad-nowlist" });
-    const nowItems = this.nowOrdered([...running, ...waiting]).slice(0, 6);
-    if (!nowItems.length) this.empty(nowList, t("\u73B0\u5728\u6CA1\u6709\u5728\u8DD1\u7684\u4F1A\u8BDD"));
-    for (const s of nowItems) this.sessionCard(nowList, s, true);
-    this.nowReorder(nowList);
+    if (nowGroupBy === "project") {
+      const nowActive = live.filter((x) => ["run", "starting", "running", "busy", "wait", "quiet", "needs-approval", "error", "limit", "queued"].includes(x.state));
+      this.renderNowProjects(nowList, nowActive);
+    } else {
+      const nowItems = this.nowOrdered([...running, ...waiting]).slice(0, 6);
+      if (!nowItems.length) this.empty(nowList, t("\u73B0\u5728\u6CA1\u6709\u5728\u8DD1\u7684\u4F1A\u8BDD"));
+      for (const s of nowItems) this.sessionCard(nowList, s, true);
+      this.nowReorder(nowList);
+    }
     this.agentSection(dash, today);
     if (p.settings.ui.showUsageBars !== false) {
       const usageSec = dash.createDiv({ cls: "ad-sec" });
@@ -13895,9 +15505,21 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
       this.usageBars(usageSec);
     }
     const recSec = dash.createDiv({ cls: "ad-sec ad-sec--recent" });
+    const recentGroupBy = this.recentGroupBy();
     const filteredRecent = filterRecentRows(recent, this.filter);
     const recHead = this.secHead(recSec, t("\u6700\u8FD1\u7684\u4F1A\u8BDD"), t("{n} \u4E2A \xB7 \u6700\u8FD1 {days} \u5929", { n: filteredRecent.length, days }));
     const range = recHead.createDiv({ cls: "ad-range" });
+    for (const [id, label] of [["agent", t("\u6309 Agent")], ["project", t("\u6309\u9879\u76EE")]]) {
+      const gb = range.createEl("button", { cls: "ad-chip ad-groupby__btn" + (recentGroupBy === id ? " is-on" : ""), text: label });
+      gb.onclick = () => {
+        var _a;
+        if (this.recentGroupBy() === id) return;
+        this._bottomSlack = 0;
+        ((_a = p.settings).ui || (_a.ui = {})).recentGroupBy = id;
+        p.saveSettings();
+        this.render();
+      };
+    }
     for (const d of RECENT_DAY_OPTIONS) {
       const rb2 = range.createEl("button", { cls: "ad-chip ad-range__btn" + (days === d ? " is-on" : ""), text: t("{days} \u5929", { days: d }) });
       rb2.onclick = () => {
@@ -14046,6 +15668,68 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
     this.plugin.saveSettings();
     this.render();
   }
+  renderNowProjects(nowList, liveRows) {
+    const p = this.plugin;
+    const hidden = p.settings?.nowHidden || {};
+    const visibleRows = this.nowOrdered(liveRows);
+    const groups = buildProjectGroups(visibleRows, {
+      jobs: p.jobs || {},
+      agentEnabled: (id) => p.agentEnabled(id)
+    }).map((g) => ({
+      ...g,
+      sessions: g.sessions.filter((s) => !hidden[s.sid])
+    })).filter((g) => g.sessions.length > 0);
+    if (!groups.length) return this.empty(nowList, t("\u73B0\u5728\u6CA1\u6709\u5728\u8DD1\u7684\u4F1A\u8BDD"));
+    for (const g of groups) {
+      const collapsed = this.collapsedNowProjects.has(g.id);
+      const card = nowList.createDiv({ cls: `ad-projgroup ${collapsed ? "is-collapsed" : "is-open"}${g.counts.attention ? " has-attention" : ""}` });
+      card.dataset.project = g.id;
+      const head = card.createDiv({ cls: "ad-projgroup__head" });
+      const toggle = head.createEl("button", { cls: "ad-projgroup__toggle", attr: { type: "button", title: g.cwds[0] || g.name } });
+      toggle.createSpan({ cls: "ad-projgroup__chev", text: collapsed ? "\u25B8" : "\u25BE" });
+      toggle.createSpan({ cls: "ad-projgroup__name", text: g.name });
+      const glyphs = toggle.createSpan({ cls: "ad-projgroup__agents" });
+      for (const id of g.agents.slice(0, 4)) agentIcon(glyphs.createSpan({ cls: "ad-glyph" }), id);
+      const badges = toggle.createSpan({ cls: "ad-projgroup__badges" });
+      if (g.counts.running) badges.createSpan({ cls: "ad-projbadge is-live", text: t("{n} \u5728\u8DD1", { n: g.counts.running }) });
+      if (g.counts.waiting) badges.createSpan({ cls: "ad-projbadge is-wait", text: t("{n} \u7B49\u4F60", { n: g.counts.waiting }) });
+      if (g.counts.error || g.counts.limit) badges.createSpan({ cls: "ad-projbadge is-error", text: t("{n} \u5F02\u5E38", { n: g.counts.error + g.counts.limit }) });
+      toggle.onclick = () => {
+        if (this.collapsedNowProjects.has(g.id)) this.collapsedNowProjects.delete(g.id);
+        else this.collapsedNowProjects.add(g.id);
+        this.render();
+      };
+      const actions = head.createDiv({ cls: "ad-projgroup__actions" });
+      if (!g.isStandalone && g.cwds[0] && p.openProjectFolder) {
+        const dirBtn = actions.createEl("button", { cls: "ad-iconbtn ad-iconbtn--xs", attr: { type: "button", "aria-label": t("\u6253\u5F00\u9879\u76EE\u76EE\u5F55\uFF1A{cwd}", { cwd: g.cwds[0] }), title: t("\u6253\u5F00\u9879\u76EE\u76EE\u5F55\uFF1A{cwd}", { cwd: g.cwds[0] }) } });
+        setLucide(dirBtn.createSpan({ cls: "ad-iconbtn__icon" }), "folder-open");
+        dirBtn.onclick = (e) => {
+          e.stopPropagation();
+          p.openProjectFolder(g.cwds[0]);
+        };
+      }
+      if (p.openProjectWorkbench) {
+        const wb = actions.createEl("button", { cls: "ad-iconbtn ad-iconbtn--xs", attr: { type: "button", "aria-label": t("\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u7F16\u6392\u5C0F\u961F"), title: t("\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u7F16\u6392\u5C0F\u961F") } });
+        setLucide(wb.createSpan({ cls: "ad-iconbtn__icon" }), "folder-kanban");
+        wb.onclick = (e) => {
+          e.stopPropagation();
+          p.openProjectWorkbench({ projectName: g.isStandalone ? "" : g.name, cwd: g.cwds[0] || p.vaultPath });
+        };
+      }
+      if (g.activeJobIds.length && p.cancelProjectJobs) {
+        const stop = actions.createEl("button", { cls: "ad-iconbtn ad-iconbtn--xs is-danger", attr: { type: "button", "aria-label": t("\u505C\u6B62\u672C\u9879\u76EE\u7684\u6D3B\u8DC3\u4EFB\u52A1"), title: t("\u505C\u6B62\u672C\u9879\u76EE\u7684\u6D3B\u8DC3\u4EFB\u52A1") } });
+        setLucide(stop.createSpan({ cls: "ad-iconbtn__icon" }), "square");
+        stop.onclick = (e) => {
+          e.stopPropagation();
+          p.cancelProjectJobs(g.id, g.activeJobIds);
+        };
+      }
+      if (!collapsed) {
+        const body = card.createDiv({ cls: "ad-projgroup__list" });
+        for (const s of g.sessions) this.sessionCard(body, s, true);
+      }
+    }
+  }
   renderSessions(sec) {
     const list = sec._list || sec.querySelector(".ad-sessionlist");
     if (!list) return;
@@ -14055,6 +15739,49 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
     const rows = sec._rows || filterRecentRows(p.recentSessions({ days, limit: 1e3 }), this.filter);
     sec._rows = rows;
     if (!rows.length) return this.empty(list, t("\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684\u4F1A\u8BDD"));
+    if (this.recentGroupBy() === "project" && !AGENTS[this.filter]) {
+      const plan2 = planRecentProjectDisplay(rows, {
+        expanded: this.expandedProjects,
+        maxCards: MAX_RECENT_CARDS,
+        jobs: p.jobs || {},
+        agentEnabled: (id) => p.agentEnabled(id)
+      });
+      for (const g of plan2.groups) {
+        if (g.items.length === 1) {
+          this.sessionCard(list, g.visibleItems[0], false);
+          continue;
+        }
+        const leadAgent = AGENTS[g.agents[0]] || AGENTS.claude;
+        const stack = list.createDiv({ cls: `ad-stack ad-stack--project ${g.stacked ? "is-collapsed" : "is-expanded"}` });
+        stack.dataset.project = g.id;
+        stack.style.setProperty("--ad-agent", leadAgent.color);
+        stack.style.setProperty("--ad-agent-soft", leadAgent.soft);
+        if (g.stacked) {
+          const expand = () => this.toggleStackGroup(sec, stack, g.id, true, "project");
+          const topWrap = stack.createDiv({ cls: "ad-stack__top" });
+          this.sessionCard(topWrap, g.visibleItems[0], false);
+          const topCard = topWrap.firstElementChild;
+          if (topCard) topCard.onclick = expand;
+          const bar = stack.createEl("button", { cls: "ad-stack__bar", attr: { type: "button" } });
+          bar.createSpan({ cls: "ad-stack__label", text: t("{project} \xB7 \u5171 {total} \u6761\u5BF9\u8BDD \xB7 \u70B9\u51FB\u5C55\u5F00 +{more}", { project: g.name, total: g.items.length, more: g.items.length - 1 }) });
+          bar.createSpan({ cls: "ad-stack__chev", text: "\u25BE" });
+          bar.onclick = expand;
+        } else {
+          const head = stack.createEl("button", { cls: "ad-stack__head", attr: { type: "button" } });
+          const headLeft = head.createSpan({ cls: "ad-stack__title" });
+          for (const id of g.agents.slice(0, 3)) agentIcon(headLeft.createSpan({ cls: "ad-glyph" }), id);
+          headLeft.createSpan({ text: t("{project} \xB7 \u5171 {total} \u6761\u5BF9\u8BDD", { project: g.name, total: g.items.length }) });
+          head.createSpan({ cls: "ad-stack__toggle", text: `${t("\u6536\u8D77")} \u25B4` });
+          head.onclick = () => this.toggleStackGroup(sec, stack, g.id, false, "project");
+          const body = stack.createDiv({ cls: "ad-stack__list" });
+          for (const s of g.visibleItems) this.sessionCard(body, s, false);
+          if (g.unshownCount > 0) {
+            stack.createDiv({ cls: "ad-stack__foot", text: t("\u5DF2\u8FBE\u5355\u9875 {max} \u5F20\u5361\u7247\u4E0A\u9650\uFF0C\u53E6\u6709 {n} \u6761\u8F83\u65E9\u4F1A\u8BDD\u672A\u663E\u793A", { max: MAX_RECENT_CARDS, n: g.unshownCount }) });
+          }
+        }
+      }
+      return;
+    }
     const plan = planRecentDisplay(rows, { filter: this.filter, expanded: this.expandedAgents, maxCards: MAX_RECENT_CARDS });
     if (plan.mode === "flat") {
       for (const s of plan.cards) this.sessionCard(list, s, false);
@@ -14074,7 +15801,7 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
       stack.style.setProperty("--ad-agent", a.color);
       stack.style.setProperty("--ad-agent-soft", a.soft);
       if (g.stacked) {
-        const expand = () => this.toggleAgentGroup(sec, stack, g.agent, true);
+        const expand = () => this.toggleStackGroup(sec, stack, g.agent, true, "agent");
         const topWrap = stack.createDiv({ cls: "ad-stack__top" });
         this.sessionCard(topWrap, g.visibleItems[0], false);
         const topCard = topWrap.firstElementChild;
@@ -14089,7 +15816,7 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
         agentIcon(headLeft.createSpan({ cls: "ad-glyph" }), g.agent);
         headLeft.createSpan({ text: t("{agent} \xB7 \u5171 {total} \u6761\u5BF9\u8BDD", { agent: a.short, total: g.items.length }) });
         head.createSpan({ cls: "ad-stack__toggle", text: `${t("\u6536\u8D77")} \u25B4` });
-        head.onclick = () => this.toggleAgentGroup(sec, stack, g.agent, false);
+        head.onclick = () => this.toggleStackGroup(sec, stack, g.agent, false, "agent");
         const body = stack.createDiv({ cls: "ad-stack__list" });
         for (const s of g.visibleItems) this.sessionCard(body, s, false);
         if (g.unshownCount > 0) {
@@ -14098,19 +15825,21 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
       }
     }
   }
-  // 收起或展开同 Agent 堆叠时锚定该组顶部在视口中的位置，避免高处横条因高度骤减被 scrollTop 夹紧而突然下跳；
+  // 收起或展开同 Agent/同项目堆叠时锚定该组顶部在视口中的位置，避免高处横条因高度骤减被 scrollTop 夹紧而突然下跳；
   // 留出的底部余量只维持当前位置，并在向上滚动或内容重新撑高时自动收回。
-  toggleAgentGroup(sec, stack, agent, expand) {
+  toggleStackGroup(sec, stack, key, expand, kind = "agent") {
     const root = this.contentEl;
     const dash = root?.querySelector?.(".ad-dash");
     const rootRect = root?.getBoundingClientRect?.();
     const stackRect = stack?.getBoundingClientRect?.();
     const prevRelTop = rootRect && stackRect ? stackRect.top - rootRect.top : null;
-    if (expand) this.expandedAgents.add(agent);
-    else this.expandedAgents.delete(agent);
+    const set = kind === "project" ? this.expandedProjects : this.expandedAgents;
+    if (expand) set.add(key);
+    else set.delete(key);
     this.renderSessions(sec);
     if (!dash || prevRelTop === null || !root.clientHeight) return;
-    const nextStack = [...sec._list?.children || []].find((el) => el.dataset?.agent === agent);
+    const attr = kind === "project" ? "project" : "agent";
+    const nextStack = [...sec._list?.children || []].find((el) => el.dataset?.[attr] === key);
     const nextRootRect = root.getBoundingClientRect?.();
     const nextStackRect = nextStack?.getBoundingClientRect?.();
     if (!nextRootRect || !nextStackRect) return;
@@ -14124,6 +15853,9 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
     } finally {
       this._reconcilingScroll = false;
     }
+  }
+  toggleAgentGroup(sec, stack, agent, expand) {
+    return this.toggleStackGroup(sec, stack, agent, expand, "agent");
   }
   syncBottomSlack(dash, targetScrollTop, maxCap = Infinity) {
     const root = this.contentEl;
@@ -14530,7 +16262,8 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
       kin.createSpan({ cls: "ad-sess__kintitle", text: t("\u4ECE\u300C{title}\u300D\u5F00\u51FA", { title: truncate(s.parentTitle || t("\u6BCD\u4F1A\u8BDD"), 24) }) });
       if (s.deskTitle && s.deskTitle !== s.title) kin.title = t("\u684C\u9762\u7248\u91CC\u7684\u6807\u9898\uFF1A{title}", { title: s.deskTitle });
     }
-    if (AGENT_ORDER.includes(s.agent)) {
+    const isPending = Boolean(s.isPendingJob && s.job && !s.job.sessionId);
+    if (!isPending && AGENT_ORDER.includes(s.agent)) {
       card.addClass("has-conversation");
       const conversation = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": t("\u67E5\u770B\u5BF9\u8BDD\u3001\u7EED\u804A\u4E0E\u5F52\u6863") } });
       setLucide(conversation.createSpan({ cls: "ad-arrow__icon" }), "messages-square");
@@ -14539,6 +16272,11 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
         p.openConversation(s);
       };
     }
+    const open = () => {
+      if (isPending && s.job?.path && p.openMirrorSource) return p.openMirrorSource(s.job.path, s.job.line || 0);
+      if (isPending && s.job?.id && p.openJob) return p.openJob(s.job.id);
+      return p.openSession(s.agent, s.sid, s.app, s);
+    };
     if (compact) {
       card.addClass("has-x");
       const x = card.createEl("button", { cls: "ad-arrow ad-sess__x", attr: { "aria-label": t("\u4ECE\u300C\u73B0\u5728\u300D\u79FB\u9664") } });
@@ -14550,14 +16288,13 @@ var AgentDeckView = class extends import_obsidian3.ItemView {
       card.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         const m = new import_obsidian3.Menu();
-        m.addItem((i) => i.setTitle(t("\u6253\u5F00\u4F1A\u8BDD")).setIcon("arrow-up-right").onClick(() => p.openSession(s.agent, s.sid, s.app, s)));
+        m.addItem((i) => i.setTitle(t("\u6253\u5F00\u4F1A\u8BDD")).setIcon("arrow-up-right").onClick(open));
         m.addItem((i) => i.setTitle(t("\u4ECE\u300C\u73B0\u5728\u300D\u79FB\u9664")).setIcon("x").onClick(() => this.removeFromNow(s.sid)));
         m.showAtMouseEvent(e);
       });
     }
     const go = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": t("\u6253\u5F00\u4F1A\u8BDD") } });
     setLucide(go.createSpan({ cls: "ad-arrow__icon" }), "arrow-up-right");
-    const open = () => p.openSession(s.agent, s.sid, s.app, s);
     go.onclick = (e) => {
       e.stopPropagation();
       open();
@@ -14772,7 +16509,7 @@ function journalSources(text, path10, { autoState = null } = {}) {
       pushMap(byKey, normKey(rec.key || rec.label), sid);
     }
     for (let i = 0; i < lines.length; i++) {
-      if (fenced.has(i) || !LIST_RE.test(lines[i])) continue;
+      if (fenced.has(i) || !LIST_RE.test(lines[i]) || parseMirrorRef(lines[i])) continue;
       const kw = kwLine(lines[i]);
       if (!kw) continue;
       const id = blockIdOf(lines[i]);
@@ -16173,6 +17910,10 @@ function evidenceBlocks(text, path10, { aiOnly = false } = {}) {
     const isFenceOpener = inFence && !prevFence && /^\s*(?:`{3,}|~{3,})/.test(rawLine);
     const line = inFence ? rawLine : rawLine.replace(AD_COMMENT_RE, "");
     const list = (!inFence || isFenceOpener) && LIST_RE.test(line);
+    if (list && !inFence && parseMirrorRef(line)) {
+      flush();
+      continue;
+    }
     let kind = block?.kind || "user";
     let itemId = block?._itemId || 0;
     let aiRelevant = block?._aiRelevant || false;
@@ -23895,10 +25636,395 @@ async function saveTaskAsFile(plugin, path10, line) {
   plugin.notice(t("\u5DF2\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u672C\uFF1A{path}", { path: written.path }));
 }
 
+// src/workbench-modal.js
+var import_obsidian14 = require("obsidian");
+var ProjectWorkbenchModal = class extends import_obsidian14.Modal {
+  constructor(app, plugin, opts = {}) {
+    super(app);
+    this.plugin = plugin;
+    this.opts = opts;
+    this.projectName = opts.projectName || "";
+    this.cwd = opts.cwd || "";
+    this.targetPath = opts.path || "";
+    this.targetLine = Number.isInteger(opts.line) ? opts.line : -1;
+    this.contextLines = [];
+    this.goal = opts.goal || "";
+    this.presetId = "fullstack";
+    this.roleOverrides = {};
+    this.subtasks = [];
+    this.planning = false;
+    this.dispatching = false;
+  }
+  async onOpen() {
+    const { contentEl, modalEl } = this;
+    modalEl.addClass("ad-workbench-dialog");
+    contentEl.addClass("ad-modal", "ad-workbench");
+    const p = this.plugin;
+    this.availableAgents = delegableAgents(p);
+    this.limitAgents = limitAgentsFromSessions(p.liveSessions?.({ hours: 6 }) || []);
+    if (this.targetPath && this.targetLine >= 0) {
+      try {
+        const text = await p.readNote(this.targetPath);
+        const lines = text.split("\n");
+        const block = blockAt(lines, this.targetLine);
+        if (block) {
+          this.goal = this.goal || blockTitle(block, mentionTrigger(p));
+          this.contextLines = ancestorLines(lines, block.start);
+        }
+      } catch {
+      }
+    } else if (!this.targetPath) {
+      const active = this.app.workspace.getActiveFile?.();
+      if (active?.extension === "md") this.targetPath = active.path;
+      else if (p.journalSync?.todayJournal) {
+        const today = p.journalSync.todayJournal();
+        this.targetPath = today?.path || "";
+      }
+    }
+    if (!this.projectName && this.cwd) {
+      this.projectName = resolveSessionProject({ cwd: this.cwd });
+    }
+    if (!this.cwd) this.cwd = p.vaultPath || "";
+    const savedByProj = p.settings?.projectTeams?.byProject || {};
+    if (this.projectName && savedByProj[this.projectName]) {
+      this.presetId = savedByProj[this.projectName];
+    }
+    if (!this.subtasks.length && this.goal) {
+      this.applyFallbackPlan();
+    }
+    this.render();
+  }
+  currentPreset() {
+    const presets = resolveTeamPresets(this.plugin.settings);
+    return presets.find((x) => x.id === this.presetId) || presets[0];
+  }
+  teamDestination(agent) {
+    const dests = destinations(agent);
+    if (dests.some((d) => d.id === "background")) return "background";
+    return defaultDestination(this.plugin, agent);
+  }
+  resolvedRoles() {
+    return assignTeamToRoles(this.currentPreset(), {
+      availableAgents: this.availableAgents,
+      limitAgents: this.limitAgents,
+      overrides: this.roleOverrides,
+      defaultDestinationFn: (agent) => this.teamDestination(agent)
+    });
+  }
+  saveTeamPreference() {
+    var _a;
+    const p = this.plugin;
+    const teams = (_a = p.settings).projectTeams || (_a.projectTeams = { presets: {}, byProject: {} });
+    teams.presets || (teams.presets = {});
+    teams.byProject || (teams.byProject = {});
+    if (this.projectName) teams.byProject[this.projectName] = this.presetId;
+    if (Object.keys(this.roleOverrides).length) {
+      teams.presets[this.presetId] = {
+        roleAgents: { ...teams.presets[this.presetId]?.roleAgents || {}, ...this.roleOverrides }
+      };
+    }
+    p.saveSettings?.();
+  }
+  applyFallbackPlan() {
+    const roles = this.resolvedRoles();
+    const defaultAgent = this.availableAgents.includes(this.plugin.defaultTarget?.()) ? this.plugin.defaultTarget() : this.availableAgents[0] || "claude";
+    const plan = fallbackCopilotPlan({ goal: this.goal, roles, defaultAgent });
+    this.subtasks = plan.subtasks.map((item) => ({
+      ...item,
+      destination: this.teamDestination(item.agent)
+    }));
+  }
+  async runCopilotPlan() {
+    if (!this.goal.trim()) {
+      new import_obsidian14.Notice(t("\u8BF7\u5148\u8F93\u5165\u9879\u76EE\u76EE\u6807\u6216\u9700\u6C42\u63CF\u8FF0"));
+      return;
+    }
+    this.planning = true;
+    this.render();
+    const roles = this.resolvedRoles();
+    const defaultAgent = this.availableAgents.includes(this.plugin.defaultTarget?.()) ? this.plugin.defaultTarget() : this.availableAgents[0] || "claude";
+    try {
+      const prompt = buildCopilotPlanPrompt({
+        goal: this.goal,
+        projectName: this.projectName,
+        cwd: this.cwd,
+        contextLines: this.contextLines,
+        roles,
+        availableAgents: this.availableAgents
+      });
+      const raw = await runJournalModel(prompt, this.plugin.settings, { polish: true });
+      const parsed = parseCopilotPlanResponse(raw, {
+        availableAgents: this.availableAgents,
+        roles,
+        defaultAgent
+      });
+      if (parsed?.subtasks?.length) {
+        this.subtasks = parsed.subtasks.map((item) => ({
+          ...item,
+          destination: this.teamDestination(item.agent)
+        }));
+      } else {
+        this.applyFallbackPlan();
+        new import_obsidian14.Notice(t("\u6A21\u578B\u8FD4\u56DE\u672A\u6309\u7ED3\u6784\u5316\u683C\u5F0F\u8F93\u51FA\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848"));
+      }
+    } catch (e) {
+      this.applyFallbackPlan();
+      new import_obsidian14.Notice(t("\u672A\u8FDE\u4E0A\u6574\u7406\u6A21\u578B\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848\uFF1A{msg}", { msg: e.message || e }), 5e3);
+    } finally {
+      this.planning = false;
+      this.render();
+    }
+  }
+  async commitTasks({ dispatch = false } = {}) {
+    const active = this.subtasks.filter((s) => s.checked !== false && String(s.title || "").trim());
+    if (!active.length) {
+      new import_obsidian14.Notice(t("\u8BF7\u81F3\u5C11\u4FDD\u7559\u4E00\u6761\u8981\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
+      return;
+    }
+    this.dispatching = true;
+    this.render();
+    try {
+      this.saveTeamPreference();
+      const parentTitle = this.goal.split(/\r?\n/)[0]?.trim() || this.projectName || t("\u9879\u76EE\u534F\u540C\u4EFB\u52A1");
+      const saved = await this.plugin.writeWorkbenchTasks({
+        path: this.targetPath,
+        line: this.targetLine,
+        parentTitle,
+        subtasks: active,
+        enableBoard: active.length >= 2
+      });
+      if (dispatch) {
+        await this.plugin.dispatchWorkbenchTasks({
+          path: saved.path,
+          lines: saved.lines,
+          subtaskLines: saved.subtaskLines,
+          cwd: this.cwd.trim(),
+          parentTitle
+        });
+      } else {
+        new import_obsidian14.Notice(t("\u5DF2\u5C06 {n} \u6761\u534F\u4F5C\u5B50\u4EFB\u52A1\u5199\u5165\u7B14\u8BB0", { n: active.length }));
+      }
+      this.close();
+    } catch (e) {
+      this.dispatching = false;
+      this.render();
+      new import_obsidian14.Notice(String(e.message || e), 6e3);
+    }
+  }
+  render() {
+    const { contentEl } = this;
+    contentEl.empty();
+    const presets = resolveTeamPresets(this.plugin.settings);
+    const roles = this.resolvedRoles();
+    const head = contentEl.createDiv({ cls: "ad-modalhead" });
+    head.createDiv({ cls: "ad-modalhead__title", text: t("\u9879\u76EE\u534F\u4F5C\u5DE5\u4F5C\u53F0") });
+    head.createDiv({
+      cls: "ad-modalhead__sub",
+      text: t("\u914D\u7F6E Agent \u534F\u4F5C\u5C0F\u961F\uFF0C\u62C6\u89E3\u4EFB\u52A1\u5E76\u5728\u786E\u8BA4\u540E\u5E76\u53D1\u6D3E\u53D1\uFF0C\u8BB0\u5F55\u81EA\u52A8\u843D\u76D8\u5230 Markdown")
+    });
+    const metaGrid = contentEl.createDiv({ cls: "ad-wb-grid" });
+    const projField = metaGrid.createDiv({ cls: "ad-field" });
+    projField.createDiv({ cls: "ad-field__label", text: t("\u9879\u76EE\u540D\u79F0") });
+    const projInput = projField.createEl("input", {
+      cls: "ad-input",
+      attr: { type: "text", placeholder: t("\u4F8B\u5982\uFF1Aagent-deck"), value: this.projectName }
+    });
+    projInput.oninput = () => {
+      this.projectName = projInput.value.trim();
+    };
+    const cwdField = metaGrid.createDiv({ cls: "ad-field" });
+    cwdField.createDiv({ cls: "ad-field__label", text: t("\u5DE5\u4F5C\u76EE\u5F55 (cwd)") });
+    const cwdInput = cwdField.createEl("input", {
+      cls: "ad-input",
+      attr: { type: "text", placeholder: this.plugin.vaultPath || "", value: this.cwd }
+    });
+    cwdInput.oninput = () => {
+      this.cwd = cwdInput.value;
+    };
+    if (this.targetLine >= 0 && this.targetPath) {
+      const targetMeta = contentEl.createDiv({ cls: "ad-hint ad-wb-target" });
+      targetMeta.textContent = t("\u5199\u5165\u4F4D\u7F6E\uFF1A{path} \u7B2C {line} \u884C\u4E0B\u65B9\uFF08\u81EA\u52A8\u542F\u7528\u5206\u5F62\u770B\u677F\uFF09", { path: this.targetPath, line: this.targetLine + 1 });
+    } else {
+      const targetField = contentEl.createDiv({ cls: "ad-field" });
+      targetField.createDiv({ cls: "ad-field__label", text: t("\u5199\u5165\u76EE\u6807\u7B14\u8BB0") });
+      const targetRow = targetField.createDiv({ cls: "ad-wb-task__top" });
+      const targetInput = targetRow.createEl("input", {
+        cls: "ad-input ad-wb-task__title",
+        attr: { type: "text", placeholder: t("\u7559\u7A7A\u5219\u5199\u5165\u4ECA\u65E5\u65E5\u8BB0"), value: this.targetPath }
+      });
+      targetInput.oninput = () => {
+        this.targetPath = targetInput.value.trim();
+      };
+      const todayBtn = targetRow.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("\u4ECA\u65E5\u65E5\u8BB0"), attr: { type: "button" } });
+      todayBtn.onclick = () => {
+        this.targetPath = journalPath(this.app, this.plugin.settings);
+        this.render();
+      };
+      const activeFile = this.app.workspace.getActiveFile?.();
+      if (activeFile?.extension === "md" && activeFile.path !== this.targetPath) {
+        const curBtn = targetRow.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("\u5F53\u524D\u7B14\u8BB0"), attr: { type: "button" } });
+        curBtn.onclick = () => {
+          this.targetPath = activeFile.path;
+          this.render();
+        };
+      }
+    }
+    const teamField = contentEl.createDiv({ cls: "ad-field" });
+    teamField.createDiv({ cls: "ad-field__label", text: t("Agent \u534F\u4F5C\u5C0F\u961F\u9884\u8BBE") });
+    const presetRow = teamField.createDiv({ cls: "ad-wb-presets" });
+    for (const preset of presets) {
+      const btn = presetRow.createEl("button", {
+        cls: `ad-chip${preset.id === this.presetId ? " is-on" : ""}`,
+        text: preset.name,
+        attr: { type: "button", title: preset.desc }
+      });
+      btn.onclick = () => {
+        this.presetId = preset.id;
+        this.roleOverrides = {};
+        this.render();
+      };
+    }
+    const roleList = teamField.createDiv({ cls: "ad-wb-roles" });
+    for (const role of roles) {
+      const row = roleList.createDiv({ cls: "ad-wb-role" });
+      const info = row.createDiv({ cls: "ad-wb-role__info" });
+      info.createDiv({ cls: "ad-wb-role__name", text: role.label });
+      info.createDiv({ cls: "ad-wb-role__hint", text: role.hint });
+      const selWrap = row.createDiv({ cls: "ad-wb-role__pick" });
+      agentIcon(selWrap.createSpan({ cls: "ad-glyph" }), role.agent);
+      const sel = selWrap.createEl("select", { cls: "ad-input ad-wb-select" });
+      for (const id of this.availableAgents) {
+        const suffix = this.limitAgents.has(id) ? ` (${t("\u9650\u989D")})` : "";
+        sel.createEl("option", { text: `${AGENTS[id]?.short || id}${suffix}`, attr: { value: id } });
+      }
+      sel.value = role.agent;
+      sel.onchange = () => {
+        this.roleOverrides[role.id] = sel.value;
+        this.saveTeamPreference();
+        this.render();
+      };
+    }
+    const goalField = contentEl.createDiv({ cls: "ad-field" });
+    goalField.createDiv({ cls: "ad-field__label", text: t("\u9879\u76EE\u76EE\u6807 / \u5F85\u62C6\u89E3\u4EFB\u52A1") });
+    const goalArea = goalField.createEl("textarea", {
+      cls: "ad-textarea",
+      attr: { rows: "3", placeholder: t("\u63CF\u8FF0\u8FD9\u4E00\u9636\u6BB5\u8981\u63A8\u8FDB\u7684\u76EE\u6807\uFF0C\u6216\u76F4\u63A5\u8D34\u5165\u591A\u884C\u8981\u70B9\u2026") }
+    });
+    goalArea.value = this.goal;
+    goalArea.oninput = () => {
+      this.goal = goalArea.value;
+    };
+    const planBar = goalField.createDiv({ cls: "ad-wb-planbar" });
+    const aiBtn = planBar.createEl("button", {
+      cls: "ad-btn ad-btn--cta",
+      attr: { type: "button" }
+    });
+    setLucide(aiBtn.createSpan({ cls: "ad-btn__icon" }), "sparkles");
+    aiBtn.createSpan({ text: this.planning ? t("\u6B63\u5728\u62C6\u89E3\u4EFB\u52A1\u2026") : t("AI \u526F\u9A7E\u62C6\u89E3\u5E76\u914D\u961F") });
+    aiBtn.disabled = this.planning || this.dispatching;
+    aiBtn.onclick = () => this.runCopilotPlan();
+    const quickBtn = planBar.createEl("button", {
+      cls: "ad-btn ad-btn--ghost",
+      text: t("\u6309\u5C0F\u961F\u5FEB\u901F\u62C6\u5206"),
+      attr: { type: "button" }
+    });
+    quickBtn.disabled = this.planning || this.dispatching;
+    quickBtn.onclick = () => {
+      this.applyFallbackPlan();
+      this.render();
+    };
+    const addBtn = planBar.createEl("button", {
+      cls: "ad-btn ad-btn--ghost",
+      text: t("+ \u6DFB\u52A0\u5B50\u4EFB\u52A1"),
+      attr: { type: "button" }
+    });
+    addBtn.disabled = this.dispatching;
+    addBtn.onclick = () => {
+      const fallbackAgent = roles[0]?.agent || this.availableAgents[0] || "claude";
+      this.subtasks.push({
+        checked: true,
+        title: "",
+        role: t("\u65B0\u589E\u4EFB\u52A1"),
+        agent: fallbackAgent,
+        destination: this.teamDestination(fallbackAgent),
+        detail: ""
+      });
+      this.render();
+    };
+    const draftField = contentEl.createDiv({ cls: "ad-field" });
+    const checkedCount = this.subtasks.filter((s) => s.checked !== false && String(s.title || "").trim()).length;
+    draftField.createDiv({ cls: "ad-field__label", text: t("\u5F85\u6D3E\u53D1\u5B50\u4EFB\u52A1\u8349\u6848\uFF08{n} \u6761\u5DF2\u9009\uFF09", { n: checkedCount }) });
+    const list = draftField.createDiv({ cls: "ad-wb-tasks" });
+    if (!this.subtasks.length) {
+      list.createDiv({ cls: "ad-hint", text: t("\u8F93\u5165\u76EE\u6807\u540E\u70B9\u51FB\u300CAI \u526F\u9A7E\u62C6\u89E3\u5E76\u914D\u961F\u300D\u6216\u300C\u6309\u5C0F\u961F\u5FEB\u901F\u62C6\u5206\u300D\u751F\u6210\u5B50\u4EFB\u52A1\u8349\u6848\u3002") });
+    }
+    this.subtasks.forEach((item, idx) => {
+      const row = list.createDiv({ cls: "ad-wb-task" });
+      const top = row.createDiv({ cls: "ad-wb-task__top" });
+      const cb = top.createEl("input", { attr: { type: "checkbox" } });
+      cb.checked = item.checked !== false;
+      cb.onchange = () => {
+        item.checked = cb.checked;
+        this.render();
+      };
+      const titleIn = top.createEl("input", {
+        cls: "ad-input ad-wb-task__title",
+        attr: { type: "text", placeholder: t("\u5B50\u4EFB\u52A1\u6807\u9898"), value: item.title || "" }
+      });
+      titleIn.oninput = () => {
+        item.title = titleIn.value;
+      };
+      const agentSel = top.createEl("select", { cls: "ad-input ad-wb-select" });
+      for (const id of this.availableAgents) {
+        agentSel.createEl("option", { text: AGENTS[id]?.short || id, attr: { value: id } });
+      }
+      agentSel.value = this.availableAgents.includes(item.agent) ? item.agent : this.availableAgents[0] || "claude";
+      agentSel.onchange = () => {
+        item.agent = agentSel.value;
+        item.destination = this.teamDestination(item.agent);
+        this.render();
+      };
+      const destSel = top.createEl("select", { cls: "ad-input ad-wb-select" });
+      const destOpts = destinations(item.agent);
+      for (const d of destOpts) destSel.createEl("option", { text: d.label, attr: { value: d.id } });
+      destSel.value = destOpts.some((d) => d.id === item.destination) ? item.destination : destOpts[0]?.id || "background";
+      destSel.onchange = () => {
+        item.destination = destSel.value;
+      };
+      const delBtn = top.createEl("button", { cls: "ad-linkbtn", text: "\xD7", attr: { type: "button", title: t("\u79FB\u9664") } });
+      delBtn.onclick = () => {
+        this.subtasks.splice(idx, 1);
+        this.render();
+      };
+      const detailIn = row.createEl("input", {
+        cls: "ad-input ad-wb-task__detail",
+        attr: { type: "text", placeholder: t("\u8865\u5145\u8981\u6C42\u6216\u9A8C\u6536\u6807\u51C6\uFF08\u53EF\u9009\uFF09"), value: item.detail || "" }
+      });
+      detailIn.oninput = () => {
+        item.detail = detailIn.value;
+      };
+    });
+    const foot = contentEl.createDiv({ cls: "ad-modalfoot" });
+    const cancel = foot.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("\u53D6\u6D88"), attr: { type: "button" } });
+    cancel.onclick = () => this.close();
+    const saveOnly = foot.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("\u4EC5\u5199\u5165 Markdown"), attr: { type: "button" } });
+    saveOnly.disabled = this.dispatching || !checkedCount;
+    saveOnly.onclick = () => this.commitTasks({ dispatch: false });
+    const go = foot.createEl("button", { cls: "ad-btn ad-btn--cta", attr: { type: "button" } });
+    setLucide(go.createSpan({ cls: "ad-btn__icon" }), "send");
+    go.createSpan({ text: this.dispatching ? t("\u6B63\u5728\u6D3E\u53D1\u2026") : t("\u5199\u5165\u5E76\u5E76\u53D1\u6D3E\u53D1 ({n})", { n: checkedCount }) });
+    go.disabled = this.dispatching || !checkedCount;
+    go.onclick = () => this.commitTasks({ dispatch: true });
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+
 // src/main.js
 var fsp8 = import_fs12.default.promises;
 var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
-var AgentDeckPlugin = class extends import_obsidian14.Plugin {
+var AgentDeckPlugin = class extends import_obsidian15.Plugin {
   async onload() {
     const data = await this.loadData();
     this.settings = syncDelegationSettings(deepMerge(DEFAULTS, data || {}), data || {});
@@ -23932,7 +26058,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     this.store = new UsageStore(this, this.settings);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
     this.usageCacheFile = import_path11.default.join(import_os12.default.homedir(), ".agent-deck", "usage-cache.json.gz");
-    this.editorInfoField = import_obsidian14.editorInfoField;
+    this.editorInfoField = import_obsidian15.editorInfoField;
     this.delegator = new Delegator(this);
     this.menubar = new MenuBarBridge(this);
     this.autoLog = new AutoLog(this);
@@ -23947,12 +26073,26 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     registerTaskAgentSuggest(this);
     registerTaskStatusMenu(this);
     this.registerMarkdownPostProcessor((el, ctx) => {
-      const child = new import_obsidian14.MarkdownRenderChild(el);
+      const child = new import_obsidian15.MarkdownRenderChild(el);
       child.onunload = renderAIRecords(el, this, ctx);
       ctx.addChild(child);
     });
     this.setupRibbon();
     this.addCommand({ id: "open-dashboard", name: t("\u6253\u5F00 Agent Deck \u9762\u677F"), callback: () => this.activateView() });
+    this.addCommand({
+      id: "open-project-workbench",
+      name: t("\u6253\u5F00\u9879\u76EE\u534F\u4F5C\u5DE5\u4F5C\u53F0\uFF1A\u5C0F\u961F\u7F16\u6392\u4E0E\u62C6\u89E3\u6D3E\u53D1"),
+      callback: () => {
+        const view = this.app.workspace.getActiveViewOfType(import_obsidian15.MarkdownView);
+        const line = view?.file ? view.editor.getCursor().line : -1;
+        this.openProjectWorkbench(view?.file && line >= 0 && blockAt(view.editor.getValue().split("\n"), line) ? { path: view.file.path, line } : {});
+      }
+    });
+    this.addCommand({
+      id: "toggle-task-board",
+      name: t("\u5F53\u524D\u4EFB\u52A1\uFF1A\u5207\u6362\u5206\u5F62\u770B\u677F / \u5927\u7EB2\u89C6\u56FE"),
+      editorCallback: (editor, view) => this.toggleTaskBoardAt(editor, view)
+    });
     this.addCommand({ id: "open-review", name: t("\u6253\u5F00 Agent Deck \u56DE\u987E Dashboard"), checkCallback: (checking) => {
       if (this.settings.experimentalDashboard === false) return false;
       if (!checking) this.activateDashboard();
@@ -24325,7 +26465,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
         this._cursorPromptNotice?.hide();
         this._cursorPromptNotice = null;
       };
-      this._cursorPromptNotice = new import_obsidian14.Notice(fragment, 0);
+      this._cursorPromptNotice = new import_obsidian15.Notice(fragment, 0);
       return true;
     } finally {
       this._promptingCursorHooks = false;
@@ -24388,8 +26528,8 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
       if (!scoped) this.maybePromptCursorHooks?.().catch(() => {
       });
-      if (force) new import_obsidian14.Notice(t("Agent Deck\uFF1A\u8BFB\u5230 {files} \u4E2A\u65E5\u5FD7\uFF0C{days} \u5929\u6709\u5185\u5BB9", { files: this.usage.files.size, days: touched.size }), 4e3);
-      if (agent && days) new import_obsidian14.Notice(t("{name}\uFF1A\u6700\u8FD1 {days} \u5929\u7684\u4F1A\u8BDD\u5DF2\u626B\u63CF", { name: AGENTS[agent].name, days }), 4e3);
+      if (force) new import_obsidian15.Notice(t("Agent Deck\uFF1A\u8BFB\u5230 {files} \u4E2A\u65E5\u5FD7\uFF0C{days} \u5929\u6709\u5185\u5BB9", { files: this.usage.files.size, days: touched.size }), 4e3);
+      if (agent && days) new import_obsidian15.Notice(t("{name}\uFF1A\u6700\u8FD1 {days} \u5929\u7684\u4F1A\u8BDD\u5DF2\u626B\u63CF", { name: AGENTS[agent].name, days }), 4e3);
     } catch (e) {
       console.error("[agent-deck] scan", e);
       this.notice(t("\u626B\u63CF\u4F1A\u8BDD\u5931\u8D25\uFF1A{error}", { error: e && e.message || e }), 8e3);
@@ -24405,7 +26545,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     this.usage.titles.clear();
     await this.store.save();
     await this.scanNow(true);
-    new import_obsidian14.Notice(t("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97"));
+    new import_obsidian15.Notice(t("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97"));
   }
   async importNautilus(manual = false) {
     const dir = import_path11.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
@@ -24413,14 +26553,14 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     try {
       raw = await fsp8.readFile(import_path11.default.join(dir, "ai-usage.json"), "utf8");
     } catch {
-      if (manual) new import_obsidian14.Notice(t("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json"));
+      if (manual) new import_obsidian15.Notice(t("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json"));
       return;
     }
     let src;
     try {
       src = JSON.parse(raw);
     } catch {
-      if (manual) new import_obsidian14.Notice(t("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25"));
+      if (manual) new import_obsidian15.Notice(t("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25"));
       return;
     }
     const days = src.days || {};
@@ -24438,7 +26578,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     }
     this.store.imported = { ...this.store.imported || {}, nautilus: Date.now() };
     await this.store.save();
-    if (manual || added) new import_obsidian14.Notice(t("Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 {days} \u5929\u5386\u53F2", { days: added }));
+    if (manual || added) new import_obsidian15.Notice(t("Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 {days} \u5929\u5386\u53F2", { days: added }));
     this.refreshUI();
   }
   recoverJobs() {
@@ -24551,12 +26691,12 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
-    new import_obsidian14.Notice(t("Agent Deck \u4E3B\u529B\uFF1A{agents}", { agents: this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ") }));
+    new import_obsidian15.Notice(t("Agent Deck \u4E3B\u529B\uFF1A{agents}", { agents: this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ") }));
   }
   async setAgentEnabled(agent, on) {
     var _a, _b, _c;
     if (this.isPrimary(agent) && !on) {
-      new import_obsidian14.Notice(t("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389"));
+      new import_obsidian15.Notice(t("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389"));
       return;
     }
     ((_a = this.settings).agents || (_a.agents = {}))[agent] = !!on;
@@ -24914,7 +27054,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     let found = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!found && v instanceof import_obsidian14.MarkdownView && v.file && v.file.path === path10 && v.editor) found = v;
+      if (!found && v instanceof import_obsidian15.MarkdownView && v.file && v.file.path === path10 && v.editor) found = v;
     });
     return found;
   }
@@ -24927,7 +27067,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     let view = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!view && v instanceof import_obsidian14.MarkdownView && v.editor && v.editor.cm === cm) view = v;
+      if (!view && v instanceof import_obsidian15.MarkdownView && v.editor && v.editor.cm === cm) view = v;
     });
     if (!view || !data || !data.sid) return;
     const sid = data.sid;
@@ -24980,11 +27120,11 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
   }
   // 把笔记里的第 srcLine 条任务合并/绑定到第 dstLine 条任务上（不管是 🤖 自动记的还是人写的）
   mergeTaskLines(cmOrView, srcLine, dstLine, srcLineText = "") {
-    let view = cmOrView instanceof import_obsidian14.MarkdownView ? cmOrView : null;
+    let view = cmOrView instanceof import_obsidian15.MarkdownView ? cmOrView : null;
     if (!view) {
       this.app.workspace.iterateAllLeaves((leaf) => {
         const v = leaf.view;
-        if (!view && v instanceof import_obsidian14.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
+        if (!view && v instanceof import_obsidian15.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
       });
     }
     if (!view || !view.editor) return;
@@ -25038,7 +27178,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     }
     const candidates = taskItems(lines.join("\n")).filter((t2) => t2.line !== taskLine);
     if (!candidates.length) return this.notice(t("\u5F53\u524D\u7B14\u8BB0\u91CC\u6CA1\u6709\u522B\u7684\u4EFB\u52A1\u6761\u76EE\u53EF\u5408\u5E76"));
-    const menu = new import_obsidian14.Menu();
+    const menu = new import_obsidian15.Menu();
     for (const c of candidates.slice(0, 20)) {
       menu.addItem((mi) => {
         const tag = c.auto ? "\u{1F916} " : "";
@@ -25096,7 +27236,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     if (!newSession && block && findLink(lines, block)) return { error: t("\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\uFF0C\u4E0D\u59D4\u6D3E") };
     return { file, lines, line, block };
   }
-  async delegateDrop(agent, item, fromEl, { cli = false, destination, newSession = false, confirmed = false, expectedText } = {}) {
+  async delegateDrop(agent, item, fromEl, { cli = false, destination, newSession = false, confirmed = false, expectedText, boardContext = "" } = {}) {
     this._dragItem = null;
     if (AGENTS[agent]?.trackingOnly) return;
     const target = await this.delegateTarget(item, { newSession });
@@ -25115,10 +27255,10 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
           where: `${opts.model || this.defaultModel(agent) || t("\u5BA2\u6237\u7AEF\u6A21\u578B")} \xB7 ${opts.effort || this.settings.delegate[agent]?.effort || t("\u5BA2\u6237\u7AEF\u5F3A\u5EA6")}`,
           destination,
           newSession
-        }, (chosen) => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: delegationText(target.lines, target.block, { newSession }) })).open();
+        }, (chosen) => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: delegationText(target.lines, target.block, { newSession }), boardContext })).open();
         return;
       }
-      await this.delegator.delegate({ ...opts, destination, newSession });
+      await this.delegator.delegate({ ...opts, destination, newSession, ...boardContext ? { boardContext } : {} });
     } catch (e) {
       this.notice(String(e.message || e), 8e3);
     }
@@ -25164,7 +27304,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     const lines = view.editor.getValue().split("\n"), block = blockAt(lines, line);
     if (!block) return;
     const sessions = this.sessionsAtTask(path10, line, lines);
-    const menu = new import_obsidian14.Menu();
+    const menu = new import_obsidian15.Menu();
     for (const [index, session] of sessions.entries()) {
       const title = `${AGENTS[session.agent]?.name || session.agent} \xB7 ${t("\u4F1A\u8BDD {n}", { n: index + 1 })}`;
       if (canOpenClient(session)) menu.addItem((mi) => mi.setTitle(t("\u7EE7\u7EED\u5BF9\u8BDD \xB7 {title}", { title })).setDisabled(!session.sid).onClick(() => this.openClientSession(session)));
@@ -25175,6 +27315,8 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       menu.addSeparator();
     }
     for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem((mi) => mi.setTitle(t("\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path: path10, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    menu.addSeparator();
+    menu.addItem((mi) => mi.setTitle(t("\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u62C6\u89E3\u5E76\u5206\u914D\u5C0F\u961F")).setIcon("folder-kanban").onClick(() => this.openProjectWorkbench({ path: path10, line: block.start })));
     menu.addItem((mi) => mi.setTitle(t("\u7ED1\u5B9A\u6216\u5408\u5E76\u5230\u5176\u4ED6\u4EFB\u52A1")).onClick(() => {
       view.editor.setCursor({ line: block.start, ch: 0 });
       this.openMergeTaskForEditor(view.editor, view);
@@ -25209,7 +27351,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path10, line)));
   }
   openRecordViewMenu(event, { path: path10 = "", line = 0, viewMode = "outline", onSelect } = {}) {
-    const menu = new import_obsidian14.Menu();
+    const menu = new import_obsidian15.Menu();
     const views = [
       ["outline", t("\u5927\u7EB2"), "list-tree"],
       ["table", t("\u8868\u683C"), "table"],
@@ -25230,7 +27372,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
           this.populateRecordExportMenu(mi.setSubmenu(), opts);
         } else {
           mi.onClick(() => {
-            const sub = new import_obsidian14.Menu();
+            const sub = new import_obsidian15.Menu();
             this.populateRecordExportMenu(sub, opts);
             if (event) sub.showAtMouseEvent(event);
           });
@@ -25258,7 +27400,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     const current = this.viewForPath(item.path);
     if (current && this.sessionsAtTask(item.path, item.line, current.editor.getValue().split("\n")).length) return this.taskActions(item.path, item.line, e);
     const main = this.defaultTarget();
-    const menu = new import_obsidian14.Menu();
+    const menu = new import_obsidian15.Menu();
     for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x) && !AGENTS[x].trackingOnly)) {
       menu.addItem((mi) => {
         mi.setTitle(AGENTS[id].name + (id === main ? " \xB7 " + t("\u4E3B\u529B") : ""));
@@ -25309,12 +27451,12 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     });
   }
   // ---------- editor actions ----------
-  async delegateAtLine(path10, line) {
+  async delegateAtLine(path10, line, extraOpts = {}) {
     const file = this.app.vault.getAbstractFileByPath(path10);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian14.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian15.MarkdownView);
     const lines = view && view.file && view.file.path === path10 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
-    return this.delegateDrop(this.defaultTarget(), { path: path10, line, lineText: lines[line] });
+    return this.delegateDrop(this.defaultTarget(), { path: path10, line, lineText: lines[line] }, null, extraOpts);
   }
   openDelegateModal(path10, line) {
     new DelegateOptionsModal(this.app, this, path10, line).open();
@@ -25442,6 +27584,258 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
     if (!id) return;
     this.delegator.cancel(id);
     this.refreshUI();
+  }
+  cancelProjectJobs(projectId, jobIds = []) {
+    const ids = new Set(jobIds || []);
+    if (!ids.size) {
+      for (const job of Object.values(this.jobs || {})) {
+        if (!activeJob(job)) continue;
+        const proj = resolveSessionProject({ cwd: job.cwd }) || STANDALONE_PROJECT_ID;
+        if (proj === projectId) ids.add(job.id);
+      }
+    }
+    let stopped = 0;
+    for (const id of ids) {
+      if (this.delegator.runners.has(id) || activeJob(this.jobs[id])) {
+        this.delegator.cancel(id);
+        stopped += 1;
+      }
+    }
+    if (stopped) this.notice(t("\u5DF2\u505C\u6B62\u8BE5\u9879\u76EE\u7684 {n} \u4E2A\u6D3B\u8DC3\u4EFB\u52A1", { n: stopped }));
+    else this.notice(t("\u8BE5\u9879\u76EE\u6CA1\u6709\u53EF\u505C\u6B62\u7684\u6D3B\u8DC3\u4EFB\u52A1"));
+    this.refreshUI();
+  }
+  openProjectWorkbench(opts = {}) {
+    new ProjectWorkbenchModal(this.app, this, opts).open();
+  }
+  toggleTaskBoardAt(editor, view) {
+    if (!view?.file || !editor?.cm) return;
+    const text = editor.getValue();
+    const cursorLine = editor.getCursor().line;
+    const groups = extractTaskBoardGroups(text, {
+      trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : /* @__PURE__ */ new Set(),
+      trigger: mentionTrigger(this)
+    });
+    const hit = groups.find((g) => g.line === cursorLine) || groups.find((g) => cursorLine >= g.line && cursorLine <= g.endLine);
+    if (!hit) return this.notice(t("\u8BF7\u628A\u5149\u6807\u653E\u5728\u5305\u542B 2 \u4E2A\u4EE5\u4E0A\u5B50\u4EFB\u52A1\u7684\u7236\u4EFB\u52A1\u4E0A"));
+    const next = taskBoardMode(this.settings, hit) === "board" ? "outline" : "board";
+    editor.cm.dispatch({ effects: setTaskBoardEffect.of({ key: hit.key, mode: next }) });
+  }
+  async ensureNoteFile(targetPath) {
+    const pathStr = String(targetPath || "").trim() || journalPath(this.app, this.settings);
+    let file = this.app.vault.getAbstractFileByPath(pathStr);
+    if (file) return { path: pathStr, file };
+    const parts = pathStr.split("/");
+    parts.pop();
+    let dir = "";
+    for (const part of parts) {
+      dir = dir ? `${dir}/${part}` : part;
+      if (!this.app.vault.getAbstractFileByPath(dir)) await this.app.vault.createFolder(dir);
+    }
+    file = await this.app.vault.create(pathStr, "");
+    return { path: pathStr, file };
+  }
+  async writeWorkbenchTasks({ path: path10 = "", line = -1, parentTitle = "", subtasks = [], enableBoard = true } = {}) {
+    var _a;
+    const ensured = await this.ensureNoteFile(path10);
+    const targetPath = ensured.path;
+    const activeSubtasks = (subtasks || []).filter((s) => s && s.checked !== false && String(s.title || "").trim());
+    if (!activeSubtasks.length) throw new Error(t("\u6CA1\u6709\u53EF\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
+    let parentLine = -1;
+    let subtaskLines = [];
+    let finalLines = [];
+    await updateNote(this, targetPath, (before) => {
+      const lines = before ? before.split("\n") : [];
+      const existingBlock = line >= 0 ? blockAt(lines, line) : null;
+      if (existingBlock) {
+        const indent = (/^\s*/.exec(lines[existingBlock.start]) || [""])[0];
+        const childIndentStr = childIndent(lines, existingBlock.start).slice(indent.length) || "	";
+        const snippet = formatWorkbenchTasksMarkdown({
+          parentTitle,
+          subtasks: activeSubtasks,
+          indent,
+          childIndentStr,
+          includeParent: false,
+          assignBlockIds: true
+        });
+        const inserted = snippet.split("\n");
+        const insertAt = existingBlock.end + 1;
+        lines.splice(insertAt, 0, ...inserted);
+        parentLine = existingBlock.start;
+        subtaskLines = [];
+        let cursor = insertAt;
+        for (const item of activeSubtasks) {
+          subtaskLines.push({ line: cursor, agent: item.agent, destination: item.destination, title: item.title });
+          cursor += 1 + (item.detail && item.detail.trim() ? 1 : 0);
+        }
+      } else {
+        const snippet = formatWorkbenchTasksMarkdown({
+          parentTitle,
+          subtasks: activeSubtasks,
+          indent: "",
+          childIndentStr: "	",
+          includeParent: true,
+          assignBlockIds: true
+        });
+        const inserted = snippet.split("\n");
+        const placed = insertWorkbenchBlockLines(lines, inserted);
+        lines.splice(0, lines.length, ...placed.lines);
+        parentLine = placed.parentLine;
+        subtaskLines = [];
+        let cursor = parentLine + 1;
+        for (const item of activeSubtasks) {
+          subtaskLines.push({ line: cursor, agent: item.agent, destination: item.destination, title: item.title });
+          cursor += 1 + (item.detail && item.detail.trim() ? 1 : 0);
+        }
+      }
+      finalLines = lines;
+      return lines.join("\n");
+    });
+    if (enableBoard && parentLine >= 0) {
+      const afterText = await this.readNote(targetPath);
+      finalLines = afterText.split("\n");
+      const groups = extractTaskBoardGroups(afterText, {
+        trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : /* @__PURE__ */ new Set(),
+        trigger: mentionTrigger(this)
+      });
+      const grp = groups.find((g) => g.line === parentLine);
+      if (grp) {
+        const views = (_a = this.settings).taskBoardViews || (_a.taskBoardViews = {});
+        views[grp.key] = "board";
+        if (grp.stableKey) views[grp.stableKey] = "board";
+        await this.saveSettings();
+        await dispatchRefresh(this);
+      }
+    }
+    if (!this.viewForPath(targetPath) && this.app.workspace.getLeaf) {
+      await this.openMirrorSource(targetPath, Math.max(0, parentLine));
+    }
+    return { path: targetPath, lines: finalLines, parentLine, subtaskLines };
+  }
+  async dispatchWorkbenchTasks({ path: path10, lines, subtaskLines = [], cwd = "", parentTitle = "" } = {}) {
+    const file = this.app.vault.getAbstractFileByPath(path10);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u76EE\u6807\u7B14\u8BB0\uFF1A{path}", { path: path10 }));
+    const freshLines = lines || (await this.readNote(path10)).split("\n");
+    const tasks = subtaskLines.map((item) => ({ item, block: blockAt(freshLines, item.line) })).filter((x) => x.block);
+    if (!tasks.length) return;
+    const siblingModel = tasks.length > 1 ? {
+      title: parentTitle || t("\u534F\u4F5C\u9879\u76EE"),
+      columns: [{
+        id: "todo",
+        cards: tasks.map(({ item }) => ({ line: item.line, title: item.title, agent: item.agent }))
+      }]
+    } : null;
+    const results = await Promise.allSettled(
+      tasks.map(({ item, block }) => {
+        const boardContext = item.boardContext || (siblingModel ? buildBoardSiblingContext(siblingModel, item.line) : "");
+        return this.delegator.delegate({
+          file,
+          lines: freshLines,
+          block,
+          agent: item.agent,
+          destination: item.destination,
+          cwd: cwd || void 0,
+          ...boardContext ? { boardContext } : {}
+        });
+      })
+    );
+    const failed = results.filter((r) => r.status === "rejected");
+    const okCount = results.length - failed.length;
+    if (okCount) this.notice(t("\u5DF2\u5E76\u53D1\u6D3E\u53D1 {n} \u4E2A\u534F\u4F5C\u5B50\u4EFB\u52A1", { n: okCount }));
+    if (failed.length) {
+      const firstErr = failed[0].reason?.message || String(failed[0].reason || "");
+      this.notice(t("{n} \u4E2A\u5B50\u4EFB\u52A1\u6D3E\u53D1\u5931\u8D25\uFF1A{err}", { n: failed.length, err: firstErr }), 8e3);
+    }
+    this.refreshUI();
+  }
+  async dispatchBoardGroup(path10, parentLine, { model: providedModel = null } = {}) {
+    const file = this.app.vault.getAbstractFileByPath(path10);
+    if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
+    const text = await this.readNote(path10);
+    const lines = text.split("\n");
+    const groups = extractTaskBoardGroups(text, {
+      trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : /* @__PURE__ */ new Set(),
+      trigger: mentionTrigger(this)
+    });
+    const grp = groups.find((g) => g.line === parentLine);
+    if (!grp) return;
+    const model = providedModel || buildTaskBoardModel(grp, this);
+    const pending = model.columns.flatMap((c) => c.cards).filter((c) => c.column === "todo" && !c.hasLink && !c.activeJob && !c.isMirror);
+    if (!pending.length) return this.notice(t("\u6CA1\u6709\u5F85\u6D3E\u53D1\u7684 TODO \u5B50\u4EFB\u52A1"));
+    const subtaskLines = pending.map((card) => ({
+      line: card.line,
+      agent: card.agent || this.defaultTarget(),
+      destination: void 0,
+      title: card.title,
+      boardContext: buildBoardSiblingContext(model, card.line)
+    }));
+    await this.dispatchWorkbenchTasks({ path: path10, lines, subtaskLines });
+  }
+  primeMirrorCache(refs = [], sourcePath = "") {
+    if (!refs.length || this._primingMirrors) return;
+    this._mirrorBoardCache || (this._mirrorBoardCache = /* @__PURE__ */ new Map());
+    const pending = refs.filter((r) => r?.target && r?.blockId);
+    if (!pending.length) return;
+    this._primingMirrors = true;
+    Promise.resolve().then(async () => {
+      let changed = false;
+      for (const ref of pending) {
+        const key = `${ref.target}#${ref.blockId}`;
+        const dest = this.app.metadataCache?.getFirstLinkpathDest?.(ref.target, sourcePath || "");
+        if (!dest?.path) continue;
+        try {
+          const text = await this.readNote(dest.path);
+          const task = findTaskByBlockId(text, ref.blockId);
+          if (!task) continue;
+          const lines = text.split("\n");
+          const block = blockAt(lines, task.line);
+          let link = null;
+          let latestConclusion = "";
+          if (block) {
+            for (let m = block.start + 1; m <= block.end; m++) {
+              if (!link) link = parseLink(lines[m]);
+              if (/^\s*[-*+]\s+💬\s/.test(lines[m])) {
+                latestConclusion = lines[m].trim().replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:])?\s*/, "").replace(RECORD_PROVENANCE_RE, "").trim();
+              }
+            }
+          }
+          const next = {
+            title: stripInlineTitleMarkup(stripBlockId(task.body).replace(/^🤖\s*/u, "")),
+            kw: task.kw || "TODO",
+            column: classifyTaskStatusColumn(task.kw || "TODO"),
+            agent: link?.agent || "",
+            sid: link?.sid || "",
+            hasLink: Boolean(link),
+            latestConclusion,
+            mirrorTarget: { path: dest.path, line: task.line, blockId: ref.blockId }
+          };
+          const prev = this._mirrorBoardCache.get(key);
+          if (JSON.stringify(prev) !== JSON.stringify(next)) {
+            this._mirrorBoardCache.set(key, next);
+            changed = true;
+          }
+        } catch {
+        }
+      }
+      if (changed) dispatchRefresh(this);
+    }).finally(() => {
+      this._primingMirrors = false;
+    });
+  }
+  async openMirrorSource(targetPath, line = 0) {
+    const file = this.app.vault.getAbstractFileByPath(targetPath);
+    if (!file) return this.notice(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: targetPath }));
+    const leaf = this.app.workspace.getLeaf(false);
+    await leaf.openFile(file, { eState: { line: Math.max(0, line) } });
+  }
+  openProjectFolder(dirPath) {
+    if (!dirPath) return;
+    try {
+      const { shell } = require("electron");
+      if (shell && shell.openPath) return shell.openPath(dirPath);
+    } catch {
+    }
+    openExternal("file://" + dirPath);
   }
   // ---------- macOS menu bar ----------
   buildMenuBarState() {
@@ -25674,7 +28068,7 @@ var AgentDeckPlugin = class extends import_obsidian14.Plugin {
       fragment.createEl("div", { text: `${title}
 ${body}` });
       fragment.createEl("button", { text: t("\u524D\u5F80\u5904\u7406") }).onclick = open;
-      const alert = { open, notice: new import_obsidian14.Notice(fragment, 0) };
+      const alert = { open, notice: new import_obsidian15.Notice(fragment, 0) };
       try {
         alert.system = new Notification(title, { body, tag: `agent-deck:${key}` });
         alert.system.onclick = () => {
@@ -25691,7 +28085,7 @@ ${body}` });
   // ---------- misc ----------
   notice(msg, ms) {
     try {
-      new import_obsidian14.Notice(msg, ms);
+      new import_obsidian15.Notice(msg, ms);
     } catch {
       console.log("[agent-deck]", msg);
     }

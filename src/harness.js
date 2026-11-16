@@ -1,7 +1,7 @@
 // Extensible Harness pipeline: outline/link context resolvers, payload builder, and runner factory.
 import { CONFIRM_FIRST } from "./constants.js";
 import * as J from "./journal.js";
-import { ancestorLines, extractWikilinkRefs } from "./outline.js";
+import { ancestorLines, extractWikilinkRefs, frontmatterEnd, subtreeEnd } from "./outline.js";
 import { getAgentCapability } from "./agent-registry.js";
 import { stripTaskMention, mentionTrigger } from "./task-mentions.js";
 import { t } from "./i18n.js";
@@ -38,25 +38,129 @@ export function clearCustomContextResolvers() {
   CONTEXT_RESOLVERS.length = 0;
 }
 
-export async function resolveDelegationContext({ file = null, lines = [], block, opts = {}, extraResolvers = [] } = {}) {
+const MAX_LINKED_NOTES = 3;
+const LINK_EXCERPT_MAX_LINES = 12;
+const LINK_EXCERPT_MAX_CHARS = 600;
+
+function dedupeWikilinkRefs(refs = []) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of refs) {
+    const target = String(raw?.target || "").trim();
+    if (!target) continue;
+    const subpath = String(raw?.subpath || "").trim();
+    const alias = String(raw?.alias || "").trim();
+    const key = `${target}#${subpath}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ target, subpath, alias });
+  }
+  return out;
+}
+
+// Markdown 标题子路径（[[笔记#章节]]）：取该标题到下一个同级或更高级标题之前的内容。
+function headingSection(lines, title) {
+  const want = String(title || "").trim();
+  if (!want) return null;
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^(#{1,6})\s+(.*)$/.exec(lines[i]);
+    if (!m || m[2].replace(/#+\s*$/, "").trim() !== want) continue;
+    const level = m[1].length;
+    let end = i + 1;
+    while (end < lines.length) {
+      const next = /^(#{1,6})\s+/.exec(lines[end]);
+      if (next && next[1].length <= level) break;
+      end++;
+    }
+    return lines.slice(i, end).join("\n");
+  }
+  return null;
+}
+
+// 按整行截断，避免把列表结构或代码块切在半行。
+function clampExcerpt(text, maxLines = LINK_EXCERPT_MAX_LINES, maxChars = LINK_EXCERPT_MAX_CHARS) {
+  const picked = [];
+  let size = 0;
+  for (const line of String(text || "").split("\n")) {
+    if (picked.length >= maxLines) break;
+    const next = size + (picked.length ? 1 : 0) + line.length;
+    if (picked.length && next > maxChars) break;
+    picked.push(line);
+    size = next;
+  }
+  const out = picked.join("\n").trim();
+  return out.length > maxChars ? out.slice(0, maxChars).trimEnd() : out;
+}
+
+async function resolveWikilinkSnippets(plugin, file, refs = []) {
+  if (!refs.length || !plugin?.readNote || !plugin?.app?.metadataCache?.getFirstLinkpathDest) return "";
+  const snippets = [];
+  const seen = new Set();
+  const rawCache = new Map();
+  for (const ref of refs) {
+    if (snippets.length >= MAX_LINKED_NOTES) break;
+    const dest = plugin.app.metadataCache.getFirstLinkpathDest(ref.target, file?.path || "");
+    if (!dest?.path || dest.extension !== "md") continue;
+    if (dest.path === file?.path && !ref.subpath) continue;
+    const key = `${dest.path}#${ref.subpath || ""}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    try {
+      let raw = rawCache.get(dest.path);
+      if (raw == null) {
+        raw = await plugin.readNote(dest.path);
+        rawCache.set(dest.path, raw);
+      }
+      const allLines = String(raw || "").split("\n");
+      let excerpt = "";
+      if (ref.subpath?.startsWith("^")) {
+        const bid = ref.subpath.slice(1);
+        const idx = allLines.findIndex((l) => J.blockIdOf(l) === bid);
+        // 定点块已不存在时宁可不注入，也不拿整篇开头冒充。
+        if (idx < 0) continue;
+        const end = subtreeEnd(allLines, idx);
+        excerpt = allLines.slice(idx, end).join("\n");
+      } else if (ref.subpath) {
+        // 标题子路径找不到时同样跳过，避免注入无关正文。
+        excerpt = headingSection(allLines, ref.subpath) || "";
+        if (!excerpt) continue;
+      } else {
+        excerpt = allLines.slice(frontmatterEnd(allLines)).join("\n");
+      }
+      const compact = clampExcerpt(excerpt);
+      if (!compact) continue;
+      const label = `[[${ref.target}${ref.subpath ? "#" + ref.subpath : ""}${ref.alias ? "|" + ref.alias : ""}]]`;
+      snippets.push(`- ${label} (${dest.path}):\n${compact}`);
+    } catch { /* unreadable linked note */ }
+  }
+  return snippets.length ? `${t("关联笔记上下文（[[双链]]）：")}\n${snippets.join("\n")}` : "";
+}
+
+export async function resolveDelegationContext({ plugin = null, file = null, lines = [], block, opts = {}, extraResolvers = [] } = {}) {
   const outlineAncestors = Array.isArray(opts.contextLines)
     ? opts.contextLines
     : (Array.isArray(lines) && block ? ancestorLines(lines, block.start) : []);
   const context = {
+    plugin,
     file,
     lines,
     block,
     opts,
     contextLines: [...outlineAncestors],
-    refs: extractWikilinkRefs([...outlineAncestors, ...(block ? [block.text] : [])]),
+    refs: extractWikilinkRefs([...outlineAncestors, ...(block ? [block.text] : [])], { embeds: true }),
     extraSections: [],
   };
+  if (opts?.boardContext && String(opts.boardContext).trim()) {
+    context.extraSections.push(String(opts.boardContext).trim());
+  }
+  // 先跑扩展解析器，把它们补进来的 [[双链]] 也纳入摘要解析。
+  const resolverSections = [];
   for (const resolver of [...CONTEXT_RESOLVERS, ...extraResolvers]) {
     if (!resolver || typeof resolver.resolve !== "function") continue;
     try {
       const out = await resolver.resolve(context);
       if (out?.section && typeof out.section === "string" && out.section.trim()) {
-        context.extraSections.push(out.section.trim());
+        resolverSections.push(out.section.trim());
       }
       if (Array.isArray(out?.refs) && out.refs.length) {
         context.refs.push(...out.refs);
@@ -65,6 +169,10 @@ export async function resolveDelegationContext({ file = null, lines = [], block,
       console.error(`[agent-deck] context resolver ${resolver.name || "anon"}`, e);
     }
   }
+  context.refs = dedupeWikilinkRefs(context.refs);
+  const linkedSection = await resolveWikilinkSnippets(plugin, file, context.refs);
+  if (linkedSection) context.extraSections.push(linkedSection);
+  context.extraSections.push(...resolverSections);
   return context;
 }
 
@@ -87,7 +195,7 @@ export function buildPromptFromContext(plugin, { block, file = null, contextLine
 }
 
 export async function buildDelegationPayload({ plugin, file, lines, block, opts = {}, extraResolvers = [] }) {
-  const resolved = await resolveDelegationContext({ file, lines, block, opts, extraResolvers });
+  const resolved = await resolveDelegationContext({ plugin, file, lines, block, opts, extraResolvers });
   const trigger = mentionTrigger(plugin);
   const question = stripTaskMention(withContext(resolved.contextLines, freshTaskText(block?.text || "")), trigger);
   const prompt = buildPromptFromContext(plugin, {

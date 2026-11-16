@@ -393,6 +393,8 @@ export const DEFAULTS = {
   aiRecordExpanded: {},
   aiRecordClosed: {},
   aiRecordViews: {},
+  taskBoardViews: {},
+  projectTeams: { presets: {}, byProject: {} },
   aiRecordDisplay: "latest1", // collapsed 折叠 / expanded 展开 / latest1、latest3、latest5 最近 N 条 AI 结论
   autoLogGranularity: "round", // latest 最新进展 / round 每轮 / paused 停歇或归档
   doneArchivePath: "Agent Deck/done/已完成任务.md",
@@ -495,6 +497,8 @@ export const DEFAULTS = {
     showSparkline: true,
     showUsageBars: true,
     recentDays: 7,
+    nowGroupBy: "project",
+    recentGroupBy: "agent",
     agentCards: { order: [...AGENT_ORDER], hidden: [], pinned: [] },
   },
   jobs: {},

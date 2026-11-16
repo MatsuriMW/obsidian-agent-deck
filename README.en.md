@@ -28,18 +28,33 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 
 ### 1. Unified Multi-Agent Session Panel
 - **Tracks 9 local agents**: **Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder**, plus **Cursor** (3.30.14+ Hooks, tracking only) and **Grok Bot** (Sand desktop client with per-bot selection, tracking only).
-- **Live status & quick jump**: Distinguishes running, waiting for reply, needs approval, hit limit, paused, errored, and finished sessions; click a session card to switch back to its client or terminal tab (see per-agent boundaries below).
-- **Primary agents, time spans & global search**: Pin up to 2 primary agents for full history and cross-day catch-up (other enabled agents read sessions active today); switch "Recent Sessions" between `7 / 30 / 120` days with per-agent stacks; search across all scanned local sessions by title, project, model, or content, and view a 14-day activity trend.
+- **Project-first concurrency management**: The **Now** section groups active, waiting, and errored/limit-hit sessions by workspace project by default (with a one-click toggle back to flat **List**), showing participating agents, status badges, open-folder shortcut, Project Workbench launcher, and project-wide stop controls. **Recent Sessions** switches between `7 / 30 / 120` days and stacks either **By agent** or **By project**.
+- **Live status & quick jump**: Distinguishes running, waiting for reply, needs approval, hit limit, paused, errored, and finished sessions; click a session card to switch back to its client or terminal tab (or jump directly to the note line for pending handoff jobs).
+- **Primary agents & global search**: Pin up to 2 primary agents for full history and cross-day catch-up (other enabled agents read sessions active today); search across all scanned local sessions by title, project, model, or content, and view a 14-day activity trend.
 
 ### 2. Task-Line Delegation & Drag-and-Drop Binding
 - **Three ways to delegate**:
   - Click the paper-plane grip at the end of a task line (or double-click / `⌘`-click to pick the agent);
   - Drag a list item from your note onto an agent card in the sidebar;
   - Type `@` in a task line to pick an agent, then `/` for model and reasoning effort (e.g. `@codex/gpt-6.1-sol/high`).
-- **Pre-send preview & full context**: Preview the block and choose a work destination before sending; delegating a sub-item automatically carries its ancestor chain (excluding unrelated sibling branches) and its child subtree, and you can edit an AI reply block to delegate again from it.
+- **Pre-send preview & wikilink context**: Preview the block and choose a work destination before sending; delegating a sub-item automatically carries its ancestor chain (excluding unrelated sibling branches), its child subtree, and excerpts from explicit `[[wikilinks]]`, and you can edit an AI reply block to delegate again from it.
 - **Drag to bind**: Drop a session card onto an existing list item to bind it, or onto an empty line to create a new bound task. Regular bound sessions show a status pill. Background tasks show one progress row below the parent task with cancel/retry actions; it disappears when the answer is ready.
 
-### 3. Human–AI Journal, Organization & Archiving
+### 3. Project Workbench & In-Place Fractal Boards
+- **Team presets, Copilot planning & concurrent dispatch**: Open the **Project Workbench** from the sidebar, command palette, or task menu to pick from three built-in team presets (automatically routing around disabled or hit-limit agents and remembering per-project preferences), decompose goals into editable subtask drafts via the configured organizer model or quick local split, write standard `- TODO ... @agent` Markdown (placed inside the active journal band with pre-assigned block IDs), and dispatch multiple agents concurrently after review.
+- **In-place Fractal Boards (Editing view)**: Any parent list item with 2 or more direct child tasks (status keywords, standard `[ ]` checkboxes, or `![[note#^blockId]]` mirrors) gets a `Board N` toggle right on its line:
+  - **Dual column modes & recursive Zoom**: Switch between **By status** (`TODO / DOING / Wait / DONE`) and **By group** (direct child phases as columns, grandchild tasks as cards); click `↳` on any card with nested subtasks to zoom in with clickable breadcrumbs;
+  - **Full in-board workflow**: Track completion progress, quick-add cards inline (`+ Card`), assign `@agent` per card, drag subtrees across columns or reorder cards (atomically rewriting standard Markdown without proprietary syntax), inspect transcripts, stop active runs, or batch-dispatch `TODO` cards with sibling board context injected via Harness;
+  - **Single-source mirror cards**: Reference tasks across notes via `- ![[note#^blockId]]` or `- [[note#^blockId]]` as dashed **Mirror** cards—status changes write back to the primary source note, while Dashboard analytics and Dreaming explicitly ignore mirror lines to prevent double counting.
+
+<p align="center">
+  <img src="assets/fractal-board-outline.jpg" width="840" alt="Standard Markdown outline view with the inline Board 4 toggle, status icons, @agent routing, and AI replies">
+</p>
+<p align="center">
+  <img src="assets/fractal-board-kanban.jpg" width="840" alt="In-place Fractal Board (By group mode) showing progress bar, quick-add bar, phase columns, Agent badges, dispatch/stop actions, and dashed mirror card">
+</p>
+
+### 4. Human–AI Journal, Organization & Archiving
 - **Auto-journaling & write-back**: Periodically matches or creates daily-note task lines for today's sessions and syncs status, `⏱` active spans, per-turn records (brief / standard / detailed), and nested child session / side-chat / subagent blocks. Newly generated top-level AI record titles default to bold Markdown (`**title**`) with project/bot prefixes, and can be customized under **Settings → Records → Journal & Archive → More settings → Record formatting rules** (title bolding, project/bot prefix, time range, max title length, and Grok Bot idle auto-DONE threshold). Background answers of up to 500 characters are written inline in full; longer answers return a link to a Markdown file under `Agent Deck/Answers/` containing the full question and answer with internal tracking metadata removed (no extra summary model called). Regular session conclusions default to 350 characters, with long addresses shortened to clickable labels.
 - **Title protection & record folding**: Preserves manually edited AI task titles verbatim; shows only the latest AI conclusion by default while keeping history expandable; supports manual status locking; keeps internal tracking IDs hidden and removes them automatically on completion or archival.
 - **Four persistent record views & view-aware export**: Switch any top-level AI record block in place between **Outline / Table / Cards / Timeline** (persisted per block without rewriting underlying Markdown), and export from the view menu's Export submenu as expanded view-aware PDF or standalone HTML, lossless Markdown (`.md`), structured JSON (`.json`), CSV (`.csv`), or clipboard snippets:
@@ -54,7 +69,7 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 - **One-click tidy & archive**: **Tidy log** reorganizes the current daily note by template (in progress, to do, completed, framed by dividers). Only complete bounded sections are organized; outside notes stay unchanged. Notes without a complete frame receive empty sections; **Archive finished logs to…** moves completed AI blocks out of the journal into a target note grouped by date.
 - **Nautilus Spiral compatibility**: Works alongside [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) by letting Agent Deck handle AI note writes while Nautilus keeps scheduling and tracking displays (Agent Deck restores token display whenever Nautilus does not show tokens for the same session).
 
-### 4. Review Dashboard (Experimental, On by Default)
+### 5. Review Dashboard (Experimental, On by Default)
 - Displays a GitHub-style **daily token heatmap** and **24-hour rhythm & concurrency** chart (input, output, and cache reads; does not represent monetary cost, with no estimates when missing) with 7/30/90-day, 1-year, and custom date filters.
 - Summarizes **By Agent** (with official Agent icons) and **By Model** (tokens, per-turn average, cache hit ratio) for linked filtering, and aggregates **Project activity** (sortable by tokens, active time, sessions, or name in ascending/descending order) from note links, titles, folders, keywords, and aliases; supports manual project overrides, per-day drill-down, and jumping back to the source journal block or session.
 - Uses only locally tracked history; makes no extra model calls and never modifies your journal.
@@ -63,7 +78,7 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
   <img src="assets/dashboard.png" width="680" alt="Agent Deck Review Dashboard: token heatmap, 24-hour rhythm and concurrency, Agent and model breakdowns, and project activity">
 </p>
 
-### 5. macOS Menu Bar Helper, Dreaming & Bilingual UI
+### 6. macOS Menu Bar Helper, Dreaming & Bilingual UI
 - **Solid macOS menu bar panel**: An always-accessible icon (or customizable global shortcut **`⌃⌥⌘D`**) for checking today's metrics and active/waiting sessions from any app and jumping straight to them.
 - **Dreaming long-term memory (optional, off by default)**: Distills long-term memories from the past 14 days of journals and delegated notes into editable Markdown with optional export/sync.
 - **Automatic UI language**: Follows Obsidian's language setting (Chinese or English) without changing note contents or CLI prompts.
@@ -155,7 +170,7 @@ Copy the generated `main.js`, `manifest.json`, and `styles.css` into `<your-vaul
 5. **Terminal Delegation Verification**
    - Interactive terminal delegation is currently verified end-to-end only on **Tern** and **Herdr**. **Terminal.app, iTerm2, and Warp** are untested (Warp lacks a scripting interface and can only be brought forward).
 6. **Planned / Not Yet Implemented**
-   - **Multi-view AI record rendering in Reading view and Kanban view**, **Pi support**, **choosing model / effort / recording granularity directly inside the delegation sheet**, **per-block granularity overrides on existing AI blocks**, **automatic send for WorkBuddy**, and **LLM Wiki auto-ingestion** are planned on the roadmap and not available in this release.
+   - **Reading-view rendering for AI record multi-views and fractal boards**, **explicit Second-Brain Project Context Pack**, **Pi support**, **choosing model / effort / recording granularity directly inside the delegation sheet**, **per-block granularity overrides on existing AI blocks**, **automatic send for WorkBuddy**, and **LLM Wiki auto-ingestion** are planned on the roadmap and not available in this release.
 
 ---
 

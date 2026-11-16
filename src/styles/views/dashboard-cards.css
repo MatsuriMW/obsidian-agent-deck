@@ -795,6 +795,132 @@
     padding: 4px 6px;
     text-align: left;
   }
+
+  /* ---------- 4b. 按项目分组的活跃进程卡（.ad-projgroup） ---------- */
+
+  & .ad-projgroup {
+    border: 1px solid var(--ad-line);
+    border-radius: var(--ad-radius-sm);
+    background: var(--ad-surface);
+    padding: 7px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    &.has-attention {
+      border-color: color-mix(in srgb, var(--ad-warn) 46%, var(--ad-line));
+    }
+
+    & .ad-projgroup__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    & .ad-projgroup__toggle {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 3px;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      color: var(--ad-ink);
+      font-size: 12px;
+      font-weight: 650;
+      text-align: left;
+      cursor: pointer;
+
+      &:hover {
+        color: var(--ad-accent);
+      }
+    }
+
+    & .ad-projgroup__chev {
+      flex: none;
+      font-size: 11px;
+      color: var(--ad-muted);
+    }
+
+    & .ad-projgroup__name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    & .ad-projgroup__agents {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      flex: none;
+
+      & .ad-glyph {
+        width: 13px;
+        height: 13px;
+      }
+    }
+
+    & .ad-projgroup__badges {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex: none;
+      margin-left: auto;
+    }
+
+    & .ad-projbadge {
+      font-size: 10px;
+      font-weight: 600;
+      line-height: 1.3;
+      padding: 1px 5px;
+      border-radius: 999px;
+      font-variant-numeric: tabular-nums;
+      background: var(--background-modifier-hover);
+      color: var(--ad-muted);
+
+      &.is-live {
+        color: var(--ad-good);
+        background: color-mix(in srgb, var(--ad-good) 14%, transparent);
+      }
+
+      &.is-wait {
+        color: var(--ad-warn);
+        background: color-mix(in srgb, var(--ad-warn) 14%, transparent);
+      }
+
+      &.is-error {
+        color: var(--ad-bad);
+        background: color-mix(in srgb, var(--ad-bad) 14%, transparent);
+      }
+    }
+
+    & .ad-projgroup__actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex: none;
+    }
+
+    & .ad-iconbtn--xs {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+
+      &.is-danger:hover {
+        color: var(--ad-bad);
+      }
+    }
+
+    & .ad-projgroup__list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+  }
 }
 
 /* ---------- 5. 极窄侧栏卡片断点 ---------- */

@@ -1,6 +1,6 @@
 # 后续迭代方向：WorkFlowy 分形看板与大纲多 Agent 编排
 
-状态：**规划中（Backlog，未排期）**｜Linear：见项目 `P-MAT-42` Backlog 卡片
+状态：**阶段 A / B / C 已在分支 `feat/project-workbench` 落地基础闭环**｜Linear：见项目 `P-MAT-42` Backlog 卡片
 
 > 本文件记录借鉴 WorkFlowy Fractal Boards（分形看板）思想的长期迭代方向与架构实现路线，不代表当前版本已交付全部能力。
 

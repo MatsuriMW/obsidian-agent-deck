@@ -18,6 +18,7 @@ import * as J from "./journal.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { aiRecordDisplayExtension } from "./record-display.js";
+import { taskBoardExtension } from "./fractal-board.js";
 import { executionStatus } from "./workflow.js";
 import { AGENTS, fmtDur, fmtTok, truncate } from "./constants.js";
 import { t as tr } from "./i18n.js";
@@ -534,7 +535,8 @@ function buildDecorations(view, plugin) {
         // that is already marked DONE is only noise.
         if (job?.destination === "background" && state?.kind === "done") state = null;
         const displayState = plugin.aiRecordDisplayField ? view.state.field(plugin.aiRecordDisplayField, false) : null;
-        const isTopLevelAiParent = Boolean(displayState?.topLevelLines?.has(n));
+        const boardState = plugin.taskBoardField ? view.state.field(plugin.taskBoardField, false) : null;
+        const isTopLevelAiParent = Boolean(displayState?.topLevelLines?.has(n) || boardState?.boardLines?.has(n));
         if (n === cursorLine && !isTopLevelAiParent && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && (J.kwLine(text) || J.CONTEXT_RECORD_RE.test(text))) {
           builder.add(line.to, line.to, Decoration.widget({ widget: new GripWidget(plugin, path, n, text), side: 1, block: false }));
         }
@@ -597,7 +599,7 @@ export function createEditorExtension(plugin) {
       }
     }
   };
-  return [ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin), saidHandlers(plugin), aiRecordDisplayExtension(plugin, refreshEffect)];
+  return [ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin), saidHandlers(plugin), aiRecordDisplayExtension(plugin, refreshEffect), taskBoardExtension(plugin, refreshEffect)];
 }
 
 export async function dispatchRefresh(plugin) {
