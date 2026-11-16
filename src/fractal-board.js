@@ -19,6 +19,7 @@ import {
   findActiveWaveForBoard,
   isTerminalWorkerState,
   boardCardPinId,
+  boardCardPinKey,
   applyTaskBoardPins,
   deleteTaskBoardCards,
 } from "./project-workbench.js";
@@ -31,6 +32,7 @@ export const setTaskBoardEffect = StateEffect.define();
 const BOARD_CARD_MIME = "application/x-agent-deck-board-card";
 const BOARD_LIST_BUDGET = 320;
 const boardSelections = new Map();
+const boardScrollPositions = new Map();
 
 function boardPinIds(settings, group) {
   const pins = settings?.taskBoardPins;
@@ -181,9 +183,11 @@ class TaskBoardWidget extends WidgetType {
     return this.model.columns.flatMap((col) => col.cards).filter((card) => ids.has(boardSelectionId(card)));
   }
   savePins(cards, pinned) {
-    const ids = cards.map(boardCardPinId).filter(Boolean);
+    const ids = cards.map(boardCardPinKey).filter(Boolean);
     if (!ids.length || !this.boardKey) return;
+    const legacy = cards.map(boardCardPinId).filter((id) => id && !ids.includes(id));
     applyTaskBoardPins(this.plugin.settings, this.boardKey, ids, pinned);
+    if (legacy.length) applyTaskBoardPins(this.plugin.settings, this.boardKey, legacy, false);
     this.saveSettingsSafe();
     this.plugin.refreshUI?.();
   }
@@ -226,7 +230,8 @@ class TaskBoardWidget extends WidgetType {
       );
       const ids = this.selectionSet();
       for (const card of editable) ids.delete(boardSelectionId(card));
-      applyTaskBoardPins(this.plugin.settings, this.boardKey, editable.map(boardCardPinId).filter(Boolean), false);
+      const pinKeys = [...new Set(editable.flatMap((card) => [boardCardPinKey(card), boardCardPinId(card)]).filter(Boolean))];
+      applyTaskBoardPins(this.plugin.settings, this.boardKey, pinKeys, false);
       this.saveSettingsSafe();
       this.plugin.notice?.(t("已删除 {n} 张卡片", { n: editable.length }));
       const skipped = selected.length - editable.length;
@@ -350,15 +355,24 @@ class TaskBoardWidget extends WidgetType {
     }));
     menu.showAtMouseEvent(event);
   }
-  destroy() {
+  destroy(dom) {
     this._resizeObserver?.disconnect?.();
     this._resizeObserver = null;
     this._renderComponent?.unload?.();
     this._renderComponent = null;
     this._syncBulk = null;
     this._scheduleCap = null;
+    clearTimeout(this._deleteTimer);
+    this._deleteTimer = 0;
     if (this._capRaf) cancelAnimationFrame(this._capRaf);
     this._capRaf = 0;
+    for (const list of dom?.querySelectorAll?.(".ad-board__collist") || []) {
+      const col = list.dataset.column;
+      if (!col) continue;
+      const key = `${this.selKey}::${col}`;
+      if (list.scrollTop > 0) boardScrollPositions.set(key, list.scrollTop);
+      else boardScrollPositions.delete(key);
+    }
   }
   jumpTo(view, line) {
     const stDoc = view.state.doc;
@@ -661,6 +675,7 @@ class TaskBoardWidget extends WidgetType {
     const disarmDelete = () => {
       deleteArmed = false;
       clearTimeout(deleteTimer);
+      this._deleteTimer = 0;
       if (deleteBtn) {
         deleteBtn.textContent = t("删除");
         deleteBtn.classList.remove("is-armed");
@@ -731,6 +746,7 @@ class TaskBoardWidget extends WidgetType {
         deleteBtn.classList.add("is-armed");
         clearTimeout(deleteTimer);
         deleteTimer = setTimeout(disarmDelete, 8000);
+        this._deleteTimer = deleteTimer;
         return;
       }
       disarmDelete();
@@ -795,6 +811,7 @@ class TaskBoardWidget extends WidgetType {
 
       const list = colEl.appendChild(doc.createElement("div"));
       list.className = "ad-board__collist";
+      list.dataset.column = col.id;
 
       colEl.addEventListener("dragover", (e) => {
         if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
@@ -843,9 +860,9 @@ class TaskBoardWidget extends WidgetType {
       }
 
       for (const card of col.cards) {
-        const pinId = boardCardPinId(card);
+        const pinId = boardCardPinKey(card);
         const selectId = boardSelectionId(card);
-        const pinned = this.pinnedSet.has(pinId);
+        const pinned = this.pinnedSet.has(pinId) || this.pinnedSet.has(boardCardPinId(card));
         const cardEl = list.appendChild(doc.createElement("div"));
         cardEl.className = `ad-board__card${card.activeJob ? " is-live" : ""}${card.isMirror ? " is-mirror" : ""}${pinned ? " is-pinned" : ""}`;
         cardEl.draggable = !card.isMirror;
@@ -1036,6 +1053,10 @@ class TaskBoardWidget extends WidgetType {
         const cap = heights.slice(0, visible).reduce((sum, height) => sum + height, 0) + gap * (visible - 1);
         list.style.maxHeight = `${Math.ceil(cap + 1)}px`;
         list.classList.add("is-capped");
+      }
+      for (const list of cols.querySelectorAll(".ad-board__collist")) {
+        const saved = boardScrollPositions.get(`${this.selKey}::${list.dataset.column || ""}`) || 0;
+        if (saved > 0) list.scrollTop = saved;
       }
     };
     const scheduleCap = (attempt = 0) => {

@@ -1,4 +1,4 @@
-/* Agent Deck 1.10.6 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.10.7 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -13853,12 +13853,33 @@ function boardCardPinId(card) {
   const title = String(card.title || "").trim();
   return title ? `title:${title}` : "";
 }
+function boardCardPinKey(card) {
+  return card?.pinKey || boardCardPinId(card);
+}
+function assignBoardPinKeys(cards) {
+  const counts = /* @__PURE__ */ new Map();
+  for (const card of [...cards || []].sort((a, b) => (a.line ?? 0) - (b.line ?? 0))) {
+    const base = boardCardPinId(card);
+    if (!base) continue;
+    if (base.startsWith("title:")) {
+      const n = (counts.get(base) || 0) + 1;
+      counts.set(base, n);
+      card.pinKey = `${base}#${n}`;
+    } else {
+      card.pinKey = base;
+    }
+  }
+}
 function sortBoardCardsByPins(columns, pinnedIds = []) {
   const pins = new Set(pinnedIds || []);
   if (!columns || !pins.size) return columns;
   for (const col of columns) {
     if (!Array.isArray(col?.cards)) continue;
-    col.cards = col.cards.map((card, index) => ({ card, index, pinned: pins.has(boardCardPinId(card)) ? 0 : 1 })).sort((a, b) => a.pinned - b.pinned || a.index - b.index).map((item) => item.card);
+    col.cards = col.cards.map((card, index) => ({
+      card,
+      index,
+      pinned: pins.has(boardCardPinKey(card)) || pins.has(boardCardPinId(card)) ? 0 : 1
+    })).sort((a, b) => a.pinned - b.pinned || a.index - b.index).map((item) => item.card);
   }
   return columns;
 }
@@ -13906,6 +13927,7 @@ function buildTaskBoardModel(group, plugin = null, { groupBy = "status", resolve
     }
   }
   const allCards = activeGroupBy === "children" ? columns.flatMap((c) => c.cards) : enriched;
+  assignBoardPinKeys(allCards);
   sortBoardCardsByPins(columns, pinnedIds);
   const doneCount = allCards.filter((c) => c.column === "done").length;
   const doingCount = allCards.filter((c) => c.column === "doing").length;
@@ -14761,6 +14783,7 @@ var setTaskBoardEffect = import_state2.StateEffect.define();
 var BOARD_CARD_MIME = "application/x-agent-deck-board-card";
 var BOARD_LIST_BUDGET = 320;
 var boardSelections = /* @__PURE__ */ new Map();
+var boardScrollPositions = /* @__PURE__ */ new Map();
 function boardPinIds(settings, group) {
   const pins = settings?.taskBoardPins;
   if (!pins || !group) return [];
@@ -14913,9 +14936,11 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
     return this.model.columns.flatMap((col) => col.cards).filter((card) => ids.has(boardSelectionId(card)));
   }
   savePins(cards, pinned) {
-    const ids = cards.map(boardCardPinId).filter(Boolean);
+    const ids = cards.map(boardCardPinKey).filter(Boolean);
     if (!ids.length || !this.boardKey) return;
+    const legacy = cards.map(boardCardPinId).filter((id) => id && !ids.includes(id));
     applyTaskBoardPins(this.plugin.settings, this.boardKey, ids, pinned);
+    if (legacy.length) applyTaskBoardPins(this.plugin.settings, this.boardKey, legacy, false);
     this.saveSettingsSafe();
     this.plugin.refreshUI?.();
   }
@@ -14962,7 +14987,8 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
       );
       const ids = this.selectionSet();
       for (const card of editable) ids.delete(boardSelectionId(card));
-      applyTaskBoardPins(this.plugin.settings, this.boardKey, editable.map(boardCardPinId).filter(Boolean), false);
+      const pinKeys = [...new Set(editable.flatMap((card) => [boardCardPinKey(card), boardCardPinId(card)]).filter(Boolean))];
+      applyTaskBoardPins(this.plugin.settings, this.boardKey, pinKeys, false);
       this.saveSettingsSafe();
       this.plugin.notice?.(t("\u5DF2\u5220\u9664 {n} \u5F20\u5361\u7247", { n: editable.length }));
       const skipped = selected.length - editable.length;
@@ -15085,15 +15111,24 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
     }));
     menu.showAtMouseEvent(event);
   }
-  destroy() {
+  destroy(dom) {
     this._resizeObserver?.disconnect?.();
     this._resizeObserver = null;
     this._renderComponent?.unload?.();
     this._renderComponent = null;
     this._syncBulk = null;
     this._scheduleCap = null;
+    clearTimeout(this._deleteTimer);
+    this._deleteTimer = 0;
     if (this._capRaf) cancelAnimationFrame(this._capRaf);
     this._capRaf = 0;
+    for (const list of dom?.querySelectorAll?.(".ad-board__collist") || []) {
+      const col = list.dataset.column;
+      if (!col) continue;
+      const key = `${this.selKey}::${col}`;
+      if (list.scrollTop > 0) boardScrollPositions.set(key, list.scrollTop);
+      else boardScrollPositions.delete(key);
+    }
   }
   jumpTo(view, line) {
     const stDoc = view.state.doc;
@@ -15389,6 +15424,7 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
     const disarmDelete = () => {
       deleteArmed = false;
       clearTimeout(deleteTimer);
+      this._deleteTimer = 0;
       if (deleteBtn) {
         deleteBtn.textContent = t("\u5220\u9664");
         deleteBtn.classList.remove("is-armed");
@@ -15458,6 +15494,7 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         deleteBtn.classList.add("is-armed");
         clearTimeout(deleteTimer);
         deleteTimer = setTimeout(disarmDelete, 8e3);
+        this._deleteTimer = deleteTimer;
         return;
       }
       disarmDelete();
@@ -15517,6 +15554,7 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
       colCount.textContent = String(col.cards.length);
       const list = colEl.appendChild(doc.createElement("div"));
       list.className = "ad-board__collist";
+      list.dataset.column = col.id;
       colEl.addEventListener("dragover", (e) => {
         if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
         e.preventDefault();
@@ -15563,9 +15601,9 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         continue;
       }
       for (const card of col.cards) {
-        const pinId = boardCardPinId(card);
+        const pinId = boardCardPinKey(card);
         const selectId = boardSelectionId(card);
-        const pinned = this.pinnedSet.has(pinId);
+        const pinned = this.pinnedSet.has(pinId) || this.pinnedSet.has(boardCardPinId(card));
         const cardEl = list.appendChild(doc.createElement("div"));
         cardEl.className = `ad-board__card${card.activeJob ? " is-live" : ""}${card.isMirror ? " is-mirror" : ""}${pinned ? " is-pinned" : ""}`;
         cardEl.draggable = !card.isMirror;
@@ -15748,6 +15786,10 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         const cap = heights.slice(0, visible).reduce((sum, height) => sum + height, 0) + gap * (visible - 1);
         list.style.maxHeight = `${Math.ceil(cap + 1)}px`;
         list.classList.add("is-capped");
+      }
+      for (const list of cols.querySelectorAll(".ad-board__collist")) {
+        const saved = boardScrollPositions.get(`${this.selKey}::${list.dataset.column || ""}`) || 0;
+        if (saved > 0) list.scrollTop = saved;
       }
     };
     const scheduleCap = (attempt = 0) => {

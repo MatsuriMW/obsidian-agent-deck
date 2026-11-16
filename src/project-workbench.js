@@ -772,13 +772,36 @@ export function boardCardPinId(card) {
   return title ? `title:${title}` : "";
 }
 
+export function boardCardPinKey(card) {
+  return card?.pinKey || boardCardPinId(card);
+}
+
+function assignBoardPinKeys(cards) {
+  const counts = new Map();
+  for (const card of [...(cards || [])].sort((a, b) => (a.line ?? 0) - (b.line ?? 0))) {
+    const base = boardCardPinId(card);
+    if (!base) continue;
+    if (base.startsWith("title:")) {
+      const n = (counts.get(base) || 0) + 1;
+      counts.set(base, n);
+      card.pinKey = `${base}#${n}`;
+    } else {
+      card.pinKey = base;
+    }
+  }
+}
+
 export function sortBoardCardsByPins(columns, pinnedIds = []) {
   const pins = new Set(pinnedIds || []);
   if (!columns || !pins.size) return columns;
   for (const col of columns) {
     if (!Array.isArray(col?.cards)) continue;
     col.cards = col.cards
-      .map((card, index) => ({ card, index, pinned: pins.has(boardCardPinId(card)) ? 0 : 1 }))
+      .map((card, index) => ({
+        card,
+        index,
+        pinned: pins.has(boardCardPinKey(card)) || pins.has(boardCardPinId(card)) ? 0 : 1,
+      }))
       .sort((a, b) => a.pinned - b.pinned || a.index - b.index)
       .map((item) => item.card);
   }
@@ -833,6 +856,7 @@ export function buildTaskBoardModel(group, plugin = null, { groupBy = "status", 
   }
 
   const allCards = activeGroupBy === "children" ? columns.flatMap((c) => c.cards) : enriched;
+  assignBoardPinKeys(allCards);
   sortBoardCardsByPins(columns, pinnedIds);
   const doneCount = allCards.filter((c) => c.column === "done").length;
   const doingCount = allCards.filter((c) => c.column === "doing").length;

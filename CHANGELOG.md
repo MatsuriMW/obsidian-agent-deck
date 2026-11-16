@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.10.7
+
+- **看板细节修复**：无块号同名卡片的 pin 改为按文档顺序生成唯一 key（`title:...#1` / `#2`），避免置顶时两张同名卡一起被 pin；旧 `title:` pin 仍兼容，新 pin 时自动迁移；列内滚动位置在刷新/重建时保留，批量删除确认计时器随看板销毁清理。macOS 已通过 `npm test`、`npm run build`、`git diff --check`，并实测同名卡只置顶一张；Windows 未实测。
+
 ## 1.10.6
 
 - **看板回归修复**：子组模式下的子卡补上 `subBoardKey` / `childCardCount` / `childDoneCount`，恢复 `↳` 下钻与 `0/2` 计数；镜像卡未解析到源笔记时拒绝改状态，解析成功后按 `^blockId` 在源笔记重新定位，避免行号过期改到别的任务；看板 widget 签名补 `endLine` / `hasLink` / `mirrorTarget` / `childDoneCount`，源笔记插行或新增链接后不再复用旧 DOM 造成插入点错位；选择标识加入当前行号，同名无块号卡片不再一起被勾选/删除；镜像卡改为不可拖；备注改为完整 Markdown 渲染 + 4 行高度截断，避免在 `**` / `[[` 中间截断；快捷新增、行内改 Agent、拖拽写入与设置保存失败统一提示，不再 unhandled rejection。macOS 已通过 `npm test`、`npm run build`、`git diff --check`，并实测子组下钻、重复标题选择、长备注 Markdown 截断；Windows 未实测。

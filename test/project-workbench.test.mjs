@@ -35,6 +35,7 @@ const {
   setTaskBoardCardAgent,
   moveTaskBoardCardSubtree,
   boardCardPinId,
+  boardCardPinKey,
   sortBoardCardsByPins,
   applyTaskBoardPins,
   deleteTaskBoardCards,
@@ -586,6 +587,19 @@ test("Fractal board pins, bulk delete, and column-end moves stay Markdown-native
   assert.equal(nestedPhase.subCards[0].subBoardKey, "ad-nested-child", "group columns expose nested zoom targets");
   assert.equal(nestedPhase.subCards[0].childCardCount, 2, "nested zoom cards expose their child count");
   assert.equal(nestedPhase.subCards[0].childDoneCount, 0, "nested zoom cards expose their done count");
+
+  const duplicateGroups = extractTaskBoardGroups([
+    "- TODO 同名根 ^ad-dup-root",
+    "  - TODO 同名卡",
+    "  - TODO 同名卡",
+    "  - TODO 别的卡",
+  ].join("\n"));
+  const duplicateModel = buildTaskBoardModel(duplicateGroups[0], { jobs: {} }, { pinnedIds: ["title:同名卡#2"] });
+  const duplicateCards = duplicateModel.columns.find((col) => col.id === "todo").cards;
+  const duplicateKeys = duplicateCards.map(boardCardPinKey);
+  assert.equal(new Set(duplicateKeys).size, duplicateKeys.length, "duplicate titles get distinct pin keys");
+  assert.equal(duplicateCards[0].title, "同名卡", "the second duplicate is pinned to the top");
+  assert.equal(duplicateCards[0].line, 2, "the pinned duplicate is the one with occurrence 2");
 
   const deleted = deleteTaskBoardCards(note, [1]);
   assert.ok(!deleted.includes("卡片 A"));
