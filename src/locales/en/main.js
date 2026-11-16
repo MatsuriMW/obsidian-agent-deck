@@ -214,4 +214,18 @@ export default {
   "在 AI 任务行下方渲染 ASCII 进度条与紫色 token 方块": "Render ASCII # progress bar and purple token blocks below active AI task lines",
   "点击打开会话 · 右键更多操作": "Click to open session · Right-click for actions",
   "提问时间：{time}": "Asked at {time}",
+
+  // Project workbench & fractal board commands
+  "打开项目协作工作台：小队编排与拆解派发": "Open Project Workbench: team setup & concurrent dispatch",
+  "当前任务：切换分形看板 / 大纲视图": "Current task: toggle fractal board / outline",
+  "在项目工作台拆解并分配小队": "Plan & assign team in Project Workbench",
+  "已停止该项目的 {n} 个活跃任务": "Stopped {n} active tasks for this project",
+  "该项目没有可停止的活跃任务": "No active tasks to stop for this project",
+  "请把光标放在包含 2 个以上子任务的父任务上": "Place cursor on a parent task with at least 2 subtasks",
+  "没有可写入的子任务": "No subtasks to write",
+  "找不到目标笔记：{path}": "Could not find target note: {path}",
+  "已并发派发 {n} 个协作子任务": "Dispatched {n} collaborative subtasks",
+  "{n} 个子任务派发失败：{err}": "{n} subtasks failed to dispatch: {err}",
+  "没有待派发的 TODO 子任务": "No pending TODO subtasks to dispatch",
+  "协作项目": "Collaborative project",
 };

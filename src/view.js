@@ -7,6 +7,7 @@ import { agentIcon, setLucide, stateIcon } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { SESSION_MIME } from "./editor.js";
 import { t } from "./i18n.js";
+import { buildProjectGroups, planRecentProjectDisplay, STANDALONE_PROJECT_ID } from "./project-workbench.js";
 
 export const VIEW_TYPE = "agent-deck-view";
 export const RECENT_DAY_OPTIONS = [7, 30, 120];
@@ -74,6 +75,8 @@ export class AgentDeckView extends ItemView {
     this.filter = "all";
     this.search = "";
     this.expandedAgents = new Set();
+    this.expandedProjects = new Set();
+    this.collapsedNowProjects = new Set();
     this._scroll = 0;
     this._bottomSlack = 0;
   }
@@ -81,6 +84,14 @@ export class AgentDeckView extends ItemView {
   recentDays() {
     const v = Number(this.plugin.settings?.ui?.recentDays);
     return RECENT_DAY_OPTIONS.includes(v) ? v : 7;
+  }
+
+  nowGroupBy() {
+    return this.plugin.settings?.ui?.nowGroupBy === "flat" ? "flat" : "project";
+  }
+
+  recentGroupBy() {
+    return this.plugin.settings?.ui?.recentGroupBy === "project" ? "project" : "agent";
   }
 
   getViewType() { return VIEW_TYPE; }
@@ -143,6 +154,9 @@ export class AgentDeckView extends ItemView {
     setLucide(search.createSpan({ cls: "ad-search__icon" }), "search");
     const input = search.createEl("input", { cls: "ad-search__input", attr: { placeholder: t("搜会话：标题、项目、第一步…"), value: this.search } });
     const actions = head.createDiv({ cls: "ad-head__actions" });
+    const workbenchBtn = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("打开项目工作台（小队编排与拆解派发）") } });
+    setLucide(workbenchBtn.createSpan({ cls: "ad-iconbtn__icon" }), "folder-kanban");
+    workbenchBtn.onclick = () => p.openProjectWorkbench?.();
     if (p.settings.experimentalDashboard !== false) {
       const review = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("打开 Agent Deck 回顾 Dashboard") } });
       setLucide(review.createSpan({ cls: "ad-iconbtn__icon" }), "chart-no-axes-combined");
@@ -214,12 +228,28 @@ export class AgentDeckView extends ItemView {
 
     // Now
     const nowSec = dash.createDiv({ cls: "ad-sec ad-sec--now" });
+    const nowGroupBy = this.nowGroupBy();
     const nowHead = this.secHead(nowSec, t("现在"), t("{run} 个在跑 · {wait} 个等你", { run: running.length, wait: waiting.length }));
+    const nowSwitch = nowHead.createDiv({ cls: "ad-range" });
+    for (const [id, label] of [["project", t("按项目")], ["flat", t("列表")]]) {
+      const b = nowSwitch.createEl("button", { cls: "ad-chip ad-nowgroup__btn" + (nowGroupBy === id ? " is-on" : ""), text: label });
+      b.onclick = () => {
+        if (this.nowGroupBy() === id) return;
+        (p.settings.ui ||= {}).nowGroupBy = id;
+        p.saveSettings();
+        this.render();
+      };
+    }
     const nowList = nowSec.createDiv({ cls: "ad-nowlist" });
-    const nowItems = this.nowOrdered([...running, ...waiting]).slice(0, 6);
-    if (!nowItems.length) this.empty(nowList, t("现在没有在跑的会话"));
-    for (const s of nowItems) this.sessionCard(nowList, s, true);
-    this.nowReorder(nowList);
+    if (nowGroupBy === "project") {
+      const nowActive = live.filter((x) => ["run", "starting", "running", "busy", "wait", "quiet", "needs-approval", "error", "limit", "queued"].includes(x.state));
+      this.renderNowProjects(nowList, nowActive);
+    } else {
+      const nowItems = this.nowOrdered([...running, ...waiting]).slice(0, 6);
+      if (!nowItems.length) this.empty(nowList, t("现在没有在跑的会话"));
+      for (const s of nowItems) this.sessionCard(nowList, s, true);
+      this.nowReorder(nowList);
+    }
 
     this.agentSection(dash, today);
 
@@ -232,9 +262,20 @@ export class AgentDeckView extends ItemView {
 
     // Recent
     const recSec = dash.createDiv({ cls: "ad-sec ad-sec--recent" });
+    const recentGroupBy = this.recentGroupBy();
     const filteredRecent = filterRecentRows(recent, this.filter);
     const recHead = this.secHead(recSec, t("最近的会话"), t("{n} 个 · 最近 {days} 天", { n: filteredRecent.length, days }));
     const range = recHead.createDiv({ cls: "ad-range" });
+    for (const [id, label] of [["agent", t("按 Agent")], ["project", t("按项目")]]) {
+      const gb = range.createEl("button", { cls: "ad-chip ad-groupby__btn" + (recentGroupBy === id ? " is-on" : ""), text: label });
+      gb.onclick = () => {
+        if (this.recentGroupBy() === id) return;
+        this._bottomSlack = 0;
+        (p.settings.ui ||= {}).recentGroupBy = id;
+        p.saveSettings();
+        this.render();
+      };
+    }
     for (const d of RECENT_DAY_OPTIONS) {
       const rb = range.createEl("button", { cls: "ad-chip ad-range__btn" + (days === d ? " is-on" : ""), text: t("{days} 天", { days: d }) });
       rb.onclick = () => {
@@ -388,6 +429,69 @@ export class AgentDeckView extends ItemView {
     this.render();
   }
 
+  renderNowProjects(nowList, liveRows) {
+    const p = this.plugin;
+    const hidden = p.settings?.nowHidden || {};
+    const visibleRows = this.nowOrdered(liveRows);
+    const groups = buildProjectGroups(visibleRows, {
+      jobs: p.jobs || {},
+      agentEnabled: (id) => p.agentEnabled(id),
+    }).map((g) => ({
+      ...g,
+      sessions: g.sessions.filter((s) => !hidden[s.sid]),
+    })).filter((g) => g.sessions.length > 0);
+    if (!groups.length) return this.empty(nowList, t("现在没有在跑的会话"));
+    for (const g of groups) {
+      const collapsed = this.collapsedNowProjects.has(g.id);
+      const card = nowList.createDiv({ cls: `ad-projgroup ${collapsed ? "is-collapsed" : "is-open"}${g.counts.attention ? " has-attention" : ""}` });
+      card.dataset.project = g.id;
+      const head = card.createDiv({ cls: "ad-projgroup__head" });
+      const toggle = head.createEl("button", { cls: "ad-projgroup__toggle", attr: { type: "button", title: g.cwds[0] || g.name } });
+      toggle.createSpan({ cls: "ad-projgroup__chev", text: collapsed ? "▸" : "▾" });
+      toggle.createSpan({ cls: "ad-projgroup__name", text: g.name });
+      const glyphs = toggle.createSpan({ cls: "ad-projgroup__agents" });
+      for (const id of g.agents.slice(0, 4)) agentIcon(glyphs.createSpan({ cls: "ad-glyph" }), id);
+      const badges = toggle.createSpan({ cls: "ad-projgroup__badges" });
+      if (g.counts.running) badges.createSpan({ cls: "ad-projbadge is-live", text: t("{n} 在跑", { n: g.counts.running }) });
+      if (g.counts.waiting) badges.createSpan({ cls: "ad-projbadge is-wait", text: t("{n} 等你", { n: g.counts.waiting }) });
+      if (g.counts.error || g.counts.limit) badges.createSpan({ cls: "ad-projbadge is-error", text: t("{n} 异常", { n: g.counts.error + g.counts.limit }) });
+      toggle.onclick = () => {
+        if (this.collapsedNowProjects.has(g.id)) this.collapsedNowProjects.delete(g.id);
+        else this.collapsedNowProjects.add(g.id);
+        this.render();
+      };
+      const actions = head.createDiv({ cls: "ad-projgroup__actions" });
+      if (!g.isStandalone && g.cwds[0] && p.openProjectFolder) {
+        const dirBtn = actions.createEl("button", { cls: "ad-iconbtn ad-iconbtn--xs", attr: { type: "button", "aria-label": t("打开项目目录：{cwd}", { cwd: g.cwds[0] }), title: t("打开项目目录：{cwd}", { cwd: g.cwds[0] }) } });
+        setLucide(dirBtn.createSpan({ cls: "ad-iconbtn__icon" }), "folder-open");
+        dirBtn.onclick = (e) => {
+          e.stopPropagation();
+          p.openProjectFolder(g.cwds[0]);
+        };
+      }
+      if (p.openProjectWorkbench) {
+        const wb = actions.createEl("button", { cls: "ad-iconbtn ad-iconbtn--xs", attr: { type: "button", "aria-label": t("在项目工作台编排小队"), title: t("在项目工作台编排小队") } });
+        setLucide(wb.createSpan({ cls: "ad-iconbtn__icon" }), "folder-kanban");
+        wb.onclick = (e) => {
+          e.stopPropagation();
+          p.openProjectWorkbench({ projectName: g.isStandalone ? "" : g.name, cwd: g.cwds[0] || p.vaultPath });
+        };
+      }
+      if (g.activeJobIds.length && p.cancelProjectJobs) {
+        const stop = actions.createEl("button", { cls: "ad-iconbtn ad-iconbtn--xs is-danger", attr: { type: "button", "aria-label": t("停止本项目的活跃任务"), title: t("停止本项目的活跃任务") } });
+        setLucide(stop.createSpan({ cls: "ad-iconbtn__icon" }), "square");
+        stop.onclick = (e) => {
+          e.stopPropagation();
+          p.cancelProjectJobs(g.id, g.activeJobIds);
+        };
+      }
+      if (!collapsed) {
+        const body = card.createDiv({ cls: "ad-projgroup__list" });
+        for (const s of g.sessions) this.sessionCard(body, s, true);
+      }
+    }
+  }
+
   renderSessions(sec) {
     const list = sec._list || sec.querySelector(".ad-sessionlist");
     if (!list) return;
@@ -397,6 +501,49 @@ export class AgentDeckView extends ItemView {
     const rows = sec._rows || filterRecentRows(p.recentSessions({ days, limit: 1000 }), this.filter);
     sec._rows = rows;
     if (!rows.length) return this.empty(list, t("没有符合条件的会话"));
+    if (this.recentGroupBy() === "project" && !AGENTS[this.filter]) {
+      const plan = planRecentProjectDisplay(rows, {
+        expanded: this.expandedProjects,
+        maxCards: MAX_RECENT_CARDS,
+        jobs: p.jobs || {},
+        agentEnabled: (id) => p.agentEnabled(id),
+      });
+      for (const g of plan.groups) {
+        if (g.items.length === 1) {
+          this.sessionCard(list, g.visibleItems[0], false);
+          continue;
+        }
+        const leadAgent = AGENTS[g.agents[0]] || AGENTS.claude;
+        const stack = list.createDiv({ cls: `ad-stack ad-stack--project ${g.stacked ? "is-collapsed" : "is-expanded"}` });
+        stack.dataset.project = g.id;
+        stack.style.setProperty("--ad-agent", leadAgent.color);
+        stack.style.setProperty("--ad-agent-soft", leadAgent.soft);
+        if (g.stacked) {
+          const expand = () => this.toggleStackGroup(sec, stack, g.id, true, "project");
+          const topWrap = stack.createDiv({ cls: "ad-stack__top" });
+          this.sessionCard(topWrap, g.visibleItems[0], false);
+          const topCard = topWrap.firstElementChild;
+          if (topCard) topCard.onclick = expand;
+          const bar = stack.createEl("button", { cls: "ad-stack__bar", attr: { type: "button" } });
+          bar.createSpan({ cls: "ad-stack__label", text: t("{project} · 共 {total} 条对话 · 点击展开 +{more}", { project: g.name, total: g.items.length, more: g.items.length - 1 }) });
+          bar.createSpan({ cls: "ad-stack__chev", text: "▾" });
+          bar.onclick = expand;
+        } else {
+          const head = stack.createEl("button", { cls: "ad-stack__head", attr: { type: "button" } });
+          const headLeft = head.createSpan({ cls: "ad-stack__title" });
+          for (const id of g.agents.slice(0, 3)) agentIcon(headLeft.createSpan({ cls: "ad-glyph" }), id);
+          headLeft.createSpan({ text: t("{project} · 共 {total} 条对话", { project: g.name, total: g.items.length }) });
+          head.createSpan({ cls: "ad-stack__toggle", text: `${t("收起")} ▴` });
+          head.onclick = () => this.toggleStackGroup(sec, stack, g.id, false, "project");
+          const body = stack.createDiv({ cls: "ad-stack__list" });
+          for (const s of g.visibleItems) this.sessionCard(body, s, false);
+          if (g.unshownCount > 0) {
+            stack.createDiv({ cls: "ad-stack__foot", text: t("已达单页 {max} 张卡片上限，另有 {n} 条较早会话未显示", { max: MAX_RECENT_CARDS, n: g.unshownCount }) });
+          }
+        }
+      }
+      return;
+    }
     const plan = planRecentDisplay(rows, { filter: this.filter, expanded: this.expandedAgents, maxCards: MAX_RECENT_CARDS });
     if (plan.mode === "flat") {
       for (const s of plan.cards) this.sessionCard(list, s, false);
@@ -416,7 +563,7 @@ export class AgentDeckView extends ItemView {
       stack.style.setProperty("--ad-agent", a.color);
       stack.style.setProperty("--ad-agent-soft", a.soft);
       if (g.stacked) {
-        const expand = () => this.toggleAgentGroup(sec, stack, g.agent, true);
+        const expand = () => this.toggleStackGroup(sec, stack, g.agent, true, "agent");
         const topWrap = stack.createDiv({ cls: "ad-stack__top" });
         this.sessionCard(topWrap, g.visibleItems[0], false);
         const topCard = topWrap.firstElementChild;
@@ -431,7 +578,7 @@ export class AgentDeckView extends ItemView {
         agentIcon(headLeft.createSpan({ cls: "ad-glyph" }), g.agent);
         headLeft.createSpan({ text: t("{agent} · 共 {total} 条对话", { agent: a.short, total: g.items.length }) });
         head.createSpan({ cls: "ad-stack__toggle", text: `${t("收起")} ▴` });
-        head.onclick = () => this.toggleAgentGroup(sec, stack, g.agent, false);
+        head.onclick = () => this.toggleStackGroup(sec, stack, g.agent, false, "agent");
         const body = stack.createDiv({ cls: "ad-stack__list" });
         for (const s of g.visibleItems) this.sessionCard(body, s, false);
         if (g.unshownCount > 0) {
@@ -441,19 +588,21 @@ export class AgentDeckView extends ItemView {
     }
   }
 
-  // 收起或展开同 Agent 堆叠时锚定该组顶部在视口中的位置，避免高处横条因高度骤减被 scrollTop 夹紧而突然下跳；
+  // 收起或展开同 Agent/同项目堆叠时锚定该组顶部在视口中的位置，避免高处横条因高度骤减被 scrollTop 夹紧而突然下跳；
   // 留出的底部余量只维持当前位置，并在向上滚动或内容重新撑高时自动收回。
-  toggleAgentGroup(sec, stack, agent, expand) {
+  toggleStackGroup(sec, stack, key, expand, kind = "agent") {
     const root = this.contentEl;
     const dash = root?.querySelector?.(".ad-dash");
     const rootRect = root?.getBoundingClientRect?.();
     const stackRect = stack?.getBoundingClientRect?.();
     const prevRelTop = rootRect && stackRect ? stackRect.top - rootRect.top : null;
-    if (expand) this.expandedAgents.add(agent);
-    else this.expandedAgents.delete(agent);
+    const set = kind === "project" ? this.expandedProjects : this.expandedAgents;
+    if (expand) set.add(key);
+    else set.delete(key);
     this.renderSessions(sec);
     if (!dash || prevRelTop === null || !root.clientHeight) return;
-    const nextStack = [...(sec._list?.children || [])].find((el) => el.dataset?.agent === agent);
+    const attr = kind === "project" ? "project" : "agent";
+    const nextStack = [...(sec._list?.children || [])].find((el) => el.dataset?.[attr] === key);
     const nextRootRect = root.getBoundingClientRect?.();
     const nextStackRect = nextStack?.getBoundingClientRect?.();
     if (!nextRootRect || !nextStackRect) return;
@@ -467,6 +616,10 @@ export class AgentDeckView extends ItemView {
     } finally {
       this._reconcilingScroll = false;
     }
+  }
+
+  toggleAgentGroup(sec, stack, agent, expand) {
+    return this.toggleStackGroup(sec, stack, agent, expand, "agent");
   }
 
   syncBottomSlack(dash, targetScrollTop, maxCap = Infinity) {
@@ -842,12 +995,18 @@ export class AgentDeckView extends ItemView {
       kin.createSpan({ cls: "ad-sess__kintitle", text: t("从「{title}」开出", { title: truncate(s.parentTitle || t("母会话"), 24) }) });
       if (s.deskTitle && s.deskTitle !== s.title) kin.title = t("桌面版里的标题：{title}", { title: s.deskTitle });
     }
-    if (AGENT_ORDER.includes(s.agent)) {
+    const isPending = Boolean(s.isPendingJob && s.job && !s.job.sessionId);
+    if (!isPending && AGENT_ORDER.includes(s.agent)) {
       card.addClass("has-conversation");
       const conversation = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": t("查看对话、续聊与归档") } });
       setLucide(conversation.createSpan({ cls: "ad-arrow__icon" }), "messages-square");
       conversation.onclick = (e) => { e.stopPropagation(); p.openConversation(s); };
     }
+    const open = () => {
+      if (isPending && s.job?.path && p.openMirrorSource) return p.openMirrorSource(s.job.path, s.job.line || 0);
+      if (isPending && s.job?.id && p.openJob) return p.openJob(s.job.id);
+      return p.openSession(s.agent, s.sid, s.app, s);
+    };
     if (compact) {
       card.addClass("has-x");
       const x = card.createEl("button", { cls: "ad-arrow ad-sess__x", attr: { "aria-label": t("从「现在」移除") } });
@@ -856,14 +1015,13 @@ export class AgentDeckView extends ItemView {
       card.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         const m = new Menu();
-        m.addItem((i) => i.setTitle(t("打开会话")).setIcon("arrow-up-right").onClick(() => p.openSession(s.agent, s.sid, s.app, s)));
+        m.addItem((i) => i.setTitle(t("打开会话")).setIcon("arrow-up-right").onClick(open));
         m.addItem((i) => i.setTitle(t("从「现在」移除")).setIcon("x").onClick(() => this.removeFromNow(s.sid)));
         m.showAtMouseEvent(e);
       });
     }
     const go = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": t("打开会话") } });
     setLucide(go.createSpan({ cls: "ad-arrow__icon" }), "arrow-up-right");
-    const open = () => p.openSession(s.agent, s.sid, s.app, s);
     go.onclick = (e) => { e.stopPropagation(); open(); };
     card.onclick = open;
   }

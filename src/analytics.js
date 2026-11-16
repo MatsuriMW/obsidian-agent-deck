@@ -1,7 +1,7 @@
 // Dashboard calculations use saved day buckets, never lifetime session totals.
 import { unionSegs } from "./constants.js";
 import * as J from "./journal.js";
-import { LIST_RE, fencedLines, ownersOf, subtreeEnd } from "./outline.js";
+import { LIST_RE, fencedLines, ownersOf, subtreeEnd, parseMirrorRef } from "./outline.js";
 
 export function calendarDays(from, to) {
   const days = [];
@@ -56,7 +56,7 @@ export function journalSources(text, path, { autoState = null } = {}) {
       pushMap(byKey, normKey(rec.key || rec.label), sid);
     }
     for (let i = 0; i < lines.length; i++) {
-      if (fenced.has(i) || !LIST_RE.test(lines[i])) continue;
+      if (fenced.has(i) || !LIST_RE.test(lines[i]) || parseMirrorRef(lines[i])) continue;
       const kw = J.kwLine(lines[i]);
       if (!kw) continue;
       const id = J.blockIdOf(lines[i]);

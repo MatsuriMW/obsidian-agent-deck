@@ -3,6 +3,20 @@
 
 export const LIST_RE = /^(\s*)(?:[-*+]|\d+[.)])\s+(.*)$/;
 export const WIKILINK_RE = /(?<!!)\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
+// 与 WIKILINK_RE 相同，但包含 `![[...]]` 嵌入引用；上下文解析用，统计/归档仍按 WIKILINK_RE 排除镜像。
+const EMBED_WIKILINK_RE = /!?\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]/g;
+export const MIRROR_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:(?:TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)\s+)?(!?\[\[([^\]|#]+)#\^([A-Za-z0-9-]+)(?:\|([^\]]+))?\]\])\s*$/i;
+
+export function parseMirrorRef(line) {
+  const m = MIRROR_LINE_RE.exec(String(line || ""));
+  if (!m) return null;
+  return {
+    raw: m[1],
+    target: String(m[2] || "").trim(),
+    blockId: String(m[3] || "").trim(),
+    alias: String(m[4] || "").trim(),
+  };
+}
 
 export function width(line) {
   let w = 0;
@@ -80,12 +94,13 @@ export function ancestorLines(lines, at, fenced = fencedLines(lines)) {
   return stack.flatMap((item) => item.body);
 }
 
-export function extractWikilinkRefs(lines = []) {
+export function extractWikilinkRefs(lines = [], { embeds = false } = {}) {
   const refs = [];
   const seen = new Set();
+  const re = embeds ? EMBED_WIKILINK_RE : WIKILINK_RE;
   for (const raw of lines) {
     const line = String(raw || "");
-    for (const m of line.matchAll(WIKILINK_RE)) {
+    for (const m of line.matchAll(re)) {
       const target = String(m[1] || "").trim();
       if (!target) continue;
       const subpath = String(m[2] || "").trim();

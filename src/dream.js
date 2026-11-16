@@ -3,7 +3,7 @@ import { createHash } from "crypto";
 import { dayKey, journalPath } from "./constants.js";
 import { RECORD_ICON_RE } from "./journal.js";
 import { AI_RECORD_RE } from "./ai-records.js";
-import { LIST_RE, width, fencedLines, frontmatterEnd } from "./outline.js";
+import { LIST_RE, width, fencedLines, frontmatterEnd, parseMirrorRef } from "./outline.js";
 import { runJournalModel } from "./llm.js";
 import { MEMORY_LABELS as LABELS, memoryId, notePath, memoryEntries } from "./dream-entries.js";
 import { DreamSharing } from "./dream-sharing.js";
@@ -68,6 +68,10 @@ export function evidenceBlocks(text, path, { aiOnly = false } = {}) {
     const isFenceOpener = inFence && !prevFence && /^\s*(?:`{3,}|~{3,})/.test(rawLine);
     const line = inFence ? rawLine : rawLine.replace(AD_COMMENT_RE, "");
     const list = (!inFence || isFenceOpener) && LIST_RE.test(line);
+    if (list && !inFence && parseMirrorRef(line)) {
+      flush();
+      continue;
+    }
     let kind = block?.kind || "user";
     let itemId = block?._itemId || 0;
     let aiRelevant = block?._aiRelevant || false;

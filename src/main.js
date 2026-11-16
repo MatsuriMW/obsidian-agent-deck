@@ -43,7 +43,7 @@ import { renderAIRecords } from "./record-display.js";
 import { AutoLog } from "./autolog.js";
 import { JournalSync } from "./sync.js";
 import * as J from "./journal.js";
-import { mentionOptions } from "./task-mentions.js";
+import { mentionOptions, mentionTrigger } from "./task-mentions.js";
 import { Dreaming } from "./dream.js";
 import { ConversationModal, AcpPermissionModal } from "./conversation-modal.js";
 import { registerTaskAgentSuggest } from "./mention-suggest.js";
@@ -57,6 +57,19 @@ import {
 import { scanAgentWait, scanLimitQueue, resolveExternalState, buildLineProgressInfo } from "./external-state.js";
 import { ManagedTimers, CircuitBreaker, safeRun } from "./runtime-guard.js";
 import { hasAgentCapability, usesDeckSessionLink } from "./agent-registry.js";
+import { updateNote } from "./note-updates.js";
+import { ProjectWorkbenchModal } from "./workbench-modal.js";
+import {
+  extractTaskBoardGroups,
+  buildTaskBoardModel,
+  formatWorkbenchTasksMarkdown,
+  insertWorkbenchBlockLines,
+  resolveSessionProject,
+  classifyTaskStatusColumn,
+  buildBoardSiblingContext,
+  STANDALONE_PROJECT_ID,
+} from "./project-workbench.js";
+import { setTaskBoardEffect, taskBoardMode } from "./fractal-board.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -120,6 +133,20 @@ export default class AgentDeckPlugin extends Plugin {
     this.setupRibbon();
 
     this.addCommand({ id: "open-dashboard", name: t("打开 Agent Deck 面板"), callback: () => this.activateView() });
+    this.addCommand({
+      id: "open-project-workbench",
+      name: t("打开项目协作工作台：小队编排与拆解派发"),
+      callback: () => {
+        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+        const line = view?.file ? view.editor.getCursor().line : -1;
+        this.openProjectWorkbench(view?.file && line >= 0 && blockAt(view.editor.getValue().split("\n"), line) ? { path: view.file.path, line } : {});
+      },
+    });
+    this.addCommand({
+      id: "toggle-task-board",
+      name: t("当前任务：切换分形看板 / 大纲视图"),
+      editorCallback: (editor, view) => this.toggleTaskBoardAt(editor, view),
+    });
     this.addCommand({ id: "open-review", name: t("打开 Agent Deck 回顾 Dashboard"), checkCallback: (checking) => {
       if (this.settings.experimentalDashboard === false) return false;
       if (!checking) this.activateDashboard();
@@ -1183,7 +1210,7 @@ export default class AgentDeckPlugin extends Plugin {
     return { file, lines, line, block };
   }
 
-  async delegateDrop(agent, item, fromEl, { cli = false, destination, newSession = false, confirmed = false, expectedText } = {}) {
+  async delegateDrop(agent, item, fromEl, { cli = false, destination, newSession = false, confirmed = false, expectedText, boardContext = "" } = {}) {
     this._dragItem = null;
     if (AGENTS[agent]?.trackingOnly) return;
     const target = await this.delegateTarget(item, { newSession });
@@ -1199,10 +1226,10 @@ export default class AgentDeckPlugin extends Plugin {
           context: ancestorLines(target.lines, target.block.start),
           where: `${opts.model || this.defaultModel(agent) || t("客户端模型")} · ${opts.effort || this.settings.delegate[agent]?.effort || t("客户端强度")}`,
           destination, newSession,
-        }, chosen => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: delegationText(target.lines, target.block, { newSession }) })).open();
+        }, chosen => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: delegationText(target.lines, target.block, { newSession }), boardContext })).open();
         return;
       }
-      await this.delegator.delegate({ ...opts, destination, newSession });
+      await this.delegator.delegate({ ...opts, destination, newSession, ...(boardContext ? { boardContext } : {}) });
     } catch (e) { this.notice(String(e.message || e), 8000); }
     this.refreshUI();
   }
@@ -1261,6 +1288,8 @@ export default class AgentDeckPlugin extends Plugin {
       menu.addSeparator();
     }
     for (const agent of AGENT_ORDER.filter(a => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem(mi => mi.setTitle(t("重新委派（新会话）· {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    menu.addSeparator();
+    menu.addItem(mi => mi.setTitle(t("在项目工作台拆解并分配小队")).setIcon("folder-kanban").onClick(() => this.openProjectWorkbench({ path, line: block.start })));
     menu.addItem(mi => mi.setTitle(t("绑定或合并到其他任务")).onClick(() => { view.editor.setCursor({line:block.start,ch:0}); this.openMergeTaskForEditor(view.editor, view); }));
     if (event) menu.showAtMouseEvent(event);
     else menu.showAtPosition({ x: view.containerEl.getBoundingClientRect().left + 100, y: view.containerEl.getBoundingClientRect().top + 100 });
@@ -1428,12 +1457,12 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   // ---------- editor actions ----------
-  async delegateAtLine(path, line) {
+  async delegateAtLine(path, line, extraOpts = {}) {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!file) return this.notice(t("找不到这篇笔记"));
     const view = this.app.workspace.getActiveViewOfType(MarkdownView);
     const lines = view && view.file && view.file.path === path ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
-    return this.delegateDrop(this.defaultTarget(), { path, line, lineText: lines[line] });
+    return this.delegateDrop(this.defaultTarget(), { path, line, lineText: lines[line] }, null, extraOpts);
   }
 
   openDelegateModal(path, line) {
@@ -1577,6 +1606,275 @@ export default class AgentDeckPlugin extends Plugin {
     if (!id) return;
     this.delegator.cancel(id);
     this.refreshUI();
+  }
+
+  cancelProjectJobs(projectId, jobIds = []) {
+    const ids = new Set(jobIds || []);
+    if (!ids.size) {
+      for (const job of Object.values(this.jobs || {})) {
+        if (!activeJob(job)) continue;
+        const proj = resolveSessionProject({ cwd: job.cwd }) || STANDALONE_PROJECT_ID;
+        if (proj === projectId) ids.add(job.id);
+      }
+    }
+    let stopped = 0;
+    for (const id of ids) {
+      if (this.delegator.runners.has(id) || activeJob(this.jobs[id])) {
+        this.delegator.cancel(id);
+        stopped += 1;
+      }
+    }
+    if (stopped) this.notice(t("已停止该项目的 {n} 个活跃任务", { n: stopped }));
+    else this.notice(t("该项目没有可停止的活跃任务"));
+    this.refreshUI();
+  }
+
+  openProjectWorkbench(opts = {}) {
+    new ProjectWorkbenchModal(this.app, this, opts).open();
+  }
+
+  toggleTaskBoardAt(editor, view) {
+    if (!view?.file || !editor?.cm) return;
+    const text = editor.getValue();
+    const cursorLine = editor.getCursor().line;
+    const groups = extractTaskBoardGroups(text, {
+      trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : new Set(),
+      trigger: mentionTrigger(this),
+    });
+    const hit = groups.find((g) => g.line === cursorLine)
+      || groups.find((g) => cursorLine >= g.line && cursorLine <= g.endLine);
+    if (!hit) return this.notice(t("请把光标放在包含 2 个以上子任务的父任务上"));
+    const next = taskBoardMode(this.settings, hit) === "board" ? "outline" : "board";
+    editor.cm.dispatch({ effects: setTaskBoardEffect.of({ key: hit.key, mode: next }) });
+  }
+
+  async ensureNoteFile(targetPath) {
+    const pathStr = String(targetPath || "").trim() || journalPath(this.app, this.settings);
+    let file = this.app.vault.getAbstractFileByPath(pathStr);
+    if (file) return { path: pathStr, file };
+    const parts = pathStr.split("/");
+    parts.pop();
+    let dir = "";
+    for (const part of parts) {
+      dir = dir ? `${dir}/${part}` : part;
+      if (!this.app.vault.getAbstractFileByPath(dir)) await this.app.vault.createFolder(dir);
+    }
+    file = await this.app.vault.create(pathStr, "");
+    return { path: pathStr, file };
+  }
+
+  async writeWorkbenchTasks({ path = "", line = -1, parentTitle = "", subtasks = [], enableBoard = true } = {}) {
+    const ensured = await this.ensureNoteFile(path);
+    const targetPath = ensured.path;
+    const activeSubtasks = (subtasks || []).filter((s) => s && s.checked !== false && String(s.title || "").trim());
+    if (!activeSubtasks.length) throw new Error(t("没有可写入的子任务"));
+
+    let parentLine = -1;
+    let subtaskLines = [];
+    let finalLines = [];
+
+    await updateNote(this, targetPath, (before) => {
+      const lines = before ? before.split("\n") : [];
+      const existingBlock = line >= 0 ? blockAt(lines, line) : null;
+      if (existingBlock) {
+        const indent = (/^\s*/.exec(lines[existingBlock.start]) || [""])[0];
+        const childIndentStr = J.childIndent(lines, existingBlock.start).slice(indent.length) || "\t";
+        const snippet = formatWorkbenchTasksMarkdown({
+          parentTitle,
+          subtasks: activeSubtasks,
+          indent,
+          childIndentStr,
+          includeParent: false,
+          assignBlockIds: true,
+        });
+        const inserted = snippet.split("\n");
+        const insertAt = existingBlock.end + 1;
+        lines.splice(insertAt, 0, ...inserted);
+        parentLine = existingBlock.start;
+        subtaskLines = [];
+        let cursor = insertAt;
+        for (const item of activeSubtasks) {
+          subtaskLines.push({ line: cursor, agent: item.agent, destination: item.destination, title: item.title });
+          cursor += 1 + (item.detail && item.detail.trim() ? 1 : 0);
+        }
+      } else {
+        const snippet = formatWorkbenchTasksMarkdown({
+          parentTitle,
+          subtasks: activeSubtasks,
+          indent: "",
+          childIndentStr: "\t",
+          includeParent: true,
+          assignBlockIds: true,
+        });
+        const inserted = snippet.split("\n");
+        const placed = insertWorkbenchBlockLines(lines, inserted);
+        lines.splice(0, lines.length, ...placed.lines);
+        parentLine = placed.parentLine;
+        subtaskLines = [];
+        let cursor = parentLine + 1;
+        for (const item of activeSubtasks) {
+          subtaskLines.push({ line: cursor, agent: item.agent, destination: item.destination, title: item.title });
+          cursor += 1 + (item.detail && item.detail.trim() ? 1 : 0);
+        }
+      }
+      finalLines = lines;
+      return lines.join("\n");
+    });
+
+    if (enableBoard && parentLine >= 0) {
+      const afterText = await this.readNote(targetPath);
+      finalLines = afterText.split("\n");
+      const groups = extractTaskBoardGroups(afterText, {
+        trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : new Set(),
+        trigger: mentionTrigger(this),
+      });
+      const grp = groups.find((g) => g.line === parentLine);
+      if (grp) {
+        const views = (this.settings.taskBoardViews ||= {});
+        views[grp.key] = "board";
+        if (grp.stableKey) views[grp.stableKey] = "board";
+        await this.saveSettings();
+        await dispatchRefresh(this);
+      }
+    }
+
+    if (!this.viewForPath(targetPath) && this.app.workspace.getLeaf) {
+      await this.openMirrorSource(targetPath, Math.max(0, parentLine));
+    }
+
+    return { path: targetPath, lines: finalLines, parentLine, subtaskLines };
+  }
+
+  async dispatchWorkbenchTasks({ path, lines, subtaskLines = [], cwd = "", parentTitle = "" } = {}) {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!file) throw new Error(t("找不到目标笔记：{path}", { path }));
+    const freshLines = lines || (await this.readNote(path)).split("\n");
+    const tasks = subtaskLines
+      .map((item) => ({ item, block: blockAt(freshLines, item.line) }))
+      .filter((x) => x.block);
+    if (!tasks.length) return;
+    const siblingModel = tasks.length > 1
+      ? {
+          title: parentTitle || t("协作项目"),
+          columns: [{
+            id: "todo",
+            cards: tasks.map(({ item }) => ({ line: item.line, title: item.title, agent: item.agent })),
+          }],
+        }
+      : null;
+    const results = await Promise.allSettled(
+      tasks.map(({ item, block }) => {
+        const boardContext = item.boardContext || (siblingModel ? buildBoardSiblingContext(siblingModel, item.line) : "");
+        return this.delegator.delegate({
+          file,
+          lines: freshLines,
+          block,
+          agent: item.agent,
+          destination: item.destination,
+          cwd: cwd || undefined,
+          ...(boardContext ? { boardContext } : {}),
+        });
+      }),
+    );
+    const failed = results.filter((r) => r.status === "rejected");
+    const okCount = results.length - failed.length;
+    if (okCount) this.notice(t("已并发派发 {n} 个协作子任务", { n: okCount }));
+    if (failed.length) {
+      const firstErr = failed[0].reason?.message || String(failed[0].reason || "");
+      this.notice(t("{n} 个子任务派发失败：{err}", { n: failed.length, err: firstErr }), 8000);
+    }
+    this.refreshUI();
+  }
+
+  async dispatchBoardGroup(path, parentLine, { model: providedModel = null } = {}) {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!file) return this.notice(t("找不到这篇笔记"));
+    const text = await this.readNote(path);
+    const lines = text.split("\n");
+    const groups = extractTaskBoardGroups(text, {
+      trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : new Set(),
+      trigger: mentionTrigger(this),
+    });
+    const grp = groups.find((g) => g.line === parentLine);
+    if (!grp) return;
+    const model = providedModel || buildTaskBoardModel(grp, this);
+    const pending = model.columns
+      .flatMap((c) => c.cards)
+      .filter((c) => c.column === "todo" && !c.hasLink && !c.activeJob && !c.isMirror);
+    if (!pending.length) return this.notice(t("没有待派发的 TODO 子任务"));
+    const subtaskLines = pending.map((card) => ({
+      line: card.line,
+      agent: card.agent || this.defaultTarget(),
+      destination: undefined,
+      title: card.title,
+      boardContext: buildBoardSiblingContext(model, card.line),
+    }));
+    await this.dispatchWorkbenchTasks({ path, lines, subtaskLines });
+  }
+
+  primeMirrorCache(refs = [], sourcePath = "") {
+    if (!refs.length || this._primingMirrors) return;
+    this._mirrorBoardCache ||= new Map();
+    const pending = refs.filter((r) => r?.target && r?.blockId);
+    if (!pending.length) return;
+    this._primingMirrors = true;
+    Promise.resolve().then(async () => {
+      let changed = false;
+      for (const ref of pending) {
+        const key = `${ref.target}#${ref.blockId}`;
+        const dest = this.app.metadataCache?.getFirstLinkpathDest?.(ref.target, sourcePath || "");
+        if (!dest?.path) continue;
+        try {
+          const text = await this.readNote(dest.path);
+          const task = J.findTaskByBlockId(text, ref.blockId);
+          if (!task) continue;
+          const lines = text.split("\n");
+          const block = blockAt(lines, task.line);
+          let link = null;
+          let latestConclusion = "";
+          if (block) {
+            for (let m = block.start + 1; m <= block.end; m++) {
+              if (!link) link = J.parseLink(lines[m]);
+              if (/^\s*[-*+]\s+💬\s/.test(lines[m])) {
+                latestConclusion = lines[m].trim().replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:])?\s*/, "").replace(J.RECORD_PROVENANCE_RE, "").trim();
+              }
+            }
+          }
+          const next = {
+            title: J.stripInlineTitleMarkup(J.stripBlockId(task.body).replace(/^🤖\s*/u, "")),
+            kw: task.kw || "TODO",
+            column: classifyTaskStatusColumn(task.kw || "TODO"),
+            agent: link?.agent || "",
+            sid: link?.sid || "",
+            hasLink: Boolean(link),
+            latestConclusion,
+            mirrorTarget: { path: dest.path, line: task.line, blockId: ref.blockId },
+          };
+          const prev = this._mirrorBoardCache.get(key);
+          if (JSON.stringify(prev) !== JSON.stringify(next)) {
+            this._mirrorBoardCache.set(key, next);
+            changed = true;
+          }
+        } catch { /* ignore unreadable target */ }
+      }
+      if (changed) dispatchRefresh(this);
+    }).finally(() => { this._primingMirrors = false; });
+  }
+
+  async openMirrorSource(targetPath, line = 0) {
+    const file = this.app.vault.getAbstractFileByPath(targetPath);
+    if (!file) return this.notice(t("找不到笔记：{path}", { path: targetPath }));
+    const leaf = this.app.workspace.getLeaf(false);
+    await leaf.openFile(file, { eState: { line: Math.max(0, line) } });
+  }
+
+  openProjectFolder(dirPath) {
+    if (!dirPath) return;
+    try {
+      const { shell } = require("electron");
+      if (shell && shell.openPath) return shell.openPath(dirPath);
+    } catch { /* fallback */ }
+    openExternalRaw("file://" + dirPath);
   }
 
   // ---------- macOS menu bar ----------
