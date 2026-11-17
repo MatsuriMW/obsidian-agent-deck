@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.0
+
+- **按项目文件夹派活**：设置 → 委派新增「项目文件夹」（项目名 → 工作目录）。派活时按「显式目录 → 笔记里的 `[[双链]]` → 笔记路径段 → `项目 -> 标题` 前缀（兼容加粗与 🤖）→ 库根目录」解析，认出项目就换到该目录；派发一次后按项目名记住，失效目录跳过。委派对话框新增项目文件夹下拉并自动预选，项目工作台可切换；开关 `settings.autoProjectFolder`（默认开）。解析出的目录真的传给各 runner（`test/project-dispatch.test.mjs` 用假子进程验证 cwd），Claude/Qoder 继续用 `--add-dir` 把库带进去。
+- **Codex 会话不再落到「无项目对话」**：Codex 桌面派发在 `thread/start` 前用 `project/list` 复用同目录项目，没有就 `project/create`（名为项目名 → 目录名），把 `projectId` 传给线程；项目接口失败时静默退回不带 projectId。scratch 目录、home、不存在的 cwd 不建项目，新建项目提示一次；开关 `settings.delegate.codex.project`（默认开）。
+- **验证**：`npm test`、`npm run build`、`git diff --check` 通过（新增 `test/project-folders.test.mjs`、`test/project-dispatch.test.mjs`；`test/codex-desktop.test.mjs` 覆盖复用/创建/接口缺失/开关关闭/scratch 五条路径）。Obsidian 实机看过设置页项目行与委派对话框自动预选；真实派发一条到 `ad-e2e` 项目目录后，Codex `thread/list(projectId)` 能查到该线程，项目归组在 turn 之前完成并核对（本轮 Codex 账号撞额度，turn 未完成；测试线程/项目/笔记/设置已清理）。**Windows 未实测。**
+
 ## 1.11.0
 
 - **💬 结论改写「最后的落点」**：`conclusionSentence()` 按「显式结论段 → 单段放得下就整段 → 从结尾往前找第一句不像客套 / 下一步的话 → 退回最后一段」取句，简略记录没润色成功时不再把回复开头 65 字当结论；`结论：` 这类字段名会去掉避免重复；润色 prompt 同步要求写落点而不是摘开头。标准记录仍只保留一句话（取收尾那句）。`❓` 的用户提问保持原规则。已有记录仍 append-only，不重算历史。

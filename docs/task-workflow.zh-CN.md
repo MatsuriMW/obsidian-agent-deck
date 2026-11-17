@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.11.0**（已发版，2026-11-17）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.12.0**（已发版，2026-11-17）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 双平台验证边界
 
@@ -26,6 +26,13 @@
 - **快捷键**（macOS `Alt` = `Option`）：`Ctrl+Alt+D` 委派/任务菜单 · `Ctrl+Alt+A` 续聊/停止/重派 · `Ctrl+Alt+C` 查看与保存对话 · `Ctrl+Alt+N` 下一条待确认 · `Ctrl+Alt+X` 停止执行 · `Ctrl+Alt+J` 跳到「正在做」 · `Ctrl+Alt+L` 整理日志 · `⌥⌘↑` 跳到母块（连按逐级向上）· `⌥⌘⇧↑` 跳到最上一级顶格母块 · `⌥⌘↓` 合并成组（Group rows）· `⌃⌥⌘D` macOS 菜单栏。
 - **关键词**：`DOING` / `NOW` / `IN-PROGRESS`、`TOREVIEW`、`NEEDOK`、`ERRORED` / `FAILED`、`HITLIMIT`、`QUEUED`、`DELEGATED`、`TODO` / `LATER`、`PAUSED` / `SUSPENDED`、`WAITING` / `WAIT`、`DONE`、`CANCELED` / `CANCELLED`、`TODOFORAI` / `TODO4AI` / `TODO2AI` / `TODOTOAI`，及 `[ ]` `[/]` `[x]` `[-]`。
 - **整理与归档**：**整理日志**默认按 `---` → 正在做 → `---` → 还要做 → `---` → 已完成 → `---` 排列，只整理完整分区内的 **AI** 条目，非 AI 手写条目与区外笔记保持原位；无完整分区时只建立空分区。**归档已完成的日志到…** 仅移出已完成 **AI** 块（默认 `Agent Deck/done/已完成任务.md`），先写归档再删源。
+
+## 本地修改（2026-11-17，1.12.0）：项目文件夹派发与 Codex 项目归属
+
+- **项目名 ↔ 目录登记**：新增 `src/project-folders.js`、`settings.projectFolders`（`{项目名: 绝对路径}`）与开关 `settings.autoProjectFolder`（默认开）。派活时若 `opts.cwd` 为空，按「笔记里的 `[[双链]]` → 笔记路径段 → `项目 -> 标题` 前缀」顺序认出已登记的项目并换成它的目录；认不出照旧用库根目录。派发过一次带目录的任务后按项目名记住（库里已有同名/同目录条目则更新），老项目改目录直接在设置里改。
+- **入口**：委派对话框（`src/dialog.js`）新增「项目文件夹」下拉，打开时自动预选解析到的项目；项目工作台（`src/workbench-modal.js`）的项目名旁同样可切换，切到项目会带出目录；设置 → 委派新增「项目文件夹」卡片（按项目名增删/改目录，目录不存在时拒绝保存）。
+- **Codex 无项目对话**：`CodexDesktopRunner`（`src/codex-desktop.js`）在 `thread/start` 前调用 `project/list`，按规范化后的 cwd 复用已有项目；没有就用 `project/create` 建一个（名取 `job.project` → 登记名 → 目录名，`idempotencyKey` 按目录哈希稳定），并把 `projectId` 传给 `thread/start`。`settings.delegate.codex.project` 默认开；项目接口是实验性 API，`project/list` 报错或建项目失败时静默退回不带 `projectId`。scratch 目录（`isScratchCwd`，如 `.../Codex/YYYY-MM-DD/...`）、home 与不存在的 cwd 不建项目。新建项目时提示一次。
+- **验证边界**：`npm test`、`npm run build`、`git diff --check` 通过；`test/project-folders.test.mjs` 覆盖规范化/登记/改名/双链/路径/标题/失效目录与派发目录优先级；`test/project-dispatch.test.mjs` 用假 `claude` 子进程验证解析出的项目目录真的传进 runner（自动双链、显式目录+记住、关掉开关回库根）；`test/codex-desktop.test.mjs` 用假 app-server 覆盖复用、创建、接口缺失、开关关闭、scratch 跳过五条路径。真实 Codex `0.169.0-alpha.11.1` app-server 只读实测：`project/list` / `project/create` / `thread/start(projectId)` / `thread/list(projectId)` / `thread/delete` / `project/delete` 均按预期工作（临时项目与线程已删除，`project/list` 剩原有 1 个）；**未验证**：Obsidian 里对话框/设置页的真实点击与视觉、Codex Desktop GUI 是否即时按项目分组、Windows。
 
 ## 本地修改（2026-11-17，1.11.0）
 

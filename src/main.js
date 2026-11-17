@@ -2044,6 +2044,7 @@ export default class AgentDeckPlugin extends Plugin {
           agent: item.agent,
           destination: item.destination,
           cwd: cwd || undefined,
+          projectName: projectName || undefined,
           ...(boardContext ? { boardContext } : {}),
         });
       }),

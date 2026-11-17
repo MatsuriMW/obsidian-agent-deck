@@ -10,6 +10,7 @@ import { updateNote } from "./note-updates.js";
 import fs from "fs";
 import { saveBackgroundAnswer, clearBackgroundPending, backgroundRounds } from "./background-output.js";
 import { destinations } from "./workflow.js";
+import { folderExists, normalizeProjectFolder, rememberProjectFolder, resolveDispatchFolder } from "./project-folders.js";
 import path from "path";
 import os from "os";
 import { spawn, execFile } from "child_process";
@@ -554,6 +555,20 @@ export class Delegator {
     if (!hasAgentCapability(opts.agent, "delegate") || (opts.agent === "qoder" && opts.destination === "desktop")) return this.handoff(opts);
     const agent = opts.agent;
     const resolved = await this.resolveBlockContext(opts, t("光标要放在一个列表项里"));
+    const target = resolveDispatchFolder({
+      settings: this.settings,
+      explicitCwd: opts.cwd || "",
+      explicitName: opts.projectName || "",
+      agentCwd: this.C[agent]?.cwd || "",
+      vaultPath: this.vaultPath,
+      notePath: resolved.file?.path || "",
+      contextLines: ancestorLines(resolved.lines, resolved.block.start),
+      blockText: resolved.block.text,
+    });
+    const { folder: cwd, projectName, auto: autoProject } = target;
+    if (target.explicit && projectName && folderExists(target.explicit)
+      && normalizeProjectFolder(target.explicit) !== normalizeProjectFolder(this.vaultPath)
+      && rememberProjectFolder(this.settings, projectName, target.explicit)) this.plugin.saveSettings?.();
     const job = this.buildJobBase({
       agent,
       name: resolved.name,
@@ -565,14 +580,17 @@ export class Delegator {
       model: agent === "codex" ? resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent)) : opts.model || this.defaultModel(agent),
       effort: opts.effort || this.C[agent]?.effort,
       permission: opts.permission || (hasAgentCapability(agent, "permissionControl") ? (this.C[agent]?.permission || "auto") : ""),
-      cwd: norm(opts.cwd || this.C[agent]?.cwd || this.vaultPath),
+      cwd,
+      project: projectName,
     });
     const hookPayload = { opts, resolved, job, prompt: resolved.prompt, name: resolved.name };
     await this.harness.run("beforeDelegate", hookPayload);
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     this.plugin.refreshUI();
-    this.plugin.notice(t("🛫 正在委派给 {agent}：{name}", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name }));
+    this.plugin.notice(autoProject
+      ? t("🛫 正在委派给 {agent}：{name}（项目 {project}）", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name, project: autoProject.name })
+      : t("🛫 正在委派给 {agent}：{name}", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name }));
     const runner = createDelegationRunner(
       agent,
       this,
@@ -581,8 +599,13 @@ export class Delegator {
       () => (job.destination === "background" ? undefined : openSession(this.plugin, "codex", job.sessionId, "vscode")),
     );
     this.runners.set(job.id, runner);
+    // Runners resolve their own cwd from opts.cwd / per-agent settings; only
+    // hand them the resolved folder when it is a project one. Leaving the vault
+    // case untouched keeps Claude's trusted-directory fallback working.
+    const startOpts = { ...opts, prompt: hookPayload.prompt, name: hookPayload.name };
+    if (cwd && normalizeProjectFolder(cwd) !== normalizeProjectFolder(this.vaultPath)) startOpts.cwd = cwd;
     try {
-      await runner.start({ ...opts, prompt: hookPayload.prompt, name: hookPayload.name });
+      await runner.start(startOpts);
     } catch (e) {
       runner.fail && runner.fail(e && e.message || String(e));
     }

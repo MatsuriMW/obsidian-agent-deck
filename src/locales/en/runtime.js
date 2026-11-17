@@ -75,4 +75,5 @@ export default {
   "更新待办 #{id}": "Todo #{id} updated",
   "整理待办": "Updating todos",
   "思考中…": "Thinking…",
+  "已在 Codex 里建立项目「{name}」，这条会话归进去了": "Created Codex project '{name}'; this session is grouped there",
 };

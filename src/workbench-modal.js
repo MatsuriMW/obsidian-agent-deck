@@ -5,6 +5,7 @@ import { AGENTS, journalPath } from "./constants.js";
 import { t } from "./i18n.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { blockAt, blockTitle, ancestorLines } from "./delegation.js";
+import { projectFolderEntries, projectFolderForName, sameFolder } from "./project-folders.js";
 import { mentionTrigger } from "./task-mentions.js";
 import { destinations, defaultDestination } from "./workflow.js";
 import { runJournalModel } from "./llm.js";
@@ -89,6 +90,8 @@ export class ProjectWorkbenchModal extends Modal {
       this.projectName = resolveSessionProject({ cwd: this.cwd });
     }
     if (!this.cwd) this.cwd = p.vaultPath || "";
+    const registered = this.projectName ? projectFolderForName(p.settings, this.projectName) : "";
+    if (registered && (!this.cwd || sameFolder(this.cwd, p.vaultPath))) this.cwd = registered;
 
     const savedByProj = p.settings?.projectTeams?.byProject || {};
     if (this.projectName && savedByProj[this.projectName]) {
@@ -274,10 +277,27 @@ export class ProjectWorkbenchModal extends Modal {
       cls: "ad-input",
       attr: { type: "text", placeholder: t("例如：agent-deck"), value: this.projectName },
     });
-    projInput.oninput = () => { this.projectName = projInput.value.trim(); };
+    projInput.oninput = () => {
+      this.projectName = projInput.value.trim();
+      const folder = projectFolderForName(p.settings, this.projectName);
+      if (folder && (!this.cwd || sameFolder(this.cwd, p.vaultPath))) this.cwd = folder;
+    };
 
     const cwdField = metaGrid.createDiv({ cls: "ad-field" });
     cwdField.createDiv({ cls: "ad-field__label", text: t("工作目录 (cwd)") });
+    const folderEntries = projectFolderEntries(p.settings);
+    if (folderEntries.length) {
+      const folderSel = cwdField.createEl("select", { cls: "ad-input" });
+      folderSel.createEl("option", { value: "", text: t("库根目录（不指定项目）") });
+      for (const e of folderEntries) folderSel.createEl("option", { value: e.name, text: `${e.name} · ${e.path}` });
+      folderSel.value = folderEntries.find((e) => sameFolder(e.path, this.cwd))?.name || "";
+      folderSel.onchange = () => {
+        const hit = folderEntries.find((e) => e.name === folderSel.value);
+        this.cwd = hit ? hit.path : (p.vaultPath || "");
+        if (hit && !this.projectName) this.projectName = hit.name;
+        this.render();
+      };
+    }
     const cwdInput = cwdField.createEl("input", {
       cls: "ad-input",
       attr: { type: "text", placeholder: this.plugin.vaultPath || "", value: this.cwd },

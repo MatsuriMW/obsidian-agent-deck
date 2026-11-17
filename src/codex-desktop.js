@@ -1,8 +1,14 @@
 // Persist the first turn through App Server, release it, then continue in Desktop.
 import fs from "fs";
+import path from "path";
+import { createHash } from "crypto";
 import { spawn } from "child_process";
 import { createInterface } from "readline";
 import { t } from "./i18n.js";
+import { isScratchCwd } from "./readers.js";
+import { projectNameForFolder, sameFolder } from "./project-folders.js";
+
+const taskHash = (text) => createHash("sha1").update(String(text)).digest("hex");
 
 export function codexDesktopBinary(configured) {
   if (configured) return configured;
@@ -44,9 +50,11 @@ export class CodexDesktopRunner {
       });
       await this.request("initialize", { clientInfo: { name: "agent_deck", version: "1.4.2" }, capabilities: { experimentalApi: true } });
       this.send({ method: "initialized" });
+      const projectId = await this.attachProject();
       const result = await this.request("thread/start", {
         model: this.job.model, cwd: this.job.cwd, ephemeral: false,
         sandbox: cfg.sandbox || "workspace-write", approvalPolicy: "on-request",
+        ...(projectId ? { projectId } : {}),
         config: { model_reasoning_effort: this.job.effort },
       });
       if (!result.thread?.id || result.model !== this.job.model) throw new Error(t("Codex 未确认指定模型，任务未发送"));
@@ -60,6 +68,32 @@ export class CodexDesktopRunner {
       });
       this.turnId = started.turn?.id;
     } catch (error) { await this.finish("error", error.message); }
+  }
+  // Codex Desktop groups threads by project. Use the project that already owns
+  // this folder, or create one, so a delegated task does not land in "no project".
+  // The project API is experimental: any error just leaves the thread ungrouped.
+  async attachProject() {
+    const cfg = this.d.settings?.delegate?.codex || {};
+    if (cfg.project === false) return "";
+    const cwd = String(this.job.cwd || "");
+    if (!cwd || !fs.existsSync(cwd) || isScratchCwd(cwd)) return "";
+    const roots = path.resolve(cwd);
+    let projects;
+    try { projects = await this.request("project/list", { limit: 200 }); }
+    catch { return ""; }
+    const found = (projects?.data || []).find((p) => (p.roots || []).some((r) => sameFolder(r.path, roots)));
+    if (found?.id) return found.id;
+    const name = this.job.project || projectNameForFolder(this.d.settings, roots) || path.basename(roots);
+    try {
+      const created = await this.request("project/create", {
+        idempotencyKey: `agent-deck:${taskHash(roots)}`,
+        name,
+        roots: [{ path: roots }],
+      });
+      const id = created?.project?.id || "";
+      if (id) this.d.notice?.(t("已在 Codex 里建立项目「{name}」，这条会话归进去了", { name }), 6000);
+      return id;
+    } catch { return ""; }
   }
   receive(message) {
     const pending = this.pending.get(message.id);

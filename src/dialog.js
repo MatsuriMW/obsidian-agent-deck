@@ -4,7 +4,8 @@ import { Modal, Notice } from "obsidian";
 import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
-import { blockAt, blockTitle, BULLET_RE, delegationText } from "./delegation.js";
+import { blockAt, blockTitle, BULLET_RE, delegationText, ancestorLines } from "./delegation.js";
+import { projectFolderEntries, resolveProjectForTask, sameFolder } from "./project-folders.js";
 import { mentionOptions, mentionTrigger } from "./task-mentions.js";
 import { destinations, defaultDestination } from "./workflow.js";
 import { kwLine, fencedLines } from "./journal.js";
@@ -40,6 +41,13 @@ export class DelegateOptionsModal extends Modal {
     this.block = blockAt(lines, this.line);
     this.lines = lines;
     if (!this.block) { contentEl.createDiv({ text: t("光标要放在一个列表项里") }); return; }
+    this.projectHint = this.plugin.settings.autoProjectFolder === false ? null : resolveProjectForTask({
+      settings: this.plugin.settings,
+      notePath: this.path,
+      contextLines: ancestorLines(lines, this.block.start),
+      blockText: this.block.text,
+    });
+    if (this.projectHint && !this.cwd) this.cwd = this.projectHint.path;
     try {
       const selected = mentionOptions(this.plugin, { block: this.block, agent: this.agent });
       this.agent = selected.agent;
@@ -145,6 +153,28 @@ export class DelegateOptionsModal extends Modal {
 
     if (this.agent === "antigravity") contentEl.createDiv({ cls: "ad-hint", text: t("通过 agy acp 后台委派；工具请求逐次确认，完成后可查看或归档正文。") });
 
+    // Project folder: registered projects first, then a free path for one-offs.
+    const entries = projectFolderEntries(p.settings);
+    const pf = contentEl.createDiv({ cls: "ad-field" });
+    pf.createDiv({ cls: "ad-field__label", text: t("项目文件夹") });
+    const sel = pf.createEl("select", { cls: "ad-input" });
+    sel.createEl("option", { value: "", text: t("库根目录（不指定项目）") });
+    for (const e of entries) sel.createEl("option", { value: e.name, text: `${e.name} · ${e.path}` });
+    sel.createEl("option", { value: "__custom", text: t("自定义路径…") });
+    sel.value = !this.cwd ? "" : ((entries.find((e) => sameFolder(e.path, this.cwd))?.name) || "__custom");
+    sel.onchange = () => {
+      this.projectHint = null;
+      if (sel.value === "__custom") { this.render(); return; }
+      this.cwd = (entries.find((e) => e.name === sel.value)?.path) || "";
+      this.render();
+    };
+    pf.createDiv({
+      cls: "ad-hint",
+      text: this.projectHint
+        ? t("已按笔记里的项目选到 {name}；派发后按项目名记住这个目录。", { name: this.projectHint.name })
+        : t("选中后按该目录工作；派发一次后自动按项目名记住。"),
+    });
+
     // Working directory
     const cf = contentEl.createDiv({ cls: "ad-field" });
     cf.createDiv({ cls: "ad-field__label", text: "Working directory" });
@@ -186,6 +216,7 @@ export class DelegateOptionsModal extends Modal {
           effort: this.effort,
           permission: ["claude", "qoder"].includes(this.agent) ? this.permission : "",
           cwd: this.cwd.trim(),
+          projectName: (projectFolderEntries(p.settings).find((e) => sameFolder(e.path, this.cwd))?.name) || this.projectHint?.name || "",
           promptSuffix: this.suffix,
           name: blockTitle(this.block, mentionTrigger(p)),
         });

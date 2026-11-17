@@ -21,6 +21,7 @@ import {
   detectJournalProviders, resolveJournalProvider, JOURNAL_PROVIDERS, API_PRESETS, fetchAgyModels, testJournalModel,
 } from "./llm.js";
 import { discoverGrokBotStorage } from "./grok-bot-sessions.js";
+import { folderExists, normalizeProjectFolder, projectFolderEntries } from "./project-folders.js";
 
 const HOTKEY_MOD_SYMBOL = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘", ctrl: "⌃", alt: "⌥", cmd: "⌘" };
 
@@ -434,6 +435,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
     this.agentReorder(targetRow, "delegation", ".ad-settings-target");
 
+    const projectCard = this.card(body, t("项目文件夹"), t("派活时按项目选目录；笔记里的双链、路径或「项目 -> 标题」也能认出项目。Codex 会把会话归到同名项目。"));
+    this.rowToggle(projectCard, t("按项目文件夹派活"), t("从笔记认出项目后，派到这个项目的目录；认不出就照旧在库根目录"), s.autoProjectFolder !== false, (v) => { s.autoProjectFolder = v; p.saveSettings(); });
+    this.renderProjectFolders(projectCard);
+
     // 2. 委派 → 各 Agent
     const claude = this.agentCard(body, "claude", "Claude Code", "");
     this.modelSelect(claude, "claude", p.defaultModel("claude"), (v) => { this.setDefaultModel("claude", v); this.display(); });
@@ -463,6 +468,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       this.rowText(key === "cwd" ? codex : codexMore, label, hint, d.codex[key], hint, (v) => { d.codex[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
     this.bigButton(codexMore.createDiv({ cls: "ad-btnrow" }), t("检查 codex"), async () => new Notice(await p.checkBinary("codex"), 6000));
+    this.rowToggle(codexMore, t("把会话归到 Codex 项目"), t("同目录已有项目就复用，没有就用项目名建一个；项目接口是实验性的，失败时按原样派发"), d.codex.project !== false, (v) => { d.codex.project = v; p.saveSettings(); });
 
     codex.appendChild(codexMore.parentElement);
 
@@ -568,6 +574,39 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     confirmTa.value = d.confirmFirstPrompt ?? DEFAULTS.delegate.confirmFirstPrompt;
     confirmTa.onchange = () => { d.confirmFirstPrompt = confirmTa.value; p.saveSettings(); };
     rules.appendChild(rulesMore.parentElement);
+  }
+
+  renderProjectFolders(card) {
+    const p = this.plugin;
+    const folders = (p.settings.projectFolders ||= {});
+    const entries = projectFolderEntries(p.settings);
+    if (!entries.length) card.createDiv({ cls: "ad-hint", text: t("还没有登记。在委派对话框里填一次目录，就会按项目名记住；也可以在这里直接加。") });
+    for (const e of entries) {
+      this.row(card, e.name, "", (rr) => {
+        const input = rr.createEl("input", { cls: "ad-input ad-input--wide", attr: { type: "text", value: e.path } });
+        input.onchange = () => {
+          if (!folderExists(input.value)) { new Notice(t("目录不存在：{path}", { path: input.value })); return; }
+          folders[e.name] = normalizeProjectFolder(input.value);
+          p.saveSettings();
+          this.display();
+        };
+        const remove = rr.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("移除"), attr: { type: "button" } });
+        remove.onclick = () => { delete folders[e.name]; p.saveSettings(); this.display(); };
+      });
+    }
+    const add = card.createDiv({ cls: "ad-btnrow" });
+    const name = add.createEl("input", { cls: "ad-input", attr: { type: "text", placeholder: t("项目名") } });
+    const dir = add.createEl("input", { cls: "ad-input ad-input--wide", attr: { type: "text", placeholder: t("例如：~/claude/agent-deck") } });
+    const addBtn = add.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("登记"), attr: { type: "button" } });
+    addBtn.onclick = () => {
+      const label = name.value.trim();
+      const folder = normalizeProjectFolder(dir.value);
+      if (!label || !folder) { new Notice(t("项目名和目录都要填")); return; }
+      if (!folderExists(folder)) { new Notice(t("目录不存在：{path}", { path: folder })); return; }
+      folders[label] = folder;
+      p.saveSettings();
+      this.display();
+    };
   }
 
   setDefaultModel(agent, value) {

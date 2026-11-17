@@ -365,6 +365,8 @@ export const DEFAULTS = {
   dayCutoff: 0,
   experimentalDashboard: true,
   dashboardProjects: {},    // 会话 → 项目页面路径；缺省自动识别，空字符串手动未归类
+  projectFolders: {},       // 项目名 → 工作目录；派活时按项目选目录，派发后按项目名记住
+  autoProjectFolder: true,  // 派活时从笔记的双链 / 路径 / 标题前缀认出项目，自动换成项目文件夹
   pollSeconds: 30,
   fullHistoryDays: 14,
   // Claude desktop session list: identifies side chats (spawnedFrom) and archive state.
@@ -474,7 +476,7 @@ export const DEFAULTS = {
       autoTrustedCwd: true,
       extraArgs: "",
     },
-    codex: { transport: "desktop", model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write" },
+    codex: { transport: "desktop", model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write", project: true },
     antigravity: { model: "antigravity-default", effort: "medium", path: "", cwd: "", autoApprove: false },
     opencode: { model: "opencode-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
