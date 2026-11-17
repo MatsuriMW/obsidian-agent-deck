@@ -12,7 +12,7 @@
 
 import { createHash } from "crypto";
 import { t } from "./i18n.js";
-import { blockIdOf } from "./journal.js";
+import { blockIdOf, fencedLines } from "./journal.js";
 
 export const QUESTION_RE = /^(\s*)[-*+]\s+❓\s*(?:第\s*(\d+)\s*轮\s*[：:]?\s*)?(.*)$/;
 export const ANSWER_RE = /^(\s*)[-*+]\s+✍️\s*(?:答\s*[：:]?\s*)?(.*)$/;
@@ -35,7 +35,10 @@ export function parseThread(lines = [], block = null) {
   const end = block && Number.isInteger(block.end) ? block.end : list.length - 1;
   const questions = [];
   const orphans = [];
+  // 代码块里的 ❓ / ✍️ 只是示例文本，不算问答（和 agentText 的遮蔽口径一致）。
+  const fenced = fencedLines(list);
   for (let i = start; i <= end && i < list.length; i++) {
+    if (fenced.has(i)) continue;
     const line = list[i] || "";
     const q = QUESTION_RE.exec(line);
     if (q) {

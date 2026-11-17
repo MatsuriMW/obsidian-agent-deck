@@ -153,3 +153,21 @@ test("老数据兼容：一次补给已有问答补块号，幂等，且不碰�
   assert.ok(!lines[5].includes("^ad-q-"), "同级的下一块不动");
   assert.equal(anchorThreadText(once, { blockId: "ad-a", seedPrefix: "笔记.md" }), once, "幂等");
 });
+
+test("代码块里的 ❓ / ✍️ 只是示例，不算问答（也不该被回灌）", () => {
+  const note = [
+    "- DOING 任务 ^ad-task",
+    "  - ❓ 第1轮：真的问题？",
+    "  ```md",
+    "  - ❓ 第9轮：示例里的问句",
+    "  - ✍️ 答：示例里的答案",
+    "  ```",
+  ];
+  const parsed = parseThread(note, { start: 0, end: 5 });
+  assert.equal(parsed.questions.length, 1, "只认代码块外那一问");
+  assert.equal(parsed.questions[0].text, "真的问题？");
+  assert.equal(pendingQuestion(parsed).round, 1);
+  const filled = fillAnswer(note.join("\n"), { questionText: "真的问题？", answer: "答了" });
+  assert.ok(filled.includes("答：答了"));
+  assert.ok(!filled.includes("示例里的答案 ^ad-a-"), "代码块里的示例行不被改写");
+});

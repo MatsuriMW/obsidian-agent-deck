@@ -9983,7 +9983,9 @@ function parseThread(lines = [], block = null) {
   const end = block && Number.isInteger(block.end) ? block.end : list.length - 1;
   const questions = [];
   const orphans = [];
+  const fenced = fencedLines(list);
   for (let i = start; i <= end && i < list.length; i++) {
+    if (fenced.has(i)) continue;
     const line = list[i] || "";
     const q = QUESTION_RE2.exec(line);
     if (q) {
