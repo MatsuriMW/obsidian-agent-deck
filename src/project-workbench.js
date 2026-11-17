@@ -6,7 +6,7 @@ import { hasAgentCapability } from "./agent-registry.js";
 import { sessionProjectName, normalizeProjectRoot, disambiguateProjectLabels } from "./readers.js";
 import { activeJob, destinations } from "./workflow.js";
 import * as J from "./journal.js";
-import { parseMirrorRef } from "./outline.js";
+import { frontmatterEnd, parseMirrorRef } from "./outline.js";
 import { taskMention, stripTaskMention } from "./task-mentions.js";
 
 export const STANDALONE_PROJECT_ID = "__standalone__";
@@ -593,7 +593,7 @@ export function cleanBoardCardTitleMarkdown(rawBody = "", trigger = "@") {
 /**
  * Extract parent task blocks that contain >= 2 direct child task items for in-place Fractal Kanban projection.
  */
-export function extractTaskBoardGroups(text, { trackedIds = new Set(), trigger = "@" } = {}) {
+export function extractTaskBoardGroups(text, { trackedIds = new Set(), trigger = "@", fileBoard = false } = {}) {
   if (!text) return [];
   const lines = String(text).split("\n");
   const fenced = J.fencedLines(lines);
@@ -744,6 +744,41 @@ export function extractTaskBoardGroups(text, { trackedIds = new Set(), trigger =
       cards,
       topLevel: true,
     });
+  }
+
+  // 文件级看板：整篇笔记没有"母项 + 子项"结构时（比如 spec/规则清单），
+  // 用最后一个非列表行当锚点合成一个根，顶层列表项直接当卡片。
+  if (fileBoard && !out.length) {
+    const cards = [];
+    const from = frontmatterEnd(lines);
+    for (let k = from; k < lines.length; k++) {
+      if (fenced.has(k) || !lines[k].trim()) continue;
+      if (J.width(lines[k]) !== 0) continue;
+      if (!J.LIST_RE.test(lines[k]) || J.RECORD_LINE_RE.test(lines[k])) continue;
+      const card = parseChildCard(k, lines.length - 1, 0);
+      if (!card) continue;
+      cards.push(card);
+      k = card.endLine;
+    }
+    const firstCard = cards.length ? Math.min(...cards.map((c) => c.line)) : -1;
+    if (cards.length >= 2 && firstCard > from) {
+      const anchor = firstCard - 1;
+      const heading = lines.slice(0, firstCard).find((l) => /^#{1,6}\s+\S/.test(l));
+      const title = (heading ? heading.replace(/^#{1,6}\s+/, "") : "").trim() || t("整篇笔记");
+      out.push({
+        key: `fileboard:${title}`,
+        stableKey: `fileboard:${title}`,
+        line: anchor,
+        endLine: lines.length - 1,
+        indent: -1,
+        title,
+        kw: null,
+        tracked: false,
+        cards,
+        topLevel: true,
+        fileBoard: true,
+      });
+    }
   }
 
   const byLine = new Map(out.map((g) => [g.line, g]));

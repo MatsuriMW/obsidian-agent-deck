@@ -43,11 +43,18 @@ import { MenuBarBridge } from "./menubar.js";
 import { integrateRecordFolding } from "./fold-integration.js";
 import { renderAIRecords } from "./record-display.js";
 import { AutoLog } from "./autolog.js";
-import { setJournalApiConsent } from "./llm.js";
+import { runJournalModel, setJournalApiConsent } from "./llm.js";
 import { JournalSync } from "./sync.js";
 import * as J from "./journal.js";
 import { mentionOptions, mentionTrigger } from "./task-mentions.js";
 import { Dreaming } from "./dream.js";
+import { memoryBase, orderForReview } from "./memory-store.js";
+import { buildPlanMarkdown, parsePlan, planSlug, plannerPrompt } from "./planner.js";
+import { buildWorkbenchNote } from "./workbench-note.js";
+import { SKILL_DIR, cardPathOf, nextCardContent, scanSkills, skillIndexMarkdown } from "./skill-cards.js";
+import { MEMORY_BOARD_TYPE, MemoryBoardView } from "./memory-board.js";
+import { MemoryReviewModal } from "./memory-review.js";
+import { registerContextResolver } from "./harness.js";
 import { ConversationModal, AcpPermissionModal } from "./conversation-modal.js";
 import { registerTaskAgentSuggest } from "./mention-suggest.js";
 import { t, currentLanguage } from "./i18n.js";
@@ -153,10 +160,21 @@ export default class AgentDeckPlugin extends Plugin {
     // API 会算钱：自动整理 / 润色真要调用 API 前先问一句，没人应答就按「不用」处理。
     setJournalApiConsent((info) => this.confirmApiCall(info));
     this.dreaming = new Dreaming(this);
+    // 派发时按任务挑出相关长期记忆；开关见设置 → Dreaming →「派发时注入相关记忆」。
+    this._offMemoryContext = registerContextResolver({
+      name: "dream-memory",
+      resolve: async (context) => {
+        const task = [context.block?.text || "", ...(context.contextLines || [])].join("\n");
+        const section = await this.dreaming.contextSection(task);
+        return section ? { section } : null;
+      },
+    });
     this.journalSync = new JournalSync(this);
     this.journalOrganizer = new JournalOrganizer(this);
 
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
+    this.registerView(MEMORY_BOARD_TYPE, (leaf) => new MemoryBoardView(leaf, this));
+    this.addRibbonIcon("table", t("记忆表格"), () => this.openMemoryBase());
     this.registerView(DASHBOARD_TYPE, (leaf) => new DashboardView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
@@ -284,6 +302,22 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "dream-now", name: t("Dreaming：整理 AI 记录与用户日志为长期记忆"), callback: () => this.dreaming.run(true, { drain: true }) });
     this.addCommand({ id: "dream-share", name: t("Dreaming：同步共享长期记忆"), callback: () => this.dreaming.sharing.sync() });
     this.addCommand({ id: "dream-export", name: t("Dreaming：导出长期记忆 Markdown 副本"), callback: () => this.dreaming.exportMemory() });
+    this.addCommand({ id: "memory-migrate", name: t("记忆：把长期记忆迁移到记忆库（每条一个文件）"), callback: () => this.migrateMemoryToFiles() });
+    this.addCommand({ id: "memory-confirm", name: t("记忆：确认当前这条记忆"), callback: () => this.markMemory("有效") });
+    this.addCommand({ id: "memory-reject", name: t("记忆：拒绝当前这条记忆"), callback: () => this.markMemory("已拒绝") });
+    this.addCommand({ id: "memory-audit", name: t("记忆：体检（来源 / 待审 / 重复）"), callback: () => this.auditMemory() });
+    this.addCommand({ id: "memory-reanchor", name: t("记忆：按原文重新锚定来源（修正行号 / 升级块号）"), callback: () => this.reanchorMemory() });
+    this.addCommand({ id: "memory-anchor-source", name: t("记忆：给被提炼的原文加块号（可从原笔记跳回记忆）"), callback: () => this.anchorSourceLines() });
+    this.addCommand({ id: "memory-backlink-source", name: t("记忆：在原文列表项下加回链（原文 ↔ 记忆 双向）"), callback: () => this.backlinkSourceLines() });
+    this.addCommand({ id: "memory-review", name: t("记忆：逐条审阅（下拉框选状态）"), callback: () => this.reviewMemories() });
+    this.addCommand({ id: "plan-task", name: t("规划：把当前这一条拆成 task.md（自带看板结构）"), callback: () => this.planTask() });
+    this.addCommand({ id: "board-file-toggle", name: t("看板：把当前笔记设为 / 取消看板文件"), callback: () => this.toggleBoardFile() });
+    this.addCommand({ id: "workbench-note", name: t("工作台：刷新总览（看板 / 记忆 / 规划）"), callback: () => this.refreshWorkbenchNote() });
+    this.addCommand({ id: "memory-board-open", name: t("记忆：打开记忆看板（按状态分列，可拖拽）"), callback: () => this.openMemoryBoard() });
+    this.addCommand({ id: "payload-archive", name: t("派发载荷：归档 30 天前的旧文件"), callback: () => this.archivePayloads() });
+    this.addCommand({ id: "payload-edited", name: t("派发载荷：列出被改过的载荷"), callback: () => this.listEditedPayloads() });
+    this.addCommand({ id: "draft-delegation", name: t("委派：先生成草稿（不发送，看完再点委派）"), callback: () => this.makeDispatchDraft() });
+    this.addCommand({ id: "skills-refresh", name: t("技能：刷新技能卡（外部 Skill → 库内笔记）"), callback: () => this.refreshSkillCards() });
     this.addCommand({ id: "import-nautilus", name: t("导入螺旋日程的历史用量"), callback: () => this.importNautilus(true) });
     this.addCommand({ id: "clean-jobs", name: t("清理已结束的委派记录"), callback: () => this.cleanJobs() });
     this.addCommand({ id: "open-welcome-showcase", name: t("打开 1.10.0 新功能示例笔记"), callback: () => this.openWelcomeShowcase() });
@@ -338,8 +372,270 @@ export default class AgentDeckPlugin extends Plugin {
     });
   }
 
+  // 记忆库：迁移 / 确认 / 拒绝。写回都走 Dreaming 的同一套落盘逻辑。
+  async migrateMemoryToFiles() {
+    try {
+      const count = await this.dreaming.migrateToStore();
+      await this.dreaming.syncOverview();
+      const basePath = `${this.dreaming.dir}.base`;
+      if (!this.app.vault.getAbstractFileByPath(basePath)) await this.app.vault.create(basePath, memoryBase(this.dreaming.dir));
+      this.notice(t("已把 {count} 条记忆迁到记忆库：{dir}（每条约一个文件，可用 Base 视图查看）", { count, dir: this.dreaming.dir }), 9000);
+    } catch (e) { this.notice(t("迁移未完成：{error}", { error: e.message }), 9000); }
+  }
+
+  async auditMemory() {
+    if (!this.dreaming.storeMode) return this.notice(t("请先运行「记忆：把长期记忆迁移到记忆库」"));
+    try {
+      const text = await this.dreaming.healthReport();
+      const target = `${this.dreaming.dir}-体检.md`;
+      const file = this.app.vault.getAbstractFileByPath(target);
+      if (file) await this.app.vault.modify(file, text);
+      else await this.app.vault.create(target, text);
+      await this.app.workspace.openLinkText(target, "", false);
+      this.notice(t("记忆体检已生成：{path}", { path: target }), 8000);
+    } catch (e) { this.notice(t("体检没跑成：{error}", { error: e.message }), 8000); }
+  }
+
+  async reanchorMemory() {
+    if (!this.dreaming.storeMode) return this.notice(t("请先运行「记忆：把长期记忆迁移到记忆库」"));
+    try {
+      const dry = await this.dreaming.verifySources({ write: false });
+      if (!dry.drift.length && !dry.missing.length && !dry.changed.length) return this.notice(t("检查了 {n} 条记忆：来源全部对得上", { n: dry.checked }), 6000);
+      const done = await this.dreaming.verifySources({ write: true });
+      await this.dreaming.syncOverview();
+      this.notice(t("已重新锚定 {fixed} 条；{changed} 条原文被改过、{gap} 条找不到，都需人工核对", { fixed: done.fixedFiles.length, changed: done.edited.length, gap: done.missing.length }), 9000);
+    } catch (e) { this.notice(t("重新锚定没跑成：{error}", { error: e.message }), 9000); }
+  }
+
+  async anchorSourceLines() {
+    if (!this.dreaming.storeMode) return this.notice(t("请先运行「记忆：把长期记忆迁移到记忆库」"));
+    try {
+      const dry = await this.dreaming.ensureSourceAnchors({ write: false });
+      if (!dry.added && !dry.failed.length) return this.notice(t("检查了 {n} 处来源：都已经有块号", { n: dry.checked }), 6000);
+      const done = await this.dreaming.ensureSourceAnchors({ write: true });
+      await this.dreaming.syncOverview();
+      this.notice(t("已给 {added} 处原文补块号、改写 {rewritten} 条记忆；{gap} 处找不到原文需人工核对", { added: done.added, rewritten: done.rewritten, gap: done.failed.length }), 10000);
+    } catch (e) { this.notice(t("加块号没跑成：{error}", { error: e.message }), 9000); }
+  }
+
+  async backlinkSourceLines() {
+    if (!this.dreaming.storeMode) return this.notice(t("请先运行「记忆：把长期记忆迁移到记忆库」"));
+    try {
+      const dry = await this.dreaming.ensureReverseLinks({ write: false });
+      if (!dry.linked) return this.notice(t("检查了 {n} 处来源：{already} 处已有回链，{skipped} 处在段落里（跳过）", { n: dry.checked, already: dry.already, skipped: dry.skipped }), 7000);
+      const done = await this.dreaming.ensureReverseLinks({ write: true });
+      this.notice(t("已在 {linked} 个列表项下加回链；{skipped} 处原文是段落、未改动；{gap} 处找不到", { linked: done.linked, skipped: done.skipped, gap: done.failed.length }), 10000);
+    } catch (e) { this.notice(t("加回链没跑成：{error}", { error: e.message }), 9000); }
+  }
+
+  // 把光标所在那一条当作目标，拆成一份能被分形看板直接接住的 task.md。
+  async planTask() {
+    const file = this.app.workspace.getActiveFile();
+    const view = file ? this.viewForPath(file.path) : null;
+    if (!file || !view?.editor) return this.notice(t("请先打开要规划的笔记，把光标放在目标那一行"));
+    const lines = view.editor.getValue().split("\n");
+    const block = blockAt(lines, view.editor.getCursor().line);
+    const goal = String(block?.text || "").replace(/^\s*(?:[-*+]|\d+[.)])\s*/, "").trim();
+    if (!goal) return this.notice(t("光标那一行没有内容，先写上要拆解的目标"));
+    const notice = this.notice(t("正在拆解目标…"), 0);
+    try {
+      const answer = await runJournalModel(plannerPrompt(goal), this.settings, {});
+      const plan = parsePlan(answer);
+      const dir = "Agent Deck/任务";
+      const name = `${dayKeyToday(this.settings)}-${planSlug(plan.title)}.md`;
+      const target = `${dir}/${name}`;
+      const text = buildPlanMarkdown({ ...plan, goal, by: "agent-deck/planner" });
+      const exists = this.app.vault.getAbstractFileByPath(target);
+      if (exists) await this.app.vault.modify(exists, text);
+      else await this.app.vault.create(target, text);
+      // 生成物直接当看板文件：打开就是看板，人可以在上面拖拽增删。
+      (this.settings.taskBoardFiles ||= {})[target] = true;
+      const [group] = extractTaskBoardGroups(text, { trackedIds: new Set(), trigger: mentionTrigger(this) });
+      if (group) (this.settings.taskBoardViews ||= {})[group.stableKey] = "board";
+      await this.saveSettings();
+      dispatchRefresh(this.app);
+      this.notice(t("已生成 {n} 步规划：{path}", { n: plan.steps.length, path: target }), 8000);
+      await this.app.workspace.openLinkText(target, "", false);
+    } catch (e) {
+      this.notice(t("规划没做成：{error}", { error: e.message }), 9000);
+    } finally {
+      notice?.hide?.();
+    }
+  }
+
+  // 文件级看板：整篇笔记直接以看板打开（没有母项结构时合成一个根）。
+  toggleBoardFile() {
+    const file = this.app.workspace.getActiveFile();
+    if (!file) return this.notice(t("请先打开一篇笔记"));
+    const map = (this.settings.taskBoardFiles ||= {});
+    if (map[file.path]) { delete map[file.path]; this.notice(t("已取消看板文件：{path}", { path: file.path })); }
+    else { map[file.path] = true; this.notice(t("已设为看板文件：{path}", { path: file.path })); }
+    this.saveSettings();
+    dispatchRefresh(this.app);
+  }
+
+  // 主入口用 Obsidian 原生 Base（只读表格：筛选/排序/统计）；看板作为"要改状态时"的可选增强。
+  async openMemoryBase() {
+    if (!this.dreaming.storeMode) return this.notice(t("请先运行「记忆：把长期记忆迁移到记忆库」"));
+    const path = "Agent Deck/记忆.base";
+    if (!this.app.vault.getAbstractFileByPath(path)) await this.app.vault.create(path, memoryBase(this.dreaming.dir));
+    await this.app.workspace.openLinkText(path, "", false);
+  }
+
+  async openMemoryBoard() {
+    if (!this.dreaming.storeMode) return this.notice(t("请先运行「记忆：把长期记忆迁移到记忆库」"));
+    const existing = this.app.workspace.getLeavesOfType(MEMORY_BOARD_TYPE)[0];
+    const leaf = existing || this.app.workspace.getRightLeaf(false);
+    if (!existing) await leaf.setViewState({ type: MEMORY_BOARD_TYPE, active: true });
+    this.app.workspace.revealLeaf(leaf);
+    return leaf.view?.refresh?.();
+  }
+
+  // 工作台总览：把散落的生成物聚到一页，只做索引，不复制内容。
+  async refreshWorkbenchNote() {
+    const boardFiles = Object.keys(this.settings.taskBoardFiles || {}).filter((p) => this.app.vault.getAbstractFileByPath(p));
+    const audit = this.dreaming.storeMode ? await this.dreaming.audit() : { entries: [], unverified: [], noSource: [] };
+    const tasks = [];
+    const folder = this.app.vault.getAbstractFileByPath("Agent Deck/任务");
+    for (const child of folder?.children || []) if (String(child.path).endsWith(".md")) tasks.push(child.path);
+    tasks.sort().reverse();
+    const text = buildWorkbenchNote({
+      boardFiles,
+      memory: { total: audit.entries.length, pending: audit.unverified.length, noSource: audit.noSource.length },
+      tasks: tasks.slice(0, 8),
+    });
+    const target = "Agent Deck/工作台.md";
+    const file = this.app.vault.getAbstractFileByPath(target);
+    if (file) await this.app.vault.modify(file, text);
+    else await this.app.vault.create(target, text);
+    await this.app.workspace.openLinkText(target, "", false);
+    this.notice(t("工作台已刷新：{path}", { path: target }), 6000);
+  }
+
+  // 派发载荷会越积越多：超过 30 天且没有被任何笔记引用的，移到 派发/归档/YYYY-MM/。
+  async archivePayloads({ days = 30, write = true } = {}) {
+    const dir = "Agent Deck/派发";
+    const folder = this.app.vault.getAbstractFileByPath(dir);
+    if (!folder) return this.notice(t("还没有派发载荷"));
+    const cutoff = Date.now() - days * 86400000;
+    const linked = new Set();
+    for (const targets of Object.values(this.app.metadataCache.resolvedLinks || {})) {
+      for (const target of Object.keys(targets)) linked.add(String(target));
+    }
+    const moved = [];
+    let kept = 0;
+    for (const child of folder.children || []) {
+      if (!String(child.path).endsWith(".md") || String(child.path).includes("/归档/")) continue;
+      const raw = await this.app.vault.read(child);
+      const created = Date.parse((/^created: (.+)$/m.exec(raw) || [])[1] || "");
+      if (!Number.isFinite(created) || created >= cutoff) continue;
+      if (linked.has(String(child.path).replace(/\.md$/, ""))) { kept++; continue; }
+      const month = new Date(created).toISOString().slice(0, 7);
+      const target = `${dir}/归档/${month}/${String(child.path).split("/").pop()}`;
+      if (!write) { moved.push(target); continue; }
+      const parent = `${dir}/归档/${month}`;
+      if (!this.app.vault.getAbstractFileByPath(parent)) await this.app.vault.createFolder(parent);
+      await this.app.vault.rename(child, target);
+      moved.push(target);
+    }
+    this.notice(t("归档 {moved} 个载荷；{kept} 个仍被笔记引用，保留", { moved: moved.length, kept }), 8000);
+    return { moved, kept };
+  }
+
+  // 载荷在派发后被人改过 = 人的真实意图，可以单独取用（不进通用记忆）。
+  async listEditedPayloads() {
+    const crypto = await import("crypto");
+    const edited = [];
+    for (const job of Object.values(this.jobs || {})) {
+      if (!job.payloadPath) continue;
+      const file = this.app.vault.getAbstractFileByPath(job.payloadPath);
+      if (!file) continue;
+      const raw = await this.app.vault.read(file);
+      const hash = crypto.createHash("sha256").update(raw).digest("hex").slice(0, 16);
+      if (hash !== job.payloadHash) edited.push(job.payloadPath);
+    }
+    if (!edited.length) return this.notice(t("还没有被改过的载荷"));
+    const text = ["# 被改过的派发载荷", "", ...edited.map((p) => `- [[${p.replace(/\.md$/, "")}]]`)].join("\n");
+    const target = "Agent Deck/派发-已改动.md";
+    const file = this.app.vault.getAbstractFileByPath(target);
+    if (file) await this.app.vault.modify(file, text); else await this.app.vault.create(target, text);
+    await this.app.workspace.openLinkText(target, "", false);
+    this.notice(t("有 {n} 个载荷被改过：{path}", { n: edited.length, path: target }), 8000);
+  }
+
+  // 只生成草稿：不发送。草稿以双链挂回任务块，用户改完再走委派按钮，届时优先用这份草稿。
+  async makeDispatchDraft() {
+    const file = this.app.workspace.getActiveFile();
+    const view = file ? this.viewForPath(file.path) : null;
+    if (!file || !view?.editor) return this.notice(t("请先打开笔记，把光标放在要派发的那一条上"));
+    try {
+      const lines = view.editor.getValue().split("\n");
+      const block = blockAt(lines, view.editor.getCursor().line);
+      if (!block) return this.notice(t("光标要放在一个列表项里"));
+      const resolved = await this.delegator.resolveBlockContext({ file, lines, block, destination: "background" }, t("光标要放在一个列表项里"));
+      await this.delegator.enrichPrompt(resolved);
+      const payload = await this.delegator.writeTaskPayload(resolved, this.defaultTarget(), { draft: true });
+      if (!payload) return this.notice(t("草稿没写出来，看控制台"));
+      this.notice(t("草稿已生成：{path}。改完它，再用委派按钮发送", { path: payload.path }), 9000);
+    } catch (e) { this.notice(String(e.message || e), 8000); }
+  }
+
+  // 把外部 Skill 目录映射成库内笔记：不搬文件、不做软链，只在 frontmatter 记真实路径。
+  async refreshSkillCards() {
+    try {
+      const skills = scanSkills();
+      if (!skills.length) return this.notice(t("没扫到任何 Skill 目录"));
+      const vault = this.app.vault;
+      if (!vault.getAbstractFileByPath(SKILL_DIR)) await vault.createFolder(SKILL_DIR);
+      let created = 0, updated = 0, edited = 0;
+      const at = new Date().toISOString().slice(0, 10);
+      for (const skill of skills) {
+        const target = `${SKILL_DIR}/${skill.name}.md`;
+        const file = vault.getAbstractFileByPath(target);
+        if (!file) { await vault.create(target, nextCardContent(skill, "", at).content); created++; continue; }
+        const next = nextCardContent(skill, await vault.read(file), at);
+        if (next.edited) { edited++; await vault.modify(file, next.content); continue; }
+        await vault.modify(file, next.content); updated++;
+      }
+      const indexTarget = `${SKILL_DIR}/索引.md`;
+      const indexText = skillIndexMarkdown(skills);
+      const indexFile = vault.getAbstractFileByPath(indexTarget);
+      if (indexFile) await vault.modify(indexFile, indexText); else await vault.create(indexTarget, indexText);
+      this.notice(t("技能卡：新建 {created}、更新 {updated}、保留手改 {edited}；索引见 {path}", { created, updated, edited, path: indexTarget }), 9000);
+    } catch (e) { this.notice(t("刷新技能卡失败：{error}", { error: e.message }), 9000); }
+  }
+
+  async reviewMemories() {
+    if (!this.dreaming.storeMode) return this.notice(t("请先运行「记忆：把长期记忆迁移到记忆库」"));
+    const entries = await this.dreaming.loadEntries();
+    if (!entries.length) return this.notice(t("记忆库里还没有条目"));
+    // 从光标所在的那条开始审：在记忆文件里就是在那一篇，在日记里就是把光标放在回链行上。
+    const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+    const active = view?.file || this.app.workspace.getActiveFile();
+    const line = view?.editor ? view.editor.getLine(view.editor.getCursor().line) : "";
+    const sorted = entries.sort((a, b) => (a.state === "有效" ? 0 : 1) - (b.state === "有效" ? 0 : 1));
+    const queue = orderForReview(sorted, { path: active?.path || "", line: line || "", dir: this.dreaming.dir });
+    new MemoryReviewModal(
+      this.app,
+      queue,
+      async (entry, state) => { await this.dreaming.setEntryState(entry.path, state); entry.state = state; },
+      async () => { try { await this.dreaming.syncOverview(); } catch (e) { console.error("[agent-deck] 重建记忆概览失败", e); } },
+    ).open();
+  }
+
+  async markMemory(state) {
+    if (!this.dreaming.storeMode) return this.notice(t("请先运行「记忆：把长期记忆迁移到记忆库」"));
+    const file = this.app.workspace.getActiveFile();
+    if (!file || !file.path.startsWith(`${this.dreaming.dir}/`)) return this.notice(t("请先打开一条记忆文件"));
+    const ok = await this.dreaming.setEntryState(file.path, state);
+    if (!ok) return this.notice(t("这条记忆没有可写的状态字段"));
+    try { await this.dreaming.syncOverview(); } catch (e) { console.error("[agent-deck] 重建记忆概览失败", e); }
+    this.notice(state === "有效" ? t("已确认这条记忆") : t("已拒绝这条记忆"));
+  }
+
   onunload() {
     this._unloaded = true;
+    this._offMemoryContext?.();
     this.conversationModal?.close();
     this._cursorPromptNotice?.hide();
     this._cursorPromptNotice = null;
@@ -1923,7 +2219,7 @@ export default class AgentDeckPlugin extends Plugin {
       const lines = before ? before.split("\n") : [];
       const existingBlock = line >= 0 ? blockAt(lines, line) : null;
       if (existingBlock) {
-        const ensuredParent = J.ensureBlockId(lines[existingBlock.start], J.makeBlockId("", "ad", "wb"));
+        const ensuredParent = J.ensureBlockId(lines[existingBlock.start], J.makeBlockId("", "ad", J.readableSlug(grp?.title || "")));
         lines[existingBlock.start] = ensuredParent.line;
         parentBlockId = ensuredParent.blockId;
         const indent = (/^\s*/.exec(lines[existingBlock.start]) || [""])[0];
@@ -2121,7 +2417,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (!grp) return;
     let parentBlockId = J.blockIdOf(lines[parentLine]);
     if (!parentBlockId) {
-      const generated = J.makeBlockId("", "ad", "wb");
+      const generated = J.makeBlockId("", "ad", J.readableSlug(grp?.title || ""));
       await updateNote(this, path, (cur) => {
         const curLines = cur.split("\n");
         if (!curLines[parentLine]) return cur;
@@ -2266,7 +2562,7 @@ export default class AgentDeckPlugin extends Plugin {
       const stewardTitle = wave.round > 1
         ? t("🧭 管家汇总与推进（第 {n} 轮）", { n: wave.round })
         : t("🧭 管家汇总与推进");
-      const stewardBlockId = J.makeBlockId("", stewardAgent, "st");
+      const stewardBlockId = J.makeBlockId("", stewardAgent, J.readableSlug(wave.parentTitle || stewardTitle));
 
       let insertedInfo = null;
       await updateNote(this, wave.path, (text) => {

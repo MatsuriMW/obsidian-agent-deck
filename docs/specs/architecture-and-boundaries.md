@@ -29,9 +29,11 @@
 | 日记与整理 | `outline.js`, `journal.js`, `autolog.js`, `note-updates.js`, `task-status.js`, `task-id.js`, `task-mentions.js`, `summary-links.js`, `background-output.js`, `organize-journal.js`, `journal-organizer.js`, `journal-layout.js`, `journal-archive.js`, `task-export.js`, `sync.js` | 共享只读大纲/双链原语（`outline.js`）、按文件排队写入、AI 总结、短链 `[🔗](url)`、语义块号生成与清理、整理/按视图导出（PDF/HTML/MD/JSON/CSV/剪贴板）与归档 |
 | 编辑器与渲染 | `editor.js`, `ai-records.js`, `record-display.js`, `fractal-board.js`, `fold-actions.js`, `fold-integration.js`, `log-detail.js`, `mention-suggest.js` | CodeMirror 扩展、阅读后处理、记录折叠、分形看板投影（`taskBoardViews`）、视图持久化（`key` + `stableKey`）、隐藏内部编号、`@` 补全 |
 | 面板与回顾 | `view.js`, `dashboard.js`, `dashboard-data.js`, `analytics.js`, `menubar.js`, `menubar.swift`, `welcome-demo.js`, `agent-assets.js`, `icons.js`, `lattice.js` | 侧栏面板（按项目/列表、7/30/120 天叠放与 30 张上限）、实验回顾 Dashboard、功能示例笔记（`SHOWCASE_VERSION`）、macOS 菜单栏（`darwin`）、Apache-2.0 点阵（`lattice`） |
-| Dream 与记忆 | `dream-entries.js`, `dream.js`, `dream-sharing.js`, `llm.js` | 无环记忆解析基础模块、长期记忆整理、单向共享导出与可选 Git 推送 |
+| Dream 与记忆 | `dream-entries.js`, `dream.js`, `dream-sharing.js`, `memory-store.js`, `memory-review.js`, `memory-board.js`, `planner.js`, `workbench-note.js`, `skill-cards.js`, `llm.js` | 无环记忆解析基础模块、长期记忆整理（单文件 / 一文一条双模式）、来源块号与反向回链、记忆审阅与看板、目标→task.md 规划、工作台索引、单向共享导出与可选 Git 推送 |
 | 样式层 | `styles/index.css`, `styles/base/*.css`, `styles/views/*.css` | 分层样式入口（基础层 → 视图层 → 动效降级层），`esbuild` 打包至根目录 `styles.css` |
 | 国际化 | `i18n.js`, `locales/en.js`, `locales/en/*.js` | 跟随 Obsidian 语言（`zh*` 中文，其余英文） |
+
+记忆与派发产物（均为普通 Markdown，可被 Agent 直接读）：`Agent Deck/记忆/*.md`（一文一条，frontmatter 带 `id/title/kind/type/state/date/sources`）、`Agent Deck/长期记忆.md`（人工前言 + `<!-- ad:memory:start -->` 生成区块）、`Agent Deck/记忆.base`、`Agent Deck/派发/*.md`（派发载荷快照）、`Agent Deck/任务/*.md`（Planner 产出）、`Agent Deck/工作台.md`（索引）、`技能/*.md`（外部 Skill 的库内侧影，真实路径在 frontmatter）。
 
 持久化位置：插件状态在 Vault `data.json`（`STORE_VERSION = 1`）；用量汇总在插件目录 `usage.json`（`SUMMARY_VERSION = 3`）；解析缓存在 `~/.agent-deck/usage-cache.json.gz`（`USAGE_CACHE_VERSION = 12`）。
 

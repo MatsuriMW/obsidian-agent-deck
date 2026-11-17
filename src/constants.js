@@ -396,6 +396,7 @@ export const DEFAULTS = {
   aiRecordClosed: {},
   aiRecordViews: {},
   taskBoardViews: {},
+  taskBoardFiles: {},
   taskBoardPins: {},
   projectTeams: { presets: {}, byProject: {}, stewards: {} },
   workbenchWaves: {},
@@ -462,7 +463,7 @@ export const DEFAULTS = {
   autoWriteResult: true,
   resultMax: 350,
   importNautilus: true,
-  dream: { enabled: false, scope: "all", path: "Agent Deck/长期记忆.md", provider: "", model: "", effort: "", apiUrl: "", apiKey: "", syncProfile: false, lastRun: 0, lastAttempt: 0, states: {}, coverage: null, lastError: "", share: { enabled: false, path: "", intervalHours: 24, gitPush: false, lastAttempt: 0, lastSuccess: 0, lastError: "" } },
+  dream: { enabled: false, inject: true, store: "text", dir: "Agent Deck/记忆", backlinked: [], scope: "all", path: "Agent Deck/长期记忆.md", provider: "", model: "", effort: "", apiUrl: "", apiKey: "", syncProfile: false, lastRun: 0, lastAttempt: 0, states: {}, coverage: null, lastError: "", share: { enabled: false, path: "", intervalHours: 24, gitPush: false, lastAttempt: 0, lastSuccess: 0, lastError: "" } },
   // Delegation
   delegate: {
     target: "claude",

@@ -2,12 +2,99 @@
 
 基线：**1.12.2**（已发版，2026-11-18）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
+## 核心构想（接手先读这段）
+
+**AI 生成或调用的一切都是 Markdown，所以一切都要能被人直接读、直接改、改完立刻生效。**
+
+三条原则：
+
+1. **Markdown 是唯一正本**——Base、看板、工作台都是投影，删掉不丢数据，改了就改数据；
+2. **双链管归处，块号管精确**——行号会漂（实测 33 条记忆 10 条漂过），`[[笔记#^块号]]` 才靠谱；
+3. **每份 Markdown 必须有"生效路径"**——记忆靠注入、技能靠路径、任务靠看板派发、规格靠引用时给全文路径。文件躺在库里不等于有用。
+
+与 RAG 的分野：**结构优先**（人工标注的大纲/双链/frontmatter 信噪比高于 embedding），检索只做兜底，**不存关联分数、只存信号**。
+
+完整构想与已落地映射见 [`specs/vision-markdown-harness.zh-CN.md`](specs/vision-markdown-harness.zh-CN.md)；契约见 [`specs/context-protocol.zh-CN.md`](specs/context-protocol.zh-CN.md)；方向与落地记录见 [`specs/harness-roadmap.zh-CN.md`](specs/harness-roadmap.zh-CN.md)。
+
+## 交接时必须知道的风险与未确认项
+
+| # | 事项 | 状态 |
+| --- | --- | --- |
+| 1 | **39 个改动 + 14 个新文件未提交**（本批全在工作区，未 commit、未发版、未打 tag） | ⚠️ 接手第一件事：review `git status` 后决定是否提交 |
+| 2 | `README.md` / `README.en.md` **未反映**记忆库、派发草稿、技能卡、工作台等新能力 | ⚠️ 面向用户的说明落后于功能 |
+| 3 | Linear `P-MAT-42` 未同步本批进展 | ⚠️ 按交接规则应补 |
+| 4 | 测试夹具被本批改动：`startup.test.mjs`（补 `addRibbonIcon`）、`models.test.mjs`（select 计数 +1）、`task-export.test.mjs`（`WorkspaceLeaf` 导出） | 已知，非回归 |
+| 5 | 未实测：Windows 全部；记忆看板拖拽的真实交互；Planner 的生成质量；管家设置项界面 | ⚠️ 只有 macOS 跑过测试与 CLI 级验证 |
+| 6 | 库内示例文件：`示例-一体化流程` / `示例-一体化总览` / `示例-带引用与技能` / `示例-一元化素材`、`派发/*.md`、`技能/` 134 张卡 | 可按需删除，不影响代码 |
+| 7 | 文件名是否从 22 字提到 40 字（需重命名 + 跑回链归一化） | 未决定 |
+| 8 | `mem-` 锚点加日期前缀的迁移 | **已决定不做** |
+
 ## 双平台验证边界
 
 | 平台 | 已验证范围 | 未覆盖 / 已知代码缺口 |
 | --- | --- | --- |
 | **macOS** | 全量 `npm test`、构建、Vault 安装与热重载（`1.10.2`）、Dashboard、标题保护、token 显示、Qoder CLI 同会话 | 终端交互仅实测 Tern / Herdr；7 家可委派客户端全量派发与 Obsidian 新版界面抽查未逐一复测 |
 | **Windows** | 尚未实机运行验证 | `src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）仍依赖 macOS `osascript`/终端；`src/readers.js` 在 `win32` 跳过 `claudeDesktop`；CLI 探测与路径短链待实测 |
+
+## 本批未发版改动（2026-11-18，工作区已构建、已装库）
+
+这批改动**没有发版、没有打 tag**，基线仍是 `1.12.2`。接手时先看本节，再看 [`specs/harness-roadmap.zh-CN.md`](specs/harness-roadmap.zh-CN.md)（方向）与 [`specs/context-protocol.zh-CN.md`](specs/context-protocol.zh-CN.md)（契约草案）。
+
+**新增模块**
+
+| 文件 | 职责 |
+| --- | --- |
+| `src/memory-store.js` | 记忆文件序列化/解析、YAML 引号、文件名 slug、概览区块、`orderForReview`、`memoryBase` |
+| `src/memory-review.js` | 逐条审阅弹窗（下拉选状态） |
+| `src/memory-board.js` | 记忆看板 ItemView（按 `state` 三列，拖拽写回 frontmatter） |
+| `src/planner.js` | 目标 → task.md（提示词、解析、看板友好结构） |
+| `src/workbench-note.js` | 工作台总览索引（只索引不复制） |
+| `src/skill-cards.js` | 扫描 `~/.config/skillshare/skills/data`、`~/.dsh/skills`、`~/.claude/skills`，按 realpath 去重，生成库内技能卡（真实路径记 frontmatter） |
+
+**改动过的既有模块**：`src/dream.js`（记忆库双模式、来源锚点、反向回链、体检、`agentText` 注入）、`src/delegation.js`（派发载荷落盘、`payloadName`/`writeTaskPayload`）、`src/harness.js`（`agentText` 注入降噪）、`src/main.js`（10 条新命令、ribbon、工作台、载荷归档）、`src/settings.js`（管家 Agent 下拉）、`src/project-workbench.js`（文件级看板合成根）、`src/fractal-board.js`（`taskBoardFiles` 开关）、`src/journal.js`（`readableSlug`）。
+
+**新增设置键（`data.json`，`STORE_VERSION` 不变）**
+
+| 键 | 默认 | 说明 |
+| --- | --- | --- |
+| `dream.inject` | `true` | 派发时注入相关记忆 |
+| `dream.store` / `dream.dir` | `text` / `Agent Deck/记忆` | 记忆存储模式与目录；`files` = 一文一条 |
+| `dream.backlinked` | `[]` | 加过回链的源文件，用于清孤儿回链 |
+| `taskBoardFiles` | `{}` | 整篇笔记当看板的文件开关 |
+
+**新命令速查**
+
+| 命令 | 作用 |
+| --- | --- |
+| `记忆：把长期记忆迁移到记忆库` | 单文件 → 一文一条（一次性） |
+| `记忆：确认 / 拒绝当前这条记忆` | 写回 `state`、`verified` |
+| `记忆：逐条审阅（下拉框选状态）` | 起点跟随光标（记忆文件 / 日记回链行） |
+| `记忆：打开记忆看板` | 三列可拖拽；ribbon 默认打开 Base 表格 |
+| `记忆：体检` | 无来源 / 待审 / 重复 / 待复核 → `记忆-体检.md` |
+| `记忆：重新锚定来源` | 按原文反查行号，漂移则修正，原文被改则只报告 |
+| `记忆：给被提炼的原文加块号` | 原文行尾补 `^mem-xxxxxxxx`，可双向跳转 |
+| `记忆：在原文列表项下加回链` | 插入 `- ⤴ [[记忆/…]]`，段落跳过 |
+| `规划：把当前这一条拆成 task.md` | 光标行当目标，产出可被看板直接解析的文件 |
+| `看板：把当前笔记设为看板文件` | 无母项结构时合成根 |
+| `工作台：刷新总览` | 生成 `Agent Deck/工作台.md` |
+| `派发载荷：归档 30 天前的旧文件` | 未被引用且超期的移到 `派发/归档/YYYY-MM/` |
+| `派发载荷：列出被改过的载荷` | 比对 hash，汇总到 `派发-已改动.md` |
+| `委派：先生成草稿（不发送，看完再点委派）` | 只写草稿并双链挂回任务块；点委派时优先用草稿正文 |
+| `技能：刷新技能卡` | 134 个外部 Skill → `技能/<name>.md` + `技能/索引.md`；委派时写 `skill: "[[技能/x]]"` 即把真实 SKILL.md 路径交给 Agent |
+
+**验证**
+
+- `npm test`（含新增 `dream-context` / `memory-store` / `planner` / `workbench-note` / `memory-board` / `block-id-readability`）全过；`npm run build`；`git diff --check`。
+- macOS 真库实测：迁移 33 条、体检、看板 3 列 33 卡可拖、注入 193 字无 `**`、`agentText` 去符号、看板派发三条 `@dsh` 会话、载荷文件生成 + 原文 `📄` 链接、Base 列已填。
+- **未实测**：Windows 全部；`记忆看板` 拖拽在真实界面上的落点；Planner 产出的质量（未实跑一次生成）；管家设置项在界面上的渲染。
+
+**本批修掉的真 bug**：`dispatchSteward` 里 `makeBlockId` 误用了不存在的 `model.title`（ReferenceError），会导致管家汇总直接失败、波次标 error；已改为 `wave.parentTitle`。
+
+**已知缺口（不是 bug，是没做）**
+
+1. ~~派发前不可编辑~~ **已实现（2026-11-18）**：命令 `委派：先生成草稿（不发送）` 把完整载荷写成草稿并以 `📝 [[…|派发草稿]]` 挂回任务块；用户改完点委派时，`findDraftLink` 优先用这份草稿的正文发送，并把草稿 frontmatter 标为 `status: dispatched` + `dispatched:` 时间。未验证：草稿过期/多份并存时的取舍（取最后一份）。
+2. 记忆看板与 Base 是两套只读/可写视图，记忆**不能**在看板上新建。
+3. 载荷被改后的差异**没有进 Dream**（只做了 hash 留痕 + 汇总清单）。
 
 ## 活跃 Backlog（均未排期）
 
@@ -18,6 +105,8 @@
 | **Claude CLI 对话追踪复核**（[MAT-630](https://linear.app/matsurimywaifu/issue/MAT-630)） | 全链路排查并确认 Claude Code CLI 对话追踪（日志发现、状态、轮次同步与查看）可稳定跑通 | `src/readers.js`, `src/agent-ingestors.js`, `src/conversation.js` |
 | **技术债复核**（[MAT-479](https://linear.app/matsurimywaifu/issue/MAT-479)） | 逐项核实遗留问题状态并决定重构边界 | `src/readers.js`, `src/sync.js`, `src/view.js` |
 | **Windows 端适配** | 替换 `osascript`/POSIX 路径假定，打通终端唤醒、桌面交接与 WorkBuddy 自动发送 | `src/delegation.js`, `src/main.js`, `src/readers.js` |
+| **载荷差异进 Dream** | 需要原始快照或逐行 hash，才能只取"人改过的部分"作为用户证据 | `src/dream.js`, `src/delegation.js`, `src/memory-store.js` |
+| **记忆看板补全** | 看板上新建/删除记忆、跨目录筛选；与 Base 的定位收敛 | `src/memory-board.js`, `src/memory-store.js` |
 | **WorkFlowy 分形看板与多 Agent 编排** | 父块原地大纲↔看板双视图投影、Zoom/双链 Harness 上下文边界、同盘多 Agent 协同、单源镜像 | [`fractal-boards-roadmap`](specs/fractal-boards-roadmap.md)、`src/record-display.js`, `src/harness.js`, `src/agent-registry.js` |
 | **Dashboard 任务闭环与阻塞分析**（[MAT-625](https://linear.app/matsurimywaifu/issue/MAT-625/agent-deck-dashboard日记任务闭环率与阻塞状态分析联动分形看板)） | 统计同期 AI 关联任务状态分布（`DONE`/`TOREVIEW`/`NEEDOK`/`ERRORED` 等）、任务闭环率与阻塞项，联动分形看板 | `src/journal.js`, `src/analytics.js`, `src/dashboard-data.js`, `src/dashboard.js` |
 

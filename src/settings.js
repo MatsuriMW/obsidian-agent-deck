@@ -435,6 +435,23 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
     this.agentReorder(targetRow, "delegation", ".ad-settings-target");
 
+    // 管家汇总：看板一次派发多条时会额外起一个汇总会话；这里决定用谁，或直接关掉。
+    const stewardNow = s.projectTeams?.stewards?.default || {};
+    const stewardCard = this.card(body, t("管家汇总"), t("看板一次派发多条任务时，额外起一个会话汇总进度。默认用「默认委派到」那个 Agent；这里可以单独指定或关掉，避免占错配额。"));
+    this.rowSelect(
+      stewardCard,
+      t("管家 Agent"),
+      t("选「关闭」就不自动起管家会话"),
+      [{ id: "off", label: t("关闭") }, ...settingsAgentOrder(s, "delegation", (id) => p.agentEnabled(id) && !AGENTS[id].trackingOnly).map((id) => ({ id, label: AGENTS[id].name }))],
+      stewardNow.enabled === false || !stewardNow.agent ? "off" : stewardNow.agent,
+      (v) => {
+        s.projectTeams ||= {};
+        s.projectTeams.stewards ||= {};
+        s.projectTeams.stewards.default = v === "off" ? { enabled: false } : { enabled: true, agent: v };
+        p.saveSettings();
+      },
+    );
+
     const projectCard = this.card(body, t("项目文件夹"), t("派活时按项目选目录；笔记里的双链、路径或「项目 -> 标题」也能认出项目，笔记项目优先于各 Agent 的默认目录。Codex 会把会话归到同名项目。"));
     this.rowToggle(projectCard, t("按项目文件夹派活"), t("从笔记认出项目后，派到这个项目的目录；认不出再用各 Agent 的默认目录或库根"), s.autoProjectFolder !== false, (v) => { s.autoProjectFolder = v; p.saveSettings(); });
     this.rowToggle(projectCard, t("非日记笔记的派发也记进当天日记"), t("默认不记，结论仍写回原笔记；打开后和普通会话一样进当天日记"), s.noteDispatchJournal === true, (v) => { s.noteDispatchJournal = v; p.saveSettings(); });
@@ -1323,6 +1340,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const p = this.plugin, s = p.settings.dream;
     const card = this.card(body, t("Dreaming · 长期记忆"), t("从近 14 天日志提炼记忆，保存到笔记"));
     this.rowToggle(card, t("每天自动整理"), "", s.enabled, (v) => { s.enabled = v; p.saveSettings(); });
+    this.rowToggle(card, t("派发时注入相关记忆"), t("按当前任务从长期记忆里挑出最多 5 条相关条目一起发给 Agent；词面不相关时不注入"), s.inject !== false, (v) => { s.inject = v; p.saveSettings(); });
     this.rowSegmented(
       card,
       t("Dreaming 采集范围"),

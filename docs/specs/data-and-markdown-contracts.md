@@ -44,3 +44,19 @@
   - 项目分组以 `normalizeProjectRoot`（剥离 `/.claude/worktrees/...`）作为唯一身份键，不同路径同名目录绝不合并，仅在同名碰撞时追加最短区分父目录名；`/Codex/YYYY-MM-DD/...`（含多级子目录）与 `default-workspace` 等视为临时目录；带 `parentSid` 的子代理自动通过 `parentSid` / `parentCwd` 继承母会话项目。
   - DSH / Codex 子代理正常结束收口为 `done`、中断/中止收口为 `cancelled`；侧栏「现在」、「最近的会话 → 等你」与 macOS 菜单栏等待计数仅纳入 `needs-approval`、`queued`、活跃后台任务及最近 `WAIT_ACTIVE_MS = 30 分钟` 内的非子代理 `wait` / `quiet` 会话。
 - **Dashboard 回顾口径**：汇总输入/输出/缓存读取 token、去重活跃耗时与会话数（沿用日记分界）；**缺失数据绝不估算**；不改写日记、不调用外部模型。项目归属除 `🔗` 链接外，也结合日记文件名日期与 `autoLogState` 溯源无 `🔗` 的 AI 自动记录块。（已在 macOS 实测；Windows 端未测）
+
+## 5. 记忆库、派发载荷与注入口径（2026-11-18）
+
+- **记忆库双模式（`settings.dream.store`）**：`text`（默认，单个 `长期记忆.md` 列表，旧行为不变）与 `files`（一文一条）。迁移命令一次性执行，迁移后两者互斥、不并存，`长期记忆.md` 降级为「人工前言 + `<!-- ad:memory:start/end -->` 生成区块」。
+- **记忆索引（`记忆/索引.md`）**：由 `syncOverview` 自动刷新，一行一条（日期 · 类型 · 标题 · 双链），按日期倒序。用途是**替代"把标题写进文件名"**——文件名有 255 字节上限（中文约 85 字，实测 33 条记忆标题中位 201 字节），塞全文会静默截断；索引文件可一次 `cat`，或 `grep -h '^title:' 记忆/*.md` 拿全部标题。
+- **记忆文件格式**：frontmatter `id / title（完整正文，供 Base 展示）/ kind / type / state（有效|已拒绝|已被替代）/ date / sources[]`；正文第一行是记忆原句。`sources` 每项形如 `"[[日记/x#^mem-xxxxxxxx]]（用户日志，第 a—b 行）；原文：…"`，**列表项必须加 YAML 引号**，否则 `[[` 会被当成嵌套数组导致整段 frontmatter 解析失败（已踩过）。
+- **块号分类**：`^ad-*` / `^dsh-*` 等任务号由插件生成，会随 `DONE` 清理或标题变化换号，**注入前剥除**；`^mem-*` 与 Obsidian 自动生成的 6 位号（形如 `^651b6c`）是定位锚，**永不剥除**。
+- **注入降噪（`agentText`）**：注入边界统一去掉 `**加粗**`、`%%注释%%`、HTML 注释、零宽字符与行尾空白；代码块与行内代码先遮蔽后处理；**不动 `__`**（会误伤 `__name__`）。
+- **记忆注入口径**：仅注入 `state=有效` 且与任务词面重合 ≥2 个词的条目，最多 5 条 / 1200 字；每条不带加粗，来源收在文末一行 `来源：[[…]]`；`pattern` 标「（待验证推断）」。
+- **派发草稿（先看再发）**：命令生成草稿时 frontmatter 记 `status: draft`、正文即完整 prompt，并在任务块下插入 `- 📝 [[…|派发草稿]]`；用户改完后点委派，`findDraftLink` 取**子树里最后一份**草稿，正文直接作为 prompt，草稿改标 `status: dispatched` + `dispatched:` 时间。没有草稿时才走"派发瞬间现生成"的老路径。
+- **派发载荷**：每次派发写 `Agent Deck/派发/YYYY-MM-DD-HHmmss-<slug>.md`，frontmatter `type: 派发载荷 / agent / task / anchor（回指 [[笔记#^块号]]）/ created`，正文是完整 prompt；原文任务块下插入 `- 📄 [[…|本次载荷]]`；prompt 头部改为「载荷绝对路径 + 冲突以文件为准」，因此不再受 12000 字截断限制。job 记录 `payloadPath` / `payloadHash`，用于识别"人改过的载荷"。
+- **反向回链**：`- ⤴ [[记忆/…]]` 只在列表项下、每个顶层块只加一次；函数自归一化（先清旧回链再加），孤儿回链靠 `settings.dream.backlinked` 追踪。
+- **技能卡（`技能/<name>.md`）**：frontmatter `type: 技能 / skill / path（真实 SKILL.md 绝对路径）/ dir / source（skillshare|dsh|claude）/ synced_at`；正文是 description 摘要与用法。**不搬文件、不做软链**（库在 iCloud + git，软链会断）。委派解析顺序：草稿 frontmatter 的 `skill:` → 任务行里的 `[[技能/x]]` → **短链**（任务行里任一 `[[name]]` 只要库里存在 `技能/name.md` 即视为技能）；命中后把 `path` 前置成「使用技能：…（路径）——先读它，按其中流程执行」。技能内容不进 prompt，只给路径。
+- **被引用笔记传路径**：任务行里的普通 `[[笔记]]` 会解析成绝对路径列进 prompt（「任务里引用的笔记（可直接读全文）」），让 Agent 读全文而不是 600 字摘要；技能卡不在此列，也不整段注入（`harness` 里跳过 `技能/` 前缀的摘录）。
+- **`enrichPrompt` 共用**：草稿与派发走同一份富化逻辑（技能路径 + 被引用笔记路径），所以"你看的草稿"和"实际发出去的内容"一致。
+- **技能卡手改保护**：frontmatter 记 `body_hash`；刷新时若当前正文 hash 与之不符，视为人改过 → **保留正文**，只刷新 `path/dir/source/synced_at` 并标 `edited: true`。

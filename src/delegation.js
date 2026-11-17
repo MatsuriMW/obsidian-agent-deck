@@ -1,4 +1,6 @@
 import { readConversation } from "./conversation.js";
+import { createHash } from "crypto";
+import { cardPathOf, skillRefIn } from "./skill-cards.js";
 import { updateNote } from "./note-updates.js";
 // Agent Deck — delegate a note block to Claude Code or DeepSeek Harness.
 //
@@ -483,6 +485,18 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
 
 const shellQuote = (s) => "'" + String(s).replace(/'/g, "'\"'\"'") + "'";
 
+// 任务块下面挂着的派发草稿链接（后出现的优先，方便"再生成一版"覆盖旧的）。
+export function findDraftLink(lines = [], block = null) {
+  if (!block) return "";
+  const end = Number.isInteger(block.end) ? block.end : block.start;
+  let found = "";
+  for (let i = block.start; i <= end && i < lines.length; i++) {
+    const m = /\[\[([^\]|]*Agent Deck\/派发\/[^\]|]+?)(?:\|[^\]]*)?\]\]/.exec(lines[i] || "");
+    if (m) found = m[1].replace(/\.md$/, "");
+  }
+  return found;
+}
+
 export class Delegator {
   constructor(plugin) {
     this.plugin = plugin;
@@ -504,6 +518,98 @@ export class Delegator {
     const name = truncate(title, this.C.nameMax || 56);
     const payload = await buildDelegationPayload({ plugin: this.plugin, file, lines, block, opts });
     return { file, lines, block, title, name, ...payload };
+  }
+
+  // 草稿与派发共用：把技能路径、被引用笔记的绝对路径前置进 prompt。
+  async enrichPrompt(resolved, skillRaw = "") {
+    const vault = this.plugin?.app?.vault;
+    if (!vault || !resolved) return resolved;
+    try {
+    const text = String(resolved.block?.text || "");
+    const notePaths = [];
+    for (const m of text.matchAll(/\[\[([^\]|#]+)/g)) {
+      const name = m[1].trim();
+      if (!name || name.startsWith("技能/") || vault.getAbstractFileByPath(`技能/${name}.md`)) continue;
+      const dest = this.plugin.app.metadataCache?.getFirstLinkpathDest?.(name, resolved.file?.path || "");
+      if (!dest || dest.extension !== "md" || dest.path === resolved.file?.path) continue;
+      const abs = `${this.vaultPath}/${dest.path}`;
+      if (!notePaths.includes(abs)) notePaths.push(abs);
+    }
+    if (notePaths.length) resolved.prompt = `${t("任务里引用的笔记（可直接读全文）：")}\n${notePaths.map((p) => `- ${p}`).join("\n")}\n\n${resolved.prompt}`;
+    const plainSkill = [...text.matchAll(/\[\[([^\]|#]+)/g)].map((m) => m[1].trim()).find((name) => vault.getAbstractFileByPath(`技能/${name}.md`)) || "";
+    const skillName = skillRefIn(skillRaw) || skillRefIn(text) || plainSkill;
+    if (!skillName) return resolved;
+    const cardFile = vault.getAbstractFileByPath(`技能/${skillName}.md`);
+    const skillPath = cardFile ? cardPathOf(await vault.read(cardFile)) : "";
+    if (skillPath) resolved.prompt = `${t("使用技能：")}${skillName}（${skillPath}）——先读这个文件，按其中流程执行。\n\n${resolved.prompt}`;
+    } catch (e) { console.error("[agent-deck] 富化上下文失败（不影响派发）", e); }
+    return resolved;
+  }
+
+  // 读草稿：正文直接当 prompt；同时把 frontmatter 标成已派发，方便区分"还没发的"和"发过的"。
+  async readDraft(draftPath, resolved) {
+    try {
+      const path = `${draftPath}.md`;
+      const file = this.plugin.app.vault.getAbstractFileByPath(path);
+      if (!file) return null;
+      const raw = await this.plugin.app.vault.read(file);
+      const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
+      if (!body) return null;
+      const next = raw.replace(/^status: .*$/m, "status: dispatched").replace(/^(created: .+)$/m, `$1\ndispatched: ${new Date().toISOString()}`);
+      if (next !== raw) await this.plugin.app.vault.modify(file, next);
+      return { path, abs: `${this.vaultPath}/${path}`, draft: true, body, raw, hash: "" };
+    } catch (e) { console.error("[agent-deck] 读取派发草稿失败", e); return null; }
+  }
+
+  // 载荷文件名：日期 + 时间 + 可读 slug，保证同一天多次派发不覆盖。
+  payloadName({ date, time, name }) {
+    const slug = J.normalizeTaskSlug(name) || String(name || "").replace(/[\\/:*?"<>|#^[\]\s]/g, "").slice(0, 24) || "task";
+    return `${date}-${time}-${slug}.md`;
+  }
+
+  async writeTaskPayload(resolved, agent, { draft = false } = {}) {
+    if (!this.plugin?.app?.vault) return null;
+    try {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+      const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+      const dir = "Agent Deck/派发";
+      const path = `${dir}/${this.payloadName({ date, time, name: resolved.name })}`;
+      const anchor = resolved.block ? J.blockIdOf(resolved.lines[resolved.block.start]) : "";
+      const head = [
+        "---",
+        "type: 派发载荷",
+        `status: ${draft ? "draft" : "dispatched"}`,
+        `agent: ${agent}`,
+        `task: ${JSON.stringify(String(resolved.name || ""))}`,
+        anchor ? `anchor: ${JSON.stringify(`[[${String(resolved.file?.path || "").replace(/\.md$/, "")}#^${anchor}]]`)}` : "",
+        `created: ${now.toISOString()}`,
+        "---",
+        "",
+        resolved.prompt,
+        "",
+      ].filter((l) => l !== "").join("\n");
+      const vault = this.plugin.app.vault;
+      let cur = "";
+      for (const part of dir.split("/")) {
+        cur = cur ? `${cur}/${part}` : part;
+        if (!vault.getAbstractFileByPath(cur)) await vault.createFolder(cur);
+      }
+      const existing = vault.getAbstractFileByPath(path);
+      if (existing) await vault.modify(existing, head);
+      else await vault.create(path, head);
+      await updateNote(this.plugin, resolved.file.path, (text) => {
+        const lines = text.split("\n");
+        const at = anchor ? lines.findIndex((l) => J.blockIdOf(l) === anchor) : resolved.block.start;
+        if (at < 0) return text;
+        if (lines.some((l) => l.includes(`[[${path}`))) return text;
+        const indent = (/^[ \t]*/.exec(lines[at]) || [""])[0] + "\t";
+        lines.splice(at + 1, 0, draft ? `${indent}- 📝 [[${path}|${t("派发草稿")}]]` : `${indent}- 📄 [[${path}|${t("本次载荷")}]]`);
+        return lines.join("\n");
+      });
+      return { path, abs: `${this.vaultPath}/${path}`, hash: createHash("sha256").update(head).digest("hex").slice(0, 16) };
+    } catch (e) { console.error("[agent-deck] 写入派发载荷失败", e); return null; }
   }
 
   buildJobBase({ agent, name, opts, lines, block, question, prompt, ...extra }) {
@@ -594,6 +700,20 @@ export class Delegator {
       projectName = "";
       autoProject = null;
     }
+    // 优先用挂在任务块下面的草稿：用户改过的内容就是这一趟真正要发的内容。
+    const draftPath = findDraftLink(resolved.lines, resolved.block);
+    const draft = draftPath ? await this.readDraft(draftPath, resolved) : null;
+    // 没有草稿就按当前上下文现生成一份，保持"能看能改能追溯"。
+    const payload = draft || await this.writeTaskPayload(resolved, agent);
+    if (payload) {
+      const source = payload.draft ? payload.body : resolved.prompt;
+      const lead = payload.draft
+        ? `${t("本次任务按这份已确认的草稿执行：")}\`${payload.abs}\``
+        : `${t("本次任务的完整载荷（含上下文与来源）：")}\`${payload.abs}\``;
+      resolved.prompt = `${lead}\n${t("下面是被截断的摘要；两者冲突时以文件为准。")}\n\n${source}`;
+    }
+    // 任务行或草稿里写了 [[技能/x]]，就把真实 SKILL.md 路径交给 Agent，让它自己去读。
+    await this.enrichPrompt(resolved, draft?.raw || "");
     const job = this.buildJobBase({
       agent,
       name: resolved.name,
@@ -609,6 +729,8 @@ export class Delegator {
       project: projectName,
       noteDispatch,
     });
+    // 记下载荷路径与派发时的 hash：之后若文件被改，说明人动过手，可以单独取用。
+    if (payload) { job.payloadPath = payload.path; job.payloadHash = payload.hash; }
     const hookPayload = { opts, resolved, job, prompt: resolved.prompt, name: resolved.name };
     await this.harness.run("beforeDelegate", hookPayload);
     this.jobs[job.id] = job;

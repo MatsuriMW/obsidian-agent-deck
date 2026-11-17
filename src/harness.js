@@ -23,10 +23,35 @@ export function stripInternalIdentifiers(text) {
   }).join("\n");
 }
 
+// 注入给 Agent 的文本：去掉对 AI 没意义的排版符号，保留一切"有信息"的记号。
+// 删：加粗/斜体包裹、Obsidian 注释 %%…%%、HTML 注释、零宽与不换行字符、行尾空白。
+// 留：代码块与行内代码、[[双链]]、#^块号、列表缩进、状态关键词。
+export function agentText(text) {
+  const stripped = stripInternalIdentifiers(text);
+  const lines = String(stripped ?? "").split("\n");
+  const fenced = J.fencedLines(lines);
+  return lines
+    .map((line, i) => {
+      if (fenced.has(i)) return line;
+      // 行内代码先遮起来，清理完再放回；只去 ** 加粗（不动 __，避免误伤 __name__ 之类）。
+      const spans = [];
+      const masked = line.replace(/`[^`]*`/g, (m) => `\u0000${spans.push(m) - 1}\u0000`);
+      return masked
+        .replace(/%%[^%]*?%%/g, "")
+        .replace(/<!--[\s\S]*?-->/g, "")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/[\u200b-\u200f\u2060\ufeff]/g, "")
+        .replace(/\u00a0/g, " ")
+        .replace(/[ \t]+$/, "")
+        .replace(/\u0000(\d+)\u0000/g, (_, n) => spans[Number(n)] ?? "");
+    })
+    .join("\n");
+}
+
 // 母项上下文 + 要做的这一块：母项各占一行、保留原缩进，前面一句说明只做最里面那项。
 export function withContext(contextLines, task) {
-  const cleanTask = stripInternalIdentifiers(task);
-  const ctx = (contextLines || []).map((l) => stripInternalIdentifiers(l)).filter((l) => l && l.trim());
+  const cleanTask = agentText(task);
+  const ctx = (contextLines || []).map((l) => agentText(l)).filter((l) => l && l.trim());
   if (!ctx.length) return cleanTask;
   return `${t("这条任务在笔记里挂的位置，只做最里面这一项：")}\n\n${ctx.join("\n")}\n${cleanTask}`;
 }
@@ -116,6 +141,8 @@ async function resolveWikilinkSnippets(plugin, file, refs = []) {
     const dest = plugin.app.metadataCache.getFirstLinkpathDest(ref.target, file?.path || "");
     if (!dest?.path || dest.extension !== "md") continue;
     if (dest.path === file?.path && !ref.subpath) continue;
+    // 技能卡只传路径（由派发侧单独处理），不整段注入卡片内容。
+    if (dest.path.startsWith("技能/")) continue;
     const key = `${dest.path}#${ref.subpath || ""}`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -141,7 +168,7 @@ async function resolveWikilinkSnippets(plugin, file, refs = []) {
       } else {
         excerpt = allLines.slice(frontmatterEnd(allLines)).join("\n");
       }
-      const compact = clampExcerpt(stripInternalIdentifiers(excerpt));
+      const compact = clampExcerpt(agentText(excerpt));
       if (!compact) continue;
       const label = `[[${ref.target}${ref.subpath ? "#" + ref.subpath : ""}${ref.alias ? "|" + ref.alias : ""}]]`;
       snippets.push(`- ${label} (${dest.path}):\n${compact}`);

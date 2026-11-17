@@ -169,7 +169,7 @@ tab.renderRecord(recBody);
 const targetPickers = [...delBody.all(), ...recBody.all()].filter(el => el.classList.contains('ad-targetpick'));
 assert.equal(targetPickers.length, 1, 'default delegation target picker appears exactly once across all pages');
 assert.equal(targetPickers[0].children.length, AGENT_ORDER.length, 'default target picker shows all Agents');
-assert.equal(delBody.all().filter(el => el.tag === 'select').length, 7, 'six default-model selects plus primary terminal select');
+assert.equal(delBody.all().filter(el => el.tag === 'select').length, 8, 'six default-model selects + primary terminal select + steward agent select');
 assert.equal(delBody.all().filter(el => el.classList.contains('ad-codex-picker')).length, 0, 'Codex uses the standard select menu');
 assert.equal(delBody.all().filter(el => el.classList.contains('ad-effort')).length, 6, 'exactly one default effort control per configurable Agent on Delegation page');
 assert.equal(recBody.all().filter(el => el.classList.contains('ad-set-agent')).length, AGENT_ORDER.length, 'Recording page lists all tracked Agents');

@@ -82,6 +82,15 @@ export function normalizeTaskSlug(value) {
   const slug = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
   return /^[a-z][a-z0-9]{0,15}(?:-[a-z][a-z0-9]{0,15})?$/.test(slug) ? slug : "";
 }
+// 块号里"人能看懂的那部分"：优先用标题里的英文关键词，没有英文就退到日期（如 d1118）。
+// 尾部随机码只负责唯一性；至少让扫源码的人能看出这是哪天、哪个主题。
+export function readableSlug(title, now = Date.now()) {
+  const slug = normalizeTaskSlug(title);
+  if (slug) return slug;
+  const d = new Date(now);
+  return `d${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export const isLegacyBlockId = id => /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id || "");
 const shortSessionId = seed => BigInt("0x" + createHash("sha256").update(String(seed)).digest("hex").slice(0, 12)).toString(36).padStart(10, "0");
 export const sessionMarker = (kind, sid, round) => `<!-- ad-${kind}:${shortSessionId(sid)}:${round} -->`;

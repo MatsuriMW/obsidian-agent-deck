@@ -256,3 +256,29 @@ test("harness strips internal ad block identifiers and provenance comments from 
   assert.match(payload.prompt, /Agent Deck 发布推进/);
   assert.match(payload.prompt, /实机验证 Obsidian 拖拽/);
 });
+
+test("注入前清掉对 AI 无意义的排版符号，保留双链与块号", async () => {
+  const plugin = makePlugin({});
+  const text = "- **重要**：用 %%这是注释%% 看 [[笔记#^abc123]]，代码 `a**b` 不动";
+  const payload = await buildDelegationPayload({
+    plugin,
+    file: { path: "日记/2026_11_18.md" },
+    lines: [text],
+    block: { start: 0, end: 0, indent: 0, text },
+  });
+  assert.ok(!payload.prompt.includes("**重要**"), "加粗被去掉");
+  assert.ok(payload.prompt.includes("重要："), "内容保留");
+  assert.ok(!payload.prompt.includes("%%"), "Obsidian 注释被去掉");
+  assert.ok(payload.prompt.includes("[[笔记#^abc123]]"), "双链与块号必须原样保留");
+  assert.ok(payload.prompt.includes("`a**b`"), "行内代码里的符号不动");
+});
+
+test("agentText 保留代码块、不误伤下划线标识符", async () => {
+  const { agentText } = await import("../src/harness.js");
+  const input = ["前 `**a**` 后", "```js", "const x = **y**;", "```", "变量 user_id 与 __name__"].join("\n");
+  const out = agentText(input);
+  assert.match(out, /`\*\*a\*\*`/, "行内代码不处理");
+  assert.match(out, /const x = \*\*y\*\*;/, "代码块不处理");
+  assert.match(out, /user_id/);
+  assert.match(out, /__name__/, "__name__ 这类标识符不动");
+});

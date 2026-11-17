@@ -11,6 +11,8 @@
 3. **口径诚实与缓存迁移**：`data.json`（`STORE_VERSION = 1`）与 `usage.json` 无损迁移；改动日志解析或清洗规则时递增 `src/readers.js` 的 `USAGE_CACHE_VERSION`（当前 `11`）；缺失 token 与活跃耗时绝不估算。
 4. **UI 与双语**：复用 [`src/styles/base/tokens.css`](src/styles/base/tokens.css) `--ad-*` 变量（样式只改 `src/styles/`，构建输出 `styles.css`），默认左对齐，设置页 5 页且每项唯一入口；文案遵循 [`docs/specs/ui-language.md`](docs/specs/ui-language.md)（菜单栏同步 `src/menubar.swift` 与 `src/locales/en/menubar.js`）。
 5. **双平台诚实**：`darwin` 专属能力（如 `src/menubar.js`）在 Windows 无报错降级；单平台实测不外推为双平台通过。
+6. **注入口径与块号分类**：发给 Agent 的文本统一过 `src/harness.js` 的 `agentText`（去加粗/注释/零宽字符，代码块遮蔽，不动 `__`）；任务号 `^ad-*`/`^dsh-*` 注入前剥除，定位锚 `^mem-*` 与 Obsidian 自动 6 位号永不剥除。记忆与派发产物（`Agent Deck/记忆/`、`派发/`、`任务/`）都是普通 Markdown，格式契约见 [`data-and-markdown-contracts.md`](docs/specs/data-and-markdown-contracts.md) §5。
+7. **记忆库迁移边界**：`settings.dream.store` 的 `text` / `files` 两种模式互斥，迁移由用户显式触发；`长期记忆.md` 只保留人工前言与生成区块，手写内容不得覆盖。派发载荷是"派发瞬间快照"，不是可回改的草稿。
 
 ## 接手与交接
 - **入口**：[`docs/task-workflow.zh-CN.md`](docs/task-workflow.zh-CN.md) + [`docs/specs/`](docs/README.md)；项目目录结构与模块索引见 [`docs/specs/architecture-and-boundaries.md`](docs/specs/architecture-and-boundaries.md)。

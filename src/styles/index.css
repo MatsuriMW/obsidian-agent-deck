@@ -25,3 +25,15 @@
 
 /* 3. 动效与无障碍降级层 */
 @import "./base/motion.css";
+
+/* 记忆看板（按 state 分列，拖拽改状态） */
+.ad-memory-board { display: flex; flex-direction: column; gap: 8px; height: 100%; }
+.ad-memory-board__head { display: flex; align-items: center; gap: 8px; }
+.ad-memory-board__cols { display: flex; gap: 10px; align-items: flex-start; overflow-x: auto; }
+.ad-memory-board__col { flex: 1 1 0; min-width: 220px; display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 8px; background: var(--background-secondary); }
+.ad-memory-board__col.is-over { outline: 2px dashed var(--interactive-accent); }
+.ad-memory-board__colhead { font-size: 12px; opacity: 0.7; }
+.ad-memory-board__card { padding: 8px; border-radius: 6px; background: var(--background-primary); border: 1px solid var(--background-modifier-border); cursor: grab; }
+.ad-memory-board__title { font-size: 13px; line-height: 1.4; margin-bottom: 4px; }
+.ad-memory-board__src { display: inline-block; margin-top: 4px; padding: 0 6px; border-radius: 999px; font-size: 11px; color: var(--text-muted); background: var(--background-secondary-alt); cursor: pointer; }
+.ad-memory-board__src:hover { color: var(--text-normal); }

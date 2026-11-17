@@ -1120,7 +1120,8 @@ export function taskBoardExtension(plugin, refreshEffect) {
     const sourcePath = info?.file?.path || "";
     const ids = trackedBlockIds(plugin);
     const trigger = mentionTrigger(plugin);
-    const groups = extractTaskBoardGroups(text, { trackedIds: ids, trigger });
+    const fileBoard = Boolean(sourcePath && plugin.settings?.taskBoardFiles?.[sourcePath]);
+    const groups = extractTaskBoardGroups(text, { trackedIds: ids, trigger, fileBoard });
     const boardLines = new Set();
 
     const mirrorCache = plugin._mirrorBoardCache || null;

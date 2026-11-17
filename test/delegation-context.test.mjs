@@ -1,3 +1,4 @@
+import test from "node:test";
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
@@ -106,3 +107,17 @@ assert.equal(decorate(bgView,bgPlugin).length,0,'completed background answers ha
 bgJob.destination='desktop';
 assert.equal(decorate(bgView,bgPlugin).length,1,'desktop sessions keep their existing pill');
 console.log('PASS background progress: one provider, no finished pill, desktop behavior preserved');
+
+test("草稿链接：从任务块子树里找出派发草稿，后者优先", async () => {
+  const { findDraftLink } = await import("../src/delegation.js");
+  const lines = [
+    "- TODO 做事 ^ad-x",
+    "\t- 📝 [[Agent Deck/派发/2026-11-18-a|派发草稿]]",
+    "\t- 📝 [[Agent Deck/派发/2026-11-18-b]]",
+    "- TODO 别的",
+  ];
+  assert.equal(findDraftLink(lines, { start: 0, end: 2 }), "Agent Deck/派发/2026-11-18-b", "后出现的优先");
+  assert.equal(findDraftLink(lines, { start: 3, end: 3 }), "", "别的块不串");
+  assert.equal(findDraftLink(lines, null), "");
+  assert.equal(findDraftLink(["[[]]"], { start: 0, end: 0 }), "");
+});
