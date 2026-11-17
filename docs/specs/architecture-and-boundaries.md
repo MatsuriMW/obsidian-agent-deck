@@ -43,7 +43,7 @@
 | --- | --- | --- | --- |
 | Claude Code | `~/.claude/projects` + Claude Desktop | 桌面、后台、终端 | 首轮后用 `claude://resume` 打开桌面同一会话 |
 | Codex | `~/.codex/sessions` / `state_*.sqlite` | 桌面、后台、终端 | 桌面走 `codex app-server`；`thread/start` 前按 cwd 复用或创建 Codex 项目并带上 `projectId`（`settings.delegate.codex.project`，实验性接口失败则按原样派发）；首轮释放后打开 `codex://threads/<id>` |
-| DeepSeek Harness | `~/.dsh/sessions`（zstd） | 桌面、后台 | `dsh acp` 后台委派；`dsh://open` 仅唤起客户端并复制会话号 |
+| DeepSeek Harness | `~/.dsh/sessions`（zstd） | 桌面、后台 | `dsh acp` 后台委派；`dsh://open` 仅唤起客户端并复制会话号；ACP 会话无 workspace ID，客户端归入「未分组」，通常需重启/刷新客户端才出现在列表 |
 | Antigravity | `~/.gemini/antigravity/brain` / ACP | 后台 | `agy acp` 后台委派；无桌面 IDE 交接，IDE 与 CLI 会话不混用 |
 | OpenCode | `~/.local/share/opencode/opencode.db` | 桌面、后台、终端 | `opencode-cli acp` 共用 `opencode.db`；打开桌面后手动选会话 |
 | Qoder | `~/.qoder/projects` / 桌面 `main.sqlite` | 桌面、后台、终端 | CLI 与桌面 SQLite 不互通；后台走 `qodercli`（终端 `-r` 续聊），桌面复制交接 |
