@@ -562,9 +562,10 @@ export class Delegator {
   }
 
   // 载荷文件名：日期 + 时间 + 可读 slug，保证同一天多次派发不覆盖。
-  payloadName({ date, time, name }) {
+  // 有块号就按块号命名：一个任务块永远只有一份载荷，后续派发覆盖它，文件数 ≈ 任务数。
+  payloadName({ date, time, name, anchor = "" }) {
     const slug = J.normalizeTaskSlug(name) || String(name || "").replace(/[\\/:*?"<>|#^[\]\s]/g, "").slice(0, 24) || "task";
-    return `${date}-${time}-${slug}.md`;
+    return anchor ? `${date}-${anchor}-${slug}.md` : `${date}-${time}-${slug}.md`;
   }
 
   async writeTaskPayload(resolved, agent, { draft = false } = {}) {
@@ -575,8 +576,8 @@ export class Delegator {
       const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
       const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
       const dir = "Agent Deck/派发";
-      const path = `${dir}/${this.payloadName({ date, time, name: resolved.name })}`;
       const anchor = resolved.block ? J.blockIdOf(resolved.lines[resolved.block.start]) : "";
+      const path = `${dir}/${this.payloadName({ date, time, name: resolved.name, anchor })}`;
       const head = [
         "---",
         "type: 派发载荷",

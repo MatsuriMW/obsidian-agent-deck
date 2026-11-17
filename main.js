@@ -12195,9 +12195,10 @@ dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
     }
   }
   // 载荷文件名：日期 + 时间 + 可读 slug，保证同一天多次派发不覆盖。
-  payloadName({ date, time, name }) {
+  // 有块号就按块号命名：一个任务块永远只有一份载荷，后续派发覆盖它，文件数 ≈ 任务数。
+  payloadName({ date, time, name, anchor = "" }) {
     const slug = normalizeTaskSlug(name) || String(name || "").replace(/[\\/:*?"<>|#^[\]\s]/g, "").slice(0, 24) || "task";
-    return `${date}-${time}-${slug}.md`;
+    return anchor ? `${date}-${anchor}-${slug}.md` : `${date}-${time}-${slug}.md`;
   }
   async writeTaskPayload(resolved, agent, { draft = false } = {}) {
     if (!this.plugin?.app?.vault) return null;
@@ -12207,8 +12208,8 @@ dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
       const date = `${now.getFullYear()}-${pad3(now.getMonth() + 1)}-${pad3(now.getDate())}`;
       const time = `${pad3(now.getHours())}${pad3(now.getMinutes())}${pad3(now.getSeconds())}`;
       const dir = "Agent Deck/\u6D3E\u53D1";
-      const path13 = `${dir}/${this.payloadName({ date, time, name: resolved.name })}`;
       const anchor = resolved.block ? blockIdOf(resolved.lines[resolved.block.start]) : "";
+      const path13 = `${dir}/${this.payloadName({ date, time, name: resolved.name, anchor })}`;
       const head = [
         "---",
         "type: \u6D3E\u53D1\u8F7D\u8377",

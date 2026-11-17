@@ -54,7 +54,7 @@
 - **注入降噪（`agentText`）**：注入边界统一去掉 `**加粗**`、`%%注释%%`、HTML 注释、零宽字符与行尾空白；代码块与行内代码先遮蔽后处理；**不动 `__`**（会误伤 `__name__`）。
 - **记忆注入口径**：仅注入 `state=有效` 且与任务词面重合 ≥2 个词的条目，最多 5 条 / 1200 字；每条不带加粗，来源收在文末一行 `来源：[[…]]`；`pattern` 标「（待验证推断）」。
 - **派发草稿（先看再发）**：命令生成草稿时 frontmatter 记 `status: draft`、正文即完整 prompt，并在任务块下插入 `- 📝 [[…|派发草稿]]`；用户改完后点委派，`findDraftLink` 取**子树里最后一份**草稿，正文直接作为 prompt，草稿改标 `status: dispatched` + `dispatched:` 时间。没有草稿时才走"派发瞬间现生成"的老路径。
-- **派发载荷**：每次派发写 `Agent Deck/派发/YYYY-MM-DD-HHmmss-<slug>.md`，frontmatter `type: 派发载荷 / agent / task / anchor（回指 [[笔记#^块号]]）/ created`，正文是完整 prompt；原文任务块下插入 `- 📄 [[…|本次载荷]]`；prompt 头部改为「载荷绝对路径 + 冲突以文件为准」，因此不再受 12000 字截断限制。job 记录 `payloadPath` / `payloadHash`，用于识别"人改过的载荷"。
+- **派发载荷**：**按块号命名** `Agent Deck/派发/YYYY-MM-DD-^块号-<slug>.md`（无块号才退回 `YYYY-MM-DD-HHmmss-<slug>.md`），同一任务块后续派发**覆盖同一文件**，文件数 ≈ 任务数；，frontmatter `type: 派发载荷 / agent / task / anchor（回指 [[笔记#^块号]]）/ created`，正文是完整 prompt；原文任务块下插入 `- 📄 [[…|本次载荷]]`；prompt 头部改为「载荷绝对路径 + 冲突以文件为准」，因此不再受 12000 字截断限制。job 记录 `payloadPath` / `payloadHash`，用于识别"人改过的载荷"。
 - **反向回链**：`- ⤴ [[记忆/…]]` 只在列表项下、每个顶层块只加一次；函数自归一化（先清旧回链再加），孤儿回链靠 `settings.dream.backlinked` 追踪。
 - **技能卡（`技能/<name>.md`）**：frontmatter `type: 技能 / skill / path（真实 SKILL.md 绝对路径）/ dir / source（skillshare|dsh|claude）/ synced_at`；正文是 description 摘要与用法。**不搬文件、不做软链**（库在 iCloud + git，软链会断）。委派解析顺序：草稿 frontmatter 的 `skill:` → 任务行里的 `[[技能/x]]` → **短链**（任务行里任一 `[[name]]` 只要库里存在 `技能/name.md` 即视为技能）；命中后把 `path` 前置成「使用技能：…（路径）——先读它，按其中流程执行」。技能内容不进 prompt，只给路径。
 - **被引用笔记传路径**：任务行里的普通 `[[笔记]]` 会解析成绝对路径列进 prompt（「任务里引用的笔记（可直接读全文）」），让 Agent 读全文而不是 600 字摘要；技能卡不在此列，也不整段注入（`harness` 里跳过 `技能/` 前缀的摘录）。

@@ -121,3 +121,15 @@ test("草稿链接：从任务块子树里找出派发草稿，后者优先", as
   assert.equal(findDraftLink(lines, null), "");
   assert.equal(findDraftLink(["[[]]"], { start: 0, end: 0 }), "");
 });
+
+test("载荷命名：有块号按块号命名（同一任务只保留一份），无块号带时间戳", async () => {
+  const { Delegator } = await import("../src/delegation.js");
+  const d = Object.create(Delegator.prototype);
+  const withBlock = d.payloadName({ date: "2026-11-18", time: "051234", name: "整理视频链接", anchor: "ad-wb-abc123" });
+  const same = d.payloadName({ date: "2026-11-19", time: "090000", name: "整理视频链接", anchor: "ad-wb-abc123" });
+  assert.match(withBlock, /^2026-11-18-ad-wb-abc123-/);
+  assert.equal(withBlock.split("-").slice(3).join("-"), same.split("-").slice(3).join("-"), "同块号 → 同一身份");
+  assert.notEqual(withBlock, same, "但日期不同会换文件");
+  const noBlock = d.payloadName({ date: "2026-11-18", time: "051234", name: "x" });
+  assert.match(noBlock, /^2026-11-18-051234-/);
+});
