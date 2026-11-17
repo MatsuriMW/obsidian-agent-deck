@@ -31,6 +31,9 @@
 node "<库>/.obsidian/plugins/agent-deck/scripts/memory-query.mjs" search "拒答门槛" [--k 5]
 node "…/memory-query.mjs" read <记忆文件名>
 node "…/memory-query.mjs" recent [10]
+
+# 时间窗 / 只想要区间内的那条
+node "…/memory-query.mjs" search "拒答门槛" --since 2026-11-01 --until 2026-11-18
 ```
 
 口径（有意为之，不是随便定的）：
@@ -38,6 +41,9 @@ node "…/memory-query.mjs" recent [10]
 - 每条命中带 `命中：词1、词2` 当 **why**，**不打印分数**——分数难验证，算错了会安静地丢上下文。
 - 门槛是"命中查询词的一半"：中文二元组太容易误配（"完全不存在的词"会撞上"存在""在的"），不够一半宁可返回空。
 - `search` / `recent` 只看 `state=有效`，与自动注入同一个池子；`read` 能打开任意一条。
+- **时间**：`--since / --until`（`YYYY-MM-DD`），没写日期的条目不参与过滤，结果尾部会说排除了几条。
+- **变更可见**：`supersedes` 双向显示——新写「取代：[[旧]]（日期）」，旧的那条反向写「已被取代：[[新]]」；偏好变了要能同时看见新旧与日期。
+- **一跳图检索**：同引同一篇日记的记忆标「同源（同引 日记/…）」，`sources` 指向的原文给**能打开的绝对路径**；打不开（改名/删除）就不编路径。
 - `read` 只接受记忆目录内的文件名，挡 `../`；不解析 `记忆.base`。
 - 库根从脚本位置向上找 `.obsidian`，记忆目录跟随 `settings.dream.dir`，`--vault` 可覆盖；输出超 6000 字会明说省略几条。
 
