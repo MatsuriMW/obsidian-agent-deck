@@ -282,4 +282,6 @@ export default {
   "笔记路径指向「{note}」（{notePath}），但任务提到「{name}」（{path}）。": "The note path points to “{note}” ({notePath}), but the task mentions “{name}” ({path}).",
   "用任务的项目并记住": "Use the task's project and remember it",
   "继续用笔记的项目": "Keep the note's project",
+  "任务里还提到「{name}」，但它不是已登记的项目；如果这是另一个项目，可以在这里换目录。": "The task also mentions “{name}”, which is not a registered project; if it is a different project, switch folders here.",
+  "选择目录…": "Choose a folder…",
 };

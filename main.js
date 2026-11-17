@@ -1342,7 +1342,9 @@ var dialogs_default = {
   "\u9009\u62E9\u5176\u4ED6\u76EE\u5F55\u2026": "Choose another folder\u2026",
   "\u7B14\u8BB0\u8DEF\u5F84\u6307\u5411\u300C{note}\u300D\uFF08{notePath}\uFF09\uFF0C\u4F46\u4EFB\u52A1\u63D0\u5230\u300C{name}\u300D\uFF08{path}\uFF09\u3002": "The note path points to \u201C{note}\u201D ({notePath}), but the task mentions \u201C{name}\u201D ({path}).",
   "\u7528\u4EFB\u52A1\u7684\u9879\u76EE\u5E76\u8BB0\u4F4F": "Use the task's project and remember it",
-  "\u7EE7\u7EED\u7528\u7B14\u8BB0\u7684\u9879\u76EE": "Keep the note's project"
+  "\u7EE7\u7EED\u7528\u7B14\u8BB0\u7684\u9879\u76EE": "Keep the note's project",
+  "\u4EFB\u52A1\u91CC\u8FD8\u63D0\u5230\u300C{name}\u300D\uFF0C\u4F46\u5B83\u4E0D\u662F\u5DF2\u767B\u8BB0\u7684\u9879\u76EE\uFF1B\u5982\u679C\u8FD9\u662F\u53E6\u4E00\u4E2A\u9879\u76EE\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u6362\u76EE\u5F55\u3002": "The task also mentions \u201C{name}\u201D, which is not a registered project; if it is a different project, switch folders here.",
+  "\u9009\u62E9\u76EE\u5F55\u2026": "Choose a folder\u2026"
 };
 
 // src/locales/en/writers.js
@@ -22854,6 +22856,16 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
       blockText: this.block.text
     });
     this.projectConflict = !!(this.projectHint && this.projectSuggest && !sameFolder(this.projectSuggest.path, this.projectHint.path));
+    this.projectAlt = null;
+    if (this.projectHint && !this.projectConflict) {
+      const registered = new Set(projectFolderEntries(this.plugin.settings).map((e) => projectKey(e.name)));
+      const hintKey = projectKey(this.projectHint.name);
+      this.projectAlt = projectCandidatesFromTask({ blockText: this.block.text }).find((name) => {
+        const key = projectKey(name);
+        if (!key || key === hintKey || registered.has(key)) return false;
+        return !this.app.metadataCache?.getFirstLinkpathDest?.(name, this.path);
+      }) || null;
+    }
     if (this.projectConflict) this.cwd = this.projectSuggest.path;
     else if (this.projectHint && !this.cwd) this.cwd = this.projectHint.path;
     try {
@@ -22995,7 +23007,35 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
       this.cwd = entries.find((e) => e.name === sel.value)?.path || "";
       this.render();
     };
-    if (this.projectSuggest) {
+    if (this.projectConflict) {
+      const hint = this.projectSuggest;
+      pf.createDiv({
+        cls: "ad-hint",
+        text: t("\u7B14\u8BB0\u8DEF\u5F84\u6307\u5411\u300C{note}\u300D\uFF08{notePath}\uFF09\uFF0C\u4F46\u4EFB\u52A1\u63D0\u5230\u300C{name}\u300D\uFF08{path}\uFF09\u3002", {
+          note: this.projectHint.name,
+          notePath: this.projectHint.path,
+          name: hint.candidate || hint.name,
+          path: hint.path
+        })
+      });
+      const row = pf.createDiv({ cls: "ad-btnrow" });
+      const use = row.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("\u7528\u4EFB\u52A1\u7684\u9879\u76EE\u5E76\u8BB0\u4F4F"), attr: { type: "button" } });
+      use.onclick = async () => {
+        if (rememberProjectFolder(p2.settings, hint.name, hint.path)) await p2.saveSettings();
+        this.cwd = hint.path;
+        this.projectHint = null;
+        this.projectSuggest = null;
+        this.projectConflict = false;
+        this.render();
+      };
+      const keep = row.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("\u7EE7\u7EED\u7528\u7B14\u8BB0\u7684\u9879\u76EE"), attr: { type: "button" } });
+      keep.onclick = () => {
+        this.cwd = this.projectHint.path;
+        this.projectSuggest = null;
+        this.projectConflict = false;
+        this.render();
+      };
+    } else if (this.projectSuggest) {
       const hint = this.projectSuggest;
       pf.createDiv({
         cls: "ad-hint",
@@ -23021,6 +23061,16 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
         cls: "ad-hint",
         text: this.projectHint ? t("\u5DF2\u6309\u7B14\u8BB0\u91CC\u7684\u9879\u76EE\u9009\u5230 {name}\uFF1B\u6D3E\u53D1\u540E\u6309\u9879\u76EE\u540D\u8BB0\u4F4F\u8FD9\u4E2A\u76EE\u5F55\u3002", { name: this.projectHint.name }) : t("\u9009\u4E2D\u540E\u6309\u8BE5\u76EE\u5F55\u5DE5\u4F5C\uFF1B\u6D3E\u53D1\u4E00\u6B21\u540E\u81EA\u52A8\u6309\u9879\u76EE\u540D\u8BB0\u4F4F\u3002")
       });
+      if (this.projectAlt) {
+        pf.createDiv({ cls: "ad-hint", text: t("\u4EFB\u52A1\u91CC\u8FD8\u63D0\u5230\u300C{name}\u300D\uFF0C\u4F46\u5B83\u4E0D\u662F\u5DF2\u767B\u8BB0\u7684\u9879\u76EE\uFF1B\u5982\u679C\u8FD9\u662F\u53E6\u4E00\u4E2A\u9879\u76EE\uFF0C\u53EF\u4EE5\u5728\u8FD9\u91CC\u6362\u76EE\u5F55\u3002", { name: this.projectAlt }) });
+        const row = pf.createDiv({ cls: "ad-btnrow" });
+        const pick = row.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("\u9009\u62E9\u76EE\u5F55\u2026"), attr: { type: "button" } });
+        pick.onclick = () => {
+          this.cwd = "";
+          this.projectAlt = null;
+          this.render();
+        };
+      }
     }
     const cf = contentEl.createDiv({ cls: "ad-field" });
     cf.createDiv({ cls: "ad-field__label", text: "Working directory" });

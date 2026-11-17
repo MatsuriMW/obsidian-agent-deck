@@ -5,7 +5,7 @@ import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { blockAt, blockTitle, BULLET_RE, delegationText, ancestorLines } from "./delegation.js";
-import { projectFolderEntries, rememberProjectFolder, resolveProjectForTask, sameFolder, suggestProjectForTask } from "./project-folders.js";
+import { projectCandidatesFromTask, projectFolderEntries, projectKey, rememberProjectFolder, resolveProjectForTask, sameFolder, suggestProjectForTask } from "./project-folders.js";
 import { mentionOptions, mentionTrigger } from "./task-mentions.js";
 import { destinations, defaultDestination } from "./workflow.js";
 import { kwLine, fencedLines } from "./journal.js";
@@ -58,6 +58,19 @@ export class DelegateOptionsModal extends Modal {
     // Note path says X, but the task itself names an unregistered recent Y:
     // prefer the task-level signal and let the user confirm.
     this.projectConflict = !!(this.projectHint && this.projectSuggest && !sameFolder(this.projectSuggest.path, this.projectHint.path));
+    // A task-level name that is neither registered nor a resolvable note is
+    // probably another project; surface it instead of silently using the note path.
+    this.projectAlt = null;
+    if (this.projectHint && !this.projectConflict) {
+      const registered = new Set(projectFolderEntries(this.plugin.settings).map((e) => projectKey(e.name)));
+      const hintKey = projectKey(this.projectHint.name);
+      this.projectAlt = projectCandidatesFromTask({ blockText: this.block.text })
+        .find((name) => {
+          const key = projectKey(name);
+          if (!key || key === hintKey || registered.has(key)) return false;
+          return !this.app.metadataCache?.getFirstLinkpathDest?.(name, this.path);
+        }) || null;
+    }
     if (this.projectConflict) this.cwd = this.projectSuggest.path;
     else if (this.projectHint && !this.cwd) this.cwd = this.projectHint.path;
     try {
@@ -180,7 +193,35 @@ export class DelegateOptionsModal extends Modal {
       this.cwd = (entries.find((e) => e.name === sel.value)?.path) || "";
       this.render();
     };
-    if (this.projectSuggest) {
+    if (this.projectConflict) {
+      const hint = this.projectSuggest;
+      pf.createDiv({
+        cls: "ad-hint",
+        text: t("笔记路径指向「{note}」（{notePath}），但任务提到「{name}」（{path}）。", {
+          note: this.projectHint.name,
+          notePath: this.projectHint.path,
+          name: hint.candidate || hint.name,
+          path: hint.path,
+        }),
+      });
+      const row = pf.createDiv({ cls: "ad-btnrow" });
+      const use = row.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("用任务的项目并记住"), attr: { type: "button" } });
+      use.onclick = async () => {
+        if (rememberProjectFolder(p.settings, hint.name, hint.path)) await p.saveSettings();
+        this.cwd = hint.path;
+        this.projectHint = null;
+        this.projectSuggest = null;
+        this.projectConflict = false;
+        this.render();
+      };
+      const keep = row.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("继续用笔记的项目"), attr: { type: "button" } });
+      keep.onclick = () => {
+        this.cwd = this.projectHint.path;
+        this.projectSuggest = null;
+        this.projectConflict = false;
+        this.render();
+      };
+    } else if (this.projectSuggest) {
       const hint = this.projectSuggest;
       pf.createDiv({
         cls: "ad-hint",
@@ -204,6 +245,12 @@ export class DelegateOptionsModal extends Modal {
           ? t("已按笔记里的项目选到 {name}；派发后按项目名记住这个目录。", { name: this.projectHint.name })
           : t("选中后按该目录工作；派发一次后自动按项目名记住。"),
       });
+      if (this.projectAlt) {
+        pf.createDiv({ cls: "ad-hint", text: t("任务里还提到「{name}」，但它不是已登记的项目；如果这是另一个项目，可以在这里换目录。", { name: this.projectAlt }) });
+        const row = pf.createDiv({ cls: "ad-btnrow" });
+        const pick = row.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("选择目录…"), attr: { type: "button" } });
+        pick.onclick = () => { this.cwd = ""; this.projectAlt = null; this.render(); };
+      }
     }
 
     // Working directory
