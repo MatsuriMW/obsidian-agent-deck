@@ -789,3 +789,28 @@
     color: var(--ad-muted);
   }
 }
+
+/* 回复提问：单字段弹窗。它只是往笔记里那行 `✍️ 答：` 写字的快捷方式。 */
+.ad-modal.ad-reply-modal {
+  & .ad-reply-modal__question {
+    margin: 4px 0 10px;
+    padding: 8px 10px;
+    border-left: 2px solid var(--ad-accent, var(--ad-line));
+    background: var(--ad-surface);
+    border-radius: var(--ad-radius-sm);
+    white-space: pre-wrap;
+  }
+
+  & .ad-reply-modal__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  & .ad-reply-modal__input {
+    width: 100%;
+    min-height: 64px;
+    resize: vertical;
+  }
+}

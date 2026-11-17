@@ -2,6 +2,7 @@ import { readConversation } from "./conversation.js";
 import { createHash } from "crypto";
 import { cardPathOf, skillRefIn } from "./skill-cards.js";
 import { updateNote } from "./note-updates.js";
+import { parseThread, replyPromptText } from "./thread-replies.js";
 // Agent Deck — delegate a note block to Claude Code or DeepSeek Harness.
 //
 // Claude Code: `claude --bg` (fallback: `claude -p --session-id`), then the
@@ -545,6 +546,9 @@ export class Delegator {
     if (notePaths.length && !resolved.prompt.includes(notesHead)) resolved.prompt = `${notesHead}\n${notePaths.map((p) => `- ${p}`).join("\n")}\n\n${resolved.prompt}`;
     const memoryHint = await this.memoryToolHint();
     if (memoryHint && !resolved.prompt.includes(memoryHint)) resolved.prompt = `${memoryHint}\n\n${resolved.prompt}`;
+    // 问答回灌：笔记里已经有 ❓ / ✍️ 的，把"上一轮问了什么、我答了什么"固定成一段，别让模型重新问一遍。
+    const replyText = replyPromptText(parseThread(resolved.lines, resolved.block));
+    if (replyText && !resolved.prompt.includes(replyText)) resolved.prompt = `${replyText}\n\n${resolved.prompt}`;
     const plainSkill = [...text.matchAll(/\[\[([^\]|#]+)/g)].map((m) => m[1].trim()).find((name) => vault.getAbstractFileByPath(`技能/${name}.md`)) || "";
     const skillName = skillRefIn(skillRaw) || skillRefIn(text) || plainSkill;
     if (!skillName) return resolved;

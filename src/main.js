@@ -71,6 +71,8 @@ import { scanAgentWait, scanLimitQueue, resolveExternalState, buildLineProgressI
 import { ManagedTimers, CircuitBreaker, safeRun } from "./runtime-guard.js";
 import { hasAgentCapability, usesDeckSessionLink } from "./agent-registry.js";
 import { updateNote } from "./note-updates.js";
+import { parseThread, pendingQuestion, answerSlot, fillAnswer, suggestOptions } from "./thread-replies.js";
+import { ReplyModal } from "./reply-modal.js";
 import { ProjectWorkbenchModal } from "./workbench-modal.js";
 import {
   extractTaskBoardGroups,
@@ -278,6 +280,8 @@ export default class AgentDeckPlugin extends Plugin {
       if (view.file) this.gripSend({ path: view.file.path, line: editor.getCursor().line, lineText: editor.getLine(editor.getCursor().line) });
     } });
     this.addCommand({ id: "task-actions-line", name: t("当前任务：续聊、停止、重新委派"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "A" }], editorCallback: (editor, view) => { if (view.file) this.taskActions(view.file.path, editor.getCursor().line); } });
+    this.addCommand({ id: "reply-question", name: t("回复当前任务的提问（写回 ✍️ 答）"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "R" }], editorCallback: (editor, view) => { if (view?.file) this.replyToQuestion(view.file.path, editor); } });
+    this.addCommand({ id: "reply-question-line", name: t("在提问下补一行「✍️ 答」（直接手写）"), editorCallback: (editor) => this.insertReplySlot(editor) });
     this.addCommand({ id: "next-attention", name: t("处理下一条需要授权或确认的会话"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "N" }], callback: () => {
       const alert = this.attentionAlerts.values().next().value;
       if (alert) alert.open(); else this.notice(t("目前没有需要授权或确认的会话"));
@@ -1713,6 +1717,81 @@ export default class AgentDeckPlugin extends Plugin {
     return openSessionRaw(this, session.agent, session.sid, session.app, session);
   }
 
+  // ----- 回复协议：❓ → ✍️ 答 → 下一轮 -----
+  // 光标那一块里的问答。没有 ❓ 就返回 null，不改笔记。
+  threadAt(lines, line) {
+    const block = blockAt(lines, line);
+    if (!block) return null;
+    const parsed = parseThread(lines, block);
+    return { block, parsed, question: pendingQuestion(parsed) || parsed.questions.at(-1) || null };
+  }
+
+  // 手写优先：直接补一行空的 `✍️ 答：`，把光标放进去，不弹任何东西。
+  insertReplySlot(editor) {
+    const lines = editor.getValue().split("\n");
+    const info = this.threadAt(lines, editor.getCursor().line);
+    if (!info?.question) return this.notice(t("这一块里还没有 ❓ 提问"));
+    const slot = answerSlot(lines, info.question.line);
+    if (!slot) return this.notice(t("没找到提问那一行"));
+    if (slot.exists) {
+      editor.setCursor({ line: slot.line, ch: (editor.getLine(slot.line) || "").length });
+      return;
+    }
+    editor.replaceRange(`${slot.indent}- ✍️ 答：\n`, { line: slot.line, ch: 0 });
+    editor.setCursor({ line: slot.line, ch: (slot.indent + "- ✍️ 答：").length });
+    this.notice(t("写完后可以「回答并继续」，或直接让 Agent 续跑"), 6000);
+  }
+
+  replyToQuestion(path, editor) {
+    const view = this.viewForPath(path);
+    const ed = view?.editor || editor;
+    if (!ed) return this.notice(t("请先打开这篇笔记"));
+    const lines = ed.getValue().split("\n");
+    const info = this.threadAt(lines, ed.getCursor().line);
+    if (!info) return this.notice(t("把光标放在要回复的那一条任务里"));
+    const { block, question } = info;
+    if (!question) return this.notice(t("这一块里还没有 ❓ 提问"));
+    new ReplyModal(this.app, {
+      question: question.text,
+      options: suggestOptions(question.text),
+      value: question.answer || "",
+      hint: t("只写进笔记里那行「✍️ 答：」，不新开会话"),
+      onSubmit: (answer, { continue: keepGoing } = {}) => this.applyReply(path, block.start, { questionText: question.text, answer, continueSession: keepGoing }),
+      canContinue: this.sessionsAtTask(path, block.start, lines).length > 0,
+    }).open();
+  }
+
+  // 写回答（幂等）+ 可选续聊同一会话。抽成方法，方便真机验证直接调用。
+  async applyReply(path, atLine, { questionText = "", answer = "", continueSession = false } = {}) {
+    if (!String(answer || "").trim()) return false;
+    const before = await this.readNote(path);
+    const lines = before.split("\n");
+    const block = blockAt(lines, atLine);
+    const blockId = block ? J.blockIdOf(lines[block.start]) : "";
+    let changed = false;
+    await updateNote(this, path, (text) => {
+      const next = fillAnswer(text, { questionText, answer, blockId });
+      changed = next !== text;
+      return next;
+    });
+    this.notice(changed ? t("已写回回答：{answer}", { answer: truncate(answer, 40) }) : t("回答已经是这样了，没有改动"), changed ? 6000 : 5000);
+    if (continueSession) await this.continueAfterReply(path, atLine, answer);
+    return changed;
+  }
+
+  // 续聊：回答当成下一轮的追问发给原来那个会话，不新开。
+  async continueAfterReply(path, atLine, answer) {
+    const sessions = this.sessionsAtTask(path, atLine, (await this.readNote(path)).split("\n"));
+    const session = sessions.at(-1);
+    if (!session) return this.notice(t("这一块还没绑定会话；回答已写进笔记"), 6000);
+    try {
+      const prompt = `${t("我对上一问的回答：{answer}", { answer })}\n${t("请按这个继续，不用再问同一件事。")}`;
+      await this.delegator.continueSession(session, prompt);
+    } catch (e) {
+      this.notice(t("续聊没发出去：{error}（回答已写进笔记，可以重试）", { error: String(e.message || e) }), 8000);
+    }
+  }
+
   taskActions(path, line, event) {
     const view = this.viewForPath(path);
     if (!view) return;
@@ -1720,6 +1799,14 @@ export default class AgentDeckPlugin extends Plugin {
     if (!block) return;
     const sessions = this.sessionsAtTask(path, line, lines);
     const menu = new Menu();
+    const thread = this.threadAt(lines, line);
+    if (thread?.question && pendingQuestion(thread.parsed)) {
+      menu.addItem(mi => mi.setTitle(t("✍️ 回复这一问…")).onClick(() => {
+        view.editor.setCursor({ line: thread.question.line, ch: 0 });
+        this.replyToQuestion(path, view.editor);
+      }));
+      menu.addSeparator();
+    }
     for (const [index, session] of sessions.entries()) {
       const title = `${AGENTS[session.agent]?.name || session.agent} · ${t("会话 {n}", { n: index + 1 })}`;
       if (canOpenClient(session)) menu.addItem(mi => mi.setTitle(t("继续对话 · {title}", { title })).setDisabled(!session.sid).onClick(() => this.openClientSession(session)));

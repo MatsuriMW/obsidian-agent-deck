@@ -149,3 +149,19 @@ test("载荷快照：没有草稿时，落盘的 payload 里就已经有富化�
   assert.ok(written.includes(HEAD), "引用笔记清单进了载荷文件");
   assert.ok(written.includes(`${vaultPath}/项目A/日记.md`), "被引用笔记的绝对路径也在里面");
 });
+
+test("问答回灌：笔记里有 ❓ / ✍️ 时，prompt 里出现「问 / 答」段，且不重复", async () => {
+  const vault = makeVault();
+  const blockText = [
+    "- TODO 发布插件 @dsh",
+    "  - ❓ 第1轮：版本号用 1.9.6 还是 2.0.0？",
+    "  - ✍️ 答：用 1.9.6",
+  ].join("\n");
+  const resolved = { file: { path: "inbox/当前.md" }, lines: blockText.split("\n"), block: { start: 0, end: 2, text: blockText }, prompt: "原始 prompt" };
+  await makeDelegator(vault).enrichPrompt(resolved);
+  assert.match(resolved.prompt, /任务里的问答记录/);
+  assert.match(resolved.prompt, /第1轮：问「版本号用 1\.9\.6 还是 2\.0\.0？」→ 答「用 1\.9\.6」/);
+  const again = { file: resolved.file, lines: resolved.lines, block: resolved.block, prompt: resolved.prompt };
+  await makeDelegator(vault).enrichPrompt(again);
+  assert.equal(again.prompt, resolved.prompt, "同一段不叠第二遍");
+});
