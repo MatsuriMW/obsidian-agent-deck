@@ -18,3 +18,4 @@
 | [`specs/pitfalls-and-lessons.md`](specs/pitfalls-and-lessons.md) | Obsidian API、长日志性能、ACP/子进程与标题保护硬坑 |
 | [`specs/spec-change-template.md`](specs/spec-change-template.md) | 契约/边界变更核对清单 |
 | [`specs/fractal-boards-roadmap.md`](specs/fractal-boards-roadmap.md) | 后续方向：WorkFlowy 分形看板（意义、大纲/Harness/双链实现路线与红线） |
+| [`specs/harness-delta-2026-11-18.zh-CN.md`](specs/harness-delta-2026-11-18.zh-CN.md) | 单批增量说明（文本 harness 视角）：这一轮新增了什么、因此能做到什么、回复协议的设计意见 |
