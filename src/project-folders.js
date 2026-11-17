@@ -125,6 +125,11 @@ export function resolveProjectForTask({ settings, notePath = "", contextLines = 
     if (hit) return { name: hit.name, path: hit.path, source: "link" };
   }
 
+  // A task-level "Project -> …" prefix is more specific than the note's own
+  // path, so it outranks it (e.g. a task about wuxi inside Agent Deck.md).
+  const titleHit = matchEntry(entries, titlePrefix(blockText));
+  if (titleHit) return { name: titleHit.name, path: titleHit.path, source: "title" };
+
   const segments = String(notePath || "").replace(/\\/g, "/").split("/").filter(Boolean);
   if (segments.length) {
     segments[segments.length - 1] = segments[segments.length - 1].replace(/\.md$/i, "");
@@ -133,9 +138,7 @@ export function resolveProjectForTask({ settings, notePath = "", contextLines = 
       if (hit) return { name: hit.name, path: hit.path, source: "path" };
     }
   }
-
-  const hit = matchEntry(entries, titlePrefix(blockText));
-  return hit ? { name: hit.name, path: hit.path, source: "title" } : null;
+  return null;
 }
 
 /**

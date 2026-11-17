@@ -41,20 +41,25 @@ export class DelegateOptionsModal extends Modal {
     this.block = blockAt(lines, this.line);
     this.lines = lines;
     if (!this.block) { contentEl.createDiv({ text: t("光标要放在一个列表项里") }); return; }
+    const contextLines = ancestorLines(lines, this.block.start);
     this.projectHint = this.plugin.settings.autoProjectFolder === false ? null : resolveProjectForTask({
       settings: this.plugin.settings,
       notePath: this.path,
-      contextLines: ancestorLines(lines, this.block.start),
+      contextLines,
       blockText: this.block.text,
     });
-    if (this.projectHint && !this.cwd) this.cwd = this.projectHint.path;
-    this.projectSuggest = this.projectHint ? null : suggestProjectForTask({
+    this.projectSuggest = suggestProjectForTask({
       settings: this.plugin.settings,
       recent: this.plugin.projectFolderSuggestions?.(8) || [],
       notePath: this.path,
-      contextLines: ancestorLines(lines, this.block.start),
+      contextLines,
       blockText: this.block.text,
     });
+    // Note path says X, but the task itself names an unregistered recent Y:
+    // prefer the task-level signal and let the user confirm.
+    this.projectConflict = !!(this.projectHint && this.projectSuggest && !sameFolder(this.projectSuggest.path, this.projectHint.path));
+    if (this.projectConflict) this.cwd = this.projectSuggest.path;
+    else if (this.projectHint && !this.cwd) this.cwd = this.projectHint.path;
     try {
       const selected = mentionOptions(this.plugin, { block: this.block, agent: this.agent });
       this.agent = selected.agent;
@@ -242,7 +247,9 @@ export class DelegateOptionsModal extends Modal {
           effort: this.effort,
           permission: ["claude", "qoder"].includes(this.agent) ? this.permission : "",
           cwd: this.cwd.trim(),
-          projectName: (projectFolderEntries(p.settings).find((e) => sameFolder(e.path, this.cwd))?.name) || this.projectHint?.name || "",
+          projectName: (projectFolderEntries(p.settings).find((e) => sameFolder(e.path, this.cwd))?.name)
+            || (this.projectSuggest && sameFolder(this.projectSuggest.path, this.cwd) ? this.projectSuggest.name : "")
+            || (this.projectHint && sameFolder(this.projectHint.path, this.cwd) ? this.projectHint.name : ""),
           fromDialog: true,
           promptSuffix: this.suffix,
           name: blockTitle(this.block, mentionTrigger(p)),

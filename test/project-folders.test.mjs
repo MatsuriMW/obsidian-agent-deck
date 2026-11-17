@@ -65,6 +65,16 @@ try {
   assert.equal(byTitle?.name, 'Agent Deck');
   assert.equal(byTitle?.source, 'title');
 
+  // Task-level "Project -> …" beats the note's own path (Agent Deck.md case).
+  const conflict = resolveProjectForTask({
+    settings: { projectFolders: { 'agent-deck': dirA, 'wuxi-english-prep': dirB } },
+    notePath: 'Agent Deck.md',
+    contextLines: [],
+    blockText: '- wuxi-english-prep -> 测试文本',
+  });
+  assert.equal(conflict?.name, 'wuxi-english-prep');
+  assert.equal(conflict?.source, 'title');
+
   assert.equal(resolveProjectForTask({
     settings: { projectFolders: {} },
     notePath: '日记/x.md',

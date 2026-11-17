@@ -10,7 +10,7 @@ import { updateNote } from "./note-updates.js";
 import fs from "fs";
 import { saveBackgroundAnswer, clearBackgroundPending, backgroundRounds } from "./background-output.js";
 import { destinations } from "./workflow.js";
-import { folderExists, normalizeProjectFolder, rememberProjectFolder, resolveDispatchFolder, suggestProjectForTask } from "./project-folders.js";
+import { folderExists, normalizeProjectFolder, rememberProjectFolder, resolveDispatchFolder, sameFolder, suggestProjectForTask } from "./project-folders.js";
 import path from "path";
 import os from "os";
 import { spawn, execFile } from "child_process";
@@ -565,7 +565,7 @@ export class Delegator {
       contextLines: ancestorLines(resolved.lines, resolved.block.start),
       blockText: resolved.block.text,
     });
-    const { folder: cwd, projectName, auto: autoProject } = target;
+    let { folder: cwd, projectName, auto: autoProject } = target;
     if (target.explicit && projectName && folderExists(target.explicit)
       && normalizeProjectFolder(target.explicit) !== normalizeProjectFolder(this.vaultPath)
       && rememberProjectFolder(this.settings, projectName, target.explicit)) this.plugin.saveSettings?.();
@@ -574,7 +574,7 @@ export class Delegator {
     const journalToday = (() => { try { return journalPath(this.plugin.app, this.settings); } catch { return ""; } })();
     const noteDispatch = !!resolved.file?.path && resolved.file.path !== journalToday;
     let suggest = null;
-    if (!target.explicit && !target.auto && !opts.fromDialog) {
+    if (!opts.fromDialog) {
       const seen = (this._projectHinted ||= new Set());
       suggest = suggestProjectForTask({
         settings: this.settings,
@@ -585,6 +585,14 @@ export class Delegator {
       });
       if (suggest && seen.has(suggest.name)) suggest = null;
       else if (suggest) seen.add(suggest.name);
+    }
+    // The note path points at project X but the task itself names an
+    // unregistered recent project Y: do not silently run in X.
+    const conflict = !opts.fromDialog && autoProject && suggest && !sameFolder(suggest.path, cwd);
+    if (conflict) {
+      cwd = this.vaultPath;
+      projectName = "";
+      autoProject = null;
     }
     const job = this.buildJobBase({
       agent,
@@ -609,9 +617,12 @@ export class Delegator {
     const baseNotice = autoProject
       ? t("🛫 正在委派给 {agent}：{name}（项目 {project}）", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name, project: autoProject.name })
       : t("🛫 正在委派给 {agent}：{name}", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name });
-    this.plugin.notice(suggest
-      ? baseNotice + "\n" + t("这条笔记提到「{name}」，还没登记目录；在委派对话框里选一次即可记住。", { name: suggest.candidate || suggest.name })
-      : baseNotice, suggest ? 9000 : 4000);
+    const hintNotice = conflict
+      ? t("任务提到「{name}」，但笔记路径指向「{path}」；这次按库根派发，在委派对话框里选一次即可记住。", { name: suggest.candidate || suggest.name, path: target.auto?.name || "" })
+      : suggest
+        ? t("这条笔记提到「{name}」，还没登记目录；在委派对话框里选一次即可记住。", { name: suggest.candidate || suggest.name })
+        : "";
+    this.plugin.notice(hintNotice ? baseNotice + "\n" + hintNotice : baseNotice, hintNotice ? 9000 : 4000);
     const runner = createDelegationRunner(
       agent,
       this,

@@ -279,7 +279,8 @@ var main_default = {
   "\u6062\u590D\u81EA\u52A8\u8DDF\u968F": "Resume automatic status",
   "\u5DF2\u66F4\u65B0 {n} \u4E2A\u5757\u7684\u72B6\u6001": "Updated status for {n} blocks",
   "\u8BF7\u5148\u9009\u4E2D\u8981\u8C03\u6574\u72B6\u6001\u7684\u5217\u8868\u9879": "Select list items to update status first",
-  "\u8FD9\u6761\u7B14\u8BB0\u63D0\u5230\u300C{name}\u300D\uFF0C\u8FD8\u6CA1\u767B\u8BB0\u76EE\u5F55\uFF1B\u5728\u59D4\u6D3E\u5BF9\u8BDD\u6846\u91CC\u9009\u4E00\u6B21\u5373\u53EF\u8BB0\u4F4F\u3002": "This note mentions \u201C{name}\u201D but no folder is registered; pick one once in the delegate dialog to remember it."
+  "\u8FD9\u6761\u7B14\u8BB0\u63D0\u5230\u300C{name}\u300D\uFF0C\u8FD8\u6CA1\u767B\u8BB0\u76EE\u5F55\uFF1B\u5728\u59D4\u6D3E\u5BF9\u8BDD\u6846\u91CC\u9009\u4E00\u6B21\u5373\u53EF\u8BB0\u4F4F\u3002": "This note mentions \u201C{name}\u201D but no folder is registered; pick one once in the delegate dialog to remember it.",
+  "\u4EFB\u52A1\u63D0\u5230\u300C{name}\u300D\uFF0C\u4F46\u7B14\u8BB0\u8DEF\u5F84\u6307\u5411\u300C{path}\u300D\uFF1B\u8FD9\u6B21\u6309\u5E93\u6839\u6D3E\u53D1\uFF0C\u5728\u59D4\u6D3E\u5BF9\u8BDD\u6846\u91CC\u9009\u4E00\u6B21\u5373\u53EF\u8BB0\u4F4F\u3002": "The task mentions \u201C{name}\u201D but the note path points to \u201C{path}\u201D; this dispatch uses the vault root. Pick once in the delegate dialog to remember it."
 };
 
 // src/locales/en/view.js
@@ -1338,7 +1339,10 @@ var dialogs_default = {
   "\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 {agent}\uFF1A{name}\uFF08\u9879\u76EE {project}\uFF09": "\u{1F6EB} Delegating to {agent}: {name} (project {project})",
   "\u8FD9\u6761\u7B14\u8BB0\u63D0\u5230\u300C{name}\u300D\uFF0C\u4F46\u8FD8\u6CA1\u767B\u8BB0\u76EE\u5F55\uFF1B\u6700\u8FD1\u5728 {path} \u7528\u8FC7\u3002": "This note mentions \u201C{name}\u201D, but no folder is registered; it was last used at {path}.",
   "\u4F7F\u7528\u5E76\u8BB0\u4F4F": "Use and remember",
-  "\u9009\u62E9\u5176\u4ED6\u76EE\u5F55\u2026": "Choose another folder\u2026"
+  "\u9009\u62E9\u5176\u4ED6\u76EE\u5F55\u2026": "Choose another folder\u2026",
+  "\u7B14\u8BB0\u8DEF\u5F84\u6307\u5411\u300C{note}\u300D\uFF08{notePath}\uFF09\uFF0C\u4F46\u4EFB\u52A1\u63D0\u5230\u300C{name}\u300D\uFF08{path}\uFF09\u3002": "The note path points to \u201C{note}\u201D ({notePath}), but the task mentions \u201C{name}\u201D ({path}).",
+  "\u7528\u4EFB\u52A1\u7684\u9879\u76EE\u5E76\u8BB0\u4F4F": "Use the task's project and remember it",
+  "\u7EE7\u7EED\u7528\u7B14\u8BB0\u7684\u9879\u76EE": "Keep the note's project"
 };
 
 // src/locales/en/writers.js
@@ -9832,19 +9836,20 @@ function resolveProjectForTask({ settings, notePath: notePath2 = "", contextLine
   for (const ref of extractWikilinkRefs([...contextLines, String(blockText2 || "")])) {
     const target = String(ref.target || "").replace(/\\/g, "/");
     const base = target.split("/").pop().replace(/\.md$/i, "");
-    const hit2 = matchEntry(entries, base) || matchEntry(entries, target);
-    if (hit2) return { name: hit2.name, path: hit2.path, source: "link" };
+    const hit = matchEntry(entries, base) || matchEntry(entries, target);
+    if (hit) return { name: hit.name, path: hit.path, source: "link" };
   }
+  const titleHit = matchEntry(entries, titlePrefix(blockText2));
+  if (titleHit) return { name: titleHit.name, path: titleHit.path, source: "title" };
   const segments = String(notePath2 || "").replace(/\\/g, "/").split("/").filter(Boolean);
   if (segments.length) {
     segments[segments.length - 1] = segments[segments.length - 1].replace(/\.md$/i, "");
     for (const segment of [...segments].reverse()) {
-      const hit2 = matchEntry(entries, segment);
-      if (hit2) return { name: hit2.name, path: hit2.path, source: "path" };
+      const hit = matchEntry(entries, segment);
+      if (hit) return { name: hit.name, path: hit.path, source: "path" };
     }
   }
-  const hit = matchEntry(entries, titlePrefix(blockText2));
-  return hit ? { name: hit.name, path: hit.path, source: "title" } : null;
+  return null;
 }
 function resolveDispatchFolder({
   settings,
@@ -11320,7 +11325,7 @@ var AcpRunner = class extends BaseRunner {
         }
       }, 1200);
       this.child.once("close", () => clearTimeout(timer));
-      timer.unref();
+      if (typeof timer?.unref === "function") timer.unref();
     }
     this.d.refreshUI();
   }
@@ -11902,7 +11907,7 @@ ${body}`, 12e3);
       contextLines: ancestorLines(resolved.lines, resolved.block.start),
       blockText: resolved.block.text
     });
-    const { folder: cwd, projectName: projectName2, auto: autoProject } = target;
+    let { folder: cwd, projectName: projectName2, auto: autoProject } = target;
     if (target.explicit && projectName2 && folderExists(target.explicit) && normalizeProjectFolder(target.explicit) !== normalizeProjectFolder(this.vaultPath) && rememberProjectFolder(this.settings, projectName2, target.explicit)) this.plugin.saveSettings?.();
     const journalToday = (() => {
       try {
@@ -11913,7 +11918,7 @@ ${body}`, 12e3);
     })();
     const noteDispatch = !!resolved.file?.path && resolved.file.path !== journalToday;
     let suggest = null;
-    if (!target.explicit && !target.auto && !opts.fromDialog) {
+    if (!opts.fromDialog) {
       const seen = this._projectHinted || (this._projectHinted = /* @__PURE__ */ new Set());
       suggest = suggestProjectForTask({
         settings: this.settings,
@@ -11924,6 +11929,12 @@ ${body}`, 12e3);
       });
       if (suggest && seen.has(suggest.name)) suggest = null;
       else if (suggest) seen.add(suggest.name);
+    }
+    const conflict = !opts.fromDialog && autoProject && suggest && !sameFolder(suggest.path, cwd);
+    if (conflict) {
+      cwd = this.vaultPath;
+      projectName2 = "";
+      autoProject = null;
     }
     const job = this.buildJobBase({
       agent,
@@ -11946,7 +11957,8 @@ ${body}`, 12e3);
     this.plugin.saveJobs();
     this.plugin.refreshUI();
     const baseNotice = autoProject ? t("\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 {agent}\uFF1A{name}\uFF08\u9879\u76EE {project}\uFF09", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name, project: autoProject.name }) : t("\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 {agent}\uFF1A{name}", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name });
-    this.plugin.notice(suggest ? baseNotice + "\n" + t("\u8FD9\u6761\u7B14\u8BB0\u63D0\u5230\u300C{name}\u300D\uFF0C\u8FD8\u6CA1\u767B\u8BB0\u76EE\u5F55\uFF1B\u5728\u59D4\u6D3E\u5BF9\u8BDD\u6846\u91CC\u9009\u4E00\u6B21\u5373\u53EF\u8BB0\u4F4F\u3002", { name: suggest.candidate || suggest.name }) : baseNotice, suggest ? 9e3 : 4e3);
+    const hintNotice = conflict ? t("\u4EFB\u52A1\u63D0\u5230\u300C{name}\u300D\uFF0C\u4F46\u7B14\u8BB0\u8DEF\u5F84\u6307\u5411\u300C{path}\u300D\uFF1B\u8FD9\u6B21\u6309\u5E93\u6839\u6D3E\u53D1\uFF0C\u5728\u59D4\u6D3E\u5BF9\u8BDD\u6846\u91CC\u9009\u4E00\u6B21\u5373\u53EF\u8BB0\u4F4F\u3002", { name: suggest.candidate || suggest.name, path: target.auto?.name || "" }) : suggest ? t("\u8FD9\u6761\u7B14\u8BB0\u63D0\u5230\u300C{name}\u300D\uFF0C\u8FD8\u6CA1\u767B\u8BB0\u76EE\u5F55\uFF1B\u5728\u59D4\u6D3E\u5BF9\u8BDD\u6846\u91CC\u9009\u4E00\u6B21\u5373\u53EF\u8BB0\u4F4F\u3002", { name: suggest.candidate || suggest.name }) : "";
+    this.plugin.notice(hintNotice ? baseNotice + "\n" + hintNotice : baseNotice, hintNotice ? 9e3 : 4e3);
     const runner = createDelegationRunner(
       agent,
       this,
@@ -22827,20 +22839,23 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
       contentEl.createDiv({ text: t("\u5149\u6807\u8981\u653E\u5728\u4E00\u4E2A\u5217\u8868\u9879\u91CC") });
       return;
     }
+    const contextLines = ancestorLines(lines, this.block.start);
     this.projectHint = this.plugin.settings.autoProjectFolder === false ? null : resolveProjectForTask({
       settings: this.plugin.settings,
       notePath: this.path,
-      contextLines: ancestorLines(lines, this.block.start),
+      contextLines,
       blockText: this.block.text
     });
-    if (this.projectHint && !this.cwd) this.cwd = this.projectHint.path;
-    this.projectSuggest = this.projectHint ? null : suggestProjectForTask({
+    this.projectSuggest = suggestProjectForTask({
       settings: this.plugin.settings,
       recent: this.plugin.projectFolderSuggestions?.(8) || [],
       notePath: this.path,
-      contextLines: ancestorLines(lines, this.block.start),
+      contextLines,
       blockText: this.block.text
     });
+    this.projectConflict = !!(this.projectHint && this.projectSuggest && !sameFolder(this.projectSuggest.path, this.projectHint.path));
+    if (this.projectConflict) this.cwd = this.projectSuggest.path;
+    else if (this.projectHint && !this.cwd) this.cwd = this.projectHint.path;
     try {
       const selected = mentionOptions(this.plugin, { block: this.block, agent: this.agent });
       this.agent = selected.agent;
@@ -23048,7 +23063,7 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
           effort: this.effort,
           permission: ["claude", "qoder"].includes(this.agent) ? this.permission : "",
           cwd: this.cwd.trim(),
-          projectName: projectFolderEntries(p2.settings).find((e) => sameFolder(e.path, this.cwd))?.name || this.projectHint?.name || "",
+          projectName: projectFolderEntries(p2.settings).find((e) => sameFolder(e.path, this.cwd))?.name || (this.projectSuggest && sameFolder(this.projectSuggest.path, this.cwd) ? this.projectSuggest.name : "") || (this.projectHint && sameFolder(this.projectHint.path, this.cwd) ? this.projectHint.name : ""),
           fromDialog: true,
           promptSuffix: this.suffix,
           name: blockTitle(this.block, mentionTrigger(p2))

@@ -760,7 +760,7 @@ export class AcpRunner extends BaseRunner {
       this.child.stdin.end();
       const timer = setTimeout(() => { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }, 1200);
       this.child.once("close", () => clearTimeout(timer));
-      timer.unref();
+      if (typeof timer?.unref === "function") timer.unref();
     }
     this.d.refreshUI();
   }

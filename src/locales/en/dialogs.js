@@ -279,4 +279,7 @@ export default {
   "这条笔记提到「{name}」，但还没登记目录；最近在 {path} 用过。": "This note mentions “{name}”, but no folder is registered; it was last used at {path}.",
   "使用并记住": "Use and remember",
   "选择其他目录…": "Choose another folder…",
+  "笔记路径指向「{note}」（{notePath}），但任务提到「{name}」（{path}）。": "The note path points to “{note}” ({notePath}), but the task mentions “{name}” ({path}).",
+  "用任务的项目并记住": "Use the task's project and remember it",
+  "继续用笔记的项目": "Keep the note's project",
 };

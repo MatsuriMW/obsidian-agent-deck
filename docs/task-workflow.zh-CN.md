@@ -40,6 +40,8 @@
 - **拖拽不打断**：`Delegator.delegate()` 只在没有显式目录、也没有已登记项目时查一次建议；命中就在派发通知后面追加一行「这条笔记提到 X，还没登记目录」，同一个项目每次进程只提示一次（`_projectHinted`），不弹窗、不自动登记。对话框里已显示建议时不再重复提示（`opts.fromDialog`）。
 - **非日记笔记的日记归属**：从非当天日记派发时 job 记 `noteDispatch`，`Delegator.onSession` 把会话号写入 `settings.noteDispatchSessions`（180 天懒清理、封顶 2000）；`AutoLog.processDay` 默认跳过这些会话，`settings.noteDispatchJournal`（默认关，设置 → 委派 → 项目文件夹）打开后恢复写当天日记。结论仍由 `writeResult` 写回原笔记。
 - **回写噪音**：`src/sync.js` 的 `ensureTopRule` 改为 `safeTopRule`，非日记笔记或分区标记坏掉时跳过顶部分割线处理，不再让整轮 sync 抛「会话回写日记失败」。
+- **进错项目的修正**：任务级信号（块内 `[[双链]]` / `项目 -> 标题` 前缀）现在优先于笔记路径，`Agent Deck.md` 里写 wuxi 的任务不会再被文件名带去 agent-deck；笔记路径与任务提到的未登记项目冲突时，对话框以任务项目为预选并给「继续用笔记的项目」，拖拽派发先落库根并提示，不静默使用路径项目。
+- **取消不再崩**：`AcpRunner.close()` 的 `timer.unref()` 加类型判断，Obsidian 里取消 DSH 等 ACP 任务不再抛 `timer.unref is not a function`；`delegation-runners.js` 已实机取消一条 DSH 任务验证状态变 `cancelled`。
 - 测试：`test/project-folders.test.mjs` 覆盖候选名、最近项目、建议命中/已登记不提示/无信号不提示；`test/project-dispatch.test.mjs` 断言非日记派发的会话被标进 `noteDispatchSessions`。
 - 未验证：对话框建议行的视觉、拖拽通知时长、Obsidian 非日记笔记里的实际日记跳过效果、Windows。
 
