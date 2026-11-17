@@ -2,7 +2,8 @@ import { readConversation } from "./conversation.js";
 import { createHash } from "crypto";
 import { cardPathOf, skillRefIn } from "./skill-cards.js";
 import { updateNote } from "./note-updates.js";
-import { parseThread, replyPromptText, lastQuestionLine, appendQuestionText } from "./thread-replies.js";
+import { parseThread, replyPromptText, lastQuestionLine, appendQuestionText, makeQuestionId } from "./thread-replies.js";
+import { inboxAdd } from "./reply-inbox.js";
 // Agent Deck — delegate a note block to Claude Code or DeepSeek Harness.
 //
 // Claude Code: `claude --bg` (fallback: `claude -p --session-id`), then the
@@ -1184,7 +1185,18 @@ export class Delegator {
     }
     if (wrote) {
       this.saveJobs();
-      this.plugin.notice(t("Agent 在等你回答（已写进笔记 ❓）：{text}", { text: truncate(question, 50) }), 9000);
+      // 登记进回复信箱：用户不用回原文找那一行。
+      const blockId = job.blockId || "";
+      const questionId = makeQuestionId(`${job.path}|${blockId}|${question}`);
+      const inbox = this.plugin.settings.replyInbox || [];
+      this.plugin.settings.replyInbox = inboxAdd(inbox, {
+        path: job.path, blockId, questionId, question,
+        agent: job.agent || "", sid: job.sessionId || "", title: job.name || "",
+      });
+      await this.plugin.saveSettings();
+      this.plugin.openReplyInbox?.({ focus: false }).catch?.(() => {});
+      this.plugin.refreshReplyInbox?.();
+      this.plugin.notice(t("Agent 在等你回答：{text}（侧栏「回复信箱」里回也行）", { text: truncate(question, 46) }), 9000);
     }
     return wrote;
   }

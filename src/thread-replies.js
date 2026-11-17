@@ -201,7 +201,8 @@ export function lastQuestionLine(text = "") {
     // 按句切：问题常常夹在一句解释中间（"用 npm 还是 pnpm？请告诉我，我先停在这"）。
     const sentences = clean(line).split(/(?<=[。！？!?])/).map((x) => x.trim()).filter(Boolean);
     for (const sentence of sentences.reverse()) {
-      if (sentence.length < 6 || sentence.length > 280) continue;
+      // 下限 4：中文短问句（"你选哪个？""要不要跑？"）也得算，太长的不当提问。
+      if (sentence.length < 4 || sentence.length > 280) continue;
       if (!/[？?]$/.test(sentence)) continue;
       return sentence;
     }

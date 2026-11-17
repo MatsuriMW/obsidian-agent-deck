@@ -366,7 +366,19 @@ var main_default = {
   "\u8FD9\u4E00\u5757\u7684\u95EE\u7B54\u90FD\u6709\u5757\u53F7\u4E86": "This block's Q&A already has block ids",
   "\u5DF2\u590D\u5236\u5757\u5F15\u7528\uFF1A{link}": "Block ref copied: {link}",
   "\u8FD9\u4E00\u95EE\u8FD8\u7B49\u4F60\u56DE\u7B54\uFF1A\u7B2C{round}\u8F6E\uFF1A{text}": "Still waiting for your answer \u2014 round {round}: {text}",
-  "Agent \u5728\u7B49\u4F60\u56DE\u7B54\uFF08\u5DF2\u5199\u8FDB\u7B14\u8BB0 \u2753\uFF09\uFF1A{text}": "The agent is waiting for your answer (written into the note as \u2753): {text}",
+  "Agent \u5728\u7B49\u4F60\u56DE\u7B54\uFF1A{text}\uFF08\u4FA7\u680F\u300C\u56DE\u590D\u4FE1\u7BB1\u300D\u91CC\u56DE\u4E5F\u884C\uFF09": "The agent is waiting for your answer: {text} (you can also reply in the Reply Inbox in the sidebar)",
+  "\u56DE\u590D\u4FE1\u7BB1": "Reply Inbox",
+  "{n} \u6761\u5728\u7B49\u4F60": "{n} waiting for you",
+  "\u6682\u65F6\u6CA1\u6709\u8981\u56DE\u7B54\u7684": "Nothing waiting for an answer",
+  "\u6838\u5BF9\u4E00\u904D": "Check again",
+  "Agent \u63D0\u95EE\u65F6\u4F1A\u81EA\u52A8\u51FA\u73B0\u5728\u8FD9\u91CC\uFF0C\u4E0D\u7528\u56DE\u539F\u6587\u627E\u3002": "Questions from agents land here automatically; no need to go back to the note.",
+  "\u539F\u6587": "Source",
+  "\u5199\u4E0B\u4F60\u7684\u56DE\u7B54\u2026\uFF08\u4E0D\u7740\u6025\uFF0C\u5199\u522B\u7684\u4E5F\u884C\uFF09": "Write your answer\u2026 (no rush, feel free to do something else)",
+  "\u56DE\u7B54\u5E76\u7EE7\u7EED": "Answer and continue",
+  "\u5148\u8BB0\u4E0B\u56DE\u7B54": "Save answer only",
+  "\u6253\u5F00\u56DE\u590D\u4FE1\u7BB1\uFF08\u975E\u6A21\u6001\uFF0C\u4E0D\u62A2\u7126\u70B9\uFF09": "Open Reply Inbox (non-modal, does not steal focus)",
+  "\u8FD9\u7BC7\u7B14\u8BB0\u4E0D\u5728\u4E86": "That note is gone",
+  "\u627E\u4E0D\u5230\u8FD9\u4E00\u6761\u4EFB\u52A1\u4E86\uFF08\u53EF\u80FD\u5DF2\u7ECF\u7B54\u8FC7\u6216\u5220\u4E86\uFF09": "That task can no longer be found (already answered or deleted)",
   "\u4F60\u5DF2\u7ECF\u56DE\u7B54\u8FC7\u7684\uFF08\u8D8A\u5F80\u540E\u8D8A\u65B0\uFF09\uFF1A": "Answers you already gave (newest last):",
   "- \u7B2C{round}\u8F6E\uFF1A\u95EE\u300C{question}\u300D\u2192 \u7B54\u300C{answer}\u300D": "- round {round}: asked \u201C{question}\u201D \u2192 answered \u201C{answer}\u201D",
   "\u4EFB\u52A1\u91CC\u7684\u95EE\u7B54\u8BB0\u5F55\uFF08\u6309\u539F\u6587\u4E3A\u51C6\uFF0C\u4E0D\u8981\u91CD\u590D\u8FFD\u95EE\uFF09\uFF1A": "Q&A already in this task (the note wins; do not ask these again):",
@@ -2321,6 +2333,8 @@ var DEFAULTS = {
   // 非日记笔记里的派发也写当天日记；默认只写回原笔记
   stewardWatch: false,
   // 管家中途干预：波次里有会话长时间没输出就提醒一次；默认关
+  replyInbox: [],
+  // 回复信箱：还没回答的 ❓（渲染前会回笔记核对一遍）
   noteDispatchSessions: {},
   // 会话号 → 从非日记笔记派发的时间；默认 autoLog 跳过这些会话
   keywordStyle: true,
@@ -5441,7 +5455,7 @@ function workspaceLabel(cwd) {
 var import_path14 = __toESM(require("path"), 1);
 var import_os14 = __toESM(require("os"), 1);
 var import_child_process11 = require("child_process");
-var import_obsidian19 = require("obsidian");
+var import_obsidian20 = require("obsidian");
 
 // src/readers.js
 var import_fs5 = __toESM(require("fs"), 1);
@@ -10139,7 +10153,7 @@ function lastQuestionLine(text = "") {
   for (const line of lines.slice(-3).reverse()) {
     const sentences2 = clean(line).split(/(?<=[。！？!?])/).map((x) => x.trim()).filter(Boolean);
     for (const sentence of sentences2.reverse()) {
-      if (sentence.length < 6 || sentence.length > 280) continue;
+      if (sentence.length < 4 || sentence.length > 280) continue;
       if (!/[？?]$/.test(sentence)) continue;
       return sentence;
     }
@@ -10181,6 +10195,41 @@ function suggestOptions(question = "") {
   const yesNo = /^(?:是|好|可以|同意|确认)\s*[，,]?\s*(?:否|不|不同意|取消)?$/.exec(text);
   if (!out.length && yesNo) out.push(t("\u662F"), t("\u5426"));
   return out.slice(0, 4);
+}
+
+// src/reply-inbox.js
+var inboxKey = (item = {}) => `${item.path || ""}#${item.questionId || item.question || ""}`;
+function inboxAdd(list = [], item = {}) {
+  if (!item?.path || !item?.question) return list || [];
+  const key = inboxKey(item);
+  const rest = (list || []).filter((x) => inboxKey(x) !== key);
+  return [{ ...item, at: Number(item.at) || Date.now() }, ...rest];
+}
+var inboxRemove = (list = [], item = {}) => (list || []).filter((x) => inboxKey(x) !== inboxKey(item));
+var inboxSorted = (list = []) => [...list || []].sort((a, b) => (Number(b.at) || 0) - (Number(a.at) || 0));
+var widthOf2 = (line) => (/^[ \t]*/.exec(line) || [""])[0].replace(/\t/g, "    ").length;
+function blockRange(lines, blockId) {
+  const start = blockId ? lines.findIndex((l) => blockIdOf(l) === blockId) : -1;
+  if (start < 0) return null;
+  const base = widthOf2(lines[start]);
+  let end = lines.length - 1;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (widthOf2(lines[i]) <= base && /^\s*[-*+]\s+/.test(lines[i])) {
+      end = i - 1;
+      break;
+    }
+  }
+  return { start, end };
+}
+function stillPending(noteText = "", item = {}) {
+  const lines = String(noteText || "").split("\n");
+  let range = item.blockId ? blockRange(lines, item.blockId) : null;
+  if (!range) range = { start: 0, end: lines.length - 1 };
+  const open = pendingQuestion(parseThread(lines, range));
+  if (!open) return false;
+  if (item.questionId && open.id) return open.id === item.questionId;
+  return open.text === String(item.question || "").trim();
 }
 
 // src/delegation.js
@@ -13091,7 +13140,23 @@ ${source}`;
     }
     if (wrote) {
       this.saveJobs();
-      this.plugin.notice(t("Agent \u5728\u7B49\u4F60\u56DE\u7B54\uFF08\u5DF2\u5199\u8FDB\u7B14\u8BB0 \u2753\uFF09\uFF1A{text}", { text: truncate(question, 50) }), 9e3);
+      const blockId = job.blockId || "";
+      const questionId = makeQuestionId(`${job.path}|${blockId}|${question}`);
+      const inbox = this.plugin.settings.replyInbox || [];
+      this.plugin.settings.replyInbox = inboxAdd(inbox, {
+        path: job.path,
+        blockId,
+        questionId,
+        question,
+        agent: job.agent || "",
+        sid: job.sessionId || "",
+        title: job.name || ""
+      });
+      await this.plugin.saveSettings();
+      this.plugin.openReplyInbox?.({ focus: false }).catch?.(() => {
+      });
+      this.plugin.refreshReplyInbox?.();
+      this.plugin.notice(t("Agent \u5728\u7B49\u4F60\u56DE\u7B54\uFF1A{text}\uFF08\u4FA7\u680F\u300C\u56DE\u590D\u4FE1\u7BB1\u300D\u91CC\u56DE\u4E5F\u884C\uFF09", { text: truncate(question, 46) }), 9e3);
     }
     return wrote;
   }
@@ -30389,9 +30454,141 @@ var ReplyModal = class extends import_obsidian17.Modal {
   }
 };
 
-// src/workbench-modal.js
+// src/reply-inbox-view.js
 var import_obsidian18 = require("obsidian");
-var ProjectWorkbenchModal = class extends import_obsidian18.Modal {
+var REPLY_INBOX_TYPE = "agent-deck-reply-inbox";
+var shortPath = (path13 = "") => String(path13).replace(/\.md$/, "");
+var ReplyInboxView = class extends import_obsidian18.ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.plugin = plugin;
+    this.drafts = /* @__PURE__ */ new Map();
+    this.signature = "";
+    this.verifying = false;
+  }
+  getViewType() {
+    return REPLY_INBOX_TYPE;
+  }
+  getDisplayText() {
+    return t("\u56DE\u590D\u4FE1\u7BB1");
+  }
+  getIcon() {
+    return "message-square-dot";
+  }
+  async onOpen() {
+    await this.render();
+  }
+  // 只在"条目集合"变了才重建 DOM：用户正在输入时不能被刷新打断，更不能抢焦点。
+  async render({ force = false } = {}) {
+    const items = inboxSorted(this.plugin.settings.replyInbox || []);
+    const sig = JSON.stringify(items.map((x) => [x.path, x.questionId || x.question, x.question, x.sid || ""]));
+    if (!force && sig === this.signature) {
+      this.paintCount(items.length);
+      return;
+    }
+    this.signature = sig;
+    const root = this.contentEl;
+    const focused = document.activeElement;
+    root.empty();
+    root.addClass("ad-inbox");
+    this.paintCount(items.length);
+    const head = root.createDiv({ cls: "ad-inbox__head" });
+    head.createSpan({ cls: "ad-inbox__title", text: t("\u56DE\u590D\u4FE1\u7BB1") });
+    head.createSpan({ cls: "ad-inbox__hint", text: items.length ? t("{n} \u6761\u5728\u7B49\u4F60", { n: String(items.length) }) : t("\u6682\u65F6\u6CA1\u6709\u8981\u56DE\u7B54\u7684") });
+    const scan = head.createEl("button", { cls: "ad-chip", text: t("\u6838\u5BF9\u4E00\u904D") });
+    scan.setAttribute("type", "button");
+    scan.onclick = () => this.verify();
+    if (!items.length) {
+      root.createDiv({ cls: "ad-inbox__empty", text: t("Agent \u63D0\u95EE\u65F6\u4F1A\u81EA\u52A8\u51FA\u73B0\u5728\u8FD9\u91CC\uFF0C\u4E0D\u7528\u56DE\u539F\u6587\u627E\u3002") });
+      return;
+    }
+    const list = root.createDiv({ cls: "ad-inbox__list" });
+    for (const item of items) this.row(list, item);
+    if (focused && root.contains(focused)) focused.focus?.();
+  }
+  row(parent, item) {
+    const key = `${item.path}#${item.questionId || item.question}`;
+    const card = parent.createDiv({ cls: "ad-inbox__card" });
+    const top = card.createDiv({ cls: "ad-inbox__top" });
+    const agent = AGENTS[item.agent]?.name || item.agent || "";
+    top.createSpan({ cls: "ad-inbox__meta", text: [agent, item.title || shortPath(item.path)].filter(Boolean).join(" \xB7 ") });
+    const open = top.createEl("button", { cls: "ad-inbox__link", text: t("\u539F\u6587") });
+    open.setAttribute("type", "button");
+    open.onclick = () => this.plugin.openReplySource(item);
+    card.createDiv({ cls: "ad-inbox__question", text: item.question });
+    const options = suggestOptions(item.question);
+    if (options.length) {
+      const chips = card.createDiv({ cls: "ad-inbox__chips" });
+      for (const option of options) {
+        const chip = chips.createEl("button", { cls: "ad-chip", text: option });
+        chip.setAttribute("type", "button");
+        chip.onclick = () => {
+          input.value = option;
+          input.focus();
+          this.drafts.set(key, option);
+        };
+      }
+    }
+    const input = card.createEl("textarea", { cls: "ad-inbox__input", attr: { rows: "2", placeholder: t("\u5199\u4E0B\u4F60\u7684\u56DE\u7B54\u2026\uFF08\u4E0D\u7740\u6025\uFF0C\u5199\u522B\u7684\u4E5F\u884C\uFF09") } });
+    input.value = this.drafts.get(key) || "";
+    input.addEventListener("input", () => this.drafts.set(key, input.value));
+    const actions = card.createDiv({ cls: "ad-inbox__actions" });
+    const send = actions.createEl("button", { cls: "mod-cta", text: t("\u56DE\u7B54\u5E76\u7EE7\u7EED") });
+    send.setAttribute("type", "button");
+    send.onclick = async () => {
+      const value = input.value.trim();
+      if (!value) return input.focus();
+      send.disabled = true;
+      await this.plugin.submitInboxReply(item, value, { continueSession: true });
+      this.drafts.delete(key);
+    };
+    const keep = actions.createEl("button", { text: t("\u5148\u8BB0\u4E0B\u56DE\u7B54") });
+    keep.setAttribute("type", "button");
+    keep.onclick = async () => {
+      const value = input.value.trim();
+      if (!value) return input.focus();
+      keep.disabled = true;
+      await this.plugin.submitInboxReply(item, value, { continueSession: false });
+      this.drafts.delete(key);
+    };
+  }
+  paintCount(n) {
+    try {
+      this.leaf?.setViewData?.("", true);
+    } catch {
+    }
+    this.containerEl?.setAttribute?.("data-count", String(n));
+  }
+  // 核对一遍：笔记里已经答过 / 删掉的条目从信箱里清掉。不抢焦点，也不碰正在输入的草稿。
+  async verify() {
+    if (this.verifying) return;
+    this.verifying = true;
+    try {
+      const items = this.plugin.settings.replyInbox || [];
+      const alive = [];
+      for (const item of items) {
+        let text = "";
+        try {
+          text = await this.plugin.readNote(item.path);
+        } catch {
+          text = "";
+        }
+        if (text && stillPending(text, item)) alive.push(item);
+      }
+      if (alive.length !== items.length) {
+        this.plugin.settings.replyInbox = alive;
+        await this.plugin.saveSettings();
+      }
+      await this.render({ force: true });
+    } finally {
+      this.verifying = false;
+    }
+  }
+};
+
+// src/workbench-modal.js
+var import_obsidian19 = require("obsidian");
+var ProjectWorkbenchModal = class extends import_obsidian19.Modal {
   constructor(app, plugin, opts = {}) {
     super(app);
     this.plugin = plugin;
@@ -30521,7 +30718,7 @@ var ProjectWorkbenchModal = class extends import_obsidian18.Modal {
   }
   async runCopilotPlan() {
     if (!this.goal.trim()) {
-      new import_obsidian18.Notice(t("\u8BF7\u5148\u8F93\u5165\u9879\u76EE\u76EE\u6807\u6216\u9700\u6C42\u63CF\u8FF0"));
+      new import_obsidian19.Notice(t("\u8BF7\u5148\u8F93\u5165\u9879\u76EE\u76EE\u6807\u6216\u9700\u6C42\u63CF\u8FF0"));
       return;
     }
     this.planning = true;
@@ -30550,11 +30747,11 @@ var ProjectWorkbenchModal = class extends import_obsidian18.Modal {
         }));
       } else {
         this.applyFallbackPlan();
-        new import_obsidian18.Notice(t("\u6A21\u578B\u8FD4\u56DE\u672A\u6309\u7ED3\u6784\u5316\u683C\u5F0F\u8F93\u51FA\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848"));
+        new import_obsidian19.Notice(t("\u6A21\u578B\u8FD4\u56DE\u672A\u6309\u7ED3\u6784\u5316\u683C\u5F0F\u8F93\u51FA\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848"));
       }
     } catch (e) {
       this.applyFallbackPlan();
-      new import_obsidian18.Notice(t("\u672A\u8FDE\u4E0A\u6574\u7406\u6A21\u578B\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848\uFF1A{msg}", { msg: e.message || e }), 5e3);
+      new import_obsidian19.Notice(t("\u672A\u8FDE\u4E0A\u6574\u7406\u6A21\u578B\uFF0C\u5DF2\u6309\u5C0F\u961F\u89D2\u8272\u751F\u6210\u53EF\u7F16\u8F91\u8349\u6848\uFF1A{msg}", { msg: e.message || e }), 5e3);
     } finally {
       this.planning = false;
       this.render();
@@ -30563,7 +30760,7 @@ var ProjectWorkbenchModal = class extends import_obsidian18.Modal {
   async commitTasks({ dispatch = false } = {}) {
     const active2 = this.subtasks.filter((s) => s.checked !== false && String(s.title || "").trim());
     if (!active2.length) {
-      new import_obsidian18.Notice(t("\u8BF7\u81F3\u5C11\u4FDD\u7559\u4E00\u6761\u8981\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
+      new import_obsidian19.Notice(t("\u8BF7\u81F3\u5C11\u4FDD\u7559\u4E00\u6761\u8981\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
       return;
     }
     this.dispatching = true;
@@ -30596,13 +30793,13 @@ var ProjectWorkbenchModal = class extends import_obsidian18.Modal {
           } : { enabled: false }
         });
       } else {
-        new import_obsidian18.Notice(t("\u5DF2\u5C06 {n} \u6761\u534F\u4F5C\u5B50\u4EFB\u52A1\u5199\u5165\u7B14\u8BB0", { n: active2.length }));
+        new import_obsidian19.Notice(t("\u5DF2\u5C06 {n} \u6761\u534F\u4F5C\u5B50\u4EFB\u52A1\u5199\u5165\u7B14\u8BB0", { n: active2.length }));
       }
       this.close();
     } catch (e) {
       this.dispatching = false;
       this.render();
-      new import_obsidian18.Notice(String(e.message || e), 6e3);
+      new import_obsidian19.Notice(String(e.message || e), 6e3);
     }
   }
   render() {
@@ -31119,7 +31316,7 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
 // src/main.js
 var fsp8 = import_fs14.default.promises;
 var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
-var AgentDeckPlugin = class extends import_obsidian19.Plugin {
+var AgentDeckPlugin = class extends import_obsidian20.Plugin {
   async onload() {
     const data = await this.loadData();
     this.settings = syncDelegationSettings(deepMerge(DEFAULTS, data || {}), data || {});
@@ -31160,7 +31357,7 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     this.store = new UsageStore(this, this.settings);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
     this.usageCacheFile = import_path14.default.join(import_os14.default.homedir(), ".agent-deck", "usage-cache.json.gz");
-    this.editorInfoField = import_obsidian19.editorInfoField;
+    this.editorInfoField = import_obsidian20.editorInfoField;
     this._launchingWaves = /* @__PURE__ */ new Set();
     this._finalizingWaves = /* @__PURE__ */ new Set();
     this.delegator = new Delegator(this);
@@ -31185,7 +31382,9 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     this.journalOrganizer = new JournalOrganizer(this);
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.registerView(MEMORY_BOARD_TYPE, (leaf) => new MemoryBoardView(leaf, this));
+    this.registerView(REPLY_INBOX_TYPE, (leaf) => new ReplyInboxView(leaf, this));
     this.addRibbonIcon("table", t("\u8BB0\u5FC6\u8868\u683C"), () => this.openMemoryBase());
+    this.addRibbonIcon("message-square-dot", t("\u56DE\u590D\u4FE1\u7BB1"), () => this.openReplyInbox({ focus: true }));
     this.registerView(DASHBOARD_TYPE, (leaf) => new DashboardView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
@@ -31214,7 +31413,7 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
       }));
     }
     this.registerMarkdownPostProcessor((el, ctx) => {
-      const child = new import_obsidian19.MarkdownRenderChild(el);
+      const child = new import_obsidian20.MarkdownRenderChild(el);
       child.onunload = renderAIRecords(el, this, ctx);
       ctx.addChild(child);
     });
@@ -31225,7 +31424,7 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
       id: "open-project-workbench",
       name: t("\u6253\u5F00\u9879\u76EE\u534F\u4F5C\u5DE5\u4F5C\u53F0\uFF1A\u5C0F\u961F\u7F16\u6392\u4E0E\u62C6\u89E3\u6D3E\u53D1"),
       callback: () => {
-        const view = this.app.workspace.getActiveViewOfType(import_obsidian19.MarkdownView);
+        const view = this.app.workspace.getActiveViewOfType(import_obsidian20.MarkdownView);
         const line = view?.file ? view.editor.getCursor().line : -1;
         this.openProjectWorkbench(view?.file && line >= 0 && blockAt(view.editor.getValue().split("\n"), line) ? { path: view.file.path, line } : {});
       }
@@ -31290,6 +31489,7 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
       if (view?.file) this.replyToQuestion(view.file.path, editor);
     } });
     this.addCommand({ id: "reply-question-line", name: t("\u5728\u63D0\u95EE\u4E0B\u8865\u4E00\u884C\u300C\u270D\uFE0F \u7B54\u300D\uFF08\u76F4\u63A5\u624B\u5199\uFF09"), editorCallback: (editor) => this.insertReplySlot(editor) });
+    this.addCommand({ id: "reply-inbox-open", name: t("\u6253\u5F00\u56DE\u590D\u4FE1\u7BB1\uFF08\u975E\u6A21\u6001\uFF0C\u4E0D\u62A2\u7126\u70B9\uFF09"), callback: () => this.openReplyInbox({ focus: true }) });
     this.addCommand({ id: "reply-anchor-thread", name: t("\u7ED9\u8FD9\u4E00\u5757\u7684\u95EE\u7B54\u8865\u5757\u53F7\uFF08\u8001\u6570\u636E\uFF0C\u53EF\u88AB\u53CC\u94FE\u5F15\u7528\uFF09"), editorCallback: (editor, view) => {
       if (view?.file) this.anchorThread(view.file.path, editor);
     } });
@@ -31663,7 +31863,7 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     if (!this.dreaming.storeMode) return this.notice(t("\u8BF7\u5148\u8FD0\u884C\u300C\u8BB0\u5FC6\uFF1A\u628A\u957F\u671F\u8BB0\u5FC6\u8FC1\u79FB\u5230\u8BB0\u5FC6\u5E93\u300D"));
     const entries = await this.dreaming.loadEntries();
     if (!entries.length) return this.notice(t("\u8BB0\u5FC6\u5E93\u91CC\u8FD8\u6CA1\u6709\u6761\u76EE"));
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian19.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian20.MarkdownView);
     const active2 = view?.file || this.app.workspace.getActiveFile();
     const line = view?.editor ? view.editor.getLine(view.editor.getCursor().line) : "";
     const sorted = entries.sort((a, b) => (a.state === "\u6709\u6548" ? 0 : 1) - (b.state === "\u6709\u6548" ? 0 : 1));
@@ -31994,7 +32194,7 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
         this._cursorPromptNotice?.hide();
         this._cursorPromptNotice = null;
       };
-      this._cursorPromptNotice = new import_obsidian19.Notice(fragment, 0);
+      this._cursorPromptNotice = new import_obsidian20.Notice(fragment, 0);
       return true;
     } finally {
       this._promptingCursorHooks = false;
@@ -32058,8 +32258,8 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
       this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
       if (!scoped) this.maybePromptCursorHooks?.().catch(() => {
       });
-      if (force) new import_obsidian19.Notice(t("Agent Deck\uFF1A\u8BFB\u5230 {files} \u4E2A\u65E5\u5FD7\uFF0C{days} \u5929\u6709\u5185\u5BB9", { files: this.usage.files.size, days: touched.size }), 4e3);
-      if (agent && days) new import_obsidian19.Notice(t("{name}\uFF1A\u6700\u8FD1 {days} \u5929\u7684\u4F1A\u8BDD\u5DF2\u626B\u63CF", { name: AGENTS[agent].name, days }), 4e3);
+      if (force) new import_obsidian20.Notice(t("Agent Deck\uFF1A\u8BFB\u5230 {files} \u4E2A\u65E5\u5FD7\uFF0C{days} \u5929\u6709\u5185\u5BB9", { files: this.usage.files.size, days: touched.size }), 4e3);
+      if (agent && days) new import_obsidian20.Notice(t("{name}\uFF1A\u6700\u8FD1 {days} \u5929\u7684\u4F1A\u8BDD\u5DF2\u626B\u63CF", { name: AGENTS[agent].name, days }), 4e3);
     } catch (e) {
       console.error("[agent-deck] scan", e);
       this.notice(t("\u626B\u63CF\u4F1A\u8BDD\u5931\u8D25\uFF1A{error}", { error: e && e.message || e }), 8e3);
@@ -32075,7 +32275,7 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     this.usage.titles.clear();
     await this.store.save();
     await this.scanNow(true);
-    new import_obsidian19.Notice(t("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97"));
+    new import_obsidian20.Notice(t("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97"));
   }
   async importNautilus(manual = false) {
     const dir = import_path14.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
@@ -32083,14 +32283,14 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     try {
       raw = await fsp8.readFile(import_path14.default.join(dir, "ai-usage.json"), "utf8");
     } catch {
-      if (manual) new import_obsidian19.Notice(t("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json"));
+      if (manual) new import_obsidian20.Notice(t("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json"));
       return;
     }
     let src;
     try {
       src = JSON.parse(raw);
     } catch {
-      if (manual) new import_obsidian19.Notice(t("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25"));
+      if (manual) new import_obsidian20.Notice(t("\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25"));
       return;
     }
     const days = src.days || {};
@@ -32108,7 +32308,7 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     }
     this.store.imported = { ...this.store.imported || {}, nautilus: Date.now() };
     await this.store.save();
-    if (manual || added) new import_obsidian19.Notice(t("Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 {days} \u5929\u5386\u53F2", { days: added }));
+    if (manual || added) new import_obsidian20.Notice(t("Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 {days} \u5929\u5386\u53F2", { days: added }));
     this.refreshUI();
   }
   recoverJobs() {
@@ -32228,12 +32428,12 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
-    new import_obsidian19.Notice(t("Agent Deck \u4E3B\u529B\uFF1A{agents}", { agents: this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ") }));
+    new import_obsidian20.Notice(t("Agent Deck \u4E3B\u529B\uFF1A{agents}", { agents: this.settings.primaryAgents.map((x) => AGENTS[x].short).join(" + ") }));
   }
   async setAgentEnabled(agent, on) {
     var _a, _b, _c;
     if (this.isPrimary(agent) && !on) {
-      new import_obsidian19.Notice(t("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389"));
+      new import_obsidian20.Notice(t("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389"));
       return;
     }
     ((_a = this.settings).agents || (_a.agents = {}))[agent] = !!on;
@@ -32591,7 +32791,7 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     let found = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!found && v instanceof import_obsidian19.MarkdownView && v.file && v.file.path === path13 && v.editor) found = v;
+      if (!found && v instanceof import_obsidian20.MarkdownView && v.file && v.file.path === path13 && v.editor) found = v;
     });
     return found;
   }
@@ -32604,7 +32804,7 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     let view = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!view && v instanceof import_obsidian19.MarkdownView && v.editor && v.editor.cm === cm) view = v;
+      if (!view && v instanceof import_obsidian20.MarkdownView && v.editor && v.editor.cm === cm) view = v;
     });
     if (!view || !data || !data.sid) return;
     const sid = data.sid;
@@ -32657,11 +32857,11 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
   }
   // 把笔记里的第 srcLine 条任务合并/绑定到第 dstLine 条任务上（不管是 🤖 自动记的还是人写的）
   mergeTaskLines(cmOrView, srcLine, dstLine, srcLineText = "") {
-    let view = cmOrView instanceof import_obsidian19.MarkdownView ? cmOrView : null;
+    let view = cmOrView instanceof import_obsidian20.MarkdownView ? cmOrView : null;
     if (!view) {
       this.app.workspace.iterateAllLeaves((leaf) => {
         const v = leaf.view;
-        if (!view && v instanceof import_obsidian19.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
+        if (!view && v instanceof import_obsidian20.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
       });
     }
     if (!view || !view.editor) return;
@@ -32715,7 +32915,7 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     }
     const candidates = taskItems(lines.join("\n")).filter((t2) => t2.line !== taskLine);
     if (!candidates.length) return this.notice(t("\u5F53\u524D\u7B14\u8BB0\u91CC\u6CA1\u6709\u522B\u7684\u4EFB\u52A1\u6761\u76EE\u53EF\u5408\u5E76"));
-    const menu = new import_obsidian19.Menu();
+    const menu = new import_obsidian20.Menu();
     for (const c of candidates.slice(0, 20)) {
       menu.addItem((mi) => {
         const tag = c.auto ? "\u{1F916} " : "";
@@ -32891,6 +33091,65 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     });
     this.notice(changed ? t("\u5DF2\u7ED9\u8FD9\u4E00\u5757\u91CC\u7684\u95EE\u7B54\u8865\u4E0A\u5757\u53F7") : t("\u8FD9\u4E00\u5757\u7684\u95EE\u7B54\u90FD\u6709\u5757\u53F7\u4E86"), 6e3);
   }
+  // 回复信箱：侧栏里的非模态列表。
+  // 第一次出现时把侧栏亮出来（否则用户看不见），但**键盘焦点还给原来那个元素**；
+  // 已经在侧栏里就不再 reveal，免得反复把你的侧栏标签抢回去。
+  async openReplyInbox({ focus = false } = {}) {
+    const existing = this.app.workspace.getLeavesOfType(REPLY_INBOX_TYPE)[0];
+    const leaf = existing || this.app.workspace.getRightLeaf(false);
+    if (!leaf) return;
+    const previous = document.activeElement;
+    if (!existing) await leaf.setViewState({ type: REPLY_INBOX_TYPE, active: false });
+    if (!existing || focus) this.app.workspace.revealLeaf(leaf);
+    if (!focus && previous && previous !== document.activeElement) {
+      try {
+        previous.focus?.();
+      } catch {
+      }
+    }
+    const view = leaf.view;
+    if (view instanceof ReplyInboxView) {
+      this.replyInboxView = view;
+      await view.render({ force: true });
+    }
+    return view;
+  }
+  refreshReplyInbox() {
+    const view = this.app.workspace.getLeavesOfType(REPLY_INBOX_TYPE)[0]?.view;
+    if (view instanceof ReplyInboxView) {
+      this.replyInboxView = view;
+      view.render?.();
+    }
+  }
+  // 信箱里点「原文」：定位到那一行（这时抢焦点是用户自己点的，没问题）。
+  async openReplySource(item) {
+    const file = this.app.vault.getAbstractFileByPath(item.path);
+    if (!file) return this.notice(t("\u8FD9\u7BC7\u7B14\u8BB0\u4E0D\u5728\u4E86"));
+    await this.app.workspace.openLinkText(item.path, "", false);
+    const view = this.viewForPath(item.path);
+    if (!view) return;
+    const lines = view.editor.getValue().split("\n");
+    const at = item.blockId ? lines.findIndex((l) => blockIdOf(l) === item.blockId) : -1;
+    if (at >= 0) {
+      view.editor.setCursor({ line: at, ch: (view.editor.getLine(at) || "").length });
+      view.editor.scrollIntoView({ from: { line: at, ch: 0 }, to: { line: at, ch: 0 } }, true);
+    }
+  }
+  // 信箱里提交回答：和笔记里写 ✍️ 答 走同一条路。
+  async submitInboxReply(item, answer, { continueSession = false } = {}) {
+    const lines = (await this.readNote(item.path).catch(() => "")).split("\n");
+    const at = item.blockId ? lines.findIndex((l) => blockIdOf(l) === item.blockId) : -1;
+    if (at < 0) {
+      this.settings.replyInbox = inboxRemove(this.settings.replyInbox || [], item);
+      await this.saveSettings();
+      this.refreshReplyInbox();
+      return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u4E00\u6761\u4EFB\u52A1\u4E86\uFF08\u53EF\u80FD\u5DF2\u7ECF\u7B54\u8FC7\u6216\u5220\u4E86\uFF09"));
+    }
+    await this.applyReply(item.path, at, { questionText: item.question, answer, continueSession });
+    this.settings.replyInbox = inboxRemove(this.settings.replyInbox || [], item);
+    await this.saveSettings();
+    this.refreshReplyInbox();
+  }
   // 复制 `[[笔记#^ad-q-…]]`：别的笔记、会话、Linear 里都能直接指到这一问。
   async copyQuestionRef(path13, thread) {
     const lines = (await this.readNote(path13)).split("\n");
@@ -32944,7 +33203,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     const lines = view.editor.getValue().split("\n"), block = blockAt(lines, line);
     if (!block) return;
     const sessions = this.sessionsAtTask(path13, line, lines);
-    const menu = new import_obsidian19.Menu();
+    const menu = new import_obsidian20.Menu();
     const thread = this.threadAt(lines, line);
     if (thread?.question && pendingQuestion(thread.parsed)) {
       menu.addItem((mi) => mi.setTitle(t("\u270D\uFE0F \u56DE\u590D\u8FD9\u4E00\u95EE\u2026")).onClick(() => {
@@ -33000,7 +33259,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path13, line)));
   }
   openRecordViewMenu(event, { path: path13 = "", line = 0, viewMode = "outline", onSelect } = {}) {
-    const menu = new import_obsidian19.Menu();
+    const menu = new import_obsidian20.Menu();
     const views = [
       ["outline", t("\u5927\u7EB2"), "list-tree"],
       ["table", t("\u8868\u683C"), "table"],
@@ -33021,7 +33280,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
           this.populateRecordExportMenu(mi.setSubmenu(), opts);
         } else {
           mi.onClick(() => {
-            const sub = new import_obsidian19.Menu();
+            const sub = new import_obsidian20.Menu();
             this.populateRecordExportMenu(sub, opts);
             if (event) sub.showAtMouseEvent(event);
           });
@@ -33049,7 +33308,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     const current = this.viewForPath(item.path);
     if (current && this.sessionsAtTask(item.path, item.line, current.editor.getValue().split("\n")).length) return this.taskActions(item.path, item.line, e);
     const main = this.defaultTarget();
-    const menu = new import_obsidian19.Menu();
+    const menu = new import_obsidian20.Menu();
     for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x) && !AGENTS[x].trackingOnly)) {
       menu.addItem((mi) => {
         mi.setTitle(AGENTS[id].name + (id === main ? " \xB7 " + t("\u4E3B\u529B") : ""));
@@ -33103,7 +33362,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
   async delegateAtLine(path13, line, extraOpts = {}) {
     const file = this.app.vault.getAbstractFileByPath(path13);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    const view = this.app.workspace.getActiveViewOfType(import_obsidian19.MarkdownView);
+    const view = this.app.workspace.getActiveViewOfType(import_obsidian20.MarkdownView);
     const lines = view && view.file && view.file.path === path13 ? view.editor.getValue().split("\n") : (await this.app.vault.read(file)).split("\n");
     return this.delegateDrop(this.defaultTarget(), { path: path13, line, lineText: lines[line] }, null, extraOpts);
   }
@@ -34310,7 +34569,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       fragment.createEl("div", { text: `${title}
 ${body}` });
       fragment.createEl("button", { text: t("\u524D\u5F80\u5904\u7406") }).onclick = open;
-      const alert = { open, notice: new import_obsidian19.Notice(fragment, 0) };
+      const alert = { open, notice: new import_obsidian20.Notice(fragment, 0) };
       try {
         alert.system = new Notification(title, { body, tag: `agent-deck:${key}` });
         alert.system.onclick = () => {
@@ -34327,7 +34586,7 @@ ${body}` });
   // ---------- misc ----------
   notice(msg, ms) {
     try {
-      new import_obsidian19.Notice(msg, ms);
+      new import_obsidian20.Notice(msg, ms);
     } catch {
       console.log("[agent-deck]", msg);
     }

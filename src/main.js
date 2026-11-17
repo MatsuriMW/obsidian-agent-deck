@@ -73,6 +73,8 @@ import { hasAgentCapability, usesDeckSessionLink } from "./agent-registry.js";
 import { updateNote } from "./note-updates.js";
 import { parseThread, pendingQuestion, answerSlot, fillAnswer, ensureQuestionId, anchorThreadText, makeQuestionId, suggestOptions } from "./thread-replies.js";
 import { ReplyModal } from "./reply-modal.js";
+import { ReplyInboxView, REPLY_INBOX_TYPE } from "./reply-inbox-view.js";
+import { inboxAdd, inboxRemove } from "./reply-inbox.js";
 import { ProjectWorkbenchModal } from "./workbench-modal.js";
 import {
   extractTaskBoardGroups,
@@ -177,7 +179,9 @@ export default class AgentDeckPlugin extends Plugin {
 
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.registerView(MEMORY_BOARD_TYPE, (leaf) => new MemoryBoardView(leaf, this));
+    this.registerView(REPLY_INBOX_TYPE, (leaf) => new ReplyInboxView(leaf, this));
     this.addRibbonIcon("table", t("记忆表格"), () => this.openMemoryBase());
+    this.addRibbonIcon("message-square-dot", t("回复信箱"), () => this.openReplyInbox({ focus: true }));
     this.registerView(DASHBOARD_TYPE, (leaf) => new DashboardView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
@@ -282,6 +286,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "task-actions-line", name: t("当前任务：续聊、停止、重新委派"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "A" }], editorCallback: (editor, view) => { if (view.file) this.taskActions(view.file.path, editor.getCursor().line); } });
     this.addCommand({ id: "reply-question", name: t("回复当前任务的提问（写回 ✍️ 答）"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "R" }], editorCallback: (editor, view) => { if (view?.file) this.replyToQuestion(view.file.path, editor); } });
     this.addCommand({ id: "reply-question-line", name: t("在提问下补一行「✍️ 答」（直接手写）"), editorCallback: (editor) => this.insertReplySlot(editor) });
+    this.addCommand({ id: "reply-inbox-open", name: t("打开回复信箱（非模态，不抢焦点）"), callback: () => this.openReplyInbox({ focus: true }) });
     this.addCommand({ id: "reply-anchor-thread", name: t("给这一块的问答补块号（老数据，可被双链引用）"), editorCallback: (editor, view) => { if (view?.file) this.anchorThread(view.file.path, editor); } });
     this.addCommand({ id: "next-attention", name: t("处理下一条需要授权或确认的会话"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "N" }], callback: () => {
       const alert = this.attentionAlerts.values().next().value;
@@ -1775,6 +1780,60 @@ export default class AgentDeckPlugin extends Plugin {
       return next;
     });
     this.notice(changed ? t("已给这一块里的问答补上块号") : t("这一块的问答都有块号了"), 6000);
+  }
+
+  // 回复信箱：侧栏里的非模态列表。
+  // 第一次出现时把侧栏亮出来（否则用户看不见），但**键盘焦点还给原来那个元素**；
+  // 已经在侧栏里就不再 reveal，免得反复把你的侧栏标签抢回去。
+  async openReplyInbox({ focus = false } = {}) {
+    const existing = this.app.workspace.getLeavesOfType(REPLY_INBOX_TYPE)[0];
+    const leaf = existing || this.app.workspace.getRightLeaf(false);
+    if (!leaf) return;
+    const previous = document.activeElement;
+    if (!existing) await leaf.setViewState({ type: REPLY_INBOX_TYPE, active: false });
+    if (!existing || focus) this.app.workspace.revealLeaf(leaf);
+    if (!focus && previous && previous !== document.activeElement) {
+      try { previous.focus?.(); } catch { /* 焦点元素没了就算了，别强抢 */ }
+    }
+    const view = leaf.view;
+    if (view instanceof ReplyInboxView) {
+      this.replyInboxView = view;
+      await view.render({ force: true });
+    }
+    return view;
+  }
+
+  refreshReplyInbox() {
+    const view = this.app.workspace.getLeavesOfType(REPLY_INBOX_TYPE)[0]?.view;
+    if (view instanceof ReplyInboxView) { this.replyInboxView = view; view.render?.(); }
+  }
+
+  // 信箱里点「原文」：定位到那一行（这时抢焦点是用户自己点的，没问题）。
+  async openReplySource(item) {
+    const file = this.app.vault.getAbstractFileByPath(item.path);
+    if (!file) return this.notice(t("这篇笔记不在了"));
+    await this.app.workspace.openLinkText(item.path, "", false);
+    const view = this.viewForPath(item.path);
+    if (!view) return;
+    const lines = view.editor.getValue().split("\n");
+    const at = item.blockId ? lines.findIndex((l) => J.blockIdOf(l) === item.blockId) : -1;
+    if (at >= 0) { view.editor.setCursor({ line: at, ch: (view.editor.getLine(at) || "").length }); view.editor.scrollIntoView({ from: { line: at, ch: 0 }, to: { line: at, ch: 0 } }, true); }
+  }
+
+  // 信箱里提交回答：和笔记里写 ✍️ 答 走同一条路。
+  async submitInboxReply(item, answer, { continueSession = false } = {}) {
+    const lines = (await this.readNote(item.path).catch(() => "")).split("\n");
+    const at = item.blockId ? lines.findIndex((l) => J.blockIdOf(l) === item.blockId) : -1;
+    if (at < 0) {
+      this.settings.replyInbox = inboxRemove(this.settings.replyInbox || [], item);
+      await this.saveSettings();
+      this.refreshReplyInbox();
+      return this.notice(t("找不到这一条任务了（可能已经答过或删了）"));
+    }
+    await this.applyReply(item.path, at, { questionText: item.question, answer, continueSession });
+    this.settings.replyInbox = inboxRemove(this.settings.replyInbox || [], item);
+    await this.saveSettings();
+    this.refreshReplyInbox();
   }
 
   // 复制 `[[笔记#^ad-q-…]]`：别的笔记、会话、Linear 里都能直接指到这一问。

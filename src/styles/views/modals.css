@@ -814,3 +814,42 @@
     resize: vertical;
   }
 }
+
+/* 回复信箱：侧栏里的非模态列表。故意不做全屏、不做遮罩——你可以继续在别处写字。 */
+.ad-inbox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 2px;
+
+  & .ad-inbox__head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  & .ad-inbox__title { font-weight: 600; }
+  & .ad-inbox__hint { font-size: 11.5px; color: var(--ad-muted); flex: 1; min-width: 0; }
+  & .ad-inbox__empty { color: var(--ad-muted); font-size: 12px; line-height: 1.6; padding: 8px 2px; }
+
+  & .ad-inbox__list { display: flex; flex-direction: column; gap: 8px; }
+
+  & .ad-inbox__card {
+    border: 1px solid var(--ad-line);
+    border-radius: var(--ad-radius-sm);
+    background: var(--ad-surface);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  & .ad-inbox__top { display: flex; align-items: baseline; gap: 6px; }
+  & .ad-inbox__meta { flex: 1; min-width: 0; font-size: 11.5px; color: var(--ad-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  & .ad-inbox__link { font-size: 11.5px; }
+  & .ad-inbox__question { white-space: pre-wrap; line-height: 1.55; }
+  & .ad-inbox__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  & .ad-inbox__input { width: 100%; min-height: 48px; resize: vertical; }
+  & .ad-inbox__actions { display: flex; gap: 6px; justify-content: flex-end; }
+}

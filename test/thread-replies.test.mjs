@@ -181,6 +181,7 @@ test("入站：认得出「它在问我」，并把问句写成 ❓ 行（幂等
   assert.equal(lastQuestionLine("要我发 changelog 吗?"), "要我发 changelog 吗?");
   assert.equal(lastQuestionLine("做完了，没问题。"), "", "陈述句不算");
   assert.equal(lastQuestionLine("好"), "", "太短不算");
+  assert.equal(lastQuestionLine("你选哪个？"), "你选哪个？", "中文短问句也算");
 
   const note = ["- DOING 甲 ^ad-a", "  - 💬 上一轮"].join("\n");
   const once = appendQuestionText(note, { blockId: "ad-a", question: "仓库里用 npm 还是 pnpm？", seed: "笔记.md|ad-a|q" });
