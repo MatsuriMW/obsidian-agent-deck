@@ -8,6 +8,7 @@ import { lattice } from "./lattice.js";
 import { SESSION_MIME } from "./editor.js";
 import { t } from "./i18n.js";
 import { buildProjectGroups, buildNowStatusGroups, planRecentProjectDisplay, isWaitingSession, isActiveNowSession, STANDALONE_PROJECT_ID } from "./project-workbench.js";
+import { treePlan, treeOrder } from "./session-tree.js";
 
 export const VIEW_TYPE = "agent-deck-view";
 export const RECENT_DAY_OPTIONS = [7, 30, 120];
@@ -541,6 +542,10 @@ export class AgentDeckView extends ItemView {
     const rows = sec._rows || filterRecentRows(p.recentSessions({ days, limit: 1000 }), this.filter);
     sec._rows = rows;
     if (!rows.length) return this.empty(list, t("没有符合条件的会话"));
+    // 父子树：父在同一份列表里就排在父后面并缩进；父不在就留在顶层（分过组也算不在）。
+    const tree = treePlan(rows);
+    const ordered = (items) => treeOrder(items, tree);
+    const depthOf = (s) => tree.depth.get(s.sid) || 0;
     if (this.recentGroupBy() === "project" && !AGENTS[this.filter]) {
       const plan = planRecentProjectDisplay(rows, {
         expanded: this.expandedProjects,
@@ -550,7 +555,7 @@ export class AgentDeckView extends ItemView {
       });
       for (const g of plan.groups) {
         if (g.items.length === 1) {
-          this.sessionCard(list, g.visibleItems[0], false);
+          this.sessionCard(list, g.visibleItems[0], false, depthOf(g.visibleItems[0]));
           continue;
         }
         const leadAgent = AGENTS[g.agents[0]] || AGENTS.claude;
@@ -561,7 +566,7 @@ export class AgentDeckView extends ItemView {
         if (g.stacked) {
           const expand = () => this.toggleStackGroup(sec, stack, g.id, true, "project");
           const topWrap = stack.createDiv({ cls: "ad-stack__top" });
-          this.sessionCard(topWrap, g.visibleItems[0], false);
+          this.sessionCard(topWrap, g.visibleItems[0], false, depthOf(g.visibleItems[0]));
           const topCard = topWrap.firstElementChild;
           if (topCard) topCard.onclick = expand;
           const bar = stack.createEl("button", { cls: "ad-stack__bar", attr: { type: "button" } });
@@ -576,7 +581,7 @@ export class AgentDeckView extends ItemView {
           head.createSpan({ cls: "ad-stack__toggle", text: `${t("收起")} ▴` });
           head.onclick = () => this.toggleStackGroup(sec, stack, g.id, false, "project");
           const body = stack.createDiv({ cls: "ad-stack__list" });
-          for (const s of g.visibleItems) this.sessionCard(body, s, false);
+          for (const s of ordered(g.visibleItems)) this.sessionCard(body, s, false, depthOf(s));
           if (g.unshownCount > 0) {
             stack.createDiv({ cls: "ad-stack__foot", text: t("已达单页 {max} 张卡片上限，另有 {n} 条较早会话未显示", { max: MAX_RECENT_CARDS, n: g.unshownCount }) });
           }
@@ -586,7 +591,7 @@ export class AgentDeckView extends ItemView {
     }
     const plan = planRecentDisplay(rows, { filter: this.filter, expanded: this.expandedAgents, maxCards: MAX_RECENT_CARDS });
     if (plan.mode === "flat") {
-      for (const s of plan.cards) this.sessionCard(list, s, false);
+      for (const s of ordered(plan.cards)) this.sessionCard(list, s, false, depthOf(s));
       if (plan.hiddenCount > 0) {
         list.createDiv({ cls: "ad-recent-more", text: t("已显示最新 {shown} / 共 {total} 张卡片，更多请用顶部搜索", { shown: plan.renderedCount, total: plan.total }) });
       }
@@ -595,7 +600,7 @@ export class AgentDeckView extends ItemView {
     for (const g of plan.groups) {
       const a = AGENTS[g.agent] || AGENTS.claude;
       if (g.items.length === 1) {
-        this.sessionCard(list, g.visibleItems[0], false);
+        this.sessionCard(list, g.visibleItems[0], false, depthOf(g.visibleItems[0]));
         continue;
       }
       const stack = list.createDiv({ cls: `ad-stack ${g.stacked ? "is-collapsed" : "is-expanded"}` });
@@ -605,7 +610,7 @@ export class AgentDeckView extends ItemView {
       if (g.stacked) {
         const expand = () => this.toggleStackGroup(sec, stack, g.agent, true, "agent");
         const topWrap = stack.createDiv({ cls: "ad-stack__top" });
-        this.sessionCard(topWrap, g.visibleItems[0], false);
+        this.sessionCard(topWrap, g.visibleItems[0], false, depthOf(g.visibleItems[0]));
         const topCard = topWrap.firstElementChild;
         if (topCard) topCard.onclick = expand;
         const bar = stack.createEl("button", { cls: "ad-stack__bar", attr: { type: "button" } });
@@ -620,7 +625,7 @@ export class AgentDeckView extends ItemView {
         head.createSpan({ cls: "ad-stack__toggle", text: `${t("收起")} ▴` });
         head.onclick = () => this.toggleStackGroup(sec, stack, g.agent, false, "agent");
         const body = stack.createDiv({ cls: "ad-stack__list" });
-        for (const s of g.visibleItems) this.sessionCard(body, s, false);
+        for (const s of ordered(g.visibleItems)) this.sessionCard(body, s, false, depthOf(s));
         if (g.unshownCount > 0) {
           stack.createDiv({ cls: "ad-stack__foot", text: t("已达单页 {max} 张卡片上限，另有 {n} 条较早会话未显示", { max: MAX_RECENT_CARDS, n: g.unshownCount }) });
         }
@@ -953,7 +958,7 @@ export class AgentDeckView extends ItemView {
     }
   }
 
-  sessionCard(parent, s, compact) {
+  sessionCard(parent, s, compact, depth = 0) {
     const p = this.plugin;
     const a = AGENTS[s.agent] || AGENTS.claude;
     const card = parent.createDiv({ cls: `ad-sess ${compact ? "is-now" : ""}` });
@@ -986,8 +991,12 @@ export class AgentDeckView extends ItemView {
     });
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
-    const child = !!s.parentSid;
-    if (child) card.addClass("is-child");
+    // 只有父会话就在这份列表里（depth > 0）时才缩进；父不在列表就留在顶层，缩进不能凭空捏造层级。
+    const child = depth > 0;
+    if (child) {
+      card.addClass("is-child");
+      card.style.setProperty("--ad-tree-depth", String(depth));
+    }
     const live = ["run", "starting", "running"].includes(s.state);
     const wait = ["wait", "quiet", "needs-approval"].includes(s.state);
     if (live) card.addClass("is-live");
@@ -1029,7 +1038,8 @@ export class AgentDeckView extends ItemView {
     sub.createSpan({ text: "·" });
     sub.createSpan({ text: timeAgo(s.lastAt) });
     if (s.tokens) { sub.createSpan({ text: "·" }); sub.createSpan({ cls: "ad-sess__tok", text: fmtTok(s.tokens) + " tok" }); }
-    if (child) {
+    // 父子关系这一行照旧：父在不在列表里都写出来（缩进只表示"父就在眼前"）。
+    if (s.parentSid) {
       const kin = body.createDiv({ cls: "ad-sess__kin" });
       kin.createSpan({ cls: "ad-sess__kinmark", text: "↳" });
       kin.createSpan({ cls: "ad-sess__kintitle", text: t("从「{title}」开出", { title: truncate(s.parentTitle || t("母会话"), 24) }) });

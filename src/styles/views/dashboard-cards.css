@@ -74,7 +74,8 @@
     }
 
     &.is-child {
-      margin-left: 18px;
+      /* 层级由渲染时写进来的 --ad-tree-depth 决定：一层 14px，父卡在同一列表里才有这个类。 */
+      margin-left: calc(14px * var(--ad-tree-depth, 1));
 
       &::before {
         opacity: .45;

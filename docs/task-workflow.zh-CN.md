@@ -50,6 +50,7 @@
 | `src/planner.js` | 目标 → task.md（提示词、解析、看板友好结构） |
 | `src/workbench-note.js` | 工作台总览索引（只索引不复制） |
 | `src/skill-cards.js` | 扫描 `~/.config/skillshare/skills/data`、`~/.dsh/skills`、`~/.claude/skills`，按 realpath 去重，生成库内技能卡（真实路径记 frontmatter） |
+| `src/session-tree.js` | 会话卡片的父子树：先序排父后子、层级缩进；父不在列表/自环/成环都铺平不丢卡（只排顺序，不参与统计、不改派发） |
 
 **改动过的既有模块**：`src/dream.js`（记忆库双模式、来源锚点、反向回链、体检、`agentText` 注入）、`src/delegation.js`（派发载荷落盘、`payloadName`/`writeTaskPayload`）、`src/harness.js`（`agentText` 注入降噪）、`src/main.js`（10 条新命令、ribbon、工作台、载荷归档）、`src/settings.js`（管家 Agent 下拉）、`src/project-workbench.js`（文件级看板合成根）、`src/fractal-board.js`（`taskBoardFiles` 开关）、`src/journal.js`（`readableSlug`）。
 
@@ -88,6 +89,7 @@
 - macOS 真库实测：迁移 33 条、体检、看板 3 列 33 卡可拖、注入 193 字无 `**`、`agentText` 去符号、看板派发三条 `@dsh` 会话、载荷文件生成 + 原文 `📄` 链接、Base 列已填。
 - **未实测**：Windows 全部；`记忆看板` 拖拽在真实界面上的落点；Planner 产出的质量（未实跑一次生成）；管家设置项在界面上的渲染。
 - 运行时记忆查询 CLI（`scripts/memory-query.mjs`，2026-11-18）：三个动词 `search "关键词" [--k 5]` / `read <记忆文件名>` / `recent [n]`，只读、只解析 `记忆/*.md`（不碰 `记忆.base`），`read` 只接受记忆目录内的文件名（挡 `../`）；`search` 每条带「命中」当 why、不打印分数，门槛是命中查询词的一半（中文二元组太容易误配，只中一两个不算相关）；`search`/`recent` 只看 `state=有效`，与自动注入同一个池子（33 条实测）。库根默认从脚本位置向上找 `.obsidian`，记忆目录跟随设置 `dream.dir`，`--vault` 可覆盖。脚本随 `npm run install:plugin` 装进 `<库>/.obsidian/plugins/agent-deck/scripts/`，派发/草稿 prompt 顶部加一行用法（脚本或记忆目录不在时自动不加）。单测 `test/memory-query.test.mjs`；macOS 真库手跑三动词 + 真派发一次 @dsh，Agent 按提示行执行了 `memory-query.mjs search "拒答门槛"`（退出码 0，命中 2 条并抄回结论）。
+- 子代理可见性（2026-11-18）：面板「最近」的会话卡片按 `parentSid` 排成父子树——父在同一份列表里就紧跟父卡、按 `--ad-tree-depth` 层层缩进（父不在列表、自环、成环都留在顶层，一条不丢）；「从『X』开出」那一行照旧显示，缩进只表示"父就在眼前"。`analytics.js` / `dream.js` 的统计口径没动（Claude 的 subagent 日志本来就按父 sid 归属，不会再算一遍）。单测 `test/session-tree.test.mjs`；macOS 真库实测：面板按 `dsh` 过滤后 33 张卡里 4 张子卡 `--ad-tree-depth=1`、各自紧跟父卡，截图核对缩进正常。
 - 引用笔记绝对路径（`enrichPrompt`）验收（2026-11-18）：新增 `test/delegation-enrich.test.mjs` 覆盖同名笔记去重、非 md / 解析不到的目标、代码块与行内代码里的 `[[…]]`、任务块自身与 `Agent Deck/派发/` 下草稿链接；修复代码块内容被当引用、派发草稿被当素材两个边界。macOS 真库跑「先生成草稿」，草稿顶部出现「任务里引用的笔记（可直接读全文）」且只列真实笔记。
 
 **本批修掉的真 bug**：`dispatchSteward` 里 `makeBlockId` 误用了不存在的 `model.title`（ReferenceError），会导致管家汇总直接失败、波次标 error；已改为 `wave.parentTitle`。

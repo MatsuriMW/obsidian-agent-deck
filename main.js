@@ -18094,6 +18094,40 @@ async function dispatchRefresh(plugin) {
   });
 }
 
+// src/session-tree.js
+var keyOfSession = (s) => String(s?.sid || "");
+var parentOfSession = (s) => String(s?.parentSid || "");
+function treePlan(items = [], keyOf = keyOfSession, parentOf = parentOfSession) {
+  const rows = (items || []).filter((s) => keyOf(s));
+  const byKey = new Map(rows.map((s) => [keyOf(s), s]));
+  const children = /* @__PURE__ */ new Map();
+  const roots = [];
+  for (const s of rows) {
+    const key = keyOf(s), parent = parentOf(s);
+    if (!parent || parent === key || !byKey.has(parent)) {
+      roots.push(s);
+      continue;
+    }
+    if (!children.has(parent)) children.set(parent, []);
+    children.get(parent).push(s);
+  }
+  const order = /* @__PURE__ */ new Map(), depth = /* @__PURE__ */ new Map();
+  let next = 0;
+  const walk = (s, level) => {
+    const key = keyOf(s);
+    order.set(key, next++);
+    depth.set(key, level);
+    for (const child of children.get(key) || []) if (!order.has(keyOf(child))) walk(child, level + 1);
+  };
+  for (const s of roots) if (!order.has(keyOf(s))) walk(s, 0);
+  for (const s of rows) if (!order.has(keyOf(s))) walk(s, 0);
+  return { order, depth };
+}
+function treeOrder(items = [], plan, keyOf = keyOfSession) {
+  const at = (s) => plan?.order.has(keyOf(s)) ? plan.order.get(keyOf(s)) : Number.MAX_SAFE_INTEGER;
+  return [...items || []].sort((a, b) => at(a) - at(b));
+}
+
 // src/view.js
 var VIEW_TYPE = "agent-deck-view";
 var RECENT_DAY_OPTIONS = [7, 30, 120];
@@ -18633,6 +18667,9 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
     const rows = sec._rows || filterRecentRows(p2.recentSessions({ days, limit: 1e3 }), this.filter);
     sec._rows = rows;
     if (!rows.length) return this.empty(list, t("\u6CA1\u6709\u7B26\u5408\u6761\u4EF6\u7684\u4F1A\u8BDD"));
+    const tree = treePlan(rows);
+    const ordered = (items) => treeOrder(items, tree);
+    const depthOf = (s) => tree.depth.get(s.sid) || 0;
     if (this.recentGroupBy() === "project" && !AGENTS[this.filter]) {
       const plan2 = planRecentProjectDisplay(rows, {
         expanded: this.expandedProjects,
@@ -18642,7 +18679,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
       });
       for (const g of plan2.groups) {
         if (g.items.length === 1) {
-          this.sessionCard(list, g.visibleItems[0], false);
+          this.sessionCard(list, g.visibleItems[0], false, depthOf(g.visibleItems[0]));
           continue;
         }
         const leadAgent = AGENTS[g.agents[0]] || AGENTS.claude;
@@ -18653,7 +18690,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
         if (g.stacked) {
           const expand = () => this.toggleStackGroup(sec, stack, g.id, true, "project");
           const topWrap = stack.createDiv({ cls: "ad-stack__top" });
-          this.sessionCard(topWrap, g.visibleItems[0], false);
+          this.sessionCard(topWrap, g.visibleItems[0], false, depthOf(g.visibleItems[0]));
           const topCard = topWrap.firstElementChild;
           if (topCard) topCard.onclick = expand;
           const bar = stack.createEl("button", { cls: "ad-stack__bar", attr: { type: "button" } });
@@ -18668,7 +18705,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
           head.createSpan({ cls: "ad-stack__toggle", text: `${t("\u6536\u8D77")} \u25B4` });
           head.onclick = () => this.toggleStackGroup(sec, stack, g.id, false, "project");
           const body = stack.createDiv({ cls: "ad-stack__list" });
-          for (const s of g.visibleItems) this.sessionCard(body, s, false);
+          for (const s of ordered(g.visibleItems)) this.sessionCard(body, s, false, depthOf(s));
           if (g.unshownCount > 0) {
             stack.createDiv({ cls: "ad-stack__foot", text: t("\u5DF2\u8FBE\u5355\u9875 {max} \u5F20\u5361\u7247\u4E0A\u9650\uFF0C\u53E6\u6709 {n} \u6761\u8F83\u65E9\u4F1A\u8BDD\u672A\u663E\u793A", { max: MAX_RECENT_CARDS, n: g.unshownCount }) });
           }
@@ -18678,7 +18715,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
     }
     const plan = planRecentDisplay(rows, { filter: this.filter, expanded: this.expandedAgents, maxCards: MAX_RECENT_CARDS });
     if (plan.mode === "flat") {
-      for (const s of plan.cards) this.sessionCard(list, s, false);
+      for (const s of ordered(plan.cards)) this.sessionCard(list, s, false, depthOf(s));
       if (plan.hiddenCount > 0) {
         list.createDiv({ cls: "ad-recent-more", text: t("\u5DF2\u663E\u793A\u6700\u65B0 {shown} / \u5171 {total} \u5F20\u5361\u7247\uFF0C\u66F4\u591A\u8BF7\u7528\u9876\u90E8\u641C\u7D22", { shown: plan.renderedCount, total: plan.total }) });
       }
@@ -18687,7 +18724,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
     for (const g of plan.groups) {
       const a = AGENTS[g.agent] || AGENTS.claude;
       if (g.items.length === 1) {
-        this.sessionCard(list, g.visibleItems[0], false);
+        this.sessionCard(list, g.visibleItems[0], false, depthOf(g.visibleItems[0]));
         continue;
       }
       const stack = list.createDiv({ cls: `ad-stack ${g.stacked ? "is-collapsed" : "is-expanded"}` });
@@ -18697,7 +18734,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
       if (g.stacked) {
         const expand = () => this.toggleStackGroup(sec, stack, g.agent, true, "agent");
         const topWrap = stack.createDiv({ cls: "ad-stack__top" });
-        this.sessionCard(topWrap, g.visibleItems[0], false);
+        this.sessionCard(topWrap, g.visibleItems[0], false, depthOf(g.visibleItems[0]));
         const topCard = topWrap.firstElementChild;
         if (topCard) topCard.onclick = expand;
         const bar = stack.createEl("button", { cls: "ad-stack__bar", attr: { type: "button" } });
@@ -18712,7 +18749,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
         head.createSpan({ cls: "ad-stack__toggle", text: `${t("\u6536\u8D77")} \u25B4` });
         head.onclick = () => this.toggleStackGroup(sec, stack, g.agent, false, "agent");
         const body = stack.createDiv({ cls: "ad-stack__list" });
-        for (const s of g.visibleItems) this.sessionCard(body, s, false);
+        for (const s of ordered(g.visibleItems)) this.sessionCard(body, s, false, depthOf(s));
         if (g.unshownCount > 0) {
           stack.createDiv({ cls: "ad-stack__foot", text: t("\u5DF2\u8FBE\u5355\u9875 {max} \u5F20\u5361\u7247\u4E0A\u9650\uFF0C\u53E6\u6709 {n} \u6761\u8F83\u65E9\u4F1A\u8BDD\u672A\u663E\u793A", { max: MAX_RECENT_CARDS, n: g.unshownCount }) });
         }
@@ -19054,7 +19091,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
       item.createSpan({ text: a.short });
     }
   }
-  sessionCard(parent, s, compact) {
+  sessionCard(parent, s, compact, depth = 0) {
     const p2 = this.plugin;
     const a = AGENTS[s.agent] || AGENTS.claude;
     const card = parent.createDiv({ cls: `ad-sess ${compact ? "is-now" : ""}` });
@@ -19099,8 +19136,11 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
     });
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
-    const child = !!s.parentSid;
-    if (child) card.addClass("is-child");
+    const child = depth > 0;
+    if (child) {
+      card.addClass("is-child");
+      card.style.setProperty("--ad-tree-depth", String(depth));
+    }
     const live = ["run", "starting", "running"].includes(s.state);
     const wait = ["wait", "quiet", "needs-approval"].includes(s.state);
     if (live) card.addClass("is-live");
@@ -19150,7 +19190,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
       sub.createSpan({ text: "\xB7" });
       sub.createSpan({ cls: "ad-sess__tok", text: fmtTok(s.tokens) + " tok" });
     }
-    if (child) {
+    if (s.parentSid) {
       const kin = body.createDiv({ cls: "ad-sess__kin" });
       kin.createSpan({ cls: "ad-sess__kinmark", text: "\u21B3" });
       kin.createSpan({ cls: "ad-sess__kintitle", text: t("\u4ECE\u300C{title}\u300D\u5F00\u51FA", { title: truncate(s.parentTitle || t("\u6BCD\u4F1A\u8BDD"), 24) }) });

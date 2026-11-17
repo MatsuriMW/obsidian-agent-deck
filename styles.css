@@ -1362,7 +1362,7 @@ details[open] > :is(summary.ad-modelgroup__head, summary.ad-subdetails__head)::b
     var(--ad-surface);
 }
 .ad-view .ad-sess.is-child {
-  margin-left: 18px;
+  margin-left: calc(14px * var(--ad-tree-depth, 1));
 }
 .ad-view .ad-sess.is-child::before {
   opacity: .45;
