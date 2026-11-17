@@ -8,7 +8,7 @@ import { settingsAgentOrder, recommendPrimaryAgents } from "./settings-agents.js
 import fs from "fs";
 import { archiveCompletedTo } from "./journal-archive.js";
 import { planJournal, renderJournal, ACTIVE_HEADING, LEGACY_HEADINGS } from "./organize-journal.js";
-import { readJournalLayout, configuredJournalLayout } from "./journal-layout.js";
+import { readJournalLayout, configuredJournalLayout, repairJournalLayout, stripJournalLayout } from "./journal-layout.js";
 import { JournalOrganizer } from "./journal-organizer.js";
 import { semanticTaskId } from "./task-id.js";
 import { AttentionTracker } from "./attention.js";
@@ -34,7 +34,7 @@ import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
 import { AgentDeckSettingsTab } from "./settings.js";
 import { syncModelGroups } from "./model-groups.js";
-import { DelegateOptionsModal, ConfirmSendModal, ArchiveTargetModal } from "./dialog.js";
+import { DelegateOptionsModal, ConfirmSendModal, ArchiveTargetModal, askApiConsentInApp, askJournalMarkerRepair } from "./dialog.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
 import { keywordMarksExtension, keywordIconsExtension, keywordPostProcessor } from "./keyword-style.js";
@@ -42,6 +42,7 @@ import { MenuBarBridge } from "./menubar.js";
 import { integrateRecordFolding } from "./fold-integration.js";
 import { renderAIRecords } from "./record-display.js";
 import { AutoLog } from "./autolog.js";
+import { setJournalApiConsent } from "./llm.js";
 import { JournalSync } from "./sync.js";
 import * as J from "./journal.js";
 import { mentionOptions, mentionTrigger } from "./task-mentions.js";
@@ -148,6 +149,8 @@ export default class AgentDeckPlugin extends Plugin {
     });
     this.menubar = new MenuBarBridge(this);
     this.autoLog = new AutoLog(this);
+    // API 会算钱：自动整理 / 润色真要调用 API 前先问一句，没人应答就按「不用」处理。
+    setJournalApiConsent((info) => this.confirmApiCall(info));
     this.dreaming = new Dreaming(this);
     this.journalSync = new JournalSync(this);
     this.journalOrganizer = new JournalOrganizer(this);
@@ -276,7 +279,7 @@ export default class AgentDeckPlugin extends Plugin {
     });
     this.addCommand({ id: "group-active-journal", name: t("当前日记：整理日志版面"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "L" }], callback: () => this.organizeJournal() });
     this.addCommand({ id: "group-done-journal", name: t("当前日记：归档已完成的日志到…"), callback: () => this.archiveCompletedJournal() });
-    this.addCommand({ id: "log-journal", name: t("整理 Agent 会话进今天的日记"), callback: () => this.autoLog.logNow() });
+    this.addCommand({ id: "log-journal", name: t("整理 Agent 会话进今天的日记"), callback: () => this.logNowWithMarkerGuard() });
     this.addCommand({ id: "dream-now", name: t("Dreaming：整理 AI 记录与用户日志为长期记忆"), callback: () => this.dreaming.run(true, { drain: true }) });
     this.addCommand({ id: "dream-share", name: t("Dreaming：同步共享长期记忆"), callback: () => this.dreaming.sharing.sync() });
     this.addCommand({ id: "dream-export", name: t("Dreaming：导出长期记忆 Markdown 副本"), callback: () => this.dreaming.exportMemory() });
@@ -286,7 +289,7 @@ export default class AgentDeckPlugin extends Plugin {
 
     this.registerObsidianProtocolHandler("agent-deck", async (params) => {
       if (params && params.do === "scan") return this.scanNow();
-      if (params && params.do === "log") return this.autoLog.logNow();
+      if (params && params.do === "log") return this.logNowWithMarkerGuard();
       // 菜单栏里点命令行会话：交回插件，在终端里接着聊
       if (params && params.do === "open" && params.sid) { const m = this.usage.meta.get(params.sid) || {}; return this.openSession(params.agent || m.agent || "claude", params.sid, m.app || params.app || "", m); }
       if (params && params.do === "hide") {
@@ -1638,11 +1641,60 @@ export default class AgentDeckPlugin extends Plugin {
   async organizeJournal(file = this.journalTarget()) {
     if (!file) return this.notice(t("请先打开日记"));
     const base = await this.readNote(file.path);
-    const plan = await this.journalPlan(file, base);
+    let plan;
+    try {
+      plan = await this.journalPlan(file, base);
+    } catch (e) {
+      if (!/分区标记不完整/.test(String(e?.message || e))) throw e;
+      return this.repairJournalMarkers(file, base);
+    }
     const next = renderJournal(plan);
     if (next !== base && !await this.writeJournal(file, base, next)) return this.notice(t("日记刚有变化，请再整理一次"));
     this.refreshUI();
     this.notice(plan.count.total ? t("已整理 {count} 个任务", { count: plan.count.total }) : t("已建立日志分区，区外笔记保持原样"));
+  }
+
+  // 分区标记被删掉时先问一句：能补就补，补不回来就问要不要按任务重建分区。不点头就一个字都不动。
+  async repairJournalMarkers(file, base, { retry } = {}) {
+    const fixed = repairJournalLayout(base);
+    const mode = fixed ? "repair" : "rebuild";
+    const firstTime = !this.settings.journalMarkerIntroShown;
+    const go = await askJournalMarkerRepair(this.app, { mode, firstTime, notes: [file.path] });
+    if (firstTime) { this.settings.journalMarkerIntroShown = true; await this.saveSettings(); }
+    if (!go) return this.notice(t("分区标记没动；补上分区标记和 --- 分割线后再整理"));
+    const next = fixed || stripJournalLayout(base);
+    if (!await this.writeJournal(file, base, next)) return this.notice(t("日记刚有变化，请再整理一次"));
+    return retry ? retry() : this.organizeJournal(file);
+  }
+
+  // 「现在整理一次」遇到分区标记坏了：列出坏掉的日记，问一次，修好再重跑。
+  async logNowWithMarkerGuard() {
+    const r = await this.autoLog.logNow();
+    if (!r?.error || !/分区标记不完整/.test(r.error)) return r;
+    const broken = await this.brokenJournals();
+    if (!broken.length) return r;
+    const firstTime = !this.settings.journalMarkerIntroShown;
+    const go = await askJournalMarkerRepair(this.app, { mode: "rebuild", firstTime, notes: broken.map((x) => x.path) });
+    if (firstTime) { this.settings.journalMarkerIntroShown = true; await this.saveSettings(); }
+    if (!go) { this.notice(t("分区标记没动；补上分区标记和 --- 分割线后再整理")); return r; }
+    for (const { file, base } of broken) {
+      const next = repairJournalLayout(base) || stripJournalLayout(base);
+      await this.writeJournal(file, base, next);
+    }
+    return this.autoLog.logNow();
+  }
+
+  // 最近这些天的日记里，分区标记坏掉的那几篇。
+  async brokenJournals() {
+    const days = new Set([dayKeyToday(this.settings), ...Object.keys(this.settings.autoLogState || {})]);
+    const out = [];
+    for (const day of [...days].sort().slice(-14)) {
+      const file = this.autoLog.journalFile(day);
+      if (!file) continue;
+      const base = await this.readNote(file.path);
+      try { readJournalLayout(base); } catch { out.push({ file, base }); }
+    }
+    return out;
   }
 
   // Move finished AI blocks into an archive note the user picks.
@@ -2705,6 +2757,31 @@ export default class AgentDeckPlugin extends Plugin {
 
   // ---------- misc ----------
   notice(msg, ms) { try { new Notice(msg, ms); } catch { console.log("[agent-deck]", msg); } }
+
+  async confirmApiCall({ fallback = false } = {}) {
+    const message = fallback
+      ? t("主来源没答上来，Agent Deck 想改用 API 整理会话，会产生费用。允许后 30 分钟内不再问。")
+      : t("Agent Deck 想用 API 整理会话，会产生费用。允许后 30 分钟内不再问。");
+    if (process.platform === "darwin") {
+      const answer = await this.systemConfirm(message, t("允许"));
+      if (answer !== null) return answer;
+    }
+    return askApiConsentInApp(this.app, message);
+  }
+
+  // 系统级问询：带按钮的原生对话框；osascript 起不来或超时就返回 null，交给应用内兜底。
+  systemConfirm(message, allowLabel, seconds = 60) {
+    return new Promise((resolve) => {
+      // 默认按钮停在「这次不用」：回车误触不该把钱花掉。
+      const script = `display dialog ${JSON.stringify(message)} with title "Agent Deck" buttons {${JSON.stringify(t("这次不用"))}, ${JSON.stringify(allowLabel)}} default button ${JSON.stringify(t("这次不用"))} giving up after ${seconds}`;
+      execFile("/usr/bin/osascript", ["-e", script], { timeout: (seconds + 10) * 1000 }, (err, out) => {
+        if (err) return resolve(null);
+        const text = String(out || "");
+        resolve(!/gave up:\s*true/i.test(text) && text.includes(allowLabel));
+      });
+    });
+  }
+
   openExternal(url) { return openExternalRaw(url); }
 
   async readNote(path) {

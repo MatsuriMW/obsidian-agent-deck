@@ -428,6 +428,13 @@ export const DEFAULTS = {
   autoLogApiKey: "",
   autoLogTimeout: 120,     // 整理时等模型几秒
   autoLogFallback: true,   // 模型问不到时（自动整理也一样）用会话标题先记上
+  autoLogFailover: false,  // 主来源撞限额/超时/起不来时换下一个来源
+  autoLogBackupProvider: "", // 备用来源：留空=自动挑下一个已登录 CLI；也可指定 CLI 或 api
+  autoLogCooldownMin: 30,  // 撞限额的来源冷却多少分钟（冷却期内直接用备用来源）
+  autoLogApiConfirm: true, // 自动调用 API 前先问人（API 会算钱）；同意后 30 分钟内不再问
+  conclusionMaxCode: 65,   // 💬 编码类结论字数（做了什么、情况怎么样）
+  conclusionMaxQA: 160,    // 💬 知识问答类结论字数（可以长一点，讲清判断）
+  journalMarkerIntroShown: false, // 第一次遇到分区标记不全时解释过标记规则没有
   autoLogKw: true,         // 自动建的条目也跟着会话在 DOING / TOREVIEW / NEEDOK / ERRORED 之间切
   autoLogPath: "",
   autoLogArchiveDone: true,

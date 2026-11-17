@@ -3,6 +3,20 @@
 
 export default {
   // ----- delegation options / confirm dialog -----
+  "要调用 API 吗": "Call the API?",
+  "日记分区标记不完整": "Journal section markers are incomplete",
+  "这篇日记的 AI 分区标记被删掉或串行了一部分。插件不会猜内容该归哪一区，所以刚才没动原文。": "Some AI section markers in this journal were deleted or got stitched together. The plugin will not guess which section content belongs to, so nothing was changed.",
+  "整理日志靠一组隐藏标记和 --- 分割线认「正在做 / 还要做 / 已完成」三个分区。这些标记被删掉、被复制串行或跟着正文一起挪动时，整理会停下来，不会自己猜着搬内容。": "Organizing a journal relies on hidden markers plus --- rules to recognize the In progress / To do / Completed sections. If those markers are deleted, duplicated or moved along with the text, organizing stops instead of guessing where content belongs.",
+  "这次补不齐（标记缺得太多）。可以先把三处分区标题和 --- 分隔线补回来，再点整理。": "Cannot repair this time (too many markers are missing). Restore the three section headings and --- rules, then organize again.",
+  "帮我补齐分区": "Repair the sections",
+  "这篇日记的 AI 分区标记已经补不回来了。要按任务关键字重新分一次区吗？正文一行不删，只重新归区。": "The AI section markers in this journal cannot be repaired. Rebuild the sections from task keywords? No text is deleted, only regrouped.",
+  "帮我重建分区": "Rebuild the sections",
+  "涉及：{notes}": "Affected: {notes}",
+  "我自己改": "I will fix it myself",
+  "允许": "Allow",
+  "这次不用": "Not now",
+  "主来源没答上来，Agent Deck 想改用 API 整理会话，会产生费用。允许后 30 分钟内不再问。": "The main source did not answer. Agent Deck wants to use the API to summarize this session, which costs money. Once allowed, it will not ask again for 30 minutes.",
+  "Agent Deck 想用 API 整理会话，会产生费用。允许后 30 分钟内不再问。": "Agent Deck wants to use the API to summarize this session, which costs money. Once allowed, it will not ask again for 30 minutes.",
   "光标要放在一个列表项里": "Put the cursor inside a list item",
   "CLI / 终端": "CLI / Terminal",
   "首轮后打开桌面版": "Desktop app after the first turn",

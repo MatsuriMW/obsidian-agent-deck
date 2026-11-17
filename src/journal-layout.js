@@ -23,6 +23,69 @@ export function configuredJournalLayout(settings = {}) {
   return builtinJournalLayout(language);
 }
 
+// 分区标记被删掉一半时，按「缺哪个补哪个」修回去；修不好的返回 null，绝不猜内容归属。
+// 只补外框和缺失的分区开标记，不动任何正文行。
+// 标记烂到补不回来时，去掉所有标记交给整理重建分区（正文一行不删，条目按关键字归区）。
+export function stripJournalLayout(text) {
+  const normalized = String(text ?? '').replace(/\r\n/g, '\n');
+  return normalized
+    .split('\n')
+    .filter((line) => !/^<!-- agent-deck:(?:layout:(?:start|end)|section:(?:done|active|todo|notes):(?:heading|plain|end)) -->$/.test(line.trim()))
+    .map((line) => (/^\s*[-*+]\s+---\s*$/.test(line) ? '---' : line))
+    .join('\n');
+}
+
+export function repairJournalLayout(text) {
+  const normalized = String(text ?? '').replace(/\r\n/g, '\n');
+  if (!normalized.includes('<!-- agent-deck:')) return null;
+  const lines = normalized.split('\n');
+  const markerRe = /^<!-- agent-deck:(?:layout:(?:start|end)|section:(?:done|active|todo|notes):(?:heading|plain|end)) -->$/;
+  const isMarker = (line) => markerRe.test(String(line).trim());
+  const markerIdx = () => lines.map((line, i) => (isMarker(line) ? i : -1)).filter((i) => i >= 0);
+  if (!markerIdx().length) return null;
+
+  // 1) 外框：开头缺 layout:start 就补在最前面的分区标记之前，结尾缺 layout:end 就补在最后面。
+  let idx = markerIdx();
+  if (lines[idx[0]].trim() !== START) lines.splice(idx[0], 0, START);
+  idx = markerIdx();
+  if (lines[idx[idx.length - 1]].trim() !== END) lines.splice(idx[idx.length - 1] + 1, 0, END);
+
+  // 2) 分区标记：有 end 没 heading/plain 的补开标记；有开标记没 end 的补结束标记。
+  for (const key of ['active', 'todo', 'done', 'notes']) {
+    const endLine = `<!-- agent-deck:section:${key}:end -->`;
+    const headingLine = `<!-- agent-deck:section:${key}:heading -->`;
+    const plainLine = `<!-- agent-deck:section:${key}:plain -->`;
+    const endAt = lines.findIndex((line) => line.trim() === endLine);
+    const openAt = lines.findIndex((line) => line.trim() === headingLine || line.trim() === plainLine);
+    if (endAt < 0 && openAt < 0) continue;
+    if (endAt >= 0 && openAt < 0) {
+      let insertAt = 0;
+      for (let i = 0; i < endAt; i++) {
+        const v = lines[i].trim();
+        if (v === START || /^<!-- agent-deck:section:[a-z]+:end -->$/.test(v)) insertAt = i + 1;
+      }
+      lines.splice(insertAt, 0, headingLine);
+      continue;
+    }
+    if (openAt >= 0 && endAt < 0) {
+      let insertAt = lines.length;
+      for (let i = openAt + 1; i < lines.length; i++) {
+        const v = lines[i].trim();
+        if (v === END || /^<!-- agent-deck:section:[a-z]+:(?:heading|plain) -->$/.test(v)) { insertAt = i; break; }
+      }
+      lines.splice(insertAt, 0, endLine);
+    }
+  }
+
+  // 3) 分区之间被写成列表项的「- ---」还原成单独的分割线。
+  idx = markerIdx();
+  for (let i = idx[0]; i <= idx[idx.length - 1]; i++) if (/^\s*[-*+]\s+---\s*$/.test(lines[i])) lines[i] = '---';
+
+  const out = lines.join('\n');
+  try { readJournalLayout(out); } catch { return null; }
+  return out;
+}
+
 export function journalLayout(value) {
   const order = value?.order;
   const keys = order?.includes('notes') ? ['done', 'active', 'notes'] : KEYS;

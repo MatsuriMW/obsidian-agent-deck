@@ -154,7 +154,7 @@ npm run build
 | **WorkBuddy** | 安装中国版 WorkBuddy 桌面端（终端交互需另装 `codebuddy` CLI） |
 | **Cursor** | 安装 Cursor 桌面端（3.30.14+），并在设置「来源与扫描 → 更多设置」中安装 Cursor Hooks（仅追踪） |
 | **Grok Bot** | 安装 Grok Bot 桌面端（Sand 客户端），并在设置「记录 → 来源与扫描」的 Grok Bot 卡片内勾选要追踪的 Bot（默认全不选，仅追踪） |
-| **自动记日记 / AI 总结 / Dreaming** | 任一已登录且额度可用的本地 CLI（`agy`、`claude`、`codex`、`qodercli`、`codebuddy`，含 `~/.claude/settings.json` 的 `env` 认证），或填写 **OpenAI 兼容 API**（支持 DeepSeek、OpenAI、OpenRouter、阿里云百炼 Qwen、本地 Ollama 预设或自定义地址；在「记录 → 整理模型」设置，Dreaming 默认跟随并可单独覆盖） |
+| **自动记日记 / AI 总结 / Dreaming** | 任一已登录且额度可用的本地 CLI（`agy`、`claude`、`codex`、`qodercli`、`codebuddy`；DeepSeek 走 `deepseek-ds` 包装脚本，隔离配置目录 + 从钥匙串取 key，不影响官方 `gemini` CLI；含 `~/.claude/settings.json` 的 `env` 认证），或填写 **OpenAI 兼容 API**（支持 DeepSeek、OpenAI、OpenRouter、阿里云百炼 Qwen、本地 Ollama 预设或自定义地址；在「记录 → 整理模型」设置，Dreaming 默认跟随并可单独覆盖） |
 | **macOS 菜单栏助手** | 需 Xcode Command Line Tools 中的 `swiftc`（未安装时可运行 `xcode-select --install`）；不用可在设置中关闭 |
 
 > **提示**：

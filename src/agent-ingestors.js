@@ -95,7 +95,7 @@ export function applyTaskTool(fc, name, input, callId = "") {
   return buildTaskTodo(tk);
 }
 
-export function startRound(fc, ms, rawAsk, key = "") {
+export function startRound(fc, ms, rawAsk, key = "", live = null) {
   if (!fc.rounds) fc.rounds = { seen: new Set(), list: [] };
   if (key && fc.rounds.seen.has(key)) return fc.rounds.list.length;
   if (key) fc.rounds.seen.add(key);
@@ -104,6 +104,8 @@ export function startRound(fc, ms, rawAsk, key = "") {
   const last = fc.rounds.list[fc.rounds.list.length - 1];
   if (last && last.ask === ask && Math.abs(ms - last.at) < 2000) return fc.rounds.list.length;
   fc.rounds.list.push({ n: fc.rounds.list.length + 1, at: ms, doneAt: 0, ask, said: "" });
+  // 新的一轮从空白开始：上一轮最后那句话不能漏进这一轮的结论里。
+  if (live) live.lastText = "";
   return fc.rounds.list.length;
 }
 
@@ -200,7 +202,7 @@ export function ingestClaudeLine(ctx, line, fc, touched) {
     const text = cleanUserPrompt(typeof c === "string" ? c : Array.isArray(c) && !c.some((b) => b.type === "tool_result") ? c.filter((b) => b.type === "text").map((b) => b.text).join("") : "");
     if (isPromptText(text)) {
       day.prompts++;
-      startRound(fc, ms, text, d.uuid || String(ms));
+      startRound(fc, ms, text, d.uuid || String(ms), v);
       v.turns = fc.rounds ? fc.rounds.list.length : 0;
       v.rounds = fc.rounds ? fc.rounds.list : [];
       if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
@@ -263,7 +265,7 @@ export function ingestCodexLine(ctx, line, fc, touched) {
       const text = cleanUserPrompt((Array.isArray(p.content) ? p.content : []).filter((b) => b && b.type === "input_text").map((b) => b.text || "").join(""));
       if (text && isPromptText(text)) {
         day.prompts++;
-        startRound(fc, ms, text, String(ms));
+        startRound(fc, ms, text, String(ms), v);
         v.turns = fc.rounds ? fc.rounds.list.length : 0;
         v.rounds = fc.rounds ? fc.rounds.list : [];
         if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
@@ -335,7 +337,7 @@ export function ingestWorkbuddyLine(ctx, line, fc, touched) {
       const text = cleanUserPrompt(raw);
       if (isPromptText(text)) {
         day.prompts++;
-        startRound(fc, ms, text, d.id || String(ms));
+        startRound(fc, ms, text, d.id || String(ms), v);
         if (!v.title) {
           const t0 = text.replace(/\s+/g, " ").trim().slice(0, 80);
           if (t0) { fc.titles.set(fc.sid, t0); usage.titles.set(fc.sid, t0); v.title = t0; }
@@ -406,7 +408,7 @@ export function ingestAntigravityLine(ctx, line, fc, touched) {
     v.cwd = fc.cwd || "~"; v.app = "antigravity";
     if (text && isPromptText(text)) {
       day.prompts++;
-      startRound(fc, ms, text, String(d.step_index ?? ms));
+      startRound(fc, ms, text, String(d.step_index ?? ms), v);
       v.turns = fc.rounds ? fc.rounds.list.length : 0;
       v.rounds = fc.rounds ? fc.rounds.list : [];
       if (!fc.titles.has(sid)) {
@@ -520,7 +522,7 @@ export function ingestDshLine(ctx, line, fc, touched) {
     const kind = data.source && data.source.kind;
     if (isPromptText(text) && (!kind || kind === "user")) {
       day.prompts++;
-      startRound(fc, ms, text, String(d.seq ?? ms));
+      startRound(fc, ms, text, String(d.seq ?? ms), v);
       v.turns = fc.rounds ? fc.rounds.list.length : 0;
       v.rounds = fc.rounds ? fc.rounds.list : [];
       if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
@@ -568,9 +570,18 @@ export function ingestDshLine(ctx, line, fc, touched) {
   } else if (typ === "turn/end") {
     const reason = data.reason || {};
     const isChild = !!(fc.parentSid || fc.isSubagent);
-    if (reason.kind === "error") { v.state = "error"; v.err = String(reason.error && reason.error.message || "").slice(0, 120); }
+    const errText = String((reason.error && (reason.error.message || reason.error.code)) || "");
+    // 额度不够和普通报错不是一回事：前者要落到 HITLIMIT，而不是 ERRORED。
+    const quota = reason.kind === "error" && /ACCOUNT_QUOTA|Insufficient Balance|\b402\b|quota|rate.?limit|额度|余额/i.test(`${errText} ${reason.error?.code || ""}`);
+    if (reason.kind === "error") { v.state = quota ? "limit" : "error"; v.err = errText.slice(0, 120); }
     else if (reason.kind === "aborted") v.state = "cancelled";
     else v.state = isChild ? "done" : "wait";
+    // 这一轮为什么会没有正文：整轮被中断 / 额度断掉，留给日记显式记一句。
+    const cur = fc.rounds && fc.rounds.list[fc.rounds.list.length - 1];
+    if (cur) {
+      if (reason.kind === "aborted") cur.aborted = true;
+      if (quota) cur.quota = true;
+    }
     v.step = "";
     finishRound(fc, ms, v.lastText, v.state === "wait" || v.state === "done");
     v.turns = fc.rounds ? fc.rounds.list.length : 0;

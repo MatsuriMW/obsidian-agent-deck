@@ -50,6 +50,10 @@ export default {
   "Dreaming 正在整理": "Dreaming is already organizing",
   "正在采集用户日志与 AI 记录…": "Collecting your journal and AI records…",
   "正在采集含 AI 自动记录的条目…": "Collecting entries with AI auto-records…",
+  "没有授权调用 API（会产生费用），这次先用会话标题记": "The API call was not approved (it costs money), so session titles are used this time",
+  "deepseek 退出码 {code}": "deepseek exited with code {code}",
+  "分区标记没动；补上分区标记和 --- 分割线后再整理": "Section markers left untouched; add the section markers and --- rules, then organize again",
+  "这份日记的分区标记缺得太多，补不齐；请按三处分区标题手动补齐": "Too many section markers are missing to repair; restore the three section headings by hand",
   "正在整理 {count} 块材料（共 {total} 块），等待模型返回…":
     "Organizing {count} blocks of material (of {total}); waiting for the model…",
   "正在校验并写入长期记忆…": "Validating and writing long-term memory…",

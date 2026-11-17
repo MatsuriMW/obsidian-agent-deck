@@ -153,28 +153,30 @@ export class JournalSync {
     const brief = detailForRound(this.cfg.autoLogDetail, this.cfg.autoLogDetailHistory, roundObj) === "brief";
     const cleanAsk = condenseUserPrompt(roundObj.ask || this.usage.meta.get(sid)?.title || "");
     const prompt = [
-      brief ? '把本轮任务和回复分别浓缩成高信息密度的关键词或短语，只输出 JSON：{"task":"任务要点，最多 30 字","result":"结论要点，最多 45 字"}。自动过滤用户话语中的口语废话、语气词与寒暄，保留具体动作、对象和失败/待验证等状态，不编造事实，不要代码块。'
-        : "把下面 AI 助手这一轮的回复提炼成一句话结论（不超过 40 个字，高信息密度，不要口语废话、不要前缀、不要引号、不要代码块）：",
+      brief ? '把本轮任务和回复分别浓缩成高信息密度的关键词或短语，只输出 JSON：{"task":"任务要点，最多 30 字","result":"结论要点","kind":"code|qa"}。'
+        + 'kind：这一轮在改代码、跑命令、动文件就填 code，result 最多 40 字，写做了什么、现在什么状态（通过 / 待验证 / 失败）；这一轮在解释概念、回答知识问题就填 qa，result 最多 140 字，先给判断再给依据，可以两句。'
+        + 'result 写这一轮最后的落点，不要摘回复开头的过渡铺垫或复述计划。自动过滤用户话语中的口语废话、语气词与寒暄，保留具体动作、对象和失败/待验证等状态，不编造事实，不要代码块。'
+        : '把下面 AI 助手这一轮的回复提炼成结论，只输出 JSON：{"result":"结论","kind":"code|qa"}。kind：改代码 / 跑命令 / 动文件填 code，result 一句话不超过 40 字，写做了什么和现在的状态；解释概念、回答知识问题填 qa，不超过 140 字，取这一轮最后的落点，不要摘开头那句过渡话，不要口语废话、不要前缀、不要引号、不要代码块。',
       brief ? `任务：${String(cleanAsk).slice(-600)}` : "",
       "",
       String(rawSaid).slice(-900),
     ].join("\n");
-    runJournalModel(prompt, this.cfg, { polish: true })
+    runJournalModel(prompt, this.cfg, { polish: true, automatic: true })
       .then((res) => {
+        let data = null;
+        try { data = JSON.parse(String(res || "").replace(/^```(?:json)?\s*|\s*```$/g, "").trim()); } catch { /* older plain-text answer */ }
+        if (data && (data.kind === "qa" || data.kind === "code")) roundObj.kind = data.kind;
         if (brief) {
-          try {
-            const data = JSON.parse(res.replace(/^```(?:json)?\s*|\s*```$/g, "").trim());
-            if (typeof data.task === "string" && data.task.trim() && typeof data.result === "string" && data.result.trim()) {
-              roundObj.taskSummary = data.task.trim();
-              roundObj.summary = data.result.trim();
-            }
-          } catch { /* use the local task and reply excerpts */ }
+          // 模型偶尔会把 kind 写进 result（例如 "result":"qa"），太短的当没给，回落到本地规则。
+          const taskText = String(data?.task || "").trim();
+          const resultText = String(data?.result || "").trim();
+          if (taskText) roundObj.taskSummary = taskText;
+          if ([...resultText].length >= 4 && !/^(?:code|qa|json)$/i.test(resultText)) roundObj.summary = resultText;
           return;
         }
-        const clean = J.oneSentenceConclusion(safeLabel(res, 65) || res, 80);
-        if (clean && clean.length >= 4) {
-          roundObj.summary = clean;
-        }
+        const text = data && typeof data.result === "string" ? data.result : "";
+        const clean = text.trim() ? J.oneSentenceConclusion(safeLabel(text.trim(), 65) || text, data?.kind === "qa" ? 120 : 80) : "";
+        if (clean && clean.length >= 4) roundObj.summary = clean;
       })
       .catch(() => {})
       .finally(() => { this._polishing.delete(roundObj); this._refining.delete(key); this.run({ force: true }).catch(() => {}); });
@@ -195,7 +197,7 @@ export class JournalSync {
         + "不要前缀、不要引号、不要代码块，总长不超过 120 字。只输出总结本身。",
         previous?.text ? `此前总结：${previous.text}` : "",
         ...pending.map((r) => `第 ${r.n} 轮：${String(r.summary || r.said).slice(-600)}`)].filter(Boolean).join("\n");
-      const raw = await runJournalModel(prompt, this.cfg);
+      const raw = await runJournalModel(prompt, this.cfg, { automatic: true });
       // resultText cuts on a sentence boundary instead of mid-word.
       const text = J.summaryText(raw, 200);
       if (!text || !this.cfg.autoLogMerge || this.cfg.journalAutoWrite === false || this._stopped) return;
@@ -292,6 +294,8 @@ export class JournalSync {
         said: summary,
         rounds: completed,
         taskTodo,
+        codeMax: Number(this.cfg.conclusionMaxCode) || 65,
+        qaMax: Number(this.cfg.conclusionMaxQA) || 160,
         ensureId: true,
       });
       out = synced.text;

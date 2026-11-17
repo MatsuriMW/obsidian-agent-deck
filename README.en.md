@@ -155,7 +155,7 @@ Copy the generated `main.js`, `manifest.json`, and `styles.css` into `<your-vaul
 | **WorkBuddy** | Chinese-edition WorkBuddy desktop app (`codebuddy` CLI separately if using terminal mode) |
 | **Cursor** | Cursor Desktop **3.30.14+** with Cursor Hooks installed via **Settings → Sources & Scan → More settings** (tracking only) |
 | **Grok Bot** | Grok Bot desktop app (Sand client) with bots selected in the Grok Bot card under **Settings → Records → Sources & Scan** (none selected by default; tracking only) |
-| **Auto-journaling / AI summaries / Dreaming** | Any authenticated local CLI (`agy`, `claude`, `codex`, `qodercli`, `codebuddy`, including `~/.claude/settings.json` `env` auth) OR an **OpenAI-compatible API** (presets for DeepSeek, OpenAI, OpenRouter, Alibaba Cloud Qwen, local Ollama, or custom endpoints under **Records → Journal model**; Dreaming inherits by default and can override separately) |
+| **Auto-journaling / AI summaries / Dreaming** | Any authenticated local CLI (`agy`, `claude`, `codex`, `qodercli`, `codebuddy`; DeepSeek runs through the `deepseek-ds` wrapper with its own config dir and a Keychain key, leaving the official `gemini` CLI untouched; `~/.claude/settings.json` `env` auth included) OR an **OpenAI-compatible API** (presets for DeepSeek, OpenAI, OpenRouter, Alibaba Cloud Qwen, local Ollama, or custom endpoints under **Records → Journal model**; Dreaming inherits by default and can override separately) |
 | **macOS menu bar helper** | `swiftc` from Xcode Command Line Tools (`xcode-select --install`); can be disabled in settings if unused |
 
 > **Notes**:

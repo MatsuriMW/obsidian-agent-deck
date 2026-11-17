@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   runCodex, runJournalModel, detectJournalProviders, resolveJournalProvider, normalizeApiUrl, runOpenAiApi,
+  journalProviderChain, resetJournalFailoverState, setJournalApiConsent,
 } from '../src/llm.js';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ad-llm-test-'));
@@ -85,6 +86,73 @@ try {
     const cbRes = JSON.parse(await runJournalModel('CodeBuddy', { autoLogProvider: 'codebuddy', autoLogPath: fakeCb }));
     assert.ok(cbRes.args.includes('--output-format'));
     assert.ok(cbRes.args.includes('json'));
+  });
+
+  await test('automatic API calls ask first, remember the grant and the refusal', async () => {
+    const http = await import('node:http');
+    const server = http.createServer((req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ choices: [{ message: { content: '整理好了' } }] }));
+    });
+    await new Promise((r) => server.listen(0, '127.0.0.1', r));
+    const apiCfg = {
+      autoLogProvider: 'api', autoLogApiConfirm: true, autoLogModel: 'test-model',
+      autoLogApiUrl: `http://127.0.0.1:${server.address().port}/v1`, autoLogApiKey: 'k',
+    };
+    let asked = 0;
+    try {
+      resetJournalFailoverState();
+      setJournalApiConsent(() => { asked += 1; return false; });
+      await assert.rejects(runJournalModel('整理', apiCfg, { automatic: true }), /没有授权调用 API/);
+      assert.equal(asked, 1);
+      await assert.rejects(runJournalModel('整理', apiCfg, { automatic: true }), /没有授权调用 API/);
+      assert.equal(asked, 1, 'a refusal is remembered, not re-asked every cycle');
+
+      resetJournalFailoverState();
+      setJournalApiConsent(() => { asked += 1; return true; });
+      assert.equal(await runJournalModel('整理', apiCfg, { automatic: true }), '整理好了');
+      assert.equal(asked, 2);
+      assert.equal(await runJournalModel('整理', apiCfg, { automatic: true }), '整理好了');
+      assert.equal(asked, 2, 'the grant covers the following 30 minutes');
+
+      resetJournalFailoverState();
+      setJournalApiConsent(() => { throw new Error('manual calls must not ask'); });
+      assert.equal(await runJournalModel('整理', apiCfg), '整理好了');
+    } finally {
+      setJournalApiConsent(null);
+      resetJournalFailoverState();
+      await new Promise((r) => server.close(r));
+    }
+  });
+
+  await test('a rate-limited source falls over to the configured backup and cools down', async () => {
+    const quotaBin = path.join(dir, 'quota-cli');
+    fs.writeFileSync(quotaBin, `#!${process.execPath}\nconsole.error('usage limit reached, retry later'); process.exit(1);\n`);
+    fs.chmodSync(quotaBin, 0o755);
+    resetJournalFailoverState();
+    const cfg = {
+      autoLogProvider: 'codex', autoLogPath: quotaBin, autoLogFailover: true, autoLogBackupProvider: 'claude',
+      delegate: { claude: { path: bin } },
+    };
+    assert.deepEqual(journalProviderChain(cfg).map((x) => x.id), ['codex', 'claude']);
+    const answer = JSON.parse(await runJournalModel('正文', cfg));
+    assert.ok(answer.args.includes('--model'), 'the backup Claude CLI answered');
+    // 撞限额的那家在冷却期内被跳过，直接用上次成功的备用来源
+    assert.deepEqual(journalProviderChain(cfg).map((x) => x.id), ['claude']);
+    resetJournalFailoverState();
+    await assert.rejects(runJournalModel('正文', { ...cfg, autoLogFailover: false }), /usage limit/);
+    resetJournalFailoverState();
+  });
+
+  await test('DeepSeek CLI provider runs deepseek-ds and returns plain text', async () => {
+    const dsBin = path.join(dir, 'deepseek-ds');
+    fs.writeFileSync(dsBin, `#!${process.execPath}\nconsole.log(JSON.stringify({args: process.argv.slice(2)}).slice(0));\n`);
+    fs.chmodSync(dsBin, 0o755);
+    const out = await runJournalModel('整理一下', { autoLogProvider: 'deepseek', autoLogPath: dsBin, autoLogModel: 'deepseek-chat' });
+    const parsed = JSON.parse(out);
+    assert.deepEqual(parsed.args.slice(0, 6), ['-p', '整理一下', '--output-format', 'text', '--skip-trust', '-m']);
+    assert.equal(parsed.args[6], 'deepseek-chat');
+    assert.ok(detectJournalProviders({ cfg: { autoLogProvider: 'deepseek' } }).providers.some((p) => p.id === 'deepseek'));
   });
 
   await test('detectJournalProviders finds installed+signed-in local CLIs and picks default cleanly', () => {

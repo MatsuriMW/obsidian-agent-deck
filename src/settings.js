@@ -1036,6 +1036,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       this.rowToggle(wb, label, desc, s[key] !== false, (v) => { s[key] = v; p.saveSettings(); });
     }
     this.rowNumber(jr, t("💬 最多多少个字"), t("普通会话的结论长度；后台回答超过 500 字时返回完整问答文件"), s.resultMax || DEFAULTS.resultMax, 40, 2000, (v) => { s.resultMax = v; p.saveSettings(); });
+    this.rowNumber(jr, t("💬 编码类结论字数"), t("写做了什么、现在什么状态；默认 65"), s.conclusionMaxCode || DEFAULTS.conclusionMaxCode, 20, 400, (v) => { s.conclusionMaxCode = Math.max(20, Math.round(v)); p.saveSettings(); });
+    this.rowNumber(jr, t("💬 知识问答结论字数"), t("解释概念、回答问题时可以长一点；默认 160"), s.conclusionMaxQA || DEFAULTS.conclusionMaxQA, 40, 800, (v) => { s.conclusionMaxQA = Math.max(40, Math.round(v)); p.saveSettings(); });
     this.rowToggle(wb, t("归档的会话记成 DONE"), "", s.autoLogArchiveDone !== false, (v) => { s.autoLogArchiveDone = v; p.saveSettings(); });
     this.rowToggle(wb, t("整理完弹通知"), "", s.autoLogNotify !== false, (v) => { s.autoLogNotify = v; p.saveSettings(); });
 
@@ -1171,6 +1173,17 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const modelMore = this.subDetails(modelCard, "model-more", t("更多设置"));
     this.rowNumber(modelMore, t("整理超时（秒）"), "", s.autoLogTimeout || 120, 10, 600, (v) => { s.autoLogTimeout = v; p.saveSettings(); });
     this.rowToggle(modelMore, t("整理失败时使用会话标题"), "", s.autoLogFallback !== false, (v) => { s.autoLogFallback = v; p.saveSettings(); });
+    this.rowToggle(modelMore, t("用 API 前先问我"), t("API 调用会产生费用；同意后 30 分钟内不再问"), s.autoLogApiConfirm !== false, (v) => { s.autoLogApiConfirm = v; p.saveSettings(); });
+    this.rowToggle(modelMore, t("主来源不可用时换备用"), t("撞限额、超时或起不来时换下一个来源，换不上再用会话标题记"), !!s.autoLogFailover, (v) => { s.autoLogFailover = v; p.saveSettings(); this.display(); });
+    if (s.autoLogFailover) {
+      const backupOptions = [
+        { id: "auto", label: t("自动挑下一个已登录 CLI（没有就用 API）") },
+        ...detected.providers.map((x) => ({ id: x.id, label: `${x.label} ${x.available ? t("（已登录）") : x.found ? t("（未登录）") : t("（未安装）")}` })),
+        { id: "api", label: t("自定义 API（OpenAI 兼容）") },
+      ];
+      this.rowSelect(modelMore, t("备用来源"), "", backupOptions, s.autoLogBackupProvider || "auto", (v) => { s.autoLogBackupProvider = v; p.saveSettings(); });
+      this.rowNumber(modelMore, t("撞限额后冷却（分钟）"), t("冷却期内直接用备用来源"), s.autoLogCooldownMin || 30, 1, 240, (v) => { s.autoLogCooldownMin = Math.max(1, Math.round(v)); p.saveSettings(); });
+    }
     if (resolved !== "api") {
       this.rowText(modelMore, t("整理 CLI 路径"), t("留空自动查找或沿用委派路径"), s.autoLogPath || "", t("自动找"), (v) => { s.autoLogPath = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }

@@ -359,3 +359,71 @@ export class ArchiveTargetModal extends Modal {
 
   onClose() { this.contentEl.empty(); }
 }
+
+// API 会算钱：自动整理 / 润色真要调用 API 前先问一句。
+// macOS 上主走系统对话框（src/main.js 的 confirmApiCall），这里是非 macOS 与系统对话框失败时的兜底。
+export function askApiConsentInApp(app, message) {
+  return new Promise((resolve) => { new ApiConsentModal(app, message, resolve).open(); });
+}
+
+export class ApiConsentModal extends Modal {
+  constructor(app, message, resolve) { super(app); this.message = message; this.resolve = resolve; this.choice = false; }
+
+  onOpen() {
+    const el = this.contentEl;
+    el.addClass("ad-modal");
+    const head = el.createDiv({ cls: "ad-modalhead" });
+    head.createDiv({ cls: "ad-modalhead__title", text: t("要调用 API 吗") });
+    head.createDiv({ cls: "ad-modalhead__sub", text: this.message });
+    const row = el.createDiv({ cls: "ad-modalfoot ad-btnrow" });
+    const deny = row.createEl("button", { cls: "ad-btn ad-btn--cta", text: t("这次不用"), attr: { type: "button" } });
+    deny.onclick = () => { this.choice = false; this.close(); };
+    const go = row.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("允许"), attr: { type: "button" } });
+    go.onclick = () => { this.choice = true; this.close(); };
+    setTimeout(() => deny.focus(), 0);   // 回车误触不该把钱花掉
+  }
+
+  onClose() { this.resolve(this.choice); this.contentEl.empty(); }
+}
+
+// 日记分区标记被删/串行时，整理会停下来。这里问一句要不要补（补不了就重建），第一次顺带解释标记规则。
+export function askJournalMarkerRepair(app, { mode = "repair", firstTime = false, notes = [] } = {}) {
+  return new Promise((resolve) => { new JournalMarkerModal(app, { mode, firstTime, notes }, resolve).open(); });
+}
+
+export class JournalMarkerModal extends Modal {
+  constructor(app, { mode, firstTime, notes }, resolve) {
+    super(app);
+    this.mode = mode === "rebuild" ? "rebuild" : "repair";
+    this.firstTime = firstTime;
+    this.notes = notes || [];
+    this.choice = false;
+    this.resolve = resolve;
+  }
+
+  onOpen() {
+    const el = this.contentEl;
+    el.addClass("ad-modal");
+    const head = el.createDiv({ cls: "ad-modalhead" });
+    head.createDiv({ cls: "ad-modalhead__title", text: t("日记分区标记不完整") });
+    head.createDiv({ cls: "ad-modalhead__sub", text: this.mode === "rebuild"
+      ? t("这篇日记的 AI 分区标记已经补不回来了。要按任务关键字重新分一次区吗？正文一行不删，只重新归区。")
+      : t("这篇日记的 AI 分区标记被删掉或串行了一部分。插件不会猜内容该归哪一区，所以刚才没动原文。") });
+    if (this.notes.length) {
+      const list = el.createDiv({ cls: "ad-hint" });
+      list.setText(t("涉及：{notes}", { notes: this.notes.join("、") }));
+    }
+    if (this.firstTime) {
+      const box = el.createDiv({ cls: "ad-hint" });
+      box.setText(t("整理日志靠一组隐藏标记和 --- 分割线认「正在做 / 还要做 / 已完成」三个分区。这些标记被删掉、被复制串行或跟着正文一起挪动时，整理会停下来，不会自己猜着搬内容。"));
+    }
+    const row = el.createDiv({ cls: "ad-modalfoot ad-btnrow" });
+    const cancel = row.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("我自己改"), attr: { type: "button" } });
+    cancel.onclick = () => { this.choice = false; this.close(); };
+    const fix = row.createEl("button", { cls: "ad-btn ad-btn--cta", text: this.mode === "rebuild" ? t("帮我重建分区") : t("帮我补齐分区"), attr: { type: "button" } });
+    fix.onclick = () => { this.choice = true; this.close(); };
+    setTimeout(() => fix.focus(), 0);
+  }
+
+  onClose() { this.resolve(this.choice); this.contentEl.empty(); }
+}

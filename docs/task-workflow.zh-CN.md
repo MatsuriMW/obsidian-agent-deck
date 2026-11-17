@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.10.4**（已发版，2026-11-16）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.11.0**（已发版，2026-11-17）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 双平台验证边界
 
@@ -26,6 +26,17 @@
 - **快捷键**（macOS `Alt` = `Option`）：`Ctrl+Alt+D` 委派/任务菜单 · `Ctrl+Alt+A` 续聊/停止/重派 · `Ctrl+Alt+C` 查看与保存对话 · `Ctrl+Alt+N` 下一条待确认 · `Ctrl+Alt+X` 停止执行 · `Ctrl+Alt+J` 跳到「正在做」 · `Ctrl+Alt+L` 整理日志 · `⌥⌘↑` 跳到母块（连按逐级向上）· `⌥⌘⇧↑` 跳到最上一级顶格母块 · `⌥⌘↓` 合并成组（Group rows）· `⌃⌥⌘D` macOS 菜单栏。
 - **关键词**：`DOING` / `NOW` / `IN-PROGRESS`、`TOREVIEW`、`NEEDOK`、`ERRORED` / `FAILED`、`HITLIMIT`、`QUEUED`、`DELEGATED`、`TODO` / `LATER`、`PAUSED` / `SUSPENDED`、`WAITING` / `WAIT`、`DONE`、`CANCELED` / `CANCELLED`、`TODOFORAI` / `TODO4AI` / `TODO2AI` / `TODOTOAI`，及 `[ ]` `[/]` `[x]` `[-]`。
 - **整理与归档**：**整理日志**默认按 `---` → 正在做 → `---` → 还要做 → `---` → 已完成 → `---` 排列，只整理完整分区内的 **AI** 条目，非 AI 手写条目与区外笔记保持原位；无完整分区时只建立空分区。**归档已完成的日志到…** 仅移出已完成 **AI** 块（默认 `Agent Deck/done/已完成任务.md`），先写归档再删源。
+
+## 本地修改（2026-11-17，1.11.0）
+
+- **💬 结论取「最后的落点」**：新增 `conclusionSentence()`（`src/journal.js`，分层取句：显式结论段 → 单段放得下就整段 → 从结尾往前找第一句不像客套 / 下一步的话 → 退回最后一段），替换三处「拿开头当结论」的调用：简略记录没润色成功时的 `结论：` 字段、标准记录的单句结论、`autolog.js` 本地兜底与 `rawSummary`。`❓` 的用户提问仍走 `oneSentenceConclusion()`。标准记录用 `tailSentence()` 保证只留一句。润色 prompt（`src/sync.js`、`src/autolog.js`）同步改成「写落点，不要摘开头铺垫」。`test/conclusion-record.test.mjs` 新增 8 条用例并接入 `npm test`；已有记录 append-only，不重算历史。
+- **整理来源备用链**：`journalProviderChain()` / `runJournalModel()`（`src/llm.js`）在 `autoLogFailover` 打开时按「主来源 → 至多一个备用来源」尝试，限额/超时/起不来才换家，`请先填写…` 直接报错；撞限额的来源进程内冷却 `autoLogCooldownMin`（默认 30 分钟），上次成功的来源优先。设置入口在「记录 → 日记与归档 → 更多设置」（`autoLogFailover` / `autoLogBackupProvider` / `autoLogCooldownMin`，默认关）。`test/llm.test.mjs` 新增降级 + 冷却 + 关闭后仍直接报错的用例。
+- **中断/额度不足写原因**：`src/agent-ingestors.js` 的 DSH `turn/end` 现在把 `aborted` / 额度类 `error` 标到轮次（`r.aborted` / `r.quota`）并把状态记成 `limit`；`src/journal.js` 的 `syncSessionEntry` 在没有正文时写 `本轮被中断，没有结论。` / `额度不足，本轮未完成。`。真实 transcript 复核：第 3 轮 ABORTED、第 10 轮 QUOTA（之前都只是空白）。
+- **会话认领与轮次隔离**：`findSessionTask()` / `findTask()`（`src/journal.js`）新增「按 `ad-turn` / `ad-summary` 会话标记认领条目」，`src/autolog.js` 建项前先用它认领（DONE 条目在对话都记过时复用，接着聊仍新建）；`startRound()`（`src/agent-ingestors.js`）换轮清空 `live.lastText`，五个 ingest 调用点都传入 viewer。新增 `test/dsh-rounds.test.mjs` 与 `test/autolog.test.mjs` 的改名复用用例。
+- **分区标记修复与 DeepSeek CLI 来源**：`repairJournalLayout()` / `stripJournalLayout()`（`src/journal-layout.js`）与 `JournalMarkerModal`（`src/dialog.js`）接到「整理日志」「现在整理一次」两条路径（`src/main.js` 的 `repairJournalMarkers` / `logNowWithMarkerGuard` / `brokenJournals`）；新增 `deepseek` 来源（`src/llm.js`），运行 `~/.local/bin/deepseek-ds`（隔离 `HOME=~/.deepseek-cli` + keychain `agent-deck-deepseek`，官方 `gemini`/`deepseek` 命令不受影响）。马自立库里已把整理模型切到 `deepseek`/`deepseek-chat`，`autoLogBackupProvider=qodercli`。实测：11_17 分区修复后整理写入了新记录；11_16 标记夹正文补不回，走「重建分区」。
+- **💬 结论按 coding / 知识问答分档**：`src/sync.js` 的润色 JSON 增加 `kind`（`code|qa`），`src/journal.js` 的 `conclusionKind()` 在润色缺席时兜底（指令 > 提问 > 回复证据，拿不准 `code`），`answerConclusion()` 取问答类的判断段（`先说结论 / 推荐 / 所以 / 答案是`），`conclusionSentence()` 仍取编码类的落点；`isNoise()` 统一排除「没有验证的 / 顺带一句 / 下一步 / 要不要我…」。长度设置 `settings.conclusionMaxCode`（65）与 `conclusionMaxQA`（160），经 `syncSessionEntry({ codeMax, qaMax })` 生效。用本对话（`session-23616433`）与 3 个历史会话的 7 轮真实回复做过抽取比对。
+- **自动调用 API 前先问人**：`src/llm.js` 的 `hasApiConsent()` 在 `automatic` 且真要走 `api` 时经 `setJournalApiConsent()` 注入的问询函数确认（同意/拒绝各管 30 分钟，进程内）；`src/main.js` 的 `confirmApiCall()` 在 macOS 用 `osascript display dialog`（`systemConfirm()`，60 秒无人应答＝不用，osascript 起不来返回 `null` 再退应用内），其它平台走 `src/dialog.js` 新增的 `ApiConsentModal`。`autolog.js` / `sync.js` / `dream.js`（定时 tick）/ `task-id.js`（自动块号命名）的自动调用点传 `automatic: true`，手动「现在整理一次」「测试连接」「生成计划」「立即做梦」不传。开关 `settings.autoLogApiConfirm`（默认开）。`test/llm.test.mjs` 新增「同意后不再问 / 拒绝后不再问 / 手动不问」用例。
+- macOS 验证：`npm test`、`npm run build`、`git diff --check` 通过；结论分层取句用真实长回复样例手工核对过简略/标准两种记录；系统对话框脚本用 `osacompile` 编译校验（未实际弹窗点过按钮）。**未验证**：真实 CLI 撞限额时的自动切换（只用假 CLI 模拟 quota 报错）、设置页新增行的视觉与交互（未在 Obsidian 打开设置页目视）、Windows。
 
 ## 本地修改（2026-11-16，1.10.3）
 

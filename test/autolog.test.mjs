@@ -563,5 +563,24 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
     && p.journal.includes("- DOING 🤖 10:40-11:40 **整件事已完成**"),
     p.journal);
 }
+{ // 同一个会话被模型换了标题：按会话认领已有条目，不能再建第二个
+  const { turnMarker } = await import('../src/journal.js');
+  const sid = '11111111-2222-3333-4444-555555555555';
+  const journal = [
+    '- DONE 🤖 18:15-18:18 **agent-deck -> 旧标题**',
+    `\t- 💬 第2轮：任务：问；结论：答2 ${turnMarker(sid, 2)}`,
+    `\t- 💬 第1轮：任务：问；结论：答1 ${turnMarker(sid, 1)}`,
+    '\t- ⏱ 18:15–18:18 · 共 3m',
+    '- TODO 别的事情',
+  ].join('\n');
+  const list = [{ sid, agent: 'dsh', min: 20, segs: nowSegs(20), title: '新标题' }];
+  const meta = { [sid]: { rounds: [{ n: 1, said: '答1', doneAt: 0 }, { n: 2, said: '答2', doneAt: 0 }], lastText: '答2', state: 'wait', title: '新标题' } };
+  const p = fakePlugin(journal, list, meta);
+  const al = new AutoLog(p);
+  al.ask = async () => new Map([[sid, { label: 'agent-deck -> 完全不同的新标题', proj: '', summary: '答2', kind: 'code', matchKey: null, done: false, todos: [], skip: false }]]);
+  await al.run({ manual: true, fallback: true });
+  check('renamed session reuses its recorded entry instead of duplicating it',
+    !p.journal.includes('完全不同的新标题') && (p.journal.match(/agent-deck ->/g) || []).length === 1, p.journal);
+}
 if (fail) { console.log(`${fail} failed`); process.exit(1); }
 console.log("all passed");

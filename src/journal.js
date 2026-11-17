@@ -468,27 +468,142 @@ export function summaryText(raw, max = 200) {
   return formatSummaryLinks(raw, text => resultText(text, max));
 }
 
+// 去掉回复里的代码块、表格、标题与列表符号，只留下能当摘要的正文。
+const cleanReply = (source) => String(source || "")
+  .replace(/```[\s\S]*?(?:```|$)/g, " ")
+  .replace(/^\s*\|.*\|\s*$/gm, " ")
+  .replace(/^\s{0,3}#{1,6}\s+/gm, "")
+  .replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "")
+  .replace(/^\s*>\s?/gm, "")
+  .replace(/\*\*([^*]+)\*\*/g, "$1")
+  .replace(/\d{12,}/g, "…")
+  .trim();
+
+// 取一段文字的第一句完整的话（至少 6 个字之后的句号/叹号/问号/分号）
+const firstSentence = (pick, max) => {
+  const sentMatch = /^(.{6,}?[。！？；!?;])(?:\s|$)/.exec(pick);
+  return resultText(sentMatch ? sentMatch[1] : pick, max);
+};
+
 // 提取一轮回复的一句话结论：优先取明确总结句或首句。
 export function oneSentenceConclusion(raw, max = 90) {
   return formatSummaryLinks(raw, source => {
-    const cleaned = String(source || "")
-      .replace(/```[\s\S]*?(?:```|$)/g, " ")
-      .replace(/^\s*\|.*\|\s*$/gm, " ")
-      .replace(/^\s{0,3}#{1,6}\s+/gm, "")
-      .replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "")
-      .replace(/^\s*>\s?/gm, "")
-      .replace(/\*\*([^*]+)\*\*/g, "$1")
-      .replace(/\d{12,}/g, "…")
-      .trim();
+    const cleaned = cleanReply(source);
     if (!cleaned) return "";
     const lines = cleaned.split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
     let pick = lines.find((l) => /^(?:结论|总结|核心结论|一句话总结|已完成|已修复|已更新|已实现|原因|问题在于|搞定|改好)[：:，,\s]/.test(l))
       || lines.find((l) => l.length >= 6 && !/^(?:好的|收到|明白|没问题|我来|让我|先看)[，。！!,.]*$/.test(l))
       || lines[lines.length - 1]
       || cleaned;
-    // 取第一句完整的话（至少 6 个字之后的句号/叹号/问号/分号）
-    const sentMatch = /^(.{6,}?[。！？；!?;])(?:\s|$)/.exec(pick);
-    if (sentMatch) pick = sentMatch[1];
+    return firstSentence(pick, max);
+  });
+}
+
+// 显式写出来的结论段；「综上」「最终」这类过渡词保留，`结论：` 这类字段名去掉（调用方自己会带字段名）。
+const CONCLUSION_LABEL_RE = /^(?:结论|总结|核心结论|一句话总结|结果)[：:]\s*/;
+const CONCLUSION_MARK_RE = /^(?:结论|总结|核心结论|一句话总结|综上|总之|最终|结果|复盘)[：:，,\s]/;
+// 知识问答里「把判断说出来」的段落，比结尾那句更像结论。
+const CLAIM_MARK_RE = /^(?:先说结论|先说答案|简单说|说白了|直说|推荐|建议|结论|答案|总结|小结|一句话|核心|关键在于|本质上|归根结底|所以|因此|总的来说|我认为|我的判断|答案是)/;
+// 收尾客套和下一步计划不是「这一轮做成了什么」，不能当结论。
+const NEXT_STEP_RE = /^(?:要不要|要的话|需要我|需不需要|我可以|我可以帮你|下一步|接下来|之后|如果(?:你)?(?:想|需要|要|希望|愿意)|随时|有需要|先这样|你看|你只需|说一声|告诉我|回我)/;
+// 顺口补充、题外话：话题相关但不是这一轮的结论。
+const TANGENT_RE = /^(?:顺带|顺带一句|另外|补充|补充一句|说到|题外话|btw|注[：:]|提醒|附[：:])/i;
+// 未验证 / 风险 / 限制这类段落是提醒，不是结论。
+const CAVEAT_RE = /^(?:没有验证|没验证|尚未验证|未验证|没有测|没测|尚未测|未测|风险|注意|限制|前提|可选|备选|待办|todo)/i;
+// 一句话少于这么多个字，多半是「尚未发布」「待验证」这种残句，单独当结论没有信息量。
+const TAIL_MIN_CHARS = 4;
+
+// Markdown 标题去掉 `#` 之后只剩一行短语，不是结论。
+const isHeading = (s) => /^(?:[一二三四五六七八九十]+[、.]|[（(]?[一二三四五六七八九十0-9]+[）)]|第[一二三四五六七八九十]+[、章节部分])/.test(s)
+  || ([...s].length <= 10 && !/[。！？，,；;]/.test(s));
+
+const isNoise = (text) => {
+  const s = String(text || "").trim();
+  if (!s) return true;
+  if (/[？?]$/.test(s)) return true;
+  if (NEXT_STEP_RE.test(s) || TANGENT_RE.test(s) || CAVEAT_RE.test(s)) return true;
+  if (isHeading(s)) return true;
+  return /^(?:好的|收到|明白|没问题|我来|让我|先看|稍等)[，。！!,.]*$/.test(s);
+};
+
+const usableTail = (sentence) => {
+  const s = String(sentence || "").trim();
+  if ([...s].length < TAIL_MIN_CHARS) return false;
+  return !isNoise(s);
+};
+
+// 这一轮是「知识问答」还是「改东西」。
+// 先看用户是在派活还是在提问（指令 > 提问 > 回复特征），拿不准按 coding（短记录）。
+const DIRECTIVE_RE = /(?:^|[，。；:：])\s*(?:请|帮我|麻烦|你|先|能|可以|可否)?\s*[^，。；:：]{0,10}?(?:发|改|修|加|删|做|写|跑|装|实现|部署|查|检查|优化|补|拉|提交|生成|换成)/;
+const ASK_QUESTION_RE = /[？?]\s*$|吗\s*$|(?:为什么|为何|是什么|什么是|怎么|如何|区别|原理|本质|机制|是否|有没有|能不能|可不可以)/;
+// 回复里只有这些才是「真的动手」的证据；中文动词（改完、修好）在问答里也常见，不能当证据。
+const CODE_EVIDENCE_RE = /```|(?:^|\s)(?:npm|pnpm|yarn|git|node|obsidian)\s|\bsrc\/|\.(?:js|mjs|ts|tsx|json|css)\b|\/Users\/|~\/|(?:测试通过|构建通过|已提交)/;
+
+export function conclusionKind(ask = "", said = "") {
+  const question = String(ask || "").trim();
+  const reply = String(said || "");
+  if (!question) return "code";
+  if (DIRECTIVE_RE.test(question)) return "code";
+  if (ASK_QUESTION_RE.test(question)) return "qa";
+  if (CODE_EVIDENCE_RE.test(reply)) return "code";
+  return "code";
+}
+
+// 把一处回复按句切分，保留标点贴在句尾。
+const sentences = (text) => String(text || "").split(/(?<=[。！？；!?;])/).map((s) => s.trim()).filter(Boolean);
+
+// 结论取「最后的落点」而不是开头：显式结论段 → 短回复原样 → 从结尾往前找第一句不像收尾客套的话。
+export function conclusionSentence(raw, max = 90) {
+  return formatSummaryLinks(raw, source => {
+    const cleaned = cleanReply(source);
+    if (!cleaned) return "";
+    const lines = cleaned.split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+    const flat = lines.join(" ").trim();
+    const marked = lines.find((l) => CONCLUSION_MARK_RE.test(l));
+    if (marked) return firstSentence(marked.replace(CONCLUSION_LABEL_RE, ""), max);
+    // 只有一个自然段、而且整段放得进这条记录：开头就是全部内容，没必要再切。
+    if (lines.length <= 1 && [...flat].length <= max) return resultText(flat, max);
+    // 只看最后几段，避免一路往上游走到开头那段铺垫；整段是提醒 / 客套就跳过它。
+    for (let i = lines.length - 1; i >= Math.max(0, lines.length - 6); i--) {
+      if (isNoise(lines[i])) continue;
+      const tail = sentences(lines[i]).reverse().find(usableTail);
+      if (tail) return resultText(tail, max);
+    }
+    // 全程都在说客套和下一步：退回最后一段，至少是这一轮最新的状态。
+    return firstSentence(lines[lines.length - 1], max);
+  });
+}
+
+// 知识问答的结论可以长一点：取最后一段说得清楚的判断；段落太短就把上一段带上。
+export function answerConclusion(raw, max = 160) {
+  return formatSummaryLinks(raw, source => {
+    const cleaned = cleanReply(source);
+    if (!cleaned) return "";
+    const paras = cleaned.split(/\n+/).map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+    if (!paras.length) return "";
+    if (paras.length === 1) return resultText(paras[0], max);
+    // 「推荐」「所以」「答案是」这段才是判断本身，比结尾那句更值得记。
+    const marked = [...paras].reverse().find((p) => CLAIM_MARK_RE.test(p) && [...p].length >= 20);
+    let pick = marked || "";
+    if (!pick) {
+      for (let i = paras.length - 1; i >= Math.max(0, paras.length - 5); i--) {
+        if (isNoise(paras[i])) continue;
+        pick = paras[i];
+        break;
+      }
+    }
+    if (!pick) pick = paras[paras.length - 1];
+    // 段内的题外话、追问、客套整句去掉，别让「顺带一句…」混进结论。
+    const kept = sentences(pick).filter((x) => !isNoise(x));
+    if (kept.length) pick = kept.join(" ");
+    // 只有「顺出来的一小截」才补上一段；显式判断句本身就是结论，不用再拼。
+    if (!marked && [...pick].length < 60) {
+      for (let i = paras.indexOf(pick) - 1; i >= 0 && i >= paras.length - 6; i--) {
+        if (isNoise(paras[i]) || [...paras[i]].length < 15) continue;
+        pick = `${paras[i]} ${pick}`.trim();
+        if ([...pick].length >= 60) break;
+      }
+    }
     return resultText(pick, max);
   });
 }
@@ -525,6 +640,12 @@ export function resultInto(text, sid, said, { blockId = "", key = "", ensureId =
 // Preserve code contents in detailed excerpts while keeping a single foldable list record.
 const detailExcerpt = (raw, max) => resultText(String(raw || "").replace(/^\s*(?:`{3,}|~{3,})[^\n]*$/gm, ""), max);
 
+// 标准记录只要一句话：取收尾那句，避免把整段塞进一行。
+const tailSentence = (raw, max) => {
+  const parts = sentences(raw);
+  return resultText(parts[parts.length - 1] || String(raw || ""), max);
+};
+
 // Journal detail uses one sentence even when Chinese punctuation has no following space.
 const recordSentence = (raw, max) => {
   return formatSummaryLinks(raw, masked => {
@@ -553,7 +674,7 @@ function sortRecordedRounds(lines, parent) {
   for (let i = slots.length - 1; i >= 0; i--) lines.splice(slots[i][0], slots[i][1] - slots[i][0], ...records[i].lines);
 }
 
-export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null } = {}) {
+export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key = "", said = "", rounds = [], todos = [], taskTodo = null, ensureId = true, detail = "brief", detailHistory = [], granularity = "", compact = null, codeMax = 65, qaMax = 160 } = {}) {
   let lines = text.split("\n");
   let n = -1, linkAt = -1;
   if (blockId) n = lines.findIndex((l) => blockIdOf(l) === blockId && LIST_RE.test(l));
@@ -617,7 +738,7 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
     const match = /^\s*[-*+]\s+💬\s+(?:第(\d+)轮[：:]|((?!累计总结[：:]).))/.exec(lines[i]);
     if (marker || match) recorded.add(marker ? +marker[2] : match[1] ? +match[1] : 1);
   }
-  let validRounds = (Array.isArray(rounds) ? rounds : []).filter(r => r && (r.said || r.summary));
+  let validRounds = (Array.isArray(rounds) ? rounds : []).filter(r => r && (r.said || r.summary || r.aborted || r.quota));
   if (!validRounds.length && said && !recorded.size) validRounds = [{ n: 1, said }];
   if (!roundLog) validRounds = validRounds.slice(-1);
   const fresh = validRounds.filter((r, index) => !recorded.has(r.n || index + 1));
@@ -645,9 +766,21 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
     }
     const raw = level === "detailed" ? (r.said || r.summary) : (r.summary || r.said);
     const task = condenseUserPrompt(r.taskSummary || r.ask) || kwLine(lines[n])?.body?.replace(/^🤖\s*/, "") || key;
-    const message = r.replyText !== undefined ? r.replyText : r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
-      ? `任务：${summaryText(task, 45)}；结论：${summaryText(raw, 65)}`
-      : recordSentence(raw, 90);
+    // 模型判过就听模型的；本地只在润色没跑成时兜底，判不清按 coding（短）。
+    const kind = r.kind === "qa" || r.kind === "code" ? r.kind : conclusionKind(r.ask, r.said);
+    const conclusion = kind === "qa" ? answerConclusion(r.said, qaMax) : conclusionSentence(r.said, codeMax);
+    // 整轮被中断 / 额度断掉：没有正文也要在日记里留一句为什么。
+    const missing = !String(r.said || "").trim() && !String(r.summary || "").trim();
+    const fallbackLine = missing ? (r.quota ? "额度不足，本轮未完成。" : r.aborted ? "本轮被中断，没有结论。" : "") : "";
+    const stdCap = kind === "qa" ? 120 : 90;
+    // 模型偶尔把 kind 当结论写回来（"qa" 这种），当它没给，用本地规则。
+    const givenSummary = String(r.summary || "").trim();
+    const polished = [...givenSummary].length >= 4 && !/^(?:code|qa|json)$/i.test(givenSummary);
+    const message = fallbackLine
+      ? (level === "brief" ? `任务：${summaryText(task, 45)}；结论：${fallbackLine}` : fallbackLine)
+      : r.replyText !== undefined ? r.replyText : r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
+      ? `任务：${summaryText(task, 45)}；结论：${polished ? summaryText(givenSummary, kind === "qa" ? qaMax : codeMax) : conclusion}`
+      : polished ? recordSentence(givenSummary, stdCap) : tailSentence(kind === "qa" ? answerConclusion(r.said, stdCap) : conclusionSentence(r.said, stdCap), stdCap);
     // Number the latest-progress entry too, so a setting change cannot rewrite it.
     const prefix = rn === 1 && roundLog ? "" : `第${rn}轮：`;
     if (r.replyText !== undefined) {
@@ -723,17 +856,33 @@ export function findTaskByBlockId(text, blockId) {
   return taskItems(text).find((i) => i.blockId === blockId) || null;
 }
 
-// 这一行现在是什么状态（优先按 ^blockId，其次按 🔗 sid，最后按 key）；找不到返回 null
+// 这一块是不是这个会话的：🔗 链接，或者子行里留下的 ad-turn / ad-summary 注释（DSH 没有深链）。
+const ownedBySession = (lines, sid) => {
+  if (!sid) return -1;
+  const short = shortSessionId(sid);
+  for (let i = 0; i < lines.length; i++) {
+    const link = parseLink(lines[i]);
+    if (link && (link.sid === sid || link.sid === short)) return markOwner(lines, i);
+    const marker = /<!-- ad-(?:turn|summary):([A-Za-z0-9_-]+):\d+ -->/.exec(lines[i]);
+    if (marker && (marker[1] === sid || marker[1] === short)) return markOwner(lines, i);
+  }
+  return -1;
+};
+
+// 只按会话认领，不猜标题：已经建过这一项的会话（哪怕标题被改、块号被清）也认得回来。
+export function findSessionTask(text, sid = "") {
+  if (!sid) return null;
+  const owner = ownedBySession(text.split("\n"), sid);
+  return owner >= 0 ? taskItems(text).find((i) => i.line === owner) || null : null;
+}
+
+// 这一行现在是什么状态（优先按 ^blockId，其次按 🔗 sid / 轮次标记，最后按 key）；找不到返回 null
 export function findTask(text, key, blockId = "", sid = "") {
   const items = taskItems(text);
-  if (sid && text.includes(sid)) {
-    const lines = text.split("\n");
-    const at = lines.findIndex((l) => { const p = parseLink(l); return p && p.sid === sid; });
-    if (at >= 0) {
-      const owner = markOwner(lines, at);
-      const byOwner = items.find((i) => i.line === owner);
-      if (byOwner) return byOwner;
-    }
+  if (sid && (text.includes(sid) || text.includes("<!-- ad-"))) {
+    const owner = ownedBySession(text.split("\n"), sid);
+    const hit = owner >= 0 ? items.find((i) => i.line === owner) : null;
+    if (hit) return hit;
   }
   if (blockId) {
     const byId = items.find((i) => i.blockId === blockId);

@@ -57,7 +57,7 @@ function hasClaudeSettingsAuth(homeDir) {
   }
 }
 
-export const JOURNAL_CLI_ORDER = ["agy", "claude", "codex", "qodercli", "codebuddy"];
+export const JOURNAL_CLI_ORDER = ["agy", "claude", "codex", "qodercli", "codebuddy", "deepseek"];
 
 export const JOURNAL_PROVIDERS = {
   agy: {
@@ -95,6 +95,16 @@ export const JOURNAL_PROVIDERS = {
     defaultModel: "auto",
     models: ["auto", "ultimate", "q38max"],
     loggedIn: (h) => fs.existsSync(path.join(h, ".qoder")),
+  },
+  // 走 deepseek-ds 包装脚本：隔离配置目录 + 从 keychain 取 key，不影响官方 gemini CLI。
+  deepseek: {
+    id: "deepseek",
+    label: "DeepSeek CLI",
+    binName: "deepseek-ds",
+    delegateKey: "",
+    defaultModel: "deepseek-chat",
+    models: ["deepseek-chat", "deepseek-reasoner", "deepseek-v4-flash", "deepseek-v4-pro"],
+    loggedIn: (h) => fs.existsSync(path.join(h, ".local", "bin", "deepseek-ds")),
   },
   codebuddy: {
     id: "codebuddy",
@@ -145,6 +155,7 @@ function inferProviderFromPath(binPath) {
   if (/codex/i.test(base)) return "codex";
   if (/qoder/i.test(base)) return "qodercli";
   if (/codebuddy/i.test(base)) return "codebuddy";
+  if (/deepseek/i.test(base)) return "deepseek";
   return "claude";
 }
 
@@ -317,30 +328,130 @@ export function fetchAgyModels(configured = "") {
   });
 }
 
-export function runJournalModel(prompt, cfg = {}, { polish = false, env = process.env } = {}) {
-  const provider = resolveJournalProvider(cfg, { env });
+// —— 整理来源的备用链 ——
+// 主来源撞限额、超时或起不来时换下一个来源（另一个 CLI 或自填 API），
+// 全部问不到才退回本地规则。冷却期内的来源直接跳过，上次成功的来源优先。
+const QUOTA_ERROR_RE = /限额|额度|余额|quota|rate.?limit|too many requests|\b429\b|usage limit|insufficient|overloaded|超频/i;
+const CONFIG_ERROR_RE = /请先填写/;
+const DEFAULT_COOLDOWN_MIN = 30;
+const coolingUntil = new Map();
+let lastGoodProvider = "";
+
+// API 会算钱：自动调用前先问人，同意后 30 分钟内不再问（进程内授权，重启失效）。
+const API_GRANT_MS = 30 * 60000;
+let apiGrantUntil = 0;
+let apiDeniedUntil = 0;
+let apiConsentAsker = null;
+
+export function setJournalApiConsent(fn) {
+  apiConsentAsker = typeof fn === "function" ? fn : null;
+}
+
+export function resetJournalFailoverState() {
+  coolingUntil.clear();
+  lastGoodProvider = "";
+  apiGrantUntil = 0;
+  apiDeniedUntil = 0;
+}
+
+async function hasApiConsent(cfg = {}, { automatic = false, fallback = false } = {}) {
+  if (!automatic || cfg.autoLogApiConfirm === false) return true;
+  const now = Date.now();
+  if (now < apiGrantUntil) return true;
+  // 刚拒绝过就别每轮都再弹一次，同一窗口内继续走本地规则。
+  if (now < apiDeniedUntil) return false;
+  // 没有地方能问、问不到人、或者没人应答，都按「不花这笔钱」处理。
+  if (!apiConsentAsker) return false;
+  let ok = false;
+  try { ok = await Promise.resolve(apiConsentAsker({ provider: "api", fallback })); } catch { ok = false; }
+  if (ok) apiGrantUntil = Date.now() + API_GRANT_MS;
+  else apiDeniedUntil = Date.now() + API_GRANT_MS;
+  return Boolean(ok);
+}
+
+const apiReady = (cfg = {}) => Boolean(String(cfg.autoLogApiUrl || "").trim() && String(cfg.autoLogModel || "").trim());
+
+// 主来源 + 至多一个备用来源；开关关掉时和以前一样只问主来源。
+export function journalProviderChain(cfg = {}, { homeDir = home(), env = process.env } = {}) {
+  const primary = resolveJournalProvider(cfg, { homeDir, env });
+  if (!cfg.autoLogFailover) return [{ id: primary, primary: true }];
+  const chain = [{ id: primary, primary: true }];
+  const backup = String(cfg.autoLogBackupProvider || "auto").trim() || "auto";
+  const installed = detectJournalProviders({ homeDir, env, cfg }).available.map((x) => x.id).filter((id) => id !== primary);
+  let pick = backup === "auto" ? installed[0] || "" : backup;
+  if (pick && pick !== primary && pick !== "api" && !installed.includes(pick) && apiReady(cfg)) pick = "api";
+  if (pick && pick !== primary) {
+    if (pick === "api") { if (apiReady(cfg)) chain.push({ id: "api", model: String(cfg.autoLogModel || "").trim() }); }
+    else if (JOURNAL_PROVIDERS[pick]) chain.push({ id: pick, model: JOURNAL_PROVIDERS[pick].defaultModel || "" });
+  }
+  const now = Date.now();
+  const warm = chain.filter((e) => !(coolingUntil.get(e.id) > now));
+  const list = warm.length ? warm : chain;
+  const good = list.findIndex((e) => e.id === lastGoodProvider);
+  if (good > 0) list.unshift(list.splice(good, 1)[0]);
+  return list;
+}
+
+function runWithProvider(provider, prompt, cfg = {}, { polish = false, env = process.env, model, primary = false } = {}) {
   const spec = JOURNAL_PROVIDERS[provider];
-  const modelOverride = polish && String(cfg.roundPolishModel || "").trim();
-  const baseModel = String(cfg.autoLogModel || "").trim();
-  const model = modelOverride || baseModel || (provider === "codex" ? "" : spec?.defaultModel || "");
+  const polishModel = polish && String(cfg.roundPolishModel || "").trim();
+  const picked = model !== undefined
+    ? model
+    : polishModel || String(cfg.autoLogModel || "").trim() || (provider === "codex" ? "" : spec?.defaultModel || "");
   const timeout = polish ? Math.max(5, Number(cfg.roundPolishTimeout) || 30) : Math.max(10, Number(cfg.autoLogTimeout) || 120);
   const system = polish ? "你是整理助手，只输出要求的结果，不补充解释。" : "";
   if (provider === "api") {
     return runOpenAiApi(prompt, {
       url: cfg.autoLogApiUrl || "",
       apiKey: cfg.autoLogApiKey || "",
-      model,
+      model: picked,
       timeout,
       system,
     });
   }
-  const configured = cfg.autoLogPath || (spec ? cfg.delegate?.[spec.delegateKey]?.path : "") || "";
+  const configured = (primary ? cfg.autoLogPath : "") || (spec ? cfg.delegate?.[spec.delegateKey]?.path : "") || "";
   const bin = resolveBin(spec?.binName || provider, configured, home(), env) || spec?.binName || provider;
-  if (provider === "codex") return runCodex(prompt, { bin, model, effort: cfg.autoLogEffort || "low", timeout });
-  if (provider === "agy") return runAgy(prompt, { bin, model: model || "gemini-3.8-flash-low", timeout, system });
-  if (provider === "qodercli") return runQoderCli(prompt, { bin, model, timeout, system });
-  if (provider === "codebuddy") return runCodeBuddy(prompt, { bin, model, timeout, system });
-  return runClaude(prompt, { bin, model: model || "haiku", timeout, system });
+  if (provider === "codex") return runCodex(prompt, { bin, model: picked, effort: cfg.autoLogEffort || "low", timeout });
+  if (provider === "agy") return runAgy(prompt, { bin, model: picked || "gemini-3.8-flash-low", timeout, system });
+  if (provider === "qodercli") return runQoderCli(prompt, { bin, model: picked, timeout, system });
+  if (provider === "codebuddy") return runCodeBuddy(prompt, { bin, model: picked, timeout, system });
+  if (provider === "deepseek") return runDeepseekCli(prompt, { bin, model: picked || "deepseek-chat", timeout });
+  return runClaude(prompt, { bin, model: picked || "haiku", timeout, system });
+}
+
+// DeepSeek CLI：-p 一问一答，--output-format text 只要正文；包装脚本已把 key 和 HOME 准备好。
+export async function runDeepseekCli(prompt, { bin = "deepseek-ds", model = "deepseek-chat", timeout = 120 } = {}) {
+  const args = ["-p", prompt, "--output-format", "text", "--skip-trust"];
+  if (model) args.push("-m", model);
+  const { code, out, err } = await runProcess(bin, args, { label: "deepseek", timeout });
+  const text = String(out || "").trim();
+  if (!text) throw new Error((err || t("deepseek 退出码 {code}", { code })).trim().slice(-400));
+  return text;
+}
+
+export async function runJournalModel(prompt, cfg = {}, { polish = false, env = process.env, automatic = false } = {}) {
+  const chain = journalProviderChain(cfg, { env });
+  const cooldownMs = Math.max(1, Number(cfg.autoLogCooldownMin) || DEFAULT_COOLDOWN_MIN) * 60000;
+  let lastError = null;
+  for (let i = 0; i < chain.length; i++) {
+    const entry = chain[i];
+    try {
+      if (entry.id === "api" && !(await hasApiConsent(cfg, { automatic, fallback: !entry.primary }))) {
+        throw new Error(t("没有授权调用 API（会产生费用），这次先用会话标题记"));
+      }
+      const out = await runWithProvider(entry.id, prompt, cfg, { polish, env, model: entry.model, primary: entry.primary });
+      lastGoodProvider = entry.id;
+      return out;
+    } catch (e) {
+      lastError = e;
+      const message = String(e?.message || e);
+      // 配置没填全时换一家也没用，直接报出来。
+      if (chain.length === 1 || CONFIG_ERROR_RE.test(message)) throw e;
+      if (QUOTA_ERROR_RE.test(message)) coolingUntil.set(entry.id, Date.now() + cooldownMs);
+      if (i === chain.length - 1) throw e;
+    }
+  }
+  throw lastError || new Error("no usable journal provider");
 }
 
 export async function testJournalModel(cfg = {}) {

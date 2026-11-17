@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { planJournal, renderJournal, ensureTopRule } from '../src/organize-journal.js';
-import { JOURNAL_LAYOUT_DEFAULT, journalLayout, readJournalLayout } from '../src/journal-layout.js';
+import { JOURNAL_LAYOUT_DEFAULT, journalLayout, readJournalLayout, repairJournalLayout, stripJournalLayout } from '../src/journal-layout.js';
 
 const source = '# 随笔\n\n保留上面的文字\n\n---\n## 已完成\n- DONE 完成任务 ^ad-done\n  - ❓ 第1轮：问题\n  - 💬 第1轮：结论\n\n---\n## 进行中\n### DOING\n- DOING 正在做 ^ad-active\n  - 手写子项\n\n---\n\n## 手写原题\n\n\n- DONE 手写完成\n```md\n## 已完成\n\n\n- DONE 示例 ^ad-code\n```\n';
 const orders = [['done','active','notes'],['active','done','notes'],['notes','done','active'],['notes','active','done'],['done','notes','active'],['active','notes','done']];
@@ -78,3 +78,37 @@ try {
   assert.deepEqual(configuredJournalLayout({journalLayoutLanguage:'en'}),builtinJournalLayout('en'),'English preset overrides Chinese UI');
 } finally {if(oldLanguage===undefined)delete process.env.AGENT_DECK_LANG;else process.env.AGENT_DECK_LANG=oldLanguage;resetLanguage();}
 console.log('PASS built-in templates: language detection, Chinese/English overrides and custom titles');
+
+// 分区标记被删掉一半：补最少的标记救回来，正文一个字不动；补不齐返回 null。
+{
+  const layout = structuredClone(JOURNAL_LAYOUT_DEFAULT);
+  const good = renderJournal(planJournal(source, { layout }));
+  const broken = good.split('\n').filter((line) => !line.startsWith('<!-- agent-deck:layout:start -->')
+    && line.trim() !== '<!-- agent-deck:section:active:heading -->').join('\n');
+  assert.throws(() => readJournalLayout(broken), /分区标记不完整/);
+  const fixed = repairJournalLayout(broken);
+  assert.ok(fixed, 'repair returns text');
+  assert.doesNotThrow(() => readJournalLayout(fixed));
+  assert.equal(fixed.split('\n').length, broken.split('\n').length + 2, 'only the two missing markers are added');
+  assert.equal(repairJournalLayout('没有标记的普通笔记'), null, 'a note without markers is not repaired');
+  const missingEnd = broken.replace('<!-- agent-deck:section:done:end -->', '');
+  const endFixed = repairJournalLayout(missingEnd);
+  assert.ok(endFixed, 'a single missing :end is repairable');
+  assert.doesNotThrow(() => readJournalLayout(endFixed));
+  // 「- ---」这种被写成列表项的规则还原成单独的分割线
+  const bullet = broken.replace('## 正在做', '- ---\n## 正在做');
+  const fixedBullet = repairJournalLayout(bullet);
+  assert.ok(fixedBullet.includes('\n---\n'), fixedBullet);
+  assert.doesNotThrow(() => readJournalLayout(fixedBullet));
+}
+
+// 补不回来的那种（标记之间夹着正文）：repair 拒绝，strip 交给整理重建。
+{
+  const layout = structuredClone(JOURNAL_LAYOUT_DEFAULT);
+  const good = renderJournal(planJournal(source, { layout }));
+  const mangled = good.replace('<!-- agent-deck:section:done:heading -->', '- DONE 夹在分区外的条目\n<!-- agent-deck:section:done:heading -->');
+  assert.equal(repairJournalLayout(mangled), null, 'content outside any section is refused, not guessed');
+  const stripped = stripJournalLayout(mangled);
+  assert.equal(readJournalLayout(stripped), null, 'stripped note goes back to the classic rebuild path');
+  assert.ok(stripped.includes('DONE 夹在分区外的条目'), 'strip keeps every content line');
+}
