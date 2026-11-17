@@ -451,6 +451,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         p.saveSettings();
       },
     );
+    this.rowToggle(stewardCard, t("管家中途看护"), t("每 5 分钟看一眼波次：有会话 15 分钟没有输出，就提醒一次并写回子卡。默认关"), s.stewardWatch === true, (v) => {
+      s.stewardWatch = v;
+      p.saveSettings();
+      p.startStewardWatch?.();
+    });
 
     const projectCard = this.card(body, t("项目文件夹"), t("派活时按项目选目录；笔记里的双链、路径或「项目 -> 标题」也能认出项目，笔记项目优先于各 Agent 的默认目录。Codex 会把会话归到同名项目。"));
     this.rowToggle(projectCard, t("按项目文件夹派活"), t("从笔记认出项目后，派到这个项目的目录；认不出再用各 Agent 的默认目录或库根"), s.autoProjectFolder !== false, (v) => { s.autoProjectFolder = v; p.saveSettings(); });

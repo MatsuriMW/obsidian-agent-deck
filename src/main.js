@@ -99,6 +99,7 @@ import {
   STANDALONE_PROJECT_ID,
 } from "./project-workbench.js";
 import { setTaskBoardEffect, taskBoardMode } from "./fractal-board.js";
+import { judgeWave, newFindings, syncSeen, STEWARD_WATCH_MS } from "./steward-watch.js";
 import { SHOWCASE_VERSION, showcasePath, applyShowcaseDefaults, buildShowcaseMarkdown } from "./welcome-demo.js";
 
 const fsp = fs.promises;
@@ -358,6 +359,7 @@ export default class AgentDeckPlugin extends Plugin {
       if (this.settings.showMenuBar !== false) this.menubar.start().catch((e) => console.error("[agent-deck] menubar", e));
       if (this.settings.menuBarHideNautilus !== false) this.defer(() => this.hideNautilusAgentBar().catch(() => {}), 2500);
       this.scheduleScan();
+      this.startStewardWatch();
       this.watchCursorEvents();
       this.watchGrokBotPersistence();
       this.registerInterval(window.setInterval(() => safeRun("autoLog:tick", () => this.autoLog.tick(), { breaker: this._faultBreakers?.autoLog }), 60 * 1000));
@@ -2525,6 +2527,70 @@ export default class AgentDeckPlugin extends Plugin {
     }
     for (const waveId of toLaunch) await this.launchStewardForWave(waveId);
     for (const { wave, job } of toFinalize) await this.finalizeStewardWave(wave, job);
+  }
+
+  // 管家：开着看护时每 5 分钟看一眼波次，谁长时间没输出就提醒一次并写回子卡。
+  // 只看「卡住」：出错由看板关键字写回、待授权由 attention 弹通知，这里再报一遍就是噪音。
+  startStewardWatch() {
+    this._timers?.clear?.(this._stewardTimer);
+    this._stewardTimer = null;
+    if (this._unloaded || !this.settings.stewardWatch) return;
+    const run = () => safeRun("steward:watch", () => this.stewardWatchTick());
+    this._stewardTimer = typeof this._timers?.setInterval === "function" ? this._timers.setInterval(run, STEWARD_WATCH_MS) : setInterval(run, STEWARD_WATCH_MS);
+  }
+
+  async stewardWatchTick() {
+    if (this._unloaded || !this.settings.stewardWatch) return { notified: 0 };
+    const waves = this.settings.workbenchWaves || {};
+    let dirty = false;
+    const done = [];
+    for (const wave of Object.values(waves)) {
+      if (!wave || !["waiting", "running"].includes(wave.state)) continue;
+      const findings = judgeWave(wave, { jobs: this.jobs, metaMap: this.usage?.meta, now: Date.now() });
+      const fresh = newFindings(wave, findings);
+      const before = JSON.stringify(wave.watchSeen || {});
+      syncSeen(wave, findings);
+      if (JSON.stringify(wave.watchSeen || {}) !== before) dirty = true;
+      for (const finding of fresh) {
+        if (finding.kind !== "stuck") continue; // 出错 / 等授权各自有主
+        await this.writeStewardStuckLine(wave, finding);
+        const title = truncate(finding.title || t("这一项"), 24);
+        this.notice(t("管家：{title} 已经 {minutes} 分钟没有输出，先看一眼再说", { title, minutes: String(finding.minutes) }), 8000);
+        done.push({ waveId: wave.id, jobId: finding.worker?.jobId || "", minutes: finding.minutes });
+      }
+    }
+    if (dirty) await this.saveSettings();
+    return { notified: done.length, findings: done };
+  }
+
+  // 写回子卡下面一行，只陈述事实；同一句在同一块里只写一次。
+  async writeStewardStuckLine(wave, finding) {
+    if (!wave?.path) return false;
+    const title = truncate(finding.title || finding.job?.name || t("这一项"), 40);
+    const text = t("⚠️ 管家：{title} 已经 {minutes} 分钟没有输出（最后动静：{at}）", {
+      title,
+      minutes: String(finding.minutes),
+      at: new Date(finding.lastAt).toLocaleString("zh-CN", { hour12: false }),
+    });
+    const blockId = finding.worker?.blockId || "";
+    const name = finding.job?.name || finding.title || "";
+    let wrote = false;
+    await updateNote(this, wave.path, (raw) => {
+      const lines = raw.split("\n");
+      const byId = blockId ? lines.findIndex((l) => J.blockIdOf(l) === blockId) : -1;
+      const idx = byId >= 0 ? byId : lines.findIndex((l) => {
+        const kw = J.kwLine(l);
+        return kw && name && kw.body.includes(name);
+      });
+      if (idx < 0) return raw;
+      const end = J.subtreeEnd(lines, idx);
+      if (lines.slice(idx, end + 1).some((l) => l.includes("⚠️ 管家：") && l.includes(title))) return raw;
+      const indent = (/^[ \t]*/.exec(lines[idx]) || [""])[0] + "\t";
+      lines.splice(idx + 1, 0, `${indent}- ${text}`);
+      wrote = true;
+      return lines.join("\n");
+    });
+    return wrote;
   }
 
   async launchStewardForWave(waveId, { force = false } = {}) {

@@ -340,6 +340,11 @@ var main_default = {
   "\u4F7F\u7528\u6280\u80FD\uFF1A": "Use the skill: ",
   "\u4EFB\u52A1\u91CC\u5F15\u7528\u7684\u7B14\u8BB0\uFF08\u53EF\u76F4\u63A5\u8BFB\u5168\u6587\uFF09\uFF1A": "Notes referenced by this task (read them in full):",
   "\u9700\u8981\u66F4\u591A\u80CC\u666F\u65F6\uFF1A": "Need more background? ",
+  "\u7BA1\u5BB6\u4E2D\u9014\u770B\u62A4": "Steward mid-run watch",
+  "\u8FD9\u4E00\u9879": "this item",
+  "\u6BCF 5 \u5206\u949F\u770B\u4E00\u773C\u6CE2\u6B21\uFF1A\u6709\u4F1A\u8BDD 15 \u5206\u949F\u6CA1\u6709\u8F93\u51FA\uFF0C\u5C31\u63D0\u9192\u4E00\u6B21\u5E76\u5199\u56DE\u5B50\u5361\u3002\u9ED8\u8BA4\u5173": "Check each wave every 5 minutes: if a session has been silent for 15 minutes, notify once and write it back under the sub-card. Off by default.",
+  "\u7BA1\u5BB6\uFF1A{title} \u5DF2\u7ECF {minutes} \u5206\u949F\u6CA1\u6709\u8F93\u51FA\uFF0C\u5148\u770B\u4E00\u773C\u518D\u8BF4": "Steward: {title} has been silent for {minutes} minutes \u2014 take a look",
+  "\u26A0\uFE0F \u7BA1\u5BB6\uFF1A{title} \u5DF2\u7ECF {minutes} \u5206\u949F\u6CA1\u6709\u8F93\u51FA\uFF08\u6700\u540E\u52A8\u9759\uFF1A{at}\uFF09": "\u26A0\uFE0F Steward: {title} has been silent for {minutes} minutes (last activity: {at})",
   "\u8FD8\u6CA1\u6709\u88AB\u6539\u8FC7\u7684\u8F7D\u8377": "No payloads have been edited yet",
   "\u6709 {n} \u4E2A\u8F7D\u8377\u88AB\u6539\u8FC7\uFF1A{path}": "{n} payloads were edited: {path}",
   "\u8FD8\u6CA1\u6709\u6D3E\u53D1\u8F7D\u8377": "No dispatch payloads yet",
@@ -2283,6 +2288,8 @@ var DEFAULTS = {
   // 会话号 → 第一次记进日记的时间；按 180 天懒清理，用来区分「第一次接入」
   noteDispatchJournal: false,
   // 非日记笔记里的派发也写当天日记；默认只写回原笔记
+  stewardWatch: false,
+  // 管家中途干预：波次里有会话长时间没输出就提醒一次；默认关
   noteDispatchSessions: {},
   // 会话号 → 从非日记笔记派发的时间；默认 autoLog 跳过这些会话
   keywordStyle: true,
@@ -22234,6 +22241,11 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
         p2.saveSettings();
       }
     );
+    this.rowToggle(stewardCard, t("\u7BA1\u5BB6\u4E2D\u9014\u770B\u62A4"), t("\u6BCF 5 \u5206\u949F\u770B\u4E00\u773C\u6CE2\u6B21\uFF1A\u6709\u4F1A\u8BDD 15 \u5206\u949F\u6CA1\u6709\u8F93\u51FA\uFF0C\u5C31\u63D0\u9192\u4E00\u6B21\u5E76\u5199\u56DE\u5B50\u5361\u3002\u9ED8\u8BA4\u5173"), s.stewardWatch === true, (v) => {
+      s.stewardWatch = v;
+      p2.saveSettings();
+      p2.startStewardWatch?.();
+    });
     const projectCard = this.card(body, t("\u9879\u76EE\u6587\u4EF6\u5939"), t("\u6D3E\u6D3B\u65F6\u6309\u9879\u76EE\u9009\u76EE\u5F55\uFF1B\u7B14\u8BB0\u91CC\u7684\u53CC\u94FE\u3001\u8DEF\u5F84\u6216\u300C\u9879\u76EE -> \u6807\u9898\u300D\u4E5F\u80FD\u8BA4\u51FA\u9879\u76EE\uFF0C\u7B14\u8BB0\u9879\u76EE\u4F18\u5148\u4E8E\u5404 Agent \u7684\u9ED8\u8BA4\u76EE\u5F55\u3002Codex \u4F1A\u628A\u4F1A\u8BDD\u5F52\u5230\u540C\u540D\u9879\u76EE\u3002"));
     this.rowToggle(projectCard, t("\u6309\u9879\u76EE\u6587\u4EF6\u5939\u6D3E\u6D3B"), t("\u4ECE\u7B14\u8BB0\u8BA4\u51FA\u9879\u76EE\u540E\uFF0C\u6D3E\u5230\u8FD9\u4E2A\u9879\u76EE\u7684\u76EE\u5F55\uFF1B\u8BA4\u4E0D\u51FA\u518D\u7528\u5404 Agent \u7684\u9ED8\u8BA4\u76EE\u5F55\u6216\u5E93\u6839"), s.autoProjectFolder !== false, (v) => {
       s.autoProjectFolder = v;
@@ -30518,6 +30530,54 @@ var ProjectWorkbenchModal = class extends import_obsidian17.Modal {
   }
 };
 
+// src/steward-watch.js
+var STEWARD_STUCK_MS = 15 * 60 * 1e3;
+var STEWARD_WATCH_MS = 5 * 60 * 1e3;
+var RUNNING = /* @__PURE__ */ new Set(["starting", "running", "bound", "wait"]);
+var lastActivity = (job, meta) => Number(meta?.lastAt || job?.lastAt || job?.startedAt || 0);
+function judgeWave(wave, { jobs = {}, metaMap = null, now = Date.now(), stuckMs = STEWARD_STUCK_MS } = {}) {
+  const out = [];
+  for (const worker of wave?.workers || []) {
+    const job = worker.jobId ? jobs?.[worker.jobId] : null;
+    if (!job) continue;
+    const state = job.state || worker.state || "";
+    const sid = job.sessionId || worker.sessionId || "";
+    const meta = sid && metaMap ? metaMap.get(sid) : null;
+    const base = { waveId: wave.id || "", worker, job, sid, title: worker.title || job.name || "" };
+    const reason = attentionReason({ ...job, state, lastText: meta?.lastText || job.result || "" });
+    if (state === "needs-approval" || reason) {
+      out.push({ ...base, kind: "approval", handledBy: "attention" });
+      continue;
+    }
+    if (state === "error") {
+      out.push({ ...base, kind: "error", handledBy: "board" });
+      continue;
+    }
+    if (!RUNNING.has(state)) continue;
+    const at = lastActivity(job, meta) || Number(wave.updatedAt) || now;
+    const idle = now - at;
+    if (idle < stuckMs) continue;
+    out.push({ ...base, kind: "stuck", handledBy: "", idleMs: idle, minutes: Math.max(1, Math.round(idle / 6e4)), lastAt: at });
+  }
+  return out;
+}
+var findingKey = (f) => `${f?.waveId || ""}:${f?.worker?.jobId || f?.job?.id || ""}:${f?.kind || ""}`;
+function newFindings(wave, findings = []) {
+  const seen = wave?.watchSeen || {};
+  return (findings || []).filter((f) => !seen[findingKey(f)]);
+}
+function syncSeen(wave, findings = [], now = Date.now()) {
+  if (!wave) return {};
+  const prev = wave.watchSeen || {};
+  const next = {};
+  for (const f of findings || []) {
+    const key = findingKey(f);
+    next[key] = prev[key] || now;
+  }
+  wave.watchSeen = next;
+  return next;
+}
+
 // src/welcome-demo.js
 var SHOWCASE_VERSION = "1.10.0";
 var SHOWCASE_BOARD_KEY = "ad-demo-board";
@@ -30971,6 +31031,7 @@ var AgentDeckPlugin = class extends import_obsidian18.Plugin {
       if (this.settings.menuBarHideNautilus !== false) this.defer(() => this.hideNautilusAgentBar().catch(() => {
       }), 2500);
       this.scheduleScan();
+      this.startStewardWatch();
       this.watchCursorEvents();
       this.watchGrokBotPersistence();
       this.registerInterval(window.setInterval(() => safeRun("autoLog:tick", () => this.autoLog.tick(), { breaker: this._faultBreakers?.autoLog }), 60 * 1e3));
@@ -33175,6 +33236,67 @@ var AgentDeckPlugin = class extends import_obsidian18.Plugin {
     }
     for (const waveId of toLaunch) await this.launchStewardForWave(waveId);
     for (const { wave, job } of toFinalize) await this.finalizeStewardWave(wave, job);
+  }
+  // 管家：开着看护时每 5 分钟看一眼波次，谁长时间没输出就提醒一次并写回子卡。
+  // 只看「卡住」：出错由看板关键字写回、待授权由 attention 弹通知，这里再报一遍就是噪音。
+  startStewardWatch() {
+    this._timers?.clear?.(this._stewardTimer);
+    this._stewardTimer = null;
+    if (this._unloaded || !this.settings.stewardWatch) return;
+    const run2 = () => safeRun("steward:watch", () => this.stewardWatchTick());
+    this._stewardTimer = typeof this._timers?.setInterval === "function" ? this._timers.setInterval(run2, STEWARD_WATCH_MS) : setInterval(run2, STEWARD_WATCH_MS);
+  }
+  async stewardWatchTick() {
+    if (this._unloaded || !this.settings.stewardWatch) return { notified: 0 };
+    const waves = this.settings.workbenchWaves || {};
+    let dirty = false;
+    const done = [];
+    for (const wave of Object.values(waves)) {
+      if (!wave || !["waiting", "running"].includes(wave.state)) continue;
+      const findings = judgeWave(wave, { jobs: this.jobs, metaMap: this.usage?.meta, now: Date.now() });
+      const fresh = newFindings(wave, findings);
+      const before = JSON.stringify(wave.watchSeen || {});
+      syncSeen(wave, findings);
+      if (JSON.stringify(wave.watchSeen || {}) !== before) dirty = true;
+      for (const finding of fresh) {
+        if (finding.kind !== "stuck") continue;
+        await this.writeStewardStuckLine(wave, finding);
+        const title = truncate(finding.title || t("\u8FD9\u4E00\u9879"), 24);
+        this.notice(t("\u7BA1\u5BB6\uFF1A{title} \u5DF2\u7ECF {minutes} \u5206\u949F\u6CA1\u6709\u8F93\u51FA\uFF0C\u5148\u770B\u4E00\u773C\u518D\u8BF4", { title, minutes: String(finding.minutes) }), 8e3);
+        done.push({ waveId: wave.id, jobId: finding.worker?.jobId || "", minutes: finding.minutes });
+      }
+    }
+    if (dirty) await this.saveSettings();
+    return { notified: done.length, findings: done };
+  }
+  // 写回子卡下面一行，只陈述事实；同一句在同一块里只写一次。
+  async writeStewardStuckLine(wave, finding) {
+    if (!wave?.path) return false;
+    const title = truncate(finding.title || finding.job?.name || t("\u8FD9\u4E00\u9879"), 40);
+    const text = t("\u26A0\uFE0F \u7BA1\u5BB6\uFF1A{title} \u5DF2\u7ECF {minutes} \u5206\u949F\u6CA1\u6709\u8F93\u51FA\uFF08\u6700\u540E\u52A8\u9759\uFF1A{at}\uFF09", {
+      title,
+      minutes: String(finding.minutes),
+      at: new Date(finding.lastAt).toLocaleString("zh-CN", { hour12: false })
+    });
+    const blockId = finding.worker?.blockId || "";
+    const name = finding.job?.name || finding.title || "";
+    let wrote = false;
+    await updateNote(this, wave.path, (raw) => {
+      const lines = raw.split("\n");
+      const byId = blockId ? lines.findIndex((l) => blockIdOf(l) === blockId) : -1;
+      const idx = byId >= 0 ? byId : lines.findIndex((l) => {
+        const kw = kwLine(l);
+        return kw && name && kw.body.includes(name);
+      });
+      if (idx < 0) return raw;
+      const end = subtreeEnd(lines, idx);
+      if (lines.slice(idx, end + 1).some((l) => l.includes("\u26A0\uFE0F \u7BA1\u5BB6\uFF1A") && l.includes(title))) return raw;
+      const indent = (/^[ \t]*/.exec(lines[idx]) || [""])[0] + "	";
+      lines.splice(idx + 1, 0, `${indent}- ${text}`);
+      wrote = true;
+      return lines.join("\n");
+    });
+    return wrote;
   }
   async launchStewardForWave(waveId, { force = false } = {}) {
     if (this._unloaded) return;

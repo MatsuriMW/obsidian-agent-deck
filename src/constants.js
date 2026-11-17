@@ -421,6 +421,7 @@ export const DEFAULTS = {
   autoLogFirstRounds: 10,  // 第一次接入某个会话 / Bot 时只补最近几轮，之后只跟当天的新轮次
   autoLogSeen: {},         // 会话号 → 第一次记进日记的时间；按 180 天懒清理，用来区分「第一次接入」
   noteDispatchJournal: false, // 非日记笔记里的派发也写当天日记；默认只写回原笔记
+  stewardWatch: false, // 管家中途干预：波次里有会话长时间没输出就提醒一次；默认关
   noteDispatchSessions: {},   // 会话号 → 从非日记笔记派发的时间；默认 autoLog 跳过这些会话
   keywordStyle: true,      // 关键词配色与 tsq-ico 图标；TODOseq 自己在格式化时让位
   recordRules: { ...DEFAULT_RECORD_RULES },
