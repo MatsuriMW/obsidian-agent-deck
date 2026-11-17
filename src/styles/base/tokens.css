@@ -32,6 +32,9 @@
   --ad-bad: #a86f6d;
   --ad-star: #b39a6a;
 
+  /* 进行中（在跑）专用色：与任务关键词 DOING / NOW / IN-PROGRESS 同一个红（keyword.css） */
+  --ad-live: #c8635f;
+
   /* 浮层阴影与等宽数字字体（用于耗时、Token、轮次序号对齐） */
   --ad-shadow: 0 10px 30px rgba(55, 48, 42, .08);
   --ad-figure: "SF Mono", "JetBrains Mono", ui-monospace, monospace;

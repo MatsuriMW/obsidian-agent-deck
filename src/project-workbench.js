@@ -103,6 +103,46 @@ function stateRank(state) {
   return 5;
 }
 
+/** 「现在」按状态分组的固定顺序、徽章颜色与是否算「要你处理」。 */
+export const NOW_STATUS_BUCKETS = [
+  { id: "waiting", label: "等你", tone: "wait", attention: true },
+  { id: "pending", label: "待认领", tone: "wait", attention: false },
+  { id: "running", label: "在跑", tone: "live", attention: false },
+  { id: "error", label: "异常", tone: "error", attention: true },
+];
+
+/**
+ * Which status bucket a live row belongs to. Pending jobs (dispatched but no
+ * session claimed them yet) are checked first: their job state reads
+ * "starting" and would otherwise look like a running session.
+ */
+export function nowStatusOf(session, now = Date.now()) {
+  if (!session) return "";
+  if (session.isPendingJob) return "pending";
+  const st = session.state || "idle";
+  if (st === "error" || st === "limit") return "error";
+  if (RUNNING_STATES.has(st)) return "running";
+  if (isWaitingSession(session, now)) return "waiting";
+  return "";
+}
+
+/** Group live sessions and active jobs into the 「现在」 status buckets, empty ones dropped. */
+export function buildNowStatusGroups(sessions = [], { jobs = {}, agentEnabled = () => true, now = Date.now() } = {}) {
+  const merged = mergeSessionsWithJobs(sessions, jobs, agentEnabled);
+  const buckets = new Map(NOW_STATUS_BUCKETS.map((b) => [b.id, { ...b, sessions: [] }]));
+  for (const s of merged) {
+    const id = nowStatusOf(s, now);
+    if (id) buckets.get(id).sessions.push(s);
+  }
+  const out = [];
+  for (const g of buckets.values()) {
+    if (!g.sessions.length) continue;
+    g.sessions.sort((a, b) => stateRank(a.state) - stateRank(b.state) || (b.lastAt || 0) - (a.lastAt || 0));
+    out.push(g);
+  }
+  return out;
+}
+
 function resolveDirectProjectIdentity(session) {
   const root = normalizeProjectRoot(session?.cwd || "");
   if (root) return { name: sessionProjectName(root), root };

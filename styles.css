@@ -1,4 +1,4 @@
-/* Agent Deck 1.12.1 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.12.2 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -18,6 +18,7 @@
   --ad-warn: #a9845f;
   --ad-bad: #a86f6d;
   --ad-star: #b39a6a;
+  --ad-live: #c8635f;
   --ad-shadow: 0 10px 30px rgba(55, 48, 42, .08);
   --ad-figure:
     "SF Mono",
@@ -1525,7 +1526,8 @@ body.ad-dragging-item :is(.ad-view .ad-sess) {
   gap: 3px;
 }
 .ad-view .ad-state.is-live {
-  --ad-state-tone: var(--ad-good);
+  --ad-state-tone: var(--ad-live);
+  --ad-state-alpha: 20%;
   animation: ad-pulse 1.8s ease-in-out infinite;
 }
 .ad-view .ad-state.is-wait {
@@ -1595,7 +1597,7 @@ body.ad-dragging-item :is(.ad-view .ad-sess) {
   border-color: color-mix(in srgb, var(--ad-agent) 38%, var(--ad-line));
 }
 .ad-view .ad-agentcard.is-running .ad-agentcard__where {
-  color: var(--ad-good);
+  color: var(--ad-live);
 }
 .ad-view .ad-agentcard.is-dragging {
   opacity: .4;
@@ -2058,8 +2060,8 @@ body.ad-dragging-item :is(.ad-view .ad-agentcard) {
   color: var(--ad-muted);
 }
 .ad-view .ad-projgroup .ad-projbadge.is-live {
-  color: var(--ad-good);
-  background: color-mix(in srgb, var(--ad-good) 14%, transparent);
+  color: var(--ad-live);
+  background: color-mix(in srgb, var(--ad-live) 14%, transparent);
 }
 .ad-view .ad-projgroup .ad-projbadge.is-wait {
   color: var(--ad-warn);

@@ -17,6 +17,8 @@ register(
 const {
   STANDALONE_PROJECT_ID,
   buildProjectGroups,
+  buildNowStatusGroups,
+  nowStatusOf,
   planRecentProjectDisplay,
   isWaitingSession,
   isActiveNowSession,
@@ -373,6 +375,27 @@ test("AgentDeckView renders P0 project groups in Now and supports project groupi
     groupBtns[1].onclick();
     assert.equal(plugin.settings.ui.recentGroupBy, "project");
     assert.equal(contentEl.querySelectorAll(".ad-stack--project").length, 1, "app-one with 2 sessions renders as a project stack");
+
+    // 「按状态」view: the third chip buckets the same live rows by status.
+    const nowChips = contentEl.querySelectorAll(".ad-nowgroup__btn");
+    assert.equal(nowChips.length, 3, "Now offers 按项目 / 按状态 / 列表");
+    nowChips[1].onclick();
+    assert.equal(plugin.settings.ui.nowGroupBy, "status");
+    const statusGroups = contentEl.querySelectorAll(".ad-projgroup");
+    assert.deepEqual(statusGroups.map((g) => g.dataset.status), ["waiting", "running", "error"]);
+    assert.deepEqual(statusGroups.map((g) => g.querySelector(".ad-projgroup__name").textContent), ["等你", "在跑", "异常"]);
+    assert.equal(statusGroups[0].querySelectorAll(".ad-sess").length, 1);
+    assert.equal(statusGroups[0].querySelector(".ad-projbadge").textContent, "1");
+    assert.ok(statusGroups[0].classes.has("has-attention"), "等你 is flagged as needing attention");
+    assert.equal(statusGroups[0].querySelectorAll(".ad-iconbtn--xs").length, 0, "status headers carry no project actions");
+
+    statusGroups[0].querySelector(".ad-projgroup__toggle").onclick();
+    const collapsed = contentEl.querySelectorAll(".ad-projgroup");
+    assert.equal(collapsed.length, 3, "collapsing keeps the other buckets");
+    assert.equal(collapsed[0].querySelectorAll(".ad-sess").length, 0, "collapsed status bucket hides its cards");
+
+    plugin.settings.ui.nowGroupBy = "nonsense";
+    assert.equal(view.nowGroupBy(), "project", "unknown Now modes fall back to 按项目");
   } finally {
     delete globalThis.document;
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -802,6 +825,34 @@ test("buildProjectGroups isolates same-named folders, inherits parent project fo
   assert.equal(isWaitingSession(sessions[5], now), false);
   assert.equal(isActiveNowSession(sessions[4], now), false);
   assert.equal(isActiveNowSession({ sid: "n1", agent: "dsh", state: "needs-approval", lastAt: now - WAIT_ACTIVE_MS - 60000 }, now), true);
+});
+
+test("buildNowStatusGroups buckets active rows into 等你 / 待认领 / 在跑 / 异常 in order", () => {
+  const now = Date.now();
+  const sessions = [
+    { sid: "run-old", agent: "claude", state: "run", lastAt: now - 4000, title: "旧的在跑" },
+    { sid: "run-new", agent: "codex", state: "busy", lastAt: now - 1000, title: "新的在跑" },
+    { sid: "appr", agent: "dsh", state: "needs-approval", lastAt: now - 2000, title: "等授权" },
+    { sid: "err", agent: "qoder", state: "error", lastAt: now - 3000, title: "报错" },
+    { sid: "lim", agent: "qoder", state: "limit", lastAt: now - 500, title: "撞限额" },
+    { sid: "done", agent: "dsh", state: "done", lastAt: now - 100, title: "已完成" },
+    { sid: "stale", agent: "dsh", state: "wait", lastAt: now - WAIT_ACTIVE_MS - 60000, title: "过期等待" },
+  ];
+  const jobs = { unclaimed: { id: "unclaimed", agent: "claude", state: "starting", name: "还没被接手", startedAt: now - 5000 } };
+  const groups = buildNowStatusGroups(sessions, { jobs, now });
+  assert.deepEqual(groups.map((g) => g.id), ["waiting", "pending", "running", "error"]);
+  assert.deepEqual(groups.map((g) => g.sessions.map((s) => s.sid)), [["appr"], ["unclaimed"], ["run-new", "run-old"], ["lim", "err"]]);
+  assert.equal(groups[0].label, "等你");
+  assert.equal(groups[0].sessions[0].state, "needs-approval");
+  assert.equal(groups[1].sessions[0].isPendingJob, true, "a dispatched-but-unclaimed job is not running yet");
+  assert.equal(nowStatusOf(sessions[5], now), "", "finished sessions belong to no status bucket");
+  assert.equal(nowStatusOf(sessions[6], now), "", "wait past WAIT_ACTIVE_MS is not a live status");
+  // A disabled agent drops its job row, and buckets left empty disappear.
+  assert.deepEqual(
+    buildNowStatusGroups(sessions, { jobs, agentEnabled: (id) => id !== "claude", now }).map((g) => g.id),
+    ["waiting", "running", "error"],
+  );
+  assert.deepEqual(buildNowStatusGroups([], { now }), []);
 });
 
 test("Steward config, wave sync, worker report collection, prompt builder, and Markdown updates", () => {

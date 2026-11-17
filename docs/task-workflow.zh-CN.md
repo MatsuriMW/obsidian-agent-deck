@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.12.1**（已发版，2026-11-17）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.12.2**（已发版，2026-11-18）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 双平台验证边界
 
@@ -26,6 +26,15 @@
 - **快捷键**（macOS `Alt` = `Option`）：`Ctrl+Alt+D` 委派/任务菜单 · `Ctrl+Alt+A` 续聊/停止/重派 · `Ctrl+Alt+C` 查看与保存对话 · `Ctrl+Alt+N` 下一条待确认 · `Ctrl+Alt+X` 停止执行 · `Ctrl+Alt+J` 跳到「正在做」 · `Ctrl+Alt+L` 整理日志 · `⌥⌘↑` 跳到母块（连按逐级向上）· `⌥⌘⇧↑` 跳到最上一级顶格母块 · `⌥⌘↓` 合并成组（Group rows）· `⌃⌥⌘D` macOS 菜单栏。
 - **关键词**：`DOING` / `NOW` / `IN-PROGRESS`、`TOREVIEW`、`NEEDOK`、`ERRORED` / `FAILED`、`HITLIMIT`、`QUEUED`、`DELEGATED`、`TODO` / `LATER`、`PAUSED` / `SUSPENDED`、`WAITING` / `WAIT`、`DONE`、`CANCELED` / `CANCELLED`、`TODOFORAI` / `TODO4AI` / `TODO2AI` / `TODOTOAI`，及 `[ ]` `[/]` `[x]` `[-]`。
 - **整理与归档**：**整理日志**默认按 `---` → 正在做 → `---` → 还要做 → `---` → 已完成 → `---` 排列，只整理完整分区内的 **AI** 条目，非 AI 手写条目与区外笔记保持原位；无完整分区时只建立空分区。**归档已完成的日志到…** 仅移出已完成 **AI** 块（默认 `Agent Deck/done/已完成任务.md`），先写归档再删源。
+
+## 本地修改（2026-11-18，1.12.2）：侧栏「现在」增加「按状态」视图
+
+- **三视图切换**：`settings.ui.nowGroupBy` 现在接受 `project` / `status` / `flat`（`AgentDeckView.nowGroupBy()` 只认这三个值，未知值回 `project`）；卡片头部的切换按钮变成「按项目 / 按状态 / 列表」三颗，沿用既有 `ad-chip is-on` 胶囊与 `.ad-projgroup` 折叠卡片样式。
+- **状态分档**：新增 `NOW_STATUS_BUCKETS` / `nowStatusOf()` / `buildNowStatusGroups()`（`src/project-workbench.js`），固定顺序「等你 → 待认领 → 在跑 → 异常」，空档不渲染。口径：等你 = `needs-approval` / 排队 / 30 分钟内的非子代理 `wait`·`quiet`；待认领 = 已派发但还没有会话接手的活跃 job（`isPendingJob`，优先于「在跑」判定，否则 `starting` 会被当成在跑）；在跑 = `run` / `starting` / `running` / `busy`；异常 = `error` / `limit`。组内沿用 `stateRank` + 最近活跃排序。
+- **在跑配色**：新增 token `--ad-live: #c8635f`（`src/styles/base/tokens.css`），与会话卡片状态胶囊 `.ad-state.is-live`、项目 / 状态组头的 `N 在跑` 徽章 `.ad-projbadge.is-live`、Agent 卡片的「N 个在跑」文字共用，与 `keyword.css` 的 DOING / NOW / IN-PROGRESS 关键词红一致；`完成` 仍用 `--ad-good` 绿；在跑胶囊保留呼吸脉冲，底色透明度提到 20%（`--ad-state-alpha: 20%`），浅色主题下更实。
+- **组头**：按状态只保留折叠箭头、档位名与数量徽章，不出现项目目录 / 工作台 / 停止本项目这些项目级按钮；「等你」与「异常」档沿用 `has-attention` 描边。折叠状态记忆在新加的 `collapsedNowStatus`，与按项目视图的 `collapsedNowProjects` 互不影响。
+- **测试**：`test/project-workbench.test.mjs` 新增 `buildNowStatusGroups` 分档用例（四档顺序、组内排序、未认领优先于在跑、完成/过期等待不计入、禁用 Agent 掉行、全空返回空）；同文件既有的 `AgentDeckView` DOM 渲染用例补上三颗按钮、切到按状态后三档顺序 / 中文档位名 / 徽章 / `has-attention` / 组头无项目按钮 / 折叠后卡片隐藏、以及未知档位回落 `project`。全量 `npm test`（exit 0，`all passed`）、`npm run build`、`git diff --check` 通过。
+- 已实机目视：Obsidian 1.15.1 里三视图切换、等你 / 在跑两档与折叠、在跑红与 20% 底色的观感。未验证：Windows、极窄侧栏下三颗胶囊的换行与徽章对齐。
 
 ## 本地修改（2026-11-17，1.12.1）：笔记项目优先于 Agent 默认目录
 

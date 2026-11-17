@@ -266,7 +266,7 @@
     align-items: center;
     gap: 3px;
 
-    &.is-live  { --ad-state-tone: var(--ad-good); animation: ad-pulse 1.8s ease-in-out infinite; }
+    &.is-live  { --ad-state-tone: var(--ad-live); --ad-state-alpha: 20%; animation: ad-pulse 1.8s ease-in-out infinite; }
     &.is-wait  { --ad-state-tone: var(--ad-warn); }
     &.is-error { --ad-state-tone: var(--ad-bad); }
     &.is-done  { --ad-state-tone: var(--ad-good); --ad-state-alpha: 12%; }
@@ -341,7 +341,7 @@
     }
 
     &.is-running .ad-agentcard__where {
-      color: var(--ad-good);
+      color: var(--ad-live);
     }
 
     &.is-dragging {
@@ -883,8 +883,8 @@
       color: var(--ad-muted);
 
       &.is-live {
-        color: var(--ad-good);
-        background: color-mix(in srgb, var(--ad-good) 14%, transparent);
+        color: var(--ad-live);
+        background: color-mix(in srgb, var(--ad-live) 14%, transparent);
       }
 
       &.is-wait {

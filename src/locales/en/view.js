@@ -128,7 +128,10 @@ export default {
   // Project-first process view & Fractal board
   "打开项目工作台（小队编排与拆解派发）": "Open Project Workbench (team setup & task planning)",
   "按项目": "By project",
+  "按状态": "By status",
   "列表": "List",
+  "待认领": "Unclaimed",
+  "异常": "Issues",
   "按 Agent": "By agent",
   "{n} 异常": "{n} issues",
   "在项目工作台编排小队": "Configure team in Project Workbench",

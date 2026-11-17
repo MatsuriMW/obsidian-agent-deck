@@ -1,4 +1,4 @@
-/* Agent Deck 1.12.1 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.12.2 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -391,7 +391,10 @@ var view_default = {
   // Project-first process view & Fractal board
   "\u6253\u5F00\u9879\u76EE\u5DE5\u4F5C\u53F0\uFF08\u5C0F\u961F\u7F16\u6392\u4E0E\u62C6\u89E3\u6D3E\u53D1\uFF09": "Open Project Workbench (team setup & task planning)",
   "\u6309\u9879\u76EE": "By project",
+  "\u6309\u72B6\u6001": "By status",
   "\u5217\u8868": "List",
+  "\u5F85\u8BA4\u9886": "Unclaimed",
+  "\u5F02\u5E38": "Issues",
   "\u6309 Agent": "By agent",
   "{n} \u5F02\u5E38": "{n} issues",
   "\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u7F16\u6392\u5C0F\u961F": "Configure team in Project Workbench",
@@ -13838,6 +13841,36 @@ function stateRank(state) {
   if (state === "done" || state === "cancelled") return 6;
   return 5;
 }
+var NOW_STATUS_BUCKETS = [
+  { id: "waiting", label: "\u7B49\u4F60", tone: "wait", attention: true },
+  { id: "pending", label: "\u5F85\u8BA4\u9886", tone: "wait", attention: false },
+  { id: "running", label: "\u5728\u8DD1", tone: "live", attention: false },
+  { id: "error", label: "\u5F02\u5E38", tone: "error", attention: true }
+];
+function nowStatusOf(session, now = Date.now()) {
+  if (!session) return "";
+  if (session.isPendingJob) return "pending";
+  const st = session.state || "idle";
+  if (st === "error" || st === "limit") return "error";
+  if (RUNNING_STATES.has(st)) return "running";
+  if (isWaitingSession(session, now)) return "waiting";
+  return "";
+}
+function buildNowStatusGroups(sessions = [], { jobs = {}, agentEnabled = () => true, now = Date.now() } = {}) {
+  const merged = mergeSessionsWithJobs(sessions, jobs, agentEnabled);
+  const buckets = new Map(NOW_STATUS_BUCKETS.map((b) => [b.id, { ...b, sessions: [] }]));
+  for (const s of merged) {
+    const id = nowStatusOf(s, now);
+    if (id) buckets.get(id).sessions.push(s);
+  }
+  const out = [];
+  for (const g of buckets.values()) {
+    if (!g.sessions.length) continue;
+    g.sessions.sort((a, b) => stateRank(a.state) - stateRank(b.state) || (b.lastAt || 0) - (a.lastAt || 0));
+    out.push(g);
+  }
+  return out;
+}
 function resolveDirectProjectIdentity(session) {
   const root = normalizeProjectRoot(session?.cwd || "");
   if (root) return { name: sessionProjectName(root), root };
@@ -17657,6 +17690,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
     this.expandedAgents = /* @__PURE__ */ new Set();
     this.expandedProjects = /* @__PURE__ */ new Set();
     this.collapsedNowProjects = /* @__PURE__ */ new Set();
+    this.collapsedNowStatus = /* @__PURE__ */ new Set();
     this._scroll = 0;
     this._bottomSlack = 0;
   }
@@ -17665,7 +17699,8 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
     return RECENT_DAY_OPTIONS.includes(v) ? v : 7;
   }
   nowGroupBy() {
-    return this.plugin.settings?.ui?.nowGroupBy === "flat" ? "flat" : "project";
+    const v = this.plugin.settings?.ui?.nowGroupBy;
+    return v === "flat" || v === "status" ? v : "project";
   }
   recentGroupBy() {
     return this.plugin.settings?.ui?.recentGroupBy === "project" ? "project" : "agent";
@@ -17831,7 +17866,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
     const nowGroupBy = this.nowGroupBy();
     const nowHead = this.secHead(nowSec, t("\u73B0\u5728"), t("{run} \u4E2A\u5728\u8DD1 \xB7 {wait} \u4E2A\u7B49\u4F60", { run: running.length, wait: waiting.length }));
     const nowSwitch = nowHead.createDiv({ cls: "ad-range" });
-    for (const [id, label] of [["project", t("\u6309\u9879\u76EE")], ["flat", t("\u5217\u8868")]]) {
+    for (const [id, label] of [["project", t("\u6309\u9879\u76EE")], ["status", t("\u6309\u72B6\u6001")], ["flat", t("\u5217\u8868")]]) {
       const b = nowSwitch.createEl("button", { cls: "ad-chip ad-nowgroup__btn" + (nowGroupBy === id ? " is-on" : ""), text: label });
       b.onclick = () => {
         var _a;
@@ -17845,6 +17880,9 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
     if (nowGroupBy === "project") {
       const nowActive = live.filter((x) => isActiveNowSession(x, now));
       this.renderNowProjects(nowList, nowActive);
+    } else if (nowGroupBy === "status") {
+      const nowActive = live.filter((x) => isActiveNowSession(x, now));
+      this.renderNowStatus(nowList, nowActive, now);
     } else {
       const nowItems = this.nowOrdered([...running, ...waiting]).slice(0, 6);
       if (!nowItems.length) this.empty(nowList, t("\u73B0\u5728\u6CA1\u6709\u5728\u8DD1\u7684\u4F1A\u8BDD"));
@@ -18077,6 +18115,39 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
           p2.cancelProjectJobs(g.id, g.activeJobIds);
         };
       }
+      if (!collapsed) {
+        const body = card.createDiv({ cls: "ad-projgroup__list" });
+        for (const s of g.sessions) this.sessionCard(body, s, true);
+      }
+    }
+  }
+  renderNowStatus(nowList, liveRows, now = Date.now()) {
+    const p2 = this.plugin;
+    const hidden = p2.settings?.nowHidden || {};
+    const groups = buildNowStatusGroups(this.nowOrdered(liveRows), {
+      jobs: p2.jobs || {},
+      agentEnabled: (id) => p2.agentEnabled(id),
+      now
+    }).map((g) => ({
+      ...g,
+      sessions: g.sessions.filter((s) => !hidden[s.sid])
+    })).filter((g) => g.sessions.length > 0);
+    if (!groups.length) return this.empty(nowList, t("\u73B0\u5728\u6CA1\u6709\u5728\u8DD1\u7684\u4F1A\u8BDD"));
+    for (const g of groups) {
+      const collapsed = this.collapsedNowStatus.has(g.id);
+      const card = nowList.createDiv({ cls: `ad-projgroup ${collapsed ? "is-collapsed" : "is-open"}${g.attention ? " has-attention" : ""}` });
+      card.dataset.status = g.id;
+      const head = card.createDiv({ cls: "ad-projgroup__head" });
+      const toggle = head.createEl("button", { cls: "ad-projgroup__toggle", attr: { type: "button" } });
+      toggle.createSpan({ cls: "ad-projgroup__chev", text: collapsed ? "\u25B8" : "\u25BE" });
+      toggle.createSpan({ cls: "ad-projgroup__name", text: t(g.label) });
+      const badges = toggle.createSpan({ cls: "ad-projgroup__badges" });
+      badges.createSpan({ cls: `ad-projbadge is-${g.tone}`, text: String(g.sessions.length) });
+      toggle.onclick = () => {
+        if (this.collapsedNowStatus.has(g.id)) this.collapsedNowStatus.delete(g.id);
+        else this.collapsedNowStatus.add(g.id);
+        this.render();
+      };
       if (!collapsed) {
         const body = card.createDiv({ cls: "ad-projgroup__list" });
         for (const s of g.sessions) this.sessionCard(body, s, true);

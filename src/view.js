@@ -7,7 +7,7 @@ import { agentIcon, setLucide, stateIcon } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { SESSION_MIME } from "./editor.js";
 import { t } from "./i18n.js";
-import { buildProjectGroups, planRecentProjectDisplay, isWaitingSession, isActiveNowSession, STANDALONE_PROJECT_ID } from "./project-workbench.js";
+import { buildProjectGroups, buildNowStatusGroups, planRecentProjectDisplay, isWaitingSession, isActiveNowSession, STANDALONE_PROJECT_ID } from "./project-workbench.js";
 
 export const VIEW_TYPE = "agent-deck-view";
 export const RECENT_DAY_OPTIONS = [7, 30, 120];
@@ -77,6 +77,7 @@ export class AgentDeckView extends ItemView {
     this.expandedAgents = new Set();
     this.expandedProjects = new Set();
     this.collapsedNowProjects = new Set();
+    this.collapsedNowStatus = new Set();
     this._scroll = 0;
     this._bottomSlack = 0;
   }
@@ -87,7 +88,8 @@ export class AgentDeckView extends ItemView {
   }
 
   nowGroupBy() {
-    return this.plugin.settings?.ui?.nowGroupBy === "flat" ? "flat" : "project";
+    const v = this.plugin.settings?.ui?.nowGroupBy;
+    return v === "flat" || v === "status" ? v : "project";
   }
 
   recentGroupBy() {
@@ -232,7 +234,7 @@ export class AgentDeckView extends ItemView {
     const nowGroupBy = this.nowGroupBy();
     const nowHead = this.secHead(nowSec, t("现在"), t("{run} 个在跑 · {wait} 个等你", { run: running.length, wait: waiting.length }));
     const nowSwitch = nowHead.createDiv({ cls: "ad-range" });
-    for (const [id, label] of [["project", t("按项目")], ["flat", t("列表")]]) {
+    for (const [id, label] of [["project", t("按项目")], ["status", t("按状态")], ["flat", t("列表")]]) {
       const b = nowSwitch.createEl("button", { cls: "ad-chip ad-nowgroup__btn" + (nowGroupBy === id ? " is-on" : ""), text: label });
       b.onclick = () => {
         if (this.nowGroupBy() === id) return;
@@ -245,6 +247,9 @@ export class AgentDeckView extends ItemView {
     if (nowGroupBy === "project") {
       const nowActive = live.filter((x) => isActiveNowSession(x, now));
       this.renderNowProjects(nowList, nowActive);
+    } else if (nowGroupBy === "status") {
+      const nowActive = live.filter((x) => isActiveNowSession(x, now));
+      this.renderNowStatus(nowList, nowActive, now);
     } else {
       const nowItems = this.nowOrdered([...running, ...waiting]).slice(0, 6);
       if (!nowItems.length) this.empty(nowList, t("现在没有在跑的会话"));
@@ -486,6 +491,40 @@ export class AgentDeckView extends ItemView {
           p.cancelProjectJobs(g.id, g.activeJobIds);
         };
       }
+      if (!collapsed) {
+        const body = card.createDiv({ cls: "ad-projgroup__list" });
+        for (const s of g.sessions) this.sessionCard(body, s, true);
+      }
+    }
+  }
+
+  renderNowStatus(nowList, liveRows, now = Date.now()) {
+    const p = this.plugin;
+    const hidden = p.settings?.nowHidden || {};
+    const groups = buildNowStatusGroups(this.nowOrdered(liveRows), {
+      jobs: p.jobs || {},
+      agentEnabled: (id) => p.agentEnabled(id),
+      now,
+    }).map((g) => ({
+      ...g,
+      sessions: g.sessions.filter((s) => !hidden[s.sid]),
+    })).filter((g) => g.sessions.length > 0);
+    if (!groups.length) return this.empty(nowList, t("现在没有在跑的会话"));
+    for (const g of groups) {
+      const collapsed = this.collapsedNowStatus.has(g.id);
+      const card = nowList.createDiv({ cls: `ad-projgroup ${collapsed ? "is-collapsed" : "is-open"}${g.attention ? " has-attention" : ""}` });
+      card.dataset.status = g.id;
+      const head = card.createDiv({ cls: "ad-projgroup__head" });
+      const toggle = head.createEl("button", { cls: "ad-projgroup__toggle", attr: { type: "button" } });
+      toggle.createSpan({ cls: "ad-projgroup__chev", text: collapsed ? "▸" : "▾" });
+      toggle.createSpan({ cls: "ad-projgroup__name", text: t(g.label) });
+      const badges = toggle.createSpan({ cls: "ad-projgroup__badges" });
+      badges.createSpan({ cls: `ad-projbadge is-${g.tone}`, text: String(g.sessions.length) });
+      toggle.onclick = () => {
+        if (this.collapsedNowStatus.has(g.id)) this.collapsedNowStatus.delete(g.id);
+        else this.collapsedNowStatus.add(g.id);
+        this.render();
+      };
       if (!collapsed) {
         const body = card.createDiv({ cls: "ad-projgroup__list" });
         for (const s of g.sessions) this.sessionCard(body, s, true);
