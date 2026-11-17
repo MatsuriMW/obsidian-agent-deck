@@ -108,6 +108,7 @@
 
 | 事项 | 范围与边界约束 | 参考 Spec / 模块 |
 | --- | --- | --- |
+| **记忆查询接 MCP**（下一步主线） | 把 `scripts/memory-query.mjs` 的三个动词包成 stdio MCP server（`memory_search` / `memory_read` / `memory_recent`），与 CLI 共用同一份打分与格式化逻辑（抽 `src/memory-query-core.js`），只读、签名不变、每条仍带 why 不返回分数；工具名一旦被模型看见就难改，先定再写 | `scripts/memory-query.mjs`, `src/memory-query-core.js`（待抽）, `docs/specs/context-protocol.zh-CN.md` §8 |
 | **Pi 支持 & 委派/块级粒度** | Pi 接入、委派卡片选模型/强度/记录粒度并记住偏好、已有 AI 块单独调粒度 | `acp-integration.zh-CN`、`src/delegation.js`, `src/dialog.js`, `src/ai-records.js`, `src/autolog.js` |
 | **Muse 追踪接入**（[MAT-629](https://linear.app/matsurimywaifu/issue/MAT-629)） | 实现对 Muse 会话的只读追踪、状态与对话读取 | `src/readers.js`, `src/agent-ingestors.js`, `src/constants.js` |
 | **Claude CLI 对话追踪复核**（[MAT-630](https://linear.app/matsurimywaifu/issue/MAT-630)） | 全链路排查并确认 Claude Code CLI 对话追踪（日志发现、状态、轮次同步与查看）可稳定跑通 | `src/readers.js`, `src/agent-ingestors.js`, `src/conversation.js` |
