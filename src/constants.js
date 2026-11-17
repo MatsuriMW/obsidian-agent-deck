@@ -349,6 +349,27 @@ export const EFFORTS = {
   ],
 };
 
+// 派发时可以临时覆盖沙箱：Claude 那套权限词也能映射过来（plan/manual → 只读，auto/acceptEdits → 工作区）。
+export const SANDBOX_ALIAS = {
+  plan: "read-only",
+  manual: "read-only",
+  auto: "workspace-write",
+  acceptEdits: "workspace-write",
+  "read-only": "read-only",
+  "workspace-write": "workspace-write",
+  "danger-full-access": "danger-full-access",
+};
+export const sandboxFor = (permission = "", fallback = "workspace-write") =>
+  SANDBOX_ALIAS[String(permission || "").trim()] || fallback;
+
+// Codex 的"工作模式"其实是沙箱：只读 / 只改工作区 / 完全不设防。
+export const CODEX_SANDBOXES = [
+  { id: "read-only", label: "Read-only", hint: "只读：可以看，不能改" },
+  { id: "workspace-write", label: "Workspace", hint: "只能改工作目录里的文件" },
+  { id: "danger-full-access", label: "Full access", hint: "完全权限：整机可写（慎用）" },
+];
+
+// 一次派发时能选的工作模式：按 Agent 各自的口径列。
 export const CLAUDE_PERMISSIONS = [
   { id: "plan", label: "Plan", hint: "Think, propose, do not edit" },
   { id: "auto", label: "Auto", hint: "Let Claude choose and act" },

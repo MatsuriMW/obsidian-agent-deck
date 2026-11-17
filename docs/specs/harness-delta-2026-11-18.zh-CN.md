@@ -142,7 +142,14 @@ node "…/memory-query.mjs" search "拒答门槛" --since 2026-11-01 --until 202
 - **回复信箱（侧栏，非模态）**：提问落进笔记的同时登记进 `settings.replyInbox`，侧栏列表把所有待答项摆在一起——不需要回原文找那一行。第一次出现只把侧栏亮出来、**键盘焦点还给原元素**（实测焦点元素前后一致），已在侧栏就不再 reveal；重绘只在条目集合变化时发生，正在输入的草稿不会丢；「核对一遍」用 `stillPending` 回笔记核对，答过的自动消失；「回答并继续」与笔记里写 `✍️` 同一条路（`applyReply`）。
 - **还没做**：从 attention 通知直接跳到回复弹窗（通知仍打开会话，回复入口在任务菜单/命令）；回复的跨设备同步（手机上写同一行即可，无额外通道）；`💬` 轮次在笔记里是**新增在上、旧的在下面**（sync 的既有语义，没动）。
 
-## 11. 怎么自己验一遍
+## 11. 派发时选工作模式（2026-11-18）
+
+- **确认框里选**：`ConfirmSendModal` 新增「这一次的权限 / 工作模式」。Claude / Qoder 是权限模式（plan / auto / acceptEdits / manual），Codex 是沙箱（read-only / workspace-write / danger-full-access）；没有权限控制的 ACP Agent 不显示这一行。
+- **默认在设置页**：`delegate.<agent>.permission` / `delegate.codex.sandbox`，文案标明「默认」并说明确认框可临时改。
+- **落地**：选的值进 `job.permission`；Claude/Qoder 直接进 `--permission-mode`；Codex 由 `sandboxFor` 映射后进 `--sandbox`（终端命令行）与 app-server 的 `sandbox` 字段（桌面首轮）。`SANDBOX_ALIAS` 让 Claude 的词也能落到沙箱上（plan/manual→read-only，auto/acceptEdits→workspace-write）。
+- **没做**：拖拽直发（不弹确认框）没有临时选，走设置默认；ACP 里 dsh / antigravity / opencode 的"权限"仍由客户端在运行时询问。
+
+## 12. 怎么自己验一遍
 
 ```bash
 cd /Users/chenchen/claude/agent-deck

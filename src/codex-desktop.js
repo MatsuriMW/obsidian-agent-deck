@@ -7,6 +7,7 @@ import { createInterface } from "readline";
 import { t } from "./i18n.js";
 import { isScratchCwd } from "./readers.js";
 import { projectNameForFolder, sameFolder } from "./project-folders.js";
+import { sandboxFor } from "./constants.js";
 
 const taskHash = (text) => createHash("sha1").update(String(text)).digest("hex");
 
@@ -53,7 +54,7 @@ export class CodexDesktopRunner {
       const projectId = await this.attachProject();
       const result = await this.request("thread/start", {
         model: this.job.model, cwd: this.job.cwd, ephemeral: false,
-        sandbox: cfg.sandbox || "workspace-write", approvalPolicy: "on-request",
+        sandbox: sandboxFor(this.job.permission, cfg.sandbox || "workspace-write"), approvalPolicy: "on-request",
         ...(projectId ? { projectId } : {}),
         config: { model_reasoning_effort: this.job.effort },
       });

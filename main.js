@@ -367,6 +367,14 @@ var main_default = {
   "\u5DF2\u590D\u5236\u5757\u5F15\u7528\uFF1A{link}": "Block ref copied: {link}",
   "\u8FD9\u4E00\u95EE\u8FD8\u7B49\u4F60\u56DE\u7B54\uFF1A\u7B2C{round}\u8F6E\uFF1A{text}": "Still waiting for your answer \u2014 round {round}: {text}",
   "Agent \u5728\u7B49\u4F60\u56DE\u7B54\uFF1A{text}\uFF08\u4FA7\u680F\u300C\u56DE\u590D\u4FE1\u7BB1\u300D\u91CC\u56DE\u4E5F\u884C\uFF09": "The agent is waiting for your answer: {text} (you can also reply in the Reply Inbox in the sidebar)",
+  "\u6743\u9650\u6A21\u5F0F\uFF08\u9ED8\u8BA4\uFF09": "Permission mode (default)",
+  "\u6C99\u7BB1\u6A21\u5F0F\uFF08\u9ED8\u8BA4\uFF09": "Sandbox mode (default)",
+  "plan\uFF1A\u89C4\u5212\uFF1Bauto\uFF1A\u81EA\u52A8\u5224\u65AD\uFF1BacceptEdits\uFF1A\u5141\u8BB8\u4FEE\u6539\u6587\u4EF6\uFF1Bmanual\uFF1A\u6BCF\u6B65\u90FD\u95EE\u3002\u6D3E\u53D1\u65F6\u53EF\u4EE5\u5728\u786E\u8BA4\u6846\u91CC\u4E34\u65F6\u6539": "plan: plan only; auto: decide and act; acceptEdits: allow file edits; manual: ask every step. You can override it in the send dialog.",
+  "read-only\uFF1A\u53EA\u8BFB\uFF1Bworkspace-write\uFF1A\u53EA\u6539\u5DE5\u4F5C\u76EE\u5F55\uFF1Bdanger-full-access\uFF1A\u5B8C\u5168\u6743\u9650\u3002\u6D3E\u53D1\u65F6\u53EF\u4EE5\u5728\u786E\u8BA4\u6846\u91CC\u4E34\u65F6\u6539": "read-only: no writes; workspace-write: only the working directory; danger-full-access: full machine access. You can override it in the send dialog.",
+  "\u8FD9\u4E00\u6B21\u7684\u6743\u9650 / \u5DE5\u4F5C\u6A21\u5F0F": "Permission / work mode for this run",
+  "\u53EA\u8BFB\uFF1A\u53EF\u4EE5\u770B\uFF0C\u4E0D\u80FD\u6539": "Read-only: can look, cannot change",
+  "\u53EA\u80FD\u6539\u5DE5\u4F5C\u76EE\u5F55\u91CC\u7684\u6587\u4EF6": "Can only change files in the working directory",
+  "\u5B8C\u5168\u6743\u9650\uFF1A\u6574\u673A\u53EF\u5199\uFF08\u614E\u7528\uFF09": "Full access: the whole machine is writable (be careful)",
   "\u56DE\u590D\u4FE1\u7BB1": "Reply Inbox",
   "{n} \u6761\u5728\u7B49\u4F60": "{n} waiting for you",
   "\u6682\u65F6\u6CA1\u6709\u8981\u56DE\u7B54\u7684": "Nothing waiting for an answer",
@@ -374,7 +382,6 @@ var main_default = {
   "Agent \u63D0\u95EE\u65F6\u4F1A\u81EA\u52A8\u51FA\u73B0\u5728\u8FD9\u91CC\uFF0C\u4E0D\u7528\u56DE\u539F\u6587\u627E\u3002": "Questions from agents land here automatically; no need to go back to the note.",
   "\u539F\u6587": "Source",
   "\u5199\u4E0B\u4F60\u7684\u56DE\u7B54\u2026\uFF08\u4E0D\u7740\u6025\uFF0C\u5199\u522B\u7684\u4E5F\u884C\uFF09": "Write your answer\u2026 (no rush, feel free to do something else)",
-  "\u56DE\u7B54\u5E76\u7EE7\u7EED": "Answer and continue",
   "\u5148\u8BB0\u4E0B\u56DE\u7B54": "Save answer only",
   "\u6253\u5F00\u56DE\u590D\u4FE1\u7BB1\uFF08\u975E\u6A21\u6001\uFF0C\u4E0D\u62A2\u7126\u70B9\uFF09": "Open Reply Inbox (non-modal, does not steal focus)",
   "\u8FD9\u7BC7\u7B14\u8BB0\u4E0D\u5728\u4E86": "That note is gone",
@@ -2237,6 +2244,21 @@ var EFFORTS = {
     { id: "max", label: "Max", hint: "Hardest" }
   ]
 };
+var SANDBOX_ALIAS = {
+  plan: "read-only",
+  manual: "read-only",
+  auto: "workspace-write",
+  acceptEdits: "workspace-write",
+  "read-only": "read-only",
+  "workspace-write": "workspace-write",
+  "danger-full-access": "danger-full-access"
+};
+var sandboxFor = (permission = "", fallback = "workspace-write") => SANDBOX_ALIAS[String(permission || "").trim()] || fallback;
+var CODEX_SANDBOXES = [
+  { id: "read-only", label: "Read-only", hint: "\u53EA\u8BFB\uFF1A\u53EF\u4EE5\u770B\uFF0C\u4E0D\u80FD\u6539" },
+  { id: "workspace-write", label: "Workspace", hint: "\u53EA\u80FD\u6539\u5DE5\u4F5C\u76EE\u5F55\u91CC\u7684\u6587\u4EF6" },
+  { id: "danger-full-access", label: "Full access", hint: "\u5B8C\u5168\u6743\u9650\uFF1A\u6574\u673A\u53EF\u5199\uFF08\u614E\u7528\uFF09" }
+];
 var CLAUDE_PERMISSIONS = [
   { id: "plan", label: "Plan", hint: "Think, propose, do not edit" },
   { id: "auto", label: "Auto", hint: "Let Claude choose and act" },
@@ -11015,7 +11037,7 @@ var CodexDesktopRunner = class {
         model: this.job.model,
         cwd: this.job.cwd,
         ephemeral: false,
-        sandbox: cfg.sandbox || "workspace-write",
+        sandbox: sandboxFor(this.job.permission, cfg.sandbox || "workspace-write"),
         approvalPolicy: "on-request",
         ...projectId ? { projectId } : {},
         config: { model_reasoning_effort: this.job.effort }
@@ -11326,7 +11348,8 @@ function codexCliArgs(plugin, opts = {}) {
   const cfg = plugin.settings.delegate.codex || DEFAULTS.delegate.codex;
   const model = resolveCliModel(plugin, "codex", opts.model || cfg.model);
   const effort = opts.effort || cfg.effort || "low";
-  return ["--model", model, "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--sandbox", cfg.sandbox || "workspace-write"];
+  const sandbox = sandboxFor(opts.permission || opts.sandbox, cfg.sandbox || "workspace-write");
+  return ["--model", model, "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--sandbox", sandbox];
 }
 function resolveDshModel(id) {
   const m = MODEL_CATALOG.find((x) => x.agent === "dsh" && x.id === id);
@@ -22618,7 +22641,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       this.setDefaultEffort("claude", v);
       this.display();
     });
-    this.rowSegmented(claude, t("\u6743\u9650\u6A21\u5F0F"), t("plan\uFF1A\u89C4\u5212\uFF1Bauto\uFF1A\u81EA\u52A8\u5224\u65AD\uFF1BacceptEdits\uFF1A\u5141\u8BB8\u4FEE\u6539\u6587\u4EF6"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => {
+    this.rowSegmented(claude, t("\u6743\u9650\u6A21\u5F0F\uFF08\u9ED8\u8BA4\uFF09"), t("plan\uFF1A\u89C4\u5212\uFF1Bauto\uFF1A\u81EA\u52A8\u5224\u65AD\uFF1BacceptEdits\uFF1A\u5141\u8BB8\u4FEE\u6539\u6587\u4EF6\uFF1Bmanual\uFF1A\u6BCF\u6B65\u90FD\u95EE\u3002\u6D3E\u53D1\u65F6\u53EF\u4EE5\u5728\u786E\u8BA4\u6846\u91CC\u4E34\u65F6\u6539"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => {
       d.claude.permission = v;
       p2.saveSettings();
       this.display();
@@ -22673,7 +22696,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       this.setDefaultEffort("codex", v);
       this.display();
     });
-    this.rowSegmented(codex, t("\u6C99\u7BB1\u6A21\u5F0F"), t("read-only\uFF1A\u53EA\u8BFB\uFF1Bworkspace-write\uFF1A\u5141\u8BB8\u4FEE\u6539\u5DE5\u4F5C\u76EE\u5F55"), ["read-only", "workspace-write"].map((id) => ({ id, label: id })), d.codex.sandbox, (v) => {
+    this.rowSegmented(codex, t("\u6C99\u7BB1\u6A21\u5F0F\uFF08\u9ED8\u8BA4\uFF09"), t("read-only\uFF1A\u53EA\u8BFB\uFF1Bworkspace-write\uFF1A\u53EA\u6539\u5DE5\u4F5C\u76EE\u5F55\uFF1Bdanger-full-access\uFF1A\u5B8C\u5168\u6743\u9650\u3002\u6D3E\u53D1\u65F6\u53EF\u4EE5\u5728\u786E\u8BA4\u6846\u91CC\u4E34\u65F6\u6539"), CODEX_SANDBOXES, d.codex.sandbox || "workspace-write", (v) => {
       d.codex.sandbox = v;
       p2.saveSettings();
       this.display();
@@ -22805,7 +22828,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       this.setDefaultEffort("qoder", v);
       this.display();
     });
-    this.rowSegmented(qoder, t("\u6743\u9650\u6A21\u5F0F"), t("plan\uFF1A\u89C4\u5212\uFF1Bauto\uFF1A\u81EA\u52A8\u5224\u65AD\uFF1BacceptEdits\uFF1A\u5141\u8BB8\u4FEE\u6539\u6587\u4EF6"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => {
+    this.rowSegmented(qoder, t("\u6743\u9650\u6A21\u5F0F\uFF08\u9ED8\u8BA4\uFF09"), t("plan\uFF1A\u89C4\u5212\uFF1Bauto\uFF1A\u81EA\u52A8\u5224\u65AD\uFF1BacceptEdits\uFF1A\u5141\u8BB8\u4FEE\u6539\u6587\u4EF6\uFF1Bmanual\uFF1A\u6BCF\u6B65\u90FD\u95EE\u3002\u6D3E\u53D1\u65F6\u53EF\u4EE5\u5728\u786E\u8BA4\u6846\u91CC\u4E34\u65F6\u6539"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => {
       d.qoder.permission = v;
       p2.saveSettings();
       this.display();
@@ -24479,11 +24502,13 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
       };
       ewrap.createSpan({ cls: "ad-effort__lab", attr: { style: `left:${i / Math.max(1, opts.length - 1) * 100}%` }, text: o.label });
     });
-    if (["claude", "qoder"].includes(this.agent)) {
+    const modes = workModeOptions(this.agent);
+    if (modes.length) {
+      if (!modes.some((o) => o.id === this.permission)) this.permission = defaultWorkMode(this.agent, p2.settings);
       const pf2 = contentEl.createDiv({ cls: "ad-field" });
       pf2.createDiv({ cls: "ad-field__label", text: "Mode" });
       const seg = pf2.createDiv({ cls: "ad-seg" });
-      for (const o of CLAUDE_PERMISSIONS) {
+      for (const o of modes) {
         const b = seg.createEl("button", { cls: "ad-seg__btn" + (this.permission === o.id ? " is-on" : ""), text: o.label });
         b.title = o.hint;
         b.onclick = () => {
@@ -24491,7 +24516,7 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
           this.render();
         };
       }
-      pf2.createDiv({ cls: "ad-hint", text: CLAUDE_PERMISSIONS.find((x) => x.id === this.permission)?.hint || "" });
+      pf2.createDiv({ cls: "ad-hint", text: modes.find((x) => x.id === this.permission)?.hint || "" });
     } else if (["dsh", "opencode"].includes(this.agent)) {
       const cfg = p2.settings.delegate[this.agent];
       const af = contentEl.createDiv({ cls: "ad-field" });
@@ -24628,7 +24653,7 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
           agent: this.agent,
           model: this.model,
           effort: this.effort,
-          permission: ["claude", "qoder"].includes(this.agent) ? this.permission : "",
+          permission: workModeOptions(this.agent).length ? this.permission : "",
           cwd: this.cwd.trim(),
           projectName: projectFolderEntries(p2.settings).find((e) => sameFolder(e.path, this.cwd))?.name || (this.projectSuggest && sameFolder(this.projectSuggest.path, this.cwd) ? this.projectSuggest.name : "") || (this.projectHint && sameFolder(this.projectHint.path, this.cwd) ? this.projectHint.name : ""),
           fromDialog: true,
@@ -24650,13 +24675,14 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
   }
 };
 var ConfirmSendModal = class extends import_obsidian8.Modal {
-  constructor(app, { agent, text, path: path13, where, destination, newSession = false, context = [] }, onSend) {
+  constructor(app, { agent, text, path: path13, where, destination, permission = "", newSession = false, context = [] }, onSend) {
     super(app);
     this.agent = agent;
     this.text = text;
     this.path = path13;
     this.where = where;
     this.destination = destination || destinations(agent)[0]?.id;
+    this.permission = permission || defaultWorkMode(agent);
     this.newSession = newSession;
     this.context = context || [];
     this.onSend = onSend;
@@ -24675,6 +24701,9 @@ var ConfirmSendModal = class extends import_obsidian8.Modal {
     tt.createDiv({ cls: "ad-send__sub", text: this.where });
     destinationPicker(contentEl, this.agent, this.destination, (v) => {
       this.destination = v;
+    });
+    workModePicker(contentEl, this.agent, this.permission, (v) => {
+      this.permission = v;
     });
     if (this.newSession) contentEl.createDiv({ cls: "ad-hint", text: t("\u8FD9\u6B21\u5C06\u65B0\u5EFA\u4F1A\u8BDD\uFF0C\u539F\u4F1A\u8BDD\u53CA\u8BB0\u5F55\u4FDD\u7559\u3002") });
     const card = contentEl.createDiv({ cls: "ad-send__card" });
@@ -24707,7 +24736,7 @@ var ConfirmSendModal = class extends import_obsidian8.Modal {
     go.createSpan({ text: t("\u53D1\u9001") });
     go.onclick = () => {
       this.close();
-      this.onSend(this.destination);
+      this.onSend(this.destination, this.permission);
     };
     setTimeout(() => go.focus(), 0);
   }
@@ -24715,6 +24744,42 @@ var ConfirmSendModal = class extends import_obsidian8.Modal {
     this.contentEl.empty();
   }
 };
+function workModeOptions(agent) {
+  if (agent === "codex") return CODEX_SANDBOXES;
+  if (!getAgentCapability(agent).permissionControl) return [];
+  if (["claude", "qoder"].includes(agent)) return CLAUDE_PERMISSIONS;
+  return [];
+}
+function defaultWorkMode(agent, settings) {
+  const cfg = settings?.delegate?.[agent] || DEFAULTS.delegate?.[agent] || {};
+  const options = workModeOptions(agent);
+  if (!options.length) return "";
+  if (agent === "codex") return cfg.sandbox || "workspace-write";
+  return cfg.permission || "auto";
+}
+function workModePicker(parent, agent, value, onChange) {
+  const options = workModeOptions(agent);
+  if (!options.length) return;
+  const field = parent.createDiv({ cls: "ad-field" });
+  field.createDiv({ cls: "ad-field__label", text: t("\u8FD9\u4E00\u6B21\u7684\u6743\u9650 / \u5DE5\u4F5C\u6A21\u5F0F") });
+  const row = field.createDiv({ cls: "ad-send__modes" });
+  let picked = options.some((o) => o.id === value) ? value : options[0].id;
+  for (const option of options) {
+    const b = row.createEl("button", { cls: "ad-chip" + (option.id === picked ? " is-on" : ""), attr: { type: "button" } });
+    b.createSpan({ text: t(option.label) });
+    b.onclick = () => {
+      picked = option.id;
+      for (const other of row.children) other.removeClass?.("is-on");
+      b.addClass("is-on");
+      hint.textContent = t(option.hint || "");
+      onChange(option.id);
+    };
+    if (option.id === picked) setTimeout(() => {
+      hint.textContent = t(option.hint || "");
+    }, 0);
+  }
+  const hint = field.createDiv({ cls: "ad-hint" });
+}
 function indentOf(line) {
   const ws = (line.match(/^[ \t]*/) || [""])[0];
   return ws.replace(/\t/g, "  ").length / 2;
@@ -32973,7 +33038,7 @@ var AgentDeckPlugin = class extends import_obsidian20.Plugin {
     if (!newSession && block && findLink(lines, block)) return { error: t("\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\uFF0C\u4E0D\u59D4\u6D3E") };
     return { file, lines, line, block };
   }
-  async delegateDrop(agent, item, fromEl, { cli = false, destination, newSession = false, confirmed = false, expectedText, boardContext = "" } = {}) {
+  async delegateDrop(agent, item, fromEl, { cli = false, destination, permission, newSession = false, confirmed = false, expectedText, boardContext = "" } = {}) {
     this._dragItem = null;
     if (AGENTS[agent]?.trackingOnly) return;
     const target = await this.delegateTarget(item, { newSession });
@@ -32984,6 +33049,7 @@ var AgentDeckPlugin = class extends import_obsidian20.Plugin {
       agent = opts.agent;
       destination || (destination = cli && hasAgentCapability(agent, "terminalHandoff") ? "terminal" : defaultDestination(this, agent));
       if (!confirmed) {
+        const mode = permission || defaultWorkMode(agent, this.settings);
         new ConfirmSendModal(this.app, {
           agent,
           text: stripInternalIdentifiers(newSession ? freshTaskText(target.block.text) : target.block.text),
@@ -32991,11 +33057,12 @@ var AgentDeckPlugin = class extends import_obsidian20.Plugin {
           context: ancestorLines(target.lines, target.block.start).map((l) => stripInternalIdentifiers(l)),
           where: `${opts.model || this.defaultModel(agent) || t("\u5BA2\u6237\u7AEF\u6A21\u578B")} \xB7 ${opts.effort || this.settings.delegate[agent]?.effort || t("\u5BA2\u6237\u7AEF\u5F3A\u5EA6")}`,
           destination,
+          permission: mode,
           newSession
-        }, (chosen) => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: delegationText(target.lines, target.block, { newSession }), boardContext })).open();
+        }, (chosen, chosenMode) => this.delegateDrop(agent, item, null, { destination: chosen, permission: chosenMode, newSession, confirmed: true, expectedText: delegationText(target.lines, target.block, { newSession }), boardContext })).open();
         return;
       }
-      await this.delegator.delegate({ ...opts, destination, newSession, ...boardContext ? { boardContext } : {} });
+      await this.delegator.delegate({ ...opts, destination, permission: permission || opts.permission || "", newSession, ...boardContext ? { boardContext } : {} });
     } catch (e) {
       this.notice(String(e.message || e), 8e3);
     }

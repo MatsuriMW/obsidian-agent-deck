@@ -7,7 +7,7 @@ import { archivePath } from "./journal-archive.js";
 import * as obsidianNs from "obsidian";
 import { App, PluginSettingTab, Notice, Modal, Menu } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, MODEL_CATALOG, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS, DEFAULT_RECORD_RULES, resolveRecordRules, fmtTok, syncDelegationSettings, journalPath, detectJournalFormat,
+  AGENTS, AGENT_ORDER, MODEL_CATALOG, EFFORTS, CLAUDE_PERMISSIONS, CODEX_SANDBOXES, DEFAULTS, DEFAULT_RECORD_RULES, resolveRecordRules, fmtTok, syncDelegationSettings, journalPath, detectJournalFormat,
 } from "./constants.js";
 import { notePath } from "./dream-entries.js";
 import { companionInstalled, dreamModelConfig } from "./dream.js";
@@ -466,7 +466,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const claude = this.agentCard(body, "claude", "Claude Code", "");
     this.modelSelect(claude, "claude", p.defaultModel("claude"), (v) => { this.setDefaultModel("claude", v); this.display(); });
     this.effortControl(claude, "claude", d.claude.effort, (v) => { this.setDefaultEffort("claude", v); this.display(); });
-    this.rowSegmented(claude, t("权限模式"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => { d.claude.permission = v; p.saveSettings(); this.display(); });
+    this.rowSegmented(claude, t("权限模式（默认）"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件；manual：每步都问。派发时可以在确认框里临时改"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => { d.claude.permission = v; p.saveSettings(); this.display(); });
     const claudeMore = this.subDetails(claude, "claude-more", t("更多设置"));
     this.rowText(claudeMore, t("命令行路径"), t("留空自动查找"), d.claude.path || "", t("自动查找"), (v) => { d.claude.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
     this.rowText(claude, t("工作目录"), t("留空使用库根目录"), d.claude.cwd, t("留空 = 库根目录"), (v) => { d.claude.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
@@ -485,7 +485,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.rowSegmented(codex, t("派发到"), "", [{ id: "desktop", label: t("Codex 桌面版") }, { id: "terminal", label: t("终端") }], d.codex.transport || "desktop", (v) => { d.codex.transport = v; p.saveSettings(); this.display(); });
     this.modelSelect(codex, "codex", p.defaultModel("codex"), (v) => { this.setDefaultModel("codex", v); this.display(); });
     this.effortControl(codex, "codex", d.codex.effort, (v) => { this.setDefaultEffort("codex", v); this.display(); });
-    this.rowSegmented(codex, t("沙箱模式"), t("read-only：只读；workspace-write：允许修改工作目录"), ["read-only", "workspace-write"].map((id) => ({ id, label: id })), d.codex.sandbox, (v) => { d.codex.sandbox = v; p.saveSettings(); this.display(); });
+    this.rowSegmented(codex, t("沙箱模式（默认）"), t("read-only：只读；workspace-write：只改工作目录；danger-full-access：完全权限。派发时可以在确认框里临时改"), CODEX_SANDBOXES, d.codex.sandbox || "workspace-write", (v) => { d.codex.sandbox = v; p.saveSettings(); this.display(); });
     const codexMore = this.subDetails(codex, "codex-more", t("更多设置"));
     for (const [key, label, hint] of [["path", t("codex 程序路径"), t("桌面模式留空优先使用 Desktop 自带程序；终端模式从 PATH 查找")], ["cwd", t("工作目录"), t("留空 = 库根目录")]]) {
       this.rowText(key === "cwd" ? codex : codexMore, label, hint, d.codex[key], hint, (v) => { d.codex[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
@@ -549,7 +549,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const qoder = this.agentCard(body, "qoder", "Qoder", t("已登录 qodercli 时后台直接执行；未登录时自动复制任务并打开 Qoder 桌面版交接"));
     this.modelSelect(qoder, "qoder", p.defaultModel("qoder"), (v) => { this.setDefaultModel("qoder", v); this.display(); });
     this.effortControl(qoder, "qoder", d.qoder.effort, (v) => { this.setDefaultEffort("qoder", v); this.display(); });
-    this.rowSegmented(qoder, t("权限模式"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => { d.qoder.permission = v; p.saveSettings(); this.display(); });
+    this.rowSegmented(qoder, t("权限模式（默认）"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件；manual：每步都问。派发时可以在确认框里临时改"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => { d.qoder.permission = v; p.saveSettings(); this.display(); });
     const qoderMore = this.subDetails(qoder, "qoder-more", t("更多设置"));
     for (const [key, label, hint] of [["path", t("命令行路径"), t("留空自动查找（~/.qoder/bin/qodercli/qodercli）")], ["cwd", t("工作目录"), t("留空 = 库根目录")], ["extraArgs", t("额外参数"), t("可留空")]]) {
       this.rowText(key === "cwd" ? qoder : qoderMore, label, hint, d.qoder[key] || "", hint, (v) => { d.qoder[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");

@@ -1,7 +1,8 @@
 // Agent Deck — the per-delegation options sheet.
 
 import { Modal, Notice } from "obsidian";
-import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS } from "./constants.js";
+import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS, CODEX_SANDBOXES, DEFAULTS } from "./constants.js";
+import { getAgentCapability } from "./agent-registry.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { blockAt, blockTitle, BULLET_RE, delegationText, ancestorLines } from "./delegation.js";
@@ -154,17 +155,19 @@ export class DelegateOptionsModal extends Modal {
       ewrap.createSpan({ cls: "ad-effort__lab", attr: { style: `left:${(i / Math.max(1, opts.length - 1)) * 100}%` }, text: o.label });
     });
 
-    // Permission
-    if (["claude", "qoder"].includes(this.agent)) {
+    // Permission / 工作模式：claude、qoder 是权限模式，codex 是沙箱；没有权限控制的 Agent 不显示。
+    const modes = workModeOptions(this.agent);
+    if (modes.length) {
+      if (!modes.some((o) => o.id === this.permission)) this.permission = defaultWorkMode(this.agent, p.settings);
       const pf = contentEl.createDiv({ cls: "ad-field" });
       pf.createDiv({ cls: "ad-field__label", text: "Mode" });
       const seg = pf.createDiv({ cls: "ad-seg" });
-      for (const o of CLAUDE_PERMISSIONS) {
+      for (const o of modes) {
         const b = seg.createEl("button", { cls: "ad-seg__btn" + (this.permission === o.id ? " is-on" : ""), text: o.label });
         b.title = o.hint;
         b.onclick = () => { this.permission = o.id; this.render(); };
       }
-      pf.createDiv({ cls: "ad-hint", text: CLAUDE_PERMISSIONS.find((x) => x.id === this.permission)?.hint || "" });
+      pf.createDiv({ cls: "ad-hint", text: modes.find((x) => x.id === this.permission)?.hint || "" });
     } else if (["dsh", "opencode"].includes(this.agent)) {
       const cfg = p.settings.delegate[this.agent];
       const af = contentEl.createDiv({ cls: "ad-field" });
@@ -292,7 +295,7 @@ export class DelegateOptionsModal extends Modal {
           agent: this.agent,
           model: this.model,
           effort: this.effort,
-          permission: ["claude", "qoder"].includes(this.agent) ? this.permission : "",
+          permission: workModeOptions(this.agent).length ? this.permission : "",
           cwd: this.cwd.trim(),
           projectName: (projectFolderEntries(p.settings).find((e) => sameFolder(e.path, this.cwd))?.name)
             || (this.projectSuggest && sameFolder(this.projectSuggest.path, this.cwd) ? this.projectSuggest.name : "")
@@ -317,13 +320,14 @@ export class DelegateOptionsModal extends Modal {
 
 // 把手单击后的确认：看一眼要发出去的整块，再发给主力
 export class ConfirmSendModal extends Modal {
-  constructor(app, { agent, text, path, where, destination, newSession = false, context = [] }, onSend) {
+  constructor(app, { agent, text, path, where, destination, permission = "", newSession = false, context = [] }, onSend) {
     super(app);
     this.agent = agent;
     this.text = text;
     this.path = path;
     this.where = where;
     this.destination = destination || destinations(agent)[0]?.id;
+    this.permission = permission || defaultWorkMode(agent);
     this.newSession = newSession;
     this.context = context || [];
     this.onSend = onSend;
@@ -344,6 +348,8 @@ export class ConfirmSendModal extends Modal {
     tt.createDiv({ cls: "ad-send__sub", text: this.where });
 
     destinationPicker(contentEl, this.agent, this.destination, (v) => { this.destination = v; });
+    // 这一次的权限 / 工作模式：默认值来自设置页，这里可以临时改。
+    workModePicker(contentEl, this.agent, this.permission, (v) => { this.permission = v; });
     if (this.newSession) contentEl.createDiv({ cls: "ad-hint", text: t("这次将新建会话，原会话及记录保留。") });
 
     // 要发出去的整块：按缩进画成一张小卡片，母项在上面当上下文，最里面那行是这次要做的
@@ -376,11 +382,50 @@ export class ConfirmSendModal extends Modal {
     const go = btns.createEl("button", { cls: "ad-btn ad-send__go" });
     setLucide(go.createSpan({ cls: "ad-btn__icon" }), "send");
     go.createSpan({ text: t("发送") });
-    go.onclick = () => { this.close(); this.onSend(this.destination); };
+    go.onclick = () => { this.close(); this.onSend(this.destination, this.permission); };
     setTimeout(() => go.focus(), 0);   // 回车直接发
   }
 
   onClose() { this.contentEl.empty(); }
+}
+
+// 这个 Agent 一次派发能选的工作模式；没有权限控制的（ACP 里由客户端管）就返回空。
+function workModeOptions(agent) {
+  // codex 没有"权限模式"，但有沙箱；其余按 permissionControl 决定要不要给选择。
+  if (agent === "codex") return CODEX_SANDBOXES;
+  if (!getAgentCapability(agent).permissionControl) return [];
+  if (["claude", "qoder"].includes(agent)) return CLAUDE_PERMISSIONS;
+  return [];
+}
+
+function defaultWorkMode(agent, settings) {
+  const cfg = settings?.delegate?.[agent] || DEFAULTS.delegate?.[agent] || {};
+  const options = workModeOptions(agent);
+  if (!options.length) return "";
+  if (agent === "codex") return cfg.sandbox || "workspace-write";
+  return cfg.permission || "auto";
+}
+
+function workModePicker(parent, agent, value, onChange) {
+  const options = workModeOptions(agent);
+  if (!options.length) return;
+  const field = parent.createDiv({ cls: "ad-field" });
+  field.createDiv({ cls: "ad-field__label", text: t("这一次的权限 / 工作模式") });
+  const row = field.createDiv({ cls: "ad-send__modes" });
+  let picked = options.some((o) => o.id === value) ? value : options[0].id;
+  for (const option of options) {
+    const b = row.createEl("button", { cls: "ad-chip" + (option.id === picked ? " is-on" : ""), attr: { type: "button" } });
+    b.createSpan({ text: t(option.label) });
+    b.onclick = () => {
+      picked = option.id;
+      for (const other of row.children) other.removeClass?.("is-on");
+      b.addClass("is-on");
+      hint.textContent = t(option.hint || "");
+      onChange(option.id);
+    };
+    if (option.id === picked) setTimeout(() => { hint.textContent = t(option.hint || ""); }, 0);
+  }
+  const hint = field.createDiv({ cls: "ad-hint" });
 }
 
 // 缩进层级：一个 tab 或两个空格算一层
@@ -539,3 +584,5 @@ export class JournalMarkerModal extends Modal {
 
   onClose() { this.resolve(this.choice); this.contentEl.empty(); }
 }
+
+export { workModeOptions, defaultWorkMode };

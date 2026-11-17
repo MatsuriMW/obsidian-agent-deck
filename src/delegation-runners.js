@@ -8,7 +8,7 @@ import path from "path";
 import os from "os";
 import { randomUUID } from "crypto";
 import { spawn, execFile } from "child_process";
-import { AGENTS, DEFAULTS, MODEL_CATALOG, truncate } from "./constants.js";
+import { AGENTS, DEFAULTS, sandboxFor, SANDBOX_ALIAS, MODEL_CATALOG, truncate } from "./constants.js";
 import { CodexDesktopRunner } from "./codex-desktop.js";
 import { t } from "./i18n.js";
 
@@ -171,11 +171,14 @@ export function resolveCliModel(plugin, agent, model) {
   return m?.cli || m?.value || model;
 }
 
+export { sandboxFor, SANDBOX_ALIAS };
+
 export function codexCliArgs(plugin, opts = {}) {
   const cfg = plugin.settings.delegate.codex || DEFAULTS.delegate.codex;
   const model = resolveCliModel(plugin, "codex", opts.model || cfg.model);
   const effort = opts.effort || cfg.effort || "low";
-  return ["--model", model, "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--sandbox", cfg.sandbox || "workspace-write"];
+  const sandbox = sandboxFor(opts.permission || opts.sandbox, cfg.sandbox || "workspace-write");
+  return ["--model", model, "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--sandbox", sandbox];
 }
 
 export function resolveDshModel(id) {

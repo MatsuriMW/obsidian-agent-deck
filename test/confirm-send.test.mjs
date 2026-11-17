@@ -25,6 +25,8 @@ const ConfirmSendModal = vm.runInNewContext(source.slice(start, end).replace('ex
   destinations: () => [{ id: 'obsidian' }], agentIcon() {}, setLucide() {},
   t: text => text, BULLET_RE: /^([ \t]*)([-*+] )(.+)$/, kwLine: () => null,
   indentOf: () => 0, setTimeout: fn => fn(), destinationPicker() {},
+  // 工作模式选择器在 ConfirmSendModal 源码切片里，需要这几个依赖；dsh 没有权限控制 → 不渲染。
+  getAgentCapability: () => ({ permissionControl: false }), CLAUDE_PERMISSIONS: [], CODEX_SANDBOXES: [], DEFAULTS: { delegate: {} },
 });
 let sends = 0;
 const open = () => {

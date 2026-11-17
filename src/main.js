@@ -35,7 +35,7 @@ import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
 import { AgentDeckSettingsTab } from "./settings.js";
 import { syncModelGroups } from "./model-groups.js";
 import { recentProjectFolders } from "./project-folders.js";
-import { DelegateOptionsModal, ConfirmSendModal, ArchiveTargetModal, askApiConsentInApp, askJournalMarkerRepair } from "./dialog.js";
+import { DelegateOptionsModal, ConfirmSendModal, ArchiveTargetModal, askApiConsentInApp, askJournalMarkerRepair, defaultWorkMode } from "./dialog.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
 import { keywordMarksExtension, keywordIconsExtension, keywordPostProcessor } from "./keyword-style.js";
@@ -1662,7 +1662,7 @@ export default class AgentDeckPlugin extends Plugin {
     return { file, lines, line, block };
   }
 
-  async delegateDrop(agent, item, fromEl, { cli = false, destination, newSession = false, confirmed = false, expectedText, boardContext = "" } = {}) {
+  async delegateDrop(agent, item, fromEl, { cli = false, destination, permission, newSession = false, confirmed = false, expectedText, boardContext = "" } = {}) {
     this._dragItem = null;
     if (AGENTS[agent]?.trackingOnly) return;
     const target = await this.delegateTarget(item, { newSession });
@@ -1673,15 +1673,16 @@ export default class AgentDeckPlugin extends Plugin {
       agent = opts.agent;
       destination ||= cli && hasAgentCapability(agent, "terminalHandoff") ? "terminal" : defaultDestination(this, agent);
       if (!confirmed) {
+        const mode = permission || defaultWorkMode(agent, this.settings);
         new ConfirmSendModal(this.app, {
           agent, text: stripInternalIdentifiers(newSession ? freshTaskText(target.block.text) : target.block.text), path: item.path,
           context: ancestorLines(target.lines, target.block.start).map((l) => stripInternalIdentifiers(l)),
           where: `${opts.model || this.defaultModel(agent) || t("客户端模型")} · ${opts.effort || this.settings.delegate[agent]?.effort || t("客户端强度")}`,
-          destination, newSession,
-        }, chosen => this.delegateDrop(agent, item, null, { destination: chosen, newSession, confirmed: true, expectedText: delegationText(target.lines, target.block, { newSession }), boardContext })).open();
+          destination, permission: mode, newSession,
+        }, (chosen, chosenMode) => this.delegateDrop(agent, item, null, { destination: chosen, permission: chosenMode, newSession, confirmed: true, expectedText: delegationText(target.lines, target.block, { newSession }), boardContext })).open();
         return;
       }
-      await this.delegator.delegate({ ...opts, destination, newSession, ...(boardContext ? { boardContext } : {}) });
+      await this.delegator.delegate({ ...opts, destination, permission: permission || opts.permission || "", newSession, ...(boardContext ? { boardContext } : {}) });
     } catch (e) { this.notice(String(e.message || e), 8000); }
     this.refreshUI();
   }
