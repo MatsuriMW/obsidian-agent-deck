@@ -276,4 +276,7 @@ export default {
   "已按笔记里的项目选到 {name}；派发后按项目名记住这个目录。": "Picked {name} from this note's project; the folder is remembered under that project name after dispatch.",
   "选中后按该目录工作；派发一次后自动按项目名记住。": "Work in the selected folder; it is remembered under the project name after one dispatch.",
   "🛫 正在委派给 {agent}：{name}（项目 {project}）": "🛫 Delegating to {agent}: {name} (project {project})",
+  "这条笔记提到「{name}」，但还没登记目录；最近在 {path} 用过。": "This note mentions “{name}”, but no folder is registered; it was last used at {path}.",
+  "使用并记住": "Use and remember",
+  "选择其他目录…": "Choose another folder…",
 };

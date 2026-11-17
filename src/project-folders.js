@@ -8,6 +8,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { extractWikilinkRefs } from "./outline.js";
+import { isScratchCwd, normalizeProjectRoot, sessionProjectName } from "./readers.js";
 
 const home = () => os.homedir();
 
@@ -166,4 +167,54 @@ export function resolveDispatchFolder({
     ? (explicitName || projectNameForFolder(settings, explicit) || path.basename(explicit))
     : (auto?.name || projectNameForFolder(settings, folder) || "");
   return { folder, projectName, auto, explicit };
+}
+
+/** Candidate project names mentioned by a task, in signal order. */
+export function projectCandidatesFromTask({ notePath = "", contextLines = [], blockText = "" } = {}) {
+  const out = [];
+  const push = (value) => {
+    const name = String(value || "").trim();
+    if (name) out.push(name);
+  };
+  for (const ref of extractWikilinkRefs([...contextLines, String(blockText || "")])) {
+    const target = String(ref.target || "").replace(/\\/g, "/");
+    push(target.split("/").pop().replace(/\.md$/i, ""));
+  }
+  const segments = String(notePath || "").replace(/\\/g, "/").split("/").filter(Boolean);
+  if (segments.length) {
+    push(segments[segments.length - 1].replace(/\.md$/i, ""));
+    for (const segment of segments.slice(0, -1)) push(segment);
+  }
+  push(titlePrefix(blockText));
+  return [...new Set(out)];
+}
+
+/** Recent real project folders seen in tracked sessions, newest first. */
+export function recentProjectFolders(meta, { limit = 12 } = {}) {
+  const byRoot = new Map();
+  for (const item of meta?.values?.() || []) {
+    const root = normalizeProjectRoot(item?.cwd || "");
+    if (!root || isScratchCwd(root)) continue;
+    const name = sessionProjectName(root);
+    if (!name) continue;
+    const lastAt = Number(item?.lastAt) || 0;
+    const prev = byRoot.get(root);
+    if (!prev || lastAt > prev.lastAt) byRoot.set(root, { name, path: root, lastAt });
+  }
+  return [...byRoot.values()].sort((a, b) => b.lastAt - a.lastAt).slice(0, Math.max(1, limit));
+}
+
+/**
+ * A project the note names, which is not registered yet but was recently seen
+ * in a tracked session. Suggestions only; never dispatched without the user.
+ */
+export function suggestProjectForTask({ settings, recent = [], notePath = "", contextLines = [], blockText = "" } = {}) {
+  if (!recent.length) return null;
+  const registered = projectFolderEntries(settings);
+  for (const candidate of projectCandidatesFromTask({ notePath, contextLines, blockText })) {
+    if (matchEntry(registered, candidate)) continue;
+    const hit = matchEntry(recent, candidate);
+    if (hit && folderExists(hit.path) && !isScratchCwd(hit.path)) return { ...hit, candidate };
+  }
+  return null;
 }

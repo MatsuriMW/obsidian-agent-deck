@@ -10,11 +10,11 @@ import { updateNote } from "./note-updates.js";
 import fs from "fs";
 import { saveBackgroundAnswer, clearBackgroundPending, backgroundRounds } from "./background-output.js";
 import { destinations } from "./workflow.js";
-import { folderExists, normalizeProjectFolder, rememberProjectFolder, resolveDispatchFolder } from "./project-folders.js";
+import { folderExists, normalizeProjectFolder, rememberProjectFolder, resolveDispatchFolder, suggestProjectForTask } from "./project-folders.js";
 import path from "path";
 import os from "os";
 import { spawn, execFile } from "child_process";
-import { AGENTS, DEFAULTS, CONFIRM_FIRST, clamp, truncate } from "./constants.js";
+import { AGENTS, DEFAULTS, CONFIRM_FIRST, clamp, truncate, journalPath } from "./constants.js";
 import * as J from "./journal.js";
 import { mentionOptions, stripTaskMention, mentionTrigger } from "./task-mentions.js";
 import { hasAgentCapability, canContinueInApp } from "./agent-registry.js";
@@ -569,6 +569,23 @@ export class Delegator {
     if (target.explicit && projectName && folderExists(target.explicit)
       && normalizeProjectFolder(target.explicit) !== normalizeProjectFolder(this.vaultPath)
       && rememberProjectFolder(this.settings, projectName, target.explicit)) this.plugin.saveSettings?.();
+    // A dispatch outside today's journal is recorded in the note itself; autoLog
+    // skips it unless the user opts back in (settings.noteDispatchJournal).
+    const journalToday = (() => { try { return journalPath(this.plugin.app, this.settings); } catch { return ""; } })();
+    const noteDispatch = !!resolved.file?.path && resolved.file.path !== journalToday;
+    let suggest = null;
+    if (!target.explicit && !target.auto && !opts.fromDialog) {
+      const seen = (this._projectHinted ||= new Set());
+      suggest = suggestProjectForTask({
+        settings: this.settings,
+        recent: this.plugin.projectFolderSuggestions?.(8) || [],
+        notePath: resolved.file?.path || "",
+        contextLines: ancestorLines(resolved.lines, resolved.block.start),
+        blockText: resolved.block.text,
+      });
+      if (suggest && seen.has(suggest.name)) suggest = null;
+      else if (suggest) seen.add(suggest.name);
+    }
     const job = this.buildJobBase({
       agent,
       name: resolved.name,
@@ -582,15 +599,19 @@ export class Delegator {
       permission: opts.permission || (hasAgentCapability(agent, "permissionControl") ? (this.C[agent]?.permission || "auto") : ""),
       cwd,
       project: projectName,
+      noteDispatch,
     });
     const hookPayload = { opts, resolved, job, prompt: resolved.prompt, name: resolved.name };
     await this.harness.run("beforeDelegate", hookPayload);
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     this.plugin.refreshUI();
-    this.plugin.notice(autoProject
+    const baseNotice = autoProject
       ? t("🛫 正在委派给 {agent}：{name}（项目 {project}）", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name, project: autoProject.name })
-      : t("🛫 正在委派给 {agent}：{name}", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name }));
+      : t("🛫 正在委派给 {agent}：{name}", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name });
+    this.plugin.notice(suggest
+      ? baseNotice + "\n" + t("这条笔记提到「{name}」，还没登记目录；在委派对话框里选一次即可记住。", { name: suggest.candidate || suggest.name })
+      : baseNotice, suggest ? 9000 : 4000);
     const runner = createDelegationRunner(
       agent,
       this,
@@ -791,6 +812,15 @@ export class Delegator {
 
   onSession(job, sid) {
     job.sessionId = sid;
+    if (job.noteDispatch && !job.handoff) {
+      const map = (this.settings.noteDispatchSessions ||= {});
+      map[sid] = Date.now();
+      const cutoff = Date.now() - 180 * 86400000;
+      for (const [key, at] of Object.entries(map)) if (!(at > cutoff)) delete map[key];
+      const keys = Object.keys(map);
+      if (keys.length > 2000) for (const key of keys.slice(0, keys.length - 2000)) delete map[key];
+      this.saveJobs();
+    }
     // 交接来的会话不归 Agent Deck 管进程：绑上之后状态全看会话日志
     job.state = job.handoff ? "bound" : "running";
     this.plugin.markBound?.(sid);

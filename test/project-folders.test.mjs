@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
   normalizeProjectFolder, sameFolder, projectFolderEntries, projectKey,
   projectNameForFolder, rememberProjectFolder, resolveProjectForTask, resolveDispatchFolder,
+  projectCandidatesFromTask, recentProjectFolders, suggestProjectForTask,
 } from '../src/project-folders.js';
 
 const home = os.homedir();
@@ -126,6 +127,43 @@ try {
 
   const named = resolveDispatchFolder({ settings: {}, explicitCwd: dirA, explicitName: '自定义名' });
   assert.equal(named.projectName, '自定义名');
+
+
+  const meta = new Map([
+    ['s1', { cwd: dirA, lastAt: 2 }],
+    ['s2', { cwd: dirB, lastAt: 1 }],
+    ['s3', { cwd: '/tmp/a', lastAt: 9 }],
+    ['s4', { cwd: os.homedir(), lastAt: 9 }],
+  ]);
+  const recent = recentProjectFolders(meta);
+  assert.equal(recent.length, 2, 'scratch and home folders are not project suggestions');
+  assert.deepEqual(recent.map((r) => r.path), [dirA, dirB], 'newest first');
+
+  assert.deepEqual(projectCandidatesFromTask({ notePath: '日记/x.md', contextLines: ['- [[agent-deck]]'], blockText: '- TODO x' }), ['agent-deck', 'x', '日记']);
+  assert.ok(projectCandidatesFromTask({ notePath: 'Projects/agent-deck/task.md', blockText: '- agent-deck -> x' }).includes('agent-deck'));
+
+  const suggestion = suggestProjectForTask({
+    settings: {},
+    recent: [{ name: 'agent-deck', path: dirA, lastAt: 1 }],
+    notePath: '日记/x.md',
+    contextLines: ['- [[agent-deck]]'],
+    blockText: '- TODO x',
+  });
+  assert.deepEqual([suggestion?.name, suggestion?.path, suggestion?.candidate], ['agent-deck', dirA, 'agent-deck']);
+  assert.equal(suggestProjectForTask({
+    settings: { projectFolders: { 'agent-deck': dirA } },
+    recent: [{ name: 'agent-deck', path: dirA, lastAt: 1 }],
+    notePath: '日记/x.md',
+    contextLines: ['- [[agent-deck]]'],
+    blockText: '- TODO x',
+  }), null, 'already registered projects are not suggested');
+  assert.equal(suggestProjectForTask({
+    settings: {},
+    recent: [{ name: 'agent-deck', path: dirA, lastAt: 1 }],
+    notePath: '日记/x.md',
+    contextLines: [],
+    blockText: '- TODO 一个和项目无关的任务',
+  }), null, 'no project signal, no suggestion');
 
   console.log('PASS project folders: normalize, register, rename, link/path/title resolution, dispatch folder precedence');
 } finally {

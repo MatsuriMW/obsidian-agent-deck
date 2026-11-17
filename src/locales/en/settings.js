@@ -650,4 +650,6 @@ export default {
   "项目名和目录都要填": "Enter both a project name and a folder",
   "把会话归到 Codex 项目": "Group sessions under a Codex project",
   "同目录已有项目就复用，没有就用项目名建一个；项目接口是实验性的，失败时按原样派发": "Reuse the project that owns this folder, or create one named after the project. The project API is experimental; if it fails the task runs unchanged.",
+  "非日记笔记的派发也记进当天日记": "Also log dispatches from ordinary notes in today's journal",
+  "默认不记，结论仍写回原笔记；打开后和普通会话一样进当天日记": "Off by default: the result still goes back to the note. Turn on to log the session in today's journal like any other session.",
 };

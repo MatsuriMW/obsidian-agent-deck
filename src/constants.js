@@ -419,6 +419,8 @@ export const DEFAULTS = {
   autoLogGrokBotDoneMinutes: 120, // Grok Bot 多久无新对话自动标为 DONE（0 关闭）
   autoLogFirstRounds: 10,  // 第一次接入某个会话 / Bot 时只补最近几轮，之后只跟当天的新轮次
   autoLogSeen: {},         // 会话号 → 第一次记进日记的时间；按 180 天懒清理，用来区分「第一次接入」
+  noteDispatchJournal: false, // 非日记笔记里的派发也写当天日记；默认只写回原笔记
+  noteDispatchSessions: {},   // 会话号 → 从非日记笔记派发的时间；默认 autoLog 跳过这些会话
   keywordStyle: true,      // 关键词配色与 tsq-ico 图标；TODOseq 自己在格式化时让位
   recordRules: { ...DEFAULT_RECORD_RULES },
   autoLogBatch: 8,         // 一轮最多问模型几个会话

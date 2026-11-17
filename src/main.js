@@ -34,6 +34,7 @@ import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
 import { AgentDeckSettingsTab } from "./settings.js";
 import { syncModelGroups } from "./model-groups.js";
+import { recentProjectFolders } from "./project-folders.js";
 import { DelegateOptionsModal, ConfirmSendModal, ArchiveTargetModal, askApiConsentInApp, askJournalMarkerRepair } from "./dialog.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
@@ -2545,6 +2546,13 @@ export default class AgentDeckPlugin extends Plugin {
     if (!file) return this.notice(t("找不到笔记：{path}", { path: targetPath }));
     const leaf = this.app.workspace.getLeaf(false);
     await leaf.openFile(file, { eState: { line: Math.max(0, line) } });
+  }
+
+  projectFolderSuggestions(limit = 8) {
+    const vault = String(this.vaultPath || "").replace(/\/+$/, "");
+    return recentProjectFolders(this.usage?.meta, { limit: limit * 2 })
+      .filter((item) => item.path !== vault && !/^\/(private\/)?(tmp|var)(\/|$)/.test(item.path))
+      .slice(0, limit);
   }
 
   openProjectFolder(dirPath) {

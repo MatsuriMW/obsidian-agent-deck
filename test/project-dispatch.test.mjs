@@ -61,6 +61,7 @@ try {
   assert.equal(auto.project, 'demo');
   assert.equal(ranIn(), real(project), 'the runner really started in the project folder');
   assert.deepEqual(ancestorLines(lines(), 1), ['- [[demo]]']);
+  assert.ok(plugin.settings.noteDispatchSessions?.[auto.sessionId], 'ordinary-note dispatch is marked for autoLog to skip');
 
   // An explicit folder wins and is remembered under the given project name.
   const explicit = await d.delegate({

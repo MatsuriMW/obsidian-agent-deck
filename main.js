@@ -278,7 +278,8 @@ var main_default = {
   "\u6E05\u9664\u72B6\u6001\u5173\u952E\u8BCD": "Clear status keyword",
   "\u6062\u590D\u81EA\u52A8\u8DDF\u968F": "Resume automatic status",
   "\u5DF2\u66F4\u65B0 {n} \u4E2A\u5757\u7684\u72B6\u6001": "Updated status for {n} blocks",
-  "\u8BF7\u5148\u9009\u4E2D\u8981\u8C03\u6574\u72B6\u6001\u7684\u5217\u8868\u9879": "Select list items to update status first"
+  "\u8BF7\u5148\u9009\u4E2D\u8981\u8C03\u6574\u72B6\u6001\u7684\u5217\u8868\u9879": "Select list items to update status first",
+  "\u8FD9\u6761\u7B14\u8BB0\u63D0\u5230\u300C{name}\u300D\uFF0C\u8FD8\u6CA1\u767B\u8BB0\u76EE\u5F55\uFF1B\u5728\u59D4\u6D3E\u5BF9\u8BDD\u6846\u91CC\u9009\u4E00\u6B21\u5373\u53EF\u8BB0\u4F4F\u3002": "This note mentions \u201C{name}\u201D but no folder is registered; pick one once in the delegate dialog to remember it."
 };
 
 // src/locales/en/view.js
@@ -1088,7 +1089,9 @@ var settings_default = {
   "\u767B\u8BB0": "Add",
   "\u9879\u76EE\u540D\u548C\u76EE\u5F55\u90FD\u8981\u586B": "Enter both a project name and a folder",
   "\u628A\u4F1A\u8BDD\u5F52\u5230 Codex \u9879\u76EE": "Group sessions under a Codex project",
-  "\u540C\u76EE\u5F55\u5DF2\u6709\u9879\u76EE\u5C31\u590D\u7528\uFF0C\u6CA1\u6709\u5C31\u7528\u9879\u76EE\u540D\u5EFA\u4E00\u4E2A\uFF1B\u9879\u76EE\u63A5\u53E3\u662F\u5B9E\u9A8C\u6027\u7684\uFF0C\u5931\u8D25\u65F6\u6309\u539F\u6837\u6D3E\u53D1": "Reuse the project that owns this folder, or create one named after the project. The project API is experimental; if it fails the task runs unchanged."
+  "\u540C\u76EE\u5F55\u5DF2\u6709\u9879\u76EE\u5C31\u590D\u7528\uFF0C\u6CA1\u6709\u5C31\u7528\u9879\u76EE\u540D\u5EFA\u4E00\u4E2A\uFF1B\u9879\u76EE\u63A5\u53E3\u662F\u5B9E\u9A8C\u6027\u7684\uFF0C\u5931\u8D25\u65F6\u6309\u539F\u6837\u6D3E\u53D1": "Reuse the project that owns this folder, or create one named after the project. The project API is experimental; if it fails the task runs unchanged.",
+  "\u975E\u65E5\u8BB0\u7B14\u8BB0\u7684\u6D3E\u53D1\u4E5F\u8BB0\u8FDB\u5F53\u5929\u65E5\u8BB0": "Also log dispatches from ordinary notes in today's journal",
+  "\u9ED8\u8BA4\u4E0D\u8BB0\uFF0C\u7ED3\u8BBA\u4ECD\u5199\u56DE\u539F\u7B14\u8BB0\uFF1B\u6253\u5F00\u540E\u548C\u666E\u901A\u4F1A\u8BDD\u4E00\u6837\u8FDB\u5F53\u5929\u65E5\u8BB0": "Off by default: the result still goes back to the note. Turn on to log the session in today's journal like any other session."
 };
 
 // src/locales/en/dialogs.js
@@ -1332,7 +1335,10 @@ var dialogs_default = {
   "\u81EA\u5B9A\u4E49\u8DEF\u5F84\u2026": "Custom path\u2026",
   "\u5DF2\u6309\u7B14\u8BB0\u91CC\u7684\u9879\u76EE\u9009\u5230 {name}\uFF1B\u6D3E\u53D1\u540E\u6309\u9879\u76EE\u540D\u8BB0\u4F4F\u8FD9\u4E2A\u76EE\u5F55\u3002": "Picked {name} from this note's project; the folder is remembered under that project name after dispatch.",
   "\u9009\u4E2D\u540E\u6309\u8BE5\u76EE\u5F55\u5DE5\u4F5C\uFF1B\u6D3E\u53D1\u4E00\u6B21\u540E\u81EA\u52A8\u6309\u9879\u76EE\u540D\u8BB0\u4F4F\u3002": "Work in the selected folder; it is remembered under the project name after one dispatch.",
-  "\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 {agent}\uFF1A{name}\uFF08\u9879\u76EE {project}\uFF09": "\u{1F6EB} Delegating to {agent}: {name} (project {project})"
+  "\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 {agent}\uFF1A{name}\uFF08\u9879\u76EE {project}\uFF09": "\u{1F6EB} Delegating to {agent}: {name} (project {project})",
+  "\u8FD9\u6761\u7B14\u8BB0\u63D0\u5230\u300C{name}\u300D\uFF0C\u4F46\u8FD8\u6CA1\u767B\u8BB0\u76EE\u5F55\uFF1B\u6700\u8FD1\u5728 {path} \u7528\u8FC7\u3002": "This note mentions \u201C{name}\u201D, but no folder is registered; it was last used at {path}.",
+  "\u4F7F\u7528\u5E76\u8BB0\u4F4F": "Use and remember",
+  "\u9009\u62E9\u5176\u4ED6\u76EE\u5F55\u2026": "Choose another folder\u2026"
 };
 
 // src/locales/en/writers.js
@@ -2155,6 +2161,10 @@ var DEFAULTS = {
   // 第一次接入某个会话 / Bot 时只补最近几轮，之后只跟当天的新轮次
   autoLogSeen: {},
   // 会话号 → 第一次记进日记的时间；按 180 天懒清理，用来区分「第一次接入」
+  noteDispatchJournal: false,
+  // 非日记笔记里的派发也写当天日记；默认只写回原笔记
+  noteDispatchSessions: {},
+  // 会话号 → 从非日记笔记派发的时间；默认 autoLog 跳过这些会话
   keywordStyle: true,
   // 关键词配色与 tsq-ico 图标；TODOseq 自己在格式化时让位
   recordRules: { ...DEFAULT_RECORD_RULES },
@@ -9858,6 +9868,47 @@ function resolveDispatchFolder({
   const projectName2 = explicit ? explicitName || projectNameForFolder(settings, explicit) || import_path5.default.basename(explicit) : auto?.name || projectNameForFolder(settings, folder) || "";
   return { folder, projectName: projectName2, auto, explicit };
 }
+function projectCandidatesFromTask({ notePath: notePath2 = "", contextLines = [], blockText: blockText2 = "" } = {}) {
+  const out = [];
+  const push = (value) => {
+    const name = String(value || "").trim();
+    if (name) out.push(name);
+  };
+  for (const ref of extractWikilinkRefs([...contextLines, String(blockText2 || "")])) {
+    const target = String(ref.target || "").replace(/\\/g, "/");
+    push(target.split("/").pop().replace(/\.md$/i, ""));
+  }
+  const segments = String(notePath2 || "").replace(/\\/g, "/").split("/").filter(Boolean);
+  if (segments.length) {
+    push(segments[segments.length - 1].replace(/\.md$/i, ""));
+    for (const segment of segments.slice(0, -1)) push(segment);
+  }
+  push(titlePrefix(blockText2));
+  return [...new Set(out)];
+}
+function recentProjectFolders(meta, { limit = 12 } = {}) {
+  const byRoot = /* @__PURE__ */ new Map();
+  for (const item of meta?.values?.() || []) {
+    const root = normalizeProjectRoot(item?.cwd || "");
+    if (!root || isScratchCwd(root)) continue;
+    const name = sessionProjectName(root);
+    if (!name) continue;
+    const lastAt = Number(item?.lastAt) || 0;
+    const prev = byRoot.get(root);
+    if (!prev || lastAt > prev.lastAt) byRoot.set(root, { name, path: root, lastAt });
+  }
+  return [...byRoot.values()].sort((a, b) => b.lastAt - a.lastAt).slice(0, Math.max(1, limit));
+}
+function suggestProjectForTask({ settings, recent = [], notePath: notePath2 = "", contextLines = [], blockText: blockText2 = "" } = {}) {
+  if (!recent.length) return null;
+  const registered = projectFolderEntries(settings);
+  for (const candidate of projectCandidatesFromTask({ notePath: notePath2, contextLines, blockText: blockText2 })) {
+    if (matchEntry(registered, candidate)) continue;
+    const hit = matchEntry(recent, candidate);
+    if (hit && folderExists(hit.path) && !isScratchCwd(hit.path)) return { ...hit, candidate };
+  }
+  return null;
+}
 
 // src/delegation.js
 var import_path8 = __toESM(require("path"), 1);
@@ -11853,6 +11904,27 @@ ${body}`, 12e3);
     });
     const { folder: cwd, projectName: projectName2, auto: autoProject } = target;
     if (target.explicit && projectName2 && folderExists(target.explicit) && normalizeProjectFolder(target.explicit) !== normalizeProjectFolder(this.vaultPath) && rememberProjectFolder(this.settings, projectName2, target.explicit)) this.plugin.saveSettings?.();
+    const journalToday = (() => {
+      try {
+        return journalPath(this.plugin.app, this.settings);
+      } catch {
+        return "";
+      }
+    })();
+    const noteDispatch = !!resolved.file?.path && resolved.file.path !== journalToday;
+    let suggest = null;
+    if (!target.explicit && !target.auto && !opts.fromDialog) {
+      const seen = this._projectHinted || (this._projectHinted = /* @__PURE__ */ new Set());
+      suggest = suggestProjectForTask({
+        settings: this.settings,
+        recent: this.plugin.projectFolderSuggestions?.(8) || [],
+        notePath: resolved.file?.path || "",
+        contextLines: ancestorLines(resolved.lines, resolved.block.start),
+        blockText: resolved.block.text
+      });
+      if (suggest && seen.has(suggest.name)) suggest = null;
+      else if (suggest) seen.add(suggest.name);
+    }
     const job = this.buildJobBase({
       agent,
       name: resolved.name,
@@ -11865,14 +11937,16 @@ ${body}`, 12e3);
       effort: opts.effort || this.C[agent]?.effort,
       permission: opts.permission || (hasAgentCapability(agent, "permissionControl") ? this.C[agent]?.permission || "auto" : ""),
       cwd,
-      project: projectName2
+      project: projectName2,
+      noteDispatch
     });
     const hookPayload = { opts, resolved, job, prompt: resolved.prompt, name: resolved.name };
     await this.harness.run("beforeDelegate", hookPayload);
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     this.plugin.refreshUI();
-    this.plugin.notice(autoProject ? t("\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 {agent}\uFF1A{name}\uFF08\u9879\u76EE {project}\uFF09", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name, project: autoProject.name }) : t("\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 {agent}\uFF1A{name}", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name }));
+    const baseNotice = autoProject ? t("\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 {agent}\uFF1A{name}\uFF08\u9879\u76EE {project}\uFF09", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name, project: autoProject.name }) : t("\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 {agent}\uFF1A{name}", { agent: AGENTS[agent]?.name || agent, name: hookPayload.name });
+    this.plugin.notice(suggest ? baseNotice + "\n" + t("\u8FD9\u6761\u7B14\u8BB0\u63D0\u5230\u300C{name}\u300D\uFF0C\u8FD8\u6CA1\u767B\u8BB0\u76EE\u5F55\uFF1B\u5728\u59D4\u6D3E\u5BF9\u8BDD\u6846\u91CC\u9009\u4E00\u6B21\u5373\u53EF\u8BB0\u4F4F\u3002", { name: suggest.candidate || suggest.name }) : baseNotice, suggest ? 9e3 : 4e3);
     const runner = createDelegationRunner(
       agent,
       this,
@@ -12081,7 +12155,17 @@ ${body}`, 12e3);
     return buildPromptFromContext(this.plugin, opts);
   }
   onSession(job, sid) {
+    var _a;
     job.sessionId = sid;
+    if (job.noteDispatch && !job.handoff) {
+      const map = (_a = this.settings).noteDispatchSessions || (_a.noteDispatchSessions = {});
+      map[sid] = Date.now();
+      const cutoff = Date.now() - 180 * 864e5;
+      for (const [key, at] of Object.entries(map)) if (!(at > cutoff)) delete map[key];
+      const keys = Object.keys(map);
+      if (keys.length > 2e3) for (const key of keys.slice(0, keys.length - 2e3)) delete map[key];
+      this.saveJobs();
+    }
     job.state = job.handoff ? "bound" : "running";
     this.plugin.markBound?.(sid);
     this.plugin.flyFromAgent?.(job);
@@ -20993,6 +21077,10 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       s.autoProjectFolder = v;
       p2.saveSettings();
     });
+    this.rowToggle(projectCard, t("\u975E\u65E5\u8BB0\u7B14\u8BB0\u7684\u6D3E\u53D1\u4E5F\u8BB0\u8FDB\u5F53\u5929\u65E5\u8BB0"), t("\u9ED8\u8BA4\u4E0D\u8BB0\uFF0C\u7ED3\u8BBA\u4ECD\u5199\u56DE\u539F\u7B14\u8BB0\uFF1B\u6253\u5F00\u540E\u548C\u666E\u901A\u4F1A\u8BDD\u4E00\u6837\u8FDB\u5F53\u5929\u65E5\u8BB0"), s.noteDispatchJournal === true, (v) => {
+      s.noteDispatchJournal = v;
+      p2.saveSettings();
+    });
     this.renderProjectFolders(projectCard);
     const claude = this.agentCard(body, "claude", "Claude Code", "");
     this.modelSelect(claude, "claude", p2.defaultModel("claude"), (v) => {
@@ -22746,6 +22834,13 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
       blockText: this.block.text
     });
     if (this.projectHint && !this.cwd) this.cwd = this.projectHint.path;
+    this.projectSuggest = this.projectHint ? null : suggestProjectForTask({
+      settings: this.plugin.settings,
+      recent: this.plugin.projectFolderSuggestions?.(8) || [],
+      notePath: this.path,
+      contextLines: ancestorLines(lines, this.block.start),
+      blockText: this.block.text
+    });
     try {
       const selected = mentionOptions(this.plugin, { block: this.block, agent: this.agent });
       this.agent = selected.agent;
@@ -22885,10 +22980,33 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
       this.cwd = entries.find((e) => e.name === sel.value)?.path || "";
       this.render();
     };
-    pf.createDiv({
-      cls: "ad-hint",
-      text: this.projectHint ? t("\u5DF2\u6309\u7B14\u8BB0\u91CC\u7684\u9879\u76EE\u9009\u5230 {name}\uFF1B\u6D3E\u53D1\u540E\u6309\u9879\u76EE\u540D\u8BB0\u4F4F\u8FD9\u4E2A\u76EE\u5F55\u3002", { name: this.projectHint.name }) : t("\u9009\u4E2D\u540E\u6309\u8BE5\u76EE\u5F55\u5DE5\u4F5C\uFF1B\u6D3E\u53D1\u4E00\u6B21\u540E\u81EA\u52A8\u6309\u9879\u76EE\u540D\u8BB0\u4F4F\u3002")
-    });
+    if (this.projectSuggest) {
+      const hint = this.projectSuggest;
+      pf.createDiv({
+        cls: "ad-hint",
+        text: t("\u8FD9\u6761\u7B14\u8BB0\u63D0\u5230\u300C{name}\u300D\uFF0C\u4F46\u8FD8\u6CA1\u767B\u8BB0\u76EE\u5F55\uFF1B\u6700\u8FD1\u5728 {path} \u7528\u8FC7\u3002", { name: hint.candidate || hint.name, path: hint.path })
+      });
+      const row = pf.createDiv({ cls: "ad-btnrow" });
+      const use = row.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("\u4F7F\u7528\u5E76\u8BB0\u4F4F"), attr: { type: "button" } });
+      use.onclick = async () => {
+        if (rememberProjectFolder(p2.settings, hint.name, hint.path)) await p2.saveSettings();
+        this.cwd = hint.path;
+        this.projectHint = null;
+        this.projectSuggest = null;
+        this.render();
+      };
+      const other = row.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("\u9009\u62E9\u5176\u4ED6\u76EE\u5F55\u2026"), attr: { type: "button" } });
+      other.onclick = () => {
+        this.cwd = "";
+        this.projectSuggest = null;
+        this.render();
+      };
+    } else {
+      pf.createDiv({
+        cls: "ad-hint",
+        text: this.projectHint ? t("\u5DF2\u6309\u7B14\u8BB0\u91CC\u7684\u9879\u76EE\u9009\u5230 {name}\uFF1B\u6D3E\u53D1\u540E\u6309\u9879\u76EE\u540D\u8BB0\u4F4F\u8FD9\u4E2A\u76EE\u5F55\u3002", { name: this.projectHint.name }) : t("\u9009\u4E2D\u540E\u6309\u8BE5\u76EE\u5F55\u5DE5\u4F5C\uFF1B\u6D3E\u53D1\u4E00\u6B21\u540E\u81EA\u52A8\u6309\u9879\u76EE\u540D\u8BB0\u4F4F\u3002")
+      });
+    }
     const cf = contentEl.createDiv({ cls: "ad-field" });
     cf.createDiv({ cls: "ad-field__label", text: "Working directory" });
     const cwd = cf.createEl("input", { cls: "ad-input", attr: { placeholder: p2.vaultPath, value: this.cwd } });
@@ -22931,6 +23049,7 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
           permission: ["claude", "qoder"].includes(this.agent) ? this.permission : "",
           cwd: this.cwd.trim(),
           projectName: projectFolderEntries(p2.settings).find((e) => sameFolder(e.path, this.cwd))?.name || this.projectHint?.name || "",
+          fromDialog: true,
           promptSuffix: this.suffix,
           name: blockTitle(this.block, mentionTrigger(p2))
         });
@@ -26058,6 +26177,7 @@ var AutoLog = class {
   }
   async processDay(day, file, list, todayDay, arch, { dry = false, fallback = false, manual = false } = {}, report, shiftMin = 0) {
     let snap = null;
+    list = (list || []).filter((x) => !(this.cfg.noteDispatchJournal !== true && this.cfg.noteDispatchSessions?.[x.sid]));
     try {
       if (!list.length) return true;
       const idle = Math.max(5, this.cfg.autoLogIdle || 10);
@@ -26419,6 +26539,13 @@ var AutoLog = class {
 
 // src/sync.js
 var import_obsidian11 = require("obsidian");
+function safeTopRule(text) {
+  try {
+    return ensureTopRule(text);
+  } catch {
+    return text;
+  }
+}
 var STATE_KW2 = STATE_KW;
 var JournalSync = class {
   constructor(plugin) {
@@ -26520,7 +26647,7 @@ var JournalSync = class {
           next = this.sides(next);
         }
         next = clocksLast(next);
-        next = ensureTopRule(cleanCompletedIdentifiers(next));
+        next = safeTopRule(cleanCompletedIdentifiers(next));
         if (next !== text) this.replace(view, text, next);
       }
       const file = this.todayJournal();
@@ -26534,7 +26661,7 @@ var JournalSync = class {
           next = this.spawnAll(next);
           next = this.sides(next);
           next = clocksLast(next);
-          next = ensureTopRule(cleanCompletedIdentifiers(next));
+          next = safeTopRule(cleanCompletedIdentifiers(next));
           return next;
         });
       }
@@ -31543,6 +31670,10 @@ var AgentDeckPlugin = class extends import_obsidian16.Plugin {
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: targetPath }));
     const leaf = this.app.workspace.getLeaf(false);
     await leaf.openFile(file, { eState: { line: Math.max(0, line) } });
+  }
+  projectFolderSuggestions(limit = 8) {
+    const vault = String(this.vaultPath || "").replace(/\/+$/, "");
+    return recentProjectFolders(this.usage?.meta, { limit: limit * 2 }).filter((item) => item.path !== vault && !/^\/(private\/)?(tmp|var)(\/|$)/.test(item.path)).slice(0, limit);
   }
   openProjectFolder(dirPath) {
     if (!dirPath) return;

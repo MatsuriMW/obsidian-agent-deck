@@ -259,4 +259,5 @@ export default {
   "恢复自动跟随": "Resume automatic status",
   "已更新 {n} 个块的状态": "Updated status for {n} blocks",
   "请先选中要调整状态的列表项": "Select list items to update status first",
+  "这条笔记提到「{name}」，还没登记目录；在委派对话框里选一次即可记住。": "This note mentions “{name}” but no folder is registered; pick one once in the delegate dialog to remember it.",
 };

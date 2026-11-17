@@ -5,7 +5,7 @@ import { AGENTS, EFFORTS, CLAUDE_PERMISSIONS, DEFAULTS } from "./constants.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { blockAt, blockTitle, BULLET_RE, delegationText, ancestorLines } from "./delegation.js";
-import { projectFolderEntries, resolveProjectForTask, sameFolder } from "./project-folders.js";
+import { projectFolderEntries, rememberProjectFolder, resolveProjectForTask, sameFolder, suggestProjectForTask } from "./project-folders.js";
 import { mentionOptions, mentionTrigger } from "./task-mentions.js";
 import { destinations, defaultDestination } from "./workflow.js";
 import { kwLine, fencedLines } from "./journal.js";
@@ -48,6 +48,13 @@ export class DelegateOptionsModal extends Modal {
       blockText: this.block.text,
     });
     if (this.projectHint && !this.cwd) this.cwd = this.projectHint.path;
+    this.projectSuggest = this.projectHint ? null : suggestProjectForTask({
+      settings: this.plugin.settings,
+      recent: this.plugin.projectFolderSuggestions?.(8) || [],
+      notePath: this.path,
+      contextLines: ancestorLines(lines, this.block.start),
+      blockText: this.block.text,
+    });
     try {
       const selected = mentionOptions(this.plugin, { block: this.block, agent: this.agent });
       this.agent = selected.agent;
@@ -168,12 +175,31 @@ export class DelegateOptionsModal extends Modal {
       this.cwd = (entries.find((e) => e.name === sel.value)?.path) || "";
       this.render();
     };
-    pf.createDiv({
-      cls: "ad-hint",
-      text: this.projectHint
-        ? t("已按笔记里的项目选到 {name}；派发后按项目名记住这个目录。", { name: this.projectHint.name })
-        : t("选中后按该目录工作；派发一次后自动按项目名记住。"),
-    });
+    if (this.projectSuggest) {
+      const hint = this.projectSuggest;
+      pf.createDiv({
+        cls: "ad-hint",
+        text: t("这条笔记提到「{name}」，但还没登记目录；最近在 {path} 用过。", { name: hint.candidate || hint.name, path: hint.path }),
+      });
+      const row = pf.createDiv({ cls: "ad-btnrow" });
+      const use = row.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("使用并记住"), attr: { type: "button" } });
+      use.onclick = async () => {
+        if (rememberProjectFolder(p.settings, hint.name, hint.path)) await p.saveSettings();
+        this.cwd = hint.path;
+        this.projectHint = null;
+        this.projectSuggest = null;
+        this.render();
+      };
+      const other = row.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("选择其他目录…"), attr: { type: "button" } });
+      other.onclick = () => { this.cwd = ""; this.projectSuggest = null; this.render(); };
+    } else {
+      pf.createDiv({
+        cls: "ad-hint",
+        text: this.projectHint
+          ? t("已按笔记里的项目选到 {name}；派发后按项目名记住这个目录。", { name: this.projectHint.name })
+          : t("选中后按该目录工作；派发一次后自动按项目名记住。"),
+      });
+    }
 
     // Working directory
     const cf = contentEl.createDiv({ cls: "ad-field" });
@@ -217,6 +243,7 @@ export class DelegateOptionsModal extends Modal {
           permission: ["claude", "qoder"].includes(this.agent) ? this.permission : "",
           cwd: this.cwd.trim(),
           projectName: (projectFolderEntries(p.settings).find((e) => sameFolder(e.path, this.cwd))?.name) || this.projectHint?.name || "",
+          fromDialog: true,
           promptSuffix: this.suffix,
           name: blockTitle(this.block, mentionTrigger(p)),
         });

@@ -459,6 +459,9 @@ export class AutoLog {
 
   async processDay(day, file, list, todayDay, arch, { dry = false, fallback = false, manual = false } = {}, report, shiftMin = 0) {
     let snap = null;
+    // Dispatches from ordinary notes write their result into that note; by
+    // default do not duplicate the session into the daily journal.
+    list = (list || []).filter((x) => !(this.cfg.noteDispatchJournal !== true && this.cfg.noteDispatchSessions?.[x.sid]));
     try {
       if (!list.length) return true;
       const idle = Math.max(5, this.cfg.autoLogIdle || 10);

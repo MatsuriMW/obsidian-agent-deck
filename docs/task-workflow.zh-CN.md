@@ -34,6 +34,15 @@
 - 测试：`test/project-folders.test.mjs` 增加项目压过默认、无项目回默认、关闭后默认生效三条；`test/project-dispatch.test.mjs` 增加默认 cwd 与笔记项目冲突时 runner 真跑在项目目录。
 - 未验证：Obsidian 设置页与委派对话框的文案视觉、Windows。
 
+## 本地修改（2026-11-17，未发版）：项目登记入口与非日记笔记派发
+
+- **对话框就地登记**：`suggestProjectForTask` / `recentProjectFolders` / `projectCandidatesFromTask`（`src/project-folders.js`）从最近追踪到的会话（`usage.meta`，经 `plugin.projectFolderSuggestions()`）取「项目名 → 真实目录」，再用笔记的双链 / 路径段 / 标题前缀匹配。`DelegateOptionsModal` 在认出了项目但目录没登记时显示建议行，点「使用并记住」立即写入 `settings.projectFolders`，不用先去设置页。
+- **拖拽不打断**：`Delegator.delegate()` 只在没有显式目录、也没有已登记项目时查一次建议；命中就在派发通知后面追加一行「这条笔记提到 X，还没登记目录」，同一个项目每次进程只提示一次（`_projectHinted`），不弹窗、不自动登记。对话框里已显示建议时不再重复提示（`opts.fromDialog`）。
+- **非日记笔记的日记归属**：从非当天日记派发时 job 记 `noteDispatch`，`Delegator.onSession` 把会话号写入 `settings.noteDispatchSessions`（180 天懒清理、封顶 2000）；`AutoLog.processDay` 默认跳过这些会话，`settings.noteDispatchJournal`（默认关，设置 → 委派 → 项目文件夹）打开后恢复写当天日记。结论仍由 `writeResult` 写回原笔记。
+- **回写噪音**：`src/sync.js` 的 `ensureTopRule` 改为 `safeTopRule`，非日记笔记或分区标记坏掉时跳过顶部分割线处理，不再让整轮 sync 抛「会话回写日记失败」。
+- 测试：`test/project-folders.test.mjs` 覆盖候选名、最近项目、建议命中/已登记不提示/无信号不提示；`test/project-dispatch.test.mjs` 断言非日记派发的会话被标进 `noteDispatchSessions`。
+- 未验证：对话框建议行的视觉、拖拽通知时长、Obsidian 非日记笔记里的实际日记跳过效果、Windows。
+
 ## 本地修改（2026-11-17，1.12.0）：项目文件夹派发与 Codex 项目归属
 
 - **项目名 ↔ 目录登记**：新增 `src/project-folders.js`、`settings.projectFolders`（`{项目名: 绝对路径}`）与开关 `settings.autoProjectFolder`（默认开）。派活时若 `opts.cwd` 为空，按「笔记里的 `[[双链]]` → 笔记路径段 → `项目 -> 标题` 前缀」顺序认出已登记的项目并换成它的目录；认不出照旧用库根目录。派发过一次带目录的任务后按项目名记住（库里已有同名/同目录条目则更新），老项目改目录直接在设置里改。

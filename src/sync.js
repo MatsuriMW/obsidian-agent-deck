@@ -16,6 +16,12 @@ import { AGENTS, dayKey, dayKeyToday, dayMinute, fmtTok, fmtClock, journalPath, 
 import * as J from "./journal.js";
 import { runJournalModel, safeLabel } from "./llm.js";
 import { ensureTopRule } from "./organize-journal.js";
+
+// Non-journal notes have no layout markers; ensureTopRule is journal-specific
+// and may throw on a broken layout. Never let that abort the live sync loop.
+function safeTopRule(text) {
+  try { return ensureTopRule(text); } catch { return text; }
+}
 import { detailForRound } from "./log-detail.js";
 import { condenseUserPrompt } from "./prompt-text.js";
 
@@ -116,7 +122,7 @@ export class JournalSync {
         if (this.cfg.agentKw !== false) next = this.keywords(next);
         if (this.cfg.kidBlocks !== false) { next = this.spawnAll(next); next = this.subsIntoAll(next); next = this.sides(next); }
         next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
-        next = ensureTopRule(J.cleanCompletedIdentifiers(next));
+        next = safeTopRule(J.cleanCompletedIdentifiers(next));
         if (next !== text) this.replace(view, text, next);
       }
       const file = this.todayJournal();
@@ -132,7 +138,7 @@ export class JournalSync {
           next = this.spawnAll(next);
           next = this.sides(next);
           next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
-          next = ensureTopRule(J.cleanCompletedIdentifiers(next));
+          next = safeTopRule(J.cleanCompletedIdentifiers(next));
           return next;
         });
       }
