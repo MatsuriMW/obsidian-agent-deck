@@ -366,6 +366,7 @@ var main_default = {
   "\u8FD9\u4E00\u5757\u7684\u95EE\u7B54\u90FD\u6709\u5757\u53F7\u4E86": "This block's Q&A already has block ids",
   "\u5DF2\u590D\u5236\u5757\u5F15\u7528\uFF1A{link}": "Block ref copied: {link}",
   "\u8FD9\u4E00\u95EE\u8FD8\u7B49\u4F60\u56DE\u7B54\uFF1A\u7B2C{round}\u8F6E\uFF1A{text}": "Still waiting for your answer \u2014 round {round}: {text}",
+  "Agent \u5728\u7B49\u4F60\u56DE\u7B54\uFF08\u5DF2\u5199\u8FDB\u7B14\u8BB0 \u2753\uFF09\uFF1A{text}": "The agent is waiting for your answer (written into the note as \u2753): {text}",
   "\u4F60\u5DF2\u7ECF\u56DE\u7B54\u8FC7\u7684\uFF08\u8D8A\u5F80\u540E\u8D8A\u65B0\uFF09\uFF1A": "Answers you already gave (newest last):",
   "- \u7B2C{round}\u8F6E\uFF1A\u95EE\u300C{question}\u300D\u2192 \u7B54\u300C{answer}\u300D": "- round {round}: asked \u201C{question}\u201D \u2192 answered \u201C{answer}\u201D",
   "\u4EFB\u52A1\u91CC\u7684\u95EE\u7B54\u8BB0\u5F55\uFF08\u6309\u539F\u6587\u4E3A\u51C6\uFF0C\u4E0D\u8981\u91CD\u590D\u8FFD\u95EE\uFF09\uFF1A": "Q&A already in this task (the note wins; do not ask these again):",
@@ -9995,12 +9996,17 @@ function parseThread(lines = [], block = null) {
     const a = ANSWER_RE.exec(line);
     if (!a) continue;
     const open = [...questions].reverse().find((x) => x.answerLine < 0);
+    const value = clean(a[2]);
     if (!open) {
-      orphans.push({ line: i, text: clean(a[2]) });
+      orphans.push({ line: i, text: value });
+      continue;
+    }
+    if (!value) {
+      open.slotLine = i;
       continue;
     }
     open.answerLine = i;
-    open.answer = clean(a[2]);
+    open.answer = value;
     open.answerId = blockIdOf(line);
   }
   return { questions, orphans };
@@ -10118,14 +10124,50 @@ function replyPromptText(parsed, { limit = 3 } = {}) {
   const answered = all.filter((q) => q.answerLine >= 0).slice(-limit);
   const pending = pendingQuestion(parsed);
   const rows = [];
-  if (pending) rows.push(t("\u8FD9\u4E00\u95EE\u8FD8\u7B49\u4F60\u56DE\u7B54\uFF1A\u7B2C{round}\u8F6E\uFF1A{text}", { round: String(pending.round), text: pending.text }));
+  const plain = (value) => String(value || "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/`([^`]*)`/g, "$1").trim();
+  if (pending) rows.push(t("\u8FD9\u4E00\u95EE\u8FD8\u7B49\u4F60\u56DE\u7B54\uFF1A\u7B2C{round}\u8F6E\uFF1A{text}", { round: String(pending.round), text: plain(pending.text) }));
   if (answered.length) {
     rows.push(t("\u4F60\u5DF2\u7ECF\u56DE\u7B54\u8FC7\u7684\uFF08\u8D8A\u5F80\u540E\u8D8A\u65B0\uFF09\uFF1A"));
-    for (const q of answered) rows.push(t("- \u7B2C{round}\u8F6E\uFF1A\u95EE\u300C{question}\u300D\u2192 \u7B54\u300C{answer}\u300D", { round: String(q.round), question: q.text, answer: q.answer }));
+    for (const q of answered) rows.push(t("- \u7B2C{round}\u8F6E\uFF1A\u95EE\u300C{question}\u300D\u2192 \u7B54\u300C{answer}\u300D", { round: String(q.round), question: plain(q.text), answer: plain(q.answer) }));
   }
   if (!rows.length) return "";
   return `${t("\u4EFB\u52A1\u91CC\u7684\u95EE\u7B54\u8BB0\u5F55\uFF08\u6309\u539F\u6587\u4E3A\u51C6\uFF0C\u4E0D\u8981\u91CD\u590D\u8FFD\u95EE\uFF09\uFF1A")}
 ${rows.join("\n")}`;
+}
+function lastQuestionLine(text = "") {
+  const lines = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  for (const line of lines.slice(-3).reverse()) {
+    const sentences2 = clean(line).split(/(?<=[。！？!?])/).map((x) => x.trim()).filter(Boolean);
+    for (const sentence of sentences2.reverse()) {
+      if (sentence.length < 6 || sentence.length > 280) continue;
+      if (!/[？?]$/.test(sentence)) continue;
+      return sentence;
+    }
+  }
+  return "";
+}
+function appendQuestionText(text = "", { blockId = "", question = "", round = 0, seed = "" } = {}) {
+  const value = clean(question);
+  if (!value) return text;
+  const lines = String(text || "").split("\n");
+  const anchor = blockId ? lines.findIndex((l) => blockIdOf(l) === blockId) : -1;
+  const start = anchor >= 0 ? anchor : 0;
+  const base = widthOf(lines[start] || "");
+  let end = lines.length - 1;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (widthOf(lines[i]) <= base && /^\s*[-*+]\s+/.test(lines[i])) {
+      end = i - 1;
+      break;
+    }
+  }
+  const { questions } = parseThread(lines, { start, end });
+  if (questions.some((q) => q.text === value)) return text;
+  const roundNo = round || questions.length + 1;
+  const indent = (/^[ \t]*/.exec(lines[start] || "") || [""])[0] + "	";
+  const id = makeQuestionId(seed || `${blockId}|${value}`);
+  lines.splice(end + 1, 0, `${indent}- \u2753 \u7B2C${roundNo}\u8F6E\uFF1A${value} ^${id}`);
+  return lines.join("\n");
 }
 function suggestOptions(question = "") {
   const text = clean(question);
@@ -12954,6 +12996,7 @@ ${source}`;
     if (!pending.length) {
       job.resultWritten = true;
       this.saveJobs();
+      await this.captureQuestion(job, rounds.at(-1)?.said || job.result || "");
       return;
     }
     const messages = job.conversation?.length ? job.conversation : await readConversation(this.plugin, job);
@@ -12986,6 +13029,7 @@ ${source}`;
       job.resultWritten = true;
       this.saveJobs();
     }
+    await this.captureQuestion(job, prepared.at(-1)?.said || "");
   }
   async writeResult(job, { rounds: scannedRounds } = {}) {
     if (job.resultWritten && !scannedRounds || this.settings.journalAutoWrite === false || this.plugin._unloaded || !job.path) return;
@@ -13021,6 +13065,35 @@ ${source}`;
       job.resultWritten = true;
       this.saveJobs();
     }
+    await this.captureQuestion(job, raw);
+  }
+  // 把 Agent 的提问落成笔记里的 `❓ 第N轮：…`（幂等：同一句不重复写）。
+  async captureQuestion(job, text) {
+    const question = lastQuestionLine(text);
+    if (!question || !job?.path) return false;
+    let wrote = false;
+    try {
+      await updateNote(this.plugin, job.path, (note) => {
+        const lines = note.split("\n");
+        const blockId = job.blockId || "";
+        const start = blockId ? lines.findIndex((l) => blockIdOf(l) === blockId) : Number.isInteger(job.line) ? job.line : -1;
+        if (start < 0 || start >= lines.length) return note;
+        if (!blockAt(lines, start)) return note;
+        const next = appendQuestionText(note, { blockId, question, seed: `${job.path}|${blockId}|${question}` });
+        if (next !== note) {
+          wrote = true;
+          return next;
+        }
+        return note;
+      });
+    } catch (e) {
+      console.error("[agent-deck] \u5199\u56DE\u63D0\u95EE\u5931\u8D25", e);
+    }
+    if (wrote) {
+      this.saveJobs();
+      this.plugin.notice(t("Agent \u5728\u7B49\u4F60\u56DE\u7B54\uFF08\u5DF2\u5199\u8FDB\u7B14\u8BB0 \u2753\uFF09\uFF1A{text}", { text: truncate(question, 50) }), 9e3);
+    }
+    return wrote;
   }
   cancel(id) {
     const runner = this.runners.get(id);

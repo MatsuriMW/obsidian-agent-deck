@@ -2,7 +2,7 @@ import { readConversation } from "./conversation.js";
 import { createHash } from "crypto";
 import { cardPathOf, skillRefIn } from "./skill-cards.js";
 import { updateNote } from "./note-updates.js";
-import { parseThread, replyPromptText } from "./thread-replies.js";
+import { parseThread, replyPromptText, lastQuestionLine, appendQuestionText } from "./thread-replies.js";
 // Agent Deck — delegate a note block to Claude Code or DeepSeek Harness.
 //
 // Claude Code: `claude --bg` (fallback: `claude -p --session-id`), then the
@@ -1096,7 +1096,13 @@ export class Delegator {
   async writeBackgroundResult(job, rounds) {
     const note = await this.plugin.readNote(job.path);
     const pending = rounds.filter(round => round.said && !J.hasRecordedTurn(note, job.sessionId, round.n || 1));
-    if (!pending.length) { job.resultWritten = true; this.saveJobs(); return; }
+    // 结果已经记过也要看这一轮有没有提问：💬 写过不代表 ❓ 写过（那正是"去 CLI 才能回话"的根源）。
+    if (!pending.length) {
+      job.resultWritten = true;
+      this.saveJobs();
+      await this.captureQuestion(job, rounds.at(-1)?.said || job.result || "");
+      return;
+    }
     const messages = job.conversation?.length ? job.conversation : await readConversation(this.plugin, job);
     const full = backgroundRounds(messages);
     const prepared = [];
@@ -1119,6 +1125,8 @@ export class Delegator {
       job.resultWritten = true;
       this.saveJobs();
     }
+    // 最后一段如果是问句，就是它在等你回答：写进笔记成 ❓。
+    await this.captureQuestion(job, prepared.at(-1)?.said || "");
   }
 
   async writeResult(job, { rounds: scannedRounds } = {}) {
@@ -1152,6 +1160,33 @@ export class Delegator {
       job.resultWritten = true;
       this.saveJobs();
     }
+    await this.captureQuestion(job, raw);
+  }
+
+  // 把 Agent 的提问落成笔记里的 `❓ 第N轮：…`（幂等：同一句不重复写）。
+  async captureQuestion(job, text) {
+    const question = lastQuestionLine(text);
+    if (!question || !job?.path) return false;
+    let wrote = false;
+    try {
+      await updateNote(this.plugin, job.path, (note) => {
+        const lines = note.split("\n");
+        const blockId = job.blockId || "";
+        const start = blockId ? lines.findIndex((l) => J.blockIdOf(l) === blockId) : (Number.isInteger(job.line) ? job.line : -1);
+        if (start < 0 || start >= lines.length) return note;
+        if (!blockAt(lines, start)) return note;
+        const next = appendQuestionText(note, { blockId, question, seed: `${job.path}|${blockId}|${question}` });
+        if (next !== note) { wrote = true; return next; }
+        return note;
+      });
+    } catch (e) {
+      console.error("[agent-deck] 写回提问失败", e);
+    }
+    if (wrote) {
+      this.saveJobs();
+      this.plugin.notice(t("Agent 在等你回答（已写进笔记 ❓）：{text}", { text: truncate(question, 50) }), 9000);
+    }
+    return wrote;
   }
 
   cancel(id) {

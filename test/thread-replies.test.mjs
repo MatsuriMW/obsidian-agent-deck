@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseThread, pendingQuestion, answerSlot, fillAnswer, ensureQuestionId, anchorThreadText, makeQuestionId, answerIdOf, locateQuestion, replyPromptText, suggestOptions } from "../src/thread-replies.js";
+import { parseThread, pendingQuestion, answerSlot, fillAnswer, ensureQuestionId, anchorThreadText, appendQuestionText, lastQuestionLine, makeQuestionId, answerIdOf, locateQuestion, replyPromptText, suggestOptions } from "../src/thread-replies.js";
 
 // 一块典型的"问了、没答"的任务
 const openLines = [
@@ -82,6 +82,8 @@ test("写回：按块号定位到那一块里的提问（笔记里有多块时�
 
 test("回灌：最近这一问 + 已答的几轮，都写进 prompt 段", () => {
   const text = replyPromptText(parseThread(openLines, block));
+  const bolded = replyPromptText(parseThread(["- DOING 任务", "  - ❓ 第1轮：用 **npm** 还是 `pnpm`？"], { start: 0, end: 1 }));
+  assert.ok(!bolded.includes("**") && !bolded.includes("`"), "注入段不带加粗与反引号");
   assert.match(text, /还等你回答/);
   assert.match(text, /版本号用 1\.9\.6 还是 2\.0\.0？/);
   assert.match(text, /按原文为准/);
@@ -170,4 +172,32 @@ test("代码块里的 ❓ / ✍️ 只是示例，不算问答（也不该被回
   const filled = fillAnswer(note.join("\n"), { questionText: "真的问题？", answer: "答了" });
   assert.ok(filled.includes("答：答了"));
   assert.ok(!filled.includes("示例里的答案 ^ad-a-"), "代码块里的示例行不被改写");
+});
+
+test("入站：认得出「它在问我」，并把问句写成 ❓ 行（幂等、带块号）", () => {
+  assert.equal(lastQuestionLine("已完成。仓库里用 npm 还是 pnpm？"), "仓库里用 npm 还是 pnpm？", "只取问句那一句");
+  assert.equal(lastQuestionLine("仓库里用 npm 还是 pnpm？\n\n问完了，先停在这里，等你回答，不动手。"), "仓库里用 npm 还是 pnpm？", "问题后面补一句说明也能认出来");
+  assert.equal(lastQuestionLine("仓库里是用 npm 还是 pnpm？请告诉我，我先停在这里，等你回答后再动手。"), "仓库里是用 npm 还是 pnpm？", "问题夹在句子里也能认出来");
+  assert.equal(lastQuestionLine("要我发 changelog 吗?"), "要我发 changelog 吗?");
+  assert.equal(lastQuestionLine("做完了，没问题。"), "", "陈述句不算");
+  assert.equal(lastQuestionLine("好"), "", "太短不算");
+
+  const note = ["- DOING 甲 ^ad-a", "  - 💬 上一轮"].join("\n");
+  const once = appendQuestionText(note, { blockId: "ad-a", question: "仓库里用 npm 还是 pnpm？", seed: "笔记.md|ad-a|q" });
+  const lines = once.split("\n");
+  assert.match(lines[2], /^\t- ❓ 第1轮：仓库里用 npm 还是 pnpm？ \^ad-q-[0-9a-f]{8}$/);
+  assert.equal(appendQuestionText(once, { blockId: "ad-a", question: "仓库里用 npm 还是 pnpm？" }), once, "同一句不重复写");
+  const second = appendQuestionText(once, { blockId: "ad-a", question: "要发 changelog 吗？" });
+  assert.equal(second.split("\n").length, 4, "第二问另起一行");
+});
+
+test("空 ✍️ 答 行只是留了位置，不算已答", () => {
+  const note = ["- DOING 任务", "  - ❓ 第1轮：A 还是 B？", "  - ✍️ 答："];
+  const parsed = parseThread(note, { start: 0, end: 2 });
+  assert.equal(parsed.questions[0].answerLine, -1, "空行没答案");
+  assert.equal(parsed.questions[0].slotLine, 2);
+  assert.ok(pendingQuestion(parsed), "仍然是待答");
+  const filled = fillAnswer(note.join("\n"), { questionText: "A 还是 B？", answer: "A" });
+  assert.ok(filled.includes("  - ✍️ 答：A"));
+  assert.equal(filled.split("✍️").length - 1, 1, "不会因此多出一行");
 });

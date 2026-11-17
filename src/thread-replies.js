@@ -48,9 +48,11 @@ export function parseThread(lines = [], block = null) {
     const a = ANSWER_RE.exec(line);
     if (!a) continue;
     const open = [...questions].reverse().find((x) => x.answerLine < 0);
-    if (!open) { orphans.push({ line: i, text: clean(a[2]) }); continue; }
+    const value = clean(a[2]);
+    if (!open) { orphans.push({ line: i, text: value }); continue; }
+    if (!value) { open.slotLine = i; continue; } // 空行只是留了位置，还不算回答
     open.answerLine = i;
-    open.answer = clean(a[2]);
+    open.answer = value;
     open.answerId = blockIdOf(line);
   }
   return { questions, orphans };
@@ -179,13 +181,56 @@ export function replyPromptText(parsed, { limit = 3 } = {}) {
   const answered = all.filter((q) => q.answerLine >= 0).slice(-limit);
   const pending = pendingQuestion(parsed);
   const rows = [];
-  if (pending) rows.push(t("这一问还等你回答：第{round}轮：{text}", { round: String(pending.round), text: pending.text }));
+  // 注入前统一去排版符号：和 agentText 同口径，免得同一句话在 prompt 里一处带 **、一处没有。
+  const plain = (value) => String(value || "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/`([^`]*)`/g, "$1").trim();
+  if (pending) rows.push(t("这一问还等你回答：第{round}轮：{text}", { round: String(pending.round), text: plain(pending.text) }));
   if (answered.length) {
     rows.push(t("你已经回答过的（越往后越新）："));
-    for (const q of answered) rows.push(t("- 第{round}轮：问「{question}」→ 答「{answer}」", { round: String(q.round), question: q.text, answer: q.answer }));
+    for (const q of answered) rows.push(t("- 第{round}轮：问「{question}」→ 答「{answer}」", { round: String(q.round), question: plain(q.text), answer: plain(q.answer) }));
   }
   if (!rows.length) return "";
   return `${t("任务里的问答记录（按原文为准，不要重复追问）：")}\n${rows.join("\n")}`;
+}
+
+// Agent 的回答里带问号 → 它在等你回答。
+// 只看最后几行：常见写法是"先抛问题、再补一句'问完就停'"，
+// 死盯最后一行会漏掉；但翻太远又会把解释里的反问当提问，所以窗口限 3 行。
+export function lastQuestionLine(text = "") {
+  const lines = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  for (const line of lines.slice(-3).reverse()) {
+    // 按句切：问题常常夹在一句解释中间（"用 npm 还是 pnpm？请告诉我，我先停在这"）。
+    const sentences = clean(line).split(/(?<=[。！？!?])/).map((x) => x.trim()).filter(Boolean);
+    for (const sentence of sentences.reverse()) {
+      if (sentence.length < 6 || sentence.length > 280) continue;
+      if (!/[？?]$/.test(sentence)) continue;
+      return sentence;
+    }
+  }
+  return "";
+}
+
+export const looksLikeQuestion = (text = "") => Boolean(lastQuestionLine(text));
+
+// 把"它在问"写成笔记里的 `❓` 行：幂等（同一句不重复写），顺手带上块号。
+export function appendQuestionText(text = "", { blockId = "", question = "", round = 0, seed = "" } = {}) {
+  const value = clean(question);
+  if (!value) return text;
+  const lines = String(text || "").split("\n");
+  const anchor = blockId ? lines.findIndex((l) => blockIdOf(l) === blockId) : -1;
+  const start = anchor >= 0 ? anchor : 0;
+  const base = widthOf(lines[start] || "");
+  let end = lines.length - 1;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (widthOf(lines[i]) <= base && /^\s*[-*+]\s+/.test(lines[i])) { end = i - 1; break; }
+  }
+  const { questions } = parseThread(lines, { start, end });
+  if (questions.some((q) => q.text === value)) return text; // 同一句问过就不再写
+  const roundNo = round || questions.length + 1;
+  const indent = ((/^[ \t]*/.exec(lines[start] || "") || [""])[0]) + "\t";
+  const id = makeQuestionId(seed || `${blockId}|${value}`);
+  lines.splice(end + 1, 0, `${indent}- ❓ 第${roundNo}轮：${value} ^${id}`);
+  return lines.join("\n");
 }
 
 // 从问句里猜可点的选项：A 还是 B / X 或 Y / 是否。

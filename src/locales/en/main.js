@@ -346,6 +346,7 @@ export default {
   "这一块的问答都有块号了": "This block's Q&A already has block ids",
   "已复制块引用：{link}": "Block ref copied: {link}",
   "这一问还等你回答：第{round}轮：{text}": "Still waiting for your answer — round {round}: {text}",
+  "Agent 在等你回答（已写进笔记 ❓）：{text}": "The agent is waiting for your answer (written into the note as ❓): {text}",
   "你已经回答过的（越往后越新）：": "Answers you already gave (newest last):",
   "- 第{round}轮：问「{question}」→ 答「{answer}」": "- round {round}: asked “{question}” → answered “{answer}”",
   "任务里的问答记录（按原文为准，不要重复追问）：": "Q&A already in this task (the note wins; do not ask these again):",
