@@ -182,6 +182,8 @@ test("入站：认得出「它在问我」，并把问句写成 ❓ 行（幂等
   assert.equal(lastQuestionLine("做完了，没问题。"), "", "陈述句不算");
   assert.equal(lastQuestionLine("好"), "", "太短不算");
   assert.equal(lastQuestionLine("你选哪个？"), "你选哪个？", "中文短问句也算");
+  const longAsk = "**我的问题，只有一个：**\n\n发布前要不要先跑全量测试？\n\n请挑一个：\n\n- **A. 跑全量** — 最稳\n- **B. 只跑相关** — 快\n- **C. 先不跑** — 风险自担\n\n你选完我就照办；在你回答之前我停在这里，不做其他动作。";
+  assert.equal(lastQuestionLine(longAsk), "发布前要不要先跑全量测试？", "问句后面列选项、再补收尾句也能认出来");
 
   const note = ["- DOING 甲 ^ad-a", "  - 💬 上一轮"].join("\n");
   const once = appendQuestionText(note, { blockId: "ad-a", question: "仓库里用 npm 还是 pnpm？", seed: "笔记.md|ad-a|q" });

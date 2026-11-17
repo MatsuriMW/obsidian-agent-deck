@@ -10148,9 +10148,9 @@ function replyPromptText(parsed, { limit = 3 } = {}) {
   return `${t("\u4EFB\u52A1\u91CC\u7684\u95EE\u7B54\u8BB0\u5F55\uFF08\u6309\u539F\u6587\u4E3A\u51C6\uFF0C\u4E0D\u8981\u91CD\u590D\u8FFD\u95EE\uFF09\uFF1A")}
 ${rows.join("\n")}`;
 }
-function lastQuestionLine(text = "") {
+function lastQuestionLine(text = "", { window: window2 = 12 } = {}) {
   const lines = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
-  for (const line of lines.slice(-3).reverse()) {
+  for (const line of lines.slice(-window2).reverse()) {
     const sentences2 = clean(line).split(/(?<=[。！？!?])/).map((x) => x.trim()).filter(Boolean);
     for (const sentence of sentences2.reverse()) {
       if (sentence.length < 4 || sentence.length > 280) continue;

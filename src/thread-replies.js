@@ -195,9 +195,11 @@ export function replyPromptText(parsed, { limit = 3 } = {}) {
 // Agent 的回答里带问号 → 它在等你回答。
 // 只看最后几行：常见写法是"先抛问题、再补一句'问完就停'"，
 // 死盯最后一行会漏掉；但翻太远又会把解释里的反问当提问，所以窗口限 3 行。
-export function lastQuestionLine(text = "") {
+export function lastQuestionLine(text = "", { window = 12 } = {}) {
   const lines = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
-  for (const line of lines.slice(-3).reverse()) {
+  // 窗口给到 12 行：真实提问常常是"先抛问题 → 列 A/B/C → 补一句'你选完我就照办'"，
+  // 只盯最后三行会整段漏掉（真机踩过）。取窗口里**最后一个问句**，收尾的陈述句不影响。
+  for (const line of lines.slice(-window).reverse()) {
     // 按句切：问题常常夹在一句解释中间（"用 npm 还是 pnpm？请告诉我，我先停在这"）。
     const sentences = clean(line).split(/(?<=[。！？!?])/).map((x) => x.trim()).filter(Boolean);
     for (const sentence of sentences.reverse()) {
