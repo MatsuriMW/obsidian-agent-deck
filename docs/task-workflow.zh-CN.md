@@ -125,6 +125,7 @@
 
 | 事项 | 范围与边界约束 | 参考 Spec / 模块 |
 | --- | --- | --- |
+| **Dream 记忆按条共享**（方向草案，未排期） | 给记忆加 `scope/audience`，发布到 `Agent Deck/共享记忆/`，再经 MCP/文件/快照三条通道给别的 Agent；撤销要可证明干净。见 [`dream-shared-memory.md`](specs/dream-shared-memory.md) | `src/dream.js`, `src/dream-sharing.js`, `src/memory-store.js`, `scripts/memory-query.mjs` |
 | **记忆查询接 MCP**（下一步主线） | 把 `scripts/memory-query.mjs` 的三个动词包成 stdio MCP server（`memory_search` / `memory_read` / `memory_recent`），与 CLI 共用同一份打分与格式化逻辑（抽 `src/memory-query-core.js`），只读、签名不变、每条仍带 why 不返回分数；工具名一旦被模型看见就难改，先定再写 | `scripts/memory-query.mjs`, `src/memory-query-core.js`（待抽）, `docs/specs/context-protocol.zh-CN.md` §8 |
 | **Pi 支持 & 委派/块级粒度** | Pi 接入、委派卡片选模型/强度/记录粒度并记住偏好、已有 AI 块单独调粒度 | `acp-integration.zh-CN`、`src/delegation.js`, `src/dialog.js`, `src/ai-records.js`, `src/autolog.js` |
 | **Muse 追踪接入**（[MAT-629](https://linear.app/matsurimywaifu/issue/MAT-629)） | 实现对 Muse 会话的只读追踪、状态与对话读取 | `src/readers.js`, `src/agent-ingestors.js`, `src/constants.js` |
