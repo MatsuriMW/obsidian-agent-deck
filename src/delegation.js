@@ -567,6 +567,12 @@ export class Delegator {
     } catch { return ""; }
   }
 
+  // 载荷快照：没有草稿时先把富化写进 payload 再落盘，让"文件为准"这句话站得住。
+  async payloadSnapshot(resolved, draft, agent) {
+    if (!draft) await this.enrichPrompt(resolved);
+    return draft || await this.writeTaskPayload(resolved, agent);
+  }
+
   // 读草稿：正文直接当 prompt；同时把 frontmatter 标成已派发，方便区分"还没发的"和"发过的"。
   async readDraft(draftPath, resolved) {
     try {
@@ -725,8 +731,9 @@ export class Delegator {
     // 优先用挂在任务块下面的草稿：用户改过的内容就是这一趟真正要发的内容。
     const draftPath = findDraftLink(resolved.lines, resolved.block);
     const draft = draftPath ? await this.readDraft(draftPath, resolved) : null;
-    // 没有草稿就按当前上下文现生成一份，保持"能看能改能追溯"。
-    const payload = draft || await this.writeTaskPayload(resolved, agent);
+    // 载荷快照：先富化再落盘。payload 里缺了引用笔记 / 技能路径 / 记忆查询用法，
+    // 而 prompt 写着"两者冲突时以文件为准"，那句话就名不副实。
+    const payload = await this.payloadSnapshot(resolved, draft, agent);
     if (payload) {
       const source = payload.draft ? payload.body : resolved.prompt;
       const lead = payload.draft
@@ -734,8 +741,9 @@ export class Delegator {
         : `${t("本次任务的完整载荷（含上下文与来源）：")}\`${payload.abs}\``;
       resolved.prompt = `${lead}\n${t("下面是被截断的摘要；两者冲突时以文件为准。")}\n\n${source}`;
     }
-    // 任务行或草稿里写了 [[技能/x]]，就把真实 SKILL.md 路径交给 Agent，让它自己去读。
-    await this.enrichPrompt(resolved, draft?.raw || "");
+    // 草稿路径：草稿正文可能被手改（比如加了 [[技能/x]]），按草稿原文再富化一次；
+    // 已经带过的行靠 enrichPrompt 自己的去重不会重复。
+    if (draft) await this.enrichPrompt(resolved, draft.raw || "");
     const job = this.buildJobBase({
       agent,
       name: resolved.name,

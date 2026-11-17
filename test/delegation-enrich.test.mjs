@@ -119,3 +119,33 @@ test("草稿已经带过的行，派发时不再套第二遍", async () => {
   assert.equal(again.prompt.split(line).length - 1, 1, "用法行只出现一次");
   assert.equal(again.prompt.split(HEAD).length - 1, 1, "引用笔记清单只出现一次");
 });
+
+test("载荷快照：没有草稿时，落盘的 payload 里就已经有富化行", async () => {
+  const vaultPath = makeVault();
+  const files = new Map();
+  files.set("inbox/当前.md", { path: "inbox/当前.md", content: "- TODO 看 [[项目A/日记]] @dsh\n" });
+  const vault = {
+    getAbstractFileByPath: (p) => files.get(p) || null,
+    createFolder: async () => {},
+    create: async (p, content) => { files.set(p, { path: p, content }); },
+    modify: async (file, content) => { file.content = content; },
+    read: async (file) => file.content,
+  };
+  const plugin = {
+    settings: deepMerge(DEFAULTS, {}),
+    jobs: {},
+    vaultPath,
+    app: { vault, metadataCache: { getFirstLinkpathDest: (n) => notes[String(n).trim()] || null } },
+    viewForPath: () => null,
+    readNote: async (p) => files.get(p)?.content || "",
+    writeNote: async (p, text) => { const f = files.get(p); if (f) f.content = text; },
+  };
+  const delegator = new Delegator(plugin);
+  const resolved = { file: { path: "inbox/当前.md" }, lines: ["- TODO 看 [[项目A/日记]] @dsh"], block: { start: 0, end: 0, text: "- TODO 看 [[项目A/日记]] @dsh" }, name: "看看日记", prompt: "原始 prompt" };
+  const payload = await delegator.payloadSnapshot(resolved, null, "dsh");
+  assert.ok(payload?.path, "载荷写出来了");
+  const written = files.get(payload.path).content;
+  assert.ok(written.includes("需要更多背景时："), "记忆查询用法进了载荷文件");
+  assert.ok(written.includes(HEAD), "引用笔记清单进了载荷文件");
+  assert.ok(written.includes(`${vaultPath}/项目A/日记.md`), "被引用笔记的绝对路径也在里面");
+});

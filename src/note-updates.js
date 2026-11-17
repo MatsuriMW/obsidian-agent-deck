@@ -18,6 +18,10 @@ export function updateNote(plugin, path, transform) {
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     if (plugin._unloaded) return;
+    // 笔记已经不在库里（被删/改名）时不要动残留的编辑器：写进一个没有文件的编辑器，
+    // 结果是内容跑到别的笔记上（2026-11-18 真机踩过，覆盖掉了一篇交接卡）。
+    const known = typeof plugin.app?.vault?.getAbstractFileByPath === "function" ? plugin.app.vault.getAbstractFileByPath(path) : undefined;
+    if (known === null) return;
     const view = plugin.viewForPath?.(path);
     if (view && (!view.getMode || view.getMode() === "source")) {
       const before = view.editor.getValue();

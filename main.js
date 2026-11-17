@@ -9494,6 +9494,8 @@ function updateNote(plugin, path13, transform) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     if (plugin._unloaded) return;
+    const known = typeof plugin.app?.vault?.getAbstractFileByPath === "function" ? plugin.app.vault.getAbstractFileByPath(path13) : void 0;
+    if (known === null) return;
     const view = plugin.viewForPath?.(path13);
     if (view && (!view.getMode || view.getMode() === "source")) {
       const before2 = view.editor.getValue();
@@ -12204,6 +12206,11 @@ ${resolved.prompt}`;
       return "";
     }
   }
+  // 载荷快照：没有草稿时先把富化写进 payload 再落盘，让"文件为准"这句话站得住。
+  async payloadSnapshot(resolved, draft, agent) {
+    if (!draft) await this.enrichPrompt(resolved);
+    return draft || await this.writeTaskPayload(resolved, agent);
+  }
   // 读草稿：正文直接当 prompt；同时把 frontmatter 标成已派发，方便区分"还没发的"和"发过的"。
   async readDraft(draftPath, resolved) {
     try {
@@ -12371,7 +12378,7 @@ ${body}`, 12e3);
     }
     const draftPath = findDraftLink(resolved.lines, resolved.block);
     const draft = draftPath ? await this.readDraft(draftPath, resolved) : null;
-    const payload = draft || await this.writeTaskPayload(resolved, agent);
+    const payload = await this.payloadSnapshot(resolved, draft, agent);
     if (payload) {
       const source = payload.draft ? payload.body : resolved.prompt;
       const lead = payload.draft ? `${t("\u672C\u6B21\u4EFB\u52A1\u6309\u8FD9\u4EFD\u5DF2\u786E\u8BA4\u7684\u8349\u7A3F\u6267\u884C\uFF1A")}\`${payload.abs}\`` : `${t("\u672C\u6B21\u4EFB\u52A1\u7684\u5B8C\u6574\u8F7D\u8377\uFF08\u542B\u4E0A\u4E0B\u6587\u4E0E\u6765\u6E90\uFF09\uFF1A")}\`${payload.abs}\``;
@@ -12380,7 +12387,7 @@ ${t("\u4E0B\u9762\u662F\u88AB\u622A\u65AD\u7684\u6458\u8981\uFF1B\u4E24\u8005\u5
 
 ${source}`;
     }
-    await this.enrichPrompt(resolved, draft?.raw || "");
+    if (draft) await this.enrichPrompt(resolved, draft.raw || "");
     const job = this.buildJobBase({
       agent,
       name: resolved.name,

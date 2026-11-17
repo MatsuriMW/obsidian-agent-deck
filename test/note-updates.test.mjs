@@ -68,3 +68,15 @@ test('preview mode uses the Vault transaction instead of a hidden editor', async
   await updateNote(p, 'today.md', current => current + ' AI 记录');
   assert.equal(text, '预览内容 AI 记录');
 });
+
+test('a note that no longer exists is never written, even if its editor is still open', async () => {
+  let touched = false;
+  const p = {
+    app: { vault: { getAbstractFileByPath: () => null } },
+    viewForPath: () => ({ getMode: () => 'source', editor: { getValue: () => '残留编辑器里的旧内容', transaction: () => { touched = true; } } }),
+    readNote: () => { touched = true; return ''; },
+    writeNote: () => { touched = true; },
+  };
+  await updateNote(p, 'deleted.md', text => text + '不该出现');
+  assert.equal(touched, false, '笔记删了就不写，也不往残留编辑器里塞内容');
+});
