@@ -27,6 +27,13 @@
 - **关键词**：`DOING` / `NOW` / `IN-PROGRESS`、`TOREVIEW`、`NEEDOK`、`ERRORED` / `FAILED`、`HITLIMIT`、`QUEUED`、`DELEGATED`、`TODO` / `LATER`、`PAUSED` / `SUSPENDED`、`WAITING` / `WAIT`、`DONE`、`CANCELED` / `CANCELLED`、`TODOFORAI` / `TODO4AI` / `TODO2AI` / `TODOTOAI`，及 `[ ]` `[/]` `[x]` `[-]`。
 - **整理与归档**：**整理日志**默认按 `---` → 正在做 → `---` → 还要做 → `---` → 已完成 → `---` 排列，只整理完整分区内的 **AI** 条目，非 AI 手写条目与区外笔记保持原位；无完整分区时只建立空分区。**归档已完成的日志到…** 仅移出已完成 **AI** 块（默认 `Agent Deck/done/已完成任务.md`），先写归档再删源。
 
+## 本地修改（2026-11-17，未发版）：笔记项目优先于 Agent 默认目录
+
+- `resolveDispatchFolder()`（`src/project-folders.js`）的优先级改为「显式 cwd → 笔记项目（双链 / 路径 / `项目 -> 标题`）→ 各 Agent 默认 cwd → 库根」。之前默认 cwd 会压过笔记项目，设过默认目录的 Agent 等于永远不触发项目派发；现在默认目录只在笔记认不出项目时兜底。`settings.autoProjectFolder` 关掉后仍然是默认 cwd → 库根。
+- 设置 → 委派「项目文件夹」卡片的说明同步写清「笔记项目优先于各 Agent 的默认目录」。
+- 测试：`test/project-folders.test.mjs` 增加项目压过默认、无项目回默认、关闭后默认生效三条；`test/project-dispatch.test.mjs` 增加默认 cwd 与笔记项目冲突时 runner 真跑在项目目录。
+- 未验证：Obsidian 设置页与委派对话框的文案视觉、Windows。
+
 ## 本地修改（2026-11-17，1.12.0）：项目文件夹派发与 Codex 项目归属
 
 - **项目名 ↔ 目录登记**：新增 `src/project-folders.js`、`settings.projectFolders`（`{项目名: 绝对路径}`）与开关 `settings.autoProjectFolder`（默认开）。派活时若 `opts.cwd` 为空，按「笔记里的 `[[双链]]` → 笔记路径段 → `项目 -> 标题` 前缀」顺序认出已登记的项目并换成它的目录；认不出照旧用库根目录。派发过一次带目录的任务后按项目名记住（库里已有同名/同目录条目则更新），老项目改目录直接在设置里改。

@@ -104,10 +104,21 @@ try {
   assert.equal(explicit.projectName, 'other');
   assert.equal(explicit.auto, null);
 
-  const agentCwd = resolveDispatchFolder({ settings: { projectFolders: { 'ad-ui-test': dirA } }, agentCwd: dirA, vaultPath: vault, ...task });
-  assert.equal(agentCwd.folder, dirA);
-  assert.equal(agentCwd.projectName, 'ad-ui-test');
-  assert.equal(agentCwd.auto, null);
+  // The note's project outranks the per-agent default cwd.
+  const projectOverDefault = resolveDispatchFolder({ settings: { projectFolders: { 'ad-ui-test': dirA, other: dirB } }, agentCwd: dirB, vaultPath: vault, ...task });
+  assert.equal(projectOverDefault.folder, dirA);
+  assert.equal(projectOverDefault.projectName, 'ad-ui-test');
+  assert.equal(projectOverDefault.auto?.name, 'ad-ui-test');
+
+  // No project in the note: the agent default is the fallback.
+  const defaultCwd = resolveDispatchFolder({ settings: { projectFolders: { other: dirB } }, agentCwd: dirB, vaultPath: vault, notePath: '日记/x.md', blockText: '- TODO x' });
+  assert.equal(defaultCwd.folder, dirB);
+  assert.equal(defaultCwd.projectName, 'other');
+  assert.equal(defaultCwd.auto, null);
+
+  // Turning the project lookup off leaves the agent default in charge.
+  const offWithDefault = resolveDispatchFolder({ settings: { projectFolders: { 'ad-ui-test': dirA }, autoProjectFolder: false }, agentCwd: dirB, vaultPath: vault, ...task });
+  assert.equal(offWithDefault.folder, dirB);
 
   const off = resolveDispatchFolder({ settings: { projectFolders: { 'ad-ui-test': dirA }, autoProjectFolder: false }, vaultPath: vault, ...task });
   assert.equal(off.folder, vault);

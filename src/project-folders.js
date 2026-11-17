@@ -139,8 +139,9 @@ export function resolveProjectForTask({ settings, notePath = "", contextLines = 
 
 /**
  * The folder and project name a dispatch should use.
- * Explicit cwd wins; a configured agent cwd comes next; otherwise the note's
- * project (when autoProjectFolder is on); falling back to the vault root.
+ * An explicit cwd wins, then the note's project (when autoProjectFolder is on).
+ * The per-agent default cwd is a fallback, not a task intent, so it only
+ * applies when the note names no project; the vault root is the last resort.
  */
 export function resolveDispatchFolder({
   settings,
@@ -154,11 +155,12 @@ export function resolveDispatchFolder({
 } = {}) {
   const explicit = normalizeProjectFolder(explicitCwd);
   let auto = null;
-  let folder = explicit || normalizeProjectFolder(agentCwd);
+  let folder = explicit;
   if (!folder && settings?.autoProjectFolder !== false) {
     auto = resolveProjectForTask({ settings, notePath, contextLines, blockText });
     if (auto) folder = auto.path;
   }
+  if (!folder) folder = normalizeProjectFolder(agentCwd);
   folder = folder || vaultPath;
   const projectName = explicit
     ? (explicitName || projectNameForFolder(settings, explicit) || path.basename(explicit))

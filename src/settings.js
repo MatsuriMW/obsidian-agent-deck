@@ -435,8 +435,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
     this.agentReorder(targetRow, "delegation", ".ad-settings-target");
 
-    const projectCard = this.card(body, t("项目文件夹"), t("派活时按项目选目录；笔记里的双链、路径或「项目 -> 标题」也能认出项目。Codex 会把会话归到同名项目。"));
-    this.rowToggle(projectCard, t("按项目文件夹派活"), t("从笔记认出项目后，派到这个项目的目录；认不出就照旧在库根目录"), s.autoProjectFolder !== false, (v) => { s.autoProjectFolder = v; p.saveSettings(); });
+    const projectCard = this.card(body, t("项目文件夹"), t("派活时按项目选目录；笔记里的双链、路径或「项目 -> 标题」也能认出项目，笔记项目优先于各 Agent 的默认目录。Codex 会把会话归到同名项目。"));
+    this.rowToggle(projectCard, t("按项目文件夹派活"), t("从笔记认出项目后，派到这个项目的目录；认不出再用各 Agent 的默认目录或库根"), s.autoProjectFolder !== false, (v) => { s.autoProjectFolder = v; p.saveSettings(); });
     this.renderProjectFolders(projectCard);
 
     // 2. 委派 → 各 Agent

@@ -74,6 +74,15 @@ try {
   assert.equal(plugin.settings.projectFolders['显式项目'], explicitProject, 'explicit folder is remembered');
   assert.ok(plugin.saved >= 1);
 
+  // The note's project outranks the per-agent default cwd.
+  plugin.settings.delegate.claude.cwd = explicitProject;
+  plugin.settings.projectFolders = { demo: project };
+  const priority = await d.delegate({ file: { path: 'task.md' }, lines: lines(), line: 1, agent: 'claude', destination: 'background', newSession: true });
+  await wait(priority);
+  assert.equal(priority.cwd, project, 'note project wins over delegate.claude.cwd');
+  assert.equal(ranIn(), real(project));
+  plugin.settings.delegate.claude.cwd = '';
+
   // Turning the automatic lookup off keeps the vault root.
   plugin.settings.autoProjectFolder = false;
   const off = await d.delegate({ file: { path: 'task.md' }, lines: lines(), line: 1, agent: 'claude', destination: 'background', newSession: true });

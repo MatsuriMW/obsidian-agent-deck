@@ -1078,9 +1078,9 @@ var settings_default = {
   "\u6574\u7406\u6A21\u578B\u53EF\u7528\uFF1A{reply}": "Journal model works: {reply}",
   "\u6574\u7406\u6A21\u578B\u4E0D\u53EF\u7528\uFF1A{msg}": "Journal model failed: {msg}",
   "\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\u6216\u6CBF\u7528\u59D4\u6D3E\u8DEF\u5F84": "Leave blank to auto-detect or reuse delegation path",
-  "\u6D3E\u6D3B\u65F6\u6309\u9879\u76EE\u9009\u76EE\u5F55\uFF1B\u7B14\u8BB0\u91CC\u7684\u53CC\u94FE\u3001\u8DEF\u5F84\u6216\u300C\u9879\u76EE -> \u6807\u9898\u300D\u4E5F\u80FD\u8BA4\u51FA\u9879\u76EE\u3002Codex \u4F1A\u628A\u4F1A\u8BDD\u5F52\u5230\u540C\u540D\u9879\u76EE\u3002": "Pick a folder per project when delegating. A wikilink, the note's path, or a 'Project -> title' prefix also identifies the project. Codex groups the session under the project with the same name.",
+  "\u6D3E\u6D3B\u65F6\u6309\u9879\u76EE\u9009\u76EE\u5F55\uFF1B\u7B14\u8BB0\u91CC\u7684\u53CC\u94FE\u3001\u8DEF\u5F84\u6216\u300C\u9879\u76EE -> \u6807\u9898\u300D\u4E5F\u80FD\u8BA4\u51FA\u9879\u76EE\uFF0C\u7B14\u8BB0\u9879\u76EE\u4F18\u5148\u4E8E\u5404 Agent \u7684\u9ED8\u8BA4\u76EE\u5F55\u3002Codex \u4F1A\u628A\u4F1A\u8BDD\u5F52\u5230\u540C\u540D\u9879\u76EE\u3002": "Pick a folder per project when delegating. A wikilink, the note's path, or a 'Project -> title' prefix also identifies the project, and a note project outranks each agent's default folder. Codex groups the session under the project with the same name.",
   "\u6309\u9879\u76EE\u6587\u4EF6\u5939\u6D3E\u6D3B": "Delegate into project folders",
-  "\u4ECE\u7B14\u8BB0\u8BA4\u51FA\u9879\u76EE\u540E\uFF0C\u6D3E\u5230\u8FD9\u4E2A\u9879\u76EE\u7684\u76EE\u5F55\uFF1B\u8BA4\u4E0D\u51FA\u5C31\u7167\u65E7\u5728\u5E93\u6839\u76EE\u5F55": "When a note identifies a project, run the task in that project's folder; otherwise stay in the vault root.",
+  "\u4ECE\u7B14\u8BB0\u8BA4\u51FA\u9879\u76EE\u540E\uFF0C\u6D3E\u5230\u8FD9\u4E2A\u9879\u76EE\u7684\u76EE\u5F55\uFF1B\u8BA4\u4E0D\u51FA\u518D\u7528\u5404 Agent \u7684\u9ED8\u8BA4\u76EE\u5F55\u6216\u5E93\u6839": "When a note identifies a project, run the task in that project's folder; otherwise fall back to the agent default folder or the vault root.",
   "\u8FD8\u6CA1\u6709\u767B\u8BB0\u3002\u5728\u59D4\u6D3E\u5BF9\u8BDD\u6846\u91CC\u586B\u4E00\u6B21\u76EE\u5F55\uFF0C\u5C31\u4F1A\u6309\u9879\u76EE\u540D\u8BB0\u4F4F\uFF1B\u4E5F\u53EF\u4EE5\u5728\u8FD9\u91CC\u76F4\u63A5\u52A0\u3002": "Nothing registered yet. Enter a folder once in the delegate dialog and it is remembered under the project name, or add it here.",
   "\u76EE\u5F55\u4E0D\u5B58\u5728\uFF1A{path}": "Folder does not exist: {path}",
   "\u9879\u76EE\u540D": "Project name",
@@ -9848,11 +9848,12 @@ function resolveDispatchFolder({
 } = {}) {
   const explicit = normalizeProjectFolder(explicitCwd);
   let auto = null;
-  let folder = explicit || normalizeProjectFolder(agentCwd);
+  let folder = explicit;
   if (!folder && settings?.autoProjectFolder !== false) {
     auto = resolveProjectForTask({ settings, notePath: notePath2, contextLines, blockText: blockText2 });
     if (auto) folder = auto.path;
   }
+  if (!folder) folder = normalizeProjectFolder(agentCwd);
   folder = folder || vaultPath;
   const projectName2 = explicit ? explicitName || projectNameForFolder(settings, explicit) || import_path5.default.basename(explicit) : auto?.name || projectNameForFolder(settings, folder) || "";
   return { folder, projectName: projectName2, auto, explicit };
@@ -20987,8 +20988,8 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       };
     }
     this.agentReorder(targetRow, "delegation", ".ad-settings-target");
-    const projectCard = this.card(body, t("\u9879\u76EE\u6587\u4EF6\u5939"), t("\u6D3E\u6D3B\u65F6\u6309\u9879\u76EE\u9009\u76EE\u5F55\uFF1B\u7B14\u8BB0\u91CC\u7684\u53CC\u94FE\u3001\u8DEF\u5F84\u6216\u300C\u9879\u76EE -> \u6807\u9898\u300D\u4E5F\u80FD\u8BA4\u51FA\u9879\u76EE\u3002Codex \u4F1A\u628A\u4F1A\u8BDD\u5F52\u5230\u540C\u540D\u9879\u76EE\u3002"));
-    this.rowToggle(projectCard, t("\u6309\u9879\u76EE\u6587\u4EF6\u5939\u6D3E\u6D3B"), t("\u4ECE\u7B14\u8BB0\u8BA4\u51FA\u9879\u76EE\u540E\uFF0C\u6D3E\u5230\u8FD9\u4E2A\u9879\u76EE\u7684\u76EE\u5F55\uFF1B\u8BA4\u4E0D\u51FA\u5C31\u7167\u65E7\u5728\u5E93\u6839\u76EE\u5F55"), s.autoProjectFolder !== false, (v) => {
+    const projectCard = this.card(body, t("\u9879\u76EE\u6587\u4EF6\u5939"), t("\u6D3E\u6D3B\u65F6\u6309\u9879\u76EE\u9009\u76EE\u5F55\uFF1B\u7B14\u8BB0\u91CC\u7684\u53CC\u94FE\u3001\u8DEF\u5F84\u6216\u300C\u9879\u76EE -> \u6807\u9898\u300D\u4E5F\u80FD\u8BA4\u51FA\u9879\u76EE\uFF0C\u7B14\u8BB0\u9879\u76EE\u4F18\u5148\u4E8E\u5404 Agent \u7684\u9ED8\u8BA4\u76EE\u5F55\u3002Codex \u4F1A\u628A\u4F1A\u8BDD\u5F52\u5230\u540C\u540D\u9879\u76EE\u3002"));
+    this.rowToggle(projectCard, t("\u6309\u9879\u76EE\u6587\u4EF6\u5939\u6D3E\u6D3B"), t("\u4ECE\u7B14\u8BB0\u8BA4\u51FA\u9879\u76EE\u540E\uFF0C\u6D3E\u5230\u8FD9\u4E2A\u9879\u76EE\u7684\u76EE\u5F55\uFF1B\u8BA4\u4E0D\u51FA\u518D\u7528\u5404 Agent \u7684\u9ED8\u8BA4\u76EE\u5F55\u6216\u5E93\u6839"), s.autoProjectFolder !== false, (v) => {
       s.autoProjectFolder = v;
       p2.saveSettings();
     });
