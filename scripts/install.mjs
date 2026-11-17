@@ -19,4 +19,7 @@ for (const file of ["main.js", "manifest.json", "styles.css", "README.md", "READ
   fs.copyFileSync(path.join(root, file), path.join(dest, file));
 }
 fs.copyFileSync(path.join(root, "docs", "task-workflow.zh-CN.md"), path.join(dest, "README-交接.md"));
+// 运行时记忆查询：装进插件目录，派发提示行指的就是这份（向上四层即库根）。
+fs.mkdirSync(path.join(dest, "scripts"), { recursive: true });
+fs.copyFileSync(path.join(root, "scripts", "memory-query.mjs"), path.join(dest, "scripts", "memory-query.mjs"));
 console.log(`installed to ${dest}`);

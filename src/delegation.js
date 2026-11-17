@@ -526,24 +526,45 @@ export class Delegator {
     if (!vault || !resolved) return resolved;
     try {
     const text = String(resolved.block?.text || "");
+    // 代码块与行内代码里出现的 [[...]] 只是文字，不是引用。
+    const lines = text.split("\n");
+    const fenced = J.fencedLines(lines);
+    const scan = lines.map((line, i) => (fenced.has(i) ? "" : line.replace(/`[^`]*`/g, ""))).join("\n");
     const notePaths = [];
-    for (const m of text.matchAll(/\[\[([^\]|#]+)/g)) {
+    for (const m of scan.matchAll(/\[\[([^\]|#]+)/g)) {
       const name = m[1].trim();
       if (!name || name.startsWith("技能/") || vault.getAbstractFileByPath(`技能/${name}.md`)) continue;
       const dest = this.plugin.app.metadataCache?.getFirstLinkpathDest?.(name, resolved.file?.path || "");
-      if (!dest || dest.extension !== "md" || dest.path === resolved.file?.path) continue;
+      // 任务块自己、以及它挂着的派发载荷/草稿都不是素材。
+      if (!dest || dest.extension !== "md" || dest.path === resolved.file?.path || dest.path.startsWith("Agent Deck/派发/")) continue;
       const abs = `${this.vaultPath}/${dest.path}`;
       if (!notePaths.includes(abs)) notePaths.push(abs);
     }
-    if (notePaths.length) resolved.prompt = `${t("任务里引用的笔记（可直接读全文）：")}\n${notePaths.map((p) => `- ${p}`).join("\n")}\n\n${resolved.prompt}`;
+    // 草稿里已经带过这些行：派发时沿用草稿的话别再套一遍，免得同一句出现两次。
+    const notesHead = t("任务里引用的笔记（可直接读全文）：");
+    if (notePaths.length && !resolved.prompt.includes(notesHead)) resolved.prompt = `${notesHead}\n${notePaths.map((p) => `- ${p}`).join("\n")}\n\n${resolved.prompt}`;
+    const memoryHint = await this.memoryToolHint();
+    if (memoryHint && !resolved.prompt.includes(memoryHint)) resolved.prompt = `${memoryHint}\n\n${resolved.prompt}`;
     const plainSkill = [...text.matchAll(/\[\[([^\]|#]+)/g)].map((m) => m[1].trim()).find((name) => vault.getAbstractFileByPath(`技能/${name}.md`)) || "";
     const skillName = skillRefIn(skillRaw) || skillRefIn(text) || plainSkill;
     if (!skillName) return resolved;
     const cardFile = vault.getAbstractFileByPath(`技能/${skillName}.md`);
     const skillPath = cardFile ? cardPathOf(await vault.read(cardFile)) : "";
-    if (skillPath) resolved.prompt = `${t("使用技能：")}${skillName}（${skillPath}）——先读这个文件，按其中流程执行。\n\n${resolved.prompt}`;
+    const skillLine = `${t("使用技能：")}${skillName}（${skillPath}）——先读这个文件，按其中流程执行。`;
+    if (skillPath && !resolved.prompt.includes(skillLine)) resolved.prompt = `${skillLine}\n\n${resolved.prompt}`;
     } catch (e) { console.error("[agent-deck] 富化上下文失败（不影响派发）", e); }
     return resolved;
+  }
+
+  // 运行时记忆查询：脚本随插件装在库内；脚本和记忆目录都在，才值得告诉 Agent 这一行用法。
+  async memoryToolHint() {
+    try {
+      const script = `${this.vaultPath}/.obsidian/plugins/agent-deck/scripts/memory-query.mjs`;
+      const dir = `${this.vaultPath}/${String(this.settings?.dream?.dir || "Agent Deck/记忆").replace(/\/+$/, "")}`;
+      // 用 fs 而不是 vault.adapter：adapter.exists 对 .obsidian 下的文件一律返回 false（2026-11-18 实测）。
+      if (!fs.existsSync(script) || !fs.existsSync(dir)) return "";
+      return `${t("需要更多背景时：")}node "${script}" search "关键词"`;
+    } catch { return ""; }
   }
 
   // 读草稿：正文直接当 prompt；同时把 frontmatter 标成已派发，方便区分"还没发的"和"发过的"。

@@ -339,6 +339,7 @@ var main_default = {
   "\u672C\u6B21\u4EFB\u52A1\u6309\u8FD9\u4EFD\u5DF2\u786E\u8BA4\u7684\u8349\u7A3F\u6267\u884C\uFF1A": "Run this task from the approved draft: ",
   "\u4F7F\u7528\u6280\u80FD\uFF1A": "Use the skill: ",
   "\u4EFB\u52A1\u91CC\u5F15\u7528\u7684\u7B14\u8BB0\uFF08\u53EF\u76F4\u63A5\u8BFB\u5168\u6587\uFF09\uFF1A": "Notes referenced by this task (read them in full):",
+  "\u9700\u8981\u66F4\u591A\u80CC\u666F\u65F6\uFF1A": "Need more background? ",
   "\u8FD8\u6CA1\u6709\u88AB\u6539\u8FC7\u7684\u8F7D\u8377": "No payloads have been edited yet",
   "\u6709 {n} \u4E2A\u8F7D\u8377\u88AB\u6539\u8FC7\uFF1A{path}": "{n} payloads were edited: {path}",
   "\u8FD8\u6CA1\u6709\u6D3E\u53D1\u8F7D\u8377": "No dispatch payloads yet",
@@ -12150,17 +12151,25 @@ var Delegator = class {
     if (!vault || !resolved) return resolved;
     try {
       const text = String(resolved.block?.text || "");
+      const lines = text.split("\n");
+      const fenced = fencedLines(lines);
+      const scan = lines.map((line, i) => fenced.has(i) ? "" : line.replace(/`[^`]*`/g, "")).join("\n");
       const notePaths = [];
-      for (const m of text.matchAll(/\[\[([^\]|#]+)/g)) {
+      for (const m of scan.matchAll(/\[\[([^\]|#]+)/g)) {
         const name = m[1].trim();
         if (!name || name.startsWith("\u6280\u80FD/") || vault.getAbstractFileByPath(`\u6280\u80FD/${name}.md`)) continue;
         const dest = this.plugin.app.metadataCache?.getFirstLinkpathDest?.(name, resolved.file?.path || "");
-        if (!dest || dest.extension !== "md" || dest.path === resolved.file?.path) continue;
+        if (!dest || dest.extension !== "md" || dest.path === resolved.file?.path || dest.path.startsWith("Agent Deck/\u6D3E\u53D1/")) continue;
         const abs = `${this.vaultPath}/${dest.path}`;
         if (!notePaths.includes(abs)) notePaths.push(abs);
       }
-      if (notePaths.length) resolved.prompt = `${t("\u4EFB\u52A1\u91CC\u5F15\u7528\u7684\u7B14\u8BB0\uFF08\u53EF\u76F4\u63A5\u8BFB\u5168\u6587\uFF09\uFF1A")}
+      const notesHead = t("\u4EFB\u52A1\u91CC\u5F15\u7528\u7684\u7B14\u8BB0\uFF08\u53EF\u76F4\u63A5\u8BFB\u5168\u6587\uFF09\uFF1A");
+      if (notePaths.length && !resolved.prompt.includes(notesHead)) resolved.prompt = `${notesHead}
 ${notePaths.map((p2) => `- ${p2}`).join("\n")}
+
+${resolved.prompt}`;
+      const memoryHint = await this.memoryToolHint();
+      if (memoryHint && !resolved.prompt.includes(memoryHint)) resolved.prompt = `${memoryHint}
 
 ${resolved.prompt}`;
       const plainSkill = [...text.matchAll(/\[\[([^\]|#]+)/g)].map((m) => m[1].trim()).find((name) => vault.getAbstractFileByPath(`\u6280\u80FD/${name}.md`)) || "";
@@ -12168,13 +12177,25 @@ ${resolved.prompt}`;
       if (!skillName) return resolved;
       const cardFile = vault.getAbstractFileByPath(`\u6280\u80FD/${skillName}.md`);
       const skillPath = cardFile ? cardPathOf(await vault.read(cardFile)) : "";
-      if (skillPath) resolved.prompt = `${t("\u4F7F\u7528\u6280\u80FD\uFF1A")}${skillName}\uFF08${skillPath}\uFF09\u2014\u2014\u5148\u8BFB\u8FD9\u4E2A\u6587\u4EF6\uFF0C\u6309\u5176\u4E2D\u6D41\u7A0B\u6267\u884C\u3002
+      const skillLine = `${t("\u4F7F\u7528\u6280\u80FD\uFF1A")}${skillName}\uFF08${skillPath}\uFF09\u2014\u2014\u5148\u8BFB\u8FD9\u4E2A\u6587\u4EF6\uFF0C\u6309\u5176\u4E2D\u6D41\u7A0B\u6267\u884C\u3002`;
+      if (skillPath && !resolved.prompt.includes(skillLine)) resolved.prompt = `${skillLine}
 
 ${resolved.prompt}`;
     } catch (e) {
       console.error("[agent-deck] \u5BCC\u5316\u4E0A\u4E0B\u6587\u5931\u8D25\uFF08\u4E0D\u5F71\u54CD\u6D3E\u53D1\uFF09", e);
     }
     return resolved;
+  }
+  // 运行时记忆查询：脚本随插件装在库内；脚本和记忆目录都在，才值得告诉 Agent 这一行用法。
+  async memoryToolHint() {
+    try {
+      const script = `${this.vaultPath}/.obsidian/plugins/agent-deck/scripts/memory-query.mjs`;
+      const dir = `${this.vaultPath}/${String(this.settings?.dream?.dir || "Agent Deck/\u8BB0\u5FC6").replace(/\/+$/, "")}`;
+      if (!import_fs11.default.existsSync(script) || !import_fs11.default.existsSync(dir)) return "";
+      return `${t("\u9700\u8981\u66F4\u591A\u80CC\u666F\u65F6\uFF1A")}node "${script}" search "\u5173\u952E\u8BCD"`;
+    } catch {
+      return "";
+    }
   }
   // 读草稿：正文直接当 prompt；同时把 frontmatter 标成已派发，方便区分"还没发的"和"发过的"。
   async readDraft(draftPath, resolved) {

@@ -170,6 +170,8 @@ status: stable
 
 工具形态在 Obsidian 内为插件命令；独立客户端为 CLI/本地 HTTP（同一套签名）。**签名稳定是迁移的关键**。
 
+> 2026-11-18 落地：只读查询先出了 CLI 壳（`scripts/memory-query.mjs`），动词是记忆库视角的 `search` / `read` / `recent`——`search` 对应本表的 `related`（每条带「命中」当 why、不打印分数），`recent` 是本表没有的、`outline` 与 `record` 暂不做。将来换 MCP 壳时保持这三个名字与输出形状即可。
+
 ## 9. 回写层
 
 - 结论仍写回原任务块（保持现有 🔗 短链 + 结论格式，笔记无损）。

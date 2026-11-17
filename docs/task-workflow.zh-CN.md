@@ -87,6 +87,8 @@
 - `npm test`（含新增 `dream-context` / `memory-store` / `planner` / `workbench-note` / `memory-board` / `block-id-readability`）全过；`npm run build`；`git diff --check`。
 - macOS 真库实测：迁移 33 条、体检、看板 3 列 33 卡可拖、注入 193 字无 `**`、`agentText` 去符号、看板派发三条 `@dsh` 会话、载荷文件生成 + 原文 `📄` 链接、Base 列已填。
 - **未实测**：Windows 全部；`记忆看板` 拖拽在真实界面上的落点；Planner 产出的质量（未实跑一次生成）；管家设置项在界面上的渲染。
+- 运行时记忆查询 CLI（`scripts/memory-query.mjs`，2026-11-18）：三个动词 `search "关键词" [--k 5]` / `read <记忆文件名>` / `recent [n]`，只读、只解析 `记忆/*.md`（不碰 `记忆.base`），`read` 只接受记忆目录内的文件名（挡 `../`）；`search` 每条带「命中」当 why、不打印分数，门槛是命中查询词的一半（中文二元组太容易误配，只中一两个不算相关）；`search`/`recent` 只看 `state=有效`，与自动注入同一个池子（33 条实测）。库根默认从脚本位置向上找 `.obsidian`，记忆目录跟随设置 `dream.dir`，`--vault` 可覆盖。脚本随 `npm run install:plugin` 装进 `<库>/.obsidian/plugins/agent-deck/scripts/`，派发/草稿 prompt 顶部加一行用法（脚本或记忆目录不在时自动不加）。单测 `test/memory-query.test.mjs`；macOS 真库手跑三动词 + 真派发一次 @dsh，Agent 按提示行执行了 `memory-query.mjs search "拒答门槛"`（退出码 0，命中 2 条并抄回结论）。
+- 引用笔记绝对路径（`enrichPrompt`）验收（2026-11-18）：新增 `test/delegation-enrich.test.mjs` 覆盖同名笔记去重、非 md / 解析不到的目标、代码块与行内代码里的 `[[…]]`、任务块自身与 `Agent Deck/派发/` 下草稿链接；修复代码块内容被当引用、派发草稿被当素材两个边界。macOS 真库跑「先生成草稿」，草稿顶部出现「任务里引用的笔记（可直接读全文）」且只列真实笔记。
 
 **本批修掉的真 bug**：`dispatchSteward` 里 `makeBlockId` 误用了不存在的 `model.title`（ReferenceError），会导致管家汇总直接失败、波次标 error；已改为 `wave.parentTitle`。
 

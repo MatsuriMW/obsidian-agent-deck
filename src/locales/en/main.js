@@ -319,6 +319,7 @@ export default {
   "本次任务按这份已确认的草稿执行：": "Run this task from the approved draft: ",
   "使用技能：": "Use the skill: ",
   "任务里引用的笔记（可直接读全文）：": "Notes referenced by this task (read them in full):",
+  "需要更多背景时：": "Need more background? ",
   "还没有被改过的载荷": "No payloads have been edited yet",
   "有 {n} 个载荷被改过：{path}": "{n} payloads were edited: {path}",
   "还没有派发载荷": "No dispatch payloads yet",
