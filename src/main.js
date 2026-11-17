@@ -71,7 +71,7 @@ import { scanAgentWait, scanLimitQueue, resolveExternalState, buildLineProgressI
 import { ManagedTimers, CircuitBreaker, safeRun } from "./runtime-guard.js";
 import { hasAgentCapability, usesDeckSessionLink } from "./agent-registry.js";
 import { updateNote } from "./note-updates.js";
-import { parseThread, pendingQuestion, answerSlot, fillAnswer, suggestOptions } from "./thread-replies.js";
+import { parseThread, pendingQuestion, answerSlot, fillAnswer, ensureQuestionId, anchorThreadText, makeQuestionId, suggestOptions } from "./thread-replies.js";
 import { ReplyModal } from "./reply-modal.js";
 import { ProjectWorkbenchModal } from "./workbench-modal.js";
 import {
@@ -282,6 +282,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "task-actions-line", name: t("当前任务：续聊、停止、重新委派"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "A" }], editorCallback: (editor, view) => { if (view.file) this.taskActions(view.file.path, editor.getCursor().line); } });
     this.addCommand({ id: "reply-question", name: t("回复当前任务的提问（写回 ✍️ 答）"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "R" }], editorCallback: (editor, view) => { if (view?.file) this.replyToQuestion(view.file.path, editor); } });
     this.addCommand({ id: "reply-question-line", name: t("在提问下补一行「✍️ 答」（直接手写）"), editorCallback: (editor) => this.insertReplySlot(editor) });
+    this.addCommand({ id: "reply-anchor-thread", name: t("给这一块的问答补块号（老数据，可被双链引用）"), editorCallback: (editor, view) => { if (view?.file) this.anchorThread(view.file.path, editor); } });
     this.addCommand({ id: "next-attention", name: t("处理下一条需要授权或确认的会话"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "N" }], callback: () => {
       const alert = this.attentionAlerts.values().next().value;
       if (alert) alert.open(); else this.notice(t("目前没有需要授权或确认的会话"));
@@ -1761,6 +1762,33 @@ export default class AgentDeckPlugin extends Plugin {
     }).open();
   }
 
+  // 老数据兼容：把已经写好的 ❓ / ✍️ 补上块号（幂等，可对有历史问答的笔记跑一遍）。
+  async anchorThread(path, editor) {
+    const lines = editor.getValue().split("\n");
+    const block = blockAt(lines, editor.getCursor().line);
+    if (!block) return this.notice(t("把光标放在要补块号的那一条任务里"));
+    const blockId = J.blockIdOf(lines[block.start]);
+    let changed = false;
+    await updateNote(this, path, (text) => {
+      const next = anchorThreadText(text, { blockId, seedPrefix: path });
+      changed = next !== text;
+      return next;
+    });
+    this.notice(changed ? t("已给这一块里的问答补上块号") : t("这一块的问答都有块号了"), 6000);
+  }
+
+  // 复制 `[[笔记#^ad-q-…]]`：别的笔记、会话、Linear 里都能直接指到这一问。
+  async copyQuestionRef(path, thread) {
+    const lines = (await this.readNote(path)).split("\n");
+    const blockId = J.blockIdOf(lines[thread.block.start] || "");
+    const seed = `${path}|${blockId}|${thread.question.text}`;
+    const id = thread.question.id || makeQuestionId(seed);
+    if (!thread.question.id) await updateNote(this, path, (text) => ensureQuestionId(text, { blockId, questionText: thread.question.text, seed }));
+    const link = `[[${path.replace(/\.md$/, "")}#^${id}]]`;
+    try { await navigator.clipboard.writeText(link); } catch { /* 剪贴板不可用就把链接显示出来 */ }
+    this.notice(t("已复制块引用：{link}", { link }), 6000);
+  }
+
   // 写回答（幂等）+ 可选续聊同一会话。抽成方法，方便真机验证直接调用。
   async applyReply(path, atLine, { questionText = "", answer = "", continueSession = false } = {}) {
     if (!String(answer || "").trim()) return false;
@@ -1768,9 +1796,13 @@ export default class AgentDeckPlugin extends Plugin {
     const lines = before.split("\n");
     const block = blockAt(lines, atLine);
     const blockId = block ? J.blockIdOf(lines[block.start]) : "";
+    const seed = `${path}|${blockId}|${questionText}`;
+    const questionId = makeQuestionId(seed);
+    // 先给 ❓ 补上 `^ad-q-…`，回答行拿到稳定的 `^ad-a-…`：双链能指过来，定位也不靠正文。
+    await updateNote(this, path, (text) => ensureQuestionId(text, { blockId, questionText, seed }));
     let changed = false;
     await updateNote(this, path, (text) => {
-      const next = fillAnswer(text, { questionText, answer, blockId });
+      const next = fillAnswer(text, { questionText, answer, blockId, questionId });
       changed = next !== text;
       return next;
     });
@@ -1805,6 +1837,7 @@ export default class AgentDeckPlugin extends Plugin {
         view.editor.setCursor({ line: thread.question.line, ch: 0 });
         this.replyToQuestion(path, view.editor);
       }));
+      menu.addItem(mi => mi.setTitle(t("复制这一问的块引用（[[笔记#^块号]]）")).onClick(() => this.copyQuestionRef(path, thread)));
       menu.addSeparator();
     }
     for (const [index, session] of sessions.entries()) {

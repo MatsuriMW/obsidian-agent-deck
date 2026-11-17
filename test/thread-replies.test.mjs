@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseThread, pendingQuestion, answerSlot, fillAnswer, replyPromptText, suggestOptions } from "../src/thread-replies.js";
+import { parseThread, pendingQuestion, answerSlot, fillAnswer, ensureQuestionId, anchorThreadText, makeQuestionId, answerIdOf, locateQuestion, replyPromptText, suggestOptions } from "../src/thread-replies.js";
 
 // 一块典型的"问了、没答"的任务
 const openLines = [
@@ -68,7 +68,7 @@ test("写回：原地改已有的 ✍️ 行，不新开一行；重复写同一
 test("写回：没回答时插在提问下一行，缩进跟提问一致；找不到提问就不动文本", () => {
   const out = fillAnswer(openLines.join("\n"), { questionText: "版本号用 1.9.6 还是 2.0.0？", answer: "用 1.9.6" });
   const lines = out.split("\n");
-  assert.equal(lines[3], "\t- ✍️ 答：用 1.9.6");
+  assert.match(lines[3], /^\t- ✍️ 答：用 1\.9\.6 \^ad-a-[0-9a-f]{8}$/, "回答行带派生块号");
   assert.equal(fillAnswer("- TODO 别的块", { questionText: "不存在的问", answer: "x" }), "- TODO 别的块");
 });
 
@@ -76,7 +76,7 @@ test("写回：按块号定位到那一块里的提问（笔记里有多块时�
   const two = ["- TODO 甲 ^ad-a", "  - ❓ 第1轮：甲的提问？", "- TODO 乙 ^ad-b", "  - ❓ 第1轮：乙的提问？"];
   const out = fillAnswer(two.join("\n"), { blockId: "ad-b", questionText: "乙的提问？", answer: "乙的答案" });
   const lines = out.split("\n");
-  assert.equal(lines[4], "  - ✍️ 答：乙的答案");
+  assert.match(lines[4], /^  - ✍️ 答：乙的答案 \^ad-a-[0-9a-f]{8}$/);
   assert.ok(!out.includes("甲的答案"));
 });
 
@@ -99,4 +99,57 @@ test("选项：从「A 还是 B」里抽出两个可点选项，问不出就是�
   assert.deepEqual(suggestOptions("要不要现在发版？"), ["Yes", "No"].map((x) => (x === "Yes" ? "是" : "否")).sort((a, b) => (a === "是" ? -1 : 1)).length ? suggestOptions("要不要现在发版？") : []);
   assert.ok(suggestOptions("要不要现在发版？").length >= 2, "是否类问题给是与否");
   assert.deepEqual(suggestOptions("随便写点什么"), []);
+});
+
+test("块号：❓ 行补 ^ad-q-…（幂等、稳定），回答行拿到由它派生的 ^ad-a-…", () => {
+  const seed = "笔记.md|ad-task|A 还是 B？";
+  const qid = makeQuestionId(seed);
+  assert.match(qid, /^ad-q-[0-9a-f]{8}$/);
+
+  const base = ["- DOING 任务 ^ad-task", "  - ❓ 第1轮：A 还是 B？"];
+  const withQ = ensureQuestionId(base.join("\n"), { blockId: "ad-task", questionText: "A 还是 B？", seed });
+  assert.ok(withQ.includes(`- ❓ 第1轮：A 还是 B？ ^${qid}`), "问句补上块号");
+  assert.equal(ensureQuestionId(withQ, { blockId: "ad-task", questionText: "A 还是 B？", seed }), withQ, "幂等");
+
+  const answered = fillAnswer(withQ, { questionId: qid, answer: "A" });
+  assert.ok(answered.includes(`  - ✍️ 答：A ^${answerIdOf(qid)}`), "回答行带派生块号");
+  // 改答案不换块号：别处的转引不断
+  const updated = fillAnswer(answered, { questionId: qid, answer: "B" });
+  assert.ok(updated.includes(`  - ✍️ 答：B ^${answerIdOf(qid)}`));
+  assert.equal(updated.split("✍️").length - 1, 1, "还是一条回答");
+});
+
+test("块号：按 ^ad-q-… 定位，不依赖正文；回灌文本里不带块号", () => {
+  const seed = "笔记.md|ad-task|A 还是 B？";
+  const qid = makeQuestionId(seed);
+  const note = ["- DOING 任务 ^ad-task", `  - ❓ 第1轮：A 还是 B？ ^${qid}`, "  - 💬 上一轮"].join("\n");
+  const lines = note.split("\n");
+  assert.equal(locateQuestion(lines, { questionId: qid }), 1);
+  assert.equal(locateQuestion(lines, { questionText: "A 还是 B？" }), 1);
+
+  const parsed = parseThread(lines, { start: 0, end: 2 });
+  assert.equal(parsed.questions[0].id, qid, "解析出问句块号");
+
+  const answered = fillAnswer(note, { questionId: qid, answer: "A" });
+  const text = replyPromptText(parseThread(answered.split("\n"), { start: 0, end: 3 }));
+  assert.match(text, /问「A 还是 B？」→ 答「A」/);
+  assert.ok(!text.includes("^ad-"), "注入的问答段落不带块号");
+});
+
+test("老数据兼容：一次补给已有问答补块号，幂等，且不碰同级的下一块", () => {
+  const note = [
+    "- DOING 甲 ^ad-a",
+    "  - ❓ 第1轮：分支？",
+    "  - ✍️ 答：main",
+    "  - ❓ 第2轮：要 tag 吗？",
+    "- TODO 乙 ^ad-b",
+    "  - ❓ 第1轮：别人家的提问？",
+  ].join("\n");
+  const once = anchorThreadText(note, { blockId: "ad-a", seedPrefix: "笔记.md" });
+  const lines = once.split("\n");
+  assert.match(lines[1], /\^ad-q-[0-9a-f]{8}$/, "问句补块号");
+  assert.match(lines[2], /\^ad-a-[0-9a-f]{8}$/, "回答补块号");
+  assert.match(lines[3], /\^ad-q-[0-9a-f]{8}$/);
+  assert.ok(!lines[5].includes("^ad-q-"), "同级的下一块不动");
+  assert.equal(anchorThreadText(once, { blockId: "ad-a", seedPrefix: "笔记.md" }), once, "幂等");
 });

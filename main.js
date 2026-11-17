@@ -359,6 +359,12 @@ var main_default = {
   "\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4E00\u4EF6\u4E8B\u3002": "Continue with that; do not ask the same thing again.",
   "\u7EED\u804A\u6CA1\u53D1\u51FA\u53BB\uFF1A{error}\uFF08\u56DE\u7B54\u5DF2\u5199\u8FDB\u7B14\u8BB0\uFF0C\u53EF\u4EE5\u91CD\u8BD5\uFF09": "Could not continue the session: {error} (the answer is in the note; you can retry)",
   "\u270D\uFE0F \u56DE\u590D\u8FD9\u4E00\u95EE\u2026": "\u270D\uFE0F Reply to this question\u2026",
+  "\u590D\u5236\u8FD9\u4E00\u95EE\u7684\u5757\u5F15\u7528\uFF08[[\u7B14\u8BB0#^\u5757\u53F7]]\uFF09": "Copy this question's block ref ([[note#^block-id]])",
+  "\u7ED9\u8FD9\u4E00\u5757\u7684\u95EE\u7B54\u8865\u5757\u53F7\uFF08\u8001\u6570\u636E\uFF0C\u53EF\u88AB\u53CC\u94FE\u5F15\u7528\uFF09": "Add block ids to this block's Q&A (older notes, so links can point at them)",
+  "\u628A\u5149\u6807\u653E\u5728\u8981\u8865\u5757\u53F7\u7684\u90A3\u4E00\u6761\u4EFB\u52A1\u91CC": "Put the cursor inside the task whose Q&A needs block ids",
+  "\u5DF2\u7ED9\u8FD9\u4E00\u5757\u91CC\u7684\u95EE\u7B54\u8865\u4E0A\u5757\u53F7": "Block ids added to this block's Q&A",
+  "\u8FD9\u4E00\u5757\u7684\u95EE\u7B54\u90FD\u6709\u5757\u53F7\u4E86": "This block's Q&A already has block ids",
+  "\u5DF2\u590D\u5236\u5757\u5F15\u7528\uFF1A{link}": "Block ref copied: {link}",
   "\u8FD9\u4E00\u95EE\u8FD8\u7B49\u4F60\u56DE\u7B54\uFF1A\u7B2C{round}\u8F6E\uFF1A{text}": "Still waiting for your answer \u2014 round {round}: {text}",
   "\u4F60\u5DF2\u7ECF\u56DE\u7B54\u8FC7\u7684\uFF08\u8D8A\u5F80\u540E\u8D8A\u65B0\uFF09\uFF1A": "Answers you already gave (newest last):",
   "- \u7B2C{round}\u8F6E\uFF1A\u95EE\u300C{question}\u300D\u2192 \u7B54\u300C{answer}\u300D": "- round {round}: asked \u201C{question}\u201D \u2192 answered \u201C{answer}\u201D",
@@ -9815,7 +9821,7 @@ async function linkArchive(plugin, session, archivePath2, title = "") {
 }
 
 // src/delegation.js
-var import_crypto9 = require("crypto");
+var import_crypto10 = require("crypto");
 
 // src/skill-cards.js
 var import_fs7 = __toESM(require("fs"), 1);
@@ -9962,10 +9968,15 @@ function cardPathOf(text) {
 }
 
 // src/thread-replies.js
+var import_crypto6 = require("crypto");
 var QUESTION_RE2 = /^(\s*)[-*+]\s+❓\s*(?:第\s*(\d+)\s*轮\s*[：:]?\s*)?(.*)$/;
 var ANSWER_RE = /^(\s*)[-*+]\s+✍️\s*(?:答\s*[：:]?\s*)?(.*)$/;
 var TURN_MARKER_RE = /\s*<!--\s*ad-turn:[^>]*-->\s*/g;
-var clean = (text) => String(text || "").replace(TURN_MARKER_RE, " ").replace(/\s+/g, " ").trim();
+var BLOCK_ID_TAIL_RE = /\s*\^[a-z0-9][a-z0-9-]*\s*$/i;
+var stableId = (prefix, seed) => `${prefix}-${(0, import_crypto6.createHash)("sha1").update(String(seed || "")).digest("hex").slice(0, 8)}`;
+var makeQuestionId = (seed = "") => stableId("ad-q", seed);
+var answerIdOf = (questionId = "") => stableId("ad-a", questionId || "reply");
+var clean = (text) => String(text || "").replace(TURN_MARKER_RE, " ").replace(BLOCK_ID_TAIL_RE, " ").replace(/\s+/g, " ").trim();
 function parseThread(lines = [], block = null) {
   const list = lines || [];
   const start = block && Number.isInteger(block.start) ? block.start : 0;
@@ -9976,7 +9987,7 @@ function parseThread(lines = [], block = null) {
     const line = list[i] || "";
     const q = QUESTION_RE2.exec(line);
     if (q) {
-      questions.push({ line: i, indent: q[1] || "", round: q[2] ? Number(q[2]) : questions.length + 1, text: clean(q[3]), answerLine: -1, answer: "" });
+      questions.push({ line: i, indent: q[1] || "", round: q[2] ? Number(q[2]) : questions.length + 1, text: clean(q[3]), id: blockIdOf(line), answerLine: -1, answer: "", answerId: "" });
       continue;
     }
     const a = ANSWER_RE.exec(line);
@@ -9988,6 +9999,7 @@ function parseThread(lines = [], block = null) {
     }
     open.answerLine = i;
     open.answer = clean(a[2]);
+    open.answerId = blockIdOf(line);
   }
   return { questions, orphans };
 }
@@ -10004,58 +10016,99 @@ function answerSlot(lines = [], questionLine = -1) {
   if (existing && (existing[1] || "") === indent) return { line: questionLine + 1, indent, exists: true };
   return { line: questionLine + 1, indent, exists: false, unit };
 }
-function fillAnswer(text = "", { questionText = "", answer = "", blockId = "" } = {}) {
+var widthOf = (line) => (/^[ \t]*/.exec(line) || [""])[0].replace(/\t/g, "    ").length;
+var questionTextOf = (line) => {
+  const m = QUESTION_RE2.exec(line);
+  return m ? clean(m[3]) : "";
+};
+function locateQuestion(lines = [], { blockId = "", questionId = "", questionText = "" } = {}) {
+  if (!lines.length) return -1;
+  if (questionId) {
+    const byQid = lines.findIndex((l) => blockIdOf(l) === questionId);
+    if (byQid >= 0) return byQid;
+  }
+  const want = clean(questionText);
+  const matches = [];
+  for (let i = 0; i < lines.length; i++) {
+    const body = questionTextOf(lines[i]);
+    if (body && (!want || body.startsWith(want.slice(0, 12)))) matches.push(i);
+  }
+  if (blockId) {
+    const anchor = lines.findIndex((l) => blockIdOf(l) === blockId);
+    const after = anchor >= 0 ? matches.find((i) => i > anchor) : -1;
+    if (after >= 0) return after;
+    if (anchor >= 0) {
+      const base = widthOf(lines[anchor]);
+      let last = -1;
+      for (let i = anchor + 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        if (widthOf(lines[i]) <= base) break;
+        if (questionTextOf(lines[i])) last = i;
+      }
+      if (last >= 0) return last;
+    }
+  }
+  return matches[0] ?? -1;
+}
+function ensureQuestionId(text = "", { blockId = "", questionId = "", questionText = "", seed = "" } = {}) {
+  const lines = String(text || "").split("\n");
+  const at = locateQuestion(lines, { blockId, questionId, questionText });
+  if (at < 0) return text;
+  if (blockIdOf(lines[at])) return text;
+  const id = questionId || makeQuestionId(seed || questionText);
+  lines[at] = `${lines[at].replace(/\s+$/, "")} ^${id}`;
+  return lines.join("\n");
+}
+function fillAnswer(text = "", { questionText = "", answer = "", blockId = "", questionId = "", seed = "" } = {}) {
   const value = clean(answer);
   if (!value) return text;
   const lines = String(text || "").split("\n");
-  const widthOf = (line) => (/^[ \t]*/.exec(line) || [""])[0].replace(/\t/g, "    ").length;
-  const want = clean(questionText);
-  const questionAt = (line) => {
-    const m = QUESTION_RE2.exec(line);
-    return m ? clean(m[3]) : "";
-  };
-  const matches = [];
-  for (let i = 0; i < lines.length; i++) {
-    const body = questionAt(lines[i]);
-    if (!body) continue;
-    if (!want || body.startsWith(want.slice(0, 12))) matches.push(i);
-  }
-  let at = -1;
-  if (blockId) {
-    const anchor = lines.findIndex((l) => l.includes(`^${blockId}`));
-    at = anchor >= 0 ? matches.find((i) => i > anchor) ?? -1 : -1;
-    if (at < 0 && anchor >= 0) {
-      const base2 = widthOf(lines[anchor]);
-      for (let i = anchor + 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        if (questionAt(lines[i]) && widthOf(lines[i]) > base2) at = i;
-        else if (widthOf(lines[i]) <= base2) break;
-      }
-    }
-  } else {
-    at = matches[0] ?? -1;
-  }
+  const at = locateQuestion(lines, { blockId, questionId, questionText });
   if (at < 0) return text;
+  const qid = blockIdOf(lines[at]) || questionId || makeQuestionId(seed || questionText);
+  const aid = answerIdOf(qid);
   const base = widthOf(lines[at]);
   const indent = (QUESTION_RE2.exec(lines[at]) || [null, ""])[1] || "";
   let answerAt = -1;
   for (let i = at + 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     if (widthOf(lines[i]) < base) break;
-    if (questionAt(lines[i])) break;
+    if (questionTextOf(lines[i])) break;
     if (ANSWER_RE.test(lines[i])) {
       answerAt = i;
       break;
     }
   }
   if (answerAt >= 0) {
-    const next = `${indent}- \u270D\uFE0F \u7B54\uFF1A${value}`;
+    const keep = blockIdOf(lines[answerAt]) || aid;
+    const next = `${indent}- \u270D\uFE0F \u7B54\uFF1A${value} ^${keep}`;
     if (next === lines[answerAt]) return text;
     lines[answerAt] = next;
     return lines.join("\n");
   }
-  lines.splice(at + 1, 0, `${indent}- \u270D\uFE0F \u7B54\uFF1A${value}`);
+  lines.splice(at + 1, 0, `${indent}- \u270D\uFE0F \u7B54\uFF1A${value} ^${aid}`);
   return lines.join("\n");
+}
+function anchorThreadText(text = "", { blockId = "", seedPrefix = "" } = {}) {
+  let out = String(text || "");
+  const lines = out.split("\n");
+  const start = blockId ? lines.findIndex((l) => blockIdOf(l) === blockId) : 0;
+  if (start < 0) return out;
+  const base = widthOf(lines[start]);
+  let end = lines.length - 1;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (widthOf(lines[i]) <= base && /^\s*[-*+]\s+/.test(lines[i])) {
+      end = i - 1;
+      break;
+    }
+  }
+  const { questions } = parseThread(lines, { start, end });
+  for (const q of questions) {
+    out = ensureQuestionId(out, { blockId, questionText: q.text, seed: `${seedPrefix}|${blockId}|${q.text}` });
+    if (q.answer) out = fillAnswer(out, { blockId, questionText: q.text, answer: q.answer });
+  }
+  return out;
 }
 function replyPromptText(parsed, { limit = 3 } = {}) {
   const all = parsed?.questions || [];
@@ -10090,7 +10143,7 @@ function suggestOptions(question = "") {
 var import_fs11 = __toESM(require("fs"), 1);
 
 // src/background-output.js
-var import_crypto6 = require("crypto");
+var import_crypto7 = require("crypto");
 var BACKGROUND_INLINE_LIMIT = 500;
 function cleanBackgroundText(raw, job = {}) {
   const lines = String(raw || "").replace(/\r\n/g, "\n").split("\n");
@@ -10135,7 +10188,7 @@ async function saveBackgroundAnswer(plugin, job, round) {
   const title = cleanBackgroundText(job.name || "\u95EE\u7B54", job).split("\n")[0].replace(/^#+\s*/, "");
   const name = title.replace(/[\\/:*?"<>|\[\]#^]/g, "-").slice(0, 70) || "\u95EE\u7B54";
   const n = round.n || 1, files = job.backgroundFiles || (job.backgroundFiles = {}), prior = files[n];
-  const hash4 = (text) => (0, import_crypto6.createHash)("sha256").update(text).digest("hex");
+  const hash4 = (text) => (0, import_crypto7.createHash)("sha256").update(text).digest("hex");
   const suffix = hash4(job.sessionId || job.id).slice(0, 10);
   const path13 = prior?.path || `Agent Deck/Answers/${name}-${suffix}-${n}.md`;
   const body = `# ${title}
@@ -10798,16 +10851,16 @@ var HarnessPipeline = class {
 var import_fs10 = __toESM(require("fs"), 1);
 var import_path8 = __toESM(require("path"), 1);
 var import_os8 = __toESM(require("os"), 1);
-var import_crypto8 = require("crypto");
+var import_crypto9 = require("crypto");
 var import_child_process6 = require("child_process");
 
 // src/codex-desktop.js
 var import_fs9 = __toESM(require("fs"), 1);
 var import_path7 = __toESM(require("path"), 1);
-var import_crypto7 = require("crypto");
+var import_crypto8 = require("crypto");
 var import_child_process5 = require("child_process");
 var import_readline = require("readline");
-var taskHash = (text) => (0, import_crypto7.createHash)("sha1").update(String(text)).digest("hex");
+var taskHash = (text) => (0, import_crypto8.createHash)("sha1").update(String(text)).digest("hex");
 function codexDesktopBinary(configured) {
   if (configured) return configured;
   const bundled = ["/Applications/Codex.app/Contents/Resources/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"];
@@ -11330,7 +11383,7 @@ var ClaudeRunner = class extends BaseRunner {
     return this.startHeadless({ cwd, common, prompt, bin });
   }
   startHeadless({ cwd, common, prompt, bin }) {
-    const sid = (0, import_crypto8.randomUUID)();
+    const sid = (0, import_crypto9.randomUUID)();
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = `${bin} ${args2.slice(0, -2).join(" ")} \u2026`;
     const child = (0, import_child_process6.spawn)(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
@@ -11435,7 +11488,7 @@ var QoderRunner = class extends BaseRunner {
     const model = resolveCliModel(d.plugin, "qoder", opts.model || cfg.model || "qoder-ultimate");
     const effort = opts.effort || cfg.effort || "high";
     const perm = opts.permission || cfg.permission || "auto";
-    const sid = opts.sessionId || (0, import_crypto8.randomUUID)();
+    const sid = opts.sessionId || (0, import_crypto9.randomUUID)();
     this.sessionId = sid;
     if (opts.sessionId) this.job.sessionId = sid;
     this.job.cwd = cwd;
@@ -12429,7 +12482,7 @@ dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
         lines.splice(at + 1, 0, draft ? `${indent}- \u{1F4DD} [[${path13}|${t("\u6D3E\u53D1\u8349\u7A3F")}]]` : `${indent}- \u{1F4C4} [[${path13}|${t("\u672C\u6B21\u8F7D\u8377")}]]`);
         return lines.join("\n");
       });
-      return { path: path13, abs: `${this.vaultPath}/${path13}`, hash: (0, import_crypto9.createHash)("sha256").update(head).digest("hex").slice(0, 16) };
+      return { path: path13, abs: `${this.vaultPath}/${path13}`, hash: (0, import_crypto10.createHash)("sha256").update(head).digest("hex").slice(0, 16) };
     } catch (e) {
       console.error("[agent-deck] \u5199\u5165\u6D3E\u53D1\u8F7D\u8377\u5931\u8D25", e);
       return null;
@@ -20798,14 +20851,14 @@ var obsidianNs = __toESM(require("obsidian"), 1);
 var import_obsidian7 = require("obsidian");
 
 // src/dream-entries.js
-var import_crypto10 = require("crypto");
+var import_crypto11 = require("crypto");
 var MEMORY_LABELS = {
   fact: "\u4E8B\u5B9E",
   preference: "\u504F\u597D",
   pattern: "\u5F85\u9A8C\u8BC1\u89C4\u5F8B",
   lesson: "\u9879\u76EE\u7ECF\u9A8C"
 };
-var hash = (text) => (0, import_crypto10.createHash)("sha256").update(text).digest("hex").slice(0, 24);
+var hash = (text) => (0, import_crypto11.createHash)("sha256").update(text).digest("hex").slice(0, 24);
 var memoryId = (text) => "m-" + hash(text.toLowerCase().replace(/[\s\p{P}\p{S}]/gu, ""));
 function notePath(value) {
   const p2 = String(value || "").trim().replace(/\\/g, "/");
@@ -20839,16 +20892,16 @@ function memoryEntries(text) {
 }
 
 // src/dream.js
-var import_crypto13 = require("crypto");
+var import_crypto14 = require("crypto");
 
 // src/memory-store.js
-var import_crypto11 = require("crypto");
+var import_crypto12 = require("crypto");
 var MEMORY_DIR_DEFAULT = "Agent Deck/\u8BB0\u5FC6";
 var OVERVIEW_START = "<!-- ad:memory:start -->";
 var OVERVIEW_END = "<!-- ad:memory:end -->";
 var MEMORY_STATES = ["\u6709\u6548", "\u5DF2\u62D2\u7EDD", "\u5DF2\u88AB\u66FF\u4EE3"];
 var MEMORY_KINDS = { fact: "\u4E8B\u5B9E", preference: "\u504F\u597D", pattern: "\u5F85\u9A8C\u8BC1\u89C4\u5F8B", lesson: "\u9879\u76EE\u7ECF\u9A8C" };
-var hash2 = (text) => (0, import_crypto11.createHash)("sha256").update(text).digest("hex").slice(0, 24);
+var hash2 = (text) => (0, import_crypto12.createHash)("sha256").update(text).digest("hex").slice(0, 24);
 var memoryIdOf = (text) => "m-" + hash2(String(text || "").toLowerCase().replace(/[\s\p{P}\p{S}]/gu, ""));
 function memorySlug(text, max = 40) {
   const clean2 = String(text || "").replace(/[\\/:*?"<>|#^[\]\s]/g, "").trim();
@@ -20981,7 +21034,7 @@ function formatSourceLine({ target, blockId, kind, from, to, quote: quote2 }) {
   return `[[${target}${blockId ? "#^" + blockId : ""}]]\uFF08${kind}\uFF0C\u7B2C ${from}\u2014${to} \u884C\uFF09\uFF1B\u539F\u6587\uFF1A${quote2}`;
 }
 function memoryAnchorId(target, text) {
-  return "mem-" + (0, import_crypto11.createHash)("sha256").update(`${target}
+  return "mem-" + (0, import_crypto12.createHash)("sha256").update(`${target}
 ${String(text || "").trim()}`).digest("hex").slice(0, 8);
 }
 function orderForReview(entries = [], { path: path13 = "", line = "", dir = "" } = {}) {
@@ -21010,7 +21063,7 @@ function renderMemoryIndex(entries = [], at = "") {
 var import_promises2 = __toESM(require("fs/promises"), 1);
 var import_path11 = __toESM(require("path"), 1);
 var import_os11 = __toESM(require("os"), 1);
-var import_crypto12 = require("crypto");
+var import_crypto13 = require("crypto");
 var import_child_process9 = require("child_process");
 var import_util2 = require("util");
 var exec = (0, import_util2.promisify)(import_child_process9.execFile);
@@ -21088,7 +21141,7 @@ var DreamSharing = class {
       });
       if (old !== snapshot) {
         await import_promises2.default.mkdir(import_path11.default.dirname(target), { recursive: true });
-        const temp = `${target}.${(0, import_crypto12.randomUUID)()}.tmp`;
+        const temp = `${target}.${(0, import_crypto13.randomUUID)()}.tmp`;
         try {
           await import_promises2.default.writeFile(temp, snapshot, { flag: "wx" });
           await import_promises2.default.rename(temp, target);
@@ -21127,7 +21180,7 @@ function companionInstalled(app) {
 }
 var DREAM_START = "<!-- agent-deck:dream:start -->";
 var DREAM_END = "<!-- agent-deck:dream:end -->";
-var hash3 = (text) => (0, import_crypto13.createHash)("sha256").update(text).digest("hex").slice(0, 24);
+var hash3 = (text) => (0, import_crypto14.createHash)("sha256").update(text).digest("hex").slice(0, 24);
 function profileWithDream(profile, memory) {
   const section = `${DREAM_START}
 ## Agent Deck \xB7 Dreaming \u957F\u671F\u8BB0\u5FC6
@@ -25070,7 +25123,7 @@ function keywordPostProcessor(plugin) {
 var import_fs12 = __toESM(require("fs"), 1);
 var import_path12 = __toESM(require("path"), 1);
 var import_os12 = __toESM(require("os"), 1);
-var import_crypto14 = __toESM(require("crypto"), 1);
+var import_crypto15 = __toESM(require("crypto"), 1);
 var import_child_process10 = require("child_process");
 
 // src/menubar.swift
@@ -26903,7 +26956,7 @@ var MenuBarBridge = class {
     this.disabled = false;
     await fsp6.mkdir(this.dir, { recursive: true });
     this.writeAgentIcons();
-    const hash4 = import_crypto14.default.createHash("sha256").update(menubar_default2).digest("hex").slice(0, 16);
+    const hash4 = import_crypto15.default.createHash("sha256").update(menubar_default2).digest("hex").slice(0, 16);
     let oldHash = "";
     try {
       oldHash = (await fsp6.readFile(this.hashPath, "utf8")).trim();
@@ -31162,6 +31215,9 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
       if (view?.file) this.replyToQuestion(view.file.path, editor);
     } });
     this.addCommand({ id: "reply-question-line", name: t("\u5728\u63D0\u95EE\u4E0B\u8865\u4E00\u884C\u300C\u270D\uFE0F \u7B54\u300D\uFF08\u76F4\u63A5\u624B\u5199\uFF09"), editorCallback: (editor) => this.insertReplySlot(editor) });
+    this.addCommand({ id: "reply-anchor-thread", name: t("\u7ED9\u8FD9\u4E00\u5757\u7684\u95EE\u7B54\u8865\u5757\u53F7\uFF08\u8001\u6570\u636E\uFF0C\u53EF\u88AB\u53CC\u94FE\u5F15\u7528\uFF09"), editorCallback: (editor, view) => {
+      if (view?.file) this.anchorThread(view.file.path, editor);
+    } });
     this.addCommand({ id: "next-attention", name: t("\u5904\u7406\u4E0B\u4E00\u6761\u9700\u8981\u6388\u6743\u6216\u786E\u8BA4\u7684\u4F1A\u8BDD"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "N" }], callback: () => {
       const alert = this.attentionAlerts.values().next().value;
       if (alert) alert.open();
@@ -32746,6 +32802,34 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
       canContinue: this.sessionsAtTask(path13, block.start, lines).length > 0
     }).open();
   }
+  // 老数据兼容：把已经写好的 ❓ / ✍️ 补上块号（幂等，可对有历史问答的笔记跑一遍）。
+  async anchorThread(path13, editor) {
+    const lines = editor.getValue().split("\n");
+    const block = blockAt(lines, editor.getCursor().line);
+    if (!block) return this.notice(t("\u628A\u5149\u6807\u653E\u5728\u8981\u8865\u5757\u53F7\u7684\u90A3\u4E00\u6761\u4EFB\u52A1\u91CC"));
+    const blockId = blockIdOf(lines[block.start]);
+    let changed = false;
+    await updateNote(this, path13, (text) => {
+      const next = anchorThreadText(text, { blockId, seedPrefix: path13 });
+      changed = next !== text;
+      return next;
+    });
+    this.notice(changed ? t("\u5DF2\u7ED9\u8FD9\u4E00\u5757\u91CC\u7684\u95EE\u7B54\u8865\u4E0A\u5757\u53F7") : t("\u8FD9\u4E00\u5757\u7684\u95EE\u7B54\u90FD\u6709\u5757\u53F7\u4E86"), 6e3);
+  }
+  // 复制 `[[笔记#^ad-q-…]]`：别的笔记、会话、Linear 里都能直接指到这一问。
+  async copyQuestionRef(path13, thread) {
+    const lines = (await this.readNote(path13)).split("\n");
+    const blockId = blockIdOf(lines[thread.block.start] || "");
+    const seed = `${path13}|${blockId}|${thread.question.text}`;
+    const id = thread.question.id || makeQuestionId(seed);
+    if (!thread.question.id) await updateNote(this, path13, (text) => ensureQuestionId(text, { blockId, questionText: thread.question.text, seed }));
+    const link2 = `[[${path13.replace(/\.md$/, "")}#^${id}]]`;
+    try {
+      await navigator.clipboard.writeText(link2);
+    } catch {
+    }
+    this.notice(t("\u5DF2\u590D\u5236\u5757\u5F15\u7528\uFF1A{link}", { link: link2 }), 6e3);
+  }
   // 写回答（幂等）+ 可选续聊同一会话。抽成方法，方便真机验证直接调用。
   async applyReply(path13, atLine, { questionText = "", answer = "", continueSession = false } = {}) {
     if (!String(answer || "").trim()) return false;
@@ -32753,9 +32837,12 @@ var AgentDeckPlugin = class extends import_obsidian19.Plugin {
     const lines = before.split("\n");
     const block = blockAt(lines, atLine);
     const blockId = block ? blockIdOf(lines[block.start]) : "";
+    const seed = `${path13}|${blockId}|${questionText}`;
+    const questionId = makeQuestionId(seed);
+    await updateNote(this, path13, (text) => ensureQuestionId(text, { blockId, questionText, seed }));
     let changed = false;
     await updateNote(this, path13, (text) => {
-      const next = fillAnswer(text, { questionText, answer, blockId });
+      const next = fillAnswer(text, { questionText, answer, blockId, questionId });
       changed = next !== text;
       return next;
     });
@@ -32789,6 +32876,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         view.editor.setCursor({ line: thread.question.line, ch: 0 });
         this.replyToQuestion(path13, view.editor);
       }));
+      menu.addItem((mi) => mi.setTitle(t("\u590D\u5236\u8FD9\u4E00\u95EE\u7684\u5757\u5F15\u7528\uFF08[[\u7B14\u8BB0#^\u5757\u53F7]]\uFF09")).onClick(() => this.copyQuestionRef(path13, thread)));
       menu.addSeparator();
     }
     for (const [index, session] of sessions.entries()) {
