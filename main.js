@@ -20621,7 +20621,7 @@ var MEMORY_STATES = ["\u6709\u6548", "\u5DF2\u62D2\u7EDD", "\u5DF2\u88AB\u66FF\u
 var MEMORY_KINDS = { fact: "\u4E8B\u5B9E", preference: "\u504F\u597D", pattern: "\u5F85\u9A8C\u8BC1\u89C4\u5F8B", lesson: "\u9879\u76EE\u7ECF\u9A8C" };
 var hash2 = (text) => (0, import_crypto11.createHash)("sha256").update(text).digest("hex").slice(0, 24);
 var memoryIdOf = (text) => "m-" + hash2(String(text || "").toLowerCase().replace(/[\s\p{P}\p{S}]/gu, ""));
-function memorySlug(text, max = 22) {
+function memorySlug(text, max = 40) {
   const clean = String(text || "").replace(/[\\/:*?"<>|#^[\]\s]/g, "").trim();
   const cut = [...clean].slice(0, max).join("").replace(/[，。、；：！？,.;:!?（(【「《\s]+$/u, "");
   return cut || "\u8BB0\u5FC6";
@@ -28435,7 +28435,9 @@ var JournalSync = class {
 
 // src/planner.js
 function plannerPrompt(goal) {
-  return `\u628A\u4E0B\u9762\u8FD9\u4E2A\u76EE\u6807\u62C6\u6210\u53EF\u6267\u884C\u6B65\u9AA4\uFF0C\u53EA\u8F93\u51FA JSON\uFF0C\u4E0D\u8981\u89E3\u91CA\u3001\u4E0D\u8981\u4EE3\u7801\u5757\u4EE5\u5916\u7684\u6587\u5B57\uFF1A
+  return `\u53EA\u8F93\u51FA\u4E00\u4E2A JSON \u5BF9\u8C61\uFF0C\u7B2C\u4E00\u4E2A\u5B57\u7B26\u5FC5\u987B\u662F {\uFF0C\u6700\u540E\u4E00\u4E2A\u5B57\u7B26\u5FC5\u987B\u662F }\u3002\u4E0D\u8981\u89E3\u91CA\u3001\u4E0D\u8981\u524D\u540E\u7F00\u3001\u4E0D\u8981\u4EE3\u7801\u5757\u6807\u8BB0\u3002
+
+\u683C\u5F0F\uFF1A
 {"title":"\u4E00\u53E5\u8BDD\u6807\u9898","steps":[{"step":"\u8FD9\u4E00\u6B65\u5177\u4F53\u505A\u4EC0\u4E48","acceptance":"\u600E\u4E48\u7B97\u505A\u5B8C"}]}
 
 \u8981\u6C42\uFF1A
@@ -28446,6 +28448,13 @@ function plannerPrompt(goal) {
 
 \u76EE\u6807\uFF1A
 ${goal}`;
+}
+function plannerFixPrompt(previous) {
+  return `\u4F60\u4E0A\u4E00\u6B21\u7684\u8F93\u51FA\u4E0D\u662F\u5408\u6CD5 JSON\u3002\u8BF7\u91CD\u65B0\u8F93\u51FA\uFF0C\u53EA\u5305\u542B\u4E00\u4E2A JSON \u5BF9\u8C61\uFF0C\u4E0D\u8981\u4EFB\u4F55\u5176\u4ED6\u6587\u5B57\u3002
+\u683C\u5F0F\uFF1A{"title":"\u4E00\u53E5\u8BDD\u6807\u9898","steps":[{"step":"\u505A\u4EC0\u4E48","acceptance":"\u600E\u4E48\u7B97\u505A\u5B8C"}]}
+
+\u4E0A\u4E00\u6B21\u8F93\u51FA\uFF1A
+${String(previous || "").slice(0, 800)}`;
 }
 function parsePlan(answer) {
   const raw = String(answer || "").trim().replace(/^```(?:json)?\s*|\s*```$/g, "");
@@ -30987,8 +30996,14 @@ var AgentDeckPlugin = class extends import_obsidian18.Plugin {
     if (!goal) return this.notice(t("\u5149\u6807\u90A3\u4E00\u884C\u6CA1\u6709\u5185\u5BB9\uFF0C\u5148\u5199\u4E0A\u8981\u62C6\u89E3\u7684\u76EE\u6807"));
     const notice = this.notice(t("\u6B63\u5728\u62C6\u89E3\u76EE\u6807\u2026"), 0);
     try {
-      const answer = await runJournalModel(plannerPrompt(goal), this.settings, {});
-      const plan = parsePlan(answer);
+      let answer = await runJournalModel(plannerPrompt(goal), this.settings, {});
+      let plan;
+      try {
+        plan = parsePlan(answer);
+      } catch (e) {
+        answer = await runJournalModel(plannerFixPrompt(answer), this.settings, {});
+        plan = parsePlan(answer);
+      }
       const dir = "Agent Deck/\u4EFB\u52A1";
       const name = `${dayKeyToday(this.settings)}-${planSlug(plan.title)}.md`;
       const target = `${dir}/${name}`;

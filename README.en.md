@@ -26,6 +26,17 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 
 ## Core Features
 
+### 0. Notes as context: memory store, dispatch drafts and skill cards
+
+> Shared premise: **everything an agent generates or calls is Markdown**, so it goes back into the vault where you can read it, edit it, and have the edit take effect immediately.
+
+- **Memory store (one file per memory)**: after `Memory: move long-term memory into the memory store`, each memory is its own note (frontmatter: `state / title / sources`), while the original note keeps your prose plus a generated index block. Three views coexist: a **Base table** (filter/sort/count), a **memory board** (three columns by state, drag to change) and **one-by-one review** (dropdown to confirm/reject).
+- **Injection with provenance**: dispatch injects up to 5 matching memories (1200 chars) with `source [[journal/#^mem-…]]` so the agent can verify against the original; the extracted journal line gets a `⤴ [[memory/…]]` backlink. `Memory: health check` reports missing sources / unreviewed / duplicates / stale, and `re-anchor sources` fixes drifted line numbers from the quoted text.
+- **Dispatch drafts and payloads**: `Delegate: write a draft first` writes the full payload and links it back (`📝`); delegating then uses that draft. Each real dispatch also stores a snapshot (`📄`) with an `anchor` back to the task block, so nothing is truncated and everything is auditable. Unreferenced payloads older than 30 days can be archived.
+- **Goal → task.md → board**: `Plan: turn the current line into a task.md` splits the goal into steps with acceptance criteria and the result **opens as a board**; any note with a list can become a board via `Board: make this note a board file`, and dragging cards edits the Markdown.
+- **Skill cards**: `Skills: refresh skill cards` maps local skills (`~/.dsh/skills`, `~/.claude/skills`, skillshare) into `技能/*.md` with the real `SKILL.md` path in frontmatter. Mention `[[技能/xxx]]` (or the short form) in a task and the path is handed to the agent; skill text never enters the prompt. Cards you edited are preserved on refresh.
+- **Workbench**: `Workbench: refresh the overview` writes a single index note listing board files, memory stats and recent plans — index only, no copies.
+
 ### 1. Unified Multi-Agent Session Panel
 - **Tracks 9 local agents**: **Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder**, plus **Cursor** (3.30.14+ Hooks, tracking only) and **Grok Bot** (Sand desktop client with per-bot selection, tracking only).
 - **Project-first concurrency management**: The **Now** section groups active, waiting, and errored/limit-hit sessions by workspace project by default (switchable to **By status** — waiting / unclaimed / running / issues — or a flat **List**), showing participating agents, status badges, open-folder shortcut, Project Workbench launcher, and project-wide stop controls. **Recent Sessions** switches between `7 / 30 / 120` days and stacks either **By agent** or **By project**.

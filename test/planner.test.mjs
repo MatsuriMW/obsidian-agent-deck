@@ -48,3 +48,11 @@ test("文件级看板：普通清单（spec/规则）没有母项也能合成一
   assert.equal(groups[0].cards.length, 2, "顶层两条直接成为卡片");
   assert.equal(groups[0].line, 5, "锚点落在第一条卡片前一行，标题仍可见");
 });
+
+test("规划提示词强制 JSON，并带一次补救提示", async () => {
+  const { plannerPrompt, plannerFixPrompt } = await import("../src/planner.js");
+  assert.match(plannerPrompt("目标X"), /第一个字符必须是 \{/);
+  assert.match(plannerPrompt("目标X"), /\{"title"/);
+  assert.match(plannerFixPrompt("我建议先确认工作区"), /不是合法 JSON/);
+  assert.match(plannerFixPrompt("我建议先确认工作区"), /我建议先确认工作区/);
+});

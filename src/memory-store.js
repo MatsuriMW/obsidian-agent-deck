@@ -12,7 +12,7 @@ const hash = (text) => createHash("sha256").update(text).digest("hex").slice(0, 
 export const memoryIdOf = (text) => "m-" + hash(String(text || "").toLowerCase().replace(/[\s\p{P}\p{S}]/gu, ""));
 
 // File names are for humans; identity is the `id` in frontmatter, so renaming never breaks anything.
-export function memorySlug(text, max = 22) {
+export function memorySlug(text, max = 40) {
   // 不按标点硬切（会把"在RAG系统中，设置拒答门槛"砍成"在RAG系统中"），只截长度并清掉结尾的悬挂标点。
   const clean = String(text || "").replace(/[\\/:*?"<>|#^[\]\s]/g, "").trim();
   const cut = [...clean].slice(0, max).join("").replace(/[，。、；：！？,.;:!?（(【「《\s]+$/u, "");

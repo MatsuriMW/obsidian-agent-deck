@@ -16,18 +16,18 @@
 
 完整构想与已落地映射见 [`specs/vision-markdown-harness.zh-CN.md`](specs/vision-markdown-harness.zh-CN.md)；契约见 [`specs/context-protocol.zh-CN.md`](specs/context-protocol.zh-CN.md)；方向与落地记录见 [`specs/harness-roadmap.zh-CN.md`](specs/harness-roadmap.zh-CN.md)。
 
-## 交接时必须知道的风险与未确认项
+## 交接时必须知道的风险与未确认项（2026-11-18 收尾更新）
 
 | # | 事项 | 状态 |
 | --- | --- | --- |
-| 1 | **39 个改动 + 14 个新文件未提交**（本批全在工作区，未 commit、未发版、未打 tag） | ⚠️ 接手第一件事：review `git status` 后决定是否提交 |
-| 2 | `README.md` / `README.en.md` **未反映**记忆库、派发草稿、技能卡、工作台等新能力 | ⚠️ 面向用户的说明落后于功能 |
-| 3 | Linear `P-MAT-42` 未同步本批进展 | ⚠️ 按交接规则应补 |
-| 4 | 测试夹具被本批改动：`startup.test.mjs`（补 `addRibbonIcon`）、`models.test.mjs`（select 计数 +1）、`task-export.test.mjs`（`WorkspaceLeaf` 导出） | 已知，非回归 |
-| 5 | 未实测：Windows 全部；记忆看板拖拽的真实交互；Planner 的生成质量；管家设置项界面 | ⚠️ 只有 macOS 跑过测试与 CLI 级验证 |
-| 6 | 库内示例文件：`示例-一体化流程` / `示例-一体化总览` / `示例-带引用与技能` / `示例-一元化素材`、`派发/*.md`、`技能/` 134 张卡 | 可按需删除，不影响代码 |
-| 7 | 文件名是否从 22 字提到 40 字（需重命名 + 跑回链归一化） | 未决定 |
-| 8 | `mem-` 锚点加日期前缀的迁移 | **已决定不做** |
+| 1 | 未提交改动 | ✅ **已提交** `9de00bb`（40 files, +5213/-486）；未推送、未发版、未打 tag |
+| 2 | README 落后于功能 | ✅ 中英文各补一节「笔记即上下文：记忆库 / 派发草稿 / 技能卡」 |
+| 3 | Linear `P-MAT-42` 未同步 | ⚠️ **阻塞**：本机没有 Linear 凭据/脚本入口，需人工补一条进展评论 |
+| 4 | 测试夹具改动（`startup` 补 `addRibbonIcon`、`models` select +1、`task-export` 补 `WorkspaceLeaf`） | ✅ 已确认是预期变化，非回归 |
+| 5 | 未实测项 | 🟡 部分关闭：**Planner 已真机验证**（模型曾回散文导致解析失败 → 已加固提示词 + 失败后重试一次，实测产出 9 步、验收具体）；管家设置项由 `models.test.mjs` 渲染断言覆盖；**仍未测**：记忆看板拖拽的真实交互、Windows |
+| 6 | 库内示例文件与 134 张技能卡 | ✅ **保留**（示例是活文档；技能卡可随时用 `技能：刷新技能卡` 重建或整目录删除） |
+| 7 | 记忆文件名 22 → 40 字 | ✅ 已做：`memorySlug` 上限改 40，33 个文件重命名，`ensureReverseLinks` 归一化后 **0 条孤儿回链** |
+| 8 | `mem-` 加日期前缀 | ❌ 已决定不做 |
 
 ## 双平台验证边界
 

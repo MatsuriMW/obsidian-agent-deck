@@ -49,7 +49,7 @@ import * as J from "./journal.js";
 import { mentionOptions, mentionTrigger } from "./task-mentions.js";
 import { Dreaming } from "./dream.js";
 import { memoryBase, orderForReview } from "./memory-store.js";
-import { buildPlanMarkdown, parsePlan, planSlug, plannerPrompt } from "./planner.js";
+import { buildPlanMarkdown, parsePlan, planSlug, plannerFixPrompt, plannerPrompt } from "./planner.js";
 import { buildWorkbenchNote } from "./workbench-note.js";
 import { SKILL_DIR, cardPathOf, nextCardContent, scanSkills, skillIndexMarkdown } from "./skill-cards.js";
 import { MEMORY_BOARD_TYPE, MemoryBoardView } from "./memory-board.js";
@@ -439,8 +439,14 @@ export default class AgentDeckPlugin extends Plugin {
     if (!goal) return this.notice(t("光标那一行没有内容，先写上要拆解的目标"));
     const notice = this.notice(t("正在拆解目标…"), 0);
     try {
-      const answer = await runJournalModel(plannerPrompt(goal), this.settings, {});
-      const plan = parsePlan(answer);
+      let answer = await runJournalModel(plannerPrompt(goal), this.settings, {});
+      let plan;
+      try { plan = parsePlan(answer); }
+      catch (e) {
+        // 模型偶尔会回散文：给一次机会，只让它把 JSON 补出来。
+        answer = await runJournalModel(plannerFixPrompt(answer), this.settings, {});
+        plan = parsePlan(answer);
+      }
       const dir = "Agent Deck/任务";
       const name = `${dayKeyToday(this.settings)}-${planSlug(plan.title)}.md`;
       const target = `${dir}/${name}`;

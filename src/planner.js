@@ -4,7 +4,9 @@ import { t } from "./i18n.js";
 // （一个母项 = 整份计划，直接子项 = 步骤，子项下有验收标准）。
 
 export function plannerPrompt(goal) {
-  return `把下面这个目标拆成可执行步骤，只输出 JSON，不要解释、不要代码块以外的文字：
+  return `只输出一个 JSON 对象，第一个字符必须是 {，最后一个字符必须是 }。不要解释、不要前后缀、不要代码块标记。
+
+格式：
 {"title":"一句话标题","steps":[{"step":"这一步具体做什么","acceptance":"怎么算做完"}]}
 
 要求：
@@ -15,6 +17,14 @@ export function plannerPrompt(goal) {
 
 目标：
 ${goal}`;
+}
+
+export function plannerFixPrompt(previous) {
+  return `你上一次的输出不是合法 JSON。请重新输出，只包含一个 JSON 对象，不要任何其他文字。
+格式：{"title":"一句话标题","steps":[{"step":"做什么","acceptance":"怎么算做完"}]}
+
+上一次输出：
+${String(previous || "").slice(0, 800)}`;
 }
 
 export function parsePlan(answer) {
