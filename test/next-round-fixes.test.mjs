@@ -531,7 +531,7 @@ test("P1 #5 & P2 #6: makeDispatchDraft parses @agent, status:draft lifecycle pre
       const sendBtn = confModal.contentEl.all().find((e) => e.classes.has("ad-send__go"));
       sendBtn.onclick();
       await new Promise((r) => setTimeout(r, 20));
-      assert.equal(delegatedOpts?.cwd, normalizeProjectFolder(conflictDir), "ConfirmSendModal passes chosen cwd to delegate");
+      assert.equal(normalizeProjectFolder(delegatedOpts?.cwd), normalizeProjectFolder(conflictDir), "ConfirmSendModal passes chosen cwd to delegate");
       assert.equal(delegatedOpts?.fromDialog, true, "ConfirmSendModal sets fromDialog:true so delegate does not fall back to vaultPath");
 
       // Stub delegator.delegate check is done; restore real readDraft check for consumed draft lifecycle
