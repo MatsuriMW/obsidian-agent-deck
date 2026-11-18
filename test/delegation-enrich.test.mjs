@@ -147,7 +147,7 @@ test("载荷快照：没有草稿时，落盘的 payload 里就已经有富化�
   const written = files.get(payload.path).content;
   assert.ok(written.includes("需要更多背景时："), "记忆查询用法进了载荷文件");
   assert.ok(written.includes(HEAD), "引用笔记清单进了载荷文件");
-  assert.ok(written.includes(`${vaultPath}/项目A/日记.md`), "被引用笔记的绝对路径也在里面");
+  assert.ok(written.includes(path.join(vaultPath, "项目A", "日记.md")), "被引用笔记的绝对路径也在里面");
 });
 
 test("问答回灌：笔记里有 ❓ / ✍️ 时，prompt 里出现「问 / 答」段，且不重复，并放在动态末尾（前稳后动）", async () => {

@@ -50,13 +50,14 @@ const wait = async (job) => {
   assert.equal(job.state, 'done');
 };
 const real = (p) => fs.realpathSync(p);
+const norm = (p) => String(p || '').replace(/\\/g, '/');
 const ranIn = () => fs.realpathSync(fs.readFileSync(cwdFile, 'utf8'));
 
 try {
   // A [[demo]] ancestor link selects the registered folder for an ordinary dispatch.
   const auto = await d.delegate({ file: { path: 'task.md' }, lines: lines(), line: 1, agent: 'claude', destination: 'background' });
   await wait(auto);
-  assert.equal(auto.cwd, project);
+  assert.equal(auto.cwd, norm(project));
   assert.equal(auto.project, 'demo');
   assert.equal(ranIn(), real(project), 'the runner really started in the project folder');
   assert.deepEqual(ancestorLines(lines(), 1), ['- [[demo]]']);
@@ -68,10 +69,10 @@ try {
     destination: 'background', cwd: explicitProject, projectName: '显式项目', newSession: true,
   });
   await wait(explicit);
-  assert.equal(explicit.cwd, explicitProject);
+  assert.equal(explicit.cwd, norm(explicitProject));
   assert.equal(explicit.project, '显式项目');
   assert.equal(ranIn(), real(explicitProject));
-  assert.equal(plugin.settings.projectFolders['显式项目'], explicitProject, 'explicit folder is remembered');
+  assert.equal(plugin.settings.projectFolders['显式项目'], norm(explicitProject), 'explicit folder is remembered');
   assert.ok(plugin.saved >= 1);
 
   // The note's project outranks the per-agent default cwd.
@@ -79,7 +80,7 @@ try {
   plugin.settings.projectFolders = { demo: project };
   const priority = await d.delegate({ file: { path: 'task.md' }, lines: lines(), line: 1, agent: 'claude', destination: 'background', newSession: true });
   await wait(priority);
-  assert.equal(priority.cwd, project, 'note project wins over delegate.claude.cwd');
+  assert.equal(priority.cwd, norm(project), 'note project wins over delegate.claude.cwd');
   assert.equal(ranIn(), real(project));
   plugin.settings.delegate.claude.cwd = '';
 
@@ -87,7 +88,7 @@ try {
   plugin.settings.autoProjectFolder = false;
   const off = await d.delegate({ file: { path: 'task.md' }, lines: lines(), line: 1, agent: 'claude', destination: 'background', newSession: true });
   await wait(off);
-  assert.equal(off.cwd, vault);
+  assert.equal(off.cwd, norm(vault));
   assert.equal(ranIn(), real(vault));
 
   console.log('PASS project dispatch: auto link folder, explicit folder + memory, off switch');

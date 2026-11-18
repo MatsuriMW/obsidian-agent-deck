@@ -9,15 +9,15 @@ import {
 } from '../src/project-folders.js';
 
 const home = os.homedir();
-assert.equal(normalizeProjectFolder('~/claude/agent-deck/'), path.join(home, 'claude/agent-deck'));
+assert.equal(normalizeProjectFolder('~/claude/agent-deck/'), path.join(home, 'claude/agent-deck').replace(/\\/g, '/'));
 assert.equal(normalizeProjectFolder('~'), '');
 assert.equal(normalizeProjectFolder('/'), '');
 assert.equal(normalizeProjectFolder(''), '');
 assert.equal(normalizeProjectFolder('relative/dir'), '', 'relative paths are not project folders');
 assert.equal(normalizeProjectFolder(home), '');
 
-const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'ad-project-a-'));
-const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'ad-project-b-'));
+const dirA = normalizeProjectFolder(fs.mkdtempSync(path.join(os.tmpdir(), 'ad-project-a-')));
+const dirB = normalizeProjectFolder(fs.mkdtempSync(path.join(os.tmpdir(), 'ad-project-b-')));
 try {
   assert.ok(sameFolder(dirA, dirA + '/'));
   assert.ok(sameFolder(dirA, path.join(dirA, '..', path.basename(dirA))));
@@ -101,7 +101,7 @@ try {
   assert.equal(projectKey('Agent Deck'), projectKey('agent-deck'));
   assert.ok(projectKey('第二 大脑') === '第二大脑');
 
-  const vault = path.join(dirB, 'vault');
+  const vault = normalizeProjectFolder(path.join(dirB, 'vault'));
   const task = { notePath: '日记/2026-11-17.md', contextLines: ['- [[ad-ui-test]]'], blockText: '- TODO x' };
   const byNote = resolveDispatchFolder({ settings: { projectFolders: { 'ad-ui-test': dirA } }, vaultPath: vault, ...task });
   assert.deepEqual([byNote.folder, byNote.projectName, byNote.auto?.name], [dirA, 'ad-ui-test', 'ad-ui-test']);
