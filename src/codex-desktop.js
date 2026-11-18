@@ -8,12 +8,7 @@ import { t } from "./i18n.js";
 import { isScratchCwd } from "./readers.js";
 import { projectNameForFolder, sameFolder } from "./project-folders.js";
 import { sandboxFor } from "./constants.js";
-import { redactSecrets } from "./security.js";
-
-function spawnCodex(bin, args, opts = {}) {
-  const needsShell = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""));
-  return spawn(bin, args, needsShell ? { ...opts, shell: true, windowsHide: true } : opts);
-}
+import { redactSecrets, spawnCli } from "./security.js";
 
 const taskHash = (text) => createHash("sha1").update(String(text)).digest("hex");
 
@@ -43,7 +38,7 @@ export class CodexDesktopRunner {
     try {
       this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
       const cfg = this.d.settings.delegate.codex;
-      this.child = spawnCodex(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
+      this.child = spawnCli(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
       this.trace?.recordFrame("codex.spawn", "app-server");
       this.closed = new Promise(resolve => this.child.once("close", resolve));
       this.child.on("error", error => this.finish("error", error.message));

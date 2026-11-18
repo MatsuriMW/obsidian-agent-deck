@@ -5062,12 +5062,13 @@ var import_os3 = __toESM(require("os"), 1);
 var import_path2 = __toESM(require("path"), 1);
 var import_http = __toESM(require("http"), 1);
 var import_https = __toESM(require("https"), 1);
-var import_child_process = require("child_process");
+var import_child_process2 = require("child_process");
 
 // src/security.js
 var import_fs = __toESM(require("fs"), 1);
 var import_os2 = __toESM(require("os"), 1);
 var import_path = __toESM(require("path"), 1);
+var import_child_process = require("child_process");
 var DEFAULT_SECRETS_FILE = () => import_path.default.join(import_os2.default.homedir(), ".agent-deck", "secrets.json");
 var SECRET_PATTERNS = [
   /(Bearer\s+)[A-Za-z0-9._~+/-]{8,}=*/gi,
@@ -5202,6 +5203,17 @@ function safeWarpConfigName(seed = "") {
   const slug = String(seed || "").toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24);
   const stamp = Date.now().toString(36);
   return slug ? `agent-deck-${slug}-${stamp}` : `agent-deck-${stamp}`;
+}
+function spawnCli(bin, args = [], opts = {}) {
+  const b = String(bin || "");
+  if (process.platform === "win32" && /\.(?:cmd|bat)$/i.test(b)) {
+    const q = (s) => {
+      const str = String(s ?? "");
+      return /[\s"&|<>^()%]/.test(str) || str === "" ? `"${str.replace(/"/g, '\\"')}"` : str;
+    };
+    return (0, import_child_process.spawn)(q(b), args.map(q), { ...opts, shell: true, windowsHide: true });
+  }
+  return (0, import_child_process.spawn)(b, args, opts);
 }
 
 // src/llm.js
@@ -5366,7 +5378,7 @@ function runProcess(bin, args, { label, timeout = 120, stdin = null, env = build
     let child;
     const stdio = stdin == null ? ["ignore", "pipe", "pipe"] : ["pipe", "pipe", "pipe"];
     try {
-      child = (0, import_child_process.spawn)(bin, args, { cwd: workDir(), env, stdio });
+      child = spawnCli(bin, args, { cwd: workDir(), env, stdio });
     } catch (e) {
       return reject(new Error(t("\u542F\u52A8 {name} \u5931\u8D25\uFF1A{msg}", { name: label, msg: e.message })));
     }
@@ -5417,7 +5429,7 @@ async function runCodex(prompt, { bin = "codex", model = "", effort = "low", tim
       const args = ["exec", "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never", "--disable", "shell_tool", "-c", 'web_search="disabled"', "-c", "features.multi_agent=false", "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--output-last-message", output];
       if (model) args.push("--model", model);
       args.push("-");
-      const child = (0, import_child_process.spawn)(bin, args, { cwd: dir, env: buildEnv(), stdio: ["pipe", "ignore", "pipe"] });
+      const child = spawnCli(bin, args, { cwd: dir, env: buildEnv(), stdio: ["pipe", "ignore", "pipe"] });
       let err2 = "";
       child.stderr.on("data", (d) => {
         err2 = (err2 + d).slice(-2e3);
@@ -5559,7 +5571,7 @@ async function runOpenAiApi(prompt, { url = "", apiKey = "", model = "", timeout
 function fetchAgyModels(configured = "") {
   const bin = resolveBin("agy", configured) || "agy";
   return new Promise((resolve) => {
-    (0, import_child_process.execFile)(bin, ["models"], { env: buildEnv(), timeout: 1e4, maxBuffer: 1 << 20 }, (err2, out) => {
+    (0, import_child_process2.execFile)(bin, ["models"], { env: buildEnv(), timeout: 1e4, maxBuffer: 1 << 20 }, (err2, out) => {
       if (err2) return resolve([]);
       const list = String(out || "").split("\n").map((l) => l.split("	")[0].trim()).filter((id) => id && !id.startsWith("Fetching"));
       resolve([...new Set(list)]);
@@ -5789,7 +5801,7 @@ var import_fs7 = __toESM(require("fs"), 1);
 
 // src/desktop-sessions.js
 var import_fs4 = __toESM(require("fs"), 1);
-var import_child_process2 = require("child_process");
+var import_child_process3 = require("child_process");
 
 // src/sqlite.js
 var import_fs3 = __toESM(require("fs"), 1);
@@ -5849,7 +5861,7 @@ var modelName = (value) => {
 function desktopQuery(db, sql) {
   if (!import_fs4.default.existsSync(db)) return Promise.resolve([]);
   return new Promise((resolve, reject) => {
-    (0, import_child_process2.execFile)(resolveSqliteBinary(), ["-readonly", "-json", "-cmd", ".timeout 2000", db, `BEGIN; ${sql}; COMMIT;`], { timeout: 1e4, maxBuffer: 64 << 20 }, (err2, out) => {
+    (0, import_child_process3.execFile)(resolveSqliteBinary(), ["-readonly", "-json", "-cmd", ".timeout 2000", db, `BEGIN; ${sql}; COMMIT;`], { timeout: 1e4, maxBuffer: 64 << 20 }, (err2, out) => {
       if (err2) return reject(err2);
       try {
         resolve(JSON.parse(out || "[]"));
@@ -5973,7 +5985,7 @@ async function desktopMessages(db, agent, sid) {
 var import_fs5 = __toESM(require("fs"), 1);
 var import_path4 = __toESM(require("path"), 1);
 var import_os5 = __toESM(require("os"), 1);
-var import_child_process3 = require("child_process");
+var import_child_process4 = require("child_process");
 var import_crypto2 = require("crypto");
 var fsp = import_fs5.default.promises;
 var CURSOR_MIN_VERSION = "3.30.14";
@@ -6274,7 +6286,7 @@ function uninstallCursorHooks({ homeDir = import_os5.default.homedir() } = {}) {
   }
   return { scriptPath, hooksPath };
 }
-function isCursorRunning({ platform = process.platform, exec: exec2 = import_child_process3.execFile } = {}) {
+function isCursorRunning({ platform = process.platform, exec: exec2 = import_child_process4.execFile } = {}) {
   const cmd = platform === "win32" ? "tasklist" : platform === "darwin" ? "/bin/ps" : "ps";
   const args = platform === "win32" ? ["/FI", "IMAGENAME eq Cursor.exe", "/FO", "CSV", "/NH"] : ["-eo", "comm="];
   return new Promise((resolve) => {
@@ -6290,7 +6302,7 @@ function isCursorRunning({ platform = process.platform, exec: exec2 = import_chi
 function sqliteRows(db, sql) {
   return new Promise((resolve) => {
     if (!import_fs5.default.existsSync(db)) return resolve([]);
-    (0, import_child_process3.execFile)(resolveSqliteBinary(), ["-noheader", "-separator", "	", db, sql], { timeout: 5e3, maxBuffer: 4 << 20 }, (err2, out) => {
+    (0, import_child_process4.execFile)(resolveSqliteBinary(), ["-noheader", "-separator", "	", db, sql], { timeout: 5e3, maxBuffer: 4 << 20 }, (err2, out) => {
       if (err2) return resolve([]);
       resolve(String(out || "").split("\n").map((s) => s.trimEnd()).filter(Boolean));
     });
@@ -7883,7 +7895,7 @@ function buildGrokBotConversation(rawText, botMeta = {}) {
 // src/readers.js
 var import_path6 = __toESM(require("path"), 1);
 var import_os7 = __toESM(require("os"), 1);
-var import_child_process4 = require("child_process");
+var import_child_process5 = require("child_process");
 
 // node_modules/fzstd/esm/index.mjs
 var ab = ArrayBuffer;
@@ -9200,7 +9212,7 @@ var AgentUsage = class {
     if (Date.now() - this.sideAt < 1e4) return Promise.resolve(this.sideChats);
     this.sideAt = Date.now();
     return new Promise((resolve) => {
-      (0, import_child_process4.execFile)("ps", ["-axo", "pid=,etime=,command="], { maxBuffer: 16 << 20 }, (err2, text) => {
+      (0, import_child_process5.execFile)("ps", ["-axo", "pid=,etime=,command="], { maxBuffer: 16 << 20 }, (err2, text) => {
         const out = /* @__PURE__ */ new Map();
         if (!err2) for (const line of String(text).split("\n")) {
           if (!line.includes("--fork-session") || !line.includes("--no-session-persistence")) continue;
@@ -10023,7 +10035,7 @@ var UsageStore = class {
 function sqliteColumn(db, sql) {
   return new Promise((resolve) => {
     if (!import_fs7.default.existsSync(db)) return resolve([]);
-    (0, import_child_process4.execFile)(resolveSqliteBinary(), ["-noheader", db, sql], { timeout: 5e3, maxBuffer: 4 * 1024 * 1024 }, (err2, out) => {
+    (0, import_child_process5.execFile)(resolveSqliteBinary(), ["-noheader", db, sql], { timeout: 5e3, maxBuffer: 4 * 1024 * 1024 }, (err2, out) => {
       if (err2) return resolve([]);
       resolve(String(out || "").split("\n").map((s) => s.trim()).filter(Boolean));
     });
@@ -12172,12 +12184,7 @@ var import_child_process6 = require("child_process");
 var import_fs12 = __toESM(require("fs"), 1);
 var import_path10 = __toESM(require("path"), 1);
 var import_crypto8 = require("crypto");
-var import_child_process5 = require("child_process");
 var import_readline = require("readline");
-function spawnCodex(bin, args, opts = {}) {
-  const needsShell = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""));
-  return (0, import_child_process5.spawn)(bin, args, needsShell ? { ...opts, shell: true, windowsHide: true } : opts);
-}
 var taskHash = (text) => (0, import_crypto8.createHash)("sha1").update(String(text)).digest("hex");
 function codexDesktopBinary(configured) {
   if (configured) return configured;
@@ -12213,7 +12220,7 @@ var CodexDesktopRunner = class {
     try {
       this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
       const cfg = this.d.settings.delegate.codex;
-      this.child = spawnCodex(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
+      this.child = spawnCli(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
       this.trace?.recordFrame("codex.spawn", "app-server");
       this.closed = new Promise((resolve) => this.child.once("close", resolve));
       this.child.on("error", (error) => this.finish("error", error.message));
@@ -12631,16 +12638,12 @@ function splitArgs(s) {
   while (m = re.exec(s)) out.push(m[1] ?? m[2] ?? m[3]);
   return out;
 }
-function spawnAgent(bin, args, opts = {}) {
-  const needsShell = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""));
-  return (0, import_child_process6.spawn)(bin, args, needsShell ? { ...opts, shell: true, windowsHide: true } : opts);
-}
 function spawnCapture(bin, args, { cwd, env, timeout = 3e4 }) {
   return new Promise((resolve) => {
     let out = "", err2 = "", done = false;
     let child;
     try {
-      child = spawnAgent(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+      child = spawnCli(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
     } catch (e) {
       return resolve({ ok: false, out: "", err: String(e && e.message || e) });
     }
@@ -12874,7 +12877,7 @@ var ClaudeRunner = class extends BaseRunner {
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = redactSecrets(`${bin} ${args2.slice(0, -2).join(" ")} \u2026`);
     this.trace?.recordFrame("claude.headless_spawn", `${import_path11.default.basename(bin)} -p`);
-    const child = spawnAgent(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawnCli(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.fallbackStarted = true;
     this.job.sessionId = sid;
@@ -12989,7 +12992,7 @@ var QoderRunner = class extends BaseRunner {
     args.push("--", opts.prompt);
     this.job.command = redactSecrets([bin, ...args.slice(0, -1), "<prompt>"].join(" "));
     this.trace?.recordFrame("qoder.spawn", import_path11.default.basename(bin));
-    const child = spawnAgent(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawnCli(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -13091,7 +13094,7 @@ var AcpRunner = class extends BaseRunner {
     const spawnArgs = acpSpawnArgs(this.agent, bin, cfg.extraArgs || "", cap);
     this.job.command = redactSecrets([bin, ...spawnArgs].join(" "));
     this.trace?.recordFrame("acp.spawn", `${import_path11.default.basename(bin)} ${spawnArgs.join(" ")}`);
-    const child = spawnAgent(bin, spawnArgs, { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawnCli(bin, spawnArgs, { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();

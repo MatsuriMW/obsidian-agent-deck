@@ -297,8 +297,8 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
 
 { // 只有够数量才调用模型，成功后保存滚动总结；失败不删原记录。
   const fs=await import("node:fs"), os=await import("node:os"), path=await import("node:path");
-  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"ad-merge-test-")), bin=path.join(dir,"model");
-  fs.writeFileSync(bin,`#!${process.execPath}\nprocess.stdin.resume();process.stdin.on("end",()=>console.log(JSON.stringify({result:"完成基础功能，新增配置；发布仍待验证。"})));\n`,{mode:0o755});
+  const { writeMockNodeBin } = await import("./helpers/mock-cli.mjs");
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"ad-merge-test-")), bin=writeMockNodeBin(dir,"model",`process.stdin.resume();process.stdin.on("end",()=>console.log(JSON.stringify({result:"完成基础功能，新增配置；发布仍待验证。"})));\n`);
   try {
     const p=fakePlugin("手写内容",[],{},{autoLogGranularity:"round",autoLogMerge:true,autoLogMergeThreshold:2,autoLogPath:bin});
     const js=new JournalSync(p);let refreshed=0;js.run=async()=>{refreshed++;};

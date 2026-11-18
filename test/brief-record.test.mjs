@@ -21,11 +21,11 @@ register('data:text/javascript,' + encodeURIComponent(`export async function res
 const { JournalSync } = await import('../src/sync.js');
 const { DEFAULTS, deepMerge } = await import('../src/constants.js');
 const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+const { writeMockNodeBin } = await import('./helpers/mock-cli.mjs');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(),'ad-brief-'));
 let timer;
 try {
-  const bin = path.join(dir,'polish');
-  fs.writeFileSync(bin, `#!${process.execPath}\nprocess.stdin.resume();process.stdin.on('end',()=>console.log(JSON.stringify({result:JSON.stringify({task:'缓存、兼容',result:'修复；测试通过；待发布'})})));\n`, {mode:0o755});
+  const bin = writeMockNodeBin(dir,'polish',`process.stdin.resume();process.stdin.on('end',()=>console.log(JSON.stringify({result:JSON.stringify({task:'缓存、兼容',result:'修复；测试通过；待发布'})})));\n`);
   const plugin = {settings:deepMerge(DEFAULTS,{autoLogPath:bin}),usage:{meta:new Map()}};
   const sync = new JournalSync(plugin);
   const polished = new Promise(resolve=>{sync.run=async()=>resolve();});

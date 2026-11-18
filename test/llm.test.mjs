@@ -7,10 +7,10 @@ import {
   runCodex, runJournalModel, detectJournalProviders, resolveJournalProvider, normalizeApiUrl, runOpenAiApi,
   journalProviderChain, resetJournalFailoverState, setJournalApiConsent,
 } from '../src/llm.js';
+import { writeMockNodeBin } from './helpers/mock-cli.mjs';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ad-llm-test-'));
-const bin = path.join(dir, 'fake-cli');
-fs.writeFileSync(bin, `#!${process.execPath}
+const bin = writeMockNodeBin(dir, 'fake-cli', `
 const fs = require('fs');
 const args = process.argv.slice(2);
 let input = '';
@@ -23,7 +23,6 @@ process.stdin.on('end', () => {
  else console.log(JSON.stringify({result: out}));
 });
 `);
-fs.chmodSync(bin, 0o755);
 try {
   await test('Codex journaling passes model, effort, isolation flags and stdin without a shell', async () => {
     const r = JSON.parse(await runJournalModel('正文 $(echo nope)', {autoLogProvider:'codex', autoLogPath:bin, autoLogModel:'custom model', autoLogEffort:'low'}));
@@ -57,21 +56,17 @@ try {
   await test('agy, qodercli, and codebuddy JSON outputs are parsed cleanly and avoid errors', async () => {
     const cliDir = path.join(dir, 'clis');
     fs.mkdirSync(cliDir, { recursive: true });
-    const fakeAgy = path.join(cliDir, 'agy');
-    const fakeQoder = path.join(cliDir, 'qodercli');
-    const fakeCb = path.join(cliDir, 'codebuddy');
-    fs.writeFileSync(fakeAgy, `#!${process.execPath}
+    const fakeAgy = writeMockNodeBin(cliDir, 'agy', `
       const args = process.argv.slice(2);
       if (args.some(a => a.includes('ERR_AGY'))) console.log(JSON.stringify({status:'ERROR', error:'quota hit'}));
       else console.log(JSON.stringify({status:'SUCCESS', response: JSON.stringify({args})}));
     `);
-    fs.writeFileSync(fakeQoder, `#!${process.execPath}
+    const fakeQoder = writeMockNodeBin(cliDir, 'qodercli', `
       console.log(JSON.stringify({is_error:false, result: JSON.stringify({args: process.argv.slice(2)})}));
     `);
-    fs.writeFileSync(fakeCb, `#!${process.execPath}
+    const fakeCb = writeMockNodeBin(cliDir, 'codebuddy', `
       console.log(JSON.stringify([{type:'message', role:'user'}, {type:'result', is_error:false, result: JSON.stringify({args: process.argv.slice(2)})}]));
     `);
-    for (const p of [fakeAgy, fakeQoder, fakeCb]) fs.chmodSync(p, 0o755);
 
     const agyRes = JSON.parse(await runJournalModel('总结内容', { autoLogProvider: 'agy', autoLogPath: fakeAgy, autoLogModel: 'gemini-3.8-flash-low' }));
     assert.ok(agyRes.args.includes('--output-format'));
@@ -126,9 +121,7 @@ try {
   });
 
   await test('a rate-limited source falls over to the configured backup and cools down', async () => {
-    const quotaBin = path.join(dir, 'quota-cli');
-    fs.writeFileSync(quotaBin, `#!${process.execPath}\nconsole.error('usage limit reached, retry later'); process.exit(1);\n`);
-    fs.chmodSync(quotaBin, 0o755);
+    const quotaBin = writeMockNodeBin(dir, 'quota-cli', `console.error('usage limit reached, retry later'); process.exit(1);\n`);
     resetJournalFailoverState();
     const cfg = {
       autoLogProvider: 'codex', autoLogPath: quotaBin, autoLogFailover: true, autoLogBackupProvider: 'claude',
@@ -145,9 +138,7 @@ try {
   });
 
   await test('DeepSeek CLI provider runs deepseek-ds and returns plain text', async () => {
-    const dsBin = path.join(dir, 'deepseek-ds');
-    fs.writeFileSync(dsBin, `#!${process.execPath}\nconsole.log(JSON.stringify({args: process.argv.slice(2)}).slice(0));\n`);
-    fs.chmodSync(dsBin, 0o755);
+    const dsBin = writeMockNodeBin(dir, 'deepseek-ds', `console.log(JSON.stringify({args: process.argv.slice(2)}).slice(0));\n`);
     const out = await runJournalModel('整理一下', { autoLogProvider: 'deepseek', autoLogPath: dsBin, autoLogModel: 'deepseek-chat' });
     const parsed = JSON.parse(out);
     assert.deepEqual(parsed.args.slice(0, 6), ['-p', '整理一下', '--output-format', 'text', '--skip-trust', '-m']);

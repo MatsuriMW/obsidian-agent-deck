@@ -3,6 +3,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { spawn } from "child_process";
 
 export const DEFAULT_SECRETS_FILE = () => path.join(os.homedir(), ".agent-deck", "secrets.json");
 
@@ -175,4 +176,17 @@ export function safeWarpConfigName(seed = "") {
     .slice(0, 24);
   const stamp = Date.now().toString(36);
   return slug ? `agent-deck-${slug}-${stamp}` : `agent-deck-${stamp}`;
+}
+
+/** Spawn a CLI binary safely, quoting arguments for Windows .cmd/.bat shims. */
+export function spawnCli(bin, args = [], opts = {}) {
+  const b = String(bin || "");
+  if (process.platform === "win32" && /\.(?:cmd|bat)$/i.test(b)) {
+    const q = (s) => {
+      const str = String(s ?? "");
+      return /[\s"&|<>^()%]/.test(str) || str === "" ? `"${str.replace(/"/g, '\\"')}"` : str;
+    };
+    return spawn(q(b), args.map(q), { ...opts, shell: true, windowsHide: true });
+  }
+  return spawn(b, args, opts);
 }

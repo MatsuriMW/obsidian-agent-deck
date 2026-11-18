@@ -12,7 +12,7 @@ import https from "https";
 import { spawn, execFile } from "child_process";
 import { t } from "./i18n.js";
 import { summarizeAutoTitle, stripTaskKeyword } from "./journal.js";
-import { resolveSecret, redactSecrets } from "./security.js";
+import { resolveSecret, redactSecrets, spawnCli } from "./security.js";
 
 const home = () => os.homedir();
 
@@ -175,7 +175,7 @@ function runProcess(bin, args, { label, timeout = 120, stdin = null, env = build
   return new Promise((resolve, reject) => {
     let child;
     const stdio = stdin == null ? ["ignore", "pipe", "pipe"] : ["pipe", "pipe", "pipe"];
-    try { child = spawn(bin, args, { cwd: workDir(), env, stdio }); }
+    try { child = spawnCli(bin, args, { cwd: workDir(), env, stdio }); }
     catch (e) { return reject(new Error(t("启动 {name} 失败：{msg}", { name: label, msg: e.message }))); }
     let out = "", err = "";
     child.stdout.on("data", (d) => { out += d; });
@@ -211,7 +211,7 @@ export async function runCodex(prompt, { bin = "codex", model = "", effort = "lo
       const args = ["exec", "--ephemeral", "--ignore-user-config", "--ignore-rules", "--skip-git-repo-check", "--sandbox", "read-only", "--color", "never", "--disable", "shell_tool", "-c", 'web_search="disabled"', "-c", "features.multi_agent=false", "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--output-last-message", output];
       if (model) args.push("--model", model);
       args.push("-");
-      const child = spawn(bin, args, { cwd: dir, env: buildEnv(), stdio: ["pipe", "ignore", "pipe"] });
+      const child = spawnCli(bin, args, { cwd: dir, env: buildEnv(), stdio: ["pipe", "ignore", "pipe"] });
       let err = "";
       child.stderr.on("data", (d) => { err = (err + d).slice(-2000); });
       const timer = setTimeout(() => { child.kill(); reject(new Error(t("codex 等了 {n} 秒没回来", { n: timeout }))); }, timeout * 1000);

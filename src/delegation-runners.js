@@ -11,7 +11,7 @@ import { spawn, execFile } from "child_process";
 import { AGENTS, DEFAULTS, sandboxFor, SANDBOX_ALIAS, MODEL_CATALOG, truncate } from "./constants.js";
 import { getAgentCapability } from "./agent-registry.js";
 import { CodexDesktopRunner } from "./codex-desktop.js";
-import { evaluatePermissionPolicy, redactSecrets } from "./security.js";
+import { evaluatePermissionPolicy, redactSecrets, spawnCli } from "./security.js";
 import { t } from "./i18n.js";
 
 const fsp = fs.promises;
@@ -281,16 +281,11 @@ function splitArgs(s) {
   return out;
 }
 
-function spawnAgent(bin, args, opts = {}) {
-  const needsShell = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""));
-  return spawn(bin, args, needsShell ? { ...opts, shell: true, windowsHide: true } : opts);
-}
-
 function spawnCapture(bin, args, { cwd, env, timeout = 30000 }) {
   return new Promise((resolve) => {
     let out = "", err = "", done = false;
     let child;
-    try { child = spawnAgent(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }); }
+    try { child = spawnCli(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] }); }
     catch (e) { return resolve({ ok: false, out: "", err: String(e && e.message || e) }); }
     const timer = setTimeout(() => { if (!done) { done = true; try { child.kill("SIGTERM"); } catch { /* gone */ } resolve({ ok: false, out, err: err || t("超时") }); } }, timeout);
     child.stdout.on("data", (b) => { out += b.toString(); if (out.length > 20000) out = out.slice(-20000); });
@@ -532,7 +527,7 @@ export class ClaudeRunner extends BaseRunner {
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = redactSecrets(`${bin} ${args2.slice(0, -2).join(" ")} …`);
     this.trace?.recordFrame("claude.headless_spawn", `${path.basename(bin)} -p`);
-    const child = spawnAgent(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawnCli(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.fallbackStarted = true;
     this.job.sessionId = sid;
@@ -645,7 +640,7 @@ export class QoderRunner extends BaseRunner {
     args.push("--", opts.prompt);
     this.job.command = redactSecrets([bin, ...args.slice(0, -1), "<prompt>"].join(" "));
     this.trace?.recordFrame("qoder.spawn", path.basename(bin));
-    const child = spawnAgent(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawnCli(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -752,7 +747,7 @@ export class AcpRunner extends BaseRunner {
     const spawnArgs = acpSpawnArgs(this.agent, bin, cfg.extraArgs || "", cap);
     this.job.command = redactSecrets([bin, ...spawnArgs].join(" "));
     this.trace?.recordFrame("acp.spawn", `${path.basename(bin)} ${spawnArgs.join(" ")}`);
-    const child = spawnAgent(bin, spawnArgs, { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawnCli(bin, spawnArgs, { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
