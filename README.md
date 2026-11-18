@@ -36,17 +36,17 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 侧栏看住所有 Agent，笔记里派活，看板与仪表盘回顾产出，三件事在同一个 Obsidian 窗口里完成。
 
 <p align="center">
-  <img src="assets/project-workbench.png" width="720" alt="项目协作工作台：小队角色、可编辑的子任务草案与派发前确认">
+  <img src="assets/shadow/project-workbench.png" width="720" alt="项目协作工作台：小队角色、可编辑的子任务草案与派发前确认">
 </p>
 <p align="center"><b>项目协作工作台</b>：说清目标，拆成子任务，确认后分给多个 Agent 并发执行。</p>
 
 <p align="center">
-  <img src="assets/fractal-board-views.png" width="840" alt="原地分形看板：左边是 Markdown 大纲，右边是按子组展开的看板">
+  <img src="assets/shadow/fractal-board-views.png" width="840" alt="原地分形看板：左边是 Markdown 大纲，右边是按子组展开的看板">
 </p>
 <p align="center"><b>原地分形看板</b>：同一份 Markdown，大纲和看板随时切换，拖动卡片就改状态。</p>
 
 <p align="center">
-  <img src="assets/dashboard.png" width="840" alt="协作回顾 Dashboard：Token 热力图、作息分布、Agent 与模型分布、项目投入">
+  <img src="assets/shadow/dashboard.png" width="840" alt="协作回顾 Dashboard：Token 热力图、作息分布、Agent 与模型分布、项目投入">
 </p>
 <p align="center"><b>协作回顾 Dashboard</b>：每天用了多少、花在哪个项目、哪个 Agent 最忙。</p>
 
@@ -93,7 +93,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 - **记忆库（一文一条）**：每条记忆是一个 Markdown 文件，可以用 **Base 表格**筛选排序、用**记忆看板**三列拖拽，或**逐条审阅**（确认 / 拒绝）。
 
 <p align="center">
-  <img src="assets/memory-base.png" width="900" alt="记忆库的 Base 表格「全部记忆」：按类型和状态筛选，逐条可读可改">
+  <img src="assets/shadow/memory-base.png" width="900" alt="记忆库的 Base 表格「全部记忆」：按类型和状态筛选，逐条可读可改">
 </p>
 
 - **记忆会用、也能溯源**：派发时按相关度注入最多 5 条记忆，每条附回原日记的链接，Agent 可以回原文核对；被提炼的那一行会得到反向回链；命令 `记忆：体检` 会汇总无来源、待确认与重复条目。

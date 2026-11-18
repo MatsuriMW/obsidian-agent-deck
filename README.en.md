@@ -36,17 +36,17 @@ Agent Deck gathers the AI sessions scattered across your local clients into Obsi
 Watch every agent in the sidebar, delegate from your notes, and review the output in a board or a dashboard — all inside one Obsidian window.
 
 <p align="center">
-  <img src="assets/project-workbench.en.png" width="720" alt="Project workbench: squad roles, editable task drafts and a confirmation step before dispatch">
+  <img src="assets/shadow/project-workbench.en.png" width="720" alt="Project workbench: squad roles, editable task drafts and a confirmation step before dispatch">
 </p>
 <p align="center"><b>Project workbench</b>: describe the goal, split it into subtasks, confirm, then run them across several agents.</p>
 
 <p align="center">
-  <img src="assets/fractal-board-and-sidebar.en.png" width="840" alt="In-place fractal board next to the sidebar: the same outline, switched into a grouped board">
+  <img src="assets/shadow/fractal-board-and-sidebar.en.png" width="840" alt="In-place fractal board next to the sidebar: the same outline, switched into a grouped board">
 </p>
 <p align="center"><b>In-place board</b>: the same Markdown toggles between outline and board; drag a card to change its status.</p>
 
 <p align="center">
-  <img src="assets/dashboard-overview.en.png" width="840" alt="Collaboration review dashboard: token heatmap, daily rhythm, agent and model distribution, project effort">
+  <img src="assets/shadow/dashboard-overview.en.png" width="840" alt="Collaboration review dashboard: token heatmap, daily rhythm, agent and model distribution, project effort">
 </p>
 <p align="center"><b>Collaboration review</b>: how much you used each day, on which project, and which agent was busiest.</p>
 
@@ -93,7 +93,7 @@ Watch every agent in the sidebar, delegate from your notes, and review the outpu
 - **Memory library (one note per memory)**: each memory is a Markdown file; browse it as a **Base table**, drag it across three states in the **memory board**, or review it one by one (confirm / reject).
 
 <p align="center">
-  <img src="assets/memory-base.png" width="900" alt="The memory Base table (All memories): filter by type and state, each row readable and editable">
+  <img src="assets/shadow/memory-base.png" width="900" alt="The memory Base table (All memories): filter by type and state, each row readable and editable">
 </p>
 
 - **Memory that is used and traceable**: up to five relevant memories are injected when delegating, each with a link back to the journal, so the agent can check the source; the line a memory came from gets a backlink. The `Memory: health check` command lists entries with no source, pending confirmation or duplicates.
