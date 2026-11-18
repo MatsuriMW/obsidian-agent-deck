@@ -33,12 +33,12 @@ Agent Deck gathers the AI sessions scattered across your local clients into Obsi
 
 ### 0. At a glance
 
-Watch every agent in the sidebar, delegate from your notes, and review the output in a board or a dashboard — all inside one Obsidian window.
+Watch every agent in the sidebar, delegate from your notes, and flip one AI record between four views; the board and the dashboard then show the output.
 
 <p align="center">
-  <img src="assets/shadow/project-workbench.en.png" width="720" alt="Project workbench: squad roles, editable task drafts and a confirmation step before dispatch">
+  <img src="assets/shadow/ai-record-views.webp" width="880" alt="One AI record in four views: outline, table, cards and timeline">
 </p>
-<p align="center"><b>Project workbench</b>: describe the goal, split it into subtasks, confirm, then run them across several agents.</p>
+<p align="center"><b>Four record views</b>: switch per block without rewriting the underlying Markdown.</p>
 
 <p align="center">
   <img src="assets/shadow/fractal-board-and-sidebar.en.png" width="840" alt="In-place fractal board next to the sidebar: the same outline, switched into a grouped board">

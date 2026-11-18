@@ -33,12 +33,12 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 
 ### 0. 一眼看懂
 
-侧栏看住所有 Agent，笔记里派活，看板与仪表盘回顾产出，三件事在同一个 Obsidian 窗口里完成。
+侧栏看住所有 Agent，笔记里派活；同一条 AI 记录还能切四种视图看，最后用看板和仪表盘回顾产出。
 
 <p align="center">
-  <img src="assets/shadow/project-workbench.png" width="720" alt="项目协作工作台：小队角色、可编辑的子任务草案与派发前确认">
+  <img src="assets/shadow/ai-record-views.webp" width="880" alt="同一条 AI 自动记录的四种视图：大纲、表格、卡片与时间线">
 </p>
-<p align="center"><b>项目协作工作台</b>：说清目标，拆成子任务，确认后分给多个 Agent 并发执行。</p>
+<p align="center"><b>四种记录视图</b>：同一条记录随块切换，不用改写底层 Markdown。</p>
 
 <p align="center">
   <img src="assets/shadow/fractal-board-views.png" width="840" alt="原地分形看板：左边是 Markdown 大纲，右边是按子组展开的看板">
