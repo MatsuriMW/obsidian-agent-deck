@@ -11,6 +11,8 @@ import {
   evaluatePermissionPolicy,
   appleScriptString,
   safeWarpConfigName,
+  spawnCli,
+  killChildProcess,
 } from "../src/security.js";
 import {
   RunTrace,
@@ -136,4 +138,18 @@ test("deploy: checkExternalAssets detects missing and drifted memory-query.mjs",
   } finally {
     fs.rmSync(vault, { recursive: true, force: true });
   }
+});
+
+test("security: spawnCli runs node script cleanly and killChildProcess handles nullish targets safely", async () => {
+  killChildProcess(null);
+  killChildProcess({});
+  const child = spawnCli(process.execPath, ["-e", "process.stdout.write('CLI_OK')"], { stdio: ["ignore", "pipe", "pipe"] });
+  let out = "";
+  child.stdout.on("data", (d) => { out += d; });
+  const code = await new Promise((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", resolve);
+  });
+  assert.equal(code, 0);
+  assert.equal(out, "CLI_OK");
 });

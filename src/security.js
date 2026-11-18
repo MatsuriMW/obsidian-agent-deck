@@ -3,7 +3,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { spawn } from "child_process";
+import { spawn, execFile } from "child_process";
 
 export const DEFAULT_SECRETS_FILE = () => path.join(os.homedir(), ".agent-deck", "secrets.json");
 
@@ -189,4 +189,13 @@ export function spawnCli(bin, args = [], opts = {}) {
     return spawn(q(b), args.map(q), { ...opts, shell: true, windowsHide: true });
   }
   return spawn(b, args, opts);
+}
+
+/** Terminate a spawned CLI process (and its tree on Windows .cmd shims). */
+export function killChildProcess(child, signal = "SIGTERM") {
+  if (!child) return;
+  if (process.platform === "win32" && child.pid) {
+    try { execFile("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true }, () => {}); } catch { /* gone */ }
+  }
+  try { child.kill(signal); } catch { /* gone */ }
 }

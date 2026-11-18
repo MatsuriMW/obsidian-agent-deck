@@ -8,7 +8,7 @@ import { t } from "./i18n.js";
 import { isScratchCwd } from "./readers.js";
 import { projectNameForFolder, sameFolder } from "./project-folders.js";
 import { sandboxFor } from "./constants.js";
-import { redactSecrets, spawnCli } from "./security.js";
+import { redactSecrets, spawnCli, killChildProcess } from "./security.js";
 
 const taskHash = (text) => createHash("sha1").update(String(text)).digest("hex");
 
@@ -140,7 +140,7 @@ export class CodexDesktopRunner {
         try { this.send({ id: ++this.nextId, method: "turn/interrupt", params: { threadId: this.job.sessionId, turnId: this.turnId } }); } catch { /* already closed */ }
       }
       this.child.stdin.end();
-      const kill = setTimeout(() => this.child.kill("SIGTERM"), 1500);
+      const kill = setTimeout(() => killChildProcess(this.child, "SIGTERM"), 1500);
       await this.closed;
       clearTimeout(kill); this.reader?.close();
     }

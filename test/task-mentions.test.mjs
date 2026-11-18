@@ -47,31 +47,33 @@ console.log('PASS task mentions: agent/model/effort, safe boundaries, completion
 const fs = await import('node:fs');
 const os = await import('node:os');
 const path = await import('node:path');
-const { writeMockNodeBin, mockNodeScriptPath } = await import('./helpers/mock-cli.mjs');
+const { writeMockNodeBin, mockNodeScriptPath, cleanupDelegatorDir } = await import('./helpers/mock-cli.mjs');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(),'ad-mention-'));
+let actual1;
 try {
   const argvPath=path.join(dir,'argv.json');
   const bin = writeMockNodeBin(dir,'claude','require("fs").writeFileSync('+JSON.stringify(argvPath)+',JSON.stringify(process.argv.slice(2)));\n');
   p.vaultPath=dir;p.settings.delegate.claude.path=bin;p.settings.delegate.claude.cwd=dir;
   p.settings.delegate.claude.openDesktop=false;p.saveSettings=()=>{};p.saveJobs=()=>{};p.refreshUI=()=>{};p.notice=()=>{};
-  const actual = new Delegator(p);actual.onSession=()=>{};actual.onDone=()=>{};actual.onError=()=>{};
+  actual1 = new Delegator(p);actual1.onSession=()=>{};actual1.onDone=()=>{};actual1.onError=()=>{};
   const model = p.modelsFor('claude')[0].id;
-  const job=await actual.delegate({file:{path:'task.md'},lines:['- TODO fake @claude/'+model+'/max'],line:0,agent:'codex'});
+  const job=await actual1.delegate({file:{path:'task.md'},lines:['- TODO fake @claude/'+model+'/max'],line:0,agent:'codex'});
   for(let i=0;i<500 && job.state==='running';i++) await new Promise(r=>setTimeout(r,10));
   const argv=JSON.parse(fs.readFileSync(argvPath,'utf8'));
   assert.equal(job.agent,'claude');assert.equal(job.effort,'max');assert.equal(argv[argv.indexOf('--effort')+1],'max');
   assert.ok(!argv.at(-1).includes('@claude/'));assert.equal(job.state,'done');
-} finally {fs.rmSync(dir,{recursive:true,force:true});}
+} finally {cleanupDelegatorDir(actual1,dir);}
 console.log('PASS real runner subprocess receives the selected Claude model and effort');
 const acpDir=fs.mkdtempSync(path.join(os.tmpdir(),'ad-acp-'));
+let actual2;
 try {
   const events=path.join(acpDir,'events.jsonl');
   const bin=writeMockNodeBin(acpDir,'dsh',`const fs=require('fs'),rl=require('readline').createInterface({input:process.stdin});
 const send=m=>process.stdout.write(JSON.stringify(m)+'\\n');
-rl.on('line',line=>{const m=JSON.parse(line);fs.appendFileSync(${JSON.stringify(events)},line+'\\n');if(m.method==='session/close')process.exit(0);let result={};if(m.method==='session/new')result={sessionId:'fake-acp-session',configOptions:${JSON.stringify([{id:'model'},{id:'reasoning_effort'}])}};if(m.method==='session/prompt')result={stopReason:'end_turn'};send({jsonrpc:'2.0',id:m.id,result})});\n`);
+rl.on('line',line=>{const m=JSON.parse(line);fs.appendFileSync(${JSON.stringify(events)},line+'\\n');if(m.method==='session/close')process.exit(0);let result={};if(m.method==='session/new')result={sessionId:'fake-acp-session',configOptions:${JSON.stringify([{id:'model'},{id:'reasoning_effort'}])}};if(m.method==='session/prompt')result={stopReason:'end_turn'};send({jsonrpc:'2.0',id:m.id,result})});rl.on('close',()=>process.exit(0));\n`);
   p.settings.delegate.dsh.path=bin;p.settings.delegate.dsh.cwd=acpDir;
-  const actual=new Delegator(p);actual.onSession=()=>{};actual.onDone=()=>{};actual.onError=()=>{};
-  const job=await actual.delegate({file:{path:'task.md'},lines:['- TODO fake @dsh/deepseek-v4-pro/max'],line:0,agent:'claude'});
+  actual2=new Delegator(p);actual2.onSession=()=>{};actual2.onDone=()=>{};actual2.onError=()=>{};
+  const job=await actual2.delegate({file:{path:'task.md'},lines:['- TODO fake @dsh/deepseek-v4-pro/max'],line:0,agent:'claude'});
   for(let i=0;i<500 && job.state==='running';i++)await new Promise(r=>setTimeout(r,10));
   assert.equal(job.state,'done');
   const requests=fs.readFileSync(events,'utf8').trim().split('\n').map(x=>JSON.parse(x));
@@ -81,10 +83,10 @@ rl.on('line',line=>{const m=JSON.parse(line);fs.appendFileSync(${JSON.stringify(
   const scriptPath = mockNodeScriptPath(bin);
   fs.writeFileSync(scriptPath,fs.readFileSync(scriptPath,'utf8').replace('configOptions:[{"id":"model"},{"id":"reasoning_effort"}]','configOptions:[]'));
   fs.writeFileSync(events,'');
-  const failed=await actual.delegate({file:{path:'task.md'},lines:['- TODO fake @dsh/deepseek-v4-pro/high'],line:0,agent:'claude'});
+  const failed=await actual2.delegate({file:{path:'task.md'},lines:['- TODO fake @dsh/deepseek-v4-pro/high'],line:0,agent:'claude'});
   assert.equal(failed.state,'error');assert.match(failed.error,/未提供模型/);
   assert.ok(!fs.readFileSync(events,'utf8').includes('session/prompt'));
-}finally{fs.rmSync(acpDir,{recursive:true,force:true})}
+}finally{cleanupDelegatorDir(actual2,acpDir);}
 console.log('PASS ACP applies the selected model/effort and rejects unsupported controls before dispatch');
 // Agent selection must automatically reopen the concrete model list.
 assert.equal(mentionSuggestions(p,'gpt')[0].value,'codex');

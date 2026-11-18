@@ -11,7 +11,7 @@ import { spawn, execFile } from "child_process";
 import { AGENTS, DEFAULTS, sandboxFor, SANDBOX_ALIAS, MODEL_CATALOG, truncate } from "./constants.js";
 import { getAgentCapability } from "./agent-registry.js";
 import { CodexDesktopRunner } from "./codex-desktop.js";
-import { evaluatePermissionPolicy, redactSecrets, spawnCli } from "./security.js";
+import { evaluatePermissionPolicy, redactSecrets, spawnCli, killChildProcess } from "./security.js";
 import { t } from "./i18n.js";
 
 const fsp = fs.promises;
@@ -438,9 +438,7 @@ class BaseRunner {
   }
 
   _killChild() {
-    if (this.child) {
-      try { this.child.kill("SIGTERM"); } catch { /* gone */ }
-    }
+    killChildProcess(this.child, "SIGTERM");
   }
 
   cancel() {
@@ -1004,7 +1002,7 @@ export class AcpRunner extends BaseRunner {
     if (this.sessionId && this.capabilities?.sessionCapabilities?.close) { try { this.send({ jsonrpc: "2.0", id: this.nextId++, method: "session/close", params: { sessionId: this.sessionId } }); } catch { /* closed */ } }
     if (this.child) {
       this.child.stdin.end();
-      const timer = setTimeout(() => { try { this.child.kill("SIGTERM"); } catch { /* gone */ } }, 1200);
+      const timer = setTimeout(() => killChildProcess(this.child, "SIGTERM"), 1200);
       this.child.once("close", () => clearTimeout(timer));
       if (typeof timer?.unref === "function") timer.unref();
     }

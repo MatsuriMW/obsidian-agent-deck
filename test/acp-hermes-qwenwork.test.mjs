@@ -27,7 +27,7 @@ import {
 } from "../src/delegation-runners.js";
 import { desktopSessions, desktopMessages, hermesTime } from "../src/desktop-sessions.js";
 import { resolveSqliteBinary } from "../src/sqlite.js";
-import { writeMockNodeBin } from "./helpers/mock-cli.mjs";
+import { writeMockNodeBin, rmDirSafe } from "./helpers/mock-cli.mjs";
 import { AgentUsage, projectName, normalizeProjectRoot, USAGE_CACHE_VERSION } from "../src/readers.js";
 import { conversationMessages, readConversation } from "../src/conversation.js";
 import { destinations, defaultDestination, canOpenClient } from "../src/workflow.js";
@@ -189,7 +189,8 @@ rl.on("line", (line) => {
     send({ method: "session/update", params: { sessionId: "hermes-sess-1", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "HERMES_ACP_OK" } } } });
     send({ id: promptId, result: { stopReason: "end_turn" } });
   }
-});`);
+});
+rl.on("close", () => process.exit(0));`);
 
   const models = acpModels("hermes", [], { availableModels: [{ modelId: "openai:gpt-5.4", name: "GPT-5.4" }] });
   assert.equal(models.length, 1);
@@ -220,25 +221,30 @@ rl.on("line", (line) => {
   const job = { id: "j-hermes", agent: "fake-hermes-acp", name: "Hermes Task", state: "starting" };
   const runner = new AcpRunner(delegator, job);
   const oldPath = process.env.PATH;
-  process.env.PATH = `${dir}:${oldPath}`;
   try {
-    await runner.start({ cwd: dir, prompt: "Ping", model: "openai:gpt-5.4" });
-    await new Promise((r) => setTimeout(r, 300));
-  } finally {
-    process.env.PATH = oldPath;
-  }
-  assert.ok(doneJob, "ACP runner completed cleanly even with missing settings.delegate[agent]");
-  assert.equal(doneJob.sessionId, "hermes-sess-1");
-  assert.equal(doneJob.result, "HERMES_ACP_OK");
-  assert.equal(doneJob.stopReason, "end_turn");
-  assert.equal(delegator.settings.delegate["fake-hermes-acp"]?.availableModels?.length, 1, "persists discovered ACP models even if settings.delegate[agent] was absent");
+    process.env.PATH = `${dir}${path.delimiter}${oldPath}`;
+    try {
+      await runner.start({ cwd: dir, prompt: "Ping", model: "openai:gpt-5.4" });
+      await new Promise((r) => setTimeout(r, 300));
+    } finally {
+      process.env.PATH = oldPath;
+    }
+    assert.ok(doneJob, "ACP runner completed cleanly even with missing settings.delegate[agent]");
+    assert.equal(doneJob.sessionId, "hermes-sess-1");
+    assert.equal(doneJob.result, "HERMES_ACP_OK");
+    assert.equal(doneJob.stopReason, "end_turn");
+    assert.equal(delegator.settings.delegate["fake-hermes-acp"]?.availableModels?.length, 1, "persists discovered ACP models even if settings.delegate[agent] was absent");
 
-  const rpc = fs.readFileSync(log, "utf8").trim().split("\n").map((l) => JSON.parse(l));
-  assert.deepEqual(rpc[0].argv, [], "-acp binary does not receive spurious 'acp' subcommand");
-  const setModel = rpc.find((x) => x.m.method === "session/set_model");
-  assert.deepEqual(setModel?.m?.params, { sessionId: "hermes-sess-1", modelId: "openai:gpt-5.4" });
-  const permReply = rpc.find((x) => x.m.id === 777);
-  assert.deepEqual(permReply?.m?.result?.outcome, { outcome: "selected", optionId: "deny" }, "omitted delegate[agent] rejects via matched deny optionId without TypeError");
+    const rpc = fs.readFileSync(log, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    assert.deepEqual(rpc[0].argv, [], "-acp binary does not receive spurious 'acp' subcommand");
+    const setModel = rpc.find((x) => x.m.method === "session/set_model");
+    assert.deepEqual(setModel?.m?.params, { sessionId: "hermes-sess-1", modelId: "openai:gpt-5.4" });
+    const permReply = rpc.find((x) => x.m.id === 777);
+    assert.deepEqual(permReply?.m?.result?.outcome, { outcome: "selected", optionId: "deny" }, "omitted delegate[agent] rejects via matched deny optionId without TypeError");
+  } finally {
+    runner.cancel?.();
+    rmDirSafe(dir);
+  }
 });
 
 test("Task 2: Hermes state.db SQLite tracking converts Unix seconds, preserves exact tokens, filters compacted/inactive, and reads conversations", async () => {

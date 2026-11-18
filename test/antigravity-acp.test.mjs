@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Delegator } from '../src/delegation.js';
 import { DEFAULTS } from '../src/constants.js';
-import { writeMockNodeBin } from './helpers/mock-cli.mjs';
+import { writeMockNodeBin, cleanupDelegatorDir, rmDirSafe } from './helpers/mock-cli.mjs';
 
 function fixture(mode='normal') {
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ad-agy-')),events=path.join(dir,'events.jsonl');
@@ -25,12 +25,13 @@ if(m.method==='session/prompt'){
 }
 if(m.id===999){send({id:promptId,result:{stopReason:'end_turn'}});return;}
 if(m.id!=null)send({id:m.id,result:{}});
-});`);
+});
+rl.on('close',()=>process.exit(0));`);
  const settings=structuredClone(DEFAULTS);settings.delegate.antigravity={path:bin,model:'gemini-test',effort:'medium',cwd:dir,autoApprove:false};settings.autoWriteResult=false;settings.delegate.writeLink=false;settings.delegate.confirmFirst=false;
  const plugin={settings,jobs:{},vaultPath:dir,notice(){},saveSettings(){},saveJobs(){},refreshUI(){},readNote:async()=>'- TODO test task',modelById:()=>null};
  const d=new Delegator(plugin);d.handoff=()=>{throw new Error('Antigravity must use ACP, not clipboard handoff')};
  const read=()=>fs.existsSync(events)?fs.readFileSync(events,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[];
- const cleanup=()=>{for(const r of d.runners.values()){r.cancel();r.child?.kill()}clearTimeout(d._saveT);fs.rmSync(dir,{recursive:true,force:true})};
+ const cleanup=()=>cleanupDelegatorDir(d,dir);
  return{d,plugin,dir,read,cleanup,send:opts=>d.delegate({agent:'antigravity',file:{path:'test.md'},line:0,...opts})};
 }
 async function settle(j){const end=Date.now()+2000;while(!['done','error','cancelled'].includes(j.state)&&Date.now()<end)await new Promise(r=>setTimeout(r,10));}
@@ -56,7 +57,8 @@ if(m.method==='initialize'){send({id:m.id,result:{agentCapabilities:{loadSession
 if(m.method==='session/new'||m.method==='session/resume'){send({id:m.id,result:{sessionId:m.params.sessionId||'ses_test123',configOptions:options()}});return;}
 if(m.method==='session/prompt'){send({method:'session/update',params:{sessionId:m.params.sessionId,update:{sessionUpdate:'agent_message_chunk',content:{type:'text',text:'OPENCODE_OK'}}}});send({id:m.id,result:{stopReason:'end_turn'}});return;}
 if(m.id!=null)send({id:m.id,result:{configOptions:options()}});
-});`);
+});
+rl.on('close',()=>process.exit(0));`);
  const settings=structuredClone(DEFAULTS);settings.delegate.opencode={path:bin,model:'opencode-default',effort:'high',cwd:dir,autoApprove:true};settings.autoWriteResult=false;settings.delegate.writeLink=false;settings.delegate.confirmFirst=false;
  const plugin={settings,jobs:{},vaultPath:dir,notice(){},saveSettings(){},saveJobs(){},refreshUI(){},readNote:async()=>'- TODO test opencode',modelById:()=>null};
  const d=new Delegator(plugin);
@@ -71,9 +73,7 @@ if(m.id!=null)send({id:m.id,result:{configOptions:options()}});
   assert.equal(next.state,'done');
   assert.equal(next.conversation.length,4);
  }finally{
-  for(const r of d.runners.values()){r.cancel();r.child?.kill()}
-  clearTimeout(d._saveT);
-  fs.rmSync(dir,{recursive:true,force:true});
+  cleanupDelegatorDir(d,dir);
  }
 });
 
@@ -123,9 +123,7 @@ process.stdout.write('QODER_OK\\n');`);
   assert.equal(copied,'');
  }finally{
   delete process.env.QODER_MODE;
-  for(const r of d.runners.values()){r.cancel();r.child?.kill()}
-  clearTimeout(d._saveT);
-  fs.rmSync(dir,{recursive:true,force:true});
+  cleanupDelegatorDir(d,dir);
  }
 });
 

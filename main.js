@@ -5215,6 +5215,20 @@ function spawnCli(bin, args = [], opts = {}) {
   }
   return (0, import_child_process.spawn)(b, args, opts);
 }
+function killChildProcess(child, signal = "SIGTERM") {
+  if (!child) return;
+  if (process.platform === "win32" && child.pid) {
+    try {
+      (0, import_child_process.execFile)("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true }, () => {
+      });
+    } catch {
+    }
+  }
+  try {
+    child.kill(signal);
+  } catch {
+  }
+}
 
 // src/llm.js
 var home = () => import_os3.default.homedir();
@@ -12351,7 +12365,7 @@ var CodexDesktopRunner = class {
         }
       }
       this.child.stdin.end();
-      const kill = setTimeout(() => this.child.kill("SIGTERM"), 1500);
+      const kill = setTimeout(() => killChildProcess(this.child, "SIGTERM"), 1500);
       await this.closed;
       clearTimeout(kill);
       this.reader?.close();
@@ -12792,12 +12806,7 @@ var BaseRunner = class {
     this.job.conversation.push({ role: "assistant", text, at: Date.now() });
   }
   _killChild() {
-    if (this.child) {
-      try {
-        this.child.kill("SIGTERM");
-      } catch {
-      }
-    }
+    killChildProcess(this.child, "SIGTERM");
   }
   cancel() {
     if (!this._finish("cancelled", () => this.onCleanup("cancel"))) return;
@@ -13368,12 +13377,7 @@ var AcpRunner = class extends BaseRunner {
     }
     if (this.child) {
       this.child.stdin.end();
-      const timer = setTimeout(() => {
-        try {
-          this.child.kill("SIGTERM");
-        } catch {
-        }
-      }, 1200);
+      const timer = setTimeout(() => killChildProcess(this.child, "SIGTERM"), 1200);
       this.child.once("close", () => clearTimeout(timer));
       if (typeof timer?.unref === "function") timer.unref();
     }

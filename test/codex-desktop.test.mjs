@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { isCodexDesktop } from '../src/delegation.js';
 import { CodexDesktopRunner } from '../src/codex-desktop.js';
-import { writeMockNodeBin } from './helpers/mock-cli.mjs';
+import { writeMockNodeBin, rmDirSafe } from './helpers/mock-cli.mjs';
 assert.equal(isCodexDesktop('agent_deck'),true);
 assert.equal(isCodexDesktop('codex_cli_rs'),false);
 {
@@ -88,4 +88,4 @@ try{
  const cancel=fixture();await cancel.runner.start({prompt:'wait'});await cancel.runner.cancel();assert.equal(cancel.job.state,'cancelled');assert.equal(cancel.opened(),0);
  const missing=fixture();missing.runner.d.settings.delegate.codex.path=path.join(dir,'missing');await missing.runner.start({prompt:'x'});await missing.ended;assert.equal(missing.job.state,'error');assert.match(missing.job.error,/ENOENT/);
  console.log('PASS Codex Desktop: persisted session, model/effort, response, desktop handoff, project group attach/reuse/create/skip, no fallback on model/connection failure');
-}finally{fs.rmSync(dir,{recursive:true,force:true})}
+}finally{rmDirSafe(dir)}

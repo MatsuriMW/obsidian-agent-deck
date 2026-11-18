@@ -4,7 +4,7 @@ import { register } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { writeMockNodeBin } from './helpers/mock-cli.mjs';
+import { writeMockNodeBin, cleanupDelegatorDir } from './helpers/mock-cli.mjs';
 register('data:text/javascript,' + encodeURIComponent(`export async function resolve(spec,ctx,next){if(spec==='obsidian')return {url:'data:text/javascript,export class MarkdownView{}',shortCircuit:true};return next(spec,ctx);}`));
 const J = await import('../src/journal.js');
 const { Delegator, isCliSession } = await import('../src/delegation.js');
@@ -100,7 +100,7 @@ test('Claude background subprocess drains complete UTF-8 output and automaticall
     for (let n = 0; n < 300 && !job.resultWritten; n++) await new Promise(r => setTimeout(r, 10));
     assert.equal(job.result, longReply); assert.equal(job.state, 'done'); assert.equal(job.resultWritten, true);
     assert.ok(p.files.get(job.backgroundFiles[1].path).text.includes(longReply)); assert.ok(p.note().length < 1000);
-  } finally { for (const runner of d.runners.values()) runner.cancel(); clearTimeout(d._saveT); fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally { cleanupDelegatorDir(d, dir); }
 });
 test('WorkBuddy terminal sessions are recognized separately from desktop sessions', () => {
   assert.equal(isCliSession('workbuddy', 'cli'), true);

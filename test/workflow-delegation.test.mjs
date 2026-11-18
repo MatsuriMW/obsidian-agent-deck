@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { Delegator, freshTaskText, blockAt, ancestorLines, delegationText } from '../src/delegation.js';
 import { DEFAULTS, deepMerge } from '../src/constants.js';
 import { archiveConversation } from '../src/conversation.js';
-import { writeMockNodeBin } from './helpers/mock-cli.mjs';
+import { writeMockNodeBin, cleanupDelegatorDir } from './helpers/mock-cli.mjs';
 const req=createRequire(import.meta.url),opened=[];
 globalThis.require=s=>s==='electron'?{shell:{openExternal:u=>opened.push(u)}}:req(s);
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ad-workflow-'));
@@ -76,4 +76,4 @@ rl.on('line',s=>{const m=JSON.parse(s);if(m.id==null)return;let result={};if(m.m
  const root=note.split('\n')[0],archive=await archiveConversation(plugin,{agent:'claude',sid:one.sessionId});assert.ok(note.includes('[['+archive.path+'|对话归档'));assert.equal(note.split('\n')[0],root);const saved=note;await archiveConversation(plugin,{agent:'claude',sid:one.sessionId});assert.equal(note,saved);
  assert.ok(archive.text.includes('问题'));assert.ok(archive.text.includes('答案'));
  console.log('PASS per-dispatch destinations, real subprocess, preserved multi-session links, concurrent binding, new prompt and archive backlink');
-}finally{clearTimeout(d._saveT);fs.rmSync(dir,{recursive:true,force:true})}
+}finally{cleanupDelegatorDir(d,dir)}
