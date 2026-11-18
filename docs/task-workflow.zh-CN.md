@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.0**（已发版，2026-11-19）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.1**（已发版，2026-11-19）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 核心构想（接手先读这段）
 
@@ -36,9 +36,9 @@
 | **macOS** | 全量 `npm test`、构建、`swiftc` 编译与运行（`AgentDeckMenuBar.app`）、Vault 安装与热重载（Obsidian `1.15.1`）、Antigravity (`agy` / `agy acp`) 两轮续聊与记忆查询、`preview` 模式草稿读取、Dashboard、AI 记录 Pin（大纲与阅读视图 DOM）、Menu Bar 会话置顶命令队列 | 终端交互仅实测 Tern / Herdr；7 家可委派客户端全量逐一派发、Menu Bar SwiftUI 悬浮窗口拖拽手感待人手目视微调 |
 | **Windows** | 尚未实机运行验证 | `src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）仍依赖 macOS `osascript`/终端；`src/readers.js` 在 `win32` 跳过 `claudeDesktop`；CLI 探测与路径短链待实测 |
 
-## 本批发版基线（1.13.0，2026-11-19，已构建并装库实测）
+## 本批发版基线（1.13.1，2026-11-19，已构建、装库实测并触发三端 CI）
 
-`1.13.0` 已收口 M0 基线、M1.1 上下文收口与生产四要素加固并打 tag 发版。接手后续 M1.2 / M1.3 时先看本节，再看 [`specs/harness-roadmap.zh-CN.md`](specs/harness-roadmap.zh-CN.md)（方向）与 [`specs/context-protocol.zh-CN.md`](specs/context-protocol.zh-CN.md)（契约草案）。
+`1.13.1` 在 `1.13.0` 基础上依据首次 `windows-latest` CI 实报缺陷完成跨平台兼容性修复（`src/sqlite.js` 跨平台探测替换 `/usr/bin/sqlite3`、Windows `.cmd`/`.bat` CLI 拉起、`CodexDesktopRunner` trace 与脱敏补齐、跨平台测试垫片 `test/helpers/mock-cli.mjs`）并面向用户刷新中英文 README 功能说明。接手后续 M1.2 / M1.3 时先看本节，再看 [`specs/harness-roadmap.zh-CN.md`](specs/harness-roadmap.zh-CN.md)（方向）与 [`specs/context-protocol.zh-CN.md`](specs/context-protocol.zh-CN.md)（契约草案）。
 
 **新增模块**
 

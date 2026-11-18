@@ -19,6 +19,7 @@ const origHome = process.env.HOME;
 process.env.HOME = tmpRoot;
 
 const CS = await import("../src/cursor-sessions.js");
+const { resolveSqliteBinary } = await import("../src/sqlite.js");
 const { AgentUsage, USAGE_CACHE_VERSION } = await import("../src/readers.js");
 const { conversationMessages, conversationMarkdown, readConversation, archiveConversation } = await import("../src/conversation.js");
 const J = await import("../src/journal.js");
@@ -26,7 +27,7 @@ const { AGENTS, DEFAULTS } = await import("../src/constants.js");
 
 function runSql(dbFile, sql) {
   fs.mkdirSync(path.dirname(dbFile), { recursive: true });
-  execFileSync("/usr/bin/sqlite3", [dbFile, sql], { stdio: "pipe" });
+  execFileSync(resolveSqliteBinary(), [dbFile, sql], { stdio: "pipe" });
 }
 
 function runHook(scriptPath, event, payload, homeDir) {

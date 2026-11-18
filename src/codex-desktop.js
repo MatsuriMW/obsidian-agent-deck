@@ -8,6 +8,12 @@ import { t } from "./i18n.js";
 import { isScratchCwd } from "./readers.js";
 import { projectNameForFolder, sameFolder } from "./project-folders.js";
 import { sandboxFor } from "./constants.js";
+import { redactSecrets } from "./security.js";
+
+function spawnCodex(bin, args, opts = {}) {
+  const needsShell = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""));
+  return spawn(bin, args, needsShell ? { ...opts, shell: true, windowsHide: true } : opts);
+}
 
 const taskHash = (text) => createHash("sha1").update(String(text)).digest("hex");
 
@@ -37,13 +43,14 @@ export class CodexDesktopRunner {
     try {
       this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
       const cfg = this.d.settings.delegate.codex;
-      this.child = spawn(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
+      this.child = spawnCodex(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
+      this.trace?.recordFrame("codex.spawn", "app-server");
       this.closed = new Promise(resolve => this.child.once("close", resolve));
       this.child.on("error", error => this.finish("error", error.message));
       this.child.stdin.on("error", error => { if (!this.finished) this.finish("error", error.message); });
       this.child.on("exit", code => { if (!this.finished) this.finish("error", t("Codex App Server 已退出（{code}）", { code })); });
       // stderr can include diagnostics; keep it bounded and never use it as model output.
-      this.child.stderr.on("data", data => { this.job.stderr = ((this.job.stderr || "") + data.toString()).slice(-2000); });
+      this.child.stderr.on("data", data => { this.job.stderr = redactSecrets(((this.job.stderr || "") + data.toString()).slice(-2000)); });
       this.reader = createInterface({ input: this.child.stdout });
       this.reader.on("line", line => {
         try { this.receive(JSON.parse(line)); }
@@ -130,8 +137,9 @@ export class CodexDesktopRunner {
     this.pending.clear();
     this.job.state = state; this.job.endedAt = Date.now();
     if (this.job.result) this.job.conversation.push({ role: "assistant", text: this.job.result, at: this.job.endedAt });
-    if (error) this.job.error = error.slice(0, 500);
+    if (error) this.job.error = redactSecrets(error).slice(0, 500);
     this.d.saveJobs(); this.d.refreshUI();
+    this.trace?.finalize(state, { error: this.job.error || "", transport: "app-server" });
     if (this.child) {
       if (state !== "done" && this.job.sessionId && this.turnId) {
         try { this.send({ id: ++this.nextId, method: "turn/interrupt", params: { threadId: this.job.sessionId, turnId: this.turnId } }); } catch { /* already closed */ }

@@ -47,11 +47,11 @@ console.log('PASS task mentions: agent/model/effort, safe boundaries, completion
 const fs = await import('node:fs');
 const os = await import('node:os');
 const path = await import('node:path');
+const { writeMockNodeBin, mockNodeScriptPath } = await import('./helpers/mock-cli.mjs');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(),'ad-mention-'));
 try {
-  const bin = path.join(dir,'claude'), argvPath=path.join(dir,'argv.json');
-  fs.writeFileSync(bin, '#!/usr/bin/env node\nrequire("fs").writeFileSync('+JSON.stringify(argvPath)+',JSON.stringify(process.argv.slice(2)));\n');
-  fs.chmodSync(bin,0o755);
+  const argvPath=path.join(dir,'argv.json');
+  const bin = writeMockNodeBin(dir,'claude','require("fs").writeFileSync('+JSON.stringify(argvPath)+',JSON.stringify(process.argv.slice(2)));\n');
   p.vaultPath=dir;p.settings.delegate.claude.path=bin;p.settings.delegate.claude.cwd=dir;
   p.settings.delegate.claude.openDesktop=false;p.saveSettings=()=>{};p.saveJobs=()=>{};p.refreshUI=()=>{};p.notice=()=>{};
   const actual = new Delegator(p);actual.onSession=()=>{};actual.onDone=()=>{};actual.onError=()=>{};
@@ -65,11 +65,11 @@ try {
 console.log('PASS real runner subprocess receives the selected Claude model and effort');
 const acpDir=fs.mkdtempSync(path.join(os.tmpdir(),'ad-acp-'));
 try {
-  const bin=path.join(acpDir,'dsh'), events=path.join(acpDir,'events.jsonl');
-  fs.writeFileSync(bin, `#!/usr/bin/env node
-const fs=require('fs'),rl=require('readline').createInterface({input:process.stdin});
-rl.on('line',line=>{const m=JSON.parse(line);fs.appendFileSync(${JSON.stringify(events)},line+'\\n');if(m.method==='session/close')process.exit(0);let result={};if(m.method==='session/new')result={sessionId:'fake-acp-session',configOptions:${JSON.stringify([{id:'model'},{id:'reasoning_effort'}])}};if(m.method==='session/prompt')result={stopReason:'end_turn'};process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n')});\n`);
-  fs.chmodSync(bin,0o755);p.settings.delegate.dsh.path=bin;p.settings.delegate.dsh.cwd=acpDir;
+  const events=path.join(acpDir,'events.jsonl');
+  const bin=writeMockNodeBin(acpDir,'dsh',`const fs=require('fs'),rl=require('readline').createInterface({input:process.stdin});
+const send=m=>process.stdout.write(JSON.stringify(m)+'\\n');
+rl.on('line',line=>{const m=JSON.parse(line);fs.appendFileSync(${JSON.stringify(events)},line+'\\n');if(m.method==='session/close')process.exit(0);let result={};if(m.method==='session/new')result={sessionId:'fake-acp-session',configOptions:${JSON.stringify([{id:'model'},{id:'reasoning_effort'}])}};if(m.method==='session/prompt')result={stopReason:'end_turn'};send({jsonrpc:'2.0',id:m.id,result})});\n`);
+  p.settings.delegate.dsh.path=bin;p.settings.delegate.dsh.cwd=acpDir;
   const actual=new Delegator(p);actual.onSession=()=>{};actual.onDone=()=>{};actual.onError=()=>{};
   const job=await actual.delegate({file:{path:'task.md'},lines:['- TODO fake @dsh/deepseek-v4-pro/max'],line:0,agent:'claude'});
   for(let i=0;i<500 && job.state==='running';i++)await new Promise(r=>setTimeout(r,10));
@@ -78,7 +78,8 @@ rl.on('line',line=>{const m=JSON.parse(line);fs.appendFileSync(${JSON.stringify(
   assert.ok(requests.some(x=>x.method==='session/set_config_option'&&x.params.configId==='model'&&x.params.value.includes('deepseek-v4-pro')));
   assert.ok(requests.some(x=>x.method==='session/set_config_option'&&x.params.configId==='reasoning_effort'&&x.params.value==='max'));
   // An older ACP server that offers no model controls must fail before prompting.
-  fs.writeFileSync(bin,fs.readFileSync(bin,'utf8').replace('configOptions:[{"id":"model"},{"id":"reasoning_effort"}]','configOptions:[]'));
+  const scriptPath = mockNodeScriptPath(bin);
+  fs.writeFileSync(scriptPath,fs.readFileSync(scriptPath,'utf8').replace('configOptions:[{"id":"model"},{"id":"reasoning_effort"}]','configOptions:[]'));
   fs.writeFileSync(events,'');
   const failed=await actual.delegate({file:{path:'task.md'},lines:['- TODO fake @dsh/deepseek-v4-pro/high'],line:0,agent:'claude'});
   assert.equal(failed.state,'error');assert.match(failed.error,/未提供模型/);

@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { isCodexDesktop } from '../src/delegation.js';
 import { CodexDesktopRunner } from '../src/codex-desktop.js';
+import { writeMockNodeBin } from './helpers/mock-cli.mjs';
 assert.equal(isCodexDesktop('agent_deck'),true);
 assert.equal(isCodexDesktop('codex_cli_rs'),false);
 {
@@ -14,9 +15,8 @@ assert.equal(isCodexDesktop('codex_cli_rs'),false);
  assert.equal(job.result,'先完成了第一步\n\n完整结果与尚未完成的事项（更新）');
 }
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ad-desktop-'));
-const bin=path.join(dir,'codex'), events=path.join(dir,'events.jsonl'), modeFile=path.join(dir,'mode.txt');
-fs.writeFileSync(bin,`#!/usr/bin/env node
-const fs=require('fs'),rl=require('readline').createInterface({input:process.stdin});
+const events=path.join(dir,'events.jsonl'), modeFile=path.join(dir,'mode.txt');
+const bin=writeMockNodeBin(dir,'codex',`const fs=require('fs'),rl=require('readline').createInterface({input:process.stdin});
 const mode=()=>{try{return fs.readFileSync(${JSON.stringify(modeFile)},'utf8').trim()}catch{return 'existing'}};
 rl.on('line',line=>{const m=JSON.parse(line);fs.appendFileSync(${JSON.stringify(events)},line+'\\n');if(m.id==null)return;let result={};
 if(m.method==='project/list'){
@@ -30,8 +30,7 @@ process.stdout.write(JSON.stringify({id:m.id,result})+'\\n');
 if(m.method==='turn/start' && m.params.input[0].text==='wait')return;
 if(m.method==='turn/start' && m.params.input[0].text==='approval'){process.stdout.write(JSON.stringify({id:999,method:'item/commandExecution/requestApproval',params:{threadId:'desktop-session'}})+'\\n');return;}
 if(m.method==='turn/start')setTimeout(()=>{process.stdout.write(JSON.stringify({method:'item/completed',params:{threadId:'desktop-session',item:{type:'agentMessage',text:'DESKTOP_OK'}}})+'\\n');process.stdout.write(JSON.stringify({method:'turn/completed',params:{threadId:'desktop-session',turn:{id:'turn-1',status:'completed'}}})+'\\n')},20);
-});
-`);fs.chmodSync(bin,0o755);
+});`);
 const all=()=>fs.existsSync(events)?fs.readFileSync(events,'utf8').trim().split('\n').filter(Boolean).map(JSON.parse):[];
 const count=(method)=>all().filter(x=>x.method===method).length;
 function fixture({model='gpt-6.1-sol',mode='existing',cwd=dir,project='',codex={}}={}){

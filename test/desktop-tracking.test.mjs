@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { AgentUsage } from '../src/readers.js';
+import { resolveSqliteBinary } from '../src/sqlite.js';
 import { readConversation } from '../src/conversation.js';
 import * as J from '../src/journal.js';
 import { dayKey, dayKeyToday, fmtClock, AGENTS, DEFAULTS, deepMerge } from '../src/constants.js';
@@ -13,7 +14,7 @@ const quote = x => "'" + String(typeof x === 'object' ? JSON.stringify(x) : x).r
 const now = Date.now() - 60000;
 function fixture(agent) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ad-desktop-')), db = path.join(dir, 'main.sqlite');
-  const sql = s => execFileSync('/usr/bin/sqlite3', [db, s]);
+  const sql = s => execFileSync(resolveSqliteBinary(), [db, s]);
   if (agent === 'opencode') {
     sql(`CREATE TABLE session_v2(id,title,directory,parent_id,model,time_created,time_updated,time_archived,time_busy,time_idle,idle_outcome);
       CREATE TABLE session_message(id,session_id,type,seq,time_created,time_updated,data);

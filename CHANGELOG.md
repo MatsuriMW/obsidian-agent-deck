@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.1
+
+- **跨平台 SQLite 与 Windows CLI 启动兼容**：新增 `src/sqlite.js` 跨平台探测 `sqlite3` / `sqlite3.exe` 替换各处硬编码 `/usr/bin/sqlite3`；`Delegator` / `CodexDesktopRunner` 在 Windows 下支持 `.cmd` / `.bat` 包装脚本拉起，并为 `CodexDesktopRunner` 补齐 `RunTrace` 闭环与错误脱敏；同步补齐跨平台测试夹具与 Windows CI 矩阵验证。
+- **中英文 README 功能同步**：面向用户精简并补齐问答闭环与回复信箱、工作模式与高危权限拦截、子代理层级、管家中途看护、凭证引用保护及脱敏诊断导出说明。
+
 ## 1.13.0
 
 - **Markdown 即 Harness 与 M1.1 上下文收口**：一文一条记忆库（`Agent Deck/记忆/*.md`、`记忆.base`、三列记忆看板与逐条审阅、`scripts/memory-query.mjs` 只读检索 CLI）；统一 `ContextBundle`「前稳后动」装配顺序保 KV Cache；消灭双链溢出/坏锚点/读失败静默丢失（超 3 篇改列路径、长文附后续章节行号目录），接入 `private: true` 与 `settings.delegate.excludedDirs` 隐私闸门，并支持未保存编辑器缓冲优先读取与单英文技术词/元数据召回补盲。

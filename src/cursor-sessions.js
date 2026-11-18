@@ -9,6 +9,7 @@ import os from "os";
 import { execFile } from "child_process";
 import { randomUUID } from "crypto";
 import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
+import { resolveSqliteBinary } from "./sqlite.js";
 
 const fsp = fs.promises;
 
@@ -327,7 +328,7 @@ function sqliteRows(db, sql) {
   return new Promise((resolve) => {
     if (!fs.existsSync(db)) return resolve([]);
     // Omit -readonly so WAL-mode Cursor databases reflect uncommitted WAL writes.
-    execFile("/usr/bin/sqlite3", ["-noheader", "-separator", "\t", db, sql], { timeout: 5000, maxBuffer: 4 << 20 }, (err, out) => {
+    execFile(resolveSqliteBinary(), ["-noheader", "-separator", "\t", db, sql], { timeout: 5000, maxBuffer: 4 << 20 }, (err, out) => {
       if (err) return resolve([]);
       resolve(String(out || "").split("\n").map((s) => s.trimEnd()).filter(Boolean));
     });

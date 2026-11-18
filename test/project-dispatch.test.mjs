@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { Delegator, ancestorLines } from '../src/delegation.js';
 import { DEFAULTS, deepMerge } from '../src/constants.js';
+import { writeMockNodeBin } from './helpers/mock-cli.mjs';
 
 const req = createRequire(import.meta.url);
 globalThis.require = (s) => s === 'electron' ? { shell: { openExternal() {} } } : req(s);
@@ -15,13 +16,11 @@ const vault = path.join(root, 'vault');
 const project = path.join(root, 'demo-project');
 const explicitProject = path.join(root, 'explicit-project');
 for (const dir of [vault, project, explicitProject]) fs.mkdirSync(dir, { recursive: true });
-const bin = path.join(root, 'claude');
 const cwdFile = path.join(root, 'ran-in.txt');
-fs.writeFileSync(bin, `#!/usr/bin/env node
+const bin = writeMockNodeBin(root, 'claude', `
 require('fs').writeFileSync(${JSON.stringify(cwdFile)}, process.cwd());
 process.stdout.write('完成');
 `);
-fs.chmodSync(bin, 0o755);
 
 let note = '- [[demo]]\n\t- TODO 只做这一项\n';
 const plugin = {

@@ -26,6 +26,8 @@ import {
   AcpRunner,
 } from "../src/delegation-runners.js";
 import { desktopSessions, desktopMessages, hermesTime } from "../src/desktop-sessions.js";
+import { resolveSqliteBinary } from "../src/sqlite.js";
+import { writeMockNodeBin } from "./helpers/mock-cli.mjs";
 import { AgentUsage, projectName, normalizeProjectRoot, USAGE_CACHE_VERSION } from "../src/readers.js";
 import { conversationMessages, readConversation } from "../src/conversation.js";
 import { destinations, defaultDestination, canOpenClient } from "../src/workflow.js";
@@ -138,10 +140,8 @@ test("Task 1: requestAcpPermission queues concurrent modals and auto-approves qu
 
 test("Task 1 + Task 2: AcpRunner tolerates missing delegate[agent] settings and drives SessionModelState + set_model", async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-hermes-acp-"));
-  const bin = path.join(dir, "fake-hermes-acp");
   const log = path.join(dir, "rpc.jsonl");
-  fs.writeFileSync(bin, `#!/usr/bin/env node
-const fs = require("fs");
+  const bin = writeMockNodeBin(dir, "fake-hermes-acp", `const fs = require("fs");
 const rl = require("readline").createInterface({ input: process.stdin });
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\\n");
 let promptId;
@@ -189,9 +189,7 @@ rl.on("line", (line) => {
     send({ method: "session/update", params: { sessionId: "hermes-sess-1", update: { sessionUpdate: "agent_message_chunk", content: { type: "text", text: "HERMES_ACP_OK" } } } });
     send({ id: promptId, result: { stopReason: "end_turn" } });
   }
-});
-`);
-  fs.chmodSync(bin, 0o755);
+});`);
 
   const models = acpModels("hermes", [], { availableModels: [{ modelId: "openai:gpt-5.4", name: "GPT-5.4" }] });
   assert.equal(models.length, 1);
@@ -270,7 +268,7 @@ test("Task 2: Hermes state.db SQLite tracking converts Unix seconds, preserves e
       ('h-arch','user','Old task',NULL,NULL,${nowSec - 20},NULL,1,0),
       ('h-arch','assistant','Done',NULL,NULL,${nowSec - 10},'stop',1,0);
   `;
-  execFileSync("/usr/bin/sqlite3", [dbPath], { input: sql });
+  execFileSync(resolveSqliteBinary(), [dbPath], { input: sql });
 
   assert.equal(hermesTime(nowSec), nowSec * 1000);
   const rows = await desktopSessions(dbPath, "hermes", 0);

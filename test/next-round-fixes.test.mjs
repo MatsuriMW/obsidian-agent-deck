@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import esbuild from "esbuild";
 import { pathToFileURL } from "node:url";
+import { normalizeProjectFolder } from "../src/project-folders.js";
 
 const root = path.resolve(import.meta.dirname, "..");
 
@@ -526,11 +527,11 @@ test("P1 #5 & P2 #6: makeDispatchDraft parses @agent, status:draft lifecycle pre
       const useTaskBtn = confModal.contentEl.all().find((e) => e.tag === "button" && e.text === "用任务的项目并记住");
       assert.ok(useTaskBtn, "ConfirmSendModal surfaces conflict resolution button");
       await useTaskBtn.onclick();
-      assert.equal(p.settings.projectFolders[confName], conflictDir, "conflict choice remembers project folder");
+      assert.equal(p.settings.projectFolders[confName], normalizeProjectFolder(conflictDir), "conflict choice remembers project folder");
       const sendBtn = confModal.contentEl.all().find((e) => e.classes.has("ad-send__go"));
       sendBtn.onclick();
       await new Promise((r) => setTimeout(r, 20));
-      assert.equal(delegatedOpts?.cwd, conflictDir, "ConfirmSendModal passes chosen cwd to delegate");
+      assert.equal(delegatedOpts?.cwd, normalizeProjectFolder(conflictDir), "ConfirmSendModal passes chosen cwd to delegate");
       assert.equal(delegatedOpts?.fromDialog, true, "ConfirmSendModal sets fromDialog:true so delegate does not fall back to vaultPath");
 
       // Stub delegator.delegate check is done; restore real readDraft check for consumed draft lifecycle

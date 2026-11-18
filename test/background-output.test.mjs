@@ -4,6 +4,7 @@ import { register } from 'node:module';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { writeMockNodeBin } from './helpers/mock-cli.mjs';
 register('data:text/javascript,' + encodeURIComponent(`export async function resolve(spec,ctx,next){if(spec==='obsidian')return {url:'data:text/javascript,export class MarkdownView{}',shortCircuit:true};return next(spec,ctx);}`));
 const J = await import('../src/journal.js');
 const { Delegator, isCliSession } = await import('../src/delegation.js');
@@ -89,9 +90,8 @@ test('scans use the same file policy and avoid the polish/merge paths', async ()
 });
 test('Claude background subprocess drains complete UTF-8 output and automatically saves a full transcript', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ad-output-'));
-  const bin = path.join(dir, 'claude');
-  const script = `#!/usr/bin/env node\nconst bytes=Buffer.from(${JSON.stringify(longReply)});let n=0;function send(){if(n===bytes.length)return;process.stdout.write(bytes.subarray(n,n+101));n=Math.min(n+101,bytes.length);setImmediate(send)}send();`;
-  fs.writeFileSync(bin, script); fs.chmodSync(bin, 0o755);
+  const jsBody = `const bytes=Buffer.from(${JSON.stringify(longReply)});let n=0;function send(){if(n===bytes.length)return;process.stdout.write(bytes.subarray(n,n+101));n=Math.min(n+101,bytes.length);setImmediate(send)}send();`;
+  const bin = writeMockNodeBin(dir, 'claude', jsBody);
   const p = fixture('- TODO 原文测试 ^ad-stream\n'); p.vaultPath = dir;
   Object.assign(p.settings.delegate.claude, { path: bin, cwd: dir, autoTrustedCwd: false });
   const d = new Delegator(p);

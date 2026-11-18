@@ -8,6 +8,7 @@ import fs from "fs";
 import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 export { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 import { desktopSessions, desktopMessages } from "./desktop-sessions.js";
+import { resolveSqliteBinary } from "./sqlite.js";
 import {
   stepText,
   todoOf,
@@ -1465,7 +1466,7 @@ export class UsageStore {
 function sqliteColumn(db, sql) {
   return new Promise((resolve) => {
     if (!fs.existsSync(db)) return resolve([]);
-    execFile("/usr/bin/sqlite3", ["-noheader", db, sql], { timeout: 5000, maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
+    execFile(resolveSqliteBinary(), ["-noheader", db, sql], { timeout: 5000, maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
       if (err) return resolve([]);
       resolve(String(out || "").split("\n").map((s) => s.trim()).filter(Boolean));
     });

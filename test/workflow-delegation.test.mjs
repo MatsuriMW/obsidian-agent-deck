@@ -6,10 +6,11 @@ import { createRequire } from 'node:module';
 import { Delegator, freshTaskText, blockAt, ancestorLines, delegationText } from '../src/delegation.js';
 import { DEFAULTS, deepMerge } from '../src/constants.js';
 import { archiveConversation } from '../src/conversation.js';
+import { writeMockNodeBin } from './helpers/mock-cli.mjs';
 const req=createRequire(import.meta.url),opened=[];
 globalThis.require=s=>s==='electron'?{shell:{openExternal:u=>opened.push(u)}}:req(s);
 const dir=fs.mkdtempSync(path.join(os.tmpdir(),'ad-workflow-'));
-const bin=path.join(dir,'claude');fs.writeFileSync(bin,'#!/usr/bin/env node\nprocess.stdout.write("完成");\n');fs.chmodSync(bin,0o755);
+const bin=writeMockNodeBin(dir,'claude','process.stdout.write("完成");\n');
 const ids=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222'];
 let note='- TODO 测试 ^ad-task\n\t- 手写子任务\n';
 const plugin={settings:deepMerge(DEFAULTS,{}),jobs:{},vaultPath:dir,usage:{meta:new Map()},saveSettings(){},saveJobs(){},refreshUI(){},notice(){},readNote:async()=>note,writeNote:async(p,text)=>{await new Promise(r=>setTimeout(r,5));note=text;},agentEnabled:()=>true,modelsFor:()=>[],defaultModel:()=>'',openConversation:s=>opened.push('obsidian:'+s.sid)};
@@ -48,11 +49,10 @@ try{
  const firstLink=note.match(/session=([0-9a-f-]{36})/)?.[1];assert.ok(firstLink);
  await assert.rejects(()=>d.delegate({file:{path:'task.md'},lines:note.split('\n'),line:0,agent:'claude',destination:'background'}),/已经有/);
  const two=await d.delegate({file:{path:'task.md'},lines:note.split('\n'),line:0,agent:'claude',destination:'desktop',newSession:true});await wait(two);assert.equal(opened.length,1);assert.notEqual(one.sessionId,two.sessionId);assert.ok(note.includes(firstLink));assert.ok(note.includes(two.sessionId));assert.equal(two.blockId,one.blockId);
- const codex=path.join(dir,'codex');
- fs.writeFileSync(codex,`#!/usr/bin/env node
+ const codex=writeMockNodeBin(dir,'codex',`
 const rl=require('readline').createInterface({input:process.stdin});
 rl.on('line',s=>{const m=JSON.parse(s);if(m.id==null)return;let result={};if(m.method==='thread/start')result={thread:{id:'33333333-3333-4333-8333-333333333333'},model:m.params.model};if(m.method==='turn/start')result={turn:{id:'t'}};process.stdout.write(JSON.stringify({id:m.id,result})+'\\n');if(m.method==='turn/start')setTimeout(()=>process.stdout.write(JSON.stringify({method:'turn/completed',params:{threadId:'33333333-3333-4333-8333-333333333333',turn:{status:'completed'}}})+'\\n'),10)});`);
- fs.chmodSync(codex,0o755);plugin.settings.delegate.codex.path=codex;plugin.settings.delegate.codex.transport='terminal';
+ plugin.settings.delegate.codex.path=codex;plugin.settings.delegate.codex.transport='terminal';
  const openBefore=opened.length;
  const bg=await d.delegate({file:{path:'task.md'},lines:note.split('\n'),line:0,agent:'codex',destination:'background',newSession:true});await wait(bg);
  assert.equal(opened.length,openBefore,'Codex background does not launch Desktop despite terminal default');

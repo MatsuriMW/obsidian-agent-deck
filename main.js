@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.0 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.1 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -2844,7 +2844,7 @@ function recommendPrimaryAgents(usage, now = Date.now()) {
 }
 
 // src/main.js
-var import_fs16 = __toESM(require("fs"), 1);
+var import_fs17 = __toESM(require("fs"), 1);
 
 // src/journal.js
 var import_crypto = require("crypto");
@@ -2936,8 +2936,8 @@ function formatSummaryLinks(raw, format = (text) => text) {
   const encode = (c) => c === "(" ? "%28" : c === ")" ? "%29" : encodeURIComponent(c);
   const target = (address2) => {
     if (/^(?:https?|file):/i.test(address2)) return address2.replace(/[()\s]/g, encode);
-    const path15 = address2.replace(/^~(?=\/)/, import_os.default.homedir()).replace(/\\/g, "/");
-    return (path15.startsWith("/") ? "file://" : "file:///") + path15.replace(/[()\s?#]/g, encode);
+    const path16 = address2.replace(/^~(?=\/)/, import_os.default.homedir()).replace(/\\/g, "/");
+    return (path16.startsWith("/") ? "file://" : "file:///") + path16.replace(/[()\s?#]/g, encode);
   };
   const address = (value) => /^(?:https?:\/\/|file:\/\/|[a-z]:[\\/]|~?\/)/i.test(value);
   const longPath = (value) => value.length >= 40 || /^(?:[a-z]:[\\/]|~\/|\/(?:Users|home|tmp|var|workspace|mnt|Volumes)\/)/i.test(value);
@@ -4854,9 +4854,9 @@ function squeezeBlank(text) {
 // src/journal-archive.js
 var ARCHIVE_TITLE = "# \u5DF2\u5B8C\u6210\u7684 AI \u4EFB\u52A1";
 function archivePath(value) {
-  const path15 = String(value || "").trim().replace(/\\/g, "/");
-  if (!path15 || path15.startsWith("/") || /^[a-z]:/i.test(path15) || path15.split("/").some((x) => !x || x === "." || x === "..") || !path15.endsWith(".md")) throw new Error(t("\u5F52\u6863\u4F4D\u7F6E\u5FC5\u987B\u662F\u5E93\u5185\u7684 .md \u6587\u4EF6\u8DEF\u5F84"));
-  return path15;
+  const path16 = String(value || "").trim().replace(/\\/g, "/");
+  if (!path16 || path16.startsWith("/") || /^[a-z]:/i.test(path16) || path16.split("/").some((x) => !x || x === "." || x === "..") || !path16.endsWith(".md")) throw new Error(t("\u5F52\u6863\u4F4D\u7F6E\u5FC5\u987B\u662F\u5E93\u5185\u7684 .md \u6587\u4EF6\u8DEF\u5F84"));
+  return path16;
 }
 function archiveDate(file) {
   const name = String(file?.basename || file?.path || "");
@@ -4950,8 +4950,8 @@ function mergeArchive(text, { date, blocks = [], turns = /* @__PURE__ */ new Map
   const out = renderArchive(archive);
   return crlf ? out.replace(/\n/g, "\r\n") : out;
 }
-async function ensureFolders(vault, path15) {
-  const parts = path15.split("/");
+async function ensureFolders(vault, path16) {
+  const parts = path16.split("/");
   parts.pop();
   let folder = "";
   for (const part of parts) {
@@ -4959,8 +4959,8 @@ async function ensureFolders(vault, path15) {
     if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
   }
 }
-async function archiveCompletedTo(plugin, file, base, plan, { path: path15, order = "prepend" } = {}) {
-  const targetPath = archivePath(path15);
+async function archiveCompletedTo(plugin, file, base, plan, { path: path16, order = "prepend" } = {}) {
+  const targetPath = archivePath(path16);
   if (targetPath === file.path) throw new Error(t("\u5F52\u6863\u6587\u4EF6\u4E0D\u80FD\u4E0E\u5F53\u524D\u65E5\u8BB0\u76F8\u540C"));
   const blocks = (plan.done || []).filter((entry) => entry.ai);
   if (!blocks.length) throw new Error(t("\u6CA1\u6709\u53EF\u5F52\u6863\u7684 AI \u4EFB\u52A1"));
@@ -5779,17 +5779,55 @@ function workspaceLabel(cwd) {
 }
 
 // src/main.js
-var import_path16 = __toESM(require("path"), 1);
-var import_os16 = __toESM(require("os"), 1);
+var import_path17 = __toESM(require("path"), 1);
+var import_os17 = __toESM(require("os"), 1);
 var import_child_process11 = require("child_process");
 var import_obsidian21 = require("obsidian");
 
 // src/readers.js
-var import_fs6 = __toESM(require("fs"), 1);
+var import_fs7 = __toESM(require("fs"), 1);
 
 // src/desktop-sessions.js
-var import_fs3 = __toESM(require("fs"), 1);
+var import_fs4 = __toESM(require("fs"), 1);
 var import_child_process2 = require("child_process");
+
+// src/sqlite.js
+var import_fs3 = __toESM(require("fs"), 1);
+var import_os4 = __toESM(require("os"), 1);
+var import_path3 = __toESM(require("path"), 1);
+var cachedBin = null;
+function resolveSqliteBinary({ env = process.env, platform = process.platform, homeDir = import_os4.default.homedir() } = {}) {
+  if (cachedBin && import_fs3.default.existsSync(cachedBin)) return cachedBin;
+  const names = platform === "win32" ? ["sqlite3.exe", "sqlite3.cmd", "sqlite3"] : ["sqlite3"];
+  const dirs = [];
+  if (platform !== "win32") dirs.push("/usr/bin", "/opt/homebrew/bin", "/usr/local/bin");
+  for (const entry of String(env.PATH || "").split(import_path3.default.delimiter).filter(Boolean)) {
+    dirs.push(entry);
+  }
+  if (platform === "win32") {
+    dirs.push(
+      import_path3.default.join(env.ProgramData || "C:\\ProgramData", "chocolatey", "bin"),
+      import_path3.default.join(homeDir, "scoop", "shims"),
+      import_path3.default.join(env.LOCALAPPDATA || import_path3.default.join(homeDir, "AppData", "Local"), "Programs", "sqlite3"),
+      import_path3.default.join(env.LOCALAPPDATA || import_path3.default.join(homeDir, "AppData", "Local"), "Microsoft", "WinGet", "Links")
+    );
+  }
+  for (const dir of dirs) {
+    for (const name of names) {
+      const candidate = import_path3.default.join(dir, name);
+      try {
+        if (import_fs3.default.existsSync(candidate) && import_fs3.default.statSync(candidate).isFile()) {
+          cachedBin = candidate;
+          return candidate;
+        }
+      } catch {
+      }
+    }
+  }
+  return platform === "win32" ? "sqlite3.exe" : "sqlite3";
+}
+
+// src/desktop-sessions.js
 var quote = (value) => "'" + String(value).replaceAll("'", "''") + "'";
 var json = (value, fallback = {}) => {
   try {
@@ -5809,9 +5847,9 @@ var modelName = (value) => {
   return typeof m === "string" ? m : m?.modelID || m?.id || "";
 };
 function desktopQuery(db, sql) {
-  if (!import_fs3.default.existsSync(db)) return Promise.resolve([]);
+  if (!import_fs4.default.existsSync(db)) return Promise.resolve([]);
   return new Promise((resolve, reject) => {
-    (0, import_child_process2.execFile)("/usr/bin/sqlite3", ["-readonly", "-json", "-cmd", ".timeout 2000", db, `BEGIN; ${sql}; COMMIT;`], { timeout: 1e4, maxBuffer: 64 << 20 }, (err2, out) => {
+    (0, import_child_process2.execFile)(resolveSqliteBinary(), ["-readonly", "-json", "-cmd", ".timeout 2000", db, `BEGIN; ${sql}; COMMIT;`], { timeout: 1e4, maxBuffer: 64 << 20 }, (err2, out) => {
       if (err2) return reject(err2);
       try {
         resolve(JSON.parse(out || "[]"));
@@ -5932,12 +5970,12 @@ async function desktopMessages(db, agent, sid) {
 }
 
 // src/cursor-sessions.js
-var import_fs4 = __toESM(require("fs"), 1);
-var import_path3 = __toESM(require("path"), 1);
-var import_os4 = __toESM(require("os"), 1);
+var import_fs5 = __toESM(require("fs"), 1);
+var import_path4 = __toESM(require("path"), 1);
+var import_os5 = __toESM(require("os"), 1);
 var import_child_process3 = require("child_process");
 var import_crypto2 = require("crypto");
-var fsp = import_fs4.default.promises;
+var fsp = import_fs5.default.promises;
 var CURSOR_MIN_VERSION = "3.30.14";
 var CURSOR_HOOK_MARKER = "agent-deck-cursor-hook";
 var CURSOR_HOOK_VERSION = 1;
@@ -5955,15 +5993,15 @@ var CURSOR_HOOK_EVENTS = [
   "preCompact",
   "stop"
 ];
-var cursorEventsDir = (homeDir = import_os4.default.homedir()) => import_path3.default.join(homeDir, ".agent-deck", "cursor-events");
-var cursorHooksDir = (homeDir = import_os4.default.homedir()) => import_path3.default.join(homeDir, ".agent-deck", "hooks");
-var cursorHookScriptPath = (homeDir = import_os4.default.homedir()) => import_path3.default.join(cursorHooksDir(homeDir), "cursor-hook.mjs");
-var cursorHooksJsonPath = (homeDir = import_os4.default.homedir()) => import_path3.default.join(homeDir, ".cursor", "hooks.json");
-var cursorTrackingDbPath = (homeDir = import_os4.default.homedir()) => import_path3.default.join(homeDir, ".cursor", "ai-tracking", "ai-code-tracking.db");
-function cursorStateDbPath(homeDir = import_os4.default.homedir(), platform = process.platform, env = process.env) {
-  if (platform === "win32") return import_path3.default.join(env.APPDATA || import_path3.default.join(homeDir, "AppData", "Roaming"), "Cursor", "User", "globalStorage", "state.vscdb");
-  if (platform === "darwin") return import_path3.default.join(homeDir, "Library", "Application Support", "Cursor", "User", "globalStorage", "state.vscdb");
-  return import_path3.default.join(homeDir, ".config", "Cursor", "User", "globalStorage", "state.vscdb");
+var cursorEventsDir = (homeDir = import_os5.default.homedir()) => import_path4.default.join(homeDir, ".agent-deck", "cursor-events");
+var cursorHooksDir = (homeDir = import_os5.default.homedir()) => import_path4.default.join(homeDir, ".agent-deck", "hooks");
+var cursorHookScriptPath = (homeDir = import_os5.default.homedir()) => import_path4.default.join(cursorHooksDir(homeDir), "cursor-hook.mjs");
+var cursorHooksJsonPath = (homeDir = import_os5.default.homedir()) => import_path4.default.join(homeDir, ".cursor", "hooks.json");
+var cursorTrackingDbPath = (homeDir = import_os5.default.homedir()) => import_path4.default.join(homeDir, ".cursor", "ai-tracking", "ai-code-tracking.db");
+function cursorStateDbPath(homeDir = import_os5.default.homedir(), platform = process.platform, env = process.env) {
+  if (platform === "win32") return import_path4.default.join(env.APPDATA || import_path4.default.join(homeDir, "AppData", "Roaming"), "Cursor", "User", "globalStorage", "state.vscdb");
+  if (platform === "darwin") return import_path4.default.join(homeDir, "Library", "Application Support", "Cursor", "User", "globalStorage", "state.vscdb");
+  return import_path4.default.join(homeDir, ".config", "Cursor", "User", "globalStorage", "state.vscdb");
 }
 function parseSemver(ver) {
   const m = /(\d+)\.(\d+)\.(\d+)/.exec(String(ver || ""));
@@ -5982,39 +6020,39 @@ function isSupportedCursorVersion(ver) {
 function writeAtomicSync(file, data, mode) {
   const tmp = `${file}.${(0, import_crypto2.randomUUID)()}.tmp`;
   try {
-    import_fs4.default.mkdirSync(import_path3.default.dirname(file), { recursive: true });
-    import_fs4.default.writeFileSync(tmp, data, mode ? { encoding: "utf8", mode } : "utf8");
+    import_fs5.default.mkdirSync(import_path4.default.dirname(file), { recursive: true });
+    import_fs5.default.writeFileSync(tmp, data, mode ? { encoding: "utf8", mode } : "utf8");
     if (mode) try {
-      import_fs4.default.chmodSync(tmp, mode);
+      import_fs5.default.chmodSync(tmp, mode);
     } catch {
     }
-    import_fs4.default.renameSync(tmp, file);
+    import_fs5.default.renameSync(tmp, file);
   } finally {
     try {
-      import_fs4.default.unlinkSync(tmp);
+      import_fs5.default.unlinkSync(tmp);
     } catch {
     }
   }
 }
 var quoteShell = (s) => `"${String(s || "").replace(/(["\\$`])/g, "\\$1")}"`;
-function findNodeBinary(homeDir = import_os4.default.homedir()) {
-  const baseExec = import_path3.default.basename(process.execPath || "").toLowerCase();
+function findNodeBinary(homeDir = import_os5.default.homedir()) {
+  const baseExec = import_path4.default.basename(process.execPath || "").toLowerCase();
   if (baseExec === "node" || baseExec === "node.exe") return process.execPath;
   const candidates = [
     "/opt/homebrew/bin/node",
     "/usr/local/bin/node"
   ];
   try {
-    const nvmDir = import_path3.default.join(homeDir, ".nvm", "versions", "node");
-    if (import_fs4.default.existsSync(nvmDir)) {
-      const vers = import_fs4.default.readdirSync(nvmDir).sort().reverse();
-      for (const v of vers) candidates.push(import_path3.default.join(nvmDir, v, "bin", "node"));
+    const nvmDir = import_path4.default.join(homeDir, ".nvm", "versions", "node");
+    if (import_fs5.default.existsSync(nvmDir)) {
+      const vers = import_fs5.default.readdirSync(nvmDir).sort().reverse();
+      for (const v of vers) candidates.push(import_path4.default.join(nvmDir, v, "bin", "node"));
     }
   } catch {
   }
   for (const c of candidates) {
     try {
-      if (import_fs4.default.existsSync(c)) return c;
+      if (import_fs5.default.existsSync(c)) return c;
     } catch {
     }
   }
@@ -6164,27 +6202,27 @@ if (event === "sessionStart" || event === "beforeSubmitPrompt") {
 var isDeckHookEntry = (entry) => typeof entry?.command === "string" && entry.command.includes("cursor-hook.mjs");
 function readHooksJson(file) {
   try {
-    const parsed = JSON.parse(import_fs4.default.readFileSync(file, "utf8"));
+    const parsed = JSON.parse(import_fs5.default.readFileSync(file, "utf8"));
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : { version: 1, hooks: {} };
   } catch {
     return { version: 1, hooks: {} };
   }
 }
-function cursorHooksStatus({ homeDir = import_os4.default.homedir() } = {}) {
+function cursorHooksStatus({ homeDir = import_os5.default.homedir() } = {}) {
   const scriptPath = cursorHookScriptPath(homeDir);
   const hooksPath = cursorHooksJsonPath(homeDir);
-  const scriptExists = import_fs4.default.existsSync(scriptPath);
+  const scriptExists = import_fs5.default.existsSync(scriptPath);
   let scriptUpToDate = false;
   if (scriptExists) {
     try {
-      const content = import_fs4.default.readFileSync(scriptPath, "utf8");
+      const content = import_fs5.default.readFileSync(scriptPath, "utf8");
       scriptUpToDate = content.includes(`${CURSOR_HOOK_MARKER} v${CURSOR_HOOK_VERSION}`);
     } catch {
       scriptUpToDate = false;
     }
   }
   let matchedEvents = 0;
-  if (import_fs4.default.existsSync(hooksPath)) {
+  if (import_fs5.default.existsSync(hooksPath)) {
     const cfg = readHooksJson(hooksPath);
     const hooks = cfg.hooks && typeof cfg.hooks === "object" ? cfg.hooks : {};
     for (const ev of CURSOR_HOOK_EVENTS) {
@@ -6196,11 +6234,11 @@ function cursorHooksStatus({ homeDir = import_os4.default.homedir() } = {}) {
   const outdated = scriptExists && !scriptUpToDate || matchedEvents > 0 && matchedEvents < CURSOR_HOOK_EVENTS.length;
   return { installed, outdated, matchedEvents, totalEvents: CURSOR_HOOK_EVENTS.length, scriptExists, scriptPath, hooksPath };
 }
-function installCursorHooks({ homeDir = import_os4.default.homedir(), nodePath = "" } = {}) {
+function installCursorHooks({ homeDir = import_os5.default.homedir(), nodePath = "" } = {}) {
   const scriptPath = cursorHookScriptPath(homeDir);
   const hooksPath = cursorHooksJsonPath(homeDir);
   const eventsDir = cursorEventsDir(homeDir);
-  import_fs4.default.mkdirSync(eventsDir, { recursive: true });
+  import_fs5.default.mkdirSync(eventsDir, { recursive: true });
   writeAtomicSync(scriptPath, cursorHookScript(), 493);
   const node = nodePath || findNodeBinary(homeDir);
   const cfg = readHooksJson(hooksPath);
@@ -6215,10 +6253,10 @@ function installCursorHooks({ homeDir = import_os4.default.homedir(), nodePath =
   writeAtomicSync(hooksPath, JSON.stringify(cfg, null, 2) + "\n");
   return { scriptPath, hooksPath, eventsDir };
 }
-function uninstallCursorHooks({ homeDir = import_os4.default.homedir() } = {}) {
+function uninstallCursorHooks({ homeDir = import_os5.default.homedir() } = {}) {
   const scriptPath = cursorHookScriptPath(homeDir);
   const hooksPath = cursorHooksJsonPath(homeDir);
-  if (import_fs4.default.existsSync(hooksPath)) {
+  if (import_fs5.default.existsSync(hooksPath)) {
     const cfg = readHooksJson(hooksPath);
     const hooks = cfg.hooks && typeof cfg.hooks === "object" && !Array.isArray(cfg.hooks) ? { ...cfg.hooks } : {};
     for (const ev of Object.keys(hooks)) {
@@ -6231,7 +6269,7 @@ function uninstallCursorHooks({ homeDir = import_os4.default.homedir() } = {}) {
     writeAtomicSync(hooksPath, JSON.stringify(cfg, null, 2) + "\n");
   }
   try {
-    if (import_fs4.default.existsSync(scriptPath)) import_fs4.default.unlinkSync(scriptPath);
+    if (import_fs5.default.existsSync(scriptPath)) import_fs5.default.unlinkSync(scriptPath);
   } catch {
   }
   return { scriptPath, hooksPath };
@@ -6251,15 +6289,15 @@ function isCursorRunning({ platform = process.platform, exec: exec2 = import_chi
 }
 function sqliteRows(db, sql) {
   return new Promise((resolve) => {
-    if (!import_fs4.default.existsSync(db)) return resolve([]);
-    (0, import_child_process3.execFile)("/usr/bin/sqlite3", ["-noheader", "-separator", "	", db, sql], { timeout: 5e3, maxBuffer: 4 << 20 }, (err2, out) => {
+    if (!import_fs5.default.existsSync(db)) return resolve([]);
+    (0, import_child_process3.execFile)(resolveSqliteBinary(), ["-noheader", "-separator", "	", db, sql], { timeout: 5e3, maxBuffer: 4 << 20 }, (err2, out) => {
       if (err2) return resolve([]);
       resolve(String(out || "").split("\n").map((s) => s.trimEnd()).filter(Boolean));
     });
   });
 }
 var sqlQuote = (s) => `'${String(s || "").replaceAll("'", "''")}'`;
-async function readCursorDbMeta(sids, { homeDir = import_os4.default.homedir() } = {}) {
+async function readCursorDbMeta(sids, { homeDir = import_os5.default.homedir() } = {}) {
   const list = [...new Set((sids || []).filter(Boolean))];
   const out = /* @__PURE__ */ new Map();
   if (!list.length) return out;
@@ -6749,7 +6787,7 @@ async function readCursorTranscript(eventsText, fallbackPath = "") {
     } catch {
     }
   }
-  if (!transcriptPath || !import_fs4.default.existsSync(transcriptPath)) return { path: "", mtime: 0, size: 0, text: "" };
+  if (!transcriptPath || !import_fs5.default.existsSync(transcriptPath)) return { path: "", mtime: 0, size: 0, text: "" };
   try {
     const st = await fsp.stat(transcriptPath);
     const text = await fsp.readFile(transcriptPath, "utf8");
@@ -7473,13 +7511,13 @@ function ingestAgentLine(agent, ctx, line, fc, touched) {
 }
 
 // src/grok-bot-sessions.js
-var import_fs5 = __toESM(require("fs"), 1);
-var import_path4 = __toESM(require("path"), 1);
-var import_os5 = __toESM(require("os"), 1);
+var import_fs6 = __toESM(require("fs"), 1);
+var import_path5 = __toESM(require("path"), 1);
+var import_os6 = __toESM(require("os"), 1);
 var BASE32_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 var BASE32_LOOKUP = new Map([...BASE32_ALPHA].map((ch, idx) => [ch, idx]));
 function decodeSandBlobKey(filename) {
-  const stem = import_path4.default.basename(String(filename || "")).replace(/\.blob$/i, "").toUpperCase();
+  const stem = import_path5.default.basename(String(filename || "")).replace(/\.blob$/i, "").toUpperCase();
   if (!stem || !/^[A-Z2-7]+$/.test(stem)) return "";
   let bits = 0;
   let value = 0;
@@ -7496,15 +7534,15 @@ function decodeSandBlobKey(filename) {
   }
   return Buffer.from(bytes).toString("utf8");
 }
-function grokBotDataDir(homeDir = import_os5.default.homedir(), platform = process.platform, env = process.env) {
-  if (platform === "win32") return import_path4.default.join(env.APPDATA || import_path4.default.join(homeDir, "AppData", "Roaming"), "Grok Bot");
-  if (platform === "darwin") return import_path4.default.join(homeDir, "Library", "Application Support", "Grok Bot");
-  return import_path4.default.join(env.XDG_CONFIG_HOME || import_path4.default.join(homeDir, ".config"), "Grok Bot");
+function grokBotDataDir(homeDir = import_os6.default.homedir(), platform = process.platform, env = process.env) {
+  if (platform === "win32") return import_path5.default.join(env.APPDATA || import_path5.default.join(homeDir, "AppData", "Roaming"), "Grok Bot");
+  if (platform === "darwin") return import_path5.default.join(homeDir, "Library", "Application Support", "Grok Bot");
+  return import_path5.default.join(env.XDG_CONFIG_HOME || import_path5.default.join(homeDir, ".config"), "Grok Bot");
 }
-var grokBotPersistenceDir = (homeDir = import_os5.default.homedir(), platform = process.platform, env = process.env) => import_path4.default.join(grokBotDataDir(homeDir, platform, env), "sand-client-persistence");
+var grokBotPersistenceDir = (homeDir = import_os6.default.homedir(), platform = process.platform, env = process.env) => import_path5.default.join(grokBotDataDir(homeDir, platform, env), "sand-client-persistence");
 function safeReadJsonSync(filePath) {
   try {
-    return JSON.parse(import_fs5.default.readFileSync(filePath, "utf8"));
+    return JSON.parse(import_fs6.default.readFileSync(filePath, "utf8"));
   } catch {
     return null;
   }
@@ -7520,7 +7558,7 @@ function discoverGrokBotStorage(opts = {}) {
   const dir = opts.persistenceDir || grokBotPersistenceDir(opts.homeDir, opts.platform, opts.env);
   let names;
   try {
-    names = import_fs5.default.readdirSync(dir);
+    names = import_fs6.default.readdirSync(dir);
   } catch {
     return { accountId: "", persistenceDir: dir, bots: [] };
   }
@@ -7531,7 +7569,7 @@ function discoverGrokBotStorage(opts = {}) {
     if (!name.endsWith(".blob")) continue;
     const key = decodeSandBlobKey(name);
     if (!key) continue;
-    const fullPath = import_path4.default.join(dir, name);
+    const fullPath = import_path5.default.join(dir, name);
     if (key === "sand.client.slice.client-meta.account-slot") {
       const slot = safeReadJsonSync(fullPath);
       if (typeof slot?.value === "string") activeAccount = slot.value;
@@ -7558,7 +7596,7 @@ function discoverGrokBotStorage(opts = {}) {
       const key = decodeSandBlobKey(name);
       const trMatch = /^sand\.client\.slice\.account\.([^.]+)\.transcript\.replicas\.([^.]+)$/.exec(key);
       if (trMatch && decodeAccountId(trMatch[1]) === activeAccount) {
-        transcripts.set(trMatch[2], { path: import_path4.default.join(dir, name), accountId: activeAccount });
+        transcripts.set(trMatch[2], { path: import_path5.default.join(dir, name), accountId: activeAccount });
       }
     }
   }
@@ -7843,8 +7881,8 @@ function buildGrokBotConversation(rawText, botMeta = {}) {
 }
 
 // src/readers.js
-var import_path5 = __toESM(require("path"), 1);
-var import_os6 = __toESM(require("os"), 1);
+var import_path6 = __toESM(require("path"), 1);
+var import_os7 = __toESM(require("os"), 1);
 var import_child_process4 = require("child_process");
 
 // node_modules/fzstd/esm/index.mjs
@@ -8472,17 +8510,17 @@ function decompress(dat, buf) {
 var import_zlib = __toESM(require("zlib"), 1);
 var import_util = require("util");
 var import_crypto3 = require("crypto");
-var fsp2 = import_fs6.default.promises;
+var fsp2 = import_fs7.default.promises;
 var temporaryFile = (file) => `${file}.${(0, import_crypto3.randomUUID)()}.tmp`;
 function writeAtomicSync2(file, data) {
   const tmp = temporaryFile(file);
   try {
-    import_fs6.default.mkdirSync(import_path5.default.dirname(file), { recursive: true });
-    import_fs6.default.writeFileSync(tmp, data);
-    import_fs6.default.renameSync(tmp, file);
+    import_fs7.default.mkdirSync(import_path6.default.dirname(file), { recursive: true });
+    import_fs7.default.writeFileSync(tmp, data);
+    import_fs7.default.renameSync(tmp, file);
   } finally {
     try {
-      import_fs6.default.unlinkSync(tmp);
+      import_fs7.default.unlinkSync(tmp);
     } catch {
     }
   }
@@ -8492,7 +8530,7 @@ var gunzipAsync = (0, import_util.promisify)(import_zlib.default.gunzip);
 var AI_IDLE = 5;
 var LIVE_STALE = 90 * 1e3;
 var MAX_TS = 2e4;
-var home2 = () => import_os6.default.homedir();
+var home2 = () => import_os7.default.homedir();
 var norm = (p2) => String(p2 || "").replace(/^~(?=\/)/, home2());
 function isScratchCwd(cwd) {
   const p2 = String(cwd || "").replace(/\\/g, "/").replace(/\/+$/, "");
@@ -8522,18 +8560,18 @@ function inferWorkspaceRoot(target) {
   if (!clean2) return "";
   let dir = clean2;
   try {
-    if (import_fs6.default.existsSync(clean2) && !import_fs6.default.statSync(clean2).isDirectory()) dir = import_path5.default.dirname(clean2);
-    else if (!import_fs6.default.existsSync(clean2) && /\.[a-z0-9]{1,8}$/i.test(import_path5.default.basename(clean2))) dir = import_path5.default.dirname(clean2);
+    if (import_fs7.default.existsSync(clean2) && !import_fs7.default.statSync(clean2).isDirectory()) dir = import_path6.default.dirname(clean2);
+    else if (!import_fs7.default.existsSync(clean2) && /\.[a-z0-9]{1,8}$/i.test(import_path6.default.basename(clean2))) dir = import_path6.default.dirname(clean2);
   } catch {
   }
   const homeDir = home2().replace(/[\\/]+$/, "");
   let cur = dir;
-  for (let depth = 0; depth < 8 && cur && cur !== import_path5.default.dirname(cur) && cur !== homeDir; depth++) {
+  for (let depth = 0; depth < 8 && cur && cur !== import_path6.default.dirname(cur) && cur !== homeDir; depth++) {
     try {
-      if (WORKSPACE_MARKERS.some((m) => import_fs6.default.existsSync(import_path5.default.join(cur, m)))) return cur;
+      if (WORKSPACE_MARKERS.some((m) => import_fs7.default.existsSync(import_path6.default.join(cur, m)))) return cur;
     } catch {
     }
-    const parent = import_path5.default.dirname(cur);
+    const parent = import_path6.default.dirname(cur);
     if (!parent || parent === cur) break;
     cur = parent;
   }
@@ -8766,11 +8804,11 @@ var AgentUsage = class {
       try {
         const payload = this.cacheJSON();
         this.dirty = false;
-        await fsp2.mkdir(import_path5.default.dirname(file), { recursive: true });
+        await fsp2.mkdir(import_path6.default.dirname(file), { recursive: true });
         tmp = temporaryFile(file);
         await fsp2.writeFile(tmp, await gzipAsync(payload));
         if (epoch !== (this._cacheEpoch || 0)) return false;
-        import_fs6.default.renameSync(tmp, file);
+        import_fs7.default.renameSync(tmp, file);
         this.savedAt = Date.now();
         return true;
       } catch (e) {
@@ -8816,18 +8854,18 @@ var AgentUsage = class {
     const add = (dir, agent) => {
       if (this.enabled(agent)) out.push([norm(dir), agent]);
     };
-    add(import_path5.default.join(h, ".claude/projects"), "claude");
-    add(import_path5.default.join(h, ".config/claude/projects"), "claude");
-    for (const d of String(process.env.CLAUDE_CONFIG_DIR || "").split(",").filter(Boolean)) add(import_path5.default.join(d, "projects"), "claude");
-    add(process.env.CODEX_HOME ? import_path5.default.join(process.env.CODEX_HOME, "sessions") : import_path5.default.join(h, ".codex/sessions"), "codex");
-    add(process.env.CODEX_HOME ? import_path5.default.join(process.env.CODEX_HOME, "archived_sessions") : import_path5.default.join(h, ".codex/archived_sessions"), "codex");
-    add(import_path5.default.join(h, ".workbuddy/projects"), "workbuddy");
-    add(import_path5.default.join(h, ".codebuddy/projects"), "workbuddy");
-    add(import_path5.default.join(h, ".dsh/sessions"), "dsh");
-    add(import_path5.default.join(h, ".gemini/antigravity/brain"), "antigravity");
-    add(import_path5.default.join(h, ".qoder/projects"), "qoder");
-    const qwenHome = process.env.QWENWORK_HOME ? norm(process.env.QWENWORK_HOME) : import_path5.default.join(h, ".qwenworkcn");
-    add(import_path5.default.join(qwenHome, "projects"), "qwenwork");
+    add(import_path6.default.join(h, ".claude/projects"), "claude");
+    add(import_path6.default.join(h, ".config/claude/projects"), "claude");
+    for (const d of String(process.env.CLAUDE_CONFIG_DIR || "").split(",").filter(Boolean)) add(import_path6.default.join(d, "projects"), "claude");
+    add(process.env.CODEX_HOME ? import_path6.default.join(process.env.CODEX_HOME, "sessions") : import_path6.default.join(h, ".codex/sessions"), "codex");
+    add(process.env.CODEX_HOME ? import_path6.default.join(process.env.CODEX_HOME, "archived_sessions") : import_path6.default.join(h, ".codex/archived_sessions"), "codex");
+    add(import_path6.default.join(h, ".workbuddy/projects"), "workbuddy");
+    add(import_path6.default.join(h, ".codebuddy/projects"), "workbuddy");
+    add(import_path6.default.join(h, ".dsh/sessions"), "dsh");
+    add(import_path6.default.join(h, ".gemini/antigravity/brain"), "antigravity");
+    add(import_path6.default.join(h, ".qoder/projects"), "qoder");
+    const qwenHome = process.env.QWENWORK_HOME ? norm(process.env.QWENWORK_HOME) : import_path6.default.join(h, ".qwenworkcn");
+    add(import_path6.default.join(qwenHome, "projects"), "qwenwork");
     add(cursorEventsDir(h), "cursor");
     const seen = /* @__PURE__ */ new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
@@ -8848,7 +8886,7 @@ var AgentUsage = class {
       const files = await this.walk(root, agent === "dsh" || agent === "antigravity" ? 4 : 5, agent);
       for (const p2 of files) {
         if (agent === "qoder") {
-          const base = import_path5.default.basename(p2).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
+          const base = import_path6.default.basename(p2).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
           const baseSid = (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
           if ([...this.files.keys()].some((k) => k.endsWith(`#${baseSid}`))) continue;
         }
@@ -8882,16 +8920,16 @@ var AgentUsage = class {
     return touched;
   }
   desktopDatabases() {
-    const hHome = process.env.HERMES_HOME ? norm(process.env.HERMES_HOME) : import_path5.default.join(home2(), ".hermes");
+    const hHome = process.env.HERMES_HOME ? norm(process.env.HERMES_HOME) : import_path6.default.join(home2(), ".hermes");
     const dbs = [
-      [import_path5.default.join(home2(), ".local/share/opencode/opencode.db"), "opencode"],
-      [import_path5.default.join(home2(), "Library/Application Support/com.qoder.app.stable/main.sqlite"), "qoder"],
-      [import_path5.default.join(hHome, "state.db"), "hermes"]
+      [import_path6.default.join(home2(), ".local/share/opencode/opencode.db"), "opencode"],
+      [import_path6.default.join(home2(), "Library/Application Support/com.qoder.app.stable/main.sqlite"), "qoder"],
+      [import_path6.default.join(hHome, "state.db"), "hermes"]
     ];
     try {
-      const profilesDir = import_path5.default.join(hHome, "profiles");
-      for (const e of import_fs6.default.readdirSync(profilesDir, { withFileTypes: true })) {
-        if (e.isDirectory()) dbs.push([import_path5.default.join(profilesDir, e.name, "state.db"), "hermes"]);
+      const profilesDir = import_path6.default.join(hHome, "profiles");
+      for (const e of import_fs7.default.readdirSync(profilesDir, { withFileTypes: true })) {
+        if (e.isDirectory()) dbs.push([import_path6.default.join(profilesDir, e.name, "state.db"), "hermes"]);
       }
     } catch {
     }
@@ -8899,7 +8937,7 @@ var AgentUsage = class {
   }
   async readDesktopDatabases({ floor, onlyAgent, strictSince, touched }) {
     for (const [db, agent] of this.desktopDatabases()) {
-      if (!this.enabled(agent) || onlyAgent && agent !== onlyAgent || !import_fs6.default.existsSync(db)) continue;
+      if (!this.enabled(agent) || onlyAgent && agent !== onlyAgent || !import_fs7.default.existsSync(db)) continue;
       try {
         const sessions = await desktopSessions(db, agent, !strictSince && this.isPrimary(agent) ? 0 : floor);
         const scope = this.isPrimary(agent) ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
@@ -8987,7 +9025,7 @@ var AgentUsage = class {
       return out;
     }
     for (const e of ents) {
-      const p2 = import_path5.default.join(dir, e.name);
+      const p2 = import_path6.default.join(dir, e.name);
       if (e.isDirectory()) {
         if (agent === "antigravity" && (e.name === "steps" || e.name === "chunks" || e.name === "browser_sandbox" || e.name === "scratch")) continue;
         if (depth > 0) out.push(...await this.walk(p2, depth - 1, agent));
@@ -9002,7 +9040,7 @@ var AgentUsage = class {
     return out;
   }
   async readCodexTitles() {
-    const p2 = import_path5.default.join(process.env.CODEX_HOME || import_path5.default.join(home2(), ".codex"), "session_index.jsonl");
+    const p2 = import_path6.default.join(process.env.CODEX_HOME || import_path6.default.join(home2(), ".codex"), "session_index.jsonl");
     try {
       const st = await fsp2.stat(p2);
       if (st.mtimeMs === this.codexIndexAt) return;
@@ -9025,9 +9063,9 @@ var AgentUsage = class {
   //   DeepSeek Harness：storages/workspace.json 的 global.archivedSessionIds
   async readCodexArchived() {
     const out = /* @__PURE__ */ new Set();
-    const codex = process.env.CODEX_HOME || import_path5.default.join(home2(), ".codex");
+    const codex = process.env.CODEX_HOME || import_path6.default.join(home2(), ".codex");
     try {
-      for (const f of await fsp2.readdir(import_path5.default.join(codex, "archived_sessions"))) {
+      for (const f of await fsp2.readdir(import_path6.default.join(codex, "archived_sessions"))) {
         const m = /([0-9a-f]{8}-[0-9a-f-]{27})\.jsonl$/.exec(f);
         if (m) out.add(m[1]);
       }
@@ -9040,7 +9078,7 @@ var AgentUsage = class {
         try {
           const states = (await fsp2.readdir(codex)).filter((f) => /^state_\d+\.sqlite$/.test(f)).sort();
           if (!states.length) return { archived: [], titles: [] };
-          const st = import_path5.default.join(codex, states[states.length - 1]);
+          const st = import_path6.default.join(codex, states[states.length - 1]);
           const [archived, titles] = await Promise.all([
             sqliteColumn(st, "select id from threads where archived = 1"),
             sqliteColumn(st, "select id || char(9) || replace(replace(title, char(10), ' '), char(9), ' ') from threads where title != '' and updated_at > strftime('%s','now') - 30*86400")
@@ -9050,10 +9088,10 @@ var AgentUsage = class {
           return { archived: [], titles: [] };
         }
       })();
-      const wbDb = import_path5.default.join(home2(), ".workbuddy/workbuddy.db");
+      const wbDb = import_path6.default.join(home2(), ".workbuddy/workbuddy.db");
       const wbArchTask = sqliteColumn(wbDb, "select id from sessions where status = 'archived' or deleted_at is not null");
       const wbRowsTask = sqliteColumn(wbDb, "select id || char(9) || replace(replace(coalesce(nullif(custom_title,''), title, ''), char(10), ' '), char(9), ' ') || char(9) || coalesce(cwd,'') || char(9) || coalesce(model,'') || char(9) || coalesce(group_title,'') || char(9) || coalesce(status,'') || char(9) || case when coalesce(custom_title,'') != '' then '1' else '0' end from sessions");
-      const dshTask = fsp2.readFile(import_path5.default.join(home2(), ".dsh/storages/workspace.json"), "utf8").then((s) => JSON.parse(s)).catch(() => null);
+      const dshTask = fsp2.readFile(import_path6.default.join(home2(), ".dsh/storages/workspace.json"), "utf8").then((s) => JSON.parse(s)).catch(() => null);
       const [codexRes, wbArch, wbRows, ws] = await Promise.all([codexTask, wbArchTask, wbRowsTask, dshTask]);
       for (const id of codexRes.archived) db.add(id);
       for (const row of codexRes.titles) {
@@ -9086,8 +9124,8 @@ var AgentUsage = class {
   // ~/.claude/projects 里的 .jsonl 照旧。sid 用 cliSessionId，和 .jsonl 同名。
   deskRoots() {
     const h = home2();
-    const base = process.platform === "darwin" ? import_path5.default.join(h, "Library/Application Support") : process.platform === "win32" ? process.env.APPDATA || import_path5.default.join(h, "AppData/Roaming") : process.env.XDG_CONFIG_HOME || import_path5.default.join(h, ".config");
-    return [import_path5.default.join(base, "Claude", "claude-code-sessions")];
+    const base = process.platform === "darwin" ? import_path6.default.join(h, "Library/Application Support") : process.platform === "win32" ? process.env.APPDATA || import_path6.default.join(h, "AppData/Roaming") : process.env.XDG_CONFIG_HOME || import_path6.default.join(h, ".config");
+    return [import_path6.default.join(base, "Claude", "claude-code-sessions")];
   }
   async readClaudeDesktop() {
     this.deskBySid.clear();
@@ -9103,7 +9141,7 @@ var AgentUsage = class {
         return;
       }
       for (const e of ents) {
-        const p2 = import_path5.default.join(dir, e.name);
+        const p2 = import_path6.default.join(dir, e.name);
         if (e.isDirectory()) {
           if (depth < 3) await walk(p2, depth + 1);
           continue;
@@ -9374,7 +9412,7 @@ var AgentUsage = class {
   ensureFile(p2, agent) {
     let fc = this.files.get(p2);
     if (!fc) {
-      const base = import_path5.default.basename(p2).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
+      const base = import_path6.default.basename(p2).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
       const flat = p2.replace(/\\/g, "/");
       const sm = /([0-9a-f]{8}-[0-9a-f-]{27})\/subagents\/agent-([^/]+)\.jsonl$/.exec(flat);
       const agm = agent === "antigravity" ? /\/brain\/([^/]+)\/\.system_generated\/logs\/transcript\.jsonl$/.exec(flat) : null;
@@ -9930,7 +9968,7 @@ var UsageStore = class {
         this.dirty = false;
         tmp = temporaryFile(this.file);
         await fsp2.writeFile(tmp, payload, "utf8");
-        if (epoch === (this._saveEpoch || 0)) import_fs6.default.renameSync(tmp, this.file);
+        if (epoch === (this._saveEpoch || 0)) import_fs7.default.renameSync(tmp, this.file);
       } catch (e) {
         this.dirty = true;
         throw e;
@@ -9984,8 +10022,8 @@ var UsageStore = class {
 };
 function sqliteColumn(db, sql) {
   return new Promise((resolve) => {
-    if (!import_fs6.default.existsSync(db)) return resolve([]);
-    (0, import_child_process4.execFile)("/usr/bin/sqlite3", ["-noheader", db, sql], { timeout: 5e3, maxBuffer: 4 * 1024 * 1024 }, (err2, out) => {
+    if (!import_fs7.default.existsSync(db)) return resolve([]);
+    (0, import_child_process4.execFile)(resolveSqliteBinary(), ["-noheader", db, sql], { timeout: 5e3, maxBuffer: 4 * 1024 * 1024 }, (err2, out) => {
       if (err2) return resolve([]);
       resolve(String(out || "").split("\n").map((s) => s.trim()).filter(Boolean));
     });
@@ -9993,12 +10031,12 @@ function sqliteColumn(db, sql) {
 }
 
 // src/trace.js
-var import_fs7 = __toESM(require("fs"), 1);
+var import_fs8 = __toESM(require("fs"), 1);
 var import_promises = __toESM(require("fs/promises"), 1);
-var import_os7 = __toESM(require("os"), 1);
-var import_path6 = __toESM(require("path"), 1);
+var import_os8 = __toESM(require("os"), 1);
+var import_path7 = __toESM(require("path"), 1);
 var TRACE_SCHEMA_VERSION = 1;
-var DEFAULT_TRACE_DIR = () => import_path6.default.join(import_os7.default.homedir(), ".agent-deck", "traces");
+var DEFAULT_TRACE_DIR = () => import_path7.default.join(import_os8.default.homedir(), ".agent-deck", "traces");
 var MAX_FRAMES = 30;
 var MAX_SPANS = 32;
 var lastPrunedAt = 0;
@@ -10135,7 +10173,7 @@ var RunTrace = class {
     if (this.writeEnabled && this.traceDir) {
       try {
         await import_promises.default.mkdir(this.traceDir, { recursive: true });
-        const file = import_path6.default.join(this.traceDir, `${dayStamp(this.endedAt)}.jsonl`);
+        const file = import_path7.default.join(this.traceDir, `${dayStamp(this.endedAt)}.jsonl`);
         await import_promises.default.appendFile(file, JSON.stringify(payload) + "\n", "utf8");
         if (Date.now() - lastPrunedAt > 6 * 36e5) {
           lastPrunedAt = Date.now();
@@ -10155,7 +10193,7 @@ async function pruneOldTraces({ traceDir = DEFAULT_TRACE_DIR(), keepDays = 14, n
     for (const file of files) {
       const m = /^(\d{4}-\d{2}-\d{2})\.jsonl$/.exec(file);
       if (m && m[1] < cutoff) {
-        await import_promises.default.rm(import_path6.default.join(traceDir, file), { force: true });
+        await import_promises.default.rm(import_path7.default.join(traceDir, file), { force: true });
         removed++;
       }
     }
@@ -10170,7 +10208,7 @@ async function readRecentTraces({ traceDir = DEFAULT_TRACE_DIR(), limit = 40 } =
     const records = [];
     for (const file of files) {
       if (records.length >= limit) break;
-      const raw = await import_promises.default.readFile(import_path6.default.join(traceDir, file), "utf8");
+      const raw = await import_promises.default.readFile(import_path7.default.join(traceDir, file), "utf8");
       const lines = raw.trim().split("\n").reverse();
       for (const line of lines) {
         if (!line.trim()) continue;
@@ -10189,14 +10227,14 @@ async function readRecentTraces({ traceDir = DEFAULT_TRACE_DIR(), limit = 40 } =
 function checkExternalAssets(vaultPath, { expectedMemoryQueryVersion = 1 } = {}) {
   const cleanVault = String(vaultPath || "").trim();
   if (!cleanVault) return { checked: false, ok: true, items: [] };
-  const scriptPath = import_path6.default.join(cleanVault, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
+  const scriptPath = import_path7.default.join(cleanVault, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
   const items = [];
-  if (!import_fs7.default.existsSync(scriptPath)) {
+  if (!import_fs8.default.existsSync(scriptPath)) {
     items.push({ name: "memory-query.mjs", status: "missing", path: scriptPath, expectedVersion: expectedMemoryQueryVersion, actualVersion: null });
   } else {
     let actualVersion = null;
     try {
-      const content = import_fs7.default.readFileSync(scriptPath, "utf8");
+      const content = import_fs8.default.readFileSync(scriptPath, "utf8");
       const m = /\bexport\s+const\s+ASSET_VERSION\s*=\s*(\d+)/.exec(content);
       actualVersion = m ? Number(m[1]) : 0;
     } catch {
@@ -10258,25 +10296,25 @@ function buildDiagnosticReport({
 
 // src/note-updates.js
 var queues = /* @__PURE__ */ new WeakMap();
-function serializeNote(plugin, path15, task) {
+function serializeNote(plugin, path16, task) {
   let pending = queues.get(plugin);
   if (!pending) queues.set(plugin, pending = /* @__PURE__ */ new Map());
-  const next = (pending.get(path15) || Promise.resolve()).catch(() => {
+  const next = (pending.get(path16) || Promise.resolve()).catch(() => {
   }).then(task);
-  pending.set(path15, next);
+  pending.set(path16, next);
   return next.finally(() => {
-    if (pending.get(path15) === next) pending.delete(path15);
+    if (pending.get(path16) === next) pending.delete(path16);
   });
 }
-function updateNote(plugin, path15, transform) {
-  return serializeNote(plugin, path15, async () => {
-    while (!plugin._unloaded && plugin.viewForPath?.(path15)?.editor.cm?.composing) {
+function updateNote(plugin, path16, transform) {
+  return serializeNote(plugin, path16, async () => {
+    while (!plugin._unloaded && plugin.viewForPath?.(path16)?.editor.cm?.composing) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     if (plugin._unloaded) return;
-    const known = typeof plugin.app?.vault?.getAbstractFileByPath === "function" ? plugin.app.vault.getAbstractFileByPath(path15) : void 0;
+    const known = typeof plugin.app?.vault?.getAbstractFileByPath === "function" ? plugin.app.vault.getAbstractFileByPath(path16) : void 0;
     if (known === null) return;
-    const view2 = plugin.viewForPath?.(path15);
+    const view2 = plugin.viewForPath?.(path16);
     if (view2 && (!view2.getMode || view2.getMode() === "source")) {
       const before2 = view2.editor.getValue();
       const next2 = transform(before2);
@@ -10284,22 +10322,22 @@ function updateNote(plugin, path15, transform) {
       if (change) view2.editor.transaction({ changes: [change] });
       return;
     }
-    const file = plugin.app?.vault?.getAbstractFileByPath(path15);
+    const file = plugin.app?.vault?.getAbstractFileByPath(path16);
     if (file && plugin.app.vault.process) {
       await plugin.app.vault.process(file, transform);
       return;
     }
-    const before = plugin.readNote ? await plugin.readNote(path15) : await plugin.app.vault.read(file);
+    const before = plugin.readNote ? await plugin.readNote(path16) : await plugin.app.vault.read(file);
     const next = transform(before);
     if (next !== before) {
-      if (plugin.writeNote) await plugin.writeNote(path15, next);
+      if (plugin.writeNote) await plugin.writeNote(path16, next);
       else await plugin.app.vault.modify(file, next);
     }
   });
 }
 
 // src/conversation.js
-var import_fs8 = __toESM(require("fs"), 1);
+var import_fs9 = __toESM(require("fs"), 1);
 var import_crypto4 = require("crypto");
 var textOf = (content) => typeof content === "string" ? content : (Array.isArray(content) ? content : []).filter((b) => ["text", "input_text", "output_text"].includes(b?.type)).map((b) => b.text || "").join("\n");
 function conversationMessages(agent, source, transcriptText = "") {
@@ -10363,10 +10401,10 @@ async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map
       continue;
     }
     const realPath = file.path.includes("#") ? file.path.slice(0, file.path.lastIndexOf("#")) : file.path;
-    const stat = await import_fs8.default.promises.stat(realPath);
+    const stat = await import_fs9.default.promises.stat(realPath);
     let entry = cache.get(file.path);
     if (session.agent === "cursor") {
-      const rawText = await import_fs8.default.promises.readFile(realPath, "utf8");
+      const rawText = await import_fs9.default.promises.readFile(realPath, "utf8");
       const tr = await readCursorTranscript(rawText, file.cursor?.transcript || "");
       if (!entry || entry.mtime !== stat.mtimeMs || entry.size !== stat.size || entry.tp !== tr.path || entry.tMtime !== tr.mtime || entry.tSize !== tr.size) {
         entry = {
@@ -10383,7 +10421,7 @@ async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map
       continue;
     }
     if (!entry || entry.mtime !== stat.mtimeMs || entry.size !== stat.size) {
-      const raw = await import_fs8.default.promises.readFile(realPath);
+      const raw = await import_fs9.default.promises.readFile(realPath);
       let bytes = raw;
       if (file.zstd) {
         try {
@@ -10574,13 +10612,13 @@ async function linkArchive(plugin, session, archivePath2, title = "") {
 var import_crypto10 = require("crypto");
 
 // src/skill-cards.js
-var import_fs9 = __toESM(require("fs"), 1);
-var import_os8 = __toESM(require("os"), 1);
-var import_path7 = __toESM(require("path"), 1);
+var import_fs10 = __toESM(require("fs"), 1);
+var import_os9 = __toESM(require("os"), 1);
+var import_path8 = __toESM(require("path"), 1);
 var import_crypto5 = require("crypto");
 var SKILL_DIR = "\u6280\u80FD";
-function skillRoots(home7 = import_os8.default.homedir()) {
-  return [import_path7.default.join(home7, ".config/skillshare/skills/data"), import_path7.default.join(home7, ".dsh/skills"), import_path7.default.join(home7, ".claude/skills")];
+function skillRoots(home7 = import_os9.default.homedir()) {
+  return [import_path8.default.join(home7, ".config/skillshare/skills/data"), import_path8.default.join(home7, ".dsh/skills"), import_path8.default.join(home7, ".claude/skills")];
 }
 function readFrontmatter(text) {
   const m = /^---\n([\s\S]*?)\n---/.exec(String(text || ""));
@@ -10623,20 +10661,20 @@ function scanSkills(roots = skillRoots()) {
   for (const root of roots) {
     let names = [];
     try {
-      names = import_fs9.default.readdirSync(root);
+      names = import_fs10.default.readdirSync(root);
     } catch {
       continue;
     }
     for (const name of names) {
-      const dir = import_path7.default.join(root, name);
-      const file = import_path7.default.join(dir, "SKILL.md");
+      const dir = import_path8.default.join(root, name);
+      const file = import_path8.default.join(dir, "SKILL.md");
       let text = "";
       try {
-        text = import_fs9.default.readFileSync(file, "utf8");
+        text = import_fs10.default.readFileSync(file, "utf8");
       } catch {
         continue;
       }
-      const real = import_fs9.default.realpathSync(dir);
+      const real = import_fs10.default.realpathSync(dir);
       if (seen.has(real)) continue;
       const meta = describeSkill(text);
       seen.set(real, { name: meta.name || name, dir, real, file, description: meta.description, source: root.includes("skillshare") ? "skillshare" : root.includes(".dsh") ? "dsh" : "claude" });
@@ -10994,7 +11032,7 @@ function stillPending(noteText = "", item = {}) {
 }
 
 // src/delegation.js
-var import_fs13 = __toESM(require("fs"), 1);
+var import_fs14 = __toESM(require("fs"), 1);
 
 // src/background-output.js
 var import_crypto7 = require("crypto");
@@ -11044,7 +11082,7 @@ async function saveBackgroundAnswer(plugin, job, round) {
   const n = round.n || 1, files = job.backgroundFiles || (job.backgroundFiles = {}), prior = files[n];
   const hash4 = (text) => (0, import_crypto7.createHash)("sha256").update(text).digest("hex");
   const suffix = hash4(job.sessionId || job.id).slice(0, 10);
-  const path15 = prior?.path || `Agent Deck/Answers/${name}-${suffix}-${n}.md`;
+  const path16 = prior?.path || `Agent Deck/Answers/${name}-${suffix}-${n}.md`;
   const body = `# ${title}
 
 ## \u95EE\u9898
@@ -11059,14 +11097,14 @@ ${reply}
   for (const folder of ["Agent Deck", "Agent Deck/Answers"]) await serializeNote(plugin, folder, async () => {
     if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
   });
-  await serializeNote(plugin, path15, async () => vault.getAbstractFileByPath(path15) || await vault.create(path15, body));
-  await updateNote(plugin, path15, (current) => {
+  await serializeNote(plugin, path16, async () => vault.getAbstractFileByPath(path16) || await vault.create(path16, body));
+  await updateNote(plugin, path16, (current) => {
     if (current === body) return current;
     if (!prior || hash4(current) !== prior.hash) throw new Error(t("\u95EE\u7B54\u6587\u4EF6\u5DF2\u88AB\u624B\u52A8\u4FEE\u6539\uFF0C\u5DF2\u4FDD\u7559\u539F\u6587\uFF0C\u8BF7\u53E6\u5B58\u540E\u91CD\u8BD5"));
     return body;
   });
-  files[n] = { path: path15, hash: hash4(body) };
-  return `\u{1F4C4} [[${path15}|\u5B8C\u6574\u95EE\u7B54]]`;
+  files[n] = { path: path16, hash: hash4(body) };
+  return `\u{1F4C4} [[${path16}|\u5B8C\u6574\u95EE\u7B54]]`;
 }
 function clearBackgroundPending(text, job, round) {
   const markers = [sessionMarker("summary-pending", job.sessionId, round), `<!-- ad-summary-pending:${job.sessionId}:${round} -->`];
@@ -11074,21 +11112,21 @@ function clearBackgroundPending(text, job, round) {
 }
 
 // src/project-folders.js
-var import_fs10 = __toESM(require("fs"), 1);
-var import_os9 = __toESM(require("os"), 1);
-var import_path8 = __toESM(require("path"), 1);
-var home3 = () => import_os9.default.homedir();
+var import_fs11 = __toESM(require("fs"), 1);
+var import_os10 = __toESM(require("os"), 1);
+var import_path9 = __toESM(require("path"), 1);
+var home3 = () => import_os10.default.homedir();
 function normalizeProjectFolder(raw) {
   let p2 = String(raw || "").trim().replace(/^~(?=\/)/, home3()).replace(/\\/g, "/");
   if (!p2) return "";
   p2 = p2.replace(/\/+$/, "");
   if (!p2 || p2 === "~" || p2 === "/" || p2 === home3().replace(/\/+$/, "")) return "";
-  if (!import_path8.default.isAbsolute(p2)) return "";
+  if (!import_path9.default.isAbsolute(p2)) return "";
   return p2;
 }
 function realFolder(p2) {
   try {
-    return import_fs10.default.realpathSync(p2);
+    return import_fs11.default.realpathSync(p2);
   } catch {
     return p2;
   }
@@ -11105,7 +11143,7 @@ function folderExists(folder) {
   const p2 = normalizeProjectFolder(folder);
   if (!p2) return false;
   try {
-    return import_fs10.default.statSync(p2).isDirectory();
+    return import_fs11.default.statSync(p2).isDirectory();
   } catch {
     return false;
   }
@@ -11204,7 +11242,7 @@ function resolveDispatchFolder({
   }
   if (!folder) folder = normalizeProjectFolder(agentCwd);
   folder = folder || vaultPath;
-  const projectName2 = explicit ? explicitName || projectNameForFolder(settings, explicit) || import_path8.default.basename(explicit) : auto?.name || projectNameForFolder(settings, folder) || "";
+  const projectName2 = explicit ? explicitName || projectNameForFolder(settings, explicit) || import_path9.default.basename(explicit) : auto?.name || projectNameForFolder(settings, folder) || "";
   return { folder, projectName: projectName2, auto, explicit };
 }
 function projectCandidatesFromTask({ notePath: notePath2 = "", contextLines = [], blockText: blockText2 = "" } = {}) {
@@ -11250,8 +11288,8 @@ function suggestProjectForTask({ settings, recent = [], notePath: notePath2 = ""
 }
 
 // src/delegation.js
-var import_path11 = __toESM(require("path"), 1);
-var import_os11 = __toESM(require("os"), 1);
+var import_path12 = __toESM(require("path"), 1);
+var import_os12 = __toESM(require("os"), 1);
 var import_child_process7 = require("child_process");
 
 // src/agent-registry.js
@@ -12124,23 +12162,27 @@ var HarnessPipeline = class {
 };
 
 // src/delegation-runners.js
-var import_fs12 = __toESM(require("fs"), 1);
-var import_path10 = __toESM(require("path"), 1);
-var import_os10 = __toESM(require("os"), 1);
+var import_fs13 = __toESM(require("fs"), 1);
+var import_path11 = __toESM(require("path"), 1);
+var import_os11 = __toESM(require("os"), 1);
 var import_crypto9 = require("crypto");
 var import_child_process6 = require("child_process");
 
 // src/codex-desktop.js
-var import_fs11 = __toESM(require("fs"), 1);
-var import_path9 = __toESM(require("path"), 1);
+var import_fs12 = __toESM(require("fs"), 1);
+var import_path10 = __toESM(require("path"), 1);
 var import_crypto8 = require("crypto");
 var import_child_process5 = require("child_process");
 var import_readline = require("readline");
+function spawnCodex(bin, args, opts = {}) {
+  const needsShell = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""));
+  return (0, import_child_process5.spawn)(bin, args, needsShell ? { ...opts, shell: true, windowsHide: true } : opts);
+}
 var taskHash = (text) => (0, import_crypto8.createHash)("sha1").update(String(text)).digest("hex");
 function codexDesktopBinary(configured) {
   if (configured) return configured;
   const bundled = ["/Applications/Codex.app/Contents/Resources/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"];
-  return bundled.find((p2) => import_fs11.default.existsSync(p2)) || "codex";
+  return bundled.find((p2) => import_fs12.default.existsSync(p2)) || "codex";
 }
 var CodexDesktopRunner = class {
   constructor(delegator, job, openDesktop) {
@@ -12171,7 +12213,8 @@ var CodexDesktopRunner = class {
     try {
       this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
       const cfg = this.d.settings.delegate.codex;
-      this.child = (0, import_child_process5.spawn)(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
+      this.child = spawnCodex(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
+      this.trace?.recordFrame("codex.spawn", "app-server");
       this.closed = new Promise((resolve) => this.child.once("close", resolve));
       this.child.on("error", (error) => this.finish("error", error.message));
       this.child.stdin.on("error", (error) => {
@@ -12181,7 +12224,7 @@ var CodexDesktopRunner = class {
         if (!this.finished) this.finish("error", t("Codex App Server \u5DF2\u9000\u51FA\uFF08{code}\uFF09", { code }));
       });
       this.child.stderr.on("data", (data) => {
-        this.job.stderr = ((this.job.stderr || "") + data.toString()).slice(-2e3);
+        this.job.stderr = redactSecrets(((this.job.stderr || "") + data.toString()).slice(-2e3));
       });
       this.reader = (0, import_readline.createInterface)({ input: this.child.stdout });
       this.reader.on("line", (line) => {
@@ -12226,8 +12269,8 @@ var CodexDesktopRunner = class {
     const cfg = this.d.settings?.delegate?.codex || {};
     if (cfg.project === false) return "";
     const cwd = String(this.job.cwd || "");
-    if (!cwd || !import_fs11.default.existsSync(cwd) || isScratchCwd(cwd)) return "";
-    const roots = import_path9.default.resolve(cwd);
+    if (!cwd || !import_fs12.default.existsSync(cwd) || isScratchCwd(cwd)) return "";
+    const roots = import_path10.default.resolve(cwd);
     let projects;
     try {
       projects = await this.request("project/list", { limit: 200 });
@@ -12236,7 +12279,7 @@ var CodexDesktopRunner = class {
     }
     const found = (projects?.data || []).find((p2) => (p2.roots || []).some((r) => sameFolder(r.path, roots)));
     if (found?.id) return found.id;
-    const name = this.job.project || projectNameForFolder(this.d.settings, roots) || import_path9.default.basename(roots);
+    const name = this.job.project || projectNameForFolder(this.d.settings, roots) || import_path10.default.basename(roots);
     try {
       const created = await this.request("project/create", {
         idempotencyKey: `agent-deck:${taskHash(roots)}`,
@@ -12289,9 +12332,10 @@ var CodexDesktopRunner = class {
     this.job.state = state;
     this.job.endedAt = Date.now();
     if (this.job.result) this.job.conversation.push({ role: "assistant", text: this.job.result, at: this.job.endedAt });
-    if (error) this.job.error = error.slice(0, 500);
+    if (error) this.job.error = redactSecrets(error).slice(0, 500);
     this.d.saveJobs();
     this.d.refreshUI();
+    this.trace?.finalize(state, { error: this.job.error || "", transport: "app-server" });
     if (this.child) {
       if (state !== "done" && this.job.sessionId && this.turnId) {
         try {
@@ -12322,18 +12366,18 @@ var CodexDesktopRunner = class {
 };
 
 // src/delegation-runners.js
-var fsp4 = import_fs12.default.promises;
-var home4 = () => import_os10.default.homedir();
+var fsp4 = import_fs13.default.promises;
+var home4 = () => import_os11.default.homedir();
 var norm2 = (p2) => String(p2 || "").replace(/^~(?=\/)/, home4());
 var AGENT_BINARY_SPECS = {
   codex: {
     fallback: "codex",
     candidates: () => [
       "/Applications/Codex.app/Contents/Resources/codex",
-      import_path10.default.join(home4(), "Applications/Codex.app/Contents/Resources/codex"),
-      import_path10.default.join(home4(), ".local/bin/codex"),
-      import_path10.default.join(home4(), ".npm-global/bin/codex"),
-      import_path10.default.join(home4(), ".bun/bin/codex"),
+      import_path11.default.join(home4(), "Applications/Codex.app/Contents/Resources/codex"),
+      import_path11.default.join(home4(), ".local/bin/codex"),
+      import_path11.default.join(home4(), ".npm-global/bin/codex"),
+      import_path11.default.join(home4(), ".bun/bin/codex"),
       "/opt/homebrew/bin/codex",
       "/usr/local/bin/codex"
     ]
@@ -12342,9 +12386,9 @@ var AGENT_BINARY_SPECS = {
     fallback: "dsh",
     candidates: () => [
       "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
-      import_path10.default.join(home4(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
-      import_path10.default.join(home4(), ".local/bin/dsh"),
-      import_path10.default.join(home4(), ".npm-global/bin/dsh"),
+      import_path11.default.join(home4(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
+      import_path11.default.join(home4(), ".local/bin/dsh"),
+      import_path11.default.join(home4(), ".npm-global/bin/dsh"),
       "/opt/homebrew/bin/dsh",
       "/usr/local/bin/dsh"
     ]
@@ -12353,9 +12397,9 @@ var AGENT_BINARY_SPECS = {
     fallback: "agy",
     candidates: () => [
       "/Applications/Antigravity.app/Contents/Resources/app/bin/agy",
-      import_path10.default.join(home4(), "Applications/Antigravity.app/Contents/Resources/app/bin/agy"),
-      import_path10.default.join(home4(), ".local/bin/agy"),
-      import_path10.default.join(home4(), ".npm-global/bin/agy"),
+      import_path11.default.join(home4(), "Applications/Antigravity.app/Contents/Resources/app/bin/agy"),
+      import_path11.default.join(home4(), ".local/bin/agy"),
+      import_path11.default.join(home4(), ".npm-global/bin/agy"),
       "/opt/homebrew/bin/agy",
       "/usr/local/bin/agy"
     ]
@@ -12364,11 +12408,11 @@ var AGENT_BINARY_SPECS = {
     fallback: "opencode",
     candidates: () => [
       "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
-      import_path10.default.join(home4(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
-      import_path10.default.join(home4(), ".opencode/bin/opencode"),
-      import_path10.default.join(home4(), ".local/bin/opencode"),
-      import_path10.default.join(home4(), ".npm-global/bin/opencode"),
-      import_path10.default.join(home4(), ".bun/bin/opencode"),
+      import_path11.default.join(home4(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
+      import_path11.default.join(home4(), ".opencode/bin/opencode"),
+      import_path11.default.join(home4(), ".local/bin/opencode"),
+      import_path11.default.join(home4(), ".npm-global/bin/opencode"),
+      import_path11.default.join(home4(), ".bun/bin/opencode"),
       "/opt/homebrew/bin/opencode",
       "/usr/local/bin/opencode"
     ]
@@ -12376,10 +12420,10 @@ var AGENT_BINARY_SPECS = {
   qoder: {
     fallback: "qodercli",
     candidates: () => [
-      import_path10.default.join(home4(), ".qoder/bin/qodercli/qodercli"),
-      import_path10.default.join(home4(), ".local/bin/qodercli"),
-      import_path10.default.join(home4(), ".local/bin/qoder"),
-      import_path10.default.join(home4(), ".qoder/entry/qoder"),
+      import_path11.default.join(home4(), ".qoder/bin/qodercli/qodercli"),
+      import_path11.default.join(home4(), ".local/bin/qodercli"),
+      import_path11.default.join(home4(), ".local/bin/qoder"),
+      import_path11.default.join(home4(), ".qoder/entry/qoder"),
       "/opt/homebrew/bin/qodercli",
       "/usr/local/bin/qodercli"
     ]
@@ -12387,8 +12431,8 @@ var AGENT_BINARY_SPECS = {
   workbuddy: {
     fallback: "codebuddy",
     candidates: () => [
-      import_path10.default.join(home4(), ".local/bin/codebuddy"),
-      import_path10.default.join(home4(), ".npm-global/bin/codebuddy"),
+      import_path11.default.join(home4(), ".local/bin/codebuddy"),
+      import_path11.default.join(home4(), ".npm-global/bin/codebuddy"),
       "/opt/homebrew/bin/codebuddy",
       "/usr/local/bin/codebuddy"
     ]
@@ -12403,9 +12447,9 @@ var AGENT_BINARY_SPECS = {
   claude: {
     fallback: "claude",
     candidates: () => [
-      import_path10.default.join(home4(), ".local/bin/claude"),
-      import_path10.default.join(home4(), ".npm-global/bin/claude"),
-      import_path10.default.join(home4(), ".bun/bin/claude"),
+      import_path11.default.join(home4(), ".local/bin/claude"),
+      import_path11.default.join(home4(), ".npm-global/bin/claude"),
+      import_path11.default.join(home4(), ".bun/bin/claude"),
       "/opt/homebrew/bin/claude",
       "/usr/local/bin/claude",
       "/usr/bin/claude"
@@ -12414,9 +12458,9 @@ var AGENT_BINARY_SPECS = {
 };
 function scanGlobBins(baseDir, sub = "bin", reverse = false) {
   try {
-    const ents = import_fs12.default.readdirSync(baseDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+    const ents = import_fs13.default.readdirSync(baseDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
     if (reverse) ents.sort((a, b) => b.localeCompare(a, void 0, { numeric: true }));
-    return ents.map((name) => sub ? import_path10.default.join(baseDir, name, sub) : import_path10.default.join(baseDir, name));
+    return ents.map((name) => sub ? import_path11.default.join(baseDir, name, sub) : import_path11.default.join(baseDir, name));
   } catch {
     return [];
   }
@@ -12425,27 +12469,27 @@ function expandedPathEntries(basePath = process.env.PATH || "", homeDir = home4(
   const sep = process.platform === "win32" ? ";" : ":";
   const parts = new Set(String(basePath || "").split(sep).filter(Boolean));
   const staticDirs = process.platform === "win32" ? [
-    import_path10.default.join(homeDir, ".local", "bin"),
-    import_path10.default.join(homeDir, ".bun", "bin"),
-    import_path10.default.join(process.env.APPDATA || import_path10.default.join(homeDir, "AppData", "Roaming"), "npm")
+    import_path11.default.join(homeDir, ".local", "bin"),
+    import_path11.default.join(homeDir, ".bun", "bin"),
+    import_path11.default.join(process.env.APPDATA || import_path11.default.join(homeDir, "AppData", "Roaming"), "npm")
   ] : [
-    import_path10.default.join(homeDir, ".local/bin"),
-    ...scanGlobBins(import_path10.default.join(homeDir, ".nvm/versions/node"), "bin", true),
-    import_path10.default.join(homeDir, ".volta/bin"),
-    import_path10.default.join(homeDir, ".fnm/aliases/default/bin"),
-    import_path10.default.join(homeDir, ".fnm/current/bin"),
-    import_path10.default.join(homeDir, ".npm-global/bin"),
-    import_path10.default.join(homeDir, "Library/pnpm"),
-    import_path10.default.join(homeDir, ".local/share/pnpm"),
-    import_path10.default.join(homeDir, ".bun/bin"),
-    import_path10.default.join(homeDir, ".cargo/bin"),
-    ...scanGlobBins(import_path10.default.join(homeDir, ".local/share/uv/tools"), "bin"),
-    import_path10.default.join(homeDir, ".pyenv/shims"),
-    import_path10.default.join(homeDir, ".pyenv/bin"),
-    import_path10.default.join(homeDir, "miniconda3/bin"),
-    import_path10.default.join(homeDir, "anaconda3/bin"),
-    import_path10.default.join(homeDir, "miniforge3/bin"),
-    import_path10.default.join(homeDir, "mambaforge/bin"),
+    import_path11.default.join(homeDir, ".local/bin"),
+    ...scanGlobBins(import_path11.default.join(homeDir, ".nvm/versions/node"), "bin", true),
+    import_path11.default.join(homeDir, ".volta/bin"),
+    import_path11.default.join(homeDir, ".fnm/aliases/default/bin"),
+    import_path11.default.join(homeDir, ".fnm/current/bin"),
+    import_path11.default.join(homeDir, ".npm-global/bin"),
+    import_path11.default.join(homeDir, "Library/pnpm"),
+    import_path11.default.join(homeDir, ".local/share/pnpm"),
+    import_path11.default.join(homeDir, ".bun/bin"),
+    import_path11.default.join(homeDir, ".cargo/bin"),
+    ...scanGlobBins(import_path11.default.join(homeDir, ".local/share/uv/tools"), "bin"),
+    import_path11.default.join(homeDir, ".pyenv/shims"),
+    import_path11.default.join(homeDir, ".pyenv/bin"),
+    import_path11.default.join(homeDir, "miniconda3/bin"),
+    import_path11.default.join(homeDir, "anaconda3/bin"),
+    import_path11.default.join(homeDir, "miniforge3/bin"),
+    import_path11.default.join(homeDir, "mambaforge/bin"),
     "/opt/homebrew/Caskroom/miniconda/base/bin",
     ...scanGlobBins("/opt/homebrew/opt", "bin"),
     "/opt/homebrew/bin",
@@ -12463,9 +12507,9 @@ function findInPathDirs(name, dirs) {
   if (!name || String(name).includes("/") || String(name).includes("\\")) return "";
   for (const dir of dirs) {
     if (!dir) continue;
-    const candidate = import_path10.default.join(dir, name);
+    const candidate = import_path11.default.join(dir, name);
     try {
-      const st = import_fs12.default.statSync(candidate);
+      const st = import_fs13.default.statSync(candidate);
       if (st.isFile()) return candidate;
     } catch {
     }
@@ -12477,7 +12521,7 @@ function findBinary(configured, candidates, fallback) {
   if (custom) return norm2(custom);
   for (const p2 of candidates) {
     try {
-      if (import_fs12.default.existsSync(p2)) return p2;
+      if (import_fs13.default.existsSync(p2)) return p2;
     } catch {
     }
   }
@@ -12493,8 +12537,8 @@ function findAgentBinary(agent, configured = "") {
 }
 function hermesBinLocations(name) {
   return [
-    import_path10.default.join(home4(), `.local/bin/${name}`),
-    import_path10.default.join(home4(), `.local/share/uv/tools/hermes-agent/bin/${name}`),
+    import_path11.default.join(home4(), `.local/bin/${name}`),
+    import_path11.default.join(home4(), `.local/share/uv/tools/hermes-agent/bin/${name}`),
     `/opt/homebrew/bin/${name}`,
     `/usr/local/bin/${name}`
   ];
@@ -12503,10 +12547,10 @@ function findHermesCliBinary(configured = "") {
   const custom = configured && String(configured).trim();
   if (custom) {
     const normalized2 = norm2(custom);
-    if (import_path10.default.basename(normalized2) === "hermes-acp") {
-      const sibling = import_path10.default.join(import_path10.default.dirname(normalized2), "hermes");
+    if (import_path11.default.basename(normalized2) === "hermes-acp") {
+      const sibling = import_path11.default.join(import_path11.default.dirname(normalized2), "hermes");
       try {
-        if (import_fs12.default.existsSync(sibling)) return sibling;
+        if (import_fs13.default.existsSync(sibling)) return sibling;
       } catch {
       }
     } else return normalized2;
@@ -12528,13 +12572,13 @@ async function resolveExecutableWithFallback(bin, fallbackName = "") {
   if (!bin) return bin;
   if (bin.includes("/") || bin.includes("\\")) {
     try {
-      if (import_fs12.default.existsSync(bin)) return bin;
+      if (import_fs13.default.existsSync(bin)) return bin;
     } catch {
     }
   }
   const shellPath = await resolveLoginShellPath();
   if (!shellPath) return bin;
-  const hit = findInPathDirs(fallbackName || import_path10.default.basename(bin), shellPath.split(":").filter(Boolean));
+  const hit = findInPathDirs(fallbackName || import_path11.default.basename(bin), shellPath.split(":").filter(Boolean));
   return hit || bin;
 }
 var findQoderBinary = (configured = "") => findAgentBinary("qoder", configured);
@@ -12544,7 +12588,7 @@ function pickTrusted(list, vaultPath) {
   if (list.includes(vaultPath)) return vaultPath;
   const isDir = (p2) => {
     try {
-      return import_fs12.default.statSync(p2).isDirectory();
+      return import_fs13.default.statSync(p2).isDirectory();
     } catch {
       return false;
     }
@@ -12558,7 +12602,7 @@ function pickTrusted(list, vaultPath) {
 }
 async function findTrustedDir(vaultPath) {
   try {
-    const projects = JSON.parse(await fsp4.readFile(import_path10.default.join(home4(), ".claude.json"), "utf8")).projects || {};
+    const projects = JSON.parse(await fsp4.readFile(import_path11.default.join(home4(), ".claude.json"), "utf8")).projects || {};
     return pickTrusted(Object.keys(projects).filter((p2) => projects[p2] && projects[p2].hasTrustDialogAccepted), vaultPath);
   } catch {
     return vaultPath;
@@ -12566,7 +12610,7 @@ async function findTrustedDir(vaultPath) {
 }
 async function findCodexTrustedDir(vaultPath) {
   try {
-    const toml = await fsp4.readFile(import_path10.default.join(process.env.CODEX_HOME || import_path10.default.join(home4(), ".codex"), "config.toml"), "utf8");
+    const toml = await fsp4.readFile(import_path11.default.join(process.env.CODEX_HOME || import_path11.default.join(home4(), ".codex"), "config.toml"), "utf8");
     const list = [...toml.matchAll(/^\[projects\."([^"]+)"\]\s*\n\s*trust_level\s*=\s*"trusted"/gm)].map((m) => m[1]);
     return pickTrusted(list, vaultPath);
   } catch {
@@ -12587,12 +12631,16 @@ function splitArgs(s) {
   while (m = re.exec(s)) out.push(m[1] ?? m[2] ?? m[3]);
   return out;
 }
+function spawnAgent(bin, args, opts = {}) {
+  const needsShell = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""));
+  return (0, import_child_process6.spawn)(bin, args, needsShell ? { ...opts, shell: true, windowsHide: true } : opts);
+}
 function spawnCapture(bin, args, { cwd, env, timeout = 3e4 }) {
   return new Promise((resolve) => {
     let out = "", err2 = "", done = false;
     let child;
     try {
-      child = (0, import_child_process6.spawn)(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
+      child = spawnAgent(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"] });
     } catch (e) {
       return resolve({ ok: false, out: "", err: String(e && e.message || e) });
     }
@@ -12696,7 +12744,7 @@ function pickPermissionOption(options = [], allow = true) {
   return options.find((o) => /^(reject[_-]?once|deny)$/i.test(String(o?.kind || "")) || /^(reject[_-]?once|deny)$/i.test(String(o?.optionId || ""))) || options.find((o) => /^(reject|deny)/i.test(String(o?.kind || ""))) || options.find((o) => /^(reject|deny)/i.test(String(o?.optionId || ""))) || options.find((o) => /\b(reject|deny)\b|拒绝|取消/i.test(String(o?.name || "")));
 }
 function acpSpawnArgs(agent, bin, extraArgs = "", cap = getAgentCapability(agent)) {
-  const baseName = import_path10.default.basename(String(bin || "")).replace(/\.(exe|cmd|bat)$/i, "");
+  const baseName = import_path11.default.basename(String(bin || "")).replace(/\.(exe|cmd|bat)$/i, "");
   let sub = Array.isArray(cap?.acpArgs) ? [...cap.acpArgs] : ["acp"];
   if (agent === "hermes" && baseName === "hermes") sub = ["acp"];
   else if (baseName.endsWith("-acp") && sub[0] === "acp") sub = [];
@@ -12802,7 +12850,7 @@ var ClaudeRunner = class extends BaseRunner {
     if (cfg.useBackground === true && this.job.destination !== "background") {
       const args = ["--bg", ...common, "--", prompt];
       this.job.command = redactSecrets(`${bin} ${args.slice(0, -2).join(" ")} \u2026`);
-      this.trace?.recordFrame("claude.bg_spawn", `${import_path10.default.basename(bin)} --bg`);
+      this.trace?.recordFrame("claude.bg_spawn", `${import_path11.default.basename(bin)} --bg`);
       const res = await spawnCapture(bin, args, { cwd, env: cleanEnv(), timeout: 3e4 });
       if (res.ok) {
         const m = /backgrounded\s*·\s*([0-9a-f]{6,})/i.exec(res.out || "");
@@ -12825,8 +12873,8 @@ var ClaudeRunner = class extends BaseRunner {
     const sid = (0, import_crypto9.randomUUID)();
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = redactSecrets(`${bin} ${args2.slice(0, -2).join(" ")} \u2026`);
-    this.trace?.recordFrame("claude.headless_spawn", `${import_path10.default.basename(bin)} -p`);
-    const child = (0, import_child_process6.spawn)(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    this.trace?.recordFrame("claude.headless_spawn", `${import_path11.default.basename(bin)} -p`);
+    const child = spawnAgent(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.fallbackStarted = true;
     this.job.sessionId = sid;
@@ -12940,8 +12988,8 @@ var QoderRunner = class extends BaseRunner {
     for (const a of splitArgs(cfg.extraArgs || "")) args.push(a);
     args.push("--", opts.prompt);
     this.job.command = redactSecrets([bin, ...args.slice(0, -1), "<prompt>"].join(" "));
-    this.trace?.recordFrame("qoder.spawn", import_path10.default.basename(bin));
-    const child = (0, import_child_process6.spawn)(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    this.trace?.recordFrame("qoder.spawn", import_path11.default.basename(bin));
+    const child = spawnAgent(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -13033,8 +13081,8 @@ var AcpRunner = class extends BaseRunner {
     const cfg = d.settings?.delegate?.[this.agent] || {};
     let bin = findAgentBinary(this.agent, cfg.path || "");
     const hasPathSep = bin.includes("/") || bin.includes("\\");
-    if (!cfg.path && (!hasPathSep || !import_fs12.default.existsSync(bin))) {
-      bin = await resolveExecutableWithFallback(bin, import_path10.default.basename(bin));
+    if (!cfg.path && (!hasPathSep || !import_fs13.default.existsSync(bin))) {
+      bin = await resolveExecutableWithFallback(bin, import_path11.default.basename(bin));
     }
     const cwd = norm2(opts.cwd || cfg.cwd || d.vaultPath);
     this.cwd = cwd;
@@ -13042,8 +13090,8 @@ var AcpRunner = class extends BaseRunner {
     const effort = opts.effort || cfg.effort || cap.acpDefaultEffort || "";
     const spawnArgs = acpSpawnArgs(this.agent, bin, cfg.extraArgs || "", cap);
     this.job.command = redactSecrets([bin, ...spawnArgs].join(" "));
-    this.trace?.recordFrame("acp.spawn", `${import_path10.default.basename(bin)} ${spawnArgs.join(" ")}`);
-    const child = (0, import_child_process6.spawn)(bin, spawnArgs, { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    this.trace?.recordFrame("acp.spawn", `${import_path11.default.basename(bin)} ${spawnArgs.join(" ")}`);
+    const child = spawnAgent(bin, spawnArgs, { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -13345,8 +13393,8 @@ function getRunnerClasses(overrides = {}) {
 }
 
 // src/delegation.js
-var fsp5 = import_fs13.default.promises;
-var home5 = () => import_os11.default.homedir();
+var fsp5 = import_fs14.default.promises;
+var home5 = () => import_os12.default.homedir();
 var norm3 = (p2) => String(p2 || "").replace(/^~(?=\/)/, home5());
 var BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 var LINK_RE2 = LINK_RE;
@@ -13421,17 +13469,17 @@ function openExternal(url) {
     return false;
   }
 }
-var appInstalled = (name) => ["/Applications", import_path11.default.join(home5(), "Applications")].some((d) => import_fs13.default.existsSync(import_path11.default.join(d, name)));
+var appInstalled = (name) => ["/Applications", import_path12.default.join(home5(), "Applications")].some((d) => import_fs14.default.existsSync(import_path12.default.join(d, name)));
 var TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable", tern: "so.stencil.tern", herdr: "dev.herdr.app" };
 var TERMINAL_APP = { herdr: "Herdr.app", tern: "Tern.app", iterm: "iTerm.app", warp: "Warp.app", terminal: "Terminal.app" };
 var TERMINAL_ORDER = ["herdr", "tern", "iterm", "warp", "terminal"];
 var HERDR_SPACE = "spagentdeck";
-var findBin = (name) => [import_path11.default.join(home5(), ".local/bin", name), `/opt/homebrew/bin/${name}`, `/usr/local/bin/${name}`].find((p2) => import_fs13.default.existsSync(p2)) || "";
+var findBin = (name) => [import_path12.default.join(home5(), ".local/bin", name), `/opt/homebrew/bin/${name}`, `/usr/local/bin/${name}`].find((p2) => import_fs14.default.existsSync(p2)) || "";
 var TERN_BIN = "/Applications/Tern.app/Contents/MacOS/tern";
 var TERN_SESSION = "Agent Deck";
 var osa = (script) => new Promise((resolve) => (0, import_child_process7.execFile)("/usr/bin/osascript", ["-e", script], { timeout: 8e3 }, (err2, out) => resolve(err2 ? null : String(out || "").trim())));
 var run = (bin, args) => new Promise((resolve) => (0, import_child_process7.execFile)(bin, args, { timeout: 8e3, maxBuffer: 8 << 20 }, (err2, out) => resolve(err2 ? "" : String(out || ""))));
-var DETECTED_FILE = () => import_path11.default.join(home5(), ".agent-deck", "terminal.json");
+var DETECTED_FILE = () => import_path12.default.join(home5(), ".agent-deck", "terminal.json");
 var usable = (t2) => t2 === "terminal" || appInstalled(TERMINAL_APP[t2]) && (t2 !== "herdr" || !!findBin("hc"));
 async function pickTerminal(which = "auto") {
   if (TERMINAL_APP[which]) return usable(which) ? which : "terminal";
@@ -13446,7 +13494,7 @@ async function pickTerminal(which = "auto") {
   const seen = TERMINAL_ORDER.filter((t2) => count[t2]).sort((a, b) => count[b] - count[a])[0];
   if (seen) {
     try {
-      await fsp5.mkdir(import_path11.default.dirname(DETECTED_FILE()), { recursive: true });
+      await fsp5.mkdir(import_path12.default.dirname(DETECTED_FILE()), { recursive: true });
       await fsp5.writeFile(DETECTED_FILE(), JSON.stringify({ terminal: seen, at: Date.now() }));
     } catch {
     }
@@ -13463,7 +13511,7 @@ async function pickTerminal(which = "auto") {
 }
 var TERMINAL_NAME = { herdr: "Herdr", tern: "Tern", iterm: "iTerm2", warp: "Warp", terminal: t("\u7CFB\u7EDF\u7EC8\u7AEF") };
 async function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
-  const dir = cwd && import_fs13.default.existsSync(cwd) ? cwd : home5();
+  const dir = cwd && import_fs14.default.existsSync(cwd) ? cwd : home5();
   const term = await pickTerminal(which);
   if (term === "herdr") {
     const hc = findBin("hc"), app = findBin("herdr-app");
@@ -13488,11 +13536,11 @@ async function openTerminal(command, cwd = "", which = "auto", title = "Claude",
   }
   if (term === "warp") {
     try {
-      const d = import_path11.default.join(home5(), ".warp/launch_configurations");
-      import_fs13.default.mkdirSync(d, { recursive: true });
+      const d = import_path12.default.join(home5(), ".warp/launch_configurations");
+      import_fs14.default.mkdirSync(d, { recursive: true });
       const q = (s) => JSON.stringify(String(s).replace(/[\r\n\0]+/g, " "));
       const cfgName = safeWarpConfigName(title);
-      import_fs13.default.writeFileSync(import_path11.default.join(d, `${cfgName}.yaml`), [
+      import_fs14.default.writeFileSync(import_path12.default.join(d, `${cfgName}.yaml`), [
         "---",
         `name: ${q(cfgName)}`,
         "windows:",
@@ -13509,7 +13557,7 @@ async function openTerminal(command, cwd = "", which = "auto", title = "Claude",
     } catch {
     }
   }
-  if (term === "tern" && import_fs13.default.existsSync(TERN_BIN)) {
+  if (term === "tern" && import_fs14.default.existsSync(TERN_BIN)) {
     const launch = ["--cwd", dir, "--", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`];
     (async () => {
       const tryOnce = async () => {
@@ -13564,7 +13612,7 @@ async function cliProcess(agent, sid) {
   if (!sid) return null;
   let pid = 0;
   if (agent === "claude") {
-    const dir = import_path11.default.join(home5(), ".claude/sessions");
+    const dir = import_path12.default.join(home5(), ".claude/sessions");
     let names = [];
     try {
       names = (await fsp5.readdir(dir)).filter((n) => /^\d+\.json$/.test(n));
@@ -13573,7 +13621,7 @@ async function cliProcess(agent, sid) {
     }
     for (const n of names) {
       try {
-        const j = JSON.parse(await fsp5.readFile(import_path11.default.join(dir, n), "utf8"));
+        const j = JSON.parse(await fsp5.readFile(import_path12.default.join(dir, n), "utf8"));
         if (j.sessionId === sid && (j.entrypoint || "cli") === "cli") {
           pid = Number(j.pid) || Number(n.split(".")[0]);
           break;
@@ -13653,7 +13701,7 @@ end repeat
 end tell
 return ""`);
     if (ok === "ok") return "tab";
-  } else if (proc.host === "tern" && import_fs13.default.existsSync(TERN_BIN)) {
+  } else if (proc.host === "tern" && import_fs14.default.existsSync(TERN_BIN)) {
     const chain = /* @__PURE__ */ new Set([proc.pid]);
     for (let i = 0, p2 = proc.pid; i < 12 && p2 > 1; i++) {
       p2 = Number((await run("/bin/ps", ["-o", "ppid=", "-p", String(p2)])).trim()) || 0;
@@ -13898,7 +13946,7 @@ var Delegator = class {
           } catch {
           }
         }
-        const abs = import_path11.default.join(this.vaultPath, dest.path);
+        const abs = import_path12.default.join(this.vaultPath, dest.path);
         if (!notePaths.includes(abs)) notePaths.push(abs);
       }
       const notesHead = t("\u4EFB\u52A1\u91CC\u5F15\u7528\u7684\u7B14\u8BB0\uFF08\u53EF\u76F4\u63A5\u8BFB\u5168\u6587\uFF09\uFF1A");
@@ -13946,10 +13994,10 @@ ${replyText}`;
   // 运行时记忆查询：脚本随插件装在库内；脚本和记忆目录都在，才值得告诉 Agent 这一行用法。
   async memoryToolHint() {
     try {
-      const script = import_path11.default.join(this.vaultPath, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
+      const script = import_path12.default.join(this.vaultPath, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
       const relDir = String(this.settings?.dream?.dir || "Agent Deck/\u8BB0\u5FC6").replace(/[\\/]+$/, "");
-      const dir = import_path11.default.join(this.vaultPath, ...relDir.split("/").filter(Boolean));
-      if (!import_fs13.default.existsSync(script) || !import_fs13.default.existsSync(dir)) return "";
+      const dir = import_path12.default.join(this.vaultPath, ...relDir.split("/").filter(Boolean));
+      if (!import_fs14.default.existsSync(script) || !import_fs14.default.existsSync(dir)) return "";
       return `${t("\u9700\u8981\u66F4\u591A\u80CC\u666F\u65F6\uFF1A")}node "${script}" search "\u5173\u952E\u8BCD"`;
     } catch {
       return "";
@@ -13972,7 +14020,7 @@ ${replyText}`;
       const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
       if (!body) return null;
       if (!consume) {
-        return { path: relPath, abs: import_path11.default.join(this.vaultPath, relPath), draft: true, body, raw, hash: "" };
+        return { path: relPath, abs: import_path12.default.join(this.vaultPath, relPath), draft: true, body, raw, hash: "" };
       }
       const next = raw.replace(/^status: .*$/m, "status: dispatched").replace(/^(created: .+)$/m, `$1
 dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
@@ -13995,7 +14043,7 @@ dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
           return changed ? lines.join("\n") : text;
         });
       }
-      return { path: relPath, abs: import_path11.default.join(this.vaultPath, relPath), draft: true, body, raw, hash: hash4 };
+      return { path: relPath, abs: import_path12.default.join(this.vaultPath, relPath), draft: true, body, raw, hash: hash4 };
     } catch (e) {
       console.error("[agent-deck] \u8BFB\u53D6\u6D3E\u53D1\u8349\u7A3F\u5931\u8D25", e);
       return null;
@@ -14058,7 +14106,7 @@ dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
         lines.splice(at + 1, 0, draft ? `${indent}- \u{1F4DD} [[${relPath}|${t("\u6D3E\u53D1\u8349\u7A3F")}]]` : `${indent}- \u{1F4C4} [[${relPath}|${t("\u672C\u6B21\u8F7D\u8377")}]]`);
         return lines.join("\n");
       });
-      return { path: relPath, abs: import_path11.default.join(this.vaultPath, relPath), hash: (0, import_crypto10.createHash)("sha256").update(head).digest("hex").slice(0, 16) };
+      return { path: relPath, abs: import_path12.default.join(this.vaultPath, relPath), hash: (0, import_crypto10.createHash)("sha256").update(head).digest("hex").slice(0, 16) };
     } catch (e) {
       console.error("[agent-deck] \u5199\u5165\u6D3E\u53D1\u8F7D\u8377\u5931\u8D25", e);
       return null;
@@ -14364,9 +14412,9 @@ ${source}`;
     const effort = opts.effort || this.C[agent]?.effort || "high";
     if (agent === "codex") extra += " " + codexCliArgs(this.plugin, opts).map(shellQuote).join(" ");
     else if (agent === "claude") extra += ` --model ${shellQuote(model)} --effort ${shellQuote(effort)}`;
-    const dir = import_path11.default.join(import_os11.default.tmpdir(), "agent-deck");
+    const dir = import_path12.default.join(import_os12.default.tmpdir(), "agent-deck");
     await fsp5.mkdir(dir, { recursive: true });
-    const taskFile = import_path11.default.join(dir, `task-${Date.now().toString(36)}.txt`);
+    const taskFile = import_path12.default.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp5.writeFile(taskFile, prompt, "utf8");
     const bin = findAgentBinary(agent, this.C[agent]?.path || "");
     const job = this.buildJobBase({
@@ -14472,10 +14520,10 @@ ${source}`;
   }
   async writeLink(job, sid) {
     if (!this.C.writeLink) return;
-    const path15 = job.path;
+    const path16 = job.path;
     const existing = job.blockId || blockIdOf(job.lineText);
     const blockId = existing || (this.plugin.taskBlockId ? await this.plugin.taskBlockId(sid, job.agent, job.name) : makeBlockId(sid, job.agent, job.name));
-    await updateNote(this.plugin, path15, (text) => {
+    await updateNote(this.plugin, path16, (text) => {
       const lines = text.split("\n");
       let at = job.blockId ? lines.findIndex((l) => blockIdOf(l) === job.blockId) : -1;
       if (at < 0) at = lines.findIndex((l) => l === job.lineText);
@@ -15599,8 +15647,8 @@ var ViewToggleWidget = class extends import_view2.WidgetType {
       };
       if (this.plugin.openRecordViewMenu) {
         const info = view2.state.field?.(this.plugin.editorInfoField, false);
-        const path15 = info?.file?.path || "";
-        this.plugin.openRecordViewMenu(e, { path: path15, line: this.line, key: this.key, viewMode: this.viewMode, onSelect: select });
+        const path16 = info?.file?.path || "";
+        this.plugin.openRecordViewMenu(e, { path: path16, line: this.line, key: this.key, viewMode: this.viewMode, onSelect: select });
       } else {
         select(this.viewMode === "table" ? "outline" : "table");
       }
@@ -17253,7 +17301,7 @@ function isTerminalWorkerState(state = "") {
 }
 function createWorkbenchWave({
   id = "",
-  path: path15 = "",
+  path: path16 = "",
   parentBlockId = "",
   parentTitle = "",
   projectName: projectName2 = "",
@@ -17266,7 +17314,7 @@ function createWorkbenchWave({
   const now = Date.now();
   return {
     id: id || `wave-${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-    path: String(path15 || ""),
+    path: String(path16 || ""),
     parentBlockId: String(parentBlockId || ""),
     parentTitle: String(parentTitle || ""),
     projectName: String(projectName2 || ""),
@@ -17568,9 +17616,9 @@ function appendSubtasksToParentBlock(text = "", { parentBlockId = "", parentTitl
   lines.splice(insertAt, 0, ...inserted);
   return { text: lines.join("\n"), parentLine, addedLines };
 }
-function findActiveWaveForBoard(waves = {}, { path: path15 = "", parentBlockId = "", parentTitle = "" } = {}) {
+function findActiveWaveForBoard(waves = {}, { path: path16 = "", parentBlockId = "", parentTitle = "" } = {}) {
   const candidates = Object.values(waves || {}).filter((w) => {
-    if (!w || path15 && w.path !== path15) return false;
+    if (!w || path16 && w.path !== path16) return false;
     if (!["waiting", "running", "error"].includes(w.state)) return false;
     if (parentBlockId && w.parentBlockId && w.parentBlockId === parentBlockId) return true;
     if (parentTitle && w.parentTitle && cleanBoardCardTitle(w.parentTitle) === cleanBoardCardTitle(parentTitle)) return true;
@@ -19057,8 +19105,8 @@ function taskBoardExtension(plugin, refreshEffect2) {
 
 // src/external-state.js
 var import_promises2 = __toESM(require("fs/promises"), 1);
-var import_os12 = __toESM(require("os"), 1);
-var import_path12 = __toESM(require("path"), 1);
+var import_os13 = __toESM(require("os"), 1);
+var import_path13 = __toESM(require("path"), 1);
 var import_child_process8 = require("child_process");
 var AI_IDLE_MIN = 5;
 var TOK_BLOCK_MAX = 30;
@@ -19087,7 +19135,7 @@ function readProcessList() {
   });
 }
 async function scanAgentWait({
-  dir = import_path12.default.join(import_os12.default.homedir(), ".local", "state", "agent-wait"),
+  dir = import_path13.default.join(import_os13.default.homedir(), ".local", "state", "agent-wait"),
   prev = /* @__PURE__ */ new Map(),
   psText = null,
   now = Date.now()
@@ -19102,7 +19150,7 @@ async function scanAgentWait({
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
     try {
-      const d = JSON.parse(await import_promises2.default.readFile(import_path12.default.join(dir, name), "utf8"));
+      const d = JSON.parse(await import_promises2.default.readFile(import_path13.default.join(dir, name), "utf8"));
       if (d && d.sid && d.at) out.set(d.sid, d);
     } catch {
     }
@@ -19126,7 +19174,7 @@ async function scanAgentWait({
   return out;
 }
 async function scanLimitQueue({
-  file = import_path12.default.join(import_os12.default.homedir(), ".local", "state", "limit-resume", "queue.json")
+  file = import_path13.default.join(import_os13.default.homedir(), ".local", "state", "limit-resume", "queue.json")
 } = {}) {
   const out = /* @__PURE__ */ new Map();
   try {
@@ -19620,19 +19668,19 @@ function dndHandlers(plugin) {
       const sel = view2.state.selection.main;
       if (sel.empty) return false;
       const info = view2.state.field(plugin.editorInfoField, false);
-      const path15 = info && info.file && info.file.path;
-      if (!path15) return false;
+      const path16 = info && info.file && info.file.path;
+      if (!path16) return false;
       const n = view2.state.doc.lineAt(sel.from).number - 1;
-      plugin.noteDragItem({ path: path15, line: n, lineText: view2.state.doc.line(n + 1).text });
+      plugin.noteDragItem({ path: path16, line: n, lineText: view2.state.doc.line(n + 1).text });
       return false;
     }
   }));
 }
 var GripWidget = class extends import_view4.WidgetType {
-  constructor(plugin, path15, line, text) {
+  constructor(plugin, path16, line, text) {
     super();
     this.plugin = plugin;
-    this.path = path15;
+    this.path = path16;
     this.line = line;
     this.text = text;
   }
@@ -19685,10 +19733,10 @@ function sigFor(x) {
   return [x.kind, x.job && x.job.id, x.job && x.job.state, s && s.sid, s && s.state, s && s.step, s && s.turns, s && s.tokens, td && `${td.done}/${td.total}:${td.cur || ""}`, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
 }
 var PillWidget = class extends import_view4.WidgetType {
-  constructor(plugin, path15, line, info) {
+  constructor(plugin, path16, line, info) {
     super();
     this.plugin = plugin;
-    this.path = path15;
+    this.path = path16;
     this.line = line;
     this.info = info;
     this.sig = sigFor(info);
@@ -19933,10 +19981,10 @@ function paintLineProgress(el, info) {
   }
 }
 var LineProgressWidget = class extends import_view4.WidgetType {
-  constructor(plugin, path15, line, info) {
+  constructor(plugin, path16, line, info) {
     super();
     this.plugin = plugin;
-    this.path = path15;
+    this.path = path16;
     this.line = line;
     this.info = info;
     this.sig = JSON.stringify(info);
@@ -20003,10 +20051,10 @@ function saidHandlers(plugin) {
 function buildDecorations(view2, plugin) {
   const builder = new import_state3.RangeSetBuilder();
   const info = view2.state.field(plugin.editorInfoField, false);
-  const path15 = info && info.file && info.file.path;
-  if (!path15 || !plugin.settings.showEditorPills) return builder.finish();
+  const path16 = info && info.file && info.file.path;
+  if (!path16 || !plugin.settings.showEditorPills) return builder.finish();
   const doc = view2.state.doc;
-  const map = plugin.lineMap(path15, doc);
+  const map = plugin.lineMap(path16, doc);
   const seen = /* @__PURE__ */ new Set();
   const sel = view2.state.selection.main;
   const cursorLine = plugin._lastEditor === view2 && sel.empty ? doc.lineAt(sel.head).number - 1 : -1;
@@ -20018,7 +20066,7 @@ function buildDecorations(view2, plugin) {
       if (!seen.has(n)) {
         seen.add(n);
         const text = line.text;
-        const job = plugin.jobAtLine(path15, n, text);
+        const job = plugin.jobAtLine(path16, n, text);
         const session = map.sessionByParent.get(n) || null;
         if ((session || job?.sessionId) && plugin.nautilusOwnsLine(text, session || { sid: job.sessionId }, job?.destination !== "background")) {
           if (line.to >= to) break;
@@ -20044,16 +20092,16 @@ function buildDecorations(view2, plugin) {
         const boardState = plugin.taskBoardField ? view2.state.field(plugin.taskBoardField, false) : null;
         const isTopLevelAiParent = Boolean(displayState?.topLevelLines?.has(n) || boardState?.boardLines?.has(n));
         if (n === cursorLine && !isTopLevelAiParent && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && (kwLine(text) || CONTEXT_RECORD_RE.test(text))) {
-          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new GripWidget(plugin, path15, n, text), side: 1, block: false }));
+          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new GripWidget(plugin, path16, n, text), side: 1, block: false }));
         }
         const prog = line.length < 2e3 && plugin.lineProgressInfo ? plugin.lineProgressInfo(text, map.lines, n, session, job) : null;
         if (!prog && typeof import_view4.Decoration.line === "function" && (RESULT_LINE_RE.test(text) || SUB_LINE_RE.test(text))) {
           builder.add(line.from, line.from, import_view4.Decoration.line({ class: "ad-said" }));
         }
         if (prog) {
-          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new LineProgressWidget(plugin, path15, n, prog), side: 1, block: false }));
+          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new LineProgressWidget(plugin, path16, n, prog), side: 1, block: false }));
         } else if (state && !isDoneLine(text)) {
-          const widget = new PillWidget(plugin, path15, n, state);
+          const widget = new PillWidget(plugin, path16, n, state);
           builder.add(line.to, line.to, import_view4.Decoration.widget({ widget, side: 1, block: false }));
         }
       }
@@ -21420,8 +21468,8 @@ function dateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 var isoDay = (key) => String(key).replace(/^(\d{4})\D(\d{2})\D(\d{2})$/, "$1-$2-$3");
-function dayFromNotePath(path15 = "") {
-  const m = /(\d{4})[-_/](\d{2})[-_/](\d{2})/.exec(String(path15 || ""));
+function dayFromNotePath(path16 = "") {
+  const m = /(\d{4})[-_/](\d{2})[-_/](\d{2})/.exec(String(path16 || ""));
   return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
 }
 function shiftDay(key, n) {
@@ -21431,7 +21479,7 @@ function shiftDay(key, n) {
 function heatLevel(tokens, max) {
   return tokens > 0 ? Math.max(1, Math.min(4, Math.ceil(4 * Math.sqrt(tokens / Math.max(1, max))))) : 0;
 }
-function journalSources(text, path15, { autoState = null } = {}) {
+function journalSources(text, path16, { autoState = null } = {}) {
   const lines = text.split("\n"), fenced = fencedLines(lines), owners = ownersOf(lines, fenced), out = [];
   const seen = /* @__PURE__ */ new Set();
   const collectBlock = (owner) => {
@@ -21439,7 +21487,7 @@ function journalSources(text, path15, { autoState = null } = {}) {
     for (let p2 = owners[owner]; p2 >= 0; p2 = owners[p2]) parents.unshift(lines[p2]);
     const end = subtreeEnd(lines, owner);
     const own = lines.slice(owner, end).filter((_, n) => !fenced.has(owner + n) && (n === 0 || owners[owner + n] === owner));
-    return { path: path15, line: owner, blockId: blockIdOf(lines[owner]), text: [...parents, ...own].join("\n") };
+    return { path: path16, line: owner, blockId: blockIdOf(lines[owner]), text: [...parents, ...own].join("\n") };
   };
   for (let i = 0; i < lines.length; i++) {
     if (fenced.has(i)) continue;
@@ -21909,7 +21957,7 @@ var DashboardData = class {
     if (p2.settings.doneArchivePath) paths.add(p2.settings.doneArchivePath);
     const sources = /* @__PURE__ */ new Map();
     let unreadable = 0;
-    const files = [...paths].map((path15) => vault.getAbstractFileByPath(path15)).filter((f) => f?.extension === "md");
+    const files = [...paths].map((path16) => vault.getAbstractFileByPath(path16)).filter((f) => f?.extension === "md");
     for (let i = 0; i < files.length; i += 6) {
       await Promise.all(files.slice(i, i + 6).map(async (file) => {
         try {
@@ -21936,7 +21984,7 @@ var DashboardData = class {
       }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
-    for (const path15 of this.cache.keys()) if (!paths.has(path15)) this.cache.delete(path15);
+    for (const path16 of this.cache.keys()) if (!paths.has(path16)) this.cache.delete(path16);
     const pages = vault.getMarkdownFiles().filter((f) => !paths.has(f.path) && !f.path.startsWith("Agent Deck/Conversations/") && !/^\d{4}[-_/]\d{2}[-_/]\d{2}$/.test(f.basename)).map((file) => {
       const aliases = metadata.getFileCache(file)?.frontmatter?.aliases;
       return { path: file.path, name: file.basename, aliases: typeof aliases === "string" ? [aliases] : Array.isArray(aliases) ? aliases.filter((a) => typeof a === "string") : [] };
@@ -22934,10 +22982,10 @@ function memoryAnchorId(target, text) {
   return "mem-" + (0, import_crypto12.createHash)("sha256").update(`${target}
 ${String(text || "").trim()}`).digest("hex").slice(0, 8);
 }
-function orderForReview(entries = [], { path: path15 = "", line = "", dir = "" } = {}) {
+function orderForReview(entries = [], { path: path16 = "", line = "", dir = "" } = {}) {
   const prefix = dir ? `${String(dir).replace(/\/+$/, "")}/` : "";
   let start = -1;
-  if (path15 && prefix && path15.startsWith(prefix)) start = entries.findIndex((e) => e.path === path15);
+  if (path16 && prefix && path16.startsWith(prefix)) start = entries.findIndex((e) => e.path === path16);
   if (start < 0 && line) start = entries.findIndex((e) => line.includes(`[[${e.path.replace(/\.md$/, "")}`));
   if (start <= 0) return entries.slice();
   return [...entries.slice(start), ...entries.slice(0, start)];
@@ -23145,16 +23193,16 @@ function parseMarkdownToMemories(docs = [], { defaultDate = "" } = {}) {
 
 // src/dream-sharing.js
 var import_promises3 = __toESM(require("fs/promises"), 1);
-var import_path13 = __toESM(require("path"), 1);
-var import_os13 = __toESM(require("os"), 1);
+var import_path14 = __toESM(require("path"), 1);
+var import_os14 = __toESM(require("os"), 1);
 var import_crypto13 = require("crypto");
 var import_child_process9 = require("child_process");
 var import_util2 = require("util");
 var exec = (0, import_util2.promisify)(import_child_process9.execFile);
 function externalMemoryPath(value) {
-  const target = String(value || "").trim().replace(/^~(?=\/)/, import_os13.default.homedir());
-  if (!import_path13.default.isAbsolute(target) || import_path13.default.extname(target).toLowerCase() !== ".md") throw new Error(t("\u5171\u4EAB\u76EE\u6807\u5FC5\u987B\u662F\u5916\u90E8 Markdown \u6587\u4EF6\u7684\u7EDD\u5BF9\u8DEF\u5F84"));
-  return import_path13.default.normalize(target);
+  const target = String(value || "").trim().replace(/^~(?=\/)/, import_os14.default.homedir());
+  if (!import_path14.default.isAbsolute(target) || import_path14.default.extname(target).toLowerCase() !== ".md") throw new Error(t("\u5171\u4EAB\u76EE\u6807\u5FC5\u987B\u662F\u5916\u90E8 Markdown \u6587\u4EF6\u7684\u7EDD\u5BF9\u8DEF\u5F84"));
+  return import_path14.default.normalize(target);
 }
 function sharedMemory(text) {
   const lines = text.split("\n");
@@ -23197,7 +23245,7 @@ var DreamSharing = class {
       const text = await this.readMemory();
       if (typeof text !== "string") throw new Error(t("\u8FD8\u6CA1\u6709\u957F\u671F\u8BB0\u5FC6\uFF0C\u8BF7\u5148\u8FD0\u884C Dreaming"));
       if (this.plugin.vaultPath) {
-        const source = import_path13.default.resolve(this.plugin.vaultPath, this.plugin.settings.dream.path);
+        const source = import_path14.default.resolve(this.plugin.vaultPath, this.plugin.settings.dream.path);
         const realTarget = await import_promises3.default.realpath(target).catch((e) => {
           if (e.code !== "ENOENT") throw e;
           return target;
@@ -23208,12 +23256,12 @@ var DreamSharing = class {
         });
         if (realTarget === realSource) throw new Error(t("\u5171\u4EAB\u76EE\u6807\u4E0D\u80FD\u8986\u76D6\u539F\u957F\u671F\u8BB0\u5FC6\u7B14\u8BB0"));
       }
-      const git = async (args, cwd = import_path13.default.dirname(target)) => (await exec("git", ["--literal-pathspecs", ...args], { cwd, timeout: 6e4, maxBuffer: 1024 * 1024 })).stdout.trim();
+      const git = async (args, cwd = import_path14.default.dirname(target)) => (await exec("git", ["--literal-pathspecs", ...args], { cwd, timeout: 6e4, maxBuffer: 1024 * 1024 })).stdout.trim();
       let root, relative, branch;
       if (gitPush) {
         root = await git(["rev-parse", "--show-toplevel"]);
-        relative = import_path13.default.relative(await import_promises3.default.realpath(root), import_path13.default.join(await import_promises3.default.realpath(import_path13.default.dirname(target)), import_path13.default.basename(target)));
-        if (relative.startsWith(".." + import_path13.default.sep) || import_path13.default.isAbsolute(relative) || relative.split(import_path13.default.sep).includes(".git")) throw new Error(t("\u5171\u4EAB\u6587\u4EF6\u5FC5\u987B\u4F4D\u4E8E Git \u4ED3\u5E93\u5DE5\u4F5C\u533A\u5185"));
+        relative = import_path14.default.relative(await import_promises3.default.realpath(root), import_path14.default.join(await import_promises3.default.realpath(import_path14.default.dirname(target)), import_path14.default.basename(target)));
+        if (relative.startsWith(".." + import_path14.default.sep) || import_path14.default.isAbsolute(relative) || relative.split(import_path14.default.sep).includes(".git")) throw new Error(t("\u5171\u4EAB\u6587\u4EF6\u5FC5\u987B\u4F4D\u4E8E Git \u4ED3\u5E93\u5DE5\u4F5C\u533A\u5185"));
         branch = await git(["symbolic-ref", "--short", "HEAD"], root);
         await git(["remote", "get-url", "origin"], root);
       }
@@ -23224,7 +23272,7 @@ var DreamSharing = class {
         return null;
       });
       if (old !== snapshot) {
-        await import_promises3.default.mkdir(import_path13.default.dirname(target), { recursive: true });
+        await import_promises3.default.mkdir(import_path14.default.dirname(target), { recursive: true });
         const temp = `${target}.${(0, import_crypto13.randomUUID)()}.tmp`;
         try {
           await import_promises3.default.writeFile(temp, snapshot, { flag: "wx" });
@@ -23298,12 +23346,12 @@ function dreamModelConfig(cfg = {}) {
     autoLogApiKey: apiKey || cfg.autoLogApiKey || ""
   };
 }
-function evidenceBlocks(text, path15, { aiOnly = false } = {}) {
+function evidenceBlocks(text, path16, { aiOnly = false } = {}) {
   const lines = text.split("\n"), blocks = [], stack = [], directAiOwners = /* @__PURE__ */ new Set();
   const fenced = fencedLines(lines), start = frontmatterEnd(lines);
   let block = null, nextItemId = 1;
   const flush = () => {
-    if (block?.text.trim() && !SEP_ONLY_RE.test(block.text)) blocks.push({ ...block, key: hash3(path15 + "\n" + block.kind + "\n" + block.text) });
+    if (block?.text.trim() && !SEP_ONLY_RE.test(block.text)) blocks.push({ ...block, key: hash3(path16 + "\n" + block.kind + "\n" + block.text) });
     block = null;
   };
   for (let n = start; n < lines.length; n++) {
@@ -23349,7 +23397,7 @@ function evidenceBlocks(text, path15, { aiOnly = false } = {}) {
     for (let offset = 0; offset < Math.max(1, line.length); offset += 3e3) {
       const part = line.slice(offset, offset + 3e3);
       if (block && (block.kind !== kind || block.text.length + part.length + 1 > 3e3)) flush();
-      if (!block) block = { path: path15, kind, line: n + 1, endLine: n + 1, text: "", _itemId: itemId, _aiRelevant: aiRelevant, ...pinned ? { pinned: true } : {} };
+      if (!block) block = { path: path16, kind, line: n + 1, endLine: n + 1, text: "", _itemId: itemId, _aiRelevant: aiRelevant, ...pinned ? { pinned: true } : {} };
       if (pinned) block.pinned = true;
       block.text += (block.text ? "\n" : "") + part;
       block.endLine = n + 1;
@@ -23556,13 +23604,13 @@ var Dreaming = class {
   }
   async loadEntries() {
     const out = [];
-    for (const path15 of await this.listEntryPaths()) {
+    for (const path16 of await this.listEntryPaths()) {
       try {
-        const file = this.plugin.app.vault.getAbstractFileByPath(path15);
+        const file = this.plugin.app.vault.getAbstractFileByPath(path16);
         const parsed = file ? parseMemoryFile(await this.plugin.app.vault.read(file)) : null;
-        if (parsed) out.push({ ...parsed, path: path15 });
+        if (parsed) out.push({ ...parsed, path: path16 });
       } catch (e) {
-        console.error("[agent-deck] \u8BFB\u53D6\u8BB0\u5FC6\u5931\u8D25", path15, e);
+        console.error("[agent-deck] \u8BFB\u53D6\u8BB0\u5FC6\u5931\u8D25", path16, e);
       }
     }
     return out;
@@ -23574,8 +23622,8 @@ var Dreaming = class {
     await this.write(`${this.dir}/${name}.md`, serializeMemoryFile({ id: memory.id, kind: memory.kind, text: memory.text, state, date, sources: evidence, evidence }));
     return `${this.dir}/${name}.md`;
   }
-  isEntryPath(path15) {
-    const p2 = String(path15 || "");
+  isEntryPath(path16) {
+    const p2 = String(path16 || "");
     const prefix = `${this.dir}/`;
     return p2.startsWith(prefix) && p2.endsWith(".md") && p2 !== `${this.dir}/\u7D22\u5F15.md` && !p2.slice(prefix.length).includes("/");
   }
@@ -23592,13 +23640,13 @@ var Dreaming = class {
     if (!clean2) throw new Error(t("\u8BB0\u5FC6\u5185\u5BB9\u4E0D\u80FD\u4E3A\u7A7A"));
     if (!this.storeMode) await this.migrateToStore();
     const id = memoryId(clean2);
-    const path15 = await this.writeEntry({ id, kind, text: clean2, date }, sources, state);
+    const path16 = await this.writeEntry({ id, kind, text: clean2, date }, sources, state);
     await this.syncOverview();
     const basePath = `${this.dir}.base`;
     if (!this.plugin.app.vault.getAbstractFileByPath(basePath)) {
       await this.write(basePath, memoryBase(this.dir));
     }
-    return { path: path15, id };
+    return { path: path16, id };
   }
   // 批量导入条目到记忆库（若尚未迁移到文件库模式，自动先完成迁移并创建 记忆.base）。
   async importEntries(entries = []) {
@@ -23706,8 +23754,8 @@ ${String(rawReply || "").slice(0, 2e3)}`;
     }
     return results;
   }
-  async setEntryState(path15, state) {
-    const file = this.plugin.app.vault.getAbstractFileByPath(path15);
+  async setEntryState(path16, state) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(path16);
     if (!file) return false;
     const raw = await this.plugin.app.vault.read(file);
     const next = raw.replace(/^state:.*$/m, `state: ${state}`).replace(/\nverified: true(?=\n|$)/, "");
@@ -23821,8 +23869,8 @@ ${String(rawReply || "").slice(0, 2e3)}`;
     }
     return { checked: entries.length, drift, edited, missing, fixedFiles };
   }
-  async rewriteSources(path15, sources) {
-    const file = this.plugin.app.vault.getAbstractFileByPath(path15);
+  async rewriteSources(path16, sources) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(path16);
     if (!file) return false;
     const lines = String(await this.plugin.app.vault.read(file)).split("\n");
     const start = lines.indexOf("sources:");
@@ -23894,11 +23942,11 @@ ${String(rawReply || "").slice(0, 2e3)}`;
     const entries = await this.loadEntries();
     const report = { checked: 0, linked: 0, already: 0, skipped: 0, failed: [] };
     const files = /* @__PURE__ */ new Map(), seen = /* @__PURE__ */ new Set(), ours = /^\s*- ⤴ \[\[Agent Deck\/记忆\/[^\]]+\]\]\s*$/;
-    for (const path15 of Array.isArray(this.cfg.backlinked) ? this.cfg.backlinked : []) {
-      const file = this.plugin.app.vault.getAbstractFileByPath(path15);
+    for (const path16 of Array.isArray(this.cfg.backlinked) ? this.cfg.backlinked : []) {
+      const file = this.plugin.app.vault.getAbstractFileByPath(path16);
       if (!file) continue;
       const rawText = String(await this.plugin.app.vault.read(file));
-      files.set(path15, { file, original: rawText, lines: rawText.split("\n").filter((l) => !ours.test(l)), inserts: [] });
+      files.set(path16, { file, original: rawText, lines: rawText.split("\n").filter((l) => !ours.test(l)), inserts: [] });
     }
     for (const entry of entries) {
       const link2 = `[[${entry.path.replace(/\.md$/, "")}]]`;
@@ -23960,7 +24008,7 @@ ${String(rawReply || "").slice(0, 2e3)}`;
       if (next !== rec.original) await this.plugin.app.vault.modify(rec.file, next);
       report.linked += rec.inserts.length;
     }
-    this.cfg.backlinked = [...files.entries()].filter(([, rec]) => rec.inserts.length).map(([path15]) => path15);
+    this.cfg.backlinked = [...files.entries()].filter(([, rec]) => rec.inserts.length).map(([path16]) => path16);
     await this.plugin.saveSettings();
     return report;
   }
@@ -26398,18 +26446,18 @@ var AddModelModal = class extends import_obsidian7.Modal {
 
 // src/dialog.js
 var import_obsidian8 = require("obsidian");
-function resolveTaskProjectState(plugin, path15, lines, block) {
+function resolveTaskProjectState(plugin, path16, lines, block) {
   const contextLines = ancestorLines(lines, block.start);
   const projectHint = plugin.settings?.autoProjectFolder === false ? null : resolveProjectForTask({
     settings: plugin.settings,
-    notePath: path15,
+    notePath: path16,
     contextLines,
     blockText: block.text
   });
   const projectSuggest = suggestProjectForTask({
     settings: plugin.settings,
     recent: plugin.projectFolderSuggestions?.(8) || [],
-    notePath: path15,
+    notePath: path16,
     contextLines,
     blockText: block.text
   });
@@ -26421,7 +26469,7 @@ function resolveTaskProjectState(plugin, path15, lines, block) {
     projectAlt = projectCandidatesFromTask({ blockText: block.text }).find((name) => {
       const key = projectKey(name);
       if (!key || key === hintKey || registered.has(key)) return false;
-      return !plugin.app?.metadataCache?.getFirstLinkpathDest?.(name, path15);
+      return !plugin.app?.metadataCache?.getFirstLinkpathDest?.(name, path16);
     }) || null;
   }
   const cwd = projectConflict ? projectSuggest.path : projectHint ? projectHint.path : "";
@@ -26544,10 +26592,10 @@ function renderProjectFolderPicker(parent, plugin, state, { compact = false, onR
   }
 }
 var DelegateOptionsModal = class extends import_obsidian8.Modal {
-  constructor(app, plugin, path15, line) {
+  constructor(app, plugin, path16, line) {
     super(app);
     this.plugin = plugin;
-    this.path = path15;
+    this.path = path16;
     this.line = line;
     this.agent = plugin.defaultTarget();
     this.model = plugin.defaultModel(this.agent);
@@ -26777,11 +26825,11 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
   }
 };
 var ConfirmSendModal = class extends import_obsidian8.Modal {
-  constructor(app, { agent, text, path: path15, where, destination, permission = "", newSession = false, context = [], draft = null, plugin = null, projectState = null }, onSend) {
+  constructor(app, { agent, text, path: path16, where, destination, permission = "", newSession = false, context = [], draft = null, plugin = null, projectState = null }, onSend) {
     super(app);
     this.agent = agent;
     this.text = text;
-    this.path = path15;
+    this.path = path16;
     this.where = where;
     this.destination = destination || destinations(agent)[0]?.id;
     this.permission = permission || defaultWorkMode(agent);
@@ -27516,9 +27564,9 @@ function keywordPostProcessor(plugin) {
 }
 
 // src/menubar.js
-var import_fs14 = __toESM(require("fs"), 1);
-var import_path14 = __toESM(require("path"), 1);
-var import_os14 = __toESM(require("os"), 1);
+var import_fs15 = __toESM(require("fs"), 1);
+var import_path15 = __toESM(require("path"), 1);
+var import_os15 = __toESM(require("os"), 1);
 var import_crypto15 = __toESM(require("crypto"), 1);
 var import_child_process10 = require("child_process");
 
@@ -29668,8 +29716,8 @@ app.run()
 `;
 
 // src/menubar.js
-var fsp7 = import_fs14.default.promises;
-var home6 = () => import_os14.default.homedir();
+var fsp7 = import_fs15.default.promises;
+var home6 = () => import_os15.default.homedir();
 var LABEL_KEYS = [
   "\u7B49\u5F85 Agent Deck\u2026",
   "\u5728\u8DD1",
@@ -29732,15 +29780,15 @@ var MenuBarBridge = class {
   constructor(plugin) {
     this.plugin = plugin;
     this._timers = new ManagedTimers();
-    this.dir = import_path14.default.join(home6(), ".agent-deck");
-    this.appPath = import_path14.default.join(this.dir, "AgentDeckMenuBar.app");
-    this.binPath = import_path14.default.join(this.appPath, "Contents", "MacOS", "AgentDeckMenuBar");
-    this.infoPath = import_path14.default.join(this.appPath, "Contents", "Info.plist");
-    this.srcPath = import_path14.default.join(this.dir, "AgentDeckMenuBar.swift");
-    this.statePath = import_path14.default.join(this.dir, "menubar.json");
-    this.cmdDir = import_path14.default.join(this.dir, "cmds");
-    this.pidPath = import_path14.default.join(this.dir, "menubar.pid");
-    this.hashPath = import_path14.default.join(this.dir, "menubar.sha");
+    this.dir = import_path15.default.join(home6(), ".agent-deck");
+    this.appPath = import_path15.default.join(this.dir, "AgentDeckMenuBar.app");
+    this.binPath = import_path15.default.join(this.appPath, "Contents", "MacOS", "AgentDeckMenuBar");
+    this.infoPath = import_path15.default.join(this.appPath, "Contents", "Info.plist");
+    this.srcPath = import_path15.default.join(this.dir, "AgentDeckMenuBar.swift");
+    this.statePath = import_path15.default.join(this.dir, "menubar.json");
+    this.cmdDir = import_path15.default.join(this.dir, "cmds");
+    this.pidPath = import_path15.default.join(this.dir, "menubar.pid");
+    this.hashPath = import_path15.default.join(this.dir, "menubar.sha");
     this.timer = null;
     this.lastJson = "";
     this.disabled = false;
@@ -29751,7 +29799,7 @@ var MenuBarBridge = class {
   }
   isAlive() {
     try {
-      const pid = Number(import_fs14.default.readFileSync(this.pidPath, "utf8").trim());
+      const pid = Number(import_fs15.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
         process.kill(pid, 0);
         return true;
@@ -29783,9 +29831,9 @@ var MenuBarBridge = class {
   }
   // 官方 App 图标给 SwiftUI 用：和 main.js 里嵌的是同一份 PNG
   writeAgentIcons() {
-    const dir = import_path14.default.join(this.dir, "agents");
+    const dir = import_path15.default.join(this.dir, "agents");
     try {
-      import_fs14.default.mkdirSync(dir, { recursive: true });
+      import_fs15.default.mkdirSync(dir, { recursive: true });
     } catch {
       return;
     }
@@ -29793,12 +29841,12 @@ var MenuBarBridge = class {
       try {
         const buf = agentImageBuffer(id);
         if (!buf) continue;
-        const p2 = import_path14.default.join(dir, `${id}.png`);
+        const p2 = import_path15.default.join(dir, `${id}.png`);
         try {
-          if (import_fs14.default.statSync(p2).size === buf.length) continue;
+          if (import_fs15.default.statSync(p2).size === buf.length) continue;
         } catch {
         }
-        import_fs14.default.writeFileSync(p2, buf);
+        import_fs15.default.writeFileSync(p2, buf);
       } catch {
       }
     }
@@ -29813,7 +29861,7 @@ var MenuBarBridge = class {
       oldHash = (await fsp7.readFile(this.hashPath, "utf8")).trim();
     } catch {
     }
-    const hasBinary = import_fs14.default.existsSync(this.binPath);
+    const hasBinary = import_fs15.default.existsSync(this.binPath);
     const compiled2 = !hasBinary || oldHash !== hash4;
     if (compiled2) {
       await this.compile(hash4);
@@ -29830,12 +29878,12 @@ var MenuBarBridge = class {
     this.timer = this._timers.setInterval(() => safeRun("menubar:update", () => this.update()), 1800);
   }
   async compile(hash4) {
-    if (!import_fs14.default.existsSync("/usr/bin/swiftc")) {
+    if (!import_fs15.default.existsSync("/usr/bin/swiftc")) {
       throw new Error(t("\u627E\u4E0D\u5230 /usr/bin/swiftc\u3002\u5B89\u88C5 Xcode Command Line Tools\uFF08xcode-select --install\uFF09\u540E\u518D\u8BD5\u3002"));
     }
     this.plugin.notice(t("\u6B63\u5728\u51C6\u5907 macOS \u83DC\u5355\u680F\uFF08\u7B2C\u4E00\u6B21\u8981\u7F16\u8BD1\u4E00\u4E2A\u5C0F\u52A9\u624B\uFF0C\u7EA6\u51E0\u79D2\uFF09\u2026"), 6e3);
     await new Promise((resolve) => this.killExisting(resolve));
-    await fsp7.mkdir(import_path14.default.join(this.appPath, "Contents", "MacOS"), { recursive: true });
+    await fsp7.mkdir(import_path15.default.join(this.appPath, "Contents", "MacOS"), { recursive: true });
     await fsp7.writeFile(this.srcPath, menubar_default2, "utf8");
     await fsp7.writeFile(this.infoPath, INFO_PLIST, "utf8");
     const tmp = this.binPath + ".new";
@@ -29894,7 +29942,7 @@ var MenuBarBridge = class {
   }
   killExisting(done) {
     try {
-      const pid = Number(import_fs14.default.readFileSync(this.pidPath, "utf8").trim());
+      const pid = Number(import_fs15.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
         try {
           process.kill(pid, "SIGTERM");
@@ -29904,7 +29952,7 @@ var MenuBarBridge = class {
     } catch {
     }
     try {
-      import_fs14.default.unlinkSync(this.pidPath);
+      import_fs15.default.unlinkSync(this.pidPath);
     } catch {
     }
     const pattern = this.binPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "( |$)";
@@ -29916,8 +29964,8 @@ var MenuBarBridge = class {
   }
   show() {
     try {
-      import_fs14.default.mkdirSync(this.dir, { recursive: true });
-      import_fs14.default.writeFileSync(import_path14.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
+      import_fs15.default.mkdirSync(this.dir, { recursive: true });
+      import_fs15.default.writeFileSync(import_path15.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
     } catch (e) {
       console.error("[agent-deck] menu bar show", e);
     }
@@ -29926,16 +29974,16 @@ var MenuBarBridge = class {
     let changed = false;
     let names;
     try {
-      names = import_fs14.default.readdirSync(this.cmdDir).filter((n) => n.endsWith(".json")).sort();
+      names = import_fs15.default.readdirSync(this.cmdDir).filter((n) => n.endsWith(".json")).sort();
     } catch {
       return false;
     }
     for (const name of names) {
-      const filePath = import_path14.default.join(this.cmdDir, name);
+      const filePath = import_path15.default.join(this.cmdDir, name);
       try {
-        const raw = import_fs14.default.readFileSync(filePath, "utf8");
+        const raw = import_fs15.default.readFileSync(filePath, "utf8");
         try {
-          import_fs14.default.unlinkSync(filePath);
+          import_fs15.default.unlinkSync(filePath);
         } catch {
         }
         const cmd = JSON.parse(raw);
@@ -29949,7 +29997,7 @@ var MenuBarBridge = class {
         }
       } catch {
         try {
-          import_fs14.default.unlinkSync(filePath);
+          import_fs15.default.unlinkSync(filePath);
         } catch {
         }
       }
@@ -29967,9 +30015,9 @@ var MenuBarBridge = class {
       this.lastJson = body;
       const json2 = JSON.stringify({ updatedAt, ...rest, labels: menuLabels() });
       const tmp = this.statePath + ".tmp";
-      import_fs14.default.mkdirSync(this.dir, { recursive: true });
-      import_fs14.default.writeFileSync(tmp, json2, "utf8");
-      import_fs14.default.renameSync(tmp, this.statePath);
+      import_fs15.default.mkdirSync(this.dir, { recursive: true });
+      import_fs15.default.writeFileSync(tmp, json2, "utf8");
+      import_fs15.default.renameSync(tmp, this.statePath);
     } catch (e) {
       console.error("[agent-deck] menu bar state", e);
     }
@@ -30246,12 +30294,12 @@ var AutoLog = class {
   }
   // 今天的日记还没建：按「日记」核心插件的模板建一篇，AI 分区骨架照旧交给 placeBlock
   async createJournal(day) {
-    const path15 = this.journalPath(day);
+    const path16 = this.journalPath(day);
     if (typeof this.p.ensureNoteFile !== "function") return null;
-    const { file } = await this.p.ensureNoteFile(path15, await this.journalTemplate(path15));
+    const { file } = await this.p.ensureNoteFile(path16, await this.journalTemplate(path16));
     return file || null;
   }
-  async journalTemplate(path15) {
+  async journalTemplate(path16) {
     const app = this.p.app;
     let tplPath = "";
     try {
@@ -30273,7 +30321,7 @@ var AutoLog = class {
       format = app.internalPlugins?.getPluginById?.("templates")?.instance?.options || {};
     } catch {
     }
-    const title = path15.slice(path15.lastIndexOf("/") + 1).replace(/\.md$/, "");
+    const title = path16.slice(path16.lastIndexOf("/") + 1).replace(/\.md$/, "");
     return expandJournalTemplate(text, { title, dateFormat: format.dateFormat, timeFormat: format.timeFormat });
   }
   viewFor(file) {
@@ -31786,10 +31834,10 @@ function buildPlanMarkdown({ title, goal, steps, at = "", by = "" }) {
 }
 
 // src/workbench-note.js
-var link = (path15, label) => `[[${String(path15).replace(/\.md$/, "")}|${label || String(path15).split("/").pop().replace(/\.md$/, "")}]]`;
+var link = (path16, label) => `[[${String(path16).replace(/\.md$/, "")}|${label || String(path16).split("/").pop().replace(/\.md$/, "")}]]`;
 function buildWorkbenchNote({ boardFiles = [], memory = {}, tasks = [], at = "" } = {}) {
   const stamp = at || (/* @__PURE__ */ new Date()).toISOString().slice(0, 16).replace("T", " ");
-  const byKind = (path15) => /\/任务\//.test(path15) ? t("\u4EFB\u52A1") : /\/规格\//.test(path15) ? t("\u89C4\u683C") : t("\u7B14\u8BB0");
+  const byKind = (path16) => /\/任务\//.test(path16) ? t("\u4EFB\u52A1") : /\/规格\//.test(path16) ? t("\u89C4\u683C") : t("\u7B14\u8BB0");
   const lines = [
     "# \u5DE5\u4F5C\u53F0",
     "",
@@ -31906,9 +31954,9 @@ var MemoryBoardView = class extends import_obsidian12.ItemView {
         col.removeClass("is-over");
         if (e.dataTransfer?.files?.length) return;
         e.preventDefault();
-        const path15 = e.dataTransfer?.getData("text/plain");
-        if (!path15) return;
-        await this.plugin.dreaming.setEntryState(path15, column.state);
+        const path16 = e.dataTransfer?.getData("text/plain");
+        if (!path16) return;
+        await this.plugin.dreaming.setEntryState(path16, column.state);
         await this.refresh();
         this.plugin.dreaming.syncOverview().catch(() => {
         });
@@ -32610,10 +32658,10 @@ function registerTaskAgentSuggest(plugin) {
 }
 
 // src/task-export.js
-var import_fs15 = __toESM(require("fs"), 1);
+var import_fs16 = __toESM(require("fs"), 1);
 var import_promises4 = __toESM(require("fs/promises"), 1);
-var import_os15 = __toESM(require("os"), 1);
-var import_path15 = __toESM(require("path"), 1);
+var import_os16 = __toESM(require("os"), 1);
+var import_path16 = __toESM(require("path"), 1);
 var import_obsidian17 = require("obsidian");
 var SAFE_HREF_RE = /^(?:https?:|mailto:|obsidian:|claude:|codex:|workbuddy:|dsh:|antigravity:|opencode:|qoder:|cursor:|\/|#|\.\.?\/)/i;
 function dedentVisualLines(lines, cols) {
@@ -32798,17 +32846,17 @@ function getElectronRemote() {
 }
 function initialExportDir(plugin, sourcePath = "") {
   const saved = String(plugin.settings?.lastTaskExportDir || "").trim();
-  if (saved && import_fs15.default.existsSync(saved)) return saved;
+  if (saved && import_fs16.default.existsSync(saved)) return saved;
   const vaultBase = plugin.app?.vault?.adapter?.basePath || "";
   if (vaultBase && sourcePath) {
-    const noteDir = import_path15.default.dirname(import_path15.default.join(vaultBase, sourcePath));
-    if (import_fs15.default.existsSync(noteDir)) return noteDir;
+    const noteDir = import_path16.default.dirname(import_path16.default.join(vaultBase, sourcePath));
+    if (import_fs16.default.existsSync(noteDir)) return noteDir;
   }
-  return vaultBase || import_os15.default.homedir();
+  return vaultBase || import_os16.default.homedir();
 }
 function rememberExportDir(plugin, filePath) {
   if (!plugin.settings || !filePath) return;
-  plugin.settings.lastTaskExportDir = import_path15.default.dirname(filePath);
+  plugin.settings.lastTaskExportDir = import_path16.default.dirname(filePath);
   plugin.saveSettings?.();
 }
 function ensureExt(filePath, ext) {
@@ -32824,12 +32872,12 @@ async function ensureVaultFolders(vault, relPath) {
   }
 }
 async function writeExportFile(plugin, chosenPath, content) {
-  const abs = import_path15.default.resolve(chosenPath);
+  const abs = import_path16.default.resolve(chosenPath);
   const vaultBase = plugin.app?.vault?.adapter?.basePath;
   if (vaultBase) {
-    const rel = import_path15.default.relative(import_path15.default.resolve(vaultBase), abs);
-    if (rel && !rel.startsWith("..") && !import_path15.default.isAbsolute(rel)) {
-      const vaultPath = rel.split(import_path15.default.sep).join("/");
+    const rel = import_path16.default.relative(import_path16.default.resolve(vaultBase), abs);
+    if (rel && !rel.startsWith("..") && !import_path16.default.isAbsolute(rel)) {
+      const vaultPath = rel.split(import_path16.default.sep).join("/");
       const vault = plugin.app.vault;
       await ensureVaultFolders(vault, vaultPath);
       const existing = vault.getAbstractFileByPath(vaultPath);
@@ -32838,7 +32886,7 @@ async function writeExportFile(plugin, chosenPath, content) {
       return { path: vaultPath, insideVault: true };
     }
   }
-  await import_promises4.default.mkdir(import_path15.default.dirname(abs), { recursive: true });
+  await import_promises4.default.mkdir(import_path16.default.dirname(abs), { recursive: true });
   await import_promises4.default.writeFile(abs, content, "utf8");
   return { path: abs, insideVault: false };
 }
@@ -33390,51 +33438,51 @@ function buildTaskPlainText(extracted, sourcePath = "") {
   return `${lines.join("\n").replace(/\n+$/, "")}
 `;
 }
-async function copyTaskFormatted(plugin, path15, line, { buildText, successMsg, viewMode = "" }) {
-  const text = await plugin.readNote(path15);
-  const extracted = extractTaskBlock(text, line, path15, plugin);
+async function copyTaskFormatted(plugin, path16, line, { buildText, successMsg, viewMode = "" }) {
+  const text = await plugin.readNote(path16);
+  const extracted = extractTaskBlock(text, line, path16, plugin);
   if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
-  const output = buildText(extracted, path15, { viewMode });
+  const output = buildText(extracted, path16, { viewMode });
   if (!writeClipboard(output)) return plugin.notice(t("\u5199\u5165\u526A\u8D34\u677F\u5931\u8D25"));
   plugin.notice(successMsg);
 }
-async function copyTaskMarkdown(plugin, path15, line) {
-  return copyTaskFormatted(plugin, path15, line, {
+async function copyTaskMarkdown(plugin, path16, line) {
+  return copyTaskFormatted(plugin, path16, line, {
     buildText: (extracted) => `${extracted.markdown}
 `,
     successMsg: t("\u5DF2\u6309 Markdown \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskMarkdownTable(plugin, path15, line) {
-  return copyTaskFormatted(plugin, path15, line, {
+async function copyTaskMarkdownTable(plugin, path16, line) {
+  return copyTaskFormatted(plugin, path16, line, {
     buildText: (extracted, src) => buildTaskMarkdownTable(extracted, src),
     successMsg: t("\u5DF2\u6309 Markdown \u8868\u683C\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskPlainText(plugin, path15, line) {
-  return copyTaskFormatted(plugin, path15, line, {
+async function copyTaskPlainText(plugin, path16, line) {
+  return copyTaskFormatted(plugin, path16, line, {
     buildText: (extracted, src) => buildTaskPlainText(extracted, src),
     successMsg: t("\u5DF2\u6309\u7EAF\u6587\u672C\u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskJson(plugin, path15, line, options = {}) {
-  return copyTaskFormatted(plugin, path15, line, {
+async function copyTaskJson(plugin, path16, line, options = {}) {
+  return copyTaskFormatted(plugin, path16, line, {
     buildText: (extracted, src, opts) => buildTaskExportJson(extracted, src, opts),
     successMsg: t("\u5DF2\u6309 JSON \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F"),
     viewMode: options.viewMode || ""
   });
 }
-async function renderMarkdownFragment(plugin, md, path15, comp) {
+async function renderMarkdownFragment(plugin, md, path16, comp) {
   if (!md) return "";
   const host = document.createElement("div");
   try {
-    await import_obsidian17.MarkdownRenderer.render(plugin.app, md, host, path15, comp);
+    await import_obsidian17.MarkdownRenderer.render(plugin.app, md, host, path16, comp);
     return host.innerHTML;
   } finally {
     host.remove();
   }
 }
-async function renderTaskHtmlForExport(plugin, extracted, path15, viewMode) {
+async function renderTaskHtmlForExport(plugin, extracted, path16, viewMode) {
   const effectiveView = resolveExportView(extracted, viewMode);
   const comp = new import_obsidian17.Component();
   comp.load();
@@ -33442,11 +33490,11 @@ async function renderTaskHtmlForExport(plugin, extracted, path15, viewMode) {
     let outlineBodyHtml = "";
     let extraNotesHtml = "";
     if (effectiveView === "outline" || !extracted.structured) {
-      outlineBodyHtml = await renderMarkdownFragment(plugin, extracted.markdown, path15, comp);
+      outlineBodyHtml = await renderMarkdownFragment(plugin, extracted.markdown, path16, comp);
     } else if (extracted.structured.extraMarkdown) {
-      extraNotesHtml = await renderMarkdownFragment(plugin, extracted.structured.extraMarkdown, path15, comp);
+      extraNotesHtml = await renderMarkdownFragment(plugin, extracted.structured.extraMarkdown, path16, comp);
     }
-    return buildTaskViewHtmlDocument(extracted, path15, {
+    return buildTaskViewHtmlDocument(extracted, path16, {
       viewMode: effectiveView,
       outlineBodyHtml,
       extraNotesHtml
@@ -33455,7 +33503,7 @@ async function renderTaskHtmlForExport(plugin, extracted, path15, viewMode) {
     comp.unload();
   }
 }
-async function prepareExportTarget(plugin, path15, line, {
+async function prepareExportTarget(plugin, path16, line, {
   ext,
   filterName,
   dialogTitle,
@@ -33468,8 +33516,8 @@ async function prepareExportTarget(plugin, path15, line, {
     plugin.notice(unavailableMsg);
     return null;
   }
-  const text = await plugin.readNote(path15);
-  const extracted = extractTaskBlock(text, line, path15, plugin);
+  const text = await plugin.readNote(path16);
+  const extracted = extractTaskBlock(text, line, path16, plugin);
   if (!extracted) {
     plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
     return null;
@@ -33478,20 +33526,20 @@ async function prepareExportTarget(plugin, path15, line, {
   const title = typeof dialogTitle === "function" ? dialogTitle(effectiveView) : dialogTitle;
   const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
     title,
-    defaultPath: import_path15.default.join(initialExportDir(plugin, path15), `${extracted.suggestedName}${ext}`),
+    defaultPath: import_path16.default.join(initialExportDir(plugin, path16), `${extracted.suggestedName}${ext}`),
     filters: [{ name: filterName, extensions: [ext.replace(/^\./, "")] }]
   });
   if (picked.canceled || !picked.filePath) return null;
   const targetFile = ensureExt(picked.filePath, ext);
   const vaultBase = plugin.app?.vault?.adapter?.basePath;
-  if (ext === ".md" && vaultBase && import_path15.default.resolve(import_path15.default.join(vaultBase, path15)) === import_path15.default.resolve(targetFile)) {
+  if (ext === ".md" && vaultBase && import_path16.default.resolve(import_path16.default.join(vaultBase, path16)) === import_path16.default.resolve(targetFile)) {
     plugin.notice(t("\u4E0D\u80FD\u8986\u76D6\u5F53\u524D\u6240\u5728\u7B14\u8BB0"));
     return null;
   }
   return { remote, extracted, effectiveView, targetFile };
 }
-async function exportTaskToPdf(plugin, path15, line, options = {}) {
-  const prep = await prepareExportTarget(plugin, path15, line, {
+async function exportTaskToPdf(plugin, path16, line, options = {}) {
+  const prep = await prepareExportTarget(plugin, path16, line, {
     ext: ".pdf",
     filterName: "PDF",
     requireWindow: true,
@@ -33504,8 +33552,8 @@ async function exportTaskToPdf(plugin, path15, line, options = {}) {
   let win = null;
   let tmpHtml = "";
   try {
-    const html = await renderTaskHtmlForExport(plugin, extracted, path15, effectiveView);
-    tmpHtml = import_path15.default.join(import_os15.default.tmpdir(), `agent-deck-pdf-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
+    const html = await renderTaskHtmlForExport(plugin, extracted, path16, effectiveView);
+    tmpHtml = import_path16.default.join(import_os16.default.tmpdir(), `agent-deck-pdf-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
     await import_promises4.default.writeFile(tmpHtml, html, "utf8");
     win = new remote.BrowserWindow({
       show: false,
@@ -33515,7 +33563,7 @@ async function exportTaskToPdf(plugin, path15, line, options = {}) {
     });
     await win.loadFile(tmpHtml);
     const pdfData = await win.webContents.printToPDF({ printBackground: true, pageSize: "A4" });
-    await import_promises4.default.mkdir(import_path15.default.dirname(targetPdf), { recursive: true });
+    await import_promises4.default.mkdir(import_path16.default.dirname(targetPdf), { recursive: true });
     await import_promises4.default.writeFile(targetPdf, pdfData);
     rememberExportDir(plugin, targetPdf);
     plugin.notice(t("\u5DF2\u5BFC\u51FA PDF\uFF1A{path}", { path: targetPdf }));
@@ -33527,17 +33575,17 @@ async function exportTaskToPdf(plugin, path15, line, options = {}) {
     });
   }
 }
-async function exportTaskToTextFile(plugin, path15, line, { ext, filterName, dialogTitle, buildContent, onSuccess, viewMode = "" }) {
-  const prep = await prepareExportTarget(plugin, path15, line, { ext, filterName, dialogTitle, viewMode });
+async function exportTaskToTextFile(plugin, path16, line, { ext, filterName, dialogTitle, buildContent, onSuccess, viewMode = "" }) {
+  const prep = await prepareExportTarget(plugin, path16, line, { ext, filterName, dialogTitle, viewMode });
   if (!prep) return;
   const { extracted, effectiveView, targetFile } = prep;
-  const content = await buildContent(extracted, path15, { viewMode: effectiveView });
+  const content = await buildContent(extracted, path16, { viewMode: effectiveView });
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
   plugin.notice(onSuccess(written.path));
 }
-async function exportTaskToHtml(plugin, path15, line, options = {}) {
-  return exportTaskToTextFile(plugin, path15, line, {
+async function exportTaskToHtml(plugin, path16, line, options = {}) {
+  return exportTaskToTextFile(plugin, path16, line, {
     ext: ".html",
     filterName: "HTML",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A HTML"),
@@ -33546,8 +33594,8 @@ async function exportTaskToHtml(plugin, path15, line, options = {}) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA HTML\uFF1A{path}", { path: p2 })
   });
 }
-async function exportTaskToMarkdown(plugin, path15, line) {
-  return exportTaskToTextFile(plugin, path15, line, {
+async function exportTaskToMarkdown(plugin, path16, line) {
+  return exportTaskToTextFile(plugin, path16, line, {
     ext: ".md",
     filterName: "Markdown",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A Markdown"),
@@ -33555,8 +33603,8 @@ async function exportTaskToMarkdown(plugin, path15, line) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA Markdown\uFF1A{path}", { path: p2 })
   });
 }
-async function exportTaskToJson(plugin, path15, line, options = {}) {
-  return exportTaskToTextFile(plugin, path15, line, {
+async function exportTaskToJson(plugin, path16, line, options = {}) {
+  return exportTaskToTextFile(plugin, path16, line, {
     ext: ".json",
     filterName: "JSON",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A JSON"),
@@ -33565,8 +33613,8 @@ async function exportTaskToJson(plugin, path15, line, options = {}) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA JSON\uFF1A{path}", { path: p2 })
   });
 }
-async function exportTaskToCsv(plugin, path15, line) {
-  return exportTaskToTextFile(plugin, path15, line, {
+async function exportTaskToCsv(plugin, path16, line) {
+  return exportTaskToTextFile(plugin, path16, line, {
     ext: ".csv",
     filterName: "CSV",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A CSV"),
@@ -33574,24 +33622,24 @@ async function exportTaskToCsv(plugin, path15, line) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA CSV\uFF1A{path}", { path: p2 })
   });
 }
-async function saveTaskAsFile(plugin, path15, line) {
-  const prep = await prepareExportTarget(plugin, path15, line, {
+async function saveTaskAsFile(plugin, path16, line) {
+  const prep = await prepareExportTarget(plugin, path16, line, {
     ext: ".md",
     filterName: "Markdown",
     dialogTitle: t("\u53E6\u5B58\u4E3A\u4EFB\u52A1\u4E0E\u5BF9\u8BDD")
   });
   if (!prep) return;
   const { extracted, targetFile } = prep;
-  const content = buildTaskExportDocument(extracted, path15);
+  const content = buildTaskExportDocument(extracted, path16);
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
-  const latest = await plugin.readNote(path15);
-  const check = extractTaskBlock(latest, line, path15, plugin);
+  const latest = await plugin.readNote(path16);
+  const check = extractTaskBlock(latest, line, path16, plugin);
   if (!check || check.rawText !== extracted.rawText) {
     return plugin.notice(t("\u539F\u7B14\u8BB0\u5185\u5BB9\u521A\u6709\u53D8\u5316\uFF0C\u5DF2\u4FDD\u5B58\u526F\u672C\u5230 {path}\uFF0C\u539F\u6587\u4FDD\u7559", { path: written.path }));
   }
   const updated = removeTaskBlockFromNote(latest, check.start, check.end);
-  await plugin.writeNote(path15, updated);
+  await plugin.writeNote(path16, updated);
   plugin.refreshUI?.();
   plugin.notice(t("\u5DF2\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u672C\uFF1A{path}", { path: written.path }));
 }
@@ -33655,7 +33703,7 @@ var ReplyModal = class extends import_obsidian18.Modal {
 // src/reply-inbox-view.js
 var import_obsidian19 = require("obsidian");
 var REPLY_INBOX_TYPE = "agent-deck-reply-inbox";
-var shortPath = (path15 = "") => String(path15).replace(/\.md$/, "");
+var shortPath = (path16 = "") => String(path16).replace(/\.md$/, "");
 var ReplyInboxView = class extends import_obsidian19.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -34541,7 +34589,7 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
 }
 
 // src/main.js
-var fsp9 = import_fs16.default.promises;
+var fsp9 = import_fs17.default.promises;
 var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
 var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   async onload() {
@@ -34579,11 +34627,11 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.agentShortNames = Object.fromEntries(Object.entries(AGENTS).map(([id, a]) => [id, a.short || a.name || id]));
     this.vaultPath = this.app.vault.adapter.getBasePath ? this.app.vault.adapter.getBasePath() : "";
     this.manifestDir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
-    this.pluginDir = import_path16.default.join(this.vaultPath, this.manifestDir);
-    this.usageFile = import_path16.default.join(this.pluginDir, "usage.json");
+    this.pluginDir = import_path17.default.join(this.vaultPath, this.manifestDir);
+    this.usageFile = import_path17.default.join(this.pluginDir, "usage.json");
     this.store = new UsageStore(this, this.settings);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
-    this.usageCacheFile = import_path16.default.join(import_os16.default.homedir(), ".agent-deck", "usage-cache.json.gz");
+    this.usageCacheFile = import_path17.default.join(import_os17.default.homedir(), ".agent-deck", "usage-cache.json.gz");
     this.editorInfoField = import_obsidian21.editorInfoField;
     this._launchingWaves = /* @__PURE__ */ new Set();
     this._finalizingWaves = /* @__PURE__ */ new Set();
@@ -34988,9 +35036,9 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   // 主入口用 Obsidian 原生 Base（只读表格：筛选/排序/统计）；看板作为"要改状态时"的可选增强。
   async openMemoryBase() {
     if (!this.dreaming.storeMode) return this.notice(t("\u8BF7\u5148\u8FD0\u884C\u300C\u8BB0\u5FC6\uFF1A\u628A\u957F\u671F\u8BB0\u5FC6\u8FC1\u79FB\u5230\u8BB0\u5FC6\u5E93\u300D"));
-    const path15 = `${this.dreaming.dir}.base`;
-    if (!this.app.vault.getAbstractFileByPath(path15)) await this.app.vault.create(path15, memoryBase(this.dreaming.dir));
-    await this.app.workspace.openLinkText(path15, "", false);
+    const path16 = `${this.dreaming.dir}.base`;
+    if (!this.app.vault.getAbstractFileByPath(path16)) await this.app.vault.create(path16, memoryBase(this.dreaming.dir));
+    await this.app.workspace.openLinkText(path16, "", false);
   }
   async openMemoryBoard() {
     const existing = this.app.workspace.getLeavesOfType(MEMORY_BOARD_TYPE)[0];
@@ -35012,9 +35060,9 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       }
     }).open();
   }
-  async deleteMemoryFile(path15) {
-    if (!this.dreaming.isEntryPath(path15)) return false;
-    const file = this.app.vault.getAbstractFileByPath(path15);
+  async deleteMemoryFile(path16) {
+    if (!this.dreaming.isEntryPath(path16)) return false;
+    const file = this.app.vault.getAbstractFileByPath(path16);
     if (!file) return false;
     await this.app.vault.trash(file, true);
     await this.dreaming.syncOverview();
@@ -35022,7 +35070,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       await this.dreaming.ensureReverseLinks({ write: true });
     }
     await this.refreshMemoryBoards();
-    this.notice(t("\u5DF2\u5220\u9664\u8BB0\u5FC6\uFF1A{path}", { path: path15 }));
+    this.notice(t("\u5DF2\u5220\u9664\u8BB0\u5FC6\uFF1A{path}", { path: path16 }));
     return true;
   }
   async deleteCurrentMemory() {
@@ -35438,7 +35486,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.closeGrokBotWatcher();
     if (this._unloaded || !this.agentEnabled("cursor")) return;
     const dir = cursorEventsDir();
-    if (!import_fs16.default.existsSync(dir)) return;
+    if (!import_fs17.default.existsSync(dir)) return;
     const scheduleCursor = () => {
       if (this._unloaded) return;
       clearTimeout(this._cursorWatchTimer);
@@ -35449,7 +35497,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       }, 350);
     };
     try {
-      this._cursorWatcher = import_fs16.default.watch(dir, { persistent: false }, scheduleCursor);
+      this._cursorWatcher = import_fs17.default.watch(dir, { persistent: false }, scheduleCursor);
     } catch {
     }
   }
@@ -35467,7 +35515,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     const tracked = Array.isArray(this.settings.grokBotTrackedBotIds) ? this.settings.grokBotTrackedBotIds.filter(Boolean) : [];
     if (this._unloaded || !this.agentEnabled("grokbot") || !tracked.length) return;
     const dir = this.settings.grokBotPersistenceDir || grokBotPersistenceDir();
-    if (!import_fs16.default.existsSync(dir)) return;
+    if (!import_fs17.default.existsSync(dir)) return;
     const scheduleGrok = () => {
       if (this._unloaded) return;
       clearTimeout(this._grokWatchTimer);
@@ -35478,7 +35526,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       }, 350);
     };
     try {
-      this._grokWatcher = import_fs16.default.watch(dir, { persistent: false }, scheduleGrok);
+      this._grokWatcher = import_fs17.default.watch(dir, { persistent: false }, scheduleGrok);
     } catch {
     }
   }
@@ -35654,10 +35702,10 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     new import_obsidian21.Notice(t("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97"));
   }
   async importNautilus(manual = false) {
-    const dir = import_path16.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
+    const dir = import_path17.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
     let raw;
     try {
-      raw = await fsp9.readFile(import_path16.default.join(dir, "ai-usage.json"), "utf8");
+      raw = await fsp9.readFile(import_path17.default.join(dir, "ai-usage.json"), "utf8");
     } catch {
       if (manual) new import_obsidian21.Notice(t("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json"));
       return;
@@ -36122,8 +36170,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   // ---------- note line map ----------
   // doc 缓存仅保留静态文档结构（lines / links / linkByLine / blockIds），
   // session / job / externalState 每次即时拼装，避免文档未改时读到过期状态。
-  lineMap(path15, doc) {
-    let cached2 = this._lineMaps[path15];
+  lineMap(path16, doc) {
+    let cached2 = this._lineMaps[path16];
     if (!cached2 || cached2.doc !== doc) {
       const lines = doc.toString().split("\n");
       const owners = ownersOf(lines), fenced = fencedLines(lines);
@@ -36145,7 +36193,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
         links.push(entry);
       }
       cached2 = { doc, lines, links, linkByLine, blockIds };
-      this._lineMaps[path15] = cached2;
+      this._lineMaps[path16] = cached2;
     }
     const sessionByParent = /* @__PURE__ */ new Map();
     let liveBySid;
@@ -36175,8 +36223,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     }
     return { doc, lines: cached2.lines, sessionByParent, linkByLine: cached2.linkByLine };
   }
-  jobAtLine(path15, line, text) {
-    const jobs = Object.values(this.jobs).filter((j) => j.path === path15);
+  jobAtLine(path16, line, text) {
+    const jobs = Object.values(this.jobs).filter((j) => j.path === path16);
     const bid = blockIdOf(text);
     let best = null;
     for (const j of jobs) {
@@ -36203,22 +36251,22 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     });
   }
   // 编辑器里找打开着这篇笔记的那个 MarkdownView（不一定是当前激活的：拖拽时焦点常在面板上）
-  viewForPath(path15) {
+  viewForPath(path16) {
     let found = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!found && v instanceof import_obsidian21.MarkdownView && v.file && v.file.path === path15 && v.editor) found = v;
+      if (!found && v instanceof import_obsidian21.MarkdownView && v.file && v.file.path === path16 && v.editor) found = v;
     });
     return found;
   }
   // Hidden editors in Obsidian Reading ("preview") view go stale after background
   // vault writes; only use an open editor directly when it is in editing mode.
-  sourceViewForPath(path15) {
-    const view2 = this.viewForPath(path15);
+  sourceViewForPath(path16) {
+    const view2 = this.viewForPath(path16);
     return view2 && (!view2.getMode || view2.getMode() === "source") ? view2 : null;
   }
-  async toggleRecordPin(path15, lineIndex, { editor = null } = {}) {
-    if (!path15 || !Number.isInteger(lineIndex) || lineIndex < 0) return false;
+  async toggleRecordPin(path16, lineIndex, { editor = null } = {}) {
+    if (!path16 || !Number.isInteger(lineIndex) || lineIndex < 0) return false;
     let nowPinned = false;
     if (editor?.cm?.state?.doc && lineIndex < editor.cm.state.doc.lines) {
       const lineObj = editor.cm.state.doc.line(lineIndex + 1);
@@ -36230,7 +36278,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       this.notice(nowPinned ? t("\u5DF2 Pin \u5173\u952E\u8BB0\u5F55") : t("\u5DF2\u53D6\u6D88 Pin"), 3e3);
       return nowPinned;
     }
-    await updateNote(this, path15, (text) => {
+    await updateNote(this, path16, (text) => {
       const lines = text.split("\n");
       if (lineIndex >= lines.length) return text;
       const next = togglePinMarker(lines[lineIndex]);
@@ -36486,7 +36534,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   canContinueSession(session, opts) {
     return canContinueSession(session, this.jobs, opts);
   }
-  sessionsAtTask(path15, line, lines) {
+  sessionsAtTask(path16, line, lines) {
     const block = blockAt(lines, line);
     if (!block) return [];
     const bid = blockIdOf(lines[block.start]);
@@ -36502,7 +36550,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       found.set(`${link2.agent}:${link2.sid}`, { ...this.usage.meta.get(link2.sid), ...link2, ...transport ? { transport } : {} });
     }
     for (const job of Object.values(this.jobs)) {
-      if (job.path !== path15 || !(bid && job.blockId === bid || job.lineText === lines[block.start])) continue;
+      if (job.path !== path16 || !(bid && job.blockId === bid || job.lineText === lines[block.start])) continue;
       found.set(`${job.agent}:${job.sessionId || job.id}`, { ...this.usage.meta.get(job.sessionId), ...job, sid: job.sessionId });
     }
     return [...found.values()];
@@ -36540,17 +36588,17 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     editor.setCursor({ line: slot.line, ch: (slot.indent + "- \u270D\uFE0F \u7B54\uFF1A").length });
     this.notice(t("\u5199\u5B8C\u540E\u53EF\u4EE5\u300C\u56DE\u7B54\u5E76\u7EE7\u7EED\u300D\uFF0C\u6216\u76F4\u63A5\u8BA9 Agent \u7EED\u8DD1"), 6e3);
   }
-  async replyToQuestion(path15, editor, { line } = {}) {
+  async replyToQuestion(path16, editor, { line } = {}) {
     let lines;
     let atLine = Number.isInteger(line) ? line : -1;
     if (atLine < 0) {
-      const sourceView = this.sourceViewForPath(path15);
+      const sourceView = this.sourceViewForPath(path16);
       const ed = sourceView?.editor || editor;
       if (!ed) return this.notice(t("\u8BF7\u5148\u6253\u5F00\u8FD9\u7BC7\u7B14\u8BB0"));
       lines = ed.getValue().split("\n");
       atLine = ed.getCursor().line;
     } else {
-      lines = (await this.readNote(path15)).split("\n");
+      lines = (await this.readNote(path16)).split("\n");
     }
     const info = this.threadAt(lines, atLine);
     if (!info) return this.notice(t("\u628A\u5149\u6807\u653E\u5728\u8981\u56DE\u590D\u7684\u90A3\u4E00\u6761\u4EFB\u52A1\u91CC"));
@@ -36561,19 +36609,19 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       options: suggestOptions(question.text),
       value: question.answer || "",
       hint: t("\u53EA\u5199\u8FDB\u7B14\u8BB0\u91CC\u90A3\u884C\u300C\u270D\uFE0F \u7B54\uFF1A\u300D\uFF0C\u4E0D\u65B0\u5F00\u4F1A\u8BDD"),
-      onSubmit: (answer, { continue: keepGoing } = {}) => this.applyReply(path15, block.start, { questionText: question.text, answer, continueSession: keepGoing }),
-      canContinue: this.sessionsAtTask(path15, block.start, lines).some((s) => this.canContinueSession(s))
+      onSubmit: (answer, { continue: keepGoing } = {}) => this.applyReply(path16, block.start, { questionText: question.text, answer, continueSession: keepGoing }),
+      canContinue: this.sessionsAtTask(path16, block.start, lines).some((s) => this.canContinueSession(s))
     }).open();
   }
   // 老数据兼容：把已经写好的 ❓ / ✍️ 补上块号（幂等，可对有历史问答的笔记跑一遍）。
-  async anchorThread(path15, editor) {
+  async anchorThread(path16, editor) {
     const lines = editor.getValue().split("\n");
     const block = blockAt(lines, editor.getCursor().line);
     if (!block) return this.notice(t("\u628A\u5149\u6807\u653E\u5728\u8981\u8865\u5757\u53F7\u7684\u90A3\u4E00\u6761\u4EFB\u52A1\u91CC"));
     const blockId = blockIdOf(lines[block.start]);
     let changed = false;
-    await updateNote(this, path15, (text) => {
-      const next = anchorThreadText(text, { blockId, atLine: block.start, seedPrefix: path15 });
+    await updateNote(this, path16, (text) => {
+      const next = anchorThreadText(text, { blockId, atLine: block.start, seedPrefix: path16 });
       changed = next !== text;
       return next;
     });
@@ -36641,13 +36689,13 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.refreshReplyInbox();
   }
   // 复制 `[[笔记#^ad-q-…]]`：别的笔记、会话、Linear 里都能直接指到这一问。
-  async copyQuestionRef(path15, thread) {
-    const lines = (await this.readNote(path15)).split("\n");
+  async copyQuestionRef(path16, thread) {
+    const lines = (await this.readNote(path16)).split("\n");
     const blockId = blockIdOf(lines[thread.block.start] || "");
-    const seed = `${path15}|${blockId}|${thread.question.text}`;
+    const seed = `${path16}|${blockId}|${thread.question.text}`;
     const id = thread.question.id || makeQuestionId(seed);
-    if (!thread.question.id) await updateNote(this, path15, (text) => ensureQuestionId(text, { blockId, questionText: thread.question.text, seed }));
-    const link2 = `[[${path15.replace(/\.md$/, "")}#^${id}]]`;
+    if (!thread.question.id) await updateNote(this, path16, (text) => ensureQuestionId(text, { blockId, questionText: thread.question.text, seed }));
+    const link2 = `[[${path16.replace(/\.md$/, "")}#^${id}]]`;
     try {
       await navigator.clipboard.writeText(link2);
     } catch {
@@ -36655,17 +36703,17 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.notice(t("\u5DF2\u590D\u5236\u5757\u5F15\u7528\uFF1A{link}", { link: link2 }), 6e3);
   }
   // 写回答（幂等）+ 可选续聊同一会话。抽成方法，方便真机验证直接调用。
-  async applyReply(path15, atLine, { questionText = "", answer = "", continueSession = false } = {}) {
+  async applyReply(path16, atLine, { questionText = "", answer = "", continueSession = false } = {}) {
     if (!String(answer || "").trim()) return false;
-    const before = await this.readNote(path15);
+    const before = await this.readNote(path16);
     const lines = before.split("\n");
     const block = blockAt(lines, atLine);
     const blockId = block ? blockIdOf(lines[block.start]) : "";
-    const seed = `${path15}|${blockId}|${questionText}`;
+    const seed = `${path16}|${blockId}|${questionText}`;
     const questionId = makeQuestionId(seed);
-    await updateNote(this, path15, (text) => ensureQuestionId(text, { blockId, questionText, seed }));
+    await updateNote(this, path16, (text) => ensureQuestionId(text, { blockId, questionText, seed }));
     let changed = false;
-    await updateNote(this, path15, (text) => {
+    await updateNote(this, path16, (text) => {
       const next = fillAnswer(text, { questionText, answer, blockId, questionId });
       changed = next !== text;
       return next;
@@ -36673,25 +36721,25 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     if (Array.isArray(this.settings?.replyInbox) && this.settings.replyInbox.length) {
       const beforeInbox = this.settings.replyInbox.length;
       this.settings.replyInbox = inboxRemove(this.settings.replyInbox, {
-        path: path15,
+        path: path16,
         blockId,
         questionId,
         question: questionText
-      }).filter((x) => !(x.path === path15 && blockId && x.blockId === blockId && questionText && x.question === questionText));
+      }).filter((x) => !(x.path === path16 && blockId && x.blockId === blockId && questionText && x.question === questionText));
       if (this.settings.replyInbox.length !== beforeInbox) {
         await this.saveSettings();
         this.refreshReplyInbox();
       }
     }
     this.notice(changed ? t("\u5DF2\u5199\u56DE\u56DE\u7B54\uFF1A{answer}", { answer: truncate(answer, 40) }) : t("\u56DE\u7B54\u5DF2\u7ECF\u662F\u8FD9\u6837\u4E86\uFF0C\u6CA1\u6709\u6539\u52A8"), changed ? 6e3 : 5e3);
-    if (continueSession) await this.continueAfterReply(path15, atLine, answer);
+    if (continueSession) await this.continueAfterReply(path16, atLine, answer);
     return changed;
   }
   // 续聊：回答当成下一轮的追问发给原来那个会话，不新开。
-  async continueAfterReply(path15, atLine, answer) {
-    const lines = (await this.readNote(path15)).split("\n");
+  async continueAfterReply(path16, atLine, answer) {
+    const lines = (await this.readNote(path16)).split("\n");
     const block = blockAt(lines, atLine);
-    const sessions = this.sessionsAtTask(path15, atLine, lines);
+    const sessions = this.sessionsAtTask(path16, atLine, lines);
     const session = [...sessions].reverse().find((s) => this.canContinueSession(s)) || sessions.at(-1);
     if (!session) return this.notice(t("\u8FD9\u4E00\u5757\u8FD8\u6CA1\u7ED1\u5B9A\u4F1A\u8BDD\uFF1B\u56DE\u7B54\u5DF2\u5199\u8FDB\u7B14\u8BB0"), 6e3);
     const blockId = block ? blockIdOf(lines[block.start]) : "";
@@ -36700,7 +36748,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
 ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4E00\u4EF6\u4E8B\u3002")}`;
       await this.delegator.continueSession({
         ...session,
-        path: path15,
+        path: path16,
         ...blockId ? { blockId } : {},
         ...session.destination ? {} : { destination: "background" }
       }, prompt);
@@ -36709,23 +36757,23 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     }
   }
   // 原地手写完 `✍️ 答` 之后直接发给会话继续，不用重开 ReplyModal。
-  async submitWrittenReply(path15, editor, { line } = {}) {
+  async submitWrittenReply(path16, editor, { line } = {}) {
     let lines;
     let atLine = Number.isInteger(line) ? line : -1;
     if (atLine < 0) {
-      const sourceView = this.sourceViewForPath(path15);
+      const sourceView = this.sourceViewForPath(path16);
       const ed = sourceView?.editor || editor;
       if (!ed) return this.notice(t("\u8BF7\u5148\u6253\u5F00\u8FD9\u7BC7\u7B14\u8BB0"));
       lines = ed.getValue().split("\n");
       atLine = ed.getCursor().line;
     } else {
-      lines = (await this.readNote(path15)).split("\n");
+      lines = (await this.readNote(path16)).split("\n");
     }
     const block = blockAt(lines, atLine);
     if (!block) return this.notice(t("\u628A\u5149\u6807\u653E\u5728\u8981\u7EED\u804A\u7684\u90A3\u4E00\u6761\u4EFB\u52A1\u91CC"));
     const written = latestWrittenAnswer(lines, block);
     if (!written) return this.notice(t("\u8FD9\u4E00\u5757\u91CC\u8FD8\u6CA1\u6709\u5199\u597D\u7684\u300C\u270D\uFE0F \u7B54\u300D"));
-    const sessions = this.sessionsAtTask(path15, block.start, lines);
+    const sessions = this.sessionsAtTask(path16, block.start, lines);
     if (!sessions.length) return this.notice(t("\u8FD9\u4E00\u5757\u8FD8\u6CA1\u7ED1\u5B9A\u4F1A\u8BDD"));
     if (!sessions.some((s) => this.canContinueSession(s))) {
       return this.notice(t("\u5F53\u524D\u7ED1\u5B9A\u7684\u4F1A\u8BDD\u4E0D\u652F\u6301\u5728 Obsidian \u5185\u7EED\u804A\uFF0C\u8BF7\u5728\u539F\u5BA2\u6237\u7AEF\u7EE7\u7EED"));
@@ -36736,26 +36784,26 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       const qid = written.question?.id || "";
       const qtext = written.question?.text || "";
       this.settings.replyInbox = inboxRemove(this.settings.replyInbox || [], {
-        path: path15,
+        path: path16,
         blockId,
         questionId: qid,
         question: qtext
-      }).filter((x) => !(x.path === path15 && blockId && x.blockId === blockId && qtext && x.question === qtext));
+      }).filter((x) => !(x.path === path16 && blockId && x.blockId === blockId && qtext && x.question === qtext));
       if (this.settings.replyInbox.length !== before) {
         await this.saveSettings();
         this.refreshReplyInbox();
       }
     }
-    await this.continueAfterReply(path15, block.start, written.answer);
+    await this.continueAfterReply(path16, block.start, written.answer);
   }
-  openFollowUp(session, { path: path15 = "", line = -1, blockId = "", title = "" } = {}) {
+  openFollowUp(session, { path: path16 = "", line = -1, blockId = "", title = "" } = {}) {
     new FollowUpModal(this.app, {
       session,
       title,
       onSubmit: async (prompt) => {
         const target = {
           ...session,
-          ...path15 ? { path: path15 } : {},
+          ...path16 ? { path: path16 } : {},
           ...blockId ? { blockId } : {},
           ...session.destination ? {} : { destination: "background" }
         };
@@ -36764,39 +36812,39 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       }
     }).open();
   }
-  async taskActions(path15, line, event) {
+  async taskActions(path16, line, event) {
     let text;
     try {
-      text = await this.readNote(path15);
+      text = await this.readNote(path16);
     } catch {
       return;
     }
     const lines = text.split("\n"), block = blockAt(lines, line);
     if (!block) return;
-    const sourceView = this.sourceViewForPath(path15);
-    const view2 = sourceView || this.viewForPath(path15);
-    const sessions = this.sessionsAtTask(path15, line, lines);
+    const sourceView = this.sourceViewForPath(path16);
+    const view2 = sourceView || this.viewForPath(path16);
+    const sessions = this.sessionsAtTask(path16, line, lines);
     const menu = new import_obsidian21.Menu();
     const thread = this.threadAt(lines, line);
     const blockId = blockIdOf(lines[block.start]);
     if (thread?.question && pendingQuestion(thread.parsed)) {
       menu.addItem((mi) => mi.setTitle(t("\u270D\uFE0F \u56DE\u590D\u8FD9\u4E00\u95EE\u2026")).onClick(() => {
         if (sourceView?.editor) sourceView.editor.setCursor({ line: thread.question.line, ch: 0 });
-        this.replyToQuestion(path15, sourceView?.editor, { line: thread.question.line });
+        this.replyToQuestion(path16, sourceView?.editor, { line: thread.question.line });
       }));
-      menu.addItem((mi) => mi.setTitle(t("\u590D\u5236\u8FD9\u4E00\u95EE\u7684\u5757\u5F15\u7528\uFF08[[\u7B14\u8BB0#^\u5757\u53F7]]\uFF09")).onClick(() => this.copyQuestionRef(path15, thread)));
+      menu.addItem((mi) => mi.setTitle(t("\u590D\u5236\u8FD9\u4E00\u95EE\u7684\u5757\u5F15\u7528\uFF08[[\u7B14\u8BB0#^\u5757\u53F7]]\uFF09")).onClick(() => this.copyQuestionRef(path16, thread)));
       menu.addSeparator();
     } else {
       const written = latestWrittenAnswer(lines, block);
       if (written && !written.hasResultAfter && sessions.some((s) => this.canContinueSession(s))) {
-        menu.addItem((mi) => mi.setTitle(t("\u628A\u5DF2\u5199\u597D\u7684 \u270D\uFE0F \u7B54 \u53D1\u7ED9\u4F1A\u8BDD\u7EE7\u7EED")).setIcon("send").onClick(() => this.submitWrittenReply(path15, sourceView?.editor, { line: block.start })));
+        menu.addItem((mi) => mi.setTitle(t("\u628A\u5DF2\u5199\u597D\u7684 \u270D\uFE0F \u7B54 \u53D1\u7ED9\u4F1A\u8BDD\u7EE7\u7EED")).setIcon("send").onClick(() => this.submitWrittenReply(path16, sourceView?.editor, { line: block.start })));
         menu.addSeparator();
       }
     }
     for (const [index, session] of sessions.entries()) {
       const title = `${AGENTS[session.agent]?.name || session.agent} \xB7 ${t("\u4F1A\u8BDD {n}", { n: index + 1 })}`;
       if (this.canContinueSession(session, { requireSid: false })) {
-        menu.addItem((mi) => mi.setTitle(t("\u7EE7\u7EED\u5BF9\u8BDD\uFF08\u8FFD\u95EE\uFF09\xB7 {title}", { title })).setIcon("message-square-plus").setDisabled(!session.sid || activeJob(session)).onClick(() => this.openFollowUp(session, { path: path15, line: block.start, blockId, title: session.title || session.name || "" })));
+        menu.addItem((mi) => mi.setTitle(t("\u7EE7\u7EED\u5BF9\u8BDD\uFF08\u8FFD\u95EE\uFF09\xB7 {title}", { title })).setIcon("message-square-plus").setDisabled(!session.sid || activeJob(session)).onClick(() => this.openFollowUp(session, { path: path16, line: block.start, blockId, title: session.title || session.name || "" })));
       }
       menu.addItem((mi) => mi.setTitle(t("\u67E5\u770B\u6B63\u6587\u4E0E\u4FDD\u5B58\u5BF9\u8BDD \xB7 {title}", { title })).setDisabled(!session.sid).onClick(() => this.openConversation(session)));
       if (canOpenClient(session)) menu.addItem((mi) => mi.setTitle(t("\u5728\u5BA2\u6237\u7AEF\u6253\u5F00 \xB7 {title}", { title })).setDisabled(!session.sid || hasAgentCapability(session.agent, "waitDesktopUntilDone") && activeJob(session)).onClick(() => this.openClientSession(session)));
@@ -36804,9 +36852,9 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       else if (session.handoff && !session.sid && activeJob(session)) menu.addItem((mi) => mi.setTitle(t("\u53D6\u6D88\u4EA4\u63A5 \xB7 {title}", { title })).onClick(() => this.cancelJob(session.id)));
       menu.addSeparator();
     }
-    for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem((mi) => mi.setTitle(t("\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path: path15, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem((mi) => mi.setTitle(t("\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path: path16, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
     menu.addSeparator();
-    menu.addItem((mi) => mi.setTitle(t("\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u62C6\u89E3\u5E76\u5206\u914D\u5C0F\u961F")).setIcon("folder-kanban").onClick(() => this.openProjectWorkbench({ path: path15, line: block.start })));
+    menu.addItem((mi) => mi.setTitle(t("\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u62C6\u89E3\u5E76\u5206\u914D\u5C0F\u961F")).setIcon("folder-kanban").onClick(() => this.openProjectWorkbench({ path: path16, line: block.start })));
     if (sourceView?.editor) {
       menu.addItem((mi) => mi.setTitle(t("\u7ED1\u5B9A\u6216\u5408\u5E76\u5230\u5176\u4ED6\u4EFB\u52A1")).onClick(() => {
         sourceView.editor.setCursor({ line: block.start, ch: 0 });
@@ -36825,7 +36873,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     const icons = { outline: "list-tree", table: "table", cards: "layout-grid", timeline: "history" };
     setLucide(el, icons[viewMode] || "list-tree");
   }
-  populateRecordExportMenu(sub, { path: path15 = "", line = 0, viewMode = "outline" } = {}) {
+  populateRecordExportMenu(sub, { path: path16 = "", line = 0, viewMode = "outline" } = {}) {
     const viewLabels = {
       outline: t("\u5927\u7EB2"),
       table: t("\u8868\u683C"),
@@ -36833,20 +36881,20 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       timeline: t("\u65F6\u95F4\u7EBF")
     };
     const activeViewLabel = viewLabels[viewMode] || viewLabels.outline;
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A PDF\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("file-text").onClick(() => exportTaskToPdf(this, path15, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A HTML\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("globe").onClick(() => exportTaskToHtml(this, path15, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A Markdown (.md)")).setIcon("file-code").onClick(() => exportTaskToMarkdown(this, path15, line)));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A JSON (.json)")).setIcon("braces").onClick(() => exportTaskToJson(this, path15, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A CSV (.csv)")).setIcon("table").onClick(() => exportTaskToCsv(this, path15, line)));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A PDF\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("file-text").onClick(() => exportTaskToPdf(this, path16, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A HTML\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("globe").onClick(() => exportTaskToHtml(this, path16, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A Markdown (.md)")).setIcon("file-code").onClick(() => exportTaskToMarkdown(this, path16, line)));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A JSON (.json)")).setIcon("braces").onClick(() => exportTaskToJson(this, path16, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A CSV (.csv)")).setIcon("table").onClick(() => exportTaskToCsv(this, path16, line)));
     sub.addSeparator();
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path15, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown \u8868\u683C")).setIcon("table").onClick(() => copyTaskMarkdownTable(this, path15, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A\u7EAF\u6587\u672C")).setIcon("align-left").onClick(() => copyTaskPlainText(this, path15, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A JSON")).setIcon("copy").onClick(() => copyTaskJson(this, path15, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path16, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown \u8868\u683C")).setIcon("table").onClick(() => copyTaskMarkdownTable(this, path16, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A\u7EAF\u6587\u672C")).setIcon("align-left").onClick(() => copyTaskPlainText(this, path16, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A JSON")).setIcon("copy").onClick(() => copyTaskJson(this, path16, line, { viewMode })));
     sub.addSeparator();
-    sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path15, line)));
+    sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path16, line)));
   }
-  openRecordViewMenu(event, { path: path15 = "", line = 0, viewMode = "outline", onSelect } = {}) {
+  openRecordViewMenu(event, { path: path16 = "", line = 0, viewMode = "outline", onSelect } = {}) {
     const menu = new import_obsidian21.Menu();
     const views = [
       ["outline", t("\u5927\u7EB2"), "list-tree"],
@@ -36859,9 +36907,9 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         mi.setTitle(label).setIcon(icon).setChecked(viewMode === id).onClick(() => onSelect?.(id));
       });
     }
-    if (path15) {
+    if (path16) {
       menu.addSeparator();
-      const opts = { path: path15, line, viewMode };
+      const opts = { path: path16, line, viewMode };
       menu.addItem((mi) => {
         mi.setTitle(t("\u5BFC\u51FA")).setIcon("download");
         if (typeof mi.setSubmenu === "function") {
@@ -36950,14 +36998,14 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     });
   }
   // ---------- editor actions ----------
-  async delegateAtLine(path15, line, extraOpts = {}) {
-    const file = this.app.vault.getAbstractFileByPath(path15);
+  async delegateAtLine(path16, line, extraOpts = {}) {
+    const file = this.app.vault.getAbstractFileByPath(path16);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    const lines = (await this.readNote(path15)).split("\n");
-    return this.delegateDrop(this.defaultTarget(), { path: path15, line, lineText: lines[line] }, null, extraOpts);
+    const lines = (await this.readNote(path16)).split("\n");
+    return this.delegateDrop(this.defaultTarget(), { path: path16, line, lineText: lines[line] }, null, extraOpts);
   }
-  openDelegateModal(path15, line) {
-    new DelegateOptionsModal(this.app, this, path15, line).open();
+  openDelegateModal(path16, line) {
+    new DelegateOptionsModal(this.app, this, path16, line).open();
   }
   // Which journal the two commands act on: the note you are looking at when it
   // sits next to today's journal, otherwise today's journal.
@@ -37126,12 +37174,12 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
   }
   openSessionForEditor(editor, view2) {
     if (!view2 || !view2.file) return;
-    const path15 = view2.file.path, line = editor.getCursor().line;
-    const map = this.lineMap(path15, editor.cm.state.doc);
+    const path16 = view2.file.path, line = editor.getCursor().line;
+    const map = this.lineMap(path16, editor.cm.state.doc);
     let s = map.sessionByParent.get(line);
     if (!s) {
       const text = editor.getLine(line);
-      const job = this.jobAtLine(path15, line, text);
+      const job = this.jobAtLine(path16, line, text);
       if (job) return this.openJob(job.id);
     }
     if (!s) return this.notice(t("\u8FD9\u4E00\u884C\u4E0B\u9762\u6CA1\u6709 \u{1F517} \u7ED1\u5B9A"));
@@ -37256,9 +37304,9 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     file = await this.app.vault.create(pathStr, content);
     return { path: pathStr, file };
   }
-  async writeWorkbenchTasks({ path: path15 = "", line = -1, parentTitle = "", subtasks = [], enableBoard = true } = {}) {
+  async writeWorkbenchTasks({ path: path16 = "", line = -1, parentTitle = "", subtasks = [], enableBoard = true } = {}) {
     var _a;
-    const ensured = await this.ensureNoteFile(path15);
+    const ensured = await this.ensureNoteFile(path16);
     const targetPath = ensured.path;
     const activeSubtasks = (subtasks || []).filter((s) => s && s.checked !== false && String(s.title || "").trim());
     if (!activeSubtasks.length) throw new Error(t("\u6CA1\u6709\u53EF\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
@@ -37351,7 +37399,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     return { path: targetPath, lines: finalLines, parentLine, parentBlockId, subtaskLines };
   }
   async dispatchWorkbenchTasks({
-    path: path15,
+    path: path16,
     lines,
     subtaskLines = [],
     cwd = "",
@@ -37363,9 +37411,9 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     round = 1
   } = {}) {
     var _a;
-    const file = this.app.vault.getAbstractFileByPath(path15);
-    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u76EE\u6807\u7B14\u8BB0\uFF1A{path}", { path: path15 }));
-    const freshLines = lines || (await this.readNote(path15)).split("\n");
+    const file = this.app.vault.getAbstractFileByPath(path16);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u76EE\u6807\u7B14\u8BB0\uFF1A{path}", { path: path16 }));
+    const freshLines = lines || (await this.readNote(path16)).split("\n");
     const tasks = subtaskLines.map((item) => ({ item, block: blockAt(freshLines, item.line) })).filter((x) => x.block);
     if (!tasks.length) return;
     const siblingModel = tasks.length > 1 ? {
@@ -37421,7 +37469,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         };
       });
       const wave = createWorkbenchWave({
-        path: path15,
+        path: path16,
         parentBlockId,
         parentTitle: parentTitle || t("\u534F\u4F5C\u9879\u76EE"),
         projectName: projectName2,
@@ -37434,7 +37482,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       (_a = this.settings).workbenchWaves || (_a.workbenchWaves = {});
       this.settings.workbenchWaves[wave.id] = wave;
       if (parentBlockId || parentTitle) {
-        await updateNote(this, path15, (text) => updateTaskBlockStatusById(text, {
+        await updateNote(this, path16, (text) => updateTaskBlockStatusById(text, {
           blockId: parentBlockId,
           title: parentTitle,
           targetColumn: "doing",
@@ -37447,10 +37495,10 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     }
     this.refreshUI();
   }
-  async dispatchBoardGroup(path15, parentLine, { model: providedModel = null } = {}) {
-    const file = this.app.vault.getAbstractFileByPath(path15);
+  async dispatchBoardGroup(path16, parentLine, { model: providedModel = null } = {}) {
+    const file = this.app.vault.getAbstractFileByPath(path16);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    let text = await this.readNote(path15);
+    let text = await this.readNote(path16);
     let lines = text.split("\n");
     const groups = extractTaskBoardGroups(text, {
       trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : /* @__PURE__ */ new Set(),
@@ -37462,7 +37510,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     let parentBlockId = blockIdOf(lines[parentLine]);
     if (!parentBlockId) {
       const generated = makeBlockId("", "ad", readableSlug(grp?.title || ""));
-      await updateNote(this, path15, (cur) => {
+      await updateNote(this, path16, (cur) => {
         const curLines = cur.split("\n");
         if (!curLines[parentLine]) return cur;
         const ensured = ensureBlockId(curLines[parentLine], generated);
@@ -37470,7 +37518,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         parentBlockId = ensured.blockId;
         return curLines.join("\n");
       });
-      text = await this.readNote(path15);
+      text = await this.readNote(path16);
       lines = text.split("\n");
     }
     const model = providedModel || buildTaskBoardModel(grp, this);
@@ -37485,7 +37533,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       boardContext: buildBoardSiblingContext(model, card.line)
     }));
     const existingWave = findActiveWaveForBoard(this.settings.workbenchWaves, {
-      path: path15,
+      path: path16,
       parentBlockId,
       parentTitle: model.title
     });
@@ -37497,7 +37545,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       defaultAgent: this.defaultTarget?.()
     });
     await this.dispatchWorkbenchTasks({
-      path: path15,
+      path: path16,
       lines,
       subtaskLines,
       parentTitle: model.title,
@@ -38133,7 +38181,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     };
   }
   async restoreNautilusAgentBar() {
-    const p2 = import_path16.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    const p2 = import_path17.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     try {
       const data = JSON.parse(await fsp9.readFile(p2, "utf8"));
       if (data.agentStatus !== true) {
@@ -38158,7 +38206,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
   }
   async hideNautilusAgentBar() {
     if (this.settings.menuBarHideNautilus === false) return;
-    const p2 = import_path16.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    const p2 = import_path17.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     let data = null;
     try {
       data = JSON.parse(await fsp9.readFile(p2, "utf8"));
@@ -38298,22 +38346,22 @@ ${body}` });
   openExternal(url) {
     return openExternal(url);
   }
-  async readNote(path15) {
-    const view2 = this.sourceViewForPath(path15);
+  async readNote(path16) {
+    const view2 = this.sourceViewForPath(path16);
     if (view2) return view2.editor.getValue();
-    const file = this.app.vault.getAbstractFileByPath(path15);
-    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path15 }));
+    const file = this.app.vault.getAbstractFileByPath(path16);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path16 }));
     return await this.app.vault.read(file);
   }
-  async writeNote(path15, text) {
-    const view2 = this.sourceViewForPath(path15);
+  async writeNote(path16, text) {
+    const view2 = this.sourceViewForPath(path16);
     if (view2) {
       const change = diffLines(view2.editor.getValue(), text);
       if (change) view2.editor.transaction({ changes: [change] });
       return;
     }
-    const file = this.app.vault.getAbstractFileByPath(path15);
-    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path15 }));
+    const file = this.app.vault.getAbstractFileByPath(path16);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path16 }));
     await this.app.vault.process(file, () => text);
   }
   async checkBinary(kind) {
@@ -38369,11 +38417,11 @@ ${body}` });
       assetCheck,
       providerSummary
     });
-    const outDir = import_path16.default.join(import_os16.default.homedir(), ".agent-deck");
-    const outPath = import_path16.default.join(outDir, "diagnostics-latest.json");
+    const outDir = import_path17.default.join(import_os17.default.homedir(), ".agent-deck");
+    const outPath = import_path17.default.join(outDir, "diagnostics-latest.json");
     try {
-      await import_fs16.default.promises.mkdir(outDir, { recursive: true, mode: 448 });
-      await import_fs16.default.promises.writeFile(outPath, JSON.stringify(report, null, 2) + "\n", { mode: 384 });
+      await import_fs17.default.promises.mkdir(outDir, { recursive: true, mode: 448 });
+      await import_fs17.default.promises.writeFile(outPath, JSON.stringify(report, null, 2) + "\n", { mode: 384 });
       try {
         await navigator?.clipboard?.writeText?.(JSON.stringify(report, null, 2));
       } catch {
