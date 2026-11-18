@@ -32,7 +32,7 @@ function makeVault({ script = true, memory = true } = {}) {
   return vault;
 }
 
-function makeDelegator(vaultPath = "/vault") {
+function makeDelegator(vaultPath = path.join(path.sep, "vault")) {
   return new Delegator({
     settings: deepMerge(DEFAULTS, {}),
     jobs: {},
@@ -44,11 +44,13 @@ function makeDelegator(vaultPath = "/vault") {
   });
 }
 
-async function enrich(blockText, vaultPath = "/vault") {
+async function enrich(blockText, vaultPath = path.join(path.sep, "vault")) {
   const resolved = { file: { path: "inbox/当前.md" }, block: { text: blockText }, prompt: "原始 prompt" };
   await makeDelegator(vaultPath).enrichPrompt(resolved);
   return resolved.prompt;
 }
+
+const v = (...parts) => path.join(path.sep, "vault", ...parts);
 
 // 顶部那行「需要更多背景时…」由另一组用例单独断言，这里只看引用笔记段。
 const body = (prompt) => prompt.replace(/^需要更多背景时：.*\n\n/, "");
@@ -56,15 +58,15 @@ const body = (prompt) => prompt.replace(/^需要更多背景时：.*\n\n/, "");
 test("同名笔记：按 metadataCache 解析出的那一个列，且同路径只列一次", async () => {
   const prompt = body(await enrich("- TODO 对照 [[日记]] 和 [[项目A/日记]] @dsh"));
   assert.ok(prompt.startsWith(HEAD), "顶部是引用笔记清单");
-  assert.equal(prompt.split("/vault/项目A/日记.md").length - 1, 1, "同一个 resolve 结果不重复列出");
-  assert.ok(!prompt.includes("/vault/日记.md"), "不会把裸名拼成路径");
+  assert.equal(prompt.split(v("项目A", "日记.md")).length - 1, 1, "同一个 resolve 结果不重复列出");
+  assert.ok(!prompt.includes(v("日记.md")), "不会把裸名拼成路径");
 });
 
 test("非 md 目标（图片、canvas）与解析不到的链接都不算素材", async () => {
   const prompt = body(await enrich("- TODO 看图 [[图片]] 和 [[蓝图]]，还有 [[不存在这篇]] @dsh"));
   assert.ok(prompt.startsWith("原始 prompt"), "没有可用引用时不动 prompt");
-  assert.ok(!prompt.includes("/vault/附件/图片.png"));
-  assert.ok(!prompt.includes("/vault/看板/蓝图.canvas"));
+  assert.ok(!prompt.includes(v("附件", "图片.png")));
+  assert.ok(!prompt.includes(v("看板", "蓝图.canvas")));
   assert.ok(!prompt.includes("不存在这篇"));
 });
 
@@ -78,9 +80,9 @@ test("代码块与行内代码里的 [[...]] 不算引用", async () => {
     "\t- 真素材是 [[真素材]]",
   ].join("\n");
   const prompt = body(await enrich(blockText));
-  assert.ok(prompt.includes("/vault/参考/真素材.md"), "代码块外的引用照常列出");
-  assert.ok(!prompt.includes("/vault/参考/代码块.md"), "代码块里的双链不是引用");
-  assert.ok(!prompt.includes("/vault/参考/行内.md"), "行内代码里的双链不是引用");
+  assert.ok(prompt.includes(v("参考", "真素材.md")), "代码块外的引用照常列出");
+  assert.ok(!prompt.includes(v("参考", "代码块.md")), "代码块里的双链不是引用");
+  assert.ok(!prompt.includes(v("参考", "行内.md")), "行内代码里的双链不是引用");
 });
 
 test("任务块自身与它挂的派发载荷/草稿都不算素材", async () => {
@@ -92,13 +94,14 @@ test("任务块自身与它挂的派发载荷/草稿都不算素材", async () =
   const prompt = body(await enrich(blockText));
   assert.ok(!prompt.includes("inbox/当前.md"), "不把当前笔记自己当素材");
   assert.ok(!prompt.includes("Agent Deck/派发/"), "不把派发载荷当素材");
-  assert.ok(prompt.includes("/vault/参考/真素材.md"));
+  assert.ok(prompt.includes(v("参考", "真素材.md")));
 });
 
 test("运行时记忆查询：脚本和记忆目录都在时，prompt 顶部给一行用法", async () => {
   const vault = makeVault();
   const prompt = await enrich("- TODO 查一下以前的结论 @dsh", vault);
-  assert.equal(prompt.split("\n")[0], `需要更多背景时：node "${vault}/.obsidian/plugins/agent-deck/scripts/memory-query.mjs" search "关键词"`);
+  const scriptPath = path.join(vault, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
+  assert.equal(prompt.split("\n")[0], `需要更多背景时：node "${scriptPath}" search "关键词"`);
 });
 
 test("运行时记忆查询：脚本没装或还没记忆时，不加这行（不教 Agent 跑不存在的命令）", async () => {
@@ -194,8 +197,8 @@ test("ContextBundle 联合 enrichPrompt：同时扫描祖先链双链，且稳�
   const payload = await buildDelegationPayload({ plugin, file: { path: "inbox/当前.md" }, lines, block });
   const resolved = { file: { path: "inbox/当前.md" }, lines, block, ...payload };
   await new Delegator(plugin).enrichPrompt(resolved);
-  assert.ok(resolved.prompt.includes(`${vault}/项目A/日记.md`), "祖先链里的 [[日记]] 也进入绝对路径清单");
-  assert.ok(resolved.prompt.includes(`${vault}/参考/真素材.md`));
+  assert.ok(resolved.prompt.includes(path.join(vault, "项目A", "日记.md")), "祖先链里的 [[日记]] 也进入绝对路径清单");
+  assert.ok(resolved.prompt.includes(path.join(vault, "参考", "真素材.md")));
   assert.equal(resolved.bundle.stats.notePathCount, 2);
   assert.equal(resolved.bundle.stats.hasReply, true);
   const iPrefix = resolved.prompt.indexOf("GLOBAL_STABLE_PREFIX");
