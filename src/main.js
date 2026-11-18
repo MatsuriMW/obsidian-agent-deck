@@ -46,6 +46,14 @@ import { MenuBarBridge } from "./menubar.js";
 import { SessionTitleManager } from "./session-titles.js";
 import { integrateRecordFolding } from "./fold-integration.js";
 import { renderAIRecords } from "./record-display.js";
+import { blockSessionMap } from "./ai-records.js";
+import {
+  RECORD_MENU_SECTION as RECORD_SECTION,
+  createRecordMenuSection,
+  parentTimelineLine as findParentTimelineLine,
+  recordCopyText,
+  recordDeleteRange,
+} from "./record-menu.js";
 import { AutoLog } from "./autolog.js";
 import { detectJournalProviders, runJournalModel, setJournalApiConsent } from "./llm.js";
 import { JournalSync } from "./sync.js";
@@ -204,22 +212,63 @@ export default class AgentDeckPlugin extends Plugin {
         if (!cm) return;
         const cursorLine = editor.getCursor().line;
         const cursorRaw = editor.getLine(cursorLine) || "";
-        const canPinCursor = J.CONTEXT_RECORD_RE.test(cursorRaw)
+        const isRecord = J.CONTEXT_RECORD_RE.test(cursorRaw);
+        const canPinCursor = isRecord
           || /^\s*(?:[-*+]|\d+[.)])\s+TODO\s+🤖\s/.test(cursorRaw)
           || Boolean(J.kwLine(cursorRaw)?.kw);
         const selected = selectedTaskLines(cm.state.doc, cm.state.selection);
         if (!selected.length && !canPinCursor) return;
+        // AI 记录的右键菜单整组放在最上面，Pin 排第一；记录菜单不配图标。
+        const canSection = createRecordMenuSection(menu);
+        const addRecordItem = (build) => {
+          menu.addItem((item) => {
+            if (canSection && typeof item.setSection === "function") item.setSection(RECORD_SECTION);
+            return build(item);
+          });
+        };
         if (canPinCursor) {
           const pinned = J.hasPinMarker(cursorRaw);
-          menu.addItem((item) =>
+          addRecordItem((item) =>
             item
               .setTitle(pinned ? t("取消 Pin（恢复常规折叠）") : t("Pin 为关键记录（折叠不隐藏 · Dreaming 优先）"))
-              .setIcon(pinned ? "pin-off" : "pin")
               .onClick(() => {
                 const file = this.app.workspace.getActiveFile();
                 if (file) this.toggleRecordPin(file.path, cursorLine, { editor });
               }),
           );
+        }
+        if (isRecord) {
+          const lines = editor.getValue().split("\n");
+          const parentLine = this.parentTimelineLine(lines, cursorLine);
+          const session = parentLine >= 0 ? this.recordSessionAt(lines, parentLine) : null;
+          addRecordItem((item) => {
+            item.setTitle(t("复制这一轮"));
+            if (typeof item.setSubmenu === "function") {
+              const sub = item.setSubmenu();
+              sub.addItem((entry) => entry.setTitle(t("复制任务与结论")).onClick(() => this.copyRecordLine(cursorRaw, "all")));
+              sub.addItem((entry) => entry.setTitle(t("只复制结论")).onClick(() => this.copyRecordLine(cursorRaw, "conclusion")));
+            } else {
+              item.onClick(() => this.copyRecordLine(cursorRaw, "all"));
+            }
+          });
+          if (session) addRecordItem((item) => item.setTitle(t("查看这一轮的原会话")).onClick(() => this.openConversation(session)));
+          if (parentLine >= 0) {
+            addRecordItem((item) => item.setTitle(t("跳到母任务")).onClick(() => {
+              editor.setCursor({ line: parentLine, ch: 0 });
+              editor.scrollIntoView({ from: { line: parentLine, ch: 0 }, to: { line: parentLine, ch: 0 } }, true);
+            }));
+          }
+          addRecordItem((item) => {
+            item.setTitle(t("删除这一轮记录…"));
+            const remove = () => this.deleteRecordBlock(editor, cursorLine);
+            if (typeof item.setSubmenu === "function") {
+              const sub = item.setSubmenu();
+              sub.addItem((entry) => entry.setTitle(t("确认删除这一轮记录")).onClick(remove));
+              sub.addItem((entry) => entry.setTitle(t("取消")));
+            } else {
+              item.onClick(remove);
+            }
+          });
         }
         if (!selected.length) return;
         if (selected.length >= 2) {
@@ -1729,6 +1778,38 @@ export default class AgentDeckPlugin extends Plugin {
     });
     this.notice(nowPinned ? t("已 Pin 关键记录") : t("已取消 Pin"), 3000);
     return nowPinned;
+  }
+
+  parentTimelineLine(lines, line) {
+    return findParentTimelineLine(lines, line);
+  }
+
+  recordSessionAt(lines, parentLine) {
+    const bid = J.blockIdOf(lines[parentLine] || "");
+    if (!bid) return null;
+    const sids = blockSessionMap(this).get(bid);
+    if (!sids || !sids.size) return null;
+    return [...sids]
+      .map((sid) => this.usage.meta.get(sid))
+      .filter(Boolean)
+      .sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0))[0] || null;
+  }
+
+  async copyRecordLine(line, mode = "all") {
+    const out = recordCopyText(line, mode);
+    let copied = false;
+    try { require("electron").clipboard.writeText(out); copied = true; } catch { /* not electron */ }
+    if (!copied) try { await navigator.clipboard.writeText(out); copied = true; } catch { /* clipboard */ }
+    this.notice(copied ? t("已复制这一轮记录") : t("复制失败，请手动选择文本"), 3000);
+  }
+
+  deleteRecordBlock(editor, line) {
+    const lines = editor.getValue().split("\n");
+    const range = recordDeleteRange(lines, line);
+    if (!range) return false;
+    editor.replaceRange("", range.from, range.to);
+    this.notice(t("已删除这一轮记录"), 3000);
+    return true;
   }
 
   taskBlockId(seed, agent, title) {

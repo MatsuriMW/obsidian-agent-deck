@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.2 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.3 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1859,7 +1859,17 @@ var editor_default = {
   "Pin / \u53D6\u6D88 Pin \u5F53\u524D\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4FDD\u7559 \xB7 Dreaming \u4F18\u5148\uFF09": "Pin / unpin current key record (keep when folded \xB7 prioritize in Dreaming)",
   "\u8BF7\u628A\u5149\u6807\u653E\u5728\u8981 Pin \u7684 AI \u8BB0\u5F55\u6216\u4EFB\u52A1\u884C\u4E0A": "Place the cursor on an AI record or task line to pin",
   "\u5DF2 Pin \u5173\u952E\u8BB0\u5F55": "Pinned key record",
-  "\u5DF2\u53D6\u6D88 Pin": "Unpinned"
+  "\u5DF2\u53D6\u6D88 Pin": "Unpinned",
+  "\u590D\u5236\u8FD9\u4E00\u8F6E": "Copy this round",
+  "\u590D\u5236\u4EFB\u52A1\u4E0E\u7ED3\u8BBA": "Copy task and result",
+  "\u53EA\u590D\u5236\u7ED3\u8BBA": "Copy result only",
+  "\u67E5\u770B\u8FD9\u4E00\u8F6E\u7684\u539F\u4F1A\u8BDD": "Open the session for this round",
+  "\u8DF3\u5230\u6BCD\u4EFB\u52A1": "Jump to parent task",
+  "\u5220\u9664\u8FD9\u4E00\u8F6E\u8BB0\u5F55\u2026": "Delete this round\u2026",
+  "\u786E\u8BA4\u5220\u9664\u8FD9\u4E00\u8F6E\u8BB0\u5F55": "Delete this round",
+  "\u5DF2\u590D\u5236\u8FD9\u4E00\u8F6E\u8BB0\u5F55": "Copied this round",
+  "\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u62E9\u6587\u672C": "Copy failed \u2014 select the text manually",
+  "\u5DF2\u5220\u9664\u8FD9\u4E00\u8F6E\u8BB0\u5F55": "Deleted this round"
 };
 
 // src/locales/en/dashboard.js
@@ -30253,6 +30263,51 @@ function integrateRecordFolding(plugin) {
   }
 }
 
+// src/record-menu.js
+var RECORD_MENU_SECTION = "agent-deck-record";
+function createRecordMenuSection(menu, section = RECORD_MENU_SECTION) {
+  const sections = menu?.sections;
+  if (!Array.isArray(sections) || typeof sections.unshift !== "function") return false;
+  const at = sections.indexOf(section);
+  if (at > 0) sections.splice(at, 1);
+  if (at !== 0) sections.unshift(section);
+  return true;
+}
+function parentTimelineLine(lines, line) {
+  const width2 = (text) => width(text || "");
+  const target = width2(lines[line]);
+  for (let i = line - 1; i >= 0; i--) {
+    const text = lines[i];
+    if (!text.trim()) continue;
+    if (width2(text) < target && /^\s*(?:[-*+]|\d+[.)])\s+/.test(text)) return i;
+  }
+  return -1;
+}
+function recordCopyText(line, mode = "all") {
+  const text = String(line || "").replace(/\s*<!--[\s\S]*?-->/g, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").trim();
+  if (mode !== "conclusion") return text;
+  const conclusion = text.match(/结论[：:]\s*([\s\S]*)$/)?.[1];
+  return (conclusion || text).trim();
+}
+function recordDeleteRange(lines, line) {
+  if (!Array.isArray(lines) || line < 0 || line >= lines.length) return null;
+  if (!/^\s*(?:[-*+]|\d+[.)])\s+/.test(lines[line])) return null;
+  const indent = width(lines[line]);
+  let end = line;
+  for (let i = line + 1; i < lines.length; i++) {
+    const text = lines[i];
+    if (!text.trim()) {
+      end = i;
+      continue;
+    }
+    if (width(text) <= indent) break;
+    end = i;
+  }
+  const from = { line, ch: 0 };
+  const to = end + 1 < lines.length ? { line: end + 1, ch: 0 } : { line: end, ch: (lines[end] || "").length };
+  return { from, to };
+}
+
 // src/autolog.js
 var import_obsidian10 = require("obsidian");
 var agentName = (id) => AGENTS[id]?.short || id;
@@ -34710,17 +34765,58 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
         if (!cm) return;
         const cursorLine = editor.getCursor().line;
         const cursorRaw = editor.getLine(cursorLine) || "";
-        const canPinCursor = CONTEXT_RECORD_RE.test(cursorRaw) || /^\s*(?:[-*+]|\d+[.)])\s+TODO\s+🤖\s/.test(cursorRaw) || Boolean(kwLine(cursorRaw)?.kw);
+        const isRecord = CONTEXT_RECORD_RE.test(cursorRaw);
+        const canPinCursor = isRecord || /^\s*(?:[-*+]|\d+[.)])\s+TODO\s+🤖\s/.test(cursorRaw) || Boolean(kwLine(cursorRaw)?.kw);
         const selected = selectedTaskLines(cm.state.doc, cm.state.selection);
         if (!selected.length && !canPinCursor) return;
+        const canSection = createRecordMenuSection(menu);
+        const addRecordItem = (build) => {
+          menu.addItem((item) => {
+            if (canSection && typeof item.setSection === "function") item.setSection(RECORD_MENU_SECTION);
+            return build(item);
+          });
+        };
         if (canPinCursor) {
           const pinned = hasPinMarker(cursorRaw);
-          menu.addItem(
-            (item) => item.setTitle(pinned ? t("\u53D6\u6D88 Pin\uFF08\u6062\u590D\u5E38\u89C4\u6298\u53E0\uFF09") : t("Pin \u4E3A\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09")).setIcon(pinned ? "pin-off" : "pin").onClick(() => {
+          addRecordItem(
+            (item) => item.setTitle(pinned ? t("\u53D6\u6D88 Pin\uFF08\u6062\u590D\u5E38\u89C4\u6298\u53E0\uFF09") : t("Pin \u4E3A\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09")).onClick(() => {
               const file = this.app.workspace.getActiveFile();
               if (file) this.toggleRecordPin(file.path, cursorLine, { editor });
             })
           );
+        }
+        if (isRecord) {
+          const lines = editor.getValue().split("\n");
+          const parentLine = this.parentTimelineLine(lines, cursorLine);
+          const session = parentLine >= 0 ? this.recordSessionAt(lines, parentLine) : null;
+          addRecordItem((item) => {
+            item.setTitle(t("\u590D\u5236\u8FD9\u4E00\u8F6E"));
+            if (typeof item.setSubmenu === "function") {
+              const sub = item.setSubmenu();
+              sub.addItem((entry) => entry.setTitle(t("\u590D\u5236\u4EFB\u52A1\u4E0E\u7ED3\u8BBA")).onClick(() => this.copyRecordLine(cursorRaw, "all")));
+              sub.addItem((entry) => entry.setTitle(t("\u53EA\u590D\u5236\u7ED3\u8BBA")).onClick(() => this.copyRecordLine(cursorRaw, "conclusion")));
+            } else {
+              item.onClick(() => this.copyRecordLine(cursorRaw, "all"));
+            }
+          });
+          if (session) addRecordItem((item) => item.setTitle(t("\u67E5\u770B\u8FD9\u4E00\u8F6E\u7684\u539F\u4F1A\u8BDD")).onClick(() => this.openConversation(session)));
+          if (parentLine >= 0) {
+            addRecordItem((item) => item.setTitle(t("\u8DF3\u5230\u6BCD\u4EFB\u52A1")).onClick(() => {
+              editor.setCursor({ line: parentLine, ch: 0 });
+              editor.scrollIntoView({ from: { line: parentLine, ch: 0 }, to: { line: parentLine, ch: 0 } }, true);
+            }));
+          }
+          addRecordItem((item) => {
+            item.setTitle(t("\u5220\u9664\u8FD9\u4E00\u8F6E\u8BB0\u5F55\u2026"));
+            const remove = () => this.deleteRecordBlock(editor, cursorLine);
+            if (typeof item.setSubmenu === "function") {
+              const sub = item.setSubmenu();
+              sub.addItem((entry) => entry.setTitle(t("\u786E\u8BA4\u5220\u9664\u8FD9\u4E00\u8F6E\u8BB0\u5F55")).onClick(remove));
+              sub.addItem((entry) => entry.setTitle(t("\u53D6\u6D88")));
+            } else {
+              item.onClick(remove);
+            }
+          });
         }
         if (!selected.length) return;
         if (selected.length >= 2) {
@@ -36326,6 +36422,39 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     });
     this.notice(nowPinned ? t("\u5DF2 Pin \u5173\u952E\u8BB0\u5F55") : t("\u5DF2\u53D6\u6D88 Pin"), 3e3);
     return nowPinned;
+  }
+  parentTimelineLine(lines, line) {
+    return parentTimelineLine(lines, line);
+  }
+  recordSessionAt(lines, parentLine) {
+    const bid = blockIdOf(lines[parentLine] || "");
+    if (!bid) return null;
+    const sids = blockSessionMap(this).get(bid);
+    if (!sids || !sids.size) return null;
+    return [...sids].map((sid) => this.usage.meta.get(sid)).filter(Boolean).sort((a, b) => (b.lastAt || 0) - (a.lastAt || 0))[0] || null;
+  }
+  async copyRecordLine(line, mode = "all") {
+    const out = recordCopyText(line, mode);
+    let copied = false;
+    try {
+      require("electron").clipboard.writeText(out);
+      copied = true;
+    } catch {
+    }
+    if (!copied) try {
+      await navigator.clipboard.writeText(out);
+      copied = true;
+    } catch {
+    }
+    this.notice(copied ? t("\u5DF2\u590D\u5236\u8FD9\u4E00\u8F6E\u8BB0\u5F55") : t("\u590D\u5236\u5931\u8D25\uFF0C\u8BF7\u624B\u52A8\u9009\u62E9\u6587\u672C"), 3e3);
+  }
+  deleteRecordBlock(editor, line) {
+    const lines = editor.getValue().split("\n");
+    const range = recordDeleteRange(lines, line);
+    if (!range) return false;
+    editor.replaceRange("", range.from, range.to);
+    this.notice(t("\u5DF2\u5220\u9664\u8FD9\u4E00\u8F6E\u8BB0\u5F55"), 3e3);
+    return true;
   }
   taskBlockId(seed, agent, title) {
     return semanticTaskId(this, seed, agent, title);
