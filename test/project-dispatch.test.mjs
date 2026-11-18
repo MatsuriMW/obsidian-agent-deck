@@ -88,7 +88,7 @@ try {
   plugin.settings.autoProjectFolder = false;
   const off = await d.delegate({ file: { path: 'task.md' }, lines: lines(), line: 1, agent: 'claude', destination: 'background', newSession: true });
   await wait(off);
-  assert.equal(off.cwd, norm(vault));
+  assert.equal(norm(off.cwd), norm(vault));
   assert.equal(ranIn(), real(vault));
 
   console.log('PASS project dispatch: auto link folder, explicit folder + memory, off switch');
