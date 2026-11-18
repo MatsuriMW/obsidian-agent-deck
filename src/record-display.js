@@ -8,10 +8,10 @@ import {
   aiRecordGroups, recordRuns, adBlockIdRanges, layoutMarkerRanges, hiddenBlockId, redirectHiddenTailTransaction,
   recordIsOpen, recordStartsOpen, visibleRecords, visibleTableEntries, RECORD_VIEWS, RECORD_MARKER_BODY_RE,
   recordViewMode, recordViewLabel, recordBadgeLabel, recordStepLabel, timelineSpanMeta, footerMetaText,
-  buildTableModel, buildGroupTableRows, tokenizeInlineMarkdown, isBriefRecord,
+  buildTableModel, buildGroupTableRows, tokenizeInlineMarkdown, isBriefRecord, isPinnedLine,
   trackedBlockIds, blockSessionMap, formatTimelineAt, formatTimelineFull,
 } from "./ai-records.js";
-import { isDeckBlockId } from "./journal.js";
+import { isDeckBlockId, hasPinMarker, togglePinMarker, CONTEXT_RECORD_RE, RECORD_LINE_RE } from "./journal.js";
 import { t } from "./i18n.js";
 
 const MODES = new Set(["collapsed", "expanded", "latest5", "latest3", "latest1"]);
@@ -77,6 +77,50 @@ function recordControl(doc, count, open, mode, summary = false) {
   el.type = "button";
   el.setAttribute("aria-expanded", String(open));
   return el;
+}
+
+function createPinButton(doc, pinned, onToggle) {
+  const btn = doc.createElement("button");
+  btn.type = "button";
+  btn.className = "ad-record-pin-btn" + (pinned ? " is-on" : "");
+  btn.setAttribute("aria-pressed", String(Boolean(pinned)));
+  const title = pinned
+    ? t("已 Pin：折叠时不隐藏，Dreaming 优先记忆（点击取消）")
+    : t("Pin 此条关键记录（折叠不隐藏 · Dreaming 优先）");
+  btn.title = title;
+  btn.setAttribute("aria-label", title);
+  btn.textContent = "📌";
+  btn.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onToggle(btn);
+  });
+  return btn;
+}
+
+function toggleLinePinInView(view, lineIndex, plugin, sourcePath) {
+  if (view?.state?.doc && lineIndex >= 0 && lineIndex < view.state.doc.lines) {
+    const lineObj = view.state.doc.line(lineIndex + 1);
+    const next = togglePinMarker(lineObj.text);
+    if (next !== lineObj.text) {
+      view.dispatch({ changes: { from: lineObj.from, to: lineObj.to, insert: next } });
+    }
+    return;
+  }
+  if (sourcePath && plugin?.toggleRecordPin) plugin.toggleRecordPin(sourcePath, lineIndex);
+}
+
+class RecordPinWidget extends WidgetType {
+  constructor(plugin, sourcePath, line, pinned) {
+    super();
+    Object.assign(this, { plugin, sourcePath, line, pinned });
+  }
+  eq(other) { return other.line === this.line && other.pinned === this.pinned && other.sourcePath === this.sourcePath; }
+  toDOM(view) {
+    return createPinButton(view.dom.ownerDocument, this.pinned, () => toggleLinePinInView(view, this.line, this.plugin, this.sourcePath));
+  }
+  ignoreEvent() { return true; }
 }
 
 class RecordsToggle extends WidgetType {
@@ -255,6 +299,11 @@ class RecordViewWidget extends WidgetType {
     stepTag.className = "ad-rt-step";
     stepTag.textContent = label;
   }
+  appendPinButton(doc, view, parent, row) {
+    if (!Number.isInteger(row?.pinLine) || row.pinLine < 0) return;
+    const btn = createPinButton(doc, Boolean(row.pinned), () => toggleLinePinInView(view, row.pinLine, this.plugin, this.sourcePath));
+    parent.appendChild(btn);
+  }
   appendChildren(doc, view, td, children) {
     if (!children?.length) return;
     const subToggle = td.appendChild(doc.createElement("button"));
@@ -301,6 +350,8 @@ class RecordViewWidget extends WidgetType {
       const tdRound = tr.appendChild(doc.createElement("td"));
       tdRound.className = "ad-rt-round";
       this.renderRoundMarker(doc, tdRound, row);
+      this.appendPinButton(doc, view, tdRound, row);
+      if (row.pinned) tr.classList.add("is-pinned");
       if (row.type === "span") {
         const tdSpan = tr.appendChild(doc.createElement("td"));
         tdSpan.className = "ad-rt-span";
@@ -338,12 +389,13 @@ class RecordViewWidget extends WidgetType {
     grid.className = "ad-rt-cards";
     for (const row of rows) {
       const card = grid.appendChild(doc.createElement("div"));
-      card.className = `ad-rt-card${row.type === "span" ? " is-span" : ""}`;
+      card.className = `ad-rt-card${row.type === "span" ? " is-span" : ""}${row.pinned ? " is-pinned" : ""}`;
       card.title = t("点击定位并回到原块编辑");
       const head = card.appendChild(doc.createElement("div"));
       head.className = "ad-rt-card__head";
       this.renderRoundMarker(doc, head, row);
       this.appendStepTag(doc, head, row);
+      this.appendPinButton(doc, view, head, row);
       if (row.prompt) {
         const promptEl = card.appendChild(doc.createElement("div"));
         promptEl.className = "ad-rt-card__prompt";
@@ -369,7 +421,7 @@ class RecordViewWidget extends WidgetType {
     list.className = "ad-rt-timeline" + (timed ? " ad-rt-timeline--timed" : "") + (dated ? " ad-rt-timeline--dated" : "");
     for (const row of rows) {
       const item = list.appendChild(doc.createElement("div"));
-      item.className = `ad-rt-tl-item ad-rt-tl-item--${row.badgeKind || "result"}`;
+      item.className = `ad-rt-tl-item ad-rt-tl-item--${row.badgeKind || "result"}${row.pinned ? " is-pinned" : ""}`;
       item.title = t("点击定位并回到原块编辑");
       const dot = item.appendChild(doc.createElement("span"));
       dot.className = "ad-rt-tl-dot";
@@ -385,6 +437,7 @@ class RecordViewWidget extends WidgetType {
       head.className = "ad-rt-tl-head";
       this.renderRoundMarker(doc, head, row);
       this.appendStepTag(doc, head, row);
+      this.appendPinButton(doc, view, head, row);
       if (row.prompt) {
         const promptEl = item.appendChild(doc.createElement("div"));
         promptEl.className = "ad-rt-tl-prompt";
@@ -553,10 +606,29 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
         continue;
       }
 
-      for (const n of group.records) ranges.push(Decoration.line({ class: "ad-record-line" + (!open && isBriefRecord(lines[n]) ? " ad-record-brief-clamped" : "") }).range(doc.line(n + 1).from));
       const visible = (open ? available : visibleRecords(group, lines, mode)).filter(n => n !== duplicate);
+      const visibleSet = new Set(visible);
       if (available.length) ranges.push(Decoration.widget({ widget: new RecordsToggle(group.key, available.length, open, mode, group.summaries.length > 0), side: 2 }).range(doc.line(group.line + 1).to));
       if (isTopLevel) ranges.push(Decoration.widget({ widget: new ViewToggleWidget(plugin, group.key, group.line, viewMode), side: 3 }).range(doc.line(group.line + 1).to));
+      const recordSet = new Set(group.records);
+      for (const n of group.records) {
+        const pinned = isPinnedLine(lines[n]);
+        ranges.push(Decoration.line({
+          class: "ad-record-line"
+            + (!open && isBriefRecord(lines[n]) ? " ad-record-brief-clamped" : "")
+            + (pinned ? " ad-record-line--pinned" : ""),
+        }).range(doc.line(n + 1).from));
+        if (visibleSet.has(n) && (pinned || (open && CONTEXT_RECORD_RE.test(lines[n])))) {
+          ranges.push(Decoration.widget({ widget: new RecordPinWidget(plugin, sourcePath, n, pinned), side: 1 }).range(doc.line(n + 1).to));
+        }
+      }
+      for (const entry of tableAll) {
+        const n = entry.line;
+        if (recordSet.has(n) || !CONTEXT_RECORD_RE.test(lines[n])) continue;
+        const pinned = isPinnedLine(lines[n]);
+        if (pinned) ranges.push(Decoration.line({ class: "ad-record-line--pinned" }).range(doc.line(n + 1).from));
+        if (pinned || open) ranges.push(Decoration.widget({ widget: new RecordPinWidget(plugin, sourcePath, n, pinned), side: 1 }).range(doc.line(n + 1).to));
+      }
       const hidden = group.records.filter((n) => !visible.includes(n));
       for (const run of recordRuns(hidden)) {
         const from = Math.max(0, doc.line(run.from + 1).from - 1), to = doc.line(run.to + 1).to;
@@ -692,25 +764,43 @@ export function renderAIRecords(el, plugin, ctx) {
     const own = [...parent.childNodes].filter((n) => n !== list && n.nodeName !== "UL" && n.nodeName !== "OL").map((n) => n.textContent).join("");
     const records = [...list.children].filter((li) => !li.querySelector('ul, ol') && !li.id && !li.dataset.blockId && RECORD_MARKER_BODY_RE.test(li.textContent.trim()));
     const section = ctx?.getSectionInfo?.(el);
-    const first = section && section.text.split("\n")[(section.lineStart || 0) + (Number(parent.dataset.line) || 0)];
+    const srcLines = section?.text ? section.text.split("\n") : [];
+    const first = srcLines[(section?.lineStart || 0) + (Number(parent.dataset.line) || 0)];
     const key = parent.id || parent.dataset.blockId || (first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1]);
     const bound = records.some((li) => /^🔗\s|^💬\s+累计总结[：:]/.test(li.textContent.trim()));
     if (!records.length || !(bound || isDeckBlockId(key) || ids.has(key) || own.includes("🤖") || isDeckBlockId(parent.id) || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
     list.dataset.adRecords = "true";
     const summaries = records.filter((li) => /^💬\s+累计总结[：:]/.test(li.textContent.trim()));
     const done = /^(?:DONE|CANCELED|CANCELLED|FAILED)\b/i.test(parent.textContent.trim());
+    // Map rendered list items back to raw Markdown lines so Reading View preserves <!-- ad-pin -->.
+    const srcGroup = section?.text ? aiRecordGroups(section.text, ids).find((g) => (key && (g.key === key || g.stableKey === key)) || (g.line >= (section.lineStart || 0) && g.line <= (section.lineEnd ?? srcLines.length) && g.records.length === records.length)) : null;
+    const pinnedSet = new Set();
+    const recordLineNums = records.map((li, i) => {
+      const explicit = li.dataset?.line != null ? (section?.lineStart || 0) + Number(li.dataset.line) : -1;
+      const lineNum = explicit >= 0 && explicit < srcLines.length ? explicit : (srcGroup?.records?.[i] ?? -1);
+      if (lineNum >= 0 && hasPinMarker(srcLines[lineNum])) pinnedSet.add(i);
+      return lineNum;
+    });
     // The selection helper works on line numbers, so the DOM list is indexed.
     const texts = records.map((li) => li.textContent.trim());
     const group = { key, records: records.map((_, i) => i), summaries: summaries.map((li) => records.indexOf(li)), state: done ? "done" : "doing" };
     const startsOpen = recordStartsOpen(mode, group);
     let open = recordIsOpen(plugin.settings, mode, group);
     const button = recordControl(list.ownerDocument, records.length, open, mode, summaries.length > 0);
+    const pinButtons = [];
     const update = () => {
-      const kept = open ? group.records : visibleRecords(group, texts, mode);
+      const kept = open ? group.records : visibleRecords(group, texts, mode, pinnedSet);
       for (const [i, li] of records.entries()) {
+        const pinned = pinnedSet.has(i);
         li.classList.add("ad-record-item");
+        li.classList.toggle("ad-record-pinned", pinned);
         li.classList.toggle("ad-record-hidden", !kept.includes(i));
         li.classList.toggle("ad-record-brief-clamped", !open && isBriefRecord(texts[i]));
+        const btn = pinButtons[i];
+        if (btn) {
+          btn.classList.toggle("is-on", pinned);
+          btn.setAttribute("aria-pressed", String(pinned));
+        }
       }
       button.querySelector("span:nth-child(2)").textContent = buttonLabel(open, mode, summaries.length > 0);
       button.dataset.open = String(open);
@@ -719,11 +809,25 @@ export function renderAIRecords(el, plugin, ctx) {
       button.setAttribute("aria-label", title);
       button.setAttribute("aria-expanded", String(open));
     };
+    for (const [i, li] of records.entries()) {
+      if (!RECORD_LINE_RE.test(`- ${texts[i]}`) || /^🔗\s|^⏱\s/.test(texts[i]) || recordLineNums[i] < 0) {
+        pinButtons.push(null);
+        continue;
+      }
+      const btn = createPinButton(list.ownerDocument, pinnedSet.has(i), () => {
+        if (pinnedSet.has(i)) pinnedSet.delete(i);
+        else pinnedSet.add(i);
+        update();
+        if (ctx?.sourcePath && plugin?.toggleRecordPin) plugin.toggleRecordPin(ctx.sourcePath, recordLineNums[i]);
+      });
+      li.appendChild(btn);
+      pinButtons.push(btn);
+    }
     button.onclick = () => { open = !open; rememberOpen(plugin, key, open, startsOpen); update(); };
     const paragraph = parent.querySelector(":scope > p");
     if (paragraph) paragraph.appendChild(button); else list.parentNode.insertBefore(button, list);
     update();
-    cleanups.push(() => { for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item", "ad-record-brief-clamped"); button.remove(); delete list.dataset.adRecords; });
+    cleanups.push(() => { for (const b of pinButtons) b?.remove(); for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item", "ad-record-brief-clamped", "ad-record-pinned"); button.remove(); delete list.dataset.adRecords; });
   }
   return () => cleanups.forEach((cleanup) => cleanup());
 }

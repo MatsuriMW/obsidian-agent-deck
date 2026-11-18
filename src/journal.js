@@ -44,6 +44,17 @@ export const RECORD_ICON_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋|⏱|🔗
 export const RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
 export const RECORD_PROVENANCE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/g;
 export const RECORD_PROVENANCE_LINE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
+const RECORD_PROVENANCE_TEST_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/;
+export const PIN_MARKER = "<!-- ad-pin -->";
+export const PIN_MARKER_RE = /(?:^|[ \t]+)<!--\s*ad-pin\s*-->/i;
+export function hasPinMarker(line) { return PIN_MARKER_RE.test(String(line || "")); }
+export function stripPinMarker(line) { return String(line || "").replace(/[ \t]*<!--\s*ad-pin\s*-->[ \t]*/gi, " ").replace(/[ \t]+(\^[A-Za-z0-9-]+\s*)$/, " $1").trimEnd(); }
+export function togglePinMarker(line) {
+  const s = String(line || "");
+  if (hasPinMarker(s)) return stripPinMarker(s);
+  const m = /\s+(\^[A-Za-z0-9-]+)\s*$/.exec(s);
+  return m ? `${s.slice(0, m.index).trimEnd()} ${PIN_MARKER} ${m[1]}` : `${s.trimEnd()} ${PIN_MARKER}`;
+}
 const TASK_KW_LEAD_RE = new RegExp(`^\\s*(?:${TASK_KWS})\\s+`, "i");
 const TASK_KW_BULLET_LEAD_RE = new RegExp(`^\\s*(?:[-*+]\\s+)?(?:${TASK_KWS})\\s+`, "i");
 export function stripTaskKeyword(raw, { allowBullet = false } = {}) {
@@ -117,7 +128,7 @@ export function cleanCompletedIdentifiers(text, trackedIds = new Set()) {
     if (fenced.has(i)) continue;
     const k = LIST_RE.test(lines[i]) && kwLine(lines[i]);
     if (k && (k.body.startsWith("🤖") || isDeckBlockId(k.blockId) || trackedIds.has(k.blockId))) ai.add(i);
-    if ((parseLink(lines[i]) || (record(lines[i]) && RECORD_PROVENANCE_LINE_RE.test(lines[i]))) && owners[i] >= 0) ai.add(owners[i]);
+    if ((parseLink(lines[i]) || (record(lines[i]) && RECORD_PROVENANCE_TEST_RE.test(lines[i]))) && owners[i] >= 0) ai.add(owners[i]);
   }
   const stack = [];
   for (let i = 0; i < lines.length; i++) {
@@ -130,7 +141,7 @@ export function cleanCompletedIdentifiers(text, trackedIds = new Set()) {
     if (i !== parent && !record(lines[i])) continue;
     const id = blockIdOf(lines[i]);
     if (isDeckBlockId(id) || (i === parent && isLegacyBlockId(id))) lines[i] = stripBlockId(lines[i]);
-    if (record(lines[i])) lines[i] = lines[i].replace(RECORD_PROVENANCE_LINE_RE, "");
+    if (record(lines[i])) lines[i] = lines[i].replace(RECORD_PROVENANCE_RE, "");
   }
   return lines.join(crlf ? "\r\n" : "\n");
 }
@@ -406,8 +417,8 @@ export function kwLine(raw) {
 }
 
 export function parseLink(line) {
-  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(opencode|qoder|workbuddy|cursor|grokbot)&sid=([^)]*)\)/.exec(line);
-  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(OpenCode|Qoder|Cursor|Grok Bot)：/, "") };
+  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(antigravity|opencode|qoder|hermes|qwenwork|workbuddy|cursor|grokbot)&sid=([^)]*)\)/.exec(line);
+  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(Antigravity|OpenCode|Qoder|Hermes|千问办公|QwenWork|WorkBuddy|Cursor|Grok Bot)：/, "") };
   const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
   const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
@@ -418,11 +429,13 @@ export function parseLink(line) {
   return { agent, sid: b[1], title: "" };
 }
 
+export const deckSessionUrl = (agent, sid) => `obsidian://agent-deck?do=open&agent=${encodeURIComponent(agent)}&sid=${encodeURIComponent(sid)}`;
+
 export function linkLine(indent, agent, title, sid) {
   const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
-  if (["opencode", "qoder", "cursor", "grokbot"].includes(agent)) {
-    const label = agent === "opencode" ? "OpenCode" : agent === "qoder" ? "Qoder" : agent === "cursor" ? "Cursor" : "Grok Bot";
-    return `${indent}- 🔗 [${label}：${safe}](obsidian://agent-deck?do=open&agent=${agent}&sid=${encodeURIComponent(sid)})`;
+  const obsidianLabels = { opencode: "OpenCode", qoder: "Qoder", hermes: "Hermes", qwenwork: "千问办公", cursor: "Cursor", grokbot: "Grok Bot" };
+  if (obsidianLabels[agent]) {
+    return `${indent}- 🔗 [${obsidianLabels[agent]}：${safe}](${deckSessionUrl(agent, sid)})`;
   }
   if (agent === "claude") return `${indent}- 🔗 [Claude：${safe}](claude://resume?session=${sid})`;
   if (agent === "dsh") return `${indent}- 🔗 [DeepSeek Harness：${safe}](dsh://open) \`${sid}\``;

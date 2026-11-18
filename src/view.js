@@ -1,13 +1,14 @@
 // Agent Deck — the sidebar dashboard.
 
 import { workspaceLabel } from "./workflow.js";
+import { cliHandoffAgents } from "./agent-registry.js";
 import { ItemView, Menu, Modal } from "obsidian";
 import { AGENTS, AGENT_ORDER, fmtMin, fmtTok, timeAgo, truncate, dayKey, dayKeyToday, dayMinute, startOfDay } from "./constants.js";
 import { agentIcon, setLucide, stateIcon } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { SESSION_MIME } from "./editor.js";
 import { t } from "./i18n.js";
-import { buildProjectGroups, buildNowStatusGroups, planRecentProjectDisplay, isWaitingSession, isActiveNowSession, STANDALONE_PROJECT_ID } from "./project-workbench.js";
+import { buildProjectGroups, buildNowStatusGroups, planRecentProjectDisplay, isWaitingSession, isActiveNowSession, orderNowSessions, STANDALONE_PROJECT_ID } from "./project-workbench.js";
 import { treePlan, treeOrder } from "./session-tree.js";
 
 export const VIEW_TYPE = "agent-deck-view";
@@ -241,6 +242,7 @@ export class AgentDeckView extends ItemView {
         if (this.nowGroupBy() === id) return;
         (p.settings.ui ||= {}).nowGroupBy = id;
         p.saveSettings();
+        p.menubar?.update?.(true);
         this.render();
       };
     }
@@ -294,7 +296,7 @@ export class AgentDeckView extends ItemView {
       };
     }
     const filters = recHead.createDiv({ cls: "ad-filters" });
-    for (const [id, label] of [["all", t("全部")], ["live", t("在跑")], ["wait", t("等你")], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"], ["antigravity", "Antigravity"], ["opencode", "OpenCode"], ["qoder", "Qoder"], ["cursor", "Cursor"], ["grokbot", "Grok Bot"]]) {
+    for (const [id, label] of [["all", t("全部")], ["live", t("在跑")], ["wait", t("等你")], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"], ["antigravity", "Antigravity"], ["opencode", "OpenCode"], ["qoder", "Qoder"], ["hermes", "Hermes"], ["qwenwork", t("千问办公")], ["cursor", "Cursor"], ["grokbot", "Grok Bot"]]) {
       const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
       b.onclick = () => { this._bottomSlack = 0; this.filter = id; this.render(); };
     }
@@ -386,19 +388,7 @@ export class AgentDeckView extends ItemView {
 
   // 「现在」：去掉移除过的，按拖出来的顺序排；没排过的（新来的）放最上面
   nowOrdered(items) {
-    const st = this.plugin.settings;
-    const hidden = st.nowHidden || {};
-    const order = st.nowOrder || [];
-    return items
-      .filter((x) => !hidden[x.sid])
-      .map((x, i) => ({ x, i, k: order.indexOf(x.sid) }))
-      .sort((a, b) => {
-        if (a.k < 0 && b.k < 0) return a.i - b.i;
-        if (a.k < 0) return -1;
-        if (b.k < 0) return 1;
-        return a.k - b.k;
-      })
-      .map((o) => o.x);
+    return orderNowSessions(items, this.plugin.settings);
   }
 
   nowReorder(list) {
@@ -801,7 +791,7 @@ export class AgentDeckView extends ItemView {
     // 笔记里的一项拖上来 = 委派给它
     // 按住 ⌘：Claude Code / Codex 改在终端里开交互式会话
     const handoff = id === "codex" || id === "workbuddy";
-    const cliCapable = ["claude", "codex", "opencode", "qoder", "workbuddy"].includes(id);
+    const cliCapable = cliHandoffAgents().includes(id);
     const hint = handoff ? t("交给 {name}", { name: a.short }) : t("委派给 {name}", { name: a.short });
     // 设置里「默认在终端里委派」开着时反过来：不按 ⌘ 在终端里开，按住 ⌘ 走原来的后台 / 客户端
     const toTerm = (meta) => cliCapable && (!!meta !== !!p.settings.delegateInTerminal);

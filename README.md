@@ -2,9 +2,9 @@
 
 > 从日记委派 AI 任务，用 Dashboard 回顾每天的 token 用量和项目投入。
 
-**中文** ｜ [English](README.en.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [更新日志](CHANGELOG.md)
+**中文** ｜ [English](README.en.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [更新日志](CHANGELOG.md) ｜ [Discord 社区](https://discord.gg/hVPpAnChv7) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
 
-项目目前处于早期高速迭代阶段，体验可能偶有打磨不足或破坏式更新。欢迎在 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#whistlist) 查看后续规划、添加建议并投票，或通过 [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 与邮件 [klauschen2799@gmail.com](mailto:klauschen2799@gmail.com) 反馈问题。
+项目目前处于早期高速迭代阶段，体验可能偶有打磨不足或破坏式更新。欢迎在 [Roadmap（支持中英文）](https://matsuri.site/portfolio/journal-workflow/#wishlist) 查看后续规划、添加建议并投票，加入 [Discord 社区](https://discord.gg/hVPpAnChv7) 或 [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) 交流工作流，或通过 [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 与邮件 [klauschen2799@gmail.com](mailto:klauschen2799@gmail.com) 反馈问题。
 
 <p align="center">
   <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4"><img src="assets/demo.gif" width="800" alt="Agent Deck 演示：会话卡片拖到日记里的任务上绑定，任务拖到 Agent 上委派，状态和结论写回日记"></a>
@@ -32,13 +32,13 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 
 - **记忆库（一文一条）**：命令 `记忆：把长期记忆迁移到记忆库` 后，每条记忆是一个 Markdown 文件（frontmatter 带 `state / title / sources`），原笔记只保留你手写的前言与自动生成的目录区块。三种读法并存：**Base 表格**（筛选/排序/统计）、**记忆看板**（按状态三列，拖拽即改）、**逐条审阅**（下拉框选确认/拒绝）。
 - **记忆注入与溯源**：派发时按任务相关度注入最多 5 条、1200 字，每条附 `来源 [[日记/#^mem-…]]`，Agent 可回原文核对；日记里被提炼的那一行会得到 `⤴ [[记忆/…]]` 反向回链。命令 `记忆：体检` 汇总无来源/待确认/重复/待复核，`记忆：按原文重新锚定来源` 会按原文修正漂移的行号。
-- **派发草稿与载荷**：命令 `委派：先生成草稿（不发送）` 会写出这一趟的完整内容并挂回任务行（`📝`），你改完再点委派；真正派发时另存一份快照（`📄`）并带 `anchor` 回指任务块，因此不受 prompt 长度截断限制，事后可审计。30 天且无引用的旧载荷可用命令归档。
+- **派发草稿与 `ContextBundle` 上下文组装**：命令 `委派：先生成草稿（不发送）` 会写出这一趟的完整内容并挂回任务行（`📝`），你改完再点委派；真正派发时另存一份快照（`📄`）并带 `anchor` 回指任务块，因此不受 prompt 长度截断限制，事后可审计。上下文按**「前稳后动」**组装（固定前缀 / CLI 提示 / 技能卡与引用路径在前，祖先位置、任务与 `❓/✍️` 问答在后）；引用笔记超过 3 篇时对第 4 篇起输出路径指针、长笔记截断附后续章节行号目录、坏锚点或读取失败显式告警不静默吞错。30 天且无引用的旧载荷可用命令归档。
 - **目标 → task.md → 看板**：命令 `规划：把当前这一条拆成 task.md` 把当前行当目标拆成带验收标准的步骤，产出文件**自动成为看板文件**；任何有清单的笔记也能用 `看板：把当前笔记设为看板文件` 直接当看板，拖动卡片即修改 Markdown。
 - **技能卡**：命令 `技能：刷新技能卡` 把本机 Skill（`~/.dsh/skills`、`~/.claude/skills`、skillshare）映射成 `技能/*.md`，真实 `SKILL.md` 路径记在 frontmatter；派发时在任务里写 `[[技能/xxx]]`（或短链 `[[xxx]]`）即把该路径交给 Agent，技能正文不占 prompt。手改过的卡片刷新时保留你的正文。
 - **工作台**：命令 `工作台：刷新总览` 生成一页索引，列出看板文件、记忆统计与最近规划，只做索引不复制内容。
 
 ### 1. 多 Agent 会话追踪面板
-- **统一收拢 9 类本地 Agent**：支持 **Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder**，以及 **Cursor**（3.30.14+ Hooks，仅追踪）与 **Grok Bot**（Sand 桌面端，按 Bot 多选，仅追踪）。
+- **统一收拢 11 类本地 Agent**：支持 **Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder、Hermes Agent**，以及 **千问办公（QwenWork）**（仅追踪）、**Cursor**（3.30.14+ Hooks，仅追踪）与 **Grok Bot**（Sand 桌面端，按 Bot 多选，仅追踪）。
 - **按项目聚合的并发进程管理**：侧栏「现在」默认按工作区项目收拢多 Agent 活跃会话与异常状态（`在跑 / 等你 / 异常`），支持一键打开项目目录、进入项目工作台或批量停止本项目活跃任务，也可切到「按状态」（等你 / 待认领 / 在跑 / 异常 四档）或扁平「列表」；「最近的会话」支持按 `7 天 / 30 天 / 120 天` 切换，并在「按 Agent」与「按项目」叠放分组间切换。
 - **实时状态与跳转**：区分运行中、等待回复、需要确认、到达限额、暂停、出错、已完成等状态；点击会话卡片可直接切回对应客户端或终端标签（支持范围见下文边界表），未生成会话号的待认领委派点击可直达原笔记行。
 - **主力与全局搜索**：可设最多 2 个主力 Agent（追踪全部历史与跨天补记），其余已启用 Agent 读取当日活跃会话；支持按标题、项目、模型、正文关键字搜索全部本地扫描到的会话，并查看最近 14 天协作趋势。
@@ -120,6 +120,8 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 | **Antigravity** | 支持 | 支持（`agy acp`） | 不支持 | — | 仅聚焦客户端并复制会话号 |
 | **OpenCode** | 支持 | 支持（`opencode-cli acp`） | 首轮后自动打开应用（共用本地库） | 支持 | 需在桌面端手动选会话 |
 | **Qoder** | 支持 | 支持（`qodercli`） | 仅复制任务并唤起桌面端 | 支持（`qodercli`） | CLI 走终端恢复；桌面端复制会话号后手动选 |
+| **Hermes Agent** | 支持（`$HERMES_HOME/state.db`） | 支持（`hermes-acp`） | 不支持（无桌面 GUI） | 支持（`hermes chat`） | 支持终端恢复（`hermes --resume`）与插件查看 |
+| **千问办公（QwenWork）** | 支持（`~/.qwenworkcn/projects`） | 不支持（CLI / 客户端无委派接口） | 不支持（仅追踪） | — | 唤起桌面端并复制会话号（插件内看完整对话） |
 | **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起桌面端 | 支持（`codebuddy`） | 支持原生桌面会话直达与终端恢复 |
 | **Cursor** | 支持（3.30.14+ Hooks + 日志） | 不支持 | 不支持（仅追踪） | — | 仅打开应用并复制会话号 |
 | **Grok Bot** | 支持（按 Bot 多选） | 不支持 | 不支持（仅追踪） | — | 唤起 Grok Bot 桌面端 |
@@ -129,7 +131,7 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 ## 安装与依赖
 
 ### 1. 安装插件
-可在 Obsidian 社区插件市场直接安装，或从 GitHub Releases 手动下载（当前版本 **1.10.3**，需 Obsidian **1.4.0+** 桌面端）：
+可以在 Obsidian 社区插件市场直接安装，或从 GitHub Releases 手动下载（当前版本 **1.13.0**，需 Obsidian **1.4.0+** 桌面端）：
 
 1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck** 并点击安装、启用。
 2. 或前往 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新产物中的 `main.js`、`manifest.json`、`styles.css`，放入 `<Vault>/.obsidian/plugins/agent-deck/` 后在「设置 → 第三方插件」中启用。
@@ -163,6 +165,8 @@ npm run build
 | **Antigravity** | 安装并登录**独立 Antigravity CLI（`agy`）**（仅装 IDE 无法委派） |
 | **OpenCode** | 安装 OpenCode 桌面端（内置 `opencode-cli`）或独立 `opencode` CLI 并完成配置 |
 | **Qoder** | 后台与终端委派需安装并登录 `qodercli`；仅桌面复制交接需安装 Qoder 桌面端 |
+| **Hermes Agent** | 使用委派需安装并配置 `hermes-acp` / `hermes` CLI（支持 Homebrew / `uv` / 用户目录自动发现）；仅追踪时直接只读 `$HERMES_HOME/state.db` |
+| **千问办公（QwenWork）** | 安装千问办公桌面端（`QwenWorkCN.app`）；自动读取 `~/.qwenworkcn/projects` 会话日志（仅追踪） |
 | **WorkBuddy** | 安装中国版 WorkBuddy 桌面端（终端交互需另装 `codebuddy` CLI） |
 | **Cursor** | 安装 Cursor 桌面端（3.30.14+），并在设置「来源与扫描 → 更多设置」中安装 Cursor Hooks（仅追踪） |
 | **Grok Bot** | 安装 Grok Bot 桌面端（Sand 客户端），并在设置「记录 → 来源与扫描」的 Grok Bot 卡片内勾选要追踪的 Bot（默认全不选，仅追踪） |
@@ -191,11 +195,16 @@ npm run build
    - **Antigravity**：CLI 会话与原 IDE 会话互不相通，暂不承诺自动识别归档；导出正文不包含工具执行结果、内部推理过程与附件。
    - **DeepSeek Harness**：桌面端仍在快速迭代中，稳定性有限，且暂不支持通过链接直达具体会话。通过 `dsh acp` 委派的会话只带 cwd、没有工作区 ID，客户端会把它们放进「未分组」，且通常要重启/刷新客户端才能在会话列表看到；插件侧栏仍按 cwd 归组，对话可在插件内查看。
    - **OpenCode**：后台与桌面共享会话存储，但跳转打开桌面端后仍需手动选择对应会话。
+   - **Hermes Agent**：无独立桌面 GUI，桌面跳转不可用；插件以只读方式读取 `$HERMES_HOME/state.db`（含 `profiles/*/state.db`）统计已归档、`input_tokens + cache_write_tokens`、`cache_read_tokens` 与 `output_tokens`；后台委派走 `hermes-acp`（兼容 `models` / `session/set_model`），终端交接走 `hermes chat` 与 `hermes --resume`。
+   - **千问办公（QwenWork）**：目前仅支持从 `~/.qwenworkcn/projects`（只读 JSONL）追踪会话、活动时长、轮次记录及正文查看归档；由于客户端与自带 `qwenwork` CLI 未提供非交互问答或 ACP 协议接口，暂不支持委派与终端交互；日志未提供 token 且模型标注为 `unknown` 时如实保留为 `0`/留空，不做估算。
    - **Grok Bot**：仅支持桌面端（Sand）持久化只读追踪与按 Bot 多选过滤；不支持任务委派与终端交互，云端沙箱无本地逐条 token/模型时显示「用量未提供」且不作估算；无归档概念，默认超过设定时长无新对话自动标为 `DONE`。
 5. **终端交互委派的实测范围**
    - 在终端新开标签页自动运行交互式会话的功能，目前仅在 **Tern** 和 **Herdr** 上完成端到端实测；**系统终端（Terminal.app）、iTerm2、Warp** 尚未实测（Warp 无脚本接口，仅能前置窗口）。
-6. **规划中、尚未实现的功能**
-   - **阅读视图下的 AI 记录多视图与分形看板渲染**、**第二大脑显式项目上下文包（Context Pack）**、**Pi 支持**、**在委派确认弹窗内直接切换模型/强度/记录粒度**、**对已有 AI 块单独调整粒度**、**WorkBuddy 自动发送**，以及面向独立大纲 App 的 **LLM Wiki 自动摄入** 等能力仍在规划中，当前版本尚未提供。
+6. **当前演进主线（Milestone 1：高质量 AI 上下文提取与提供者）与后续规划**
+   - **M1.1 上下文内核收口、隐私闸门与零静默丢失**：将祖先链、双链解析、记忆挑选、技能卡路径与问答回灌收口为单一 `ContextBundle` 管道；超内联上限（第 4 篇起）显式列出绝对路径指针而非静默截断，坏块号/章节/读取异常显式告警，优先读取未落盘编辑器缓冲，并支持 `private: true` 与排除目录隐私闸门及单关键词/元数据检索补盲。
+   - **M1.2 结构保真、锚点校验与派发前透明预览**：提取笔记核心属性摘要（`type` / `def` / `domain` / `father` / `status`），为引用块建立软/硬锚点 hash 漂移校验，提供带 `why` 信号的一跳结构邻居，并在委派确认框内提供可展开勾选的轻量上下文预览清单。
+   - **M1.3 对外供给引擎（纯 Node CLI + stdio Vault Context MCP Server）**：剥离 Obsidian API 依赖，除 `memory_search / read / recent` 外提供 `vault_outline / vault_read / vault_related / vault_find` 库级只读工具集，供 Claude Code、Codex、DSH、OpenCode 等任意客户端按需调用。
+   - **后续 Milestone 与并行轨道**：**M2**（记忆四维正交生命周期、全库断链与同源矛盾检测、零负担证据链）、**M3**（上下文使用留痕、Dream 按条共享发布层、1 秒可重放审计）、**Windows 全端适配与实测**、**更多 Agent 与终端扩展**（Kimi Code、ZCode、MiniMax Code、Muse、Pi、Claude 桌面直接委派及 Ghostty / WezTerm / Kitty / Alacritty / cmux 等终端）以及**阅读视图多视图渲染**均在推进或规划中（详见 [Harness 演进路线图](docs/specs/harness-roadmap.zh-CN.md) 与在线 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist)）。
 
 ---
 
@@ -203,5 +212,5 @@ npm run build
 
 - **本地优先**：会话读取、面板统计、回顾 Dashboard 与 macOS 菜单栏助手均只读取本机文件，插件自身不上传任何数据。仅在用户主动触发委派、自动整理、AI 总结或 Dreaming 时，才会将对应任务文本或摘要传给本机已登录的 CLI 模型服务。
 - **开源协议**：采用 [Apache 2.0](LICENSE) 协议开源（见 [NOTICE](NOTICE)）。
-- **更多文档**：各版完整改动见 [CHANGELOG.md](CHANGELOG.md)；开发者架构、规范与后续方向见 [docs/](docs/)（含 [WorkFlowy 分形看板规划](docs/specs/fractal-boards-roadmap.md)）。
-- **反馈与建议**：欢迎在 [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 反馈问题，或前往 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#whistlist) 提交想法与投票；动态更新见 Twitter [@Matsurimywaifu](https://x.com/Matsurimywaifu)。
+- **更多文档**：各版完整改动见 [CHANGELOG.md](CHANGELOG.md)；开发者架构、规范与后续方向见 [docs/](docs/)（含 [Harness 演进路线图](docs/specs/harness-roadmap.zh-CN.md) 与 [WorkFlowy 分形看板规划](docs/specs/fractal-boards-roadmap.md)）。
+- **反馈与社区**：欢迎加入 [Discord 社区](https://discord.gg/hVPpAnChv7) 或 [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) 交流讨论，在 [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 反馈 Bug，或前往 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) 提交想法与投票；动态更新见 Twitter [@Matsurimywaifu](https://x.com/Matsurimywaifu)。

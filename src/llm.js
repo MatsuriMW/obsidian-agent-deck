@@ -12,6 +12,7 @@ import https from "https";
 import { spawn, execFile } from "child_process";
 import { t } from "./i18n.js";
 import { summarizeAutoTitle, stripTaskKeyword } from "./journal.js";
+import { resolveSecret, redactSecrets } from "./security.js";
 
 const home = () => os.homedir();
 
@@ -302,14 +303,15 @@ export async function runOpenAiApi(prompt, { url = "", apiKey = "", model = "", 
     { role: "user", content: prompt },
   ];
   const headers = { "Content-Type": "application/json" };
-  if (String(apiKey || "").trim()) headers.Authorization = `Bearer ${String(apiKey).trim()}`;
+  const resolvedKey = resolveSecret(apiKey);
+  if (resolvedKey) headers.Authorization = `Bearer ${resolvedKey}`;
   const payload = JSON.stringify({ model: String(model).trim(), messages, temperature: 0.2 });
   const { status, text } = await requestFn(endpoint, headers, payload, Math.max(5, Number(timeout) || 60) * 1000);
   let parsed = null;
   try { parsed = JSON.parse(text); } catch { /* non-JSON body */ }
   if (status < 200 || status >= 300) {
     const msg = parsed?.error?.message || parsed?.message || text || `HTTP ${status}`;
-    throw new Error(String(msg).slice(0, 300));
+    throw new Error(redactSecrets(String(msg)).slice(0, 300));
   }
   const content = parsed?.choices?.[0]?.message?.content;
   const answer = Array.isArray(content) ? content.map((c) => c?.text || "").join("\n").trim() : String(content || "").trim();

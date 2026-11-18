@@ -26,19 +26,20 @@
 ## 2. 内部定位标识与清理
 
 - 新任务块号使用「Agent 前缀 + 1–2 个英文任务关键词 + 10 位短尾码」，改标题或切换模型不换号，兼容历史 `^ad-…` 与 UUID 块号。
-- 编辑与阅读视图隐藏内部块号、UUID 及绑定行尾会话号；`DONE`、会话归档与整理已完成日志时自动清理内部标识，同时保留会话链接、手写块号、手写内容与代码块。委派 Prompt、双链上下文与同看板兄弟分工通过 `stripInternalIdentifiers`（`src/harness.js`）在非代码块区域剥离内部 `^ad-*` 块号与 `<!-- ad-* -->` 追踪注释。
+- 编辑与阅读视图隐藏内部块号、UUID 及绑定行尾会话号；`DONE`、会话归档与整理已完成日志时自动清理内部标识，同时保留会话链接、手写块号、`<!-- ad-pin -->` 关键记录标注、手写内容与代码块。委派 Prompt、双链上下文与同看板兄弟分工通过 `stripInternalIdentifiers`（`src/harness.js`）在非代码块区域剥离内部 `^ad-*` 块号、`<!-- ad-* -->` 追踪注释与 `<!-- ad-pin -->`。
+- **关键对话记录 Pin 住（Pin as a chapter）**：行内通过右键菜单、命令或大纲/四视图/阅读视图行内按钮切换 `<!-- ad-pin -->`（插入在行尾 `^blockId` 前）。折叠／收起模式下始终保留被 Pin 记录；`Dreaming`（`src/dream.js`）在单批 `48000` 字符预算内优先装入 `pinned: true` 块并给予更高权重（仍严格遵守 `user`/`ai` 来源核验约束）。
 
 ## 3. 并发写入、整理与归档
 
-- **写入队列**：按文件排队执行；打开的笔记走编辑器事务，未打开的笔记在 `Vault.process()` 内合并最新内容；模型等待在锁外完成，返回后校验笔记是否变更。
+- **写入队列**：按文件排队执行；只在 `source` 编辑模式走编辑器事务，阅读视图（`preview`）及未打开笔记统一经 `Vault` 读写与 `Vault.process()`（避免读取隐藏的过期 `editor`）；模型等待在锁外完成，返回后校验笔记是否变更。
 - **整理日志**：默认按 `---` → 正在做 → `---` → 还要做 → `---` → 已完成 → `---` 排列。只整理顶格（无前置缩进）的 AI 记录条目；任何不顶格的缩进条目（包括合并分组到父项下的多条 AI 记录或 `🤖` 日志、已缩进嵌套的 AI 子项）及非 AI 条目均原位保留不拆散、不触发分散提醒。没有完整分区时只追加空分区，不收集旧内容。重复整理不叠加分区或分割线。分区标题注释前或末分区 `layout:end` 缺失时安全保留内容并恢复。
 - **写入职责**：AI 自动建项、状态同步、归档记 DONE 和结论回写由 Agent Deck 负责。螺旋日程只读取 AI 记录用于展示，不再通过旧开关决定写入归属。
 - **已完成归档**：只移出已完成 **AI** 块（默认 `Agent Deck/done/已完成任务.md`），先写归档、成功后删源；冲突时保留源内容不覆盖。
 
 ## 4. 持久化与口径
 
-- **`data.json`**（`STORE_VERSION = 1`）：`archiveTaskTurns`、`aiRecordExpanded`、`aiRecordClosed`、`aiRecordViews`、`taskBoardViews`、`projectTeams`（含 `stewards` 管家偏好）、`workbenchWaves`、`projectFolders`（项目名 → 工作目录，派发后按项目名记住）、`noteDispatchSessions`（从非日记笔记派发的会话号 → 时间，自动记日记跳过）与 `ui.nowGroupBy` / `ui.recentGroupBy` 存插件设置，不污染 Markdown。切换大纲／表格／卡片／时间线／分形看板视图仅改变编辑器渲染，不改写 Markdown 内容、层级、顺序或块号。
-- **`usage.json` 缓存**（`USAGE_CACHE_VERSION = 12`、`SUMMARY_VERSION = 3` in `src/readers.js`）：修改会话解析或清洗规则时必须递增 `USAGE_CACHE_VERSION`；变更日汇总结构或项目标签口径时必须递增 `SUMMARY_VERSION`。
+- **`data.json`**（`STORE_VERSION = 1`）：`archiveTaskTurns`、`aiRecordExpanded`、`aiRecordClosed`、`aiRecordViews`、`taskBoardViews`、`projectTeams`（含 `stewards` 管家偏好）、`workbenchWaves`、`projectFolders`（项目名 → 工作目录，派发后按项目名记住）、`noteDispatchSessions`（从非日记笔记派发的会话号 → 时间，自动记日记跳过）、`menuBarPinnedSids`（菜单栏置顶会话号）、`menuBarAutoTitles`（无原生标题会话的模型缓存总结）与 `ui.nowGroupBy` / `ui.recentGroupBy` 存插件设置，不污染 Markdown。切换大纲／表格／卡片／时间线／分形看板视图仅改变编辑器渲染，不改写 Markdown 内容、层级、顺序或块号。
+- **`usage.json` 缓存**（`USAGE_CACHE_VERSION = 14`、`SUMMARY_VERSION = 3` in `src/readers.js`）：修改会话解析或清洗规则时必须递增 `USAGE_CACHE_VERSION`；变更日汇总结构或项目标签口径时必须递增 `SUMMARY_VERSION`。macOS 菜单栏与侧栏「现在」共用 `buildProjectGroups` / `buildNowStatusGroups` / `orderNowSessions` 口径并双向同步 `ui.nowGroupBy`（`project` / `status` / `flat`），优先展示客户端原生/自动标题（`custom-title` / `ai-title` / `thread_name` / DB `title`），无原生标题时（如 Antigravity）在有可用免费/CLI 额度且无需未经授权计费 API 时后台生成简短标题，限额或失败时静默退回首句/任务名。
 - **Token 让渡**：仅当螺旋日程实际匹配同一会话且提供相应 token 时让出显示；否则由 Agent Deck 显示。
 - **项目归属与「等你」口径**：
   - 项目分组以 `normalizeProjectRoot`（剥离 `/.claude/worktrees/...`）作为唯一身份键，不同路径同名目录绝不合并，仅在同名碰撞时追加最短区分父目录名；`/Codex/YYYY-MM-DD/...`（含多级子目录）与 `default-workspace` 等视为临时目录；带 `parentSid` 的子代理自动通过 `parentSid` / `parentCwd` 继承母会话项目。
@@ -49,6 +50,8 @@
 
 - **记忆库双模式（`settings.dream.store`）**：`text`（默认，单个 `长期记忆.md` 列表，旧行为不变）与 `files`（一文一条）。迁移命令一次性执行，迁移后两者互斥、不并存，`长期记忆.md` 降级为「人工前言 + `<!-- ad:memory:start/end -->` 生成区块」。
 - **记忆索引（`记忆/索引.md`）**：由 `syncOverview` 自动刷新，一行一条（日期 · 类型 · 标题 · 双链），按日期倒序。用途是**替代"把标题写进文件名"**——文件名有 255 字节上限（中文约 85 字，实测 33 条记忆标题中位 201 字节），塞全文会静默截断；索引文件可一次 `cat`，或 `grep -h '^title:' 记忆/*.md` 拿全部标题。
+- **记忆批量导入（模式 A 直接拆条 / 模式 B 模型提炼）**：入口位于记忆看板顶栏 `导入…` 按钮（及直接把 `.md / .json / .zip` 文件拖入记忆看板）、Obsidian 文件树右键 `导入到 Agent Deck 记忆库…` 与命令面板 `记忆：从 Markdown / JSON 导入到记忆库…`。模式 A（0 Token）支持直接解析外部 Agent 导出的列表笔记、单条记忆文件及 Claude `memories-*.json / .zip`（自动展开 `memory_files`）；模式 B 按文档分批送入 Dreaming 模型提炼。两种模式均在弹窗展示去重后的候选勾选列表与类型微调下拉框，落盘时若尚未开启 `files` 模式会自动完成迁移并补齐 `记忆.base`。
+- **记忆库增删与 `记忆.base` 双向同步（2026-11-19）**：`memoryBase` 默认排除 `<dir>/索引.md`；`watchMemoryFolder` 监听记忆目录的 `create`/`modify`/`delete`/`rename`，对 Bases 新建或行内编辑的记忆条目通过 `reconcileMemoryFile` 自动补全 `id`/`kind`/`type`/`state`/`date` 并双向同步 `title` 与正文，`parseMemoryFile` 与 `scripts/memory-query.mjs` 均兼容仅含 `title`/`type`/`state` 的条目；记忆看板提供 `+ 新建` 与卡片 `删除`（走 `vault.trash` 并清孤儿回链），命令面板提供 `记忆：新建一条记忆` 与 `记忆：删除当前这条记忆`。
 - **记忆文件格式**：frontmatter `id / title（完整正文，供 Base 展示）/ kind / type / state（有效|已拒绝|已被替代）/ date / sources[]`；正文第一行是记忆原句。`sources` 每项形如 `"[[日记/x#^mem-xxxxxxxx]]（用户日志，第 a—b 行）；原文：…"`，**列表项必须加 YAML 引号**，否则 `[[` 会被当成嵌套数组导致整段 frontmatter 解析失败（已踩过）。
 - **块号分类**：`^ad-*` / `^dsh-*` 等任务号由插件生成，会随 `DONE` 清理或标题变化换号，**注入前剥除**；`^mem-*` 与 Obsidian 自动生成的 6 位号（形如 `^651b6c`）是定位锚，**永不剥除**。
 - **注入降噪（`agentText`）**：注入边界统一去掉 `**加粗**`、`%%注释%%`、HTML 注释、零宽字符与行尾空白；代码块与行内代码先遮蔽后处理；**不动 `__`**（会误伤 `__name__`）。

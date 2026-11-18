@@ -9,7 +9,9 @@ import os from "os";
 import { randomUUID } from "crypto";
 import { spawn, execFile } from "child_process";
 import { AGENTS, DEFAULTS, sandboxFor, SANDBOX_ALIAS, MODEL_CATALOG, truncate } from "./constants.js";
+import { getAgentCapability } from "./agent-registry.js";
 import { CodexDesktopRunner } from "./codex-desktop.js";
+import { evaluatePermissionPolicy, redactSecrets } from "./security.js";
 import { t } from "./i18n.js";
 
 const fsp = fs.promises;
@@ -17,13 +19,25 @@ const home = () => os.homedir();
 const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
 
 const AGENT_BINARY_SPECS = {
-  codex: { fallback: "codex", candidates: () => [] },
+  codex: {
+    fallback: "codex",
+    candidates: () => [
+      "/Applications/Codex.app/Contents/Resources/codex",
+      path.join(home(), "Applications/Codex.app/Contents/Resources/codex"),
+      path.join(home(), ".local/bin/codex"),
+      path.join(home(), ".npm-global/bin/codex"),
+      path.join(home(), ".bun/bin/codex"),
+      "/opt/homebrew/bin/codex",
+      "/usr/local/bin/codex",
+    ],
+  },
   dsh: {
     fallback: "dsh",
     candidates: () => [
       "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
       path.join(home(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
       path.join(home(), ".local/bin/dsh"),
+      path.join(home(), ".npm-global/bin/dsh"),
       "/opt/homebrew/bin/dsh",
       "/usr/local/bin/dsh",
     ],
@@ -31,7 +45,10 @@ const AGENT_BINARY_SPECS = {
   antigravity: {
     fallback: "agy",
     candidates: () => [
+      "/Applications/Antigravity.app/Contents/Resources/app/bin/agy",
+      path.join(home(), "Applications/Antigravity.app/Contents/Resources/app/bin/agy"),
       path.join(home(), ".local/bin/agy"),
+      path.join(home(), ".npm-global/bin/agy"),
       "/opt/homebrew/bin/agy",
       "/usr/local/bin/agy",
     ],
@@ -41,7 +58,10 @@ const AGENT_BINARY_SPECS = {
     candidates: () => [
       "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
       path.join(home(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
+      path.join(home(), ".opencode/bin/opencode"),
       path.join(home(), ".local/bin/opencode"),
+      path.join(home(), ".npm-global/bin/opencode"),
+      path.join(home(), ".bun/bin/opencode"),
       "/opt/homebrew/bin/opencode",
       "/usr/local/bin/opencode",
     ],
@@ -61,14 +81,24 @@ const AGENT_BINARY_SPECS = {
     fallback: "codebuddy",
     candidates: () => [
       path.join(home(), ".local/bin/codebuddy"),
+      path.join(home(), ".npm-global/bin/codebuddy"),
       "/opt/homebrew/bin/codebuddy",
       "/usr/local/bin/codebuddy",
+    ],
+  },
+  hermes: {
+    fallback: "hermes-acp",
+    candidates: () => [
+      ...hermesBinLocations("hermes-acp"),
+      ...hermesBinLocations("hermes"),
     ],
   },
   claude: {
     fallback: "claude",
     candidates: () => [
       path.join(home(), ".local/bin/claude"),
+      path.join(home(), ".npm-global/bin/claude"),
+      path.join(home(), ".bun/bin/claude"),
       "/opt/homebrew/bin/claude",
       "/usr/local/bin/claude",
       "/usr/bin/claude",
@@ -76,13 +106,75 @@ const AGENT_BINARY_SPECS = {
   },
 };
 
+function scanGlobBins(baseDir, sub = "bin", reverse = false) {
+  try {
+    const ents = fs.readdirSync(baseDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+    if (reverse) ents.sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+    return ents.map((name) => (sub ? path.join(baseDir, name, sub) : path.join(baseDir, name)));
+  } catch { return []; }
+}
+
+export function expandedPathEntries(basePath = process.env.PATH || "", homeDir = home()) {
+  const sep = process.platform === "win32" ? ";" : ":";
+  const parts = new Set(String(basePath || "").split(sep).filter(Boolean));
+  const staticDirs = process.platform === "win32"
+    ? [
+        path.join(homeDir, ".local", "bin"),
+        path.join(homeDir, ".bun", "bin"),
+        path.join(process.env.APPDATA || path.join(homeDir, "AppData", "Roaming"), "npm"),
+      ]
+    : [
+        path.join(homeDir, ".local/bin"),
+        ...scanGlobBins(path.join(homeDir, ".nvm/versions/node"), "bin", true),
+        path.join(homeDir, ".volta/bin"),
+        path.join(homeDir, ".fnm/aliases/default/bin"),
+        path.join(homeDir, ".fnm/current/bin"),
+        path.join(homeDir, ".npm-global/bin"),
+        path.join(homeDir, "Library/pnpm"),
+        path.join(homeDir, ".local/share/pnpm"),
+        path.join(homeDir, ".bun/bin"),
+        path.join(homeDir, ".cargo/bin"),
+        ...scanGlobBins(path.join(homeDir, ".local/share/uv/tools"), "bin"),
+        path.join(homeDir, ".pyenv/shims"),
+        path.join(homeDir, ".pyenv/bin"),
+        path.join(homeDir, "miniconda3/bin"),
+        path.join(homeDir, "anaconda3/bin"),
+        path.join(homeDir, "miniforge3/bin"),
+        path.join(homeDir, "mambaforge/bin"),
+        "/opt/homebrew/Caskroom/miniconda/base/bin",
+        ...scanGlobBins("/opt/homebrew/opt", "bin"),
+        "/opt/homebrew/bin",
+        "/opt/homebrew/sbin",
+        "/usr/local/bin",
+        "/usr/bin",
+        "/bin",
+        "/usr/sbin",
+        "/sbin",
+      ];
+  for (const dir of staticDirs) parts.add(dir);
+  return [...parts];
+}
+
+function findInPathDirs(name, dirs) {
+  if (!name || String(name).includes("/") || String(name).includes("\\")) return "";
+  for (const dir of dirs) {
+    if (!dir) continue;
+    const candidate = path.join(dir, name);
+    try {
+      const st = fs.statSync(candidate);
+      if (st.isFile()) return candidate;
+    } catch { /* next */ }
+  }
+  return "";
+}
+
 function findBinary(configured, candidates, fallback) {
   const custom = configured && String(configured).trim();
   if (custom) return norm(custom);
   for (const p of candidates) {
     try { if (fs.existsSync(p)) return p; } catch { /* next */ }
   }
-  return fallback;
+  return findInPathDirs(fallback, expandedPathEntries()) || fallback;
 }
 
 export function findAgentBinary(agent, configured = "") {
@@ -92,6 +184,52 @@ export function findAgentBinary(agent, configured = "") {
     return custom ? norm(custom) : agent || "";
   }
   return findBinary(configured, spec.candidates(), spec.fallback);
+}
+
+function hermesBinLocations(name) {
+  return [
+    path.join(home(), `.local/bin/${name}`),
+    path.join(home(), `.local/share/uv/tools/hermes-agent/bin/${name}`),
+    `/opt/homebrew/bin/${name}`,
+    `/usr/local/bin/${name}`,
+  ];
+}
+
+export function findHermesCliBinary(configured = "") {
+  const custom = configured && String(configured).trim();
+  if (custom) {
+    const normalized = norm(custom);
+    if (path.basename(normalized) === "hermes-acp") {
+      const sibling = path.join(path.dirname(normalized), "hermes");
+      try { if (fs.existsSync(sibling)) return sibling; } catch { /* fallback below */ }
+    } else return normalized;
+  }
+  return findBinary("", hermesBinLocations("hermes"), "hermes");
+}
+
+let cachedLoginShellPath = null;
+export function resetLoginShellPathCache() { cachedLoginShellPath = null; }
+
+export async function resolveLoginShellPath() {
+  if (cachedLoginShellPath !== null) return cachedLoginShellPath;
+  if (process.platform === "win32") return (cachedLoginShellPath = "");
+  const shell = process.env.SHELL || "/bin/zsh";
+  const marker = "__AD_PATH__";
+  const res = await execCapture(shell, ["-lc", `printf "${marker}%s${marker}" "$PATH"`], { timeout: 3000 });
+  const m = res.ok && /__AD_PATH__([\s\S]*?)__AD_PATH__/.exec(res.out || "");
+  cachedLoginShellPath = m ? m[1].trim() : "";
+  return cachedLoginShellPath;
+}
+
+export async function resolveExecutableWithFallback(bin, fallbackName = "") {
+  if (!bin) return bin;
+  if (bin.includes("/") || bin.includes("\\")) {
+    try { if (fs.existsSync(bin)) return bin; } catch { /* try shell fallback if bare name available */ }
+  }
+  const shellPath = await resolveLoginShellPath();
+  if (!shellPath) return bin;
+  const hit = findInPathDirs(fallbackName || path.basename(bin), shellPath.split(":").filter(Boolean));
+  return hit || bin;
 }
 
 export const findDshBinary = (configured = "") => findAgentBinary("dsh", configured);
@@ -129,9 +267,9 @@ export async function findCodexTrustedDir(vaultPath) {
 
 export function cleanEnv(extra = {}) {
   const env = { ...process.env, ...extra };
-  const parts = new Set(String(env.PATH || "").split(":").filter(Boolean));
-  for (const p of [path.join(home(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin", "/usr/sbin", "/sbin"]) parts.add(p);
-  env.PATH = [...parts].join(":");
+  const sep = process.platform === "win32" ? ";" : ":";
+  const base = cachedLoginShellPath ? `${env.PATH || ""}${sep}${cachedLoginShellPath}` : (env.PATH || "");
+  env.PATH = expandedPathEntries(base).join(sep);
   return env;
 }
 
@@ -193,26 +331,62 @@ export function dshEffort(e) {
   return map[e] || "high";
 }
 
-export function acpModels(agent, configOptions) {
-  const option = configOptions.find((x) => x.category === "model" || x.id === "model");
+function buildAcpModelEntry(agent, value, name, provider, description) {
+  const builtin = MODEL_CATALOG.find((m) => m.agent === agent && m.value === value);
+  return {
+    id: builtin?.id || `${agent}-acp-${Buffer.from(value).toString("base64url")}`,
+    agent,
+    name: name || value,
+    value,
+    provider: provider || AGENTS[agent]?.name || agent,
+    context: "—",
+    tags: [],
+    note: description || t("ACP 服务端返回的模型"),
+  };
+}
+
+export function acpModels(agent, configOptions = [], modelsState = null) {
+  const option = (Array.isArray(configOptions) ? configOptions : []).find((x) => x.category === "model" || x.id === "model");
   const result = [];
   for (const group of option?.options || []) {
     for (const item of group.options || [group]) {
       if (typeof item.value !== "string") continue;
-      const builtin = MODEL_CATALOG.find((m) => m.agent === agent && m.value === item.value);
-      result.push({
-        id: builtin?.id || `${agent}-acp-${Buffer.from(item.value).toString("base64url")}`,
-        agent,
-        name: item.name || item.value,
-        value: item.value,
-        provider: group.options ? group.name : AGENTS[agent].name,
-        context: "—",
-        tags: [],
-        note: item.description || t("ACP 服务端返回的模型"),
-      });
+      result.push(buildAcpModelEntry(agent, item.value, item.name, group.options ? group.name : "", item.description));
+    }
+  }
+  if (!result.length && Array.isArray(modelsState?.availableModels)) {
+    for (const item of modelsState.availableModels) {
+      const value = typeof item?.modelId === "string" ? item.modelId : typeof item?.value === "string" ? item.value : typeof item?.id === "string" ? item.id : "";
+      if (value) result.push(buildAcpModelEntry(agent, value, item.name, "", item.description));
     }
   }
   return result;
+}
+
+export function isAllowPermissionOption(option) {
+  return /^(allow)|(^allow[_-])|\ballow\b|允许/i.test([option?.kind, option?.optionId, option?.name].filter(Boolean).join(" "));
+}
+
+export function pickPermissionOption(options = [], allow = true) {
+  if (allow) {
+    return options.find((o) => /^allow[_-]?once$/i.test(String(o?.kind || "")) || /^allow[_-]?once$/i.test(String(o?.optionId || "")))
+      || options.find((o) => /^allow/i.test(String(o?.kind || "")))
+      || options.find((o) => /^allow/i.test(String(o?.optionId || "")))
+      || options.find((o) => /\ballow\b|允许/i.test(String(o?.name || "")))
+      || options.find((o) => isAllowPermissionOption(o));
+  }
+  return options.find((o) => /^(reject[_-]?once|deny)$/i.test(String(o?.kind || "")) || /^(reject[_-]?once|deny)$/i.test(String(o?.optionId || "")))
+    || options.find((o) => /^(reject|deny)/i.test(String(o?.kind || "")))
+    || options.find((o) => /^(reject|deny)/i.test(String(o?.optionId || "")))
+    || options.find((o) => /\b(reject|deny)\b|拒绝|取消/i.test(String(o?.name || "")));
+}
+
+export function acpSpawnArgs(agent, bin, extraArgs = "", cap = getAgentCapability(agent)) {
+  const baseName = path.basename(String(bin || "")).replace(/\.(exe|cmd|bat)$/i, "");
+  let sub = Array.isArray(cap?.acpArgs) ? [...cap.acpArgs] : ["acp"];
+  if (agent === "hermes" && baseName === "hermes") sub = ["acp"];
+  else if (baseName.endsWith("-acp") && sub[0] === "acp") sub = [];
+  return [...sub, ...splitArgs(String(extraArgs || ""))];
 }
 
 export function dshModels(configOptions) {
@@ -248,6 +422,10 @@ class BaseRunner {
     this.job.state = state;
     this.job.endedAt = Date.now();
     this.d.saveJobs();
+    const usage = (this.job.contextUsed != null || this.job.contextSize != null)
+      ? { contextUsed: this.job.contextUsed ?? null, contextSize: this.job.contextSize ?? null }
+      : null;
+    this.trace?.finalize(state, { error: this.job.error || "", transport: this.job.transport || "", usage });
     return true;
   }
 
@@ -323,7 +501,8 @@ export class ClaudeRunner extends BaseRunner {
     const prompt = opts.prompt;
     if (cfg.useBackground === true && this.job.destination !== "background") {
       const args = ["--bg", ...common, "--", prompt];
-      this.job.command = `${bin} ${args.slice(0, -2).join(" ")} …`;
+      this.job.command = redactSecrets(`${bin} ${args.slice(0, -2).join(" ")} …`);
+      this.trace?.recordFrame("claude.bg_spawn", `${path.basename(bin)} --bg`);
       const res = await spawnCapture(bin, args, { cwd, env: cleanEnv(), timeout: 30000 });
       if (res.ok) {
         const m = /backgrounded\s*·\s*([0-9a-f]{6,})/i.exec(res.out || "");
@@ -346,7 +525,8 @@ export class ClaudeRunner extends BaseRunner {
   startHeadless({ cwd, common, prompt, bin }) {
     const sid = randomUUID();
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
-    this.job.command = `${bin} ${args2.slice(0, -2).join(" ")} …`;
+    this.job.command = redactSecrets(`${bin} ${args2.slice(0, -2).join(" ")} …`);
+    this.trace?.recordFrame("claude.headless_spawn", `${path.basename(bin)} -p`);
     const child = spawn(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.fallbackStarted = true;
@@ -360,7 +540,7 @@ export class ClaudeRunner extends BaseRunner {
     this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", s => { output.push(s); this.job.lastText = ((this.job.lastText || "") + s).slice(-2000); });
-    child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 4000) err = err.slice(-4000); this.job.stderr = err.slice(-1000); });
+    child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 4000) err = err.slice(-4000); this.job.stderr = redactSecrets(err.slice(-1000)); });
     child.on("error", (e) => this.fail(String(e && e.message || e)));
     child.on("close", (code) => {
       if (this.finished) return;
@@ -458,7 +638,8 @@ export class QoderRunner extends BaseRunner {
     if (d.vaultPath && cwd !== d.vaultPath) args.push("--add-dir", d.vaultPath);
     for (const a of splitArgs(cfg.extraArgs || "")) args.push(a);
     args.push("--", opts.prompt);
-    this.job.command = [bin, ...args.slice(0, -1), "<prompt>"].join(" ");
+    this.job.command = redactSecrets([bin, ...args.slice(0, -1), "<prompt>"].join(" "));
+    this.trace?.recordFrame("qoder.spawn", path.basename(bin));
     const child = spawn(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
@@ -481,7 +662,7 @@ export class QoderRunner extends BaseRunner {
     child.stderr.on("data", (b) => {
       err += b.toString();
       if (err.length > 4000) err = err.slice(-4000);
-      this.job.stderr = err.slice(-1000);
+      this.job.stderr = redactSecrets(err.slice(-1000));
     });
     child.on("error", (e) => this.fail(String(e && e.message || e)));
     child.on("close", (code) => {
@@ -508,6 +689,8 @@ export class QoderRunner extends BaseRunner {
   fallbackToDesktop(prompt) {
     this.finished = true;
     clearTimeout(this.timer);
+    this.trace?.recordFrame("qoder.fallback_desktop", "not logged in");
+    this.trace?.finalize("handoff");
     this.job.handoff = true;
     this.job.cli = false;
     this.job.app = "";
@@ -550,13 +733,21 @@ export class AcpRunner extends BaseRunner {
 
   async start(opts) {
     const d = this.d;
-    const cfg = d.settings.delegate[this.agent];
-    const bin = findAgentBinary(this.agent, cfg.path || "");
+    const cap = getAgentCapability(this.agent);
+    const cfg = d.settings?.delegate?.[this.agent] || {};
+    let bin = findAgentBinary(this.agent, cfg.path || "");
+    const hasPathSep = bin.includes("/") || bin.includes("\\");
+    if (!cfg.path && (!hasPathSep || !fs.existsSync(bin))) {
+      bin = await resolveExecutableWithFallback(bin, path.basename(bin));
+    }
     const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
-    const model = opts.model || cfg.model || (this.agent === "dsh" ? "deepseek-v4-pro" : "");
-    const effort = opts.effort || cfg.effort || (this.agent === "dsh" ? "high" : "");
-    this.job.command = `${bin} acp`;
-    const child = spawn(bin, ["acp", ...splitArgs(cfg.extraArgs || "")], { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    this.cwd = cwd;
+    const model = opts.model || cfg.model || cap.acpDefaultModel || "";
+    const effort = opts.effort || cfg.effort || cap.acpDefaultEffort || "";
+    const spawnArgs = acpSpawnArgs(this.agent, bin, cfg.extraArgs || "", cap);
+    this.job.command = redactSecrets([bin, ...spawnArgs].join(" "));
+    this.trace?.recordFrame("acp.spawn", `${path.basename(bin)} ${spawnArgs.join(" ")}`);
+    const child = spawn(bin, spawnArgs, { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -564,8 +755,14 @@ export class AcpRunner extends BaseRunner {
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (text) => this.onData(text));
     child.stdin.on("error", (e) => this.fail(e.message));
-    child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 4000) err = err.slice(-4000); this.job.stderr = err.slice(-1000); });
-    child.on("error", (e) => this.fail(String(e && e.message || e)));
+    child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 4000) err = err.slice(-4000); this.job.stderr = redactSecrets(err.slice(-1000)); });
+    child.on("error", (e) => {
+      if (e?.code === "ENOENT") {
+        this.fail(t("找不到 {agent} 可执行文件「{bin}」，请确认已安装或已在设置中填写命令行路径", { agent: this.label, bin }));
+      } else {
+        this.fail(String(e && e.message || e));
+      }
+    });
     child.on("exit", (code) => {
       if (this.finished) return;
       this.fail(err.trim() || t("{agent} ACP 提前退出（{code}）", { agent: this.label, code }));
@@ -586,30 +783,42 @@ export class AcpRunner extends BaseRunner {
       this.job.sessionId = this.sessionId;
       this.job.transport = "acp";
       let configOptions = made?.configOptions || [];
-      const available = acpModels(this.agent, configOptions);
+      const modelsState = made?.models || null;
+      const available = acpModels(this.agent, configOptions, modelsState);
       if (available.length) {
-        cfg.availableModels = available;
+        const agentCfg = ((d.settings ||= {}).delegate ||= {})[this.agent] ||= {};
+        agentCfg.availableModels = available;
         this.job.availableModels = available;
       }
       if (opts.discoverOnly) { this.done({}); return true; }
       this.job.state = "running";
       this.d.saveJobs();
       this.d.onSession(this.job, this.sessionId);
-      const isDefault = (this.agent === "antigravity" || this.agent === "opencode") && (!model || model === `${this.agent}-default`);
+      const isDefault = (!model || model === `${this.agent}-default`) && cap.acpModelOptional;
       const modelOption = configOptions.find((x) => x.category === "model" || x.id === "model");
-      if (opts.model && !isDefault && !modelOption) throw new Error(t("{agent} 未提供模型选择", { agent: this.label }));
-      if (modelOption && !isDefault && (!opts.sessionId || opts.model)) {
+      const hasSessionModelPicker = Array.isArray(modelsState?.availableModels) && modelsState.availableModels.length > 0;
+      if (opts.model && !isDefault && !modelOption && !hasSessionModelPicker) {
+        throw new Error(t("{agent} 未提供模型选择", { agent: this.label }));
+      }
+      if (!isDefault && (!opts.sessionId || opts.model) && (modelOption || hasSessionModelPicker)) {
         const custom = this.d.plugin?.modelById?.(model);
-        const selected = custom?.value || (this.agent === "dsh" ? resolveDshModel(model)?.value : model);
+        const builtin = MODEL_CATALOG.find((x) => x.agent === this.agent && (x.id === model || x.value === model));
+        const selected = custom?.value || (this.agent === "dsh" ? resolveDshModel(model)?.value : (builtin?.value || builtin?.cli || model));
         if (!selected) throw new Error(t("无法识别 {agent} 模型：{model}", { agent: this.label, model }));
-        const changed = await this.request("session/set_config_option", { sessionId: this.sessionId, configId: modelOption.id, value: selected }, 15000);
-        configOptions = changed?.configOptions || configOptions;
+        if (modelOption) {
+          const changed = await this.request("session/set_config_option", { sessionId: this.sessionId, configId: modelOption.id, value: selected }, 15000);
+          configOptions = changed?.configOptions || configOptions;
+        } else {
+          await this.request("session/set_model", { sessionId: this.sessionId, modelId: selected }, 15000);
+        }
       }
       const effortOption = configOptions.find((x) => x.category === "thought_level" || x.id === "reasoning_effort" || x.id === "variant");
-      if (opts.effort && !effortOption && this.agent !== "opencode") throw new Error(t("{agent} 未提供推理强度选择", { agent: this.label }));
+      if (opts.effort && !effortOption && !cap.acpEffortOptional) throw new Error(t("{agent} 未提供推理强度选择", { agent: this.label }));
       if (effortOption && effort && (!opts.sessionId || opts.effort)) {
         const value = this.agent === "dsh" ? dshEffort(effort) : effort;
-        if (this.agent === "antigravity" && !effortOption.options?.some((o) => o.value === value)) throw new Error(t("当前模型不支持推理强度 {value}", { value }));
+        if (!cap.acpAllowUnknownEffort && !effortOption.options?.some((o) => o.value === value)) {
+          throw new Error(t("当前模型不支持推理强度 {value}", { value }));
+        }
         await this.request("session/set_config_option", { sessionId: this.sessionId, configId: effortOption.id, value }, 15000);
       }
       if (this.finished) return false;
@@ -643,8 +852,11 @@ export class AcpRunner extends BaseRunner {
       const p = this.pending.get(msg.id);
       this.pending.delete(msg.id);
       clearTimeout(p.timer);
-      if (msg.error) p.reject(new Error(msg.error.message || JSON.stringify(msg.error)));
-      else p.resolve(msg.result);
+      if (msg.error) {
+        const errMsg = msg.error.message || JSON.stringify(msg.error);
+        this.trace?.recordFrame("acp.rpc_error", errMsg);
+        p.reject(new Error(errMsg));
+      } else p.resolve(msg.result);
       return;
     }
     if (this.finished) return;
@@ -665,6 +877,7 @@ export class AcpRunner extends BaseRunner {
         this.lastStep = truncate(name, 40);
         this.job.step = this.lastStep;
         if (this.job.state !== "needs-approval") this.job.state = "running";
+        if (kind === "tool_call") this.trace?.recordFrame("acp.tool_call", name);
       } else if (kind === "usage_update") {
         this.job.contextUsed = u.used;
         this.job.contextSize = u.size;
@@ -674,29 +887,51 @@ export class AcpRunner extends BaseRunner {
       return;
     }
     if (method === "session/request_permission") {
-      const cfg = this.d.settings.delegate[this.agent];
+      const cfg = this.d.settings?.delegate?.[this.agent] || {};
       const options = params.options || [];
-      if (this.d.plugin?.requestAcpPermission && cfg.autoApprove !== true) {
+      const policy = evaluatePermissionPolicy(params.toolCall, {
+        cwd: this.cwd || cfg.cwd || this.d.vaultPath,
+        vaultPath: this.d.vaultPath,
+        autoApprove: cfg.autoApprove === true,
+      });
+      this.trace?.recordFrame("acp.permission_request", `${params.toolCall?.title || params.toolCall?.kind || "tool"} [${policy.reason}]`);
+      if (this.d.plugin?.requestAcpPermission && !policy.allowAuto) {
         this.job.state = "needs-approval";
-        this.job.step = params.toolCall?.title || t("等待工具授权");
+        this.job.step = policy.escalated
+          ? t("高风险操作需确认：{title}", { title: params.toolCall?.title || policy.risk })
+          : (params.toolCall?.title || t("等待工具授权"));
         this.d.saveJobs(); this.d.refreshUI();
-        Promise.resolve().then(() => this.d.plugin.requestAcpPermission({ agent: this.agent, toolCall: params.toolCall, options }, this))
-          .then((optionId) => {
-            if (this.finished) return;
-            const selected = options.find((o) => o.optionId === optionId);
-            this.respond(msg.id, { outcome: selected ? { outcome: "selected", optionId: selected.optionId } : { outcome: "cancelled" } });
-            this.job.state = "running"; this.job.step = "";
-            this.d.saveJobs(); this.d.refreshUI();
-          }).catch(() => {
-            if (this.finished) return;
-            this.respond(msg.id, { outcome: { outcome: "cancelled" } });
-            this.job.state = "running"; this.job.step = t("工具调用已取消");
-            this.d.saveJobs(); this.d.refreshUI();
+        const settlePermission = (selected, stepText = "") => {
+          if (this.finished) return;
+          this.trace?.recordPermission({
+            tool: params.toolCall?.title || params.toolCall?.kind || "tool",
+            mode: policy.escalated ? "policy_escalated" : "manual",
+            outcome: selected ? "selected" : "cancelled",
+            risk: policy.risk,
           });
+          this.respond(msg.id, { outcome: selected ? { outcome: "selected", optionId: selected.optionId } : { outcome: "cancelled" } });
+          this.job.state = "running"; this.job.step = stepText;
+          this.d.saveJobs(); this.d.refreshUI();
+        };
+        Promise.resolve().then(() => this.d.plugin.requestAcpPermission({
+          agent: this.agent,
+          toolCall: params.toolCall,
+          options,
+          policyReason: policy.reason,
+          escalated: policy.escalated,
+        }, this))
+          .then((optionId) => settlePermission(options.find((o) => o.optionId === optionId), ""))
+          .catch(() => settlePermission(null, t("工具调用已取消")));
         return;
       }
-      const auto = cfg.autoApprove === true;
-      const option = options.find((o) => o.kind === (auto ? "allow_once" : "reject_once"));
+      const auto = policy.allowAuto === true;
+      const option = pickPermissionOption(options, auto);
+      this.trace?.recordPermission({
+        tool: params.toolCall?.title || params.toolCall?.kind || "tool",
+        mode: auto ? "auto_policy_ok" : (policy.escalated ? "escalated_headless_deny" : "headless_deny"),
+        outcome: option ? "selected" : "cancelled",
+        risk: policy.risk,
+      });
       if (!auto) {
         this.job.step = t("工具调用已拒绝");
         this.d.notify({ title: t("{agent} 需要你允许", { agent: this.label }), body: t("「{name}」的工具调用已拒绝。可在委派设置中调整权限后重试。", { name: this.job.name }), job: this.job });
@@ -718,7 +953,11 @@ export class AcpRunner extends BaseRunner {
     if (this.finished) return Promise.reject(new Error(t("{agent} 连接已关闭", { agent: this.label })));
     const id = this.nextId++;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => { this.pending.delete(id); reject(new Error(t("{method} 超时", { method }))); }, timeout);
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        this.trace?.recordFrame("acp.rpc_timeout", `${method} (${timeout}ms)`);
+        reject(new Error(t("{method} 超时", { method })));
+      }, timeout);
       this.pending.set(id, { resolve, reject, timer });
       this.send({ jsonrpc: "2.0", id, method, params });
     });
@@ -726,6 +965,8 @@ export class AcpRunner extends BaseRunner {
 
   onCleanup(reason) {
     this.permissionModal?.close();
+    for (const m of this.permissionModals || []) m.close();
+    this.permissionModals?.clear?.();
     this.clearPending();
     if (reason === "cancel") {
       if (this.sessionId) { try { this.send({ jsonrpc: "2.0", method: "session/cancel", params: { sessionId: this.sessionId } }); } catch { /* closed */ } }
@@ -739,6 +980,8 @@ export class AcpRunner extends BaseRunner {
 
   onDoneCleanup(result) {
     this.permissionModal?.close();
+    for (const m of this.permissionModals || []) m.close();
+    this.permissionModals?.clear?.();
     this.clearPending();
     this.job.stopReason = result && result.stopReason || "";
     this._recordAssistantText(this.assistantText);

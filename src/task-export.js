@@ -33,7 +33,7 @@ function dedentVisualLines(lines, cols) {
 
 function cleanExportLine(raw, inFence) {
   if (inFence) return raw;
-  let line = raw.replace(J.RECORD_PROVENANCE_LINE_RE, "");
+  let line = J.stripPinMarker(raw).replace(J.RECORD_PROVENANCE_LINE_RE, "");
   const id = J.blockIdOf(line);
   if (id && (J.isDeckBlockId(id) || J.isLegacyBlockId(id))) line = J.stripBlockId(line);
   return J.stripBoundSessionSuffix(line);

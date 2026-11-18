@@ -1,6 +1,7 @@
 // 记忆看板：直接渲染记忆目录（一个文件一条），按 state 分列。
 // 卡片身份是文件路径 + 块号，拖拽改状态时写回该文件的 frontmatter，不经过任何中间副本。
 import { ItemView } from "obsidian";
+import { readDroppedBrowserFiles } from "./memory-store.js";
 import { t } from "./i18n.js";
 
 export const MEMORY_BOARD_TYPE = "agent-deck-memory-board";
@@ -36,7 +37,19 @@ export class MemoryBoardView extends ItemView {
   getDisplayText() { return t("记忆看板"); }
   getIcon() { return "kanban"; }
 
-  async onOpen() { await this.refresh(); }
+  async onOpen() {
+    this.contentEl.addEventListener("dragover", (e) => {
+      if (e.dataTransfer?.types?.includes?.("Files")) e.preventDefault();
+    });
+    this.contentEl.addEventListener("drop", async (e) => {
+      if (!e.dataTransfer?.files?.length) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const docs = await readDroppedBrowserFiles(e.dataTransfer.files);
+      if (docs.length) this.plugin.openMemoryImport?.(docs, { onImported: () => this.refresh() });
+    });
+    await this.refresh();
+  }
 
   async refresh() {
     this.entries = (await this.plugin.dreaming.loadEntries()).sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -51,16 +64,29 @@ export class MemoryBoardView extends ItemView {
     head.createSpan({ text: t("共 {n} 条", { n: this.entries.length }) });
     const refresh = head.createEl("button", { text: t("刷新") });
     refresh.addEventListener("click", () => this.refresh());
+    const addBtn = head.createEl("button", { text: t("+ 新建") });
+    addBtn.addEventListener("click", () => this.plugin.openMemoryCreate?.(() => this.refresh()));
+    const importBtn = head.createEl("button", { text: t("导入…") });
+    importBtn.addEventListener("click", () => this.plugin.openMemoryImport?.([], { onImported: () => this.refresh() }));
+    if (this.plugin?.dreaming && !this.plugin.dreaming.storeMode) {
+      const migrateBtn = head.createEl("button", { cls: "mod-cta", text: t("初始化 / 迁移记忆库") });
+      migrateBtn.addEventListener("click", async () => {
+        await this.plugin.migrateMemoryToFiles?.();
+        await this.refresh();
+      });
+    }
+    head.createSpan({ cls: "ad-muted", text: t("可把 .md / .json / .zip 直接拖进看板导入") });
 
     const board = root.createDiv({ cls: "ad-memory-board__cols" });
     for (const column of groupMemories(this.entries)) {
       const col = board.createDiv({ cls: "ad-memory-board__col" });
-      col.createDiv({ cls: "ad-memory-board__colhead", text: `${column.state} · ${column.items.length}` });
+      col.createDiv({ cls: "ad-memory-board__colhead", text: `${t(column.state)} · ${column.items.length}` });
       col.addEventListener("dragover", (e) => { e.preventDefault(); col.addClass("is-over"); });
       col.addEventListener("dragleave", () => col.removeClass("is-over"));
       col.addEventListener("drop", async (e) => {
-        e.preventDefault();
         col.removeClass("is-over");
+        if (e.dataTransfer?.files?.length) return;
+        e.preventDefault();
         const path = e.dataTransfer?.getData("text/plain");
         if (!path) return;
         await this.plugin.dreaming.setEntryState(path, column.state);
@@ -72,7 +98,13 @@ export class MemoryBoardView extends ItemView {
         card.draggable = true;
         card.addEventListener("dragstart", (e) => e.dataTransfer?.setData("text/plain", entry.path));
         card.createDiv({ cls: "ad-memory-board__title", text: entry.title || entry.text });
-        card.createDiv({ cls: "ad-muted", text: `${entry.type || entry.kind} · ${entry.date || ""}` });
+        const foot = card.createDiv({ cls: "ad-memory-board__cardfoot" });
+        foot.createDiv({ cls: "ad-muted", text: `${entry.type || entry.kind} · ${entry.date || ""}` });
+        const del = foot.createEl("button", { cls: "ad-memory-board__del", text: t("删除"), attr: { "aria-label": t("删除这条记忆") } });
+        del.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          await this.plugin.deleteMemoryFile?.(entry.path);
+        });
         const refs = sourceRefs(entry);
         if (refs.length) {
           const badge = card.createSpan({ cls: "ad-memory-board__src", text: t("来源 {n}", { n: refs.length }) });

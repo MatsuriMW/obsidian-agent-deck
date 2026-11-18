@@ -150,7 +150,7 @@ test("载荷快照：没有草稿时，落盘的 payload 里就已经有富化�
   assert.ok(written.includes(`${vaultPath}/项目A/日记.md`), "被引用笔记的绝对路径也在里面");
 });
 
-test("问答回灌：笔记里有 ❓ / ✍️ 时，prompt 里出现「问 / 答」段，且不重复", async () => {
+test("问答回灌：笔记里有 ❓ / ✍️ 时，prompt 里出现「问 / 答」段，且不重复，并放在动态末尾（前稳后动）", async () => {
   const vault = makeVault();
   const blockText = [
     "- TODO 发布插件 @dsh",
@@ -161,7 +161,51 @@ test("问答回灌：笔记里有 ❓ / ✍️ 时，prompt 里出现「问 / �
   await makeDelegator(vault).enrichPrompt(resolved);
   assert.match(resolved.prompt, /任务里的问答记录/);
   assert.match(resolved.prompt, /第1轮：问「版本号用 1\.9\.6 还是 2\.0\.0？」→ 答「用 1\.9\.6」/);
+  const hintAt = resolved.prompt.indexOf("需要更多背景时：");
+  const bodyAt = resolved.prompt.indexOf("原始 prompt");
+  const replyAt = resolved.prompt.indexOf("任务里的问答记录");
+  assert.ok(hintAt >= 0 && bodyAt > hintAt && replyAt > bodyAt, "前稳后动：稳定工具提示在前、动态问答回灌在末尾");
   const again = { file: resolved.file, lines: resolved.lines, block: resolved.block, prompt: resolved.prompt };
   await makeDelegator(vault).enrichPrompt(again);
   assert.equal(again.prompt, resolved.prompt, "同一段不叠第二遍");
+});
+
+test("ContextBundle 联合 enrichPrompt：同时扫描祖先链双链，且稳定段在前、动态问答在末尾", async () => {
+  const vault = makeVault();
+  const { buildDelegationPayload } = await import("../src/harness.js");
+  const files = new Map();
+  const lines = [
+    "- 项目 [[日记]]",
+    "  - TODO 结合 [[真素材]] 处理任务",
+    "    - ❓ 第1轮：先改哪块？",
+    "    - ✍️ 答：先改 harness",
+  ];
+  const block = { start: 1, end: 3, indent: 2, text: lines.slice(1).join("\n") };
+  const plugin = {
+    settings: deepMerge(DEFAULTS, { delegate: { confirmFirst: false, promptPrefix: "GLOBAL_STABLE_PREFIX" } }),
+    jobs: {},
+    vaultPath: vault,
+    app: {
+      vault: { getAbstractFileByPath: (p) => files.get(p) || null },
+      metadataCache: { getFirstLinkpathDest: (n) => notes[String(n).trim()] || null },
+    },
+    readNote: async () => "# 笔记正文\n内容行",
+  };
+  const payload = await buildDelegationPayload({ plugin, file: { path: "inbox/当前.md" }, lines, block });
+  const resolved = { file: { path: "inbox/当前.md" }, lines, block, ...payload };
+  await new Delegator(plugin).enrichPrompt(resolved);
+  assert.ok(resolved.prompt.includes(`${vault}/项目A/日记.md`), "祖先链里的 [[日记]] 也进入绝对路径清单");
+  assert.ok(resolved.prompt.includes(`${vault}/参考/真素材.md`));
+  assert.equal(resolved.bundle.stats.notePathCount, 2);
+  assert.equal(resolved.bundle.stats.hasReply, true);
+  const iPrefix = resolved.prompt.indexOf("GLOBAL_STABLE_PREFIX");
+  const iHint = resolved.prompt.indexOf("需要更多背景时：");
+  const iPaths = resolved.prompt.indexOf(HEAD);
+  const iLinked = resolved.prompt.indexOf("关联笔记上下文");
+  const iTask = resolved.prompt.indexOf("结合 [[真素材]]");
+  const iReply = resolved.prompt.indexOf("任务里的问答记录");
+  assert.ok(
+    iPrefix >= 0 && iHint > iPrefix && iPaths > iHint && iLinked > iPaths && iTask > iLinked && iReply > iTask,
+    "ContextBundle 按前稳后动顺序装配",
+  );
 });

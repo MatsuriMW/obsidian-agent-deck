@@ -149,7 +149,7 @@ test("buildLineProgressInfo produces bar, running bounce, external approval/queu
     lastAt: now - 5_000,
   }, null, now);
   assert.equal(queuedInfo.mode, "wait");
-  assert.match(queuedInfo.tail, /排队续跑/);
+  assert.match(queuedInfo.tail, /⏳ 排队续跑/);
 
   const subInfo = buildLineProgressInfo(plugin, lines[1], lines, 1, null, null, now);
   assert.equal(subInfo.mode, "run");

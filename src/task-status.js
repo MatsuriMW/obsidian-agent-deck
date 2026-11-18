@@ -130,7 +130,7 @@ export async function applyStatusChoice(plugin, target, keyword) {
     return J.cleanCompletedIdentifiers(lines.join('\n'));
   };
   try {
-    const view=plugin.viewForPath(target.path);
+    const view=plugin.sourceViewForPath ? plugin.sourceViewForPath(target.path) : plugin.viewForPath(target.path);
     if(view){const before=view.editor.getValue();const after=transform(before);const diff=J.diffLines(before,after);if(diff)view.editor.transaction({changes:[diff]});}
     else {const file=plugin.app.vault.getAbstractFileByPath(target.path);if(!file)throw new Error(t('任务已变化，请重新点击状态关键词'));await plugin.app.vault.process(file,transform);}
   } catch(error) {

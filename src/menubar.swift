@@ -23,6 +23,10 @@ let lucideArrowSVG = """
 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
 """
 
+let lucidePinSVG = """
+<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>
+"""
+
 func lucideImage(_ svg: String, _ size: CGFloat) -> NSImage? {
     guard let data = svg.data(using: .utf8), let image = NSImage(data: data) else { return nil }
     image.isTemplate = true
@@ -71,6 +75,8 @@ enum TsqIcons {
 
 struct MenuSession: Decodable, Identifiable {
     let id: String
+    let sid: String?
+    let pinned: Bool?
     let agent: String
     let agentName: String
     let agentShort: String?
@@ -88,6 +94,18 @@ struct MenuSession: Decodable, Identifiable {
     let project: String?
     let step: String?
     let ago: String?
+
+    var resolvedSid: String {
+        if let sid = sid, !sid.isEmpty { return sid }
+        if let colon = id.firstIndex(of: ":") {
+            return String(id[id.index(after: colon)...])
+        }
+        return id
+    }
+
+    var isPinned: Bool {
+        pinned == true
+    }
 
     var keywordCode: String {
         if let keyword = keyword, !keyword.isEmpty { return keyword }
@@ -124,11 +142,25 @@ struct MenuSession: Decodable, Identifiable {
         case "codex": return "Codex"
         case "workbuddy": return "WorkBuddy"
         case "dsh": return "DSH"
+        case "hermes": return "Hermes"
+        case "qwenwork": return "千问办公"
         case "cursor": return "Cursor"
         case "grokbot": return "Grok Bot"
         default: return agentName
         }
     }
+}
+
+struct MenuGroup: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let tone: String?
+    let attention: Bool?
+    let running: Int?
+    let waiting: Int?
+    let issue: Int?
+    let agents: [String]?
+    let sessions: [MenuSession]
 }
 
 struct MenuAgent: Decodable, Identifiable {
@@ -176,6 +208,9 @@ struct MenuState: Decodable {
     let hotkey: String?
     let running: Int
     let waiting: Int
+    let nowGroupBy: String?
+    let projectGroups: [MenuGroup]?
+    let statusGroups: [MenuGroup]?
     let sessions: [MenuSession]
     let agents: [MenuAgent]?
     let stats: [MenuStat]?
@@ -183,7 +218,7 @@ struct MenuState: Decodable {
     let labels: [String: String]?
 
     static var empty: MenuState {
-        MenuState(updatedAt: 0, short: "Agent Deck", summary: L("等待 Agent Deck…"), usage: nil, hotkey: nil, running: 0, waiting: 0, sessions: [], agents: [], stats: nil, labels: nil)
+        MenuState(updatedAt: 0, short: "Agent Deck", summary: L("等待 Agent Deck…"), usage: nil, hotkey: nil, running: 0, waiting: 0, nowGroupBy: "project", projectGroups: nil, statusGroups: nil, sessions: [], agents: [], stats: nil, labels: nil)
     }
 
     var needsApproval: Int {
@@ -208,21 +243,128 @@ struct MenuState: Decodable {
 final class MenuModel: ObservableObject {
     @Published var state: MenuState = .empty
     @Published var panelVisible = false
+    @Published var panelPinned: Bool
+    @Published var optimisticPins: [String: (pinned: Bool, at: Double)] = [:]
+    @Published var optimisticGroupBy: (mode: String, at: Double)? = nil
+    @Published var collapsedGroups: [String: Set<String>] = [:]
     let statePath: String
     let showPath: String
+    let cmdDir: String
     let parentPid: Int32
     var timer: Timer?
     var onUpdate: (() -> Void)?
     var onShowRequest: (() -> Void)?
+    var onPinModeChanged: (() -> Void)?
     private var lastShowAt = Date().timeIntervalSince1970
     private var lastStateMtime: Date?
 
+    private static let panelPinnedKey = "AgentDeckPanelPinned"
+    private static let pinnedXKey = "AgentDeckPinnedX"
+    private static let pinnedYKey = "AgentDeckPinnedY"
+    private static let hasPinnedOriginKey = "AgentDeckHasPinnedOrigin"
+
     init(statePath: String, parentPid: Int32) {
         self.statePath = statePath
-        self.showPath = URL(fileURLWithPath: statePath)
-            .deletingLastPathComponent()
-            .appendingPathComponent("show-panel").path
+        let baseDir = URL(fileURLWithPath: statePath).deletingLastPathComponent()
+        self.showPath = baseDir.appendingPathComponent("show-panel").path
+        self.cmdDir = baseDir.appendingPathComponent("cmds").path
         self.parentPid = parentPid
+        self.panelPinned = UserDefaults.standard.bool(forKey: Self.panelPinnedKey)
+    }
+
+    var savedPinnedOrigin: NSPoint? {
+        guard UserDefaults.standard.bool(forKey: Self.hasPinnedOriginKey) else { return nil }
+        return NSPoint(
+            x: UserDefaults.standard.double(forKey: Self.pinnedXKey),
+            y: UserDefaults.standard.double(forKey: Self.pinnedYKey)
+        )
+    }
+
+    func savePinnedOrigin(_ origin: NSPoint) {
+        UserDefaults.standard.set(origin.x, forKey: Self.pinnedXKey)
+        UserDefaults.standard.set(origin.y, forKey: Self.pinnedYKey)
+        UserDefaults.standard.set(true, forKey: Self.hasPinnedOriginKey)
+    }
+
+    func togglePanelPin() {
+        panelPinned.toggle()
+        UserDefaults.standard.set(panelPinned, forKey: Self.panelPinnedKey)
+        onPinModeChanged?()
+    }
+
+    func isSessionPinned(_ session: MenuSession) -> Bool {
+        if let entry = optimisticPins[session.resolvedSid] { return entry.pinned }
+        return session.isPinned
+    }
+
+    var activeGroupBy: String {
+        let mode = optimisticGroupBy?.mode ?? state.nowGroupBy ?? "project"
+        return (mode == "project" || mode == "status" || mode == "flat") ? mode : "project"
+    }
+
+    func activeGroups() -> [MenuGroup] {
+        switch activeGroupBy {
+        case "project": return state.projectGroups ?? []
+        case "status": return state.statusGroups ?? []
+        default: return []
+        }
+    }
+
+    func orderedFlatSessions() -> [MenuSession] {
+        let pinned = state.sessions.filter { isSessionPinned($0) }
+        let rest = state.sessions.filter { !isSessionPinned($0) }
+        return pinned + rest
+    }
+
+    var visibleSessionCount: Int {
+        switch activeGroupBy {
+        case "flat":
+            return state.sessions.count
+        default:
+            let groups = activeGroups()
+            if !groups.isEmpty {
+                return groups.reduce(0) { $0 + $1.sessions.count }
+            }
+            return (state.projectGroups == nil && state.statusGroups == nil) ? state.sessions.count : 0
+        }
+    }
+
+    func isGroupCollapsed(_ mode: String, _ id: String) -> Bool {
+        collapsedGroups[mode]?.contains(id) == true
+    }
+
+    func toggleGroupCollapsed(_ mode: String, _ id: String) {
+        var set = collapsedGroups[mode] ?? []
+        if set.contains(id) { set.remove(id) } else { set.insert(id) }
+        collapsedGroups[mode] = set
+        onUpdate?()
+    }
+
+    func setGroupBy(_ mode: String) {
+        guard mode == "project" || mode == "status" || mode == "flat", mode != activeGroupBy else { return }
+        let nowMs = Date().timeIntervalSince1970 * 1000
+        optimisticGroupBy = (mode, nowMs)
+        onUpdate?()
+        sendCommand(["action": "setNowGroupBy", "mode": mode], stampMs: nowMs)
+    }
+
+    func togglePinSession(_ session: MenuSession) {
+        let sid = session.resolvedSid
+        let next = !isSessionPinned(session)
+        let nowMs = Date().timeIntervalSince1970 * 1000
+        optimisticPins[sid] = (next, nowMs)
+        onUpdate?()
+        sendCommand(["action": "togglePin", "sid": sid, "pinned": next], stampMs: nowMs)
+    }
+
+    private func sendCommand(_ payload: [String: Any], stampMs: Double) {
+        let fm = FileManager.default
+        try? fm.createDirectory(atPath: cmdDir, withIntermediateDirectories: true)
+        if let data = try? JSONSerialization.data(withJSONObject: payload) {
+            let name = "\(Int64(stampMs))-\(UUID().uuidString.prefix(8)).json"
+            let url = URL(fileURLWithPath: cmdDir).appendingPathComponent(name)
+            try? data.write(to: url, options: .atomic)
+        }
     }
 
     func start() {
@@ -264,6 +406,15 @@ final class MenuModel: ObservableObject {
         if next.updatedAt != state.updatedAt {
             DeckLabels.table = next.labels ?? [:]
             state = next
+            for (sid, entry) in optimisticPins {
+                let matched = next.sessions.first(where: { $0.resolvedSid == sid })?.isPinned == entry.pinned
+                if matched || next.updatedAt > entry.at + 4000 {
+                    optimisticPins.removeValue(forKey: sid)
+                }
+            }
+            if let opt = optimisticGroupBy, next.nowGroupBy == opt.mode || next.updatedAt > opt.at + 4000 {
+                optimisticGroupBy = nil
+            }
             onUpdate?()
         }
     }
@@ -662,6 +813,20 @@ enum DeckAgents {
                 tint: .solid("#EBEEF2", "#222730"),
                 glyph: "✧", short: "Grok Bot"
             )
+        case "hermes":
+            return AgentStyle(
+                id: "hermes",
+                color: .solid("#B57536", "#E0A060"),
+                tint: .solid("#F6EDE3", "#36271A"),
+                glyph: "☿", short: "Hermes"
+            )
+        case "qwenwork":
+            return AgentStyle(
+                id: "qwenwork",
+                color: .solid("#6B63D6", "#9A93F2"),
+                tint: .solid("#ECEBFA", "#232140"),
+                glyph: "✦", short: "千问办公"
+            )
         default:
             let base = Color(hex: fallbackColor)
             return AgentStyle(
@@ -819,7 +984,7 @@ struct AgentPill: View {
             }
         }
         .padding(.horizontal, 7)
-        .padding(.vertical, 3.5)
+        .padding(.vertical, 3)
         .frame(maxWidth: .infinity)
         .background(Capsule(style: .continuous).fill(style.tint))
         .overlay(
@@ -830,12 +995,51 @@ struct AgentPill: View {
     }
 }
 
-struct HeaderBlock: View {
-    let state: MenuState
+struct PinIconButton: View {
+    let pinned: Bool
+    let size: CGFloat
+    let helpText: String
+    let action: () -> Void
+    @State private var hovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(alignment: .top, spacing: 10) {
+        Button(action: action) {
+            Group {
+                if let image = lucideImage(lucidePinSVG, size) {
+                    Image(nsImage: image)
+                        .renderingMode(.template)
+                        .rotationEffect(.degrees(pinned ? 0 : 40))
+                } else {
+                    Image(systemName: pinned ? "pin.fill" : "pin")
+                        .font(.system(size: size, weight: .semibold))
+                }
+            }
+            .foregroundColor(pinned ? DeckPalette.brand : (hovering ? DeckPalette.ink : DeckPalette.tertiary))
+            .frame(width: size + 10, height: size + 10)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(pinned ? DeckPalette.brand.opacity(0.14) : (hovering ? DeckPalette.pill : .clear))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .strokeBorder(pinned ? DeckPalette.brand.opacity(0.45) : .clear, lineWidth: 1)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .help(helpText)
+        .onHover { inside in hovering = inside }
+    }
+}
+
+struct HeaderBlock: View {
+    let state: MenuState
+    let panelPinned: Bool
+    let onTogglePinPanel: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 8) {
                 // No app icon or name here: the panel hangs from the menu bar icon,
                 // so the header starts straight with today's numbers.
                 if let stats = state.stats, !stats.isEmpty {
@@ -866,9 +1070,15 @@ struct HeaderBlock: View {
 
                 Spacer(minLength: 6)
 
-                HStack(alignment: .top, spacing: 12) {
+                HStack(alignment: .top, spacing: 10) {
                     StatBlock(label: "DOING", value: state.running, style: DeckKeywords.doing)
                     StatBlock(label: "WAITING", value: state.waiting, style: DeckKeywords.waiting)
+                    PinIconButton(
+                        pinned: panelPinned,
+                        size: 11,
+                        helpText: L(panelPinned ? "取消固定（点击外部自动收起）" : "固定面板（始终显示）"),
+                        action: onTogglePinPanel
+                    )
                 }
             }
 
@@ -893,57 +1103,24 @@ struct HeaderBlock: View {
             if let agents = state.agents, !agents.isEmpty {
                 LazyVGrid(
                     columns: [
-                        GridItem(.flexible(), spacing: 5),
-                        GridItem(.flexible(), spacing: 5),
+                        GridItem(.flexible(), spacing: 4),
+                        GridItem(.flexible(), spacing: 4),
                     ],
-                    spacing: 5
+                    spacing: 4
                 ) {
                     ForEach(agents) { AgentPill(agent: $0) }
                 }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.top, 13)
-        .padding(.bottom, 11)
+        .padding(.horizontal, 12)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(DeckPalette.header)
     }
 }
 
 // MARK: - Session list
-
-struct SectionHeader: View {
-    let title: String
-    let subtitle: String
-    let count: Int
-
-    var body: some View {
-        HStack(spacing: 6) {
-            RoundedRectangle(cornerRadius: 1.5, style: .continuous)
-                .fill(DeckPalette.brand)
-                .frame(width: 3, height: 11)
-            Text(title)
-                .font(.system(size: 9.5, weight: .bold))
-                .kerning(0.6)
-                .foregroundColor(DeckPalette.secondary)
-            if !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(.system(size: 9, weight: .medium))
-                    .foregroundColor(DeckPalette.tertiary)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 4)
-            Text("\(count)")
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .foregroundColor(DeckPalette.secondary)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 1)
-                .background(Capsule(style: .continuous).fill(DeckPalette.pill))
-        }
-        .padding(.horizontal, 2)
-        .padding(.top, 2)
-    }
-}
 
 struct MetaText: View {
     let session: MenuSession
@@ -955,6 +1132,9 @@ struct MetaText: View {
                 Text(session.shortAgent)
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(agent.color)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1.5)
                 if let project = session.project, !project.isEmpty {
                     Text("·")
                         .foregroundColor(DeckPalette.tertiary)
@@ -962,6 +1142,7 @@ struct MetaText: View {
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(DeckPalette.secondary)
                         .lineLimit(1)
+                        .truncationMode(.tail)
                         .layoutPriority(1)
                 }
                 if let step = session.step, !step.isEmpty {
@@ -1004,57 +1185,231 @@ struct MetaText: View {
 
 struct SessionCardView: View {
     let session: MenuSession
+    let pinned: Bool
+    let onTogglePin: () -> Void
     @State private var hovering = false
 
     var body: some View {
         let agent = DeckAgents.style(for: session)
         let keyword = DeckKeywords.style(for: session.keywordCode)
-        Button(action: { openSession(session) }) {
-            HStack(alignment: .center, spacing: 9) {
-                AgentBadge(style: agent)
-                VStack(alignment: .leading, spacing: 3) {
-                    HStack(spacing: 6) {
+        HStack(alignment: .center, spacing: 8) {
+            AgentBadge(style: agent)
+                .contentShape(Rectangle())
+                .onTapGesture { openSession(session) }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 4) {
+                    HStack(spacing: 4) {
                         Text(session.displayTitle)
                             .font(.system(size: 12.5, weight: .semibold))
                             .foregroundColor(DeckPalette.ink)
                             .lineLimit(1)
                             .help(session.title)
                         Spacer(minLength: 4)
-                        KeywordChip(style: keyword)
                     }
-                    MetaText(session: session, agent: agent)
+                    .contentShape(Rectangle())
+                    .onTapGesture { openSession(session) }
+
+                    if pinned || hovering {
+                        PinIconButton(
+                            pinned: pinned,
+                            size: 10,
+                            helpText: L(pinned ? "取消置顶此会话" : "置顶此会话到最上方"),
+                            action: onTogglePin
+                        )
+                    }
+                    KeywordChip(style: keyword)
+                        .onTapGesture { openSession(session) }
                 }
+                MetaText(session: session, agent: agent)
+                    .contentShape(Rectangle())
+                    .onTapGesture { openSession(session) }
             }
-            .padding(.leading, 12)
-            .padding(.trailing, 10)
-            .padding(.vertical, 9)
-            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(hovering ? DeckPalette.cardHover : DeckPalette.card)
-            )
-            .overlay(alignment: .leading) {
-                Rectangle()
-                    .fill(keyword.accent)
-                    .frame(width: 3)
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(hovering ? DeckPalette.cardBorderHover : DeckPalette.cardBorder, lineWidth: 1)
-            )
-            .shadow(
-                color: Color.black.opacity(hovering ? 0.18 : 0.10),
-                radius: hovering ? 8 : 5,
-                x: 0,
-                y: hovering ? 4 : 2
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
-        .buttonStyle(.plain)
+        .padding(.leading, 10)
+        .padding(.trailing, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(hovering ? DeckPalette.cardHover : DeckPalette.card)
+        )
+        .overlay(alignment: .leading) {
+            Rectangle()
+                .fill(pinned ? DeckPalette.brand : keyword.accent)
+                .frame(width: 3)
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .strokeBorder(
+                    hovering
+                        ? DeckPalette.cardBorderHover
+                        : (pinned ? DeckPalette.brand.opacity(0.45) : DeckPalette.cardBorder),
+                    lineWidth: 1
+                )
+        )
+        .shadow(
+            color: Color.black.opacity(hovering ? 0.18 : 0.10),
+            radius: hovering ? 8 : 5,
+            x: 0,
+            y: hovering ? 4 : 2
+        )
         .onHover { inside in
             withAnimation(.easeOut(duration: 0.12)) { hovering = inside }
         }
+    }
+}
+
+struct NowGroupBar: View {
+    @ObservedObject var model: MenuModel
+
+    private let options: [(id: String, label: String)] = [
+        ("project", "按项目"),
+        ("status", "按状态"),
+        ("flat", "列表"),
+    ]
+
+    var body: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 1.5, style: .continuous)
+                    .fill(DeckPalette.brand)
+                    .frame(width: 3, height: 11)
+                Text(L("现在"))
+                    .font(.system(size: 10.5, weight: .bold))
+                    .foregroundColor(DeckPalette.ink)
+            }
+            Spacer(minLength: 4)
+            HStack(spacing: 3) {
+                ForEach(options, id: \.id) { opt in
+                    let active = model.activeGroupBy == opt.id
+                    Button(action: { model.setGroupBy(opt.id) }) {
+                        Text(L(opt.label))
+                            .font(.system(size: 9.5, weight: .semibold))
+                            .foregroundColor(active ? DeckPalette.ink : DeckPalette.secondary)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2.5)
+                            .background(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .fill(active ? DeckPalette.card : .clear)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                    .strokeBorder(active ? DeckPalette.cardBorder : .clear, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(2)
+            .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(DeckPalette.pill))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(DeckPalette.header)
+    }
+}
+
+struct GroupPill: View {
+    let text: String
+    let tone: String // "live" | "wait" | "error"
+
+    private var style: KeywordStyle {
+        switch tone {
+        case "live": return DeckKeywords.doing
+        case "error": return DeckKeywords.errored
+        default: return DeckKeywords.waiting
+        }
+    }
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 8.5, weight: .semibold))
+            .foregroundColor(style.ink)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Capsule(style: .continuous).fill(style.tint))
+            .overlay(Capsule(style: .continuous).strokeBorder(style.accent.opacity(0.45), lineWidth: 1))
+            .lineLimit(1)
+            .fixedSize()
+    }
+}
+
+struct GroupHeaderRow: View {
+    let group: MenuGroup
+    let mode: String
+    let collapsed: Bool
+    let agentStyles: [String: AgentStyle]
+    let onToggle: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: onToggle) {
+            HStack(spacing: 5) {
+                Text(collapsed ? "▸" : "▾")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundColor(DeckPalette.secondary)
+                    .frame(width: 10)
+                Text(group.name)
+                    .font(.system(size: 10.5, weight: .bold))
+                    .foregroundColor(DeckPalette.ink)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                if mode == "project", let agents = group.agents, !agents.isEmpty {
+                    HStack(spacing: 3) {
+                        ForEach(agents.prefix(4), id: \.self) { id in
+                            if let icon = agentAppIcon(id) {
+                                Image(nsImage: icon)
+                                    .resizable()
+                                    .interpolation(.high)
+                                    .frame(width: 11, height: 11)
+                                    .clipShape(RoundedRectangle(cornerRadius: 2.5, style: .continuous))
+                            } else {
+                                let st = agentStyles[id]
+                                Text(st?.glyph ?? "•")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundColor(st?.color ?? DeckPalette.secondary)
+                            }
+                        }
+                    }
+                }
+                Spacer(minLength: 4)
+                if mode == "status" {
+                    GroupPill(text: "\(group.sessions.count)", tone: group.tone ?? "wait")
+                } else {
+                    HStack(spacing: 4) {
+                        if (group.running ?? 0) > 0 {
+                            GroupPill(text: L("{n} 在跑", ["n": "\(group.running ?? 0)"]), tone: "live")
+                        }
+                        if (group.waiting ?? 0) > 0 {
+                            GroupPill(text: L("{n} 等你", ["n": "\(group.waiting ?? 0)"]), tone: "wait")
+                        }
+                        if (group.issue ?? 0) > 0 {
+                            GroupPill(text: L("{n} 异常", ["n": "\(group.issue ?? 0)"]), tone: "error")
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(hovering ? DeckPalette.cardHover : DeckPalette.card)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .strokeBorder(
+                        group.attention == true
+                            ? DeckKeywords.waiting.accent.opacity(0.45)
+                            : DeckPalette.cardBorder,
+                        lineWidth: 1
+                    )
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
     }
 }
 
@@ -1074,11 +1429,11 @@ struct EmptyState: View {
 
             HStack(spacing: 5) {
                 KeywordChip(style: DeckKeywords.todo)
-                Text(L("现在没有要显示的会话"))
+                Text(L("现在没有在跑的会话"))
                     .font(.system(size: 12.5, weight: .bold))
                     .foregroundColor(DeckPalette.ink)
             }
-            Text(L("主力 Agent 的会话会留在这里；其它 Agent 只在正在运行时出现，WorkBuddy 的等待会话也列。"))
+            Text(L("等待中的提问或终端任务、待认领与在跑会话会出现在这里。"))
                 .font(.system(size: 10))
                 .foregroundColor(DeckPalette.secondary)
                 .multilineTextAlignment(.center)
@@ -1093,27 +1448,54 @@ struct EmptyState: View {
 }
 
 struct SessionListView: View {
-    let state: MenuState
+    @ObservedObject var model: MenuModel
+
+    private var agentStylesById: [String: AgentStyle] {
+        var map: [String: AgentStyle] = [:]
+        for a in model.state.agents ?? [] {
+            map[a.id] = DeckAgents.style(for: a)
+        }
+        return map
+    }
 
     var body: some View {
-        let primary = state.sessions.filter { $0.primary }
-        let others = state.sessions.filter { !$0.primary }
+        let mode = model.activeGroupBy
+        let groups = model.activeGroups()
+        let flat = model.orderedFlatSessions()
+        let styles = agentStylesById
 
         ScrollView(.vertical, showsIndicators: true) {
-            LazyVStack(alignment: .leading, spacing: 8) {
-                if !primary.isEmpty {
-                    SectionHeader(title: L("主力 AGENT"), subtitle: L("全量追踪"), count: primary.count)
-                    ForEach(primary) { SessionCardView(session: $0) }
-                }
-                if !others.isEmpty {
-                    SectionHeader(title: L("其它 AGENT"), subtitle: L("在跑 · WorkBuddy 等你"), count: others.count)
-                        .padding(.top, 4)
-                    ForEach(others) { SessionCardView(session: $0) }
+            LazyVStack(alignment: .leading, spacing: 4) {
+                if (mode == "project" || mode == "status"), !groups.isEmpty {
+                    ForEach(groups) { group in
+                        let collapsed = model.isGroupCollapsed(mode, group.id)
+                        GroupHeaderRow(
+                            group: group,
+                            mode: mode,
+                            collapsed: collapsed,
+                            agentStyles: styles
+                        ) {
+                            model.toggleGroupCollapsed(mode, group.id)
+                        }
+                        if !collapsed {
+                            ForEach(group.sessions) { session in
+                                SessionCardView(session: session, pinned: model.isSessionPinned(session)) {
+                                    model.togglePinSession(session)
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    ForEach(flat) { session in
+                        SessionCardView(session: session, pinned: model.isSessionPinned(session)) {
+                            model.togglePinSession(session)
+                        }
+                    }
                 }
             }
-            .padding(.horizontal, 14)
-            .padding(.top, 11)
-            .padding(.bottom, 14)
+            .padding(.horizontal, 10)
+            .padding(.top, 6)
+            .padding(.bottom, 8)
         }
         .scrollIndicators(.visible)
     }
@@ -1138,8 +1520,8 @@ struct FooterButton: View {
             Text(title)
                 .font(.system(size: kind == .quiet ? 9.5 : 10.5, weight: .semibold))
                 .foregroundColor(foreground)
-                .padding(.horizontal, kind == .quiet ? 6 : 10)
-                .padding(.vertical, kind == .quiet ? 4 : 6)
+                .padding(.horizontal, kind == .quiet ? 6 : 9)
+                .padding(.vertical, kind == .quiet ? 3 : 5)
                 .background(
                     RoundedRectangle(cornerRadius: 7, style: .continuous)
                         .fill(background)
@@ -1195,7 +1577,7 @@ struct FooterBlock: View {
 
     private var hint: String {
         if sessionCount == 0 { return L("等待 Agent 会话") }
-        return sessionCount > 5 ? L("共 {n} 个 · 向下滑动", ["n": "\(sessionCount)"]) : L("点击卡片跳转")
+        return sessionCount > 8 ? L("共 {n} 个 · 向下滑动", ["n": "\(sessionCount)"]) : L("点击卡片跳转")
     }
 
     var body: some View {
@@ -1215,8 +1597,8 @@ struct FooterBlock: View {
                 adOpen("obsidian://agent-deck?do=hide")
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
         .frame(maxWidth: .infinity)
         .background(DeckPalette.header)
     }
@@ -1229,16 +1611,20 @@ struct DeckView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HeaderBlock(state: model.state)
+            HeaderBlock(state: model.state, panelPinned: model.panelPinned) {
+                model.togglePanelPin()
+            }
             Hairline()
-            if model.state.sessions.isEmpty {
+            NowGroupBar(model: model)
+            Hairline()
+            if model.visibleSessionCount == 0 {
                 EmptyState()
             } else {
-                SessionListView(state: model.state)
+                SessionListView(model: model)
                     .frame(maxHeight: .infinity)
             }
             Hairline()
-            FooterBlock(sessionCount: model.state.sessions.count)
+            FooterBlock(sessionCount: model.visibleSessionCount)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(DeckPalette.panel)
@@ -1337,7 +1723,7 @@ private func deckHotKeyHandler(
     return noErr
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var statusItem: NSStatusItem!
     var panel: DeckPanel!
     var model: MenuModel!
@@ -1352,8 +1738,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var hotKeyHandler: EventHandlerRef?
     var currentHotKey = ""
     var hotKeySequence: UInt32 = 1
+    var isProgrammaticLayout = false
 
-    let panelWidth: CGFloat = 412
+    let panelWidth: CGFloat = 436
 
     /// Carbon hotkeys work even when the status item is hidden and do not need
     /// Accessibility access. The plugin sends the user's choice in menubar.json.
@@ -1449,14 +1836,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dismissObserver = NotificationCenter.default.addObserver(
             forName: .agentDeckDismiss, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.hidePanel()
+            if self?.model.panelPinned != true {
+                self?.hidePanel()
+            }
         }
 
         model.onUpdate = { [weak self] in self?.refresh() }
         model.onShowRequest = { [weak self] in self?.showPanel() }
+        model.onPinModeChanged = { [weak self] in self?.applyPinnedWindowBehavior(userTriggered: true) }
         model.start()
         refresh()
         forceDisplay()
+        applyPinnedWindowBehavior(userTriggered: false)
         // Write the pid file only after lastShowAt has been recorded, so an
         // Obsidian command that waits for this pid cannot race the listener.
         if !pidPath.isEmpty {
@@ -1466,6 +1857,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if preview {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
                 self?.showPanel()
+            }
+        } else if model.panelPinned {
+            DispatchQueue.main.async { [weak self] in
+                self?.showPanel(activate: false)
             }
         }
     }
@@ -1490,16 +1885,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             backing: .buffered,
             defer: false
         )
+        panel.delegate = self
         panel.contentView = container
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = true
         panel.hidesOnDeactivate = false
         panel.isMovable = false
+        panel.isMovableByWindowBackground = false
         panel.isReleasedWhenClosed = false
         panel.isFloatingPanel = true
         panel.level = .statusBar
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+    }
+
+    func applyPinnedWindowBehavior(userTriggered: Bool) {
+        let pinned = model.panelPinned
+        panel.level = pinned ? .floating : .statusBar
+        panel.isMovable = pinned
+        panel.isMovableByWindowBackground = pinned
+        if pinned {
+            removeMonitors()
+            if userTriggered, panel.isVisible, model.savedPinnedOrigin == nil {
+                model.savePinnedOrigin(NSPoint(x: panel.frame.minX, y: panel.frame.maxY))
+            }
+        } else if panel.isVisible {
+            installMonitors()
+            layoutPanel()
+        }
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        guard !isProgrammaticLayout, model.panelPinned, panel.isVisible else { return }
+        model.savePinnedOrigin(NSPoint(x: panel.frame.minX, y: panel.frame.maxY))
     }
 
     func refresh() {
@@ -1525,32 +1943,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return desired
     }
 
-    /// Keep this roughly in sync with the SwiftUI blocks above: a fixed header,
-    /// a scrollable card area and a fixed footer. At most five cards are shown
-    /// before scrolling; the body ends exactly at the fifth card so a sixth card
-    /// never peeks through, while its shadow still has a little room.
+    /// Keep this roughly in sync with the SwiftUI blocks above: a slim fixed
+    /// header + NowGroupBar, a generous compact scrollable card area, and a
+    /// compact fixed footer.
     func desiredHeight() -> CGFloat {
-        let sessions = model.state.sessions
-        if sessions.isEmpty { return 300 }
-
-        let shown = min(5, sessions.count)
-        let prefix = sessions.prefix(shown)
-        let hasPrimary = prefix.contains { $0.primary }
-        let hasOthers = prefix.contains { !$0.primary }
-
+        let count = model.visibleSessionCount
         let agentRows = max(1, ((model.state.agents?.count ?? 0) + 1) / 2)
-        let headerBlock: CGFloat = 85 + CGFloat(agentRows - 1) * 23 + (model.state.needsApproval > 0 ? 29 : 0)
-        let footer: CGFloat = 49
+        let headerBlock: CGFloat = 112 + CGFloat(agentRows - 1) * 21 + (model.state.needsApproval > 0 ? 27 : 0)
+        let footer: CGFloat = 39
+        if count == 0 { return max(340, headerBlock + 200 + footer) }
 
-        var sectionHeaders: CGFloat = 0
-        if hasPrimary { sectionHeaders += 15 }
-        if hasOthers { sectionHeaders += hasPrimary ? 19 : 15 }
+        let mode = model.activeGroupBy
+        let groups = (mode == "project" || mode == "status") ? model.activeGroups() : []
+        var cardSlots = 0
+        var headerCount = 0
+        if !groups.isEmpty {
+            for g in groups {
+                headerCount += 1
+                if !model.isGroupCollapsed(mode, g.id) {
+                    cardSlots += g.sessions.count
+                }
+                if cardSlots + headerCount >= 11 { break }
+            }
+        }
+        let shownCards = min(9, groups.isEmpty ? count : cardSlots)
+        let gaps = max(0, headerCount + shownCards - 1)
+        let contentBody = 6 + CGFloat(headerCount) * 24 + CGFloat(gaps) * 4 + CGFloat(shownCards) * 46 + 8
+        let body = max(260, contentBody)
+        return min(680, headerBlock + body + footer + 2)
+    }
 
-        // LazyVStack spacing sits between every block: headers, cards, headers.
-        let sections = (hasPrimary ? 1 : 0) + (hasOthers ? 1 : 0)
-        let gaps = sections + shown - 1
-        let body = 11 + sectionHeaders + CGFloat(gaps) * 8 + CGFloat(shown) * 58 + 2
-        return headerBlock + body + footer + 2
+    func setPanelFrame(_ rect: NSRect) {
+        isProgrammaticLayout = true
+        panel.setFrame(rect, display: true)
+        isProgrammaticLayout = false
     }
 
     func layoutPanel() {
@@ -1561,7 +1987,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if preview, let screen = NSScreen.main {
             let x = screen.frame.midX - size.width / 2
             let y = screen.frame.maxY - size.height - 42
-            panel.setFrame(NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height), display: true)
+            setPanelFrame(NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height))
+            return
+        }
+
+        if model.panelPinned, let topLeft = model.savedPinnedOrigin {
+            let screen = NSScreen.screens.first(where: { $0.visibleFrame.contains(NSPoint(x: topLeft.x + 20, y: topLeft.y - 20)) })
+                ?? panel.screen ?? NSScreen.main
+            var x = topLeft.x
+            var y = topLeft.y - size.height
+            if let visible = screen?.visibleFrame {
+                x = min(max(x, visible.minX + 8), visible.maxX - size.width - 8)
+                if y < visible.minY + 8 { y = visible.minY + 8 }
+                if y + size.height > visible.maxY - 4 { y = visible.maxY - 4 - size.height }
+            }
+            setPanelFrame(NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height))
             return
         }
 
@@ -1603,18 +2043,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if y < visible.minY + 8 { y = visible.minY + 8 }
             if y + size.height > visible.maxY - 4 { y = visible.maxY - 4 - size.height }
         }
-        panel.setFrame(
-            NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height),
-            display: true
-        )
+        setPanelFrame(NSRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height))
     }
 
-    func showPanel() {
+    func showPanel(activate: Bool = true) {
         if panel.isVisible {
             // An explicit show request (the Obsidian command) only opens/focuses.
             panel.orderFrontRegardless()
-            panel.makeKey()
-            NSApp.activate(ignoringOtherApps: true)
+            if activate {
+                panel.makeKey()
+                NSApp.activate(ignoringOtherApps: true)
+            }
             return
         }
 
@@ -1626,9 +2065,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         forceDisplay()
         model.panelVisible = true
         statusItem.button?.highlight(true)
-        installMonitors()
-        NSApp.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
+        if !model.panelPinned {
+            installMonitors()
+        }
+        if activate {
+            NSApp.activate(ignoringOtherApps: true)
+            panel.makeKeyAndOrderFront(nil)
+        }
     }
 
     func forceDisplay() {

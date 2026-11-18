@@ -16,6 +16,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+export const ASSET_VERSION = 1;
 export const MEMORY_DIR_DEFAULT = "Agent Deck/记忆";
 export const PLUGIN_SUBDIR = path.join(".obsidian", "plugins", "agent-deck");
 const MAX_OUTPUT = 6000;
@@ -34,7 +35,9 @@ const unYamlStr = (value) => {
   return text.length >= 2 && text.startsWith('"') && text.endsWith('"') ? text.slice(1, -1).replace(/\\(["\\])/g, "$1") : text;
 };
 
-// 容忍用户手加的 frontmatter：不认识的键忽略，不报错。
+const KIND_BY_LABEL = { 事实: "fact", 偏好: "preference", 待验证规律: "pattern", 项目经验: "lesson" };
+
+// 容忍用户手加的 frontmatter 与记忆.base 行内编辑：不认识的键忽略，不报错。
 export function parseMemory(content) {
   const lines = String(content || "").replace(/\r\n/g, "\n").split("\n");
   if (lines[0]?.trim() !== "---") return null;
@@ -52,9 +55,14 @@ export function parseMemory(content) {
     const item = /^\s+-\s*(.*)$/.exec(line);
     if (item && Array.isArray(meta[list])) meta[list].push(unYamlStr(item[1]));
   }
+  const str = (v) => (typeof v === "string" ? v.trim() : "");
   const body = lines.slice(end + 1);
-  const text = body.find((l) => l.trim() && l.trim() !== "## 证据")?.trim() || "";
-  if (!meta.kind || !text) return null;
+  const bodyText = body.find((l) => l.trim() && l.trim() !== "## 证据")?.trim() || "";
+  const title = str(meta.title);
+  const text = bodyText || title;
+  const kindRaw = str(meta.kind), typeRaw = str(meta.type), stateRaw = str(meta.state), idRaw = str(meta.id);
+  const kind = Object.hasOwn(KIND_BY_LABEL, typeRaw) && !kindRaw ? KIND_BY_LABEL[typeRaw] : kindRaw || (text && (stateRaw || idRaw) ? "fact" : "");
+  if (!kind || !text) return null;
   const evidence = [];
   const at = body.findIndex((l) => l.trim() === "## 证据");
   if (at >= 0) for (const line of body.slice(at + 1)) {
@@ -62,12 +70,13 @@ export function parseMemory(content) {
     if (m) evidence.push(m[1].trim());
   }
   return {
-    id: meta.id || "",
-    kind: meta.kind,
-    type: meta.type || "",
-    state: ["有效", "已拒绝", "已被替代"].includes(meta.state) ? meta.state : "有效",
-    verified: meta.verified === "true",
-    date: meta.date || "",
+    id: idRaw,
+    kind,
+    type: typeRaw,
+    state: ["有效", "已拒绝", "已被替代"].includes(stateRaw) ? stateRaw : "有效",
+    verified: str(meta.verified).toLowerCase() === "true",
+    private: str(meta.private).toLowerCase() === "true",
+    date: str(meta.date),
     text,
     sources: Array.isArray(meta.sources) ? meta.sources.filter(Boolean) : [],
     supersedes: Array.isArray(meta.supersedes) ? meta.supersedes.filter(Boolean) : [],
@@ -89,6 +98,30 @@ export function memoryDirOf(vault) {
   }
   return path.join(vault, MEMORY_DIR_DEFAULT);
 }
+
+export function excludedDirsOf(vault) {
+  try {
+    const raw = fs.readFileSync(path.join(vault, PLUGIN_SUBDIR, "data.json"), "utf8");
+    const dirs = JSON.parse(raw)?.settings?.delegate?.excludedDirs || [];
+    const list = Array.isArray(dirs) ? dirs : String(dirs || "").split(/[\n,;]+/);
+    return list.map((d) => String(d || "").trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "")).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+const isPrivateNote = (content) => {
+  const lines = String(content || "").replace(/\r\n/g, "\n").split("\n");
+  if (lines[0]?.trim() !== "---") return false;
+  const end = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
+  if (end < 0) return false;
+  return lines.slice(1, end).some((l) => /^private:\s*(?:"true"|'true'|true)\s*$/i.test(l));
+};
+
+const isExcludedRel = (rel, dirs = []) => {
+  const norm = String(rel || "").trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  return Boolean(norm) && dirs.some((d) => norm === d || norm.startsWith(`${d}/`));
+};
 
 // 脚本装在 <库>/.obsidian/plugins/agent-deck/scripts/：向上找到带 .obsidian 的目录就是库根。
 export function resolveVault(start) {
@@ -114,7 +147,7 @@ export function loadMemories(vault) {
     try {
       const abs = path.join(dir, name);
       const parsed = parseMemory(fs.readFileSync(abs, "utf8"));
-      if (parsed) entries.push({ ...parsed, name: name.replace(/\.md$/, ""), path: abs });
+      if (parsed && !parsed.private) entries.push({ ...parsed, name: name.replace(/\.md$/, ""), path: abs });
     } catch {
       /* 单条读不了就跳过，不影响其他条目 */
     }
@@ -122,7 +155,7 @@ export function loadMemories(vault) {
   return { dir, entries };
 }
 
-const active = (entries) => entries.filter((e) => e.state === "有效");
+const active = (entries) => entries.filter((e) => e.state === "有效" && !e.private);
 
 // 命中数降序 → 日期降序 → 文件名。
 // 门槛：至少要命中查询词的一半（不足一半按 1 算），否则宁可返回空——
@@ -165,13 +198,20 @@ export function buildIndexes(entries = []) {
 
 export const linkTarget = (link) => String(link || "").replace(/^\[\[|\]\]$/g, "").split("#")[0].trim();
 
-// `[[日记/2026_11_06#^mem-…]]` → 库里真的能打开的那篇笔记的绝对路径（打不开就不给，不编路径）。
+// `[[日记/2026_11_06#^mem-…]]` → 库里真的能打开的那篇笔记的绝对路径（打不开或受隐私排除就不给，不编路径）。
 export function notePathOf(vault, target) {
   const rel = String(target || "").trim();
   if (!vault || !rel) return "";
+  const excluded = excludedDirsOf(vault);
   for (const candidate of [`${rel}.md`, rel]) {
+    if (isExcludedRel(candidate, excluded)) return "";
     const abs = path.join(vault, candidate);
-    if (fs.existsSync(abs) && fs.statSync(abs).isFile()) return abs;
+    if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+      try {
+        if (isPrivateNote(fs.readFileSync(abs, "utf8"))) return "";
+      } catch { /* ignore */ }
+      return abs;
+    }
   }
   return "";
 }

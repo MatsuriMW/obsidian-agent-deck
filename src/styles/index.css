@@ -35,5 +35,31 @@
 .ad-memory-board__colhead { font-size: 12px; opacity: 0.7; }
 .ad-memory-board__card { padding: 8px; border-radius: 6px; background: var(--background-primary); border: 1px solid var(--background-modifier-border); cursor: grab; }
 .ad-memory-board__title { font-size: 13px; line-height: 1.4; margin-bottom: 4px; }
+.ad-memory-board__cardfoot { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.ad-memory-board__del { font-size: 11px; padding: 1px 6px; opacity: 0.65; }
+.ad-memory-board__card:hover .ad-memory-board__del,
+.ad-memory-board__del:focus-visible { opacity: 1; }
 .ad-memory-board__src { display: inline-block; margin-top: 4px; padding: 0 6px; border-radius: 999px; font-size: 11px; color: var(--text-muted); background: var(--background-secondary-alt); cursor: pointer; }
 .ad-memory-board__src:hover { color: var(--text-normal); }
+
+.ad-mem-create { --ad-modal-w: min(520px, 92vw); }
+.ad-mem-create__row { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+.ad-mem-create__verify { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted); margin-left: auto; }
+.ad-mem-create__input { width: 100%; margin-top: 10px; resize: vertical; }
+
+/* 记忆批量导入弹窗（模式 A 直接拆条 / 模式 B 模型提炼） */
+.ad-mem-import { --ad-modal-w: min(640px, 94vw); }
+.ad-mem-import__drop { margin-top: 12px; padding: 14px; border: 1.5px dashed var(--background-modifier-border); border-radius: 8px; background: var(--background-secondary); display: flex; flex-direction: column; gap: 8px; }
+.ad-mem-import__drop.is-over { border-color: var(--interactive-accent); background: var(--background-modifier-hover); }
+.ad-mem-import__droptext { font-size: 12.5px; color: var(--text-normal); }
+.ad-mem-import__dropbtns { display: flex; gap: 8px; flex-wrap: wrap; }
+.ad-mem-import__modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.ad-mem-import__mode { padding: 9px 11px; border: 1px solid var(--background-modifier-border); border-radius: 8px; background: var(--background-primary); cursor: pointer; }
+.ad-mem-import__mode.is-active { border-color: var(--interactive-accent); box-shadow: 0 0 0 1px var(--interactive-accent); }
+.ad-mem-import__modetitle { font-size: 12.5px; font-weight: 600; margin-bottom: 2px; }
+.ad-mem-import__bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.ad-mem-import__list { margin-top: 8px; max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }
+.ad-mem-import__item { display: flex; align-items: flex-start; gap: 8px; padding: 7px 9px; border: 1px solid var(--background-modifier-border); border-radius: 6px; background: var(--background-primary); }
+.ad-mem-import__kind { flex: 0 0 auto; font-size: 11.5px; height: 26px; }
+.ad-mem-import__body { flex: 1 1 auto; min-width: 0; }
+.ad-mem-import__text { font-size: 12.5px; line-height: 1.45; word-break: break-word; }

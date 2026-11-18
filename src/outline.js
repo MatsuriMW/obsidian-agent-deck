@@ -103,7 +103,7 @@ export function extractWikilinkRefs(lines = [], { embeds = false } = {}) {
   const fenced = fencedLines(flat);
   for (let i = 0; i < flat.length; i++) {
     if (fenced.has(i)) continue;
-    const line = flat[i];
+    const line = flat[i].replace(/`[^`]*`/g, "");
     for (const m of line.matchAll(re)) {
       const target = String(m[1] || "").trim();
       if (!target) continue;

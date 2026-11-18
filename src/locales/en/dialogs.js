@@ -29,6 +29,7 @@ export default {
   "📋 Qoder CLI 尚未登录，已复制任务并打开 Qoder 桌面版（也可在设置里登录 CLI）":
     "📋 Qoder CLI is not signed in; copied the task and opened Qoder Desktop (or sign in to the CLI in Settings)",
   "通过 agy acp 后台委派；工具请求逐次确认，完成后可查看或归档正文。": "Delegates in the background through agy acp. Confirm tool requests individually, then view or export the transcript.",
+  "通过 agy acp 后台委派；完成后可查看或归档正文。": "Delegates in the background through agy acp; view or export the transcript once done.",
   "留空 = 插件设置里的目录（默认是库根目录）。":
     "Leave empty to use the folder from plugin settings (the vault root by default).",
   "加在这次委派最后的话": "Text to add at the end of this delegation",
@@ -284,4 +285,12 @@ export default {
   "继续用笔记的项目": "Keep the note's project",
   "任务里还提到「{name}」，但它不是已登记的项目；如果这是另一个项目，可以在这里换目录。": "The task also mentions “{name}”, which is not a registered project; if it is a different project, switch folders here.",
   "选择目录…": "Choose a folder…",
+  "可通过任务右键菜单「继续对话（追问）」在当前会话中追问。": "Use “Continue conversation (follow-up)” in the task context menu to keep asking in this session.",
+  "开启自动允许后将不再逐次弹窗询问 {agent} 的工具权限；可随时在设置或委派弹窗中关闭。": "Once enabled, {agent} will run tool calls without prompting each time; you can turn it off anytime in Settings or the Delegate modal.",
+  "允许并开启 {agent} 自动允许": "Allow & auto-approve {agent}",
+  "将发送已编辑草稿：{path}": "Sending edited draft: {path}",
+  "来自派发草稿（发送时以草稿文件为准）": "From dispatch draft (the draft file wins on send)",
+  "在原会话中继续追问": "Follow up in this session",
+  "发送到当前绑定的原会话（⌘Enter / Ctrl+Enter 发送），结果会继续写回这一条任务。": "Sent to the bound session (⌘Enter / Ctrl+Enter to send); results keep writing back to this task.",
+  "正在发送…": "Sending…",
 };

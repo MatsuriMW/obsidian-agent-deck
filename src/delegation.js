@@ -19,12 +19,16 @@ import path from "path";
 import os from "os";
 import { spawn, execFile } from "child_process";
 import { AGENTS, DEFAULTS, CONFIRM_FIRST, clamp, truncate, journalPath } from "./constants.js";
+import { appleScriptString, safeWarpConfigName } from "./security.js";
+import { RunTrace } from "./trace.js";
 import * as J from "./journal.js";
 import { mentionOptions, stripTaskMention, mentionTrigger } from "./task-mentions.js";
 import { hasAgentCapability, canContinueInApp } from "./agent-registry.js";
+import { isPrivateFrontmatter, isPathExcluded } from "./memory-query-core.js";
 import {
   ancestorLines, withContext, freshTaskText, stripInternalIdentifiers,
   buildDelegationPayload, buildPromptFromContext, createDelegationRunner, HarnessPipeline,
+  renderContextBundle,
 } from "./harness.js";
 import {
   findAgentBinary,
@@ -33,6 +37,7 @@ import {
   findOpenCodeBinary,
   findQoderBinary,
   findWorkbuddyBinary,
+  findHermesCliBinary,
   findClaudeBinary,
   findTrustedDir,
   findCodexTrustedDir,
@@ -61,6 +66,7 @@ export {
   findOpenCodeBinary,
   findQoderBinary,
   findWorkbuddyBinary,
+  findHermesCliBinary,
   findClaudeBinary,
   findTrustedDir,
   findCodexTrustedDir,
@@ -230,12 +236,13 @@ export async function openTerminal(command, cwd = "", which = "auto", title = "C
     try {
       const d = path.join(home(), ".warp/launch_configurations");
       fs.mkdirSync(d, { recursive: true });
-      const q = (s) => JSON.stringify(String(s));
-      fs.writeFileSync(path.join(d, "agent-deck-resume.yaml"), [
-        "---", "name: agent-deck-resume", "windows:", "  - tabs:", `      - title: ${q(title)}`, "        layout:",
+      const q = (s) => JSON.stringify(String(s).replace(/[\r\n\0]+/g, " "));
+      const cfgName = safeWarpConfigName(title);
+      fs.writeFileSync(path.join(d, `${cfgName}.yaml`), [
+        "---", `name: ${q(cfgName)}`, "windows:", "  - tabs:", `      - title: ${q(title)}`, "        layout:",
         `          cwd: ${q(dir)}`, "          commands:", `            - exec: ${q(command)}`, "",
       ].join("\n"));
-      openExternal("warp://launch/agent-deck-resume");
+      openExternal(`warp://launch/${encodeURIComponent(cfgName)}`);
       return term;
     } catch { /* fall back to Terminal */ }
   }
@@ -257,7 +264,8 @@ export async function openTerminal(command, cwd = "", which = "auto", title = "C
     })();
     return term;
   }
-  const line = JSON.stringify(`cd ${JSON.stringify(dir)} && ${command}`);
+  if (process.platform !== "darwin") return "";
+  const line = appleScriptString(`cd ${JSON.stringify(dir)} && ${command}`);
   const script = term === "iterm"
     ? `tell application "iTerm2"\nactivate\nif (count of windows) = 0 then\ncreate window with default profile\nelse\ntell current window to create tab with default profile\nend if\ntell current session of current window to write text ${line}\nend tell`
     : `tell application "Terminal"\nactivate\ndo script ${line}\nend tell`;
@@ -376,7 +384,7 @@ export async function focusCliSession(agent, sid) {
 export const isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
 // 命令行会话（Claude Code 终端版、Codex 命令行、Qoder CLI）：点开回终端，而不是交给桌面版
 export function isCliSession(agent, app) {
-  if (["claude", "qoder", "workbuddy"].includes(agent)) return app === "cli";
+  if (["claude", "qoder", "workbuddy", "hermes"].includes(agent)) return app === "cli";
   if (agent === "codex") return !isCodexDesktop(app);
   return false;
 }
@@ -401,6 +409,7 @@ export const AGENT_APPS = {
   antigravity: { bundle: "com.google.antigravity", url: "antigravity://" },
   opencode: { bundle: "ai.opencode.desktop", url: "opencode://" },
   qoder: { bundle: "com.qoder.app", url: "qoder://" },
+  qwenwork: { bundle: "cn.qwenwork.desktop.mac", url: "qwenwork-cn://" },
   cursor: { bundle: "com.todesktop.230313mzl4w4u92", url: "cursor://" },
   grokbot: { bundle: "com.anysphere.sand", url: "grokbot://" },
 };
@@ -432,7 +441,11 @@ function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
 
 export function openSession(plugin, agent, sid, app = "", session = null) {
   if (!sid) { plugin.notice(t("这个会话还没有会话号，稍等一秒再点")); return false; }
-  if (["opencode", "qoder", "cursor", "grokbot"].includes(agent)) {
+  if (agent === "hermes") {
+    const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
+    return focusOrResume(plugin, agent, sid, `${shellQuote(findHermesCliBinary(plugin.settings?.delegate?.hermes?.path || ""))} --resume ${shellQuote(sid)}`, cwd);
+  }
+  if (["opencode", "qoder", "qwenwork", "cursor", "grokbot"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
       return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);
@@ -487,16 +500,25 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
 
 const shellQuote = (s) => "'" + String(s).replace(/'/g, "'\"'\"'") + "'";
 
-// 任务块下面挂着的派发草稿链接（后出现的优先，方便"再生成一版"覆盖旧的）。
+// 任务块下面挂着的派发草稿链接（后出现的优先，方便"再生成一版"覆盖旧的；已消费的 📄 快照忽略）。
 export function findDraftLink(lines = [], block = null) {
   if (!block) return "";
   const end = Number.isInteger(block.end) ? block.end : block.start;
   let found = "";
   for (let i = block.start; i <= end && i < lines.length; i++) {
-    const m = /\[\[([^\]|]*Agent Deck\/派发\/[^\]|]+?)(?:\|[^\]]*)?\]\]/.exec(lines[i] || "");
+    const line = lines[i] || "";
+    if (/^\s*(?:[-*+]|\d+[.)])\s+📄/.test(line)) continue;
+    const m = /\[\[([^\]|]*Agent Deck\/派发\/[^\]|]+?)(?:\|[^\]]*)?\]\]/.exec(line);
     if (m) found = m[1].replace(/\.md$/, "");
   }
   return found;
+}
+
+function draftStatusOf(raw = "") {
+  const fm = /^---\n([\s\S]*?)\n---/.exec(String(raw || ""));
+  if (!fm) return "";
+  const m = /^status:\s*(.+)$/m.exec(fm[1]);
+  return m ? m[1].trim().replace(/^['"]|['"]$/g, "") : "";
 }
 
 export class Delegator {
@@ -522,41 +544,77 @@ export class Delegator {
     return { file, lines, block, title, name, ...payload };
   }
 
-  // 草稿与派发共用：把技能路径、被引用笔记的绝对路径前置进 prompt。
-  async enrichPrompt(resolved, skillRaw = "") {
+  // 草稿与派发共用：收集技能路径、引用笔记绝对路径、记忆查询提示与问答回灌；
+  // 有 bundle 时写入对应槽位按「前稳后动」重渲，草稿（useRawPrompt）或独立调用则保留当前 prompt 正文并幂等补全。
+  async enrichPrompt(resolved, skillRaw = "", { useRawPrompt = false } = {}) {
     const vault = this.plugin?.app?.vault;
     if (!vault || !resolved) return resolved;
     try {
-    const text = String(resolved.block?.text || "");
-    // 代码块与行内代码里出现的 [[...]] 只是文字，不是引用。
-    const lines = text.split("\n");
-    const fenced = J.fencedLines(lines);
-    const scan = lines.map((line, i) => (fenced.has(i) ? "" : line.replace(/`[^`]*`/g, ""))).join("\n");
-    const notePaths = [];
-    for (const m of scan.matchAll(/\[\[([^\]|#]+)/g)) {
-      const name = m[1].trim();
-      if (!name || name.startsWith("技能/") || vault.getAbstractFileByPath(`技能/${name}.md`)) continue;
-      const dest = this.plugin.app.metadataCache?.getFirstLinkpathDest?.(name, resolved.file?.path || "");
-      // 任务块自己、以及它挂着的派发载荷/草稿都不是素材。
-      if (!dest || dest.extension !== "md" || dest.path === resolved.file?.path || dest.path.startsWith("Agent Deck/派发/")) continue;
-      const abs = `${this.vaultPath}/${dest.path}`;
-      if (!notePaths.includes(abs)) notePaths.push(abs);
-    }
-    // 草稿里已经带过这些行：派发时沿用草稿的话别再套一遍，免得同一句出现两次。
-    const notesHead = t("任务里引用的笔记（可直接读全文）：");
-    if (notePaths.length && !resolved.prompt.includes(notesHead)) resolved.prompt = `${notesHead}\n${notePaths.map((p) => `- ${p}`).join("\n")}\n\n${resolved.prompt}`;
-    const memoryHint = await this.memoryToolHint();
-    if (memoryHint && !resolved.prompt.includes(memoryHint)) resolved.prompt = `${memoryHint}\n\n${resolved.prompt}`;
-    // 问答回灌：笔记里已经有 ❓ / ✍️ 的，把"上一轮问了什么、我答了什么"固定成一段，别让模型重新问一遍。
-    const replyText = replyPromptText(parseThread(resolved.lines, resolved.block));
-    if (replyText && !resolved.prompt.includes(replyText)) resolved.prompt = `${replyText}\n\n${resolved.prompt}`;
-    const plainSkill = [...text.matchAll(/\[\[([^\]|#]+)/g)].map((m) => m[1].trim()).find((name) => vault.getAbstractFileByPath(`技能/${name}.md`)) || "";
-    const skillName = skillRefIn(skillRaw) || skillRefIn(text) || plainSkill;
-    if (!skillName) return resolved;
-    const cardFile = vault.getAbstractFileByPath(`技能/${skillName}.md`);
-    const skillPath = cardFile ? cardPathOf(await vault.read(cardFile)) : "";
-    const skillLine = `${t("使用技能：")}${skillName}（${skillPath}）——先读这个文件，按其中流程执行。`;
-    if (skillPath && !resolved.prompt.includes(skillLine)) resolved.prompt = `${skillLine}\n\n${resolved.prompt}`;
+      const scanLines = [
+        ...(Array.isArray(resolved.contextLines) ? resolved.contextLines : []),
+        ...String(resolved.block?.text || "").split("\n"),
+      ];
+      // 代码块与行内代码里出现的 [[...]] 只是文字，不是引用。
+      const fenced = J.fencedLines(scanLines);
+      const scan = scanLines.map((line, i) => (fenced.has(i) ? "" : line.replace(/`[^`]*`/g, ""))).join("\n");
+      const notePaths = [];
+      const privatePaths = resolved.bundle?.privatePaths instanceof Set ? resolved.bundle.privatePaths : new Set();
+      const excludedDirs = this.settings?.delegate?.excludedDirs || [];
+      for (const m of scan.matchAll(/\[\[([^\]|#]+)/g)) {
+        const name = m[1].trim();
+        const skillBase = name.replace(/^技能\//, "").replace(/\.md$/i, "");
+        if (!name || name.startsWith("技能/") || vault.getAbstractFileByPath(`技能/${skillBase}.md`)) continue;
+        const dest = this.plugin.app.metadataCache?.getFirstLinkpathDest?.(name, resolved.file?.path || "");
+        // 任务块自己、以及它挂着的派发载荷/草稿、隐私排除目录与 private: true 笔记都不是素材。
+        if (!dest || dest.extension !== "md" || dest.path === resolved.file?.path || dest.path.startsWith("Agent Deck/派发/")) continue;
+        if (privatePaths.has(dest.path) || isPathExcluded(dest.path, excludedDirs)) continue;
+        if (this.plugin?.readNote) {
+          try {
+            const raw = await this.plugin.readNote(dest.path);
+            if (isPrivateFrontmatter(raw)) { privatePaths.add(dest.path); continue; }
+          } catch { /* unreadable note handled by harness */ }
+        }
+        const abs = path.join(this.vaultPath, dest.path);
+        if (!notePaths.includes(abs)) notePaths.push(abs);
+      }
+      const notesHead = t("任务里引用的笔记（可直接读全文）：");
+      const notePathsBlock = notePaths.length ? `${notesHead}\n${notePaths.map((p) => `- ${p}`).join("\n")}` : "";
+      const memoryHint = await this.memoryToolHint();
+      const replyText = replyPromptText(parseThread(resolved.lines, resolved.block));
+      const plainSkill = [...scan.matchAll(/\[\[([^\]|#]+)/g)]
+        .map((m) => m[1].trim().replace(/\.md$/i, ""))
+        .find((name) => vault.getAbstractFileByPath(`技能/${name}.md`)) || "";
+      const skillName = (skillRefIn(skillRaw) || skillRefIn(scan) || plainSkill).replace(/\.md$/i, "");
+      const cardFile = skillName ? vault.getAbstractFileByPath(`技能/${skillName}.md`) : null;
+      const skillPath = cardFile ? cardPathOf(await vault.read(cardFile)) : "";
+      const skillLine = skillPath ? `${t("使用技能：")}${skillName}（${skillPath}）——先读这个文件，按其中流程执行。` : "";
+
+      if (resolved.bundle && !useRawPrompt) {
+        const b = resolved.bundle;
+        if (memoryHint && !b.prefix.memoryHint) b.prefix.memoryHint = memoryHint;
+        if (skillLine && !b.prefix.skillLine) b.prefix.skillLine = skillLine;
+        if (notePathsBlock && !b.entries.notePaths) b.entries.notePaths = notePathsBlock;
+        if (replyText && !b.tail.replyText) b.tail.replyText = replyText;
+        if (b.stats) {
+          b.stats.notePathCount = notePaths.length;
+          b.stats.hasSkill = Boolean(b.prefix.skillLine);
+          b.stats.hasReply = Boolean(b.tail.replyText);
+        }
+        resolved.prompt = renderContextBundle(b);
+        return resolved;
+      }
+
+      // 草稿（useRawPrompt）或独立调用：保留当前 prompt 正文，稳定段放前面，每轮变的 replyText 放末尾（前稳后动），且各段幂等不重复。
+      const pre = [memoryHint, skillLine, notePathsBlock]
+        .filter((s) => s && !resolved.prompt.includes(s === notePathsBlock ? notesHead : s));
+      if (pre.length) resolved.prompt = `${pre.join("\n\n")}\n\n${resolved.prompt}`;
+      if (replyText && !resolved.prompt.includes(replyText)) resolved.prompt = `${resolved.prompt}\n\n${replyText}`;
+      if (resolved.bundle?.stats) {
+        resolved.bundle.stats.notePathCount = notePaths.length;
+        resolved.bundle.stats.hasSkill = Boolean(skillLine || resolved.bundle.prefix.skillLine);
+        resolved.bundle.stats.hasReply = Boolean(replyText || resolved.bundle.tail.replyText);
+        resolved.bundle.stats.injectedChars = resolved.prompt.length;
+      }
     } catch (e) { console.error("[agent-deck] 富化上下文失败（不影响派发）", e); }
     return resolved;
   }
@@ -564,8 +622,9 @@ export class Delegator {
   // 运行时记忆查询：脚本随插件装在库内；脚本和记忆目录都在，才值得告诉 Agent 这一行用法。
   async memoryToolHint() {
     try {
-      const script = `${this.vaultPath}/.obsidian/plugins/agent-deck/scripts/memory-query.mjs`;
-      const dir = `${this.vaultPath}/${String(this.settings?.dream?.dir || "Agent Deck/记忆").replace(/\/+$/, "")}`;
+      const script = path.join(this.vaultPath, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
+      const relDir = String(this.settings?.dream?.dir || "Agent Deck/记忆").replace(/[\\/]+$/, "");
+      const dir = path.join(this.vaultPath, ...relDir.split("/").filter(Boolean));
       // 用 fs 而不是 vault.adapter：adapter.exists 对 .obsidian 下的文件一律返回 false（2026-11-18 实测）。
       if (!fs.existsSync(script) || !fs.existsSync(dir)) return "";
       return `${t("需要更多背景时：")}node "${script}" search "关键词"`;
@@ -578,18 +637,40 @@ export class Delegator {
     return draft || await this.writeTaskPayload(resolved, agent);
   }
 
-  // 读草稿：正文直接当 prompt；同时把 frontmatter 标成已派发，方便区分"还没发的"和"发过的"。
-  async readDraft(draftPath, resolved) {
+  // 读草稿：只有 frontmatter 仍为 status: draft 才算待发草稿；消费后标成 dispatched 并更新笔记链接文案。
+  async readDraft(draftPath, resolved, { consume = true } = {}) {
     try {
-      const path = `${draftPath}.md`;
-      const file = this.plugin.app.vault.getAbstractFileByPath(path);
+      const relPath = `${draftPath}.md`;
+      const bare = draftPath.replace(/\.md$/, "");
+      const file = this.plugin.app.vault.getAbstractFileByPath(relPath);
       if (!file) return null;
       const raw = await this.plugin.app.vault.read(file);
+      if (draftStatusOf(raw) !== "draft") return null;
       const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
       if (!body) return null;
-      const next = raw.replace(/^status: .*$/m, "status: dispatched").replace(/^(created: .+)$/m, `$1\ndispatched: ${new Date().toISOString()}`);
+      if (!consume) {
+        return { path: relPath, abs: path.join(this.vaultPath, relPath), draft: true, body, raw, hash: "" };
+      }
+      const next = raw
+        .replace(/^status: .*$/m, "status: dispatched")
+        .replace(/^(created: .+)$/m, `$1\ndispatched: ${new Date().toISOString()}`);
       if (next !== raw) await this.plugin.app.vault.modify(file, next);
-      return { path, abs: `${this.vaultPath}/${path}`, draft: true, body, raw, hash: "" };
+      const hash = createHash("sha256").update(next).digest("hex").slice(0, 16);
+      if (resolved?.file?.path) {
+        await updateNote(this.plugin, resolved.file.path, (text) => {
+          const lines = text.split("\n");
+          let changed = false;
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line.includes(`[[${relPath}`) && !line.includes(`[[${bare}|`) && !line.includes(`[[${bare}]]`)) continue;
+            const indent = (/^[ \t]*/.exec(line) || [""])[0];
+            const updated = `${indent}- 📄 [[${relPath}|${t("已派发载荷")}]]`;
+            if (updated !== line) { lines[i] = updated; changed = true; }
+          }
+          return changed ? lines.join("\n") : text;
+        });
+      }
+      return { path: relPath, abs: path.join(this.vaultPath, relPath), draft: true, body, raw, hash };
     } catch (e) { console.error("[agent-deck] 读取派发草稿失败", e); return null; }
   }
 
@@ -600,7 +681,7 @@ export class Delegator {
     return anchor ? `${date}-${anchor}-${slug}.md` : `${date}-${time}-${slug}.md`;
   }
 
-  async writeTaskPayload(resolved, agent, { draft = false } = {}) {
+  async writeTaskPayload(resolved, agent, { draft = false, model = "", effort = "" } = {}) {
     if (!this.plugin?.app?.vault) return null;
     try {
       const now = new Date();
@@ -609,12 +690,15 @@ export class Delegator {
       const time = `${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
       const dir = "Agent Deck/派发";
       const anchor = resolved.block ? J.blockIdOf(resolved.lines[resolved.block.start]) : "";
-      const path = `${dir}/${this.payloadName({ date, time, name: resolved.name, anchor })}`;
+      const relPath = `${dir}/${this.payloadName({ date, time, name: resolved.name, anchor })}`;
+      const bare = relPath.replace(/\.md$/, "");
       const head = [
         "---",
         "type: 派发载荷",
         `status: ${draft ? "draft" : "dispatched"}`,
         `agent: ${agent}`,
+        model ? `model: ${JSON.stringify(String(model))}` : "",
+        effort ? `effort: ${JSON.stringify(String(effort))}` : "",
         `task: ${JSON.stringify(String(resolved.name || ""))}`,
         anchor ? `anchor: ${JSON.stringify(`[[${String(resolved.file?.path || "").replace(/\.md$/, "")}#^${anchor}]]`)}` : "",
         `created: ${now.toISOString()}`,
@@ -629,19 +713,26 @@ export class Delegator {
         cur = cur ? `${cur}/${part}` : part;
         if (!vault.getAbstractFileByPath(cur)) await vault.createFolder(cur);
       }
-      const existing = vault.getAbstractFileByPath(path);
+      const existing = vault.getAbstractFileByPath(relPath);
       if (existing) await vault.modify(existing, head);
-      else await vault.create(path, head);
+      else await vault.create(relPath, head);
       await updateNote(this.plugin, resolved.file.path, (text) => {
         const lines = text.split("\n");
         const at = anchor ? lines.findIndex((l) => J.blockIdOf(l) === anchor) : resolved.block.start;
         if (at < 0) return text;
-        if (lines.some((l) => l.includes(`[[${path}`))) return text;
+        const linkIdx = lines.findIndex((l) => l.includes(`[[${relPath}`) || l.includes(`[[${bare}|`) || l.includes(`[[${bare}]]`));
+        if (linkIdx >= 0) {
+          const indent = (/^[ \t]*/.exec(lines[linkIdx]) || [""])[0];
+          const nextLine = draft ? `${indent}- 📝 [[${relPath}|${t("派发草稿")}]]` : `${indent}- 📄 [[${relPath}|${t("本次载荷")}]]`;
+          if (lines[linkIdx] === nextLine) return text;
+          lines[linkIdx] = nextLine;
+          return lines.join("\n");
+        }
         const indent = (/^[ \t]*/.exec(lines[at]) || [""])[0] + "\t";
-        lines.splice(at + 1, 0, draft ? `${indent}- 📝 [[${path}|${t("派发草稿")}]]` : `${indent}- 📄 [[${path}|${t("本次载荷")}]]`);
+        lines.splice(at + 1, 0, draft ? `${indent}- 📝 [[${relPath}|${t("派发草稿")}]]` : `${indent}- 📄 [[${relPath}|${t("本次载荷")}]]`);
         return lines.join("\n");
       });
-      return { path, abs: `${this.vaultPath}/${path}`, hash: createHash("sha256").update(head).digest("hex").slice(0, 16) };
+      return { path: relPath, abs: path.join(this.vaultPath, relPath), hash: createHash("sha256").update(head).digest("hex").slice(0, 16) };
     } catch (e) { console.error("[agent-deck] 写入派发载荷失败", e); return null; }
   }
 
@@ -693,7 +784,10 @@ export class Delegator {
     if (opts.destination === "terminal" || (opts.agent === "codex" && !opts.destination && this.C.codex?.transport === "terminal")) return this.handoffCli(opts);
     if (!hasAgentCapability(opts.agent, "delegate") || (opts.agent === "qoder" && opts.destination === "desktop")) return this.handoff(opts);
     const agent = opts.agent;
+    const trace = new RunTrace({ agent, traceDir: opts.traceDir });
+    const ctxSpan = trace.startSpan("context.resolve");
     const resolved = await this.resolveBlockContext(opts, t("光标要放在一个列表项里"));
+    trace.endSpan(ctxSpan, "ok", { linkCount: resolved.bundle?.stats?.linkCount || 0 });
     const target = resolveDispatchFolder({
       settings: this.settings,
       explicitCwd: opts.cwd || "",
@@ -736,19 +830,24 @@ export class Delegator {
     // 优先用挂在任务块下面的草稿：用户改过的内容就是这一趟真正要发的内容。
     const draftPath = findDraftLink(resolved.lines, resolved.block);
     const draft = draftPath ? await this.readDraft(draftPath, resolved) : null;
+    if (draft) {
+      // 草稿正文可能被手改（比如加了 [[技能/x]]），基于草稿正文幂等富化且不让 bundle 覆盖草稿。
+      resolved.prompt = draft.body;
+      await this.enrichPrompt(resolved, draft.raw || "", { useRawPrompt: true });
+    }
     // 载荷快照：先富化再落盘。payload 里缺了引用笔记 / 技能路径 / 记忆查询用法，
     // 而 prompt 写着"两者冲突时以文件为准"，那句话就名不副实。
+    const snapSpan = trace.startSpan("payload.snapshot");
     const payload = await this.payloadSnapshot(resolved, draft, agent);
+    trace.endSpan(snapSpan, "ok", { hasPayload: Boolean(payload) });
     if (payload) {
-      const source = payload.draft ? payload.body : resolved.prompt;
+      const source = resolved.prompt;
       const lead = payload.draft
         ? `${t("本次任务按这份已确认的草稿执行：")}\`${payload.abs}\``
         : `${t("本次任务的完整载荷（含上下文与来源）：")}\`${payload.abs}\``;
       resolved.prompt = `${lead}\n${t("下面是被截断的摘要；两者冲突时以文件为准。")}\n\n${source}`;
+      if (resolved.bundle?.stats) resolved.bundle.stats.injectedChars = resolved.prompt.length;
     }
-    // 草稿路径：草稿正文可能被手改（比如加了 [[技能/x]]），按草稿原文再富化一次；
-    // 已经带过的行靠 enrichPrompt 自己的去重不会重复。
-    if (draft) await this.enrichPrompt(resolved, draft.raw || "");
     const job = this.buildJobBase({
       agent,
       name: resolved.name,
@@ -766,6 +865,11 @@ export class Delegator {
     });
     // 记下载荷路径与派发时的 hash：之后若文件被改，说明人动过手，可以单独取用。
     if (payload) { job.payloadPath = payload.path; job.payloadHash = payload.hash; }
+    if (resolved.bundle?.stats) job.contextStats = { ...resolved.bundle.stats };
+    job.traceId = trace.traceId;
+    trace.jobId = job.id;
+    trace.project = projectName;
+    trace.contextStats = job.contextStats || null;
     const hookPayload = { opts, resolved, job, prompt: resolved.prompt, name: resolved.name };
     await this.harness.run("beforeDelegate", hookPayload);
     this.jobs[job.id] = job;
@@ -787,6 +891,7 @@ export class Delegator {
       getRunnerClasses(),
       () => (job.destination === "background" ? undefined : openSession(this.plugin, "codex", job.sessionId, "vscode")),
     );
+    runner.trace = trace;
     this.runners.set(job.id, runner);
     // Runners resolve their own cwd from opts.cwd / per-agent settings; only
     // hand them the resolved folder when it is a project one. Leaving the vault
@@ -823,13 +928,32 @@ export class Delegator {
     if (!sid) throw new Error(t("这个会话还没有会话号"));
     const existing = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === sid);
     if (["starting", "running", "needs-approval"].includes(existing?.state)) throw new Error(t("请等当前这一轮结束后再发送"));
-    if (session.agent === "antigravity" && existing?.transport !== "acp") throw new Error(t("这是 Antigravity 桌面会话，请在客户端继续"));
+    if (session.agent === "antigravity" && (session.transport || existing?.transport) !== "acp") throw new Error(t("这是 Antigravity 桌面会话，请在客户端继续"));
     let job = existing;
     if (!job) {
       job = { id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, agent: session.agent,
-        name: session.title || t("{agent} 会话", { agent: AGENTS[session.agent].name }), sessionId: sid, cwd: session.cwd || this.vaultPath,
+        name: session.title || session.name || t("{agent} 会话", { agent: AGENTS[session.agent].name }), sessionId: sid, cwd: session.cwd || this.vaultPath,
+        ...(session.path ? { path: session.path } : {}),
+        ...(session.blockId ? { blockId: session.blockId } : {}),
+        ...(session.destination ? { destination: session.destination } : {}),
+        ...(session.transport ? { transport: session.transport } : {}),
         linkWritten: true, model: "", effort: "", permission: "", conversation: [] };
       this.jobs[job.id] = job;
+    } else {
+      if (!job.path && session.path) job.path = session.path;
+      if (!job.blockId && session.blockId) job.blockId = session.blockId;
+      if (!job.destination && session.destination) job.destination = session.destination;
+      if (!job.transport && session.transport) job.transport = session.transport;
+    }
+    if (!job.conversation?.length && !job.roundOffset) {
+      let offset = this.plugin?.usage?.meta?.get(sid)?.rounds?.length || 0;
+      if (job.path && this.plugin?.readNote) {
+        try {
+          const note = await this.plugin.readNote(job.path);
+          while (J.hasRecordedTurn(note, sid, offset + 1)) offset++;
+        } catch { /* note unreadable */ }
+      }
+      if (offset) job.roundOffset = offset;
     }
     Object.assign(job, { state: "starting", startedAt: Date.now(), endedAt: 0, error: "", result: "", lastText: "", step: "", resultWritten: false });
     this.saveJobs(); this.refreshUI();
@@ -930,6 +1054,12 @@ export class Delegator {
       const perm = qoderPermissionArgs(opts.permission || this.C.qoder?.permission || "auto").map(shellQuote).join(" ");
       const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
       cmd = `${shellQuote(bin)} -w ${shellQuote(cwd)}${addDir} ${perm} -m ${shellQuote(model)} --reasoning-effort ${shellQuote(effort)} -n ${shellQuote(name)} -- "$(cat ${shellQuote(taskFile)})"`;
+    } else if (agent === "hermes") {
+      const hermesCli = findHermesCliBinary(this.C.hermes?.path || "");
+      const mFlag = model && model !== "hermes-default" ? ` -m ${shellQuote(resolveCliModel(this.plugin, "hermes", model))}` : "";
+      const eFlag = effort ? ` --reasoning ${shellQuote(effort)}` : "";
+      const yFlag = this.C.hermes?.autoApprove ? " --yolo" : "";
+      cmd = `${shellQuote(hermesCli)} chat${mFlag}${eFlag}${yFlag} -q "$(cat ${shellQuote(taskFile)})"`;
     } else if (agent === "workbuddy") {
       const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
       cmd = `${shellQuote(bin)}${addDir} -- "$(cat ${shellQuote(taskFile)})"`;
@@ -1022,8 +1152,8 @@ export class Delegator {
       if (lines.slice(block.start + 1, block.end + 1).some(l => J.parseLink(l)?.sid === sid)) return text;
       const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "\t";
       let link = linkLine(indent, job.agent, job.name, sid);
-      if (job.agent === "antigravity" && job.transport === "acp") link = link.replace("antigravity://open", `obsidian://agent-deck?do=open&agent=antigravity&sid=${encodeURIComponent(sid)}`);
-      if (job.agent === "workbuddy" && job.app === "cli") link = link.replace(/workbuddy:\/\/chat\/[^)]+/, `obsidian://agent-deck?do=open&agent=workbuddy&sid=${encodeURIComponent(sid)}`);
+      if (job.agent === "antigravity" && job.transport === "acp") link = link.replace("antigravity://open", J.deckSessionUrl("antigravity", sid));
+      if (job.agent === "workbuddy" && job.app === "cli") link = link.replace(/workbuddy:\/\/chat\/[^)]+/, J.deckSessionUrl("workbuddy", sid));
       lines.splice(block.start + 1, 0, link);
       if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);
       const ensured = J.ensureBlockId(lines[block.start], blockId);
@@ -1105,7 +1235,8 @@ export class Delegator {
       return;
     }
     const messages = job.conversation?.length ? job.conversation : await readConversation(this.plugin, job);
-    const full = backgroundRounds(messages);
+    const offset = Number(job.roundOffset) || 0;
+    const full = backgroundRounds(messages).map((r) => (offset ? { ...r, n: r.n + offset } : r));
     const prepared = [];
     for (const round of pending) {
       const original = full.find(item => item.n === (round.n || 1));
@@ -1135,12 +1266,21 @@ export class Delegator {
     const meta = this.plugin.usage?.meta.get(job.sessionId);
     const raw = job.result || meta?.rounds?.at(-1)?.said || meta?.lastText || job.lastText || "";
     if (!raw && !scannedRounds?.length) return;
+    const offset = Number(job.roundOffset) || 0;
+    const convRounds = job.conversation?.length
+      ? backgroundRounds(job.conversation).map((r) => (offset ? { ...r, n: r.n + offset } : r))
+      : [];
     if (job.destination === "background") {
-      const rounds = scannedRounds || (job.result ? [{ n: meta?.rounds?.at(-1)?.n || 1, said: job.result, ask: meta?.rounds?.at(-1)?.ask }]
-        : meta?.rounds?.length ? meta.rounds : [{ n: 1, said: raw }]);
+      const rounds = scannedRounds || (
+        convRounds.at(-1)?.said && convRounds.length >= (meta?.rounds?.length || 0)
+          ? convRounds
+          : job.result
+            ? [{ n: Math.max(convRounds.length + offset, meta?.rounds?.at(-1)?.n || 1), said: job.result, ask: convRounds.at(-1)?.ask || meta?.rounds?.at(-1)?.ask }]
+            : meta?.rounds?.length ? meta.rounds : [{ n: 1 + offset, said: raw }]
+      );
       return this.writeBackgroundResult(job, rounds);
     }
-    const rounds = scannedRounds || (meta?.rounds?.length ? meta.rounds : [{ n: 1, at: job.startedAt, ask: "", said: raw }]);
+    const rounds = scannedRounds || (convRounds.length > (meta?.rounds?.length || 0) ? convRounds : meta?.rounds?.length ? meta.rounds : [{ n: 1 + offset, at: job.startedAt, ask: "", said: raw }]);
     let synced;
     await updateNote(this.plugin, job.path, text => {
       if ((job.resultWritten && !scannedRounds) || this.settings.journalAutoWrite === false) return text;
@@ -1176,7 +1316,7 @@ export class Delegator {
         const start = blockId ? lines.findIndex((l) => J.blockIdOf(l) === blockId) : (Number.isInteger(job.line) ? job.line : -1);
         if (start < 0 || start >= lines.length) return note;
         if (!blockAt(lines, start)) return note;
-        const next = appendQuestionText(note, { blockId, question, seed: `${job.path}|${blockId}|${question}` });
+        const next = appendQuestionText(note, { blockId, atLine: start, question, seed: `${job.path}|${blockId}|${question}` });
         if (next !== note) { wrote = true; return next; }
         return note;
       });
@@ -1192,6 +1332,7 @@ export class Delegator {
       this.plugin.settings.replyInbox = inboxAdd(inbox, {
         path: job.path, blockId, questionId, question,
         agent: job.agent || "", sid: job.sessionId || "", title: job.name || "",
+        ...(job.transport ? { transport: job.transport } : {}),
       });
       await this.plugin.saveSettings();
       this.plugin.openReplyInbox?.({ focus: false }).catch?.(() => {});

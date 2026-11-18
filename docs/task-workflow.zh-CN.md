@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.12.2**（已发版，2026-11-18）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.0**（已发版，2026-11-19）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 核心构想（接手先读这段）
 
@@ -20,11 +20,11 @@
 
 | # | 事项 | 状态 |
 | --- | --- | --- |
-| 1 | 未提交改动 | ✅ **已提交** `9de00bb`（40 files, +5213/-486）；未推送、未发版、未打 tag |
+| 1 | 本批改动同步 | ✅ **已推送 `origin/main`**（`9de00bb..8274a27`；未发版、未打 tag） |
 | 2 | README 落后于功能 | ✅ 中英文各补一节「笔记即上下文：记忆库 / 派发草稿 / 技能卡」 |
-| 3 | Linear `P-MAT-42` 未同步 | ⚠️ **阻塞**：本机没有 Linear 凭据/脚本入口，需人工补一条进展评论 |
+| 3 | Linear `P-MAT-42` 同步 | ✅ **已对齐 Milestone v4**（新建 M1.1–M3 里程碑及 `MAT-637`–`MAT-644`；因工作区免费 issue 上限，M2.2/M2.3/M3.1–M3.3 待删掉 13 张 Done 卡后补建） |
 | 4 | 测试夹具改动（`startup` 补 `addRibbonIcon`、`models` select +1、`task-export` 补 `WorkspaceLeaf`） | ✅ 已确认是预期变化，非回归 |
-| 5 | 未实测项 | 🟡 部分关闭：**Planner 已真机验证**（模型曾回散文导致解析失败 → 已加固提示词 + 失败后重试一次，实测产出 9 步、验收具体）；管家设置项由 `models.test.mjs` 渲染断言覆盖；**仍未测**：记忆看板拖拽的真实交互、Windows |
+| 5 | 未实测项 | 🟡 部分关闭：**Planner（`agy` CLI）、Antigravity ACP（`@antigravity` `agy acp` 两轮 `continueSession` 与 `memory-query.mjs` 工具权限）、阅读模式草稿发现、记忆看板跨列拖拽、设置页管家/工作模式/看护开关、回复弹窗/信箱/入站、AI 记录 Pin 与 macOS Menu Bar 常驻/置顶/Antigravity 自动标题生成已在 Obsidian 1.15.1 + macOS 真库验证**（共修复 6 个 bug 并补回归测试）；**仍未测**：Windows 全端、真实长跑 AI 会话 15 分钟卡住整轮、Menu Bar 悬浮窗拖拽交互肉眼目视确认 |
 | 6 | 库内示例文件与 134 张技能卡 | ✅ **保留**（示例是活文档；技能卡可随时用 `技能：刷新技能卡` 重建或整目录删除） |
 | 7 | 记忆文件名 22 → 40 字 | ✅ 已做：`memorySlug` 上限改 40，33 个文件重命名，`ensureReverseLinks` 归一化后 **0 条孤儿回链** |
 | 8 | `mem-` 加日期前缀 | ❌ 已决定不做 |
@@ -33,12 +33,12 @@
 
 | 平台 | 已验证范围 | 未覆盖 / 已知代码缺口 |
 | --- | --- | --- |
-| **macOS** | 全量 `npm test`、构建、Vault 安装与热重载（`1.10.2`）、Dashboard、标题保护、token 显示、Qoder CLI 同会话 | 终端交互仅实测 Tern / Herdr；7 家可委派客户端全量派发与 Obsidian 新版界面抽查未逐一复测 |
+| **macOS** | 全量 `npm test`、构建、`swiftc` 编译与运行（`AgentDeckMenuBar.app`）、Vault 安装与热重载（Obsidian `1.15.1`）、Antigravity (`agy` / `agy acp`) 两轮续聊与记忆查询、`preview` 模式草稿读取、Dashboard、AI 记录 Pin（大纲与阅读视图 DOM）、Menu Bar 会话置顶命令队列 | 终端交互仅实测 Tern / Herdr；7 家可委派客户端全量逐一派发、Menu Bar SwiftUI 悬浮窗口拖拽手感待人手目视微调 |
 | **Windows** | 尚未实机运行验证 | `src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）仍依赖 macOS `osascript`/终端；`src/readers.js` 在 `win32` 跳过 `claudeDesktop`；CLI 探测与路径短链待实测 |
 
-## 本批未发版改动（2026-11-18，工作区已构建、已装库）
+## 本批发版基线（1.13.0，2026-11-19，已构建并装库实测）
 
-这批改动**没有发版、没有打 tag**，基线仍是 `1.12.2`。接手时先看本节，再看 [`specs/harness-roadmap.zh-CN.md`](specs/harness-roadmap.zh-CN.md)（方向）与 [`specs/context-protocol.zh-CN.md`](specs/context-protocol.zh-CN.md)（契约草案）。
+`1.13.0` 已收口 M0 基线、M1.1 上下文收口与生产四要素加固并打 tag 发版。接手后续 M1.2 / M1.3 时先看本节，再看 [`specs/harness-roadmap.zh-CN.md`](specs/harness-roadmap.zh-CN.md)（方向）与 [`specs/context-protocol.zh-CN.md`](specs/context-protocol.zh-CN.md)（契约草案）。
 
 **新增模块**
 
@@ -56,6 +56,7 @@
 | `src/reply-modal.js` | 回复提问的单字段弹窗：预填上次答案、选项 chips、按钮「记下回答 / 回答并继续」 |
 | `src/reply-inbox.js` | 回复信箱的纯逻辑：入箱去重、出箱、排序、渲染前回笔记核对（`stillPending`） |
 | `src/work-modes` | 见 `src/dialog.js`：一次派发能选的工作模式（claude/qoder 是 permission，codex 是 sandbox），默认值来自设置 |
+| `src/memory-query-core.js` | 无 Obsidian 依赖的记忆分词、单英文技术词/元数据召回补盲与 `private: true` / `excludedDirs` 隐私闸门 |
 | `src/reply-inbox-view.js` | 回复信箱侧栏视图：非模态、不抢焦点；草稿不因刷新丢失；「原文」跳定位、「回答并继续」走同一条 `applyReply` |
 
 **改动过的既有模块**：`src/dream.js`（记忆库双模式、来源锚点、反向回链、体检、`agentText` 注入）、`src/delegation.js`（派发载荷落盘、`payloadName`/`writeTaskPayload`）、`src/harness.js`（`agentText` 注入降噪）、`src/main.js`（10 条新命令、ribbon、工作台、载荷归档）、`src/settings.js`（管家 Agent 下拉）、`src/project-workbench.js`（文件级看板合成根）、`src/fractal-board.js`（`taskBoardFiles` 开关）、`src/journal.js`（`readableSlug`）。
@@ -98,8 +99,28 @@
 **验证**
 
 - `npm test`（含新增 `dream-context` / `memory-store` / `planner` / `workbench-note` / `memory-board` / `block-id-readability`）全过；`npm run build`；`git diff --check`。
-- macOS 真库实测：迁移 33 条、体检、看板 3 列 33 卡可拖、注入 193 字无 `**`、`agentText` 去符号、看板派发三条 `@dsh` 会话、载荷文件生成 + 原文 `📄` 链接、Base 列已填。
-- **未实测**：Windows 全部；`记忆看板` 拖拽在真实界面上的落点；Planner 产出的质量（未实跑一次生成）；管家设置项在界面上的渲染。
+- macOS 真库实测（2026-11-18 晚上复测）：全量 89 个测试文件（`npm test`）、`npm run build`、`swiftc -typecheck src/menubar.swift`、`git diff --check` 全过；Obsidian `1.15.1`（`马自立` 库）实机验证：`记忆.base` 查询（33 条）、`memory-query.mjs` CLI 四场景、`MemoryBoardView` 跨列 HTML5 拖拽状态写回、设置页 5 页与管家/工作模式/看护渲染、侧栏「现在」三视图切换、`ConfirmSendModal` 4 家 Agent 工作模式切换与 `.ad-send__modes` flex 布局、`委派：先生成草稿 → 人工修改 → payloadSnapshot` 闭环、回复协议无 `blockId` 入站捕获、`ReplyModal` chips 选择写回与 `ReplyInboxView` 焦点保持/核对移除、`stewardWatchTick` 去重提醒、以及 `updateNote` 删笔记后不误写残留编辑器。
+- **2026-11-19 收口与示例全流程复核**：
+  - **修复 7 处真实 bug**：① `Delegator.delegate` 在消费用户编辑后的草稿时误调用 `enrichPrompt` 并被 `resolved.bundle` 覆盖回原始正文（改为 `useRawPrompt: true` 在草稿正文上幂等富化并保留 `lead`）；`enrichPrompt` 与 `extractWikilinkRefs` 统一屏蔽行内反引号与围栏代码块里的示例双链并剥离技能名 `.md` 后缀；② `writeWorkbenchTasks`（`src/main.js`）在已有任务行写入子任务时误引用未定义变量 `grp?.title` 导致 `ReferenceError`（改为 `parentTitle || lines[existingBlock.start] || ""`）；③ `planTask` / `auditMemory` / `refreshWorkbenchNote` / `listEditedPayloads` 在全新 Vault 缺少 `Agent Deck/` 或 `Agent Deck/任务/` 目录时 `vault.create` 报错（新增 `writeVaultFile` 自动建父目录）；④ `taskBoardExtension` `StateField.update`（`src/fractal-board.js`）、`toggleTaskBoardAt` 与 `planTask`（`src/main.js`）补传 `fileBoard`；⑤ `openMemoryBoard` 放行未迁移 Vault 直接打开，在看板内提供「初始化 / 迁移记忆库」按钮并本地化列标题、修复拖入文件后列高亮残留；`MemoryImportModal` 增加关闭保护防止异步回调重绘已关闭弹窗；⑥ `thread-replies.js` 兼容英文 `Round N:` / `Answer:` 语法，`applyReply` 回答后同步移除 `replyInbox` 对应条目；⑦ `reconcileMemoryFile` 对含冒号/特殊字符的附加 YAML 标量安全加引号。
+  - **M1.1 收口迭代**：抽离 `src/memory-query-core.js`（单英文技术词元 + 元数据召回补盲）与 `private: true` / `settings.delegate.excludedDirs` 隐私闸门，接入 `harness.js`、`delegation.js`、`dream.js`、`settings.js` 与 `scripts/memory-query.mjs`；新增 `test/showcase-flows.test.mjs` 与 `test/memory-query.test.mjs` 隐私用例，验证 `welcome-demo.js` 中英文示例 §1–§4 关键链路。
+  - **生产四要素加固（Eval / Trace / Deploy / Security，2026-11-19）**：
+    - **Security（`src/security.js`）**：`runOpenAiApi` 接入 `resolveSecret`（支持 `env:VAR` 与 Vault 外 `~/.agent-deck/secrets.json` `0600` 读写的 `secret:key`）与 `redactSecrets`（HTTP 报错、`job.command`、`job.stderr` 脱敏）；ACP `session/request_permission` 与 `requestAcpPermission` 接入 `evaluatePermissionPolicy`（`autoApprove=true` 下对高危命令、`.ssh`/`.aws`/`.env` 等敏感路径与工作区外写删强制升阶人工确认）；`openTerminalAt` 统一收口至 `openTerminal`，使用 `appleScriptString` 转义与独立 Warp 配置名；`src/delegation.js` 路径拼接统一改用 `path.join`。
+    - **Trace（`src/trace.js`）**：每次派发生成 `traceId` 串联 `context.resolve`、`payload.snapshot`、30 帧协议环形缓冲（覆盖 ACP / Claude / Qoder）、权限决策与错误分类，落盘 `~/.agent-deck/traces/YYYY-MM-DD.jsonl`（默认测试态不落盘 + 14 天滚动清理）；新增命令 `export-diagnostics`（「导出脱敏诊断报告」），汇总版本、`ASSET_VERSION`、`_faultBreakers` 与 6 家 CLI provider 探测。
+    - **Eval（`scripts/eval-context.mjs` + `test/context-eval.test.mjs`）**：新增纯 Node 离线上下文评测（记忆召回/精确率/隐私/预算、Harness 零静默丢失、KV-Cache 前缀稳定性、提示词块号剥离与问答提取卫生），接入 `npm run eval` 与 `npm test`。
+    - **Deploy（`scripts/check-deploy.mjs` + `.github/workflows/ci.yml`）**：新增三端（Linux/macOS/Windows）CI 矩阵（含 `swiftc -typecheck`）、`main.js`/`styles.css` 体积预算检查及 `MEMORY_QUERY_ASSET_VERSION` 漂移探测；同步更新 `release.yml`。
+  - **1.13.0 发版验证边界**：全量 `npm test`、`npm run eval`、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check` 在 macOS 全过；并在 Obsidian `1.15.1`（`马自立` 库）装库热重载实测：`export-diagnostics`（`version: 1.13.0`、`assets.ok: true`、3 组 `_faultBreakers` closed、6 家 CLI 可用）、`open-dashboard` / `open-review` / `memory-board-open` / `reply-inbox-open` / `scan-now`、以及库内 `memory-query.mjs recent 2` 均无报错；**未覆盖**：真实云端模型调用、Obsidian 鼠标点击目视复验及 Windows 实机验证（Windows 已加入 CI 矩阵待远程运行）。
+- **仍未实测**：Windows 全部；真实 AI 会话长跑卡住 15 分钟以上的整轮触发；Planner 本轮未重跑真实云端模型调用。
+- **本轮上线前复测修掉的 4 个真 bug（2026-11-18 晚上）**：① `Dreaming.setEntryState`（`src/dream.js`）切回 `有效` 时会在 frontmatter 内插入并累积多余空行（已修并在 `test/memory-store.test.mjs` 加回归断言）；② `appendQuestionText` / `anchorThreadText`（`src/thread-replies.js`、`src/delegation.js`、`src/main.js`）在任务尚无 `^blockId` 时回退到文件第 0 行把 `❓` 插到任务块上方（已传入 `atLine` 并抽共用 `resolveBlockRange`）；③ `lastQuestionLine` 未屏蔽围栏代码块里的示例 `❓`（已接入 `fencedLines`，并在 `test/thread-replies.test.mjs` 补用例）；④ `ConfirmSendModal` 的 `.ad-send__modes` 缺少 CSS 规则导致工作模式芯片紧贴换行异常（已补入 `src/styles/views/modals.css`）。
+- **下一轮修复与降摩擦改造（2026-11-18 夜间，按 `next-round-fixes-handoff.md` 落地 P0–P2 全 8 项）**：
+  1. **Antigravity ACP 自动允许与权限弹窗快捷授权**：设置页（`src/settings.js`）`antigravity` 卡片与委派弹窗（`src/dialog.js` `DelegateOptionsModal`）补齐 `autoApprove` 开关；`AcpPermissionModal`（`src/conversation-modal.js`）新增「允许并开启 {agent} 自动允许」一键按钮，授权当前工具的同时保存 `settings.delegate[agent].autoApprove = true`（`Delegator` / `AcpRunner` 同步兼容任意 `allow*` / `reject*` kind）。
+  2. **`dispatchRefresh(this)` 误传 `this.app` 修复**：`planTask()` 与 `toggleBoardFile()`（`src/main.js`）改传插件实例 `this`，文件级看板切换不再触发未捕获 `TypeError`。
+  3. **Obsidian 内多轮续聊收口与清理**：新增 `canContinueSession(session, jobs)`（`src/agent-registry.js`），约束 `ReplyModal`（`src/main.js`）与 `ReplyInboxView`（`src/reply-inbox-view.js`）的「回答并继续」仅在支持应用内续聊且 `sid` 就绪的会话（`dsh` / `opencode` / `antigravity` ACP）展示；`ConversationModal` 保持纯只读，在 `taskActions` 菜单提供轻量单框追问弹窗 `FollowUpModal`（`src/dialog.js`）并清除 `canOpenClient` 下语义重复的「继续对话」菜单项（只保留唯一的「在客户端打开」）；`J.parseLink`（`src/journal.js`）补入 `antigravity` 协议链接识别，`Delegator.continueSession`（`src/delegation.js`）在无历史 job 时保留 `path` / `blockId` / `destination` / `transport` 并按笔记已记录轮次计算 `roundOffset`，避免重载或清理 jobs 后 Turn 2 写回被 `hasRecordedTurn` 跳过。
+  4. **Reading view（`preview` 模式）防陈旧读取**：`planTask`、`makeDispatchDraft`、`gripSend`、`taskActions`、`replyToQuestion`、`openReplySource`、`gripPick`、`delegateAtLine`、`openProjectWorkbench` 命令（`src/main.js`）与 `applyStatusChoice`（`src/task-status.js`）改走 `sourceViewForPath` / `await readNote`，避免预览态隐藏 `editor` 读到旧内容或写入过期缓冲。
+  5. **派发草稿流程修顺**：`makeDispatchDraft` 经 `mentionOptions` 解析 `@agent` / 模型 / 强度并写入草稿 frontmatter；`findDraftLink` 跳过 `📄` 行、`readDraft` 仅消费 `status: draft`（支持 `{ consume: false }` 无损预览，消费后标为 `status: dispatched` 并计算 hash，同时把笔记子行从 `📝 派发草稿` 更新为 `📄 已派发载荷`）；`ConfirmSendModal` 直接预览已编辑草稿正文并标出草稿来源。
+  6. **`ConfirmSendModal` 项目目录选择器**：抽共用 `resolveTaskProjectState` / `renderProjectFolderPicker`（`src/dialog.js`），`ConfirmSendModal` 直接提供项目文件夹下拉、自定义路径输入与冲突/未登记建议的一键确认，并以 `fromDialog: true` 传给 `delegator.delegate()`，减少「先退回库根发完再提示」。
+  7. **手写 `✍️ 答` 原地直发**：新增 `latestWrittenAnswer`（`src/thread-replies.js`）、`submitWrittenReply`（`src/main.js`）、命令面板「把已写好的「✍️ 答」发给会话继续」及 `taskActions` 条件菜单项「把已写好的 ✍️ 答 发给会话继续」。
+  8. **`lineMap()` 动静拆层与 `refreshEditorsNow()`**：`lineMap(path, doc)` 仅缓存静态文档结构（`lines` / `links` / `linkByLine` / `blockIds`），`sessionByParent` 每次即时拼装（保留单文档一次 `liveSessions` 懒快照与无绑定零开销）；新增 `refreshEditorsNow()`（`src/main.js`）供外部宿主/测试同步清空缓存并触发 `dispatchRefresh(this)`。
+  - **验证边界**：全量 `npm test`（含新增 `test/next-round-fixes.test.mjs`、`test/antigravity-acp.test.mjs`、`test/thread-replies.test.mjs` 新增用例）、`npm run build`、`git diff --check` 已通过，且已安装并热重载至 macOS Obsidian `马自立` 库（`eval` 确认插件加载与新方法/命令就绪）；**未在本轮实机点击验证**：Obsidian GUI 内鼠标右键弹窗/权限弹窗/草稿确认框的目视排布、真实交互点击与 Windows 全端。
 - 运行时记忆查询 CLI（`scripts/memory-query.mjs`，2026-11-18）：三个动词 `search "关键词" [--k 5]` / `read <记忆文件名>` / `recent [n]`，只读、只解析 `记忆/*.md`（不碰 `记忆.base`），`read` 只接受记忆目录内的文件名（挡 `../`）；`search` 每条带「命中」当 why、不打印分数，门槛是命中查询词的一半（中文二元组太容易误配，只中一两个不算相关）；`search`/`recent` 只看 `state=有效`，与自动注入同一个池子（33 条实测）。另有三个"变更可见"的补充：`--since/--until` 时间过滤（`YYYY-MM-DD`，没写日期的条目不参与，结果尾部说明排除了几条）；**取代链**（`supersedes` 双向显示：新条目标「取代：[[旧]]（日期）」，旧条目反向标「已被取代：[[新]]」）；**一跳图检索**（同引同一篇日记的记忆标「同源（同引 日记/…）」，`sources` 指向的原文给可打开的绝对路径，打不开就不编路径）。库根默认从脚本位置向上找 `.obsidian`，记忆目录跟随设置 `dream.dir`，`--vault` 可覆盖。脚本随 `npm run install:plugin` 装进 `<库>/.obsidian/plugins/agent-deck/scripts/`，派发/草稿 prompt 顶部加一行用法（脚本或记忆目录不在时自动不加）。单测 `test/memory-query.test.mjs`；macOS 真库手跑三动词 + 真派发一次 @dsh，Agent 按提示行执行了 `memory-query.mjs search "拒答门槛"`（退出码 0，命中 2 条并抄回结论）。
 - 派发时可以选工作模式（2026-11-18）：确认框里新增「这一次的权限 / 工作模式」——Claude / Qoder 是 `plan / auto / acceptEdits / manual`，Codex 是 `read-only / workspace-write / danger-full-access`（`--sandbox`，桌面 app-server 与终端命令行都吃这次的选择），默认值来自设置页（`delegate.<agent>.permission` / `delegate.codex.sandbox`，设置页文案标明「默认」并说明确认框可临时改）。没有权限控制的 ACP Agent（dsh / antigravity / opencode）不显示这一行。`SANDBOX_ALIAS` 让 Claude 那套词也能落到沙箱上（plan/manual→read-only，auto/acceptEdits→workspace-write）。单测 `test/work-mode.test.mjs`（选项分组 / 默认读取 / 映射 / args）；macOS 真机实测：Claude 确认框显示 4 个模式且 Auto 选中、Codex 显示 3 个沙箱且 Workspace 选中。
 - 回复协议（2026-11-18）：笔记里 `❓ 提问` → `✍️ 答：…` → 下一轮 `💬`，三行就是一轮问答。`src/thread-replies.js` 负责解析与写回（幂等：同句不重复、已有 `✍️` 原地改、按块号在多块笔记里定位、孤儿 `✍️` 不动别的问题）；`enrichPrompt` 把「已答的最近 3 轮 + 还在等的那一问」作为固定段注入 prompt（同样去重）；两个命令 + 任务操作菜单里的「✍️ 回复这一问…」「复制这一问的块引用」。**块号**：`❓` 行补 `^ad-q-…`、`✍️` 行补由它派生的 `^ad-a-…`（属 `^ad-*`，注入前剥掉），定位按块号不再靠正文；老笔记可用「给这一块的问答补块号」一次性升级（幂等）。**入站**：`writeResult` / `writeBackgroundResult` 记完 💬 后检查这一轮是否以问句结尾（最后 **12** 行里取最后一个问句——真实提问常是"先抛问题 → 列 A/B/C 选项 → 补一句'你选完我就照办'"，窗口太小会整段漏掉；也允许问题夹在句中），是就自动写一行 `❓ 第N轮：…`（幂等、带块号）并弹通知；结果已经记过也照样检查。空白的 `✍️ 答：` 只算留位不算已答。弹窗只是往笔记那行写字的快捷方式，不新开对话容器；「回答并继续」复用 `Delegator.continueSession` 续聊同一会话（失败会提示，回答已落笔记）。**未做**：从 attention 通知直接跳到弹窗（现在通知仍打开会话，回复入口在 `Ctrl+Alt+A` 菜单与命令）。单测 `test/thread-replies.test.mjs`（9）+ `delegation-enrich` 回灌用例；**回复信箱（2026-11-18）**：提问被写进笔记的同时登记进 `settings.replyInbox`，侧栏「回复信箱」列出全部待答项——不用回原文找那一行。第一次出现时光把侧栏亮出来、**把键盘焦点还给原元素**（实测 `document.activeElement` 前后一致），已在侧栏就不再 reveal；重绘只在条目集合变化时发生，正在输入的草稿存在 view 里不会丢；「核对一遍」按 `stillPending` 回笔记核对，答过的自动消失；信箱里「回答并继续」与笔记里写 `✍️ 答` 走同一条 `applyReply`。macOS 真机：注入提问 → 侧栏出现 2 张卡且焦点未变 → 在笔记里手写 `✍️ 答` 后点核对，条目从 2 变 1；从信箱「先记下回答」写回笔记并从信箱移除。
@@ -118,30 +139,44 @@
 **已知缺口（不是 bug，是没做）**
 
 1. ~~派发前不可编辑~~ **已实现（2026-11-18）**：命令 `委派：先生成草稿（不发送）` 把完整载荷写成草稿并以 `📝 [[…|派发草稿]]` 挂回任务块；用户改完点委派时，`findDraftLink` 优先用这份草稿的正文发送，并把草稿 frontmatter 标为 `status: dispatched` + `dispatched:` 时间。未验证：草稿过期/多份并存时的取舍（取最后一份）。
-2. 记忆看板与 Base 是两套只读/可写视图，记忆**不能**在看板上新建。
+2. ~~记忆看板与 Base 是两套只读/可写视图，记忆**不能**在看板上新建。~~ **已补齐（2026-11-19）**：`记忆.base` 过滤掉 `索引.md`（`file.path != "<dir>/索引.md"`），配合 `watchMemoryFolder` + `reconcileMemoryFile` 支持在 `记忆.base` 直接新建、改行内 `title`/`type`/`state`/`date` 与删除文件并自动同步 `索引.md`、`长期记忆.md`、记忆看板与孤儿回链；记忆看板新增 `+ 新建`（`MemoryCreateModal`）与卡片 `删除` 按钮，命令面板新增 `记忆：新建一条记忆` / `记忆：删除当前这条记忆`。模式 B（`extractFromDocs`）改为按文档分批提炼，避免多文档共享单个 12 条上限。
 3. 载荷被改后的差异**没有进 Dream**（只做了 hash 留痕 + 汇总清单）。
 
-## 活跃 Backlog（均未排期）
+## 活跃 Backlog（主焦 Milestone 1，详细切片见 [`specs/harness-roadmap.zh-CN.md`](specs/harness-roadmap.zh-CN.md)）
 
-| 事项 | 范围与边界约束 | 参考 Spec / 模块 |
-| --- | --- | --- |
-| **Dream 记忆按条共享**（方向草案，未排期） | 给记忆加 `scope/audience`，发布到 `Agent Deck/共享记忆/`，再经 MCP/文件/快照三条通道给别的 Agent；撤销要可证明干净。见 [`dream-shared-memory.md`](specs/dream-shared-memory.md) | `src/dream.js`, `src/dream-sharing.js`, `src/memory-store.js`, `scripts/memory-query.mjs` |
-| **记忆查询接 MCP**（下一步主线） | 把 `scripts/memory-query.mjs` 的三个动词包成 stdio MCP server（`memory_search` / `memory_read` / `memory_recent`），与 CLI 共用同一份打分与格式化逻辑（抽 `src/memory-query-core.js`），只读、签名不变、每条仍带 why 不返回分数；工具名一旦被模型看见就难改，先定再写 | `scripts/memory-query.mjs`, `src/memory-query-core.js`（待抽）, `docs/specs/context-protocol.zh-CN.md` §8 |
-| **Pi 支持 & 委派/块级粒度** | Pi 接入、委派卡片选模型/强度/记录粒度并记住偏好、已有 AI 块单独调粒度 | `acp-integration.zh-CN`、`src/delegation.js`, `src/dialog.js`, `src/ai-records.js`, `src/autolog.js` |
-| **Muse 追踪接入**（[MAT-629](https://linear.app/matsurimywaifu/issue/MAT-629)） | 实现对 Muse 会话的只读追踪、状态与对话读取 | `src/readers.js`, `src/agent-ingestors.js`, `src/constants.js` |
-| **Claude CLI 对话追踪复核**（[MAT-630](https://linear.app/matsurimywaifu/issue/MAT-630)） | 全链路排查并确认 Claude Code CLI 对话追踪（日志发现、状态、轮次同步与查看）可稳定跑通 | `src/readers.js`, `src/agent-ingestors.js`, `src/conversation.js` |
-| **技术债复核**（[MAT-479](https://linear.app/matsurimywaifu/issue/MAT-479)） | 逐项核实遗留问题状态并决定重构边界 | `src/readers.js`, `src/sync.js`, `src/view.js` |
-| **Windows 端适配** | 替换 `osascript`/POSIX 路径假定，打通终端唤醒、桌面交接与 WorkBuddy 自动发送 | `src/delegation.js`, `src/main.js`, `src/readers.js` |
-| **载荷差异进 Dream** | 需要原始快照或逐行 hash，才能只取"人改过的部分"作为用户证据 | `src/dream.js`, `src/delegation.js`, `src/memory-store.js` |
-| **记忆看板补全** | 看板上新建/删除记忆、跨目录筛选；与 Base 的定位收敛 | `src/memory-board.js`, `src/memory-store.js` |
-| **WorkFlowy 分形看板与多 Agent 编排** | 父块原地大纲↔看板双视图投影、Zoom/双链 Harness 上下文边界、同盘多 Agent 协同、单源镜像 | [`fractal-boards-roadmap`](specs/fractal-boards-roadmap.md)、`src/record-display.js`, `src/harness.js`, `src/agent-registry.js` |
-| **Dashboard 任务闭环与阻塞分析**（[MAT-625](https://linear.app/matsurimywaifu/issue/MAT-625/agent-deck-dashboard日记任务闭环率与阻塞状态分析联动分形看板)） | 统计同期 AI 关联任务状态分布（`DONE`/`TOREVIEW`/`NEEDOK`/`ERRORED` 等）、任务闭环率与阻塞项，联动分形看板 | `src/journal.js`, `src/analytics.js`, `src/dashboard-data.js`, `src/dashboard.js` |
+| 阶段 / 事项 | 范围与边界约束 | 参考 Spec / 模块 | Linear |
+| --- | --- | --- | --- |
+| **M1.1 上下文内核收口与诚实化** | 收口 `harness.js` / `enrichPrompt` / `replyPromptText` / `memory-query-core`，改为「前稳后动」保 Prefix Cache；零静默丢上下文（含截断带行号目录）、资料/指令隔离、编辑器缓冲、双写手去污；`private:true`/排除目录闸门、能力退路与短词检索补盲；`contextStats` 账本与 ACP 用量展示 | `src/harness.js`, `src/delegation.js`, `src/dream.js`, `src/memory-query-core.js`, [`information-flow.zh-CN.md`](specs/information-flow.zh-CN.md) | `MAT-637`, `MAT-638`, `MAT-639` |
+| **M1.2 结构提取、锚点校验与透明预览** | 节点 4–6 键摘要（`type`/`def`/`domain`/`father`/`status`）与空正文反链块退路（位置判强弱 + `#tag` 信号）；通用软/硬锚点 sha256 漂移校验与续聊变更提醒；`father` 单向一跳邻接；`ConfirmSendModal` 轻量预览/剔除、未链接提及提示与项目主页入口 | `src/harness.js`, `src/outline.js`, `src/dialog.js`, [`context-protocol.zh-CN.md`](specs/context-protocol.zh-CN.md), [`information-flow.zh-CN.md`](specs/information-flow.zh-CN.md) | `MAT-640`, `MAT-641`, `MAT-628` |
+| **M1.3 对外供给：纯 Node 库级 Context MCP** | 剥离 Obsidian API 的纯 Node 内核；`vault_outline` / `vault_read` / `vault_related` / `vault_find` + `memory_*` 共用 stdio MCP；跨平台路径与一键接入；入口地图预算裁剪与呼出率止损 | `src/context-core.js`, `scripts/memory-query.mjs`, `src/settings.js` | `MAT-642` |
+| **M2 上下文可信度与证据闭环** | 记忆四维正交升级与归档（`M2.1`）；全库 34 条断链缺口与同源矛盾检测（`M2.2`）；双链反推低置信 `sources` + 可选 L2 脚注（`M2.3`）；Claude/Codex 中断与额度结束原因 | `src/memory-store.js`, `src/dream.js`, `src/agent-ingestors.js` | `MAT-644`, `MAT-633` |
+| **M3 回写复利、按条共享与跨端底座** | job 读取清单、`log.md`、`ad-attest`、载荷差异进 Dream（`M3.1`）；Dream 按条共享发布层 + `scope=shared` MCP（`M3.2`）；1 秒可重放与独立客户端底座（`M3.3`） | [`dream-shared-memory.md`](specs/dream-shared-memory.md), `src/dream-sharing.js` | 见 Milestone M3 |
+| **轨道 W：Windows 端适配与实测** | 评估合入 `feat/win-compat`（`84b8c01`）+ SashaYang333 Windows 全端实机验证（含脚本路径转义） | `src/platform.js`, `src/delegation.js`, `src/main.js`, `src/readers.js` | `MAT-643` |
+| **轨道 A：Agent 生态与终端扩展** | 扩大委派/记录/追踪覆盖：**Hermes Agent**、**千问**、**Kimi Code**、**ZCode**、**MiniMax Code（客户端 + CLI）**、**Claude 客户端直接委派**，以及表驱动扩展**更多终端**（Ghostty / WezTerm / Kitty / Alacritty / Windows 终端等） | `src/agent-registry.js`, `src/agent-ingestors.js`, `src/delegation-runners.js`, `src/delegation.js`, [`acp-integration.zh-CN.md`](specs/acp-integration.zh-CN.md) | 见路线图 §6.1 轨道 A |
+| **轨道 T1：Muse & Claude CLI** | Muse 会话只读追踪（`MAT-629`）；Claude CLI 对话追踪全链路复核（`MAT-630`） | `src/readers.js`, `src/agent-ingestors.js`, `src/conversation.js` | `MAT-629`, `MAT-630` |
+| **轨道 T2：低优体验与技术债** | Dashboard 任务闭环率、ACP 工具时间线/流式回写、`MAT-479` 其余重构、Pi 支持与块级粒度（M1 后排期） | `src/dashboard.js`, `src/delegation-runners.js`, `src/view.js` | `MAT-625`, `MAT-631`, `MAT-632`, `MAT-479` |
+| **现阶段冻结项** | D10 全库稳定画像、工作台/分形看板大改版、技能卡双向写回 | [`specs/harness-roadmap.zh-CN.md`](specs/harness-roadmap.zh-CN.md) §6.2 & §7.2 | — |
 
 ## 操作速查（同步至库内 `README-交接.md`）
 
 - **快捷键**（macOS `Alt` = `Option`）：`Ctrl+Alt+D` 委派/任务菜单 · `Ctrl+Alt+A` 续聊/停止/重派 · `Ctrl+Alt+C` 查看与保存对话 · `Ctrl+Alt+N` 下一条待确认 · `Ctrl+Alt+X` 停止执行 · `Ctrl+Alt+J` 跳到「正在做」 · `Ctrl+Alt+L` 整理日志 · `⌥⌘↑` 跳到母块（连按逐级向上）· `⌥⌘⇧↑` 跳到最上一级顶格母块 · `⌥⌘↓` 合并成组（Group rows）· `⌃⌥⌘D` macOS 菜单栏。
 - **关键词**：`DOING` / `NOW` / `IN-PROGRESS`、`TOREVIEW`、`NEEDOK`、`ERRORED` / `FAILED`、`HITLIMIT`、`QUEUED`、`DELEGATED`、`TODO` / `LATER`、`PAUSED` / `SUSPENDED`、`WAITING` / `WAIT`、`DONE`、`CANCELED` / `CANCELLED`、`TODOFORAI` / `TODO4AI` / `TODO2AI` / `TODOTOAI`，及 `[ ]` `[/]` `[x]` `[-]`。
 - **整理与归档**：**整理日志**默认按 `---` → 正在做 → `---` → 还要做 → `---` → 已完成 → `---` 排列，只整理完整分区内的 **AI** 条目，非 AI 手写条目与区外笔记保持原位；无完整分区时只建立空分区。**归档已完成的日志到…** 仅移出已完成 **AI** 块（默认 `Agent Deck/done/已完成任务.md`），先写归档再删源。
+
+## 本地修改（2026-11-19，未发版）：跨 Agent / 跨 Mac ACP 通用化、Hermes Agent 与千问办公
+
+- **跨 Agent & 他人 Mac ACP 通用化**（`src/agent-registry.js`, `src/delegation-runners.js`, `src/conversation-modal.js`, `src/dialog.js`, `src/constants.js`, `src/main.js`）：
+  - 在 `CAPABILITIES` 增加声明式 ACP 属性（`acpArgs`, `acpAutoApprove`, `acpDefaultModel`, `acpDefaultEffort`, `acpModelOptional`, `acpEffortOptional`, `acpAllowUnknownEffort`, `continueRequiresAcp`），消除各处的 `["dsh", "antigravity", "opencode"]` 硬编码。
+  - `AcpRunner`（`start` 与 `session/request_permission`）对缺失的 `settings.delegate[agent]` 改用安全兜底；`acpModels()` 与模型切换同时兼容 `configOptions`（`session/set_config_option`）及标准 ACP `models.availableModels`（`session/set_model`）。
+  - 新增 `pickPermissionOption()` / `isAllowPermissionOption()`，按 `option.kind || option.optionId || option.name` 匹配 `allow*` / `reject*` / `deny*`（兼容 Hermes `allow_once` / `allow_session` / `deny`）；`Plugin.requestAcpPermission` 按 `runner._permChain` 串行排队并追踪活跃弹窗，排队请求在用户点过一键「允许并开启自动允许」后直接放行。
+  - 扩充 `cleanEnv()` / `expandedPathEntries()`（覆盖 `nvm`、`volta`、`fnm`、`npm-global`、`pnpm`、`bun`、`cargo`、`uv`、`pyenv`、`conda/miniconda/anaconda/miniforge`、`/opt/homebrew/opt/*/bin` 等），并新增按需缓存的登录 shell `PATH` 兜底（`resolveExecutableWithFallback()`）与可操作 `ENOENT` 报错；扩充 `AGENT_BINARY_SPECS`（含 `.app` 内置与 Homebrew / `uv` 候选）。
+- **Hermes Agent（`hermes`）**：只读读取 `$HERMES_HOME/state.db`（及 `profiles/*/state.db`），Unix 秒精确换算毫秒，保留 `input_tokens + cache_write_tokens` / `cache_read_tokens` / `output_tokens`，过滤 `hidden = 1` 与丢弃轮次，保留 `active = 1 OR compacted = 1`；支持 `hermes-acp`（无多余 `acp` 子命令）后台委派与 `hermes chat` / `hermes --resume` 终端交互。
+- **千问办公 / QwenWork（`qwenwork`）**：只读读取 `~/.qwenworkcn/projects/*/*.jsonl`（经 `$QWENWORK_HOME` 可覆写）进行会话、轮次、时长与对话查看/归档；跳过 `"unknown"` 占位模型名与不存在的 token（不做估算）；CLI / 客户端暂无无头问答或 ACP 接口，标记 `trackingOnly: true` 并在 README 与规范中说明。
+- **实测范围与未测空白**：macOS 已跑完 `npm test`（含 `test/acp-hermes-qwenwork.test.mjs`、`test/i18n.test.mjs`、`test/architecture-refactor.test.mjs`）、`npm run build`、`swiftc -typecheck`、`git diff --check`，并实机只读验证本机 `~/.hermes/state.db` 与 `~/.qwenworkcn/projects` 读取、`hermes-acp --check`；Obsidian UI 实机点击、真实 `hermes-acp` 委派多轮及 Windows 全端未测。
+- **收口二轮补强与菜单栏/侧栏对齐（2026-11-19，未发版）**：
+  - `@` 唤起（`src/task-mentions.js`）改由 `AGENT_ORDER` + `agent-registry` 动态派生 `routableAgents()`（补齐 `hermes` 等全部可委派与终端交接 Agent），正则与提示同步动态生成。
+  - macOS 菜单栏（`src/main.js`、`src/menubar.js`、`src/menubar.swift`）改为与侧栏「现在」完全一致的 **按项目 / 按状态 / 列表** 三分类（复用 `orderNowSessions` / `buildProjectGroups` / `buildNowStatusGroups`），菜单栏头部可直接切换并经 `setNowGroupBy` 命令与 Obsidian `settings.ui.nowGroupBy` 双向同步。
+  - 移除左侧 Ribbon 栏的「记忆表格」入口（`src/main.js`），并通过 `deckSessionUrl()`、`AgentDeckSettingsTab.renderAcpCard()`、`hermesBinLocations()`、`buildAcpModelEntry()` 与 `whereByAgent` 映射完成两轮 `code review --fix` + `simplify` 去重与稳健性修复；`test/menubar-startup.test.mjs` 与 `test/acp-hermes-qwenwork.test.mjs` 新增回归断言，待 macOS Obsidian 真机点击菜单栏三模式切换及 Windows 端实测。
 
 ## 本地修改（2026-11-18，1.12.2）：侧栏「现在」增加「按状态」视图
 

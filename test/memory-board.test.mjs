@@ -40,3 +40,47 @@ test("来源角标只解析 frontmatter 里的双链与块号，不碰正文", a
   assert.deepEqual(sourceRefs({}), []);
   assert.deepEqual(sourceRefs({ sources: ["没有双链"] }), []);
 });
+
+test("记忆看板：多次刷新后拖入文件只触发一次导入弹窗", async () => {
+  const { MemoryBoardView } = await import("../src/memory-board.js");
+  const makeEl = () => {
+    const listeners = new Map();
+    const el = {
+      children: [],
+      addClass() {},
+      removeClass() {},
+      empty() { this.children = []; },
+      createDiv() { return makeEl(); },
+      createSpan() { return makeEl(); },
+      createEl() { return makeEl(); },
+      addEventListener(type, fn) {
+        if (!listeners.has(type)) listeners.set(type, []);
+        listeners.get(type).push(fn);
+      },
+      async dispatch(type, evt) {
+        for (const fn of listeners.get(type) || []) await fn(evt);
+      },
+    };
+    return el;
+  };
+
+  let opened = 0;
+  const plugin = {
+    dreaming: { loadEntries: async () => [] },
+    openMemoryImport() { opened++; },
+  };
+  const view = new MemoryBoardView({}, plugin);
+  view.contentEl = makeEl();
+  await view.onOpen();
+  await view.refresh();
+  await view.refresh();
+
+  await view.contentEl.dispatch("drop", {
+    preventDefault() {},
+    stopPropagation() {},
+    dataTransfer: {
+      files: [{ name: "note.md", lastModified: 1700000000000, text: async () => "- 用户偏好中文回复" }],
+    },
+  });
+  assert.equal(opened, 1);
+});

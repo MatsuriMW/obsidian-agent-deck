@@ -15,13 +15,8 @@ export default {
 
   "等待 Agent Deck…": "Waiting for Agent Deck…",
   "{n} 个 NEEDOK? 需要你允许": "{n} NEEDOK? waiting for your approval",
-  "现在没有要显示的会话": "Nothing to show right now",
-  "主力 Agent 的会话会留在这里；其它 Agent 只在正在运行时出现，WorkBuddy 的等待会话也列。":
-    "Sessions from your primary agents stay here. Other agents show up only while running, and WorkBuddy's waiting sessions are listed too.",
-  "主力 AGENT": "PRIMARY AGENTS",
-  "全量追踪": "Full history",
-  "其它 AGENT": "OTHER AGENTS",
-  "在跑 · WorkBuddy 等你": "Running · WorkBuddy waiting",
+  "等待中的提问或终端任务、待认领与在跑会话会出现在这里。":
+    "Waiting prompts, active terminal sessions, unclaimed handoffs, and running tasks appear here.",
   "等待 Agent 会话": "Waiting for agent sessions",
   "共 {n} 个 · 向下滑动": "{n} total · scroll for more",
   "点击卡片跳转": "Click a card to jump",
@@ -30,6 +25,11 @@ export default {
   "隐藏": "Hide",
   "跑": "run",
   "等": "wait",
+  "待认领": "Pending",
+  "固定面板（始终显示）": "Pin panel (keep always open)",
+  "取消固定（点击外部自动收起）": "Unpin panel (auto-close on outside click)",
+  "置顶此会话到最上方": "Pin this session to top",
+  "取消置顶此会话": "Unpin this session",
 
   // Menu bar payload built by src/main.js (short line, summary, header stats,
   // session rows). Sent to the Swift helper as plain text, so these must be

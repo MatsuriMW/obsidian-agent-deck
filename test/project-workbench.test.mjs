@@ -843,6 +843,7 @@ test("buildNowStatusGroups buckets active rows into 等你 / 待认领 / 在跑 
   assert.deepEqual(groups.map((g) => g.id), ["waiting", "pending", "running", "error"]);
   assert.deepEqual(groups.map((g) => g.sessions.map((s) => s.sid)), [["appr"], ["unclaimed"], ["run-new", "run-old"], ["lim", "err"]]);
   assert.equal(groups[0].label, "等你");
+  assert.equal(groups[1].label, "⏳ 待认领");
   assert.equal(groups[0].sessions[0].state, "needs-approval");
   assert.equal(groups[1].sessions[0].isPendingJob, true, "a dispatched-but-unclaimed job is not running yet");
   assert.equal(nowStatusOf(sessions[5], now), "", "finished sessions belong to no status bucket");

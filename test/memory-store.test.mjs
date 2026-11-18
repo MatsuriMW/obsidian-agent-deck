@@ -150,6 +150,13 @@ test("确认与拒绝写回 frontmatter", async () => {
   raw = files.get("Agent Deck/记忆/2026-11-13-x.md");
   assert.match(raw, /^state: 有效$/m);
   assert.match(raw, /^verified: true$/m);
+  assert.ok(!/\n\nverified: true/.test(raw), "frontmatter 内不出现多余空行");
+  assert.equal(await dream.setEntryState("Agent Deck/记忆/2026-11-13-x.md", "有效"), false, "已是有效且 verified 时再次确认应为空操作");
+  assert.equal(await dream.setEntryState("Agent Deck/记忆/2026-11-13-x.md", "已被替代"), true);
+  assert.equal(await dream.setEntryState("Agent Deck/记忆/2026-11-13-x.md", "有效"), true);
+  raw = files.get("Agent Deck/记忆/2026-11-13-x.md");
+  const fm = raw.split("\n---\n")[0];
+  assert.ok(!/\n\n/.test(fm), "多次状态切换后 frontmatter 内无空行积累");
   assert.equal(memoryIdOf("用户偏好中文回复"), memoryIdOf("用户偏好中文回复"));
 });
 
@@ -299,4 +306,145 @@ test("记忆索引：一个文件列出全部标题与链接，按日期倒序",
   assert.ok(text.indexOf("新的经验") < text.indexOf("旧的事"), "日期新的在前");
   assert.match(text, /\[\[记忆\/b\]\]/);
   assert.match(renderMemoryIndex([]), /还没有记忆/);
+});
+
+test("模式 A（外部记忆直接拆条）：兼容 Claude memories.json、列表笔记与单条记忆文件", async () => {
+  const { parseMarkdownToMemories } = await import("../src/memory-store.js");
+  const claudeJson = JSON.stringify({
+    memory_files: [
+      {
+        path: "/preferences.md",
+        updated_at: "2026-08-18T01:49:01.000Z",
+        content: "---\nname: preferences\n---\n- [stated] 用户要求涉及数字时必须核实一手信息\n- [stated] 用户推断，社会共识往往依赖经典案例构建（待验证）\n",
+      },
+    ],
+  });
+  const listMd = [
+    "---",
+    "date: 2026-09-12",
+    "---",
+    "- **项目经验**：在 RAG 系统中设置拒答门槛可避免无谓计费",
+    "- 用户的日常座驾为 2025 年购入的极氪 7X",
+  ].join("\n");
+
+  const items = parseMarkdownToMemories([
+    { name: "memories.json", content: claudeJson },
+    { name: "笔记.md", path: "收件箱/笔记.md", content: listMd },
+    { name: "single.md", content: serializeMemoryFile(ENTRY) },
+  ]);
+  assert.equal(items.length, 5);
+  assert.equal(items[0].kind, "preference");
+  assert.equal(items[0].date, "2026-08-18");
+  assert.equal(items[1].kind, "pattern");
+  assert.equal(items[2].kind, "lesson");
+  assert.equal(items[3].kind, "fact");
+  assert.equal(items[4].id, ENTRY.id);
+});
+
+test("批量导入（importEntries）与模式 B（extractFromDocs）：自动建库、去重并生成 Base 视图", async () => {
+  const { parseMarkdownToMemories } = await import("../src/memory-store.js");
+  const { p, files } = makePlugin({ files: { "Agent Deck/长期记忆.md": "# Agent Deck 长期记忆\n" } });
+  const dream = new Dreaming(p, async () =>
+    JSON.stringify({
+      memories: [
+        {
+          text: "用户需要 7.5 小时睡眠并采用 R90 睡眠法",
+          kind: "fact",
+          sources: ["S1"],
+          quotes: [{ source: "S1", text: "需要 7.5 小时睡眠，用 R90 睡眠法" }],
+          replaces: [],
+        },
+      ],
+    }),
+  );
+
+  // 模式 B：从长文档提炼候选记忆
+  const extracted = await dream.extractFromDocs([
+    { name: "self.md", path: "笔记/self.md", date: "2026-09-12", content: "- 需要 7.5 小时睡眠，用 R90 睡眠法（按 90 分钟一个周期算）" },
+  ]);
+  assert.equal(extracted.length, 1);
+  assert.equal(extracted[0].kind, "fact");
+  assert.equal(extracted[0].date, "2026-09-12");
+
+  // 模式 A + B 统一走 importEntries 落盘
+  const direct = parseMarkdownToMemories([{ name: "pref.md", content: "- [stated] 用户偏好中文回复" }], { defaultDate: "2026-11-18" });
+  const res1 = await dream.importEntries([...extracted, ...direct]);
+  assert.equal(res1.added, 2);
+  assert.equal(res1.skipped, 0);
+  assert.equal(p.settings.dream.store, "files", "尚未开启文件库时自动迁移开启");
+  assert.ok(files.has("Agent Deck/记忆.base"), "自动补齐 记忆.base");
+  assert.ok(files.has("Agent Deck/记忆/索引.md"), "自动刷新索引");
+
+  // 重复导入同一批，自动跳过
+  const res2 = await dream.importEntries([...extracted, ...direct]);
+  assert.equal(res2.added, 0);
+  assert.equal(res2.skipped, 2);
+});
+
+test("记忆.base 增删与行内编辑兼容：排除索引.md、补齐空白新建行、同步 title 与正文", async () => {
+  const { memoryBase, parseMemoryFile, reconcileMemoryFile } = await import("../src/memory-store.js");
+  const baseYaml = memoryBase("Agent Deck/记忆");
+  assert.match(baseYaml, /file\.path != "Agent Deck\/记忆\/索引\.md"/, "记忆.base 默认过滤掉 索引.md");
+
+  // 1. Base 点击「新建」生成的空白模板：自动补齐默认值，保留在待确认视图
+  const blank = "---\ntitle:\ntype:\nstate:\ndate:\n---\n";
+  const filledDefaults = reconcileMemoryFile(blank, { today: "2026-11-19" });
+  assert.ok(filledDefaults);
+  assert.match(filledDefaults, /^type: 事实$/m);
+  assert.match(filledDefaults, /^kind: fact$/m);
+  assert.match(filledDefaults, /^state: 有效$/m);
+  assert.match(filledDefaults, /^date: 2026-11-19$/m);
+
+  // 2. 用户在 Base 表格内填写 title 与 type（正文为空），parseMemoryFile 直接可读，reconcileMemoryFile 同步正文与 id
+  const editedInBase = "---\ntitle: \"用户周末不排长耗时电脑任务\"\ntype: 偏好\nstate: 有效\ndate: 2026-11-19\n---\n";
+  const parsed = parseMemoryFile(editedInBase);
+  assert.ok(parsed);
+  assert.equal(parsed.kind, "preference");
+  assert.equal(parsed.text, "用户周末不排长耗时电脑任务");
+
+  const synced = reconcileMemoryFile(editedInBase, { today: "2026-11-19" });
+  assert.ok(synced);
+  assert.match(synced, /^id: m-/m);
+  assert.match(synced, /^kind: preference$/m);
+  assert.match(synced, /\n\n用户周末不排长耗时电脑任务\n$/);
+  assert.equal(reconcileMemoryFile(synced, { today: "2026-11-19" }), null, "已同步的记忆再次规范化应幂等");
+
+  // 3. 在 Base 里修改 title 时，正文同步更新
+  const renamedInBase = synced.replace("用户周末不排长耗时电脑任务", "用户周六日全天上课，不排电脑任务");
+  const resynced = reconcileMemoryFile(renamedInBase, { today: "2026-11-19" });
+  assert.ok(resynced);
+  assert.match(resynced, /\n\n用户周六日全天上课，不排电脑任务\n$/);
+
+  // 4. createEntry 新建并写入文件 + 刷新索引与长期记忆
+  const { p, files } = makePlugin({ files: { "Agent Deck/长期记忆.md": "# Agent Deck 长期记忆\n" } });
+  const dream = new Dreaming(p);
+  const created = await dream.createEntry({ text: "测试 Base 新建记忆条目", kind: "lesson", date: "2026-11-19" });
+  assert.ok(files.has(created.path));
+  assert.match(files.get("Agent Deck/记忆/索引.md"), /测试 Base 新建记忆条目/);
+  assert.match(files.get("Agent Deck/长期记忆.md"), /测试 Base 新建记忆条目/);
+});
+
+test("模式 B 按文档分批提炼：多文档分别送入模型、避免后序文档被 12 条上限饿死", async () => {
+  const { p } = makePlugin({ files: { "Agent Deck/长期记忆.md": "# Agent Deck 长期记忆\n" } });
+  let calls = 0;
+  const dream = new Dreaming(p, async (prompt) => {
+    calls++;
+    if (prompt.includes("doc1.md")) {
+      return JSON.stringify({
+        memories: [{ text: "来自第一篇的长期偏好", kind: "preference", sources: ["S1"], quotes: [{ source: "S1", text: "第一篇原文" }], replaces: [] }],
+      });
+    }
+    return JSON.stringify({
+      memories: [{ text: "来自第二篇的项目经验", kind: "lesson", sources: ["S2"], quotes: [{ source: "S2", text: "第二篇原文" }], replaces: [] }],
+    });
+  });
+
+  const out = await dream.extractFromDocs([
+    { name: "doc1.md", path: "doc1.md", date: "2026-11-18", content: "- 第一篇原文" },
+    { name: "doc2.md", path: "doc2.md", date: "2026-11-19", content: "- 第二篇原文" },
+  ]);
+  assert.equal(calls, 2, "两篇独立文档应各自独立提炼");
+  assert.equal(out.length, 2);
+  assert.equal(out[0].date, "2026-11-18");
+  assert.equal(out[1].date, "2026-11-19");
 });

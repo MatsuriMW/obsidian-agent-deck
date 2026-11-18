@@ -105,6 +105,7 @@ export function projectName(cwd) {
   if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(normCwd)) return "WorkBuddy";
   if (/\/\.dsh\/sessions\//.test(normCwd)) return "DSH";
   if (/\/\.gemini\/antigravity\//.test(normCwd)) return "Antigravity";
+  if (/\/\.qwenworkcn\/workspace\/[^/]+\/task-workspaces\//.test(normCwd)) return "QwenWork";
   const p = normCwd.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
   return p === home().replace(/\\/g, "/") ? "~" : (p.split("/").pop() || p);
 }
@@ -139,7 +140,7 @@ export function normalizeProjectRoot(cwd) {
   const raw = String(cwd || "").trim().replace(/\\/g, "/");
   if (!raw || raw === "~" || raw === "/") return "";
   if (isScratchCwd(raw)) return "";
-  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(raw) || /\/\.dsh\/sessions\//.test(raw) || /\/\.gemini\/antigravity\//.test(raw)) return "";
+  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(raw) || /\/\.dsh\/sessions\//.test(raw) || /\/\.gemini\/antigravity\//.test(raw) || /\/\.qwenworkcn\/workspace\/[^/]+\/task-workspaces\//.test(raw)) return "";
   const stripped = raw.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
   if (!stripped || stripped === home().replace(/\\/g, "/").replace(/\/+$/, "")) return "";
   const name = projectName(stripped);
@@ -211,7 +212,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 12;
+export const USAGE_CACHE_VERSION = 14;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -264,7 +265,9 @@ export class AgentUsage {
     this.historyAgents = opts.historyAgents || [];
     this.files = new Map();      // path -> file cache
     this.meta = new Map();       // sid -> live session meta (merged across files)
-    this.titles = new Map();     // codex title index
+    this.titles = new Map();     // client-provided session title index
+    this.clientTitles = new Set(); // sids with native client/summary title (vs prompt fallback)
+    this.customTitles = new Set(); // sids explicitly renamed by the user in client
     this.codexIndexAt = 0;
     this.archived = new Set();       // Codex archived_sessions
     this.desk = new Map();           // Claude desktop local_*.json path -> desktop session entry
@@ -317,6 +320,15 @@ export class AgentUsage {
         this.files.set(fc.path, fc);
       }
       if (Array.isArray(data.meta)) this.meta = new Map(data.meta);
+      this.clientTitles = new Set(Array.isArray(data.clientTitles) ? data.clientTitles : []);
+      this.customTitles = new Set(Array.isArray(data.customTitles) ? data.customTitles : []);
+      for (const m of this.meta.values()) {
+        if (m?.clientTitle && m.sid) {
+          this.clientTitles.add(m.sid);
+          if (m.title && !this.titles.has(m.sid)) this.titles.set(m.sid, m.title);
+          if (m.customTitle) this.customTitles.add(m.sid);
+        }
+      }
       this.lastScan = this.files.size > 0 ? (Number(data.lastScan) || 0) : 0;
       return this.files.size > 0;
     } catch (_) {
@@ -328,7 +340,15 @@ export class AgentUsage {
 
   cacheJSON() {
     const cutoff = Number.isFinite(this.cfg?.dayCutoff) ? this.cfg.dayCutoff : 0;
-    return JSON.stringify({ v: USAGE_CACHE_VERSION, cutoff, lastScan: this.lastScan || 0, files: [...this.files.values()].map(packFile), meta: [...this.meta] });
+    return JSON.stringify({
+      v: USAGE_CACHE_VERSION,
+      cutoff,
+      lastScan: this.lastScan || 0,
+      files: [...this.files.values()].map(packFile),
+      meta: [...this.meta],
+      clientTitles: [...this.clientTitles],
+      customTitles: [...this.customTitles],
+    });
   }
 
   saveCache(file) {
@@ -392,6 +412,8 @@ export class AgentUsage {
     add(path.join(h, ".dsh/sessions"), "dsh");
     add(path.join(h, ".gemini/antigravity/brain"), "antigravity");
     add(path.join(h, ".qoder/projects"), "qoder");
+    const qwenHome = process.env.QWENWORK_HOME ? norm(process.env.QWENWORK_HOME) : path.join(h, ".qwenworkcn");
+    add(path.join(qwenHome, "projects"), "qwenwork");
     add(cursorEventsDir(h), "cursor");
     const seen = new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
@@ -445,10 +467,19 @@ export class AgentUsage {
   }
 
   desktopDatabases() {
-    return [
+    const hHome = process.env.HERMES_HOME ? norm(process.env.HERMES_HOME) : path.join(home(), ".hermes");
+    const dbs = [
       [path.join(home(), ".local/share/opencode/opencode.db"), "opencode"],
       [path.join(home(), "Library/Application Support/com.qoder.app.stable/main.sqlite"), "qoder"],
+      [path.join(hHome, "state.db"), "hermes"],
     ];
+    try {
+      const profilesDir = path.join(hHome, "profiles");
+      for (const e of fs.readdirSync(profilesDir, { withFileTypes: true })) {
+        if (e.isDirectory()) dbs.push([path.join(profilesDir, e.name, "state.db"), "hermes"]);
+      }
+    } catch { /* no profiles dir */ }
+    return dbs;
   }
 
   async readDesktopDatabases({ floor, onlyAgent, strictSince, touched }) {
@@ -467,7 +498,8 @@ export class AgentUsage {
           // Query row revisions directly: WAL writes need not change the database mtime.
           if (previous?.size === row.revision && previous.offset === scope) continue;
           const messages = await desktopMessages(db, agent, row.sid);
-          const fc = { path: key, agent, sid: row.sid, id: row.sid, cwd: row.cwd || "", app: "desktop", model: row.model || "", size: row.revision, offset: scope, mtime: row.updatedAt, days: new Map(), msgs: new Map(), titles: new Map(), live: null };
+          const rowApp = row.app || "desktop";
+          const fc = { path: key, agent, sid: row.sid, id: row.sid, cwd: row.cwd || "", app: rowApp, model: row.model || "", size: row.revision, offset: scope, mtime: row.updatedAt, days: new Map(), msgs: new Map(), titles: new Map(), live: null };
           // Build a replacement snapshot: streaming updates must not add usage twice.
           for (const day of previous?.days.keys() || []) touched.add(day);
           let out = 0, fresh = 0, cached = 0, calls = 0, firstText = "";
@@ -490,10 +522,24 @@ export class AgentUsage {
             }
             if (m.end) this.touchSess(fc, touched, m.end, row.sid, fc.cwd, fc.app);
           }
+          if (!out && !fresh && !cached && (row.out || row.fresh || row.cached)) {
+            const sessAt = fc.live?.at || row.updatedAt || row.startedAt;
+            if (sessAt && (!this.stale(agent, sessAt) || previous?.days.has(dayKey(sessAt, this.cfg)))) {
+              const { key: dayId, s } = this.touchSess(fc, touched, sessAt, row.sid, fc.cwd, fc.app);
+              if (!fc.live) {
+                const v = this.liveOf(fc, row.sid, sessAt);
+                v.cwd = fc.cwd; v.app = fc.app; v.title = row.title || ""; v.state = row.state || "wait";
+              }
+              out = row.out || 0; fresh = row.fresh || 0; cached = row.cached || 0;
+              if (!calls) calls = 1;
+              fc.msgs.set(`${agent}:${row.sid}:session`, { key: dayId, sid: row.sid, proj: s.proj, model: fc.live?.model || row.model || "", out, fresh, cached, at: sessAt });
+            }
+          }
           if (fc.live) {
             if (row.state) fc.live.state = row.state;
             fc.live.turns = fc.rounds?.list.length || 0; fc.live.rounds = fc.rounds?.list || [];
-            this.noteMeta(fc, row.sid, { ...fc.live, title: row.title || firstText, text: firstText, cwd: fc.cwd, app: fc.app, model: fc.live.model || row.model || "", lastAt: fc.live.at, startedAt: row.startedAt, parentSid: row.parentSid || "", out, fresh, cached, calls, archived: !!row.archived });
+            this.noteClientTitle(row.sid, row.title, { fc });
+            this.noteMeta(fc, row.sid, { ...fc.live, title: row.title || firstText, text: firstText, clientTitle: Boolean(row.title), cwd: fc.cwd, app: fc.app, model: fc.live.model || row.model || "", lastAt: fc.live.at, startedAt: row.startedAt, parentSid: row.parentSid || "", out, fresh, cached, calls, archived: !!row.archived });
           }
           this.files.set(key, fc); this.dirty = true;
         }
@@ -533,7 +579,7 @@ export class AgentUsage {
       const text = await fsp.readFile(p, "utf8");
       for (const line of text.split("\n")) {
         if (!line) continue;
-        try { const d = JSON.parse(line); if (d.id && d.thread_name) this.titles.set(d.id, String(d.thread_name)); } catch { /* partial line */ }
+        try { const d = JSON.parse(line); if (d.id && d.thread_name) this.noteClientTitle(d.id, String(d.thread_name)); } catch { /* partial line */ }
       }
     } catch { /* no index */ }
   }
@@ -568,23 +614,22 @@ export class AgentUsage {
       })();
       const wbDb = path.join(home(), ".workbuddy/workbuddy.db");
       const wbArchTask = sqliteColumn(wbDb, "select id from sessions where status = 'archived' or deleted_at is not null");
-      const wbRowsTask = sqliteColumn(wbDb, "select id || char(9) || replace(replace(coalesce(nullif(custom_title,''), title, ''), char(10), ' '), char(9), ' ') || char(9) || coalesce(cwd,'') || char(9) || coalesce(model,'') || char(9) || coalesce(group_title,'') || char(9) || coalesce(status,'') from sessions");
+      const wbRowsTask = sqliteColumn(wbDb, "select id || char(9) || replace(replace(coalesce(nullif(custom_title,''), title, ''), char(10), ' '), char(9), ' ') || char(9) || coalesce(cwd,'') || char(9) || coalesce(model,'') || char(9) || coalesce(group_title,'') || char(9) || coalesce(status,'') || char(9) || case when coalesce(custom_title,'') != '' then '1' else '0' end from sessions");
       const dshTask = fsp.readFile(path.join(home(), ".dsh/storages/workspace.json"), "utf8").then((s) => JSON.parse(s)).catch(() => null);
       const [codexRes, wbArch, wbRows, ws] = await Promise.all([codexTask, wbArchTask, wbRowsTask, dshTask]);
       for (const id of codexRes.archived) db.add(id);
       for (const row of codexRes.titles) {
-        const i = row.indexOf("\t"); if (i > 0 && !this.titles.has(row.slice(0, i))) this.titles.set(row.slice(0, i), row.slice(i + 1).slice(0, 120));
+        const i = row.indexOf("\t"); if (i > 0) this.noteClientTitle(row.slice(0, i), row.slice(i + 1));
       }
       for (const id of wbArch) db.add(id);
       for (const row of wbRows) {
-        const [id, title, cwd, model, groupTitle, status] = row.split("\t");
+        const [id, title, cwd, model, groupTitle, status, isCustom] = row.split("\t");
         if (!id) continue;
         const cleanTitle = (title || "").trim().slice(0, 120);
-        if (cleanTitle && !this.titles.has(id)) this.titles.set(id, cleanTitle);
+        if (cleanTitle) this.noteClientTitle(id, cleanTitle, { custom: isCustom === "1" });
         this.wbMeta.set(id, { title: cleanTitle, cwd: cwd || "", model: model || "", groupTitle: groupTitle || "", status: status || "" });
         const m = this.meta.get(id);
         if (m) {
-          if (!m.title && cleanTitle) m.title = cleanTitle;
           if (!m.model && model && model !== "auto") m.model = model;
           if (groupTitle && (!m.cwd || /\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(m.cwd))) m.cwd = groupTitle;
         }
@@ -700,7 +745,7 @@ export class AgentUsage {
       const m = this.meta.get(d.sid);
       if (!m) continue;
       m.deskTitle = d.title;
-      if (!m.title && d.title) m.title = d.title;
+      if (d.title) this.noteClientTitle(d.sid, d.title);
       m.parentSid = d.parentSid || "";
       m.parentTitle = d.parentTitle || "";
       m.archived = d.archived === true;
@@ -726,8 +771,8 @@ export class AgentUsage {
     const metaMap = await readCursorDbMeta(sids, { homeDir: home() });
     for (const [sid, info] of metaMap) {
       const m = this.meta.get(sid);
+      if (info.title) this.noteClientTitle(sid, info.title);
       if (m) {
-        if (info.title && !this.titles.has(sid)) m.title = info.title;
         if (info.cwd && (!m.cwd || m.cwd === "~")) m.cwd = info.cwd;
         if (info.model && !m.model) m.model = info.model;
         if (typeof info.archived === "boolean") m.archived = info.archived;
@@ -737,7 +782,7 @@ export class AgentUsage {
         if (info.cwd && (!fc.cwd || fc.cwd === "~")) fc.cwd = info.cwd;
         if (info.model && !fc.model) fc.model = info.model;
         if (fc.live) {
-          if (info.title && !fc.live.title) fc.live.title = info.title;
+          if (info.title && (!fc.live.title || !this.customTitles.has(sid))) fc.live.title = info.title;
           if (info.cwd && (!fc.live.cwd || fc.live.cwd === "~")) fc.live.cwd = info.cwd;
           if (info.model && !fc.live.model) fc.live.model = info.model;
         }
@@ -855,9 +900,11 @@ export class AgentUsage {
         fc.live.step = parsed.step;
         fc.live.turns = fc.rounds?.list.length || 0;
         fc.live.rounds = fc.rounds?.list || [];
+        this.noteClientTitle(bot.id, bot.name, { fc });
         this.noteMeta(fc, bot.id, {
           ...fc.live,
           title: bot.name || firstText,
+          clientTitle: Boolean(bot.name),
           text: firstText || bot.description || bot.lastPreview || "",
           cwd: "",
           app: "desktop",
@@ -932,11 +979,41 @@ export class AgentUsage {
     return v;
   }
 
+  noteClientTitle(sid, title, { fc = null, custom = false } = {}) {
+    const clean = String(title || "").replace(/\s+/g, " ").trim().slice(0, 120);
+    if (!sid || !clean) return;
+    if (custom) this.customTitles.add(sid);
+    else if (this.customTitles.has(sid)) return;
+    this.titles.set(sid, clean);
+    this.clientTitles.add(sid);
+    if (fc) {
+      fc.titles?.set(sid, clean);
+      if (fc.live && fc.sid === sid) fc.live.title = clean;
+    }
+    const m = this.meta.get(sid);
+    if (m) {
+      m.title = clean;
+      m.clientTitle = true;
+      if (custom) m.customTitle = true;
+    }
+    for (const f of this.files.values()) {
+      if (f?.live && f.live.sid === sid) f.live.title = clean;
+    }
+  }
+
+  hasClientTitle(sid) {
+    return Boolean(sid && (this.clientTitles.has(sid) || this.meta.get(sid)?.clientTitle));
+  }
+
   noteMeta(fc, sid, patch) {
     let m = this.meta.get(sid);
     if (!m) this.meta.set(sid, m = { sid, agent: fc.agent, title: "", text: "", cwd: fc.cwd || "", app: fc.app || "", model: "", lastAt: 0, out: 0, fresh: 0, cached: 0, calls: 0, segs: [], state: "idle", step: "", todo: null, err: "", lastText: "", archived: false });
     Object.assign(m, patch);
-    if (!m.title && this.titles.has(sid)) m.title = this.titles.get(sid);
+    if (this.titles.has(sid) && (!m.title || !m.customTitle)) {
+      m.title = this.titles.get(sid);
+      m.clientTitle = this.clientTitles.has(sid) || Boolean(m.clientTitle);
+      if (this.customTitles.has(sid)) m.customTitle = true;
+    }
     return m;
   }
 
@@ -1247,7 +1324,7 @@ export class AgentUsage {
         if (parentTitle && !meta.parentTitle) meta.parentTitle = parentTitle;
         if (parentCwd && !meta.parentCwd) meta.parentCwd = parentCwd;
       }
-      out.push({ ...meta, ...live, sid, agent: fc.agent, cwd: v.cwd || fc.cwd, app: v.app || fc.app, title: v.title || meta.title || this.titles.get(sid) || "", model: v.model || meta.model || "", tokens: (meta.out || 0) + (meta.fresh || 0), lastAt: v.at });
+      out.push({ ...meta, ...live, sid, agent: fc.agent, cwd: v.cwd || fc.cwd, app: v.app || fc.app, title: this.titles.get(sid) || v.title || meta.title || "", clientTitle: this.hasClientTitle(sid), model: v.model || meta.model || "", tokens: (meta.out || 0) + (meta.fresh || 0), lastAt: v.at });
     }
     return out.sort((a, b) => b.lastAt - a.lastAt).slice(0, limit);
   }
@@ -1263,7 +1340,7 @@ export class AgentUsage {
         if (parentTitle && !m.parentTitle) m.parentTitle = parentTitle;
         if (parentCwd && !m.parentCwd) m.parentCwd = parentCwd;
       }
-      out.push({ ...m, title: m.title || this.titles.get(m.sid) || "", tokens: (m.out || 0) + (m.fresh || 0) });
+      out.push({ ...m, title: this.titles.get(m.sid) || m.title || "", clientTitle: this.hasClientTitle(m.sid), tokens: (m.out || 0) + (m.fresh || 0) });
     }
     return out.sort((a, b) => b.lastAt - a.lastAt).slice(0, limit);
   }

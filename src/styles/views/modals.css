@@ -274,6 +274,16 @@
     overflow-wrap: anywhere;
   }
 
+  & .ad-send__draft {
+    margin: 0;
+    font-family: var(--ad-figure);
+    font-size: 12px;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    color: var(--ad-ink);
+    overflow-wrap: anywhere;
+  }
+
   & .ad-send__meta {
     display: flex;
     justify-content: space-between;
@@ -304,6 +314,12 @@
   & .ad-send__btns {
     display: flex;
     gap: 8px;
+  }
+
+  & .ad-send__modes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
   & .ad-btn.ad-send__go {

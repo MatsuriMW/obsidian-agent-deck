@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.0
+
+- **Markdown 即 Harness 与 M1.1 上下文收口**：一文一条记忆库（`Agent Deck/记忆/*.md`、`记忆.base`、三列记忆看板与逐条审阅、`scripts/memory-query.mjs` 只读检索 CLI）；统一 `ContextBundle`「前稳后动」装配顺序保 KV Cache；消灭双链溢出/坏锚点/读失败静默丢失（超 3 篇改列路径、长文附后续章节行号目录），接入 `private: true` 与 `settings.delegate.excludedDirs` 隐私闸门，并支持未保存编辑器缓冲优先读取与单英文技术词/元数据召回补盲。
+- **回复协议、回复信箱与派发草稿闭环**：支持 `❓ / ✍️ 答 / 💬` 三行一轮问答与 `^ad-q-*` / `^ad-a-*` 派生块号（注入前剥离）、最近 3 轮自动回灌、入站 12 行窗口自动捕获提问、非模态侧栏「回复信箱」与笔记内手写 `✍️ 答` 原地直发；新增「派发：先生成草稿」与载荷快照先富化再落盘。
+- **更多 Agent、委派体验与运行护栏**：新增 Hermes Agent 与千问办公（QwenWork）追踪支持（Hermes 支持 ACP/终端委派）；确认框支持当次切换工作模式/沙箱、项目文件夹建议与预览草稿；支持 Antigravity ACP 自动允许与弹窗一键授权；新增子代理父子树展示、工作台管家中途看护（15 分钟无输出提醒）、目标→`task.md` Planner 与工作台总览。
+- **生产四要素加固（Eval / Trace / Deploy / Security）**：
+  - **Security**：API Key 支持 `env:VAR` 与 Vault 外 `~/.agent-deck/secrets.json`（`0600`）避免明文进同步盘；`autoApprove` 下新增 `evaluatePermissionPolicy` 对高危命令、敏感路径（`.ssh`/`.aws`/`.env`）与工作区外写删强制升阶确认；`openTerminalAt` 统一收口至 `openTerminal`，加固 AppleScript 转义与 Warp 独立配置名，并用 `path.join` 替换派发路径硬编码 `/`。
+  - **Trace**：为每次派发生成 `traceId` 串联上下文解析、载荷快照、30 帧协议环形缓冲、权限决策与错误分类，脱敏落盘 `~/.agent-deck/traces/*.jsonl`（14 天滚动清理且测试期不污染本机）；新增「导出脱敏诊断报告」命令（`export-diagnostics`）。
+  - **Eval & Deploy**：新增纯 Node 离线评测基准（`npm run eval`）与部署/体积/`ASSET_VERSION` 检查（`npm run check:deploy`），补齐 Linux / macOS / Windows 三端 CI 矩阵（含 `swiftc -typecheck`）。
+
 ## 1.12.2
 
 - **侧栏「现在」新增「按状态」视图**：卡片头部的切换从「按项目 / 列表」变成「按项目 / 按状态 / 列表」三颗胶囊。按状态固定分「等你 → 待认领 → 在跑 → 异常」四档，空档不出卡片；已派发但还没有会话接手的任务单列「待认领」，不再混进在跑；组内仍按状态与最近活跃排序。状态组头只保留折叠与数量徽章（项目目录 / 工作台 / 停止本项目仍只在按项目视图里），「等你」和「异常」保留琥珀色描边；折叠记忆与按项目视图各记各的。`settings.ui.nowGroupBy` 新增 `status` 取值，旧的 `project` / `flat` 与默认值不变。

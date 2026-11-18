@@ -37,8 +37,14 @@ jobs:
       - name: Test plugin
         run: npm test
 
+      - name: Run offline context eval
+        run: npm run eval
+
       - name: Build plugin
         run: npm run build
+
+      - name: Check deploy & asset integrity
+        run: npm run check:deploy
 
       - name: Check manifest version matches tag
         env:

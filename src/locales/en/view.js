@@ -130,7 +130,7 @@ export default {
   "按项目": "By project",
   "按状态": "By status",
   "列表": "List",
-  "待认领": "Unclaimed",
+  "⏳ 待认领": "⏳ Unclaimed",
   "异常": "Issues",
   "按 Agent": "By agent",
   "{n} 异常": "{n} issues",
@@ -187,4 +187,5 @@ export default {
   "取消管家": "Cancel Steward",
   "重试汇总": "Retry",
   "忽略": "Dismiss",
+  "千问办公": "QwenWork",
 };

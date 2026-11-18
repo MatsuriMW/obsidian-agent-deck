@@ -46,6 +46,13 @@ const CAPABILITIES = new Map([
     delegate: true,
     runnerKind: "acp",
     acp: true,
+    acpArgs: ["acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "deepseek-v4-pro",
+    acpDefaultEffort: "high",
+    acpModelOptional: false,
+    acpEffortOptional: false,
+    acpAllowUnknownEffort: true,
     desktopHandoffOnly: false,
     terminalHandoff: false,
     continueInApp: true,
@@ -58,9 +65,17 @@ const CAPABILITIES = new Map([
     delegate: true,
     runnerKind: "acp",
     acp: true,
+    acpArgs: ["acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "antigravity-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: false,
+    acpAllowUnknownEffort: false,
     desktopHandoffOnly: false,
     terminalHandoff: false,
     continueInApp: true,
+    continueRequiresAcp: true,
     permissionControl: false,
     archiveDetection: false,
     modelCatalog: true,
@@ -70,6 +85,13 @@ const CAPABILITIES = new Map([
     delegate: true,
     runnerKind: "acp",
     acp: true,
+    acpArgs: ["acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "opencode-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
     desktopHandoffOnly: false,
     terminalHandoff: true,
     continueInApp: true,
@@ -93,6 +115,39 @@ const CAPABILITIES = new Map([
     autoOpenDesktopOnDone: false,
     waitDesktopUntilDone: true,
     sessionLinkScheme: "obsidian",
+  }],
+  ["hermes", {
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    acpArgs: [],
+    acpAutoApprove: true,
+    acpDefaultModel: "hermes-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: true,
+    modelCatalog: true,
+    autoOpenDesktopOnDone: false,
+    waitDesktopUntilDone: false,
+    sessionLinkScheme: "obsidian",
+  }],
+  ["qwenwork", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "qwenwork",
   }],
   ["cursor", {
     delegate: false,
@@ -136,9 +191,17 @@ export function getAgentCapability(id) {
     delegate: false,
     runnerKind: "handoff",
     acp: false,
+    acpArgs: ["acp"],
+    acpAutoApprove: false,
+    acpDefaultModel: "",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
     desktopHandoffOnly: !!meta.trackingOnly,
     terminalHandoff: false,
     continueInApp: false,
+    continueRequiresAcp: false,
     permissionControl: false,
     archiveDetection: false,
     modelCatalog: false,
@@ -160,8 +223,19 @@ export function listAgentsByCapability(cap) {
 
 export const delegateAgents = () => listAgentsByCapability("delegate");
 export const acpAgents = () => listAgentsByCapability("acp");
+export const acpAutoApproveAgents = () => listAgentsByCapability("acpAutoApprove");
 export const cliHandoffAgents = () => listAgentsByCapability("terminalHandoff");
 export const canContinueInApp = (id) => hasAgentCapability(id, "continueInApp");
+export function canContinueSession(session, jobs = null, { requireSid = true } = {}) {
+  if (!session?.agent || !canContinueInApp(session.agent)) return false;
+  const sid = session.sid || session.sessionId || "";
+  if (requireSid && !sid) return false;
+  if (getAgentCapability(session.agent).continueRequiresAcp) {
+    const owned = sid && jobs ? Object.values(jobs).find((j) => j.agent === session.agent && j.sessionId === sid) : null;
+    return (session.transport || owned?.transport) === "acp";
+  }
+  return true;
+}
 export const archiveCapableAgents = () => listAgentsByCapability("archiveDetection");
 export const permissionCapableAgents = () => listAgentsByCapability("permissionControl");
 export const usesDeckSessionLink = (id) => {

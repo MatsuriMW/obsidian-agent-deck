@@ -11,6 +11,7 @@ export const RECORD_VIEW_LABELS = {
   timeline: "时间线",
 };
 export const isBriefRecord = line => /💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?(?:任务：.+；结论：|Task:\s*.+;\s*Result:\s*.+)/.test(line);
+export const isPinnedLine = line => J.hasPinMarker(line);
 
 function groupPrefValue(map, group) {
   if (!map || !group) return undefined;
@@ -123,7 +124,9 @@ export function recordIsOpen(settings, mode, group) {
   return recordStartsOpen(mode, group);
 }
 
-function selectVisibleLines(lineNums, lines, mode = "latest1", summaryLines = []) {
+function selectVisibleLines(lineNums, lines, mode = "latest1", summaryLines = [], extraPinned = null) {
+  const pinned = lineNums.filter((n) => isPinnedLine(lines[n]) || extraPinned?.has(n));
+  const merge = (base) => [...new Set([...base, ...pinned])].sort((a, b) => a - b);
   const count = { latest1: 1, latest3: 3, latest5: 5 }[mode];
   if (count) {
     const results = lineNums.filter((n) => /^(?:\s*(?:[-*+]|\d+[.)])\s+)?💬\s/.test(lines[n]) && !/💬\s+累计总结[：:]/.test(lines[n]));
@@ -131,16 +134,17 @@ function selectVisibleLines(lineNums, lines, mode = "latest1", summaryLines = []
       const m = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(lines[n]) || /(?:第(\d+)轮|Round\s+(\d+))[：:]/.exec(lines[n]);
       return m ? +(m[1] || m[2]) : 0;
     };
-    return results.length ? results.sort((a, b) => round(b) - round(a) || b - a).slice(0, count).sort((a, b) => a - b) : summaryLines;
+    const picked = results.length ? results.sort((a, b) => round(b) - round(a) || b - a).slice(0, count) : summaryLines;
+    return merge(picked);
   }
-  // expanded 模式被手动收起后也必须隐藏明细。
-  return summaryLines;
+  // expanded 模式被手动收起后也必须隐藏明细，但保留用户 Pin 住的关键记录。
+  return merge(summaryLines);
 }
 
-// 收起时按 AI 结论计数；提问、链接、用时和步骤只在展开后显示。
+// 收起时按 AI 结论计数；提问、链接、用时和步骤只在展开后显示；被 Pin 的关键记录折叠时不隐藏。
 // 累计总结是没有轮次结论时的回退，不占最近 N 条的名额。
-export function visibleRecords(group, lines, mode = "latest1") {
-  return selectVisibleLines(group.records, lines, mode, group.summaries);
+export function visibleRecords(group, lines, mode = "latest1", extraPinned = null) {
+  return selectVisibleLines(group.records, lines, mode, group.summaries, extraPinned);
 }
 
 export function visibleTableEntries(group, lines, mode = "latest1", open = false, redundantLine = -1) {
@@ -153,8 +157,7 @@ export function visibleTableEntries(group, lines, mode = "latest1", open = false
 }
 
 function cleanRecordText(raw) {
-  return String(raw || "")
-    .replace(J.RECORD_PROVENANCE_RE, "")
+  return J.stripPinMarker(String(raw || "").replace(J.RECORD_PROVENANCE_RE, ""))
     .replace(/(?:[ \t]+|^)\^[a-z0-9-]+(?:\S*)?[ \t]*$/i, "")
     .trim();
 }
@@ -207,7 +210,7 @@ export function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
     text: cleanRecordText(l).replace(/^\s*(?:[-*+]|\d+[.)])\s+/, ""),
   })).filter((c) => c.text);
 
-  return { kind, kindLabel, round, content, task, conclusion, meta, children };
+  return { kind, kindLabel, round, content, task, conclusion, meta, children, ...(isPinnedLine(rawLine) ? { pinned: true } : {}) };
 }
 
 export function buildTableModel(parsedRows = []) {
@@ -239,6 +242,8 @@ export function buildTableModel(parsedRows = []) {
         conclusion: next.content,
         conclusionLine: next.line,
         line: next.line,
+        pinned: Boolean(r.pinned || next.pinned),
+        pinLine: next.line,
         startedAt: Number(r.startedAt || next?.startedAt) || 0,
         children: next.children || [],
         sig: `${r.sig}+${next.sig}`,
@@ -258,6 +263,8 @@ export function buildTableModel(parsedRows = []) {
         conclusion: r.content,
         conclusionLine: r.line,
         line: r.line,
+        pinned: Boolean(r.pinned),
+        pinLine: r.line,
         startedAt: Number(r.startedAt) || 0,
         children: r.children || [],
         sig: r.sig,
@@ -277,6 +284,8 @@ export function buildTableModel(parsedRows = []) {
         conclusion: r.content,
         conclusionLine: r.line,
         line: r.line,
+        pinned: Boolean(r.pinned),
+        pinLine: r.line,
         startedAt: Number(r.startedAt) || 0,
         children: r.children || [],
         sig: r.sig,
@@ -295,6 +304,8 @@ export function buildTableModel(parsedRows = []) {
         conclusion: "",
         conclusionLine: r.line,
         line: r.line,
+        pinned: Boolean(r.pinned),
+        pinLine: r.line,
         startedAt: Number(r.startedAt) || 0,
         children: r.children || [],
         sig: r.sig,
@@ -313,6 +324,8 @@ export function buildTableModel(parsedRows = []) {
       conclusion: brief ? r.conclusion : r.content,
       conclusionLine: r.line,
       line: r.line,
+      pinned: Boolean(r.pinned),
+      pinLine: r.line,
       startedAt: Number(r.startedAt) || 0,
       children: r.children || [],
       sig: r.sig,
@@ -372,8 +385,9 @@ export function adBlockIdRanges(text, trackedIds = new Set()) {
       if (!fence) { fence = marker[1][0]; fenceLength = marker[1].length; }
       else if (marker[1][0] === fence && marker[1].length >= fenceLength && !marker[2].trim()) fence = "";
     } else if (!fence) {
-      const turn = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/.exec(line);
-      if (turn) out.push({ from: offset + turn.index, to: offset + turn.index + turn[0].length });
+      for (const m of line.matchAll(/[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+|pin) -->/g)) {
+        out.push({ from: offset + m.index, to: offset + m.index + m[0].length });
+      }
       const id = /(?:[ \t]+|^)\^([a-z0-9-]+)(?:\S*)?[ \t]*$/i.exec(line);
       if (id && hiddenBlockId(id[1], trackedIds)) out.push({ from: offset + id.index, to: offset + line.length });
       const link = J.parseLink(line), suffix = /[ \t]+`([^`]+)`[ \t]*$/.exec(line);

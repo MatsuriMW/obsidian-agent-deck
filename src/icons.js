@@ -18,8 +18,10 @@ export const AGENT_ICONS = {
 
 export const STATE_ICONS = {
   run: "loader-circle",
+  starting: "hourglass",
   wait: "hand",
   quiet: "clock",
+  queued: "hourglass",
   "needs-approval": "hand",
   error: "triangle-alert",
   limit: "triangle-alert",

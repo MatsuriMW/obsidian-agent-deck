@@ -1,4 +1,6 @@
 import { canOpenClient } from "./workflow.js";
+import { canContinueSession } from "./agent-registry.js";
+import { isAllowPermissionOption, pickPermissionOption } from "./delegation-runners.js";
 import { Modal, Notice, MarkdownRenderer, Component } from "obsidian";
 import { readConversation, archiveConversation, conversationTitle } from "./conversation.js";
 import { AGENTS } from "./constants.js";
@@ -80,7 +82,11 @@ export class ConversationModal extends Modal {
     const foot = el.createDiv({ cls: "ad-conv-foot" });
     const footIco = foot.createSpan({ cls: "ad-conv-foot__ico", attr: { "aria-hidden": "true" } });
     setLucide(footIco, "info");
-    foot.createSpan({ text: t("此 Agent 的续聊请在原客户端完成。") });
+    foot.createSpan({
+      text: canContinueSession(this.session, this.plugin?.jobs)
+        ? t("可通过任务右键菜单「继续对话（追问）」在当前会话中追问。")
+        : t("此 Agent 的续聊请在原客户端完成。"),
+    });
 
     this.load();
     this.timer = setInterval(() => this.load(), 2000);
@@ -201,7 +207,7 @@ export class ConversationModal extends Modal {
 export class AcpPermissionModal extends Modal {
   constructor(app, info, resolve) { super(app); this.info = info; this.resolve = resolve; }
   onOpen() {
-    const { toolCall, options } = this.info;
+    const { toolCall, options = [], onAutoApprove } = this.info;
     const agent = AGENTS[this.info.agent] || { name: this.info.agent || "Agent", color: "#746d94", soft: "rgba(116,109,148,.13)" };
     const el = this.contentEl;
     el.addClass("ad-modal", "ad-perm-modal");
@@ -215,11 +221,23 @@ export class AcpPermissionModal extends Modal {
       details.createEl("summary", { text: t("查看操作详情") });
       details.createEl("pre", { text: JSON.stringify(toolCall.rawInput, null, 2) });
     }
+    const allowOption = pickPermissionOption(options, true);
+    if (allowOption && typeof onAutoApprove === "function") {
+      el.createDiv({ cls: "ad-hint", text: t("开启自动允许后将不再逐次弹窗询问 {agent} 的工具权限；可随时在设置或委派弹窗中关闭。", { agent: agent.name }) });
+    }
     const row = el.createDiv({ cls: "ad-modalfoot ad-btnrow" });
     for (const option of options) {
-      const allow = /allow/i.test(String(option.kind || ""));
-      const button = row.createEl("button", { cls: `ad-btn ${allow ? "ad-btn--cta" : "ad-btn--ghost"}`, text: option.name || option.kind, attr: { type: "button" } });
+      const allow = isAllowPermissionOption(option);
+      const button = row.createEl("button", { cls: `ad-btn ${allow ? "ad-btn--cta" : "ad-btn--ghost"}`, text: option.name || option.optionId || option.kind, attr: { type: "button" } });
       button.onclick = () => { this.choice = option.optionId; this.close(); };
+    }
+    if (allowOption && typeof onAutoApprove === "function") {
+      const autoBtn = row.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("允许并开启 {agent} 自动允许", { agent: agent.name }), attr: { type: "button" } });
+      autoBtn.onclick = () => {
+        Promise.resolve(onAutoApprove()).catch((e) => console.error("[agent-deck] autoApprove", e));
+        this.choice = allowOption.optionId;
+        this.close();
+      };
     }
   }
   onClose() { this.resolve(this.choice); this.contentEl.empty(); }

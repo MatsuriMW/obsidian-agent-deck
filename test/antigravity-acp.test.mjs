@@ -134,3 +134,62 @@ process.stdout.write('QODER_OK\\n');
   fs.rmSync(dir,{recursive:true,force:true});
  }
 });
+
+test('Antigravity autoApprove skips permission modal and Turn 2 writeback updates the note', async () => {
+  const fPerm = fixture('permission');
+  try {
+    // 1. autoApprove: true skips requestAcpPermission entirely
+    fPerm.plugin.settings.delegate.antigravity.autoApprove = true;
+    let prompted = 0;
+    fPerm.plugin.requestAcpPermission = async () => { prompted++; return 'permit-123'; };
+    const jp = await fPerm.send({ destination: 'background' });
+    await settle(jp);
+    assert.equal(jp.state, 'done');
+    assert.equal(prompted, 0, 'autoApprove: true must not ask permission');
+    assert.equal(fPerm.read().find((m) => m.id === 999).result.outcome.optionId, 'permit-123');
+  } finally {
+    fPerm.cleanup();
+  }
+
+  const f = fixture();
+  let note = '- TODO 测试自动授权和续聊 ^ad-agy1\n';
+  const files = new Map();
+  f.plugin.readNote = async () => note;
+  f.plugin.writeNote = async (_p, next) => { note = next; };
+  f.plugin.app = {
+    vault: {
+      getAbstractFileByPath: (p) => (p === 'test.md' ? { path: p } : files.get(p) || null),
+      createFolder: async () => {},
+      create: async (p, text) => { const file = { path: p, text }; files.set(p, file); return file; },
+      modify: async (file, text) => { file.text = text; },
+      read: async (file) => file.text,
+    },
+  };
+  f.plugin.settings.autoWriteResult = true;
+  f.plugin.settings.delegate.writeLink = true;
+  try {
+    const j = await f.send({ destination: 'background' });
+    await settle(j);
+    for (let k = 0; k < 50 && !j.resultWritten; k++) await new Promise((r) => setTimeout(r, 10));
+    assert.equal(j.state, 'done');
+    assert.ok(note.includes('💬 AGY_OK'), 'Turn 1 wrote result back to note');
+
+    // 2. Simulating continueSession after jobs cleanup (passing path/blockId/transport) still runs Turn 2 and writes back
+    delete f.plugin.jobs[j.id];
+    const next = await f.d.continueSession({
+      agent: 'antigravity',
+      sid: j.sessionId,
+      transport: 'acp',
+      path: 'test.md',
+      blockId: 'ad-agy1',
+      destination: 'background',
+      cwd: f.dir,
+    }, '第二轮追问');
+    await settle(next);
+    for (let k = 0; k < 50 && !next.resultWritten; k++) await new Promise((r) => setTimeout(r, 10));
+    assert.equal(next.state, 'done');
+    assert.ok(note.includes('💬 第2轮：AGY_OK'), 'Turn 2 wrote result back to note');
+  } finally {
+    f.cleanup();
+  }
+});

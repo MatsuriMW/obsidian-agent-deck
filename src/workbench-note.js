@@ -25,6 +25,7 @@ export function buildWorkbenchNote({ boardFiles = [], memory = {}, tasks = [], a
     "",
     `- ${t("表格视图")}：[[Agent Deck/记忆.base]]`,
     `- ${t("逐条审阅")}：${t("命令面板 → 记忆：逐条审阅")}`,
+    `- ${t("批量导入")}：${t("命令面板 → 记忆：从 Markdown / JSON 导入到记忆库…（或直接把文件拖进记忆看板）")}`,
     `- ${t("体检")}：${t("命令面板 → 记忆：体检")}`,
     "",
     "## 最近任务规划",

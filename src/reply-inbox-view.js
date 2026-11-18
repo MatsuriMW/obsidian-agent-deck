@@ -5,6 +5,7 @@ import { t } from "./i18n.js";
 import { AGENTS } from "./constants.js";
 import { inboxSorted, stillPending } from "./reply-inbox.js";
 import { suggestOptions } from "./thread-replies.js";
+import { canContinueSession } from "./agent-registry.js";
 
 export const REPLY_INBOX_TYPE = "agent-deck-reply-inbox";
 
@@ -83,16 +84,19 @@ export class ReplyInboxView extends ItemView {
     input.addEventListener("input", () => this.drafts.set(key, input.value));
 
     const actions = card.createDiv({ cls: "ad-inbox__actions" });
-    const send = actions.createEl("button", { cls: "mod-cta", text: t("回答并继续") });
-    send.setAttribute("type", "button");
-    send.onclick = async () => {
-      const value = input.value.trim();
-      if (!value) return input.focus();
-      send.disabled = true;
-      await this.plugin.submitInboxReply(item, value, { continueSession: true });
-      this.drafts.delete(key);
-    };
-    const keep = actions.createEl("button", { text: t("先记下回答") });
+    const canContinue = canContinueSession(item, this.plugin?.jobs);
+    if (canContinue) {
+      const send = actions.createEl("button", { cls: "mod-cta", text: t("回答并继续") });
+      send.setAttribute("type", "button");
+      send.onclick = async () => {
+        const value = input.value.trim();
+        if (!value) return input.focus();
+        send.disabled = true;
+        await this.plugin.submitInboxReply(item, value, { continueSession: true });
+        this.drafts.delete(key);
+      };
+    }
+    const keep = actions.createEl("button", { ...(canContinue ? {} : { cls: "mod-cta" }), text: t("先记下回答") });
     keep.setAttribute("type", "button");
     keep.onclick = async () => {
       const value = input.value.trim();

@@ -41,4 +41,35 @@ test('explicitly disabled state and disabling during compilation never get overr
   f.p.settings.showMenuBar = false; release(); await pending;
   assert.equal(f.p.settings.showMenuBar, false); assert.equal(f.calls.launched, 0); assert.equal(f.calls.saved, 0);
 });
+
+test('MenuBarBridge drains togglePin commands from cmds directory without stealing focus', () => {
+  const pins = new Set();
+  const f = fixture({ menuBarPinnedSids: [] });
+  f.p.setMenuBarSessionPinned = (sid, want) => {
+    if (want) pins.add(sid); else pins.delete(sid);
+    f.p.settings.menuBarPinnedSids = [...pins];
+    return true;
+  };
+  fs.mkdirSync(f.bridge.cmdDir, { recursive: true });
+  fs.writeFileSync(path.join(f.bridge.cmdDir, '001.json'), JSON.stringify({ action: 'togglePin', sid: 'ses-1', pinned: true }));
+  assert.equal(f.bridge.drainCommands(), true);
+  assert.deepEqual(f.p.settings.menuBarPinnedSids, ['ses-1']);
+  assert.equal(fs.readdirSync(f.bridge.cmdDir).length, 0);
+});
+
+test('MenuBarBridge drains setNowGroupBy commands and ignores invalid modes', () => {
+  const f = fixture({ ui: { nowGroupBy: 'project' } });
+  let refreshed = 0;
+  f.p.refreshUI = () => { refreshed++; };
+  fs.mkdirSync(f.bridge.cmdDir, { recursive: true });
+  fs.writeFileSync(path.join(f.bridge.cmdDir, '001.json'), JSON.stringify({ action: 'setNowGroupBy', mode: 'bogus' }));
+  assert.equal(f.bridge.drainCommands(), false);
+  assert.equal(f.p.settings.ui.nowGroupBy, 'project');
+
+  fs.writeFileSync(path.join(f.bridge.cmdDir, '002.json'), JSON.stringify({ action: 'setNowGroupBy', mode: 'status' }));
+  assert.equal(f.bridge.drainCommands(), true);
+  assert.equal(f.p.settings.ui.nowGroupBy, 'status');
+  assert.equal(refreshed, 1);
+  assert.equal(f.calls.saved, 1);
+});
 process.on('exit', () => fs.rmSync(root, { recursive: true, force: true }));

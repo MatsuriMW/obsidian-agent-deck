@@ -279,8 +279,8 @@ export function buildLineProgressInfo(plugin, rawLine, lines, lineIndex, session
       stateText = enriched.permTool ? t("等你允许 · {tool}", { tool: enriched.permTool }) : t("等你允许");
     } else if (state === "queued") {
       stateText = enriched.queueResetAt
-        ? t("排队续跑 · {time}", { time: fmtClockHm(enriched.queueResetAt * 1000) })
-        : t("排队续跑");
+        ? `⏳ ${t("排队续跑 · {time}", { time: fmtClockHm(enriched.queueResetAt * 1000) })}`
+        : `⏳ ${t("排队续跑")}`;
     } else if (state === "limit") {
       stateText = enriched.resets && now > enriched.resets
         ? t("额度已恢复，等你继续")

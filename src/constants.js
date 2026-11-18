@@ -6,6 +6,7 @@ import { t } from "./i18n.js";
 export const CONFIRM_FIRST = "先阅读任务及相关上下文。只有影响需求、范围或验收的问题尚不明确时，才集中向我提问；已明确或已确认的信息不要重复询问。信息充分时，简要说明执行计划并继续完成任务，运行必要检查后汇报结果。超出已授权范围的操作，先征求确认。";
 
 export const STORE_VERSION = 1;
+export const MEMORY_QUERY_ASSET_VERSION = 1;
 
 export const DEFAULT_RECORD_RULES = {
   boldTitle: true,        // 自动记录母块标题自动加粗 **...**
@@ -110,6 +111,31 @@ export const AGENTS = {
     deep: "qoder",
     desktopOnly: true,
   },
+  hermes: {
+    id: "hermes",
+    name: "Hermes Agent",
+    short: "Hermes",
+    glyph: "☿",
+    color: "#b57536",
+    soft: "rgba(181,117,54,.13)",
+    kind: "hermes",
+    where: ["~/.hermes/state.db · $HERMES_HOME", t("Hermes Agent 会话与 ACP / CLI")],
+    deep: "hermes",
+    desktopOnly: false,
+  },
+  qwenwork: {
+    id: "qwenwork",
+    name: "千问办公",
+    short: "千问办公",
+    glyph: "✦",
+    color: "#6b63d6",
+    soft: "rgba(107,99,214,.13)",
+    kind: "qwenwork",
+    where: ["~/.qwenworkcn/projects", t("千问办公（QwenWork）桌面版")],
+    deep: "qwenwork",
+    desktopOnly: true,
+    trackingOnly: true,
+  },
   cursor: {
     id: "cursor",
     name: "Cursor",
@@ -138,7 +164,7 @@ export const AGENTS = {
   },
 };
 
-export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "cursor", "grokbot"];
+export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "qwenwork", "cursor", "grokbot"];
 
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
@@ -147,6 +173,7 @@ export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent
 export const MODEL_CATALOG = [
   { id: "antigravity-default", agent: "antigravity", name: t("CLI 当前默认模型"), value: "", provider: "Antigravity", context: "—", tags: [], note: t("使用服务端的默认模型；读取可用模型后可指定模型。") },
   { id: "opencode-default", agent: "opencode", name: t("CLI 当前默认模型"), value: "", provider: "OpenCode", context: "—", tags: [], note: t("使用服务端的默认模型；读取可用模型后可指定模型。") },
+  { id: "hermes-default", agent: "hermes", name: t("CLI 当前默认模型"), value: "", provider: "Hermes", context: "—", tags: [], note: t("使用 Hermes 当前配置的默认模型；读取可用模型后可指定模型。") },
   {
     id: "qoder-ultimate",
     agent: "qoder",
@@ -332,6 +359,7 @@ export const MODEL_CATALOG = [
 export const EFFORTS = {
   antigravity: ["low", "medium", "high", "xhigh"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   opencode: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
+  hermes: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   qoder: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("传给 qodercli --reasoning-effort") })),
   codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: t("由所选 Codex 模型支持的强度决定") })),
   claude: [
@@ -380,7 +408,7 @@ export const CLAUDE_PERMISSIONS = [
 export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, qwenwork: true, cursor: true, grokbot: true },
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
   dayCutoff: 0,
@@ -479,6 +507,8 @@ export const DEFAULTS = {
   menuBarHotkey: "control+option+command+D",
   menuBarHideNautilus: true,
   menuBarMigrated: false,
+  menuBarPinnedSids: [],
+  menuBarAutoTitles: {},
   showEditorPills: true,
   lineProgress: true,
   showRibbonIcon: true,
@@ -505,6 +535,7 @@ export const DEFAULTS = {
     codex: { transport: "desktop", model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write", project: true },
     antigravity: { model: "antigravity-default", effort: "medium", path: "", cwd: "", autoApprove: false },
     opencode: { model: "opencode-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    hermes: { model: "hermes-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
       model: "deepseek-v4-pro",
@@ -518,6 +549,7 @@ export const DEFAULTS = {
     mentionTrigger: "@",
     promptPrefix: "",
     promptSuffix: "",
+    excludedDirs: [],
     markStatus: true,
     confirmFirst: true,   // 委派消息末尾追加可自定义的附加要求
     confirmFirstPrompt: CONFIRM_FIRST,
@@ -530,7 +562,7 @@ export const DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "deepseek-v4-pro", antigravity: "antigravity-default", opencode: "opencode-default", qoder: "qoder-ultimate" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "deepseek-v4-pro", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", qoder: "qoder-ultimate" },
     effort: "high",
     effortByAgent: {},
   },
@@ -568,8 +600,12 @@ export function syncDelegationSettings(settings, raw = null) {
   m.defaultByAgent ||= {};
   m.effortByAgent ||= {};
   m.enabled = Array.isArray(m.enabled) ? m.enabled : [];
-  if (!["claude", "codex", "dsh", "antigravity", "opencode", "qoder"].includes(d.target)) d.target = "claude";
-  for (const agent of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder"]) {
+  const delegateAgents = Object.keys(DEFAULTS.delegate).filter((k) => {
+    const entry = DEFAULTS.delegate[k];
+    return Boolean(entry && typeof entry === "object" && !Array.isArray(entry));
+  });
+  if (!delegateAgents.includes(d.target)) d.target = "claude";
+  for (const agent of delegateAgents) {
     const cfg = (d[agent] ||= {});
     const rawDelModel = raw?.delegate?.[agent]?.model;
     const rawModModel = raw?.models?.defaultByAgent?.[agent];

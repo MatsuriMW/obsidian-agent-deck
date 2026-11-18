@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { Dreaming, parseMemories, profileWithDream, notePath, DREAM_START, DREAM_END } from '../src/dream.js';
+import { Dreaming, parseMemories, profileWithDream, evidenceBlocks, notePath, DREAM_START, DREAM_END } from '../src/dream.js';
 import { DEFAULTS, deepMerge, journalPath, dayKeyToday } from '../src/constants.js';
 const sources = new Map([['S1',{kind:'user',text:'以后请用中文回复'}],['S2',{kind:'ai',text:'构建完成'}]]);
 const answer = (memories) => JSON.stringify({memories});
@@ -45,4 +45,39 @@ settings.dream.lastRun=0; settings.dream.lastAttempt=Date.now();
 await dream.tick(); assert.equal(files.get(settings.dream.path),memory);
 dream.model=async()=>{await new Promise(r=>setTimeout(r,20));calls++;return answer([])};
 await Promise.all([dream.run(),dream.run()]); assert.equal(calls,2);
+
+{
+ // Pin as a chapter：Dreaming 优先装入 pinned 记录，同时继续剥离 <!-- ad-pin --> 注释并保持 AI/user 来源边界
+ const pinnedDoc = [
+  '- DOING 大任务',
+  '  - 💬 普通废话：' + '填充噪声。'.repeat(7000),
+  '  - 💬 关键决定：优先支持双平台发布验收 <!-- ad-turn:x:1 --> <!-- ad-pin -->',
+ ].join('\n');
+ const blocks = evidenceBlocks(pinnedDoc, '日记/big.md');
+ assert.equal(blocks.find((b) => b.text.includes('普通废话'))?.pinned, undefined);
+ const pinnedBlock = blocks.find((b) => b.text.includes('关键决定'));
+ assert.equal(pinnedBlock?.pinned, true);
+ assert.ok(!pinnedBlock.text.includes('ad-pin'));
+
+ const files2 = new Map();
+ const settings2 = deepMerge(DEFAULTS, { dream: { path: '记忆.md' } });
+ const todayPath = journalPath({ vault: {} }, settings2, dayKeyToday(settings2));
+ files2.set(todayPath, pinnedDoc);
+ const vault2 = {
+  getAbstractFileByPath: (path) => files2.has(path) ? { path } : null,
+  read: async (f) => files2.get(f.path),
+  modify: async (f, t) => files2.set(f.path, t),
+  process: async (f, fn) => files2.set(f.path, fn(files2.get(f.path))),
+  create: async (p, t) => { files2.set(p, t); return { path: p }; },
+  createFolder: async (p) => files2.set(p, ''),
+ };
+ const seenPrompts = [];
+ const dream2 = new Dreaming({ settings: settings2, jobs: {}, app: { vault: vault2, plugins: {} }, saveSettings: async () => {}, notice() {} }, async (prompt) => {
+  seenPrompts.push(prompt);
+  return JSON.stringify({ memories: [] });
+ });
+ await dream2.run(true, { drain: false });
+ assert.equal(seenPrompts.length, 1);
+ assert.ok(seenPrompts[0].includes('关键决定') && seenPrompts[0].includes('"pinned":true'), 'single-batch budget prioritizes pinned block ahead of early filler');
+}
 console.log('PASS dreaming: evidence validation, AI/user separation, manual edits, profile preservation, idempotency, export, retry and concurrency');

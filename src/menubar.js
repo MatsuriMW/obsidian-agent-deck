@@ -26,11 +26,14 @@ const LABEL_KEYS = [
   "等待 Agent Deck…",
   "在跑", "等你", "安静", "等你允许", "出错", "限额", "完成", "最近", "空闲",
   "{n} 个 NEEDOK? 需要你允许",
-  "现在没有要显示的会话",
-  "主力 Agent 的会话会留在这里；其它 Agent 只在正在运行时出现，WorkBuddy 的等待会话也列。",
-  "主力 AGENT", "全量追踪", "其它 AGENT", "在跑 · WorkBuddy 等你",
+  "现在", "按项目", "按状态", "列表", "独立会话", "待认领", "⏳ 待认领", "异常",
+  "{n} 在跑", "{n} 等你", "{n} 异常",
+  "现在没有在跑的会话",
+  "等待中的提问或终端任务、待认领与在跑会话会出现在这里。",
   "等待 Agent 会话", "共 {n} 个 · 向下滑动", "点击卡片跳转",
   "打开面板", "重新扫描", "隐藏", "跑", "等",
+  "固定面板（始终显示）", "取消固定（点击外部自动收起）",
+  "置顶此会话到最上方", "取消置顶此会话",
 ];
 
 function menuLabels() {
@@ -65,6 +68,7 @@ export class MenuBarBridge {
     this.infoPath = path.join(this.appPath, "Contents", "Info.plist");
     this.srcPath = path.join(this.dir, "AgentDeckMenuBar.swift");
     this.statePath = path.join(this.dir, "menubar.json");
+    this.cmdDir = path.join(this.dir, "cmds");
     this.pidPath = path.join(this.dir, "menubar.pid");
     this.hashPath = path.join(this.dir, "menubar.sha");
     this.timer = null;
@@ -200,9 +204,35 @@ export class MenuBarBridge {
     }
   }
 
+  drainCommands() {
+    let changed = false;
+    let names;
+    try { names = fs.readdirSync(this.cmdDir).filter((n) => n.endsWith(".json")).sort(); } catch { return false; }
+    for (const name of names) {
+      const filePath = path.join(this.cmdDir, name);
+      try {
+        const raw = fs.readFileSync(filePath, "utf8");
+        try { fs.unlinkSync(filePath); } catch { /* raced */ }
+        const cmd = JSON.parse(raw);
+        if (cmd?.action === "togglePin" && cmd.sid && typeof this.plugin.setMenuBarSessionPinned === "function") {
+          if (this.plugin.setMenuBarSessionPinned(String(cmd.sid), cmd.pinned)) changed = true;
+        } else if (cmd?.action === "setNowGroupBy" && ["project", "status", "flat"].includes(cmd.mode)) {
+          this.plugin.settings.ui = { ...(this.plugin.settings.ui || {}), nowGroupBy: cmd.mode };
+          this.plugin.saveSettings?.();
+          this.plugin.refreshUI?.();
+          changed = true;
+        }
+      } catch {
+        try { fs.unlinkSync(filePath); } catch { /* ignore */ }
+      }
+    }
+    return changed;
+  }
+
   update(force = false) {
     if (!this.enabled || this.disabled) return;
     try {
+      if (this.drainCommands()) force = true;
       // 助手被杀或崩了就拉回来。以前这句在「状态没变就返回」之后，空闲时图标消失了也不会补
       if (this.timer && !this.isAlive() && Date.now() - (this.lastLaunch || 0) > 10000) this.launch();
       const { updatedAt, ...rest } = this.plugin.buildMenuBarState();

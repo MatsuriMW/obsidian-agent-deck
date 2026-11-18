@@ -5,12 +5,14 @@ import path from 'node:path';
 import os from 'node:os';
 import {pathToFileURL} from 'node:url';
 import esbuild from 'esbuild';
+import { ingestClaudeLine, ingestWorkbuddyLine, ingestAntigravityLine } from '../src/agent-ingestors.js';
+import { SessionTitleManager, parseSessionTitleReply } from '../src/session-titles.js';
 const root=path.resolve(import.meta.dirname,'..');
 const source=fs.readFileSync(path.join(root,'src/main.js'),'utf8');
 const stubs=new Map();
 for(const match of source.matchAll(/import\s*\{([^}]+)\}\s*from\s*"([^\"]+)"/g)){
  const spec=match[2];
- if(['./constants.js','./readers.js','./workflow.js','./attention.js','./i18n.js','./journal-archive.js','./organize-journal.js','./journal-layout.js'].includes(spec)) continue;
+ if(['./constants.js','./readers.js','./workflow.js','./attention.js','./i18n.js','./journal-archive.js','./organize-journal.js','./journal-layout.js','./project-workbench.js','./agent-registry.js','./task-mentions.js'].includes(spec)) continue;
  const exports=match[1].split(',').map(n=>n.trim().split(/\s+as\s+/)[0]).filter(Boolean);
  stubs.set(spec,exports.map(n=>n==='Plugin'?`export class Plugin { constructor(){this.cleanups=[]} register(fn){this.cleanups.push(fn)} registerView(){} addRibbonIcon(){} addSettingTab(){} registerEditorExtension(){} registerMarkdownPostProcessor(){} addCommand(){} registerObsidianProtocolHandler(){} registerInterval(id){this.register(()=>clearInterval(id))} }`: /^[A-Z]/.test(n)?`export class ${n} {constructor(){this.runners=new Map()} hide(){} stop(){} }`:`export function ${n}(){}`).join('\n'));
 }
@@ -123,4 +125,101 @@ console.log('PASS startup barrier, unload during restore, shared live snapshot, 
  again.saveSettings=async()=>{throw new Error('should not save');};
  again.app={workspace:{getLeavesOfType:()=>[],getRightLeaf:()=>({setViewState:async()=>{throw new Error('should not open');}}),rightSplit:{expand(){throw new Error('should not expand');}}}};
  assert.equal(again.openPanelOnce(),false,'an existing install keeps its panel position untouched');
+}
+
+{
+ // 阅读视图（preview）里隐藏的 editor 内容可能是旧的：readNote / writeNote 必须读写 Vault 而不是读过期的 editor
+ const q=new AgentDeckPlugin();
+ let disk='- TODO 测试\n\t- 📝 [[Agent Deck/派发/draft.md|派发草稿]]\n';
+ const previewView={getMode:()=>'preview',editor:{getValue(){throw new Error('must not read hidden preview editor')},transaction(){throw new Error('must not write hidden preview editor')}}};
+ const sourceView={getMode:()=>'source',editor:{getValue:()=>'来自编辑器的最新内容',transaction({changes:[c]}){disk=c.text}}};
+ q.viewForPath=(path)=>path==='preview.md'?previewView:sourceView;
+ q.app={vault:{getAbstractFileByPath:(path)=>({path}),read:async()=>disk,process:async(_file,fn)=>{disk=fn(disk)}}};
+ assert.equal(await q.readNote('preview.md'),disk);
+ await q.writeNote('preview.md','磁盘新内容');
+ assert.equal(disk,'磁盘新内容');
+ assert.equal(await q.readNote('source.md'),'来自编辑器的最新内容');
+ await q.writeNote('source.md','编辑器新内容');
+ assert.equal(disk,'编辑器新内容');
+}
+
+{
+ // 1. 原生客户端标题优先，WorkBuddy/Claude 的 ai-title 可更新，Antigravity 不把首句假冒成客户端标题
+ const usage = new AgentUsage({});
+ const claudeFc = { path: 'c.jsonl', agent: 'claude', sid: 'c1', id: 'c1', cwd: '/proj', app: 'claude', days: new Map(), msgs: new Map(), titles: new Map(), live: null };
+ ingestClaudeLine({ usage }, JSON.stringify({ type: 'user', sessionId: 'c1', cwd: '/proj', timestamp: new Date().toISOString(), message: { role: 'user', content: '很长的一段第一轮原始提问，不该一直充当侧栏标题' } }), claudeFc, new Set());
+ ingestClaudeLine({ usage }, JSON.stringify({ type: 'ai-title', sessionId: 'c1', aiTitle: 'Claude 自动总结标题' }), claudeFc, new Set());
+ assert.equal(usage.hasClientTitle('c1'), true);
+ assert.equal(usage.titles.get('c1'), 'Claude 自动总结标题');
+ ingestClaudeLine({ usage }, JSON.stringify({ type: 'custom-title', sessionId: 'c1', customTitle: '用户手动重命名' }), claudeFc, new Set());
+ assert.equal(usage.titles.get('c1'), '用户手动重命名');
+
+ const wbFc = { path: 'wb.jsonl', agent: 'workbuddy', sid: 'wb1', id: 'wb1', cwd: '/proj', app: 'workbuddy', days: new Map(), msgs: new Map(), titles: new Map(), live: null };
+ ingestWorkbuddyLine({ usage }, JSON.stringify({ type: 'message', role: 'user', timestamp: Date.now(), content: [{ type: 'input_text', text: 'WorkBuddy 原始首句提问' }] }), wbFc, new Set());
+ assert.equal(usage.hasClientTitle('wb1'), false, 'first prompt fallback does not lock out later ai-title');
+ ingestWorkbuddyLine({ usage }, JSON.stringify({ type: 'ai-title', aiTitle: 'WorkBuddy 总结名' }), wbFc, new Set());
+ assert.equal(usage.hasClientTitle('wb1'), true);
+ assert.equal(usage.meta.get('wb1')?.title, 'WorkBuddy 总结名');
+
+ const agyFc = { path: 't.jsonl', agent: 'antigravity', sid: 'ag1', id: 'ag1', cwd: '/proj', app: 'antigravity', days: new Map(), msgs: new Map(), titles: new Map(), live: null };
+ ingestAntigravityLine({ usage, inferWorkspaceRoot: (x) => x, projectName: () => 'proj' }, JSON.stringify({ type: 'USER_INPUT', created_at: new Date().toISOString(), content: '帮我查一下最近的记忆写入为什么变慢了' }), agyFc, new Set());
+ assert.equal(usage.hasClientTitle('ag1'), false, 'Antigravity prompt excerpt must not claim to be a client summary title');
+
+ // 2. MenuBar 置顶排序、置顶补回历史会话，以及标题有额度走模型、没额度静默退回
+ const plugin = new AgentDeckPlugin();
+ plugin.settings = {
+  agents: { claude: true, antigravity: true },
+  primaryAgents: ['claude'],
+  menuBarPinnedSids: ['ag-pin'],
+  menuBarPrimaryLimit: 4,
+  menuBarOtherLimit: 1,
+  menuBarAutoTitles: { 'ag-cached': { title: 'Antigravity 缓存总结名', at: Date.now() } },
+ };
+ plugin.store = new Map();
+ plugin.usage = usage;
+ plugin.jobs = {};
+ plugin.extState = {};
+ plugin._lineMaps = {};
+ plugin.views = new Set();
+ plugin.liveSessions = () => [
+  { sid: 'c1', agent: 'claude', title: 'Claude 自动总结标题', clientTitle: true, text: 'raw', cwd: '/proj', state: 'run', lastAt: Date.now() },
+  { sid: 'ag-cached', agent: 'antigravity', title: '原始首句很长很长', clientTitle: false, text: '原始首句很长很长', cwd: '/proj', state: 'run', lastAt: Date.now() - 1000 },
+ ];
+ plugin.recentSessions = () => [
+  { sid: 'ag-pin', agent: 'antigravity', title: '两天前盯盘会话', clientTitle: false, text: '两天前盯盘会话', cwd: '/proj', state: 'wait', lastAt: Date.now() - 48 * 3600e3 },
+ ];
+ let mb = plugin.buildMenuBarState();
+ assert.deepEqual(mb.sessions.map((s) => s.sid), ['ag-pin', 'c1', 'ag-cached'], 'pinned session stays first across sections and history');
+ assert.equal(mb.sessions[0].pinned, true);
+ assert.equal(mb.sessions[1].title, 'Claude 自动总结标题');
+ assert.equal(mb.sessions[2].title, 'Antigravity 缓存总结名');
+
+ // 有额度生成，撞限额静默退回、不报错弹窗
+ let saves = 0;
+ let refreshed = 0;
+ const fakePlugin = {
+  _unloaded: false,
+  settings: { menuBarAutoTitles: {} },
+  saveSettings: async () => { saves++; },
+  menubar: { update: () => { refreshed++; } },
+ };
+ const mgr = new SessionTitleManager(fakePlugin, {
+  detect: () => ({ available: [{ id: 'agy' }] }),
+  model: async () => '{"title":"Antigravity 模型补齐标题"}',
+ });
+ mgr.maybeQueue([{ sid: 's-ok', clientTitle: false, text: '如何优化 Obsidian 插件内存占用' }]);
+ await new Promise((r) => setTimeout(r, 20));
+ assert.equal(mgr.cachedTitle('s-ok'), 'Antigravity 模型补齐标题');
+ assert.equal(saves, 1);
+ assert.equal(refreshed, 1);
+
+ const quotaMgr = new SessionTitleManager(fakePlugin, {
+  detect: () => ({ available: [{ id: 'agy' }] }),
+  model: async () => { throw new Error('429 rate limit / 额度不足'); },
+ });
+ quotaMgr.maybeQueue([{ sid: 's-quota', clientTitle: false, text: '另一个需要总结的会话内容在这里' }]);
+ await new Promise((r) => setTimeout(r, 20));
+ assert.equal(quotaMgr.cachedTitle('s-quota'), '');
+ assert.ok(quotaMgr.quotaBlockedUntil > Date.now(), 'quota error backs off silently');
+ assert.equal(parseSessionTitleReply('```json\n{"title":"「测试标题」"}\n```'), '测试标题');
 }

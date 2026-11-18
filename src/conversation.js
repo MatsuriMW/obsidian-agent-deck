@@ -21,7 +21,7 @@ export function conversationMessages(agent, source, transcriptText = "") {
   for (const line of source.split("\n")) {
     if (!line) continue;
     if (agent === "dsh" && !line.includes("user/message") && !line.includes("assistant/message")) continue;
-    if ((agent === "claude" || agent === "qoder") && !line.includes('"user"') && !line.includes('"assistant"')) continue;
+    if ((agent === "claude" || agent === "qoder" || agent === "qwenwork") && !line.includes('"user"') && !line.includes('"assistant"')) continue;
     if (agent === "codex" && !line.includes("response_item")) continue;
     if (agent === "workbuddy" && !line.includes('"message"')) continue;
     let d;
@@ -32,7 +32,7 @@ export function conversationMessages(agent, source, transcriptText = "") {
       role = d.type === "user/message" ? "user" : "assistant";
       text = textOf(d.data?.message?.content ?? d.data?.content);
       id = d.data?.message?.id || d.data?.id;
-    } else if ((agent === "claude" || agent === "qoder") && ["user", "assistant"].includes(d.type) && !d.isSidechain) {
+    } else if ((agent === "claude" || agent === "qoder" || agent === "qwenwork") && ["user", "assistant"].includes(d.type) && !d.isSidechain) {
       role = d.type; text = textOf(d.message?.content); id = d.uuid;
     } else if (agent === "codex" && d.type === "response_item" && d.payload?.type === "message") {
       role = d.payload.role; text = textOf(d.payload.content); id = d.payload.id;
@@ -55,7 +55,7 @@ export async function readConversation(plugin, session, cache = new Map()) {
   const files = [...(plugin.usage.files?.values() || [])].filter((f) => f.sid === sid && f.agent === session.agent && !f.sub);
   const messages = [];
   for (const file of files) {
-    if (["opencode", "qoder"].includes(session.agent) && file.path.includes("#")) {
+    if (["opencode", "qoder", "hermes"].includes(session.agent) && file.path.includes("#")) {
       const db = file.path.slice(0, file.path.lastIndexOf("#"));
       const rows = await desktopMessages(db, session.agent, sid);
       messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));

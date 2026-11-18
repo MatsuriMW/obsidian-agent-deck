@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseThread, pendingQuestion, answerSlot, fillAnswer, ensureQuestionId, anchorThreadText, appendQuestionText, lastQuestionLine, makeQuestionId, answerIdOf, locateQuestion, replyPromptText, suggestOptions } from "../src/thread-replies.js";
+import { parseThread, pendingQuestion, answerSlot, fillAnswer, ensureQuestionId, anchorThreadText, appendQuestionText, lastQuestionLine, makeQuestionId, answerIdOf, locateQuestion, replyPromptText, suggestOptions, latestWrittenAnswer } from "../src/thread-replies.js";
 
 // 一块典型的"问了、没答"的任务
 const openLines = [
@@ -192,6 +192,18 @@ test("入站：认得出「它在问我」，并把问句写成 ❓ 行（幂等
   assert.equal(appendQuestionText(once, { blockId: "ad-a", question: "仓库里用 npm 还是 pnpm？" }), once, "同一句不重复写");
   const second = appendQuestionText(once, { blockId: "ad-a", question: "要发 changelog 吗？" });
   assert.equal(second.split("\n").length, 4, "第二问另起一行");
+
+  // 没有块号时按 atLine 定位到当前块末尾，不掉回文件第 0 行
+  const headless = ["# 笔记标题", "", "- TODO 甲任务", "  - 背景说明", "", "- TODO 乙任务", ""].join("\n");
+  const atTask = appendQuestionText(headless, { atLine: 2, question: "甲要跑全量吗？", seed: "headless|q" });
+  const hLines = atTask.split("\n");
+  assert.equal(hLines[2], "- TODO 甲任务");
+  assert.match(hLines[4], /^\t- ❓ 第1轮：甲要跑全量吗？ \^ad-q-/);
+  assert.equal(hLines[6], "- TODO 乙任务");
+
+  // 代码块里的示例问句不触发入站捕获
+  const codeReply = "说明一下：\n```md\n- ❓ 这是示例里的问句？\n```\n已完成修改。";
+  assert.equal(lastQuestionLine(codeReply), "", "代码块内的 ❓ 不被识别为待答提问");
 });
 
 test("空 ✍️ 答 行只是留了位置，不算已答", () => {
@@ -203,4 +215,24 @@ test("空 ✍️ 答 行只是留了位置，不算已答", () => {
   const filled = fillAnswer(note.join("\n"), { questionText: "A 还是 B？", answer: "A" });
   assert.ok(filled.includes("  - ✍️ 答：A"));
   assert.equal(filled.split("✍️").length - 1, 1, "不会因此多出一行");
+});
+
+test("手写回答续聊判定：有已填 ✍️ 答 且没有未答 ❓ 时返回该回答，并标记后面是否已有 💬", () => {
+  const ready = ["- DOING 任务", "  - ❓ 第1轮：选 A 还是 B？", "  - ✍️ 答：选 A"];
+  assert.deepEqual(
+    (() => { const r = latestWrittenAnswer(ready, { start: 0, end: 2 }); return { line: r?.line, answer: r?.answer, hasResultAfter: r?.hasResultAfter }; })(),
+    { line: 2, answer: "选 A", hasResultAfter: false },
+  );
+
+  const sent = [...ready, "  - 💬 第2轮：已按 A 处理。"];
+  assert.equal(latestWrittenAnswer(sent, { start: 0, end: 3 }).hasResultAfter, true);
+
+  const pending = [...ready, "  - ❓ 第2轮：要顺便发版吗？"];
+  assert.equal(latestWrittenAnswer(pending, { start: 0, end: 3 }), null, "后面有未答 ❓ 时不误发上一轮");
+
+  const orphan = ["- DOING 任务", "  - ✍️ 答：直接补充要求"];
+  assert.deepEqual(
+    (() => { const r = latestWrittenAnswer(orphan, { start: 0, end: 1 }); return { line: r?.line, answer: r?.answer, hasResultAfter: r?.hasResultAfter }; })(),
+    { line: 1, answer: "直接补充要求", hasResultAfter: false },
+  );
 });

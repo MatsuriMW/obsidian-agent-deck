@@ -57,6 +57,8 @@ const auto = '- DOING 🤖 自动记录 ^ad-auto\n  - 💬 可继续的上下文
 target.app = { vault: { getAbstractFileByPath: () => ({path:'note.md'}), read: async () => auto } };
 target.viewForPath = () => null;
 assert.ok(!(await target.delegateTarget({path:'note.md',line:0,lineText:auto.split('\n')[0]})).error, 'auto records remain available for delegation');
+target.viewForPath = () => ({ getMode: () => 'preview', editor: { getValue() { throw new Error('preview hidden editor is stale'); } } });
+assert.ok(!(await target.delegateTarget({path:'note.md',line:0,lineText:auto.split('\n')[0]})).error, 'preview mode reads fresh vault note instead of stale editor');
 console.log('PASS accumulated AI context, subtree boundaries, protected summaries and titles, and delegation entry');
 
 const multilines = ['- 项目', '  母块的补充说明', '  ```md', '  - 代码示例，不能当母块', '  ```', '  - 💬 分析结果', '    结果的补充说明', '    - TODO 执行'];

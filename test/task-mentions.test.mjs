@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { register, createRequire } from 'node:module';
 globalThis.require = createRequire(import.meta.url);
 register('data:text/javascript,' + encodeURIComponent(`export async function resolve(s,c,n){if(s==='obsidian')return {url:'data:text/javascript,export class EditorSuggest{constructor(app){this.app=app}close(){}};',shortCircuit:true};return n(s,c)}`));
+import { delegateAgents } from '../src/agent-registry.js';
 const { TaskAgentSuggest, registerTaskAgentSuggest } = await import('../src/mention-suggest.js');
-const { taskMention, mentionOptions, stripTaskMention, mentionSuggestions } = await import('../src/task-mentions.js');
+const { ROUTABLE_AGENTS, taskMention, mentionOptions, stripTaskMention, mentionSuggestions } = await import('../src/task-mentions.js');
 const { DEFAULTS, MODEL_CATALOG, deepMerge } = await import('../src/constants.js');
 const { Delegator, codexCliArgs } = await import('../src/delegation.js');
 const p = { app: {}, settings: deepMerge(DEFAULTS, {}), jobs: {}, agentEnabled: (id) => id !== 'antigravity', modelsFor: (id) => MODEL_CATALOG.filter(m => m.agent === id), modelEnabled: () => true, defaultModel: (id) => DEFAULTS.delegate[id]?.model || '' };
@@ -190,4 +191,13 @@ customSuggest.selectSuggestion(mentionSuggestions(customPlugin,'codex/').find(x=
 assert.equal(customContent,'- TODO ::codex/gpt-6.1-terra');
 assert.equal(mentionOptions(customPlugin,{lines:[customContent],line:0}).model,'gpt-6.1-terra');
 for(const trigger of ['@@','.*','\\','💡']) assert.equal(taskMention('- TODO '+trigger+'codex',trigger)?.agent,'codex');
+// Every delegatable agent must be routable and suggested via @ mentions.
+for (const id of delegateAgents()) assert.ok(ROUTABLE_AGENTS.includes(id), `delegatable agent ${id} is routable in @ mentions`);
+const allEnabledPlugin = { ...p, agentEnabled: () => true };
+assert.ok(mentionSuggestions(allEnabledPlugin, '').some((x) => x.value === 'hermes'), '@ mentions list includes Hermes Agent');
+assert.ok(mentionSuggestions(allEnabledPlugin, '').some((x) => x.value === 'antigravity'), '@ mentions list includes Antigravity');
+const hermesMention = mentionOptions(allEnabledPlugin, { lines: ['- TODO run @hermes/hermes-default/high'], line: 0, agent: 'claude' });
+assert.equal(hermesMention.agent, 'hermes');
+assert.equal(hermesMention.model, 'hermes-default');
+assert.equal(hermesMention.effort, 'high');
 console.log('PASS custom symbol chained selection, concrete model routing and regex escaping');

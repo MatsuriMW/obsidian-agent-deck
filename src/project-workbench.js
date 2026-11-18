@@ -106,7 +106,7 @@ function stateRank(state) {
 /** 「现在」按状态分组的固定顺序、徽章颜色与是否算「要你处理」。 */
 export const NOW_STATUS_BUCKETS = [
   { id: "waiting", label: "等你", tone: "wait", attention: true },
-  { id: "pending", label: "待认领", tone: "wait", attention: false },
+  { id: "pending", label: "⏳ 待认领", tone: "wait", attention: false },
   { id: "running", label: "在跑", tone: "live", attention: false },
   { id: "error", label: "异常", tone: "error", attention: true },
 ];
@@ -222,9 +222,22 @@ export function mergeSessionsWithJobs(sessions = [], jobs = {}, agentEnabled = (
   return out;
 }
 
-/**
- * Group live/recent sessions and active jobs by workspace project for P0 process management.
- */
+export function orderNowSessions(items = [], settings = {}) {
+  const hidden = settings?.nowHidden || {};
+  const order = settings?.nowOrder || [];
+  return (items || [])
+    .filter((x) => x && !hidden[x.sid])
+    .map((x, i) => ({ x, i, k: order.indexOf(x.sid) }))
+    .sort((a, b) => {
+      if (a.k < 0 && b.k < 0) return a.i - b.i;
+      if (a.k < 0) return -1;
+      if (b.k < 0) return 1;
+      return a.k - b.k;
+    })
+    .map((o) => o.x);
+}
+
+/** Group live/recent sessions and active jobs by workspace project for P0 process management. */
 export function buildProjectGroups(sessions = [], { jobs = {}, agentEnabled = () => true, now = Date.now() } = {}) {
   const merged = mergeSessionsWithJobs(sessions, jobs, agentEnabled);
   const bySid = new Map(merged.map((s) => [s.sid, s]));
@@ -629,7 +642,7 @@ export function extractTaskBoardGroups(text, { trackedIds = new Set(), trigger =
       }
       const trimmed = lines[m].trim();
       if (/^[-*+]\s+💬\s/.test(trimmed)) {
-        latestConclusion = trimmed.replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:])?\s*/, "").replace(J.RECORD_PROVENANCE_RE, "").trim();
+        latestConclusion = J.stripPinMarker(trimmed.replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:])?\s*/, "").replace(J.RECORD_PROVENANCE_RE, "")).trim();
       }
       if (w === subIndent && J.LIST_RE.test(lines[m]) && !J.RECORD_LINE_RE.test(lines[m])) {
         const subKw = J.kwLine(lines[m]);
@@ -1312,9 +1325,9 @@ export function extractBlockResultText(noteText = "", { blockId = "", title = ""
     const ansMatch = /\[[^\]]+\]\(([^)]*Answers\/[^)]+\.md)\)/i.exec(trimmed);
     if (ansMatch) answerLink = ansMatch[1];
     if (/^[-*+]\s+💬\s/.test(trimmed)) {
-      const clean = trimmed
+      const clean = J.stripPinMarker(trimmed
         .replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:]\s*)?/, "")
-        .replace(J.RECORD_PROVENANCE_RE, "")
+        .replace(J.RECORD_PROVENANCE_RE, ""))
         .trim();
       if (clean) comments.push(clean);
     }

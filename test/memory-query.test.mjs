@@ -232,3 +232,27 @@ test("inDateRange：没日期的条目不参与时间过滤", () => {
   assert.equal(inDateRange({ date: "" }, { since: "2026-11-01" }), false);
   assert.equal(inDateRange({ date: "" }, {}), true);
 });
+
+test("隐私闸门：memory-query 跳过 private:true 记忆并屏蔽 excludedDirs 原文路径", () => {
+  const vault = makeVault();
+  fs.writeFileSync(
+    path.join(vault, ".obsidian", "plugins", "agent-deck", "data.json"),
+    JSON.stringify({ settings: { dream: { dir: "Agent Deck/记忆" }, delegate: { excludedDirs: ["私密日记"] } } }),
+  );
+  fs.writeFileSync(
+    path.join(vault, "Agent Deck/记忆/2026-11-19-secret.md"),
+    ["---", "id: m-secret", 'title: "私密拒答门槛配置"', "kind: fact", "state: 有效", "private: true", "date: 2026-11-19", "---", "", "私密拒答门槛配置", ""].join("\n"),
+  );
+  fs.mkdirSync(path.join(vault, "私密日记"), { recursive: true });
+  fs.writeFileSync(path.join(vault, "私密日记/2026_11_19.md"), "- 私密原文\n");
+  fs.writeFileSync(
+    path.join(vault, "Agent Deck/记忆/2026-11-19-ref-secret.md"),
+    ["---", "id: m-ref", 'title: "引用私密日记的公开总结"', "kind: lesson", "state: 有效", "date: 2026-11-19", "sources:", '  - "[[私密日记/2026_11_19]]"', "---", "", "引用私密日记的公开总结", ""].join("\n"),
+  );
+  const { entries } = loadMemories(vault);
+  assert.ok(!entries.some((e) => e.id === "m-secret"), "private:true 记忆不被加载");
+  const out = execFileSync(process.execPath, [SCRIPT, "search", "拒答 门槛", "--vault", vault], { encoding: "utf8" });
+  assert.ok(!out.includes("私密拒答门槛配置"), "private:true 记忆不出现在搜索结果");
+  const refEntry = entries.find((e) => e.id === "m-ref");
+  assert.equal(neighborsOf(entries, refEntry, { vault }).notes.length, 0, "excludedDirs 原文不给绝对路径");
+});

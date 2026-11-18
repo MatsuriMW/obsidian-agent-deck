@@ -466,7 +466,9 @@
       color: var(--ad-agent);
     }
 
-    &[data-agent="grokbot"] .ad-set-agent__icon img {
+    &[data-agent="grokbot"] .ad-set-agent__icon img,
+    &[data-agent="qwenwork"] .ad-set-agent__icon img,
+    &[data-agent="hermes"] .ad-set-agent__icon img {
       border-radius: 7px;
       border: 1px solid var(--ad-line);
     }

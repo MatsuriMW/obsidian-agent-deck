@@ -2,9 +2,9 @@
 
 > Delegate AI work from your journal. Review daily token usage and project activity in a dashboard.
 
-[中文](README.md) ｜ **English** ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [Changelog](CHANGELOG.md)
+[中文](README.md) ｜ **English** ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [Changelog](CHANGELOG.md) ｜ [Discord](https://discord.gg/hVPpAnChv7) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
 
-This project is still early and evolving quickly. Some parts of the experience may be rough, and occasional updates may introduce breaking changes. Check the [Roadmap](https://matsuri.site/portfolio/journal-workflow/#whistlist) to submit suggestions and vote on upcoming features, or open a [GitHub Issue](https://github.com/MatsuriMW/obsidian-agent-deck/issues) / email [klauschen2799@gmail.com](mailto:klauschen2799@gmail.com) to report bugs.
+This project is still early and evolving quickly. Some parts of the experience may be rough, and occasional updates may introduce breaking changes. Check the [Roadmap (Bilingual)](https://matsuri.site/portfolio/journal-workflow/#wishlist) to submit suggestions and vote on upcoming features, join the [Discord Community](https://discord.gg/hVPpAnChv7) or [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) to chat and share workflows, or open a [GitHub Issue](https://github.com/MatsuriMW/obsidian-agent-deck/issues) / email [klauschen2799@gmail.com](mailto:klauschen2799@gmail.com) to report bugs.
 
 <p align="center">
   <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4"><img src="assets/demo.gif" width="800" alt="Agent Deck demo: a session card dropped on a journal task binds it, a task dropped on an agent delegates it, status and the answer are written back"></a>
@@ -32,13 +32,13 @@ Agent Deck brings AI agent sessions scattered across separate local clients onto
 
 - **Memory store (one file per memory)**: after `Memory: move long-term memory into the memory store`, each memory is its own note (frontmatter: `state / title / sources`), while the original note keeps your prose plus a generated index block. Three views coexist: a **Base table** (filter/sort/count), a **memory board** (three columns by state, drag to change) and **one-by-one review** (dropdown to confirm/reject).
 - **Injection with provenance**: dispatch injects up to 5 matching memories (1200 chars) with `source [[journal/#^mem-…]]` so the agent can verify against the original; the extracted journal line gets a `⤴ [[memory/…]]` backlink. `Memory: health check` reports missing sources / unreviewed / duplicates / stale, and `re-anchor sources` fixes drifted line numbers from the quoted text.
-- **Dispatch drafts and payloads**: `Delegate: write a draft first` writes the full payload and links it back (`📝`); delegating then uses that draft. Each real dispatch also stores a snapshot (`📄`) with an `anchor` back to the task block, so nothing is truncated and everything is auditable. Unreferenced payloads older than 30 days can be archived.
+- **Dispatch drafts, payloads & `ContextBundle`**: `Delegate: write a draft first` writes the full payload and links it back (`📝`); delegating then uses that draft. Each real dispatch also stores a snapshot (`📄`) with an `anchor` back to the task block, so nothing is truncated and everything is auditable. Context is assembled in **stable-first, dynamic-last** order (global prefix, CLI hint, skill path, and referenced note paths ahead of the task outline and latest `❓/✍️` Q&A); notes beyond the 3-snippet cap list explicit path pointers, truncated full notes append remaining heading line numbers, and missing anchors or unreadable targets emit explicit warnings instead of silent skips. Unreferenced payloads older than 30 days can be archived.
 - **Goal → task.md → board**: `Plan: turn the current line into a task.md` splits the goal into steps with acceptance criteria and the result **opens as a board**; any note with a list can become a board via `Board: make this note a board file`, and dragging cards edits the Markdown.
 - **Skill cards**: `Skills: refresh skill cards` maps local skills (`~/.dsh/skills`, `~/.claude/skills`, skillshare) into `技能/*.md` with the real `SKILL.md` path in frontmatter. Mention `[[技能/xxx]]` (or the short form) in a task and the path is handed to the agent; skill text never enters the prompt. Cards you edited are preserved on refresh.
 - **Workbench**: `Workbench: refresh the overview` writes a single index note listing board files, memory stats and recent plans — index only, no copies.
 
 ### 1. Unified Multi-Agent Session Panel
-- **Tracks 9 local agents**: **Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder**, plus **Cursor** (3.30.14+ Hooks, tracking only) and **Grok Bot** (Sand desktop client with per-bot selection, tracking only).
+- **Tracks 11 local agents**: **Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder, Hermes Agent**, plus **QwenWork (千问办公)** (tracking only), **Cursor** (3.30.14+ Hooks, tracking only), and **Grok Bot** (Sand desktop client with per-bot selection, tracking only).
 - **Project-first concurrency management**: The **Now** section groups active, waiting, and errored/limit-hit sessions by workspace project by default (switchable to **By status** — waiting / unclaimed / running / issues — or a flat **List**), showing participating agents, status badges, open-folder shortcut, Project Workbench launcher, and project-wide stop controls. **Recent Sessions** switches between `7 / 30 / 120` days and stacks either **By agent** or **By project**.
 - **Live status & quick jump**: Distinguishes running, waiting for reply, needs approval, hit limit, paused, errored, and finished sessions; click a session card to switch back to its client or terminal tab (or jump directly to the note line for pending handoff jobs).
 - **Primary agents & global search**: Pin up to 2 primary agents for full history and cross-day catch-up (other enabled agents read sessions active today); search across all scanned local sessions by title, project, model, or content, and view a 14-day activity trend.
@@ -121,6 +121,8 @@ Demo order: team draft → Markdown outline → grouped board. See the [release 
 | **Antigravity** | Yes | Yes (`agy acp`) | No | — | Focuses app & copies session ID |
 | **OpenCode** | Yes | Yes (`opencode-cli acp`) | Auto-opens app after turn 1 (shared DB) | Yes | Manual selection in app |
 | **Qoder** | Yes | Yes (`qodercli`) | Clipboard handoff to desktop | Yes (`qodercli`) | CLI resumes in terminal; desktop copies ID for manual pick |
+| **Hermes Agent** | Yes (`$HERMES_HOME/state.db`) | Yes (`hermes-acp`) | No (no desktop GUI) | Yes (`hermes chat`) | Terminal resume (`hermes --resume`) & in-plugin transcript |
+| **QwenWork (千问办公)** | Yes (`~/.qwenworkcn/projects`) | No (no non-interactive CLI/ACP endpoint) | No (tracking only) | — | Focuses app & copies session ID (full transcript in plugin) |
 | **WorkBuddy** | Yes | No | Clipboard handoff to desktop | Yes (`codebuddy`) | Native WorkBuddy sessions & terminal resume (`codebuddy -r`) |
 | **Cursor** | Yes (3.30.14+ Hooks + logs) | No | No (tracking only) | — | Opens app & copies session ID |
 | **Grok Bot** | Yes (per-bot multi-select) | No | No (tracking only) | — | Focuses Grok Bot desktop app |
@@ -130,7 +132,7 @@ Demo order: team draft → Markdown outline → grouped board. See the [release 
 ## Installation & Requirements
 
 ### 1. Installing the Plugin
-Install directly from Obsidian Community Plugins, or download manually from GitHub Releases (current version **1.10.3**, requires Obsidian **1.4.0+** desktop):
+Install directly from Obsidian Community Plugins, or download manually from GitHub Releases (current version **1.13.0**, requires Obsidian **1.4.0+** desktop):
 
 1. Open **Settings → Community plugins → Browse** in Obsidian, search for **Agent Deck**, then install and enable it.
 2. Or download `main.js`, `manifest.json`, and `styles.css` from [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases), place them in `<your-vault>/.obsidian/plugins/agent-deck/`, and enable **Agent Deck** in **Settings → Community plugins**.
@@ -164,6 +166,8 @@ Copy the generated `main.js`, `manifest.json`, and `styles.css` into `<your-vaul
 | **Antigravity** | Standalone **Antigravity CLI (`agy`)** with CLI login (installing the IDE alone is not enough) |
 | **OpenCode** | OpenCode desktop app (bundles `opencode-cli`) or standalone `opencode` CLI with configured provider |
 | **Qoder** | `qodercli` installed and logged in for background/terminal delegation; Qoder desktop app for desktop handoff |
+| **Hermes Agent** | Installed `hermes-acp` / `hermes` CLI (auto-discovered across Homebrew, `uv`, nvm, `~/.local/bin`, etc.) for delegation; read-only `$HERMES_HOME/state.db` for tracking only |
+| **QwenWork (千问办公)** | QwenWorkCN desktop app installed (`QwenWorkCN.app`); automatically reads `~/.qwenworkcn/projects` session logs (tracking only) |
 | **WorkBuddy** | Chinese-edition WorkBuddy desktop app (`codebuddy` CLI separately if using terminal mode) |
 | **Cursor** | Cursor Desktop **3.30.14+** with Cursor Hooks installed via **Settings → Sources & Scan → More settings** (tracking only) |
 | **Grok Bot** | Grok Bot desktop app (Sand client) with bots selected in the Grok Bot card under **Settings → Records → Sources & Scan** (none selected by default; tracking only) |
@@ -192,11 +196,16 @@ Copy the generated `main.js`, `manifest.json`, and `styles.css` into `<your-vaul
    - **Antigravity**: CLI sessions and original IDE sessions do not mix, archive detection is not guaranteed, and exported transcripts exclude tool outputs, internal reasoning, and attachments.
    - **DeepSeek Harness**: The desktop client is still evolving rapidly with limited stability, and deep links do not jump directly to a specific session. Sessions delegated through `dsh acp` carry only a cwd, not a workspace ID, so the client lists them under "Ungrouped"; a client restart/refresh is usually needed before they appear. The sidebar still groups them by cwd, and the transcript can be viewed inside the plugin.
    - **OpenCode**: CLI and desktop share local storage, but launching the desktop app still requires selecting the session manually.
+   - **Hermes Agent**: No desktop GUI exists; Agent Deck reads `$HERMES_HOME/state.db` (and `profiles/*/state.db`) read-only (converting Unix seconds to ms and reporting exact `output_tokens`, `input_tokens + cache_write_tokens`, and `cache_read_tokens`), delegates in background via `hermes-acp` (supporting standard ACP `models` / `session/set_model` and serialized permission prompts), and launches/resumes interactive CLI sessions via `hermes chat` / `hermes --resume`.
+   - **QwenWork (千问办公)**: Currently supports read-only tracking, daily summaries, and conversation viewing/archival from `~/.qwenworkcn/projects` JSONL logs only; neither the desktop app nor `~/.qwenworkcn/bin/qwenwork` exposes a headless prompt or ACP endpoint for delegation or terminal launch. When logs omit `usage` or report `"model": "unknown"`, token counts remain `0` and the model field is left blank without estimation.
    - **Grok Bot**: Supports Sand desktop read-only persistence tracking and per-bot multi-select filtering only; no task delegation or terminal interaction. Token/model metrics omitted by the cloud sandbox are shown as "Usage unavailable" without estimation; there is no client archive state, so idle conversations auto-mark `DONE` after the configured inactivity window (`120` min default).
 5. **Terminal Delegation Verification**
    - Interactive terminal delegation is currently verified end-to-end only on **Tern** and **Herdr**. **Terminal.app, iTerm2, and Warp** are untested (Warp lacks a scripting interface and can only be brought forward).
-6. **Planned / Not Yet Implemented**
-   - **Reading-view rendering for AI record multi-views and fractal boards**, **explicit Second-Brain Project Context Pack**, **Pi support**, **choosing model / effort / recording granularity directly inside the delegation sheet**, **per-block granularity overrides on existing AI blocks**, **automatic send for WorkBuddy**, and **LLM Wiki auto-ingestion** are planned on the roadmap and not available in this release.
+6. **Current Roadmap Focus (Milestone 1: High-Quality AI Context Provider) & Upcoming Tracks**
+   - **M1.1 Unified Context Kernel, Privacy Gate & Zero Silent Loss**: Consolidating ancestor chains, wikilink resolution, memory selection, skill card paths, and Q&A thread injection into a single `ContextBundle` pipeline; explicitly listing file-path pointers for 4th+ linked notes instead of silently truncating, surfacing warnings on broken `#^blockId` / `#heading` refs, reading unsaved editor buffers first, enforcing `private: true` / excluded-folder gates, and adding metadata/single-keyword fallback for memory search.
+   - **M1.2 Structural Fidelity, Anchor Hash Verification & Pre-Dispatch Preview**: Extracting key note metadata (`type` / `def` / `domain` / `father` / `status`), verifying soft/hard anchor hashes against drift, surfacing 1-hop structural neighbors with human-readable `why` signals, and adding a collapsible context preview & per-item toggle list inside the delegation confirmation modal.
+   - **M1.3 External Context Engine (Pure Node CLI + stdio Vault Context MCP Server)**: Decoupling the context kernel from Obsidian APIs to expose `vault_outline`, `vault_read`, `vault_related`, and `vault_find` alongside `memory_search / read / recent` over stdio MCP and CLI for any external agent.
+   - **Subsequent Milestones & Parallel Tracks**: **M2** (4-dimensional orthogonal memory lifecycle, broken-link & contradiction detection, zero-burden provenance), **M3** (context usage attestation, per-item shared memory publishing, 1-second replay), **full Windows compatibility & testing**, **expanded Agent & Terminal matrix** (Kimi Code, ZCode, MiniMax Code, Muse, Pi, direct Claude Desktop delegation, plus Ghostty / WezTerm / Kitty / Alacritty / cmux), and **Reading-view rendering** are in progress or planned (see [Harness Roadmap](docs/specs/harness-roadmap.zh-CN.md) and the interactive [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist)).
 
 ---
 
@@ -205,5 +214,5 @@ Copy the generated `main.js`, `manifest.json`, and `styles.css` into `<your-vaul
 - **Local-first**: Session parsing, panel analytics, the Review Dashboard, and the macOS menu bar helper only read local files and send zero telemetry. Task text or journal excerpts are sent to your locally configured CLI model provider only when you run delegation, AI organization/summarization, or Dreaming.
 - **License**: [Apache 2.0](LICENSE) (see also [NOTICE](NOTICE)).
 - **More docs**: Full version history in [CHANGELOG.md](CHANGELOG.md); developer specs, architecture, and roadmap notes in [docs/](docs/).
-- **Feedback & Roadmap**: Open a [GitHub Issue](https://github.com/MatsuriMW/obsidian-agent-deck/issues) to report bugs or visit the [Roadmap](https://matsuri.site/portfolio/journal-workflow/#whistlist) to submit and vote on feature ideas.
+- **Community & Feedback**: Join the [Discord Community](https://discord.gg/hVPpAnChv7) or [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions), open a [GitHub Issue](https://github.com/MatsuriMW/obsidian-agent-deck/issues) to report bugs, or visit the [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) to submit and vote on feature ideas.
 - **Updates**: Follow [@Matsurimywaifu](https://x.com/Matsurimywaifu) on X/Twitter.

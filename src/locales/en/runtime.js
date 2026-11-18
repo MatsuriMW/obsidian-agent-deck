@@ -76,4 +76,6 @@ export default {
   "整理待办": "Updating todos",
   "思考中…": "Thinking…",
   "已在 Codex 里建立项目「{name}」，这条会话归进去了": "Created Codex project '{name}'; this session is grouped there",
+  "找不到 {agent} 可执行文件「{bin}」，请确认已安装或已在设置中填写命令行路径": "Could not find executable '{bin}' for {agent}. Verify it is installed or configure its CLI path in Settings.",
+  "高风险操作需确认：{title}": "High-risk action requires confirmation: {title}",
 };

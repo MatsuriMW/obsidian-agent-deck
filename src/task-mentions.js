@@ -1,15 +1,23 @@
 // Task routing is stored in the task's own first line, never in its children.
-import { AGENTS, EFFORTS } from "./constants.js";
+import { AGENTS, AGENT_ORDER, EFFORTS } from "./constants.js";
+import { hasAgentCapability } from "./agent-registry.js";
 import { t } from "./i18n.js";
 
-export const ROUTABLE_AGENTS = ["claude", "codex", "dsh", "workbuddy", "antigravity", "opencode", "qoder"];
+const escapeRegExp = (s) => String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export function routableAgents() {
+  return AGENT_ORDER.filter((id) => hasAgentCapability(id, "delegate") || hasAgentCapability(id, "terminalHandoff"));
+}
+
+export const ROUTABLE_AGENTS = routableAgents();
 export function mentionTrigger(plugin) { return plugin.settings.delegate?.mentionTrigger || "@"; }
 
 export function taskMention(line, trigger = "@") {
   // Keep saved @ routes working after changing the completion trigger.
-  const markers = [...new Set([trigger, "@"])].sort((a, b) => b.length - a.length)
-    .map((s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-  const token = new RegExp("(?:^|\\s)(" + markers + ")(claude|codex|dsh|workbuddy|antigravity|opencode|qoder)(?:/([^\\s`]+))?(?=\\s|$)", "g");
+  const markers = [...new Set([trigger, "@"])].sort((a, b) => b.length - a.length).map(escapeRegExp).join("|");
+  const agents = [...routableAgents()].sort((a, b) => b.length - a.length).map(escapeRegExp).join("|");
+  if (!agents) return null;
+  const token = new RegExp(`(?:^|\\s)(${markers})(${agents})(?:/([^\\s\`]+))?(?=\\s|$)`, "g");
   // Inline code and links (including email addresses) are ordinary task content.
   const masked = line.replace(/`[^`]*`|!?\[[^\]]*\]\([^)]*\)/g, (s) => "x".repeat(s.length));
   const found = [...masked.matchAll(token)];
@@ -40,8 +48,10 @@ export function stripTaskMention(text, trigger = "@") {
 
 export function mentionSuggestions(plugin, query) {
   const parts = query.split("/"), agent = parts[0];
-  if (parts.length === 1) return ROUTABLE_AGENTS.filter((id) => plugin.agentEnabled(id) && (id + " " + AGENTS[id].name + (id === "codex" ? " gpt" : id === "dsh" ? " deepseek" : "")).toLowerCase().includes(agent.toLowerCase())).map((id) => ({ value: id, label: AGENTS[id].name, next: plugin.modelsFor(id).length > 0, hint: EFFORTS[id] ? t("选择后继续选择具体模型") : t("客户端交接；模型与强度在客户端设置") }));
-  if (!ROUTABLE_AGENTS.includes(agent) || !plugin.agentEnabled(agent)) return [];
+  const routable = routableAgents();
+  const alias = { codex: " gpt", dsh: " deepseek", hermes: " hermes-acp" };
+  if (parts.length === 1) return routable.filter((id) => plugin.agentEnabled(id) && (id + " " + AGENTS[id].name + (alias[id] || "")).toLowerCase().includes(agent.toLowerCase())).map((id) => ({ value: id, label: AGENTS[id].name, next: plugin.modelsFor(id).length > 0, hint: EFFORTS[id] ? t("选择后继续选择具体模型") : t("客户端交接；模型与强度在客户端设置") }));
+  if (!routable.includes(agent) || !plugin.agentEnabled(agent)) return [];
   if (parts.length === 2) {
     const all = plugin.modelsFor(agent), enabled = all.filter(m => plugin.modelEnabled(m.id));
     return (enabled.length ? enabled : all).filter(m => (m.id + " " + m.name).toLowerCase().includes(parts[1].toLowerCase())).map(m => ({ value: `${agent}/${m.id}`, label: m.name, hint: t("选定模型；可继续输入 / 选择强度") }));

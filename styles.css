@@ -1,4 +1,4 @@
-/* Agent Deck 1.12.2 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.0 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -2449,6 +2449,12 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-prog[data-agent=antigravity] {
   --ad-prog: #558ce6;
 }
+.ad-prog[data-agent=hermes] {
+  --ad-prog: #b57536;
+}
+.ad-prog[data-agent=qwenwork] {
+  --ad-prog: #6b63d6;
+}
 .ad-prog.is-linked {
   cursor: pointer;
   border-radius: 4px;
@@ -3049,6 +3055,41 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-record-hidden,
 .ad-block-id-hidden {
   display: none !important;
+}
+.ad-record-pin-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 0 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  box-shadow: none;
+  font-size: 10.5px;
+  line-height: 1.3;
+  vertical-align: middle;
+  cursor: pointer;
+  opacity: .28;
+  filter: grayscale(1);
+  transition: opacity .12s ease, background-color .12s ease;
+}
+.ad-record-pin-btn:hover {
+  opacity: .85;
+  filter: none;
+  background: var(--background-modifier-hover);
+}
+.ad-record-pin-btn.is-on {
+  opacity: 1;
+  filter: none;
+  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
+}
+.markdown-source-view.mod-cm6 .cm-line.ad-record-line--pinned,
+.markdown-rendered .ad-record-pinned {
+  color: var(--text-normal);
+}
+.ad-record-table-wrap .is-pinned {
+  background: color-mix(in srgb, var(--interactive-accent) 5%, transparent);
 }
 .cm-line.ad-said {
   cursor: default;
@@ -4243,7 +4284,9 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   height: 32px;
   color: var(--ad-agent);
 }
-.ad-settings .ad-set-agent[data-agent=grokbot] .ad-set-agent__icon img {
+.ad-settings .ad-set-agent[data-agent=grokbot] .ad-set-agent__icon img,
+.ad-settings .ad-set-agent[data-agent=qwenwork] .ad-set-agent__icon img,
+.ad-settings .ad-set-agent[data-agent=hermes] .ad-set-agent__icon img {
   border-radius: 7px;
   border: 1px solid var(--ad-line);
 }
@@ -4848,6 +4891,15 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.ad-send .ad-send__draft {
+  margin: 0;
+  font-family: var(--ad-figure);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: var(--ad-ink);
+  overflow-wrap: anywhere;
+}
 .ad-send .ad-send__meta {
   display: flex;
   justify-content: space-between;
@@ -4875,6 +4927,11 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-send .ad-send__btns {
   display: flex;
   gap: 8px;
+}
+.ad-send .ad-send__modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .ad-send .ad-btn.ad-send__go {
   background: var(--ad-agent);
@@ -6153,6 +6210,21 @@ body:not(.is-focused) .ad-prog[data-mode=run] .ad-prog-tail {
   line-height: 1.4;
   margin-bottom: 4px;
 }
+.ad-memory-board__cardfoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.ad-memory-board__del {
+  font-size: 11px;
+  padding: 1px 6px;
+  opacity: 0.65;
+}
+.ad-memory-board__card:hover .ad-memory-board__del,
+.ad-memory-board__del:focus-visible {
+  opacity: 1;
+}
 .ad-memory-board__src {
   display: inline-block;
   margin-top: 4px;
@@ -6165,4 +6237,114 @@ body:not(.is-focused) .ad-prog[data-mode=run] .ad-prog-tail {
 }
 .ad-memory-board__src:hover {
   color: var(--text-normal);
+}
+.ad-mem-create {
+  --ad-modal-w: min(520px, 92vw);
+}
+.ad-mem-create__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.ad-mem-create__verify {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+.ad-mem-create__input {
+  width: 100%;
+  margin-top: 10px;
+  resize: vertical;
+}
+.ad-mem-import {
+  --ad-modal-w: min(640px, 94vw);
+}
+.ad-mem-import__drop {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1.5px dashed var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ad-mem-import__drop.is-over {
+  border-color: var(--interactive-accent);
+  background: var(--background-modifier-hover);
+}
+.ad-mem-import__droptext {
+  font-size: 12.5px;
+  color: var(--text-normal);
+}
+.ad-mem-import__dropbtns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ad-mem-import__modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ad-mem-import__mode {
+  padding: 9px 11px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 8px;
+  background: var(--background-primary);
+  cursor: pointer;
+}
+.ad-mem-import__mode.is-active {
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 1px var(--interactive-accent);
+}
+.ad-mem-import__modetitle {
+  font-size: 12.5px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.ad-mem-import__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ad-mem-import__list {
+  margin-top: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 2px;
+}
+.ad-mem-import__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 9px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background: var(--background-primary);
+}
+.ad-mem-import__kind {
+  flex: 0 0 auto;
+  font-size: 11.5px;
+  height: 26px;
+}
+.ad-mem-import__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.ad-mem-import__text {
+  font-size: 12.5px;
+  line-height: 1.45;
+  word-break: break-word;
 }

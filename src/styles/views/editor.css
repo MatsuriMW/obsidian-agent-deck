@@ -400,6 +400,8 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   &[data-agent="workbuddy"]   { --ad-prog: #17a57f; }
   &[data-agent="dsh"]         { --ad-prog: #4d6bfe; }
   &[data-agent="antigravity"] { --ad-prog: #558ce6; }
+  &[data-agent="hermes"]      { --ad-prog: #b57536; }
+  &[data-agent="qwenwork"]    { --ad-prog: #6b63d6; }
 
   &.is-linked {
     cursor: pointer;

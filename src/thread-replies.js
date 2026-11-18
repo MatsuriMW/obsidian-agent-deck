@@ -14,8 +14,8 @@ import { createHash } from "crypto";
 import { t } from "./i18n.js";
 import { blockIdOf, fencedLines } from "./journal.js";
 
-export const QUESTION_RE = /^(\s*)[-*+]\s+❓\s*(?:第\s*(\d+)\s*轮\s*[：:]?\s*)?(.*)$/;
-export const ANSWER_RE = /^(\s*)[-*+]\s+✍️\s*(?:答\s*[：:]?\s*)?(.*)$/;
+export const QUESTION_RE = /^(\s*)[-*+]\s+❓\s*(?:(?:第\s*(\d+)\s*轮|Round\s+(\d+)(?:\s*\([^)]*\))?)\s*[：:]?\s*)?(.*)$/i;
+export const ANSWER_RE = /^(\s*)[-*+]\s+✍️\s*(?:(?:答|Answer)\s*[：:]?\s*)?(.*)$/i;
 const TURN_MARKER_RE = /\s*<!--\s*ad-turn:[^>]*-->\s*/g;
 // 行尾块号：注入给 Agent 的问答文本里不该出现（它们只是笔记里的锚点）。
 const BLOCK_ID_TAIL_RE = /\s*\^[a-z0-9][a-z0-9-]*\s*$/i;
@@ -42,7 +42,8 @@ export function parseThread(lines = [], block = null) {
     const line = list[i] || "";
     const q = QUESTION_RE.exec(line);
     if (q) {
-      questions.push({ line: i, indent: q[1] || "", round: q[2] ? Number(q[2]) : questions.length + 1, text: clean(q[3]), id: blockIdOf(line), answerLine: -1, answer: "", answerId: "" });
+      const roundNo = q[2] || q[3];
+      questions.push({ line: i, indent: q[1] || "", round: roundNo ? Number(roundNo) : questions.length + 1, text: clean(q[4]), id: blockIdOf(line), answerLine: -1, answer: "", answerId: "" });
       continue;
     }
     const a = ANSWER_RE.exec(line);
@@ -78,7 +79,7 @@ export function answerSlot(lines = [], questionLine = -1) {
 const widthOf = (line) => ((/^[ \t]*/.exec(line) || [""])[0]).replace(/\t/g, "    ").length;
 const questionTextOf = (line) => {
   const m = QUESTION_RE.exec(line);
-  return m ? clean(m[3]) : "";
+  return m ? clean(m[4]) : "";
 };
 
 // 找到"这一问"那一行：块号优先，其次块号锚点 + 正文前缀，最后按正文匹配。
@@ -154,19 +155,29 @@ export function fillAnswer(text = "", { questionText = "", answer = "", blockId 
   return lines.join("\n");
 }
 
-// 老数据兼容：已经写好的 ❓ / ✍️ 没有块号时，一次性补上（可重复执行，幂等）。
-export function anchorThreadText(text = "", { blockId = "", seedPrefix = "" } = {}) {
-  let out = String(text || "");
-  const lines = out.split("\n");
-  const start = blockId ? lines.findIndex((l) => blockIdOf(l) === blockId) : 0;
-  if (start < 0) return out;
-  const base = widthOf(lines[start]);
+function resolveBlockRange(lines, { blockId = "", atLine = -1 } = {}) {
+  const anchor = blockId ? lines.findIndex((l) => blockIdOf(l) === blockId) : -1;
+  const fallback = Number.isInteger(atLine) && atLine >= 0 && atLine < lines.length ? atLine : 0;
+  const start = anchor >= 0 ? anchor : fallback;
+  if (start < 0 || start >= lines.length) return null;
+  const base = widthOf(lines[start] || "");
   let end = lines.length - 1;
   for (let i = start + 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     if (widthOf(lines[i]) <= base && /^\s*[-*+]\s+/.test(lines[i])) { end = i - 1; break; }
   }
-  const { questions } = parseThread(lines, { start, end });
+  while (end > start && !lines[end].trim()) end--;
+  return { start, end };
+}
+
+// 老数据兼容：已经写好的 ❓ / ✍️ 没有块号时，一次性补上（可重复执行，幂等）。
+export function anchorThreadText(text = "", { blockId = "", atLine = -1, seedPrefix = "" } = {}) {
+  let out = String(text || "");
+  const lines = out.split("\n");
+  if (blockId && lines.findIndex((l) => blockIdOf(l) === blockId) < 0) return out;
+  const range = resolveBlockRange(lines, { blockId, atLine });
+  if (!range) return out;
+  const { questions } = parseThread(lines, range);
   for (const q of questions) {
     out = ensureQuestionId(out, { blockId, questionText: q.text, seed: `${seedPrefix}|${blockId}|${q.text}` });
     if (q.answer) out = fillAnswer(out, { blockId, questionText: q.text, answer: q.answer });
@@ -196,7 +207,9 @@ export function replyPromptText(parsed, { limit = 3 } = {}) {
 // 只看最后几行：常见写法是"先抛问题、再补一句'问完就停'"，
 // 死盯最后一行会漏掉；但翻太远又会把解释里的反问当提问，所以窗口限 3 行。
 export function lastQuestionLine(text = "", { window = 12 } = {}) {
-  const lines = String(text || "").split("\n").map((l) => l.trim()).filter(Boolean);
+  const raw = String(text || "").split("\n");
+  const fenced = fencedLines(raw);
+  const lines = raw.filter((_, i) => !fenced.has(i)).map((l) => l.trim()).filter(Boolean);
   // 窗口给到 12 行：真实提问常常是"先抛问题 → 列 A/B/C → 补一句'你选完我就照办'"，
   // 只盯最后三行会整段漏掉（真机踩过）。取窗口里**最后一个问句**，收尾的陈述句不影响。
   for (const line of lines.slice(-window).reverse()) {
@@ -215,19 +228,15 @@ export function lastQuestionLine(text = "", { window = 12 } = {}) {
 export const looksLikeQuestion = (text = "") => Boolean(lastQuestionLine(text));
 
 // 把"它在问"写成笔记里的 `❓` 行：幂等（同一句不重复写），顺手带上块号。
-export function appendQuestionText(text = "", { blockId = "", question = "", round = 0, seed = "" } = {}) {
+export function appendQuestionText(text = "", { blockId = "", atLine = -1, question = "", round = 0, seed = "" } = {}) {
   const value = clean(question);
   if (!value) return text;
   const lines = String(text || "").split("\n");
-  const anchor = blockId ? lines.findIndex((l) => blockIdOf(l) === blockId) : -1;
-  const start = anchor >= 0 ? anchor : 0;
-  const base = widthOf(lines[start] || "");
-  let end = lines.length - 1;
-  for (let i = start + 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    if (widthOf(lines[i]) <= base && /^\s*[-*+]\s+/.test(lines[i])) { end = i - 1; break; }
-  }
-  const { questions } = parseThread(lines, { start, end });
+  if (blockId && lines.findIndex((l) => blockIdOf(l) === blockId) < 0) return text;
+  const range = resolveBlockRange(lines, { blockId, atLine });
+  if (!range) return text;
+  const { start, end } = range;
+  const { questions } = parseThread(lines, range);
   if (questions.some((q) => q.text === value)) return text; // 同一句问过就不再写
   const roundNo = round || questions.length + 1;
   const indent = ((/^[ \t]*/.exec(lines[start] || "") || [""])[0]) + "\t";
@@ -249,4 +258,26 @@ export function suggestOptions(question = "") {
   const yesNo = /^(?:是|好|可以|同意|确认)\s*[，,]?\s*(?:否|不|不同意|取消)?$/.exec(text);
   if (!out.length && yesNo) out.push(t("是"), t("否"));
   return out.slice(0, 4);
+}
+
+// 找出这一块里最近一条"已手写好 ✍️ 答"但还没有后续 ❓ 的回答，供原地发出并续聊。
+export function latestWrittenAnswer(lines = [], block = null) {
+  if (!block) return null;
+  const parsed = parseThread(lines, block);
+  if (pendingQuestion(parsed)) return null;
+  const q = [...parsed.questions].reverse().find((x) => x.answerLine >= 0 && x.answer);
+  const entry = q
+    ? { line: q.answerLine, answer: q.answer, question: q }
+    : (() => {
+        const orphan = [...parsed.orphans].reverse().find((o) => o.text);
+        return orphan ? { line: orphan.line, answer: orphan.text, question: null } : null;
+      })();
+  if (!entry) return null;
+  const fenced = fencedLines(lines);
+  const end = Number.isInteger(block.end) ? block.end : lines.length - 1;
+  let hasResultAfter = false;
+  for (let i = entry.line + 1; i <= end && i < lines.length; i++) {
+    if (!fenced.has(i) && /^\s*[-*+]\s+💬/.test(lines[i] || "")) { hasResultAfter = true; break; }
+  }
+  return { ...entry, hasResultAfter };
 }

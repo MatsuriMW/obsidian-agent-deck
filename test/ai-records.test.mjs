@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import {aiRecordGroups, recordRuns, visibleRecords, recordIsOpen, recordStartsOpen} from '../src/ai-records.js';
+import {aiRecordGroups, recordRuns, visibleRecords, visibleTableEntries, adBlockIdRanges, recordIsOpen, recordStartsOpen, parseAiRecordRow} from '../src/ai-records.js';
 import {DEFAULTS} from '../src/constants.js';
-import {syncSessionEntry, isDoneLine, clocksLast} from '../src/journal.js';
+import {syncSessionEntry, isDoneLine, clocksLast, togglePinMarker, hasPinMarker, cleanCompletedIdentifiers} from '../src/journal.js';
+import {stripInternalIdentifiers} from '../src/harness.js';
 // 默认组合必须留存每轮，并在收起时只显示最新 AI 结论。
 assert.equal(DEFAULTS.autoLogGranularity, 'round');
 assert.equal(DEFAULTS.aiRecordDisplay, 'latest1');
@@ -185,4 +186,31 @@ console.log('PASS AI folding groups exclude manual notes and nested tasks; lates
  assert.deepEqual(gs.map(g=>g.key),['ad-real'],'code samples must not acquire real folding controls');
  assert.deepEqual(gs[0].records,[5],'code-sample records must stay visible as source examples');
  assert.equal(recordStartsOpen('expanded',{summaries:[1]}),true,'default expanded must also apply to summarized records');
+}
+
+{
+ // Pin as a chapter: 折叠与收起模式都保留被 Pin 的关键记录，DONE 清理保留 <!-- ad-pin -->，且提示词剥离该标记
+ const pinnedLine = togglePinMarker('- 💬 第1轮：关键架构决策 <!-- ad-turn:abc1234567:1 --> ^ad-line');
+ assert.ok(hasPinMarker(pinnedLine));
+ assert.ok(pinnedLine.endsWith('^ad-line'), 'block ID remains at line end');
+ assert.equal(togglePinMarker(pinnedLine), '- 💬 第1轮：关键架构决策 <!-- ad-turn:abc1234567:1 --> ^ad-line');
+
+ const note = [
+  '- DONE 任务 ^ad-pin-demo',
+  '  - 💬 第2轮：常规收尾 <!-- ad-turn:abc1234567:2 -->',
+  '  - ❓ 第1轮：要不要加 Pin？ <!-- ad-pin --> <!-- ad-turn:abc1234567:1 -->',
+  '  - 💬 第1轮：要，折叠不隐藏 <!-- ad-turn:abc1234567:1 --> <!-- ad-pin -->',
+ ].join('\n');
+ const lines = note.split('\n');
+ const g = aiRecordGroups(note)[0];
+ assert.deepEqual(visibleRecords(g, lines, 'latest1'), [1, 2, 3], 'latest1 keeps latest conclusion plus all pinned lines');
+ assert.deepEqual(visibleRecords(g, lines, 'collapsed'), [2, 3], 'collapsed still keeps pinned records visible');
+ assert.deepEqual(visibleTableEntries(g, lines, 'latest1', false).map((e) => e.line), [1, 2, 3]);
+ assert.equal(parseAiRecordRow(lines[3]).pinned, true);
+ assert.equal(parseAiRecordRow(lines[3]).content, '要，折叠不隐藏');
+ assert.ok(adBlockIdRanges(note).some((r) => note.slice(r.from, r.to).includes('<!-- ad-pin -->')));
+ assert.ok(!stripInternalIdentifiers(note).includes('ad-pin'));
+ const cleanedDone = cleanCompletedIdentifiers(note);
+ assert.ok(cleanedDone.includes('<!-- ad-pin -->'), 'DONE cleanup preserves user pin marker');
+ assert.ok(!cleanedDone.includes('ad-turn:'), 'DONE cleanup still strips turn provenance even before ad-pin');
 }
