@@ -93,7 +93,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 - **记忆库（一文一条）**：每条记忆是一个 Markdown 文件，可以用 **Base 表格**筛选排序、用**记忆看板**三列拖拽，或**逐条审阅**（确认 / 拒绝）。
 
 <p align="center">
-  <img src="assets/memory-base.png" width="820" alt="记忆库的 Base 表格：按类型和状态筛选，逐条可读可改">
+  <img src="assets/memory-base.png" width="900" alt="记忆库的 Base 表格「全部记忆」：按类型和状态筛选，逐条可读可改">
 </p>
 
 - **记忆会用、也能溯源**：派发时按相关度注入最多 5 条记忆，每条附回原日记的链接，Agent 可以回原文核对；被提炼的那一行会得到反向回链；命令 `记忆：体检` 会汇总无来源、待确认与重复条目。

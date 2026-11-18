@@ -93,7 +93,7 @@ Watch every agent in the sidebar, delegate from your notes, and review the outpu
 - **Memory library (one note per memory)**: each memory is a Markdown file; browse it as a **Base table**, drag it across three states in the **memory board**, or review it one by one (confirm / reject).
 
 <p align="center">
-  <img src="assets/memory-base.png" width="820" alt="The memory Base table: filter by type and state, each row readable and editable">
+  <img src="assets/memory-base.png" width="900" alt="The memory Base table (All memories): filter by type and state, each row readable and editable">
 </p>
 
 - **Memory that is used and traceable**: up to five relevant memories are injected when delegating, each with a link back to the journal, so the agent can check the source; the line a memory came from gets a backlink. The `Memory: health check` command lists entries with no source, pending confirmation or duplicates.
