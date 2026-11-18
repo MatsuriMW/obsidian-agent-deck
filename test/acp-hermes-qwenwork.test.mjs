@@ -345,6 +345,9 @@ test("Task 3: QwenWork (千问办公) JSONL session tracking, honest zero-token 
   const fakeTaskCwd = "/Users/example/.qwenworkcn/workspace/b36ce4c5-d0af-47df-9d07-675becb02f45/task-workspaces/mw6cnk2qe5kyg603";
   assert.equal(projectName(fakeTaskCwd), "QwenWork");
   assert.equal(normalizeProjectRoot(fakeTaskCwd), "");
+  const fakeChatCwd = "/Users/example/.qwenworkcn/workspace/2026-11-19/mwm8qe3dg2dvpkc5";
+  assert.equal(projectName(fakeChatCwd), "QwenWork", "QwenWork 2.x chat workspaces label as QwenWork");
+  assert.equal(normalizeProjectRoot(fakeChatCwd), "");
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-qwenwork-"));
   const projDir = path.join(dir, "projects", "-tmp-workspace");
@@ -386,6 +389,65 @@ test("Task 3: QwenWork (千问办公) JSONL session tracking, honest zero-token 
   assert.equal(msgs.length, 2);
   assert.equal(msgs[1].text, "周报重点已梳理完成。");
 
+  // QwenWork 2.x desktop chats live in the SQLite store of its embedded engine.
+  const dbDir = path.join(dir, ".harness", "flash-cli", "qwenwork");
+  fs.mkdirSync(dbDir, { recursive: true });
+  const dbPath = path.join(dbDir, "qwenwork.db");
+  const dbSid = "ses_qwenwork_sqlite_1";
+  const dbAt = Date.now() - 60 * 1000;
+  const userData = {
+    role: "user",
+    time: { created: dbAt },
+    agent: "qwenwork",
+    model: { providerID: "openai-compatible", modelID: "flash", variant: "low" },
+    summary: { diffs: [] },
+  };
+  const assistantData = {
+    role: "assistant",
+    time: { created: dbAt + 400, completed: dbAt + 900 },
+    agent: "qwenwork",
+    modelID: "flash",
+    providerID: "openai-compatible",
+    tokens: { input: 120, output: 7, reasoning: 0, cache: { write: 0, read: 30 } },
+    finish: "stop",
+  };
+  const prefixed = [
+    "<workspace_context>",
+    "- Workspace mode: general",
+    "</workspace_context>",
+    "",
+    "<system-reminder>",
+    "internal awareness block",
+    "</system-reminder>",
+    "",
+    "Available MCP servers:",
+    "- qwapp: No description available",
+    "Use qw-builtin_list to see all tools, qw-builtin_get to get tool schema, qw-builtin_call to execute.",
+    "The names under Available tools are NOT directly callable SDK tool names in lazy-load mode.",
+    "Use each listed mcp__server__tool value only as the toolName field for qw-builtin_get and qw-builtin_call.",
+    "Getting a tool schema does not register a new callable function. Do not guess aliases if a function is absent from the real tool list.",
+    "Never call mcp__server__tool directly unless it is already exposed in the real tool list.",
+    "",
+    "Available tools:",
+    "mcp__qwapp__docview_getlist, mcp__qwapp__save_document",
+    "",
+    "测试文本等待效果",
+  ].join("\n");
+  const q = (value) => "'" + String(value).replaceAll("'", "''") + "'";
+  execFileSync(resolveSqliteBinary(), ["-cmd", ".timeout 2000", dbPath], {
+    input: [
+      "CREATE TABLE session (id TEXT PRIMARY KEY, title TEXT, directory TEXT, parent_id TEXT, model TEXT, time_created INTEGER, time_updated INTEGER, time_archived INTEGER);",
+      "CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT);",
+      "CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, time_created INTEGER, time_updated INTEGER, data TEXT);",
+      `INSERT INTO session VALUES (${q(dbSid)}, 'New session', ${q(path.join(dir, ".qwenworkcn", "workspace", "2026-11-19", "mwm8qe3dg2dvpkc5"))}, '', 'flash', ${dbAt}, ${dbAt + 900}, NULL);`,
+      `INSERT INTO message VALUES ('msg-u1', ${q(dbSid)}, ${dbAt}, ${dbAt}, ${q(JSON.stringify(userData))});`,
+      `INSERT INTO message VALUES ('msg-a1', ${q(dbSid)}, ${dbAt + 400}, ${dbAt + 900}, ${q(JSON.stringify(assistantData))});`,
+      `INSERT INTO part VALUES ('prt-u1', 'msg-u1', ${q(dbSid)}, ${dbAt}, ${dbAt}, ${q(JSON.stringify({ type: "text", text: prefixed }))});`,
+      `INSERT INTO part VALUES ('prt-a1', 'msg-a1', ${q(dbSid)}, ${dbAt + 400}, ${dbAt + 400}, ${q(JSON.stringify({ type: "text", text: "收到，文本正常输出。" }))});`,
+    ].join("\n"),
+    encoding: "utf8",
+  });
+
   const oldQwenHome = process.env.QWENWORK_HOME;
   process.env.QWENWORK_HOME = dir;
   try {
@@ -403,9 +465,24 @@ test("Task 3: QwenWork (千问办公) JSONL session tracking, honest zero-token 
 
     const readBack = await readConversation({ jobs: {}, usage }, { agent: "qwenwork", sid });
     assert.equal(readBack.length, 2);
+
+    const dbMeta = usage.meta.get(dbSid);
+    assert.ok(dbMeta, "QwenWork 2.x SQLite session indexed");
+    assert.equal(dbMeta.agent, "qwenwork");
+    assert.equal(dbMeta.turns, 1);
+    assert.equal(dbMeta.out, 7, "real output tokens from the SQLite store");
+    assert.equal(dbMeta.fresh, 120);
+    assert.equal(dbMeta.cached, 30);
+    assert.equal(dbMeta.model, "flash");
+
+    const dbRead = await readConversation({ jobs: {}, usage }, { agent: "qwenwork", sid: dbSid });
+    assert.equal(dbRead.length, 2);
+    assert.equal(dbRead[0].text, "测试文本等待效果", "engine context prefix is stripped from the user message");
+    assert.equal(dbRead[1].text, "收到，文本正常输出。");
   } finally {
     if (oldQwenHome === undefined) delete process.env.QWENWORK_HOME;
     else process.env.QWENWORK_HOME = oldQwenHome;
+    rmDirSafe(dir);
   }
 
   assert.equal(hasAgentCapability("qwenwork", "delegate"), false);

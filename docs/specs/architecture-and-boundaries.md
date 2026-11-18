@@ -52,7 +52,7 @@
 | Antigravity | `~/.gemini/antigravity/brain` / ACP | 后台 | `agy acp` 后台委派；无桌面 IDE 交接，IDE 与 CLI 会话不混用 |
 | OpenCode | `~/.local/share/opencode/opencode.db` | 桌面、后台、终端 | `opencode-cli acp` 共用 `opencode.db`；打开桌面后手动选会话 |
 | Hermes Agent | `$HERMES_HOME/state.db`（含 `profiles/*/state.db`） | 后台、终端 | `hermes-acp` 后台委派（支持 `models` / `session/set_model`）或终端 `hermes chat` / `hermes --resume`；只读换算 Unix 秒与 token（`input_tokens + cache_write_tokens` / `cache_read_tokens` / `output_tokens`），跳过 `hidden=1`，保留 `active=1 OR compacted=1` |
-| 千问办公（QwenWork） | `~/.qwenworkcn/projects/*/*.jsonl` | 桌面（仅追踪） | CLI / 客户端未提供非交互委派接口（`trackingOnly: true`）；缺少 usage 或 `model="unknown"` 时不估算；打开 `cn.qwenwork.desktop.mac` / `qwenwork-cn://` 并复制会话号 |
+| 千问办公（QwenWork） | 2.x：`~/.qwenworkcn/.harness/*/qwenwork/qwenwork.db`（OpenCode schema）；旧版：`~/.qwenworkcn/projects/*/*.jsonl` | 桌面（仅追踪） | CLI / 客户端未提供非交互委派接口（`trackingOnly: true`）；SQLite 会话带逐轮 token 与模型名，旧 JSONL 缺 usage 或 `model="unknown"` 时不估算；首条用户消息的引擎注入前缀（`workspace_context` / `system-reminder` / 工具清单）在适配器层剥除；打开 `cn.qwenwork.desktop.mac` / `qwenwork-cn://` 并复制会话号 |
 | Qoder | `~/.qoder/projects` / 桌面 `main.sqlite` | 桌面、后台、终端 | CLI 与桌面 SQLite 不互通；后台走 `qodercli`（终端 `-r` 续聊），桌面复制交接 |
 | WorkBuddy | `~/.workbuddy/projects` / `workbuddy.db` | 桌面、终端 | 仅支持中国版；桌面复制等待粘贴，终端跑 `codebuddy`（与桌面不互通）；无后台执行 |
 | Cursor | `~/.agent-deck/cursor-events/*.jsonl`（Cursor 3.30.14+ Hooks）+ 可选 WAL SQLite / transcript 元数据补全 | 桌面（仅追踪） | 显式安装 `~/.cursor/hooks.json` 后生效；不做旧版兼容与历史回填；对话视图/归档含工具时间线与折叠长结果；打开桌面端并复制会话号 |

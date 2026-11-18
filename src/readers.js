@@ -80,6 +80,8 @@ const MAX_TS = 20000;
 
 const home = () => os.homedir();
 const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
+// QwenWork keeps its data under $QWENWORK_HOME, or ~/.qwenworkcn by default.
+const qwenWorkHome = () => process.env.QWENWORK_HOME ? norm(process.env.QWENWORK_HOME) : path.join(home(), ".qwenworkcn");
 
 // Codex (and DSH's default workspace) create a folder per task, so the folder
 // name is a machine slug: "a", "dui", "w-s", a session id. Those are useless as
@@ -106,7 +108,7 @@ export function projectName(cwd) {
   if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(normCwd)) return "WorkBuddy";
   if (/\/\.dsh\/sessions\//.test(normCwd)) return "DSH";
   if (/\/\.gemini\/antigravity\//.test(normCwd)) return "Antigravity";
-  if (/\/\.qwenworkcn\/workspace\/[^/]+\/task-workspaces\//.test(normCwd)) return "QwenWork";
+  if (/\/\.qwenworkcn\/workspace\//.test(normCwd)) return "QwenWork";
   const p = normCwd.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
   return p === home().replace(/\\/g, "/") ? "~" : (p.split("/").pop() || p);
 }
@@ -141,7 +143,7 @@ export function normalizeProjectRoot(cwd) {
   const raw = String(cwd || "").trim().replace(/\\/g, "/");
   if (!raw || raw === "~" || raw === "/") return "";
   if (isScratchCwd(raw)) return "";
-  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(raw) || /\/\.dsh\/sessions\//.test(raw) || /\/\.gemini\/antigravity\//.test(raw) || /\/\.qwenworkcn\/workspace\/[^/]+\/task-workspaces\//.test(raw)) return "";
+  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(raw) || /\/\.dsh\/sessions\//.test(raw) || /\/\.gemini\/antigravity\//.test(raw) || /\/\.qwenworkcn\/workspace\//.test(raw)) return "";
   const stripped = raw.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
   if (!stripped || stripped === home().replace(/\\/g, "/").replace(/\/+$/, "")) return "";
   const name = projectName(stripped);
@@ -213,7 +215,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 14;
+export const USAGE_CACHE_VERSION = 15;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -413,8 +415,7 @@ export class AgentUsage {
     add(path.join(h, ".dsh/sessions"), "dsh");
     add(path.join(h, ".gemini/antigravity/brain"), "antigravity");
     add(path.join(h, ".qoder/projects"), "qoder");
-    const qwenHome = process.env.QWENWORK_HOME ? norm(process.env.QWENWORK_HOME) : path.join(h, ".qwenworkcn");
-    add(path.join(qwenHome, "projects"), "qwenwork");
+    add(path.join(qwenWorkHome(), "projects"), "qwenwork");
     add(cursorEventsDir(h), "cursor");
     const seen = new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
@@ -480,6 +481,17 @@ export class AgentUsage {
         if (e.isDirectory()) dbs.push([path.join(profilesDir, e.name, "state.db"), "hermes"]);
       }
     } catch { /* no profiles dir */ }
+    // QwenWork 2.x keeps desktop chats in the SQLite store of its embedded engine
+    // (OpenCode schema, one directory per engine). Older versions still write
+    // projects/*.jsonl, which roots() keeps reading as a fallback.
+    const qwenHarness = path.join(qwenWorkHome(), ".harness");
+    try {
+      for (const e of fs.readdirSync(qwenHarness, { withFileTypes: true })) {
+        if (!e.isDirectory()) continue;
+        const db = path.join(qwenHarness, e.name, "qwenwork", "qwenwork.db");
+        if (fs.existsSync(db)) dbs.push([db, "qwenwork"]);
+      }
+    } catch { /* older version has no .harness directory */ }
     return dbs;
   }
 

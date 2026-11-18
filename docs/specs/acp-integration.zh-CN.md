@@ -15,7 +15,7 @@
 | **Antigravity** | `agy acp`（原生 ACP） | 插件内只读查看与归档（`ConversationModal` 纯只读）；应用内追问由任务操作菜单（`FollowUpModal`）或 `✍️ 答` 直发；设置/委派/权限弹窗支持 `autoApprove`；无桌面 IDE 交接，CLI 与 IDE 不互通；导出不含工具结果与内部推理 | 独立 `agy` CLI + 登录（仅 IDE 不够） |
 | **OpenCode** | `opencode-cli acp` / 终端 `opencode` | 共用 `opencode.db`；优先调用 `OpenCode.app` 内置 CLI；打开桌面后需手动选会话 | OpenCode 桌面端或独立 CLI |
 | **Hermes Agent** | `hermes-acp` / 终端 `hermes chat` | 声明式 capability 驱动 ACP（支持 `configOptions` 与标准 `models` / `session/set_model`），权限弹窗按 runner 排队、`option.kind \| optionId \| name` 兼容 `allow*`/`reject*`/`deny*`；只读读取 `$HERMES_HOME/state.db` | `hermes-acp` / `hermes` CLI（支持 Homebrew / `uv` / 用户登录 shell PATH 兜底发现） |
-| **千问办公（QwenWork）** | 无非交互委派接口（仅追踪） | 仅只读读取 `~/.qwenworkcn/projects` JSONL；无 usage 或 `model="unknown"` 时保持 `0`/留空；唤起 `QwenWorkCN.app` (`qwenwork-cn://`) | 千问办公桌面端（`QwenWorkCN.app`） |
+| **千问办公（QwenWork）** | 无非交互委派接口（仅追踪） | 只读读取 2.x 会话库 `~/.qwenworkcn/.harness/*/qwenwork/qwenwork.db`（OpenCode schema，含逐轮 token/模型）与旧版 `~/.qwenworkcn/projects` JSONL；旧 JSONL 无 usage 或 `model="unknown"` 时保持 `0`/留空；唤起 `QwenWorkCN.app` (`qwenwork-cn://`) | 千问办公桌面端（`QwenWorkCN.app`） |
 | **Qoder** | `qodercli`（`-p` / `-r <sid>`） | `~/.qoder/projects` 与桌面 SQLite 不互通；CLI 走终端 `-r` 续聊，桌面复制交接 | `qodercli` + 登录；桌面缺逐轮 token 时不估算 |
 | **WorkBuddy** | 桌面复制交接 / 终端 `codebuddy` | 仅中国版（`~/.workbuddy`、`workbuddy://`）；独立 `codebuddy` CLI 与桌面不互通；无后台执行 | 中国版 WorkBuddy 桌面端 |
 | **整理 / Dreaming / 总结** | 「记录」页所选 `claude` / `codex` CLI | 只读追踪与 Dashboard 不调 CLI；设置页「检查」只验路径与版本，不验登录态 | 整理 CLI 路径、登录与额度 |

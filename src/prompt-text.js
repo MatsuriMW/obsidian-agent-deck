@@ -57,6 +57,33 @@ export function condenseUserPrompt(raw) {
   return joined.length >= 2 || base.trim().length < 2 ? joined : base.trim();
 }
 
+// QwenWork 2.x prepends workspace rules, the awareness protocol and the lazy-load
+// tool list to the first user message. Those blocks are engine context, not what
+// the user typed, so they must not leak into the conversation view or the journal.
+const QWEN_WORK_CONTEXT_BLOCK = /<(workspace_context|runtime_environment|system-reminder|system_reminder|skills_directory|unattended_task|host_context_checkpoint)\b[^>]*>[\s\S]*?<\/\1>/gi;
+const QWEN_WORK_TOOL_LIST_START = /(?:^|\n\n)(?:Available MCP servers|Available tools):\n/;
+const QWEN_WORK_TOOL_GUIDANCE_END = /(?:Do not guess aliases if a function is absent from the real tool list\.|Never call mcp__server__tool directly unless it is already exposed in the real tool list\.)/g;
+
+export function stripQwenWorkContext(raw) {
+  let s = String(raw || "").replace(QWEN_WORK_CONTEXT_BLOCK, "");
+  const start = s.search(QWEN_WORK_TOOL_LIST_START);
+  if (start >= 0) {
+    const tail = s.slice(start);
+    let end = 0;
+    QWEN_WORK_TOOL_GUIDANCE_END.lastIndex = 0;
+    for (let m; (m = QWEN_WORK_TOOL_GUIDANCE_END.exec(tail)); ) end = m.index + m[0].length;
+    // The lazy-load list ends the block: "Available tools:\n<names on one line>".
+    const listMarker = "\n\nAvailable tools:\n";
+    const listAt = tail.lastIndexOf(listMarker);
+    if (listAt >= 0) {
+      const lineEnd = tail.indexOf("\n", listAt + listMarker.length);
+      end = Math.max(end, lineEnd < 0 ? tail.length : lineEnd);
+    }
+    if (end > 0) s = s.slice(0, start) + tail.slice(end);
+  }
+  return s.replace(/\n{3,}/g, "\n\n").trim();
+}
+
 export function isPromptText(text) {
   const s = cleanUserPrompt(text).trim();
   if (!s) return false;

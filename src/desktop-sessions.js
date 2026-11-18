@@ -2,6 +2,7 @@
 import fs from "fs";
 import { execFile } from "child_process";
 import { resolveSqliteBinary } from "./sqlite.js";
+import { stripQwenWorkContext } from "./prompt-text.js";
 
 const quote = (value) => "'" + String(value).replaceAll("'", "''") + "'";
 const json = (value, fallback = {}) => { try { return typeof value === "string" ? JSON.parse(value) : value || fallback; } catch { return fallback; } };
@@ -102,7 +103,8 @@ export async function desktopMessages(db, agent, sid) {
     if (!["user", "assistant"].includes(role)) return [];
     const parts = json(row.parts, []);
     const content = parts.length ? parts : d.content || [];
-    const text = typeof d.text === "string" ? d.text : (Array.isArray(content) ? content : []).filter((p) => p.type === "text" && !p.synthetic && !p.ignored).map((p) => p.text || "").join("\n");
+    const rawText = typeof d.text === "string" ? d.text : (Array.isArray(content) ? content : []).filter((p) => p.type === "text" && !p.synthetic && !p.ignored).map((p) => p.text || "").join("\n");
+    const text = agent === "qwenwork" && role === "user" ? stripQwenWorkContext(rawText) : rawText;
     const tool = [...(Array.isArray(content) ? content : []), ...(d.tools || [])].filter((p) => p.type === "tool" || p.name).at(-1);
     const tokens = d.tokens;
     const completed = desktopTime(d.completedAt || d.time?.completed);

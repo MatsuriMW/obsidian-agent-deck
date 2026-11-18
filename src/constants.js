@@ -131,7 +131,7 @@ export const AGENTS = {
     color: "#6b63d6",
     soft: "rgba(107,99,214,.13)",
     kind: "qwenwork",
-    where: ["~/.qwenworkcn/projects", t("千问办公（QwenWork）桌面版")],
+    where: ["~/.qwenworkcn/.harness/*/qwenwork · ~/.qwenworkcn/projects", t("千问办公（QwenWork）桌面版")],
     deep: "qwenwork",
     desktopOnly: true,
     trackingOnly: true,

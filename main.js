@@ -2141,7 +2141,7 @@ var AGENTS = {
     color: "#6b63d6",
     soft: "rgba(107,99,214,.13)",
     kind: "qwenwork",
-    where: ["~/.qwenworkcn/projects", t("\u5343\u95EE\u529E\u516C\uFF08QwenWork\uFF09\u684C\u9762\u7248")],
+    where: ["~/.qwenworkcn/.harness/*/qwenwork \xB7 ~/.qwenworkcn/projects", t("\u5343\u95EE\u529E\u516C\uFF08QwenWork\uFF09\u684C\u9762\u7248")],
     deep: "qwenwork",
     desktopOnly: true,
     trackingOnly: true
@@ -2912,6 +2912,27 @@ function condenseUserPrompt(raw) {
   }).filter((line, i, arr) => line || i > 0 && arr[i - 1] !== "");
   const joined = cleaned.join("\n").trim();
   return joined.length >= 2 || base.trim().length < 2 ? joined : base.trim();
+}
+var QWEN_WORK_CONTEXT_BLOCK = /<(workspace_context|runtime_environment|system-reminder|system_reminder|skills_directory|unattended_task|host_context_checkpoint)\b[^>]*>[\s\S]*?<\/\1>/gi;
+var QWEN_WORK_TOOL_LIST_START = /(?:^|\n\n)(?:Available MCP servers|Available tools):\n/;
+var QWEN_WORK_TOOL_GUIDANCE_END = /(?:Do not guess aliases if a function is absent from the real tool list\.|Never call mcp__server__tool directly unless it is already exposed in the real tool list\.)/g;
+function stripQwenWorkContext(raw) {
+  let s = String(raw || "").replace(QWEN_WORK_CONTEXT_BLOCK, "");
+  const start = s.search(QWEN_WORK_TOOL_LIST_START);
+  if (start >= 0) {
+    const tail = s.slice(start);
+    let end = 0;
+    QWEN_WORK_TOOL_GUIDANCE_END.lastIndex = 0;
+    for (let m; m = QWEN_WORK_TOOL_GUIDANCE_END.exec(tail); ) end = m.index + m[0].length;
+    const listMarker = "\n\nAvailable tools:\n";
+    const listAt = tail.lastIndexOf(listMarker);
+    if (listAt >= 0) {
+      const lineEnd = tail.indexOf("\n", listAt + listMarker.length);
+      end = Math.max(end, lineEnd < 0 ? tail.length : lineEnd);
+    }
+    if (end > 0) s = s.slice(0, start) + tail.slice(end);
+  }
+  return s.replace(/\n{3,}/g, "\n\n").trim();
 }
 function isPromptText(text) {
   const s = cleanUserPrompt(text).trim();
@@ -5972,7 +5993,8 @@ async function desktopMessages(db, agent, sid) {
     if (!["user", "assistant"].includes(role)) return [];
     const parts = json(row.parts, []);
     const content = parts.length ? parts : d.content || [];
-    const text = typeof d.text === "string" ? d.text : (Array.isArray(content) ? content : []).filter((p2) => p2.type === "text" && !p2.synthetic && !p2.ignored).map((p2) => p2.text || "").join("\n");
+    const rawText = typeof d.text === "string" ? d.text : (Array.isArray(content) ? content : []).filter((p2) => p2.type === "text" && !p2.synthetic && !p2.ignored).map((p2) => p2.text || "").join("\n");
+    const text = agent === "qwenwork" && role === "user" ? stripQwenWorkContext(rawText) : rawText;
     const tool = [...Array.isArray(content) ? content : [], ...d.tools || []].filter((p2) => p2.type === "tool" || p2.name).at(-1);
     const tokens = d.tokens;
     const completed = desktopTime(d.completedAt || d.time?.completed);
@@ -8558,6 +8580,7 @@ var LIVE_STALE = 90 * 1e3;
 var MAX_TS = 2e4;
 var home2 = () => import_os7.default.homedir();
 var norm = (p2) => String(p2 || "").replace(/^~(?=\/)/, home2());
+var qwenWorkHome = () => process.env.QWENWORK_HOME ? norm(process.env.QWENWORK_HOME) : import_path6.default.join(home2(), ".qwenworkcn");
 function isScratchCwd(cwd) {
   const p2 = String(cwd || "").replace(/\\/g, "/").replace(/\/+$/, "");
   if (!p2) return false;
@@ -8576,7 +8599,7 @@ function projectName(cwd) {
   if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(normCwd)) return "WorkBuddy";
   if (/\/\.dsh\/sessions\//.test(normCwd)) return "DSH";
   if (/\/\.gemini\/antigravity\//.test(normCwd)) return "Antigravity";
-  if (/\/\.qwenworkcn\/workspace\/[^/]+\/task-workspaces\//.test(normCwd)) return "QwenWork";
+  if (/\/\.qwenworkcn\/workspace\//.test(normCwd)) return "QwenWork";
   const p2 = normCwd.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
   return p2 === home2().replace(/\\/g, "/") ? "~" : p2.split("/").pop() || p2;
 }
@@ -8607,7 +8630,7 @@ function normalizeProjectRoot(cwd) {
   const raw = String(cwd || "").trim().replace(/\\/g, "/");
   if (!raw || raw === "~" || raw === "/") return "";
   if (isScratchCwd(raw)) return "";
-  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(raw) || /\/\.dsh\/sessions\//.test(raw) || /\/\.gemini\/antigravity\//.test(raw) || /\/\.qwenworkcn\/workspace\/[^/]+\/task-workspaces\//.test(raw)) return "";
+  if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(raw) || /\/\.dsh\/sessions\//.test(raw) || /\/\.gemini\/antigravity\//.test(raw) || /\/\.qwenworkcn\/workspace\//.test(raw)) return "";
   const stripped = raw.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
   if (!stripped || stripped === home2().replace(/\\/g, "/").replace(/\/+$/, "")) return "";
   const name = projectName(stripped);
@@ -8666,7 +8689,7 @@ function cleanLive(v, now = Date.now()) {
   else v.quiet = false;
   return v;
 }
-var USAGE_CACHE_VERSION = 14;
+var USAGE_CACHE_VERSION = 15;
 var SUMMARY_VERSION = 3;
 function packDay(day) {
   return { ...day, sess: [...day.sess instanceof Map ? day.sess : /* @__PURE__ */ new Map()] };
@@ -8890,8 +8913,7 @@ var AgentUsage = class {
     add(import_path6.default.join(h, ".dsh/sessions"), "dsh");
     add(import_path6.default.join(h, ".gemini/antigravity/brain"), "antigravity");
     add(import_path6.default.join(h, ".qoder/projects"), "qoder");
-    const qwenHome = process.env.QWENWORK_HOME ? norm(process.env.QWENWORK_HOME) : import_path6.default.join(h, ".qwenworkcn");
-    add(import_path6.default.join(qwenHome, "projects"), "qwenwork");
+    add(import_path6.default.join(qwenWorkHome(), "projects"), "qwenwork");
     add(cursorEventsDir(h), "cursor");
     const seen = /* @__PURE__ */ new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
@@ -8956,6 +8978,15 @@ var AgentUsage = class {
       const profilesDir = import_path6.default.join(hHome, "profiles");
       for (const e of import_fs7.default.readdirSync(profilesDir, { withFileTypes: true })) {
         if (e.isDirectory()) dbs.push([import_path6.default.join(profilesDir, e.name, "state.db"), "hermes"]);
+      }
+    } catch {
+    }
+    const qwenHarness = import_path6.default.join(qwenWorkHome(), ".harness");
+    try {
+      for (const e of import_fs7.default.readdirSync(qwenHarness, { withFileTypes: true })) {
+        if (!e.isDirectory()) continue;
+        const db = import_path6.default.join(qwenHarness, e.name, "qwenwork", "qwenwork.db");
+        if (import_fs7.default.existsSync(db)) dbs.push([db, "qwenwork"]);
       }
     } catch {
     }
@@ -10420,7 +10451,7 @@ async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map
   const files = [...plugin.usage.files?.values() || []].filter((f) => f.sid === sid && f.agent === session.agent && !f.sub);
   const messages = [];
   for (const file of files) {
-    if (["opencode", "qoder", "hermes"].includes(session.agent) && file.path.includes("#")) {
+    if (["opencode", "qoder", "hermes", "qwenwork"].includes(session.agent) && file.path.includes("#")) {
       const db = file.path.slice(0, file.path.lastIndexOf("#"));
       const rows = await desktopMessages(db, session.agent, sid);
       messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));

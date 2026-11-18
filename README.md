@@ -123,7 +123,7 @@ Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidia
 | **OpenCode** | 支持 | 支持（`opencode-cli acp`） | 首轮后自动打开应用（共用本地库） | 支持 | 需在桌面端手动选会话 |
 | **Qoder** | 支持 | 支持（`qodercli`） | 仅复制任务并唤起桌面端 | 支持（`qodercli`） | CLI 走终端恢复；桌面端复制会话号后手动选 |
 | **Hermes Agent** | 支持（`$HERMES_HOME/state.db`） | 支持（`hermes-acp`） | 不支持（无桌面 GUI） | 支持（`hermes chat`） | 支持终端恢复（`hermes --resume`）与插件查看 |
-| **千问办公（QwenWork）** | 支持（`~/.qwenworkcn/projects`） | 不支持（CLI / 客户端无委派接口） | 不支持（仅追踪） | — | 唤起桌面端并复制会话号（插件内看完整对话） |
+| **千问办公（QwenWork）** | 支持（2.x 会话库 + 旧版 `projects` 日志） | 不支持（CLI / 客户端无委派接口） | 不支持（仅追踪） | — | 唤起桌面端并复制会话号（插件内看完整对话） |
 | **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起桌面端 | 支持（`codebuddy`） | 支持原生桌面会话直达与终端恢复 |
 | **Cursor** | 支持（3.30.14+ Hooks + 日志） | 不支持 | 不支持（仅追踪） | — | 仅打开应用并复制会话号 |
 | **Grok Bot** | 支持（按 Bot 多选） | 不支持 | 不支持（仅追踪） | — | 唤起 Grok Bot 桌面端 |
@@ -168,7 +168,7 @@ npm run build
 | **OpenCode** | 安装 OpenCode 桌面端（内置 `opencode-cli`）或独立 `opencode` CLI 并完成配置 |
 | **Qoder** | 后台与终端委派需安装并登录 `qodercli`；仅桌面复制交接需安装 Qoder 桌面端 |
 | **Hermes Agent** | 使用委派需安装并配置 `hermes-acp` / `hermes` CLI（支持 Homebrew / `uv` / 用户目录自动发现）；仅追踪时直接只读 `$HERMES_HOME/state.db` |
-| **千问办公（QwenWork）** | 安装千问办公桌面端（`QwenWorkCN.app`）；自动读取 `~/.qwenworkcn/projects` 会话日志（仅追踪） |
+| **千问办公（QwenWork）** | 安装千问办公桌面端（`QwenWorkCN.app`）；自动读取 2.x 的会话库（`~/.qwenworkcn/.harness/*/qwenwork`）与旧版 `~/.qwenworkcn/projects` 日志（仅追踪） |
 | **WorkBuddy** | 安装中国版 WorkBuddy 桌面端（终端交互需另装 `codebuddy` CLI） |
 | **Cursor** | 安装 Cursor 桌面端（3.30.14+），并在设置「来源与扫描 → 更多设置」中安装 Cursor Hooks（仅追踪） |
 | **Grok Bot** | 安装 Grok Bot 桌面端（Sand 客户端），并在设置「记录 → 来源与扫描」的 Grok Bot 卡片内勾选要追踪的 Bot（默认全不选，仅追踪） |
@@ -198,7 +198,7 @@ npm run build
    - **DeepSeek Harness**：桌面端仍在快速迭代中，稳定性有限，且暂不支持通过链接直达具体会话。通过 `dsh acp` 委派的会话只带 cwd、没有工作区 ID，客户端会把它们放进「未分组」，且通常要重启/刷新客户端才能在会话列表看到；插件侧栏仍按 cwd 归组，对话可在插件内查看。
    - **OpenCode**：后台与桌面共享会话存储，但跳转打开桌面端后仍需手动选择对应会话。
    - **Hermes Agent**：无独立桌面 GUI，桌面跳转不可用；插件以只读方式读取 `$HERMES_HOME/state.db`（含 `profiles/*/state.db`）统计已归档、`input_tokens + cache_write_tokens`、`cache_read_tokens` 与 `output_tokens`；后台委派走 `hermes-acp`（兼容 `models` / `session/set_model`），终端交接走 `hermes chat` 与 `hermes --resume`。
-   - **千问办公（QwenWork）**：目前仅支持从 `~/.qwenworkcn/projects`（只读 JSONL）追踪会话、活动时长、轮次记录及正文查看归档；由于客户端与自带 `qwenwork` CLI 未提供非交互问答或 ACP 协议接口，暂不支持委派与终端交互；日志未提供 token 且模型标注为 `unknown` 时如实保留为 `0`/留空，不做估算。
+   - **千问办公（QwenWork）**：以只读方式读取 2.x 桌面端的会话库（`~/.qwenworkcn/.harness/*/qwenwork`，SQLite）与旧版 `~/.qwenworkcn/projects` JSONL，追踪会话、活动时长、轮次记录及正文查看归档；2.x 会话库自带逐轮 token 与模型名，旧 JSONL 未提供 token 或模型标注为 `unknown` 时如实保留为 `0`/留空，不做估算。由于客户端与自带 `qwenwork` CLI 未提供非交互问答或 ACP 协议接口，暂不支持委派与终端交互。
    - **Grok Bot**：仅支持桌面端（Sand）持久化只读追踪与按 Bot 多选过滤；不支持任务委派与终端交互，云端沙箱无本地逐条 token/模型时显示「用量未提供」且不作估算；无归档概念，默认超过设定时长无新对话自动标为 `DONE`。
 5. **终端交互委派的实测范围**
    - 在终端新开标签页自动运行交互式会话的功能，目前仅在 **Tern** 和 **Herdr** 上完成端到端实测；**系统终端（Terminal.app）、iTerm2、Warp** 尚未实测（Warp 无脚本接口，仅能前置窗口）。
