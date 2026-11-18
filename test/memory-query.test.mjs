@@ -219,11 +219,11 @@ test("图检索一跳：同源记忆与能打开的原文都列出来，打不�
   const near = neighborsOf(entries.filter((x) => x.state === "有效"), e, { vault, limit: 2 });
   assert.ok(near.coCitation.some((c) => c.entry.name === "2026-11-17-a"), "同引日记的那条要算作同源");
   assert.equal(near.notes.length, 1);
-  assert.ok(near.notes[0].endsWith("日记/2026_11_06.md"), "来源笔记给绝对路径");
+  assert.ok(near.notes[0].endsWith(path.join("日记", "2026_11_06.md")), "来源笔记给绝对路径");
 
   const out = execFileSync(process.execPath, [SCRIPT, "search", "拒答 门槛", "--vault", vault], { encoding: "utf8" });
   assert.match(out, /邻接：同源 \[\[2026-11-17-a\]\]（同引 日记\/2026_11_06）/);
-  assert.match(out, /原文 .*日记\/2026_11_06\.md/);
+  assert.match(out, /原文 .*日记[\\/]2026_11_06\.md/);
 });
 
 test("inDateRange：没日期的条目不参与时间过滤", () => {
