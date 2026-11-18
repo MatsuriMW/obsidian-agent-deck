@@ -1,10 +1,10 @@
 # Agent Deck（智能体甲板）
 
-> 从日记委派 AI 任务，用 Dashboard 回顾每天的 token 用量和项目投入。
+> 在 Obsidian 里看住、指挥并回顾本机的 AI Agent。
 
 **中文** ｜ [English](README.en.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [更新日志](CHANGELOG.md) ｜ [Discord 社区](https://discord.gg/hVPpAnChv7) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
 
-项目目前处于早期高速迭代阶段，体验可能偶有打磨不足或破坏式更新。欢迎在 [Roadmap（支持中英文）](https://matsuri.site/portfolio/journal-workflow/#wishlist) 查看后续规划、添加建议并投票，加入 [Discord 社区](https://discord.gg/hVPpAnChv7) 或 [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) 交流工作流，或通过 [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 与邮件 [klauschen2799@gmail.com](mailto:klauschen2799@gmail.com) 反馈问题。
+项目仍在快速迭代，欢迎在 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) 看后续规划并投票，或到 [Discord](https://discord.gg/hVPpAnChv7)、[GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)、[GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 反馈问题。
 
 <p align="center">
   <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4"><img src="assets/demo.gif" width="800" alt="Agent Deck 演示：会话卡片拖到日记里的任务上绑定，任务拖到 Agent 上委派，状态和结论写回日记"></a>
@@ -12,204 +12,170 @@
 
 <p align="center">25 秒演示 · 点图看 <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4">4K60 有声版</a> ｜ 国内可看：<a href="https://matsuri.site/demo/agent-deck/">matsuri.site/demo/agent-deck</a></p>
 
-Agent Deck 把本机分散在各客户端中的 AI Agent 会话集中到 Obsidian 的同一张甲板上：哪个 Agent 在运行、哪个在等待确认、推进到哪一步，一目了然；需要派发任务时，直接从日记或笔记里的任务行委派出去，进度、用时和结论再自动写回这一行。
+Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 Agent 在跑、哪个在等你、做到哪一步，一眼看清；要派活时直接从日记或笔记的任务行发出去，进度、用时和结论再自动写回这一行。
 
----
+## 目录
 
-## 核心结构与信息流转
-
-<p align="center">
-  <img src="assets/architecture.svg" width="900" alt="Agent Deck 核心结构与信息流转：从日记任务委派到 8 家 Agent 执行、只读扫描、多视图回写、Dashboard 与 Dreaming">
-</p>
-
----
+- [0. 一眼看懂](#0-一眼看懂)
+- [1. 多 Agent 会话追踪面板](#1-多-agent-会话追踪面板)
+- [2. 从笔记委派任务](#2-从笔记委派任务)
+- [3. 项目协作工作台与分形看板](#3-项目协作工作台与分形看板)
+- [4. 人机共写日记、整理与归档](#4-人机共写日记整理与归档)
+- [5. 协作回顾 Dashboard](#5-协作回顾-dashboard)
+- [6. 笔记即上下文](#6-笔记即上下文)
+- [7. 菜单栏、Dreaming 与双语界面](#7-菜单栏dreaming-与双语界面)
+- [各 Agent 支持情况](#各-agent-支持情况)
+- [安装与依赖](#安装与依赖)
+- [当前受限](#当前受限)
+- [隐私与开源协议](#隐私与开源协议)
 
 ## 核心功能
 
-### 0. 笔记即上下文：记忆库、派发草稿与技能卡
+### 0. 一眼看懂
 
-> 这一组能力的共同前提：**AI 生成或调用的一切都是 Markdown**，所以都放回库里、能被你直接读、直接改，改完立刻生效。
+侧栏看住所有 Agent，笔记里派活，看板与仪表盘回顾产出，三件事在同一个 Obsidian 窗口里完成。
 
-- **记忆库（一文一条）**：命令 `记忆：把长期记忆迁移到记忆库` 后，每条记忆是一个 Markdown 文件（frontmatter 带 `state / title / sources`），原笔记只保留你手写的前言与自动生成的目录区块。三种读法并存：**Base 表格**（筛选/排序/统计）、**记忆看板**（按状态三列，拖拽即改）、**逐条审阅**（下拉框选确认/拒绝）。
-- **记忆注入与溯源**：派发时按任务相关度注入最多 5 条、1200 字，每条附 `来源 [[日记/#^mem-…]]`，Agent 可回原文核对；日记里被提炼的那一行会得到 `⤴ [[记忆/…]]` 反向回链。命令 `记忆：体检` 汇总无来源/待确认/重复/待复核，`记忆：按原文重新锚定来源` 会按原文修正漂移的行号。
-- **派发草稿、载荷快照与完整上下文**：命令 `委派：先生成草稿（不发送）` 会写出这一趟的完整内容并挂回任务行（`📝`），你改完再点委派；真正派发时另存一份快照（`📄`）并带 `anchor` 回指任务块，不受长文本截断限制、事后可核对。派发时优先读取编辑器尚未保存的最新内容，并自动拼入上层大纲、`❓/✍️` 问答、记忆与关联笔记；关联笔记超过 3 篇时第 4 篇起保留路径供按需阅读、长文附后续章节目录、找不到锚点或读取失败会主动提示不静默跳过；支持用 `private: true` 或设置页「不注入目录」禁止隐私笔记随派发或记忆查询外发。30 天且无引用的旧载荷可用命令归档。
-- **目标 → task.md → 看板**：命令 `规划：把当前这一条拆成 task.md` 把当前行当目标拆成带验收标准的步骤，产出文件**自动成为看板文件**；任何有清单的笔记也能用 `看板：把当前笔记设为看板文件` 直接当看板，拖动卡片即修改 Markdown。
-- **技能卡**：命令 `技能：刷新技能卡` 把本机 Skill（`~/.dsh/skills`、`~/.claude/skills`、skillshare）映射成 `技能/*.md`，真实 `SKILL.md` 路径记在 frontmatter；派发时在任务里写 `[[技能/xxx]]`（或短链 `[[xxx]]`）即把该路径交给 Agent，技能正文不占 prompt。手改过的卡片刷新时保留你的正文。
-- **工作台**：命令 `工作台：刷新总览` 生成一页索引，列出看板文件、记忆统计与最近规划，只做索引不复制内容。
+<p align="center">
+  <img src="assets/project-workbench.png" width="720" alt="项目协作工作台：小队角色、可编辑的子任务草案与派发前确认">
+</p>
+<p align="center"><b>项目协作工作台</b>：说清目标，拆成子任务，确认后分给多个 Agent 并发执行。</p>
+
+<p align="center">
+  <img src="assets/fractal-board-views.png" width="840" alt="原地分形看板：左边是 Markdown 大纲，右边是按子组展开的看板">
+</p>
+<p align="center"><b>原地分形看板</b>：同一份 Markdown，大纲和看板随时切换，拖动卡片就改状态。</p>
+
+<p align="center">
+  <img src="assets/dashboard.png" width="840" alt="协作回顾 Dashboard：Token 热力图、作息分布、Agent 与模型分布、项目投入">
+</p>
+<p align="center"><b>协作回顾 Dashboard</b>：每天用了多少、花在哪个项目、哪个 Agent 最忙。</p>
 
 ### 1. 多 Agent 会话追踪面板
-- **统一收拢 11 类本地 Agent**：支持 **Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder、Hermes Agent**，以及 **千问办公（QwenWork）**（仅追踪）、**Cursor**（3.30.14+ Hooks，仅追踪）与 **Grok Bot**（Sand 桌面端，按 Bot 多选，仅追踪）。
-- **按项目聚合的并发进程管理**：侧栏「现在」默认按工作区项目收拢多 Agent 活跃会话与异常状态（`在跑 / 等你 / 异常`），支持一键打开项目目录、进入项目工作台或批量停止本项目活跃任务，也可切到「按状态」（等你 / 待认领 / 在跑 / 异常 四档）或扁平「列表」；「最近的会话」支持按 `7 天 / 30 天 / 120 天` 切换，并在「按 Agent」与「按项目」叠放分组间切换。
-- **实时状态、子代理层级与跳转**：区分运行中、等待回复、需要确认、到达限额、暂停、出错、已完成等状态；子代理会话在「最近」列表自动缩进紧跟母会话；点击会话卡片可直接切回对应客户端或终端标签（支持范围见下文边界表），未生成会话号的待认领委派点击可直达原笔记行。
-- **主力与全局搜索**：可设最多 2 个主力 Agent（追踪全部历史与跨天补记），其余已启用 Agent 读取当日活跃会话；支持按标题、项目、模型、正文关键字搜索全部本地扫描到的会话，并查看最近 14 天协作趋势。
 
-### 2. 从笔记委派与双向拖拽
-- **三种委派方式**：
-  - 点击任务行末尾的纸飞机把手快速委派，或双击 / `⌘` 单击切换目标 Agent；
-  - 直接将笔记列表项拖到侧栏 Agent 卡片上委派；
-  - 在任务行内输入 `@` 选择 Agent，继续输入 `/` 选择模型和推理强度（如 `@codex/gpt-6.1-sol/high`）。
-- **按项目目录派发**：在「委派」里登记「项目名 → 工作目录」后，笔记里的 `[[项目]]` 双链、笔记路径或 `项目 -> 标题` 前缀会让派活自动落到该项目目录（优先于各 Agent 的默认目录）；委派对话框与项目工作台可直接切换。Codex 桌面会复用或新建同名项目并把会话归进去，不再落到「无项目对话」（实验性接口，失败时按原样派发）。**非日记的普通笔记同样有项目感知**：认出的项目还没登记目录时，委派对话框会从最近会话里建议目录，点「使用并记住」即可；拖拽派发不打断，只在通知里提示一次。任务里写的项目和笔记路径指向不同项目时以任务为准并让你确认；拖拽遇到这种冲突会先落在库根并提示，不会静默进错项目。这类派发默认只把结论写回原笔记，不重复进当天日记（可在「委派 → 项目文件夹」打开）。
-- **发送预览、工作模式与权限安全保护**：发送前可预览正文和子块、选择工作位置与本次权限/沙箱模式（如 Claude / Qoder 的 `plan / auto / acceptEdits / manual`，Codex 的 `read-only / workspace-write / danger-full-access`）；从子任务委派时自动携带上层母项链（不含无关兄弟分支）、当前子树及显式 `[[双链]]` 笔记摘录，也可在已有 AI 回复块上补充说明并再次委派。支持在 ACP 权限弹窗中一键「允许并开启自动允许」；即使开启自动允许，遇高危命令、敏感凭证路径或工作区外写入仍会强制弹窗二次确认。
-- **笔记内问答闭环与回复信箱**：Agent 在输出末尾抛出问题时，会自动在任务下生成 `❓ 第N轮：…` 并收入侧栏非模态 **「回复信箱」**（不抢占编辑器焦点）；可通过快捷键/弹窗点选回复选项，或在笔记手写 `✍️ 答：…` 后原地直发，支持「回答并继续」直接续聊同一会话。
-- **拖拽绑定**：将面板中的会话卡片拖到已有任务行上完成绑定，或拖到空白行新建绑定任务；普通绑定会话在行尾显示状态 pill；后台执行在母块下方显示单条进度，保留取消与重试入口，回答结束后隐藏。
+- **统一收拢 11 类本地 Agent**：Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder、Hermes Agent、千问办公（QwenWork）、Cursor 与 Grok Bot。
+- **按项目看现在**：侧栏「现在」默认按工作区项目收拢活跃会话，也可以按状态（等你 / 待认领 / 在跑 / 异常）或直接平铺成列表；「最近的会话」支持 7 / 30 / 120 天切换，并按 Agent 或项目叠放。
+- **状态一眼可见**：区分运行中、等待回复、需要确认、到达限额、暂停、出错与已完成；子代理会话缩进跟在母会话下面，点卡片即可切回对应客户端或终端标签。
+- **主力与搜索**：最多设两个主力 Agent（读全部历史，其余只读当天），也可以按标题、项目、模型或正文搜索所有本地会话。
 
-### 3. 项目协作工作台与原地分形看板
-- **协作小队预设、管家中途看护与副驾拆解**：通过侧栏工作台按钮、命令面板或任务菜单打开「项目协作工作台」，内置全栈开发、排错重构、调研与文档、深度研报、深度写作五套小队预设（自动避开已禁用或撞限额 Agent 并记住项目偏好）；输入目标即可用整理模型或本地规则拆解为可编辑子任务草案，写入标准 `- TODO ... @agent` Markdown（归入日记活跃区并预分配独立块号），支持人机确认后多 Agent 并发派发；可选开启「管家中途看护」，协作波次运行超过 15 分钟无新输出时自动提醒一次并写回子卡。
-- **原地分形看板（编辑态）**：任意包含 2 个以上直接子任务（支持任务关键词、标准 `[ ]` 复选框及 `![[笔记#^blockId]]` 镜像引用）的父块行尾自动显示 `看板 N` 开关，无需离开当前笔记即可原地切换为二维看板：
-  - **双分列与无限下钻（Zoom）**：支持在 **「按状态分列」**（`TODO / DOING / 待确认 / DONE`）与 **「按子组分列」**（直接子阶段为列、孙任务为卡）间切换；含子任务的卡片可通过 `↳` 角标下钻聚焦，并用顶栏面包屑回溯；
-  - **看板内全流程操作**：支持进度条总览、快捷新增子卡（`+ 子卡`）、行内指派 `@agent`、跨列/跨组拖拽子树（原子改写标准 Markdown，不造私有语法）；单卡查看正文 / 停止 / 派发（自动附带同看板兄弟分工上下文）收进右键菜单，卡片右下角不再堆操作按钮，顶部「派发 TODO」仍保留；卡片标题与最新结论按 Markdown 渲染（加粗、行内代码、双链/外链可点，点标题空白处仍回大纲定位）。
-  - **高度收敛、置顶与批量操作**：列高按常规约 3 张卡封顶（整列都是短卡时完整显示 4 张），其余卡片在列内滚动查看；拖到卡片上半/下半区分别插到该卡前后，拖到列空白处排到列尾；单卡 `📌` 或批量置顶只影响投影顺序（存 `data.json`，不改 Markdown）；卡与列头都可多选，批量改状态、置顶/取消置顶或删除整卡子树（含其记录与子项，删除需二次确认，编辑器内可撤销），选中多张后右键也会直接弹出这组批量操作；镜像卡只参与置顶，改状态与删除回源笔记处理。
-  - **单源镜像卡**：通过 `- ![[笔记#^blockId]]` 或 `- [[笔记#^blockId]]` 引用其他笔记的任务卡，在看板内显示虚线 `镜像` 角标，改状态直接回写源笔记，且被 Dashboard 统计与 Dreaming 记忆提取自动跳过以防重复计数。
+### 2. 从笔记委派任务
 
-演示顺序为小队草案 → Markdown 大纲 → 子组看板；实测范围与待验收项见 [发布说明](CHANGELOG.md#演示素材与验证范围)。
+- **三种派活方式**：点任务行末尾的纸飞机，把笔记列表项拖到侧栏的 Agent 卡片上，或直接在任务行里输入 `@` 选 Agent、再输入 `/` 选模型和推理强度。
+- **发送前看得见**：可预览正文与子块、切换项目目录、选择这一次的工作模式和权限；从子任务派发时会自动带上母项链与相关笔记摘录。
+- **任务里能对话**：Agent 在结尾提问时，任务下方会多出一行 `❓`，并收进侧栏「回复信箱」；在笔记里手写 `✍️ 答：…` 也能直接发回去，不必回客户端翻记录。
+- **拖拽绑定**：会话卡片拖到任务行即绑定，拖到空白行即新建任务；后台任务在母块下显示一条进度，可随时取消或重试。
 
-<p align="center">
-  <img src="assets/project-workbench.png" width="680" alt="真实 Obsidian 项目协作工作台：小队角色、可编辑子任务草案与写入前确认入口，未触发派发">
-</p>
-<p align="center">
-  <img src="assets/fractal-board-views.png" width="840" alt="原地分形看板对照：左为标准 Markdown 大纲态（看板 4 切换、@agent 路由与记录），右为按子组分列的分形看板（进度条、快捷新增子卡、派发/停止与虚线镜像卡）">
-</p>
+### 3. 项目协作工作台与分形看板
 
-> **首次安装 / 升级交互示例**：升级到 **1.10.0** 后首次打开 Obsidian 会自动生成并打开模拟示例笔记 `Agent Deck/功能示例-1.10.0.md`（不绑定真实会话，也不计入统计），同屏体验分形看板（含 Zoom 与同笔记镜像跳转）及 4 种 AI 记录视图；后续可通过命令面板「打开 1.10.0 新功能示例笔记」随时重开。
+- **小队预设**：内置全栈开发、排错重构、调研与文档、深度研报、深度写作五套小队，自动避开已禁用或撞限额的 Agent；输入目标即可拆成可编辑的子任务草案，确认后多 Agent 并发。
+- **管家中途看护**：协作波次超过 15 分钟没有新输出时提醒一次，并把情况写回子卡。
+- **原地看板**：任意有多个直接子任务的块，行尾会出现「看板 N」，点一下就在当前笔记里变成看板，支持按状态分列或按子组分列、卡片下钻、跨列拖拽、批量改状态与置顶。
+- **镜像卡**：用 `![[笔记#^块号]]` 引用别的笔记里的任务，看板里显示为镜像，改状态直接回写原笔记。
 
 ### 4. 人机共写日记、整理与归档
-- **自动记日记与回写**：定时扫描当日会话，自动匹配或新建日记任务行，实时同步状态、`⏱` 活动时段、每轮简略/标准/详细记录以及嵌套子会话 / Side Chat / Subagent 子块；新建 AI 自动记录母块默认使用 `**标题**` 加粗突出显示并带项目 / Bot 前缀，可在「设置 → 记录 → 日记与归档 → 更多设置 → 记录规则细则」自定义加粗、前缀、起止时间段、标题长度上限与 Grok Bot 无新对话自动 `DONE` 时长；后台回答不超过 500 字时完整写入子块，超过时返回 `Agent Deck/Answers/` 中的 Markdown 文件链接（含完整问题与回答、清除内部追踪标识，不另调总结模型）。普通会话结论默认 350 字，摘要中的长网址与文件路径折叠为可点击短链。每个会话只追最近的活动：第一次接入某个会话 / Bot 时只补最近 10 轮，之后同一个会话只跟当天产生的新轮次，更早的历史不再写回笔记（「更多设置 → 首次记录最近多少轮」可改）。
-- **任务关键词的配色与图标**：日记里所有任务关键词（`DOING` / `PAUSED` / `TOREVIEW` / `DONE` / `TODOFORAI` …）在编辑器和阅读视图都按 Logseq 风格上色并带 `tsq-ico` 图标，颜色、图标和切词动画与 Logseq Style Tasks（TODOseq）一比一；AI 自动记录即使 `DONE` 也不加贯穿删除线，手写任务照旧。开关在「记录 → 日记与归档 → 关键词配色与图标」；同时装着 TODOseq 时请关掉它的「格式化任务关键词」和「关键词图标」两个开关，Agent Deck 会自动让位避免重复渲染。
-- **标题保护与记录折叠**：保留用户手写修改过的 AI 标题不被覆盖；默认收起历史轮次仅展示最新结论；支持人工切换并锁定任务状态；内部追踪标识在编辑与阅读视图隐藏，并在完成或归档时自动清理。
-- **四种持久化记录视图与按视图导出**：支持同一条 AI 自动记录在**大纲 / 表格 / 卡片 / 时间线**间就地切换并按块记住视图偏好，不改写底层 Markdown；顶层视图菜单内的「导出」子菜单可按当前视图导出展开后的 PDF 与独立 HTML，也可导出无损 Markdown（`.md`）、结构化 JSON（`.json`）、CSV（`.csv`），或一键复制 Markdown / 表格 / 纯文本 / JSON。
+
+- **自动记日记**：定时扫描当天会话，自动匹配或新建日记任务行，同步状态、活动时段和每轮记录；简略、标准、详细三档可选，长篇回答会保存成独立文件并留下链接。
+- **关键词配色**：`DOING` / `PAUSED` / `TOREVIEW` / `DONE` 等任务关键词在编辑器和阅读视图里按 Logseq 风格上色带图标，与 Logseq Style Tasks 一致。
+- **标题与折叠**：你手改过的 AI 标题不会被覆盖；历史轮次默认收起，只留最新结论。
+- **四种视图**：同一条记录可在大纲、表格、卡片、时间线之间切换，并能按当前视图导出 PDF、HTML、Markdown、JSON 或 CSV。
+- **整理与归档**：一键把当天日记整理成「正在做 / 还要做 / 已完成」，或把已完成的 AI 任务按日期归档到指定笔记。
+- **与螺旋日程共存**：可搭配 [螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 使用，由 Agent Deck 接管 AI 写入，螺旋保留排程与进度展示。
+
+### 5. 协作回顾 Dashboard
+
+- **每日 Token 热力图**与 **24 小时作息、并发分布**：按 7 / 30 / 90 天、一年或自定义范围查看，无数据时不估算。
+- **Agent 与模型分布**：看谁用得最多、缓存命中多少、平均每轮多少。
+- **项目投入**：结合日记链接与标题自动归到项目，可手动修正，按日期下钻回来源日记或原会话。全程不调用额外模型。
+
+### 6. 笔记即上下文
+
+> 这一组能力的共同前提：AI 生成或调用的一切都是 Markdown，所以都放回库里，你能直接读、直接改，改完立刻生效。
+
+- **记忆库（一文一条）**：每条记忆是一个 Markdown 文件，可以用 **Base 表格**筛选排序、用**记忆看板**三列拖拽，或**逐条审阅**（确认 / 拒绝）。
 
 <p align="center">
-  <img src="assets/ai-record-views-1.png" width="840" alt="AI 自动记录视图对比：大纲视图与表格视图">
-</p>
-<p align="center">
-  <img src="assets/ai-record-views-2.png" width="840" alt="AI 自动记录视图对比：卡片视图与时间线视图">
+  <img src="assets/memory-base.png" width="820" alt="记忆库的 Base 表格：按类型和状态筛选，逐条可读可改">
 </p>
 
-- **大纲编辑快捷键与批量任务状态**：新增 `⌥⌘↑` **跳到母块**（连按逐级向上，光标停在行尾 `^blockId` 之前）、`⌥⌘⇧↑` **跳到最上一级顶格母块**、`⌥⌘↓` **合并成组（Group rows）**，以及命令面板 / 编辑器右键菜单里的 **批量调整选中块的任务状态…**（Windows / Linux 以 `Ctrl+Alt` 替代 `⌥⌘`）：
-  - **合并成组（Group rows）专为批量合并 AI 自动记录而设**：**在日记里框选或点选任意多条 AI 自动记录（含各自子项），一次按键就在最浅缩进处上方新建空母块、把选中的记录整体降一级收进去，遵循 Obsidian 的 `useTab` / `tabSize` 设置，光标直接停在新母块上。合并后的母块行尾立刻出现「看板 N」，原地切成看板就能按状态或子组回顾这一批记录——巡检一天里散落各处的 Agent 干活记录非常好用。**
-  - **多选批量改状态**：拖拽框选、跨层选区与多光标（`Cmd+Click`）都支持，按所选最浅的根列表项去重，不会误改 `💬` / `🔗` 等内部记录行或子项；含关键词任务、无关键词普通列表项与 `[ ]` / `[/]` / `[x]` / `[-]` 复选框都能一次改完，整批只占一步撤销，AI 条目的人工状态锁定与「恢复自动跟随」照常生效。
+- **记忆会用、也能溯源**：派发时按相关度注入最多 5 条记忆，每条附回原日记的链接，Agent 可以回原文核对；被提炼的那一行会得到反向回链；命令 `记忆：体检` 会汇总无来源、待确认与重复条目。
+- **派发草稿与完整上下文**：命令 `委派：先生成草稿（不发送）` 会把这一趟要发的内容完整写出来并挂回任务行，你改完再发；真正派发时另存一份快照，事后可核对。派发时优先读编辑器里未保存的最新内容，并自动拼入上层大纲、问答、记忆与关联笔记；关联笔记太多时只保留路径供按需阅读，读取失败会明确提示。标了 `private` 的笔记不会随派发外发。
+- **目标 → task.md → 看板**：命令 `规划：把当前这一条拆成 task.md` 把一行目标拆成带验收标准的步骤，产出文件自动成为看板文件；任何有清单的笔记也都能一键设为看板。
+- **技能卡**：命令 `技能：刷新技能卡` 把本机 Skill 映射成笔记，派发时在任务里写 `[[技能/xxx]]` 即可把该技能交给 Agent；你手改过的卡片刷新时保留正文。
+- **工作台**：命令 `工作台：刷新总览` 生成一页索引，列出看板、记忆统计和最近规划。
 
-<p align="center">
-  <img src="assets/group-rows-merged.png" width="840" alt="合并成组之后：一批 AI 自动记录收进同一个母块下，仍然逐条保留每轮结论">
-</p>
+### 7. 菜单栏、Dreaming 与双语界面
 
-- **一键整理与归档**：**整理日志**可按模板重排当天日记（正在做、还要做、已完成，各区之间与首尾有分割线），只整理完整分区内部，区外笔记保持原样；无完整分区时只建立空分区；**归档已完成的日志到…** 可将已完成的 AI 任务移出日记并按日期沉淀到指定笔记。
-- **兼容螺旋日程**：可与 [螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 配套使用，由 Agent Deck 接管 AI 写入、螺旋保留排程与进度展示（螺旋未展示同会话 token 时由 Agent Deck 补全显示）。
+- **macOS 菜单栏助手**：常驻菜单栏，点一下或按全局快捷键 `⌃⌥⌘D` 随时看今日指标、运行中与待确认会话，并直接跳转。
+- **Dreaming 长期记忆**（可选，默认关闭）：基于最近 14 天的日记与委派记录提炼可编辑的长期记忆，可以导出副本或按需同步。
+- **中英双语**：界面跟随 Obsidian 的语言设置自动切换，笔记正文与发给 Agent 的提示词保持不变。
+- **密钥不进笔记库**：填 API Key 时可以用环境变量或本机独立的密钥文件；命令面板提供「导出脱敏诊断报告」，方便排查问题。
 
-### 5. 协作回顾 Dashboard（实验功能，默认开启）
-- 展示 GitHub 风格的**每日 Token 热力图**与**24 小时作息与并发**时段分布（含输入、输出与缓存读取，不代表费用；无数据时不估算），支持按最近 7/30/90 天、一年或自定义日期范围筛选。
-- 统计 **Agent 分布**与**模型分布**（Token、轮均用量、缓存命中率等）并支持联动筛选；结合日记链接、标题、目录与别名自动汇总**项目投入**（支持按 Token / 耗时 / 会话数 / 名称与升降序排序）、手动修正项目归属、按日期下钻明细并跳回来源日记块或原会话；不调用额外模型，也不改写日记。
+## 各 Agent 支持情况
 
-<p align="center">
-  <img src="assets/dashboard.png" width="840" alt="Agent Deck 协作回顾 Dashboard（并列双栏）：左为 Token 热力图、24 小时作息与并发及 Agent 分布，右为模型分布与项目投入明细">
-</p>
-
-### 6. macOS 菜单栏助手、Dreaming 与双语界面
-- **macOS 纯色菜单栏面板**：常驻菜单栏图标，点击或按全局快捷键 **`⌃⌥⌘D`**（可自定义）随时唤起，快速查看今日协作指标及运行中/待确认会话，支持直接跳转。
-- **Dreaming 长期记忆（可选，默认关闭）**：基于最近 14 天日记和委派笔记提炼可编辑的长期记忆，支持导出副本或可选同步。
-- **界面语言自动跟随**：跟随 Obsidian 设置自动切换中文或英文（笔记正文与发给 CLI 的提示词保持不变）。
-- **凭证保护与脱敏诊断导出**：填写 OpenAI 兼容 API Key 时支持 `env:变量名` 或 `secret:键名`（密钥存于 Vault 外的本机私钥文件），避免明文随同步盘泄露；命令面板提供「导出脱敏诊断报告」，一键汇总本机 CLI 可用性、运行状态与脱敏后的最近失败记录，方便排查问题。
-
----
-
-## 各 Agent 支持情况一览
-
-| Agent | 日志追踪 | 后台委派 | 桌面端交接 | 终端交互 | 直达原会话跳转 |
-|---|---|---|---|---|---|
-| **Claude Code** | 支持 | 支持（`claude`） | 支持（首轮后自动打开） | 支持 | 支持（桌面 / 终端标签） |
-| **Codex** | 支持 | 支持 | 支持（App Server 首轮后打开） | 支持 | 支持（桌面 / 终端标签） |
-| **DeepSeek Harness** | 支持 | 支持（`dsh acp`） | 仅唤起客户端 | — | 仅聚焦客户端并复制会话号 |
-| **Antigravity** | 支持 | 支持（`agy acp`） | 不支持 | — | 仅聚焦客户端并复制会话号 |
-| **OpenCode** | 支持 | 支持（`opencode-cli acp`） | 首轮后自动打开应用（共用本地库） | 支持 | 需在桌面端手动选会话 |
-| **Qoder** | 支持 | 支持（`qodercli`） | 仅复制任务并唤起桌面端 | 支持（`qodercli`） | CLI 走终端恢复；桌面端复制会话号后手动选 |
-| **Hermes Agent** | 支持（`$HERMES_HOME/state.db`） | 支持（`hermes-acp`） | 不支持（无桌面 GUI） | 支持（`hermes chat`） | 支持终端恢复（`hermes --resume`）与插件查看 |
-| **千问办公（QwenWork）** | 支持（2.x 会话库 + 旧版 `projects` 日志） | 不支持（CLI / 客户端无委派接口） | 不支持（仅追踪） | — | 唤起桌面端并复制会话号（插件内看完整对话） |
-| **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起桌面端 | 支持（`codebuddy`） | 支持原生桌面会话直达与终端恢复 |
-| **Cursor** | 支持（3.30.14+ Hooks + 日志） | 不支持 | 不支持（仅追踪） | — | 仅打开应用并复制会话号 |
-| **Grok Bot** | 支持（按 Bot 多选） | 不支持 | 不支持（仅追踪） | — | 唤起 Grok Bot 桌面端 |
-
----
+| Agent | 会话追踪 | 后台委派 | 桌面端交接 | 终端交互 |
+|---|---|---|---|---|
+| **Claude Code** | 支持 | 支持 | 支持（首轮后自动打开） | 支持 |
+| **Codex** | 支持 | 支持 | 支持（首轮后自动打开） | 支持 |
+| **DeepSeek Harness** | 支持 | 支持 | 仅唤起客户端 | — |
+| **Antigravity** | 支持 | 支持 | 不支持 | — |
+| **OpenCode** | 支持 | 支持 | 首轮后自动打开 | 支持 |
+| **Qoder** | 支持 | 支持 | 仅复制任务并唤起 | 支持 |
+| **Hermes Agent** | 支持 | 支持 | 不支持（无桌面界面） | 支持 |
+| **千问办公（QwenWork）** | 支持 | 不支持 | 不支持（仅追踪） | — |
+| **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起 | 支持 |
+| **Cursor** | 支持（需开启 Hooks） | 不支持 | 不支持（仅追踪） | — |
+| **Grok Bot** | 支持（按 Bot 多选） | 不支持 | 不支持（仅追踪） | — |
 
 ## 安装与依赖
 
-### 1. 安装插件
-可以在 Obsidian 社区插件市场直接安装，或从 GitHub Releases 手动下载（当前版本 **1.13.1**，需 Obsidian **1.4.0+** 桌面端）：
+### 安装
 
-1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck** 并点击安装、启用。
-2. 或前往 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新产物中的 `main.js`、`manifest.json`、`styles.css`，放入 `<Vault>/.obsidian/plugins/agent-deck/` 后在「设置 → 第三方插件」中启用。
+1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck**，安装并启用；
+2. 或在 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新版，把 `main.js`、`manifest.json`、`styles.css` 放进 `<你的库>/.obsidian/plugins/agent-deck/`，再到插件设置里启用。
 
-<details>
-<summary>从源码构建（仅开发者需要）</summary>
+当前版本 **1.13.2**，需要 Obsidian **1.4.0+** 桌面端。
 
-需要本机已安装 Node.js 与 npm：
+### 需要准备什么
 
-```bash
-git clone https://github.com/MatsuriMW/obsidian-agent-deck.git
-cd obsidian-agent-deck
-npm install
-npm run build
-```
+只用面板追踪、任务绑定和 Dashboard 时**不需要任何额外依赖**，插件只读本机已有的会话记录，也不联网。要用委派、自动记日记或 Dreaming 时，再准备你实际要用的客户端：
 
-构建完成后将 `main.js`、`manifest.json`、`styles.css` 放入 `<Vault>/.obsidian/plugins/agent-deck/`（或直接运行 `npm run install:plugin -- <你的Vault路径>` 跨平台复制）。
-
-</details>
-
-### 2. 运行依赖（按需准备，无需全装）
-
-- **仅使用面板追踪、任务绑定与回顾 Dashboard**：**无需额外依赖**，直接读取本机已有客户端日志（Cursor 需在设置中开启 Hooks），不发起网络请求。
-- **使用委派、自动记日记、AI 总结/润色与 Dreaming**：需要安装并登录你实际要用的本机 Agent CLI / 桌面端，或在整理模型处填写 OpenAI 兼容 API：
-
-| 功能 / Agent | 需要提前准备什么 |
+| 你要用的功能 | 需要先装好 |
 |---|---|
-| **Claude Code** | 安装并登录 `claude` CLI（支持 `/login` 或 `~/.claude/settings.json` `env` 认证）；需桌面续聊则另装 Claude 桌面端 |
-| **Codex** | 安装并登录 `codex` CLI 与 Codex 桌面端（支持复用桌面端内置 CLI） |
-| **DeepSeek Harness** | 安装支持 ACP 的 `dsh`，并完成模型提供商与账号配置 |
-| **Antigravity** | 安装并登录**独立 Antigravity CLI（`agy`）**（仅装 IDE 无法委派） |
-| **OpenCode** | 安装 OpenCode 桌面端（内置 `opencode-cli`）或独立 `opencode` CLI 并完成配置 |
-| **Qoder** | 后台与终端委派需安装并登录 `qodercli`；仅桌面复制交接需安装 Qoder 桌面端 |
-| **Hermes Agent** | 使用委派需安装并配置 `hermes-acp` / `hermes` CLI（支持 Homebrew / `uv` / 用户目录自动发现）；仅追踪时直接只读 `$HERMES_HOME/state.db` |
-| **千问办公（QwenWork）** | 安装千问办公桌面端（`QwenWorkCN.app`）；自动读取 2.x 的会话库（`~/.qwenworkcn/.harness/*/qwenwork`）与旧版 `~/.qwenworkcn/projects` 日志（仅追踪） |
-| **WorkBuddy** | 安装中国版 WorkBuddy 桌面端（终端交互需另装 `codebuddy` CLI） |
-| **Cursor** | 安装 Cursor 桌面端（3.30.14+），并在设置「来源与扫描 → 更多设置」中安装 Cursor Hooks（仅追踪） |
-| **Grok Bot** | 安装 Grok Bot 桌面端（Sand 客户端），并在设置「记录 → 来源与扫描」的 Grok Bot 卡片内勾选要追踪的 Bot（默认全不选，仅追踪） |
-| **自动记日记 / AI 总结 / Dreaming** | 任一已登录且额度可用的本地 CLI（`agy`、`claude`、`codex`、`qodercli`、`codebuddy`；DeepSeek 走 `deepseek-ds` 包装脚本，隔离配置目录 + 从钥匙串取 key，不影响官方 `gemini` CLI；含 `~/.claude/settings.json` 的 `env` 认证），或填写 **OpenAI 兼容 API**（支持 DeepSeek、OpenAI、OpenRouter、阿里云百炼 Qwen、本地 Ollama 预设或自定义地址；在「记录 → 整理模型」设置，Dreaming 默认跟随并可单独覆盖） |
-| **macOS 菜单栏助手** | 需 Xcode Command Line Tools 中的 `swiftc`（未安装时可运行 `xcode-select --install`）；不用可在设置中关闭 |
+| **Claude Code** | Claude Code 命令行或桌面端，并登录 |
+| **Codex** | Codex 命令行与桌面端，并登录 |
+| **DeepSeek Harness** | DeepSeek Harness 客户端，并配置好模型与账号 |
+| **Antigravity** | 独立的 Antigravity 命令行（只装 IDE 不够） |
+| **OpenCode** | OpenCode 桌面端或命令行 |
+| **Qoder** | Qoder 命令行；只用桌面交接则装 Qoder 桌面端 |
+| **Hermes Agent** | Hermes 命令行；不用委派时无需额外安装 |
+| **千问办公（QwenWork）** | 千问办公桌面端（仅追踪） |
+| **WorkBuddy** | 中国版 WorkBuddy 桌面端；终端交互另需 `codebuddy` |
+| **Cursor** | Cursor 桌面端 3.30.14+，并在设置里开启 Cursor Hooks |
+| **Grok Bot** | Grok Bot 桌面端，并在设置里勾选要追踪的 Bot |
+| **自动记日记 / 总结 / Dreaming** | 任一已登录的本地 CLI，或一个 OpenAI 兼容 API（支持 DeepSeek、OpenAI、OpenRouter、百炼 Qwen、本地 Ollama 等） |
+| **macOS 菜单栏助手** | Xcode Command Line Tools（未装时运行 `xcode-select --install`） |
 
-> **提示**：
-> - 从 macOS 图形界面启动 Obsidian 时，`PATH` 可能与终端不同；若检测不到命令，请在插件设置中填写 CLI 的完整绝对路径。
-> - 委派设置页中的「检查」按钮仅验证程序路径与版本号，**不代表账号已登录或模型可用**；自动整理与 Dreaming 模型页提供「测试连接」按钮可直接验证实际返回。
+> 从 macOS 图形界面启动 Obsidian 时可能找不到命令行工具，在插件设置里填写完整路径即可；设置页的「检查」只验证路径和版本，登录状态请在客户端确认。
 
----
+## 当前受限
 
-## 当前受限与暂不支持的功能
-
-1. **平台支持边界**
-   - **仅限桌面端**：不支持 Obsidian 移动端。
-   - **Windows 尚未完成实机验证**：插件在 macOS 上开发并实测，目前尚未在 Windows 上完成实机验证。macOS 菜单栏助手仅限 macOS；终端自动唤醒、标签切换与部分路径探测目前仍依赖 macOS 环境。
-2. **无通用远程 API 任务委派后端**
-   - 自动委派任务依赖本机 CLI 或桌面应用，暂不支持直接用远程 API Key / SDK 替代 Agent 执行任务（自动记日记、总结与 Dreaming 已支持 OpenAI 兼容 API）；插件也不会自动安装 CLI 或代为登录。
-3. **对话查看窗口保持只读（支持问答与任务菜单轻量追问）**
-   - Obsidian 内的对话查看窗口仅用于查看回复正文、停止当前轮与保存归档笔记，不设自由输入框；对支持应用内续聊的 ACP 会话（如 DeepSeek Harness、OpenCode、Antigravity），可通过任务操作菜单的轻量追问弹窗或「回复信箱 / 问答弹窗」的「回答并继续」直接续聊，其余会话需回到对应桌面客户端或终端继续。
-4. **部分客户端集成边界**
-   - **Cursor**：仅支持 **3.30.14+ 桌面端** Hooks 只读追踪，不支持任务委派与终端交互；未接入 Hooks 的旧版数据库会话不纳入追踪。
-   - **WorkBuddy**：仅支持**中国版** WorkBuddy；不支持国际版（WorkBuddy AI）。不支持插件管理的后台执行；独立 CodeBuddy CLI 会话无法导入 WorkBuddy 桌面端。
-   - **Qoder**：`qodercli` 会话与 Qoder 桌面端数据库相互独立不互通；桌面端未输出逐轮 token 时不做估算。
-   - **Antigravity**：CLI 会话与原 IDE 会话互不相通，暂不承诺自动识别归档；导出正文不包含工具执行结果、内部推理过程与附件。
-   - **DeepSeek Harness**：桌面端仍在快速迭代中，稳定性有限，且暂不支持通过链接直达具体会话。通过 `dsh acp` 委派的会话只带 cwd、没有工作区 ID，客户端会把它们放进「未分组」，且通常要重启/刷新客户端才能在会话列表看到；插件侧栏仍按 cwd 归组，对话可在插件内查看。
-   - **OpenCode**：后台与桌面共享会话存储，但跳转打开桌面端后仍需手动选择对应会话。
-   - **Hermes Agent**：无独立桌面 GUI，桌面跳转不可用；插件以只读方式读取 `$HERMES_HOME/state.db`（含 `profiles/*/state.db`）统计已归档、`input_tokens + cache_write_tokens`、`cache_read_tokens` 与 `output_tokens`；后台委派走 `hermes-acp`（兼容 `models` / `session/set_model`），终端交接走 `hermes chat` 与 `hermes --resume`。
-   - **千问办公（QwenWork）**：以只读方式读取 2.x 桌面端的会话库（`~/.qwenworkcn/.harness/*/qwenwork`，SQLite）与旧版 `~/.qwenworkcn/projects` JSONL，追踪会话、活动时长、轮次记录及正文查看归档；2.x 会话库自带逐轮 token 与模型名，旧 JSONL 未提供 token 或模型标注为 `unknown` 时如实保留为 `0`/留空，不做估算。由于客户端与自带 `qwenwork` CLI 未提供非交互问答或 ACP 协议接口，暂不支持委派与终端交互。
-   - **Grok Bot**：仅支持桌面端（Sand）持久化只读追踪与按 Bot 多选过滤；不支持任务委派与终端交互，云端沙箱无本地逐条 token/模型时显示「用量未提供」且不作估算；无归档概念，默认超过设定时长无新对话自动标为 `DONE`。
-5. **终端交互委派的实测范围**
-   - 在终端新开标签页自动运行交互式会话的功能，目前仅在 **Tern** 和 **Herdr** 上完成端到端实测；**系统终端（Terminal.app）、iTerm2、Warp** 尚未实测（Warp 无脚本接口，仅能前置窗口）。
-6. **后续功能演进方向**
-   - 派发前可视化上下文预览与剔除、引用块防漂移校验与结构邻接推荐、面向外部 Agent 客户端的标准库级只读上下文查询工具、Dream 长期记忆按条筛选共享、Windows 实机验证，以及更多 Agent 与终端支持（Kimi Code、ZCode、MiniMax Code、Muse、Pi、Ghostty / WezTerm / Kitty / Alacritty 等）均在持续推进中，详见 [演进路线图](docs/specs/harness-roadmap.zh-CN.md) 与在线 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist)。
-
----
+1. **仅桌面端**：不支持 Obsidian 移动端。macOS 已实测；Windows 仍在适配，菜单栏助手仅限 macOS。
+2. **委派依赖本机客户端**：自动委派要本机 CLI 或桌面应用来执行，暂不支持用远程 API 直接跑任务，插件也不会替你安装或登录客户端。
+3. **对话窗口只读**：Obsidian 内的对话查看用于看正文、停止当前轮和保存归档，不设自由输入框；支持的会话可从任务菜单轻量追问或「回答并继续」，其余需回客户端继续。
+4. **各客户端的边界**：
+   - **Cursor**：只追踪装了 Hooks 的新会话，不支持委派与终端交互。
+   - **WorkBuddy**：仅中国版，独立 CodeBuddy 命令行与桌面端不互通。
+   - **Qoder**：命令行与桌面端不互通，桌面端没给 token 时显示「未提供」。
+   - **Antigravity**：命令行与 IDE 会话不互通；导出正文不含工具结果与内部推理。
+   - **DeepSeek Harness**：客户端仍在迭代，委派会话在客户端里可能落到「未分组」，通常需刷新客户端才出现。
+   - **OpenCode**：后台与桌面共用会话，但打开桌面端后仍需手动选一次。
+   - **Hermes Agent**：没有桌面界面，只能在插件里看，或在终端恢复。
+   - **千问办公（QwenWork）**：只追踪、不能委派；新版客户端的对话已能完整读取，旧日志缺 token 时如实显示为 0。
+   - **Grok Bot**：只追踪桌面端，云端沙箱不给逐条 token 时显示「用量未提供」，没有归档概念。
+5. **终端交互的实测范围**：自动开终端跑交互式会话目前只在 **Tern** 和 **Herdr** 上实测通过；系统终端、iTerm2、Warp 尚未实测。
+6. **正在做的方向**：派发前可视化上下文、防引用漂移、Dream 记忆按条共享、Windows 实机验证，以及更多 Agent 与终端支持，详见 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist)。
 
 ## 隐私与开源协议
 
-- **本地优先**：会话读取、面板统计、回顾 Dashboard 与 macOS 菜单栏助手均只读取本机文件，插件自身不上传任何数据。仅在用户主动触发委派、自动整理、AI 总结或 Dreaming 时，才会将对应任务文本或摘要传给本机已登录的 CLI 模型服务。
-- **开源协议**：采用 [Apache 2.0](LICENSE) 协议开源（见 [NOTICE](NOTICE)）。
-- **更多文档**：各版完整改动见 [CHANGELOG.md](CHANGELOG.md)；开发者架构、规范与后续方向见 [docs/](docs/)（含 [Harness 演进路线图](docs/specs/harness-roadmap.zh-CN.md) 与 [WorkFlowy 分形看板规划](docs/specs/fractal-boards-roadmap.md)）。
-- **反馈与社区**：欢迎加入 [Discord 社区](https://discord.gg/hVPpAnChv7) 或 [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) 交流讨论，在 [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 反馈 Bug，或前往 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) 提交想法与投票；动态更新见 Twitter [@Matsurimywaifu](https://x.com/Matsurimywaifu)。
+- **本地优先**：会话读取、面板统计、Dashboard 与菜单栏都只读本机文件，不上传数据；只有你主动委派、自动整理、AI 总结或 Dreaming 时，对应文本才会发给本机已登录的模型服务。
+- **开源协议**：[Apache 2.0](LICENSE)，见 [NOTICE](NOTICE)。
+- **更多**：完整改动见 [CHANGELOG.md](CHANGELOG.md)；开发者文档见 [docs/](docs/)；动态见 Twitter [@Matsurimywaifu](https://x.com/Matsurimywaifu)。

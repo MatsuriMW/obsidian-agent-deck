@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.2
+
+- **千问办公（QwenWork）2.x 会话追踪**：新版客户端把对话写进内置引擎的本地会话库，插件现在直接读取，会话、轮次、逐轮 token、模型与完整正文都能看到；旧版日志继续兼容。首条用户消息里由引擎拼进的工作区说明和工具清单会在显示时去掉，对话和日记只留你真正提的问题。
+- **README 改版**：开头加入目录与三张功能介绍图，各功能段落只讲能做什么、怎么用；记忆库改为配 Base 表格截图。工程细节移出用户文档，安装与受限说明同步收紧。
+
 ## 1.13.1
 
 - **跨平台 SQLite 与 Windows CLI 启动兼容**：新增 `src/sqlite.js` 跨平台探测 `sqlite3` / `sqlite3.exe` 替换各处硬编码 `/usr/bin/sqlite3`；`Delegator` / `CodexDesktopRunner` 在 Windows 下支持 `.cmd` / `.bat` 包装脚本拉起，并为 `CodexDesktopRunner` 补齐 `RunTrace` 闭环与错误脱敏；同步补齐跨平台测试夹具与 Windows CI 矩阵验证。

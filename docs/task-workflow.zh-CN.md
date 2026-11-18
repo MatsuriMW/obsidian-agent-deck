@@ -163,7 +163,7 @@
 - **关键词**：`DOING` / `NOW` / `IN-PROGRESS`、`TOREVIEW`、`NEEDOK`、`ERRORED` / `FAILED`、`HITLIMIT`、`QUEUED`、`DELEGATED`、`TODO` / `LATER`、`PAUSED` / `SUSPENDED`、`WAITING` / `WAIT`、`DONE`、`CANCELED` / `CANCELLED`、`TODOFORAI` / `TODO4AI` / `TODO2AI` / `TODOTOAI`，及 `[ ]` `[/]` `[x]` `[-]`。
 - **整理与归档**：**整理日志**默认按 `---` → 正在做 → `---` → 还要做 → `---` → 已完成 → `---` 排列，只整理完整分区内的 **AI** 条目，非 AI 手写条目与区外笔记保持原位；无完整分区时只建立空分区。**归档已完成的日志到…** 仅移出已完成 **AI** 块（默认 `Agent Deck/done/已完成任务.md`），先写归档再删源。
 
-## 本地修改（2026-11-19，未发版）：跨 Agent / 跨 Mac ACP 通用化、Hermes Agent 与千问办公
+## 本地修改（2026-11-19，随 1.13.2 发布）：跨 Agent / 跨 Mac ACP 通用化、Hermes Agent 与千问办公
 
 - **跨 Agent & 他人 Mac ACP 通用化**（`src/agent-registry.js`, `src/delegation-runners.js`, `src/conversation-modal.js`, `src/dialog.js`, `src/constants.js`, `src/main.js`）：
   - 在 `CAPABILITIES` 增加声明式 ACP 属性（`acpArgs`, `acpAutoApprove`, `acpDefaultModel`, `acpDefaultEffort`, `acpModelOptional`, `acpEffortOptional`, `acpAllowUnknownEffort`, `continueRequiresAcp`），消除各处的 `["dsh", "antigravity", "opencode"]` 硬编码。
