@@ -160,9 +160,11 @@ export function expandedPathEntries(basePath = process.env.PATH || "", homeDir =
 function findInPathDirs(name, dirs) {
   if (!name || String(name).includes("/") || String(name).includes("\\")) return "";
   // Windows 的 CreateProcess 只会自动补 .exe，裸名找不到 npm 装的 .cmd/.bat 包装脚本，
-  // 所以按 PATHEXT 逐个试；POSIX 上 exts 只有空串，行为与原来一致。
+  // 且 npm 会在同目录放无后缀 POSIX sh 脚本，因此裸名先按 PATHEXT 试扩展名，最后兜底原名；
+  // 已有扩展名时先试原名。POSIX 上 exts 只有空串，行为与原来一致。
+  const pathext = String(process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean);
   const exts = process.platform === "win32"
-    ? ["", ...String(process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)]
+    ? (path.extname(name) ? ["", ...pathext] : [...pathext, ""])
     : [""];
   for (const dir of dirs) {
     if (!dir) continue;

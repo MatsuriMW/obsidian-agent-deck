@@ -545,7 +545,7 @@ test("Cursor sessionEnd/sessionStart and Codex trailing turns preserve exact las
 test.after(() => {
   process.env.HOME = origHome;
   if (process.platform === "win32") {
-    process.env.USERPROFILE = origUserProfile;
+    if (origUserProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = origUserProfile;
     if (origAppData === undefined) delete process.env.APPDATA; else process.env.APPDATA = origAppData;
   }
   fs.rmSync(tmpRoot, { recursive: true, force: true });

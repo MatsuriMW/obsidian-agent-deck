@@ -7995,7 +7995,7 @@ var import_path6 = __toESM(require("path"), 1);
 var import_os7 = __toESM(require("os"), 1);
 var import_child_process5 = require("child_process");
 
-// node_modules/fzstd/esm/index.mjs
+// ../../node_modules/fzstd/esm/index.mjs
 var ab = ArrayBuffer;
 var u8 = Uint8Array;
 var u16 = Uint16Array;
@@ -12684,7 +12684,8 @@ function expandedPathEntries(basePath = process.env.PATH || "", homeDir = home4(
 }
 function findInPathDirs(name, dirs) {
   if (!name || String(name).includes("/") || String(name).includes("\\")) return "";
-  const exts = process.platform === "win32" ? ["", ...String(process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)] : [""];
+  const pathext = String(process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean);
+  const exts = process.platform === "win32" ? import_path11.default.extname(name) ? ["", ...pathext] : [...pathext, ""] : [""];
   for (const dir of dirs) {
     if (!dir) continue;
     for (const ext of exts) {
