@@ -1469,58 +1469,64 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.rowToggle(uiMore, t("最近 14 天的条形图"), "", s.ui.showUsageBars !== false, (v) => { s.ui.showUsageBars = v; p.saveSettings(); p.refreshUI(); });
     this.rowToggle(uiMore, t("每个 Agent 的小火花线"), "", s.ui.showSparkline !== false, (v) => { s.ui.showSparkline = v; p.saveSettings(); p.refreshUI(); });
 
-    this.mbSwitch = this.rowToggle(ui, t("macOS 菜单栏"), "", s.showMenuBar !== false, (v) => { s.showMenuBar = v; p.saveSettings(); p.applyUiSettings(); });
-    this.rowSegmented(uiMore, t("菜单栏显示哪些 Agent"), "", [{ id: "primary-running", label: t("主力与在跑的") }, { id: "all", label: t("全部已启用") }], s.menuBarAgentScope || "primary-running", (v) => { s.menuBarAgentScope = v; p.saveSettings(); p.menubar?.update(true); this.display(); });
-    for (const [key, label, desc, min, max] of [
-      ["menuBarPrimaryLimit", t("菜单栏：主力最多几个"), "", 3, 12],
-      ["menuBarOtherLimit", t("菜单栏：其它 Agent 最多几个"), "", 1, 6],
-    ]) {
-      this.rowNumber(uiMore, label, desc, s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => { s[key] = v; p.saveSettings(); p.refreshUI(); });
+    const isMac = process.platform === "darwin";
+    this.mbSwitch = null;
+    if (isMac) {
+      this.mbSwitch = this.rowToggle(ui, t("macOS 菜单栏"), "", s.showMenuBar !== false, (v) => { s.showMenuBar = v; p.saveSettings(); p.applyUiSettings(); });
+      this.rowSegmented(uiMore, t("菜单栏显示哪些 Agent"), "", [{ id: "primary-running", label: t("主力与在跑的") }, { id: "all", label: t("全部已启用") }], s.menuBarAgentScope || "primary-running", (v) => { s.menuBarAgentScope = v; p.saveSettings(); p.menubar?.update(true); this.display(); });
+      for (const [key, label, desc, min, max] of [
+        ["menuBarPrimaryLimit", t("菜单栏：主力最多几个"), "", 3, 12],
+        ["menuBarOtherLimit", t("菜单栏：其它 Agent 最多几个"), "", 1, 6],
+      ]) {
+        this.rowNumber(uiMore, label, desc, s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => { s[key] = v; p.saveSettings(); p.refreshUI(); });
+      }
+      this.row(ui, t("菜单栏快捷键"), t("点输入框后按组合键，需包含 ⌃、⌥ 或 ⌘"), (hkRight) => {
+        const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": t("菜单栏快捷键") } });
+        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+        hkInput.addEventListener("focus", () => {
+          hkInput.value = t("按下组合键…");
+          hkInput.classList.add("is-capturing");
+        });
+        hkInput.addEventListener("blur", () => {
+          hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+          hkInput.classList.remove("is-capturing");
+        });
+        hkInput.addEventListener("input", () => {
+          hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+        });
+        hkInput.addEventListener("keydown", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.key === "Escape") { hkInput.blur(); return; }
+          if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
+          const key = hotkeyKeyFromEvent(event);
+          if (!key) { hkInput.value = t("只支持 A–Z / 0–9 / F1–F12"); return; }
+          if (!event.ctrlKey && !event.altKey && !event.metaKey) { hkInput.value = t("至少加 ⌃ / ⌥ / ⌘"); return; }
+          s.menuBarHotkey = hotkeySpecFromEvent(event, key);
+          p.saveSettings();
+          p.menubar?.update(true);
+          new Notice(t("菜单栏快捷键已保存，约 2 秒内生效"));
+          hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+          hkInput.classList.remove("is-capturing");
+          hkInput.blur();
+        }, true);
+        const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: t("默认") });
+        hkReset.onclick = () => {
+          s.menuBarHotkey = DEFAULTS.menuBarHotkey;
+          p.saveSettings();
+          p.menubar?.update(true);
+          hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+        };
+      });
     }
-    this.row(ui, t("菜单栏快捷键"), t("点输入框后按组合键，需包含 ⌃、⌥ 或 ⌘"), (hkRight) => {
-      const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": t("菜单栏快捷键") } });
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      hkInput.addEventListener("focus", () => {
-        hkInput.value = t("按下组合键…");
-        hkInput.classList.add("is-capturing");
-      });
-      hkInput.addEventListener("blur", () => {
-        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-        hkInput.classList.remove("is-capturing");
-      });
-      hkInput.addEventListener("input", () => {
-        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      });
-      hkInput.addEventListener("keydown", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.key === "Escape") { hkInput.blur(); return; }
-        if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
-        const key = hotkeyKeyFromEvent(event);
-        if (!key) { hkInput.value = t("只支持 A–Z / 0–9 / F1–F12"); return; }
-        if (!event.ctrlKey && !event.altKey && !event.metaKey) { hkInput.value = t("至少加 ⌃ / ⌥ / ⌘"); return; }
-        s.menuBarHotkey = hotkeySpecFromEvent(event, key);
-        p.saveSettings();
-        p.menubar?.update(true);
-        new Notice(t("菜单栏快捷键已保存，约 2 秒内生效"));
-        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-        hkInput.classList.remove("is-capturing");
-        hkInput.blur();
-      }, true);
-      const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: t("默认") });
-      hkReset.onclick = () => {
-        s.menuBarHotkey = DEFAULTS.menuBarHotkey;
-        p.saveSettings();
-        p.menubar?.update(true);
-        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      };
-    });
 
     this.rowToggle(uiMore, t("使用螺旋日程的进度显示"), "", s.yieldToNautilus !== false, (v) => { s.yieldToNautilus = v; p.saveSettings(); p.refreshUI(); });
-    this.rowToggle(uiMore, t("关闭螺旋日程右下角的 Agent 汇总"), "", s.menuBarHideNautilus !== false, (v) => { s.menuBarHideNautilus = v; p.saveSettings(); if (v) p.hideNautilusAgentBar().catch(() => {}); else p.restoreNautilusAgentBar().catch(() => {}); });
+    if (isMac) {
+      this.rowToggle(uiMore, t("关闭螺旋日程右下角的 Agent 汇总"), "", s.menuBarHideNautilus !== false, (v) => { s.menuBarHideNautilus = v; p.saveSettings(); if (v) p.hideNautilusAgentBar().catch(() => {}); else p.restoreNautilusAgentBar().catch(() => {}); });
+    }
 
     const btn = uiMore.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(btn, t("重启菜单栏"), () => p.menubar?.restart());
+    if (isMac) this.bigButton(btn, t("重启菜单栏"), () => p.menubar?.restart());
     this.bigButton(btn, t("重新计算全部历史"), () => p.rebuildUsage(), "mod-warning");
     this.bigButton(btn, t("打开插件目录"), () => p.openPluginDir());
     const stats = uiMore.createDiv({ cls: "ad-statline" });

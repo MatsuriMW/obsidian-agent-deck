@@ -185,13 +185,18 @@ for (const page of [delBody, recBody]) {
   assert.ok(more.every(el => el.open === false), 'More settings is collapsed initially');
 }
 const moreAncestor = el => { for (let p = el.parentElement; p; p = p.parentElement) if (p.tag === 'details' && p.children[0]?.children.some(child => child.options.text === '更多设置')) return p; };
-for (const label of ['扫描间隔（秒）', '整理超时（秒）', '菜单栏：其它 Agent 最多几个', '每个 Agent 的小火花线']) {
+for (const label of ['扫描间隔（秒）', '整理超时（秒）', '每个 Agent 的小火花线', ...(process.platform === 'darwin' ? ['菜单栏：其它 Agent 最多几个'] : [])]) {
   const el = recBody.all().find(el => el.options.text === label);
   assert.ok(el && moreAncestor(el), label + ' stays reachable under More settings');
 }
-for (const label of ['启用日记写入', '自动会话记录', '💬 最多多少个字', 'macOS 菜单栏']) {
+for (const label of ['启用日记写入', '自动会话记录', '💬 最多多少个字', ...(process.platform === 'darwin' ? ['macOS 菜单栏'] : [])]) {
   const el = recBody.all().find(el => el.options.text === label);
   assert.ok(el && !moreAncestor(el), label + ' remains visible');
+}
+if (process.platform !== 'darwin') {
+  for (const label of ['macOS 菜单栏', '菜单栏：其它 Agent 最多几个', '菜单栏快捷键', '重启菜单栏']) {
+    assert.equal(recBody.all().find(el => el.options.text === label), undefined, label + ' is hidden off macOS');
+  }
 }
 assert.equal(DEFAULTS.resultMax, 350);
 assert.equal(syncDelegationSettings(deepMerge(DEFAULTS, { resultMax: 240 })).resultMax, 350, 'old default migrates');

@@ -26568,89 +26568,95 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       p2.saveSettings();
       p2.refreshUI();
     });
-    this.mbSwitch = this.rowToggle(ui, t("macOS \u83DC\u5355\u680F"), "", s.showMenuBar !== false, (v) => {
-      s.showMenuBar = v;
-      p2.saveSettings();
-      p2.applyUiSettings();
-    });
-    this.rowSegmented(uiMore, t("\u83DC\u5355\u680F\u663E\u793A\u54EA\u4E9B Agent"), "", [{ id: "primary-running", label: t("\u4E3B\u529B\u4E0E\u5728\u8DD1\u7684") }, { id: "all", label: t("\u5168\u90E8\u5DF2\u542F\u7528") }], s.menuBarAgentScope || "primary-running", (v) => {
-      s.menuBarAgentScope = v;
-      p2.saveSettings();
-      p2.menubar?.update(true);
-      this.display();
-    });
-    for (const [key, label, desc, min, max] of [
-      ["menuBarPrimaryLimit", t("\u83DC\u5355\u680F\uFF1A\u4E3B\u529B\u6700\u591A\u51E0\u4E2A"), "", 3, 12],
-      ["menuBarOtherLimit", t("\u83DC\u5355\u680F\uFF1A\u5176\u5B83 Agent \u6700\u591A\u51E0\u4E2A"), "", 1, 6]
-    ]) {
-      this.rowNumber(uiMore, label, desc, s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => {
-        s[key] = v;
+    const isMac = process.platform === "darwin";
+    this.mbSwitch = null;
+    if (isMac) {
+      this.mbSwitch = this.rowToggle(ui, t("macOS \u83DC\u5355\u680F"), "", s.showMenuBar !== false, (v) => {
+        s.showMenuBar = v;
         p2.saveSettings();
-        p2.refreshUI();
+        p2.applyUiSettings();
+      });
+      this.rowSegmented(uiMore, t("\u83DC\u5355\u680F\u663E\u793A\u54EA\u4E9B Agent"), "", [{ id: "primary-running", label: t("\u4E3B\u529B\u4E0E\u5728\u8DD1\u7684") }, { id: "all", label: t("\u5168\u90E8\u5DF2\u542F\u7528") }], s.menuBarAgentScope || "primary-running", (v) => {
+        s.menuBarAgentScope = v;
+        p2.saveSettings();
+        p2.menubar?.update(true);
+        this.display();
+      });
+      for (const [key, label, desc, min, max] of [
+        ["menuBarPrimaryLimit", t("\u83DC\u5355\u680F\uFF1A\u4E3B\u529B\u6700\u591A\u51E0\u4E2A"), "", 3, 12],
+        ["menuBarOtherLimit", t("\u83DC\u5355\u680F\uFF1A\u5176\u5B83 Agent \u6700\u591A\u51E0\u4E2A"), "", 1, 6]
+      ]) {
+        this.rowNumber(uiMore, label, desc, s[key] || (key === "menuBarPrimaryLimit" ? 6 : 3), min, max, (v) => {
+          s[key] = v;
+          p2.saveSettings();
+          p2.refreshUI();
+        });
+      }
+      this.row(ui, t("\u83DC\u5355\u680F\u5FEB\u6377\u952E"), t("\u70B9\u8F93\u5165\u6846\u540E\u6309\u7EC4\u5408\u952E\uFF0C\u9700\u5305\u542B \u2303\u3001\u2325 \u6216 \u2318"), (hkRight) => {
+        const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": t("\u83DC\u5355\u680F\u5FEB\u6377\u952E") } });
+        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+        hkInput.addEventListener("focus", () => {
+          hkInput.value = t("\u6309\u4E0B\u7EC4\u5408\u952E\u2026");
+          hkInput.classList.add("is-capturing");
+        });
+        hkInput.addEventListener("blur", () => {
+          hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+          hkInput.classList.remove("is-capturing");
+        });
+        hkInput.addEventListener("input", () => {
+          hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+        });
+        hkInput.addEventListener("keydown", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (event.key === "Escape") {
+            hkInput.blur();
+            return;
+          }
+          if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
+          const key = hotkeyKeyFromEvent(event);
+          if (!key) {
+            hkInput.value = t("\u53EA\u652F\u6301 A\u2013Z / 0\u20139 / F1\u2013F12");
+            return;
+          }
+          if (!event.ctrlKey && !event.altKey && !event.metaKey) {
+            hkInput.value = t("\u81F3\u5C11\u52A0 \u2303 / \u2325 / \u2318");
+            return;
+          }
+          s.menuBarHotkey = hotkeySpecFromEvent(event, key);
+          p2.saveSettings();
+          p2.menubar?.update(true);
+          new import_obsidian7.Notice(t("\u83DC\u5355\u680F\u5FEB\u6377\u952E\u5DF2\u4FDD\u5B58\uFF0C\u7EA6 2 \u79D2\u5185\u751F\u6548"));
+          hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+          hkInput.classList.remove("is-capturing");
+          hkInput.blur();
+        }, true);
+        const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: t("\u9ED8\u8BA4") });
+        hkReset.onclick = () => {
+          s.menuBarHotkey = DEFAULTS.menuBarHotkey;
+          p2.saveSettings();
+          p2.menubar?.update(true);
+          hkInput.value = hotkeyDisplay(s.menuBarHotkey);
+        };
       });
     }
-    this.row(ui, t("\u83DC\u5355\u680F\u5FEB\u6377\u952E"), t("\u70B9\u8F93\u5165\u6846\u540E\u6309\u7EC4\u5408\u952E\uFF0C\u9700\u5305\u542B \u2303\u3001\u2325 \u6216 \u2318"), (hkRight) => {
-      const hkInput = hkRight.createEl("input", { cls: "ad-hotkey", attr: { type: "text", spellcheck: "false", tabindex: "0", "aria-label": t("\u83DC\u5355\u680F\u5FEB\u6377\u952E") } });
-      hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      hkInput.addEventListener("focus", () => {
-        hkInput.value = t("\u6309\u4E0B\u7EC4\u5408\u952E\u2026");
-        hkInput.classList.add("is-capturing");
-      });
-      hkInput.addEventListener("blur", () => {
-        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-        hkInput.classList.remove("is-capturing");
-      });
-      hkInput.addEventListener("input", () => {
-        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      });
-      hkInput.addEventListener("keydown", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.key === "Escape") {
-          hkInput.blur();
-          return;
-        }
-        if (["Control", "Alt", "Shift", "Meta"].includes(event.key)) return;
-        const key = hotkeyKeyFromEvent(event);
-        if (!key) {
-          hkInput.value = t("\u53EA\u652F\u6301 A\u2013Z / 0\u20139 / F1\u2013F12");
-          return;
-        }
-        if (!event.ctrlKey && !event.altKey && !event.metaKey) {
-          hkInput.value = t("\u81F3\u5C11\u52A0 \u2303 / \u2325 / \u2318");
-          return;
-        }
-        s.menuBarHotkey = hotkeySpecFromEvent(event, key);
-        p2.saveSettings();
-        p2.menubar?.update(true);
-        new import_obsidian7.Notice(t("\u83DC\u5355\u680F\u5FEB\u6377\u952E\u5DF2\u4FDD\u5B58\uFF0C\u7EA6 2 \u79D2\u5185\u751F\u6548"));
-        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-        hkInput.classList.remove("is-capturing");
-        hkInput.blur();
-      }, true);
-      const hkReset = hkRight.createEl("button", { cls: "ad-btn", text: t("\u9ED8\u8BA4") });
-      hkReset.onclick = () => {
-        s.menuBarHotkey = DEFAULTS.menuBarHotkey;
-        p2.saveSettings();
-        p2.menubar?.update(true);
-        hkInput.value = hotkeyDisplay(s.menuBarHotkey);
-      };
-    });
     this.rowToggle(uiMore, t("\u4F7F\u7528\u87BA\u65CB\u65E5\u7A0B\u7684\u8FDB\u5EA6\u663E\u793A"), "", s.yieldToNautilus !== false, (v) => {
       s.yieldToNautilus = v;
       p2.saveSettings();
       p2.refreshUI();
     });
-    this.rowToggle(uiMore, t("\u5173\u95ED\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B"), "", s.menuBarHideNautilus !== false, (v) => {
-      s.menuBarHideNautilus = v;
-      p2.saveSettings();
-      if (v) p2.hideNautilusAgentBar().catch(() => {
+    if (isMac) {
+      this.rowToggle(uiMore, t("\u5173\u95ED\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B"), "", s.menuBarHideNautilus !== false, (v) => {
+        s.menuBarHideNautilus = v;
+        p2.saveSettings();
+        if (v) p2.hideNautilusAgentBar().catch(() => {
+        });
+        else p2.restoreNautilusAgentBar().catch(() => {
+        });
       });
-      else p2.restoreNautilusAgentBar().catch(() => {
-      });
-    });
+    }
     const btn = uiMore.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(btn, t("\u91CD\u542F\u83DC\u5355\u680F"), () => p2.menubar?.restart());
+    if (isMac) this.bigButton(btn, t("\u91CD\u542F\u83DC\u5355\u680F"), () => p2.menubar?.restart());
     this.bigButton(btn, t("\u91CD\u65B0\u8BA1\u7B97\u5168\u90E8\u5386\u53F2"), () => p2.rebuildUsage(), "mod-warning");
     this.bigButton(btn, t("\u6253\u5F00\u63D2\u4EF6\u76EE\u5F55"), () => p2.openPluginDir());
     const stats = uiMore.createDiv({ cls: "ad-statline" });
@@ -30614,6 +30620,10 @@ var MenuBarBridge = class {
     });
   }
   killExisting(done) {
+    if (process.platform !== "darwin") {
+      done && done();
+      return;
+    }
     try {
       const pid = Number(import_fs16.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
@@ -30636,6 +30646,7 @@ var MenuBarBridge = class {
     }
   }
   show() {
+    if (!this.enabled) return;
     try {
       import_fs16.default.mkdirSync(this.dir, { recursive: true });
       import_fs16.default.writeFileSync(import_path16.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
@@ -35531,21 +35542,23 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       if (!checking) this.activateDashboard();
       return true;
     } });
-    this.addCommand({
-      id: "open-menubar-panel",
-      name: t("\u6253\u5F00 macOS \u83DC\u5355\u680F\u9762\u677F"),
-      callback: async () => {
-        if (this.settings.showMenuBar === false) return this.notice(t("macOS \u83DC\u5355\u680F\u5DF2\u5173\u95ED\uFF0C\u8BF7\u5148\u5728\u300C\u8BB0\u5F55\u300D\u91CC\u6253\u5F00"));
-        await this.menubar.start();
-        const started = Date.now();
-        const wait = setInterval(() => {
-          if (this.menubar.isAlive() || Date.now() - started > 15e3) {
-            clearInterval(wait);
-            this.menubar.show();
-          }
-        }, 300);
-      }
-    });
+    if (process.platform === "darwin") {
+      this.addCommand({
+        id: "open-menubar-panel",
+        name: t("\u6253\u5F00 macOS \u83DC\u5355\u680F\u9762\u677F"),
+        callback: async () => {
+          if (this.settings.showMenuBar === false) return this.notice(t("macOS \u83DC\u5355\u680F\u5DF2\u5173\u95ED\uFF0C\u8BF7\u5148\u5728\u300C\u8BB0\u5F55\u300D\u91CC\u6253\u5F00"));
+          await this.menubar.start();
+          const started = Date.now();
+          const wait = setInterval(() => {
+            if (this.menubar.isAlive() || Date.now() - started > 15e3) {
+              clearInterval(wait);
+              this.menubar.show();
+            }
+          }, 300);
+        }
+      });
+    }
     this.addCommand({ id: "open-settings", name: t("\u6253\u5F00 Agent Deck \u8BBE\u7F6E"), callback: () => this.openSettings() });
     this.addCommand({ id: "open-models", name: t("\u6253\u5F00 Agent Deck \u7684\u7BA1\u7406\u6A21\u578B\u8BBE\u7F6E"), callback: () => this.openSettings("models") });
     this.addCommand({ id: "delegate-line", name: t("\u59D4\u6D3E\u5F53\u524D\u4EFB\u52A1 / \u6253\u5F00\u4EFB\u52A1\u64CD\u4F5C"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "D" }], editorCallback: (editor, view2) => {
@@ -35669,7 +35682,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
         }
       }
       if (this.settings.showMenuBar !== false) this.menubar.start().catch((e) => console.error("[agent-deck] menubar", e));
-      if (this.settings.menuBarHideNautilus !== false) this.defer(() => this.hideNautilusAgentBar().catch(() => {
+      if (process.platform === "darwin" && this.settings.menuBarHideNautilus !== false) this.defer(() => this.hideNautilusAgentBar().catch(() => {
       }), 2500);
       this.scheduleScan();
       this.startStewardWatch();
@@ -39054,7 +39067,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     this.notice(t("\u5DF2\u6062\u590D\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B"), 6e3);
   }
   async hideNautilusAgentBar() {
-    if (this.settings.menuBarHideNautilus === false) return;
+    if (process.platform !== "darwin" || this.settings.menuBarHideNautilus === false) return;
     const p2 = import_path18.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     let data = null;
     try {

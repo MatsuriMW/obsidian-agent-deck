@@ -362,21 +362,23 @@ export default class AgentDeckPlugin extends Plugin {
       if (!checking) this.activateDashboard();
       return true;
     } });
-    this.addCommand({
-      id: "open-menubar-panel",
-      name: t("打开 macOS 菜单栏面板"),
-      callback: async () => {
-        if (this.settings.showMenuBar === false) return this.notice(t("macOS 菜单栏已关闭，请先在「记录」里打开"));
-        await this.menubar.start();
-        const started = Date.now();
-        const wait = setInterval(() => {
-          if (this.menubar.isAlive() || Date.now() - started > 15000) {
-            clearInterval(wait);
-            this.menubar.show();
-          }
-        }, 300);
-      },
-    });
+    if (process.platform === "darwin") {
+      this.addCommand({
+        id: "open-menubar-panel",
+        name: t("打开 macOS 菜单栏面板"),
+        callback: async () => {
+          if (this.settings.showMenuBar === false) return this.notice(t("macOS 菜单栏已关闭，请先在「记录」里打开"));
+          await this.menubar.start();
+          const started = Date.now();
+          const wait = setInterval(() => {
+            if (this.menubar.isAlive() || Date.now() - started > 15000) {
+              clearInterval(wait);
+              this.menubar.show();
+            }
+          }, 300);
+        },
+      });
+    }
     this.addCommand({ id: "open-settings", name: t("打开 Agent Deck 设置"), callback: () => this.openSettings() });
     this.addCommand({ id: "open-models", name: t("打开 Agent Deck 的管理模型设置"), callback: () => this.openSettings("models") });
     this.addCommand({ id: "delegate-line", name: t("委派当前任务 / 打开任务操作"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "D" }], editorCallback: (editor, view) => {
@@ -485,7 +487,7 @@ export default class AgentDeckPlugin extends Plugin {
       if (this.settings.openDashboardOnStartup) this.activateView();
       else { try { this.openPanelOnce(); } catch (e) { console.error("[agent-deck] panel", e); } }
       if (this.settings.showMenuBar !== false) this.menubar.start().catch((e) => console.error("[agent-deck] menubar", e));
-      if (this.settings.menuBarHideNautilus !== false) this.defer(() => this.hideNautilusAgentBar().catch(() => {}), 2500);
+      if (process.platform === "darwin" && this.settings.menuBarHideNautilus !== false) this.defer(() => this.hideNautilusAgentBar().catch(() => {}), 2500);
       this.scheduleScan();
       this.startStewardWatch();
       this.watchCursorEvents();
@@ -3855,7 +3857,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   async hideNautilusAgentBar() {
-    if (this.settings.menuBarHideNautilus === false) return;
+    if (process.platform !== "darwin" || this.settings.menuBarHideNautilus === false) return;
     const p = path.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     let data = null;
     try { data = JSON.parse(await fsp.readFile(p, "utf8")); } catch { /* not installed */ }

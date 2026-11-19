@@ -183,6 +183,7 @@ export class MenuBarBridge {
   }
 
   killExisting(done) {
+    if (process.platform !== "darwin") { done && done(); return; }
     try {
       const pid = Number(fs.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) { try { process.kill(pid, "SIGTERM"); } catch { /* gone */ } }
@@ -196,6 +197,7 @@ export class MenuBarBridge {
   }
 
   show() {
+    if (!this.enabled) return;
     try {
       fs.mkdirSync(this.dir, { recursive: true });
       fs.writeFileSync(path.join(this.dir, "show-panel"), String(Date.now()), "utf8");

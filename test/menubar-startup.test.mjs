@@ -72,4 +72,30 @@ test('MenuBarBridge drains setNowGroupBy commands and ignores invalid modes', ()
   assert.equal(refreshed, 1);
   assert.equal(f.calls.saved, 1);
 });
+
+test('MenuBarBridge is a silent no-op on Windows (start/update/show/stop touch nothing)', async () => {
+  const winBuilt = await esbuild.build({
+    entryPoints: [fileURLToPath(new URL('../src/menubar.js', import.meta.url))],
+    bundle: true, platform: 'node', format: 'esm', write: false,
+    define: { 'process.platform': '"win32"' },
+    plugins: [{ name: 'helper-source', setup(build) {
+      build.onResolve({ filter: /menubar\.swift$|agent-assets\.js$/ }, args => ({ path: args.path, namespace: 'stub' }));
+      build.onLoad({ filter: /.*/, namespace: 'stub' }, args => ({ contents: args.path.endsWith('.swift') ? 'export default "test Swift source";' : 'export function agentImageBuffer(){return null}' }));
+    } }],
+  });
+  const winMod = path.join(root, 'bridge-win32.mjs');
+  fs.writeFileSync(winMod, winBuilt.outputFiles[0].text);
+  const { MenuBarBridge: WinMenuBarBridge } = await import(pathToFileURL(winMod));
+  const winDir = path.join(root, 'win-menubar-noop');
+  const bridge = new WinMenuBarBridge({ settings: { showMenuBar: true }, notice() { assert.fail('must not notify on Windows'); } });
+  bridge.dir = winDir;
+  bridge.compile = () => assert.fail('must not compile on Windows');
+  bridge.launch = () => assert.fail('must not launch on Windows');
+  assert.equal(bridge.enabled, false);
+  await bridge.start();
+  bridge.update(true);
+  bridge.show();
+  bridge.stop();
+  assert.equal(fs.existsSync(winDir), false, 'Windows must not create menubar state dir or show-panel file');
+});
 process.on('exit', () => fs.rmSync(root, { recursive: true, force: true }));
