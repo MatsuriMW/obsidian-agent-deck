@@ -2,9 +2,9 @@
 
 > Watch, direct and review your local AI agents from inside Obsidian.
 
-**English** ｜ [中文](README.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [Changelog](CHANGELOG.md) ｜ [Discord](https://discord.gg/hVPpAnChv7) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
+**English** ｜ [中文](README.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [Changelog](CHANGELOG.md) ｜ [Community](#community) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
 
-Agent Deck is under active development. See the [roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) for what's coming next, or say hello on [Discord](https://discord.gg/hVPpAnChv7), [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) or [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues).
+Agent Deck is under active development. See the [roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) for what's coming next, or say hello in the [community](#community), on [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) or [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues).
 
 <p align="center">
   <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4"><img src="assets/demo.gif" width="800" alt="Agent Deck demo: drag a session onto a journal task to bind it, drag a task onto an agent to delegate, status and results are written back"></a>
@@ -27,6 +27,7 @@ Agent Deck gathers the AI sessions scattered across your local clients into Obsi
 - [Agent support](#agent-support)
 - [Install and requirements](#install-and-requirements)
 - [Known limits](#known-limits)
+- [Community](#community)
 - [Privacy and license](#privacy-and-license)
 
 ## Features
@@ -158,7 +159,7 @@ Tracking, task binding and the Dashboard need **no extra dependencies**: the plu
 
 ## Known limits
 
-1. **Desktop only**: Obsidian mobile is not supported. macOS is tested; Windows is still being adapted, and the menu bar helper is macOS-only.
+1. **Desktop only**: Obsidian mobile is not supported. Most testing has happened on macOS; many features have not been tested on Windows yet because there is no Windows environment available (the menu bar helper is macOS-only).
 2. **Delegation needs local clients**: tasks run through your local CLI or desktop app; remote API keys cannot replace them, and the plugin does not install or sign in for you.
 3. **The conversation view is read-only**: it is for reading, stopping the current round and saving an archive, with no free-text box. Supported sessions can be followed up from the task menu or the Reply inbox; the rest continue in their client.
 4. **Client boundaries**:
@@ -173,6 +174,19 @@ Tracking, task binding and the Dashboard need **no extra dependencies**: the plu
    - **Grok Bot**: desktop only; cloud sandboxes without per-message tokens show "usage unavailable", and there is no archive concept.
 5. **Terminal interaction**: opening a terminal for an interactive session is verified on **Tern** and **Herdr** only; Terminal.app, iTerm2 and Warp are untested.
 6. **In progress**: a visual context preview before dispatch, drift-proof references, per-memory Dream sharing, Windows verification, and more agents and terminals — see the [roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist).
+
+## Community
+
+Two groups — join whichever you like:
+
+- **Discord** (permanent invite; never expires, unlimited uses): https://discord.gg/hVPpAnChv7
+- **Xiaohongshu (小红书) group "agent deck 螺旋日程用户群"**: copy the whole block below and open the Xiaohongshu app (valid until December 17; the group is in Chinese):
+
+  ```
+  0【全部复制—打开🍠APP】 12月17日截止，"agent deck螺旋日程用户群"欢迎有缘人 CZ3798 :/#s🐂🥭😊😘😏🥒🥭🍟🍟😗🐱🍌
+  ```
+
+You can also ask in [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) and [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues).
 
 ## Privacy and license
 
