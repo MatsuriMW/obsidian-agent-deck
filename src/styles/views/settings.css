@@ -178,7 +178,7 @@
     padding: 11px 0;
 
     /* 选项数量较多时改为上下堆叠，避免挤压左侧标题 */
-    &:has(.ad-seg--many) {
+    &.ad-row--stack {
       grid-template-columns: minmax(0, 1fr);
 
       & > .ad-row__right {

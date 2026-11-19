@@ -198,6 +198,8 @@ if (process.platform !== 'darwin') {
     assert.equal(recBody.all().find(el => el.options.text === label), undefined, label + ' is hidden off macOS');
   }
 }
+const manySegRow = recBody.all().find(el => el.classList.contains('ad-row') && el.all().some(c => c.classList.contains('ad-seg--many')));
+assert.ok(manySegRow?.classList.contains('ad-row--stack'), 'rows with .ad-seg--many receive .ad-row--stack without CSS :has()');
 assert.equal(DEFAULTS.resultMax, 350);
 assert.equal(syncDelegationSettings(deepMerge(DEFAULTS, { resultMax: 240 })).resultMax, 350, 'old default migrates');
 assert.equal(syncDelegationSettings(deepMerge(DEFAULTS, { resultMax: 600 })).resultMax, 600, 'custom maximum survives');

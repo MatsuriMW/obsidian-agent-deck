@@ -362,7 +362,7 @@
 
 /* ---------- 5. 对话回放弹窗与工具调用时间线 ---------- */
 
-.modal:has(.ad-conversation) {
+.modal.ad-conversation-modal {
   width: min(680px, 94vw);
 }
 

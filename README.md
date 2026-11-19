@@ -133,7 +133,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck**，安装并启用；
 2. 或在 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新版，把 `main.js`、`manifest.json`、`styles.css` 放进 `<你的库>/.obsidian/plugins/agent-deck/`，再到插件设置里启用。
 
-当前版本 **1.13.5**，需要 Obsidian **1.4.0+** 桌面端。
+当前版本 **1.13.6**，需要 Obsidian **1.4.0+** 桌面端。
 
 ### 需要准备什么
 

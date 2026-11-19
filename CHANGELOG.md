@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.6
+
+- **非 macOS 平台菜单栏入口收口**：Windows / Linux 隐藏设置页中的「macOS 菜单栏」相关开关、快捷键、螺旋日程汇总切换与重启按钮，不注册 `open-menubar-panel` 命令，且 `MenuBarBridge` 彻底静默空操作（不调 `/usr/bin/pkill`、不写状态文件）；同步更新中英文 README 的 Windows 适配现状说明。
+- **移除 CSS `:has()` 选择器**：将对话回放弹窗宽度与多选项设置行堆叠布局改为显式类名（`.modal.ad-conversation-modal`、`.ad-row.ad-row--stack`），消除 Obsidian 插件审核的 `:has()` 性能告警。
+
 ## 1.13.5
 
 - **Windows CLI 兼容修复与三端测试全绿**（感谢 [@buaaflyaway](https://github.com/buaaflyaway) 提交 [#7](https://github.com/MatsuriMW/obsidian-agent-deck/pull/7)）：

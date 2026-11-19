@@ -34,6 +34,7 @@ export class ConversationModal extends Modal {
     const agent = AGENTS[this.session.agent] || { name: this.session.agent || "Agent", short: this.session.agent || "Agent", color: "#746d94", soft: "rgba(116,109,148,.13)" };
     this.agentInfo = agent;
     el.addClass("ad-modal", "ad-conversation");
+    this.modalEl?.classList?.add("ad-conversation-modal");
     el.style.setProperty("--ad-agent", agent.color);
     el.style.setProperty("--ad-agent-soft", agent.soft);
 

@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.5 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.6 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -25087,6 +25087,9 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     if (typeof right === "function") right(rr, r);
     else if (typeof right === "string") rr.createSpan({ cls: "ad-row__value", text: right });
     else if (right) rr.appendChild(right);
+    if (Array.from(rr.children || []).some((c) => c.classList?.contains?.("ad-seg--many")) || rr.querySelector?.(".ad-seg--many")) {
+      r.classList?.add?.("ad-row--stack");
+    }
     return r;
   }
   rowToggle(parent, name, desc, value, onChange, disabled = false) {
@@ -33113,6 +33116,7 @@ var ConversationModal = class extends import_obsidian15.Modal {
     const agent = AGENTS[this.session.agent] || { name: this.session.agent || "Agent", short: this.session.agent || "Agent", color: "#746d94", soft: "rgba(116,109,148,.13)" };
     this.agentInfo = agent;
     el.addClass("ad-modal", "ad-conversation");
+    this.modalEl?.classList?.add("ad-conversation-modal");
     el.style.setProperty("--ad-agent", agent.color);
     el.style.setProperty("--ad-agent-soft", agent.soft);
     const head = el.createDiv({ cls: "ad-modalhead ad-conv-head" });

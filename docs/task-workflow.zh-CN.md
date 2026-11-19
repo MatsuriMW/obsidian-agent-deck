@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.5**（已发版，2026-11-19）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.6**（已发版，2026-11-19）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 核心构想（接手先读这段）
 
@@ -36,7 +36,11 @@
 | **macOS** | 全量 `npm test`、构建、`swiftc` 编译与运行（`AgentDeckMenuBar.app`）、Vault 安装与热重载（Obsidian `1.15.1`）、Antigravity (`agy` / `agy acp`) 两轮续聊与记忆查询、`preview` 模式草稿读取、Dashboard、AI 记录 Pin（大纲与阅读视图 DOM）、Menu Bar 会话置顶命令队列 | 终端交互仅实测 Tern / Herdr；7 家可委派客户端全量逐一派发、Menu Bar SwiftUI 悬浮窗口拖拽手感待人手目视微调 |
 | **Windows** | `windows-latest` CI 全量 `npm test`、`npm run eval`、`npm run build`、`npm run check:deploy` 已全部通过（社区 PR #7 亦在 Windows 11 实机跑通全量测试） | 尚未在 Windows 真机 Obsidian GUI 内实操交互；`src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）仍依赖 macOS `osascript`/终端；`src/readers.js` 在 `win32` 跳过 `claudeDesktop` |
 
-## 本批发版基线（1.13.5，2026-11-19，已构建并三端 CI 全绿）
+## 本批发版基线（1.13.6，2026-11-19，已构建并三端 CI 全绿）
+
+`1.13.6` 在 `1.13.5` 基础上收口非 macOS 平台的菜单栏 UI/命令与 CSS `:has()` 审核告警：
+- 非 `darwin` 平台隐藏设置页菜单栏控件与 `open-menubar-panel` 命令，不自动隐藏螺旋日程 Agent 汇总，`MenuBarBridge` 彻底静默空操作；同步更新中英文 README 的 Windows 适配现状说明。
+- 将 `src/styles/views/modals.css` 与 `src/styles/views/settings.css` 中的 `:has()` 选择器替换为显式类 `.modal.ad-conversation-modal` 与 `.ad-row.ad-row--stack`。
 
 `1.13.5` 合并社区 PR [#7](https://github.com/MatsuriMW/obsidian-agent-deck/pull/7)（`@buaaflyaway`）并补齐收尾，实现 Windows CLI 兼容修复与三端 CI 全绿：
 - **Windows 运行时修复**：`src/llm.js` 超时改用 `killChildProcess` 终止进程树并重试清理临时目录，`.cmd`/`.bat` 多行提示词压平防 `cmd.exe` 截断；`src/project-folders.js` 家目录反斜杠归一化并忽略大小写比较；`src/delegation-runners.js` 在 `win32` 下按 `PATHEXT` 优先匹配扩展名（避免命中 npm 同目录无后缀 POSIX 脚本）并回退至 `PATH` 查找。

@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.5 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.6 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -4047,10 +4047,10 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   align-items: center;
   padding: 11px 0;
 }
-.ad-settings .ad-row:has(.ad-seg--many) {
+.ad-settings .ad-row.ad-row--stack {
   grid-template-columns: minmax(0, 1fr);
 }
-.ad-settings .ad-row:has(.ad-seg--many) > .ad-row__right {
+.ad-settings .ad-row.ad-row--stack > .ad-row__right {
   justify-content: flex-start;
 }
 .ad-settings .ad-row__name {
@@ -4969,7 +4969,7 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-dream-progress progress[hidden] {
   display: none;
 }
-.modal:has(.ad-conversation) {
+.modal.ad-conversation-modal {
   width: min(680px, 94vw);
 }
 .ad-conversation {

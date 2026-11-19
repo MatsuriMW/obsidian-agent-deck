@@ -291,6 +291,9 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     if (typeof right === "function") right(rr, r);
     else if (typeof right === "string") rr.createSpan({ cls: "ad-row__value", text: right });
     else if (right) rr.appendChild(right);
+    if (Array.from(rr.children || []).some((c) => c.classList?.contains?.("ad-seg--many")) || rr.querySelector?.(".ad-seg--many")) {
+      r.classList?.add?.("ad-row--stack");
+    }
     return r;
   }
 
