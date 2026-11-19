@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.5
+
+- **Windows CLI 兼容修复与三端测试全绿**（感谢 [@buaaflyaway](https://github.com/buaaflyaway) 提交 [#7](https://github.com/MatsuriMW/obsidian-agent-deck/pull/7)）：
+  - **进程树清理与 `.cmd` 多行传参修复**：Windows 下 CLI 超时改用 `killChildProcess` 终止整棵进程树并重试清理临时目录，避免子进程占用目录导致 `EPERM`/`EBUSY` 覆盖真实超时错误；对经 `cmd.exe` 执行的 `.cmd`/`.bat` 包装脚本（`agy`、`qodercli`、`codebuddy`）压平参数换行，防止提示词在首行被静默截断。
+  - **路径与可执行文件解析修复**：归一化 Windows 家目录反斜杠并忽略大小写，避免家目录被误识别为合法项目目录；裸名 CLI 查找在 Windows 上按 `PATHEXT` 优先匹配 `.exe`/`.cmd`/`.bat`（避免命中 npm 同目录的无后缀 POSIX 脚本）并回退至 `PATH` 查找。
+  - **测试夹具与三端 CI**：修正 Windows 路径 URL 转换、Cursor 测试 `USERPROFILE`/`APPDATA` 隔离、平台 PATH 断言与 ACP `session/cancel` 并发轮询，Linux / macOS / Windows 三端 CI 全部通过。
+
 ## 1.13.4
 
 - **本机 Harness 自动探测与界面降噪**：首次加载自动探测本机实际安装的 Harness/Agent（避免单装桌面聊天端 `Claude.app` 误启用 Claude Code），默认关闭未安装项并选出默认委派目标；支持在设置页和命令面板随时「重新检测 Harness」。设置页（委派目标、配置卡、公共终端、管理模型、来源与扫描折叠未安装项、`autoLogAgents`）、侧栏面板（Agent 卡片、最近筛选条、`AgentCardsModal`）、`DelegateOptionsModal` 与 `AutoLog` 统一过滤未启用项。

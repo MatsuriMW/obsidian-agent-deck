@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.4 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.5 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -7995,7 +7995,7 @@ var import_path6 = __toESM(require("path"), 1);
 var import_os7 = __toESM(require("os"), 1);
 var import_child_process5 = require("child_process");
 
-// ../../node_modules/fzstd/esm/index.mjs
+// node_modules/fzstd/esm/index.mjs
 var ab = ArrayBuffer;
 var u8 = Uint8Array;
 var u16 = Uint16Array;
