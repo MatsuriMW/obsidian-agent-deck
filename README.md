@@ -159,7 +159,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 
 ## 当前受限
 
-1. **仅桌面端**：不支持 Obsidian 移动端。目前只在 Mac 上做过大量测试；Windows 缺少测试环境，很多功能还没有实机验证过（菜单栏助手仅限 macOS）。
+1. **仅桌面端 & Windows 适配现状**：不支持 Obsidian 移动端。日常以 macOS 实测为主；Windows 已适配基础追踪（Cursor 追踪另需本机安装 `sqlite3`）、Dashboard、日记/记忆/看板以及后台 CLI/ACP 委派，但尚未经过 Windows 真机 Obsidian 全流程验证，且**暂不支持**在终端里打开/续聊会话、桌面端窗口唤起、Claude Desktop 桌面端会话追踪以及菜单栏助手（这些功能在 Windows 上会安全降级不报错）。欢迎 Windows 用户在 Issues 或用户群反馈实机问题。
 2. **委派依赖本机客户端**：自动委派要本机 CLI 或桌面应用来执行，暂不支持用远程 API 直接跑任务，插件也不会替你安装或登录客户端。
 3. **对话窗口只读**：Obsidian 内的对话查看用于看正文、停止当前轮和保存归档，不设自由输入框；支持的会话可从任务菜单轻量追问或「回答并继续」，其余需回客户端继续。
 4. **各客户端的边界**：
@@ -172,8 +172,8 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
    - **Hermes Agent**：没有桌面界面，只能在插件里看，或在终端恢复。
    - **千问办公（QwenWork）**：只追踪、不能委派；新版客户端的对话已能完整读取，旧日志缺 token 时如实显示为 0。
    - **Grok Bot**：只追踪桌面端，云端沙箱不给逐条 token 时显示「用量未提供」，没有归档概念。
-5. **终端交互的实测范围**：自动开终端跑交互式会话目前只在 **Tern** 和 **Herdr** 上实测通过；系统终端、iTerm2、Warp 尚未实测。
-6. **正在做的方向**：派发前可视化上下文、防引用漂移、Dream 记忆按条共享、Windows 实机验证，以及更多 Agent 与终端支持，详见 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist)。
+5. **终端交互的实测范围**：自动开终端跑交互式会话目前仅限 macOS，且只在 **Tern** 和 **Herdr** 上实测通过；macOS 系统终端、iTerm2、Warp 尚未实测，Windows 终端暂未支持。
+6. **正在做的方向**：派发前可视化上下文、防引用漂移、Dream 记忆按条共享、Windows 真机实测与终端适配，以及更多 Agent 与终端支持，详见 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist)。
 
 ## 用户群
 

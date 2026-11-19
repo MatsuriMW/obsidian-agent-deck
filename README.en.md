@@ -159,7 +159,7 @@ Tracking, task binding and the Dashboard need **no extra dependencies**: the plu
 
 ## Known limits
 
-1. **Desktop only**: Obsidian mobile is not supported. Most testing has happened on macOS; many features have not been tested on Windows yet because there is no Windows environment available (the menu bar helper is macOS-only).
+1. **Desktop only & Windows status**: Obsidian mobile is not supported. Day-to-day testing happens primarily on macOS; on Windows, core session tracking (Cursor tracking also requires `sqlite3` on PATH), the Dashboard, journaling/memory/boards, and background CLI/ACP delegation are adapted, though full end-to-end Obsidian UI testing on a real Windows machine is still limited. Opening/resuming sessions in a terminal, focusing desktop apps, Claude Desktop session tracking, and the menu bar helper are **macOS-only** (they degrade safely without errors on Windows). Real-world Windows feedback via Issues or the community is welcome.
 2. **Delegation needs local clients**: tasks run through your local CLI or desktop app; remote API keys cannot replace them, and the plugin does not install or sign in for you.
 3. **The conversation view is read-only**: it is for reading, stopping the current round and saving an archive, with no free-text box. Supported sessions can be followed up from the task menu or the Reply inbox; the rest continue in their client.
 4. **Client boundaries**:
@@ -172,8 +172,8 @@ Tracking, task binding and the Dashboard need **no extra dependencies**: the plu
    - **Hermes Agent**: no desktop UI; use the plugin or resume in the terminal.
    - **QwenWork (千问办公)**: tracking only, no delegation. Current desktop conversations are fully readable; older logs without tokens honestly show 0.
    - **Grok Bot**: desktop only; cloud sandboxes without per-message tokens show "usage unavailable", and there is no archive concept.
-5. **Terminal interaction**: opening a terminal for an interactive session is verified on **Tern** and **Herdr** only; Terminal.app, iTerm2 and Warp are untested.
-6. **In progress**: a visual context preview before dispatch, drift-proof references, per-memory Dream sharing, Windows verification, and more agents and terminals — see the [roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist).
+5. **Terminal interaction**: opening a terminal for an interactive session is currently macOS-only and verified on **Tern** and **Herdr** only; Terminal.app, iTerm2 and Warp are untested, and Windows terminals are not yet supported.
+6. **In progress**: a visual context preview before dispatch, drift-proof references, per-memory Dream sharing, Windows UI verification and terminal support, and more agents and terminals — see the [roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist).
 
 ## Community
 
