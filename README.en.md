@@ -37,7 +37,7 @@ Agent Deck gathers the AI sessions scattered across your local clients into Obsi
 Watch every agent in the sidebar, delegate from your notes, and flip one AI record between four views; the board and the dashboard then show the output.
 
 <p align="center">
-  <img src="assets/shadow/ai-record-views.webp" width="880" alt="One AI record in four views: outline, table, cards and timeline">
+  <img src="assets/shadow/ai-record-views.en.webp" width="880" alt="One AI record in four views: outline, table, cards and timeline">
 </p>
 <p align="center"><b>Four record views</b>: switch per block without rewriting the underlying Markdown.</p>
 
