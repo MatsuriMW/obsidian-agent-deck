@@ -53,7 +53,7 @@ test('DSH: clean early process exit fails immediately',async()=>{
  const f=fixture('exit');try{const j=await Promise.race([f.send(),new Promise(r=>setTimeout(()=>r(null),1200))]);assert.ok(j,'initialize must not hang until the request timeout');assert.equal(j.state,'error')}finally{f.cleanup()}
 });
 test('DSH: cancellation sends notification and drains pending requests',async()=>{
- const f=fixture('wait');try{const j=await f.send();const r=f.d.runners.get(j.id);r.cancel();await new Promise(r=>setTimeout(r,100));assert.ok(f.readEvents().some(m=>m.method==='session/cancel'));assert.equal(r.pending.size,0)}finally{f.cleanup()}
+ const f=fixture('wait');try{const j=await f.send();const r=f.d.runners.get(j.id);r.cancel();const end=Date.now()+1500;while(!f.readEvents().some(m=>m.method==='session/cancel')&&Date.now()<end)await new Promise(r=>setTimeout(r,10));assert.ok(f.readEvents().some(m=>m.method==='session/cancel'));assert.equal(r.pending.size,0)}finally{f.cleanup()}
 });
 
 test('DSH: discovers grouped custom models without sending a prompt',async()=>{

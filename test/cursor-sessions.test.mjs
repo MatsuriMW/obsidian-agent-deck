@@ -17,6 +17,14 @@ register(
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ad-cursor-test-"));
 const origHome = process.env.HOME;
 process.env.HOME = tmpRoot;
+// Windows 的 os.homedir() 读 USERPROFILE（不认 HOME），Cursor 状态库默认又落在 APPDATA；
+// 不一起改，夹具会被写进真实用户的 Cursor 库。
+const origUserProfile = process.env.USERPROFILE;
+const origAppData = process.env.APPDATA;
+if (process.platform === "win32") {
+  process.env.USERPROFILE = tmpRoot;
+  delete process.env.APPDATA;
+}
 
 const CS = await import("../src/cursor-sessions.js");
 const { resolveSqliteBinary } = await import("../src/sqlite.js");
@@ -33,7 +41,8 @@ function runSql(dbFile, sql) {
 function runHook(scriptPath, event, payload, homeDir) {
   const out = execFileSync(process.execPath, [scriptPath, event], {
     input: JSON.stringify(payload),
-    env: { ...process.env, HOME: homeDir },
+    // Windows 上 os.homedir() 读 USERPROFILE，只改 HOME 不足以把夹具关进 homeDir。
+    env: { ...process.env, HOME: homeDir, ...(process.platform === "win32" ? { USERPROFILE: homeDir } : {}) },
     encoding: "utf8",
   });
   return JSON.parse(out.trim());
@@ -535,5 +544,9 @@ test("Cursor sessionEnd/sessionStart and Codex trailing turns preserve exact las
 
 test.after(() => {
   process.env.HOME = origHome;
+  if (process.platform === "win32") {
+    if (origUserProfile === undefined) delete process.env.USERPROFILE; else process.env.USERPROFILE = origUserProfile;
+    if (origAppData === undefined) delete process.env.APPDATA; else process.env.APPDATA = origAppData;
+  }
   fs.rmSync(tmpRoot, { recursive: true, force: true });
 });

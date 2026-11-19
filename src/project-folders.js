@@ -16,7 +16,11 @@ export function normalizeProjectFolder(raw) {
   let p = String(raw || "").trim().replace(/^~(?=\/)/, home()).replace(/\\/g, "/");
   if (!p) return "";
   p = p.replace(/\/+$/, "");
-  if (!p || p === "~" || p === "/" || p === home().replace(/\/+$/, "")) return "";
+  // Windows 的 os.homedir() 是反斜杠（C:\Users\x），这里 p 已统一成 /，必须同样归一化再比，
+  // 否则家目录会被当成合法项目目录登记进去。
+  const homePath = home().replace(/\\/g, "/").replace(/\/+$/, "");
+  const isHome = process.platform === "win32" ? p.toLowerCase() === homePath.toLowerCase() : p === homePath;
+  if (!p || p === "~" || p === "/" || isHome) return "";
   if (!path.isAbsolute(p)) return "";
   return p;
 }
