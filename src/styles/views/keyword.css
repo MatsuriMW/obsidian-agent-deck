@@ -110,14 +110,17 @@
 .todoseq-keyword-formatted[data-task-keyword='MAYBE'] {
   --tsq-kw: #8f7fb6;
 }
+/* TOREVIEW only asks for a look rather than a decision, so keep it in a
+   calm, fresh misty-cyan instead of the high-alert red/yellow gradient. */
+.todoseq-keyword-formatted[data-task-keyword='TOREVIEW'] {
+  --tsq-kw: #6fa9b8;
+}
 /* Agent session states between DOING and done. Each starts at the DOING red
-   and fades toward where it stopped: TOREVIEW → yellow (waiting for review),
-   NEEDOK → ochre (waiting for approval), ERRORED → wine (stopped on an error),
-   DELEGATED → teal (handed to another agent), HITLIMIT → grey purple (usage
-   limit), QUEUED → misty blue (queued to resume). HITLIMIT and NEEDOK are
-   shown with a trailing "!" / "?". */
+   and fades toward where it stopped: NEEDOK → ochre (waiting for approval),
+   ERRORED → wine (stopped on an error), DELEGATED → teal (handed to another
+   agent), HITLIMIT → grey purple (usage limit), QUEUED → misty blue (queued
+   to resume). HITLIMIT and NEEDOK are shown with a trailing "!" / "?". */
 .todoseq-keyword-formatted:is(
-  [data-task-keyword='TOREVIEW'],
   [data-task-keyword='HITLIMIT'],
   [data-task-keyword='NEEDOK'],
   [data-task-keyword='QUEUED'],
@@ -129,9 +132,6 @@
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-}
-.todoseq-keyword-formatted[data-task-keyword='TOREVIEW'] {
-  --tsq-kw-to: #b39a3e;
 }
 .todoseq-keyword-formatted[data-task-keyword='NEEDOK'] {
   --tsq-kw-to: #bf7a45;
@@ -156,7 +156,6 @@
 }
 :is(.cm-editor, .markdown-preview-view, .table-cell-wrapper)
   .todoseq-keyword-formatted:is(
-    [data-task-keyword='TOREVIEW'],
     [data-task-keyword='HITLIMIT'],
     [data-task-keyword='NEEDOK'],
     [data-task-keyword='QUEUED'],
@@ -216,7 +215,7 @@
   --tsq-ico: #93606b;
 }
 .tsq-ico[data-kw='TOREVIEW'] {
-  --tsq-ico: #b39a3e;
+  --tsq-ico: #6fa9b8;
 }
 .tsq-ico[data-kw='NEEDOK'] {
   --tsq-ico: #bf7a45;

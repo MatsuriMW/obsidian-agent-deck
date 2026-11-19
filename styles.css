@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.6 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.7 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -2598,7 +2598,10 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .todoseq-keyword-formatted[data-task-keyword=MAYBE] {
   --tsq-kw: #8f7fb6;
 }
-.todoseq-keyword-formatted:is([data-task-keyword=TOREVIEW], [data-task-keyword=HITLIMIT], [data-task-keyword=NEEDOK], [data-task-keyword=QUEUED], [data-task-keyword=ERRORED], [data-task-keyword=DELEGATED]) {
+.todoseq-keyword-formatted[data-task-keyword=TOREVIEW] {
+  --tsq-kw: #6fa9b8;
+}
+.todoseq-keyword-formatted:is([data-task-keyword=HITLIMIT], [data-task-keyword=NEEDOK], [data-task-keyword=QUEUED], [data-task-keyword=ERRORED], [data-task-keyword=DELEGATED]) {
   --tsq-kw: #c8635f;
   background-image:
     linear-gradient(
@@ -2608,9 +2611,6 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-}
-.todoseq-keyword-formatted[data-task-keyword=TOREVIEW] {
-  --tsq-kw-to: #b39a3e;
 }
 .todoseq-keyword-formatted[data-task-keyword=NEEDOK] {
   --tsq-kw-to: #bf7a45;
@@ -2633,7 +2633,7 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .todoseq-keyword-formatted[data-task-keyword=NEEDOK]::after {
   content: "?";
 }
-:is(.cm-editor, .markdown-preview-view, .table-cell-wrapper) .todoseq-keyword-formatted:is([data-task-keyword=TOREVIEW], [data-task-keyword=HITLIMIT], [data-task-keyword=NEEDOK], [data-task-keyword=QUEUED], [data-task-keyword=ERRORED], [data-task-keyword=DELEGATED]) {
+:is(.cm-editor, .markdown-preview-view, .table-cell-wrapper) .todoseq-keyword-formatted:is([data-task-keyword=HITLIMIT], [data-task-keyword=NEEDOK], [data-task-keyword=QUEUED], [data-task-keyword=ERRORED], [data-task-keyword=DELEGATED]) {
   text-shadow: none;
 }
 .tsq-ico {
@@ -2681,7 +2681,7 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   --tsq-ico: #93606b;
 }
 .tsq-ico[data-kw=TOREVIEW] {
-  --tsq-ico: #b39a3e;
+  --tsq-ico: #6fa9b8;
 }
 .tsq-ico[data-kw=NEEDOK] {
   --tsq-ico: #bf7a45;
