@@ -157,13 +157,20 @@ export function expandedPathEntries(basePath = process.env.PATH || "", homeDir =
 
 function findInPathDirs(name, dirs) {
   if (!name || String(name).includes("/") || String(name).includes("\\")) return "";
+  // Windows 的 CreateProcess 只会自动补 .exe，裸名找不到 npm 装的 .cmd/.bat 包装脚本，
+  // 所以按 PATHEXT 逐个试；POSIX 上 exts 只有空串，行为与原来一致。
+  const exts = process.platform === "win32"
+    ? ["", ...String(process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)]
+    : [""];
   for (const dir of dirs) {
     if (!dir) continue;
-    const candidate = path.join(dir, name);
-    try {
-      const st = fs.statSync(candidate);
-      if (st.isFile()) return candidate;
-    } catch { /* next */ }
+    for (const ext of exts) {
+      const candidate = path.join(dir, name + ext);
+      try {
+        const st = fs.statSync(candidate);
+        if (st.isFile()) return candidate;
+      } catch { /* next */ }
+    }
   }
   return "";
 }
@@ -225,6 +232,11 @@ export async function resolveExecutableWithFallback(bin, fallbackName = "") {
   if (!bin) return bin;
   if (bin.includes("/") || bin.includes("\\")) {
     try { if (fs.existsSync(bin)) return bin; } catch { /* try shell fallback if bare name available */ }
+  }
+  if (process.platform === "win32") {
+    // Windows 没有 login shell（resolveLoginShellPath 直接返回空），改用 PATH + PATHEXT 找裸名。
+    const hit = findInPathDirs(fallbackName || path.basename(bin), expandedPathEntries());
+    return hit || bin;
   }
   const shellPath = await resolveLoginShellPath();
   if (!shellPath) return bin;

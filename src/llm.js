@@ -12,9 +12,16 @@ import https from "https";
 import { spawn, execFile } from "child_process";
 import { t } from "./i18n.js";
 import { summarizeAutoTitle, stripTaskKeyword } from "./journal.js";
-import { resolveSecret, redactSecrets, spawnCli } from "./security.js";
+import { resolveSecret, redactSecrets, spawnCli, killChildProcess } from "./security.js";
 
 const home = () => os.homedir();
+
+// Windows 上 .cmd 包装脚本被杀掉后，真正的子进程可能还短暂持有临时目录，
+// 直接 rmSync 会抛 EPERM/EBUSY 并把真正的错误盖掉。重试几次，仍失败就留给系统清理。
+function rmTempDir(dir) {
+  try { fs.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }); }
+  catch { /* 临时目录，交给系统回收 */ }
+}
 
 function workDir() {
   const dir = path.join(os.tmpdir(), "agent-deck-autolog");
@@ -180,7 +187,7 @@ function runProcess(bin, args, { label, timeout = 120, stdin = null, env = build
     let out = "", err = "";
     child.stdout.on("data", (d) => { out += d; });
     child.stderr.on("data", (d) => { err += d; });
-    const timer = setTimeout(() => { child.kill(); reject(new Error(t("{name} 等了 {n} 秒没回来", { name: label, n: timeout }))); }, timeout * 1000);
+    const timer = setTimeout(() => { killChildProcess(child); reject(new Error(t("{name} 等了 {n} 秒没回来", { name: label, n: timeout }))); }, timeout * 1000);
     child.on("error", (e) => { clearTimeout(timer); reject(new Error(t("启动 {name} 失败：{msg}", { name: label, msg: e.message }))); });
     child.on("close", (code) => { clearTimeout(timer); resolve({ code, out, err }); });
     if (stdin != null) {
@@ -214,7 +221,7 @@ export async function runCodex(prompt, { bin = "codex", model = "", effort = "lo
       const child = spawnCli(bin, args, { cwd: dir, env: buildEnv(), stdio: ["pipe", "ignore", "pipe"] });
       let err = "";
       child.stderr.on("data", (d) => { err = (err + d).slice(-2000); });
-      const timer = setTimeout(() => { child.kill(); reject(new Error(t("codex 等了 {n} 秒没回来", { n: timeout }))); }, timeout * 1000);
+      const timer = setTimeout(() => { killChildProcess(child); reject(new Error(t("codex 等了 {n} 秒没回来", { n: timeout }))); }, timeout * 1000);
       child.on("error", (e) => { clearTimeout(timer); reject(new Error(t("启动 codex 失败：{msg}", { msg: e.message }))); });
       child.stdin.on("error", () => {});
       child.on("close", (code) => {
@@ -228,11 +235,18 @@ export async function runCodex(prompt, { bin = "codex", model = "", effort = "lo
       });
       child.stdin.end("仅整理下列文字，直接输出要求的结果，不调用工具。\n\n" + prompt);
     });
-  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally { rmTempDir(dir); }
+}
+
+// Windows 上 .cmd/.bat 包装脚本经 cmd.exe 传参，参数里的换行会把后面的内容截断，
+// 提示词会被静默截成第一行。这类 bin 把提示词压成单行（换行变空格）；真实 .exe 不受影响。
+function flattenForCmd(text, bin) {
+  if (process.platform !== "win32" || !/\.(?:cmd|bat)$/i.test(String(bin || ""))) return text;
+  return String(text).replace(/\r?\n/g, " ");
 }
 
 export async function runAgy(prompt, { bin = "agy", model = "gemini-3.8-flash-low", timeout = 120, system = "" } = {}) {
-  const fullPrompt = `${system || "仅整理下列文字，直接输出要求的结果，不调用任何工具。"}\n\n${prompt}`;
+  const fullPrompt = flattenForCmd(`${system || "仅整理下列文字，直接输出要求的结果，不调用任何工具。"}\n\n${prompt}`, bin);
   const args = ["--output-format", "json", "--disable-slash-commands"];
   if (model) args.push("--model", model);
   args.push(`--print=${fullPrompt}`);
@@ -244,7 +258,7 @@ export async function runAgy(prompt, { bin = "agy", model = "gemini-3.8-flash-lo
 }
 
 export async function runQoderCli(prompt, { bin = "qodercli", model = "", timeout = 120, system = "" } = {}) {
-  const fullPrompt = `${system || "仅整理下列文字，直接输出要求的结果，不调用任何工具。"}\n\n${prompt}`;
+  const fullPrompt = flattenForCmd(`${system || "仅整理下列文字，直接输出要求的结果，不调用任何工具。"}\n\n${prompt}`, bin);
   const args = ["-p", fullPrompt, "-o", "json", "--no-session-persistence", "--tools", ""];
   if (model) args.push("-m", model);
   const { code, out, err } = await runProcess(bin, args, { label: "qodercli", timeout });
@@ -255,7 +269,7 @@ export async function runQoderCli(prompt, { bin = "qodercli", model = "", timeou
 }
 
 export async function runCodeBuddy(prompt, { bin = "codebuddy", model = "", timeout = 120, system = "" } = {}) {
-  const fullPrompt = `${system || "仅整理下列文字，直接输出要求的结果，不调用任何工具。"}\n\n${prompt}`;
+  const fullPrompt = flattenForCmd(`${system || "仅整理下列文字，直接输出要求的结果，不调用任何工具。"}\n\n${prompt}`, bin);
   const args = ["-p", "--output-format", "json", "--tools", ""];
   if (model) args.push("--model", model);
   args.push(fullPrompt);

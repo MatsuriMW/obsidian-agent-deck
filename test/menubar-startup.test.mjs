@@ -3,9 +3,9 @@ import { test } from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 import esbuild from 'esbuild';
-const built = await esbuild.build({ entryPoints: [new URL('../src/menubar.js', import.meta.url).pathname], bundle: true, platform: 'node', format: 'esm', write: false,
+const built = await esbuild.build({ entryPoints: [fileURLToPath(new URL('../src/menubar.js', import.meta.url))], bundle: true, platform: 'node', format: 'esm', write: false,
   define: { 'process.platform': '"darwin"' }, plugins: [{ name: 'helper-source', setup(build) {
     build.onResolve({ filter: /menubar\.swift$|agent-assets\.js$/ }, args => ({ path: args.path, namespace: 'stub' }));
     build.onLoad({ filter: /.*/, namespace: 'stub' }, args => ({ contents: args.path.endsWith('.swift') ? 'export default "test Swift source";' : 'export function agentImageBuffer(){return null}' }));

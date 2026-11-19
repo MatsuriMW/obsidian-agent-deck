@@ -5263,6 +5263,12 @@ function killChildProcess(child, signal = "SIGTERM") {
 
 // src/llm.js
 var home = () => import_os3.default.homedir();
+function rmTempDir(dir) {
+  try {
+    import_fs2.default.rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
+  } catch {
+  }
+}
 function workDir() {
   const dir = import_path2.default.join(import_os3.default.tmpdir(), "agent-deck-autolog");
   try {
@@ -5435,7 +5441,7 @@ function runProcess(bin, args, { label, timeout = 120, stdin = null, env = build
       err2 += d;
     });
     const timer = setTimeout(() => {
-      child.kill();
+      killChildProcess(child);
       reject(new Error(t("{name} \u7B49\u4E86 {n} \u79D2\u6CA1\u56DE\u6765", { name: label, n: timeout })));
     }, timeout * 1e3);
     child.on("error", (e) => {
@@ -5480,7 +5486,7 @@ async function runCodex(prompt, { bin = "codex", model = "", effort = "low", tim
         err2 = (err2 + d).slice(-2e3);
       });
       const timer = setTimeout(() => {
-        child.kill();
+        killChildProcess(child);
         reject(new Error(t("codex \u7B49\u4E86 {n} \u79D2\u6CA1\u56DE\u6765", { n: timeout })));
       }, timeout * 1e3);
       child.on("error", (e) => {
@@ -5503,13 +5509,17 @@ async function runCodex(prompt, { bin = "codex", model = "", effort = "low", tim
       child.stdin.end("\u4EC5\u6574\u7406\u4E0B\u5217\u6587\u5B57\uFF0C\u76F4\u63A5\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8C03\u7528\u5DE5\u5177\u3002\n\n" + prompt);
     });
   } finally {
-    import_fs2.default.rmSync(dir, { recursive: true, force: true });
+    rmTempDir(dir);
   }
 }
+function flattenForCmd(text, bin) {
+  if (process.platform !== "win32" || !/\.(?:cmd|bat)$/i.test(String(bin || ""))) return text;
+  return String(text).replace(/\r?\n/g, " ");
+}
 async function runAgy(prompt, { bin = "agy", model = "gemini-3.8-flash-low", timeout = 120, system = "" } = {}) {
-  const fullPrompt = `${system || "\u4EC5\u6574\u7406\u4E0B\u5217\u6587\u5B57\uFF0C\u76F4\u63A5\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8C03\u7528\u4EFB\u4F55\u5DE5\u5177\u3002"}
+  const fullPrompt = flattenForCmd(`${system || "\u4EC5\u6574\u7406\u4E0B\u5217\u6587\u5B57\uFF0C\u76F4\u63A5\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8C03\u7528\u4EFB\u4F55\u5DE5\u5177\u3002"}
 
-${prompt}`;
+${prompt}`, bin);
   const args = ["--output-format", "json", "--disable-slash-commands"];
   if (model) args.push("--model", model);
   args.push(`--print=${fullPrompt}`);
@@ -5524,9 +5534,9 @@ ${prompt}`;
   return String(d.response || "").trim();
 }
 async function runQoderCli(prompt, { bin = "qodercli", model = "", timeout = 120, system = "" } = {}) {
-  const fullPrompt = `${system || "\u4EC5\u6574\u7406\u4E0B\u5217\u6587\u5B57\uFF0C\u76F4\u63A5\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8C03\u7528\u4EFB\u4F55\u5DE5\u5177\u3002"}
+  const fullPrompt = flattenForCmd(`${system || "\u4EC5\u6574\u7406\u4E0B\u5217\u6587\u5B57\uFF0C\u76F4\u63A5\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8C03\u7528\u4EFB\u4F55\u5DE5\u5177\u3002"}
 
-${prompt}`;
+${prompt}`, bin);
   const args = ["-p", fullPrompt, "-o", "json", "--no-session-persistence", "--tools", ""];
   if (model) args.push("-m", model);
   const { code, out, err: err2 } = await runProcess(bin, args, { label: "qodercli", timeout });
@@ -5540,9 +5550,9 @@ ${prompt}`;
   return String(d.result || "").trim();
 }
 async function runCodeBuddy(prompt, { bin = "codebuddy", model = "", timeout = 120, system = "" } = {}) {
-  const fullPrompt = `${system || "\u4EC5\u6574\u7406\u4E0B\u5217\u6587\u5B57\uFF0C\u76F4\u63A5\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8C03\u7528\u4EFB\u4F55\u5DE5\u5177\u3002"}
+  const fullPrompt = flattenForCmd(`${system || "\u4EC5\u6574\u7406\u4E0B\u5217\u6587\u5B57\uFF0C\u76F4\u63A5\u8F93\u51FA\u8981\u6C42\u7684\u7ED3\u679C\uFF0C\u4E0D\u8C03\u7528\u4EFB\u4F55\u5DE5\u5177\u3002"}
 
-${prompt}`;
+${prompt}`, bin);
   const args = ["-p", "--output-format", "json", "--tools", ""];
   if (model) args.push("--model", model);
   args.push(fullPrompt);
@@ -11187,7 +11197,9 @@ function normalizeProjectFolder(raw) {
   let p2 = String(raw || "").trim().replace(/^~(?=\/)/, home3()).replace(/\\/g, "/");
   if (!p2) return "";
   p2 = p2.replace(/\/+$/, "");
-  if (!p2 || p2 === "~" || p2 === "/" || p2 === home3().replace(/\/+$/, "")) return "";
+  const homePath = home3().replace(/\\/g, "/").replace(/\/+$/, "");
+  const isHome = process.platform === "win32" ? p2.toLowerCase() === homePath.toLowerCase() : p2 === homePath;
+  if (!p2 || p2 === "~" || p2 === "/" || isHome) return "";
   if (!import_path9.default.isAbsolute(p2)) return "";
   return p2;
 }
@@ -12567,13 +12579,16 @@ function expandedPathEntries(basePath = process.env.PATH || "", homeDir = home4(
 }
 function findInPathDirs(name, dirs) {
   if (!name || String(name).includes("/") || String(name).includes("\\")) return "";
+  const exts = process.platform === "win32" ? ["", ...String(process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean)] : [""];
   for (const dir of dirs) {
     if (!dir) continue;
-    const candidate = import_path11.default.join(dir, name);
-    try {
-      const st = import_fs13.default.statSync(candidate);
-      if (st.isFile()) return candidate;
-    } catch {
+    for (const ext of exts) {
+      const candidate = import_path11.default.join(dir, name + ext);
+      try {
+        const st = import_fs13.default.statSync(candidate);
+        if (st.isFile()) return candidate;
+      } catch {
+      }
     }
   }
   return "";
@@ -12637,6 +12652,10 @@ async function resolveExecutableWithFallback(bin, fallbackName = "") {
       if (import_fs13.default.existsSync(bin)) return bin;
     } catch {
     }
+  }
+  if (process.platform === "win32") {
+    const hit2 = findInPathDirs(fallbackName || import_path11.default.basename(bin), expandedPathEntries());
+    return hit2 || bin;
   }
   const shellPath = await resolveLoginShellPath();
   if (!shellPath) return bin;

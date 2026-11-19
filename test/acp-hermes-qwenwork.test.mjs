@@ -86,13 +86,19 @@ test("Task 1: expandedPathEntries discovers nvm/uv/bun/conda/npm-global without 
   fs.mkdirSync(uvBin, { recursive: true });
 
   const entries = expandedPathEntries("/usr/bin", fakeHome);
-  assert.ok(entries.includes(nvmNew));
-  assert.ok(entries.includes(nvmOld));
-  assert.ok(entries.indexOf(nvmNew) < entries.indexOf(nvmOld), "newest nvm version ordered first");
-  assert.ok(entries.includes(uvBin));
-  assert.ok(entries.includes(path.join(fakeHome, ".bun/bin")));
-  assert.ok(entries.includes(path.join(fakeHome, ".npm-global/bin")));
-  assert.ok(entries.includes(path.join(fakeHome, "miniforge3/bin")));
+  assert.ok(entries.includes(path.join(fakeHome, ".bun/bin")), "bun bin is probed on every platform");
+  if (process.platform === "win32") {
+    // Windows 的静态探测目录只有 .local/bin、.bun/bin 与 %APPDATA%/npm；
+    // nvm / uv / pnpm / pyenv / conda 这些 POSIX 布局不参与探测。
+    assert.ok(entries.includes(path.join(fakeHome, ".local", "bin")));
+  } else {
+    assert.ok(entries.includes(nvmNew));
+    assert.ok(entries.includes(nvmOld));
+    assert.ok(entries.indexOf(nvmNew) < entries.indexOf(nvmOld), "newest nvm version ordered first");
+    assert.ok(entries.includes(uvBin));
+    assert.ok(entries.includes(path.join(fakeHome, ".npm-global/bin")));
+    assert.ok(entries.includes(path.join(fakeHome, "miniforge3/bin")));
+  }
 });
 
 test("Task 1: requestAcpPermission queues concurrent modals and auto-approves queued requests once enabled", async () => {
