@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.3 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.4 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -933,7 +933,7 @@ details[open] > :is(summary.ad-modelgroup__head, summary.ad-subdetails__head)::b
   padding: 12px 2px;
   border-bottom: 1px solid var(--ad-line);
 }
-.ad-models-card .ad-modelgroup .ad-modelgroup__head .ad-linkbtn {
+.ad-models-card .ad-modelgroup .ad-modelgroup__head .ad-linkbtn:first-of-type {
   margin-left: auto;
 }
 .ad-models-card .ad-modelrow {
@@ -4105,6 +4105,11 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   padding: 7px 12px;
   white-space: normal;
 }
+.ad-settings .ad-btn.ad-btn--compact {
+  flex: none;
+  white-space: nowrap;
+  padding: 6px 10px;
+}
 .ad-settings .ad-btnrow {
   gap: 8px;
   margin-top: 16px;
@@ -4239,6 +4244,9 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   display: flex;
   flex-direction: column;
   margin-top: 14px;
+}
+.ad-settings .ad-set-agents.ad-set-agents--disabled {
+  margin-top: 6px;
 }
 .ad-settings .ad-set-agent {
   padding: 14px 0;

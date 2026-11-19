@@ -334,7 +334,7 @@
       padding: 12px 2px;
       border-bottom: 1px solid var(--ad-line);
 
-      & .ad-linkbtn {
+      & .ad-linkbtn:first-of-type {
         margin-left: auto;
       }
     }

@@ -80,3 +80,20 @@ test('DSH: plugin reload can resume a historic session without creating a new on
 test('DSH: manual permission waits for Obsidian and returns the chosen option',async()=>{
  const f=fixture('permission');try{f.plugin.settings.delegate.dsh.autoApprove=false;let called=false;f.plugin.requestAcpPermission=async({agent,options})=>{called=true;assert.equal(agent,'dsh');return options[0].optionId};const j=await f.send();await settled(j);assert.equal(called,true);assert.equal(j.state,'done');assert.equal(f.readEvents().find(m=>m.id===999).result.outcome.outcome,'selected')}finally{f.cleanup()}
 });
+
+test('DSH: default (unspecified) model skips session/set_config_option for model so third-party DSH default is used', async () => {
+  const f = fixture();
+  try {
+    f.plugin.settings.delegate.dsh.model = DEFAULTS.delegate.dsh.model;
+    assert.equal(DEFAULTS.delegate.dsh.model, 'dsh-default');
+    const j = await f.send();
+    await settled(j);
+    assert.equal(j.state, 'done');
+    const modelCfgCalls = f.readEvents().filter((m) => m.method === 'session/set_config_option' && m.params?.configId === 'model');
+    assert.equal(modelCfgCalls.length, 0, 'does not force deepseek-v4-pro when using default/unspecified model');
+    const effortCfgCalls = f.readEvents().filter((m) => m.method === 'session/set_config_option' && m.params?.configId === 'reasoning_effort');
+    assert.equal(effortCfgCalls.length, 1);
+  } finally {
+    f.cleanup();
+  }
+});

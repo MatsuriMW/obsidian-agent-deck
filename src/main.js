@@ -68,6 +68,7 @@ import { MEMORY_BOARD_TYPE, MemoryBoardView } from "./memory-board.js";
 import { MemoryReviewModal } from "./memory-review.js";
 import { MemoryCreateModal, MemoryImportModal } from "./memory-import.js";
 import { registerContextResolver } from "./harness.js";
+import { detectInstalledHarnesses, applyHarnessDetection, pickDefaultDelegateTarget } from "./harness-detect.js";
 import { ConversationModal, AcpPermissionModal } from "./conversation-modal.js";
 import { registerTaskAgentSuggest } from "./mention-suggest.js";
 import { t, currentLanguage } from "./i18n.js";
@@ -139,6 +140,15 @@ export default class AgentDeckPlugin extends Plugin {
     if (!this.settings.primaryAgentsInitialized) this.settings.primaryAgents = [];
     if (!Array.isArray(this.settings.primaryAgents)) this.settings.primaryAgents = this.settings.aiPrimary ? [this.settings.aiPrimary] : ["claude"];
     this.settings.primaryAgents = this.settings.primaryAgents.filter((x) => AGENTS[x]).slice(0, 3);
+    if (!data?.harnessesDetected) {
+      applyHarnessDetection(this.settings, {
+        mode: data?.agents ? "migrate" : "initial",
+        detection: this.detectedHarnesses(),
+      });
+      this.saveSettings().catch(() => {});
+    } else if (data && !data.dshDefaultSeeded) {
+      this.saveSettings().catch(() => {});
+    }
     this.settings.jobs = this.settings.jobs && typeof this.settings.jobs === "object" ? this.settings.jobs : {};
     J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 0) * 60);
     this.jobs = this.settings.jobs;
@@ -390,6 +400,7 @@ export default class AgentDeckPlugin extends Plugin {
       if (job && activeJob(job)) this.cancelJob(job.id); else this.notice(t("当前任务没有可停止的执行"));
     } });
     this.addCommand({ id: "scan-now", name: t("重新扫描本机 Agent 会话"), callback: () => this.scanNow() });
+    this.addCommand({ id: "redetect-harnesses", name: t("重新检测本机已安装的 Harness"), callback: () => this.redetectHarnesses() });
     this.addCommand({ id: "jump-running-project", name: t("跳转到日记正在做的区域"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "J" }], callback: () => this.jumpRunningProject() });
     this.addCommand({
       id: "done-and-archive-top",
@@ -806,7 +817,7 @@ export default class AgentDeckPlugin extends Plugin {
       await this.delegator.enrichPrompt(resolved);
       const payload = await this.delegator.writeTaskPayload(resolved, opts.agent, {
         draft: true,
-        model: opts.model || this.defaultModel(opts.agent),
+        model: opts.model !== undefined ? opts.model : this.defaultModel(opts.agent),
         effort: opts.effort || this.settings.delegate?.[opts.agent]?.effort || "",
       });
       if (!payload) return this.notice(t("草稿没写出来，看控制台"));
@@ -1336,9 +1347,52 @@ export default class AgentDeckPlugin extends Plugin {
   primaryAgents() { return (this.settings.primaryAgents || []).filter((x) => AGENTS[x]).slice(0, 3); }
   isPrimary(agent) { return this.primaryAgents().includes(agent); }
   agentEnabled(agent) { return this.isPrimary(agent) || (this.settings.agents || {})[agent] !== false; }
-  defaultTarget() { return hasAgentCapability(this.settings.delegate?.target, "delegate") ? this.settings.delegate.target : "claude"; }
+  defaultTarget() { return pickDefaultDelegateTarget(this.settings, this.settings.delegate?.target); }
+  detectedHarnesses({ refresh = false } = {}) {
+    if (refresh || !this._detectedHarnesses) {
+      this._detectedHarnesses = detectInstalledHarnesses({ cfg: this.settings });
+    }
+    return this._detectedHarnesses;
+  }
+  async redetectHarnesses({ scan = true, notify = true } = {}) {
+    const res = applyHarnessDetection(this.settings, {
+      mode: "redetect",
+      detection: this.detectedHarnesses({ refresh: true }),
+    });
+    if (!this.settings.primaryAgents.length && this.usage?.meta?.size) {
+      const candidates = {
+        files: this.usage.files,
+        meta: new Map([...this.usage.meta].filter(([, meta]) => this.agentEnabled(meta.agent))),
+      };
+      const primaries = recommendPrimaryAgents(candidates);
+      if (primaries.length) this.settings.primaryAgents = primaries;
+    }
+    await this.saveSettings();
+    this.watchCursorEvents();
+    this.watchGrokBotPersistence();
+    if (this.app.setting?.activeTab === this.settingTab && this.settingTab.containerEl?.isConnected) {
+      this.settingTab.display();
+    }
+    this.refreshUI();
+    if (scan && res.installed.length) {
+      this.scanNow(false).catch(() => {});
+    }
+    if (notify) {
+      const names = res.installed.map((id) => AGENTS[id]?.short || id).join("、");
+      const off = AGENT_ORDER.length - res.installed.length;
+      const msg = res.installed.length
+        ? t("已检测到 {n} 个 Harness：{names}（其余 {off} 个已关闭）", { n: res.installed.length, names, off })
+        : t("未检测到已安装的 Harness，可在「记录 → 来源与扫描」手动开启");
+      this.notice(msg, 6000);
+    }
+    return res;
+  }
   defaultModel(agent) {
-    return this.settings.delegate?.[agent]?.model || this.settings.models?.defaultByAgent?.[agent] || DEFAULTS.models.defaultByAgent[agent] || "";
+    const del = this.settings.delegate?.[agent]?.model;
+    if (del !== undefined) return del;
+    const mod = this.settings.models?.defaultByAgent?.[agent];
+    if (mod !== undefined) return mod;
+    return DEFAULTS.models.defaultByAgent[agent] ?? "";
   }
 
   async togglePrimary(agent) {
@@ -1995,10 +2049,11 @@ export default class AgentDeckPlugin extends Plugin {
         const draftLink = findDraftLink(target.lines, target.block);
         const draft = draftLink && this.delegator?.readDraft ? await this.delegator.readDraft(draftLink, null, { consume: false }) : null;
         const projectState = resolveTaskProjectState(this, item.path, target.lines, target.block);
+        const previewModel = opts.model !== undefined && opts.model !== "" ? opts.model : this.defaultModel(agent);
         new ConfirmSendModal(this.app, {
           agent, text: stripInternalIdentifiers(newSession ? freshTaskText(target.block.text) : target.block.text), path: item.path,
           context: ancestorLines(target.lines, target.block.start).map((l) => stripInternalIdentifiers(l)),
-          where: `${opts.model || this.defaultModel(agent) || t("客户端模型")} · ${opts.effort || this.settings.delegate[agent]?.effort || t("客户端强度")}`,
+          where: `${this.modelLabel(previewModel) || t("客户端模型")} · ${opts.effort || this.settings.delegate[agent]?.effort || t("客户端强度")}`,
           destination, permission: mode, newSession, draft, plugin: this, projectState,
         }, (chosen, chosenMode, chosenProject) => this.delegateDrop(agent, item, null, {
           destination: chosen,

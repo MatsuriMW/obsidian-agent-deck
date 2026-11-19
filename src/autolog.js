@@ -51,7 +51,11 @@ export class AutoLog {
   get usage() { return this.p.usage; }
   get minMinutes() { return Math.max(0, num(this.cfg.autoLogMinMinutes, 3)); }
   get batch() { return Math.max(1, Math.round(num(this.cfg.autoLogBatch, 8))); }
-  agentOn(id) { return AGENT_ORDER.includes(id) && (this.cfg.autoLogAgents || {})[id] !== false; }
+  agentOn(id) {
+    if (!AGENT_ORDER.includes(id)) return false;
+    if (typeof this.p?.agentEnabled === "function" && !this.p.agentEnabled(id)) return false;
+    return (this.cfg.autoLogAgents || {})[id] !== false;
+  }
   grokDoneMinutes(idle = Math.max(5, this.cfg.autoLogIdle || 10)) {
     const raw = this.cfg.autoLogGrokBotDoneMinutes;
     const n = raw == null ? 120 : Number(raw);

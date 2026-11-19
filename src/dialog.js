@@ -220,7 +220,10 @@ export class DelegateOptionsModal extends Modal {
     const target = contentEl.createDiv({ cls: "ad-field" });
     target.createDiv({ cls: "ad-field__label", text: "Delegate to" });
     const targets = target.createDiv({ cls: "ad-targetpick" });
-    for (const id of delegateAgents()) {
+    const enabledTargets = delegateAgents().filter((id) => typeof p.agentEnabled !== "function" || p.agentEnabled(id));
+    const visibleTargets = enabledTargets.length ? enabledTargets : delegateAgents();
+    if (this.agent && !visibleTargets.includes(this.agent)) visibleTargets.unshift(this.agent);
+    for (const id of visibleTargets) {
       const a = AGENTS[id];
       const b = targets.createEl("button", { cls: "ad-target ad-target--sm" + (this.agent === id ? " is-on" : "") });
       b.style.setProperty("--ad-agent", a.color);
@@ -244,10 +247,15 @@ export class DelegateOptionsModal extends Modal {
     // Model
     const mf = contentEl.createDiv({ cls: "ad-field" });
     mf.createDiv({ cls: "ad-field__label", text: "Model" });
-    const models = p.modelsFor(this.agent).filter((m) => p.modelEnabled(m.id) || m.id === this.model);
+    const enabledModels = p.modelsFor(this.agent).filter((m) => p.modelEnabled(m.id) || (this.model && m.id === this.model));
+    const hasDefaultEntry = enabledModels.some((m) => m.id === `${this.agent}-default` || m.id === "");
+    const models = hasDefaultEntry
+      ? enabledModels
+      : [{ id: "", name: t("不指定（使用当前默认模型）"), context: "—", tags: [] }, ...enabledModels];
     const grid = mf.createDiv({ cls: "ad-modelpick" });
     for (const m of models) {
-      const b = grid.createEl("button", { cls: "ad-modelpick__item" + (this.model === m.id ? " is-on" : "") });
+      const active = this.model === m.id || (!this.model && m.id === `${this.agent}-default`);
+      const b = grid.createEl("button", { cls: "ad-modelpick__item" + (active ? " is-on" : "") });
       const top = b.createDiv({ cls: "ad-modelpick__top" });
       top.createSpan({ cls: "ad-modelpick__name", text: m.name });
       if (m.cost) top.createSpan({ cls: "ad-modelpick__cost", text: m.cost.replace(" cost", "") });

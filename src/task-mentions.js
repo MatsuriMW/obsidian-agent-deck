@@ -46,6 +46,51 @@ export function stripTaskMention(text, trigger = "@") {
   return lines.join("\n");
 }
 
+function modelMatchKeys(m) {
+  const keys = new Set();
+  for (const raw of [m?.id, m?.model, m?.cli]) {
+    const s = String(raw || "").trim().toLowerCase();
+    if (s) keys.add(s);
+  }
+  const val = String(m?.value || "").trim();
+  if (val.startsWith("[")) {
+    try {
+      const pair = JSON.parse(val);
+      const rawModel = String(Array.isArray(pair) ? pair[1] : "").trim().toLowerCase();
+      if (rawModel) keys.add(rawModel);
+    } catch { /* ignore non-JSON ACP pair */ }
+  } else if (val) {
+    keys.add(val.toLowerCase());
+  }
+  return keys;
+}
+
+function agentModelUsageMap(plugin, agent) {
+  const byRaw = new Map();
+  const seenSids = new Set();
+  const addRaw = (raw, n = 1) => {
+    const key = String(raw || "").trim().toLowerCase();
+    if (key) byRaw.set(key, (byRaw.get(key) || 0) + n);
+  };
+  const metas = plugin?.usage?.meta;
+  if (metas && typeof metas.values === "function") {
+    for (const meta of metas.values()) {
+      if (!meta || meta.agent !== agent) continue;
+      if (meta.sid) seenSids.add(meta.sid);
+      addRaw(meta.model, Math.max(1, Number(meta.turns) || Number(meta.rounds?.length) || 0));
+    }
+  }
+  const jobs = plugin?.jobs;
+  if (jobs && typeof jobs === "object") {
+    for (const job of Object.values(jobs)) {
+      if (!job || job.agent !== agent) continue;
+      if (job.sessionId && seenSids.has(job.sessionId)) continue;
+      addRaw(job.model, 1);
+    }
+  }
+  return byRaw;
+}
+
 export function mentionSuggestions(plugin, query) {
   const parts = query.split("/"), agent = parts[0];
   const routable = routableAgents();
@@ -54,7 +99,23 @@ export function mentionSuggestions(plugin, query) {
   if (!routable.includes(agent) || !plugin.agentEnabled(agent)) return [];
   if (parts.length === 2) {
     const all = plugin.modelsFor(agent), enabled = all.filter(m => plugin.modelEnabled(m.id));
-    return (enabled.length ? enabled : all).filter(m => (m.id + " " + m.name).toLowerCase().includes(parts[1].toLowerCase())).map(m => ({ value: `${agent}/${m.id}`, label: m.name, hint: t("选定模型；可继续输入 / 选择强度") }));
+    const base = (enabled.length ? enabled : all).filter(m => (m.id + " " + m.name).toLowerCase().includes(parts[1].toLowerCase()));
+    const byRaw = agentModelUsageMap(plugin, agent);
+    const callCounts = plugin?.settings?.models?.callCounts || {};
+    const isDefault = (m) => m.id === `${agent}-default` || m.value === "";
+    const countFor = (m) => {
+      let total = Number(callCounts[m.id]) || 0;
+      for (const k of modelMatchKeys(m)) total += byRaw.get(k) || 0;
+      return total;
+    };
+    const sorted = [...base].sort((a, b) => {
+      const da = isDefault(a) ? 1 : 0, db = isDefault(b) ? 1 : 0;
+      if (da !== db) return db - da;
+      const ca = countFor(a), cb = countFor(b);
+      if (ca !== cb) return cb - ca;
+      return 0;
+    });
+    return sorted.map(m => ({ value: `${agent}/${m.id}`, label: m.name, hint: t("选定模型；可继续输入 / 选择强度") }));
   }
   if (parts.length === 3 && plugin.modelsFor(agent).some((m) => m.id === parts[1])) return (EFFORTS[agent] || []).filter((e) => e.id.startsWith(parts[2])).map((e) => ({ value: `${agent}/${parts[1]}/${e.id}`, label: e.label, hint: e.hint }));
   return [];

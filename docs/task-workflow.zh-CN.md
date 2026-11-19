@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.3**（已发版，2026-11-19）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.4**（已发版，2026-11-19）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 核心构想（接手先读这段）
 
@@ -36,7 +36,12 @@
 | **macOS** | 全量 `npm test`、构建、`swiftc` 编译与运行（`AgentDeckMenuBar.app`）、Vault 安装与热重载（Obsidian `1.15.1`）、Antigravity (`agy` / `agy acp`) 两轮续聊与记忆查询、`preview` 模式草稿读取、Dashboard、AI 记录 Pin（大纲与阅读视图 DOM）、Menu Bar 会话置顶命令队列 | 终端交互仅实测 Tern / Herdr；7 家可委派客户端全量逐一派发、Menu Bar SwiftUI 悬浮窗口拖拽手感待人手目视微调 |
 | **Windows** | 尚未实机运行验证 | `src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）仍依赖 macOS `osascript`/终端；`src/readers.js` 在 `win32` 跳过 `claudeDesktop`；CLI 探测与路径短链待实测 |
 
-## 本批发版基线（1.13.3，2026-11-19，已构建、装库实测并触发三端 CI）
+## 本批发版基线（1.13.4，2026-11-19，已构建、装库实测并触发三端 CI）
+
+`1.13.4` 完成本机 Harness 自动探测降噪、模型列表即时保存与「不指定模型」全链路收口：
+- **本机 Harness 自动探测与界面降噪**：新增 `src/harness-detect.js`（`detectInstalledHarnesses` / `applyHarnessDetection` / `pickDefaultDelegateTarget`），启动首次探测并默认关闭未安装的 Harness（兼容首次安装、老配置一次性迁移保留已装项的手动关闭、以及命令面板/设置页「重新检测 Harness」同步）；`Claude.app` 单独存在不误判为 Claude Code。设置页、侧栏面板、`DelegateOptionsModal` 与 `AutoLog.agentOn` 统一过滤未启用项以保持页面干净。
+- **模型列表易用性、DSH 默认模型与 `@` 频次排序**：修复关闭模型（含当前默认模型）未保存或回弹问题，切换开关、分组标题行 `＋ 添加`（DSH `Provider route` 可选）、`全部开启/全部关闭` 与删改恢复均即时持久化，各 Agent 配置卡增加「管理模型」直达按钮。DSH 默认使用 `dsh-default`（不向 ACP 传模型覆写，直接使用 DSH 客户端当前默认/第三方模型；老库内置 DeepSeek 预设首次加载一次性迁为 `dsh-default`）；CLI/ACP/Codex runner 支持留空/`*-default` 跳过模型参数；`@agent/` 二级补全菜单将 `*-default` 固定第一位，其余模型按 `usage.meta`、`jobs` 与 `settings.models.callCounts` 调用次数从高到低排序。
+- **验证**：macOS 已通过全量 `npm test`、`npm run eval`、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`、Vault 安装与 Obsidian 热重载（核对 `data.json` 迁移）；Windows 真机及 Obsidian 设置页视觉点击未实操（macOS/Linux/Windows 三端由 CI 验证）。
 
 `1.13.3` 重做了 AI 自动记录的右键菜单：Pin 挪到第一位并去掉图标，新增复制这一轮（任务与结论 / 只复制结论）、查看原会话、跳到母任务、带二次确认的删除；记录菜单项收进独立分区排在 Obsidian 默认项之前，解析不到会话或旧版菜单 API 时降级。解析、母任务定位、删除范围抽到 `src/record-menu.js` 并有 `test/record-menu.test.mjs` 覆盖；实机用 fake menu 触发 `editor-menu` 验证过顺序、无图标与会话项。
 
@@ -150,11 +155,11 @@
 
 | 阶段 / 事项 | 范围与边界约束 | 参考 Spec / 模块 | Linear |
 | --- | --- | --- | --- |
-| **M1.1 上下文内核收口与诚实化** | 收口 `harness.js` / `enrichPrompt` / `replyPromptText` / `memory-query-core`，改为「前稳后动」保 Prefix Cache；零静默丢上下文（含截断带行号目录）、资料/指令隔离、编辑器缓冲、双写手去污；`private:true`/排除目录闸门、能力退路与短词检索补盲；`contextStats` 账本与 ACP 用量展示 | `src/harness.js`, `src/delegation.js`, `src/dream.js`, `src/memory-query-core.js`, [`information-flow.zh-CN.md`](specs/information-flow.zh-CN.md) | `MAT-637`, `MAT-638`, `MAT-639` |
-| **M1.2 结构提取、锚点校验与透明预览** | 节点 4–6 键摘要（`type`/`def`/`domain`/`father`/`status`）与空正文反链块退路（位置判强弱 + `#tag` 信号）；通用软/硬锚点 sha256 漂移校验与续聊变更提醒；`father` 单向一跳邻接；`ConfirmSendModal` 轻量预览/剔除、未链接提及提示与项目主页入口 | `src/harness.js`, `src/outline.js`, `src/dialog.js`, [`context-protocol.zh-CN.md`](specs/context-protocol.zh-CN.md), [`information-flow.zh-CN.md`](specs/information-flow.zh-CN.md) | `MAT-640`, `MAT-641`, `MAT-628` |
-| **M1.3 对外供给：纯 Node 库级 Context MCP** | 剥离 Obsidian API 的纯 Node 内核；`vault_outline` / `vault_read` / `vault_related` / `vault_find` + `memory_*` 共用 stdio MCP；跨平台路径与一键接入；入口地图预算裁剪与呼出率止损 | `src/context-core.js`, `scripts/memory-query.mjs`, `src/settings.js` | `MAT-642` |
-| **M2 上下文可信度与证据闭环** | 记忆四维正交升级与归档（`M2.1`）；全库 34 条断链缺口与同源矛盾检测（`M2.2`）；双链反推低置信 `sources` + 可选 L2 脚注（`M2.3`）；Claude/Codex 中断与额度结束原因 | `src/memory-store.js`, `src/dream.js`, `src/agent-ingestors.js` | `MAT-644`, `MAT-633` |
-| **M3 回写复利、按条共享与跨端底座** | job 读取清单、`log.md`、`ad-attest`、载荷差异进 Dream（`M3.1`）；Dream 按条共享发布层 + `scope=shared` MCP（`M3.2`）；1 秒可重放与独立客户端底座（`M3.3`） | [`dream-shared-memory.md`](specs/dream-shared-memory.md), `src/dream-sharing.js` | 见 Milestone M3 |
+| **M1.1 上下文内核收口与诚实化** | 收口 `harness.js` / `enrichPrompt` / `replyPromptText` / `memory-query-core`，改为「前稳后动」保 Prefix Cache；零静默丢上下文（含截断带行号目录）、资料/指令隔离、编辑器缓冲、双写手去污；`private:true`/排除目录闸门、能力退路、短词检索补盲、`renderMemoryIndex` 隐私/状态过滤分组、`handoff` 补项目归属与 `Dreaming` `dropped` 计数透出；`contextStats` 账本与 ACP 用量展示 | `src/harness.js`, `src/delegation.js`, `src/dream.js`, `src/memory-query-core.js`, `src/memory-store.js`, [`information-flow.zh-CN.md`](specs/information-flow.zh-CN.md) | `MAT-637`, `MAT-638`, `MAT-639` |
+| **M1.2 结构提取、锚点校验与透明预览** | 节点 4–6 键摘要（`type`/`def`/`domain`/`father`/`status`）与空正文反链块退路（位置判强弱 + `#tag` 信号）；通用软/硬锚点 sha256 漂移校验与续聊变更提醒；`father` 单向一跳邻接；`ConfirmSendModal` 轻量预览/剔除（带记忆类型角标）、未链接提及提示与项目主页入口 | `src/harness.js`, `src/outline.js`, `src/dialog.js`, [`context-protocol.zh-CN.md`](specs/context-protocol.zh-CN.md), [`information-flow.zh-CN.md`](specs/information-flow.zh-CN.md) | `MAT-640`, `MAT-641`, `MAT-628` |
+| **M1.3 对外供给：纯 Node 库级 Context MCP** | 剥离 Obsidian API 的纯 Node 内核；`vault_outline` / `vault_read` / `vault_related` / `vault_find` + `memory_*` 共用 stdio MCP；跨平台路径与一键接入；入口地图预算裁剪（带分组 `索引.md`/Quickstart 导航线索、中英加权 token 校准及与仓库 `AGENTS.md` 分工）与呼出率止损 | `src/context-core.js`, `scripts/memory-query.mjs`, `src/settings.js` | `MAT-642` |
+| **M2 上下文可信度与证据闭环** | 记忆四维正交升级、任务域分流（工程 `lesson` vs 个人记忆 vs 0 注入通用问答）、YAML 单层/嵌套解析契约对齐、`state.processed`/`reconcile` 改写边界与归档（`M2.1`）；全库 34 条断链缺口与同源矛盾检测（`M2.2`）；双链反推低置信 `sources` + 可选 L2 脚注（`M2.3`）；Claude/Codex 中断与额度结束原因 | `src/memory-store.js`, `src/dream.js`, `src/memory-query-core.js`, `src/agent-ingestors.js` | `MAT-644`, `MAT-633` |
+| **M3 回写复利、按条共享与跨端底座** | job 读取清单、`log.md`、`ad-attest`、载荷差异与纠偏结果进 Dream（`lesson` 症状→修法）+ `continueSession`/`handoff`/`Dreaming` 全量接入 `RunTrace` 回流 `eval-context.mjs` 门禁（`M3.1`）；Dream 按条共享发布层 + `scope=shared` MCP（`M3.2`）；1 秒可重放与独立客户端底座（`M3.3`） | [`dream-shared-memory.md`](specs/dream-shared-memory.md), `src/dream-sharing.js`, `src/trace.js`, `scripts/eval-context.mjs` | 见 Milestone M3 |
 | **轨道 W：Windows 端适配与实测** | 评估合入 `feat/win-compat`（`84b8c01`）+ SashaYang333 Windows 全端实机验证（含脚本路径转义） | `src/platform.js`, `src/delegation.js`, `src/main.js`, `src/readers.js` | `MAT-643` |
 | **轨道 A：Agent 生态与终端扩展** | 扩大委派/记录/追踪覆盖：**Hermes Agent**、**千问**、**Kimi Code**、**ZCode**、**MiniMax Code（客户端 + CLI）**、**Claude 客户端直接委派**，以及表驱动扩展**更多终端**（Ghostty / WezTerm / Kitty / Alacritty / Windows 终端等） | `src/agent-registry.js`, `src/agent-ingestors.js`, `src/delegation-runners.js`, `src/delegation.js`, [`acp-integration.zh-CN.md`](specs/acp-integration.zh-CN.md) | 见路线图 §6.1 轨道 A |
 | **轨道 T1：Muse & Claude CLI** | Muse 会话只读追踪（`MAT-629`）；Claude CLI 对话追踪全链路复核（`MAT-630`） | `src/readers.js`, `src/agent-ingestors.js`, `src/conversation.js` | `MAT-629`, `MAT-630` |

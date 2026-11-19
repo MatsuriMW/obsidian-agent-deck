@@ -247,6 +247,12 @@
   & .ad-btn {
     padding: 7px 12px;
     white-space: normal;
+
+    &.ad-btn--compact {
+      flex: none;
+      white-space: nowrap;
+      padding: 6px 10px;
+    }
   }
 
   & .ad-btnrow {
@@ -412,6 +418,10 @@
     display: flex;
     flex-direction: column;
     margin-top: 14px;
+
+    &.ad-set-agents--disabled {
+      margin-top: 6px;
+    }
   }
 
   & .ad-set-agent {
