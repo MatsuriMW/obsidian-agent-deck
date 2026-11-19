@@ -272,6 +272,11 @@ export class AgentDeckView extends ItemView {
     // Recent
     const recSec = dash.createDiv({ cls: "ad-sec ad-sec--recent" });
     const recentGroupBy = this.recentGroupBy();
+    const recentAgents = new Set(recent.map((x) => x.agent).filter(Boolean));
+    const isEnabled = (id) => (typeof p.agentEnabled === "function" ? p.agentEnabled(id) : true);
+    if (AGENTS[this.filter] && !isEnabled(this.filter) && !recentAgents.has(this.filter)) {
+      this.filter = "all";
+    }
     const filteredRecent = filterRecentRows(recent, this.filter);
     const recHead = this.secHead(recSec, t("最近的会话"), t("{n} 个 · 最近 {days} 天", { n: filteredRecent.length, days }));
     const range = recHead.createDiv({ cls: "ad-range" });
@@ -296,7 +301,10 @@ export class AgentDeckView extends ItemView {
       };
     }
     const filters = recHead.createDiv({ cls: "ad-filters" });
-    for (const [id, label] of [["all", t("全部")], ["live", t("在跑")], ["wait", t("等你")], ["claude", "Claude"], ["codex", "Codex"], ["workbuddy", "WorkBuddy"], ["dsh", "DSH"], ["antigravity", "Antigravity"], ["opencode", "OpenCode"], ["qoder", "Qoder"], ["hermes", "Hermes"], ["qwenwork", t("千问办公")], ["cursor", "Cursor"], ["grokbot", "Grok Bot"]]) {
+    const agentFilters = AGENT_ORDER
+      .filter((id) => isEnabled(id) || recentAgents.has(id) || this.filter === id)
+      .map((id) => [id, id === "qwenwork" ? t("千问办公") : (AGENTS[id]?.short || id)]);
+    for (const [id, label] of [["all", t("全部")], ["live", t("在跑")], ["wait", t("等你")], ...agentFilters]) {
       const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
       b.onclick = () => { this._bottomSlack = 0; this.filter = id; this.render(); };
     }
@@ -1154,12 +1162,12 @@ export class AgentCardsModal extends Modal {
       button(row, t("从侧边栏移除"), "minus", () => change((layout) => { layout.hidden.push(id); }));
     }
     el.createEl("h4", { text: t("添加卡片") });
-    if (!hidden.length) el.createDiv({ cls: "ad-muted", text: t("所有可用的 Agent 都已添加。") });
-    for (const id of hidden) {
+    const addable = hidden.filter((id) => view.plugin.agentEnabled(id));
+    if (!addable.length) el.createDiv({ cls: "ad-muted", text: t("所有可用的 Agent 都已添加。") });
+    for (const id of addable) {
       const row = el.createDiv({ cls: "ad-cardmanager__row", attr: { "data-agent": id } });
       agentIcon(row.createSpan({ cls: "ad-glyph" }), id);
       row.createSpan({ cls: "ad-cardmanager__name", text: AGENTS[id].name });
-      if (!view.plugin.agentEnabled(id)) { row.createSpan({ cls: "ad-muted", text: t("已关闭") }); continue; }
       const add = row.createEl("button", { cls: "ad-linkbtn", text: t("添加到侧边栏") });
       add.onclick = () => change((layout) => { layout.hidden = layout.hidden.filter((x) => x !== id); });
     }

@@ -2,9 +2,9 @@
 
 > 在 Obsidian 里看住、指挥并回顾本机的 AI Agent。
 
-**中文** ｜ [English](README.en.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [更新日志](CHANGELOG.md) ｜ [Discord 社区](https://discord.gg/hVPpAnChv7) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
+**中文** ｜ [English](README.en.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [更新日志](CHANGELOG.md) ｜ [用户群](#用户群) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
 
-项目仍在快速迭代，欢迎在 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) 看后续规划并投票，或到 [Discord](https://discord.gg/hVPpAnChv7)、[GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)、[GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 反馈问题。
+项目仍在快速迭代，欢迎在 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) 看后续规划并投票，或到 [用户群](#用户群)、[GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)、[GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 反馈问题。
 
 <p align="center">
   <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4"><img src="assets/demo.gif" width="800" alt="Agent Deck 演示：会话卡片拖到日记里的任务上绑定，任务拖到 Agent 上委派，状态和结论写回日记"></a>
@@ -27,6 +27,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 - [各 Agent 支持情况](#各-agent-支持情况)
 - [安装与依赖](#安装与依赖)
 - [当前受限](#当前受限)
+- [用户群](#用户群)
 - [隐私与开源协议](#隐私与开源协议)
 
 ## 核心功能
@@ -132,7 +133,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck**，安装并启用；
 2. 或在 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新版，把 `main.js`、`manifest.json`、`styles.css` 放进 `<你的库>/.obsidian/plugins/agent-deck/`，再到插件设置里启用。
 
-当前版本 **1.13.3**，需要 Obsidian **1.4.0+** 桌面端。
+当前版本 **1.13.4**，需要 Obsidian **1.4.0+** 桌面端。
 
 ### 需要准备什么
 
@@ -158,7 +159,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 
 ## 当前受限
 
-1. **仅桌面端**：不支持 Obsidian 移动端。macOS 已实测；Windows 仍在适配，菜单栏助手仅限 macOS。
+1. **仅桌面端**：不支持 Obsidian 移动端。目前只在 Mac 上做过大量测试；Windows 缺少测试环境，很多功能还没有实机验证过（菜单栏助手仅限 macOS）。
 2. **委派依赖本机客户端**：自动委派要本机 CLI 或桌面应用来执行，暂不支持用远程 API 直接跑任务，插件也不会替你安装或登录客户端。
 3. **对话窗口只读**：Obsidian 内的对话查看用于看正文、停止当前轮和保存归档，不设自由输入框；支持的会话可从任务菜单轻量追问或「回答并继续」，其余需回客户端继续。
 4. **各客户端的边界**：
@@ -173,6 +174,19 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
    - **Grok Bot**：只追踪桌面端，云端沙箱不给逐条 token 时显示「用量未提供」，没有归档概念。
 5. **终端交互的实测范围**：自动开终端跑交互式会话目前只在 **Tern** 和 **Herdr** 上实测通过；系统终端、iTerm2、Warp 尚未实测。
 6. **正在做的方向**：派发前可视化上下文、防引用漂移、Dream 记忆按条共享、Windows 实机验证，以及更多 Agent 与终端支持，详见 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist)。
+
+## 用户群
+
+两个群，喜欢哪个加哪个：
+
+- **Discord**（永久邀请，不过期、不限次数）：https://discord.gg/hVPpAnChv7
+- **小红书「agent deck 螺旋日程用户群」**：复制下面整段，打开小红书 App 就能加入（12 月 17 日截止）：
+
+  ```
+  0【全部复制—打开🍠APP】 12月17日截止，"agent deck螺旋日程用户群"欢迎有缘人 CZ3798 :/#s🐂🥭😊😘😏🥒🥭🍟🍟😗🐱🍌
+  ```
+
+也可以继续在 [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) 和 [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 提问。
 
 ## 隐私与开源协议
 

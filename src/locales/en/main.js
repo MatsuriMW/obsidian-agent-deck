@@ -488,4 +488,7 @@ export default {
   "初始化 / 迁移记忆库": "Initialize / migrate memory store",
   "已按隐私设置跳过 {n} 篇受限笔记": "Skipped {n} private or excluded note(s) per privacy settings",
   "此 {agent} 会话可查看和归档正文，暂不支持转到桌面端": "This {agent} session can be viewed and archived here, and does not support opening a desktop app.",
+  "重新检测本机已安装的 Harness": "Re-detect locally installed Harnesses",
+  "已检测到 {n} 个 Harness：{names}（其余 {off} 个已关闭）": "Detected {n} Harness(es): {names} ({off} others disabled)",
+  "未检测到已安装的 Harness，可在「记录 → 来源与扫描」手动开启": "No installed Harnesses detected; enable any manually under Recording -> Sources and scanning",
 };

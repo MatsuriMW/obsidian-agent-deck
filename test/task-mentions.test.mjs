@@ -203,4 +203,42 @@ const hermesMention = mentionOptions(allEnabledPlugin, { lines: ['- TODO run @he
 assert.equal(hermesMention.agent, 'hermes');
 assert.equal(hermesMention.model, 'hermes-default');
 assert.equal(hermesMention.effort, 'high');
-console.log('PASS custom symbol chained selection, concrete model routing and regex escaping');
+
+// @ secondary menu pins dsh-default first even if listed last, and sorts remaining models by user call count descending.
+const dshOrderedPlugin = {
+  ...p,
+  agentEnabled: () => true,
+  modelEnabled: () => true,
+  modelsFor: (id) => id === 'dsh' ? [
+    { id: 'deepseek-v4-pro', agent: 'dsh', name: 'DeepSeek-V4-Pro', model: 'deepseek-v4-pro' },
+    { id: 'deepseek-v4-flash', agent: 'dsh', name: 'DeepSeek-V4-Flash', model: 'deepseek-v4-flash' },
+    { id: 'deepseek-v41-flash', agent: 'dsh', name: 'DeepSeek-V4.1-Flash', model: 'deepseek-flash' },
+    { id: 'custom-qwen', agent: 'dsh', name: 'Custom Qwen', value: 'qwen-3' },
+    { id: 'dsh-default', agent: 'dsh', name: '不指定（使用 DSH 当前默认模型）', value: '' },
+  ] : p.modelsFor(id),
+  settings: {
+    ...p.settings,
+    models: {
+      ...(p.settings.models || {}),
+      callCounts: { 'custom-qwen': 15 },
+    },
+  },
+  usage: {
+    meta: new Map([
+      ['s1', { sid: 's1', agent: 'dsh', model: 'deepseek-flash', turns: 40 }],
+      ['s2', { sid: 's2', agent: 'dsh', model: 'deepseek-v4-pro', turns: 5 }],
+    ]),
+  },
+  jobs: {
+    j1: { agent: 'dsh', sessionId: 's2', model: 'deepseek-v4-pro' }, // same session already in usage.meta -> not double counted
+    j2: { agent: 'dsh', sessionId: 's3', model: 'deepseek-v4-flash' }, // active job not yet scanned -> +1
+    j3: { agent: 'dsh', sessionId: 's4', model: 'deepseek-v4-pro' }, // +1 -> 6 total for pro
+  },
+};
+const dshMenu = mentionSuggestions(dshOrderedPlugin, 'dsh/').map((x) => x.value);
+assert.deepEqual(
+  dshMenu,
+  ['dsh/dsh-default', 'dsh/deepseek-v41-flash', 'dsh/custom-qwen', 'dsh/deepseek-v4-pro', 'dsh/deepseek-v4-flash'],
+  '@dsh/ puts dsh-default first and sorts the rest by call counts descending',
+);
+console.log('PASS custom symbol chained selection, concrete model routing, regex escaping and frequency-sorted @ menus');

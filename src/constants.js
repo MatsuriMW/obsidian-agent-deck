@@ -171,6 +171,7 @@ export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent
 // Models shown in the layered picker. `cli` is what Claude Code receives;
 // `value` is what the DeepSeek Harness ACP config option receives.
 export const MODEL_CATALOG = [
+  { id: "dsh-default", agent: "dsh", name: t("不指定（使用 DSH 当前默认模型）"), value: "", provider: "DSH", context: "—", tags: [], note: t("不向 DSH 传模型参数，直接使用 DSH 自身配置的默认模型（适合接入第三方模型）。") },
   { id: "antigravity-default", agent: "antigravity", name: t("CLI 当前默认模型"), value: "", provider: "Antigravity", context: "—", tags: [], note: t("使用服务端的默认模型；读取可用模型后可指定模型。") },
   { id: "opencode-default", agent: "opencode", name: t("CLI 当前默认模型"), value: "", provider: "OpenCode", context: "—", tags: [], note: t("使用服务端的默认模型；读取可用模型后可指定模型。") },
   { id: "hermes-default", agent: "hermes", name: t("CLI 当前默认模型"), value: "", provider: "Hermes", context: "—", tags: [], note: t("使用 Hermes 当前配置的默认模型；读取可用模型后可指定模型。") },
@@ -538,7 +539,7 @@ export const DEFAULTS = {
     hermes: { model: "hermes-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
-      model: "deepseek-v4-pro",
+      model: "dsh-default",
       effort: "high",
       path: "",
       cwd: "",
@@ -562,7 +563,7 @@ export const DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "deepseek-v4-pro", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", qoder: "qoder-ultimate" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", qoder: "qoder-ultimate" },
     effort: "high",
     effortByAgent: {},
   },
@@ -589,6 +590,14 @@ export function deepMerge(base, extra) {
   return out;
 }
 
+const LEGACY_DSH_PRESETS = new Set([
+  "deepseek-v4-pro",
+  "deepseek-v41-flash",
+  "deepseek-v4-flash",
+  "deepseek-v4-pro-official",
+  "",
+]);
+
 export function syncDelegationSettings(settings, raw = null) {
   if (!settings || typeof settings !== "object") return settings;
   if (!settings.resultMaxDefault350) {
@@ -609,15 +618,34 @@ export function syncDelegationSettings(settings, raw = null) {
     const cfg = (d[agent] ||= {});
     const rawDelModel = raw?.delegate?.[agent]?.model;
     const rawModModel = raw?.models?.defaultByAgent?.[agent];
-    const model = rawDelModel || rawModModel || cfg.model || m.defaultByAgent[agent] || DEFAULTS.models.defaultByAgent[agent] || "";
+    const model = rawDelModel !== undefined ? rawDelModel
+      : rawModModel !== undefined ? rawModModel
+      : cfg.model !== undefined ? cfg.model
+      : m.defaultByAgent[agent] !== undefined ? m.defaultByAgent[agent]
+      : (DEFAULTS.models.defaultByAgent[agent] ?? "");
     cfg.model = model;
     m.defaultByAgent[agent] = model;
-    if (model && !m.enabled.includes(model)) m.enabled.push(model);
+    // Never re-enable a model the user explicitly turned off in models.enabled;
+    // only ensure it is enabled on first-time migration or missing enabled list.
+    const shouldSeedEnabled = !raw || !Array.isArray(raw?.models?.enabled) || (rawDelModel === undefined && rawModModel !== undefined);
+    if (model && shouldSeedEnabled && !m.enabled.includes(model) && raw) m.enabled.push(model);
     const rawDelEffort = raw?.delegate?.[agent]?.effort;
     const rawModEffort = raw?.models?.effortByAgent?.[agent];
     const effort = rawDelEffort || rawModEffort || cfg.effort || m.effortByAgent[agent] || DEFAULTS.delegate[agent]?.effort || "high";
     cfg.effort = effort;
     m.effortByAgent[agent] = effort;
+  }
+  if (!settings.dshDefaultSeeded) {
+    if (Array.isArray(raw?.models?.enabled) && !m.enabled.includes("dsh-default")) {
+      m.enabled.push("dsh-default");
+    }
+    const curDshModel = d.dsh?.model ?? m.defaultByAgent.dsh ?? "";
+    if (LEGACY_DSH_PRESETS.has(curDshModel)) {
+      d.dsh ||= {};
+      d.dsh.model = "dsh-default";
+      m.defaultByAgent.dsh = "dsh-default";
+    }
+    settings.dshDefaultSeeded = true;
   }
   return settings;
 }

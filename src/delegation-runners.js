@@ -122,6 +122,8 @@ export function expandedPathEntries(basePath = process.env.PATH || "", homeDir =
         path.join(homeDir, ".local", "bin"),
         path.join(homeDir, ".bun", "bin"),
         path.join(process.env.APPDATA || path.join(homeDir, "AppData", "Roaming"), "npm"),
+        path.join(process.env.LOCALAPPDATA || path.join(homeDir, "AppData", "Local"), "pnpm"),
+        path.join(homeDir, "scoop", "shims"),
       ]
     : [
         path.join(homeDir, ".local/bin"),
@@ -317,6 +319,7 @@ function execCapture(bin, args, { cwd, env, timeout = 10000 } = {}) {
 
 // 内置模型在命令行里的名字（opus / sonnet …）；不在目录里的原样传
 export function resolveCliModel(plugin, agent, model) {
+  if (!model || model === `${agent}-default`) return "";
   const m = plugin?.modelById?.(model) || MODEL_CATALOG.find((m) => m.agent === agent && m.id === model);
   return m?.cli || m?.value || model;
 }
@@ -325,10 +328,11 @@ export { sandboxFor, SANDBOX_ALIAS };
 
 export function codexCliArgs(plugin, opts = {}) {
   const cfg = plugin.settings.delegate.codex || DEFAULTS.delegate.codex;
-  const model = resolveCliModel(plugin, "codex", opts.model || cfg.model);
+  const rawModel = opts.model !== undefined ? opts.model : (cfg.model !== undefined ? cfg.model : "");
+  const model = resolveCliModel(plugin, "codex", rawModel);
   const effort = opts.effort || cfg.effort || "low";
   const sandbox = sandboxFor(opts.permission || opts.sandbox, cfg.sandbox || "workspace-write");
-  return ["--model", model, "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--sandbox", sandbox];
+  return [...(model ? ["--model", model] : []), "-c", `model_reasoning_effort=${JSON.stringify(effort)}`, "--sandbox", sandbox];
 }
 
 export function resolveDshModel(id) {
@@ -500,12 +504,12 @@ export class ClaudeRunner extends BaseRunner {
         }
       }
     }
-    const model = opts.model || cfg.model || "claude-opus-5-5";
-    const modelCli = resolveCliModel(d.plugin, "claude", model);
+    const rawModel = opts.model !== undefined ? opts.model : (cfg.model !== undefined ? cfg.model : "claude-opus-5-5");
+    const modelCli = resolveCliModel(d.plugin, "claude", rawModel);
     const effort = opts.effort || cfg.effort || "high";
     const permission = opts.permission || cfg.permission || "auto";
     const addVault = cfg.addVault !== false && d.vaultPath && d.vaultPath !== cwd;
-    const common = ["--model", modelCli, "--effort", effort, "--permission-mode", permission, "-n", name];
+    const common = [...(modelCli ? ["--model", modelCli] : []), "--effort", effort, "--permission-mode", permission, "-n", name];
     if (addVault) common.push("--add-dir", d.vaultPath);
     if (cfg.extraArgs && cfg.extraArgs.trim()) common.push(...splitArgs(cfg.extraArgs));
     const prompt = opts.prompt;
@@ -598,10 +602,10 @@ export class ClaudeRunner extends BaseRunner {
 
   commonArgs() {
     const cfg = this.d.settings.delegate.claude;
-    const model = this.job.model || cfg.model || "claude-opus-5-5";
-    const modelCli = resolveCliModel(this.d.plugin, "claude", model);
+    const rawModel = this.job.model !== undefined ? this.job.model : (cfg.model !== undefined ? cfg.model : "claude-opus-5-5");
+    const modelCli = resolveCliModel(this.d.plugin, "claude", rawModel);
     const addVault = cfg.addVault !== false && this.d.vaultPath && this.d.vaultPath !== (this.job.cwd || cfg.cwd);
-    const out = ["--model", modelCli, "--effort", this.job.effort || cfg.effort || "high", "--permission-mode", this.job.permission || cfg.permission || "auto", "-n", this.job.name];
+    const out = [...(modelCli ? ["--model", modelCli] : []), "--effort", this.job.effort || cfg.effort || "high", "--permission-mode", this.job.permission || cfg.permission || "auto", "-n", this.job.name];
     if (addVault) out.push("--add-dir", this.d.vaultPath);
     return out;
   }
@@ -634,7 +638,8 @@ export class QoderRunner extends BaseRunner {
     const cfg = d.settings.delegate.qoder || DEFAULTS.delegate.qoder;
     const bin = findQoderBinary(cfg.path || "");
     const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
-    const model = resolveCliModel(d.plugin, "qoder", opts.model || cfg.model || "qoder-ultimate");
+    const rawModel = opts.model !== undefined ? opts.model : (cfg.model !== undefined ? cfg.model : "qoder-ultimate");
+    const model = resolveCliModel(d.plugin, "qoder", rawModel);
     const effort = opts.effort || cfg.effort || "high";
     const perm = opts.permission || cfg.permission || "auto";
     const sid = opts.sessionId || randomUUID();
@@ -643,7 +648,7 @@ export class QoderRunner extends BaseRunner {
     this.job.cwd = cwd;
     this.job.app = "cli";
     const sessionArgs = opts.sessionId ? ["-r", sid] : ["--session-id", sid];
-    const args = ["-p", ...sessionArgs, "-w", cwd, "-m", model, "--reasoning-effort", effort, ...qoderPermissionArgs(perm)];
+    const args = ["-p", ...sessionArgs, "-w", cwd, ...(model ? ["-m", model] : []), "--reasoning-effort", effort, ...qoderPermissionArgs(perm)];
     if (!opts.sessionId && opts.name) args.push("-n", opts.name);
     if (d.vaultPath && cwd !== d.vaultPath) args.push("--add-dir", d.vaultPath);
     for (const a of splitArgs(cfg.extraArgs || "")) args.push(a);
@@ -752,7 +757,7 @@ export class AcpRunner extends BaseRunner {
     }
     const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
     this.cwd = cwd;
-    const model = opts.model || cfg.model || cap.acpDefaultModel || "";
+    const model = opts.model !== undefined ? opts.model : (cfg.model !== undefined ? cfg.model : (cap.acpDefaultModel || ""));
     const effort = opts.effort || cfg.effort || cap.acpDefaultEffort || "";
     const spawnArgs = acpSpawnArgs(this.agent, bin, cfg.extraArgs || "", cap);
     this.job.command = redactSecrets([bin, ...spawnArgs].join(" "));

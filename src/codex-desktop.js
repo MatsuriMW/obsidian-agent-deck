@@ -54,19 +54,23 @@ export class CodexDesktopRunner {
       await this.request("initialize", { clientInfo: { name: "agent_deck", version: "1.4.2" }, capabilities: { experimentalApi: true } });
       this.send({ method: "initialized" });
       const projectId = await this.attachProject();
+      const hasModel = Boolean(this.job.model && this.job.model !== "codex-default");
       const result = await this.request("thread/start", {
-        model: this.job.model, cwd: this.job.cwd, ephemeral: false,
+        ...(hasModel ? { model: this.job.model } : {}),
+        cwd: this.job.cwd, ephemeral: false,
         sandbox: sandboxFor(this.job.permission, cfg.sandbox || "workspace-write"), approvalPolicy: "on-request",
         ...(projectId ? { projectId } : {}),
         config: { model_reasoning_effort: this.job.effort },
       });
-      if (!result.thread?.id || result.model !== this.job.model) throw new Error(t("Codex 未确认指定模型，任务未发送"));
+      if (!result.thread?.id || (hasModel && result.model !== this.job.model)) throw new Error(t("Codex 未确认指定模型，任务未发送"));
       this.job.app = "vscode";
       this.job.state = "running";
       this.d.onSession(this.job, result.thread.id);
       await this.request("thread/name/set", { threadId: result.thread.id, name: this.job.name });
       const started = await this.request("turn/start", {
-        threadId: result.thread.id, model: this.job.model, effort: this.job.effort,
+        threadId: result.thread.id,
+        ...(hasModel ? { model: this.job.model } : {}),
+        effort: this.job.effort,
         input: [{ type: "text", text: prompt }],
       });
       this.turnId = started.turn?.id;

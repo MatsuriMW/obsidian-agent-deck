@@ -774,7 +774,10 @@ export class Delegator {
 
   defaultModel(agent) {
     const a = this.C[agent] || {};
-    return a.model || DEFAULTS.models.defaultByAgent[agent] || "";
+    if (a.model !== undefined) return a.model;
+    const mod = this.settings?.models?.defaultByAgent?.[agent];
+    if (mod !== undefined) return mod;
+    return DEFAULTS.models.defaultByAgent[agent] ?? "";
   }
 
   async delegate(opts) {
@@ -848,6 +851,7 @@ export class Delegator {
       resolved.prompt = `${lead}\n${t("下面是被截断的摘要；两者冲突时以文件为准。")}\n\n${source}`;
       if (resolved.bundle?.stats) resolved.bundle.stats.injectedChars = resolved.prompt.length;
     }
+    const requestedModel = opts.model !== undefined ? opts.model : this.defaultModel(agent);
     const job = this.buildJobBase({
       agent,
       name: resolved.name,
@@ -856,7 +860,7 @@ export class Delegator {
       block: resolved.block,
       question: resolved.question,
       prompt: resolved.prompt,
-      model: agent === "codex" ? resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent)) : opts.model || this.defaultModel(agent),
+      model: agent === "codex" ? resolveCliModel(this.plugin, agent, requestedModel) : requestedModel,
       effort: opts.effort || this.C[agent]?.effort,
       permission: opts.permission || (hasAgentCapability(agent, "permissionControl") ? (this.C[agent]?.permission || "auto") : ""),
       cwd,
@@ -872,6 +876,10 @@ export class Delegator {
     trace.contextStats = job.contextStats || null;
     const hookPayload = { opts, resolved, job, prompt: resolved.prompt, name: resolved.name };
     await this.harness.run("beforeDelegate", hookPayload);
+    if (requestedModel && requestedModel !== `${agent}-default` && this.settings?.models) {
+      const counts = (this.settings.models.callCounts ||= {});
+      counts[requestedModel] = (counts[requestedModel] || 0) + 1;
+    }
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
     this.plugin.refreshUI();
@@ -1018,10 +1026,10 @@ export class Delegator {
       cwd = await findCodexTrustedDir(this.vaultPath);
       if (this.vaultPath && cwd !== this.vaultPath) extra += ` -C ${shellQuote(cwd)} --add-dir ${shellQuote(this.vaultPath)}`;
     }
-    const model = resolveCliModel(this.plugin, agent, opts.model || this.defaultModel(agent));
+    const model = resolveCliModel(this.plugin, agent, opts.model !== undefined ? opts.model : this.defaultModel(agent));
     const effort = opts.effort || this.C[agent]?.effort || "high";
     if (agent === "codex") extra += " " + codexCliArgs(this.plugin, opts).map(shellQuote).join(" ");
-    else if (agent === "claude") extra += ` --model ${shellQuote(model)} --effort ${shellQuote(effort)}`;
+    else if (agent === "claude") extra += `${model ? ` --model ${shellQuote(model)}` : ""} --effort ${shellQuote(effort)}`;
     // 任务文字放进临时文件，命令里用 "$(cat …)" 取：多行、引号都不用转义
     const dir = path.join(os.tmpdir(), "agent-deck");
     await fsp.mkdir(dir, { recursive: true });
