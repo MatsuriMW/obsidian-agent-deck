@@ -11,7 +11,7 @@ import {
   buildTableModel, buildGroupTableRows, tokenizeInlineMarkdown, isBriefRecord, isPinnedLine,
   trackedBlockIds, blockSessionMap, formatTimelineAt, formatTimelineFull,
 } from "./ai-records.js";
-import { isDeckBlockId, hasPinMarker, togglePinMarker, CONTEXT_RECORD_RE, RECORD_LINE_RE } from "./journal.js";
+import { isDeckBlockId, hasPinMarker, CONTEXT_RECORD_RE } from "./journal.js";
 import { t } from "./i18n.js";
 
 const MODES = new Set(["collapsed", "expanded", "latest5", "latest3", "latest1"]);
@@ -77,50 +77,6 @@ function recordControl(doc, count, open, mode, summary = false) {
   el.type = "button";
   el.setAttribute("aria-expanded", String(open));
   return el;
-}
-
-function createPinButton(doc, pinned, onToggle) {
-  const btn = doc.createElement("button");
-  btn.type = "button";
-  btn.className = "ad-record-pin-btn" + (pinned ? " is-on" : "");
-  btn.setAttribute("aria-pressed", String(Boolean(pinned)));
-  const title = pinned
-    ? t("已 Pin：折叠时不隐藏，Dreaming 优先记忆（点击取消）")
-    : t("Pin 此条关键记录（折叠不隐藏 · Dreaming 优先）");
-  btn.title = title;
-  btn.setAttribute("aria-label", title);
-  btn.textContent = "📌";
-  btn.addEventListener("mousedown", (e) => { e.preventDefault(); e.stopPropagation(); });
-  btn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onToggle(btn);
-  });
-  return btn;
-}
-
-function toggleLinePinInView(view, lineIndex, plugin, sourcePath) {
-  if (view?.state?.doc && lineIndex >= 0 && lineIndex < view.state.doc.lines) {
-    const lineObj = view.state.doc.line(lineIndex + 1);
-    const next = togglePinMarker(lineObj.text);
-    if (next !== lineObj.text) {
-      view.dispatch({ changes: { from: lineObj.from, to: lineObj.to, insert: next } });
-    }
-    return;
-  }
-  if (sourcePath && plugin?.toggleRecordPin) plugin.toggleRecordPin(sourcePath, lineIndex);
-}
-
-class RecordPinWidget extends WidgetType {
-  constructor(plugin, sourcePath, line, pinned) {
-    super();
-    Object.assign(this, { plugin, sourcePath, line, pinned });
-  }
-  eq(other) { return other.line === this.line && other.pinned === this.pinned && other.sourcePath === this.sourcePath; }
-  toDOM(view) {
-    return createPinButton(view.dom.ownerDocument, this.pinned, () => toggleLinePinInView(view, this.line, this.plugin, this.sourcePath));
-  }
-  ignoreEvent() { return true; }
 }
 
 class RecordsToggle extends WidgetType {
@@ -299,10 +255,15 @@ class RecordViewWidget extends WidgetType {
     stepTag.className = "ad-rt-step";
     stepTag.textContent = label;
   }
-  appendPinButton(doc, view, parent, row) {
-    if (!Number.isInteger(row?.pinLine) || row.pinLine < 0) return;
-    const btn = createPinButton(doc, Boolean(row.pinned), () => toggleLinePinInView(view, row.pinLine, this.plugin, this.sourcePath));
-    parent.appendChild(btn);
+  // 四视图的行不再放行内 📌：Pin 与委派都收进右键菜单（和编辑器里一致）。
+  bindRowMenu(el, row) {
+    const line = Number.isInteger(row?.pinLine) && row.pinLine >= 0 ? row.pinLine : -1;
+    if (line < 0) return;
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.plugin?.recordRowMenu?.(e, { path: this.sourcePath, line });
+    });
   }
   appendChildren(doc, view, td, children) {
     if (!children?.length) return;
@@ -350,7 +311,7 @@ class RecordViewWidget extends WidgetType {
       const tdRound = tr.appendChild(doc.createElement("td"));
       tdRound.className = "ad-rt-round";
       this.renderRoundMarker(doc, tdRound, row);
-      this.appendPinButton(doc, view, tdRound, row);
+      this.bindRowMenu(tr, row);
       if (row.pinned) tr.classList.add("is-pinned");
       if (row.type === "span") {
         const tdSpan = tr.appendChild(doc.createElement("td"));
@@ -395,7 +356,7 @@ class RecordViewWidget extends WidgetType {
       head.className = "ad-rt-card__head";
       this.renderRoundMarker(doc, head, row);
       this.appendStepTag(doc, head, row);
-      this.appendPinButton(doc, view, head, row);
+      this.bindRowMenu(card, row);
       if (row.prompt) {
         const promptEl = card.appendChild(doc.createElement("div"));
         promptEl.className = "ad-rt-card__prompt";
@@ -437,7 +398,7 @@ class RecordViewWidget extends WidgetType {
       head.className = "ad-rt-tl-head";
       this.renderRoundMarker(doc, head, row);
       this.appendStepTag(doc, head, row);
-      this.appendPinButton(doc, view, head, row);
+      this.bindRowMenu(item, row);
       if (row.prompt) {
         const promptEl = item.appendChild(doc.createElement("div"));
         promptEl.className = "ad-rt-tl-prompt";
@@ -607,7 +568,6 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
       }
 
       const visible = (open ? available : visibleRecords(group, lines, mode)).filter(n => n !== duplicate);
-      const visibleSet = new Set(visible);
       if (available.length) ranges.push(Decoration.widget({ widget: new RecordsToggle(group.key, available.length, open, mode, group.summaries.length > 0), side: 2 }).range(doc.line(group.line + 1).to));
       if (isTopLevel) ranges.push(Decoration.widget({ widget: new ViewToggleWidget(plugin, group.key, group.line, viewMode), side: 3 }).range(doc.line(group.line + 1).to));
       const recordSet = new Set(group.records);
@@ -618,16 +578,11 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
             + (!open && isBriefRecord(lines[n]) ? " ad-record-brief-clamped" : "")
             + (pinned ? " ad-record-line--pinned" : ""),
         }).range(doc.line(n + 1).from));
-        if (visibleSet.has(n) && (pinned || (open && CONTEXT_RECORD_RE.test(lines[n])))) {
-          ranges.push(Decoration.widget({ widget: new RecordPinWidget(plugin, sourcePath, n, pinned), side: 1 }).range(doc.line(n + 1).to));
-        }
       }
       for (const entry of tableAll) {
         const n = entry.line;
         if (recordSet.has(n) || !CONTEXT_RECORD_RE.test(lines[n])) continue;
-        const pinned = isPinnedLine(lines[n]);
-        if (pinned) ranges.push(Decoration.line({ class: "ad-record-line--pinned" }).range(doc.line(n + 1).from));
-        if (pinned || open) ranges.push(Decoration.widget({ widget: new RecordPinWidget(plugin, sourcePath, n, pinned), side: 1 }).range(doc.line(n + 1).to));
+        if (isPinnedLine(lines[n])) ranges.push(Decoration.line({ class: "ad-record-line--pinned" }).range(doc.line(n + 1).from));
       }
       const hidden = group.records.filter((n) => !visible.includes(n));
       for (const run of recordRuns(hidden)) {
@@ -787,7 +742,6 @@ export function renderAIRecords(el, plugin, ctx) {
     const startsOpen = recordStartsOpen(mode, group);
     let open = recordIsOpen(plugin.settings, mode, group);
     const button = recordControl(list.ownerDocument, records.length, open, mode, summaries.length > 0);
-    const pinButtons = [];
     const update = () => {
       const kept = open ? group.records : visibleRecords(group, texts, mode, pinnedSet);
       for (const [i, li] of records.entries()) {
@@ -796,11 +750,6 @@ export function renderAIRecords(el, plugin, ctx) {
         li.classList.toggle("ad-record-pinned", pinned);
         li.classList.toggle("ad-record-hidden", !kept.includes(i));
         li.classList.toggle("ad-record-brief-clamped", !open && isBriefRecord(texts[i]));
-        const btn = pinButtons[i];
-        if (btn) {
-          btn.classList.toggle("is-on", pinned);
-          btn.setAttribute("aria-pressed", String(pinned));
-        }
       }
       button.querySelector("span:nth-child(2)").textContent = buttonLabel(open, mode, summaries.length > 0);
       button.dataset.open = String(open);
@@ -809,25 +758,22 @@ export function renderAIRecords(el, plugin, ctx) {
       button.setAttribute("aria-label", title);
       button.setAttribute("aria-expanded", String(open));
     };
+    // 阅读视图的条目也不放行内 📌：右键菜单里既有 Pin 也有委派。
+    const menuAbort = new AbortController();
     for (const [i, li] of records.entries()) {
-      if (!RECORD_LINE_RE.test(`- ${texts[i]}`) || /^🔗\s|^⏱\s/.test(texts[i]) || recordLineNums[i] < 0) {
-        pinButtons.push(null);
-        continue;
-      }
-      const btn = createPinButton(list.ownerDocument, pinnedSet.has(i), () => {
-        if (pinnedSet.has(i)) pinnedSet.delete(i);
-        else pinnedSet.add(i);
-        update();
-        if (ctx?.sourcePath && plugin?.toggleRecordPin) plugin.toggleRecordPin(ctx.sourcePath, recordLineNums[i]);
-      });
-      li.appendChild(btn);
-      pinButtons.push(btn);
+      const line = recordLineNums[i];
+      if (!(line >= 0)) continue;
+      li.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        plugin?.recordRowMenu?.(e, { path: ctx?.sourcePath, line });
+      }, { signal: menuAbort.signal });
     }
     button.onclick = () => { open = !open; rememberOpen(plugin, key, open, startsOpen); update(); };
     const paragraph = parent.querySelector(":scope > p");
     if (paragraph) paragraph.appendChild(button); else list.parentNode.insertBefore(button, list);
     update();
-    cleanups.push(() => { for (const b of pinButtons) b?.remove(); for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item", "ad-record-brief-clamped", "ad-record-pinned"); button.remove(); delete list.dataset.adRecords; });
+    cleanups.push(() => { menuAbort.abort(); for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item", "ad-record-brief-clamped", "ad-record-pinned"); button.remove(); delete list.dataset.adRecords; });
   }
   return () => cleanups.forEach((cleanup) => cleanup());
 }

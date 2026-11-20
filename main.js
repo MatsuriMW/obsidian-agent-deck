@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.7 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.8 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1182,8 +1182,8 @@ var settings_default = {
   "Agent Deck \u63A5\u7BA1\u540E\uFF0C\u87BA\u65CB\u65E5\u7A0B\u90A3\u4E00\u683C \u{1F916} \u4F1A\u9690\u85CF\uFF1B\u5B83\u81EA\u5DF1\u7684\u65E5\u7A0B\u72B6\u6001\u680F\u548C\u8BA1\u65F6\u7167\u5E38\u3002": "Once Agent Deck takes over, that \u{1F916} cell in Nautilus Spiral is hidden; its own schedule status bar and timers keep working.",
   "\u4EFB\u52A1\u884C\u4E0A\u7684\u4F1A\u8BDD\u72B6\u6001\u6309\u94AE": "Session status buttons on task lines",
   "\u53EA\u6709\u5DF2\u7ECF\u7ED1\u5B9A\u4F1A\u8BDD / \u59D4\u6D3E\u51FA\u53BB\u7684\u884C\u624D\u663E\u793A\u72B6\u6001\u548C\u8FDB\u5EA6\uFF1B\u4E0D\u518D\u5728\u6BCF\u4E2A\u6761\u76EE\u4E0A\u653E\u300C\u59D4\u6D3E\u300D\u6309\u94AE\u3002": "Only lines with a bound or delegated session show status and progress; no \u201CDelegate\u201D button is added to every item.",
-  "\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u7684\u628A\u624B": "Grip at the end of list items",
-  "\u5149\u6807\u6240\u5728\u7684\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u51FA\u4E00\u4E2A\u5C0F\u628A\u624B\uFF1A\u5355\u51FB\u786E\u8BA4\u540E\u8FDE\u540C\u5B50\u5757\u53D1\u7ED9\u4E3B\u529B\uFF0C\u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009\u53D1\u7ED9\u54EA\u4E2A Agent\uFF0C\u62D6\u5230\u4FA7\u680F\u7684 Agent \u5361\u7247\u4E0A\u4E5F\u662F\u59D4\u6D3E\u3002\u9009\u4E2D\u6587\u5B57\u76F4\u63A5\u62D6\u4E5F\u884C\u3002": "A small grip appears at the end of the list item under the cursor: single-click confirms sending it and its sub-blocks to the primary, double-click or \u2318-click picks which agent to send to, and dragging onto an agent card in the sidebar delegates too. Dragging selected text works as well.",
+  "\u6BB5\u843D\u5C3E\u5DF4\u4E0A\u7684\u5C0F\u7BAD\u5934": "Arrow at the end of the paragraph",
+  "\u5149\u6807\u6240\u5728\u7684\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u51FA\u4E00\u4E2A\u5C0F\u628A\u624B\uFF1A\u5355\u51FB\u786E\u8BA4\u540E\u8FDE\u540C\u5B50\u5757\u53D1\u7ED9\u4E3B\u529B\uFF0C\u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009\u53D1\u7ED9\u54EA\u4E2A Agent\uFF0C\u62D6\u5230\u4FA7\u680F\u7684 Agent \u5361\u7247\u4E0A\u4E5F\u662F\u59D4\u6D3E\u3002\u9009\u4E2D\u6587\u5B57\u76F4\u63A5\u62D6\u4E5F\u884C\u3002": "A small arrow appears at the end of the paragraph under the cursor: single-click confirms sending it (with its sub-blocks) to the primary, double-click or \u2318-click picks which agent to send to, and dragging onto an agent card in the sidebar delegates too. Dragging selected text works as well.",
   "\u5DE6\u4FA7\u680F\u56FE\u6807": "Sidebar icon",
   "\u70B9\u4E00\u4E0B\u6253\u5F00 Agent Deck\u3002": "Click it to open Agent Deck.",
   "\u542F\u52A8\u65F6\u6253\u5F00\u9762\u677F": "Open the panel on startup",
@@ -1875,8 +1875,8 @@ var editor_default = {
   "{n} \u6761\u5B50\u9879": "{n} sub-items",
   "\u53D6\u6D88 Pin\uFF08\u6062\u590D\u5E38\u89C4\u6298\u53E0\uFF09": "Unpin record (resume normal folding)",
   "Pin \u4E3A\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09": "Pin as key record (keep visible when folded \xB7 prioritize in Dreaming)",
-  "Pin \u6B64\u6761\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09": "Pin as key record (keep visible when folded \xB7 prioritize in Dreaming)",
-  "\u5DF2 Pin\uFF1A\u6298\u53E0\u65F6\u4E0D\u9690\u85CF\uFF0CDreaming \u4F18\u5148\u8BB0\u5FC6\uFF08\u70B9\u51FB\u53D6\u6D88\uFF09": "Pinned: stays visible when folded and prioritized in Dreaming (click to unpin)",
+  "\u59D4\u6D3E\uFF08{agent} \xB7 {model}\uFF09": "Delegate ({agent} \xB7 {model})",
+  "\u59D4\u6D3E\u5E76\u9009\u62E9\u6A21\u578B": "Delegate with a chosen model",
   "Pin / \u53D6\u6D88 Pin \u5F53\u524D\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4FDD\u7559 \xB7 Dreaming \u4F18\u5148\uFF09": "Pin / unpin current key record (keep when folded \xB7 prioritize in Dreaming)",
   "\u8BF7\u628A\u5149\u6807\u653E\u5728\u8981 Pin \u7684 AI \u8BB0\u5F55\u6216\u4EFB\u52A1\u884C\u4E0A": "Place the cursor on an AI record or task line to pin",
   "\u5DF2 Pin \u5173\u952E\u8BB0\u5F55": "Pinned key record",
@@ -13593,6 +13593,12 @@ function blockAt(lines, at) {
   }
   return { start: at, end, indent, text: lines.slice(at, end + 1).join("\n") };
 }
+function paragraphBlock(lines, at) {
+  if (at < 0 || at >= lines.length) return null;
+  const text = lines[at];
+  if (!text.trim() || BULLET_RE.test(text)) return null;
+  return { start: at, end: at, indent: width(text), text };
+}
 function delegationText(lines, block, { newSession = false } = {}) {
   const task = newSession ? freshTaskText(block.text) : block.text;
   return withContext(block ? ancestorLines(lines, block.start) : [], task);
@@ -15672,52 +15678,6 @@ function recordControl(doc, count, open, mode, summary = false) {
   el.setAttribute("aria-expanded", String(open));
   return el;
 }
-function createPinButton(doc, pinned, onToggle) {
-  const btn = doc.createElement("button");
-  btn.type = "button";
-  btn.className = "ad-record-pin-btn" + (pinned ? " is-on" : "");
-  btn.setAttribute("aria-pressed", String(Boolean(pinned)));
-  const title = pinned ? t("\u5DF2 Pin\uFF1A\u6298\u53E0\u65F6\u4E0D\u9690\u85CF\uFF0CDreaming \u4F18\u5148\u8BB0\u5FC6\uFF08\u70B9\u51FB\u53D6\u6D88\uFF09") : t("Pin \u6B64\u6761\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09");
-  btn.title = title;
-  btn.setAttribute("aria-label", title);
-  btn.textContent = "\u{1F4CC}";
-  btn.addEventListener("mousedown", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-  });
-  btn.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onToggle(btn);
-  });
-  return btn;
-}
-function toggleLinePinInView(view2, lineIndex, plugin, sourcePath) {
-  if (view2?.state?.doc && lineIndex >= 0 && lineIndex < view2.state.doc.lines) {
-    const lineObj = view2.state.doc.line(lineIndex + 1);
-    const next = togglePinMarker(lineObj.text);
-    if (next !== lineObj.text) {
-      view2.dispatch({ changes: { from: lineObj.from, to: lineObj.to, insert: next } });
-    }
-    return;
-  }
-  if (sourcePath && plugin?.toggleRecordPin) plugin.toggleRecordPin(sourcePath, lineIndex);
-}
-var RecordPinWidget = class extends import_view2.WidgetType {
-  constructor(plugin, sourcePath, line, pinned) {
-    super();
-    Object.assign(this, { plugin, sourcePath, line, pinned });
-  }
-  eq(other) {
-    return other.line === this.line && other.pinned === this.pinned && other.sourcePath === this.sourcePath;
-  }
-  toDOM(view2) {
-    return createPinButton(view2.dom.ownerDocument, this.pinned, () => toggleLinePinInView(view2, this.line, this.plugin, this.sourcePath));
-  }
-  ignoreEvent() {
-    return true;
-  }
-};
 var RecordsToggle = class extends import_view2.WidgetType {
   constructor(key, count, open, mode, summary = false) {
     super();
@@ -15903,10 +15863,15 @@ var RecordViewWidget = class extends import_view2.WidgetType {
     stepTag.className = "ad-rt-step";
     stepTag.textContent = label;
   }
-  appendPinButton(doc, view2, parent, row) {
-    if (!Number.isInteger(row?.pinLine) || row.pinLine < 0) return;
-    const btn = createPinButton(doc, Boolean(row.pinned), () => toggleLinePinInView(view2, row.pinLine, this.plugin, this.sourcePath));
-    parent.appendChild(btn);
+  // 四视图的行不再放行内 📌：Pin 与委派都收进右键菜单（和编辑器里一致）。
+  bindRowMenu(el, row) {
+    const line = Number.isInteger(row?.pinLine) && row.pinLine >= 0 ? row.pinLine : -1;
+    if (line < 0) return;
+    el.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.plugin?.recordRowMenu?.(e, { path: this.sourcePath, line });
+    });
   }
   appendChildren(doc, view2, td, children) {
     if (!children?.length) return;
@@ -15952,7 +15917,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
       const tdRound = tr.appendChild(doc.createElement("td"));
       tdRound.className = "ad-rt-round";
       this.renderRoundMarker(doc, tdRound, row);
-      this.appendPinButton(doc, view2, tdRound, row);
+      this.bindRowMenu(tr, row);
       if (row.pinned) tr.classList.add("is-pinned");
       if (row.type === "span") {
         const tdSpan = tr.appendChild(doc.createElement("td"));
@@ -15997,7 +15962,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
       head.className = "ad-rt-card__head";
       this.renderRoundMarker(doc, head, row);
       this.appendStepTag(doc, head, row);
-      this.appendPinButton(doc, view2, head, row);
+      this.bindRowMenu(card, row);
       if (row.prompt) {
         const promptEl = card.appendChild(doc.createElement("div"));
         promptEl.className = "ad-rt-card__prompt";
@@ -16039,7 +16004,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
       head.className = "ad-rt-tl-head";
       this.renderRoundMarker(doc, head, row);
       this.appendStepTag(doc, head, row);
-      this.appendPinButton(doc, view2, head, row);
+      this.bindRowMenu(item, row);
       if (row.prompt) {
         const promptEl = item.appendChild(doc.createElement("div"));
         promptEl.className = "ad-rt-tl-prompt";
@@ -16203,7 +16168,6 @@ function aiRecordDisplayExtension(plugin, refreshEffect2) {
         continue;
       }
       const visible = (open ? available : visibleRecords(group, lines, mode)).filter((n) => n !== duplicate);
-      const visibleSet = new Set(visible);
       if (available.length) ranges.push(import_view2.Decoration.widget({ widget: new RecordsToggle(group.key, available.length, open, mode, group.summaries.length > 0), side: 2 }).range(doc.line(group.line + 1).to));
       if (isTopLevel) ranges.push(import_view2.Decoration.widget({ widget: new ViewToggleWidget(plugin, group.key, group.line, viewMode), side: 3 }).range(doc.line(group.line + 1).to));
       const recordSet = new Set(group.records);
@@ -16212,16 +16176,11 @@ function aiRecordDisplayExtension(plugin, refreshEffect2) {
         ranges.push(import_view2.Decoration.line({
           class: "ad-record-line" + (!open && isBriefRecord(lines[n]) ? " ad-record-brief-clamped" : "") + (pinned ? " ad-record-line--pinned" : "")
         }).range(doc.line(n + 1).from));
-        if (visibleSet.has(n) && (pinned || open && CONTEXT_RECORD_RE.test(lines[n]))) {
-          ranges.push(import_view2.Decoration.widget({ widget: new RecordPinWidget(plugin, sourcePath, n, pinned), side: 1 }).range(doc.line(n + 1).to));
-        }
       }
       for (const entry of tableAll) {
         const n = entry.line;
         if (recordSet.has(n) || !CONTEXT_RECORD_RE.test(lines[n])) continue;
-        const pinned = isPinnedLine(lines[n]);
-        if (pinned) ranges.push(import_view2.Decoration.line({ class: "ad-record-line--pinned" }).range(doc.line(n + 1).from));
-        if (pinned || open) ranges.push(import_view2.Decoration.widget({ widget: new RecordPinWidget(plugin, sourcePath, n, pinned), side: 1 }).range(doc.line(n + 1).to));
+        if (isPinnedLine(lines[n])) ranges.push(import_view2.Decoration.line({ class: "ad-record-line--pinned" }).range(doc.line(n + 1).from));
       }
       const hidden = group.records.filter((n) => !visible.includes(n));
       for (const run2 of recordRuns(hidden)) {
@@ -16378,7 +16337,6 @@ function renderAIRecords(el, plugin, ctx) {
     const startsOpen = recordStartsOpen(mode, group);
     let open = recordIsOpen(plugin.settings, mode, group);
     const button = recordControl(list.ownerDocument, records.length, open, mode, summaries.length > 0);
-    const pinButtons = [];
     const update = () => {
       const kept = open ? group.records : visibleRecords(group, texts, mode, pinnedSet);
       for (const [i, li] of records.entries()) {
@@ -16387,11 +16345,6 @@ function renderAIRecords(el, plugin, ctx) {
         li.classList.toggle("ad-record-pinned", pinned);
         li.classList.toggle("ad-record-hidden", !kept.includes(i));
         li.classList.toggle("ad-record-brief-clamped", !open && isBriefRecord(texts[i]));
-        const btn = pinButtons[i];
-        if (btn) {
-          btn.classList.toggle("is-on", pinned);
-          btn.setAttribute("aria-pressed", String(pinned));
-        }
       }
       button.querySelector("span:nth-child(2)").textContent = buttonLabel(open, mode, summaries.length > 0);
       button.dataset.open = String(open);
@@ -16400,19 +16353,15 @@ function renderAIRecords(el, plugin, ctx) {
       button.setAttribute("aria-label", title);
       button.setAttribute("aria-expanded", String(open));
     };
+    const menuAbort = new AbortController();
     for (const [i, li] of records.entries()) {
-      if (!RECORD_LINE_RE.test(`- ${texts[i]}`) || /^🔗\s|^⏱\s/.test(texts[i]) || recordLineNums[i] < 0) {
-        pinButtons.push(null);
-        continue;
-      }
-      const btn = createPinButton(list.ownerDocument, pinnedSet.has(i), () => {
-        if (pinnedSet.has(i)) pinnedSet.delete(i);
-        else pinnedSet.add(i);
-        update();
-        if (ctx?.sourcePath && plugin?.toggleRecordPin) plugin.toggleRecordPin(ctx.sourcePath, recordLineNums[i]);
-      });
-      li.appendChild(btn);
-      pinButtons.push(btn);
+      const line = recordLineNums[i];
+      if (!(line >= 0)) continue;
+      li.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        plugin?.recordRowMenu?.(e, { path: ctx?.sourcePath, line });
+      }, { signal: menuAbort.signal });
     }
     button.onclick = () => {
       open = !open;
@@ -16424,7 +16373,7 @@ function renderAIRecords(el, plugin, ctx) {
     else list.parentNode.insertBefore(button, list);
     update();
     cleanups.push(() => {
-      for (const b of pinButtons) b?.remove();
+      menuAbort.abort();
       for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item", "ad-record-brief-clamped", "ad-record-pinned");
       button.remove();
       delete list.dataset.adRecords;
@@ -20273,12 +20222,6 @@ function buildDecorations(view2, plugin) {
           else state = { kind: "bound", job, session };
         }
         if (job?.destination === "background" && state?.kind === "done") state = null;
-        const displayState = plugin.aiRecordDisplayField ? view2.state.field(plugin.aiRecordDisplayField, false) : null;
-        const boardState = plugin.taskBoardField ? view2.state.field(plugin.taskBoardField, false) : null;
-        const isTopLevelAiParent = Boolean(displayState?.topLevelLines?.has(n) || boardState?.boardLines?.has(n));
-        if (n === cursorLine && !isTopLevelAiParent && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && (kwLine(text) || CONTEXT_RECORD_RE.test(text))) {
-          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new GripWidget(plugin, path17, n, text), side: 1, block: false }));
-        }
         const prog = line.length < 2e3 && plugin.lineProgressInfo ? plugin.lineProgressInfo(text, map.lines, n, session, job) : null;
         if (!prog && typeof import_view4.Decoration.line === "function" && (RESULT_LINE_RE.test(text) || SUB_LINE_RE.test(text))) {
           builder.add(line.from, line.from, import_view4.Decoration.line({ class: "ad-said" }));
@@ -20288,6 +20231,9 @@ function buildDecorations(view2, plugin) {
         } else if (state && !isDoneLine(text)) {
           const widget = new PillWidget(plugin, path17, n, state);
           builder.add(line.to, line.to, import_view4.Decoration.widget({ widget, side: 1, block: false }));
+        }
+        if (n === cursorLine && plugin.settings.dragGrip !== false && text.trim() && !/^\s*<!--/.test(text)) {
+          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new GripWidget(plugin, path17, n, text), side: 1, block: false }));
         }
       }
       if (line.to >= to) break;
@@ -26550,7 +26496,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     for (const [key, label, desc, fallback] of [
       ["showEditorPills", t("\u4EFB\u52A1\u884C\u4E0A\u7684\u4F1A\u8BDD\u72B6\u6001\u6309\u94AE"), "", true],
       ["lineProgress", t("\u663E\u793A\u4EFB\u52A1\u884C\u8FDB\u5EA6\u6761\u4E0E token \u5757"), t("\u5728 AI \u4EFB\u52A1\u884C\u4E0B\u65B9\u6E32\u67D3 ASCII \u8FDB\u5EA6\u6761\u4E0E\u7D2B\u8272 token \u65B9\u5757"), true],
-      ["dragGrip", t("\u5217\u8868\u9879\u5C3E\u5DF4\u4E0A\u7684\u628A\u624B"), t("\u5355\u51FB\u59D4\u6D3E\uFF1B\u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009\u62E9 Agent"), true],
+      ["dragGrip", t("\u6BB5\u843D\u5C3E\u5DF4\u4E0A\u7684\u5C0F\u7BAD\u5934"), t("\u5355\u51FB\u59D4\u6D3E\uFF1B\u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009\u62E9 Agent"), true],
       ["showRibbonIcon", t("\u5DE6\u4FA7\u680F\u56FE\u6807"), "", true],
       ["openDashboardOnStartup", t("\u542F\u52A8\u65F6\u6253\u5F00\u9762\u677F"), "", false]
     ]) {
@@ -37328,11 +37274,11 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     const lines = (view2 && (!view2.getMode || view2.getMode() === "source") ? view2.editor.getValue() : await this.app.vault.read(file)).split("\n");
     let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
     if (line < 0) return { error: t("\u8FD9\u4E00\u884C\u521A\u6539\u8FC7\uFF0C\u91CD\u65B0\u6765\u4E00\u6B21") };
-    const block = blockAt(lines, line);
+    const block = blockAt(lines, line) || paragraphBlock(lines, line);
     if (!newSession && block && findLink(lines, block)) return { error: t("\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\uFF0C\u4E0D\u59D4\u6D3E") };
     return { file, lines, line, block };
   }
-  async delegateDrop(agent, item, fromEl, { cli = false, destination, permission, cwd = "", projectName: projectName2 = "", fromDialog = false, newSession = false, confirmed = false, expectedText, boardContext = "" } = {}) {
+  async delegateDrop(agent, item, fromEl, { cli = false, destination, permission, cwd = "", projectName: projectName2 = "", fromDialog = false, newSession = false, confirmed = false, expectedText, boardContext = "", model = "" } = {}) {
     this._dragItem = null;
     if (AGENTS[agent]?.trackingOnly) return;
     const target = await this.delegateTarget(item, { newSession });
@@ -37340,6 +37286,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     if (confirmed && expectedText !== void 0 && delegationText(target.lines, target.block, { newSession }) !== expectedText) return this.notice(t("\u4EFB\u52A1\u5185\u5BB9\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u9884\u89C8\u540E\u53D1\u9001"));
     try {
       const opts = mentionOptions(this, { ...target, agent, ignoreMention: newSession });
+      if (model && opts.agent === agent) opts.model = model;
       agent = opts.agent;
       destination || (destination = cli && hasAgentCapability(agent, "terminalHandoff") ? "terminal" : defaultDestination(this, agent));
       if (!confirmed) {
@@ -37369,7 +37316,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
           newSession,
           confirmed: true,
           expectedText: delegationText(target.lines, target.block, { newSession }),
-          boardContext
+          boardContext,
+          model
         })).open();
         return;
       }
@@ -37872,6 +37820,58 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
   }
   openDelegateModal(path17, line) {
     new DelegateOptionsModal(this.app, this, path17, line).open();
+  }
+  // 四视图（表格 / 卡片 / 时间线）和阅读视图的行右键菜单：Pin 与委派都收在这里。
+  async recordRowMenu(event, { path: path17, line } = {}) {
+    if (!path17 || !Number.isInteger(line) || line < 0) return null;
+    let text;
+    try {
+      text = await this.readNote(path17);
+    } catch {
+      return null;
+    }
+    const lines = text.split("\n");
+    const raw = lines[line];
+    if (raw === void 0) return null;
+    const menu = new import_obsidian21.Menu();
+    if (CONTEXT_RECORD_RE.test(raw)) {
+      const pinned = hasPinMarker(raw);
+      menu.addItem((item) => item.setTitle(pinned ? t("\u53D6\u6D88 Pin\uFF08\u6062\u590D\u5E38\u89C4\u6298\u53E0\uFF09") : t("Pin \u4E3A\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09")).onClick(() => this.toggleRecordPin(path17, line)));
+      menu.addSeparator();
+    }
+    const primary = this.defaultTarget();
+    const modelName2 = this.modelLabel(this.defaultModel(primary)) || t("\u5BA2\u6237\u7AEF\u6A21\u578B");
+    menu.addItem((item) => item.setTitle(t("\u59D4\u6D3E\uFF08{agent} \xB7 {model}\uFF09", { agent: AGENTS[primary]?.short || primary, model: modelName2 })).setIcon("send").onClick(() => this.delegateViewRow(path17, line)));
+    const choices = this.recordMenuModels();
+    menu.addItem((item) => {
+      item.setTitle(t("\u59D4\u6D3E\u5E76\u9009\u62E9\u6A21\u578B")).setIcon("bot");
+      const sub = typeof item.setSubmenu === "function" ? item.setSubmenu() : null;
+      if (!sub || !choices.length) {
+        item.onClick(() => this.delegateViewRow(path17, line));
+        return;
+      }
+      for (const { agent, model } of choices) {
+        sub.addItem((entry) => entry.setTitle(`${AGENTS[agent]?.short || agent} \xB7 ${model.name}`).onClick(() => this.delegateViewRow(path17, line, agent, model.id)));
+      }
+    });
+    menu.showAtMouseEvent(event);
+    return menu;
+  }
+  // 二级菜单里列哪些模型：只看已启用、能委派的 Agent 的启用模型。
+  recordMenuModels() {
+    const out = [];
+    for (const agent of AGENT_ORDER) {
+      if (!this.agentEnabled(agent) || AGENTS[agent]?.trackingOnly) continue;
+      for (const model of this.modelsFor(agent)) if (this.modelEnabled(model.id)) out.push({ agent, model });
+    }
+    return out;
+  }
+  async delegateViewRow(path17, line, agent = "", model = "") {
+    const file = this.app.vault.getAbstractFileByPath(path17);
+    if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
+    const lines = (await this.readNote(path17)).split("\n");
+    if (!(line >= 0 && line < lines.length)) return;
+    return this.delegateDrop(agent || this.defaultTarget(), { path: path17, line, lineText: lines[line] }, null, { model });
   }
   // Which journal the two commands act on: the note you are looking at when it
   // sits next to today's journal, otherwise today's journal.

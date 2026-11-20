@@ -1462,7 +1462,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     for (const [key, label, desc, fallback] of [
       ["showEditorPills", t("任务行上的会话状态按钮"), "", true],
       ["lineProgress", t("显示任务行进度条与 token 块"), t("在 AI 任务行下方渲染 ASCII 进度条与紫色 token 方块"), true],
-      ["dragGrip", t("列表项尾巴上的把手"), t("单击委派；双击或 ⌘ 单击选择 Agent"), true],
+      ["dragGrip", t("段落尾巴上的小箭头"), t("单击委派；双击或 ⌘ 单击选择 Agent"), true],
       ["showRibbonIcon", t("左侧栏图标"), "", true],
       ["openDashboardOnStartup", t("启动时打开面板"), "", false],
     ]) {

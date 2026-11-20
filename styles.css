@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.7 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.8 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -3055,34 +3055,6 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-record-hidden,
 .ad-block-id-hidden {
   display: none !important;
-}
-.ad-record-pin-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-left: 6px;
-  padding: 0 3px;
-  border: 0;
-  border-radius: 4px;
-  background: transparent;
-  box-shadow: none;
-  font-size: 10.5px;
-  line-height: 1.3;
-  vertical-align: middle;
-  cursor: pointer;
-  opacity: .28;
-  filter: grayscale(1);
-  transition: opacity .12s ease, background-color .12s ease;
-}
-.ad-record-pin-btn:hover {
-  opacity: .85;
-  filter: none;
-  background: var(--background-modifier-hover);
-}
-.ad-record-pin-btn.is-on {
-  opacity: 1;
-  filter: none;
-  background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
 }
 .markdown-source-view.mod-cm6 .cm-line.ad-record-line--pinned,
 .markdown-rendered .ad-record-pinned {

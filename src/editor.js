@@ -7,13 +7,12 @@
 // Drag and drop between the note and the panel also lives here:
 //   · a session card dropped on a line binds it (🔗 child) or starts a new item there;
 //     the target line is highlighted while dragging, with what will happen;
-//   · the line under the cursor gets a small grip: click sends the item (with its
-//     children) to the primary agent after a confirm, double-click or ⌘-click picks the agent, drag it onto an
-//     agent card to delegate.
+//   · the paragraph under the cursor gets a small arrow: click sends it (a list item goes
+//     with its children, a plain paragraph goes alone) to the primary agent after a confirm,
+//     double-click or ⌘-click picks the agent, drag it onto an agent card to delegate.
 
 import { Decoration, WidgetType, ViewPlugin, EditorView } from "@codemirror/view";
 import { RangeSetBuilder, StateEffect, StateField, Prec } from "@codemirror/state";
-import { BULLET_RE } from "./delegation.js";
 import * as J from "./journal.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
@@ -503,7 +502,7 @@ function buildDecorations(view, plugin) {
   const map = plugin.lineMap(path, doc);
   const seen = new Set();
   const sel = view.state.selection.main;
-  // 把手只放在最近用过的那个编辑器的光标行上：点到侧栏面板里再回来拖，它还在
+  // 委派箭头只放在最近用过的那个编辑器的光标行上：点到侧栏面板里再回来，它还在
   const cursorLine = plugin._lastEditor === view && sel.empty ? doc.lineAt(sel.head).number - 1 : -1;
   for (const { from, to } of view.visibleRanges) {
     let pos = from;
@@ -534,12 +533,6 @@ function buildDecorations(view, plugin) {
         // A finished task keeps no status pill: 「正在执行」「等你」 under a line
         // that is already marked DONE is only noise.
         if (job?.destination === "background" && state?.kind === "done") state = null;
-        const displayState = plugin.aiRecordDisplayField ? view.state.field(plugin.aiRecordDisplayField, false) : null;
-        const boardState = plugin.taskBoardField ? view.state.field(plugin.taskBoardField, false) : null;
-        const isTopLevelAiParent = Boolean(displayState?.topLevelLines?.has(n) || boardState?.boardLines?.has(n));
-        if (n === cursorLine && !isTopLevelAiParent && plugin.settings.dragGrip !== false && BULLET_RE.test(text) && (J.kwLine(text) || J.CONTEXT_RECORD_RE.test(text))) {
-          builder.add(line.to, line.to, Decoration.widget({ widget: new GripWidget(plugin, path, n, text), side: 1, block: false }));
-        }
         const prog = line.length < 2000 && plugin.lineProgressInfo ? plugin.lineProgressInfo(text, map.lines, n, session, job) : null;
         if (!prog && typeof Decoration.line === "function" && (RESULT_LINE_RE.test(text) || SUB_LINE_RE.test(text))) {
           builder.add(line.from, line.from, Decoration.line({ class: "ad-said" }));
@@ -549,6 +542,12 @@ function buildDecorations(view, plugin) {
         } else if (state && !J.isDoneLine(text)) {
           const widget = new PillWidget(plugin, path, n, state);
           builder.add(line.to, line.to, Decoration.widget({ widget, side: 1, block: false }));
+        }
+        // 光标所在的段落都出委派箭头：任务行、AI 记录行（💬 / ⏱ / 🔗 回传日志）、普通段落一视同仁，
+        // 顶层的 AI 记录父行也照给。RangeSetBuilder 要求按 from 递增加入，所以这一段必须放在本行其他
+        // 装饰（行首的 ad-said、行尾的 pill）之后，否则光标停在 💬 行上会抛 "Ranges must be added sorted"。
+        if (n === cursorLine && plugin.settings.dragGrip !== false && text.trim() && !/^\s*<!--/.test(text)) {
+          builder.add(line.to, line.to, Decoration.widget({ widget: new GripWidget(plugin, path, n, text), side: 1, block: false }));
         }
       }
       if (line.to >= to) break;

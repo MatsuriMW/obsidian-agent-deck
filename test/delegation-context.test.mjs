@@ -135,3 +135,16 @@ test("载荷命名：有块号按块号命名（同一任务只保留一份）�
   const noBlock = d.payloadName({ date: "2026-11-18", time: "051234", name: "x" });
   assert.match(noBlock, /^2026-11-18-051234-/);
 });
+
+test("光标所在的不带列表标记的普通段落也能当一项发出去", async () => {
+  const { blockAt, paragraphBlock, delegationText } = await import("../src/delegation.js");
+  const lines = ["# 小标题", "", "普通段落一行。", "", "- TODO 下面一条任务", "  - 💬 记录"];
+  assert.equal(blockAt(lines, 2), null, "普通段落没有子块，blockAt 不认");
+  const para = paragraphBlock(lines, 2);
+  assert.deepEqual(para, { start: 2, end: 2, indent: 0, text: "普通段落一行。" });
+  assert.ok(delegationText(lines, para).includes("普通段落一行。"));
+  assert.equal(paragraphBlock(lines, 3), null, "空行不出任务");
+  assert.equal(paragraphBlock(lines, 4), null, "列表项交给 blockAt");
+  assert.equal(paragraphBlock(lines, -1), null);
+  assert.equal(paragraphBlock(lines, 99), null);
+});

@@ -31,7 +31,7 @@ import {
 } from "./readers.js";
 import { evaluatePermissionPolicy } from "./security.js";
 import { readRecentTraces, checkExternalAssets, buildDiagnosticReport } from "./trace.js";
-import { Delegator, blockAt, freshTaskText, stripInternalIdentifiers, ancestorLines, delegationText, findDraftLink, openSession as openSessionRaw, openExternal as openExternalRaw, openTerminal, findAgentBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
+import { Delegator, blockAt, paragraphBlock, freshTaskText, stripInternalIdentifiers, ancestorLines, delegationText, findDraftLink, openSession as openSessionRaw, openExternal as openExternalRaw, openTerminal, findAgentBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { pickPermissionOption } from "./delegation-runners.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
@@ -2031,12 +2031,13 @@ export default class AgentDeckPlugin extends Plugin {
     let line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
     if (line < 0) return { error: t("这一行刚改过，重新来一次") };
     // 自动记录也可以作为任务；只有这一块自己的绑定才阻止重复发送。
-    const block = blockAt(lines, line);
+    // 不带列表标记的普通段落没有子块，就把这一行当成一项。
+    const block = blockAt(lines, line) || paragraphBlock(lines, line);
     if (!newSession && block && findLink(lines, block)) return { error: t("已经绑着会话，不委派") };
     return { file, lines, line, block };
   }
 
-  async delegateDrop(agent, item, fromEl, { cli = false, destination, permission, cwd = "", projectName = "", fromDialog = false, newSession = false, confirmed = false, expectedText, boardContext = "" } = {}) {
+  async delegateDrop(agent, item, fromEl, { cli = false, destination, permission, cwd = "", projectName = "", fromDialog = false, newSession = false, confirmed = false, expectedText, boardContext = "", model = "" } = {}) {
     this._dragItem = null;
     if (AGENTS[agent]?.trackingOnly) return;
     const target = await this.delegateTarget(item, { newSession });
@@ -2044,6 +2045,8 @@ export default class AgentDeckPlugin extends Plugin {
     if (confirmed && expectedText !== undefined && delegationText(target.lines, target.block, { newSession }) !== expectedText) return this.notice(t("任务内容已变化，请重新预览后发送"));
     try {
       const opts = mentionOptions(this, { ...target, agent, ignoreMention: newSession });
+      // 右键菜单里点名的模型：只在这一项确实按那个 Agent 走时生效，别盖掉正文里的 @agent。
+      if (model && opts.agent === agent) opts.model = model;
       agent = opts.agent;
       destination ||= cli && hasAgentCapability(agent, "terminalHandoff") ? "terminal" : defaultDestination(this, agent);
       if (!confirmed) {
@@ -2067,6 +2070,7 @@ export default class AgentDeckPlugin extends Plugin {
           confirmed: true,
           expectedText: delegationText(target.lines, target.block, { newSession }),
           boardContext,
+          model,
         })).open();
         return;
       }
@@ -2605,6 +2609,64 @@ export default class AgentDeckPlugin extends Plugin {
 
   openDelegateModal(path, line) {
     new DelegateOptionsModal(this.app, this, path, line).open();
+  }
+
+  // 四视图（表格 / 卡片 / 时间线）和阅读视图的行右键菜单：Pin 与委派都收在这里。
+  async recordRowMenu(event, { path, line } = {}) {
+    if (!path || !Number.isInteger(line) || line < 0) return null;
+    let text;
+    try { text = await this.readNote(path); } catch { return null; }
+    const lines = text.split("\n");
+    const raw = lines[line];
+    if (raw === undefined) return null;
+    const menu = new Menu();
+    if (J.CONTEXT_RECORD_RE.test(raw)) {
+      const pinned = J.hasPinMarker(raw);
+      menu.addItem((item) => item
+        .setTitle(pinned ? t("取消 Pin（恢复常规折叠）") : t("Pin 为关键记录（折叠不隐藏 · Dreaming 优先）"))
+        .onClick(() => this.toggleRecordPin(path, line)));
+      menu.addSeparator();
+    }
+    const primary = this.defaultTarget();
+    const modelName = this.modelLabel(this.defaultModel(primary)) || t("客户端模型");
+    menu.addItem((item) => item
+      .setTitle(t("委派（{agent} · {model}）", { agent: AGENTS[primary]?.short || primary, model: modelName }))
+      .setIcon("send")
+      .onClick(() => this.delegateViewRow(path, line)));
+    const choices = this.recordMenuModels();
+    menu.addItem((item) => {
+      item.setTitle(t("委派并选择模型")).setIcon("bot");
+      const sub = typeof item.setSubmenu === "function" ? item.setSubmenu() : null;
+      if (!sub || !choices.length) {
+        item.onClick(() => this.delegateViewRow(path, line));
+        return;
+      }
+      for (const { agent, model } of choices) {
+        sub.addItem((entry) => entry
+          .setTitle(`${AGENTS[agent]?.short || agent} · ${model.name}`)
+          .onClick(() => this.delegateViewRow(path, line, agent, model.id)));
+      }
+    });
+    menu.showAtMouseEvent(event);
+    return menu;
+  }
+
+  // 二级菜单里列哪些模型：只看已启用、能委派的 Agent 的启用模型。
+  recordMenuModels() {
+    const out = [];
+    for (const agent of AGENT_ORDER) {
+      if (!this.agentEnabled(agent) || AGENTS[agent]?.trackingOnly) continue;
+      for (const model of this.modelsFor(agent)) if (this.modelEnabled(model.id)) out.push({ agent, model });
+    }
+    return out;
+  }
+
+  async delegateViewRow(path, line, agent = "", model = "") {
+    const file = this.app.vault.getAbstractFileByPath(path);
+    if (!file) return this.notice(t("找不到这篇笔记"));
+    const lines = (await this.readNote(path)).split("\n");
+    if (!(line >= 0 && line < lines.length)) return;
+    return this.delegateDrop(agent || this.defaultTarget(), { path, line, lineText: lines[line] }, null, { model });
   }
 
 

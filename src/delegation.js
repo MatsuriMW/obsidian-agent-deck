@@ -109,6 +109,14 @@ export function blockAt(lines, at) {
   return { start: at, end, indent, text: lines.slice(at, end + 1).join("\n") };
 }
 
+// 光标所在的不带列表标记的普通段落：整行当一项发出去（有列表标记的走 blockAt，带子块）。
+export function paragraphBlock(lines, at) {
+  if (at < 0 || at >= lines.length) return null;
+  const text = lines[at];
+  if (!text.trim() || BULLET_RE.test(text)) return null;
+  return { start: at, end: at, indent: J.width(text), text };
+}
+
 // 发出去的一整段（预览和真正发出去的正文用同一个拼法）。
 export function delegationText(lines, block, { newSession = false } = {}) {
   const task = newSession ? freshTaskText(block.text) : block.text;

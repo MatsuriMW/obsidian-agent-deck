@@ -150,7 +150,7 @@ import {
   assert.equal(enPaired.rows[0].conclusion, 'All tests pass');
 }
 
-// 3. StateField view switching, per-parent persistence, table decorations, and GripWidget replacement.
+// 3. StateField view switching, per-parent persistence, table decorations, and the generic delegate arrow.
 const stub = `export class WidgetType{}; export const Decoration={set:r=>r,replace:spec=>({range:(from,to)=>({from,to,spec})}),line:spec=>({range:from=>({from,to:from,spec})}),widget:spec=>({range:from=>({from,to:from,spec})})}, EditorView={}, EditorState={transactionFilter:{of:f=>f}}, StateEffect={define:()=>{const t={of:value=>({type:t,value,is:x=>x===t})};return t}}, StateField={define:c=>c}, ViewPlugin={fromClass:c=>c}, foldedRanges=s=>({between:(a,b,fn)=>{for(const f of s.folds||[])fn(f.from,f.to)}}), foldEffect={of:value=>({type:foldEffect,value,is:x=>x===foldEffect})}, unfoldEffect={of:value=>({type:unfoldEffect,value,is:x=>x===unfoldEffect})};`;
 const bundle = await esbuild.build({
   stdin: { contents: "export * from './src/record-display.js';", resolveDir: path.resolve(import.meta.dirname, '..') },
@@ -332,14 +332,26 @@ try {
   assert.equal(plugin.settings.aiRecordViews['ad-one'], undefined);
   assert.equal(v3.decorations.filter((d) => d.spec.block && d.spec.widget?.rows).length, 0);
 
-  // Verify GripWidget is suppressed on top-level AI parent lines, kept on child 💬 lines and manual tasks.
+  // The delegate arrow follows the cursor line: top-level parents, 💬 replies, plain items and manual tasks all get it.
   const editorSource = fs.readFileSync(new URL('../src/editor.js', import.meta.url), 'utf8');
   const decorStart = editorSource.indexOf('function buildDecorations('), decorEnd = editorSource.indexOf('\nexport function createEditorExtension', decorStart);
   const decorate = vm.runInNewContext(editorSource.slice(decorStart, decorEnd) + '\nbuildDecorations', {
     J,
     BULLET_RE: /^(\s*)([-*+]|\d+[.)])\s+(.*)$/,
-    RangeSetBuilder: class { constructor() { this.ranges = []; } add(from, to, spec) { this.ranges.push(spec); } finish() { return this.ranges; } },
-    Decoration: { widget: x => x },
+    // 和真实 RangeSetBuilder 一样要求按 from 递增加入：光标行的委派箭头如果插在行首装饰之前，会抛
+    // "Ranges must be added sorted"，把整层编辑器装饰（箭头、状态药丸）一起打掉。
+    RangeSetBuilder: class {
+      constructor() { this.ranges = []; this.lastFrom = 0; }
+      add(from, to, spec) {
+        if (from < this.lastFrom) throw new Error("Ranges must be added sorted by `from` position and `startSide`");
+        this.lastFrom = from;
+        this.ranges.push(spec);
+      }
+      finish() { return this.ranges; }
+    },
+    Decoration: { widget: x => x, line: (spec) => ({ line: true, ...spec }) },
+    RESULT_LINE_RE: /^\s*[-*+]\s+💬/,
+    SUB_LINE_RE: /^\s*[-*+]\s+🤖\s*(?:子代理|side chat)/,
     GripWidget: class { constructor() { this.grip = true; } },
     PillWidget: class {},
   });
@@ -361,12 +373,19 @@ try {
     nautilusOwnsLine: () => false,
   });
 
+  // 光标所在的段落一律出委派箭头：母块、回传日志、普通列表项都一样。
   const topView = makeEditorView(0);
-  assert.ok(!decorate(topView, mkPlugin(topView)).some((d) => d.widget?.grip), 'top-level AI parent suppresses GripWidget');
+  assert.ok(decorate(topView, mkPlugin(topView)).some((d) => d.widget?.grip), 'top-level AI parent keeps the delegate arrow');
   const childView = makeEditorView(2);
-  assert.ok(decorate(childView, mkPlugin(childView)).some((d) => d.widget?.grip), 'child AI reply keeps GripWidget');
+  assert.ok(decorate(childView, mkPlugin(childView)).some((d) => d.widget?.grip), 'child AI reply keeps the delegate arrow');
+  const promptView = makeEditorView(1);
+  assert.ok(decorate(promptView, mkPlugin(promptView)).some((d) => d.widget?.grip), '❓ prompt row keeps the delegate arrow');
+  const noteView = makeEditorView(3);
+  assert.ok(decorate(noteView, mkPlugin(noteView)).some((d) => d.widget?.grip), 'a plain list item keeps the delegate arrow');
   const manualView = makeEditorView(6);
-  assert.ok(decorate(manualView, mkPlugin(manualView)).some((d) => d.widget?.grip), 'manual task keeps GripWidget');
+  assert.ok(decorate(manualView, mkPlugin(manualView)).some((d) => d.widget?.grip), 'manual task keeps the delegate arrow');
+  const emptyCursor = decorate({ ...makeEditorView(0), state: { ...makeEditorView(0).state, selection: { main: { empty: true, head: -1 } } } }, mkPlugin(makeEditorView(0)));
+  assert.ok(emptyCursor, 'no cursor line is still a valid decoration set');
 
   // View mode and manual fold state persist across DONE stripping ^blockId and line shifts.
   const doingSrc = [
@@ -402,7 +421,7 @@ try {
   });
   assert.equal(plugin.settings.aiRecordViews['task:修复缓存问题'], undefined, 'reverting DONE block to outline cleans persisted view');
 
-  console.log('PASS record view switcher, table rendering, per-block persistence, DONE/shift persistence, live updates and grip suppression');
+  console.log('\nPASS record view switcher, table rendering, per-block persistence, DONE/shift persistence, live updates and generic delegate arrow');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
