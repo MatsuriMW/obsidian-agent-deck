@@ -45,6 +45,7 @@ export default {
   "取消 Pin（恢复常规折叠）": "Unpin record (resume normal folding)",
   "Pin 为关键记录（折叠不隐藏 · Dreaming 优先）": "Pin as key record (keep visible when folded · prioritize in Dreaming)",
   "委派（{agent} · {model}）": "Delegate ({agent} · {model})",
+  "CLI 默认": "CLI default",
   "委派并选择模型": "Delegate with a chosen model",
   "Pin / 取消 Pin 当前关键记录（折叠保留 · Dreaming 优先）": "Pin / unpin current key record (keep when folded · prioritize in Dreaming)",
   "请把光标放在要 Pin 的 AI 记录或任务行上": "Place the cursor on an AI record or task line to pin",

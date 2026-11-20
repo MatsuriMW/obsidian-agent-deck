@@ -2638,10 +2638,18 @@ export default class AgentDeckPlugin extends Plugin {
 
   // 右键菜单里的委派两项：直接走默认 Agent + 默认模型，或展开二级菜单按 Agent 选模型。
   // 四视图 / 阅读视图的行和编辑器源码行共用这一份，标题里写清楚会用谁。
+  // 菜单里用的模型名：`*-default` 这类「不传模型参数」的占位符收成短写法，
+  // 免得标题变成「委派（DSH · 不指定（使用 DSH 当前默认模型））」这种括号套括号。
+  delegateModelLabel(id = "") {
+    const model = this.modelById(id);
+    if (!model) return id || t("客户端模型");
+    return model.value === "" ? t("CLI 默认") : model.name;
+  }
+
   addDelegateMenuItems(menu, path, line, addItem = null) {
     const add = addItem || ((build) => menu.addItem(build));
     const primary = this.defaultTarget();
-    const modelName = this.modelLabel(this.defaultModel(primary)) || t("客户端模型");
+    const modelName = this.delegateModelLabel(this.defaultModel(primary));
     add((item) => item
       .setTitle(t("委派（{agent} · {model}）", { agent: AGENTS[primary]?.short || primary, model: modelName }))
       .setIcon("send")
@@ -2656,7 +2664,7 @@ export default class AgentDeckPlugin extends Plugin {
       }
       for (const { agent, model } of choices) {
         sub.addItem((entry) => entry
-          .setTitle(`${AGENTS[agent]?.short || agent} · ${model.name}`)
+          .setTitle(`${AGENTS[agent]?.short || agent} · ${this.delegateModelLabel(model.id)}`)
           .onClick(() => this.delegateViewRow(path, line, agent, model.id)));
       }
     });

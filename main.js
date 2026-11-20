@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.9 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.10 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1876,6 +1876,7 @@ var editor_default = {
   "\u53D6\u6D88 Pin\uFF08\u6062\u590D\u5E38\u89C4\u6298\u53E0\uFF09": "Unpin record (resume normal folding)",
   "Pin \u4E3A\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09": "Pin as key record (keep visible when folded \xB7 prioritize in Dreaming)",
   "\u59D4\u6D3E\uFF08{agent} \xB7 {model}\uFF09": "Delegate ({agent} \xB7 {model})",
+  "CLI \u9ED8\u8BA4": "CLI default",
   "\u59D4\u6D3E\u5E76\u9009\u62E9\u6A21\u578B": "Delegate with a chosen model",
   "Pin / \u53D6\u6D88 Pin \u5F53\u524D\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4FDD\u7559 \xB7 Dreaming \u4F18\u5148\uFF09": "Pin / unpin current key record (keep when folded \xB7 prioritize in Dreaming)",
   "\u8BF7\u628A\u5149\u6807\u653E\u5728\u8981 Pin \u7684 AI \u8BB0\u5F55\u6216\u4EFB\u52A1\u884C\u4E0A": "Place the cursor on an AI record or task line to pin",
@@ -37848,10 +37849,17 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
   }
   // 右键菜单里的委派两项：直接走默认 Agent + 默认模型，或展开二级菜单按 Agent 选模型。
   // 四视图 / 阅读视图的行和编辑器源码行共用这一份，标题里写清楚会用谁。
+  // 菜单里用的模型名：`*-default` 这类「不传模型参数」的占位符收成短写法，
+  // 免得标题变成「委派（DSH · 不指定（使用 DSH 当前默认模型））」这种括号套括号。
+  delegateModelLabel(id = "") {
+    const model = this.modelById(id);
+    if (!model) return id || t("\u5BA2\u6237\u7AEF\u6A21\u578B");
+    return model.value === "" ? t("CLI \u9ED8\u8BA4") : model.name;
+  }
   addDelegateMenuItems(menu, path17, line, addItem = null) {
     const add = addItem || ((build) => menu.addItem(build));
     const primary = this.defaultTarget();
-    const modelName2 = this.modelLabel(this.defaultModel(primary)) || t("\u5BA2\u6237\u7AEF\u6A21\u578B");
+    const modelName2 = this.delegateModelLabel(this.defaultModel(primary));
     add((item) => item.setTitle(t("\u59D4\u6D3E\uFF08{agent} \xB7 {model}\uFF09", { agent: AGENTS[primary]?.short || primary, model: modelName2 })).setIcon("send").onClick(() => this.delegateViewRow(path17, line)));
     const choices = this.recordMenuModels();
     add((item) => {
@@ -37862,7 +37870,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         return;
       }
       for (const { agent, model } of choices) {
-        sub.addItem((entry) => entry.setTitle(`${AGENTS[agent]?.short || agent} \xB7 ${model.name}`).onClick(() => this.delegateViewRow(path17, line, agent, model.id)));
+        sub.addItem((entry) => entry.setTitle(`${AGENTS[agent]?.short || agent} \xB7 ${this.delegateModelLabel(model.id)}`).onClick(() => this.delegateViewRow(path17, line, agent, model.id)));
       }
     });
   }
