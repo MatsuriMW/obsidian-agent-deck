@@ -77,7 +77,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 - **自动记日记**：定时扫描当天会话，自动匹配或新建日记任务行，同步状态、活动时段和每轮记录；简略、标准、详细三档可选，长篇回答会保存成独立文件并留下链接。
 - **关键词配色**：`DOING` / `PAUSED` / `TOREVIEW` / `DONE` 等任务关键词在编辑器和阅读视图里按 Logseq 风格上色带图标，与 Logseq Style Tasks 一致。
 - **标题与折叠**：你手改过的 AI 标题不会被覆盖；历史轮次默认收起，只留最新结论。
-- **四种视图**：同一条记录可在大纲、表格、卡片、时间线之间切换，并能按当前视图导出 PDF、HTML、Markdown、JSON 或 CSV。表格／卡片／时间线／阅读视图里右键某一轮，可以把它 Pin 成关键记录，也可以原地把这一轮再派给默认 Agent 或指定模型。
+- **四种视图**：同一条记录可在大纲、表格、卡片、时间线之间切换，并能按当前视图导出 PDF、HTML、Markdown、JSON 或 CSV。表格／卡片／时间线／阅读视图里右键某一轮，可以把它 Pin 成关键记录，也可以原地把这一轮再派给默认 Agent 或指定模型；编辑器里光标所在那一段右键同样有委派与选模型两项。
 - **整理与归档**：一键把当天日记整理成「正在做 / 还要做 / 已完成」，或把已完成的 AI 任务按日期归档到指定笔记。
 - **与螺旋日程共存**：可搭配 [螺旋日程 Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) 使用，由 Agent Deck 接管 AI 写入，螺旋保留排程与进度展示。
 
@@ -133,7 +133,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck**，安装并启用；
 2. 或在 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新版，把 `main.js`、`manifest.json`、`styles.css` 放进 `<你的库>/.obsidian/plugins/agent-deck/`，再到插件设置里启用。
 
-当前版本 **1.13.8**，需要 Obsidian **1.4.0+** 桌面端。
+当前版本 **1.13.9**，需要 Obsidian **1.4.0+** 桌面端。
 
 ### 需要准备什么
 

@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.8 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.9 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -35366,8 +35366,9 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
         const cursorRaw = editor.getLine(cursorLine) || "";
         const isRecord = CONTEXT_RECORD_RE.test(cursorRaw);
         const canPinCursor = isRecord || /^\s*(?:[-*+]|\d+[.)])\s+TODO\s+🤖\s/.test(cursorRaw) || Boolean(kwLine(cursorRaw)?.kw);
+        const canDelegateCursor = Boolean(cursorRaw.trim()) && !/^\s*<!--/.test(cursorRaw);
         const selected = selectedTaskLines(cm.state.doc, cm.state.selection);
-        if (!selected.length && !canPinCursor) return;
+        if (!selected.length && !canPinCursor && !canDelegateCursor) return;
         const canSection = createRecordMenuSection(menu);
         const addRecordItem = (build) => {
           menu.addItem((item) => {
@@ -35384,6 +35385,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
             })
           );
         }
+        const activePath = this.app.workspace.getActiveFile()?.path || "";
+        if (canDelegateCursor && activePath) this.addDelegateMenuItems(menu, activePath, cursorLine, addRecordItem);
         if (isRecord) {
           const lines = editor.getValue().split("\n");
           const parentLine = this.parentTimelineLine(lines, cursorLine);
@@ -37839,11 +37842,19 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       menu.addItem((item) => item.setTitle(pinned ? t("\u53D6\u6D88 Pin\uFF08\u6062\u590D\u5E38\u89C4\u6298\u53E0\uFF09") : t("Pin \u4E3A\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09")).onClick(() => this.toggleRecordPin(path17, line)));
       menu.addSeparator();
     }
+    this.addDelegateMenuItems(menu, path17, line);
+    menu.showAtMouseEvent(event);
+    return menu;
+  }
+  // 右键菜单里的委派两项：直接走默认 Agent + 默认模型，或展开二级菜单按 Agent 选模型。
+  // 四视图 / 阅读视图的行和编辑器源码行共用这一份，标题里写清楚会用谁。
+  addDelegateMenuItems(menu, path17, line, addItem = null) {
+    const add = addItem || ((build) => menu.addItem(build));
     const primary = this.defaultTarget();
     const modelName2 = this.modelLabel(this.defaultModel(primary)) || t("\u5BA2\u6237\u7AEF\u6A21\u578B");
-    menu.addItem((item) => item.setTitle(t("\u59D4\u6D3E\uFF08{agent} \xB7 {model}\uFF09", { agent: AGENTS[primary]?.short || primary, model: modelName2 })).setIcon("send").onClick(() => this.delegateViewRow(path17, line)));
+    add((item) => item.setTitle(t("\u59D4\u6D3E\uFF08{agent} \xB7 {model}\uFF09", { agent: AGENTS[primary]?.short || primary, model: modelName2 })).setIcon("send").onClick(() => this.delegateViewRow(path17, line)));
     const choices = this.recordMenuModels();
-    menu.addItem((item) => {
+    add((item) => {
       item.setTitle(t("\u59D4\u6D3E\u5E76\u9009\u62E9\u6A21\u578B")).setIcon("bot");
       const sub = typeof item.setSubmenu === "function" ? item.setSubmenu() : null;
       if (!sub || !choices.length) {
@@ -37854,8 +37865,6 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         sub.addItem((entry) => entry.setTitle(`${AGENTS[agent]?.short || agent} \xB7 ${model.name}`).onClick(() => this.delegateViewRow(path17, line, agent, model.id)));
       }
     });
-    menu.showAtMouseEvent(event);
-    return menu;
   }
   // 二级菜单里列哪些模型：只看已启用、能委派的 Agent 的启用模型。
   recordMenuModels() {

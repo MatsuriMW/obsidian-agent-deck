@@ -226,8 +226,10 @@ export default class AgentDeckPlugin extends Plugin {
         const canPinCursor = isRecord
           || /^\s*(?:[-*+]|\d+[.)])\s+TODO\s+🤖\s/.test(cursorRaw)
           || Boolean(J.kwLine(cursorRaw)?.kw);
+        // 光标所在那一段只要能当任务发出去，右键就给委派（和行尾箭头同一个口径）。
+        const canDelegateCursor = Boolean(cursorRaw.trim()) && !/^\s*<!--/.test(cursorRaw);
         const selected = selectedTaskLines(cm.state.doc, cm.state.selection);
-        if (!selected.length && !canPinCursor) return;
+        if (!selected.length && !canPinCursor && !canDelegateCursor) return;
         // AI 记录的右键菜单整组放在最上面，Pin 排第一；记录菜单不配图标。
         const canSection = createRecordMenuSection(menu);
         const addRecordItem = (build) => {
@@ -247,6 +249,8 @@ export default class AgentDeckPlugin extends Plugin {
               }),
           );
         }
+        const activePath = this.app.workspace.getActiveFile()?.path || "";
+        if (canDelegateCursor && activePath) this.addDelegateMenuItems(menu, activePath, cursorLine, addRecordItem);
         if (isRecord) {
           const lines = editor.getValue().split("\n");
           const parentLine = this.parentTimelineLine(lines, cursorLine);
@@ -2627,14 +2631,23 @@ export default class AgentDeckPlugin extends Plugin {
         .onClick(() => this.toggleRecordPin(path, line)));
       menu.addSeparator();
     }
+    this.addDelegateMenuItems(menu, path, line);
+    menu.showAtMouseEvent(event);
+    return menu;
+  }
+
+  // 右键菜单里的委派两项：直接走默认 Agent + 默认模型，或展开二级菜单按 Agent 选模型。
+  // 四视图 / 阅读视图的行和编辑器源码行共用这一份，标题里写清楚会用谁。
+  addDelegateMenuItems(menu, path, line, addItem = null) {
+    const add = addItem || ((build) => menu.addItem(build));
     const primary = this.defaultTarget();
     const modelName = this.modelLabel(this.defaultModel(primary)) || t("客户端模型");
-    menu.addItem((item) => item
+    add((item) => item
       .setTitle(t("委派（{agent} · {model}）", { agent: AGENTS[primary]?.short || primary, model: modelName }))
       .setIcon("send")
       .onClick(() => this.delegateViewRow(path, line)));
     const choices = this.recordMenuModels();
-    menu.addItem((item) => {
+    add((item) => {
       item.setTitle(t("委派并选择模型")).setIcon("bot");
       const sub = typeof item.setSubmenu === "function" ? item.setSubmenu() : null;
       if (!sub || !choices.length) {
@@ -2647,8 +2660,6 @@ export default class AgentDeckPlugin extends Plugin {
           .onClick(() => this.delegateViewRow(path, line, agent, model.id)));
       }
     });
-    menu.showAtMouseEvent(event);
-    return menu;
   }
 
   // 二级菜单里列哪些模型：只看已启用、能委派的 Agent 的启用模型。

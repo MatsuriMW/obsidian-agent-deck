@@ -77,7 +77,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 - **Automatic journaling**: sessions are scanned through the day, matched to (or created as) journal task lines, and their status, active time and per-round records are kept in sync; pick brief, standard or detailed records, and long answers are saved as separate notes with a link.
 - **Keyword colours**: task keywords such as `DOING` / `PAUSED` / `TOREVIEW` / `DONE` are coloured and iconified in both editing and reading views, matching Logseq Style Tasks.
 - **Titles and folding**: AI titles you edited by hand are never overwritten, and older rounds stay folded so the latest conclusion stays visible.
-- **Four views**: switch one record between outline, table, cards and timeline, then export the current view to PDF, HTML, Markdown, JSON or CSV. Right-click any round in table, cards, timeline or reading view to pin it as a key record, or to hand that round out again to the default agent or a chosen model.
+- **Four views**: switch one record between outline, table, cards and timeline, then export the current view to PDF, HTML, Markdown, JSON or CSV. Right-click any round in table, cards, timeline or reading view to pin it as a key record, or to hand that round out again to the default agent or a chosen model; right-clicking the paragraph under the cursor in the editor offers the same two delegation entries.
 - **Tidy and archive**: reorganise the day into "doing / to do / done" in one command, or archive finished AI tasks by date into a note you choose.
 - **Works with Nautilus Spiral**: pair it with [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) so Agent Deck owns the AI writes while Spiral keeps its schedule and progress display.
 
@@ -133,7 +133,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 1. In Obsidian, open Settings → Community plugins → Browse, search for **Agent Deck**, then install and enable it;
 2. Or download the latest [GitHub Release](https://github.com/MatsuriMW/obsidian-agent-deck/releases), copy `main.js`, `manifest.json` and `styles.css` into `<your vault>/.obsidian/plugins/agent-deck/`, then enable it in the plugin settings.
 
-Current version: **1.13.8**, requires Obsidian **1.4.0+** on desktop.
+Current version: **1.13.9**, requires Obsidian **1.4.0+** on desktop.
 
 ### What you need
 
