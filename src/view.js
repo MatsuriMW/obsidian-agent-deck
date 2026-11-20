@@ -167,9 +167,10 @@ export class AgentDeckView extends ItemView {
       setLucide(review.createSpan({ cls: "ad-iconbtn__icon" }), "chart-no-axes-combined");
       review.onclick = () => p.activateDashboard();
     }
-    const scan = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("重新扫描本机会话") } });
+    const scanLabel = t("重新扫描本机会话并整理今天的日记");
+    const scan = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": scanLabel, title: scanLabel } });
     setLucide(scan.createSpan({ cls: "ad-iconbtn__icon" }), "refresh-cw");
-    scan.onclick = () => p.scanNow();
+    scan.onclick = () => p.rescanAndLog();
     const gear = actions.createEl("button", { cls: "ad-iconbtn", attr: { "aria-label": t("设置") } });
     setLucide(gear.createSpan({ cls: "ad-iconbtn__icon" }), "settings-2");
     gear.onclick = () => p.openSettings();
@@ -208,7 +209,7 @@ export class AgentDeckView extends ItemView {
 
     const journalActions = dash.createDiv({ cls: "ad-btnrow" });
     for (const action of [
-      { label: t("整理日志"), hint: t("按正在做、还要做、已完成整理分区，分割线外的笔记保持原样"), run: () => p.organizeJournal() },
+      { label: t("整理日志版面"), hint: t("按正在做、还要做、已完成重排日记里的已有条目"), run: () => p.organizeJournal() },
       { label: t("归档已完成的日志到…"), hint: t("把已完成的 AI 日志移出这篇日记，写进你选的归档文件"), run: () => p.archiveCompletedJournal() },
     ]) {
       const button = journalActions.createEl("button", { text: action.label });

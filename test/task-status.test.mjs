@@ -8,7 +8,7 @@ const J=await import('../src/journal.js');
 const sid='11111111-2222-3333-4444-555555555555';
 let note=`- DOING task ^ad-status\n  - 🔗 [Codex](codex://threads/${sid})\n  - 💬 old result`;
 const settings={manualTaskStates:{}};
-const usage={meta:new Map([[sid,{state:'run'}]]),archived:new Set(),archivedClaude:new Set()};
+const usage={meta:new Map([[sid,{state:'run'}]]),archived:new Set(),archivedClaude:new Set(),summary:()=>null};
 const p={settings,usage,viewForPath:()=>null,app:{vault:{getAbstractFileByPath:()=>({}),async process(f,fn){note=fn(note)}}},saveSettings:async()=>{},refreshUI(){}};
 const target={path:'test.md',raw:note.split('\n')[0]};
 await applyStatusChoice(p,target,'PAUSED');

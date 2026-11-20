@@ -28,4 +28,26 @@ try{
  view._pendingRender=true;events['active-leaf-change']();assert.equal(renders,3,'switching to a hidden tab restores pending render');
  await view.onClose();assert.equal(p.views.size,0);
  console.log('PASS hidden dashboard defers DOM work and refreshes on resize, layout and tab activation');
+
+ const buttons=[];
+ const makeNode=()=>({
+  addClass(){},empty(){},addEventListener(){},style:{setProperty(){}},
+  createDiv(){return makeNode()},createSpan(){return makeNode()},
+  createEl(tag,options){const el=makeNode();if(tag==='button') buttons.push({el, options});return el;}
+ });
+ let rescans=0;
+ const panel=new AgentDeckView({
+  containerEl:{isShown:()=>true},contentEl:makeNode(),
+ },{
+  settings:{experimentalDashboard:false},store:{get(){}},liveSessions:()=>[],recentSessions:()=>[],
+  rescanAndLog(){rescans++},
+ });
+ panel.search='fixture';
+ panel.secHead=()=>null;
+ panel.renderSearch=()=>{};
+ panel.render();
+ const rescan=buttons.find(({options})=>options.attr.title?.includes('日记') || options.attr.title?.includes('journal'));
+ assert.ok(rescan,'the rendered button announces that it also updates the journal');
+ await rescan.el.onclick();
+ assert.equal(rescans,1,'the panel button uses the manual scan-and-log path');
 }finally{delete globalThis.document;fs.rmSync(dir,{recursive:true,force:true})}

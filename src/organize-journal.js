@@ -258,6 +258,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
     }
     if (forceDone) {
       const stamp = cs?.end || p.until || p.since || '';
+      if (p.until) return [J.formatSessionTaskLine(p, { kw: 'DONE', start: p.since, end: stamp }), ...chunkLines.slice(1)];
       return [`${p.prefix}DONE ${stamp ? stamp + ' ' : ''}${p.rest}`.trimEnd(), ...chunkLines.slice(1)];
     }
     return chunkLines;

@@ -16,6 +16,10 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
   const r = J.bindInto(t, 0, S({ state: "wait" }));
   check("TODO → TOREVIEW, child indent", r.text.startsWith("- TOREVIEW 20:10 写周报\n    - 🔗 "), r.text);
 }
+{
+  const r = J.bindInto("- TODO 写  周报\n", 0, S({ until: "20:25" }));
+  check("binding supplies the complete time range and preserves the task title", r.text.startsWith("- DOING 20:10-20:25 写  周报\n"), r.text);
+}
 { // 用户定的 PAUSED 不动
   const r = J.bindInto("- PAUSED 08:00 另一件\n", 0, S());
   check("PAUSED untouched", r.text.startsWith("- PAUSED 08:00 另一件\n\t- 🔗"), r.text);

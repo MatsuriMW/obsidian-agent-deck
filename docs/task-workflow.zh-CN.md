@@ -1,6 +1,14 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.10**（已发版，2026-11-20）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.11**（2026-11-21）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.11 日记修复与 Dream 扩展
+
+- 手动重扫联动今天的日记并汇报结果，跨天自动记录保留原会话入口，任务标题统一显示会话时段。
+- 日记路径跟随 Obsidian 核心「日记」设置。测试覆盖默认 `YYYY-MM-DD`、自定义路径和修改后立即生效。
+- macOS 实测重扫有提示、日记已有记录会更新、DOING 时段会推进，Codex 进度条打开原会话。新增条目在隔离日记中验证。Antigravity 桌面会话打开客户端并复制会话 ID。Windows 界面未测。
+- 两插件沿用螺旋日程可调日界。以 00:00 连续验证重扫、螺旋刷新、定位日记和打开对应 Codex 会话，未重复建项。
+- Dream 采集和记忆提炼分开。后续主题与用语分析共用带来源的材料入口。方向见 [Dream 分析扩展](specs/data-and-markdown-contracts.md#dream-分析扩展)。
 
 ## 核心构想（接手先读这段）
 

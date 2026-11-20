@@ -20,7 +20,7 @@ import {
   Plugin, Notice, MarkdownView, MarkdownRenderChild, Menu, editorInfoField,
 } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, syncDelegationSettings, dayKey, dayKeyToday, fmtMin, fmtTok, fmtClock, timeAgo, truncate, clamp, visibleMenuAgents, journalPath, STORE_VERSION, MEMORY_QUERY_ASSET_VERSION,
+  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, syncDelegationSettings, dayKey, dayKeyToday, fmtMin, fmtTok, timeAgo, truncate, clamp, visibleMenuAgents, journalPath, STORE_VERSION, MEMORY_QUERY_ASSET_VERSION,
 } from "./constants.js";
 import {
   AgentUsage, UsageStore, projectName, normalizeProjectRoot, SUMMARY_VERSION, USAGE_CACHE_VERSION,
@@ -150,7 +150,9 @@ export default class AgentDeckPlugin extends Plugin {
       this.saveSettings().catch(() => {});
     }
     this.settings.jobs = this.settings.jobs && typeof this.settings.jobs === "object" ? this.settings.jobs : {};
-    J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 0) * 60);
+    this._standaloneDayCutoff = this.settings.dayCutoff;
+    this.syncJournalCutoff();
+    this._scannedDayCutoff = this.settings.dayCutoff;
     this.jobs = this.settings.jobs;
     // 自动会话记录改为默认打开、扫描间隔改为 30 秒：老库也迁一次，之后再手动改就尊重用户的
     if (!this.settings.defaultsMigratedAutoLog) {
@@ -205,6 +207,7 @@ export default class AgentDeckPlugin extends Plugin {
     });
     this.journalSync = new JournalSync(this);
     this.journalOrganizer = new JournalOrganizer(this);
+    if (this.app.workspace.on) this.registerEvent(this.app.workspace.on("nautilus-spiral:day-cutoff-changed", () => this.scanNow(false)));
 
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.registerView(MEMORY_BOARD_TYPE, (leaf) => new MemoryBoardView(leaf, this));
@@ -405,7 +408,7 @@ export default class AgentDeckPlugin extends Plugin {
       const job = view.file && this.jobAtLine(view.file.path, editor.getCursor().line, editor.getLine(editor.getCursor().line));
       if (job && activeJob(job)) this.cancelJob(job.id); else this.notice(t("当前任务没有可停止的执行"));
     } });
-    this.addCommand({ id: "scan-now", name: t("重新扫描本机 Agent 会话"), callback: () => this.scanNow() });
+    this.addCommand({ id: "scan-now", name: t("重新扫描本机会话并整理今天的日记"), callback: () => this.rescanAndLog() });
     this.addCommand({ id: "redetect-harnesses", name: t("重新检测本机已安装的 Harness"), callback: () => this.redetectHarnesses() });
     this.addCommand({ id: "jump-running-project", name: t("跳转到日记正在做的区域"), hotkeys: [{ modifiers: ["Ctrl", "Alt"], key: "J" }], callback: () => this.jumpRunningProject() });
     this.addCommand({
@@ -1189,23 +1192,28 @@ export default class AgentDeckPlugin extends Plugin {
     return touched;
   }
 
-  async scanNow(force = false, { agent = "", days = 0 } = {}) {
+  async scanNow(force = false, { agent = "", days = 0, manual = false } = {}) {
     await this._usageReady;
     if (this._unloaded) return;
-    if (this._scanning) return;
+    if (this._scanning || (this._manualRescan && !manual)) return;
     this._scanning = true;
     try {
+      const fullScan = !agent && !days;
+      if (fullScan) this.syncJournalCutoff?.();
+      const dayCutoff = this.settings.dayCutoff;
+      const cutoffChanged = fullScan && this._scannedDayCutoff !== undefined && this._scannedDayCutoff !== dayCutoff;
       const initialDays = this.settings.primaryAgentsInitialized === false ? await this.initializePrimaryAgents() : null;
       // First scan after a load: paint what the last session stored before
       // walking the logs, so the panel is not blank for the whole scan.
       if (!this._painted) { this._painted = true; this.refreshUI(); }
-      if (force && !agent && !days) {
+      if (fullScan && (force || cutoffChanged)) {
+        this._rescanMeta = new Map(this.usage.meta);
         this.usage.files.clear();
         this.usage.meta.clear();
         this.usage.titles.clear();
         this.usage.lastScan = 0;
       }
-      const since = days ? Date.now() - days * 86400000 : force ? 0 : Math.max(0, (this.usage.lastScan || 0) - 60000);
+      const since = days ? Date.now() - days * 86400000 : force || cutoffChanged ? 0 : Math.max(0, (this.usage.lastScan || 0) - 60000);
       // A card scan must also recover non-primary history already skipped by
       // incremental parsing. Read it separately, then replace only those files.
       const scoped = !!(agent && days);
@@ -1213,6 +1221,7 @@ export default class AgentDeckPlugin extends Plugin {
       const touched = await usage.scan({ since, agent, strictSince: !!days });
       for (const day of initialDays || []) touched.add(day);
       if (this._unloaded) return;
+      if (fullScan) this._scannedDayCutoff = dayCutoff;
       if (scoped) {
         for (const key of ["files", "meta", "titles", "subs"]) for (const [id, value] of usage[key]) this.usage[key].set(id, value);
         this.usage.errors = [...this.usage.errors, ...usage.errors].slice(-20);
@@ -1225,16 +1234,20 @@ export default class AgentDeckPlugin extends Plugin {
       this.delegator.retryBackgroundResults?.();
       this.syncWorkbenchWaves?.().catch((e) => console.error("[agent-deck] wave sync", e));
       this.usage.maybeSaveCache(this.usageCacheFile);
-      await this.refreshExternalState?.().catch(() => {});
+      const externalChanged = await this.refreshExternalState?.().catch(() => {});
       this.refreshUI();
-      this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
+      if (manual || touched.size || externalChanged || cutoffChanged) this.notifySpiral?.();
+      if (!manual) this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
       if (!scoped) this.maybePromptCursorHooks?.().catch(() => {});
-      if (force) new Notice(t("Agent Deck：读到 {files} 个日志，{days} 天有内容", { files: this.usage.files.size, days: touched.size }), 4000);
+      const result = { files: this.usage.files.size, days: touched.size };
+      if (force && !manual) new Notice(t("Agent Deck：读到 {files} 个日志，{days} 天有内容", result), 4000);
       if (agent && days) new Notice(t("{name}：最近 {days} 天的会话已扫描", { name: AGENTS[agent].name, days }), 4000);
+      return result;
     } catch (e) {
       console.error("[agent-deck] scan", e);
       this.notice(t("扫描会话失败：{error}", { error: e && e.message || e }), 8000);
     } finally {
+      this._rescanMeta = null;
       this._scanning = false;
     }
   }
@@ -1248,6 +1261,39 @@ export default class AgentDeckPlugin extends Plugin {
     await this.store.save();
     await this.scanNow(true);
     new Notice(t("Agent Deck：历史已重算"));
+  }
+
+  async rescanAndLog() {
+    if (this._manualRescan || this._scanning) return this.notice(t("正在扫描或整理会话…"));
+    this._manualRescan = true;
+    let progress;
+    try {
+      progress = new Notice(t("正在扫描或整理会话…"), 0);
+      await Promise.all([this.journalSync._running, this.autoLog?._running]);
+      const scan = await this.scanNow(true, { manual: true });
+      if (!scan || this._unloaded) return;
+      const summary = t("Agent Deck：读到 {files} 个日志，{days} 天有内容", scan);
+      const synced = this.settings.journalAutoWrite !== false ? await this.journalSync.run({ force: true }) : null;
+      if (this._unloaded) return;
+      if (this.settings.journalAutoWrite === false) {
+        this.notice(summary + "\n" + t("日记写入已关闭，只重扫了会话"), 6000);
+        return;
+      }
+      const result = await this.logNowWithMarkerGuard({ notify: false });
+      if (this._unloaded) return;
+      const n = result.updated === false ? 0 : result.changes.length;
+      const updated = result.updated || synced?.updated;
+      const error = result.error || synced?.error;
+      const changes = n ? t("整理进日记 {n} 处", { n }) : updated ? t("已更新日记里的会话记录") : t("没有新的会话内容需要整理");
+      const status = error ? [n || updated ? changes : "", t("日记整理遇到问题：{error}", { error })].filter(Boolean).join("\n") : changes;
+      this.notice(summary + "\n" + status, 8000);
+    } catch (e) {
+      console.error("[agent-deck] rescan", e);
+      this.notice(t("日记整理遇到问题：{error}", { error: e?.message || e }), 8000);
+    } finally {
+      progress?.hide();
+      this._manualRescan = false;
+    }
   }
 
   async importNautilus(manual = false) {
@@ -1316,11 +1362,31 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   // ---------- settings ----------
+  spiralJournalCutoff() {
+    const spiral = this.app?.plugins?.plugins?.["nautilus-spiral"];
+    const cutoff = spiral?.journalDayCutoff?.() ?? spiral?.settings?.dayCutoff;
+    return Number.isFinite(cutoff) && cutoff >= 0 && cutoff < 24 ? cutoff : null;
+  }
+
+  syncJournalCutoff() {
+    this.settings.dayCutoff = this.spiralJournalCutoff() ?? this._standaloneDayCutoff ?? this.settings.dayCutoff ?? 0;
+    J.setDayOffset(this.settings.dayCutoff * 60);
+  }
+
+  async setStandaloneDayCutoff(value) {
+    this._standaloneDayCutoff = value;
+    await this.saveSettings();
+    await this.scanNow(false);
+  }
+
+  notifySpiral() {
+    this.app?.workspace?.trigger?.("agent-deck:sessions-changed");
+  }
+
   async saveSettings() {
     syncModelGroups(this.settings, agent => this.agentEnabled(agent));
     this.settings.jobs = this.jobs;
-    J.setDayOffset((Number.isFinite(this.settings.dayCutoff) ? this.settings.dayCutoff : 0) * 60);
-    await this.saveData(this.settings);
+    await this.saveData({ ...this.settings, dayCutoff: this._standaloneDayCutoff ?? this.settings.dayCutoff });
   }
 
   saveJobs() {
@@ -1466,7 +1532,10 @@ export default class AgentDeckPlugin extends Plugin {
   async pollExternalState() {
     if (this._unloaded) return;
     if (await this.refreshExternalState()) {
-      if (!this._unloaded) this.refreshUI();
+      if (!this._unloaded) {
+        this.refreshUI();
+        this.notifySpiral();
+      }
     }
   }
 
@@ -1638,7 +1707,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   // 给别的插件用（螺旋日程的进度行）：只给会话号，按 Agent Deck 的规矩打开——命令行会话切到它的终端标签
   openSessionBySid(sid, agent = "") {
-    const m = (sid && this.usage.meta.get(sid)) || {};
+    const m = (sid && (this.usage.meta.get(sid) || this._rescanMeta?.get(sid))) || {};
     return this.openSession(m.agent || agent || "claude", sid, m.app || "", m);
   }
 
@@ -1750,23 +1819,22 @@ export default class AgentDeckPlugin extends Plugin {
     };
     const jobsBySid = new Map();
     for (const job of Object.values(this.jobs)) if (!jobsBySid.has(job.sessionId)) jobsBySid.set(job.sessionId, job);
-    for (const parsed of cached.links) {
-      const meta = this.usage.meta.get(parsed.sid) || { sid: parsed.sid, agent: parsed.agent, state: "idle", title: "", tokens: 0, lastAt: 0 };
-      const live = liveFor(parsed.sid);
-      const job = jobsBySid.get(parsed.sid);
-      const rawSession = { ...meta, ...(live || {}), tokens: live?.tokens ?? meta.tokens ?? ((meta.out || 0) + (meta.fresh || 0)), agent: parsed.agent || meta.agent, job };
-      sessionByParent.set(parsed.parent, this.applyExternalState ? this.applyExternalState(rawSession) : rawSession);
-    }
-    const daySt = (this.settings.autoLogState && this.settings.autoLogState[dayKeyToday(this.settings)]) || {};
-    for (const [sid, rec] of Object.entries(daySt)) {
-      if (!rec || !rec.blockId || rec.skip || rec.gone) continue;
-      const i = cached.blockIds.get(rec.blockId);
-      if (i === undefined || sessionByParent.has(i)) continue;
-      const meta = this.usage.meta.get(sid);
-      if (!meta) continue;
+    const bind = (line, sid, agent) => {
+      const meta = this.usage.meta.get(sid) || this._rescanMeta?.get(sid) || {};
       const live = liveFor(sid);
-      const rawSession = { ...meta, ...(live || {}), tokens: live?.tokens ?? meta.tokens ?? ((meta.out || 0) + (meta.fresh || 0)), sid, agent: meta.agent || "claude" };
-      sessionByParent.set(i, this.applyExternalState ? this.applyExternalState(rawSession) : rawSession);
+      const rawSession = { state: "idle", ...meta, ...live, tokens: live?.tokens ?? meta.tokens ?? ((meta.out || 0) + (meta.fresh || 0)), sid, agent: agent || live?.agent || meta.agent || "claude", job: jobsBySid.get(sid) };
+      sessionByParent.set(line, this.applyExternalState ? this.applyExternalState(rawSession) : rawSession);
+    };
+    for (const { parent, sid, agent } of cached.links) bind(parent, sid, agent);
+    if (cached.blockIds.size) {
+      const byDay = this.settings.autoLogState || {};
+      for (const day of Object.keys(byDay).sort().reverse()) {
+        for (const [sid, rec] of Object.entries(byDay[day] || {})) {
+          if (!rec?.blockId || rec.skip || rec.gone) continue;
+          const line = cached.blockIds.get(rec.blockId);
+          if (line !== undefined && !sessionByParent.has(line)) bind(line, sid, rec.agent);
+        }
+      }
     }
     return { doc, lines: cached.lines, sessionByParent, linkByLine: cached.linkByLine };
   }
@@ -1887,11 +1955,10 @@ export default class AgentDeckPlugin extends Plugin {
     const day = dayKeyToday(this.settings);
     const rec = ((this.settings.autoLogState || {})[day] || {})[sid];
     const daySess = ((this.usage.summary(day) || {}).list || []).find((x) => x.sid === sid);
-    const first = daySess && daySess.segs && daySess.segs.length ? daySess.segs[0][0] : null;
-    const last = daySess && daySess.segs && daySess.segs.length ? daySess.segs[daySess.segs.length - 1][1] : first;
-    const now = new Date();
-    const since = first != null ? J.clock(first) : fmtClock(now.getTime());
-    const until = last != null ? J.clock(last) : (meta.lastAt ? fmtClock(meta.lastAt) : since);
+    const { start: since, end: until } = J.sessionRecordSpan({
+      segs: daySess?.segs, meta: live || meta, kw: J.kwForState(live?.state || meta.state),
+      idleMinutes: Math.max(5, this.settings.autoLogIdle || 10),
+    });
     const before = cm.state.doc.toString(), anchor = before.split("\n")[line], notePath = view.file.path;
     const agent = data.agent || meta.agent || "claude";
     const title = data.title || meta.title || (meta.text || "").split(" / ")[0] || sid.slice(0, 8);
@@ -2750,8 +2817,8 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   // 「现在整理一次」遇到分区标记坏了：列出坏掉的日记，问一次，修好再重跑。
-  async logNowWithMarkerGuard() {
-    const r = await this.autoLog.logNow();
+  async logNowWithMarkerGuard(options) {
+    const r = await this.autoLog.logNow(options);
     if (!r?.error || !/分区标记不完整/.test(r.error)) return r;
     const broken = await this.brokenJournals();
     if (!broken.length) return r;
@@ -2763,7 +2830,7 @@ export default class AgentDeckPlugin extends Plugin {
       const next = repairJournalLayout(base) || stripJournalLayout(base);
       await this.writeJournal(file, base, next);
     }
-    return this.autoLog.logNow();
+    return this.autoLog.logNow(options);
   }
 
   // 最近这些天的日记里，分区标记坏掉的那几篇。

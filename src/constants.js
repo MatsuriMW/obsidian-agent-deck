@@ -685,25 +685,28 @@ function formatRegex(fmt) {
   return new RegExp("^" + out + esc(fmt.slice(last)) + "$");
 }
 
-// 返回 { folder, folderSource, format, source }；folder 为 "" 表示库根目录
-let _detected = null;
-export function detectJournalFormat(app, cfg = {}) {
-  const own = (cfg.journalFolder || "").trim().replace(/\/+$/, "");
-  const key = own + "\n" + (cfg.journalFormat || "");
-  if (_detected && _detected.app === app && _detected.key === key && Date.now() - _detected.at < 60e3) return _detected;
-  let conf = null;
+export function dailyNotesOptions(app) {
   try {
     const dn = app?.internalPlugins?.getPluginById?.("daily-notes");
-    if (dn?.enabled) conf = { ...(dn.instance?.options || {}), source: t("Obsidian「日记」核心插件") };
+    if (dn?.enabled) return dn.instance?.options || {};
   } catch { /* 没有这个接口 */ }
-  if (!conf) {
-    const pn = app?.plugins?.plugins?.["periodic-notes"]?.settings?.daily;
-    if (pn?.enabled) conf = { ...pn, source: "Periodic Notes" };
-  }
+  return null;
+}
+
+// 返回 { folder, folderSource, format, source }；folder 为 "" 表示库根目录
+let journalGuess = null;
+export function detectJournalFormat(app, cfg = {}) {
+  const own = (cfg.journalFolder || "").trim().replace(/\/+$/, "");
+  const core = dailyNotesOptions(app);
+  const periodic = app?.plugins?.plugins?.["periodic-notes"]?.settings?.daily;
+  const conf = core || (periodic?.enabled ? periodic : null);
+  const source = core ? t("Obsidian「日记」核心插件") : conf ? "Periodic Notes" : t("默认");
   const folder = own || (conf ? String(conf.folder || "").trim().replace(/^\/+|\/+$/g, "") : "日记");
-  const folderSource = own ? t("手动设置") : conf ? conf.source : t("默认");
-  let hit = conf ? { format: conf.format || "YYYY-MM-DD", source: conf.source } : null;
-  if (!hit) {
+  const folderSource = own ? t("手动设置") : source;
+  if (conf) return { format: conf.format || "YYYY-MM-DD", source, folder, folderSource };
+
+  // 只缓存文件扫描。核心插件和 Periodic Notes 的设置每次读取。
+  if (!journalGuess || journalGuess.app !== app || journalGuess.folder !== folder || Date.now() - journalGuess.at >= 60e3) {
     let files = [];
     try { files = app?.vault?.getMarkdownFiles?.() || []; } catch { /* 测试里的假 vault */ }
     const prefix = folder ? folder + "/" : "";
@@ -714,21 +717,18 @@ export function detectJournalFormat(app, cfg = {}) {
       const n = names.filter((x) => re.test(x)).length;
       if (n && (!best || n > best.n)) best = { fmt, n };
     }
-    if (best) hit = { format: best.fmt, source: folder ? t("「{folder}」里已有的 {n} 篇日记", { folder, n: best.n }) : t("库根目录里已有的 {n} 篇日记", { n: best.n }) };
+    journalGuess = { app, folder, at: Date.now(), best };
   }
-  _detected = { ...(hit || { format: "YYYY_MM_DD", source: t("默认") }), folder, folderSource, key, app, at: Date.now() };
-  return _detected;
-}
-
-export function journalFormat(app, cfg = {}) {
-  return (cfg.journalFormat || "").trim() || detectJournalFormat(app, cfg).format;
+  const { best } = journalGuess;
+  const guessedSource = best ? (folder ? t("「{folder}」里已有的 {n} 篇日记", { folder, n: best.n }) : t("库根目录里已有的 {n} 篇日记", { n: best.n })) : source;
+  return { format: best?.fmt || "YYYY_MM_DD", source: guessedSource, folder, folderSource };
 }
 
 // day 是内部日期键（YYYY_MM_DD），默认今天
 export function journalPath(app, cfg = {}, day = dayKeyToday(cfg)) {
   const [y, m, d] = String(day).split(/\D+/).map(Number);
-  const folder = detectJournalFormat(app, cfg).folder;
-  const name = formatDate(new Date(y, m - 1, d), journalFormat(app, cfg));
+  const { folder, format } = detectJournalFormat(app, cfg);
+  const name = formatDate(new Date(y, m - 1, d), (cfg.journalFormat || "").trim() || format);
   return folder ? `${folder}/${name}.md` : `${name}.md`;
 }
 

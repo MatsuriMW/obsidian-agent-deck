@@ -40,6 +40,10 @@
 
 持久化位置：插件状态在 Vault `data.json`（`STORE_VERSION = 1`）；用量汇总在插件目录 `usage.json`（`SUMMARY_VERSION = 3`）；解析缓存在 `~/.agent-deck/usage-cache.json.gz`（`USAGE_CACHE_VERSION = 14`）。
 
+日记写入和回顾共用 `journalPath` 定位日记。`journal.js` 统一会话时段和任务行格式，`autolog.js` 负责自动建项，`sync.js` 负责同步已有任务。客户端日志差异在会话适配器中消化。
+
+Dream 的只读材料采集在 `dream-evidence.js`。现有提炼由 `Dreaming.analyzeMemoryBatch` 生成候选，由 `Dreaming.run` 管理进度和落盘。主题与用语分析可共用材料边界，各自生成候选。
+
 ## 3. 十一家 Agent 能力边界
 
 插件内对话窗口只读查看与归档，不设续聊输入框；写入格式、短链、标题保护、块号清理与 token 让渡统一走公共规则。

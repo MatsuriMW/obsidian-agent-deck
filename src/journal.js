@@ -6,7 +6,7 @@
 // takes text in and returns text out, so it can be tested without Obsidian.
 
 import { createHash } from "crypto";
-import { pad, fmtTok, resolveRecordRules } from "./constants.js";
+import { pad, fmtTok, fmtClock, resolveRecordRules } from "./constants.js";
 import { t } from "./i18n.js";
 import { detailForRound } from "./log-detail.js";
 import { cleanUserPrompt, condenseUserPrompt } from "./prompt-text.js";
@@ -265,7 +265,7 @@ export function formatProjectAutoTitle(raw, project = "", max = 22) {
   return proj ? prefixAutoTitle(body, proj) : body;
 }
 
-// 统一生成 AI 自动记录标题行：任务状态 + 🤖 + 开始对话时间-最后一次对话时间 + 文字标题 (+ ^blockId)
+// 统一生成 AI 自动记录标题行：任务状态 + 🤖 + 会话时段 + 文字标题 (+ ^blockId)
 export function formatAutoTaskLine({ prefix = "- ", kw = "DOING", start = "", end = "", span = "", title = "", blockId = "", summarize = false, preserveTitle = false, boldTitle = true, showTimeRange = true } = {}) {
   const existingId = blockId || blockIdOf(title);
   let cleanTitle = preserveTitle ? String(title || "") : stripBlockId(String(title || ""))
@@ -320,6 +320,31 @@ export function clockSpanFromLines(lines, ownerLine) {
   return null;
 }
 
+// The live endpoint belongs to the title only. Measured activity segments are never extended.
+export function sessionRecordSpan({ segs = [], meta = {}, saved = null, clockSpan = null, kw, now = Date.now(), idleMinutes = 10, startAt }) {
+  const first = segs[0]?.[0], last = segs.at(-1)?.[1];
+  const firstAt = startAt ?? (meta.startedAt || meta.firstAt || meta.rounds?.[0]?.at);
+  const lastAt = meta.lastAt || meta.rounds?.reduce((latest, round) => Math.max(latest, round?.doneAt || 0), 0);
+  const observedEnd = lastAt ? fmtClock(lastAt) : last == null ? "" : clock(last);
+  const start = firstAt ? fmtClock(firstAt) : first != null ? clock(first) : saved?.since || clockSpan?.start || observedEnd;
+  const running = (kw === "DOING" || kw === "DELEGATED") && ["run", "running"].includes(meta.state)
+    && lastAt > 0 && now >= lastAt && now - lastAt <= idleMinutes * 60000;
+  const end = running ? fmtClock(now) : observedEnd || clockSpan?.end || saved?.until || start;
+  return { start, end };
+}
+
+export function formatSessionTaskLine(task, { kw, start, end, showTimeRange }) {
+  if (task.auto && !task.cb) {
+    return formatAutoTaskLine({
+      prefix: task.prefix, kw, start, end, title: task.title, preserveTitle: true,
+      showTimeRange: showTimeRange || Boolean(task.since || task.until), blockId: task.blockId,
+    });
+  }
+  const time = start && end && (showTimeRange || task.until) && (start !== end || task.until)
+    ? `${start}-${end}` : task.since || "";
+  return `${task.prefix}${kw} ${time ? time + " " : ""}${task.rest}`.trimEnd();
+}
+
 // 这一行是什么任务：{ prefix, rest, since, until, span, auto, title, kw, cb, blockId, body }；不是列表项返回 null
 export function splitTask(raw) {
   const m = /^(\s*(?:[-*+]|\d+[.)])\s+)(.*)$/.exec(raw);
@@ -335,11 +360,11 @@ export function splitTask(raw) {
   if (pr) rest = rest.slice(pr[0].length);
   let since = null;
   let until = null;
-  const legacyRangeBeforeAuto = kw && /^(\d{1,2})[:：](\d{2})\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2})\s+(?=🤖)/.exec(rest);
-  if (legacyRangeBeforeAuto) {
-    since = `${pad(+legacyRangeBeforeAuto[1])}:${legacyRangeBeforeAuto[2]}`;
-    until = `${pad(+legacyRangeBeforeAuto[3])}:${legacyRangeBeforeAuto[4]}`;
-    rest = rest.slice(legacyRangeBeforeAuto[0].length);
+  const rangeBeforeTitle = kw && /^(\d{1,2})[:：](\d{2})\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2})\s+/.exec(rest);
+  if (rangeBeforeTitle) {
+    since = `${pad(+rangeBeforeTitle[1])}:${rangeBeforeTitle[2]}`;
+    until = `${pad(+rangeBeforeTitle[3])}:${rangeBeforeTitle[4]}`;
+    rest = rest.slice(rangeBeforeTitle[0].length);
   } else {
     const t = kw && /^(\d{1,2})[:：](\d{2})(?![\d:：]|\s*[-–~～到至])\s*/.exec(rest);
     if (t) { since = `${pad(+t[1])}:${t[2]}`; rest = rest.slice(t[0].length); }
@@ -387,7 +412,7 @@ export function flipToDone(raw) {
     });
   }
   const box = part.cb ? (part.cb === ' ' || part.cb === '/' ? '[x]' : `[${part.cb}]`) : '';
-  const since = part.since ? `${part.since} ` : '';
+  const since = part.since ? `${part.until ? part.span : part.since} ` : '';
   const head = box
     ? `${part.prefix}${box} ${since}${part.rest}`
     : `${part.prefix}DONE ${since}${part.rest}`;
@@ -1118,9 +1143,9 @@ export function bindInto(text, at, s, { below = false, rules = null } = {}) {
   if (target.kind === "bind") {
     const p = splitTask(lines[n]);
     if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
-      lines[n] = p.auto
-        ? formatAutoTaskLine({ prefix: p.prefix, kw: want, start: p.since || since, end: p.until || until || p.since || since, title: p.title, preserveTitle: true, showTimeRange: r.showTimeRange || Boolean(p.since || p.until), blockId: p.blockId })
-        : `${p.prefix}${want} ${p.since || since} ${p.rest}`.replace(/ {2,}/g, " ").trimEnd();
+      const start = p.since || since;
+      const task = p.auto ? p : { ...p, since: start };
+      lines[n] = formatSessionTaskLine(task, { kw: want, start, end: p.until || until || start, showTimeRange: r.showTimeRange });
     }
     const eb = maybeAddBlockId(lines[n]);
     lines[n] = eb.line;
@@ -1225,7 +1250,7 @@ export function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
   const keptIsAuto = keptBody.startsWith(AUTO_MARK.trim());
   const headerRaw = keptIsAuto
     ? formatAutoTaskLine({ prefix: pd.prefix, kw: mergedKw, start: mergedSince, end: mergedUntil, title: pd.title, preserveTitle: true })
-    : `${pd.prefix}${mergedKw}${mergedSince ? " " + mergedSince : ""} ${keptBody}`.replace(/ {2,}/g, " ").trimEnd();
+    : formatSessionTaskLine({ prefix: pd.prefix, rest: keptBody, since: mergedSince, until: mergedSince !== mergedUntil ? mergedUntil : "" }, { kw: mergedKw, start: mergedSince, end: mergedUntil });
   const { line: mergedHeader } = ensureBlockId(headerRaw, blockId);
 
   // 收集并合并两边子项（按目标行的子缩进重排，去重）

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import {runInNewContext} from 'node:vm';
 import * as J from '../src/journal.js';
 import {dayKeyToday} from '../src/constants.js';
+import {buildLineProgressInfo} from '../src/external-state.js';
 const source=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 const getMethod=(name,next,globals={})=>{const start=source.indexOf('  '+name+'('),end=source.indexOf(next,start);return runInNewContext('({'+source.slice(start,end)+'})',{J,dayKeyToday,parseLinkLine:raw=>J.parseLink(raw)||{},...globals})[name]};
 const sid='11111111-2222-4333-8444-555555555555';
@@ -24,4 +25,18 @@ test('inactive session metadata retains token counts on both linked and automati
  assert.equal(lineMap.call(p,'auto.md',auto).sessionByParent.get(0).tokens,300);
  const linked={toString:()=>'- DOING 🤖 测试\n'+J.linkLine('  ','codex','测试',sid)};
  assert.equal(lineMap.call(p,'linked.md',linked).sessionByParent.get(0).tokens,300);
+});
+test('an automatic record keeps its conversation link across journal dates and cache rebuilds',()=>{
+ const lineMap=getMethod('lineMap','  jobAtLine');
+ const settings={autoLogState:{'2020_01_01':{[sid]:{blockId:'ad-historic',agent:'codex'}}}};
+ const meta=new Map([[sid,{sid,agent:'codex',state:'wait',turns:4,tokens:310000}]]);
+ const p={settings,jobs:{},_lineMaps:{},usage:{meta,liveSessions:()=>[]}};
+ const doc={toString:()=>'- TOREVIEW 🤖 旧日记录 ^ad-historic'};
+ const read=()=>lineMap.call(p,'old.md',doc).sessionByParent.get(0);
+ assert.equal(read()?.tokens,310000);
+ meta.clear();
+ assert.equal(read()?.sid,sid);
+ assert.equal(read()?.agent,'codex');
+ assert.equal(read()?.tokens,0);
+ assert.equal(buildLineProgressInfo(p,doc.toString(),[doc.toString()],0,read())?.sid,sid,'the fallback still renders a clickable progress row');
 });

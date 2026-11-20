@@ -25,6 +25,26 @@ const sourceMap=new Map([['S1',{kind:'user',text:'以后请用中文回复'}]]);
 assert.throws(()=>parseMemories(mkAnswer('偏好中文','S1','不存在的引语'),sourceMap),/摘录/);
 assert.throws(()=>parseMemories(mkAnswer('偏好中文','S1','以后请用中文回复','preference',['unknown']),sourceMap),/替代/);
 assert.deepEqual(evidenceBlocks('---\nprivate: metadata\n---\n- TODO 真正正文','a.md').map(s=>s.text),['- TODO 真正正文']);
+{
+  const {p,files,path}=fixture();
+  const privatePath='公开目录/私密.md', excludedPath='排除/子目录/不发送.md';
+  p.settings.delegate.excludedDirs=['排除'];
+  p.jobs={ private:{path:privatePath}, excluded:{path:excludedPath} };
+  const publicText='- TODO 用户原话 ^source-block\n  - 💬 AI 结论';
+  files.set(path,publicText);
+  files.set(privatePath,'---\nprivate: true\n---\n- TODO 私密内容');
+  files.set(excludedPath,'- TODO 排除目录内容');
+  const prompts=[];
+  const d=new Dreaming(p,async prompt=>{prompts.push(prompt);return '{"memories":[]}';});
+  const found=await d.collect();
+  assert.deepEqual([...found.values()],evidenceBlocks(publicText,path));
+  assert.equal(p.settings.dream.coverage,null,'collecting evidence alone does not update Dreaming state');
+  await d.run();
+  assert.equal(prompts.length,1);
+  assert.match(prompts[0],/用户原话/);
+  assert.doesNotMatch(prompts[0],/私密\.md|私密内容|不发送\.md|排除目录内容/);
+  assert.equal(p.settings.dream.coverage.files,1);
+}
 // A backlog is drained over multiple runs without re-sending processed blocks.
 {
   const {p,files,path}=fixture();

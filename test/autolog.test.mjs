@@ -5,11 +5,12 @@ export async function resolve(spec, ctx, next) {
   if (spec === "obsidian") return { url: "data:text/javascript,export class Notice{constructor(){}};export class MarkdownView{}", shortCircuit: true };
   return next(spec, ctx);
 }`));
-const { DEFAULTS, deepMerge, dayKeyToday, dayMinute, trackedRounds, startOfDay } = await import("../src/constants.js");
+const { DEFAULTS, deepMerge, dayKeyToday, dayMinute, fmtClock, trackedRounds, startOfDay } = await import("../src/constants.js");
 const { readJournalLayout } = await import("../src/journal-layout.js");
 const { AutoLog } = await import("../src/autolog.js");
 const { resolveCliModel, codexCliArgs } = await import("../src/delegation.js");
 const { JournalSync } = await import("../src/sync.js");
+const J = await import("../src/journal.js");
 
 let fail = 0;
 const check = (name, ok, out) => { console.log((ok ? "PASS " : "FAIL ") + name); if (!ok) { fail++; console.log(out); } };
@@ -53,6 +54,25 @@ function fakePlugin(journal, list, meta = {}, cfg = {}, opts = {}) {
   return p;
 }
 const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m - min, m]]; };
+
+{ // 核心日记设置优先于旧文件名，修改后下一次写入就使用新路径
+  const p = fakePlugin("", []);
+  const dailyNotes = { enabled: true, instance: { options: {} } };
+  const day = "2026_11_21";
+  p.app.internalPlugins = { getPluginById: (id) => id === "daily-notes" ? dailyNotes : null };
+  p.app.plugins.plugins["periodic-notes"] = { settings: { daily: { enabled: true, folder: "周期笔记", format: "YYYYMMDD" } } };
+  p.app.vault.getMarkdownFiles = () => [...p.files.values()];
+  const al = new AutoLog(p);
+  const file = await al.createJournal(day);
+  check("core Daily notes defaults create YYYY-MM-DD in the vault root", file?.path === "2026-11-21.md", file);
+  dailyNotes.instance.options = { folder: "日记", format: "YYYY_MM_DD" };
+  check("changed core settings take effect on the next lookup", al.journalPath(day) === "日记/2026_11_21.md", al.journalPath(day));
+  p.settings.journalFormat = "YYYY/MM/DD";
+  check("manual format still overrides core format and uses the core folder", al.journalPath(day) === "日记/2026/11/21.md", al.journalPath(day));
+  p.settings.journalFormat = "";
+  dailyNotes.enabled = false;
+  check("disabled core Daily notes falls back to Periodic Notes", al.journalPath(day) === "周期笔记/20261121.md", al.journalPath(day));
+}
 
 { // 门槛 ①：新会话活跃时长门槛可调；没勾的 Agent 不记
   const list = [
@@ -131,6 +151,37 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const text = `- DONE 11:00 做事 ^ad-cccccc\n\t- 🔗 Codex：做事 \`${sid}\`\n`;
   const out = al.autoClock(text, "做事", [[60, 120]], "Codex", 0, sid, "ad-cccccc");
   check("completed Codex keeps its session link beside the clock", out.includes("🔗") && out.includes("⏱"), out);
+}
+
+{
+  const sid = "11111111-2222-4333-8444-555555555555";
+  const cfg = { dayCutoff: 0 };
+  const now = Date.now();
+  const startAt = now - 20 * 60000, lastAt = now - 2 * 60000;
+  const start = fmtClock(startAt), observed = fmtClock(lastAt);
+  const current = fmtClock(now);
+  const x = { sid, agent: "codex", segs: [[dayMinute(startAt, cfg), dayMinute(lastAt, cfg)]] };
+  const p = fakePlugin("", [x], { [sid]: { agent: "codex", state: "run", startedAt: startAt, lastAt } }, cfg);
+  const al = new AutoLog(p);
+  const sync = new JournalSync(p);
+  const rec = { key: "沿用原有任务", blockId: "ad-adopted" };
+  const raw = `- DOING ${start} 沿用原有任务 ^ad-adopted`;
+  const linked = raw + "\n" + J.linkLine("  ", "codex", "沿用原有任务", sid);
+  const auto = `- DOING 🤖 ${start}-${observed} 自动记录 ^ad-auto`;
+  const adopted = al.autoLine(raw, rec, x, "doing").text;
+  check("running adopted task gets both timestamps", adopted.startsWith(`- DOING ${start}-${current} 沿用原有任务`), adopted);
+  const fromLink = sync.keywords(linked);
+  check("running linked task uses the same range", fromLink.startsWith(adopted + "\n"), fromLink);
+  const running = al.autoLine(auto, { key: "自动记录", blockId: "ad-auto" }, x, "doing").text;
+  check("running automatic task advances to the refresh time", running.includes(`🤖 ${start}-${current}`), running);
+  p.usage.meta.get(sid).state = "wait";
+  const stopped = sync.keywords(fromLink);
+  check("when the session stops the range ends at the last actual event", stopped.startsWith(`- TOREVIEW ${start}-${observed} 沿用原有任务`), stopped);
+  p.settings.autoLogState = { [p.day]: { [sid]: { key: "🤖 自动记录", blockId: "ad-auto", label: "🤖 自动记录", status: "doing" } } };
+  p.journal = sync.keywords(running);
+  await al.run();
+  check("manual logging preserves a recently stopped record and its observed time range",
+    p.journal.startsWith(`- TOREVIEW 🤖 ${start}-${observed} 自动记录`), p.journal);
 }
 
 
@@ -236,6 +287,14 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const p = fakePlugin("", [], {}, {}, { missingJournal: true });
   const r = await new AutoLog(p).run();
   check("no sessions means no journal is created", p.files.size === 0 && !r.error, [...p.files.keys()]);
+}
+{
+  const sid = "record-kept-after-cutoff-change";
+  const p = fakePlugin("", []);
+  p.settings.autoLogState = { "2026_11_21": { [sid]: { key: "已经写好的记录" } } };
+  const al = new AutoLog(p);
+  check("a cutoff change keeps an existing session on its original note in either direction",
+    al.originDayOf({ sid, agent: "codex" }, "2026_11_20") === "2026_11_21", p.settings.autoLogState);
 }
 { // 强制格式校验：DOING / PAUSED / DONE 均保持「状态 + 🤖 + 开始时间-最后时间 + 总结标题」，并自动浓缩路径/链接前缀
   const fs = await import("node:fs");
@@ -465,15 +524,16 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const condensed = condenseUserPrompt("那个，就是说麻烦你帮我看一下，嗯，为什么 npm run build 会报错，谢谢！");
   check("condenseUserPrompt strips spoken filler while keeping core task", !/那个|就是说|谢谢|麻烦你/.test(condensed) && condensed.includes("npm run build"), condensed);
 
-  const now = Date.now();
-  const yMs = now - 86400e3;
   const cfg = deepMerge(DEFAULTS, { dayCutoff: 0 });
+  const midnight = startOfDay(Date.now(), cfg);
+  const now = midnight + 20 * 60000;
+  const yMs = midnight - 20 * 60000;
   const today = dayKey(now, cfg), yesterday = dayKey(yMs, cfg);
   const files = { [`日记/${today}.md`]: "", [`日记/${yesterday}.md`]: "- DOING 🤖 23:40-23:55 跨夜任务 ^ad-cross\n" };
   const crossSid = "cross-midnight-1", freshSid = "after-midnight-2";
   const meta = new Map([
-    [crossSid, { agent: "codex", startedAt: yMs, lastAt: now, state: "wait", rounds: [{ n: 1, ask: "昨天开始" }, { n: 2, ask: "嗯，那个继续排查构建", said: "已完成跨夜构建验证。" }] }],
-    [freshSid, { agent: "codex", startedAt: now, lastAt: now, state: "run" }],
+    [crossSid, { agent: "codex", startedAt: yMs, lastAt: midnight + 10 * 60000, state: "wait", rounds: [{ n: 1, ask: "昨天开始" }, { n: 2, ask: "嗯，那个继续排查构建", said: "已完成跨夜构建验证。" }] }],
+    [freshSid, { agent: "codex", startedAt: midnight + 15 * 60000, lastAt: now, state: "run" }],
   ]);
   const summaryMap = {
     [yesterday]: { list: [{ sid: crossSid, agent: "codex", min: 15, segs: [[1420, 1435]], title: "跨夜任务" }] },
@@ -498,6 +558,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   };
   cfg.autoLogState = { [yesterday]: { [crossSid]: { key: "🤖 跨夜任务", label: "🤖 跨夜任务", blockId: "ad-cross", status: "doing" } } };
   const al = new AutoLog(p);
+  al.nowMin = () => 20;
   al.ask = async (items) => new Map(items.map(({ x }) => [x.sid, { label: x.title, slug: "new-day", summary: "", matchKey: null, done: false, todos: [], skip: false }]));
   await al.run();
   check("cross-day conversation stays in yesterday's journal and is not duplicated in today's journal",

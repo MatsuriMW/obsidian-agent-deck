@@ -450,7 +450,7 @@ class LineProgressWidget extends WidgetType {
       ev.preventDefault();
       ev.stopPropagation();
       if (jobId && this.plugin.jobs?.[jobId]) this.plugin.openJob(jobId, sid);
-      else if (sid) this.plugin.openSession(el.dataset.agent || "claude", sid);
+      else if (sid) this.plugin.openSessionBySid(sid, el.dataset.agent || "claude");
     });
     el.addEventListener("contextmenu", (ev) => {
       ev.preventDefault();

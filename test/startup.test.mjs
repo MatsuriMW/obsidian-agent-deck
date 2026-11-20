@@ -52,6 +52,72 @@ clearTimeout(q._refreshTimer);
 console.log('PASS startup barrier, unload during restore, shared live snapshot, status invalidation');
 
 {
+ const p = new AgentDeckPlugin();
+ const spiral = { journalDayCutoff: () => 7 };
+ const plugins = { 'nautilus-spiral': spiral };
+ p.app = { plugins: { plugins } };
+ p.settings = { dayCutoff: 0 };
+ p._standaloneDayCutoff = 0;
+ p.syncJournalCutoff();
+ assert.equal(p.settings.dayCutoff, 7, 'the installed Spiral owns the shared cutoff');
+ spiral.journalDayCutoff = () => 0;
+ p.syncJournalCutoff();
+ assert.equal(p.settings.dayCutoff, 0, 'midnight is a valid shared cutoff');
+ spiral.journalDayCutoff = () => 4.5;
+ p.syncJournalCutoff();
+ assert.equal(p.settings.dayCutoff, 4.5, 'changes to the shared cutoff take effect without a restart');
+ delete plugins['nautilus-spiral'];
+ p.syncJournalCutoff();
+ assert.equal(p.settings.dayCutoff, 0, 'standalone mode restores its own cutoff');
+ plugins['nautilus-spiral'] = spiral;
+ p._scannedDayCutoff = 0;
+ const events = [];
+ p.app.workspace = { trigger: event => events.push(event) };
+ p.usage = {
+   files: new Map([['old-bucket', {}]]), meta: new Map(), titles: new Map(), lastScan: Date.now(),
+   async scan({ since }) {
+     assert.equal(since, 0, 'cutoff changes re-read cached logs with the new date');
+     assert.equal(this.files.size, 0, 'the previous cutoff must not survive in parsed file caches');
+     return new Set(['2026_11_20']);
+   },
+   maybeSaveCache() {},
+ };
+ p.store = { merge() {}, prune() {} };
+ p.delegator = { resolveHandoffs() {} };
+ p.journalSync = { run: async () => {} };
+ p.refreshExternalState = async () => false;
+ p.refreshUI = () => {};
+ await p.scanNow(false);
+ assert.deepEqual(events, ['agent-deck:sessions-changed']);
+}
+
+{
+ const p=new AgentDeckPlugin();
+ const notices=[], scans=[], syncs=[], writes=[];
+ p.settings={};
+ p.usage={files:new Map(),meta:new Map(),titles:new Map(),maybeSaveCache(){},async scan({since}){scans.push(since);return new Set(['today']);}};
+ p.store={merge(){},prune(){}};
+ p.delegator={resolveHandoffs(){}};
+ p.journalSync={run:async(options)=>{syncs.push(options);}};
+ p.logNowWithMarkerGuard=async(options)=>{writes.push(options);return {changes:['logged']};};
+ p.refreshExternalState=async()=>false;
+ p.refreshUI=()=>{};
+ p.notice=(message)=>notices.push(message);
+ await Promise.all([p.rescanAndLog(),p.rescanAndLog()]);
+ assert.deepEqual(scans,[0],'manual requests perform one full scan while one is in flight');
+ assert.deepEqual(syncs,[{force:true}],'manual sync bypasses the background throttle');
+ assert.equal(writes.length,1,'manual scan uses the journal command path');
+ assert.ok(notices.some(message=>message.includes('正在扫描')));
+ assert.ok(notices.some(message=>message.includes('整理进日记 1 处')));
+ p.settings.journalAutoWrite=false;
+ await p.rescanAndLog();
+ assert.deepEqual(scans,[0,0]);
+ assert.equal(writes.length,1);
+ assert.equal(syncs.length,1);
+ assert.ok(notices.at(-1).includes('日记写入已关闭'));
+}
+
+{
   const sid='11111111-2222-3333-4444-555555555555';
   const mixed={toString:()=>`    - DOING parent\n\t\t- 🔗 [Codex](codex://threads/${sid})`};
   assert.ok(q.lineMap('mixed.md',mixed).sessionByParent.has(0),'shared ownership parser handles mixed tabs and spaces');

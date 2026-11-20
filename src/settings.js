@@ -1195,7 +1195,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     }
 
     const sourceMore = this.subDetails(sourceCard, "source-more", t("更多设置"));
-    this.rowNumber(sourceMore, t("日记日期分界"), t("此时刻之前计入前一天"), s.dayCutoff, 0, 12, (v) => { s.dayCutoff = v; p.saveSettings(); p.scheduleScan(); });
+    const spiralCutoff = p.spiralJournalCutoff?.();
+    const cutoff = this.rowNumber(sourceMore, t("日记日期分界"),
+      spiralCutoff == null ? t("此时刻之前计入前一天") : t("已跟随螺旋日程，请在螺旋日程中修改"),
+      spiralCutoff ?? s.dayCutoff, 0, 23.99, (v) => p.setStandaloneDayCutoff(v));
+    cutoff.disabled = spiralCutoff != null;
     this.rowNumber(sourceMore, t("扫描间隔（秒）"), "", s.pollSeconds, 5, 300, (v) => { s.pollSeconds = v; p.saveSettings(); p.scheduleScan(); });
     this.rowNumber(sourceMore, t("主力读多少天历史"), t("非主力读取当天会话"), s.fullHistoryDays, 1, 365, (v) => { s.fullHistoryDays = v; p.saveSettings(); p.scanNow(true); });
     this.rowToggle(sourceMore, t("识别 side chat 和母子关系"), t("Claude 桌面版子会话与母子关联"), s.claudeDesktop !== false, (v) => { s.claudeDesktop = v; p.saveSettings(); p.scanNow(true); });
@@ -1706,7 +1710,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.renderAboutDiagram(diagramEl);
     const guide = this.card(body, t("常用操作"));
     const rows = [
-      [t("整理日志"), t("Ctrl+Alt+L，或点击面板顶部的「整理日志」")],
+      [t("整理日志版面"), t("Ctrl+Alt+L，或点击面板的「整理日志版面」")],
       [t("管理侧边栏"), t("点击 Agents 右上角「管理」，拖动调整顺序")],
       [t("查看与扫描"), t("点击会话打开；在 Agent 菜单中扫描")],
       [t("从笔记委派"), t("点击任务行末尾把手，或拖到 Agent 卡片")],

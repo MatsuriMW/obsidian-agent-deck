@@ -10,7 +10,7 @@ import { serializeNote } from "./note-updates.js";
 // 状态记在 settings.autoLogState：{ 日记日: { 会话号: { key, label, status, … } } }。
 
 import { Notice, MarkdownView } from "obsidian";
-import { AGENTS, AGENT_ORDER, dayKey, dayKeyToday, dayMinute, startOfDay, unionSegs, journalPath, resolveRecordRules, formatDate, trackedRounds, seenSessions } from "./constants.js";
+import { AGENTS, AGENT_ORDER, dayKey, dayKeyToday, dayMinute, startOfDay, unionSegs, journalPath, dailyNotesOptions, resolveRecordRules, formatDate, trackedRounds, seenSessions } from "./constants.js";
 import * as J from "./journal.js";
 import { sessionProjectName } from "./readers.js";
 import { runJournalModel, safeLabel } from "./llm.js";
@@ -41,7 +41,7 @@ function expandJournalTemplate(text, { title = "", now = new Date(), dateFormat 
 export class AutoLog {
   constructor(plugin) {
     this.p = plugin;
-    this._busy = false;
+    this._running = null;
     this._born = Date.now();
     this._at = 0;            // 上一次整理的时刻；0 = 启动后还没整理过
     this._err = "";
@@ -98,11 +98,7 @@ export class AutoLog {
 
   async journalTemplate(path) {
     const app = this.p.app;
-    let tplPath = "";
-    try {
-      const dn = app.internalPlugins?.getPluginById?.("daily-notes");
-      if (dn?.enabled) tplPath = String(dn.instance?.options?.template || "").trim();
-    } catch { /* 没有这个接口 */ }
+    const tplPath = String(dailyNotesOptions(app)?.template || "").trim();
     if (!tplPath) return "";
     const file = app.vault.getAbstractFileByPath(tplPath) || app.vault.getAbstractFileByPath(`${tplPath}.md`) || app.metadataCache?.getFirstLinkpathDest?.(tplPath, "");
     if (!file || typeof file.extension !== "string") return "";
@@ -194,77 +190,46 @@ export class AutoLog {
     const sid = (x && x.sid) || "";
     const found = J.findTask(text, rec.key, rec.blockId || "", sid);
     if (found && J.isManualTask(this.cfg, text.split("\n")[found.line])) return { text };
-    const segs = (x && x.segs) || [];
-    const first = segs.length ? segs[0][0] : null;
-    const last = segs.length ? segs[segs.length - 1][1] : first;
-    const meta = (sid && this.usage?.meta?.get(sid)) || {};
-    const roundDoneAt = Array.isArray(meta.rounds) ? meta.rounds.reduce((best, r) => Math.max(best, r?.doneAt || 0), 0) : 0;
-    const endMs = meta.lastAt || roundDoneAt || 0;
-    const metaEndClock = endMs ? J.clock(dayMinute(endMs, this.cfg)) : "";
-    const metaStartClock = !first && meta.startedAt ? J.clock(dayMinute(meta.startedAt, this.cfg)) : "";
     const preferId = (found && found.blockId) || rec.blockId || J.makeBlockId(sid || rec.key, x?.agent || rec.agent, rec.slug);
     const kw = status === "doing" ? "DOING" : status === "done" ? "DONE" : status === "paused" ? "PAUSED" : J.AGENT_KWS.includes(status) ? status : "PAUSED";
-    const startClock = first != null ? J.clock(first) : metaStartClock;
-    const endClock = (status === "done" && metaEndClock) ? metaEndClock : (last != null ? J.clock(last) : (metaEndClock || startClock));
+    const lines = found ? text.split("\n") : [];
+    const raw = found ? lines[found.line] : "";
+    const p = found ? J.splitTask(raw) : null;
+    const rules = this.rules();
+    const meta = (sid && this.usage?.meta?.get(sid)) || {};
+    const { start, end } = J.sessionRecordSpan({
+      segs: x?.segs, meta, saved: p, clockSpan: J.clockSpanFromLines(lines, found?.line ?? -1),
+      kw, idleMinutes: Math.max(5, this.cfg.autoLogIdle || 10),
+      startAt: rec.sinceMs ? 0 : undefined,
+    });
     if (!found) {
       if (!rec.fresh) return { text, gone: true };
       const isAuto = rec.created !== false || String(rec.label || "").startsWith("🤖");
-      const rules = this.rules();
       const rawLine = isAuto
         ? J.formatAutoTaskLine({
             prefix: "- ",
             kw,
-            start: startClock || J.clock(0),
-            end: endClock || startClock || J.clock(0),
+            start,
+            end,
             title: J.formatProjectAutoTitle(rec.label, rec.proj || this.projectOf(x), rules.titleMax),
             blockId: preferId,
             boldTitle: rules.boldTitle,
             showTimeRange: rules.showTimeRange,
           })
-        : status === "doing" ? `- DOING ${startClock || J.clock(0)} ${rec.label}`
-        : status === "done" ? `- DONE ${endClock ? endClock + " " : ""}${rec.label}`
-        : `- ${kw} ${rec.label}`;
+        : J.formatSessionTaskLine({ prefix: "- ", rest: rec.label }, { kw, start, end, showTimeRange: rules.showTimeRange });
       const eb = J.ensureBlockId(rawLine, preferId);
       rec.blockId = eb.blockId;
       rec.label = J.kwLine(eb.line)?.body || rec.label;
       rec.key = J.workKey(rec.label);
       return { text: this.placeBlock(text, [eb.line]) };
     }
-    const lines = text.split("\n");
-    const raw = lines[found.line];
-    const p = J.splitTask(raw);
     if (!p) return { text };
-    const isAuto = Boolean(p.auto);
-    if (isAuto) {
-      const rules = this.rules();
-      const clockSpan = J.clockSpanFromLines(lines, found.line);
-      const start = startClock || p.since || clockSpan?.start || "";
-      const end = endClock || (p.until && p.until !== p.since ? p.until : clockSpan?.end) || p.until || p.since || start;
-      const eb = J.ensureBlockId(J.formatAutoTaskLine({
-        prefix: p.prefix,
-        kw,
-        start,
-        end,
-        title: p.title, preserveTitle: true,
-        showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
-        blockId: preferId,
-      }), preferId);
-      rec.blockId = eb.blockId;
-      rec.label = J.kwLine(eb.line)?.body || rec.label;
-      rec.key = J.workKey(rec.label);
-      if (eb.line === raw) return { text };
-      lines[found.line] = eb.line;
-      return { text: lines.join("\n") };
-    }
-    const cleanRest = J.stripBlockId(p.rest).replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
-    const body = cleanRest;
-    const since = segs.length ? J.clock(first) : (p.since || J.clock(0));
-    const nextRaw = status === "doing" ? `${p.prefix}DOING ${since} ${body}`.trimEnd()
-      : status === "done" ? `${p.prefix}DONE ${endClock ? endClock + " " : ""}${body}`.trimEnd()
-      : `${p.prefix}${kw} ${body}`.trimEnd();
+    const span = { kw, start, end, showTimeRange: rules.showTimeRange };
+    const nextRaw = J.formatSessionTaskLine({ ...p, blockId: preferId }, span);
     const eb = J.ensureBlockId(nextRaw, preferId);
     rec.blockId = eb.blockId;
-    rec.key = J.workKey(body);
+    if (p.auto) rec.label = J.kwLine(eb.line)?.body || rec.label;
+    rec.key = J.workKey(p.auto ? rec.label : p.body);
     if (eb.line === raw) return { text };
     lines[found.line] = eb.line;
     return { text: lines.join("\n") };
@@ -390,7 +355,7 @@ export class AutoLog {
     const sid = x?.sid;
     if (!sid || x?.agent === "grokbot") return today;
     for (const d of Object.keys(this.cfg.autoLogState || {}).sort()) {
-      if (d >= today) continue;
+      if (d === today) continue;
       const rec = this.cfg.autoLogState[d]?.[sid];
       if (rec && !rec.gone && (rec.key || rec.blockId || rec.skip)) return d;
     }
@@ -404,10 +369,20 @@ export class AutoLog {
     return today;
   }
 
-  async run({ dry = false, fallback = false, manual = false } = {}) {
+  async run(options = {}) {
+    if (this._running) {
+      if (!options.manual) return { asked: 0, changes: [], error: "" };
+      await this._running;
+      return this.run(options);
+    }
+    this._running = this.runOnce(options);
+    try { return await this._running; }
+    finally { this._running = null; }
+  }
+
+  async runOnce({ dry = false, fallback = false, manual = false, notify = true } = {}) {
     const report = { asked: 0, changes: [], error: "" };
-    if (this._busy || (this.cfg.journalAutoWrite === false && !manual)) return report;
-    this._busy = true;
+    if (this.cfg.journalAutoWrite === false && !manual) return report;
     try {
       const day = this.dayKey();
       const data = this.usage.summary(day);
@@ -418,13 +393,13 @@ export class AutoLog {
       const todayList = [], crossByOrigin = new Map();
       for (const x of data.list) {
         const origin = this.originDayOf(x, day);
-        if (origin < day) {
+        if (origin !== day) {
           (crossByOrigin.get(origin) || crossByOrigin.set(origin, []).get(origin)).push(x);
         } else {
           todayList.push(x);
         }
       }
-      const res = await this.processDay(day, file, todayList, day, arch, { dry, fallback, manual }, report);
+      const res = await this.processDay(day, file, todayList, day, arch, { dry, fallback, manual, notify }, report);
       if (!res || dry) return report;
       // 跨日延续的会话保留在原起始日日记位置并合并时段与进度
       for (const [originDay, crossList] of crossByOrigin) {
@@ -448,9 +423,10 @@ export class AutoLog {
           if (prev) Object.assign(prev, merged);
           else originList.push(merged);
         }
-        await this.processDay(originDay, originFile, originList, day, arch, { dry, fallback, manual }, report, shiftMin);
+        await this.processDay(originDay, originFile, originList, day, arch, { dry, fallback, manual, notify }, report, shiftMin);
       }
-      await this.archivePast(arch, day);
+      const archived = await this.archivePast(arch, day);
+      if (archived.length) report.updated = true;
       for (const k of Object.keys(this.cfg.autoLogState).sort().slice(0, -14)) delete this.cfg.autoLogState[k];
       await this.p.saveSettings();
       return report;
@@ -458,10 +434,10 @@ export class AutoLog {
       console.error("[agent-deck] 自动记日记失败", e);
       report.error = String(e.message || e);
       return report;
-    } finally { this._busy = false; }
+    }
   }
 
-  async processDay(day, file, list, todayDay, arch, { dry = false, fallback = false, manual = false } = {}, report, shiftMin = 0) {
+  async processDay(day, file, list, todayDay, arch, { dry = false, fallback = false, manual = false, notify = true } = {}, report, shiftMin = 0) {
     let snap = null;
     // Dispatches from ordinary notes write their result into that note; by
     // default do not duplicate the session into the daily journal.
@@ -561,6 +537,7 @@ export class AutoLog {
           const name = J.workKey(rec.label).replace(J.AUTO_MARK, "");
           const grokIdleDone = x.agent === "grokbot" && grokDone > 0 && now - last >= grokDone && !(rec.hold && Date.now() < rec.hold);
           const archDone = this.allArchived(st, x.sid, rec, arch);
+          const meta = this.usage.meta.get(x.sid) || {};
           const blockedKw = this.blockedKeyword(x.sid);
           const doneReview = !active && !blockedKw && Boolean((a && a.done) || rec.doneHint);
           if (!manualState && (archDone || grokIdleDone)) {
@@ -595,7 +572,9 @@ export class AutoLog {
             digest.doing.push(name);
             report.changes.push(t("DOING：{name}", { name: rec.label }));
           } else if (!manualState && active && cur === "doing") {
-            text = this.autoLine(text, rec, x, "doing").text;
+            // 会话回写已确认在等回复时，近期有日志也不把 TOREVIEW 改回 DOING。
+            const status = found.kw === "TOREVIEW" && J.STATE_KW[meta.state] === "TOREVIEW" ? "TOREVIEW" : "doing";
+            text = this.autoLine(text, rec, x, status).text;
             rec.status = "doing";
             delete rec.parkedAt; delete rec.autoPaused; delete rec.autoKw; delete rec.doneHint;
           } else if (!manualState && doneReview && !(rec.hold && Date.now() < rec.hold) && (cur === "doing" || rec.fresh || rec.autoKw === "PAUSED" || rec.autoKw === "TOREVIEW")) {
@@ -620,7 +599,6 @@ export class AutoLog {
             digest.done.push(`${name}（${x.min}m）`);
             if (rec.autoKw !== "TOREVIEW") report.changes.push(t("看着做完了：{name}", { name: rec.label }));
           }
-          const meta = this.usage.meta.get(x.sid) || {};
           const rawRounds = Array.isArray(meta.rounds) ? meta.rounds : [];
           const first = seen[x.sid] == null;
           const rounds = trackedRounds(rawRounds, { first, since: todayStart, max: this.cfg.autoLogFirstRounds })
@@ -678,7 +656,8 @@ export class AutoLog {
           return;
         }
         for (const [k, segs] of merged) work[k] = segs;
-        if (this.cfg.autoLogNotify !== false && day === todayDay) this.digest(digest, idle, file);
+        if (text !== base) report.updated = true;
+        if (notify && this.cfg.autoLogNotify !== false && day === todayDay) this.digest(digest, idle, file);
       });
       return day !== todayDay || report.error !== t("日记正在被改，这一轮没写");
     } catch (e) {
@@ -717,7 +696,7 @@ export class AutoLog {
         if (J.isManualTask(this.cfg, text.split("\n")[found.line])) continue;
         if (found.state === "done") { rec.status = found.state; delete rec.autoPaused; continue; }
         const x = list.find((s) => s.sid === sid && s.segs && s.segs.length) || null;
-        text = this.autoLine(text, rec, x, "done").text;
+        text = this.autoLine(text, rec, x || { sid, agent: rec.agent }, "done").text;
         if (x) text = this.autoClock(text, rec.key, x.segs, agentName(x.agent), (x.out || 0) + (x.fresh || 0), x.sid, rec.blockId || "");
         rec.status = "done"; delete rec.autoPaused;
         out.push(rec.label);
@@ -752,11 +731,12 @@ export class AutoLog {
   }
 
   // 手动整理：一轮最多问 autoLogBatch 个，接着问到问完
-  async logNow() {
+  async logNow({ notify = true } = {}) {
     const changes = [];
-    let error = "";
+    let error = "", updated = false;
     for (let round = 0; round < 5; round++) {
-      const r = await this.run({ fallback: true, manual: true });
+      const r = await this.run({ fallback: true, manual: true, notify });
+      updated ||= Boolean(r.updated);
       changes.push(...r.changes);
       error = r.error || "";
       if (error || r.asked < this.batch) break;
@@ -765,14 +745,14 @@ export class AutoLog {
     const msg = error && !changes.length ? t("没整理成：{error}", { error })
       : changes.length ? t("整理进日记了：") + "\n" + changes.join("\n") + (error ? "\n" + t("（模型没问到，新会话先用它自己的标题记的：{error}）", { error }) : "")
       : t("没有要改的：会话都已经记过了，或者还太短（不到 {min} 分钟）", { min: this.minMinutes });
-    new Notice(msg, 9000);
+    if (notify) new Notice(msg, 9000);
     this.p.refreshUI();
-    return { changes, error };
+    return { changes, error, updated };
   }
 
   // 每分钟看一眼：启动后先等 autoLogStartDelay 分钟整理一次，之后每 autoLogEvery 分钟一次
   tick() {
-    if (!this.cfg.autoLog || this.cfg.journalAutoWrite === false) return;
+    if (!this.cfg.autoLog || this.cfg.journalAutoWrite === false || this.p._manualRescan) return;
     const wait = this._at ? Math.max(5, num(this.cfg.autoLogEvery, 20)) : Math.max(1, num(this.cfg.autoLogStartDelay, 1));
     if (Date.now() - (this._at || this._born) < wait * 60e3) return;
     this._at = Date.now();

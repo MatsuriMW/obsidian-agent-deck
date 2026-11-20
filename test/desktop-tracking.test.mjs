@@ -81,7 +81,7 @@ test('organize journal has the default Ctrl+Alt+L shortcut',()=>{
 test('About lists organize journal before other common operations',()=>{
  const source=fs.readFileSync(new URL('../src/settings.js',import.meta.url),'utf8');
  const guide=source.slice(source.indexOf('const guide = this.card(body, t("常用操作"))'));
- assert.match(guide,/const rows = \[\s*\[t\("整理日志"\)/);
+ assert.match(guide,/const rows = \[\s*\[t\("整理日志版面"\)/);
 });
 
 test('OpenCode legacy desktop schema preserves text, tokens and completion',async()=>{

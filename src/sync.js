@@ -30,7 +30,7 @@ const STATE_KW = J.STATE_KW;
 export class JournalSync {
   constructor(plugin) {
     this.p = plugin;
-    this._busy = false;
+    this._running = null;
     this._at = 0;
     this._refining = new Set();
     this._polishing = new WeakSet();
@@ -57,20 +57,12 @@ export class JournalSync {
     return x ? { segs: x.segs || [], out: x.out || 0, fresh: x.fresh || 0, agent: x.agent } : null;
   }
 
-  sessionTimeSpan(sid, p, lines = [], ownerLine = -1) {
-    const info = sid ? this.segmentsFor(sid) : null;
-    const segs = info && info.segs ? info.segs : [];
-    const segStart = segs.length ? J.clock(segs[0][0]) : "";
-    const segEnd = segs.length ? J.clock(segs[segs.length - 1][1]) : "";
-    const clockSpan = J.clockSpanFromLines(lines, ownerLine);
-    const m = (sid && this.usage?.meta?.get(sid)) || {};
-    const today = dayKeyToday(this.cfg);
-    const firstAt = m.startedAt || m.firstAt || 0;
-    const metaStart = firstAt && dayKey(firstAt, this.cfg) === today ? J.clock(dayMinute(firstAt, this.cfg)) : "";
-    const metaEnd = m.lastAt && dayKey(m.lastAt, this.cfg) === today ? J.clock(dayMinute(m.lastAt, this.cfg)) : "";
-    const start = segStart || clockSpan?.start || p?.since || metaStart || metaEnd || "";
-    const end = segEnd || metaEnd || (p?.until && p?.until !== p?.since ? p.until : clockSpan?.end) || p?.until || p?.since || start || "";
-    return { start, end };
+  sessionTimeSpan(sid, p, lines, ownerLine, kw, segs) {
+    const meta = (sid && this.usage?.meta?.get(sid)) || {};
+    return J.sessionRecordSpan({
+      segs, meta, saved: p, clockSpan: J.clockSpanFromLines(lines, ownerLine),
+      kw, idleMinutes: Math.max(5, this.cfg.autoLogIdle || 10),
+    });
   }
 
   // 开着的笔记里所有带 🔗 或 ^ad- 块 ID 的编辑器
@@ -105,11 +97,22 @@ export class JournalSync {
   }
 
   async run({ force = false } = {}) {
-    if (this._busy || this._stopped) return;
+    if (this._stopped) return;
+    if (this._running) {
+      if (!force) return;
+      await this._running;
+      return this.run({ force });
+    }
     if (!force && Date.now() - this._at < 8000) return;
     this._at = Date.now();
     if (this.cfg.journalSync === false || this.cfg.journalAutoWrite === false) return;
-    this._busy = true;
+    this._running = this.syncNotes();
+    try { return await this._running; }
+    finally { this._running = null; }
+  }
+
+  async syncNotes() {
+    let updated = false;
     try {
       for (const view of this.openViews()) {
         const cm = view.editor.cm;
@@ -123,7 +126,7 @@ export class JournalSync {
         if (this.cfg.kidBlocks !== false) { next = this.spawnAll(next); next = this.subsIntoAll(next); next = this.sides(next); }
         next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
         next = safeTopRule(J.cleanCompletedIdentifiers(next));
-        if (next !== text) this.replace(view, text, next);
+        if (next !== text && this.replace(view, text, next)) updated = true;
       }
       const file = this.todayJournal();
       if (file && !this.isOpen(file)) {
@@ -139,12 +142,15 @@ export class JournalSync {
           next = this.sides(next);
           next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
           next = safeTopRule(J.cleanCompletedIdentifiers(next));
+          if (next !== text) updated = true;
           return next;
         });
       }
     } catch (e) {
       console.error("[agent-deck] 会话回写日记失败", e);
-    } finally { this._busy = false; }
+      return { updated, error: String(e?.message || e) };
+    }
+    return { updated };
   }
 
   // 新轮次可先在后台润色后落笔；不回头替换已经保存的历史记录。
@@ -317,6 +323,11 @@ export class JournalSync {
     // line numbers above stay valid when a row is rewritten.
     let ls = text.split("\n");
     const owner = J.ownersOf(ls);
+    let segsBySid;
+    const spanFor = (sid, p, lines, n, kw) => {
+      segsBySid ||= new Map(this.dayList().map(row => [row.sid, row.segs]));
+      return this.sessionTimeSpan(sid, p, lines, n, kw, segsBySid.get(sid));
+    };
     for (let at = ls.length - 1; at >= 0; at--) {
       const k = J.parseLink(ls[at]);
       if (!k) continue;
@@ -343,35 +354,21 @@ export class JournalSync {
       const want = m ? (m.state === "run" ? (cur.kw === "DELEGATED" ? "DELEGATED" : "DOING") : STATE_KW[m.state]) : null;
       const p = J.splitTask(ls[n]);
       if (!p) continue;
-      if (p.auto && !p.cb) {
-        const { start, end } = this.sessionTimeSpan(k.sid, p, ls, n);
-        const nextKw = want || cur.kw || "DOING";
-        const rules = resolveRecordRules(this.cfg);
-        const nextLine = J.formatAutoTaskLine({
-          prefix: p.prefix,
-          kw: nextKw,
-          start,
-          end,
-          title: p.title, preserveTitle: true,
-          showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
-          blockId: p.blockId,
-        });
-        if (nextLine !== ls[n]) ls[n] = nextLine;
-        continue;
-      }
-      if (!want || want === cur.kw) continue;
-      const nextLine = `${p.prefix}${want} ${p.since ? p.since + " " : ""}${p.rest}`.trimEnd();
+      if (!want && !p.auto) continue;
+      const kw = want || cur.kw || "DOING";
+      const span = spanFor(k.sid, p, ls, n, kw);
+      const nextLine = J.formatSessionTaskLine(p, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
       if (nextLine !== ls[n]) ls[n] = nextLine;
     }
     let out = ls.join("\n");
-    if (this.cfg.autoLogKw !== false) out = this.autoKeywords(out);
+    if (this.cfg.autoLogKw !== false) out = this.autoKeywords(out, spanFor);
     return J.cleanCompletedIdentifiers(out);
   }
 
   // 自动记日记建的条目没有 🔗 行，靠 ^blockId / 名字认：也跟着会话在 DOING 和中间态之间切。
   // 只动 DOING 和 TOREVIEW 这类中间态；PAUSED / DONE 归 AutoLog 管，你改成别的不碰；归档的交给 AutoLog 记 DONE。
   // 同一行挂了几个会话：有一个在跑就是 DOING，否则取第一个停下来的状态
-  autoKeywords(text) {
+  autoKeywords(text, spanFor) {
     const daySt = (this.cfg.autoLogState || {})[dayKeyToday(this.cfg)] || {};
     const linked = J.linkMap(text);
     const want = new Map();   // 行号 → { kw, sid }
@@ -392,26 +389,10 @@ export class JournalSync {
     for (const [n, { kw, sid }] of want) {
       const p = J.splitTask(ls[n]);
       if (!p || p.cb || !p.kw) continue;
-      if (p.auto) {
-        const { start, end } = this.sessionTimeSpan(sid, p, ls, n);
-        const rules = resolveRecordRules(this.cfg);
-        const nextLine = J.formatAutoTaskLine({
-          prefix: p.prefix,
-          kw,
-          start,
-          end,
-          title: p.title, preserveTitle: true,
-          showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
-          blockId: p.blockId,
-        });
-        if (nextLine !== ls[n]) {
-          ls[n] = nextLine;
-          changed = true;
-        }
-        continue;
-      }
-      if (p.kw === kw) continue;
-      ls[n] = `${p.prefix}${kw} ${p.since ? p.since + " " : ""}${p.rest}`.trimEnd();
+      const span = spanFor(sid, p, ls, n, kw);
+      const nextLine = J.formatSessionTaskLine(p, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      if (nextLine === ls[n]) continue;
+      ls[n] = nextLine;
       changed = true;
     }
     return changed ? ls.join("\n") : text;
@@ -426,28 +407,13 @@ export class JournalSync {
     if (n < 0) return text;
     const p = J.splitTask(lines[n]);
     if (!p || J.isManualTask(this.cfg, lines[n])) return text;
-    const meta = this.usage.meta.get(sid) || {};
-    const roundDoneAt = Array.isArray(meta.rounds) ? meta.rounds.reduce((best, r) => Math.max(best, r?.doneAt || 0), 0) : 0;
-    const endMs = meta.lastAt || roundDoneAt || 0;
-    const last = endMs ? dayMinute(endMs, this.cfg) : null;
-    const { start, end } = this.sessionTimeSpan(sid, p, lines, n);
-    const lastClock = last != null ? J.clock(last) : end;
-    if (p.auto && !p.cb) {
-      const rules = resolveRecordRules(this.cfg);
-      lines[n] = J.formatAutoTaskLine({
-        prefix: p.prefix,
-        kw: "DONE",
-        start: start || lastClock,
-        end: lastClock || end || start,
-        title: p.title, preserveTitle: true,
-        showTimeRange: rules.showTimeRange || Boolean(p.since || p.until),
-        blockId: p.blockId,
-      });
-    } else {
-      const body = p.rest.replace(/^\d{1,2}[:：]\d{2}\s*[-–~～到至]\s*\d{1,2}[:：]\d{2}\s*/, "");
-      lines[n] = `${p.prefix}DONE ${lastClock ? lastClock + " " : ""}${body}`.trimEnd();
-    }
     const info = this.segmentsFor(sid);
+    const span = this.sessionTimeSpan(sid, p, lines, n, "DONE", info?.segs);
+    if ((p.auto && !p.cb) || p.until) {
+      lines[n] = J.formatSessionTaskLine(p, { ...span, kw: "DONE", showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+    } else {
+      lines[n] = `${p.prefix}DONE ${span.end ? span.end + " " : ""}${p.rest}`.trimEnd();
+    }
     if (info && info.segs.length) {
       // 先收掉旧的 ⏱
       const base = J.width(lines[n]);

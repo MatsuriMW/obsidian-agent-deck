@@ -5,7 +5,7 @@
 
 export default {
   "设为主力（最多三个）": "Set as primary (up to three)",
-  "按正在做、还要做、已完成整理分区，分割线外的笔记保持原样": "Organize in-progress, to-do, and completed sections, keeping notes outside the dividers unchanged",
+  "按正在做、还要做、已完成重排日记里的已有条目": "Rearrange existing journal entries into in-progress, to-do, and completed sections",
 
   "还没有 Agent 卡片，点「管理」添加。": "No Agent cards yet. Choose Manage to add one.",
   "已置顶": "Pinned",
@@ -25,7 +25,6 @@ export default {
   "Agent 设置": "Agent settings",
   // Dashboard header + search
   "搜会话：标题、项目、第一步…": "Search sessions: title, project, first message…",
-  "重新扫描本机会话": "Rescan local sessions",
   "设置": "Settings",
   "搜索结果": "Search results",
   "{n} 个 · 显示最近 100 个": "{n} sessions · showing the latest 100",
@@ -115,6 +114,7 @@ export default {
     "The journal just changed. The archive copy was saved and the journal left untouched; retrying will not duplicate it.",
 
   // Journal layout buttons
+  "整理日志版面": "Tidy journal layout",
   "整理日志": "Tidy log",
   "已完成的任务放到最上面，一条分割线，再下面是未完成的 AI 日志，最后是你自己写的内容":
     "Finished tasks go on top, then a rule, then the unfinished AI log, then your own notes",
