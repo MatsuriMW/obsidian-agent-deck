@@ -153,9 +153,21 @@ status: stable
 | 1 | **最稳前缀**：全局指令 + 可用工具/MCP 用法 + 技能卡路径 | 固定不变（不插动态问答或时间戳） |
 | 2 | **次稳入口**：本文属性摘要（§4 的 4–6 键）+ 祖先链（母项正文 + 续行，不带兄弟分支） | 属性 300 字；祖先链 ≤ 12 行 |
 | 3 | **引用外置**：`[[双链]]` 摘录（截断时附 `## 标题(L行号)` 目录；正文为空时按 `def` → 正文 → 强/弱反链块退路）+ 邻居清单 + 证据清单 | 反链 ≤ 3 块 × 200 字（>30 条领域词只计数）；邻居 ≤ 8 条 × 60 字；证据 ≤ 5 条 |
-| 4 | **动态末端（带资料隔离）**：资料边界声明 + Dream 记忆 + 当前块原文（去内部标识）+ 最新 `❓/✍️` 问答回灌与变更提醒 | 当前块沿用 6000 字上限；明确标注背景资料非新指令 |
+| 4 | **动态末端（带资料隔离）**：资料边界声明 + Dream 记忆（按任务域分流） + 当前块原文（去内部标识）+ 最新 `❓/✍️` 问答回灌与变更提醒 | 当前块沿用 6000 字上限；明确标注背景资料非新指令 |
 
-裁剪规则：优先裁减第 3 段的证据/邻居描述/反链展开（只留指针），再裁第 2 段属性摘要。**任何一段被裁剪都必须写一行"已省略 N 条，可用 read()/related() 查"**，长笔记截断必附后续章节行号目录——静默丢弃比不注入更糟。
+裁剪规则：优先裁减第 3 段的证据/邻居描述/反链展开（只留指针），再裁第 2 段属性摘要。**任何一段被裁剪都必须写一行"已省略 N 条，可用 read()/related() 查"**，长笔记截断必附后续章节行号目录——静默丢弃比不注入更糟。预算后续从纯 UTF-16 `.length` 过渡到中英加权 token 估算（消除中英文 4–6 倍偏差）；代码仓库内自带的 `AGENTS.md`/`CLAUDE.md` 负责仓内约束，Agent Deck 记忆负责跨仓经验与个人动态事实，两者分工不叠塞。
+
+### 7.1 Dream 记忆按任务域分流规则（M2，零额外模型成本）
+
+不要求用户手动选择任务类型，也不在派发前调用额外模型分类，直接复用 `resolveDispatchFolder` 与 `[[双链]]`/`domain` 结构信号做作用域加权过滤：
+
+| 判定信号 | 工程域 (`lesson`) | 交互风格类 `preference` | 个人经历 `fact` / 规律 `pattern` |
+| --- | --- | --- | --- |
+| **工程域**（命中 `projectFolders` 或 `cwd !== vaultPath`，含工程问答） | **优先注入**（命中当前项目加权，附项目 Quickstart / 症状→修法） | **允许保留**（影响回答风格） | **默认过滤**（防噪音污染） |
+| **个人 / 写作 / 复盘域**（`cwd === vaultPath` 且含个人或概念上下文） | 仅显式命中技术词时带入 | **优先注入** | **优先注入** |
+| **纯通用外部知识问答**（无项目命中且词元未命中记忆） | **0 注入** | **0 注入**（或仅按需保留极简交互偏好） | **0 注入** |
+
+极少数跨界判偏由 `ConfirmSendModal` 折叠预览清单（带类型角标）单条取消勾选兜底。
 
 ## 8. 运行时工具（三个动词 + 一个写回）
 
@@ -253,7 +265,10 @@ Bases 是只读视图，**不能承载写操作**，所以三个动作都必须�
 | `src/harness.js` `resolveDelegationContext` | 注入层由它产出 | 从"内联摘要"改为"入口地图 + 指针"，收口 `enrichPrompt` 按前稳后动拼装 |
 | `src/harness.js` `resolveWikilinkSnippets` | 保留为兜底 | 超限改指针清单；截断附章节行号目录；正文为空按反链位置强弱退路 |
 | `src/outline.js` `ancestorLines` / `extractWikilinkRefs` / `frontmatterEnd` | 零改动复用 | 新增兄弟项、有序序号、裸标题的主题归属 |
-| `src/dream.js` `matchVerbatimQuote` / `activeMemory` / `relatedMemories` | 逐字核验与相关度打分直接借到派发侧 | 记忆注入改按 `verified` 分层 |
+| `src/dream.js` `matchVerbatimQuote` / `activeMemory` / `relatedMemories` | 逐字核验与相关度打分直接借到派发侧 | 记忆注入改按 `verified` 分层与任务域分流；`main.js` `dream-memory` resolver 传入 `{ projectName, isCodeProject }`；显式透出 `dropped`、保留 `state.processed` 历史 key 并界定 `reconcile` 改写不误拒 |
+| `src/memory-store.js` `renderMemoryIndex` & YAML 解析 | 保留全库标题平铺目录能力与 Bases 兼容 | `renderMemoryIndex` 过滤 `private: true` 与非 `有效` 状态并按 `kind`/域轻量分组；M2.1 前与 `scripts/memory-query.mjs` 统一单层/嵌套 YAML 解析契约 |
+| `src/delegation.js` `continueSession` / `handoff` | 复用现有续聊与交接主干 | `continueSession` 与 `handoff` 补齐 `RunTrace`（含非 ACP runner 关键帧）；`handoff` 补走 `resolveDispatchFolder` 获取项目归属 |
+| `src/trace.js` + `scripts/eval-context.mjs` | 保留既有轻量 Trace 与离线评测 | M3 接入轨迹失败样本脱敏回流 Golden 集，作为 Prompt/召回迭代门禁 |
 | `src/readers.js` `USAGE_CACHE_VERSION` | 不涉及 | 不改 |
 | `registerContextResolver` | 个人 schema 走解析器，不进主库 | 不新增硬编码字段 |
 

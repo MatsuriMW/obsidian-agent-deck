@@ -107,9 +107,11 @@
 3. **隐私闸门与 Agent 能力退路（G2 + G1）**：
    - ✅ **已落（2026-11-19 收口）**：新增 `settings.delegate.excludedDirs`（「委派 → 发送规则 → 更多设置 → 不注入目录」）并识别 frontmatter `private: true`，在 `resolveWikilinkSnippets`、`enrichPrompt` 引用路径清单、`pickMemories` 与 `scripts/memory-query.mjs` 中禁止外发（记入 `bundle.stats.omittedPrivate` 并仅输出数量提示，不暴露路径与正文）；
    - ⏳ **待做**：接入 `src/agent-registry.js` 能力声明：对能自主读本地文件的 Agent（Claude Code / Codex / DSH / OpenCode / Qoder）走「精简内联 + 路径指针 + 工具提示」；对只吃文本交接的桌面/剪贴板端自动退回较高上限的完整摘要内联。
-4. **修复两项直接伤上下文的源码问题（检索盲区 + `MAT-479`）**：
+4. **修复两项直接伤上下文的源码问题（检索盲区 + `MAT-479`）、索引泄露过滤与归属/丢弃补盲**：
    - ✅ **已落（2026-11-19 收口）**：`src/memory-query-core.js` 保持中文二元词 `MIN_MEMORY_OVERLAP = 2` 防噪音，同时补充**单英文技术词元（≥4 字符非停用词）与元数据通道（`tags` / `domain` / `type` / 同源 `sources`）**，解决 `esbuild` / `Windows` 等单词在 `pickMemories` 零召回的问题；
-   - **清掉上游双链/块号污染（源自 `MAT-479`）**：统一 `💬` 写入器的转义规则（关闭同步时不留裸 `#词` / `[[…]]` 生成假标签和假双链），并统一 `🔗` 行与任务块的缩进解析，确保抽取到的上下文块不串行。
+   - **清掉上游双链/块号污染（源自 `MAT-479`）**：统一 `💬` 写入器的转义规则（关闭同步时不留裸 `#词` / `[[…]]` 生成假标签和假双链），并统一 `🔗` 行与任务块的缩进解析，确保抽取到的上下文块不串行；
+   - ⏳ **待补 `renderMemoryIndex` 过滤与分组（`src/memory-store.js`）**：目前 `索引.md` 将全部条目按日期平铺且未过滤 `private: true`、`已拒绝` 与 `已被替代`；改为只列 `state === "有效"` 且非私密条目，并按 `kind` / 域轻量分组，为 M1.3 入口导航做准备；
+   - ⏳ **待补 `handoff` 项目归属与 `Dreaming` `dropped` 透出**：`Delegator.handoff`（`src/delegation.js`）当前写死 `cwd: this.vaultPath`，需补走 `resolveDispatchFolder` 以获取桌面交接任务的项目归属；`Dreaming.run()`（`src/dream.js`）需显式记录/透出 `dropped` 丢弃计数与原因，不再静默丢弃核验失败的候选条目。
 5. **无 UI 上下文账本（G5 + `MAT-631` 轻量部分）**：
    - ✅ **半落（2026-11-19）**：`Delegator.delegate` 已自动将 `bundle.stats`（`linkCount` / `inlinedLinks` / `omittedLinks` / `notePathCount` / `warningCount` / `hasSkill` / `hasReply` / `injectedChars`）写入 `job.contextStats`；⏳ 待补 `memoryIds` 写入载荷头与 ACPRunner `job.contextUsed / job.contextSize` 侧栏卡片渲染。
 
@@ -142,7 +144,7 @@
    - 以 `father` 作为唯一声明源，`sons` 仅作只读推导（按 2026-11-18 全库扫描数据：`father` 21 篇、`sons` 43 篇、`0` 互反）；
    - 从当前任务双链与所属项目节点出发，按「**显式结构边（`father`/`domain`）> 共享 `sources` > 共同邻居 > `usage_count`**」给出最多 8 条一跳邻居提示，每条带人话 `why`，**不输出分数**。
 4. **派发前「上下文预览与剔除」+ 项目级入口上下文（收编 `MAT-628` 高价值切片）**：
-   - 在现有 `ConfirmSendModal` 内新增**默认折叠的轻量明细**（`本次携带上下文：N 条记忆 · M 篇笔记 · K 项警告`，不做独立重型弹窗），展开后可单条取消勾选本次不想发给模型的记忆或关联笔记；
+   - 在现有 `ConfirmSendModal` 内新增**默认折叠的轻量明细**（`本次携带上下文：N 条记忆 · M 篇笔记 · K 项警告`，不做独立重型弹窗），展开后每条记忆标明类型角标（`[项目经验]` / `[偏好]` / `[事实]` / `[待验证]`），支持单条取消勾选本次不想发给模型的记忆或关联笔记，作为分流判定后的零摩擦人工兜底；
    - 当任务通过 `projectFolders` 命中已登记项目且库内存在对应项目主页/规则笔记（如 `[[项目名]]`）时，允许把该主页的 `def` 与核心摘要并入预览清单。
 5. **派发前「未链接提及」提示（写时消歧，并入第 4 项的预览区，不新开界面）**：
    - **为什么**：双链的价值是让用户在写的那一刻点名实体（`[[Agent Deck]]` 就是库里那个 Agent Deck，不让模型猜）；但用户常常忘了加 `[[]]`。把 Obsidian 自带的「未链接提及」逻辑挪到派发确认框，用户点一下就完成消歧——比 M1.3 让 `vault_find` 事后按词去搜更准，因为最清楚指的是哪个的只有用户自己。
@@ -173,8 +175,10 @@
      - `vault_related(ref, k=8)`：返回结构邻居 + 同源记忆，每条必带 `why` 与信任/新鲜度标记；
      - `vault_find(query, k=8)`：按标题、`aliases`、`def`、`domain`、`tags` 做轻量精确/词法查找（**不上向量 RAG**），解决“任务没写 `[[双链]]` 时如何从 5486 篇里找入口”的问题。
    - **跨平台路径与一键接入体验**：全链路使用 `path.join` 与跨平台路径引用（避免硬编码 `/` 坑到 Windows）；设置页提供“复制 MCP 配置 / 检测安装路径”，不再靠用户手抄脚本命令。
-3. **入口地图预算裁剪与真机呼出率验证（D2）**：
-   - 派发 prompt 固定为 6 段（块原文 → 祖先链 → 本文属性摘要 → 邻居指针 → 工具/用法提示；M2 再接入证据段），单次初始注入体积控制目标 `≤ 800–1200 字`（不含任务块自身手写长代码），超限从外围字段开始裁并必写省略声明。
+3. **入口地图预算裁剪、中英预算校准、仓库规则分工与真机呼出率验证（D2 + 索引导航）**：
+   - 派发 prompt 固定为 6 段（块原文 → 祖先链 → 本文属性摘要 → 邻居指针 → 工具/用法提示；M2 再接入证据段），单次初始注入体积控制目标 `≤ 800–1200 字`（不含任务块自身手写长代码），超限从外围字段开始裁并必写省略声明；逐步把纯 UTF-16 `.length` 裁剪过渡为轻量中英加权 token 估算，消除中英文 4–6 倍体积偏差；
+   - **仓库 `AGENTS.md`/`CLAUDE.md` 与 Agent Deck 记忆分工**：在代码项目内明确仓库规则文件负责仓内代码硬约束，Agent Deck 记忆负责跨仓经验与动态个人事实，不在派发正文里重复叠塞；
+   - **入口导航增强**：`memoryToolHint()` 与 MCP 入口提示不止输出一句 `search "关键词"` 命令，而是结合过滤分组后的 `索引.md` 摘要线索或项目级 Quickstart 入口指针，让 Agent 在进门时先知道库内有什么可查，支撑「指针/工具生效率 ≥ 40%」验收。
 
 **M1.3 验收标准**：
 - 纯 Node 环境（零 Obsidian 模拟对象）跑通 `src/context-core` 与 MCP 工具单测；
@@ -187,9 +191,14 @@
 
 > **前置条件**：M1 验收通过、真实库日常稳定使用。核心回答：**供给给 AI 的材料是不是过时、孤立或自相矛盾？**
 
-1. **M2.1 记忆四维正交字段升级与容量归档（D4 深化 + 契约 §10.1 + G7）**：
+1. **M2.1 记忆四维正交字段升级、任务域分流与容量归档（D4 深化 + 契约 §10.1 + G7）**：
    - 把当前单字段 `状态`（`有效`/`已拒绝`/`已被替代`）拆为四个正交维度：`status`（`active`/`deprecated`）、`verified[]`（无 / 非 `human:` / 含 `human:`，对应 unverified / machine-confirmed / human-reviewed）、`supersedes`/`superseded_by`、`verdict`（`pending`/`confirmed`/`refuted`）；
    - 四类记忆按各自生命周期流转：事实可被确认或证伪；偏好用 `valid_from` / `valid_until` 封口而非伪装成“错误被替代”；待验证规律走 `verdict`；项目经验带 `applies_to`；
+   - **零成本任务域分流（LOAD 侧差异化注入）**：直接复用 `resolveDispatchFolder`（`cwd !== vaultPath` 或命中 `projectFolders`）与 `[[双链]]`/`domain` 结构信号（不调额外 LLM 猜意图、不要求人手动分类），在 `src/main.js` `dream-memory` resolver → `Dreaming.contextSection` → `pickMemoriesFromEntries` 传入 `{ projectName, isCodeProject }`：
+     - **工程/代码域任务**（含工程问答）：优先注入并加权当前项目 `lesson`（症状→修法 / 失败红线 / 项目 Quickstart），保留跨任务交互风格类 `preference`，默认过滤个人经历 `fact` 与私人 `pattern`；
+     - **个人/写作/复盘/规划域任务**（`cwd === vaultPath` 且含个人/概念双链或词元）：优先召回个人 `fact / preference / pattern` 与概念双链，不带无关工程 `lesson`；
+     - **纯通用外部知识问答**（无项目且无词元命中）：保持 **0 注入**，不硬塞记忆；
+   - **YAML 契约与 `reconcile` 改写边界**：动工前先拍板 `sources`/`verified`/`generated` 嵌套格式与 Obsidian Bases 扁平属性的兼容方案，同步约束 `src/memory-store.js` 与 `scripts/memory-query.mjs` 使用同一解析契约；同时修复 `Dreaming` `state.processed` 不随 14 天扫描窗口丢弃历史 key，并界定用户手改措辞（基于稳定 `id`）不误入 `state.rejected`；
    - 增加超期或 `deprecated` 记忆归档机制（G7），防止记忆池无限膨胀逼近 `activeMemory` 6000 字上限；**迁移前必须强制备份 `data.json` 与 `Agent Deck/记忆/`**（见 §8 回滚规范）。
 2. **M2.2 全库结构体检、缺口扫描与冲突检测（D8 缺口 + B2/B3/B5/B7/B8/B11）**：
    - **断链与待写概念扫描（零依赖快赢）**：扫全库 `father` 与 `domain` 指向不存在的笔记（2026-11-18 实测合计 34 条待写概念），出清单但不阻塞派发；
@@ -206,10 +215,11 @@
 
 > **前置条件**：M2 可信度机制验证有效。核心实现“用过一次的上下文，下次更好用且能安全跨端/跨工具共享”。
 
-1. **M3.1 上下文使用留痕与回写复利（D7 + B9）**：
+1. **M3.1 上下文使用留痕、高信噪比回写与离线轨迹门禁（D7 + B9 + 自改进闭环）**：
    - job 与目录级 `log.md`（date-grouped `Creation` / `Update` / `Deprecation`，不依赖 git diff）记录本次派发与 MCP 实际读取了哪些文件、哪些记忆；
    - 结论块可选挂机读溯源注释 `<!-- ad-attest: {...} -->`（**未通过 `stripInternalIdentifiers` 剥除单测前不得合入**）；
-   - Dreaming 优先从“已核验结论 + 实际读取范围 + 派发草稿/载荷中人改过的差异”提炼新记忆；接入 B9 注入审计（统计哪些记忆频繁命中且真被引用）。
+   - Dreaming 优先从“已核验结论 + 实际读取范围 + 派发草稿/载荷中人改过的差异 + 报错纠偏后通过的闭环”提炼新记忆；工程类 `lesson` 引导收敛为「触发条件/症状 → 规则/修法」紧凑句式（保留 `matchVerbatimQuote` 逐字核验）；接入 B9 注入审计（统计哪些记忆频繁命中且真被引用）；
+   - **离线轨迹诊断与 Eval 门禁（借鉴 *Self-Improving Memory* Stage 1）**：补齐 `continueSession`、`handoff` 与 `Dreaming.run()` 接入 `RunTrace`（含 `ClaudeRunner` / `QoderRunner` 关键事件帧与 `dropped` 计数），定期基于 `RunTrace` + 会话日志 + 审阅拒绝记录抓取「重复探索同一项目 / 跨会话重复报错 / 注入未用或拒绝复发」样本，脱敏沉淀进 `scripts/eval-context.mjs` Golden 集并保留基线快照；**严禁无评测自动改写 Dreaming Prompt 或召回权重**，任何策略迭代须经 `npm run eval` 实测指标上升才合入。
 2. **M3.2 Dream 记忆按条共享发布层（[`dream-shared-memory.md`](dream-shared-memory.md) + G8）**：
    - 私有记忆增加 `scope: private|shared`（默认严格私有，旧文件不迁移）与 `audience: []`（发布筛选，文档明示不是访问控制）；
    - 实现 `发布预览` → 幂等复制到 `Agent Deck/共享记忆/`（不软链，防 iCloud/git 断链）→ `_published.md` hash 与按 id 差集删除（可证明撤销）→ 一键撤销共享；
@@ -320,8 +330,8 @@
 
 | 支柱 | 当前落地机制 | 核心守门边界 | 后续 M1.3 / M2 演进位 |
 | --- | --- | --- | --- |
-| **Eval（评测）** | `scripts/eval-context.mjs` + `test/context-eval.test.mjs`（`npm run eval`） | 记忆召回率 `≥ 0.9`、精确率 `≥ 0.8`、隐私 0 泄露、0 静默丢失、KV-Cache 前缀字节 0 漂移 | 随 M1.2 反链块信号与 M1.3 `vault_find` 扩充脱敏 Golden 样本集；为 `llm.js` / `dream.js` 增加结构化输出回归样本 |
-| **Trace（可观测）** | `src/trace.js`（`RunTrace` + 30 条协议帧环形缓冲 + `~/.agent-deck/traces/*.jsonl`）与 `export-diagnostics` 命令 | 单次派发生成 `traceId` 串联 `context.resolve` / `payload.snapshot` / ACP 权限决策 / 错误分类（`classifyError`），日志自动脱敏且失败不阻断主流程 | M1.3 接入 MCP/指针实际读取追踪，反哺「指针生效率 ≥ 40%」判据 |
+| **Eval（评测）** | `scripts/eval-context.mjs` + `test/context-eval.test.mjs`（`npm run eval`） | 记忆召回率 `≥ 0.9`、精确率 `≥ 0.8`、隐私 0 泄露、0 静默丢失、KV-Cache 前缀字节 0 漂移 | 随 M1.2 反链块信号与 M1.3 `vault_find` 扩充脱敏 Golden 样本集；M2 补入任务域分流样例；M3 接入 `RunTrace` 失败轨迹回流与基线版本对比，作为 Prompt/召回改动的硬门禁 |
+| **Trace（可观测）** | `src/trace.js`（`RunTrace` + 30 条协议帧环形缓冲 + `~/.agent-deck/traces/*.jsonl`）与 `export-diagnostics` 命令 | 单次派发生成 `traceId` 串联 `context.resolve` / `payload.snapshot` / ACP 权限决策 / 错误分类（`classifyError`），日志自动脱敏且失败不阻断主流程 | M1.3 接入 MCP/指针实际读取追踪，反哺「指针生效率 ≥ 40%」判据；M3 补齐 `continueSession` / `handoff` / `Dreaming` 接入 `RunTrace` 与非 ACP 工具帧，支撑离线诊断 |
 | **Deploy（部署）** | `.github/workflows/ci.yml`（`ubuntu`/`macos`/`windows` 三端矩阵 + `swiftc -typecheck`）与 `scripts/check-deploy.mjs`（`npm run check:deploy`） | 版本号三处对齐、`main.js ≤ 3.5MB` / `styles.css ≤ 512KB` 体积预算、`MEMORY_QUERY_ASSET_VERSION` 与库内 `memory-query.mjs` 一致性校验 | M2.1 记忆四维迁移前强制自动备份至 `.agent-deck/backups/`；Windows 实机真库验收 |
 | **Security（安全）** | `src/security.js` + `src/llm.js` + `src/delegation.js` + `src/delegation-runners.js` + `src/main.js` | API Key 支持 `env:VAR` / `secret:key`（`~/.agent-deck/secrets.json` `0600`）避免明文进同步盘；`evaluatePermissionPolicy` 在 `autoApprove=true` 时仍对高危 shell、敏感路径（`.ssh`/`.aws`/`.env`）与越界写删强制升阶确认；`appleScriptString` 与独立 Warp YAML 名防注入与覆盖竞争 | M1.3 stdio Context MCP 对所有输入路径做 `realpath` 防穿越校验，统一过 `private: true` 与 `excludedDirs` 闸门 |
 
@@ -335,6 +345,7 @@
 | 4 | `def` → `description` 单向映射还是双向同步（1336 篇已用 `def`） | M1.2 | 单向只读映射，不要求改库里既有 `def` | M1.2 开工前 |
 | 5 | `dream-shared-memory.md` 的 `audience` 是发布筛选还是运行时过滤、`共享记忆/` 是否进 git | M3.2 | 发布筛选（简明可证），共享目录默认不自动推公开仓库 | M3.2 开工前 |
 | 6 | 未链接提及的中文最短匹配长度（2 字会命中「排版」「风控」这类常用词概念页，误报可能偏多） | M1.2 | 先用 2 字 + 默认不勾选 + 每次最多 5 条，真库试用 2 周后看误报再调 | M1.2 开工前 |
+| 7 | M2.1 `verified[]`/`sources[]`/`generated` 嵌套 YAML 与当前单层正则解析器（`memory-store.js` / `memory-query.mjs`）及 Bases 的兼容方案 | M2.1 | 尽量保持 Bases 友好的扁平字段 + 紧凑字符串编码；若启用嵌套对象，必须同步升级 `memory-store.js` 与 `memory-query.mjs` 解析器 | M2.1 开工前 |
 
 ---
 
@@ -360,3 +371,11 @@
   3. **收紧 M1.3 止损门限与接入摩擦**：如果只写 MCP Server 而不提供“一键配置/状态探测”，用户根本不配 MCP 就会误判方向失效；同时将“指针/工具调用率 < 20% 退回结构化内联”设为硬止损，避免在 Agent 不配合的情况下死磕工具协议。
   4. **把 D10 全库画像、新看板/工作台拓展、Dream 共享发布层全部明确标为 M1 期间冻结项**，确保每一天工时都集中打穿“高质量上下文提取与提供”这一个靶心。
   5. **补入既有能力的纵深并行轨道（轨道 A）**：把 Hermes Agent、千问、Kimi Code、ZCode、MiniMax Code（客户端 + CLI）、Claude 客户端直接委派与更多终端支持单独成轨，既不打断 M1 主焦，又明确它们可零改造复用 M1.3 的 stdio Context MCP。
+
+### v4 → v4.1（2026-11-19，对齐 Self-Improving Memory 启发与任务域分流）
+- **保留与拒绝**：明确不采用 Stage 2 模型权重/LoRA 微调（维持外部供给层定位），重点吸收 Stage 1「差异化记忆策略 + 入口索引导航 + 轨迹诊断 + Eval 硬门禁」：
+  1. **M1.1 补缺**：发现 `renderMemoryIndex()`（`src/memory-store.js`）未过滤 `private: true` 与非 `有效` 条目且无分组，纳入 M1.1 收口修复；
+  2. **M1.2 / M1.3 联动**：`ConfirmSendModal` 预览列表标出记忆类型角标（`[项目经验]`/`[偏好]`/`[事实]`/`[待验证]`）；`memoryToolHint()` 与 MCP 入口提示带出分组后的 `索引.md` 导航或项目 Quickstart 指针；
+  3. **M2.1 任务域分流**：复用 `resolveDispatchFolder`（`cwd !== vaultPath` / `projectFolders`）与 `[[双链]]`/`domain` 零成本自动分辨工程域、个人/写作域与纯通用问答，实现 `lesson` 与个人 `fact/preference/pattern` 的池子分权（保留跨任务交互偏好、通用问答保持 0 注入）；
+  4. **M3.1 轨迹诊断与 Eval 门禁**：打通 `RunTrace` → 脱敏 Golden 集 → `npm run eval` 门禁，禁止无评测自动改写 Dreaming Prompt 或召回权重；
+  5. **源码核查工程债务补录**：将 `handoff` 项目归属、`Dreaming` `dropped` 计数透出与 `state.processed` 保留、`continueSession` 与非 ACP runner 接入 `RunTrace`、M2.1 YAML 单层/嵌套解析契约同步、以及中英混排加权预算与仓库 `AGENTS.md` 分工纳入对应 Milestone 与 §8.3 未决清单。

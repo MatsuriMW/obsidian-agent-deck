@@ -13,7 +13,7 @@ import { notePath } from "./dream-entries.js";
 import { companionInstalled, dreamModelConfig } from "./dream.js";
 import { externalMemoryPath } from "./dream-sharing.js";
 import { agentIcon, setLucide } from "./icons.js";
-import { t, currentLanguage } from "./i18n.js";
+import { t, currentLanguage, listCustomLocales } from "./i18n.js";
 import { syncModelGroups } from "./model-groups.js";
 import { ManagedTimers } from "./runtime-guard.js";
 import { delegateAgents, cliHandoffAgents } from "./agent-registry.js";
@@ -611,6 +611,19 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         pathHint: t("留空自动查找 hermes-acp（或填 hermes）"),
         refreshLabel: t("读取 Hermes 可用模型"),
         checkLabel: t("检查 hermes-acp"),
+      });
+    }
+
+    if (p.agentEnabled("minimax")) {
+      this.renderAcpCard(body, (d.minimax ||= { ...DEFAULTS.delegate.minimax }), {
+        id: "minimax",
+        title: "MiniMax Code",
+        sub: t("追踪桌面版与 CLI 会话；装有 mcode CLI 时支持 mcode acp 后台委派与终端续聊"),
+        moreKey: "minimax-more",
+        defaultEffort: "medium",
+        pathHint: t("留空自动查找 mcode（~/.minimax-code/bin/mcode 或 PATH）"),
+        refreshLabel: t("读取 MiniMax 可用模型"),
+        checkLabel: t("检查 mcode"),
       });
     }
 
@@ -1701,6 +1714,45 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       agentIcon(agent.createSpan({ cls: "ad-glyph" }), id);
       agent.createSpan({ text: AGENTS[id].name });
     }
+    const langCard = this.card(
+      body,
+      t("界面语言"),
+      t("选择插件界面语言并持久保存在设置中，更新插件不会重置。也可以把翻译好的 JSON 语言包放到 Vault 的 Agent Deck/locales/ 目录（如 zh-TW.json、ja.json）。"),
+    );
+    const customPacks = listCustomLocales().filter((pack) => pack.id !== "zh-TW");
+    const langChoices = [
+      { id: "auto", label: t("跟随 Obsidian") },
+      { id: "zh", label: "简体中文" },
+      { id: "zh-TW", label: "繁體中文" },
+      { id: "en", label: "English" },
+      ...customPacks.map((pack) => ({
+        id: pack.id,
+        label: pack.name === pack.id ? pack.id : `${pack.name} (${pack.id})`,
+      })),
+    ];
+    const selectedLang = p.settings.uiLanguage || "auto";
+    if (!langChoices.some((item) => item.id === selectedLang)) {
+      langChoices.push({ id: selectedLang, label: t("{id}（未找到语言包）", { id: selectedLang }) });
+    }
+    this.rowSelect(
+      langCard,
+      t("当前界面语言"),
+      customPacks.length
+        ? t("已载入 {count} 个自定义语言包", { count: customPacks.length })
+        : t("需要繁體中文、日文等其他语系？先导出模板，交给 AI 翻译后放到 Agent Deck/locales/ 即可。"),
+      langChoices,
+      selectedLang,
+      (val) => { p.setUiLanguage(val); },
+    );
+    const langBtns = langCard.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(langBtns, t("导出语言模板"), () => p.exportLocaleTemplateFile());
+    this.bigButton(langBtns, t("重新扫描语言包"), () => {
+      const packs = p.reloadLocales();
+      this.display();
+      new Notice(packs.length
+        ? t("已扫描到 {count} 个自定义语言包", { count: packs.length })
+        : t("暂未发现自定义语言包（目录：Agent Deck/locales/）"));
+    });
     const flowCard = this.card(
       body,
       t("核心结构与信息流转"),

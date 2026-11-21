@@ -1,12 +1,12 @@
 # 界面语言 / UI language
 
-插件跟随 Obsidian 自己的界面语言自动切换，不需要单独设置。
+默认跟随 Obsidian 自己的界面语言自动切换，也可在「设置 → 关于 → 界面语言」里手动指定并持久化到 `data.json`（`settings.uiLanguage`），更新插件不会重置。
 
-## 判定
+## 判定与自定义语言包
 
-Obsidian 把界面语言存在 `localStorage` 的 `language` 里（`zh`、`zh-TW`、`en`…）。
-`src/i18n.js` 的 `detectLanguage()` 只区分两种结果：`zh*` → 中文，其余一律英文。
-没取到值时退回 `navigator.language`，再退回英文。
+- **内置语系**：`auto`（跟随 Obsidian `localStorage["language"]`）、`zh`（简体中文）、`zh-TW`（繁體中文，内置表 `src/locales/zh-TW.js`）、`en`（English）。`auto` 模式下 `zh-TW`/`zh-HK`/`zh-MO`/`zh-Hant` 自动识别为 `zh-TW`，其余精确命中已加载的自定义语言包则选中，否则 `zh*` → `zh`，其余 → `en`。
+- **自定义语言包（升级不覆盖）**：插件启动及点击「重新扫描语言包」时会扫描 Vault 内 `Agent Deck/locales/*.json`（优先）与插件目录 `.obsidian/plugins/agent-deck/locales/*.json`（忽略 `template.json`）。格式为扁平 `{ "中文原文": "译文" }`，可选 `"_meta": { "name": "日本語" }`。放入 `zh-TW.json` 也可局部覆盖内置繁體中文词条。可在「设置 → 关于 → 界面语言」一键导出 `Agent Deck/locales/template.json` 交给 AI 翻译。
+- **回退策略**：`zh-TW` 优先查用户自定义 `zh-TW` 覆盖包，再查内置 `src/locales/zh-TW.js`，最后回退中文原文；其他自定义语言包缺少某条词条时，`zh*` 回退简体中文原文，其余语系先回退英文再回退中文原文。
 
 ## 写法
 

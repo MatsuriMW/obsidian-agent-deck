@@ -82,6 +82,11 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
     .flatMap((d) => [path.join(norm(d, homeDir), "projects"), norm(d, homeDir)]);
   const codexHome = env.CODEX_HOME ? norm(env.CODEX_HOME, homeDir) : path.join(homeDir, ".codex");
   const hermesHome = env.HERMES_HOME ? norm(env.HERMES_HOME, homeDir) : path.join(homeDir, ".hermes");
+  const minimaxHome = env.MINIMAX_DATA_DIR
+    ? norm(env.MINIMAX_DATA_DIR, homeDir)
+    : env.MAVIS_DATA_DIR
+      ? norm(env.MAVIS_DATA_DIR, homeDir)
+      : path.join(homeDir, ".minimax");
   const qwenHome = env.QWENWORK_HOME ? norm(env.QWENWORK_HOME, homeDir) : path.join(homeDir, ".qwenworkcn");
   const win = platform === "win32";
 
@@ -183,6 +188,19 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
       ],
       apps: [],
       dataPaths: [hermesHome],
+    },
+    minimax: {
+      binNames: ["mcode"],
+      binPaths: [
+        path.join(homeDir, ".minimax-code", "bin", "mcode"),
+        path.join(homeDir, ".local", "bin", "mcode"),
+        path.join(homeDir, ".npm-global", "bin", "mcode"),
+        path.join(homeDir, ".bun", "bin", "mcode"),
+      ],
+      apps: win
+        ? ["MiniMax Code/MiniMax Code.exe", "MiniMax/MiniMax Code.exe"]
+        : ["MiniMax Code.app"],
+      dataPaths: [minimaxHome, path.join(homeDir, ".mavis")],
     },
     qwenwork: {
       binNames: [],

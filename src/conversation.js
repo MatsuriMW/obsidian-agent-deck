@@ -55,7 +55,7 @@ export async function readConversation(plugin, session, cache = new Map()) {
   const files = [...(plugin.usage.files?.values() || [])].filter((f) => f.sid === sid && f.agent === session.agent && !f.sub);
   const messages = [];
   for (const file of files) {
-    if (["opencode", "qoder", "hermes", "qwenwork"].includes(session.agent) && file.path.includes("#")) {
+    if (["opencode", "qoder", "hermes", "qwenwork", "minimax"].includes(session.agent) && file.path.includes("#")) {
       const db = file.path.slice(0, file.path.lastIndexOf("#"));
       const rows = await desktopMessages(db, session.agent, sid);
       messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));

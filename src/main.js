@@ -7,8 +7,8 @@ import { settingsAgentOrder, recommendPrimaryAgents } from "./settings-agents.js
 
 import fs from "fs";
 import { archiveCompletedTo } from "./journal-archive.js";
-import { planJournal, renderJournal, ACTIVE_HEADING, LEGACY_HEADINGS } from "./organize-journal.js";
-import { readJournalLayout, configuredJournalLayout, repairJournalLayout, stripJournalLayout } from "./journal-layout.js";
+import { planJournal, renderJournal, ACTIVE_HEADING, LEGACY_HEADINGS, hasBoundedJournalFrame } from "./organize-journal.js";
+import { readJournalLayout, configuredJournalLayout, repairJournalLayout, stripJournalLayout, JOURNAL_LAYOUT_INCOMPLETE, isJournalLayoutIncompleteError } from "./journal-layout.js";
 import { JournalOrganizer } from "./journal-organizer.js";
 import { semanticTaskId } from "./task-id.js";
 import { AttentionTracker } from "./attention.js";
@@ -71,7 +71,7 @@ import { registerContextResolver } from "./harness.js";
 import { detectInstalledHarnesses, applyHarnessDetection, pickDefaultDelegateTarget } from "./harness-detect.js";
 import { ConversationModal, AcpPermissionModal } from "./conversation-modal.js";
 import { registerTaskAgentSuggest } from "./mention-suggest.js";
-import { t, currentLanguage } from "./i18n.js";
+import { t, currentLanguage, setLanguage, registerCustomLocales, listCustomLocales, exportLocaleTemplate } from "./i18n.js";
 import {
   registerTaskStatusMenu, selectedTaskLines, selectionLineRanges, openBatchStatusMenu, populateBatchStatusMenu,
   itemLineFor, parentItem, contentSpan, groupRowsEdit,
@@ -177,6 +177,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.manifestDir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
     this.pluginDir = path.join(this.vaultPath, this.manifestDir);
     this.usageFile = path.join(this.pluginDir, "usage.json");
+    this.reloadLocales();
 
     this.store = new UsageStore(this, this.settings);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
@@ -374,7 +375,11 @@ export default class AgentDeckPlugin extends Plugin {
         id: "open-menubar-panel",
         name: t("打开 macOS 菜单栏面板"),
         callback: async () => {
-          if (this.settings.showMenuBar === false) return this.notice(t("macOS 菜单栏已关闭，请先在「记录」里打开"));
+          if (this.settings.showMenuBar === false) {
+            this.settings.showMenuBar = true;
+            await this.saveSettings();
+            this.settingTab?.mbSwitch?.setOn(true);
+          }
           await this.menubar.start();
           const started = Date.now();
           const wait = setInterval(() => {
@@ -1024,6 +1029,79 @@ export default class AgentDeckPlugin extends Plugin {
       this.app.setting.openTabById(this.manifest.id);
       if (tab && this.settingTab) setTimeout(() => { try { this.settingTab.display(); } catch { /* not open yet */ } }, 120);
     } catch (e) { console.error("[agent-deck] open settings", e); }
+  }
+
+  customLocaleDirs() {
+    const dirs = [];
+    if (this.pluginDir) dirs.push(path.join(this.pluginDir, "locales"));
+    if (this.vaultPath) dirs.push(path.join(this.vaultPath, "Agent Deck", "locales"));
+    return [...new Set(dirs)];
+  }
+
+  reloadLocales() {
+    const byId = new Map();
+    for (const dir of this.customLocaleDirs()) {
+      try {
+        if (!fs.existsSync(dir)) continue;
+        for (const entry of fs.readdirSync(dir)) {
+          if (!entry.endsWith(".json") || entry.toLowerCase() === "template.json") continue;
+          const id = entry.slice(0, -5).trim();
+          if (!id || id === "auto" || id === "zh" || id === "en") continue;
+          const filePath = path.join(dir, entry);
+          try {
+            const raw = JSON.parse(fs.readFileSync(filePath, "utf8"));
+            if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+            const strings = {};
+            for (const [k, v] of Object.entries(raw)) {
+              if (k === "_meta" || typeof v !== "string" || !v.trim()) continue;
+              strings[k] = v;
+            }
+            const name = String(raw._meta?.name || id).trim() || id;
+            byId.set(id.toLowerCase(), { id, name, path: filePath, strings });
+          } catch (e) {
+            console.warn("[agent-deck] skip invalid locale file", filePath, e?.message || e);
+          }
+        }
+      } catch { /* unreadable locale dir */ }
+    }
+    const list = registerCustomLocales([...byId.values()]);
+    setLanguage(this.settings?.uiLanguage || "auto");
+    return list;
+  }
+
+  async setUiLanguage(lang) {
+    this.settings.uiLanguage = String(lang || "auto").trim() || "auto";
+    await this.saveSettings();
+    this.reloadLocales();
+    this.refreshUI();
+    this.menubar?.update?.(true);
+    for (const type of [DASHBOARD_TYPE, MEMORY_BOARD_TYPE, REPLY_INBOX_TYPE]) {
+      for (const leaf of this.app.workspace?.getLeavesOfType?.(type) || []) {
+        try { leaf.view?.render?.(); } catch { /* ignore */ }
+      }
+    }
+    try { this.settingTab?.display?.(); } catch { /* ignore */ }
+    this.notice(t("界面语言已切换；命令面板和右键菜单会在重启或重载插件后完全更新"));
+  }
+
+  async exportLocaleTemplateFile() {
+    const rel = "Agent Deck/locales/template.json";
+    const content = exportLocaleTemplate();
+    try {
+      if (this.vaultPath) {
+        const full = path.join(this.vaultPath, "Agent Deck", "locales", "template.json");
+        fs.mkdirSync(path.dirname(full), { recursive: true });
+        fs.writeFileSync(full, content, "utf8");
+      } else {
+        await this.app.vault.adapter.mkdir("Agent Deck/locales").catch(() => {});
+        await this.app.vault.adapter.write(rel, content);
+      }
+      this.notice(t("已导出语言模板到 {path}；翻译后改名为如 zh-TW.json 或 ja.json 放回该目录，再点「重新扫描语言包」即可，插件更新不会覆盖。", { path: rel }));
+      return rel;
+    } catch (e) {
+      this.notice(t("导出语言模板失败：{error}", { error: e?.message || e }));
+      return null;
+    }
   }
 
   // ---------- scan ----------
@@ -2786,6 +2864,16 @@ export default class AgentDeckPlugin extends Plugin {
     return this.autoLog.write(file, base, next, { cleanup: false });
   }
 
+  // 确定性无损自愈：先最小补齐标记；补不齐但可见 ## 标题与 --- 框架完整时，剥掉残余坏标记交给标题边界接管。
+  autoHealJournalMarkers(base) {
+    const layout = configuredJournalLayout(this.settings);
+    const fixed = repairJournalLayout(base, layout);
+    if (fixed) return fixed;
+    const stripped = stripJournalLayout(base);
+    if (stripped !== base && hasBoundedJournalFrame(stripped, layout)) return stripped;
+    return null;
+  }
+
   // Rebuild only the bounded task sections; outside notes remain untouched.
   async organizeJournal(file = this.journalTarget()) {
     if (!file) return this.notice(t("请先打开日记"));
@@ -2794,8 +2882,13 @@ export default class AgentDeckPlugin extends Plugin {
     try {
       plan = await this.journalPlan(file, base);
     } catch (e) {
-      if (!/分区标记不完整/.test(String(e?.message || e))) throw e;
-      return this.repairJournalMarkers(file, base);
+      if (!isJournalLayoutIncompleteError(e)) throw e;
+      const healed = this.autoHealJournalMarkers(base);
+      if (healed) {
+        plan = await this.journalPlan(file, healed);
+      } else {
+        return this.repairJournalMarkers(file, base);
+      }
     }
     const next = renderJournal(plan);
     if (next !== base && !await this.writeJournal(file, base, next)) return this.notice(t("日记刚有变化，请再整理一次"));
@@ -2803,9 +2896,9 @@ export default class AgentDeckPlugin extends Plugin {
     this.notice(plan.count.total ? t("已整理 {count} 个任务", { count: plan.count.total }) : t("已建立日志分区，区外笔记保持原样"));
   }
 
-  // 分区标记被删掉时先问一句：能补就补，补不回来就问要不要按任务重建分区。不点头就一个字都不动。
+  // 分区标记被删掉且无法无损自愈时先问一句：点头才重建，不点头一个字都不动。
   async repairJournalMarkers(file, base, { retry } = {}) {
-    const fixed = repairJournalLayout(base);
+    const fixed = repairJournalLayout(base, configuredJournalLayout(this.settings));
     const mode = fixed ? "repair" : "rebuild";
     const firstTime = !this.settings.journalMarkerIntroShown;
     const go = await askJournalMarkerRepair(this.app, { mode, firstTime, notes: [file.path] });
@@ -2816,18 +2909,25 @@ export default class AgentDeckPlugin extends Plugin {
     return retry ? retry() : this.organizeJournal(file);
   }
 
-  // 「现在整理一次」遇到分区标记坏了：列出坏掉的日记，问一次，修好再重跑。
+  // 「现在整理一次」遇到分区标记坏了：能无损自愈的直接修，其余列出坏掉的日记问一次，修好再重跑。
   async logNowWithMarkerGuard(options) {
     const r = await this.autoLog.logNow(options);
-    if (!r?.error || !/分区标记不完整/.test(r.error)) return r;
+    if (!r?.error || !(r.errorCode === JOURNAL_LAYOUT_INCOMPLETE || isJournalLayoutIncompleteError(r.error))) return r;
     const broken = await this.brokenJournals();
     if (!broken.length) return r;
+    const needAsk = [];
+    for (const item of broken) {
+      const healed = this.autoHealJournalMarkers(item.base);
+      if (healed) await this.writeJournal(item.file, item.base, healed);
+      else needAsk.push(item);
+    }
+    if (!needAsk.length) return this.autoLog.logNow(options);
     const firstTime = !this.settings.journalMarkerIntroShown;
-    const go = await askJournalMarkerRepair(this.app, { mode: "rebuild", firstTime, notes: broken.map((x) => x.path) });
+    const go = await askJournalMarkerRepair(this.app, { mode: "rebuild", firstTime, notes: needAsk.map((x) => x.file.path) });
     if (firstTime) { this.settings.journalMarkerIntroShown = true; await this.saveSettings(); }
     if (!go) { this.notice(t("分区标记没动；补上分区标记和 --- 分割线后再整理")); return r; }
-    for (const { file, base } of broken) {
-      const next = repairJournalLayout(base) || stripJournalLayout(base);
+    for (const { file, base } of needAsk) {
+      const next = repairJournalLayout(base, configuredJournalLayout(this.settings)) || stripJournalLayout(base);
       await this.writeJournal(file, base, next);
     }
     return this.autoLog.logNow(options);
@@ -3836,6 +3936,7 @@ export default class AgentDeckPlugin extends Plugin {
         workbuddy: s.app === "cli" ? t("终端") : t("桌面版"),
         codex: isCodexDesktop(s.app) ? t("桌面版") : "CLI",
         hermes: s.app === "acp" ? t("后台执行") : "CLI",
+        minimax: s.app === "acp" ? t("后台执行") : s.app === "cli" ? t("终端") : t("桌面版"),
         antigravity: acp ? t("后台执行") : "IDE",
         dsh: "Harness",
       };
@@ -3845,7 +3946,7 @@ export default class AgentDeckPlugin extends Plugin {
         : (acp || usesDeckSessionLink(agent) || (isCliSession(agent, s.app) && cfg.cliOpen !== "desktop"))
           ? J.deckSessionUrl(agent, s.sid)
           : sessionDeepLink(agent, s.sid);
-      const copyByAgent = { codex: `codex resume ${s.sid}`, hermes: `hermes --resume ${s.sid}` };
+      const copyByAgent = { codex: `codex resume ${s.sid}`, hermes: `hermes --resume ${s.sid}`, minimax: s.app === "cli" ? `mcode --session ${s.sid}` : s.sid };
       const copy = s.isPendingJob ? "" : ((["dsh", "antigravity", "opencode", "qoder"].includes(agent) || AGENTS[agent].trackingOnly) ? s.sid : (copyByAgent[agent] || ""));
       const prog = this.sessionProgressText(s, s.job);
       const stepStr = [prog, s.step ? truncate(s.step, 30) : ""].filter(Boolean).join(" · ");

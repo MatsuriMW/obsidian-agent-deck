@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { planJournal, renderJournal, ensureTopRule } from '../src/organize-journal.js';
-import { JOURNAL_LAYOUT_DEFAULT, journalLayout, readJournalLayout, repairJournalLayout, stripJournalLayout } from '../src/journal-layout.js';
+import { planJournal, renderJournal, ensureTopRule, hasBoundedJournalFrame } from '../src/organize-journal.js';
+import { JOURNAL_LAYOUT_DEFAULT, JOURNAL_LAYOUT_INCOMPLETE, isJournalLayoutIncompleteError, journalLayout, readJournalLayout, repairJournalLayout, stripJournalLayout } from '../src/journal-layout.js';
 
 const source = '# 随笔\n\n保留上面的文字\n\n---\n## 已完成\n- DONE 完成任务 ^ad-done\n  - ❓ 第1轮：问题\n  - 💬 第1轮：结论\n\n---\n## 进行中\n### DOING\n- DOING 正在做 ^ad-active\n  - 手写子项\n\n---\n\n## 手写原题\n\n\n- DONE 手写完成\n```md\n## 已完成\n\n\n- DONE 示例 ^ad-code\n```\n';
 const orders = [['done','active','notes'],['active','done','notes'],['notes','done','active'],['notes','active','done'],['done','notes','active'],['active','notes','done']];
@@ -112,3 +112,82 @@ console.log('PASS built-in templates: language detection, Chinese/English overri
   assert.equal(readJournalLayout(stripped), null, 'stripped note goes back to the classic rebuild path');
   assert.ok(stripped.includes('DONE 夹在分区外的条目'), 'strip keeps every content line');
 }
+
+// 1) 英文环境下抛出的标记不完整错误带稳定错误码，不依赖中文正则匹配。
+{
+  const prev = process.env.AGENT_DECK_LANG;
+  try {
+    process.env.AGENT_DECK_LANG = 'en';
+    resetLanguage();
+    const enLayout = builtinJournalLayout('en');
+    const good = renderJournal(planJournal(source, { layout: enLayout }));
+    const broken = good.replace('<!-- agent-deck:section:done:end -->', '');
+    let caught = null;
+    try { readJournalLayout(broken); } catch (e) { caught = e; }
+    assert.ok(caught, 'broken English journal throws');
+    assert.equal(caught.code, JOURNAL_LAYOUT_INCOMPLETE);
+    assert.ok(isJournalLayoutIncompleteError(caught), 'English error is recognized by code');
+    assert.ok(isJournalLayoutIncompleteError(caught.message), 'English error message fallback is recognized');
+  } finally {
+    if (prev === undefined) delete process.env.AGENT_DECK_LANG; else process.env.AGENT_DECK_LANG = prev;
+    resetLanguage();
+  }
+}
+
+// 2) 内联粘连、重复外框、代码块保护：repair 与 strip 都只动非代码块标记，绝不丢正文。
+{
+  const layout = structuredClone(JOURNAL_LAYOUT_DEFAULT);
+  const good = renderJournal(planJournal(source, { layout }));
+  const gluedBroken = good
+    .replace('<!-- agent-deck:section:active:end -->', '- 紧贴末尾的笔记<!-- agent-deck:section:active:end -->')
+    .replace('<!-- agent-deck:section:todo:heading -->\n', '')
+    .replace('<!-- agent-deck:layout:end -->', '<!-- agent-deck:layout:end -->\n<!-- agent-deck:layout:end -->');
+  const fixed = repairJournalLayout(gluedBroken, layout);
+  assert.ok(fixed, 'glued inline marker + missing section open + duplicate layout:end is repairable');
+  const parsed = readJournalLayout(fixed);
+  assert.ok(parsed.sections.active.text.includes('- 紧贴末尾的笔记'), 'inline text beside marker stays intact');
+
+  const withFence = `${gluedBroken}\n\`\`\`md\n<!-- agent-deck:section:done:end -->\n\`\`\`\n`;
+  const stripped = stripJournalLayout(withFence);
+  assert.equal(readJournalLayout(stripped), null, 'strip removes glued markers outside fences');
+  assert.ok(stripped.includes('- 紧贴末尾的笔记'), 'strip keeps inline text');
+  assert.ok(stripped.includes('```md\n<!-- agent-deck:section:done:end -->\n```'), 'strip leaves fenced example markers untouched');
+}
+
+// 3) 整块分区的起止标记都被删掉：保留了 ## 标题时原地找回，整块空分区被删时按顺序补回。
+{
+  const layout = structuredClone(JOURNAL_LAYOUT_DEFAULT);
+  const good = renderJournal(planJournal(source, { layout }))
+    .replace('## 还要做\n', '## 还要做\n- 手写待办\n');
+  const noTodoMarkers = good
+    .replace('<!-- agent-deck:section:todo:heading -->\n', '')
+    .replace('<!-- agent-deck:section:todo:end -->\n', '');
+  const healedByHeading = repairJournalLayout(noTodoMarkers, layout);
+  assert.ok(healedByHeading, 'missing both markers of a section heals via visible heading');
+  assert.ok(readJournalLayout(healedByHeading).sections.todo.text.includes('- 手写待办'), 'manual item under visible heading stays in todo');
+
+  const deletedWholeTodo = good.replace(/\n---\n<!-- agent-deck:section:todo:heading -->[\s\S]*?<!-- agent-deck:section:todo:end -->/, '');
+  const healedEmpty = repairJournalLayout(deletedWholeTodo, layout);
+  assert.ok(healedEmpty, 'deleting an entire section heals by reinserting the missing empty section');
+  const reparsed = readJournalLayout(healedEmpty);
+  assert.deepEqual(reparsed.layout.order, ['active', 'todo', 'done']);
+  assert.ok(reparsed.sections.active.text.includes('正在做') && reparsed.sections.done.text.includes('完成任务'));
+}
+
+// 4) 标记烂掉但可见 ## 标题 + --- 框架完好时，剥离残余标记后可由标题边界无损接管。
+{
+  const layout = structuredClone(JOURNAL_LAYOUT_DEFAULT);
+  const good = renderJournal(planJournal(source, { layout }))
+    .replace('## 还要做\n', '## 还要做\n- 保留在还要做的手写项\n');
+  // 模拟用户删得只剩一个孤立且串行的 marker，但 --- 与三个 ## 标题都在
+  const shattered = stripJournalLayout(good).replace('## 已完成', '<!-- agent-deck:section:done:end -->## 已完成');
+  assert.equal(repairJournalLayout(shattered, layout), null, 'single stray marker cannot be minimally repaired');
+  const stripped = stripJournalLayout(shattered);
+  assert.equal(hasBoundedJournalFrame(stripped, layout), true, 'visible --- + ## headings still form a bounded frame');
+  const rebuilt = renderJournal(planJournal(stripped, { layout }));
+  const parsed = readJournalLayout(rebuilt);
+  assert.ok(parsed.sections.todo.text.includes('- 保留在还要做的手写项'), 'heading-based fallback preserves per-section manual notes');
+  assert.ok(parsed.sections.active.text.includes('正在做') && parsed.sections.done.text.includes('完成任务'));
+  assert.equal(hasBoundedJournalFrame('# 普通随笔\n\n- 只有一句话\n', layout), false, 'plain notes without section headings do not trigger bounded frame fallback');
+}
+console.log('PASS marker recovery: English error code, inline glued markers, deleted sections, and heading-frame fallback');

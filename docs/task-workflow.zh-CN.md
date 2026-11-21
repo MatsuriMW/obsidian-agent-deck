@@ -1,9 +1,10 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.11**（2026-11-21）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.12**（2026-11-21）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
-## 1.13.11 日记修复与 Dream 扩展
+## 1.13.12 MiniMax Code 支持、繁体中文与日记整理优化
 
+- 新增 **MiniMax Code（客户端 + `mcode` CLI/ACP）**支持（`minimax`）：只读解析 `~/.minimax/v2/sqlite/runtime-state.sqlite`（支持 `MINIMAX_DATA_DIR` / `MAVIS_DATA_DIR` / `~/.mavis` 回退，`local_runtime_sessions` / `local_runtime_message_rows` + 旧 `local_runtime_messages` 回退 / `local_runtime_token_usage` / `local_runtime_projects`，跳过 `visibility='hidden'`，追踪 `archived` 与 `parent_session_id`），`USAGE_CACHE_VERSION` 升至 `16`；支持本机 Harness 自动探测（`MiniMax Code.app`、`mcode` CLI、`~/.minimax`）、`mcode acp` 后台委派/应用内续聊、终端 `mcode --session` 续聊与桌面端 `com.minimax.agent.cn`（回退 `com.minimax.agent` / `minimax-cn://open`）唤起；同步官方图标、设置页卡片、菜单栏配色与中英繁文案。验证：macOS 全量 `npm test`（含新增 `test/minimax-sessions.test.mjs`）、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`、本机真实 `MiniMax Code.app` + `~/.minimax/v2/sqlite/runtime-state.sqlite` 探测与只读查询通过；未测：真实 `mcode acp` CLI 委派（本机未装 `@minimax/code` CLI）、带非空真实会话的桌面库、Windows 全端。
 - 手动重扫联动今天的日记并汇报结果，跨天自动记录保留原会话入口，任务标题统一显示会话时段。
 - 日记路径跟随 Obsidian 核心「日记」设置。测试覆盖默认 `YYYY-MM-DD`、自定义路径和修改后立即生效。
 - macOS 实测重扫有提示、日记已有记录会更新、DOING 时段会推进，Codex 进度条打开原会话。新增条目在隔离日记中验证。Antigravity 桌面会话打开客户端并复制会话 ID。Windows 界面未测。

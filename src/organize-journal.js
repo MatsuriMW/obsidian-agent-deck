@@ -62,7 +62,7 @@ function readBoundedJournal(text, layout) {
   const titles = new Map([
     [DONE_HEADING, 'done'], [ACTIVE_HEADING, 'active'],
     [LEGACY_HEADINGS[0], 'done'], [LEGACY_HEADINGS[1], 'active'],
-    ['## 正在做', 'active'], ['## 还要做', 'todo'],
+    ['## 正在做', 'active'], ['## 还要做', 'todo'], ['## 還要做', 'todo'],
     ...Object.entries(builtinJournalLayout('en').titles).map(([key, title]) => [`## ${title}`, key]),
     ...Object.entries(layout.titles).map(([key, title]) => [`## ${title}`, key]),
   ]);
@@ -87,6 +87,12 @@ function readBoundedJournal(text, layout) {
     }
   }
   return null;
+}
+
+export function hasBoundedJournalFrame(text, layout) {
+  const normalized = String(text ?? '').replace(/\r\n/g, '\n');
+  const region = readBoundedJournal(normalized, layout || builtinJournalLayout());
+  return !!(region && Object.keys(region.sections).length >= 2);
 }
 
 function planBoundedJournal(text, options, custom) {

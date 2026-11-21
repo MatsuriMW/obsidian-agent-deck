@@ -123,6 +123,18 @@ export const AGENTS = {
     deep: "hermes",
     desktopOnly: false,
   },
+  minimax: {
+    id: "minimax",
+    name: "MiniMax Code",
+    short: "MiniMax",
+    glyph: "◆",
+    color: "#e24d6a",
+    soft: "rgba(226,77,106,.13)",
+    kind: "minimax",
+    where: ["~/.minimax/v2/sqlite/runtime-state.sqlite · $MINIMAX_DATA_DIR", t("MiniMax Code 桌面版与 mcode CLI / ACP")],
+    deep: "minimax",
+    desktopOnly: true,
+  },
   qwenwork: {
     id: "qwenwork",
     name: "千问办公",
@@ -164,7 +176,7 @@ export const AGENTS = {
   },
 };
 
-export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "qwenwork", "cursor", "grokbot"];
+export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "cursor", "grokbot"];
 
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
@@ -175,6 +187,7 @@ export const MODEL_CATALOG = [
   { id: "antigravity-default", agent: "antigravity", name: t("CLI 当前默认模型"), value: "", provider: "Antigravity", context: "—", tags: [], note: t("使用服务端的默认模型；读取可用模型后可指定模型。") },
   { id: "opencode-default", agent: "opencode", name: t("CLI 当前默认模型"), value: "", provider: "OpenCode", context: "—", tags: [], note: t("使用服务端的默认模型；读取可用模型后可指定模型。") },
   { id: "hermes-default", agent: "hermes", name: t("CLI 当前默认模型"), value: "", provider: "Hermes", context: "—", tags: [], note: t("使用 Hermes 当前配置的默认模型；读取可用模型后可指定模型。") },
+  { id: "minimax-default", agent: "minimax", name: t("CLI 当前默认模型"), value: "", provider: "MiniMax", context: "—", tags: [], note: t("使用 MiniMax Code 当前配置的默认模型；读取可用模型后可指定模型。") },
   {
     id: "qoder-ultimate",
     agent: "qoder",
@@ -361,6 +374,7 @@ export const EFFORTS = {
   antigravity: ["low", "medium", "high", "xhigh"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   opencode: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   hermes: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
+  minimax: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   qoder: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("传给 qodercli --reasoning-effort") })),
   codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: t("由所选 Codex 模型支持的强度决定") })),
   claude: [
@@ -409,7 +423,7 @@ export const CLAUDE_PERMISSIONS = [
 export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, qwenwork: true, cursor: true, grokbot: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, cursor: true, grokbot: true },
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
   dayCutoff: 0,
@@ -430,6 +444,7 @@ export const DEFAULTS = {
   journalAutoWrite: true,  // 自动建项、结论和状态回写总开关；手动整理仍可用
   journalSync: true,
   journalLayout: null,
+  uiLanguage: "auto",
   journalLayoutLanguage: "auto",
   organizeJournalSuggest: true,
   journalOrganizePrompt: { day: "", count: 0, notes: {} },
@@ -537,6 +552,7 @@ export const DEFAULTS = {
     antigravity: { model: "antigravity-default", effort: "medium", path: "", cwd: "", autoApprove: false },
     opencode: { model: "opencode-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     hermes: { model: "hermes-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    minimax: { model: "minimax-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
       model: "dsh-default",
@@ -563,7 +579,7 @@ export const DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", qoder: "qoder-ultimate" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", minimax: "minimax-default", qoder: "qoder-ultimate" },
     effort: "high",
     effortByAgent: {},
   },

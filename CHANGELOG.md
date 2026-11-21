@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.12
+
+- **支持 MiniMax Code 客户端与 `mcode` CLI**：只读解析 `~/.minimax/v2/sqlite/runtime-state.sqlite`（支持 `MINIMAX_DATA_DIR` / `MAVIS_DATA_DIR` 与 `~/.mavis` 回退、v2 消息行与旧版消息回退、逐轮 token 与模型、工作区路径、归档与父子会话），支持本机自动探测（`MiniMax Code.app`、`mcode` CLI、`~/.minimax`）、`mcode acp` 后台委派与应用内续聊、终端 `mcode --session` 续聊及桌面端唤起；同步官方图标、设置页卡片、菜单栏配色与中英繁文案。
+- **繁体中文（`zh-TW`）界面支持与日记整理布局优化**：补齐繁体中文语言包并增强日记分区布局与自动记录兼容。
+
 ## 1.13.11
 
 - 手动重扫本机会话后整理今天的日记，并显示扫描和写入结果。旧日记里的自动记录可以跨天打开原会话，重扫期间保留跳转入口。

@@ -53,7 +53,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 
 ### 1. Multi-agent session tracking
 
-- **11 local agents in one place**: Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder, Hermes Agent, QwenWork (千问办公), Cursor and Grok Bot.
+- **12 local agents in one place**: Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder, Hermes Agent, MiniMax Code, QwenWork (千问办公), Cursor and Grok Bot.
 - **See Now by project**: the sidebar groups active sessions by workspace project; switch to a status view (waiting / unclaimed / running / error) or a flat list. Recent sessions can be filtered to 7 / 30 / 120 days and stacked by agent or project.
 - **States at a glance**: running, waiting for a reply, needs confirmation, limit reached, paused, error and done; subagent sessions are indented under their parent, and clicking a card switches back to that client or terminal tab.
 - **Primaries and search**: mark up to two agents as primary (full history; the rest only read today), and search every scanned session by title, project, model or body text.
@@ -121,6 +121,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 | **OpenCode** | Yes | Yes | Opens after the first round | Yes |
 | **Qoder** | Yes | Yes | Copies the task and opens the app | Yes |
 | **Hermes Agent** | Yes | Yes | No (no desktop UI) | Yes |
+| **MiniMax Code** | Yes | Yes (`mcode acp`) | Opens after the first round | Yes (`mcode`) |
 | **QwenWork (千问办公)** | Yes | No | No (tracking only) | — |
 | **WorkBuddy** | Yes | No | Copies the task and opens the app | Yes |
 | **Cursor** | Yes (Hooks required) | No | No (tracking only) | — |
@@ -133,7 +134,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 1. In Obsidian, open Settings → Community plugins → Browse, search for **Agent Deck**, then install and enable it;
 2. Or download the latest [GitHub Release](https://github.com/MatsuriMW/obsidian-agent-deck/releases), copy `main.js`, `manifest.json` and `styles.css` into `<your vault>/.obsidian/plugins/agent-deck/`, then enable it in the plugin settings.
 
-Current version: **1.13.11**, requires Obsidian **1.4.0+** on desktop.
+Current version: **1.13.12**, requires Obsidian **1.4.0+** on desktop.
 
 ### What you need
 
@@ -148,6 +149,7 @@ Tracking, task binding and the Dashboard need **no extra dependencies**: the plu
 | **OpenCode** | OpenCode desktop app or CLI |
 | **Qoder** | Qoder CLI; the desktop app for handoff only |
 | **Hermes Agent** | Hermes CLI; nothing extra if you only track |
+| **MiniMax Code** | MiniMax Code desktop app; `mcode` CLI for background delegation or terminal resume |
 | **QwenWork (千问办公)** | QwenWork desktop app (tracking only) |
 | **WorkBuddy** | China edition of WorkBuddy; `codebuddy` for terminal use |
 | **Cursor** | Cursor 3.30.14+ with Cursor Hooks enabled in settings |
@@ -170,6 +172,7 @@ Tracking, task binding and the Dashboard need **no extra dependencies**: the plu
    - **DeepSeek Harness**: the client is still moving fast; delegated sessions may land in "Ungrouped" and usually need a client refresh to appear.
    - **OpenCode**: background and desktop share sessions, but you still pick the session once in the app.
    - **Hermes Agent**: no desktop UI; use the plugin or resume in the terminal.
+   - **MiniMax Code**: desktop and `mcode` CLI share the local SQLite session store; opening the desktop app still requires selecting the session once, and desktop-only installs without `mcode` track sessions without delegating.
    - **QwenWork (千问办公)**: tracking only, no delegation. Current desktop conversations are fully readable; older logs without tokens honestly show 0.
    - **Grok Bot**: desktop only; cloud sandboxes without per-message tokens show "usage unavailable", and there is no archive concept.
 5. **Terminal interaction**: opening a terminal for an interactive session is currently macOS-only and verified on **Tern** and **Herdr** only; Terminal.app, iTerm2 and Warp are untested, and Windows terminals are not yet supported.

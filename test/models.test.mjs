@@ -77,6 +77,7 @@ plugin.allModels=()=>[
   {id:'six',agent:'opencode',name:'OpenCode one',tags:[]},
   {id:'seven',agent:'qoder',name:'Qoder one',tags:[]},
   {id:'eight',agent:'hermes',name:'Hermes one',tags:[]},
+  {id:'nine',agent:'minimax',name:'MiniMax one',tags:[]},
 ];
 plugin.modelsFor=id=>plugin.allModels().filter(m=>m.agent===id);
 plugin.modelById=id=>plugin.allModels().find(m=>m.id===id)||null;
@@ -171,9 +172,9 @@ tab.renderRecord(recBody);
 const targetPickers = [...delBody.all(), ...recBody.all()].filter(el => el.classList.contains('ad-targetpick'));
 assert.equal(targetPickers.length, 1, 'default delegation target picker appears exactly once across all pages');
 assert.equal(targetPickers[0].children.length, AGENT_ORDER.filter(id => !AGENTS[id]?.trackingOnly).length, 'default target picker shows enabled delegable/handoff Agents');
-assert.equal(delBody.all().filter(el => el.tag === 'select').length, 9, 'seven default-model selects + primary terminal select + steward agent select');
+assert.equal(delBody.all().filter(el => el.tag === 'select').length, 10, 'eight default-model selects + primary terminal select + steward agent select');
 assert.equal(delBody.all().filter(el => el.classList.contains('ad-codex-picker')).length, 0, 'Codex uses the standard select menu');
-assert.equal(delBody.all().filter(el => el.classList.contains('ad-effort')).length, 7, 'exactly one default effort control per configurable Agent on Delegation page');
+assert.equal(delBody.all().filter(el => el.classList.contains('ad-effort')).length, 8, 'exactly one default effort control per configurable Agent on Delegation page');
 assert.equal(recBody.all().filter(el => el.classList.contains('ad-set-agent')).length, AGENT_ORDER.length, 'Recording page lists all tracked Agents');
 assert.equal(recBody.all().filter(el => el.classList.contains('ad-set-agent__config')).length, 0, 'Recording agent cards have no duplicate model or default-target controls');
 
@@ -207,7 +208,7 @@ assert.equal(syncDelegationSettings(deepMerge(DEFAULTS, { resultMax: 240, result
 console.log('PASS More settings: collapsed detail controls, visible common actions and one-time result-length migration');
 
 const delegateGroups = delBody.all().filter(el => el.classList.contains('ad-delegate-agent'));
-assert.equal(delegateGroups.length, 7);
+assert.equal(delegateGroups.length, 8);
 for (const card of delegateGroups) assert.equal(card.open, plugin.isPrimary(card.dataset.agent), 'delegation cards default to primary-only expansion');
 const codexCard = delegateGroups.find(el => el.dataset.agent === 'codex');
 const codexSelect = codexCard.all().find(el => el.tag === 'select');

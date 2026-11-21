@@ -497,4 +497,7 @@ export default {
   "重新检测本机已安装的 Harness": "Re-detect locally installed Harnesses",
   "已检测到 {n} 个 Harness：{names}（其余 {off} 个已关闭）": "Detected {n} Harness(es): {names} ({off} others disabled)",
   "未检测到已安装的 Harness，可在「记录 → 来源与扫描」手动开启": "No installed Harnesses detected; enable any manually under Recording -> Sources and scanning",
+  "界面语言已切换；命令面板和右键菜单会在重启或重载插件后完全更新": "UI language switched. Command palette and context menus will update completely after restarting or reloading the plugin.",
+  "已导出语言模板到 {path}；翻译后改名为如 zh-TW.json 或 ja.json 放回该目录，再点「重新扫描语言包」即可，插件更新不会覆盖。": "Exported language template to {path}. Translate it, rename to e.g. zh-TW.json or ja.json in the same folder, then click Rescan language packs. Plugin updates will not overwrite it.",
+  "导出语言模板失败：{error}": "Failed to export language template: {error}",
 };

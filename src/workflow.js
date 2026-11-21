@@ -9,12 +9,12 @@ export function destinations(agent) {
     background: { id: "background", label: t("后台执行"), hint: t("留在当前笔记，完成或需要处理时提醒。") },
     terminal: { id: "terminal", label: t("在终端中聊"), hint: t("打开交互终端，后续在终端继续。") },
   };
-  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["desktop", "background"], antigravity: ["background"], opencode: ["desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], hermes: ["background", "terminal"], workbuddy: ["desktop", "terminal"] };
+  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["desktop", "background"], antigravity: ["background"], opencode: ["desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], hermes: ["background", "terminal"], minimax: ["desktop", "background", "terminal"], workbuddy: ["desktop", "terminal"] };
   return (ids[agent] || []).map(id => modes[id]);
 }
 
 export function defaultDestination(plugin, agent) {
-  if (["antigravity", "qoder", "hermes"].includes(agent)) return "background";
+  if (["antigravity", "qoder", "hermes", "minimax"].includes(agent)) return "background";
   if (agent === "dsh") return "desktop";
   if (agent === "opencode") return plugin.settings?.delegate?.opencode?.openDesktop ? "desktop" : "background";
   if (agent === "codex") return plugin.settings?.delegate?.codex?.transport === "terminal" ? "terminal" : "desktop";

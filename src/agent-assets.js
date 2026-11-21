@@ -14,8 +14,9 @@ import hermes from "../assets/agents/hermes.png";
 import qwenwork from "../assets/agents/qwenwork.png";
 import cursor from "../assets/agents/cursor.png";
 import grokbot from "../assets/agents/grokbot.png";
+import minimax from "../assets/agents/minimax.png";
 
-export const AGENT_IMAGES = { claude, codex, workbuddy, dsh, antigravity, opencode, qoder, hermes, qwenwork, cursor, grokbot };
+export const AGENT_IMAGES = { claude, codex, workbuddy, dsh, antigravity, opencode, qoder, hermes, minimax, qwenwork, cursor, grokbot };
 
 export function agentImageBuffer(id) {
   const uri = AGENT_IMAGES[id];

@@ -82,6 +82,15 @@ const home = () => os.homedir();
 const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
 // QwenWork keeps its data under $QWENWORK_HOME, or ~/.qwenworkcn by default.
 const qwenWorkHome = () => process.env.QWENWORK_HOME ? norm(process.env.QWENWORK_HOME) : path.join(home(), ".qwenworkcn");
+// MiniMax Code stores its v2 runtime SQLite under $MINIMAX_DATA_DIR / $MAVIS_DATA_DIR, or ~/.minimax by default.
+const minimaxHome = () => {
+  if (process.env.MINIMAX_DATA_DIR) return norm(process.env.MINIMAX_DATA_DIR);
+  if (process.env.MAVIS_DATA_DIR) return norm(process.env.MAVIS_DATA_DIR);
+  const def = path.join(home(), ".minimax");
+  if (fs.existsSync(def)) return def;
+  const legacy = path.join(home(), ".mavis");
+  return fs.existsSync(legacy) ? legacy : def;
+};
 
 // Codex (and DSH's default workspace) create a folder per task, so the folder
 // name is a machine slug: "a", "dui", "w-s", a session id. Those are useless as
@@ -215,7 +224,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 15;
+export const USAGE_CACHE_VERSION = 16;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -474,6 +483,7 @@ export class AgentUsage {
       [path.join(home(), ".local/share/opencode/opencode.db"), "opencode"],
       [path.join(home(), "Library/Application Support/com.qoder.app.stable/main.sqlite"), "qoder"],
       [path.join(hHome, "state.db"), "hermes"],
+      [path.join(minimaxHome(), "v2/sqlite/runtime-state.sqlite"), "minimax"],
     ];
     try {
       const profilesDir = path.join(hHome, "profiles");

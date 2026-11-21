@@ -183,7 +183,8 @@ flowchart TB
 | 项 | 说明 |
 |---|---|
 | **Dream 触发环** | 构建载荷时（`dream-memory` resolver），即**派发那一刻**；不是运行中、不是回写后，**续聊不会重复注入** |
-| **命中与预算** | 词面重合 ≥ 2 词（中文二元组 / ≥2 字符拉丁词），只取 `state=有效` 且有 `kind`；最多 **5 条 / 1200 字** |
+| **命中与预算** | 词面重合 ≥ 2 词（中文二元组 / ≥4 字符非停用英文技术词 / 元数据补盲），只取 `state=有效` 且有 `kind`（跳过 `private: true`）；最多 **5 条 / 1200 字**；M2 起按 `resolveDispatchFolder` 结果做工程域 vs 个人域分流（通用问答保持 0 注入） |
+| **记忆索引与门禁** | `renderMemoryIndex()` 生成 `索引.md`（M1.1 过滤 `private` 与非 `有效` 条目并按域/类型分组）；M3.1 接通 `RunTrace` 轨迹诊断 → `eval-context.mjs` Golden 集门禁 |
 | **长回答外存** | 后台回答 ≤500 字直接进子块；>500 字外存 `Agent Deck/Answers/*.md`，日记子块只保留双链 |
 | **Dashboard 统计** | `usage.json` + 日记 `🔗` + `autoLogState` 汇总：总览显示 `缓存读取占比 = cached/(fresh+cached)`；「模型分布」表在 `问答轮次` 列括号内展示 `(tokens/轮)`，在 `缓存命中` 列展示比例（因包含重复缓存读取，评测上下文压缩/前缀稳定度时建议重点看未缓存输入 `fresh`） |
 
@@ -194,7 +195,7 @@ flowchart TB
 | 步骤 | 代码坐标 | 说明 |
 |---|---|---|
 | 取块与上下文 | `src/harness.js` `resolveDelegationContext` | 祖先链、`boardContext`、`resolveWikilinkSnippets`（当前 >3 篇 `break`、空正文 `continue`）、`CONTEXT_RESOLVERS` |
-| Dream 注入 | `src/main.js` → `src/dream.js` `contextSection` / `pickMemories` | `MIN_MEMORY_OVERLAP = 2`，`limit = 5`，`maxChars = 1200` |
+| Dream 注入与索引 | `src/main.js` → `src/dream.js` / `src/memory-query-core.js` / `src/memory-store.js` | `MIN_MEMORY_OVERLAP = 2`（含单英文技术词与元数据补盲），`limit = 5`，`maxChars = 1200`；待补 `dream-memory` 传入项目上下文与 `renderMemoryIndex` 隐私/状态过滤 |
 | 拼 prompt | `src/harness.js` `buildPromptFromContext` / `buildDelegationPayload` | `promptPrefix` → 祖先链+任务 → `extraSections` → `promptSuffix` → 来源路径 → `confirmFirst` |
 | 富化四层 | `src/delegation.js` `Delegator.enrichPrompt` | 当前往头部倒序前置：`skillLine` / `replyText` / `memoryHint` / `notePaths` |
 | 载荷快照 | `src/delegation.js` `payloadSnapshot` / `writeTaskPayload` | 无草稿时先富化再落盘；有草稿时按草稿原文再富化去重 |

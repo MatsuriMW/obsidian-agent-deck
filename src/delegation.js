@@ -392,7 +392,7 @@ export async function focusCliSession(agent, sid) {
 export const isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
 // 命令行会话（Claude Code 终端版、Codex 命令行、Qoder CLI）：点开回终端，而不是交给桌面版
 export function isCliSession(agent, app) {
-  if (["claude", "qoder", "workbuddy", "hermes"].includes(agent)) return app === "cli";
+  if (["claude", "qoder", "workbuddy", "hermes", "minimax"].includes(agent)) return app === "cli";
   if (agent === "codex") return !isCodexDesktop(app);
   return false;
 }
@@ -418,6 +418,7 @@ export const AGENT_APPS = {
   opencode: { bundle: "ai.opencode.desktop", url: "opencode://" },
   qoder: { bundle: "com.qoder.app", url: "qoder://" },
   qwenwork: { bundle: "cn.qwenwork.desktop.mac", url: "qwenwork-cn://" },
+  minimax: { bundle: "com.minimax.agent.cn", fallbackBundles: ["com.minimax.agent"], url: "minimax-cn://open" },
   cursor: { bundle: "com.todesktop.230313mzl4w4u92", url: "cursor://" },
   grokbot: { bundle: "com.anysphere.sand", url: "grokbot://" },
 };
@@ -425,11 +426,16 @@ export const AGENT_APPS = {
 export function openAgentApp(agent) {
   const app = AGENT_APPS[agent];
   if (!app) return Promise.resolve(false);
+  const bundles = [app.bundle, ...(app.fallbackBundles || [])].filter(Boolean);
   return new Promise((resolve) => {
-    execFile("/usr/bin/open", ["-b", app.bundle], (err) => {
-      if (!err) return resolve(true);
-      resolve(openExternal(app.url));
-    });
+    const tryNext = (idx) => {
+      if (idx >= bundles.length) return resolve(openExternal(app.url));
+      execFile("/usr/bin/open", ["-b", bundles[idx]], (err) => {
+        if (!err) return resolve(true);
+        tryNext(idx + 1);
+      });
+    };
+    tryNext(0);
   });
 }
 
@@ -453,10 +459,14 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
     return focusOrResume(plugin, agent, sid, `${shellQuote(findHermesCliBinary(plugin.settings?.delegate?.hermes?.path || ""))} --resume ${shellQuote(sid)}`, cwd);
   }
-  if (["opencode", "qoder", "qwenwork", "cursor", "grokbot"].includes(agent)) {
+  if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
       return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);
+    }
+    if (agent === "minimax" && app === "cli") {
+      const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
+      return focusOrResume(plugin, agent, sid, `${shellQuote(findAgentBinary("minimax", plugin.settings?.delegate?.minimax?.path || ""))} --session ${shellQuote(sid)}`, cwd);
     }
     copyText(sid);
     openAgentApp(agent).then((ok) => plugin.notice(ok ? t("已打开 {agent}；会话号已复制，请在客户端选择会话", { agent: AGENTS[agent].name }) : t("没打开 {agent}：本机好像没装", { agent: AGENTS[agent].name })));

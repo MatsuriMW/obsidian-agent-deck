@@ -2,14 +2,23 @@ import { fencedLines } from './journal.js';
 import { t, currentLanguage } from './i18n.js';
 
 export const JOURNAL_LAYOUT_DEFAULT = { order: ['active', 'todo', 'done'], titles: { active: '正在做', todo: '还要做', done: '已完成' } };
+export const JOURNAL_LAYOUT_INCOMPLETE = 'JOURNAL_LAYOUT_INCOMPLETE';
 const START = '<!-- agent-deck:layout:start -->';
 const END = '<!-- agent-deck:layout:end -->';
 const KEYS = JOURNAL_LAYOUT_DEFAULT.order;
 const MARKER_TOKEN_RE = /(<!-- agent-deck:(?:layout:(?:start|end)|section:(?:done|active|todo|notes):(?:heading|plain|end)) -->)/g;
+const MARKER_LINE_RE = /^<!-- agent-deck:(?:layout:(?:start|end)|section:(?:done|active|todo|notes):(?:heading|plain|end)) -->$/;
 const SECTION_OPEN_RE = /^<!-- agent-deck:section:(done|active|todo|notes):(heading|plain) -->$/;
 
+export function isJournalLayoutIncompleteError(err) {
+  return err?.code === JOURNAL_LAYOUT_INCOMPLETE
+    || /分区标记不完整|layout markers are incomplete/i.test(String(err?.message || err || ''));
+}
+
 export function builtinJournalLayout(language = currentLanguage()) {
-  return { order: [...KEYS], titles: language === 'en' ? { active: 'In progress', todo: 'To do', done: 'Completed' } : { ...JOURNAL_LAYOUT_DEFAULT.titles } };
+  if (language === 'en') return { order: [...KEYS], titles: { active: 'In progress', todo: 'To do', done: 'Completed' } };
+  if (language === 'zh-TW') return { order: [...KEYS], titles: { active: '正在做', todo: '還要做', done: '已完成' } };
+  return { order: [...KEYS], titles: { ...JOURNAL_LAYOUT_DEFAULT.titles } };
 }
 
 export function configuredJournalLayout(settings = {}) {
@@ -23,63 +32,177 @@ export function configuredJournalLayout(settings = {}) {
   return builtinJournalLayout(language);
 }
 
-// 分区标记被删掉一半时，按「缺哪个补哪个」修回去；修不好的返回 null，绝不猜内容归属。
-// 只补外框和缺失的分区开标记，不动任何正文行。
-// 标记烂到补不回来时，去掉所有标记交给整理重建分区（正文一行不删，条目按关键字归区）。
-export function stripJournalLayout(text) {
-  const normalized = String(text ?? '').replace(/\r\n/g, '\n');
-  return normalized
-    .split('\n')
-    .filter((line) => !/^<!-- agent-deck:(?:layout:(?:start|end)|section:(?:done|active|todo|notes):(?:heading|plain|end)) -->$/.test(line.trim()))
-    .map((line) => (/^\s*[-*+]\s+---\s*$/.test(line) ? '---' : line))
-    .join('\n');
+function splitInlineMarkers(text) {
+  const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n');
+  const fences = fencedLines(lines);
+  const out = [];
+  for (let r = 0; r < lines.length; r++) {
+    const raw = lines[r];
+    MARKER_TOKEN_RE.lastIndex = 0;
+    if (fences.has(r) || !MARKER_TOKEN_RE.test(raw)) { out.push(raw); continue; }
+    MARKER_TOKEN_RE.lastIndex = 0;
+    let cursor = 0, match;
+    while ((match = MARKER_TOKEN_RE.exec(raw))) {
+      const before = raw.slice(cursor, match.index);
+      if (before.trim()) out.push(before.trimEnd());
+      out.push(match[1]);
+      cursor = match.index + match[1].length;
+    }
+    const after = raw.slice(cursor);
+    if (after.trim()) out.push(after);
+  }
+  return out;
 }
 
-export function repairJournalLayout(text) {
+// 分区标记被删掉一半时，按「缺哪个补哪个」修回去；修不好的返回 null，绝不猜内容归属。
+// 标记烂到补不回来时，去掉所有标记交给整理重建分区（正文一行不删，条目按关键字归区）。
+export function stripJournalLayout(text) {
+  const lines = String(text ?? '').replace(/\r\n/g, '\n').split('\n');
+  const fences = fencedLines(lines);
+  const out = [];
+  for (let r = 0; r < lines.length; r++) {
+    const line = lines[r];
+    if (fences.has(r)) { out.push(line); continue; }
+    MARKER_TOKEN_RE.lastIndex = 0;
+    if (MARKER_TOKEN_RE.test(line)) {
+      MARKER_TOKEN_RE.lastIndex = 0;
+      const cleaned = line.replace(MARKER_TOKEN_RE, '');
+      if (cleaned.trim()) out.push(cleaned);
+      continue;
+    }
+    out.push(/^\s*[-*+]\s+---\s*$/.test(line) ? '---' : line);
+  }
+  return out.join('\n');
+}
+
+export function repairJournalLayout(text, layout) {
   const normalized = String(text ?? '').replace(/\r\n/g, '\n');
   if (!normalized.includes('<!-- agent-deck:')) return null;
-  const lines = normalized.split('\n');
-  const markerRe = /^<!-- agent-deck:(?:layout:(?:start|end)|section:(?:done|active|todo|notes):(?:heading|plain|end)) -->$/;
-  const isMarker = (line) => markerRe.test(String(line).trim());
-  const markerIdx = () => lines.map((line, i) => (isMarker(line) ? i : -1)).filter((i) => i >= 0);
+  const lines = splitInlineMarkers(normalized);
+  const markerIdx = () => {
+    const fences = fencedLines(lines);
+    return lines.map((line, i) => (!fences.has(i) && MARKER_LINE_RE.test(String(line).trim()) ? i : -1)).filter((i) => i >= 0);
+  };
   if (!markerIdx().length) return null;
+
+  // 0) 去掉中间重复的外框标记（只留最前的 layout:start 与最后的 layout:end）。
+  const startRows = markerIdx().filter((i) => lines[i].trim() === START);
+  const endRows = markerIdx().filter((i) => lines[i].trim() === END);
+  const dropFrame = new Set([...startRows.slice(1), ...endRows.slice(0, -1)]);
+  if (dropFrame.size) {
+    for (let i = lines.length - 1; i >= 0; i--) if (dropFrame.has(i)) lines.splice(i, 1);
+  }
 
   // 1) 外框：开头缺 layout:start 就补在最前面的分区标记之前，结尾缺 layout:end 就补在最后面。
   let idx = markerIdx();
+  if (!idx.length) return null;
   if (lines[idx[0]].trim() !== START) lines.splice(idx[0], 0, START);
   idx = markerIdx();
   if (lines[idx[idx.length - 1]].trim() !== END) lines.splice(idx[idx.length - 1] + 1, 0, END);
 
+  // 1.5) 先把分区之间被写成列表项的「- ---」还原成单独的分割线，避免补标记时被误吞进分区内。
+  idx = markerIdx();
+  const frameFences = fencedLines(lines);
+  for (let i = idx[0]; i <= idx[idx.length - 1]; i++) {
+    if (!frameFences.has(i) && /^\s*[-*+]\s+---\s*$/.test(lines[i])) lines[i] = '---';
+  }
+
   // 2) 分区标记：有 end 没 heading/plain 的补开标记；有开标记没 end 的补结束标记。
+  const findSectionRow = (pred) => {
+    const fences = fencedLines(lines);
+    return lines.findIndex((line, i) => !fences.has(i) && pred(line.trim()));
+  };
   for (const key of ['active', 'todo', 'done', 'notes']) {
     const endLine = `<!-- agent-deck:section:${key}:end -->`;
     const headingLine = `<!-- agent-deck:section:${key}:heading -->`;
     const plainLine = `<!-- agent-deck:section:${key}:plain -->`;
-    const endAt = lines.findIndex((line) => line.trim() === endLine);
-    const openAt = lines.findIndex((line) => line.trim() === headingLine || line.trim() === plainLine);
+    const endAt = findSectionRow((v) => v === endLine);
+    const openAt = findSectionRow((v) => v === headingLine || v === plainLine);
     if (endAt < 0 && openAt < 0) continue;
     if (endAt >= 0 && openAt < 0) {
+      const fences = fencedLines(lines);
       let insertAt = 0;
       for (let i = 0; i < endAt; i++) {
+        if (fences.has(i)) continue;
         const v = lines[i].trim();
         if (v === START || /^<!-- agent-deck:section:[a-z]+:end -->$/.test(v)) insertAt = i + 1;
       }
+      while (insertAt < endAt && (!lines[insertAt].trim() || (!fences.has(insertAt) && lines[insertAt].trim() === '---'))) insertAt++;
       lines.splice(insertAt, 0, headingLine);
       continue;
     }
     if (openAt >= 0 && endAt < 0) {
+      const fences = fencedLines(lines);
       let insertAt = lines.length;
       for (let i = openAt + 1; i < lines.length; i++) {
+        if (fences.has(i)) continue;
         const v = lines[i].trim();
         if (v === END || /^<!-- agent-deck:section:[a-z]+:(?:heading|plain) -->$/.test(v)) { insertAt = i; break; }
       }
+      while (insertAt > openAt + 1 && (!lines[insertAt - 1].trim() || (!fences.has(insertAt - 1) && lines[insertAt - 1].trim() === '---'))) insertAt--;
       lines.splice(insertAt, 0, endLine);
     }
   }
 
-  // 3) 分区之间被写成列表项的「- ---」还原成单独的分割线。
-  idx = markerIdx();
-  for (let i = idx[0]; i <= idx[idx.length - 1]; i++) if (/^\s*[-*+]\s+---\s*$/.test(lines[i])) lines[i] = '---';
+  // 3) 恰好缺了 1 个分区（只剩 2 个分区）时：优先用框架内可见 ## 标题找回，否则确认全文无重复标题后按顺序补空分区。
+  const presentKeys = () => {
+    const out = new Map();
+    for (const key of ['active', 'todo', 'done', 'notes']) {
+      const openAt = findSectionRow((v) => v === `<!-- agent-deck:section:${key}:heading -->` || v === `<!-- agent-deck:section:${key}:plain -->`);
+      const endAt = findSectionRow((v) => v === `<!-- agent-deck:section:${key}:end -->`);
+      if (openAt >= 0 && endAt > openAt) out.set(key, { openAt, endAt });
+    }
+    return out;
+  };
+  let present = presentKeys();
+  if (!present.has('notes') && present.size === 2) {
+    const targetLayout = layout ? journalLayout(layout) : builtinJournalLayout();
+    const headingTitlesFor = (key) => new Set([
+      `## ${targetLayout.titles[key]}`,
+      `## ${builtinJournalLayout('zh').titles[key]}`,
+      `## ${builtinJournalLayout('zh-TW').titles[key]}`,
+      `## ${builtinJournalLayout('en').titles[key]}`,
+      ...(key === 'active' ? ['## 进行中', '## AI · 进行中'] : []),
+      ...(key === 'done' ? ['## AI · 已完成'] : []),
+    ]);
+    for (const key of targetLayout.order) {
+      present = presentKeys();
+      if (present.has(key)) continue;
+      const startAt = findSectionRow((v) => v === START);
+      const endFrameAt = findSectionRow((v) => v === END);
+      const fences = fencedLines(lines);
+      const insidePresent = (row) => [...present.values()].some(({ openAt, endAt }) => row >= openAt && row <= endAt);
+      const titles = headingTitlesFor(key);
+      let headingAt = -1;
+      for (let i = startAt + 1; i < endFrameAt; i++) {
+        if (fences.has(i) || insidePresent(i)) continue;
+        if (titles.has(lines[i].trim())) { headingAt = i; break; }
+      }
+      const headingMarker = `<!-- agent-deck:section:${key}:heading -->`;
+      const endMarker = `<!-- agent-deck:section:${key}:end -->`;
+      if (headingAt >= 0) {
+        let closeAt = endFrameAt;
+        for (let i = headingAt + 1; i < endFrameAt; i++) {
+          if (fences.has(i)) continue;
+          const v = lines[i].trim();
+          if (v === '---' || MARKER_LINE_RE.test(v)) { closeAt = i; break; }
+        }
+        lines.splice(closeAt, 0, endMarker);
+        lines.splice(headingAt, 0, headingMarker);
+      } else {
+        // 如果该分区标题其实还在框架外，说明外框位置已经漂移，不凭空再造一份空分区，交由标题边界兜底处理。
+        const outsideHeading = lines.some((line, i) => !fences.has(i) && !insidePresent(i) && titles.has(line.trim()));
+        if (outsideHeading) return null;
+        const orderPos = targetLayout.order.indexOf(key);
+        const nextKey = targetLayout.order.slice(orderPos + 1).find((k) => present.has(k));
+        let insertAt = nextKey ? present.get(nextKey).openAt : endFrameAt;
+        let probe = insertAt - 1;
+        while (probe > startAt && !lines[probe].trim()) probe--;
+        if (probe > startAt && lines[probe].trim() === '---') insertAt = probe;
+        lines.splice(insertAt, 0, '---', headingMarker, `## ${targetLayout.titles[key]}`, endMarker, '');
+      }
+    }
+  }
 
   const out = lines.join('\n');
   try { readJournalLayout(out); } catch { return null; }
@@ -131,7 +254,11 @@ export function readJournalLayout(text) {
   }
   const markers = vLines.flatMap((v, i) => !v.fenced && (v.text === START || v.text === END || /^<!-- agent-deck:section:/.test(v.text)) ? [{ line: v.text, i }] : []);
   if (!markers.length) return null;
-  const invalid = () => { throw new Error(t('整理模板的分区标记不完整，请先修复标记；原文未修改。')); };
+  const invalid = () => {
+    const err = new Error(t('整理模板的分区标记不完整，请先修复标记；原文未修改。'));
+    err.code = JOURNAL_LAYOUT_INCOMPLETE;
+    throw err;
+  };
   const hasStart = markers[0].line === START;
   const hasEnd = markers.length > 1 && markers.at(-1).line === END;
   const inner = markers.slice(hasStart ? 1 : 0, hasEnd ? -1 : undefined);

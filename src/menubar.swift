@@ -143,6 +143,7 @@ struct MenuSession: Decodable, Identifiable {
         case "workbuddy": return "WorkBuddy"
         case "dsh": return "DSH"
         case "hermes": return "Hermes"
+        case "minimax": return "MiniMax"
         case "qwenwork": return "千问办公"
         case "cursor": return "Cursor"
         case "grokbot": return "Grok Bot"
@@ -488,12 +489,14 @@ enum DeckPalette {
     // surfaces, and the one accent is the plugin's muted --ad-accent (#746d94).
     // No saturated violet: next to the Obsidian window it read as a different app.
     static let panel = Color.solid("#F7F6F3", "#1A1917")
+    static let panelTint = Color.solid("#F7F6F3", "#1A1917").opacity(0.56)
     static let header = Color.solid("#F0EEEA", "#201F1D")
+    static let headerTint = Color.solid("#F0EEEA", "#201F1D").opacity(0.40)
     static let panelBorder = Color.solid("#DDD9D2", "#3A3835")
 
-    static let card = Color.solid("#FFFFFF", "#252421")
-    static let cardHover = Color.solid("#FDFCFA", "#2C2A27")
-    static let cardBorder = Color.solid("#E6E3DD", "#3A3835")
+    static let card = Color.solid("#FFFFFF", "#252421").opacity(0.76)
+    static let cardHover = Color.solid("#FDFCFA", "#2C2A27").opacity(0.90)
+    static let cardBorder = Color.solid("#E6E3DD", "#3A3835").opacity(0.85)
     static let cardBorderHover = Color.solid("#CCC7BE", "#59554F")
 
     static let ink = Color.solid("#1F1E1C", "#F4F2EE")
@@ -820,6 +823,13 @@ enum DeckAgents {
                 tint: .solid("#F6EDE3", "#36271A"),
                 glyph: "☿", short: "Hermes"
             )
+        case "minimax":
+            return AgentStyle(
+                id: "minimax",
+                color: .solid("#E24D6A", "#F27992"),
+                tint: .solid("#FCEBEF", "#3B1C24"),
+                glyph: "◆", short: "MiniMax"
+            )
         case "qwenwork":
             return AgentStyle(
                 id: "qwenwork",
@@ -1116,7 +1126,7 @@ struct HeaderBlock: View {
         .padding(.top, 10)
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(DeckPalette.header)
+        .background(DeckPalette.headerTint)
     }
 }
 
@@ -1306,7 +1316,7 @@ struct NowGroupBar: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(DeckPalette.header)
+        .background(DeckPalette.headerTint)
     }
 }
 
@@ -1600,7 +1610,33 @@ struct FooterBlock: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 7)
         .frame(maxWidth: .infinity)
-        .background(DeckPalette.header)
+        .background(DeckPalette.headerTint)
+    }
+}
+
+// MARK: - Frosted Glass Backdrop
+
+struct GlassBackdrop: NSViewRepresentable {
+    var material: NSVisualEffectView.Material = .popover
+    var cornerRadius: CGFloat = 16
+
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.wantsLayer = true
+        view.layer?.cornerRadius = cornerRadius
+        view.layer?.masksToBounds = true
+        return view
+    }
+
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        view.material = material
+        view.blendingMode = .behindWindow
+        view.state = .active
+        view.layer?.cornerRadius = cornerRadius
+        view.layer?.masksToBounds = true
     }
 }
 
@@ -1627,11 +1663,16 @@ struct DeckView: View {
             FooterBlock(sessionCount: model.visibleSessionCount)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(DeckPalette.panel)
+        .background(
+            ZStack {
+                GlassBackdrop(material: .popover, cornerRadius: 16)
+                DeckPalette.panelTint
+            }
+        )
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .strokeBorder(DeckPalette.panelBorder, lineWidth: 1)
+                .strokeBorder(DeckPalette.panelBorder.opacity(0.75), lineWidth: 1)
         )
         .environment(\.deckPanelVisible, model.panelVisible)
     }
@@ -1814,6 +1855,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model = MenuModel(statePath: statePath, parentPid: parentPid)
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem.behavior = .removalAllowed
         statusItem.isVisible = true
         if let button = statusItem.button {
             if let image = lucideImage(lucideWandSVG, 18) {
@@ -1906,7 +1948,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.isMovableByWindowBackground = pinned
         if pinned {
             removeMonitors()
-            if userTriggered, panel.isVisible, model.savedPinnedOrigin == nil {
+            if userTriggered, panel.isVisible {
+                // Pinning locks the panel right where it currently is instead of jumping to a stale saved coordinate.
                 model.savePinnedOrigin(NSPoint(x: panel.frame.minX, y: panel.frame.maxY))
             }
         } else if panel.isVisible {
@@ -1916,42 +1959,77 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func windowDidMove(_ notification: Notification) {
-        guard !isProgrammaticLayout, model.panelPinned, panel.isVisible else { return }
+        // Only record user-initiated drags; ignore programmatic layout or macOS space/display shifts.
+        guard !isProgrammaticLayout, model.panelPinned, panel.isVisible, NSEvent.pressedMouseButtons != 0 else { return }
         model.savePinnedOrigin(NSPoint(x: panel.frame.minX, y: panel.frame.maxY))
     }
 
     func refresh() {
         let height = panelHeightForScreen()
         let resized = abs(panel.frame.height - height) > 0.5
-        if resized {
-            panel.setContentSize(NSSize(width: panelWidth, height: height))
-        }
         if panel.isVisible {
-            layoutPanel()
-            if resized { forceDisplay() }
+            if model.panelPinned {
+                // Keep a pinned panel anchored in place; only resize downward from its top-left when height changes.
+                if resized {
+                    resizePinnedPanel(to: height)
+                    forceDisplay()
+                }
+            } else {
+                if resized {
+                    isProgrammaticLayout = true
+                    panel.setContentSize(NSSize(width: panelWidth, height: height))
+                    isProgrammaticLayout = false
+                }
+                layoutPanel()
+                if resized { forceDisplay() }
+            }
+        } else if resized {
+            isProgrammaticLayout = true
+            panel.setContentSize(NSSize(width: panelWidth, height: height))
+            isProgrammaticLayout = false
         }
         if hotKeyHandler != nil {
             applyHotKey(model.state.hotkey)
         }
     }
 
+    func resizePinnedPanel(to height: CGFloat) {
+        let anchor = model.savedPinnedOrigin ?? NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
+        let screen = screenForPinnedAnchor(anchor)
+        var x = anchor.x
+        var y = anchor.y - height
+        if let visible = screen?.visibleFrame {
+            x = min(max(x, visible.minX + 8), visible.maxX - panelWidth - 8)
+            if y < visible.minY + 8 { y = visible.minY + 8 }
+            if y + height > visible.maxY - 4 { y = visible.maxY - 4 - height }
+        }
+        setPanelFrame(NSRect(x: x.rounded(), y: y.rounded(), width: panelWidth, height: height.rounded()))
+    }
+
+    func screenForPinnedAnchor(_ topLeft: NSPoint) -> NSScreen? {
+        let probe = NSPoint(x: topLeft.x + panelWidth / 2, y: topLeft.y - 20)
+        return NSScreen.screens.first(where: { $0.frame.contains(probe) })
+            ?? panel.screen
+            ?? NSScreen.main
+    }
+
     func panelHeightForScreen() -> CGFloat {
         let desired = desiredHeight()
-        if let screen = statusItem.button?.window?.screen ?? NSScreen.main {
-            return min(desired, screen.visibleFrame.height - 16)
+        let screen = (model.panelPinned ? panel.screen : statusItem.button?.window?.screen) ?? NSScreen.main
+        if let screen = screen {
+            return min(desired, screen.visibleFrame.height - 24)
         }
         return desired
     }
 
-    /// Keep this roughly in sync with the SwiftUI blocks above: a slim fixed
-    /// header + NowGroupBar, a generous compact scrollable card area, and a
-    /// compact fixed footer.
+    /// Keep this in sync with the SwiftUI blocks above so the panel grows and
+    /// shrinks tightly with the actual visible groups and tasks.
     func desiredHeight() -> CGFloat {
         let count = model.visibleSessionCount
         let agentRows = max(1, ((model.state.agents?.count ?? 0) + 1) / 2)
         let headerBlock: CGFloat = 112 + CGFloat(agentRows - 1) * 21 + (model.state.needsApproval > 0 ? 27 : 0)
         let footer: CGFloat = 39
-        if count == 0 { return max(340, headerBlock + 200 + footer) }
+        if count == 0 { return headerBlock + 150 + footer + 2 }
 
         let mode = model.activeGroupBy
         let groups = (mode == "project" || mode == "status") ? model.activeGroups() : []
@@ -1963,14 +2041,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 if !model.isGroupCollapsed(mode, g.id) {
                     cardSlots += g.sessions.count
                 }
-                if cardSlots + headerCount >= 11 { break }
             }
         }
-        let shownCards = min(9, groups.isEmpty ? count : cardSlots)
+        let shownCards = groups.isEmpty ? count : cardSlots
         let gaps = max(0, headerCount + shownCards - 1)
-        let contentBody = 6 + CGFloat(headerCount) * 24 + CGFloat(gaps) * 4 + CGFloat(shownCards) * 46 + 8
-        let body = max(260, contentBody)
-        return min(680, headerBlock + body + footer + 2)
+        let contentBody = 6 + CGFloat(headerCount) * 24 + CGFloat(gaps) * 4 + CGFloat(shownCards) * 48 + 10
+        let body = max(56, contentBody)
+        return min(720, headerBlock + body + footer + 2)
     }
 
     func setPanelFrame(_ rect: NSRect) {
@@ -1992,8 +2069,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
 
         if model.panelPinned, let topLeft = model.savedPinnedOrigin {
-            let screen = NSScreen.screens.first(where: { $0.visibleFrame.contains(NSPoint(x: topLeft.x + 20, y: topLeft.y - 20)) })
-                ?? panel.screen ?? NSScreen.main
+            let screen = screenForPinnedAnchor(topLeft)
             var x = topLeft.x
             var y = topLeft.y - size.height
             if let visible = screen?.visibleFrame {
@@ -2047,6 +2123,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func showPanel(activate: Bool = true) {
+        let restoredIcon = !statusItem.isVisible
+        if restoredIcon {
+            statusItem.isVisible = true
+        }
         if panel.isVisible {
             // An explicit show request (the Obsidian command) only opens/focuses.
             panel.orderFrontRegardless()
@@ -2067,6 +2147,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         statusItem.button?.highlight(true)
         if !model.panelPinned {
             installMonitors()
+            if restoredIcon {
+                // Re-align once AppKit finishes placing the restored status item back into the menu bar.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
+                    guard let self = self, self.panel.isVisible, !self.model.panelPinned else { return }
+                    self.layoutPanel()
+                }
+            }
         }
         if activate {
             NSApp.activate(ignoringOtherApps: true)
@@ -2128,6 +2215,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc func togglePanel() {
         if panel.isVisible {
+            if !statusItem.isVisible {
+                statusItem.isVisible = true
+            }
             hidePanel()
         } else {
             showPanel()

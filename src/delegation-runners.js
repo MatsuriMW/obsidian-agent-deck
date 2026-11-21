@@ -93,6 +93,17 @@ const AGENT_BINARY_SPECS = {
       ...hermesBinLocations("hermes"),
     ],
   },
+  minimax: {
+    fallback: "mcode",
+    candidates: () => [
+      path.join(home(), ".minimax-code/bin/mcode"),
+      path.join(home(), ".local/bin/mcode"),
+      path.join(home(), ".npm-global/bin/mcode"),
+      path.join(home(), ".bun/bin/mcode"),
+      "/opt/homebrew/bin/mcode",
+      "/usr/local/bin/mcode",
+    ],
+  },
   claude: {
     fallback: "claude",
     candidates: () => [

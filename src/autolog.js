@@ -433,6 +433,7 @@ export class AutoLog {
     } catch (e) {
       console.error("[agent-deck] 自动记日记失败", e);
       report.error = String(e.message || e);
+      if (e?.code) report.errorCode = e.code;
       return report;
     }
   }

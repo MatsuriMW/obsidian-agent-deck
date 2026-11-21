@@ -53,7 +53,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 
 ### 1. 多 Agent 会话追踪面板
 
-- **统一收拢 11 类本地 Agent**：Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder、Hermes Agent、千问办公（QwenWork）、Cursor 与 Grok Bot。
+- **统一收拢 12 类本地 Agent**：Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder、Hermes Agent、MiniMax Code、千问办公（QwenWork）、Cursor 与 Grok Bot。
 - **按项目看现在**：侧栏「现在」默认按工作区项目收拢活跃会话，也可以按状态（等你 / 待认领 / 在跑 / 异常）或直接平铺成列表；「最近的会话」支持 7 / 30 / 120 天切换，并按 Agent 或项目叠放。
 - **状态一眼可见**：区分运行中、等待回复、需要确认、到达限额、暂停、出错与已完成；子代理会话缩进跟在母会话下面，点卡片即可切回对应客户端或终端标签。
 - **主力与搜索**：最多设两个主力 Agent（读全部历史，其余只读当天），也可以按标题、项目、模型或正文搜索所有本地会话。
@@ -121,6 +121,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 | **OpenCode** | 支持 | 支持 | 首轮后自动打开 | 支持 |
 | **Qoder** | 支持 | 支持 | 仅复制任务并唤起 | 支持 |
 | **Hermes Agent** | 支持 | 支持 | 不支持（无桌面界面） | 支持 |
+| **MiniMax Code** | 支持 | 支持（`mcode acp`） | 首轮后自动打开 | 支持（`mcode`） |
 | **千问办公（QwenWork）** | 支持 | 不支持 | 不支持（仅追踪） | — |
 | **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起 | 支持 |
 | **Cursor** | 支持（需开启 Hooks） | 不支持 | 不支持（仅追踪） | — |
@@ -133,7 +134,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck**，安装并启用；
 2. 或在 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新版，把 `main.js`、`manifest.json`、`styles.css` 放进 `<你的库>/.obsidian/plugins/agent-deck/`，再到插件设置里启用。
 
-当前版本 **1.13.11**，需要 Obsidian **1.4.0+** 桌面端。
+当前版本 **1.13.12**，需要 Obsidian **1.4.0+** 桌面端。
 
 ### 需要准备什么
 
@@ -148,6 +149,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 | **OpenCode** | OpenCode 桌面端或命令行 |
 | **Qoder** | Qoder 命令行；只用桌面交接则装 Qoder 桌面端 |
 | **Hermes Agent** | Hermes 命令行；不用委派时无需额外安装 |
+| **MiniMax Code** | MiniMax Code 桌面端；后台委派或终端续聊另需 `mcode` 命令行 |
 | **千问办公（QwenWork）** | 千问办公桌面端（仅追踪） |
 | **WorkBuddy** | 中国版 WorkBuddy 桌面端；终端交互另需 `codebuddy` |
 | **Cursor** | Cursor 桌面端 3.30.14+，并在设置里开启 Cursor Hooks |
@@ -170,6 +172,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
    - **DeepSeek Harness**：客户端仍在迭代，委派会话在客户端里可能落到「未分组」，通常需刷新客户端才出现。
    - **OpenCode**：后台与桌面共用会话，但打开桌面端后仍需手动选一次。
    - **Hermes Agent**：没有桌面界面，只能在插件里看，或在终端恢复。
+   - **MiniMax Code**：桌面端与 `mcode` 命令行共用本地会话库；打开桌面端后仍需手动选一次会话，只装桌面端未装 `mcode` 时仅追踪不委派。
    - **千问办公（QwenWork）**：只追踪、不能委派；新版客户端的对话已能完整读取，旧日志缺 token 时如实显示为 0。
    - **Grok Bot**：只追踪桌面端，云端沙箱不给逐条 token 时显示「用量未提供」，没有归档概念。
 5. **终端交互的实测范围**：自动开终端跑交互式会话目前仅限 macOS，且只在 **Tern** 和 **Herdr** 上实测通过；macOS 系统终端、iTerm2、Warp 尚未实测，Windows 终端暂未支持。
