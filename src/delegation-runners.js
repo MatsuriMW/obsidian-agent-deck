@@ -343,11 +343,32 @@ function spawnCapture(bin, args, { cwd, env, timeout = 30000 }) {
   });
 }
 
-function execCapture(bin, args, { cwd, env, timeout = 10000 } = {}) {
+function execCapture(bin, args, { cwd, env, timeout = 10000, maxBuffer = 8 * 1024 * 1024 } = {}) {
   return new Promise((resolve) => {
-    execFile(bin, args, { cwd, env, timeout, maxBuffer: 8 * 1024 * 1024 }, (err, out, errOut) => {
-      resolve({ ok: !err, out: String(out || ""), err: String(errOut || (err && err.message) || "") });
+    let out = "", err = "", done = false;
+    let child;
+    try { child = spawnCli(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true }); }
+    catch (e) { return resolve({ ok: false, out: "", err: String(e && e.message || e) }); }
+    const finish = (res) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(res);
+    };
+    const timer = setTimeout(() => {
+      killChildProcess(child, "SIGTERM");
+      finish({ ok: false, out, err: err || t("超时") });
+    }, timeout);
+    child.stdout?.on("data", (b) => {
+      out += b.toString();
+      if (out.length > maxBuffer) out = out.slice(-maxBuffer);
     });
+    child.stderr?.on("data", (b) => {
+      err += b.toString();
+      if (err.length > maxBuffer) err = err.slice(-maxBuffer);
+    });
+    child.on("error", (e) => finish({ ok: false, out, err: String(e && e.message || e) }));
+    child.on("close", (code) => finish({ ok: code === 0, out, err }));
   });
 }
 

@@ -18351,11 +18351,35 @@ function spawnCapture(bin, args, { cwd, env, timeout = 3e4 }) {
     });
   });
 }
-function execCapture(bin, args, { cwd, env, timeout = 1e4 } = {}) {
+function execCapture(bin, args, { cwd, env, timeout = 1e4, maxBuffer = 8 * 1024 * 1024 } = {}) {
   return new Promise((resolve) => {
-    (0, import_child_process6.execFile)(bin, args, { cwd, env, timeout, maxBuffer: 8 * 1024 * 1024 }, (err2, out, errOut) => {
-      resolve({ ok: !err2, out: String(out || ""), err: String(errOut || err2 && err2.message || "") });
+    let out = "", err2 = "", done = false;
+    let child;
+    try {
+      child = spawnCli(bin, args, { cwd, env, stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+    } catch (e) {
+      return resolve({ ok: false, out: "", err: String(e && e.message || e) });
+    }
+    const finish = (res) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      resolve(res);
+    };
+    const timer = setTimeout(() => {
+      killChildProcess(child, "SIGTERM");
+      finish({ ok: false, out, err: err2 || t("\u8D85\u65F6") });
+    }, timeout);
+    child.stdout?.on("data", (b) => {
+      out += b.toString();
+      if (out.length > maxBuffer) out = out.slice(-maxBuffer);
     });
+    child.stderr?.on("data", (b) => {
+      err2 += b.toString();
+      if (err2.length > maxBuffer) err2 = err2.slice(-maxBuffer);
+    });
+    child.on("error", (e) => finish({ ok: false, out, err: String(e && e.message || e) }));
+    child.on("close", (code) => finish({ ok: code === 0, out, err: err2 }));
   });
 }
 function resolveCliModel(plugin, agent, model) {

@@ -254,7 +254,7 @@ test("detectInstalledHarnesses detects MiniMax Code via app, mcode CLI, or ~/.mi
     env: { PATH: "" },
     appDirs: ["/Applications"],
     pathEntries: [],
-    exists: (p) => p === "/Applications/MiniMax Code.app",
+    exists: (p) => p === path.join("/Applications", "MiniMax Code.app"),
     isFile: () => false,
   });
   assert.equal(byApp.detected.minimax, true);
