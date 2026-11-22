@@ -16830,10 +16830,11 @@ function createTerminalController(overrides = {}) {
       return false;
     }
   });
-  const expandHome5 = (p2) => p2.startsWith("~/") ? import_path15.default.join(home7(), p2.slice(2)) : p2;
+  const pathImpl = platform === "win32" ? import_path15.default.win32 : import_path15.default.posix;
+  const expandHome5 = (p2) => p2.startsWith("~/") ? pathImpl.join(home7(), p2.slice(2)) : p2;
   const appInstalled = (name) => {
     if (!name || platform !== "darwin") return false;
-    return ["/Applications", import_path15.default.join(home7(), "Applications")].some((d) => existsSync(import_path15.default.join(d, name)));
+    return ["/Applications", pathImpl.join(home7(), "Applications")].some((d) => existsSync(pathImpl.join(d, name)));
   };
   const findBin = (name, extraPaths = []) => {
     if (!name && !extraPaths.length) return "";
@@ -16841,13 +16842,13 @@ function createTerminalController(overrides = {}) {
     for (const p2 of extraPaths) candidates.push(expandHome5(p2));
     if (name) {
       candidates.push(
-        import_path15.default.join(home7(), ".local/bin", name),
+        pathImpl.join(home7(), ".local/bin", name),
         `/opt/homebrew/bin/${name}`,
         `/usr/local/bin/${name}`,
         `/usr/bin/${name}`
       );
-      const pathDirs = String(process.env.PATH || "").split(import_path15.default.delimiter).filter(Boolean);
-      for (const d of pathDirs) candidates.push(import_path15.default.join(d, name));
+      const pathDirs = String(process.env.PATH || "").split(pathImpl.delimiter).filter(Boolean);
+      for (const d of pathDirs) candidates.push(pathImpl.join(d, name));
     }
     return candidates.find((p2) => existsSync(p2)) || "";
   };
