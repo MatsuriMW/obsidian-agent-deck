@@ -48,7 +48,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Muse** | 支持（按对话流多选） | 不支持 | 不支持（仅追踪） | — |
 | **Kimi Code** | 支持 | 不支持 | 仅唤起客户端（仅追踪） | — |
 | **豆包工作** | 支持（会话列表元数据） | 不支持 | 仅唤起客户端（仅追踪） | — |
-| **Gemini CLI** | 支持 | 不支持 | 不支持（无桌面界面） | 支持（`gemini --resume`） |
+| **Gemini CLI** | 支持 | 支持（`gemini --acp`） | 不支持（无桌面界面） | 支持（`gemini --resume`） |
 | **自定义 ACP Agent** | 委派会话追踪 | 支持（任意 ACP CLI） | — | — |
 
 ## 四、需要准备什么（按需依赖）
@@ -73,7 +73,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Muse** | Muse 桌面端（仅追踪） |
 | **Kimi Code** | Kimi Code 桌面端或 `kimi` CLI（仅追踪） |
 | **豆包工作** | 豆包工作桌面端（仅追踪会话列表元数据） |
-| **Gemini CLI** | `@google/gemini-cli`（`gemini` 命令行，仅追踪与终端续聊） |
+| **Gemini CLI** | `@google/gemini-cli`（`gemini` 命令行，支持追踪、`gemini --acp` 后台委派与终端 `--resume` 续聊） |
 | **自定义 ACP Agent** | 任一兼容 ACP 协议的本地 CLI，在「设置 → 委派 → 自定义 ACP Agent」中填写命令与参数 |
 | **自动记日记 / 总结 / Dreaming** | 任一已登录的本地 CLI，或一个 OpenAI 兼容 API（支持 DeepSeek、OpenAI、OpenRouter、百炼 Qwen、本地 Ollama 等） |
 | **macOS 菜单栏助手** | Xcode Command Line Tools（未装时运行 `xcode-select --install`） |
@@ -99,7 +99,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
    - **Muse**：只追踪桌面端，云端 VM 无本地 token/模型，保留为 0/未提供。
    - **Kimi Code**：仅追踪桌面端与 CLI 会话（`wire.jsonl` v1.5），暂不支持委派。
    - **豆包工作**：只读追踪本地 IndexedDB 中的会话列表元数据（标题与活跃时间），完整正文存于本地加密数据库 `sdk_storage`，插件不解密，token 显示「用量未提供」。
-   - **Gemini CLI**：只读追踪 `~/.gemini/tmp/*/chats/session-*.jsonl`（及旧版 `.json`），自动剥离 `<session_context>` / `<hook_context>` 注入块并统计 token；支持终端 `gemini --resume` 续聊。
+   - **Gemini CLI**：只读追踪 `~/.gemini/tmp/*/chats/session-*.jsonl`（及旧版 `.json`），自动剥离 `<session_context>` / `<hook_context>` 注入块并统计 token；支持 `gemini --acp` 后台委派、应用内追问与终端 `gemini --resume` 续聊（无桌面 GUI）。
 5. **终端交互的实测范围**：自动开终端跑交互式会话目前仅限 macOS，且只在 **Tern** 和 **Herdr** 上实测通过；macOS 系统终端、iTerm2、Warp 尚未实测，Windows 终端暂未支持。
 6. **正在做的方向**：派发前可视化上下文、防引用漂移、Dream 记忆按条共享、Windows 真机实测与终端适配，以及更多 Agent 与终端支持，详见 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist)。
 

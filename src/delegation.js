@@ -465,7 +465,7 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
   }
   if (agent === "gemini") {
     const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
-    const bin = findBin("gemini") || "gemini";
+    const bin = findAgentBinary("gemini", plugin.settings?.delegate?.gemini?.path || "");
     return focusOrResume(plugin, agent, sid, `${shellQuote(bin)} --resume ${shellQuote(sid)}`, cwd);
   }
   if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork"].includes(agent)) {

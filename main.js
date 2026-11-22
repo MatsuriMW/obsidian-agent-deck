@@ -1410,7 +1410,9 @@ var settings_default = {
   "Muse \u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Muse Desktop (tracking only)",
   "Kimi Code \u684C\u9762\u7248 / CLI\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Kimi Code Desktop / CLI (tracking only)",
   "\u8C46\u5305\u5DE5\u4F5C\u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Doubao Work Desktop (tracking only)",
-  "Gemini CLI\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Gemini CLI (tracking only)",
+  "Gemini CLI \u4F1A\u8BDD\u4E0E ACP \u540E\u53F0\u59D4\u6D3E": "Gemini CLI sessions & ACP background delegation",
+  "Antigravity \u684C\u9762\u7248\u3001CLI \u4E0E\u4F1A\u8BDD\u65E5\u5FD7": "Antigravity Desktop, CLI & session logs",
+  "\u4F7F\u7528 Gemini CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002": "Use Gemini CLI's current default model; fetch available models to pick one.",
   "\u8FFD\u8E2A\u5BF9\u8BDD\u6D41 \xB7 \u672A\u9009\u62E9\uFF08\u4E0A\u9650 {max} \u4E2A\uFF09": "Tracked threads \xB7 None selected (max {max})",
   "\u8FFD\u8E2A\u5BF9\u8BDD\u6D41 \xB7 \u5DF2\u9009 {n}/{max}\uFF08{preview}\uFF09": "Tracked threads \xB7 {n}/{max} selected ({preview})",
   "\u8FFD\u8E2A\u5BF9\u8BDD\u6D41 \xB7 \u5DF2\u9009 {n}/{max}": "Tracked threads \xB7 {n}/{max} selected",
@@ -3373,7 +3375,9 @@ var zh_TW_default = {
   "Muse \u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Muse \u684C\u9762\u7248\uFF08\u50C5\u8FFD\u8E64\uFF09",
   "Kimi Code \u684C\u9762\u7248 / CLI\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Kimi Code \u684C\u9762\u7248 / CLI\uFF08\u50C5\u8FFD\u8E64\uFF09",
   "\u8C46\u5305\u5DE5\u4F5C\u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "\u8C46\u5305\u5DE5\u4F5C\u684C\u9762\u7248\uFF08\u50C5\u8FFD\u8E64\uFF09",
-  "Gemini CLI\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Gemini CLI\uFF08\u50C5\u8FFD\u8E64\uFF09",
+  "Gemini CLI \u4F1A\u8BDD\u4E0E ACP \u540E\u53F0\u59D4\u6D3E": "Gemini CLI \u6703\u8A71\u8207 ACP \u80CC\u666F\u59D4\u6D3E",
+  "Antigravity \u684C\u9762\u7248\u3001CLI \u4E0E\u4F1A\u8BDD\u65E5\u5FD7": "Antigravity \u684C\u9762\u7248\u3001CLI \u8207\u6703\u8A71\u65E5\u8A8C",
+  "\u4F7F\u7528 Gemini CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002": "\u4F7F\u7528 Gemini CLI \u76EE\u524D\u8A2D\u5B9A\u7684\u9810\u8A2D\u6A21\u578B\uFF1B\u8B80\u53D6\u53EF\u7528\u6A21\u578B\u5F8C\u53EF\u6307\u5B9A\u6A21\u578B\u3002",
   "\u8FFD\u8E2A\u5BF9\u8BDD\u6D41 \xB7 \u672A\u9009\u62E9\uFF08\u4E0A\u9650 {max} \u4E2A\uFF09": "\u8FFD\u8E64\u5C0D\u8A71\u6D41 \xB7 \u672A\u9078\u64C7\uFF08\u4E0A\u9650 {max} \u500B\uFF09",
   "\u8FFD\u8E2A\u5BF9\u8BDD\u6D41 \xB7 \u5DF2\u9009 {n}/{max}\uFF08{preview}\uFF09": "\u8FFD\u8E64\u5C0D\u8A71\u6D41 \xB7 \u5DF2\u9078 {n}/{max}\uFF08{preview}\uFF09",
   "\u8FFD\u8E2A\u5BF9\u8BDD\u6D41 \xB7 \u5DF2\u9009 {n}/{max}": "\u8FFD\u8E64\u5C0D\u8A71\u6D41 \xB7 \u5DF2\u9078 {n}/{max}",
@@ -4174,7 +4178,7 @@ var AGENTS = {
     color: "#8b6fb8",
     soft: "rgba(139,111,184,.13)",
     kind: "antigravity",
-    where: ["~/.gemini/antigravity/brain", t("Antigravity \u684C\u9762\u7248\u4E0E\u4F1A\u8BDD\u65E5\u5FD7")],
+    where: ["~/.gemini/antigravity/brain \xB7 ~/.gemini/antigravity-cli/brain", t("Antigravity \u684C\u9762\u7248\u3001CLI \u4E0E\u4F1A\u8BDD\u65E5\u5FD7")],
     deep: "antigravity",
     desktopOnly: true
   },
@@ -4324,10 +4328,9 @@ var AGENTS = {
     color: "#4285f4",
     soft: "rgba(66,133,244,.13)",
     kind: "gemini",
-    where: ["~/.gemini/tmp/*/chats", t("Gemini CLI\uFF08\u4EC5\u8FFD\u8E2A\uFF09")],
+    where: ["~/.gemini/tmp/*/chats", t("Gemini CLI \u4F1A\u8BDD\u4E0E ACP \u540E\u53F0\u59D4\u6D3E")],
     deep: "gemini",
-    desktopOnly: false,
-    trackingOnly: true
+    desktopOnly: false
   }
 };
 var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "gemini"];
@@ -4337,6 +4340,7 @@ var MODEL_CATALOG = [
   { id: "opencode-default", agent: "opencode", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "OpenCode", context: "\u2014", tags: [], note: t("\u4F7F\u7528\u670D\u52A1\u7AEF\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
   { id: "hermes-default", agent: "hermes", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Hermes", context: "\u2014", tags: [], note: t("\u4F7F\u7528 Hermes \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
   { id: "minimax-default", agent: "minimax", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "MiniMax", context: "\u2014", tags: [], note: t("\u4F7F\u7528 MiniMax Code \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
+  { id: "gemini-default", agent: "gemini", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Gemini CLI", context: "\u2014", tags: [], note: t("\u4F7F\u7528 Gemini CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
   {
     id: "qoder-ultimate",
     agent: "qoder",
@@ -4742,6 +4746,7 @@ var DEFAULTS = {
     opencode: { model: "opencode-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     hermes: { model: "hermes-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     minimax: { model: "minimax-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    gemini: { model: "gemini-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     t3code: { path: "", cwd: "", extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
@@ -12830,6 +12835,7 @@ var AgentUsage = class {
     add(import_path10.default.join(h, ".codebuddy/projects"), "workbuddy");
     add(import_path10.default.join(h, ".dsh/sessions"), "dsh");
     add(import_path10.default.join(h, ".gemini/antigravity/brain"), "antigravity");
+    add(import_path10.default.join(h, ".gemini/antigravity-cli/brain"), "antigravity");
     add(import_path10.default.join(h, ".qoder/projects"), "qoder");
     add(import_path10.default.join(qwenWorkHome(), "projects"), "qwenwork");
     add(cursorEventsDir(h), "cursor");
@@ -16863,15 +16869,22 @@ var CAPABILITIES = /* @__PURE__ */ new Map([
     sessionLinkScheme: "doubaowork"
   }],
   ["gemini", {
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    acpArgs: ["--acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "gemini-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
     desktopHandoffOnly: false,
     terminalHandoff: true,
-    continueInApp: false,
+    continueInApp: true,
     permissionControl: false,
     archiveDetection: false,
-    modelCatalog: false,
+    modelCatalog: true,
     sessionLinkScheme: "gemini"
   }]
 ]);
@@ -18067,6 +18080,16 @@ var AGENT_BINARY_SPECS = {
     candidates: () => [
       ...hermesBinLocations("hermes-acp"),
       ...hermesBinLocations("hermes")
+    ]
+  },
+  gemini: {
+    fallback: "gemini",
+    candidates: () => [
+      import_path16.default.join(home4(), ".local/bin/gemini"),
+      import_path16.default.join(home4(), ".npm-global/bin/gemini"),
+      import_path16.default.join(home4(), ".bun/bin/gemini"),
+      "/opt/homebrew/bin/gemini",
+      "/usr/local/bin/gemini"
     ]
   },
   minimax: {
@@ -19605,7 +19628,7 @@ function openSession(plugin, agent, sid, app = "", session = null) {
   }
   if (agent === "gemini") {
     const cwd = session && session.cwd || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
-    const bin = findBin("gemini") || "gemini";
+    const bin = findAgentBinary("gemini", plugin.settings?.delegate?.gemini?.path || "");
     return focusOrResume(plugin, agent, sid, `${shellQuote(bin)} --resume ${shellQuote(sid)}`, cwd);
   }
   if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork"].includes(agent)) {
@@ -30457,7 +30480,10 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
         import_path20.default.join(homeDir, ".npm-global", "bin", "agy")
       ],
       apps: win ? ["Antigravity/Antigravity.exe"] : ["Antigravity.app"],
-      dataPaths: [import_path20.default.join(homeDir, ".gemini", "antigravity")]
+      dataPaths: [
+        import_path20.default.join(homeDir, ".gemini", "antigravity"),
+        import_path20.default.join(homeDir, ".gemini", "antigravity-cli")
+      ]
     },
     opencode: {
       binNames: ["opencode", "opencode-cli"],

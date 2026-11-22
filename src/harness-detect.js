@@ -158,7 +158,10 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
         path.join(homeDir, ".npm-global", "bin", "agy"),
       ],
       apps: win ? ["Antigravity/Antigravity.exe"] : ["Antigravity.app"],
-      dataPaths: [path.join(homeDir, ".gemini", "antigravity")],
+      dataPaths: [
+        path.join(homeDir, ".gemini", "antigravity"),
+        path.join(homeDir, ".gemini", "antigravity-cli"),
+      ],
     },
     opencode: {
       binNames: ["opencode", "opencode-cli"],

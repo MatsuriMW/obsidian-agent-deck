@@ -83,7 +83,7 @@ export const AGENTS = {
     color: "#8b6fb8",
     soft: "rgba(139,111,184,.13)",
     kind: "antigravity",
-    where: ["~/.gemini/antigravity/brain", t("Antigravity 桌面版与会话日志")],
+    where: ["~/.gemini/antigravity/brain · ~/.gemini/antigravity-cli/brain", t("Antigravity 桌面版、CLI 与会话日志")],
     deep: "antigravity",
     desktopOnly: true,
   },
@@ -233,10 +233,9 @@ export const AGENTS = {
     color: "#4285f4",
     soft: "rgba(66,133,244,.13)",
     kind: "gemini",
-    where: ["~/.gemini/tmp/*/chats", t("Gemini CLI（仅追踪）")],
+    where: ["~/.gemini/tmp/*/chats", t("Gemini CLI 会话与 ACP 后台委派")],
     deep: "gemini",
     desktopOnly: false,
-    trackingOnly: true,
   },
 };
 
@@ -252,6 +251,7 @@ export const MODEL_CATALOG = [
   { id: "opencode-default", agent: "opencode", name: t("CLI 当前默认模型"), value: "", provider: "OpenCode", context: "—", tags: [], note: t("使用服务端的默认模型；读取可用模型后可指定模型。") },
   { id: "hermes-default", agent: "hermes", name: t("CLI 当前默认模型"), value: "", provider: "Hermes", context: "—", tags: [], note: t("使用 Hermes 当前配置的默认模型；读取可用模型后可指定模型。") },
   { id: "minimax-default", agent: "minimax", name: t("CLI 当前默认模型"), value: "", provider: "MiniMax", context: "—", tags: [], note: t("使用 MiniMax Code 当前配置的默认模型；读取可用模型后可指定模型。") },
+  { id: "gemini-default", agent: "gemini", name: t("CLI 当前默认模型"), value: "", provider: "Gemini CLI", context: "—", tags: [], note: t("使用 Gemini CLI 当前配置的默认模型；读取可用模型后可指定模型。") },
   {
     id: "qoder-ultimate",
     agent: "qoder",
@@ -624,6 +624,7 @@ export const DEFAULTS = {
     opencode: { model: "opencode-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     hermes: { model: "hermes-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     minimax: { model: "minimax-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    gemini: { model: "gemini-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     t3code: { path: "", cwd: "", extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {

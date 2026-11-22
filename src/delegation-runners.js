@@ -94,6 +94,16 @@ const AGENT_BINARY_SPECS = {
       ...hermesBinLocations("hermes"),
     ],
   },
+  gemini: {
+    fallback: "gemini",
+    candidates: () => [
+      path.join(home(), ".local/bin/gemini"),
+      path.join(home(), ".npm-global/bin/gemini"),
+      path.join(home(), ".bun/bin/gemini"),
+      "/opt/homebrew/bin/gemini",
+      "/usr/local/bin/gemini",
+    ],
+  },
   minimax: {
     fallback: "mcode",
     candidates: () => [

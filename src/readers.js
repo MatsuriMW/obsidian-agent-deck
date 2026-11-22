@@ -454,6 +454,7 @@ export class AgentUsage {
     add(path.join(h, ".codebuddy/projects"), "workbuddy");
     add(path.join(h, ".dsh/sessions"), "dsh");
     add(path.join(h, ".gemini/antigravity/brain"), "antigravity");
+    add(path.join(h, ".gemini/antigravity-cli/brain"), "antigravity");
     add(path.join(h, ".qoder/projects"), "qoder");
     add(path.join(qwenWorkHome(), "projects"), "qwenwork");
     add(cursorEventsDir(h), "cursor");

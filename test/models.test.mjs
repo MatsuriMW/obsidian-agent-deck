@@ -78,6 +78,7 @@ plugin.allModels=()=>[
   {id:'seven',agent:'qoder',name:'Qoder one',tags:[]},
   {id:'eight',agent:'hermes',name:'Hermes one',tags:[]},
   {id:'nine',agent:'minimax',name:'MiniMax one',tags:[]},
+  {id:'ten',agent:'gemini',name:'Gemini one',tags:[]},
 ];
 plugin.modelsFor=id=>plugin.allModels().filter(m=>m.agent===id);
 plugin.modelById=id=>plugin.allModels().find(m=>m.id===id)||null;
