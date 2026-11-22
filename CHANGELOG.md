@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.17
+
+- **表驱动主力终端注册表扩展（`src/terminals.js`）**：将主力终端列表从 5 家扩展至 **11 家 + 自动**，新增 **cmux**、**tmux**、**Ghostty**、**WezTerm**、**Kitty**、**Alacritty** 支持，并补齐 Windows `wt.exe`/`cmd.exe` 回退；`tmux` 在 `auto` 模式下仅在检测到活跃 CLI 会话位于 `tmux` 内时命中（不抢占默认终端），支持 `tmux` 与 `WezTerm` 窗格级焦点切换；同步修复设置页终端快捷按钮（`openTerminalAt`）未读取 `cliTerminal` 的问题。
+- **双语 README 切换与视觉升级**：默认 `README.md` 切换为英文正本并新增深色 Hero Banner，中文文档迁至 `README.zh-CN.md`，同步更新 Wiki 与安装脚本引用。
+
 ## 1.13.16
 
 - **Antigravity CLI 会话追踪与内置 Gemini CLI ACP 委派**：支持追踪 `antigravity-cli` brain 会话，并为内置 Gemini CLI 启用 `gemini --acp` 后台委派与续聊。
