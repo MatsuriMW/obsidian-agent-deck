@@ -403,6 +403,8 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   &[data-agent="hermes"]      { --ad-prog: #b57536; }
   &[data-agent="minimax"]     { --ad-prog: #e24d6a; }
   &[data-agent="qwenwork"]    { --ad-prog: #6b63d6; }
+  &[data-agent="t3code"]      { --ad-prog: #3d7bd9; }
+  &[data-agent="muse"]        { --ad-prog: #c96f8f; }
 
   &.is-linked {
     cursor: pointer;

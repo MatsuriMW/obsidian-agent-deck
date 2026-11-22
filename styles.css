@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.12 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.13 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -2458,6 +2458,12 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-prog[data-agent=qwenwork] {
   --ad-prog: #6b63d6;
 }
+.ad-prog[data-agent=t3code] {
+  --ad-prog: #3d7bd9;
+}
+.ad-prog[data-agent=muse] {
+  --ad-prog: #c96f8f;
+}
 .ad-prog.is-linked {
   cursor: pointer;
   border-radius: 4px;
@@ -4270,7 +4276,9 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-settings .ad-set-agent[data-agent=grokbot] .ad-set-agent__icon img,
 .ad-settings .ad-set-agent[data-agent=qwenwork] .ad-set-agent__icon img,
 .ad-settings .ad-set-agent[data-agent=hermes] .ad-set-agent__icon img,
-.ad-settings .ad-set-agent[data-agent=minimax] .ad-set-agent__icon img {
+.ad-settings .ad-set-agent[data-agent=minimax] .ad-set-agent__icon img,
+.ad-settings .ad-set-agent[data-agent=t3code] .ad-set-agent__icon img,
+.ad-settings .ad-set-agent[data-agent=muse] .ad-set-agent__icon img {
   border-radius: 7px;
   border: 1px solid var(--ad-line);
 }

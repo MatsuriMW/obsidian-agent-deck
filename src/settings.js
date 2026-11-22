@@ -22,6 +22,7 @@ import {
   detectJournalProviders, resolveJournalProvider, JOURNAL_PROVIDERS, API_PRESETS, fetchAgyModels, testJournalModel,
 } from "./llm.js";
 import { discoverGrokBotStorage } from "./grok-bot-sessions.js";
+import { discoverMuseConversations } from "./muse-sessions.js";
 import { folderExists, normalizeProjectFolder, projectFolderEntries } from "./project-folders.js";
 
 const HOTKEY_MOD_SYMBOL = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘", ctrl: "⌃", alt: "⌥", cmd: "⌘" };
@@ -873,7 +874,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     for (const agent of AGENT_ORDER) {
       if (!p.agentEnabled(agent)) continue;
       const rows = [...pinned, ...rest].filter((m) => m.agent === agent);
-      const clientModels = agent === "workbuddy" || AGENTS[agent].trackingOnly;
+      const clientModels = agent === "workbuddy" || agent === "t3code" || AGENTS[agent].trackingOnly;
       if (!rows.length && (!clientModels || q || this.filter !== "all")) continue;
       const state = p.settings.ui.modelGroups[agent];
       const g = list.createEl(clientModels ? "div" : "details", { cls: "ad-modelgroup" });
@@ -1127,6 +1128,66 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     }
   }
 
+  renderMusePicker(card, sessCountEl, s, p) {
+    const maxTracked = Math.max(1, Math.min(20, Number(s.museMaxTracked) || 5));
+    const configured = Array.isArray(s.museTrackedIds) ? s.museTrackedIds : ["hatch-main"];
+    const selected = new Set(configured.map((x) => String(x || "").trim()).filter(Boolean).slice(0, maxTracked));
+    const conversations = typeof p.museConversations === "function"
+      ? p.museConversations()
+      : discoverMuseConversations(s.museCacheDir ? { cacheDir: s.museCacheDir } : {}).conversations;
+
+    const details = card.createEl("details", { cls: "ad-subdetails ad-grokbot-picker" });
+    details.open = typeof this._museThreadsOpen === "boolean" ? this._museThreadsOpen : conversations.length > 1;
+    details.ontoggle = () => { this._museThreadsOpen = details.open; };
+    const summary = details.createEl("summary", { cls: "ad-subdetails__head" });
+    const summaryTitle = summary.createSpan({ cls: "ad-grokbot-picker__title" });
+    const updateSummary = () => {
+      if (!selected.size) {
+        summaryTitle.textContent = t("追踪对话流 · 未选择（上限 {max} 个）", { max: maxTracked });
+        return;
+      }
+      const names = conversations.filter((c) => selected.has(c.id)).map((c) => (c.isMain ? "Main Chat" : c.title));
+      const preview = names.length > 3 ? t("{names} 等 {n} 个", { names: names.slice(0, 3).join("、"), n: names.length }) : names.join("、");
+      summaryTitle.textContent = preview
+        ? t("追踪对话流 · 已选 {n}/{max}（{preview}）", { n: selected.size, max: maxTracked, preview })
+        : t("追踪对话流 · 已选 {n}/{max}", { n: selected.size, max: maxTracked });
+    };
+    updateSummary();
+
+    const body = details.createDiv({ cls: "ad-grokbot-picker__body" });
+    if (!conversations.length) {
+      body.createSpan({ cls: "ad-muted", text: t("未检测到本机 Muse 对话缓存") });
+      return;
+    }
+
+    const chips = body.createDiv({ cls: "ad-seg ad-seg--many ad-grokbot-picker__chips" });
+    for (const conv of conversations) {
+      const on = selected.has(conv.id);
+      const label = conv.isMain ? "Main Chat (Muse)" : conv.title;
+      const b = chips.createEl("button", { cls: "ad-seg__btn ad-grokbot-chip" + (on ? " is-on" : ""), text: label, attr: { "aria-pressed": String(on), "data-muse-id": conv.id } });
+      b.onclick = async () => {
+        if (selected.has(conv.id)) {
+          selected.delete(conv.id);
+        } else {
+          if (selected.size >= maxTracked) {
+            new Notice(t("最多同时追踪 {max} 个 Muse 对话流，请先取消一个", { max: maxTracked }));
+            return;
+          }
+          selected.add(conv.id);
+        }
+        s.museTrackedIds = [...selected];
+        const nowOn = selected.has(conv.id);
+        b.classList.toggle("is-on", nowOn);
+        b.setAttribute("aria-pressed", String(nowOn));
+        updateSummary();
+        await p.saveSettings?.();
+        await p.scanNow?.(false, { agent: "muse" });
+        const nextCount = [...(p.usage?.meta?.values?.() || [])].filter((x) => x.agent === "muse").length;
+        if (sessCountEl) sessCountEl.textContent = t("{n} 个会话", { n: nextCount });
+      };
+    }
+  }
+
   // ---------- Recording ----------
   renderAgents(body) { return this.renderRecord(body); }
   renderTracking(body) { return this.renderRecord(body); }
@@ -1153,7 +1214,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const sessions = [...p.usage.meta.values()].filter((x) => x.agent === id);
     const stats = card.createDiv({ cls: "ad-set-agent__meta" });
     const sessCountEl = stats.createSpan({ text: t("{n} 个会话", { n: sessions.length }) });
-    stats.createSpan({ text: id === "grokbot" ? t("用量未提供") : fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
+    stats.createSpan({ text: id === "grokbot" || id === "muse" ? t("用量未提供") : fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
     const stateText = primary
       ? t("主力（全量）")
       : enabled
@@ -1161,6 +1222,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         : (detected ? t("已关闭 · 本机已安装") : t("已关闭 · 未检测到"));
     stats.createSpan({ cls: "ad-set-agent__state", text: stateText });
     if (id === "grokbot" && enabled) this.renderGrokBotPicker(card, sessCountEl, s, p);
+    if (id === "muse" && enabled) this.renderMusePicker(card, sessCountEl, s, p);
   }
 
   renderRecord(body) {

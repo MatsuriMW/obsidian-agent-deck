@@ -133,7 +133,7 @@ test("agent-registry supports declarative capability queries and Open-Closed reg
   assert.ok(cliHandoffAgents().includes("workbuddy"));
   assert.equal(canContinueInApp("dsh"), true);
   assert.equal(canContinueInApp("codex"), false);
-  assert.deepEqual(archiveCapableAgents(), ["claude", "codex", "hermes", "minimax"]);
+  assert.deepEqual(archiveCapableAgents(), ["claude", "codex", "hermes", "minimax", "t3code"]);
   assert.deepEqual(permissionCapableAgents(), ["claude", "qoder"]);
 
   registerAgentCapability("custom-ext-agent", {

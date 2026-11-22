@@ -174,9 +174,34 @@ export const AGENTS = {
     desktopOnly: true,
     trackingOnly: true,
   },
+  t3code: {
+    id: "t3code",
+    name: "T3 Code",
+    short: "T3 Code",
+    glyph: "◩",
+    color: "#3d7bd9",
+    soft: "rgba(61,123,217,.13)",
+    kind: "t3code",
+    where: ["~/.t3/userdata/statev2.sqlite · t3 CLI", t("T3 Code 桌面版与 t3 CLI")],
+    deep: "t3code",
+    desktopOnly: true,
+  },
+  muse: {
+    id: "muse",
+    name: "Muse",
+    short: "Muse",
+    glyph: "❋",
+    color: "#c96f8f",
+    soft: "rgba(201,111,143,.13)",
+    kind: "muse",
+    where: ["~/Library/Caches/ConversationCache/hatch-main.json", t("Muse 桌面版（仅追踪）")],
+    deep: "muse",
+    desktopOnly: true,
+    trackingOnly: true,
+  },
 };
 
-export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "cursor", "grokbot"];
+export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse"];
 
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
@@ -423,7 +448,7 @@ export const CLAUDE_PERMISSIONS = [
 export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, cursor: true, grokbot: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, cursor: true, grokbot: true, t3code: true, muse: true },
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
   dayCutoff: 0,
@@ -438,6 +463,8 @@ export const DEFAULTS = {
   hideArchived: true,
   cursorHooksPrompted: false,
   grokBotTrackedBotIds: [],
+  museTrackedIds: ["hatch-main"],
+  museMaxTracked: 5,
   // Human–AI journal: sessions written back into the daily note.
   journalFolder: "",       // 日记目录；留空自动检测（找不到就用「日记」）
   journalFormat: "",       // 日记文件名格式（moment 写法）；留空自动检测
@@ -487,12 +514,13 @@ export const DEFAULTS = {
   autoLogSeen: {},         // 会话号 → 第一次记进日记的时间；按 180 天懒清理，用来区分「第一次接入」
   noteDispatchJournal: false, // 非日记笔记里的派发也写当天日记；默认只写回原笔记
   stewardWatch: false, // 管家中途干预：波次里有会话长时间没输出就提醒一次；默认关
+  securityAllowlist: [], // 安全护栏白名单（与 Agent Deck/安全审计.md frontmatter allowlist 双向同步）
   replyInbox: [], // 回复信箱：还没回答的 ❓（渲染前会回笔记核对一遍）
   noteDispatchSessions: {},   // 会话号 → 从非日记笔记派发的时间；默认 autoLog 跳过这些会话
   keywordStyle: true,      // 关键词配色与 tsq-ico 图标；TODOseq 自己在格式化时让位
   recordRules: { ...DEFAULT_RECORD_RULES },
   autoLogBatch: 8,         // 一轮最多问模型几个会话
-  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true },
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, t3code: true, muse: true },
   autoLogProvider: "auto",
   autoLogEffort: "low",
   autoLogModel: "",
@@ -553,6 +581,7 @@ export const DEFAULTS = {
     opencode: { model: "opencode-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     hermes: { model: "hermes-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     minimax: { model: "minimax-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    t3code: { path: "", cwd: "", extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
       model: "dsh-default",

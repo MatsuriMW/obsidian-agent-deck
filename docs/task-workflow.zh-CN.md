@@ -1,6 +1,16 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.12**（2026-11-21）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.13**（2026-11-22）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.13 T3 Code（追踪/委派/去重）、Muse 分对话流追踪、离线安全回放闭环与按任务用量聚合
+
+- 新增 **T3 Code（`t3code`）**追踪与委派支持、**Muse（`muse`）**只读会话追踪（`trackingOnly: true`），`USAGE_CACHE_VERSION` 升至 `17`：
+  - **T3 Code**：只读解析 `~/.t3/userdata/statev2.sqlite`（支持 `T3_DATA_DIR` / `T3_STATE_DIR` 与 v1 `state.sqlite` 回退），覆盖 `orchestration_v2_projection_threads` / `messages` / `runs` / `run_attempts` / `provider_turns` 与 `projection_projects`（追踪 `worktreePath`、`archived_at`、子代理 `lineage.parentThreadId`、逐轮 `turnTokenUsage` 与模型名）；新增 `T3CodeRunner`（`src/delegation-runners.js`），经 `t3 thread start <cwd> - --wait --json` 与 `t3 thread send <sid> - --wait --json` 支持后台委派与应用内续聊（项目未登记自动 `t3 project add`，退出码 2 视为等待用户输入），唤起 `com.t3tools.t3code`（回退 `t3code://`）并复制会话号。
+  - **Muse**：新增 `src/muse-sessions.js`，只读解析 `~/Library/Caches/ConversationCache/*.json`（如 `hatch-main.json`，支持 `MUSE_CACHE_DIR`），换算 Apple `CFAbsoluteTime`、提取 `contentBlocks`（`markdown` + `optionWidget`）并剥离 `[[hatch_widget:...]]`；云端 VM 无本地 token/模型，诚实保留 `0`/未提供（设置页显示「用量未提供」）；Muse 无公开 CLI / AppleScript / ACP 接口，保持仅追踪；唤起 `com.meta.endo`（回退 `hatch://`）并复制会话号。
+  - 同步官方 128×128 图标（`assets/agents/t3code.png` / `muse.png`）、本机 Harness 自动探测、日记链接与块号前缀、样式配色、macOS 菜单栏 `src/menubar.swift` 及中英繁文案。
+- 新增 **离线历史安全回放与白名单闭环**（`src/security-audit.js` + `src/security.js` + 命令 `security-audit-replay`「安全：回放最近 30 天会话的工具调用并生成审计报告」）：复盘 `plugin.usage.files` 最近 30 天的 JSONL/zstd（含 `zOff` 断帧回退）与桌面 SQLite 工具调用（Claude Code、Codex、DSH、WorkBuddy、Cursor、Hermes、MiniMax Code、OpenCode、QwenWork、Qoder、T3 Code），复用 `evaluatePermissionPolicy` 与 `redactSecrets` 检测高危命令、结构化/Shell 敏感凭据路径、工作区外写/删与明文密钥，按严重度优先输出脱敏报告 `Agent Deck/安全审计.md`；支持在报告 frontmatter 的 `allowlist:` 中维护 `path:`/`cmd:`/`risk:` 白名单，重跑审计时自动同步至 `settings.securityAllowlist` 并立即生效于 ACP 实时护栏（`secret_exposure` 永不放行）。
+- 新增 **按任务跨多会话/多 Agent 用量与活跃时长聚合**（`src/task-metrics.js` + `src/main.js` `lineMap()` + `src/editor.js`）：同一任务块绑定多个 `🔗` 会话时，在编辑器 pill/token 徽标展示合并 token、去重活跃时长（`unionSegs`）与会话数（`×N`），悬浮提示展示各 Agent 分项明细。
+  - **验证范围**：macOS 全量 `npm test`（含新增 `test/t3code-muse-sessions.test.mjs`，覆盖 `T3CodeRunner` mock CLI 委派/自动加项目/续聊/等待态）、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`，以及本机真实 `T3 Code (Beta).app` / `~/.t3/userdata/statev2.sqlite` 与 `Muse.app` / `~/Library/Caches/ConversationCache/hatch-main.json`（30 条消息 / 11 轮）只读实测通过；**未测空白**：对真实运行中 T3 Code 服务发起真实委派写入与含非空 `turnTokenUsage` 的会话库、Windows 全端。
 
 ## 1.13.12 MiniMax Code 支持、繁体中文与日记整理优化
 

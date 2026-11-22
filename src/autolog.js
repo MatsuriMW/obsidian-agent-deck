@@ -457,6 +457,7 @@ export class AutoLog {
       for (const x of list) {
         if (!x.segs || !x.segs.length) continue;
         if (!this.agentOn(x.agent) || background.has(x.sid)) continue;
+        if (x.agent !== "t3code" && this.usage?.t3OwnerOf?.(x.sid)) continue; // T3 Code 转发到底层 Agent 的会话统一归入 T3 Code，不重复记录
         if (linked.has(x.sid)) continue;   // 日记里用 🔗 绑好的，交给回写那一半
         const last = x.segs[x.segs.length - 1][1];
         const active = now - last <= idle;

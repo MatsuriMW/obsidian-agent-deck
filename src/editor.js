@@ -20,6 +20,7 @@ import { aiRecordDisplayExtension } from "./record-display.js";
 import { taskBoardExtension } from "./fractal-board.js";
 import { executionStatus } from "./workflow.js";
 import { AGENTS, fmtDur, fmtTok, truncate } from "./constants.js";
+import { formatTaskMetricsTooltip } from "./task-metrics.js";
 import { t as tr } from "./i18n.js";
 import { RESULT_LINE_RE, SUB_LINE_RE, TOK_BLOCK_MAX } from "./external-state.js";
 import { bindConnectedInterval } from "./runtime-guard.js";
@@ -315,14 +316,19 @@ class PillWidget extends WidgetType {
       meta.textContent = [progText, session && session.step ? truncate(session.step, 24) : ""].filter(Boolean).join(" · ");
     }
 
-    if (session && session.tokens) {
+    if (session && (session.tokens || session.taskMetrics?.activeMin > 0)) {
       const tok = document.createElement("span");
       tok.className = "ad-pill__tok";
       const icon = tok.appendChild(document.createElement("span"));
       icon.setAttribute("aria-hidden", "true");
       setLucide(icon, "database");
-      tok.appendChild(document.createTextNode(fmtTok(session.tokens)));
-      tok.title = session.tokens.toLocaleString() + " token";
+      const tm = session.taskMetrics;
+      const labelParts = [];
+      if (session.tokens) labelParts.push(fmtTok(session.tokens));
+      if (tm?.activeMin > 0 && tm.sessionCount > 1) labelParts.push(fmtDur(tm.activeMin * 60000));
+      if (tm?.sessionCount > 1) labelParts.push(`×${tm.sessionCount}`);
+      tok.appendChild(document.createTextNode(labelParts.join(" · ")));
+      tok.title = formatTaskMetricsTooltip(tm) || (session.tokens ? session.tokens.toLocaleString() + " token" : "");
       right.appendChild(tok);
     }
 
@@ -390,7 +396,8 @@ function paintLineProgress(el, info) {
       setLucide(c, "database");
     }
   }
-  el._tok.title = tok ? tr("{tok} tok：实心的一个 100 万，空心的一个 10 万", { tok: fmtTok(tok) }) : "";
+  const taskTip = info.taskMetrics ? formatTaskMetricsTooltip(info.taskMetrics) : "";
+  el._tok.title = taskTip || (tok ? tr("{tok} tok：实心的一个 100 万，空心的一个 10 万", { tok: fmtTok(tok) }) : "");
 
   if (info.mode === "bar") {
     const to = Math.max(0, Math.min(PROG_BAR_WIDTH, Math.round(info.pct * PROG_BAR_WIDTH)));

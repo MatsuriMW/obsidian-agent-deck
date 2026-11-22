@@ -58,6 +58,77 @@ async function openCodeTables(db) {
   return v2 ? ["session_v2", "session_message", "session_part"] : ["session", "message", "part"];
 }
 
+function extractT3TurnUsage(payload) {
+  const u = payload?.turnTokenUsage && typeof payload.turnTokenUsage === "object"
+    ? payload.turnTokenUsage
+    : null;
+  if (!u) return { out: 0, fresh: 0, cached: 0 };
+  const input = Number(u.inputTokens) || 0;
+  const cached = Number(u.cachedInputTokens) || 0;
+  const out = Number(u.outputTokens) || 0;
+  return { out, fresh: Math.max(0, input - cached), cached };
+}
+
+function mapT3RunState(status) {
+  const s = String(status || "").toLowerCase();
+  if (["queued", "preparing", "starting", "running", "waiting"].includes(s)) return "run";
+  if (s === "failed" || s === "error") return "error";
+  if (s === "cancelled" || s === "canceled" || s === "interrupted") return "cancelled";
+  return "";
+}
+
+async function t3CodeHasV2(db) {
+  const tables = await desktopQuery(db, "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('orchestration_v2_projection_threads','projection_threads')");
+  return {
+    hasV2: tables.some((t) => t.name === "orchestration_v2_projection_threads"),
+    hasV1: tables.some((t) => t.name === "projection_threads"),
+  };
+}
+
+// Collect underlying provider session/thread IDs launched by T3 Code so AutoLog
+// records the work once under the T3 Code thread instead of duplicating it under
+// the delegated provider (e.g. Codex / Claude Code).
+export async function t3CodeDelegatedSids(db) {
+  const out = new Map();
+  if (!fs.existsSync(db)) return out;
+  const tables = await desktopQuery(db, "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('orchestration_v2_projection_provider_threads','provider_session_runtime','projection_thread_sessions')");
+  const names = new Set(tables.map((t) => t.name));
+  const add = (nativeId, threadId) => {
+    const k = String(nativeId || "").trim();
+    const v = String(threadId || "").trim();
+    if (k && v && k !== v) out.set(k, v);
+  };
+  if (names.has("orchestration_v2_projection_provider_threads")) {
+    const rows = await desktopQuery(db, `SELECT pt.thread_id AS threadId, pt.provider_thread_id AS providerThreadId, pt.provider_session_id AS providerSessionId,
+      json_extract(pt.payload_json, '$.nativeThreadRef.nativeId') AS nativeId
+      FROM orchestration_v2_projection_provider_threads pt
+      LEFT JOIN orchestration_v2_projection_threads t ON t.thread_id = pt.thread_id
+      WHERE pt.thread_id IS NOT NULL AND (t.thread_id IS NULL OR t.deleted_at IS NULL)`);
+    for (const r of rows) {
+      add(r.nativeId, r.threadId);
+      add(r.providerThreadId, r.threadId);
+      add(r.providerSessionId, r.threadId);
+    }
+  }
+  if (names.has("provider_session_runtime")) {
+    const rows = await desktopQuery(db, `SELECT thread_id AS threadId, resume_cursor_json AS cursor FROM provider_session_runtime WHERE resume_cursor_json IS NOT NULL`);
+    for (const r of rows) {
+      const c = json(r.cursor);
+      add(c?.threadId, r.threadId);
+      add(c?.sessionId, r.threadId);
+      add(c?.conversationId, r.threadId);
+    }
+  }
+  if (names.has("projection_thread_sessions")) {
+    const rows = await desktopQuery(db, `SELECT thread_id AS threadId, provider_session_id AS providerSessionId, provider_thread_id AS providerThreadId FROM projection_thread_sessions`);
+    for (const r of rows) {
+      add(r.providerSessionId, r.threadId);
+      add(r.providerThreadId, r.threadId);
+    }
+  }
+  return out;
+}
+
 export async function desktopSessions(db, agent, since) {
   if (agent === "qoder") return desktopQuery(db, `SELECT session_id AS sid,title,cwd,owner_session_id AS parentSid,model,created_at AS startedAt,updated_at AS updatedAt,archived,deleted_at AS deletedAt, max(updated_at, coalesce((SELECT max(updated_at) FROM chat_session_messages m WHERE m.session_id=chat_sessions.session_id),0)) AS revision FROM chat_sessions WHERE revision >= ${Math.floor(since)}`);
   if (agent === "hermes") {
@@ -157,6 +228,110 @@ export async function desktopSessions(db, agent, since) {
         cached: Number(s.cacheReadTokens) || 0,
       };
     });
+  }
+  if (agent === "t3code") {
+    const sinceMs = Math.max(0, Math.floor(since || 0));
+    const { hasV2, hasV1 } = await t3CodeHasV2(db);
+    if (hasV2) {
+      const rows = await desktopQuery(db, `SELECT t.thread_id AS sid,
+        COALESCE(t.title, '') AS title,
+        COALESCE(NULLIF(json_extract(t.payload_json, '$.worktreePath'), ''), p.workspace_root, '') AS cwd,
+        CASE WHEN json_extract(t.payload_json, '$.lineage.relationshipToParent') = 'subagent'
+          THEN COALESCE(json_extract(t.payload_json, '$.lineage.parentThreadId'), '')
+          ELSE '' END AS parentSid,
+        COALESCE(
+          (SELECT json_extract(pt.payload_json, '$.model') FROM orchestration_v2_projection_provider_turns pt
+            WHERE pt.thread_id = t.thread_id AND COALESCE(json_extract(pt.payload_json, '$.model'), '') <> ''
+            ORDER BY pt.ordinal DESC LIMIT 1),
+          (SELECT json_extract(r.payload_json, '$.modelSelection.model') FROM orchestration_v2_projection_runs r
+            WHERE r.thread_id = t.thread_id AND COALESCE(json_extract(r.payload_json, '$.modelSelection.model'), '') <> ''
+            ORDER BY r.ordinal DESC LIMIT 1),
+          json_extract(t.payload_json, '$.modelSelection.model'),
+          ''
+        ) AS model,
+        COALESCE((SELECT r.status FROM orchestration_v2_projection_runs r WHERE r.thread_id = t.thread_id ORDER BY r.ordinal DESC LIMIT 1), '') AS runStatus,
+        t.created_at AS startedAt,
+        t.updated_at AS updatedAt,
+        t.archived_at AS archivedAt,
+        t.deleted_at AS deletedAt,
+        COALESCE((SELECT MAX(m.updated_at) FROM orchestration_v2_projection_messages m WHERE m.thread_id = t.thread_id), '') AS lastMsgAt,
+        COALESCE((SELECT MAX(COALESCE(r.completed_at, r.requested_at)) FROM orchestration_v2_projection_runs r WHERE r.thread_id = t.thread_id), '') AS lastRunAt,
+        COALESCE((SELECT COUNT(*) FROM orchestration_v2_projection_messages m WHERE m.thread_id = t.thread_id), 0) AS msgCount,
+        COALESCE((SELECT COUNT(*) FROM orchestration_v2_projection_runs r WHERE r.thread_id = t.thread_id), 0) AS runCount,
+        COALESCE((SELECT SUM(COALESCE(json_extract(pt.payload_json, '$.turnTokenUsage.outputTokens'), 0)) FROM orchestration_v2_projection_provider_turns pt WHERE pt.thread_id = t.thread_id), 0) AS outTokens,
+        COALESCE((SELECT SUM(MAX(0, COALESCE(json_extract(pt.payload_json, '$.turnTokenUsage.inputTokens'), 0) - COALESCE(json_extract(pt.payload_json, '$.turnTokenUsage.cachedInputTokens'), 0))) FROM orchestration_v2_projection_provider_turns pt WHERE pt.thread_id = t.thread_id), 0) AS freshTokens,
+        COALESCE((SELECT SUM(COALESCE(json_extract(pt.payload_json, '$.turnTokenUsage.cachedInputTokens'), 0)) FROM orchestration_v2_projection_provider_turns pt WHERE pt.thread_id = t.thread_id), 0) AS cachedTokens
+        FROM orchestration_v2_projection_threads t
+        LEFT JOIN projection_projects p ON p.project_id = t.project_id`);
+      return rows.map((s) => {
+        const startedAt = desktopTime(s.startedAt);
+        const updatedAt = Math.max(desktopTime(s.updatedAt), desktopTime(s.lastMsgAt), desktopTime(s.lastRunAt), startedAt);
+        const archived = Boolean(s.archivedAt);
+        const deletedAt = s.deletedAt ? desktopTime(s.deletedAt) || 1 : 0;
+        const out = Number(s.outTokens) || 0;
+        const fresh = Number(s.freshTokens) || 0;
+        const cached = Number(s.cachedTokens) || 0;
+        const rawTitle = String(s.title || "").trim();
+        return {
+          sid: s.sid,
+          title: rawTitle === "New thread" ? "" : rawTitle,
+          cwd: s.cwd || "",
+          parentSid: s.parentSid || "",
+          model: String(s.model || ""),
+          app: "desktop",
+          startedAt,
+          updatedAt,
+          revision: updatedAt + (Number(s.msgCount) || 0) + (Number(s.runCount) || 0) * 10 + out + (archived ? 1000000 : 0),
+          archived,
+          deletedAt,
+          state: mapT3RunState(s.runStatus),
+          out,
+          fresh,
+          cached,
+        };
+      }).filter((s) => s.deletedAt || s.updatedAt >= sinceMs);
+    }
+    if (hasV1) {
+      const rows = await desktopQuery(db, `SELECT t.thread_id AS sid,
+        COALESCE(t.title, '') AS title,
+        COALESCE(NULLIF(t.worktree_path, ''), p.workspace_root, '') AS cwd,
+        COALESCE(json_extract(t.model_selection_json, '$.model'), '') AS model,
+        COALESCE(s.status, '') AS runStatus,
+        t.created_at AS startedAt,
+        t.updated_at AS updatedAt,
+        t.archived_at AS archivedAt,
+        t.deleted_at AS deletedAt,
+        COALESCE((SELECT MAX(m.updated_at) FROM projection_thread_messages m WHERE m.thread_id = t.thread_id), '') AS lastMsgAt,
+        COALESCE((SELECT COUNT(*) FROM projection_thread_messages m WHERE m.thread_id = t.thread_id), 0) AS msgCount
+        FROM projection_threads t
+        LEFT JOIN projection_projects p ON p.project_id = t.project_id
+        LEFT JOIN projection_thread_sessions s ON s.thread_id = t.thread_id`);
+      return rows.map((s) => {
+        const startedAt = desktopTime(s.startedAt);
+        const updatedAt = Math.max(desktopTime(s.updatedAt), desktopTime(s.lastMsgAt), startedAt);
+        const archived = Boolean(s.archivedAt);
+        const deletedAt = s.deletedAt ? desktopTime(s.deletedAt) || 1 : 0;
+        const rawTitle = String(s.title || "").trim();
+        return {
+          sid: s.sid,
+          title: rawTitle === "New thread" ? "" : rawTitle,
+          cwd: s.cwd || "",
+          parentSid: "",
+          model: String(s.model || ""),
+          app: "desktop",
+          startedAt,
+          updatedAt,
+          revision: updatedAt + (Number(s.msgCount) || 0) + (archived ? 1000000 : 0),
+          archived,
+          deletedAt,
+          state: mapT3RunState(s.runStatus),
+          out: 0,
+          fresh: 0,
+          cached: 0,
+        };
+      }).filter((s) => s.deletedAt || s.updatedAt >= sinceMs);
+    }
+    return [];
   }
   const [table, message, part] = await openCodeTables(db);
   const rows = await desktopQuery(db, `SELECT *, max(time_updated, coalesce((SELECT max(time_updated) FROM ${message} m WHERE m.session_id=${table}.id),0), coalesce((SELECT max(time_updated) FROM ${part} p WHERE p.session_id=${table}.id),0)) AS revision FROM ${table} WHERE revision >= ${Math.floor(since)}`);
@@ -260,6 +435,113 @@ export async function desktopMessages(db, agent, sid) {
         cached,
       };
     });
+  }
+  if (agent === "t3code") {
+    const { hasV2, hasV1 } = await t3CodeHasV2(db);
+    if (hasV2) {
+      const rows = await desktopQuery(db, `SELECT message_id AS id, run_id AS runId, role, streaming, created_at AS created, updated_at AS updated, payload_json AS payload, search_text AS searchText FROM orchestration_v2_projection_messages WHERE thread_id=${quote(sid)} ORDER BY created_at, message_id`);
+      const runRows = await desktopQuery(db, `SELECT run_id AS runId, status, completed_at AS completedAt, payload_json AS payload FROM orchestration_v2_projection_runs WHERE thread_id=${quote(sid)} ORDER BY ordinal`);
+      const turnRows = await desktopQuery(db, `SELECT pt.provider_turn_id AS turnId, a.run_id AS runId, pt.status, pt.completed_at AS completedAt, pt.payload_json AS payload FROM orchestration_v2_projection_provider_turns pt LEFT JOIN orchestration_v2_projection_run_attempts a ON a.attempt_id = pt.run_attempt_id WHERE pt.thread_id=${quote(sid)} ORDER BY pt.ordinal`);
+
+      const runMeta = new Map();
+      for (const r of runRows) {
+        const p = json(r.payload);
+        runMeta.set(String(r.runId || ""), {
+          status: String(r.status || ""),
+          model: String(p?.modelSelection?.model || ""),
+          completedAt: desktopTime(r.completedAt || p?.completedAt),
+        });
+      }
+
+      const usageByRun = new Map();
+      for (const t of turnRows) {
+        const key = String(t.runId || "");
+        if (!key) continue;
+        const p = json(t.payload);
+        const u = extractT3TurnUsage(p);
+        const cur = usageByRun.get(key) || { out: 0, fresh: 0, cached: 0, model: "", completedAt: 0 };
+        cur.out += u.out;
+        cur.fresh += u.fresh;
+        cur.cached += u.cached;
+        if (p?.model) cur.model = String(p.model);
+        const doneAt = desktopTime(t.completedAt || p?.completedAt);
+        if (doneAt > cur.completedAt) cur.completedAt = doneAt;
+        usageByRun.set(key, cur);
+      }
+
+      const parsed = [];
+      const lastAssistantByRun = new Map();
+      for (const row of rows) {
+        const p = json(row.payload);
+        const role = String(row.role || p.role || "").toLowerCase();
+        if (role !== "user" && role !== "assistant") continue;
+        if (role === "user" && p.createdBy && p.createdBy !== "user") continue;
+        const runId = String(row.runId || p.runId || "");
+        const idx = parsed.length;
+        parsed.push({ row, p, role, runId });
+        if (role === "assistant" && runId) lastAssistantByRun.set(runId, idx);
+      }
+
+      return parsed.map(({ row, p, role, runId }, idx) => {
+        const text = typeof p.text === "string" ? p.text : String(row.searchText || "");
+        const at = desktopTime(p.createdAt || row.created);
+        const updated = desktopTime(p.updatedAt || row.updated) || at;
+        const rInfo = runId ? runMeta.get(runId) : null;
+        const tInfo = role === "assistant" && runId && lastAssistantByRun.get(runId) === idx ? usageByRun.get(runId) : null;
+        const streaming = Boolean(row.streaming || p.streaming);
+        const runState = mapT3RunState(rInfo?.status);
+        const state = role === "user"
+          ? "run"
+          : streaming
+            ? "run"
+            : runState === "error"
+              ? "error"
+              : "wait";
+        const end = state === "wait" ? (tInfo?.completedAt || rInfo?.completedAt || updated || at) : 0;
+        const model = tInfo?.model || rInfo?.model || "";
+        return {
+          id: row.id,
+          role,
+          text,
+          at,
+          end,
+          updated,
+          state,
+          step: "",
+          error: state === "error" ? (String(p.error || rInfo?.status || "failed")).slice(0, 200) : "",
+          model,
+          out: Number(tInfo?.out) || 0,
+          fresh: Number(tInfo?.fresh) || 0,
+          cached: Number(tInfo?.cached) || 0,
+        };
+      });
+    }
+    if (hasV1) {
+      const rows = await desktopQuery(db, `SELECT message_id AS id, role, text, is_streaming AS streaming, created_at AS created, updated_at AS updated FROM projection_thread_messages WHERE thread_id=${quote(sid)} ORDER BY created_at, message_id`);
+      return rows.flatMap((row) => {
+        const role = String(row.role || "").toLowerCase();
+        if (role !== "user" && role !== "assistant") return [];
+        const at = desktopTime(row.created);
+        const updated = desktopTime(row.updated) || at;
+        const state = role === "user" || row.streaming ? "run" : "wait";
+        return [{
+          id: row.id,
+          role,
+          text: String(row.text || ""),
+          at,
+          end: state === "wait" ? updated : 0,
+          updated,
+          state,
+          step: "",
+          error: "",
+          model: "",
+          out: 0,
+          fresh: 0,
+          cached: 0,
+        }];
+      });
+    }
+    return [];
   }
   let rows;
   if (agent === "qoder") {

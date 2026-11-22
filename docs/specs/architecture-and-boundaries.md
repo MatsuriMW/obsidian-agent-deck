@@ -26,8 +26,8 @@
 
 | 层级 | 核心文件 | 职责与关键锚点 |
 | --- | --- | --- |
-| 入口与设置 | `main.js`, `runtime-guard.js`, `security.js`, `trace.js`, `constants.js`, `settings.js`, `settings-agents.js`, `harness-detect.js`, `model-groups.js` | 生命周期、`ManagedTimers` / `CircuitBreaker` / `safeRun` 定时隔离、`resolveSecret`（`env:`/`secret:`）与 `redactSecrets`、`evaluatePermissionPolicy` 风险升阶、本地 JSONL `RunTrace` 与脱敏诊断导出（`exportDiagnostics`）、`AGENTS` 元数据、`STORE_VERSION = 1`、`MEMORY_QUERY_ASSET_VERSION = 1`、Agent 排序/主力推荐、本机 Harness 自动探测与默认关闭未安装项（`detectInstalledHarnesses` / `applyHarnessDetection`）、模型分组；`openTerminalAt`（`main.js`） |
-| 会话适配器 | `readers.js`, `sqlite.js`, `agent-ingestors.js`, `cursor-sessions.js`, `grok-bot-sessions.js`, `desktop-sessions.js`, `codex-desktop.js`, `prompt-text.js`, `external-state.js` | 可扩展 Agent 日志解析注册表（`registerAgentIngestor`）、跨平台 `sqlite3` CLI 探测（`resolveSqliteBinary`）、只读解析 12 家 Agent 日志/SQLite/Hooks/Persistence Blob/进程与外部排队状态、原生客户端标题（`custom-title` / `ai-title` / `thread_name` / DB `title`）追踪（`hasClientTitle`）；`USAGE_CACHE_VERSION = 16`（`readers.js`）；`cleanUserPrompt` / `isPromptText`（`prompt-text.js`） |
+| 入口与设置 | `main.js`, `runtime-guard.js`, `security.js`, `security-audit.js`, `trace.js`, `constants.js`, `settings.js`, `settings-agents.js`, `harness-detect.js`, `model-groups.js` | 生命周期、`ManagedTimers` / `CircuitBreaker` / `safeRun` 定时隔离、`resolveSecret`（`env:`/`secret:`）与 `redactSecrets`、`evaluatePermissionPolicy` 风险升阶、离线历史工具调用安全回放与脱敏审计报告（`runSecurityAudit` → `Agent Deck/安全审计.md`）、本地 JSONL `RunTrace` 与脱敏诊断导出（`exportDiagnostics`）、`AGENTS` 元数据、`STORE_VERSION = 1`、`MEMORY_QUERY_ASSET_VERSION = 1`、Agent 排序/主力推荐、本机 Harness 自动探测与默认关闭未安装项（`detectInstalledHarnesses` / `applyHarnessDetection`）、模型分组；`openTerminalAt`（`main.js`） |
+| 会话适配器 | `readers.js`, `sqlite.js`, `agent-ingestors.js`, `cursor-sessions.js`, `grok-bot-sessions.js`, `muse-sessions.js`, `desktop-sessions.js`, `codex-desktop.js`, `prompt-text.js`, `external-state.js` | 可扩展 Agent 日志解析注册表（`registerAgentIngestor`）、跨平台 `sqlite3` CLI 探测（`resolveSqliteBinary`）、只读解析 14 家 Agent 日志/SQLite/Hooks/Persistence Blob/对话缓存/进程与外部排队状态、原生客户端标题（`custom-title` / `ai-title` / `thread_name` / DB `title`）追踪（`hasClientTitle`）；`USAGE_CACHE_VERSION = 17`（`readers.js`）；`cleanUserPrompt` / `isPromptText`（`prompt-text.js`） |
 | 委派与控制 | `agent-registry.js`, `harness.js`, `delegation-runners.js`, `delegation.js`, `project-folders.js`, `workflow.js`, `attention.js`, `conversation.js`, `conversation-modal.js`, `dialog.js`, `project-workbench.js`, `workbench-modal.js` | 声明式 Agent 能力注册（`canContinueSession`）、可扩展 Harness 管道（`stripInternalIdentifiers` 剥离内部标识）与大纲/双链上下文解析、可扩展 Runner 注册表（`registerRunnerClass`）、工作位置选择、权限弹窗（含一键允许并开启自动允许）、只读对话查看与归档（`ConversationModal` 保持纯只读，应用内追问走 `taskActions` → `FollowUpModal`）、项目聚合与等待筛选（`buildProjectGroups`、`isWaitingSession`）、小队编排与副驾拆解、项目名↔目录登记与派发目录解析（`projectFolders`、`autoProjectFolder`）、未登记项目的最近会话建议（`suggestProjectForTask` / `recentProjectFolders`）、非日记笔记派发默认不重复记日记（`noteDispatchSessions` / `noteDispatchJournal`）；`openTerminal` / `osa`（`delegation.js`） |
 | 日记与整理 | `outline.js`, `journal.js`, `autolog.js`, `note-updates.js`, `task-status.js`, `task-id.js`, `task-mentions.js`, `summary-links.js`, `background-output.js`, `organize-journal.js`, `journal-organizer.js`, `journal-layout.js`, `journal-archive.js`, `task-export.js`, `sync.js` | 共享只读大纲/双链原语（`outline.js`）、按文件排队写入、AI 总结、短链 `[🔗](url)`、语义块号生成与清理、`<!-- ad-pin -->` 关键记录标记、整理/按视图导出（PDF/HTML/MD/JSON/CSV/剪贴板）与归档 |
 | 编辑器与渲染 | `editor.js`, `ai-records.js`, `record-display.js`, `fractal-board.js`, `fold-actions.js`, `fold-integration.js`, `log-detail.js`, `mention-suggest.js` | CodeMirror 扩展、阅读后处理、记录折叠与 Pin 免藏、分形看板投影（`taskBoardViews`）、视图持久化（`key` + `stableKey`）、隐藏内部编号、`@` 补全 |
@@ -38,13 +38,13 @@
 
 记忆与派发产物（均为普通 Markdown，可被 Agent 直接读）：`Agent Deck/记忆/*.md`（一文一条，frontmatter 带 `id/title/kind/type/state/date/sources`）、`Agent Deck/长期记忆.md`（人工前言 + `<!-- ad:memory:start -->` 生成区块）、`Agent Deck/记忆.base`、`Agent Deck/派发/*.md`（派发载荷快照）、`Agent Deck/任务/*.md`（Planner 产出）、`Agent Deck/工作台.md`（索引）、`技能/*.md`（外部 Skill 的库内侧影，真实路径在 frontmatter）。
 
-持久化位置：插件状态在 Vault `data.json`（`STORE_VERSION = 1`）；用量汇总在插件目录 `usage.json`（`SUMMARY_VERSION = 3`）；解析缓存在 `~/.agent-deck/usage-cache.json.gz`（`USAGE_CACHE_VERSION = 16`）。
+持久化位置：插件状态在 Vault `data.json`（`STORE_VERSION = 1`）；用量汇总在插件目录 `usage.json`（`SUMMARY_VERSION = 3`）；解析缓存在 `~/.agent-deck/usage-cache.json.gz`（`USAGE_CACHE_VERSION = 17`）。
 
 日记写入和回顾共用 `journalPath` 定位日记。`journal.js` 统一会话时段和任务行格式，`autolog.js` 负责自动建项，`sync.js` 负责同步已有任务。客户端日志差异在会话适配器中消化。
 
 Dream 的只读材料采集在 `dream-evidence.js`。现有提炼由 `Dreaming.analyzeMemoryBatch` 生成候选，由 `Dreaming.run` 管理进度和落盘。主题与用语分析可共用材料边界，各自生成候选。
 
-## 3. 十二家 Agent 能力边界
+## 3. 十四家 Agent 能力边界
 
 插件内对话窗口只读查看与归档，不设续聊输入框；写入格式、短链、标题保护、块号清理与 token 让渡统一走公共规则。
 
@@ -62,6 +62,8 @@ Dream 的只读材料采集在 `dream-evidence.js`。现有提炼由 `Dreaming.a
 | WorkBuddy | `~/.workbuddy/projects` / `workbuddy.db` | 桌面、终端 | 仅支持中国版；桌面复制等待粘贴，终端跑 `codebuddy`（与桌面不互通）；无后台执行 |
 | Cursor | `~/.agent-deck/cursor-events/*.jsonl`（Cursor 3.30.14+ Hooks）+ 可选 WAL SQLite / transcript 元数据补全 | 桌面（仅追踪） | 显式安装 `~/.cursor/hooks.json` 后生效；不做旧版兼容与历史回填；对话视图/归档含工具时间线与折叠长结果；打开桌面端并复制会话号 |
 | Grok Bot | `~/Library/Application Support/Grok Bot/sand-client-persistence/*.blob`（Base32 `last-roster` + `transcript.replicas`） | 桌面（仅追踪） | 按 `grokBotTrackedBotIds` 多选过滤（默认全不选）；云端沙箱无本地逐条 token/模型，保留为 `0`/未提供；打开 `grokbot://` / `com.anysphere.sand` 并复制 Bot 会话号 |
+| T3 Code | `$T3_DATA_DIR/statev2.sqlite`（默认 `~/.t3/userdata/statev2.sqlite`，回退 `state.sqlite`） | 桌面、后台 | 只读解析 v2 编排投影表（`orchestration_v2_projection_threads` / `messages` / `runs` / `run_attempts` / `provider_turns` / `provider_threads` + `projection_projects`，支持 v1 `projection_threads` 回退），追踪 `worktreePath`、子代理 `lineage.parentThreadId`、`archived_at`、逐轮 `turnTokenUsage` 与模型名；自动记录时按 `provider_threads.nativeThreadRef.nativeId` / `provider_session_runtime.resume_cursor_json` 去重底层被转发的 Agent 会话，统一收录在 T3 Code 下；通过 `t3 thread start` / `t3 thread send` 后台委派与应用内续聊（项目未登记时自动 `t3 project add`）；打开 `com.t3tools.t3code` / `t3code://` 并复制会话号 |
+| Muse | `~/Library/Caches/ConversationCache/*.json`（默认 `hatch-main.json`，支持 `MUSE_CACHE_DIR`） | 桌面（仅追踪） | 支持按 `museTrackedIds` 分对话流多选追踪（默认追踪 `hatch-main` Main Chat，上限 `museMaxTracked = 5`，设置页提供勾选器）；换算 Apple `CFAbsoluteTime` 时间戳，提取 `contentBlocks`（`markdown` + `optionWidget`）并剥离 `[[hatch_widget:...]]`；云端 VM 无本地 token/模型，保留为 `0`/未提供；打开 `com.meta.endo` / `hatch://` 并复制会话号 |
 
 ## 4. 双平台与外部集成边界
 

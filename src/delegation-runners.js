@@ -104,6 +104,15 @@ const AGENT_BINARY_SPECS = {
       "/usr/local/bin/mcode",
     ],
   },
+  t3code: {
+    fallback: "t3",
+    candidates: () => [
+      path.join(home(), ".t3/bin/t3"),
+      path.join(home(), ".local/bin/t3"),
+      "/opt/homebrew/bin/t3",
+      "/usr/local/bin/t3",
+    ],
+  },
   claude: {
     fallback: "claude",
     candidates: () => [
@@ -265,6 +274,7 @@ export const findOpenCodeBinary = (configured = "") => findAgentBinary("opencode
 export const findQoderBinary = (configured = "") => findAgentBinary("qoder", configured);
 export const findWorkbuddyBinary = (configured = "") => findAgentBinary("workbuddy", configured);
 export const findClaudeBinary = (configured = "") => findAgentBinary("claude", configured);
+export const findT3Binary = (configured = "") => findAgentBinary("t3code", configured);
 
 function pickTrusted(list, vaultPath) {
   if (list.includes(vaultPath)) return vaultPath;
@@ -921,6 +931,7 @@ export class AcpRunner extends BaseRunner {
         cwd: this.cwd || cfg.cwd || this.d.vaultPath,
         vaultPath: this.d.vaultPath,
         autoApprove: cfg.autoApprove === true,
+        allowlist: this.d.settings?.securityAllowlist || [],
       });
       this.trace?.recordFrame("acp.permission_request", `${params.toolCall?.title || params.toolCall?.kind || "tool"} [${policy.reason}]`);
       if (this.d.plugin?.requestAcpPermission && !policy.allowAuto) {
@@ -1042,11 +1053,128 @@ export class AcpRunner extends BaseRunner {
 
 const CUSTOM_RUNNER_CLASSES = new Map();
 
+export class T3CodeRunner extends BaseRunner {
+  constructor(delegator, job) {
+    super(delegator, job);
+  }
+
+  _parseJsonOutput(text) {
+    const raw = String(text || "").trim();
+    if (!raw) return null;
+    try { return JSON.parse(raw); } catch { /* try last JSON line */ }
+    const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    for (let i = lines.length - 1; i >= 0; i--) {
+      if (!lines[i].startsWith("{")) continue;
+      try { return JSON.parse(lines[i]); } catch { /* next */ }
+    }
+    return null;
+  }
+
+  _runOnce(bin, args, cwd, prompt) {
+    return new Promise((resolve) => {
+      const child = spawnCli(bin, args, { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+      this.child = child;
+      let out = "", err = "";
+      child.stdout.setEncoding("utf8");
+      child.stdout.on("data", (chunk) => {
+        out += chunk;
+        this.job.lastText = out.slice(-2000);
+        this.d.saveJobsSoon();
+        this.d.refreshUI();
+      });
+      child.stderr.on("data", (b) => {
+        err += b.toString();
+        if (err.length > 4000) err = err.slice(-4000);
+        this.job.stderr = redactSecrets(err.slice(-1000));
+      });
+      child.on("error", (e) => resolve({ code: -1, out, err: String(e && e.message || e), spawnError: true }));
+      child.on("close", (code) => resolve({ code: code ?? 1, out, err, spawnError: false }));
+      try {
+        child.stdin.write(prompt);
+        child.stdin.end();
+      } catch { /* closed early */ }
+    });
+  }
+
+  async start(opts) {
+    const d = this.d;
+    const cfg = d.settings.delegate.t3code || DEFAULTS.delegate.t3code || {};
+    const bin = findT3Binary(cfg.path || "");
+    const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
+    const extra = splitArgs(cfg.extraArgs || "");
+    const isFollowUp = Boolean(opts.sessionId);
+    const buildArgs = () => {
+      if (isFollowUp) return ["thread", "send", opts.sessionId, "-", "--wait", "--json", ...extra];
+      const args = ["thread", "start", cwd, "-", "--wait", "--json"];
+      if (opts.name) args.push("--title", String(opts.name).slice(0, 80));
+      args.push(...extra);
+      return args;
+    };
+
+    const args = buildArgs();
+    this.job.cwd = cwd;
+    this.job.app = "desktop";
+    if (opts.sessionId) this.job.sessionId = opts.sessionId;
+    this.job.command = redactSecrets([bin, ...args].join(" "));
+    this.trace?.recordFrame("t3code.spawn", path.basename(bin));
+    this.job.state = "running";
+    this.job.startedAt = Date.now();
+    this.job.conversation ||= [];
+    this.job.conversation.push({ role: "user", text: opts.prompt, at: Date.now() });
+    this.timer = setTimeout(() => this.fail(t("委派超过 30 分钟没有结束")), 30 * 60000);
+
+    let res = await this._runOnce(bin, args, cwd, opts.prompt);
+    if (this.finished) return true;
+
+    // Auto-register cwd as a T3 Code project if start failed because project isn't added yet.
+    const combinedFirst = `${res.err}\n${res.out}`.trim();
+    if (!isFollowUp && !res.spawnError && res.code !== 0 && /no project|project.*not found|not a project/i.test(combinedFirst)) {
+      this.trace?.recordFrame("t3code.project_add", cwd);
+      const addRes = await execCapture(bin, ["project", "add", cwd], { cwd, env: cleanEnv(), timeout: 10000 });
+      if (addRes.ok && !this.finished) {
+        res = await this._runOnce(bin, args, cwd, opts.prompt);
+        if (this.finished) return true;
+      }
+    }
+
+    const parsed = this._parseJsonOutput(res.out);
+    const threadId = parsed?.threadId || opts.sessionId || "";
+    if (threadId && !this.job.sessionId) this.d.onSession(this.job, threadId);
+
+    if (res.code === 0) {
+      this.done(parsed?.reply ?? res.out.trim());
+    } else if (res.code === 2 || parsed?.status === "waiting") {
+      this.done(parsed?.reply || t("T3 Code 正在等待你的回复，请在客户端继续"));
+    } else {
+      const combined = parsed?.error || `${res.err}\n${res.out}`.trim();
+      if (/ECONNREFUSED|not running|no running server|server.*unavailable/i.test(combined)) {
+        this.fail(t("T3 Code 服务未运行，请先打开 T3 Code 桌面版或运行 t3 up"));
+      } else {
+        this.fail(combined || t("t3 退出码 {code}", { code: res.code }));
+      }
+    }
+    return true;
+  }
+
+  onCleanup() {
+    this._killChild();
+  }
+
+  onDoneCleanup(result) {
+    this._recordAssistantText(result, { updateLastText: true });
+  }
+
+  onAfterCancel() {
+    this.d.refreshUI();
+  }
+}
+
 export const BUILTIN_RUNNER_CLASSES = {
   claude: ClaudeRunner,
   codex: CodexDesktopRunner,
   acp: AcpRunner,
   qoder: QoderRunner,
+  t3code: T3CodeRunner,
 };
 
 export function registerRunnerClass(kind, RunnerClass) {

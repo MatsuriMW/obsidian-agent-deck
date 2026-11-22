@@ -30,6 +30,8 @@ import {
   grokBotPersistenceDir,
 } from "./readers.js";
 import { evaluatePermissionPolicy } from "./security.js";
+import { runSecurityAudit, renderSecurityAuditReport, parseAuditConfig } from "./security-audit.js";
+import { computeTaskMetrics } from "./task-metrics.js";
 import { readRecentTraces, checkExternalAssets, buildDiagnosticReport } from "./trace.js";
 import { Delegator, blockAt, paragraphBlock, freshTaskText, stripInternalIdentifiers, ancestorLines, delegationText, findDraftLink, openSession as openSessionRaw, openExternal as openExternalRaw, openTerminal, findAgentBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { pickPermissionOption } from "./delegation-runners.js";
@@ -463,6 +465,8 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "import-nautilus", name: t("导入螺旋日程的历史用量"), callback: () => this.importNautilus(true) });
     this.addCommand({ id: "clean-jobs", name: t("清理已结束的委派记录"), callback: () => this.cleanJobs() });
     this.addCommand({ id: "export-diagnostics", name: t("导出脱敏诊断报告（Trace / 版本 / 熔断状态）"), callback: () => this.exportDiagnostics() });
+    this.addCommand({ id: "security-audit-replay", name: t("安全：回放最近 30 天会话的工具调用并生成审计报告"), callback: () => this.runSecurityAuditReport() });
+    this.addCommand({ id: "security-audit-replay-7d", name: t("安全：快速回放最近 7 天会话并生成审计报告"), callback: () => this.runSecurityAuditReport({ days: 7, overrideDays: true }) });
     this.addCommand({ id: "open-welcome-showcase", name: t("打开 1.10.0 新功能示例笔记"), callback: () => this.openWelcomeShowcase() });
 
     this.registerObsidianProtocolHandler("agent-deck", async (params) => {
@@ -1897,13 +1901,35 @@ export default class AgentDeckPlugin extends Plugin {
     };
     const jobsBySid = new Map();
     for (const job of Object.values(this.jobs)) if (!jobsBySid.has(job.sessionId)) jobsBySid.set(job.sessionId, job);
-    const bind = (line, sid, agent) => {
+    const linksByParent = new Map();
+    for (const link of cached.links) {
+      let arr = linksByParent.get(link.parent);
+      if (!arr) linksByParent.set(link.parent, arr = []);
+      arr.push(link);
+    }
+    const bind = (line, sid, agent, allLinks = null) => {
       const meta = this.usage.meta.get(sid) || this._rescanMeta?.get(sid) || {};
       const live = liveFor(sid);
-      const rawSession = { state: "idle", ...meta, ...live, tokens: live?.tokens ?? meta.tokens ?? ((meta.out || 0) + (meta.fresh || 0)), sid, agent: agent || live?.agent || meta.agent || "claude", job: jobsBySid.get(sid) };
+      const taskLinks = Array.isArray(allLinks) && allLinks.length ? allLinks : [{ sid, agent: agent || live?.agent || meta.agent || "claude" }];
+      const taskMetrics = typeof computeTaskMetrics === "function" ? computeTaskMetrics(taskLinks, this.usage) : null;
+      const singleTokens = live?.tokens ?? meta.tokens ?? ((meta.out || 0) + (meta.fresh || 0));
+      const tokens = taskMetrics && taskMetrics.sessionCount > 1 ? Math.max(taskMetrics.tokens, singleTokens) : singleTokens;
+      const rawSession = {
+        state: "idle",
+        ...meta,
+        ...live,
+        tokens,
+        taskMetrics,
+        sid,
+        agent: agent || live?.agent || meta.agent || "claude",
+        job: jobsBySid.get(sid),
+      };
       sessionByParent.set(line, this.applyExternalState ? this.applyExternalState(rawSession) : rawSession);
     };
-    for (const { parent, sid, agent } of cached.links) bind(parent, sid, agent);
+    for (const [parent, arr] of linksByParent) {
+      const last = arr[arr.length - 1];
+      bind(parent, last.sid, last.agent, arr);
+    }
     if (cached.blockIds.size) {
       const byDay = this.settings.autoLogState || {};
       for (const day of Object.keys(byDay).sort().reverse()) {
@@ -4262,6 +4288,7 @@ export default class AgentDeckPlugin extends Plugin {
       cwd: runner?.cwd || runner?.job?.cwd || this.vaultPath,
       vaultPath: this.vaultPath,
       autoApprove: true,
+      allowlist: this.settings.securityAllowlist || [],
     }).allowAuto;
   }
 
@@ -4299,6 +4326,44 @@ export default class AgentDeckPlugin extends Plugin {
       this.notice(t("导出诊断报告失败：{error}", { error: e?.message || String(e) }), 6000);
     }
     return report;
+  }
+
+  async runSecurityAuditReport({ days = 30, agent = "", overrideDays = false } = {}) {
+    const outPath = "Agent Deck/安全审计.md";
+    // Sync frontmatter config (`days`, `agent`, `ignore_temp_noise`, `allowlist`) from existing report.
+    let allowlist = Array.isArray(this.settings.securityAllowlist) ? [...this.settings.securityAllowlist] : [];
+    let effectiveDays = days;
+    let effectiveAgent = agent;
+    let ignoreTempNoise = true;
+    const existing = this.app?.vault?.getAbstractFileByPath?.(outPath);
+    if (existing) {
+      try {
+        const existingMd = await this.app.vault.read(existing);
+        const cfg = parseAuditConfig(existingMd);
+        if (!overrideDays && cfg.days) effectiveDays = cfg.days;
+        if (!effectiveAgent && cfg.agent) effectiveAgent = cfg.agent;
+        if (cfg.ignoreTempNoise !== null) ignoreTempNoise = cfg.ignoreTempNoise;
+        if (JSON.stringify(cfg.allowlist) !== JSON.stringify(allowlist)) {
+          allowlist = cfg.allowlist;
+          this.settings.securityAllowlist = cfg.allowlist;
+          await this.saveSettings();
+        }
+      } catch { /* unreadable existing report */ }
+    }
+    this.notice(t("正在离线回放最近 {n} 天的历史工具调用…", { n: effectiveDays }), 4000);
+    const result = await runSecurityAudit(this, { days: effectiveDays, agent: effectiveAgent, ignoreTempNoise, allowlist });
+    const md = renderSecurityAuditReport(result);
+    const file = await this.writeVaultFile(outPath, md);
+    if (file && this.app?.workspace?.getLeaf) {
+      try { await this.app.workspace.getLeaf(false).openFile(file); } catch { /* headless */ }
+    }
+    this.notice(t("安全回放完成：扫描 {sessions} 个会话、{calls} 次工具调用，命中 {hits} 条风险（已写入 {path}）", {
+      sessions: result.scannedSessions,
+      calls: result.totalToolCalls,
+      hits: result.totalFindings,
+      path: outPath,
+    }), 8000);
+    return result;
   }
 }
 

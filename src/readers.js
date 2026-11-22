@@ -7,7 +7,7 @@
 import fs from "fs";
 import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 export { cleanUserPrompt, isPromptText } from "./prompt-text.js";
-import { desktopSessions, desktopMessages } from "./desktop-sessions.js";
+import { desktopSessions, desktopMessages, t3CodeDelegatedSids } from "./desktop-sessions.js";
 import { resolveSqliteBinary } from "./sqlite.js";
 import {
   stepText,
@@ -40,6 +40,12 @@ import {
   grokBotPersistenceDir,
 } from "./grok-bot-sessions.js";
 export { grokBotPersistenceDir };
+import {
+  discoverMuseConversations,
+  parseMuseConversation,
+  museCacheDir,
+} from "./muse-sessions.js";
+export { museCacheDir };
 export {
   cursorEventsDir,
   cursorHooksStatus,
@@ -90,6 +96,12 @@ const minimaxHome = () => {
   if (fs.existsSync(def)) return def;
   const legacy = path.join(home(), ".mavis");
   return fs.existsSync(legacy) ? legacy : def;
+};
+// T3 Code stores its orchestration SQLite under $T3_DATA_DIR / $T3_STATE_DIR, or ~/.t3/userdata by default.
+const t3CodeDataDir = () => {
+  if (process.env.T3_DATA_DIR) return norm(process.env.T3_DATA_DIR);
+  if (process.env.T3_STATE_DIR) return norm(process.env.T3_STATE_DIR);
+  return path.join(home(), ".t3", "userdata");
 };
 
 // Codex (and DSH's default workspace) create a folder per task, so the folder
@@ -224,7 +236,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 16;
+export const USAGE_CACHE_VERSION = 17;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -289,6 +301,7 @@ export class AgentUsage {
     this.sideChats = new Map();      // sid -> [{ pid, since }] currently open side chats
     this.subs = new Map();           // sid -> Map(agentId -> subagent record)
     this.wbMeta = new Map();         // WorkBuddy db session metadata
+    this.t3Delegated = new Map();    // underlying provider sid -> owning T3 Code thread_id
     this.sideAt = 0;
     this.errors = [];
     this.lastScan = 0;
@@ -306,6 +319,11 @@ export class AgentUsage {
     if (this.isPrimary(agent)) return true;
     const a = this.settings.agents || {};
     return a[agent] !== false;
+  }
+
+  t3OwnerOf(sid) {
+    if (!sid || !this.enabled("t3code")) return "";
+    return this.t3Delegated.get(sid) || "";
   }
 
   stale(agent, ms) {
@@ -473,17 +491,22 @@ export class AgentUsage {
     this.applyClaudeDesktop();
     await this.readCursorMeta({ onlyAgent });
     await this.readGrokBotSessions({ floor, onlyAgent, strictSince, touched });
+    await this.readMuseSessions({ floor, onlyAgent, strictSince, touched });
     if (!onlyAgent && !strictSince) this.lastScan = Date.now();
     return touched;
   }
 
   desktopDatabases() {
     const hHome = process.env.HERMES_HOME ? norm(process.env.HERMES_HOME) : path.join(home(), ".hermes");
+    const t3Dir = t3CodeDataDir();
+    const t3V2 = path.join(t3Dir, "statev2.sqlite");
+    const t3V1 = path.join(t3Dir, "state.sqlite");
     const dbs = [
       [path.join(home(), ".local/share/opencode/opencode.db"), "opencode"],
       [path.join(home(), "Library/Application Support/com.qoder.app.stable/main.sqlite"), "qoder"],
       [path.join(hHome, "state.db"), "hermes"],
       [path.join(minimaxHome(), "v2/sqlite/runtime-state.sqlite"), "minimax"],
+      [fs.existsSync(t3V2) ? t3V2 : t3V1, "t3code"],
     ];
     try {
       const profilesDir = path.join(hHome, "profiles");
@@ -509,6 +532,10 @@ export class AgentUsage {
     for (const [db, agent] of this.desktopDatabases()) {
       if (!this.enabled(agent) || onlyAgent && agent !== onlyAgent || !fs.existsSync(db)) continue;
       try {
+        if (agent === "t3code") {
+          const delegated = await t3CodeDelegatedSids(db);
+          this.t3Delegated = delegated;
+        }
         const sessions = await desktopSessions(db, agent, !strictSince && this.isPrimary(agent) ? 0 : floor);
         const scope = this.isPrimary(agent) ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
         for (const row of sessions) {
@@ -950,6 +977,146 @@ export class AgentUsage {
     }
 
     pruneUnselected(activeTracked);
+  }
+
+  async readMuseSessions({ floor = 0, onlyAgent = "", strictSince = false, touched = new Set() } = {}) {
+    if (onlyAgent && onlyAgent !== "muse") return;
+    const maxTracked = Math.max(1, Math.min(20, Number(this.settings.museMaxTracked) || 5));
+    const configuredIds = Array.isArray(this.settings.museTrackedIds)
+      ? this.settings.museTrackedIds
+      : ["hatch-main"];
+    const rawTracked = this.enabled("muse")
+      ? [...new Set(configuredIds.map((x) => String(x || "").trim()).filter(Boolean))].slice(0, maxTracked)
+      : [];
+    const tracked = new Set(rawTracked);
+
+    const pruneUnselected = (keep) => {
+      for (const [fileKey, fc] of [...this.files]) {
+        if (fc.agent !== "muse" || keep.has(fc.sid)) continue;
+        for (const day of fc.days?.keys() || []) touched.add(day);
+        this.files.delete(fileKey);
+        this.dirty = true;
+      }
+      for (const [sid, m] of [...this.meta]) {
+        if (m.agent === "muse" && !keep.has(sid)) {
+          this.meta.delete(sid);
+          this.dirty = true;
+        }
+      }
+    };
+
+    if (!tracked.size) {
+      pruneUnselected(tracked);
+      return;
+    }
+
+    const storage = discoverMuseConversations(
+      this.settings.museCacheDir
+        ? { cacheDir: this.settings.museCacheDir }
+        : { homeDir: home() },
+    );
+    const activeIds = new Set();
+    const scope = this.isPrimary("muse") ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+
+    for (const conv of storage.conversations) {
+      if (!tracked.has(conv.id)) continue;
+      let st;
+      try { st = await fsp.stat(conv.filePath); } catch { continue; }
+      const sid = conv.id;
+      activeIds.add(sid);
+      const key = `${conv.filePath}#${sid}`;
+      const previous = this.files.get(key);
+      if (
+        previous &&
+        previous.size === st.size &&
+        previous.mtime === st.mtimeMs &&
+        previous.offset === scope
+      ) {
+        continue;
+      }
+
+      let rawText;
+      try { rawText = await fsp.readFile(conv.filePath, "utf8"); } catch { continue; }
+      const parsed = parseMuseConversation(rawText, conv);
+      if (!parsed) continue;
+
+      const fc = {
+        path: key,
+        agent: "muse",
+        sid,
+        id: sid,
+        cwd: "",
+        app: "desktop",
+        model: "",
+        size: st.size,
+        offset: scope,
+        mtime: st.mtimeMs,
+        days: new Map(),
+        msgs: new Map(),
+        titles: new Map([[sid, parsed.title]]),
+        live: null,
+      };
+      for (const day of previous?.days?.keys() || []) touched.add(day);
+
+      let firstText = "";
+      let firstEntryAt = 0;
+      for (const e of parsed.entries) {
+        if (!e.at) continue;
+        if (strictSince && e.at < floor) continue;
+        if (this.stale("muse", e.at) && !previous?.days.has(dayKey(e.at, this.cfg))) continue;
+        if (!firstEntryAt || e.at < firstEntryAt) firstEntryAt = e.at;
+        const { day, s } = this.touchSess(fc, touched, e.at, sid, "", "desktop");
+        const v = this.liveOf(fc, sid, e.at);
+        v.cwd = "";
+        v.app = "desktop";
+        v.title = parsed.title;
+        if (e.role === "user" && e.text.trim()) {
+          day.prompts++;
+          startRound(fc, e.at, e.text, e.id);
+          if (!firstText) firstText = e.text.slice(0, 300);
+          s.text = firstText;
+          v.state = "run";
+        } else if (e.role === "assistant") {
+          if (e.isTurnReply && e.summaryText) {
+            v.lastText = e.summaryText;
+            finishRound(fc, e.at, e.summaryText, !e.isStreaming);
+          }
+          v.state = e.isStreaming ? "run" : "wait";
+        }
+      }
+
+      if (fc.live) {
+        fc.live.state = parsed.state;
+        fc.live.step = parsed.step;
+        fc.live.turns = fc.rounds?.list.length || 0;
+        fc.live.rounds = fc.rounds?.list || [];
+        this.noteClientTitle(sid, parsed.title, { fc });
+        this.noteMeta(fc, sid, {
+          ...fc.live,
+          title: parsed.title || firstText,
+          clientTitle: Boolean(parsed.title),
+          text: firstText || "",
+          cwd: "",
+          app: "desktop",
+          model: "",
+          lastAt: fc.live.at,
+          startedAt: firstEntryAt || fc.live.at,
+          out: 0,
+          fresh: 0,
+          cached: 0,
+          calls: 0,
+          archived: false,
+        });
+        this.files.set(key, fc);
+        this.dirty = true;
+      } else if (previous) {
+        this.files.delete(key);
+        this.meta.delete(sid);
+        this.dirty = true;
+      }
+    }
+
+    pruneUnselected(activeIds);
   }
 
   // 归档 = 做完：桌面版里归档的、Codex archived_sessions 里的都可以从会话列表里收起来

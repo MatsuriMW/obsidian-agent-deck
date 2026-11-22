@@ -421,6 +421,8 @@ export const AGENT_APPS = {
   minimax: { bundle: "com.minimax.agent.cn", fallbackBundles: ["com.minimax.agent"], url: "minimax-cn://open" },
   cursor: { bundle: "com.todesktop.230313mzl4w4u92", url: "cursor://" },
   grokbot: { bundle: "com.anysphere.sand", url: "grokbot://" },
+  t3code: { bundle: "com.t3tools.t3code", url: "t3code://" },
+  muse: { bundle: "com.meta.endo", url: "hatch://" },
 };
 
 export function openAgentApp(agent) {
@@ -459,7 +461,7 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
     return focusOrResume(plugin, agent, sid, `${shellQuote(findHermesCliBinary(plugin.settings?.delegate?.hermes?.path || ""))} --resume ${shellQuote(sid)}`, cwd);
   }
-  if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot"].includes(agent)) {
+  if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
       return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);

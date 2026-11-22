@@ -4,6 +4,7 @@ import fs from "fs";
 import { desktopMessages } from "./desktop-sessions.js";
 import { buildCursorConversation, readCursorTranscript } from "./cursor-sessions.js";
 import { buildGrokBotConversation } from "./grok-bot-sessions.js";
+import { buildMuseConversation } from "./muse-sessions.js";
 import * as J from "./journal.js";
 import { decompress } from "fzstd";
 import { createHash } from "crypto";
@@ -16,6 +17,7 @@ const textOf = (content) => typeof content === "string" ? content : (Array.isArr
 export function conversationMessages(agent, source, transcriptText = "") {
   if (agent === "cursor") return buildCursorConversation(source, transcriptText);
   if (agent === "grokbot") return buildGrokBotConversation(source);
+  if (agent === "muse") return buildMuseConversation(source);
   const messages = [];
   const seen = new Map();
   for (const line of source.split("\n")) {
@@ -55,7 +57,7 @@ export async function readConversation(plugin, session, cache = new Map()) {
   const files = [...(plugin.usage.files?.values() || [])].filter((f) => f.sid === sid && f.agent === session.agent && !f.sub);
   const messages = [];
   for (const file of files) {
-    if (["opencode", "qoder", "hermes", "qwenwork", "minimax"].includes(session.agent) && file.path.includes("#")) {
+    if (["opencode", "qoder", "hermes", "qwenwork", "minimax", "t3code"].includes(session.agent) && file.path.includes("#")) {
       const db = file.path.slice(0, file.path.lastIndexOf("#"));
       const rows = await desktopMessages(db, session.agent, sid);
       messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));

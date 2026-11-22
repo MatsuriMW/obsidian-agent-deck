@@ -194,6 +194,32 @@ const CAPABILITIES = new Map([
     modelCatalog: false,
     sessionLinkScheme: "grokbot",
   }],
+  ["t3code", {
+    delegate: true,
+    runnerKind: "t3code",
+    acp: false,
+    desktopHandoffOnly: false,
+    terminalHandoff: false,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: true,
+    modelCatalog: false,
+    autoOpenDesktopOnDone: true,
+    waitDesktopUntilDone: false,
+    sessionLinkScheme: "obsidian",
+  }],
+  ["muse", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "muse",
+  }],
 ]);
 
 export function registerAgentCapability(id, capability = {}) {

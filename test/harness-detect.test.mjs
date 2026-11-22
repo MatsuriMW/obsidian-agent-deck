@@ -301,7 +301,7 @@ test("Settings, Sidebar View, and DelegateOptionsModal stay clean when only DSH 
     assert.ok(disabledDetails, "Disabled/uninstalled harnesses are collapsed into a sub-section");
     assert.equal(disabledDetails.open, false);
     const disabledCards = disabledDetails.all().filter((el) => el.classList.contains("ad-set-agent"));
-    assert.equal(disabledCards.length, 10);
+    assert.equal(disabledCards.length, AGENT_ORDER.length - 2);
     assert.ok(disabledCards.some((c) => c.all().some((x) => x.text === "已关闭 · 未检测到")));
     const autoLogBtns = recBody.all().filter((el) => el.parentElement?.classList.contains("ad-seg--many") && ["WorkBuddy", "DSH", "Claude", "Codex"].includes(el.text));
     assert.deepEqual(autoLogBtns.map((b) => b.text), ["WorkBuddy", "DSH"]);

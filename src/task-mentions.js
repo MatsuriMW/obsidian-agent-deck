@@ -94,7 +94,7 @@ function agentModelUsageMap(plugin, agent) {
 export function mentionSuggestions(plugin, query) {
   const parts = query.split("/"), agent = parts[0];
   const routable = routableAgents();
-  const alias = { codex: " gpt", dsh: " deepseek", hermes: " hermes-acp", minimax: " mcode mavis" };
+  const alias = { codex: " gpt", dsh: " deepseek", hermes: " hermes-acp", minimax: " mcode mavis", t3code: " t3 t3-code" };
   if (parts.length === 1) return routable.filter((id) => plugin.agentEnabled(id) && (id + " " + AGENTS[id].name + (alias[id] || "")).toLowerCase().includes(agent.toLowerCase())).map((id) => ({ value: id, label: AGENTS[id].name, next: plugin.modelsFor(id).length > 0, hint: EFFORTS[id] ? t("选择后继续选择具体模型") : t("客户端交接；模型与强度在客户端设置") }));
   if (!routable.includes(agent) || !plugin.agentEnabled(agent)) return [];
   if (parts.length === 2) {

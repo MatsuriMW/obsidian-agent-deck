@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.13
+
+- **支持 T3 Code（追踪 + `t3` CLI 委派 + 转发去重）**：只读解析 `~/.t3/userdata/statev2.sqlite`（支持 `T3_DATA_DIR` / `T3_STATE_DIR` 与 v1 `state.sqlite` 回退、逐轮 `turnTokenUsage`、工作树 `worktreePath`、子代理 `lineage` 与归档态）；支持经 `t3 thread start` / `t3 thread send` 后台委派与应用内续聊（未登记目录自动 `t3 project add`）；自动记日记时按 T3 Code 绑定表去重底层被转发的 Agent 会话，统一收录在 T3 Code 下不重复记录。
+- **支持 Muse 分对话流只读追踪**：读取 `~/Library/Caches/ConversationCache/*.json`（换算 Apple `CFAbsoluteTime`、提取 `contentBlocks` 与 `optionWidget`），云端 VM 诚实显示「用量未提供」；支持按对话流多选追踪（默认追踪 `hatch-main` Main Chat，上限 `museMaxTracked = 5`），设置页提供勾选器；同步 T3 Code 与 Muse 官方图标、菜单栏配色与中英繁文案。
+- **离线历史安全回放与白名单闭环**：新增命令 `安全：回放最近 30 天会话的工具调用并生成审计报告` 与 `安全：快速回放最近 7 天会话并生成审计报告`，基于 `security.js` 离线复盘 12 家客户端（含 Antigravity、DSH zstd）历史工具调用，自动降噪 `/tmp` 与常见构建目录，生成脱敏报告 `Agent Deck/安全审计.md`；支持在报告 frontmatter 修改 `days` / `agent` / `ignore_temp_noise` / `allowlist` 并自动同步到 ACP 实时护栏（明文密钥永不放行）。
+- **按任务跨多会话 / 多 Agent 用量与活跃时长聚合**：同一任务块绑定多个 `🔗` 会话时，编辑器 pill/token 徽标合并展示总 token、去重真实活跃时长与会话数（`×N`），悬浮展示各 Agent 分项明细。
+
 ## 1.13.12
 
 - **支持 MiniMax Code 客户端与 `mcode` CLI**：只读解析 `~/.minimax/v2/sqlite/runtime-state.sqlite`（支持 `MINIMAX_DATA_DIR` / `MAVIS_DATA_DIR` 与 `~/.mavis` 回退、v2 消息行与旧版消息回退、逐轮 token 与模型、工作区路径、归档与父子会话），支持本机自动探测（`MiniMax Code.app`、`mcode` CLI、`~/.minimax`）、`mcode acp` 后台委派与应用内续聊、终端 `mcode --session` 续聊及桌面端唤起；同步官方图标、设置页卡片、菜单栏配色与中英繁文案。

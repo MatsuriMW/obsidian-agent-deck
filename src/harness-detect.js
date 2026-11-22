@@ -12,6 +12,7 @@ import {
   cursorTrackingDbPath,
 } from "./cursor-sessions.js";
 import { grokBotDataDir, grokBotPersistenceDir } from "./grok-bot-sessions.js";
+import { museDataDirs } from "./muse-sessions.js";
 
 export const HARNESS_DETECTION_VERSION = 1;
 
@@ -88,6 +89,11 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
       ? norm(env.MAVIS_DATA_DIR, homeDir)
       : path.join(homeDir, ".minimax");
   const qwenHome = env.QWENWORK_HOME ? norm(env.QWENWORK_HOME, homeDir) : path.join(homeDir, ".qwenworkcn");
+  const t3DataDir = env.T3_DATA_DIR
+    ? norm(env.T3_DATA_DIR, homeDir)
+    : env.T3_STATE_DIR
+      ? norm(env.T3_STATE_DIR, homeDir)
+      : path.join(homeDir, ".t3", "userdata");
   const win = platform === "win32";
 
   return {
@@ -228,6 +234,28 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
         grokBotPersistenceDir(homeDir, platform, env),
         grokBotDataDir(homeDir, platform, env),
       ],
+    },
+    t3code: {
+      binNames: ["t3"],
+      binPaths: [
+        path.join(homeDir, ".t3", "bin", "t3"),
+        path.join(homeDir, ".local", "bin", "t3"),
+      ],
+      apps: win
+        ? ["T3 Code/T3 Code.exe", "T3 Code (Beta)/T3 Code (Beta).exe"]
+        : ["T3 Code (Beta).app", "T3 Code.app"],
+      dataPaths: [
+        path.join(t3DataDir, "statev2.sqlite"),
+        path.join(t3DataDir, "state.sqlite"),
+        t3DataDir,
+        path.join(homeDir, ".t3"),
+      ],
+    },
+    muse: {
+      binNames: [],
+      binPaths: [],
+      apps: win ? [] : ["Muse.app"],
+      dataPaths: museDataDirs(homeDir, platform, env),
     },
   };
 }

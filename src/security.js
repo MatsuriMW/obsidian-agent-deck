@@ -74,7 +74,7 @@ export function saveExternalSecret(name, value, { secretsFile = DEFAULT_SECRETS_
 const HIGH_RISK_SHELL_RE = [
   { id: "destructive_rm", re: /\brm\s+(?:-[a-z]*r[a-z]*f|-[a-z]*f[a-z]*r|--recursive\s+--force|--no-preserve-root)\b/i },
   { id: "pipe_to_shell", re: /\b(?:curl|wget)\b[^|\n]*\|\s*(?:ba|z|da)?sh\b/i },
-  { id: "privilege_escalation", re: /(?:^|[;&|]\s*)sudo\b/i },
+  { id: "privilege_escalation", re: /(?:^|[\n;&|]\s*)sudo\b/i },
   { id: "disk_format", re: /\b(?:mkfs(?:\.[a-z0-9]+)?|dd\s+if=)\b/i },
   { id: "world_writable", re: /\bchmod\s+(?:-R\s+)?777\b/i },
   { id: "force_push", re: /\bgit\s+push\b[^\n]*(?:--force(?:-with-lease)?|\s-f\b)/i },
@@ -127,25 +127,64 @@ function extractToolText(toolCall) {
   return parts.filter(Boolean).join("\n");
 }
 
+export function matchesAllowlistRule(rule, { text = "", paths = [], risk = "" } = {}) {
+  const raw = String(rule || "").trim();
+  if (!raw || raw.startsWith("#")) return false;
+  const lowerText = String(text || "").toLowerCase();
+  const normPaths = (paths || []).map((p) => String(p || "").replace(/\\/g, "/"));
+  if (/^risk:/i.test(raw)) {
+    const target = raw.slice(5).trim().toLowerCase();
+    return Boolean(target && String(risk || "").toLowerCase() === target);
+  }
+  if (/^path:/i.test(raw)) {
+    let prefix = raw.slice(5).trim();
+    if (!prefix) return false;
+    if (prefix.startsWith("~/")) prefix = path.join(os.homedir(), prefix.slice(2));
+    const normPrefix = prefix.replace(/\\/g, "/");
+    return normPaths.some((p) => p === normPrefix || p.startsWith(normPrefix.endsWith("/") ? normPrefix : `${normPrefix}/`) || p.startsWith(normPrefix))
+      || lowerText.includes(normPrefix.toLowerCase());
+  }
+  if (/^cmd:/i.test(raw)) {
+    const needle = raw.slice(4).trim().toLowerCase();
+    return Boolean(needle && lowerText.includes(needle));
+  }
+  const needle = raw.toLowerCase();
+  return lowerText.includes(needle) || normPaths.some((p) => p.toLowerCase().includes(needle));
+}
+
+function findMatchingAllowlist(allowlist, ctx) {
+  if (!Array.isArray(allowlist) || !allowlist.length) return "";
+  for (const rule of allowlist) {
+    if (matchesAllowlistRule(rule, ctx)) return String(rule).trim();
+  }
+  return "";
+}
+
 /**
  * Guard autoApprove against lethal-trifecta escalation:
  * even when autoApprove=true, destructive shell commands, sensitive credential paths,
- * and explicit writes/deletes outside allowed workspace roots escalate to manual approval.
+ * and explicit writes/deletes outside allowed workspace roots escalate to manual approval
+ * unless explicitly matched by a user-configured allowlist rule.
  */
-export function evaluatePermissionPolicy(toolCall, { cwd = "", vaultPath = "", autoApprove = false } = {}) {
+export function evaluatePermissionPolicy(toolCall, { cwd = "", vaultPath = "", autoApprove = false, allowlist = [] } = {}) {
   if (!autoApprove) {
     return { allowAuto: false, escalated: false, risk: "", reason: "manual" };
   }
   const text = extractToolText(toolCall);
+  const paths = extractToolPaths(toolCall);
+  const decide = (risk, reason) => {
+    const matched = findMatchingAllowlist(allowlist, { text, paths, risk });
+    if (matched) return { allowAuto: true, escalated: false, risk: "", reason: "allowlisted", allowlistRule: matched };
+    return { allowAuto: false, escalated: true, risk, reason };
+  };
   for (const rule of HIGH_RISK_SHELL_RE) {
     if (rule.re.test(text)) {
-      return { allowAuto: false, escalated: true, risk: rule.id, reason: `high_risk_command:${rule.id}` };
+      return decide(rule.id, `high_risk_command:${rule.id}`);
     }
   }
-  const paths = extractToolPaths(toolCall);
   for (const p of paths) {
     if (SENSITIVE_PATH_RE.test(p)) {
-      return { allowAuto: false, escalated: true, risk: "sensitive_path", reason: "sensitive_path" };
+      return decide("sensitive_path", "sensitive_path");
     }
   }
   const roots = [normalizeRoot(cwd), normalizeRoot(vaultPath)].filter(Boolean);
@@ -154,7 +193,7 @@ export function evaluatePermissionPolicy(toolCall, { cwd = "", vaultPath = "", a
   if (roots.length && isMutating) {
     for (const p of paths) {
       if (!roots.some((r) => isInsideRoot(p, r))) {
-        return { allowAuto: false, escalated: true, risk: "outside_workspace", reason: "outside_workspace" };
+        return decide("outside_workspace", "outside_workspace");
       }
     }
   }
