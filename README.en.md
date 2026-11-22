@@ -21,9 +21,9 @@ Agent Deck gathers the AI sessions scattered across your local clients into Obsi
 - [2. Delegate from your notes](#2-delegate-from-your-notes)
 - [3. Project workbench and in-place board](#3-project-workbench-and-in-place-board)
 - [4. Journal, tidy and archive](#4-journal-tidy-and-archive)
-- [5. Collaboration Dashboard](#5-collaboration-dashboard)
+- [5. Collaboration Dashboard & security replay](#5-collaboration-dashboard--security-replay)
 - [6. Notes as context](#6-notes-as-context)
-- [7. Menu bar, Dreaming and UI language](#7-menu-bar-dreaming-and-ui-language)
+- [7. Menu bar, Dreaming & languages](#7-menu-bar-dreaming--languages)
 - [Agent support](#agent-support)
 - [Install and requirements](#install-and-requirements)
 - [Known limits](#known-limits)
@@ -53,7 +53,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 
 ### 1. Multi-agent session tracking
 
-- **12 local agents in one place**: Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder, Hermes Agent, MiniMax Code, QwenWork (千问办公), Cursor and Grok Bot.
+- **14 built-in local agents + Custom ACP Agents**: Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder, Hermes Agent, MiniMax Code, QwenWork (千问办公), Cursor, Grok Bot, T3 Code, Muse, plus any ACP-compatible CLI you configure in Settings (such as Gemini CLI, Kiro, Mistral Vibe, etc.).
 - **See Now by project**: the sidebar groups active sessions by workspace project; switch to a status view (waiting / unclaimed / running / error) or a flat list. Recent sessions can be filtered to 7 / 30 / 120 days and stacked by agent or project.
 - **States at a glance**: running, waiting for a reply, needs confirmation, limit reached, paused, error and done; subagent sessions are indented under their parent, and clicking a card switches back to that client or terminal tab.
 - **Primaries and search**: mark up to two agents as primary (full history; the rest only read today), and search every scanned session by title, project, model or body text.
@@ -69,7 +69,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 
 - **Squad presets**: five built-in squads (full-stack, debugging and refactoring, research and docs, deep report, long-form writing) that skip disabled or rate-limited agents; enter a goal and get an editable subtask draft, then run it across agents.
 - **Steward check-in**: if a collaboration wave produces nothing new for 15 minutes, you get one reminder and the child card is updated.
-- **In-place board**: any block with several direct children gets a "Board N" toggle on its line; open it to view that block as a board in the current note, split by status or by group, with card zoom, cross-column drag, bulk status changes and pinning.
+- **In-place board**: any block with several direct children gets a "Board N" toggle on its line; open it to view that block as a board in the current note, split by status or by group, with card zoom, cross-column drag, bulk status changes and pinning. Interactive in Live Preview and rendered as a clean read-only preview in Reading View.
 - **Mirror cards**: reference a task from another note with `![[Note#^block-id]]`; the board shows it as a mirror and status changes write back to the source note.
 
 ### 4. Journal, tidy and archive
@@ -77,15 +77,16 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 - **Automatic journaling**: sessions are scanned through the day, matched to (or created as) journal task lines, and their status, active time and per-round records are kept in sync; pick brief, standard or detailed records, and long answers are saved as separate notes with a link.
 - **Keyword colours**: task keywords such as `DOING` / `PAUSED` / `TOREVIEW` / `DONE` are coloured and iconified in both editing and reading views, matching Logseq Style Tasks.
 - **Titles and folding**: AI titles you edited by hand are never overwritten, and older rounds stay folded so the latest conclusion stays visible.
-- **Four views**: switch one record between outline, table, cards and timeline, then export the current view to PDF, HTML, Markdown, JSON or CSV. Right-click any round in table, cards, timeline or reading view to pin it as a key record, or to hand that round out again to the default agent or a chosen model; right-clicking the paragraph under the cursor in the editor offers the same two delegation entries.
+- **Four views & combined task metrics**: switch one record between outline, table, cards and timeline (interactive in Live Preview, visible as a read-only preview in Reading View), then export the current view to PDF, HTML, Markdown, JSON or CSV. When multiple agents work on the same task, the line-end badge combines deduplicated duration, tokens and session count (hover for per-agent breakdown). Right-click any round in table, cards, timeline or reading view to pin it as a key record, or to hand that round out again to the default agent or a chosen model; right-clicking the paragraph under the cursor in the editor offers the same two delegation entries.
 - **Tidy and archive**: reorganise the day into "doing / to do / done" in one command, or archive finished AI tasks by date into a note you choose.
 - **Works with Nautilus Spiral**: pair it with [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) so Agent Deck owns the AI writes while Spiral keeps its schedule and progress display.
 
-### 5. Collaboration Dashboard
+### 5. Collaboration Dashboard & security replay
 
 - **Daily token heatmap** plus **24-hour rhythm and concurrency**: 7 / 30 / 90 days, a year or a custom range; nothing is estimated when data is missing.
 - **Agent and model distribution**: who used the most, cache hit rate, average per round.
-- **Project effort**: sessions are attributed to projects from journal links and titles, correctable by hand, and can be drilled into by date back to the source journal or session. No extra model calls.
+- **Project & multi-session task effort**: sessions are attributed to projects from journal links and titles, correctable by hand, and can be drilled into by date back to the source journal or session; tasks spanning multiple sessions show combined tokens and deduplicated active time. No extra model calls.
+- **Offline security replay & allowlist guardrails**: replay the last 7 or 30 days of historical tool calls into a redacted High / Medium / Low Markdown report (`Agent Deck/安全审计.md`); allowlist entries in the report frontmatter sync directly with live ACP permission guardrails.
 
 ### 6. Notes as context
 
@@ -103,12 +104,12 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 - **Skill cards**: `Skills: refresh skill cards` turns local skills into notes; write `[[Skills/xxx]]` in a task to hand that skill to the agent. Hand-edited cards keep their text when refreshed.
 - **Workbench**: `Workbench: refresh overview` writes an index page with boards, memory stats and recent plans.
 
-### 7. Menu bar, Dreaming and UI language
+### 7. Menu bar, Dreaming & languages
 
-- **macOS menu bar**: a menu bar icon and the global shortcut `⌃⌥⌘D` show today's numbers, running and waiting sessions, and jump straight to them.
+- **macOS menu bar**: a menu bar icon and the global shortcut `⌃⌥⌘D` show today's numbers, running and waiting sessions, and jump straight to them; click the top-right **Pin** icon to float the panel on screen.
 - **Dreaming long-term memory** (optional, off by default): distils editable long-term memories from the last 14 days of journals and delegations, with an exportable copy.
-- **Bilingual UI**: the interface follows Obsidian's language setting; note text and prompts sent to agents stay unchanged.
-- **Keys stay out of the vault**: API keys can come from environment variables or a local secrets file, and `Export redacted diagnostics` produces a shareable report.
+- **Multi-language UI & update reminders**: built-in Simplified Chinese, Traditional Chinese and English (plus custom locale packs), following Obsidian's language setting; gentle daily GitHub Releases update check with per-version skip.
+- **Keys stay out of the vault**: API keys and custom ACP environment variables support `env:VAR` / `secret:KEY`, and `Export redacted diagnostics` produces a shareable report.
 
 ## Agent support
 
@@ -126,6 +127,9 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 | **WorkBuddy** | Yes | No | Copies the task and opens the app | Yes |
 | **Cursor** | Yes (Hooks required) | No | No (tracking only) | — |
 | **Grok Bot** | Yes (per-Bot selection) | No | No (tracking only) | — |
+| **T3 Code** | Yes | Yes (`t3 thread`) | Focuses the client only | — |
+| **Muse** | Yes | No | No (tracking only) | — |
+| **Custom ACP Agents** | Delegated sessions | Yes (any ACP CLI) | — | — |
 
 ## Install and requirements
 
@@ -134,7 +138,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 1. In Obsidian, open Settings → Community plugins → Browse, search for **Agent Deck**, then install and enable it;
 2. Or download the latest [GitHub Release](https://github.com/MatsuriMW/obsidian-agent-deck/releases), copy `main.js`, `manifest.json` and `styles.css` into `<your vault>/.obsidian/plugins/agent-deck/`, then enable it in the plugin settings.
 
-Current version: **1.13.12**, requires Obsidian **1.4.0+** on desktop.
+Current version: **1.13.14**, requires Obsidian **1.4.0+** on desktop.
 
 ### What you need
 
@@ -154,6 +158,9 @@ Tracking, task binding and the Dashboard need **no extra dependencies**: the plu
 | **WorkBuddy** | China edition of WorkBuddy; `codebuddy` for terminal use |
 | **Cursor** | Cursor 3.30.14+ with Cursor Hooks enabled in settings |
 | **Grok Bot** | Grok Bot desktop app, with the Bots you want selected in settings |
+| **T3 Code** | T3 Code desktop app; `t3` CLI for background delegation |
+| **Muse** | Muse desktop app (tracking only) |
+| **Custom ACP Agents** | Any local ACP-compatible CLI, configured under Settings → Delegation → Custom ACP Agents |
 | **Auto-journal / summaries / Dreaming** | Any signed-in local CLI, or an OpenAI-compatible API (DeepSeek, OpenAI, OpenRouter, Qwen, local Ollama, …) |
 | **macOS menu bar** | Xcode Command Line Tools (`xcode-select --install`) |
 

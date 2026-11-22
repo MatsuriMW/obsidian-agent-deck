@@ -34,31 +34,31 @@
 
   <!-- Header -->
   <text class="title" x="28" y="34">Agent Deck · Core Architecture &amp; Information Flow</text>
-  <text class="subtitle" x="1368" y="34" text-anchor="end">Delegation · Read-Only Tracking · Multi-View Journal Sync · Usage Review &amp; Memory</text>
+  <text class="subtitle" x="1368" y="34" text-anchor="end">Delegation &amp; Guardrails · 14+ Agent Tracking · Multi-View &amp; Board Sync · Review, Audit &amp; Memory</text>
 
   <!-- Column 1: Obsidian Journal & Notes -->
   <rect class="grp" x="28" y="104" width="212" height="290" fill="#f7f4f1" stroke="#ded5cc" />
   <text class="grp-label" x="134" y="128" text-anchor="middle" fill="#825340">Obsidian Journal &amp; Notes</text>
   <rect class="card" x="40" y="148" width="188" height="84" stroke="#d9c6b8" />
-  <text class="card-t" x="134" y="182" text-anchor="middle">Task Line / Outline Block</text>
-  <text class="card-s" x="134" y="204" text-anchor="middle">Grip · Drag · @agent</text>
+  <text class="card-t" x="134" y="182" text-anchor="middle">Task Line / In-Place Board</text>
+  <text class="card-s" x="134" y="204" text-anchor="middle">Grip · Drag · @agent · Mirror</text>
   <rect class="card" x="40" y="286" width="188" height="84" stroke="#d9c6b8" />
-  <text class="card-t" x="134" y="320" text-anchor="middle">Multi-View &amp; Export</text>
+  <text class="card-t" x="134" y="320" text-anchor="middle">Multi-View &amp; Preview</text>
   <text class="card-s" x="134" y="342" text-anchor="middle">Outline · Table · Cards · Timeline</text>
 
-  <!-- Column 2: Delegation & Context -->
+  <!-- Column 2: Delegation & Guardrails -->
   <rect class="grp" x="310" y="104" width="186" height="290" fill="#f3f5f8" stroke="#cfd8e3" />
-  <text class="grp-label" x="403" y="128" text-anchor="middle" fill="#4f667a">Delegation &amp; Context</text>
+  <text class="grp-label" x="403" y="128" text-anchor="middle" fill="#4f667a">Delegation &amp; Guardrails</text>
   <rect class="card" x="322" y="148" width="162" height="84" stroke="#c3d0dc" />
-  <text class="card-t" x="403" y="182" text-anchor="middle">Harness Pipeline</text>
-  <text class="card-s" x="403" y="204" text-anchor="middle">Ancestors · Wikilinks · Model</text>
+  <text class="card-t" x="403" y="182" text-anchor="middle">Harness &amp; Policy</text>
+  <text class="card-s" x="403" y="204" text-anchor="middle">Ancestors · Links · Allowlist</text>
   <rect class="card" x="322" y="286" width="162" height="84" stroke="#d4dce3" />
   <text class="card-t" x="403" y="320" text-anchor="middle">Pre-Send Preview</text>
-  <text class="card-s" x="403" y="342" text-anchor="middle">Background · Desktop · Terminal</text>
+  <text class="card-s" x="403" y="342" text-anchor="middle">ACP · Desktop · Terminal</text>
 
-  <!-- Column 3: 8 Local AI Agents -->
+  <!-- Column 3: 14 Built-in + Custom ACP -->
   <rect class="grp" x="566" y="104" width="212" height="290" fill="#f5f3f9" stroke="#d7cfe8" />
-  <text class="grp-label" x="672" y="128" text-anchor="middle" fill="#634b8a">8 Local AI Agents</text>
+  <text class="grp-label" x="672" y="128" text-anchor="middle" fill="#634b8a">14 Built-in + Custom ACP</text>
   <rect class="card" x="578" y="148" width="188" height="84" stroke="#cec3e3" />
   <text class="card-t" x="672" y="182" text-anchor="middle">Runners</text>
   <text class="card-s" x="672" y="204" text-anchor="middle">ACP/CLI · Desktop · Terminal</text>
@@ -70,21 +70,21 @@
   <rect class="grp" x="856" y="104" width="212" height="290" fill="#f2f6f8" stroke="#c8d8e0" />
   <text class="grp-label" x="962" y="128" text-anchor="middle" fill="#415f75">Agent Deck Control &amp; Sync</text>
   <rect class="card" x="868" y="148" width="188" height="84" stroke="#bfd3de" />
-  <text class="card-t" x="962" y="182" text-anchor="middle">Sidebar &amp; macOS Bar</text>
-  <text class="card-s" x="962" y="204" text-anchor="middle">Live Status · Alerts · Jump</text>
+  <text class="card-t" x="962" y="182" text-anchor="middle">Sidebar &amp; Pinned Bar</text>
+  <text class="card-s" x="962" y="204" text-anchor="middle">Live Status · Pin · Jump</text>
   <rect class="card" x="868" y="286" width="188" height="84" stroke="#bfd3de" />
   <text class="card-t" x="962" y="320" text-anchor="middle">Journal Auto-Sync</text>
-  <text class="card-s" x="962" y="342" text-anchor="middle">Status · Summary · Spans · Links</text>
+  <text class="card-s" x="962" y="342" text-anchor="middle">Status · Summary · Combined</text>
 
-  <!-- Column 5: Review & Memory -->
+  <!-- Column 5: Review, Audit & Memory -->
   <rect class="grp" x="1138" y="104" width="224" height="290" fill="#f2f7f4" stroke="#c7dbce" />
-  <text class="grp-label" x="1250" y="128" text-anchor="middle" fill="#466956">Review &amp; Memory</text>
+  <text class="grp-label" x="1250" y="128" text-anchor="middle" fill="#466956">Review · Audit &amp; Memory</text>
   <rect class="card" x="1150" y="148" width="200" height="84" stroke="#bed4c6" />
-  <text class="card-t" x="1250" y="182" text-anchor="middle">Review Dashboard</text>
-  <text class="card-s" x="1250" y="204" text-anchor="middle">Heatmap · 24h Rhythm · Projects</text>
+  <text class="card-t" x="1250" y="182" text-anchor="middle">Dashboard &amp; Audit Replay</text>
+  <text class="card-s" x="1250" y="204" text-anchor="middle">Heatmap · Tasks · Security</text>
   <rect class="card" x="1150" y="286" width="200" height="84" stroke="#bed4c6" />
   <text class="card-t" x="1250" y="320" text-anchor="middle">Dreaming Memory</text>
-  <text class="card-s" x="1250" y="342" text-anchor="middle">Facts &amp; Patterns · Shared Note</text>
+  <text class="card-s" x="1250" y="342" text-anchor="middle">Facts/Patterns · Base &amp; Board</text>
 
   <!-- Edges -->
   <!-- 1. Task -> Ctx -->

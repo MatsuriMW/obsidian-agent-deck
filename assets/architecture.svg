@@ -34,31 +34,31 @@
 
   <!-- Header -->
   <text class="title" x="28" y="34">Agent Deck · 核心结构与信息流转</text>
-  <text class="subtitle" x="1368" y="34" text-anchor="end">任务委派 · 只读追踪 · 多视图日记回写 · 用量回顾与长期记忆</text>
+  <text class="subtitle" x="1368" y="34" text-anchor="end">任务委派与护栏 · 14+ Agent 只读追踪 · 四视图/看板回写 · 回顾审计与长期记忆</text>
 
   <!-- Column 1: Obsidian 日记与笔记 -->
   <rect class="grp" x="28" y="104" width="212" height="290" fill="#f7f4f1" stroke="#ded5cc" />
   <text class="grp-label" x="134" y="128" text-anchor="middle" fill="#825340">Obsidian 日记与笔记</text>
   <rect class="card" x="40" y="148" width="188" height="84" stroke="#d9c6b8" />
-  <text class="card-t" x="134" y="182" text-anchor="middle">任务行 / 大纲块</text>
-  <text class="card-s" x="134" y="204" text-anchor="middle">纸飞机把手 · 拖拽 · @agent</text>
+  <text class="card-t" x="134" y="182" text-anchor="middle">任务行 / 原地分形看板</text>
+  <text class="card-s" x="134" y="204" text-anchor="middle">纸飞机 · 拖拽 · @agent · 镜像</text>
   <rect class="card" x="40" y="286" width="188" height="84" stroke="#d9c6b8" />
-  <text class="card-t" x="134" y="320" text-anchor="middle">同源多视图与整理</text>
+  <text class="card-t" x="134" y="320" text-anchor="middle">同源四视图与阅读预览</text>
   <text class="card-s" x="134" y="342" text-anchor="middle">大纲 · 表格 · 卡片 · 时间线 · 导出</text>
 
-  <!-- Column 2: 委派与上下文管道 -->
+  <!-- Column 2: 委派与安全护栏 -->
   <rect class="grp" x="310" y="104" width="186" height="290" fill="#f3f5f8" stroke="#cfd8e3" />
-  <text class="grp-label" x="403" y="128" text-anchor="middle" fill="#4f667a">委派与上下文管道</text>
+  <text class="grp-label" x="403" y="128" text-anchor="middle" fill="#4f667a">委派与安全护栏</text>
   <rect class="card" x="322" y="148" width="162" height="84" stroke="#c3d0dc" />
-  <text class="card-t" x="403" y="182" text-anchor="middle">Harness 上下文组装</text>
-  <text class="card-s" x="403" y="204" text-anchor="middle">母项链 · 双链 · 模型与位置</text>
+  <text class="card-t" x="403" y="182" text-anchor="middle">Harness 上下文与策略</text>
+  <text class="card-s" x="403" y="204" text-anchor="middle">母项链 · 双链 · 技能 · 白名单</text>
   <rect class="card" x="322" y="286" width="162" height="84" stroke="#d4dce3" />
   <text class="card-t" x="403" y="320" text-anchor="middle">发送前预览与路由</text>
-  <text class="card-s" x="403" y="342" text-anchor="middle">后台 · 桌面端 · 交互终端</text>
+  <text class="card-s" x="403" y="342" text-anchor="middle">后台 ACP · 桌面端 · 交互终端</text>
 
-  <!-- Column 3: 本机 8 家 AI Agent -->
+  <!-- Column 3: 14 家内置 + 自定义 ACP -->
   <rect class="grp" x="566" y="104" width="212" height="290" fill="#f5f3f9" stroke="#d7cfe8" />
-  <text class="grp-label" x="672" y="128" text-anchor="middle" fill="#634b8a">本机 8 家 AI Agent</text>
+  <text class="grp-label" x="672" y="128" text-anchor="middle" fill="#634b8a">14 家内置 + 自定义 ACP</text>
   <rect class="card" x="578" y="148" width="188" height="84" stroke="#cec3e3" />
   <text class="card-t" x="672" y="182" text-anchor="middle">执行端</text>
   <text class="card-s" x="672" y="204" text-anchor="middle">后台 ACP/CLI · 桌面版 · 终端</text>
@@ -70,21 +70,21 @@
   <rect class="grp" x="856" y="104" width="212" height="290" fill="#f2f6f8" stroke="#c8d8e0" />
   <text class="grp-label" x="962" y="128" text-anchor="middle" fill="#415f75">Agent Deck 控制与回写</text>
   <rect class="card" x="868" y="148" width="188" height="84" stroke="#bfd3de" />
-  <text class="card-t" x="962" y="182" text-anchor="middle">侧栏甲板 · macOS 菜单栏</text>
-  <text class="card-s" x="962" y="204" text-anchor="middle">实时状态 · 待确认 · 直达跳转</text>
+  <text class="card-t" x="962" y="182" text-anchor="middle">侧栏甲板 · 置顶菜单栏</text>
+  <text class="card-s" x="962" y="204" text-anchor="middle">实时状态 · 置顶浮窗 · 直达跳转</text>
   <rect class="card" x="868" y="286" width="188" height="84" stroke="#bfd3de" />
   <text class="card-t" x="962" y="320" text-anchor="middle">日志自动回写引擎</text>
-  <text class="card-s" x="962" y="342" text-anchor="middle">状态 · 结论 · 时段 · 短链</text>
+  <text class="card-s" x="962" y="342" text-anchor="middle">状态 · 结论 · 多会话合计时段</text>
 
-  <!-- Column 5: 回顾分析与长期记忆 -->
+  <!-- Column 5: 回顾 · 安全与长期记忆 -->
   <rect class="grp" x="1138" y="104" width="224" height="290" fill="#f2f7f4" stroke="#c7dbce" />
-  <text class="grp-label" x="1250" y="128" text-anchor="middle" fill="#466956">回顾分析与长期记忆</text>
+  <text class="grp-label" x="1250" y="128" text-anchor="middle" fill="#466956">回顾 · 安全与长期记忆</text>
   <rect class="card" x="1150" y="148" width="200" height="84" stroke="#bed4c6" />
-  <text class="card-t" x="1250" y="182" text-anchor="middle">协作回顾 Dashboard</text>
-  <text class="card-s" x="1250" y="204" text-anchor="middle">Token 热力图 · 24h 作息 · 项目</text>
+  <text class="card-t" x="1250" y="182" text-anchor="middle">协作回顾与安全回放</text>
+  <text class="card-s" x="1250" y="204" text-anchor="middle">热力图 · 跨会话任务 · 离线审计</text>
   <rect class="card" x="1150" y="286" width="200" height="84" stroke="#bed4c6" />
   <text class="card-t" x="1250" y="320" text-anchor="middle">Dreaming 长期记忆</text>
-  <text class="card-s" x="1250" y="342" text-anchor="middle">提炼偏好规律 · 单向共享</text>
+  <text class="card-s" x="1250" y="342" text-anchor="middle">提炼偏好规律 · 记忆看板与 Base</text>
 
   <!-- Edges -->
   <!-- 1. Task -> Ctx -->
