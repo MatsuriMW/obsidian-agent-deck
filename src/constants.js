@@ -523,7 +523,7 @@ export const DEFAULTS = {
   kidBlocks: true,
   dragGrip: true,
   cliOpen: "terminal",     // 终端里起的 Claude Code 会话点开时：terminal 回终端 / desktop 走桌面版
-  cliTerminal: "auto",     // 主力终端：auto 按这台电脑的情况挑（见 delegation.js pickTerminal）/ terminal / iterm / warp / tern / herdr
+  cliTerminal: "auto",     // 主力终端：auto 按这台电脑的情况挑（见 terminals.js pickTerminal）/ terminal / iterm / warp / ghostty / cmux / tmux / wezterm / kitty / alacritty / tern / herdr
   delegateInTerminal: false,  // 拖到 Claude Code / Codex 上默认在主力终端里开交互式会话（按住 ⌘ 反过来）
   yieldToNautilus: true,   // 螺旋日程在任务行下面画了进度行时，不再画 pill、🔗 链接不可点          // 光标所在的列表项尾巴上显示拖拽把手（面板开着时）
   autoLog: true,           // 默认打开：活跃会话自动建项并记进今天的日记

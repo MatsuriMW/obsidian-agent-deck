@@ -17,9 +17,17 @@ import { destinations } from "./workflow.js";
 import { folderExists, normalizeProjectFolder, rememberProjectFolder, resolveDispatchFolder, sameFolder, suggestProjectForTask } from "./project-folders.js";
 import path from "path";
 import os from "os";
-import { spawn, execFile } from "child_process";
+import { execFile } from "child_process";
 import { AGENTS, DEFAULTS, CONFIRM_FIRST, clamp, truncate, journalPath } from "./constants.js";
-import { appleScriptString, safeWarpConfigName } from "./security.js";
+import {
+  TERMINAL_REGISTRY,
+  TERMINAL_NAME,
+  getTerminalOptions,
+  pickTerminal,
+  openTerminal,
+  cliProcess,
+  focusCliSession,
+} from "./terminals.js";
 import { RunTrace } from "./trace.js";
 import * as J from "./journal.js";
 import { mentionOptions, stripTaskMention, mentionTrigger } from "./task-mentions.js";
@@ -174,219 +182,15 @@ export function openExternal(url) {
   try { execFile("/usr/bin/open", [url], () => {}); return true; } catch { return false; }
 }
 
-const appInstalled = (name) => ["/Applications", path.join(home(), "Applications")].some((d) => fs.existsSync(path.join(d, name)));
-const TERMINAL_BUNDLE = { terminal: "com.apple.Terminal", iterm: "com.googlecode.iterm2", warp: "dev.warp.Warp-Stable", tern: "so.stencil.tern", herdr: "dev.herdr.app" };
-const TERMINAL_APP = { herdr: "Herdr.app", tern: "Tern.app", iterm: "iTerm.app", warp: "Warp.app", terminal: "Terminal.app" };
-const TERMINAL_ORDER = ["herdr", "tern", "iterm", "warp", "terminal"];   // 几个都符合时的先后
-const HERDR_SPACE = "spagentdeck";   // 委派出去的会话都开在 Herdr 里这个空间下（窗口里叫「Agent Deck」）
-const findBin = (name) => [path.join(home(), ".local/bin", name), `/opt/homebrew/bin/${name}`, `/usr/local/bin/${name}`].find((p) => fs.existsSync(p)) || "";
-const TERN_BIN = "/Applications/Tern.app/Contents/MacOS/tern";
-const TERN_SESSION = "Agent Deck";   // 委派出去的会话都开在 Tern 里这个会话下
-const osa = (script) => new Promise((resolve) => execFile("/usr/bin/osascript", ["-e", script], { timeout: 8000 }, (err, out) => resolve(err ? null : String(out || "").trim())));
-const run = (bin, args) => new Promise((resolve) => execFile(bin, args, { timeout: 8000, maxBuffer: 8 << 20 }, (err, out) => resolve(err ? "" : String(out || ""))));
-
-// 设置里的「主力终端」。auto 按这台电脑的情况挑：
-//   1. 眼下开着的 claude / codex 命令行会话多半在哪个终端里（顺着父进程认），认出来就记下；
-//   2. 没有就用上次记下的；3. 再没有就看开着哪个终端；4. 最后看装了哪个；都没有用系统终端。
-const DETECTED_FILE = () => path.join(home(), ".agent-deck", "terminal.json");
-const usable = (t) => t === "terminal" || (appInstalled(TERMINAL_APP[t]) && (t !== "herdr" || !!findBin("hc")));
-export async function pickTerminal(which = "auto") {
-  if (TERMINAL_APP[which]) return usable(which) ? which : "terminal";
-  const ps = await run("/bin/ps", ["-ax", "-o", "pid=,tty=,comm="]);
-  const count = {};
-  for (const l of ps.split("\n")) {
-    const m = /^\s*(\d+)\s+(\S+)\s+(.*)$/.exec(l);
-    if (!m || m[2] === "??" || !/(^|\/)(claude|codex)$/.test(m[3])) continue;
-    const host = await terminalHost(Number(m[1]));
-    if (host && usable(host)) count[host] = (count[host] || 0) + 1;
-  }
-  const seen = TERMINAL_ORDER.filter((t) => count[t]).sort((a, b) => count[b] - count[a])[0];
-  if (seen) {
-    try { await fsp.mkdir(path.dirname(DETECTED_FILE()), { recursive: true }); await fsp.writeFile(DETECTED_FILE(), JSON.stringify({ terminal: seen, at: Date.now() })); } catch { /* not writable */ }
-    return seen;
-  }
-  try { const t = JSON.parse(await fsp.readFile(DETECTED_FILE(), "utf8")).terminal; if (TERMINAL_APP[t] && usable(t)) return t; } catch { /* none yet */ }
-  const open = TERMINAL_ORDER.find((t) => usable(t) && ps.includes(`/${TERMINAL_APP[t]}/`));
-  if (open) return open;
-  return TERMINAL_ORDER.find(usable) || "terminal";
-}
-
-export const TERMINAL_NAME = { herdr: "Herdr", tern: "Tern", iterm: "iTerm2", warp: "Warp", terminal: t("系统终端") };
-
-// 在终端里开一个标签跑 command，返回实际用的终端（auto 时是挑出来的那个）
-export async function openTerminal(command, cwd = "", which = "auto", title = "Claude", { background = false } = {}) {
-  const dir = cwd && fs.existsSync(cwd) ? cwd : home();
-  const term = await pickTerminal(which);
-  // Herdr：用 hc 起终端，带上 Herdr 的空间 / 标签记号它就出现在窗口里（窗口没开也行，开窗时就在）。
-  // 委派放进「Agent Deck」空间、不切过去；resume 这类你点出来的，切过去并把 Herdr 叫到前台。跑完回到 shell，标签留着
-  if (term === "herdr") {
-    const hc = findBin("hc"), app = findBin("herdr-app");
-    const tab = `tbagentdeck${Date.now().toString(36)}`;
-    const out = await run(hc, ["run", "--bg", "--keep", "--no-parent", "--json", "--cwd", dir, "--label", `herdr.space=${HERDR_SPACE}`, "--label", `herdr.tab=${tab}`, "--", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`]);
-    let addr = "";
-    try { addr = JSON.parse(out).address || ""; } catch { /* hc not answering */ }
-    if (addr) {
-      if (app) {
-        // 窗口接手新终端要一会儿：等标签出现了再改名，不然改名落空
-        for (let i = 0; i < 15 && !(await run(app, ["ls"])).includes(tab); i++) await new Promise((r) => setTimeout(r, 300));
-        await run(app, ["do", "space.rename", "--id", HERDR_SPACE, "--name", "Agent Deck"]);
-        await run(app, ["do", "tab.rename", "--id", tab, "--name", title]);
-        if (!background) await run(app, ["do", "pane.focus", "--terminal", addr]);
-      }
-      if (!background) await run("/usr/bin/open", ["-b", TERMINAL_BUNDLE.herdr]);
-      return term;
-    }
-    // hc 没起来：退回系统终端
-    return openTerminal(command, cwd, "terminal", title, { background });
-  }
-  // Warp 没有「执行一条命令」的 URL；它认启动配置：写一份 yaml（目录 + 命令），用 warp://launch/<名字> 打开就是新标签里跑
-  if (term === "warp") {
-    try {
-      const d = path.join(home(), ".warp/launch_configurations");
-      fs.mkdirSync(d, { recursive: true });
-      const q = (s) => JSON.stringify(String(s).replace(/[\r\n\0]+/g, " "));
-      const cfgName = safeWarpConfigName(title);
-      fs.writeFileSync(path.join(d, `${cfgName}.yaml`), [
-        "---", `name: ${q(cfgName)}`, "windows:", "  - tabs:", `      - title: ${q(title)}`, "        layout:",
-        `          cwd: ${q(dir)}`, "          commands:", `            - exec: ${q(command)}`, "",
-      ].join("\n"));
-      openExternal(`warp://launch/${encodeURIComponent(cfgName)}`);
-      return term;
-    } catch { /* fall back to Terminal */ }
-  }
-  // Tern 有命令行：委派（background）放进单独的「Agent Deck」会话里开标签跑，不抢你正看着的会话、也不把 Tern 叫到前台；
-  // resume 这类你点出来的，开在正显示的会话里并叫到前台。跑完回到 shell，标签留着。Tern 没在跑先起守护进程再试，还不行就开个窗口
-  if (term === "tern" && fs.existsSync(TERN_BIN)) {
-    const launch = ["--cwd", dir, "--", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`];
-    (async () => {
-      const tryOnce = async () => {
-        if (!background) return (await run(TERN_BIN, ["new", "tab", "--json", ...launch])) !== "";
-        let has = false;
-        try { has = (JSON.parse(await run(TERN_BIN, ["ls", "--json"]) || "{}").sessions || []).some((x) => x.name === TERN_SESSION); } catch { /* not running */ }
-        return (await run(TERN_BIN, has ? ["new", "tab", TERN_SESSION, "--json", ...launch] : ["new", "session", TERN_SESSION, "--json", ...launch])) !== "";
-      };
-      let ok = await tryOnce();
-      if (!ok) { await run(TERN_BIN, ["daemon", "--login"]); ok = await tryOnce(); }
-      if (!ok) { try { spawn(TERN_BIN, ["-e", "/bin/zsh", "-lc", `${command}; exec /bin/zsh -l`], { cwd: dir, detached: true, stdio: "ignore" }).unref(); } catch { /* not runnable */ } return; }
-      if (!background) execFile("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern], () => {});
-    })();
-    return term;
-  }
-  if (process.platform !== "darwin") return "";
-  const line = appleScriptString(`cd ${JSON.stringify(dir)} && ${command}`);
-  const script = term === "iterm"
-    ? `tell application "iTerm2"\nactivate\nif (count of windows) = 0 then\ncreate window with default profile\nelse\ntell current window to create tab with default profile\nend if\ntell current session of current window to write text ${line}\nend tell`
-    : `tell application "Terminal"\nactivate\ndo script ${line}\nend tell`;
-  try { execFile("/usr/bin/osascript", ["-e", script], () => {}); return term === "iterm" ? "iterm" : "terminal"; } catch { return ""; }
-}
-
-// 命令行会话眼下跑在哪个进程、哪个 tty 上。没在跑就是 null。
-//   Claude Code：每个交互进程写一份 ~/.claude/sessions/<pid>.json，里面有 sessionId；
-//   Codex：找带 tty 的 codex 进程，看它开着的文件里有没有这个会话的 rollout-…-<sid>.jsonl。
-export async function cliProcess(agent, sid) {
-  if (!sid) return null;
-  let pid = 0;
-  if (agent === "claude") {
-    const dir = path.join(home(), ".claude/sessions");
-    let names = [];
-    try { names = (await fsp.readdir(dir)).filter((n) => /^\d+\.json$/.test(n)); } catch { return null; }
-    for (const n of names) {
-      try {
-        const j = JSON.parse(await fsp.readFile(path.join(dir, n), "utf8"));
-        if (j.sessionId === sid && (j.entrypoint || "cli") === "cli") { pid = Number(j.pid) || Number(n.split(".")[0]); break; }
-      } catch { /* half-written */ }
-    }
-  } else if (agent === "codex") {
-    const ps = await run("/bin/ps", ["-ax", "-o", "pid=,tty=,command="]);
-    const cands = ps.split("\n").map((l) => /^\s*(\d+)\s+(\S+)\s+(.*)$/.exec(l)).filter((m) => m && m[2] !== "??" && /(^|\/)codex(\s|$)/.test(m[3]) && !/app-server|exec\b/.test(m[3]));
-    for (const m of cands) {
-      const files = await run("/usr/sbin/lsof", ["-p", m[1], "-Fn"]);
-      if (files.includes(sid)) { pid = Number(m[1]); break; }
-    }
-  }
-  if (!pid) return null;
-  try { process.kill(pid, 0); } catch { return null; }
-  const tty = (await run("/bin/ps", ["-o", "tty=", "-p", String(pid)])).trim();
-  if (!tty || tty === "??") return null;
-  return { pid, tty: `/dev/${tty}`, host: await terminalHost(pid) };
-}
-
-// 顺着父进程往上找，看这个进程是在哪个终端 App 里开的
-async function terminalHost(pid) {
-  for (let i = 0, p = pid; i < 12 && p > 1; i++) {
-    const out = (await run("/bin/ps", ["-o", "ppid=,comm=", "-p", String(p)])).trim();
-    const m = /^(\d+)\s+(.*)$/.exec(out);
-    if (!m) break;
-    if (/(^|\/)herdr-core$|Herdr\.app/.test(m[2])) return "herdr";
-    if (/Warp\.app/i.test(m[2])) return "warp";
-    if (/Tern\.app|(^|\/)tern$/.test(m[2])) return "tern";
-    if (/iTerm/i.test(m[2])) return "iterm";
-    if (/Terminal\.app/i.test(m[2])) return "terminal";
-    p = Number(m[1]);
-  }
-  return "";
-}
-
-// 切到正在跑这个会话的那个终端标签。Terminal / iTerm2 按 tty 找到标签选中、窗口提到最前；
-// Warp 没有脚本接口，只能把 Warp 叫到前台。返回 "tab"（切到了标签）/ "app"（只叫到了前台）/ ""（没找到）
-export async function focusCliSession(agent, sid) {
-  const proc = await cliProcess(agent, sid);
-  if (!proc) return "";
-  const tty = JSON.stringify(proc.tty);
-  if (proc.host === "terminal") {
-    const ok = await osa(`tell application "Terminal"\nrepeat with w in windows\nrepeat with t in tabs of w\nif tty of t is ${tty} then\nset selected of t to true\nset index of w to 1\nactivate\nreturn "ok"\nend if\nend repeat\nend repeat\nend tell\nreturn ""`);
-    if (ok === "ok") return "tab";
-  } else if (proc.host === "iterm") {
-    const ok = await osa(`tell application "iTerm2"\nrepeat with w in windows\nrepeat with t in tabs of w\nrepeat with s in sessions of t\nif tty of s is ${tty} then\nselect w\ntell t to select\ntell s to select\nactivate\nreturn "ok"\nend if\nend repeat\nend repeat\nend repeat\nend tell\nreturn ""`);
-    if (ok === "ok") return "tab";
-  } else if (proc.host === "tern" && fs.existsSync(TERN_BIN)) {
-    // Tern：tern ls 列出块，tern process 给出每个块的 shell 和前台进程，和会话进程的祖先链对上就 tern focus 那个块
-    const chain = new Set([proc.pid]);
-    for (let i = 0, p = proc.pid; i < 12 && p > 1; i++) {
-      p = Number((await run("/bin/ps", ["-o", "ppid=", "-p", String(p)])).trim()) || 0;
-      if (p) chain.add(p);
-    }
-    let blocks = [];
-    try {
-      const ls = JSON.parse(await run(TERN_BIN, ["ls", "--json"]) || "{}");
-      for (const se of ls.sessions || []) for (const tab of se.tabs || []) for (const b of tab.blocks || []) if (b.live) blocks.push(b.id);
-    } catch { /* tern not answering */ }
-    for (const id of blocks) {
-      let pr = null;
-      try { pr = JSON.parse(await run(TERN_BIN, ["process", String(id), "--json"]) || "null"); } catch { /* skip */ }
-      if (!pr) continue;
-      if (chain.has(pr.foreground && pr.foreground.pid) || chain.has(pr.child && pr.child.pid)) {
-        await run(TERN_BIN, ["focus", String(id)]);
-        await run("/usr/bin/open", ["-b", TERMINAL_BUNDLE.tern]);
-        return "tab";
-      }
-    }
-  }
-  if (proc.host === "herdr" && findBin("hc")) {
-    // Herdr：hc ls 列出终端，hc get 给出每个终端的 shell 和前台进程，和会话进程的祖先链对上就切过去
-    const hc = findBin("hc"), app = findBin("herdr-app");
-    const chain = new Set([proc.pid]);
-    for (let i = 0, p = proc.pid; i < 12 && p > 1; i++) {
-      p = Number((await run("/bin/ps", ["-o", "ppid=", "-p", String(p)])).trim()) || 0;
-      if (p) chain.add(p);
-    }
-    let list = [];
-    try { list = (JSON.parse(await run(hc, ["ls", "--json"]) || "{}").terminals || []).filter((t) => t.state === "live"); } catch { /* hc not answering */ }
-    for (const t of list) {
-      let g = null;
-      try { g = JSON.parse(await run(hc, ["get", t.address, "--json"]) || "null"); } catch { /* skip */ }
-      if (!g || !(chain.has(g.pid) || chain.has(g.foreground && g.foreground.pid))) continue;
-      // 没有 Herdr 记号的（别处用 hc 起的）先给它一个标签页，再切过去
-      if (app) await run(app, ["do", g.labels && g.labels["herdr.space"] ? "pane.focus" : "terminal.keep", "--terminal", t.address]);
-      await run("/usr/bin/open", ["-b", TERMINAL_BUNDLE.herdr]);
-      return "tab";
-    }
-  }
-  const bundle = TERMINAL_BUNDLE[proc.host];
-  if (!bundle) return "";
-  await run("/usr/bin/open", ["-b", bundle]);
-  return "app";
-}
+export {
+  TERMINAL_REGISTRY,
+  TERMINAL_NAME,
+  getTerminalOptions,
+  pickTerminal,
+  openTerminal,
+  cliProcess,
+  focusCliSession,
+};
 
 // Codex 会话的 originator：桌面版 / IDE 插件里起的才有会话页可跳；codex_cli_rs、codex_exec 是命令行
 export const isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
@@ -451,7 +255,7 @@ export function copyText(text) {
 function focusOrResume(plugin, agent, sid, resumeCmd, cwd) {
   focusCliSession(agent, sid).then((how) => {
     if (how === "tab") return;
-    if (how === "app") return plugin.notice(t("已切到 Warp"));
+    if (how === "app") return plugin.notice(t("已切到终端"));
     openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto", AGENTS[agent]?.short || "Claude");
   }).catch(() => openTerminal(resumeCmd, cwd, plugin.settings.cliTerminal || "auto"));
   return true;

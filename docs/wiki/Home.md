@@ -24,7 +24,7 @@
 
 ## 常用链接
 
-- [仓库首页 & 中文 README](https://github.com/MatsuriMW/obsidian-agent-deck/blob/main/README.md) ｜ [English README](https://github.com/MatsuriMW/obsidian-agent-deck/blob/main/README.en.md)
+- [仓库首页（English README）](https://github.com/MatsuriMW/obsidian-agent-deck/blob/main/README.md) ｜ [中文 README](https://github.com/MatsuriMW/obsidian-agent-deck/blob/main/README.zh-CN.md)
 - [GitHub Releases（下载与版本说明）](https://github.com/MatsuriMW/obsidian-agent-deck/releases)
 - [Roadmap 与功能投票](https://matsuri.site/portfolio/journal-workflow/#wishlist)
 - [GitHub Discussions（讨论与经验分享）](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) ｜ [GitHub Issues（Bug 反馈）](https://github.com/MatsuriMW/obsidian-agent-deck/issues)

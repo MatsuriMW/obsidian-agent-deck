@@ -4385,7 +4385,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   openTerminalAt(cwd, cmd) {
-    return openTerminal(cmd, cwd, this.settings?.terminal || "auto");
+    return openTerminal(cmd, cwd, this.settings?.cliTerminal || "auto");
   }
 
   openPluginDir() {

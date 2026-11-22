@@ -918,6 +918,7 @@ export default {
   "resume、按住 ⌘ 拖到 Claude Code / Codex 上委派时，在哪个终端里开新标签。自动（默认）按这台电脑挑：眼下的 claude / codex 命令行会话开在哪个终端就用哪个，没有就用上次认出的，再没有就看开着的、装了的（Herdr → Tern → iTerm2 → Warp → 系统终端）。": "resume、按住 ⌘ 拖到 Claude Code / Codex 上委派時，在哪個終端裡開新標籤。自動（預設）按這臺電腦挑：眼下的 claude / codex 命令列會話開在哪個終端就用哪個，沒有就用上次認出的，再沒有就看開著的、裝了的（Herdr → Tern → iTerm2 → Warp → 系統終端）。",
   "自动": "自動",
   "系统终端": "系統終端",
+  "已切到终端": "已切到終端",
   "拖到 Claude Code / Codex 上默认在终端里开": "拖到 Claude Code / Codex 上預設在終端裡開",
   "开着：笔记里的一项拖到 Claude Code / Codex 卡片上，在主力终端里新开标签跑交互式会话；按住 ⌘ 拖才走后台（Claude Code）/ 交给桌面版（Codex）。关着则反过来。": "開著：筆記裡的一項拖到 Claude Code / Codex 卡片上，在主力終端裡新開標籤跑互動式會話；按住 ⌘ 拖才走後臺（Claude Code）/ 交給桌面版（Codex）。關著則反過來。",
   "有螺旋日程的进度行时让给它": "有螺旋日程的進度行時讓給它",

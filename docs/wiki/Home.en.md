@@ -24,7 +24,7 @@ Welcome to the **Agent Deck** user documentation. Whether you are bringing your 
 
 ## Useful Links
 
-- [English README](https://github.com/MatsuriMW/obsidian-agent-deck/blob/main/README.en.md) ｜ [中文 README](https://github.com/MatsuriMW/obsidian-agent-deck/blob/main/README.md)
+- [Repository & English README](https://github.com/MatsuriMW/obsidian-agent-deck/blob/main/README.md) ｜ [中文 README](https://github.com/MatsuriMW/obsidian-agent-deck/blob/main/README.zh-CN.md)
 - [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases)
 - [Roadmap & Wishlist](https://matsuri.site/portfolio/journal-workflow/#wishlist)
 - [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) ｜ [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues)

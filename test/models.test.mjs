@@ -227,7 +227,7 @@ assert.ok(!plugin.settings.models.enabled.includes(''), 'empty model id is never
 syncDelegationSettings(plugin.settings);
 assert.equal(plugin.settings.delegate.codex.model, '', 'syncDelegationSettings preserves explicit unspecified model');
 const terminalSelect = delBody.all().filter(el => el.tag === 'select').at(-1);
-assert.deepEqual(terminalSelect.children.map(el => el.attrs.value), ['auto', 'terminal', 'iterm', 'warp', 'tern', 'herdr']);
+assert.deepEqual(terminalSelect.children.map(el => el.attrs.value), ['auto', 'terminal', 'iterm', 'warp', 'ghostty', 'cmux', 'tmux', 'wezterm', 'kitty', 'alacritty', 'tern', 'herdr']);
 terminalSelect.value = 'iterm';
 terminalSelect.onchange();
 assert.equal(plugin.settings.cliTerminal, 'iterm');

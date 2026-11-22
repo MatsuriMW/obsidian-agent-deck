@@ -101,6 +101,7 @@ export default {
 
   // ----- delegation runtime notices and errors -----
   "已切到 Warp": "Switched to Warp",
+  "已切到终端": "Switched to terminal",
   "这个会话还没有会话号，稍等一秒再点": "This session has no session ID yet; try again in a second",
   "已打开 DeepSeek Harness；会话号已复制": "Opened DeepSeek Harness; session ID copied",
   "已打开 Antigravity；会话号已复制": "Opened Antigravity; session ID copied",
