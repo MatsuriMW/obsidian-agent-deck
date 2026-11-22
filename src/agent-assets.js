@@ -17,8 +17,11 @@ import grokbot from "../assets/agents/grokbot.png";
 import minimax from "../assets/agents/minimax.png";
 import t3code from "../assets/agents/t3code.png";
 import muse from "../assets/agents/muse.png";
+import kimicode from "../assets/agents/kimicode.png";
+import doubaowork from "../assets/agents/doubaowork.png";
+import gemini from "../assets/agents/gemini.png";
 
-export const AGENT_IMAGES = { claude, codex, workbuddy, dsh, antigravity, opencode, qoder, hermes, minimax, qwenwork, cursor, grokbot, t3code, muse };
+export const AGENT_IMAGES = { claude, codex, workbuddy, dsh, antigravity, opencode, qoder, hermes, minimax, qwenwork, cursor, grokbot, t3code, muse, kimicode, doubaowork, gemini };
 
 export function agentImageBuffer(id) {
   const uri = AGENT_IMAGES[id];

@@ -1,10 +1,10 @@
 # Agent Deck
 
-> Watch, direct and review your local AI agents from inside Obsidian.
+> **A multi-client AI control deck with Markdown, outlines and journals as the single source of truth — plus a closed-loop long-term memory system.**
 
-**English** ｜ [中文](README.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [Changelog](CHANGELOG.md) ｜ [Community](#community) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
+**English** ｜ [中文](README.md) ｜ [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [Changelog](CHANGELOG.md) ｜ [Community](#community) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
 
-Agent Deck is under active development. See the [roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) for what's coming next, or say hello in the [community](#community), on [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) or [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues).
+Agent Deck is under active development. Browse the [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki) for guides, see the [roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) for what's coming next, or say hello in the [community](#community), on [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) or [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues).
 
 <p align="center">
   <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4"><img src="assets/demo.gif" width="800" alt="Agent Deck demo: drag a session onto a journal task to bind it, drag a task onto an agent to delegate, status and results are written back"></a>
@@ -12,7 +12,11 @@ Agent Deck is under active development. See the [roadmap](https://matsuri.site/p
 
 <p align="center">25-second demo · click for the <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4">4K60 version</a></p>
 
-Agent Deck gathers the AI sessions scattered across your local clients into Obsidian: see who is running, who is waiting and how far each task has gone, delegate straight from a task line in your journal or notes, and get progress, duration and conclusions written back to that same line.
+Agent Deck brings AI sessions scattered across local clients into Obsidian, keeping **Markdown, outlines, and daily journals as the single source of truth**:
+- **Multi-client control deck**: see who is running, who is waiting and how far each task has gone; delegate straight from a task line in your journal or notes, write progress, duration, tokens and conclusions back in place, and flip between outline, table, cards, timeline and in-place fractal boards.
+- **Broad mainstream model support**: works across **Claude, GPT / Codex, Gemini, DeepSeek, Qwen, MiniMax, Kimi, Doubao, Grok** and local Ollama via native clients, custom ACP CLIs, and OpenAI-compatible APIs — with unified cross-client usage and project effort analytics.
+- **First-class Chinese Agent ecosystem tracking**: alongside global tools, Agent Deck ships dedicated local session tracking (and delegation where supported) for Chinese agent clients including **DeepSeek Harness, MiniMax Code (`mcode`), QwenWork (千问办公), Qoder, WorkBuddy (China edition), Kimi Code, and Doubao Work (豆包工作)**, with more on the way.
+- **Closed-loop long-term memory**: session logs, dispatch snapshots, skill cards and **Dreaming long-term memories** all live as plain Markdown in your vault — editable, reviewable, traceable back to source lines, and automatically injected into future delegations.
 
 ## Contents
 
@@ -24,9 +28,8 @@ Agent Deck gathers the AI sessions scattered across your local clients into Obsi
 - [5. Collaboration Dashboard & security replay](#5-collaboration-dashboard--security-replay)
 - [6. Notes as context](#6-notes-as-context)
 - [7. Menu bar, Dreaming & languages](#7-menu-bar-dreaming--languages)
-- [Agent support](#agent-support)
-- [Install and requirements](#install-and-requirements)
-- [Known limits](#known-limits)
+- [Agent support, requirements & limits](#agent-support-requirements--limits)
+- [Install](#install)
 - [Community](#community)
 - [Privacy and license](#privacy-and-license)
 
@@ -53,7 +56,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 
 ### 1. Multi-agent session tracking
 
-- **14 built-in local agents + Custom ACP Agents**: Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder, Hermes Agent, MiniMax Code, QwenWork (千问办公), Cursor, Grok Bot, T3 Code, Muse, plus any ACP-compatible CLI you configure in Settings (such as Gemini CLI, Kiro, Mistral Vibe, etc.).
+- **17 built-in local agents + Custom ACP Agents**: Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder, Hermes Agent, MiniMax Code, QwenWork (千问办公), Cursor, Grok Bot, T3 Code, Muse, Kimi Code, Doubao Work (豆包工作), Gemini CLI, plus any ACP-compatible CLI you configure in Settings (such as Kiro, Mistral Vibe, etc.).
 - **See Now by project**: the sidebar groups active sessions by workspace project; switch to a status view (waiting / unclaimed / running / error) or a flat list. Recent sessions can be filtered to 7 / 30 / 120 days and stacked by agent or project.
 - **States at a glance**: running, waiting for a reply, needs confirmation, limit reached, paused, error and done; subagent sessions are indented under their parent, and clicking a card switches back to that client or terminal tab.
 - **Primaries and search**: mark up to two agents as primary (full history; the rest only read today), and search every scanned session by title, project, model or body text.
@@ -111,79 +114,18 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 - **Multi-language UI & update reminders**: built-in Simplified Chinese, Traditional Chinese and English (plus custom locale packs), following Obsidian's language setting; gentle daily GitHub Releases update check with per-version skip.
 - **Keys stay out of the vault**: API keys and custom ACP environment variables support `env:VAR` / `secret:KEY`, and `Export redacted diagnostics` produces a shareable report.
 
-## Agent support
+## Agent support, requirements & limits
 
-| Agent | Session tracking | Background delegation | Desktop handoff | Terminal |
-|---|---|---|---|---|
-| **Claude Code** | Yes | Yes | Yes (opens after the first round) | Yes |
-| **Codex** | Yes | Yes | Yes (opens after the first round) | Yes |
-| **DeepSeek Harness** | Yes | Yes | Focuses the client only | — |
-| **Antigravity** | Yes | Yes | No | — |
-| **OpenCode** | Yes | Yes | Opens after the first round | Yes |
-| **Qoder** | Yes | Yes | Copies the task and opens the app | Yes |
-| **Hermes Agent** | Yes | Yes | No (no desktop UI) | Yes |
-| **MiniMax Code** | Yes | Yes (`mcode acp`) | Opens after the first round | Yes (`mcode`) |
-| **QwenWork (千问办公)** | Yes | No | No (tracking only) | — |
-| **WorkBuddy** | Yes | No | Copies the task and opens the app | Yes |
-| **Cursor** | Yes (Hooks required) | No | No (tracking only) | — |
-| **Grok Bot** | Yes (per-Bot selection) | No | No (tracking only) | — |
-| **T3 Code** | Yes | Yes (`t3 thread`) | Focuses the client only | — |
-| **Muse** | Yes | No | No (tracking only) | — |
-| **Custom ACP Agents** | Delegated sessions | Yes (any ACP CLI) | — | — |
+Agent Deck supports **17 built-in local agents + any Custom ACP CLI**, covering mainstream model families (**Claude, GPT / Codex, Gemini, DeepSeek, Qwen, MiniMax, Kimi, Doubao, Grok**, plus local Ollama) with dedicated tracking for Chinese agent clients (**DeepSeek Harness, MiniMax Code, QwenWork, Qoder, WorkBuddy, Kimi Code, Doubao Work**).
 
-## Install and requirements
+For the full compatibility matrix, per-client requirements, and known limits, see the Wiki: 👉 [**Supported Agents & Models (Wiki)**](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models)
 
-### Install
+## Install
 
 1. In Obsidian, open Settings → Community plugins → Browse, search for **Agent Deck**, then install and enable it;
 2. Or download the latest [GitHub Release](https://github.com/MatsuriMW/obsidian-agent-deck/releases), copy `main.js`, `manifest.json` and `styles.css` into `<your vault>/.obsidian/plugins/agent-deck/`, then enable it in the plugin settings.
 
-Current version: **1.13.14**, requires Obsidian **1.4.0+** on desktop.
-
-### What you need
-
-Tracking, task binding and the Dashboard need **no extra dependencies**: the plugin only reads local session records and never calls the network. Install the client you actually use before using delegation, auto-journaling or Dreaming:
-
-| What you want to use | What to install first |
-|---|---|
-| **Claude Code** | Claude Code CLI or desktop app, signed in |
-| **Codex** | Codex CLI and desktop app, signed in |
-| **DeepSeek Harness** | DeepSeek Harness client with a model and account configured |
-| **Antigravity** | The standalone Antigravity CLI (the IDE alone is not enough) |
-| **OpenCode** | OpenCode desktop app or CLI |
-| **Qoder** | Qoder CLI; the desktop app for handoff only |
-| **Hermes Agent** | Hermes CLI; nothing extra if you only track |
-| **MiniMax Code** | MiniMax Code desktop app; `mcode` CLI for background delegation or terminal resume |
-| **QwenWork (千问办公)** | QwenWork desktop app (tracking only) |
-| **WorkBuddy** | China edition of WorkBuddy; `codebuddy` for terminal use |
-| **Cursor** | Cursor 3.30.14+ with Cursor Hooks enabled in settings |
-| **Grok Bot** | Grok Bot desktop app, with the Bots you want selected in settings |
-| **T3 Code** | T3 Code desktop app; `t3` CLI for background delegation |
-| **Muse** | Muse desktop app (tracking only) |
-| **Custom ACP Agents** | Any local ACP-compatible CLI, configured under Settings → Delegation → Custom ACP Agents |
-| **Auto-journal / summaries / Dreaming** | Any signed-in local CLI, or an OpenAI-compatible API (DeepSeek, OpenAI, OpenRouter, Qwen, local Ollama, …) |
-| **macOS menu bar** | Xcode Command Line Tools (`xcode-select --install`) |
-
-> When Obsidian is launched from the macOS GUI, CLI tools may not be on the PATH; fill in the full path in the plugin settings. The "Check" button only verifies path and version, so confirm sign-in in the client itself.
-
-## Known limits
-
-1. **Desktop only & Windows status**: Obsidian mobile is not supported. Day-to-day testing happens primarily on macOS; on Windows, core session tracking (Cursor tracking also requires `sqlite3` on PATH), the Dashboard, journaling/memory/boards, and background CLI/ACP delegation are adapted, though full end-to-end Obsidian UI testing on a real Windows machine is still limited. Opening/resuming sessions in a terminal, focusing desktop apps, Claude Desktop session tracking, and the menu bar helper are **macOS-only** (they degrade safely without errors on Windows). Real-world Windows feedback via Issues or the community is welcome.
-2. **Delegation needs local clients**: tasks run through your local CLI or desktop app; remote API keys cannot replace them, and the plugin does not install or sign in for you.
-3. **The conversation view is read-only**: it is for reading, stopping the current round and saving an archive, with no free-text box. Supported sessions can be followed up from the task menu or the Reply inbox; the rest continue in their client.
-4. **Client boundaries**:
-   - **Cursor**: tracks only new sessions after Hooks are enabled; no delegation or terminal use.
-   - **WorkBuddy**: China edition only; the standalone CodeBuddy CLI does not share its sessions.
-   - **Qoder**: the CLI and desktop database are separate; missing per-turn tokens show as unavailable rather than estimated.
-   - **Antigravity**: CLI and IDE sessions are separate; exports leave out tool results and internal reasoning.
-   - **DeepSeek Harness**: the client is still moving fast; delegated sessions may land in "Ungrouped" and usually need a client refresh to appear.
-   - **OpenCode**: background and desktop share sessions, but you still pick the session once in the app.
-   - **Hermes Agent**: no desktop UI; use the plugin or resume in the terminal.
-   - **MiniMax Code**: desktop and `mcode` CLI share the local SQLite session store; opening the desktop app still requires selecting the session once, and desktop-only installs without `mcode` track sessions without delegating.
-   - **QwenWork (千问办公)**: tracking only, no delegation. Current desktop conversations are fully readable; older logs without tokens honestly show 0.
-   - **Grok Bot**: desktop only; cloud sandboxes without per-message tokens show "usage unavailable", and there is no archive concept.
-5. **Terminal interaction**: opening a terminal for an interactive session is currently macOS-only and verified on **Tern** and **Herdr** only; Terminal.app, iTerm2 and Warp are untested, and Windows terminals are not yet supported.
-6. **In progress**: a visual context preview before dispatch, drift-proof references, per-memory Dream sharing, Windows UI verification and terminal support, and more agents and terminals — see the [roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist).
+Current version: **1.13.15**, requires Obsidian **1.4.0+** on desktop (mobile is not supported). Session tracking, task binding and the Dashboard need no extra dependencies; see the [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models) for full client and platform details.
 
 ## Community
 

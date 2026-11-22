@@ -423,6 +423,8 @@ export const AGENT_APPS = {
   grokbot: { bundle: "com.anysphere.sand", url: "grokbot://" },
   t3code: { bundle: "com.t3tools.t3code", url: "t3code://" },
   muse: { bundle: "com.meta.endo", url: "hatch://" },
+  kimicode: { bundle: "com.kimi.code.desktop", url: "kimi-code://" },
+  doubaowork: { bundle: "com.work.pc.doubao", url: "doubaowork://" },
 };
 
 export function openAgentApp(agent) {
@@ -461,7 +463,12 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
     return focusOrResume(plugin, agent, sid, `${shellQuote(findHermesCliBinary(plugin.settings?.delegate?.hermes?.path || ""))} --resume ${shellQuote(sid)}`, cwd);
   }
-  if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse"].includes(agent)) {
+  if (agent === "gemini") {
+    const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
+    const bin = findBin("gemini") || "gemini";
+    return focusOrResume(plugin, agent, sid, `${shellQuote(bin)} --resume ${shellQuote(sid)}`, cwd);
+  }
+  if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
       return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);

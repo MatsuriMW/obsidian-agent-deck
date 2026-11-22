@@ -1,0 +1,38 @@
+name: Sync Wiki
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/wiki/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clone Wiki repository
+        run: |
+          git clone "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.wiki.git" wiki-repo
+
+      - name: Sync docs/wiki to Wiki
+        run: |
+          find wiki-repo -maxdepth 1 -type f -name '*.md' -delete
+          cp docs/wiki/*.md wiki-repo/
+          cd wiki-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki is already up to date."
+          else
+            git commit -m "docs(wiki): sync from docs/wiki (${GITHUB_SHA::7})"
+            git push
+          fi

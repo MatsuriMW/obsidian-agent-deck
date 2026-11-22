@@ -1,0 +1,54 @@
+name: Bug 反馈 / Bug Report
+description: 反馈插件异常、追踪缺失或委派失败
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！建议先在 Obsidian 命令面板运行 **「导出脱敏诊断报告」**，附上关键摘要能帮助更快定位问题。
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统 / OS
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows 11
+        - Windows 10
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: 插件与 Obsidian 版本 / Plugin & Obsidian Version
+      placeholder: "例如：Agent Deck 1.13.14 / Obsidian 1.8.x"
+    validations:
+      required: true
+
+  - type: input
+    id: client
+    attributes:
+      label: 涉及的 Agent 客户端 / Affected Agent Client(s)
+      placeholder: "例如：Claude Code / Codex / DeepSeek Harness / MiniMax Code / 千问办公 / 无特定客户端"
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述与复现步骤 / Description & Steps to Reproduce
+      placeholder: |
+        1. 做了什么操作
+        2. 预期结果是什么
+        3. 实际发生了什么（可附截图）
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: 脱敏诊断报告或控制台报错 / Redacted Diagnostics or Console Logs
+      description: 请勿粘贴包含明文 API Key 或私密笔记正文的内容
+      render: text

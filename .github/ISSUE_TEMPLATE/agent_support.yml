@@ -1,0 +1,44 @@
+name: 新 Agent 客户端适配请求 / New Agent Support
+description: 希望 Agent Deck 支持新的本地 AI Agent 客户端或 CLI
+title: "[Agent] 支持 "
+labels: ["enhancement"]
+body:
+  - type: input
+    id: client_name
+    attributes:
+      label: 客户端名称与官网 / Client Name & URL
+      placeholder: "例如：Kimi Code / 豆包工作 / ..."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 你使用的系统 / OS
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: capabilities
+    attributes:
+      label: 期望支持的能力 / Desired Capabilities
+      options:
+        - label: 本地会话追踪与 Dashboard 统计
+        - label: 后台委派（CLI / ACP）
+        - label: 桌面端唤起 / 终端续聊
+
+  - type: textarea
+    id: data_paths
+    attributes:
+      label: 已知的本地日志/数据库路径（可选）/ Known Local Data Paths (optional)
+      placeholder: "例如：~/.xxx/sessions/*.jsonl 或 ~/Library/Application Support/xxx/*.sqlite"
+
+  - type: textarea
+    id: sample
+    attributes:
+      label: 匿名化的结构样本或补充说明（可选）/ Anonymized Sample or Notes (optional)
+      description: 请去掉个人对话正文、Token 与账号信息后再粘贴字段结构

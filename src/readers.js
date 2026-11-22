@@ -46,6 +46,19 @@ import {
   museCacheDir,
 } from "./muse-sessions.js";
 export { museCacheDir };
+import {
+  discoverKimiCodeSessions,
+  parseKimiCodeSession,
+} from "./kimicode-sessions.js";
+import {
+  discoverDoubaoWorkConversations,
+  doubaoWorkIndexedDbDir,
+} from "./doubaowork-sessions.js";
+export { doubaoWorkIndexedDbDir };
+import {
+  discoverGeminiCliSessions,
+  parseGeminiCliSession,
+} from "./gemini-cli-sessions.js";
 export {
   cursorEventsDir,
   cursorHooksStatus,
@@ -236,7 +249,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 17;
+export const USAGE_CACHE_VERSION = 18;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -492,6 +505,9 @@ export class AgentUsage {
     await this.readCursorMeta({ onlyAgent });
     await this.readGrokBotSessions({ floor, onlyAgent, strictSince, touched });
     await this.readMuseSessions({ floor, onlyAgent, strictSince, touched });
+    await this.readKimiCodeSessions({ floor, onlyAgent, strictSince, touched });
+    await this.readDoubaoWorkSessions({ floor, onlyAgent, strictSince, touched });
+    await this.readGeminiCliSessions({ floor, onlyAgent, strictSince, touched });
     if (!onlyAgent && !strictSince) this.lastScan = Date.now();
     return touched;
   }
@@ -1117,6 +1133,400 @@ export class AgentUsage {
     }
 
     pruneUnselected(activeIds);
+  }
+
+  async readKimiCodeSessions({ floor = 0, onlyAgent = "", strictSince = false, touched = new Set() } = {}) {
+    if (onlyAgent && onlyAgent !== "kimicode") return;
+    const prune = (keep) => {
+      for (const [fileKey, fc] of [...this.files]) {
+        if (fc.agent !== "kimicode" || keep.has(fc.sid)) continue;
+        for (const day of fc.days?.keys() || []) touched.add(day);
+        this.files.delete(fileKey);
+        this.dirty = true;
+      }
+      for (const [sid, m] of [...this.meta]) {
+        if (m.agent === "kimicode" && !keep.has(sid)) {
+          this.meta.delete(sid);
+          this.dirty = true;
+        }
+      }
+    };
+    if (!this.enabled("kimicode")) {
+      prune(new Set());
+      return;
+    }
+
+    const { sessions } = discoverKimiCodeSessions({ homeDir: home() });
+    const activeIds = new Set();
+    const scope = this.isPrimary("kimicode") ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+
+    for (const sess of sessions) {
+      const sid = sess.id;
+      activeIds.add(sid);
+      const key = `${sess.wirePath || sess.metaPath}#${sid}`;
+      const previous = this.files.get(key);
+      if (
+        previous &&
+        previous.size === sess.size &&
+        previous.mtime === sess.mtimeMs &&
+        previous.offset === scope
+      ) {
+        continue;
+      }
+
+      let wireText = "";
+      if (sess.wirePath) {
+        try { wireText = await fsp.readFile(sess.wirePath, "utf8"); } catch { /* empty */ }
+      }
+      const parsed = parseKimiCodeSession(wireText, sess.meta || {}, sess);
+      if (!parsed.lastAt) continue;
+
+      const fc = {
+        path: key,
+        agent: "kimicode",
+        sid,
+        id: sid,
+        cwd: parsed.cwd || "",
+        app: sess.app || "desktop",
+        model: parsed.model || "",
+        size: sess.size,
+        offset: scope,
+        mtime: sess.mtimeMs,
+        days: new Map(),
+        msgs: new Map(),
+        titles: new Map([[sid, parsed.title]]),
+        live: null,
+      };
+      for (const day of previous?.days?.keys() || []) touched.add(day);
+
+      let firstText = "";
+      let firstEntryAt = 0;
+      for (const e of parsed.entries) {
+        const at = e.at || parsed.lastAt;
+        if (!at) continue;
+        if (strictSince && at < floor) continue;
+        if (this.stale("kimicode", at) && !previous?.days.has(dayKey(at, this.cfg))) continue;
+        if (!firstEntryAt || at < firstEntryAt) firstEntryAt = at;
+        const { day, s } = this.touchSess(fc, touched, at, sid, fc.cwd, fc.app);
+        const v = this.liveOf(fc, sid, at);
+        v.cwd = fc.cwd;
+        v.app = fc.app;
+        v.model = parsed.model || v.model;
+        v.title = parsed.title;
+        if (e.role === "user" && e.text.trim()) {
+          day.prompts++;
+          startRound(fc, at, e.text, e.id);
+          if (!firstText) firstText = e.text.slice(0, 300);
+          s.text = firstText;
+          v.state = "run";
+        } else if (e.role === "assistant") {
+          if (e.text) {
+            v.lastText = e.text;
+            finishRound(fc, at, e.text, !e.streaming);
+          }
+          v.state = e.streaming ? "run" : "wait";
+        }
+      }
+
+      let outSum = 0;
+      let freshSum = 0;
+      let cachedSum = 0;
+      let calls = 0;
+      for (const u of parsed.usages) {
+        const at = u.at || parsed.lastAt;
+        if (!at) continue;
+        if (strictSince && at < floor) continue;
+        if (this.stale("kimicode", at) && !previous?.days.has(dayKey(at, this.cfg))) continue;
+        const { key: dayId, s } = this.touchSess(fc, touched, at, sid, fc.cwd, fc.app);
+        const model = u.model || parsed.model || "";
+        fc.msgs.set(`kimicode:${u.id}`, { key: dayId, sid, proj: s.proj, model, out: u.out, fresh: u.inp, cached: u.cache, at });
+        outSum += u.out;
+        freshSum += u.inp;
+        cachedSum += u.cache;
+        calls += 1;
+      }
+
+      if (fc.live) {
+        fc.live.state = parsed.state;
+        fc.live.step = parsed.lastStep || "";
+        fc.live.turns = fc.rounds?.list.length || 0;
+        fc.live.rounds = fc.rounds?.list || [];
+        if (parsed.hasClientTitle) this.noteClientTitle(sid, parsed.title, { fc });
+        this.noteMeta(fc, sid, {
+          ...fc.live,
+          title: parsed.title || firstText,
+          clientTitle: parsed.hasClientTitle,
+          text: firstText || "",
+          cwd: fc.cwd,
+          app: fc.app,
+          model: parsed.model || "",
+          lastAt: fc.live.at,
+          startedAt: firstEntryAt || parsed.startedAt || fc.live.at,
+          out: outSum,
+          fresh: freshSum,
+          cached: cachedSum,
+          calls,
+          archived: parsed.archived,
+        });
+        this.files.set(key, fc);
+        this.dirty = true;
+      } else if (previous) {
+        this.files.delete(key);
+        this.meta.delete(sid);
+        this.dirty = true;
+      }
+    }
+
+    prune(activeIds);
+  }
+
+  async readDoubaoWorkSessions({ floor = 0, onlyAgent = "", strictSince = false, touched = new Set() } = {}) {
+    if (onlyAgent && onlyAgent !== "doubaowork") return;
+    const prune = (keep) => {
+      for (const [fileKey, fc] of [...this.files]) {
+        if (fc.agent !== "doubaowork" || keep.has(fc.sid)) continue;
+        for (const day of fc.days?.keys() || []) touched.add(day);
+        this.files.delete(fileKey);
+        this.dirty = true;
+      }
+      for (const [sid, m] of [...this.meta]) {
+        if (m.agent === "doubaowork" && !keep.has(sid)) {
+          this.meta.delete(sid);
+          this.dirty = true;
+        }
+      }
+    };
+    if (!this.enabled("doubaowork")) {
+      prune(new Set());
+      return;
+    }
+
+    const storage = discoverDoubaoWorkConversations({ homeDir: home() });
+    const activeIds = new Set();
+    const scope = this.isPrimary("doubaowork") ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+
+    for (const conv of storage.conversations) {
+      const sid = conv.id;
+      const at = conv.lastAt || conv.startedAt;
+      if (!at) continue;
+      if (strictSince && at < floor) continue;
+
+      const key = `${storage.indexedDbDir}#${sid}`;
+      const previous = this.files.get(key);
+      if (this.stale("doubaowork", at) && !previous?.days.has(dayKey(at, this.cfg))) continue;
+
+      activeIds.add(sid);
+      if (
+        previous &&
+        previous.size === storage.size &&
+        previous.mtime === storage.mtimeMs &&
+        previous.offset === scope
+      ) {
+        continue;
+      }
+
+      const fc = {
+        path: key,
+        agent: "doubaowork",
+        sid,
+        id: sid,
+        cwd: "",
+        app: "desktop",
+        model: "",
+        size: storage.size,
+        offset: scope,
+        mtime: storage.mtimeMs,
+        days: new Map(),
+        msgs: new Map(),
+        titles: new Map([[sid, conv.title]]),
+        live: null,
+      };
+      for (const day of previous?.days?.keys() || []) touched.add(day);
+
+      const { s } = this.touchSess(fc, touched, conv.startedAt || at, sid, "", "desktop");
+      if (at !== conv.startedAt) this.touchSess(fc, touched, at, sid, "", "desktop");
+      s.text = conv.title;
+
+      const v = this.liveOf(fc, sid, at);
+      v.cwd = "";
+      v.app = "desktop";
+      v.title = conv.title;
+      v.state = "wait";
+      v.step = "";
+      v.turns = 0;
+      v.rounds = [];
+
+      if (conv.hasClientTitle) this.noteClientTitle(sid, conv.title, { fc });
+      this.noteMeta(fc, sid, {
+        ...v,
+        title: conv.title,
+        clientTitle: conv.hasClientTitle,
+        text: conv.title,
+        cwd: "",
+        app: "desktop",
+        model: "",
+        lastAt: at,
+        startedAt: conv.startedAt || at,
+        out: 0,
+        fresh: 0,
+        cached: 0,
+        calls: 0,
+        archived: false,
+      });
+      this.files.set(key, fc);
+      this.dirty = true;
+    }
+
+    prune(activeIds);
+  }
+
+  async readGeminiCliSessions({ floor = 0, onlyAgent = "", strictSince = false, touched = new Set() } = {}) {
+    if (onlyAgent && onlyAgent !== "gemini") return;
+    const prune = (keep) => {
+      for (const [fileKey, fc] of [...this.files]) {
+        if (fc.agent !== "gemini" || keep.has(fc.sid)) continue;
+        for (const day of fc.days?.keys() || []) touched.add(day);
+        this.files.delete(fileKey);
+        this.dirty = true;
+      }
+      for (const [sid, m] of [...this.meta]) {
+        if (m.agent === "gemini" && !keep.has(sid)) {
+          this.meta.delete(sid);
+          this.dirty = true;
+        }
+      }
+    };
+    if (!this.enabled("gemini")) {
+      prune(new Set());
+      return;
+    }
+
+    const { sessions } = discoverGeminiCliSessions({ homeDir: home() });
+    const activeIds = new Set();
+    const scope = this.isPrimary("gemini") ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+
+    for (const sess of sessions) {
+      const quickStale = this.stale("gemini", sess.mtimeMs);
+      const prevByPath = [...this.files.values()].find((f) => f.agent === "gemini" && f.path.startsWith(`${sess.filePath}#`));
+      if (quickStale && !prevByPath) continue;
+      if (
+        prevByPath &&
+        prevByPath.size === sess.size &&
+        prevByPath.mtime === sess.mtimeMs &&
+        prevByPath.offset === scope
+      ) {
+        activeIds.add(prevByPath.sid);
+        continue;
+      }
+
+      let rawText;
+      try { rawText = await fsp.readFile(sess.filePath, "utf8"); } catch { continue; }
+      const parsed = parseGeminiCliSession(rawText, sess);
+      if (!parsed || !parsed.lastAt) continue;
+
+      const sid = parsed.id;
+      activeIds.add(sid);
+      const key = `${sess.filePath}#${sid}`;
+      const previous = this.files.get(key);
+
+      const fc = {
+        path: key,
+        agent: "gemini",
+        sid,
+        id: sid,
+        cwd: parsed.cwd || "",
+        app: "cli",
+        model: parsed.model || "",
+        size: sess.size,
+        offset: scope,
+        mtime: sess.mtimeMs,
+        days: new Map(),
+        msgs: new Map(),
+        titles: new Map([[sid, parsed.title]]),
+        live: null,
+      };
+      for (const day of previous?.days?.keys() || []) touched.add(day);
+
+      let firstText = "";
+      let firstEntryAt = 0;
+      for (const e of parsed.entries) {
+        const at = e.at || parsed.lastAt;
+        if (!at) continue;
+        if (strictSince && at < floor) continue;
+        if (this.stale("gemini", at) && !previous?.days.has(dayKey(at, this.cfg))) continue;
+        if (!firstEntryAt || at < firstEntryAt) firstEntryAt = at;
+        const { day, s } = this.touchSess(fc, touched, at, sid, fc.cwd, "cli");
+        const v = this.liveOf(fc, sid, at);
+        v.cwd = fc.cwd;
+        v.app = "cli";
+        v.model = parsed.model || v.model;
+        v.title = parsed.title;
+        if (e.role === "user" && e.text.trim()) {
+          day.prompts++;
+          startRound(fc, at, e.text, e.id);
+          if (!firstText) firstText = e.text.slice(0, 300);
+          s.text = firstText;
+          v.state = "run";
+        } else if (e.role === "assistant") {
+          if (e.text) {
+            v.lastText = e.text;
+            finishRound(fc, at, e.text, true);
+          }
+          v.state = "wait";
+        }
+      }
+
+      let outSum = 0;
+      let freshSum = 0;
+      let cachedSum = 0;
+      let calls = 0;
+      for (const u of parsed.usages) {
+        const at = u.at || parsed.lastAt;
+        if (!at) continue;
+        if (strictSince && at < floor) continue;
+        if (this.stale("gemini", at) && !previous?.days.has(dayKey(at, this.cfg))) continue;
+        const { key: dayId, s } = this.touchSess(fc, touched, at, sid, fc.cwd, "cli");
+        const model = u.model || parsed.model || "";
+        fc.msgs.set(`gemini:${u.id}`, { key: dayId, sid, proj: s.proj, model, out: u.out, fresh: u.inp, cached: u.cache, at });
+        outSum += u.out;
+        freshSum += u.inp;
+        cachedSum += u.cache;
+        calls += 1;
+      }
+
+      if (fc.live) {
+        fc.live.state = parsed.state;
+        fc.live.err = parsed.err || "";
+        fc.live.step = parsed.lastStep || "";
+        fc.live.turns = fc.rounds?.list.length || 0;
+        fc.live.rounds = fc.rounds?.list || [];
+        if (parsed.hasClientTitle) this.noteClientTitle(sid, parsed.title, { fc });
+        this.noteMeta(fc, sid, {
+          ...fc.live,
+          title: parsed.title || firstText,
+          clientTitle: parsed.hasClientTitle,
+          text: firstText || "",
+          cwd: fc.cwd,
+          app: "cli",
+          model: parsed.model || "",
+          lastAt: fc.live.at,
+          startedAt: firstEntryAt || parsed.startedAt || fc.live.at,
+          out: outSum,
+          fresh: freshSum,
+          cached: cachedSum,
+          calls,
+          archived: false,
+        });
+        this.files.set(key, fc);
+        this.dirty = true;
+      } else if (previous) {
+        this.files.delete(key);
+        this.meta.delete(sid);
+        this.dirty = true;
+      }
+    }
+
+    prune(activeIds);
   }
 
   // 归档 = 做完：桌面版里归档的、Codex archived_sessions 里的都可以从会话列表里收起来

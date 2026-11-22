@@ -304,7 +304,7 @@ export class AgentDeckView extends ItemView {
     const filters = recHead.createDiv({ cls: "ad-filters" });
     const agentFilters = AGENT_ORDER
       .filter((id) => isEnabled(id) || recentAgents.has(id) || this.filter === id)
-      .map((id) => [id, id === "qwenwork" ? t("千问办公") : (AGENTS[id]?.short || id)]);
+      .map((id) => [id, id === "qwenwork" ? t("千问办公") : id === "doubaowork" ? t("豆包工作") : (AGENTS[id]?.short || id)]);
     for (const [id, label] of [["all", t("全部")], ["live", t("在跑")], ["wait", t("等你")], ...agentFilters]) {
       const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label });
       b.onclick = () => { this._bottomSlack = 0; this.filter = id; this.render(); };

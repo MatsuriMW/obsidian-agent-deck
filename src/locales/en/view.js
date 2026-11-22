@@ -188,4 +188,5 @@ export default {
   "重试汇总": "Retry",
   "忽略": "Dismiss",
   "千问办公": "QwenWork",
+  "豆包工作": "Doubao Work",
 };

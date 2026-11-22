@@ -1257,7 +1257,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const sessions = [...p.usage.meta.values()].filter((x) => x.agent === id);
     const stats = card.createDiv({ cls: "ad-set-agent__meta" });
     const sessCountEl = stats.createSpan({ text: t("{n} 个会话", { n: sessions.length }) });
-    stats.createSpan({ text: id === "grokbot" || id === "muse" ? t("用量未提供") : fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
+    stats.createSpan({ text: id === "grokbot" || id === "muse" || id === "doubaowork" ? t("用量未提供") : fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
     const stateText = primary
       ? t("主力（全量）")
       : enabled

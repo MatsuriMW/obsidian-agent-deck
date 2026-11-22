@@ -1,10 +1,10 @@
 # Agent Deck（智能体甲板）
 
-> 在 Obsidian 里看住、指挥并回顾本机的 AI Agent。
+> **以 Markdown / 大纲 / 日记为正本的多客户端 AI 总控台 + 长期记忆闭环。**
 
-**中文** ｜ [English](README.en.md) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [更新日志](CHANGELOG.md) ｜ [用户群](#用户群) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
+**中文** ｜ [English](README.en.md) ｜ [Wiki 文档](https://github.com/MatsuriMW/obsidian-agent-deck/wiki) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [更新日志](CHANGELOG.md) ｜ [用户群](#用户群) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
 
-项目仍在快速迭代，欢迎在 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) 看后续规划并投票，或到 [用户群](#用户群)、[GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)、[GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 反馈问题。
+项目仍在快速迭代，欢迎在 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) 看后续规划并投票，或到 [Wiki 文档](https://github.com/MatsuriMW/obsidian-agent-deck/wiki) 查阅详细指南，也可以在 [用户群](#用户群)、[GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)、[GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues) 反馈问题。
 
 <p align="center">
   <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4"><img src="assets/demo.gif" width="800" alt="Agent Deck 演示：会话卡片拖到日记里的任务上绑定，任务拖到 Agent 上委派，状态和结论写回日记"></a>
@@ -12,7 +12,11 @@
 
 <p align="center">25 秒演示 · 点图看 <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4">4K60 有声版</a> ｜ 国内可看：<a href="https://matsuri.site/demo/agent-deck/">matsuri.site/demo/agent-deck</a></p>
 
-Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 Agent 在跑、哪个在等你、做到哪一步，一眼看清；要派活时直接从日记或笔记的任务行发出去，进度、用时和结论再自动写回这一行。
+Agent Deck 把散落在各个客户端的 AI 会话收拢到 Obsidian，让 **Markdown、大纲和日记成为唯一正本**：
+- **多客户端总控台**：集中看住本机正在跑、等你回复或已完成的 AI 会话；直接从日记或笔记的任务行派活，进度、用时、Token 与结论自动写回原处，并原地切换大纲 / 表格 / 卡片 / 时间线 / 分形看板。
+- **主流模型全覆盖**：通过本地客户端、自定义 ACP CLI 及 OpenAI 兼容接口，全面支持 **Claude、GPT / Codex、Gemini、DeepSeek、Qwen（千问）、MiniMax、Kimi、豆包、Grok** 等主流模型及本地 Ollama，汇总跨客户端用量与项目投入。
+- **深度适配中文 Agent 客户端**：除国际主流工具外，特别为中文开发者和办公场景常见的一系列 Agent 客户端实现了本地追踪（及部分委派/续聊），涵盖 **DeepSeek Harness、MiniMax Code（`mcode`）、千问办公（QwenWork）、Qoder、WorkBuddy（中国版）、Kimi Code、豆包工作**，并持续扩展中。
+- **长期记忆闭环**：AI 产出的记录、派发快照、技能卡与 **Dreaming 长期记忆**全部以普通 Markdown 落回笔记库，可编辑、可审阅、可溯源，下次派活自动按相关度注入，形成「干活 → 记日记 → 提炼记忆 → 反哺下次派发」的闭环。
 
 ## 目录
 
@@ -24,9 +28,8 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 - [5. 协作回顾 Dashboard 与安全回放](#5-协作回顾-dashboard-与安全回放)
 - [6. 笔记即上下文](#6-笔记即上下文)
 - [7. 菜单栏、Dreaming 与多语言界面](#7-菜单栏dreaming-与多语言界面)
-- [各 Agent 支持情况](#各-agent-支持情况)
-- [安装与依赖](#安装与依赖)
-- [当前受限](#当前受限)
+- [支持的 Agent、依赖与边界](#支持的-agent依赖与边界)
+- [安装](#安装)
 - [用户群](#用户群)
 - [隐私与开源协议](#隐私与开源协议)
 
@@ -53,7 +56,7 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 
 ### 1. 多 Agent 会话追踪面板
 
-- **统一收拢 14 类内置 Agent + 自定义 ACP Agent**：Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder、Hermes Agent、MiniMax Code、千问办公（QwenWork）、Cursor、Grok Bot、T3 Code、Muse，以及在设置里自行添加的任意兼容 ACP 协议的 CLI（如 Gemini CLI、Kiro、Mistral Vibe 等）。
+- **统一收拢 17 类内置 Agent + 自定义 ACP Agent**：Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder、Hermes Agent、MiniMax Code、千问办公（QwenWork）、Cursor、Grok Bot、T3 Code、Muse、Kimi Code、豆包工作、Gemini CLI，以及在设置里自行添加的任意兼容 ACP 协议的 CLI（如 Kiro、Mistral Vibe 等）。
 - **按项目看现在**：侧栏「现在」默认按工作区项目收拢活跃会话，也可以按状态（等你 / 待认领 / 在跑 / 异常）或直接平铺成列表；「最近的会话」支持 7 / 30 / 120 天切换，并按 Agent 或项目叠放。
 - **状态一眼可见**：区分运行中、等待回复、需要确认、到达限额、暂停、出错与已完成；子代理会话缩进跟在母会话下面，点卡片即可切回对应客户端或终端标签。
 - **主力与搜索**：最多设两个主力 Agent（读全部历史，其余只读当天），也可以按标题、项目、模型或正文搜索所有本地会话。
@@ -111,79 +114,18 @@ Agent Deck 把散落在各个客户端的 AI 会话集中到 Obsidian：哪个 A
 - **多语言与版本提醒**：内置简体中文、繁体中文与英文界面（支持自定义语言包），跟随 Obsidian 语言自动切换；提供温和的 GitHub Releases 更新检查与单版本跳过。
 - **密钥不进笔记库**：填 API Key 或自定义 ACP 环境变量时支持 `env:VAR` / `secret:KEY`；命令面板提供「导出脱敏诊断报告」，方便排查问题。
 
-## 各 Agent 支持情况
+## 支持的 Agent、依赖与边界
 
-| Agent | 会话追踪 | 后台委派 | 桌面端交接 | 终端交互 |
-|---|---|---|---|---|
-| **Claude Code** | 支持 | 支持 | 支持（首轮后自动打开） | 支持 |
-| **Codex** | 支持 | 支持 | 支持（首轮后自动打开） | 支持 |
-| **DeepSeek Harness** | 支持 | 支持 | 仅唤起客户端 | — |
-| **Antigravity** | 支持 | 支持 | 不支持 | — |
-| **OpenCode** | 支持 | 支持 | 首轮后自动打开 | 支持 |
-| **Qoder** | 支持 | 支持 | 仅复制任务并唤起 | 支持 |
-| **Hermes Agent** | 支持 | 支持 | 不支持（无桌面界面） | 支持 |
-| **MiniMax Code** | 支持 | 支持（`mcode acp`） | 首轮后自动打开 | 支持（`mcode`） |
-| **千问办公（QwenWork）** | 支持 | 不支持 | 不支持（仅追踪） | — |
-| **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起 | 支持 |
-| **Cursor** | 支持（需开启 Hooks） | 不支持 | 不支持（仅追踪） | — |
-| **Grok Bot** | 支持（按 Bot 多选） | 不支持 | 不支持（仅追踪） | — |
-| **T3 Code** | 支持 | 支持（`t3 thread`） | 仅唤起客户端 | — |
-| **Muse** | 支持 | 不支持 | 不支持（仅追踪） | — |
-| **自定义 ACP Agent** | 委派会话追踪 | 支持（任意 ACP CLI） | — | — |
+Agent Deck 内置支持 **17 家本地 Agent + 任意自定义 ACP CLI**，覆盖 **Claude、GPT / Codex、Gemini、DeepSeek、Qwen（千问）、MiniMax、Kimi、豆包、Grok** 及本地 Ollama 等主流模型，并特别针对中文 Agent 客户端生态（DeepSeek Harness、MiniMax Code、千问办公 QwenWork、Qoder、WorkBuddy、Kimi Code、豆包工作）做了追踪与适配。
 
-## 安装与依赖
+想深入了解各 Agent 的支持矩阵、按需安装依赖及已知边界，请直接查阅 Wiki：👉 [**支持的 Agent 与主流模型（Wiki）**](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models)
 
-### 安装
+## 安装
 
 1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck**，安装并启用；
 2. 或在 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新版，把 `main.js`、`manifest.json`、`styles.css` 放进 `<你的库>/.obsidian/plugins/agent-deck/`，再到插件设置里启用。
 
-当前版本 **1.13.14**，需要 Obsidian **1.4.0+** 桌面端。
-
-### 需要准备什么
-
-只用面板追踪、任务绑定和 Dashboard 时**不需要任何额外依赖**，插件只读本机已有的会话记录，也不联网。要用委派、自动记日记或 Dreaming 时，再准备你实际要用的客户端：
-
-| 你要用的功能 | 需要先装好 |
-|---|---|
-| **Claude Code** | Claude Code 命令行或桌面端，并登录 |
-| **Codex** | Codex 命令行与桌面端，并登录 |
-| **DeepSeek Harness** | DeepSeek Harness 客户端，并配置好模型与账号 |
-| **Antigravity** | 独立的 Antigravity 命令行（只装 IDE 不够） |
-| **OpenCode** | OpenCode 桌面端或命令行 |
-| **Qoder** | Qoder 命令行；只用桌面交接则装 Qoder 桌面端 |
-| **Hermes Agent** | Hermes 命令行；不用委派时无需额外安装 |
-| **MiniMax Code** | MiniMax Code 桌面端；后台委派或终端续聊另需 `mcode` 命令行 |
-| **千问办公（QwenWork）** | 千问办公桌面端（仅追踪） |
-| **WorkBuddy** | 中国版 WorkBuddy 桌面端；终端交互另需 `codebuddy` |
-| **Cursor** | Cursor 桌面端 3.30.14+，并在设置里开启 Cursor Hooks |
-| **Grok Bot** | Grok Bot 桌面端，并在设置里勾选要追踪的 Bot |
-| **T3 Code** | T3 Code 桌面端；后台委派另需 `t3` 命令行 |
-| **Muse** | Muse 桌面端（仅追踪） |
-| **自定义 ACP Agent** | 任一兼容 ACP 协议的本地 CLI，在「设置 → 委派 → 自定义 ACP Agent」中填写命令与参数 |
-| **自动记日记 / 总结 / Dreaming** | 任一已登录的本地 CLI，或一个 OpenAI 兼容 API（支持 DeepSeek、OpenAI、OpenRouter、百炼 Qwen、本地 Ollama 等） |
-| **macOS 菜单栏助手** | Xcode Command Line Tools（未装时运行 `xcode-select --install`） |
-
-> 从 macOS 图形界面启动 Obsidian 时可能找不到命令行工具，在插件设置里填写完整路径即可；设置页的「检查」只验证路径和版本，登录状态请在客户端确认。
-
-## 当前受限
-
-1. **仅桌面端 & Windows 适配现状**：不支持 Obsidian 移动端。日常以 macOS 实测为主；Windows 已适配基础追踪（Cursor 追踪另需本机安装 `sqlite3`）、Dashboard、日记/记忆/看板以及后台 CLI/ACP 委派，但尚未经过 Windows 真机 Obsidian 全流程验证，且**暂不支持**在终端里打开/续聊会话、桌面端窗口唤起、Claude Desktop 桌面端会话追踪以及菜单栏助手（这些功能在 Windows 上会安全降级不报错）。欢迎 Windows 用户在 Issues 或用户群反馈实机问题。
-2. **委派依赖本机客户端**：自动委派要本机 CLI 或桌面应用来执行，暂不支持用远程 API 直接跑任务，插件也不会替你安装或登录客户端。
-3. **对话窗口只读**：Obsidian 内的对话查看用于看正文、停止当前轮和保存归档，不设自由输入框；支持的会话可从任务菜单轻量追问或「回答并继续」，其余需回客户端继续。
-4. **各客户端的边界**：
-   - **Cursor**：只追踪装了 Hooks 的新会话，不支持委派与终端交互。
-   - **WorkBuddy**：仅中国版，独立 CodeBuddy 命令行与桌面端不互通。
-   - **Qoder**：命令行与桌面端不互通，桌面端没给 token 时显示「未提供」。
-   - **Antigravity**：命令行与 IDE 会话不互通；导出正文不含工具结果与内部推理。
-   - **DeepSeek Harness**：客户端仍在迭代，委派会话在客户端里可能落到「未分组」，通常需刷新客户端才出现。
-   - **OpenCode**：后台与桌面共用会话，但打开桌面端后仍需手动选一次。
-   - **Hermes Agent**：没有桌面界面，只能在插件里看，或在终端恢复。
-   - **MiniMax Code**：桌面端与 `mcode` 命令行共用本地会话库；打开桌面端后仍需手动选一次会话，只装桌面端未装 `mcode` 时仅追踪不委派。
-   - **千问办公（QwenWork）**：只追踪、不能委派；新版客户端的对话已能完整读取，旧日志缺 token 时如实显示为 0。
-   - **Grok Bot**：只追踪桌面端，云端沙箱不给逐条 token 时显示「用量未提供」，没有归档概念。
-5. **终端交互的实测范围**：自动开终端跑交互式会话目前仅限 macOS，且只在 **Tern** 和 **Herdr** 上实测通过；macOS 系统终端、iTerm2、Warp 尚未实测，Windows 终端暂未支持。
-6. **正在做的方向**：派发前可视化上下文、防引用漂移、Dream 记忆按条共享、Windows 真机实测与终端适配，以及更多 Agent 与终端支持，详见 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist)。
+当前版本 **1.13.15**，需要 Obsidian **1.4.0+** 桌面端（不支持移动端）；仅使用会话追踪、任务绑定与 Dashboard 时无需额外依赖，更多平台与客户端细节见 [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models)。
 
 ## 用户群
 

@@ -13,6 +13,9 @@ import {
 } from "./cursor-sessions.js";
 import { grokBotDataDir, grokBotPersistenceDir } from "./grok-bot-sessions.js";
 import { museDataDirs } from "./muse-sessions.js";
+import { kimiCodeDataDirs } from "./kimicode-sessions.js";
+import { doubaoWorkDataDir, doubaoWorkIndexedDbDir } from "./doubaowork-sessions.js";
+import { geminiCliHome } from "./gemini-cli-sessions.js";
 
 export const HARNESS_DETECTION_VERSION = 1;
 
@@ -256,6 +259,36 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
       binPaths: [],
       apps: win ? [] : ["Muse.app"],
       dataPaths: museDataDirs(homeDir, platform, env),
+    },
+    kimicode: {
+      binNames: ["kimi", "kimi-code"],
+      binPaths: [
+        path.join(homeDir, ".local", "bin", "kimi"),
+        path.join(homeDir, ".local", "bin", "kimi-code"),
+      ],
+      apps: win ? ["Kimi Code/Kimi Code.exe"] : ["Kimi Code.app"],
+      dataPaths: kimiCodeDataDirs(homeDir, env),
+    },
+    doubaowork: {
+      binNames: [],
+      binPaths: [],
+      apps: win ? ["DoubaoWork/DoubaoWork.exe"] : ["DoubaoWork.app"],
+      dataPaths: [
+        doubaoWorkIndexedDbDir(homeDir, platform, env),
+        doubaoWorkDataDir(homeDir, platform, env),
+      ],
+    },
+    gemini: {
+      binNames: ["gemini"],
+      binPaths: [
+        path.join(homeDir, ".local", "bin", "gemini"),
+        path.join(homeDir, ".npm-global", "bin", "gemini"),
+      ],
+      apps: [],
+      dataPaths: [
+        path.join(geminiCliHome(homeDir, env), "tmp"),
+        path.join(geminiCliHome(homeDir, env), "projects.json"),
+      ],
     },
   };
 }

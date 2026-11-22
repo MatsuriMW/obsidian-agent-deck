@@ -199,9 +199,48 @@ export const AGENTS = {
     desktopOnly: true,
     trackingOnly: true,
   },
+  kimicode: {
+    id: "kimicode",
+    name: "Kimi Code",
+    short: "Kimi Code",
+    glyph: "◈",
+    color: "#2b6cb0",
+    soft: "rgba(43,108,176,.13)",
+    kind: "kimicode",
+    where: ["~/.kimi-code/sessions · ~/.kimi/sessions", t("Kimi Code 桌面版 / CLI（仅追踪）")],
+    deep: "kimicode",
+    desktopOnly: true,
+    trackingOnly: true,
+  },
+  doubaowork: {
+    id: "doubaowork",
+    name: "豆包工作",
+    short: "豆包工作",
+    glyph: "◎",
+    color: "#3b82f6",
+    soft: "rgba(59,130,246,.13)",
+    kind: "doubaowork",
+    where: ["~/Library/Application Support/DoubaoWork", t("豆包工作桌面版（仅追踪）")],
+    deep: "doubaowork",
+    desktopOnly: true,
+    trackingOnly: true,
+  },
+  gemini: {
+    id: "gemini",
+    name: "Gemini CLI",
+    short: "Gemini CLI",
+    glyph: "✦",
+    color: "#4285f4",
+    soft: "rgba(66,133,244,.13)",
+    kind: "gemini",
+    where: ["~/.gemini/tmp/*/chats", t("Gemini CLI（仅追踪）")],
+    deep: "gemini",
+    desktopOnly: false,
+    trackingOnly: true,
+  },
 };
 
-export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse"];
+export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "gemini"];
 
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
@@ -448,7 +487,7 @@ export const CLAUDE_PERMISSIONS = [
 export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, cursor: true, grokbot: true, t3code: true, muse: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, cursor: true, grokbot: true, t3code: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   customAcpAgents: [],
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
@@ -524,7 +563,7 @@ export const DEFAULTS = {
   keywordStyle: true,      // 关键词配色与 tsq-ico 图标；TODOseq 自己在格式化时让位
   recordRules: { ...DEFAULT_RECORD_RULES },
   autoLogBatch: 8,         // 一轮最多问模型几个会话
-  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, t3code: true, muse: true },
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, t3code: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   autoLogProvider: "auto",
   autoLogEffort: "low",
   autoLogModel: "",

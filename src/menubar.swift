@@ -149,6 +149,9 @@ struct MenuSession: Decodable, Identifiable {
         case "grokbot": return "Grok Bot"
         case "t3code": return "T3 Code"
         case "muse": return "Muse"
+        case "kimicode": return "Kimi Code"
+        case "doubaowork": return "豆包工作"
+        case "gemini": return "Gemini CLI"
         default: return agentName
         }
     }
@@ -852,6 +855,27 @@ enum DeckAgents {
                 color: .solid("#C96F8F", "#E694B2"),
                 tint: .solid("#F9ECF1", "#38212A"),
                 glyph: "❋", short: "Muse"
+            )
+        case "kimicode":
+            return AgentStyle(
+                id: "kimicode",
+                color: .solid("#2B6CB0", "#63A4E8"),
+                tint: .solid("#E8F1FA", "#1B2A3C"),
+                glyph: "◈", short: "Kimi Code"
+            )
+        case "doubaowork":
+            return AgentStyle(
+                id: "doubaowork",
+                color: .solid("#3B82F6", "#74A8FF"),
+                tint: .solid("#EAF2FF", "#1B2A42"),
+                glyph: "◎", short: "豆包工作"
+            )
+        case "gemini":
+            return AgentStyle(
+                id: "gemini",
+                color: .solid("#4285F4", "#7AA8FF"),
+                tint: .solid("#EBF2FE", "#1B2942"),
+                glyph: "✦", short: "Gemini CLI"
             )
         default:
             let base = Color(hex: fallbackColor)

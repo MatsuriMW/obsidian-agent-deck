@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.15
+
+- **新增 3 家内置 Agent 只读追踪（内置总数增至 17 家）**：
+  - **Kimi Code**：只读解析 `~/.kimi-code/sessions/<wsHash>/<sessionId>/wire.jsonl`（v1.5 协议，支持 `KIMI_CODE_HOME` 与 `~/.kimi/sessions` 回退），联读 `session-meta/state.json`（自定义标题、归档状态、模型）和 `workspaces.json`，精确统计逐轮 Token 与工具调用，支持只读对话详情与桌面端唤起。
+  - **豆包工作（Doubao Work）**：零依赖扫描 `~/Library/Application Support/DoubaoWork/Default/IndexedDB/chrome_doubaowork-chat_0.indexeddb.leveldb`（含 `.log` 与 Snappy 压缩 `.ldb` 块中的 V8 Structured Clone 会话列表元数据），支持唤起桌面端；严格不解密本地加密库 `sdk_storage`，Token 诚实显示「用量未提供」。
+  - **Gemini CLI**：只读解析 `~/.gemini/tmp/<projectSlug>/chats/session-*.jsonl`（兼容旧版 `session-*.json`），支持 `$set` / `$patch` / `$rewindTo`、自动剥离 `<session_context>` / `<hook_context>` 注入块、精确统计 Token（含缓存与思考 Token），并支持终端 `gemini --resume` 续聊。
+  - 同步 3 家官方/定制 128px 图标、本机 Harness 自动探测、macOS 菜单栏样式与中英繁文案；解析缓存版本 `USAGE_CACHE_VERSION` 递增至 `18`。
+- **README 精简与 GitHub Wiki 体系**：中英文 README 明确核心定位「以 Markdown / 大纲 / 日记为正本的多客户端 AI 总控台 + 长期记忆闭环」，突出主流模型全覆盖与中文 Agent 客户端生态适配；将详细支持矩阵、按需依赖与已知边界迁入 `docs/wiki/`（7 篇完整用户文档）。
+- **GitHub 自动化增强**：新增 `docs/wiki/**` 自动同步到 GitHub Wiki 的 Workflow（`sync-wiki.yml`）、结构化 Bug / 新 Agent 适配 Issue 表单模板与 Dependabot 周检配置。
+
 ## 1.13.13
 
 - **支持 T3 Code（追踪 + `t3` CLI 委派 + 转发去重）**：只读解析 `~/.t3/userdata/statev2.sqlite`（支持 `T3_DATA_DIR` / `T3_STATE_DIR` 与 v1 `state.sqlite` 回退、逐轮 `turnTokenUsage`、工作树 `worktreePath`、子代理 `lineage` 与归档态）；支持经 `t3 thread start` / `t3 thread send` 后台委派与应用内续聊（未登记目录自动 `t3 project add`）；自动记日记时按 T3 Code 绑定表去重底层被转发的 Agent 会话，统一收录在 T3 Code 下不重复记录。
