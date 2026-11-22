@@ -54,3 +54,60 @@ test('来源读取失败不伪装为完整数据，其他日记录仍然可用',
   const data = await new DashboardData(p).load();
   assert.equal(data.unreadable, 1); assert.equal(data.rows.length, 1); assert.equal(data.rows[0].out, 5);
 });
+
+test('T3 Code 转发会话自动去重且不泄漏为历史残余；加载安全审计摘要', async () => {
+  const auditFile = { path: 'Agent Deck/安全审计.md', extension: 'md', basename: '安全审计' };
+  const auditMd = [
+    '---',
+    'days: 30',
+    'agent: ""',
+    'ignore_temp_noise: true',
+    'generated_at: "2026-11-22 20:00"',
+    'scanned_sessions: 12',
+    'tool_calls: 88',
+    'findings: 3',
+    'suppressed_allowlist: 2',
+    'suppressed_noise: 5',
+    'allowlist:',
+    '  - "cmd:rm -rf dist"',
+    '---',
+    '# 安全回放与审计报告',
+  ].join('\n');
+  const p = {
+    settings: { journalFolder: '日记', journalFormat: 'YYYY-MM-DD' },
+    store: {
+      days: {
+        '2026-11-22': {
+          out: 150,
+          fresh: 300,
+          cached: 0,
+          list: [
+            { sid: 'thread:t3:1', agent: 't3code', out: 100, fresh: 200, segs: [[10, 20]] },
+            { sid: 'codex-forwarded-1', agent: 'codex', out: 50, fresh: 100, segs: [[10, 20]] },
+            { sid: 'hatch-main', agent: 'muse', out: 0, fresh: 0, segs: [[30, 35]] },
+          ],
+        },
+      },
+    },
+    usage: {
+      meta: new Map(),
+      t3OwnerOf: (sid) => (sid === 'codex-forwarded-1' ? 'thread:t3:1' : ''),
+    },
+    app: {
+      vault: {
+        getAbstractFileByPath: (path) => (path === auditFile.path ? auditFile : null),
+        cachedRead: async (file) => (file === auditFile ? auditMd : ''),
+        getMarkdownFiles: () => [],
+      },
+      metadataCache: {},
+    },
+  };
+  const data = await new DashboardData(p).load();
+  assert.deepEqual(data.rows.map((r) => `${r.agent}:${r.sid}`), ['t3code:thread:t3:1', 'muse:hatch-main']);
+  assert.equal(data.rows.some((r) => r.residual), false, '被 T3 Code 去重的转发会话不应变成历史残余');
+  assert.ok(data.securityAudit);
+  assert.equal(data.securityAudit.scannedSessions, 12);
+  assert.equal(data.securityAudit.totalToolCalls, 88);
+  assert.equal(data.securityAudit.totalFindings, 3);
+  assert.equal(data.securityAudit.allowlistCount, 1);
+});

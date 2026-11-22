@@ -1,5 +1,6 @@
 import { journalPath } from "./constants.js";
 import { journalSources, resolveProjects, isoDay, dayFromNotePath } from "./analytics.js";
+import { parseAuditSummary } from "./security-audit.js";
 
 export class DashboardData {
   constructor(plugin) { this.plugin = plugin; this.cache = new Map(); }
@@ -52,6 +53,7 @@ export class DashboardData {
     for (const [day, data] of Object.entries(p.store.days)) {
       const list = data.list?.length ? data.list : [{ sid: `legacy:${day}`, out: data.out, fresh: data.fresh, cached: data.cached, segs: data.segs, legacy: true }];
       for (const session of list) {
+        if (session.agent && session.agent !== "t3code" && p.usage?.t3OwnerOf?.(session.sid)) continue;
         const meta = p.usage.meta.get(session.sid);
         const byModels = Object.keys(data.by?.[session.agent]?.models || {}).filter(Boolean);
         const singleDayModel = byModels.length === 1 ? byModels[0] : "";
@@ -70,11 +72,16 @@ export class DashboardData {
         if (Object.values(remainder).some(Boolean)) rows.push({ ...remainder, sid: `legacy:${day}`, day: isoDay(day), legacy: true, residual: true, sources: [] });
       }
     }
+    let securityAudit = null;
+    const auditFile = vault.getAbstractFileByPath?.("Agent Deck/安全审计.md");
+    if (auditFile) {
+      try { securityAudit = parseAuditSummary(await vault.cachedRead(auditFile)); } catch { /* unreadable */ }
+    }
     const signature = JSON.stringify([rows, pages, p.settings.dashboardProjects]);
     if (this.signature !== signature) {
       this.resolved = resolveProjects(rows, pages, p.settings.dashboardProjects || {});
       this.signature = signature;
     }
-    return { rows: this.resolved, pages, unreadable };
+    return { rows: this.resolved, pages, unreadable, securityAudit };
   }
 }

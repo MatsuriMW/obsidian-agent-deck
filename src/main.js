@@ -16,6 +16,7 @@ import { defaultDestination, activeJob, canOpenClient } from "./workflow.js";
 import path from "path";
 import os from "os";
 import { execFile } from "child_process";
+import * as obsidianNs from "obsidian";
 import {
   Plugin, Notice, MarkdownView, MarkdownRenderChild, Menu, editorInfoField,
 } from "obsidian";
@@ -34,7 +35,7 @@ import { runSecurityAudit, renderSecurityAuditReport, parseAuditConfig } from ".
 import { computeTaskMetrics } from "./task-metrics.js";
 import { readRecentTraces, checkExternalAssets, buildDiagnosticReport } from "./trace.js";
 import { Delegator, blockAt, paragraphBlock, freshTaskText, stripInternalIdentifiers, ancestorLines, delegationText, findDraftLink, openSession as openSessionRaw, openExternal as openExternalRaw, openTerminal, findAgentBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
-import { pickPermissionOption } from "./delegation-runners.js";
+import { pickPermissionOption, cleanEnv, resolveExecutableWithFallback } from "./delegation-runners.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
 import { AgentDeckSettingsTab } from "./settings.js";
@@ -85,7 +86,9 @@ import {
 } from "./task-export.js";
 import { scanAgentWait, scanLimitQueue, resolveExternalState, buildLineProgressInfo } from "./external-state.js";
 import { ManagedTimers, CircuitBreaker, safeRun } from "./runtime-guard.js";
-import { hasAgentCapability, usesDeckSessionLink, canContinueSession } from "./agent-registry.js";
+import { getAgentCapability, hasAgentCapability, usesDeckSessionLink, canContinueSession } from "./agent-registry.js";
+import { syncCustomAcpRegistry, parseCustomAcpEnv } from "./custom-acp.js";
+import { checkLatestRelease, shouldAutoCheckUpdate, shouldPromptUpdate } from "./update-check.js";
 import { updateNote } from "./note-updates.js";
 import { parseThread, pendingQuestion, answerSlot, fillAnswer, ensureQuestionId, anchorThreadText, makeQuestionId, suggestOptions, latestWrittenAnswer } from "./thread-replies.js";
 import { ReplyModal } from "./reply-modal.js";
@@ -123,9 +126,9 @@ import {
   MAX_STEWARD_ROUNDS,
   STANDALONE_PROJECT_ID,
 } from "./project-workbench.js";
-import { setTaskBoardEffect, taskBoardMode } from "./fractal-board.js";
+import { setTaskBoardEffect, taskBoardMode, renderTaskBoards } from "./fractal-board.js";
 import { judgeWave, newFindings, syncSeen, STEWARD_WATCH_MS } from "./steward-watch.js";
-import { SHOWCASE_VERSION, showcasePath, applyShowcaseDefaults, buildShowcaseMarkdown } from "./welcome-demo.js";
+import { SHOWCASE_VERSION, showcasePath, applyShowcaseDefaults, buildShowcaseMarkdown, shouldOpenShowcaseForVersion } from "./welcome-demo.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
@@ -136,6 +139,7 @@ export default class AgentDeckPlugin extends Plugin {
   async onload() {
     const data = await this.loadData();
     this.settings = syncDelegationSettings(deepMerge(DEFAULTS, data || {}), data || {});
+    this.syncCustomAcpAgents();
     // 日记目录改成留空自动检测：以前存下的默认值「日记」当作没设过（只迁一次）
     if (!this.settings.journalFolderAuto) { if (this.settings.journalFolder === "日记") this.settings.journalFolder = ""; this.settings.journalFolderAuto = true; }
     this.settings.primaryAgentsInitialized = data?.primaryAgentsInitialized ?? !!(Array.isArray(data?.primaryAgents) || data?.aiPrimary);
@@ -320,7 +324,12 @@ export default class AgentDeckPlugin extends Plugin {
     }
     this.registerMarkdownPostProcessor((el, ctx) => {
       const child = new MarkdownRenderChild(el);
-      child.onunload = renderAIRecords(el, this, ctx);
+      const cleanupRecords = renderAIRecords(el, this, ctx);
+      const cleanupBoards = renderTaskBoards(el, this, ctx);
+      child.onunload = () => {
+        cleanupRecords?.();
+        cleanupBoards?.();
+      };
       ctx.addChild(child);
     });
 
@@ -463,6 +472,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "draft-delegation", name: t("委派：先生成草稿（不发送，看完再点委派）"), callback: () => this.makeDispatchDraft() });
     this.addCommand({ id: "skills-refresh", name: t("技能：刷新技能卡（外部 Skill → 库内笔记）"), callback: () => this.refreshSkillCards() });
     this.addCommand({ id: "import-nautilus", name: t("导入螺旋日程的历史用量"), callback: () => this.importNautilus(true) });
+    this.addCommand({ id: "check-update", name: t("检查 Agent Deck 更新"), callback: () => this.checkForUpdates({ manual: true }) });
     this.addCommand({ id: "clean-jobs", name: t("清理已结束的委派记录"), callback: () => this.cleanJobs() });
     this.addCommand({ id: "export-diagnostics", name: t("导出脱敏诊断报告（Trace / 版本 / 熔断状态）"), callback: () => this.exportDiagnostics() });
     this.addCommand({ id: "security-audit-replay", name: t("安全：回放最近 30 天会话的工具调用并生成审计报告"), callback: () => this.runSecurityAuditReport() });
@@ -518,6 +528,7 @@ export default class AgentDeckPlugin extends Plugin {
       }
       this.defer(() => this.recoverJobs(), 4000);
       this.defer(() => this.maybeOpenWelcomeShowcase().catch((e) => console.error("[agent-deck] showcase", e)), 600);
+      this.defer(() => this.checkForUpdates({ manual: false }).catch(() => {}), 12000);
     });
   }
 
@@ -956,8 +967,9 @@ export default class AgentDeckPlugin extends Plugin {
 
   async maybeOpenWelcomeShowcase() {
     if (this._unloaded) return false;
-    if (this.settings?.welcomeShowcaseVersion === SHOWCASE_VERSION) return false;
-    return Boolean(await this.openWelcomeShowcase({ force: false }));
+    const currentVersion = this.manifest?.version || SHOWCASE_VERSION;
+    if (!shouldOpenShowcaseForVersion(currentVersion, this.settings?.welcomeShowcaseVersion)) return false;
+    return Boolean(await this.openWelcomeShowcase({ force: true }));
   }
 
   async openWelcomeShowcase({ force = false } = {}) {
@@ -974,11 +986,12 @@ export default class AgentDeckPlugin extends Plugin {
       file = ensured.file;
       created = true;
     }
-    if (created || force) await this.app.vault.modify(file, content);
-
+    const currentVersion = this.manifest?.version || SHOWCASE_VERSION;
     const prevVersion = this.settings.welcomeShowcaseVersion;
-    this.settings.welcomeShowcaseVersion = SHOWCASE_VERSION;
-    if (presetChanged || prevVersion !== SHOWCASE_VERSION) await this.saveSettings?.();
+    if (created || force || prevVersion !== currentVersion) await this.app.vault.modify(file, content);
+
+    this.settings.welcomeShowcaseVersion = currentVersion;
+    if (presetChanged || prevVersion !== currentVersion) await this.saveSettings?.();
     this.refreshUI?.();
     dispatchRefresh(this);
 
@@ -987,10 +1000,14 @@ export default class AgentDeckPlugin extends Plugin {
       if (!opened && leaf?.view?.file?.path === targetPath) opened = leaf;
     });
     if (opened) {
+      if (opened.getViewState && opened.setViewState) {
+        const vs = opened.getViewState();
+        await opened.setViewState({ ...vs, state: { ...(vs?.state || {}), mode: "source", source: false } });
+      }
       this.app.workspace.revealLeaf(opened);
     } else {
       const leaf = this.app.workspace?.getLeaf?.("tab") || this.app.workspace?.getLeaf?.(false);
-      if (leaf?.openFile) await leaf.openFile(file, { active: true });
+      if (leaf?.openFile) await leaf.openFile(file, { active: true, state: { mode: "source", source: false } });
     }
     return targetPath;
   }
@@ -4240,6 +4257,81 @@ export default class AgentDeckPlugin extends Plugin {
 
   openExternal(url) { return openExternalRaw(url); }
 
+  async checkForUpdates({ manual = false } = {}) {
+    if (this._unloaded) return null;
+    if (!manual && !shouldAutoCheckUpdate(this.settings)) return null;
+    const fetchJson = async (url) => {
+      if (typeof obsidianNs.requestUrl === "function") {
+        const res = await obsidianNs.requestUrl({ url, headers: { Accept: "application/vnd.github+json", "User-Agent": "obsidian-agent-deck" } });
+        return res.json ?? JSON.parse(res.text || "{}");
+      }
+      const res = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    };
+    try {
+      const info = await checkLatestRelease({ currentVersion: this.manifest?.version || "0.0.0", fetchJson });
+      this.settings.updateCheckLastAt = Date.now();
+      this.saveSettings().catch(() => {});
+      if (shouldPromptUpdate(info.latestVersion, info.currentVersion, this.settings, { manual })) {
+        this.promptUpdate(info);
+      } else if (manual) {
+        new Notice(t("Agent Deck 已是最新版本 v{version}", { version: info.currentVersion || this.manifest?.version || "" }), 4000);
+      }
+      return info;
+    } catch (e) {
+      if (manual) new Notice(t("检查更新失败：{error}", { error: String(e?.message || e) }), 6000);
+      return null;
+    }
+  }
+
+  promptUpdate(info) {
+    if (typeof document === "undefined") return;
+    const frag = document.createDocumentFragment();
+    const wrap = document.createElement("div");
+    wrap.style.display = "flex";
+    wrap.style.flexDirection = "column";
+    wrap.style.gap = "8px";
+    const msg = document.createElement("div");
+    msg.textContent = t("Agent Deck 发布新版本 v{latest}（当前 v{current}），要不要更新？", {
+      latest: info.latestVersion,
+      current: info.currentVersion,
+    });
+    wrap.appendChild(msg);
+    const bar = document.createElement("div");
+    bar.style.display = "flex";
+    bar.style.gap = "6px";
+    bar.style.flexWrap = "wrap";
+    let notice = null;
+    const mkBtn = (label, primary, onClick) => {
+      const btn = document.createElement("button");
+      btn.textContent = label;
+      btn.className = primary ? "mod-cta" : "";
+      btn.style.cursor = "pointer";
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+        notice?.hide?.();
+      };
+      bar.appendChild(btn);
+    };
+    mkBtn(t("去更新"), true, () => this.openExternal(info.url));
+    if (this.app?.setting?.open && this.app?.setting?.openTabById) {
+      mkBtn(t("社区插件页"), false, () => {
+        this.app.setting.open();
+        this.app.setting.openTabById("community-plugins");
+      });
+    }
+    mkBtn(t("跳过此版"), false, () => {
+      this.settings.updateSkippedVersion = info.latestVersion;
+      this.saveSettings().catch(() => {});
+    });
+    wrap.appendChild(bar);
+    frag.appendChild(wrap);
+    notice = new Notice(frag, 20000);
+  }
+
   async readNote(path) {
     const view = this.sourceViewForPath(path);
     if (view) return view.editor.getValue();
@@ -4261,10 +4353,31 @@ export default class AgentDeckPlugin extends Plugin {
     await this.app.vault.process(file, () => text);
   }
 
+  syncCustomAcpAgents() {
+    const list = syncCustomAcpRegistry(this.settings?.customAcpAgents || []) || [];
+    const agents = (this.settings.agents ||= {});
+    const delegate = (this.settings.delegate ||= {});
+    for (const entry of list) {
+      agents[entry.id] = entry.enabled !== false;
+      const cfg = (delegate[entry.id] ||= {});
+      cfg.path = entry.command;
+      cfg.autoApprove = Boolean(entry.autoApprove);
+      if (cfg.cwd === undefined) cfg.cwd = "";
+      if (cfg.extraArgs === undefined) cfg.extraArgs = "";
+    }
+    return list;
+  }
+
   async checkBinary(kind) {
-    const bin = findAgentBinary(kind, this.settings.delegate?.[kind]?.path || "");
+    const cap = getAgentCapability(kind);
+    let bin = findAgentBinary(kind, this.settings.delegate?.[kind]?.path || cap.acpCommand || "");
+    const hasPathSep = bin.includes("/") || bin.includes("\\");
+    if (bin && (!hasPathSep || !fs.existsSync(bin))) {
+      bin = await resolveExecutableWithFallback(bin, path.basename(bin));
+    }
+    const customEnv = cap.acpEnvRaw ? parseCustomAcpEnv(cap.acpEnvRaw) : {};
     return await new Promise((resolve) => {
-      execFile(bin, ["--version"], { timeout: 10000, env: process.env }, (err, out, errOut) => {
+      execFile(bin, ["--version"], { timeout: 10000, env: cleanEnv(customEnv) }, (err, out, errOut) => {
         if (err) resolve(t("{kind} 没找到或不能运行：{error}", { kind, error: String(err.message || err) }) + "\n" + String(errOut || "").slice(0, 300));
         else resolve(`${kind}：${String(out || "").trim()}`);
       });
@@ -4354,8 +4467,18 @@ export default class AgentDeckPlugin extends Plugin {
     const result = await runSecurityAudit(this, { days: effectiveDays, agent: effectiveAgent, ignoreTempNoise, allowlist });
     const md = renderSecurityAuditReport(result);
     const file = await this.writeVaultFile(outPath, md);
-    if (file && this.app?.workspace?.getLeaf) {
-      try { await this.app.workspace.getLeaf(false).openFile(file); } catch { /* headless */ }
+    if (file && this.app?.workspace) {
+      try {
+        let opened = null;
+        this.app.workspace.iterateAllLeaves?.((leaf) => {
+          if (!opened && leaf?.view?.file?.path === outPath) opened = leaf;
+        });
+        if (opened) this.app.workspace.revealLeaf?.(opened);
+        else {
+          const leaf = this.app.workspace.getLeaf?.("tab") || this.app.workspace.getLeaf?.(false);
+          if (leaf?.openFile) await leaf.openFile(file);
+        }
+      } catch { /* headless */ }
     }
     this.notice(t("安全回放完成：扫描 {sessions} 个会话、{calls} 次工具调用，命中 {hits} 条风险（已写入 {path}）", {
       sessions: result.scannedSessions,

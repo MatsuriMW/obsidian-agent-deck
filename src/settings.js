@@ -17,6 +17,7 @@ import { t, currentLanguage, listCustomLocales } from "./i18n.js";
 import { syncModelGroups } from "./model-groups.js";
 import { ManagedTimers } from "./runtime-guard.js";
 import { delegateAgents, cliHandoffAgents } from "./agent-registry.js";
+import { normalizeCustomAcpId, normalizeCustomAcpEntry } from "./custom-acp.js";
 import { detectInstalledHarnesses } from "./harness-detect.js";
 import {
   detectJournalProviders, resolveJournalProvider, JOURNAL_PROVIDERS, API_PRESETS, fetchAgyModels, testJournalModel,
@@ -628,6 +629,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       });
     }
 
+    this.renderCustomAcpCard(body);
+
     const showTerminal = cliHandoffAgents().some((id) => p.agentEnabled(id));
     const otherShared = ["workbuddy", "qwenwork"].filter((id) => p.agentEnabled(id));
     if (showTerminal || otherShared.length) {
@@ -827,6 +830,53 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       new Notice(t("保存模型设置失败：{error}", { error: e?.message || String(e) }), 6000);
     }
     this.display();
+  }
+
+  renderCustomAcpCard(body) {
+    const p = this.plugin;
+    const s = p.settings;
+    const list = (s.customAcpAgents ||= []);
+    const card = this.card(
+      body,
+      t("自定义 ACP Agent"),
+      t("填写任意兼容 ACP 协议的 CLI 命令、参数与环境变量即可接入后台委派与应用内续聊，环境变量值支持 secret:KEY / env:VAR")
+    );
+    const persist = () => {
+      p.syncCustomAcpAgents?.();
+      syncDelegationSettings(s, s);
+      p.saveSettings();
+      p.refreshUI?.();
+      this.display();
+    };
+    if (!list.length) {
+      card.createDiv({ cls: "ad-muted", text: t("尚未添加自定义 ACP Agent（可接入 Gemini CLI、Kiro、Mistral Vibe、Pi 等任意 ACP 命令）") });
+    } else {
+      for (const entry of list) {
+        const sub = `@${entry.id} · ${entry.command}${entry.args ? " " + entry.args : ""}${entry.autoApprove ? ` · ${t("自动允许")}` : ""}`;
+        const r = this.row(card, entry.name || entry.id, sub);
+        const ctrl = r.createDiv({ cls: "ad-btnrow" });
+        const toggle = ctrl.createEl("input", { type: "checkbox", attr: { "aria-label": t("启用") } });
+        toggle.checked = entry.enabled !== false;
+        toggle.onchange = () => { entry.enabled = toggle.checked; persist(); };
+        this.bigButton(ctrl, t("检查"), async () => new Notice(await p.checkBinary(entry.id), 6000));
+        this.bigButton(ctrl, t("编辑"), () => new CustomAcpAgentModal(this.app, entry, list, (next) => {
+          Object.assign(entry, next);
+          persist();
+        }).open());
+        this.bigButton(ctrl, t("删除"), () => {
+          const idx = list.indexOf(entry);
+          if (idx >= 0) list.splice(idx, 1);
+          if (s.agents) delete s.agents[entry.id];
+          if (s.delegate) delete s.delegate[entry.id];
+          persist();
+        });
+      }
+    }
+    const bar = card.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(bar, t("+ 添加自定义 ACP Agent"), () => new CustomAcpAgentModal(this.app, null, list, (entry) => {
+      list.push(entry);
+      persist();
+    }).open());
   }
 
   renderModels(body) {
@@ -1840,7 +1890,13 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const meta = c.createDiv({ cls: "ad-about-meta" });
     meta.createDiv({ text: t("版本 {version} · Apache-2.0 License", { version: p.manifest.version }) });
     meta.createDiv({ text: t("欢迎在 GitHub Issues 反馈 bug，或在 Roadmap 提交建议并为你期待的方向投票。") });
+    this.rowToggle(c, t("启动时自动检查新版本"), t("每天最多检查一次 GitHub Releases，有新版时提示并提供一键跳转更新"), p.settings.updateCheck !== false, (v) => { p.settings.updateCheck = v; p.saveSettings(); });
     const btns = c.createDiv({ cls: "ad-btnrow" });
+    const checkBtn = this.bigButton(btns, t("检查更新"), async () => {
+      if (checkBtn.disabled) return;
+      checkBtn.disabled = true;
+      try { await p.checkForUpdates({ manual: true }); } finally { checkBtn.disabled = false; }
+    });
     this.bigButton(btns, t("打开 GitHub 仓库"), () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));
     this.bigButton(btns, t("反馈 Issue"), () => p.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck/issues"));
     this.bigButton(btns, t("查看 Roadmap"), () => p.openExternal("https://matsuri.site/portfolio/journal-workflow/#whistlist"));
@@ -2023,6 +2079,79 @@ class AddModelModal extends Modal {
         custom: true,
       };
       this.onAdd(m);
+      this.close();
+    };
+  }
+  onClose() { this.contentEl.empty(); }
+}
+
+class CustomAcpAgentModal extends Modal {
+  constructor(app, existing, list, onSave) {
+    super(app);
+    this.existing = existing || null;
+    this.list = Array.isArray(list) ? list : [];
+    this.onSave = onSave;
+    this.id = existing?.id || "";
+    this.name = existing?.name || "";
+    this.command = existing?.command || "";
+    this.args = existing ? String(existing.args ?? "") : "acp";
+    this.env = existing?.env || "";
+    this.autoApprove = Boolean(existing?.autoApprove);
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("ad-modal");
+    contentEl.createEl("h3", { text: this.existing ? t("编辑自定义 ACP Agent") : t("添加自定义 ACP Agent") });
+    const form = contentEl.createDiv({ cls: "ad-form" });
+    const field = (label, el) => { const f = form.createDiv({ cls: "ad-field" }); f.createDiv({ cls: "ad-field__label", text: label }); el(f); };
+    field(t("Agent ID（用于 @ 路由）"), (f) => {
+      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.id, placeholder: t("例如 kiro、pi、mistral-vibe（小写字母/数字/-/_）") } });
+      i.disabled = Boolean(this.existing);
+      i.oninput = () => { this.id = i.value; };
+    });
+    field(t("显示名"), (f) => {
+      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.name, placeholder: t("例如 Kiro") } });
+      i.oninput = () => { this.name = i.value; };
+    });
+    field(t("命令或绝对路径"), (f) => {
+      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.command, placeholder: t("例如 kiro-cli 或 /opt/homebrew/bin/gemini") } });
+      i.oninput = () => { this.command = i.value; };
+    });
+    field(t("启动参数（空格分隔，留空不传子命令）"), (f) => {
+      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.args, placeholder: "acp" } });
+      i.oninput = () => { this.args = i.value; };
+    });
+    field(t("环境变量（可选，每行 KEY=VALUE，支持 secret:KEY / env:VAR）"), (f) => {
+      const ta = f.createEl("textarea", { cls: "ad-input", attr: { rows: "3", placeholder: "OPENAI_API_KEY=secret:my_key" } });
+      ta.value = this.env;
+      ta.oninput = () => { this.env = ta.value; };
+    });
+    field(t("自动允许常规工具调用"), (f) => {
+      const cb = f.createEl("input", { type: "checkbox" });
+      cb.checked = this.autoApprove;
+      cb.onchange = () => { this.autoApprove = cb.checked; };
+    });
+    const bar = contentEl.createDiv({ cls: "ad-btnrow ad-btnrow--end" });
+    const cancel = bar.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("取消") });
+    cancel.onclick = () => this.close();
+    const save = bar.createEl("button", { cls: "ad-btn ad-btn--cta", text: this.existing ? t("保存") : t("添加") });
+    save.onclick = () => {
+      const id = this.existing ? this.existing.id : normalizeCustomAcpId(this.id);
+      if (!id) return new Notice(t("Agent ID 需以小写字母开头（2–32 位字母/数字/-/_），且不能与内置 Agent 重名"));
+      if (!this.existing && this.list.some((x) => x.id === id)) return new Notice(t("已存在同 ID 的自定义 ACP Agent"));
+      if (!this.command.trim()) return new Notice(t("请填写命令或可执行文件路径"));
+      const entry = normalizeCustomAcpEntry({
+        id,
+        name: this.name.trim() || id,
+        command: this.command.trim(),
+        args: this.args.trim(),
+        env: this.env,
+        color: this.existing?.color,
+        autoApprove: this.autoApprove,
+        enabled: this.existing ? this.existing.enabled !== false : true,
+      });
+      if (!entry) return new Notice(t("自定义 ACP Agent 配置无效"));
+      this.onSave(entry);
       this.close();
     };
   }

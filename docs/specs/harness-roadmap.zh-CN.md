@@ -379,3 +379,11 @@
   3. **M2.1 任务域分流**：复用 `resolveDispatchFolder`（`cwd !== vaultPath` / `projectFolders`）与 `[[双链]]`/`domain` 零成本自动分辨工程域、个人/写作域与纯通用问答，实现 `lesson` 与个人 `fact/preference/pattern` 的池子分权（保留跨任务交互偏好、通用问答保持 0 注入）；
   4. **M3.1 轨迹诊断与 Eval 门禁**：打通 `RunTrace` → 脱敏 Golden 集 → `npm run eval` 门禁，禁止无评测自动改写 Dreaming Prompt 或召回权重；
   5. **源码核查工程债务补录**：将 `handoff` 项目归属、`Dreaming` `dropped` 计数透出与 `state.processed` 保留、`continueSession` 与非 ACP runner 接入 `RunTrace`、M2.1 YAML 单层/嵌套解析契约同步、以及中英混排加权预算与仓库 `AGENTS.md` 分工纳入对应 Milestone 与 §8.3 未决清单。
+
+### v4.1 → v4.2（2026-11-22，吸收 `obsidian-agent-client` 5 项生态借鉴）
+对照 `RAIT-09/obsidian-agent-client`（Apache-2.0）梳理 5 项高价值能力并按 Agent Deck 原则分流：
+1. **P0 自定义 ACP Agent 通用入口（✅ 已落地）**：新增 `src/custom-acp.js` 与 `settings.customAcpAgents`，设置页「委派 → 自定义 ACP Agent」支持配置任意 ACP CLI 命令、参数与环境变量（值走 `resolveSecret` 支持 `secret:KEY` / `env:VAR`，不落明文），动态注册进 `AGENTS` / `AGENT_ORDER` / `CAPABILITIES` 与 `@` 路由，免发版接入 Gemini CLI / Kiro / Mistral Vibe / Pi 等新 CLI。
+2. **P1 会话级上下文占用指示器 + 会话 Fork（→ `MAT-631` / `MAT-632`）**：仅在日志或 ACP 协议返回真实 token 且已知模型上下文上限时在侧栏会话卡与 `FollowUpModal` 展示占用条（缺失绝不估算）；按能力位 `fork` 逐家开放 Claude `--fork-session` 与支持 fork 的 ACP 分支续聊，子会话自动纳入 `parentSid` 父子树。
+3. **P1/P2 Obsidian Keychain 存储 API Key（→ §8.2.1 Security 演进）**：桌面端优先使用 Obsidian Keychain / Electron `safeStorage`（`keychain:` 后端），保留 `secret:`（`~/.agent-deck/secrets.json`）与 `env:` 给纯 Node 脚本、离线评测与测试兜底。
+4. **P2 Windows WSL 模式（→ 轨道 W `MAT-643`）**：在 Windows 下提供 `wsl.exe -d <distro>` 启动封装、Windows ↔ `/mnt/<drive>/...` 双向路径转换（含 `cwd` 与注入笔记/技能路径），并支持从 `\\wsl$\<distro>\...` 读取会话日志。
+5. **P2 选区行号级临时上下文 + 笔记内一键派发代码块（→ M1.2 / 轨道 T）**：派发瞬间附带编辑器精确选区行号范围（落盘引用仍坚持 `[[笔记#^块号]]` 防漂移）；支持 ```` ```agent-deck ```` 代码块渲染「派发 / 生成草稿」按钮，复用 `ConfirmSendModal` 且保持 Markdown 唯一正本。

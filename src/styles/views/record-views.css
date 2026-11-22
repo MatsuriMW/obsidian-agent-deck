@@ -1073,3 +1073,28 @@
   }
 
 }
+
+/* 阅读视图（只读预览）：保留完整视觉展示，收起仅编辑态有效的按钮与拖拽光标 */
+.ad-record-table-wrap.ad-record-view-wrap--readonly {
+  & .ad-rt-row,
+  & .ad-rt-card,
+  & .ad-rt-footer-item,
+  & .ad-rt-tl-item {
+    cursor: default;
+  }
+}
+
+.ad-board-wrap.ad-board-wrap--readonly {
+  & .ad-board__actions,
+  & .ad-board__pin,
+  & .ad-board__zoom,
+  & .ad-board__coladd,
+  & .ad-board__quickadd {
+    display: none;
+  }
+
+  & .ad-board__card,
+  & .ad-board__cardtitle {
+    cursor: default;
+  }
+}

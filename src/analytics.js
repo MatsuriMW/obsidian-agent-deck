@@ -34,7 +34,13 @@ export function journalSources(text, path, { autoState = null } = {}) {
     for (let p = owners[owner]; p >= 0; p = owners[p]) parents.unshift(lines[p]);
     const end = subtreeEnd(lines, owner);
     const own = lines.slice(owner, end).filter((_, n) => !fenced.has(owner + n) && (n === 0 || owners[owner + n] === owner));
-    return { path, line: owner, blockId: J.blockIdOf(lines[owner]), text: [...parents, ...own].join("\n") };
+    return {
+      path,
+      line: owner,
+      blockId: J.blockIdOf(lines[owner]),
+      title: lines[owner].replace(/^\s*[-*+]\s+/, "").replace(/\s+\^[a-z0-9-]+$/i, "").trim(),
+      text: [...parents, ...own].join("\n"),
+    };
   };
   for (let i = 0; i < lines.length; i++) {
     if (fenced.has(i)) continue;

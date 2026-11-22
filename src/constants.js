@@ -449,6 +449,7 @@ export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
   agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, cursor: true, grokbot: true, t3code: true, muse: true },
+  customAcpAgents: [],
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
   dayCutoff: 0,
@@ -473,6 +474,9 @@ export const DEFAULTS = {
   journalLayout: null,
   uiLanguage: "auto",
   journalLayoutLanguage: "auto",
+  updateCheck: true,
+  updateCheckLastAt: 0,
+  updateSkippedVersion: "",
   organizeJournalSuggest: true,
   journalOrganizePrompt: { day: "", count: 0, notes: {} },
   resultBack: true,
@@ -654,10 +658,16 @@ export function syncDelegationSettings(settings, raw = null) {
   m.defaultByAgent ||= {};
   m.effortByAgent ||= {};
   m.enabled = Array.isArray(m.enabled) ? m.enabled : [];
-  const delegateAgents = Object.keys(DEFAULTS.delegate).filter((k) => {
-    const entry = DEFAULTS.delegate[k];
-    return Boolean(entry && typeof entry === "object" && !Array.isArray(entry));
-  });
+  const customAcpIds = (Array.isArray(settings.customAcpAgents) ? settings.customAcpAgents : [])
+    .map((x) => String(x?.id || "").trim().toLowerCase())
+    .filter(Boolean);
+  const delegateAgents = [...new Set([
+    ...Object.keys(DEFAULTS.delegate).filter((k) => {
+      const entry = DEFAULTS.delegate[k];
+      return Boolean(entry && typeof entry === "object" && !Array.isArray(entry));
+    }),
+    ...customAcpIds,
+  ])];
   if (!delegateAgents.includes(d.target)) d.target = "claude";
   for (const agent of delegateAgents) {
     const cfg = (d[agent] ||= {});

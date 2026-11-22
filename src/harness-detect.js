@@ -2,7 +2,7 @@
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { AGENT_ORDER } from "./constants.js";
+import { AGENTS, AGENT_ORDER } from "./constants.js";
 import { delegateAgents } from "./agent-registry.js";
 import { expandedPathEntries } from "./delegation-runners.js";
 import {
@@ -310,6 +310,7 @@ export function detectInstalledHarnesses(options = {}) {
   const missing = [];
 
   for (const id of AGENT_ORDER) {
+    if (AGENTS[id]?.customAcp) continue;
     const spec = specs[id] || { binNames: [], binPaths: [], apps: [], dataPaths: [] };
     const via = [];
 
@@ -374,6 +375,7 @@ export function applyHarnessDetection(settings, { mode = "initial", detection = 
 
   if (mode === "migrate") {
     for (const id of AGENT_ORDER) {
+      if (AGENTS[id]?.customAcp) continue;
       if (!detected[id]) {
         agents[id] = false;
         autoLogAgents[id] = false;
@@ -383,6 +385,7 @@ export function applyHarnessDetection(settings, { mode = "initial", detection = 
     }
   } else {
     for (const id of AGENT_ORDER) {
+      if (AGENTS[id]?.customAcp) continue;
       agents[id] = Boolean(detected[id]);
       autoLogAgents[id] = Boolean(detected[id]);
     }

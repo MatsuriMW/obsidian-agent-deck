@@ -301,7 +301,7 @@
     max-width: 80ch;
   }
 
-  & :is(.ad-review__agents, .ad-review__models, .ad-review__projects, .ad-review__records, .ad-review__rhythm) {
+  & :is(.ad-review__agents, .ad-review__models, .ad-review__projects, .ad-review__records, .ad-review__rhythm, .ad-review__security) {
     margin-top: 32px;
   }
 

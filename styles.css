@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.13 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.14 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -3883,6 +3883,23 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   background: var(--ad-agent-soft, var(--background-modifier-hover));
   color: var(--text-muted);
 }
+.ad-record-table-wrap.ad-record-view-wrap--readonly .ad-rt-row,
+.ad-record-table-wrap.ad-record-view-wrap--readonly .ad-rt-card,
+.ad-record-table-wrap.ad-record-view-wrap--readonly .ad-rt-footer-item,
+.ad-record-table-wrap.ad-record-view-wrap--readonly .ad-rt-tl-item {
+  cursor: default;
+}
+.ad-board-wrap.ad-board-wrap--readonly .ad-board__actions,
+.ad-board-wrap.ad-board-wrap--readonly .ad-board__pin,
+.ad-board-wrap.ad-board-wrap--readonly .ad-board__zoom,
+.ad-board-wrap.ad-board-wrap--readonly .ad-board__coladd,
+.ad-board-wrap.ad-board-wrap--readonly .ad-board__quickadd {
+  display: none;
+}
+.ad-board-wrap.ad-board-wrap--readonly .ad-board__card,
+.ad-board-wrap.ad-board-wrap--readonly .ad-board__cardtitle {
+  cursor: default;
+}
 
 /* src/styles/views/settings.css */
 .modal.mod-settings .vertical-tab-content.ad-settings {
@@ -5681,7 +5698,7 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   margin: 16px 0;
   max-width: 80ch;
 }
-.ad-review :is(.ad-review__agents, .ad-review__models, .ad-review__projects, .ad-review__records, .ad-review__rhythm) {
+.ad-review :is(.ad-review__agents, .ad-review__models, .ad-review__projects, .ad-review__records, .ad-review__rhythm, .ad-review__security) {
   margin-top: 32px;
 }
 .ad-review .ad-review__rhythm-card {

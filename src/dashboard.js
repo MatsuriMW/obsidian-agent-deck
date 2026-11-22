@@ -1,5 +1,5 @@
 import { ItemView, FuzzySuggestModal } from "obsidian";
-import { AGENTS, dayKeyToday, fmtMin, fmtTok } from "./constants.js";
+import { AGENTS, dayKeyToday, fmtMin, fmtTok, unionSegs } from "./constants.js";
 import { aggregateDashboard, calendarDays, formatDashboardSummaryMarkdown, heatLevel, shiftDay, isoDay } from "./analytics.js";
 import { DashboardData } from "./dashboard-data.js";
 import { agentIcon } from "./icons.js";
@@ -147,7 +147,9 @@ export class DashboardView extends ItemView {
     this.agentBreakdown(page, agentScope);
     this.modelBreakdown(page, modelScope);
     this.projects(page, projectScope);
+    this.multiSessionTasks(page, data);
     this.records(page, from, to, data, opened);
+    this.securityAuditSection(page);
     const details = page.createEl("details", { cls: "ad-review__method" });
     details.createEl("summary", { text: t("统计与项目识别规则") });
     details.createEl("p", { text: t("只统计本机已经追踪并保存的历史。每日沿用日记分界 {hour}:00；token 包含输入、输出和缓存读取，不代表费用。", { hour: this.plugin.settings.dayCutoff ?? 0 }) });
@@ -314,7 +316,7 @@ export class DashboardView extends ItemView {
       agentIcon(nameWrap.createSpan({ cls: "ad-glyph ad-review__agent-icon" }), ag.agent);
       nameWrap.createSpan({ text: meta?.name || ag.agent });
       const pct = data.tokens > 0 ? Math.round(ag.share * 100) : 0;
-      const metrics = `${ag.tokens ? fmtTok(ag.tokens) + " tok" : t("用量未提供")}${data.tokens > 0 ? ` (${pct}%)` : ""} · ${fmtMin(ag.wall)} · ${t("{n} 会话", { n: ag.sessions })}`;
+      const metrics = `${ag.tokens ? fmtTok(ag.tokens) + " tok" : t("用量未提供")}${data.tokens > 0 && ag.tokens > 0 ? ` (${pct}%)` : ""} · ${fmtMin(ag.wall)} · ${t("{n} 会话", { n: ag.sessions })}`;
       top.createSpan({ cls: "ad-review__agent-meta", text: metrics });
       const bar = row.createDiv({ cls: "ad-review__bar" });
       bar.createSpan().style.width = `${ag.tokens ? Math.max(2, Math.round(100 * ag.tokens / max)) : 0}%`;
@@ -580,5 +582,127 @@ export class DashboardView extends ItemView {
     };
     search.onblur = () => { if (this._pendingRender) this.scheduleRender(); };
     renderList(initialOpened);
+  }
+
+  multiSessionTasks(parent, data) {
+    const byTask = new Map();
+    for (const row of data.rows || []) {
+      if (!row.sid || !Array.isArray(row.sources) || !row.sources.length) continue;
+      for (const src of row.sources) {
+        if (!src?.path) continue;
+        const key = `${src.path}#${src.blockId || src.line || 0}`;
+        let bucket = byTask.get(key);
+        if (!bucket) {
+          const rawTitle = String(src.title || String(src.text || "").split("\n")[0])
+            .replace(/^\s*[-*+]\s+/, "")
+            .replace(/\s+\^[a-z0-9-]+$/i, "")
+            .trim();
+          bucket = { key, path: src.path, blockId: src.blockId || "", line: src.line || 0, title: rawTitle || src.path, tokens: 0, sids: new Set(), seenRows: new Set(), agents: new Set(), segsByDay: new Map() };
+          byTask.set(key, bucket);
+        }
+        const rowKey = `${row.day || ""}|${row.sid}`;
+        if (bucket.seenRows.has(rowKey)) continue;
+        bucket.seenRows.add(rowKey);
+        bucket.sids.add(row.sid);
+        if (row.agent) bucket.agents.add(row.agent);
+        bucket.tokens += row.tokens || 0;
+        if (Array.isArray(row.segs) && row.segs.length) {
+          const dayKey = row.day || "";
+          let arr = bucket.segsByDay.get(dayKey);
+          if (!arr) bucket.segsByDay.set(dayKey, arr = []);
+          arr.push(...row.segs);
+        }
+      }
+    }
+    const items = [...byTask.values()]
+      .filter((x) => x.sids.size >= 2)
+      .map((x) => {
+        let wall = 0;
+        for (const segs of x.segsByDay.values()) {
+          for (const [a, b] of unionSegs(segs)) if (b > a) wall += b - a;
+        }
+        return { ...x, sessions: x.sids.size, agentList: [...x.agents], wall: Math.round(wall) };
+      })
+      .sort((a, b) => (b.tokens - a.tokens) || (b.wall - a.wall))
+      .slice(0, 10);
+    if (!items.length) return;
+
+    const section = parent.createEl("section", { cls: "ad-review__projects ad-review__tasks" });
+    const head = section.createDiv({ cls: "ad-review__sectionhead" });
+    head.createEl("h2", { text: t("跨会话任务投入") });
+    head.createSpan({ text: t("{n} 条多会话任务（去重耗时）", { n: items.length }) });
+
+    const scroll = section.createDiv({ cls: "ad-review__table-scroll" }), table = scroll.createEl("table");
+    const thead = table.createEl("thead").createEl("tr");
+    for (const label of [t("任务"), "Token", t("活跃耗时"), t("会话数")]) thead.createEl("th", { text: label, attr: { scope: "col" } });
+    const body = table.createEl("tbody");
+    const max = Math.max(1, ...items.map((x) => x.tokens));
+    for (const item of items) {
+      const tr = body.createEl("tr");
+      const nameTd = tr.createEl("td");
+      const btn = this.button(nameTd, item.title.slice(0, 56), () => this.app?.workspace?.openLinkText?.(item.path + (item.blockId ? `#^${item.blockId}` : ""), "", true), "ad-review__source");
+      btn.title = item.path;
+      const metaRow = nameTd.createDiv({ cls: "ad-review__project-sub" });
+      this.renderAgentBadges(metaRow, item.agentList);
+      const tokTd = tr.createEl("td");
+      tokTd.createSpan({ text: item.tokens ? fmtTok(item.tokens) : t("用量未提供") });
+      const bar = tokTd.createDiv({ cls: "ad-review__bar" });
+      bar.createSpan().style.width = `${item.tokens ? Math.max(2, Math.round(100 * item.tokens / max)) : 0}%`;
+      tr.createEl("td", { text: fmtMin(item.wall) });
+      tr.createEl("td", { text: String(item.sessions) });
+    }
+  }
+
+  securityAuditSection(parent) {
+    const audit = this.data?.securityAudit;
+    const allowCount = audit ? audit.allowlistCount : (this.plugin.settings?.securityAllowlist?.length || 0);
+    const section = parent.createEl("section", { cls: "ad-review__security" });
+    const head = section.createDiv({ cls: "ad-review__sectionhead" });
+    head.createEl("h2", { text: t("安全回放与护栏") });
+    const actions = head.createDiv({ cls: "ad-review__actions" });
+    if (typeof this.plugin.runSecurityAuditReport === "function") {
+      const runReplay = async (days) => {
+        if (this._runningAudit) return;
+        this._runningAudit = true;
+        b7.disabled = true;
+        b30.disabled = true;
+        try {
+          await this.plugin.runSecurityAuditReport({ days, overrideDays: true });
+          await this.render();
+        } finally {
+          this._runningAudit = false;
+          b7.disabled = false;
+          b30.disabled = false;
+        }
+      };
+      const b7 = this.button(actions, t("7 天快速回放"), () => runReplay(7));
+      const b30 = this.button(actions, t("30 天回放"), () => runReplay(30));
+    }
+    if (audit) {
+      this.button(actions, t("打开审计报告"), () => this.app?.workspace?.openLinkText?.("Agent Deck/安全审计.md", "", true));
+      const stats = section.createDiv({ cls: "ad-review__stats" });
+      for (const [label, value] of [
+        [t("最近回放"), audit.generatedAt || t("{n} 天", { n: audit.days })],
+        [t("工具调用"), String(audit.totalToolCalls)],
+        [t("命中风险"), String(audit.totalFindings)],
+        [t("白名单规则"), String(allowCount)],
+      ]) {
+        const stat = stats.createDiv(); stat.createSpan({ text: label }); stat.createEl("strong", { text: value });
+      }
+      section.createEl("p", {
+        cls: "ad-review__note",
+        text: t("统计窗口 {days} 天 · 已扫描 {sessions} 个会话 · 白名单已放行 {allow} 条 · 已降噪临时/构建目录 {noise} 条。", {
+          days: audit.days,
+          sessions: audit.scannedSessions,
+          allow: audit.suppressedByAllowlist,
+          noise: audit.suppressedNoise,
+        }),
+      });
+    } else {
+      section.createEl("p", {
+        cls: "ad-review__note",
+        text: t("尚未生成安全审计报告。点击上方按钮离线回放历史工具调用，检测高危命令、敏感路径与明文密钥（当前已配置 {n} 条 ACP 护栏白名单）。", { n: allowCount }),
+      });
+    }
   }
 }

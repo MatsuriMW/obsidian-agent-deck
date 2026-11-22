@@ -11,6 +11,7 @@ import {
   auditToolCalls,
   parseAuditConfig,
   parseAuditAllowlist,
+  parseAuditSummary,
   isTempOrBuildNoise,
   runSecurityAudit,
   renderSecurityAuditReport,
@@ -181,6 +182,13 @@ test("runSecurityAudit replays JSONL + SQLite desktop sessions and renders a cle
     assert.match(md, /# 安全回放与审计报告/);
     assert.match(md, /obsidian:\/\/agent-deck\?do=open&agent=claude&sid=c-1/);
     assert.match(md, /obsidian:\/\/agent-deck\?do=open&agent=t3code&sid=thread%3At3%3A1/);
+
+    const parsedSummary = parseAuditSummary(md);
+    assert.ok(parsedSummary);
+    assert.equal(parsedSummary.days, 30);
+    assert.equal(parsedSummary.scannedSessions, 2);
+    assert.equal(parsedSummary.totalToolCalls, 2);
+    assert.equal(parsedSummary.totalFindings, 2);
   });
 });
 
@@ -328,4 +336,34 @@ test("temp/build noise suppression, Antigravity transcript tool extraction, and 
     const skipped = await runSecurityAudit(plugin, { days: 7, agent: "codex", now });
     assert.equal(skipped.scannedSessions, 0);
   });
+});
+
+test("secret_exposure previews show readable file path + line or unescaped CommandLine instead of raw JSON", () => {
+  const fakeKey = "sk-" + "live-1234567890abcdef";
+  const findings = auditToolCalls([
+    {
+      title: "edit_file",
+      kind: "edit",
+      rawInput: {
+        Path: "/Users/chenchen/claude/agent-deck/test/security-audit.test.mjs",
+        Replacement: `const a = 1;\nconst token = "${fakeKey}";\nconst b = 2;`,
+      },
+    },
+    {
+      title: "run_command",
+      kind: "execute",
+      rawInput: {
+        CommandLine: `curl -H "Authorization: Bearer ${fakeKey}" http://localhost:8790/api/test`,
+      },
+    },
+  ], { cwd: "/Users/chenchen/claude/agent-deck", agent: "antigravity", sid: "s-read" });
+
+  const byTool = Object.fromEntries(findings.map((f) => [f.tool, f.preview]));
+  assert.ok(byTool.edit_file.startsWith("agent-deck/test/security-audit.test.mjs → "));
+  assert.ok(byTool.edit_file.includes("[REDACTED]"));
+  assert.ok(!byTool.edit_file.includes('\\"'), "edit_file preview should not contain escaped JSON quotes");
+  assert.ok(!byTool.edit_file.includes("\\n"), "edit_file preview should not contain literal \\n escapes");
+
+  assert.ok(byTool.run_command.includes("Authorization: Bearer [REDACTED]"));
+  assert.ok(!byTool.run_command.includes('\\"'), "run_command preview should not contain escaped JSON quotes");
 });

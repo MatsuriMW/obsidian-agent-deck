@@ -375,6 +375,7 @@ class TaskBoardWidget extends WidgetType {
     }
   }
   jumpTo(view, line) {
+    if (!view?.dispatch) return;
     const stDoc = view.state.doc;
     const target = Math.min(Math.max(0, line), Math.max(0, (stDoc.lines || 1) - 1));
     const lineObj = stDoc.line(target + 1);
@@ -421,10 +422,11 @@ class TaskBoardWidget extends WidgetType {
   }
   toDOM(view) {
     const doc = view.dom.ownerDocument;
+    const readOnly = !view?.dispatch;
     this._renderComponent?.unload?.();
     this._renderComponent = null;
     const wrap = doc.createElement("div");
-    wrap.className = "ad-board-wrap";
+    wrap.className = "ad-board-wrap" + (readOnly ? " ad-board-wrap--readonly" : "");
     wrap.setAttribute("contenteditable", "false");
     wrap.addEventListener("dragover", (e) => {
       if (e.dataTransfer && [...e.dataTransfer.types].includes(BOARD_CARD_MIME)) e.stopPropagation();
@@ -1199,4 +1201,55 @@ export function taskBoardExtension(plugin, refreshEffect) {
 
   plugin.taskBoardField = field;
   return field;
+}
+
+// Reading View: render top-level Fractal Boards as read-only visual previews.
+export function renderTaskBoards(el, plugin, ctx) {
+  const section = ctx?.getSectionInfo?.(el);
+  if (!section?.text) return () => {};
+  const sourcePath = ctx?.sourcePath || "";
+  const ids = trackedBlockIds(plugin);
+  const trigger = mentionTrigger(plugin);
+  const fileBoard = Boolean(sourcePath && plugin.settings?.taskBoardFiles?.[sourcePath]);
+  const groups = extractTaskBoardGroups(section.text, { trackedIds: ids, trigger, fileBoard });
+  const boardGroups = groups.filter((g) => g.topLevel && taskBoardPref(plugin.settings, g).mode === "board");
+  if (!boardGroups.length) return () => {};
+
+  const srcLines = section.text.split("\n");
+  const mirrorCache = plugin._mirrorBoardCache || null;
+  const resolveMirror = mirrorCache ? (ref) => mirrorCache.get(`${ref.target}#${ref.blockId}`) || null : null;
+  if (plugin?.primeMirrorCache && sourcePath) {
+    const mirrorRefs = boardGroups.flatMap((g) => g.cards.filter((c) => c.isMirror && c.mirror).map((c) => c.mirror));
+    if (mirrorRefs.length) plugin.primeMirrorCache(mirrorRefs, sourcePath);
+  }
+
+  const cleanups = [];
+  for (const list of el.querySelectorAll("li ul, li ol")) {
+    if (list.dataset.adBoard || list.dataset.adRecords) continue;
+    const parent = list.parentElement?.closest("li");
+    if (!parent) continue;
+    const parentLine = parent.dataset?.line != null ? (section.lineStart || 0) + Number(parent.dataset.line) : -1;
+    const first = parentLine >= 0 ? srcLines[parentLine] : "";
+    const key = parent.id || parent.dataset.blockId || (first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1]);
+    const g = boardGroups.find((item) => (key && (item.key === key || item.stableKey === key)) || (parentLine >= 0 && item.line === parentLine));
+    if (!g) continue;
+
+    list.dataset.adBoard = "true";
+    const pref = taskBoardPref(plugin.settings, g);
+    const { activeGroup, breadcrumbs } = resolveActiveBoardAndBreadcrumbs(g, groups, pref);
+    const pinnedIds = boardPinIds(plugin.settings, activeGroup);
+    const model = buildTaskBoardModel(activeGroup, plugin, { groupBy: pref.groupBy, resolveMirror, pinnedIds });
+    const widget = new TaskBoardWidget(plugin, g, activeGroup, model, pref, breadcrumbs, sourcePath, pinnedIds);
+    const dom = widget.toDOM({ dom: { ownerDocument: list.ownerDocument } });
+    for (const cardEl of dom.querySelectorAll?.("[draggable='true']") || []) cardEl.draggable = false;
+    list.classList.add("ad-record-hidden");
+    list.parentNode.insertBefore(dom, list);
+    cleanups.push(() => {
+      widget.destroy?.();
+      dom.remove();
+      list.classList.remove("ad-record-hidden");
+      delete list.dataset.adBoard;
+    });
+  }
+  return () => cleanups.forEach((fn) => fn());
 }

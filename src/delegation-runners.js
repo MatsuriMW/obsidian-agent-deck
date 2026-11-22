@@ -10,6 +10,7 @@ import { randomUUID } from "crypto";
 import { spawn, execFile } from "child_process";
 import { AGENTS, DEFAULTS, sandboxFor, SANDBOX_ALIAS, MODEL_CATALOG, truncate } from "./constants.js";
 import { getAgentCapability } from "./agent-registry.js";
+import { parseCustomAcpEnv } from "./custom-acp.js";
 import { CodexDesktopRunner } from "./codex-desktop.js";
 import { evaluatePermissionPolicy, redactSecrets, spawnCli, killChildProcess } from "./security.js";
 import { t } from "./i18n.js";
@@ -423,8 +424,10 @@ export function pickPermissionOption(options = [], allow = true) {
 export function acpSpawnArgs(agent, bin, extraArgs = "", cap = getAgentCapability(agent)) {
   const baseName = path.basename(String(bin || "")).replace(/\.(exe|cmd|bat)$/i, "");
   let sub = Array.isArray(cap?.acpArgs) ? [...cap.acpArgs] : ["acp"];
-  if (agent === "hermes" && baseName === "hermes") sub = ["acp"];
-  else if (baseName.endsWith("-acp") && sub[0] === "acp") sub = [];
+  if (!cap?.customAcp) {
+    if (agent === "hermes" && baseName === "hermes") sub = ["acp"];
+    else if (baseName.endsWith("-acp") && sub[0] === "acp") sub = [];
+  }
   return [...sub, ...splitArgs(String(extraArgs || ""))];
 }
 
@@ -773,9 +776,10 @@ export class AcpRunner extends BaseRunner {
     const d = this.d;
     const cap = getAgentCapability(this.agent);
     const cfg = d.settings?.delegate?.[this.agent] || {};
-    let bin = findAgentBinary(this.agent, cfg.path || "");
+    const configuredBin = cfg.path || cap.acpCommand || "";
+    let bin = findAgentBinary(this.agent, configuredBin);
     const hasPathSep = bin.includes("/") || bin.includes("\\");
-    if (!cfg.path && (!hasPathSep || !fs.existsSync(bin))) {
+    if (!hasPathSep || !fs.existsSync(bin)) {
       bin = await resolveExecutableWithFallback(bin, path.basename(bin));
     }
     const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
@@ -783,9 +787,10 @@ export class AcpRunner extends BaseRunner {
     const model = opts.model !== undefined ? opts.model : (cfg.model !== undefined ? cfg.model : (cap.acpDefaultModel || ""));
     const effort = opts.effort || cfg.effort || cap.acpDefaultEffort || "";
     const spawnArgs = acpSpawnArgs(this.agent, bin, cfg.extraArgs || "", cap);
+    const customEnv = cap.acpEnvRaw ? parseCustomAcpEnv(cap.acpEnvRaw) : {};
     this.job.command = redactSecrets([bin, ...spawnArgs].join(" "));
     this.trace?.recordFrame("acp.spawn", `${path.basename(bin)} ${spawnArgs.join(" ")}`);
-    const child = spawnCli(bin, spawnArgs, { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawnCli(bin, spawnArgs, { cwd, env: cleanEnv(customEnv), stdio: ["pipe", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();

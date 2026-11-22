@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.13 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.14 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -565,7 +565,18 @@ var main_default = {
   "\u5F3A\u5236\u63A8\u9001 (git push --force)": "Force push (git push --force)",
   "\u8BBF\u95EE\u654F\u611F\u51ED\u636E\u8DEF\u5F84 (.ssh / .env / .aws \u7B49)": "Sensitive credential path (.ssh / .env / .aws)",
   "\u5DE5\u4F5C\u533A\u5916\u5199\u5165/\u5220\u9664": "Write/delete outside workspace",
-  "\u5DE5\u5177\u53C2\u6570\u4E2D\u51FA\u73B0\u660E\u6587\u5BC6\u94A5/Token": "Plaintext secret/token in tool input"
+  "\u5DE5\u5177\u53C2\u6570\u4E2D\u51FA\u73B0\u660E\u6587\u5BC6\u94A5/Token": "Plaintext secret/token in tool input",
+  "\u68C0\u67E5 Agent Deck \u66F4\u65B0": "Check for Agent Deck updates",
+  "Agent Deck \u5DF2\u662F\u6700\u65B0\u7248\u672C v{version}": "Agent Deck is up to date (v{version})",
+  "\u68C0\u67E5\u66F4\u65B0\u5931\u8D25\uFF1A{error}": "Update check failed: {error}",
+  "Agent Deck \u53D1\u5E03\u65B0\u7248\u672C v{latest}\uFF08\u5F53\u524D v{current}\uFF09\uFF0C\u8981\u4E0D\u8981\u66F4\u65B0\uFF1F": "Agent Deck v{latest} is available (current: v{current}). Update now?",
+  "\u53BB\u66F4\u65B0": "Update now",
+  "\u793E\u533A\u63D2\u4EF6\u9875": "Community plugins",
+  "\u8DF3\u8FC7\u6B64\u7248": "Skip this version",
+  "\u9AD8\u5371": "High risk",
+  "\u4E2D\u5371": "Medium risk",
+  "\u4F4E\u5371": "Low risk",
+  "\u76EE\u6807": "Target"
 };
 
 // src/locales/en/view.js
@@ -1444,7 +1455,32 @@ var settings_default = {
   "\u5BFC\u51FA\u8BED\u8A00\u6A21\u677F": "Export language template",
   "\u91CD\u65B0\u626B\u63CF\u8BED\u8A00\u5305": "Rescan language packs",
   "\u5DF2\u626B\u63CF\u5230 {count} \u4E2A\u81EA\u5B9A\u4E49\u8BED\u8A00\u5305": "Found {count} custom language pack(s)",
-  "\u6682\u672A\u53D1\u73B0\u81EA\u5B9A\u4E49\u8BED\u8A00\u5305\uFF08\u76EE\u5F55\uFF1AAgent Deck/locales/\uFF09": "No custom language packs found (folder: Agent Deck/locales/)"
+  "\u6682\u672A\u53D1\u73B0\u81EA\u5B9A\u4E49\u8BED\u8A00\u5305\uFF08\u76EE\u5F55\uFF1AAgent Deck/locales/\uFF09": "No custom language packs found (folder: Agent Deck/locales/)",
+  "\u81EA\u5B9A\u4E49 ACP Agent": "Custom ACP Agents",
+  "\u586B\u5199\u4EFB\u610F\u517C\u5BB9 ACP \u534F\u8BAE\u7684 CLI \u547D\u4EE4\u3001\u53C2\u6570\u4E0E\u73AF\u5883\u53D8\u91CF\u5373\u53EF\u63A5\u5165\u540E\u53F0\u59D4\u6D3E\u4E0E\u5E94\u7528\u5185\u7EED\u804A\uFF0C\u73AF\u5883\u53D8\u91CF\u503C\u652F\u6301 secret:KEY / env:VAR": "Connect any ACP-compatible CLI by entering its command, arguments, and environment variables for background delegation and in-app continuation. Environment values support secret:KEY and env:VAR.",
+  "\u5C1A\u672A\u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent\uFF08\u53EF\u63A5\u5165 Gemini CLI\u3001Kiro\u3001Mistral Vibe\u3001Pi \u7B49\u4EFB\u610F ACP \u547D\u4EE4\uFF09": "No custom ACP agents yet (connect Gemini CLI, Kiro, Mistral Vibe, Pi, or any ACP command).",
+  "\u81EA\u52A8\u5141\u8BB8": "Auto-approve",
+  "\u542F\u7528": "Enable",
+  "\u7F16\u8F91": "Edit",
+  "\u68C0\u67E5": "Check",
+  "+ \u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent": "+ Add custom ACP Agent",
+  "\u7F16\u8F91\u81EA\u5B9A\u4E49 ACP Agent": "Edit custom ACP Agent",
+  "\u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent": "Add custom ACP Agent",
+  "Agent ID\uFF08\u7528\u4E8E @ \u8DEF\u7531\uFF09": "Agent ID (used for @ routing)",
+  "\u4F8B\u5982 kiro\u3001pi\u3001mistral-vibe\uFF08\u5C0F\u5199\u5B57\u6BCD/\u6570\u5B57/-/_\uFF09": "e.g. kiro, pi, mistral-vibe (lowercase letters, digits, -, _)",
+  "\u4F8B\u5982 Kiro": "e.g. Kiro",
+  "\u547D\u4EE4\u6216\u7EDD\u5BF9\u8DEF\u5F84": "Command or absolute path",
+  "\u4F8B\u5982 kiro-cli \u6216 /opt/homebrew/bin/gemini": "e.g. kiro-cli or /opt/homebrew/bin/gemini",
+  "\u542F\u52A8\u53C2\u6570\uFF08\u7A7A\u683C\u5206\u9694\uFF0C\u7559\u7A7A\u4E0D\u4F20\u5B50\u547D\u4EE4\uFF09": "Arguments (space-separated; leave empty for none)",
+  "\u73AF\u5883\u53D8\u91CF\uFF08\u53EF\u9009\uFF0C\u6BCF\u884C KEY=VALUE\uFF0C\u652F\u6301 secret:KEY / env:VAR\uFF09": "Environment variables (optional, one KEY=VALUE per line; supports secret:KEY / env:VAR)",
+  "\u81EA\u52A8\u5141\u8BB8\u5E38\u89C4\u5DE5\u5177\u8C03\u7528": "Auto-approve routine tool calls",
+  "Agent ID \u9700\u4EE5\u5C0F\u5199\u5B57\u6BCD\u5F00\u5934\uFF082\u201332 \u4F4D\u5B57\u6BCD/\u6570\u5B57/-/_\uFF09\uFF0C\u4E14\u4E0D\u80FD\u4E0E\u5185\u7F6E Agent \u91CD\u540D": "Agent ID must start with a lowercase letter (2\u201332 chars: a-z, 0-9, -, _) and cannot collide with built-in agents",
+  "\u5DF2\u5B58\u5728\u540C ID \u7684\u81EA\u5B9A\u4E49 ACP Agent": "A custom ACP Agent with that ID already exists",
+  "\u8BF7\u586B\u5199\u547D\u4EE4\u6216\u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84": "Please enter a command or executable path",
+  "\u81EA\u5B9A\u4E49 ACP Agent \u914D\u7F6E\u65E0\u6548": "Invalid custom ACP Agent configuration",
+  "\u542F\u52A8\u65F6\u81EA\u52A8\u68C0\u67E5\u65B0\u7248\u672C": "Check for updates on startup",
+  "\u6BCF\u5929\u6700\u591A\u68C0\u67E5\u4E00\u6B21 GitHub Releases\uFF0C\u6709\u65B0\u7248\u65F6\u63D0\u793A\u5E76\u63D0\u4F9B\u4E00\u952E\u8DF3\u8F6C\u66F4\u65B0": "Checks GitHub Releases at most once a day and prompts with a one-click update link when a new version is out.",
+  "\u68C0\u67E5\u66F4\u65B0": "Check for updates"
 };
 
 // src/locales/en/dialogs.js
@@ -1525,6 +1561,7 @@ var dialogs_default = {
   "{trigger}{agent} \u4E0D\u652F\u6301\u5F3A\u5EA6 {effort}": "{trigger}{agent} does not support effort {effort}",
   "\u9009\u62E9\u540E\u7EE7\u7EED\u9009\u62E9\u5177\u4F53\u6A21\u578B": "Pick this agent, then choose a model",
   "\u5BA2\u6237\u7AEF\u4EA4\u63A5\uFF1B\u6A21\u578B\u4E0E\u5F3A\u5EA6\u5728\u5BA2\u6237\u7AEF\u8BBE\u7F6E": "Handed off to its client; set model and effort there",
+  "\u540E\u53F0 ACP \u59D4\u6D3E\uFF1B\u56DE\u8F66\u76F4\u63A5\u9009\u5B9A": "Background ACP delegation; press Enter to select",
   "\u9009\u5B9A\u6A21\u578B\uFF1B\u53EF\u7EE7\u7EED\u8F93\u5165 / \u9009\u62E9\u5F3A\u5EA6": "Model selected; type / to choose effort",
   // ----- delegation runtime notices and errors -----
   "\u5DF2\u5207\u5230 Warp": "Switched to Warp",
@@ -2021,6 +2058,17 @@ var dashboard_default = {
   "\u6CA1\u6709\u7B26\u5408\u7B5B\u9009\u6761\u4EF6\u7684\u8BB0\u5F55": "No records match these filters",
   "\u5386\u53F2\u6C47\u603B": "Historical summary",
   "\u7528\u91CF\u672A\u63D0\u4F9B": "Usage unavailable",
+  "\u8DE8\u4F1A\u8BDD\u4EFB\u52A1\u6295\u5165": "Multi-session task effort",
+  "{n} \u6761\u591A\u4F1A\u8BDD\u4EFB\u52A1\uFF08\u53BB\u91CD\u8017\u65F6\uFF09": "{n} multi-session task(s) (deduplicated time)",
+  "\u5B89\u5168\u56DE\u653E\u4E0E\u62A4\u680F": "Security replay & guardrails",
+  "7 \u5929\u5FEB\u901F\u56DE\u653E": "7-day replay",
+  "30 \u5929\u56DE\u653E": "30-day replay",
+  "\u6253\u5F00\u5BA1\u8BA1\u62A5\u544A": "Open audit report",
+  "\u6700\u8FD1\u56DE\u653E": "Last replay",
+  "\u5DE5\u5177\u8C03\u7528": "Tool calls",
+  "\u767D\u540D\u5355\u89C4\u5219": "Allowlist rules",
+  "\u7EDF\u8BA1\u7A97\u53E3 {days} \u5929 \xB7 \u5DF2\u626B\u63CF {sessions} \u4E2A\u4F1A\u8BDD \xB7 \u767D\u540D\u5355\u5DF2\u653E\u884C {allow} \u6761 \xB7 \u5DF2\u964D\u566A\u4E34\u65F6/\u6784\u5EFA\u76EE\u5F55 {noise} \u6761\u3002": "{days}-day window \xB7 {sessions} sessions scanned \xB7 {allow} allowlisted \xB7 {noise} temp/build noise suppressed.",
+  "\u5C1A\u672A\u751F\u6210\u5B89\u5168\u5BA1\u8BA1\u62A5\u544A\u3002\u70B9\u51FB\u4E0A\u65B9\u6309\u94AE\u79BB\u7EBF\u56DE\u653E\u5386\u53F2\u5DE5\u5177\u8C03\u7528\uFF0C\u68C0\u6D4B\u9AD8\u5371\u547D\u4EE4\u3001\u654F\u611F\u8DEF\u5F84\u4E0E\u660E\u6587\u5BC6\u94A5\uFF08\u5F53\u524D\u5DF2\u914D\u7F6E {n} \u6761 ACP \u62A4\u680F\u767D\u540D\u5355\uFF09\u3002": "No security audit report yet. Run an offline replay above to inspect high-risk commands, sensitive paths, and plaintext secrets ({n} live ACP allowlist rule(s) configured).",
   "\u624B\u52A8\u6307\u5B9A": "Manual assignment",
   "\u9875\u9762\u94FE\u63A5": "Page link",
   "\u6807\u9898\u5339\u914D": "Title match",
@@ -3268,6 +3316,17 @@ var zh_TW_default = {
   "\u5B89\u5168\uFF1A\u56DE\u653E\u6700\u8FD1 30 \u5929\u4F1A\u8BDD\u7684\u5DE5\u5177\u8C03\u7528\u5E76\u751F\u6210\u5BA1\u8BA1\u62A5\u544A": "\u5B89\u5168\uFF1A\u56DE\u653E\u6700\u8FD1 30 \u5929\u6703\u8A71\u7684\u5DE5\u5177\u547C\u53EB\u4E26\u7522\u751F\u7A3D\u6838\u5831\u544A",
   "\u5B89\u5168\uFF1A\u5FEB\u901F\u56DE\u653E\u6700\u8FD1 7 \u5929\u4F1A\u8BDD\u5E76\u751F\u6210\u5BA1\u8BA1\u62A5\u544A": "\u5B89\u5168\uFF1A\u5FEB\u901F\u56DE\u653E\u6700\u8FD1 7 \u5929\u6703\u8A71\u4E26\u7522\u751F\u7A3D\u6838\u5831\u544A",
   "\u5DF2\u964D\u566A\u4E34\u65F6/\u6784\u5EFA\u76EE\u5F55": "\u5DF2\u964D\u566A\u66AB\u5B58/\u5EFA\u7F6E\u76EE\u9304",
+  "\u8DE8\u4F1A\u8BDD\u4EFB\u52A1\u6295\u5165": "\u8DE8\u6703\u8A71\u4EFB\u52D9\u6295\u5165",
+  "{n} \u6761\u591A\u4F1A\u8BDD\u4EFB\u52A1\uFF08\u53BB\u91CD\u8017\u65F6\uFF09": "{n} \u689D\u591A\u6703\u8A71\u4EFB\u52D9\uFF08\u53BB\u91CD\u8017\u6642\uFF09",
+  "\u5B89\u5168\u56DE\u653E\u4E0E\u62A4\u680F": "\u5B89\u5168\u56DE\u653E\u8207\u8B77\u6B04",
+  "7 \u5929\u5FEB\u901F\u56DE\u653E": "7 \u5929\u5FEB\u901F\u56DE\u653E",
+  "30 \u5929\u56DE\u653E": "30 \u5929\u56DE\u653E",
+  "\u6253\u5F00\u5BA1\u8BA1\u62A5\u544A": "\u958B\u555F\u7A3D\u6838\u5831\u544A",
+  "\u6700\u8FD1\u56DE\u653E": "\u6700\u8FD1\u56DE\u653E",
+  "\u5DE5\u5177\u8C03\u7528": "\u5DE5\u5177\u547C\u53EB",
+  "\u767D\u540D\u5355\u89C4\u5219": "\u767D\u540D\u55AE\u898F\u5247",
+  "\u7EDF\u8BA1\u7A97\u53E3 {days} \u5929 \xB7 \u5DF2\u626B\u63CF {sessions} \u4E2A\u4F1A\u8BDD \xB7 \u767D\u540D\u5355\u5DF2\u653E\u884C {allow} \u6761 \xB7 \u5DF2\u964D\u566A\u4E34\u65F6/\u6784\u5EFA\u76EE\u5F55 {noise} \u6761\u3002": "\u7D71\u8A08\u8996\u7A97 {days} \u5929 \xB7 \u5DF2\u6383\u63CF {sessions} \u500B\u6703\u8A71 \xB7 \u767D\u540D\u55AE\u5DF2\u653E\u884C {allow} \u689D \xB7 \u5DF2\u964D\u566A\u66AB\u5B58/\u5EFA\u7F6E\u76EE\u9304 {noise} \u689D\u3002",
+  "\u5C1A\u672A\u751F\u6210\u5B89\u5168\u5BA1\u8BA1\u62A5\u544A\u3002\u70B9\u51FB\u4E0A\u65B9\u6309\u94AE\u79BB\u7EBF\u56DE\u653E\u5386\u53F2\u5DE5\u5177\u8C03\u7528\uFF0C\u68C0\u6D4B\u9AD8\u5371\u547D\u4EE4\u3001\u654F\u611F\u8DEF\u5F84\u4E0E\u660E\u6587\u5BC6\u94A5\uFF08\u5F53\u524D\u5DF2\u914D\u7F6E {n} \u6761 ACP \u62A4\u680F\u767D\u540D\u5355\uFF09\u3002": "\u5C1A\u672A\u7522\u751F\u5B89\u5168\u7A3D\u6838\u5831\u544A\u3002\u9EDE\u64CA\u4E0A\u65B9\u6309\u9215\u96E2\u7DDA\u56DE\u653E\u6B77\u53F2\u5DE5\u5177\u547C\u53EB\uFF0C\u5075\u6E2C\u9AD8\u5371\u6307\u4EE4\u3001\u654F\u611F\u8DEF\u5F91\u8207\u660E\u6587\u91D1\u9470\uFF08\u76EE\u524D\u5DF2\u6709 {n} \u689D ACP \u8B77\u6B04\u767D\u540D\u55AE\uFF09\u3002",
   "\u6B63\u5728\u79BB\u7EBF\u56DE\u653E\u6700\u8FD1 {n} \u5929\u7684\u5386\u53F2\u5DE5\u5177\u8C03\u7528\u2026": "\u6B63\u5728\u96E2\u7DDA\u56DE\u653E\u6700\u8FD1 {n} \u5929\u7684\u6B77\u53F2\u5DE5\u5177\u547C\u53EB\u2026",
   "\u5B89\u5168\u56DE\u653E\u5B8C\u6210\uFF1A\u626B\u63CF {sessions} \u4E2A\u4F1A\u8BDD\u3001{calls} \u6B21\u5DE5\u5177\u8C03\u7528\uFF0C\u547D\u4E2D {hits} \u6761\u98CE\u9669\uFF08\u5DF2\u5199\u5165 {path}\uFF09": "\u5B89\u5168\u56DE\u653E\u5B8C\u6210\uFF1A\u6383\u63CF {sessions} \u500B\u6703\u8A71\u3001{calls} \u6B21\u5DE5\u5177\u547C\u53EB\uFF0C\u547D\u4E2D {hits} \u689D\u98A8\u96AA\uFF08\u5DF2\u5BEB\u5165 {path}\uFF09",
   "\u5B89\u5168\u56DE\u653E\u4E0E\u5BA1\u8BA1\u62A5\u544A": "\u5B89\u5168\u56DE\u653E\u8207\u7A3D\u6838\u5831\u544A",
@@ -3422,6 +3481,7 @@ var zh_TW_default = {
   "{trigger}{agent} \u4E0D\u652F\u6301\u5F3A\u5EA6 {effort}": "{trigger}{agent} \u4E0D\u652F\u63F4\u5F37\u5EA6 {effort}",
   "\u9009\u62E9\u540E\u7EE7\u7EED\u9009\u62E9\u5177\u4F53\u6A21\u578B": "\u9078\u64C7\u5F8C\u7E7C\u7E8C\u9078\u64C7\u5177\u9AD4\u6A21\u578B",
   "\u5BA2\u6237\u7AEF\u4EA4\u63A5\uFF1B\u6A21\u578B\u4E0E\u5F3A\u5EA6\u5728\u5BA2\u6237\u7AEF\u8BBE\u7F6E": "\u5BA2\u6236\u7AEF\u4EA4\u63A5\uFF1B\u6A21\u578B\u8207\u5F37\u5EA6\u5728\u5BA2\u6236\u7AEF\u8A2D\u5B9A",
+  "\u540E\u53F0 ACP \u59D4\u6D3E\uFF1B\u56DE\u8F66\u76F4\u63A5\u9009\u5B9A": "\u80CC\u666F ACP \u59D4\u6D3E\uFF1BEnter \u76F4\u63A5\u9078\u5B9A",
   "\u9009\u5B9A\u6A21\u578B\uFF1B\u53EF\u7EE7\u7EED\u8F93\u5165 / \u9009\u62E9\u5F3A\u5EA6": "\u9078\u5B9A\u6A21\u578B\uFF1B\u53EF\u7E7C\u7E8C\u8F38\u5165 / \u9078\u64C7\u5F37\u5EA6",
   "\u8FD9\u4E2A\u4F1A\u8BDD\u8FD8\u6CA1\u6709\u4F1A\u8BDD\u53F7\uFF0C\u7A0D\u7B49\u4E00\u79D2\u518D\u70B9": "\u9019\u500B\u6703\u8A71\u9084\u6C92\u6709\u6703\u8A71\u865F\uFF0C\u7A0D\u7B49\u4E00\u79D2\u518D\u9EDE",
   "\u5DF2\u6253\u5F00 DeepSeek Harness\uFF1B\u4F1A\u8BDD\u53F7\u5DF2\u590D\u5236": "\u5DF2\u958B\u555F DeepSeek Harness\uFF1B\u6703\u8A71\u865F\u5DF2\u8907\u88FD",
@@ -3876,7 +3936,41 @@ var zh_TW_default = {
   "\u6309\u4F1A\u8BDD": "\u6309\u6703\u8A71",
   "\u6309\u540D\u79F0": "\u6309\u540D\u7A31",
   "\u987A\u5E8F": "\u9806\u5E8F",
-  "\u5207\u6362\u6392\u5E8F\u65B9\u5411": "\u5207\u63DB\u6392\u5E8F\u65B9\u5411"
+  "\u5207\u6362\u6392\u5E8F\u65B9\u5411": "\u5207\u63DB\u6392\u5E8F\u65B9\u5411",
+  "\u81EA\u5B9A\u4E49 ACP Agent": "\u81EA\u8A02 ACP Agent",
+  "\u586B\u5199\u4EFB\u610F\u517C\u5BB9 ACP \u534F\u8BAE\u7684 CLI \u547D\u4EE4\u3001\u53C2\u6570\u4E0E\u73AF\u5883\u53D8\u91CF\u5373\u53EF\u63A5\u5165\u540E\u53F0\u59D4\u6D3E\u4E0E\u5E94\u7528\u5185\u7EED\u804A\uFF0C\u73AF\u5883\u53D8\u91CF\u503C\u652F\u6301 secret:KEY / env:VAR": "\u586B\u5BEB\u4EFB\u610F\u76F8\u5BB9 ACP \u5354\u5B9A\u7684 CLI \u6307\u4EE4\u3001\u53C3\u6578\u8207\u74B0\u5883\u8B8A\u6578\u5373\u53EF\u63A5\u5165\u80CC\u666F\u59D4\u6D3E\u8207\u61C9\u7528\u5167\u7E8C\u804A\uFF0C\u74B0\u5883\u8B8A\u6578\u503C\u652F\u63F4 secret:KEY / env:VAR",
+  "\u5C1A\u672A\u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent\uFF08\u53EF\u63A5\u5165 Gemini CLI\u3001Kiro\u3001Mistral Vibe\u3001Pi \u7B49\u4EFB\u610F ACP \u547D\u4EE4\uFF09": "\u5C1A\u672A\u65B0\u589E\u81EA\u8A02 ACP Agent\uFF08\u53EF\u63A5\u5165 Gemini CLI\u3001Kiro\u3001Mistral Vibe\u3001Pi \u7B49\u4EFB\u610F ACP \u6307\u4EE4\uFF09",
+  "\u81EA\u52A8\u5141\u8BB8": "\u81EA\u52D5\u5141\u8A31",
+  "\u68C0\u67E5": "\u6AA2\u67E5",
+  "+ \u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent": "+ \u65B0\u589E\u81EA\u8A02 ACP Agent",
+  "\u7F16\u8F91\u81EA\u5B9A\u4E49 ACP Agent": "\u7DE8\u8F2F\u81EA\u8A02 ACP Agent",
+  "\u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent": "\u65B0\u589E\u81EA\u8A02 ACP Agent",
+  "Agent ID\uFF08\u7528\u4E8E @ \u8DEF\u7531\uFF09": "Agent ID\uFF08\u7528\u65BC @ \u8DEF\u7531\uFF09",
+  "\u4F8B\u5982 kiro\u3001pi\u3001mistral-vibe\uFF08\u5C0F\u5199\u5B57\u6BCD/\u6570\u5B57/-/_\uFF09": "\u4F8B\u5982 kiro\u3001pi\u3001mistral-vibe\uFF08\u5C0F\u5BEB\u5B57\u6BCD/\u6578\u5B57/-/_\uFF09",
+  "\u4F8B\u5982 Kiro": "\u4F8B\u5982 Kiro",
+  "\u547D\u4EE4\u6216\u7EDD\u5BF9\u8DEF\u5F84": "\u6307\u4EE4\u6216\u7D55\u5C0D\u8DEF\u5F91",
+  "\u4F8B\u5982 kiro-cli \u6216 /opt/homebrew/bin/gemini": "\u4F8B\u5982 kiro-cli \u6216 /opt/homebrew/bin/gemini",
+  "\u542F\u52A8\u53C2\u6570\uFF08\u7A7A\u683C\u5206\u9694\uFF0C\u7559\u7A7A\u4E0D\u4F20\u5B50\u547D\u4EE4\uFF09": "\u555F\u52D5\u53C3\u6578\uFF08\u7A7A\u767D\u5206\u9694\uFF0C\u7559\u7A7A\u4E0D\u50B3\u5B50\u6307\u4EE4\uFF09",
+  "\u73AF\u5883\u53D8\u91CF\uFF08\u53EF\u9009\uFF0C\u6BCF\u884C KEY=VALUE\uFF0C\u652F\u6301 secret:KEY / env:VAR\uFF09": "\u74B0\u5883\u8B8A\u6578\uFF08\u53EF\u9078\uFF0C\u6BCF\u884C KEY=VALUE\uFF0C\u652F\u63F4 secret:KEY / env:VAR\uFF09",
+  "\u81EA\u52A8\u5141\u8BB8\u5E38\u89C4\u5DE5\u5177\u8C03\u7528": "\u81EA\u52D5\u5141\u8A31\u5E38\u898F\u5DE5\u5177\u547C\u53EB",
+  "Agent ID \u9700\u4EE5\u5C0F\u5199\u5B57\u6BCD\u5F00\u5934\uFF082\u201332 \u4F4D\u5B57\u6BCD/\u6570\u5B57/-/_\uFF09\uFF0C\u4E14\u4E0D\u80FD\u4E0E\u5185\u7F6E Agent \u91CD\u540D": "Agent ID \u9700\u4EE5\u5C0F\u5BEB\u5B57\u6BCD\u958B\u982D\uFF082\u201332 \u4F4D\u5B57\u6BCD/\u6578\u5B57/-/_\uFF09\uFF0C\u4E14\u4E0D\u80FD\u8207\u5167\u5EFA Agent \u91CD\u540D",
+  "\u5DF2\u5B58\u5728\u540C ID \u7684\u81EA\u5B9A\u4E49 ACP Agent": "\u5DF2\u5B58\u5728\u540C ID \u7684\u81EA\u8A02 ACP Agent",
+  "\u8BF7\u586B\u5199\u547D\u4EE4\u6216\u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84": "\u8ACB\u586B\u5BEB\u6307\u4EE4\u6216\u53EF\u57F7\u884C\u6A94\u8DEF\u5F91",
+  "\u81EA\u5B9A\u4E49 ACP Agent \u914D\u7F6E\u65E0\u6548": "\u81EA\u8A02 ACP Agent \u8A2D\u5B9A\u7121\u6548",
+  "\u68C0\u67E5 Agent Deck \u66F4\u65B0": "\u6AA2\u67E5 Agent Deck \u66F4\u65B0",
+  "Agent Deck \u5DF2\u662F\u6700\u65B0\u7248\u672C v{version}": "Agent Deck \u5DF2\u662F\u6700\u65B0\u7248\u672C v{version}",
+  "\u68C0\u67E5\u66F4\u65B0\u5931\u8D25\uFF1A{error}": "\u6AA2\u67E5\u66F4\u65B0\u5931\u6557\uFF1A{error}",
+  "Agent Deck \u53D1\u5E03\u65B0\u7248\u672C v{latest}\uFF08\u5F53\u524D v{current}\uFF09\uFF0C\u8981\u4E0D\u8981\u66F4\u65B0\uFF1F": "Agent Deck \u767C\u5E03\u65B0\u7248\u672C v{latest}\uFF08\u76EE\u524D v{current}\uFF09\uFF0C\u8981\u66F4\u65B0\u55CE\uFF1F",
+  "\u53BB\u66F4\u65B0": "\u53BB\u66F4\u65B0",
+  "\u793E\u533A\u63D2\u4EF6\u9875": "\u793E\u7FA4\u5916\u639B\u9801",
+  "\u8DF3\u8FC7\u6B64\u7248": "\u7565\u904E\u6B64\u7248",
+  "\u542F\u52A8\u65F6\u81EA\u52A8\u68C0\u67E5\u65B0\u7248\u672C": "\u555F\u52D5\u6642\u81EA\u52D5\u6AA2\u67E5\u65B0\u7248\u672C",
+  "\u6BCF\u5929\u6700\u591A\u68C0\u67E5\u4E00\u6B21 GitHub Releases\uFF0C\u6709\u65B0\u7248\u65F6\u63D0\u793A\u5E76\u63D0\u4F9B\u4E00\u952E\u8DF3\u8F6C\u66F4\u65B0": "\u6BCF\u5929\u6700\u591A\u6AA2\u67E5\u4E00\u6B21 GitHub Releases\uFF0C\u6709\u65B0\u7248\u6642\u63D0\u793A\u4E26\u63D0\u4F9B\u4E00\u9375\u8DF3\u8F49\u66F4\u65B0",
+  "\u68C0\u67E5\u66F4\u65B0": "\u6AA2\u67E5\u66F4\u65B0",
+  "\u9AD8\u5371": "\u9AD8\u5371",
+  "\u4E2D\u5371": "\u4E2D\u5371",
+  "\u4F4E\u5371": "\u4F4E\u5371",
+  "\u76EE\u6807": "\u76EE\u6A19"
 };
 
 // src/i18n.js
@@ -4423,6 +4517,7 @@ var DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
   agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, cursor: true, grokbot: true, t3code: true, muse: true },
+  customAcpAgents: [],
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
   dayCutoff: 0,
@@ -4453,6 +4548,9 @@ var DEFAULTS = {
   journalLayout: null,
   uiLanguage: "auto",
   journalLayoutLanguage: "auto",
+  updateCheck: true,
+  updateCheckLastAt: 0,
+  updateSkippedVersion: "",
   organizeJournalSuggest: true,
   journalOrganizePrompt: { day: "", count: 0, notes: {} },
   resultBack: true,
@@ -4668,10 +4766,14 @@ function syncDelegationSettings(settings, raw = null) {
   m.defaultByAgent || (m.defaultByAgent = {});
   m.effortByAgent || (m.effortByAgent = {});
   m.enabled = Array.isArray(m.enabled) ? m.enabled : [];
-  const delegateAgents2 = Object.keys(DEFAULTS.delegate).filter((k) => {
-    const entry = DEFAULTS.delegate[k];
-    return Boolean(entry && typeof entry === "object" && !Array.isArray(entry));
-  });
+  const customAcpIds = (Array.isArray(settings.customAcpAgents) ? settings.customAcpAgents : []).map((x) => String(x?.id || "").trim().toLowerCase()).filter(Boolean);
+  const delegateAgents2 = [.../* @__PURE__ */ new Set([
+    ...Object.keys(DEFAULTS.delegate).filter((k) => {
+      const entry = DEFAULTS.delegate[k];
+      return Boolean(entry && typeof entry === "object" && !Array.isArray(entry));
+    }),
+    ...customAcpIds
+  ])];
   if (!delegateAgents2.includes(d.target)) d.target = "claude";
   for (const agent of delegateAgents2) {
     const cfg = d[agent] || (d[agent] = {});
@@ -8087,6 +8189,7 @@ function workspaceLabel(cwd) {
 var import_path20 = __toESM(require("path"), 1);
 var import_os19 = __toESM(require("os"), 1);
 var import_child_process11 = require("child_process");
+var obsidianNs2 = __toESM(require("obsidian"), 1);
 var import_obsidian21 = require("obsidian");
 
 // src/readers.js
@@ -13119,12 +13222,51 @@ function toRawInput(val) {
   if (parsed && typeof parsed === "object") return parsed;
   return { command: String(val) };
 }
+function shortDisplayPath(rawPath) {
+  const s = String(rawPath || "").replace(/\\/g, "/").trim().replace(/^["']+|["']+$/g, "");
+  if (!s) return "";
+  const parts = s.split("/").filter(Boolean);
+  return parts.length <= 3 ? s : parts.slice(-3).join("/");
+}
+function unescapePreview(text) {
+  return String(text || "").replace(/\\+[nrt]/g, " ").replace(/\\+"/g, '"').replace(/\s+/g, " ").trim();
+}
+function extractToolCommand(raw) {
+  if (!raw || typeof raw !== "object") return "";
+  const v = raw.command || raw.CommandLine || raw.cmd || raw.script || "";
+  return typeof v === "string" ? v : "";
+}
+function extractToolPath(raw) {
+  if (!raw || typeof raw !== "object") return "";
+  const v = raw.path || raw.Path || raw.file_path || raw.filePath || raw.TargetFile || raw.AbsolutePath || raw.target || "";
+  return typeof v === "string" ? v : "";
+}
+function extractToolBody(raw) {
+  if (!raw || typeof raw !== "object") return "";
+  for (const key of ["Replacement", "Content", "CodeContent", "content", "new_string", "new_str", "Target", "old_string", "text", "body"]) {
+    if (typeof raw[key] === "string" && raw[key]) return raw[key];
+  }
+  return "";
+}
+function focusAroundMatch(text, focusRe = null, maxLen = 150) {
+  const clean2 = String(text || "").replace(/\s+/g, " ").trim();
+  if (clean2.length <= maxLen) return clean2;
+  if (focusRe) {
+    const m = focusRe.exec(clean2);
+    if (m) {
+      const start = Math.max(0, m.index - 45);
+      const slice = clean2.slice(start, start + maxLen);
+      return (start > 0 ? "\u2026" : "") + slice + (start + maxLen < clean2.length ? "\u2026" : "");
+    }
+  }
+  return clean2.slice(0, maxLen) + "\u2026";
+}
 function summarizeToolInput(toolCall, focusRe = null) {
   const raw = toolCall?.rawInput;
   let text = "";
   if (typeof raw === "string") text = raw;
   else if (raw && typeof raw === "object") {
-    const pick = raw.command || raw.cmd || raw.script || raw.path || raw.file_path || raw.filePath || raw.target || raw.url;
+    const pick = extractToolCommand(raw) || extractToolPath(raw) || raw.url;
     if (pick) text = String(pick);
     else {
       try {
@@ -13134,17 +13276,74 @@ function summarizeToolInput(toolCall, focusRe = null) {
     }
   }
   if (!text) text = String(toolCall?.title || "");
-  const clean2 = text.replace(/\s+/g, " ").trim();
-  if (clean2.length <= 160) return clean2;
+  return focusAroundMatch(text, focusRe, 160);
+}
+function unescapeMultiline(text) {
+  return String(text || "").replace(/\r\n/g, "\n").replace(/\\+n/g, "\n").replace(/\\+r/g, "").replace(/\\+t/g, "  ").replace(/\\+"/g, '"').trim();
+}
+function extractContextBlock(text, focusRe = null, { maxLines = 6, maxChars = 600 } = {}) {
+  const normalized2 = unescapeMultiline(text);
+  if (!normalized2) return "";
+  const lines = normalized2.split("\n").map((l) => l.trimEnd());
+  if (lines.length <= maxLines && normalized2.length <= maxChars) return lines.join("\n").trim();
+  let hitIdx = 0;
   if (focusRe) {
-    const m = focusRe.exec(clean2);
-    if (m && m.index > 60) {
-      const start = Math.max(0, m.index - 40);
-      const slice = clean2.slice(start, start + 160);
-      return (start > 0 ? "\u2026" : "") + slice + (start + 160 < clean2.length ? "\u2026" : "");
+    const idx = lines.findIndex((l) => focusRe.test(l));
+    if (idx >= 0) hitIdx = idx;
+  }
+  const start = Math.max(0, hitIdx - 1);
+  const end = Math.min(lines.length, start + maxLines);
+  let block = lines.slice(start, end).join("\n");
+  if (block.length > maxChars) {
+    if (focusRe) {
+      const m = focusRe.exec(block);
+      if (m) {
+        const s = Math.max(0, m.index - 120);
+        block = (s > 0 ? "\u2026" : "") + block.slice(s, s + maxChars) + (s + maxChars < block.length ? "\u2026" : "");
+      } else {
+        block = block.slice(0, maxChars) + "\u2026";
+      }
+    } else {
+      block = block.slice(0, maxChars) + "\u2026";
     }
   }
-  return clean2.slice(0, 160) + "\u2026";
+  return (start > 0 ? "\u2026\n" : "") + block + (end < lines.length ? "\n\u2026" : "");
+}
+function buildFindingDetail(call, serialized, focusRe = null) {
+  const raw = call?.rawInput;
+  const targetPath = shortDisplayPath(extractToolPath(raw));
+  const cmd = extractToolCommand(raw);
+  if (cmd) {
+    return { targetPath, snippet: extractContextBlock(redactSecrets(cmd), focusRe) };
+  }
+  const body = extractToolBody(raw);
+  if (body) {
+    return { targetPath, snippet: extractContextBlock(redactSecrets(body), focusRe) };
+  }
+  if (targetPath && !focusRe) {
+    return { targetPath, snippet: targetPath };
+  }
+  return { targetPath, snippet: extractContextBlock(redactSecrets(serialized), focusRe) };
+}
+function summarizeSecretExposure(call, serialized) {
+  const raw = call?.rawInput;
+  const cmd = extractToolCommand(raw);
+  if (cmd) {
+    return focusAroundMatch(unescapePreview(redactSecrets(cmd)), /\[REDACTED\]/, 150);
+  }
+  const filePath = extractToolPath(raw);
+  const body = extractToolBody(raw);
+  if (filePath && body) {
+    const redactedBody = redactSecrets(body);
+    const hitLine = redactedBody.split(/\r?\n|\\n/).find((l) => l.includes("[REDACTED]")) || redactedBody;
+    const snippet = focusAroundMatch(unescapePreview(hitLine), /\[REDACTED\]/, 110);
+    return `${shortDisplayPath(filePath)} \u2192 ${snippet}`;
+  }
+  if (filePath) {
+    const snippet = focusAroundMatch(unescapePreview(redactSecrets(serialized)), /\[REDACTED\]/, 110);
+    return `${shortDisplayPath(filePath)} \u2192 ${snippet}`;
+  }
+  return focusAroundMatch(unescapePreview(redactSecrets(serialized)), /\[REDACTED\]/, 150);
 }
 var SHELL_SENSITIVE_PATH_RE = /(?:~\/|\/|\b)(?:\.ssh\/|\.aws\/|\.gnupg\/|\.kube\/|secrets\.json|\.credentials\.(?:json|ya?ml)|\.env(?:\.[a-z0-9_-]+)?(?:\b|$)|\/etc\/(?:passwd|shadow|sudoers))/i;
 var RISK_FOCUS_RE = {
@@ -13376,6 +13575,35 @@ function parseAuditConfig(markdown) {
   }
   return { days, agent, ignoreTempNoise, allowlist: [...new Set(allowlist)] };
 }
+function parseAuditSummary(markdown) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(markdown || ""));
+  if (!m) return null;
+  const fm = m[1];
+  const cfg = parseAuditConfig(markdown);
+  const numField = (key) => {
+    const r = new RegExp(`^\\s*${key}\\s*:\\s*(\\d+)`, "m").exec(fm);
+    return r ? Number(r[1]) : null;
+  };
+  const strField = (key) => {
+    const r = new RegExp(`^\\s*${key}\\s*:\\s*(.+)$`, "m").exec(fm);
+    return r ? r[1].trim().replace(/^['"]|['"]$/g, "") : "";
+  };
+  const scannedSessions = numField("scanned_sessions");
+  const totalToolCalls = numField("tool_calls");
+  const totalFindings = numField("findings");
+  if (scannedSessions === null && totalToolCalls === null && totalFindings === null) return null;
+  return {
+    generatedAt: strField("generated_at"),
+    days: cfg.days || 30,
+    agent: cfg.agent || "",
+    scannedSessions: scannedSessions || 0,
+    totalToolCalls: totalToolCalls || 0,
+    totalFindings: totalFindings || 0,
+    suppressedByAllowlist: numField("suppressed_allowlist") || 0,
+    suppressedNoise: numField("suppressed_noise") || 0,
+    allowlistCount: cfg.allowlist.length
+  };
+}
 function auditToolCalls(toolCalls, { cwd = "", vaultPath = "", agent = "", sid = "", title = "", allowlist = [], ignoreTempNoise = true, stats = null } = {}) {
   const findings = [];
   for (const call of toolCalls || []) {
@@ -13396,7 +13624,9 @@ function auditToolCalls(toolCalls, { cwd = "", vaultPath = "", agent = "", sid =
       if (ignoreTempNoise && isTempOrBuildNoise(policy.risk, call)) {
         if (stats) stats.suppressedNoise = (stats.suppressedNoise || 0) + 1;
       } else {
-        const preview = redactSecrets(summarizeToolInput(call, RISK_FOCUS_RE[policy.risk] || null));
+        const focusRe = RISK_FOCUS_RE[policy.risk] || null;
+        const preview = redactSecrets(summarizeToolInput(call, focusRe));
+        const detail = buildFindingDetail(call, serialized, focusRe);
         findings.push({
           agent,
           sid,
@@ -13406,7 +13636,9 @@ function auditToolCalls(toolCalls, { cwd = "", vaultPath = "", agent = "", sid =
           risk: policy.risk,
           severity: RISK_SEVERITY[policy.risk] || 2,
           reason: policy.reason,
-          preview
+          preview,
+          targetPath: detail.targetPath,
+          snippet: detail.snippet
         });
       }
     } else if (!policy.escalated && policy.reason !== "allowlisted" && call.kind === "execute" && SHELL_SENSITIVE_PATH_RE.test(serialized)) {
@@ -13415,6 +13647,7 @@ function auditToolCalls(toolCalls, { cwd = "", vaultPath = "", agent = "", sid =
         if (stats) stats.suppressedByAllowlist = (stats.suppressedByAllowlist || 0) + 1;
       } else {
         const preview = redactSecrets(summarizeToolInput(call, SHELL_SENSITIVE_PATH_RE));
+        const detail = buildFindingDetail(call, serialized, SHELL_SENSITIVE_PATH_RE);
         findings.push({
           agent,
           sid,
@@ -13424,21 +13657,14 @@ function auditToolCalls(toolCalls, { cwd = "", vaultPath = "", agent = "", sid =
           risk: "sensitive_path",
           severity: RISK_SEVERITY.sensitive_path,
           reason: "sensitive_path_in_shell",
-          preview
+          preview,
+          targetPath: detail.targetPath,
+          snippet: detail.snippet
         });
       }
     }
     if (hasSecret) {
-      const fullRedacted = redactSecrets(summarizeToolInput(call));
-      const focusPreview = (() => {
-        const clean2 = redactSecrets(String(call.rawInput?.command || call.rawInput?.cmd || serialized || "")).replace(/\s+/g, " ").trim();
-        const m = /\[REDACTED\]/.exec(clean2);
-        if (m && clean2.length > 160 && m.index > 60) {
-          const start = Math.max(0, m.index - 40);
-          return (start > 0 ? "\u2026" : "") + clean2.slice(start, start + 160) + (start + 160 < clean2.length ? "\u2026" : "");
-        }
-        return fullRedacted;
-      })();
+      const detail = buildFindingDetail(call, serialized, /\[REDACTED\]/);
       findings.push({
         agent,
         sid,
@@ -13448,7 +13674,9 @@ function auditToolCalls(toolCalls, { cwd = "", vaultPath = "", agent = "", sid =
         risk: "secret_exposure",
         severity: RISK_SEVERITY.secret_exposure,
         reason: "secret_exposure",
-        preview: focusPreview
+        preview: summarizeSecretExposure(call, serialized),
+        targetPath: detail.targetPath,
+        snippet: detail.snippet
       });
     }
   }
@@ -13576,6 +13804,12 @@ function renderSecurityAuditReport(result) {
     `days: ${Number(result.days) || 30}`,
     `agent: ${JSON.stringify(result.agent || "")}`,
     `ignore_temp_noise: ${result.ignoreTempNoise !== false}`,
+    `generated_at: ${JSON.stringify(fmtTime(result.generatedAt))}`,
+    `scanned_sessions: ${Number(result.scannedSessions) || 0}`,
+    `tool_calls: ${Number(result.totalToolCalls) || 0}`,
+    `findings: ${Number(result.totalFindings) || 0}`,
+    `suppressed_allowlist: ${Number(result.suppressedByAllowlist) || 0}`,
+    `suppressed_noise: ${Number(result.suppressedNoise) || 0}`,
     "allowlist:",
     ...activeAllowlist.length ? activeAllowlist.map((r) => `  - ${JSON.stringify(r)}`) : [
       `  # ${t("\u793A\u4F8B\uFF08\u53D6\u6D88\u6CE8\u91CA\u5E76\u91CD\u65B0\u8FD0\u884C\u5B89\u5168\u56DE\u653E\uFF0C\u5373\u523B\u964D\u566A\u5E76\u540C\u6B65\u5230 ACP \u5B9E\u65F6\u62A4\u680F\uFF09\uFF1A")}`,
@@ -13621,16 +13855,35 @@ function renderSecurityAuditReport(result) {
   }
   lines.push("");
   lines.push(`## ${t("\u547D\u4E2D\u660E\u7EC6")}${result.truncated ? ` (${t("\u4EC5\u5C55\u793A\u6700\u8FD1 {n} \u6761", { n: result.findings.length })})` : ""}`, "");
-  lines.push(`| ${t("\u65F6\u95F4")} | Agent | ${t("\u98CE\u9669")} | ${t("\u5DE5\u5177")} | ${t("\u8131\u654F\u6458\u8981")} | ${t("\u4F1A\u8BDD")} |`);
-  lines.push("| --- | --- | --- | --- | --- | --- |");
-  const esc = (s) => String(s || "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
-  for (const f of result.findings || []) {
-    const agentName2 = AGENTS[f.agent]?.short || f.agent;
-    const riskName = labels[f.risk] || f.risk;
-    const link2 = f.sid ? `[${esc(String(f.title || f.sid).slice(0, 28))}](obsidian://agent-deck?do=open&agent=${encodeURIComponent(f.agent)}&sid=${encodeURIComponent(f.sid)})` : "\u2014";
-    lines.push(`| ${fmtTime(f.at)} | ${esc(agentName2)} | ${esc(riskName)} | \`${esc(f.tool)}\` | \`${esc(f.preview)}\` | ${link2} |`);
+  const cleanTitle = (s) => String(s || "").replace(/[\[\]\r\n]/g, " ").trim();
+  const severityGroups = [
+    { sev: 3, label: `\u{1F534} ${t("\u9AD8\u5371")}` },
+    { sev: 2, label: `\u{1F7E0} ${t("\u4E2D\u5371")}` },
+    { sev: 1, label: `\u{1F7E1} ${t("\u4F4E\u5371")}` }
+  ];
+  let idx = 0;
+  for (const grp of severityGroups) {
+    const items = (result.findings || []).filter((f) => (f.severity || 1) === grp.sev);
+    if (!items.length) continue;
+    lines.push(`### ${grp.label}\uFF08${items.length}\uFF09`, "");
+    for (const f of items) {
+      idx += 1;
+      const agentName2 = AGENTS[f.agent]?.short || f.agent;
+      const riskName = labels[f.risk] || f.risk;
+      const link2 = f.sid ? `[${cleanTitle(String(f.title || f.sid).slice(0, 40))}](obsidian://agent-deck?do=open&agent=${encodeURIComponent(f.agent)}&sid=${encodeURIComponent(f.sid)})` : "\u2014";
+      lines.push(`#### ${idx}. ${riskName} \xB7 ${agentName2} \xB7 \`${f.tool}\``);
+      const meta = [`**${t("\u65F6\u95F4")}**\uFF1A${fmtTime(f.at)}`];
+      if (f.targetPath) meta.push(`**${t("\u76EE\u6807")}**\uFF1A\`${f.targetPath}\``);
+      meta.push(`**${t("\u4F1A\u8BDD")}**\uFF1A${link2}`);
+      lines.push(`- ${meta.join(" \uFF5C ")}`);
+      const code = String(f.snippet || f.preview || "").trim();
+      if (code) {
+        const fence = code.includes("```") ? "````" : "```";
+        lines.push("", `${fence}text`, code, fence);
+      }
+      lines.push("");
+    }
   }
-  lines.push("");
   return lines.join("\n");
 }
 
@@ -15266,6 +15519,17 @@ var CAPABILITIES = /* @__PURE__ */ new Map([
     sessionLinkScheme: "muse"
   }]
 ]);
+function registerAgentCapability(id, capability = {}) {
+  if (!id || typeof id !== "string") throw new Error("Agent id is required");
+  const prev = CAPABILITIES.get(id) || {};
+  const next = { ...prev, ...capability };
+  CAPABILITIES.set(id, next);
+  return next;
+}
+function unregisterAgentCapability(id) {
+  if (!id || typeof id !== "string") return false;
+  return CAPABILITIES.delete(id);
+}
 function getAgentCapability(id) {
   const base = CAPABILITIES.get(id) || {};
   const meta = AGENTS[id] || {};
@@ -15405,7 +15669,12 @@ function mentionSuggestions(plugin, query) {
   const parts = query.split("/"), agent = parts[0];
   const routable = routableAgents();
   const alias = { codex: " gpt", dsh: " deepseek", hermes: " hermes-acp", minimax: " mcode mavis", t3code: " t3 t3-code" };
-  if (parts.length === 1) return routable.filter((id) => plugin.agentEnabled(id) && (id + " " + AGENTS[id].name + (alias[id] || "")).toLowerCase().includes(agent.toLowerCase())).map((id) => ({ value: id, label: AGENTS[id].name, next: plugin.modelsFor(id).length > 0, hint: EFFORTS[id] ? t("\u9009\u62E9\u540E\u7EE7\u7EED\u9009\u62E9\u5177\u4F53\u6A21\u578B") : t("\u5BA2\u6237\u7AEF\u4EA4\u63A5\uFF1B\u6A21\u578B\u4E0E\u5F3A\u5EA6\u5728\u5BA2\u6237\u7AEF\u8BBE\u7F6E") }));
+  if (parts.length === 1) return routable.filter((id) => plugin.agentEnabled(id) && (id + " " + AGENTS[id].name + (alias[id] || "")).toLowerCase().includes(agent.toLowerCase())).map((id) => ({
+    value: id,
+    label: AGENTS[id].name,
+    next: plugin.modelsFor(id).length > 0,
+    hint: EFFORTS[id] ? t("\u9009\u62E9\u540E\u7EE7\u7EED\u9009\u62E9\u5177\u4F53\u6A21\u578B") : hasAgentCapability(id, "acp") ? t("\u540E\u53F0 ACP \u59D4\u6D3E\uFF1B\u56DE\u8F66\u76F4\u63A5\u9009\u5B9A") : t("\u5BA2\u6237\u7AEF\u4EA4\u63A5\uFF1B\u6A21\u578B\u4E0E\u5F3A\u5EA6\u5728\u5BA2\u6237\u7AEF\u8BBE\u7F6E")
+  }));
   if (!routable.includes(agent) || !plugin.agentEnabled(agent)) return [];
   if (parts.length === 2) {
     const all = plugin.modelsFor(agent), enabled = all.filter((m) => plugin.modelEnabled(m.id));
@@ -16028,6 +16297,150 @@ var import_os12 = __toESM(require("os"), 1);
 var import_crypto9 = require("crypto");
 var import_child_process6 = require("child_process");
 
+// src/custom-acp.js
+var BUILTIN_AGENT_IDS = Object.freeze([...AGENT_ORDER]);
+var BUILTIN_SET = new Set(BUILTIN_AGENT_IDS);
+var REGISTERED_CUSTOM_IDS = /* @__PURE__ */ new Set();
+var CUSTOM_ID_RE = /^[a-z][a-z0-9_-]{1,31}$/;
+var ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+function normalizeCustomAcpId(raw) {
+  const id = String(raw || "").trim().toLowerCase();
+  if (!CUSTOM_ID_RE.test(id)) return "";
+  if (BUILTIN_SET.has(id)) return "";
+  return id;
+}
+function parseCustomAcpArgs(raw) {
+  if (Array.isArray(raw)) return raw.map((x) => String(x || "").trim()).filter(Boolean);
+  const text = String(raw || "").trim();
+  if (!text) return [];
+  const out = [];
+  let cur = "";
+  let quote3 = "";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quote3) {
+      if (ch === "\\" && quote3 === '"' && i + 1 < text.length) {
+        cur += text[++i];
+      } else if (ch === quote3) {
+        quote3 = "";
+      } else {
+        cur += ch;
+      }
+    } else if (ch === '"' || ch === "'") {
+      quote3 = ch;
+    } else if (/\s/.test(ch)) {
+      if (cur) {
+        out.push(cur);
+        cur = "";
+      }
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+function parseCustomAcpEnv(raw, { resolve = resolveSecret } = {}) {
+  const out = {};
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    for (const [k, v] of Object.entries(raw)) {
+      const key = String(k || "").trim();
+      if (!ENV_KEY_RE.test(key)) continue;
+      out[key] = resolve(String(v ?? ""));
+    }
+    return out;
+  }
+  const lines = String(raw || "").replace(/\r\n/g, "\n").split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    if (!ENV_KEY_RE.test(key)) continue;
+    let val = trimmed.slice(eq + 1).trim();
+    if (val.startsWith('"') && val.endsWith('"') || val.startsWith("'") && val.endsWith("'")) {
+      val = val.slice(1, -1);
+    }
+    out[key] = resolve(val);
+  }
+  return out;
+}
+function normalizeCustomAcpEntry(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const id = normalizeCustomAcpId(raw.id);
+  const command = String(raw.command || "").trim();
+  if (!id || !command) return null;
+  const name = String(raw.name || "").trim() || id;
+  const args = Array.isArray(raw.args) ? raw.args.join(" ") : String(raw.args ?? "acp").trim();
+  const env = typeof raw.env === "string" ? raw.env.replace(/\r\n/g, "\n").trim() : raw.env && typeof raw.env === "object" ? Object.entries(raw.env).map(([k, v]) => `${k}=${v}`).join("\n") : "";
+  const color = /^#[0-9a-fA-F]{3,8}$/.test(String(raw.color || "").trim()) ? String(raw.color).trim() : "#6b7280";
+  return {
+    id,
+    name,
+    command,
+    args,
+    env,
+    color,
+    autoApprove: Boolean(raw.autoApprove),
+    enabled: raw.enabled !== false
+  };
+}
+function syncCustomAcpRegistry(entries = []) {
+  for (const id of REGISTERED_CUSTOM_IDS) {
+    delete AGENTS[id];
+    const idx = AGENT_ORDER.indexOf(id);
+    if (idx >= 0) AGENT_ORDER.splice(idx, 1);
+    unregisterAgentCapability(id);
+  }
+  REGISTERED_CUSTOM_IDS.clear();
+  const seen = /* @__PURE__ */ new Set();
+  const registered = [];
+  for (const raw of Array.isArray(entries) ? entries : []) {
+    const entry = normalizeCustomAcpEntry(raw);
+    if (!entry || seen.has(entry.id)) continue;
+    seen.add(entry.id);
+    REGISTERED_CUSTOM_IDS.add(entry.id);
+    AGENTS[entry.id] = {
+      id: entry.id,
+      name: entry.name,
+      short: entry.name.slice(0, 6),
+      color: entry.color,
+      deep: "obsidian",
+      customAcp: true,
+      trackingOnly: false
+    };
+    if (!AGENT_ORDER.includes(entry.id)) AGENT_ORDER.push(entry.id);
+    registerAgentCapability(entry.id, {
+      delegate: true,
+      runnerKind: "acp",
+      acp: true,
+      acpArgs: parseCustomAcpArgs(entry.args),
+      acpCommand: entry.command,
+      acpEnvRaw: entry.env,
+      acpAutoApprove: true,
+      acpDefaultModel: "",
+      acpDefaultEffort: "",
+      acpModelOptional: true,
+      acpEffortOptional: true,
+      acpAllowUnknownEffort: true,
+      desktopHandoffOnly: false,
+      terminalHandoff: false,
+      continueInApp: true,
+      continueRequiresAcp: true,
+      permissionControl: false,
+      archiveDetection: false,
+      modelCatalog: false,
+      autoOpenDesktopOnDone: false,
+      waitDesktopUntilDone: false,
+      sessionLinkScheme: "obsidian",
+      customAcp: true
+    });
+    registered.push(entry);
+  }
+  return registered;
+}
+
 // src/codex-desktop.js
 var import_fs14 = __toESM(require("fs"), 1);
 var import_path12 = __toESM(require("path"), 1);
@@ -16631,8 +17044,10 @@ function pickPermissionOption(options = [], allow = true) {
 function acpSpawnArgs(agent, bin, extraArgs = "", cap = getAgentCapability(agent)) {
   const baseName = import_path13.default.basename(String(bin || "")).replace(/\.(exe|cmd|bat)$/i, "");
   let sub = Array.isArray(cap?.acpArgs) ? [...cap.acpArgs] : ["acp"];
-  if (agent === "hermes" && baseName === "hermes") sub = ["acp"];
-  else if (baseName.endsWith("-acp") && sub[0] === "acp") sub = [];
+  if (!cap?.customAcp) {
+    if (agent === "hermes" && baseName === "hermes") sub = ["acp"];
+    else if (baseName.endsWith("-acp") && sub[0] === "acp") sub = [];
+  }
   return [...sub, ...splitArgs(String(extraArgs || ""))];
 }
 var BaseRunner = class {
@@ -16960,9 +17375,10 @@ var AcpRunner = class extends BaseRunner {
     const d = this.d;
     const cap = getAgentCapability(this.agent);
     const cfg = d.settings?.delegate?.[this.agent] || {};
-    let bin = findAgentBinary(this.agent, cfg.path || "");
+    const configuredBin = cfg.path || cap.acpCommand || "";
+    let bin = findAgentBinary(this.agent, configuredBin);
     const hasPathSep = bin.includes("/") || bin.includes("\\");
-    if (!cfg.path && (!hasPathSep || !import_fs15.default.existsSync(bin))) {
+    if (!hasPathSep || !import_fs15.default.existsSync(bin)) {
       bin = await resolveExecutableWithFallback(bin, import_path13.default.basename(bin));
     }
     const cwd = norm2(opts.cwd || cfg.cwd || d.vaultPath);
@@ -16970,9 +17386,10 @@ var AcpRunner = class extends BaseRunner {
     const model = opts.model !== void 0 ? opts.model : cfg.model !== void 0 ? cfg.model : cap.acpDefaultModel || "";
     const effort = opts.effort || cfg.effort || cap.acpDefaultEffort || "";
     const spawnArgs = acpSpawnArgs(this.agent, bin, cfg.extraArgs || "", cap);
+    const customEnv = cap.acpEnvRaw ? parseCustomAcpEnv(cap.acpEnvRaw) : {};
     this.job.command = redactSecrets([bin, ...spawnArgs].join(" "));
     this.trace?.recordFrame("acp.spawn", `${import_path13.default.basename(bin)} ${spawnArgs.join(" ")}`);
-    const child = spawnCli(bin, spawnArgs, { cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawnCli(bin, spawnArgs, { cwd, env: cleanEnv(customEnv), stdio: ["pipe", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -19643,7 +20060,7 @@ var ViewToggleWidget = class extends import_view2.WidgetType {
   }
 };
 var RecordViewWidget = class extends import_view2.WidgetType {
-  constructor(plugin, viewMode, key, groupLine, rows, totalCount, open, mode, sourcePath) {
+  constructor(plugin, viewMode, key, groupLine, rows, totalCount, open, mode, sourcePath, options = {}) {
     super();
     this.plugin = plugin;
     this.viewMode = viewMode;
@@ -19654,6 +20071,8 @@ var RecordViewWidget = class extends import_view2.WidgetType {
     this.open = open;
     this.mode = mode;
     this.sourcePath = sourcePath;
+    this.readOnly = Boolean(options.readOnly);
+    this.onExpand = typeof options.onExpand === "function" ? options.onExpand : null;
     this.model = buildTableModel(rows);
     this.sig = `${viewMode}|${key}|${open}|${mode}|${totalCount}|${rows.map((r) => `${r.line}:${r.startedAt || 0}:${r.sig}`).join("\n")}`;
   }
@@ -19661,6 +20080,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
     return other.sig === this.sig && other.sourcePath === this.sourcePath;
   }
   jumpTo(view2, line) {
+    if (this.readOnly || !view2?.dispatch) return;
     const stDoc = view2.state.doc;
     const target = Math.min(Math.max(0, line), Math.max(0, (stDoc.lines || 1) - 1));
     const lineObj = stDoc.line(target + 1);
@@ -19675,6 +20095,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
     view2.focus?.();
   }
   bindJump(el, view2, line) {
+    if (this.readOnly || !view2?.dispatch) return;
     el.addEventListener("click", (e) => {
       if (e.target.closest("a, button")) return;
       e.preventDefault();
@@ -19703,6 +20124,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
   }
   // 四视图的行不再放行内 📌：Pin 与委派都收进右键菜单（和编辑器里一致）。
   bindRowMenu(el, row) {
+    if (this.readOnly) return;
     const line = Number.isInteger(row?.pinLine) && row.pinLine >= 0 ? row.pinLine : -1;
     if (line < 0) return;
     el.addEventListener("contextmenu", (e) => {
@@ -19751,7 +20173,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
     for (const row of rows) {
       const tr = tbody.appendChild(doc.createElement("tr"));
       tr.className = "ad-rt-row";
-      tr.title = t("\u70B9\u51FB\u5B9A\u4F4D\u5E76\u56DE\u5230\u539F\u5757\u7F16\u8F91");
+      if (!this.readOnly) tr.title = t("\u70B9\u51FB\u5B9A\u4F4D\u5E76\u56DE\u5230\u539F\u5757\u7F16\u8F91");
       const tdRound = tr.appendChild(doc.createElement("td"));
       tdRound.className = "ad-rt-round";
       this.renderRoundMarker(doc, tdRound, row);
@@ -19795,7 +20217,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
     for (const row of rows) {
       const card = grid.appendChild(doc.createElement("div"));
       card.className = `ad-rt-card${row.type === "span" ? " is-span" : ""}${row.pinned ? " is-pinned" : ""}`;
-      card.title = t("\u70B9\u51FB\u5B9A\u4F4D\u5E76\u56DE\u5230\u539F\u5757\u7F16\u8F91");
+      if (!this.readOnly) card.title = t("\u70B9\u51FB\u5B9A\u4F4D\u5E76\u56DE\u5230\u539F\u5757\u7F16\u8F91");
       const head = card.appendChild(doc.createElement("div"));
       head.className = "ad-rt-card__head";
       this.renderRoundMarker(doc, head, row);
@@ -19827,7 +20249,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
     for (const row of rows) {
       const item = list.appendChild(doc.createElement("div"));
       item.className = `ad-rt-tl-item ad-rt-tl-item--${row.badgeKind || "result"}${row.pinned ? " is-pinned" : ""}`;
-      item.title = t("\u70B9\u51FB\u5B9A\u4F4D\u5E76\u56DE\u5230\u539F\u5757\u7F16\u8F91");
+      if (!this.readOnly) item.title = t("\u70B9\u51FB\u5B9A\u4F4D\u5E76\u56DE\u5230\u539F\u5757\u7F16\u8F91");
       const dot = item.appendChild(doc.createElement("span"));
       dot.className = "ad-rt-tl-dot";
       dot.setAttribute("aria-hidden", "true");
@@ -19869,7 +20291,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
     for (const item of footer) {
       const lineEl = foot.appendChild(doc.createElement("div"));
       lineEl.className = "ad-rt-footer-item";
-      lineEl.title = t("\u70B9\u51FB\u5B9A\u4F4D\u5E76\u56DE\u5230\u539F\u5757\u7F16\u8F91");
+      if (!this.readOnly) lineEl.title = t("\u70B9\u51FB\u5B9A\u4F4D\u5E76\u56DE\u5230\u539F\u5757\u7F16\u8F91");
       const icon = lineEl.appendChild(doc.createElement("span"));
       icon.className = "ad-rt-footer-ico";
       icon.textContent = item.kind === "clock" ? "\u23F1" : "\u{1F517}";
@@ -19888,7 +20310,7 @@ var RecordViewWidget = class extends import_view2.WidgetType {
   toDOM(view2) {
     const doc = view2.dom.ownerDocument;
     const wrap = doc.createElement("div");
-    wrap.className = "ad-record-table-wrap ad-record-view-wrap";
+    wrap.className = "ad-record-table-wrap ad-record-view-wrap" + (this.readOnly ? " ad-record-view-wrap--readonly" : "");
     wrap.dataset.view = this.viewMode;
     wrap.setAttribute("contenteditable", "false");
     const { rows, footer } = this.model;
@@ -19897,15 +20319,18 @@ var RecordViewWidget = class extends import_view2.WidgetType {
       bar.className = "ad-record-table-empty";
       const note = bar.appendChild(doc.createElement("span"));
       note.textContent = t(EMPTY_VIEW_LABELS[this.viewMode] || EMPTY_VIEW_LABELS.table, { n: this.totalCount });
-      const expand = bar.appendChild(doc.createElement("button"));
-      expand.type = "button";
-      expand.className = "ad-record-table-expand";
-      expand.textContent = t("\u5C55\u5F00");
-      expand.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        view2.dispatch({ effects: setRecordsOpenEffect.of({ keys: [this.key], open: true }) });
-      });
+      if (this.onExpand || view2?.dispatch) {
+        const expand = bar.appendChild(doc.createElement("button"));
+        expand.type = "button";
+        expand.className = "ad-record-table-expand";
+        expand.textContent = t("\u5C55\u5F00");
+        expand.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (this.onExpand) this.onExpand();
+          else view2.dispatch({ effects: setRecordsOpenEffect.of({ keys: [this.key], open: true }) });
+        });
+      }
       return wrap;
     }
     if (rows.length) {
@@ -20147,22 +20572,97 @@ function renderAIRecords(el, plugin, ctx) {
     code.classList.add("ad-block-id-hidden");
     cleanups.push(() => code.classList.remove("ad-block-id-hidden"));
   }
+  const section = ctx?.getSectionInfo?.(el);
+  const srcLines = section?.text ? section.text.split("\n") : [];
+  const srcGroups = section?.text ? aiRecordGroups(section.text, ids) : [];
+  const agentNames = plugin.agentShortNames || null;
+  let sidsByBlock = null;
   for (const list of el.querySelectorAll("li ul, li ol")) {
     if (list.dataset.adRecords) continue;
     const parent = list.parentElement.closest("li");
     if (!parent) continue;
     const own = [...parent.childNodes].filter((n) => n !== list && n.nodeName !== "UL" && n.nodeName !== "OL").map((n) => n.textContent).join("");
     const records = [...list.children].filter((li) => !li.querySelector("ul, ol") && !li.id && !li.dataset.blockId && RECORD_MARKER_BODY_RE.test(li.textContent.trim()));
-    const section = ctx?.getSectionInfo?.(el);
-    const srcLines = section?.text ? section.text.split("\n") : [];
-    const first = srcLines[(section?.lineStart || 0) + (Number(parent.dataset.line) || 0)];
+    const parentLine = section && parent.dataset?.line != null ? (section.lineStart || 0) + Number(parent.dataset.line) : -1;
+    const first = srcLines[parentLine >= 0 ? parentLine : (section?.lineStart || 0) + (Number(parent.dataset.line) || 0)];
     const key = parent.id || parent.dataset.blockId || first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1];
+    const srcGroup = srcGroups.find(
+      (g) => key && (g.key === key || g.stableKey === key) || parentLine >= 0 && g.line === parentLine || section && g.line >= (section.lineStart || 0) && g.line <= (section.lineEnd ?? srcLines.length) && records.length > 0 && g.records.length === records.length
+    ) || null;
+    const duplicate = srcGroup ? plugin.redundantSessionLink?.(srcGroup, srcLines) ?? -1 : -1;
+    const tableAll = srcGroup ? (srcGroup.tableEntries || []).filter((e) => e.line !== duplicate) : [];
+    const isTopLevel = Boolean(srcGroup?.topLevel) && tableAll.length > 0;
+    const viewMode = isTopLevel ? recordViewMode(plugin.settings, srcGroup) : "outline";
+    if (viewMode !== "outline" && srcGroup) {
+      list.dataset.adRecords = "true";
+      const summaryCount = tableAll.filter((e) => /💬\s+累计总结[：:]/.test(srcLines[e.line])).length;
+      const startsOpen2 = recordStartsOpen(mode, srcGroup);
+      let open2 = recordIsOpen(plugin.settings, mode, srcGroup);
+      const doc = list.ownerDocument;
+      const button2 = recordControl(doc, tableAll.length, open2, mode, summaryCount > 0);
+      const hiddenEntryLines = new Set((srcGroup.tableEntries || []).map((e) => e.line));
+      const hiddenLis = [];
+      const directLis = [...list.children].filter((c) => c.nodeName === "LI");
+      for (const li of directLis) {
+        const liLine = section && li.dataset?.line != null ? (section.lineStart || 0) + Number(li.dataset.line) : -1;
+        const isAiLi = liLine >= 0 && hiddenEntryLines.has(liLine) || RECORD_MARKER_BODY_RE.test(li.textContent.trim());
+        if (isAiLi) {
+          li.classList.add("ad-record-hidden");
+          hiddenLis.push(li);
+        }
+      }
+      const hideWholeList = directLis.length > 0 && hiddenLis.length === directLis.length;
+      if (hideWholeList) list.classList.add("ad-record-hidden");
+      const viewHost = doc.createElement("div");
+      viewHost.className = "ad-record-reading-host";
+      const renderView = () => {
+        const visibleEntries = visibleTableEntries(srcGroup, srcLines, mode, open2, duplicate);
+        const rows = buildGroupTableRows(srcGroup, visibleEntries, srcLines, plugin, {
+          includeTime: viewMode === "timeline",
+          blockMap: viewMode === "timeline" ? sidsByBlock || (sidsByBlock = blockSessionMap(plugin)) : null,
+          agentNames
+        });
+        const widget = new RecordViewWidget(plugin, viewMode, srcGroup.key, srcGroup.line, rows, tableAll.length, open2, mode, ctx?.sourcePath || "", {
+          readOnly: true,
+          onExpand: () => {
+            open2 = true;
+            rememberOpen(plugin, srcGroup.key, true, startsOpen2, srcGroup.stableKey);
+            renderView();
+          }
+        });
+        const nextDom = widget.toDOM({ dom: { ownerDocument: doc } });
+        viewHost.replaceChildren(nextDom);
+        button2.querySelector("span:nth-child(2)").textContent = buttonLabel(open2, mode, summaryCount > 0);
+        button2.dataset.open = String(open2);
+        const title = open2 ? t("\u6298\u53E0 {n} \u6761 AI \u8BB0\u5F55", { n: tableAll.length }) : t("\u5C55\u5F00 {n} \u6761 AI \u8BB0\u5F55", { n: tableAll.length });
+        button2.title = title;
+        button2.setAttribute("aria-label", title);
+        button2.setAttribute("aria-expanded", String(open2));
+      };
+      button2.onclick = () => {
+        open2 = !open2;
+        rememberOpen(plugin, srcGroup.key, open2, startsOpen2, srcGroup.stableKey);
+        renderView();
+      };
+      const paragraph2 = parent.querySelector(":scope > p");
+      if (paragraph2) paragraph2.appendChild(button2);
+      else list.parentNode.insertBefore(button2, list);
+      list.parentNode.insertBefore(viewHost, list);
+      renderView();
+      cleanups.push(() => {
+        viewHost.remove();
+        button2.remove();
+        if (hideWholeList) list.classList.remove("ad-record-hidden");
+        for (const li of hiddenLis) li.classList.remove("ad-record-hidden");
+        delete list.dataset.adRecords;
+      });
+      continue;
+    }
     const bound = records.some((li) => /^🔗\s|^💬\s+累计总结[：:]/.test(li.textContent.trim()));
     if (!records.length || !(bound || isDeckBlockId(key) || ids.has(key) || own.includes("\u{1F916}") || isDeckBlockId(parent.id) || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
     list.dataset.adRecords = "true";
     const summaries = records.filter((li) => /^💬\s+累计总结[：:]/.test(li.textContent.trim()));
     const done = /^(?:DONE|CANCELED|CANCELLED|FAILED)\b/i.test(parent.textContent.trim());
-    const srcGroup = section?.text ? aiRecordGroups(section.text, ids).find((g) => key && (g.key === key || g.stableKey === key) || g.line >= (section.lineStart || 0) && g.line <= (section.lineEnd ?? srcLines.length) && g.records.length === records.length) : null;
     const pinnedSet = /* @__PURE__ */ new Set();
     const recordLineNums = records.map((li, i) => {
       const explicit = li.dataset?.line != null ? (section?.lineStart || 0) + Number(li.dataset.line) : -1;
@@ -22282,6 +22782,7 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
     }
   }
   jumpTo(view2, line) {
+    if (!view2?.dispatch) return;
     const stDoc = view2.state.doc;
     const target = Math.min(Math.max(0, line), Math.max(0, (stDoc.lines || 1) - 1));
     const lineObj = stDoc.line(target + 1);
@@ -22332,10 +22833,11 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
   }
   toDOM(view2) {
     const doc = view2.dom.ownerDocument;
+    const readOnly = !view2?.dispatch;
     this._renderComponent?.unload?.();
     this._renderComponent = null;
     const wrap = doc.createElement("div");
-    wrap.className = "ad-board-wrap";
+    wrap.className = "ad-board-wrap" + (readOnly ? " ad-board-wrap--readonly" : "");
     wrap.setAttribute("contenteditable", "false");
     wrap.addEventListener("dragover", (e) => {
       if (e.dataTransfer && [...e.dataTransfer.types].includes(BOARD_CARD_MIME)) e.stopPropagation();
@@ -23073,6 +23575,54 @@ function taskBoardExtension(plugin, refreshEffect2) {
   });
   plugin.taskBoardField = field;
   return field;
+}
+function renderTaskBoards(el, plugin, ctx) {
+  const section = ctx?.getSectionInfo?.(el);
+  if (!section?.text) return () => {
+  };
+  const sourcePath = ctx?.sourcePath || "";
+  const ids = trackedBlockIds(plugin);
+  const trigger = mentionTrigger(plugin);
+  const fileBoard = Boolean(sourcePath && plugin.settings?.taskBoardFiles?.[sourcePath]);
+  const groups = extractTaskBoardGroups(section.text, { trackedIds: ids, trigger, fileBoard });
+  const boardGroups = groups.filter((g) => g.topLevel && taskBoardPref(plugin.settings, g).mode === "board");
+  if (!boardGroups.length) return () => {
+  };
+  const srcLines = section.text.split("\n");
+  const mirrorCache = plugin._mirrorBoardCache || null;
+  const resolveMirror = mirrorCache ? (ref) => mirrorCache.get(`${ref.target}#${ref.blockId}`) || null : null;
+  if (plugin?.primeMirrorCache && sourcePath) {
+    const mirrorRefs = boardGroups.flatMap((g) => g.cards.filter((c) => c.isMirror && c.mirror).map((c) => c.mirror));
+    if (mirrorRefs.length) plugin.primeMirrorCache(mirrorRefs, sourcePath);
+  }
+  const cleanups = [];
+  for (const list of el.querySelectorAll("li ul, li ol")) {
+    if (list.dataset.adBoard || list.dataset.adRecords) continue;
+    const parent = list.parentElement?.closest("li");
+    if (!parent) continue;
+    const parentLine = parent.dataset?.line != null ? (section.lineStart || 0) + Number(parent.dataset.line) : -1;
+    const first = parentLine >= 0 ? srcLines[parentLine] : "";
+    const key = parent.id || parent.dataset.blockId || first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1];
+    const g = boardGroups.find((item) => key && (item.key === key || item.stableKey === key) || parentLine >= 0 && item.line === parentLine);
+    if (!g) continue;
+    list.dataset.adBoard = "true";
+    const pref = taskBoardPref(plugin.settings, g);
+    const { activeGroup, breadcrumbs } = resolveActiveBoardAndBreadcrumbs(g, groups, pref);
+    const pinnedIds = boardPinIds(plugin.settings, activeGroup);
+    const model = buildTaskBoardModel(activeGroup, plugin, { groupBy: pref.groupBy, resolveMirror, pinnedIds });
+    const widget = new TaskBoardWidget(plugin, g, activeGroup, model, pref, breadcrumbs, sourcePath, pinnedIds);
+    const dom = widget.toDOM({ dom: { ownerDocument: list.ownerDocument } });
+    for (const cardEl of dom.querySelectorAll?.("[draggable='true']") || []) cardEl.draggable = false;
+    list.classList.add("ad-record-hidden");
+    list.parentNode.insertBefore(dom, list);
+    cleanups.push(() => {
+      widget.destroy?.();
+      dom.remove();
+      list.classList.remove("ad-record-hidden");
+      delete list.dataset.adBoard;
+    });
+  }
+  return () => cleanups.forEach((fn) => fn());
 }
 
 // src/external-state.js
@@ -25466,7 +26016,13 @@ function journalSources(text, path19, { autoState = null } = {}) {
     for (let p2 = owners[owner]; p2 >= 0; p2 = owners[p2]) parents.unshift(lines[p2]);
     const end = subtreeEnd(lines, owner);
     const own = lines.slice(owner, end).filter((_, n) => !fenced.has(owner + n) && (n === 0 || owners[owner + n] === owner));
-    return { path: path19, line: owner, blockId: blockIdOf(lines[owner]), text: [...parents, ...own].join("\n") };
+    return {
+      path: path19,
+      line: owner,
+      blockId: blockIdOf(lines[owner]),
+      title: lines[owner].replace(/^\s*[-*+]\s+/, "").replace(/\s+\^[a-z0-9-]+$/i, "").trim(),
+      text: [...parents, ...own].join("\n")
+    };
   };
   for (let i = 0; i < lines.length; i++) {
     if (fenced.has(i)) continue;
@@ -25972,6 +26528,7 @@ var DashboardData = class {
     for (const [day, data] of Object.entries(p2.store.days)) {
       const list = data.list?.length ? data.list : [{ sid: `legacy:${day}`, out: data.out, fresh: data.fresh, cached: data.cached, segs: data.segs, legacy: true }];
       for (const session of list) {
+        if (session.agent && session.agent !== "t3code" && p2.usage?.t3OwnerOf?.(session.sid)) continue;
         const meta = p2.usage.meta.get(session.sid);
         const byModels = Object.keys(data.by?.[session.agent]?.models || {}).filter(Boolean);
         const singleDayModel = byModels.length === 1 ? byModels[0] : "";
@@ -25988,12 +26545,20 @@ var DashboardData = class {
         if (Object.values(remainder).some(Boolean)) rows.push({ ...remainder, sid: `legacy:${day}`, day: isoDay(day), legacy: true, residual: true, sources: [] });
       }
     }
+    let securityAudit = null;
+    const auditFile = vault.getAbstractFileByPath?.("Agent Deck/\u5B89\u5168\u5BA1\u8BA1.md");
+    if (auditFile) {
+      try {
+        securityAudit = parseAuditSummary(await vault.cachedRead(auditFile));
+      } catch {
+      }
+    }
     const signature = JSON.stringify([rows, pages, p2.settings.dashboardProjects]);
     if (this.signature !== signature) {
       this.resolved = resolveProjects(rows, pages, p2.settings.dashboardProjects || {});
       this.signature = signature;
     }
-    return { rows: this.resolved, pages, unreadable };
+    return { rows: this.resolved, pages, unreadable, securityAudit };
   }
 };
 
@@ -26223,7 +26788,9 @@ var DashboardView = class extends import_obsidian6.ItemView {
     this.agentBreakdown(page, agentScope);
     this.modelBreakdown(page, modelScope);
     this.projects(page, projectScope);
+    this.multiSessionTasks(page, data);
     this.records(page, from, to, data, opened);
+    this.securityAuditSection(page);
     const details = page.createEl("details", { cls: "ad-review__method" });
     details.createEl("summary", { text: t("\u7EDF\u8BA1\u4E0E\u9879\u76EE\u8BC6\u522B\u89C4\u5219") });
     details.createEl("p", { text: t("\u53EA\u7EDF\u8BA1\u672C\u673A\u5DF2\u7ECF\u8FFD\u8E2A\u5E76\u4FDD\u5B58\u7684\u5386\u53F2\u3002\u6BCF\u65E5\u6CBF\u7528\u65E5\u8BB0\u5206\u754C {hour}:00\uFF1Btoken \u5305\u542B\u8F93\u5165\u3001\u8F93\u51FA\u548C\u7F13\u5B58\u8BFB\u53D6\uFF0C\u4E0D\u4EE3\u8868\u8D39\u7528\u3002", { hour: this.plugin.settings.dayCutoff ?? 0 }) });
@@ -26395,7 +26962,7 @@ var DashboardView = class extends import_obsidian6.ItemView {
       agentIcon(nameWrap.createSpan({ cls: "ad-glyph ad-review__agent-icon" }), ag.agent);
       nameWrap.createSpan({ text: meta?.name || ag.agent });
       const pct = data.tokens > 0 ? Math.round(ag.share * 100) : 0;
-      const metrics = `${ag.tokens ? fmtTok(ag.tokens) + " tok" : t("\u7528\u91CF\u672A\u63D0\u4F9B")}${data.tokens > 0 ? ` (${pct}%)` : ""} \xB7 ${fmtMin(ag.wall)} \xB7 ${t("{n} \u4F1A\u8BDD", { n: ag.sessions })}`;
+      const metrics = `${ag.tokens ? fmtTok(ag.tokens) + " tok" : t("\u7528\u91CF\u672A\u63D0\u4F9B")}${data.tokens > 0 && ag.tokens > 0 ? ` (${pct}%)` : ""} \xB7 ${fmtMin(ag.wall)} \xB7 ${t("{n} \u4F1A\u8BDD", { n: ag.sessions })}`;
       top.createSpan({ cls: "ad-review__agent-meta", text: metrics });
       const bar = row.createDiv({ cls: "ad-review__bar" });
       bar.createSpan().style.width = `${ag.tokens ? Math.max(2, Math.round(100 * ag.tokens / max)) : 0}%`;
@@ -26670,6 +27237,119 @@ var DashboardView = class extends import_obsidian6.ItemView {
       if (this._pendingRender) this.scheduleRender();
     };
     renderList(initialOpened);
+  }
+  multiSessionTasks(parent, data) {
+    const byTask = /* @__PURE__ */ new Map();
+    for (const row of data.rows || []) {
+      if (!row.sid || !Array.isArray(row.sources) || !row.sources.length) continue;
+      for (const src of row.sources) {
+        if (!src?.path) continue;
+        const key = `${src.path}#${src.blockId || src.line || 0}`;
+        let bucket = byTask.get(key);
+        if (!bucket) {
+          const rawTitle = String(src.title || String(src.text || "").split("\n")[0]).replace(/^\s*[-*+]\s+/, "").replace(/\s+\^[a-z0-9-]+$/i, "").trim();
+          bucket = { key, path: src.path, blockId: src.blockId || "", line: src.line || 0, title: rawTitle || src.path, tokens: 0, sids: /* @__PURE__ */ new Set(), seenRows: /* @__PURE__ */ new Set(), agents: /* @__PURE__ */ new Set(), segsByDay: /* @__PURE__ */ new Map() };
+          byTask.set(key, bucket);
+        }
+        const rowKey = `${row.day || ""}|${row.sid}`;
+        if (bucket.seenRows.has(rowKey)) continue;
+        bucket.seenRows.add(rowKey);
+        bucket.sids.add(row.sid);
+        if (row.agent) bucket.agents.add(row.agent);
+        bucket.tokens += row.tokens || 0;
+        if (Array.isArray(row.segs) && row.segs.length) {
+          const dayKey2 = row.day || "";
+          let arr = bucket.segsByDay.get(dayKey2);
+          if (!arr) bucket.segsByDay.set(dayKey2, arr = []);
+          arr.push(...row.segs);
+        }
+      }
+    }
+    const items = [...byTask.values()].filter((x) => x.sids.size >= 2).map((x) => {
+      let wall = 0;
+      for (const segs of x.segsByDay.values()) {
+        for (const [a, b] of unionSegs(segs)) if (b > a) wall += b - a;
+      }
+      return { ...x, sessions: x.sids.size, agentList: [...x.agents], wall: Math.round(wall) };
+    }).sort((a, b) => b.tokens - a.tokens || b.wall - a.wall).slice(0, 10);
+    if (!items.length) return;
+    const section = parent.createEl("section", { cls: "ad-review__projects ad-review__tasks" });
+    const head = section.createDiv({ cls: "ad-review__sectionhead" });
+    head.createEl("h2", { text: t("\u8DE8\u4F1A\u8BDD\u4EFB\u52A1\u6295\u5165") });
+    head.createSpan({ text: t("{n} \u6761\u591A\u4F1A\u8BDD\u4EFB\u52A1\uFF08\u53BB\u91CD\u8017\u65F6\uFF09", { n: items.length }) });
+    const scroll = section.createDiv({ cls: "ad-review__table-scroll" }), table = scroll.createEl("table");
+    const thead = table.createEl("thead").createEl("tr");
+    for (const label of [t("\u4EFB\u52A1"), "Token", t("\u6D3B\u8DC3\u8017\u65F6"), t("\u4F1A\u8BDD\u6570")]) thead.createEl("th", { text: label, attr: { scope: "col" } });
+    const body = table.createEl("tbody");
+    const max = Math.max(1, ...items.map((x) => x.tokens));
+    for (const item of items) {
+      const tr = body.createEl("tr");
+      const nameTd = tr.createEl("td");
+      const btn = this.button(nameTd, item.title.slice(0, 56), () => this.app?.workspace?.openLinkText?.(item.path + (item.blockId ? `#^${item.blockId}` : ""), "", true), "ad-review__source");
+      btn.title = item.path;
+      const metaRow = nameTd.createDiv({ cls: "ad-review__project-sub" });
+      this.renderAgentBadges(metaRow, item.agentList);
+      const tokTd = tr.createEl("td");
+      tokTd.createSpan({ text: item.tokens ? fmtTok(item.tokens) : t("\u7528\u91CF\u672A\u63D0\u4F9B") });
+      const bar = tokTd.createDiv({ cls: "ad-review__bar" });
+      bar.createSpan().style.width = `${item.tokens ? Math.max(2, Math.round(100 * item.tokens / max)) : 0}%`;
+      tr.createEl("td", { text: fmtMin(item.wall) });
+      tr.createEl("td", { text: String(item.sessions) });
+    }
+  }
+  securityAuditSection(parent) {
+    const audit = this.data?.securityAudit;
+    const allowCount = audit ? audit.allowlistCount : this.plugin.settings?.securityAllowlist?.length || 0;
+    const section = parent.createEl("section", { cls: "ad-review__security" });
+    const head = section.createDiv({ cls: "ad-review__sectionhead" });
+    head.createEl("h2", { text: t("\u5B89\u5168\u56DE\u653E\u4E0E\u62A4\u680F") });
+    const actions = head.createDiv({ cls: "ad-review__actions" });
+    if (typeof this.plugin.runSecurityAuditReport === "function") {
+      const runReplay = async (days) => {
+        if (this._runningAudit) return;
+        this._runningAudit = true;
+        b7.disabled = true;
+        b30.disabled = true;
+        try {
+          await this.plugin.runSecurityAuditReport({ days, overrideDays: true });
+          await this.render();
+        } finally {
+          this._runningAudit = false;
+          b7.disabled = false;
+          b30.disabled = false;
+        }
+      };
+      const b7 = this.button(actions, t("7 \u5929\u5FEB\u901F\u56DE\u653E"), () => runReplay(7));
+      const b30 = this.button(actions, t("30 \u5929\u56DE\u653E"), () => runReplay(30));
+    }
+    if (audit) {
+      this.button(actions, t("\u6253\u5F00\u5BA1\u8BA1\u62A5\u544A"), () => this.app?.workspace?.openLinkText?.("Agent Deck/\u5B89\u5168\u5BA1\u8BA1.md", "", true));
+      const stats = section.createDiv({ cls: "ad-review__stats" });
+      for (const [label, value] of [
+        [t("\u6700\u8FD1\u56DE\u653E"), audit.generatedAt || t("{n} \u5929", { n: audit.days })],
+        [t("\u5DE5\u5177\u8C03\u7528"), String(audit.totalToolCalls)],
+        [t("\u547D\u4E2D\u98CE\u9669"), String(audit.totalFindings)],
+        [t("\u767D\u540D\u5355\u89C4\u5219"), String(allowCount)]
+      ]) {
+        const stat = stats.createDiv();
+        stat.createSpan({ text: label });
+        stat.createEl("strong", { text: value });
+      }
+      section.createEl("p", {
+        cls: "ad-review__note",
+        text: t("\u7EDF\u8BA1\u7A97\u53E3 {days} \u5929 \xB7 \u5DF2\u626B\u63CF {sessions} \u4E2A\u4F1A\u8BDD \xB7 \u767D\u540D\u5355\u5DF2\u653E\u884C {allow} \u6761 \xB7 \u5DF2\u964D\u566A\u4E34\u65F6/\u6784\u5EFA\u76EE\u5F55 {noise} \u6761\u3002", {
+          days: audit.days,
+          sessions: audit.scannedSessions,
+          allow: audit.suppressedByAllowlist,
+          noise: audit.suppressedNoise
+        })
+      });
+    } else {
+      section.createEl("p", {
+        cls: "ad-review__note",
+        text: t("\u5C1A\u672A\u751F\u6210\u5B89\u5168\u5BA1\u8BA1\u62A5\u544A\u3002\u70B9\u51FB\u4E0A\u65B9\u6309\u94AE\u79BB\u7EBF\u56DE\u653E\u5386\u53F2\u5DE5\u5177\u8C03\u7528\uFF0C\u68C0\u6D4B\u9AD8\u5371\u547D\u4EE4\u3001\u654F\u611F\u8DEF\u5F84\u4E0E\u660E\u6587\u5BC6\u94A5\uFF08\u5F53\u524D\u5DF2\u914D\u7F6E {n} \u6761 ACP \u62A4\u680F\u767D\u540D\u5355\uFF09\u3002", { n: allowCount })
+      });
+    }
   }
 };
 
@@ -28544,6 +29224,7 @@ function detectInstalledHarnesses(options = {}) {
   const installed = [];
   const missing = [];
   for (const id of AGENT_ORDER) {
+    if (AGENTS[id]?.customAcp) continue;
     const spec = specs[id] || { binNames: [], binPaths: [], apps: [], dataPaths: [] };
     const via = [];
     const binHit = findBinHit(spec, cfg?.delegate?.[id]?.path || "", { pathEntries, platform, homeDir, isFile });
@@ -28595,6 +29276,7 @@ function applyHarnessDetection(settings, { mode = "initial", detection = null, n
   const prevPrimary = Array.isArray(settings.primaryAgents) ? [...settings.primaryAgents] : [];
   if (mode === "migrate") {
     for (const id of AGENT_ORDER) {
+      if (AGENTS[id]?.customAcp) continue;
       if (!detected[id]) {
         agents[id] = false;
         autoLogAgents[id] = false;
@@ -28604,6 +29286,7 @@ function applyHarnessDetection(settings, { mode = "initial", detection = null, n
     }
   } else {
     for (const id of AGENT_ORDER) {
+      if (AGENTS[id]?.customAcp) continue;
       agents[id] = Boolean(detected[id]);
       autoLogAgents[id] = Boolean(detected[id]);
     }
@@ -29328,6 +30011,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
         checkLabel: t("\u68C0\u67E5 mcode")
       });
     }
+    this.renderCustomAcpCard(body);
     const showTerminal = cliHandoffAgents().some((id) => p2.agentEnabled(id));
     const otherShared = ["workbuddy", "qwenwork"].filter((id) => p2.agentEnabled(id));
     if (showTerminal || otherShared.length) {
@@ -29557,6 +30241,55 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       new import_obsidian7.Notice(t("\u4FDD\u5B58\u6A21\u578B\u8BBE\u7F6E\u5931\u8D25\uFF1A{error}", { error: e?.message || String(e) }), 6e3);
     }
     this.display();
+  }
+  renderCustomAcpCard(body) {
+    const p2 = this.plugin;
+    const s = p2.settings;
+    const list = s.customAcpAgents || (s.customAcpAgents = []);
+    const card = this.card(
+      body,
+      t("\u81EA\u5B9A\u4E49 ACP Agent"),
+      t("\u586B\u5199\u4EFB\u610F\u517C\u5BB9 ACP \u534F\u8BAE\u7684 CLI \u547D\u4EE4\u3001\u53C2\u6570\u4E0E\u73AF\u5883\u53D8\u91CF\u5373\u53EF\u63A5\u5165\u540E\u53F0\u59D4\u6D3E\u4E0E\u5E94\u7528\u5185\u7EED\u804A\uFF0C\u73AF\u5883\u53D8\u91CF\u503C\u652F\u6301 secret:KEY / env:VAR")
+    );
+    const persist = () => {
+      p2.syncCustomAcpAgents?.();
+      syncDelegationSettings(s, s);
+      p2.saveSettings();
+      p2.refreshUI?.();
+      this.display();
+    };
+    if (!list.length) {
+      card.createDiv({ cls: "ad-muted", text: t("\u5C1A\u672A\u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent\uFF08\u53EF\u63A5\u5165 Gemini CLI\u3001Kiro\u3001Mistral Vibe\u3001Pi \u7B49\u4EFB\u610F ACP \u547D\u4EE4\uFF09") });
+    } else {
+      for (const entry of list) {
+        const sub = `@${entry.id} \xB7 ${entry.command}${entry.args ? " " + entry.args : ""}${entry.autoApprove ? ` \xB7 ${t("\u81EA\u52A8\u5141\u8BB8")}` : ""}`;
+        const r = this.row(card, entry.name || entry.id, sub);
+        const ctrl = r.createDiv({ cls: "ad-btnrow" });
+        const toggle = ctrl.createEl("input", { type: "checkbox", attr: { "aria-label": t("\u542F\u7528") } });
+        toggle.checked = entry.enabled !== false;
+        toggle.onchange = () => {
+          entry.enabled = toggle.checked;
+          persist();
+        };
+        this.bigButton(ctrl, t("\u68C0\u67E5"), async () => new import_obsidian7.Notice(await p2.checkBinary(entry.id), 6e3));
+        this.bigButton(ctrl, t("\u7F16\u8F91"), () => new CustomAcpAgentModal(this.app, entry, list, (next) => {
+          Object.assign(entry, next);
+          persist();
+        }).open());
+        this.bigButton(ctrl, t("\u5220\u9664"), () => {
+          const idx = list.indexOf(entry);
+          if (idx >= 0) list.splice(idx, 1);
+          if (s.agents) delete s.agents[entry.id];
+          if (s.delegate) delete s.delegate[entry.id];
+          persist();
+        });
+      }
+    }
+    const bar = card.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(bar, t("+ \u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent"), () => new CustomAcpAgentModal(this.app, null, list, (entry) => {
+      list.push(entry);
+      persist();
+    }).open());
   }
   renderModels(body) {
     const p2 = this.plugin;
@@ -30857,7 +31590,20 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     const meta = c.createDiv({ cls: "ad-about-meta" });
     meta.createDiv({ text: t("\u7248\u672C {version} \xB7 Apache-2.0 License", { version: p2.manifest.version }) });
     meta.createDiv({ text: t("\u6B22\u8FCE\u5728 GitHub Issues \u53CD\u9988 bug\uFF0C\u6216\u5728 Roadmap \u63D0\u4EA4\u5EFA\u8BAE\u5E76\u4E3A\u4F60\u671F\u5F85\u7684\u65B9\u5411\u6295\u7968\u3002") });
+    this.rowToggle(c, t("\u542F\u52A8\u65F6\u81EA\u52A8\u68C0\u67E5\u65B0\u7248\u672C"), t("\u6BCF\u5929\u6700\u591A\u68C0\u67E5\u4E00\u6B21 GitHub Releases\uFF0C\u6709\u65B0\u7248\u65F6\u63D0\u793A\u5E76\u63D0\u4F9B\u4E00\u952E\u8DF3\u8F6C\u66F4\u65B0"), p2.settings.updateCheck !== false, (v) => {
+      p2.settings.updateCheck = v;
+      p2.saveSettings();
+    });
     const btns = c.createDiv({ cls: "ad-btnrow" });
+    const checkBtn = this.bigButton(btns, t("\u68C0\u67E5\u66F4\u65B0"), async () => {
+      if (checkBtn.disabled) return;
+      checkBtn.disabled = true;
+      try {
+        await p2.checkForUpdates({ manual: true });
+      } finally {
+        checkBtn.disabled = false;
+      }
+    });
     this.bigButton(btns, t("\u6253\u5F00 GitHub \u4ED3\u5E93"), () => p2.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck"));
     this.bigButton(btns, t("\u53CD\u9988 Issue"), () => p2.openExternal("https://github.com/MatsuriMW/obsidian-agent-deck/issues"));
     this.bigButton(btns, t("\u67E5\u770B Roadmap"), () => p2.openExternal("https://matsuri.site/portfolio/journal-workflow/#whistlist"));
@@ -31062,6 +31808,96 @@ var AddModelModal = class extends import_obsidian7.Modal {
         custom: true
       };
       this.onAdd(m);
+      this.close();
+    };
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var CustomAcpAgentModal = class extends import_obsidian7.Modal {
+  constructor(app, existing, list, onSave) {
+    super(app);
+    this.existing = existing || null;
+    this.list = Array.isArray(list) ? list : [];
+    this.onSave = onSave;
+    this.id = existing?.id || "";
+    this.name = existing?.name || "";
+    this.command = existing?.command || "";
+    this.args = existing ? String(existing.args ?? "") : "acp";
+    this.env = existing?.env || "";
+    this.autoApprove = Boolean(existing?.autoApprove);
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.addClass("ad-modal");
+    contentEl.createEl("h3", { text: this.existing ? t("\u7F16\u8F91\u81EA\u5B9A\u4E49 ACP Agent") : t("\u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent") });
+    const form = contentEl.createDiv({ cls: "ad-form" });
+    const field = (label, el) => {
+      const f = form.createDiv({ cls: "ad-field" });
+      f.createDiv({ cls: "ad-field__label", text: label });
+      el(f);
+    };
+    field(t("Agent ID\uFF08\u7528\u4E8E @ \u8DEF\u7531\uFF09"), (f) => {
+      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.id, placeholder: t("\u4F8B\u5982 kiro\u3001pi\u3001mistral-vibe\uFF08\u5C0F\u5199\u5B57\u6BCD/\u6570\u5B57/-/_\uFF09") } });
+      i.disabled = Boolean(this.existing);
+      i.oninput = () => {
+        this.id = i.value;
+      };
+    });
+    field(t("\u663E\u793A\u540D"), (f) => {
+      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.name, placeholder: t("\u4F8B\u5982 Kiro") } });
+      i.oninput = () => {
+        this.name = i.value;
+      };
+    });
+    field(t("\u547D\u4EE4\u6216\u7EDD\u5BF9\u8DEF\u5F84"), (f) => {
+      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.command, placeholder: t("\u4F8B\u5982 kiro-cli \u6216 /opt/homebrew/bin/gemini") } });
+      i.oninput = () => {
+        this.command = i.value;
+      };
+    });
+    field(t("\u542F\u52A8\u53C2\u6570\uFF08\u7A7A\u683C\u5206\u9694\uFF0C\u7559\u7A7A\u4E0D\u4F20\u5B50\u547D\u4EE4\uFF09"), (f) => {
+      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.args, placeholder: "acp" } });
+      i.oninput = () => {
+        this.args = i.value;
+      };
+    });
+    field(t("\u73AF\u5883\u53D8\u91CF\uFF08\u53EF\u9009\uFF0C\u6BCF\u884C KEY=VALUE\uFF0C\u652F\u6301 secret:KEY / env:VAR\uFF09"), (f) => {
+      const ta = f.createEl("textarea", { cls: "ad-input", attr: { rows: "3", placeholder: "OPENAI_API_KEY=secret:my_key" } });
+      ta.value = this.env;
+      ta.oninput = () => {
+        this.env = ta.value;
+      };
+    });
+    field(t("\u81EA\u52A8\u5141\u8BB8\u5E38\u89C4\u5DE5\u5177\u8C03\u7528"), (f) => {
+      const cb = f.createEl("input", { type: "checkbox" });
+      cb.checked = this.autoApprove;
+      cb.onchange = () => {
+        this.autoApprove = cb.checked;
+      };
+    });
+    const bar = contentEl.createDiv({ cls: "ad-btnrow ad-btnrow--end" });
+    const cancel = bar.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("\u53D6\u6D88") });
+    cancel.onclick = () => this.close();
+    const save = bar.createEl("button", { cls: "ad-btn ad-btn--cta", text: this.existing ? t("\u4FDD\u5B58") : t("\u6DFB\u52A0") });
+    save.onclick = () => {
+      const id = this.existing ? this.existing.id : normalizeCustomAcpId(this.id);
+      if (!id) return new import_obsidian7.Notice(t("Agent ID \u9700\u4EE5\u5C0F\u5199\u5B57\u6BCD\u5F00\u5934\uFF082\u201332 \u4F4D\u5B57\u6BCD/\u6570\u5B57/-/_\uFF09\uFF0C\u4E14\u4E0D\u80FD\u4E0E\u5185\u7F6E Agent \u91CD\u540D"));
+      if (!this.existing && this.list.some((x) => x.id === id)) return new import_obsidian7.Notice(t("\u5DF2\u5B58\u5728\u540C ID \u7684\u81EA\u5B9A\u4E49 ACP Agent"));
+      if (!this.command.trim()) return new import_obsidian7.Notice(t("\u8BF7\u586B\u5199\u547D\u4EE4\u6216\u53EF\u6267\u884C\u6587\u4EF6\u8DEF\u5F84"));
+      const entry = normalizeCustomAcpEntry({
+        id,
+        name: this.name.trim() || id,
+        command: this.command.trim(),
+        args: this.args.trim(),
+        env: this.env,
+        color: this.existing?.color,
+        autoApprove: this.autoApprove,
+        enabled: this.existing ? this.existing.enabled !== false : true
+      });
+      if (!entry) return new import_obsidian7.Notice(t("\u81EA\u5B9A\u4E49 ACP Agent \u914D\u7F6E\u65E0\u6548"));
+      this.onSave(entry);
       this.close();
     };
   }
@@ -38389,6 +39225,67 @@ async function saveTaskAsFile(plugin, path19, line) {
   plugin.notice(t("\u5DF2\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u672C\uFF1A{path}", { path: written.path }));
 }
 
+// src/update-check.js
+var RELEASES_API_URL = "https://api.github.com/repos/MatsuriMW/obsidian-agent-deck/releases/latest";
+var RELEASES_PAGE_URL = "https://github.com/MatsuriMW/obsidian-agent-deck/releases/latest";
+var UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1e3;
+function normalizeVersion(raw) {
+  const clean2 = String(raw || "").trim().replace(/^v/i, "").split(/[-+]/)[0];
+  if (!clean2) return "";
+  return clean2;
+}
+function compareVersions(a, b) {
+  const pa = normalizeVersion(a).split(".").map((n) => Number.parseInt(n, 10) || 0);
+  const pb = normalizeVersion(b).split(".").map((n) => Number.parseInt(n, 10) || 0);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const da = pa[i] || 0;
+    const db = pb[i] || 0;
+    if (da > db) return 1;
+    if (da < db) return -1;
+  }
+  return 0;
+}
+function isNewerVersion(latest, current) {
+  if (!normalizeVersion(latest) || !normalizeVersion(current)) return false;
+  return compareVersions(latest, current) > 0;
+}
+function shouldAutoCheckUpdate(settings, now = Date.now()) {
+  if (settings?.updateCheck === false) return false;
+  const last = Number(settings?.updateCheckLastAt || 0);
+  return !last || now - last >= UPDATE_CHECK_INTERVAL_MS;
+}
+function shouldPromptUpdate(latest, current, settings, { manual = false } = {}) {
+  if (!isNewerVersion(latest, current)) return false;
+  if (!manual && settings?.updateSkippedVersion && compareVersions(latest, settings.updateSkippedVersion) === 0) {
+    return false;
+  }
+  return true;
+}
+async function checkLatestRelease({ currentVersion, fetchJson, url = RELEASES_API_URL } = {}) {
+  if (typeof fetchJson !== "function") {
+    throw new Error("fetchJson is required");
+  }
+  const data = await fetchJson(url);
+  if (!data || typeof data !== "object") {
+    throw new Error("Invalid release payload");
+  }
+  const latestVersion = normalizeVersion(data.tag_name || data.name || "");
+  if (!latestVersion) {
+    throw new Error("Missing release version");
+  }
+  const releaseUrl = String(data.html_url || "").trim() || RELEASES_PAGE_URL;
+  const notes = String(data.body || "").trim().slice(0, 600);
+  return {
+    currentVersion: normalizeVersion(currentVersion),
+    latestVersion,
+    hasUpdate: isNewerVersion(latestVersion, currentVersion),
+    url: releaseUrl,
+    notes,
+    publishedAt: String(data.published_at || "")
+  };
+}
+
 // src/reply-modal.js
 var import_obsidian18 = require("obsidian");
 var ReplyModal = class extends import_obsidian18.Modal {
@@ -39115,6 +40012,39 @@ function syncSeen(wave, findings = [], now = Date.now()) {
 
 // src/welcome-demo.js
 var SHOWCASE_VERSION = "1.10.0";
+var SHOWCASE_RELEASE_FLOOR = "1.13.13";
+var RAW_BASE = "https://raw.githubusercontent.com/MatsuriMW/obsidian-agent-deck/main/assets";
+var IMG_BASE = `${RAW_BASE}/shadow`;
+function parseVerTuple(version) {
+  const clean2 = String(version || "").trim().replace(/^v/i, "").split(/[-+]/)[0];
+  if (!clean2) return null;
+  const parts = clean2.split(".").map((n) => Number.parseInt(n, 10));
+  if (parts.length < 2 || parts.some((n) => !Number.isFinite(n))) return null;
+  return [parts[0], parts[1], parts[2] || 0];
+}
+function cmpVer(a, b) {
+  const pa = parseVerTuple(a);
+  const pb = parseVerTuple(b);
+  if (!pa || !pb) return 0;
+  for (let i = 0; i < 3; i++) {
+    if (pa[i] > pb[i]) return 1;
+    if (pa[i] < pb[i]) return -1;
+  }
+  return 0;
+}
+function majorMinorOf(version) {
+  const parts = parseVerTuple(version);
+  if (!parts) return "";
+  return `${parts[0]}.${parts[1]}`;
+}
+function shouldOpenShowcaseForVersion(currentVersion, seenVersion, { floor = SHOWCASE_RELEASE_FLOOR } = {}) {
+  const cur = majorMinorOf(currentVersion);
+  if (!cur) return false;
+  const seen = majorMinorOf(seenVersion);
+  if (!seen) return true;
+  if (floor && cmpVer(currentVersion, floor) >= 0 && cmpVer(seenVersion, floor) < 0) return true;
+  return cur !== seen;
+}
 var SHOWCASE_BOARD_KEY = "ad-demo-board";
 var SHOWCASE_MIRROR_SOURCE_KEY = "ad-demo-src";
 var SHOWCASE_RECORD_KEYS = {
@@ -39173,162 +40103,354 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
   const noteLink = showcasePath(lang).replace(/\.md$/i, "");
   if (lang === "en") {
     return [
-      `# Agent Deck ${SHOWCASE_VERSION} \u2014 Interactive Feature Showcase`,
+      "# Agent Deck \u2014 What's New & Interactive Guide",
       "",
-      "> [!tip] Safe Simulated Sandbox",
-      `> All records below are local Markdown examples created for Agent Deck **v${SHOWCASE_VERSION}**. Nothing here connects to live CLI sessions or affects your token usage stats.`,
-      "> - **Sidebar Project Grouping**: Open the right Agent Deck panel and switch **Now / Recent** to **By project**. Hover a project header to open its folder, launch **Team Workbench**, or batch-stop active runs.",
-      "> - **In-Place Fractal Board**: Drag cards across columns, switch **By status / By group**, click **\u21B3** on a group card to Zoom in, or click **Team / Split** in the board toolbar.",
-      "> - **Reopen anytime**: Command Palette \u2192 `Open 1.10.0 feature showcase note`.",
+      "> [!info] How to use Agent Deck?",
+      "> The simplest way is to **do nothing at all**: just keep Obsidian open and work with your favorite AI tools as usual. Come back after a while, and Agent Deck will have recorded what you worked on.",
+      "> - **Minimum recording duration**: By default, only conversations with **at least 3 minutes** of active time are automatically written to your daily note (archived sessions are always recorded regardless of length). You can adjust or set this to `0` in **Settings \u2192 Recording**.",
       "",
-      "## 1. In-Place Fractal Kanban Board (With Zoom & Mirror Cards)",
+      "## 1. What's New",
       "",
-      `- TODO Agent Deck ${SHOWCASE_VERSION} Release Board (try switching By status / By group / Team / Outline) ^${SHOWCASE_BOARD_KEY}`,
-      `  - DOING Phase 1: Project Aggregation & Fractal Engine ^ad-demo-p1`,
-      "    - DONE Group sidebar sessions by project + priority state @codex",
-      "      - \u{1F4AC} Round 1: Task: aggregate active runs under project folders; Result: hitlimit, queued, and error states bubble to the top.",
-      "    - DOING Render CM6 in-place Kanban boards with drag-and-drop and Zoom @claude",
-      "      - \u{1F4AC} Round 1: Task: keep pure Markdown as single source of truth; Result: board columns project live CM6 widgets with subtree moves.",
-      "    - DELEGATED Resolve wikilink context packs in delegation prompts @opencode",
-      "      - \u{1F4CB} Read linked note sections and `^blockId` excerpts into delegation context.",
-      `  - TODO Phase 2: Team Workbench & Parallel Dispatch ^ad-demo-p2`,
-      "    - NEEDOK? Confirm default background execution for multi-agent team waves @claude",
-      "      - \u2753 Should team workbench waves default to background concurrent execution?",
-      "    - TOREVIEW Verify drag-and-drop indentation and mirror card navigation @codex",
-      "      - \u{1F4AC} Round 1: Task: test mirror card source jump; Result: ready for final Obsidian UI review.",
-      "  - TODO Polish bilingual changelog and release notes @qoder",
+      "### Bring Your Own AI Tools \u2014 No Need to Wait for Updates",
+      "Beyond the built-in AI assistants, you can now add your own compatible AI tools right from Settings. Give it a name and launch command, and you can mention it with `@` in any note to start working together \u2014 with credentials kept safely outside your vault.",
+      "",
+      `![Supported AI assistants in Agent Deck](${RAW_BASE}/agents.png)`,
+      "",
+      "- **Try it now**: Open **Settings \u2192 Delegation \u2192 Custom ACP Agents** and click **+ Add custom ACP Agent**.",
+      "",
+      "### One-Click Safety Check for Past AI Actions",
+      "Review everything your AI assistants did over the past 7 or 30 days in one clean report. Risky commands, sensitive folders, or accidental keys are grouped into **High / Medium / Low** with sensitive values automatically masked, and trusted folders can be allowlisted right at the top of the report.",
+      "",
+      `![Collaboration Review Dashboard](${IMG_BASE}/dashboard-overview.en.png)`,
+      "",
+      "- **Try it now**: Open the Command Palette and run `Security: replay tool calls from the last 7 days`, or click **7-day replay** inside the Review Dashboard.",
+      "",
+      "### More AI Assistants & Combined Effort per Task",
+      "Now tracks **T3 Code**, **MiniMax Code**, and **Muse** alongside your existing assistants. When you ask several AIs to help with the same task, the badge at the end of the line automatically combines total time, total usage, and session count \u2014 hover to see each assistant's share.",
+      "",
+      `![Project Workbench: organize multi-AI work by project](${RAW_BASE}/project-workbench.en.png)`,
+      "",
+      "- **Try it now**: Drag multiple session cards onto the same task line, or check **Settings \u2192 Recording** to turn on newly installed tools.",
+      "",
+      "### Gentle Update Reminders & Pinned Menu Bar Panel",
+      "When a new version of Agent Deck arrives, a gentle prompt lets you jump straight to update (or skip that version). On macOS, the top menu bar panel now supports **Pinning** \u2014 click the pin icon in the top-right corner to keep it floating on screen while you work in other apps.",
+      "",
+      `![macOS Menu Bar panel with one-click Pin](${RAW_BASE}/menubar.png?v=1.13.14)`,
+      "",
+      "- **Try it now**: Open **Settings \u2192 About \u2192 Check for updates** anytime.",
+      "",
+      "---",
+      "",
+      "> [!tip] Try It Yourself \u2014 Safe Interactive Sandbox Below",
+      `> Everything below is a local practice note. Feel free to drag cards, switch views, or zoom into sub-groups \u2014 nothing here touches your real AI sessions, daily notes, or stats. Reopen anytime from the Command Palette (\`Open ${SHOWCASE_VERSION} feature showcase note\`).`,
+      "",
+      "## 2. Try the In-Place Board (Drag, Group & Zoom)",
+      "",
+      `![Switch any outline into an interactive board right inside your note](${IMG_BASE}/fractal-board-and-sidebar.en.png)`,
+      "",
+      `- TODO Product Launch Checklist (try switching By status / By group / Team / Outline) ^${SHOWCASE_BOARD_KEY}`,
+      "  - DOING Phase 1: Research & Outline ^ad-demo-p1",
+      "    - DONE Collect user feedback and top feature requests @codex",
+      "      - \u{1F4AC} Round 1: Summarized the top 5 requests and grouped them by priority.",
+      "    - DOING Draft the announcement post and key visuals @claude",
+      "      - \u{1F4AC} Round 1: First draft ready with clear before-and-after examples.",
+      "    - DELEGATED Review linked design notes for consistency @opencode",
+      "      - \u{1F4CB} Checking tone and terminology across all linked pages.",
+      "  - TODO Phase 2: Polish & Publish ^ad-demo-p2",
+      "    - NEEDOK? Confirm whether to send the newsletter on Tuesday morning @claude",
+      "      - \u2753 Should we schedule the newsletter for Tuesday 9:00 AM or wait until Thursday?",
+      "    - TOREVIEW Final proofread of the bilingual landing page @codex",
+      "      - \u{1F4AC} Round 1: Spelling and links verified; ready for your final glance.",
+      "  - TODO Prepare demo screenshots for social posts @qoder",
       `  - ![[${noteLink}#^${SHOWCASE_MIRROR_SOURCE_KEY}]]`,
       "",
-      "## 2. Four AI Record Views (Table \xB7 Cards \xB7 Timeline \xB7 Outline)",
+      "## 3. Try Four Views for the Same AI Record",
       "",
-      "Click the view pills on any task line below to switch freely between **Outline / Table / Cards / Timeline**:",
+      `![Switch between Outline, Table, Cards, and Timeline with one click](${IMG_BASE}/ai-record-views.en.webp)`,
       "",
-      `- DOING \u{1F916} Simulated Session \xB7 Table View ^${SHOWCASE_RECORD_KEYS.table}`,
-      "  - \u2753 Round 1: Check module boundaries and confirm zero circular imports across `src/`.",
-      "  - \u{1F4CB} Inspected `src/outline.js`, `src/harness.js`, and `src/project-workbench.js`.",
-      "  - \u{1F4AC} Round 1: Task: audit core module dependency directions; Result: shared primitives extracted with zero circular imports.",
-      "  - \u2753 Round 2: Verify `npm test` and i18n coverage before tagging the release.",
-      "  - \u{1F4AC} Round 2: Task: run full unit tests and i18n checks; Result: all unit tests, architecture checks, and bilingual keys pass.",
-      "  - \u23F1 Simulated 12m (demo placeholder \u2014 excluded from real analytics)",
+      "Click the view switcher on any line below to compare **Outline / Table / Cards / Timeline**:",
       "",
-      `- DONE \u{1F916} Simulated Session \xB7 Cards View ^${SHOWCASE_RECORD_KEYS.cards}`,
-      "  - \u2753 Round 1: Design project-level Stop / Workbench quick actions on sidebar headers.",
-      "  - \u{1F4CB} Added hover action strip for Open Folder, Team Workbench, and Batch Stop.",
-      "  - \u{1F4AC} Round 1: Task: add project-level quick actions on sidebar headers; Result: supports one-click Team Workbench launch and batch stop.",
-      "  - \u2753 Round 2: Ensure queued and rate-limited sessions appear in the sidebar with retry metadata.",
-      "  - \u{1F4AC} Round 2: Task: display queued and rate-limited states; Result: shows queue position, cooldown remaining, and reason hints.",
-      "  - \u23F1 Simulated 9m (demo placeholder \u2014 excluded from real analytics)",
+      `- DOING \u{1F916} Practice Record \xB7 Table View ^${SHOWCASE_RECORD_KEYS.table}`,
+      "  - \u2753 Round 1: Summarize this week's project milestones and highlight any blockers.",
+      "  - \u{1F4CB} Reviewed weekly notes and active project tasks.",
+      "  - \u{1F4AC} Round 1: 4 milestones completed on schedule; 1 design review waiting for feedback.",
+      "  - \u2753 Round 2: Turn the summary into a 3-bullet update for Monday standup.",
+      "  - \u{1F4AC} Round 2: Ready-to-share 3-bullet standup summary drafted.",
+      "  - \u23F1 Simulated 12m (practice item \u2014 excluded from real stats)",
       "",
-      `- DOING \u{1F916} Simulated Session \xB7 Timeline View ^${SHOWCASE_RECORD_KEYS.timeline}`,
-      "  - \u2753 Round 1: Prototype WorkFlowy-style Mirror Cards referencing shared tasks.",
-      "  - \u{1F4CB} Added shared `parseMirrorRef` parser so analytics and journals never double-count mirrors.",
-      "  - \u{1F4AC} Round 1: Task: support inline mirror cards and source jump in boards; Result: clicking a mirror card title jumps straight to its source line.",
-      "  - \u2753 Round 2: Add Zoom breadcrumbs so deep task hierarchies stay clean inside boards.",
-      "  - \u{1F4AC} Round 2: Task: support multi-level nested group Zoom drill-down; Result: breadcrumbs navigate cleanly back to any parent level.",
-      "  - \u23F1 Simulated 15m (demo placeholder \u2014 excluded from real analytics)",
+      `- DONE \u{1F916} Practice Record \xB7 Cards View ^${SHOWCASE_RECORD_KEYS.cards}`,
+      "  - \u2753 Round 1: Compare three hotel options near the conference venue.",
+      "  - \u{1F4CB} Checked walking distance, quietness, and cancellation policy.",
+      "  - \u{1F4AC} Round 1: Ranked all three options with pros, cons, and total cost.",
+      "  - \u2753 Round 2: Draft a quick booking checklist before confirming.",
+      "  - \u{1F4AC} Round 2: Added invoice, check-in time, and transit notes.",
+      "  - \u23F1 Simulated 9m (practice item \u2014 excluded from real stats)",
       "",
-      `- DONE \u{1F916} Simulated Session \xB7 Outline View ^${SHOWCASE_RECORD_KEYS.outline}`,
-      "  - \u2753 Round 1: Keep raw Markdown outline lossless even when board or table decorations are active.",
-      "  - \u{1F4AC} Round 1: Task: verify plain-text outline compatibility; Result: full tree structure stays intact even with decorations off or in external editors.",
-      "  - \u23F1 Simulated 6m (demo placeholder \u2014 excluded from real analytics)",
+      `- DOING \u{1F916} Practice Record \xB7 Timeline View ^${SHOWCASE_RECORD_KEYS.timeline}`,
+      "  - \u2753 Round 1: Outline a 10-minute lightning talk on note-taking with AI.",
+      "  - \u{1F4CB} Structured into Hook, Live Demo, and 3 Practical Takeaways.",
+      "  - \u{1F4AC} Round 1: Slide-by-slide outline ready with timing notes.",
+      "  - \u2753 Round 2: Trim the middle section so the live demo gets 4 full minutes.",
+      "  - \u{1F4AC} Round 2: Tightened intro to 90 seconds and expanded the live demo beats.",
+      "  - \u23F1 Simulated 15m (practice item \u2014 excluded from real stats)",
       "",
-      "## 3. Mirror Source Task (Referenced by the Board Above)",
+      `- DONE \u{1F916} Practice Record \xB7 Outline View ^${SHOWCASE_RECORD_KEYS.outline}`,
+      "  - \u2753 Round 1: Keep everything as plain, readable Markdown.",
+      "  - \u{1F4AC} Round 1: Even with every plugin turned off, your notes stay clean and complete.",
+      "  - \u23F1 Simulated 6m (practice item \u2014 excluded from real stats)",
       "",
-      `- DOING Align board tokens & light/dark theme variables ^${SHOWCASE_MIRROR_SOURCE_KEY}`,
-      "  - This is the canonical source block referenced by the mirror card inside the Kanban board above. Change its status (for example to `DONE`) and watch every mirror card stay in sync.",
+      "## 4. Linked Mirror Task (Synced with the Board Above)",
       "",
-      "## 4. Context Governance, Skill Links, Memory Import & Task Markdown (Simulated)",
+      `- DOING Finalize visual theme for dark and light mode ^${SHOWCASE_MIRROR_SOURCE_KEY}`,
+      "  - This task is mirrored inside the board above. Change `DOING` to `DONE` here and watch the mirrored card update automatically.",
       "",
-      "- TODO Polish `[[Project Architecture]]` using `[[skills/example-skill]]` with `[[task-plan]]` (example \u2014 do not dispatch as-is)",
-      "  - **Wikilinked Markdown as task backdrop**: wrapping `[[Project Architecture]]` or `[[Spec#^blockId]]` injects the note's absolute path plus up to 3 inline excerpts (truncations append remaining `## Heading(Lline)` TOC; the 4th+ link stays as a path pointer; missing anchors warn explicitly).",
-      "  - **Wikilinked Skill cards**: `Skills: refresh skill cards` maps local skills into Markdown cards with the real `SKILL.md` path in frontmatter; referencing `[[skills/name]]` hands the agent that path without bloating the prompt.",
-      "  - **Memory store import**: import existing `.md` / `.json` / `.zip` memory dumps via the Memory Board **Import\u2026** button (drag-and-drop supported) or `Memory: import from Markdown / JSON\u2026` \u2014 split bullets directly (0 tokens) or extract via model into the Memory Base.",
-      "  - **Dynamic `ContextBundle` assembly (stable-first, dynamic-last)**: global `promptPrefix`, `memory-query.mjs` CLI hint, skill path, and referenced note paths sit first; followed by linked excerpts and Dream memories; ancestor outline, task text, and `\u2753/\u270D\uFE0F` Q&A sit at the tail to protect Prefix Cache.",
-      "  - **Direct `task.md` authoring**: run `Plan: turn the current line into a task.md` or edit any Markdown task checklist directly, then flip `Board: make this note a board file` to manage it as an in-place Kanban board.",
-      "  - **Draft & Payload snapshots**: run `Delegate: write a draft first` (`\u{1F4DD}`) to inspect or tweak the assembled Markdown before sending; real dispatches store a snapshot (`\u{1F4C4}`) with an `anchor` back to the task line.",
-      "  - \u2753 Round 1 (demo): Keep `ContextBundle` ordered stable-first or put Q&A at the top?",
-      "  - \u270D\uFE0F Answer: Keep stable prefixes first and put dynamic Q&A at the tail to protect Prefix Cache.",
-      "  - \u{1F4AC} Round 1: Task: align prompt order for cache reuse; Result: `ContextBundle` now renders stable prefixes before dynamic task and Q&A blocks.",
+      "## 5. Notes, Reusable Skills & Personal Memory",
+      "",
+      `![Browse and edit your personal Memory Base just like a spreadsheet](${IMG_BASE}/memory-base.png)`,
+      "",
+      "- TODO Polish `[[Project Architecture]]` using `[[skills/example-skill]]` with `[[task-plan]]` (practice line \u2014 no need to send)",
+      "  - **Link any note as background**: Mentioning a linked note automatically shares its context with your AI \u2014 no copy-pasting needed.",
+      "  - **Attach reusable workflows**: Keep your favorite prompts or guides as skill notes and link them whenever you need that workflow.",
+      "  - **Personal Memory Base**: Import existing notes or let Agent Deck distill long-term preferences and lessons into editable Markdown cards you can review anytime.",
+      "  - **Preview before sending**: Generate a draft first if you want to inspect or edit what gets sent, and reply to AI questions right inside your note.",
+      "  - \u2753 Round 1 (demo): Should we keep the introduction short and visual?",
+      "  - \u270D\uFE0F Answer: Yes \u2014 lead with visuals and plain language, and save details for later.",
+      "  - \u{1F4AC} Round 1: Updated the intro to be short, visual, and easy to scan.",
+      ""
+    ].join("\n");
+  }
+  if (lang === "zh-TW") {
+    return [
+      "# Agent Deck \xB7 \u65B0\u529F\u80FD\u901F\u89BD\u8207\u4E92\u52D5\u6307\u5357",
+      "",
+      "> [!info] \u5982\u4F55\u4F7F\u7528 Agent Deck\uFF1F",
+      "> \u6700\u7C21\u55AE\u7684\u65B9\u6848\u5C31\u662F**\u4EC0\u9EBC\u4E5F\u4E0D\u505A**\uFF1A\u958B\u8457 Obsidian\uFF0C\u7136\u5F8C\u7528\u4F60\u6700\u5E38\u7528\u7684 AI \u53BB\u5DE5\u4F5C\u5C31\u53EF\u4EE5\u4E86\uFF0C\u904E\u4E00\u6703\u4F86\u770B\uFF0C\u9019\u88E1\u6703\u81EA\u52D5\u8A18\u9304\u4E0B\u4F60\u505A\u904E\u7684\u4E8B\u3002",
+      "> - **\u6700\u77ED\u8A18\u9304\u6642\u9577**\uFF1A\u76EE\u524D\u9810\u8A2D\u53EA\u6709**\u7D2F\u8A08\u6D3B\u8E8D\u8D85\u904E 3 \u5206\u9418**\u7684\u5C0D\u8A71\u624D\u6703\u88AB\u81EA\u52D5\u8A18\u9032\u65E5\u8A18\uFF08\u5DF2\u6B78\u6A94\u7684\u6703\u8A71\u7121\u8AD6\u591A\u77ED\u90FD\u6703\u8A18\u9304\uFF09\uFF1B\u53EF\u4EE5\u5728\u300C\u8A2D\u5B9A \u2192 \u8A18\u9304 \u2192 \u6700\u77ED\u8A18\u9304\u6642\u9577\u300D\u88E1\u96A8\u6642\u8ABF\u4F4E\u6216\u6539\u70BA `0`\u3002",
+      "",
+      "## 1. \u672C\u671F\u65B0\u529F\u80FD\uFF08What's New\uFF09",
+      "",
+      "### \u63A5\u5165\u66F4\u591A\u4F60\u81EA\u5DF1\u7684 AI \u5DE5\u5177\uFF0C\u4E0D\u5FC5\u7B49\u5916\u639B\u767C\u7248",
+      "\u9664\u4E86\u5167\u5EFA\u652F\u63F4\u7684 AI \u52A9\u624B\uFF0C\u73FE\u5728\u9084\u80FD\u5728\u8A2D\u5B9A\u88E1\u76F4\u63A5\u65B0\u589E\u65B0\u7684\u547D\u4EE4\u5217 AI\u3002\u586B\u597D\u540D\u7A31\u8207\u555F\u52D5\u6307\u4EE4\uFF0C\u5C31\u80FD\u50CF\u5167\u5EFA\u52A9\u624B\u4E00\u6A23\u5728\u7B46\u8A18\u88E1\u7528 `@` \u53EB\u5B83\u5E79\u6D3B\uFF0C\u91D1\u9470\u4E5F\u6703\u5B89\u5168\u5B58\u653E\u3001\u4E0D\u5BEB\u9032\u7B46\u8A18\u5EAB\u3002",
+      "",
+      `![Agent Deck \u652F\u63F4\u7684\u591A\u5BB6 AI \u52A9\u624B](${RAW_BASE}/agents.png)`,
+      "",
+      "- **\u7ACB\u5373\u8A66\u8A66**\uFF1A\u6253\u958B\u300C\u8A2D\u5B9A \u2192 \u59D4\u6D3E \u2192 \u81EA\u8A02 ACP Agent\u300D\uFF0C\u9EDE `+ \u65B0\u589E\u81EA\u8A02 ACP Agent`\u3002",
+      "",
+      "### \u4E00\u9375\u5E6B\u6B77\u53F2 AI \u64CD\u4F5C\u505A\u300C\u5B89\u5168\u9AD4\u6AA2\u300D",
+      "\u56DE\u9867\u6700\u8FD1 7 \u5929\u6216 30 \u5929\u88E1 AI \u57F7\u884C\u904E\u7684\u6307\u4EE4\u8207\u6A94\u6848\u6539\u52D5\uFF0C\u81EA\u52D5\u6A19\u51FA\u9AD8\u98A8\u96AA\u522A\u9664\u3001\u654F\u611F\u76EE\u9304\u5B58\u53D6\u6216\u610F\u5916\u51FA\u73FE\u7684\u91D1\u9470\uFF0C\u6309\u300C\u9AD8\u5371 / \u4E2D\u5371 / \u4F4E\u5371\u300D\u5206\u7D44\u4E26\u81EA\u52D5\u812B\u654F\u3002\u78BA\u8A8D\u5B89\u5168\u7684\u8CC7\u6599\u593E\u9806\u624B\u52A0\u9032\u767D\u540D\u55AE\uFF0C\u4E4B\u5F8C\u5C31\u4E0D\u518D\u91CD\u8907\u63D0\u9192\u3002",
+      "",
+      `![\u5354\u4F5C\u56DE\u9867 Dashboard\uFF1A\u4E00\u773C\u770B\u6E05\u6295\u5165\u5206\u4F48\u8207\u5B89\u5168\u6982\u6CC1](${IMG_BASE}/dashboard.png)`,
+      "",
+      "- **\u7ACB\u5373\u8A66\u8A66**\uFF1A\u6307\u4EE4\u9762\u677F\u57F7\u884C `\u5B89\u5168\uFF1A\u5FEB\u901F\u56DE\u653E\u6700\u8FD1 7 \u5929\u6703\u8A71\u4E26\u7522\u751F\u7A3D\u6838\u5831\u544A`\uFF0C\u6216\u5728\u5354\u4F5C\u56DE\u9867 Dashboard \u9EDE\u300C7 \u5929\u5FEB\u901F\u56DE\u653E\u300D\u3002",
+      "",
+      "### \u652F\u63F4\u66F4\u591A AI \u52A9\u624B\uFF0C\u540C\u4E00\u4EF6\u4E8B\u7684\u6295\u5165\u81EA\u52D5\u5408\u7B97",
+      "\u65B0\u52A0\u5165 **T3 Code**\u3001**MiniMax Code** \u8207 **Muse**\u3002\u5982\u679C\u540C\u4E00\u689D\u4EFB\u52D9\u5148\u5F8C\u627E\u4E86\u597D\u5E7E\u500B AI \u5E6B\u5FD9\uFF0C\u884C\u5C3E\u6703\u81EA\u52D5\u628A\u7E3D\u8017\u6642\u3001\u7E3D\u7528\u91CF\u8207\u5C0D\u8A71\u6B21\u6578\u5408\u5728\u4E00\u8D77\u986F\u793A\uFF0C\u6ED1\u9F20\u79FB\u4E0A\u53BB\u5C31\u80FD\u770B\u6BCF\u500B AI \u5206\u5225\u505A\u4E86\u591A\u5C11\u3002",
+      "",
+      `![\u5C08\u6848\u5DE5\u4F5C\u53F0\uFF1A\u6309\u5C08\u6848\u6574\u7406\u591A AI \u5354\u4F5C](${RAW_BASE}/project-workbench.png)`,
+      "",
+      "- **\u7ACB\u5373\u8A66\u8A66**\uFF1A\u628A\u591A\u5F35\u6703\u8A71\u5361\u62D6\u5230\u540C\u4E00\u689D\u4EFB\u52D9\u884C\u4E0A\uFF0C\u6216\u5728\u300C\u8A2D\u5B9A \u2192 \u8A18\u9304\u300D\u958B\u555F\u525B\u88DD\u597D\u7684 AI \u5DE5\u5177\u3002",
+      "",
+      "### \u6709\u65B0\u7248\u81EA\u52D5\u554F\u4F60\uFF0CmacOS \u9078\u55AE\u5217\u9762\u677F\u652F\u63F4\u7F6E\u9802 Pin",
+      "\u5916\u639B\u767C\u5E03\u65B0\u7248\u6642\u6703\u8F15\u8F15\u554F\u4F60\u8981\u4E0D\u8981\u66F4\u65B0\uFF0C\u9EDE\u4E00\u4E0B\u5C31\u80FD\u76F4\u9054\u66F4\u65B0\u9801\u9762\uFF0C\u4E5F\u53EF\u4EE5\u7565\u904E\u9019\u4E00\u7248\uFF1B\u5728 macOS \u4E0A\uFF0C\u9EDE\u9078\u9802\u90E8\u9078\u55AE\u5217\u9762\u677F\u53F3\u4E0A\u89D2\u7684 **\u5716\u91D8\uFF08Pin\uFF09** \u5C31\u80FD\u628A\u5B83\u56FA\u5B9A\u61F8\u6D6E\u5728\u87A2\u5E55\u4E0A\uFF0C\u5207\u53BB\u5225\u7684\u8EDF\u9AD4\u4E5F\u80FD\u96A8\u6642\u76EF\u8457 AI \u9032\u5EA6\u3002",
+      "",
+      `![macOS \u9078\u55AE\u5217\u9762\u677F\uFF1A\u652F\u63F4\u53F3\u4E0A\u89D2\u4E00\u9375\u7F6E\u9802 Pin](${RAW_BASE}/menubar.png?v=1.13.14)`,
+      "",
+      "- **\u7ACB\u5373\u8A66\u8A66**\uFF1A\u6253\u958B\u300C\u8A2D\u5B9A \u2192 \u95DC\u65BC \u2192 \u7248\u672C\u8207\u652F\u63F4\u300D\uFF0C\u96A8\u6642\u53EF\u9EDE `\u6AA2\u67E5\u66F4\u65B0`\u3002",
+      "",
+      "---",
+      "",
+      "> [!tip] \u4E0B\u9762\u662F\u4E92\u52D5\u7DF4\u7FD2\u5340\uFF08\u4E0D\u6703\u5F71\u97FF\u771F\u5BE6\u8A18\u9304\u8207\u7D71\u8A08\uFF09",
+      `> \u4EE5\u4E0B\u5167\u5BB9\u5168\u662F\u672C\u5730\u7BC4\u4F8B\uFF0C\u4F60\u53EF\u4EE5\u653E\u5FC3\u62D6\u66F3\u770B\u677F\u5361\u7247\u3001\u5207\u63DB\u6AA2\u8996\u6216\u9AD4\u9A57\u4E0B\u947D\uFF0C**\u4E0D\u6703\u52D5\u5230\u771F\u5BE6 AI \u6703\u8A71\u8207\u65E5\u8A18**\u3002\u96A8\u6642\u53EF\u5728\u6307\u4EE4\u9762\u677F\u641C\u5C0B \`\u6253\u5F00 ${SHOWCASE_VERSION} \u65B0\u529F\u80FD\u793A\u4F8B\u7B14\u8BB0\` \u91CD\u958B\u672C\u9801\u3002`,
+      "",
+      "## 2. \u52D5\u624B\u8A66\u8A66\uFF1A\u539F\u5730\u770B\u677F\uFF08\u62D6\u66F3\u3001\u5206\u7D44\u8207\u4E0B\u947D\uFF09",
+      "",
+      `![\u540C\u4E00\u4EFD\u6E05\u55AE\uFF0C\u96A8\u6642\u5207\u9032\u770B\u677F\u6A21\u5F0F\u62D6\u66F3\u6574\u7406](${IMG_BASE}/fractal-board-views.png)`,
+      "",
+      `- TODO \u65B0\u7248\u672C\u767C\u5E03\u6E05\u55AE\uFF08\u8A66\u8A66\u9EDE\u53F3\u4E0A\u89D2\u300C\u6309\u72C0\u614B\u5206\u6B04 / \u5C0F\u968A / \u5207\u56DE\u5927\u7DB1\u300D\uFF09 ^${SHOWCASE_BOARD_KEY}`,
+      "  - DOING \u7B2C\u4E00\u968E\u6BB5\uFF1A\u6574\u7406\u9700\u6C42\u8207\u521D\u7A3F ^ad-demo-p1",
+      "    - DONE \u6574\u7406\u8FD1\u671F\u4F7F\u7528\u8005\u56DE\u994B\u8207\u9AD8\u983B\u5EFA\u8B70 @codex",
+      "      - \u{1F4AC} \u7B2C1\u8F2A\uFF1A\u5DF2\u6B78\u7D0D\u51FA\u6700\u53D7\u671F\u5F85\u7684 5 \u500B\u65B9\u5411\uFF0C\u6309\u512A\u5148\u9806\u5E8F\u6392\u597D\u3002",
+      "    - DOING \u64B0\u5BEB\u66F4\u65B0\u4EAE\u9EDE\u4ECB\u7D39\u8207\u914D\u5716\u8AAA\u660E @claude",
+      "      - \u{1F4AC} \u7B2C1\u8F2A\uFF1A\u521D\u7A3F\u5DF2\u5B8C\u6210\uFF0C\u91CD\u9EDE\u7A81\u51FA\u4E86\u524D\u5F8C\u5C0D\u6BD4\u8207\u4E0A\u624B\u6B65\u9A5F\u3002",
+      "    - DELEGATED \u6838\u5C0D\u76F8\u95DC\u8AAA\u660E\u7B46\u8A18\u7684\u8AAA\u6CD5\u662F\u5426\u4E00\u81F4 @opencode",
+      "      - \u{1F4CB} \u6B63\u5728\u6BD4\u5C0D\u591A\u7BC7\u7B46\u8A18\u88E1\u7684\u540D\u7A31\u8207\u8A9E\u6C23\u3002",
+      "  - TODO \u7B2C\u4E8C\u968E\u6BB5\uFF1A\u6F64\u98FE\u8207\u767C\u5E03 ^ad-demo-p2",
+      "    - NEEDOK? \u78BA\u8A8D\u9019\u9031\u4E8C\u65E9\u4E0A\u662F\u5426\u540C\u6B65\u767C\u51FA\u66F4\u65B0\u901A\u77E5 @claude",
+      "      - \u2753 \u66F4\u65B0\u901A\u77E5\u5B9A\u5728\u9031\u4E8C\u65E9\u4E0A 9 \u9EDE\u767C\u51FA\uFF0C\u9084\u662F\u6539\u5230\u9031\u56DB\u6BD4\u8F03\u597D\uFF1F",
+      "    - TOREVIEW \u7D42\u7A3F\u6821\u5C0D\u591A\u8A9E\u4ECB\u7D39\u9801 @codex",
+      "      - \u{1F4AC} \u7B2C1\u8F2A\uFF1A\u932F\u5225\u5B57\u8207\u9023\u7D50\u90FD\u6AA2\u67E5\u904E\u4E86\uFF0C\u7B49\u4F60\u6700\u5F8C\u78BA\u8A8D\u3002",
+      "  - TODO \u6E96\u5099\u793E\u7FA4\u8CBC\u6587\u7528\u7684\u793A\u7BC4\u622A\u5716 @qoder",
+      `  - ![[${noteLink}#^${SHOWCASE_MIRROR_SOURCE_KEY}]]`,
+      "",
+      "## 3. \u52D5\u624B\u8A66\u8A66\uFF1A\u540C\u4E00\u689D AI \u8A18\u9304\u7684\u56DB\u7A2E\u6AA2\u8996",
+      "",
+      `![\u5927\u7DB1\u3001\u8868\u683C\u3001\u5361\u7247\u3001\u6642\u9593\u7DDA\u56DB\u7A2E\u6AA2\u8996\u4E00\u9375\u5207\u63DB](${IMG_BASE}/ai-record-views.webp)`,
+      "",
+      "\u9EDE\u6BCF\u689D\u8A18\u9304\u53F3\u5074\u7684\u6AA2\u8996\u6309\u9215\uFF08`\u5927\u7DB1 \xB7 \u8868\u683C \xB7 \u5361\u7247 \xB7 \u6642\u9593\u7DDA`\uFF09\uFF0C\u76F4\u63A5\u611F\u53D7\u4E0D\u540C\u95B1\u8B80\u9AD4\u9A57\uFF1A",
+      "",
+      `- DOING \u{1F916} \u7DF4\u7FD2\u8A18\u9304 \xB7 \u8868\u683C\u6AA2\u8996 ^${SHOWCASE_RECORD_KEYS.table}`,
+      "  - \u2753 \u7B2C1\u8F2A\uFF1A\u5E6B\u6211\u7E3D\u7D50\u9019\u9031\u7684\u5C08\u6848\u9032\u5EA6\uFF0C\u6A19\u51FA\u5361\u4F4F\u7684\u5730\u65B9\u3002",
+      "  - \u{1F4CB} \u5DF2\u700F\u89BD\u672C\u9031\u65E5\u8A18\u8207\u9032\u884C\u4E2D\u7684\u4EFB\u52D9\u6E05\u55AE\u3002",
+      "  - \u{1F4AC} \u7B2C1\u8F2A\uFF1A\u672C\u9031\u5B8C\u6210 4 \u9805\u91CD\u9EDE\u9032\u5EA6\uFF0C\u53E6\u6709 1 \u9805\u8A2D\u8A08\u7A3F\u5F85\u78BA\u8A8D\u3002",
+      "  - \u2753 \u7B2C2\u8F2A\uFF1A\u6FC3\u7E2E\u6210\u9031\u4E00\u6668\u6703\u53EF\u76F4\u63A5\u5FF5\u7684 3 \u689D\u91CD\u9EDE\u3002",
+      "  - \u{1F4AC} \u7B2C2\u8F2A\uFF1A\u5DF2\u6574\u7406\u597D 3 \u689D\u7CBE\u7C21\u7248\u6668\u6703\u532F\u5831\u3002",
+      "  - \u23F1 \u7DF4\u7FD2\u4F54\u4F4D 12 \u5206\u9418\uFF08\u4E0D\u8A08\u5165\u771F\u5BE6\u7D71\u8A08\uFF09",
+      "",
+      `- DONE \u{1F916} \u7DF4\u7FD2\u8A18\u9304 \xB7 \u5361\u7247\u6AA2\u8996 ^${SHOWCASE_RECORD_KEYS.cards}`,
+      "  - \u2753 \u7B2C1\u8F2A\uFF1A\u5E6B\u6211\u6BD4\u8F03\u6703\u5834\u9644\u8FD1\u4E09\u5BB6\u98EF\u5E97\u7684\u512A\u7F3A\u9EDE\u3002",
+      "  - \u{1F4CB} \u5DF2\u5C0D\u6BD4\u6B65\u884C\u8DDD\u96E2\u3001\u5B89\u975C\u7A0B\u5EA6\u8207\u53D6\u6D88\u653F\u7B56\u3002",
+      "  - \u{1F4AC} \u7B2C1\u8F2A\uFF1A\u5DF2\u6392\u51FA\u63A8\u85A6\u9806\u5E8F\uFF0C\u4E26\u9644\u4E0A\u5927\u81F4\u9810\u7B97\u8207\u6CE8\u610F\u4E8B\u9805\u3002",
+      "  - \u2753 \u7B2C2\u8F2A\uFF1A\u5217\u4E00\u4EFD\u51FA\u767C\u524D\u7684\u7C21\u77ED\u78BA\u8A8D\u6E05\u55AE\u3002",
+      "  - \u{1F4AC} \u7B2C2\u8F2A\uFF1A\u5DF2\u88DC\u4E0A\u767C\u7968\u3001\u5165\u4F4F\u6642\u9593\u8207\u4EA4\u901A\u8DEF\u7DDA\u63D0\u9192\u3002",
+      "  - \u23F1 \u7DF4\u7FD2\u4F54\u4F4D 9 \u5206\u9418\uFF08\u4E0D\u8A08\u5165\u771F\u5BE6\u7D71\u8A08\uFF09",
+      "",
+      `- DOING \u{1F916} \u7DF4\u7FD2\u8A18\u9304 \xB7 \u6642\u9593\u7DDA\u6AA2\u8996 ^${SHOWCASE_RECORD_KEYS.timeline}`,
+      "  - \u2753 \u7B2C1\u8F2A\uFF1A\u5E6B\u6211\u8D77\u8349\u4E00\u4EFD 10 \u5206\u9418\u7684 AI \u7B46\u8A18\u5DE5\u4F5C\u6D41\u5206\u4EAB\u5927\u7DB1\u3002",
+      "  - \u{1F4CB} \u6309\u300C\u958B\u5834\u75DB\u9EDE \u2192 \u73FE\u5834\u793A\u7BC4 \u2192 3 \u500B\u53EF\u5E36\u8D70\u7684\u65B9\u6CD5\u300D\u62C6\u89E3\u3002",
+      "  - \u{1F4AC} \u7B2C1\u8F2A\uFF1A\u6BCF\u9801\u91CD\u9EDE\u8207\u7BC0\u594F\u6642\u9593\u5DF2\u6392\u597D\u3002",
+      "  - \u2753 \u7B2C2\u8F2A\uFF1A\u58D3\u7E2E\u524D\u534A\u6BB5\uFF0C\u628A\u73FE\u5834\u793A\u7BC4\u62C9\u9577\u5230 4 \u5206\u9418\u3002",
+      "  - \u{1F4AC} \u7B2C2\u8F2A\uFF1A\u958B\u5834\u5DF2\u7E2E\u81F3 90 \u79D2\uFF0C\u793A\u7BC4\u6B65\u9A5F\u66F4\u5145\u88D5\u3002",
+      "  - \u23F1 \u7DF4\u7FD2\u4F54\u4F4D 15 \u5206\u9418\uFF08\u4E0D\u8A08\u5165\u771F\u5BE6\u7D71\u8A08\uFF09",
+      "",
+      `- DONE \u{1F916} \u7DF4\u7FD2\u8A18\u9304 \xB7 \u5927\u7DB1\u6AA2\u8996 ^${SHOWCASE_RECORD_KEYS.outline}`,
+      "  - \u2753 \u7B2C1\u8F2A\uFF1A\u95DC\u6389\u6240\u6709\u5916\u639B\u5F8C\uFF0C\u9019\u4E9B\u7B46\u8A18\u9084\u80FD\u6B63\u5E38\u8B80\u55CE\uFF1F",
+      "  - \u{1F4AC} \u7B2C1\u8F2A\uFF1A\u5168\u90E8\u90FD\u662F\u7D14\u6DE8\u7684 Markdown \u539F\u6587\uFF0C\u63DB\u4EFB\u4F55\u7DE8\u8F2F\u5668\u770B\u90FD\u6E05\u6E05\u695A\u695A\u3002",
+      "  - \u23F1 \u7DF4\u7FD2\u4F54\u4F4D 6 \u5206\u9418\uFF08\u4E0D\u8A08\u5165\u771F\u5BE6\u7D71\u8A08\uFF09",
+      "",
+      "## 4. \u8DE8\u8655\u540C\u6B65\u7684\u93E1\u50CF\u4EFB\u52D9\uFF08\u8207\u4E0A\u65B9\u770B\u677F\u9023\u52D5\uFF09",
+      "",
+      `- DOING \u8ABF\u6574\u6DF1\u8272\u8207\u6DFA\u8272\u6A21\u5F0F\u7684\u8996\u89BA\u7D30\u7BC0 ^${SHOWCASE_MIRROR_SOURCE_KEY}`,
+      "  - \u9019\u4E00\u689D\u88AB\u4E0A\u65B9\u770B\u677F\u76F4\u63A5\u5F15\u7528\u3002\u8A66\u8457\u628A\u9019\u88E1\u7684 `DOING` \u6539\u6210 `DONE`\uFF0C\u4E0A\u65B9\u770B\u677F\u88E1\u7684\u5C0D\u61C9\u5361\u7247\u6703\u4E00\u8D77\u8B8A\u72C0\u614B\u3002",
+      "",
+      "## 5. \u7B46\u8A18\u7576\u80CC\u666F\u3001\u5E38\u7528\u6280\u80FD\u8207\u500B\u4EBA\u8A18\u61B6\u5EAB",
+      "",
+      `![\u50CF\u8868\u683C\u4E00\u6A23\u700F\u89BD\u8207\u4FEE\u6539\u4F60\u7684\u500B\u4EBA\u8A18\u61B6\u5EAB](${IMG_BASE}/memory-base.png)`,
+      "",
+      "- TODO \u7D50\u5408 `[[\u96D9\u93C8\u4E0A\u4E0B\u6587\u5354\u8B70]]`\u3001`[[\u6280\u80FD/media-to-obsidian-outline]]` \u8207 `[[\u7BC4\u4F8B-task]]` \u63A8\u9032\u4EFB\u52D9\uFF08\u7DF4\u7FD2\u689D\u76EE\uFF0C\u4E0D\u5FC5\u771F\u7684\u767C\u9001\uFF09",
+      "  - **\u7528\u96D9\u93C8\u628A\u7B46\u8A18\u4EA4\u7D66 AI**\uFF1A\u5728\u4EFB\u52D9\u88E1\u9023\u4E0A\u76F8\u95DC\u7B46\u8A18\uFF0C\u6D3E\u6D3B\u6642\u6703\u81EA\u52D5\u5E36\u4E0A\u80CC\u666F\u8CC7\u6599\uFF0C\u4E0D\u5FC5\u4F86\u56DE\u8907\u88FD\u8CBC\u4E0A\u3002",
+      "  - **\u628A\u5E38\u7528\u6D41\u7A0B\u5B58\u6210\u6280\u80FD\u5361**\uFF1A\u5BEB\u4F5C\u898F\u7BC4\u3001\u5206\u6790\u5957\u8DEF\u90FD\u80FD\u505A\u6210\u7B46\u8A18\uFF0C\u9700\u8981\u6642\u9023\u4E0A\u5B83\u5C31\u80FD\u76F4\u63A5\u8907\u7528\u3002",
+      "  - **\u770B\u5F97\u898B\u3001\u6539\u5F97\u52D5\u7684\u500B\u4EBA\u8A18\u61B6\u5EAB**\uFF1A\u81EA\u52D5\u6C89\u6FB1\u4F60\u7684\u9577\u671F\u504F\u597D\u8207\u7D93\u9A57\uFF0C\u6BCF\u689D\u90FD\u662F\u666E\u901A\u7B46\u8A18\uFF0C\u4E0D\u5C0D\u5C31\u522A\u3001\u60F3\u6539\u5C31\u6539\u3002",
+      "  - **\u5148\u770B\u8349\u7A3F\u518D\u767C\u9001\uFF0C\u5728\u7B46\u8A18\u88E1\u76F4\u63A5\u7E8C\u804A**\uFF1A\u91CD\u8981\u4EFB\u52D9\u53EF\u4EE5\u5148\u751F\u6210\u8349\u7A3F\u6AA2\u67E5\u518D\u767C\uFF1BAI \u6709\u7591\u554F\u6642\uFF0C\u76F4\u63A5\u5728\u7B46\u8A18\u88E1\u5BEB\u4E0B\u56DE\u7B54\u5C31\u80FD\u63A5\u8457\u5F80\u4E0B\u505A\u3002",
+      "  - \u2753 \u7B2C1\u8F2A\uFF08\u793A\u7BC4\uFF09\uFF1A\u4ECB\u7D39\u9801\u61C9\u8A72\u5BEB\u5F97\u7C21\u77ED\u76F4\u89C0\uFF0C\u9084\u662F\u628A\u6240\u6709\u7D30\u7BC0\u90FD\u5217\u51FA\u4F86\uFF1F",
+      "  - \u270D\uFE0F \u7B54\uFF1A\u7C21\u77ED\u76F4\u89C0\u3001\u591A\u914D\u5716\uFF0C\u628A\u8907\u96DC\u7D30\u7BC0\u85CF\u5728\u5F8C\u9762\u5C31\u597D\u3002",
+      "  - \u{1F4AC} \u7B2C1\u8F2A\uFF1A\u5DF2\u628A\u958B\u982D\u6539\u6210\u901A\u4FD7\u76F4\u89C0\u7684\u8AAA\u6CD5\uFF0C\u4E26\u88DC\u4E0A\u91CD\u9EDE\u914D\u5716\u3002",
       ""
     ].join("\n");
   }
   return [
-    `# Agent Deck ${SHOWCASE_VERSION} \xB7 \u65B0\u529F\u80FD\u4EA4\u4E92\u793A\u4F8B`,
+    "# Agent Deck \xB7 \u65B0\u529F\u80FD\u901F\u89C8\u4E0E\u4EA4\u4E92\u6307\u5357",
     "",
-    "> [!tip] \u7EAF\u51C0\u6A21\u62DF\u6C99\u76D2\uFF08\u4E0D\u4F1A\u5F71\u54CD\u771F\u5B9E\u4F1A\u8BDD\u4E0E\u7528\u91CF\u7EDF\u8BA1\uFF09",
-    `> \u672C\u7B14\u8BB0\u4E3A\u4F60\u9884\u7F6E\u4E86 **Agent Deck ${SHOWCASE_VERSION}** \u7684\u6838\u5FC3\u754C\u9762\u6A21\u62DF\u3002\u4F60\u53EF\u4EE5\u76F4\u63A5\u62D6\u62FD\u5361\u7247\u3001\u5207\u6362\u89C6\u56FE\u6216\u4F53\u9A8C\u5206\u5F62\u4E0B\u94BB\u2014\u2014\u6240\u6709\u5185\u5BB9\u5747\u4E3A\u7EAF Markdown \u793A\u4F8B\uFF0C**\u4E0D\u7ED1\u5B9A\u771F\u5B9E CLI \u4F1A\u8BDD\u3001\u4E0D\u6539\u5199\u65E5\u8BB0\u3001\u4E5F\u4E0D\u8BA1\u5165 Token \u7EDF\u8BA1**\u3002`,
-    "> - **\u4FA7\u8FB9\u680F\u300C\u6309\u9879\u76EE\u300D\u805A\u5408\uFF08P0\uFF09**\uFF1A\u5728\u53F3\u4FA7 Agent Deck \u9762\u677F\u628A **\u6B63\u5728\u8FDB\u884C / \u6700\u8FD1\u4F1A\u8BDD** \u5207\u5230 **\u6309\u9879\u76EE**\uFF0C\u60AC\u505C\u9879\u76EE\u6807\u9898\u53EF\u76F4\u8FBE\u300C\u6253\u5F00\u76EE\u5F55 / \u5C0F\u961F\u5DE5\u4F5C\u53F0 / \u4E00\u952E\u505C\u6B62\u8BE5\u9879\u76EE\u300D\u3002",
-    "> - **\u539F\u5730\u5206\u5F62\u770B\u677F + \u5C0F\u961F\u5DE5\u4F5C\u53F0\uFF08P1\uFF09**\uFF1A\u76F4\u63A5\u5728\u4E0B\u65B9\u770B\u677F\u62D6\u62FD\u5361\u7247\u8DE8\u5217\u3001\u70B9 **\u6309\u72B6\u6001\u5206\u5217 / \u6309\u5B50\u7EC4\u5206\u5217**\u3001\u70B9\u5B50\u7EC4\u5361\u7247\u7684 **\u21B3 Zoom** \u4E0B\u94BB\uFF0C\u6216\u70B9\u5DE5\u5177\u680F **\u5C0F\u961F / \u62C6\u89E3** \u4F53\u9A8C Copilot \u81EA\u52A8\u62C6\u89E3\u4E0E\u591A\u6A21\u578B\u5206\u5DE5\u3002",
-    "> - **\u968F\u65F6\u91CD\u5F00\u672C\u793A\u4F8B**\uFF1A\u547D\u4EE4\u9762\u677F\u641C\u7D22 `\u6253\u5F00 1.10.0 \u65B0\u529F\u80FD\u793A\u4F8B\u7B14\u8BB0`\u3002",
+    "> [!info] \u5982\u4F55\u4F7F\u7528 Agent Deck\uFF1F",
+    "> \u6700\u7B80\u5355\u7684\u65B9\u6848\u5C31\u662F**\u4EC0\u4E48\u4E5F\u4E0D\u505A**\uFF1A\u5F00\u7740 Obsidian\uFF0C\u7136\u540E\u7528\u4F60\u6700\u5E38\u7528\u7684 AI \u53BB\u5DE5\u4F5C\u5C31\u53EF\u4EE5\u4E86\uFF0C\u8FC7\u4E00\u4F1A\u6765\u770B\uFF0C\u8FD9\u91CC\u4F1A\u81EA\u52A8\u8BB0\u5F55\u4E0B\u4F60\u505A\u8FC7\u7684\u4E8B\u3002",
+    "> - **\u6700\u77ED\u8BB0\u5F55\u65F6\u957F**\uFF1A\u76EE\u524D\u9ED8\u8BA4\u53EA\u6709**\u7D2F\u8BA1\u6D3B\u8DC3\u8D85\u8FC7 3 \u5206\u949F**\u7684\u5BF9\u8BDD\u624D\u4F1A\u88AB\u81EA\u52A8\u8BB0\u8FDB\u65E5\u8BB0\uFF08\u5DF2\u5F52\u6863\u7684\u4F1A\u8BDD\u65E0\u8BBA\u591A\u77ED\u90FD\u4F1A\u8BB0\u5F55\uFF09\uFF1B\u53EF\u4EE5\u5728\u300C\u8BBE\u7F6E \u2192 \u8BB0\u5F55 \u2192 \u6700\u77ED\u8BB0\u5F55\u65F6\u957F\u300D\u91CC\u968F\u65F6\u8C03\u4F4E\u6216\u6539\u4E3A `0`\u3002",
     "",
-    "## 1. \u539F\u5730\u5206\u5F62\u770B\u677F\uFF08\u652F\u6301\u5B50\u7EC4\u4E0B\u94BB Zoom \u4E0E\u8DE8\u5757\u955C\u50CF\u5361\uFF09",
+    "## 1. \u672C\u671F\u65B0\u529F\u80FD\uFF08What's New\uFF09",
     "",
-    `- TODO Agent Deck ${SHOWCASE_VERSION} \u53D1\u5E03\u534F\u540C\u770B\u677F\uFF08\u8BD5\u8BD5\u70B9\u53F3\u4E0A\u89D2\u300C\u6309\u72B6\u6001\u5206\u5217 / \u5C0F\u961F / \u5207\u56DE\u5927\u7EB2\u300D\uFF09 ^${SHOWCASE_BOARD_KEY}`,
-    "  - DOING \u9636\u6BB5\u4E00\uFF1A\u9879\u76EE\u805A\u5408\u4E0E\u5206\u5F62\u5F15\u64CE ^ad-demo-p1",
-    "    - DONE \u68B3\u7406\u53F3\u4FA7\u680F\u6309\u9879\u76EE\u5206\u7EC4\u4E0E\u72B6\u6001\u4F18\u5148\u7EA7 @codex",
-    "      - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u6309\u9879\u76EE\u76EE\u5F55\u4E0E\u6700\u540E\u6D3B\u8DC3\u65F6\u95F4\u805A\u5408\u4F1A\u8BDD\uFF1B\u7ED3\u8BBA\uFF1A\u5DF2\u5728\u4FA7\u8FB9\u680F\u4E0A\u7EBF\uFF0Chitlimit / queued / error \u72B6\u6001\u4F1A\u81EA\u52A8\u7F6E\u9876\u63D0\u793A\u3002",
-    "    - DOING \u5B9E\u73B0 CM6 \u539F\u5730\u5206\u5F62\u770B\u677F\u3001\u62D6\u62FD\u56DE\u5199\u4E0E Zoom \u9762\u5305\u5C51 @claude",
-    "      - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u4FDD\u6301\u7EAF Markdown \u4E3A\u552F\u4E00\u6570\u636E\u6E90\uFF1B\u7ED3\u8BBA\uFF1A\u5361\u7247\u62D6\u62FD\u4F1A\u76F4\u63A5\u6539\u5199\u7F29\u8FDB\u5C42\u7EA7\u4E0E\u72B6\u6001\u5173\u952E\u5B57\uFF0C\u652F\u6301\u4EFB\u610F\u5D4C\u5957\u5C42\u7EA7\u4E0B\u94BB\u3002",
-    "    - DELEGATED \u8865\u5145 Harness \u53CC\u94FE\u4E0A\u4E0B\u6587\u89E3\u6790 @opencode",
-    "      - \u{1F4CB} \u81EA\u52A8\u8BFB\u53D6\u4EFB\u52A1\u4E2D\u5F15\u7528\u7684 `[[\u53CC\u94FE\u7B14\u8BB0]]` \u4E0E `^blockId` \u7247\u6BB5\u5E76\u6CE8\u5165\u59D4\u6D3E\u4E0A\u4E0B\u6587\u3002",
-    "  - TODO \u9636\u6BB5\u4E8C\uFF1A\u5C0F\u961F\u5DE5\u4F5C\u53F0\u4E0E\u591A\u6A21\u578B\u5E76\u53D1 ^ad-demo-p2",
-    "    - NEEDOK? \u786E\u8BA4\u591A Agent \u5E76\u53D1\u9ED8\u8BA4\u8D70\u540E\u53F0\u7B56\u7565 @claude",
-    "      - \u2753 \u591A Agent \u5DE5\u4F5C\u53F0\u4E00\u952E\u6D3E\u53D1\u65F6\uFF0C\u786E\u8BA4\u6240\u6709\u5B50\u8282\u70B9\u9ED8\u8BA4\u8D70\u540E\u53F0\u5E76\u53D1\u3001\u4E0D\u62A2\u5360\u684C\u9762\u7EC8\u7AEF\uFF1F",
-    "    - TOREVIEW \u5B9E\u673A\u6838\u5BF9\u770B\u677F\u62D6\u62FD\u91CD\u6392\u4E0E\u955C\u50CF\u8DF3\u8F6C @codex",
-    "      - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u6838\u9A8C\u955C\u50CF\u5361\u70B9\u51FB\u4E0E\u6E90\u4EFB\u52A1\u540C\u6B65\uFF1B\u7ED3\u8BBA\uFF1A\u70B9\u51FB\u4E0A\u65B9\u955C\u50CF\u5361\u7247\u53EF\u8DF3\u81F3\u672C\u6587\u5E95\u90E8\u6E90\u4EFB\u52A1\u3002",
-    "  - TODO \u6574\u7406\u6F14\u793A\u622A\u56FE\u4E0E\u53D1\u7248\u8BF4\u660E @qoder",
+    "### \u63A5\u5165\u66F4\u591A\u4F60\u81EA\u5DF1\u7684 AI \u5DE5\u5177\uFF0C\u4E0D\u7528\u7B49\u63D2\u4EF6\u53D1\u7248",
+    "\u9664\u4E86\u5185\u7F6E\u652F\u6301\u7684 AI \u52A9\u624B\uFF0C\u73B0\u5728\u8FD8\u80FD\u5728\u8BBE\u7F6E\u91CC\u76F4\u63A5\u6DFB\u52A0\u65B0\u7684\u547D\u4EE4\u884C AI\u3002\u586B\u597D\u540D\u5B57\u548C\u542F\u52A8\u547D\u4EE4\uFF0C\u5C31\u80FD\u50CF\u5185\u7F6E\u52A9\u624B\u4E00\u6837\u5728\u7B14\u8BB0\u91CC\u7528 `@` \u53EB\u5B83\u5E72\u6D3B\uFF0C\u5BC6\u94A5\u4E5F\u4F1A\u5B89\u5168\u5B58\u653E\u3001\u4E0D\u4F1A\u660E\u6587\u5199\u8FDB\u7B14\u8BB0\u5E93\u3002",
+    "",
+    `![Agent Deck \u652F\u6301\u7684\u591A\u5BB6 AI \u52A9\u624B](${RAW_BASE}/agents.png)`,
+    "",
+    "- **\u7ACB\u5373\u8BD5\u8BD5**\uFF1A\u6253\u5F00\u300C\u8BBE\u7F6E \u2192 \u59D4\u6D3E \u2192 \u81EA\u5B9A\u4E49 ACP Agent\u300D\uFF0C\u70B9 `+ \u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent`\u3002",
+    "",
+    "### \u4E00\u952E\u7ED9\u5386\u53F2 AI \u64CD\u4F5C\u505A\u4E00\u6B21\u300C\u5B89\u5168\u4F53\u68C0\u300D",
+    "\u56DE\u987E\u6700\u8FD1 7 \u5929\u6216 30 \u5929\u91CC AI \u6267\u884C\u8FC7\u7684\u547D\u4EE4\u548C\u6587\u4EF6\u6539\u52A8\uFF0C\u81EA\u52A8\u6807\u51FA\u9AD8\u98CE\u9669\u5220\u9664\u3001\u654F\u611F\u76EE\u5F55\u8BBF\u95EE\u6216\u610F\u5916\u51FA\u73B0\u7684\u5BC6\u94A5\uFF0C\u6309\u300C\u9AD8\u5371 / \u4E2D\u5371 / \u4F4E\u5371\u300D\u5206\u7EC4\u5E76\u81EA\u52A8\u8131\u654F\u3002\u786E\u8BA4\u5B89\u5168\u7684\u76EE\u5F55\u987A\u624B\u52A0\u8FDB\u767D\u540D\u5355\uFF0C\u4EE5\u540E\u5C31\u4E0D\u4F1A\u53CD\u590D\u63D0\u9192\u3002",
+    "",
+    `![\u534F\u4F5C\u56DE\u987E Dashboard\uFF1A\u4E00\u773C\u770B\u6E05\u6295\u5165\u5206\u5E03\u4E0E\u5B89\u5168\u6982\u51B5](${IMG_BASE}/dashboard.png)`,
+    "",
+    "- **\u7ACB\u5373\u8BD5\u8BD5**\uFF1A\u547D\u4EE4\u9762\u677F\u8FD0\u884C `\u5B89\u5168\uFF1A\u5FEB\u901F\u56DE\u653E\u6700\u8FD1 7 \u5929\u4F1A\u8BDD\u5E76\u751F\u6210\u5BA1\u8BA1\u62A5\u544A`\uFF0C\u6216\u5728\u534F\u4F5C\u56DE\u987E Dashboard \u70B9\u51FB\u300C7 \u5929\u5FEB\u901F\u56DE\u653E\u300D\u3002",
+    "",
+    "### \u652F\u6301\u66F4\u591A AI \u52A9\u624B\uFF0C\u540C\u4E00\u4EF6\u4E8B\u7684\u6295\u5165\u81EA\u52A8\u5408\u7B97",
+    "\u65B0\u52A0\u5165 **T3 Code**\u3001**MiniMax Code** \u4E0E **Muse**\u3002\u5982\u679C\u540C\u4E00\u6761\u4EFB\u52A1\u5148\u540E\u627E\u4E86\u597D\u51E0\u4E2A AI \u5E2E\u5FD9\uFF0C\u884C\u5C3E\u4F1A\u81EA\u52A8\u628A\u603B\u8017\u65F6\u3001\u603B\u7528\u91CF\u548C\u5BF9\u8BDD\u6B21\u6570\u5408\u5728\u4E00\u8D77\u663E\u793A\uFF0C\u9F20\u6807\u79FB\u4E0A\u53BB\u5C31\u80FD\u770B\u6BCF\u4E2A AI \u5206\u522B\u5E72\u4E86\u591A\u5C11\u3002",
+    "",
+    `![\u9879\u76EE\u5DE5\u4F5C\u53F0\uFF1A\u6309\u9879\u76EE\u6574\u7406\u591A AI \u534F\u4F5C](${RAW_BASE}/project-workbench.png)`,
+    "",
+    "- **\u7ACB\u5373\u8BD5\u8BD5**\uFF1A\u628A\u591A\u5F20\u4F1A\u8BDD\u5361\u7247\u62D6\u5230\u540C\u4E00\u6761\u4EFB\u52A1\u884C\u4E0A\uFF0C\u6216\u5728\u300C\u8BBE\u7F6E \u2192 \u8BB0\u5F55\u300D\u5F00\u542F\u521A\u88C5\u597D\u7684 AI \u5DE5\u5177\u3002",
+    "",
+    "### \u6709\u65B0\u7248\u81EA\u52A8\u95EE\u4F60\uFF0CmacOS \u83DC\u5355\u680F\u9762\u677F\u652F\u6301\u7F6E\u9876 Pin",
+    "\u63D2\u4EF6\u53D1\u5E03\u65B0\u7248\u65F6\u4F1A\u8F7B\u8F7B\u95EE\u4F60\u8981\u4E0D\u8981\u66F4\u65B0\uFF0C\u70B9\u4E00\u4E0B\u5C31\u80FD\u76F4\u8FBE\u66F4\u65B0\u9875\u9762\uFF0C\u4E5F\u53EF\u4EE5\u8DF3\u8FC7\u8FD9\u4E00\u7248\uFF1B\u5728 macOS \u4E0A\uFF0C\u70B9\u9876\u90E8\u83DC\u5355\u680F\u9762\u677F\u53F3\u4E0A\u89D2\u7684 **\u56FE\u9489\uFF08Pin\uFF09** \u5C31\u80FD\u628A\u5B83\u56FA\u5B9A\u60AC\u6D6E\u5728\u5C4F\u5E55\u4E0A\uFF0C\u5207\u53BB\u522B\u7684\u8F6F\u4EF6\u4E5F\u80FD\u968F\u65F6\u76EF\u7740 AI \u8FDB\u5EA6\u3002",
+    "",
+    `![macOS \u83DC\u5355\u680F\u9762\u677F\uFF1A\u652F\u6301\u53F3\u4E0A\u89D2\u4E00\u952E\u7F6E\u9876 Pin](${RAW_BASE}/menubar.png?v=1.13.14)`,
+    "",
+    "- **\u7ACB\u5373\u8BD5\u8BD5**\uFF1A\u6253\u5F00\u300C\u8BBE\u7F6E \u2192 \u5173\u4E8E \u2192 \u7248\u672C\u4E0E\u652F\u6301\u300D\uFF0C\u968F\u65F6\u53EF\u70B9 `\u68C0\u67E5\u66F4\u65B0`\u3002",
+    "",
+    "---",
+    "",
+    "> [!tip] \u4E0B\u9762\u662F\u4E92\u52A8\u7EC3\u4E60\u533A\uFF08\u4E0D\u4F1A\u5F71\u54CD\u771F\u5B9E\u8BB0\u5F55\u4E0E\u7EDF\u8BA1\uFF09",
+    `> \u4EE5\u4E0B\u5185\u5BB9\u5168\u662F\u672C\u5730\u793A\u4F8B\uFF0C\u4F60\u53EF\u4EE5\u653E\u5FC3\u62D6\u62FD\u770B\u677F\u5361\u7247\u3001\u5207\u6362\u89C6\u56FE\u6216\u4F53\u9A8C\u4E0B\u94BB\uFF0C**\u4E0D\u4F1A\u52A8\u5230\u771F\u5B9E AI \u4F1A\u8BDD\u548C\u65E5\u8BB0**\u3002\u968F\u65F6\u53EF\u5728\u547D\u4EE4\u9762\u677F\u641C\u7D22 \`\u6253\u5F00 ${SHOWCASE_VERSION} \u65B0\u529F\u80FD\u793A\u4F8B\u7B14\u8BB0\` \u91CD\u5F00\u672C\u9875\u3002`,
+    "",
+    "## 2. \u52A8\u624B\u8BD5\u8BD5\uFF1A\u539F\u5730\u770B\u677F\uFF08\u62D6\u62FD\u3001\u5206\u7EC4\u4E0E\u4E0B\u94BB\uFF09",
+    "",
+    `![\u540C\u4E00\u4EFD\u6E05\u5355\uFF0C\u968F\u65F6\u5207\u8FDB\u770B\u677F\u6A21\u5F0F\u62D6\u62FD\u6574\u7406](${IMG_BASE}/fractal-board-views.png)`,
+    "",
+    `- TODO \u65B0\u7248\u672C\u53D1\u5E03\u6E05\u5355\uFF08\u8BD5\u8BD5\u70B9\u53F3\u4E0A\u89D2\u300C\u6309\u72B6\u6001\u5206\u5217 / \u5C0F\u961F / \u5207\u56DE\u5927\u7EB2\u300D\uFF09 ^${SHOWCASE_BOARD_KEY}`,
+    "  - DOING \u7B2C\u4E00\u9636\u6BB5\uFF1A\u6574\u7406\u9700\u6C42\u4E0E\u521D\u7A3F ^ad-demo-p1",
+    "    - DONE \u6574\u7406\u8FD1\u671F\u7528\u6237\u53CD\u9988\u4E0E\u9AD8\u9891\u5EFA\u8BAE @codex",
+    "      - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u5DF2\u5F52\u7EB3\u51FA\u6700\u53D7\u671F\u5F85\u7684 5 \u4E2A\u65B9\u5411\uFF0C\u6309\u4F18\u5148\u7EA7\u6392\u597D\u3002",
+    "    - DOING \u64B0\u5199\u66F4\u65B0\u4EAE\u70B9\u4ECB\u7ECD\u4E0E\u914D\u56FE\u8BF4\u660E @claude",
+    "      - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u521D\u7A3F\u5DF2\u5B8C\u6210\uFF0C\u91CD\u70B9\u7A81\u51FA\u4E86\u524D\u540E\u5BF9\u6BD4\u548C\u4E0A\u624B\u6B65\u9AA4\u3002",
+    "    - DELEGATED \u6838\u5BF9\u76F8\u5173\u8BF4\u660E\u7B14\u8BB0\u7684\u8BF4\u6CD5\u662F\u5426\u4E00\u81F4 @opencode",
+    "      - \u{1F4CB} \u6B63\u5728\u6BD4\u5BF9\u591A\u7BC7\u7B14\u8BB0\u91CC\u7684\u540D\u79F0\u4E0E\u8BED\u6C14\u3002",
+    "  - TODO \u7B2C\u4E8C\u9636\u6BB5\uFF1A\u6DA6\u8272\u4E0E\u53D1\u5E03 ^ad-demo-p2",
+    "    - NEEDOK? \u786E\u8BA4\u8FD9\u5468\u4E8C\u65E9\u4E0A\u662F\u5426\u540C\u6B65\u53D1\u51FA\u66F4\u65B0\u901A\u77E5 @claude",
+    "      - \u2753 \u66F4\u65B0\u901A\u77E5\u5B9A\u5728\u5468\u4E8C\u65E9\u4E0A 9 \u70B9\u53D1\u51FA\uFF0C\u8FD8\u662F\u6539\u5230\u5468\u56DB\u6BD4\u8F83\u597D\uFF1F",
+    "    - TOREVIEW \u7EC8\u7A3F\u6821\u5BF9\u591A\u8BED\u4ECB\u7ECD\u9875 @codex",
+    "      - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u9519\u522B\u5B57\u548C\u94FE\u63A5\u90FD\u68C0\u67E5\u8FC7\u4E86\uFF0C\u7B49\u4F60\u6700\u540E\u786E\u8BA4\u3002",
+    "  - TODO \u51C6\u5907\u793E\u4EA4\u52A8\u6001\u7528\u7684\u6F14\u793A\u622A\u56FE @qoder",
     `  - ![[${noteLink}#^${SHOWCASE_MIRROR_SOURCE_KEY}]]`,
     "",
-    "## 2. AI \u81EA\u52A8\u8BB0\u5F55 \xB7 \u56DB\u79CD\u89C6\u56FE\u5BF9\u7167\uFF08\u8868\u683C \xB7 \u5361\u7247 \xB7 \u65F6\u95F4\u7EBF \xB7 \u5927\u7EB2\uFF09",
+    "## 3. \u52A8\u624B\u8BD5\u8BD5\uFF1A\u540C\u4E00\u6761 AI \u8BB0\u5F55\u7684\u56DB\u79CD\u89C6\u56FE",
     "",
-    "\u70B9\u51FB\u6BCF\u6761\u4EFB\u52A1\u53F3\u4FA7\u7684 **\u8BB0\u5F55 / \u89C6\u56FE\u5207\u6362\u6309\u94AE**\uFF08`\u5927\u7EB2 \xB7 \u8868\u683C \xB7 \u5361\u7247 \xB7 \u65F6\u95F4\u7EBF`\uFF09\uFF0C\u53EF\u4EE5\u76F4\u63A5\u5BF9\u6BD4\u540C\u4E00\u4EFD AI \u8BB0\u5F55\u5728\u4E0D\u540C\u89C6\u56FE\u4E0B\u7684\u6392\u7248\u6548\u679C\uFF1A",
+    `![\u5927\u7EB2\u3001\u8868\u683C\u3001\u5361\u7247\u3001\u65F6\u95F4\u7EBF\u56DB\u79CD\u89C6\u56FE\u4E00\u952E\u5207\u6362](${IMG_BASE}/ai-record-views.webp)`,
     "",
-    `- DOING \u{1F916} \u6A21\u62DF\u81EA\u52A8\u8BB0\u5F55 \xB7 \u8868\u683C\u89C6\u56FE\uFF08Table\uFF09 ^${SHOWCASE_RECORD_KEYS.table}`,
-    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u68C0\u67E5\u6838\u5FC3\u6A21\u5757\u4F9D\u8D56\u8FB9\u754C\uFF0C\u786E\u8BA4 `src/` \u4E0B\u65E0\u5FAA\u73AF\u5F15\u7528\u3002",
-    "  - \u{1F4CB} \u5DF2\u626B\u63CF `src/outline.js`\u3001`src/harness.js` \u4E0E `src/project-workbench.js` \u7684\u5BFC\u51FA\u4F9D\u8D56\u3002",
-    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u5BA1\u8BA1\u6A21\u5757\u804C\u8D23\u4E0E\u4F9D\u8D56\u65B9\u5411\uFF1B\u7ED3\u8BBA\uFF1A\u5171\u4EAB\u5927\u7EB2\u89E3\u6790\u539F\u8BED\u5DF2\u7EDF\u4E00\u62BD\u53D6\uFF0C\u96F6\u5FAA\u73AF\u4F9D\u8D56\u3002",
-    "  - \u2753 \u7B2C2\u8F6E\uFF1A\u53D1\u7248\u524D\u6838\u5BF9\u5168\u90E8\u5355\u5143\u6D4B\u8BD5\u4E0E\u53CC\u8BED\u7FFB\u8BD1\u952E\u8986\u76D6\u7387\u3002",
-    "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u8FD0\u884C\u5B8C\u6574\u6D4B\u8BD5\u4E0E\u6784\u5EFA\u94FE\u8DEF\uFF1B\u7ED3\u8BBA\uFF1A\u5355\u5143\u6D4B\u8BD5\u3001\u67B6\u6784\u6821\u9A8C\u4E0E i18n \u952E\u68C0\u67E5\u5168\u90E8\u901A\u8FC7\u3002",
-    "  - \u23F1 \u6A21\u62DF\u8017\u65F6 12 \u5206\u949F\uFF08\u793A\u4F8B\u5360\u4F4D\uFF0C\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
+    "\u70B9\u6BCF\u6761\u8BB0\u5F55\u53F3\u4FA7\u7684\u89C6\u56FE\u6309\u94AE\uFF08`\u5927\u7EB2 \xB7 \u8868\u683C \xB7 \u5361\u7247 \xB7 \u65F6\u95F4\u7EBF`\uFF09\uFF0C\u76F4\u63A5\u611F\u53D7\u4E0D\u540C\u9605\u8BFB\u4F53\u9A8C\uFF1A",
     "",
-    `- DONE \u{1F916} \u6A21\u62DF\u81EA\u52A8\u8BB0\u5F55 \xB7 \u5361\u7247\u89C6\u56FE\uFF08Cards\uFF09 ^${SHOWCASE_RECORD_KEYS.cards}`,
-    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u5728\u4FA7\u8FB9\u680F\u9879\u76EE\u5934\u589E\u52A0\u6253\u5F00\u76EE\u5F55\u3001\u56E2\u961F\u5DE5\u4F5C\u53F0\u4E0E\u6279\u91CF\u505C\u6B62\u5165\u53E3\u3002",
-    "  - \u{1F4CB} \u590D\u7528\u4E86\u5DE5\u4F5C\u6D41\u5C42\u7684\u6D3B\u8DC3\u8FDB\u7A0B\u7D22\u5F15\u4E0E\u9879\u76EE\u540D\u5F52\u4E00\u5316\u903B\u8F91\u3002",
-    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u5B8C\u6210\u9879\u76EE\u7EA7\u60AC\u505C\u5FEB\u6377\u64CD\u4F5C\u680F\uFF1B\u7ED3\u8BBA\uFF1A\u652F\u6301\u5355\u9879\u76EE\u4E00\u952E\u6279\u91CF\u505C\u6B62\u4E0E\u76F4\u63A5\u6253\u5F00\u9879\u76EE\u5DE5\u4F5C\u53F0\u3002",
-    "  - \u2753 \u7B2C2\u8F6E\uFF1A\u8865\u5145\u6392\u961F\u4E0E\u9650\u6D41\u72B6\u6001\u5728\u4FA7\u8FB9\u680F\u548C\u5DE5\u4F5C\u533A\u5361\u7247\u4E2D\u7684\u63D0\u793A\u6587\u6848\u3002",
-    "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u9002\u914D hitlimit \u4E0E queued \u72B6\u6001\u5C55\u793A\uFF1B\u7ED3\u8BBA\uFF1A\u53EF\u5C55\u793A\u6392\u961F\u5E8F\u53F7\u3001\u9884\u8BA1\u51B7\u5374\u5269\u4F59\u4E0E\u5177\u4F53\u539F\u56E0\u3002",
-    "  - \u23F1 \u6A21\u62DF\u8017\u65F6 9 \u5206\u949F\uFF08\u793A\u4F8B\u5360\u4F4D\uFF0C\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
+    `- DOING \u{1F916} \u7EC3\u4E60\u8BB0\u5F55 \xB7 \u8868\u683C\u89C6\u56FE ^${SHOWCASE_RECORD_KEYS.table}`,
+    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u5E2E\u6211\u603B\u7ED3\u8FD9\u5468\u7684\u9879\u76EE\u8FDB\u5EA6\uFF0C\u6807\u51FA\u5361\u4F4F\u7684\u5730\u65B9\u3002",
+    "  - \u{1F4CB} \u5DF2\u6D4F\u89C8\u672C\u5468\u65E5\u8BB0\u548C\u8FDB\u884C\u4E2D\u7684\u4EFB\u52A1\u6E05\u5355\u3002",
+    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u672C\u5468\u5B8C\u6210 4 \u9879\u91CD\u70B9\u8FDB\u5EA6\uFF0C\u53E6\u6709 1 \u9879\u8BBE\u8BA1\u7A3F\u5F85\u786E\u8BA4\u3002",
+    "  - \u2753 \u7B2C2\u8F6E\uFF1A\u6D53\u7F29\u6210\u5468\u4E00\u6668\u4F1A\u53EF\u4EE5\u76F4\u63A5\u5FF5\u7684 3 \u6761\u91CD\u70B9\u3002",
+    "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u5DF2\u6574\u7406\u597D 3 \u6761\u7CBE\u7B80\u7248\u6668\u4F1A\u6C47\u62A5\u3002",
+    "  - \u23F1 \u7EC3\u4E60\u5360\u4F4D 12 \u5206\u949F\uFF08\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
     "",
-    `- DOING \u{1F916} \u6A21\u62DF\u81EA\u52A8\u8BB0\u5F55 \xB7 \u65F6\u95F4\u7EBF\u89C6\u56FE\uFF08Timeline\uFF09 ^${SHOWCASE_RECORD_KEYS.timeline}`,
-    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u8BBE\u8BA1 WorkFlowy \u98CE\u683C\u7684\u8DE8\u7B14\u8BB0\u955C\u50CF\u5361\u7247\u6E32\u67D3\u4E0E\u6E90\u884C\u540C\u6B65\u3002",
-    "  - \u{1F4CB} \u5F15\u5165\u5171\u4EAB `parseMirrorRef`\uFF0C\u786E\u4FDD\u7EDF\u8BA1\u5206\u6790\u4E0E\u6BCF\u65E5\u5F52\u6863\u4E0D\u4F1A\u91CD\u590D\u8BA1\u5165\u955C\u50CF\u4EFB\u52A1\u3002",
-    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u652F\u6301\u770B\u677F\u4E2D\u6E32\u67D3 `![[note#^blockId]]` \u955C\u50CF\u5361\uFF1B\u7ED3\u8BBA\uFF1A\u5C55\u793A\u6E90\u72B6\u6001\u3001Agent \u6807\u7B7E\u4E0E\u4E00\u952E\u8DF3\u8F6C\u56FE\u6807\u3002",
-    "  - \u2753 \u7B2C2\u8F6E\uFF1A\u4E3A\u6DF1\u5C42\u5927\u7EB2\u6811\u8865\u5168 Zoom \u4E0B\u94BB\u4E0E\u9762\u5305\u5C51\u5BFC\u822A\u3002",
-    "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u652F\u6301\u4EFB\u610F\u6DF1\u5EA6\u5B50\u7EC4\u4E0B\u94BB\u770B\u677F\uFF1B\u7ED3\u8BBA\uFF1A\u9876\u90E8\u9762\u5305\u5C51\u53EF\u4E00\u952E\u8FD4\u56DE\u4E0A\u5C42\u6216\u6839\u8282\u70B9\u3002",
-    "  - \u23F1 \u6A21\u62DF\u8017\u65F6 15 \u5206\u949F\uFF08\u793A\u4F8B\u5360\u4F4D\uFF0C\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
+    `- DONE \u{1F916} \u7EC3\u4E60\u8BB0\u5F55 \xB7 \u5361\u7247\u89C6\u56FE ^${SHOWCASE_RECORD_KEYS.cards}`,
+    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u5E2E\u6211\u6BD4\u8F83\u4F1A\u573A\u9644\u8FD1\u4E09\u5BB6\u9152\u5E97\u7684\u4F18\u7F3A\u70B9\u3002",
+    "  - \u{1F4CB} \u5DF2\u5BF9\u6BD4\u6B65\u884C\u8DDD\u79BB\u3001\u5B89\u9759\u7A0B\u5EA6\u4E0E\u53D6\u6D88\u653F\u7B56\u3002",
+    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u5DF2\u6392\u51FA\u63A8\u8350\u987A\u5E8F\uFF0C\u5E76\u9644\u4E0A\u5927\u81F4\u9884\u7B97\u4E0E\u6CE8\u610F\u4E8B\u9879\u3002",
+    "  - \u2753 \u7B2C2\u8F6E\uFF1A\u5217\u4E00\u4EFD\u51FA\u53D1\u524D\u7684\u7B80\u77ED\u786E\u8BA4\u6E05\u5355\u3002",
+    "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u5DF2\u8865\u4E0A\u53D1\u7968\u3001\u5165\u4F4F\u65F6\u95F4\u4E0E\u4EA4\u901A\u8DEF\u7EBF\u63D0\u9192\u3002",
+    "  - \u23F1 \u7EC3\u4E60\u5360\u4F4D 9 \u5206\u949F\uFF08\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
     "",
-    `- DONE \u{1F916} \u6A21\u62DF\u81EA\u52A8\u8BB0\u5F55 \xB7 \u5927\u7EB2\u89C6\u56FE\uFF08Outline\uFF09 ^${SHOWCASE_RECORD_KEYS.outline}`,
-    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u786E\u8BA4\u5F00\u542F\u770B\u677F\u4E0E\u8868\u683C\u88C5\u9970\u540E\uFF0C\u7EAF\u6587\u672C\u5927\u7EB2\u4F9D\u7136\u4FDD\u6301 100% \u539F\u751F\u53EF\u8BFB\u3002",
-    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u9A8C\u8BC1\u65E0\u635F Markdown \u683C\u5F0F\uFF1B\u7ED3\u8BBA\uFF1A\u5173\u6389\u63D2\u4EF6\u6216\u5728\u4EFB\u610F\u7F16\u8F91\u5668\u4E2D\u67E5\u770B\uFF0C\u5C42\u7EA7\u7F29\u8FDB\u3001\u4EFB\u52A1\u72B6\u6001\u4E0E\u8BB0\u5F55\u7B26\u53F7\u5B8C\u6574\u4FDD\u7559\u3002",
-    "  - \u23F1 \u6A21\u62DF\u8017\u65F6 6 \u5206\u949F\uFF08\u793A\u4F8B\u5360\u4F4D\uFF0C\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
+    `- DOING \u{1F916} \u7EC3\u4E60\u8BB0\u5F55 \xB7 \u65F6\u95F4\u7EBF\u89C6\u56FE ^${SHOWCASE_RECORD_KEYS.timeline}`,
+    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u5E2E\u6211\u8D77\u8349\u4E00\u4EFD 10 \u5206\u949F\u7684 AI \u7B14\u8BB0\u5DE5\u4F5C\u6D41\u5206\u4EAB\u5927\u7EB2\u3002",
+    "  - \u{1F4CB} \u6309\u300C\u5F00\u573A\u75DB\u70B9 \u2192 \u73B0\u573A\u6F14\u793A \u2192 3 \u4E2A\u53EF\u5E26\u8D70\u7684\u65B9\u6CD5\u300D\u62C6\u89E3\u3002",
+    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u6BCF\u9875\u91CD\u70B9\u4E0E\u8282\u594F\u65F6\u95F4\u5DF2\u6392\u597D\u3002",
+    "  - \u2753 \u7B2C2\u8F6E\uFF1A\u538B\u7F29\u524D\u534A\u6BB5\uFF0C\u628A\u73B0\u573A\u6F14\u793A\u62C9\u957F\u5230 4 \u5206\u949F\u3002",
+    "  - \u{1F4AC} \u7B2C2\u8F6E\uFF1A\u5F00\u573A\u5DF2\u7F29\u81F3 90 \u79D2\uFF0C\u6F14\u793A\u6B65\u9AA4\u66F4\u5145\u88D5\u3002",
+    "  - \u23F1 \u7EC3\u4E60\u5360\u4F4D 15 \u5206\u949F\uFF08\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
     "",
-    "## 3. \u955C\u50CF\u6E90\u4EFB\u52A1\uFF08\u88AB\u4E0A\u65B9\u770B\u677F\u76F4\u63A5\u5F15\u7528\uFF09",
+    `- DONE \u{1F916} \u7EC3\u4E60\u8BB0\u5F55 \xB7 \u5927\u7EB2\u89C6\u56FE ^${SHOWCASE_RECORD_KEYS.outline}`,
+    "  - \u2753 \u7B2C1\u8F6E\uFF1A\u5173\u6389\u6240\u6709\u63D2\u4EF6\u540E\uFF0C\u8FD9\u4E9B\u7B14\u8BB0\u8FD8\u80FD\u6B63\u5E38\u8BFB\u5417\uFF1F",
+    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u5168\u90E8\u90FD\u662F\u7EAF\u51C0\u7684 Markdown \u539F\u6587\uFF0C\u6362\u4EFB\u4F55\u7F16\u8F91\u5668\u770B\u90FD\u6E05\u6E05\u695A\u695A\u3002",
+    "  - \u23F1 \u7EC3\u4E60\u5360\u4F4D 6 \u5206\u949F\uFF08\u4E0D\u8BA1\u5165\u771F\u5B9E\u7EDF\u8BA1\uFF09",
     "",
-    `- DOING \u5BF9\u9F50\u6D45\u8272 / \u6DF1\u8272\u4E3B\u9898\u4E0E\u770B\u677F\u6837\u5F0F\u53D8\u91CF ^${SHOWCASE_MIRROR_SOURCE_KEY}`,
-    "  - \u8FD9\u662F\u4E0A\u65B9\u5206\u5F62\u770B\u677F\u91CC `\u955C\u50CF` \u5361\u7247\u6307\u5411\u7684\u6E90\u4EFB\u52A1\u3002\u8BD5\u7740\u628A\u8FD9\u91CC\u7684 `DOING` \u6539\u6210 `DONE`\uFF0C\u4E0A\u65B9\u770B\u677F\u91CC\u7684\u955C\u50CF\u5361\u7247\u4F1A\u540C\u6B65\u5207\u6362\u72B6\u6001\u3002",
+    "## 4. \u8DE8\u5904\u540C\u6B65\u7684\u955C\u50CF\u4EFB\u52A1\uFF08\u4E0E\u4E0A\u65B9\u770B\u677F\u8054\u52A8\uFF09",
     "",
-    "## 4. \u4E0A\u4E0B\u6587\u6CBB\u7406\u3001\u6280\u80FD\u53CC\u94FE\u3001\u8BB0\u5FC6\u5BFC\u5165\u4E0E Task.md \u7F16\u5199\uFF08\u6A21\u62DF\u793A\u4F8B\uFF09",
+    `- DOING \u8C03\u6574\u6DF1\u8272\u4E0E\u6D45\u8272\u6A21\u5F0F\u7684\u89C6\u89C9\u7EC6\u8282 ^${SHOWCASE_MIRROR_SOURCE_KEY}`,
+    "  - \u8FD9\u4E00\u6761\u88AB\u4E0A\u65B9\u770B\u677F\u76F4\u63A5\u5F15\u7528\u3002\u8BD5\u7740\u628A\u8FD9\u91CC\u7684 `DOING` \u6539\u6210 `DONE`\uFF0C\u4E0A\u65B9\u770B\u677F\u91CC\u7684\u5BF9\u5E94\u5361\u7247\u4F1A\u4E00\u8D77\u53D8\u72B6\u6001\u3002",
     "",
-    "- TODO \u7ED3\u5408 `[[\u53CC\u94FE\u4E0A\u4E0B\u6587\u534F\u8BAE]]`\u3001`[[\u6280\u80FD/media-to-obsidian-outline]]` \u4E0E `[[\u793A\u4F8B-task]]` \u63A8\u8FDB\u4EFB\u52A1\uFF08\u793A\u4F8B\u6761\u76EE\uFF0C\u52FF\u76F4\u63A5\u6D3E\u53D1\uFF09",
-    "  - **\u53CC\u94FE\u5305\u88F9 Markdown \u6587\u4EF6\uFF08\u59D4\u6D3E\u80CC\u666F\u677F\uFF09**\uFF1A\u5199\u4E0A `[[\u7B14\u8BB0]]` \u6216 `[[\u7B14\u8BB0#^\u5757\u53F7]]`\uFF0C\u6D3E\u53D1\u65F6\u81EA\u52A8\u5E26\u4E0A\u7EDD\u5BF9\u8DEF\u5F84\u4E0E\u524D 3 \u7BC7\u77ED\u6458\u5F55\uFF08\u8D85\u957F\u622A\u65AD\u9644 `## \u6807\u9898(L\u884C\u53F7)` \u76EE\u5F55\uFF0C\u7B2C 4 \u7BC7\u8D77\u6539\u5217\u8DEF\u5F84\u6307\u9488\uFF0C\u627E\u4E0D\u5230\u5757\u53F7/\u7AE0\u8282\u4F1A\u663E\u5F0F\u544A\u8B66\uFF09\u3002",
-    "  - **\u53CC\u94FE\u5305\u88F9 Skill \u6587\u4EF6**\uFF1A`\u6280\u80FD\uFF1A\u5237\u65B0\u6280\u80FD\u5361` \u5C06\u5916\u90E8 Skill \u6620\u5C04\u6210 `\u6280\u80FD/*.md`\uFF08\u771F\u5B9E `SKILL.md` \u8DEF\u5F84\u5728 frontmatter\uFF09\uFF1B\u4EFB\u52A1\u91CC\u5199 `[[\u6280\u80FD/xxx]]`\uFF08\u6216\u77ED\u94FE `[[xxx]]`\uFF09\u5373\u628A\u8DEF\u5F84\u4EA4\u7ED9 Agent\uFF0C\u6B63\u6587\u4E0D\u5360 prompt\u3002",
-    "  - **\u8BB0\u5FC6\u5E93\u7684\u5BFC\u5165**\uFF1A\u5728\u8BB0\u5FC6\u770B\u677F\u9876\u680F\u70B9 `\u5BFC\u5165\u2026`\uFF08\u6216\u76F4\u63A5\u628A `.md / .json / .zip` \u62D6\u8FDB\u770B\u677F\uFF09\uFF0C\u6216\u8DD1\u547D\u4EE4 `\u8BB0\u5FC6\uFF1A\u4ECE Markdown / JSON \u5BFC\u5165\u5230\u8BB0\u5FC6\u5E93\u2026`\uFF0C\u652F\u6301 0 Token \u76F4\u63A5\u62C6\u6761\u4E0E\u6A21\u578B\u63D0\u70BC\u4E24\u79CD\u6A21\u5F0F\u5199\u5165 `\u8BB0\u5FC6/*.md` \u4E0E `\u8BB0\u5FC6.base`\u3002",
-    "  - **\u52A8\u6001\u7EC4\u88C5\u4E0A\u4E0B\u6587\uFF08`ContextBundle`\u300C\u524D\u7A33\u540E\u52A8\u300D\uFF09**\uFF1A\u56FA\u5B9A\u524D\u7F00\u3001`memory-query.mjs` \u7528\u6CD5\u3001\u6280\u80FD\u4E0E\u5F15\u7528\u7B14\u8BB0\u8DEF\u5F84\u6392\u524D\u9762\uFF1B\u518D\u63A5\u53CC\u94FE\u6458\u5F55\u4E0E\u6309\u8BCD\u9762\u6311\u51FA\u7684 Dream \u8BB0\u5FC6\uFF1B\u6700\u540E\u653E\u7956\u5148\u4F4D\u7F6E + \u5F53\u524D\u4EFB\u52A1\u4E0E `\u2753/\u270D\uFE0F` \u95EE\u7B54\u56DE\u704C\uFF0C\u4FDD\u4F4F Prefix Cache\u3002",
-    "  - **\u76F4\u63A5\u7F16\u5199 Task \u7684 `.md`**\uFF1A\u7528 `\u89C4\u5212\uFF1A\u628A\u5F53\u524D\u8FD9\u4E00\u6761\u62C6\u6210 task.md` \u5728 `Agent Deck/\u4EFB\u52A1/` \u4E0B\u751F\u6210 `task.md`\uFF0C\u6216\u76F4\u63A5\u624B\u5199\u6807\u51C6 Markdown \u6E05\u5355\u518D\u8DD1 `\u770B\u677F\uFF1A\u628A\u5F53\u524D\u7B14\u8BB0\u8BBE\u4E3A\u770B\u677F\u6587\u4EF6`\uFF0C\u6253\u5F00\u5C31\u662F\u53EF\u62D6\u62FD\u770B\u677F\u3002",
-    "  - **\u5148\u770B\u518D\u53D1\u4E0E\u7559\u6863**\uFF1A\u547D\u4EE4 `\u59D4\u6D3E\uFF1A\u5148\u751F\u6210\u8349\u7A3F`\uFF08`\u{1F4DD}`\uFF09\u4F1A\u5148\u628A\u7EC4\u88C5\u597D\u7684 Markdown \u6302\u56DE\u4EFB\u52A1\u884C\uFF1B\u6B63\u5F0F\u6D3E\u53D1\u5219\u5728 `Agent Deck/\u6D3E\u53D1/` \u5B58\u4E0B\u5FEB\u7167\uFF08`\u{1F4C4}`\uFF09\u3002",
-    "  - \u2753 \u7B2C1\u8F6E\uFF08\u793A\u4F8B\uFF09\uFF1A\u95EE\u7B54\u56DE\u704C\u653E prompt \u9876\u90E8\u8FD8\u662F\u653E\u672B\u5C3E\uFF1F",
-    "  - \u270D\uFE0F \u7B54\uFF1A\u653E\u672B\u5C3E\uFF0C\u4FDD\u4F4F\u524D\u9762\u7684\u7A33\u5B9A\u524D\u7F00\u7F13\u5B58\u3002",
-    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u4EFB\u52A1\uFF1A\u7EDF\u4E00 ContextBundle \u88C5\u914D\u987A\u5E8F\uFF1B\u7ED3\u8BBA\uFF1A\u5DF2\u6309\u300C\u524D\u7A33\u540E\u52A8\u300D\u91CD\u6392\u5E76\u8BB0\u5F55 `job.contextStats`\u3002",
+    "## 5. \u7B14\u8BB0\u5F53\u80CC\u666F\u3001\u5E38\u7528\u6280\u80FD\u4E0E\u4E2A\u4EBA\u8BB0\u5FC6\u5E93",
+    "",
+    `![\u50CF\u8868\u683C\u4E00\u6837\u6D4F\u89C8\u548C\u4FEE\u6539\u4F60\u7684\u4E2A\u4EBA\u8BB0\u5FC6\u5E93](${IMG_BASE}/memory-base.png)`,
+    "",
+    "- TODO \u7ED3\u5408 `[[\u53CC\u94FE\u4E0A\u4E0B\u6587\u534F\u8BAE]]`\u3001`[[\u6280\u80FD/media-to-obsidian-outline]]` \u4E0E `[[\u793A\u4F8B-task]]` \u63A8\u8FDB\u4EFB\u52A1\uFF08\u7EC3\u4E60\u6761\u76EE\uFF0C\u4E0D\u5FC5\u771F\u7684\u53D1\u9001\uFF09",
+    "  - **\u7528\u53CC\u94FE\u628A\u7B14\u8BB0\u4EA4\u7ED9 AI**\uFF1A\u5728\u4EFB\u52A1\u91CC\u8FDE\u4E0A\u76F8\u5173\u7B14\u8BB0\uFF0C\u6D3E\u6D3B\u65F6\u4F1A\u81EA\u52A8\u5E26\u4E0A\u80CC\u666F\u8D44\u6599\uFF0C\u4E0D\u7528\u6765\u56DE\u590D\u5236\u7C98\u8D34\u3002",
+    "  - **\u628A\u5E38\u7528\u6D41\u7A0B\u5B58\u6210\u6280\u80FD\u5361**\uFF1A\u5199\u4F5C\u89C4\u8303\u3001\u5206\u6790\u5957\u8DEF\u90FD\u80FD\u505A\u6210\u7B14\u8BB0\uFF0C\u9700\u8981\u65F6\u8FDE\u4E0A\u5B83\u5C31\u80FD\u76F4\u63A5\u590D\u7528\u3002",
+    "  - **\u770B\u5F97\u89C1\u3001\u6539\u5F97\u52A8\u7684\u4E2A\u4EBA\u8BB0\u5FC6\u5E93**\uFF1A\u81EA\u52A8\u6C89\u6DC0\u4F60\u7684\u957F\u671F\u504F\u597D\u4E0E\u7ECF\u9A8C\uFF0C\u6BCF\u6761\u90FD\u662F\u666E\u901A\u7B14\u8BB0\uFF0C\u4E0D\u5BF9\u5C31\u5220\u3001\u60F3\u6539\u5C31\u6539\u3002",
+    "  - **\u5148\u770B\u8349\u7A3F\u518D\u53D1\u9001\uFF0C\u5728\u7B14\u8BB0\u91CC\u76F4\u63A5\u7EED\u804A**\uFF1A\u91CD\u8981\u4EFB\u52A1\u53EF\u4EE5\u5148\u751F\u6210\u8349\u7A3F\u68C0\u67E5\u518D\u53D1\uFF1BAI \u6709\u7591\u95EE\u65F6\uFF0C\u76F4\u63A5\u5728\u7B14\u8BB0\u91CC\u5199\u4E0B\u56DE\u7B54\u5C31\u80FD\u63A5\u7740\u5F80\u4E0B\u505A\u3002",
+    "  - \u2753 \u7B2C1\u8F6E\uFF08\u793A\u8303\uFF09\uFF1A\u4ECB\u7ECD\u9875\u5E94\u8BE5\u5199\u5F97\u7B80\u77ED\u76F4\u89C2\uFF0C\u8FD8\u662F\u628A\u6240\u6709\u7EC6\u8282\u90FD\u5217\u51FA\u6765\uFF1F",
+    "  - \u270D\uFE0F \u7B54\uFF1A\u7B80\u77ED\u76F4\u89C2\u3001\u591A\u914D\u56FE\uFF0C\u628A\u590D\u6742\u7EC6\u8282\u85CF\u5728\u540E\u9762\u5C31\u597D\u3002",
+    "  - \u{1F4AC} \u7B2C1\u8F6E\uFF1A\u5DF2\u628A\u5F00\u5934\u6539\u6210\u901A\u4FD7\u76F4\u89C2\u7684\u8BF4\u6CD5\uFF0C\u5E76\u8865\u4E0A\u91CD\u70B9\u914D\u56FE\u3002",
     ""
   ].join("\n");
 }
@@ -39340,6 +40462,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   async onload() {
     const data = await this.loadData();
     this.settings = syncDelegationSettings(deepMerge(DEFAULTS, data || {}), data || {});
+    this.syncCustomAcpAgents();
     if (!this.settings.journalFolderAuto) {
       if (this.settings.journalFolder === "\u65E5\u8BB0") this.settings.journalFolder = "";
       this.settings.journalFolderAuto = true;
@@ -39515,7 +40638,12 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     }
     this.registerMarkdownPostProcessor((el, ctx) => {
       const child = new import_obsidian21.MarkdownRenderChild(el);
-      child.onunload = renderAIRecords(el, this, ctx);
+      const cleanupRecords = renderAIRecords(el, this, ctx);
+      const cleanupBoards = renderTaskBoards(el, this, ctx);
+      child.onunload = () => {
+        cleanupRecords?.();
+        cleanupBoards?.();
+      };
       ctx.addChild(child);
     });
     this.registerMarkdownPostProcessor(keywordPostProcessor(this));
@@ -39664,6 +40792,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.addCommand({ id: "draft-delegation", name: t("\u59D4\u6D3E\uFF1A\u5148\u751F\u6210\u8349\u7A3F\uFF08\u4E0D\u53D1\u9001\uFF0C\u770B\u5B8C\u518D\u70B9\u59D4\u6D3E\uFF09"), callback: () => this.makeDispatchDraft() });
     this.addCommand({ id: "skills-refresh", name: t("\u6280\u80FD\uFF1A\u5237\u65B0\u6280\u80FD\u5361\uFF08\u5916\u90E8 Skill \u2192 \u5E93\u5185\u7B14\u8BB0\uFF09"), callback: () => this.refreshSkillCards() });
     this.addCommand({ id: "import-nautilus", name: t("\u5BFC\u5165\u87BA\u65CB\u65E5\u7A0B\u7684\u5386\u53F2\u7528\u91CF"), callback: () => this.importNautilus(true) });
+    this.addCommand({ id: "check-update", name: t("\u68C0\u67E5 Agent Deck \u66F4\u65B0"), callback: () => this.checkForUpdates({ manual: true }) });
     this.addCommand({ id: "clean-jobs", name: t("\u6E05\u7406\u5DF2\u7ED3\u675F\u7684\u59D4\u6D3E\u8BB0\u5F55"), callback: () => this.cleanJobs() });
     this.addCommand({ id: "export-diagnostics", name: t("\u5BFC\u51FA\u8131\u654F\u8BCA\u65AD\u62A5\u544A\uFF08Trace / \u7248\u672C / \u7194\u65AD\u72B6\u6001\uFF09"), callback: () => this.exportDiagnostics() });
     this.addCommand({ id: "security-audit-replay", name: t("\u5B89\u5168\uFF1A\u56DE\u653E\u6700\u8FD1 30 \u5929\u4F1A\u8BDD\u7684\u5DE5\u5177\u8C03\u7528\u5E76\u751F\u6210\u5BA1\u8BA1\u62A5\u544A"), callback: () => this.runSecurityAuditReport() });
@@ -39726,6 +40855,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       }
       this.defer(() => this.recoverJobs(), 4e3);
       this.defer(() => this.maybeOpenWelcomeShowcase().catch((e) => console.error("[agent-deck] showcase", e)), 600);
+      this.defer(() => this.checkForUpdates({ manual: false }).catch(() => {
+      }), 12e3);
     });
   }
   // 记忆库：迁移 / 确认 / 拒绝。写回都走 Dreaming 的同一套落盘逻辑。
@@ -40205,8 +41336,9 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   }
   async maybeOpenWelcomeShowcase() {
     if (this._unloaded) return false;
-    if (this.settings?.welcomeShowcaseVersion === SHOWCASE_VERSION) return false;
-    return Boolean(await this.openWelcomeShowcase({ force: false }));
+    const currentVersion = this.manifest?.version || SHOWCASE_VERSION;
+    if (!shouldOpenShowcaseForVersion(currentVersion, this.settings?.welcomeShowcaseVersion)) return false;
+    return Boolean(await this.openWelcomeShowcase({ force: true }));
   }
   async openWelcomeShowcase({ force = false } = {}) {
     if (this._unloaded || !this.app?.vault?.getAbstractFileByPath || !this.app?.vault?.modify) return null;
@@ -40221,10 +41353,11 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       file = ensured.file;
       created = true;
     }
-    if (created || force) await this.app.vault.modify(file, content);
+    const currentVersion = this.manifest?.version || SHOWCASE_VERSION;
     const prevVersion = this.settings.welcomeShowcaseVersion;
-    this.settings.welcomeShowcaseVersion = SHOWCASE_VERSION;
-    if (presetChanged || prevVersion !== SHOWCASE_VERSION) await this.saveSettings?.();
+    if (created || force || prevVersion !== currentVersion) await this.app.vault.modify(file, content);
+    this.settings.welcomeShowcaseVersion = currentVersion;
+    if (presetChanged || prevVersion !== currentVersion) await this.saveSettings?.();
     this.refreshUI?.();
     dispatchRefresh(this);
     let opened = null;
@@ -40232,10 +41365,14 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       if (!opened && leaf?.view?.file?.path === targetPath) opened = leaf;
     });
     if (opened) {
+      if (opened.getViewState && opened.setViewState) {
+        const vs = opened.getViewState();
+        await opened.setViewState({ ...vs, state: { ...vs?.state || {}, mode: "source", source: false } });
+      }
       this.app.workspace.revealLeaf(opened);
     } else {
       const leaf = this.app.workspace?.getLeaf?.("tab") || this.app.workspace?.getLeaf?.(false);
-      if (leaf?.openFile) await leaf.openFile(file, { active: true });
+      if (leaf?.openFile) await leaf.openFile(file, { active: true, state: { mode: "source", source: false } });
     }
     return targetPath;
   }
@@ -43484,6 +44621,81 @@ ${body}` });
   openExternal(url) {
     return openExternal(url);
   }
+  async checkForUpdates({ manual = false } = {}) {
+    if (this._unloaded) return null;
+    if (!manual && !shouldAutoCheckUpdate(this.settings)) return null;
+    const fetchJson = async (url) => {
+      if (typeof obsidianNs2.requestUrl === "function") {
+        const res2 = await obsidianNs2.requestUrl({ url, headers: { Accept: "application/vnd.github+json", "User-Agent": "obsidian-agent-deck" } });
+        return res2.json ?? JSON.parse(res2.text || "{}");
+      }
+      const res = await fetch(url, { headers: { Accept: "application/vnd.github+json" } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    };
+    try {
+      const info = await checkLatestRelease({ currentVersion: this.manifest?.version || "0.0.0", fetchJson });
+      this.settings.updateCheckLastAt = Date.now();
+      this.saveSettings().catch(() => {
+      });
+      if (shouldPromptUpdate(info.latestVersion, info.currentVersion, this.settings, { manual })) {
+        this.promptUpdate(info);
+      } else if (manual) {
+        new import_obsidian21.Notice(t("Agent Deck \u5DF2\u662F\u6700\u65B0\u7248\u672C v{version}", { version: info.currentVersion || this.manifest?.version || "" }), 4e3);
+      }
+      return info;
+    } catch (e) {
+      if (manual) new import_obsidian21.Notice(t("\u68C0\u67E5\u66F4\u65B0\u5931\u8D25\uFF1A{error}", { error: String(e?.message || e) }), 6e3);
+      return null;
+    }
+  }
+  promptUpdate(info) {
+    if (typeof document === "undefined") return;
+    const frag = document.createDocumentFragment();
+    const wrap = document.createElement("div");
+    wrap.style.display = "flex";
+    wrap.style.flexDirection = "column";
+    wrap.style.gap = "8px";
+    const msg = document.createElement("div");
+    msg.textContent = t("Agent Deck \u53D1\u5E03\u65B0\u7248\u672C v{latest}\uFF08\u5F53\u524D v{current}\uFF09\uFF0C\u8981\u4E0D\u8981\u66F4\u65B0\uFF1F", {
+      latest: info.latestVersion,
+      current: info.currentVersion
+    });
+    wrap.appendChild(msg);
+    const bar = document.createElement("div");
+    bar.style.display = "flex";
+    bar.style.gap = "6px";
+    bar.style.flexWrap = "wrap";
+    let notice = null;
+    const mkBtn = (label, primary, onClick) => {
+      const btn = document.createElement("button");
+      btn.textContent = label;
+      btn.className = primary ? "mod-cta" : "";
+      btn.style.cursor = "pointer";
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+        notice?.hide?.();
+      };
+      bar.appendChild(btn);
+    };
+    mkBtn(t("\u53BB\u66F4\u65B0"), true, () => this.openExternal(info.url));
+    if (this.app?.setting?.open && this.app?.setting?.openTabById) {
+      mkBtn(t("\u793E\u533A\u63D2\u4EF6\u9875"), false, () => {
+        this.app.setting.open();
+        this.app.setting.openTabById("community-plugins");
+      });
+    }
+    mkBtn(t("\u8DF3\u8FC7\u6B64\u7248"), false, () => {
+      this.settings.updateSkippedVersion = info.latestVersion;
+      this.saveSettings().catch(() => {
+      });
+    });
+    wrap.appendChild(bar);
+    frag.appendChild(wrap);
+    notice = new import_obsidian21.Notice(frag, 2e4);
+  }
   async readNote(path19) {
     const view2 = this.sourceViewForPath(path19);
     if (view2) return view2.editor.getValue();
@@ -43502,10 +44714,31 @@ ${body}` });
     if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path19 }));
     await this.app.vault.process(file, () => text);
   }
+  syncCustomAcpAgents() {
+    var _a, _b, _c;
+    const list = syncCustomAcpRegistry(this.settings?.customAcpAgents || []) || [];
+    const agents = (_a = this.settings).agents || (_a.agents = {});
+    const delegate = (_b = this.settings).delegate || (_b.delegate = {});
+    for (const entry of list) {
+      agents[entry.id] = entry.enabled !== false;
+      const cfg = delegate[_c = entry.id] || (delegate[_c] = {});
+      cfg.path = entry.command;
+      cfg.autoApprove = Boolean(entry.autoApprove);
+      if (cfg.cwd === void 0) cfg.cwd = "";
+      if (cfg.extraArgs === void 0) cfg.extraArgs = "";
+    }
+    return list;
+  }
   async checkBinary(kind) {
-    const bin = findAgentBinary(kind, this.settings.delegate?.[kind]?.path || "");
+    const cap = getAgentCapability(kind);
+    let bin = findAgentBinary(kind, this.settings.delegate?.[kind]?.path || cap.acpCommand || "");
+    const hasPathSep = bin.includes("/") || bin.includes("\\");
+    if (bin && (!hasPathSep || !import_fs20.default.existsSync(bin))) {
+      bin = await resolveExecutableWithFallback(bin, import_path20.default.basename(bin));
+    }
+    const customEnv = cap.acpEnvRaw ? parseCustomAcpEnv(cap.acpEnvRaw) : {};
     return await new Promise((resolve) => {
-      (0, import_child_process11.execFile)(bin, ["--version"], { timeout: 1e4, env: process.env }, (err2, out, errOut) => {
+      (0, import_child_process11.execFile)(bin, ["--version"], { timeout: 1e4, env: cleanEnv(customEnv) }, (err2, out, errOut) => {
         if (err2) resolve(t("{kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A{error}", { kind, error: String(err2.message || err2) }) + "\n" + String(errOut || "").slice(0, 300));
         else resolve(`${kind}\uFF1A${String(out || "").trim()}`);
       });
@@ -43598,9 +44831,17 @@ ${body}` });
     const result = await runSecurityAudit(this, { days: effectiveDays, agent: effectiveAgent, ignoreTempNoise, allowlist });
     const md = renderSecurityAuditReport(result);
     const file = await this.writeVaultFile(outPath, md);
-    if (file && this.app?.workspace?.getLeaf) {
+    if (file && this.app?.workspace) {
       try {
-        await this.app.workspace.getLeaf(false).openFile(file);
+        let opened = null;
+        this.app.workspace.iterateAllLeaves?.((leaf) => {
+          if (!opened && leaf?.view?.file?.path === outPath) opened = leaf;
+        });
+        if (opened) this.app.workspace.revealLeaf?.(opened);
+        else {
+          const leaf = this.app.workspace.getLeaf?.("tab") || this.app.workspace.getLeaf?.(false);
+          if (leaf?.openFile) await leaf.openFile(file);
+        }
       } catch {
       }
     }

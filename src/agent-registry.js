@@ -230,6 +230,11 @@ export function registerAgentCapability(id, capability = {}) {
   return next;
 }
 
+export function unregisterAgentCapability(id) {
+  if (!id || typeof id !== "string") return false;
+  return CAPABILITIES.delete(id);
+}
+
 export function getAgentCapability(id) {
   const base = CAPABILITIES.get(id) || {};
   const meta = AGENTS[id] || {};

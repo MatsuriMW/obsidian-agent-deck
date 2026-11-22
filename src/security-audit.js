@@ -32,27 +32,143 @@ function toRawInput(val) {
   return { command: String(val) };
 }
 
+function shortDisplayPath(rawPath) {
+  const s = String(rawPath || "").replace(/\\/g, "/").trim().replace(/^["']+|["']+$/g, "");
+  if (!s) return "";
+  const parts = s.split("/").filter(Boolean);
+  return parts.length <= 3 ? s : parts.slice(-3).join("/");
+}
+
+function unescapePreview(text) {
+  return String(text || "")
+    .replace(/\\+[nrt]/g, " ")
+    .replace(/\\+"/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractToolCommand(raw) {
+  if (!raw || typeof raw !== "object") return "";
+  const v = raw.command || raw.CommandLine || raw.cmd || raw.script || "";
+  return typeof v === "string" ? v : "";
+}
+
+function extractToolPath(raw) {
+  if (!raw || typeof raw !== "object") return "";
+  const v = raw.path || raw.Path || raw.file_path || raw.filePath || raw.TargetFile || raw.AbsolutePath || raw.target || "";
+  return typeof v === "string" ? v : "";
+}
+
+function extractToolBody(raw) {
+  if (!raw || typeof raw !== "object") return "";
+  for (const key of ["Replacement", "Content", "CodeContent", "content", "new_string", "new_str", "Target", "old_string", "text", "body"]) {
+    if (typeof raw[key] === "string" && raw[key]) return raw[key];
+  }
+  return "";
+}
+
+function focusAroundMatch(text, focusRe = null, maxLen = 150) {
+  const clean = String(text || "").replace(/\s+/g, " ").trim();
+  if (clean.length <= maxLen) return clean;
+  if (focusRe) {
+    const m = focusRe.exec(clean);
+    if (m) {
+      const start = Math.max(0, m.index - 45);
+      const slice = clean.slice(start, start + maxLen);
+      return (start > 0 ? "…" : "") + slice + (start + maxLen < clean.length ? "…" : "");
+    }
+  }
+  return clean.slice(0, maxLen) + "…";
+}
+
 function summarizeToolInput(toolCall, focusRe = null) {
   const raw = toolCall?.rawInput;
   let text = "";
   if (typeof raw === "string") text = raw;
   else if (raw && typeof raw === "object") {
-    const pick = raw.command || raw.cmd || raw.script || raw.path || raw.file_path || raw.filePath || raw.target || raw.url;
+    const pick = extractToolCommand(raw) || extractToolPath(raw) || raw.url;
     if (pick) text = String(pick);
     else { try { text = JSON.stringify(raw); } catch { /* ignore */ } }
   }
   if (!text) text = String(toolCall?.title || "");
-  const clean = text.replace(/\s+/g, " ").trim();
-  if (clean.length <= 160) return clean;
+  return focusAroundMatch(text, focusRe, 160);
+}
+
+function unescapeMultiline(text) {
+  return String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\\+n/g, "\n")
+    .replace(/\\+r/g, "")
+    .replace(/\\+t/g, "  ")
+    .replace(/\\+"/g, '"')
+    .trim();
+}
+
+function extractContextBlock(text, focusRe = null, { maxLines = 6, maxChars = 600 } = {}) {
+  const normalized = unescapeMultiline(text);
+  if (!normalized) return "";
+  const lines = normalized.split("\n").map((l) => l.trimEnd());
+  if (lines.length <= maxLines && normalized.length <= maxChars) return lines.join("\n").trim();
+  let hitIdx = 0;
   if (focusRe) {
-    const m = focusRe.exec(clean);
-    if (m && m.index > 60) {
-      const start = Math.max(0, m.index - 40);
-      const slice = clean.slice(start, start + 160);
-      return (start > 0 ? "…" : "") + slice + (start + 160 < clean.length ? "…" : "");
+    const idx = lines.findIndex((l) => focusRe.test(l));
+    if (idx >= 0) hitIdx = idx;
+  }
+  const start = Math.max(0, hitIdx - 1);
+  const end = Math.min(lines.length, start + maxLines);
+  let block = lines.slice(start, end).join("\n");
+  if (block.length > maxChars) {
+    if (focusRe) {
+      const m = focusRe.exec(block);
+      if (m) {
+        const s = Math.max(0, m.index - 120);
+        block = (s > 0 ? "…" : "") + block.slice(s, s + maxChars) + (s + maxChars < block.length ? "…" : "");
+      } else {
+        block = block.slice(0, maxChars) + "…";
+      }
+    } else {
+      block = block.slice(0, maxChars) + "…";
     }
   }
-  return clean.slice(0, 160) + "…";
+  return (start > 0 ? "…\n" : "") + block + (end < lines.length ? "\n…" : "");
+}
+
+function buildFindingDetail(call, serialized, focusRe = null) {
+  const raw = call?.rawInput;
+  const targetPath = shortDisplayPath(extractToolPath(raw));
+  const cmd = extractToolCommand(raw);
+  if (cmd) {
+    return { targetPath, snippet: extractContextBlock(redactSecrets(cmd), focusRe) };
+  }
+  const body = extractToolBody(raw);
+  if (body) {
+    return { targetPath, snippet: extractContextBlock(redactSecrets(body), focusRe) };
+  }
+  if (targetPath && !focusRe) {
+    return { targetPath, snippet: targetPath };
+  }
+  return { targetPath, snippet: extractContextBlock(redactSecrets(serialized), focusRe) };
+}
+
+function summarizeSecretExposure(call, serialized) {
+  const raw = call?.rawInput;
+  const cmd = extractToolCommand(raw);
+  if (cmd) {
+    return focusAroundMatch(unescapePreview(redactSecrets(cmd)), /\[REDACTED\]/, 150);
+  }
+  const filePath = extractToolPath(raw);
+  const body = extractToolBody(raw);
+  if (filePath && body) {
+    const redactedBody = redactSecrets(body);
+    const hitLine = redactedBody.split(/\r?\n|\\n/).find((l) => l.includes("[REDACTED]")) || redactedBody;
+    const snippet = focusAroundMatch(unescapePreview(hitLine), /\[REDACTED\]/, 110);
+    return `${shortDisplayPath(filePath)} → ${snippet}`;
+  }
+  if (filePath) {
+    const snippet = focusAroundMatch(unescapePreview(redactSecrets(serialized)), /\[REDACTED\]/, 110);
+    return `${shortDisplayPath(filePath)} → ${snippet}`;
+  }
+  return focusAroundMatch(unescapePreview(redactSecrets(serialized)), /\[REDACTED\]/, 150);
 }
 
 const SHELL_SENSITIVE_PATH_RE = /(?:~\/|\/|\b)(?:\.ssh\/|\.aws\/|\.gnupg\/|\.kube\/|secrets\.json|\.credentials\.(?:json|ya?ml)|\.env(?:\.[a-z0-9_-]+)?(?:\b|$)|\/etc\/(?:passwd|shadow|sudoers))/i;
@@ -308,6 +424,40 @@ export function parseAuditAllowlist(markdown) {
 }
 
 /**
+ * Parse compact summary metrics from an existing `Agent Deck/安全审计.md` report
+ * for instant display in the AI Collaboration Review Dashboard.
+ */
+export function parseAuditSummary(markdown) {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---/.exec(String(markdown || ""));
+  if (!m) return null;
+  const fm = m[1];
+  const cfg = parseAuditConfig(markdown);
+  const numField = (key) => {
+    const r = new RegExp(`^\\s*${key}\\s*:\\s*(\\d+)`, "m").exec(fm);
+    return r ? Number(r[1]) : null;
+  };
+  const strField = (key) => {
+    const r = new RegExp(`^\\s*${key}\\s*:\\s*(.+)$`, "m").exec(fm);
+    return r ? r[1].trim().replace(/^['"]|['"]$/g, "") : "";
+  };
+  const scannedSessions = numField("scanned_sessions");
+  const totalToolCalls = numField("tool_calls");
+  const totalFindings = numField("findings");
+  if (scannedSessions === null && totalToolCalls === null && totalFindings === null) return null;
+  return {
+    generatedAt: strField("generated_at"),
+    days: cfg.days || 30,
+    agent: cfg.agent || "",
+    scannedSessions: scannedSessions || 0,
+    totalToolCalls: totalToolCalls || 0,
+    totalFindings: totalFindings || 0,
+    suppressedByAllowlist: numField("suppressed_allowlist") || 0,
+    suppressedNoise: numField("suppressed_noise") || 0,
+    allowlistCount: cfg.allowlist.length,
+  };
+}
+
+/**
  * Evaluate a list of normalized tool calls against src/security.js policy & secret patterns.
  * All returned snippets are redacted via redactSecrets().
  */
@@ -327,7 +477,9 @@ export function auditToolCalls(toolCalls, { cwd = "", vaultPath = "", agent = ""
       if (ignoreTempNoise && isTempOrBuildNoise(policy.risk, call)) {
         if (stats) stats.suppressedNoise = (stats.suppressedNoise || 0) + 1;
       } else {
-        const preview = redactSecrets(summarizeToolInput(call, RISK_FOCUS_RE[policy.risk] || null));
+        const focusRe = RISK_FOCUS_RE[policy.risk] || null;
+        const preview = redactSecrets(summarizeToolInput(call, focusRe));
+        const detail = buildFindingDetail(call, serialized, focusRe);
         findings.push({
           agent,
           sid,
@@ -338,6 +490,8 @@ export function auditToolCalls(toolCalls, { cwd = "", vaultPath = "", agent = ""
           severity: RISK_SEVERITY[policy.risk] || 2,
           reason: policy.reason,
           preview,
+          targetPath: detail.targetPath,
+          snippet: detail.snippet,
         });
       }
     } else if (!policy.escalated && policy.reason !== "allowlisted" && call.kind === "execute" && SHELL_SENSITIVE_PATH_RE.test(serialized)) {
@@ -347,6 +501,7 @@ export function auditToolCalls(toolCalls, { cwd = "", vaultPath = "", agent = ""
       } else {
         // Catch sensitive credential paths referenced inside shell command strings.
         const preview = redactSecrets(summarizeToolInput(call, SHELL_SENSITIVE_PATH_RE));
+        const detail = buildFindingDetail(call, serialized, SHELL_SENSITIVE_PATH_RE);
         findings.push({
           agent,
           sid,
@@ -357,20 +512,13 @@ export function auditToolCalls(toolCalls, { cwd = "", vaultPath = "", agent = ""
           severity: RISK_SEVERITY.sensitive_path,
           reason: "sensitive_path_in_shell",
           preview,
+          targetPath: detail.targetPath,
+          snippet: detail.snippet,
         });
       }
     }
     if (hasSecret) {
-      const fullRedacted = redactSecrets(summarizeToolInput(call));
-      const focusPreview = (() => {
-        const clean = redactSecrets(String(call.rawInput?.command || call.rawInput?.cmd || serialized || "")).replace(/\s+/g, " ").trim();
-        const m = /\[REDACTED\]/.exec(clean);
-        if (m && clean.length > 160 && m.index > 60) {
-          const start = Math.max(0, m.index - 40);
-          return (start > 0 ? "…" : "") + clean.slice(start, start + 160) + (start + 160 < clean.length ? "…" : "");
-        }
-        return fullRedacted;
-      })();
+      const detail = buildFindingDetail(call, serialized, /\[REDACTED\]/);
       findings.push({
         agent,
         sid,
@@ -380,7 +528,9 @@ export function auditToolCalls(toolCalls, { cwd = "", vaultPath = "", agent = ""
         risk: "secret_exposure",
         severity: RISK_SEVERITY.secret_exposure,
         reason: "secret_exposure",
-        preview: focusPreview,
+        preview: summarizeSecretExposure(call, serialized),
+        targetPath: detail.targetPath,
+        snippet: detail.snippet,
       });
     }
   }
@@ -529,6 +679,12 @@ export function renderSecurityAuditReport(result) {
     `days: ${Number(result.days) || 30}`,
     `agent: ${JSON.stringify(result.agent || "")}`,
     `ignore_temp_noise: ${result.ignoreTempNoise !== false}`,
+    `generated_at: ${JSON.stringify(fmtTime(result.generatedAt))}`,
+    `scanned_sessions: ${Number(result.scannedSessions) || 0}`,
+    `tool_calls: ${Number(result.totalToolCalls) || 0}`,
+    `findings: ${Number(result.totalFindings) || 0}`,
+    `suppressed_allowlist: ${Number(result.suppressedByAllowlist) || 0}`,
+    `suppressed_noise: ${Number(result.suppressedNoise) || 0}`,
     "allowlist:",
     ...(activeAllowlist.length
       ? activeAllowlist.map((r) => `  - ${JSON.stringify(r)}`)
@@ -581,17 +737,36 @@ export function renderSecurityAuditReport(result) {
   lines.push("");
 
   lines.push(`## ${t("命中明细")}${result.truncated ? ` (${t("仅展示最近 {n} 条", { n: result.findings.length })})` : ""}`, "");
-  lines.push(`| ${t("时间")} | Agent | ${t("风险")} | ${t("工具")} | ${t("脱敏摘要")} | ${t("会话")} |`);
-  lines.push("| --- | --- | --- | --- | --- | --- |");
-  const esc = (s) => String(s || "").replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
-  for (const f of result.findings || []) {
-    const agentName = AGENTS[f.agent]?.short || f.agent;
-    const riskName = labels[f.risk] || f.risk;
-    const link = f.sid
-      ? `[${esc(String(f.title || f.sid).slice(0, 28))}](obsidian://agent-deck?do=open&agent=${encodeURIComponent(f.agent)}&sid=${encodeURIComponent(f.sid)})`
-      : "—";
-    lines.push(`| ${fmtTime(f.at)} | ${esc(agentName)} | ${esc(riskName)} | \`${esc(f.tool)}\` | \`${esc(f.preview)}\` | ${link} |`);
+  const cleanTitle = (s) => String(s || "").replace(/[\[\]\r\n]/g, " ").trim();
+  const severityGroups = [
+    { sev: 3, label: `🔴 ${t("高危")}` },
+    { sev: 2, label: `🟠 ${t("中危")}` },
+    { sev: 1, label: `🟡 ${t("低危")}` },
+  ];
+  let idx = 0;
+  for (const grp of severityGroups) {
+    const items = (result.findings || []).filter((f) => (f.severity || 1) === grp.sev);
+    if (!items.length) continue;
+    lines.push(`### ${grp.label}（${items.length}）`, "");
+    for (const f of items) {
+      idx += 1;
+      const agentName = AGENTS[f.agent]?.short || f.agent;
+      const riskName = labels[f.risk] || f.risk;
+      const link = f.sid
+        ? `[${cleanTitle(String(f.title || f.sid).slice(0, 40))}](obsidian://agent-deck?do=open&agent=${encodeURIComponent(f.agent)}&sid=${encodeURIComponent(f.sid)})`
+        : "—";
+      lines.push(`#### ${idx}. ${riskName} · ${agentName} · \`${f.tool}\``);
+      const meta = [`**${t("时间")}**：${fmtTime(f.at)}`];
+      if (f.targetPath) meta.push(`**${t("目标")}**：\`${f.targetPath}\``);
+      meta.push(`**${t("会话")}**：${link}`);
+      lines.push(`- ${meta.join(" ｜ ")}`);
+      const code = String(f.snippet || f.preview || "").trim();
+      if (code) {
+        const fence = code.includes("```") ? "````" : "```";
+        lines.push("", `${fence}text`, code, fence);
+      }
+      lines.push("");
+    }
   }
-  lines.push("");
   return lines.join("\n");
 }

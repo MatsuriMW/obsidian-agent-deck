@@ -199,7 +199,7 @@ class ViewToggleWidget extends WidgetType {
 }
 
 class RecordViewWidget extends WidgetType {
-  constructor(plugin, viewMode, key, groupLine, rows, totalCount, open, mode, sourcePath) {
+  constructor(plugin, viewMode, key, groupLine, rows, totalCount, open, mode, sourcePath, options = {}) {
     super();
     this.plugin = plugin;
     this.viewMode = viewMode;
@@ -210,11 +210,14 @@ class RecordViewWidget extends WidgetType {
     this.open = open;
     this.mode = mode;
     this.sourcePath = sourcePath;
+    this.readOnly = Boolean(options.readOnly);
+    this.onExpand = typeof options.onExpand === "function" ? options.onExpand : null;
     this.model = buildTableModel(rows);
     this.sig = `${viewMode}|${key}|${open}|${mode}|${totalCount}|${rows.map((r) => `${r.line}:${r.startedAt || 0}:${r.sig}`).join("\n")}`;
   }
   eq(other) { return other.sig === this.sig && other.sourcePath === this.sourcePath; }
   jumpTo(view, line) {
+    if (this.readOnly || !view?.dispatch) return;
     const stDoc = view.state.doc;
     const target = Math.min(Math.max(0, line), Math.max(0, (stDoc.lines || 1) - 1));
     const lineObj = stDoc.line(target + 1);
@@ -229,6 +232,7 @@ class RecordViewWidget extends WidgetType {
     view.focus?.();
   }
   bindJump(el, view, line) {
+    if (this.readOnly || !view?.dispatch) return;
     el.addEventListener("click", (e) => {
       if (e.target.closest("a, button")) return;
       e.preventDefault();
@@ -257,6 +261,7 @@ class RecordViewWidget extends WidgetType {
   }
   // 四视图的行不再放行内 📌：Pin 与委派都收进右键菜单（和编辑器里一致）。
   bindRowMenu(el, row) {
+    if (this.readOnly) return;
     const line = Number.isInteger(row?.pinLine) && row.pinLine >= 0 ? row.pinLine : -1;
     if (line < 0) return;
     el.addEventListener("contextmenu", (e) => {
@@ -307,7 +312,7 @@ class RecordViewWidget extends WidgetType {
     for (const row of rows) {
       const tr = tbody.appendChild(doc.createElement("tr"));
       tr.className = "ad-rt-row";
-      tr.title = t("点击定位并回到原块编辑");
+      if (!this.readOnly) tr.title = t("点击定位并回到原块编辑");
       const tdRound = tr.appendChild(doc.createElement("td"));
       tdRound.className = "ad-rt-round";
       this.renderRoundMarker(doc, tdRound, row);
@@ -351,7 +356,7 @@ class RecordViewWidget extends WidgetType {
     for (const row of rows) {
       const card = grid.appendChild(doc.createElement("div"));
       card.className = `ad-rt-card${row.type === "span" ? " is-span" : ""}${row.pinned ? " is-pinned" : ""}`;
-      card.title = t("点击定位并回到原块编辑");
+      if (!this.readOnly) card.title = t("点击定位并回到原块编辑");
       const head = card.appendChild(doc.createElement("div"));
       head.className = "ad-rt-card__head";
       this.renderRoundMarker(doc, head, row);
@@ -383,7 +388,7 @@ class RecordViewWidget extends WidgetType {
     for (const row of rows) {
       const item = list.appendChild(doc.createElement("div"));
       item.className = `ad-rt-tl-item ad-rt-tl-item--${row.badgeKind || "result"}${row.pinned ? " is-pinned" : ""}`;
-      item.title = t("点击定位并回到原块编辑");
+      if (!this.readOnly) item.title = t("点击定位并回到原块编辑");
       const dot = item.appendChild(doc.createElement("span"));
       dot.className = "ad-rt-tl-dot";
       dot.setAttribute("aria-hidden", "true");
@@ -425,7 +430,7 @@ class RecordViewWidget extends WidgetType {
     for (const item of footer) {
       const lineEl = foot.appendChild(doc.createElement("div"));
       lineEl.className = "ad-rt-footer-item";
-      lineEl.title = t("点击定位并回到原块编辑");
+      if (!this.readOnly) lineEl.title = t("点击定位并回到原块编辑");
       const icon = lineEl.appendChild(doc.createElement("span"));
       icon.className = "ad-rt-footer-ico";
       icon.textContent = item.kind === "clock" ? "⏱" : "🔗";
@@ -444,7 +449,7 @@ class RecordViewWidget extends WidgetType {
   toDOM(view) {
     const doc = view.dom.ownerDocument;
     const wrap = doc.createElement("div");
-    wrap.className = "ad-record-table-wrap ad-record-view-wrap";
+    wrap.className = "ad-record-table-wrap ad-record-view-wrap" + (this.readOnly ? " ad-record-view-wrap--readonly" : "");
     wrap.dataset.view = this.viewMode;
     wrap.setAttribute("contenteditable", "false");
 
@@ -454,15 +459,18 @@ class RecordViewWidget extends WidgetType {
       bar.className = "ad-record-table-empty";
       const note = bar.appendChild(doc.createElement("span"));
       note.textContent = t(EMPTY_VIEW_LABELS[this.viewMode] || EMPTY_VIEW_LABELS.table, { n: this.totalCount });
-      const expand = bar.appendChild(doc.createElement("button"));
-      expand.type = "button";
-      expand.className = "ad-record-table-expand";
-      expand.textContent = t("展开");
-      expand.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        view.dispatch({ effects: setRecordsOpenEffect.of({ keys: [this.key], open: true }) });
-      });
+      if (this.onExpand || view?.dispatch) {
+        const expand = bar.appendChild(doc.createElement("button"));
+        expand.type = "button";
+        expand.className = "ad-record-table-expand";
+        expand.textContent = t("展开");
+        expand.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (this.onExpand) this.onExpand();
+          else view.dispatch({ effects: setRecordsOpenEffect.of({ keys: [this.key], open: true }) });
+        });
+      }
       return wrap;
     }
 
@@ -712,23 +720,102 @@ export function renderAIRecords(el, plugin, ctx) {
     code.classList.add("ad-block-id-hidden");
     cleanups.push(() => code.classList.remove("ad-block-id-hidden"));
   }
+  const section = ctx?.getSectionInfo?.(el);
+  const srcLines = section?.text ? section.text.split("\n") : [];
+  const srcGroups = section?.text ? aiRecordGroups(section.text, ids) : [];
+  const agentNames = plugin.agentShortNames || null;
+  let sidsByBlock = null;
   for (const list of el.querySelectorAll("li ul, li ol")) {
     if (list.dataset.adRecords) continue;
     const parent = list.parentElement.closest("li");
     if (!parent) continue;
     const own = [...parent.childNodes].filter((n) => n !== list && n.nodeName !== "UL" && n.nodeName !== "OL").map((n) => n.textContent).join("");
     const records = [...list.children].filter((li) => !li.querySelector('ul, ol') && !li.id && !li.dataset.blockId && RECORD_MARKER_BODY_RE.test(li.textContent.trim()));
-    const section = ctx?.getSectionInfo?.(el);
-    const srcLines = section?.text ? section.text.split("\n") : [];
-    const first = srcLines[(section?.lineStart || 0) + (Number(parent.dataset.line) || 0)];
+    const parentLine = section && parent.dataset?.line != null ? (section.lineStart || 0) + Number(parent.dataset.line) : -1;
+    const first = srcLines[parentLine >= 0 ? parentLine : (section?.lineStart || 0) + (Number(parent.dataset.line) || 0)];
     const key = parent.id || parent.dataset.blockId || (first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1]);
+    const srcGroup = srcGroups.find((g) =>
+      (key && (g.key === key || g.stableKey === key))
+      || (parentLine >= 0 && g.line === parentLine)
+      || (section && g.line >= (section.lineStart || 0) && g.line <= (section.lineEnd ?? srcLines.length) && records.length > 0 && g.records.length === records.length)
+    ) || null;
+    const duplicate = srcGroup ? (plugin.redundantSessionLink?.(srcGroup, srcLines) ?? -1) : -1;
+    const tableAll = srcGroup ? (srcGroup.tableEntries || []).filter((e) => e.line !== duplicate) : [];
+    const isTopLevel = Boolean(srcGroup?.topLevel) && tableAll.length > 0;
+    const viewMode = isTopLevel ? recordViewMode(plugin.settings, srcGroup) : "outline";
+
+    if (viewMode !== "outline" && srcGroup) {
+      list.dataset.adRecords = "true";
+      const summaryCount = tableAll.filter((e) => /💬\s+累计总结[：:]/.test(srcLines[e.line])).length;
+      const startsOpen = recordStartsOpen(mode, srcGroup);
+      let open = recordIsOpen(plugin.settings, mode, srcGroup);
+      const doc = list.ownerDocument;
+      const button = recordControl(doc, tableAll.length, open, mode, summaryCount > 0);
+      const hiddenEntryLines = new Set((srcGroup.tableEntries || []).map((e) => e.line));
+      const hiddenLis = [];
+      const directLis = [...list.children].filter((c) => c.nodeName === "LI");
+      for (const li of directLis) {
+        const liLine = section && li.dataset?.line != null ? (section.lineStart || 0) + Number(li.dataset.line) : -1;
+        const isAiLi = (liLine >= 0 && hiddenEntryLines.has(liLine)) || RECORD_MARKER_BODY_RE.test(li.textContent.trim());
+        if (isAiLi) {
+          li.classList.add("ad-record-hidden");
+          hiddenLis.push(li);
+        }
+      }
+      const hideWholeList = directLis.length > 0 && hiddenLis.length === directLis.length;
+      if (hideWholeList) list.classList.add("ad-record-hidden");
+
+      const viewHost = doc.createElement("div");
+      viewHost.className = "ad-record-reading-host";
+      const renderView = () => {
+        const visibleEntries = visibleTableEntries(srcGroup, srcLines, mode, open, duplicate);
+        const rows = buildGroupTableRows(srcGroup, visibleEntries, srcLines, plugin, {
+          includeTime: viewMode === "timeline",
+          blockMap: viewMode === "timeline" ? (sidsByBlock ||= blockSessionMap(plugin)) : null,
+          agentNames,
+        });
+        const widget = new RecordViewWidget(plugin, viewMode, srcGroup.key, srcGroup.line, rows, tableAll.length, open, mode, ctx?.sourcePath || "", {
+          readOnly: true,
+          onExpand: () => {
+            open = true;
+            rememberOpen(plugin, srcGroup.key, true, startsOpen, srcGroup.stableKey);
+            renderView();
+          },
+        });
+        const nextDom = widget.toDOM({ dom: { ownerDocument: doc } });
+        viewHost.replaceChildren(nextDom);
+        button.querySelector("span:nth-child(2)").textContent = buttonLabel(open, mode, summaryCount > 0);
+        button.dataset.open = String(open);
+        const title = open ? t("折叠 {n} 条 AI 记录", { n: tableAll.length }) : t("展开 {n} 条 AI 记录", { n: tableAll.length });
+        button.title = title;
+        button.setAttribute("aria-label", title);
+        button.setAttribute("aria-expanded", String(open));
+      };
+      button.onclick = () => {
+        open = !open;
+        rememberOpen(plugin, srcGroup.key, open, startsOpen, srcGroup.stableKey);
+        renderView();
+      };
+      const paragraph = parent.querySelector(":scope > p");
+      if (paragraph) paragraph.appendChild(button); else list.parentNode.insertBefore(button, list);
+      list.parentNode.insertBefore(viewHost, list);
+      renderView();
+      cleanups.push(() => {
+        viewHost.remove();
+        button.remove();
+        if (hideWholeList) list.classList.remove("ad-record-hidden");
+        for (const li of hiddenLis) li.classList.remove("ad-record-hidden");
+        delete list.dataset.adRecords;
+      });
+      continue;
+    }
+
     const bound = records.some((li) => /^🔗\s|^💬\s+累计总结[：:]/.test(li.textContent.trim()));
     if (!records.length || !(bound || isDeckBlockId(key) || ids.has(key) || own.includes("🤖") || isDeckBlockId(parent.id) || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
     list.dataset.adRecords = "true";
     const summaries = records.filter((li) => /^💬\s+累计总结[：:]/.test(li.textContent.trim()));
     const done = /^(?:DONE|CANCELED|CANCELLED|FAILED)\b/i.test(parent.textContent.trim());
     // Map rendered list items back to raw Markdown lines so Reading View preserves <!-- ad-pin -->.
-    const srcGroup = section?.text ? aiRecordGroups(section.text, ids).find((g) => (key && (g.key === key || g.stableKey === key)) || (g.line >= (section.lineStart || 0) && g.line <= (section.lineEnd ?? srcLines.length) && g.records.length === records.length)) : null;
     const pinnedSet = new Set();
     const recordLineNums = records.map((li, i) => {
       const explicit = li.dataset?.line != null ? (section?.lineStart || 0) + Number(li.dataset.line) : -1;

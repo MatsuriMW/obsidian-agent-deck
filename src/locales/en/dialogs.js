@@ -96,6 +96,7 @@ export default {
   "{trigger}{agent} 不支持强度 {effort}": "{trigger}{agent} does not support effort {effort}",
   "选择后继续选择具体模型": "Pick this agent, then choose a model",
   "客户端交接；模型与强度在客户端设置": "Handed off to its client; set model and effort there",
+  "后台 ACP 委派；回车直接选定": "Background ACP delegation; press Enter to select",
   "选定模型；可继续输入 / 选择强度": "Model selected; type / to choose effort",
 
   // ----- delegation runtime notices and errors -----
