@@ -18,6 +18,8 @@ Agent Deck brings AI sessions scattered across local clients into Obsidian, keep
 - **First-class Chinese Agent ecosystem tracking**: alongside global tools, Agent Deck ships dedicated local session tracking (and delegation where supported) for Chinese agent clients including **DeepSeek Harness, MiniMax Code (`mcode`), QwenWork (千问办公), Qoder, WorkBuddy (China edition), Kimi Code, and Doubao Work (豆包工作)**, with more on the way.
 - **Closed-loop long-term memory**: session logs, dispatch snapshots, skill cards and **Dreaming long-term memories** all live as plain Markdown in your vault — editable, reviewable, traceable back to source lines, and automatically injected into future delegations.
 
+> **Stage 1 Goal (Milestone 1)**: Become an effective **AI context provider** — turning your notes, daily journals, project tasks, and distilled long-term memories into relevant, low-noise, reviewable, and traceable context for every connected AI agent.
+
 ## Contents
 
 - [0. At a glance](#0-at-a-glance)
