@@ -35,7 +35,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Claude Code** | 支持 | 支持 | 支持（首轮后自动打开） | 支持 |
 | **Codex** | 支持 | 支持 | 支持（首轮后自动打开） | 支持 |
 | **DeepSeek Harness** | 支持 | 支持 | 仅唤起客户端 | — |
-| **Antigravity** | 支持 | 支持 | 不支持 | — |
+| **Antigravity** | 支持（IDE + 独立 CLI） | 支持（`agy acp`） | 不支持 | — |
 | **OpenCode** | 支持 | 支持 | 首轮后自动打开 | 支持 |
 | **Qoder** | 支持 | 支持 | 仅复制任务并唤起 | 支持 |
 | **Hermes Agent** | 支持 | 支持 | 不支持（无桌面界面） | 支持 |
@@ -60,7 +60,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Claude Code** | Claude Code 命令行或桌面端，并登录 |
 | **Codex** | Codex 命令行与桌面端，并登录 |
 | **DeepSeek Harness** | DeepSeek Harness 客户端，并配置好模型与账号 |
-| **Antigravity** | 独立的 Antigravity 命令行（只装 IDE 不够） |
+| **Antigravity** | 独立的 Antigravity 命令行 `agy`（追踪同时读取 `~/.gemini/antigravity/brain` 与 `~/.gemini/antigravity-cli/brain`；后台委派走 `agy acp`） |
 | **OpenCode** | OpenCode 桌面端或命令行 |
 | **Qoder** | Qoder 命令行；只用桌面交接则装 Qoder 桌面端 |
 | **Hermes Agent** | Hermes 命令行；不用委派时无需额外安装 |
@@ -89,7 +89,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
    - **Cursor**：只追踪装了 Hooks 的新会话，不支持委派与终端交互。
    - **WorkBuddy**：仅中国版，独立 CodeBuddy 命令行与桌面端不互通。
    - **Qoder**：命令行与桌面端不互通，桌面端没给 token 时显示「未提供」。
-   - **Antigravity**：命令行与 IDE 会话不互通；导出正文不含工具结果与内部推理。
+   - **Antigravity**：同时追踪 IDE（`~/.gemini/antigravity/brain`）与独立 `agy` CLI（`~/.gemini/antigravity-cli/brain`）的本地会话日志，支持 `agy acp` 后台委派与应用内续聊；IDE 与 CLI 会话彼此独立、不支持桌面 IDE 交接，导出正文不含工具结果与内部推理。
    - **DeepSeek Harness**：客户端仍在迭代，委派会话在客户端里可能落到「未分组」，通常需刷新客户端才出现。
    - **OpenCode**：后台与桌面共用会话，但打开桌面端后仍需手动选一次。
    - **Hermes Agent**：没有桌面界面，只能在插件里看，或在终端恢复。

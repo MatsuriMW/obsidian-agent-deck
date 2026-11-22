@@ -1,6 +1,18 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.13**（2026-11-22）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.15 + main (`df59825`)**（2026-11-23）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.15 + 后续增量：Kimi Code / 豆包工作 / Gemini CLI（ACP + 追踪）、Antigravity CLI 追踪补齐与 Wiki/GitHub 自动化
+
+- 新增 **3 家内置 Agent（内置总数增至 17 家）**，`USAGE_CACHE_VERSION` 升至 `18`：
+  - **Kimi Code（`kimicode`）**：新增 `src/kimicode-sessions.js`，只读解析 `~/.kimi-code/sessions/<wsHash>/<sessionId>/wire.jsonl`（v1.5 协议，支持 `KIMI_CODE_HOME` 与 `~/.kimi/sessions` 回退）、`session-meta/state.json`（自定义标题、归档状态、模型）与 `workspaces.json`；精确统计 `inputOther + inputCacheCreation` / `inputCacheRead` / `output` Token；支持只读对话详情与桌面端唤起（`com.kimi.code.desktop` / `kimi-code://`）；当前保持仅追踪（`trackingOnly: true`）。
+  - **豆包工作（`doubaowork`）**：新增 `src/doubaowork-sessions.js`，零外部依赖扫描 `~/Library/Application Support/DoubaoWork/Default/IndexedDB/chrome_doubaowork-chat_0.indexeddb.leveldb`（含 `.log` WAL 与内置纯 JS Snappy 解压的 `.ldb` SSTable 块）中的 V8 Structured Clone 会话列表元数据（`conversation_id`、`name` UTF-16LE/Latin-1、`create_time`、`update_time`）；完整正文存于 SQLCipher 加密的 `sdk_storage/*/messages.db`，严格不解密，Token/模型诚实显示为「用量未提供」/`0`；支持唤起 `com.work.pc.doubao` / `doubaowork://`。
+  - **Gemini CLI（`gemini`）**：新增 `src/gemini-cli-sessions.js`，只读解析 `~/.gemini/tmp/<projectSlug>/chats/session-*.jsonl`（v0.70+，支持 `$set` / `$patch` / `$rewindTo`）及旧版 `session-*.json`，通过 `~/.gemini/projects.json` 与 `.project_root` 还原 `cwd`，自动剥离 `<session_context>` / `<hook_context>` 注入块，按 `input - cached` / `cached` / `output + thoughts` 精确统计 Token；`df59825` 进一步升级为内置 **`gemini --acp` 后台委派**（`src/agent-registry.js`、`src/delegation-runners.js`、`gemini-default` 默认模型）+ 应用内追问 + 终端 `gemini --resume <sid>` 续聊。
+- 补齐 **Antigravity CLI 独立会话追踪**（`df59825`）：`src/readers.js` 与 `src/harness-detect.js` 新增扫描 `~/.gemini/antigravity-cli/brain`（与 `~/.gemini/antigravity/brain` 共用 `transcript.jsonl` 解析），补全独立 `agy` CLI 会话的本地追踪。
+- **README 精简 + GitHub Wiki 体系 + GitHub 自动化**：
+  - 中英 README 明确核心定位「以 Markdown / 大纲 / 日记为正本的多客户端 AI 总控台 + 长期记忆闭环」，突出主流模型全覆盖与中文 Agent 客户端生态；将详细支持矩阵、按需依赖与已知边界迁入 `docs/wiki/`（7 篇完整用户文档）。
+  - 新增 `.github/workflows/sync-wiki.yml`（`docs/wiki/**` 自动同步至 GitHub Wiki，需先在网页端初始化首篇 Wiki 页面）、`.github/ISSUE_TEMPLATE/`（Bug 反馈与新 Agent 适配表单）与 `.github/dependabot.yml`。
+- **验证范围**：macOS 全量 `npm test`（含新增 `test/kimicode-sessions.test.mjs`、`test/doubaowork-sessions.test.mjs`、`test/gemini-cli-sessions.test.mjs`）、`npm run eval`、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`，以及本机真实 `detectInstalledHarnesses()`（3 家均命中）与真实 DoubaoWork IndexedDB（4 条会话）只读扫描实测通过；**未测空白**：Kimi Code 真实非空会话实测（本机当前 `sessions=0`）、Gemini CLI OAuth 登录后真实 `gemini --acp` 端到端委派、Windows 全端。
 
 ## 1.13.13 T3 Code（追踪/委派/去重）、Muse 分对话流追踪、离线安全回放闭环与按任务用量聚合
 
