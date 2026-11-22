@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.16
+
+- **Antigravity CLI 会话追踪与内置 Gemini CLI ACP 委派**：支持追踪 `antigravity-cli` brain 会话，并为内置 Gemini CLI 启用 `gemini --acp` 后台委派与续聊。
+- **Windows 兼容修复**：`execCapture` 改走跨平台 `spawnCli` / `killChildProcess`，修复 Windows 下执行 `.cmd` 报 `spawn EINVAL` 及定时器泄漏问题。
+- **文档与 CI/发布流水线维护**：补齐英文 GitHub Wiki 页面与双语切换，在 README 明确第一阶段目标（Milestone 1：成为有效的 AI 上下文提供者），并将 GitHub Actions 升级至 Node 24 运行时。
+
 ## 1.13.15
 
 - **新增 3 家内置 Agent 只读追踪（内置总数增至 17 家）**：
