@@ -1,3 +1,5 @@
+**中文** ｜ [English](Quick-Start.en)
+
 # 快速上手（Quick Start）
 
 只需 3 分钟，即可把本机正在跑的 AI Agent 会话收拢到 Obsidian，并打通「笔记派活 → 自动回写日记」闭环。

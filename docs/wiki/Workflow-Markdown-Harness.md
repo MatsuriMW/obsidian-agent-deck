@@ -1,3 +1,5 @@
+**中文** ｜ [English](Workflow-Markdown-Harness.en)
+
 # 核心工作流：Markdown 即 Harness
 
 Agent Deck 的底层设计理念是 **「Markdown / 大纲 / 日记即 Harness」**：不是把任务和对话关进插件私有数据库，而是让你的日常笔记直接驱动多 Agent 协作，再把所有产出以可读、可改的 Markdown 写回原处。

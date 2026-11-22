@@ -1,3 +1,5 @@
+**中文** ｜ [English](Long-Term-Memory-Dreaming.en)
+
 # 长期记忆闭环（Dreaming）
 
 Agent Deck 不只记录「今天 AI 干了什么」，还通过 **Dreaming** 把散落在日记与委派中的经验沉淀成可维护的长期记忆，再在未来派活时自动注入，形成完整闭环：

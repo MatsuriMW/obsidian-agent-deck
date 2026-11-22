@@ -2,9 +2,9 @@
 
 > **A multi-client AI control deck with Markdown, outlines and journals as the single source of truth — plus a closed-loop long-term memory system.**
 
-**English** ｜ [中文](README.md) ｜ [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [Changelog](CHANGELOG.md) ｜ [Community](#community) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
+**English** ｜ [中文](README.md) ｜ [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Home.en) ｜ [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) ｜ [Changelog](CHANGELOG.md) ｜ [Community](#community) ｜ [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions)
 
-Agent Deck is under active development. Browse the [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki) for guides, see the [roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) for what's coming next, or say hello in the [community](#community), on [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) or [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues).
+Agent Deck is under active development. Browse the [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Home.en) for guides, see the [roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist) for what's coming next, or say hello in the [community](#community), on [GitHub Discussions](https://github.com/MatsuriMW/obsidian-agent-deck/discussions) or [GitHub Issues](https://github.com/MatsuriMW/obsidian-agent-deck/issues).
 
 <p align="center">
   <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.2.1/agent-deck-demo-4k60.mp4"><img src="assets/demo.gif" width="800" alt="Agent Deck demo: drag a session onto a journal task to bind it, drag a task onto an agent to delegate, status and results are written back"></a>
@@ -118,14 +118,14 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 
 Agent Deck supports **17 built-in local agents + any Custom ACP CLI**, covering mainstream model families (**Claude, GPT / Codex, Gemini, DeepSeek, Qwen, MiniMax, Kimi, Doubao, Grok**, plus local Ollama) with dedicated tracking for Chinese agent clients (**DeepSeek Harness, MiniMax Code, QwenWork, Qoder, WorkBuddy, Kimi Code, Doubao Work**).
 
-For the full compatibility matrix, per-client requirements, and known limits, see the Wiki: 👉 [**Supported Agents & Models (Wiki)**](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models)
+For the full compatibility matrix, per-client requirements, and known limits, see the Wiki: 👉 [**Supported Agents & Models (Wiki)**](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models.en)
 
 ## Install
 
 1. In Obsidian, open Settings → Community plugins → Browse, search for **Agent Deck**, then install and enable it;
 2. Or download the latest [GitHub Release](https://github.com/MatsuriMW/obsidian-agent-deck/releases), copy `main.js`, `manifest.json` and `styles.css` into `<your vault>/.obsidian/plugins/agent-deck/`, then enable it in the plugin settings.
 
-Current version: **1.13.15**, requires Obsidian **1.4.0+** on desktop (mobile is not supported). Session tracking, task binding and the Dashboard need no extra dependencies; see the [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models) for full client and platform details.
+Current version: **1.13.15**, requires Obsidian **1.4.0+** on desktop (mobile is not supported). Session tracking, task binding and the Dashboard need no extra dependencies; see the [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models.en) for full client and platform details.
 
 ## Community
 

@@ -1,3 +1,5 @@
+**中文** ｜ [English](Supported-Agents-and-Models.en)
+
 # 支持的 Agent 与主流模型
 
 Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：**本地文件只读追踪 + 协议化后台委派**，不绑定单一厂商生态。

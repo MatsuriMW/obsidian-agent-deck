@@ -1,3 +1,5 @@
+**中文** ｜ [English](FAQ-and-Troubleshooting.en)
+
 # 常见问题与排错（FAQ & Troubleshooting）
 
 ## 1. macOS 上提示找不到 CLI（如 `claude`、`codex`、`mcode`、`t3`）

@@ -1,3 +1,5 @@
+**中文** ｜ [English](Home.en)
+
 # Agent Deck Wiki
 
 > **以 Markdown / 大纲 / 日记为正本的多客户端 AI 总控台 + 长期记忆闭环。**
