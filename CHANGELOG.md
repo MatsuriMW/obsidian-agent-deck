@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.18
+
+- **AI 自动回传日志视觉与格式升级（`src/journal.js`、`src/record-icons.js`、`src/styles/views/record-views.css`）**：
+  - 简略模式记录的「任务」「结论」关键词改为 Markdown 加粗（`**任务**：…；**结论**：…`），并对历史未加粗记录在编辑/阅读视图中同步视觉加粗（不改写旧笔记原文）。
+  - AI 结论行（含第 1 轮）去掉 `💬` 统一写为 `- 第N轮：…`（`❓` 提问行与 `💬 累计总结：` 保持原样），编辑与阅读视图将新旧格式的 `第N轮：` / `💬 第N轮：` 统一渲染为中性黑灰色圆圈数字 icon（`.ad-round-badge`）。
+  - 任务行中的 `🤖` 在编辑与阅读视图中自动按 `^blockId` 前缀、`🔗` 链接、`⏱` 尾注与 `autoLogState` 推断所属 Agent，渲染为对应 Agent 的官方桌面 App 小图标（`.ad-agent-mark`，无法识别时保留 `🤖`）；解析层、折叠与四视图投影完整兼容新旧格式。
+
 ## 1.13.17
 
 - **表驱动主力终端注册表扩展（`src/terminals.js`）**：将主力终端列表从 5 家扩展至 **11 家 + 自动**，新增 **cmux**、**tmux**、**Ghostty**、**WezTerm**、**Kitty**、**Alacritty** 支持，并补齐 Windows `wt.exe`/`cmd.exe` 回退；`tmux` 在 `auto` 模式下仅在检测到活跃 CLI 会话位于 `tmux` 内时命中（不抢占默认终端），支持 `tmux` 与 `WezTerm` 窗格级焦点切换；同步修复设置页终端快捷按钮（`openTerminalAt`）未读取 `cliTerminal` 的问题。

@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.17 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.18 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -5401,12 +5401,12 @@ function isManualTask(settings, raw) {
   return !!settings?.manualTaskStates?.[blockIdOf(raw)];
 }
 var LINK_RE = /^\s*[-*+]\s+🔗/;
-var RESULT_RE = /^\s*[-*+]\s+💬/;
+var RESULT_RE = /^\s*[-*+]\s+(?:💬|(?:第\d+轮|Round\s+\d+)[：:])/;
 var CLOCK_RE = /^\s*[-*+]\s+⏱/;
 var QUESTION_RE = /^\s*[-*+]\s+❓/;
-var CONTEXT_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋)\s/;
-var RECORD_ICON_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋|⏱|🔗)\s/;
-var RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
+var CONTEXT_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋)\s|(?:第\d+轮|Round\s+\d+)[：:])/;
+var RECORD_ICON_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:])/;
+var RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|TODO\s+🤖\s)/;
 var RECORD_PROVENANCE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/g;
 var RECORD_PROVENANCE_LINE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
 var RECORD_PROVENANCE_TEST_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/;
@@ -5449,6 +5449,11 @@ function stripBlockId(s) {
   return String(s || "").replace(BLOCK_ID_RE, "").trimEnd();
 }
 var AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor", grokbot: "grokbot", t3code: "t3code", muse: "muse", kimicode: "kimi", doubaowork: "doubao", gemini: "gemini" };
+var BLOCK_ID_AGENT = Object.fromEntries(Object.entries(AGENT_ID_PREFIX).map(([agent, prefix]) => [prefix, agent]));
+function agentFromBlockId(id) {
+  const m = /^([a-z0-9]+)-/i.exec(String(id || "").trim());
+  return m ? BLOCK_ID_AGENT[m[1].toLowerCase()] || "" : "";
+}
 var isDeckBlockId = (id) => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor|grokbot|t3code|muse|kimi|doubao|gemini)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
 function normalizeTaskSlug(value) {
   const slug = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
@@ -5741,7 +5746,7 @@ function kwLine(raw) {
   }
   const blockId = blockIdOf(s);
   s = stripBlockId(s).replace(/^\[#[ABC]\]\s*/, "").replace(/^\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "").replace(/^\[#[ABC]\]\s*/, "").replace(/^🤖\s*\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "\u{1F916} ").trim();
-  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || !kw && !blockId && /^(?:💬|❓|📋)/.test(s) || !kw && /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
+  if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || !kw && !blockId && /^(?:💬|❓|📋|(?:第\d+轮|Round\s+\d+)[：:])/.test(s) || !kw && /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
   return { kw, body: s, blockId };
 }
 function parseLink(line) {
@@ -5977,15 +5982,15 @@ function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key = "", 
     if (fenced.has(i) || width(lines[i]) !== childWidth || !belongs(lines[i])) continue;
     const marker = sourceTurn(lines[i]);
     if (marker && RESULT_RE.test(lines[i]) && !blockIdOf(lines[i]) && !hasDescendants(lines, i)) {
-      const brokenTask = /任务：\\?<send_user_message_question_reply>[^；]*(?=；结论：)/;
+      const brokenTask = /(\*\*任务\*\*|任务)：\\?<send_user_message_question_reply>[^；]*(?=；(?:\*\*结论\*\*|结论)：)/;
       if (brokenTask.test(lines[i])) {
         const round = sourceRounds.get(+marker[2]);
         const task = condenseUserPrompt(round?.taskSummary || round?.ask);
-        if (task) lines[i] = lines[i].replace(brokenTask, `\u4EFB\u52A1\uFF1A${summaryText(task, 45)}`);
+        if (task) lines[i] = lines[i].replace(brokenTask, (_, label) => `${label}\uFF1A${summaryText(task, 45)}`);
       }
     }
-    const match = /^\s*[-*+]\s+💬\s+(?:第(\d+)轮[：:]|((?!累计总结[：:]).))/.exec(lines[i]);
-    if (marker || match) recorded.add(marker ? +marker[2] : match[1] ? +match[1] : 1);
+    const match = /^\s*[-*+]\s+(?:(?:💬\s+)?(?:第(\d+)轮|Round\s+(\d+))[：:]|💬\s+((?!累计总结[：:]).))/.exec(lines[i]);
+    if (marker || match) recorded.add(marker ? +marker[2] : match[1] || match[2] ? +(match[1] || match[2]) : 1);
   }
   let validRounds = (Array.isArray(rounds) ? rounds : []).filter((r) => r && (r.said || r.summary || r.aborted || r.quota));
   if (!validRounds.length && said && !recorded.size) validRounds = [{ n: 1, said }];
@@ -6023,12 +6028,12 @@ function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key = "", 
     const stdCap = kind === "qa" ? 120 : 90;
     const givenSummary = String(r.summary || "").trim();
     const polished = [...givenSummary].length >= 4 && !/^(?:code|qa|json)$/i.test(givenSummary);
-    const message = fallbackLine ? level === "brief" ? `\u4EFB\u52A1\uFF1A${summaryText(task, 45)}\uFF1B\u7ED3\u8BBA\uFF1A${fallbackLine}` : fallbackLine : r.replyText !== void 0 ? r.replyText : r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3e3) : level === "brief" ? `\u4EFB\u52A1\uFF1A${summaryText(task, 45)}\uFF1B\u7ED3\u8BBA\uFF1A${polished ? summaryText(givenSummary, kind === "qa" ? qaMax : codeMax) : conclusion}` : polished ? recordSentence(givenSummary, stdCap) : tailSentence(kind === "qa" ? answerConclusion(r.said, stdCap) : conclusionSentence(r.said, stdCap), stdCap);
-    const prefix = rn === 1 && roundLog ? "" : `\u7B2C${rn}\u8F6E\uFF1A`;
+    const message = fallbackLine ? level === "brief" ? `**\u4EFB\u52A1**\uFF1A${summaryText(task, 45)}\uFF1B**\u7ED3\u8BBA**\uFF1A${fallbackLine}` : fallbackLine : r.replyText !== void 0 ? r.replyText : r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3e3) : level === "brief" ? `**\u4EFB\u52A1**\uFF1A${summaryText(task, 45)}\uFF1B**\u7ED3\u8BBA**\uFF1A${polished ? summaryText(givenSummary, kind === "qa" ? qaMax : codeMax) : conclusion}` : polished ? recordSentence(givenSummary, stdCap) : tailSentence(kind === "qa" ? answerConclusion(r.said, stdCap) : conclusionSentence(r.said, stdCap), stdCap);
+    const prefix = `\u7B2C${rn}\u8F6E\uFF1A`;
     if (r.replyText !== void 0) {
       const [first, ...rest] = message.split("\n");
-      append([`${ind}- \u{1F4AC} ${prefix}${first}${provenance(rn)}`, ...rest.map((line) => `${ind}  ${line}`)].join("\n"));
-    } else append(`${ind}- \u{1F4AC} ${prefix}${message}${provenance(rn)}`);
+      append([`${ind}- ${prefix}${first}${provenance(rn)}`, ...rest.map((line) => `${ind}  ${line}`)].join("\n"));
+    } else append(`${ind}- ${prefix}${message}${provenance(rn)}`);
     if (level === "detailed" && r === validRounds.at(-1) && taskTodo?.total > 0) {
       append(`${ind}- \u{1F4CB} \u7B2C${rn}\u8F6E\uFF1A\u6B65\u9AA4 ${taskTodo.done}/${taskTodo.total}${taskTodo.cur ? ` \xB7 ${resultText(taskTodo.cur, 90)}` : ""}`);
     }
@@ -6159,7 +6164,7 @@ function kidMatch(body, desc) {
   return a.startsWith(d) || d.startsWith(a) || a.length >= 8 && d.length >= 8 && a.slice(0, 8) === d.slice(0, 8);
 }
 var EMPTY_ITEM_RE = /^(\s*(?:[-*+]|\d+[.)]))\s*$/;
-var MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬|❓|📋)/;
+var MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬|❓|📋|(?:第\d+轮|Round\s+\d+)[：:])/;
 var STATE_KW = { wait: "TOREVIEW", quiet: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" };
 function kwForState(state) {
   return { run: "DOING", running: "DOING", starting: "DOING", idle: "TOREVIEW", ...STATE_KW }[state] || "DOING";
@@ -6811,7 +6816,7 @@ function blockText(lines, start, end) {
   return chunk.map((line) => indent && line.startsWith(indent) ? line.slice(indent.length) : line).join("\n");
 }
 function roundsIn(text) {
-  return Math.max(0, ...[...text.matchAll(/(?:💬|❓)\s*第(\d+)轮[：:]/g)].map((m) => +m[1]));
+  return Math.max(0, ...[...text.matchAll(/(?:(?:💬|❓)\s*|^\s*[-*+]\s+)第(\d+)轮[：:]/gm)].map((m) => +m[1]));
 }
 function readBoundedJournal(text, layout) {
   const lines = text.split("\n");
@@ -16320,7 +16325,7 @@ function latestWrittenAnswer(lines = [], block = null) {
   const end = Number.isInteger(block.end) ? block.end : lines.length - 1;
   let hasResultAfter = false;
   for (let i = entry.line + 1; i <= end && i < lines.length; i++) {
-    if (!fenced.has(i) && /^\s*[-*+]\s+💬/.test(lines[i] || "")) {
+    if (!fenced.has(i) && RESULT_RE.test(lines[i] || "")) {
       hasResultAfter = true;
       break;
     }
@@ -21183,7 +21188,7 @@ var import_language = require("@codemirror/language");
 
 // src/ai-records.js
 var AI_RECORD_RE = RECORD_LINE_RE;
-var RECORD_MARKER_BODY_RE = /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/;
+var RECORD_MARKER_BODY_RE = /^(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|TODO\s+🤖\s)/;
 var RECORD_VIEWS = /* @__PURE__ */ new Set(["outline", "table", "cards", "timeline"]);
 var RECORD_VIEW_LABELS = {
   outline: "\u5927\u7EB2",
@@ -21191,7 +21196,9 @@ var RECORD_VIEW_LABELS = {
   cards: "\u5361\u7247",
   timeline: "\u65F6\u95F4\u7EBF"
 };
-var isBriefRecord = (line) => /💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?(?:任务：.+；结论：|Task:\s*.+;\s*Result:\s*.+)/.test(line);
+var BRIEF_LEAD_RE = /(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?|(?:^|\s)(?:第\d+轮|Round\s+\d+)[：:])/;
+var BRIEF_PAIR_RE = /(?:\*\*任务\*\*|任务)[：:].+；(?:\*\*结论\*\*|结论)[：:]|(?:\*\*Task\*\*|Task):\s*.+;\s*(?:\*\*Result\*\*|Result):\s*.+/;
+var isBriefRecord = (line) => new RegExp(`${BRIEF_LEAD_RE.source}\\s*(?:${BRIEF_PAIR_RE.source})`).test(line);
 var isPinnedLine = (line) => hasPinMarker(line);
 function groupPrefValue(map, group) {
   if (!map || !group) return void 0;
@@ -21219,7 +21226,7 @@ function collectChildSubtree(lines, start, indent, endLine, fenced) {
 }
 var normalizeStableTaskKey = (k) => String(k || "").replace(/^(?:\*\*\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\*\*|\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?)\s*/u, "").replace(/^🤖\s*/u, "").trim();
 function aiRecordGroups(text, trackedIds2 = /* @__PURE__ */ new Set()) {
-  if (!text || !text.includes("\u{1F4AC}") && !text.includes("\u2753") && !text.includes("\u{1F4CB}") && !text.includes("\u23F1") && !text.includes("\u{1F517}") && !text.includes("\u{1F916}") && !text.includes("^")) return [];
+  if (!text || !text.includes("\u{1F4AC}") && !text.includes("\u2753") && !text.includes("\u{1F4CB}") && !text.includes("\u23F1") && !text.includes("\u{1F517}") && !text.includes("\u{1F916}") && !text.includes("^") && !/(?:第\d+轮|Round\s+\d+)[：:]/.test(text)) return [];
   const lines = text.split("\n"), out = [], fenced = fencedLines(lines), titleCounts = /* @__PURE__ */ new Map();
   for (const task of taskItems(text)) {
     if (fenced.has(task.line) || AI_RECORD_RE.test(lines[task.line])) continue;
@@ -21291,7 +21298,7 @@ function selectVisibleLines(lineNums, lines, mode = "latest1", summaryLines = []
   const merge = (base) => [.../* @__PURE__ */ new Set([...base, ...pinned])].sort((a, b) => a - b);
   const count = { latest1: 1, latest3: 3, latest5: 5 }[mode];
   if (count) {
-    const results = lineNums.filter((n) => /^(?:\s*(?:[-*+]|\d+[.)])\s+)?💬\s/.test(lines[n]) && !/💬\s+累计总结[：:]/.test(lines[n]));
+    const results = lineNums.filter((n) => /^(?:\s*(?:[-*+]|\d+[.)])\s+)?(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(lines[n]) && !/💬\s+累计总结[：:]/.test(lines[n]));
     const round = (n) => {
       const m = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(lines[n]) || /(?:第(\d+)轮|Round\s+(\d+))[：:]/.exec(lines[n]);
       return m ? +(m[1] || m[2]) : 0;
@@ -21326,11 +21333,11 @@ function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
     kind = "summary";
     kindLabel = "\u603B\u7ED3";
     content = body.replace(/^💬\s+累计总结[：:]\s*/, "");
-  } else if (/^💬\s/.test(body)) {
+  } else if (/^(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(body)) {
     kind = "result";
     kindLabel = "\u7ED3\u8BBA";
-    content = body.replace(/^💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?\s*/, "");
-    const brief = /^任务：([\s\S]+?)；结论：([\s\S]+)$/.exec(content) || /^Task:\s*([\s\S]+?);\s*Result:\s*([\s\S]+)$/.exec(content);
+    content = body.replace(/^(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?|(?:第\d+轮|Round\s+\d+)[：:])\s*/, "");
+    const brief = /^(?:\*\*任务\*\*|任务)[：:]\s*([\s\S]+?)；(?:\*\*结论\*\*|结论)[：:]\s*([\s\S]+)$/.exec(content) || /^(?:\*\*Task\*\*|Task):\s*([\s\S]+?);\s*(?:\*\*Result\*\*|Result):\s*([\s\S]+)$/.exec(content);
     if (brief) {
       task = brief[1].trim();
       conclusion = brief[2].trim();
@@ -23129,8 +23136,8 @@ function extractTaskBoardGroups(text, { trackedIds: trackedIds2 = /* @__PURE__ *
         if (parsedLink) link2 = parsedLink;
       }
       const trimmed = lines[m].trim();
-      if (/^[-*+]\s+💬\s/.test(trimmed)) {
-        latestConclusion = stripPinMarker(trimmed.replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:])?\s*/, "").replace(RECORD_PROVENANCE_RE, "")).trim();
+      if (/^[-*+]\s+(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(trimmed)) {
+        latestConclusion = stripPinMarker(trimmed.replace(/^[-*+]\s+(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?|(?:第\d+轮|Round\s+\d+)[：:])\s*/, "").replace(RECORD_PROVENANCE_RE, "")).trim();
       }
       if (w === subIndent && LIST_RE.test(lines[m]) && !RECORD_LINE_RE.test(lines[m])) {
         const subKw = kwLine(lines[m]);
@@ -23734,8 +23741,8 @@ function extractBlockResultText(noteText = "", { blockId = "", title = "" } = {}
     const trimmed = lines[i].trim();
     const ansMatch = /\[[^\]]+\]\(([^)]*Answers\/[^)]+\.md)\)/i.exec(trimmed);
     if (ansMatch) answerLink = ansMatch[1];
-    if (/^[-*+]\s+💬\s/.test(trimmed)) {
-      const clean2 = stripPinMarker(trimmed.replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:]\s*)?/, "").replace(RECORD_PROVENANCE_RE, "")).trim();
+    if (/^[-*+]\s+(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(trimmed)) {
+      const clean2 = stripPinMarker(trimmed.replace(/^[-*+]\s+(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:]\s*)?|(?:第\d+轮|Round\s+\d+)[：:]\s*)/, "").replace(RECORD_PROVENANCE_RE, "")).trim();
       if (clean2) comments.push(clean2);
     }
   }
@@ -25463,7 +25470,7 @@ var import_child_process9 = require("child_process");
 var AI_IDLE_MIN = 5;
 var TOK_BLOCK_MAX = 30;
 var AGENT_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
-var RESULT_LINE_RE = /^\s*[-*+]\s+💬/;
+var RESULT_LINE_RE = /^\s*[-*+]\s+(?:💬|(?:第\d+轮|Round\s+\d+)[：:])/;
 var SUB_LINE_RE = /^\s*[-*+]\s+🤖\s*(?:子代理|side chat)/;
 var PROG_END = String.raw`(?=$|[\s，,。；;)）])`;
 var PROG_PCT_RE = new RegExp(String.raw`(?:^|\s)(\d{1,3})\s*[%％]` + PROG_END);
@@ -34889,6 +34896,399 @@ function keywordPostProcessor(plugin) {
   };
 }
 
+// src/record-icons.js
+var import_view6 = require("@codemirror/view");
+var import_state5 = require("@codemirror/state");
+var import_language3 = require("@codemirror/language");
+var escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+var AGENT_BY_LABEL = /* @__PURE__ */ new Map();
+for (const [id, info] of Object.entries(AGENTS)) {
+  for (const label of [id, info?.short, info?.name]) {
+    const key = String(label || "").trim().toLowerCase();
+    if (key && !AGENT_BY_LABEL.has(key)) AGENT_BY_LABEL.set(key, id);
+  }
+}
+function agentFromLabel(raw) {
+  const key = String(raw || "").trim().toLowerCase();
+  if (!key) return "";
+  if (AGENT_BY_LABEL.has(key)) return AGENT_BY_LABEL.get(key);
+  for (const [label, id] of AGENT_BY_LABEL) {
+    if (key.startsWith(`${label} `) || key.startsWith(`${label}(`) || key.startsWith(`${label}\uFF08`)) return id;
+  }
+  return "";
+}
+function agentFromClockLine(line) {
+  const s = String(line || "").replace(/\s*<!--[\s\S]*?-->\s*/g, "").replace(/\s*\^[A-Za-z0-9-]+\s*$/, "").trim();
+  if (!CLOCK_RE.test(s) && !s.startsWith("\u23F1")) return "";
+  const parts = s.split(/\s+·\s+/).map((p2) => p2.trim()).filter(Boolean);
+  for (let i = parts.length - 1; i >= 1; i--) {
+    const agent = agentFromLabel(parts[i]);
+    if (agent) return agent;
+  }
+  return "";
+}
+var LINE_ROUND_RE = /^(\s*(?:[-*+]|\d+[.)])\s+)((?:💬\s+)?(?:第(\d+)轮|Round\s+(\d+))[：:]\s*)/;
+var TEXT_ROUND_RE = /^((?:💬\s+)?(?:第(\d+)轮|Round\s+(\d+))[：:]\s*)/;
+function matchRoundPrefix(line) {
+  const m = LINE_ROUND_RE.exec(String(line || ""));
+  if (!m) return null;
+  const from = m[1].length;
+  const to = from + m[2].length;
+  const round = Number(m[3] || m[4]);
+  return Number.isFinite(round) && round > 0 ? { from, to, round } : null;
+}
+function matchRoundTextPrefix(text) {
+  const m = TEXT_ROUND_RE.exec(String(text || ""));
+  if (!m) return null;
+  const round = Number(m[2] || m[3]);
+  return Number.isFinite(round) && round > 0 ? { from: 0, to: m[1].length, round } : null;
+}
+var PLAIN_BRIEF_RE = /^(\s*(?:[-*+]|\d+[.)])\s+(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:]\s*)?|(?:第\d+轮|Round\s+\d+)[：:]\s*))(任务)([：:][\s\S]+?；)(结论)(?=[：:])/;
+function matchBriefLabels(line) {
+  const m = PLAIN_BRIEF_RE.exec(String(line || ""));
+  if (!m) return [];
+  const taskFrom = m[1].length;
+  const taskTo = taskFrom + m[2].length;
+  const concFrom = taskTo + m[3].length;
+  const concTo = concFrom + m[4].length;
+  return [{ from: taskFrom, to: taskTo }, { from: concFrom, to: concTo }];
+}
+var robotLineRe = null;
+function robotLineRegex() {
+  if (!robotLineRe) {
+    const kws = TASK_KWS.split("|").sort((a, b) => b.length - a.length).map(escapeRe).join("|");
+    robotLineRe = new RegExp(
+      `^(\\s*(?:>\\s*)*(?:[-*+]|\\d+[.)])\\s+(?:\\[[ xX/\\-]\\]\\s+)?(?:\\*\\*\\d{1,2}[:\uFF1A]\\d{2}\\*\\*\\s*)?(?:(?:${kws})\\s+)?(?:\\d{1,2}[:\uFF1A]\\d{2}(?:\\s*[-\u2013~\uFF5E\u5230\u81F3]\\s*\\d{1,2}[:\uFF1A]\\d{2})?\\s+)?)(\u{1F916})`,
+      "u"
+    );
+  }
+  return robotLineRe;
+}
+function matchRobotMark(line) {
+  const m = robotLineRegex().exec(String(line || ""));
+  if (!m) return null;
+  const from = m[1].length;
+  return { from, to: from + m[2].length };
+}
+function agentFromAutoLogState(plugin, blockId, taskLine) {
+  const all = plugin?.settings?.autoLogState;
+  if (!all || typeof all !== "object") return "";
+  const key = workKey(kwLine(taskLine)?.body || "");
+  const usageMeta = plugin?.usage?.meta;
+  for (const dayState of Object.values(all)) {
+    if (!dayState || typeof dayState !== "object") continue;
+    for (const [sid, rec] of Object.entries(dayState)) {
+      if (!rec || typeof rec !== "object") continue;
+      if (blockId && rec.blockId === blockId || key && (rec.key === key || workKey(rec.label || "") === key)) {
+        const agent = rec.agent || usageMeta?.get?.(sid)?.agent || "";
+        if (agent) return agent;
+      }
+    }
+  }
+  return "";
+}
+function resolveLineAgent(lines, lineIndex, { plugin = null, path: path23 = "", doc = null } = {}) {
+  if (!Array.isArray(lines) || lineIndex < 0 || lineIndex >= lines.length) return "";
+  const raw = String(lines[lineIndex] || "");
+  const id = blockIdOf(raw);
+  const byId = agentFromBlockId(id);
+  if (byId) return byId;
+  const base = width(raw);
+  for (let i = lineIndex + 1; i < lines.length; i++) {
+    const cur = lines[i];
+    if (!cur.trim()) continue;
+    if (width(cur) <= base) break;
+    const link2 = parseLink(cur);
+    if (link2?.agent) return link2.agent;
+    const byClock = agentFromClockLine(cur);
+    if (byClock) return byClock;
+  }
+  if (plugin && path23 && doc) {
+    try {
+      const mapped = plugin.lineMap?.(path23, doc)?.sessionByParent?.get(lineIndex);
+      if (mapped?.agent) return mapped.agent;
+    } catch {
+    }
+  }
+  if (plugin) {
+    const byState = agentFromAutoLogState(plugin, id, raw);
+    if (byState) return byState;
+  }
+  return "";
+}
+function createRoundBadge(doc, round) {
+  const span = doc.createElement("span");
+  span.className = "ad-round-badge";
+  span.dataset.round = String(round);
+  span.textContent = String(round);
+  const label = `\u7B2C${round}\u8F6E`;
+  span.title = label;
+  span.setAttribute("aria-label", label);
+  return span;
+}
+function createAgentMark(doc, agent, images = AGENT_IMAGES) {
+  const src = images?.[agent];
+  if (!src) return null;
+  const info = AGENTS[agent];
+  const label = info?.name || info?.short || agent;
+  const wrap = doc.createElement("span");
+  wrap.className = "ad-agent-mark";
+  wrap.dataset.agent = agent;
+  wrap.title = label;
+  wrap.setAttribute("aria-label", label);
+  const img = doc.createElement("img");
+  img.className = "ad-agent-mark__img";
+  img.src = src;
+  img.alt = info?.short || agent;
+  img.decoding = "async";
+  img.draggable = false;
+  wrap.appendChild(img);
+  return wrap;
+}
+var RoundBadgeWidget = class extends import_view6.WidgetType {
+  constructor(round) {
+    super();
+    this.round = round;
+  }
+  eq(other) {
+    return other.round === this.round;
+  }
+  toDOM(view2) {
+    return createRoundBadge(view2.dom.ownerDocument, this.round);
+  }
+  ignoreEvent() {
+    return false;
+  }
+};
+var AgentMarkWidget = class extends import_view6.WidgetType {
+  constructor(agent, images = AGENT_IMAGES) {
+    super();
+    this.agent = agent;
+    this.images = images;
+  }
+  eq(other) {
+    return other.agent === this.agent;
+  }
+  toDOM(view2) {
+    return createAgentMark(view2.dom.ownerDocument, this.agent, this.images) || view2.dom.ownerDocument.createTextNode("\u{1F916}");
+  }
+  ignoreEvent() {
+    return false;
+  }
+};
+function inCode2(view2, pos) {
+  try {
+    for (let n = (0, import_language3.syntaxTree)(view2.state).resolveInner(pos, 1); n; n = n.parent) {
+      if (/codeblock|inline-code|frontmatter|hmd-code/i.test(n.name)) return true;
+    }
+  } catch {
+  }
+  return false;
+}
+function selectionTouches(sel, from, to) {
+  for (const range of sel.ranges) {
+    if (range.from <= to && range.to >= from) return true;
+  }
+  return false;
+}
+function recordIconsExtension(plugin, images = AGENT_IMAGES) {
+  return import_view6.ViewPlugin.fromClass(
+    class {
+      constructor(view2) {
+        this.decorations = this.build(view2);
+      }
+      update(update) {
+        if (update.docChanged || update.viewportChanged || update.selectionSet) {
+          this.decorations = this.build(update.view);
+        }
+      }
+      build(view2) {
+        const out = new import_state5.RangeSetBuilder();
+        const doc = view2.state.doc;
+        const sel = view2.state.selection;
+        const info = plugin?.editorInfoField ? view2.state.field(plugin.editorInfoField, false) : null;
+        const path23 = info?.file?.path || "";
+        let linesCache = null;
+        const getLines = () => linesCache || (linesCache = doc.toString().split("\n"));
+        let next = 0;
+        for (const { from, to } of view2.visibleRanges) {
+          for (let pos = Math.max(from, next); pos <= to; ) {
+            const line = doc.lineAt(pos);
+            const text = line.text;
+            if (!inCode2(view2, line.from)) {
+              const roundHit = matchRoundPrefix(text);
+              if (roundHit) {
+                const rf = line.from + roundHit.from;
+                const rt = line.from + roundHit.to;
+                if (!selectionTouches(sel, rf, rt)) {
+                  out.add(rf, rt, import_view6.Decoration.replace({ widget: new RoundBadgeWidget(roundHit.round) }));
+                }
+                for (const lbl of matchBriefLabels(text)) {
+                  out.add(line.from + lbl.from, line.from + lbl.to, import_view6.Decoration.mark({ class: "ad-record-label" }));
+                }
+              } else {
+                const briefLabels = text.includes("\u{1F4AC}") ? matchBriefLabels(text) : [];
+                if (briefLabels.length) {
+                  for (const lbl of briefLabels) {
+                    out.add(line.from + lbl.from, line.from + lbl.to, import_view6.Decoration.mark({ class: "ad-record-label" }));
+                  }
+                } else if (text.includes("\u{1F916}")) {
+                  const robotHit = matchRobotMark(text);
+                  if (robotHit) {
+                    const rf = line.from + robotHit.from;
+                    const rt = line.from + robotHit.to;
+                    if (!selectionTouches(sel, rf, rt)) {
+                      const agent = resolveLineAgent(getLines(), line.number - 1, { plugin, path: path23, doc });
+                      if (agent && images?.[agent]) {
+                        out.add(rf, rt, import_view6.Decoration.replace({ widget: new AgentMarkWidget(agent, images) }));
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            pos = next = line.to + 1;
+          }
+        }
+        return out.finish();
+      }
+    },
+    { decorations: (v) => v.decorations }
+  );
+}
+var IN_CODE2 = "pre, code, .table-cell-wrapper";
+function firstDirectTextNode(el) {
+  const host = el.querySelector(":scope > p") || el;
+  for (const node of host.childNodes) {
+    if (node.nodeType === 3 && node.textContent && node.textContent.trim()) return node;
+    if (node.nodeType === 1 && /^(UL|OL)$/.test(node.tagName)) break;
+  }
+  return null;
+}
+function findRobotTextNode(el) {
+  const host = el.querySelector(":scope > p") || el;
+  for (const node of host.childNodes) {
+    if (node.nodeType === 1 && /^(UL|OL)$/.test(node.tagName)) break;
+    if (node.nodeType === 3 && node.textContent && node.textContent.includes("\u{1F916}")) return node;
+    if (node.nodeType === 1 && node.classList?.contains("todoseq-completed-task-text")) {
+      for (const child of node.childNodes) {
+        if (child.nodeType === 3 && child.textContent && child.textContent.includes("\u{1F916}")) return child;
+      }
+    }
+  }
+  return null;
+}
+function resolveReadingLiAgent(li, { srcLines = null, lineStart = 0, plugin = null } = {}) {
+  if (srcLines && li.dataset?.line != null) {
+    const idx = lineStart + Number(li.dataset.line);
+    const bySrc = resolveLineAgent(srcLines, idx, { plugin });
+    if (bySrc) return bySrc;
+  }
+  const byDomId = agentFromBlockId(li.id || li.dataset?.blockId || "");
+  if (byDomId) return byDomId;
+  const subList = li.querySelector(":scope > ul, :scope > ol");
+  if (subList) {
+    for (const child of subList.querySelectorAll(":scope > li")) {
+      const txt = child.textContent?.trim() || "";
+      const byClock = agentFromClockLine(txt);
+      if (byClock) return byClock;
+      const linkEl = child.querySelector("a[href]");
+      if (linkEl) {
+        const href = linkEl.getAttribute("href") || "";
+        const m = /[?&]agent=([a-z0-9]+)/i.exec(href) || /^(claude|codex|workbuddy|dsh|antigravity):\/\//i.exec(href);
+        if (m) return m[1].toLowerCase();
+      }
+    }
+  }
+  if (srcLines) {
+    const ownText = ((li.querySelector(":scope > p") || li).textContent || "").split("\n")[0].replace(/\s+/g, " ").trim();
+    const afterBot = ownText.includes("\u{1F916}") ? ownText.slice(ownText.indexOf("\u{1F916}") + "\u{1F916}".length).trim().slice(0, 24) : "";
+    if (afterBot) {
+      for (let i = lineStart; i < srcLines.length; i++) {
+        if (!srcLines[i].includes("\u{1F916}")) continue;
+        const clean2 = srcLines[i].replace(/[*_`]/g, "");
+        if (clean2.includes(afterBot)) {
+          const byMatch = resolveLineAgent(srcLines, i, { plugin });
+          if (byMatch) return byMatch;
+        }
+      }
+    }
+  }
+  return "";
+}
+var PLAIN_TEXT_BRIEF_RE = /^((?:💬\s+)?)(任务)([：:][\s\S]+?；)(结论)([：:][\s\S]*)$/;
+function appendBriefStyledText(doc, frag, text) {
+  const m = PLAIN_TEXT_BRIEF_RE.exec(text);
+  if (!m) {
+    if (text) frag.appendChild(doc.createTextNode(text));
+    return;
+  }
+  if (m[1]) frag.appendChild(doc.createTextNode(m[1]));
+  const s1 = doc.createElement("strong");
+  s1.className = "ad-record-label";
+  s1.textContent = m[2];
+  frag.appendChild(s1);
+  frag.appendChild(doc.createTextNode(m[3]));
+  const s2 = doc.createElement("strong");
+  s2.className = "ad-record-label";
+  s2.textContent = m[4];
+  frag.appendChild(s2);
+  if (m[5]) frag.appendChild(doc.createTextNode(m[5]));
+}
+function applyRecordIcons(root, { plugin = null, ctx = null, images = AGENT_IMAGES } = {}) {
+  if (!root || typeof root.querySelectorAll !== "function") return;
+  const doc = root.ownerDocument;
+  const section = ctx?.getSectionInfo?.(root) || null;
+  const srcLines = section?.text ? section.text.split("\n") : null;
+  const lineStart = section?.lineStart || 0;
+  for (const li of root.querySelectorAll("li")) {
+    if (li.closest(IN_CODE2)) continue;
+    if (!li.querySelector(":scope > .ad-round-badge, :scope > p > .ad-round-badge")) {
+      const textNode = firstDirectTextNode(li);
+      const hit = textNode ? matchRoundTextPrefix(textNode.textContent) : null;
+      if (hit) {
+        const rest = textNode.textContent.slice(hit.to);
+        const frag = doc.createDocumentFragment();
+        frag.appendChild(createRoundBadge(doc, hit.round));
+        appendBriefStyledText(doc, frag, rest);
+        textNode.replaceWith(frag);
+        continue;
+      }
+      if (textNode && /^💬\s+任务[：:]/.test(textNode.textContent) && !li.querySelector(":scope > .ad-record-label, :scope > p > .ad-record-label")) {
+        const frag = doc.createDocumentFragment();
+        appendBriefStyledText(doc, frag, textNode.textContent);
+        textNode.replaceWith(frag);
+        continue;
+      }
+    }
+    if (!li.querySelector(":scope > .ad-agent-mark, :scope > p > .ad-agent-mark")) {
+      const robotNode = findRobotTextNode(li);
+      if (robotNode) {
+        const agent = resolveReadingLiAgent(li, { srcLines, lineStart, plugin });
+        const mark = agent ? createAgentMark(doc, agent, images) : null;
+        if (mark) {
+          const raw = robotNode.textContent;
+          const idx = raw.indexOf("\u{1F916}");
+          if (idx >= 0) {
+            const before = raw.slice(0, idx);
+            const after = raw.slice(idx + "\u{1F916}".length);
+            const frag = doc.createDocumentFragment();
+            if (before) frag.appendChild(doc.createTextNode(before));
+            frag.appendChild(mark);
+            if (after) frag.appendChild(doc.createTextNode(after));
+            robotNode.replaceWith(frag);
+          }
+        }
+      }
+    }
+  }
+}
+function recordIconsPostProcessor(plugin, images = AGENT_IMAGES) {
+  return (el, ctx) => {
+    applyRecordIcons(el, { plugin, ctx, images });
+  };
+}
+
 // src/menubar.js
 var import_fs22 = __toESM(require("fs"), 1);
 var import_path22 = __toESM(require("path"), 1);
@@ -37614,7 +38014,7 @@ var SessionTitleManager = class {
 
 // src/fold-integration.js
 var import_obsidian9 = require("obsidian");
-var import_language3 = require("@codemirror/language");
+var import_language4 = require("@codemirror/language");
 
 // src/fold-actions.js
 var RECORD_FOLD_COMMANDS = {
@@ -37651,14 +38051,14 @@ function integrateRecordFolding(plugin) {
       const current = aiRecordGroups(cm.state.doc.toString(), plugin.recordTrackedIds());
       const keys = new Set(spec.all ? current.map((g) => g.key) : targets.map((g) => g.key));
       const effects = [];
-      (0, import_language3.foldedRanges)(cm.state).between(0, cm.state.doc.length, (from, to) => {
+      (0, import_language4.foldedRanges)(cm.state).between(0, cm.state.doc.length, (from, to) => {
         const hit = current.some((g) => {
           if (!keys.has(g.key) || !g.records.length) return false;
           const start = cm.state.doc.line(g.line + 1).from;
           const end = cm.state.doc.line(g.records[g.records.length - 1] + 1).to;
           return from > start && from <= end;
         });
-        if (hit) effects.push(import_language3.unfoldEffect.of({ from, to }));
+        if (hit) effects.push(import_language4.unfoldEffect.of({ from, to }));
       });
       effects.push(setRecordsOpenEffect.of({ keys: [...keys], open }));
       cm.dispatch({ effects });
@@ -37699,7 +38099,7 @@ function parentTimelineLine(lines, line) {
 function recordCopyText(line, mode = "all") {
   const text = String(line || "").replace(/\s*<!--[\s\S]*?-->/g, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").trim();
   if (mode !== "conclusion") return text;
-  const conclusion = text.match(/结论[：:]\s*([\s\S]*)$/)?.[1];
+  const conclusion = text.match(/(?:\*\*结论\*\*|结论)[：:]\s*([\s\S]*)$/)?.[1];
   return (conclusion || text).trim();
 }
 function recordDeleteRange(lines, line) {
@@ -38996,7 +39396,7 @@ var JournalSync = class {
         end = i;
       }
       const kids = [];
-      for (let i = n + 1; i <= end; i++) if (width(lines[i]) === kidW && LIST_RE.test(lines[i]) && !/^\s*[-*+]\s+(?:🔗|⏱|💬|🤖\s*(?:子代理|side chat))/.test(lines[i])) kids.push(i);
+      for (let i = n + 1; i <= end; i++) if (width(lines[i]) === kidW && LIST_RE.test(lines[i]) && !/^\s*[-*+]\s+(?:🔗|⏱|💬|(?:第\d+轮|Round\s+\d+)[：:]|🤖\s*(?:子代理|side chat))/.test(lines[i])) kids.push(i);
       const d = todo[0];
       const name = String(d.title || "").trim() || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD";
       const mine = kids.find((i) => {
@@ -39093,7 +39493,7 @@ var JournalSync = class {
       const kids = [];
       for (let i = n + 1; i <= end; i++) {
         if (width(lines[i]) !== kidW || !LIST_RE.test(lines[i])) continue;
-        if (/^\s*[-*+]\s+(?:🔗|⏱|💬|🤖\s*(?:子代理|side chat))/.test(lines[i])) continue;
+        if (/^\s*[-*+]\s+(?:🔗|⏱|💬|(?:第\d+轮|Round\s+\d+)[：:]|🤖\s*(?:子代理|side chat))/.test(lines[i])) continue;
         kids.push(i);
       }
       const known = /* @__PURE__ */ new Map(), claimed = /* @__PURE__ */ new Set();
@@ -39191,7 +39591,7 @@ var JournalSync = class {
     const known = /* @__PURE__ */ new Map();
     for (let i = n + 1; i <= end; i++) {
       if (width(lines[i]) !== kidW || !LIST_RE.test(lines[i])) continue;
-      if (/^\s*[-*+]\s+(?:🔗|⏱|💬|🤖\s*(?:子代理|side chat))/.test(lines[i])) continue;
+      if (/^\s*[-*+]\s+(?:🔗|⏱|💬|(?:第\d+轮|Round\s+\d+)[：:]|🤖\s*(?:子代理|side chat))/.test(lines[i])) continue;
       const mark = kidUnder(lines, i);
       if (mark && mark.kind === "side") known.set(String(mark.id), { block: i, mark: mark.line, ...mark });
     }
@@ -42428,7 +42828,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.registerView(DASHBOARD_TYPE, (leaf) => new DashboardView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
-    this.registerEditorExtension([...createEditorExtension(this) || [], keywordMarksExtension(this), keywordIconsExtension(this)]);
+    this.registerEditorExtension([...createEditorExtension(this) || [], keywordMarksExtension(this), keywordIconsExtension(this), recordIconsExtension(this)]);
     registerTaskAgentSuggest(this);
     registerTaskStatusMenu(this);
     if (typeof this.app.workspace?.on === "function") {
@@ -42529,6 +42929,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       ctx.addChild(child);
     });
     this.registerMarkdownPostProcessor(keywordPostProcessor(this));
+    this.registerMarkdownPostProcessor(recordIconsPostProcessor(this));
     this.setupRibbon();
     this.addCommand({ id: "open-dashboard", name: t("\u6253\u5F00 Agent Deck \u9762\u677F"), callback: () => this.activateView() });
     this.addCommand({
@@ -46088,8 +46489,8 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
           if (block) {
             for (let m = block.start + 1; m <= block.end; m++) {
               if (!link2) link2 = parseLink(lines[m]);
-              if (/^\s*[-*+]\s+💬\s/.test(lines[m])) {
-                latestConclusion = stripPinMarker(lines[m].trim().replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:])?\s*/, "").replace(RECORD_PROVENANCE_RE, "")).trim();
+              if (/^\s*[-*+]\s+(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(lines[m])) {
+                latestConclusion = stripPinMarker(lines[m].trim().replace(/^[-*+]\s+(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?|(?:第\d+轮|Round\s+\d+)[：:])\s*/, "").replace(RECORD_PROVENANCE_RE, "")).trim();
               }
             }
           }
