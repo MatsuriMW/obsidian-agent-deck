@@ -8,3 +8,7 @@
 - **会话隔离边界**：CodeBuddy CLI（`~/.codebuddy/projects`）与国内版 WorkBuddy 桌面（`~/.workbuddy`）、`qodercli`（`~/.qoder/projects`）与 Qoder 桌面 SQLite 均不互通，不可跨端续聊。
 - **总结与标题保护**：普通会话不能截取回复开头代替总结或生成后硬截断；后台回答不再生成总结，按 500 字分流到完整原文或干净问答文件，不能把扫描器的截短预览当原文；保留用户改过的 AI 标题时必须跳过空格压缩与时间前缀剥离，并防止历史标记触发重排。
 - **同名项目聚合与子代理等待降噪**：项目分组不能直接用末级目录名当键，必须以规范化根路径隔离并在同名碰撞时附加父目录区分；子代理 `turn/end` / `task_complete` 应标为 `done`（`aborted` 标 `cancelled`）并通过 `parentSid` / `parentCwd` 继承母会话项目，避免落入「独立会话」或污染「等你」列表。
+- **macOS GUI 进程不继承终端代理**：Obsidian 桌面进程 `process.env` 不含 shell 的 `HTTPS_PROXY` / `ALL_PROXY`，导致 ACP CLI 连网静默超时；`cleanEnv()` 在未显式配置代理变量时必须通过 `/usr/sbin/scutil --proxy`（60s 缓存）读取系统 HTTP/HTTPS/SOCKS 代理并补全 `127.0.0.1,localhost,::1` 至 `NO_PROXY`。
+- **Claude Code 子文件共 `sid` 与 Cursor 早退丢父子**：Claude Code `<parent>/subagents/agent-*.jsonl` 共享母会话 `fc.sid` 且带 `fc.sub`，绝不能扫 `files` 凭 `fc.sub` 判子代理或把子文件 `parentSid`/`isSubagent` 写回母会话；Cursor `ingestCursorEvent` 必须在 `sessionStart` 及带 token 的 `afterAgentResponse`/`stop` 提前 `return` 之前绑定父子关系。
+- **动态 ACP 模型必须统一汇入 `allModels()`**：不得在 `allModels()` 硬编码部分 Agent 白名单，必须统一遍历 `settings.delegate` 收集 `availableModels`，否则 `refreshAcpModels` 拉回模型后设置页下拉框与 `modelsFor()` 仍看不到新模型。
+- **Windows `.cmd` 拉起、TDZ 与跨插件粗体 `key` 匹配**：`checkBinary()` 必须使用 `spawnCli` / `killChildProcess`（避免 Windows `.cmd` 报 `EINVAL`），且 `timer` 必须在 `done()` 回调前声明以避开 TDZ `ReferenceError`；`autoLogState` 里的 `key` 带 `**...**`，与螺旋日程等配套插件对齐去重时必须同步剥粗规范化。

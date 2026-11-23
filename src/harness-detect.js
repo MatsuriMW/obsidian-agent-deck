@@ -221,7 +221,7 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
       dataPaths: [qwenHome],
     },
     cursor: {
-      binNames: ["cursor"],
+      binNames: ["cursor", "agent", "cursor-agent"],
       binPaths: [],
       apps: win ? ["cursor/Cursor.exe", "Cursor/Cursor.exe"] : ["Cursor.app"],
       dataPaths: [

@@ -15,20 +15,69 @@ import os from "os";
 
 const expandHome = (p, homeDir) => String(p || "").replace(/^~(?=\/)/, homeDir);
 
-export function doubaoWorkDataDir(homeDir = os.homedir(), platform = process.platform, env = process.env) {
-  if (env?.DOUBAOWORK_DATA_DIR) return expandHome(env.DOUBAOWORK_DATA_DIR, homeDir);
-  if (platform === "darwin") return path.join(homeDir, "Library", "Application Support", "DoubaoWork");
+export function doubaoWorkDataDirs(homeDir = os.homedir(), platform = process.platform, env = process.env) {
+  if (env?.DOUBAOWORK_DATA_DIR) return [expandHome(env.DOUBAOWORK_DATA_DIR, homeDir)];
+  if (platform === "darwin") return [path.join(homeDir, "Library", "Application Support", "DoubaoWork")];
   if (platform === "win32") {
     const appData = env?.APPDATA || path.join(homeDir, "AppData", "Roaming");
     const localAppData = env?.LOCALAPPDATA || path.join(homeDir, "AppData", "Local");
-    const roaming = path.join(appData, "DoubaoWork");
-    if (fs.existsSync(roaming)) return roaming;
-    return path.join(localAppData, "DoubaoWork");
+    return [
+      path.join(localAppData, "DoubaoWork", "User Data"),
+      path.join(localAppData, "DoubaoWork"),
+      path.join(appData, "DoubaoWork", "User Data"),
+      path.join(appData, "DoubaoWork"),
+    ];
   }
-  return path.join(env?.XDG_CONFIG_HOME || path.join(homeDir, ".config"), "DoubaoWork");
+  return [path.join(env?.XDG_CONFIG_HOME || path.join(homeDir, ".config"), "DoubaoWork")];
+}
+
+export function doubaoWorkDataDir(homeDir = os.homedir(), platform = process.platform, env = process.env) {
+  const dirs = doubaoWorkDataDirs(homeDir, platform, env);
+  for (const d of dirs) {
+    try { if (fs.existsSync(d)) return d; } catch { /* next */ }
+  }
+  return dirs[0] || "";
+}
+
+export function doubaoWorkIndexedDbDirs(homeDir = os.homedir(), platform = process.platform, env = process.env) {
+  const roots = doubaoWorkDataDirs(homeDir, platform, env);
+  const found = [];
+  const seen = new Set();
+  const add = (dir) => {
+    if (!dir || seen.has(dir)) return;
+    seen.add(dir);
+    found.push(dir);
+  };
+  for (const root of roots) {
+    if (!root) continue;
+    const profileDirs = [path.join(root, "Default"), root];
+    try {
+      for (const ent of fs.readdirSync(root, { withFileTypes: true })) {
+        if (ent.isDirectory() && /^Profile\s+\d+$/i.test(ent.name)) {
+          profileDirs.push(path.join(root, ent.name));
+        }
+      }
+    } catch { /* root missing */ }
+    for (const prof of profileDirs) {
+      const idbRoot = path.join(prof, "IndexedDB");
+      const primary = path.join(idbRoot, "chrome_doubaowork-chat_0.indexeddb.leveldb");
+      try { if (fs.existsSync(primary)) add(primary); } catch { /* next */ }
+      try {
+        for (const ent of fs.readdirSync(idbRoot, { withFileTypes: true })) {
+          if (!ent.isDirectory()) continue;
+          if (/doubao.*\.indexeddb\.leveldb$/i.test(ent.name)) {
+            add(path.join(idbRoot, ent.name));
+          }
+        }
+      } catch { /* IndexedDB dir missing */ }
+    }
+  }
+  return found;
 }
 
 export function doubaoWorkIndexedDbDir(homeDir = os.homedir(), platform = process.platform, env = process.env) {
+  const found = doubaoWorkIndexedDbDirs(homeDir, platform, env);
+  if (found.length) return found[0];
   const base = doubaoWorkDataDir(homeDir, platform, env);
   if (!base) return "";
   return path.join(base, "Default", "IndexedDB", "chrome_doubaowork-chat_0.indexeddb.leveldb");
@@ -125,6 +174,22 @@ function readV8String(buf, pos) {
   return { text, next: next + byteLen };
 }
 
+function readV8Number(buf, pos) {
+  if (pos >= buf.length) return null;
+  const tag = buf[pos];
+  if (tag === 0x49) { // 'I' ZigZag Int32
+    const v = readVarint(buf, pos + 1);
+    if (!v) return null;
+    return { num: (v.val >>> 1) ^ -(v.val & 1), next: v.next };
+  }
+  if (tag === 0x4e && pos + 9 <= buf.length) { // 'N' IEEE-754 Double LE
+    const num = buf.readDoubleLE(pos + 1);
+    if (!Number.isFinite(num)) return null;
+    return { num, next: pos + 9 };
+  }
+  return null;
+}
+
 function readFieldString(buf, start, end, keyName) {
   const needle = Buffer.from(keyName, "ascii");
   const idx = buf.indexOf(needle, start);
@@ -133,11 +198,32 @@ function readFieldString(buf, start, end, keyName) {
   return val ? val.text : "";
 }
 
-function parseUnixSec(str) {
-  if (!/^\d{9,13}$/.test(String(str || "").trim())) return 0;
+function parseUnixSec(raw) {
+  const str = typeof raw === "number" ? String(Math.floor(raw)) : String(raw || "").trim();
+  if (!/^\d{9,13}$/.test(str)) return 0;
   const n = Number(str);
   if (!Number.isFinite(n) || n <= 0) return 0;
   return n > 1e12 ? Math.floor(n) : Math.floor(n * 1000);
+}
+
+function readFieldTimestamp(buf, start, end, keyNames) {
+  for (const keyName of keyNames) {
+    const needle = Buffer.from(keyName, "ascii");
+    const idx = buf.indexOf(needle, start);
+    if (idx === -1 || idx + needle.length >= end) continue;
+    const after = idx + needle.length;
+    const strVal = readV8String(buf, after);
+    if (strVal) {
+      const ms = parseUnixSec(strVal.text);
+      if (ms) return ms;
+    }
+    const numVal = readV8Number(buf, after);
+    if (numVal) {
+      const ms = parseUnixSec(numVal.num);
+      if (ms) return ms;
+    }
+  }
+  return 0;
 }
 
 // Extract DoubaoWork conversation records from raw LevelDB / V8 serialized bytes.
@@ -163,10 +249,10 @@ export function parseDoubaoWorkBuffer(buf) {
       ? nextIdx
       : Math.min(buf.length, idRes.next + 4096);
 
-    const title = readFieldString(buf, idRes.next, end, "name").replace(/\s+/g, " ").trim();
+    const title = (readFieldString(buf, idRes.next, end, "name") || readFieldString(buf, idRes.next, end, "title")).replace(/\s+/g, " ").trim();
     const botId = readFieldString(buf, idRes.next, end, "bot_id").trim();
-    const createMs = parseUnixSec(readFieldString(buf, idRes.next, end, "create_time"));
-    const updateMs = parseUnixSec(readFieldString(buf, idRes.next, end, "update_time"));
+    const createMs = readFieldTimestamp(buf, idRes.next, end, ["create_time", "created_at"]);
+    const updateMs = readFieldTimestamp(buf, idRes.next, end, ["update_time", "updated_at", "last_message_time"]);
     const projectId = readFieldString(buf, idRes.next, end, "project_id").trim();
 
     if (!createMs && !updateMs) continue;
@@ -247,52 +333,56 @@ function extractLdbBuffers(buf) {
 }
 
 export function discoverDoubaoWorkConversations(opts = {}) {
-  const idbDir = opts.indexedDbDir || doubaoWorkIndexedDbDir(opts.homeDir, opts.platform, opts.env);
-  if (!idbDir) return { indexedDbDir: "", conversations: [], mtimeMs: 0, size: 0 };
-
-  let names;
-  try {
-    names = fs.readdirSync(idbDir);
-  } catch {
-    return { indexedDbDir: idbDir, conversations: [], mtimeMs: 0, size: 0 };
-  }
-
-  const dataFiles = names
-    .filter((n) => n.endsWith(".log") || n.endsWith(".ldb"))
-    .sort();
-  if (!dataFiles.length) return { indexedDbDir: idbDir, conversations: [], mtimeMs: 0, size: 0 };
+  const idbDirs = opts.indexedDbDir
+    ? [opts.indexedDbDir]
+    : doubaoWorkIndexedDbDirs(opts.homeDir, opts.platform, opts.env);
+  const primaryDir = idbDirs[0] || doubaoWorkIndexedDbDir(opts.homeDir, opts.platform, opts.env);
+  if (!idbDirs.length) return { indexedDbDir: primaryDir, conversations: [], mtimeMs: 0, size: 0 };
 
   const merged = new Map();
   let maxMtime = 0;
   let totalSize = 0;
 
-  for (const name of dataFiles) {
-    const filePath = path.join(idbDir, name);
-    let st;
-    try { st = fs.statSync(filePath); } catch { continue; }
-    if (st.size <= 0 || st.size > 64 * 1024 * 1024) continue;
-    totalSize += st.size;
-    if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs;
+  for (const idbDir of idbDirs) {
+    let names;
+    try {
+      names = fs.readdirSync(idbDir);
+    } catch {
+      continue;
+    }
 
-    let raw;
-    try { raw = fs.readFileSync(filePath); } catch { continue; }
-    const buffers = name.endsWith(".ldb") ? extractLdbBuffers(raw) : [raw];
-    for (const buf of buffers) {
-      for (const conv of parseDoubaoWorkBuffer(buf)) {
-        const prev = merged.get(conv.id);
-        if (!prev || conv.lastAt > prev.lastAt || (conv.lastAt === prev.lastAt && conv.title && !prev.title)) {
-          merged.set(conv.id, {
-            ...conv,
-            startedAt: prev ? Math.min(prev.startedAt, conv.startedAt) : conv.startedAt,
-            filePath,
-          });
+    const dataFiles = names
+      .filter((n) => n.endsWith(".log") || n.endsWith(".ldb"))
+      .sort();
+
+    for (const name of dataFiles) {
+      const filePath = path.join(idbDir, name);
+      let st;
+      try { st = fs.statSync(filePath); } catch { continue; }
+      if (st.size <= 0 || st.size > 64 * 1024 * 1024) continue;
+      totalSize += st.size;
+      if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs;
+
+      let raw;
+      try { raw = fs.readFileSync(filePath); } catch { continue; }
+      const buffers = name.endsWith(".ldb") ? extractLdbBuffers(raw) : [raw];
+      for (const buf of buffers) {
+        for (const conv of parseDoubaoWorkBuffer(buf)) {
+          const prev = merged.get(conv.id);
+          if (!prev || conv.lastAt > prev.lastAt || (conv.lastAt === prev.lastAt && conv.title && !prev.title)) {
+            merged.set(conv.id, {
+              ...conv,
+              startedAt: prev ? Math.min(prev.startedAt, conv.startedAt) : conv.startedAt,
+              filePath,
+            });
+          }
         }
       }
     }
   }
 
   const conversations = [...merged.values()].sort((a, b) => (b.lastAt - a.lastAt) || a.id.localeCompare(b.id));
-  return { indexedDbDir: idbDir, conversations, mtimeMs: maxMtime, size: totalSize };
+  return { indexedDbDir: primaryDir, conversations, mtimeMs: maxMtime, size: totalSize };
 }
 
 export function buildDoubaoWorkConversation(source) {

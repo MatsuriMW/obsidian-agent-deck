@@ -228,10 +228,18 @@ export function ingestCodexLine(ctx, line, fc, touched) {
     fc.sid = p.id || fc.sid;
     fc.cwd = p.cwd || fc.cwd;
     fc.app = p.originator || fc.app || "codex";
-    // 子代理：parent_thread_id，或 source.subagent.thread_spawn.parent_thread_id（Magpie 也这么认）。
-    const spawn = p.source && typeof p.source === "object" && p.source.subagent && p.source.subagent.thread_spawn;
+    // 子代理：parent_thread_id，或 source.subagent（含 thread_spawn.parent_thread_id / review / compact 等）。
+    const subSource = p.source && typeof p.source === "object" ? p.source.subagent : null;
+    const spawn = subSource && typeof subSource === "object" ? subSource.thread_spawn : null;
     const parent = p.parent_thread_id || (spawn && spawn.parent_thread_id) || "";
-    if (parent && parent !== fc.sid) { fc.parentSid = String(parent); usage.noteMeta(fc, fc.sid, { parentSid: fc.parentSid }); }
+    if (subSource) fc.isSubagent = true;
+    if (parent && parent !== fc.sid) fc.parentSid = String(parent);
+    if (fc.parentSid || fc.isSubagent) {
+      usage.noteMeta(fc, fc.sid, {
+        ...(fc.parentSid ? { parentSid: fc.parentSid } : {}),
+        ...(fc.isSubagent ? { isSubagent: true } : {}),
+      });
+    }
     return;
   }
   if (d.type === "turn_context") { if (p.model) fc.model = p.model; return; }
@@ -503,7 +511,7 @@ export function ingestDshLine(ctx, line, fc, touched) {
     if (d.parentSession) fc.parentSid = String(d.parentSession);   // 子代理（delegationDepth ≥ 1）挂在母会话下面
     if (Number(d.delegationDepth) > 0) fc.isSubagent = true;
     const existing = usage.meta.get(fc.sid);
-    usage.noteMeta(fc, fc.sid, { cwd: fc.cwd, app: "dsh", lastAt: existing?.lastAt || ms || d.createdAt || 0, ...(fc.parentSid ? { parentSid: fc.parentSid } : {}) });
+    usage.noteMeta(fc, fc.sid, { cwd: fc.cwd, app: "dsh", lastAt: existing?.lastAt || ms || d.createdAt || 0, ...(fc.parentSid ? { parentSid: fc.parentSid } : {}), ...(fc.isSubagent ? { isSubagent: true } : {}) });
     return;
   }
   if (!ms) return;

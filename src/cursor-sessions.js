@@ -15,7 +15,7 @@ const fsp = fs.promises;
 
 export const CURSOR_MIN_VERSION = "3.30.14";
 export const CURSOR_HOOK_MARKER = "agent-deck-cursor-hook";
-export const CURSOR_HOOK_VERSION = 1;
+export const CURSOR_HOOK_VERSION = 2;
 export const CURSOR_HOOK_EVENTS = [
   "sessionStart",
   "sessionEnd",
@@ -150,6 +150,9 @@ if (event && sid && supported(p.cursor_version)) {
     version: String(p.cursor_version || ""),
     transcript: p.transcript_path ? String(p.transcript_path) : "",
   };
+  const parentSid = String(p.parent_conversation_id || p.root_conversation_id || "");
+  if (parentSid && parentSid !== sid) rec.parentSid = parentSid;
+  if (p.is_subagent || (event !== "subagentStart" && event !== "subagentStop" && p.subagent_id)) rec.isSubagent = true;
   if (roots.length) rec.roots = roots;
   if (event === "sessionStart") {
     rec.mode = String(p.composer_mode || "");
@@ -204,6 +207,7 @@ if (event && sid && supported(p.cursor_version)) {
     rec.subModel = String(p.subagent_model || "");
     if (p.is_parallel_worker) rec.bg = true;
     if (p.tool_call_id) rec.parentCallId = String(p.tool_call_id);
+    if (p.child_conversation_id) rec.childSid = String(p.child_conversation_id);
   } else if (event === "subagentStop") {
     rec.subId = String(p.subagent_id || p.child_conversation_id || "");
     rec.subType = String(p.subagent_type || "");
@@ -426,6 +430,14 @@ function applyCursorTokens(usage, fc, sid, key, proj, model, ms, d) {
   return { prev, m, isNew: !prev.out && !prev.fresh && !prev.cached };
 }
 
+function linkCursorChild(usage, parentSid, childSid) {
+  if (!parentSid || !childSid || parentSid === childSid) return;
+  (usage.cursorParents ||= new Map()).set(childSid, parentSid);
+  usage.markSubagent?.(childSid, parentSid);
+  const childMeta = usage.meta.get(childSid);
+  if (childMeta && !childMeta.parentSid) childMeta.parentSid = parentSid;
+}
+
 export function ingestCursorEvent(ctx, d, fc, touched) {
   if (!d || typeof d !== "object") return;
   if (!isSupportedCursorVersion(d.version)) return;
@@ -441,6 +453,11 @@ export function ingestCursorEvent(ctx, d, fc, touched) {
   cs.seenEvents.add(dk);
 
   fc.sid = sid;
+  if (d.parentSid && d.parentSid !== sid) {
+    fc.parentSid = d.parentSid;
+    linkCursorChild(usage, d.parentSid, sid);
+  }
+  if (d.isSubagent) fc.isSubagent = true;
   if (d.cwd && (!fc.cwd || fc.cwd === "~")) fc.cwd = d.cwd;
   else if (!fc.cwd && Array.isArray(d.roots) && d.roots[0]) fc.cwd = d.roots[0];
   fc.app = "desktop";
@@ -578,6 +595,7 @@ export function ingestCursorEvent(ctx, d, fc, touched) {
       r.bg = !!d.bg;
       if (!r.endAt) r.state = "run";
     }
+    linkCursorChild(usage, sid, d.childSid);
   } else if (ev === "subagentStop") {
     const subId = String(d.subId || d.childSid || "");
     if (subId) {
@@ -591,9 +609,12 @@ export function ingestCursorEvent(ctx, d, fc, touched) {
       if (d.task && !r.desc) r.desc = String(d.task);
       if (d.subType && !r.type) r.type = String(d.subType);
     }
+    linkCursorChild(usage, sid, d.childSid);
   }
 
   const meta = usage.meta.get(sid) || {};
+  const parentSid = fc.parentSid || usage.cursorParents?.get(sid) || meta.parentSid || "";
+  const isSubagent = Boolean(fc.isSubagent || meta.isSubagent);
   usage.noteMeta(fc, sid, {
     title: v.title || meta.title || "",
     text: s.text || meta.text || "",
@@ -601,6 +622,8 @@ export function ingestCursorEvent(ctx, d, fc, touched) {
     app: "desktop",
     model: v.model || fc.model || meta.model || "",
     lastAt: Math.max(ms, meta.lastAt || 0),
+    parentSid,
+    ...(isSubagent ? { isSubagent: true } : {}),
     state: v.state,
     step: v.step,
     turns: v.turns || 0,

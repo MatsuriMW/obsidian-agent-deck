@@ -87,13 +87,16 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   check("minMinutes=1 lets 2-minute session in; disabled agent skipped", asked.join() === "a-short", asked);
   check("auto item written for antigravity session", /DOING 🤖 \d\d:\d\d-\d\d:\d\d \*\*整理会话\*\* \^agy-/.test(p.journal), p.journal);
 }
-{ // 默认 3 分钟门槛照旧
-  const p = fakePlugin("", [{ sid: "a-short", agent: "antigravity", min: 2, segs: nowSegs(2) }]);
+{ // 默认 1 分钟门槛
+  const p = fakePlugin("", [
+    { sid: "a-zero", agent: "antigravity", min: 0, segs: nowSegs(0) },
+    { sid: "a-one", agent: "antigravity", min: 1, segs: nowSegs(1) },
+  ]);
   const al = new AutoLog(p);
-  let n = 0;
-  al.ask = async () => { n++; return new Map(); };
+  let asked = [];
+  al.ask = async (items) => { asked = items.map((i) => i.x.sid); return new Map(); };
   await al.run();
-  check("default 3-minute threshold", n === 0, n);
+  check("default 1-minute threshold", al.minMinutes === 1 && asked.join() === "a-one", { min: al.minMinutes, asked });
 }
 { // 一轮最多问几个会话可调
   const list = [1, 2, 3].map((i) => ({ sid: `s${i}`, agent: "claude", min: 5, segs: nowSegs(5) }));

@@ -245,7 +245,7 @@ export class JournalSync {
     }
     const daySt = (this.cfg.autoLogState && this.cfg.autoLogState[dayKeyToday(this.cfg)]) || {};
     for (const [sid, rec] of Object.entries(daySt)) {
-      if (!rec || rec.skip || rec.gone) continue;
+      if (!rec || rec.skip || rec.gone || this.usage?.isSubagentSession?.(sid)) continue;
       if ((rec.blockId && text.includes(`^${rec.blockId}`)) || (rec.key && J.findTask(text, rec.key, rec.blockId, sid))) {
         if (!targets.has(sid)) targets.set(sid, { blockId: rec.blockId || "", key: rec.key || "" });
       }
@@ -373,7 +373,7 @@ export class JournalSync {
     const linked = J.linkMap(text);
     const want = new Map();   // 行号 → { kw, sid }
     for (const [sid, rec] of Object.entries(daySt)) {
-      if (!rec || rec.skip || rec.gone || !rec.key || linked.has(sid) || this.archived(sid)) continue;
+      if (!rec || rec.skip || rec.gone || !rec.key || linked.has(sid) || this.archived(sid) || this.usage?.isSubagentSession?.(sid)) continue;
       const m = this.usage.meta.get(sid);
       if (!m) continue;
       const found = J.findTask(text, rec.key, rec.blockId || "", sid);

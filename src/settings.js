@@ -575,6 +575,44 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         refreshLabel: t("读取 OpenCode 可用模型"),
         checkLabel: t("检查 opencode"),
       },
+      {
+        id: "hermes",
+        title: "Hermes Agent",
+        sub: t("通过 hermes-acp 后台委派，也可在终端用 hermes chat / --resume 续聊"),
+        moreKey: "hermes-more",
+        defaultEffort: "medium",
+        pathHint: t("留空自动查找 hermes-acp（或填 hermes）"),
+        refreshLabel: t("读取 Hermes 可用模型"),
+        checkLabel: t("检查 hermes-acp"),
+      },
+      {
+        id: "minimax",
+        title: "MiniMax Code",
+        sub: t("追踪桌面版与 CLI 会话；装有 mcode CLI 时支持 mcode acp 后台委派与终端续聊"),
+        moreKey: "minimax-more",
+        defaultEffort: "medium",
+        pathHint: t("留空自动查找 mcode（~/.minimax-code/bin/mcode 或 PATH）"),
+        refreshLabel: t("读取 MiniMax 可用模型"),
+        checkLabel: t("检查 mcode"),
+      },
+      {
+        id: "cursor",
+        title: "Cursor",
+        sub: t("装有 Cursor CLI（agent）时支持 agent acp 后台委派；未装 CLI 时自动复制任务并打开桌面端交接"),
+        moreKey: "cursor-more",
+        pathHint: t("留空自动查找 agent / cursor-agent"),
+        refreshLabel: t("读取 Cursor 可用模型"),
+        checkLabel: t("检查 agent"),
+      },
+      {
+        id: "gemini",
+        title: "Gemini CLI",
+        sub: t("通过 gemini --acp 后台委派，也可在终端用 gemini --resume 续聊"),
+        moreKey: "gemini-more",
+        pathHint: t("留空自动查找 gemini"),
+        refreshLabel: t("读取 Gemini 可用模型"),
+        checkLabel: t("检查 gemini"),
+      },
     ]) {
       if (p.agentEnabled(spec.id)) {
         this.renderAcpCard(body, (d[spec.id] ||= { ...DEFAULTS.delegate[spec.id] }), spec);
@@ -595,32 +633,6 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       this.bigButton(qtest, t("登录 qoder CLI"), () => p.openTerminalAt(d.qoder.cwd || p.vaultPath, "qoder login"));
 
       qoder.appendChild(qoderMore.parentElement);
-    }
-
-    if (p.agentEnabled("hermes")) {
-      this.renderAcpCard(body, (d.hermes ||= { ...DEFAULTS.delegate.hermes }), {
-        id: "hermes",
-        title: "Hermes Agent",
-        sub: t("通过 hermes-acp 后台委派，也可在终端用 hermes chat / --resume 续聊"),
-        moreKey: "hermes-more",
-        defaultEffort: "medium",
-        pathHint: t("留空自动查找 hermes-acp（或填 hermes）"),
-        refreshLabel: t("读取 Hermes 可用模型"),
-        checkLabel: t("检查 hermes-acp"),
-      });
-    }
-
-    if (p.agentEnabled("minimax")) {
-      this.renderAcpCard(body, (d.minimax ||= { ...DEFAULTS.delegate.minimax }), {
-        id: "minimax",
-        title: "MiniMax Code",
-        sub: t("追踪桌面版与 CLI 会话；装有 mcode CLI 时支持 mcode acp 后台委派与终端续聊"),
-        moreKey: "minimax-more",
-        defaultEffort: "medium",
-        pathHint: t("留空自动查找 mcode（~/.minimax-code/bin/mcode 或 PATH）"),
-        refreshLabel: t("读取 MiniMax 可用模型"),
-        checkLabel: t("检查 mcode"),
-      });
     }
 
     this.renderCustomAcpCard(body);
@@ -1201,35 +1213,49 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const body = details.createDiv({ cls: "ad-grokbot-picker__body" });
     if (!conversations.length) {
       body.createSpan({ cls: "ad-muted", text: t("未检测到本机 Muse 对话缓存") });
-      return;
-    }
-
-    const chips = body.createDiv({ cls: "ad-seg ad-seg--many ad-grokbot-picker__chips" });
-    for (const conv of conversations) {
-      const on = selected.has(conv.id);
-      const label = conv.isMain ? "Main Chat (Muse)" : conv.title;
-      const b = chips.createEl("button", { cls: "ad-seg__btn ad-grokbot-chip" + (on ? " is-on" : ""), text: label, attr: { "aria-pressed": String(on), "data-muse-id": conv.id } });
-      b.onclick = async () => {
-        if (selected.has(conv.id)) {
-          selected.delete(conv.id);
-        } else {
-          if (selected.size >= maxTracked) {
-            new Notice(t("最多同时追踪 {max} 个 Muse 对话流，请先取消一个", { max: maxTracked }));
-            return;
+    } else {
+      const chips = body.createDiv({ cls: "ad-seg ad-seg--many ad-grokbot-picker__chips" });
+      for (const conv of conversations) {
+        const on = selected.has(conv.id);
+        const label = conv.isMain ? "Main Chat (Muse)" : conv.title;
+        const b = chips.createEl("button", { cls: "ad-seg__btn ad-grokbot-chip" + (on ? " is-on" : ""), text: label, attr: { "aria-pressed": String(on), "data-muse-id": conv.id } });
+        b.onclick = async () => {
+          if (selected.has(conv.id)) {
+            selected.delete(conv.id);
+          } else {
+            if (selected.size >= maxTracked) {
+              new Notice(t("最多同时追踪 {max} 个 Muse 对话流，请先取消一个", { max: maxTracked }));
+              return;
+            }
+            selected.add(conv.id);
           }
-          selected.add(conv.id);
-        }
-        s.museTrackedIds = [...selected];
-        const nowOn = selected.has(conv.id);
-        b.classList.toggle("is-on", nowOn);
-        b.setAttribute("aria-pressed", String(nowOn));
-        updateSummary();
+          s.museTrackedIds = [...selected];
+          const nowOn = selected.has(conv.id);
+          b.classList.toggle("is-on", nowOn);
+          b.setAttribute("aria-pressed", String(nowOn));
+          updateSummary();
+          await p.saveSettings?.();
+          p.watchMuseCache?.();
+          await p.scanNow?.(false, { agent: "muse" });
+          const nextCount = [...(p.usage?.meta?.values?.() || [])].filter((x) => x.agent === "muse").length;
+          if (sessCountEl) sessCountEl.textContent = t("{n} 个会话", { n: nextCount });
+        };
+      }
+    }
+    this.rowToggle(
+      body,
+      t("追踪 Muse 主动推送消息"),
+      t("默认仅追踪你发起的对话；开启后连同 Muse 主动发送的消息一起记录"),
+      s.museTrackProactive === true,
+      async (v) => {
+        s.museTrackProactive = v;
         await p.saveSettings?.();
         await p.scanNow?.(false, { agent: "muse" });
         const nextCount = [...(p.usage?.meta?.values?.() || [])].filter((x) => x.agent === "muse").length;
         if (sessCountEl) sessCountEl.textContent = t("{n} 个会话", { n: nextCount });
-      };
-    }
+      },
+    );
+    card.createDiv({ cls: "ad-hint", text: t("Muse 仅在重启或刷新历史时写入本地缓存，缓存更新后 Agent Deck 会自动追踪。") });
   }
 
   // ---------- Recording ----------
@@ -1574,7 +1600,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const sched = modelMore;
     this.rowNumber(sched, t("整理间隔（分钟）"), t("至少 5 分钟"), s.autoLogEvery || 20, 5, 240, (v) => { s.autoLogEvery = v; p.saveSettings(); });
     this.rowNumber(sched, t("首次整理延迟（分钟）"), "", s.autoLogStartDelay ?? 1, 1, 240, (v) => { s.autoLogStartDelay = v; p.saveSettings(); });
-    this.rowNumber(sched, t("最短记录时长（分钟）"), t("0 表示立即记录"), s.autoLogMinMinutes ?? 3, 0, 120, (v) => { s.autoLogMinMinutes = v; p.saveSettings(); });
+    this.rowNumber(sched, t("最短记录时长（分钟）"), t("0 表示立即记录"), s.autoLogMinMinutes ?? 1, 0, 120, (v) => { s.autoLogMinMinutes = v; p.saveSettings(); });
     this.rowNumber(sched, t("暂停判定（分钟）"), t("至少 5 分钟"), s.autoLogIdle || 10, 5, 480, (v) => { s.autoLogIdle = v; p.saveSettings(); });
     this.rowNumber(sched, t("每批会话数"), "", s.autoLogBatch || 8, 1, 20, (v) => { s.autoLogBatch = v; p.saveSettings(); });
 

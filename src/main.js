@@ -29,8 +29,9 @@ import {
   installCursorHooks as installCursorHooksHelper,
   uninstallCursorHooks as uninstallCursorHooksHelper,
   grokBotPersistenceDir,
+  museCacheDir,
 } from "./readers.js";
-import { evaluatePermissionPolicy } from "./security.js";
+import { evaluatePermissionPolicy, spawnCli, killChildProcess } from "./security.js";
 import { runSecurityAudit, renderSecurityAuditReport, parseAuditConfig } from "./security-audit.js";
 import { computeTaskMetrics } from "./task-metrics.js";
 import { readRecentTraces, checkExternalAssets, buildDiagnosticReport } from "./trace.js";
@@ -521,6 +522,7 @@ export default class AgentDeckPlugin extends Plugin {
       this.startStewardWatch();
       this.watchCursorEvents();
       this.watchGrokBotPersistence();
+      this.watchMuseCache();
       this.watchMemoryFolder();
       this.registerInterval(window.setInterval(() => safeRun("autoLog:tick", () => this.autoLog.tick(), { breaker: this._faultBreakers?.autoLog }), 60 * 1000));
       this.registerInterval(window.setInterval(() => safeRun("dream:tick", () => this.dreaming.tick(), { breaker: this._faultBreakers?.dreaming }), 60 * 1000));
@@ -926,6 +928,7 @@ export default class AgentDeckPlugin extends Plugin {
     this._refreshTimer = null;
     this.closeCursorWatcher();
     this.closeGrokBotWatcher();
+    this.closeMuseWatcher();
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
       try { if (runner.constructor && ["AcpRunner", "CodexDesktopRunner", "QoderRunner"].includes(runner.constructor.name)) runner.cancel(); } catch { /* already gone */ }
@@ -1139,8 +1142,11 @@ export default class AgentDeckPlugin extends Plugin {
 
   watchCursorEvents() {
     this.closeCursorWatcher();
-    this.closeGrokBotWatcher();
     if (this._unloaded || !this.agentEnabled("cursor")) return;
+    try {
+      const st = this.cursorHooksStatus();
+      if (st.installed && st.outdated) installCursorHooksHelper();
+    } catch { /* ignore hook refresh errors */ }
     const dir = cursorEventsDir();
     if (!fs.existsSync(dir)) return;
     const scheduleCursor = () => {
@@ -1149,7 +1155,7 @@ export default class AgentDeckPlugin extends Plugin {
       this._cursorWatchTimer = setTimeout(() => {
         if (this._unloaded) return;
         if (this._scanning) return scheduleCursor();
-        this.scanNow(false, { agent: "cursor" });
+        this.scanNow(false, { agent: "cursor" }).catch(() => {});
       }, 350);
     };
     try {
@@ -1189,6 +1195,34 @@ export default class AgentDeckPlugin extends Plugin {
     this._grokWatchTimer = null;
     try { this._grokWatcher?.close(); } catch { /* already closed */ }
     this._grokWatcher = null;
+  }
+
+  watchMuseCache() {
+    this.closeMuseWatcher();
+    const configured = Array.isArray(this.settings.museTrackedIds) ? this.settings.museTrackedIds : ["hatch-main"];
+    const tracked = configured.map((x) => String(x || "").trim()).filter(Boolean);
+    if (this._unloaded || !this.agentEnabled("muse") || !tracked.length) return;
+    const dir = this.settings.museCacheDir || museCacheDir();
+    if (!dir || !fs.existsSync(dir)) return;
+    const scheduleMuse = () => {
+      if (this._unloaded) return;
+      clearTimeout(this._museWatchTimer);
+      this._museWatchTimer = setTimeout(() => {
+        if (this._unloaded) return;
+        if (this._scanning) return scheduleMuse();
+        this.scanNow(false, { agent: "muse" }).catch(() => {});
+      }, 350);
+    };
+    try {
+      this._museWatcher = fs.watch(dir, { persistent: false }, scheduleMuse);
+    } catch { /* ignore unsupported fs.watch */ }
+  }
+
+  closeMuseWatcher() {
+    clearTimeout(this._museWatchTimer);
+    this._museWatchTimer = null;
+    try { this._museWatcher?.close(); } catch { /* already closed */ }
+    this._museWatcher = null;
   }
 
   cursorHooksStatus() {
@@ -1498,7 +1532,8 @@ export default class AgentDeckPlugin extends Plugin {
 
   // ---------- model helpers ----------
   allModels(custom) {
-    const list = [...MODEL_CATALOG, ...(this.settings.delegate.dsh?.availableModels || []), ...(this.settings.delegate.antigravity?.availableModels || []), ...(this.settings.delegate.opencode?.availableModels || []), ...(custom || this.settings.models.custom || [])];
+    const dynamic = Object.values(this.settings.delegate || {}).flatMap((cfg) => (Array.isArray(cfg?.availableModels) ? cfg.availableModels : []));
+    const list = [...MODEL_CATALOG, ...dynamic, ...(custom || this.settings.models.custom || [])];
     const seen = new Set();
     const out = [];
     for (const m of list) if (m && m.id && !seen.has(m.id)) { seen.add(m.id); out.push(m); }
@@ -1544,6 +1579,7 @@ export default class AgentDeckPlugin extends Plugin {
     await this.saveSettings();
     this.watchCursorEvents();
     this.watchGrokBotPersistence();
+    this.watchMuseCache();
     if (this.app.setting?.activeTab === this.settingTab && this.settingTab.containerEl?.isConnected) {
       this.settingTab.display();
     }
@@ -1583,6 +1619,7 @@ export default class AgentDeckPlugin extends Plugin {
     (this.settings.agents ||= {})[agent] = true;
     await this.saveSettings();
     if (agent === "grokbot") this.watchGrokBotPersistence();
+    if (agent === "muse") this.watchMuseCache();
     if (agent === "cursor") this.watchCursorEvents();
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
@@ -1592,6 +1629,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   async setAgentEnabled(agent, on) {
     if (this.isPrimary(agent) && !on) { new Notice(t("主力 Agent 不能关掉；先把主力换掉")); return; }
+    const wasOn = this.agentEnabled(agent);
     (this.settings.agents ||= {})[agent] = !!on;
     if (!on) {
       const order = settingsAgentOrder(this.settings, "tracking", id => this.agentEnabled(id));
@@ -1599,7 +1637,11 @@ export default class AgentDeckPlugin extends Plugin {
     }
     await this.saveSettings();
     if (agent === "grokbot") this.watchGrokBotPersistence();
+    if (agent === "muse") this.watchMuseCache();
     if (agent === "cursor") this.watchCursorEvents();
+    if (agent === "muse" && on && !wasOn) {
+      new Notice(t("已开启 Muse 追踪：Muse 仅在重启或刷新历史时写入本地缓存，更新后会自动追踪。"), 6000);
+    }
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
@@ -4380,9 +4422,35 @@ export default class AgentDeckPlugin extends Plugin {
     }
     const customEnv = cap.acpEnvRaw ? parseCustomAcpEnv(cap.acpEnvRaw) : {};
     return await new Promise((resolve) => {
-      execFile(bin, ["--version"], { timeout: 10000, env: cleanEnv(customEnv) }, (err, out, errOut) => {
-        if (err) resolve(t("{kind} 没找到或不能运行：{error}", { kind, error: String(err.message || err) }) + "\n" + String(errOut || "").slice(0, 300));
-        else resolve(`${kind}：${String(out || "").trim()}`);
+      let out = "";
+      let errOut = "";
+      let settled = false;
+      let timer = null;
+      const done = (msg) => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        resolve(msg);
+      };
+      let child;
+      try {
+        child = spawnCli(bin, ["--version"], { env: cleanEnv(customEnv), stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+      } catch (e) {
+        done(t("{kind} 没找到或不能运行：{error}", { kind, error: String(e?.message || e) }));
+        return;
+      }
+      timer = setTimeout(() => {
+        killChildProcess(child);
+        done(t("{kind} 没找到或不能运行：{error}", { kind, error: "timeout" }) + (errOut ? "\n" + errOut.slice(0, 300) : ""));
+      }, 10000);
+      child.stdout?.on("data", (d) => { out += d.toString(); });
+      child.stderr?.on("data", (d) => { errOut += d.toString(); });
+      child.on("error", (err) => {
+        done(t("{kind} 没找到或不能运行：{error}", { kind, error: String(err?.message || err) }) + (errOut ? "\n" + errOut.slice(0, 300) : ""));
+      });
+      child.on("close", (code) => {
+        if (code === 0) done(`${kind}：${out.trim()}`);
+        else done(t("{kind} 没找到或不能运行：{error}", { kind, error: `exit ${code}` }) + (errOut ? "\n" + errOut.slice(0, 300) : ""));
       });
     });
   }

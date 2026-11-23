@@ -249,7 +249,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 18;
+export const USAGE_CACHE_VERSION = 20;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -273,6 +273,7 @@ function packFile(f) {
     d: [...f.days].map(([key, day]) => [key, packDay(day)]), tm: [...f.titles], ms: [...f.msgs], live: f.live,
     z: f.zstd ? 1 : 0, sub: f.sub, ps: f.parentSid, mr: f.metaRead ? 1 : 0,
   };
+  if (f.isSubagent) out.isSub = 1;
   if (f.zOff) { out.zo = f.zOff; out.zh = f.zHead; out.zc = f.zCarry || ""; }
   if (f.tot) out.tot = f.tot;
   if (f.tasks) out.tasks = { seq: f.tasks.seq, seen: [...f.tasks.seen], map: [...f.tasks.map] };
@@ -286,7 +287,7 @@ function unpackFile(o) {
     path: o.p, agent: o.a, size: o.s, offset: o.o, mtime: o.m,
     id: o.i, sid: o.sid, cwd: o.cwd || "", app: o.app || "", model: o.model || "",
     days: new Map((o.d || []).map(([key, day]) => [key, unpackDay(day)])), msgs: new Map(o.ms || []), titles: new Map(o.tm || []),
-    live: o.live || null, zstd: !!o.z, sub: o.sub || "", parentSid: o.ps || "",
+    live: o.live || null, zstd: !!o.z, sub: o.sub || "", parentSid: o.ps || "", isSubagent: !!o.isSub,
     metaRead: !!o.mr, zOff: o.zo || 0, zHead: o.zh || "", zCarry: o.zc || "",
     tot: o.tot || null,
     tasks: o.tasks ? { seq: o.tasks.seq || 0, seen: new Set(o.tasks.seen || []), map: new Map(o.tasks.map || []) } : null,
@@ -313,6 +314,8 @@ export class AgentUsage {
     this.archivedClaude = new Set(); // sessions archived in the Claude desktop app
     this.sideChats = new Map();      // sid -> [{ pid, since }] currently open side chats
     this.subs = new Map();           // sid -> Map(agentId -> subagent record)
+    this.cursorParents = new Map();  // childSid -> parentSid (Cursor hooks)
+    this.subagentSids = new Set();   // sids known to be subagents/child sessions
     this.wbMeta = new Map();         // WorkBuddy db session metadata
     this.t3Delegated = new Map();    // underlying provider sid -> owning T3 Code thread_id
     this.sideAt = 0;
@@ -357,15 +360,26 @@ export class AgentUsage {
       if (!data || data.v !== USAGE_CACHE_VERSION || !Array.isArray(data.files)) return false;
       if (data.cutoff !== undefined && data.cutoff !== curCutoff) return false;
       this.files = new Map();
+      this.subagentSids = new Set();
       for (const entry of data.files) {
         if (!entry || !entry.p) continue;
         const fc = unpackFile(entry);
         this.files.set(fc.path, fc);
+        if (!fc.sub && fc.sid && (fc.isSubagent || (fc.parentSid && fc.parentSid !== fc.sid))) {
+          this.subagentSids.add(fc.sid);
+        }
       }
       if (Array.isArray(data.meta)) this.meta = new Map(data.meta);
+      this.cursorParents = new Map(Array.isArray(data.cursorParents) ? data.cursorParents : []);
+      for (const [childSid, parentSid] of this.cursorParents) {
+        if (childSid && parentSid && parentSid !== childSid) this.subagentSids.add(childSid);
+      }
       this.clientTitles = new Set(Array.isArray(data.clientTitles) ? data.clientTitles : []);
       this.customTitles = new Set(Array.isArray(data.customTitles) ? data.customTitles : []);
       for (const m of this.meta.values()) {
+        if (m?.sid && (m.isSubagent || (m.parentSid && m.parentSid !== m.sid))) {
+          this.subagentSids.add(m.sid);
+        }
         if (m?.clientTitle && m.sid) {
           this.clientTitles.add(m.sid);
           if (m.title && !this.titles.has(m.sid)) this.titles.set(m.sid, m.title);
@@ -391,6 +405,7 @@ export class AgentUsage {
       meta: [...this.meta],
       clientTitles: [...this.clientTitles],
       customTitles: [...this.customTitles],
+      ...(this.cursorParents?.size ? { cursorParents: [...this.cursorParents] } : {}),
     });
   }
 
@@ -807,6 +822,7 @@ export class AgentUsage {
       if (m.agent !== "claude") continue;
       m.deskTitle = ""; m.parentSid = ""; m.parentTitle = ""; m.archived = false;
       m.sideChats = 0; m.sideSince = 0;
+      if (!m.isSubagent && m.sid) this.subagentSids?.delete(m.sid);
     }
     for (const d of this.deskBySid.values()) {
       const m = this.meta.get(d.sid);
@@ -815,6 +831,7 @@ export class AgentUsage {
       if (d.title) this.noteClientTitle(d.sid, d.title);
       m.parentSid = d.parentSid || "";
       m.parentTitle = d.parentTitle || "";
+      if (d.parentSid && d.parentSid !== d.sid) this.markSubagent(d.sid, d.parentSid);
       m.archived = d.archived === true;
       if (d.created && !m.startedAt) m.startedAt = d.created;
     }
@@ -1033,7 +1050,9 @@ export class AgentUsage {
         : { homeDir: home() },
     );
     const activeIds = new Set();
-    const scope = this.isPrimary("muse") ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+    const trackProactive = this.settings.museTrackProactive === true;
+    const baseScope = this.isPrimary("muse") ? 0 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+    const scope = trackProactive ? -(baseScope + 1) : (baseScope + 1);
 
     for (const conv of storage.conversations) {
       if (!tracked.has(conv.id)) continue;
@@ -1079,6 +1098,7 @@ export class AgentUsage {
       let firstEntryAt = 0;
       for (const e of parsed.entries) {
         if (!e.at) continue;
+        if (!trackProactive && e.isProactive) continue;
         if (strictSince && e.at < floor) continue;
         if (this.stale("muse", e.at) && !previous?.days.has(dayKey(e.at, this.cfg))) continue;
         if (!firstEntryAt || e.at < firstEntryAt) firstEntryAt = e.at;
@@ -1103,8 +1123,11 @@ export class AgentUsage {
       }
 
       if (fc.live) {
-        fc.live.state = parsed.state;
-        fc.live.step = parsed.step;
+        const lastParsed = parsed.entries[parsed.entries.length - 1];
+        if (trackProactive || !lastParsed?.isProactive) {
+          fc.live.state = parsed.state;
+          fc.live.step = parsed.step;
+        }
         fc.live.turns = fc.rounds?.list.length || 0;
         fc.live.rounds = fc.rounds?.list || [];
         this.noteClientTitle(sid, parsed.title, { fc });
@@ -1312,7 +1335,8 @@ export class AgentUsage {
       if (!at) continue;
       if (strictSince && at < floor) continue;
 
-      const key = `${storage.indexedDbDir}#${sid}`;
+      const convDir = conv.filePath ? path.dirname(conv.filePath) : storage.indexedDbDir;
+      const key = `${convDir}#${sid}`;
       const previous = this.files.get(key);
       if (this.stale("doubaowork", at) && !previous?.days.has(dayKey(at, this.cfg))) continue;
 
@@ -1606,16 +1630,39 @@ export class AgentUsage {
     return Boolean(sid && (this.clientTitles.has(sid) || this.meta.get(sid)?.clientTitle));
   }
 
+  markSubagent(sid, parentSid = "", isSubagent = false) {
+    if (!sid) return;
+    if (isSubagent || (parentSid && parentSid !== sid)) {
+      (this.subagentSids ||= new Set()).add(sid);
+    }
+  }
+
   noteMeta(fc, sid, patch) {
     let m = this.meta.get(sid);
     if (!m) this.meta.set(sid, m = { sid, agent: fc.agent, title: "", text: "", cwd: fc.cwd || "", app: fc.app || "", model: "", lastAt: 0, out: 0, fresh: 0, cached: 0, calls: 0, segs: [], state: "idle", step: "", todo: null, err: "", lastText: "", archived: false });
     Object.assign(m, patch);
+    // Claude Code subagent files (<parent>/subagents/agent-*.jsonl) share the parent's fc.sid with fc.sub set;
+    // never propagate their fc.parentSid onto the parent's metadata.
+    if (!fc?.sub && fc?.parentSid && fc.parentSid !== sid && !m.parentSid) m.parentSid = fc.parentSid;
+    if ((!fc?.sub && fc?.isSubagent) || patch?.isSubagent) m.isSubagent = true;
+    this.markSubagent(sid, m.parentSid, Boolean(m.isSubagent));
     if (this.titles.has(sid) && (!m.title || !m.customTitle)) {
       m.title = this.titles.get(sid);
       m.clientTitle = this.clientTitles.has(sid) || Boolean(m.clientTitle);
       if (this.customTitles.has(sid)) m.customTitle = true;
     }
     return m;
+  }
+
+  isSubagentSession(sid) {
+    if (!sid) return false;
+    if (this.subagentSids?.has(sid)) return true;
+    const m = this.meta.get(sid);
+    if (m && (m.isSubagent || (m.parentSid && m.parentSid !== sid))) return true;
+    const desk = this.deskBySid?.get(sid);
+    if (desk?.parentSid && desk.parentSid !== sid) return true;
+    const cp = this.cursorParents?.get(sid);
+    return Boolean(cp && cp !== sid);
   }
 
   // ----- JSONL agents -----

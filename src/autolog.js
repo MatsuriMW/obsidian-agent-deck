@@ -49,7 +49,7 @@ export class AutoLog {
 
   get cfg() { return this.p.settings; }
   get usage() { return this.p.usage; }
-  get minMinutes() { return Math.max(0, num(this.cfg.autoLogMinMinutes, 3)); }
+  get minMinutes() { return Math.max(0, num(this.cfg.autoLogMinMinutes, 1)); }
   get batch() { return Math.max(1, Math.round(num(this.cfg.autoLogBatch, 8))); }
   agentOn(id) {
     if (!AGENT_ORDER.includes(id)) return false;
@@ -350,6 +350,13 @@ export class AutoLog {
     return Math.round((parse(toDay) - parse(fromDay)) / 86400000);
   }
 
+  isSubagent(sid) {
+    if (!sid) return false;
+    if (typeof this.usage?.isSubagentSession === "function") return this.usage.isSubagentSession(sid);
+    const m = this.usage?.meta?.get(sid);
+    return Boolean(m?.isSubagent || (m?.parentSid && m.parentSid !== sid));
+  }
+
   // 跨日期会话留在原起始日日记，过了零点的新会话再记到今天。
   originDayOf(x, today) {
     const sid = x?.sid;
@@ -392,6 +399,7 @@ export class AutoLog {
       const arch = this.archived();
       const todayList = [], crossByOrigin = new Map();
       for (const x of data.list) {
+        if (this.isSubagent(x.sid)) continue;
         const origin = this.originDayOf(x, day);
         if (origin !== day) {
           (crossByOrigin.get(origin) || crossByOrigin.set(origin, []).get(origin)).push(x);
@@ -458,6 +466,7 @@ export class AutoLog {
         if (!x.segs || !x.segs.length) continue;
         if (!this.agentOn(x.agent) || background.has(x.sid)) continue;
         if (x.agent !== "t3code" && this.usage?.t3OwnerOf?.(x.sid)) continue; // T3 Code 转发到底层 Agent 的会话统一归入 T3 Code，不重复记录
+        if (this.isSubagent(x.sid)) continue; // 子代理/子会话归属母会话，不单独记作独立任务
         if (linked.has(x.sid)) continue;   // 日记里用 🔗 绑好的，交给回写那一半
         const last = x.segs[x.segs.length - 1][1];
         const active = now - last <= idle;

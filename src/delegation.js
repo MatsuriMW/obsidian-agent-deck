@@ -31,7 +31,7 @@ import {
 import { RunTrace } from "./trace.js";
 import * as J from "./journal.js";
 import { mentionOptions, stripTaskMention, mentionTrigger } from "./task-mentions.js";
-import { hasAgentCapability, canContinueInApp } from "./agent-registry.js";
+import { hasAgentCapability, getAgentCapability, canContinueInApp } from "./agent-registry.js";
 import { isPrivateFrontmatter, isPathExcluded } from "./memory-query-core.js";
 import {
   ancestorLines, withContext, freshTaskText, stripInternalIdentifiers,
@@ -40,6 +40,7 @@ import {
 } from "./harness.js";
 import {
   findAgentBinary,
+  resolveInstalledAgentBinary,
   findDshBinary,
   findAgyBinary,
   findOpenCodeBinary,
@@ -177,9 +178,17 @@ export function linkLine(indent, agent, name, sid) {
 export function openExternal(url) {
   try {
     const { shell } = require("electron");
-    if (shell && typeof shell.openExternal === "function") { shell.openExternal(url); return true; }
+    if (shell && typeof shell.openExternal === "function") {
+      Promise.resolve(shell.openExternal(url)).catch(() => {});
+      return true;
+    }
   } catch { /* not electron */ }
-  try { execFile("/usr/bin/open", [url], () => {}); return true; } catch { return false; }
+  try {
+    if (process.platform === "win32") execFile("cmd.exe", ["/c", "start", "", url], { windowsHide: true }, () => {});
+    else if (process.platform === "darwin") execFile("/usr/bin/open", [url], () => {});
+    else execFile("xdg-open", [url], () => {});
+    return true;
+  } catch { return false; }
 }
 
 export {
@@ -234,6 +243,7 @@ export const AGENT_APPS = {
 export function openAgentApp(agent) {
   const app = AGENT_APPS[agent];
   if (!app) return Promise.resolve(false);
+  if (process.platform !== "darwin") return Promise.resolve(openExternal(app.url));
   const bundles = [app.bundle, ...(app.fallbackBundles || [])].filter(Boolean);
   return new Promise((resolve) => {
     const tryNext = (idx) => {
@@ -616,7 +626,11 @@ export class Delegator {
     opts = mentionOptions(this.plugin, opts);
     if (opts.destination && !destinations(opts.agent).some(o => o.id === opts.destination)) throw new Error(t("此 Agent 不支持所选工作位置"));
     if (opts.destination === "terminal" || (opts.agent === "codex" && !opts.destination && this.C.codex?.transport === "terminal")) return this.handoffCli(opts);
-    if (!hasAgentCapability(opts.agent, "delegate") || (opts.agent === "qoder" && opts.destination === "desktop")) return this.handoff(opts);
+    const wantsDesktopHandoff = opts.destination === "desktop" && (opts.agent === "qoder" || hasAgentCapability(opts.agent, "handoffFallback"));
+    if (!hasAgentCapability(opts.agent, "delegate") || wantsDesktopHandoff) return this._performHandoff(opts);
+    if (hasAgentCapability(opts.agent, "handoffFallback") && !resolveInstalledAgentBinary(opts.agent, this.C[opts.agent]?.path || "")) {
+      return this._performHandoff(opts);
+    }
     const agent = opts.agent;
     const trace = new RunTrace({ agent, traceDir: opts.traceDir });
     const ctxSpan = trace.startSpan("context.resolve");
@@ -767,7 +781,9 @@ export class Delegator {
     if (!sid) throw new Error(t("这个会话还没有会话号"));
     const existing = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === sid);
     if (["starting", "running", "needs-approval"].includes(existing?.state)) throw new Error(t("请等当前这一轮结束后再发送"));
-    if (session.agent === "antigravity" && (session.transport || existing?.transport) !== "acp") throw new Error(t("这是 Antigravity 桌面会话，请在客户端继续"));
+    if (getAgentCapability(session.agent).continueRequiresAcp && (session.transport || existing?.transport) !== "acp") {
+      throw new Error(t("这是 {agent} 桌面会话，请在客户端继续", { agent: AGENTS[session.agent]?.name || session.agent }));
+    }
     let job = existing;
     if (!job) {
       job = { id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, agent: session.agent,
@@ -808,7 +824,12 @@ export class Delegator {
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
     if (opts.destination === "terminal") return this.handoffCli(opts);
-    if (hasAgentCapability(opts.agent, "delegate") && (opts.agent !== "qoder" || opts.destination !== "desktop")) return this.delegate(opts);
+    const wantsDesktopHandoff = opts.destination === "desktop" && (opts.agent === "qoder" || hasAgentCapability(opts.agent, "handoffFallback"));
+    if (hasAgentCapability(opts.agent, "delegate") && !wantsDesktopHandoff) return this.delegate(opts);
+    return this._performHandoff(opts);
+  }
+
+  async _performHandoff(opts) {
     const agent = opts.agent;
     const resolved = await this.resolveBlockContext(opts, t("要拖一个列表项"));
     const job = this.buildJobBase({
@@ -931,6 +952,7 @@ export class Delegator {
       let best = null;
       for (const m of usage.meta.values()) {
         if (m.agent !== job.agent || taken.has(m.sid) || (m.lastAt || 0) < job.startedAt - 5000) continue;
+        if (usage.isSubagentSession?.(m.sid)) continue;
         if (job.cli && job.agent !== "opencode" && !isCliSession(m.agent, m.app)) continue;   // 终端里开的只认命令行会话
         const t = norm(m.text || m.title);
         if (!t || !(t.includes(head) || t.startsWith(promptHead.slice(0, 16)))) continue;

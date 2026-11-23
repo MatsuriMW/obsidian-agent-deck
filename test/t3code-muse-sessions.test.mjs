@@ -8,7 +8,11 @@ import { register } from "node:module";
 
 register("data:text/javascript," + encodeURIComponent(`
 export async function resolve(spec, ctx, next) {
-  if (spec === "obsidian") return { url: "data:text/javascript,export class Notice{constructor(){}};export class MarkdownView{}", shortCircuit: true };
+  if (spec === "obsidian") return { url: "data:text/javascript,export class App{};export class Notice{constructor(m){globalThis.__notices?.push(m)}};export class MarkdownView{};export class MarkdownRenderChild{};export class Plugin{};export class ItemView{};export class PluginSettingTab{};export class Modal{};export class Component{};export class Setting{};export class Menu{};export class FuzzySuggestModal{};export class SuggestModal{};export class EditorSuggest{};export class AbstractInputSuggest{};export class TFile{};export class TFolder{};export function setIcon(){};export function normalizePath(p){return String(p||'');};export const MarkdownRenderer={render:async()=>{}};export const debounce=(fn)=>fn;export const requestUrl=async()=>({json:{}});export const editorLivePreviewField={};export const editorInfoField={};", shortCircuit: true };
+  if (spec === "@codemirror/view") return { url: "data:text/javascript,export const Decoration={mark:()=>({}),widget:()=>({}),replace:()=>({}),line:()=>({}),none:{},set:()=>({})};export class WidgetType{};export const ViewPlugin={fromClass:()=>({})};export const EditorView={decorations:{from:()=>({})},domEventHandlers:()=>({})};", shortCircuit: true };
+  if (spec === "@codemirror/state") return { url: "data:text/javascript,export const EditorState={create:()=>({})};export const StateEffect={define:()=>({of:()=>{}})};export const StateField={define:()=>({})};export const Prec={high:x=>x,low:x=>x,highest:x=>x,lowest:x=>x};export const RangeSetBuilder=class{add(){};finish(){return{}}};", shortCircuit: true };
+  if (spec === "@codemirror/language") return { url: "data:text/javascript,export const foldedRanges=()=>({iter:()=>{}});export const foldEffect={of:()=>({})};export const unfoldEffect={of:()=>({})};export const syntaxTree=()=>({iterate:()=>{}});", shortCircuit: true };
+  if (spec.endsWith(".png") || spec.endsWith(".swift") || spec.endsWith(".svg")) return { url: "data:text/javascript,export default '';", shortCircuit: true };
   return next(spec, ctx);
 }`));
 
@@ -497,6 +501,131 @@ test("Muse reader converts Apple CFAbsoluteTime, parses contentBlocks/widgets, k
   });
 });
 
+test("Muse ignores proactive-only and non-user-triggered messages by default, and tracks them when museTrackProactive is enabled", async () => {
+  await withTempDir(async (dir) => {
+    // 1. Pure proactive stream (e.g. scheduled briefings with no user messages)
+    const proactiveOnly = [
+      {
+        id: "assistant-p1",
+        sortSeq: 100,
+        isUser: false,
+        isStreaming: false,
+        timestamp: 817084184.97,
+        replyToMessageId: "cron-turn-1",
+        executionTurnId: "cron-turn-1",
+        content: "早间简报",
+        contentBlocks: [{ markdown: { text: "早间简报" } }],
+      },
+      {
+        id: "assistant-p2",
+        sortSeq: 110,
+        isUser: false,
+        isStreaming: false,
+        timestamp: 817085027.668,
+        replyToMessageId: "cron-turn-2",
+        executionTurnId: "cron-turn-2",
+        content: "开盘前更新",
+        contentBlocks: [{ markdown: { text: "开盘前更新" } }],
+      },
+    ];
+    fs.writeFileSync(path.join(dir, "hatch-main.json"), JSON.stringify(proactiveOnly));
+
+    const parsedProactive = parseMuseConversation(JSON.stringify(proactiveOnly), { id: "hatch-main", title: "Muse" });
+    assert.equal(parsedProactive.entries.every((e) => e.isProactive), true);
+
+    const reader = new AgentUsage({
+      settings: {
+        agents: { muse: true },
+        primaryAgents: ["muse"],
+        museCacheDir: dir,
+      },
+    });
+    await reader.scan({ agent: "muse" });
+    assert.equal(reader.meta.has("hatch-main"), false);
+
+    // Enabling museTrackProactive invalidates cache and tracks proactive messages
+    reader.settings.museTrackProactive = true;
+    await reader.scan({ agent: "muse" });
+    assert.equal(reader.meta.has("hatch-main"), true);
+    assert.equal(reader.meta.get("hatch-main").lastText, "开盘前更新");
+
+    // Disabling museTrackProactive prunes proactive-only session cleanly
+    reader.settings.museTrackProactive = false;
+    await reader.scan({ agent: "muse" });
+    assert.equal(reader.meta.has("hatch-main"), false);
+
+    // 2. Mixed conversation: proactive briefing + user turn + later proactive briefing
+    const mixed = [
+      {
+        id: "assistant-before",
+        sortSeq: 10,
+        isUser: false,
+        timestamp: 817000000,
+        replyToMessageId: "cron-before",
+        content: "前置推送",
+      },
+      {
+        id: "user-1",
+        sortSeq: 20,
+        isUser: true,
+        timestamp: 817080000,
+        content: "帮我查一下今天财报",
+      },
+      {
+        id: "assistant-reply",
+        sortSeq: 21,
+        isUser: false,
+        timestamp: 817080030,
+        replyToMessageId: "user-1",
+        content: "这是今天的财报整理。",
+      },
+      {
+        id: "assistant-reply-2",
+        sortSeq: 22,
+        isUser: false,
+        timestamp: 817080035,
+        replyToMessageId: "assistant-reply",
+        content: "补充：科技板块领涨。",
+      },
+      {
+        id: "assistant-after-cron",
+        sortSeq: 30,
+        isUser: false,
+        timestamp: 817090000,
+        replyToMessageId: "cron-after",
+        executionTurnId: "cron-after",
+        content: "晚间自动简报",
+      },
+    ];
+    fs.writeFileSync(path.join(dir, "hatch-main.json"), JSON.stringify(mixed));
+
+    const parsedMixed = parseMuseConversation(JSON.stringify(mixed), { id: "hatch-main", title: "Muse" });
+    assert.deepEqual(
+      parsedMixed.entries.map((e) => [e.id, e.isProactive]),
+      [
+        ["assistant-before", true],
+        ["user-1", false],
+        ["assistant-reply", false],
+        ["assistant-reply-2", false],
+        ["assistant-after-cron", true],
+      ],
+    );
+
+    await reader.scan({ agent: "muse" });
+    const metaDefault = reader.meta.get("hatch-main");
+    assert.ok(metaDefault);
+    assert.equal(metaDefault.lastText, "补充：科技板块领涨。");
+    assert.equal(metaDefault.lastAt, museTime(817080035));
+
+    reader.settings.museTrackProactive = true;
+    await reader.scan({ agent: "muse" });
+    const metaProactive = reader.meta.get("hatch-main");
+    assert.ok(metaProactive);
+    assert.equal(metaProactive.lastText, "晚间自动简报");
+    assert.equal(metaProactive.lastAt, museTime(817090000));
+  });
+});
+
 test("detectInstalledHarnesses detects T3 Code and Muse by app bundle or local data", async () => {
   await withTempDir((dir) => {
     const homeDir = path.join(dir, "home");
@@ -711,4 +840,67 @@ test("T3 Code deduplicates delegated provider sessions in AutoLog so work is rec
       else process.env.T3_DATA_DIR = prevEnv;
     }
   });
+});
+
+test("Muse cache watcher rescans immediately on cache flush and stops after closeMuseWatcher", async () => {
+  await withTempDir(async (dir) => {
+    const { default: AgentDeckPlugin } = await import("../src/main.js");
+    const p = Object.create(AgentDeckPlugin.prototype);
+    p._unloaded = false;
+    p._scanning = false;
+    p.settings = { ...DEFAULTS, agents: { ...DEFAULTS.agents, muse: true }, museTrackedIds: ["hatch-main"], museCacheDir: dir };
+    p.agentEnabled = (id) => p.settings.agents[id] !== false;
+    const scans = [];
+    p.scanNow = async (_full, opts) => { scans.push(opts); };
+
+    p.watchMuseCache();
+    assert.ok(p._museWatcher, "fs.watch attached to museCacheDir");
+    fs.writeFileSync(path.join(dir, "hatch-main.json"), "[]");
+    await new Promise((r) => setTimeout(r, 600));
+    assert.ok(scans.some((o) => o?.agent === "muse"), "cache update triggers muse rescan");
+
+    const countBeforeClose = scans.length;
+    p.closeMuseWatcher();
+    assert.equal(p._museWatcher, null);
+    fs.writeFileSync(path.join(dir, "hatch-main.json"), "[{}]");
+    await new Promise((r) => setTimeout(r, 500));
+    assert.equal(scans.length, countBeforeClose, "no rescan after closeMuseWatcher");
+
+    // Enabling Muse notifies user about restart/history-refresh cache flush behavior
+    globalThis.__notices = [];
+    p.isPrimary = () => false;
+    p.saveSettings = async () => {};
+    p.refreshUI = () => {};
+    p.app = { setting: {} };
+    p.settingTab = { display() {} };
+    p.settings.agents.muse = false;
+    await p.setAgentEnabled("muse", true);
+    assert.equal(globalThis.__notices.filter((m) => String(m).includes("Muse")).length, 1, "enabling Muse shows cache-flush hint notice");
+    await p.setAgentEnabled("muse", true);
+    assert.equal(globalThis.__notices.filter((m) => String(m).includes("Muse")).length, 1, "re-saving already-enabled Muse does not repeat notice");
+    p.closeMuseWatcher();
+    delete globalThis.__notices;
+  });
+});
+
+test("allModels and modelsFor surface dynamic ACP availableModels for all ACP agents (cursor, gemini, hermes, minimax, custom)", async () => {
+  const { default: AgentDeckPlugin } = await import("../src/main.js");
+  const p = Object.create(AgentDeckPlugin.prototype);
+  p.settings = {
+    ...DEFAULTS,
+    models: { ...DEFAULTS.models, custom: [], order: [] },
+    delegate: {
+      ...DEFAULTS.delegate,
+      cursor: { ...DEFAULTS.delegate.cursor, availableModels: [{ id: "cursor-acp-gpt5", agent: "cursor", name: "GPT-5" }] },
+      gemini: { ...DEFAULTS.delegate.gemini, availableModels: [{ id: "gemini-acp-pro", agent: "gemini", name: "Gemini Pro" }] },
+      hermes: { ...DEFAULTS.delegate.hermes, availableModels: [{ id: "hermes-acp-1", agent: "hermes", name: "Hermes 1" }] },
+      minimax: { ...DEFAULTS.delegate.minimax, availableModels: [{ id: "minimax-acp-m2", agent: "minimax", name: "M2" }] },
+      "custom-agent": { model: "custom-acp-1", availableModels: [{ id: "custom-acp-1", agent: "custom-agent", name: "Custom 1" }] },
+    },
+  };
+  assert.ok(p.modelsFor("cursor").some((m) => m.id === "cursor-acp-gpt5"));
+  assert.ok(p.modelsFor("gemini").some((m) => m.id === "gemini-acp-pro"));
+  assert.ok(p.modelsFor("hermes").some((m) => m.id === "hermes-acp-1"));
+  assert.ok(p.modelsFor("minimax").some((m) => m.id === "minimax-acp-m2"));
+  assert.ok(p.modelsFor("custom-agent").some((m) => m.id === "custom-acp-1"));
 });

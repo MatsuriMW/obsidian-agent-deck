@@ -153,6 +153,7 @@ export default {
     "This block already has a 🔗 below it. Delete that line before sending again.",
   "请等当前这一轮结束后再发送": "Wait for the current turn to finish before sending",
   "这是 Antigravity 桌面会话，请在客户端继续": "This is an Antigravity desktop session. Continue in its own client.",
+  "这是 {agent} 桌面会话，请在客户端继续": "This is a {agent} desktop session. Continue in its own client.",
   "这是 Qoder 桌面会话，请在客户端继续；在插件中通过 CLI 委派后可在 Obsidian 内续聊":
     "This is a Qoder desktop session, so continue in the client. Sessions delegated via the CLI in the plugin can be continued inside Obsidian.",
   "等你在 {agent} 里发出去": "Waiting for you to send it in {agent}",

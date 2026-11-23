@@ -7,7 +7,7 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { randomUUID } from "crypto";
-import { spawn, execFile } from "child_process";
+import { spawn, execFile, execFileSync } from "child_process";
 import { AGENTS, DEFAULTS, sandboxFor, SANDBOX_ALIAS, MODEL_CATALOG, truncate } from "./constants.js";
 import { getAgentCapability } from "./agent-registry.js";
 import { parseCustomAcpEnv } from "./custom-acp.js";
@@ -103,6 +103,25 @@ const AGENT_BINARY_SPECS = {
       "/opt/homebrew/bin/gemini",
       "/usr/local/bin/gemini",
     ],
+  },
+  cursor: {
+    fallback: "agent",
+    altFallbacks: ["cursor-agent"],
+    candidates: () => process.platform === "win32"
+      ? [
+          path.join(process.env.LOCALAPPDATA || path.join(home(), "AppData", "Local"), "cursor-agent", "agent.cmd"),
+          path.join(process.env.LOCALAPPDATA || path.join(home(), "AppData", "Local"), "cursor-agent", "agent.exe"),
+          path.join(home(), ".local", "bin", "agent.exe"),
+          path.join(home(), ".local", "bin", "agent.cmd"),
+          path.join(home(), ".local", "bin", "cursor-agent.exe"),
+          path.join(home(), ".local", "bin", "cursor-agent.cmd"),
+        ]
+      : [
+          path.join(home(), ".local/bin/agent"),
+          path.join(home(), ".local/bin/cursor-agent"),
+          "/opt/homebrew/bin/agent",
+          "/usr/local/bin/agent",
+        ],
   },
   minimax: {
     fallback: "mcode",
@@ -210,13 +229,34 @@ function findInPathDirs(name, dirs) {
   return "";
 }
 
-function findBinary(configured, candidates, fallback) {
+function resolveBinaryInEnv(configured, candidates, names) {
   const custom = configured && String(configured).trim();
-  if (custom) return norm(custom);
+  if (custom) {
+    const p = norm(custom);
+    try { if (fs.existsSync(p)) return p; } catch { /* fall through */ }
+    return findInPathDirs(custom, expandedPathEntries());
+  }
   for (const p of candidates) {
     try { if (fs.existsSync(p)) return p; } catch { /* next */ }
   }
-  return findInPathDirs(fallback, expandedPathEntries()) || fallback;
+  const dirs = expandedPathEntries();
+  for (const name of names) {
+    const hit = findInPathDirs(name, dirs);
+    if (hit) return hit;
+  }
+  return "";
+}
+
+function findBinary(configured, candidates, fallback, altFallbacks = []) {
+  const custom = configured && String(configured).trim();
+  if (custom) return norm(custom);
+  return resolveBinaryInEnv("", candidates, [fallback, ...altFallbacks]) || fallback;
+}
+
+export function resolveInstalledAgentBinary(agent, configured = "") {
+  const spec = AGENT_BINARY_SPECS[agent];
+  if (!spec) return resolveBinaryInEnv(configured, [], agent ? [agent] : []);
+  return resolveBinaryInEnv(configured, spec.candidates(), [spec.fallback, ...(spec.altFallbacks || [])]);
 }
 
 export function findAgentBinary(agent, configured = "") {
@@ -225,7 +265,7 @@ export function findAgentBinary(agent, configured = "") {
     const custom = configured && String(configured).trim();
     return custom ? norm(custom) : agent || "";
   }
-  return findBinary(configured, spec.candidates(), spec.fallback);
+  return findBinary(configured, spec.candidates(), spec.fallback, spec.altFallbacks || []);
 }
 
 function hermesBinLocations(name) {
@@ -313,8 +353,64 @@ export async function findCodexTrustedDir(vaultPath) {
   } catch { return vaultPath; }
 }
 
+let cachedSystemProxy = null;
+let cachedSystemProxyAt = 0;
+
+export function resetSystemProxyCache() {
+  cachedSystemProxy = null;
+  cachedSystemProxyAt = 0;
+}
+
+export function parseScutilProxy(text) {
+  const out = {};
+  if (!text || typeof text !== "string") return out;
+  const scalar = (key) => {
+    const m = new RegExp(`^\\s*${key}\\s*:\\s*(.+?)\\s*$`, "m").exec(text);
+    return m ? m[1].trim() : "";
+  };
+  if (scalar("HTTPEnable") === "1" && scalar("HTTPProxy") && scalar("HTTPPort")) {
+    out.HTTP_PROXY = out.http_proxy = `http://${scalar("HTTPProxy")}:${scalar("HTTPPort")}`;
+  }
+  if (scalar("HTTPSEnable") === "1" && scalar("HTTPSProxy") && scalar("HTTPSPort")) {
+    out.HTTPS_PROXY = out.https_proxy = `http://${scalar("HTTPSProxy")}:${scalar("HTTPSPort")}`;
+  }
+  if (scalar("SOCKSEnable") === "1" && scalar("SOCKSProxy") && scalar("SOCKSPort")) {
+    out.ALL_PROXY = out.all_proxy = `socks5://${scalar("SOCKSProxy")}:${scalar("SOCKSPort")}`;
+  }
+  if (!Object.keys(out).length) return out;
+  const noProxy = new Set();
+  const exc = /ExceptionsList\s*:\s*<array>\s*\{([\s\S]*?)\}/m.exec(text);
+  if (exc) {
+    for (const line of exc[1].split(/\r?\n/)) {
+      const m = /^\s*\d+\s*:\s*(.+?)\s*$/.exec(line);
+      const item = m ? m[1].trim() : "";
+      if (item && item !== "<local>") noProxy.add(item);
+    }
+  }
+  for (const base of ["127.0.0.1", "localhost", "::1"]) noProxy.add(base);
+  out.NO_PROXY = out.no_proxy = [...noProxy].join(",");
+  return out;
+}
+
+function readMacSystemProxyEnv() {
+  if (process.platform !== "darwin") return {};
+  const now = Date.now();
+  if (cachedSystemProxy !== null && now - cachedSystemProxyAt < 60000) return cachedSystemProxy;
+  try {
+    const raw = execFileSync("/usr/sbin/scutil", ["--proxy"], { encoding: "utf8", timeout: 500, stdio: ["ignore", "pipe", "ignore"] });
+    cachedSystemProxy = parseScutilProxy(raw);
+  } catch {
+    cachedSystemProxy = {};
+  }
+  cachedSystemProxyAt = now;
+  return cachedSystemProxy;
+}
+
 export function cleanEnv(extra = {}) {
-  const env = { ...process.env, ...extra };
+  const proxyKeys = ["HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"];
+  const hasExplicitProxy = proxyKeys.some((k) => Boolean(process.env[k]) || (extra != null && Object.prototype.hasOwnProperty.call(extra, k)));
+  const sysProxy = hasExplicitProxy ? {} : readMacSystemProxyEnv();
+  const env = { ...sysProxy, ...process.env, ...extra };
   const sep = process.platform === "win32" ? ";" : ":";
   const base = cachedLoginShellPath ? `${env.PATH || ""}${sep}${cachedLoginShellPath}` : (env.PATH || "");
   env.PATH = expandedPathEntries(base).join(sep);

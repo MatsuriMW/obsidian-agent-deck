@@ -156,10 +156,9 @@ export const AGENTS = {
     color: "#5f7d95",
     soft: "rgba(95,125,149,.13)",
     kind: "cursor",
-    where: ["~/.agent-deck/cursor-events · ~/.cursor/hooks.json", t("Cursor 桌面版（Hooks + 会话日志）")],
+    where: ["~/.agent-deck/cursor-events · ~/.cursor/hooks.json", t("Cursor 桌面版（Hooks）与 CLI ACP 委派")],
     deep: "cursor",
-    desktopOnly: true,
-    trackingOnly: true,
+    desktopOnly: false,
   },
   grokbot: {
     id: "grokbot",
@@ -252,6 +251,7 @@ export const MODEL_CATALOG = [
   { id: "hermes-default", agent: "hermes", name: t("CLI 当前默认模型"), value: "", provider: "Hermes", context: "—", tags: [], note: t("使用 Hermes 当前配置的默认模型；读取可用模型后可指定模型。") },
   { id: "minimax-default", agent: "minimax", name: t("CLI 当前默认模型"), value: "", provider: "MiniMax", context: "—", tags: [], note: t("使用 MiniMax Code 当前配置的默认模型；读取可用模型后可指定模型。") },
   { id: "gemini-default", agent: "gemini", name: t("CLI 当前默认模型"), value: "", provider: "Gemini CLI", context: "—", tags: [], note: t("使用 Gemini CLI 当前配置的默认模型；读取可用模型后可指定模型。") },
+  { id: "cursor-default", agent: "cursor", name: t("CLI 当前默认模型"), value: "", provider: "Cursor", context: "—", tags: [], note: t("使用 Cursor CLI 当前配置的默认模型；未装 CLI 时自动回退桌面端交接。") },
   {
     id: "qoder-ultimate",
     agent: "qoder",
@@ -505,6 +505,7 @@ export const DEFAULTS = {
   grokBotTrackedBotIds: [],
   museTrackedIds: ["hatch-main"],
   museMaxTracked: 5,
+  museTrackProactive: false,
   // Human–AI journal: sessions written back into the daily note.
   journalFolder: "",       // 日记目录；留空自动检测（找不到就用「日记」）
   journalFormat: "",       // 日记文件名格式（moment 写法）；留空自动检测
@@ -550,7 +551,7 @@ export const DEFAULTS = {
   autoLogDetail: "brief",   // brief 最新一句结论 / standard 每轮结论 / detailed 每轮提问和结论
   autoLogEvery: 20,        // 自动整理间隔（分钟）
   autoLogStartDelay: 1,    // 插件启动后第几分钟先整理一次，不用等满一个间隔
-  autoLogMinMinutes: 3,    // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
+  autoLogMinMinutes: 1,    // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
   autoLogIdle: 10,         // 停了几分钟算 PAUSED
   autoLogGrokBotDoneMinutes: 120, // Grok Bot 多久无新对话自动标为 DONE（0 关闭）
   autoLogFirstRounds: 10,  // 第一次接入某个会话 / Bot 时只补最近几轮，之后只跟当天的新轮次
@@ -625,6 +626,7 @@ export const DEFAULTS = {
     hermes: { model: "hermes-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     minimax: { model: "minimax-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     gemini: { model: "gemini-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    cursor: { model: "cursor-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     t3code: { path: "", cwd: "", extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
@@ -652,7 +654,7 @@ export const DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", minimax: "minimax-default", qoder: "qoder-ultimate" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", minimax: "minimax-default", gemini: "gemini-default", cursor: "cursor-default", qoder: "qoder-ultimate" },
     effort: "high",
     effortByAgent: {},
   },

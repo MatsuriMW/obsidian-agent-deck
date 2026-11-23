@@ -79,6 +79,7 @@ plugin.allModels=()=>[
   {id:'eight',agent:'hermes',name:'Hermes one',tags:[]},
   {id:'nine',agent:'minimax',name:'MiniMax one',tags:[]},
   {id:'ten',agent:'gemini',name:'Gemini one',tags:[]},
+  {id:'eleven',agent:'cursor',name:'Cursor one',tags:[]},
 ];
 plugin.modelsFor=id=>plugin.allModels().filter(m=>m.agent===id);
 plugin.modelById=id=>plugin.allModels().find(m=>m.id===id)||null;
@@ -150,7 +151,7 @@ console.log('PASS real settings save keeps model groups in sync outside the Mode
 const modelsBody = render();
 assert.equal(modelsBody.all().filter(el=>el.classList.contains('ad-modelgroup')).length, AGENT_ORDER.length, 'Manage models includes all Agents');
 assert.equal(modelsBody.all().filter(el=>el.tag==='select').length, 0, 'Manage models removes duplicate default model/effort selectors');
-for (const id of ['workbuddy', 'qwenwork', 'cursor', 'grokbot']) {
+for (const id of ['workbuddy', 'qwenwork', 'grokbot']) {
   const status=modelsBody.all().find(el=>el.classList.contains('ad-modelgroup')&&el.dataset.agent===id);
   assert.equal(status.tag,'div','client-managed model groups do not have an empty expand control');
 }
@@ -173,9 +174,9 @@ tab.renderRecord(recBody);
 const targetPickers = [...delBody.all(), ...recBody.all()].filter(el => el.classList.contains('ad-targetpick'));
 assert.equal(targetPickers.length, 1, 'default delegation target picker appears exactly once across all pages');
 assert.equal(targetPickers[0].children.length, AGENT_ORDER.filter(id => !AGENTS[id]?.trackingOnly).length, 'default target picker shows enabled delegable/handoff Agents');
-assert.equal(delBody.all().filter(el => el.tag === 'select').length, 10, 'eight default-model selects + primary terminal select + steward agent select');
+assert.equal(delBody.all().filter(el => el.tag === 'select').length, 12, 'ten default-model selects + primary terminal select + steward agent select');
 assert.equal(delBody.all().filter(el => el.classList.contains('ad-codex-picker')).length, 0, 'Codex uses the standard select menu');
-assert.equal(delBody.all().filter(el => el.classList.contains('ad-effort')).length, 8, 'exactly one default effort control per configurable Agent on Delegation page');
+assert.equal(delBody.all().filter(el => el.classList.contains('ad-effort')).length, 10, 'exactly one default effort control per configurable Agent on Delegation page');
 assert.equal(recBody.all().filter(el => el.classList.contains('ad-set-agent')).length, AGENT_ORDER.length, 'Recording page lists all tracked Agents');
 assert.equal(recBody.all().filter(el => el.classList.contains('ad-set-agent__config')).length, 0, 'Recording agent cards have no duplicate model or default-target controls');
 
@@ -209,7 +210,7 @@ assert.equal(syncDelegationSettings(deepMerge(DEFAULTS, { resultMax: 240, result
 console.log('PASS More settings: collapsed detail controls, visible common actions and one-time result-length migration');
 
 const delegateGroups = delBody.all().filter(el => el.classList.contains('ad-delegate-agent'));
-assert.equal(delegateGroups.length, 8);
+assert.equal(delegateGroups.length, 10);
 for (const card of delegateGroups) assert.equal(card.open, plugin.isPrimary(card.dataset.agent), 'delegation cards default to primary-only expansion');
 const codexCard = delegateGroups.find(el => el.dataset.agent === 'codex');
 const codexSelect = codexCard.all().find(el => el.tag === 'select');

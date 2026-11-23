@@ -49,10 +49,11 @@ function runHook(scriptPath, event, payload, homeDir) {
 }
 
 test("cursor constants, cache version and defaults are wired", () => {
-  assert.equal(AGENTS.cursor.trackingOnly, true);
-  assert.equal(AGENTS.cursor.desktopOnly, true);
+  assert.ok(!AGENTS.cursor.trackingOnly);
+  assert.equal(AGENTS.cursor.desktopOnly, false);
   assert.equal(DEFAULTS.agents.cursor, true);
   assert.equal(DEFAULTS.autoLogAgents.cursor, true);
+  assert.equal(DEFAULTS.delegate.cursor.model, "cursor-default");
   assert.ok(USAGE_CACHE_VERSION >= 7);
 });
 

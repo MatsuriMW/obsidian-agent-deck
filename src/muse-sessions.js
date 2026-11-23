@@ -144,12 +144,19 @@ export function parseMuseConversation(rawText, meta = {}) {
     return museTime(a?.timestamp) - museTime(b?.timestamp);
   });
 
+  const nonProactiveIds = new Set();
+  for (const m of sorted) {
+    if (m && typeof m === "object" && m.isUser && m.id) nonProactiveIds.add(String(m.id));
+  }
+
   const entries = [];
   let startedAt = 0;
   let lastAt = 0;
   let lastStreaming = false;
   let lastStep = "";
   let lastRole = "";
+  let hasUserMessage = false;
+  let lastTurnProactive = false;
 
   for (let i = 0; i < sorted.length; i++) {
     const m = sorted[i];
@@ -159,6 +166,16 @@ export function parseMuseConversation(rawText, meta = {}) {
     const { text, summaryText } = extractMuseBlocks(m);
     const step = extractMuseTool(m);
     const isStreaming = Boolean(m.isStreaming);
+    let isProactive = false;
+    if (role === "user") {
+      hasUserMessage = true;
+      lastTurnProactive = false;
+    } else {
+      const replyTo = typeof m.replyToMessageId === "string" ? m.replyToMessageId.trim() : "";
+      isProactive = !hasUserMessage || (replyTo ? (nonProactiveIds.size > 0 && !nonProactiveIds.has(replyTo)) : lastTurnProactive);
+      lastTurnProactive = isProactive;
+      if (!isProactive && m.id) nonProactiveIds.add(String(m.id));
+    }
     if (at) {
       if (!startedAt || at < startedAt) startedAt = at;
       if (at > lastAt) lastAt = at;
@@ -175,6 +192,7 @@ export function parseMuseConversation(rawText, meta = {}) {
       at,
       isStreaming,
       step,
+      isProactive,
       isTurnReply: role === "assistant" && Boolean(summaryText || text),
     });
   }

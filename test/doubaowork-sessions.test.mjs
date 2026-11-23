@@ -89,3 +89,63 @@ test("discoverDoubaoWorkConversations and buildDoubaoWorkConversation read from 
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test("parseDoubaoWorkBuffer decodes V8 double timestamps and discoverDoubaoWorkConversations finds Windows User Data & multi-profile IndexedDB", () => {
+  const numBuf = Buffer.alloc(9);
+  numBuf[0] = 0x4e; // V8 double tag 'N'
+  numBuf.writeDoubleLE(1795430000000, 1);
+  const v8NumRecord = Buffer.concat([
+    Buffer.from("conversation_id", "ascii"),
+    v8OneByte("777888999000111"),
+    Buffer.from("title", "ascii"),
+    v8TwoByte("Windows 数值时间戳会话"),
+    Buffer.from("updated_at", "ascii"),
+    numBuf,
+  ]);
+  const parsed = parseDoubaoWorkBuffer(v8NumRecord);
+  assert.equal(parsed.length, 1);
+  assert.equal(parsed[0].id, "777888999000111");
+  assert.equal(parsed[0].title, "Windows 数值时间戳会话");
+  assert.equal(parsed[0].lastAt, 1795430000000);
+
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ad-doubao-win-"));
+  try {
+    const localAppData = path.join(tmp, "Local");
+    const appData = path.join(tmp, "Roaming");
+    // Even if empty Roaming\DoubaoWork exists, discovery finds Local\DoubaoWork\User Data\Profile 1\IndexedDB
+    fs.mkdirSync(path.join(appData, "DoubaoWork"), { recursive: true });
+    const idbDir = path.join(localAppData, "DoubaoWork", "User Data", "Profile 1", "IndexedDB", "chrome_doubaowork-chat_0.indexeddb.leveldb");
+    fs.mkdirSync(idbDir, { recursive: true });
+    fs.writeFileSync(path.join(idbDir, "000003.log"), v8NumRecord);
+
+    const res = discoverDoubaoWorkConversations({
+      homeDir: tmp,
+      platform: "win32",
+      env: { APPDATA: appData, LOCALAPPDATA: localAppData },
+    });
+    assert.equal(res.conversations.length, 1);
+    assert.equal(res.conversations[0].id, "777888999000111");
+
+    // Multi-profile: Default also exists with a different conversation; Profile 1's conversation must resolve via its own dir#sid key
+    const defaultIdbDir = path.join(localAppData, "DoubaoWork", "User Data", "Default", "IndexedDB", "chrome_doubaowork-chat_0.indexeddb.leveldb");
+    fs.mkdirSync(defaultIdbDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(defaultIdbDir, "000003.log"),
+      makeRecord({ id: "111222333444555", name: "Default Profile 会话", twoByte: true, createSec: 1795420000, updateSec: 1795420500 }),
+    );
+    const multiRes = discoverDoubaoWorkConversations({
+      homeDir: tmp,
+      platform: "win32",
+      env: { APPDATA: appData, LOCALAPPDATA: localAppData },
+    });
+    assert.equal(multiRes.conversations.length, 2);
+    const prof1Conv = multiRes.conversations.find((c) => c.id === "777888999000111");
+    assert.ok(prof1Conv?.filePath);
+    const convKey = `${path.dirname(prof1Conv.filePath)}#${prof1Conv.id}`;
+    const built = buildDoubaoWorkConversation(convKey);
+    assert.equal(built.length, 1);
+    assert.match(built[0].text, /Windows 数值时间戳会话/);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});
