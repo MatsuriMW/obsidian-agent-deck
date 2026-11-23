@@ -119,6 +119,8 @@ const t3CodeDataDir = () => {
   return path.join(home(), ".t3", "userdata");
 };
 
+const CINDY_DIALOGUE_RE = /\/(?:Cindy|CindyGlobal|xdt-maker)\/owners\/[^/]+\/dialogues(?:\/|$)/i;
+
 // Codex (and DSH's default workspace) create a folder per task, so the folder
 // name is a machine slug: "a", "dui", "w-s", a session id. Those are useless as
 // "project" labels, so the day summary labels them with the session title
@@ -135,6 +137,7 @@ export function isScratchCwd(cwd) {
   if (leaf === "default-workspace") return true;
   if (p === home().replace(/\\/g, "/")) return true;   // work started from the home folder has no project
   if (/\/Codex\/\d{4}-\d{2}-\d{2}(?:\/|$)/i.test(p)) return true;
+  if (CINDY_DIALOGUE_RE.test(p)) return true;
   return false;
 }
 
@@ -145,6 +148,7 @@ export function projectName(cwd) {
   if (/\/\.dsh\/sessions\//.test(normCwd)) return "DSH";
   if (/\/\.gemini\/antigravity\//.test(normCwd)) return "Antigravity";
   if (/\/\.qwenworkcn\/workspace\//.test(normCwd)) return "QwenWork";
+  if (CINDY_DIALOGUE_RE.test(normCwd)) return "Cindy";
   const p = normCwd.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
   return p === home().replace(/\\/g, "/") ? "~" : (p.split("/").pop() || p);
 }
@@ -251,7 +255,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 21;
+export const USAGE_CACHE_VERSION = 22;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.

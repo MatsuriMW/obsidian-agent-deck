@@ -384,7 +384,8 @@ test("AgentDeckPlugin.onload auto-detects harnesses off the startup barrier and 
     p.notice = (msg) => notices.push(msg);
     p.setupRibbon = () => {};
     p.refreshUI = () => {};
-    p.scanNow = async () => {};
+    const scanCalls = [];
+    p.scanNow = async (force = false) => { scanCalls.push(Boolean(force)); };
     await p.onload();
 
     assert.equal(p.settings.harnessesDetected?.version, HARNESS_DETECTION_VERSION);
@@ -395,6 +396,16 @@ test("AgentDeckPlugin.onload auto-detects harnesses off the startup barrier and 
     const res = await p.redetectHarnesses({ scan: false, notify: true });
     assert.ok(Array.isArray(res.installed));
     assert.equal(notices.length, 1);
+
+    // No newly added/removed harnesses -> incremental scan (force = false)
+    p.detectedHarnesses = () => ({ detected: { cindy: true }, installed: ["cindy"] });
+    p.settings.agents.cindy = false;
+    scanCalls.length = 0;
+    await p.redetectHarnesses({ scan: true, notify: false });
+    assert.deepEqual(scanCalls, [true], "newly detected harness triggers force scan");
+    scanCalls.length = 0;
+    await p.redetectHarnesses({ scan: true, notify: false });
+    assert.deepEqual(scanCalls, [false], "unchanged detection keeps incremental scan");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

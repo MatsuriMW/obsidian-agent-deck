@@ -50,7 +50,7 @@ process.env.T3_DATA_DIR = t3Dir;
 
 const { cindyDataDirs, cindyDatabases, cleanCindyText } = await import("../src/cindy-sessions.js");
 const { desktopQuery, toSqliteUriPath, desktopSessions, desktopMessages, cindyDelegatedSids, t3CodeDelegatedSids } = await import("../src/desktop-sessions.js");
-const { AgentUsage, USAGE_CACHE_VERSION } = await import("../src/readers.js");
+const { AgentUsage, USAGE_CACHE_VERSION, projectName, isScratchCwd, normalizeProjectRoot } = await import("../src/readers.js");
 const { AGENTS, AGENT_ORDER, DEFAULTS, dayKeyToday } = await import("../src/constants.js");
 const { AGENT_IMAGES } = await import("../src/agent-assets.js");
 const { hasAgentCapability, canContinueSession } = await import("../src/agent-registry.js");
@@ -79,9 +79,9 @@ test("cindy discovery, env isolation, and text hygiene", () => {
 
   const macDirs = cindyDataDirs({ env: {}, platform: "darwin", homeDir: "/Users/alice" });
   assert.deepEqual(macDirs, [
-    "/Users/alice/Library/Application Support/Cindy",
-    "/Users/alice/Library/Application Support/CindyGlobal",
-    "/Users/alice/Library/Application Support/xdt-maker",
+    path.resolve("/Users/alice/Library/Application Support/Cindy"),
+    path.resolve("/Users/alice/Library/Application Support/CindyGlobal"),
+    path.resolve("/Users/alice/Library/Application Support/xdt-maker"),
   ]);
   const winDirs = cindyDataDirs({ env: { APPDATA: "/mock/roaming" }, platform: "win32", homeDir: "/home/alice" });
   assert.deepEqual(winDirs, [
@@ -331,7 +331,15 @@ test("Metadata, links, deep link, harness-detect, and end-to-end aggregator dedu
   assert.equal(hasAgentCapability("cindy", "archiveDetection"), true);
   assert.equal(canContinueSession({ agent: "cindy", sid: "cindy-1" }), false, "trackingOnly Cindy must not claim in-app continuation");
   assert.ok(AGENT_IMAGES.cindy);
-  assert.ok(USAGE_CACHE_VERSION >= 21);
+  assert.ok(USAGE_CACHE_VERSION >= 22);
+
+  const macDialogue = "/Users/alice/Library/Application Support/Cindy/owners/e61f58529b4f6755f5ea/dialogues/2026-11-24/c5dd36e0-34df-4c11-8382-56587dee045a";
+  const winDialogue = "C:\\Users\\alice\\AppData\\Roaming\\CindyGlobal\\owners\\abc123\\dialogues\\2026-11-24\\custom-topic";
+  for (const dlg of [macDialogue, winDialogue]) {
+    assert.equal(projectName(dlg), "Cindy");
+    assert.equal(isScratchCwd(dlg), true);
+    assert.equal(normalizeProjectRoot(dlg), "");
+  }
 
   const link = J.linkLine("", "cindy", "Fix login", "cindy-1");
   assert.equal(link, "- 🔗 [Cindy：Fix login](obsidian://agent-deck?do=open&agent=cindy&sid=cindy-1)");

@@ -1600,9 +1600,6 @@ export default class AgentDeckPlugin extends Plugin {
       this.settingTab.display();
     }
     this.refreshUI();
-    if (scan && res.installed.length) {
-      this.scanNow(false).catch(() => {});
-    }
     if (notify) {
       const names = res.installed.map((id) => AGENTS[id]?.short || id).join("、");
       const off = AGENT_ORDER.length - res.installed.length;
@@ -1610,6 +1607,10 @@ export default class AgentDeckPlugin extends Plugin {
         ? t("已检测到 {n} 个 Harness：{names}（其余 {off} 个已关闭）", { n: res.installed.length, names, off })
         : t("未检测到已安装的 Harness，可在「记录 → 来源与扫描」手动开启");
       this.notice(msg, 6000);
+    }
+    if (scan && res.installed.length) {
+      const needForce = (res.added?.length || 0) > 0 || (res.removed?.length || 0) > 0;
+      this.scanNow(needForce).catch(() => {});
     }
     return res;
   }
