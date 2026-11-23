@@ -66,7 +66,7 @@ Agent Deck 把散落在各个客户端的 AI 会话收拢到 Obsidian，让 **Ma
 
 ### 1. 多 Agent 会话追踪面板
 
-- **统一收拢 17 类内置 Agent + 自定义 ACP Agent**：Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder、Hermes Agent、MiniMax Code、千问办公（QwenWork）、Cursor、Grok Bot、T3 Code、Muse、Kimi Code、豆包工作、Gemini CLI，以及在设置里自行添加的任意兼容 ACP 协议的 CLI（如 Kiro、Mistral Vibe 等）。
+- **统一收拢 18 类内置 Agent + 自定义 ACP Agent**：Claude Code、Codex、WorkBuddy、DeepSeek Harness、Antigravity、OpenCode、Qoder、Hermes Agent、MiniMax Code、千问办公（QwenWork）、TeleAgent（星辰超级智能体）、Cursor、Grok Bot、T3 Code、Muse、Kimi Code、豆包工作、Gemini CLI，以及在设置里自行添加的任意兼容 ACP 协议的 CLI（如 Kiro、Mistral Vibe 等）。
 - **按项目看现在**：侧栏「现在」默认按工作区项目收拢活跃会话，也可以按状态（等你 / 待认领 / 在跑 / 异常）或直接平铺成列表；「最近的会话」支持 7 / 30 / 120 天切换，并按 Agent 或项目叠放。
 - **状态一眼可见**：区分运行中、等待回复、需要确认、到达限额、暂停、出错与已完成；子代理会话缩进跟在母会话下面，点卡片即可切回对应客户端或终端标签。
 - **主力与搜索**：最多设两个主力 Agent（读全部历史，其余只读当天），也可以按标题、项目、模型或正文搜索所有本地会话。
@@ -126,7 +126,7 @@ Agent Deck 把散落在各个客户端的 AI 会话收拢到 Obsidian，让 **Ma
 
 ## 支持的 Agent、依赖与边界
 
-Agent Deck 内置支持 **17 家本地 Agent + 任意自定义 ACP CLI**，覆盖 **Claude、GPT / Codex、Gemini、DeepSeek、Qwen（千问）、MiniMax、Kimi、豆包、Grok** 及本地 Ollama 等主流模型，并特别针对中文 Agent 客户端生态（DeepSeek Harness、MiniMax Code、千问办公 QwenWork、Qoder、WorkBuddy、Kimi Code、豆包工作）做了追踪与适配。
+Agent Deck 内置支持 **18 家本地 Agent + 任意自定义 ACP CLI**，覆盖 **Claude、GPT / Codex、Gemini、DeepSeek、Qwen（千问）、MiniMax、Kimi、豆包、Grok** 及本地 Ollama 等主流模型，并特别针对中文 Agent 客户端生态（DeepSeek Harness、MiniMax Code、千问办公 QwenWork、Qoder、WorkBuddy、Kimi Code、豆包工作、TeleAgent）做了追踪与适配。
 
 想深入了解各 Agent 的支持矩阵、按需安装依赖及已知边界，请直接查阅 Wiki：👉 [**支持的 Agent 与主流模型（Wiki）**](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models)
 

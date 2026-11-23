@@ -2464,6 +2464,9 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-prog[data-agent=muse] {
   --ad-prog: #c96f8f;
 }
+.ad-prog[data-agent=teleagent] {
+  --ad-prog: #2f7d6d;
+}
 .ad-prog.is-linked {
   cursor: pointer;
   border-radius: 4px;
@@ -4337,7 +4340,8 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-settings .ad-set-agent[data-agent=hermes] .ad-set-agent__icon img,
 .ad-settings .ad-set-agent[data-agent=minimax] .ad-set-agent__icon img,
 .ad-settings .ad-set-agent[data-agent=t3code] .ad-set-agent__icon img,
-.ad-settings .ad-set-agent[data-agent=muse] .ad-set-agent__icon img {
+.ad-settings .ad-set-agent[data-agent=muse] .ad-set-agent__icon img,
+.ad-settings .ad-set-agent[data-agent=teleagent] .ad-set-agent__icon img {
   border-radius: 7px;
   border: 1px solid var(--ad-line);
 }

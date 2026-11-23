@@ -405,6 +405,7 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   &[data-agent="qwenwork"]    { --ad-prog: #6b63d6; }
   &[data-agent="t3code"]      { --ad-prog: #3d7bd9; }
   &[data-agent="muse"]        { --ad-prog: #c96f8f; }
+  &[data-agent="teleagent"]   { --ad-prog: #2f7d6d; }
 
   &.is-linked {
     cursor: pointer;

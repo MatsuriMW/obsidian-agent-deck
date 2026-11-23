@@ -27,10 +27,11 @@ Alongside global tools, Agent Deck ships dedicated local parsers and adapters fo
 | **WorkBuddy (China)** | `~/.workbuddy/projects` / `workbuddy.db` | Tracking + Desktop copy handoff + Terminal (`codebuddy`) | China edition only; standalone `codebuddy` does not share desktop sessions |
 | **Kimi Code** | `~/.kimi-code/sessions` (`wire.jsonl` + `session-meta/state.json`) & `~/.kimi/sessions` | Tracking + Focus app | Tracking only; parses v1.5 `wire.jsonl` turns, tool calls & exact token usage |
 | **Doubao Work (豆包工作)** | `~/Library/Application Support/DoubaoWork/Default/IndexedDB/chrome_doubaowork-chat_0.indexeddb.leveldb` | Desktop session metadata tracking + Focus app | Tracks titles & active timestamps only; message bodies are encrypted in `sdk_storage` (never decrypted); tokens show "Unavailable" |
+| **TeleAgent (星辰超级智能体)** | `~/.local/share/TeleAgent/users/*/teleagent.db` (plus `%LOCALAPPDATA%\TeleAgent` on Windows) | Tracking + copies the task and focuses the desktop app + reads the client database back to confirm a dispatch | Desktop client only, no CLI; the session store uses the legacy OpenCode `session`/`message`/`part` schema. Windows fills the task through UI Automation, Linux pastes through `xdotool` + clipboard |
 
 > Want another client supported? Open a [New Agent Support Request](https://github.com/MatsuriMW/obsidian-agent-deck/issues/new?template=agent_support.yml).
 
-## 3. Full 17 Built-in Agents + Custom ACP Matrix
+## 3. Full 18 Built-in Agents + Custom ACP Matrix
 
 | Agent | Session tracking | Background delegation | Desktop handoff | Terminal |
 | --- | --- | --- | --- | --- |
@@ -51,6 +52,7 @@ Alongside global tools, Agent Deck ships dedicated local parsers and adapters fo
 | **Kimi Code** | Yes | No | Focuses the client only (tracking only) | — |
 | **Doubao Work (豆包工作)** | Yes (session metadata) | No | Focuses the client only (tracking only) | — |
 | **Gemini CLI** | Yes | Yes (`gemini --acp`) | No (no desktop UI) | Yes (`gemini --resume`) |
+| **TeleAgent (星辰超级智能体)** | Yes | No | Copies task and opens app | — |
 | **Custom ACP Agents** | Delegated sessions | Yes (any ACP CLI) | — | — |
 
 ## 4. Requirements
@@ -76,6 +78,7 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
 | **Kimi Code** | Kimi Code desktop app or `kimi` CLI (tracking only) |
 | **Doubao Work (豆包工作)** | Doubao Work desktop app (session metadata tracking only) |
 | **Gemini CLI** | `@google/gemini-cli` (`gemini` CLI — supports tracking, `gemini --acp` background delegation & `gemini --resume`) |
+| **TeleAgent (星辰超级智能体)** | TeleAgent desktop app (tracking, task copy/handoff and in-app dispatch; no CLI) |
 | **Custom ACP Agents** | Any local ACP-compatible CLI configured under Settings → Delegation → Custom ACP Agents |
 | **Auto-journal / summaries / Dreaming** | Any signed-in local CLI, or an OpenAI-compatible API (DeepSeek, OpenAI, OpenRouter, Qwen, local Ollama, …) |
 | **macOS menu bar** | Xcode Command Line Tools (`xcode-select --install`) |

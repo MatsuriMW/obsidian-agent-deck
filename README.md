@@ -66,7 +66,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 
 ### 1. Multi-agent session tracking
 
-- **17 built-in local agents + Custom ACP Agents**: Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder, Hermes Agent, MiniMax Code, QwenWork (千问办公), Cursor, Grok Bot, T3 Code, Muse, Kimi Code, Doubao Work (豆包工作), Gemini CLI, plus any ACP-compatible CLI you configure in Settings (such as Kiro, Mistral Vibe, etc.).
+- **18 built-in local agents + Custom ACP Agents**: Claude Code, Codex, WorkBuddy, DeepSeek Harness, Antigravity, OpenCode, Qoder, Hermes Agent, MiniMax Code, QwenWork (千问办公), TeleAgent (星辰超级智能体), Cursor, Grok Bot, T3 Code, Muse, Kimi Code, Doubao Work (豆包工作), Gemini CLI, plus any ACP-compatible CLI you configure in Settings (such as Kiro, Mistral Vibe, etc.).
 - **See Now by project**: the sidebar groups active sessions by workspace project; switch to a status view (waiting / unclaimed / running / error) or a flat list. Recent sessions can be filtered to 7 / 30 / 120 days and stacked by agent or project.
 - **States at a glance**: running, waiting for a reply, needs confirmation, limit reached, paused, error and done; subagent sessions are indented under their parent, and clicking a card switches back to that client or terminal tab.
 - **Primaries and search**: mark up to two agents as primary (full history; the rest only read today), and search every scanned session by title, project, model or body text.
@@ -126,7 +126,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 
 ## Agent support, requirements & limits
 
-Agent Deck supports **17 built-in local agents + any Custom ACP CLI**, covering mainstream model families (**Claude, GPT / Codex, Gemini, DeepSeek, Qwen, MiniMax, Kimi, Doubao, Grok**, plus local Ollama) with dedicated tracking for Chinese agent clients (**DeepSeek Harness, MiniMax Code, QwenWork, Qoder, WorkBuddy, Kimi Code, Doubao Work**).
+Agent Deck supports **18 built-in local agents + any Custom ACP CLI**, covering mainstream model families (**Claude, GPT / Codex, Gemini, DeepSeek, Qwen, MiniMax, Kimi, Doubao, Grok**, plus local Ollama) with dedicated tracking for Chinese agent clients (**DeepSeek Harness, MiniMax Code, QwenWork, Qoder, WorkBuddy, Kimi Code, Doubao Work, TeleAgent**).
 
 For the full compatibility matrix, per-client requirements, and known limits, see the Wiki: 👉 [**Supported Agents & Models (Wiki)**](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models.en)
 

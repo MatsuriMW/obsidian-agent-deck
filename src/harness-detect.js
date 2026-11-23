@@ -6,8 +6,6 @@ import { AGENTS, AGENT_ORDER } from "./constants.js";
 import { delegateAgents } from "./agent-registry.js";
 import { expandedPathEntries } from "./delegation-runners.js";
 import {
-  cursorEventsDir,
-  cursorHooksJsonPath,
   cursorStateDbPath,
   cursorTrackingDbPath,
 } from "./cursor-sessions.js";
@@ -17,7 +15,10 @@ import { kimiCodeDataDirs } from "./kimicode-sessions.js";
 import { doubaoWorkDataDir, doubaoWorkIndexedDbDir } from "./doubaowork-sessions.js";
 import { geminiCliHome } from "./gemini-cli-sessions.js";
 
-export const HARNESS_DETECTION_VERSION = 1;
+// 版本号跟着“探测规则本身”变：v2 补了 TeleAgent 的探测、并剔除了 cursor 里插件自建的目录。
+// 启动时只要 data.harnessesDetected.version 落后，就自动按新规则重跑一次，
+// 否则老用户会一直停在旧判定上（1.13.4 合并后 TeleAgent 被误关就是这么来的）。
+export const HARNESS_DETECTION_VERSION = 2;
 
 const norm = (p, homeDir) => String(p || "").replace(/^~(?=\/)/, homeDir);
 
@@ -224,12 +225,13 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
       binNames: ["cursor", "agent", "cursor-agent"],
       binPaths: [],
       apps: win ? ["cursor/Cursor.exe", "Cursor/Cursor.exe"] : ["Cursor.app"],
+      // 只留 Cursor 自己产出的路径。~/.agent-deck/cursor-events 与 ~/.cursor/hooks.json
+      // 都是插件自己的 installCursorHooks 写出来的（见 cursor-sessions.js），把它们当安装证据
+      // 会自证：卸载 Cursor 并删掉它的数据后，插件昨天留下的目录仍然让检测判定“装了”。
       dataPaths: [
         path.join(homeDir, ".cursor"),
-        cursorHooksJsonPath(homeDir),
         cursorTrackingDbPath(homeDir),
         cursorStateDbPath(homeDir, platform, env),
-        cursorEventsDir(homeDir),
       ],
     },
     grokbot: {
@@ -291,6 +293,20 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
       dataPaths: [
         path.join(geminiCliHome(homeDir, env), "tmp"),
         path.join(geminiCliHome(homeDir, env), "projects.json"),
+      ],
+    },
+    // TeleAgent 只有桌面客户端，没有 CLI。安装位置不在系统应用目录里（默认 D:\Program Files\TeleClaw\TeleAgent），
+    // 靠 appDirs 探测不到，所以以数据根为准：内核与客户端都会在 ~/.local/share/TeleAgent 下建 users/ 与 runtimes/。
+    teleagent: {
+      binNames: ["teleagent"],
+      binPaths: [
+        ...appSub(path.join("TeleClaw", "TeleAgent", "TeleAgent.exe")),
+        path.join(homeDir, ".local", "share", "TeleAgent", "runtimes", "super-agent-code", "bin", "TeleAgent.exe"),
+      ],
+      apps: win ? ["TeleClaw/TeleAgent/TeleAgent.exe", "TeleAgent/TeleAgent.exe"] : [],
+      dataPaths: [
+        path.join(homeDir, ".local", "share", "TeleAgent"),
+        ...(win ? [path.join(env.LOCALAPPDATA || path.join(homeDir, "AppData", "Local"), "TeleAgent")] : []),
       ],
     },
   };

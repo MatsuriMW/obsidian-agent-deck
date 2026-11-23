@@ -2,7 +2,7 @@
 import fs from "fs";
 import { execFile } from "child_process";
 import { resolveSqliteBinary } from "./sqlite.js";
-import { stripQwenWorkContext } from "./prompt-text.js";
+import { stripQwenWorkContext, stripTeleAgentContext } from "./prompt-text.js";
 
 const quote = (value) => "'" + String(value).replaceAll("'", "''") + "'";
 const json = (value, fallback = {}) => { try { return typeof value === "string" ? JSON.parse(value) : value || fallback; } catch { return fallback; } };
@@ -12,6 +12,8 @@ export const hermesTime = (value) => {
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+// 工具循环没有新 assistant 消息时，靠 part 的更新判断还活着；和 external-state 的 AI_IDLE_MIN 同量级。
+const TOOL_LOOP_IDLE_MIN = 10;
 const modelName = (value) => { const m = json(value, value); return typeof m === "string" ? m : m?.modelID || m?.id || ""; };
 
 function extractMinimaxText(d) {
@@ -550,7 +552,8 @@ export async function desktopMessages(db, agent, sid) {
     const [, message, part] = await openCodeTables(db);
     const v2 = message === "session_message";
     rows = await desktopQuery(db, `SELECT m.id,m.data,${v2 ? "m.type" : "''"} AS role,m.time_created AS created,m.time_updated AS updated,
-      (SELECT json_group_array(json(p.data)) FROM (SELECT data FROM ${part} WHERE message_id=m.id ORDER BY ${v2 ? "ordinal" : "id"}) p) AS parts
+      (SELECT json_group_array(json(p.data)) FROM (SELECT data FROM ${part} WHERE message_id=m.id ORDER BY ${v2 ? "ordinal" : "id"}) p) AS parts,
+      (SELECT MAX(time_updated) FROM ${part} WHERE message_id=m.id) AS partUpdated
       FROM ${message} m WHERE m.session_id=${quote(sid)} ORDER BY ${v2 ? "m.seq" : "m.time_created,m.id"}`);
   }
   return rows.flatMap((row) => {
@@ -559,11 +562,22 @@ export async function desktopMessages(db, agent, sid) {
     const parts = json(row.parts, []);
     const content = parts.length ? parts : d.content || [];
     const rawText = typeof d.text === "string" ? d.text : (Array.isArray(content) ? content : []).filter((p) => p.type === "text" && !p.synthetic && !p.ignored).map((p) => p.text || "").join("\n");
-    const text = agent === "qwenwork" && role === "user" ? stripQwenWorkContext(rawText) : rawText;
+    const strip = role === "user" ? (agent === "qwenwork" ? stripQwenWorkContext : agent === "teleagent" ? stripTeleAgentContext : null) : null;
+    const text = strip ? strip(rawText) : rawText;
     const tool = [...(Array.isArray(content) ? content : []), ...(d.tools || [])].filter((p) => p.type === "tool" || p.name).at(-1);
     const tokens = d.tokens;
     const completed = desktopTime(d.completedAt || d.time?.completed);
-    const state = role === "user" ? "run" : row.status === "failed" || d.error ? "error" : row.status === "interrupted" ? "wait" : completed || d.finish && d.finish !== "tool-calls" ? "wait" : "run";
+    // TeleAgent 写的是 tool_calls（下划线），老 OpenCode 写 tool-calls（连字符），两种都表示「这一轮还在工具循环里」。
+    // time.completed 在两种写法下都会置位，所以必须先看 finish，否则正在干活会被判成「等你」。
+    const finish = String(d.finish || "").replace(/_/g, "-");
+    // 工具循环里的会话靠 part 的更新维持「在跑」；客户端中途关掉时 part 也不再有更新，
+    // 超过 TOOL_LOOP_IDLE_MIN 分钟就当作已停，避免 8 小时前的半截会话一直挂在「在跑」。
+    const lastActivity = Math.max(desktopTime(row.updated), Number(row.partUpdated) || 0, completed || 0);
+    const toolLoopRunning = finish === "tool-calls" && Date.now() - lastActivity <= TOOL_LOOP_IDLE_MIN * 60000;
+    const fresh = Date.now() - lastActivity <= TOOL_LOOP_IDLE_MIN * 60000;
+    // 没有 finish 也没有 completed，说明这一轮还在跑；但客户端中途关掉时它永远不会补上，
+    // 所以同样要求最近 TOOL_LOOP_IDLE_MIN 分钟内还有动静。
+    const state = role === "user" ? "run" : row.status === "failed" || d.error ? "error" : row.status === "interrupted" ? "wait" : finish === "tool-calls" ? (toolLoopRunning ? "run" : "wait") : completed || finish ? "wait" : fresh ? "run" : "wait";
     return [{ id: row.id, role, text, at: desktopTime(d.timestamp || d.time?.created || row.created), end: completed, updated: row.updated, state,
       step: state === "run" ? tool?.name || tool?.tool || "" : "", error: d.error ? JSON.stringify(d.error).slice(0, 200) : "", model: modelName(d.model || d.modelID),
       out: Number(tokens?.output) || 0, fresh: (Number(tokens?.input) || 0) + (Number(tokens?.cache?.write) || 0), cached: Number(tokens?.cache?.read) || 0 }];

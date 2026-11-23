@@ -96,3 +96,14 @@ export function isPromptText(text) {
   if (/^# AGENTS\.md instructions|^<(user_instructions|external_codex_)/.test(s)) return false;
   return true;
 }
+
+// TeleAgent 把附件包成 "<span data-path-name="绝对路径" ...>@显示名</span>"。绝对路径是引擎上下文，
+// 既占字数也会把用户的本机目录写进日记和会话视图，只保留可见的显示名。
+const TELE_AGENT_ATTACHMENT = /<span\b[^>]*data-path-(?:name|kind)=["'][^"']*["'][^>]*>([\s\S]*?)<\/span>/gi;
+
+export function stripTeleAgentContext(raw) {
+  let s = String(raw || "").replace(TELE_AGENT_ATTACHMENT, "$1");
+  // 只带 data-path-name 没有子文本的标签直接丢掉，避免留下空 span
+  s = s.replace(/<span\b[^>]*data-path-(?:name|kind)=["'][^"']*["'][^>]*\/?>/gi, "");
+  return s.replace(/[ \t]{2,}/g, " ").trim();
+}

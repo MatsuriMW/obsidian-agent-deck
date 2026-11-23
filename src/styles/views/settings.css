@@ -481,7 +481,8 @@
     &[data-agent="hermes"] .ad-set-agent__icon img,
     &[data-agent="minimax"] .ad-set-agent__icon img,
     &[data-agent="t3code"] .ad-set-agent__icon img,
-    &[data-agent="muse"] .ad-set-agent__icon img {
+    &[data-agent="muse"] .ad-set-agent__icon img,
+    &[data-agent="teleagent"] .ad-set-agent__icon img {
       border-radius: 7px;
       border: 1px solid var(--ad-line);
     }

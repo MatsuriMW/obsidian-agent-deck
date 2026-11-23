@@ -32,6 +32,8 @@ import { RunTrace } from "./trace.js";
 import * as J from "./journal.js";
 import { mentionOptions, stripTaskMention, mentionTrigger } from "./task-mentions.js";
 import { hasAgentCapability, getAgentCapability, canContinueInApp } from "./agent-registry.js";
+import { runHandoffDispatch } from "./teleagent-dispatch.js";
+import { dispatchTeleagentLinux } from "./teleagent-dispatch-linux.js";
 import { isPrivateFrontmatter, isPathExcluded } from "./memory-query-core.js";
 import {
   ancestorLines, withContext, freshTaskText, stripInternalIdentifiers,
@@ -238,6 +240,9 @@ export const AGENT_APPS = {
   muse: { bundle: "com.meta.endo", url: "hatch://" },
   kimicode: { bundle: "com.kimi.code.desktop", url: "kimi-code://" },
   doubaowork: { bundle: "com.work.pc.doubao", url: "doubaowork://" },
+  // TeleAgent 的 macOS bundle id 没有核验到（本机只有 Windows 安装），留空直接走 URL scheme；
+  // 桌面版注册的 scheme 是 teleai-cowork（Linux 上实测，见 docs/specs/teleagent-adapter.zh-CN.md）。
+  teleagent: { bundle: "", url: "teleai-cowork://" },
 };
 
 export function openAgentApp(agent) {
@@ -282,7 +287,7 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     const bin = findAgentBinary("gemini", plugin.settings?.delegate?.gemini?.path || "");
     return focusOrResume(plugin, agent, sid, `${shellQuote(bin)} --resume ${shellQuote(sid)}`, cwd);
   }
-  if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork"].includes(agent)) {
+  if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "teleagent"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
       return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);
@@ -818,6 +823,21 @@ export class Delegator {
     return job;
   }
 
+  // treeland 窗口激活 helper 随插件安装到 <plugin>/bin；运行时探测，缺失时回退到 PATH/环境变量。
+  // 只做存在性检查，不启动、不修改用户系统路径。
+  nativeActivationHelper() {
+    try {
+      const base = this.plugin?.app?.vault?.adapter?.basePath;
+      const dir = this.plugin?.manifest?.dir || this.plugin?.manifestDir;
+      if (!base || !dir) return "";
+      const candidate = path.join(base, dir, "bin", "treeland-activate");
+      fs.accessSync(candidate, fs.constants.X_OK);
+      return candidate;
+    } catch {
+      return "";
+    }
+  }
+
   // 尚未接入自动委派的客户端（或 Qoder 桌面模式）：复制任务并唤起应用，由用户发送。
   // 之后每轮扫描找这个 Agent 新出现、开头对得上的会话，找到就绑回这一行（🔗 + DELEGATED），面板里的卡片飞进「现在」。
   async handoff(opts) {
@@ -849,6 +869,25 @@ export class Delegator {
     this.copyText(resolved.prompt);
     await this.openAgentApp(agent);
     this.plugin.notice(t("📋 任务已复制，粘贴到 {agent} 里发出", { agent: AGENTS[agent]?.name || agent }), 10000);
+    // 人的在场的一键派发：只在 Windows + TeleAgent + 用户明确点了“自动发送”时走。
+    // 失败不静默——剪贴板里仍然有全文，但要明确告诉用户哪一步没成，别让人以为发出去了。
+    const dispatched = await runHandoffDispatch({
+      agent,
+      autoSend: opts.autoSend,
+      projectName: opts.projectName,
+      text: resolved.prompt,
+      dispatchLinux: (payload) => dispatchTeleagentLinux(payload, { activationHelper: this.nativeActivationHelper() }),
+    });
+    if (dispatched.skipped === "no-project") this.plugin.notice(t("没有识别到项目名，已退回复制交接"), 8000);
+    else if (dispatched.skipped === "platform") this.plugin.notice(t("派发只在 Windows/Linux 可用"), 8000);
+    else if (dispatched.ok && dispatched.manualSubmit) {
+      // Linux 端到端实测前只做到“填入 + 让用户手动提交”，提示里必须说清楚没有自动发送。
+      this.plugin.notice(t("已填入任务文本，请在 TeleAgent 里手动点「运行」· {project}", { project: dispatched.project }), 12000);
+      if (dispatched.textVerified === false) this.plugin.notice(t("未能自动确认输入框内容（没有截图工具），请目视确认后再点「运行」"), 10000);
+    }
+    else if (dispatched.ok && dispatched.verified) this.plugin.notice(t("已派发并确认落库 · {project}", { project: dispatched.project }), 6000);
+    else if (dispatched.ok) this.plugin.notice(t("已发送，但本地库里还没查到 · {project}", { project: dispatched.project }), 9000);
+    else if (!dispatched.skipped) this.plugin.notice(t("派发失败（{stage}）：{error}", { stage: dispatched.stage, error: String(dispatched.error || "").slice(0, 120) }), 12000);
     this.plugin.refreshUI();
     return job;
   }
@@ -944,6 +983,7 @@ export class Delegator {
         job.state = "cancelled";
         job.error = t("半小时里没在客户端看到这个任务的新会话");
         job.endedAt = Date.now();
+        this.plugin.notice?.(job.error);
         this.saveJobs();
         continue;
       }

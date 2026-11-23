@@ -354,7 +354,7 @@ export async function extractToolCallsFromDesktopDb(db, agent, sid) {
           calls.push({ title: name, kind: inferToolKind(r.type === "file_change" ? "edit" : name), rawInput, at });
         }
       }
-    } else if (agent === "opencode" || agent === "qwenwork") {
+    } else if (agent === "opencode" || agent === "qwenwork" || agent === "teleagent") {
       const tables = await desktopQuery(db, "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('session_part','part')");
       const partTable = tables.some((x) => x.name === "session_part") ? "session_part" : tables.some((x) => x.name === "part") ? "part" : "";
       if (partTable) {
@@ -594,7 +594,7 @@ export async function runSecurityAudit(plugin, { days = 30, agent = "", ignoreTe
     let calls = [];
     if (fc.path.includes("#")) {
       const db = fc.path.slice(0, fc.path.lastIndexOf("#"));
-      if (["hermes", "minimax", "opencode", "qwenwork", "qoder", "t3code"].includes(fc.agent)) {
+      if (["hermes", "minimax", "opencode", "qwenwork", "qoder", "t3code", "teleagent"].includes(fc.agent)) {
         calls = await extractToolCallsFromDesktopDb(db, fc.agent, fc.sid);
       }
     } else {

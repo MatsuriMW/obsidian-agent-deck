@@ -449,11 +449,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     // 1. 委派 → 默认目标
     const destinations = this.card(body, t("默认委派到"), t("仅显示已启用的 Harness；追踪主力与默认委派分别设置"));
     const targetRow = destinations.createDiv({ cls: "ad-targetpick" });
-    const targetHints = { workbuddy: t("客户端交接"), claude: t("桌面版 / 后台"), codex: t("桌面版 / 终端"), qoder: t("桌面版 / CLI") };
+    const targetHints = { workbuddy: t("客户端交接"), teleagent: t("客户端交接"), claude: t("桌面版 / 后台"), codex: t("桌面版 / 终端"), qoder: t("桌面版 / CLI") };
     const targetAgents = settingsAgentOrder(s, "delegation", id => p.agentEnabled(id)).filter((id) => p.agentEnabled(id) && !AGENTS[id].trackingOnly);
     for (const id of targetAgents) {
+
       const a = AGENTS[id];
-      const available = id !== "workbuddy" && !a.trackingOnly;
+      const available = id !== "workbuddy" && id !== "teleagent" && !a.trackingOnly;
       const item = targetRow.createDiv({ cls: "ad-settings-target" });
       item.dataset.agent = id;
       this.sortHandle(item, targetRow, "delegation", id);
@@ -638,7 +639,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.renderCustomAcpCard(body);
 
     const showTerminal = cliHandoffAgents().some((id) => p.agentEnabled(id));
-    const otherShared = ["workbuddy", "qwenwork"].filter((id) => p.agentEnabled(id));
+    const otherShared = ["workbuddy", "qwenwork", "teleagent"].filter((id) => p.agentEnabled(id));
     if (showTerminal || otherShared.length) {
       const sharedAgents = this.card(body, t("公共终端与其余 Agent"), "");
       if (showTerminal) {
@@ -930,7 +931,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     for (const agent of AGENT_ORDER) {
       if (!p.agentEnabled(agent)) continue;
       const rows = [...pinned, ...rest].filter((m) => m.agent === agent);
-      const clientModels = agent === "workbuddy" || agent === "t3code" || AGENTS[agent].trackingOnly;
+      const clientModels = agent === "workbuddy" || agent === "teleagent" || agent === "t3code" || AGENTS[agent].trackingOnly;
       if (!rows.length && (!clientModels || q || this.filter !== "all")) continue;
       const state = p.settings.ui.modelGroups[agent];
       const g = list.createEl(clientModels ? "div" : "details", { cls: "ad-modelgroup" });
@@ -1347,6 +1348,9 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     cutoff.disabled = spiralCutoff != null;
     this.rowNumber(sourceMore, t("扫描间隔（秒）"), "", s.pollSeconds, 5, 300, (v) => { s.pollSeconds = v; p.saveSettings(); p.scheduleScan(); });
     this.rowNumber(sourceMore, t("主力读多少天历史"), t("非主力读取当天会话"), s.fullHistoryDays, 1, 365, (v) => { s.fullHistoryDays = v; p.saveSettings(); p.scanNow(true); });
+    this.rowToggle(sourceMore, t("桌面数据库也读全部历史"),
+      t("关闭时桌面库只读上面的天数：几千个会话、几百 MB 的大库（TeleAgent、T3 Code、豆包工作 等）首次扫描不会卡住；打开后主力 Agent 读全部历史，首次扫描明显变慢"),
+      s.desktopFullHistory === true, (v) => { s.desktopFullHistory = v; p.saveSettings(); p.scanNow(true); });
     this.rowToggle(sourceMore, t("识别 side chat 和母子关系"), t("Claude 桌面版子会话与母子关联"), s.claudeDesktop !== false, (v) => { s.claudeDesktop = v; p.saveSettings(); p.scanNow(true); });
     if (typeof p.cursorHooksStatus === "function" && p.agentEnabled("cursor")) {
       const ch = p.cursorHooksStatus();

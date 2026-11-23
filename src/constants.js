@@ -236,9 +236,21 @@ export const AGENTS = {
     deep: "gemini",
     desktopOnly: false,
   },
+  teleagent: {
+    id: "teleagent",
+    name: "TeleAgent",
+    short: "TeleAgent",
+    glyph: "✳",
+    color: "#2f7d6d",
+    soft: "rgba(47,125,109,.13)",
+    kind: "teleagent",
+    where: ["~/.local/share/TeleAgent/users/*/teleagent.db", t("TeleAgent（星辰超级智能体）桌面版（本地会话库追踪）")],
+    deep: "teleagent",
+    desktopOnly: true,
+  },
 };
 
-export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "gemini"];
+export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "teleagent", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "gemini"];
 
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
@@ -487,7 +499,7 @@ export const CLAUDE_PERMISSIONS = [
 export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, cursor: true, grokbot: true, t3code: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, teleagent: true, cursor: true, grokbot: true, t3code: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   customAcpAgents: [],
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
@@ -498,6 +510,10 @@ export const DEFAULTS = {
   autoProjectFolder: true,  // 派活时从笔记的双链 / 路径 / 标题前缀认出项目，自动换成项目文件夹
   pollSeconds: 30,
   fullHistoryDays: 14,
+  // 桌面 SQLite 库（TeleAgent、T3 Code、Muse、Kimi Code、豆包工作 等）默认只读 fullHistoryDays 天：
+  // 几千个会话、几百 MB 的大库按「主力读全量」读一遍会把主线程卡住好几分钟。
+  // 打开这一项就回到「主力 Agent 读全部历史」的口径，代价是首次扫描明显变慢。
+  desktopFullHistory: false,
   // Claude desktop session list: identifies side chats (spawnedFrom) and archive state.
   claudeDesktop: true,
   hideArchived: true,
@@ -564,7 +580,9 @@ export const DEFAULTS = {
   keywordStyle: true,      // 关键词配色与 tsq-ico 图标；TODOseq 自己在格式化时让位
   recordRules: { ...DEFAULT_RECORD_RULES },
   autoLogBatch: 8,         // 一轮最多问模型几个会话
-  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, t3code: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
+  // 没写不等于关：设置页用 `agOn[id] !== false` 判定，缺省值等于「开」。TeleAgent 的历史库有上千个会话，
+  // 首次接入会把最近若干轮一次性补进当天日记，所以这里显式关掉，需要时在设置里手动打开。
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, teleagent: false, t3code: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   autoLogProvider: "auto",
   autoLogEffort: "low",
   autoLogModel: "",

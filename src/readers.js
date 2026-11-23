@@ -9,6 +9,7 @@ import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 export { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 import { desktopSessions, desktopMessages, t3CodeDelegatedSids } from "./desktop-sessions.js";
 import { resolveSqliteBinary } from "./sqlite.js";
+import { teleAgentDatabases } from "./teleagent.js";
 import {
   stepText,
   todoOf,
@@ -557,6 +558,9 @@ export class AgentUsage {
         if (fs.existsSync(db)) dbs.push([db, "qwenwork"]);
       }
     } catch { /* older version has no .harness directory */ }
+    // TeleAgent 把会话写在内核的 SQLite 库里（OpenCode 老版 session/message/part 结构），
+    // 一个账号一个库；路径由 src/teleagent.js 按真实环境变量与平台默认值探测。
+    for (const db of teleAgentDatabases()) dbs.push([db, "teleagent"]);
     return dbs;
   }
 
@@ -568,7 +572,12 @@ export class AgentUsage {
           const delegated = await t3CodeDelegatedSids(db);
           this.t3Delegated = delegated;
         }
-        const sessions = await desktopSessions(db, agent, !strictSince && this.isPrimary(agent) ? 0 : floor);
+        // 桌面库默认按「回溯天数」窗口收敛：主力 Agent 若取 since=0，一个大库（几千会话 / 几百 MB part）
+        // 会在首次扫描时被整个读出来，主线程直接卡死。JSONL 那侧的「主力读全量」不受影响。
+        // 想要完整历史的，在设置里打开「桌面数据库也读全部历史」（settings.desktopFullHistory）。
+        const wantFull = this.settings?.desktopFullHistory === true;
+        const dbFloor = !strictSince && wantFull && this.isPrimary(agent) ? 0 : floor;
+        const sessions = await desktopSessions(db, agent, dbFloor);
         const scope = this.isPrimary(agent) ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
         for (const row of sessions) {
           const key = `${db}#${row.sid}`;
@@ -907,7 +916,7 @@ export class AgentUsage {
         : { homeDir: home() },
     );
     const activeTracked = new Set();
-    const scope = this.isPrimary("grokbot") ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+    const scope = this.isPrimary("grokbot") ? -1 : Number(dayKeyToday(this.cfg).replace(/\D/g, "")) || 0;
 
     for (const bot of storage.bots) {
       if (!tracked.has(bot.id) || !bot.transcriptPath) continue;
