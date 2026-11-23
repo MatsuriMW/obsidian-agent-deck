@@ -45,7 +45,7 @@ Alongside global tools, Agent Deck ships dedicated local parsers and adapters fo
 | **MiniMax Code** | Yes | Yes (`mcode acp`) | Opens after first round | Yes (`mcode`) |
 | **QwenWork (千问办公)** | Yes | No | No (tracking only) | — |
 | **WorkBuddy** | Yes | No | Copies task and opens app | Yes |
-| **Cursor** | Yes (Hooks required) | No | No (tracking only) | — |
+| **Cursor** | Yes (Hooks `v2` required) | Yes (`agent acp`) | Copies & focuses app when CLI absent | — |
 | **Grok Bot** | Yes (per-Bot selection) | No | No (tracking only) | — |
 | **T3 Code** | Yes (deduplicates delegated sessions) | Yes (`t3 thread`) | Focuses the client only | — |
 | **Cindy** | Yes (deduplicates delegated sessions) | No | Deep link / focuses app (tracking only) | — |
@@ -72,7 +72,7 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
 | **MiniMax Code** | MiniMax Code desktop app; `mcode` CLI for background delegation or terminal resume |
 | **QwenWork (千问办公)** | QwenWork desktop app (tracking only) |
 | **WorkBuddy** | China edition of WorkBuddy; `codebuddy` for terminal use |
-| **Cursor** | Cursor 3.30.14+ with Cursor Hooks enabled in settings |
+| **Cursor** | Cursor 3.30.14+ with Cursor Hooks enabled; Cursor CLI (`agent` / `cursor-agent`) for background ACP delegation |
 | **Grok Bot** | Grok Bot desktop app, with desired Bots selected in settings |
 | **T3 Code** | T3 Code desktop app; `t3` CLI for background delegation |
 | **Cindy** | Cindy desktop app (tracking only; automatically deduplicates delegated underlying agent sessions) |
@@ -93,7 +93,7 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
 2. **Delegation needs local clients**: Tasks run through your local CLI or desktop app; remote API keys cannot replace them, and the plugin never installs or signs in for you.
 3. **Read-only conversation viewer**: The in-Obsidian modal is for reading, stopping an active turn, and saving archives. Supported sessions allow follow-ups via the task menu or Reply inbox; others continue in their native client.
 4. **Per-client boundaries**:
-   - **Cursor**: Tracks only new sessions after Hooks are enabled; no delegation or terminal use.
+   - **Cursor**: Tracks new sessions and subagent ownership via Hooks (`v2`); when Cursor CLI (`agent` / `cursor-agent`) is installed, supports `agent acp` background delegation and in-app ACP follow-ups, otherwise falls back to desktop copy-and-focus handoff (no terminal handoff).
    - **WorkBuddy**: China edition only; standalone `codebuddy` CLI does not share desktop sessions.
    - **Qoder**: CLI and desktop databases are separate; missing desktop tokens show "Unavailable".
    - **Antigravity**: Tracks both IDE (`~/.gemini/antigravity/brain`) and standalone `agy` CLI (`~/.gemini/antigravity-cli/brain`) logs and supports `agy acp` background delegation; IDE and CLI sessions are separate with no IDE window handoff, and exports omit tool results & internal reasoning.
@@ -109,7 +109,7 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
    - **Kimi Code**: Tracks desktop & CLI `wire.jsonl` v1.5 sessions; no built-in delegation yet.
    - **Doubao Work**: Read-only IndexedDB session list metadata (titles & timestamps); full message bodies remain encrypted in `sdk_storage` and are never decrypted.
    - **Gemini CLI**: Tracks `~/.gemini/tmp/*/chats/session-*.jsonl` (and legacy `.json`), strips `<session_context>` / `<hook_context>`, and supports `gemini --acp` delegation & `gemini --resume` terminal handoff (no desktop GUI).
-5. **Terminal interaction**: Verified on macOS with **Tern** and **Herdr** only; Terminal.app, iTerm2, and Warp are untested, and Windows terminals are not yet supported.
+5. **Terminal interaction**: The table-driven terminal registry covers 11 terminals (System Terminal, iTerm2, Warp, Ghostty, cmux, tmux, WezTerm, Kitty, Alacritty, Tern, Herdr) plus Windows `wt.exe`/`cmd.exe` fallbacks, though live visual interaction is verified on macOS with **Tern** and **Herdr** only; other terminals and real Windows UI testing remain unverified.
 6. **Roadmap**: Visual pre-dispatch context preview, drift-proof references, per-memory Dream sharing, real Windows UI verification & terminal support — see the [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist).
 
 ## 6. Adding Custom ACP Agents

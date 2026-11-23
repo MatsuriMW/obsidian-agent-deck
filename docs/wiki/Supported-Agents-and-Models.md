@@ -45,7 +45,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **MiniMax Code** | 支持 | 支持（`mcode acp`） | 首轮后自动打开 | 支持（`mcode`） |
 | **千问办公（QwenWork）** | 支持 | 不支持 | 不支持（仅追踪） | — |
 | **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起 | 支持 |
-| **Cursor** | 支持（需开启 Hooks） | 不支持 | 不支持（仅追踪） | — |
+| **Cursor** | 支持（需开启 Hooks `v2`） | 支持（`agent acp`） | 未装 CLI 时复制并唤起客户端 | — |
 | **Grok Bot** | 支持（按 Bot 多选） | 不支持 | 不支持（仅追踪） | — |
 | **T3 Code** | 支持（自动去重底层会话） | 支持（`t3 thread`） | 仅唤起客户端 | — |
 | **Cindy** | 支持（自动去重底层会话） | 不支持 | 深链跳转 / 唤起客户端（仅追踪） | — |
@@ -72,7 +72,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **MiniMax Code** | MiniMax Code 桌面端；后台委派或终端续聊另需 `mcode` 命令行 |
 | **千问办公（QwenWork）** | 千问办公桌面端（仅追踪） |
 | **WorkBuddy** | 中国版 WorkBuddy 桌面端；终端交互另需 `codebuddy` |
-| **Cursor** | Cursor 桌面端 3.30.14+，并在设置里开启 Cursor Hooks |
+| **Cursor** | Cursor 桌面端 3.30.14+（设置里开启 Cursor Hooks）；后台委派另需 Cursor CLI（`agent` / `cursor-agent`） |
 | **Grok Bot** | Grok Bot 桌面端，并在设置里勾选要追踪的 Bot |
 | **T3 Code** | T3 Code 桌面端；后台委派另需 `t3` 命令行 |
 | **Cindy** | Cindy 桌面端（仅追踪，自动去重其拉起的底层 Agent 会话） |
@@ -80,6 +80,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Kimi Code** | Kimi Code 桌面端或 `kimi` CLI（仅追踪） |
 | **豆包工作** | 豆包工作桌面端（仅追踪会话列表元数据） |
 | **Gemini CLI** | `@google/gemini-cli`（`gemini` 命令行，支持追踪、`gemini --acp` 后台委派与终端 `--resume` 续聊） |
+| **TeleAgent（星辰超级智能体）** | TeleAgent 桌面端（追踪、任务复制交接与客户端填入式派发，无 CLI） |
 | **自定义 ACP Agent** | 任一兼容 ACP 协议的本地 CLI，在「设置 → 委派 → 自定义 ACP Agent」中填写命令与参数 |
 | **自动记日记 / 总结 / Dreaming** | 任一已登录的本地 CLI，或一个 OpenAI 兼容 API（支持 DeepSeek、OpenAI、OpenRouter、百炼 Qwen、本地 Ollama 等） |
 | **macOS 菜单栏助手** | Xcode Command Line Tools（未装时运行 `xcode-select --install`） |
@@ -92,7 +93,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 2. **委派依赖本机客户端**：自动委派要本机 CLI 或桌面应用来执行，暂不支持用远程 API 直接跑任务，插件也不会替你安装或登录客户端。
 3. **对话窗口只读**：Obsidian 内的对话查看用于看正文、停止当前轮和保存归档，不设自由输入框；支持的会话可从任务菜单轻量追问或「回答并继续」，其余需回客户端继续。
 4. **各客户端的边界**：
-   - **Cursor**：只追踪装了 Hooks 的新会话，不支持委派与终端交互。
+   - **Cursor**：Hooks（`v2`）追踪新会话并自动记录子代理归属；装有 Cursor CLI（`agent` / `cursor-agent`）时支持 `agent acp` 后台委派与应用内同会话续聊，未装 CLI 或选「桌面客户端」时自动回退复制交接并唤起客户端（暂不支持终端交互）。
    - **WorkBuddy**：仅中国版，独立 CodeBuddy 命令行与桌面端不互通。
    - **Qoder**：命令行与桌面端不互通，桌面端没给 token 时显示「未提供」。
    - **Antigravity**：同时追踪 IDE（`~/.gemini/antigravity/brain`）与独立 `agy` CLI（`~/.gemini/antigravity-cli/brain`）的本地会话日志，支持 `agy acp` 后台委派与应用内续聊；IDE 与 CLI 会话彼此独立、不支持桌面 IDE 交接，导出正文不含工具结果与内部推理。
@@ -108,7 +109,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
    - **Kimi Code**：仅追踪桌面端与 CLI 会话（`wire.jsonl` v1.5），暂不支持委派。
    - **豆包工作**：只读追踪本地 IndexedDB 中的会话列表元数据（标题与活跃时间），完整正文存于本地加密数据库 `sdk_storage`，插件不解密，token 显示「用量未提供」。
    - **Gemini CLI**：只读追踪 `~/.gemini/tmp/*/chats/session-*.jsonl`（及旧版 `.json`），自动剥离 `<session_context>` / `<hook_context>` 注入块并统计 token；支持 `gemini --acp` 后台委派、应用内追问与终端 `gemini --resume` 续聊（无桌面 GUI）。
-5. **终端交互的实测范围**：自动开终端跑交互式会话目前仅限 macOS，且只在 **Tern** 和 **Herdr** 上实测通过；macOS 系统终端、iTerm2、Warp 尚未实测，Windows 终端暂未支持。
+5. **终端交互的实测范围**：表驱动终端注册表已适配 11 家终端（系统终端、iTerm2、Warp、Ghostty、cmux、tmux、WezTerm、Kitty、Alacritty、Tern、Herdr）及 Windows `wt.exe`/`cmd.exe` 回退，但真实交互目视目前仅在 macOS 的 **Tern** 和 **Herdr** 上实测通过；其余终端与 Windows 真机尚待实操验证。
 6. **正在做的方向**：派发前可视化上下文、防引用漂移、Dream 记忆按条共享、Windows 真机实测与终端适配，以及更多 Agent 与终端支持，详见 [Roadmap](https://matsuri.site/portfolio/journal-workflow/#wishlist)。
 
 ## 六、如何接入自定义 ACP Agent

@@ -21,4 +21,4 @@
 | [`specs/fractal-boards-roadmap.md`](specs/fractal-boards-roadmap.md) | 后续方向：WorkFlowy 分形看板（意义、大纲/Harness/双链实现路线与红线） |
 | [`specs/harness-delta-2026-11-18.zh-CN.md`](specs/harness-delta-2026-11-18.zh-CN.md) | 单批增量说明（文本 harness 视角）：这一轮新增了什么、因此能做到什么、回复协议的设计意见 |
 | [`specs/dream-shared-memory.md`](specs/dream-shared-memory.md) | **方向草案**：Dream 记忆按条共享（scope/audience、发布层、MCP 接入、撤销红线），参照 Notion 的 MCP + personal memories 模型 |
-| [`specs/teleagent-adapter.zh-CN.md`](specs/teleagent-adapter.zh-CN.md) | 已实现 P0：TeleAgent（星辰超级智能体）只读追踪——本地 SQLite 契约、真实环境变量（`SUPER_AGENT_APP_DATA_DIR`）、多账号发现、附件绝对路径剥离；P1 复制交接与 P2 深链仍未实现 |
+| [`specs/teleagent-adapter.zh-CN.md`](specs/teleagent-adapter.zh-CN.md) | 已合入 1.13.20（P0 只读追踪 + P1 复制交接与 Windows UIA / Linux `xdotool` 填入式派发）：TeleAgent（星辰超级智能体）本地 SQLite 契约、`SUPER_AGENT_APP_DATA_DIR`、多账号发现与附件路径剥离；P2 深链与状态增强未实现 |

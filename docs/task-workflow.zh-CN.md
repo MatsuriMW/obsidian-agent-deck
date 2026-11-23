@@ -12,13 +12,17 @@
 - **新增 Cindy（`cindy`）只读会话追踪（内置总数增至 19 家，`USAGE_CACHE_VERSION = 21`，`HARNESS_DETECTION_VERSION = 3`）**：
   - 新增 `src/cindy-sessions.js`（探测 Electron `Cindy` / `CindyGlobal` / `xdt-maker` 目录、`cindy-*.db` / `xdt-maker-*.db`，支持 `CINDY_DATA_DIR` / `XDT_USER_DATA_DIR` 隔离覆盖，清洗 `\uE200cite…\uE201` 与独立 stop token）、`assets/agents/cindy.png`（Apache-2.0，128×128）、`src/desktop-sessions.js`（剥除默认标题 `'New Maker'`、`worktree_path > project_dir > working_dir`、区分用户 Fork 与 `orca_workers` / `bot_delegations` 子层级、`turnUsageDetails` 优先防重复计费、`requestId` 流式去重、过滤 `[UI_ACTION_TRIGGER]` / `autoResume` / 内联子工具 / 内部卡片）。
   - 补齐 `AGENTS.cindy`（`trackingOnly: true`、`archiveDetection: true`）、`cindy://session/<id>` 深链与 `com.xd.cindycn`/`com.xd.cindy` 唤起、`journal.js` 短链与块号前缀、`conversation.js`、`harness-detect.js`、`security-audit.js`（`tool_use` 提取）、`menubar.swift`、样式与中英繁文案。
-- **T3 Code & Cindy 统一聚合去重体系（`delegatedOwners`）**：
-  - `AgentUsage` 将 `t3Delegated` 升级为多聚合端 **`delegatedOwners`**（支持 `setDelegatedOwners` 多库聚合、`delegatedOwnerOf(sid, selfAgent)` 沿 `parentSid`/`cursorParents` 向上传递去重、`t3OwnerOf`/`cindyOwnerOf` 兼容，并持久化至 `usage-cache.json.gz`；关闭聚合端时即时恢复底层会话）。
-  - 扩展 `t3CodeDelegatedSids` 覆盖 6 张表并解码 `:native-thread:` 后缀（跳过 `provider-session:provider-instance:` 及 URL 编码 `pending%3A...` 占位符），新增 `cindyDelegatedSids`（`sessions.sdk_session_id`、`messages.agent_meta`、`agent_switch`、`subagent_runs`、`skill_usage_sources`）。
-  - 全链路接入：`summary()`、`liveSessions()`、`sessions()`、`AutoLog`、`JournalSync`（`results` & `autoKeywords`）、`DashboardData`、`Delegator.resolveHandoffs`、`recommendPrimaryAgents`、`main.js`（主力初始化/重探测/`extState` 活态注入）与 `runSecurityAudit`；新增 `test/cindy-sessions.test.mjs`。
+- **T3 Code & Cindy 统一聚合去重体系（`delegatedOwners`）与真机修复（`51f72e7`、`9b43237`、`fa8b835`）**：
+  - `AgentUsage` 将 `t3Delegated` 升级为多聚合端 **`delegatedOwners`**（支持 `setDelegatedOwners` 多库聚合、`mergeDelegatedOwners` 覆盖首次主力初始化与单卡局部重扫 `scanNow(false, { agent, days })`、全量强扫及 `rebuildUsage()` 前清空重建、`delegatedOwnerOf(sid, selfAgent)` 沿 `parentSid`/`cursorParents` 最多 5 跳父链向上传递去重、`t3OwnerOf`/`cindyOwnerOf` 兼容，并持久化至 `usage-cache.json.gz`；关闭聚合端时即时恢复底层会话）。
+  - 扩展 `t3CodeDelegatedSids` 覆盖 6 张投影/运行时表并解码 `:native-thread:` 后缀（跳过 `provider-session:provider-instance:` 及 URL 编码 `pending%3A...` 占位符），新增 `cindyDelegatedSids`（`sessions.sdk_session_id`、`messages.agent_meta`、`agent_switch`、`subagent_runs`、`skill_usage_sources`）。
+  - 全链路接入：`summary()`、`liveSessions()`、`sessions()`、`AutoLog`、`JournalSync`（`results` & `autoKeywords`）、`DashboardData`、`Delegator.resolveHandoffs`、`recommendPrimaryAgents`、`main.js`（主力初始化/重探测/`extState` 活态注入）、设置页「记录」卡片统计过滤（排除已被聚合端归并的底层会话）与 `runSecurityAudit`；新增 `test/cindy-sessions.test.mjs`。
+  - **两轮 UX 抛光（`63c05e7`、`fa8b835`、`d7641bd`）**：
+    - 日记圆圈轮次徽标 `.ad-round-badge`（`16×16`、`flex-shrink: 0`、`top: -0.15em`、`cursor: default`、悬停边框增强）+ 内层 `.ad-round-badge__num`（`text-box-trim: trim-both; text-box-edge: cap alphabetic;` 光学居中）与 Agent 图标 `.ad-agent-mark`（`top: -0.09em`）对齐正文基线，并本地化双语悬浮提示 `t("第 {n} 轮", { n })`；
+    - 设置页启用中 T3 Code / Cindy 卡片底部展示 `.ad-hint` 实时去重计数，修正 `cindy` `continueInApp: false`，新增 `openExternalAsync` 在 `cindy://` 深链拒接时回退唤起客户端并提示，`journal.js` `parseLink` 补全 `T3 Code`/`Muse`/`Kimi Code`/`豆包工作`/`Gemini CLI` 等全部内置 Agent 标题前缀剥离。
 - **实测范围与未测空白**：
-  - 已验证：本机真实 `$HOME/.t3/userdata/statev2.sqlite` 只读读取（`desktopSessions` 返回 1 条会话，`t3CodeDelegatedSids` 精准提取 `01a202fc-9ea5-7321-8ca4-ceaf4f1a5cb9` 且排除 `pending%3A...`）、隔离 `HOME` 全量 `npm test`、`npm run build`、`npm run eval`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`、Vault 安装与 `obsidian vault=马自立 plugin:reload id=agent-deck`。
-  - 未测空白：**本机未安装 Cindy 客户端与库**（`Cindy` 适配器基于 `makecindy/cindy` `main` 源码契约与本地真实 SQLite 夹具验证）；Windows 全端真机未测。
+  - 已验证：本机真实 `$HOME/.t3/userdata/statev2.sqlite` 只读读取（`desktopSessions` 返回 1 条会话，`t3CodeDelegatedSids` 精准提取 `01a202fc-9ea5-7321-8ca4-ceaf4f1a5cb9` 且排除 `pending%3A...` 并抑制底层 Codex 重复收录）、隔离 `HOME` 全量 `npm test`、`npm run build`、`npm run eval`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`、Vault 安装与 Obsidian `马自立` 热重载（`version: "1.13.20", loaded: true, errors: []`，实机 DOM 验证 `.ad-round-badge` 光学居中与 T3 Code 设置卡去重计数提示）；GitHub Release [`1.13.20`](https://github.com/MatsuriMW/obsidian-agent-deck/releases/tag/1.13.20)、`Sync Wiki` 与 `CI`（`ubuntu-latest` / `macos-latest`）均已通过。
+  - CI 实报细节：`CI (windows-latest)` 其余全量用例（含 Cindy SQLite/WAL/去重与 TeleAgent 全 42 项）通过，仅 `test/cindy-sessions.test.mjs:81` 一条断言因在 Windows Runner 下测试期望未用 `path.resolve()` 而带盘符失败（纯单测断言问题，非运行时故障）。
+  - 未测空白：**本机未安装 Cindy 客户端与库**（`Cindy` 适配器基于 `makecindy/cindy` `main` 源码契约与本地真实 SQLite 夹具验证）；Windows 全端 Obsidian GUI 与 macOS 本机 TeleAgent 客户端未实机测试（PR #12 TeleAgent P0/P1 曾由贡献者在 Windows 11 与 Linux Deepin 25 实机核验）。
 
 ## 1.13.15 + 后续增量：Kimi Code / 豆包工作 / Gemini CLI（ACP + 追踪）、Antigravity CLI 追踪补齐与 Wiki/GitHub 自动化
 
@@ -92,7 +96,7 @@
 
 | 平台 | 已验证范围 | 未覆盖 / 已知代码缺口 |
 | --- | --- | --- |
-| **macOS** | 全量 `npm test`、构建、`swiftc` 编译与运行（`AgentDeckMenuBar.app`）、Vault 安装与热重载（Obsidian `1.15.1`）、Antigravity (`agy` / `agy acp`) 两轮续聊与记忆查询、`preview` 模式草稿读取、Dashboard、AI 记录 Pin（大纲与阅读视图 DOM）、Menu Bar 会话置顶命令队列 | 终端交互仅实测 Tern / Herdr；7 家可委派客户端全量逐一派发、Menu Bar SwiftUI 悬浮窗口拖拽手感待人手目视微调 |
+| **macOS** | 全量 `npm test`、构建、`swiftc` 编译与运行（`AgentDeckMenuBar.app`）、Vault 安装与热重载（Obsidian `1.15.1`）、Antigravity (`agy` / `agy acp`) 两轮续聊与记忆查询、`preview` 模式草稿读取、Dashboard、AI 记录 Pin（大纲与阅读视图 DOM）、Menu Bar 会话置顶命令队列 | 终端交互仅实测 Tern / Herdr；11 家内置可委派客户端（+ 自定义 ACP）全量逐一派发、Menu Bar SwiftUI 悬浮窗口拖拽手感待人手目视微调 |
 | **Windows** | `windows-latest` CI 全量 `npm test`、`npm run eval`、`npm run build`、`npm run check:deploy` 已全部通过（社区 PR #7 亦在 Windows 11 实机跑通全量测试） | 尚未在 Windows 真机 Obsidian GUI 内实操交互；`src/delegation.js`（`findBin` / `pickTerminal` / `openTerminal` / `osa`）与 `src/main.js`（`openTerminalAt`）仍依赖 macOS `osascript`/终端；`src/readers.js` 在 `win32` 跳过 `claudeDesktop` |
 
 ## 本批发版基线（1.13.6，2026-11-19，已构建并三端 CI 全绿）

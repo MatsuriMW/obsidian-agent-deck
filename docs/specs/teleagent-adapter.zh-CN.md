@@ -1,6 +1,6 @@
 # TeleAgent（星辰超级智能体）接入方案
 
-> 状态：**P0（只读追踪）、P1（复制交接）与 Linux「填入式」派发已实现**（2026-11-19，分支 `feat/teleagent-adapter`）。核验平台：**Windows 11**（TeleAgent 桌面版 1.2.27；真实库 810 MB / 4365 会话 / 48609 消息 / 173493 part）+ **Linux**（Deepin 25 / treeland Wayland + XWayland，客户端 3.1.1-rc.1；Linux 派发后端见 §5 与 UI Automation 派发实测）。**macOS 未实机核验**，按 AGENTS.md 口径不外推。P2（深链与状态增强）仍未实现。
+> 状态：**P0（只读追踪）、P1（复制交接）与 Linux「填入式」派发已实现**（2026-11-19，分支 `feat/teleagent-adapter`；PR #12 已于 2026-11-24 随 `1.13.20` 合入 `main`）。核验平台：**Windows 11**（TeleAgent 桌面版 1.2.27；真实库 810 MB / 4365 会话 / 48609 消息 / 173493 part）+ **Linux**（Deepin 25 / treeland Wayland + XWayland，客户端 3.1.1-rc.1；Linux 派发后端见 §5 与 UI Automation 派发实测）。**macOS 未实机核验**，按 AGENTS.md 口径不外推。P2（深链与状态增强）仍未实现。
 > 本文只定义数据契约、委派设计与改动面，不含实现代码。
 
 ## 0. 结论
@@ -38,7 +38,9 @@
 ### 2.1 路径发现
 
 ```text
-root  = env.TELEAGENT_HOME || join(home(), ".local", "share", "TeleAgent")
+root  = env.SUPER_AGENT_APP_DATA_DIR
+        || (win32 && exists(LOCALAPPDATA/TeleAgent/users) ? join(LOCALAPPDATA, "TeleAgent") : null)
+        || join(home(), ".local", "share", "TeleAgent")
 owner = JSON.parse(readFile(join(root, "current-owner.json"))).ownerDir
 db    = join(root, "users", owner, "teleagent.db")
 ```
@@ -151,7 +153,7 @@ TeleAgent 的 `session` 表没有 `time_busy` / `idle_outcome`，无法像新版
 | `src/locales/en/*.js` | 新增文案英文 | ~10 |
 | `test/teleagent-sessions.test.mjs` | 建夹具库、路径发现、解析、token、认领 | ~150 |
 | `README.md`（英文）/ `README.zh-CN.md`（中文） | 支持表加一行（追踪 ✅ / 后台委派 ❌ / 桌面交接 ✅ 复制 / 终端 ❌ / 直达 ⚠️ 唤起+复制）；1.13.17 起 `README.en.md` 已被上游删除，英文正本是 `README.md` | ~4 |
-| `docs/specs/architecture-and-boundaries.md`、`acp-integration.zh-CN.md`、`docs/README.md` | 十一家 → 十八家（1.13.4 时为十二家，1.13.17 合并后上游已扩到十七家 + TeleAgent）、接入原则表加一行、索引加本文 | ~11 |
+| `docs/specs/architecture-and-boundaries.md`、`acp-integration.zh-CN.md`、`docs/README.md` | 十一家 → 十八家（1.13.4 时为十二家，1.13.17 合并后上游已扩到十七家 + TeleAgent；`1.13.20` 同期合入 Cindy 后内置总计十九家）、接入原则表加一行、索引加本文 | ~11 |
 
 ## 5. 跨平台
 
@@ -208,7 +210,7 @@ TeleAgent 的 `session` 表没有 `time_busy` / `idle_outcome`，无法像新版
 | P0 | 追踪（路径发现 + 解析 + 设置卡片 + 测试） | 面板 / 日记 / Dashboard 可见 TeleAgent | ✅ 已实现（Windows 实机核验） |
 | P1 | 复制交接（handoff + 认领 + 链接行） | 从笔记派任务、结果回写 | ✅ 已实现（拖拽 → 复制 → 唤起 → 文本前缀认领 → 🔗 + DELEGATED；30 分钟超时会提示） |
 | P2 | 深链与状态增强（scheme 实测、permission 表、认领确认） | 体验补齐 | ⬜ 未实现 |
-| P3 | 文档与 PR（README / specs / CHANGELOG） | 可上游 | 🟡 文档已同步；未提 PR |
+| P3 | 文档与 PR（README / specs / CHANGELOG） | 可上游 | ✅ 已随 PR #12 合入 `main`（`1.13.20`） |
 
 ## 9. 口径与合规
 
