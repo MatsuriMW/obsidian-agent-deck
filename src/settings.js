@@ -1282,7 +1282,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     star.onclick = () => p.togglePrimary(id);
     this.toggle(controls, enabled, (v) => p.setAgentEnabled(id, v), primary);
     if (enabled) this.sortHandle(controls, grid, "tracking", id);
-    const sessions = [...p.usage.meta.values()].filter((x) => x.agent === id);
+    const sessions = [...p.usage.meta.values()].filter((x) => x.agent === id && !p.usage.delegatedOwnerOf?.(x.sid, x.agent));
     const stats = card.createDiv({ cls: "ad-set-agent__meta" });
     const sessCountEl = stats.createSpan({ text: t("{n} 个会话", { n: sessions.length }) });
     stats.createSpan({ text: id === "grokbot" || id === "muse" || id === "doubaowork" ? t("用量未提供") : fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });

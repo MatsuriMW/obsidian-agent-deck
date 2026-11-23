@@ -1332,6 +1332,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.settings.primaryAgentsInitialized = true;
     for (const key of ["files", "meta", "titles", "subs"]) for (const [id, value] of usage[key]) this.usage[key].set(id, value);
     for (const key of ["archived", "archivedClaude"]) for (const sid of usage[key]) this.usage[key].add(sid);
+    if (usage.delegatedOwners?.size) this.usage.mergeDelegatedOwners?.(usage.delegatedOwners, touched);
     this.usage.dirty = true;
     await this.saveSettings();
     if (this.app.setting?.activeTab === this.settingTab && this.settingTab.containerEl?.isConnected) this.settingTab.display();
@@ -1357,6 +1358,7 @@ export default class AgentDeckPlugin extends Plugin {
         this.usage.files.clear();
         this.usage.meta.clear();
         this.usage.titles.clear();
+        this.usage.delegatedOwners?.clear?.();
         this.usage.lastScan = 0;
       }
       const since = days ? Date.now() - days * 86400000 : force || cutoffChanged ? 0 : Math.max(0, (this.usage.lastScan || 0) - 60000);
@@ -1370,6 +1372,7 @@ export default class AgentDeckPlugin extends Plugin {
       if (fullScan) this._scannedDayCutoff = dayCutoff;
       if (scoped) {
         for (const key of ["files", "meta", "titles", "subs"]) for (const [id, value] of usage[key]) this.usage[key].set(id, value);
+        if (usage.delegatedOwners?.size) this.usage.mergeDelegatedOwners?.(usage.delegatedOwners, touched);
         this.usage.errors = [...this.usage.errors, ...usage.errors].slice(-20);
         this.usage.dirty = true;
       }
@@ -1404,6 +1407,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.usage.files.clear();
     this.usage.meta.clear();
     this.usage.titles.clear();
+    this.usage.delegatedOwners?.clear?.();
     await this.store.save();
     await this.scanNow(true);
     new Notice(t("Agent Deck：历史已重算"));

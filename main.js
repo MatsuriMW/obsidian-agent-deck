@@ -13761,15 +13761,39 @@ var AgentUsage = class {
         this.dirty = true;
       }
     }
-    if (changedSids.size && touched instanceof Set) {
-      for (const m of this.meta.values()) {
-        if (m?.sid && m.parentSid && changedSids.has(m.parentSid)) changedSids.add(m.sid);
-      }
-      for (const fc of this.files.values()) {
-        if (!fc.sid || !changedSids.has(fc.sid)) continue;
-        for (const day of fc.days.keys()) touched.add(day);
+    this._markDelegatedTouched(changedSids, touched);
+  }
+  _markDelegatedTouched(changedSids, touched) {
+    if (!changedSids?.size || !(touched instanceof Set)) return;
+    for (const m of this.meta.values()) {
+      if (m?.sid && m.parentSid && changedSids.has(m.parentSid)) changedSids.add(m.sid);
+    }
+    for (const fc of this.files.values()) {
+      if (!fc.sid || !changedSids.has(fc.sid)) continue;
+      for (const day of fc.days.keys()) touched.add(day);
+    }
+  }
+  mergeDelegatedOwners(source, touched) {
+    if (!source || typeof source.entries !== "function") return;
+    const changedSids = /* @__PURE__ */ new Set();
+    for (const [sid, rawOwners] of source.entries()) {
+      if (!sid || !rawOwners) continue;
+      const entries = typeof rawOwners.entries === "function" ? [...rawOwners.entries()] : Object.entries(rawOwners);
+      let owners = this.delegatedOwners.get(sid);
+      for (const [ownerAgent, ownerSid] of entries) {
+        if (!ownerAgent || !ownerSid) continue;
+        if (!owners) {
+          owners = /* @__PURE__ */ new Map();
+          this.delegatedOwners.set(sid, owners);
+        }
+        if (owners.get(ownerAgent) !== ownerSid) {
+          owners.set(ownerAgent, ownerSid);
+          changedSids.add(sid);
+          this.dirty = true;
+        }
       }
     }
+    this._markDelegatedTouched(changedSids, touched);
   }
   delegatedOwnerOf(sid, selfAgent = "") {
     let cur = String(sid || "").trim();
@@ -34853,7 +34877,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     star.onclick = () => p2.togglePrimary(id);
     this.toggle(controls, enabled, (v) => p2.setAgentEnabled(id, v), primary);
     if (enabled) this.sortHandle(controls, grid, "tracking", id);
-    const sessions = [...p2.usage.meta.values()].filter((x) => x.agent === id);
+    const sessions = [...p2.usage.meta.values()].filter((x) => x.agent === id && !p2.usage.delegatedOwnerOf?.(x.sid, x.agent));
     const stats = card.createDiv({ cls: "ad-set-agent__meta" });
     const sessCountEl = stats.createSpan({ text: t("{n} \u4E2A\u4F1A\u8BDD", { n: sessions.length }) });
     stats.createSpan({ text: id === "grokbot" || id === "muse" || id === "doubaowork" ? t("\u7528\u91CF\u672A\u63D0\u4F9B") : fmtTok(sessions.reduce((n, x) => n + (x.out || 0), 0)) + " tok" });
@@ -46344,6 +46368,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.settings.primaryAgentsInitialized = true;
     for (const key of ["files", "meta", "titles", "subs"]) for (const [id, value] of usage[key]) this.usage[key].set(id, value);
     for (const key of ["archived", "archivedClaude"]) for (const sid of usage[key]) this.usage[key].add(sid);
+    if (usage.delegatedOwners?.size) this.usage.mergeDelegatedOwners?.(usage.delegatedOwners, touched);
     this.usage.dirty = true;
     await this.saveSettings();
     if (this.app.setting?.activeTab === this.settingTab && this.settingTab.containerEl?.isConnected) this.settingTab.display();
@@ -46369,6 +46394,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
         this.usage.files.clear();
         this.usage.meta.clear();
         this.usage.titles.clear();
+        this.usage.delegatedOwners?.clear?.();
         this.usage.lastScan = 0;
       }
       const since = days ? Date.now() - days * 864e5 : force || cutoffChanged ? 0 : Math.max(0, (this.usage.lastScan || 0) - 6e4);
@@ -46380,6 +46406,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       if (fullScan) this._scannedDayCutoff = dayCutoff;
       if (scoped) {
         for (const key of ["files", "meta", "titles", "subs"]) for (const [id, value] of usage[key]) this.usage[key].set(id, value);
+        if (usage.delegatedOwners?.size) this.usage.mergeDelegatedOwners?.(usage.delegatedOwners, touched);
         this.usage.errors = [...this.usage.errors, ...usage.errors].slice(-20);
         this.usage.dirty = true;
       }
@@ -46415,6 +46442,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.usage.files.clear();
     this.usage.meta.clear();
     this.usage.titles.clear();
+    this.usage.delegatedOwners?.clear?.();
     await this.store.save();
     await this.scanNow(true);
     new import_obsidian21.Notice(t("Agent Deck\uFF1A\u5386\u53F2\u5DF2\u91CD\u7B97"));

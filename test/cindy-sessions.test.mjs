@@ -518,4 +518,21 @@ test("Metadata, links, deep link, harness-detect, and end-to-end aggregator dedu
   restored.historyAgents = [];
   assert.equal(restored.delegatedOwnerOf("claude-in-cindy-1", "claude"), null);
   assert.equal(restored.sessions({ since: now - 86400000 }).some((s) => s.sid === "claude-in-cindy-1"), true);
+
+  // Scoped scan / onboarding mergeDelegatedOwners transfers mappings & marks affected days touched
+  const unmerged = new AgentUsage({ settings: { ...DEFAULTS, primaryAgents: ["claude", "cindy"] }, cfg: { ...DEFAULTS } });
+  const srcFc = usage.files.get(path.join(claudeProj, "claude-in-cindy-1.jsonl"));
+  const soloFc = usage.files.get(path.join(claudeProj, "claude-standalone.jsonl"));
+  unmerged.files.set(srcFc.path, srcFc);
+  unmerged.files.set(soloFc.path, soloFc);
+  unmerged.meta.set("claude-in-cindy-1", { ...usage.meta.get("claude-in-cindy-1") });
+  unmerged.meta.set("claude-standalone", { ...usage.meta.get("claude-standalone") });
+  assert.equal(unmerged.sessions({ since: now - 86400000 }).some((s) => s.sid === "claude-in-cindy-1"), true);
+  assert.equal(unmerged.summary(key).list.some((s) => s.sid === "claude-in-cindy-1"), true);
+  const mergeTouched = new Set();
+  unmerged.mergeDelegatedOwners(usage.delegatedOwners, mergeTouched);
+  assert.equal(mergeTouched.has(key), true, "mergeDelegatedOwners marks affected day key in touched");
+  assert.equal(unmerged.sessions({ since: now - 86400000 }).some((s) => s.sid === "claude-in-cindy-1"), false);
+  assert.equal(unmerged.summary(key).list.some((s) => s.sid === "claude-in-cindy-1"), false);
+  assert.equal(unmerged.summary(key).list.some((s) => s.sid === "claude-standalone"), true);
 });

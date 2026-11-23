@@ -370,15 +370,41 @@ export class AgentUsage {
         this.dirty = true;
       }
     }
-    if (changedSids.size && touched instanceof Set) {
-      for (const m of this.meta.values()) {
-        if (m?.sid && m.parentSid && changedSids.has(m.parentSid)) changedSids.add(m.sid);
-      }
-      for (const fc of this.files.values()) {
-        if (!fc.sid || !changedSids.has(fc.sid)) continue;
-        for (const day of fc.days.keys()) touched.add(day);
+    this._markDelegatedTouched(changedSids, touched);
+  }
+
+  _markDelegatedTouched(changedSids, touched) {
+    if (!changedSids?.size || !(touched instanceof Set)) return;
+    for (const m of this.meta.values()) {
+      if (m?.sid && m.parentSid && changedSids.has(m.parentSid)) changedSids.add(m.sid);
+    }
+    for (const fc of this.files.values()) {
+      if (!fc.sid || !changedSids.has(fc.sid)) continue;
+      for (const day of fc.days.keys()) touched.add(day);
+    }
+  }
+
+  mergeDelegatedOwners(source, touched) {
+    if (!source || typeof source.entries !== "function") return;
+    const changedSids = new Set();
+    for (const [sid, rawOwners] of source.entries()) {
+      if (!sid || !rawOwners) continue;
+      const entries = typeof rawOwners.entries === "function" ? [...rawOwners.entries()] : Object.entries(rawOwners);
+      let owners = this.delegatedOwners.get(sid);
+      for (const [ownerAgent, ownerSid] of entries) {
+        if (!ownerAgent || !ownerSid) continue;
+        if (!owners) {
+          owners = new Map();
+          this.delegatedOwners.set(sid, owners);
+        }
+        if (owners.get(ownerAgent) !== ownerSid) {
+          owners.set(ownerAgent, ownerSid);
+          changedSids.add(sid);
+          this.dirty = true;
+        }
       }
     }
+    this._markDelegatedTouched(changedSids, touched);
   }
 
   delegatedOwnerOf(sid, selfAgent = "") {
