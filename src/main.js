@@ -1320,7 +1320,12 @@ export default class AgentDeckPlugin extends Plugin {
     const usage = new AgentUsage({ cfg: this.settings, settings: this.settings, historyAgents: AGENT_ORDER });
     const touched = await usage.scan({ since: Date.now() - 30 * 86400000, strictSince: true });
     if (this._unloaded || this.settings.primaryAgentsInitialized) return;
-    const candidates = { files: usage.files, meta: new Map([...usage.meta].filter(([, meta]) => this.agentEnabled(meta.agent))) };
+    const candidates = {
+      files: usage.files,
+      meta: new Map([...usage.meta].filter(([, meta]) => this.agentEnabled(meta.agent))),
+      delegatedOwnerOf: (sid, agent) => usage?.delegatedOwnerOf?.(sid, agent) ?? null,
+      t3OwnerOf: (sid) => usage?.t3OwnerOf?.(sid) ?? "",
+    };
     const primaries = recommendPrimaryAgents(candidates);
     if (!primaries.length && usage.errors.length) return;
     this.settings.primaryAgents = primaries;
@@ -1577,6 +1582,8 @@ export default class AgentDeckPlugin extends Plugin {
       const candidates = {
         files: this.usage.files,
         meta: new Map([...this.usage.meta].filter(([, meta]) => this.agentEnabled(meta.agent))),
+        delegatedOwnerOf: (sid, agent) => this.usage?.delegatedOwnerOf?.(sid, agent) ?? null,
+        t3OwnerOf: (sid) => this.usage?.t3OwnerOf?.(sid) ?? "",
       };
       const primaries = recommendPrimaryAgents(candidates);
       if (primaries.length) this.settings.primaryAgents = primaries;
@@ -1728,6 +1735,7 @@ export default class AgentDeckPlugin extends Plugin {
       if (seen.has(sid) || this.usage.hidden(sid)) continue;
       const meta = this.usage.meta.get(sid);
       if (!meta || !this.agentEnabled(meta.agent)) continue;
+      if (this.usage.delegatedOwnerOf?.(sid, meta.agent)) continue;
       const resolved = this.applyExternalState(meta, now);
       if (resolved.state === "needs-approval" || resolved.state === "queued") {
         list.push(resolved);

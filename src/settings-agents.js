@@ -21,6 +21,7 @@ export function recommendPrimaryAgents(usage, now = Date.now()) {
   for (const [id, meta] of usage.meta) {
     const sid = meta.sid || id, key = `${meta.agent}:${sid}`;
     if (!AGENT_ORDER.includes(meta.agent) || meta.parentSid || subs.has(sid) || seen.has(key) || meta.lastAt < since || meta.lastAt > now || !meta.lastAt) continue;
+    if (usage.delegatedOwnerOf?.(sid, meta.agent) || (meta.agent !== "t3code" && usage.t3OwnerOf?.(sid))) continue;
     seen.add(key);
     counts.set(meta.agent, (counts.get(meta.agent) || 0) + 1);
     recent.set(meta.agent, Math.max(recent.get(meta.agent) || 0, meta.lastAt));

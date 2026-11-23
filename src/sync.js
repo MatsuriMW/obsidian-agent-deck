@@ -246,6 +246,8 @@ export class JournalSync {
     const daySt = (this.cfg.autoLogState && this.cfg.autoLogState[dayKeyToday(this.cfg)]) || {};
     for (const [sid, rec] of Object.entries(daySt)) {
       if (!rec || rec.skip || rec.gone || this.usage?.isSubagentSession?.(sid)) continue;
+      const selfAgent = rec.agent || this.usage?.meta?.get?.(sid)?.agent || "";
+      if (this.usage?.delegatedOwnerOf?.(sid, selfAgent) || (selfAgent && selfAgent !== "t3code" && this.usage?.t3OwnerOf?.(sid))) continue;
       if ((rec.blockId && text.includes(`^${rec.blockId}`)) || (rec.key && J.findTask(text, rec.key, rec.blockId, sid))) {
         if (!targets.has(sid)) targets.set(sid, { blockId: rec.blockId || "", key: rec.key || "" });
       }
@@ -376,6 +378,7 @@ export class JournalSync {
       if (!rec || rec.skip || rec.gone || !rec.key || linked.has(sid) || this.archived(sid) || this.usage?.isSubagentSession?.(sid)) continue;
       const m = this.usage.meta.get(sid);
       if (!m) continue;
+      if (this.usage?.delegatedOwnerOf?.(sid, m.agent) || (m.agent && m.agent !== "t3code" && this.usage?.t3OwnerOf?.(sid))) continue;
       const found = J.findTask(text, rec.key, rec.blockId || "", sid);
       if (found && J.isManualTask(this.cfg, text.split("\n")[found.line])) continue;
       if (!found || !(found.kw === "DOING" || (J.AGENT_KW_RE.test(found.kw) && found.kw !== "DELEGATED"))) continue;

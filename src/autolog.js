@@ -465,7 +465,7 @@ export class AutoLog {
       for (const x of list) {
         if (!x.segs || !x.segs.length) continue;
         if (!this.agentOn(x.agent) || background.has(x.sid)) continue;
-        if (x.agent !== "t3code" && this.usage?.t3OwnerOf?.(x.sid)) continue; // T3 Code 转发到底层 Agent 的会话统一归入 T3 Code，不重复记录
+        if (this.usage?.delegatedOwnerOf?.(x.sid, x.agent) || (x.agent !== "t3code" && this.usage?.t3OwnerOf?.(x.sid))) continue; // T3 Code 转发到底层 Agent 的会话统一归入 T3 Code，不重复记录
         if (this.isSubagent(x.sid)) continue; // 子代理/子会话归属母会话，不单独记作独立任务
         if (linked.has(x.sid)) continue;   // 日记里用 🔗 绑好的，交给回写那一半
         const last = x.segs[x.segs.length - 1][1];

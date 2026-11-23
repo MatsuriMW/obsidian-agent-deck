@@ -354,6 +354,22 @@ export async function extractToolCallsFromDesktopDb(db, agent, sid) {
           calls.push({ title: name, kind: inferToolKind(r.type === "file_change" ? "edit" : name), rawInput, at });
         }
       }
+    } else if (agent === "cindy") {
+      const cols = await desktopQuery(db, "PRAGMA table_info(messages)");
+      if (cols.length) {
+        const hasRewind = cols.some((c) => c.name === "rewind_at");
+        const hasCreated = cols.some((c) => c.name === "created_at");
+        const where = [`session_id=${quote(sid)}`, "role='tool_use'"];
+        if (hasRewind) where.push("rewind_at IS NULL");
+        const orderBy = hasCreated ? "created_at, rowid" : "rowid";
+        const createdCol = hasCreated ? "created_at AS created" : "0 AS created";
+        const rows = await desktopQuery(db, `SELECT content, ${createdCol} FROM messages WHERE ${where.join(" AND ")} ORDER BY ${orderBy}`);
+        for (const r of rows) {
+          const d = parseJson(r.content, {});
+          const name = d?.toolName || d?.name || d?.tool || "tool";
+          calls.push({ title: name, kind: inferToolKind(name), rawInput: toRawInput(d?.input ?? d?.arguments ?? d), at: desktopTime(r.created) });
+        }
+      }
     } else if (agent === "opencode" || agent === "qwenwork" || agent === "teleagent") {
       const tables = await desktopQuery(db, "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('session_part','part')");
       const partTable = tables.some((x) => x.name === "session_part") ? "session_part" : tables.some((x) => x.name === "part") ? "part" : "";
@@ -580,6 +596,7 @@ export async function runSecurityAudit(plugin, { days = 30, agent = "", ignoreTe
     if (!fc || !fc.path || !fc.agent || fc.sub) continue;
     if (onlyAgent && fc.agent !== onlyAgent) continue;
     const meta = metaMap.get(fc.sid) || {};
+    if (plugin?.usage?.delegatedOwnerOf?.(fc.sid, fc.agent) || (fc.agent !== "t3code" && plugin?.usage?.t3OwnerOf?.(fc.sid))) continue;
     const lastAt = meta.lastAt || fc.mtime || 0;
     if (cutoff && lastAt && lastAt < cutoff) continue;
 
@@ -594,7 +611,7 @@ export async function runSecurityAudit(plugin, { days = 30, agent = "", ignoreTe
     let calls = [];
     if (fc.path.includes("#")) {
       const db = fc.path.slice(0, fc.path.lastIndexOf("#"));
-      if (["hermes", "minimax", "opencode", "qwenwork", "qoder", "t3code", "teleagent"].includes(fc.agent)) {
+      if (["cindy", "hermes", "minimax", "opencode", "qwenwork", "qoder", "t3code", "teleagent"].includes(fc.agent)) {
         calls = await extractToolCallsFromDesktopDb(db, fc.agent, fc.sid);
       }
     } else {

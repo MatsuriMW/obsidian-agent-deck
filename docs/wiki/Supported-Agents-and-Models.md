@@ -31,7 +31,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 
 > 更多中文 Agent 客户端正在持续规划与接入中，欢迎通过 [新 Agent 适配模板](https://github.com/MatsuriMW/obsidian-agent-deck/issues/new?template=agent_support.yml) 反馈你使用的客户端。
 
-## 三、全部 18 家内置 Agent + 自定义 ACP 能力矩阵
+## 三、全部 19 家内置 Agent + 自定义 ACP 能力矩阵
 
 | Agent | 会话追踪 | 后台委派 | 桌面端交接 | 终端交互 |
 | --- | --- | --- | --- | --- |
@@ -47,7 +47,8 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起 | 支持 |
 | **Cursor** | 支持（需开启 Hooks） | 不支持 | 不支持（仅追踪） | — |
 | **Grok Bot** | 支持（按 Bot 多选） | 不支持 | 不支持（仅追踪） | — |
-| **T3 Code** | 支持 | 支持（`t3 thread`） | 仅唤起客户端 | — |
+| **T3 Code** | 支持（自动去重底层会话） | 支持（`t3 thread`） | 仅唤起客户端 | — |
+| **Cindy** | 支持（自动去重底层会话） | 不支持 | 深链跳转 / 唤起客户端（仅追踪） | — |
 | **Muse** | 支持（按对话流多选） | 不支持 | 不支持（仅追踪） | — |
 | **Kimi Code** | 支持 | 不支持 | 仅唤起客户端（仅追踪） | — |
 | **豆包工作** | 支持（会话列表元数据） | 不支持 | 仅唤起客户端（仅追踪） | — |
@@ -74,6 +75,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Cursor** | Cursor 桌面端 3.30.14+，并在设置里开启 Cursor Hooks |
 | **Grok Bot** | Grok Bot 桌面端，并在设置里勾选要追踪的 Bot |
 | **T3 Code** | T3 Code 桌面端；后台委派另需 `t3` 命令行 |
+| **Cindy** | Cindy 桌面端（仅追踪，自动去重其拉起的底层 Agent 会话） |
 | **Muse** | Muse 桌面端（仅追踪） |
 | **Kimi Code** | Kimi Code 桌面端或 `kimi` CLI（仅追踪） |
 | **豆包工作** | 豆包工作桌面端（仅追踪会话列表元数据） |
@@ -100,6 +102,8 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
    - **MiniMax Code**：桌面端与 `mcode` 命令行共用本地会话库；打开桌面端后仍需手动选一次会话，只装桌面端未装 `mcode` 时仅追踪不委派。
    - **千问办公（QwenWork）**：只追踪、不能委派；新版客户端的对话已能完整读取，旧日志缺 token 时如实显示为 0。
    - **Grok Bot**：只追踪桌面端，云端沙箱不给逐条 token 时显示「用量未提供」，没有归档概念。
+   - **T3 Code / Cindy 聚合去重**：通过 T3 Code 或 Cindy 转发/拉起的 Claude Code、Codex、Antigravity 等底层 Agent 会话会自动去重，仅归属 T3 Code 或 Cindy，避免在面板、最近列表、菜单栏、自动日记、Dashboard 与安全审计中重复计数；关闭对应的聚合端追踪开关后会立即恢复独立会话显示。
+   - **Cindy**：只读追踪本地 `cindy-*.db` / `xdt-maker-*.db`（含 Orca Team 协作层级、精确 token 与 `cindy://session/<id>` 深链跳转），暂不支持后台委派。
    - **Muse**：只追踪桌面端，云端 VM 无本地 token/模型，保留为 0/未提供。
    - **Kimi Code**：仅追踪桌面端与 CLI 会话（`wire.jsonl` v1.5），暂不支持委派。
    - **豆包工作**：只读追踪本地 IndexedDB 中的会话列表元数据（标题与活跃时间），完整正文存于本地加密数据库 `sdk_storage`，插件不解密，token 显示「用量未提供」。

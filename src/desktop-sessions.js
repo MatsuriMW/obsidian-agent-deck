@@ -1,8 +1,10 @@
 // Desktop databases are read in a transaction; no daemon, model call or database write.
 import fs from "fs";
+import path from "path";
 import { execFile } from "child_process";
 import { resolveSqliteBinary } from "./sqlite.js";
 import { stripQwenWorkContext, stripTeleAgentContext } from "./prompt-text.js";
+import { cleanCindyText } from "./cindy-sessions.js";
 
 const quote = (value) => "'" + String(value).replaceAll("'", "''") + "'";
 const json = (value, fallback = {}) => { try { return typeof value === "string" ? JSON.parse(value) : value || fallback; } catch { return fallback; } };
@@ -44,14 +46,59 @@ function extractMinimaxTool(d) {
   return "";
 }
 
-export function desktopQuery(db, sql) {
-  if (!fs.existsSync(db)) return Promise.resolve([]);
+export function toSqliteUriPath(dbPath) {
+  let real = dbPath;
+  try { real = fs.realpathSync(dbPath); } catch { real = path.resolve(dbPath); }
+  const normalized = real.replace(/\\/g, "/");
+  const prefixed = normalized.startsWith("/") ? normalized : `/${normalized}`;
+  const encoded = prefixed
+    .replace(/%/g, "%25")
+    .replace(/\?/g, "%3F")
+    .replace(/#/g, "%23")
+    .replace(/ /g, "%20");
+  return `file://${encoded}?immutable=1`;
+}
+
+function hasNonEmptyWal(db) {
+  const candidates = [db];
+  try {
+    const real = fs.realpathSync(db);
+    if (real && real !== db) candidates.push(real);
+  } catch { /* keep original path */ }
+  for (const base of candidates) {
+    try {
+      if (fs.statSync(`${base}-wal`).size > 0) return true;
+    } catch { /* no wal sidecar */ }
+  }
+  return false;
+}
+
+function runSqliteArgs(args) {
   return new Promise((resolve, reject) => {
-    execFile(resolveSqliteBinary(), ["-readonly", "-json", "-cmd", ".timeout 2000", db, `BEGIN; ${sql}; COMMIT;`], { timeout: 10000, maxBuffer: 64 << 20 }, (err, out) => {
+    execFile(resolveSqliteBinary(), args, { timeout: 10000, maxBuffer: 64 << 20 }, (err, out) => {
       if (err) return reject(err);
       try { resolve(JSON.parse(out || "[]")); } catch (e) { reject(e); }
     });
   });
+}
+
+export async function desktopQuery(db, sql) {
+  if (!fs.existsSync(db)) return [];
+  const stmt = `BEGIN; ${sql}; COMMIT;`;
+  const walActive = hasNonEmptyWal(db);
+  if (!walActive) {
+    // Checkpointed WAL databases without -wal/-shm sidecars fail under plain `-readonly` (SQLITE_CANTOPEN 14);
+    // `?immutable=1` reads the main DB safely when no non-empty `-wal` exists.
+    try {
+      return await runSqliteArgs(["-readonly", "-json", "-cmd", ".timeout 2000", toSqliteUriPath(db), stmt]);
+    } catch { /* fall through to standard read-only open */ }
+  }
+  try {
+    return await runSqliteArgs(["-readonly", "-json", "-cmd", ".timeout 2000", db, stmt]);
+  } catch (err) {
+    if (!walActive) throw err;
+    return runSqliteArgs(["-json", "-cmd", ".timeout 2000", "-cmd", "PRAGMA query_only = ON;", db, stmt]);
+  }
 }
 
 async function openCodeTables(db) {
@@ -87,52 +134,442 @@ async function t3CodeHasV2(db) {
   };
 }
 
+const DELEGATED_ID_KEYS = new Set([
+  "threadId", "thread_id",
+  "nativeThreadId", "native_thread_id",
+  "nativeId", "native_id",
+  "sessionId", "session_id",
+  "sdkSessionId", "sdk_session_id",
+  "providerSessionId", "provider_session_id",
+  "providerThreadId", "provider_thread_id",
+  "conversationId", "conversation_id",
+  "agentSessionId", "agent_session_id",
+  "acpSessionId", "acp_session_id",
+  "codexThreadId", "claudeSessionId",
+]);
+
+function decodeTail(raw) {
+  try { return decodeURIComponent(raw); } catch { return raw; }
+}
+
+function isDelegatedPlaceholder(value) {
+  const s = String(value || "").trim();
+  if (!s || s === "shared") return true;
+  if (s.startsWith("provider-session:provider-instance:")) return true;
+  const nativeIdx = s.lastIndexOf(":native-thread:");
+  const rawTail = nativeIdx >= 0 ? s.slice(nativeIdx + ":native-thread:".length).trim() : s;
+  const tail = decodeTail(rawTail).trim();
+  if (!tail || tail === "shared" || /^pending(?:$|[.:_-])/i.test(tail)) return true;
+  return false;
+}
+
+function extractDelegatedCandidates(raw) {
+  const s = String(raw || "").trim();
+  if (isDelegatedPlaceholder(s)) return [];
+  const nativeIdx = s.lastIndexOf(":native-thread:");
+  if (nativeIdx >= 0) {
+    const decoded = decodeTail(s.slice(nativeIdx + ":native-thread:".length).trim()).trim();
+    if (decoded && !isDelegatedPlaceholder(decoded) && decoded !== s) return [decoded, s];
+  }
+  return [s];
+}
+
+export function extractDelegatedIdsFromObj(obj, depth = 0, out = []) {
+  if (!obj || typeof obj !== "object" || depth > 5) return out;
+  if (Array.isArray(obj)) {
+    for (const item of obj) extractDelegatedIdsFromObj(item, depth + 1, out);
+    return out;
+  }
+  for (const [key, val] of Object.entries(obj)) {
+    if (typeof val === "string") {
+      if (DELEGATED_ID_KEYS.has(key) && val.trim()) out.push(val.trim());
+    } else if (val && typeof val === "object") {
+      extractDelegatedIdsFromObj(val, depth + 1, out);
+    }
+  }
+  return out;
+}
+
+async function tableColumns(db, table) {
+  const rows = await desktopQuery(db, `PRAGMA table_info(${table})`);
+  return new Set(rows.map((r) => String(r.name || "").trim()).filter(Boolean));
+}
+
 // Collect underlying provider session/thread IDs launched by T3 Code so AutoLog
 // records the work once under the T3 Code thread instead of duplicating it under
 // the delegated provider (e.g. Codex / Claude Code).
 export async function t3CodeDelegatedSids(db) {
   const out = new Map();
   if (!fs.existsSync(db)) return out;
-  const tables = await desktopQuery(db, "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('orchestration_v2_projection_provider_threads','provider_session_runtime','projection_thread_sessions')");
+  const targetTables = [
+    "orchestration_v2_projection_threads",
+    "orchestration_v2_projection_provider_threads",
+    "orchestration_v2_projection_provider_sessions",
+    "orchestration_v2_projection_provider_session_bindings",
+    "orchestration_v2_projection_subagents",
+    "provider_session_runtime",
+    "projection_thread_sessions",
+  ];
+  const tables = await desktopQuery(
+    db,
+    `SELECT name FROM sqlite_master WHERE type='table' AND name IN (${targetTables.map(quote).join(",")})`,
+  );
   const names = new Set(tables.map((t) => t.name));
+  const hasV2Threads = names.has("orchestration_v2_projection_threads");
   const add = (nativeId, threadId) => {
-    const k = String(nativeId || "").trim();
     const v = String(threadId || "").trim();
-    if (k && v && k !== v) out.set(k, v);
-  };
-  if (names.has("orchestration_v2_projection_provider_threads")) {
-    const rows = await desktopQuery(db, `SELECT pt.thread_id AS threadId, pt.provider_thread_id AS providerThreadId, pt.provider_session_id AS providerSessionId,
-      json_extract(pt.payload_json, '$.nativeThreadRef.nativeId') AS nativeId
-      FROM orchestration_v2_projection_provider_threads pt
-      LEFT JOIN orchestration_v2_projection_threads t ON t.thread_id = pt.thread_id
-      WHERE pt.thread_id IS NOT NULL AND (t.thread_id IS NULL OR t.deleted_at IS NULL)`);
-    for (const r of rows) {
-      add(r.nativeId, r.threadId);
-      add(r.providerThreadId, r.threadId);
-      add(r.providerSessionId, r.threadId);
+    if (!v) return;
+    for (const k of extractDelegatedCandidates(nativeId)) {
+      if (!k || k === v || k.startsWith("thread:") || k.startsWith("turn:")) continue;
+      out.set(k, v);
     }
+  };
+  const collectFromRows = (rows, ownerFn, idKeys, jsonKeys) => {
+    for (const r of rows) {
+      const owner = ownerFn(r);
+      if (!owner) continue;
+      for (const k of idKeys) {
+        if (r[k]) add(r[k], owner);
+      }
+      for (const jk of jsonKeys) {
+        if (!r[jk]) continue;
+        const parsed = json(r[jk], null);
+        if (parsed) {
+          for (const candidate of extractDelegatedIdsFromObj(parsed)) add(candidate, owner);
+        }
+      }
+    }
+  };
+  const queryWithThreadFilter = async (table, alias, idCols, jsonCols) => {
+    const cols = await tableColumns(db, table);
+    const ownerCol = cols.has("thread_id") ? "thread_id" : cols.has("parent_thread_id") ? "parent_thread_id" : "";
+    if (!ownerCol) return [];
+    const presentIds = idCols.filter((c) => cols.has(c));
+    const presentJsons = jsonCols.filter((c) => cols.has(c));
+    if (!presentIds.length && !presentJsons.length) return [];
+    const selectCols = [
+      `${alias}.${ownerCol} AS ownerId`,
+      ...(cols.has("thread_id") && ownerCol !== "thread_id" ? [`${alias}.thread_id AS threadId`] : []),
+      ...(cols.has("parent_thread_id") && ownerCol !== "parent_thread_id" ? [`${alias}.parent_thread_id AS parentThreadId`] : []),
+      ...presentIds.map((c) => `${alias}.${c} AS ${c}`),
+      ...presentJsons.map((c) => `${alias}.${c} AS ${c}`),
+    ];
+    const conds = [`${alias}.${ownerCol} IS NOT NULL`];
+    if (cols.has("deleted_at")) conds.push(`${alias}.deleted_at IS NULL`);
+    let joinSql = "";
+    if (hasV2Threads && cols.has("thread_id")) {
+      joinSql = ` LEFT JOIN orchestration_v2_projection_threads t ON t.thread_id = ${alias}.thread_id`;
+      conds.push("(t.thread_id IS NULL OR t.deleted_at IS NULL)");
+    }
+    return desktopQuery(db, `SELECT ${selectCols.join(", ")} FROM ${table} ${alias}${joinSql} WHERE ${conds.join(" AND ")}`);
+  };
+
+  if (names.has("orchestration_v2_projection_provider_threads")) {
+    const idCols = ["provider_thread_id", "provider_session_id", "native_id", "native_thread_id"];
+    const jsonCols = ["payload_json", "resume_cursor_json", "runtime_payload_json"];
+    const rows = await queryWithThreadFilter("orchestration_v2_projection_provider_threads", "pt", idCols, jsonCols);
+    collectFromRows(rows, (r) => r.ownerId, idCols, jsonCols);
+  }
+  if (names.has("orchestration_v2_projection_provider_sessions")) {
+    const idCols = ["provider_session_id", "provider_thread_id", "native_id", "native_thread_id", "external_session_id"];
+    const jsonCols = ["payload_json", "resume_cursor_json", "runtime_payload_json"];
+    const rows = await queryWithThreadFilter("orchestration_v2_projection_provider_sessions", "ps", idCols, jsonCols);
+    collectFromRows(rows, (r) => r.ownerId, idCols, jsonCols);
+  }
+  if (names.has("orchestration_v2_projection_provider_session_bindings")) {
+    const idCols = ["provider_session_id", "provider_thread_id", "external_session_id", "session_id", "native_id", "native_thread_id"];
+    const jsonCols = ["payload_json", "metadata_json"];
+    const rows = await queryWithThreadFilter("orchestration_v2_projection_provider_session_bindings", "pb", idCols, jsonCols);
+    collectFromRows(rows, (r) => r.ownerId, idCols, jsonCols);
+  }
+  if (names.has("orchestration_v2_projection_subagents")) {
+    const idCols = ["subagent_thread_id", "provider_thread_id", "provider_session_id", "native_thread_id", "native_id"];
+    const jsonCols = ["payload_json", "resume_cursor_json"];
+    const rows = await queryWithThreadFilter("orchestration_v2_projection_subagents", "sa", idCols, jsonCols);
+    collectFromRows(rows, (r) => r.parentThreadId || r.ownerId, idCols, jsonCols);
   }
   if (names.has("provider_session_runtime")) {
-    const rows = await desktopQuery(db, `SELECT thread_id AS threadId, resume_cursor_json AS cursor FROM provider_session_runtime WHERE resume_cursor_json IS NOT NULL`);
-    for (const r of rows) {
-      const c = json(r.cursor);
-      add(c?.threadId, r.threadId);
-      add(c?.sessionId, r.threadId);
-      add(c?.conversationId, r.threadId);
-    }
+    const idCols = ["provider_session_id", "provider_thread_id"];
+    const jsonCols = ["resume_cursor_json", "runtime_payload_json", "payload_json"];
+    const rows = await queryWithThreadFilter("provider_session_runtime", "pr", idCols, jsonCols);
+    collectFromRows(rows, (r) => r.ownerId, idCols, jsonCols);
   }
   if (names.has("projection_thread_sessions")) {
-    const rows = await desktopQuery(db, `SELECT thread_id AS threadId, provider_session_id AS providerSessionId, provider_thread_id AS providerThreadId FROM projection_thread_sessions`);
-    for (const r of rows) {
-      add(r.providerSessionId, r.threadId);
-      add(r.providerThreadId, r.threadId);
-    }
+    const idCols = ["provider_session_id", "provider_thread_id"];
+    const jsonCols = ["resume_cursor_json", "runtime_payload_json", "payload_json"];
+    const rows = await queryWithThreadFilter("projection_thread_sessions", "pts", idCols, jsonCols);
+    collectFromRows(rows, (r) => r.ownerId, idCols, jsonCols);
   }
   return out;
 }
 
+// Collect underlying native session/thread IDs launched by Cindy so AutoLog
+// and all UI surfaces track those sessions only under Cindy.
+export async function cindyDelegatedSids(db) {
+  const out = new Map();
+  if (!fs.existsSync(db)) return out;
+  const targetTables = ["sessions", "messages", "subagent_runs", "skill_usage_sources"];
+  const tables = await desktopQuery(
+    db,
+    `SELECT name FROM sqlite_master WHERE type='table' AND name IN (${targetTables.map(quote).join(",")})`,
+  );
+  const names = new Set(tables.map((t) => t.name));
+  if (!names.has("sessions")) return out;
+
+  const sCols = await tableColumns(db, "sessions");
+  const validConds = [];
+  if (sCols.has("status")) validConds.push("(s.status IS NULL OR s.status != 'deleted')");
+  if (sCols.has("deleted_at")) validConds.push("s.deleted_at IS NULL");
+  if (sCols.has("hidden_at")) validConds.push("s.hidden_at IS NULL");
+  const validWhere = validConds.length ? validConds.join(" AND ") : "1=1";
+
+  const add = (nativeId, ownerSid) => {
+    const v = String(ownerSid || "").trim();
+    if (!v) return;
+    for (const k of extractDelegatedCandidates(nativeId)) {
+      if (!k || k === v) continue;
+      out.set(k, v);
+    }
+  };
+
+  if (sCols.has("sdk_session_id")) {
+    const rows = await desktopQuery(db, `SELECT s.id AS sid, s.sdk_session_id AS sdkSid FROM sessions s WHERE ${validWhere} AND s.sdk_session_id IS NOT NULL AND s.sdk_session_id != ''`);
+    for (const r of rows) add(r.sdkSid, r.sid);
+  }
+
+  if (names.has("messages")) {
+    const mCols = await tableColumns(db, "messages");
+    const mConds = [validWhere];
+    if (mCols.has("rewind_at")) mConds.push("m.rewind_at IS NULL");
+    const hasMeta = mCols.has("agent_meta");
+    const hasRole = mCols.has("role");
+    const hasContent = mCols.has("content");
+    if (hasMeta || (hasRole && hasContent)) {
+      const cols = [
+        "m.session_id AS sid",
+        hasRole ? "m.role AS role" : "'' AS role",
+        hasMeta ? "m.agent_meta AS agentMeta" : "NULL AS agentMeta",
+        hasContent ? "m.content AS content" : "NULL AS content",
+      ];
+      const filterClause = hasMeta && hasRole
+        ? "(m.agent_meta IS NOT NULL OR m.role = 'agent_switch')"
+        : hasMeta ? "m.agent_meta IS NOT NULL" : "m.role = 'agent_switch'";
+      const rows = await desktopQuery(
+        db,
+        `SELECT ${cols.join(", ")} FROM messages m INNER JOIN sessions s ON s.id = m.session_id WHERE ${mConds.join(" AND ")} AND ${filterClause}`,
+      );
+      for (const r of rows) {
+        if (r.agentMeta) {
+          const meta = json(r.agentMeta, null);
+          if (meta && typeof meta === "object") {
+            add(meta.sdkSessionId, r.sid);
+            add(meta.nativeForkAnchor?.sdkSessionId, r.sid);
+            add(meta.failedSamplingAttempt?.threadId, r.sid);
+          }
+        }
+        if (r.role === "agent_switch" && r.content) {
+          const sw = json(r.content, null);
+          if (sw && typeof sw === "object") {
+            add(sw.fromSdkSessionId, r.sid);
+            add(sw.toSdkSessionId, r.sid);
+          }
+        }
+      }
+    }
+  }
+
+  if (names.has("subagent_runs")) {
+    const srCols = await tableColumns(db, "subagent_runs");
+    if (srCols.has("provider_run_ids") && srCols.has("session_id")) {
+      const srConds = [validWhere, "sr.provider_run_ids IS NOT NULL"];
+      if (srCols.has("rewind_at")) srConds.push("sr.rewind_at IS NULL");
+      if (srCols.has("deleted_at")) srConds.push("sr.deleted_at IS NULL");
+      const rows = await desktopQuery(
+        db,
+        `SELECT sr.session_id AS sid, sr.provider_run_ids AS runIds FROM subagent_runs sr INNER JOIN sessions s ON s.id = sr.session_id WHERE ${srConds.join(" AND ")}`,
+      );
+      for (const r of rows) {
+        const ids = json(r.runIds, []);
+        if (Array.isArray(ids)) {
+          for (const id of ids) add(id, r.sid);
+        }
+      }
+    }
+  }
+
+  if (names.has("skill_usage_sources")) {
+    const suCols = await tableColumns(db, "skill_usage_sources");
+    if (suCols.has("sdk_session_id") && suCols.has("session_id")) {
+      const rows = await desktopQuery(
+        db,
+        `SELECT su.session_id AS sid, su.sdk_session_id AS sdkSid FROM skill_usage_sources su INNER JOIN sessions s ON s.id = su.session_id WHERE ${validWhere} AND su.sdk_session_id IS NOT NULL AND su.sdk_session_id != ''`,
+      );
+      for (const r of rows) add(r.sdkSid, r.sid);
+    }
+  }
+
+  return out;
+}
+
+function extractCindyRawText(raw) {
+  if (raw == null) return { text: "", syntheticTrigger: false };
+  let val = raw;
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (!trimmed) return { text: "", syntheticTrigger: false };
+    if (trimmed.startsWith("[UI_ACTION_TRIGGER]")) return { text: "", syntheticTrigger: true };
+    if (trimmed.startsWith('"') || trimmed.startsWith("[") || trimmed.startsWith("{")) {
+      try { val = JSON.parse(trimmed); } catch { return { text: cleanCindyText(raw), syntheticTrigger: false }; }
+    } else {
+      return { text: cleanCindyText(raw), syntheticTrigger: false };
+    }
+  }
+  const collect = (node) => {
+    if (typeof node === "string") return node;
+    if (Array.isArray(node)) {
+      return node
+        .filter((p) => p && (p.type === "text" || p.type === "output_text" || p.type === "input_text") && !p.synthetic && !p.ignored)
+        .map((p) => (typeof p.text === "string" ? p.text : ""))
+        .join("\n");
+    }
+    if (node && typeof node === "object") {
+      if (typeof node.text === "string") return node.text;
+      if (typeof node.message === "string") return node.message;
+      if (typeof node.error === "string") return node.error;
+      if (typeof node.content === "string") return node.content;
+      if (Array.isArray(node.content)) return collect(node.content);
+    }
+    return "";
+  };
+  const extracted = collect(val);
+  if (extracted.trimStart().startsWith("[UI_ACTION_TRIGGER]")) {
+    return { text: "", syntheticTrigger: true };
+  }
+  return { text: cleanCindyText(extracted), syntheticTrigger: false };
+}
+
+function cindyIsInternalCard(meta) {
+  return Boolean(
+    meta?.autoResume ||
+    meta?.goalNotice ||
+    meta?.scheduleSkip ||
+    meta?.goalCompletion ||
+    meta?.cindyMakeCompletion ||
+    meta?.reviewRun
+  );
+}
+
+function extractCindyTurnUsage(tu) {
+  if (!tu || typeof tu !== "object") return { out: 0, fresh: 0, cached: 0, model: "" };
+  const model = String(tu.model || (Array.isArray(tu.models) ? tu.models[0] : "") || "").trim();
+  let input = Number(tu.inputTokens ?? tu.input_tokens) || 0;
+  let output = Number(tu.outputTokens ?? tu.output_tokens) || 0;
+  let cacheCreate = Number(tu.cacheCreateTokens ?? tu.cacheCreationInputTokens ?? tu.cache_creation_input_tokens) || 0;
+  let cacheRead = Number(tu.cacheReadTokens ?? tu.cacheReadInputTokens ?? tu.cache_read_input_tokens) || 0;
+  if (input + output + cacheCreate + cacheRead === 0 && tu.perModelTokens && typeof tu.perModelTokens === "object") {
+    const entries = Array.isArray(tu.perModelTokens) ? tu.perModelTokens : Object.values(tu.perModelTokens);
+    for (const item of entries) {
+      if (!item || typeof item !== "object") continue;
+      input += Number(item.inputTokens ?? item.input_tokens) || 0;
+      output += Number(item.outputTokens ?? item.output_tokens) || 0;
+      cacheCreate += Number(item.cacheCreateTokens ?? item.cacheCreationInputTokens ?? item.cache_creation_input_tokens) || 0;
+      cacheRead += Number(item.cacheReadTokens ?? item.cacheReadInputTokens ?? item.cache_read_input_tokens) || 0;
+    }
+  }
+  return { out: output, fresh: input + cacheCreate, cached: cacheRead, model };
+}
+
+function extractCindyMsgUsage(u) {
+  if (!u || typeof u !== "object") return { out: 0, fresh: 0, cached: 0 };
+  const input = Number(u.inputTokens ?? u.input_tokens) || 0;
+  const output = Number(u.outputTokens ?? u.output_tokens) || 0;
+  const cacheCreate = Number(u.cacheCreationInputTokens ?? u.cacheCreateTokens ?? u.cache_creation_input_tokens) || 0;
+  const cacheRead = Number(u.cacheReadInputTokens ?? u.cacheReadTokens ?? u.cache_read_input_tokens) || 0;
+  return { out: output, fresh: input + cacheCreate, cached: cacheRead };
+}
+
 export async function desktopSessions(db, agent, since) {
   if (agent === "qoder") return desktopQuery(db, `SELECT session_id AS sid,title,cwd,owner_session_id AS parentSid,model,created_at AS startedAt,updated_at AS updatedAt,archived,deleted_at AS deletedAt, max(updated_at, coalesce((SELECT max(updated_at) FROM chat_session_messages m WHERE m.session_id=chat_sessions.session_id),0)) AS revision FROM chat_sessions WHERE revision >= ${Math.floor(since)}`);
+  if (agent === "cindy") {
+    const tables = await desktopQuery(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('sessions','messages','orca_workers','orca_teams','bot_delegations')",
+    );
+    const names = new Set(tables.map((t) => t.name));
+    if (!names.has("sessions")) return [];
+    const sCols = await tableColumns(db, "sessions");
+    const mCols = names.has("messages") ? await tableColumns(db, "messages") : new Set();
+    const hasOrca = names.has("orca_workers") && names.has("orca_teams");
+    const hasBot = names.has("bot_delegations");
+    const colOr = (col, alias, fallback = "NULL") => sCols.has(col) ? `s.${col} AS ${alias}` : `${fallback} AS ${alias}`;
+    const msgFilter = mCols.has("rewind_at") ? "m.rewind_at IS NULL" : "1=1";
+    const selectFields = [
+      "s.id AS sid",
+      colOr("title", "title", "''"),
+      colOr("working_dir", "workingDir", "''"),
+      colOr("project_dir", "projectDir", "''"),
+      colOr("worktree_path", "worktreePath", "''"),
+      colOr("model", "model", "''"),
+      colOr("status", "status", "'active'"),
+      colOr("created_at", "createdAt", "0"),
+      colOr("updated_at", "updatedAt", "0"),
+      colOr("deleted_at", "deletedAt", "NULL"),
+      colOr("hidden_at", "hiddenAt", "NULL"),
+      colOr("last_activity_at", "lastActivityAt", "0"),
+      colOr("active_turn_started_at", "activeTurnStartedAt", "0"),
+      colOr("last_turn_ended_at", "lastTurnEndedAt", "0"),
+      names.has("messages")
+        ? `(SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id AND ${msgFilter}) AS msgCount`
+        : "0 AS msgCount",
+      names.has("messages") && mCols.has("created_at")
+        ? `(SELECT MAX(m.created_at) FROM messages m WHERE m.session_id = s.id AND ${msgFilter}) AS lastMsgAt`
+        : "0 AS lastMsgAt",
+      hasOrca
+        ? "(SELECT ot.lead_session_id FROM orca_workers ow INNER JOIN orca_teams ot ON ot.id = ow.team_id WHERE ow.session_id = s.id LIMIT 1) AS orcaParentSid"
+        : "'' AS orcaParentSid",
+      hasBot
+        ? "(SELECT bd.parent_session_id FROM bot_delegations bd WHERE bd.child_session_id = s.id LIMIT 1) AS botParentSid"
+        : "'' AS botParentSid",
+    ];
+    const rows = await desktopQuery(db, `SELECT ${selectFields.join(", ")} FROM sessions s`);
+    const sinceMs = Math.floor(Number(since) || 0);
+    return rows.map((s) => {
+      const startedAt = desktopTime(s.createdAt);
+      const activeStart = desktopTime(s.activeTurnStartedAt);
+      const lastEnd = desktopTime(s.lastTurnEndedAt);
+      const lastActivity = Math.max(desktopTime(s.lastActivityAt), desktopTime(s.lastMsgAt));
+      const updatedAt = Math.max(desktopTime(s.updatedAt), lastActivity, lastEnd, activeStart, startedAt);
+      const rawStatus = String(s.status || "").toLowerCase();
+      const archived = rawStatus === "archived";
+      const deletedAt = rawStatus === "deleted"
+        ? (desktopTime(s.deletedAt) || updatedAt || Date.now())
+        : (desktopTime(s.deletedAt) || desktopTime(s.hiddenAt) || 0);
+      const rawTitle = String(s.title || "").trim();
+      const title = rawTitle === "New Maker" ? "" : rawTitle;
+      const cwd = String(s.worktreePath || s.projectDir || s.workingDir || "").trim();
+      const rawParent = String(s.orcaParentSid || s.botParentSid || "").trim();
+      const parentSid = rawParent && rawParent !== s.sid ? rawParent : "";
+      const recentActive = activeStart > 0 && activeStart > lastEnd &&
+        (Date.now() - Math.max(activeStart, lastActivity, updatedAt) <= TOOL_LOOP_IDLE_MIN * 60000);
+      return {
+        sid: s.sid,
+        title,
+        cwd,
+        parentSid,
+        model: String(s.model || "").trim(),
+        app: "desktop",
+        startedAt,
+        updatedAt,
+        revision: updatedAt + (Number(s.msgCount) || 0) + (archived ? 1000000 : 0) + (activeStart > lastEnd ? 1 : 0),
+        archived,
+        deletedAt,
+        state: recentActive ? "run" : "",
+        out: 0,
+        fresh: 0,
+        cached: 0,
+      };
+    }).filter((s) => s.deletedAt || s.updatedAt >= sinceMs);
+  }
   if (agent === "hermes") {
     const sinceSec = since > 0 ? Math.floor(since / 1000) : 0;
     const rows = await desktopQuery(db, `SELECT s.id AS sid, COALESCE(s.title, '') AS title, COALESCE(s.cwd, '') AS cwd, COALESCE(s.parent_session_id, '') AS parentSid,
@@ -544,6 +981,238 @@ export async function desktopMessages(db, agent, sid) {
       });
     }
     return [];
+  }
+  if (agent === "cindy") {
+    const tables = await desktopQuery(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('sessions','messages')",
+    );
+    const names = new Set(tables.map((t) => t.name));
+    if (!names.has("messages")) return [];
+    let sessModel = "";
+    let sessActiveTurnStarted = 0;
+    let sessLastTurnEnded = 0;
+    if (names.has("sessions")) {
+      const sCols = await tableColumns(db, "sessions");
+      const sFields = [
+        sCols.has("model") ? "model" : "'' AS model",
+        sCols.has("active_turn_started_at") ? "active_turn_started_at AS activeTurnStartedAt" : "0 AS activeTurnStartedAt",
+        sCols.has("last_turn_ended_at") ? "last_turn_ended_at AS lastTurnEndedAt" : "0 AS lastTurnEndedAt",
+      ];
+      const sRows = await desktopQuery(db, `SELECT ${sFields.join(", ")} FROM sessions WHERE id = ${quote(sid)} LIMIT 1`);
+      if (sRows[0]) {
+        sessModel = String(sRows[0].model || "").trim();
+        sessActiveTurnStarted = desktopTime(sRows[0].activeTurnStartedAt);
+        sessLastTurnEnded = desktopTime(sRows[0].lastTurnEndedAt);
+      }
+    }
+    const mCols = await tableColumns(db, "messages");
+    const mFields = [
+      "id",
+      mCols.has("role") ? "role" : "'user' AS role",
+      mCols.has("content") ? "content" : "'' AS content",
+      mCols.has("agent_meta") ? "agent_meta AS agentMeta" : "NULL AS agentMeta",
+      mCols.has("created_at") ? "created_at AS created" : "0 AS created",
+    ];
+    const conds = [`session_id = ${quote(sid)}`];
+    if (mCols.has("rewind_at")) conds.push("rewind_at IS NULL");
+    const orderBy = mCols.has("created_at") ? "created_at ASC, rowid ASC" : "rowid ASC";
+    const rows = await desktopQuery(db, `SELECT ${mFields.join(", ")} FROM messages WHERE ${conds.join(" AND ")} ORDER BY ${orderBy}`);
+    if (!rows.length) return [];
+
+    const turns = [];
+    const currentTurn = () => {
+      if (!turns.length) {
+        turns.push({ userMsg: null, assistants: [], lastTool: "", lastToolAt: 0, hasInteractiveWait: false, turnError: null });
+      }
+      return turns[turns.length - 1];
+    };
+
+    for (const row of rows) {
+      const meta = json(row.agentMeta, {});
+      const at = desktopTime(row.created);
+      const role = String(row.role || "").toLowerCase();
+
+      if (role === "user") {
+        if (cindyIsInternalCard(meta)) continue;
+        const { text, syntheticTrigger } = extractCindyRawText(row.content);
+        if (syntheticTrigger || !text) continue;
+        turns.push({
+          userMsg: {
+            id: row.id,
+            role: "user",
+            text,
+            at,
+            end: 0,
+            updated: at,
+            state: "run",
+            step: "",
+            error: "",
+            model: String(meta?.model || sessModel || "").trim(),
+            out: 0,
+            fresh: 0,
+            cached: 0,
+          },
+          assistants: [],
+          lastTool: "",
+          lastToolAt: 0,
+          hasInteractiveWait: false,
+          turnError: null,
+        });
+        continue;
+      }
+
+      const turn = currentTurn();
+      if (role === "tool_use") {
+        const toolObj = json(row.content, {});
+        const toolName = String(toolObj?.toolName || toolObj?.name || toolObj?.tool || "").trim();
+        if (toolName) {
+          turn.lastTool = toolName;
+          turn.lastToolAt = at;
+        }
+        continue;
+      }
+      if (role === "ask_user" || role === "plan_review") {
+        turn.hasInteractiveWait = true;
+        continue;
+      }
+      if (role === "error") {
+        const errObj = json(row.content, row.content);
+        if (errObj && typeof errObj === "object" && errObj.dismissed) continue;
+        const { text } = extractCindyRawText(row.content);
+        const errMsg = text || (typeof row.content === "string" ? row.content : JSON.stringify(row.content || "")).trim();
+        if (errMsg) turn.turnError = { text: errMsg.slice(0, 200), at };
+        continue;
+      }
+      if (role !== "assistant") continue;
+      if (meta?.parentToolUseId || meta?.parent_tool_use_id || cindyIsInternalCard(meta)) continue;
+
+      const { text, syntheticTrigger } = extractCindyRawText(row.content);
+      if (syntheticTrigger) continue;
+
+      turn.assistants.push({
+        id: row.id,
+        role: "assistant",
+        text,
+        at,
+        meta,
+        model: String(meta?.model || sessModel || "").trim(),
+        out: 0,
+        fresh: 0,
+        cached: 0,
+      });
+    }
+
+    const out = [];
+    for (let ti = 0; ti < turns.length; ti++) {
+      const turn = turns[ti];
+      const isLastTurn = ti === turns.length - 1;
+      if (turn.userMsg) {
+        if (!turn.assistants.length && isLastTurn && turn.lastTool) {
+          turn.userMsg.step = turn.lastTool;
+        }
+        out.push(turn.userMsg);
+      }
+
+      const tuCandidate = [...turn.assistants].reverse().find((a) => a.meta?.turnUsageDetails && typeof a.meta.turnUsageDetails === "object");
+      if (tuCandidate) {
+        const tuTokens = extractCindyTurnUsage(tuCandidate.meta.turnUsageDetails);
+        const target = [...turn.assistants].reverse().find((a) => a.text) || tuCandidate;
+        target.out = tuTokens.out;
+        target.fresh = tuTokens.fresh;
+        target.cached = tuTokens.cached;
+        if (tuTokens.model) target.model = tuTokens.model;
+      } else {
+        const seenReqIdx = new Map();
+        turn.assistants.forEach((a, idx) => {
+          const reqId = String(a.meta?.requestId || "").trim();
+          if (reqId) seenReqIdx.set(reqId, idx);
+        });
+        turn.assistants.forEach((a, idx) => {
+          const reqId = String(a.meta?.requestId || "").trim();
+          if (reqId && seenReqIdx.get(reqId) !== idx) return;
+          const u = extractCindyMsgUsage(a.meta?.usage);
+          a.out = u.out;
+          a.fresh = u.fresh;
+          a.cached = u.cached;
+        });
+      }
+
+      const visible = turn.assistants.filter((a, idx) => {
+        if (a.text || a.out + a.fresh + a.cached > 0) return true;
+        return isLastTurn && idx === turn.assistants.length - 1 && (Boolean(turn.turnError) || Boolean(turn.lastTool) || Boolean(turn.hasInteractiveWait));
+      });
+
+      if (!visible.length) {
+        if (isLastTurn && turn.turnError) {
+          out.push({
+            id: turn.userMsg ? `${turn.userMsg.id}-err` : `cindy-err-${turn.turnError.at}`,
+            role: "assistant",
+            text: "",
+            at: turn.turnError.at,
+            end: turn.turnError.at,
+            updated: turn.turnError.at,
+            state: "error",
+            step: "",
+            error: turn.turnError.text,
+            model: sessModel,
+            out: 0,
+            fresh: 0,
+            cached: 0,
+          });
+        }
+        continue;
+      }
+
+      for (let ai = 0; ai < visible.length; ai++) {
+        const a = visible[ai];
+        const isLastAssistant = isLastTurn && ai === visible.length - 1;
+        let state = "wait";
+        let end = a.at;
+        let step = "";
+        let error = "";
+        if (isLastAssistant) {
+          const stopReason = String(a.meta?.stopReason || "").toLowerCase();
+          if (turn.turnError) {
+            state = "error";
+            error = turn.turnError.text;
+            end = turn.turnError.at || a.at;
+          } else if (turn.hasInteractiveWait || a.meta?.turnCompleted === true) {
+            state = "wait";
+            end = Math.max(a.at, sessLastTurnEnded) || a.at;
+          } else if (stopReason && stopReason !== "tool_use" && stopReason !== "tool_calls") {
+            state = "wait";
+            end = Math.max(a.at, sessLastTurnEnded) || a.at;
+          } else if (sessLastTurnEnded > sessActiveTurnStarted && sessLastTurnEnded >= a.at) {
+            state = "wait";
+            end = sessLastTurnEnded;
+          } else if (
+            sessActiveTurnStarted > sessLastTurnEnded ||
+            Date.now() - Math.max(a.at, turn.lastToolAt || 0) <= TOOL_LOOP_IDLE_MIN * 60000
+          ) {
+            state = "run";
+            step = turn.lastTool;
+            end = 0;
+          }
+        }
+        out.push({
+          id: a.id,
+          role: "assistant",
+          text: a.text,
+          at: a.at,
+          end,
+          updated: end || a.at,
+          state,
+          step,
+          error,
+          model: a.model,
+          out: a.out,
+          fresh: a.fresh,
+          cached: a.cached,
+        });
+      }
+    }
+    return out;
   }
   let rows;
   if (agent === "qoder") {

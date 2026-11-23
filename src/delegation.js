@@ -219,6 +219,7 @@ export function sessionDeepLink(agent, sid) {
   if (agent === "dsh") return "dsh://open";
   if (agent === "antigravity") return "antigravity://";
   if (agent === "codex") return `codex://threads/${sid}`;
+  if (agent === "cindy") return `cindy://session/${encodeURIComponent(sid)}`;
   return "";
 }
 
@@ -237,6 +238,7 @@ export const AGENT_APPS = {
   cursor: { bundle: "com.todesktop.230313mzl4w4u92", url: "cursor://" },
   grokbot: { bundle: "com.anysphere.sand", url: "grokbot://" },
   t3code: { bundle: "com.t3tools.t3code", url: "t3code://" },
+  cindy: { bundle: "com.xd.cindycn", fallbackBundles: ["com.xd.cindy"], url: "cindy://" },
   muse: { bundle: "com.meta.endo", url: "hatch://" },
   kimicode: { bundle: "com.kimi.code.desktop", url: "kimi-code://" },
   doubaowork: { bundle: "com.work.pc.doubao", url: "doubaowork://" },
@@ -286,6 +288,13 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
     const bin = findAgentBinary("gemini", plugin.settings?.delegate?.gemini?.path || "");
     return focusOrResume(plugin, agent, sid, `${shellQuote(bin)} --resume ${shellQuote(sid)}`, cwd);
+  }
+  if (agent === "cindy") {
+    copyText(sid);
+    if (!openExternal(sessionDeepLink("cindy", sid))) {
+      openAgentApp("cindy").then((ok) => plugin.notice(ok ? t("已打开 {agent}；会话号已复制，请在客户端选择会话", { agent: AGENTS[agent].name }) : t("没打开 {agent}：本机好像没装", { agent: AGENTS[agent].name })));
+    }
+    return true;
   }
   if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "teleagent"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
@@ -993,6 +1002,7 @@ export class Delegator {
       for (const m of usage.meta.values()) {
         if (m.agent !== job.agent || taken.has(m.sid) || (m.lastAt || 0) < job.startedAt - 5000) continue;
         if (usage.isSubagentSession?.(m.sid)) continue;
+        if (usage.delegatedOwnerOf?.(m.sid, m.agent) || (m.agent !== "t3code" && usage.t3OwnerOf?.(m.sid))) continue;
         if (job.cli && job.agent !== "opencode" && !isCliSession(m.agent, m.app)) continue;   // 终端里开的只认命令行会话
         const t = norm(m.text || m.title);
         if (!t || !(t.includes(head) || t.startsWith(promptHead.slice(0, 16)))) continue;

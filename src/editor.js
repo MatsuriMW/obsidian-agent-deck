@@ -30,15 +30,15 @@ export const SESSION_MIME = "application/x-agent-deck-session";
 export const ITEM_MIME = "application/x-agent-deck-item";
 
 const DROP_LABEL = { bind: "绑定", fill: "新建一项", new: "新建一项", below: "在下面新建", after: "在下面新建", merge: "合并到这一项" };
-const setDrop = StateEffect.define();
-const dropField = StateField.define({
+export const setDrop = StateEffect.define();
+export const dropField = StateField.define({
   create: () => Decoration.none,
-  update(deco, tr) {
-    deco = deco.map(tr.changes);
-    for (const e of tr.effects) {
+  update(deco, tx) {
+    deco = deco.map(tx.changes);
+    for (const e of tx.effects) {
       if (!e.is(setDrop)) continue;
       if (!e.value) { deco = Decoration.none; continue; }
-      const line = tr.state.doc.line(e.value.line + 1);
+      const line = tx.state.doc.line(e.value.line + 1);
       deco = Decoration.set([Decoration.line({ class: `ad-drop-line ad-drop-line--${e.value.kind}`, attributes: { "data-ad-drop": tr(DROP_LABEL[e.value.kind] || "") } }).range(line.from)]);
     }
     return deco;

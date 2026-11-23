@@ -117,7 +117,7 @@ test("AutoLog prefixes project folder titles across all agents and keeps standal
   let noteText = "---\n正在做\n\n---\n还要做\n\n---\n已完成\n---\n";
 
   const plugin = {
-    settings: { autoLogPath: "/definitely-missing-cli/claude", autoLogFallback: true, autoLogBatch: 20 },
+    settings: { autoLogPath: "/definitely-missing-cli/claude", autoLogFallback: true, autoLogBatch: all.length },
     jobs: {},
     saveSettings: async () => {},
     usage: {

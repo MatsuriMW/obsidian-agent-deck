@@ -148,6 +148,7 @@ struct MenuSession: Decodable, Identifiable {
         case "cursor": return "Cursor"
         case "grokbot": return "Grok Bot"
         case "t3code": return "T3 Code"
+        case "cindy": return "Cindy"
         case "muse": return "Muse"
         case "kimicode": return "Kimi Code"
         case "doubaowork": return "豆包工作"
@@ -849,6 +850,13 @@ enum DeckAgents {
                 color: .solid("#3D7BD9", "#6EA3F2"),
                 tint: .solid("#E8F0FC", "#1C293D"),
                 glyph: "◩", short: "T3 Code"
+            )
+        case "cindy":
+            return AgentStyle(
+                id: "cindy",
+                color: .solid("#0EA5E9", "#38BDF8"),
+                tint: .solid("#E8F6FE", "#182D3B"),
+                glyph: "❖", short: "Cindy"
             )
         case "muse":
             return AgentStyle(

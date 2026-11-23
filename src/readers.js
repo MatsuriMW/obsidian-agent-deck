@@ -7,9 +7,10 @@
 import fs from "fs";
 import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 export { cleanUserPrompt, isPromptText } from "./prompt-text.js";
-import { desktopSessions, desktopMessages, t3CodeDelegatedSids } from "./desktop-sessions.js";
+import { desktopSessions, desktopMessages, t3CodeDelegatedSids, cindyDelegatedSids } from "./desktop-sessions.js";
 import { resolveSqliteBinary } from "./sqlite.js";
 import { teleAgentDatabases } from "./teleagent.js";
+import { cindyDatabases } from "./cindy-sessions.js";
 import {
   stepText,
   todoOf,
@@ -250,7 +251,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 20;
+export const USAGE_CACHE_VERSION = 21;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -318,7 +319,7 @@ export class AgentUsage {
     this.cursorParents = new Map();  // childSid -> parentSid (Cursor hooks)
     this.subagentSids = new Set();   // sids known to be subagents/child sessions
     this.wbMeta = new Map();         // WorkBuddy db session metadata
-    this.t3Delegated = new Map();    // underlying provider sid -> owning T3 Code thread_id
+    this.delegatedOwners = new Map(); // underlying provider sid -> Map<ownerAgent, ownerSid>
     this.sideAt = 0;
     this.errors = [];
     this.lastScan = 0;
@@ -338,10 +339,86 @@ export class AgentUsage {
     return a[agent] !== false;
   }
 
-  t3OwnerOf(sid) {
-    if (!sid || !this.enabled("t3code")) return "";
-    return this.t3Delegated.get(sid) || "";
+  setDelegatedOwners(ownerAgent, map, touched) {
+    const next = map instanceof Map ? map : new Map(Object.entries(map || {}));
+    const changedSids = new Set();
+    for (const [sid, owners] of [...this.delegatedOwners.entries()]) {
+      if (!owners.has(ownerAgent)) continue;
+      const prevOwnerSid = owners.get(ownerAgent);
+      const nextOwnerSid = next.get(sid);
+      if (!nextOwnerSid) {
+        owners.delete(ownerAgent);
+        if (!owners.size) this.delegatedOwners.delete(sid);
+        changedSids.add(sid);
+        this.dirty = true;
+      } else if (nextOwnerSid !== prevOwnerSid) {
+        owners.set(ownerAgent, nextOwnerSid);
+        changedSids.add(sid);
+        this.dirty = true;
+      }
+    }
+    for (const [sid, ownerSid] of next) {
+      if (!sid || !ownerSid) continue;
+      let owners = this.delegatedOwners.get(sid);
+      if (!owners) {
+        owners = new Map();
+        this.delegatedOwners.set(sid, owners);
+      }
+      if (owners.get(ownerAgent) !== ownerSid) {
+        owners.set(ownerAgent, ownerSid);
+        changedSids.add(sid);
+        this.dirty = true;
+      }
+    }
+    if (changedSids.size && touched instanceof Set) {
+      for (const m of this.meta.values()) {
+        if (m?.sid && m.parentSid && changedSids.has(m.parentSid)) changedSids.add(m.sid);
+      }
+      for (const fc of this.files.values()) {
+        if (!fc.sid || !changedSids.has(fc.sid)) continue;
+        for (const day of fc.days.keys()) touched.add(day);
+      }
+    }
   }
+
+  delegatedOwnerOf(sid, selfAgent = "") {
+    let cur = String(sid || "").trim();
+    if (!cur) return null;
+    const visited = new Set();
+    for (let depth = 0; depth < 6 && cur; depth++) {
+      if (visited.has(cur)) break;
+      visited.add(cur);
+      const owners = this.delegatedOwners.get(cur);
+      if (owners) {
+        for (const [ownerAgent, ownerSid] of owners) {
+          if (!ownerAgent || ownerAgent === selfAgent || !ownerSid) continue;
+          if (!this.enabled(ownerAgent)) continue;
+          return { agent: ownerAgent, sid: ownerSid };
+        }
+      }
+      const next = this.meta.get(cur)?.parentSid || this.cursorParents?.get(cur) || "";
+      cur = String(next || "").trim();
+    }
+    return null;
+  }
+
+  _specificOwnerOf(sid, ownerAgent) {
+    let cur = String(sid || "").trim();
+    if (!cur || !this.enabled(ownerAgent)) return "";
+    const visited = new Set();
+    for (let depth = 0; depth < 6 && cur; depth++) {
+      if (visited.has(cur)) break;
+      visited.add(cur);
+      const ownerSid = this.delegatedOwners.get(cur)?.get(ownerAgent);
+      if (ownerSid) return ownerSid;
+      const next = this.meta.get(cur)?.parentSid || this.cursorParents?.get(cur) || "";
+      cur = String(next || "").trim();
+    }
+    return "";
+  }
+
+  t3OwnerOf(sid) { return this._specificOwnerOf(sid, "t3code"); }
+  cindyOwnerOf(sid) { return this._specificOwnerOf(sid, "cindy"); }
 
   stale(agent, ms) {
     if (this.isPrimary(agent)) return false;
@@ -377,6 +454,15 @@ export class AgentUsage {
       }
       this.clientTitles = new Set(Array.isArray(data.clientTitles) ? data.clientTitles : []);
       this.customTitles = new Set(Array.isArray(data.customTitles) ? data.customTitles : []);
+      this.delegatedOwners = new Map();
+      if (Array.isArray(data.delegatedOwners)) {
+        for (const entry of data.delegatedOwners) {
+          if (!Array.isArray(entry) || !entry[0]) continue;
+          const [sid, rawOwners] = entry;
+          const ownersMap = new Map(Array.isArray(rawOwners) ? rawOwners : Object.entries(rawOwners || {}));
+          if (ownersMap.size) this.delegatedOwners.set(sid, ownersMap);
+        }
+      }
       for (const m of this.meta.values()) {
         if (m?.sid && (m.isSubagent || (m.parentSid && m.parentSid !== m.sid))) {
           this.subagentSids.add(m.sid);
@@ -391,6 +477,7 @@ export class AgentUsage {
       return this.files.size > 0;
     } catch (_) {
       this.files = new Map();
+      this.delegatedOwners = new Map();
       this.lastScan = 0;
       return false;
     }
@@ -407,6 +494,9 @@ export class AgentUsage {
       clientTitles: [...this.clientTitles],
       customTitles: [...this.customTitles],
       ...(this.cursorParents?.size ? { cursorParents: [...this.cursorParents] } : {}),
+      ...(this.delegatedOwners?.size
+        ? { delegatedOwners: [...this.delegatedOwners.entries()].map(([sid, owners]) => [sid, [...owners.entries()]]) }
+        : {}),
     });
   }
 
@@ -561,17 +651,33 @@ export class AgentUsage {
     // TeleAgent 把会话写在内核的 SQLite 库里（OpenCode 老版 session/message/part 结构），
     // 一个账号一个库；路径由 src/teleagent.js 按真实环境变量与平台默认值探测。
     for (const db of teleAgentDatabases()) dbs.push([db, "teleagent"]);
+    for (const db of cindyDatabases()) dbs.push([db, "cindy"]);
     return dbs;
   }
 
   async readDesktopDatabases({ floor, onlyAgent, strictSince, touched }) {
+    const delegatedMaps = new Map();
+    const failedDelegators = new Set();
+    for (const ownerAgent of ["t3code", "cindy"]) {
+      if ((!onlyAgent || onlyAgent === ownerAgent) && this.enabled(ownerAgent)) {
+        delegatedMaps.set(ownerAgent, new Map());
+      }
+    }
     for (const [db, agent] of this.desktopDatabases()) {
       if (!this.enabled(agent) || onlyAgent && agent !== onlyAgent || !fs.existsSync(db)) continue;
-      try {
-        if (agent === "t3code") {
-          const delegated = await t3CodeDelegatedSids(db);
-          this.t3Delegated = delegated;
+      if (agent === "t3code" || agent === "cindy") {
+        try {
+          const delegated = agent === "t3code" ? await t3CodeDelegatedSids(db) : await cindyDelegatedSids(db);
+          const bucket = delegatedMaps.get(agent) || new Map();
+          for (const [k, v] of delegated) bucket.set(k, v);
+          delegatedMaps.set(agent, bucket);
+        } catch (e) {
+          failedDelegators.add(agent);
+          this.errors.push({ path: db, message: String(e.message || e) });
+          this.errors = this.errors.slice(-20);
         }
+      }
+      try {
         // 桌面库默认按「回溯天数」窗口收敛：主力 Agent 若取 since=0，一个大库（几千会话 / 几百 MB part）
         // 会在首次扫描时被整个读出来，主线程直接卡死。JSONL 那侧的「主力读全量」不受影响。
         // 想要完整历史的，在设置里打开「桌面数据库也读全部历史」（settings.desktopFullHistory）。
@@ -638,6 +744,10 @@ export class AgentUsage {
         this.errors.push({ path: db, message: String(e.message || e) });
         this.errors = this.errors.slice(-20);
       }
+    }
+    for (const [ownerAgent, merged] of delegatedMaps) {
+      if (failedDelegators.has(ownerAgent)) continue;
+      this.setDelegatedOwners(ownerAgent, merged, touched);
     }
   }
 
@@ -1862,12 +1972,14 @@ export class AgentUsage {
     const asked = {};
     let prompts = 0;
     for (const fc of this.files.values()) {
+      if (fc.sid && this.delegatedOwnerOf(fc.sid, fc.agent)) continue;
       for (const [sid, t] of fc.titles) this.titles.set(sid, t);
       const day = fc.days.get(key);
       if (!day) continue;
-      prompts += day.prompts;
-      asked[fc.agent] = (asked[fc.agent] || 0) + day.prompts;
+      let fileHasVisible = false;
       for (const [sid, s] of day.sess) {
+        if (this.delegatedOwnerOf(sid, s.agent || fc.agent)) continue;
+        fileHasVisible = true;
         const cur = sessions.get(sid);
         if (cur) {
           cur.ts.push(...s.ts);
@@ -1875,6 +1987,10 @@ export class AgentUsage {
         } else {
           sessions.set(sid, { sid, proj: s.proj, cwd: s.cwd, app: s.app, agent: s.agent, ts: [...s.ts], text: s.text, min: 0, out: 0, fresh: 0, cached: 0, segs: [] });
         }
+      }
+      if (fileHasVisible) {
+        prompts += day.prompts;
+        asked[fc.agent] = (asked[fc.agent] || 0) + day.prompts;
       }
     }
     if (!sessions.size) return null;
@@ -1919,9 +2035,9 @@ export class AgentUsage {
     res.wall = Math.round(res.segs.reduce((n, [a, b]) => n + b - a, 0));
     const seen = new Set();
     for (const fc of this.files.values()) {
-      if (!fc.days.has(key)) continue;
+      if ((fc.sid && this.delegatedOwnerOf(fc.sid, fc.agent)) || !fc.days.has(key)) continue;
       for (const [id, m] of fc.msgs) {
-        if (m.key !== key || seen.has(id)) continue;
+        if (m.key !== key || seen.has(id) || this.delegatedOwnerOf(m.sid, fc.agent)) continue;
         seen.add(id);
         res.calls++; res.out += m.out; res.fresh += m.fresh; res.cached += m.cached;
         (res.proj[sessions.get(m.sid)?.label || m.proj] ||= { min: 0, out: 0, agents: {} }).out += m.out;
@@ -1969,7 +2085,7 @@ export class AgentUsage {
       const v = fc.live;
       if (!v || !v.at || v.at < since) continue;
       const sid = fc.sid;
-      if (seen.has(sid)) continue;
+      if (seen.has(sid) || this.delegatedOwnerOf(sid, fc.agent)) continue;
       const meta = this.meta.get(sid) || {};
       const live = cleanLive({ ...v }, Date.now());
       if (live.quiet && live.state === "run") live.state = "quiet";
@@ -1991,6 +2107,7 @@ export class AgentUsage {
     for (const m of this.meta.values()) {
       if (!m.lastAt || m.lastAt < since) continue;
       if (agent && m.agent !== agent) continue;
+      if (this.delegatedOwnerOf(m.sid, m.agent)) continue;
       if (this.hidden(m.sid) && !["run", "running", "starting"].includes(m.state)) continue;
       if (m.parentSid) {
         const { parentTitle, parentCwd } = this._resolveParentInfo(m);

@@ -678,6 +678,7 @@ export default {
   "千问办公（QwenWork）桌面版": "QwenWork Desktop",
   "TeleAgent（星辰超级智能体）桌面版（本地会话库追踪）": "TeleAgent Desktop (local session database tracking)",
   "T3 Code 桌面版与 t3 CLI": "T3 Code Desktop and t3 CLI",
+  "Cindy 桌面版（仅追踪）": "Cindy Desktop (tracking only)",
   "Muse 桌面版（仅追踪）": "Muse Desktop (tracking only)",
   "Kimi Code 桌面版 / CLI（仅追踪）": "Kimi Code Desktop / CLI (tracking only)",
   "豆包工作桌面版（仅追踪）": "Doubao Work Desktop (tracking only)",

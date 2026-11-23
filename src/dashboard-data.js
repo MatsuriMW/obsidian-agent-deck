@@ -53,7 +53,7 @@ export class DashboardData {
     for (const [day, data] of Object.entries(p.store.days)) {
       const list = data.list?.length ? data.list : [{ sid: `legacy:${day}`, out: data.out, fresh: data.fresh, cached: data.cached, segs: data.segs, legacy: true }];
       for (const session of list) {
-        if (session.agent && session.agent !== "t3code" && p.usage?.t3OwnerOf?.(session.sid)) continue;
+        if (p.usage?.delegatedOwnerOf?.(session.sid, session.agent) || (session.agent && session.agent !== "t3code" && p.usage?.t3OwnerOf?.(session.sid))) continue;
         const meta = p.usage.meta.get(session.sid);
         const byModels = Object.keys(data.by?.[session.agent]?.models || {}).filter(Boolean);
         const singleDayModel = byModels.length === 1 ? byModels[0] : "";

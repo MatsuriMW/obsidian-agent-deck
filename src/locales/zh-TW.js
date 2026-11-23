@@ -1243,6 +1243,7 @@ export default {
   "工作区外写入/删除": "工作區外寫入/刪除",
   "工具参数中出现明文密钥/Token": "工具參數中出現明文金鑰/Token",
   "Muse 桌面版（仅追踪）": "Muse 桌面版（僅追蹤）",
+  "Cindy 桌面版（仅追踪）": "Cindy 桌面版（僅追蹤）",
   "Kimi Code 桌面版 / CLI（仅追踪）": "Kimi Code 桌面版 / CLI（僅追蹤）",
   "豆包工作桌面版（仅追踪）": "豆包工作桌面版（僅追蹤）",
   "Gemini CLI 会话与 ACP 后台委派": "Gemini CLI 會話與 ACP 背景委派",

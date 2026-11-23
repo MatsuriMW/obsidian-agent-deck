@@ -31,7 +31,7 @@ Alongside global tools, Agent Deck ships dedicated local parsers and adapters fo
 
 > Want another client supported? Open a [New Agent Support Request](https://github.com/MatsuriMW/obsidian-agent-deck/issues/new?template=agent_support.yml).
 
-## 3. Full 18 Built-in Agents + Custom ACP Matrix
+## 3. Full 19 Built-in Agents + Custom ACP Matrix
 
 | Agent | Session tracking | Background delegation | Desktop handoff | Terminal |
 | --- | --- | --- | --- | --- |
@@ -47,7 +47,8 @@ Alongside global tools, Agent Deck ships dedicated local parsers and adapters fo
 | **WorkBuddy** | Yes | No | Copies task and opens app | Yes |
 | **Cursor** | Yes (Hooks required) | No | No (tracking only) | — |
 | **Grok Bot** | Yes (per-Bot selection) | No | No (tracking only) | — |
-| **T3 Code** | Yes | Yes (`t3 thread`) | Focuses the client only | — |
+| **T3 Code** | Yes (deduplicates delegated sessions) | Yes (`t3 thread`) | Focuses the client only | — |
+| **Cindy** | Yes (deduplicates delegated sessions) | No | Deep link / focuses app (tracking only) | — |
 | **Muse** | Yes (per-stream selection) | No | No (tracking only) | — |
 | **Kimi Code** | Yes | No | Focuses the client only (tracking only) | — |
 | **Doubao Work (豆包工作)** | Yes (session metadata) | No | Focuses the client only (tracking only) | — |
@@ -74,6 +75,7 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
 | **Cursor** | Cursor 3.30.14+ with Cursor Hooks enabled in settings |
 | **Grok Bot** | Grok Bot desktop app, with desired Bots selected in settings |
 | **T3 Code** | T3 Code desktop app; `t3` CLI for background delegation |
+| **Cindy** | Cindy desktop app (tracking only; automatically deduplicates delegated underlying agent sessions) |
 | **Muse** | Muse desktop app (tracking only) |
 | **Kimi Code** | Kimi Code desktop app or `kimi` CLI (tracking only) |
 | **Doubao Work (豆包工作)** | Doubao Work desktop app (session metadata tracking only) |
@@ -101,6 +103,8 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
    - **MiniMax Code**: Desktop and `mcode` share SQLite storage; opening desktop still requires selecting the session once.
    - **QwenWork**: Tracking only; 2.x conversations are fully readable, older logs without tokens honestly show 0.
    - **Grok Bot**: Desktop only; cloud sandboxes without per-message tokens show "Unavailable", with no archive concept.
+   - **T3 Code / Cindy aggregator deduplication**: Underlying Claude Code, Codex, or Antigravity sessions spawned by T3 Code or Cindy are deduplicated across Daily Summary, Sidebar Now/Recent, Menu Bar, AutoLog, Sync, Dashboard, Handoff claiming, primary recommendation, and Security Audit so work is counted once under the aggregator; disabling the aggregator immediately surfaces the underlying sessions again.
+   - **Cindy**: Read-only tracking from local `cindy-*.db` / `xdt-maker-*.db` (including Orca worker hierarchy, per-turn tokens, tool-use security audit, and `cindy://session/<id>` deep link); tracking only (no built-in delegation).
    - **Muse**: Desktop only; cloud VM has no local tokens/models (kept as 0 / unavailable).
    - **Kimi Code**: Tracks desktop & CLI `wire.jsonl` v1.5 sessions; no built-in delegation yet.
    - **Doubao Work**: Read-only IndexedDB session list metadata (titles & timestamps); full message bodies remain encrypted in `sdk_storage` and are never decrypted.

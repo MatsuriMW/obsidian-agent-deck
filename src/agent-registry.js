@@ -231,6 +231,18 @@ const CAPABILITIES = new Map([
     waitDesktopUntilDone: false,
     sessionLinkScheme: "obsidian",
   }],
+  ["cindy", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: true,
+    modelCatalog: false,
+    sessionLinkScheme: "obsidian",
+  }],
   ["muse", {
     delegate: false,
     runnerKind: "handoff",

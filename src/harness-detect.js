@@ -14,11 +14,12 @@ import { museDataDirs } from "./muse-sessions.js";
 import { kimiCodeDataDirs } from "./kimicode-sessions.js";
 import { doubaoWorkDataDir, doubaoWorkIndexedDbDir } from "./doubaowork-sessions.js";
 import { geminiCliHome } from "./gemini-cli-sessions.js";
+import { cindyDataDirs, cindyDatabases } from "./cindy-sessions.js";
 
-// 版本号跟着“探测规则本身”变：v2 补了 TeleAgent 的探测、并剔除了 cursor 里插件自建的目录。
+// 版本号跟着“探测规则本身”变：v2 补了 TeleAgent 的探测、并剔除了 cursor 里插件自建的目录；v3 新增 Cindy。
 // 启动时只要 data.harnessesDetected.version 落后，就自动按新规则重跑一次，
 // 否则老用户会一直停在旧判定上（1.13.4 合并后 TeleAgent 被误关就是这么来的）。
-export const HARNESS_DETECTION_VERSION = 2;
+export const HARNESS_DETECTION_VERSION = 3;
 
 const norm = (p, homeDir) => String(p || "").replace(/^~(?=\/)/, homeDir);
 
@@ -257,6 +258,15 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
         path.join(t3DataDir, "state.sqlite"),
         t3DataDir,
         path.join(homeDir, ".t3"),
+      ],
+    },
+    cindy: {
+      binNames: [],
+      binPaths: [],
+      apps: win ? ["Cindy/Cindy.exe", "CindyGlobal/Cindy.exe"] : ["Cindy.app", "Cindy Global.app"],
+      dataPaths: [
+        ...cindyDatabases({ homeDir, platform, env }),
+        ...cindyDataDirs({ homeDir, platform, env }),
       ],
     },
     muse: {

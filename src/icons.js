@@ -15,6 +15,7 @@ export const AGENT_ICONS = {
   cursor: "mouse-pointer-click",
   grokbot: "bot",
   t3code: "code-2",
+  cindy: "bot",
   muse: "sparkles",
   kimicode: "code-2",
   doubaowork: "briefcase",

@@ -2,6 +2,24 @@
 
 基线：**1.13.19 + main**（2026-11-24）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
+## 1.13.19 + 本地增量：PR #12（TeleAgent）合并、Cindy 收录、WAL 只读修复与统一聚合去重
+
+- **合并社区 PR #12（`feat/teleagent-support`，合并提交 `5c0847d`）并修复问题**：
+  - 接入 **TeleAgent（星辰超级智能体）** 只读会话追踪（`src/teleagent.js`、`src/desktop-sessions.js`、`test/teleagent-sessions.test.mjs`）及 Windows UIA / Linux `xdotool` 客户端交接派发（`src/teleagent-dispatch.js`、`src/teleagent-dispatch-linux.js`、`src/native/treeland-activate.c`、`test/teleagent-dispatch*.test.mjs`）；合并后清理了 `docs/README.md` 与 `docs/specs/teleagent-adapter.zh-CN.md` 断链，补齐 `defaultRunSql` `-cmd .timeout 2000` + `PRAGMA query_only = ON;` 与 `menubar.swift` / `styles` / `security-audit.js` 中的 `teleagent` 适配。
+  - 修复 PR #12 作者反馈的 `src/editor.js` `dropField` 参数命名遮蔽 `t as tr` 导致的运行时崩溃（`tr` → `tx`），并新增 `test/editor-drop.test.mjs` 回归保护。
+- **修复 SQLite WAL 模式在无 `-wal`/`-shm` 伴生文件时的只读打开失败（`src/desktop-sessions.js`）**：
+  - 修复正常退出且已 checkpoint 的 WAL 库（格式位 `2,2` 但磁盘无 `-wal`/`-shm`，实测于本机 `~/.t3/userdata/statev2.sqlite`）用 `sqlite3 -readonly` 报 `unable to open database file (14)` 的故障：无非空 `-wal` 时经 `toSqliteUriPath()` 使用 `file://...?immutable=1`，有非空 `-wal` 时先 `-readonly` 并在失败时回退 `PRAGMA query_only = ON;`。
+- **新增 Cindy（`cindy`）只读会话追踪（内置总数增至 19 家，`USAGE_CACHE_VERSION = 21`，`HARNESS_DETECTION_VERSION = 3`）**：
+  - 新增 `src/cindy-sessions.js`（探测 Electron `Cindy` / `CindyGlobal` / `xdt-maker` 目录、`cindy-*.db` / `xdt-maker-*.db`，支持 `CINDY_DATA_DIR` / `XDT_USER_DATA_DIR` 隔离覆盖，清洗 `\uE200cite…\uE201` 与独立 stop token）、`assets/agents/cindy.png`（Apache-2.0，128×128）、`src/desktop-sessions.js`（剥除默认标题 `'New Maker'`、`worktree_path > project_dir > working_dir`、区分用户 Fork 与 `orca_workers` / `bot_delegations` 子层级、`turnUsageDetails` 优先防重复计费、`requestId` 流式去重、过滤 `[UI_ACTION_TRIGGER]` / `autoResume` / 内联子工具 / 内部卡片）。
+  - 补齐 `AGENTS.cindy`（`trackingOnly: true`、`archiveDetection: true`）、`cindy://session/<id>` 深链与 `com.xd.cindycn`/`com.xd.cindy` 唤起、`journal.js` 短链与块号前缀、`conversation.js`、`harness-detect.js`、`security-audit.js`（`tool_use` 提取）、`menubar.swift`、样式与中英繁文案。
+- **T3 Code & Cindy 统一聚合去重体系（`delegatedOwners`）**：
+  - `AgentUsage` 将 `t3Delegated` 升级为多聚合端 **`delegatedOwners`**（支持 `setDelegatedOwners` 多库聚合、`delegatedOwnerOf(sid, selfAgent)` 沿 `parentSid`/`cursorParents` 向上传递去重、`t3OwnerOf`/`cindyOwnerOf` 兼容，并持久化至 `usage-cache.json.gz`；关闭聚合端时即时恢复底层会话）。
+  - 扩展 `t3CodeDelegatedSids` 覆盖 6 张表并解码 `:native-thread:` 后缀（跳过 `provider-session:provider-instance:` 及 URL 编码 `pending%3A...` 占位符），新增 `cindyDelegatedSids`（`sessions.sdk_session_id`、`messages.agent_meta`、`agent_switch`、`subagent_runs`、`skill_usage_sources`）。
+  - 全链路接入：`summary()`、`liveSessions()`、`sessions()`、`AutoLog`、`JournalSync`（`results` & `autoKeywords`）、`DashboardData`、`Delegator.resolveHandoffs`、`recommendPrimaryAgents`、`main.js`（主力初始化/重探测/`extState` 活态注入）与 `runSecurityAudit`；新增 `test/cindy-sessions.test.mjs`。
+- **实测范围与未测空白**：
+  - 已验证：本机真实 `$HOME/.t3/userdata/statev2.sqlite` 只读读取（`desktopSessions` 返回 1 条会话，`t3CodeDelegatedSids` 精准提取 `01a202fc-9ea5-7321-8ca4-ceaf4f1a5cb9` 且排除 `pending%3A...`）、隔离 `HOME` 全量 `npm test`、`npm run build`、`npm run eval`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`、Vault 安装与 `obsidian vault=马自立 plugin:reload id=agent-deck`。
+  - 未测空白：**本机未安装 Cindy 客户端与库**（`Cindy` 适配器基于 `makecindy/cindy` `main` 源码契约与本地真实 SQLite 夹具验证）；Windows 全端真机未测。
+
 ## 1.13.15 + 后续增量：Kimi Code / 豆包工作 / Gemini CLI（ACP + 追踪）、Antigravity CLI 追踪补齐与 Wiki/GitHub 自动化
 
 - 新增 **3 家内置 Agent（内置总数增至 17 家）**，`USAGE_CACHE_VERSION` 升至 `20`：
