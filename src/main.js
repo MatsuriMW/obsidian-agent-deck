@@ -40,7 +40,7 @@ import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
 import { AgentDeckSettingsTab } from "./settings.js";
 import { syncModelGroups } from "./model-groups.js";
-import { recentProjectFolders } from "./project-folders.js";
+import { recentProjectFolders, resolveProjectForTask } from "./project-folders.js";
 import { DelegateOptionsModal, ConfirmSendModal, FollowUpModal, ArchiveTargetModal, askApiConsentInApp, askJournalMarkerRepair, defaultWorkMode, resolveTaskProjectState } from "./dialog.js";
 import { agentIcon, setLucide } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
@@ -71,7 +71,7 @@ import { MEMORY_BOARD_TYPE, MemoryBoardView } from "./memory-board.js";
 import { MemoryReviewModal } from "./memory-review.js";
 import { MemoryCreateModal, MemoryImportModal } from "./memory-import.js";
 import { registerContextResolver } from "./harness.js";
-import { detectInstalledHarnesses, applyHarnessDetection, pickDefaultDelegateTarget } from "./harness-detect.js";
+import { detectInstalledHarnesses, applyHarnessDetection, pickDefaultDelegateTarget, HARNESS_DETECTION_VERSION } from "./harness-detect.js";
 import { ConversationModal, AcpPermissionModal } from "./conversation-modal.js";
 import { registerTaskAgentSuggest } from "./mention-suggest.js";
 import { t, currentLanguage, setLanguage, registerCustomLocales, listCustomLocales, exportLocaleTemplate } from "./i18n.js";
@@ -151,6 +151,11 @@ export default class AgentDeckPlugin extends Plugin {
         mode: data?.agents ? "migrate" : "initial",
         detection: this.detectedHarnesses(),
       });
+      this.saveSettings().catch(() => {});
+    } else if (!(Number(data.harnessesDetected.version) >= HARNESS_DETECTION_VERSION)) {
+      // 探测规则升级过（比如补了某个 Agent 的探测）：按新规则重跑一次，
+      // 否则用户会一直停在旧判定上，出现“明明装了却没出现/卸载了还在”的错觉。
+      applyHarnessDetection(this.settings, { mode: "redetect", detection: this.detectedHarnesses() });
       this.saveSettings().catch(() => {});
     } else if (data && !data.dshDefaultSeeded) {
       this.saveSettings().catch(() => {});
@@ -2577,6 +2582,36 @@ export default class AgentDeckPlugin extends Plugin {
     }).open();
   }
 
+  // 人在场的一键派发：把这一行任务交给 TeleAgent 的 UI Automation 通道，自动建任务、填词并点「运行」。
+  // 项目名从任务上下文里解析（wikilink / 标题前缀 / 笔记路径），解析不到就明确拒绝——
+  // 猜错项目会把任务派进别的代码库，比不派发更糟。
+  async dispatchToTeleagent(path, line, lines) {
+    // 复用拖拽入口的解析：它会把笔记文件对象、整篇行数组和块结构都补齐，
+    // handoff 里的 resolveBlockContext 要的就是 file/lines/block，只给 path/line 会报“没有当前笔记”。
+    const target = await this.delegateTarget({ path, line, lineText: lines[line] }, { newSession: true });
+    if (target.error) {
+      this.notice(target.error, 6000);
+      return;
+    }
+    const blockText = String(target.lines[target.line] || "");
+    const context = target.lines.slice(Math.max(0, target.line - 4), target.line + 1);
+    const resolved = resolveProjectForTask({ settings: this.settings, notePath: path, contextLines: context, blockText });
+    const project = String(resolved?.name || "").trim();
+    if (!project) {
+      this.notice(t("这个任务没有登记过项目目录，先在设置里登记项目文件夹"), 8000);
+      return;
+    }
+    await this.delegator.handoff({
+      agent: "teleagent",
+      file: target.file,
+      lines: target.lines,
+      line: target.line,
+      block: target.block,
+      projectName: project,
+      autoSend: true,
+    });
+  }
+
   async taskActions(path, line, event) {
     let text;
     try { text = await this.readNote(path); } catch { return; }
@@ -2614,6 +2649,13 @@ export default class AgentDeckPlugin extends Plugin {
       menu.addSeparator();
     }
     for (const agent of AGENT_ORDER.filter(a => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem(mi => mi.setTitle(t("重新委派（新会话）· {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    if ((process.platform === "win32" || process.platform === "linux") && this.agentEnabled("teleagent")) {
+      // Linux 后端目前只做到“填入 + 提示手动提交”，菜单文案不能承诺自动发送。
+      const dispatchLabel = process.platform === "linux"
+        ? t("派发到 TeleAgent（自动填写，需手动点运行）")
+        : t("派发到 TeleAgent（自动填写并发送）");
+      menu.addItem(mi => mi.setTitle(dispatchLabel).setIcon("send").onClick(() => this.dispatchToTeleagent(path, block.start, lines)));
+    }
     menu.addSeparator();
     menu.addItem(mi => mi.setTitle(t("在项目工作台拆解并分配小队")).setIcon("folder-kanban").onClick(() => this.openProjectWorkbench({ path, line: block.start })));
     if (sourceView?.editor) {
@@ -3990,7 +4032,7 @@ export default class AgentDeckPlugin extends Plugin {
           ? J.deckSessionUrl(agent, s.sid)
           : sessionDeepLink(agent, s.sid);
       const copyByAgent = { codex: `codex resume ${s.sid}`, hermes: `hermes --resume ${s.sid}`, minimax: s.app === "cli" ? `mcode --session ${s.sid}` : s.sid };
-      const copy = s.isPendingJob ? "" : ((["dsh", "antigravity", "opencode", "qoder"].includes(agent) || AGENTS[agent].trackingOnly) ? s.sid : (copyByAgent[agent] || ""));
+      const copy = s.isPendingJob ? "" : ((["dsh", "antigravity", "opencode", "qoder", "teleagent"].includes(agent) || AGENTS[agent].trackingOnly) ? s.sid : (copyByAgent[agent] || ""));
       const prog = this.sessionProgressText(s, s.job);
       const stepStr = [prog, s.step ? truncate(s.step, 30) : ""].filter(Boolean).join(" · ");
       const pinIdx = pinnedIndex.has(s.sid) ? pinnedIndex.get(s.sid) : -1;

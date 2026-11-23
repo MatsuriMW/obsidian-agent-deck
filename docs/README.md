@@ -21,3 +21,12 @@
 | [`specs/fractal-boards-roadmap.md`](specs/fractal-boards-roadmap.md) | 后续方向：WorkFlowy 分形看板（意义、大纲/Harness/双链实现路线与红线） |
 | [`specs/harness-delta-2026-11-18.zh-CN.md`](specs/harness-delta-2026-11-18.zh-CN.md) | 单批增量说明（文本 harness 视角）：这一轮新增了什么、因此能做到什么、回复协议的设计意见 |
 | [`specs/dream-shared-memory.md`](specs/dream-shared-memory.md) | **方向草案**：Dream 记忆按条共享（scope/audience、发布层、MCP 接入、撤销红线），参照 Notion 的 MCP + personal memories 模型 |
+| [`specs/teleagent-adapter.zh-CN.md`](specs/teleagent-adapter.zh-CN.md) | 已实现 P0：TeleAgent（星辰超级智能体）只读追踪——本地 SQLite 契约、真实环境变量（`SUPER_AGENT_APP_DATA_DIR`）、多账号发现、附件绝对路径剥离；P1 复制交接与 P2 深链仍未实现 |
+| [`specs/teleagent-uia-automation.zh-CN.md`](specs/teleagent-uia-automation.zh-CN.md) | **界面操作通道**：Windows UI Automation 实测（元素树规模、`AutomationId` 缺失、懒启用预热、`ClickablePoint` 未实现、Slate 输入框可写性）、四条路线取舍与定位原语 |
+
+## `docs/research/` 调研索引
+| 文档 | 覆盖范围 |
+| --- | --- |
+| [`research/obsidian-teleagent-linux-acceptance.zh-CN.md`](research/obsidian-teleagent-linux-acceptance.zh-CN.md) | Obsidian 1.15.1 实机验收记录（2026-11-19）：右键菜单 Linux 项 ✅、缺 xdotool 降级 ✅、菜单点击后自动填入 ❌→✅（treeland 焦点竞态已修复：原生 helper 激活 + 单进程粘贴）、未点运行的证据 |
+| [`research/teleagent-linux-probe.zh-CN.md`](research/teleagent-linux-probe.zh-CN.md) | TeleAgent Linux 派发通道实测（2026-11-19，treeland Wayland + XWayland）：AT-SPI 依赖/无 root 结论、`windowactivate` 在 treeland 失效与 `windowfocus` 校验、字母键被输入法吞掉→必须剪贴板粘贴、端口/深链画像、一次获批端到端提交的 SQL 证据 |
+| [`research/teleagent-ecosystem.zh-CN.md`](research/teleagent-ecosystem.zh-CN.md) | TeleAgent（星辰超级智能体）开源生态调研（2026-11-17）：33 个社区仓库的功能与实现方式、三条接入路线、本地内核接口画像、对 Agent Deck 的可借鉴/有条件/禁止三档取舍与封号风险 |

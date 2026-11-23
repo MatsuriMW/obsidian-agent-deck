@@ -27,10 +27,11 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **WorkBuddy（中国版）** | `~/.workbuddy/projects` / `workbuddy.db` | 追踪 + 桌面复制交接 + 终端（`codebuddy`） | 仅支持中国版；独立 `codebuddy` 与桌面不互通；无后台执行 |
 | **Kimi Code** | `~/.kimi-code/sessions`（`wire.jsonl` + `session-meta/state.json`）及 `~/.kimi/sessions` | 追踪 + 唤起桌面端 | 仅追踪；支持 v1.5 `wire.jsonl` 逐轮对话、工具调用与精确 token 用量统计 |
 | **豆包工作（Doubao Work）** | `~/Library/Application Support/DoubaoWork/Default/IndexedDB/chrome_doubaowork-chat_0.indexeddb.leveldb` | 桌面会话列表元数据追踪 + 唤起桌面端 | 仅追踪标题与活跃时间；完整正文存在本地加密库 `sdk_storage`，插件保持只读不解密，token 显示「用量未提供」 |
+| **TeleAgent（星辰超级智能体）** | `~/.local/share/TeleAgent/users/*/teleagent.db`（Windows 另含 `%LOCALAPPDATA%\TeleAgent`） | 追踪 + 复制任务并唤起桌面端 + 派发后回读客户端库确认 | 只有桌面客户端、没有 CLI；会话库是 OpenCode 老版 `session`/`message`/`part` 结构，Windows 用 UIA 自动填入任务、Linux 用 `xdotool` + 剪贴板 |
 
 > 更多中文 Agent 客户端正在持续规划与接入中，欢迎通过 [新 Agent 适配模板](https://github.com/MatsuriMW/obsidian-agent-deck/issues/new?template=agent_support.yml) 反馈你使用的客户端。
 
-## 三、全部 17 家内置 Agent + 自定义 ACP 能力矩阵
+## 三、全部 18 家内置 Agent + 自定义 ACP 能力矩阵
 
 | Agent | 会话追踪 | 后台委派 | 桌面端交接 | 终端交互 |
 | --- | --- | --- | --- | --- |
@@ -51,6 +52,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Kimi Code** | 支持 | 不支持 | 仅唤起客户端（仅追踪） | — |
 | **豆包工作** | 支持（会话列表元数据） | 不支持 | 仅唤起客户端（仅追踪） | — |
 | **Gemini CLI** | 支持 | 支持（`gemini --acp`） | 不支持（无桌面界面） | 支持（`gemini --resume`） |
+| **TeleAgent（星辰超级智能体）** | 支持 | 不支持 | 仅复制任务并唤起 | — |
 | **自定义 ACP Agent** | 委派会话追踪 | 支持（任意 ACP CLI） | — | — |
 
 ## 四、需要准备什么（按需依赖）

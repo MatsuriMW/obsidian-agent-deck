@@ -12,6 +12,7 @@ import {
   detectInstalledHarnesses,
   applyHarnessDetection,
   pickDefaultDelegateTarget,
+  HARNESS_DETECTION_VERSION,
 } from "../src/harness-detect.js";
 
 function mkTree(root, files = [], dirs = []) {
@@ -170,7 +171,7 @@ test("applyHarnessDetection handles initial install, legacy migration, and re-de
   assert.equal(fresh.autoLogAgents.claude, false);
   assert.equal(fresh.autoLogAgents.dsh, true);
   assert.equal(fresh.delegate.target, "dsh");
-  assert.equal(fresh.harnessesDetected.version, 1);
+  assert.equal(fresh.harnessesDetected.version, HARNESS_DETECTION_VERSION);
   assert.deepEqual(fresh.harnessesDetected.installed, ["workbuddy", "dsh"]);
 
   // 2. Legacy upgrade: preserves manual off on an installed agent (e.g. cursor), turns off uninstalled CC/Codex
@@ -386,7 +387,7 @@ test("AgentDeckPlugin.onload auto-detects harnesses off the startup barrier and 
     p.scanNow = async () => {};
     await p.onload();
 
-    assert.equal(p.settings.harnessesDetected?.version, 1);
+    assert.equal(p.settings.harnessesDetected?.version, HARNESS_DETECTION_VERSION);
     for (const id of AGENT_ORDER) {
       assert.equal(typeof p.settings.agents[id], "boolean");
     }
@@ -397,4 +398,69 @@ test("AgentDeckPlugin.onload auto-detects harnesses off the startup barrier and 
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("TeleAgent is detected from its data root on Windows (client lives outside Program Files)", () => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-teleagent-detect-"));
+  const appDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-teleagent-detect-app-"));
+  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-teleagent-detect-bin-"));
+  const env = {
+    PATH: binDir,
+    APPDATA: path.join(homeDir, "AppData", "Roaming"),
+    LOCALAPPDATA: path.join(homeDir, "AppData", "Local"),
+    ProgramFiles: path.join(homeDir, "PF"),
+  };
+  const scan = () => detectInstalledHarnesses({ homeDir, appDirs: [appDir], pathEntries: [binDir], env, platform: "win32" });
+
+  assert.equal(scan().detected.teleagent, false, "empty machine must not report TeleAgent");
+
+  // 客户端装在 D:\Program Files\TeleClaw\... ，appDirs 探测不到；数据根在 ~/.local/share/TeleAgent。
+  mkTree(homeDir, [], [".local/share/TeleAgent/users/owner"]);
+  const hit = scan();
+  assert.equal(hit.detected.teleagent, true);
+  assert.deepEqual(hit.details.teleagent.via, ["data"]);
+  assert.ok(hit.installed.includes("teleagent"), "detection must include teleagent for settings sync");
+
+  // 回归点：detection 缺 teleagent 时 applyHarnessDetection 会把它写成 false（1.13.4 合并后曾发生）。
+  const settings = deepMerge(DEFAULTS, { agents: { teleagent: true } });
+  applyHarnessDetection(settings, { mode: "redetect", detection: hit });
+  assert.equal(settings.agents.teleagent, true);
+});
+
+test("插件自建目录不能当成‘Agent 已安装’的证据（Cursor 回归）", () => {
+  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-self-created-"));
+  const appDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-self-created-app-"));
+  const binDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-self-created-bin-"));
+  const env = {
+    PATH: binDir,
+    APPDATA: path.join(homeDir, "AppData", "Roaming"),
+    LOCALAPPDATA: path.join(homeDir, "AppData", "Local"),
+    ProgramFiles: path.join(homeDir, "PF"),
+  };
+  const scan = () => detectInstalledHarnesses({ homeDir, appDirs: [appDir], pathEntries: [binDir], env, platform: "win32" });
+
+  // 只剩插件自己装 hook 时建的目录：Cursor 已卸载，不能算装了
+  mkTree(homeDir, ["11111111-2222-3333-4444-555555555555.jsonl"], [".agent-deck/cursor-events", ".agent-deck/hooks"]);
+  const afterUninstall = scan();
+  assert.equal(afterUninstall.detected.cursor, false, "插件自建的事件目录不能让 Cursor 判为已安装");
+  for (const [id, d] of Object.entries(afterUninstall.details)) {
+    if (d.data) assert.ok(!d.data.includes(".agent-deck"), `${id} 的安装证据不该落在插件自己的目录里`);
+  }
+
+  // 反向：Cursor 自己的状态库还在时仍要识别
+  mkTree(homeDir, ["AppData/Roaming/Cursor/User/globalStorage/state.vscdb"]);
+  const withCursor = scan();
+  assert.equal(withCursor.detected.cursor, true);
+  assert.deepEqual(withCursor.details.cursor.via, ["data"]);
+});
+
+test("探测规则升级后用 version 触发一次自动重跑（不是只在首次安装时检测）", async () => {
+  const settings = deepMerge(DEFAULTS, { agents: { teleagent: false } });
+  // 旧版本记录：装过但没跑过新规则
+  settings.harnessesDetected = { version: 1, at: 1, installed: [] };
+  const detection = { detected: Object.fromEntries(AGENT_ORDER.map((id) => [id, id === "teleagent"])), details: {}, installed: ["teleagent"], missing: [] };
+  applyHarnessDetection(settings, { mode: "redetect", detection });
+  assert.equal(settings.harnessesDetected.version, HARNESS_DETECTION_VERSION);
+  assert.equal(settings.agents.teleagent, true);
+  assert.ok(HARNESS_DETECTION_VERSION >= 2, "v2 才补上 TeleAgent 与自建目录剔除");
 });

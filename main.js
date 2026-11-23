@@ -1117,6 +1117,8 @@ var settings_default = {
   "\u672C\u673A\u65E5\u5FD7\u7684\u8F6E\u8BE2\u95F4\u9694\u3002\u4F1A\u8BDD\u5C11\u7684\u65F6\u5019 20\u201330 \u79D2\u5C31\u591F\u3002": "Polling interval for local logs. 20\u201330 seconds is enough when there are few sessions.",
   "\u4E3B\u529B\u8BFB\u591A\u5C11\u5929\u5386\u53F2": "Days of history for primaries",
   "\u53EA\u5F71\u54CD\u4E3B\u529B\uFF1B\u975E\u4E3B\u529B\u53EA\u8BFB\u4ECA\u5929\u3002": "Only affects primaries; everything else reads today only.",
+  "\u684C\u9762\u6570\u636E\u5E93\u4E5F\u8BFB\u5168\u90E8\u5386\u53F2": "Read full history from desktop databases too",
+  "\u5173\u95ED\u65F6\u684C\u9762\u5E93\u53EA\u8BFB\u4E0A\u9762\u7684\u5929\u6570\uFF1A\u51E0\u5343\u4E2A\u4F1A\u8BDD\u3001\u51E0\u767E MB \u7684\u5927\u5E93\uFF08TeleAgent\u3001T3 Code\u3001\u8C46\u5305\u5DE5\u4F5C \u7B49\uFF09\u9996\u6B21\u626B\u63CF\u4E0D\u4F1A\u5361\u4F4F\uFF1B\u6253\u5F00\u540E\u4E3B\u529B Agent \u8BFB\u5168\u90E8\u5386\u53F2\uFF0C\u9996\u6B21\u626B\u63CF\u660E\u663E\u53D8\u6162": "When off, desktop databases only read the number of days above, so large databases (TeleAgent, T3 Code, Doubao Work, ...) with thousands of sessions and hundreds of MB do not stall the first scan. When on, primary agents read their whole history and the first scan is noticeably slower.",
   "Claude \u684C\u9762\u7248": "Claude desktop",
   "\u684C\u9762\u7248\u7ED9\u6BCF\u4E2A\u4F1A\u8BDD\u5B58\u4E00\u4EFD\u6E05\u5355\uFF08claude-code-sessions/<\u8D26\u53F7>/<\u7EC4\u7EC7>/local_*.json\uFF09\u3002\u4FA7\u680F\u91CC\u770B\u7740\u540C\u7EA7\u3001\u5176\u5B9E\u662F\u300C\u4ECE\u67D0\u4E2A\u4F1A\u8BDD\u5F00\u51FA\u6765\u300D\u7684 side chat\uFF0C\u53EA\u6709\u8FD9\u4EFD\u6E05\u5355\u91CC\u7684 spawnedFrom \u8BB0\u5F97\uFF1B\u7EC8\u7AEF\u91CC\u7684 claude \u6CA1\u6709\u8FD9\u4E00\u9879\u3002": "The desktop app keeps a manifest per session (claude-code-sessions/<account>/<org>/local_*.json). Side chats that look like siblings in the sidebar are actually spawned from another session, and only spawnedFrom in that manifest records it; claude in a terminal has no such field.",
   "\u8BC6\u522B side chat \u548C\u6BCD\u5B50\u5173\u7CFB": "Detect side chats and parent links",
@@ -1406,6 +1408,7 @@ var settings_default = {
   "Hermes Agent \u4F1A\u8BDD\u4E0E ACP / CLI": "Hermes Agent sessions and ACP / CLI",
   "MiniMax Code \u684C\u9762\u7248\u4E0E mcode CLI / ACP": "MiniMax Code Desktop and mcode CLI / ACP",
   "\u5343\u95EE\u529E\u516C\uFF08QwenWork\uFF09\u684C\u9762\u7248": "QwenWork Desktop",
+  "TeleAgent\uFF08\u661F\u8FB0\u8D85\u7EA7\u667A\u80FD\u4F53\uFF09\u684C\u9762\u7248\uFF08\u672C\u5730\u4F1A\u8BDD\u5E93\u8FFD\u8E2A\uFF09": "TeleAgent Desktop (local session database tracking)",
   "T3 Code \u684C\u9762\u7248\u4E0E t3 CLI": "T3 Code Desktop and t3 CLI",
   "Muse \u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Muse Desktop (tracking only)",
   "Kimi Code \u684C\u9762\u7248 / CLI\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Kimi Code Desktop / CLI (tracking only)",
@@ -1554,6 +1557,41 @@ var dialogs_default = {
   "\u53D1\u9001\u540E\u6253\u5F00\u5BF9\u8BDD\uFF0C\u5728\u539F\u4F1A\u8BDD\u4E2D\u7EE7\u7EED\u8FFD\u95EE\u3002": "Opens the conversation after sending; keep asking in the same session.",
   "\u5728\u684C\u9762\u5BA2\u6237\u7AEF\u4E2D\u804A": "Chat in the desktop app",
   "\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u7B49\u5F85\u4F60\u7C98\u8D34\u53D1\u9001\u3002": "Copies the task and opens the client; paste it and send from there.",
+  "\u6D3E\u53D1\u5230 TeleAgent\uFF08\u81EA\u52A8\u586B\u5199\u5E76\u53D1\u9001\uFF09": "Dispatch to TeleAgent (type and send for me)",
+  "\u8FD9\u4E2A\u4EFB\u52A1\u6CA1\u6709\u767B\u8BB0\u8FC7\u9879\u76EE\u76EE\u5F55\uFF0C\u5148\u5728\u8BBE\u7F6E\u91CC\u767B\u8BB0\u9879\u76EE\u6587\u4EF6\u5939": "This task has no registered project folder; register one in settings first.",
+  "\u6CA1\u6709\u8BC6\u522B\u5230\u9879\u76EE\u540D\uFF0C\u5DF2\u9000\u56DE\u590D\u5236\u4EA4\u63A5": "No project name was recognized; fell back to the copy-and-paste handoff.",
+  "\u5DF2\u6D3E\u53D1\u5230 TeleAgent \xB7 {project}": "Dispatched to TeleAgent \xB7 {project}",
+  "\u5DF2\u6D3E\u53D1\u5E76\u786E\u8BA4\u843D\u5E93 \xB7 {project}": "Dispatched and confirmed in the local database \xB7 {project}",
+  "\u5DF2\u53D1\u9001\uFF0C\u4F46\u672C\u5730\u5E93\u91CC\u8FD8\u6CA1\u67E5\u5230 \xB7 {project}": "Sent, but not found in the local database yet \xB7 {project}",
+  "\u6D3E\u53D1\u5931\u8D25\uFF08{stage}\uFF09\uFF1A{error}": "Dispatch failed ({stage}): {error}",
+  "\u7F3A\u5C11\u9879\u76EE\u540D\uFF08project\uFF09": "Missing project name (project)",
+  "\u7F3A\u5C11\u8981\u6D3E\u53D1\u7684\u6587\u672C\uFF08text\uFF09": "Missing text to dispatch (text)",
+  "\u6587\u672C\u8D85\u8FC7 {n} \u5B57\u4E0A\u9650": "Text exceeds the {n}-character limit",
+  "UI Automation \u6D3E\u53D1\u53EA\u5728 Windows \u53EF\u7528": "UI Automation dispatch is only available on Windows",
+  "\u6D3E\u53D1\u53EA\u5728 Windows/Linux \u53EF\u7528": "Dispatch is only available on Windows and Linux",
+  "\u5DF2\u586B\u5165\u4EFB\u52A1\u6587\u672C\uFF0C\u8BF7\u5728 TeleAgent \u91CC\u624B\u52A8\u70B9\u300C\u8FD0\u884C\u300D\xB7 {project}": "Task text filled in TeleAgent \u2014 click Run there to send \xB7 {project}",
+  "\u672A\u80FD\u81EA\u52A8\u786E\u8BA4\u8F93\u5165\u6846\u5185\u5BB9\uFF08\u6CA1\u6709\u622A\u56FE\u5DE5\u5177\uFF09\uFF0C\u8BF7\u76EE\u89C6\u786E\u8BA4\u540E\u518D\u70B9\u300C\u8FD0\u884C\u300D": "Could not auto-verify the composer content (no screenshot tool); check it before clicking Run",
+  "\u6D3E\u53D1\u5230 TeleAgent\uFF08\u81EA\u52A8\u586B\u5199\uFF0C\u9700\u624B\u52A8\u70B9\u8FD0\u884C\uFF09": "Dispatch to TeleAgent (fill in; click Run to send)",
+  "Linux \u6D3E\u53D1\u53EA\u5728 Linux \u53EF\u7528": "Linux dispatch is only available on Linux",
+  "\u7F3A\u5C11 Linux \u6D3E\u53D1\u4F9D\u8D56\uFF1A{list}": "Missing Linux dispatch dependencies: {list}",
+  "\u627E\u4E0D\u5230 TeleAgent \u4E3B\u7A97\u53E3\uFF08\u8BF7\u786E\u8BA4\u5BA2\u6237\u7AEF\u5DF2\u542F\u52A8\uFF0C\u4E14\u5728 XWayland/X11 \u6A21\u5F0F\u4E0B\u8FD0\u884C\uFF09\uFF1A{error}": "TeleAgent main window not found (make sure the client is running in XWayland/X11 mode): {error}",
+  "\u627E\u4E0D\u5230\u53EF\u7528\u7684 TeleAgent \u4E3B\u7A97\u53E3\uFF08\u7A97\u53E3\u51E0\u4F55\u5F02\u5E38\u6216\u53EA\u6709\u8F85\u52A9\u7A97\uFF09": "No usable TeleAgent main window (geometry is off, or only helper windows were found)",
+  "\u627E\u4E0D\u5230 TeleAgent \u4E3B\u7A97\u53E3\uFF08\u7A97\u53E3 id \u4E3A\u7A7A\uFF09": "TeleAgent main window not found (empty window id)",
+  "\u7A97\u53E3\u51E0\u4F55\u5F02\u5E38\uFF08{width}\xD7{height}\uFF09\uFF0C\u5DF2\u4E2D\u6B62\u4EE5\u514D\u70B9\u9519\u4F4D\u7F6E": "Unexpected window geometry ({width}\xD7{height}); aborted to avoid clicking the wrong place",
+  "\u65E0\u6CD5\u628A\u7126\u70B9\u5207\u5230 TeleAgent \u4E3B\u7A97\u53E3\uFF08\u5F53\u524D\u7126\u70B9\uFF1A{actual}\uFF09\uFF1B\u8BF7\u5148\u624B\u52A8\u5207\u5230\u8BE5\u7A97\u53E3\uFF0Ctreeland \u4E0B\u4E0D\u8981\u4F9D\u8D56 windowactivate": "Could not focus the TeleAgent main window (current focus: {actual}); switch to it manually first \u2014 windowactivate does not work under treeland",
+  "\u70B9\u51FB TeleAgent \u8F93\u5165\u6846\u5931\u8D25\uFF1A{error}": "Failed to click the TeleAgent composer: {error}",
+  "\u526A\u8D34\u677F\u5185\u5BB9\u6821\u9A8C\u5931\u8D25\uFF08\u5199\u5165\u540E\u8BFB\u56DE\u4E0D\u4E00\u81F4\uFF09": "Clipboard verification failed (read-back differs from what was written)",
+  "\u5199\u5165\u7CFB\u7EDF\u526A\u8D34\u677F\u5931\u8D25\uFF1A{error}": "Failed to write to the system clipboard: {error}",
+  "\u7C98\u8D34\u5230 TeleAgent \u8F93\u5165\u6846\u5931\u8D25\uFF1A{error}": "Failed to paste into the TeleAgent composer: {error}",
+  "\u5DF2\u586B\u5165\uFF0C\u4F46\u672A\u80FD\u81EA\u52A8\u786E\u8BA4\u8F93\u5165\u6846\u5185\u5BB9\uFF08\u6CA1\u6709\u622A\u56FE\u5DE5\u5177\uFF09\uFF0C\u8BF7\u76EE\u89C6\u786E\u8BA4\u540E\u518D\u70B9\u300C\u8FD0\u884C\u300D": "Filled in, but the composer content could not be verified automatically (no screenshot tool); check it before clicking Run",
+  "\u70B9\u51FB\u300C\u8FD0\u884C\u300D\u5931\u8D25\uFF1A{error}": "Failed to click Run: {error}",
+  "\u63D0\u4EA4\u9700\u8981\u663E\u5F0F\u786E\u8BA4\uFF08confirm:true\uFF09": "Submitting requires explicit confirmation (confirm:true)",
+  "\u7F3A\u5C11 treeland \u7A97\u53E3\u6FC0\u6D3B helper\uFF08treeland-activate\uFF09\uFF1Btreeland \u4E0B\u65E0\u6CD5\u81EA\u52A8\u628A TeleAgent \u5207\u5230\u524D\u53F0": "Missing the treeland window-activation helper (treeland-activate); on treeland TeleAgent cannot be brought to the foreground automatically",
+  "\u672A\u77E5\uFF08\u6CA1\u6709 X \u7126\u70B9\uFF09": "unknown (no X focus)",
+  "treeland-activate \u6FC0\u6D3B TeleAgent \u5931\u8D25\uFF1A{error}": "treeland-activate failed to activate TeleAgent: {error}",
+  "\u5355\u8FDB\u7A0B\u7C98\u8D34\u5931\u8D25\uFF1A{error}": "Single-process paste failed: {error}",
+  "\u7F3A\u5C11 treeland \u7A97\u53E3\u6FC0\u6D3B helper\uFF1Atreeland-activate\uFF1Btreeland \u4E0B\u65E0\u6CD5\u81EA\u52A8\u628A TeleAgent \u5207\u5230\u524D\u53F0\u3002\u8BF7\u5148\u624B\u52A8\u5207\u5230 TeleAgent \u518D\u6D3E\u53D1\uFF08\u5F53\u524D\u7126\u70B9\uFF1A{actual}\uFF09": "Missing the treeland window-activation helper (treeland-activate); TeleAgent cannot be brought to the foreground automatically. Switch to TeleAgent manually and dispatch again (current focus: {actual})",
+  "\u6D3E\u53D1\u8D85\u65F6\uFF08{ms}ms\uFF09": "Dispatch timed out ({ms} ms)",
   "\u5EFA\u7ACB\u4F1A\u8BDD\u540E\u6253\u5F00 Harness\uFF1B\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u5728\u4FA7\u680F\u9009\u62E9\u540C\u4E00\u4F1A\u8BDD\u7EE7\u7EED\u3002": "Starts the session, then opens Harness; when this turn ends, pick the same session in the sidebar to continue.",
   "\u5148\u6267\u884C\u9996\u8F6E\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD\uFF1B\u9996\u8F6E\u671F\u95F4\u907F\u514D\u4E24\u8FB9\u540C\u65F6\u53D1\u9001\u3002": "Runs the first turn, then opens the same session on the desktop; avoid sending from both sides during that turn.",
   "\u540E\u53F0\u6267\u884C": "Run in background",
@@ -3053,6 +3091,8 @@ var zh_TW_default = {
   "\u672C\u673A\u65E5\u5FD7\u7684\u8F6E\u8BE2\u95F4\u9694\u3002\u4F1A\u8BDD\u5C11\u7684\u65F6\u5019 20\u201330 \u79D2\u5C31\u591F\u3002": "\u672C\u6A5F\u65E5\u8A8C\u7684\u8F2A\u8A62\u9593\u9694\u3002\u6703\u8A71\u5C11\u7684\u6642\u5019 20\u201330 \u79D2\u5C31\u5920\u3002",
   "\u4E3B\u529B\u8BFB\u591A\u5C11\u5929\u5386\u53F2": "\u4E3B\u529B\u8B80\u591A\u5C11\u5929\u66C6\u53F2",
   "\u53EA\u5F71\u54CD\u4E3B\u529B\uFF1B\u975E\u4E3B\u529B\u53EA\u8BFB\u4ECA\u5929\u3002": "\u96BB\u5F71\u97FF\u4E3B\u529B\uFF1B\u975E\u4E3B\u529B\u53EA\u8B80\u4ECA\u5929\u3002",
+  "\u684C\u9762\u6570\u636E\u5E93\u4E5F\u8BFB\u5168\u90E8\u5386\u53F2": "\u684C\u9762\u8CC7\u6599\u5EAB\u4E5F\u8B80\u5168\u90E8\u6B77\u53F2",
+  "\u5173\u95ED\u65F6\u684C\u9762\u5E93\u53EA\u8BFB\u4E0A\u9762\u7684\u5929\u6570\uFF1A\u51E0\u5343\u4E2A\u4F1A\u8BDD\u3001\u51E0\u767E MB \u7684\u5927\u5E93\uFF08TeleAgent\u3001T3 Code\u3001\u8C46\u5305\u5DE5\u4F5C \u7B49\uFF09\u9996\u6B21\u626B\u63CF\u4E0D\u4F1A\u5361\u4F4F\uFF1B\u6253\u5F00\u540E\u4E3B\u529B Agent \u8BFB\u5168\u90E8\u5386\u53F2\uFF0C\u9996\u6B21\u626B\u63CF\u660E\u663E\u53D8\u6162": "\u95DC\u9589\u6642\u684C\u9762\u5EAB\u53EA\u8B80\u4E0A\u9762\u7684\u5929\u6578\uFF1A\u5E7E\u5343\u500B\u6703\u8A71\u3001\u5E7E\u767E MB \u7684\u5927\u5EAB\uFF08TeleAgent\u3001T3 Code\u3001\u8C46\u5305\u5DE5\u4F5C \u7B49\uFF09\u9996\u6B21\u6383\u63CF\u4E0D\u6703\u5361\u4F4F\uFF1B\u6253\u958B\u5F8C\u4E3B\u529B Agent \u8B80\u5168\u90E8\u6B77\u53F2\uFF0C\u9996\u6B21\u6383\u63CF\u660E\u986F\u8B8A\u6162",
   "\u684C\u9762\u7248\u7ED9\u6BCF\u4E2A\u4F1A\u8BDD\u5B58\u4E00\u4EFD\u6E05\u5355\uFF08claude-code-sessions/<\u8D26\u53F7>/<\u7EC4\u7EC7>/local_*.json\uFF09\u3002\u4FA7\u680F\u91CC\u770B\u7740\u540C\u7EA7\u3001\u5176\u5B9E\u662F\u300C\u4ECE\u67D0\u4E2A\u4F1A\u8BDD\u5F00\u51FA\u6765\u300D\u7684 side chat\uFF0C\u53EA\u6709\u8FD9\u4EFD\u6E05\u5355\u91CC\u7684 spawnedFrom \u8BB0\u5F97\uFF1B\u7EC8\u7AEF\u91CC\u7684 claude \u6CA1\u6709\u8FD9\u4E00\u9879\u3002": "\u684C\u9762\u7248\u7D66\u6BCF\u500B\u6703\u8A71\u5B58\u4E00\u4EFD\u6E05\u55AE\uFF08claude-code-sessions/<\u8CEC\u865F>/<\u7D44\u7E54>/local_*.json\uFF09\u3002\u5074\u6B04\u88E1\u770B\u8457\u540C\u7D1A\u3001\u5176\u5BE6\u662F\u300C\u5F9E\u67D0\u500B\u6703\u8A71\u958B\u51FA\u4F86\u300D\u7684 side chat\uFF0C\u53EA\u6709\u9019\u4EFD\u6E05\u55AE\u88E1\u7684 spawnedFrom \u8A18\u5F97\uFF1B\u7D42\u7AEF\u88E1\u7684 claude \u6C92\u6709\u9019\u4E00\u9805\u3002",
   "\u8BC6\u522B side chat \u548C\u6BCD\u5B50\u5173\u7CFB": "\u8B58\u5225 side chat \u548C\u6BCD\u5B50\u95DC\u4FC2",
   "\u5B50\u4F1A\u8BDD\u5728\u9762\u677F\u91CC\u7F29\u8FDB\uFF0C\u6807\u51FA\u4ECE\u54EA\u4E2A\u4F1A\u8BDD\u5F00\u51FA\uFF1B\u987A\u624B\u770B\u6709\u54EA\u4E9B\u4F1A\u8BDD\u6B63\u5F00\u7740 side chat\u3002": "\u5B50\u6703\u8A71\u5728\u9762\u677F\u88E1\u7E2E\u6392\uFF0C\u6A19\u51FA\u5F9E\u54EA\u500B\u6703\u8A71\u958B\u51FA\uFF1B\u9806\u624B\u770B\u6709\u54EA\u4E9B\u6703\u8A71\u6B63\u958B\u8457 side chat\u3002",
@@ -4018,10 +4058,10 @@ function registerCustomLocales(packs = []) {
   return listCustomLocales();
 }
 function listCustomLocales() {
-  return [...customLocales.values()].map(({ id, name, path: path23, strings }) => ({
+  return [...customLocales.values()].map(({ id, name, path: path26, strings }) => ({
     id,
     name,
-    path: path23,
+    path: path26,
     count: Object.keys(strings).length
   }));
 }
@@ -4333,9 +4373,21 @@ var AGENTS = {
     where: ["~/.gemini/tmp/*/chats", t("Gemini CLI \u4F1A\u8BDD\u4E0E ACP \u540E\u53F0\u59D4\u6D3E")],
     deep: "gemini",
     desktopOnly: false
+  },
+  teleagent: {
+    id: "teleagent",
+    name: "TeleAgent",
+    short: "TeleAgent",
+    glyph: "\u2733",
+    color: "#2f7d6d",
+    soft: "rgba(47,125,109,.13)",
+    kind: "teleagent",
+    where: ["~/.local/share/TeleAgent/users/*/teleagent.db", t("TeleAgent\uFF08\u661F\u8FB0\u8D85\u7EA7\u667A\u80FD\u4F53\uFF09\u684C\u9762\u7248\uFF08\u672C\u5730\u4F1A\u8BDD\u5E93\u8FFD\u8E2A\uFF09")],
+    deep: "teleagent",
+    desktopOnly: true
   }
 };
-var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "gemini"];
+var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "teleagent", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "gemini"];
 var MODEL_CATALOG = [
   { id: "dsh-default", agent: "dsh", name: t("\u4E0D\u6307\u5B9A\uFF08\u4F7F\u7528 DSH \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B\uFF09"), value: "", provider: "DSH", context: "\u2014", tags: [], note: t("\u4E0D\u5411 DSH \u4F20\u6A21\u578B\u53C2\u6570\uFF0C\u76F4\u63A5\u4F7F\u7528 DSH \u81EA\u8EAB\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF08\u9002\u5408\u63A5\u5165\u7B2C\u4E09\u65B9\u6A21\u578B\uFF09\u3002") },
   { id: "antigravity-default", agent: "antigravity", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Antigravity", context: "\u2014", tags: [], note: t("\u4F7F\u7528\u670D\u52A1\u7AEF\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
@@ -4569,7 +4621,7 @@ var CLAUDE_PERMISSIONS = [
 var DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, cursor: true, grokbot: true, t3code: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, teleagent: true, cursor: true, grokbot: true, t3code: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   customAcpAgents: [],
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
@@ -4583,6 +4635,10 @@ var DEFAULTS = {
   // 派活时从笔记的双链 / 路径 / 标题前缀认出项目，自动换成项目文件夹
   pollSeconds: 30,
   fullHistoryDays: 14,
+  // 桌面 SQLite 库（TeleAgent、T3 Code、Muse、Kimi Code、豆包工作 等）默认只读 fullHistoryDays 天：
+  // 几千个会话、几百 MB 的大库按「主力读全量」读一遍会把主线程卡住好几分钟。
+  // 打开这一项就回到「主力 Agent 读全部历史」的口径，代价是首次扫描明显变慢。
+  desktopFullHistory: false,
   // Claude desktop session list: identifies side chats (spawnedFrom) and archive state.
   claudeDesktop: true,
   hideArchived: true,
@@ -4674,7 +4730,9 @@ var DEFAULTS = {
   recordRules: { ...DEFAULT_RECORD_RULES },
   autoLogBatch: 8,
   // 一轮最多问模型几个会话
-  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, t3code: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
+  // 没写不等于关：设置页用 `agOn[id] !== false` 判定，缺省值等于「开」。TeleAgent 的历史库有上千个会话，
+  // 首次接入会把最近若干轮一次性补进当天日记，所以这里显式关掉，需要时在设置里手动打开。
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, teleagent: false, t3code: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   autoLogProvider: "auto",
   autoLogEffort: "low",
   autoLogModel: "",
@@ -5044,7 +5102,7 @@ function recommendPrimaryAgents(usage, now = Date.now()) {
 }
 
 // src/main.js
-var import_fs24 = __toESM(require("fs"), 1);
+var import_fs25 = __toESM(require("fs"), 1);
 
 // src/journal.js
 var import_crypto = require("crypto");
@@ -5144,6 +5202,12 @@ function isPromptText(text) {
   if (/^# AGENTS\.md instructions|^<(user_instructions|external_codex_)/.test(s)) return false;
   return true;
 }
+var TELE_AGENT_ATTACHMENT = /<span\b[^>]*data-path-(?:name|kind)=["'][^"']*["'][^>]*>([\s\S]*?)<\/span>/gi;
+function stripTeleAgentContext(raw) {
+  let s = String(raw || "").replace(TELE_AGENT_ATTACHMENT, "$1");
+  s = s.replace(/<span\b[^>]*data-path-(?:name|kind)=["'][^"']*["'][^>]*\/?>/gi, "");
+  return s.replace(/[ \t]{2,}/g, " ").trim();
+}
 
 // src/summary-links.js
 var import_os = __toESM(require("os"), 1);
@@ -5157,8 +5221,8 @@ function formatSummaryLinks(raw, format = (text) => text) {
   const encode = (c) => c === "(" ? "%28" : c === ")" ? "%29" : encodeURIComponent(c);
   const target = (address2) => {
     if (/^(?:https?|file):/i.test(address2)) return address2.replace(/[()\s]/g, encode);
-    const path23 = address2.replace(/^~(?=\/)/, import_os.default.homedir()).replace(/\\/g, "/");
-    return (path23.startsWith("/") ? "file://" : "file:///") + path23.replace(/[()\s?#]/g, encode);
+    const path26 = address2.replace(/^~(?=\/)/, import_os.default.homedir()).replace(/\\/g, "/");
+    return (path26.startsWith("/") ? "file://" : "file:///") + path26.replace(/[()\s?#]/g, encode);
   };
   const address = (value) => /^(?:https?:\/\/|file:\/\/|[a-z]:[\\/]|~?\/)/i.test(value);
   const longPath = (value) => value.length >= 40 || /^(?:[a-z]:[\\/]|~\/|\/(?:Users|home|tmp|var|workspace|mnt|Volumes)\/)/i.test(value);
@@ -5448,8 +5512,8 @@ function blockIdOf(line) {
 function stripBlockId(s) {
   return String(s || "").replace(BLOCK_ID_RE, "").trimEnd();
 }
-var AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor", grokbot: "grokbot", t3code: "t3code", muse: "muse", kimicode: "kimi", doubaowork: "doubao", gemini: "gemini" };
-var isDeckBlockId = (id) => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor|grokbot|t3code|muse|kimi|doubao|gemini)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
+var AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor", grokbot: "grokbot", teleagent: "ta", t3code: "t3code", muse: "muse", kimicode: "kimi", doubaowork: "doubao", gemini: "gemini" };
+var isDeckBlockId = (id) => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor|grokbot|ta|t3code|muse|kimi|doubao|gemini)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
 function normalizeTaskSlug(value) {
   const slug = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
   return /^[a-z][a-z0-9]{0,15}(?:-[a-z][a-z0-9]{0,15})?$/.test(slug) ? slug : "";
@@ -5745,8 +5809,8 @@ function kwLine(raw) {
   return { kw, body: s, blockId };
 }
 function parseLink(line) {
-  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(antigravity|opencode|qoder|hermes|minimax|qwenwork|workbuddy|cursor|grokbot|t3code|muse|kimicode|doubaowork|gemini)&sid=([^)]*)\)/.exec(line);
-  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|WorkBuddy|Cursor|Grok Bot)：/, "") };
+  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(antigravity|opencode|qoder|hermes|minimax|qwenwork|teleagent|workbuddy|cursor|grokbot|t3code|muse|kimicode|doubaowork|gemini)&sid=([^)]*)\)/.exec(line);
+  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|TeleAgent|WorkBuddy|Cursor|Grok Bot)：/, "") };
   const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
   const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
@@ -5759,7 +5823,7 @@ function parseLink(line) {
 var deckSessionUrl = (agent, sid) => `obsidian://agent-deck?do=open&agent=${encodeURIComponent(agent)}&sid=${encodeURIComponent(sid)}`;
 function linkLine(indent, agent, title, sid) {
   const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
-  const obsidianLabels = { opencode: "OpenCode", qoder: "Qoder", hermes: "Hermes", minimax: "MiniMax", qwenwork: "\u5343\u95EE\u529E\u516C", cursor: "Cursor", grokbot: "Grok Bot", t3code: "T3 Code", muse: "Muse", kimicode: "Kimi Code", doubaowork: "\u8C46\u5305\u5DE5\u4F5C", gemini: "Gemini CLI" };
+  const obsidianLabels = { opencode: "OpenCode", qoder: "Qoder", hermes: "Hermes", minimax: "MiniMax", qwenwork: "\u5343\u95EE\u529E\u516C", teleagent: "TeleAgent", cursor: "Cursor", grokbot: "Grok Bot", t3code: "T3 Code", muse: "Muse", kimicode: "Kimi Code", doubaowork: "\u8C46\u5305\u5DE5\u4F5C", gemini: "Gemini CLI" };
   if (obsidianLabels[agent]) {
     return `${indent}- \u{1F517} [${obsidianLabels[agent]}\uFF1A${safe}](${deckSessionUrl(agent, sid)})`;
   }
@@ -7244,9 +7308,9 @@ function squeezeBlank(text) {
 // src/journal-archive.js
 var ARCHIVE_TITLE = "# \u5DF2\u5B8C\u6210\u7684 AI \u4EFB\u52A1";
 function archivePath(value) {
-  const path23 = String(value || "").trim().replace(/\\/g, "/");
-  if (!path23 || path23.startsWith("/") || /^[a-z]:/i.test(path23) || path23.split("/").some((x) => !x || x === "." || x === "..") || !path23.endsWith(".md")) throw new Error(t("\u5F52\u6863\u4F4D\u7F6E\u5FC5\u987B\u662F\u5E93\u5185\u7684 .md \u6587\u4EF6\u8DEF\u5F84"));
-  return path23;
+  const path26 = String(value || "").trim().replace(/\\/g, "/");
+  if (!path26 || path26.startsWith("/") || /^[a-z]:/i.test(path26) || path26.split("/").some((x) => !x || x === "." || x === "..") || !path26.endsWith(".md")) throw new Error(t("\u5F52\u6863\u4F4D\u7F6E\u5FC5\u987B\u662F\u5E93\u5185\u7684 .md \u6587\u4EF6\u8DEF\u5F84"));
+  return path26;
 }
 function archiveDate(file) {
   const name = String(file?.basename || file?.path || "");
@@ -7340,8 +7404,8 @@ function mergeArchive(text, { date, blocks = [], turns = /* @__PURE__ */ new Map
   const out = renderArchive(archive);
   return crlf ? out.replace(/\n/g, "\r\n") : out;
 }
-async function ensureFolders(vault, path23) {
-  const parts = path23.split("/");
+async function ensureFolders(vault, path26) {
+  const parts = path26.split("/");
   parts.pop();
   let folder = "";
   for (const part of parts) {
@@ -7349,8 +7413,8 @@ async function ensureFolders(vault, path23) {
     if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
   }
 }
-async function archiveCompletedTo(plugin, file, base, plan, { path: path23, order = "prepend" } = {}) {
-  const targetPath = archivePath(path23);
+async function archiveCompletedTo(plugin, file, base, plan, { path: path26, order = "prepend" } = {}) {
+  const targetPath = archivePath(path26);
   if (targetPath === file.path) throw new Error(t("\u5F52\u6863\u6587\u4EF6\u4E0D\u80FD\u4E0E\u5F53\u524D\u65E5\u8BB0\u76F8\u540C"));
   const blocks = (plan.done || []).filter((entry) => entry.ai);
   if (!blocks.length) throw new Error(t("\u6CA1\u6709\u53EF\u5F52\u6863\u7684 AI \u4EFB\u52A1"));
@@ -8204,11 +8268,11 @@ var AttentionTracker = class {
 var activeJob = (job) => ["starting", "running", "needs-approval"].includes(job?.state);
 function destinations(agent) {
   const modes = {
-    desktop: { id: "desktop", label: t("\u5728\u684C\u9762\u5BA2\u6237\u7AEF\u4E2D\u804A"), hint: ["workbuddy", "qoder"].includes(agent) ? t("\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u7B49\u5F85\u4F60\u7C98\u8D34\u53D1\u9001\u3002") : agent === "dsh" ? t("\u5EFA\u7ACB\u4F1A\u8BDD\u540E\u6253\u5F00 Harness\uFF1B\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u5728\u4FA7\u680F\u9009\u62E9\u540C\u4E00\u4F1A\u8BDD\u7EE7\u7EED\u3002") : t("\u5148\u6267\u884C\u9996\u8F6E\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD\uFF1B\u9996\u8F6E\u671F\u95F4\u907F\u514D\u4E24\u8FB9\u540C\u65F6\u53D1\u9001\u3002") },
+    desktop: { id: "desktop", label: t("\u5728\u684C\u9762\u5BA2\u6237\u7AEF\u4E2D\u804A"), hint: ["workbuddy", "qoder", "teleagent"].includes(agent) ? t("\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u7B49\u5F85\u4F60\u7C98\u8D34\u53D1\u9001\u3002") : agent === "dsh" ? t("\u5EFA\u7ACB\u4F1A\u8BDD\u540E\u6253\u5F00 Harness\uFF1B\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u5728\u4FA7\u680F\u9009\u62E9\u540C\u4E00\u4F1A\u8BDD\u7EE7\u7EED\u3002") : t("\u5148\u6267\u884C\u9996\u8F6E\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD\uFF1B\u9996\u8F6E\u671F\u95F4\u907F\u514D\u4E24\u8FB9\u540C\u65F6\u53D1\u9001\u3002") },
     background: { id: "background", label: t("\u540E\u53F0\u6267\u884C"), hint: t("\u7559\u5728\u5F53\u524D\u7B14\u8BB0\uFF0C\u5B8C\u6210\u6216\u9700\u8981\u5904\u7406\u65F6\u63D0\u9192\u3002") },
     terminal: { id: "terminal", label: t("\u5728\u7EC8\u7AEF\u4E2D\u804A"), hint: t("\u6253\u5F00\u4EA4\u4E92\u7EC8\u7AEF\uFF0C\u540E\u7EED\u5728\u7EC8\u7AEF\u7EE7\u7EED\u3002") }
   };
-  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["desktop", "background"], antigravity: ["background"], opencode: ["desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], hermes: ["background", "terminal"], minimax: ["desktop", "background", "terminal"], t3code: ["desktop", "background"], workbuddy: ["desktop", "terminal"] };
+  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["desktop", "background"], antigravity: ["background"], opencode: ["desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], hermes: ["background", "terminal"], minimax: ["desktop", "background", "terminal"], t3code: ["desktop", "background"], workbuddy: ["desktop", "terminal"], teleagent: ["desktop"] };
   return (ids[agent] || []).map((id) => modes[id]);
 }
 function defaultDestination(plugin, agent) {
@@ -8240,14 +8304,14 @@ function workspaceLabel(cwd) {
 }
 
 // src/main.js
-var import_path24 = __toESM(require("path"), 1);
-var import_os23 = __toESM(require("os"), 1);
+var import_path25 = __toESM(require("path"), 1);
+var import_os24 = __toESM(require("os"), 1);
 var import_child_process12 = require("child_process");
 var obsidianNs2 = __toESM(require("obsidian"), 1);
 var import_obsidian21 = require("obsidian");
 
 // src/readers.js
-var import_fs11 = __toESM(require("fs"), 1);
+var import_fs12 = __toESM(require("fs"), 1);
 
 // src/desktop-sessions.js
 var import_fs4 = __toESM(require("fs"), 1);
@@ -8304,6 +8368,7 @@ var hermesTime = (value) => {
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+var TOOL_LOOP_IDLE_MIN = 10;
 var modelName = (value) => {
   const m = json(value, value);
   return typeof m === "string" ? m : m?.modelID || m?.id || "";
@@ -8813,7 +8878,8 @@ async function desktopMessages(db, agent, sid) {
     const [, message, part] = await openCodeTables(db);
     const v2 = message === "session_message";
     rows = await desktopQuery(db, `SELECT m.id,m.data,${v2 ? "m.type" : "''"} AS role,m.time_created AS created,m.time_updated AS updated,
-      (SELECT json_group_array(json(p.data)) FROM (SELECT data FROM ${part} WHERE message_id=m.id ORDER BY ${v2 ? "ordinal" : "id"}) p) AS parts
+      (SELECT json_group_array(json(p.data)) FROM (SELECT data FROM ${part} WHERE message_id=m.id ORDER BY ${v2 ? "ordinal" : "id"}) p) AS parts,
+      (SELECT MAX(time_updated) FROM ${part} WHERE message_id=m.id) AS partUpdated
       FROM ${message} m WHERE m.session_id=${quote(sid)} ORDER BY ${v2 ? "m.seq" : "m.time_created,m.id"}`);
   }
   return rows.flatMap((row) => {
@@ -8822,11 +8888,16 @@ async function desktopMessages(db, agent, sid) {
     const parts = json(row.parts, []);
     const content = parts.length ? parts : d.content || [];
     const rawText = typeof d.text === "string" ? d.text : (Array.isArray(content) ? content : []).filter((p2) => p2.type === "text" && !p2.synthetic && !p2.ignored).map((p2) => p2.text || "").join("\n");
-    const text = agent === "qwenwork" && role === "user" ? stripQwenWorkContext(rawText) : rawText;
+    const strip = role === "user" ? agent === "qwenwork" ? stripQwenWorkContext : agent === "teleagent" ? stripTeleAgentContext : null : null;
+    const text = strip ? strip(rawText) : rawText;
     const tool = [...Array.isArray(content) ? content : [], ...d.tools || []].filter((p2) => p2.type === "tool" || p2.name).at(-1);
     const tokens = d.tokens;
     const completed = desktopTime(d.completedAt || d.time?.completed);
-    const state = role === "user" ? "run" : row.status === "failed" || d.error ? "error" : row.status === "interrupted" ? "wait" : completed || d.finish && d.finish !== "tool-calls" ? "wait" : "run";
+    const finish = String(d.finish || "").replace(/_/g, "-");
+    const lastActivity2 = Math.max(desktopTime(row.updated), Number(row.partUpdated) || 0, completed || 0);
+    const toolLoopRunning = finish === "tool-calls" && Date.now() - lastActivity2 <= TOOL_LOOP_IDLE_MIN * 6e4;
+    const fresh = Date.now() - lastActivity2 <= TOOL_LOOP_IDLE_MIN * 6e4;
+    const state = role === "user" ? "run" : row.status === "failed" || d.error ? "error" : row.status === "interrupted" ? "wait" : finish === "tool-calls" ? toolLoopRunning ? "run" : "wait" : completed || finish ? "wait" : fresh ? "run" : "wait";
     return [{
       id: row.id,
       role,
@@ -8845,13 +8916,70 @@ async function desktopMessages(db, agent, sid) {
   });
 }
 
-// src/cursor-sessions.js
+// src/teleagent.js
 var import_fs5 = __toESM(require("fs"), 1);
-var import_path4 = __toESM(require("path"), 1);
 var import_os5 = __toESM(require("os"), 1);
+var import_path4 = __toESM(require("path"), 1);
+var slashes = (value) => String(value || "").replace(/\\/g, "/").replace(/\/+$/, "");
+function teleAgentHome(env = process.env, platform = process.platform, homeDir = import_os5.default.homedir()) {
+  const explicit = slashes(env.SUPER_AGENT_APP_DATA_DIR || "");
+  if (explicit) return explicit;
+  const fallback = slashes(import_path4.default.join(homeDir, ".local", "share", "TeleAgent"));
+  const candidates = [];
+  if (platform === "win32") {
+    const localAppData = slashes(env.LOCALAPPDATA || "");
+    if (localAppData) candidates.push(`${localAppData}/TeleAgent`);
+  }
+  candidates.push(fallback);
+  for (const dir of candidates) {
+    try {
+      if (import_fs5.default.existsSync(`${dir}/users`)) return dir;
+    } catch {
+    }
+  }
+  return fallback;
+}
+function teleAgentOwners(homeDir) {
+  const root = slashes(homeDir);
+  const out = [];
+  const push = (name) => {
+    const owner = String(name || "").trim();
+    if (!owner || owner.includes("/") || owner.includes("\\") || owner.startsWith(".")) return;
+    if (!out.includes(owner)) out.push(owner);
+  };
+  try {
+    const current = JSON.parse(import_fs5.default.readFileSync(`${root}/current-owner.json`, "utf8"));
+    push(current?.ownerDir || current?.owner_dir);
+  } catch {
+  }
+  try {
+    for (const entry of import_fs5.default.readdirSync(`${root}/users`, { withFileTypes: true })) {
+      if (entry.isDirectory()) push(entry.name);
+    }
+  } catch {
+  }
+  return out;
+}
+function teleAgentDatabases({ env = process.env, platform = process.platform, homeDir = import_os5.default.homedir() } = {}) {
+  const root = teleAgentHome(env, platform, homeDir);
+  const out = [];
+  for (const owner of teleAgentOwners(root)) {
+    const db = `${root}/users/${owner}/teleagent.db`;
+    try {
+      if (import_fs5.default.existsSync(db) && import_fs5.default.statSync(db).isFile() && !out.includes(db)) out.push(db);
+    } catch {
+    }
+  }
+  return out;
+}
+
+// src/cursor-sessions.js
+var import_fs6 = __toESM(require("fs"), 1);
+var import_path5 = __toESM(require("path"), 1);
+var import_os6 = __toESM(require("os"), 1);
 var import_child_process4 = require("child_process");
 var import_crypto2 = require("crypto");
-var fsp = import_fs5.default.promises;
+var fsp = import_fs6.default.promises;
 var CURSOR_MIN_VERSION = "3.30.14";
 var CURSOR_HOOK_MARKER = "agent-deck-cursor-hook";
 var CURSOR_HOOK_VERSION = 1;
@@ -8869,15 +8997,15 @@ var CURSOR_HOOK_EVENTS = [
   "preCompact",
   "stop"
 ];
-var cursorEventsDir = (homeDir = import_os5.default.homedir()) => import_path4.default.join(homeDir, ".agent-deck", "cursor-events");
-var cursorHooksDir = (homeDir = import_os5.default.homedir()) => import_path4.default.join(homeDir, ".agent-deck", "hooks");
-var cursorHookScriptPath = (homeDir = import_os5.default.homedir()) => import_path4.default.join(cursorHooksDir(homeDir), "cursor-hook.mjs");
-var cursorHooksJsonPath = (homeDir = import_os5.default.homedir()) => import_path4.default.join(homeDir, ".cursor", "hooks.json");
-var cursorTrackingDbPath = (homeDir = import_os5.default.homedir()) => import_path4.default.join(homeDir, ".cursor", "ai-tracking", "ai-code-tracking.db");
-function cursorStateDbPath(homeDir = import_os5.default.homedir(), platform = process.platform, env = process.env) {
-  if (platform === "win32") return import_path4.default.join(env.APPDATA || import_path4.default.join(homeDir, "AppData", "Roaming"), "Cursor", "User", "globalStorage", "state.vscdb");
-  if (platform === "darwin") return import_path4.default.join(homeDir, "Library", "Application Support", "Cursor", "User", "globalStorage", "state.vscdb");
-  return import_path4.default.join(homeDir, ".config", "Cursor", "User", "globalStorage", "state.vscdb");
+var cursorEventsDir = (homeDir = import_os6.default.homedir()) => import_path5.default.join(homeDir, ".agent-deck", "cursor-events");
+var cursorHooksDir = (homeDir = import_os6.default.homedir()) => import_path5.default.join(homeDir, ".agent-deck", "hooks");
+var cursorHookScriptPath = (homeDir = import_os6.default.homedir()) => import_path5.default.join(cursorHooksDir(homeDir), "cursor-hook.mjs");
+var cursorHooksJsonPath = (homeDir = import_os6.default.homedir()) => import_path5.default.join(homeDir, ".cursor", "hooks.json");
+var cursorTrackingDbPath = (homeDir = import_os6.default.homedir()) => import_path5.default.join(homeDir, ".cursor", "ai-tracking", "ai-code-tracking.db");
+function cursorStateDbPath(homeDir = import_os6.default.homedir(), platform = process.platform, env = process.env) {
+  if (platform === "win32") return import_path5.default.join(env.APPDATA || import_path5.default.join(homeDir, "AppData", "Roaming"), "Cursor", "User", "globalStorage", "state.vscdb");
+  if (platform === "darwin") return import_path5.default.join(homeDir, "Library", "Application Support", "Cursor", "User", "globalStorage", "state.vscdb");
+  return import_path5.default.join(homeDir, ".config", "Cursor", "User", "globalStorage", "state.vscdb");
 }
 function parseSemver(ver) {
   const m = /(\d+)\.(\d+)\.(\d+)/.exec(String(ver || ""));
@@ -8896,39 +9024,39 @@ function isSupportedCursorVersion(ver) {
 function writeAtomicSync(file, data, mode) {
   const tmp = `${file}.${(0, import_crypto2.randomUUID)()}.tmp`;
   try {
-    import_fs5.default.mkdirSync(import_path4.default.dirname(file), { recursive: true });
-    import_fs5.default.writeFileSync(tmp, data, mode ? { encoding: "utf8", mode } : "utf8");
+    import_fs6.default.mkdirSync(import_path5.default.dirname(file), { recursive: true });
+    import_fs6.default.writeFileSync(tmp, data, mode ? { encoding: "utf8", mode } : "utf8");
     if (mode) try {
-      import_fs5.default.chmodSync(tmp, mode);
+      import_fs6.default.chmodSync(tmp, mode);
     } catch {
     }
-    import_fs5.default.renameSync(tmp, file);
+    import_fs6.default.renameSync(tmp, file);
   } finally {
     try {
-      import_fs5.default.unlinkSync(tmp);
+      import_fs6.default.unlinkSync(tmp);
     } catch {
     }
   }
 }
 var quoteShell = (s) => `"${String(s || "").replace(/(["\\$`])/g, "\\$1")}"`;
-function findNodeBinary(homeDir = import_os5.default.homedir()) {
-  const baseExec = import_path4.default.basename(process.execPath || "").toLowerCase();
+function findNodeBinary(homeDir = import_os6.default.homedir()) {
+  const baseExec = import_path5.default.basename(process.execPath || "").toLowerCase();
   if (baseExec === "node" || baseExec === "node.exe") return process.execPath;
   const candidates = [
     "/opt/homebrew/bin/node",
     "/usr/local/bin/node"
   ];
   try {
-    const nvmDir = import_path4.default.join(homeDir, ".nvm", "versions", "node");
-    if (import_fs5.default.existsSync(nvmDir)) {
-      const vers = import_fs5.default.readdirSync(nvmDir).sort().reverse();
-      for (const v of vers) candidates.push(import_path4.default.join(nvmDir, v, "bin", "node"));
+    const nvmDir = import_path5.default.join(homeDir, ".nvm", "versions", "node");
+    if (import_fs6.default.existsSync(nvmDir)) {
+      const vers = import_fs6.default.readdirSync(nvmDir).sort().reverse();
+      for (const v of vers) candidates.push(import_path5.default.join(nvmDir, v, "bin", "node"));
     }
   } catch {
   }
   for (const c of candidates) {
     try {
-      if (import_fs5.default.existsSync(c)) return c;
+      if (import_fs6.default.existsSync(c)) return c;
     } catch {
     }
   }
@@ -9078,27 +9206,27 @@ if (event === "sessionStart" || event === "beforeSubmitPrompt") {
 var isDeckHookEntry = (entry) => typeof entry?.command === "string" && entry.command.includes("cursor-hook.mjs");
 function readHooksJson(file) {
   try {
-    const parsed = JSON.parse(import_fs5.default.readFileSync(file, "utf8"));
+    const parsed = JSON.parse(import_fs6.default.readFileSync(file, "utf8"));
     return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : { version: 1, hooks: {} };
   } catch {
     return { version: 1, hooks: {} };
   }
 }
-function cursorHooksStatus({ homeDir = import_os5.default.homedir() } = {}) {
+function cursorHooksStatus({ homeDir = import_os6.default.homedir() } = {}) {
   const scriptPath = cursorHookScriptPath(homeDir);
   const hooksPath = cursorHooksJsonPath(homeDir);
-  const scriptExists = import_fs5.default.existsSync(scriptPath);
+  const scriptExists = import_fs6.default.existsSync(scriptPath);
   let scriptUpToDate = false;
   if (scriptExists) {
     try {
-      const content = import_fs5.default.readFileSync(scriptPath, "utf8");
+      const content = import_fs6.default.readFileSync(scriptPath, "utf8");
       scriptUpToDate = content.includes(`${CURSOR_HOOK_MARKER} v${CURSOR_HOOK_VERSION}`);
     } catch {
       scriptUpToDate = false;
     }
   }
   let matchedEvents = 0;
-  if (import_fs5.default.existsSync(hooksPath)) {
+  if (import_fs6.default.existsSync(hooksPath)) {
     const cfg = readHooksJson(hooksPath);
     const hooks = cfg.hooks && typeof cfg.hooks === "object" ? cfg.hooks : {};
     for (const ev of CURSOR_HOOK_EVENTS) {
@@ -9110,11 +9238,11 @@ function cursorHooksStatus({ homeDir = import_os5.default.homedir() } = {}) {
   const outdated = scriptExists && !scriptUpToDate || matchedEvents > 0 && matchedEvents < CURSOR_HOOK_EVENTS.length;
   return { installed, outdated, matchedEvents, totalEvents: CURSOR_HOOK_EVENTS.length, scriptExists, scriptPath, hooksPath };
 }
-function installCursorHooks({ homeDir = import_os5.default.homedir(), nodePath = "" } = {}) {
+function installCursorHooks({ homeDir = import_os6.default.homedir(), nodePath = "" } = {}) {
   const scriptPath = cursorHookScriptPath(homeDir);
   const hooksPath = cursorHooksJsonPath(homeDir);
   const eventsDir = cursorEventsDir(homeDir);
-  import_fs5.default.mkdirSync(eventsDir, { recursive: true });
+  import_fs6.default.mkdirSync(eventsDir, { recursive: true });
   writeAtomicSync(scriptPath, cursorHookScript(), 493);
   const node = nodePath || findNodeBinary(homeDir);
   const cfg = readHooksJson(hooksPath);
@@ -9129,10 +9257,10 @@ function installCursorHooks({ homeDir = import_os5.default.homedir(), nodePath =
   writeAtomicSync(hooksPath, JSON.stringify(cfg, null, 2) + "\n");
   return { scriptPath, hooksPath, eventsDir };
 }
-function uninstallCursorHooks({ homeDir = import_os5.default.homedir() } = {}) {
+function uninstallCursorHooks({ homeDir = import_os6.default.homedir() } = {}) {
   const scriptPath = cursorHookScriptPath(homeDir);
   const hooksPath = cursorHooksJsonPath(homeDir);
-  if (import_fs5.default.existsSync(hooksPath)) {
+  if (import_fs6.default.existsSync(hooksPath)) {
     const cfg = readHooksJson(hooksPath);
     const hooks = cfg.hooks && typeof cfg.hooks === "object" && !Array.isArray(cfg.hooks) ? { ...cfg.hooks } : {};
     for (const ev of Object.keys(hooks)) {
@@ -9145,7 +9273,7 @@ function uninstallCursorHooks({ homeDir = import_os5.default.homedir() } = {}) {
     writeAtomicSync(hooksPath, JSON.stringify(cfg, null, 2) + "\n");
   }
   try {
-    if (import_fs5.default.existsSync(scriptPath)) import_fs5.default.unlinkSync(scriptPath);
+    if (import_fs6.default.existsSync(scriptPath)) import_fs6.default.unlinkSync(scriptPath);
   } catch {
   }
   return { scriptPath, hooksPath };
@@ -9165,7 +9293,7 @@ function isCursorRunning({ platform = process.platform, exec: exec2 = import_chi
 }
 function sqliteRows(db, sql) {
   return new Promise((resolve) => {
-    if (!import_fs5.default.existsSync(db)) return resolve([]);
+    if (!import_fs6.default.existsSync(db)) return resolve([]);
     (0, import_child_process4.execFile)(resolveSqliteBinary(), ["-noheader", "-separator", "	", db, sql], { timeout: 5e3, maxBuffer: 4 << 20 }, (err2, out) => {
       if (err2) return resolve([]);
       resolve(String(out || "").split("\n").map((s) => s.trimEnd()).filter(Boolean));
@@ -9173,7 +9301,7 @@ function sqliteRows(db, sql) {
   });
 }
 var sqlQuote = (s) => `'${String(s || "").replaceAll("'", "''")}'`;
-async function readCursorDbMeta(sids, { homeDir = import_os5.default.homedir() } = {}) {
+async function readCursorDbMeta(sids, { homeDir = import_os6.default.homedir() } = {}) {
   const list = [...new Set((sids || []).filter(Boolean))];
   const out = /* @__PURE__ */ new Map();
   if (!list.length) return out;
@@ -9663,7 +9791,7 @@ async function readCursorTranscript(eventsText, fallbackPath = "") {
     } catch {
     }
   }
-  if (!transcriptPath || !import_fs5.default.existsSync(transcriptPath)) return { path: "", mtime: 0, size: 0, text: "" };
+  if (!transcriptPath || !import_fs6.default.existsSync(transcriptPath)) return { path: "", mtime: 0, size: 0, text: "" };
   try {
     const st = await fsp.stat(transcriptPath);
     const text = await fsp.readFile(transcriptPath, "utf8");
@@ -9913,8 +10041,8 @@ function ingestCodexLine(ctx, line, fc, touched) {
     fc.sid = p2.id || fc.sid;
     fc.cwd = p2.cwd || fc.cwd;
     fc.app = p2.originator || fc.app || "codex";
-    const spawn6 = p2.source && typeof p2.source === "object" && p2.source.subagent && p2.source.subagent.thread_spawn;
-    const parent = p2.parent_thread_id || spawn6 && spawn6.parent_thread_id || "";
+    const spawn8 = p2.source && typeof p2.source === "object" && p2.source.subagent && p2.source.subagent.thread_spawn;
+    const parent = p2.parent_thread_id || spawn8 && spawn8.parent_thread_id || "";
     if (parent && parent !== fc.sid) {
       fc.parentSid = String(parent);
       usage.noteMeta(fc, fc.sid, { parentSid: fc.parentSid });
@@ -10387,13 +10515,13 @@ function ingestAgentLine(agent, ctx, line, fc, touched) {
 }
 
 // src/grok-bot-sessions.js
-var import_fs6 = __toESM(require("fs"), 1);
-var import_path5 = __toESM(require("path"), 1);
-var import_os6 = __toESM(require("os"), 1);
+var import_fs7 = __toESM(require("fs"), 1);
+var import_path6 = __toESM(require("path"), 1);
+var import_os7 = __toESM(require("os"), 1);
 var BASE32_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 var BASE32_LOOKUP = new Map([...BASE32_ALPHA].map((ch, idx) => [ch, idx]));
 function decodeSandBlobKey(filename) {
-  const stem = import_path5.default.basename(String(filename || "")).replace(/\.blob$/i, "").toUpperCase();
+  const stem = import_path6.default.basename(String(filename || "")).replace(/\.blob$/i, "").toUpperCase();
   if (!stem || !/^[A-Z2-7]+$/.test(stem)) return "";
   let bits = 0;
   let value = 0;
@@ -10410,15 +10538,15 @@ function decodeSandBlobKey(filename) {
   }
   return Buffer.from(bytes).toString("utf8");
 }
-function grokBotDataDir(homeDir = import_os6.default.homedir(), platform = process.platform, env = process.env) {
-  if (platform === "win32") return import_path5.default.join(env.APPDATA || import_path5.default.join(homeDir, "AppData", "Roaming"), "Grok Bot");
-  if (platform === "darwin") return import_path5.default.join(homeDir, "Library", "Application Support", "Grok Bot");
-  return import_path5.default.join(env.XDG_CONFIG_HOME || import_path5.default.join(homeDir, ".config"), "Grok Bot");
+function grokBotDataDir(homeDir = import_os7.default.homedir(), platform = process.platform, env = process.env) {
+  if (platform === "win32") return import_path6.default.join(env.APPDATA || import_path6.default.join(homeDir, "AppData", "Roaming"), "Grok Bot");
+  if (platform === "darwin") return import_path6.default.join(homeDir, "Library", "Application Support", "Grok Bot");
+  return import_path6.default.join(env.XDG_CONFIG_HOME || import_path6.default.join(homeDir, ".config"), "Grok Bot");
 }
-var grokBotPersistenceDir = (homeDir = import_os6.default.homedir(), platform = process.platform, env = process.env) => import_path5.default.join(grokBotDataDir(homeDir, platform, env), "sand-client-persistence");
+var grokBotPersistenceDir = (homeDir = import_os7.default.homedir(), platform = process.platform, env = process.env) => import_path6.default.join(grokBotDataDir(homeDir, platform, env), "sand-client-persistence");
 function safeReadJsonSync(filePath) {
   try {
-    return JSON.parse(import_fs6.default.readFileSync(filePath, "utf8"));
+    return JSON.parse(import_fs7.default.readFileSync(filePath, "utf8"));
   } catch {
     return null;
   }
@@ -10434,7 +10562,7 @@ function discoverGrokBotStorage(opts = {}) {
   const dir = opts.persistenceDir || grokBotPersistenceDir(opts.homeDir, opts.platform, opts.env);
   let names;
   try {
-    names = import_fs6.default.readdirSync(dir);
+    names = import_fs7.default.readdirSync(dir);
   } catch {
     return { accountId: "", persistenceDir: dir, bots: [] };
   }
@@ -10445,7 +10573,7 @@ function discoverGrokBotStorage(opts = {}) {
     if (!name.endsWith(".blob")) continue;
     const key = decodeSandBlobKey(name);
     if (!key) continue;
-    const fullPath = import_path5.default.join(dir, name);
+    const fullPath = import_path6.default.join(dir, name);
     if (key === "sand.client.slice.client-meta.account-slot") {
       const slot = safeReadJsonSync(fullPath);
       if (typeof slot?.value === "string") activeAccount = slot.value;
@@ -10472,7 +10600,7 @@ function discoverGrokBotStorage(opts = {}) {
       const key = decodeSandBlobKey(name);
       const trMatch = /^sand\.client\.slice\.account\.([^.]+)\.transcript\.replicas\.([^.]+)$/.exec(key);
       if (trMatch && decodeAccountId(trMatch[1]) === activeAccount) {
-        transcripts.set(trMatch[2], { path: import_path5.default.join(dir, name), accountId: activeAccount });
+        transcripts.set(trMatch[2], { path: import_path6.default.join(dir, name), accountId: activeAccount });
       }
     }
   }
@@ -10757,24 +10885,24 @@ function buildGrokBotConversation(rawText, botMeta = {}) {
 }
 
 // src/muse-sessions.js
-var import_fs7 = __toESM(require("fs"), 1);
-var import_path6 = __toESM(require("path"), 1);
-var import_os7 = __toESM(require("os"), 1);
+var import_fs8 = __toESM(require("fs"), 1);
+var import_path7 = __toESM(require("path"), 1);
+var import_os8 = __toESM(require("os"), 1);
 var APPLE_EPOCH_MS = Date.UTC(2001, 0, 1);
 var expandHome = (p2, homeDir) => String(p2 || "").replace(/^~(?=\/)/, homeDir);
-function museCacheDir(homeDir = import_os7.default.homedir(), platform = process.platform, env = process.env) {
+function museCacheDir(homeDir = import_os8.default.homedir(), platform = process.platform, env = process.env) {
   if (env?.MUSE_CACHE_DIR) return expandHome(env.MUSE_CACHE_DIR, homeDir);
-  if (platform === "darwin") return import_path6.default.join(homeDir, "Library", "Caches", "ConversationCache");
+  if (platform === "darwin") return import_path7.default.join(homeDir, "Library", "Caches", "ConversationCache");
   return "";
 }
-function museDataDirs(homeDir = import_os7.default.homedir(), platform = process.platform, env = process.env) {
+function museDataDirs(homeDir = import_os8.default.homedir(), platform = process.platform, env = process.env) {
   const dirs = [];
   const cacheDir = museCacheDir(homeDir, platform, env);
   if (cacheDir) dirs.push(cacheDir);
   if (platform === "darwin") {
     dirs.push(
-      import_path6.default.join(homeDir, "Library", "Application Support", "com.meta.endo"),
-      import_path6.default.join(homeDir, "Library", "Application Support", "Hatch")
+      import_path7.default.join(homeDir, "Library", "Application Support", "com.meta.endo"),
+      import_path7.default.join(homeDir, "Library", "Application Support", "Hatch")
     );
   }
   return dirs;
@@ -10826,7 +10954,7 @@ function extractMuseTool(msg) {
 function inferMuseTitle(id, filePath) {
   if (id === "hatch-main") return "Muse";
   try {
-    const raw = JSON.parse(import_fs7.default.readFileSync(filePath, "utf8"));
+    const raw = JSON.parse(import_fs8.default.readFileSync(filePath, "utf8"));
     if (Array.isArray(raw)) {
       const firstUser = raw.find((m) => m && m.isUser && typeof m.content === "string" && m.content.trim());
       if (firstUser) {
@@ -10843,19 +10971,19 @@ function discoverMuseConversations(opts = {}) {
   if (!cacheDir) return { cacheDir: "", conversations: [] };
   let names;
   try {
-    names = import_fs7.default.readdirSync(cacheDir);
+    names = import_fs8.default.readdirSync(cacheDir);
   } catch {
     return { cacheDir, conversations: [] };
   }
   const conversations = [];
   for (const name of names) {
     if (!name.endsWith(".json") || name.startsWith(".")) continue;
-    const id = import_path6.default.basename(name, ".json");
+    const id = import_path7.default.basename(name, ".json");
     if (!id) continue;
-    const filePath = import_path6.default.join(cacheDir, name);
+    const filePath = import_path7.default.join(cacheDir, name);
     let mtimeMs = 0;
     try {
-      mtimeMs = import_fs7.default.statSync(filePath).mtimeMs || 0;
+      mtimeMs = import_fs8.default.statSync(filePath).mtimeMs || 0;
     } catch {
     }
     conversations.push({
@@ -10938,20 +11066,20 @@ function buildMuseConversation(rawText) {
 }
 
 // src/kimicode-sessions.js
-var import_fs8 = __toESM(require("fs"), 1);
-var import_path7 = __toESM(require("path"), 1);
-var import_os8 = __toESM(require("os"), 1);
+var import_fs9 = __toESM(require("fs"), 1);
+var import_path8 = __toESM(require("path"), 1);
+var import_os9 = __toESM(require("os"), 1);
 var expandHome2 = (p2, homeDir) => String(p2 || "").replace(/^~(?=\/)/, homeDir);
-function kimiCodeDataDirs(homeDir = import_os8.default.homedir(), env = process.env) {
+function kimiCodeDataDirs(homeDir = import_os9.default.homedir(), env = process.env) {
   const dirs = [];
   const push = (p2) => {
     const clean2 = expandHome2(p2, homeDir).trim();
     if (clean2 && !dirs.includes(clean2)) dirs.push(clean2);
   };
   if (env?.KIMI_CODE_HOME) push(env.KIMI_CODE_HOME);
-  push(import_path7.default.join(homeDir, ".kimi-code"));
+  push(import_path8.default.join(homeDir, ".kimi-code"));
   if (env?.KIMI_HOME) push(env.KIMI_HOME);
-  push(import_path7.default.join(homeDir, ".kimi"));
+  push(import_path8.default.join(homeDir, ".kimi"));
   return dirs;
 }
 function kimiCodeTime(value) {
@@ -10968,14 +11096,14 @@ function kimiCodeTime(value) {
 }
 function readJsonSafe(filePath) {
   try {
-    return JSON.parse(import_fs8.default.readFileSync(filePath, "utf8"));
+    return JSON.parse(import_fs9.default.readFileSync(filePath, "utf8"));
   } catch {
     return null;
   }
 }
 function loadWorkspaceMap(baseDir) {
   const map = /* @__PURE__ */ new Map();
-  const data = readJsonSafe(import_path7.default.join(baseDir, "workspaces.json"));
+  const data = readJsonSafe(import_path8.default.join(baseDir, "workspaces.json"));
   const ws = data?.workspaces;
   if (!ws || typeof ws !== "object") return map;
   for (const [id, entry] of Object.entries(ws)) {
@@ -11030,37 +11158,37 @@ function discoverKimiCodeSessions(opts = {}) {
   const sessions = [];
   const seen = /* @__PURE__ */ new Set();
   for (const baseDir of dirs) {
-    const sessionsRoot = import_path7.default.join(baseDir, "sessions");
+    const sessionsRoot = import_path8.default.join(baseDir, "sessions");
     let wsEntries;
     try {
-      wsEntries = import_fs8.default.readdirSync(sessionsRoot, { withFileTypes: true });
+      wsEntries = import_fs9.default.readdirSync(sessionsRoot, { withFileTypes: true });
     } catch {
       continue;
     }
     const wsMap = loadWorkspaceMap(baseDir);
     for (const wsEnt of wsEntries) {
       if (!wsEnt.isDirectory() || wsEnt.name.startsWith(".")) continue;
-      const wsDir = import_path7.default.join(sessionsRoot, wsEnt.name);
+      const wsDir = import_path8.default.join(sessionsRoot, wsEnt.name);
       let sessEntries;
       try {
-        sessEntries = import_fs8.default.readdirSync(wsDir, { withFileTypes: true });
+        sessEntries = import_fs9.default.readdirSync(wsDir, { withFileTypes: true });
       } catch {
         continue;
       }
       for (const sEnt of sessEntries) {
         if (!sEnt.isDirectory() || sEnt.name.startsWith(".")) continue;
         const sessionId = sEnt.name;
-        const sessionDir = import_path7.default.join(wsDir, sessionId);
-        const wirePath = import_path7.default.join(sessionDir, "wire.jsonl");
-        const metaPath = import_path7.default.join(sessionDir, "session-meta", "state.json");
+        const sessionDir = import_path8.default.join(wsDir, sessionId);
+        const wirePath = import_path8.default.join(sessionDir, "wire.jsonl");
+        const metaPath = import_path8.default.join(sessionDir, "session-meta", "state.json");
         let wireStat = null;
         try {
-          wireStat = import_fs8.default.statSync(wirePath);
+          wireStat = import_fs9.default.statSync(wirePath);
         } catch {
         }
         let metaStat = null;
         try {
-          metaStat = import_fs8.default.statSync(metaPath);
+          metaStat = import_fs9.default.statSync(metaPath);
         } catch {
         }
         if (!wireStat && !metaStat) continue;
@@ -11284,12 +11412,12 @@ function buildKimiCodeConversation(source) {
   if (!filePath) return [];
   let wireText = "";
   try {
-    wireText = import_fs8.default.readFileSync(filePath, "utf8");
+    wireText = import_fs9.default.readFileSync(filePath, "utf8");
   } catch {
     return [];
   }
-  const sessionDir = import_path7.default.dirname(filePath);
-  const meta = readJsonSafe(import_path7.default.join(sessionDir, "session-meta", "state.json")) || {};
+  const sessionDir = import_path8.default.dirname(filePath);
+  const meta = readJsonSafe(import_path8.default.join(sessionDir, "session-meta", "state.json")) || {};
   const parsed = parseKimiCodeSession(wireText, meta);
   const out = [];
   for (const e of parsed.entries) {
@@ -11306,26 +11434,26 @@ function buildKimiCodeConversation(source) {
 }
 
 // src/doubaowork-sessions.js
-var import_fs9 = __toESM(require("fs"), 1);
-var import_path8 = __toESM(require("path"), 1);
-var import_os9 = __toESM(require("os"), 1);
+var import_fs10 = __toESM(require("fs"), 1);
+var import_path9 = __toESM(require("path"), 1);
+var import_os10 = __toESM(require("os"), 1);
 var expandHome3 = (p2, homeDir) => String(p2 || "").replace(/^~(?=\/)/, homeDir);
-function doubaoWorkDataDir(homeDir = import_os9.default.homedir(), platform = process.platform, env = process.env) {
+function doubaoWorkDataDir(homeDir = import_os10.default.homedir(), platform = process.platform, env = process.env) {
   if (env?.DOUBAOWORK_DATA_DIR) return expandHome3(env.DOUBAOWORK_DATA_DIR, homeDir);
-  if (platform === "darwin") return import_path8.default.join(homeDir, "Library", "Application Support", "DoubaoWork");
+  if (platform === "darwin") return import_path9.default.join(homeDir, "Library", "Application Support", "DoubaoWork");
   if (platform === "win32") {
-    const appData = env?.APPDATA || import_path8.default.join(homeDir, "AppData", "Roaming");
-    const localAppData = env?.LOCALAPPDATA || import_path8.default.join(homeDir, "AppData", "Local");
-    const roaming = import_path8.default.join(appData, "DoubaoWork");
-    if (import_fs9.default.existsSync(roaming)) return roaming;
-    return import_path8.default.join(localAppData, "DoubaoWork");
+    const appData = env?.APPDATA || import_path9.default.join(homeDir, "AppData", "Roaming");
+    const localAppData = env?.LOCALAPPDATA || import_path9.default.join(homeDir, "AppData", "Local");
+    const roaming = import_path9.default.join(appData, "DoubaoWork");
+    if (import_fs10.default.existsSync(roaming)) return roaming;
+    return import_path9.default.join(localAppData, "DoubaoWork");
   }
-  return import_path8.default.join(env?.XDG_CONFIG_HOME || import_path8.default.join(homeDir, ".config"), "DoubaoWork");
+  return import_path9.default.join(env?.XDG_CONFIG_HOME || import_path9.default.join(homeDir, ".config"), "DoubaoWork");
 }
-function doubaoWorkIndexedDbDir(homeDir = import_os9.default.homedir(), platform = process.platform, env = process.env) {
+function doubaoWorkIndexedDbDir(homeDir = import_os10.default.homedir(), platform = process.platform, env = process.env) {
   const base = doubaoWorkDataDir(homeDir, platform, env);
   if (!base) return "";
-  return import_path8.default.join(base, "Default", "IndexedDB", "chrome_doubaowork-chat_0.indexeddb.leveldb");
+  return import_path9.default.join(base, "Default", "IndexedDB", "chrome_doubaowork-chat_0.indexeddb.leveldb");
 }
 function snappyUncompress(src) {
   if (!Buffer.isBuffer(src) || src.length < 2) return null;
@@ -11513,7 +11641,7 @@ function discoverDoubaoWorkConversations(opts = {}) {
   if (!idbDir) return { indexedDbDir: "", conversations: [], mtimeMs: 0, size: 0 };
   let names;
   try {
-    names = import_fs9.default.readdirSync(idbDir);
+    names = import_fs10.default.readdirSync(idbDir);
   } catch {
     return { indexedDbDir: idbDir, conversations: [], mtimeMs: 0, size: 0 };
   }
@@ -11523,10 +11651,10 @@ function discoverDoubaoWorkConversations(opts = {}) {
   let maxMtime = 0;
   let totalSize = 0;
   for (const name of dataFiles) {
-    const filePath = import_path8.default.join(idbDir, name);
+    const filePath = import_path9.default.join(idbDir, name);
     let st;
     try {
-      st = import_fs9.default.statSync(filePath);
+      st = import_fs10.default.statSync(filePath);
     } catch {
       continue;
     }
@@ -11535,7 +11663,7 @@ function discoverDoubaoWorkConversations(opts = {}) {
     if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs;
     let raw;
     try {
-      raw = import_fs9.default.readFileSync(filePath);
+      raw = import_fs10.default.readFileSync(filePath);
     } catch {
       continue;
     }
@@ -11559,7 +11687,7 @@ function discoverDoubaoWorkConversations(opts = {}) {
 function buildDoubaoWorkConversation(source) {
   const [dirOrFile, sid] = String(source || "").split("#");
   if (!dirOrFile || !sid) return [];
-  const indexedDbDir = import_fs9.default.existsSync(dirOrFile) && import_fs9.default.statSync(dirOrFile).isDirectory() ? dirOrFile : import_path8.default.dirname(dirOrFile);
+  const indexedDbDir = import_fs10.default.existsSync(dirOrFile) && import_fs10.default.statSync(dirOrFile).isDirectory() ? dirOrFile : import_path9.default.dirname(dirOrFile);
   const { conversations } = discoverDoubaoWorkConversations({ indexedDbDir });
   const conv = conversations.find((c) => c.id === sid);
   if (!conv) return [];
@@ -11572,13 +11700,13 @@ function buildDoubaoWorkConversation(source) {
 }
 
 // src/gemini-cli-sessions.js
-var import_fs10 = __toESM(require("fs"), 1);
-var import_path9 = __toESM(require("path"), 1);
-var import_os10 = __toESM(require("os"), 1);
+var import_fs11 = __toESM(require("fs"), 1);
+var import_path10 = __toESM(require("path"), 1);
+var import_os11 = __toESM(require("os"), 1);
 var expandHome4 = (p2, homeDir) => String(p2 || "").replace(/^~(?=\/)/, homeDir);
-function geminiCliHome(homeDir = import_os10.default.homedir(), env = process.env) {
+function geminiCliHome(homeDir = import_os11.default.homedir(), env = process.env) {
   if (env?.GEMINI_CLI_HOME) return expandHome4(env.GEMINI_CLI_HOME, homeDir);
-  return import_path9.default.join(homeDir, ".gemini");
+  return import_path10.default.join(homeDir, ".gemini");
 }
 function parseIsoMs(value) {
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
@@ -11612,7 +11740,7 @@ function extractGeminiText(content) {
 function loadProjectMap(baseDir) {
   const map = /* @__PURE__ */ new Map();
   try {
-    const raw = JSON.parse(import_fs10.default.readFileSync(import_path9.default.join(baseDir, "projects.json"), "utf8"));
+    const raw = JSON.parse(import_fs11.default.readFileSync(import_path10.default.join(baseDir, "projects.json"), "utf8"));
     const projects = raw?.projects;
     if (projects && typeof projects === "object") {
       for (const [absPath, slug] of Object.entries(projects)) {
@@ -11627,10 +11755,10 @@ function loadProjectMap(baseDir) {
 }
 function discoverGeminiCliSessions(opts = {}) {
   const baseDir = opts.baseDir || geminiCliHome(opts.homeDir, opts.env);
-  const tmpDir = import_path9.default.join(baseDir, "tmp");
+  const tmpDir = import_path10.default.join(baseDir, "tmp");
   let projectDirs;
   try {
-    projectDirs = import_fs10.default.readdirSync(tmpDir, { withFileTypes: true });
+    projectDirs = import_fs11.default.readdirSync(tmpDir, { withFileTypes: true });
   } catch {
     return { baseDir, sessions: [] };
   }
@@ -11639,27 +11767,27 @@ function discoverGeminiCliSessions(opts = {}) {
   for (const ent of projectDirs) {
     if (!ent.isDirectory() || ent.name.startsWith(".")) continue;
     const slug = ent.name;
-    const projDir = import_path9.default.join(tmpDir, slug);
-    const chatsDir = import_path9.default.join(projDir, "chats");
+    const projDir = import_path10.default.join(tmpDir, slug);
+    const chatsDir = import_path10.default.join(projDir, "chats");
     let files;
     try {
-      files = import_fs10.default.readdirSync(chatsDir);
+      files = import_fs11.default.readdirSync(chatsDir);
     } catch {
       continue;
     }
     let cwd = projectMap.get(slug) || "";
     if (!cwd) {
       try {
-        cwd = import_fs10.default.readFileSync(import_path9.default.join(projDir, ".project_root"), "utf8").trim();
+        cwd = import_fs11.default.readFileSync(import_path10.default.join(projDir, ".project_root"), "utf8").trim();
       } catch {
       }
     }
     for (const name of files) {
       if (!name.startsWith("session-") || !name.endsWith(".jsonl") && !name.endsWith(".json")) continue;
-      const filePath = import_path9.default.join(chatsDir, name);
+      const filePath = import_path10.default.join(chatsDir, name);
       let st;
       try {
-        st = import_fs10.default.statSync(filePath);
+        st = import_fs11.default.statSync(filePath);
       } catch {
         continue;
       }
@@ -11742,7 +11870,7 @@ function parseGeminiCliSession(rawText, fallback = {}) {
     }
     rawMessages = order.map((id) => byId.get(id)).filter(Boolean);
   }
-  const sid = String(meta.sessionId || fallback.id || import_path9.default.basename(fallback.filePath || "").replace(/\.(jsonl|json)$/, "")).trim();
+  const sid = String(meta.sessionId || fallback.id || import_path10.default.basename(fallback.filePath || "").replace(/\.(jsonl|json)$/, "")).trim();
   if (!sid) return null;
   let startedAt = parseIsoMs(meta.startTime);
   let lastAt = parseIsoMs(meta.lastUpdated);
@@ -11817,7 +11945,7 @@ function buildGeminiCliConversation(source) {
   if (!filePath) return [];
   let rawText = "";
   try {
-    rawText = import_fs10.default.readFileSync(filePath, "utf8");
+    rawText = import_fs11.default.readFileSync(filePath, "utf8");
   } catch {
     return [];
   }
@@ -11836,8 +11964,8 @@ function buildGeminiCliConversation(source) {
 }
 
 // src/readers.js
-var import_path10 = __toESM(require("path"), 1);
-var import_os11 = __toESM(require("os"), 1);
+var import_path11 = __toESM(require("path"), 1);
+var import_os12 = __toESM(require("os"), 1);
 var import_child_process5 = require("child_process");
 
 // node_modules/fzstd/esm/index.mjs
@@ -12465,17 +12593,17 @@ function decompress(dat, buf) {
 var import_zlib = __toESM(require("zlib"), 1);
 var import_util = require("util");
 var import_crypto3 = require("crypto");
-var fsp2 = import_fs11.default.promises;
+var fsp2 = import_fs12.default.promises;
 var temporaryFile = (file) => `${file}.${(0, import_crypto3.randomUUID)()}.tmp`;
 function writeAtomicSync2(file, data) {
   const tmp = temporaryFile(file);
   try {
-    import_fs11.default.mkdirSync(import_path10.default.dirname(file), { recursive: true });
-    import_fs11.default.writeFileSync(tmp, data);
-    import_fs11.default.renameSync(tmp, file);
+    import_fs12.default.mkdirSync(import_path11.default.dirname(file), { recursive: true });
+    import_fs12.default.writeFileSync(tmp, data);
+    import_fs12.default.renameSync(tmp, file);
   } finally {
     try {
-      import_fs11.default.unlinkSync(tmp);
+      import_fs12.default.unlinkSync(tmp);
     } catch {
     }
   }
@@ -12485,21 +12613,21 @@ var gunzipAsync = (0, import_util.promisify)(import_zlib.default.gunzip);
 var AI_IDLE = 5;
 var LIVE_STALE = 90 * 1e3;
 var MAX_TS = 2e4;
-var home2 = () => import_os11.default.homedir();
+var home2 = () => import_os12.default.homedir();
 var norm = (p2) => String(p2 || "").replace(/^~(?=\/)/, home2());
-var qwenWorkHome = () => process.env.QWENWORK_HOME ? norm(process.env.QWENWORK_HOME) : import_path10.default.join(home2(), ".qwenworkcn");
+var qwenWorkHome = () => process.env.QWENWORK_HOME ? norm(process.env.QWENWORK_HOME) : import_path11.default.join(home2(), ".qwenworkcn");
 var minimaxHome = () => {
   if (process.env.MINIMAX_DATA_DIR) return norm(process.env.MINIMAX_DATA_DIR);
   if (process.env.MAVIS_DATA_DIR) return norm(process.env.MAVIS_DATA_DIR);
-  const def = import_path10.default.join(home2(), ".minimax");
-  if (import_fs11.default.existsSync(def)) return def;
-  const legacy = import_path10.default.join(home2(), ".mavis");
-  return import_fs11.default.existsSync(legacy) ? legacy : def;
+  const def = import_path11.default.join(home2(), ".minimax");
+  if (import_fs12.default.existsSync(def)) return def;
+  const legacy = import_path11.default.join(home2(), ".mavis");
+  return import_fs12.default.existsSync(legacy) ? legacy : def;
 };
 var t3CodeDataDir = () => {
   if (process.env.T3_DATA_DIR) return norm(process.env.T3_DATA_DIR);
   if (process.env.T3_STATE_DIR) return norm(process.env.T3_STATE_DIR);
-  return import_path10.default.join(home2(), ".t3", "userdata");
+  return import_path11.default.join(home2(), ".t3", "userdata");
 };
 function isScratchCwd(cwd) {
   const p2 = String(cwd || "").replace(/\\/g, "/").replace(/\/+$/, "");
@@ -12529,18 +12657,18 @@ function inferWorkspaceRoot(target) {
   if (!clean2) return "";
   let dir = clean2;
   try {
-    if (import_fs11.default.existsSync(clean2) && !import_fs11.default.statSync(clean2).isDirectory()) dir = import_path10.default.dirname(clean2);
-    else if (!import_fs11.default.existsSync(clean2) && /\.[a-z0-9]{1,8}$/i.test(import_path10.default.basename(clean2))) dir = import_path10.default.dirname(clean2);
+    if (import_fs12.default.existsSync(clean2) && !import_fs12.default.statSync(clean2).isDirectory()) dir = import_path11.default.dirname(clean2);
+    else if (!import_fs12.default.existsSync(clean2) && /\.[a-z0-9]{1,8}$/i.test(import_path11.default.basename(clean2))) dir = import_path11.default.dirname(clean2);
   } catch {
   }
   const homeDir = home2().replace(/[\\/]+$/, "");
   let cur = dir;
-  for (let depth = 0; depth < 8 && cur && cur !== import_path10.default.dirname(cur) && cur !== homeDir; depth++) {
+  for (let depth = 0; depth < 8 && cur && cur !== import_path11.default.dirname(cur) && cur !== homeDir; depth++) {
     try {
-      if (WORKSPACE_MARKERS.some((m) => import_fs11.default.existsSync(import_path10.default.join(cur, m)))) return cur;
+      if (WORKSPACE_MARKERS.some((m) => import_fs12.default.existsSync(import_path11.default.join(cur, m)))) return cur;
     } catch {
     }
-    const parent = import_path10.default.dirname(cur);
+    const parent = import_path11.default.dirname(cur);
     if (!parent || parent === cur) break;
     cur = parent;
   }
@@ -12778,11 +12906,11 @@ var AgentUsage = class {
       try {
         const payload = this.cacheJSON();
         this.dirty = false;
-        await fsp2.mkdir(import_path10.default.dirname(file), { recursive: true });
+        await fsp2.mkdir(import_path11.default.dirname(file), { recursive: true });
         tmp = temporaryFile(file);
         await fsp2.writeFile(tmp, await gzipAsync(payload));
         if (epoch !== (this._cacheEpoch || 0)) return false;
-        import_fs11.default.renameSync(tmp, file);
+        import_fs12.default.renameSync(tmp, file);
         this.savedAt = Date.now();
         return true;
       } catch (e) {
@@ -12828,18 +12956,18 @@ var AgentUsage = class {
     const add = (dir, agent) => {
       if (this.enabled(agent)) out.push([norm(dir), agent]);
     };
-    add(import_path10.default.join(h, ".claude/projects"), "claude");
-    add(import_path10.default.join(h, ".config/claude/projects"), "claude");
-    for (const d of String(process.env.CLAUDE_CONFIG_DIR || "").split(",").filter(Boolean)) add(import_path10.default.join(d, "projects"), "claude");
-    add(process.env.CODEX_HOME ? import_path10.default.join(process.env.CODEX_HOME, "sessions") : import_path10.default.join(h, ".codex/sessions"), "codex");
-    add(process.env.CODEX_HOME ? import_path10.default.join(process.env.CODEX_HOME, "archived_sessions") : import_path10.default.join(h, ".codex/archived_sessions"), "codex");
-    add(import_path10.default.join(h, ".workbuddy/projects"), "workbuddy");
-    add(import_path10.default.join(h, ".codebuddy/projects"), "workbuddy");
-    add(import_path10.default.join(h, ".dsh/sessions"), "dsh");
-    add(import_path10.default.join(h, ".gemini/antigravity/brain"), "antigravity");
-    add(import_path10.default.join(h, ".gemini/antigravity-cli/brain"), "antigravity");
-    add(import_path10.default.join(h, ".qoder/projects"), "qoder");
-    add(import_path10.default.join(qwenWorkHome(), "projects"), "qwenwork");
+    add(import_path11.default.join(h, ".claude/projects"), "claude");
+    add(import_path11.default.join(h, ".config/claude/projects"), "claude");
+    for (const d of String(process.env.CLAUDE_CONFIG_DIR || "").split(",").filter(Boolean)) add(import_path11.default.join(d, "projects"), "claude");
+    add(process.env.CODEX_HOME ? import_path11.default.join(process.env.CODEX_HOME, "sessions") : import_path11.default.join(h, ".codex/sessions"), "codex");
+    add(process.env.CODEX_HOME ? import_path11.default.join(process.env.CODEX_HOME, "archived_sessions") : import_path11.default.join(h, ".codex/archived_sessions"), "codex");
+    add(import_path11.default.join(h, ".workbuddy/projects"), "workbuddy");
+    add(import_path11.default.join(h, ".codebuddy/projects"), "workbuddy");
+    add(import_path11.default.join(h, ".dsh/sessions"), "dsh");
+    add(import_path11.default.join(h, ".gemini/antigravity/brain"), "antigravity");
+    add(import_path11.default.join(h, ".gemini/antigravity-cli/brain"), "antigravity");
+    add(import_path11.default.join(h, ".qoder/projects"), "qoder");
+    add(import_path11.default.join(qwenWorkHome(), "projects"), "qwenwork");
     add(cursorEventsDir(h), "cursor");
     const seen = /* @__PURE__ */ new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
@@ -12860,7 +12988,7 @@ var AgentUsage = class {
       const files = await this.walk(root, agent === "dsh" || agent === "antigravity" ? 4 : 5, agent);
       for (const p2 of files) {
         if (agent === "qoder") {
-          const base = import_path10.default.basename(p2).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
+          const base = import_path11.default.basename(p2).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
           const baseSid = (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
           if ([...this.files.keys()].some((k) => k.endsWith(`#${baseSid}`))) continue;
         }
@@ -12898,44 +13026,47 @@ var AgentUsage = class {
     return touched;
   }
   desktopDatabases() {
-    const hHome = process.env.HERMES_HOME ? norm(process.env.HERMES_HOME) : import_path10.default.join(home2(), ".hermes");
+    const hHome = process.env.HERMES_HOME ? norm(process.env.HERMES_HOME) : import_path11.default.join(home2(), ".hermes");
     const t3Dir = t3CodeDataDir();
-    const t3V2 = import_path10.default.join(t3Dir, "statev2.sqlite");
-    const t3V1 = import_path10.default.join(t3Dir, "state.sqlite");
+    const t3V2 = import_path11.default.join(t3Dir, "statev2.sqlite");
+    const t3V1 = import_path11.default.join(t3Dir, "state.sqlite");
     const dbs = [
-      [import_path10.default.join(home2(), ".local/share/opencode/opencode.db"), "opencode"],
-      [import_path10.default.join(home2(), "Library/Application Support/com.qoder.app.stable/main.sqlite"), "qoder"],
-      [import_path10.default.join(hHome, "state.db"), "hermes"],
-      [import_path10.default.join(minimaxHome(), "v2/sqlite/runtime-state.sqlite"), "minimax"],
-      [import_fs11.default.existsSync(t3V2) ? t3V2 : t3V1, "t3code"]
+      [import_path11.default.join(home2(), ".local/share/opencode/opencode.db"), "opencode"],
+      [import_path11.default.join(home2(), "Library/Application Support/com.qoder.app.stable/main.sqlite"), "qoder"],
+      [import_path11.default.join(hHome, "state.db"), "hermes"],
+      [import_path11.default.join(minimaxHome(), "v2/sqlite/runtime-state.sqlite"), "minimax"],
+      [import_fs12.default.existsSync(t3V2) ? t3V2 : t3V1, "t3code"]
     ];
     try {
-      const profilesDir = import_path10.default.join(hHome, "profiles");
-      for (const e of import_fs11.default.readdirSync(profilesDir, { withFileTypes: true })) {
-        if (e.isDirectory()) dbs.push([import_path10.default.join(profilesDir, e.name, "state.db"), "hermes"]);
+      const profilesDir = import_path11.default.join(hHome, "profiles");
+      for (const e of import_fs12.default.readdirSync(profilesDir, { withFileTypes: true })) {
+        if (e.isDirectory()) dbs.push([import_path11.default.join(profilesDir, e.name, "state.db"), "hermes"]);
       }
     } catch {
     }
-    const qwenHarness = import_path10.default.join(qwenWorkHome(), ".harness");
+    const qwenHarness = import_path11.default.join(qwenWorkHome(), ".harness");
     try {
-      for (const e of import_fs11.default.readdirSync(qwenHarness, { withFileTypes: true })) {
+      for (const e of import_fs12.default.readdirSync(qwenHarness, { withFileTypes: true })) {
         if (!e.isDirectory()) continue;
-        const db = import_path10.default.join(qwenHarness, e.name, "qwenwork", "qwenwork.db");
-        if (import_fs11.default.existsSync(db)) dbs.push([db, "qwenwork"]);
+        const db = import_path11.default.join(qwenHarness, e.name, "qwenwork", "qwenwork.db");
+        if (import_fs12.default.existsSync(db)) dbs.push([db, "qwenwork"]);
       }
     } catch {
     }
+    for (const db of teleAgentDatabases()) dbs.push([db, "teleagent"]);
     return dbs;
   }
   async readDesktopDatabases({ floor, onlyAgent, strictSince, touched }) {
     for (const [db, agent] of this.desktopDatabases()) {
-      if (!this.enabled(agent) || onlyAgent && agent !== onlyAgent || !import_fs11.default.existsSync(db)) continue;
+      if (!this.enabled(agent) || onlyAgent && agent !== onlyAgent || !import_fs12.default.existsSync(db)) continue;
       try {
         if (agent === "t3code") {
           const delegated = await t3CodeDelegatedSids(db);
           this.t3Delegated = delegated;
         }
-        const sessions = await desktopSessions(db, agent, !strictSince && this.isPrimary(agent) ? 0 : floor);
+        const wantFull = this.settings?.desktopFullHistory === true;
+        const dbFloor = !strictSince && wantFull && this.isPrimary(agent) ? 0 : floor;
+        const sessions = await desktopSessions(db, agent, dbFloor);
         const scope = this.isPrimary(agent) ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
         for (const row of sessions) {
           const key = `${db}#${row.sid}`;
@@ -13021,7 +13152,7 @@ var AgentUsage = class {
       return out;
     }
     for (const e of ents) {
-      const p2 = import_path10.default.join(dir, e.name);
+      const p2 = import_path11.default.join(dir, e.name);
       if (e.isDirectory()) {
         if (agent === "antigravity" && (e.name === "steps" || e.name === "chunks" || e.name === "browser_sandbox" || e.name === "scratch")) continue;
         if (depth > 0) out.push(...await this.walk(p2, depth - 1, agent));
@@ -13036,7 +13167,7 @@ var AgentUsage = class {
     return out;
   }
   async readCodexTitles() {
-    const p2 = import_path10.default.join(process.env.CODEX_HOME || import_path10.default.join(home2(), ".codex"), "session_index.jsonl");
+    const p2 = import_path11.default.join(process.env.CODEX_HOME || import_path11.default.join(home2(), ".codex"), "session_index.jsonl");
     try {
       const st = await fsp2.stat(p2);
       if (st.mtimeMs === this.codexIndexAt) return;
@@ -13059,9 +13190,9 @@ var AgentUsage = class {
   //   DeepSeek Harness：storages/workspace.json 的 global.archivedSessionIds
   async readCodexArchived() {
     const out = /* @__PURE__ */ new Set();
-    const codex = process.env.CODEX_HOME || import_path10.default.join(home2(), ".codex");
+    const codex = process.env.CODEX_HOME || import_path11.default.join(home2(), ".codex");
     try {
-      for (const f of await fsp2.readdir(import_path10.default.join(codex, "archived_sessions"))) {
+      for (const f of await fsp2.readdir(import_path11.default.join(codex, "archived_sessions"))) {
         const m = /([0-9a-f]{8}-[0-9a-f-]{27})\.jsonl$/.exec(f);
         if (m) out.add(m[1]);
       }
@@ -13074,7 +13205,7 @@ var AgentUsage = class {
         try {
           const states = (await fsp2.readdir(codex)).filter((f) => /^state_\d+\.sqlite$/.test(f)).sort();
           if (!states.length) return { archived: [], titles: [] };
-          const st = import_path10.default.join(codex, states[states.length - 1]);
+          const st = import_path11.default.join(codex, states[states.length - 1]);
           const [archived, titles] = await Promise.all([
             sqliteColumn(st, "select id from threads where archived = 1"),
             sqliteColumn(st, "select id || char(9) || replace(replace(title, char(10), ' '), char(9), ' ') from threads where title != '' and updated_at > strftime('%s','now') - 30*86400")
@@ -13084,10 +13215,10 @@ var AgentUsage = class {
           return { archived: [], titles: [] };
         }
       })();
-      const wbDb = import_path10.default.join(home2(), ".workbuddy/workbuddy.db");
+      const wbDb = import_path11.default.join(home2(), ".workbuddy/workbuddy.db");
       const wbArchTask = sqliteColumn(wbDb, "select id from sessions where status = 'archived' or deleted_at is not null");
       const wbRowsTask = sqliteColumn(wbDb, "select id || char(9) || replace(replace(coalesce(nullif(custom_title,''), title, ''), char(10), ' '), char(9), ' ') || char(9) || coalesce(cwd,'') || char(9) || coalesce(model,'') || char(9) || coalesce(group_title,'') || char(9) || coalesce(status,'') || char(9) || case when coalesce(custom_title,'') != '' then '1' else '0' end from sessions");
-      const dshTask = fsp2.readFile(import_path10.default.join(home2(), ".dsh/storages/workspace.json"), "utf8").then((s) => JSON.parse(s)).catch(() => null);
+      const dshTask = fsp2.readFile(import_path11.default.join(home2(), ".dsh/storages/workspace.json"), "utf8").then((s) => JSON.parse(s)).catch(() => null);
       const [codexRes, wbArch, wbRows, ws] = await Promise.all([codexTask, wbArchTask, wbRowsTask, dshTask]);
       for (const id of codexRes.archived) db.add(id);
       for (const row of codexRes.titles) {
@@ -13120,8 +13251,8 @@ var AgentUsage = class {
   // ~/.claude/projects 里的 .jsonl 照旧。sid 用 cliSessionId，和 .jsonl 同名。
   deskRoots() {
     const h = home2();
-    const base = process.platform === "darwin" ? import_path10.default.join(h, "Library/Application Support") : process.platform === "win32" ? process.env.APPDATA || import_path10.default.join(h, "AppData/Roaming") : process.env.XDG_CONFIG_HOME || import_path10.default.join(h, ".config");
-    return [import_path10.default.join(base, "Claude", "claude-code-sessions")];
+    const base = process.platform === "darwin" ? import_path11.default.join(h, "Library/Application Support") : process.platform === "win32" ? process.env.APPDATA || import_path11.default.join(h, "AppData/Roaming") : process.env.XDG_CONFIG_HOME || import_path11.default.join(h, ".config");
+    return [import_path11.default.join(base, "Claude", "claude-code-sessions")];
   }
   async readClaudeDesktop() {
     this.deskBySid.clear();
@@ -13137,7 +13268,7 @@ var AgentUsage = class {
         return;
       }
       for (const e of ents) {
-        const p2 = import_path10.default.join(dir, e.name);
+        const p2 = import_path11.default.join(dir, e.name);
         if (e.isDirectory()) {
           if (depth < 3) await walk(p2, depth + 1);
           continue;
@@ -13299,7 +13430,7 @@ var AgentUsage = class {
       this.settings.grokBotPersistenceDir ? { persistenceDir: this.settings.grokBotPersistenceDir } : { homeDir: home2() }
     );
     const activeTracked = /* @__PURE__ */ new Set();
-    const scope = this.isPrimary("grokbot") ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+    const scope = this.isPrimary("grokbot") ? -1 : Number(dayKeyToday(this.cfg).replace(/\D/g, "")) || 0;
     for (const bot of storage.bots) {
       if (!tracked.has(bot.id) || !bot.transcriptPath) continue;
       let st;
@@ -13892,7 +14023,7 @@ var AgentUsage = class {
   ensureFile(p2, agent) {
     let fc = this.files.get(p2);
     if (!fc) {
-      const base = import_path10.default.basename(p2).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
+      const base = import_path11.default.basename(p2).replace(/\.jsonl(\.zstd|\.zst)?$/, "");
       const flat = p2.replace(/\\/g, "/");
       const sm = /([0-9a-f]{8}-[0-9a-f-]{27})\/subagents\/agent-([^/]+)\.jsonl$/.exec(flat);
       const agm = agent === "antigravity" ? /\/brain\/([^/]+)\/\.system_generated\/logs\/transcript\.jsonl$/.exec(flat) : null;
@@ -14448,7 +14579,7 @@ var UsageStore = class {
         this.dirty = false;
         tmp = temporaryFile(this.file);
         await fsp2.writeFile(tmp, payload, "utf8");
-        if (epoch === (this._saveEpoch || 0)) import_fs11.default.renameSync(tmp, this.file);
+        if (epoch === (this._saveEpoch || 0)) import_fs12.default.renameSync(tmp, this.file);
       } catch (e) {
         this.dirty = true;
         throw e;
@@ -14502,7 +14633,7 @@ var UsageStore = class {
 };
 function sqliteColumn(db, sql) {
   return new Promise((resolve) => {
-    if (!import_fs11.default.existsSync(db)) return resolve([]);
+    if (!import_fs12.default.existsSync(db)) return resolve([]);
     (0, import_child_process5.execFile)(resolveSqliteBinary(), ["-noheader", db, sql], { timeout: 5e3, maxBuffer: 4 * 1024 * 1024 }, (err2, out) => {
       if (err2) return resolve([]);
       resolve(String(out || "").split("\n").map((s) => s.trim()).filter(Boolean));
@@ -14511,8 +14642,8 @@ function sqliteColumn(db, sql) {
 }
 
 // src/security-audit.js
-var import_fs12 = __toESM(require("fs"), 1);
-var import_path11 = __toESM(require("path"), 1);
+var import_fs13 = __toESM(require("fs"), 1);
+var import_path12 = __toESM(require("path"), 1);
 var quote2 = (value) => "'" + String(value).replaceAll("'", "''") + "'";
 var parseJson = (value, fallback = null) => {
   if (value && typeof value === "object") return value;
@@ -14767,7 +14898,7 @@ function extractToolCallsFromJsonl(agent, source) {
 }
 async function extractToolCallsFromDesktopDb(db, agent, sid) {
   const calls = [];
-  if (!db || !sid || !import_fs12.default.existsSync(db)) return calls;
+  if (!db || !sid || !import_fs13.default.existsSync(db)) return calls;
   try {
     if (agent === "hermes") {
       const rows = await desktopQuery(db, `SELECT tool_calls AS toolCalls, timestamp AS created FROM messages WHERE session_id=${quote2(sid)} AND tool_calls IS NOT NULL AND tool_calls <> '' ORDER BY id`);
@@ -15047,7 +15178,7 @@ async function runSecurityAudit(plugin, { days = 30, agent = "", ignoreTempNoise
       }
     } else {
       try {
-        const raw = await import_fs12.default.promises.readFile(fc.path);
+        const raw = await import_fs13.default.promises.readFile(fc.path);
         let bytes = raw;
         if (fc.zstd) {
           try {
@@ -15083,7 +15214,7 @@ async function runSecurityAudit(plugin, { days = 30, agent = "", ignoreTempNoise
     if (f.risk !== "outside_workspace") continue;
     const p2 = String(f.preview || "").trim();
     if (!p2.startsWith("/")) continue;
-    const dir = import_path11.default.dirname(p2);
+    const dir = import_path12.default.dirname(p2);
     if (!dir || dir === "/") continue;
     const key = `path:${dir}/`;
     if (activeAllowlist.includes(key)) continue;
@@ -15347,12 +15478,12 @@ ${breakdown}` : breakdown;
 }
 
 // src/trace.js
-var import_fs13 = __toESM(require("fs"), 1);
+var import_fs14 = __toESM(require("fs"), 1);
 var import_promises = __toESM(require("fs/promises"), 1);
-var import_os12 = __toESM(require("os"), 1);
-var import_path12 = __toESM(require("path"), 1);
+var import_os13 = __toESM(require("os"), 1);
+var import_path13 = __toESM(require("path"), 1);
 var TRACE_SCHEMA_VERSION = 1;
-var DEFAULT_TRACE_DIR = () => import_path12.default.join(import_os12.default.homedir(), ".agent-deck", "traces");
+var DEFAULT_TRACE_DIR = () => import_path13.default.join(import_os13.default.homedir(), ".agent-deck", "traces");
 var MAX_FRAMES = 30;
 var MAX_SPANS = 32;
 var lastPrunedAt = 0;
@@ -15489,7 +15620,7 @@ var RunTrace = class {
     if (this.writeEnabled && this.traceDir) {
       try {
         await import_promises.default.mkdir(this.traceDir, { recursive: true });
-        const file = import_path12.default.join(this.traceDir, `${dayStamp(this.endedAt)}.jsonl`);
+        const file = import_path13.default.join(this.traceDir, `${dayStamp(this.endedAt)}.jsonl`);
         await import_promises.default.appendFile(file, JSON.stringify(payload) + "\n", "utf8");
         if (Date.now() - lastPrunedAt > 6 * 36e5) {
           lastPrunedAt = Date.now();
@@ -15509,7 +15640,7 @@ async function pruneOldTraces({ traceDir = DEFAULT_TRACE_DIR(), keepDays = 14, n
     for (const file of files) {
       const m = /^(\d{4}-\d{2}-\d{2})\.jsonl$/.exec(file);
       if (m && m[1] < cutoff) {
-        await import_promises.default.rm(import_path12.default.join(traceDir, file), { force: true });
+        await import_promises.default.rm(import_path13.default.join(traceDir, file), { force: true });
         removed++;
       }
     }
@@ -15524,7 +15655,7 @@ async function readRecentTraces({ traceDir = DEFAULT_TRACE_DIR(), limit = 40 } =
     const records = [];
     for (const file of files) {
       if (records.length >= limit) break;
-      const raw = await import_promises.default.readFile(import_path12.default.join(traceDir, file), "utf8");
+      const raw = await import_promises.default.readFile(import_path13.default.join(traceDir, file), "utf8");
       const lines = raw.trim().split("\n").reverse();
       for (const line of lines) {
         if (!line.trim()) continue;
@@ -15543,14 +15674,14 @@ async function readRecentTraces({ traceDir = DEFAULT_TRACE_DIR(), limit = 40 } =
 function checkExternalAssets(vaultPath, { expectedMemoryQueryVersion = 1 } = {}) {
   const cleanVault = String(vaultPath || "").trim();
   if (!cleanVault) return { checked: false, ok: true, items: [] };
-  const scriptPath = import_path12.default.join(cleanVault, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
+  const scriptPath = import_path13.default.join(cleanVault, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
   const items = [];
-  if (!import_fs13.default.existsSync(scriptPath)) {
+  if (!import_fs14.default.existsSync(scriptPath)) {
     items.push({ name: "memory-query.mjs", status: "missing", path: scriptPath, expectedVersion: expectedMemoryQueryVersion, actualVersion: null });
   } else {
     let actualVersion = null;
     try {
-      const content = import_fs13.default.readFileSync(scriptPath, "utf8");
+      const content = import_fs14.default.readFileSync(scriptPath, "utf8");
       const m = /\bexport\s+const\s+ASSET_VERSION\s*=\s*(\d+)/.exec(content);
       actualVersion = m ? Number(m[1]) : 0;
     } catch {
@@ -15612,25 +15743,25 @@ function buildDiagnosticReport({
 
 // src/note-updates.js
 var queues = /* @__PURE__ */ new WeakMap();
-function serializeNote(plugin, path23, task) {
+function serializeNote(plugin, path26, task) {
   let pending = queues.get(plugin);
   if (!pending) queues.set(plugin, pending = /* @__PURE__ */ new Map());
-  const next = (pending.get(path23) || Promise.resolve()).catch(() => {
+  const next = (pending.get(path26) || Promise.resolve()).catch(() => {
   }).then(task);
-  pending.set(path23, next);
+  pending.set(path26, next);
   return next.finally(() => {
-    if (pending.get(path23) === next) pending.delete(path23);
+    if (pending.get(path26) === next) pending.delete(path26);
   });
 }
-function updateNote(plugin, path23, transform) {
-  return serializeNote(plugin, path23, async () => {
-    while (!plugin._unloaded && plugin.viewForPath?.(path23)?.editor.cm?.composing) {
+function updateNote(plugin, path26, transform) {
+  return serializeNote(plugin, path26, async () => {
+    while (!plugin._unloaded && plugin.viewForPath?.(path26)?.editor.cm?.composing) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     if (plugin._unloaded) return;
-    const known = typeof plugin.app?.vault?.getAbstractFileByPath === "function" ? plugin.app.vault.getAbstractFileByPath(path23) : void 0;
+    const known = typeof plugin.app?.vault?.getAbstractFileByPath === "function" ? plugin.app.vault.getAbstractFileByPath(path26) : void 0;
     if (known === null) return;
-    const view2 = plugin.viewForPath?.(path23);
+    const view2 = plugin.viewForPath?.(path26);
     if (view2 && (!view2.getMode || view2.getMode() === "source")) {
       const before2 = view2.editor.getValue();
       const next2 = transform(before2);
@@ -15638,22 +15769,22 @@ function updateNote(plugin, path23, transform) {
       if (change) view2.editor.transaction({ changes: [change] });
       return;
     }
-    const file = plugin.app?.vault?.getAbstractFileByPath(path23);
+    const file = plugin.app?.vault?.getAbstractFileByPath(path26);
     if (file && plugin.app.vault.process) {
       await plugin.app.vault.process(file, transform);
       return;
     }
-    const before = plugin.readNote ? await plugin.readNote(path23) : await plugin.app.vault.read(file);
+    const before = plugin.readNote ? await plugin.readNote(path26) : await plugin.app.vault.read(file);
     const next = transform(before);
     if (next !== before) {
-      if (plugin.writeNote) await plugin.writeNote(path23, next);
+      if (plugin.writeNote) await plugin.writeNote(path26, next);
       else await plugin.app.vault.modify(file, next);
     }
   });
 }
 
 // src/conversation.js
-var import_fs14 = __toESM(require("fs"), 1);
+var import_fs15 = __toESM(require("fs"), 1);
 var import_crypto4 = require("crypto");
 var textOf = (content) => typeof content === "string" ? content : (Array.isArray(content) ? content : []).filter((b) => ["text", "input_text", "output_text"].includes(b?.type)).map((b) => b.text || "").join("\n");
 function conversationMessages(agent, source, transcriptText = "") {
@@ -15714,7 +15845,7 @@ async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map
   const files = [...plugin.usage.files?.values() || []].filter((f) => f.sid === sid && f.agent === session.agent && !f.sub);
   const messages = [];
   for (const file of files) {
-    if (["opencode", "qoder", "hermes", "qwenwork", "minimax", "t3code"].includes(session.agent) && file.path.includes("#")) {
+    if (["opencode", "qoder", "hermes", "qwenwork", "minimax", "t3code", "teleagent"].includes(session.agent) && file.path.includes("#")) {
       const db = file.path.slice(0, file.path.lastIndexOf("#"));
       const rows = await desktopMessages(db, session.agent, sid);
       messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));
@@ -15733,10 +15864,10 @@ async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map
       continue;
     }
     const realPath = file.path.includes("#") ? file.path.slice(0, file.path.lastIndexOf("#")) : file.path;
-    const stat = await import_fs14.default.promises.stat(realPath);
+    const stat = await import_fs15.default.promises.stat(realPath);
     let entry = cache.get(file.path);
     if (session.agent === "cursor") {
-      const rawText = await import_fs14.default.promises.readFile(realPath, "utf8");
+      const rawText = await import_fs15.default.promises.readFile(realPath, "utf8");
       const tr = await readCursorTranscript(rawText, file.cursor?.transcript || "");
       if (!entry || entry.mtime !== stat.mtimeMs || entry.size !== stat.size || entry.tp !== tr.path || entry.tMtime !== tr.mtime || entry.tSize !== tr.size) {
         entry = {
@@ -15753,7 +15884,7 @@ async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map
       continue;
     }
     if (!entry || entry.mtime !== stat.mtimeMs || entry.size !== stat.size) {
-      const raw = await import_fs14.default.promises.readFile(realPath);
+      const raw = await import_fs15.default.promises.readFile(realPath);
       let bytes = raw;
       if (file.zstd) {
         try {
@@ -15944,13 +16075,13 @@ async function linkArchive(plugin, session, archivePath2, title = "") {
 var import_crypto10 = require("crypto");
 
 // src/skill-cards.js
-var import_fs15 = __toESM(require("fs"), 1);
-var import_os13 = __toESM(require("os"), 1);
-var import_path13 = __toESM(require("path"), 1);
+var import_fs16 = __toESM(require("fs"), 1);
+var import_os14 = __toESM(require("os"), 1);
+var import_path14 = __toESM(require("path"), 1);
 var import_crypto5 = require("crypto");
 var SKILL_DIR = "\u6280\u80FD";
-function skillRoots(home7 = import_os13.default.homedir()) {
-  return [import_path13.default.join(home7, ".config/skillshare/skills/data"), import_path13.default.join(home7, ".dsh/skills"), import_path13.default.join(home7, ".claude/skills")];
+function skillRoots(home7 = import_os14.default.homedir()) {
+  return [import_path14.default.join(home7, ".config/skillshare/skills/data"), import_path14.default.join(home7, ".dsh/skills"), import_path14.default.join(home7, ".claude/skills")];
 }
 function readFrontmatter(text) {
   const m = /^---\n([\s\S]*?)\n---/.exec(String(text || ""));
@@ -15993,20 +16124,20 @@ function scanSkills(roots = skillRoots()) {
   for (const root of roots) {
     let names = [];
     try {
-      names = import_fs15.default.readdirSync(root);
+      names = import_fs16.default.readdirSync(root);
     } catch {
       continue;
     }
     for (const name of names) {
-      const dir = import_path13.default.join(root, name);
-      const file = import_path13.default.join(dir, "SKILL.md");
+      const dir = import_path14.default.join(root, name);
+      const file = import_path14.default.join(dir, "SKILL.md");
       let text = "";
       try {
-        text = import_fs15.default.readFileSync(file, "utf8");
+        text = import_fs16.default.readFileSync(file, "utf8");
       } catch {
         continue;
       }
-      const real = import_fs15.default.realpathSync(dir);
+      const real = import_fs16.default.realpathSync(dir);
       if (seen.has(real)) continue;
       const meta = describeSkill(text);
       seen.set(real, { name: meta.name || name, dir, real, file, description: meta.description, source: root.includes("skillshare") ? "skillshare" : root.includes(".dsh") ? "dsh" : "claude" });
@@ -16364,7 +16495,7 @@ function stillPending(noteText = "", item = {}) {
 }
 
 // src/delegation.js
-var import_fs20 = __toESM(require("fs"), 1);
+var import_fs21 = __toESM(require("fs"), 1);
 
 // src/background-output.js
 var import_crypto7 = require("crypto");
@@ -16414,7 +16545,7 @@ async function saveBackgroundAnswer(plugin, job, round) {
   const n = round.n || 1, files = job.backgroundFiles || (job.backgroundFiles = {}), prior = files[n];
   const hash4 = (text) => (0, import_crypto7.createHash)("sha256").update(text).digest("hex");
   const suffix = hash4(job.sessionId || job.id).slice(0, 10);
-  const path23 = prior?.path || `Agent Deck/Answers/${name}-${suffix}-${n}.md`;
+  const path26 = prior?.path || `Agent Deck/Answers/${name}-${suffix}-${n}.md`;
   const body = `# ${title}
 
 ## \u95EE\u9898
@@ -16429,14 +16560,14 @@ ${reply}
   for (const folder of ["Agent Deck", "Agent Deck/Answers"]) await serializeNote(plugin, folder, async () => {
     if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
   });
-  await serializeNote(plugin, path23, async () => vault.getAbstractFileByPath(path23) || await vault.create(path23, body));
-  await updateNote(plugin, path23, (current) => {
+  await serializeNote(plugin, path26, async () => vault.getAbstractFileByPath(path26) || await vault.create(path26, body));
+  await updateNote(plugin, path26, (current) => {
     if (current === body) return current;
     if (!prior || hash4(current) !== prior.hash) throw new Error(t("\u95EE\u7B54\u6587\u4EF6\u5DF2\u88AB\u624B\u52A8\u4FEE\u6539\uFF0C\u5DF2\u4FDD\u7559\u539F\u6587\uFF0C\u8BF7\u53E6\u5B58\u540E\u91CD\u8BD5"));
     return body;
   });
-  files[n] = { path: path23, hash: hash4(body) };
-  return `\u{1F4C4} [[${path23}|\u5B8C\u6574\u95EE\u7B54]]`;
+  files[n] = { path: path26, hash: hash4(body) };
+  return `\u{1F4C4} [[${path26}|\u5B8C\u6574\u95EE\u7B54]]`;
 }
 function clearBackgroundPending(text, job, round) {
   const markers = [sessionMarker("summary-pending", job.sessionId, round), `<!-- ad-summary-pending:${job.sessionId}:${round} -->`];
@@ -16444,10 +16575,10 @@ function clearBackgroundPending(text, job, round) {
 }
 
 // src/project-folders.js
-var import_fs16 = __toESM(require("fs"), 1);
-var import_os14 = __toESM(require("os"), 1);
-var import_path14 = __toESM(require("path"), 1);
-var home3 = () => import_os14.default.homedir();
+var import_fs17 = __toESM(require("fs"), 1);
+var import_os15 = __toESM(require("os"), 1);
+var import_path15 = __toESM(require("path"), 1);
+var home3 = () => import_os15.default.homedir();
 function normalizeProjectFolder(raw) {
   let p2 = String(raw || "").trim().replace(/^~(?=\/)/, home3()).replace(/\\/g, "/");
   if (!p2) return "";
@@ -16455,12 +16586,12 @@ function normalizeProjectFolder(raw) {
   const homePath = home3().replace(/\\/g, "/").replace(/\/+$/, "");
   const isHome = process.platform === "win32" ? p2.toLowerCase() === homePath.toLowerCase() : p2 === homePath;
   if (!p2 || p2 === "~" || p2 === "/" || isHome) return "";
-  if (!import_path14.default.isAbsolute(p2)) return "";
+  if (!import_path15.default.isAbsolute(p2)) return "";
   return p2;
 }
 function realFolder(p2) {
   try {
-    return import_fs16.default.realpathSync(p2);
+    return import_fs17.default.realpathSync(p2);
   } catch {
     return p2;
   }
@@ -16477,7 +16608,7 @@ function folderExists(folder) {
   const p2 = normalizeProjectFolder(folder);
   if (!p2) return false;
   try {
-    return import_fs16.default.statSync(p2).isDirectory();
+    return import_fs17.default.statSync(p2).isDirectory();
   } catch {
     return false;
   }
@@ -16576,7 +16707,7 @@ function resolveDispatchFolder({
   }
   if (!folder) folder = normalizeProjectFolder(agentCwd);
   folder = folder || vaultPath;
-  const projectName2 = explicit ? explicitName || projectNameForFolder(settings, explicit) || import_path14.default.basename(explicit) : auto?.name || projectNameForFolder(settings, folder) || "";
+  const projectName2 = explicit ? explicitName || projectNameForFolder(settings, explicit) || import_path15.default.basename(explicit) : auto?.name || projectNameForFolder(settings, folder) || "";
   return { folder, projectName: projectName2, auto, explicit };
 }
 function projectCandidatesFromTask({ notePath: notePath2 = "", contextLines = [], blockText: blockText2 = "" } = {}) {
@@ -16622,20 +16753,20 @@ function suggestProjectForTask({ settings, recent = [], notePath: notePath2 = ""
 }
 
 // src/delegation.js
-var import_path18 = __toESM(require("path"), 1);
-var import_os17 = __toESM(require("os"), 1);
+var import_path19 = __toESM(require("path"), 1);
+var import_os18 = __toESM(require("os"), 1);
 var import_child_process8 = require("child_process");
 
 // src/terminals.js
-var import_fs17 = __toESM(require("fs"), 1);
-var import_path15 = __toESM(require("path"), 1);
-var import_os15 = __toESM(require("os"), 1);
+var import_fs18 = __toESM(require("fs"), 1);
+var import_path16 = __toESM(require("path"), 1);
+var import_os16 = __toESM(require("os"), 1);
 var import_child_process6 = require("child_process");
-var fsp4 = import_fs17.default.promises;
+var fsp4 = import_fs18.default.promises;
 var HERDR_SPACE = "spagentdeck";
 var TERN_SESSION = "Agent Deck";
 var TMUX_SESSION = "agent-deck";
-var defaultHome = () => import_os15.default.homedir();
+var defaultHome = () => import_os16.default.homedir();
 function shellQuote(s) {
   return `'${String(s || "").replace(/'/g, "'\\''")}'`;
 }
@@ -16790,9 +16921,9 @@ function getTerminalOptions() {
 function createTerminalController(overrides = {}) {
   const platform = overrides.platform || process.platform;
   const home7 = overrides.home || defaultHome;
-  const existsSync = overrides.existsSync || import_fs17.default.existsSync;
-  const mkdirSync = overrides.mkdirSync || import_fs17.default.mkdirSync;
-  const writeFileSync = overrides.writeFileSync || import_fs17.default.writeFileSync;
+  const existsSync = overrides.existsSync || import_fs18.default.existsSync;
+  const mkdirSync = overrides.mkdirSync || import_fs18.default.mkdirSync;
+  const writeFileSync = overrides.writeFileSync || import_fs18.default.writeFileSync;
   const readFile = overrides.readFile || ((p2, enc) => fsp4.readFile(p2, enc));
   const writeFile = overrides.writeFile || ((p2, data) => fsp4.writeFile(p2, data));
   const mkdir = overrides.mkdir || ((p2, opts) => fsp4.mkdir(p2, opts));
@@ -16830,7 +16961,7 @@ function createTerminalController(overrides = {}) {
       return false;
     }
   });
-  const pathImpl = platform === "win32" ? import_path15.default.win32 : import_path15.default.posix;
+  const pathImpl = platform === "win32" ? import_path16.default.win32 : import_path16.default.posix;
   const expandHome5 = (p2) => p2.startsWith("~/") ? pathImpl.join(home7(), p2.slice(2)) : p2;
   const appInstalled = (name) => {
     if (!name || platform !== "darwin") return false;
@@ -16869,7 +17000,7 @@ function createTerminalController(overrides = {}) {
     if (entry.bin || entry.appBins?.length) return !!entryBin(entry);
     return false;
   };
-  const DETECTED_FILE = () => import_path15.default.join(home7(), ".agent-deck", "terminal.json");
+  const DETECTED_FILE = () => import_path16.default.join(home7(), ".agent-deck", "terminal.json");
   async function terminalHost(pid) {
     if (platform === "win32") return "";
     for (let i = 0, p2 = pid; i < 12 && p2 > 1; i++) {
@@ -16899,7 +17030,7 @@ function createTerminalController(overrides = {}) {
     const seen = TERMINAL_ORDER.filter((tId) => count[tId]).sort((a, b) => count[b] - count[a])[0];
     if (seen) {
       try {
-        await mkdir(import_path15.default.dirname(DETECTED_FILE()), { recursive: true });
+        await mkdir(import_path16.default.dirname(DETECTED_FILE()), { recursive: true });
         await writeFile(DETECTED_FILE(), JSON.stringify({ terminal: seen, at: Date.now() }));
       } catch {
       }
@@ -17074,11 +17205,11 @@ function createTerminalController(overrides = {}) {
     }
     if (term === "warp") {
       try {
-        const d = import_path15.default.join(home7(), ".warp/launch_configurations");
+        const d = import_path16.default.join(home7(), ".warp/launch_configurations");
         mkdirSync(d, { recursive: true });
         const q = (s) => JSON.stringify(String(s).replace(/[\r\n\0]+/g, " "));
         const cfgName = safeWarpConfigName(cleanTitle);
-        writeFileSync(import_path15.default.join(d, `${cfgName}.yaml`), [
+        writeFileSync(import_path16.default.join(d, `${cfgName}.yaml`), [
           "---",
           `name: ${q(cfgName)}`,
           "windows:",
@@ -17147,7 +17278,7 @@ end tell`;
     if (!sid || platform === "win32") return null;
     let pid = 0;
     if (agent === "claude") {
-      const dir = import_path15.default.join(home7(), ".claude/sessions");
+      const dir = import_path16.default.join(home7(), ".claude/sessions");
       let names = [];
       try {
         names = (await readdir(dir)).filter((n) => /^\d+\.json$/.test(n));
@@ -17156,7 +17287,7 @@ end tell`;
       }
       for (const n of names) {
         try {
-          const j = JSON.parse(await readFile(import_path15.default.join(dir, n), "utf8"));
+          const j = JSON.parse(await readFile(import_path16.default.join(dir, n), "utf8"));
           if (j.sessionId === sid && (j.entrypoint || "cli") === "cli") {
             pid = Number(j.pid) || Number(n.split(".")[0]);
             break;
@@ -17360,6 +17491,20 @@ var CAPABILITIES = /* @__PURE__ */ new Map([
     archiveDetection: false,
     modelCatalog: false,
     sessionLinkScheme: "workbuddy"
+  }],
+  // TeleAgent 没有 CLI / ACP：拖任务过去只做「复制 + 唤起客户端」，会话靠文本前缀认领。
+  // 会话深链用 Deck 自己的 obsidian:// 协议（`teleai-cowork://` 的会话定位没核验到）。
+  ["teleagent", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "obsidian"
   }],
   ["dsh", {
     delegate: true,
@@ -17762,6 +17907,889 @@ function mentionSuggestions(plugin, query) {
   }
   if (parts.length === 3 && plugin.modelsFor(agent).some((m) => m.id === parts[1])) return (EFFORTS[agent] || []).filter((e) => e.id.startsWith(parts[2])).map((e) => ({ value: `${agent}/${parts[1]}/${e.id}`, label: e.label, hint: e.hint }));
   return [];
+}
+
+// src/teleagent-dispatch.js
+var import_node_child_process = require("node:child_process");
+var import_node_fs = __toESM(require("node:fs"), 1);
+var import_node_os = __toESM(require("node:os"), 1);
+var import_node_path = __toESM(require("node:path"), 1);
+var MAX_TEXT = 4e3;
+function normalizePayload(payload, options = {}) {
+  const raw = payload || {};
+  const project = String(raw.project || "").trim();
+  const text = String(raw.text || "");
+  if (!project) return { ok: false, error: t("\u7F3A\u5C11\u9879\u76EE\u540D\uFF08project\uFF09") };
+  if (!text.trim()) return { ok: false, error: t("\u7F3A\u5C11\u8981\u6D3E\u53D1\u7684\u6587\u672C\uFF08text\uFF09") };
+  if (text.length > MAX_TEXT) return { ok: false, error: t("\u6587\u672C\u8D85\u8FC7 {n} \u5B57\u4E0A\u9650", { n: MAX_TEXT }) };
+  const paceMs = Number(raw.paceMs || options.paceMs || 25);
+  const stepTimeoutMs = Number(raw.stepTimeoutMs || options.stepTimeoutMs || 15e3);
+  return {
+    ok: true,
+    payload: {
+      project,
+      text,
+      mode: String(raw.mode || "default"),
+      model: String(raw.model || "flagship"),
+      paceMs: Number.isFinite(paceMs) && paceMs > 0 ? Math.min(paceMs, 200) : 25,
+      stepTimeoutMs: Number.isFinite(stepTimeoutMs) && stepTimeoutMs > 0 ? stepTimeoutMs : 15e3
+    }
+  };
+}
+function encodePayload(payload) {
+  return Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
+}
+function buildDispatchArgs(scriptPath, payload) {
+  return [
+    "-NoProfile",
+    "-NonInteractive",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    scriptPath,
+    "-PayloadB64",
+    typeof payload === "string" ? payload : encodePayload(payload)
+  ];
+}
+var POWERSHELL_SCRIPT = `param([Parameter(Mandatory=$true)][string]$PayloadB64)
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+
+function Send-Result($o) { ($o | ConvertTo-Json -Compress -Depth 6) }
+
+function Fail($stage, $error) {
+  Send-Result @{ ok = $false; stage = $stage; error = $error }
+  exit 2
+}
+
+$json = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($PayloadB64))
+$payload = $json | ConvertFrom-Json
+$project = [string]$payload.project
+$text = [string]$payload.text
+$paceMs = [int]$payload.paceMs
+$stepMs = [int]$payload.stepTimeoutMs
+if ($paceMs -le 0) { $paceMs = 25 }
+if ($stepMs -le 0) { $stepMs = 15000 }
+
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+$AE = [System.Windows.Automation.AutomationElement]
+$TS = [System.Windows.Automation.TreeScope]
+$CT = [System.Windows.Automation.ControlType]
+$COND = [System.Windows.Automation.Condition]
+
+Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public class AdInput {
+  [StructLayout(LayoutKind.Sequential)] struct INPUT { public int type; public Union u; }
+  [StructLayout(LayoutKind.Explicit)] struct Union { [FieldOffset(0)] public MOUSEINPUT mi; [FieldOffset(0)] public KEYBDINPUT ki; }
+  [StructLayout(LayoutKind.Sequential)] struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint flags; public uint time; public IntPtr extra; }
+  [StructLayout(LayoutKind.Sequential)] struct KEYBDINPUT { public ushort vk; public ushort scan; public uint flags; public uint time; public IntPtr extra; }
+  [DllImport("user32.dll", SetLastError = true)] static extern uint SendInput(uint n, INPUT[] p, int cb);
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c);
+  static void Key(ushort vk, ushort scan, uint flags) {
+    INPUT[] a = new INPUT[1];
+    a[0].type = 1;
+    a[0].u.ki.vk = vk;
+    a[0].u.ki.scan = scan;
+    a[0].u.ki.flags = flags;
+    SendInput(1, a, Marshal.SizeOf(typeof(INPUT)));
+  }
+  public static void TypeChar(char c) { Key(0, (ushort)c, 0x0004); Key(0, (ushort)c, 0x0006); }
+  public static void ShiftEnter() { Key(0x10, 0, 0); Key(0x0D, 0, 0); Key(0x0D, 0, 0x0002); Key(0x10, 0, 0x0002); }
+}
+'@
+
+function Find-First($root, $ct) {
+  $c = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, $ct)
+  return $root.FindFirst($TS::Descendants, $c)
+}
+
+function Find-Name($root, $ct, $name) {
+  $c = New-Object System.Windows.Automation.AndCondition(
+    (New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, $ct)),
+    (New-Object System.Windows.Automation.PropertyCondition($AE::NameProperty, $name))
+  )
+  return $root.FindFirst($TS::Descendants, $c)
+}
+
+function Find-All($root, $ct) {
+  $c = New-Object System.Windows.Automation.PropertyCondition($AE::ControlTypeProperty, $ct)
+  return $root.FindAll($TS::Descendants, $c)
+}
+
+# React \u662F\u5206\u6279\u6E32\u67D3\u7684\uFF1A\u8F93\u5165\u6846\u5148\u51FA\u73B0\u3001\u5DE5\u5177\u6761\u4E0E\u6807\u7B7E\u540E\u51FA\u73B0\uFF0C\u5355\u6B21\u67E5\u627E\u4F1A\u8BEF\u5224\u201C\u4E0D\u5B58\u5728\u201D\uFF0C
+# \u6240\u4EE5\u6BCF\u4E2A\u5173\u952E\u63A7\u4EF6\u90FD\u8981\u5E26\u8D85\u65F6\u91CD\u8BD5\uFF0C\u800C\u4E0D\u662F\u67E5\u4E00\u6B21\u5C31 Fail\u3002
+function Wait-Name($root, $ct, $name, $timeoutMs) {
+  $deadline = [DateTime]::UtcNow.AddMilliseconds($timeoutMs)
+  while ([DateTime]::UtcNow -lt $deadline) {
+    $el = Find-Name $root $ct $name
+    if ($el -ne $null) { return $el }
+    Start-Sleep -Milliseconds 250
+  }
+  return $null
+}
+
+# \u5C55\u5F00/\u6536\u8D77\u5FC5\u987B\u5E42\u7B49\uFF1A\u70B9\u4E2D\u4E0B\u62C9\u6761\u76EE\u540E\u6D6E\u5C42\u4F1A\u81EA\u5DF1\u5173\u6389\uFF0C\u6B64\u65F6\u518D Collapse \u4F1A\u629B
+# \u201COperation is not valid due to the current state of the object\u201D\uFF0C\u6574\u6761\u6D41\u7A0B\u5C31\u88AB\u8FD9\u4E00\u53E5\u6253\u65AD\u3002
+function Safe-Expand($el) {
+  try {
+    $ec = $el.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    if ($ec.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) { $ec.Expand() }
+  } catch { }
+}
+
+function Safe-Collapse($el) {
+  try {
+    $ec = $el.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    if ($ec.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Collapsed) { $ec.Collapse() }
+  } catch { }
+}
+
+function Get-Rect($el) { return $el.Current.BoundingRectangle }
+
+# 1) \u627E\u4E3B\u7A97\u53E3\uFF1A\u6309\u8FDB\u7A0B\u679A\u4E3E\u9876\u5C42\u7A97\u53E3\uFF0C\u6807\u9898\u4EE5 TeleAgent \u5F00\u5934\uFF08\u5BA0\u7269\u7A97\u201C\u5C0F\u8C46\u5B50\u201D\u662F\u540C\u4E00\u8FDB\u7A0B\u7684\u53E6\u4E00\u7A97\u53E3\uFF0C\u8981\u6392\u9664\uFF09
+$main = $null
+for ($i = 0; $i -lt 20; $i++) {
+  $pids = @(Get-Process -Name 'TeleAgent' -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+  if ($pids.Count -gt 0) {
+    $wins = $AE::RootElement.FindAll($TS::Children, $COND::TrueCondition)
+    for ($k = 0; $k -lt $wins.Count; $k++) {
+      $w = $wins.Item($k)
+      if (($pids -contains $w.Current.ProcessId) -and ($w.Current.Name -like 'TeleAgent*')) { $main = $w }
+    }
+  }
+  if ($main -ne $null) {
+    $doc = $main.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::AutomationIdProperty, 'RootWebArea')))
+    if ($doc -ne $null) { Start-Sleep -Milliseconds 300; $doc = $main.FindFirst($TS::Descendants, (New-Object System.Windows.Automation.PropertyCondition($AE::AutomationIdProperty, 'RootWebArea'))) }
+    if ($doc -ne $null) { break }
+  }
+  Start-Sleep -Milliseconds 500
+}
+if ($main -eq $null) { Fail 'attach' '\u627E\u4E0D\u5230 TeleAgent \u4E3B\u7A97\u53E3\uFF08\u5BA2\u6237\u7AEF\u6CA1\u5F00\u6216\u65E0\u969C\u788D\u6811\u6CA1\u5C31\u7EEA\uFF09' }
+
+# 2) \u70B9\u4FA7\u680F\u300C\u65B0\u5EFA\u4EFB\u52A1\u300D\uFF1A\u540C\u540D\u6309\u94AE\u5728\u6BCF\u7EC4\u4EFB\u52A1\u884C\u4E0A\u4E5F\u6709\uFF0C\u53D6 Y \u6700\u5C0F\u7684\u90A3\u4E2A\uFF08\u4FA7\u680F\u9876\u90E8\u7684\u5168\u5C40\u5165\u53E3\uFF09
+$newTask = $null
+$minY = 1e9
+$btns = Find-All $main $CT::Button
+for ($i = 0; $i -lt $btns.Count; $i++) {
+  $b = $btns.Item($i)
+  if ($b.Current.Name -eq '\u65B0\u5EFA\u4EFB\u52A1') {
+    $r = Get-Rect $b
+    if ($r.Width -gt 0 -and $r.Y -lt $minY) { $newTask = $b; $minY = $r.Y }
+  }
+}
+if ($newTask -eq $null) { Fail 'newtask' '\u4FA7\u680F\u6CA1\u6709\u53EF\u89C1\u7684\u300C\u65B0\u5EFA\u4EFB\u52A1\u300D' }
+$newTask.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+
+# 3) \u7B49\u64B0\u5199\u9762\u677F\uFF1A\u8F93\u5165\u6846\u51FA\u73B0
+$edit = $null
+for ($i = 0; $i -lt 40; $i++) {
+  $edit = Find-First $main $CT::Edit
+  if ($edit -ne $null) { break }
+  Start-Sleep -Milliseconds 250
+}
+if ($edit -eq $null) { Fail 'composer' '\u64B0\u5199\u9762\u677F\u6CA1\u6709\u51FA\u73B0\uFF08\u627E\u4E0D\u5230\u8F93\u5165\u6846\uFF09' }
+
+# 4) \u9009\u9879\u76EE\uFF1A\u9879\u76EE\u9009\u62E9\u5668\u662F\u300C\u8FD0\u884C\u73AF\u5883\u300D\u6807\u7B7E\u53F3\u4FA7\u7684\u90A3\u4E2A ExpandCollapse \u6309\u94AE\uFF0C\u5C55\u5F00\u540E\u70B9\u540C\u540D\u6761\u76EE
+$label = Wait-Name $main $CT::Button '\u8FD0\u884C\u73AF\u5883' $stepMs
+if ($label -eq $null) { Fail 'project' '\u627E\u4E0D\u5230\u300C\u8FD0\u884C\u73AF\u5883\u300D\u9009\u62E9\u5668' }
+Start-Sleep -Milliseconds 400
+$labelRect = Get-Rect $label
+$selector = $null
+$expandables = Find-All $main $CT::Button
+for ($i = 0; $i -lt $expandables.Count; $i++) {
+  $b = $expandables.Item($i)
+  $pats = $b.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName }
+  if ($pats -notcontains 'ExpandCollapsePatternIdentifiers.Pattern') { continue }
+  $r = Get-Rect $b
+  if ($r.Width -le 0) { continue }
+  if ([Math]::Abs($r.Y - $labelRect.Y) -lt 10 -and $r.X -gt $labelRect.X -and $r.X -lt $labelRect.Right + 400) { $selector = $b }
+}
+if ($selector -eq $null) { Fail 'project' '\u627E\u4E0D\u5230\u9879\u76EE\u9009\u62E9\u5668' }
+$selRect = Get-Rect $selector
+Safe-Expand $selector
+Start-Sleep -Milliseconds 800
+
+# \u4E0B\u62C9\u6D6E\u5C42\u91CC\u7684\u6761\u76EE\u4E0E\u4FA7\u680F\u6761\u76EE\u540C\u540D\uFF0C\u7528 X > 600\uFF08\u5185\u5BB9\u533A\u8D77\u70B9\uFF09\u7B5B\u6389\u4FA7\u680F\u90A3\u9897\uFF1B
+# \u9009\u62E9\u5668\u81EA\u8EAB\u7684 Name \u4E5F\u7B49\u4E8E\u5F53\u524D\u9879\u76EE\u540D\uFF0C\u518D\u6309 Y \u6392\u9664\u5B83\u81EA\u5DF1\uFF0C\u5426\u5219\u4F1A\u70B9\u5230\u53EA\u652F\u6301 ExpandCollapse \u7684\u6309\u94AE\u4E0A\u3002
+$target = $null
+$cands = Find-All $main $CT::Button
+for ($i = 0; $i -lt $cands.Count; $i++) {
+  $b = $cands.Item($i)
+  if ($b.Current.Name -ne $project) { continue }
+  $r = Get-Rect $b
+  if ($r.Width -le 0) { continue }
+  if ([Math]::Abs($r.Y - $selRect.Y) -lt 12) { continue }
+  if ($r.X -gt 600 -and $r.Y -gt 200) { $target = $b; break }
+}
+if ($target -eq $null) { Fail 'project' ('\u4E0B\u62C9\u91CC\u6CA1\u6709\u9879\u76EE\uFF1A' + $project) }
+$target.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+Start-Sleep -Milliseconds 800
+Safe-Collapse $selector
+if ($selector.Current.Name -ne $project) { Fail 'project' ('\u9879\u76EE\u56DE\u8BFB\u4E0D\u4E00\u81F4\uFF1A' + $selector.Current.Name) }
+
+# 5) \u6821\u9A8C\u6267\u884C\u6A21\u5F0F = \u9ED8\u8BA4\u6743\u9650\uFF08\u53EA\u8BFB\u6821\u9A8C\uFF0C\u4E0D\u66FF\u7528\u6237\u6539\u8BBE\u7F6E\uFF09
+$modeBtn = Wait-Name $main $CT::Button '\u6267\u884C\u6A21\u5F0F' $stepMs
+if ($modeBtn -eq $null) { Fail 'mode' '\u627E\u4E0D\u5230\u300C\u6267\u884C\u6A21\u5F0F\u300D' }
+Safe-Expand $modeBtn
+Start-Sleep -Milliseconds 600
+$radios = Find-All $main $CT::RadioButton
+$modeOk = $false
+for ($i = 0; $i -lt $radios.Count; $i++) {
+  $r = $radios.Item($i)
+  if ($r.Current.Name -like '\u9ED8\u8BA4\u6743\u9650*') {
+    $sel = $r.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+    if ($sel.Current.IsSelected) { $modeOk = $true }
+  }
+}
+Safe-Collapse $modeBtn
+if (-not $modeOk) { Fail 'mode' '\u6267\u884C\u6A21\u5F0F\u4E0D\u662F\u300C\u9ED8\u8BA4\u6743\u9650\u300D\uFF0C\u5DF2\u4E2D\u6B62\uFF08\u4E0D\u6539\u7528\u6237\u8BBE\u7F6E\uFF09' }
+
+# 6) \u6821\u9A8C\u6A21\u578B = \u65D7\u8230\uFF08Toggle \u6309\u94AE\uFF0C\u771F\u5047\u770B ToggleState\uFF09
+$modelBtn = Wait-Name $main $CT::Button '\u9009\u62E9\u6A21\u578B' $stepMs
+if ($modelBtn -eq $null) { Fail 'model' '\u627E\u4E0D\u5230\u300C\u9009\u62E9\u6A21\u578B\u300D' }
+Safe-Expand $modelBtn
+Start-Sleep -Milliseconds 600
+$toggles = Find-All $main $CT::Button
+$modelOk = $false
+for ($i = 0; $i -lt $toggles.Count; $i++) {
+  $b = $toggles.Item($i)
+  if ($b.Current.Name -like '\u65D7\u8230*') {
+    $tp = $b.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    if ($tp.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On) { $modelOk = $true }
+  }
+}
+Safe-Collapse $modelBtn
+if (-not $modelOk) { Fail 'model' '\u6A21\u578B\u4E0D\u662F\u300C\u65D7\u8230\u300D\uFF0C\u5DF2\u4E2D\u6B62\uFF08\u4E0D\u6539\u7528\u6237\u8BBE\u7F6E\uFF09' }
+
+# 7) \u586B\u6587\u672C\uFF1A\u5FC5\u987B\u5148\u7F6E\u524D + SetFocus\uFF0C\u518D\u9010\u5B57\u7B26\u6CE8\u5165\uFF1B\u6362\u884C\u7528 Shift+Enter\uFF0C\u907F\u514D Enter \u76F4\u63A5\u63D0\u4EA4
+[void][AdInput]::ShowWindow([IntPtr]$main.Current.NativeWindowHandle, 9)
+[void][AdInput]::SetForegroundWindow([IntPtr]$main.Current.NativeWindowHandle)
+Start-Sleep -Milliseconds 400
+$edit.SetFocus()
+Start-Sleep -Milliseconds 300
+# \u6309\u884C\u6CE8\u5165\uFF1A\u884C\u5185\u9010\u5B57\u7B26 Unicode \u76F4\u51FA\uFF0C\u884C\u4E0E\u884C\u4E4B\u95F4\u7528 Shift+Enter\uFF08Enter \u4F1A\u76F4\u63A5\u63D0\u4EA4\uFF09
+$lines = $text -split "\r?
+"
+for ($li = 0; $li -lt $lines.Count; $li++) {
+  if ($li -gt 0) { [AdInput]::ShiftEnter(); Start-Sleep -Milliseconds $paceMs }
+  $chars = $lines[$li].ToCharArray()
+  for ($ci = 0; $ci -lt $chars.Length; $ci++) {
+    [AdInput]::TypeChar($chars[$ci])
+    Start-Sleep -Milliseconds $paceMs
+  }
+}
+Start-Sleep -Milliseconds 600
+
+$vp = $edit.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+$shown = ([string]$vp.Current.Value).Replace([string][char]0xFEFF, '') -replace "\r", ''
+$expect = $text.Trim() -replace "\r", ''
+if ($shown.Trim() -ne $expect) { Fail 'typing' ('\u6CE8\u5165\u540E\u8BFB\u56DE\u4E0D\u4E00\u81F4\uFF0C\u8BFB\u5230 ' + $shown.Length + ' \u5B57') }
+
+# 8) \u63D0\u4EA4\uFF1A\u7B49\u5230\u300C\u8FD0\u884C\u300D\u53EF\u7528\u518D\u70B9\uFF0C\u8FD9\u662F\u201C\u8F93\u5165\u5DF2\u8FDB\u5165 React \u72B6\u6001\u201D\u7684\u552F\u4E00\u53EF\u9760\u4FE1\u53F7
+$runBtn = Wait-Name $main $CT::Button '\u8FD0\u884C' $stepMs
+if ($runBtn -eq $null) { Fail 'submit' '\u627E\u4E0D\u5230\u300C\u8FD0\u884C\u300D' }
+for ($i = 0; $i -lt 40; $i++) {
+  if ($runBtn.Current.IsEnabled) { break }
+  Start-Sleep -Milliseconds 250
+}
+if (-not $runBtn.Current.IsEnabled) { Fail 'submit' '\u300C\u8FD0\u884C\u300D\u4E00\u76F4\u4E0D\u53EF\u7528\uFF0C\u8F93\u5165\u53EF\u80FD\u6CA1\u88AB\u63A5\u53D7' }
+$runBtn.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+Start-Sleep -Milliseconds 1200
+
+Send-Result @{ ok = $true; stage = 'sent'; project = $project; chars = $text.Length }
+exit 0
+`;
+var sqlQuote2 = (value) => "'" + String(value).replaceAll("'", "''") + "'";
+function defaultRunSql(db, sql) {
+  return (0, import_node_child_process.execFileSync)(resolveSqliteBinary(), [db, sql], { encoding: "utf8", timeout: 5e3 });
+}
+function parseJsonLines(output) {
+  return String(output || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+    try {
+      return JSON.parse(line);
+    } catch {
+      return null;
+    }
+  }).filter(Boolean);
+}
+function verifyDispatchedSession({ project, text, sinceMs, dbs, runSql } = {}) {
+  const run = runSql || defaultRunSql;
+  const proj = String(project || "").trim();
+  if (!proj) return { found: false, reason: "no-project" };
+  const since = Number.isFinite(Number(sinceMs)) ? Math.max(0, Number(sinceMs)) : Date.now() - 12e4;
+  const prefix = String(text || "").replace(/\s+/g, " ").trim().slice(0, 40);
+  const bases = Array.isArray(dbs) ? dbs : teleAgentDatabases();
+  for (const db of bases) {
+    let rows = [];
+    try {
+      rows = parseJsonLines(run(db, `SELECT json_object('id',id,'title',title,'created',time_created) FROM session WHERE time_created >= ${Math.floor(since)} AND directory LIKE ${sqlQuote2("%" + proj + "%")} ORDER BY time_created DESC LIMIT 5;`));
+    } catch {
+      continue;
+    }
+    for (const row of rows) {
+      if (!row || !row.id) continue;
+      if (!prefix) return { found: true, db, ...row };
+      let body = "";
+      try {
+        body = run(db, `SELECT replace(coalesce(json_extract(data,'$.text'),''),char(10),' ') FROM part WHERE session_id=${sqlQuote2(row.id)} AND json_extract(data,'$.type')='text' ORDER BY time_created LIMIT 2;`);
+      } catch {
+        continue;
+      }
+      if (String(body || "").replace(/\s+/g, " ").includes(prefix)) return { found: true, db, ...row };
+    }
+  }
+  return { found: false, reason: "not-found" };
+}
+async function runHandoffDispatch({
+  agent,
+  autoSend,
+  projectName: projectName2,
+  text,
+  platform = process.platform,
+  dispatch = dispatchTeleagentTask,
+  dispatchLinux = null
+} = {}) {
+  if (!autoSend || agent !== "teleagent") return { skipped: "not-requested" };
+  if (platform !== "win32" && platform !== "linux") return { skipped: "platform" };
+  const project = String(projectName2 || "").trim();
+  if (!project) return { skipped: "no-project" };
+  if (platform === "linux") {
+    if (typeof dispatchLinux !== "function") return { skipped: "platform" };
+    const result2 = await dispatchLinux({ project, text: String(text || "") });
+    return { ...result2, project };
+  }
+  const result = await dispatch({ project, text: String(text || "") });
+  return { ...result, project };
+}
+function parseDispatchOutput(stdout) {
+  const lines = String(stdout || "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  for (let i = lines.length - 1; i >= 0; i--) {
+    try {
+      const parsed = JSON.parse(lines[i]);
+      if (parsed && typeof parsed === "object" && "ok" in parsed) return parsed;
+    } catch {
+    }
+  }
+  return null;
+}
+function resolveShell(deps) {
+  if (deps.exe) return deps.exe;
+  return process.platform === "win32" ? "pwsh.exe" : "pwsh";
+}
+async function attachVerification(result, payload, startedAt, deps) {
+  const verify = deps.verify || verifyDispatchedSession;
+  let check = { found: false, reason: "not-checked" };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      check = verify({ project: payload.project, text: payload.text, sinceMs: startedAt - 5e3, dbs: deps.dbs });
+    } catch (error) {
+      check = { found: false, reason: String(error && error.message || error) };
+      break;
+    }
+    if (check && check.found) break;
+    await new Promise((resolve) => setTimeout(resolve, 700));
+  }
+  return { verified: Boolean(check && check.found), verify: check };
+}
+async function dispatchTeleagentTask(payload, deps = {}) {
+  const platform = deps.platform || process.platform;
+  if (platform !== "win32") {
+    return { ok: false, stage: "platform", error: t("UI Automation \u6D3E\u53D1\u53EA\u5728 Windows \u53EF\u7528") };
+  }
+  const normalized2 = normalizePayload(payload);
+  if (!normalized2.ok) return { ok: false, stage: "input", error: normalized2.error };
+  const fsMod = deps.fs || import_node_fs.default;
+  const pathMod3 = deps.path || import_node_path.default;
+  const tmpBase = deps.tmpdir || import_node_os.default.tmpdir();
+  const spawnFn = deps.spawn || import_node_child_process.spawn;
+  const timeoutMs = normalized2.payload.stepTimeoutMs * 3;
+  let dir = "";
+  const startedAt = Date.now();
+  try {
+    dir = fsMod.mkdtempSync(pathMod3.join(tmpBase, "ad-teleagent-dispatch-"));
+    const scriptPath = pathMod3.join(dir, "dispatch.ps1");
+    fsMod.writeFileSync(scriptPath, POWERSHELL_SCRIPT, "utf8");
+    const args = buildDispatchArgs(scriptPath, normalized2.payload);
+    const result = await new Promise((resolve) => {
+      let stdout = "";
+      let stderr = "";
+      let settled = false;
+      const done = (value) => {
+        if (!settled) {
+          settled = true;
+          resolve(value);
+        }
+      };
+      let child;
+      try {
+        child = spawnFn(resolveShell(deps), args, { windowsHide: true });
+      } catch (error) {
+        done({ ok: false, stage: "spawn", error: String(error && error.message || error) });
+        return;
+      }
+      const timer = setTimeout(() => {
+        try {
+          child.kill();
+        } catch {
+        }
+        done({ ok: false, stage: "timeout", error: t("\u6D3E\u53D1\u8D85\u65F6\uFF08{ms}ms\uFF09", { ms: timeoutMs }) });
+      }, timeoutMs);
+      child.stdout.on("data", (chunk) => {
+        stdout += chunk.toString();
+      });
+      child.stderr.on("data", (chunk) => {
+        stderr += chunk.toString();
+      });
+      child.on("error", (error) => {
+        clearTimeout(timer);
+        done({ ok: false, stage: "spawn", error: String(error && error.message || error) });
+      });
+      child.on("close", (code) => {
+        clearTimeout(timer);
+        const parsed = parseDispatchOutput(stdout);
+        if (parsed) return done(parsed);
+        done({ ok: false, stage: "protocol", error: (stderr || stdout || "").slice(-400) || `\u9000\u51FA\u7801 ${code}` });
+      });
+    });
+    if (result && result.ok && deps.verify !== false) {
+      return { ...result, ...await attachVerification(result, normalized2.payload, startedAt, deps) };
+    }
+    return result;
+  } catch (error) {
+    return { ok: false, stage: "spawn", error: String(error && error.message || error) };
+  } finally {
+    if (dir) {
+      try {
+        fsMod.rmSync(dir, { recursive: true, force: true });
+      } catch {
+      }
+    }
+  }
+}
+
+// src/teleagent-dispatch-linux.js
+var import_node_child_process2 = require("node:child_process");
+var import_node_fs2 = __toESM(require("node:fs"), 1);
+var import_node_os2 = __toESM(require("node:os"), 1);
+var import_node_path2 = __toESM(require("node:path"), 1);
+var TELEAGENT_MAIN_CLASS = "teleagent";
+var TELEAGENT_MAIN_TITLE = "TeleAgent \u661F\u8FB0\u8D85\u7EA7\u667A\u80FD\u4F53";
+var TELEAGENT_WINDOW_TITLE_RE = /TeleAgent/i;
+var TELEAGENT_AUX_TITLE_RE = /Screenshot/i;
+var COMPOSER_POINT_RATIO = Object.freeze({ x: 700 / 1513, y: 780 / 1005 });
+var RUN_POINT_RATIO = Object.freeze({ x: 1358 / 1513, y: 897 / 1005 });
+var GEOMETRY_LIMITS = Object.freeze({
+  minWidth: 900,
+  minHeight: 500,
+  maxWidth: 5e3,
+  maxHeight: 3500,
+  minAspect: 1.1,
+  maxAspect: 2.2
+});
+var LINUX_DISPATCH_STAGES = Object.freeze(["dependency", "attach", "focus", "composer", "paste", "submit"]);
+function defaultRun(command, args, options = {}) {
+  return new Promise((resolve) => {
+    const timeout = Number(options.timeout) > 0 ? Number(options.timeout) : 8e3;
+    (0, import_node_child_process2.execFile)(
+      command,
+      args,
+      {
+        timeout,
+        env: options.env || process.env,
+        encoding: "utf8",
+        maxBuffer: 4 * 1024 * 1024,
+        windowsHide: true
+      },
+      (error, stdout, stderr) => {
+        resolve({
+          ok: !error,
+          code: error && typeof error.code === "number" ? error.code : error ? 1 : 0,
+          stdout: String(stdout || ""),
+          stderr: String(stderr || ""),
+          error: error ? String(error.message || error) : ""
+        });
+      }
+    );
+  });
+}
+function findExecutable(name, env = process.env) {
+  const dirs = String(env && env.PATH || "").split(import_node_path2.default.delimiter).filter(Boolean);
+  for (const dir of dirs) {
+    const candidate = import_node_path2.default.join(dir, name);
+    try {
+      if (!import_node_fs2.default.statSync(candidate).isFile()) continue;
+      import_node_fs2.default.accessSync(candidate, import_node_fs2.default.constants.X_OK);
+      return candidate;
+    } catch {
+    }
+  }
+  return "";
+}
+function resolveElectronClipboard() {
+  try {
+    const req = typeof require === "function" ? require : null;
+    if (!req) return null;
+    const electron = req("electron");
+    if (electron && electron.clipboard && typeof electron.clipboard.writeText === "function") {
+      return electron.clipboard;
+    }
+  } catch {
+  }
+  return null;
+}
+function detectLinuxDispatchEnvironment({ env = process.env, which = findExecutable, clipboard = null } = {}) {
+  const missing = [];
+  const display = String(env && env.DISPLAY || "").trim();
+  if (!display) missing.push("DISPLAY(X11/XWayland)");
+  const xdotool = which("xdotool", env);
+  if (!xdotool) missing.push("xdotool");
+  const electronClipboard = clipboard || resolveElectronClipboard();
+  const xclip = electronClipboard ? "" : which("xclip", env);
+  if (!electronClipboard && !xclip) missing.push("clipboard(Electron clipboard \u6216 xclip)");
+  return {
+    ok: missing.length === 0,
+    display,
+    xdotool: xdotool || "",
+    clipboard: electronClipboard ? "electron" : xclip ? "xclip" : "",
+    xclip: xclip || "",
+    missing
+  };
+}
+function parseWindowGeometry(output) {
+  const fields = {};
+  for (const line of String(output || "").split(/\r?\n/)) {
+    const match = line.trim().match(/^(WINDOW|X|Y|WIDTH|HEIGHT|SCREEN)=(-?\d+)$/);
+    if (match) fields[match[1].toLowerCase()] = Number(match[2]);
+  }
+  if (!Number.isFinite(fields.width) || !Number.isFinite(fields.height)) return null;
+  if (fields.width <= 0 || fields.height <= 0) return null;
+  return { x: fields.x ?? 0, y: fields.y ?? 0, width: fields.width, height: fields.height };
+}
+function geometryIsUsable(geometry) {
+  if (!geometry) return false;
+  const { width: width2, height } = geometry;
+  if (!Number.isFinite(width2) || !Number.isFinite(height)) return false;
+  if (width2 < GEOMETRY_LIMITS.minWidth || width2 > GEOMETRY_LIMITS.maxWidth) return false;
+  if (height < GEOMETRY_LIMITS.minHeight || height > GEOMETRY_LIMITS.maxHeight) return false;
+  const aspect = width2 / height;
+  return aspect >= GEOMETRY_LIMITS.minAspect && aspect <= GEOMETRY_LIMITS.maxAspect;
+}
+function pointInWindow(geometry, ratio) {
+  const x = Math.round(geometry.width * ratio.x);
+  const y = Math.round(geometry.height * ratio.y);
+  return {
+    x: Math.max(1, Math.min(geometry.width - 2, x)),
+    y: Math.max(1, Math.min(geometry.height - 2, y))
+  };
+}
+function parseWindowPid(output) {
+  const match = String(output || "").match(/_NET_WM_PID\(CARDINAL\)\s*=\s*(\d+)/);
+  return match ? Number(match[1]) : null;
+}
+async function findTeleAgentMainWindow({ run = defaultRun, xdotool, which = findExecutable, env = process.env } = {}) {
+  if (!xdotool) {
+    return { ok: false, stage: "dependency", error: t("\u7F3A\u5C11 Linux \u6D3E\u53D1\u4F9D\u8D56\uFF1A{list}", { list: "xdotool" }) };
+  }
+  const found = await run(xdotool, ["search", "--class", TELEAGENT_MAIN_CLASS], { env });
+  if (!found.ok) {
+    return { ok: false, stage: "attach", error: t("\u627E\u4E0D\u5230 TeleAgent \u4E3B\u7A97\u53E3\uFF08\u8BF7\u786E\u8BA4\u5BA2\u6237\u7AEF\u5DF2\u542F\u52A8\uFF0C\u4E14\u5728 XWayland/X11 \u6A21\u5F0F\u4E0B\u8FD0\u884C\uFF09\uFF1A{error}", { error: String(found.error || found.stderr || "").slice(0, 200) }) };
+  }
+  const ids = String(found.stdout || "").split(/\r?\n/).map((line) => line.trim()).filter((line) => /^\d+$/.test(line));
+  const xprop = which("xprop", env);
+  const candidates = [];
+  for (const id of ids) {
+    const titleRun = await run(xdotool, ["getwindowname", id], { env });
+    const title = String(titleRun.stdout || "").trim();
+    if (!titleRun.ok || !title) continue;
+    if (TELEAGENT_AUX_TITLE_RE.test(title)) continue;
+    if (!TELEAGENT_WINDOW_TITLE_RE.test(title)) continue;
+    const geoRun = await run(xdotool, ["getwindowgeometry", "--shell", id], { env });
+    const geometry = parseWindowGeometry(geoRun.stdout);
+    if (!geoRun.ok || !geometryIsUsable(geometry)) {
+      candidates.push({ id, title, geometry, usable: false });
+      continue;
+    }
+    let pid = null;
+    if (xprop) {
+      const pidRun = await run(xprop, ["-id", id, "_NET_WM_PID"], { env });
+      pid = parseWindowPid(pidRun.stdout);
+    }
+    candidates.push({ id, title, geometry, pid, usable: true });
+  }
+  const usable = candidates.filter((entry) => entry.usable);
+  if (!usable.length) {
+    return {
+      ok: false,
+      stage: "attach",
+      error: t("\u627E\u4E0D\u5230\u53EF\u7528\u7684 TeleAgent \u4E3B\u7A97\u53E3\uFF08\u7A97\u53E3\u51E0\u4F55\u5F02\u5E38\u6216\u53EA\u6709\u8F85\u52A9\u7A97\uFF09"),
+      candidates
+    };
+  }
+  usable.sort((a, b) => b.geometry.width * b.geometry.height - a.geometry.width * a.geometry.height);
+  const main = usable[0];
+  return { ok: true, window: { ...main, candidates: candidates.length } };
+}
+function resolveActivationHelper({ env = process.env, which = findExecutable, explicit = "" } = {}) {
+  const candidates = [];
+  if (explicit) candidates.push(String(explicit));
+  if (env && env.AGENT_DECK_TREELAND_ACTIVATE) candidates.push(String(env.AGENT_DECK_TREELAND_ACTIVATE));
+  const onPath = which("treeland-activate", env);
+  if (onPath) candidates.push(onPath);
+  for (const candidate of candidates) {
+    try {
+      if (!candidate || !import_node_fs2.default.statSync(candidate).isFile()) continue;
+      import_node_fs2.default.accessSync(candidate, import_node_fs2.default.constants.X_OK);
+      return candidate;
+    } catch {
+    }
+  }
+  return "";
+}
+async function activateTeleAgentWindow({ run = defaultRun, helper, env = process.env, title = TELEAGENT_MAIN_TITLE } = {}) {
+  if (!helper) {
+    return { ok: false, stage: "focus", error: t("\u7F3A\u5C11 treeland \u7A97\u53E3\u6FC0\u6D3B helper\uFF08treeland-activate\uFF09\uFF1Btreeland \u4E0B\u65E0\u6CD5\u81EA\u52A8\u628A TeleAgent \u5207\u5230\u524D\u53F0") };
+  }
+  const result = await run(helper, [title], { env, timeout: 6e3 });
+  if (!result.ok) {
+    return { ok: false, stage: "focus", error: t("treeland-activate \u6FC0\u6D3B TeleAgent \u5931\u8D25\uFF1A{error}", { error: String(result.error || result.stderr || "").slice(0, 200) }) };
+  }
+  return { ok: true, helper };
+}
+function buildFocusPasteArgs(window2) {
+  const point = pointInWindow(window2.geometry, COMPOSER_POINT_RATIO);
+  return [
+    "windowfocus",
+    String(window2.id),
+    "getwindowfocus",
+    "mousemove",
+    "--window",
+    String(window2.id),
+    String(point.x),
+    String(point.y),
+    "click",
+    "1",
+    "key",
+    "--clearmodifiers",
+    "ctrl+v"
+  ];
+}
+async function focusAndPaste(window2, { run = defaultRun, xdotool, env = process.env } = {}) {
+  if (!geometryIsUsable(window2 && window2.geometry)) {
+    return { ok: false, stage: "composer", error: t("\u7A97\u53E3\u51E0\u4F55\u5F02\u5E38\uFF08{width}\xD7{height}\uFF09\uFF0C\u5DF2\u4E2D\u6B62\u4EE5\u514D\u70B9\u9519\u4F4D\u7F6E", { width: window2 && window2.geometry && window2.geometry.width || "?", height: window2 && window2.geometry && window2.geometry.height || "?" }) };
+  }
+  const args = buildFocusPasteArgs(window2);
+  const result = await run(xdotool, args, { env, timeout: 8e3 });
+  if (!result.ok) {
+    return { ok: false, stage: "paste", error: t("\u5355\u8FDB\u7A0B\u7C98\u8D34\u5931\u8D25\uFF1A{error}", { error: String(result.error || result.stderr || "").slice(0, 200) }) };
+  }
+  return { ok: true, point: pointInWindow(window2.geometry, COMPOSER_POINT_RATIO) };
+}
+function parsePpm(buffer) {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  let index = 0;
+  const tokens = [];
+  const skipSpace = () => {
+    while (index < bytes.length) {
+      const code = bytes[index];
+      if (code === 32 || code === 9 || code === 10 || code === 13) {
+        index += 1;
+        continue;
+      }
+      if (code === 35) {
+        while (index < bytes.length && bytes[index] !== 10) index += 1;
+        continue;
+      }
+      break;
+    }
+  };
+  while (tokens.length < 4 && index < bytes.length) {
+    skipSpace();
+    const start = index;
+    while (index < bytes.length && bytes[index] !== 32 && bytes[index] !== 9 && bytes[index] !== 10 && bytes[index] !== 13) index += 1;
+    tokens.push(String.fromCharCode(...bytes.slice(start, index)));
+  }
+  if (tokens[0] !== "P6") return null;
+  const width2 = Number(tokens[1]);
+  const height = Number(tokens[2]);
+  const max = Number(tokens[3]);
+  if (!Number.isFinite(width2) || !Number.isFinite(height) || width2 <= 0 || height <= 0) return null;
+  index += 1;
+  const channels = max > 255 ? 6 : 3;
+  const need = width2 * height * channels;
+  if (bytes.length - index < need) return null;
+  return { width: width2, height, channels, data: bytes.subarray(index, index + need) };
+}
+function samplePixel(image, x, y) {
+  const channels = image.channels || 3;
+  const offset = (y * image.width + x) * channels;
+  if (channels === 6) return [image.data[offset], image.data[offset + 2], image.data[offset + 4]];
+  return [image.data[offset], image.data[offset + 1], image.data[offset + 2]];
+}
+function composerLooksFilled(before, after) {
+  if (!before || !after) return null;
+  const width2 = Math.min(before.width, after.width);
+  const height = Math.min(before.height, after.height);
+  if (!width2 || !height) return null;
+  const x0 = Math.floor(width2 * 0.3);
+  const x1 = Math.floor(width2 * 0.97);
+  const y0 = Math.floor(height * 0.68);
+  const y1 = Math.floor(height * 0.87);
+  let changed = 0;
+  let total = 0;
+  const step = 2;
+  for (let y = y0; y < y1; y += step) {
+    for (let x = x0; x < x1; x += step) {
+      const a = samplePixel(before, x, y);
+      const b = samplePixel(after, x, y);
+      total += 1;
+      if (Math.abs(a[0] - b[0]) > 16 || Math.abs(a[1] - b[1]) > 16 || Math.abs(a[2] - b[2]) > 16) changed += 1;
+    }
+  }
+  if (!total) return null;
+  return changed / total > 2e-3;
+}
+async function captureWindowPpm(window2, { run = defaultRun, which = findExecutable, env = process.env, capture = null, tmpdir = import_node_os2.default.tmpdir() } = {}) {
+  if (typeof capture === "function") return capture(window2);
+  const importBin = which("import", env);
+  if (!importBin) return null;
+  const file = import_node_path2.default.join(tmpdir, `ad-teleagent-composer-${process.pid}-${Date.now()}.ppm`);
+  try {
+    const shot = await run(importBin, ["-window", String(window2.id), file], { env, timeout: 1e4 });
+    if (!shot.ok) return null;
+    return parsePpm(import_node_fs2.default.readFileSync(file));
+  } catch {
+    return null;
+  } finally {
+    try {
+      import_node_fs2.default.rmSync(file, { force: true });
+    } catch {
+    }
+  }
+}
+async function writeClipboard(text, { clipboard = null, run = defaultRun, xclip = "", env = process.env } = {}) {
+  const value = String(text ?? "");
+  const electron = clipboard || resolveElectronClipboard();
+  if (electron && typeof electron.writeText === "function") {
+    try {
+      electron.writeText(value);
+      const back = typeof electron.readText === "function" ? String(electron.readText() || "") : value;
+      if (back !== value) return { ok: false, stage: "paste", error: t("\u526A\u8D34\u677F\u5185\u5BB9\u6821\u9A8C\u5931\u8D25\uFF08\u5199\u5165\u540E\u8BFB\u56DE\u4E0D\u4E00\u81F4\uFF09") };
+      return { ok: true, source: "electron" };
+    } catch (error) {
+      return { ok: false, stage: "paste", error: t("\u5199\u5165\u7CFB\u7EDF\u526A\u8D34\u677F\u5931\u8D25\uFF1A{error}", { error: String(error && error.message || error).slice(0, 200) }) };
+    }
+  }
+  if (!xclip) {
+    return { ok: false, stage: "dependency", error: t("\u7F3A\u5C11 Linux \u6D3E\u53D1\u4F9D\u8D56\uFF1A{list}", { list: "clipboard(Electron clipboard \u6216 xclip)" }) };
+  }
+  let child = null;
+  let spawnError = "";
+  try {
+    child = (0, import_node_child_process2.spawn)(xclip, ["-selection", "clipboard", "-loops", "32"], { stdio: ["pipe", "ignore", "ignore"], env, windowsHide: true });
+    child.on("error", (error) => {
+      spawnError = String(error && error.message || error);
+    });
+  } catch (error) {
+    return { ok: false, stage: "paste", error: t("\u5199\u5165\u7CFB\u7EDF\u526A\u8D34\u677F\u5931\u8D25\uFF1A{error}", { error: String(error && error.message || error).slice(0, 200) }) };
+  }
+  const stop = () => {
+    try {
+      child.kill();
+    } catch {
+    }
+  };
+  try {
+    child.stdin.end(value, "utf8");
+  } catch (error) {
+    stop();
+    return { ok: false, stage: "paste", error: t("\u5199\u5165\u7CFB\u7EDF\u526A\u8D34\u677F\u5931\u8D25\uFF1A{error}", { error: String(error && error.message || error).slice(0, 200) }) };
+  }
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  if (spawnError) {
+    stop();
+    return { ok: false, stage: "paste", error: t("\u5199\u5165\u7CFB\u7EDF\u526A\u8D34\u677F\u5931\u8D25\uFF1A{error}", { error: spawnError.slice(0, 200) }) };
+  }
+  const readBack = await run(xclip, ["-selection", "clipboard", "-o"], { env, timeout: 5e3 });
+  if (!readBack.ok || String(readBack.stdout || "").trim() !== value.trim()) {
+    stop();
+    return { ok: false, stage: "paste", error: t("\u526A\u8D34\u677F\u5185\u5BB9\u6821\u9A8C\u5931\u8D25\uFF08\u5199\u5165\u540E\u8BFB\u56DE\u4E0D\u4E00\u81F4\uFF09") };
+  }
+  return { ok: true, source: "xclip", stop };
+}
+async function dispatchTeleagentLinux(payload, deps = {}) {
+  const platform = deps.platform || process.platform;
+  if (platform !== "linux") {
+    return { ok: false, stage: "platform", error: t("Linux \u6D3E\u53D1\u53EA\u5728 Linux \u53EF\u7528") };
+  }
+  const normalized2 = normalizePayload(payload);
+  if (!normalized2.ok) return { ok: false, stage: "input", error: normalized2.error };
+  const env = deps.env || process.env;
+  const run = deps.run || defaultRun;
+  const which = deps.which || findExecutable;
+  const environment = detectLinuxDispatchEnvironment({ env, which, clipboard: deps.clipboard || null });
+  if (!environment.ok) {
+    return {
+      ok: false,
+      stage: "dependency",
+      error: t("\u7F3A\u5C11 Linux \u6D3E\u53D1\u4F9D\u8D56\uFF1A{list}", { list: environment.missing.join("\u3001") }),
+      missing: environment.missing
+    };
+  }
+  const found = await findTeleAgentMainWindow({ run, xdotool: environment.xdotool, which, env });
+  if (!found.ok) return found;
+  const window2 = found.window;
+  const helper = deps.activationHelper !== void 0 ? String(deps.activationHelper || "") : resolveActivationHelper({ env, which });
+  if (helper) {
+    const activated = await activateTeleAgentWindow({ run, helper, env });
+    if (!activated.ok) return activated;
+  } else {
+    const focusCheck = await run(environment.xdotool, ["getwindowfocus"], { env });
+    const actual = focusCheck.ok ? String(focusCheck.stdout || "").trim() : "";
+    if (!focusCheck.ok || actual !== String(window2.id)) {
+      return {
+        ok: false,
+        stage: "focus",
+        error: t("\u7F3A\u5C11 treeland \u7A97\u53E3\u6FC0\u6D3B helper\uFF1Atreeland-activate\uFF1Btreeland \u4E0B\u65E0\u6CD5\u81EA\u52A8\u628A TeleAgent \u5207\u5230\u524D\u53F0\u3002\u8BF7\u5148\u624B\u52A8\u5207\u5230 TeleAgent \u518D\u6D3E\u53D1\uFF08\u5F53\u524D\u7126\u70B9\uFF1A{actual}\uFF09", { actual: actual || t("\u672A\u77E5\uFF08\u6CA1\u6709 X \u7126\u70B9\uFF09") })
+      };
+    }
+  }
+  const capture = deps.capture || null;
+  const beforeShot = await captureWindowPpm(window2, { run, which, env, capture, tmpdir: deps.tmpdir });
+  const written = await writeClipboard(normalized2.payload.text, {
+    clipboard: deps.clipboard || null,
+    run,
+    xclip: environment.xclip,
+    env
+  });
+  if (!written.ok) return written;
+  const pasted = await focusAndPaste(window2, { run, xdotool: environment.xdotool, env });
+  if (!pasted.ok) {
+    if (typeof written.stop === "function") written.stop();
+    return pasted;
+  }
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  if (typeof written.stop === "function") written.stop();
+  const afterShot = await captureWindowPpm(window2, { run, which, env, capture, tmpdir: deps.tmpdir });
+  const textVerified = composerLooksFilled(beforeShot, afterShot);
+  return {
+    ok: true,
+    stage: "filled",
+    manualSubmit: true,
+    verified: false,
+    // 没有提交，数据库里不会有新会话；提交后再走 verifyDispatchedSession
+    verify: { found: false, reason: "not-submitted" },
+    project: normalized2.payload.project,
+    chars: normalized2.payload.text.length,
+    window: { id: window2.id, title: window2.title, geometry: window2.geometry, pid: window2.pid || null },
+    clipboard: written.source,
+    textVerified,
+    note: textVerified === false ? t("\u5DF2\u586B\u5165\uFF0C\u4F46\u672A\u80FD\u81EA\u52A8\u786E\u8BA4\u8F93\u5165\u6846\u5185\u5BB9\uFF08\u6CA1\u6709\u622A\u56FE\u5DE5\u5177\uFF09\uFF0C\u8BF7\u76EE\u89C6\u786E\u8BA4\u540E\u518D\u70B9\u300C\u8FD0\u884C\u300D") : ""
+  };
 }
 
 // src/memory-query-core.js
@@ -18355,9 +19383,9 @@ var HarnessPipeline = class {
 };
 
 // src/delegation-runners.js
-var import_fs19 = __toESM(require("fs"), 1);
-var import_path17 = __toESM(require("path"), 1);
-var import_os16 = __toESM(require("os"), 1);
+var import_fs20 = __toESM(require("fs"), 1);
+var import_path18 = __toESM(require("path"), 1);
+var import_os17 = __toESM(require("os"), 1);
 var import_crypto9 = require("crypto");
 var import_child_process7 = require("child_process");
 
@@ -18506,15 +19534,15 @@ function syncCustomAcpRegistry(entries = []) {
 }
 
 // src/codex-desktop.js
-var import_fs18 = __toESM(require("fs"), 1);
-var import_path16 = __toESM(require("path"), 1);
+var import_fs19 = __toESM(require("fs"), 1);
+var import_path17 = __toESM(require("path"), 1);
 var import_crypto8 = require("crypto");
 var import_readline = require("readline");
 var taskHash = (text) => (0, import_crypto8.createHash)("sha1").update(String(text)).digest("hex");
 function codexDesktopBinary(configured) {
   if (configured) return configured;
   const bundled = ["/Applications/Codex.app/Contents/Resources/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"];
-  return bundled.find((p2) => import_fs18.default.existsSync(p2)) || "codex";
+  return bundled.find((p2) => import_fs19.default.existsSync(p2)) || "codex";
 }
 var CodexDesktopRunner = class {
   constructor(delegator, job, openDesktop) {
@@ -18602,8 +19630,8 @@ var CodexDesktopRunner = class {
     const cfg = this.d.settings?.delegate?.codex || {};
     if (cfg.project === false) return "";
     const cwd = String(this.job.cwd || "");
-    if (!cwd || !import_fs18.default.existsSync(cwd) || isScratchCwd(cwd)) return "";
-    const roots = import_path16.default.resolve(cwd);
+    if (!cwd || !import_fs19.default.existsSync(cwd) || isScratchCwd(cwd)) return "";
+    const roots = import_path17.default.resolve(cwd);
     let projects;
     try {
       projects = await this.request("project/list", { limit: 200 });
@@ -18612,7 +19640,7 @@ var CodexDesktopRunner = class {
     }
     const found = (projects?.data || []).find((p2) => (p2.roots || []).some((r) => sameFolder(r.path, roots)));
     if (found?.id) return found.id;
-    const name = this.job.project || projectNameForFolder(this.d.settings, roots) || import_path16.default.basename(roots);
+    const name = this.job.project || projectNameForFolder(this.d.settings, roots) || import_path17.default.basename(roots);
     try {
       const created = await this.request("project/create", {
         idempotencyKey: `agent-deck:${taskHash(roots)}`,
@@ -18699,18 +19727,18 @@ var CodexDesktopRunner = class {
 };
 
 // src/delegation-runners.js
-var fsp5 = import_fs19.default.promises;
-var home4 = () => import_os16.default.homedir();
+var fsp5 = import_fs20.default.promises;
+var home4 = () => import_os17.default.homedir();
 var norm2 = (p2) => String(p2 || "").replace(/^~(?=\/)/, home4());
 var AGENT_BINARY_SPECS = {
   codex: {
     fallback: "codex",
     candidates: () => [
       "/Applications/Codex.app/Contents/Resources/codex",
-      import_path17.default.join(home4(), "Applications/Codex.app/Contents/Resources/codex"),
-      import_path17.default.join(home4(), ".local/bin/codex"),
-      import_path17.default.join(home4(), ".npm-global/bin/codex"),
-      import_path17.default.join(home4(), ".bun/bin/codex"),
+      import_path18.default.join(home4(), "Applications/Codex.app/Contents/Resources/codex"),
+      import_path18.default.join(home4(), ".local/bin/codex"),
+      import_path18.default.join(home4(), ".npm-global/bin/codex"),
+      import_path18.default.join(home4(), ".bun/bin/codex"),
       "/opt/homebrew/bin/codex",
       "/usr/local/bin/codex"
     ]
@@ -18719,9 +19747,9 @@ var AGENT_BINARY_SPECS = {
     fallback: "dsh",
     candidates: () => [
       "/Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh",
-      import_path17.default.join(home4(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
-      import_path17.default.join(home4(), ".local/bin/dsh"),
-      import_path17.default.join(home4(), ".npm-global/bin/dsh"),
+      import_path18.default.join(home4(), "Applications/DeepSeek Harness.app/Contents/Resources/runtime/cli/bin/dsh"),
+      import_path18.default.join(home4(), ".local/bin/dsh"),
+      import_path18.default.join(home4(), ".npm-global/bin/dsh"),
       "/opt/homebrew/bin/dsh",
       "/usr/local/bin/dsh"
     ]
@@ -18730,9 +19758,9 @@ var AGENT_BINARY_SPECS = {
     fallback: "agy",
     candidates: () => [
       "/Applications/Antigravity.app/Contents/Resources/app/bin/agy",
-      import_path17.default.join(home4(), "Applications/Antigravity.app/Contents/Resources/app/bin/agy"),
-      import_path17.default.join(home4(), ".local/bin/agy"),
-      import_path17.default.join(home4(), ".npm-global/bin/agy"),
+      import_path18.default.join(home4(), "Applications/Antigravity.app/Contents/Resources/app/bin/agy"),
+      import_path18.default.join(home4(), ".local/bin/agy"),
+      import_path18.default.join(home4(), ".npm-global/bin/agy"),
       "/opt/homebrew/bin/agy",
       "/usr/local/bin/agy"
     ]
@@ -18741,11 +19769,11 @@ var AGENT_BINARY_SPECS = {
     fallback: "opencode",
     candidates: () => [
       "/Applications/OpenCode.app/Contents/Resources/opencode-cli",
-      import_path17.default.join(home4(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
-      import_path17.default.join(home4(), ".opencode/bin/opencode"),
-      import_path17.default.join(home4(), ".local/bin/opencode"),
-      import_path17.default.join(home4(), ".npm-global/bin/opencode"),
-      import_path17.default.join(home4(), ".bun/bin/opencode"),
+      import_path18.default.join(home4(), "Applications/OpenCode.app/Contents/Resources/opencode-cli"),
+      import_path18.default.join(home4(), ".opencode/bin/opencode"),
+      import_path18.default.join(home4(), ".local/bin/opencode"),
+      import_path18.default.join(home4(), ".npm-global/bin/opencode"),
+      import_path18.default.join(home4(), ".bun/bin/opencode"),
       "/opt/homebrew/bin/opencode",
       "/usr/local/bin/opencode"
     ]
@@ -18753,10 +19781,10 @@ var AGENT_BINARY_SPECS = {
   qoder: {
     fallback: "qodercli",
     candidates: () => [
-      import_path17.default.join(home4(), ".qoder/bin/qodercli/qodercli"),
-      import_path17.default.join(home4(), ".local/bin/qodercli"),
-      import_path17.default.join(home4(), ".local/bin/qoder"),
-      import_path17.default.join(home4(), ".qoder/entry/qoder"),
+      import_path18.default.join(home4(), ".qoder/bin/qodercli/qodercli"),
+      import_path18.default.join(home4(), ".local/bin/qodercli"),
+      import_path18.default.join(home4(), ".local/bin/qoder"),
+      import_path18.default.join(home4(), ".qoder/entry/qoder"),
       "/opt/homebrew/bin/qodercli",
       "/usr/local/bin/qodercli"
     ]
@@ -18764,8 +19792,8 @@ var AGENT_BINARY_SPECS = {
   workbuddy: {
     fallback: "codebuddy",
     candidates: () => [
-      import_path17.default.join(home4(), ".local/bin/codebuddy"),
-      import_path17.default.join(home4(), ".npm-global/bin/codebuddy"),
+      import_path18.default.join(home4(), ".local/bin/codebuddy"),
+      import_path18.default.join(home4(), ".npm-global/bin/codebuddy"),
       "/opt/homebrew/bin/codebuddy",
       "/usr/local/bin/codebuddy"
     ]
@@ -18780,9 +19808,9 @@ var AGENT_BINARY_SPECS = {
   gemini: {
     fallback: "gemini",
     candidates: () => [
-      import_path17.default.join(home4(), ".local/bin/gemini"),
-      import_path17.default.join(home4(), ".npm-global/bin/gemini"),
-      import_path17.default.join(home4(), ".bun/bin/gemini"),
+      import_path18.default.join(home4(), ".local/bin/gemini"),
+      import_path18.default.join(home4(), ".npm-global/bin/gemini"),
+      import_path18.default.join(home4(), ".bun/bin/gemini"),
       "/opt/homebrew/bin/gemini",
       "/usr/local/bin/gemini"
     ]
@@ -18790,10 +19818,10 @@ var AGENT_BINARY_SPECS = {
   minimax: {
     fallback: "mcode",
     candidates: () => [
-      import_path17.default.join(home4(), ".minimax-code/bin/mcode"),
-      import_path17.default.join(home4(), ".local/bin/mcode"),
-      import_path17.default.join(home4(), ".npm-global/bin/mcode"),
-      import_path17.default.join(home4(), ".bun/bin/mcode"),
+      import_path18.default.join(home4(), ".minimax-code/bin/mcode"),
+      import_path18.default.join(home4(), ".local/bin/mcode"),
+      import_path18.default.join(home4(), ".npm-global/bin/mcode"),
+      import_path18.default.join(home4(), ".bun/bin/mcode"),
       "/opt/homebrew/bin/mcode",
       "/usr/local/bin/mcode"
     ]
@@ -18801,8 +19829,8 @@ var AGENT_BINARY_SPECS = {
   t3code: {
     fallback: "t3",
     candidates: () => [
-      import_path17.default.join(home4(), ".t3/bin/t3"),
-      import_path17.default.join(home4(), ".local/bin/t3"),
+      import_path18.default.join(home4(), ".t3/bin/t3"),
+      import_path18.default.join(home4(), ".local/bin/t3"),
       "/opt/homebrew/bin/t3",
       "/usr/local/bin/t3"
     ]
@@ -18810,9 +19838,9 @@ var AGENT_BINARY_SPECS = {
   claude: {
     fallback: "claude",
     candidates: () => [
-      import_path17.default.join(home4(), ".local/bin/claude"),
-      import_path17.default.join(home4(), ".npm-global/bin/claude"),
-      import_path17.default.join(home4(), ".bun/bin/claude"),
+      import_path18.default.join(home4(), ".local/bin/claude"),
+      import_path18.default.join(home4(), ".npm-global/bin/claude"),
+      import_path18.default.join(home4(), ".bun/bin/claude"),
       "/opt/homebrew/bin/claude",
       "/usr/local/bin/claude",
       "/usr/bin/claude"
@@ -18821,9 +19849,9 @@ var AGENT_BINARY_SPECS = {
 };
 function scanGlobBins(baseDir, sub = "bin", reverse = false) {
   try {
-    const ents = import_fs19.default.readdirSync(baseDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
+    const ents = import_fs20.default.readdirSync(baseDir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name);
     if (reverse) ents.sort((a, b) => b.localeCompare(a, void 0, { numeric: true }));
-    return ents.map((name) => sub ? import_path17.default.join(baseDir, name, sub) : import_path17.default.join(baseDir, name));
+    return ents.map((name) => sub ? import_path18.default.join(baseDir, name, sub) : import_path18.default.join(baseDir, name));
   } catch {
     return [];
   }
@@ -18832,29 +19860,29 @@ function expandedPathEntries(basePath = process.env.PATH || "", homeDir = home4(
   const sep = process.platform === "win32" ? ";" : ":";
   const parts = new Set(String(basePath || "").split(sep).filter(Boolean));
   const staticDirs = process.platform === "win32" ? [
-    import_path17.default.join(homeDir, ".local", "bin"),
-    import_path17.default.join(homeDir, ".bun", "bin"),
-    import_path17.default.join(process.env.APPDATA || import_path17.default.join(homeDir, "AppData", "Roaming"), "npm"),
-    import_path17.default.join(process.env.LOCALAPPDATA || import_path17.default.join(homeDir, "AppData", "Local"), "pnpm"),
-    import_path17.default.join(homeDir, "scoop", "shims")
+    import_path18.default.join(homeDir, ".local", "bin"),
+    import_path18.default.join(homeDir, ".bun", "bin"),
+    import_path18.default.join(process.env.APPDATA || import_path18.default.join(homeDir, "AppData", "Roaming"), "npm"),
+    import_path18.default.join(process.env.LOCALAPPDATA || import_path18.default.join(homeDir, "AppData", "Local"), "pnpm"),
+    import_path18.default.join(homeDir, "scoop", "shims")
   ] : [
-    import_path17.default.join(homeDir, ".local/bin"),
-    ...scanGlobBins(import_path17.default.join(homeDir, ".nvm/versions/node"), "bin", true),
-    import_path17.default.join(homeDir, ".volta/bin"),
-    import_path17.default.join(homeDir, ".fnm/aliases/default/bin"),
-    import_path17.default.join(homeDir, ".fnm/current/bin"),
-    import_path17.default.join(homeDir, ".npm-global/bin"),
-    import_path17.default.join(homeDir, "Library/pnpm"),
-    import_path17.default.join(homeDir, ".local/share/pnpm"),
-    import_path17.default.join(homeDir, ".bun/bin"),
-    import_path17.default.join(homeDir, ".cargo/bin"),
-    ...scanGlobBins(import_path17.default.join(homeDir, ".local/share/uv/tools"), "bin"),
-    import_path17.default.join(homeDir, ".pyenv/shims"),
-    import_path17.default.join(homeDir, ".pyenv/bin"),
-    import_path17.default.join(homeDir, "miniconda3/bin"),
-    import_path17.default.join(homeDir, "anaconda3/bin"),
-    import_path17.default.join(homeDir, "miniforge3/bin"),
-    import_path17.default.join(homeDir, "mambaforge/bin"),
+    import_path18.default.join(homeDir, ".local/bin"),
+    ...scanGlobBins(import_path18.default.join(homeDir, ".nvm/versions/node"), "bin", true),
+    import_path18.default.join(homeDir, ".volta/bin"),
+    import_path18.default.join(homeDir, ".fnm/aliases/default/bin"),
+    import_path18.default.join(homeDir, ".fnm/current/bin"),
+    import_path18.default.join(homeDir, ".npm-global/bin"),
+    import_path18.default.join(homeDir, "Library/pnpm"),
+    import_path18.default.join(homeDir, ".local/share/pnpm"),
+    import_path18.default.join(homeDir, ".bun/bin"),
+    import_path18.default.join(homeDir, ".cargo/bin"),
+    ...scanGlobBins(import_path18.default.join(homeDir, ".local/share/uv/tools"), "bin"),
+    import_path18.default.join(homeDir, ".pyenv/shims"),
+    import_path18.default.join(homeDir, ".pyenv/bin"),
+    import_path18.default.join(homeDir, "miniconda3/bin"),
+    import_path18.default.join(homeDir, "anaconda3/bin"),
+    import_path18.default.join(homeDir, "miniforge3/bin"),
+    import_path18.default.join(homeDir, "mambaforge/bin"),
     "/opt/homebrew/Caskroom/miniconda/base/bin",
     ...scanGlobBins("/opt/homebrew/opt", "bin"),
     "/opt/homebrew/bin",
@@ -18871,13 +19899,13 @@ function expandedPathEntries(basePath = process.env.PATH || "", homeDir = home4(
 function findInPathDirs(name, dirs) {
   if (!name || String(name).includes("/") || String(name).includes("\\")) return "";
   const pathext = String(process.env.PATHEXT || ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean);
-  const exts = process.platform === "win32" ? import_path17.default.extname(name) ? ["", ...pathext] : [...pathext, ""] : [""];
+  const exts = process.platform === "win32" ? import_path18.default.extname(name) ? ["", ...pathext] : [...pathext, ""] : [""];
   for (const dir of dirs) {
     if (!dir) continue;
     for (const ext of exts) {
-      const candidate = import_path17.default.join(dir, name + ext);
+      const candidate = import_path18.default.join(dir, name + ext);
       try {
-        const st = import_fs19.default.statSync(candidate);
+        const st = import_fs20.default.statSync(candidate);
         if (st.isFile()) return candidate;
       } catch {
       }
@@ -18890,7 +19918,7 @@ function findBinary(configured, candidates, fallback) {
   if (custom) return norm2(custom);
   for (const p2 of candidates) {
     try {
-      if (import_fs19.default.existsSync(p2)) return p2;
+      if (import_fs20.default.existsSync(p2)) return p2;
     } catch {
     }
   }
@@ -18906,8 +19934,8 @@ function findAgentBinary(agent, configured = "") {
 }
 function hermesBinLocations(name) {
   return [
-    import_path17.default.join(home4(), `.local/bin/${name}`),
-    import_path17.default.join(home4(), `.local/share/uv/tools/hermes-agent/bin/${name}`),
+    import_path18.default.join(home4(), `.local/bin/${name}`),
+    import_path18.default.join(home4(), `.local/share/uv/tools/hermes-agent/bin/${name}`),
     `/opt/homebrew/bin/${name}`,
     `/usr/local/bin/${name}`
   ];
@@ -18916,10 +19944,10 @@ function findHermesCliBinary(configured = "") {
   const custom = configured && String(configured).trim();
   if (custom) {
     const normalized2 = norm2(custom);
-    if (import_path17.default.basename(normalized2) === "hermes-acp") {
-      const sibling = import_path17.default.join(import_path17.default.dirname(normalized2), "hermes");
+    if (import_path18.default.basename(normalized2) === "hermes-acp") {
+      const sibling = import_path18.default.join(import_path18.default.dirname(normalized2), "hermes");
       try {
-        if (import_fs19.default.existsSync(sibling)) return sibling;
+        if (import_fs20.default.existsSync(sibling)) return sibling;
       } catch {
       }
     } else return normalized2;
@@ -18941,17 +19969,17 @@ async function resolveExecutableWithFallback(bin, fallbackName = "") {
   if (!bin) return bin;
   if (bin.includes("/") || bin.includes("\\")) {
     try {
-      if (import_fs19.default.existsSync(bin)) return bin;
+      if (import_fs20.default.existsSync(bin)) return bin;
     } catch {
     }
   }
   if (process.platform === "win32") {
-    const hit2 = findInPathDirs(fallbackName || import_path17.default.basename(bin), expandedPathEntries());
+    const hit2 = findInPathDirs(fallbackName || import_path18.default.basename(bin), expandedPathEntries());
     return hit2 || bin;
   }
   const shellPath = await resolveLoginShellPath();
   if (!shellPath) return bin;
-  const hit = findInPathDirs(fallbackName || import_path17.default.basename(bin), shellPath.split(":").filter(Boolean));
+  const hit = findInPathDirs(fallbackName || import_path18.default.basename(bin), shellPath.split(":").filter(Boolean));
   return hit || bin;
 }
 var findQoderBinary = (configured = "") => findAgentBinary("qoder", configured);
@@ -18962,7 +19990,7 @@ function pickTrusted(list, vaultPath) {
   if (list.includes(vaultPath)) return vaultPath;
   const isDir = (p2) => {
     try {
-      return import_fs19.default.statSync(p2).isDirectory();
+      return import_fs20.default.statSync(p2).isDirectory();
     } catch {
       return false;
     }
@@ -18976,7 +20004,7 @@ function pickTrusted(list, vaultPath) {
 }
 async function findTrustedDir(vaultPath) {
   try {
-    const projects = JSON.parse(await fsp5.readFile(import_path17.default.join(home4(), ".claude.json"), "utf8")).projects || {};
+    const projects = JSON.parse(await fsp5.readFile(import_path18.default.join(home4(), ".claude.json"), "utf8")).projects || {};
     return pickTrusted(Object.keys(projects).filter((p2) => projects[p2] && projects[p2].hasTrustDialogAccepted), vaultPath);
   } catch {
     return vaultPath;
@@ -18984,7 +20012,7 @@ async function findTrustedDir(vaultPath) {
 }
 async function findCodexTrustedDir(vaultPath) {
   try {
-    const toml = await fsp5.readFile(import_path17.default.join(process.env.CODEX_HOME || import_path17.default.join(home4(), ".codex"), "config.toml"), "utf8");
+    const toml = await fsp5.readFile(import_path18.default.join(process.env.CODEX_HOME || import_path18.default.join(home4(), ".codex"), "config.toml"), "utf8");
     const list = [...toml.matchAll(/^\[projects\."([^"]+)"\]\s*\n\s*trust_level\s*=\s*"trusted"/gm)].map((m) => m[1]);
     return pickTrusted(list, vaultPath);
   } catch {
@@ -19140,7 +20168,7 @@ function pickPermissionOption(options = [], allow = true) {
   return options.find((o) => /^(reject[_-]?once|deny)$/i.test(String(o?.kind || "")) || /^(reject[_-]?once|deny)$/i.test(String(o?.optionId || ""))) || options.find((o) => /^(reject|deny)/i.test(String(o?.kind || ""))) || options.find((o) => /^(reject|deny)/i.test(String(o?.optionId || ""))) || options.find((o) => /\b(reject|deny)\b|拒绝|取消/i.test(String(o?.name || "")));
 }
 function acpSpawnArgs(agent, bin, extraArgs = "", cap = getAgentCapability(agent)) {
-  const baseName = import_path17.default.basename(String(bin || "")).replace(/\.(exe|cmd|bat)$/i, "");
+  const baseName = import_path18.default.basename(String(bin || "")).replace(/\.(exe|cmd|bat)$/i, "");
   let sub = Array.isArray(cap?.acpArgs) ? [...cap.acpArgs] : ["acp"];
   if (!cap?.customAcp) {
     if (agent === "hermes" && baseName === "hermes") sub = ["acp"];
@@ -19243,7 +20271,7 @@ var ClaudeRunner = class extends BaseRunner {
     if (cfg.useBackground === true && this.job.destination !== "background") {
       const args = ["--bg", ...common, "--", prompt];
       this.job.command = redactSecrets(`${bin} ${args.slice(0, -2).join(" ")} \u2026`);
-      this.trace?.recordFrame("claude.bg_spawn", `${import_path17.default.basename(bin)} --bg`);
+      this.trace?.recordFrame("claude.bg_spawn", `${import_path18.default.basename(bin)} --bg`);
       const res = await spawnCapture(bin, args, { cwd, env: cleanEnv(), timeout: 3e4 });
       if (res.ok) {
         const m = /backgrounded\s*·\s*([0-9a-f]{6,})/i.exec(res.out || "");
@@ -19266,7 +20294,7 @@ var ClaudeRunner = class extends BaseRunner {
     const sid = (0, import_crypto9.randomUUID)();
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = redactSecrets(`${bin} ${args2.slice(0, -2).join(" ")} \u2026`);
-    this.trace?.recordFrame("claude.headless_spawn", `${import_path17.default.basename(bin)} -p`);
+    this.trace?.recordFrame("claude.headless_spawn", `${import_path18.default.basename(bin)} -p`);
     const child = spawnCli(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.fallbackStarted = true;
@@ -19382,7 +20410,7 @@ var QoderRunner = class extends BaseRunner {
     for (const a of splitArgs(cfg.extraArgs || "")) args.push(a);
     args.push("--", opts.prompt);
     this.job.command = redactSecrets([bin, ...args.slice(0, -1), "<prompt>"].join(" "));
-    this.trace?.recordFrame("qoder.spawn", import_path17.default.basename(bin));
+    this.trace?.recordFrame("qoder.spawn", import_path18.default.basename(bin));
     const child = spawnCli(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
@@ -19476,8 +20504,8 @@ var AcpRunner = class extends BaseRunner {
     const configuredBin = cfg.path || cap.acpCommand || "";
     let bin = findAgentBinary(this.agent, configuredBin);
     const hasPathSep = bin.includes("/") || bin.includes("\\");
-    if (!hasPathSep || !import_fs19.default.existsSync(bin)) {
-      bin = await resolveExecutableWithFallback(bin, import_path17.default.basename(bin));
+    if (!hasPathSep || !import_fs20.default.existsSync(bin)) {
+      bin = await resolveExecutableWithFallback(bin, import_path18.default.basename(bin));
     }
     const cwd = norm2(opts.cwd || cfg.cwd || d.vaultPath);
     this.cwd = cwd;
@@ -19486,7 +20514,7 @@ var AcpRunner = class extends BaseRunner {
     const spawnArgs = acpSpawnArgs(this.agent, bin, cfg.extraArgs || "", cap);
     const customEnv = cap.acpEnvRaw ? parseCustomAcpEnv(cap.acpEnvRaw) : {};
     this.job.command = redactSecrets([bin, ...spawnArgs].join(" "));
-    this.trace?.recordFrame("acp.spawn", `${import_path17.default.basename(bin)} ${spawnArgs.join(" ")}`);
+    this.trace?.recordFrame("acp.spawn", `${import_path18.default.basename(bin)} ${spawnArgs.join(" ")}`);
     const child = spawnCli(bin, spawnArgs, { cwd, env: cleanEnv(customEnv), stdio: ["pipe", "pipe", "pipe"] });
     this.child = child;
     this.job.state = "running";
@@ -19837,7 +20865,7 @@ var T3CodeRunner = class extends BaseRunner {
     this.job.app = "desktop";
     if (opts.sessionId) this.job.sessionId = opts.sessionId;
     this.job.command = redactSecrets([bin, ...args].join(" "));
-    this.trace?.recordFrame("t3code.spawn", import_path17.default.basename(bin));
+    this.trace?.recordFrame("t3code.spawn", import_path18.default.basename(bin));
     this.job.state = "running";
     this.job.startedAt = Date.now();
     (_a = this.job).conversation || (_a.conversation = []);
@@ -19899,8 +20927,8 @@ function getRunnerClasses(overrides = {}) {
 }
 
 // src/delegation.js
-var fsp6 = import_fs20.default.promises;
-var home5 = () => import_os17.default.homedir();
+var fsp6 = import_fs21.default.promises;
+var home5 = () => import_os18.default.homedir();
 var norm3 = (p2) => String(p2 || "").replace(/^~(?=\/)/, home5());
 var BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 var LINK_RE2 = LINK_RE;
@@ -20011,7 +21039,10 @@ var AGENT_APPS = {
   t3code: { bundle: "com.t3tools.t3code", url: "t3code://" },
   muse: { bundle: "com.meta.endo", url: "hatch://" },
   kimicode: { bundle: "com.kimi.code.desktop", url: "kimi-code://" },
-  doubaowork: { bundle: "com.work.pc.doubao", url: "doubaowork://" }
+  doubaowork: { bundle: "com.work.pc.doubao", url: "doubaowork://" },
+  // TeleAgent 的 macOS bundle id 没有核验到（本机只有 Windows 安装），留空直接走 URL scheme；
+  // 桌面版注册的 scheme 是 teleai-cowork（Linux 上实测，见 docs/specs/teleagent-adapter.zh-CN.md）。
+  teleagent: { bundle: "", url: "teleai-cowork://" }
 };
 function openAgentApp(agent) {
   const app = AGENT_APPS[agent];
@@ -20063,7 +21094,7 @@ function openSession(plugin, agent, sid, app = "", session = null) {
     const bin = findAgentBinary("gemini", plugin.settings?.delegate?.gemini?.path || "");
     return focusOrResume(plugin, agent, sid, `${shellQuote2(bin)} --resume ${shellQuote2(sid)}`, cwd);
   }
-  if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork"].includes(agent)) {
+  if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "teleagent"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = session && session.cwd || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
       return focusOrResume(plugin, agent, sid, `${shellQuote2(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote2(sid)}`, cwd);
@@ -20190,7 +21221,7 @@ var Delegator = class {
           } catch {
           }
         }
-        const abs = import_path18.default.join(this.vaultPath, dest.path);
+        const abs = import_path19.default.join(this.vaultPath, dest.path);
         if (!notePaths.includes(abs)) notePaths.push(abs);
       }
       const notesHead = t("\u4EFB\u52A1\u91CC\u5F15\u7528\u7684\u7B14\u8BB0\uFF08\u53EF\u76F4\u63A5\u8BFB\u5168\u6587\uFF09\uFF1A");
@@ -20238,10 +21269,10 @@ ${replyText}`;
   // 运行时记忆查询：脚本随插件装在库内；脚本和记忆目录都在，才值得告诉 Agent 这一行用法。
   async memoryToolHint() {
     try {
-      const script = import_path18.default.join(this.vaultPath, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
+      const script = import_path19.default.join(this.vaultPath, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
       const relDir = String(this.settings?.dream?.dir || "Agent Deck/\u8BB0\u5FC6").replace(/[\\/]+$/, "");
-      const dir = import_path18.default.join(this.vaultPath, ...relDir.split("/").filter(Boolean));
-      if (!import_fs20.default.existsSync(script) || !import_fs20.default.existsSync(dir)) return "";
+      const dir = import_path19.default.join(this.vaultPath, ...relDir.split("/").filter(Boolean));
+      if (!import_fs21.default.existsSync(script) || !import_fs21.default.existsSync(dir)) return "";
       return `${t("\u9700\u8981\u66F4\u591A\u80CC\u666F\u65F6\uFF1A")}node "${script}" search "\u5173\u952E\u8BCD"`;
     } catch {
       return "";
@@ -20264,7 +21295,7 @@ ${replyText}`;
       const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
       if (!body) return null;
       if (!consume) {
-        return { path: relPath, abs: import_path18.default.join(this.vaultPath, relPath), draft: true, body, raw, hash: "" };
+        return { path: relPath, abs: import_path19.default.join(this.vaultPath, relPath), draft: true, body, raw, hash: "" };
       }
       const next = raw.replace(/^status: .*$/m, "status: dispatched").replace(/^(created: .+)$/m, `$1
 dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
@@ -20287,7 +21318,7 @@ dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
           return changed ? lines.join("\n") : text;
         });
       }
-      return { path: relPath, abs: import_path18.default.join(this.vaultPath, relPath), draft: true, body, raw, hash: hash4 };
+      return { path: relPath, abs: import_path19.default.join(this.vaultPath, relPath), draft: true, body, raw, hash: hash4 };
     } catch (e) {
       console.error("[agent-deck] \u8BFB\u53D6\u6D3E\u53D1\u8349\u7A3F\u5931\u8D25", e);
       return null;
@@ -20350,7 +21381,7 @@ dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
         lines.splice(at + 1, 0, draft ? `${indent}- \u{1F4DD} [[${relPath}|${t("\u6D3E\u53D1\u8349\u7A3F")}]]` : `${indent}- \u{1F4C4} [[${relPath}|${t("\u672C\u6B21\u8F7D\u8377")}]]`);
         return lines.join("\n");
       });
-      return { path: relPath, abs: import_path18.default.join(this.vaultPath, relPath), hash: (0, import_crypto10.createHash)("sha256").update(head).digest("hex").slice(0, 16) };
+      return { path: relPath, abs: import_path19.default.join(this.vaultPath, relPath), hash: (0, import_crypto10.createHash)("sha256").update(head).digest("hex").slice(0, 16) };
     } catch (e) {
       console.error("[agent-deck] \u5199\u5165\u6D3E\u53D1\u8F7D\u8377\u5931\u8D25", e);
       return null;
@@ -20609,6 +21640,20 @@ ${source}`;
     await runner.start({ sessionId: sid, prompt, cwd: job.cwd, ...job.model ? { model: job.model } : {}, ...job.effort ? { effort: job.effort } : {} });
     return job;
   }
+  // treeland 窗口激活 helper 随插件安装到 <plugin>/bin；运行时探测，缺失时回退到 PATH/环境变量。
+  // 只做存在性检查，不启动、不修改用户系统路径。
+  nativeActivationHelper() {
+    try {
+      const base = this.plugin?.app?.vault?.adapter?.basePath;
+      const dir = this.plugin?.manifest?.dir || this.plugin?.manifestDir;
+      if (!base || !dir) return "";
+      const candidate = import_path19.default.join(base, dir, "bin", "treeland-activate");
+      import_fs21.default.accessSync(candidate, import_fs21.default.constants.X_OK);
+      return candidate;
+    } catch {
+      return "";
+    }
+  }
   // 尚未接入自动委派的客户端（或 Qoder 桌面模式）：复制任务并唤起应用，由用户发送。
   // 之后每轮扫描找这个 Agent 新出现、开头对得上的会话，找到就绑回这一行（🔗 + DELEGATED），面板里的卡片飞进「现在」。
   async handoff(opts) {
@@ -20635,6 +21680,21 @@ ${source}`;
     this.copyText(resolved.prompt);
     await this.openAgentApp(agent);
     this.plugin.notice(t("\u{1F4CB} \u4EFB\u52A1\u5DF2\u590D\u5236\uFF0C\u7C98\u8D34\u5230 {agent} \u91CC\u53D1\u51FA", { agent: AGENTS[agent]?.name || agent }), 1e4);
+    const dispatched = await runHandoffDispatch({
+      agent,
+      autoSend: opts.autoSend,
+      projectName: opts.projectName,
+      text: resolved.prompt,
+      dispatchLinux: (payload) => dispatchTeleagentLinux(payload, { activationHelper: this.nativeActivationHelper() })
+    });
+    if (dispatched.skipped === "no-project") this.plugin.notice(t("\u6CA1\u6709\u8BC6\u522B\u5230\u9879\u76EE\u540D\uFF0C\u5DF2\u9000\u56DE\u590D\u5236\u4EA4\u63A5"), 8e3);
+    else if (dispatched.skipped === "platform") this.plugin.notice(t("\u6D3E\u53D1\u53EA\u5728 Windows/Linux \u53EF\u7528"), 8e3);
+    else if (dispatched.ok && dispatched.manualSubmit) {
+      this.plugin.notice(t("\u5DF2\u586B\u5165\u4EFB\u52A1\u6587\u672C\uFF0C\u8BF7\u5728 TeleAgent \u91CC\u624B\u52A8\u70B9\u300C\u8FD0\u884C\u300D\xB7 {project}", { project: dispatched.project }), 12e3);
+      if (dispatched.textVerified === false) this.plugin.notice(t("\u672A\u80FD\u81EA\u52A8\u786E\u8BA4\u8F93\u5165\u6846\u5185\u5BB9\uFF08\u6CA1\u6709\u622A\u56FE\u5DE5\u5177\uFF09\uFF0C\u8BF7\u76EE\u89C6\u786E\u8BA4\u540E\u518D\u70B9\u300C\u8FD0\u884C\u300D"), 1e4);
+    } else if (dispatched.ok && dispatched.verified) this.plugin.notice(t("\u5DF2\u6D3E\u53D1\u5E76\u786E\u8BA4\u843D\u5E93 \xB7 {project}", { project: dispatched.project }), 6e3);
+    else if (dispatched.ok) this.plugin.notice(t("\u5DF2\u53D1\u9001\uFF0C\u4F46\u672C\u5730\u5E93\u91CC\u8FD8\u6CA1\u67E5\u5230 \xB7 {project}", { project: dispatched.project }), 9e3);
+    else if (!dispatched.skipped) this.plugin.notice(t("\u6D3E\u53D1\u5931\u8D25\uFF08{stage}\uFF09\uFF1A{error}", { stage: dispatched.stage, error: String(dispatched.error || "").slice(0, 120) }), 12e3);
     this.plugin.refreshUI();
     return job;
   }
@@ -20665,9 +21725,9 @@ ${source}`;
     const effort = opts.effort || this.C[agent]?.effort || "high";
     if (agent === "codex") extra += " " + codexCliArgs(this.plugin, opts).map(shellQuote2).join(" ");
     else if (agent === "claude") extra += `${model ? ` --model ${shellQuote2(model)}` : ""} --effort ${shellQuote2(effort)}`;
-    const dir = import_path18.default.join(import_os17.default.tmpdir(), "agent-deck");
+    const dir = import_path19.default.join(import_os18.default.tmpdir(), "agent-deck");
     await fsp6.mkdir(dir, { recursive: true });
-    const taskFile = import_path18.default.join(dir, `task-${Date.now().toString(36)}.txt`);
+    const taskFile = import_path19.default.join(dir, `task-${Date.now().toString(36)}.txt`);
     await fsp6.writeFile(taskFile, prompt, "utf8");
     const bin = findAgentBinary(agent, this.C[agent]?.path || "");
     const job = this.buildJobBase({
@@ -20724,6 +21784,7 @@ ${source}`;
         job.state = "cancelled";
         job.error = t("\u534A\u5C0F\u65F6\u91CC\u6CA1\u5728\u5BA2\u6237\u7AEF\u770B\u5230\u8FD9\u4E2A\u4EFB\u52A1\u7684\u65B0\u4F1A\u8BDD");
         job.endedAt = Date.now();
+        this.plugin.notice?.(job.error);
         this.saveJobs();
         continue;
       }
@@ -20773,10 +21834,10 @@ ${source}`;
   }
   async writeLink(job, sid) {
     if (!this.C.writeLink) return;
-    const path23 = job.path;
+    const path26 = job.path;
     const existing = job.blockId || blockIdOf(job.lineText);
     const blockId = existing || (this.plugin.taskBlockId ? await this.plugin.taskBlockId(sid, job.agent, job.name) : makeBlockId(sid, job.agent, job.name));
-    await updateNote(this.plugin, path23, (text) => {
+    await updateNote(this.plugin, path26, (text) => {
       const lines = text.split("\n");
       let at = job.blockId ? lines.findIndex((l) => blockIdOf(l) === job.blockId) : -1;
       if (at < 0) at = lines.findIndex((l) => l === job.lineText);
@@ -21078,8 +22139,11 @@ var doubaowork_default = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACA
 // assets/agents/gemini.png
 var gemini_default = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAEBUlEQVR42u2cXVIaQRSF3YcPrMMtsAB9kmj+JIn5MUICzOArxRrcDUvgSQfE/1TxCgvo9B0GpChAkAFm+n5f1anK8znHAN339s4OAAAAAAAAAAAAAAAAAAAAAAAAAABAmnl38W9XhBN6C+CJcEJvAdpHVjihFBu+Obp4NjihtgDPFEB7AY4pgF6OKYDq8DPDAry3/8YRfQWoR+FbPdVxRF8BelH45kP1qYcjyhgLPxSOqCvAS/gUQF/4+fHwPw6Uxxkl2NCDifCtHgOc0VOAyfDNJyuc0RF+dlr4kbI45H4BGjPCN5+rjw0ccpw54YfCIbfDL8wLX3RSfSjglLsF6L8SvjnxH/o45Wb4+wuEHyrvP+zjmHMFeGwtGL6ohWNuhX+4RPihvvj3hzjnCDb07pLhi7o450b4tTeEH+qrf1/DwXSHv7dC+KG++fd7OJneAjRXDN/qromT6Qz/MobwQ536d5c4mq7wizGGb069UEWcTUf4uTWEb76Hus3hcLLDP1hj+KF+eLcHOK3vL38Y/lD8T6DgM39W+ObnQHwncPDb/qLhW3XML6/Dr4MtH/I0txj+QJVO86zS4bBow+HXYjjhiyN8czbSDcfG6ya61esmMHzze6DueeWGW8T4gw+HOVpvuNLdZPjm/EWtQqXNUEkMwRcWHONKUvjGhj9Uv1hpM2O4DNHcfuO16d0UhG+KQ5Xb5k+51bBi72Aa0a5eMGtjx4HwR/o7UGClcxcxepmjPrGfbxSFH6oUKghVLgc9q7qVGy+VRC9wetE7fGb4GtfxmAh/FP5IlZLo2nhj8kvXbSvPL13tpq4AR2EBCH+F8KMCXHnVNBVg/uf9c0be5JFnWQh/FH7Phl+3oet8rEoeZ5D9fEXhB1Y8SDHjmDcrW7oOht+w4mfgMsiipuzqpTj8vg2fg6BVkV09WddKUfgtK46C40bWtWRjJ8Hhd624DFo3srGTwPC5Dt4ksrEjSxsJCL9pw2cgZFvI0sYWw2ckLBEl8O6KWwifodAkIUsbGwyfsfAkIksbGwifxZCElyDHX75yZGmDz3zlyNIG3/a1l2CwtLHy73ycTCmysRPDCR+HPOkuwU2N413lRBs7S1/s4JwjyLrWG650udVzrAStZe7zccwxZFdviUkehjkcLUF/kTEunHIUWdRcYICTGT6nS/DK9C4OOU60pTtzdBuH3C9Ads7SBnP7Gpi1sYMzegoQTFvXwhk9BchPWdRkV08Tk1u6OKKwAGUKoJfoWZbRfj6O6CtAfexljjqO6CtAZuxZlgyOKGT4Jg9OKMWjABSAAigvgE8B9BI9wtjGCb0FkBc4PZxQW4CrXWde4AQAAAAAAAAAAAAAAAAAAAAAAAAAAL38BzHpkKpYP44/AAAAAElFTkSuQmCC";
 
+// assets/agents/teleagent.png
+var teleagent_default = "data:image/png;base64,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";
+
 // src/agent-assets.js
-var AGENT_IMAGES = { claude: claude_default, codex: codex_default, workbuddy: workbuddy_default, dsh: dsh_default, antigravity: antigravity_default, opencode: opencode_default, qoder: qoder_default, hermes: hermes_default, minimax: minimax_default, qwenwork: qwenwork_default, cursor: cursor_default, grokbot: grokbot_default, t3code: t3code_default, muse: muse_default, kimicode: kimicode_default, doubaowork: doubaowork_default, gemini: gemini_default };
+var AGENT_IMAGES = { claude: claude_default, codex: codex_default, workbuddy: workbuddy_default, dsh: dsh_default, antigravity: antigravity_default, opencode: opencode_default, qoder: qoder_default, hermes: hermes_default, minimax: minimax_default, qwenwork: qwenwork_default, cursor: cursor_default, grokbot: grokbot_default, t3code: t3code_default, muse: muse_default, kimicode: kimicode_default, doubaowork: doubaowork_default, gemini: gemini_default, teleagent: teleagent_default };
 function agentImageBuffer(id) {
   const uri = AGENT_IMAGES[id];
   if (!uri) return null;
@@ -21877,8 +22941,8 @@ var ViewToggleWidget = class extends import_view2.WidgetType {
       };
       if (this.plugin.openRecordViewMenu) {
         const info = view2.state.field?.(this.plugin.editorInfoField, false);
-        const path23 = info?.file?.path || "";
-        this.plugin.openRecordViewMenu(e, { path: path23, line: this.line, key: this.key, viewMode: this.viewMode, onSelect: select });
+        const path26 = info?.file?.path || "";
+        this.plugin.openRecordViewMenu(e, { path: path26, line: this.line, key: this.key, viewMode: this.viewMode, onSelect: select });
       } else {
         select(this.viewMode === "table" ? "outline" : "table");
       }
@@ -23603,7 +24667,7 @@ function isTerminalWorkerState(state = "") {
 }
 function createWorkbenchWave({
   id = "",
-  path: path23 = "",
+  path: path26 = "",
   parentBlockId = "",
   parentTitle = "",
   projectName: projectName2 = "",
@@ -23616,7 +24680,7 @@ function createWorkbenchWave({
   const now = Date.now();
   return {
     id: id || `wave-${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-    path: String(path23 || ""),
+    path: String(path26 || ""),
     parentBlockId: String(parentBlockId || ""),
     parentTitle: String(parentTitle || ""),
     projectName: String(projectName2 || ""),
@@ -23918,9 +24982,9 @@ function appendSubtasksToParentBlock(text = "", { parentBlockId = "", parentTitl
   lines.splice(insertAt, 0, ...inserted);
   return { text: lines.join("\n"), parentLine, addedLines };
 }
-function findActiveWaveForBoard(waves = {}, { path: path23 = "", parentBlockId = "", parentTitle = "" } = {}) {
+function findActiveWaveForBoard(waves = {}, { path: path26 = "", parentBlockId = "", parentTitle = "" } = {}) {
   const candidates = Object.values(waves || {}).filter((w) => {
-    if (!w || path23 && w.path !== path23) return false;
+    if (!w || path26 && w.path !== path26) return false;
     if (!["waiting", "running", "error"].includes(w.state)) return false;
     if (parentBlockId && w.parentBlockId && w.parentBlockId === parentBlockId) return true;
     if (parentTitle && w.parentTitle && cleanBoardCardTitle(w.parentTitle) === cleanBoardCardTitle(parentTitle)) return true;
@@ -25457,8 +26521,8 @@ function renderTaskBoards(el, plugin, ctx) {
 
 // src/external-state.js
 var import_promises2 = __toESM(require("fs/promises"), 1);
-var import_os18 = __toESM(require("os"), 1);
-var import_path19 = __toESM(require("path"), 1);
+var import_os19 = __toESM(require("os"), 1);
+var import_path20 = __toESM(require("path"), 1);
 var import_child_process9 = require("child_process");
 var AI_IDLE_MIN = 5;
 var TOK_BLOCK_MAX = 30;
@@ -25487,7 +26551,7 @@ function readProcessList() {
   });
 }
 async function scanAgentWait({
-  dir = import_path19.default.join(import_os18.default.homedir(), ".local", "state", "agent-wait"),
+  dir = import_path20.default.join(import_os19.default.homedir(), ".local", "state", "agent-wait"),
   prev = /* @__PURE__ */ new Map(),
   psText = null,
   now = Date.now()
@@ -25502,7 +26566,7 @@ async function scanAgentWait({
   for (const name of names) {
     if (!name.endsWith(".json")) continue;
     try {
-      const d = JSON.parse(await import_promises2.default.readFile(import_path19.default.join(dir, name), "utf8"));
+      const d = JSON.parse(await import_promises2.default.readFile(import_path20.default.join(dir, name), "utf8"));
       if (d && d.sid && d.at) out.set(d.sid, d);
     } catch {
     }
@@ -25526,7 +26590,7 @@ async function scanAgentWait({
   return out;
 }
 async function scanLimitQueue({
-  file = import_path19.default.join(import_os18.default.homedir(), ".local", "state", "limit-resume", "queue.json")
+  file = import_path20.default.join(import_os19.default.homedir(), ".local", "state", "limit-resume", "queue.json")
 } = {}) {
   const out = /* @__PURE__ */ new Map();
   try {
@@ -26020,19 +27084,19 @@ function dndHandlers(plugin) {
       const sel = view2.state.selection.main;
       if (sel.empty) return false;
       const info = view2.state.field(plugin.editorInfoField, false);
-      const path23 = info && info.file && info.file.path;
-      if (!path23) return false;
+      const path26 = info && info.file && info.file.path;
+      if (!path26) return false;
       const n = view2.state.doc.lineAt(sel.from).number - 1;
-      plugin.noteDragItem({ path: path23, line: n, lineText: view2.state.doc.line(n + 1).text });
+      plugin.noteDragItem({ path: path26, line: n, lineText: view2.state.doc.line(n + 1).text });
       return false;
     }
   }));
 }
 var GripWidget = class extends import_view4.WidgetType {
-  constructor(plugin, path23, line, text) {
+  constructor(plugin, path26, line, text) {
     super();
     this.plugin = plugin;
-    this.path = path23;
+    this.path = path26;
     this.line = line;
     this.text = text;
   }
@@ -26085,10 +27149,10 @@ function sigFor(x) {
   return [x.kind, x.job && x.job.id, x.job && x.job.state, s && s.sid, s && s.state, s && s.step, s && s.turns, s && s.tokens, td && `${td.done}/${td.total}:${td.cur || ""}`, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
 }
 var PillWidget = class extends import_view4.WidgetType {
-  constructor(plugin, path23, line, info) {
+  constructor(plugin, path26, line, info) {
     super();
     this.plugin = plugin;
-    this.path = path23;
+    this.path = path26;
     this.line = line;
     this.info = info;
     this.sig = sigFor(info);
@@ -26339,10 +27403,10 @@ function paintLineProgress(el, info) {
   }
 }
 var LineProgressWidget = class extends import_view4.WidgetType {
-  constructor(plugin, path23, line, info) {
+  constructor(plugin, path26, line, info) {
     super();
     this.plugin = plugin;
-    this.path = path23;
+    this.path = path26;
     this.line = line;
     this.info = info;
     this.sig = JSON.stringify(info);
@@ -26409,10 +27473,10 @@ function saidHandlers(plugin) {
 function buildDecorations(view2, plugin) {
   const builder = new import_state3.RangeSetBuilder();
   const info = view2.state.field(plugin.editorInfoField, false);
-  const path23 = info && info.file && info.file.path;
-  if (!path23 || !plugin.settings.showEditorPills) return builder.finish();
+  const path26 = info && info.file && info.file.path;
+  if (!path26 || !plugin.settings.showEditorPills) return builder.finish();
   const doc = view2.state.doc;
-  const map = plugin.lineMap(path23, doc);
+  const map = plugin.lineMap(path26, doc);
   const seen = /* @__PURE__ */ new Set();
   const sel = view2.state.selection.main;
   const cursorLine = plugin._lastEditor === view2 && sel.empty ? doc.lineAt(sel.head).number - 1 : -1;
@@ -26424,7 +27488,7 @@ function buildDecorations(view2, plugin) {
       if (!seen.has(n)) {
         seen.add(n);
         const text = line.text;
-        const job = plugin.jobAtLine(path23, n, text);
+        const job = plugin.jobAtLine(path26, n, text);
         const session = map.sessionByParent.get(n) || null;
         if ((session || job?.sessionId) && plugin.nautilusOwnsLine(text, session || { sid: job.sessionId }, job?.destination !== "background")) {
           if (line.to >= to) break;
@@ -26451,13 +27515,13 @@ function buildDecorations(view2, plugin) {
           builder.add(line.from, line.from, import_view4.Decoration.line({ class: "ad-said" }));
         }
         if (prog) {
-          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new LineProgressWidget(plugin, path23, n, prog), side: 1, block: false }));
+          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new LineProgressWidget(plugin, path26, n, prog), side: 1, block: false }));
         } else if (state && !isDoneLine(text)) {
-          const widget = new PillWidget(plugin, path23, n, state);
+          const widget = new PillWidget(plugin, path26, n, state);
           builder.add(line.to, line.to, import_view4.Decoration.widget({ widget, side: 1, block: false }));
         }
         if (n === cursorLine && plugin.settings.dragGrip !== false && text.trim() && !/^\s*<!--/.test(text)) {
-          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new GripWidget(plugin, path23, n, text), side: 1, block: false }));
+          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new GripWidget(plugin, path26, n, text), side: 1, block: false }));
         }
       }
       if (line.to >= to) break;
@@ -27345,7 +28409,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
     const pinned = this.agentLayout().pinned.includes(id);
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
-    const handoff = id === "codex" || id === "workbuddy";
+    const handoff = id === "codex" || id === "workbuddy" || id === "teleagent";
     const cliCapable = cliHandoffAgents().includes(id);
     const hint = handoff ? t("\u4EA4\u7ED9 {name}", { name: a.short }) : t("\u59D4\u6D3E\u7ED9 {name}", { name: a.short });
     const toTerm = (meta) => cliCapable && !!meta !== !!p2.settings.delegateInTerminal;
@@ -27827,8 +28891,8 @@ function dateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 var isoDay = (key) => String(key).replace(/^(\d{4})\D(\d{2})\D(\d{2})$/, "$1-$2-$3");
-function dayFromNotePath(path23 = "") {
-  const m = /(\d{4})[-_/](\d{2})[-_/](\d{2})/.exec(String(path23 || ""));
+function dayFromNotePath(path26 = "") {
+  const m = /(\d{4})[-_/](\d{2})[-_/](\d{2})/.exec(String(path26 || ""));
   return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
 }
 function shiftDay(key, n) {
@@ -27838,7 +28902,7 @@ function shiftDay(key, n) {
 function heatLevel(tokens, max) {
   return tokens > 0 ? Math.max(1, Math.min(4, Math.ceil(4 * Math.sqrt(tokens / Math.max(1, max))))) : 0;
 }
-function journalSources(text, path23, { autoState = null } = {}) {
+function journalSources(text, path26, { autoState = null } = {}) {
   const lines = text.split("\n"), fenced = fencedLines(lines), owners = ownersOf(lines, fenced), out = [];
   const seen = /* @__PURE__ */ new Set();
   const collectBlock = (owner) => {
@@ -27847,7 +28911,7 @@ function journalSources(text, path23, { autoState = null } = {}) {
     const end = subtreeEnd(lines, owner);
     const own = lines.slice(owner, end).filter((_, n) => !fenced.has(owner + n) && (n === 0 || owners[owner + n] === owner));
     return {
-      path: path23,
+      path: path26,
       line: owner,
       blockId: blockIdOf(lines[owner]),
       title: lines[owner].replace(/^\s*[-*+]\s+/, "").replace(/\s+\^[a-z0-9-]+$/i, "").trim(),
@@ -28322,7 +29386,7 @@ var DashboardData = class {
     if (p2.settings.doneArchivePath) paths.add(p2.settings.doneArchivePath);
     const sources = /* @__PURE__ */ new Map();
     let unreadable = 0;
-    const files = [...paths].map((path23) => vault.getAbstractFileByPath(path23)).filter((f) => f?.extension === "md");
+    const files = [...paths].map((path26) => vault.getAbstractFileByPath(path26)).filter((f) => f?.extension === "md");
     for (let i = 0; i < files.length; i += 6) {
       await Promise.all(files.slice(i, i + 6).map(async (file) => {
         try {
@@ -28349,7 +29413,7 @@ var DashboardData = class {
       }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
-    for (const path23 of this.cache.keys()) if (!paths.has(path23)) this.cache.delete(path23);
+    for (const path26 of this.cache.keys()) if (!paths.has(path26)) this.cache.delete(path26);
     const pages = vault.getMarkdownFiles().filter((f) => !paths.has(f.path) && !f.path.startsWith("Agent Deck/Conversations/") && !/^\d{4}[-_/]\d{2}[-_/]\d{2}$/.test(f.basename)).map((file) => {
       const aliases = metadata.getFileCache(file)?.frontmatter?.aliases;
       return { path: file.path, name: file.basename, aliases: typeof aliases === "string" ? [aliases] : Array.isArray(aliases) ? aliases.filter((a) => typeof a === "string") : [] };
@@ -29234,12 +30298,12 @@ var hash2 = (text) => (0, import_crypto12.createHash)("sha256").update(text).dig
 var AI_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:[A-Z-]+\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s+)?🤖/;
 var AD_COMMENT_RE = /(?:[ \t]*<!--\s*ad-[a-z0-9-]+(?::[^>]+)?\s*-->)+[ \t]*$/g;
 var SEP_ONLY_RE = /^(?:\s*(?:[-*+]|\d+[.)])?\s*[-_*]{3,}\s*)+$/;
-function evidenceBlocks(text, path23, { aiOnly = false } = {}) {
+function evidenceBlocks(text, path26, { aiOnly = false } = {}) {
   const lines = text.split("\n"), blocks = [], stack = [], directAiOwners = /* @__PURE__ */ new Set();
   const fenced = fencedLines(lines), start = frontmatterEnd(lines);
   let block = null, nextItemId = 1;
   const flush = () => {
-    if (block?.text.trim() && !SEP_ONLY_RE.test(block.text)) blocks.push({ ...block, key: hash2(path23 + "\n" + block.kind + "\n" + block.text) });
+    if (block?.text.trim() && !SEP_ONLY_RE.test(block.text)) blocks.push({ ...block, key: hash2(path26 + "\n" + block.kind + "\n" + block.text) });
     block = null;
   };
   for (let n = start; n < lines.length; n++) {
@@ -29285,7 +30349,7 @@ function evidenceBlocks(text, path23, { aiOnly = false } = {}) {
     for (let offset = 0; offset < Math.max(1, line.length); offset += 3e3) {
       const part = line.slice(offset, offset + 3e3);
       if (block && (block.kind !== kind || block.text.length + part.length + 1 > 3e3)) flush();
-      if (!block) block = { path: path23, kind, line: n + 1, endLine: n + 1, text: "", _itemId: itemId, _aiRelevant: aiRelevant, ...pinned ? { pinned: true } : {} };
+      if (!block) block = { path: path26, kind, line: n + 1, endLine: n + 1, text: "", _itemId: itemId, _aiRelevant: aiRelevant, ...pinned ? { pinned: true } : {} };
       if (pinned) block.pinned = true;
       block.text += (block.text ? "\n" : "") + part;
       block.endLine = n + 1;
@@ -29296,11 +30360,11 @@ function evidenceBlocks(text, path23, { aiOnly = false } = {}) {
 }
 async function collectDreamEvidence(paths, read, { aiOnly = false, excludedDirs = [] } = {}) {
   const sources = /* @__PURE__ */ new Map(), seen = /* @__PURE__ */ new Set();
-  for (const path23 of paths) {
-    if (isPathExcluded(path23, excludedDirs)) continue;
-    const text = await read(path23);
+  for (const path26 of paths) {
+    if (isPathExcluded(path26, excludedDirs)) continue;
+    const text = await read(path26);
     if (isPrivateFrontmatter(text)) continue;
-    for (const source of evidenceBlocks(text, path23, { aiOnly })) {
+    for (const source of evidenceBlocks(text, path26, { aiOnly })) {
       if (seen.has(source.key)) continue;
       seen.add(source.key);
       sources.set(`S${sources.size + 1}`, source);
@@ -29549,10 +30613,10 @@ function memoryAnchorId(target, text) {
   return "mem-" + (0, import_crypto13.createHash)("sha256").update(`${target}
 ${String(text || "").trim()}`).digest("hex").slice(0, 8);
 }
-function orderForReview(entries = [], { path: path23 = "", line = "", dir = "" } = {}) {
+function orderForReview(entries = [], { path: path26 = "", line = "", dir = "" } = {}) {
   const prefix = dir ? `${String(dir).replace(/\/+$/, "")}/` : "";
   let start = -1;
-  if (path23 && prefix && path23.startsWith(prefix)) start = entries.findIndex((e) => e.path === path23);
+  if (path26 && prefix && path26.startsWith(prefix)) start = entries.findIndex((e) => e.path === path26);
   if (start < 0 && line) start = entries.findIndex((e) => line.includes(`[[${e.path.replace(/\.md$/, "")}`));
   if (start <= 0) return entries.slice();
   return [...entries.slice(start), ...entries.slice(0, start)];
@@ -29760,16 +30824,16 @@ function parseMarkdownToMemories(docs = [], { defaultDate = "" } = {}) {
 
 // src/dream-sharing.js
 var import_promises3 = __toESM(require("fs/promises"), 1);
-var import_path20 = __toESM(require("path"), 1);
-var import_os19 = __toESM(require("os"), 1);
+var import_path21 = __toESM(require("path"), 1);
+var import_os20 = __toESM(require("os"), 1);
 var import_crypto14 = require("crypto");
 var import_child_process10 = require("child_process");
 var import_util2 = require("util");
 var exec = (0, import_util2.promisify)(import_child_process10.execFile);
 function externalMemoryPath(value) {
-  const target = String(value || "").trim().replace(/^~(?=\/)/, import_os19.default.homedir());
-  if (!import_path20.default.isAbsolute(target) || import_path20.default.extname(target).toLowerCase() !== ".md") throw new Error(t("\u5171\u4EAB\u76EE\u6807\u5FC5\u987B\u662F\u5916\u90E8 Markdown \u6587\u4EF6\u7684\u7EDD\u5BF9\u8DEF\u5F84"));
-  return import_path20.default.normalize(target);
+  const target = String(value || "").trim().replace(/^~(?=\/)/, import_os20.default.homedir());
+  if (!import_path21.default.isAbsolute(target) || import_path21.default.extname(target).toLowerCase() !== ".md") throw new Error(t("\u5171\u4EAB\u76EE\u6807\u5FC5\u987B\u662F\u5916\u90E8 Markdown \u6587\u4EF6\u7684\u7EDD\u5BF9\u8DEF\u5F84"));
+  return import_path21.default.normalize(target);
 }
 function sharedMemory(text) {
   const lines = text.split("\n");
@@ -29812,7 +30876,7 @@ var DreamSharing = class {
       const text = await this.readMemory();
       if (typeof text !== "string") throw new Error(t("\u8FD8\u6CA1\u6709\u957F\u671F\u8BB0\u5FC6\uFF0C\u8BF7\u5148\u8FD0\u884C Dreaming"));
       if (this.plugin.vaultPath) {
-        const source = import_path20.default.resolve(this.plugin.vaultPath, this.plugin.settings.dream.path);
+        const source = import_path21.default.resolve(this.plugin.vaultPath, this.plugin.settings.dream.path);
         const realTarget = await import_promises3.default.realpath(target).catch((e) => {
           if (e.code !== "ENOENT") throw e;
           return target;
@@ -29823,12 +30887,12 @@ var DreamSharing = class {
         });
         if (realTarget === realSource) throw new Error(t("\u5171\u4EAB\u76EE\u6807\u4E0D\u80FD\u8986\u76D6\u539F\u957F\u671F\u8BB0\u5FC6\u7B14\u8BB0"));
       }
-      const git = async (args, cwd = import_path20.default.dirname(target)) => (await exec("git", ["--literal-pathspecs", ...args], { cwd, timeout: 6e4, maxBuffer: 1024 * 1024 })).stdout.trim();
+      const git = async (args, cwd = import_path21.default.dirname(target)) => (await exec("git", ["--literal-pathspecs", ...args], { cwd, timeout: 6e4, maxBuffer: 1024 * 1024 })).stdout.trim();
       let root, relative, branch;
       if (gitPush) {
         root = await git(["rev-parse", "--show-toplevel"]);
-        relative = import_path20.default.relative(await import_promises3.default.realpath(root), import_path20.default.join(await import_promises3.default.realpath(import_path20.default.dirname(target)), import_path20.default.basename(target)));
-        if (relative.startsWith(".." + import_path20.default.sep) || import_path20.default.isAbsolute(relative) || relative.split(import_path20.default.sep).includes(".git")) throw new Error(t("\u5171\u4EAB\u6587\u4EF6\u5FC5\u987B\u4F4D\u4E8E Git \u4ED3\u5E93\u5DE5\u4F5C\u533A\u5185"));
+        relative = import_path21.default.relative(await import_promises3.default.realpath(root), import_path21.default.join(await import_promises3.default.realpath(import_path21.default.dirname(target)), import_path21.default.basename(target)));
+        if (relative.startsWith(".." + import_path21.default.sep) || import_path21.default.isAbsolute(relative) || relative.split(import_path21.default.sep).includes(".git")) throw new Error(t("\u5171\u4EAB\u6587\u4EF6\u5FC5\u987B\u4F4D\u4E8E Git \u4ED3\u5E93\u5DE5\u4F5C\u533A\u5185"));
         branch = await git(["symbolic-ref", "--short", "HEAD"], root);
         await git(["remote", "get-url", "origin"], root);
       }
@@ -29839,7 +30903,7 @@ var DreamSharing = class {
         return null;
       });
       if (old !== snapshot) {
-        await import_promises3.default.mkdir(import_path20.default.dirname(target), { recursive: true });
+        await import_promises3.default.mkdir(import_path21.default.dirname(target), { recursive: true });
         const temp = `${target}.${(0, import_crypto14.randomUUID)()}.tmp`;
         try {
           await import_promises3.default.writeFile(temp, snapshot, { flag: "wx" });
@@ -30107,13 +31171,13 @@ var Dreaming = class {
   }
   async loadEntries() {
     const out = [];
-    for (const path23 of await this.listEntryPaths()) {
+    for (const path26 of await this.listEntryPaths()) {
       try {
-        const file = this.plugin.app.vault.getAbstractFileByPath(path23);
+        const file = this.plugin.app.vault.getAbstractFileByPath(path26);
         const parsed = file ? parseMemoryFile(await this.plugin.app.vault.read(file)) : null;
-        if (parsed) out.push({ ...parsed, path: path23 });
+        if (parsed) out.push({ ...parsed, path: path26 });
       } catch (e) {
-        console.error("[agent-deck] \u8BFB\u53D6\u8BB0\u5FC6\u5931\u8D25", path23, e);
+        console.error("[agent-deck] \u8BFB\u53D6\u8BB0\u5FC6\u5931\u8D25", path26, e);
       }
     }
     return out;
@@ -30125,8 +31189,8 @@ var Dreaming = class {
     await this.write(`${this.dir}/${name}.md`, serializeMemoryFile({ id: memory.id, kind: memory.kind, text: memory.text, state, date, sources: evidence, evidence }));
     return `${this.dir}/${name}.md`;
   }
-  isEntryPath(path23) {
-    const p2 = String(path23 || "");
+  isEntryPath(path26) {
+    const p2 = String(path26 || "");
     const prefix = `${this.dir}/`;
     return p2.startsWith(prefix) && p2.endsWith(".md") && p2 !== `${this.dir}/\u7D22\u5F15.md` && !p2.slice(prefix.length).includes("/");
   }
@@ -30143,13 +31207,13 @@ var Dreaming = class {
     if (!clean2) throw new Error(t("\u8BB0\u5FC6\u5185\u5BB9\u4E0D\u80FD\u4E3A\u7A7A"));
     if (!this.storeMode) await this.migrateToStore();
     const id = memoryId(clean2);
-    const path23 = await this.writeEntry({ id, kind, text: clean2, date }, sources, state);
+    const path26 = await this.writeEntry({ id, kind, text: clean2, date }, sources, state);
     await this.syncOverview();
     const basePath = `${this.dir}.base`;
     if (!this.plugin.app.vault.getAbstractFileByPath(basePath)) {
       await this.write(basePath, memoryBase(this.dir));
     }
-    return { path: path23, id };
+    return { path: path26, id };
   }
   // 批量导入条目到记忆库（若尚未迁移到文件库模式，自动先完成迁移并创建 记忆.base）。
   async importEntries(entries = []) {
@@ -30257,8 +31321,8 @@ ${String(rawReply || "").slice(0, 2e3)}`;
     }
     return results;
   }
-  async setEntryState(path23, state) {
-    const file = this.plugin.app.vault.getAbstractFileByPath(path23);
+  async setEntryState(path26, state) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(path26);
     if (!file) return false;
     const raw = await this.plugin.app.vault.read(file);
     const next = raw.replace(/^state:.*$/m, `state: ${state}`).replace(/\nverified: true(?=\n|$)/, "");
@@ -30372,8 +31436,8 @@ ${String(rawReply || "").slice(0, 2e3)}`;
     }
     return { checked: entries.length, drift, edited, missing, fixedFiles };
   }
-  async rewriteSources(path23, sources) {
-    const file = this.plugin.app.vault.getAbstractFileByPath(path23);
+  async rewriteSources(path26, sources) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(path26);
     if (!file) return false;
     const lines = String(await this.plugin.app.vault.read(file)).split("\n");
     const start = lines.indexOf("sources:");
@@ -30445,11 +31509,11 @@ ${String(rawReply || "").slice(0, 2e3)}`;
     const entries = await this.loadEntries();
     const report = { checked: 0, linked: 0, already: 0, skipped: 0, failed: [] };
     const files = /* @__PURE__ */ new Map(), seen = /* @__PURE__ */ new Set(), ours = /^\s*- ⤴ \[\[Agent Deck\/记忆\/[^\]]+\]\]\s*$/;
-    for (const path23 of Array.isArray(this.cfg.backlinked) ? this.cfg.backlinked : []) {
-      const file = this.plugin.app.vault.getAbstractFileByPath(path23);
+    for (const path26 of Array.isArray(this.cfg.backlinked) ? this.cfg.backlinked : []) {
+      const file = this.plugin.app.vault.getAbstractFileByPath(path26);
       if (!file) continue;
       const rawText = String(await this.plugin.app.vault.read(file));
-      files.set(path23, { file, original: rawText, lines: rawText.split("\n").filter((l) => !ours.test(l)), inserts: [] });
+      files.set(path26, { file, original: rawText, lines: rawText.split("\n").filter((l) => !ours.test(l)), inserts: [] });
     }
     for (const entry of entries) {
       const link2 = `[[${entry.path.replace(/\.md$/, "")}]]`;
@@ -30511,7 +31575,7 @@ ${String(rawReply || "").slice(0, 2e3)}`;
       if (next !== rec.original) await this.plugin.app.vault.modify(rec.file, next);
       report.linked += rec.inserts.length;
     }
-    this.cfg.backlinked = [...files.entries()].filter(([, rec]) => rec.inserts.length).map(([path23]) => path23);
+    this.cfg.backlinked = [...files.entries()].filter(([, rec]) => rec.inserts.length).map(([path26]) => path26);
     await this.plugin.saveSettings();
     return report;
   }
@@ -30558,7 +31622,7 @@ ${String(rawReply || "").slice(0, 2e3)}`;
     const plugins = p2.app.plugins, companion = plugins?.getPlugin?.("telegram-companion") || plugins?.plugins?.["telegram-companion"];
     candidates.delete(this.memoryPath);
     candidates.delete(companion?.companion?.cfg?.profilePath);
-    return collectDreamEvidence(candidates, (path23) => this.read(path23), {
+    return collectDreamEvidence(candidates, (path26) => this.read(path26), {
       aiOnly,
       excludedDirs: p2.settings.delegate?.excludedDirs
     });
@@ -30784,44 +31848,44 @@ function syncModelGroups(settings, agentEnabled) {
 }
 
 // src/harness-detect.js
-var import_fs21 = __toESM(require("fs"), 1);
-var import_os20 = __toESM(require("os"), 1);
-var import_path21 = __toESM(require("path"), 1);
-var HARNESS_DETECTION_VERSION = 1;
+var import_fs22 = __toESM(require("fs"), 1);
+var import_os21 = __toESM(require("os"), 1);
+var import_path22 = __toESM(require("path"), 1);
+var HARNESS_DETECTION_VERSION = 2;
 var norm4 = (p2, homeDir) => String(p2 || "").replace(/^~(?=\/)/, homeDir);
 function defaultAppDirs(homeDir, platform, env) {
-  if (platform === "darwin") return ["/Applications", import_path21.default.join(homeDir, "Applications")];
+  if (platform === "darwin") return ["/Applications", import_path22.default.join(homeDir, "Applications")];
   if (platform === "win32") {
-    const localAppData = env.LOCALAPPDATA || import_path21.default.join(homeDir, "AppData", "Local");
-    const appData = env.APPDATA || import_path21.default.join(homeDir, "AppData", "Roaming");
+    const localAppData = env.LOCALAPPDATA || import_path22.default.join(homeDir, "AppData", "Local");
+    const appData = env.APPDATA || import_path22.default.join(homeDir, "AppData", "Roaming");
     return [
-      import_path21.default.join(localAppData, "Programs"),
+      import_path22.default.join(localAppData, "Programs"),
       localAppData,
       appData,
       env.ProgramFiles,
       env["ProgramFiles(x86)"]
     ].filter(Boolean);
   }
-  return ["/usr/share/applications", import_path21.default.join(homeDir, ".local", "share", "applications")];
+  return ["/usr/share/applications", import_path22.default.join(homeDir, ".local", "share", "applications")];
 }
 function defaultPathEntries(homeDir, platform, env) {
-  if (homeDir !== import_os20.default.homedir() || env !== process.env || platform !== process.platform) {
+  if (homeDir !== import_os21.default.homedir() || env !== process.env || platform !== process.platform) {
     const sep = platform === "win32" ? ";" : ":";
-    const localAppData = env.LOCALAPPDATA || import_path21.default.join(homeDir, "AppData", "Local");
-    const appData = env.APPDATA || import_path21.default.join(homeDir, "AppData", "Roaming");
+    const localAppData = env.LOCALAPPDATA || import_path22.default.join(homeDir, "AppData", "Local");
+    const appData = env.APPDATA || import_path22.default.join(homeDir, "AppData", "Roaming");
     const extra = platform === "win32" ? [
-      import_path21.default.join(appData, "npm"),
-      import_path21.default.join(localAppData, "pnpm"),
-      import_path21.default.join(homeDir, "scoop", "shims")
+      import_path22.default.join(appData, "npm"),
+      import_path22.default.join(localAppData, "pnpm"),
+      import_path22.default.join(homeDir, "scoop", "shims")
     ] : [
-      import_path21.default.join(homeDir, ".npm-global", "bin"),
-      import_path21.default.join(homeDir, "Library", "pnpm"),
-      import_path21.default.join(homeDir, ".local", "share", "pnpm")
+      import_path22.default.join(homeDir, ".npm-global", "bin"),
+      import_path22.default.join(homeDir, "Library", "pnpm"),
+      import_path22.default.join(homeDir, ".local", "share", "pnpm")
     ];
     return [.../* @__PURE__ */ new Set([
       ...String(env.PATH || "").split(sep).filter(Boolean),
-      import_path21.default.join(homeDir, ".local", "bin"),
-      import_path21.default.join(homeDir, ".bun", "bin"),
+      import_path22.default.join(homeDir, ".local", "bin"),
+      import_path22.default.join(homeDir, ".bun", "bin"),
       ...extra
     ])];
   }
@@ -30829,47 +31893,47 @@ function defaultPathEntries(homeDir, platform, env) {
 }
 function fileExists(p2) {
   try {
-    return import_fs21.default.statSync(p2).isFile();
+    return import_fs22.default.statSync(p2).isFile();
   } catch {
     return false;
   }
 }
 function pathExists(p2) {
   try {
-    return import_fs21.default.existsSync(p2);
+    return import_fs22.default.existsSync(p2);
   } catch {
     return false;
   }
 }
 function claudeDesktopSessionsDir(homeDir, platform, env) {
-  if (platform === "win32") return import_path21.default.join(env.APPDATA || import_path21.default.join(homeDir, "AppData", "Roaming"), "Claude", "claude-code-sessions");
-  if (platform === "darwin") return import_path21.default.join(homeDir, "Library", "Application Support", "Claude", "claude-code-sessions");
-  return import_path21.default.join(env.XDG_CONFIG_HOME || import_path21.default.join(homeDir, ".config"), "Claude", "claude-code-sessions");
+  if (platform === "win32") return import_path22.default.join(env.APPDATA || import_path22.default.join(homeDir, "AppData", "Roaming"), "Claude", "claude-code-sessions");
+  if (platform === "darwin") return import_path22.default.join(homeDir, "Library", "Application Support", "Claude", "claude-code-sessions");
+  return import_path22.default.join(env.XDG_CONFIG_HOME || import_path22.default.join(homeDir, ".config"), "Claude", "claude-code-sessions");
 }
 function buildSpecs({ homeDir, platform, env, appDirs }) {
-  const appSub = (rel) => appDirs.map((d) => import_path21.default.join(d, rel));
-  const claudeConfigDirs = String(env.CLAUDE_CONFIG_DIR || "").split(",").map((s) => s.trim()).filter(Boolean).flatMap((d) => [import_path21.default.join(norm4(d, homeDir), "projects"), norm4(d, homeDir)]);
-  const codexHome = env.CODEX_HOME ? norm4(env.CODEX_HOME, homeDir) : import_path21.default.join(homeDir, ".codex");
-  const hermesHome = env.HERMES_HOME ? norm4(env.HERMES_HOME, homeDir) : import_path21.default.join(homeDir, ".hermes");
-  const minimaxHome2 = env.MINIMAX_DATA_DIR ? norm4(env.MINIMAX_DATA_DIR, homeDir) : env.MAVIS_DATA_DIR ? norm4(env.MAVIS_DATA_DIR, homeDir) : import_path21.default.join(homeDir, ".minimax");
-  const qwenHome = env.QWENWORK_HOME ? norm4(env.QWENWORK_HOME, homeDir) : import_path21.default.join(homeDir, ".qwenworkcn");
-  const t3DataDir = env.T3_DATA_DIR ? norm4(env.T3_DATA_DIR, homeDir) : env.T3_STATE_DIR ? norm4(env.T3_STATE_DIR, homeDir) : import_path21.default.join(homeDir, ".t3", "userdata");
+  const appSub = (rel) => appDirs.map((d) => import_path22.default.join(d, rel));
+  const claudeConfigDirs = String(env.CLAUDE_CONFIG_DIR || "").split(",").map((s) => s.trim()).filter(Boolean).flatMap((d) => [import_path22.default.join(norm4(d, homeDir), "projects"), norm4(d, homeDir)]);
+  const codexHome = env.CODEX_HOME ? norm4(env.CODEX_HOME, homeDir) : import_path22.default.join(homeDir, ".codex");
+  const hermesHome = env.HERMES_HOME ? norm4(env.HERMES_HOME, homeDir) : import_path22.default.join(homeDir, ".hermes");
+  const minimaxHome2 = env.MINIMAX_DATA_DIR ? norm4(env.MINIMAX_DATA_DIR, homeDir) : env.MAVIS_DATA_DIR ? norm4(env.MAVIS_DATA_DIR, homeDir) : import_path22.default.join(homeDir, ".minimax");
+  const qwenHome = env.QWENWORK_HOME ? norm4(env.QWENWORK_HOME, homeDir) : import_path22.default.join(homeDir, ".qwenworkcn");
+  const t3DataDir = env.T3_DATA_DIR ? norm4(env.T3_DATA_DIR, homeDir) : env.T3_STATE_DIR ? norm4(env.T3_STATE_DIR, homeDir) : import_path22.default.join(homeDir, ".t3", "userdata");
   const win = platform === "win32";
   return {
     // Deliberately exclude bare Claude.app so chat-only Claude Desktop users don't get Claude Code auto-enabled.
     claude: {
       binNames: ["claude"],
       binPaths: [
-        import_path21.default.join(homeDir, ".local", "bin", "claude"),
-        import_path21.default.join(homeDir, ".npm-global", "bin", "claude"),
-        import_path21.default.join(homeDir, ".bun", "bin", "claude")
+        import_path22.default.join(homeDir, ".local", "bin", "claude"),
+        import_path22.default.join(homeDir, ".npm-global", "bin", "claude"),
+        import_path22.default.join(homeDir, ".bun", "bin", "claude")
       ],
       apps: [],
       dataPaths: [
-        import_path21.default.join(homeDir, ".claude", "projects"),
-        import_path21.default.join(homeDir, ".claude", ".credentials.json"),
-        import_path21.default.join(homeDir, ".claude", "settings.json"),
-        import_path21.default.join(homeDir, ".config", "claude", "projects"),
+        import_path22.default.join(homeDir, ".claude", "projects"),
+        import_path22.default.join(homeDir, ".claude", ".credentials.json"),
+        import_path22.default.join(homeDir, ".claude", "settings.json"),
+        import_path22.default.join(homeDir, ".config", "claude", "projects"),
         ...claudeConfigDirs,
         claudeDesktopSessionsDir(homeDir, platform, env)
       ]
@@ -30877,10 +31941,10 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
     codex: {
       binNames: ["codex"],
       binPaths: [
-        ...appSub(import_path21.default.join("Codex.app", "Contents", "Resources", "codex")),
-        import_path21.default.join(homeDir, ".local", "bin", "codex"),
-        import_path21.default.join(homeDir, ".npm-global", "bin", "codex"),
-        import_path21.default.join(homeDir, ".bun", "bin", "codex")
+        ...appSub(import_path22.default.join("Codex.app", "Contents", "Resources", "codex")),
+        import_path22.default.join(homeDir, ".local", "bin", "codex"),
+        import_path22.default.join(homeDir, ".npm-global", "bin", "codex"),
+        import_path22.default.join(homeDir, ".bun", "bin", "codex")
       ],
       apps: win ? ["Codex/Codex.exe", "OpenAI/Codex/Codex.exe"] : ["Codex.app"],
       dataPaths: [codexHome]
@@ -30888,69 +31952,69 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
     workbuddy: {
       binNames: ["codebuddy"],
       binPaths: [
-        import_path21.default.join(homeDir, ".local", "bin", "codebuddy"),
-        import_path21.default.join(homeDir, ".npm-global", "bin", "codebuddy")
+        import_path22.default.join(homeDir, ".local", "bin", "codebuddy"),
+        import_path22.default.join(homeDir, ".npm-global", "bin", "codebuddy")
       ],
       apps: win ? ["WorkBuddy/WorkBuddy.exe", "WorkBuddy AI/WorkBuddy AI.exe", "CodeBuddy/CodeBuddy.exe"] : ["WorkBuddy.app", "WorkBuddy AI.app"],
-      dataPaths: [import_path21.default.join(homeDir, ".workbuddy"), import_path21.default.join(homeDir, ".codebuddy")]
+      dataPaths: [import_path22.default.join(homeDir, ".workbuddy"), import_path22.default.join(homeDir, ".codebuddy")]
     },
     dsh: {
       binNames: ["dsh"],
       binPaths: [
-        ...appSub(import_path21.default.join("DeepSeek Harness.app", "Contents", "Resources", "runtime", "cli", "bin", "dsh")),
-        import_path21.default.join(homeDir, ".local", "bin", "dsh"),
-        import_path21.default.join(homeDir, ".npm-global", "bin", "dsh")
+        ...appSub(import_path22.default.join("DeepSeek Harness.app", "Contents", "Resources", "runtime", "cli", "bin", "dsh")),
+        import_path22.default.join(homeDir, ".local", "bin", "dsh"),
+        import_path22.default.join(homeDir, ".npm-global", "bin", "dsh")
       ],
       apps: win ? ["DeepSeek Harness/DeepSeek Harness.exe"] : ["DeepSeek Harness.app"],
-      dataPaths: [import_path21.default.join(homeDir, ".dsh")]
+      dataPaths: [import_path22.default.join(homeDir, ".dsh")]
     },
     antigravity: {
       binNames: ["agy"],
       binPaths: [
-        ...appSub(import_path21.default.join("Antigravity.app", "Contents", "Resources", "app", "bin", "agy")),
-        import_path21.default.join(homeDir, ".local", "bin", "agy"),
-        import_path21.default.join(homeDir, ".npm-global", "bin", "agy")
+        ...appSub(import_path22.default.join("Antigravity.app", "Contents", "Resources", "app", "bin", "agy")),
+        import_path22.default.join(homeDir, ".local", "bin", "agy"),
+        import_path22.default.join(homeDir, ".npm-global", "bin", "agy")
       ],
       apps: win ? ["Antigravity/Antigravity.exe"] : ["Antigravity.app"],
       dataPaths: [
-        import_path21.default.join(homeDir, ".gemini", "antigravity"),
-        import_path21.default.join(homeDir, ".gemini", "antigravity-cli")
+        import_path22.default.join(homeDir, ".gemini", "antigravity"),
+        import_path22.default.join(homeDir, ".gemini", "antigravity-cli")
       ]
     },
     opencode: {
       binNames: ["opencode", "opencode-cli"],
       binPaths: [
-        ...appSub(import_path21.default.join("OpenCode.app", "Contents", "Resources", "opencode-cli")),
-        import_path21.default.join(homeDir, ".opencode", "bin", "opencode"),
-        import_path21.default.join(homeDir, ".local", "bin", "opencode"),
-        import_path21.default.join(homeDir, ".npm-global", "bin", "opencode"),
-        import_path21.default.join(homeDir, ".bun", "bin", "opencode")
+        ...appSub(import_path22.default.join("OpenCode.app", "Contents", "Resources", "opencode-cli")),
+        import_path22.default.join(homeDir, ".opencode", "bin", "opencode"),
+        import_path22.default.join(homeDir, ".local", "bin", "opencode"),
+        import_path22.default.join(homeDir, ".npm-global", "bin", "opencode"),
+        import_path22.default.join(homeDir, ".bun", "bin", "opencode")
       ],
       apps: win ? ["OpenCode/OpenCode.exe"] : ["OpenCode.app"],
-      dataPaths: [import_path21.default.join(homeDir, ".local", "share", "opencode"), import_path21.default.join(homeDir, ".opencode")]
+      dataPaths: [import_path22.default.join(homeDir, ".local", "share", "opencode"), import_path22.default.join(homeDir, ".opencode")]
     },
     qoder: {
       binNames: ["qodercli", "qoder"],
       binPaths: [
-        import_path21.default.join(homeDir, ".qoder", "bin", "qodercli", "qodercli"),
-        import_path21.default.join(homeDir, ".local", "bin", "qodercli"),
-        import_path21.default.join(homeDir, ".local", "bin", "qoder"),
-        import_path21.default.join(homeDir, ".qoder", "entry", "qoder")
+        import_path22.default.join(homeDir, ".qoder", "bin", "qodercli", "qodercli"),
+        import_path22.default.join(homeDir, ".local", "bin", "qodercli"),
+        import_path22.default.join(homeDir, ".local", "bin", "qoder"),
+        import_path22.default.join(homeDir, ".qoder", "entry", "qoder")
       ],
       apps: win ? ["Qoder/Qoder.exe"] : ["Qoder.app"],
       dataPaths: [
-        import_path21.default.join(homeDir, ".qoder"),
-        ...platform === "darwin" ? [import_path21.default.join(homeDir, "Library", "Application Support", "com.qoder.app.stable")] : [],
-        ...win ? [import_path21.default.join(env.APPDATA || import_path21.default.join(homeDir, "AppData", "Roaming"), "Qoder")] : []
+        import_path22.default.join(homeDir, ".qoder"),
+        ...platform === "darwin" ? [import_path22.default.join(homeDir, "Library", "Application Support", "com.qoder.app.stable")] : [],
+        ...win ? [import_path22.default.join(env.APPDATA || import_path22.default.join(homeDir, "AppData", "Roaming"), "Qoder")] : []
       ]
     },
     hermes: {
       binNames: ["hermes-acp", "hermes"],
       binPaths: [
-        import_path21.default.join(homeDir, ".local", "bin", "hermes-acp"),
-        import_path21.default.join(homeDir, ".local", "bin", "hermes"),
-        import_path21.default.join(homeDir, ".local", "share", "uv", "tools", "hermes-agent", "bin", "hermes-acp"),
-        import_path21.default.join(homeDir, ".local", "share", "uv", "tools", "hermes-agent", "bin", "hermes")
+        import_path22.default.join(homeDir, ".local", "bin", "hermes-acp"),
+        import_path22.default.join(homeDir, ".local", "bin", "hermes"),
+        import_path22.default.join(homeDir, ".local", "share", "uv", "tools", "hermes-agent", "bin", "hermes-acp"),
+        import_path22.default.join(homeDir, ".local", "share", "uv", "tools", "hermes-agent", "bin", "hermes")
       ],
       apps: [],
       dataPaths: [hermesHome]
@@ -30958,13 +32022,13 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
     minimax: {
       binNames: ["mcode"],
       binPaths: [
-        import_path21.default.join(homeDir, ".minimax-code", "bin", "mcode"),
-        import_path21.default.join(homeDir, ".local", "bin", "mcode"),
-        import_path21.default.join(homeDir, ".npm-global", "bin", "mcode"),
-        import_path21.default.join(homeDir, ".bun", "bin", "mcode")
+        import_path22.default.join(homeDir, ".minimax-code", "bin", "mcode"),
+        import_path22.default.join(homeDir, ".local", "bin", "mcode"),
+        import_path22.default.join(homeDir, ".npm-global", "bin", "mcode"),
+        import_path22.default.join(homeDir, ".bun", "bin", "mcode")
       ],
       apps: win ? ["MiniMax Code/MiniMax Code.exe", "MiniMax/MiniMax Code.exe"] : ["MiniMax Code.app"],
-      dataPaths: [minimaxHome2, import_path21.default.join(homeDir, ".mavis")]
+      dataPaths: [minimaxHome2, import_path22.default.join(homeDir, ".mavis")]
     },
     qwenwork: {
       binNames: [],
@@ -30976,12 +32040,13 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
       binNames: ["cursor"],
       binPaths: [],
       apps: win ? ["cursor/Cursor.exe", "Cursor/Cursor.exe"] : ["Cursor.app"],
+      // 只留 Cursor 自己产出的路径。~/.agent-deck/cursor-events 与 ~/.cursor/hooks.json
+      // 都是插件自己的 installCursorHooks 写出来的（见 cursor-sessions.js），把它们当安装证据
+      // 会自证：卸载 Cursor 并删掉它的数据后，插件昨天留下的目录仍然让检测判定“装了”。
       dataPaths: [
-        import_path21.default.join(homeDir, ".cursor"),
-        cursorHooksJsonPath(homeDir),
+        import_path22.default.join(homeDir, ".cursor"),
         cursorTrackingDbPath(homeDir),
-        cursorStateDbPath(homeDir, platform, env),
-        cursorEventsDir(homeDir)
+        cursorStateDbPath(homeDir, platform, env)
       ]
     },
     grokbot: {
@@ -30996,15 +32061,15 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
     t3code: {
       binNames: ["t3"],
       binPaths: [
-        import_path21.default.join(homeDir, ".t3", "bin", "t3"),
-        import_path21.default.join(homeDir, ".local", "bin", "t3")
+        import_path22.default.join(homeDir, ".t3", "bin", "t3"),
+        import_path22.default.join(homeDir, ".local", "bin", "t3")
       ],
       apps: win ? ["T3 Code/T3 Code.exe", "T3 Code (Beta)/T3 Code (Beta).exe"] : ["T3 Code (Beta).app", "T3 Code.app"],
       dataPaths: [
-        import_path21.default.join(t3DataDir, "statev2.sqlite"),
-        import_path21.default.join(t3DataDir, "state.sqlite"),
+        import_path22.default.join(t3DataDir, "statev2.sqlite"),
+        import_path22.default.join(t3DataDir, "state.sqlite"),
         t3DataDir,
-        import_path21.default.join(homeDir, ".t3")
+        import_path22.default.join(homeDir, ".t3")
       ]
     },
     muse: {
@@ -31016,8 +32081,8 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
     kimicode: {
       binNames: ["kimi", "kimi-code"],
       binPaths: [
-        import_path21.default.join(homeDir, ".local", "bin", "kimi"),
-        import_path21.default.join(homeDir, ".local", "bin", "kimi-code")
+        import_path22.default.join(homeDir, ".local", "bin", "kimi"),
+        import_path22.default.join(homeDir, ".local", "bin", "kimi-code")
       ],
       apps: win ? ["Kimi Code/Kimi Code.exe"] : ["Kimi Code.app"],
       dataPaths: kimiCodeDataDirs(homeDir, env)
@@ -31034,13 +32099,27 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
     gemini: {
       binNames: ["gemini"],
       binPaths: [
-        import_path21.default.join(homeDir, ".local", "bin", "gemini"),
-        import_path21.default.join(homeDir, ".npm-global", "bin", "gemini")
+        import_path22.default.join(homeDir, ".local", "bin", "gemini"),
+        import_path22.default.join(homeDir, ".npm-global", "bin", "gemini")
       ],
       apps: [],
       dataPaths: [
-        import_path21.default.join(geminiCliHome(homeDir, env), "tmp"),
-        import_path21.default.join(geminiCliHome(homeDir, env), "projects.json")
+        import_path22.default.join(geminiCliHome(homeDir, env), "tmp"),
+        import_path22.default.join(geminiCliHome(homeDir, env), "projects.json")
+      ]
+    },
+    // TeleAgent 只有桌面客户端，没有 CLI。安装位置不在系统应用目录里（默认 D:\Program Files\TeleClaw\TeleAgent），
+    // 靠 appDirs 探测不到，所以以数据根为准：内核与客户端都会在 ~/.local/share/TeleAgent 下建 users/ 与 runtimes/。
+    teleagent: {
+      binNames: ["teleagent"],
+      binPaths: [
+        ...appSub(import_path22.default.join("TeleClaw", "TeleAgent", "TeleAgent.exe")),
+        import_path22.default.join(homeDir, ".local", "share", "TeleAgent", "runtimes", "super-agent-code", "bin", "TeleAgent.exe")
+      ],
+      apps: win ? ["TeleClaw/TeleAgent/TeleAgent.exe", "TeleAgent/TeleAgent.exe"] : [],
+      dataPaths: [
+        import_path22.default.join(homeDir, ".local", "share", "TeleAgent"),
+        ...win ? [import_path22.default.join(env.LOCALAPPDATA || import_path22.default.join(homeDir, "AppData", "Local"), "TeleAgent")] : []
       ]
     }
   };
@@ -31066,14 +32145,14 @@ function findBinHit(spec, configuredPath, { pathEntries, platform, homeDir, isFi
   for (const name of spec.binNames || []) {
     for (const dir of pathEntries) {
       if (!dir) continue;
-      const resolved = checkFile(import_path21.default.join(dir, name));
+      const resolved = checkFile(import_path22.default.join(dir, name));
       if (resolved) return resolved;
     }
   }
   return "";
 }
 function detectInstalledHarnesses(options = {}) {
-  const homeDir = options.homeDir || import_os20.default.homedir();
+  const homeDir = options.homeDir || import_os21.default.homedir();
   const platform = options.platform || process.platform;
   const env = options.env || process.env;
   const cfg = options.cfg || {};
@@ -31095,7 +32174,7 @@ function detectInstalledHarnesses(options = {}) {
     let appHit = "";
     for (const appName of spec.apps || []) {
       for (const dir of appDirs) {
-        const candidate = import_path21.default.join(dir, appName);
+        const candidate = import_path22.default.join(dir, appName);
         if (exists(candidate)) {
           appHit = candidate;
           break;
@@ -31630,11 +32709,11 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     if (syncModelGroups(s, (id) => p2.agentEnabled(id))) p2.saveSettings();
     const destinations2 = this.card(body, t("\u9ED8\u8BA4\u59D4\u6D3E\u5230"), t("\u4EC5\u663E\u793A\u5DF2\u542F\u7528\u7684 Harness\uFF1B\u8FFD\u8E2A\u4E3B\u529B\u4E0E\u9ED8\u8BA4\u59D4\u6D3E\u5206\u522B\u8BBE\u7F6E"));
     const targetRow = destinations2.createDiv({ cls: "ad-targetpick" });
-    const targetHints = { workbuddy: t("\u5BA2\u6237\u7AEF\u4EA4\u63A5"), claude: t("\u684C\u9762\u7248 / \u540E\u53F0"), codex: t("\u684C\u9762\u7248 / \u7EC8\u7AEF"), qoder: t("\u684C\u9762\u7248 / CLI") };
+    const targetHints = { workbuddy: t("\u5BA2\u6237\u7AEF\u4EA4\u63A5"), teleagent: t("\u5BA2\u6237\u7AEF\u4EA4\u63A5"), claude: t("\u684C\u9762\u7248 / \u540E\u53F0"), codex: t("\u684C\u9762\u7248 / \u7EC8\u7AEF"), qoder: t("\u684C\u9762\u7248 / CLI") };
     const targetAgents = settingsAgentOrder(s, "delegation", (id) => p2.agentEnabled(id)).filter((id) => p2.agentEnabled(id) && !AGENTS[id].trackingOnly);
     for (const id of targetAgents) {
       const a = AGENTS[id];
-      const available = id !== "workbuddy" && !a.trackingOnly;
+      const available = id !== "workbuddy" && id !== "teleagent" && !a.trackingOnly;
       const item = targetRow.createDiv({ cls: "ad-settings-target" });
       item.dataset.agent = id;
       this.sortHandle(item, targetRow, "delegation", id);
@@ -31869,7 +32948,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     }
     this.renderCustomAcpCard(body);
     const showTerminal = cliHandoffAgents().some((id) => p2.agentEnabled(id));
-    const otherShared = ["workbuddy", "qwenwork"].filter((id) => p2.agentEnabled(id));
+    const otherShared = ["workbuddy", "qwenwork", "teleagent"].filter((id) => p2.agentEnabled(id));
     if (showTerminal || otherShared.length) {
       const sharedAgents = this.card(body, t("\u516C\u5171\u7EC8\u7AEF\u4E0E\u5176\u4F59 Agent"), "");
       if (showTerminal) {
@@ -32196,7 +33275,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     for (const agent of AGENT_ORDER) {
       if (!p2.agentEnabled(agent)) continue;
       const rows = [...pinned, ...rest].filter((m) => m.agent === agent);
-      const clientModels = agent === "workbuddy" || agent === "t3code" || AGENTS[agent].trackingOnly;
+      const clientModels = agent === "workbuddy" || agent === "teleagent" || agent === "t3code" || AGENTS[agent].trackingOnly;
       if (!rows.length && (!clientModels || q || this.filter !== "all")) continue;
       const state = p2.settings.ui.modelGroups[agent];
       const g = list.createEl(clientModels ? "div" : "details", { cls: "ad-modelgroup" });
@@ -32604,6 +33683,17 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       p2.saveSettings();
       p2.scanNow(true);
     });
+    this.rowToggle(
+      sourceMore,
+      t("\u684C\u9762\u6570\u636E\u5E93\u4E5F\u8BFB\u5168\u90E8\u5386\u53F2"),
+      t("\u5173\u95ED\u65F6\u684C\u9762\u5E93\u53EA\u8BFB\u4E0A\u9762\u7684\u5929\u6570\uFF1A\u51E0\u5343\u4E2A\u4F1A\u8BDD\u3001\u51E0\u767E MB \u7684\u5927\u5E93\uFF08TeleAgent\u3001T3 Code\u3001\u8C46\u5305\u5DE5\u4F5C \u7B49\uFF09\u9996\u6B21\u626B\u63CF\u4E0D\u4F1A\u5361\u4F4F\uFF1B\u6253\u5F00\u540E\u4E3B\u529B Agent \u8BFB\u5168\u90E8\u5386\u53F2\uFF0C\u9996\u6B21\u626B\u63CF\u660E\u663E\u53D8\u6162"),
+      s.desktopFullHistory === true,
+      (v) => {
+        s.desktopFullHistory = v;
+        p2.saveSettings();
+        p2.scanNow(true);
+      }
+    );
     this.rowToggle(sourceMore, t("\u8BC6\u522B side chat \u548C\u6BCD\u5B50\u5173\u7CFB"), t("Claude \u684C\u9762\u7248\u5B50\u4F1A\u8BDD\u4E0E\u6BCD\u5B50\u5173\u8054"), s.claudeDesktop !== false, (v) => {
       s.claudeDesktop = v;
       p2.saveSettings();
@@ -33766,18 +34856,18 @@ var CustomAcpAgentModal = class extends import_obsidian7.Modal {
 
 // src/dialog.js
 var import_obsidian8 = require("obsidian");
-function resolveTaskProjectState(plugin, path23, lines, block) {
+function resolveTaskProjectState(plugin, path26, lines, block) {
   const contextLines = ancestorLines(lines, block.start);
   const projectHint = plugin.settings?.autoProjectFolder === false ? null : resolveProjectForTask({
     settings: plugin.settings,
-    notePath: path23,
+    notePath: path26,
     contextLines,
     blockText: block.text
   });
   const projectSuggest = suggestProjectForTask({
     settings: plugin.settings,
     recent: plugin.projectFolderSuggestions?.(8) || [],
-    notePath: path23,
+    notePath: path26,
     contextLines,
     blockText: block.text
   });
@@ -33789,7 +34879,7 @@ function resolveTaskProjectState(plugin, path23, lines, block) {
     projectAlt = projectCandidatesFromTask({ blockText: block.text }).find((name) => {
       const key = projectKey(name);
       if (!key || key === hintKey || registered.has(key)) return false;
-      return !plugin.app?.metadataCache?.getFirstLinkpathDest?.(name, path23);
+      return !plugin.app?.metadataCache?.getFirstLinkpathDest?.(name, path26);
     }) || null;
   }
   const cwd = projectConflict ? projectSuggest.path : projectHint ? projectHint.path : "";
@@ -33912,10 +35002,10 @@ function renderProjectFolderPicker(parent, plugin, state, { compact = false, onR
   }
 }
 var DelegateOptionsModal = class extends import_obsidian8.Modal {
-  constructor(app, plugin, path23, line) {
+  constructor(app, plugin, path26, line) {
     super(app);
     this.plugin = plugin;
-    this.path = path23;
+    this.path = path26;
     this.line = line;
     this.agent = plugin.defaultTarget();
     this.model = plugin.defaultModel(this.agent);
@@ -34151,11 +35241,11 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
   }
 };
 var ConfirmSendModal = class extends import_obsidian8.Modal {
-  constructor(app, { agent, text, path: path23, where, destination, permission = "", newSession = false, context = [], draft = null, plugin = null, projectState = null }, onSend) {
+  constructor(app, { agent, text, path: path26, where, destination, permission = "", newSession = false, context = [], draft = null, plugin = null, projectState = null }, onSend) {
     super(app);
     this.agent = agent;
     this.text = text;
-    this.path = path23;
+    this.path = path26;
     this.where = where;
     this.destination = destination || destinations(agent)[0]?.id;
     this.permission = permission || defaultWorkMode(agent);
@@ -34890,9 +35980,9 @@ function keywordPostProcessor(plugin) {
 }
 
 // src/menubar.js
-var import_fs22 = __toESM(require("fs"), 1);
-var import_path22 = __toESM(require("path"), 1);
-var import_os21 = __toESM(require("os"), 1);
+var import_fs23 = __toESM(require("fs"), 1);
+var import_path23 = __toESM(require("path"), 1);
+var import_os22 = __toESM(require("os"), 1);
 var import_crypto15 = __toESM(require("crypto"), 1);
 var import_child_process11 = require("child_process");
 
@@ -37172,8 +38262,8 @@ app.run()
 `;
 
 // src/menubar.js
-var fsp8 = import_fs22.default.promises;
-var home6 = () => import_os21.default.homedir();
+var fsp8 = import_fs23.default.promises;
+var home6 = () => import_os22.default.homedir();
 var LABEL_KEYS = [
   "\u7B49\u5F85 Agent Deck\u2026",
   "\u5728\u8DD1",
@@ -37236,15 +38326,15 @@ var MenuBarBridge = class {
   constructor(plugin) {
     this.plugin = plugin;
     this._timers = new ManagedTimers();
-    this.dir = import_path22.default.join(home6(), ".agent-deck");
-    this.appPath = import_path22.default.join(this.dir, "AgentDeckMenuBar.app");
-    this.binPath = import_path22.default.join(this.appPath, "Contents", "MacOS", "AgentDeckMenuBar");
-    this.infoPath = import_path22.default.join(this.appPath, "Contents", "Info.plist");
-    this.srcPath = import_path22.default.join(this.dir, "AgentDeckMenuBar.swift");
-    this.statePath = import_path22.default.join(this.dir, "menubar.json");
-    this.cmdDir = import_path22.default.join(this.dir, "cmds");
-    this.pidPath = import_path22.default.join(this.dir, "menubar.pid");
-    this.hashPath = import_path22.default.join(this.dir, "menubar.sha");
+    this.dir = import_path23.default.join(home6(), ".agent-deck");
+    this.appPath = import_path23.default.join(this.dir, "AgentDeckMenuBar.app");
+    this.binPath = import_path23.default.join(this.appPath, "Contents", "MacOS", "AgentDeckMenuBar");
+    this.infoPath = import_path23.default.join(this.appPath, "Contents", "Info.plist");
+    this.srcPath = import_path23.default.join(this.dir, "AgentDeckMenuBar.swift");
+    this.statePath = import_path23.default.join(this.dir, "menubar.json");
+    this.cmdDir = import_path23.default.join(this.dir, "cmds");
+    this.pidPath = import_path23.default.join(this.dir, "menubar.pid");
+    this.hashPath = import_path23.default.join(this.dir, "menubar.sha");
     this.timer = null;
     this.lastJson = "";
     this.disabled = false;
@@ -37255,7 +38345,7 @@ var MenuBarBridge = class {
   }
   isAlive() {
     try {
-      const pid = Number(import_fs22.default.readFileSync(this.pidPath, "utf8").trim());
+      const pid = Number(import_fs23.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
         process.kill(pid, 0);
         return true;
@@ -37287,9 +38377,9 @@ var MenuBarBridge = class {
   }
   // 官方 App 图标给 SwiftUI 用：和 main.js 里嵌的是同一份 PNG
   writeAgentIcons() {
-    const dir = import_path22.default.join(this.dir, "agents");
+    const dir = import_path23.default.join(this.dir, "agents");
     try {
-      import_fs22.default.mkdirSync(dir, { recursive: true });
+      import_fs23.default.mkdirSync(dir, { recursive: true });
     } catch {
       return;
     }
@@ -37297,12 +38387,12 @@ var MenuBarBridge = class {
       try {
         const buf = agentImageBuffer(id);
         if (!buf) continue;
-        const p2 = import_path22.default.join(dir, `${id}.png`);
+        const p2 = import_path23.default.join(dir, `${id}.png`);
         try {
-          if (import_fs22.default.statSync(p2).size === buf.length) continue;
+          if (import_fs23.default.statSync(p2).size === buf.length) continue;
         } catch {
         }
-        import_fs22.default.writeFileSync(p2, buf);
+        import_fs23.default.writeFileSync(p2, buf);
       } catch {
       }
     }
@@ -37317,7 +38407,7 @@ var MenuBarBridge = class {
       oldHash = (await fsp8.readFile(this.hashPath, "utf8")).trim();
     } catch {
     }
-    const hasBinary = import_fs22.default.existsSync(this.binPath);
+    const hasBinary = import_fs23.default.existsSync(this.binPath);
     const compiled2 = !hasBinary || oldHash !== hash4;
     if (compiled2) {
       await this.compile(hash4);
@@ -37334,12 +38424,12 @@ var MenuBarBridge = class {
     this.timer = this._timers.setInterval(() => safeRun("menubar:update", () => this.update()), 1800);
   }
   async compile(hash4) {
-    if (!import_fs22.default.existsSync("/usr/bin/swiftc")) {
+    if (!import_fs23.default.existsSync("/usr/bin/swiftc")) {
       throw new Error(t("\u627E\u4E0D\u5230 /usr/bin/swiftc\u3002\u5B89\u88C5 Xcode Command Line Tools\uFF08xcode-select --install\uFF09\u540E\u518D\u8BD5\u3002"));
     }
     this.plugin.notice(t("\u6B63\u5728\u51C6\u5907 macOS \u83DC\u5355\u680F\uFF08\u7B2C\u4E00\u6B21\u8981\u7F16\u8BD1\u4E00\u4E2A\u5C0F\u52A9\u624B\uFF0C\u7EA6\u51E0\u79D2\uFF09\u2026"), 6e3);
     await new Promise((resolve) => this.killExisting(resolve));
-    await fsp8.mkdir(import_path22.default.join(this.appPath, "Contents", "MacOS"), { recursive: true });
+    await fsp8.mkdir(import_path23.default.join(this.appPath, "Contents", "MacOS"), { recursive: true });
     await fsp8.writeFile(this.srcPath, menubar_default2, "utf8");
     await fsp8.writeFile(this.infoPath, INFO_PLIST, "utf8");
     const tmp = this.binPath + ".new";
@@ -37402,7 +38492,7 @@ var MenuBarBridge = class {
       return;
     }
     try {
-      const pid = Number(import_fs22.default.readFileSync(this.pidPath, "utf8").trim());
+      const pid = Number(import_fs23.default.readFileSync(this.pidPath, "utf8").trim());
       if (pid > 0) {
         try {
           process.kill(pid, "SIGTERM");
@@ -37412,7 +38502,7 @@ var MenuBarBridge = class {
     } catch {
     }
     try {
-      import_fs22.default.unlinkSync(this.pidPath);
+      import_fs23.default.unlinkSync(this.pidPath);
     } catch {
     }
     const pattern = this.binPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "( |$)";
@@ -37425,8 +38515,8 @@ var MenuBarBridge = class {
   show() {
     if (!this.enabled) return;
     try {
-      import_fs22.default.mkdirSync(this.dir, { recursive: true });
-      import_fs22.default.writeFileSync(import_path22.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
+      import_fs23.default.mkdirSync(this.dir, { recursive: true });
+      import_fs23.default.writeFileSync(import_path23.default.join(this.dir, "show-panel"), String(Date.now()), "utf8");
     } catch (e) {
       console.error("[agent-deck] menu bar show", e);
     }
@@ -37435,16 +38525,16 @@ var MenuBarBridge = class {
     let changed = false;
     let names;
     try {
-      names = import_fs22.default.readdirSync(this.cmdDir).filter((n) => n.endsWith(".json")).sort();
+      names = import_fs23.default.readdirSync(this.cmdDir).filter((n) => n.endsWith(".json")).sort();
     } catch {
       return false;
     }
     for (const name of names) {
-      const filePath = import_path22.default.join(this.cmdDir, name);
+      const filePath = import_path23.default.join(this.cmdDir, name);
       try {
-        const raw = import_fs22.default.readFileSync(filePath, "utf8");
+        const raw = import_fs23.default.readFileSync(filePath, "utf8");
         try {
-          import_fs22.default.unlinkSync(filePath);
+          import_fs23.default.unlinkSync(filePath);
         } catch {
         }
         const cmd = JSON.parse(raw);
@@ -37458,7 +38548,7 @@ var MenuBarBridge = class {
         }
       } catch {
         try {
-          import_fs22.default.unlinkSync(filePath);
+          import_fs23.default.unlinkSync(filePath);
         } catch {
         }
       }
@@ -37476,9 +38566,9 @@ var MenuBarBridge = class {
       this.lastJson = body;
       const json2 = JSON.stringify({ updatedAt, ...rest, labels: menuLabels() });
       const tmp = this.statePath + ".tmp";
-      import_fs22.default.mkdirSync(this.dir, { recursive: true });
-      import_fs22.default.writeFileSync(tmp, json2, "utf8");
-      import_fs22.default.renameSync(tmp, this.statePath);
+      import_fs23.default.mkdirSync(this.dir, { recursive: true });
+      import_fs23.default.writeFileSync(tmp, json2, "utf8");
+      import_fs23.default.renameSync(tmp, this.statePath);
     } catch (e) {
       console.error("[agent-deck] menu bar state", e);
     }
@@ -37802,12 +38892,12 @@ var AutoLog = class {
   }
   // 今天的日记还没建：按「日记」核心插件的模板建一篇，AI 分区骨架照旧交给 placeBlock
   async createJournal(day) {
-    const path23 = this.journalPath(day);
+    const path26 = this.journalPath(day);
     if (typeof this.p.ensureNoteFile !== "function") return null;
-    const { file } = await this.p.ensureNoteFile(path23, await this.journalTemplate(path23));
+    const { file } = await this.p.ensureNoteFile(path26, await this.journalTemplate(path26));
     return file || null;
   }
-  async journalTemplate(path23) {
+  async journalTemplate(path26) {
     const app = this.p.app;
     const tplPath = String(dailyNotesOptions(app)?.template || "").trim();
     if (!tplPath) return "";
@@ -37824,7 +38914,7 @@ var AutoLog = class {
       format = app.internalPlugins?.getPluginById?.("templates")?.instance?.options || {};
     } catch {
     }
-    const title = path23.slice(path23.lastIndexOf("/") + 1).replace(/\.md$/, "");
+    const title = path26.slice(path26.lastIndexOf("/") + 1).replace(/\.md$/, "");
     return expandJournalTemplate(text, { title, dateFormat: format.dateFormat, timeFormat: format.timeFormat });
   }
   viewFor(file) {
@@ -39296,10 +40386,10 @@ function buildPlanMarkdown({ title, goal, steps, at = "", by = "" }) {
 }
 
 // src/workbench-note.js
-var link = (path23, label) => `[[${String(path23).replace(/\.md$/, "")}|${label || String(path23).split("/").pop().replace(/\.md$/, "")}]]`;
+var link = (path26, label) => `[[${String(path26).replace(/\.md$/, "")}|${label || String(path26).split("/").pop().replace(/\.md$/, "")}]]`;
 function buildWorkbenchNote({ boardFiles = [], memory = {}, tasks = [], at = "" } = {}) {
   const stamp = at || (/* @__PURE__ */ new Date()).toISOString().slice(0, 16).replace("T", " ");
-  const byKind = (path23) => /\/任务\//.test(path23) ? t("\u4EFB\u52A1") : /\/规格\//.test(path23) ? t("\u89C4\u683C") : t("\u7B14\u8BB0");
+  const byKind = (path26) => /\/任务\//.test(path26) ? t("\u4EFB\u52A1") : /\/规格\//.test(path26) ? t("\u89C4\u683C") : t("\u7B14\u8BB0");
   const lines = [
     "# \u5DE5\u4F5C\u53F0",
     "",
@@ -39416,9 +40506,9 @@ var MemoryBoardView = class extends import_obsidian12.ItemView {
         col.removeClass("is-over");
         if (e.dataTransfer?.files?.length) return;
         e.preventDefault();
-        const path23 = e.dataTransfer?.getData("text/plain");
-        if (!path23) return;
-        await this.plugin.dreaming.setEntryState(path23, column.state);
+        const path26 = e.dataTransfer?.getData("text/plain");
+        if (!path26) return;
+        await this.plugin.dreaming.setEntryState(path26, column.state);
         await this.refresh();
         this.plugin.dreaming.syncOverview().catch(() => {
         });
@@ -40121,10 +41211,10 @@ function registerTaskAgentSuggest(plugin) {
 }
 
 // src/task-export.js
-var import_fs23 = __toESM(require("fs"), 1);
+var import_fs24 = __toESM(require("fs"), 1);
 var import_promises4 = __toESM(require("fs/promises"), 1);
-var import_os22 = __toESM(require("os"), 1);
-var import_path23 = __toESM(require("path"), 1);
+var import_os23 = __toESM(require("os"), 1);
+var import_path24 = __toESM(require("path"), 1);
 var import_obsidian17 = require("obsidian");
 var SAFE_HREF_RE = /^(?:https?:|mailto:|obsidian:|claude:|codex:|workbuddy:|dsh:|antigravity:|opencode:|qoder:|cursor:|\/|#|\.\.?\/)/i;
 function dedentVisualLines(lines, cols) {
@@ -40287,7 +41377,7 @@ function removeTaskBlockFromNote(text, start, end) {
   const joined = next.join("\n") + (trailingNl ? "\n" : "");
   return crlf ? joined.replace(/\n/g, "\r\n") : joined;
 }
-function writeClipboard(text) {
+function writeClipboard2(text) {
   try {
     require("electron").clipboard.writeText(text);
     return true;
@@ -40309,17 +41399,17 @@ function getElectronRemote() {
 }
 function initialExportDir(plugin, sourcePath = "") {
   const saved = String(plugin.settings?.lastTaskExportDir || "").trim();
-  if (saved && import_fs23.default.existsSync(saved)) return saved;
+  if (saved && import_fs24.default.existsSync(saved)) return saved;
   const vaultBase = plugin.app?.vault?.adapter?.basePath || "";
   if (vaultBase && sourcePath) {
-    const noteDir = import_path23.default.dirname(import_path23.default.join(vaultBase, sourcePath));
-    if (import_fs23.default.existsSync(noteDir)) return noteDir;
+    const noteDir = import_path24.default.dirname(import_path24.default.join(vaultBase, sourcePath));
+    if (import_fs24.default.existsSync(noteDir)) return noteDir;
   }
-  return vaultBase || import_os22.default.homedir();
+  return vaultBase || import_os23.default.homedir();
 }
 function rememberExportDir(plugin, filePath) {
   if (!plugin.settings || !filePath) return;
-  plugin.settings.lastTaskExportDir = import_path23.default.dirname(filePath);
+  plugin.settings.lastTaskExportDir = import_path24.default.dirname(filePath);
   plugin.saveSettings?.();
 }
 function ensureExt(filePath, ext) {
@@ -40335,12 +41425,12 @@ async function ensureVaultFolders(vault, relPath) {
   }
 }
 async function writeExportFile(plugin, chosenPath, content) {
-  const abs = import_path23.default.resolve(chosenPath);
+  const abs = import_path24.default.resolve(chosenPath);
   const vaultBase = plugin.app?.vault?.adapter?.basePath;
   if (vaultBase) {
-    const rel = import_path23.default.relative(import_path23.default.resolve(vaultBase), abs);
-    if (rel && !rel.startsWith("..") && !import_path23.default.isAbsolute(rel)) {
-      const vaultPath = rel.split(import_path23.default.sep).join("/");
+    const rel = import_path24.default.relative(import_path24.default.resolve(vaultBase), abs);
+    if (rel && !rel.startsWith("..") && !import_path24.default.isAbsolute(rel)) {
+      const vaultPath = rel.split(import_path24.default.sep).join("/");
       const vault = plugin.app.vault;
       await ensureVaultFolders(vault, vaultPath);
       const existing = vault.getAbstractFileByPath(vaultPath);
@@ -40349,7 +41439,7 @@ async function writeExportFile(plugin, chosenPath, content) {
       return { path: vaultPath, insideVault: true };
     }
   }
-  await import_promises4.default.mkdir(import_path23.default.dirname(abs), { recursive: true });
+  await import_promises4.default.mkdir(import_path24.default.dirname(abs), { recursive: true });
   await import_promises4.default.writeFile(abs, content, "utf8");
   return { path: abs, insideVault: false };
 }
@@ -40901,51 +41991,51 @@ function buildTaskPlainText(extracted, sourcePath = "") {
   return `${lines.join("\n").replace(/\n+$/, "")}
 `;
 }
-async function copyTaskFormatted(plugin, path23, line, { buildText, successMsg, viewMode = "" }) {
-  const text = await plugin.readNote(path23);
-  const extracted = extractTaskBlock(text, line, path23, plugin);
+async function copyTaskFormatted(plugin, path26, line, { buildText, successMsg, viewMode = "" }) {
+  const text = await plugin.readNote(path26);
+  const extracted = extractTaskBlock(text, line, path26, plugin);
   if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
-  const output = buildText(extracted, path23, { viewMode });
-  if (!writeClipboard(output)) return plugin.notice(t("\u5199\u5165\u526A\u8D34\u677F\u5931\u8D25"));
+  const output = buildText(extracted, path26, { viewMode });
+  if (!writeClipboard2(output)) return plugin.notice(t("\u5199\u5165\u526A\u8D34\u677F\u5931\u8D25"));
   plugin.notice(successMsg);
 }
-async function copyTaskMarkdown(plugin, path23, line) {
-  return copyTaskFormatted(plugin, path23, line, {
+async function copyTaskMarkdown(plugin, path26, line) {
+  return copyTaskFormatted(plugin, path26, line, {
     buildText: (extracted) => `${extracted.markdown}
 `,
     successMsg: t("\u5DF2\u6309 Markdown \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskMarkdownTable(plugin, path23, line) {
-  return copyTaskFormatted(plugin, path23, line, {
+async function copyTaskMarkdownTable(plugin, path26, line) {
+  return copyTaskFormatted(plugin, path26, line, {
     buildText: (extracted, src) => buildTaskMarkdownTable(extracted, src),
     successMsg: t("\u5DF2\u6309 Markdown \u8868\u683C\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskPlainText(plugin, path23, line) {
-  return copyTaskFormatted(plugin, path23, line, {
+async function copyTaskPlainText(plugin, path26, line) {
+  return copyTaskFormatted(plugin, path26, line, {
     buildText: (extracted, src) => buildTaskPlainText(extracted, src),
     successMsg: t("\u5DF2\u6309\u7EAF\u6587\u672C\u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskJson(plugin, path23, line, options = {}) {
-  return copyTaskFormatted(plugin, path23, line, {
+async function copyTaskJson(plugin, path26, line, options = {}) {
+  return copyTaskFormatted(plugin, path26, line, {
     buildText: (extracted, src, opts) => buildTaskExportJson(extracted, src, opts),
     successMsg: t("\u5DF2\u6309 JSON \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F"),
     viewMode: options.viewMode || ""
   });
 }
-async function renderMarkdownFragment(plugin, md, path23, comp) {
+async function renderMarkdownFragment(plugin, md, path26, comp) {
   if (!md) return "";
   const host = document.createElement("div");
   try {
-    await import_obsidian17.MarkdownRenderer.render(plugin.app, md, host, path23, comp);
+    await import_obsidian17.MarkdownRenderer.render(plugin.app, md, host, path26, comp);
     return host.innerHTML;
   } finally {
     host.remove();
   }
 }
-async function renderTaskHtmlForExport(plugin, extracted, path23, viewMode) {
+async function renderTaskHtmlForExport(plugin, extracted, path26, viewMode) {
   const effectiveView = resolveExportView(extracted, viewMode);
   const comp = new import_obsidian17.Component();
   comp.load();
@@ -40953,11 +42043,11 @@ async function renderTaskHtmlForExport(plugin, extracted, path23, viewMode) {
     let outlineBodyHtml = "";
     let extraNotesHtml = "";
     if (effectiveView === "outline" || !extracted.structured) {
-      outlineBodyHtml = await renderMarkdownFragment(plugin, extracted.markdown, path23, comp);
+      outlineBodyHtml = await renderMarkdownFragment(plugin, extracted.markdown, path26, comp);
     } else if (extracted.structured.extraMarkdown) {
-      extraNotesHtml = await renderMarkdownFragment(plugin, extracted.structured.extraMarkdown, path23, comp);
+      extraNotesHtml = await renderMarkdownFragment(plugin, extracted.structured.extraMarkdown, path26, comp);
     }
-    return buildTaskViewHtmlDocument(extracted, path23, {
+    return buildTaskViewHtmlDocument(extracted, path26, {
       viewMode: effectiveView,
       outlineBodyHtml,
       extraNotesHtml
@@ -40966,7 +42056,7 @@ async function renderTaskHtmlForExport(plugin, extracted, path23, viewMode) {
     comp.unload();
   }
 }
-async function prepareExportTarget(plugin, path23, line, {
+async function prepareExportTarget(plugin, path26, line, {
   ext,
   filterName,
   dialogTitle,
@@ -40979,8 +42069,8 @@ async function prepareExportTarget(plugin, path23, line, {
     plugin.notice(unavailableMsg);
     return null;
   }
-  const text = await plugin.readNote(path23);
-  const extracted = extractTaskBlock(text, line, path23, plugin);
+  const text = await plugin.readNote(path26);
+  const extracted = extractTaskBlock(text, line, path26, plugin);
   if (!extracted) {
     plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
     return null;
@@ -40989,20 +42079,20 @@ async function prepareExportTarget(plugin, path23, line, {
   const title = typeof dialogTitle === "function" ? dialogTitle(effectiveView) : dialogTitle;
   const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
     title,
-    defaultPath: import_path23.default.join(initialExportDir(plugin, path23), `${extracted.suggestedName}${ext}`),
+    defaultPath: import_path24.default.join(initialExportDir(plugin, path26), `${extracted.suggestedName}${ext}`),
     filters: [{ name: filterName, extensions: [ext.replace(/^\./, "")] }]
   });
   if (picked.canceled || !picked.filePath) return null;
   const targetFile = ensureExt(picked.filePath, ext);
   const vaultBase = plugin.app?.vault?.adapter?.basePath;
-  if (ext === ".md" && vaultBase && import_path23.default.resolve(import_path23.default.join(vaultBase, path23)) === import_path23.default.resolve(targetFile)) {
+  if (ext === ".md" && vaultBase && import_path24.default.resolve(import_path24.default.join(vaultBase, path26)) === import_path24.default.resolve(targetFile)) {
     plugin.notice(t("\u4E0D\u80FD\u8986\u76D6\u5F53\u524D\u6240\u5728\u7B14\u8BB0"));
     return null;
   }
   return { remote, extracted, effectiveView, targetFile };
 }
-async function exportTaskToPdf(plugin, path23, line, options = {}) {
-  const prep = await prepareExportTarget(plugin, path23, line, {
+async function exportTaskToPdf(plugin, path26, line, options = {}) {
+  const prep = await prepareExportTarget(plugin, path26, line, {
     ext: ".pdf",
     filterName: "PDF",
     requireWindow: true,
@@ -41015,8 +42105,8 @@ async function exportTaskToPdf(plugin, path23, line, options = {}) {
   let win = null;
   let tmpHtml = "";
   try {
-    const html = await renderTaskHtmlForExport(plugin, extracted, path23, effectiveView);
-    tmpHtml = import_path23.default.join(import_os22.default.tmpdir(), `agent-deck-pdf-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
+    const html = await renderTaskHtmlForExport(plugin, extracted, path26, effectiveView);
+    tmpHtml = import_path24.default.join(import_os23.default.tmpdir(), `agent-deck-pdf-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
     await import_promises4.default.writeFile(tmpHtml, html, "utf8");
     win = new remote.BrowserWindow({
       show: false,
@@ -41026,7 +42116,7 @@ async function exportTaskToPdf(plugin, path23, line, options = {}) {
     });
     await win.loadFile(tmpHtml);
     const pdfData = await win.webContents.printToPDF({ printBackground: true, pageSize: "A4" });
-    await import_promises4.default.mkdir(import_path23.default.dirname(targetPdf), { recursive: true });
+    await import_promises4.default.mkdir(import_path24.default.dirname(targetPdf), { recursive: true });
     await import_promises4.default.writeFile(targetPdf, pdfData);
     rememberExportDir(plugin, targetPdf);
     plugin.notice(t("\u5DF2\u5BFC\u51FA PDF\uFF1A{path}", { path: targetPdf }));
@@ -41038,17 +42128,17 @@ async function exportTaskToPdf(plugin, path23, line, options = {}) {
     });
   }
 }
-async function exportTaskToTextFile(plugin, path23, line, { ext, filterName, dialogTitle, buildContent, onSuccess, viewMode = "" }) {
-  const prep = await prepareExportTarget(plugin, path23, line, { ext, filterName, dialogTitle, viewMode });
+async function exportTaskToTextFile(plugin, path26, line, { ext, filterName, dialogTitle, buildContent, onSuccess, viewMode = "" }) {
+  const prep = await prepareExportTarget(plugin, path26, line, { ext, filterName, dialogTitle, viewMode });
   if (!prep) return;
   const { extracted, effectiveView, targetFile } = prep;
-  const content = await buildContent(extracted, path23, { viewMode: effectiveView });
+  const content = await buildContent(extracted, path26, { viewMode: effectiveView });
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
   plugin.notice(onSuccess(written.path));
 }
-async function exportTaskToHtml(plugin, path23, line, options = {}) {
-  return exportTaskToTextFile(plugin, path23, line, {
+async function exportTaskToHtml(plugin, path26, line, options = {}) {
+  return exportTaskToTextFile(plugin, path26, line, {
     ext: ".html",
     filterName: "HTML",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A HTML"),
@@ -41057,8 +42147,8 @@ async function exportTaskToHtml(plugin, path23, line, options = {}) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA HTML\uFF1A{path}", { path: p2 })
   });
 }
-async function exportTaskToMarkdown(plugin, path23, line) {
-  return exportTaskToTextFile(plugin, path23, line, {
+async function exportTaskToMarkdown(plugin, path26, line) {
+  return exportTaskToTextFile(plugin, path26, line, {
     ext: ".md",
     filterName: "Markdown",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A Markdown"),
@@ -41066,8 +42156,8 @@ async function exportTaskToMarkdown(plugin, path23, line) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA Markdown\uFF1A{path}", { path: p2 })
   });
 }
-async function exportTaskToJson(plugin, path23, line, options = {}) {
-  return exportTaskToTextFile(plugin, path23, line, {
+async function exportTaskToJson(plugin, path26, line, options = {}) {
+  return exportTaskToTextFile(plugin, path26, line, {
     ext: ".json",
     filterName: "JSON",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A JSON"),
@@ -41076,8 +42166,8 @@ async function exportTaskToJson(plugin, path23, line, options = {}) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA JSON\uFF1A{path}", { path: p2 })
   });
 }
-async function exportTaskToCsv(plugin, path23, line) {
-  return exportTaskToTextFile(plugin, path23, line, {
+async function exportTaskToCsv(plugin, path26, line) {
+  return exportTaskToTextFile(plugin, path26, line, {
     ext: ".csv",
     filterName: "CSV",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A CSV"),
@@ -41085,24 +42175,24 @@ async function exportTaskToCsv(plugin, path23, line) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA CSV\uFF1A{path}", { path: p2 })
   });
 }
-async function saveTaskAsFile(plugin, path23, line) {
-  const prep = await prepareExportTarget(plugin, path23, line, {
+async function saveTaskAsFile(plugin, path26, line) {
+  const prep = await prepareExportTarget(plugin, path26, line, {
     ext: ".md",
     filterName: "Markdown",
     dialogTitle: t("\u53E6\u5B58\u4E3A\u4EFB\u52A1\u4E0E\u5BF9\u8BDD")
   });
   if (!prep) return;
   const { extracted, targetFile } = prep;
-  const content = buildTaskExportDocument(extracted, path23);
+  const content = buildTaskExportDocument(extracted, path26);
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
-  const latest = await plugin.readNote(path23);
-  const check = extractTaskBlock(latest, line, path23, plugin);
+  const latest = await plugin.readNote(path26);
+  const check = extractTaskBlock(latest, line, path26, plugin);
   if (!check || check.rawText !== extracted.rawText) {
     return plugin.notice(t("\u539F\u7B14\u8BB0\u5185\u5BB9\u521A\u6709\u53D8\u5316\uFF0C\u5DF2\u4FDD\u5B58\u526F\u672C\u5230 {path}\uFF0C\u539F\u6587\u4FDD\u7559", { path: written.path }));
   }
   const updated = removeTaskBlockFromNote(latest, check.start, check.end);
-  await plugin.writeNote(path23, updated);
+  await plugin.writeNote(path26, updated);
   plugin.refreshUI?.();
   plugin.notice(t("\u5DF2\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u672C\uFF1A{path}", { path: written.path }));
 }
@@ -41227,7 +42317,7 @@ var ReplyModal = class extends import_obsidian18.Modal {
 // src/reply-inbox-view.js
 var import_obsidian19 = require("obsidian");
 var REPLY_INBOX_TYPE = "agent-deck-reply-inbox";
-var shortPath = (path23 = "") => String(path23).replace(/\.md$/, "");
+var shortPath = (path26 = "") => String(path26).replace(/\.md$/, "");
 var ReplyInboxView = class extends import_obsidian19.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -42338,7 +43428,7 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
 }
 
 // src/main.js
-var fsp10 = import_fs24.default.promises;
+var fsp10 = import_fs25.default.promises;
 var NAUTILUS_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
 var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   async onload() {
@@ -42358,6 +43448,10 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
         mode: data?.agents ? "migrate" : "initial",
         detection: this.detectedHarnesses()
       });
+      this.saveSettings().catch(() => {
+      });
+    } else if (!(Number(data.harnessesDetected.version) >= HARNESS_DETECTION_VERSION)) {
+      applyHarnessDetection(this.settings, { mode: "redetect", detection: this.detectedHarnesses() });
       this.saveSettings().catch(() => {
       });
     } else if (data && !data.dshDefaultSeeded) {
@@ -42390,12 +43484,12 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.agentShortNames = Object.fromEntries(Object.entries(AGENTS).map(([id, a]) => [id, a.short || a.name || id]));
     this.vaultPath = this.app.vault.adapter.getBasePath ? this.app.vault.adapter.getBasePath() : "";
     this.manifestDir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
-    this.pluginDir = import_path24.default.join(this.vaultPath, this.manifestDir);
-    this.usageFile = import_path24.default.join(this.pluginDir, "usage.json");
+    this.pluginDir = import_path25.default.join(this.vaultPath, this.manifestDir);
+    this.usageFile = import_path25.default.join(this.pluginDir, "usage.json");
     this.reloadLocales();
     this.store = new UsageStore(this, this.settings);
     this.usage = new AgentUsage({ cfg: this.settings, settings: this.settings });
-    this.usageCacheFile = import_path24.default.join(import_os23.default.homedir(), ".agent-deck", "usage-cache.json.gz");
+    this.usageCacheFile = import_path25.default.join(import_os24.default.homedir(), ".agent-deck", "usage-cache.json.gz");
     this.editorInfoField = import_obsidian21.editorInfoField;
     this._launchingWaves = /* @__PURE__ */ new Set();
     this._finalizingWaves = /* @__PURE__ */ new Set();
@@ -42862,9 +43956,9 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   // 主入口用 Obsidian 原生 Base（只读表格：筛选/排序/统计）；看板作为"要改状态时"的可选增强。
   async openMemoryBase() {
     if (!this.dreaming.storeMode) return this.notice(t("\u8BF7\u5148\u8FD0\u884C\u300C\u8BB0\u5FC6\uFF1A\u628A\u957F\u671F\u8BB0\u5FC6\u8FC1\u79FB\u5230\u8BB0\u5FC6\u5E93\u300D"));
-    const path23 = `${this.dreaming.dir}.base`;
-    if (!this.app.vault.getAbstractFileByPath(path23)) await this.app.vault.create(path23, memoryBase(this.dreaming.dir));
-    await this.app.workspace.openLinkText(path23, "", false);
+    const path26 = `${this.dreaming.dir}.base`;
+    if (!this.app.vault.getAbstractFileByPath(path26)) await this.app.vault.create(path26, memoryBase(this.dreaming.dir));
+    await this.app.workspace.openLinkText(path26, "", false);
   }
   async openMemoryBoard() {
     const existing = this.app.workspace.getLeavesOfType(MEMORY_BOARD_TYPE)[0];
@@ -42886,9 +43980,9 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       }
     }).open();
   }
-  async deleteMemoryFile(path23) {
-    if (!this.dreaming.isEntryPath(path23)) return false;
-    const file = this.app.vault.getAbstractFileByPath(path23);
+  async deleteMemoryFile(path26) {
+    if (!this.dreaming.isEntryPath(path26)) return false;
+    const file = this.app.vault.getAbstractFileByPath(path26);
     if (!file) return false;
     await this.app.vault.trash(file, true);
     await this.dreaming.syncOverview();
@@ -42896,7 +43990,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       await this.dreaming.ensureReverseLinks({ write: true });
     }
     await this.refreshMemoryBoards();
-    this.notice(t("\u5DF2\u5220\u9664\u8BB0\u5FC6\uFF1A{path}", { path: path23 }));
+    this.notice(t("\u5DF2\u5220\u9664\u8BB0\u5FC6\uFF1A{path}", { path: path26 }));
     return true;
   }
   async deleteCurrentMemory() {
@@ -43307,22 +44401,22 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   }
   customLocaleDirs() {
     const dirs = [];
-    if (this.pluginDir) dirs.push(import_path24.default.join(this.pluginDir, "locales"));
-    if (this.vaultPath) dirs.push(import_path24.default.join(this.vaultPath, "Agent Deck", "locales"));
+    if (this.pluginDir) dirs.push(import_path25.default.join(this.pluginDir, "locales"));
+    if (this.vaultPath) dirs.push(import_path25.default.join(this.vaultPath, "Agent Deck", "locales"));
     return [...new Set(dirs)];
   }
   reloadLocales() {
     const byId = /* @__PURE__ */ new Map();
     for (const dir of this.customLocaleDirs()) {
       try {
-        if (!import_fs24.default.existsSync(dir)) continue;
-        for (const entry of import_fs24.default.readdirSync(dir)) {
+        if (!import_fs25.default.existsSync(dir)) continue;
+        for (const entry of import_fs25.default.readdirSync(dir)) {
           if (!entry.endsWith(".json") || entry.toLowerCase() === "template.json") continue;
           const id = entry.slice(0, -5).trim();
           if (!id || id === "auto" || id === "zh" || id === "en") continue;
-          const filePath = import_path24.default.join(dir, entry);
+          const filePath = import_path25.default.join(dir, entry);
           try {
-            const raw = JSON.parse(import_fs24.default.readFileSync(filePath, "utf8"));
+            const raw = JSON.parse(import_fs25.default.readFileSync(filePath, "utf8"));
             if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
             const strings = {};
             for (const [k, v] of Object.entries(raw)) {
@@ -43367,9 +44461,9 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     const content = exportLocaleTemplate();
     try {
       if (this.vaultPath) {
-        const full = import_path24.default.join(this.vaultPath, "Agent Deck", "locales", "template.json");
-        import_fs24.default.mkdirSync(import_path24.default.dirname(full), { recursive: true });
-        import_fs24.default.writeFileSync(full, content, "utf8");
+        const full = import_path25.default.join(this.vaultPath, "Agent Deck", "locales", "template.json");
+        import_fs25.default.mkdirSync(import_path25.default.dirname(full), { recursive: true });
+        import_fs25.default.writeFileSync(full, content, "utf8");
       } else {
         await this.app.vault.adapter.mkdir("Agent Deck/locales").catch(() => {
         });
@@ -43395,7 +44489,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.closeGrokBotWatcher();
     if (this._unloaded || !this.agentEnabled("cursor")) return;
     const dir = cursorEventsDir();
-    if (!import_fs24.default.existsSync(dir)) return;
+    if (!import_fs25.default.existsSync(dir)) return;
     const scheduleCursor = () => {
       if (this._unloaded) return;
       clearTimeout(this._cursorWatchTimer);
@@ -43406,7 +44500,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       }, 350);
     };
     try {
-      this._cursorWatcher = import_fs24.default.watch(dir, { persistent: false }, scheduleCursor);
+      this._cursorWatcher = import_fs25.default.watch(dir, { persistent: false }, scheduleCursor);
     } catch {
     }
   }
@@ -43424,7 +44518,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     const tracked = Array.isArray(this.settings.grokBotTrackedBotIds) ? this.settings.grokBotTrackedBotIds.filter(Boolean) : [];
     if (this._unloaded || !this.agentEnabled("grokbot") || !tracked.length) return;
     const dir = this.settings.grokBotPersistenceDir || grokBotPersistenceDir();
-    if (!import_fs24.default.existsSync(dir)) return;
+    if (!import_fs25.default.existsSync(dir)) return;
     const scheduleGrok = () => {
       if (this._unloaded) return;
       clearTimeout(this._grokWatchTimer);
@@ -43435,7 +44529,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       }, 350);
     };
     try {
-      this._grokWatcher = import_fs24.default.watch(dir, { persistent: false }, scheduleGrok);
+      this._grokWatcher = import_fs25.default.watch(dir, { persistent: false }, scheduleGrok);
     } catch {
     }
   }
@@ -43653,10 +44747,10 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     }
   }
   async importNautilus(manual = false) {
-    const dir = import_path24.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
+    const dir = import_path25.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral");
     let raw;
     try {
-      raw = await fsp10.readFile(import_path24.default.join(dir, "ai-usage.json"), "utf8");
+      raw = await fsp10.readFile(import_path25.default.join(dir, "ai-usage.json"), "utf8");
     } catch {
       if (manual) new import_obsidian21.Notice(t("\u6CA1\u6709\u627E\u5230\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json"));
       return;
@@ -44182,8 +45276,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   // ---------- note line map ----------
   // doc 缓存仅保留静态文档结构（lines / links / linkByLine / blockIds），
   // session / job / externalState 每次即时拼装，避免文档未改时读到过期状态。
-  lineMap(path23, doc) {
-    let cached2 = this._lineMaps[path23];
+  lineMap(path26, doc) {
+    let cached2 = this._lineMaps[path26];
     if (!cached2 || cached2.doc !== doc) {
       const lines = doc.toString().split("\n");
       const owners = ownersOf(lines), fenced = fencedLines(lines);
@@ -44205,7 +45299,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
         links.push(entry);
       }
       cached2 = { doc, lines, links, linkByLine, blockIds };
-      this._lineMaps[path23] = cached2;
+      this._lineMaps[path26] = cached2;
     }
     const sessionByParent = /* @__PURE__ */ new Map();
     let liveBySid;
@@ -44256,8 +45350,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     }
     return { doc, lines: cached2.lines, sessionByParent, linkByLine: cached2.linkByLine };
   }
-  jobAtLine(path23, line, text) {
-    const jobs = Object.values(this.jobs).filter((j) => j.path === path23);
+  jobAtLine(path26, line, text) {
+    const jobs = Object.values(this.jobs).filter((j) => j.path === path26);
     const bid = blockIdOf(text);
     let best = null;
     for (const j of jobs) {
@@ -44284,22 +45378,22 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     });
   }
   // 编辑器里找打开着这篇笔记的那个 MarkdownView（不一定是当前激活的：拖拽时焦点常在面板上）
-  viewForPath(path23) {
+  viewForPath(path26) {
     let found = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!found && v instanceof import_obsidian21.MarkdownView && v.file && v.file.path === path23 && v.editor) found = v;
+      if (!found && v instanceof import_obsidian21.MarkdownView && v.file && v.file.path === path26 && v.editor) found = v;
     });
     return found;
   }
   // Hidden editors in Obsidian Reading ("preview") view go stale after background
   // vault writes; only use an open editor directly when it is in editing mode.
-  sourceViewForPath(path23) {
-    const view2 = this.viewForPath(path23);
+  sourceViewForPath(path26) {
+    const view2 = this.viewForPath(path26);
     return view2 && (!view2.getMode || view2.getMode() === "source") ? view2 : null;
   }
-  async toggleRecordPin(path23, lineIndex, { editor = null } = {}) {
-    if (!path23 || !Number.isInteger(lineIndex) || lineIndex < 0) return false;
+  async toggleRecordPin(path26, lineIndex, { editor = null } = {}) {
+    if (!path26 || !Number.isInteger(lineIndex) || lineIndex < 0) return false;
     let nowPinned = false;
     if (editor?.cm?.state?.doc && lineIndex < editor.cm.state.doc.lines) {
       const lineObj = editor.cm.state.doc.line(lineIndex + 1);
@@ -44311,7 +45405,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       this.notice(nowPinned ? t("\u5DF2 Pin \u5173\u952E\u8BB0\u5F55") : t("\u5DF2\u53D6\u6D88 Pin"), 3e3);
       return nowPinned;
     }
-    await updateNote(this, path23, (text) => {
+    await updateNote(this, path26, (text) => {
       const lines = text.split("\n");
       if (lineIndex >= lines.length) return text;
       const next = togglePinMarker(lines[lineIndex]);
@@ -44604,7 +45698,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   canContinueSession(session, opts) {
     return canContinueSession(session, this.jobs, opts);
   }
-  sessionsAtTask(path23, line, lines) {
+  sessionsAtTask(path26, line, lines) {
     const block = blockAt(lines, line);
     if (!block) return [];
     const bid = blockIdOf(lines[block.start]);
@@ -44620,7 +45714,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       found.set(`${link2.agent}:${link2.sid}`, { ...this.usage.meta.get(link2.sid), ...link2, ...transport ? { transport } : {} });
     }
     for (const job of Object.values(this.jobs)) {
-      if (job.path !== path23 || !(bid && job.blockId === bid || job.lineText === lines[block.start])) continue;
+      if (job.path !== path26 || !(bid && job.blockId === bid || job.lineText === lines[block.start])) continue;
       found.set(`${job.agent}:${job.sessionId || job.id}`, { ...this.usage.meta.get(job.sessionId), ...job, sid: job.sessionId });
     }
     return [...found.values()];
@@ -44658,17 +45752,17 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     editor.setCursor({ line: slot.line, ch: (slot.indent + "- \u270D\uFE0F \u7B54\uFF1A").length });
     this.notice(t("\u5199\u5B8C\u540E\u53EF\u4EE5\u300C\u56DE\u7B54\u5E76\u7EE7\u7EED\u300D\uFF0C\u6216\u76F4\u63A5\u8BA9 Agent \u7EED\u8DD1"), 6e3);
   }
-  async replyToQuestion(path23, editor, { line } = {}) {
+  async replyToQuestion(path26, editor, { line } = {}) {
     let lines;
     let atLine = Number.isInteger(line) ? line : -1;
     if (atLine < 0) {
-      const sourceView = this.sourceViewForPath(path23);
+      const sourceView = this.sourceViewForPath(path26);
       const ed = sourceView?.editor || editor;
       if (!ed) return this.notice(t("\u8BF7\u5148\u6253\u5F00\u8FD9\u7BC7\u7B14\u8BB0"));
       lines = ed.getValue().split("\n");
       atLine = ed.getCursor().line;
     } else {
-      lines = (await this.readNote(path23)).split("\n");
+      lines = (await this.readNote(path26)).split("\n");
     }
     const info = this.threadAt(lines, atLine);
     if (!info) return this.notice(t("\u628A\u5149\u6807\u653E\u5728\u8981\u56DE\u590D\u7684\u90A3\u4E00\u6761\u4EFB\u52A1\u91CC"));
@@ -44679,19 +45773,19 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       options: suggestOptions(question.text),
       value: question.answer || "",
       hint: t("\u53EA\u5199\u8FDB\u7B14\u8BB0\u91CC\u90A3\u884C\u300C\u270D\uFE0F \u7B54\uFF1A\u300D\uFF0C\u4E0D\u65B0\u5F00\u4F1A\u8BDD"),
-      onSubmit: (answer, { continue: keepGoing } = {}) => this.applyReply(path23, block.start, { questionText: question.text, answer, continueSession: keepGoing }),
-      canContinue: this.sessionsAtTask(path23, block.start, lines).some((s) => this.canContinueSession(s))
+      onSubmit: (answer, { continue: keepGoing } = {}) => this.applyReply(path26, block.start, { questionText: question.text, answer, continueSession: keepGoing }),
+      canContinue: this.sessionsAtTask(path26, block.start, lines).some((s) => this.canContinueSession(s))
     }).open();
   }
   // 老数据兼容：把已经写好的 ❓ / ✍️ 补上块号（幂等，可对有历史问答的笔记跑一遍）。
-  async anchorThread(path23, editor) {
+  async anchorThread(path26, editor) {
     const lines = editor.getValue().split("\n");
     const block = blockAt(lines, editor.getCursor().line);
     if (!block) return this.notice(t("\u628A\u5149\u6807\u653E\u5728\u8981\u8865\u5757\u53F7\u7684\u90A3\u4E00\u6761\u4EFB\u52A1\u91CC"));
     const blockId = blockIdOf(lines[block.start]);
     let changed = false;
-    await updateNote(this, path23, (text) => {
-      const next = anchorThreadText(text, { blockId, atLine: block.start, seedPrefix: path23 });
+    await updateNote(this, path26, (text) => {
+      const next = anchorThreadText(text, { blockId, atLine: block.start, seedPrefix: path26 });
       changed = next !== text;
       return next;
     });
@@ -44759,13 +45853,13 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.refreshReplyInbox();
   }
   // 复制 `[[笔记#^ad-q-…]]`：别的笔记、会话、Linear 里都能直接指到这一问。
-  async copyQuestionRef(path23, thread) {
-    const lines = (await this.readNote(path23)).split("\n");
+  async copyQuestionRef(path26, thread) {
+    const lines = (await this.readNote(path26)).split("\n");
     const blockId = blockIdOf(lines[thread.block.start] || "");
-    const seed = `${path23}|${blockId}|${thread.question.text}`;
+    const seed = `${path26}|${blockId}|${thread.question.text}`;
     const id = thread.question.id || makeQuestionId(seed);
-    if (!thread.question.id) await updateNote(this, path23, (text) => ensureQuestionId(text, { blockId, questionText: thread.question.text, seed }));
-    const link2 = `[[${path23.replace(/\.md$/, "")}#^${id}]]`;
+    if (!thread.question.id) await updateNote(this, path26, (text) => ensureQuestionId(text, { blockId, questionText: thread.question.text, seed }));
+    const link2 = `[[${path26.replace(/\.md$/, "")}#^${id}]]`;
     try {
       await navigator.clipboard.writeText(link2);
     } catch {
@@ -44773,17 +45867,17 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.notice(t("\u5DF2\u590D\u5236\u5757\u5F15\u7528\uFF1A{link}", { link: link2 }), 6e3);
   }
   // 写回答（幂等）+ 可选续聊同一会话。抽成方法，方便真机验证直接调用。
-  async applyReply(path23, atLine, { questionText = "", answer = "", continueSession = false } = {}) {
+  async applyReply(path26, atLine, { questionText = "", answer = "", continueSession = false } = {}) {
     if (!String(answer || "").trim()) return false;
-    const before = await this.readNote(path23);
+    const before = await this.readNote(path26);
     const lines = before.split("\n");
     const block = blockAt(lines, atLine);
     const blockId = block ? blockIdOf(lines[block.start]) : "";
-    const seed = `${path23}|${blockId}|${questionText}`;
+    const seed = `${path26}|${blockId}|${questionText}`;
     const questionId = makeQuestionId(seed);
-    await updateNote(this, path23, (text) => ensureQuestionId(text, { blockId, questionText, seed }));
+    await updateNote(this, path26, (text) => ensureQuestionId(text, { blockId, questionText, seed }));
     let changed = false;
-    await updateNote(this, path23, (text) => {
+    await updateNote(this, path26, (text) => {
       const next = fillAnswer(text, { questionText, answer, blockId, questionId });
       changed = next !== text;
       return next;
@@ -44791,25 +45885,25 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     if (Array.isArray(this.settings?.replyInbox) && this.settings.replyInbox.length) {
       const beforeInbox = this.settings.replyInbox.length;
       this.settings.replyInbox = inboxRemove(this.settings.replyInbox, {
-        path: path23,
+        path: path26,
         blockId,
         questionId,
         question: questionText
-      }).filter((x) => !(x.path === path23 && blockId && x.blockId === blockId && questionText && x.question === questionText));
+      }).filter((x) => !(x.path === path26 && blockId && x.blockId === blockId && questionText && x.question === questionText));
       if (this.settings.replyInbox.length !== beforeInbox) {
         await this.saveSettings();
         this.refreshReplyInbox();
       }
     }
     this.notice(changed ? t("\u5DF2\u5199\u56DE\u56DE\u7B54\uFF1A{answer}", { answer: truncate(answer, 40) }) : t("\u56DE\u7B54\u5DF2\u7ECF\u662F\u8FD9\u6837\u4E86\uFF0C\u6CA1\u6709\u6539\u52A8"), changed ? 6e3 : 5e3);
-    if (continueSession) await this.continueAfterReply(path23, atLine, answer);
+    if (continueSession) await this.continueAfterReply(path26, atLine, answer);
     return changed;
   }
   // 续聊：回答当成下一轮的追问发给原来那个会话，不新开。
-  async continueAfterReply(path23, atLine, answer) {
-    const lines = (await this.readNote(path23)).split("\n");
+  async continueAfterReply(path26, atLine, answer) {
+    const lines = (await this.readNote(path26)).split("\n");
     const block = blockAt(lines, atLine);
-    const sessions = this.sessionsAtTask(path23, atLine, lines);
+    const sessions = this.sessionsAtTask(path26, atLine, lines);
     const session = [...sessions].reverse().find((s) => this.canContinueSession(s)) || sessions.at(-1);
     if (!session) return this.notice(t("\u8FD9\u4E00\u5757\u8FD8\u6CA1\u7ED1\u5B9A\u4F1A\u8BDD\uFF1B\u56DE\u7B54\u5DF2\u5199\u8FDB\u7B14\u8BB0"), 6e3);
     const blockId = block ? blockIdOf(lines[block.start]) : "";
@@ -44818,7 +45912,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
 ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4E00\u4EF6\u4E8B\u3002")}`;
       await this.delegator.continueSession({
         ...session,
-        path: path23,
+        path: path26,
         ...blockId ? { blockId } : {},
         ...session.destination ? {} : { destination: "background" }
       }, prompt);
@@ -44827,23 +45921,23 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     }
   }
   // 原地手写完 `✍️ 答` 之后直接发给会话继续，不用重开 ReplyModal。
-  async submitWrittenReply(path23, editor, { line } = {}) {
+  async submitWrittenReply(path26, editor, { line } = {}) {
     let lines;
     let atLine = Number.isInteger(line) ? line : -1;
     if (atLine < 0) {
-      const sourceView = this.sourceViewForPath(path23);
+      const sourceView = this.sourceViewForPath(path26);
       const ed = sourceView?.editor || editor;
       if (!ed) return this.notice(t("\u8BF7\u5148\u6253\u5F00\u8FD9\u7BC7\u7B14\u8BB0"));
       lines = ed.getValue().split("\n");
       atLine = ed.getCursor().line;
     } else {
-      lines = (await this.readNote(path23)).split("\n");
+      lines = (await this.readNote(path26)).split("\n");
     }
     const block = blockAt(lines, atLine);
     if (!block) return this.notice(t("\u628A\u5149\u6807\u653E\u5728\u8981\u7EED\u804A\u7684\u90A3\u4E00\u6761\u4EFB\u52A1\u91CC"));
     const written = latestWrittenAnswer(lines, block);
     if (!written) return this.notice(t("\u8FD9\u4E00\u5757\u91CC\u8FD8\u6CA1\u6709\u5199\u597D\u7684\u300C\u270D\uFE0F \u7B54\u300D"));
-    const sessions = this.sessionsAtTask(path23, block.start, lines);
+    const sessions = this.sessionsAtTask(path26, block.start, lines);
     if (!sessions.length) return this.notice(t("\u8FD9\u4E00\u5757\u8FD8\u6CA1\u7ED1\u5B9A\u4F1A\u8BDD"));
     if (!sessions.some((s) => this.canContinueSession(s))) {
       return this.notice(t("\u5F53\u524D\u7ED1\u5B9A\u7684\u4F1A\u8BDD\u4E0D\u652F\u6301\u5728 Obsidian \u5185\u7EED\u804A\uFF0C\u8BF7\u5728\u539F\u5BA2\u6237\u7AEF\u7EE7\u7EED"));
@@ -44854,26 +45948,26 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       const qid = written.question?.id || "";
       const qtext = written.question?.text || "";
       this.settings.replyInbox = inboxRemove(this.settings.replyInbox || [], {
-        path: path23,
+        path: path26,
         blockId,
         questionId: qid,
         question: qtext
-      }).filter((x) => !(x.path === path23 && blockId && x.blockId === blockId && qtext && x.question === qtext));
+      }).filter((x) => !(x.path === path26 && blockId && x.blockId === blockId && qtext && x.question === qtext));
       if (this.settings.replyInbox.length !== before) {
         await this.saveSettings();
         this.refreshReplyInbox();
       }
     }
-    await this.continueAfterReply(path23, block.start, written.answer);
+    await this.continueAfterReply(path26, block.start, written.answer);
   }
-  openFollowUp(session, { path: path23 = "", line = -1, blockId = "", title = "" } = {}) {
+  openFollowUp(session, { path: path26 = "", line = -1, blockId = "", title = "" } = {}) {
     new FollowUpModal(this.app, {
       session,
       title,
       onSubmit: async (prompt) => {
         const target = {
           ...session,
-          ...path23 ? { path: path23 } : {},
+          ...path26 ? { path: path26 } : {},
           ...blockId ? { blockId } : {},
           ...session.destination ? {} : { destination: "background" }
         };
@@ -44882,39 +45976,66 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       }
     }).open();
   }
-  async taskActions(path23, line, event) {
+  // 人在场的一键派发：把这一行任务交给 TeleAgent 的 UI Automation 通道，自动建任务、填词并点「运行」。
+  // 项目名从任务上下文里解析（wikilink / 标题前缀 / 笔记路径），解析不到就明确拒绝——
+  // 猜错项目会把任务派进别的代码库，比不派发更糟。
+  async dispatchToTeleagent(path26, line, lines) {
+    const target = await this.delegateTarget({ path: path26, line, lineText: lines[line] }, { newSession: true });
+    if (target.error) {
+      this.notice(target.error, 6e3);
+      return;
+    }
+    const blockText2 = String(target.lines[target.line] || "");
+    const context = target.lines.slice(Math.max(0, target.line - 4), target.line + 1);
+    const resolved = resolveProjectForTask({ settings: this.settings, notePath: path26, contextLines: context, blockText: blockText2 });
+    const project = String(resolved?.name || "").trim();
+    if (!project) {
+      this.notice(t("\u8FD9\u4E2A\u4EFB\u52A1\u6CA1\u6709\u767B\u8BB0\u8FC7\u9879\u76EE\u76EE\u5F55\uFF0C\u5148\u5728\u8BBE\u7F6E\u91CC\u767B\u8BB0\u9879\u76EE\u6587\u4EF6\u5939"), 8e3);
+      return;
+    }
+    await this.delegator.handoff({
+      agent: "teleagent",
+      file: target.file,
+      lines: target.lines,
+      line: target.line,
+      block: target.block,
+      projectName: project,
+      autoSend: true
+    });
+  }
+  async taskActions(path26, line, event) {
     let text;
     try {
-      text = await this.readNote(path23);
+      text = await this.readNote(path26);
     } catch {
       return;
     }
     const lines = text.split("\n"), block = blockAt(lines, line);
     if (!block) return;
-    const sourceView = this.sourceViewForPath(path23);
-    const view2 = sourceView || this.viewForPath(path23);
-    const sessions = this.sessionsAtTask(path23, line, lines);
+    const sourceView = this.sourceViewForPath(path26);
+    const view2 = sourceView || this.viewForPath(path26);
+    const sessions = this.sessionsAtTask(path26, line, lines);
     const menu = new import_obsidian21.Menu();
     const thread = this.threadAt(lines, line);
     const blockId = blockIdOf(lines[block.start]);
     if (thread?.question && pendingQuestion(thread.parsed)) {
       menu.addItem((mi) => mi.setTitle(t("\u270D\uFE0F \u56DE\u590D\u8FD9\u4E00\u95EE\u2026")).onClick(() => {
         if (sourceView?.editor) sourceView.editor.setCursor({ line: thread.question.line, ch: 0 });
-        this.replyToQuestion(path23, sourceView?.editor, { line: thread.question.line });
+        this.replyToQuestion(path26, sourceView?.editor, { line: thread.question.line });
       }));
-      menu.addItem((mi) => mi.setTitle(t("\u590D\u5236\u8FD9\u4E00\u95EE\u7684\u5757\u5F15\u7528\uFF08[[\u7B14\u8BB0#^\u5757\u53F7]]\uFF09")).onClick(() => this.copyQuestionRef(path23, thread)));
+      menu.addItem((mi) => mi.setTitle(t("\u590D\u5236\u8FD9\u4E00\u95EE\u7684\u5757\u5F15\u7528\uFF08[[\u7B14\u8BB0#^\u5757\u53F7]]\uFF09")).onClick(() => this.copyQuestionRef(path26, thread)));
       menu.addSeparator();
     } else {
       const written = latestWrittenAnswer(lines, block);
       if (written && !written.hasResultAfter && sessions.some((s) => this.canContinueSession(s))) {
-        menu.addItem((mi) => mi.setTitle(t("\u628A\u5DF2\u5199\u597D\u7684 \u270D\uFE0F \u7B54 \u53D1\u7ED9\u4F1A\u8BDD\u7EE7\u7EED")).setIcon("send").onClick(() => this.submitWrittenReply(path23, sourceView?.editor, { line: block.start })));
+        menu.addItem((mi) => mi.setTitle(t("\u628A\u5DF2\u5199\u597D\u7684 \u270D\uFE0F \u7B54 \u53D1\u7ED9\u4F1A\u8BDD\u7EE7\u7EED")).setIcon("send").onClick(() => this.submitWrittenReply(path26, sourceView?.editor, { line: block.start })));
         menu.addSeparator();
       }
     }
     for (const [index, session] of sessions.entries()) {
       const title = `${AGENTS[session.agent]?.name || session.agent} \xB7 ${t("\u4F1A\u8BDD {n}", { n: index + 1 })}`;
       if (this.canContinueSession(session, { requireSid: false })) {
-        menu.addItem((mi) => mi.setTitle(t("\u7EE7\u7EED\u5BF9\u8BDD\uFF08\u8FFD\u95EE\uFF09\xB7 {title}", { title })).setIcon("message-square-plus").setDisabled(!session.sid || activeJob(session)).onClick(() => this.openFollowUp(session, { path: path23, line: block.start, blockId, title: session.title || session.name || "" })));
+        menu.addItem((mi) => mi.setTitle(t("\u7EE7\u7EED\u5BF9\u8BDD\uFF08\u8FFD\u95EE\uFF09\xB7 {title}", { title })).setIcon("message-square-plus").setDisabled(!session.sid || activeJob(session)).onClick(() => this.openFollowUp(session, { path: path26, line: block.start, blockId, title: session.title || session.name || "" })));
       }
       menu.addItem((mi) => mi.setTitle(t("\u67E5\u770B\u6B63\u6587\u4E0E\u4FDD\u5B58\u5BF9\u8BDD \xB7 {title}", { title })).setDisabled(!session.sid).onClick(() => this.openConversation(session)));
       if (canOpenClient(session)) menu.addItem((mi) => mi.setTitle(t("\u5728\u5BA2\u6237\u7AEF\u6253\u5F00 \xB7 {title}", { title })).setDisabled(!session.sid || hasAgentCapability(session.agent, "waitDesktopUntilDone") && activeJob(session)).onClick(() => this.openClientSession(session)));
@@ -44922,9 +46043,13 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       else if (session.handoff && !session.sid && activeJob(session)) menu.addItem((mi) => mi.setTitle(t("\u53D6\u6D88\u4EA4\u63A5 \xB7 {title}", { title })).onClick(() => this.cancelJob(session.id)));
       menu.addSeparator();
     }
-    for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem((mi) => mi.setTitle(t("\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path: path23, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem((mi) => mi.setTitle(t("\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path: path26, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    if ((process.platform === "win32" || process.platform === "linux") && this.agentEnabled("teleagent")) {
+      const dispatchLabel = process.platform === "linux" ? t("\u6D3E\u53D1\u5230 TeleAgent\uFF08\u81EA\u52A8\u586B\u5199\uFF0C\u9700\u624B\u52A8\u70B9\u8FD0\u884C\uFF09") : t("\u6D3E\u53D1\u5230 TeleAgent\uFF08\u81EA\u52A8\u586B\u5199\u5E76\u53D1\u9001\uFF09");
+      menu.addItem((mi) => mi.setTitle(dispatchLabel).setIcon("send").onClick(() => this.dispatchToTeleagent(path26, block.start, lines)));
+    }
     menu.addSeparator();
-    menu.addItem((mi) => mi.setTitle(t("\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u62C6\u89E3\u5E76\u5206\u914D\u5C0F\u961F")).setIcon("folder-kanban").onClick(() => this.openProjectWorkbench({ path: path23, line: block.start })));
+    menu.addItem((mi) => mi.setTitle(t("\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u62C6\u89E3\u5E76\u5206\u914D\u5C0F\u961F")).setIcon("folder-kanban").onClick(() => this.openProjectWorkbench({ path: path26, line: block.start })));
     if (sourceView?.editor) {
       menu.addItem((mi) => mi.setTitle(t("\u7ED1\u5B9A\u6216\u5408\u5E76\u5230\u5176\u4ED6\u4EFB\u52A1")).onClick(() => {
         sourceView.editor.setCursor({ line: block.start, ch: 0 });
@@ -44943,7 +46068,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     const icons = { outline: "list-tree", table: "table", cards: "layout-grid", timeline: "history" };
     setLucide(el, icons[viewMode] || "list-tree");
   }
-  populateRecordExportMenu(sub, { path: path23 = "", line = 0, viewMode = "outline" } = {}) {
+  populateRecordExportMenu(sub, { path: path26 = "", line = 0, viewMode = "outline" } = {}) {
     const viewLabels = {
       outline: t("\u5927\u7EB2"),
       table: t("\u8868\u683C"),
@@ -44951,20 +46076,20 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       timeline: t("\u65F6\u95F4\u7EBF")
     };
     const activeViewLabel = viewLabels[viewMode] || viewLabels.outline;
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A PDF\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("file-text").onClick(() => exportTaskToPdf(this, path23, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A HTML\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("globe").onClick(() => exportTaskToHtml(this, path23, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A Markdown (.md)")).setIcon("file-code").onClick(() => exportTaskToMarkdown(this, path23, line)));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A JSON (.json)")).setIcon("braces").onClick(() => exportTaskToJson(this, path23, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A CSV (.csv)")).setIcon("table").onClick(() => exportTaskToCsv(this, path23, line)));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A PDF\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("file-text").onClick(() => exportTaskToPdf(this, path26, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A HTML\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("globe").onClick(() => exportTaskToHtml(this, path26, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A Markdown (.md)")).setIcon("file-code").onClick(() => exportTaskToMarkdown(this, path26, line)));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A JSON (.json)")).setIcon("braces").onClick(() => exportTaskToJson(this, path26, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A CSV (.csv)")).setIcon("table").onClick(() => exportTaskToCsv(this, path26, line)));
     sub.addSeparator();
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path23, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown \u8868\u683C")).setIcon("table").onClick(() => copyTaskMarkdownTable(this, path23, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A\u7EAF\u6587\u672C")).setIcon("align-left").onClick(() => copyTaskPlainText(this, path23, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A JSON")).setIcon("copy").onClick(() => copyTaskJson(this, path23, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path26, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown \u8868\u683C")).setIcon("table").onClick(() => copyTaskMarkdownTable(this, path26, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A\u7EAF\u6587\u672C")).setIcon("align-left").onClick(() => copyTaskPlainText(this, path26, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A JSON")).setIcon("copy").onClick(() => copyTaskJson(this, path26, line, { viewMode })));
     sub.addSeparator();
-    sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path23, line)));
+    sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path26, line)));
   }
-  openRecordViewMenu(event, { path: path23 = "", line = 0, viewMode = "outline", onSelect } = {}) {
+  openRecordViewMenu(event, { path: path26 = "", line = 0, viewMode = "outline", onSelect } = {}) {
     const menu = new import_obsidian21.Menu();
     const views = [
       ["outline", t("\u5927\u7EB2"), "list-tree"],
@@ -44977,9 +46102,9 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         mi.setTitle(label).setIcon(icon).setChecked(viewMode === id).onClick(() => onSelect?.(id));
       });
     }
-    if (path23) {
+    if (path26) {
       menu.addSeparator();
-      const opts = { path: path23, line, viewMode };
+      const opts = { path: path26, line, viewMode };
       menu.addItem((mi) => {
         mi.setTitle(t("\u5BFC\u51FA")).setIcon("download");
         if (typeof mi.setSubmenu === "function") {
@@ -45068,21 +46193,21 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     });
   }
   // ---------- editor actions ----------
-  async delegateAtLine(path23, line, extraOpts = {}) {
-    const file = this.app.vault.getAbstractFileByPath(path23);
+  async delegateAtLine(path26, line, extraOpts = {}) {
+    const file = this.app.vault.getAbstractFileByPath(path26);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    const lines = (await this.readNote(path23)).split("\n");
-    return this.delegateDrop(this.defaultTarget(), { path: path23, line, lineText: lines[line] }, null, extraOpts);
+    const lines = (await this.readNote(path26)).split("\n");
+    return this.delegateDrop(this.defaultTarget(), { path: path26, line, lineText: lines[line] }, null, extraOpts);
   }
-  openDelegateModal(path23, line) {
-    new DelegateOptionsModal(this.app, this, path23, line).open();
+  openDelegateModal(path26, line) {
+    new DelegateOptionsModal(this.app, this, path26, line).open();
   }
   // 四视图（表格 / 卡片 / 时间线）和阅读视图的行右键菜单：Pin 与委派都收在这里。
-  async recordRowMenu(event, { path: path23, line } = {}) {
-    if (!path23 || !Number.isInteger(line) || line < 0) return null;
+  async recordRowMenu(event, { path: path26, line } = {}) {
+    if (!path26 || !Number.isInteger(line) || line < 0) return null;
     let text;
     try {
-      text = await this.readNote(path23);
+      text = await this.readNote(path26);
     } catch {
       return null;
     }
@@ -45092,10 +46217,10 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     const menu = new import_obsidian21.Menu();
     if (CONTEXT_RECORD_RE.test(raw)) {
       const pinned = hasPinMarker(raw);
-      menu.addItem((item) => item.setTitle(pinned ? t("\u53D6\u6D88 Pin\uFF08\u6062\u590D\u5E38\u89C4\u6298\u53E0\uFF09") : t("Pin \u4E3A\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09")).onClick(() => this.toggleRecordPin(path23, line)));
+      menu.addItem((item) => item.setTitle(pinned ? t("\u53D6\u6D88 Pin\uFF08\u6062\u590D\u5E38\u89C4\u6298\u53E0\uFF09") : t("Pin \u4E3A\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09")).onClick(() => this.toggleRecordPin(path26, line)));
       menu.addSeparator();
     }
-    this.addDelegateMenuItems(menu, path23, line);
+    this.addDelegateMenuItems(menu, path26, line);
     menu.showAtMouseEvent(event);
     return menu;
   }
@@ -45108,21 +46233,21 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     if (!model) return id || t("\u5BA2\u6237\u7AEF\u6A21\u578B");
     return model.value === "" ? t("CLI \u9ED8\u8BA4") : model.name;
   }
-  addDelegateMenuItems(menu, path23, line, addItem = null) {
+  addDelegateMenuItems(menu, path26, line, addItem = null) {
     const add = addItem || ((build) => menu.addItem(build));
     const primary = this.defaultTarget();
     const modelName2 = this.delegateModelLabel(this.defaultModel(primary));
-    add((item) => item.setTitle(t("\u59D4\u6D3E\uFF08{agent} \xB7 {model}\uFF09", { agent: AGENTS[primary]?.short || primary, model: modelName2 })).setIcon("send").onClick(() => this.delegateViewRow(path23, line)));
+    add((item) => item.setTitle(t("\u59D4\u6D3E\uFF08{agent} \xB7 {model}\uFF09", { agent: AGENTS[primary]?.short || primary, model: modelName2 })).setIcon("send").onClick(() => this.delegateViewRow(path26, line)));
     const choices = this.recordMenuModels();
     add((item) => {
       item.setTitle(t("\u59D4\u6D3E\u5E76\u9009\u62E9\u6A21\u578B")).setIcon("bot");
       const sub = typeof item.setSubmenu === "function" ? item.setSubmenu() : null;
       if (!sub || !choices.length) {
-        item.onClick(() => this.delegateViewRow(path23, line));
+        item.onClick(() => this.delegateViewRow(path26, line));
         return;
       }
       for (const { agent, model } of choices) {
-        sub.addItem((entry) => entry.setTitle(`${AGENTS[agent]?.short || agent} \xB7 ${this.delegateModelLabel(model.id)}`).onClick(() => this.delegateViewRow(path23, line, agent, model.id)));
+        sub.addItem((entry) => entry.setTitle(`${AGENTS[agent]?.short || agent} \xB7 ${this.delegateModelLabel(model.id)}`).onClick(() => this.delegateViewRow(path26, line, agent, model.id)));
       }
     });
   }
@@ -45135,12 +46260,12 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     }
     return out;
   }
-  async delegateViewRow(path23, line, agent = "", model = "") {
-    const file = this.app.vault.getAbstractFileByPath(path23);
+  async delegateViewRow(path26, line, agent = "", model = "") {
+    const file = this.app.vault.getAbstractFileByPath(path26);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    const lines = (await this.readNote(path23)).split("\n");
+    const lines = (await this.readNote(path26)).split("\n");
     if (!(line >= 0 && line < lines.length)) return;
-    return this.delegateDrop(agent || this.defaultTarget(), { path: path23, line, lineText: lines[line] }, null, { model });
+    return this.delegateDrop(agent || this.defaultTarget(), { path: path26, line, lineText: lines[line] }, null, { model });
   }
   // Which journal the two commands act on: the note you are looking at when it
   // sits next to today's journal, otherwise today's journal.
@@ -45330,12 +46455,12 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
   }
   openSessionForEditor(editor, view2) {
     if (!view2 || !view2.file) return;
-    const path23 = view2.file.path, line = editor.getCursor().line;
-    const map = this.lineMap(path23, editor.cm.state.doc);
+    const path26 = view2.file.path, line = editor.getCursor().line;
+    const map = this.lineMap(path26, editor.cm.state.doc);
     let s = map.sessionByParent.get(line);
     if (!s) {
       const text = editor.getLine(line);
-      const job = this.jobAtLine(path23, line, text);
+      const job = this.jobAtLine(path26, line, text);
       if (job) return this.openJob(job.id);
     }
     if (!s) return this.notice(t("\u8FD9\u4E00\u884C\u4E0B\u9762\u6CA1\u6709 \u{1F517} \u7ED1\u5B9A"));
@@ -45460,9 +46585,9 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     file = await this.app.vault.create(pathStr, content);
     return { path: pathStr, file };
   }
-  async writeWorkbenchTasks({ path: path23 = "", line = -1, parentTitle = "", subtasks = [], enableBoard = true } = {}) {
+  async writeWorkbenchTasks({ path: path26 = "", line = -1, parentTitle = "", subtasks = [], enableBoard = true } = {}) {
     var _a;
-    const ensured = await this.ensureNoteFile(path23);
+    const ensured = await this.ensureNoteFile(path26);
     const targetPath = ensured.path;
     const activeSubtasks = (subtasks || []).filter((s) => s && s.checked !== false && String(s.title || "").trim());
     if (!activeSubtasks.length) throw new Error(t("\u6CA1\u6709\u53EF\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
@@ -45555,7 +46680,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     return { path: targetPath, lines: finalLines, parentLine, parentBlockId, subtaskLines };
   }
   async dispatchWorkbenchTasks({
-    path: path23,
+    path: path26,
     lines,
     subtaskLines = [],
     cwd = "",
@@ -45567,9 +46692,9 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     round = 1
   } = {}) {
     var _a;
-    const file = this.app.vault.getAbstractFileByPath(path23);
-    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u76EE\u6807\u7B14\u8BB0\uFF1A{path}", { path: path23 }));
-    const freshLines = lines || (await this.readNote(path23)).split("\n");
+    const file = this.app.vault.getAbstractFileByPath(path26);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u76EE\u6807\u7B14\u8BB0\uFF1A{path}", { path: path26 }));
+    const freshLines = lines || (await this.readNote(path26)).split("\n");
     const tasks = subtaskLines.map((item) => ({ item, block: blockAt(freshLines, item.line) })).filter((x) => x.block);
     if (!tasks.length) return;
     const siblingModel = tasks.length > 1 ? {
@@ -45625,7 +46750,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         };
       });
       const wave = createWorkbenchWave({
-        path: path23,
+        path: path26,
         parentBlockId,
         parentTitle: parentTitle || t("\u534F\u4F5C\u9879\u76EE"),
         projectName: projectName2,
@@ -45638,7 +46763,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       (_a = this.settings).workbenchWaves || (_a.workbenchWaves = {});
       this.settings.workbenchWaves[wave.id] = wave;
       if (parentBlockId || parentTitle) {
-        await updateNote(this, path23, (text) => updateTaskBlockStatusById(text, {
+        await updateNote(this, path26, (text) => updateTaskBlockStatusById(text, {
           blockId: parentBlockId,
           title: parentTitle,
           targetColumn: "doing",
@@ -45651,10 +46776,10 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     }
     this.refreshUI();
   }
-  async dispatchBoardGroup(path23, parentLine, { model: providedModel = null } = {}) {
-    const file = this.app.vault.getAbstractFileByPath(path23);
+  async dispatchBoardGroup(path26, parentLine, { model: providedModel = null } = {}) {
+    const file = this.app.vault.getAbstractFileByPath(path26);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    let text = await this.readNote(path23);
+    let text = await this.readNote(path26);
     let lines = text.split("\n");
     const groups = extractTaskBoardGroups(text, {
       trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : /* @__PURE__ */ new Set(),
@@ -45666,7 +46791,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     let parentBlockId = blockIdOf(lines[parentLine]);
     if (!parentBlockId) {
       const generated = makeBlockId("", "ad", readableSlug(grp?.title || ""));
-      await updateNote(this, path23, (cur) => {
+      await updateNote(this, path26, (cur) => {
         const curLines = cur.split("\n");
         if (!curLines[parentLine]) return cur;
         const ensured = ensureBlockId(curLines[parentLine], generated);
@@ -45674,7 +46799,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         parentBlockId = ensured.blockId;
         return curLines.join("\n");
       });
-      text = await this.readNote(path23);
+      text = await this.readNote(path26);
       lines = text.split("\n");
     }
     const model = providedModel || buildTaskBoardModel(grp, this);
@@ -45689,7 +46814,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       boardContext: buildBoardSiblingContext(model, card.line)
     }));
     const existingWave = findActiveWaveForBoard(this.settings.workbenchWaves, {
-      path: path23,
+      path: path26,
       parentBlockId,
       parentTitle: model.title
     });
@@ -45701,7 +46826,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       defaultAgent: this.defaultTarget?.()
     });
     await this.dispatchWorkbenchTasks({
-      path: path23,
+      path: path26,
       lines,
       subtaskLines,
       parentTitle: model.title,
@@ -46191,7 +47316,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       const where = s.isPendingJob ? t("\u5F85\u8BA4\u9886") : whereByAgent[agent] || t("\u684C\u9762\u7248");
       const openUrl = s.isPendingJob ? s.job?.path ? `obsidian://open?file=${encodeURIComponent(s.job.path)}` : "obsidian://agent-deck" : acp || usesDeckSessionLink(agent) || isCliSession(agent, s.app) && cfg.cliOpen !== "desktop" ? deckSessionUrl(agent, s.sid) : sessionDeepLink(agent, s.sid);
       const copyByAgent = { codex: `codex resume ${s.sid}`, hermes: `hermes --resume ${s.sid}`, minimax: s.app === "cli" ? `mcode --session ${s.sid}` : s.sid };
-      const copy = s.isPendingJob ? "" : ["dsh", "antigravity", "opencode", "qoder"].includes(agent) || AGENTS[agent].trackingOnly ? s.sid : copyByAgent[agent] || "";
+      const copy = s.isPendingJob ? "" : ["dsh", "antigravity", "opencode", "qoder", "teleagent"].includes(agent) || AGENTS[agent].trackingOnly ? s.sid : copyByAgent[agent] || "";
       const prog = this.sessionProgressText(s, s.job);
       const stepStr = [prog, s.step ? truncate(s.step, 30) : ""].filter(Boolean).join(" \xB7 ");
       const pinIdx = pinnedIndex.has(s.sid) ? pinnedIndex.get(s.sid) : -1;
@@ -46338,7 +47463,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     };
   }
   async restoreNautilusAgentBar() {
-    const p2 = import_path24.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    const p2 = import_path25.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     try {
       const data = JSON.parse(await fsp10.readFile(p2, "utf8"));
       if (data.agentStatus !== true) {
@@ -46363,7 +47488,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
   }
   async hideNautilusAgentBar() {
     if (process.platform !== "darwin" || this.settings.menuBarHideNautilus === false) return;
-    const p2 = import_path24.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
+    const p2 = import_path25.default.join(this.vaultPath, ".obsidian/plugins/nautilus-spiral/data.json");
     let data = null;
     try {
       data = JSON.parse(await fsp10.readFile(p2, "utf8"));
@@ -46578,22 +47703,22 @@ ${body}` });
     frag.appendChild(wrap);
     notice = new import_obsidian21.Notice(frag, 2e4);
   }
-  async readNote(path23) {
-    const view2 = this.sourceViewForPath(path23);
+  async readNote(path26) {
+    const view2 = this.sourceViewForPath(path26);
     if (view2) return view2.editor.getValue();
-    const file = this.app.vault.getAbstractFileByPath(path23);
-    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path23 }));
+    const file = this.app.vault.getAbstractFileByPath(path26);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path26 }));
     return await this.app.vault.read(file);
   }
-  async writeNote(path23, text) {
-    const view2 = this.sourceViewForPath(path23);
+  async writeNote(path26, text) {
+    const view2 = this.sourceViewForPath(path26);
     if (view2) {
       const change = diffLines(view2.editor.getValue(), text);
       if (change) view2.editor.transaction({ changes: [change] });
       return;
     }
-    const file = this.app.vault.getAbstractFileByPath(path23);
-    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path23 }));
+    const file = this.app.vault.getAbstractFileByPath(path26);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path26 }));
     await this.app.vault.process(file, () => text);
   }
   syncCustomAcpAgents() {
@@ -46615,8 +47740,8 @@ ${body}` });
     const cap = getAgentCapability(kind);
     let bin = findAgentBinary(kind, this.settings.delegate?.[kind]?.path || cap.acpCommand || "");
     const hasPathSep = bin.includes("/") || bin.includes("\\");
-    if (bin && (!hasPathSep || !import_fs24.default.existsSync(bin))) {
-      bin = await resolveExecutableWithFallback(bin, import_path24.default.basename(bin));
+    if (bin && (!hasPathSep || !import_fs25.default.existsSync(bin))) {
+      bin = await resolveExecutableWithFallback(bin, import_path25.default.basename(bin));
     }
     const customEnv = cap.acpEnvRaw ? parseCustomAcpEnv(cap.acpEnvRaw) : {};
     return await new Promise((resolve) => {
@@ -46671,11 +47796,11 @@ ${body}` });
       assetCheck,
       providerSummary
     });
-    const outDir = import_path24.default.join(import_os23.default.homedir(), ".agent-deck");
-    const outPath = import_path24.default.join(outDir, "diagnostics-latest.json");
+    const outDir = import_path25.default.join(import_os24.default.homedir(), ".agent-deck");
+    const outPath = import_path25.default.join(outDir, "diagnostics-latest.json");
     try {
-      await import_fs24.default.promises.mkdir(outDir, { recursive: true, mode: 448 });
-      await import_fs24.default.promises.writeFile(outPath, JSON.stringify(report, null, 2) + "\n", { mode: 384 });
+      await import_fs25.default.promises.mkdir(outDir, { recursive: true, mode: 448 });
+      await import_fs25.default.promises.writeFile(outPath, JSON.stringify(report, null, 2) + "\n", { mode: 384 });
       try {
         await navigator?.clipboard?.writeText?.(JSON.stringify(report, null, 2));
       } catch {

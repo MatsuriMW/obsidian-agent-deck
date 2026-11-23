@@ -42,6 +42,20 @@ const CAPABILITIES = new Map([
     modelCatalog: false,
     sessionLinkScheme: "workbuddy",
   }],
+  // TeleAgent 没有 CLI / ACP：拖任务过去只做「复制 + 唤起客户端」，会话靠文本前缀认领。
+  // 会话深链用 Deck 自己的 obsidian:// 协议（`teleai-cowork://` 的会话定位没核验到）。
+  ["teleagent", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "obsidian",
+  }],
   ["dsh", {
     delegate: true,
     runnerKind: "acp",
