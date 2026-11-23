@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.20 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.21 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -13518,6 +13518,7 @@ var t3CodeDataDir = () => {
   if (process.env.T3_STATE_DIR) return norm(process.env.T3_STATE_DIR);
   return import_path12.default.join(home2(), ".t3", "userdata");
 };
+var CINDY_DIALOGUE_RE = /\/(?:Cindy|CindyGlobal|xdt-maker)\/owners\/[^/]+\/dialogues(?:\/|$)/i;
 function isScratchCwd(cwd) {
   const p2 = String(cwd || "").replace(/\\/g, "/").replace(/\/+$/, "");
   if (!p2) return false;
@@ -13528,6 +13529,7 @@ function isScratchCwd(cwd) {
   if (leaf === "default-workspace") return true;
   if (p2 === home2().replace(/\\/g, "/")) return true;
   if (/\/Codex\/\d{4}-\d{2}-\d{2}(?:\/|$)/i.test(p2)) return true;
+  if (CINDY_DIALOGUE_RE.test(p2)) return true;
   return false;
 }
 function projectName(cwd) {
@@ -13537,6 +13539,7 @@ function projectName(cwd) {
   if (/\/\.dsh\/sessions\//.test(normCwd)) return "DSH";
   if (/\/\.gemini\/antigravity\//.test(normCwd)) return "Antigravity";
   if (/\/\.qwenworkcn\/workspace\//.test(normCwd)) return "QwenWork";
+  if (CINDY_DIALOGUE_RE.test(normCwd)) return "Cindy";
   const p2 = normCwd.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
   return p2 === home2().replace(/\\/g, "/") ? "~" : p2.split("/").pop() || p2;
 }
@@ -13626,7 +13629,7 @@ function cleanLive(v, now = Date.now()) {
   else v.quiet = false;
   return v;
 }
-var USAGE_CACHE_VERSION = 21;
+var USAGE_CACHE_VERSION = 22;
 var SUMMARY_VERSION = 3;
 function packDay(day) {
   return { ...day, sess: [...day.sess instanceof Map ? day.sess : /* @__PURE__ */ new Map()] };
@@ -46690,15 +46693,16 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       this.settingTab.display();
     }
     this.refreshUI();
-    if (scan && res.installed.length) {
-      this.scanNow(false).catch(() => {
-      });
-    }
     if (notify) {
       const names = res.installed.map((id) => AGENTS[id]?.short || id).join("\u3001");
       const off = AGENT_ORDER.length - res.installed.length;
       const msg = res.installed.length ? t("\u5DF2\u68C0\u6D4B\u5230 {n} \u4E2A Harness\uFF1A{names}\uFF08\u5176\u4F59 {off} \u4E2A\u5DF2\u5173\u95ED\uFF09", { n: res.installed.length, names, off }) : t("\u672A\u68C0\u6D4B\u5230\u5DF2\u5B89\u88C5\u7684 Harness\uFF0C\u53EF\u5728\u300C\u8BB0\u5F55 \u2192 \u6765\u6E90\u4E0E\u626B\u63CF\u300D\u624B\u52A8\u5F00\u542F");
       this.notice(msg, 6e3);
+    }
+    if (scan && res.installed.length) {
+      const needForce = (res.added?.length || 0) > 0 || (res.removed?.length || 0) > 0;
+      this.scanNow(needForce).catch(() => {
+      });
     }
     return res;
   }

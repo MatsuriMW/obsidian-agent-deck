@@ -1,6 +1,16 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.20**（2026-11-24）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.21**（2026-11-24）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.21：Cindy 真机联调修复、Harness 重探测全量补扫与 Windows CI 断言修复
+
+- **实机联调 `Cindy v0.1.144`（macOS arm64，`/Applications/Cindy.app`，`com.xd.cindycn`）与 3 项修复**：
+  - **Cindy 纯对话工作区归口（`src/readers.js`，`USAGE_CACHE_VERSION = 22`）**：新增 `CINDY_DIALOGUE_RE` 匹配 `/Cindy|CindyGlobal|xdt-maker/owners/<hash>/dialogues/...`，使 `isScratchCwd` / `normalizeProjectRoot` 稳定剥离、且 `projectName()` 统一返回 `"Cindy"`（避免 `summary().list[].dir` 暴露会话 UUID）。
+  - **Harness 重新检测自动补扫历史（`src/main.js`）**：`redetectHarnesses()` 在检测到新增或移除客户端时调用 `scanNow(true)` 强制全量补扫，防止新装客户端此前已有的会话被 `lastScan - 60000` 跳过，并先发通知再后台开扫；补齐 `test/harness-detect.test.mjs` 回归断言。
+  - **Windows CI 单测修复（`test/cindy-sessions.test.mjs`）**：为模拟 `darwin` `cindyDataDirs` 期望路径补齐 `path.resolve(...)` 修复 `windows-latest` 盘符差异失败，并新增 macOS/Windows `dialogues` 路径用例与 `USAGE_CACHE_VERSION >= 22` 断言。
+- **实测范围与未测空白**：
+  - 已验证：macOS 真机安装运行 `Cindy v0.1.144`（`cindy-cmwtodjad0pa6rz01k31xh509.db` 含活跃 `-wal`）全流程——自动探测开启、Codex 会话 `95672` tok 精确对账、Codex + 真实 `~/.claude/projects/.../1adfcbbf-*.jsonl` 双端跨库去重、`ConversationModal` 纯净渲染、`cindy://session/<id>` 深链前置聚焦并跳转原对话、设置页去重计数与 `dir: "Cindy"`、`马自立` Vault 热重载与 `dev:errors` 零报错；隔离 `HOME` 全量 `npm test`、`npm run build`、`npm run eval`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`。
+  - 未测空白：Windows 全端 Obsidian GUI 与 macOS 本机 TeleAgent 客户端未实机测试（PR #12 TeleAgent P0/P1 曾由贡献者在 Windows 11 与 Linux Deepin 25 实机核验）。
 
 ## 1.13.20：PR #12（TeleAgent）合并、Cindy 收录、WAL 只读修复、统一聚合去重与视觉/UX 抛光
 

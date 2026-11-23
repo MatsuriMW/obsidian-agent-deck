@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.21
+
+- **Cindy 实机全链路验证与项目名归口（`src/readers.js`、`USAGE_CACHE_VERSION = 22`）**：基于真实安装的 `Cindy v0.1.144`（macOS arm64）完成端到端实测，覆盖活跃 WAL SQLite 精确读取（95,672 tok 零偏差）、Codex / `~/.claude/projects` 跨库底层会话实时去重、只读对话详情与 `cindy://session/<id>` 深链直达；新增 `CINDY_DIALOGUE_RE` 将 `Cindy/owners/<hash>/dialogues/...` 纯对话工作区归类为临时目录并由 `projectName()` 统一显示为 `"Cindy"`（不再把会话 UUID 暴露为 `dir` 标签）。
+- **重新检测 Harness 自动补扫历史（`src/main.js`）**：`redetectHarnesses()` 检出新增或移除的已安装客户端时，改以 `force = true` 触发强制全量扫描（并提前展示结果通知），避免新装客户端的已有会话因 `lastScan - 60000` 增量窗口而被跳过。
+- **跨平台测试修复（`test/cindy-sessions.test.mjs`、`test/harness-detect.test.mjs`）**：修复 `cindyDataDirs` `darwin` 用例在 `windows-latest` 下因缺少 `path.resolve(...)` 导致的路径断言失败，并补齐 Cindy 对话目录与 `redetectHarnesses` 强制扫描单测。
+
 ## 1.13.20
 
 - **新增 TeleAgent（星辰超级智能体）追踪与桌面交接（合并 PR #12 + 加固修复，`src/teleagent.js`、`src/teleagent-dispatch*.js`、`src/desktop-sessions.js`）**：支持从多账号 `teleagent.db` 只读追踪会话与逐轮用量（自动剥除附件绝对路径），支持 Windows UI Automation / Linux `xdotool`（含可选 `treeland-activate`）桌面填入派发并回读确认；修复 `src/editor.js` `dropField` 参数命名遮蔽 `tr` 的拖拽高亮崩溃、SQLite 超时与只读事务约束，以及 `menubar.swift` / 样式 / 安全审计 / 文档断链。
