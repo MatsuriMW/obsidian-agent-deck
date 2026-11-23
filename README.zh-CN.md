@@ -135,7 +135,7 @@ Agent Deck 内置支持 **19 家本地 Agent + 任意自定义 ACP CLI**，覆�
 1. 打开 Obsidian「设置 → 第三方插件 → 社区插件市场 → 浏览」，搜索 **Agent Deck**，安装并启用；
 2. 或在 [GitHub Releases](https://github.com/MatsuriMW/obsidian-agent-deck/releases) 下载最新版，把 `main.js`、`manifest.json`、`styles.css` 放进 `<你的库>/.obsidian/plugins/agent-deck/`，再到插件设置里启用。
 
-当前版本 **1.13.15**，需要 Obsidian **1.4.0+** 桌面端（不支持移动端）；仅使用会话追踪、任务绑定与 Dashboard 时无需额外依赖，更多平台与客户端细节见 [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models)。
+当前版本 **1.13.20**，需要 Obsidian **1.4.0+** 桌面端（不支持移动端）；仅使用会话追踪、任务绑定与 Dashboard 时无需额外依赖，更多平台与客户端细节见 [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models)。
 
 ## 用户群
 

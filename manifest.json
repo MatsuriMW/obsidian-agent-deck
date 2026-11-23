@@ -1,7 +1,7 @@
 {
   "id": "agent-deck",
   "name": "Agent Deck",
-  "version": "1.13.19",
+  "version": "1.13.20",
   "minAppVersion": "1.4.0",
   "description": "Track local AI agents, delegate from notes, and review daily token usage and project activity in a dashboard.",
   "author": "MatsuriMW",

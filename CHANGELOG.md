@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.13.20
+
+- **新增 TeleAgent（星辰超级智能体）追踪与桌面交接（合并 PR #12 + 加固修复，`src/teleagent.js`、`src/teleagent-dispatch*.js`、`src/desktop-sessions.js`）**：支持从多账号 `teleagent.db` 只读追踪会话与逐轮用量（自动剥除附件绝对路径），支持 Windows UI Automation / Linux `xdotool`（含可选 `treeland-activate`）桌面填入派发并回读确认；修复 `src/editor.js` `dropField` 参数命名遮蔽 `tr` 的拖拽高亮崩溃、SQLite 超时与只读事务约束，以及 `menubar.swift` / 样式 / 安全审计 / 文档断链。
+- **新增 Cindy（`cindy`）只读会话追踪（内置总数增至 19 家，`USAGE_CACHE_VERSION = 21`，`HARNESS_DETECTION_VERSION = 3`）**：新增 `src/cindy-sessions.js` 与 128×128 图标，只读解析 Electron `Cindy` / `CindyGlobal` / `xdt-maker` 目录下 `cindy-*.db` / `xdt-maker-*.db`，支持 `'New Maker'` 标题剥除、`worktree_path > project_dir > working_dir` 优先级、`orca_workers`/`bot_delegations` 层级区分用户 Fork、`turnUsageDetails` 同轮优先防重复计费、`cindy://session/<id>` 深链回退唤起客户端，以及工具调用安全回放。
+- **T3 Code & Cindy 统一聚合去重体系（`delegatedOwners`、`src/readers.js`、`src/desktop-sessions.js`）**：扩展 T3 Code 6 张投影/运行时表（含 `:native-thread:` 解码并过滤 URL 编码 `pending%3A...` / `provider-instance:` 占位符）及 Cindy 5 源映射，在 `summary()`、侧栏「现在」/最近会话、菜单栏、自动日记、`JournalSync`、`DashboardData`、`resolveHandoffs`、主力推荐、设置页卡片统计（含 `mergeDelegatedOwners` 分卡片扫描合入与重建清理）及安全审计全链路统一去重底层拉起的 Codex / Claude / Antigravity 会话；设置页 T3 Code / Cindy 卡片展示已去重会话数与「关闭可随时恢复」提示。
+- **SQLite WAL 只读打开修复（`src/desktop-sessions.js`）**：无非空 `-wal` 伴生文件时改用 `?immutable=1` URI 只读打开，修复 checkpoint 后的 WAL 数据库报 `unable to open database file (14)` 故障；有非空 `-wal` 时先 `-readonly` 并在缺失 `-shm` 时回退 `PRAGMA query_only = ON;`。
+- **日记圆圈数字与 Agent 小图标光学对齐及 UX 抛光（`src/record-icons.js`、`src/styles/views/record-views.css`、`src/journal.js`）**：内层数字 `.ad-round-badge__num` 启用 `text-box-trim` 在 `16×16` 正圆内居中、`top: -0.15em` 与行内正文对齐、轮次提示与无障碍标签双语本地化（`第 {n} 轮` / `Round {n}`）；补齐 `T3 Code` / `Muse` / `Kimi Code` / `豆包工作` / `Gemini CLI` 短链标题前缀剥离。
+
 ## 1.13.19
 
 - **Cursor 后台委派（ACP）与桌面端交接回退（`src/agent-registry.js`、`src/delegation-runners.js`、`src/delegation.js`、`src/settings.js`、`src/workflow.js`、`src/main.js`）**：解除 Cursor `trackingOnly` 限制，支持 `agent acp` 后台委派与应用内续聊（`cursor-default`、`continueRequiresAcp` 保护桌面会话），未装 CLI 或选择桌面端时自动回退桌面交接并由 Hooks 认领写回；设置页统一表驱动渲染 Cursor/Gemini 等 ACP 卡片；`allModels()` 动态聚合 ACP 拉取的模型列表；`cleanEnv()` 在 macOS GUI 下经 `scutil --proxy` 自动继承系统代理；`checkBinary` / `openAgentApp` / `openExternal` 补齐跨平台兼容修复。

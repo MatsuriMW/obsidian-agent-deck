@@ -1,8 +1,8 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.19 + main**（2026-11-24）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.20**（2026-11-24）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
-## 1.13.19 + 本地增量：PR #12（TeleAgent）合并、Cindy 收录、WAL 只读修复与统一聚合去重
+## 1.13.20：PR #12（TeleAgent）合并、Cindy 收录、WAL 只读修复、统一聚合去重与视觉/UX 抛光
 
 - **合并社区 PR #12（`feat/teleagent-support`，合并提交 `5c0847d`）并修复问题**：
   - 接入 **TeleAgent（星辰超级智能体）** 只读会话追踪（`src/teleagent.js`、`src/desktop-sessions.js`、`test/teleagent-sessions.test.mjs`）及 Windows UIA / Linux `xdotool` 客户端交接派发（`src/teleagent-dispatch.js`、`src/teleagent-dispatch-linux.js`、`src/native/treeland-activate.c`、`test/teleagent-dispatch*.test.mjs`）；合并后清理了 `docs/README.md` 与 `docs/specs/teleagent-adapter.zh-CN.md` 断链，补齐 `defaultRunSql` `-cmd .timeout 2000` + `PRAGMA query_only = ON;` 与 `menubar.swift` / `styles` / `security-audit.js` 中的 `teleagent` 适配。
