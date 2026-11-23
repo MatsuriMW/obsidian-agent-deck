@@ -9,6 +9,7 @@ import { RangeSetBuilder } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
 import { AGENTS } from "./constants.js";
 import { AGENT_IMAGES } from "./agent-assets.js";
+import { t } from "./i18n.js";
 import {
   TASK_KWS,
   CLOCK_RE,
@@ -164,7 +165,7 @@ function createRoundBadge(doc, round) {
   num.className = "ad-round-badge__num";
   num.textContent = String(round);
   span.appendChild(num);
-  const label = `第${round}轮`;
+  const label = t("第 {n} 轮", { n: round });
   span.title = label;
   span.setAttribute("aria-label", label);
   return span;

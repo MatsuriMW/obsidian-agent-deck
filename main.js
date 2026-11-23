@@ -747,7 +747,8 @@ var view_default = {
   "\u91CD\u8BD5\u6C47\u603B": "Retry",
   "\u5FFD\u7565": "Dismiss",
   "\u5343\u95EE\u529E\u516C": "QwenWork",
-  "\u8C46\u5305\u5DE5\u4F5C": "Doubao Work"
+  "\u8C46\u5305\u5DE5\u4F5C": "Doubao Work",
+  "\u7B2C {n} \u8F6E": "Round {n}"
 };
 
 // src/locales/en/settings.js
@@ -4060,7 +4061,8 @@ var zh_TW_default = {
   "\u4F4E\u5371": "\u4F4E\u5371",
   "\u76EE\u6807": "\u76EE\u6A19",
   "\u5DF2\u81EA\u52A8\u53BB\u91CD {n} \u4E2A\u5E95\u5C42 Agent \u4F1A\u8BDD\uFF0C\u7EDF\u4E00\u5F52\u5165 {agent}\uFF1B\u5173\u95ED\u8FFD\u8E2A\u53EF\u968F\u65F6\u6062\u590D": "\u5DF2\u81EA\u52D5\u53BB\u91CD {n} \u500B\u5E95\u5C64 Agent \u6703\u8A71\uFF0C\u7D71\u4E00\u6B78\u5165 {agent}\uFF1B\u95DC\u9589\u8FFD\u8E64\u53EF\u96A8\u6642\u6062\u5FA9",
-  "\u7531 {agent} \u62C9\u8D77\u7684\u5E95\u5C42 Agent \u4F1A\u8BDD\u4F1A\u81EA\u52A8\u53BB\u91CD\uFF0C\u7EDF\u4E00\u5F52\u5165 {agent} \u4E0D\u91CD\u8907\u7D71\u8A08": "\u7531 {agent} \u62C9\u8D77\u7684\u5E95\u5C64 Agent \u6703\u8A71\u6703\u81EA\u52D5\u53BB\u91CD\uFF0C\u7D71\u4E00\u6B78\u5165 {agent} \u4E0D\u91CD\u8907\u7D71\u8A08"
+  "\u7531 {agent} \u62C9\u8D77\u7684\u5E95\u5C42 Agent \u4F1A\u8BDD\u4F1A\u81EA\u52A8\u53BB\u91CD\uFF0C\u7EDF\u4E00\u5F52\u5165 {agent} \u4E0D\u91CD\u590D\u7EDF\u8BA1": "\u7531 {agent} \u62C9\u8D77\u7684\u5E95\u5C64 Agent \u6703\u8A71\u6703\u81EA\u52D5\u53BB\u91CD\uFF0C\u7D71\u4E00\u6B78\u5165 {agent} \u4E0D\u91CD\u8907\u7D71\u8A08",
+  "\u7B2C {n} \u8F6E": "\u7B2C {n} \u8F2A"
 };
 
 // src/i18n.js
@@ -37403,7 +37405,7 @@ function createRoundBadge(doc, round) {
   num2.className = "ad-round-badge__num";
   num2.textContent = String(round);
   span.appendChild(num2);
-  const label = `\u7B2C${round}\u8F6E`;
+  const label = t("\u7B2C {n} \u8F6E", { n: round });
   span.title = label;
   span.setAttribute("aria-label", label);
   return span;

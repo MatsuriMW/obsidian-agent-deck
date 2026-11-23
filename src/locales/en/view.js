@@ -189,4 +189,5 @@ export default {
   "忽略": "Dismiss",
   "千问办公": "QwenWork",
   "豆包工作": "Doubao Work",
+  "第 {n} 轮": "Round {n}",
 };

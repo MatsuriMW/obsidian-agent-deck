@@ -138,6 +138,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   min-width: 16px;
   height: 16px;
   padding: 0 3.5px;
@@ -153,9 +154,14 @@
   line-height: 1;
   vertical-align: middle;
   position: relative;
-  top: -1.5px;
+  top: -0.15em;
   box-sizing: border-box;
+  cursor: default;
   user-select: none;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--text-muted) 65%, transparent);
+  }
 }
 
 .ad-round-badge__num {
@@ -175,12 +181,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 16px;
   height: 16px;
   margin-right: 1px;
   vertical-align: middle;
   position: relative;
-  top: -1.5px;
+  top: -0.09em;
   user-select: none;
 }
 

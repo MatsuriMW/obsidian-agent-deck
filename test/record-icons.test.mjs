@@ -238,6 +238,8 @@ const { recordCopyText } = await import("../src/record-menu.js");
   assert.equal(badgeEl.children[0].className, "ad-round-badge__num");
   assert.equal(badgeEl.children[0].textContent, "9");
   assert.equal(badgeEl.textContent, "9");
+  assert.equal(badgeEl.title, "第 9 轮");
+  assert.equal(badgeEl.attrs["aria-label"], "第 9 轮");
 }
 
 console.log("PASS record-icons: round badge, agent desktop mark, bold task/conclusion and legacy compatibility");
