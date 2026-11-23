@@ -237,7 +237,7 @@ const CAPABILITIES = new Map([
     acp: false,
     desktopHandoffOnly: true,
     terminalHandoff: false,
-    continueInApp: true,
+    continueInApp: false,
     permissionControl: false,
     archiveDetection: true,
     modelCatalog: false,

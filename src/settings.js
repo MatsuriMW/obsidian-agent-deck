@@ -1294,6 +1294,18 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     stats.createSpan({ cls: "ad-set-agent__state", text: stateText });
     if (id === "grokbot" && enabled) this.renderGrokBotPicker(card, sessCountEl, s, p);
     if (id === "muse" && enabled) this.renderMusePicker(card, sessCountEl, s, p);
+    if (enabled && (id === "t3code" || id === "cindy")) {
+      let dedupCount = 0;
+      for (const owners of p.usage?.delegatedOwners?.values?.() || []) {
+        if (owners?.has?.(id)) dedupCount++;
+      }
+      card.createDiv({
+        cls: "ad-hint",
+        text: dedupCount > 0
+          ? t("已自动去重 {n} 个底层 Agent 会话，统一归入 {agent}；关闭追踪可随时恢复", { n: dedupCount, agent: a.short })
+          : t("由 {agent} 拉起的底层 Agent 会话会自动去重，统一归入 {agent} 不重复统计", { agent: a.short }),
+      });
+    }
   }
 
   renderRecord(body) {

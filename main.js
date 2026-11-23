@@ -1504,7 +1504,9 @@ var settings_default = {
   "\u81EA\u5B9A\u4E49 ACP Agent \u914D\u7F6E\u65E0\u6548": "Invalid custom ACP Agent configuration",
   "\u542F\u52A8\u65F6\u81EA\u52A8\u68C0\u67E5\u65B0\u7248\u672C": "Check for updates on startup",
   "\u6BCF\u5929\u6700\u591A\u68C0\u67E5\u4E00\u6B21 GitHub Releases\uFF0C\u6709\u65B0\u7248\u65F6\u63D0\u793A\u5E76\u63D0\u4F9B\u4E00\u952E\u8DF3\u8F6C\u66F4\u65B0": "Checks GitHub Releases at most once a day and prompts with a one-click update link when a new version is out.",
-  "\u68C0\u67E5\u66F4\u65B0": "Check for updates"
+  "\u68C0\u67E5\u66F4\u65B0": "Check for updates",
+  "\u5DF2\u81EA\u52A8\u53BB\u91CD {n} \u4E2A\u5E95\u5C42 Agent \u4F1A\u8BDD\uFF0C\u7EDF\u4E00\u5F52\u5165 {agent}\uFF1B\u5173\u95ED\u8FFD\u8E2A\u53EF\u968F\u65F6\u6062\u590D": "Auto-deduplicated {n} underlying agent session(s) under {agent}; disable tracking to restore them anytime.",
+  "\u7531 {agent} \u62C9\u8D77\u7684\u5E95\u5C42 Agent \u4F1A\u8BDD\u4F1A\u81EA\u52A8\u53BB\u91CD\uFF0C\u7EDF\u4E00\u5F52\u5165 {agent} \u4E0D\u91CD\u590D\u7EDF\u8BA1": "Underlying agent sessions launched by {agent} are automatically deduplicated under {agent}."
 };
 
 // src/locales/en/dialogs.js
@@ -4056,7 +4058,9 @@ var zh_TW_default = {
   "\u9AD8\u5371": "\u9AD8\u5371",
   "\u4E2D\u5371": "\u4E2D\u5371",
   "\u4F4E\u5371": "\u4F4E\u5371",
-  "\u76EE\u6807": "\u76EE\u6A19"
+  "\u76EE\u6807": "\u76EE\u6A19",
+  "\u5DF2\u81EA\u52A8\u53BB\u91CD {n} \u4E2A\u5E95\u5C42 Agent \u4F1A\u8BDD\uFF0C\u7EDF\u4E00\u5F52\u5165 {agent}\uFF1B\u5173\u95ED\u8FFD\u8E2A\u53EF\u968F\u65F6\u6062\u590D": "\u5DF2\u81EA\u52D5\u53BB\u91CD {n} \u500B\u5E95\u5C64 Agent \u6703\u8A71\uFF0C\u7D71\u4E00\u6B78\u5165 {agent}\uFF1B\u95DC\u9589\u8FFD\u8E64\u53EF\u96A8\u6642\u6062\u5FA9",
+  "\u7531 {agent} \u62C9\u8D77\u7684\u5E95\u5C42 Agent \u4F1A\u8BDD\u4F1A\u81EA\u52A8\u53BB\u91CD\uFF0C\u7EDF\u4E00\u5F52\u5165 {agent} \u4E0D\u91CD\u8907\u7D71\u8A08": "\u7531 {agent} \u62C9\u8D77\u7684\u5E95\u5C64 Agent \u6703\u8A71\u6703\u81EA\u52D5\u53BB\u91CD\uFF0C\u7D71\u4E00\u6B78\u5165 {agent} \u4E0D\u91CD\u8907\u7D71\u8A08"
 };
 
 // src/i18n.js
@@ -5863,7 +5867,7 @@ function kwLine(raw) {
 }
 function parseLink(line) {
   const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(antigravity|opencode|qoder|hermes|minimax|qwenwork|teleagent|workbuddy|cursor|grokbot|t3code|cindy|muse|kimicode|doubaowork|gemini)&sid=([^)]*)\)/.exec(line);
-  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|TeleAgent|WorkBuddy|Cursor|Grok Bot|Cindy)：/, "") };
+  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|TeleAgent|WorkBuddy|Cursor|Grok Bot|T3 Code|Cindy|Muse|Kimi Code|豆包工作|Gemini CLI)：/, "") };
   const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
   const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
@@ -18770,7 +18774,7 @@ var CAPABILITIES = /* @__PURE__ */ new Map([
     acp: false,
     desktopHandoffOnly: true,
     terminalHandoff: false,
-    continueInApp: true,
+    continueInApp: false,
     permissionControl: false,
     archiveDetection: true,
     modelCatalog: false,
@@ -22205,6 +22209,25 @@ function openExternal(url) {
     return false;
   }
 }
+function openExternalAsync(url) {
+  try {
+    const { shell } = require("electron");
+    if (shell && typeof shell.openExternal === "function") {
+      return Promise.resolve(shell.openExternal(url)).then(() => true, () => false);
+    }
+  } catch {
+  }
+  return new Promise((resolve) => {
+    try {
+      const done = (err2) => resolve(!err2);
+      if (process.platform === "win32") (0, import_child_process8.execFile)("cmd.exe", ["/c", "start", "", url], { windowsHide: true }, done);
+      else if (process.platform === "darwin") (0, import_child_process8.execFile)("/usr/bin/open", [url], done);
+      else (0, import_child_process8.execFile)("xdg-open", [url], done);
+    } catch {
+      resolve(false);
+    }
+  });
+}
 var isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
 function isCliSession(agent, app) {
   if (["claude", "qoder", "workbuddy", "hermes", "minimax"].includes(agent)) return app === "cli";
@@ -22295,9 +22318,10 @@ function openSession(plugin, agent, sid, app = "", session = null) {
   }
   if (agent === "cindy") {
     copyText(sid);
-    if (!openExternal(sessionDeepLink("cindy", sid))) {
-      openAgentApp("cindy").then((ok) => plugin.notice(ok ? t("\u5DF2\u6253\u5F00 {agent}\uFF1B\u4F1A\u8BDD\u53F7\u5DF2\u590D\u5236\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u4F1A\u8BDD", { agent: AGENTS[agent].name }) : t("\u6CA1\u6253\u5F00 {agent}\uFF1A\u672C\u673A\u597D\u50CF\u6CA1\u88C5", { agent: AGENTS[agent].name })));
-    }
+    openExternalAsync(sessionDeepLink("cindy", sid)).then((ok) => {
+      if (ok) return;
+      return openAgentApp("cindy").then((opened) => plugin.notice(opened ? t("\u5DF2\u6253\u5F00 {agent}\uFF1B\u4F1A\u8BDD\u53F7\u5DF2\u590D\u5236\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u9009\u62E9\u4F1A\u8BDD", { agent: AGENTS[agent].name }) : t("\u6CA1\u6253\u5F00 {agent}\uFF1A\u672C\u673A\u597D\u50CF\u6CA1\u88C5", { agent: AGENTS[agent].name })));
+    });
     return true;
   }
   if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "teleagent"].includes(agent)) {
@@ -34885,6 +34909,16 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     stats.createSpan({ cls: "ad-set-agent__state", text: stateText });
     if (id === "grokbot" && enabled) this.renderGrokBotPicker(card, sessCountEl, s, p2);
     if (id === "muse" && enabled) this.renderMusePicker(card, sessCountEl, s, p2);
+    if (enabled && (id === "t3code" || id === "cindy")) {
+      let dedupCount = 0;
+      for (const owners of p2.usage?.delegatedOwners?.values?.() || []) {
+        if (owners?.has?.(id)) dedupCount++;
+      }
+      card.createDiv({
+        cls: "ad-hint",
+        text: dedupCount > 0 ? t("\u5DF2\u81EA\u52A8\u53BB\u91CD {n} \u4E2A\u5E95\u5C42 Agent \u4F1A\u8BDD\uFF0C\u7EDF\u4E00\u5F52\u5165 {agent}\uFF1B\u5173\u95ED\u8FFD\u8E2A\u53EF\u968F\u65F6\u6062\u590D", { n: dedupCount, agent: a.short }) : t("\u7531 {agent} \u62C9\u8D77\u7684\u5E95\u5C42 Agent \u4F1A\u8BDD\u4F1A\u81EA\u52A8\u53BB\u91CD\uFF0C\u7EDF\u4E00\u5F52\u5165 {agent} \u4E0D\u91CD\u590D\u7EDF\u8BA1", { agent: a.short })
+      });
+    }
   }
   renderRecord(body) {
     const p2 = this.plugin;

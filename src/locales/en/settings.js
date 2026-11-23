@@ -763,4 +763,6 @@ export default {
   "启动时自动检查新版本": "Check for updates on startup",
   "每天最多检查一次 GitHub Releases，有新版时提示并提供一键跳转更新": "Checks GitHub Releases at most once a day and prompts with a one-click update link when a new version is out.",
   "检查更新": "Check for updates",
+  "已自动去重 {n} 个底层 Agent 会话，统一归入 {agent}；关闭追踪可随时恢复": "Auto-deduplicated {n} underlying agent session(s) under {agent}; disable tracking to restore them anytime.",
+  "由 {agent} 拉起的底层 Agent 会话会自动去重，统一归入 {agent} 不重复统计": "Underlying agent sessions launched by {agent} are automatically deduplicated under {agent}.",
 };

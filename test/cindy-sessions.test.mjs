@@ -53,7 +53,7 @@ const { desktopQuery, toSqliteUriPath, desktopSessions, desktopMessages, cindyDe
 const { AgentUsage, USAGE_CACHE_VERSION } = await import("../src/readers.js");
 const { AGENTS, AGENT_ORDER, DEFAULTS, dayKeyToday } = await import("../src/constants.js");
 const { AGENT_IMAGES } = await import("../src/agent-assets.js");
-const { hasAgentCapability } = await import("../src/agent-registry.js");
+const { hasAgentCapability, canContinueSession } = await import("../src/agent-registry.js");
 const J = await import("../src/journal.js");
 const { sessionDeepLink } = await import("../src/delegation.js");
 const { detectInstalledHarnesses } = await import("../src/harness-detect.js");
@@ -329,12 +329,15 @@ test("Metadata, links, deep link, harness-detect, and end-to-end aggregator dedu
   assert.equal(DEFAULTS.agents.cindy, true);
   assert.equal(DEFAULTS.autoLogAgents.cindy, true);
   assert.equal(hasAgentCapability("cindy", "archiveDetection"), true);
+  assert.equal(canContinueSession({ agent: "cindy", sid: "cindy-1" }), false, "trackingOnly Cindy must not claim in-app continuation");
   assert.ok(AGENT_IMAGES.cindy);
   assert.ok(USAGE_CACHE_VERSION >= 21);
 
   const link = J.linkLine("", "cindy", "Fix login", "cindy-1");
   assert.equal(link, "- 🔗 [Cindy：Fix login](obsidian://agent-deck?do=open&agent=cindy&sid=cindy-1)");
   assert.deepEqual(J.parseLink(link), { agent: "cindy", sid: "cindy-1", title: "Fix login" });
+  const t3Link = J.linkLine("", "t3code", "My Task", "t3-1");
+  assert.deepEqual(J.parseLink(t3Link), { agent: "t3code", sid: "t3-1", title: "My Task" });
   assert.equal(J.isDeckBlockId("cindy-fix-abcdef1234"), true);
   assert.equal(J.agentFromBlockId("cindy-fix-abcdef1234"), "cindy");
   assert.equal(sessionDeepLink("cindy", "cindy-1"), "cindy://session/cindy-1");

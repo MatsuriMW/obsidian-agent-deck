@@ -193,6 +193,23 @@ export function openExternal(url) {
   } catch { return false; }
 }
 
+export function openExternalAsync(url) {
+  try {
+    const { shell } = require("electron");
+    if (shell && typeof shell.openExternal === "function") {
+      return Promise.resolve(shell.openExternal(url)).then(() => true, () => false);
+    }
+  } catch { /* not electron */ }
+  return new Promise((resolve) => {
+    try {
+      const done = (err) => resolve(!err);
+      if (process.platform === "win32") execFile("cmd.exe", ["/c", "start", "", url], { windowsHide: true }, done);
+      else if (process.platform === "darwin") execFile("/usr/bin/open", [url], done);
+      else execFile("xdg-open", [url], done);
+    } catch { resolve(false); }
+  });
+}
+
 export {
   TERMINAL_REGISTRY,
   TERMINAL_NAME,
@@ -291,9 +308,10 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
   }
   if (agent === "cindy") {
     copyText(sid);
-    if (!openExternal(sessionDeepLink("cindy", sid))) {
-      openAgentApp("cindy").then((ok) => plugin.notice(ok ? t("已打开 {agent}；会话号已复制，请在客户端选择会话", { agent: AGENTS[agent].name }) : t("没打开 {agent}：本机好像没装", { agent: AGENTS[agent].name })));
-    }
+    openExternalAsync(sessionDeepLink("cindy", sid)).then((ok) => {
+      if (ok) return;
+      return openAgentApp("cindy").then((opened) => plugin.notice(opened ? t("已打开 {agent}；会话号已复制，请在客户端选择会话", { agent: AGENTS[agent].name }) : t("没打开 {agent}：本机好像没装", { agent: AGENTS[agent].name })));
+    });
     return true;
   }
   if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "teleagent"].includes(agent)) {
