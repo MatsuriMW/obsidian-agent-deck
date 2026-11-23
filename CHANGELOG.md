@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.19
+
+- **Cursor 后台委派（ACP）与桌面端交接回退（`src/agent-registry.js`、`src/delegation-runners.js`、`src/delegation.js`、`src/settings.js`、`src/workflow.js`、`src/main.js`）**：解除 Cursor `trackingOnly` 限制，支持 `agent acp` 后台委派与应用内续聊（`cursor-default`、`continueRequiresAcp` 保护桌面会话），未装 CLI 或选择桌面端时自动回退桌面交接并由 Hooks 认领写回；设置页统一表驱动渲染 Cursor/Gemini 等 ACP 卡片；`allModels()` 动态聚合 ACP 拉取的模型列表；`cleanEnv()` 在 macOS GUI 下经 `scutil --proxy` 自动继承系统代理；`checkBinary` / `openAgentApp` / `openExternal` 补齐跨平台兼容修复。
+- **全 Agent 子代理统一排除独立日记任务（`src/readers.js`、`src/agent-ingestors.js`、`src/cursor-sessions.js`、`src/autolog.js`、`src/sync.js`、`src/delegation.js`）**：新增 O(1) `isSubagentSession()` / `subagentSids` 与 `cursorParents` 缓存持久化，修复 Claude Code 子文件误杀母会话问题，补齐 Codex / DSH / Cursor 全量父子标记；`CURSOR_HOOK_VERSION` 升至 `2` 并在启用监听时自动静默升级过期 `v1` Hook；`AutoLog`、`JournalSync` 与 `resolveHandoffs` 统一跳过子代理。
+- **豆包工作跨端会话发现与 Muse 追踪收尾（`src/doubaowork-sessions.js`、`src/muse-sessions.js`、`src/readers.js`）**：豆包工作新增多 Profile / Windows `%LOCALAPPDATA%` 路径发现、V8 数值时间戳（Int32/Double）解析与按目录防碰撞会话键，`USAGE_CACHE_VERSION` 升至 `20`；Muse 新增 `watchMuseCache()` 文件监听、默认过滤主动推送消息（`museTrackProactive` + 多气泡回复链追踪）并将默认 `autoLogMinMinutes` 调为 `1` 分钟。
+
 ## 1.13.18
 
 - **AI 自动回传日志视觉与格式升级（`src/journal.js`、`src/record-icons.js`、`src/styles/views/record-views.css`）**：

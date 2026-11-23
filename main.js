@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.18 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.19 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1319,6 +1319,16 @@ var settings_default = {
   "\u901A\u8FC7 qodercli \u6216 Qoder \u684C\u9762\u7248\u59D4\u6D3E\u4EFB\u52A1": "Delegates tasks via qodercli or Qoder Desktop",
   "\u4F20\u7ED9 qodercli --reasoning-effort": "Passed to qodercli --reasoning-effort",
   "Cursor \u684C\u9762\u7248\uFF08Hooks + \u4F1A\u8BDD\u65E5\u5FD7\uFF09": "Cursor Desktop (Hooks + session logs)",
+  "Cursor \u684C\u9762\u7248\uFF08Hooks\uFF09\u4E0E CLI ACP \u59D4\u6D3E": "Cursor Desktop (Hooks) & CLI ACP delegation",
+  "\u4F7F\u7528 Cursor CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u56DE\u9000\u684C\u9762\u7AEF\u4EA4\u63A5\u3002": "Use Cursor CLI's current default model; falls back to desktop handoff if the CLI is not installed.",
+  "\u88C5\u6709 Cursor CLI\uFF08agent\uFF09\u65F6\u652F\u6301 agent acp \u540E\u53F0\u59D4\u6D3E\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u684C\u9762\u7AEF\u4EA4\u63A5": "Background delegation via `agent acp` when Cursor CLI (`agent`) is installed; falls back to clipboard handoff to Cursor Desktop otherwise.",
+  "\u7559\u7A7A\u81EA\u52A8\u67E5\u627E agent / cursor-agent": "Leave blank to auto-detect `agent` / `cursor-agent`",
+  "\u8BFB\u53D6 Cursor \u53EF\u7528\u6A21\u578B": "Fetch Cursor models",
+  "\u68C0\u67E5 agent": "Check agent",
+  "\u901A\u8FC7 gemini --acp \u540E\u53F0\u59D4\u6D3E\uFF0C\u4E5F\u53EF\u5728\u7EC8\u7AEF\u7528 gemini --resume \u7EED\u804A": "Delegate in the background via `gemini --acp`, or continue in terminal with `gemini --resume`",
+  "\u7559\u7A7A\u81EA\u52A8\u67E5\u627E gemini": "Leave blank to auto-detect `gemini`",
+  "\u8BFB\u53D6 Gemini \u53EF\u7528\u6A21\u578B": "Fetch Gemini models",
+  "\u68C0\u67E5 gemini": "Check gemini",
   "Grok Bot \u684C\u9762\u7248\uFF08\u6309 Bot \u591A\u9009\u8FFD\u8E2A\uFF09": "Grok Bot Desktop (per-Bot multi-select tracking)",
   "\u8FFD\u8E2A Bot \xB7 \u672A\u9009\u62E9\uFF08\u70B9\u51FB\u52FE\u9009\uFF09": "Tracked Bots \xB7 none selected (click to choose)",
   "\u8FFD\u8E2A Bot \xB7 \u5DF2\u9009 {n} \u4E2A": "Tracked Bots \xB7 {n} selected",
@@ -1418,6 +1428,10 @@ var settings_default = {
   "\u8FFD\u8E2A\u5BF9\u8BDD\u6D41 \xB7 \u5DF2\u9009 {n}/{max}": "Tracked threads \xB7 {n}/{max} selected",
   "\u672A\u68C0\u6D4B\u5230\u672C\u673A Muse \u5BF9\u8BDD\u7F13\u5B58": "No local Muse conversation cache found.",
   "\u6700\u591A\u540C\u65F6\u8FFD\u8E2A {max} \u4E2A Muse \u5BF9\u8BDD\u6D41\uFF0C\u8BF7\u5148\u53D6\u6D88\u4E00\u4E2A": "You can track up to {max} Muse threads at a time. Deselect one first.",
+  "\u8FFD\u8E2A Muse \u4E3B\u52A8\u63A8\u9001\u6D88\u606F": "Track Muse proactive messages",
+  "\u9ED8\u8BA4\u4EC5\u8FFD\u8E2A\u4F60\u53D1\u8D77\u7684\u5BF9\u8BDD\uFF1B\u5F00\u542F\u540E\u8FDE\u540C Muse \u4E3B\u52A8\u53D1\u9001\u7684\u6D88\u606F\u4E00\u8D77\u8BB0\u5F55": "Only tracks conversations you initiate by default; turn on to also record messages Muse sends proactively.",
+  "Muse \u4EC5\u5728\u91CD\u542F\u6216\u5237\u65B0\u5386\u53F2\u65F6\u5199\u5165\u672C\u5730\u7F13\u5B58\uFF0C\u7F13\u5B58\u66F4\u65B0\u540E Agent Deck \u4F1A\u81EA\u52A8\u8FFD\u8E2A\u3002": "Muse only writes its local cache when restarted or refreshing history; Agent Deck automatically re-scans as soon as the cache updates.",
+  "\u5DF2\u5F00\u542F Muse \u8FFD\u8E2A\uFF1AMuse \u4EC5\u5728\u91CD\u542F\u6216\u5237\u65B0\u5386\u53F2\u65F6\u5199\u5165\u672C\u5730\u7F13\u5B58\uFF0C\u66F4\u65B0\u540E\u4F1A\u81EA\u52A8\u8FFD\u8E2A\u3002": "Muse tracking enabled: Muse only flushes its local cache on restart or history refresh, and Agent Deck will automatically track it once updated.",
   "T3 Code \u6B63\u5728\u7B49\u5F85\u4F60\u7684\u56DE\u590D\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED": "T3 Code is waiting for your reply; continue in the desktop app.",
   "T3 Code \u670D\u52A1\u672A\u8FD0\u884C\uFF0C\u8BF7\u5148\u6253\u5F00 T3 Code \u684C\u9762\u7248\u6216\u8FD0\u884C t3 up": "T3 Code server is not running. Open T3 Code Desktop or run `t3 up` first.",
   "t3 \u9000\u51FA\u7801 {code}": "t3 exited with code {code}",
@@ -1614,6 +1628,7 @@ var dialogs_default = {
   "\u8FD9\u4E00\u5757\u4E0B\u9762\u5DF2\u7ECF\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u53D1\u5148\u5220\u6389\u90A3\u4E00\u884C": "This block already has a \u{1F517} below it. Delete that line before sending again.",
   "\u8BF7\u7B49\u5F53\u524D\u8FD9\u4E00\u8F6E\u7ED3\u675F\u540E\u518D\u53D1\u9001": "Wait for the current turn to finish before sending",
   "\u8FD9\u662F Antigravity \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED": "This is an Antigravity desktop session. Continue in its own client.",
+  "\u8FD9\u662F {agent} \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED": "This is a {agent} desktop session. Continue in its own client.",
   "\u8FD9\u662F Qoder \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED\uFF1B\u5728\u63D2\u4EF6\u4E2D\u901A\u8FC7 CLI \u59D4\u6D3E\u540E\u53EF\u5728 Obsidian \u5185\u7EED\u804A": "This is a Qoder desktop session, so continue in the client. Sessions delegated via the CLI in the plugin can be continued inside Obsidian.",
   "\u7B49\u4F60\u5728 {agent} \u91CC\u53D1\u51FA\u53BB": "Waiting for you to send it in {agent}",
   "\u5728\u7EC8\u7AEF\u91CC\u5F00 {agent}": "Opening {agent} in the terminal",
@@ -3241,6 +3256,16 @@ var zh_TW_default = {
   "\u901A\u8FC7 qodercli \u6216 Qoder \u684C\u9762\u7248\u59D4\u6D3E\u4EFB\u52A1": "\u901A\u904E qodercli \u6216 Qoder \u684C\u9762\u7248\u59D4\u6D3E\u4EFB\u52D9",
   "\u4F20\u7ED9 qodercli --reasoning-effort": "\u50B3\u7D66 qodercli --reasoning-effort",
   "Cursor \u684C\u9762\u7248\uFF08Hooks + \u4F1A\u8BDD\u65E5\u5FD7\uFF09": "Cursor \u684C\u9762\u7248\uFF08Hooks + \u6703\u8A71\u65E5\u8A8C\uFF09",
+  "Cursor \u684C\u9762\u7248\uFF08Hooks\uFF09\u4E0E CLI ACP \u59D4\u6D3E": "Cursor \u684C\u9762\u7248\uFF08Hooks\uFF09\u8207 CLI ACP \u59D4\u6D3E",
+  "\u4F7F\u7528 Cursor CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u56DE\u9000\u684C\u9762\u7AEF\u4EA4\u63A5\u3002": "\u4F7F\u7528 Cursor CLI \u76EE\u524D\u8A2D\u5B9A\u7684\u9810\u8A2D\u6A21\u578B\uFF1B\u672A\u5B89\u88DD CLI \u6642\u81EA\u52D5\u9000\u56DE\u684C\u9762\u7AEF\u4EA4\u63A5\u3002",
+  "\u88C5\u6709 Cursor CLI\uFF08agent\uFF09\u65F6\u652F\u6301 agent acp \u540E\u53F0\u59D4\u6D3E\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u684C\u9762\u7AEF\u4EA4\u63A5": "\u5B89\u88DD Cursor CLI\uFF08agent\uFF09\u6642\u652F\u63F4 agent acp \u5F8C\u81FA\u59D4\u6D3E\uFF1B\u672A\u5B89\u88DD CLI \u6642\u81EA\u52D5\u8907\u88FD\u4EFB\u52D9\u4E26\u958B\u555F\u684C\u9762\u7AEF\u4EA4\u63A5",
+  "\u7559\u7A7A\u81EA\u52A8\u67E5\u627E agent / cursor-agent": "\u7559\u7A7A\u81EA\u52D5\u5C0B\u627E agent / cursor-agent",
+  "\u8BFB\u53D6 Cursor \u53EF\u7528\u6A21\u578B": "\u8B80\u53D6 Cursor \u53EF\u7528\u6A21\u578B",
+  "\u68C0\u67E5 agent": "\u6AA2\u67E5 agent",
+  "\u901A\u8FC7 gemini --acp \u540E\u53F0\u59D4\u6D3E\uFF0C\u4E5F\u53EF\u5728\u7EC8\u7AEF\u7528 gemini --resume \u7EED\u804A": "\u900F\u904E gemini --acp \u5F8C\u81FA\u59D4\u6D3E\uFF0C\u4E5F\u53EF\u5728\u7D42\u7AEF\u7528 gemini --resume \u7E8C\u804A",
+  "\u7559\u7A7A\u81EA\u52A8\u67E5\u627E gemini": "\u7559\u7A7A\u81EA\u52D5\u5C0B\u627E gemini",
+  "\u8BFB\u53D6 Gemini \u53EF\u7528\u6A21\u578B": "\u8B80\u53D6 Gemini \u53EF\u7528\u6A21\u578B",
+  "\u68C0\u67E5 gemini": "\u6AA2\u67E5 gemini",
   "Grok Bot \u684C\u9762\u7248\uFF08\u6309 Bot \u591A\u9009\u8FFD\u8E2A\uFF09": "Grok Bot \u684C\u9762\u7248\uFF08\u6309 Bot \u591A\u9078\u8FFD\u8E64\uFF09",
   "\u8FFD\u8E2A Bot \xB7 \u672A\u9009\u62E9\uFF08\u70B9\u51FB\u52FE\u9009\uFF09": "\u8FFD\u8E64 Bot \xB7 \u672A\u9078\u64C7\uFF08\u9EDE\u9078\u52FE\u9078\uFF09",
   "\u8FFD\u8E2A Bot \xB7 \u5DF2\u9009 {n} \u4E2A": "\u8FFD\u8E64 Bot \xB7 \u5DF2\u9078 {n} \u500B",
@@ -3385,6 +3410,10 @@ var zh_TW_default = {
   "\u8FFD\u8E2A\u5BF9\u8BDD\u6D41 \xB7 \u5DF2\u9009 {n}/{max}": "\u8FFD\u8E64\u5C0D\u8A71\u6D41 \xB7 \u5DF2\u9078 {n}/{max}",
   "\u672A\u68C0\u6D4B\u5230\u672C\u673A Muse \u5BF9\u8BDD\u7F13\u5B58": "\u672A\u6AA2\u6E2C\u5230\u672C\u6A5F Muse \u5C0D\u8A71\u5FEB\u53D6",
   "\u6700\u591A\u540C\u65F6\u8FFD\u8E2A {max} \u4E2A Muse \u5BF9\u8BDD\u6D41\uFF0C\u8BF7\u5148\u53D6\u6D88\u4E00\u4E2A": "\u6700\u591A\u540C\u6642\u8FFD\u8E64 {max} \u500B Muse \u5C0D\u8A71\u6D41\uFF0C\u8ACB\u5148\u53D6\u6D88\u4E00\u500B",
+  "\u8FFD\u8E2A Muse \u4E3B\u52A8\u63A8\u9001\u6D88\u606F": "\u8FFD\u8E64 Muse \u4E3B\u52D5\u63A8\u9001\u8A0A\u606F",
+  "\u9ED8\u8BA4\u4EC5\u8FFD\u8E2A\u4F60\u53D1\u8D77\u7684\u5BF9\u8BDD\uFF1B\u5F00\u542F\u540E\u8FDE\u540C Muse \u4E3B\u52A8\u53D1\u9001\u7684\u6D88\u606F\u4E00\u8D77\u8BB0\u5F55": "\u9810\u8A2D\u50C5\u8FFD\u8E64\u4F60\u767C\u8D77\u7684\u5C0D\u8A71\uFF1B\u958B\u555F\u5F8C\u9023\u540C Muse \u4E3B\u52D5\u767C\u9001\u7684\u8A0A\u606F\u4E00\u8D77\u8A18\u9304",
+  "Muse \u4EC5\u5728\u91CD\u542F\u6216\u5237\u65B0\u5386\u53F2\u65F6\u5199\u5165\u672C\u5730\u7F13\u5B58\uFF0C\u7F13\u5B58\u66F4\u65B0\u540E Agent Deck \u4F1A\u81EA\u52A8\u8FFD\u8E2A\u3002": "Muse \u50C5\u5728\u91CD\u555F\u6216\u91CD\u65B0\u6574\u7406\u6B77\u53F2\u6642\u5BEB\u5165\u672C\u6A5F\u5FEB\u53D6\uFF0C\u5FEB\u53D6\u66F4\u65B0\u5F8C Agent Deck \u6703\u81EA\u52D5\u8FFD\u8E64\u3002",
+  "\u5DF2\u5F00\u542F Muse \u8FFD\u8E2A\uFF1AMuse \u4EC5\u5728\u91CD\u542F\u6216\u5237\u65B0\u5386\u53F2\u65F6\u5199\u5165\u672C\u5730\u7F13\u5B58\uFF0C\u66F4\u65B0\u540E\u4F1A\u81EA\u52A8\u8FFD\u8E2A\u3002": "\u5DF2\u958B\u555F Muse \u8FFD\u8E64\uFF1AMuse \u50C5\u5728\u91CD\u555F\u6216\u91CD\u65B0\u6574\u7406\u6B77\u53F2\u6642\u5BEB\u5165\u672C\u6A5F\u5FEB\u53D6\uFF0C\u66F4\u65B0\u5F8C\u6703\u81EA\u52D5\u8FFD\u8E64\u3002",
   "T3 Code \u6B63\u5728\u7B49\u5F85\u4F60\u7684\u56DE\u590D\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED": "T3 Code \u6B63\u5728\u7B49\u5F85\u4F60\u7684\u56DE\u8986\uFF0C\u8ACB\u5728\u7528\u6236\u7AEF\u7E7C\u7E8C",
   "T3 Code \u670D\u52A1\u672A\u8FD0\u884C\uFF0C\u8BF7\u5148\u6253\u5F00 T3 Code \u684C\u9762\u7248\u6216\u8FD0\u884C t3 up": "T3 Code \u670D\u52D9\u672A\u57F7\u884C\uFF0C\u8ACB\u5148\u958B\u555F T3 Code \u684C\u9762\u7248\u6216\u57F7\u884C t3 up",
   "t3 \u9000\u51FA\u7801 {code}": "t3 \u7D50\u675F\u4EE3\u78BC {code}",
@@ -3537,6 +3566,7 @@ var zh_TW_default = {
   "\u8FD9\u4E00\u5757\u4E0B\u9762\u5DF2\u7ECF\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u53D1\u5148\u5220\u6389\u90A3\u4E00\u884C": "\u9019\u4E00\u584A\u4E0B\u9762\u5DF2\u7D93\u6709 \u{1F517} \u4E86\uFF1B\u8981\u91CD\u767C\u5148\u522A\u6389\u90A3\u4E00\u884C",
   "\u8BF7\u7B49\u5F53\u524D\u8FD9\u4E00\u8F6E\u7ED3\u675F\u540E\u518D\u53D1\u9001": "\u8ACB\u7B49\u7576\u524D\u9019\u4E00\u8F2A\u7D50\u675F\u5F8C\u518D\u767C\u9001",
   "\u8FD9\u662F Antigravity \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED": "\u9019\u662F Antigravity \u684C\u9762\u6703\u8A71\uFF0C\u8ACB\u5728\u5BA2\u6236\u7AEF\u7E7C\u7E8C",
+  "\u8FD9\u662F {agent} \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED": "\u9019\u662F {agent} \u684C\u9762\u6703\u8A71\uFF0C\u8ACB\u5728\u5BA2\u6236\u7AEF\u7E7C\u7E8C",
   "\u8FD9\u662F Qoder \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED\uFF1B\u5728\u63D2\u4EF6\u4E2D\u901A\u8FC7 CLI \u59D4\u6D3E\u540E\u53EF\u5728 Obsidian \u5185\u7EED\u804A": "\u9019\u662F Qoder \u684C\u9762\u6703\u8A71\uFF0C\u8ACB\u5728\u5BA2\u6236\u7AEF\u7E7C\u7E8C\uFF1B\u5728\u5916\u639B\u4E2D\u901A\u904E CLI \u59D4\u6D3E\u5F8C\u53EF\u5728 Obsidian \u5167\u7E8C\u804A",
   "\u7B49\u4F60\u5728 {agent} \u91CC\u53D1\u51FA\u53BB": "\u7B49\u4F60\u5728 {agent} \u88E1\u767C\u51FA\u53BB",
   "\u5728\u7EC8\u7AEF\u91CC\u5F00 {agent}": "\u5728\u7D42\u7AEF\u88E1\u958B {agent}",
@@ -4253,10 +4283,9 @@ var AGENTS = {
     color: "#5f7d95",
     soft: "rgba(95,125,149,.13)",
     kind: "cursor",
-    where: ["~/.agent-deck/cursor-events \xB7 ~/.cursor/hooks.json", t("Cursor \u684C\u9762\u7248\uFF08Hooks + \u4F1A\u8BDD\u65E5\u5FD7\uFF09")],
+    where: ["~/.agent-deck/cursor-events \xB7 ~/.cursor/hooks.json", t("Cursor \u684C\u9762\u7248\uFF08Hooks\uFF09\u4E0E CLI ACP \u59D4\u6D3E")],
     deep: "cursor",
-    desktopOnly: true,
-    trackingOnly: true
+    desktopOnly: false
   },
   grokbot: {
     id: "grokbot",
@@ -4343,6 +4372,7 @@ var MODEL_CATALOG = [
   { id: "hermes-default", agent: "hermes", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Hermes", context: "\u2014", tags: [], note: t("\u4F7F\u7528 Hermes \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
   { id: "minimax-default", agent: "minimax", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "MiniMax", context: "\u2014", tags: [], note: t("\u4F7F\u7528 MiniMax Code \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
   { id: "gemini-default", agent: "gemini", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Gemini CLI", context: "\u2014", tags: [], note: t("\u4F7F\u7528 Gemini CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
+  { id: "cursor-default", agent: "cursor", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Cursor", context: "\u2014", tags: [], note: t("\u4F7F\u7528 Cursor CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u56DE\u9000\u684C\u9762\u7AEF\u4EA4\u63A5\u3002") },
   {
     id: "qoder-ultimate",
     agent: "qoder",
@@ -4590,6 +4620,7 @@ var DEFAULTS = {
   grokBotTrackedBotIds: [],
   museTrackedIds: ["hatch-main"],
   museMaxTracked: 5,
+  museTrackProactive: false,
   // Human–AI journal: sessions written back into the daily note.
   journalFolder: "",
   // 日记目录；留空自动检测（找不到就用「日记」）
@@ -4649,7 +4680,7 @@ var DEFAULTS = {
   // 自动整理间隔（分钟）
   autoLogStartDelay: 1,
   // 插件启动后第几分钟先整理一次，不用等满一个间隔
-  autoLogMinMinutes: 3,
+  autoLogMinMinutes: 1,
   // 新会话累计活跃满几分钟才建项（归档了的不管多短都记）
   autoLogIdle: 10,
   // 停了几分钟算 PAUSED
@@ -4749,6 +4780,7 @@ var DEFAULTS = {
     hermes: { model: "hermes-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     minimax: { model: "minimax-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     gemini: { model: "gemini-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    cursor: { model: "cursor-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     t3code: { path: "", cwd: "", extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
@@ -4777,7 +4809,7 @@ var DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", minimax: "minimax-default", qoder: "qoder-ultimate" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", minimax: "minimax-default", gemini: "gemini-default", cursor: "cursor-default", qoder: "qoder-ultimate" },
     effort: "high",
     effortByAgent: {}
   },
@@ -8209,15 +8241,15 @@ var AttentionTracker = class {
 var activeJob = (job) => ["starting", "running", "needs-approval"].includes(job?.state);
 function destinations(agent) {
   const modes = {
-    desktop: { id: "desktop", label: t("\u5728\u684C\u9762\u5BA2\u6237\u7AEF\u4E2D\u804A"), hint: ["workbuddy", "qoder"].includes(agent) ? t("\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u7B49\u5F85\u4F60\u7C98\u8D34\u53D1\u9001\u3002") : agent === "dsh" ? t("\u5EFA\u7ACB\u4F1A\u8BDD\u540E\u6253\u5F00 Harness\uFF1B\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u5728\u4FA7\u680F\u9009\u62E9\u540C\u4E00\u4F1A\u8BDD\u7EE7\u7EED\u3002") : t("\u5148\u6267\u884C\u9996\u8F6E\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD\uFF1B\u9996\u8F6E\u671F\u95F4\u907F\u514D\u4E24\u8FB9\u540C\u65F6\u53D1\u9001\u3002") },
+    desktop: { id: "desktop", label: t("\u5728\u684C\u9762\u5BA2\u6237\u7AEF\u4E2D\u804A"), hint: ["workbuddy", "qoder", "cursor"].includes(agent) ? t("\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u7B49\u5F85\u4F60\u7C98\u8D34\u53D1\u9001\u3002") : agent === "dsh" ? t("\u5EFA\u7ACB\u4F1A\u8BDD\u540E\u6253\u5F00 Harness\uFF1B\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u5728\u4FA7\u680F\u9009\u62E9\u540C\u4E00\u4F1A\u8BDD\u7EE7\u7EED\u3002") : t("\u5148\u6267\u884C\u9996\u8F6E\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD\uFF1B\u9996\u8F6E\u671F\u95F4\u907F\u514D\u4E24\u8FB9\u540C\u65F6\u53D1\u9001\u3002") },
     background: { id: "background", label: t("\u540E\u53F0\u6267\u884C"), hint: t("\u7559\u5728\u5F53\u524D\u7B14\u8BB0\uFF0C\u5B8C\u6210\u6216\u9700\u8981\u5904\u7406\u65F6\u63D0\u9192\u3002") },
     terminal: { id: "terminal", label: t("\u5728\u7EC8\u7AEF\u4E2D\u804A"), hint: t("\u6253\u5F00\u4EA4\u4E92\u7EC8\u7AEF\uFF0C\u540E\u7EED\u5728\u7EC8\u7AEF\u7EE7\u7EED\u3002") }
   };
-  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["desktop", "background"], antigravity: ["background"], opencode: ["desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], hermes: ["background", "terminal"], minimax: ["desktop", "background", "terminal"], t3code: ["desktop", "background"], workbuddy: ["desktop", "terminal"] };
+  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["desktop", "background"], antigravity: ["background"], opencode: ["desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], hermes: ["background", "terminal"], minimax: ["desktop", "background", "terminal"], cursor: ["background", "desktop"], gemini: ["background", "terminal"], t3code: ["desktop", "background"], workbuddy: ["desktop", "terminal"] };
   return (ids[agent] || []).map((id) => modes[id]);
 }
 function defaultDestination(plugin, agent) {
-  if (["antigravity", "qoder", "hermes", "minimax", "t3code"].includes(agent)) return "background";
+  if (["antigravity", "qoder", "hermes", "minimax", "cursor", "gemini", "t3code"].includes(agent)) return "background";
   if (agent === "dsh") return "desktop";
   if (agent === "opencode") return plugin.settings?.delegate?.opencode?.openDesktop ? "desktop" : "background";
   if (agent === "codex") return plugin.settings?.delegate?.codex?.transport === "terminal" ? "terminal" : "desktop";
@@ -8859,7 +8891,7 @@ var import_crypto2 = require("crypto");
 var fsp = import_fs5.default.promises;
 var CURSOR_MIN_VERSION = "3.30.14";
 var CURSOR_HOOK_MARKER = "agent-deck-cursor-hook";
-var CURSOR_HOOK_VERSION = 1;
+var CURSOR_HOOK_VERSION = 2;
 var CURSOR_HOOK_EVENTS = [
   "sessionStart",
   "sessionEnd",
@@ -8998,6 +9030,9 @@ if (event && sid && supported(p.cursor_version)) {
     version: String(p.cursor_version || ""),
     transcript: p.transcript_path ? String(p.transcript_path) : "",
   };
+  const parentSid = String(p.parent_conversation_id || p.root_conversation_id || "");
+  if (parentSid && parentSid !== sid) rec.parentSid = parentSid;
+  if (p.is_subagent || (event !== "subagentStart" && event !== "subagentStop" && p.subagent_id)) rec.isSubagent = true;
   if (roots.length) rec.roots = roots;
   if (event === "sessionStart") {
     rec.mode = String(p.composer_mode || "");
@@ -9052,6 +9087,7 @@ if (event && sid && supported(p.cursor_version)) {
     rec.subModel = String(p.subagent_model || "");
     if (p.is_parallel_worker) rec.bg = true;
     if (p.tool_call_id) rec.parentCallId = String(p.tool_call_id);
+    if (p.child_conversation_id) rec.childSid = String(p.child_conversation_id);
   } else if (event === "subagentStop") {
     rec.subId = String(p.subagent_id || p.child_conversation_id || "");
     rec.subType = String(p.subagent_type || "");
@@ -9260,6 +9296,13 @@ function applyCursorTokens(usage, fc, sid, key, proj, model, ms, d) {
   fc.msgs.set(msgId, m);
   return { prev, m, isNew: !prev.out && !prev.fresh && !prev.cached };
 }
+function linkCursorChild(usage, parentSid, childSid) {
+  if (!parentSid || !childSid || parentSid === childSid) return;
+  (usage.cursorParents || (usage.cursorParents = /* @__PURE__ */ new Map())).set(childSid, parentSid);
+  usage.markSubagent?.(childSid, parentSid);
+  const childMeta = usage.meta.get(childSid);
+  if (childMeta && !childMeta.parentSid) childMeta.parentSid = parentSid;
+}
 function ingestCursorEvent(ctx, d, fc, touched) {
   if (!d || typeof d !== "object") return;
   if (!isSupportedCursorVersion(d.version)) return;
@@ -9273,6 +9316,11 @@ function ingestCursorEvent(ctx, d, fc, touched) {
   if (cs.seenEvents.has(dk)) return;
   cs.seenEvents.add(dk);
   fc.sid = sid;
+  if (d.parentSid && d.parentSid !== sid) {
+    fc.parentSid = d.parentSid;
+    linkCursorChild(usage, d.parentSid, sid);
+  }
+  if (d.isSubagent) fc.isSubagent = true;
   if (d.cwd && (!fc.cwd || fc.cwd === "~")) fc.cwd = d.cwd;
   else if (!fc.cwd && Array.isArray(d.roots) && d.roots[0]) fc.cwd = d.roots[0];
   fc.app = "desktop";
@@ -9420,6 +9468,7 @@ function ingestCursorEvent(ctx, d, fc, touched) {
       r.bg = !!d.bg;
       if (!r.endAt) r.state = "run";
     }
+    linkCursorChild(usage, sid, d.childSid);
   } else if (ev === "subagentStop") {
     const subId = String(d.subId || d.childSid || "");
     if (subId) {
@@ -9433,8 +9482,11 @@ function ingestCursorEvent(ctx, d, fc, touched) {
       if (d.task && !r.desc) r.desc = String(d.task);
       if (d.subType && !r.type) r.type = String(d.subType);
     }
+    linkCursorChild(usage, sid, d.childSid);
   }
   const meta = usage.meta.get(sid) || {};
+  const parentSid = fc.parentSid || usage.cursorParents?.get(sid) || meta.parentSid || "";
+  const isSubagent = Boolean(fc.isSubagent || meta.isSubagent);
   usage.noteMeta(fc, sid, {
     title: v.title || meta.title || "",
     text: s.text || meta.text || "",
@@ -9442,6 +9494,8 @@ function ingestCursorEvent(ctx, d, fc, touched) {
     app: "desktop",
     model: v.model || fc.model || meta.model || "",
     lastAt: Math.max(ms, meta.lastAt || 0),
+    parentSid,
+    ...isSubagent ? { isSubagent: true } : {},
     state: v.state,
     step: v.step,
     turns: v.turns || 0,
@@ -9918,11 +9972,16 @@ function ingestCodexLine(ctx, line, fc, touched) {
     fc.sid = p2.id || fc.sid;
     fc.cwd = p2.cwd || fc.cwd;
     fc.app = p2.originator || fc.app || "codex";
-    const spawn6 = p2.source && typeof p2.source === "object" && p2.source.subagent && p2.source.subagent.thread_spawn;
+    const subSource = p2.source && typeof p2.source === "object" ? p2.source.subagent : null;
+    const spawn6 = subSource && typeof subSource === "object" ? subSource.thread_spawn : null;
     const parent = p2.parent_thread_id || spawn6 && spawn6.parent_thread_id || "";
-    if (parent && parent !== fc.sid) {
-      fc.parentSid = String(parent);
-      usage.noteMeta(fc, fc.sid, { parentSid: fc.parentSid });
+    if (subSource) fc.isSubagent = true;
+    if (parent && parent !== fc.sid) fc.parentSid = String(parent);
+    if (fc.parentSid || fc.isSubagent) {
+      usage.noteMeta(fc, fc.sid, {
+        ...fc.parentSid ? { parentSid: fc.parentSid } : {},
+        ...fc.isSubagent ? { isSubagent: true } : {}
+      });
     }
     return;
   }
@@ -10258,7 +10317,7 @@ function ingestDshLine(ctx, line, fc, touched) {
     if (d.parentSession) fc.parentSid = String(d.parentSession);
     if (Number(d.delegationDepth) > 0) fc.isSubagent = true;
     const existing = usage.meta.get(fc.sid);
-    usage.noteMeta(fc, fc.sid, { cwd: fc.cwd, app: "dsh", lastAt: existing?.lastAt || ms || d.createdAt || 0, ...fc.parentSid ? { parentSid: fc.parentSid } : {} });
+    usage.noteMeta(fc, fc.sid, { cwd: fc.cwd, app: "dsh", lastAt: existing?.lastAt || ms || d.createdAt || 0, ...fc.parentSid ? { parentSid: fc.parentSid } : {}, ...fc.isSubagent ? { isSubagent: true } : {} });
     return;
   }
   if (!ms) return;
@@ -10892,12 +10951,18 @@ function parseMuseConversation(rawText, meta = {}) {
     if (Number.isFinite(sa) && Number.isFinite(sb) && sa !== sb) return sa - sb;
     return museTime(a?.timestamp) - museTime(b?.timestamp);
   });
+  const nonProactiveIds = /* @__PURE__ */ new Set();
+  for (const m of sorted) {
+    if (m && typeof m === "object" && m.isUser && m.id) nonProactiveIds.add(String(m.id));
+  }
   const entries = [];
   let startedAt = 0;
   let lastAt = 0;
   let lastStreaming = false;
   let lastStep = "";
   let lastRole = "";
+  let hasUserMessage = false;
+  let lastTurnProactive = false;
   for (let i = 0; i < sorted.length; i++) {
     const m = sorted[i];
     if (!m || typeof m !== "object") continue;
@@ -10906,6 +10971,16 @@ function parseMuseConversation(rawText, meta = {}) {
     const { text, summaryText: summaryText2 } = extractMuseBlocks(m);
     const step = extractMuseTool(m);
     const isStreaming = Boolean(m.isStreaming);
+    let isProactive = false;
+    if (role === "user") {
+      hasUserMessage = true;
+      lastTurnProactive = false;
+    } else {
+      const replyTo = typeof m.replyToMessageId === "string" ? m.replyToMessageId.trim() : "";
+      isProactive = !hasUserMessage || (replyTo ? nonProactiveIds.size > 0 && !nonProactiveIds.has(replyTo) : lastTurnProactive);
+      lastTurnProactive = isProactive;
+      if (!isProactive && m.id) nonProactiveIds.add(String(m.id));
+    }
     if (at) {
       if (!startedAt || at < startedAt) startedAt = at;
       if (at > lastAt) lastAt = at;
@@ -10922,6 +10997,7 @@ function parseMuseConversation(rawText, meta = {}) {
       at,
       isStreaming,
       step,
+      isProactive,
       isTurnReply: role === "assistant" && Boolean(summaryText2 || text)
     });
   }
@@ -11315,19 +11391,74 @@ var import_fs9 = __toESM(require("fs"), 1);
 var import_path8 = __toESM(require("path"), 1);
 var import_os9 = __toESM(require("os"), 1);
 var expandHome3 = (p2, homeDir) => String(p2 || "").replace(/^~(?=\/)/, homeDir);
-function doubaoWorkDataDir(homeDir = import_os9.default.homedir(), platform = process.platform, env = process.env) {
-  if (env?.DOUBAOWORK_DATA_DIR) return expandHome3(env.DOUBAOWORK_DATA_DIR, homeDir);
-  if (platform === "darwin") return import_path8.default.join(homeDir, "Library", "Application Support", "DoubaoWork");
+function doubaoWorkDataDirs(homeDir = import_os9.default.homedir(), platform = process.platform, env = process.env) {
+  if (env?.DOUBAOWORK_DATA_DIR) return [expandHome3(env.DOUBAOWORK_DATA_DIR, homeDir)];
+  if (platform === "darwin") return [import_path8.default.join(homeDir, "Library", "Application Support", "DoubaoWork")];
   if (platform === "win32") {
     const appData = env?.APPDATA || import_path8.default.join(homeDir, "AppData", "Roaming");
     const localAppData = env?.LOCALAPPDATA || import_path8.default.join(homeDir, "AppData", "Local");
-    const roaming = import_path8.default.join(appData, "DoubaoWork");
-    if (import_fs9.default.existsSync(roaming)) return roaming;
-    return import_path8.default.join(localAppData, "DoubaoWork");
+    return [
+      import_path8.default.join(localAppData, "DoubaoWork", "User Data"),
+      import_path8.default.join(localAppData, "DoubaoWork"),
+      import_path8.default.join(appData, "DoubaoWork", "User Data"),
+      import_path8.default.join(appData, "DoubaoWork")
+    ];
   }
-  return import_path8.default.join(env?.XDG_CONFIG_HOME || import_path8.default.join(homeDir, ".config"), "DoubaoWork");
+  return [import_path8.default.join(env?.XDG_CONFIG_HOME || import_path8.default.join(homeDir, ".config"), "DoubaoWork")];
+}
+function doubaoWorkDataDir(homeDir = import_os9.default.homedir(), platform = process.platform, env = process.env) {
+  const dirs = doubaoWorkDataDirs(homeDir, platform, env);
+  for (const d of dirs) {
+    try {
+      if (import_fs9.default.existsSync(d)) return d;
+    } catch {
+    }
+  }
+  return dirs[0] || "";
+}
+function doubaoWorkIndexedDbDirs(homeDir = import_os9.default.homedir(), platform = process.platform, env = process.env) {
+  const roots = doubaoWorkDataDirs(homeDir, platform, env);
+  const found = [];
+  const seen = /* @__PURE__ */ new Set();
+  const add = (dir) => {
+    if (!dir || seen.has(dir)) return;
+    seen.add(dir);
+    found.push(dir);
+  };
+  for (const root of roots) {
+    if (!root) continue;
+    const profileDirs = [import_path8.default.join(root, "Default"), root];
+    try {
+      for (const ent of import_fs9.default.readdirSync(root, { withFileTypes: true })) {
+        if (ent.isDirectory() && /^Profile\s+\d+$/i.test(ent.name)) {
+          profileDirs.push(import_path8.default.join(root, ent.name));
+        }
+      }
+    } catch {
+    }
+    for (const prof of profileDirs) {
+      const idbRoot = import_path8.default.join(prof, "IndexedDB");
+      const primary = import_path8.default.join(idbRoot, "chrome_doubaowork-chat_0.indexeddb.leveldb");
+      try {
+        if (import_fs9.default.existsSync(primary)) add(primary);
+      } catch {
+      }
+      try {
+        for (const ent of import_fs9.default.readdirSync(idbRoot, { withFileTypes: true })) {
+          if (!ent.isDirectory()) continue;
+          if (/doubao.*\.indexeddb\.leveldb$/i.test(ent.name)) {
+            add(import_path8.default.join(idbRoot, ent.name));
+          }
+        }
+      } catch {
+      }
+    }
+  }
+  return found;
 }
 function doubaoWorkIndexedDbDir(homeDir = import_os9.default.homedir(), platform = process.platform, env = process.env) {
+  const found = doubaoWorkIndexedDbDirs(homeDir, platform, env);
+  if (found.length) return found[0];
   const base = doubaoWorkDataDir(homeDir, platform, env);
   if (!base) return "";
   return import_path8.default.join(base, "Default", "IndexedDB", "chrome_doubaowork-chat_0.indexeddb.leveldb");
@@ -11414,6 +11545,21 @@ function readV8String(buf, pos) {
   const text = tag === 99 ? slice.toString("utf16le") : slice.toString("utf8");
   return { text, next: next + byteLen };
 }
+function readV8Number(buf, pos) {
+  if (pos >= buf.length) return null;
+  const tag = buf[pos];
+  if (tag === 73) {
+    const v = readVarint(buf, pos + 1);
+    if (!v) return null;
+    return { num: v.val >>> 1 ^ -(v.val & 1), next: v.next };
+  }
+  if (tag === 78 && pos + 9 <= buf.length) {
+    const num2 = buf.readDoubleLE(pos + 1);
+    if (!Number.isFinite(num2)) return null;
+    return { num: num2, next: pos + 9 };
+  }
+  return null;
+}
 function readFieldString(buf, start, end, keyName) {
   const needle = Buffer.from(keyName, "ascii");
   const idx = buf.indexOf(needle, start);
@@ -11421,11 +11567,31 @@ function readFieldString(buf, start, end, keyName) {
   const val = readV8String(buf, idx + needle.length);
   return val ? val.text : "";
 }
-function parseUnixSec(str) {
-  if (!/^\d{9,13}$/.test(String(str || "").trim())) return 0;
+function parseUnixSec(raw) {
+  const str = typeof raw === "number" ? String(Math.floor(raw)) : String(raw || "").trim();
+  if (!/^\d{9,13}$/.test(str)) return 0;
   const n = Number(str);
   if (!Number.isFinite(n) || n <= 0) return 0;
   return n > 1e12 ? Math.floor(n) : Math.floor(n * 1e3);
+}
+function readFieldTimestamp(buf, start, end, keyNames) {
+  for (const keyName of keyNames) {
+    const needle = Buffer.from(keyName, "ascii");
+    const idx = buf.indexOf(needle, start);
+    if (idx === -1 || idx + needle.length >= end) continue;
+    const after = idx + needle.length;
+    const strVal = readV8String(buf, after);
+    if (strVal) {
+      const ms = parseUnixSec(strVal.text);
+      if (ms) return ms;
+    }
+    const numVal = readV8Number(buf, after);
+    if (numVal) {
+      const ms = parseUnixSec(numVal.num);
+      if (ms) return ms;
+    }
+  }
+  return 0;
 }
 function parseDoubaoWorkBuffer(buf) {
   if (!Buffer.isBuffer(buf) || !buf.length) return [];
@@ -11442,10 +11608,10 @@ function parseDoubaoWorkBuffer(buf) {
     if (!/^[a-zA-Z0-9_-]{6,64}$/.test(id)) continue;
     const nextIdx = buf.indexOf(marker, idRes.next);
     const end = nextIdx !== -1 && nextIdx - idRes.next < 4096 ? nextIdx : Math.min(buf.length, idRes.next + 4096);
-    const title = readFieldString(buf, idRes.next, end, "name").replace(/\s+/g, " ").trim();
+    const title = (readFieldString(buf, idRes.next, end, "name") || readFieldString(buf, idRes.next, end, "title")).replace(/\s+/g, " ").trim();
     const botId = readFieldString(buf, idRes.next, end, "bot_id").trim();
-    const createMs = parseUnixSec(readFieldString(buf, idRes.next, end, "create_time"));
-    const updateMs = parseUnixSec(readFieldString(buf, idRes.next, end, "update_time"));
+    const createMs = readFieldTimestamp(buf, idRes.next, end, ["create_time", "created_at"]);
+    const updateMs = readFieldTimestamp(buf, idRes.next, end, ["update_time", "updated_at", "last_message_time"]);
     const projectId = readFieldString(buf, idRes.next, end, "project_id").trim();
     if (!createMs && !updateMs) continue;
     const startedAt = createMs || updateMs;
@@ -11514,52 +11680,54 @@ function extractLdbBuffers(buf) {
   return out;
 }
 function discoverDoubaoWorkConversations(opts = {}) {
-  const idbDir = opts.indexedDbDir || doubaoWorkIndexedDbDir(opts.homeDir, opts.platform, opts.env);
-  if (!idbDir) return { indexedDbDir: "", conversations: [], mtimeMs: 0, size: 0 };
-  let names;
-  try {
-    names = import_fs9.default.readdirSync(idbDir);
-  } catch {
-    return { indexedDbDir: idbDir, conversations: [], mtimeMs: 0, size: 0 };
-  }
-  const dataFiles = names.filter((n) => n.endsWith(".log") || n.endsWith(".ldb")).sort();
-  if (!dataFiles.length) return { indexedDbDir: idbDir, conversations: [], mtimeMs: 0, size: 0 };
+  const idbDirs = opts.indexedDbDir ? [opts.indexedDbDir] : doubaoWorkIndexedDbDirs(opts.homeDir, opts.platform, opts.env);
+  const primaryDir = idbDirs[0] || doubaoWorkIndexedDbDir(opts.homeDir, opts.platform, opts.env);
+  if (!idbDirs.length) return { indexedDbDir: primaryDir, conversations: [], mtimeMs: 0, size: 0 };
   const merged = /* @__PURE__ */ new Map();
   let maxMtime = 0;
   let totalSize = 0;
-  for (const name of dataFiles) {
-    const filePath = import_path8.default.join(idbDir, name);
-    let st;
+  for (const idbDir of idbDirs) {
+    let names;
     try {
-      st = import_fs9.default.statSync(filePath);
+      names = import_fs9.default.readdirSync(idbDir);
     } catch {
       continue;
     }
-    if (st.size <= 0 || st.size > 64 * 1024 * 1024) continue;
-    totalSize += st.size;
-    if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs;
-    let raw;
-    try {
-      raw = import_fs9.default.readFileSync(filePath);
-    } catch {
-      continue;
-    }
-    const buffers = name.endsWith(".ldb") ? extractLdbBuffers(raw) : [raw];
-    for (const buf of buffers) {
-      for (const conv of parseDoubaoWorkBuffer(buf)) {
-        const prev = merged.get(conv.id);
-        if (!prev || conv.lastAt > prev.lastAt || conv.lastAt === prev.lastAt && conv.title && !prev.title) {
-          merged.set(conv.id, {
-            ...conv,
-            startedAt: prev ? Math.min(prev.startedAt, conv.startedAt) : conv.startedAt,
-            filePath
-          });
+    const dataFiles = names.filter((n) => n.endsWith(".log") || n.endsWith(".ldb")).sort();
+    for (const name of dataFiles) {
+      const filePath = import_path8.default.join(idbDir, name);
+      let st;
+      try {
+        st = import_fs9.default.statSync(filePath);
+      } catch {
+        continue;
+      }
+      if (st.size <= 0 || st.size > 64 * 1024 * 1024) continue;
+      totalSize += st.size;
+      if (st.mtimeMs > maxMtime) maxMtime = st.mtimeMs;
+      let raw;
+      try {
+        raw = import_fs9.default.readFileSync(filePath);
+      } catch {
+        continue;
+      }
+      const buffers = name.endsWith(".ldb") ? extractLdbBuffers(raw) : [raw];
+      for (const buf of buffers) {
+        for (const conv of parseDoubaoWorkBuffer(buf)) {
+          const prev = merged.get(conv.id);
+          if (!prev || conv.lastAt > prev.lastAt || conv.lastAt === prev.lastAt && conv.title && !prev.title) {
+            merged.set(conv.id, {
+              ...conv,
+              startedAt: prev ? Math.min(prev.startedAt, conv.startedAt) : conv.startedAt,
+              filePath
+            });
+          }
         }
       }
     }
   }
   const conversations = [...merged.values()].sort((a, b) => b.lastAt - a.lastAt || a.id.localeCompare(b.id));
-  return { indexedDbDir: idbDir, conversations, mtimeMs: maxMtime, size: totalSize };
+  return { indexedDbDir: primaryDir, conversations, mtimeMs: maxMtime, size: totalSize };
 }
 function buildDoubaoWorkConversation(source) {
   const [dirOrFile, sid] = String(source || "").split("#");
@@ -12614,7 +12782,7 @@ function cleanLive(v, now = Date.now()) {
   else v.quiet = false;
   return v;
 }
-var USAGE_CACHE_VERSION = 18;
+var USAGE_CACHE_VERSION = 20;
 var SUMMARY_VERSION = 3;
 function packDay(day) {
   return { ...day, sess: [...day.sess instanceof Map ? day.sess : /* @__PURE__ */ new Map()] };
@@ -12643,6 +12811,7 @@ function packFile(f) {
     ps: f.parentSid,
     mr: f.metaRead ? 1 : 0
   };
+  if (f.isSubagent) out.isSub = 1;
   if (f.zOff) {
     out.zo = f.zOff;
     out.zh = f.zHead;
@@ -12673,6 +12842,7 @@ function unpackFile(o) {
     zstd: !!o.z,
     sub: o.sub || "",
     parentSid: o.ps || "",
+    isSubagent: !!o.isSub,
     metaRead: !!o.mr,
     zOff: o.zo || 0,
     zHead: o.zh || "",
@@ -12701,6 +12871,8 @@ var AgentUsage = class {
     this.archivedClaude = /* @__PURE__ */ new Set();
     this.sideChats = /* @__PURE__ */ new Map();
     this.subs = /* @__PURE__ */ new Map();
+    this.cursorParents = /* @__PURE__ */ new Map();
+    this.subagentSids = /* @__PURE__ */ new Set();
     this.wbMeta = /* @__PURE__ */ new Map();
     this.t3Delegated = /* @__PURE__ */ new Map();
     this.sideAt = 0;
@@ -12740,15 +12912,26 @@ var AgentUsage = class {
       if (!data || data.v !== USAGE_CACHE_VERSION || !Array.isArray(data.files)) return false;
       if (data.cutoff !== void 0 && data.cutoff !== curCutoff) return false;
       this.files = /* @__PURE__ */ new Map();
+      this.subagentSids = /* @__PURE__ */ new Set();
       for (const entry of data.files) {
         if (!entry || !entry.p) continue;
         const fc = unpackFile(entry);
         this.files.set(fc.path, fc);
+        if (!fc.sub && fc.sid && (fc.isSubagent || fc.parentSid && fc.parentSid !== fc.sid)) {
+          this.subagentSids.add(fc.sid);
+        }
       }
       if (Array.isArray(data.meta)) this.meta = new Map(data.meta);
+      this.cursorParents = new Map(Array.isArray(data.cursorParents) ? data.cursorParents : []);
+      for (const [childSid, parentSid] of this.cursorParents) {
+        if (childSid && parentSid && parentSid !== childSid) this.subagentSids.add(childSid);
+      }
       this.clientTitles = new Set(Array.isArray(data.clientTitles) ? data.clientTitles : []);
       this.customTitles = new Set(Array.isArray(data.customTitles) ? data.customTitles : []);
       for (const m of this.meta.values()) {
+        if (m?.sid && (m.isSubagent || m.parentSid && m.parentSid !== m.sid)) {
+          this.subagentSids.add(m.sid);
+        }
         if (m?.clientTitle && m.sid) {
           this.clientTitles.add(m.sid);
           if (m.title && !this.titles.has(m.sid)) this.titles.set(m.sid, m.title);
@@ -12772,7 +12955,8 @@ var AgentUsage = class {
       files: [...this.files.values()].map(packFile),
       meta: [...this.meta],
       clientTitles: [...this.clientTitles],
-      customTitles: [...this.customTitles]
+      customTitles: [...this.customTitles],
+      ...this.cursorParents?.size ? { cursorParents: [...this.cursorParents] } : {}
     });
   }
   saveCache(file) {
@@ -13230,6 +13414,7 @@ var AgentUsage = class {
       m.archived = false;
       m.sideChats = 0;
       m.sideSince = 0;
+      if (!m.isSubagent && m.sid) this.subagentSids?.delete(m.sid);
     }
     for (const d of this.deskBySid.values()) {
       const m = this.meta.get(d.sid);
@@ -13238,6 +13423,7 @@ var AgentUsage = class {
       if (d.title) this.noteClientTitle(d.sid, d.title);
       m.parentSid = d.parentSid || "";
       m.parentTitle = d.parentTitle || "";
+      if (d.parentSid && d.parentSid !== d.sid) this.markSubagent(d.sid, d.parentSid);
       m.archived = d.archived === true;
       if (d.created && !m.startedAt) m.startedAt = d.created;
     }
@@ -13432,7 +13618,9 @@ var AgentUsage = class {
       this.settings.museCacheDir ? { cacheDir: this.settings.museCacheDir } : { homeDir: home2() }
     );
     const activeIds = /* @__PURE__ */ new Set();
-    const scope = this.isPrimary("muse") ? -1 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+    const trackProactive = this.settings.museTrackProactive === true;
+    const baseScope = this.isPrimary("muse") ? 0 : Number(dayKeyToday(this.cfg).replaceAll("-", ""));
+    const scope = trackProactive ? -(baseScope + 1) : baseScope + 1;
     for (const conv of storage.conversations) {
       if (!tracked.has(conv.id)) continue;
       let st;
@@ -13477,6 +13665,7 @@ var AgentUsage = class {
       let firstEntryAt = 0;
       for (const e of parsed.entries) {
         if (!e.at) continue;
+        if (!trackProactive && e.isProactive) continue;
         if (strictSince && e.at < floor) continue;
         if (this.stale("muse", e.at) && !previous?.days.has(dayKey(e.at, this.cfg))) continue;
         if (!firstEntryAt || e.at < firstEntryAt) firstEntryAt = e.at;
@@ -13500,8 +13689,11 @@ var AgentUsage = class {
         }
       }
       if (fc.live) {
-        fc.live.state = parsed.state;
-        fc.live.step = parsed.step;
+        const lastParsed = parsed.entries[parsed.entries.length - 1];
+        if (trackProactive || !lastParsed?.isProactive) {
+          fc.live.state = parsed.state;
+          fc.live.step = parsed.step;
+        }
         fc.live.turns = fc.rounds?.list.length || 0;
         fc.live.rounds = fc.rounds?.list || [];
         this.noteClientTitle(sid, parsed.title, { fc });
@@ -13693,7 +13885,8 @@ var AgentUsage = class {
       const at = conv.lastAt || conv.startedAt;
       if (!at) continue;
       if (strictSince && at < floor) continue;
-      const key = `${storage.indexedDbDir}#${sid}`;
+      const convDir = conv.filePath ? import_path10.default.dirname(conv.filePath) : storage.indexedDbDir;
+      const key = `${convDir}#${sid}`;
       const previous = this.files.get(key);
       if (this.stale("doubaowork", at) && !previous?.days.has(dayKey(at, this.cfg))) continue;
       activeIds.add(sid);
@@ -13972,16 +14165,35 @@ var AgentUsage = class {
   hasClientTitle(sid) {
     return Boolean(sid && (this.clientTitles.has(sid) || this.meta.get(sid)?.clientTitle));
   }
+  markSubagent(sid, parentSid = "", isSubagent = false) {
+    if (!sid) return;
+    if (isSubagent || parentSid && parentSid !== sid) {
+      (this.subagentSids || (this.subagentSids = /* @__PURE__ */ new Set())).add(sid);
+    }
+  }
   noteMeta(fc, sid, patch) {
     let m = this.meta.get(sid);
     if (!m) this.meta.set(sid, m = { sid, agent: fc.agent, title: "", text: "", cwd: fc.cwd || "", app: fc.app || "", model: "", lastAt: 0, out: 0, fresh: 0, cached: 0, calls: 0, segs: [], state: "idle", step: "", todo: null, err: "", lastText: "", archived: false });
     Object.assign(m, patch);
+    if (!fc?.sub && fc?.parentSid && fc.parentSid !== sid && !m.parentSid) m.parentSid = fc.parentSid;
+    if (!fc?.sub && fc?.isSubagent || patch?.isSubagent) m.isSubagent = true;
+    this.markSubagent(sid, m.parentSid, Boolean(m.isSubagent));
     if (this.titles.has(sid) && (!m.title || !m.customTitle)) {
       m.title = this.titles.get(sid);
       m.clientTitle = this.clientTitles.has(sid) || Boolean(m.clientTitle);
       if (this.customTitles.has(sid)) m.customTitle = true;
     }
     return m;
+  }
+  isSubagentSession(sid) {
+    if (!sid) return false;
+    if (this.subagentSids?.has(sid)) return true;
+    const m = this.meta.get(sid);
+    if (m && (m.isSubagent || m.parentSid && m.parentSid !== sid)) return true;
+    const desk = this.deskBySid?.get(sid);
+    if (desk?.parentSid && desk.parentSid !== sid) return true;
+    const cp = this.cursorParents?.get(sid);
+    return Boolean(cp && cp !== sid);
   }
   // ----- JSONL agents -----
   async readJsonl(p2, agent, st, touched) {
@@ -17495,15 +17707,24 @@ var CAPABILITIES = /* @__PURE__ */ new Map([
     sessionLinkScheme: "qwenwork"
   }],
   ["cursor", {
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
-    desktopHandoffOnly: true,
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    acpArgs: ["acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "cursor-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
+    desktopHandoffOnly: false,
+    handoffFallback: true,
     terminalHandoff: false,
-    continueInApp: false,
+    continueInApp: true,
+    continueRequiresAcp: true,
     permissionControl: false,
     archiveDetection: false,
-    modelCatalog: false,
+    modelCatalog: true,
     sessionLinkScheme: "cursor"
   }],
   ["grokbot", {
@@ -18792,6 +19013,23 @@ var AGENT_BINARY_SPECS = {
       "/usr/local/bin/gemini"
     ]
   },
+  cursor: {
+    fallback: "agent",
+    altFallbacks: ["cursor-agent"],
+    candidates: () => process.platform === "win32" ? [
+      import_path17.default.join(process.env.LOCALAPPDATA || import_path17.default.join(home4(), "AppData", "Local"), "cursor-agent", "agent.cmd"),
+      import_path17.default.join(process.env.LOCALAPPDATA || import_path17.default.join(home4(), "AppData", "Local"), "cursor-agent", "agent.exe"),
+      import_path17.default.join(home4(), ".local", "bin", "agent.exe"),
+      import_path17.default.join(home4(), ".local", "bin", "agent.cmd"),
+      import_path17.default.join(home4(), ".local", "bin", "cursor-agent.exe"),
+      import_path17.default.join(home4(), ".local", "bin", "cursor-agent.cmd")
+    ] : [
+      import_path17.default.join(home4(), ".local/bin/agent"),
+      import_path17.default.join(home4(), ".local/bin/cursor-agent"),
+      "/opt/homebrew/bin/agent",
+      "/usr/local/bin/agent"
+    ]
+  },
   minimax: {
     fallback: "mcode",
     candidates: () => [
@@ -18890,16 +19128,38 @@ function findInPathDirs(name, dirs) {
   }
   return "";
 }
-function findBinary(configured, candidates, fallback) {
+function resolveBinaryInEnv(configured, candidates, names) {
   const custom = configured && String(configured).trim();
-  if (custom) return norm2(custom);
+  if (custom) {
+    const p2 = norm2(custom);
+    try {
+      if (import_fs19.default.existsSync(p2)) return p2;
+    } catch {
+    }
+    return findInPathDirs(custom, expandedPathEntries());
+  }
   for (const p2 of candidates) {
     try {
       if (import_fs19.default.existsSync(p2)) return p2;
     } catch {
     }
   }
-  return findInPathDirs(fallback, expandedPathEntries()) || fallback;
+  const dirs = expandedPathEntries();
+  for (const name of names) {
+    const hit = findInPathDirs(name, dirs);
+    if (hit) return hit;
+  }
+  return "";
+}
+function findBinary(configured, candidates, fallback, altFallbacks = []) {
+  const custom = configured && String(configured).trim();
+  if (custom) return norm2(custom);
+  return resolveBinaryInEnv("", candidates, [fallback, ...altFallbacks]) || fallback;
+}
+function resolveInstalledAgentBinary(agent, configured = "") {
+  const spec = AGENT_BINARY_SPECS[agent];
+  if (!spec) return resolveBinaryInEnv(configured, [], agent ? [agent] : []);
+  return resolveBinaryInEnv(configured, spec.candidates(), [spec.fallback, ...spec.altFallbacks || []]);
 }
 function findAgentBinary(agent, configured = "") {
   const spec = AGENT_BINARY_SPECS[agent];
@@ -18907,7 +19167,7 @@ function findAgentBinary(agent, configured = "") {
     const custom = configured && String(configured).trim();
     return custom ? norm2(custom) : agent || "";
   }
-  return findBinary(configured, spec.candidates(), spec.fallback);
+  return findBinary(configured, spec.candidates(), spec.fallback, spec.altFallbacks || []);
 }
 function hermesBinLocations(name) {
   return [
@@ -18996,8 +19256,56 @@ async function findCodexTrustedDir(vaultPath) {
     return vaultPath;
   }
 }
+var cachedSystemProxy = null;
+var cachedSystemProxyAt = 0;
+function parseScutilProxy(text) {
+  const out = {};
+  if (!text || typeof text !== "string") return out;
+  const scalar = (key) => {
+    const m = new RegExp(`^\\s*${key}\\s*:\\s*(.+?)\\s*$`, "m").exec(text);
+    return m ? m[1].trim() : "";
+  };
+  if (scalar("HTTPEnable") === "1" && scalar("HTTPProxy") && scalar("HTTPPort")) {
+    out.HTTP_PROXY = out.http_proxy = `http://${scalar("HTTPProxy")}:${scalar("HTTPPort")}`;
+  }
+  if (scalar("HTTPSEnable") === "1" && scalar("HTTPSProxy") && scalar("HTTPSPort")) {
+    out.HTTPS_PROXY = out.https_proxy = `http://${scalar("HTTPSProxy")}:${scalar("HTTPSPort")}`;
+  }
+  if (scalar("SOCKSEnable") === "1" && scalar("SOCKSProxy") && scalar("SOCKSPort")) {
+    out.ALL_PROXY = out.all_proxy = `socks5://${scalar("SOCKSProxy")}:${scalar("SOCKSPort")}`;
+  }
+  if (!Object.keys(out).length) return out;
+  const noProxy = /* @__PURE__ */ new Set();
+  const exc = /ExceptionsList\s*:\s*<array>\s*\{([\s\S]*?)\}/m.exec(text);
+  if (exc) {
+    for (const line of exc[1].split(/\r?\n/)) {
+      const m = /^\s*\d+\s*:\s*(.+?)\s*$/.exec(line);
+      const item = m ? m[1].trim() : "";
+      if (item && item !== "<local>") noProxy.add(item);
+    }
+  }
+  for (const base of ["127.0.0.1", "localhost", "::1"]) noProxy.add(base);
+  out.NO_PROXY = out.no_proxy = [...noProxy].join(",");
+  return out;
+}
+function readMacSystemProxyEnv() {
+  if (process.platform !== "darwin") return {};
+  const now = Date.now();
+  if (cachedSystemProxy !== null && now - cachedSystemProxyAt < 6e4) return cachedSystemProxy;
+  try {
+    const raw = (0, import_child_process7.execFileSync)("/usr/sbin/scutil", ["--proxy"], { encoding: "utf8", timeout: 500, stdio: ["ignore", "pipe", "ignore"] });
+    cachedSystemProxy = parseScutilProxy(raw);
+  } catch {
+    cachedSystemProxy = {};
+  }
+  cachedSystemProxyAt = now;
+  return cachedSystemProxy;
+}
 function cleanEnv(extra = {}) {
-  const env = { ...process.env, ...extra };
+  const proxyKeys = ["HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"];
+  const hasExplicitProxy = proxyKeys.some((k) => Boolean(process.env[k]) || extra != null && Object.prototype.hasOwnProperty.call(extra, k));
+  const sysProxy = hasExplicitProxy ? {} : readMacSystemProxyEnv();
+  const env = { ...sysProxy, ...process.env, ...extra };
   const sep = process.platform === "win32" ? ";" : ":";
   const base = cachedLoginShellPath ? `${env.PATH || ""}${sep}${cachedLoginShellPath}` : env.PATH || "";
   env.PATH = expandedPathEntries(base).join(sep);
@@ -19973,13 +20281,18 @@ function openExternal(url) {
   try {
     const { shell } = require("electron");
     if (shell && typeof shell.openExternal === "function") {
-      shell.openExternal(url);
+      Promise.resolve(shell.openExternal(url)).catch(() => {
+      });
       return true;
     }
   } catch {
   }
   try {
-    (0, import_child_process8.execFile)("/usr/bin/open", [url], () => {
+    if (process.platform === "win32") (0, import_child_process8.execFile)("cmd.exe", ["/c", "start", "", url], { windowsHide: true }, () => {
+    });
+    else if (process.platform === "darwin") (0, import_child_process8.execFile)("/usr/bin/open", [url], () => {
+    });
+    else (0, import_child_process8.execFile)("xdg-open", [url], () => {
     });
     return true;
   } catch {
@@ -20021,6 +20334,7 @@ var AGENT_APPS = {
 function openAgentApp(agent) {
   const app = AGENT_APPS[agent];
   if (!app) return Promise.resolve(false);
+  if (process.platform !== "darwin") return Promise.resolve(openExternal(app.url));
   const bundles = [app.bundle, ...app.fallbackBundles || []].filter(Boolean);
   return new Promise((resolve) => {
     const tryNext = (idx) => {
@@ -20417,7 +20731,11 @@ ${body}`, 12e3);
     opts = mentionOptions(this.plugin, opts);
     if (opts.destination && !destinations(opts.agent).some((o) => o.id === opts.destination)) throw new Error(t("\u6B64 Agent \u4E0D\u652F\u6301\u6240\u9009\u5DE5\u4F5C\u4F4D\u7F6E"));
     if (opts.destination === "terminal" || opts.agent === "codex" && !opts.destination && this.C.codex?.transport === "terminal") return this.handoffCli(opts);
-    if (!hasAgentCapability(opts.agent, "delegate") || opts.agent === "qoder" && opts.destination === "desktop") return this.handoff(opts);
+    const wantsDesktopHandoff = opts.destination === "desktop" && (opts.agent === "qoder" || hasAgentCapability(opts.agent, "handoffFallback"));
+    if (!hasAgentCapability(opts.agent, "delegate") || wantsDesktopHandoff) return this._performHandoff(opts);
+    if (hasAgentCapability(opts.agent, "handoffFallback") && !resolveInstalledAgentBinary(opts.agent, this.C[opts.agent]?.path || "")) {
+      return this._performHandoff(opts);
+    }
     const agent = opts.agent;
     const trace = new RunTrace({ agent, traceDir: opts.traceDir });
     const ctxSpan = trace.startSpan("context.resolve");
@@ -20569,7 +20887,9 @@ ${source}`;
     if (!sid) throw new Error(t("\u8FD9\u4E2A\u4F1A\u8BDD\u8FD8\u6CA1\u6709\u4F1A\u8BDD\u53F7"));
     const existing = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === sid);
     if (["starting", "running", "needs-approval"].includes(existing?.state)) throw new Error(t("\u8BF7\u7B49\u5F53\u524D\u8FD9\u4E00\u8F6E\u7ED3\u675F\u540E\u518D\u53D1\u9001"));
-    if (session.agent === "antigravity" && (session.transport || existing?.transport) !== "acp") throw new Error(t("\u8FD9\u662F Antigravity \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED"));
+    if (getAgentCapability(session.agent).continueRequiresAcp && (session.transport || existing?.transport) !== "acp") {
+      throw new Error(t("\u8FD9\u662F {agent} \u684C\u9762\u4F1A\u8BDD\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED", { agent: AGENTS[session.agent]?.name || session.agent }));
+    }
     let job = existing;
     if (!job) {
       job = {
@@ -20620,7 +20940,11 @@ ${source}`;
     this.refreshSettings();
     opts = mentionOptions(this.plugin, opts);
     if (opts.destination === "terminal") return this.handoffCli(opts);
-    if (hasAgentCapability(opts.agent, "delegate") && (opts.agent !== "qoder" || opts.destination !== "desktop")) return this.delegate(opts);
+    const wantsDesktopHandoff = opts.destination === "desktop" && (opts.agent === "qoder" || hasAgentCapability(opts.agent, "handoffFallback"));
+    if (hasAgentCapability(opts.agent, "delegate") && !wantsDesktopHandoff) return this.delegate(opts);
+    return this._performHandoff(opts);
+  }
+  async _performHandoff(opts) {
     const agent = opts.agent;
     const resolved = await this.resolveBlockContext(opts, t("\u8981\u62D6\u4E00\u4E2A\u5217\u8868\u9879"));
     const job = this.buildJobBase({
@@ -20737,6 +21061,7 @@ ${source}`;
       let best = null;
       for (const m of usage.meta.values()) {
         if (m.agent !== job.agent || taken.has(m.sid) || (m.lastAt || 0) < job.startedAt - 5e3) continue;
+        if (usage.isSubagentSession?.(m.sid)) continue;
         if (job.cli && job.agent !== "opencode" && !isCliSession(m.agent, m.app)) continue;
         const t2 = norm5(m.text || m.title);
         if (!t2 || !(t2.includes(head) || t2.startsWith(promptHead.slice(0, 16)))) continue;
@@ -30980,7 +31305,7 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
       dataPaths: [qwenHome]
     },
     cursor: {
-      binNames: ["cursor"],
+      binNames: ["cursor", "agent", "cursor-agent"],
       binPaths: [],
       apps: win ? ["cursor/Cursor.exe", "Cursor/Cursor.exe"] : ["Cursor.app"],
       dataPaths: [
@@ -31817,6 +32142,44 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
         pathHint: t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E\uFF08\u542B OpenCode.app \u5185\u7F6E CLI\uFF09"),
         refreshLabel: t("\u8BFB\u53D6 OpenCode \u53EF\u7528\u6A21\u578B"),
         checkLabel: t("\u68C0\u67E5 opencode")
+      },
+      {
+        id: "hermes",
+        title: "Hermes Agent",
+        sub: t("\u901A\u8FC7 hermes-acp \u540E\u53F0\u59D4\u6D3E\uFF0C\u4E5F\u53EF\u5728\u7EC8\u7AEF\u7528 hermes chat / --resume \u7EED\u804A"),
+        moreKey: "hermes-more",
+        defaultEffort: "medium",
+        pathHint: t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E hermes-acp\uFF08\u6216\u586B hermes\uFF09"),
+        refreshLabel: t("\u8BFB\u53D6 Hermes \u53EF\u7528\u6A21\u578B"),
+        checkLabel: t("\u68C0\u67E5 hermes-acp")
+      },
+      {
+        id: "minimax",
+        title: "MiniMax Code",
+        sub: t("\u8FFD\u8E2A\u684C\u9762\u7248\u4E0E CLI \u4F1A\u8BDD\uFF1B\u88C5\u6709 mcode CLI \u65F6\u652F\u6301 mcode acp \u540E\u53F0\u59D4\u6D3E\u4E0E\u7EC8\u7AEF\u7EED\u804A"),
+        moreKey: "minimax-more",
+        defaultEffort: "medium",
+        pathHint: t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E mcode\uFF08~/.minimax-code/bin/mcode \u6216 PATH\uFF09"),
+        refreshLabel: t("\u8BFB\u53D6 MiniMax \u53EF\u7528\u6A21\u578B"),
+        checkLabel: t("\u68C0\u67E5 mcode")
+      },
+      {
+        id: "cursor",
+        title: "Cursor",
+        sub: t("\u88C5\u6709 Cursor CLI\uFF08agent\uFF09\u65F6\u652F\u6301 agent acp \u540E\u53F0\u59D4\u6D3E\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u684C\u9762\u7AEF\u4EA4\u63A5"),
+        moreKey: "cursor-more",
+        pathHint: t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E agent / cursor-agent"),
+        refreshLabel: t("\u8BFB\u53D6 Cursor \u53EF\u7528\u6A21\u578B"),
+        checkLabel: t("\u68C0\u67E5 agent")
+      },
+      {
+        id: "gemini",
+        title: "Gemini CLI",
+        sub: t("\u901A\u8FC7 gemini --acp \u540E\u53F0\u59D4\u6D3E\uFF0C\u4E5F\u53EF\u5728\u7EC8\u7AEF\u7528 gemini --resume \u7EED\u804A"),
+        moreKey: "gemini-more",
+        pathHint: t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E gemini"),
+        refreshLabel: t("\u8BFB\u53D6 Gemini \u53EF\u7528\u6A21\u578B"),
+        checkLabel: t("\u68C0\u67E5 gemini")
       }
     ]) {
       if (p2.agentEnabled(spec.id)) {
@@ -31849,30 +32212,6 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       this.bigButton(qtest, t("\u68C0\u67E5 qoder"), async () => new import_obsidian7.Notice(await p2.checkBinary("qoder"), 6e3));
       this.bigButton(qtest, t("\u767B\u5F55 qoder CLI"), () => p2.openTerminalAt(d.qoder.cwd || p2.vaultPath, "qoder login"));
       qoder.appendChild(qoderMore.parentElement);
-    }
-    if (p2.agentEnabled("hermes")) {
-      this.renderAcpCard(body, d.hermes || (d.hermes = { ...DEFAULTS.delegate.hermes }), {
-        id: "hermes",
-        title: "Hermes Agent",
-        sub: t("\u901A\u8FC7 hermes-acp \u540E\u53F0\u59D4\u6D3E\uFF0C\u4E5F\u53EF\u5728\u7EC8\u7AEF\u7528 hermes chat / --resume \u7EED\u804A"),
-        moreKey: "hermes-more",
-        defaultEffort: "medium",
-        pathHint: t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E hermes-acp\uFF08\u6216\u586B hermes\uFF09"),
-        refreshLabel: t("\u8BFB\u53D6 Hermes \u53EF\u7528\u6A21\u578B"),
-        checkLabel: t("\u68C0\u67E5 hermes-acp")
-      });
-    }
-    if (p2.agentEnabled("minimax")) {
-      this.renderAcpCard(body, d.minimax || (d.minimax = { ...DEFAULTS.delegate.minimax }), {
-        id: "minimax",
-        title: "MiniMax Code",
-        sub: t("\u8FFD\u8E2A\u684C\u9762\u7248\u4E0E CLI \u4F1A\u8BDD\uFF1B\u88C5\u6709 mcode CLI \u65F6\u652F\u6301 mcode acp \u540E\u53F0\u59D4\u6D3E\u4E0E\u7EC8\u7AEF\u7EED\u804A"),
-        moreKey: "minimax-more",
-        defaultEffort: "medium",
-        pathHint: t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E mcode\uFF08~/.minimax-code/bin/mcode \u6216 PATH\uFF09"),
-        refreshLabel: t("\u8BFB\u53D6 MiniMax \u53EF\u7528\u6A21\u578B"),
-        checkLabel: t("\u68C0\u67E5 mcode")
-      });
     }
     this.renderCustomAcpCard(body);
     const showTerminal = cliHandoffAgents().some((id) => p2.agentEnabled(id));
@@ -32488,34 +32827,49 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     const body = details.createDiv({ cls: "ad-grokbot-picker__body" });
     if (!conversations.length) {
       body.createSpan({ cls: "ad-muted", text: t("\u672A\u68C0\u6D4B\u5230\u672C\u673A Muse \u5BF9\u8BDD\u7F13\u5B58") });
-      return;
-    }
-    const chips = body.createDiv({ cls: "ad-seg ad-seg--many ad-grokbot-picker__chips" });
-    for (const conv of conversations) {
-      const on = selected.has(conv.id);
-      const label = conv.isMain ? "Main Chat (Muse)" : conv.title;
-      const b = chips.createEl("button", { cls: "ad-seg__btn ad-grokbot-chip" + (on ? " is-on" : ""), text: label, attr: { "aria-pressed": String(on), "data-muse-id": conv.id } });
-      b.onclick = async () => {
-        if (selected.has(conv.id)) {
-          selected.delete(conv.id);
-        } else {
-          if (selected.size >= maxTracked) {
-            new import_obsidian7.Notice(t("\u6700\u591A\u540C\u65F6\u8FFD\u8E2A {max} \u4E2A Muse \u5BF9\u8BDD\u6D41\uFF0C\u8BF7\u5148\u53D6\u6D88\u4E00\u4E2A", { max: maxTracked }));
-            return;
+    } else {
+      const chips = body.createDiv({ cls: "ad-seg ad-seg--many ad-grokbot-picker__chips" });
+      for (const conv of conversations) {
+        const on = selected.has(conv.id);
+        const label = conv.isMain ? "Main Chat (Muse)" : conv.title;
+        const b = chips.createEl("button", { cls: "ad-seg__btn ad-grokbot-chip" + (on ? " is-on" : ""), text: label, attr: { "aria-pressed": String(on), "data-muse-id": conv.id } });
+        b.onclick = async () => {
+          if (selected.has(conv.id)) {
+            selected.delete(conv.id);
+          } else {
+            if (selected.size >= maxTracked) {
+              new import_obsidian7.Notice(t("\u6700\u591A\u540C\u65F6\u8FFD\u8E2A {max} \u4E2A Muse \u5BF9\u8BDD\u6D41\uFF0C\u8BF7\u5148\u53D6\u6D88\u4E00\u4E2A", { max: maxTracked }));
+              return;
+            }
+            selected.add(conv.id);
           }
-          selected.add(conv.id);
-        }
-        s.museTrackedIds = [...selected];
-        const nowOn = selected.has(conv.id);
-        b.classList.toggle("is-on", nowOn);
-        b.setAttribute("aria-pressed", String(nowOn));
-        updateSummary();
+          s.museTrackedIds = [...selected];
+          const nowOn = selected.has(conv.id);
+          b.classList.toggle("is-on", nowOn);
+          b.setAttribute("aria-pressed", String(nowOn));
+          updateSummary();
+          await p2.saveSettings?.();
+          p2.watchMuseCache?.();
+          await p2.scanNow?.(false, { agent: "muse" });
+          const nextCount = [...p2.usage?.meta?.values?.() || []].filter((x) => x.agent === "muse").length;
+          if (sessCountEl) sessCountEl.textContent = t("{n} \u4E2A\u4F1A\u8BDD", { n: nextCount });
+        };
+      }
+    }
+    this.rowToggle(
+      body,
+      t("\u8FFD\u8E2A Muse \u4E3B\u52A8\u63A8\u9001\u6D88\u606F"),
+      t("\u9ED8\u8BA4\u4EC5\u8FFD\u8E2A\u4F60\u53D1\u8D77\u7684\u5BF9\u8BDD\uFF1B\u5F00\u542F\u540E\u8FDE\u540C Muse \u4E3B\u52A8\u53D1\u9001\u7684\u6D88\u606F\u4E00\u8D77\u8BB0\u5F55"),
+      s.museTrackProactive === true,
+      async (v) => {
+        s.museTrackProactive = v;
         await p2.saveSettings?.();
         await p2.scanNow?.(false, { agent: "muse" });
         const nextCount = [...p2.usage?.meta?.values?.() || []].filter((x) => x.agent === "muse").length;
         if (sessCountEl) sessCountEl.textContent = t("{n} \u4E2A\u4F1A\u8BDD", { n: nextCount });
-      };
-    }
+      }
+    );
+    card.createDiv({ cls: "ad-hint", text: t("Muse \u4EC5\u5728\u91CD\u542F\u6216\u5237\u65B0\u5386\u53F2\u65F6\u5199\u5165\u672C\u5730\u7F13\u5B58\uFF0C\u7F13\u5B58\u66F4\u65B0\u540E Agent Deck \u4F1A\u81EA\u52A8\u8FFD\u8E2A\u3002") });
   }
   // ---------- Recording ----------
   renderAgents(body) {
@@ -33033,7 +33387,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       s.autoLogStartDelay = v;
       p2.saveSettings();
     });
-    this.rowNumber(sched, t("\u6700\u77ED\u8BB0\u5F55\u65F6\u957F\uFF08\u5206\u949F\uFF09"), t("0 \u8868\u793A\u7ACB\u5373\u8BB0\u5F55"), s.autoLogMinMinutes ?? 3, 0, 120, (v) => {
+    this.rowNumber(sched, t("\u6700\u77ED\u8BB0\u5F55\u65F6\u957F\uFF08\u5206\u949F\uFF09"), t("0 \u8868\u793A\u7ACB\u5373\u8BB0\u5F55"), s.autoLogMinMinutes ?? 1, 0, 120, (v) => {
       s.autoLogMinMinutes = v;
       p2.saveSettings();
     });
@@ -38153,7 +38507,7 @@ var AutoLog = class {
     return this.p.usage;
   }
   get minMinutes() {
-    return Math.max(0, num(this.cfg.autoLogMinMinutes, 3));
+    return Math.max(0, num(this.cfg.autoLogMinMinutes, 1));
   }
   get batch() {
     return Math.max(1, Math.round(num(this.cfg.autoLogBatch, 8)));
@@ -38468,6 +38822,12 @@ var AutoLog = class {
     const parse = (d) => (/* @__PURE__ */ new Date(String(d).replace(/^(\d{4})\D(\d{2})\D(\d{2})$/, "$1-$2-$3") + "T12:00:00")).getTime();
     return Math.round((parse(toDay) - parse(fromDay)) / 864e5);
   }
+  isSubagent(sid) {
+    if (!sid) return false;
+    if (typeof this.usage?.isSubagentSession === "function") return this.usage.isSubagentSession(sid);
+    const m = this.usage?.meta?.get(sid);
+    return Boolean(m?.isSubagent || m?.parentSid && m.parentSid !== sid);
+  }
   // 跨日期会话留在原起始日日记，过了零点的新会话再记到今天。
   originDayOf(x, today) {
     const sid = x?.sid;
@@ -38514,6 +38874,7 @@ var AutoLog = class {
       const arch = this.archived();
       const todayList = [], crossByOrigin = /* @__PURE__ */ new Map();
       for (const x of data.list) {
+        if (this.isSubagent(x.sid)) continue;
         const origin = this.originDayOf(x, day);
         if (origin !== day) {
           (crossByOrigin.get(origin) || crossByOrigin.set(origin, []).get(origin)).push(x);
@@ -38576,6 +38937,7 @@ var AutoLog = class {
         if (!x.segs || !x.segs.length) continue;
         if (!this.agentOn(x.agent) || background.has(x.sid)) continue;
         if (x.agent !== "t3code" && this.usage?.t3OwnerOf?.(x.sid)) continue;
+        if (this.isSubagent(x.sid)) continue;
         if (linked.has(x.sid)) continue;
         const last = x.segs[x.segs.length - 1][1];
         const active2 = now - last <= idle;
@@ -39162,7 +39524,7 @@ var JournalSync = class {
     }
     const daySt = this.cfg.autoLogState && this.cfg.autoLogState[dayKeyToday(this.cfg)] || {};
     for (const [sid, rec] of Object.entries(daySt)) {
-      if (!rec || rec.skip || rec.gone) continue;
+      if (!rec || rec.skip || rec.gone || this.usage?.isSubagentSession?.(sid)) continue;
       if (rec.blockId && text.includes(`^${rec.blockId}`) || rec.key && findTask(text, rec.key, rec.blockId, sid)) {
         if (!targets.has(sid)) targets.set(sid, { blockId: rec.blockId || "", key: rec.key || "" });
       }
@@ -39286,7 +39648,7 @@ var JournalSync = class {
     const linked = linkMap(text);
     const want = /* @__PURE__ */ new Map();
     for (const [sid, rec] of Object.entries(daySt)) {
-      if (!rec || rec.skip || rec.gone || !rec.key || linked.has(sid) || this.archived(sid)) continue;
+      if (!rec || rec.skip || rec.gone || !rec.key || linked.has(sid) || this.archived(sid) || this.usage?.isSubagentSession?.(sid)) continue;
       const m = this.usage.meta.get(sid);
       if (!m) continue;
       const found = findTask(text, rec.key, rec.blockId || "", sid);
@@ -42389,7 +42751,7 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
       "",
       "> [!info] How to use Agent Deck?",
       "> The simplest way is to **do nothing at all**: just keep Obsidian open and work with your favorite AI tools as usual. Come back after a while, and Agent Deck will have recorded what you worked on.",
-      "> - **Minimum recording duration**: By default, only conversations with **at least 3 minutes** of active time are automatically written to your daily note (archived sessions are always recorded regardless of length). You can adjust or set this to `0` in **Settings \u2192 Recording**.",
+      "> - **Minimum recording duration**: By default, only conversations with **at least 1 minute** of active time are automatically written to your daily note (archived sessions are always recorded regardless of length). You can adjust or set this to `0` in **Settings \u2192 Recording**.",
       "",
       "## 1. What's New",
       "",
@@ -42507,7 +42869,7 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
       "",
       "> [!info] \u5982\u4F55\u4F7F\u7528 Agent Deck\uFF1F",
       "> \u6700\u7C21\u55AE\u7684\u65B9\u6848\u5C31\u662F**\u4EC0\u9EBC\u4E5F\u4E0D\u505A**\uFF1A\u958B\u8457 Obsidian\uFF0C\u7136\u5F8C\u7528\u4F60\u6700\u5E38\u7528\u7684 AI \u53BB\u5DE5\u4F5C\u5C31\u53EF\u4EE5\u4E86\uFF0C\u904E\u4E00\u6703\u4F86\u770B\uFF0C\u9019\u88E1\u6703\u81EA\u52D5\u8A18\u9304\u4E0B\u4F60\u505A\u904E\u7684\u4E8B\u3002",
-      "> - **\u6700\u77ED\u8A18\u9304\u6642\u9577**\uFF1A\u76EE\u524D\u9810\u8A2D\u53EA\u6709**\u7D2F\u8A08\u6D3B\u8E8D\u8D85\u904E 3 \u5206\u9418**\u7684\u5C0D\u8A71\u624D\u6703\u88AB\u81EA\u52D5\u8A18\u9032\u65E5\u8A18\uFF08\u5DF2\u6B78\u6A94\u7684\u6703\u8A71\u7121\u8AD6\u591A\u77ED\u90FD\u6703\u8A18\u9304\uFF09\uFF1B\u53EF\u4EE5\u5728\u300C\u8A2D\u5B9A \u2192 \u8A18\u9304 \u2192 \u6700\u77ED\u8A18\u9304\u6642\u9577\u300D\u88E1\u96A8\u6642\u8ABF\u4F4E\u6216\u6539\u70BA `0`\u3002",
+      "> - **\u6700\u77ED\u8A18\u9304\u6642\u9577**\uFF1A\u76EE\u524D\u9810\u8A2D\u53EA\u6709**\u7D2F\u8A08\u6D3B\u8E8D\u8D85\u904E 1 \u5206\u9418**\u7684\u5C0D\u8A71\u624D\u6703\u88AB\u81EA\u52D5\u8A18\u9032\u65E5\u8A18\uFF08\u5DF2\u6B78\u6A94\u7684\u6703\u8A71\u7121\u8AD6\u591A\u77ED\u90FD\u6703\u8A18\u9304\uFF09\uFF1B\u53EF\u4EE5\u5728\u300C\u8A2D\u5B9A \u2192 \u8A18\u9304 \u2192 \u6700\u77ED\u8A18\u9304\u6642\u9577\u300D\u88E1\u96A8\u6642\u8ABF\u4F4E\u6216\u6539\u70BA `0`\u3002",
       "",
       "## 1. \u672C\u671F\u65B0\u529F\u80FD\uFF08What's New\uFF09",
       "",
@@ -42624,7 +42986,7 @@ function buildShowcaseMarkdown(lang = currentLanguage()) {
     "",
     "> [!info] \u5982\u4F55\u4F7F\u7528 Agent Deck\uFF1F",
     "> \u6700\u7B80\u5355\u7684\u65B9\u6848\u5C31\u662F**\u4EC0\u4E48\u4E5F\u4E0D\u505A**\uFF1A\u5F00\u7740 Obsidian\uFF0C\u7136\u540E\u7528\u4F60\u6700\u5E38\u7528\u7684 AI \u53BB\u5DE5\u4F5C\u5C31\u53EF\u4EE5\u4E86\uFF0C\u8FC7\u4E00\u4F1A\u6765\u770B\uFF0C\u8FD9\u91CC\u4F1A\u81EA\u52A8\u8BB0\u5F55\u4E0B\u4F60\u505A\u8FC7\u7684\u4E8B\u3002",
-    "> - **\u6700\u77ED\u8BB0\u5F55\u65F6\u957F**\uFF1A\u76EE\u524D\u9ED8\u8BA4\u53EA\u6709**\u7D2F\u8BA1\u6D3B\u8DC3\u8D85\u8FC7 3 \u5206\u949F**\u7684\u5BF9\u8BDD\u624D\u4F1A\u88AB\u81EA\u52A8\u8BB0\u8FDB\u65E5\u8BB0\uFF08\u5DF2\u5F52\u6863\u7684\u4F1A\u8BDD\u65E0\u8BBA\u591A\u77ED\u90FD\u4F1A\u8BB0\u5F55\uFF09\uFF1B\u53EF\u4EE5\u5728\u300C\u8BBE\u7F6E \u2192 \u8BB0\u5F55 \u2192 \u6700\u77ED\u8BB0\u5F55\u65F6\u957F\u300D\u91CC\u968F\u65F6\u8C03\u4F4E\u6216\u6539\u4E3A `0`\u3002",
+    "> - **\u6700\u77ED\u8BB0\u5F55\u65F6\u957F**\uFF1A\u76EE\u524D\u9ED8\u8BA4\u53EA\u6709**\u7D2F\u8BA1\u6D3B\u8DC3\u8D85\u8FC7 1 \u5206\u949F**\u7684\u5BF9\u8BDD\u624D\u4F1A\u88AB\u81EA\u52A8\u8BB0\u8FDB\u65E5\u8BB0\uFF08\u5DF2\u5F52\u6863\u7684\u4F1A\u8BDD\u65E0\u8BBA\u591A\u77ED\u90FD\u4F1A\u8BB0\u5F55\uFF09\uFF1B\u53EF\u4EE5\u5728\u300C\u8BBE\u7F6E \u2192 \u8BB0\u5F55 \u2192 \u6700\u77ED\u8BB0\u5F55\u65F6\u957F\u300D\u91CC\u968F\u65F6\u8C03\u4F4E\u6216\u6539\u4E3A `0`\u3002",
     "",
     "## 1. \u672C\u671F\u65B0\u529F\u80FD\uFF08What's New\uFF09",
     "",
@@ -43127,6 +43489,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       this.startStewardWatch();
       this.watchCursorEvents();
       this.watchGrokBotPersistence();
+      this.watchMuseCache();
       this.watchMemoryFolder();
       this.registerInterval(window.setInterval(() => safeRun("autoLog:tick", () => this.autoLog.tick(), { breaker: this._faultBreakers?.autoLog }), 60 * 1e3));
       this.registerInterval(window.setInterval(() => safeRun("dream:tick", () => this.dreaming.tick(), { breaker: this._faultBreakers?.dreaming }), 60 * 1e3));
@@ -43570,6 +43933,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this._refreshTimer = null;
     this.closeCursorWatcher();
     this.closeGrokBotWatcher();
+    this.closeMuseWatcher();
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
       try {
@@ -43793,8 +44157,12 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   }
   watchCursorEvents() {
     this.closeCursorWatcher();
-    this.closeGrokBotWatcher();
     if (this._unloaded || !this.agentEnabled("cursor")) return;
+    try {
+      const st = this.cursorHooksStatus();
+      if (st.installed && st.outdated) installCursorHooks();
+    } catch {
+    }
     const dir = cursorEventsDir();
     if (!import_fs24.default.existsSync(dir)) return;
     const scheduleCursor = () => {
@@ -43803,7 +44171,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       this._cursorWatchTimer = setTimeout(() => {
         if (this._unloaded) return;
         if (this._scanning) return scheduleCursor();
-        this.scanNow(false, { agent: "cursor" });
+        this.scanNow(false, { agent: "cursor" }).catch(() => {
+        });
       }, 350);
     };
     try {
@@ -43848,6 +44217,37 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     } catch {
     }
     this._grokWatcher = null;
+  }
+  watchMuseCache() {
+    this.closeMuseWatcher();
+    const configured = Array.isArray(this.settings.museTrackedIds) ? this.settings.museTrackedIds : ["hatch-main"];
+    const tracked = configured.map((x) => String(x || "").trim()).filter(Boolean);
+    if (this._unloaded || !this.agentEnabled("muse") || !tracked.length) return;
+    const dir = this.settings.museCacheDir || museCacheDir();
+    if (!dir || !import_fs24.default.existsSync(dir)) return;
+    const scheduleMuse = () => {
+      if (this._unloaded) return;
+      clearTimeout(this._museWatchTimer);
+      this._museWatchTimer = setTimeout(() => {
+        if (this._unloaded) return;
+        if (this._scanning) return scheduleMuse();
+        this.scanNow(false, { agent: "muse" }).catch(() => {
+        });
+      }, 350);
+    };
+    try {
+      this._museWatcher = import_fs24.default.watch(dir, { persistent: false }, scheduleMuse);
+    } catch {
+    }
+  }
+  closeMuseWatcher() {
+    clearTimeout(this._museWatchTimer);
+    this._museWatchTimer = null;
+    try {
+      this._museWatcher?.close();
+    } catch {
+    }
+    this._museWatcher = null;
   }
   cursorHooksStatus() {
     return cursorHooksStatus();
@@ -44156,7 +44556,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   }
   // ---------- model helpers ----------
   allModels(custom) {
-    const list = [...MODEL_CATALOG, ...this.settings.delegate.dsh?.availableModels || [], ...this.settings.delegate.antigravity?.availableModels || [], ...this.settings.delegate.opencode?.availableModels || [], ...custom || this.settings.models.custom || []];
+    const dynamic = Object.values(this.settings.delegate || {}).flatMap((cfg) => Array.isArray(cfg?.availableModels) ? cfg.availableModels : []);
+    const list = [...MODEL_CATALOG, ...dynamic, ...custom || this.settings.models.custom || []];
     const seen = /* @__PURE__ */ new Set();
     const out = [];
     for (const m of list) if (m && m.id && !seen.has(m.id)) {
@@ -44220,6 +44621,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     await this.saveSettings();
     this.watchCursorEvents();
     this.watchGrokBotPersistence();
+    this.watchMuseCache();
     if (this.app.setting?.activeTab === this.settingTab && this.settingTab.containerEl?.isConnected) {
       this.settingTab.display();
     }
@@ -44258,6 +44660,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     ((_a = this.settings).agents || (_a.agents = {}))[agent] = true;
     await this.saveSettings();
     if (agent === "grokbot") this.watchGrokBotPersistence();
+    if (agent === "muse") this.watchMuseCache();
     if (agent === "cursor") this.watchCursorEvents();
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
@@ -44270,6 +44673,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       new import_obsidian21.Notice(t("\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389"));
       return;
     }
+    const wasOn = this.agentEnabled(agent);
     ((_a = this.settings).agents || (_a.agents = {}))[agent] = !!on;
     if (!on) {
       const order = settingsAgentOrder(this.settings, "tracking", (id) => this.agentEnabled(id));
@@ -44277,7 +44681,11 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     }
     await this.saveSettings();
     if (agent === "grokbot") this.watchGrokBotPersistence();
+    if (agent === "muse") this.watchMuseCache();
     if (agent === "cursor") this.watchCursorEvents();
+    if (agent === "muse" && on && !wasOn) {
+      new import_obsidian21.Notice(t("\u5DF2\u5F00\u542F Muse \u8FFD\u8E2A\uFF1AMuse \u4EC5\u5728\u91CD\u542F\u6216\u5237\u65B0\u5386\u53F2\u65F6\u5199\u5165\u672C\u5730\u7F13\u5B58\uFF0C\u66F4\u65B0\u540E\u4F1A\u81EA\u52A8\u8FFD\u8E2A\u3002"), 6e3);
+    }
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
@@ -47021,9 +47429,39 @@ ${body}` });
     }
     const customEnv = cap.acpEnvRaw ? parseCustomAcpEnv(cap.acpEnvRaw) : {};
     return await new Promise((resolve) => {
-      (0, import_child_process12.execFile)(bin, ["--version"], { timeout: 1e4, env: cleanEnv(customEnv) }, (err2, out, errOut) => {
-        if (err2) resolve(t("{kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A{error}", { kind, error: String(err2.message || err2) }) + "\n" + String(errOut || "").slice(0, 300));
-        else resolve(`${kind}\uFF1A${String(out || "").trim()}`);
+      let out = "";
+      let errOut = "";
+      let settled = false;
+      let timer = null;
+      const done = (msg) => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        resolve(msg);
+      };
+      let child;
+      try {
+        child = spawnCli(bin, ["--version"], { env: cleanEnv(customEnv), stdio: ["ignore", "pipe", "pipe"], windowsHide: true });
+      } catch (e) {
+        done(t("{kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A{error}", { kind, error: String(e?.message || e) }));
+        return;
+      }
+      timer = setTimeout(() => {
+        killChildProcess(child);
+        done(t("{kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A{error}", { kind, error: "timeout" }) + (errOut ? "\n" + errOut.slice(0, 300) : ""));
+      }, 1e4);
+      child.stdout?.on("data", (d) => {
+        out += d.toString();
+      });
+      child.stderr?.on("data", (d) => {
+        errOut += d.toString();
+      });
+      child.on("error", (err2) => {
+        done(t("{kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A{error}", { kind, error: String(err2?.message || err2) }) + (errOut ? "\n" + errOut.slice(0, 300) : ""));
+      });
+      child.on("close", (code) => {
+        if (code === 0) done(`${kind}\uFF1A${out.trim()}`);
+        else done(t("{kind} \u6CA1\u627E\u5230\u6216\u4E0D\u80FD\u8FD0\u884C\uFF1A{error}", { kind, error: `exit ${code}` }) + (errOut ? "\n" + errOut.slice(0, 300) : ""));
       });
     });
   }

@@ -1,6 +1,6 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.18 + main**（2026-11-24）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.19 + main**（2026-11-24）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
 
 ## 1.13.15 + 后续增量：Kimi Code / 豆包工作 / Gemini CLI（ACP + 追踪）、Antigravity CLI 追踪补齐与 Wiki/GitHub 自动化
 
