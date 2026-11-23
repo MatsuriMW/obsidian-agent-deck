@@ -160,7 +160,10 @@ function createRoundBadge(doc, round) {
   const span = doc.createElement("span");
   span.className = "ad-round-badge";
   span.dataset.round = String(round);
-  span.textContent = String(round);
+  const num = doc.createElement("span");
+  num.className = "ad-round-badge__num";
+  num.textContent = String(round);
+  span.appendChild(num);
   const label = `第${round}轮`;
   span.title = label;
   span.setAttribute("aria-label", label);

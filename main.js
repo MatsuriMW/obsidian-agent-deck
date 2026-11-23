@@ -37341,7 +37341,10 @@ function createRoundBadge(doc, round) {
   const span = doc.createElement("span");
   span.className = "ad-round-badge";
   span.dataset.round = String(round);
-  span.textContent = String(round);
+  const num2 = doc.createElement("span");
+  num2.className = "ad-round-badge__num";
+  num2.textContent = String(round);
+  span.appendChild(num2);
   const label = `\u7B2C${round}\u8F6E`;
   span.title = label;
   span.setAttribute("aria-label", label);

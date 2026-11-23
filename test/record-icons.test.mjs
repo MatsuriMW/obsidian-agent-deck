@@ -211,6 +211,33 @@ const { recordCopyText } = await import("../src/record-menu.js");
   const round1From = offsets[1].from + 3;
   const instEditing = new ext.cls(makeView(round1From, round1From));
   assert.equal(instEditing.decorations.length, 2, "selection touching round 1 reveals raw markdown");
+
+  // 圆圈徽章 DOM 结构：数字包在内层 .ad-round-badge__num 中以便光学居中
+  const fakeDoc = {
+    createElement(tag) {
+      const el = {
+        tagName: tag.toUpperCase(),
+        className: "",
+        dataset: {},
+        attrs: {},
+        children: [],
+        _text: "",
+        appendChild(c) { this.children.push(c); return c; },
+        setAttribute(k, v) { this.attrs[k] = String(v); },
+        get textContent() { return this.children.length ? this.children.map((c) => c.textContent).join("") : this._text; },
+        set textContent(v) { this._text = String(v); },
+      };
+      return el;
+    },
+  };
+  const RoundBadgeWidgetCls = inst.decorations[1].value.widget.constructor;
+  const badgeEl = new RoundBadgeWidgetCls(9).toDOM({ dom: { ownerDocument: fakeDoc } });
+  assert.equal(badgeEl.className, "ad-round-badge");
+  assert.equal(badgeEl.dataset.round, "9");
+  assert.equal(badgeEl.children.length, 1);
+  assert.equal(badgeEl.children[0].className, "ad-round-badge__num");
+  assert.equal(badgeEl.children[0].textContent, "9");
+  assert.equal(badgeEl.textContent, "9");
 }
 
 console.log("PASS record-icons: round badge, agent desktop mark, bold task/conclusion and legacy compatibility");
