@@ -174,5 +174,5 @@ test('background follow-up turn writes round 2 conclusion without scannedRounds'
   await d.writeResult(job);
 
   assert.ok(J.hasRecordedTurn(p.note(), job.sessionId, 2), 'round 2 marker is recorded');
-  assert.ok(p.note().includes('💬 第2轮：采用方案 A：保留严格阈值拒答。'), 'round 2 reply is appended to note');
+  assert.ok(p.note().includes('第2轮：采用方案 A：保留严格阈值拒答。'), 'round 2 reply is appended to note');
 });

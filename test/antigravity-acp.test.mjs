@@ -164,7 +164,7 @@ test('Antigravity autoApprove skips permission modal and Turn 2 writeback update
     await settle(j);
     for (let k = 0; k < 50 && !j.resultWritten; k++) await new Promise((r) => setTimeout(r, 10));
     assert.equal(j.state, 'done');
-    assert.ok(note.includes('💬 AGY_OK'), 'Turn 1 wrote result back to note');
+    assert.ok(note.includes('第1轮：AGY_OK'), 'Turn 1 wrote result back to note');
 
     // 2. Simulating continueSession after jobs cleanup (passing path/blockId/transport) still runs Turn 2 and writes back
     delete f.plugin.jobs[j.id];
@@ -180,7 +180,7 @@ test('Antigravity autoApprove skips permission modal and Turn 2 writeback update
     await settle(next);
     for (let k = 0; k < 50 && !next.resultWritten; k++) await new Promise((r) => setTimeout(r, 10));
     assert.equal(next.state, 'done');
-    assert.ok(note.includes('💬 第2轮：AGY_OK'), 'Turn 2 wrote result back to note');
+    assert.ok(note.includes('第2轮：AGY_OK'), 'Turn 2 wrote result back to note');
   } finally {
     f.cleanup();
   }

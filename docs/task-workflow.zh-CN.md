@@ -13,6 +13,7 @@
 - **README 精简 + GitHub Wiki 体系 + GitHub 自动化**：
   - 中英 README 明确核心定位「以 Markdown / 大纲 / 日记为正本的多客户端 AI 总控台 + 长期记忆闭环」，突出主流模型全覆盖与中文 Agent 客户端生态；将详细支持矩阵、按需依赖与已知边界迁入 `docs/wiki/`（7 篇完整用户文档）。
   - 新增 `.github/workflows/sync-wiki.yml`（`docs/wiki/**` 自动同步至 GitHub Wiki，需先在网页端初始化首篇 Wiki 页面）、`.github/ISSUE_TEMPLATE/`（Bug 反馈与新 Agent 适配表单）与 `.github/dependabot.yml`。
+- **AI 自动回传日志排版与图标升级（`src/journal.js`、`src/record-icons.js`、`src/styles/views/record-views.css`）**：简略模式「任务」「结论」改为 Markdown 加粗（`**任务**：…；**结论**：…`）；每轮结论行（含第 1 轮）去掉 `💬` 统一写为 `- 第N轮：…`（`❓` 提问行与 `💬 累计总结：` 不变），解析层与四视图投影完整兼容新旧格式；编辑视图（Live Preview，光标落入源码区间时退回原文）与阅读视图将 `第N轮：` 及历史 `💬 第N轮：` 渲染为圆圈数字 icon（`.ad-round-badge`），并将任务行中的 `🤖` 按 `^blockId` 前缀 / `🔗` / `⏱` / `autoLogState` 推断替换为对应 Agent 的官方桌面 App 小图标（`.ad-agent-mark`，未知来源回退保留 `🤖`）；新增 `test/record-icons.test.mjs`。未测空白：Obsidian 实机编辑/阅读视图目视验收、Windows 端。
 - **验证范围**：macOS 全量 `npm test`（含新增 `test/kimicode-sessions.test.mjs`、`test/doubaowork-sessions.test.mjs`、`test/gemini-cli-sessions.test.mjs`）、`npm run eval`、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`，以及本机真实 `detectInstalledHarnesses()`（3 家均命中）与真实 DoubaoWork IndexedDB（4 条会话）只读扫描实测通过；**未测空白**：Kimi Code 真实非空会话实测（本机当前 `sessions=0`）、Gemini CLI OAuth 登录后真实 `gemini --acp` 端到端委派、Windows 全端。
 
 ## 1.13.13 T3 Code（追踪/委派/去重）、Muse 分对话流追踪、离线安全回放闭环与按任务用量聚合

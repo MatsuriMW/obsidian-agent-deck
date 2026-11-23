@@ -28,7 +28,7 @@ assert.equal(aiRecordGroups('- DOING 改名 ^nw-abc\n\t- 💬 结果',new Set(['
   assert.ok(/💬 累计总结：周报写完并发给组长/.test(merged.text));
   const shownWhenClosed = g.records.filter((n) => g.summaries.includes(n));
   assert.equal(shownWhenClosed.length, 1, 'collapsed shows only the summary');
-  assert.ok(merged.text.includes('💬 第3轮：任务：问题3；结论：第3轮结论'), 'round details stay in the note');
+  assert.ok(merged.text.includes('第3轮：**任务**：问题3；**结论**：第3轮结论'), 'round details stay in the note');
 }
 {
   // 显示模式：折叠时露出哪些行
@@ -84,7 +84,7 @@ assert.equal(aiRecordGroups('- DOING 改名 ^nw-abc\n\t- 💬 结果',new Set(['
   const g = aiRecordGroups(text, new Set())[0];
   const shown = visibleRecords(g, text.split('\n'), 'latest1');
   assert.equal(shown.length, 1, 'only the AI conclusion is visible');
-  assert.ok(/💬/.test(text.split('\n')[shown[0]]));
+  assert.ok(/第2轮：\*\*任务\*\*：/.test(text.split('\n')[shown[0]]));
 }
 
 {
@@ -170,9 +170,9 @@ console.log('PASS AI folding groups exclude manual notes and nested tasks; lates
   for (const count of [1, 3, 5]) {
     const shown = visibleRecords(g, lines, `latest${count}`);
     assert.equal(shown.length, count);
-    assert.ok(shown.every(n => /💬/.test(lines[n])));
+    assert.ok(shown.every(n => /^\s*[-*+]\s+第\d+轮：/.test(lines[n])));
     assert.ok(lines[shown[0]].includes('结论6'));
-    assert.equal(g.records.filter(n => /💬/.test(lines[n])).length, 6, 'changing display keeps all conclusions');
+    assert.equal(g.records.filter(n => /^\s*[-*+]\s+第\d+轮：/.test(lines[n])).length, 6, 'changing display keeps all conclusions');
   }
   assert.ok(note.includes('手写备注') && note.includes('子任务结果'));
   assert.equal(g.records.filter(n => /❓/.test(lines[n])).length, 6, 'detailed records preserve each prompt');

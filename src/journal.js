@@ -34,14 +34,14 @@ export function isManualTask(settings, raw) {
 }
 
 export const LINK_RE = /^\s*[-*+]\s+🔗/;
-export const RESULT_RE = /^\s*[-*+]\s+💬/;
+export const RESULT_RE = /^\s*[-*+]\s+(?:💬|(?:第\d+轮|Round\s+\d+)[：:])/;
 export const CLOCK_RE = /^\s*[-*+]\s+⏱/;
 export const QUESTION_RE = /^\s*[-*+]\s+❓/;
 export const PLAN_RE = /^\s*[-*+]\s+📋/;
-export const CONTEXT_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋)\s/;
-export const RECORD_ICON_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:💬|❓|📋|⏱|🔗)\s/;
+export const CONTEXT_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋)\s|(?:第\d+轮|Round\s+\d+)[：:])/;
+export const RECORD_ICON_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:])/;
 // 本插件写下的记录行（和 ai-records.js 的 AI_RECORD_RE 一致），⏱ 也在其中
-export const RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|TODO\s+🤖\s)/;
+export const RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|TODO\s+🤖\s)/;
 export const RECORD_PROVENANCE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/g;
 export const RECORD_PROVENANCE_LINE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
 const RECORD_PROVENANCE_TEST_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/;
@@ -88,6 +88,11 @@ export function stripBlockId(s) {
 }
 
 const AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor", grokbot: "grokbot", t3code: "t3code", muse: "muse", kimicode: "kimi", doubaowork: "doubao", gemini: "gemini" };
+const BLOCK_ID_AGENT = Object.fromEntries(Object.entries(AGENT_ID_PREFIX).map(([agent, prefix]) => [prefix, agent]));
+export function agentFromBlockId(id) {
+  const m = /^([a-z0-9]+)-/i.exec(String(id || "").trim());
+  return m ? (BLOCK_ID_AGENT[m[1].toLowerCase()] || "") : "";
+}
 export const isDeckBlockId = id => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor|grokbot|t3code|muse|kimi|doubao|gemini)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
 export function normalizeTaskSlug(value) {
   const slug = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
@@ -437,7 +442,7 @@ export function kwLine(raw) {
     .replace(/^\[#[ABC]\]\s*/, "")
     .replace(/^🤖\s*\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s*/, "🤖 ")
     .trim();
-  if (!s || s.startsWith("⏱") || s.startsWith("🔗") || ((!kw && !blockId) && /^(?:💬|❓|📋)/.test(s)) || (!kw && /^🤖\s*(?:子代理|side chat)/.test(s))) return null;
+  if (!s || s.startsWith("⏱") || s.startsWith("🔗") || ((!kw && !blockId) && /^(?:💬|❓|📋|(?:第\d+轮|Round\s+\d+)[：:])/.test(s)) || (!kw && /^🤖\s*(?:子代理|side chat)/.test(s))) return null;
   return { kw, body: s, blockId };
 }
 
@@ -775,15 +780,15 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
     // Repair only the known generated task field, keeping the saved conclusion
     // and any user-owned record or subtree untouched.
     if (marker && RESULT_RE.test(lines[i]) && !blockIdOf(lines[i]) && !hasDescendants(lines, i)) {
-      const brokenTask = /任务：\\?<send_user_message_question_reply>[^；]*(?=；结论：)/;
+      const brokenTask = /(\*\*任务\*\*|任务)：\\?<send_user_message_question_reply>[^；]*(?=；(?:\*\*结论\*\*|结论)：)/;
       if (brokenTask.test(lines[i])) {
         const round = sourceRounds.get(+marker[2]);
         const task = condenseUserPrompt(round?.taskSummary || round?.ask);
-        if (task) lines[i] = lines[i].replace(brokenTask, `任务：${summaryText(task, 45)}`);
+        if (task) lines[i] = lines[i].replace(brokenTask, (_, label) => `${label}：${summaryText(task, 45)}`);
       }
     }
-    const match = /^\s*[-*+]\s+💬\s+(?:第(\d+)轮[：:]|((?!累计总结[：:]).))/.exec(lines[i]);
-    if (marker || match) recorded.add(marker ? +marker[2] : match[1] ? +match[1] : 1);
+    const match = /^\s*[-*+]\s+(?:(?:💬\s+)?(?:第(\d+)轮|Round\s+(\d+))[：:]|💬\s+((?!累计总结[：:]).))/.exec(lines[i]);
+    if (marker || match) recorded.add(marker ? +marker[2] : (match[1] || match[2]) ? +(match[1] || match[2]) : 1);
   }
   let validRounds = (Array.isArray(rounds) ? rounds : []).filter(r => r && (r.said || r.summary || r.aborted || r.quota));
   if (!validRounds.length && said && !recorded.size) validRounds = [{ n: 1, said }];
@@ -824,16 +829,16 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
     const givenSummary = String(r.summary || "").trim();
     const polished = [...givenSummary].length >= 4 && !/^(?:code|qa|json)$/i.test(givenSummary);
     const message = fallbackLine
-      ? (level === "brief" ? `任务：${summaryText(task, 45)}；结论：${fallbackLine}` : fallbackLine)
+      ? (level === "brief" ? `**任务**：${summaryText(task, 45)}；**结论**：${fallbackLine}` : fallbackLine)
       : r.replyText !== undefined ? r.replyText : r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
-      ? `任务：${summaryText(task, 45)}；结论：${polished ? summaryText(givenSummary, kind === "qa" ? qaMax : codeMax) : conclusion}`
+      ? `**任务**：${summaryText(task, 45)}；**结论**：${polished ? summaryText(givenSummary, kind === "qa" ? qaMax : codeMax) : conclusion}`
       : polished ? recordSentence(givenSummary, stdCap) : tailSentence(kind === "qa" ? answerConclusion(r.said, stdCap) : conclusionSentence(r.said, stdCap), stdCap);
-    // Number the latest-progress entry too, so a setting change cannot rewrite it.
-    const prefix = rn === 1 && roundLog ? "" : `第${rn}轮：`;
+    // Always include the round prefix (including round 1) so the circle-number badge renders cleanly without 💬.
+    const prefix = `第${rn}轮：`;
     if (r.replyText !== undefined) {
       const [first, ...rest] = message.split("\n");
-      append([`${ind}- 💬 ${prefix}${first}${provenance(rn)}`, ...rest.map(line => `${ind}  ${line}`)].join("\n"));
-    } else append(`${ind}- 💬 ${prefix}${message}${provenance(rn)}`);
+      append([`${ind}- ${prefix}${first}${provenance(rn)}`, ...rest.map(line => `${ind}  ${line}`)].join("\n"));
+    } else append(`${ind}- ${prefix}${message}${provenance(rn)}`);
     if (level === "detailed" && r === validRounds.at(-1) && taskTodo?.total > 0) {
       append(`${ind}- 📋 第${rn}轮：步骤 ${taskTodo.done}/${taskTodo.total}${taskTodo.cur ? ` · ${resultText(taskTodo.cur, 90)}` : ""}`);
     }
@@ -989,7 +994,7 @@ export function kidMatch(body, desc) {
 // ---------- 拖拽绑定：面板里的会话卡片拖到笔记某一行上 ----------
 
 const EMPTY_ITEM_RE = /^(\s*(?:[-*+]|\d+[.)]))\s*$/;
-const MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬|❓|📋)/;
+const MARKER_RE = /^\s*[-*+]\s+(?:🔗|⏱|💬|❓|📋|(?:第\d+轮|Round\s+\d+)[：:])/;
 
 // 会话停下来的几种状态 → 任务行上的关键词；回写（sync.js）只认这几种，idle 不写
 export const STATE_KW = { wait: "TOREVIEW", quiet: "TOREVIEW", "needs-approval": "NEEDOK", error: "ERRORED", limit: "HITLIMIT", queued: "QUEUED" };

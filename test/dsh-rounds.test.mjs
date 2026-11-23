@@ -66,9 +66,9 @@ import { startRound, finishRound, ingestDshLine } from '../src/agent-ingestors.j
 
   const { syncSessionEntry } = await import('../src/journal.js');
   const base = '- DOING 占位 ^ad-roundflags';
-  const line = (r) => syncSessionEntry(base, { sid: 'r', blockId: 'ad-roundflags', detail: 'brief', granularity: 'round', rounds: [r] }).text.split('\n').find((l) => l.includes('💬'));
-  assert.ok(line(fc.rounds.list[0]).includes('结论：本轮被中断，没有结论。'), line(fc.rounds.list[0]));
-  assert.ok(line(fc.rounds.list[1]).includes('结论：额度不足，本轮未完成。'), line(fc.rounds.list[1]));
+  const line = (r) => syncSessionEntry(base, { sid: 'r', blockId: 'ad-roundflags', detail: 'brief', granularity: 'round', rounds: [r] }).text.split('\n').find((l) => /第\d+轮：/.test(l));
+  assert.ok(line(fc.rounds.list[0]).includes('**结论**：本轮被中断，没有结论。'), line(fc.rounds.list[0]));
+  assert.ok(line(fc.rounds.list[1]).includes('**结论**：额度不足，本轮未完成。'), line(fc.rounds.list[1]));
 }
 {
   // 普通报错仍然记 ERRORED，不要都算成限额

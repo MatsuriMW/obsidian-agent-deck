@@ -463,7 +463,7 @@ export class JournalSync {
       let end = n;
       for (let i = n + 1; i < lines.length; i++) { if (!lines[i].trim()) continue; if (J.width(lines[i]) <= base) break; end = i; }
       const kids = [];
-      for (let i = n + 1; i <= end; i++) if (J.width(lines[i]) === kidW && J.LIST_RE.test(lines[i]) && !/^\s*[-*+]\s+(?:🔗|⏱|💬|🤖\s*(?:子代理|side chat))/.test(lines[i])) kids.push(i);
+      for (let i = n + 1; i <= end; i++) if (J.width(lines[i]) === kidW && J.LIST_RE.test(lines[i]) && !/^\s*[-*+]\s+(?:🔗|⏱|💬|(?:第\d+轮|Round\s+\d+)[：:]|🤖\s*(?:子代理|side chat))/.test(lines[i])) kids.push(i);
       const d = todo[0];
       const name = String(d.title || "").trim() || "没起名的会话";
       const mine = kids.find((i) => {
@@ -555,7 +555,7 @@ export class JournalSync {
       const kids = [];
       for (let i = n + 1; i <= end; i++) {
         if (J.width(lines[i]) !== kidW || !J.LIST_RE.test(lines[i])) continue;
-        if (/^\s*[-*+]\s+(?:🔗|⏱|💬|🤖\s*(?:子代理|side chat))/.test(lines[i])) continue;
+        if (/^\s*[-*+]\s+(?:🔗|⏱|💬|(?:第\d+轮|Round\s+\d+)[：:]|🤖\s*(?:子代理|side chat))/.test(lines[i])) continue;
         kids.push(i);
       }
       const known = new Map(), claimed = new Set();
@@ -641,7 +641,7 @@ export class JournalSync {
     const known = new Map();
     for (let i = n + 1; i <= end; i++) {
       if (J.width(lines[i]) !== kidW || !J.LIST_RE.test(lines[i])) continue;
-      if (/^\s*[-*+]\s+(?:🔗|⏱|💬|🤖\s*(?:子代理|side chat))/.test(lines[i])) continue;
+      if (/^\s*[-*+]\s+(?:🔗|⏱|💬|(?:第\d+轮|Round\s+\d+)[：:]|🤖\s*(?:子代理|side chat))/.test(lines[i])) continue;
       const mark = J.kidUnder(lines, i);
       if (mark && mark.kind === "side") known.set(String(mark.id), { block: i, mark: mark.line, ...mark });
     }

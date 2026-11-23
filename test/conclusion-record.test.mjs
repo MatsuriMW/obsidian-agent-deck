@@ -35,14 +35,14 @@ test('all-tail-noise replies fall back to the last paragraph rather than the ope
 test('unpolished brief records use the tail conclusion, not the reply opening', () => {
   const said = '我先把日志扫了一遍。\n\n发现解析器把多字节字符截断了，已经改成按字符切。\n\n测试全部通过，发布环境还没验证。';
   const note = syncSessionEntry(BRIEF, { sid: 'tail-session', blockId: 'ad-tail', detail: 'brief', granularity: 'round', rounds: [{ n: 1, ask: '修一下日志解析', said }] }).text;
-  const line = note.split('\n').find((l) => l.includes('💬'));
-  assert.ok(line.includes('结论：测试全部通过，发布环境还没验证。'), line);
+  const line = note.split('\n').find((l) => l.includes('第1轮：'));
+  assert.ok(line.includes('**结论**：测试全部通过，发布环境还没验证。'), line);
   assert.ok(!line.includes('我先把日志扫了一遍'), line);
 });
 
 test('polished summaries are still recorded verbatim', () => {
   const note = syncSessionEntry(BRIEF, { sid: 'tail-session', blockId: 'ad-tail', detail: 'brief', granularity: 'round', rounds: [{ n: 1, ask: '修一下日志解析', said: '开头铺垫。\n\n结尾。', summary: '日志解析按字符切分，12/12 通过' }] }).text;
-  assert.ok(note.includes('结论：日志解析按字符切分，12/12 通过'), note);
+  assert.ok(note.includes('**结论**：日志解析按字符切分，12/12 通过'), note);
 });
 
 test('user questions still summarize from the beginning', () => {
@@ -73,8 +73,8 @@ test('Q&A records keep the judgement, coding records keep the status line', () =
     + '要真放，最稳的验证方式是拿小号先试，观察一周笔记的初始播放量有没有异常，再决定要不要放到主号上。';
   const base = '- DOING 小红书限流 ^ad-kind';
   const write = (ask) => syncSessionEntry(base, { sid: 'k1', blockId: 'ad-kind', detail: 'brief', granularity: 'round', rounds: [{ n: 1, ask, said: long }] }).text;
-  const qaLine = write('小红书主页放 github 链接会被限流吗').split('\n').find((l) => l.includes('💬'));
-  const codeLine = write('帮我改一下首页的链接位置').split('\n').find((l) => l.includes('💬'));
+  const qaLine = write('小红书主页放 github 链接会被限流吗').split('\n').find((l) => l.includes('第1轮：'));
+  const codeLine = write('帮我改一下首页的链接位置').split('\n').find((l) => l.includes('第1轮：'));
   assert.ok(qaLine.includes('先说结论') && qaLine.includes('初始分配都会受影响'), qaLine);
   assert.ok(!qaLine.includes('小号先试'), qaLine);
   assert.ok(!codeLine.includes('先说结论') && codeLine.includes('小号先试'), codeLine);
@@ -82,7 +82,7 @@ test('Q&A records keep the judgement, coding records keep the status line', () =
 
 test('a model-provided kind overrides the local guess and its length budget', () => {
   const note = syncSessionEntry(BRIEF, { sid: 'tail-session', blockId: 'ad-tail', detail: 'brief', granularity: 'round', rounds: [{ n: 1, ask: '帮我修一下缓存', said: '开头铺垫。\n\n这一轮的判断是：缓存 key 少了项目维度，已补上并回归通过。', summary: '缓存 key 少了项目维度，已补上并回归通过', kind: 'qa' }], qaMax: 160 }).text;
-  assert.ok(note.includes('结论：缓存 key 少了项目维度，已补上并回归通过'), note);
+  assert.ok(note.includes('**结论**：缓存 key 少了项目维度，已补上并回归通过'), note);
 });
 
 test('caveat and closing paragraphs are skipped even when they sit last', () => {
@@ -103,7 +103,7 @@ test('a model answer that only repeats the kind falls back to the local conclusi
   const said = '先说结论：1M 上下文不等于记忆，记忆是取舍与召回。\n\n窗口再大，模型也不会自动知道该记住哪一句。';
   const note = syncSessionEntry('- DOING 上下文与记忆 ^ad-kind2', { sid: 'k2', blockId: 'ad-kind2', detail: 'brief', granularity: 'round',
     rounds: [{ n: 1, ask: '1M 上下文等于记忆吗', said, summary: 'qa', kind: 'qa' }] }).text;
-  const line = note.split('\n').find((l) => l.includes('💬'));
-  assert.ok(!/结论：qa\b/.test(line), line);
+  const line = note.split('\n').find((l) => l.includes('第1轮：'));
+  assert.ok(!/(?:\*\*结论\*\*|结论)：qa\b/.test(line), line);
   assert.ok(line.includes('不等于记忆'), line);
 });

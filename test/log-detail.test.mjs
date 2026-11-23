@@ -4,9 +4,9 @@ const base='- DOING task ^ad-detail-new';
 const round={n:1,at:100,ask:'请调整入口。保留旧数据。',said:'入口已经调整。旧数据完整保留。验证全部通过。'};
 const write=(text,detail,rounds=[round],extra={})=>syncSessionEntry(text,{blockId:'ad-detail-new',detail,granularity:'round',rounds,...extra}).text;
 const brief=write(base,'brief');
-assert.ok(!brief.includes('❓') && brief.includes('任务：') && brief.includes('；结论：'),'brief combines task and result in one record');
+assert.ok(!brief.includes('❓') && brief.includes('**任务**：') && brief.includes('；**结论**：'),'brief combines task and result in one record');
 const standard=write(base,'standard');
-assert.ok(standard.includes('❓')&&standard.includes('💬'));
+assert.ok(standard.includes('❓')&&standard.includes('第1轮：')&&!standard.includes('💬'));
 assert.ok(!standard.includes('旧数据完整保留。'),'standard keeps one sentence from the reply');
 const detailed=write(base,'detailed');
 assert.ok(detailed.includes('旧数据完整保留。')&&detailed.includes('保留旧数据。'),'detailed retains more of both sides');
@@ -29,7 +29,7 @@ assert.equal(detailForRound(settings.autoLogDetail,settings.autoLogDetailHistory
 const {evidenceBlocks,parseMemories}=await import('../src/dream.js');
 const evidence=evidenceBlocks(detailed,'copy/development-log.md');
 assert.ok(evidence.some(b=>b.kind==='user'&&b.text.includes('❓')));
-assert.ok(evidence.some(b=>b.kind==='ai'&&b.text.includes('💬')));
+assert.ok(evidence.some(b=>b.kind==='ai'&&b.text.includes('第1轮：')));
 assert.ok(evidence.every(b=>b.path==='copy/development-log.md'),'copied logs keep an explicit source note for Dreaming');
 
 {
@@ -56,7 +56,7 @@ assert.ok(adBlockIdRanges(marked).some(r=>marked.slice(r.from,r.to).includes('ad
   assert.equal(update(old, rounds.slice(0, 2)), old, 'switching settings alone changes no saved text');
   const appended = update(old, rounds);
   for (const line of old.split('\n')) assert.ok(appended.split('\n').includes(line), 'saved line survives latest progress: ' + line);
-  assert.ok(appended.includes('任务：第三轮问题。；结论：第三轮回答。') && !appended.includes('❓ 第3轮'), 'new brief round combines task and result');
+  assert.ok(appended.includes('**任务**：第三轮问题。；**结论**：第三轮回答。') && !appended.includes('❓ 第3轮'), 'new brief round combines task and result');
   assert.equal(update(appended, rounds), appended, 'repeated scans are idempotent');
   const more = update(appended, [...rounds, { n: 4, at: 600, ask: '第四轮问题。', said: '第四轮回答。' }]);
   for (const line of appended.split('\n')) assert.ok(more.split('\n').includes(line), 'later latest-progress writes also retain saved text');

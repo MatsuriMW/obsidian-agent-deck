@@ -12,7 +12,7 @@
 
 import { createHash } from "crypto";
 import { t } from "./i18n.js";
-import { blockIdOf, fencedLines } from "./journal.js";
+import { blockIdOf, fencedLines, RESULT_RE } from "./journal.js";
 
 export const QUESTION_RE = /^(\s*)[-*+]\s+❓\s*(?:(?:第\s*(\d+)\s*轮|Round\s+(\d+)(?:\s*\([^)]*\))?)\s*[：:]?\s*)?(.*)$/i;
 export const ANSWER_RE = /^(\s*)[-*+]\s+✍️\s*(?:(?:答|Answer)\s*[：:]?\s*)?(.*)$/i;
@@ -277,7 +277,7 @@ export function latestWrittenAnswer(lines = [], block = null) {
   const end = Number.isInteger(block.end) ? block.end : lines.length - 1;
   let hasResultAfter = false;
   for (let i = entry.line + 1; i <= end && i < lines.length; i++) {
-    if (!fenced.has(i) && /^\s*[-*+]\s+💬/.test(lines[i] || "")) { hasResultAfter = true; break; }
+    if (!fenced.has(i) && RESULT_RE.test(lines[i] || "")) { hasResultAfter = true; break; }
   }
   return { ...entry, hasResultAfter };
 }

@@ -50,7 +50,7 @@ function blockText(lines, start, end) {
 }
 
 export function roundsIn(text) {
-  return Math.max(0, ...[...text.matchAll(/(?:💬|❓)\s*第(\d+)轮[：:]/g)].map((m) => +m[1]));
+  return Math.max(0, ...[...text.matchAll(/(?:(?:💬|❓)\s*|^\s*[-*+]\s+)第(\d+)轮[：:]/gm)].map((m) => +m[1]));
 }
 
 // Only a complete frame is owned by the organizer. Headings or AI-looking

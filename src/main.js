@@ -45,6 +45,7 @@ import { DelegateOptionsModal, ConfirmSendModal, FollowUpModal, ArchiveTargetMod
 import { agentIcon, setLucide } from "./icons.js";
 import { createEditorExtension, dispatchRefresh, ITEM_MIME } from "./editor.js";
 import { keywordMarksExtension, keywordIconsExtension, keywordPostProcessor } from "./keyword-style.js";
+import { recordIconsExtension, recordIconsPostProcessor } from "./record-icons.js";
 import { MenuBarBridge } from "./menubar.js";
 import { SessionTitleManager } from "./session-titles.js";
 import { integrateRecordFolding } from "./fold-integration.js";
@@ -223,7 +224,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.registerView(DASHBOARD_TYPE, (leaf) => new DashboardView(leaf, this));
     this.settingTab = new AgentDeckSettingsTab(this.app, this);
     this.addSettingTab(this.settingTab);
-    this.registerEditorExtension([...(createEditorExtension(this) || []), keywordMarksExtension(this), keywordIconsExtension(this)]);
+    this.registerEditorExtension([...(createEditorExtension(this) || []), keywordMarksExtension(this), keywordIconsExtension(this), recordIconsExtension(this)]);
     registerTaskAgentSuggest(this);
     registerTaskStatusMenu(this);
     if (typeof this.app.workspace?.on === "function") {
@@ -335,6 +336,8 @@ export default class AgentDeckPlugin extends Plugin {
 
     // 关键词配色与完成态文字：TODOseq 不在管的时候由这边渲染（编辑器和阅读视图一致）
     this.registerMarkdownPostProcessor(keywordPostProcessor(this));
+    // AI 日志轮次圆圈数字 icon 与 Agent 官方桌面小图标（放在 keywordPostProcessor 之后，保留 🤖 供完成态判定）
+    this.registerMarkdownPostProcessor(recordIconsPostProcessor(this));
 
     this.setupRibbon();
 
@@ -3879,8 +3882,8 @@ export default class AgentDeckPlugin extends Plugin {
           if (block) {
             for (let m = block.start + 1; m <= block.end; m++) {
               if (!link) link = J.parseLink(lines[m]);
-              if (/^\s*[-*+]\s+💬\s/.test(lines[m])) {
-                latestConclusion = J.stripPinMarker(lines[m].trim().replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:])?\s*/, "").replace(J.RECORD_PROVENANCE_RE, "")).trim();
+              if (/^\s*[-*+]\s+(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(lines[m])) {
+                latestConclusion = J.stripPinMarker(lines[m].trim().replace(/^[-*+]\s+(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?|(?:第\d+轮|Round\s+\d+)[：:])\s*/, "").replace(J.RECORD_PROVENANCE_RE, "")).trim();
               }
             }
           }

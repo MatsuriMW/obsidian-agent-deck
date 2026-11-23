@@ -2,7 +2,7 @@
 import * as J from "./journal.js";
 import { t } from "./i18n.js";
 export const AI_RECORD_RE = J.RECORD_LINE_RE;
-export const RECORD_MARKER_BODY_RE = /^(?:💬|❓|📋|⏱|🔗)\s|^TODO\s+🤖\s/;
+export const RECORD_MARKER_BODY_RE = /^(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|TODO\s+🤖\s)/;
 export const RECORD_VIEWS = new Set(["outline", "table", "cards", "timeline"]);
 export const RECORD_VIEW_LABELS = {
   outline: "大纲",
@@ -10,7 +10,9 @@ export const RECORD_VIEW_LABELS = {
   cards: "卡片",
   timeline: "时间线",
 };
-export const isBriefRecord = line => /💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?(?:任务：.+；结论：|Task:\s*.+;\s*Result:\s*.+)/.test(line);
+const BRIEF_LEAD_RE = /(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?|(?:^|\s)(?:第\d+轮|Round\s+\d+)[：:])/;
+const BRIEF_PAIR_RE = /(?:\*\*任务\*\*|任务)[：:].+；(?:\*\*结论\*\*|结论)[：:]|(?:\*\*Task\*\*|Task):\s*.+;\s*(?:\*\*Result\*\*|Result):\s*.+/;
+export const isBriefRecord = line => new RegExp(`${BRIEF_LEAD_RE.source}\\s*(?:${BRIEF_PAIR_RE.source})`).test(line);
 export const isPinnedLine = line => J.hasPinMarker(line);
 
 function groupPrefValue(map, group) {
@@ -46,7 +48,7 @@ const normalizeStableTaskKey = (k) => String(k || "")
   .trim();
 
 export function aiRecordGroups(text, trackedIds = new Set()) {
-  if (!text || (!text.includes("💬") && !text.includes("❓") && !text.includes("📋") && !text.includes("⏱") && !text.includes("🔗") && !text.includes("🤖") && !text.includes("^"))) return [];
+  if (!text || (!text.includes("💬") && !text.includes("❓") && !text.includes("📋") && !text.includes("⏱") && !text.includes("🔗") && !text.includes("🤖") && !text.includes("^") && !/(?:第\d+轮|Round\s+\d+)[：:]/.test(text))) return [];
   const lines = text.split("\n"), out = [], fenced = J.fencedLines(lines), titleCounts = new Map();
   for (const task of J.taskItems(text)) {
     if (fenced.has(task.line) || AI_RECORD_RE.test(lines[task.line])) continue;
@@ -129,7 +131,7 @@ function selectVisibleLines(lineNums, lines, mode = "latest1", summaryLines = []
   const merge = (base) => [...new Set([...base, ...pinned])].sort((a, b) => a - b);
   const count = { latest1: 1, latest3: 3, latest5: 5 }[mode];
   if (count) {
-    const results = lineNums.filter((n) => /^(?:\s*(?:[-*+]|\d+[.)])\s+)?💬\s/.test(lines[n]) && !/💬\s+累计总结[：:]/.test(lines[n]));
+    const results = lineNums.filter((n) => /^(?:\s*(?:[-*+]|\d+[.)])\s+)?(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(lines[n]) && !/💬\s+累计总结[：:]/.test(lines[n]));
     const round = n => {
       const m = /<!-- ad-turn:[^:]+:(\d+) -->/.exec(lines[n]) || /(?:第(\d+)轮|Round\s+(\d+))[：:]/.exec(lines[n]);
       return m ? +(m[1] || m[2]) : 0;
@@ -173,11 +175,11 @@ export function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
   if (/^💬\s+累计总结[：:]/.test(body)) {
     kind = "summary"; kindLabel = "总结";
     content = body.replace(/^💬\s+累计总结[：:]\s*/, "");
-  } else if (/^💬\s/.test(body)) {
+  } else if (/^(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(body)) {
     kind = "result"; kindLabel = "结论";
-    content = body.replace(/^💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?\s*/, "");
-    const brief = /^任务：([\s\S]+?)；结论：([\s\S]+)$/.exec(content)
-      || /^Task:\s*([\s\S]+?);\s*Result:\s*([\s\S]+)$/.exec(content);
+    content = body.replace(/^(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?|(?:第\d+轮|Round\s+\d+)[：:])\s*/, "");
+    const brief = /^(?:\*\*任务\*\*|任务)[：:]\s*([\s\S]+?)；(?:\*\*结论\*\*|结论)[：:]\s*([\s\S]+)$/.exec(content)
+      || /^(?:\*\*Task\*\*|Task):\s*([\s\S]+?);\s*(?:\*\*Result\*\*|Result):\s*([\s\S]+)$/.exec(content);
     if (brief) { task = brief[1].trim(); conclusion = brief[2].trim(); }
   } else if (/^❓\s/.test(body)) {
     kind = "question"; kindLabel = "提问";

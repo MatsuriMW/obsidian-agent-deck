@@ -76,7 +76,7 @@ assert.ok(al.autoClock(editedClock, '任务', [[60,180]], 'Codex', 0, '', 'ad-cl
 
 // A reply delegated as its own task keeps the original turn identity.
 let replay = J.syncSessionEntry('- DOING 原任务 ^ad-origin', {sid:'original',blockId:'ad-origin',granularity:'round',rounds:[{n:1,said:'原 AI 结果'}]}).text;
-const replyIndex = replay.split('\n').findIndex(line=>line.includes('💬'));
+const replyIndex = replay.split('\n').findIndex(line=>line.includes('第1轮：'));
 let current = replay;
 const writer = new Delegator({settings:deepMerge(DEFAULTS,{}),jobs:{},vaultPath:'/tmp',readNote:async()=>current,writeNote:async(_,text)=>{current=text;},saveSettings(){}});
 await writer.writeLink({agent:'codex',path:'note.md',lineText:current.split('\n')[replyIndex],name:'继续处理'},sid);

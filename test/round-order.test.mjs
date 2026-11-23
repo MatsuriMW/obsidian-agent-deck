@@ -14,9 +14,9 @@ test('recover missing early rounds and sort newest first without changing saved 
 });
 test('detailed records keep questions and answers together in descending order',()=>{
  const text=write('- DOING task ^ad-order','detailed');
- assert.ok(text.indexOf('❓ 第3轮')<text.indexOf('💬 第3轮'));
- assert.ok(text.indexOf('💬 第3轮')<text.indexOf('❓ 第2轮'));
- assert.ok(text.indexOf('💬 第2轮')<text.indexOf('❓ 第1轮'));
+ assert.ok(text.indexOf('❓ 第3轮')<text.indexOf('- 第3轮：'));
+ assert.ok(text.indexOf('- 第3轮：')<text.indexOf('❓ 第2轮'));
+ assert.ok(text.indexOf('- 第2轮：')<text.indexOf('❓ 第1轮'));
 });
 test('latest display selects the newest conclusion in both source orders',()=>{
  const descending=write('- DOING task ^ad-order');

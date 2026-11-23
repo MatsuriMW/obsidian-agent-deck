@@ -32,7 +32,7 @@ export function recordCopyText(line, mode = "all") {
     .replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "")
     .trim();
   if (mode !== "conclusion") return text;
-  const conclusion = text.match(/结论[：:]\s*([\s\S]*)$/)?.[1];
+  const conclusion = text.match(/(?:\*\*结论\*\*|结论)[：:]\s*([\s\S]*)$/)?.[1];
   return (conclusion || text).trim();
 }
 

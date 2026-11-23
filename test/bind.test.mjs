@@ -108,9 +108,9 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
     r1.blockId === J.makeBlockId(sid) &&
     r1.text.includes("^" + J.makeBlockId(sid)) &&
     r1.text.includes("\t- 📋 第2轮：步骤 2/3 · 编写单元测试") &&
-    r1.text.includes("\t- 💬 第一轮完成了基础日志解析。") &&
+    r1.text.includes("\t- 第1轮：第一轮完成了基础日志解析。") &&
     r1.text.includes("\t- ❓ 第2轮：加上 Claude TaskCreate 和对话轮数追踪") &&
-    r1.text.includes("\t- 💬 第2轮：已支持 Claude TaskCreate 与其他 Agent 轮数追踪。") &&
+    r1.text.includes("\t- 第2轮：已支持 Claude TaskCreate 与其他 Agent 轮数追踪。") &&
     r1.text.includes("\t- TODO 🤖 确认是否启用混合模式润色") &&
     r1.text.split("\n").filter((l) => /^- /.test(l)).length === 1,
     r1.text

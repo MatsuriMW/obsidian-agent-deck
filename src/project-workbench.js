@@ -641,8 +641,8 @@ export function extractTaskBoardGroups(text, { trackedIds = new Set(), trigger =
         if (parsedLink) link = parsedLink;
       }
       const trimmed = lines[m].trim();
-      if (/^[-*+]\s+💬\s/.test(trimmed)) {
-        latestConclusion = J.stripPinMarker(trimmed.replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:])?\s*/, "").replace(J.RECORD_PROVENANCE_RE, "")).trim();
+      if (/^[-*+]\s+(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(trimmed)) {
+        latestConclusion = J.stripPinMarker(trimmed.replace(/^[-*+]\s+(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:])?|(?:第\d+轮|Round\s+\d+)[：:])\s*/, "").replace(J.RECORD_PROVENANCE_RE, "")).trim();
       }
       if (w === subIndent && J.LIST_RE.test(lines[m]) && !J.RECORD_LINE_RE.test(lines[m])) {
         const subKw = J.kwLine(lines[m]);
@@ -1324,9 +1324,9 @@ export function extractBlockResultText(noteText = "", { blockId = "", title = ""
     const trimmed = lines[i].trim();
     const ansMatch = /\[[^\]]+\]\(([^)]*Answers\/[^)]+\.md)\)/i.exec(trimmed);
     if (ansMatch) answerLink = ansMatch[1];
-    if (/^[-*+]\s+💬\s/.test(trimmed)) {
+    if (/^[-*+]\s+(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(trimmed)) {
       const clean = J.stripPinMarker(trimmed
-        .replace(/^[-*+]\s+💬\s+(?:第\d+轮[：:]\s*)?/, "")
+        .replace(/^[-*+]\s+(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:]\s*)?|(?:第\d+轮|Round\s+\d+)[：:]\s*)/, "")
         .replace(J.RECORD_PROVENANCE_RE, ""))
         .trim();
       if (clean) comments.push(clean);
