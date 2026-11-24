@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.22 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.23 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -1393,8 +1393,22 @@ details[open] > :is(summary.ad-modelgroup__head, summary.ad-subdetails__head)::b
 .ad-view .ad-sess.is-landed {
   animation: ad-land .9s ease-out 1;
 }
-body.ad-dragging-item :is(.ad-view .ad-sess) {
+body.ad-dragging-item :is(.ad-view .ad-sess):not(.is-drop):not(.is-no-drop) {
   border-style: dashed;
+  cursor: copy;
+}
+body.ad-dragging-item :is(.ad-view .ad-sess).is-drop {
+  cursor: copy;
+}
+body.ad-dragging-item :is(.ad-view .ad-sess).is-no-drop {
+  filter: grayscale(1);
+  opacity: .42;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+body.ad-dragging-item :is(.ad-view .ad-sess) > * {
+  pointer-events: none;
 }
 .ad-view .ad-sess .ad-sess__mark {
   width: 22px;
@@ -1568,7 +1582,11 @@ body.ad-dragging-item :is(.ad-view .ad-sess) {
   padding: 10px;
   position: relative;
   overflow: hidden;
-  transition: transform .16s ease, border-color .16s ease;
+  transition:
+    transform .16s ease,
+    border-color .16s ease,
+    opacity .16s ease,
+    filter .16s ease;
 }
 .ad-view .ad-agentcard::after {
   content: "";
@@ -1629,9 +1647,44 @@ body.ad-dragging-item :is(.ad-view .ad-sess) {
   color: #fff;
   background: var(--ad-agent);
 }
-body.ad-dragging-item :is(.ad-view .ad-agentcard) {
+body.ad-dragging-item :is(.ad-view .ad-agentcard):not(.is-no-drop):not(.is-drop) {
   border-style: dashed;
   border-color: color-mix(in srgb, var(--ad-agent) 45%, var(--ad-line));
+  cursor: copy;
+}
+body.ad-dragging-item :is(.ad-view .ad-agentcard).is-drop {
+  cursor: copy;
+}
+body.ad-dragging-item :is(.ad-view .ad-agentcard).is-no-drop {
+  border-style: solid;
+  border-color: var(--ad-line);
+  background: var(--ad-surface-2, var(--background-secondary));
+  filter: grayscale(1);
+  opacity: .42;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+body.ad-dragging-item :is(.ad-view .ad-agentcard) > * {
+  pointer-events: none;
+}
+body.ad-dragging-item :is(.ad-view .ad-agentcard).is-no-drop.is-drop-blocked {
+  opacity: .52;
+}
+body.ad-dragging-item :is(.ad-view .ad-agentcard).is-no-drop.is-drop-blocked::before {
+  content: attr(data-drop-hint);
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  z-index: 2;
+  padding: 3px 6px;
+  border-radius: 7px;
+  font-size: 10px;
+  text-align: center;
+  color: var(--ad-muted);
+  background: var(--background-modifier-hover);
+  border: 1px solid var(--ad-line);
 }
 .ad-view .ad-agentcard .ad-agentcard__top {
   display: grid;

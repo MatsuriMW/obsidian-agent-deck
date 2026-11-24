@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.22 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.23 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -5868,14 +5868,34 @@ function kwLine(raw) {
   if (!s || s.startsWith("\u23F1") || s.startsWith("\u{1F517}") || !kw && !blockId && /^(?:💬|❓|📋|(?:第\d+轮|Round\s+\d+)[：:])/.test(s) || !kw && /^🤖\s*(?:子代理|side chat)/.test(s)) return null;
   return { kw, body: s, blockId };
 }
+var TRACKED_LINK_RE = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=([a-z][a-z0-9_-]{1,31})&sid=([^)]*)\)/;
+var TRACKED_LABEL_PREFIX_RE = /^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|TeleAgent|WorkBuddy|Cursor|Grok Bot|T3 Code|Cindy|Muse|Kimi Code|豆包工作|Gemini CLI)：/;
+var SESSION_LINK_RE = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/;
+var THREAD_LINK_RE = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/;
+var BACKTICK_LINK_RE = /^\s*[-*+]\s+🔗.*`((?:session-)?[0-9a-f-]{36})`/;
+var OBSIDIAN_LINK_LABELS = { opencode: "OpenCode", qoder: "Qoder", hermes: "Hermes", minimax: "MiniMax", qwenwork: "\u5343\u95EE\u529E\u516C", teleagent: "TeleAgent", cursor: "Cursor", grokbot: "Grok Bot", t3code: "T3 Code", cindy: "Cindy", muse: "Muse", kimicode: "Kimi Code", doubaowork: "\u8C46\u5305\u5DE5\u4F5C", gemini: "Gemini CLI" };
+var safeDecodeUri = (raw) => {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+};
 function parseLink(line) {
-  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(antigravity|opencode|qoder|hermes|minimax|qwenwork|teleagent|workbuddy|cursor|grokbot|t3code|cindy|muse|kimicode|doubaowork|gemini)&sid=([^)]*)\)/.exec(line);
-  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|TeleAgent|WorkBuddy|Cursor|Grok Bot|T3 Code|Cindy|Muse|Kimi Code|豆包工作|Gemini CLI)：/, "") };
-  const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
+  if (!line || !line.includes("\u{1F517}")) return null;
+  const tracked = TRACKED_LINK_RE.exec(line);
+  if (tracked) {
+    const agent2 = tracked[2];
+    let title = tracked[1].replace(TRACKED_LABEL_PREFIX_RE, "");
+    const customName = AGENTS[agent2]?.customAcp ? AGENTS[agent2]?.name : "";
+    if (customName && title.startsWith(`${customName}\uFF1A`)) title = title.slice(customName.length + 1);
+    return { agent: agent2, sid: safeDecodeUri(tracked[3]), title };
+  }
+  const m = SESSION_LINK_RE.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
-  const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
-  if (d) return d[2] ? { agent: "codex", sid: d[3], title: d[1] || "" } : { agent: "workbuddy", sid: decodeURIComponent(d[6]), title: d[4] || "" };
-  const b = /^\s*[-*+]\s+🔗.*`((?:session-)?[0-9a-f-]{36})`/.exec(line);
+  const d = THREAD_LINK_RE.exec(line);
+  if (d) return d[2] ? { agent: "codex", sid: d[3], title: d[1] || "" } : { agent: "workbuddy", sid: safeDecodeUri(d[6]), title: d[4] || "" };
+  const b = BACKTICK_LINK_RE.exec(line);
   if (!b) return null;
   const agent = /DeepSeek Harness|dsh:\/\//.test(line) ? "dsh" : /Antigravity|antigravity:\/\//i.test(line) ? "antigravity" : /Codex[：:]/.test(line) ? "codex" : /WorkBuddy[：:]/.test(line) ? "workbuddy" : "claude";
   return { agent, sid: b[1], title: "" };
@@ -5883,9 +5903,11 @@ function parseLink(line) {
 var deckSessionUrl = (agent, sid) => `obsidian://agent-deck?do=open&agent=${encodeURIComponent(agent)}&sid=${encodeURIComponent(sid)}`;
 function linkLine(indent, agent, title, sid) {
   const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
-  const obsidianLabels = { opencode: "OpenCode", qoder: "Qoder", hermes: "Hermes", minimax: "MiniMax", qwenwork: "\u5343\u95EE\u529E\u516C", teleagent: "TeleAgent", cursor: "Cursor", grokbot: "Grok Bot", t3code: "T3 Code", cindy: "Cindy", muse: "Muse", kimicode: "Kimi Code", doubaowork: "\u8C46\u5305\u5DE5\u4F5C", gemini: "Gemini CLI" };
-  if (obsidianLabels[agent]) {
-    return `${indent}- \u{1F517} [${obsidianLabels[agent]}\uFF1A${safe}](${deckSessionUrl(agent, sid)})`;
+  if (OBSIDIAN_LINK_LABELS[agent]) {
+    return `${indent}- \u{1F517} [${OBSIDIAN_LINK_LABELS[agent]}\uFF1A${safe}](${deckSessionUrl(agent, sid)})`;
+  }
+  if (AGENTS[agent]?.customAcp) {
+    return `${indent}- \u{1F517} [${AGENTS[agent].name}\uFF1A${safe}](${deckSessionUrl(agent, sid)})`;
   }
   if (agent === "claude") return `${indent}- \u{1F517} [Claude\uFF1A${safe}](claude://resume?session=${sid})`;
   if (agent === "dsh") return `${indent}- \u{1F517} [DeepSeek Harness\uFF1A${safe}](dsh://open) \`${sid}\``;
@@ -8324,24 +8346,422 @@ var AttentionTracker = class {
   }
 };
 
+// src/agent-registry.js
+var CAPABILITIES = /* @__PURE__ */ new Map([
+  ["claude", {
+    delegate: true,
+    runnerKind: "claude",
+    acp: false,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: false,
+    permissionControl: true,
+    archiveDetection: true,
+    modelCatalog: true,
+    autoOpenDesktopOnDone: true,
+    waitDesktopUntilDone: true,
+    sessionLinkScheme: "claude"
+  }],
+  ["codex", {
+    delegate: true,
+    runnerKind: "codex",
+    acp: false,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: true,
+    modelCatalog: true,
+    autoOpenDesktopOnDone: false,
+    waitDesktopUntilDone: true,
+    sessionLinkScheme: "codex"
+  }],
+  ["workbuddy", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: true,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "workbuddy"
+  }],
+  // TeleAgent 没有 CLI / ACP：拖任务过去只做「复制 + 唤起客户端」，会话靠文本前缀认领。
+  // 会话深链用 Deck 自己的 obsidian:// 协议（`teleai-cowork://` 的会话定位没核验到）。
+  ["teleagent", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "obsidian"
+  }],
+  ["dsh", {
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    acpArgs: ["acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "dsh-default",
+    acpDefaultEffort: "high",
+    acpModelOptional: true,
+    acpEffortOptional: false,
+    acpAllowUnknownEffort: true,
+    desktopHandoffOnly: false,
+    terminalHandoff: false,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: true,
+    sessionLinkScheme: "dsh"
+  }],
+  ["antigravity", {
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    acpArgs: ["acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "antigravity-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: false,
+    acpAllowUnknownEffort: false,
+    desktopHandoffOnly: false,
+    terminalHandoff: false,
+    continueInApp: true,
+    continueRequiresAcp: true,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: true,
+    sessionLinkScheme: "antigravity"
+  }],
+  ["opencode", {
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    acpArgs: ["acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "opencode-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: true,
+    autoOpenDesktopOnDone: true,
+    waitDesktopUntilDone: false,
+    sessionLinkScheme: "obsidian"
+  }],
+  ["qoder", {
+    delegate: true,
+    runnerKind: "qoder",
+    acp: false,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: false,
+    permissionControl: true,
+    archiveDetection: false,
+    modelCatalog: true,
+    autoOpenDesktopOnDone: false,
+    waitDesktopUntilDone: true,
+    sessionLinkScheme: "obsidian"
+  }],
+  ["hermes", {
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    acpArgs: [],
+    acpAutoApprove: true,
+    acpDefaultModel: "hermes-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: true,
+    modelCatalog: true,
+    autoOpenDesktopOnDone: false,
+    waitDesktopUntilDone: false,
+    sessionLinkScheme: "obsidian"
+  }],
+  ["minimax", {
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    acpArgs: ["acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "minimax-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: true,
+    modelCatalog: true,
+    autoOpenDesktopOnDone: true,
+    waitDesktopUntilDone: false,
+    sessionLinkScheme: "obsidian"
+  }],
+  ["qwenwork", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "qwenwork"
+  }],
+  ["cursor", {
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    acpArgs: ["acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "cursor-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
+    desktopHandoffOnly: false,
+    handoffFallback: true,
+    terminalHandoff: false,
+    continueInApp: true,
+    continueRequiresAcp: true,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: true,
+    sessionLinkScheme: "cursor"
+  }],
+  ["grokbot", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "grokbot"
+  }],
+  ["t3code", {
+    delegate: true,
+    runnerKind: "t3code",
+    acp: false,
+    desktopHandoffOnly: false,
+    terminalHandoff: false,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: true,
+    modelCatalog: false,
+    autoOpenDesktopOnDone: true,
+    waitDesktopUntilDone: false,
+    sessionLinkScheme: "obsidian"
+  }],
+  ["cindy", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: true,
+    modelCatalog: false,
+    sessionLinkScheme: "obsidian"
+  }],
+  ["muse", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "muse"
+  }],
+  ["kimicode", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: true,
+    modelCatalog: false,
+    sessionLinkScheme: "kimicode"
+  }],
+  ["doubaowork", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    sessionLinkScheme: "doubaowork"
+  }],
+  ["gemini", {
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    acpArgs: ["--acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "gemini-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
+    desktopHandoffOnly: false,
+    terminalHandoff: true,
+    continueInApp: true,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: true,
+    sessionLinkScheme: "gemini"
+  }]
+]);
+function registerAgentCapability(id, capability = {}) {
+  if (!id || typeof id !== "string") throw new Error("Agent id is required");
+  const prev = CAPABILITIES.get(id) || {};
+  const next = { ...prev, ...capability };
+  CAPABILITIES.set(id, next);
+  return next;
+}
+function unregisterAgentCapability(id) {
+  if (!id || typeof id !== "string") return false;
+  return CAPABILITIES.delete(id);
+}
+function getAgentCapability(id) {
+  const base = CAPABILITIES.get(id) || {};
+  const meta = AGENTS[id] || {};
+  return {
+    id,
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    acpArgs: ["acp"],
+    acpAutoApprove: false,
+    acpDefaultModel: "",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
+    desktopHandoffOnly: !!meta.trackingOnly,
+    terminalHandoff: false,
+    continueInApp: false,
+    continueRequiresAcp: false,
+    permissionControl: false,
+    archiveDetection: false,
+    modelCatalog: false,
+    autoOpenDesktopOnDone: false,
+    waitDesktopUntilDone: false,
+    sessionLinkScheme: meta.deep || id,
+    ...base
+  };
+}
+function hasAgentCapability(id, cap) {
+  return Boolean(getAgentCapability(id)[cap]);
+}
+function listAgentsByCapability(cap) {
+  const ids = [.../* @__PURE__ */ new Set([...AGENT_ORDER, ...CAPABILITIES.keys()])];
+  return ids.filter((id) => hasAgentCapability(id, cap));
+}
+var delegateAgents = () => listAgentsByCapability("delegate");
+function canDelegateDrop(id) {
+  const meta = AGENTS[id];
+  if (!meta || meta.trackingOnly) return false;
+  const cap = getAgentCapability(id);
+  return Boolean(cap.delegate || cap.desktopHandoffOnly || cap.terminalHandoff);
+}
+var cliHandoffAgents = () => listAgentsByCapability("terminalHandoff");
+var canContinueInApp = (id) => hasAgentCapability(id, "continueInApp");
+function canContinueSession(session, jobs = null, { requireSid = true } = {}) {
+  if (!session?.agent || !canContinueInApp(session.agent)) return false;
+  const sid = session.sid || session.sessionId || "";
+  if (requireSid && !sid) return false;
+  if (getAgentCapability(session.agent).continueRequiresAcp) {
+    const owned = sid && jobs ? Object.values(jobs).find((j) => j.agent === session.agent && j.sessionId === sid) : null;
+    return (session.transport || owned?.transport) === "acp";
+  }
+  return true;
+}
+var usesDeckSessionLink = (id) => {
+  const cap = getAgentCapability(id);
+  return !!AGENTS[id]?.trackingOnly || cap.sessionLinkScheme === "obsidian";
+};
+
 // src/workflow.js
 var activeJob = (job) => ["starting", "running", "needs-approval"].includes(job?.state);
+var DESTINATION_IDS = {
+  claude: ["desktop", "background", "terminal"],
+  codex: ["desktop", "background", "terminal"],
+  dsh: ["desktop", "background"],
+  antigravity: ["background"],
+  opencode: ["desktop", "background", "terminal"],
+  qoder: ["desktop", "background", "terminal"],
+  hermes: ["background", "terminal"],
+  minimax: ["desktop", "background", "terminal"],
+  cursor: ["background", "desktop"],
+  gemini: ["background", "terminal"],
+  t3code: ["desktop", "background"],
+  workbuddy: ["desktop", "terminal"],
+  teleagent: ["desktop"]
+};
+var BACKGROUND_DEFAULT_AGENTS = /* @__PURE__ */ new Set(["antigravity", "qoder", "hermes", "minimax", "cursor", "gemini", "t3code"]);
 function destinations(agent) {
   const modes = {
     desktop: { id: "desktop", label: t("\u5728\u684C\u9762\u5BA2\u6237\u7AEF\u4E2D\u804A"), hint: ["workbuddy", "qoder", "cursor", "teleagent"].includes(agent) ? t("\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u7B49\u5F85\u4F60\u7C98\u8D34\u53D1\u9001\u3002") : agent === "dsh" ? t("\u5EFA\u7ACB\u4F1A\u8BDD\u540E\u6253\u5F00 Harness\uFF1B\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u5728\u4FA7\u680F\u9009\u62E9\u540C\u4E00\u4F1A\u8BDD\u7EE7\u7EED\u3002") : t("\u5148\u6267\u884C\u9996\u8F6E\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD\uFF1B\u9996\u8F6E\u671F\u95F4\u907F\u514D\u4E24\u8FB9\u540C\u65F6\u53D1\u9001\u3002") },
     background: { id: "background", label: t("\u540E\u53F0\u6267\u884C"), hint: t("\u7559\u5728\u5F53\u524D\u7B14\u8BB0\uFF0C\u5B8C\u6210\u6216\u9700\u8981\u5904\u7406\u65F6\u63D0\u9192\u3002") },
     terminal: { id: "terminal", label: t("\u5728\u7EC8\u7AEF\u4E2D\u804A"), hint: t("\u6253\u5F00\u4EA4\u4E92\u7EC8\u7AEF\uFF0C\u540E\u7EED\u5728\u7EC8\u7AEF\u7EE7\u7EED\u3002") }
   };
-  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["desktop", "background"], antigravity: ["background"], opencode: ["desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], hermes: ["background", "terminal"], minimax: ["desktop", "background", "terminal"], cursor: ["background", "desktop"], gemini: ["background", "terminal"], t3code: ["desktop", "background"], workbuddy: ["desktop", "terminal"], teleagent: ["desktop"] };
-  return (ids[agent] || []).map((id) => modes[id]);
+  if (DESTINATION_IDS[agent]) return DESTINATION_IDS[agent].map((id) => modes[id]);
+  if (hasAgentCapability(agent, "delegate")) {
+    return [modes.background, ...hasAgentCapability(agent, "terminalHandoff") ? [modes.terminal] : []];
+  }
+  return [];
 }
 function defaultDestination(plugin, agent) {
-  if (["antigravity", "qoder", "hermes", "minimax", "cursor", "gemini", "t3code"].includes(agent)) return "background";
+  if (BACKGROUND_DEFAULT_AGENTS.has(agent)) return "background";
   if (agent === "dsh") return "desktop";
   if (agent === "opencode") return plugin.settings?.delegate?.opencode?.openDesktop ? "desktop" : "background";
   if (agent === "codex") return plugin.settings?.delegate?.codex?.transport === "terminal" ? "terminal" : "desktop";
   if (agent === "claude") return plugin.settings?.delegate?.claude?.openDesktop ? "desktop" : "background";
+  if (hasAgentCapability(agent, "delegate")) return "background";
   return "desktop";
+}
+function agentDropMeta(plugin, id, metaKey = false) {
+  const a = AGENTS[id] || { short: id || "Agent" };
+  if (!canDelegateDrop(id)) return { delegable: false, cli: false, hint: t("\u6682\u4E0D\u652F\u6301\u59D4\u6D3E") };
+  const cap = getAgentCapability(id);
+  const handoff = id === "codex" || !cap.delegate && Boolean(cap.desktopHandoffOnly);
+  const cli = Boolean(cap.terminalHandoff) && Boolean(metaKey) !== Boolean(plugin?.settings?.delegateInTerminal);
+  const hint = cli ? t("\u5728\u7EC8\u7AEF\u91CC\u5F00 {name}", { name: a.short }) : handoff ? t("\u4EA4\u7ED9 {name}", { name: a.short }) : t("\u59D4\u6D3E\u7ED9 {name}", { name: a.short });
+  return { delegable: true, cli, hint };
 }
 function canOpenClient(session) {
   if (!session?.agent) return false;
@@ -18543,369 +18963,6 @@ var defaultController = createTerminalController();
 var openTerminal = (...args) => defaultController.openTerminal(...args);
 var focusCliSession = (...args) => defaultController.focusCliSession(...args);
 
-// src/agent-registry.js
-var CAPABILITIES = /* @__PURE__ */ new Map([
-  ["claude", {
-    delegate: true,
-    runnerKind: "claude",
-    acp: false,
-    desktopHandoffOnly: false,
-    terminalHandoff: true,
-    continueInApp: false,
-    permissionControl: true,
-    archiveDetection: true,
-    modelCatalog: true,
-    autoOpenDesktopOnDone: true,
-    waitDesktopUntilDone: true,
-    sessionLinkScheme: "claude"
-  }],
-  ["codex", {
-    delegate: true,
-    runnerKind: "codex",
-    acp: false,
-    desktopHandoffOnly: false,
-    terminalHandoff: true,
-    continueInApp: false,
-    permissionControl: false,
-    archiveDetection: true,
-    modelCatalog: true,
-    autoOpenDesktopOnDone: false,
-    waitDesktopUntilDone: true,
-    sessionLinkScheme: "codex"
-  }],
-  ["workbuddy", {
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
-    desktopHandoffOnly: true,
-    terminalHandoff: true,
-    continueInApp: false,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: false,
-    sessionLinkScheme: "workbuddy"
-  }],
-  // TeleAgent 没有 CLI / ACP：拖任务过去只做「复制 + 唤起客户端」，会话靠文本前缀认领。
-  // 会话深链用 Deck 自己的 obsidian:// 协议（`teleai-cowork://` 的会话定位没核验到）。
-  ["teleagent", {
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
-    desktopHandoffOnly: true,
-    terminalHandoff: false,
-    continueInApp: false,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: false,
-    sessionLinkScheme: "obsidian"
-  }],
-  ["dsh", {
-    delegate: true,
-    runnerKind: "acp",
-    acp: true,
-    acpArgs: ["acp"],
-    acpAutoApprove: true,
-    acpDefaultModel: "dsh-default",
-    acpDefaultEffort: "high",
-    acpModelOptional: true,
-    acpEffortOptional: false,
-    acpAllowUnknownEffort: true,
-    desktopHandoffOnly: false,
-    terminalHandoff: false,
-    continueInApp: true,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: true,
-    sessionLinkScheme: "dsh"
-  }],
-  ["antigravity", {
-    delegate: true,
-    runnerKind: "acp",
-    acp: true,
-    acpArgs: ["acp"],
-    acpAutoApprove: true,
-    acpDefaultModel: "antigravity-default",
-    acpDefaultEffort: "",
-    acpModelOptional: true,
-    acpEffortOptional: false,
-    acpAllowUnknownEffort: false,
-    desktopHandoffOnly: false,
-    terminalHandoff: false,
-    continueInApp: true,
-    continueRequiresAcp: true,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: true,
-    sessionLinkScheme: "antigravity"
-  }],
-  ["opencode", {
-    delegate: true,
-    runnerKind: "acp",
-    acp: true,
-    acpArgs: ["acp"],
-    acpAutoApprove: true,
-    acpDefaultModel: "opencode-default",
-    acpDefaultEffort: "",
-    acpModelOptional: true,
-    acpEffortOptional: true,
-    acpAllowUnknownEffort: true,
-    desktopHandoffOnly: false,
-    terminalHandoff: true,
-    continueInApp: true,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: true,
-    autoOpenDesktopOnDone: true,
-    waitDesktopUntilDone: false,
-    sessionLinkScheme: "obsidian"
-  }],
-  ["qoder", {
-    delegate: true,
-    runnerKind: "qoder",
-    acp: false,
-    desktopHandoffOnly: false,
-    terminalHandoff: true,
-    continueInApp: false,
-    permissionControl: true,
-    archiveDetection: false,
-    modelCatalog: true,
-    autoOpenDesktopOnDone: false,
-    waitDesktopUntilDone: true,
-    sessionLinkScheme: "obsidian"
-  }],
-  ["hermes", {
-    delegate: true,
-    runnerKind: "acp",
-    acp: true,
-    acpArgs: [],
-    acpAutoApprove: true,
-    acpDefaultModel: "hermes-default",
-    acpDefaultEffort: "",
-    acpModelOptional: true,
-    acpEffortOptional: true,
-    acpAllowUnknownEffort: true,
-    desktopHandoffOnly: false,
-    terminalHandoff: true,
-    continueInApp: true,
-    permissionControl: false,
-    archiveDetection: true,
-    modelCatalog: true,
-    autoOpenDesktopOnDone: false,
-    waitDesktopUntilDone: false,
-    sessionLinkScheme: "obsidian"
-  }],
-  ["minimax", {
-    delegate: true,
-    runnerKind: "acp",
-    acp: true,
-    acpArgs: ["acp"],
-    acpAutoApprove: true,
-    acpDefaultModel: "minimax-default",
-    acpDefaultEffort: "",
-    acpModelOptional: true,
-    acpEffortOptional: true,
-    acpAllowUnknownEffort: true,
-    desktopHandoffOnly: false,
-    terminalHandoff: true,
-    continueInApp: true,
-    permissionControl: false,
-    archiveDetection: true,
-    modelCatalog: true,
-    autoOpenDesktopOnDone: true,
-    waitDesktopUntilDone: false,
-    sessionLinkScheme: "obsidian"
-  }],
-  ["qwenwork", {
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
-    desktopHandoffOnly: true,
-    terminalHandoff: false,
-    continueInApp: false,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: false,
-    sessionLinkScheme: "qwenwork"
-  }],
-  ["cursor", {
-    delegate: true,
-    runnerKind: "acp",
-    acp: true,
-    acpArgs: ["acp"],
-    acpAutoApprove: true,
-    acpDefaultModel: "cursor-default",
-    acpDefaultEffort: "",
-    acpModelOptional: true,
-    acpEffortOptional: true,
-    acpAllowUnknownEffort: true,
-    desktopHandoffOnly: false,
-    handoffFallback: true,
-    terminalHandoff: false,
-    continueInApp: true,
-    continueRequiresAcp: true,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: true,
-    sessionLinkScheme: "cursor"
-  }],
-  ["grokbot", {
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
-    desktopHandoffOnly: true,
-    terminalHandoff: false,
-    continueInApp: false,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: false,
-    sessionLinkScheme: "grokbot"
-  }],
-  ["t3code", {
-    delegate: true,
-    runnerKind: "t3code",
-    acp: false,
-    desktopHandoffOnly: false,
-    terminalHandoff: false,
-    continueInApp: true,
-    permissionControl: false,
-    archiveDetection: true,
-    modelCatalog: false,
-    autoOpenDesktopOnDone: true,
-    waitDesktopUntilDone: false,
-    sessionLinkScheme: "obsidian"
-  }],
-  ["cindy", {
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
-    desktopHandoffOnly: true,
-    terminalHandoff: false,
-    continueInApp: false,
-    permissionControl: false,
-    archiveDetection: true,
-    modelCatalog: false,
-    sessionLinkScheme: "obsidian"
-  }],
-  ["muse", {
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
-    desktopHandoffOnly: true,
-    terminalHandoff: false,
-    continueInApp: false,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: false,
-    sessionLinkScheme: "muse"
-  }],
-  ["kimicode", {
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
-    desktopHandoffOnly: true,
-    terminalHandoff: false,
-    continueInApp: false,
-    permissionControl: false,
-    archiveDetection: true,
-    modelCatalog: false,
-    sessionLinkScheme: "kimicode"
-  }],
-  ["doubaowork", {
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
-    desktopHandoffOnly: true,
-    terminalHandoff: false,
-    continueInApp: false,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: false,
-    sessionLinkScheme: "doubaowork"
-  }],
-  ["gemini", {
-    delegate: true,
-    runnerKind: "acp",
-    acp: true,
-    acpArgs: ["--acp"],
-    acpAutoApprove: true,
-    acpDefaultModel: "gemini-default",
-    acpDefaultEffort: "",
-    acpModelOptional: true,
-    acpEffortOptional: true,
-    acpAllowUnknownEffort: true,
-    desktopHandoffOnly: false,
-    terminalHandoff: true,
-    continueInApp: true,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: true,
-    sessionLinkScheme: "gemini"
-  }]
-]);
-function registerAgentCapability(id, capability = {}) {
-  if (!id || typeof id !== "string") throw new Error("Agent id is required");
-  const prev = CAPABILITIES.get(id) || {};
-  const next = { ...prev, ...capability };
-  CAPABILITIES.set(id, next);
-  return next;
-}
-function unregisterAgentCapability(id) {
-  if (!id || typeof id !== "string") return false;
-  return CAPABILITIES.delete(id);
-}
-function getAgentCapability(id) {
-  const base = CAPABILITIES.get(id) || {};
-  const meta = AGENTS[id] || {};
-  return {
-    id,
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
-    acpArgs: ["acp"],
-    acpAutoApprove: false,
-    acpDefaultModel: "",
-    acpDefaultEffort: "",
-    acpModelOptional: true,
-    acpEffortOptional: true,
-    acpAllowUnknownEffort: true,
-    desktopHandoffOnly: !!meta.trackingOnly,
-    terminalHandoff: false,
-    continueInApp: false,
-    continueRequiresAcp: false,
-    permissionControl: false,
-    archiveDetection: false,
-    modelCatalog: false,
-    autoOpenDesktopOnDone: false,
-    waitDesktopUntilDone: false,
-    sessionLinkScheme: meta.deep || id,
-    ...base
-  };
-}
-function hasAgentCapability(id, cap) {
-  return Boolean(getAgentCapability(id)[cap]);
-}
-function listAgentsByCapability(cap) {
-  const ids = [.../* @__PURE__ */ new Set([...AGENT_ORDER, ...CAPABILITIES.keys()])];
-  return ids.filter((id) => hasAgentCapability(id, cap));
-}
-var delegateAgents = () => listAgentsByCapability("delegate");
-var cliHandoffAgents = () => listAgentsByCapability("terminalHandoff");
-var canContinueInApp = (id) => hasAgentCapability(id, "continueInApp");
-function canContinueSession(session, jobs = null, { requireSid = true } = {}) {
-  if (!session?.agent || !canContinueInApp(session.agent)) return false;
-  const sid = session.sid || session.sessionId || "";
-  if (requireSid && !sid) return false;
-  if (getAgentCapability(session.agent).continueRequiresAcp) {
-    const owned = sid && jobs ? Object.values(jobs).find((j) => j.agent === session.agent && j.sessionId === sid) : null;
-    return (session.transport || owned?.transport) === "acp";
-  }
-  return true;
-}
-var usesDeckSessionLink = (id) => {
-  const cap = getAgentCapability(id);
-  return !!AGENTS[id]?.trackingOnly || cap.sessionLinkScheme === "obsidian";
-};
-
 // src/task-mentions.js
 var escapeRegExp = (s) => String(s || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 function routableAgents() {
@@ -18931,17 +18988,23 @@ function taskMention(line, trigger = "@") {
 }
 function mentionOptions(plugin, opts) {
   if (opts.mentionResolved) return opts;
+  if (opts.ignoreMention) return { agent: plugin.defaultTarget?.() || "claude", ...opts, mentionResolved: true };
   const line = opts.block?.text.split("\n")[0] || opts.lines?.[opts.line] || "";
   const m = taskMention(line, mentionTrigger(plugin));
-  if (!m || opts.ignoreMention) return { agent: plugin.defaultTarget?.() || "claude", ...opts, mentionResolved: true };
+  if (!m) return { agent: plugin.defaultTarget?.() || "claude", ...opts, mentionResolved: true };
   if (!plugin.agentEnabled(m.agent)) throw new Error(t("{agent} \u5DF2\u5173\u95ED\uFF0C\u8BF7\u5148\u5728\u8BBE\u7F6E\u4E2D\u542F\u7528", { agent: AGENTS[m.agent].name }));
   if (m.model && !plugin.modelsFor(m.agent).some((x) => x.id === m.model)) throw new Error(t("{trigger}{agent} \u7684\u6A21\u578B\u4E0D\u5B58\u5728\uFF0C\u8BF7\u4ECE Agent \u83DC\u5355\u9009\u62E9\u6216\u5148\u6DFB\u52A0\u81EA\u5B9A\u4E49\u6A21\u578B", { trigger: m.trigger, agent: m.agent }));
   if (m.effort && !(EFFORTS[m.agent] || []).some((x) => x.id === m.effort)) throw new Error(t("{trigger}{agent} \u4E0D\u652F\u6301\u5F3A\u5EA6 {effort}", { trigger: m.trigger, agent: m.agent, effort: m.effort }));
   return { ...opts, agent: m.agent, model: m.model || plugin.defaultModel(m.agent), effort: m.effort || plugin.settings.delegate[m.agent]?.effort, mentionResolved: true };
 }
 function stripTaskMention(text, trigger = "@") {
-  const lines = text.split("\n"), m = taskMention(lines[0], trigger);
-  if (m) lines[0] = (lines[0].slice(0, m.from) + lines[0].slice(m.to)).trimEnd();
+  const lines = text.split("\n");
+  try {
+    const m = taskMention(lines[0], trigger);
+    if (m) lines[0] = (lines[0].slice(0, m.from) + lines[0].slice(m.to)).trimEnd();
+  } catch {
+    return text;
+  }
   return lines.join("\n");
 }
 function modelMatchKeys(m) {
@@ -20612,6 +20675,7 @@ function syncCustomAcpRegistry(entries = []) {
       name: entry.name,
       short: entry.name.slice(0, 6),
       color: entry.color,
+      soft: `color-mix(in srgb, ${entry.color} 13%, transparent)`,
       deep: "obsidian",
       customAcp: true,
       trackingOnly: false
@@ -22037,7 +22101,7 @@ var T3CodeRunner = class extends BaseRunner {
         if (err2.length > 4e3) err2 = err2.slice(-4e3);
         this.job.stderr = redactSecrets(err2.slice(-1e3));
       });
-      child.on("error", (e) => resolve({ code: -1, out, err: String(e && e.message || e), spawnError: true }));
+      child.on("error", (e) => resolve({ code: -1, out, err: String(e && e.message || e), spawnError: true, errCode: e?.code || "" }));
       child.on("close", (code) => resolve({ code: code ?? 1, out, err: err2, spawnError: false }));
       try {
         child.stdin.write(prompt);
@@ -22050,7 +22114,8 @@ var T3CodeRunner = class extends BaseRunner {
     var _a;
     const d = this.d;
     const cfg = d.settings.delegate.t3code || DEFAULTS.delegate.t3code || {};
-    const bin = findT3Binary(cfg.path || "");
+    const rawBin = findT3Binary(cfg.path || "");
+    const bin = await resolveExecutableWithFallback(rawBin, import_path19.default.basename(rawBin));
     const cwd = norm2(opts.cwd || cfg.cwd || d.vaultPath);
     const extra = splitArgs(cfg.extraArgs || "");
     const isFollowUp = Boolean(opts.sessionId);
@@ -22091,6 +22156,8 @@ ${res.out}`.trim();
       this.done(parsed?.reply ?? res.out.trim());
     } else if (res.code === 2 || parsed?.status === "waiting") {
       this.done(parsed?.reply || t("T3 Code \u6B63\u5728\u7B49\u5F85\u4F60\u7684\u56DE\u590D\uFF0C\u8BF7\u5728\u5BA2\u6237\u7AEF\u7EE7\u7EED"));
+    } else if (res.spawnError && res.errCode === "ENOENT") {
+      this.fail(t("\u627E\u4E0D\u5230 {agent} \u53EF\u6267\u884C\u6587\u4EF6\u300C{bin}\u300D\uFF0C\u8BF7\u786E\u8BA4\u5DF2\u5B89\u88C5\u6216\u5DF2\u5728\u8BBE\u7F6E\u4E2D\u586B\u5199\u547D\u4EE4\u884C\u8DEF\u5F84", { agent: AGENTS.t3code.name, bin }));
     } else {
       const combined = parsed?.error || `${res.err}
 ${res.out}`.trim();
@@ -22133,7 +22200,7 @@ var home5 = () => import_os18.default.homedir();
 var norm3 = (p2) => String(p2 || "").replace(/^~(?=\/)/, home5());
 var BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 var LINK_RE2 = LINK_RE;
-var STATUS_RE = new RegExp(`^(\\s*(?:[-*+]|\\d+[.)])\\s+(?:\\*\\*\\d{1,2}[:\uFF1A]\\d{2}\\*\\*\\s*)?)(${TASK_KWS})(?=\\s|$)`, "i");
+var STATUS_RE = new RegExp(`^(\\s*(?:[-*+]|\\d+[.)])\\s+(?:\\[[ xX/\\-]\\]\\s+)?(?:\\*\\*\\d{1,2}[:\uFF1A]\\d{2}\\*\\*\\s*)?)(${TASK_KWS})(?=\\s|$)`, "i");
 var TITLE_KW_RE = new RegExp(`^(${TASK_KWS})\\s+`, "i");
 function blockAt(lines, at) {
   if (at < 0 || at >= lines.length) return null;
@@ -22165,7 +22232,7 @@ function delegationText(lines, block, { newSession = false } = {}) {
 function blockTitle(block, trigger = "@") {
   if (!block) return "";
   const first = stripBlockId(stripTaskMention(block.text, trigger).split("\n")[0] || "");
-  return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "").replace(TITLE_KW_RE, "").replace(/[#*_`>[\]]/g, "").trim();
+  return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\[[ xX/\-]\]\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "").replace(TITLE_KW_RE, "").replace(/[#*_`>[\]]/g, "").trim();
 }
 function hasLink(lines, block) {
   for (let i = block.start + 1; i <= block.end; i++) if (LINK_RE2.test(lines[i]) && markOwner(lines, i) === block.start) return i;
@@ -22182,13 +22249,13 @@ function findLink(lines, block) {
   const back = /`([0-9a-f-]{16,}|session-[0-9a-f-]{20,})`/i.exec(lines[at]);
   return { line: at, sid: m && m[1] || cx && cx[1] || wb && decodeURIComponent(wb[1]) || back && back[1] || "", raw: lines[at] };
 }
+var DELEGATED_PREFIX_RE = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s+)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(.*)$/;
 function markDelegated(line) {
-  const m = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(.*)$/.exec(line || "");
-  if (!m) return `DELEGATED ${line || ""}`;
-  const rest = m[2];
-  const s = STATUS_RE.exec(line);
-  if (s) return line.replace(s[2], "DELEGATED");
-  return `${m[1]}DELEGATED ${rest}`;
+  const raw = line || "";
+  const s = STATUS_RE.exec(raw);
+  if (s) return `${s[1]}DELEGATED${raw.slice(s[1].length + s[2].length)}`;
+  const m = DELEGATED_PREFIX_RE.exec(raw);
+  return m ? `${m[1]}DELEGATED ${m[2]}` : `DELEGATED ${raw}`;
 }
 function linkLine2(indent, agent, name, sid) {
   return linkLine(indent, agent, String(name || "").slice(0, 48), sid);
@@ -22235,8 +22302,9 @@ function openExternalAsync(url) {
   });
 }
 var isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
+var CLI_SESSION_AGENTS = /* @__PURE__ */ new Set(["claude", "qoder", "workbuddy", "hermes", "minimax", "gemini"]);
 function isCliSession(agent, app) {
-  if (["claude", "qoder", "workbuddy", "hermes", "minimax"].includes(agent)) return app === "cli";
+  if (CLI_SESSION_AGENTS.has(agent)) return app === "cli";
   if (agent === "codex") return !isCodexDesktop(app);
   return false;
 }
@@ -22877,7 +22945,7 @@ ${source}`;
     Object.assign(job, { state: "starting", startedAt: Date.now(), endedAt: 0, error: "", result: "", lastText: "", step: "", resultWritten: false });
     this.saveJobs();
     this.refreshUI();
-    const runner = new AcpRunner(this, job);
+    const runner = createDelegationRunner(session.agent, this, job, getRunnerClasses());
     this.runners.set(job.id, runner);
     await runner.start({ sessionId: sid, prompt, cwd: job.cwd, ...job.model ? { model: job.model } : {}, ...job.effort ? { effort: job.effort } : {} });
     return job;
@@ -23008,6 +23076,10 @@ ${source}`;
       const eFlag = effort ? ` --reasoning ${shellQuote2(effort)}` : "";
       const yFlag = this.C.hermes?.autoApprove ? " --yolo" : "";
       cmd = `${shellQuote2(hermesCli)} chat${mFlag}${eFlag}${yFlag} -q "$(cat ${shellQuote2(taskFile)})"`;
+    } else if (agent === "gemini") {
+      const mFlag = model && model !== "gemini-default" ? ` -m ${shellQuote2(model)}` : "";
+      const yFlag = this.C.gemini?.autoApprove ? " -y" : "";
+      cmd = `${shellQuote2(bin)}${mFlag}${yFlag} -i "$(cat ${shellQuote2(taskFile)})"`;
     } else if (agent === "workbuddy") {
       const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote2(this.vaultPath)}` : "";
       cmd = `${shellQuote2(bin)}${addDir} -- "$(cat ${shellQuote2(taskFile)})"`;
@@ -28791,8 +28863,10 @@ function cursorLineOf(view2, plugin) {
   const sel = view2.state.selection.main;
   return plugin._lastEditor === view2 && sel.empty ? view2.state.doc.lineAt(sel.head).number - 1 : -1;
 }
-function lineHasBullet(doc, lineZero) {
-  return lineZero >= 0 && lineZero < doc.lines && SIMPLE_BULLET_RE.test(doc.line(lineZero + 1).text);
+function lineHasGripTarget(doc, lineZero) {
+  if (lineZero < 0 || lineZero >= doc.lines) return false;
+  const text = doc.line(lineZero + 1).text;
+  return Boolean(text.trim()) && !/^\s*<!--/.test(text);
 }
 function createEditorExtension(plugin) {
   const pluginClass = class {
@@ -28824,11 +28898,19 @@ function createEditorExtension(plugin) {
         this._cursorLine = nextLine;
         if (nextLine === prevLine || plugin.settings.dragGrip === false) return;
         const doc = update.view.state.doc;
-        if (!lineHasBullet(doc, prevLine) && !lineHasBullet(doc, nextLine)) return;
+        if (!lineHasGripTarget(doc, prevLine) && !lineHasGripTarget(doc, nextLine)) return;
         this.decorations = buildDecorations(update.view, plugin);
       }
     }
   };
+  if (typeof plugin?.register === "function" && !plugin._listDragBridgeInstalled) {
+    plugin._listDragBridgeInstalled = true;
+    const off = installListDragBridge(plugin);
+    if (typeof off === "function") plugin.register(() => {
+      off();
+      plugin._listDragBridgeInstalled = false;
+    });
+  }
   return [import_view4.ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin), saidHandlers(plugin), aiRecordDisplayExtension(plugin, refreshEffect), taskBoardExtension(plugin, refreshEffect)];
 }
 async function dispatchRefresh(plugin) {
@@ -28842,6 +28924,258 @@ async function dispatchRefresh(plugin) {
       }
     }
   });
+}
+function resolveListItemFromElement(lineEl, plugin, findView = import_view4.EditorView.findFromDOM) {
+  if (!lineEl) return null;
+  const cmEl = lineEl.closest?.(".cm-editor");
+  const view2 = cmEl ? findView?.(cmEl) : null;
+  if (!view2?.state?.doc || typeof view2.posAtDOM !== "function") return null;
+  const info = view2.state.field?.(plugin.editorInfoField, false);
+  const path28 = info?.file?.path;
+  if (!path28) return null;
+  let pos = null;
+  try {
+    pos = view2.posAtDOM(lineEl, 0);
+  } catch {
+    pos = null;
+  }
+  if (pos == null) return null;
+  const docLine = view2.state.doc.lineAt(pos);
+  if (!docLine || !SIMPLE_BULLET_RE.test(docLine.text)) return null;
+  return { path: path28, line: docLine.number - 1, lineText: docLine.text, view: view2 };
+}
+function installListDragBridge(plugin, {
+  doc = globalThis.document,
+  win = globalThis.window,
+  resolveDropMeta = (id, metaKey) => agentDropMeta(plugin, id, metaKey),
+  findView = import_view4.EditorView.findFromDOM
+} = {}) {
+  if (!doc?.addEventListener) return () => {
+  };
+  let candidate = null;
+  let active2 = null;
+  let hoveredCard = null;
+  let hoveredMetaKey = null;
+  let lastPoint = null;
+  let syncingBullet = false;
+  const restoreCard = (el) => {
+    if (!el) return;
+    el.classList?.remove?.("is-drop", "is-cli", "is-drop-blocked");
+    if (el.dataset && Object.prototype.hasOwnProperty.call(el.dataset, "adPrevHint")) {
+      el.setAttribute?.("data-drop-hint", el.dataset.adPrevHint);
+      delete el.dataset.adPrevHint;
+    }
+  };
+  const dropMetaFor = (card, metaKey) => {
+    const id = card.dataset?.agent || "";
+    return resolveDropMeta ? resolveDropMeta(id, metaKey) : { delegable: !card.classList?.contains?.("is-no-drop"), cli: false, hint: "" };
+  };
+  const isBindableSessionCard = (card) => Boolean(
+    card?.dataset?.sid && card.dataset.pending !== "1" && !card.classList?.contains?.("is-no-drop")
+  );
+  const flushPendingViews = () => {
+    if (doc.body?.classList?.contains?.("ad-dragging-item")) return;
+    for (const v of plugin?.views || []) {
+      if (v?._pendingRender && typeof v.render === "function") v.render();
+    }
+  };
+  const clearVanillaSelection = (item) => {
+    try {
+      const sel = item?.view?.state?.selection?.main;
+      if (sel && !sel.empty && typeof item.view.dispatch === "function") {
+        const lineObj = item.view.state.doc.line(item.line + 1);
+        item.view.dispatch({ selection: { anchor: lineObj.from } });
+      }
+      win?.getSelection?.()?.removeAllRanges?.();
+    } catch {
+    }
+  };
+  const clearActive = () => {
+    restoreCard(hoveredCard);
+    hoveredCard = null;
+    hoveredMetaKey = null;
+    lastPoint = null;
+    if (active2) {
+      active2 = null;
+      doc.body?.classList?.remove?.("ad-dragging-item");
+      for (const el of doc.querySelectorAll?.(".ad-agentcard, .ad-sess") || []) restoreCard(el);
+      setTimeout(flushPendingViews, 0);
+    }
+  };
+  const updateHover = (x, y, metaKey = false) => {
+    lastPoint = { x, y };
+    const hit = doc.elementFromPoint?.(x, y);
+    const nextCard = hit?.closest?.(".ad-agentcard, .ad-sess") || null;
+    if (nextCard === hoveredCard && hoveredMetaKey === metaKey) return;
+    if (hoveredCard && hoveredCard !== nextCard) restoreCard(hoveredCard);
+    hoveredCard = nextCard;
+    hoveredMetaKey = metaKey;
+    if (!nextCard) return;
+    if (nextCard.classList?.contains?.("ad-agentcard")) {
+      const meta = dropMetaFor(nextCard, metaKey);
+      if (!meta.delegable) {
+        nextCard.classList?.add?.("is-drop-blocked");
+      } else {
+        if (nextCard.dataset && !Object.prototype.hasOwnProperty.call(nextCard.dataset, "adPrevHint")) {
+          nextCard.dataset.adPrevHint = nextCard.getAttribute?.("data-drop-hint") || "";
+        }
+        nextCard.classList?.add?.("is-drop");
+        nextCard.classList?.toggle?.("is-cli", Boolean(meta.cli));
+        if (meta.hint) nextCard.setAttribute?.("data-drop-hint", meta.hint);
+      }
+      return;
+    }
+    if (nextCard.classList?.contains?.("ad-sess") && isBindableSessionCard(nextCard)) {
+      nextCard.classList?.add?.("is-drop");
+    }
+  };
+  const onMouseDown = (e) => {
+    if (e.button !== 0) return;
+    if (doc.body?.classList?.contains?.("bullet-plugin-dnd")) return;
+    const target = e.target;
+    const editorEl = target?.closest?.(".markdown-source-view.mod-cm6");
+    if (!editorEl) return;
+    if (target.closest?.(".task-list-item-checkbox, .ad-grip")) return;
+    const bulletEl = target.closest?.(".cm-formatting-list, .list-bullet");
+    if (!bulletEl) return;
+    const lineEl = bulletEl.closest?.(".cm-line");
+    const item = resolveListItemFromElement(lineEl, plugin, findView);
+    if (!item) return;
+    candidate = {
+      x: e.clientX,
+      y: e.clientY,
+      item,
+      contentEl: editorEl.querySelector?.(".cm-content") || editorEl
+    };
+  };
+  const onMouseMove = (e) => {
+    if (syncingBullet) return;
+    if (e?.isTrusted && typeof e.buttons === "number" && (e.buttons & 1) === 0) {
+      if (candidate || active2) {
+        candidate = null;
+        clearActive();
+      }
+      return;
+    }
+    const bulletDragging = Boolean(doc.body?.classList?.contains?.("bullet-plugin-dragging"));
+    if (bulletDragging) {
+      candidate = null;
+      if (!active2 || active2.mode !== "bullet") {
+        const srcLine = doc.querySelector?.(".cm-line.bullet-plugin-dragging-source-line");
+        const item = resolveListItemFromElement(srcLine, plugin, findView);
+        if (item) {
+          active2 = { mode: "bullet", item };
+          doc.body?.classList?.add?.("ad-dragging-item");
+        }
+      }
+      if (active2) updateHover(e.clientX, e.clientY, Boolean(e.metaKey));
+      return;
+    }
+    if (active2?.mode === "bullet") clearActive();
+    if (!active2 && candidate) {
+      if (doc.body?.classList?.contains?.("bullet-plugin-dnd")) {
+        candidate = null;
+        return;
+      }
+      const dist = Math.hypot(e.clientX - candidate.x, e.clientY - candidate.y);
+      if (dist >= 6) {
+        const hit = doc.elementFromPoint?.(e.clientX, e.clientY);
+        const overSidebar = Boolean(hit?.closest?.(".ad-view"));
+        const leftEditor = Boolean(candidate.contentEl && hit && !candidate.contentEl.contains?.(hit));
+        if (overSidebar || leftEditor) {
+          active2 = { mode: "vanilla", item: candidate.item };
+          candidate = null;
+          doc.body?.classList?.add?.("ad-dragging-item");
+        }
+      }
+    }
+    if (active2) updateHover(e.clientX, e.clientY, Boolean(e.metaKey));
+  };
+  const onMouseUp = (e) => {
+    candidate = null;
+    if (!active2) return;
+    const { mode, item } = active2;
+    const hit = doc.elementFromPoint?.(e.clientX, e.clientY);
+    const card = hit?.closest?.(".ad-agentcard, .ad-sess") || null;
+    clearActive();
+    if (mode === "bullet" && hit?.closest?.(".ad-view") && typeof doc.dispatchEvent === "function") {
+      syncingBullet = true;
+      try {
+        const ev = typeof MouseEvent === "function" ? new MouseEvent("mousemove", { clientX: e.clientX, clientY: e.clientY, bubbles: false }) : { type: "mousemove", clientX: e.clientX, clientY: e.clientY, x: e.clientX, y: e.clientY };
+        doc.dispatchEvent(ev);
+      } catch {
+      } finally {
+        syncingBullet = false;
+      }
+    }
+    if (!card || !item) {
+      if (mode === "vanilla" && hit?.closest?.(".ad-view") && item) clearVanillaSelection(item);
+      return;
+    }
+    if (card.classList?.contains?.("ad-agentcard")) {
+      const id = card.dataset?.agent || "";
+      const meta = dropMetaFor(card, Boolean(e.metaKey));
+      if (mode === "vanilla") clearVanillaSelection(item);
+      if (!meta.delegable) return;
+      const dropItem = { path: item.path, line: item.line, lineText: item.lineText };
+      setTimeout(() => {
+        plugin.delegateDrop?.(id, dropItem, card, { cli: Boolean(meta.cli), explicitAgent: true });
+      }, 0);
+      return;
+    }
+    if (card.classList?.contains?.("ad-sess")) {
+      if (mode === "vanilla") clearVanillaSelection(item);
+      if (!isBindableSessionCard(card)) return;
+      const dropItem = { path: item.path, line: item.line, lineText: item.lineText };
+      const sessionData = {
+        agent: card.dataset.agent || "",
+        sid: card.dataset.sid,
+        title: card.dataset.title || "",
+        app: card.dataset.app || "",
+        state: card.dataset.state || ""
+      };
+      setTimeout(() => {
+        plugin.bindItemToSession?.(dropItem, sessionData);
+      }, 0);
+    }
+  };
+  const onDragStart = () => {
+    candidate = null;
+    clearActive();
+  };
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") {
+      candidate = null;
+      clearActive();
+      return;
+    }
+    if (active2 && e.key === "Meta" && lastPoint) updateHover(lastPoint.x, lastPoint.y, true);
+  };
+  const onKeyUp = (e) => {
+    if (active2 && e.key === "Meta" && lastPoint) updateHover(lastPoint.x, lastPoint.y, false);
+  };
+  const onBlur = () => {
+    candidate = null;
+    clearActive();
+  };
+  doc.addEventListener("mousedown", onMouseDown);
+  doc.addEventListener("mousemove", onMouseMove);
+  doc.addEventListener("mouseup", onMouseUp, true);
+  doc.addEventListener("dragstart", onDragStart, true);
+  doc.addEventListener("keydown", onKeyDown, true);
+  doc.addEventListener("keyup", onKeyUp, true);
+  win?.addEventListener?.("blur", onBlur);
+  return () => {
+    candidate = null;
+    clearActive();
+    doc.removeEventListener("mousedown", onMouseDown);
+    doc.removeEventListener("mousemove", onMouseMove);
+    doc.removeEventListener("mouseup", onMouseUp, true);
+    doc.removeEventListener("dragstart", onDragStart, true);
+    doc.removeEventListener("keydown", onKeyDown, true);
+    doc.removeEventListener("keyup", onKeyUp, true);
+    win?.removeEventListener?.("blur", onBlur);
+  };
 }
 
 // src/session-tree.js
@@ -28998,6 +29332,10 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
       return;
     }
     if (this._dragSid || this._dragAgent) {
+      this._pendingRender = true;
+      return;
+    }
+    if (typeof document !== "undefined" && document?.body?.classList?.contains?.("ad-dragging-item")) {
       this._pendingRender = true;
       return;
     }
@@ -29665,37 +30003,55 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
     const pinned = this.agentLayout().pinned.includes(id);
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
-    const handoff = id === "codex" || id === "workbuddy" || id === "teleagent";
-    const cliCapable = cliHandoffAgents().includes(id);
-    const hint = handoff ? t("\u4EA4\u7ED9 {name}", { name: a.short }) : t("\u59D4\u6D3E\u7ED9 {name}", { name: a.short });
-    const toTerm = (meta) => cliCapable && !!meta !== !!p2.settings.delegateInTerminal;
-    const hintFor = (meta) => toTerm(meta) ? t("\u5728\u7EC8\u7AEF\u91CC\u5F00 {name}", { name: a.short }) : hint;
-    if (!a.trackingOnly) card.setAttr("data-drop-hint", hintFor(false));
-    card.addEventListener("dragover", (e) => {
-      if (this._dragAgent || a.trackingOnly) return;
-      if (!p2.acceptsItemDrag(e)) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
-      card.addClass("is-drop");
-      card.toggleClass("is-cli", toTerm(e.metaKey));
-      card.setAttr("data-drop-hint", hintFor(e.metaKey));
-    });
-    card.addEventListener("dragleave", (e) => {
-      if (!a.trackingOnly && !card.contains(e.relatedTarget)) {
+    const initDrop = agentDropMeta(p2, id, false);
+    card.setAttr("data-drop-hint", initDrop.hint);
+    card.dataset.dropHintDefault = initDrop.hint;
+    if (!initDrop.delegable) {
+      card.addClass("is-no-drop");
+      card.addEventListener("dragover", (e) => {
+        if (this._dragAgent || !p2.acceptsItemDrag(e)) return;
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+        card.addClass("is-drop-blocked");
+      });
+      card.addEventListener("dragleave", (e) => {
+        if (!card.contains(e.relatedTarget)) card.removeClass("is-drop-blocked");
+      });
+      card.addEventListener("drop", () => {
+        card.removeClass("is-drop-blocked");
+      });
+    } else {
+      card.addEventListener("dragover", (e) => {
+        if (this._dragAgent || !p2.acceptsItemDrag(e)) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+        const nextMeta = e.metaKey ? "1" : "0";
+        if (card.dataset.adHoverMeta !== nextMeta) {
+          card.dataset.adHoverMeta = nextMeta;
+          const m = agentDropMeta(p2, id, Boolean(e.metaKey));
+          card.addClass("is-drop");
+          card.toggleClass("is-cli", m.cli);
+          card.setAttr("data-drop-hint", m.hint);
+        }
+      });
+      card.addEventListener("dragleave", (e) => {
+        if (!card.contains(e.relatedTarget)) {
+          delete card.dataset.adHoverMeta;
+          card.removeClass("is-drop");
+          card.removeClass("is-cli");
+          card.setAttr("data-drop-hint", initDrop.hint);
+        }
+      });
+      card.addEventListener("drop", (e) => {
+        if (this._dragAgent || !p2.acceptsItemDrag(e)) return;
+        e.preventDefault();
+        delete card.dataset.adHoverMeta;
         card.removeClass("is-drop");
         card.removeClass("is-cli");
-        card.setAttr("data-drop-hint", hintFor(false));
-      }
-    });
-    card.addEventListener("drop", (e) => {
-      if (this._dragAgent || a.trackingOnly) return;
-      if (!p2.acceptsItemDrag(e)) return;
-      e.preventDefault();
-      card.removeClass("is-drop");
-      card.removeClass("is-cli");
-      card.setAttr("data-drop-hint", hintFor(false));
-      p2.delegateDrop(id, p2.readItemDrag(e), null, { cli: toTerm(e.metaKey) });
-    });
+        card.setAttr("data-drop-hint", initDrop.hint);
+        const m = agentDropMeta(p2, id, e.metaKey);
+        p2.delegateDrop(id, p2.readItemDrag(e), card, { cli: m.cli, explicitAgent: true });
+      });
+    }
     const top = card.createDiv({ cls: "ad-agentcard__top" });
     const grip = top.createEl("button", { cls: "ad-agentcard__grip ad-linkbtn", attr: { draggable: "true", "aria-label": t("\u62D6\u52A8\u6392\u5E8F\uFF1B\u65B9\u5411\u952E\u8C03\u6574\u4F4D\u7F6E"), title: t("\u62D6\u52A8\u6392\u5E8F\uFF1B\u65B9\u5411\u952E\u8C03\u6574\u4F4D\u7F6E") } });
     setLucide(grip, "grip-vertical");
@@ -29845,10 +30201,15 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
     const p2 = this.plugin;
     const a = AGENTS[s.agent] || AGENTS.claude;
     const card = parent.createDiv({ cls: `ad-sess ${compact ? "is-now" : ""}` });
+    const title = s.title || truncate(s.text || s.step || "\u672A\u547D\u540D\u4F1A\u8BDD", 60);
+    const isPending = Boolean(s.isPendingJob && s.job && !s.job.sessionId);
     card.dataset.sid = s.sid;
+    card.dataset.agent = s.agent || "";
+    card.dataset.title = title;
+    card.dataset.app = s.app || "";
+    card.dataset.state = s.state || "";
     card.draggable = true;
     card.addEventListener("dragstart", (e) => {
-      const title = s.title || truncate(s.text || s.step || "\u672A\u547D\u540D\u4F1A\u8BDD", 60);
       e.dataTransfer.setData(SESSION_MIME, JSON.stringify({ agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" }));
       e.dataTransfer.setData("text/plain", title);
       e.dataTransfer.effectAllowed = "all";
@@ -29869,21 +30230,30 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
         this.render();
       }
     });
-    card.addEventListener("dragover", (e) => {
-      if (!p2.acceptsItemDrag(e)) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "link";
-      card.addClass("is-drop");
-    });
-    card.addEventListener("dragleave", (e) => {
-      if (!a.trackingOnly && !card.contains(e.relatedTarget)) card.removeClass("is-drop");
-    });
-    card.addEventListener("drop", (e) => {
-      if (!p2.acceptsItemDrag(e)) return;
-      e.preventDefault();
-      card.removeClass("is-drop");
-      p2.bindItemToSession(p2.readItemDrag(e), { agent: s.agent, sid: s.sid, title: s.title || truncate(s.text || s.step || "\u672A\u547D\u540D\u4F1A\u8BDD", 60), app: s.app || "", state: s.state || "" });
-    });
+    if (isPending) {
+      card.dataset.pending = "1";
+      card.addClass("is-no-drop");
+      card.addEventListener("dragover", (e) => {
+        if (!p2.acceptsItemDrag(e)) return;
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+      });
+    } else {
+      card.addEventListener("dragover", (e) => {
+        if (!p2.acceptsItemDrag(e)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "link";
+        card.addClass("is-drop");
+      });
+      card.addEventListener("dragleave", (e) => {
+        if (!card.contains(e.relatedTarget)) card.removeClass("is-drop");
+      });
+      card.addEventListener("drop", (e) => {
+        if (!p2.acceptsItemDrag(e)) return;
+        e.preventDefault();
+        card.removeClass("is-drop");
+        p2.bindItemToSession(p2.readItemDrag(e), { agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" });
+      });
+    }
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     const child = depth > 0;
@@ -29946,7 +30316,6 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
       kin.createSpan({ cls: "ad-sess__kintitle", text: t("\u4ECE\u300C{title}\u300D\u5F00\u51FA", { title: truncate(s.parentTitle || t("\u6BCD\u4F1A\u8BDD"), 24) }) });
       if (s.deskTitle && s.deskTitle !== s.title) kin.title = t("\u684C\u9762\u7248\u91CC\u7684\u6807\u9898\uFF1A{title}", { title: s.deskTitle });
     }
-    const isPending = Boolean(s.isPendingJob && s.job && !s.job.sessionId);
     if (!isPending && AGENT_ORDER.includes(s.agent)) {
       card.addClass("has-conversation");
       const conversation = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": t("\u67E5\u770B\u5BF9\u8BDD\u3001\u7EED\u804A\u4E0E\u5F52\u6863") } });
@@ -36381,7 +36750,7 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
       agentIcon(b.createSpan({ cls: "ad-glyph" }), id);
       b.createSpan({ text: a.short });
       const cap = getAgentCapability(id);
-      const hintText = id === "claude" ? t("\u684C\u9762\u7248") : id === "codex" ? p2.settings.delegate.codex.transport === "terminal" ? t("CLI / \u7EC8\u7AEF") : t("\u9996\u8F6E\u540E\u6253\u5F00\u684C\u9762\u7248") : id === "qoder" ? t("\u684C\u9762\u7248 / CLI") : cap.acp && cap.terminalHandoff ? "ACP / CLI" : "ACP";
+      const hintText = id === "claude" ? t("\u684C\u9762\u7248") : id === "codex" ? p2.settings.delegate.codex.transport === "terminal" ? t("CLI / \u7EC8\u7AEF") : t("\u9996\u8F6E\u540E\u6253\u5F00\u684C\u9762\u7248") : id === "qoder" || id === "t3code" ? t("\u684C\u9762\u7248 / CLI") : cap.acp && cap.terminalHandoff ? "ACP / CLI" : "ACP";
       b.createSpan({ cls: "ad-target__hint", text: hintText });
       b.onclick = () => {
         this.agent = id;
@@ -45972,6 +46341,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   }
   onunload() {
     this._unloaded = true;
+    this._dragCleanup?.();
     this._offMemoryContext?.();
     this.conversationModal?.close();
     this._cursorPromptNotice?.hide();
@@ -45996,7 +46366,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
       try {
-        if (runner.constructor && ["AcpRunner", "CodexDesktopRunner", "QoderRunner"].includes(runner.constructor.name)) runner.cancel();
+        if (runner.constructor && ["AcpRunner", "CodexDesktopRunner", "QoderRunner", "T3CodeRunner"].includes(runner.constructor.name)) runner.cancel();
       } catch {
       }
     }
@@ -47375,16 +47745,29 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   }
   // 编辑器里开始拖一项（把手或选中的文字）：记下来源，拖到 Agent 卡片上时用
   noteDragItem(src) {
+    this._dragCleanup?.();
     const item = this._dragItem = { ...src, at: Date.now() };
     document.body.classList.add("ad-dragging-item");
     const off = (e) => {
+      this._dragCleanup = null;
       document.body.classList.remove("ad-dragging-item");
+      for (const el of document.querySelectorAll(".ad-agentcard, .ad-sess")) {
+        el.classList.remove("is-drop", "is-cli", "is-drop-blocked");
+        if (el.dataset) delete el.dataset.adHoverMeta;
+        if (el.dataset?.dropHintDefault) el.setAttribute("data-drop-hint", el.dataset.dropHintDefault);
+      }
       document.removeEventListener("dragend", off, true);
       document.removeEventListener("drop", off, true);
-      if (e && e.type === "dragend") setTimeout(() => {
-        if (this._dragItem && this._dragItem.at === item.at) this._dragItem = null;
-      }, 0);
+      if (e && (e.type === "dragend" || e.type === "drop")) {
+        setTimeout(() => {
+          if (this._dragItem && this._dragItem.at === item.at) this._dragItem = null;
+          if (!document.body.classList.contains("ad-dragging-item")) {
+            for (const v of this.views || []) if (v._pendingRender) v.render();
+          }
+        }, 0);
+      }
     };
+    this._dragCleanup = off;
     document.addEventListener("dragend", off, true);
     document.addEventListener("drop", off, true);
   }
@@ -47415,14 +47798,24 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     if (!newSession && block && findLink(lines, block)) return { error: t("\u5DF2\u7ECF\u7ED1\u7740\u4F1A\u8BDD\uFF0C\u4E0D\u59D4\u6D3E") };
     return { file, lines, line, block };
   }
-  async delegateDrop(agent, item, fromEl, { cli = false, destination, permission, cwd = "", projectName: projectName2 = "", fromDialog = false, newSession = false, confirmed = false, expectedText, boardContext = "", model = "" } = {}) {
+  async delegateDrop(agent, item, fromEl, { cli = false, destination, permission, cwd = "", projectName: projectName2 = "", fromDialog = false, newSession = false, confirmed = false, expectedText, boardContext = "", model = "", explicitAgent = false } = {}) {
     this._dragItem = null;
-    if (AGENTS[agent]?.trackingOnly) return;
+    if (!canDelegateDrop(agent)) return;
     const target = await this.delegateTarget(item, { newSession });
     if (target.error) return this.notice(target.error);
     if (confirmed && expectedText !== void 0 && delegationText(target.lines, target.block, { newSession }) !== expectedText) return this.notice(t("\u4EFB\u52A1\u5185\u5BB9\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u9884\u89C8\u540E\u53D1\u9001"));
     try {
-      const opts = mentionOptions(this, { ...target, agent, ignoreMention: newSession });
+      let ignoreMention = newSession;
+      if (explicitAgent && !ignoreMention) {
+        try {
+          const headLine = target.block?.text?.split("\n")[0] || "";
+          const m = taskMention(headLine, mentionTrigger(this));
+          if (m && m.agent !== agent) ignoreMention = true;
+        } catch {
+          ignoreMention = true;
+        }
+      }
+      const opts = mentionOptions(this, { ...target, agent, ignoreMention });
       if (model && opts.agent === agent) opts.model = model;
       agent = opts.agent;
       destination || (destination = cli && hasAgentCapability(agent, "terminalHandoff") ? "terminal" : defaultDestination(this, agent));
@@ -47454,7 +47847,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
           confirmed: true,
           expectedText: delegationText(target.lines, target.block, { newSession }),
           boardContext,
-          model
+          model,
+          explicitAgent
         })).open();
         return;
       }
@@ -47830,7 +48224,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       else if (session.handoff && !session.sid && activeJob(session)) menu.addItem((mi) => mi.setTitle(t("\u53D6\u6D88\u4EA4\u63A5 \xB7 {title}", { title })).onClick(() => this.cancelJob(session.id)));
       menu.addSeparator();
     }
-    for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem((mi) => mi.setTitle(t("\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path: path28, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a) && canDelegateDrop(a))) menu.addItem((mi) => mi.setTitle(t("\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path: path28, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
     if ((process.platform === "win32" || process.platform === "linux") && this.agentEnabled("teleagent")) {
       const dispatchLabel = process.platform === "linux" ? t("\u6D3E\u53D1\u5230 TeleAgent\uFF08\u81EA\u52A8\u586B\u5199\uFF0C\u9700\u624B\u52A8\u70B9\u8FD0\u884C\uFF09") : t("\u6D3E\u53D1\u5230 TeleAgent\uFF08\u81EA\u52A8\u586B\u5199\u5E76\u53D1\u9001\uFF09");
       menu.addItem((mi) => mi.setTitle(dispatchLabel).setIcon("send").onClick(() => this.dispatchToTeleagent(path28, block.start, lines)));
@@ -47930,12 +48324,12 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     }
     const main = this.defaultTarget();
     const menu = new import_obsidian21.Menu();
-    for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x) && !AGENTS[x].trackingOnly)) {
+    for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x) && canDelegateDrop(x))) {
       menu.addItem((mi) => {
         mi.setTitle(AGENTS[id].name + (id === main ? " \xB7 " + t("\u4E3B\u529B") : ""));
         mi.setIcon("bot");
         if (mi.iconEl) agentIcon(mi.iconEl, id);
-        mi.onClick(() => this.delegateDrop(id, item));
+        mi.onClick(() => this.delegateDrop(id, item, null, { explicitAgent: true }));
       });
     }
     const view2 = item && item.path ? this.sourceViewForPath(item.path) : null;
@@ -48042,7 +48436,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
   recordMenuModels() {
     const out = [];
     for (const agent of AGENT_ORDER) {
-      if (!this.agentEnabled(agent) || AGENTS[agent]?.trackingOnly) continue;
+      if (!this.agentEnabled(agent) || !canDelegateDrop(agent)) continue;
       for (const model of this.modelsFor(agent)) if (this.modelEnabled(model.id)) out.push({ agent, model });
     }
     return out;

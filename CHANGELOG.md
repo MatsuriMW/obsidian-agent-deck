@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.23
+
+- **无序 / 有序 / 复选框列表块拖动委派全链路与 `bullet` 插件桥接（`src/editor.js`、`src/delegation.js`、`src/main.js`）**：在编辑器扩展中自动注册 `installListDragBridge`，同时支持第三方 `bullet` 插件拖拽与 Obsidian 原生 `.cm-formatting-list` / `.list-bullet` 拖拽，将无序（`-`/`*`/`+`）、有序（`1.`/`2)`）及复选框（`- [ ]` / `1. [ ]`）列表块拖至侧栏 Agent 卡片委派或会话卡片绑定；捕获阶段在拖入侧栏释放前同步 `mousemove` 清零 `bullet` 落点，防止快速甩出时误改原笔记，并在切至非列表行时同步清理 `.ad-grip` 残影，明确拖放或多 `@` 冲突时以目标卡片为准。
+- **13 家内置 + Custom ACP 委派/交接全覆盖（`src/agent-registry.js`、`src/workflow.js`、`src/custom-acp.js`、`src/delegation-runners.js`、`src/journal.js`、`src/dialog.js`）**：新增 `canDelegateDrop(id)` 与 `agentDropMeta` 单源判定，补齐 `gemini` 终端交接与 `isCliSession`、修复 `t3code` 应用内续聊路由到 `T3CodeRunner` 并补全缺失可执行文件时的 `ENOENT` 本地化提示、`DelegateOptionsModal` 的「桌面版 / CLI」提示、Custom ACP 的 `soft` 配色与 `destinations` / `defaultDestination` / `obsidian://agent-deck` 短链往返解析，以及 `markDelegated` 前缀截断修复。
+- **不可委派卡片灰显拦截与流程加固（`src/view.js`、`src/styles/views/dashboard-cards.css`、`src/task-mentions.js`）**：对 6 家 `trackingOnly`（千问办公 / Grok Bot / Cindy / Muse / Kimi Code / 豆包工作）及尚未认领真实 `sessionId` 的待认领任务卡片标 `.is-no-drop`，拖拽期间统一灰度降暗（`grayscale(1)`、`cursor: not-allowed`）、屏蔽子节点指针穿透并在悬停时展示中性「暂不支持委派」提示后拒绝落放；同步延后拖拽期间的侧栏 DOM 重建、修复 `.ad-sess.is-drop` / `dragleave` 状态残留、`onunload` 清理 `T3CodeRunner` 与拖放监听，并对 `parseLink` 与悬停热路径做去重和快速退出优化（`test/drag-delegate.test.mjs`）。
+
 ## 1.13.22
 
 - **块首全小写任务状态词识别与渲染（`src/journal.js`、`src/keyword-style.js`、`src/task-status.js` 等）**：块首关键词支持全大写与全小写两种写法（如 `todo` / `doing` / `done` / `later` / `now` / `waiting` / `paused` / `in-progress` / `canceled` / `toreview` / `needok` / `todoforai` 等），同步覆盖编辑视图配色与图标、阅读视图（保留原文小写展示）、点击状态切换菜单、批量改状态、`⌘⇧D` 标记完成、日记整理/归档/同步、进度条、AI 记录图标、Pin 与 Dreaming 证据分类；严格要求词边界且不匹配首字母大写的普通英文词（如 `Now` / `Wait` / `Later` / `Failed`）或前缀粘连词（如 `nowhere` / `todolist`）。
