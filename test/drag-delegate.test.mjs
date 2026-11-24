@@ -317,9 +317,9 @@ test("Gemini CLI handoffCli & isCliSession and T3 Code continueSession & ENOENT 
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-t3-cont-"));
   try {
     const argvLog = path.join(tmpDir, "args.json");
-    const mockT3 = path.join(tmpDir, "mock-t3");
+    const mockJs = path.join(tmpDir, "mock-t3.js");
     fs.writeFileSync(
-      mockT3,
+      mockJs,
       `#!/usr/bin/env node
 const fs = require("fs");
 fs.writeFileSync(${JSON.stringify(argvLog)}, JSON.stringify(process.argv.slice(2)));
@@ -327,6 +327,11 @@ process.stdout.write(JSON.stringify({ threadId: "thread:1", status: "completed",
 `,
       { mode: 0o755 },
     );
+    let mockT3 = mockJs;
+    if (process.platform === "win32") {
+      mockT3 = path.join(tmpDir, "mock-t3.cmd");
+      fs.writeFileSync(mockT3, `@echo off\r\n"${process.execPath}" "${mockJs}" %*\r\n`);
+    }
     plugin.settings.delegate.t3code.path = mockT3;
     const d2 = new Delegator(plugin);
     d2.onDone = () => {};
