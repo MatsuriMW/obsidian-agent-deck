@@ -8,7 +8,7 @@ import { t } from "./i18n.js";
 
 export const AI_IDLE_MIN = 5;
 export const TOK_BLOCK_MAX = 30;
-export const AGENT_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
+export const AGENT_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|doing|now|in-progress|toreview|hitlimit|needok|queued|errored|delegated)(?=\s|$))/;
 export const RESULT_LINE_RE = /^\s*[-*+]\s+(?:💬|(?:第\d+轮|Round\s+\d+)[：:])/;
 export const SUB_LINE_RE = /^\s*[-*+]\s+🤖\s*(?:子代理|side chat)/;
 

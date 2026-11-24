@@ -10,7 +10,7 @@
 import { Decoration, ViewPlugin, WidgetType } from "@codemirror/view";
 import { RangeSetBuilder } from "@codemirror/state";
 import { syntaxTree } from "@codemirror/language";
-import { AUTO_MARK, DONE_KWS, TASK_KWS } from "./journal.js";
+import { AUTO_MARK, DONE_KWS, TASK_KWS_RE_SRC } from "./journal.js";
 
 // ---- 图标数据：与 TODOseq 的 src/logseq-style/keyword-icons.ts 一致（Lucide 路径） ----
 const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -180,7 +180,7 @@ let compiled = null;
 
 function keywordRegex() {
   if (!compiled) {
-    const alternation = TASK_KWS
+    const alternation = TASK_KWS_RE_SRC
       .split("|")
       .sort((a, b) => b.length - a.length)
       .map(escape)
@@ -196,13 +196,13 @@ function keywordRegex() {
 /** 行首（列表标记、引用、复选框、**07:37** 时间之后）的关键词及其位置 */
 export function keywordOf(text) {
   const m = keywordRegex().exec(String(text));
-  return m ? { at: m[1].length, keyword: m[2] } : null;
+  return m ? { at: m[1].length, keyword: m[2].toUpperCase(), raw: m[2] } : null;
 }
 
 /** AI 自动记录（整行带 🤖）：完成也不划线 */
 export const isAiRecordLine = (text) => String(text).includes(AI_MARK);
 
-export const isDoneKeyword = (keyword) => DONE_KWS.includes(keyword);
+export const isDoneKeyword = (keyword) => DONE_KWS.includes(String(keyword || "").toUpperCase());
 
 /**
  * TODOseq 在管关键词哪一层，这一层就让出去，避免同一行被装饰两次：
@@ -311,7 +311,7 @@ export function keywordMarksExtension(plugin) {
             const hit = keywordOf(line.text);
             if (hit && !inCode(view, line.from)) {
               const start = line.from + hit.at;
-              const end = start + hit.keyword.length;
+              const end = start + hit.raw.length;
               const done = isDoneKeyword(hit.keyword);
               const aiRecord = isAiRecordLine(line.text);
               const heading = /^\s*(?:>\s*)*#{1,6}\s+/.test(line.text);
@@ -478,9 +478,9 @@ function wrapRemainder(doc, keywordSpan) {
   if (wrap.childNodes.length) keywordSpan.after(wrap);
 }
 
-// 便宜的第一道筛子：候选行必须以大写关键词开头（`DOING …` / `> - TODO …`）。
+// 便宜的第一道筛子：候选行必须以全大写或全小写关键词开头（`DOING …` / `todo …` / `> - TODO …`）。
 // 命中才跑完整的关键词正则、再去查祖先与已渲染的标记，大笔记里省下大部分开销。
-const LOOKS_LIKE_TASK = /^\s*(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)?(?:\[[ xX/\-]\]\s+)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?[A-Z][A-Z-]*\b/;
+const LOOKS_LIKE_TASK = /^\s*(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)?(?:\[[ xX/\-]\]\s+)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:[A-Z][A-Z0-9-]*|[a-z][a-z0-9-]*)\b/;
 const TASK_HOSTS = "li, p, h1, h2, h3, h4, h5, h6";
 const IN_CODE = "pre, code, .table-cell-wrapper";
 
@@ -496,7 +496,7 @@ export function applyKeywordStyle(root) {
     const hit = keywordOf(text);
     if (!hit) continue;
     const before = text.slice(0, hit.at);
-    const rest = text.slice(hit.at + hit.keyword.length);
+    const rest = text.slice(hit.at + hit.raw.length);
     const doc = el.ownerDocument;
     const kw = doc.createElement("span");
     const done = isDoneKeyword(hit.keyword);
@@ -507,7 +507,7 @@ export function applyKeywordStyle(root) {
       (done && !aiRecord ? " todoseq-completed-keyword" : "") +
       (heading ? " todoseq-heading-task-keyword" : "");
     kw.setAttribute("data-task-keyword", hit.keyword);
-    kw.textContent = hit.keyword;
+    kw.textContent = hit.raw;
     const frag = doc.createDocumentFragment();
     if (before) frag.append(before);
     frag.append(kw);

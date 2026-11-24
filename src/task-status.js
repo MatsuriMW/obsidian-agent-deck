@@ -5,7 +5,7 @@ import { t } from "./i18n.js";
 
 export { itemLineFor, parentItem, contentSpan, groupRowsEdit };
 
-const STATUS_TOKEN = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)([A-Z][A-Z0-9_-]*)(?=\s|$)/;
+const STATUS_TOKEN = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)([A-Z][A-Z0-9_-]*|[a-z][a-z0-9_-]*)(?=\s|$)/;
 const LIST_STATUS_LEAD = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(.*)$/;
 const EXTRA_STATE_KWS = ["YES", "NO", "MAYBE", "ARCHIVED"];
 
@@ -33,10 +33,11 @@ function updateCheckboxPrefix(prefix, keyword) {
   return prefix.replace(/\[[ xX/\-]\]/, `[${box}]`);
 }
 
-export function replaceTaskStatus(raw, keyword) {
+export function replaceTaskStatus(raw, keyword, { knownKeywords = null } = {}) {
   if (!/^[A-Z][A-Z0-9_-]*$/.test(keyword)) return null;
   const match = STATUS_TOKEN.exec(raw);
   if (!match) return null;
+  if (/^[a-z]/.test(match[2]) && !(knownKeywords || knownTaskKeywords()).has(match[2].toUpperCase())) return null;
   const prefix = updateCheckboxPrefix(match[1], keyword);
   return prefix + keyword + raw.slice(match[0].length);
 }
@@ -49,8 +50,8 @@ export function setTaskLineStatus(raw, keyword, { knownKeywords = null } = {}) {
   const known = knownKeywords || knownTaskKeywords();
   const prefix = updateCheckboxPrefix(lead[1], keyword);
   const rest = lead[2] || "";
-  const firstToken = /^([A-Z][A-Z0-9_-]*)(?=\s|$)(?:\s+)?/.exec(rest);
-  if (firstToken && known.has(firstToken[1])) {
+  const firstToken = /^([A-Z][A-Z0-9_-]*|[a-z][a-z0-9_-]*)(?=\s|$)(?:\s+)?/.exec(rest);
+  if (firstToken && known.has(firstToken[1].toUpperCase())) {
     const tail = rest.slice(firstToken[0].length);
     return keyword ? `${prefix}${keyword}${tail ? " " + tail : ""}` : `${prefix}${tail}`;
   }
@@ -120,7 +121,7 @@ export async function applyStatusChoice(plugin, target, keyword) {
     id ||= J.makeBlockId(link?.sid || "", link?.agent);
     const next=keyword || suggestedStatus(settings,plugin.usage,text,n);
     if(!next)throw new Error(t('没有可跟随的会话状态'));
-    const raw=replaceTaskStatus(lines[n],next);
+    const raw=replaceTaskStatus(lines[n],next,{knownKeywords:knownTaskKeywords(plugin.app)});
     if(!raw)throw new Error(t('任务已变化，请重新点击状态关键词'));
     previous=settings.manualTaskStates?.[id];
     const locks=settings.manualTaskStates ||= {};
@@ -319,7 +320,8 @@ export function registerTaskStatusMenu(plugin) {
       target={path:view.file.path,raw:line.text,keyword:keyword.dataset.taskKeyword};
     });
     if(!target){const li=keyword.closest('li[data-ad-status-path]');if(li)target={path:li.dataset.adStatusPath,raw:li.dataset.adStatusRaw,keyword:keyword.dataset.taskKeyword};}
-    return target && STATUS_TOKEN.exec(target.raw)?.[2]===target.keyword ? target : null;
+    const matched = target && STATUS_TOKEN.exec(target.raw)?.[2];
+    return matched && matched.toUpperCase() === String(target.keyword || "").toUpperCase() ? target : null;
   };
   for(const type of ['mousedown','click','keydown'])plugin.registerDomEvent(document,type,event=>{
     if(type==='keydown'&&!['Enter',' '].includes(event.key))return;

@@ -6,7 +6,7 @@ import { isPathExcluded, isPrivateFrontmatter } from "./memory-query-core.js";
 
 const hash = (text) => createHash("sha256").update(text).digest("hex").slice(0, 24);
 
-const AI_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:[A-Z-]+\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s+)?🤖/;
+const AI_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:(?:[A-Z0-9-]+|[a-z0-9-]+)\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s+)?🤖/;
 const AD_COMMENT_RE = /(?:[ \t]*<!--\s*ad-[a-z0-9-]+(?::[^>]+)?\s*-->)+[ \t]*$/g;
 const SEP_ONLY_RE = /^(?:\s*(?:[-*+]|\d+[.)])?\s*[-_*]{3,}\s*)+$/;
 

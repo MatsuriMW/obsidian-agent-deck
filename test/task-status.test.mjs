@@ -25,6 +25,10 @@ assert.ok(note.startsWith('- DOING')&&!settings.manualTaskStates['ad-status']);
 usage.meta.get(sid).state='wait';assert.ok(sync.keywords(note).startsWith('- TOREVIEW'),'automatic following resumes');
 assert.equal(replaceTaskStatus('  2. [ ] TODO text ^id','DONE'),'  2. [x] DONE text ^id');
 assert.equal(replaceTaskStatus('- MAYBE custom','TODO'),'- TODO custom');
+assert.equal(replaceTaskStatus('- todo text','DONE'),'- DONE text');
+assert.equal(replaceTaskStatus('  2. [ ] doing text ^id','DONE'),'  2. [x] DONE text ^id');
+assert.equal(replaceTaskStatus('- hello world','TODO'),null);
+assert.equal(replaceTaskStatus('- Todo text','DONE'),null);
 assert.equal(locateStatusTask('- TODO duplicate\n- TODO duplicate',{raw:'- TODO duplicate'}),-1,'ambiguous tasks are not edited');
 assert.equal(locateStatusTask('```\n- TODO example\n```',{raw:'- TODO example'}),-1,'code examples are never changed');
 const other='aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';usage.meta.set(other,{state:'run'});
@@ -62,6 +66,10 @@ console.log('PASS manual status, automatic resume, AutoLog/archive protection an
   assert.equal(setTaskLineStatus('- [ ] API 设计', 'DOING'), '- [/] DOING API 设计');
   assert.equal(setTaskLineStatus('- DOING API 设计', 'DONE'), '- DONE API 设计');
   assert.equal(setTaskLineStatus('- [x] DONE 任务', ''), '- [ ] 任务');
+  assert.equal(setTaskLineStatus('- todo 任务', 'DONE'), '- DONE 任务');
+  assert.equal(setTaskLineStatus('- [x] done 任务', ''), '- [ ] 任务');
+  assert.equal(setTaskLineStatus('- api 设计', 'TODO'), '- TODO api 设计');
+  assert.equal(setTaskLineStatus('- Done 任务', 'TODO'), '- TODO Done 任务');
 
   // Batch update across multiple selected blocks (mixed AI + manual + plain + nested record lines skipped).
   const batchLines = [
@@ -156,6 +164,36 @@ console.log('PASS manual status, automatic resume, AutoLog/archive protection an
   assert.ok(batchText.includes('- TODO 任务甲'));
   assert.ok(batchText.includes('- [ ] TODO 任务乙'));
   assert.ok(batchText.includes('- TODO API 规划'));
+
+  // Clicking a lowercase status badge (`- doing task ^ad-status`) locates the line and opens the menu.
+  let lowerNote = `- doing task ^ad-status\n  - 🔗 [Codex](codex://threads/${sid})`;
+  const lowerToken = { dataset: { taskKeyword: 'DOING' }, closest(s) { return s === '[data-task-keyword]' ? this : null; }, getBoundingClientRect: () => ({ left: 5, bottom: 10 }) };
+  const lowerCm = { dom: { contains: (el) => el === lowerToken }, posAtDOM: () => 0, state: { doc: { toString: () => lowerNote, lineAt: () => ({ number: 1, text: lowerNote.split('\n')[0] }) } } };
+  const lowerPlugin = {
+    settings: { manualTaskStates: {} },
+    usage,
+    viewForPath: () => null,
+    readNote: async () => lowerNote,
+    registerDomEvent: (el, type, fn) => { handlers[type] = fn; },
+    registerMarkdownPostProcessor: () => {},
+    app: {
+      plugins: { plugins: {} },
+      workspace: { iterateAllLeaves: (fn) => fn({ view: { file: { path: 'lower.md' }, editor: { cm: lowerCm } } }) },
+      vault: { getAbstractFileByPath: () => ({}), async process(f, fn) { lowerNote = fn(lowerNote); } },
+    },
+    saveSettings: async () => {},
+    refreshUI() {},
+  };
+  registerTaskStatusMenu(lowerPlugin);
+  let lowerStopped = false;
+  handlers.click({ target: lowerToken, button: 0, clientX: 5, clientY: 10, preventDefault() {}, stopImmediatePropagation() { lowerStopped = true; } });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.ok(lowerStopped, 'lowercase keyword click opens status menu');
+  const lowerMenu = globalThis.__statusMenus.at(-1);
+  await lowerMenu.items.find((i) => i.title === 'DONE').click();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.ok(lowerNote.startsWith('- DONE task'), `expected lowercase doing replaced by DONE, got: ${lowerNote}`);
+
   delete globalThis.document;
   delete globalThis.__statusMenus;
 }

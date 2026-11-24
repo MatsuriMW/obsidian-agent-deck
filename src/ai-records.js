@@ -2,7 +2,7 @@
 import * as J from "./journal.js";
 import { t } from "./i18n.js";
 export const AI_RECORD_RE = J.RECORD_LINE_RE;
-export const RECORD_MARKER_BODY_RE = /^(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|TODO\s+🤖\s)/;
+export const RECORD_MARKER_BODY_RE = /^(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|(?:TODO|todo)\s+🤖\s)/;
 export const RECORD_VIEWS = new Set(["outline", "table", "cards", "timeline"]);
 export const RECORD_VIEW_LABELS = {
   outline: "大纲",
@@ -200,9 +200,9 @@ export function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
     kind = "link"; kindLabel = "会话";
     content = body.replace(/^🔗\s+/, "");
     meta = link ? ((agentNames && agentNames[link.agent]) || link.agent || "") : "";
-  } else if (/^TODO\s+🤖\s/.test(body)) {
+  } else if (/^(?:TODO|todo)\s+🤖\s/.test(body)) {
     kind = "todo"; kindLabel = "待确认";
-    content = body.replace(/^TODO\s+🤖\s+/, "");
+    content = body.replace(/^(?:TODO|todo)\s+🤖\s+/, "");
   }
 
   const nonEmptyChildren = (childLines || []).filter((l) => String(l || "").trim());

@@ -101,6 +101,10 @@ const { recordCopyText } = await import("../src/record-menu.js");
   assert.ok(hit2);
   assert.equal("\t- DONE 09:00 🤖 旧格式任务".slice(hit2.from, hit2.to), "🤖");
 
+  const hitLower = matchRobotMark("- doing 🤖 09:00-09:30 任务");
+  assert.ok(hitLower);
+  assert.equal("- doing 🤖 09:00-09:30 任务".slice(hitLower.from, hitLower.to), "🤖");
+
   assert.equal(matchRobotMark("普通段落里聊到 🤖 图标"), null);
   assert.equal(matchRobotMark("- 普通手写项里提到 🤖 符号"), null);
 }

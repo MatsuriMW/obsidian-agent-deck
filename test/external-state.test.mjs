@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import {
+  AGENT_LINE_RE,
   scanAgentWait,
   scanLimitQueue,
   resolveExternalState,
@@ -156,4 +157,16 @@ test("buildLineProgressInfo produces bar, running bounce, external approval/queu
   assert.equal(subInfo.sid, "sid-parent");
   assert.equal(subInfo.tok, 250_000);
   assert.match(subInfo.tail, /子代理.*在跑/);
+
+  assert.equal(AGENT_LINE_RE.test("- doing 整理脚本 40%"), true);
+  assert.equal(AGENT_LINE_RE.test("- Doing 整理脚本 40%"), false);
+  const lowerBar = buildLineProgressInfo(plugin, "- doing 整理脚本 40%", ["- doing 整理脚本 40%"], 0, {
+    sid: "sid-lower",
+    agent: "claude",
+    state: "run",
+    lastAt: now - 10_000,
+    tokens: 50_000,
+  }, null, now);
+  assert.equal(lowerBar.mode, "bar");
+  assert.equal(lowerBar.pct, 0.4);
 });

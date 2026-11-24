@@ -241,7 +241,7 @@ export default class AgentDeckPlugin extends Plugin {
         const cursorRaw = editor.getLine(cursorLine) || "";
         const isRecord = J.CONTEXT_RECORD_RE.test(cursorRaw);
         const canPinCursor = isRecord
-          || /^\s*(?:[-*+]|\d+[.)])\s+TODO\s+🤖\s/.test(cursorRaw)
+          || /^\s*(?:[-*+]|\d+[.)])\s+(?:TODO|todo)\s+🤖\s/.test(cursorRaw)
           || Boolean(J.kwLine(cursorRaw)?.kw);
         // 光标所在那一段只要能当任务发出去，右键就给委派（和行尾箭头同一个口径）。
         const canDelegateCursor = Boolean(cursorRaw.trim()) && !/^\s*<!--/.test(cursorRaw);
@@ -450,7 +450,7 @@ export default class AgentDeckPlugin extends Plugin {
         if (!view?.file) return;
         const line = editor.getCursor().line;
         const raw = editor.getLine(line) || "";
-        if (!J.CONTEXT_RECORD_RE.test(raw) && !/^\s*(?:[-*+]|\d+[.)])\s+TODO\s+🤖\s/.test(raw) && !J.kwLine(raw)?.kw) {
+        if (!J.CONTEXT_RECORD_RE.test(raw) && !/^\s*(?:[-*+]|\d+[.)])\s+(?:TODO|todo)\s+🤖\s/.test(raw) && !J.kwLine(raw)?.kw) {
           return this.notice(t("请把光标放在要 Pin 的 AI 记录或任务行上"));
         }
         this.toggleRecordPin(view.file.path, line, { editor });

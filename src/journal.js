@@ -16,10 +16,11 @@ import { LIST_RE, width, fencedLines, ownersOf, markOwner, subtreeEnd } from "./
 export { LIST_RE, width, fencedLines, ownersOf, markOwner, subtreeEnd };
 export const STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
 export const CHECKBOX_RE = /^\[([ xX\/\-])\]\s*/;
-// 任务关键词，长的在前（TODOFORAI 在 TODO 前、WAITING 在 WAIT 前）：KEYWORD_RE 不带前瞻，靠这个顺序
+// 任务关键词，长的在前（TODOFORAI 在 TODO 前、WAITING 在 WAIT 前），并要求词边界且只匹配全大写或全小写
 export const TASK_KWS = "TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED";
-export const KEYWORD_RE = new RegExp(`^(${TASK_KWS})\\s*`);
-const KW_WORD_RE = new RegExp(`^(${TASK_KWS})(?=\\s|$)\\s*`);
+export const TASK_KWS_RE_SRC = `${TASK_KWS}|${TASK_KWS.toLowerCase()}`;
+export const KEYWORD_RE = new RegExp(`^(${TASK_KWS_RE_SRC})(?=\\s|$)\\s*`);
+const KW_WORD_RE = KEYWORD_RE;
 
 // TOREVIEW / NEEDOK / … are the states an agent session switches a line through.
 // A line only flips between DOING and these; anything else is the user's.
@@ -41,7 +42,7 @@ export const PLAN_RE = /^\s*[-*+]\s+📋/;
 export const CONTEXT_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋)\s|(?:第\d+轮|Round\s+\d+)[：:])/;
 export const RECORD_ICON_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:])/;
 // 本插件写下的记录行（和 ai-records.js 的 AI_RECORD_RE 一致），⏱ 也在其中
-export const RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|TODO\s+🤖\s)/;
+export const RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|(?:TODO|todo)\s+🤖\s)/;
 export const RECORD_PROVENANCE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/g;
 export const RECORD_PROVENANCE_LINE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
 const RECORD_PROVENANCE_TEST_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/;
@@ -396,7 +397,7 @@ export function splitTask(raw) {
   const body = stripBlockId(rest);
   if (!auto) title = body;
   const span = since ? `${since}-${until || since}` : null;
-  return { prefix, rest, body, title, auto, blockId, since, until, span, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
+  return { prefix, rest, body, title, auto, blockId, since, until, span, kw: kw ? kw[1].toUpperCase() : null, cb: cb ? cb[1] : null };
 }
 
 // ⌘⇧D：把一行任务改成做完的样子。缩进、短横 -、复选框和时间戳都留着，
@@ -434,7 +435,7 @@ export function kwLine(raw) {
   const cb = CHECKBOX_RE.exec(s);
   if (cb) { kw = cb[1] === " " ? "TODO" : cb[1] === "/" ? "DOING" : cb[1] === "-" ? "CANCELLED" : "DONE"; s = s.slice(cb[0].length); }
   const m = KW_WORD_RE.exec(s);
-  if (m) { kw = m[1]; s = s.slice(m[0].length); }
+  if (m) { kw = m[1].toUpperCase(); s = s.slice(m[0].length); }
   const blockId = blockIdOf(s);
   s = stripBlockId(s)
     .replace(/^\[#[ABC]\]\s*/, "")
@@ -983,7 +984,7 @@ export function kidIdent(line) {
   const m = /^\s*[-*+]\s+⏱.*·\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`\s*$/.exec(line);
   return m ? { kind: m[1] === "子代理" ? "sub" : "side", id: m[2], open: false } : null;
 }
-const KID_NORM_RE = new RegExp(`^\\s*(?:\\d+[.)、]\\s*)?(?:(?:${TASK_KWS})\\s+)?(?:\\d{1,2}[:：]\\d{2}(?:\\s*[-–~～到至]\\s*\\d{1,2}[:：]\\d{2})?\\s*)?`);
+const KID_NORM_RE = new RegExp(`^\\s*(?:\\d+[.)、]\\s*)?(?:(?:${TASK_KWS_RE_SRC})\\s+)?(?:\\d{1,2}[:：]\\d{2}(?:\\s*[-–~～到至]\\s*\\d{1,2}[:：]\\d{2})?\\s*)?`);
 export const kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(KID_NORM_RE, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
 export function kidMatch(body, desc) {
   const a = kidNorm(body), d = kidNorm(desc);
@@ -1117,7 +1118,7 @@ export function bindInto(text, at, s, { below = false, rules = null } = {}) {
       for (let i = hit.line + 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         if (width(lines[i]) <= base) break;
-        if (!MARKER_RE.test(lines[i]) && !/^\s*[-*+]\s+TODO\s+🤖/.test(lines[i])) own = false;
+        if (!MARKER_RE.test(lines[i]) && !/^\s*[-*+]\s+(?:TODO|todo)\s+🤖/.test(lines[i])) own = false;
         end = i;
       }
       if (own) {

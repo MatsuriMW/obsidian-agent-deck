@@ -11,7 +11,7 @@ import { AGENTS } from "./constants.js";
 import { AGENT_IMAGES } from "./agent-assets.js";
 import { t } from "./i18n.js";
 import {
-  TASK_KWS,
+  TASK_KWS_RE_SRC,
   CLOCK_RE,
   blockIdOf,
   agentFromBlockId,
@@ -89,7 +89,7 @@ export function matchBriefLabels(line) {
 let robotLineRe = null;
 function robotLineRegex() {
   if (!robotLineRe) {
-    const kws = TASK_KWS.split("|").sort((a, b) => b.length - a.length).map(escapeRe).join("|");
+    const kws = TASK_KWS_RE_SRC.split("|").sort((a, b) => b.length - a.length).map(escapeRe).join("|");
     robotLineRe = new RegExp(
       `^(\\s*(?:>\\s*)*(?:[-*+]|\\d+[.)])\\s+(?:\\[[ xX/\\-]\\]\\s+)?(?:\\*\\*\\d{1,2}[:：]\\d{2}\\*\\*\\s*)?(?:(?:${kws})\\s+)?(?:\\d{1,2}[:：]\\d{2}(?:\\s*[-–~～到至]\\s*\\d{1,2}[:：]\\d{2})?\\s+)?)(🤖)`,
       "u",
