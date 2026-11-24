@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.13.22
+
+- **块首全小写任务状态词识别与渲染（`src/journal.js`、`src/keyword-style.js`、`src/task-status.js` 等）**：块首关键词支持全大写与全小写两种写法（如 `todo` / `doing` / `done` / `later` / `now` / `waiting` / `paused` / `in-progress` / `canceled` / `toreview` / `needok` / `todoforai` 等），同步覆盖编辑视图配色与图标、阅读视图（保留原文小写展示）、点击状态切换菜单、批量改状态、`⌘⇧D` 标记完成、日记整理/归档/同步、进度条、AI 记录图标、Pin 与 Dreaming 证据分类；严格要求词边界且不匹配首字母大写的普通英文词（如 `Now` / `Wait` / `Later` / `Failed`）或前缀粘连词（如 `nowhere` / `todolist`）。
+
 ## 1.13.21
 
 - **Cindy 实机全链路验证与项目名归口（`src/readers.js`、`USAGE_CACHE_VERSION = 22`）**：基于真实安装的 `Cindy v0.1.144`（macOS arm64）完成端到端实测，覆盖活跃 WAL SQLite 精确读取（95,672 tok 零偏差）、Codex / `~/.claude/projects` 跨库底层会话实时去重、只读对话详情与 `cindy://session/<id>` 深链直达；新增 `CINDY_DIALOGUE_RE` 将 `Cindy/owners/<hash>/dialogues/...` 纯对话工作区归类为临时目录并由 `projectName()` 统一显示为 `"Cindy"`（不再把会话 UUID 暴露为 `dir` 标签）。

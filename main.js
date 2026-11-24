@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.21 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.22 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -5509,8 +5509,9 @@ function collectSelectedRootLines(lines, ranges = [], { fenced = null, skipLine 
 var STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
 var CHECKBOX_RE = /^\[([ xX\/\-])\]\s*/;
 var TASK_KWS = "TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED";
-var KEYWORD_RE = new RegExp(`^(${TASK_KWS})\\s*`);
-var KW_WORD_RE = new RegExp(`^(${TASK_KWS})(?=\\s|$)\\s*`);
+var TASK_KWS_RE_SRC = `${TASK_KWS}|${TASK_KWS.toLowerCase()}`;
+var KEYWORD_RE = new RegExp(`^(${TASK_KWS_RE_SRC})(?=\\s|$)\\s*`);
+var KW_WORD_RE = KEYWORD_RE;
 var AGENT_KWS = ["TOREVIEW", "NEEDOK", "ERRORED", "HITLIMIT", "QUEUED", "DELEGATED"];
 var AGENT_KW_RE = /^(TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)$/;
 var OPEN_KWS = ["TODO", "LATER", "NOW", "WAITING", "WAIT", "TODOFORAI", "TODO4AI", "TODO2AI", "TODOTOAI"];
@@ -5524,7 +5525,7 @@ var CLOCK_RE = /^\s*[-*+]\s+⏱/;
 var QUESTION_RE = /^\s*[-*+]\s+❓/;
 var CONTEXT_RECORD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋)\s|(?:第\d+轮|Round\s+\d+)[：:])/;
 var RECORD_ICON_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:])/;
-var RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|TODO\s+🤖\s)/;
+var RECORD_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|(?:TODO|todo)\s+🤖\s)/;
 var RECORD_PROVENANCE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/g;
 var RECORD_PROVENANCE_LINE_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->[ \t]*$/;
 var RECORD_PROVENANCE_TEST_RE = /[ \t]+<!-- ad-(?:(?:turn|summary(?:-pending)?):[A-Za-z0-9_-]+:\d+|clock:[a-f0-9]+) -->/;
@@ -5825,7 +5826,7 @@ function splitTask(raw) {
   const body = stripBlockId(rest);
   if (!auto) title = body;
   const span = since ? `${since}-${until || since}` : null;
-  return { prefix, rest, body, title, auto, blockId, since, until, span, kw: kw ? kw[1] : null, cb: cb ? cb[1] : null };
+  return { prefix, rest, body, title, auto, blockId, since, until, span, kw: kw ? kw[1].toUpperCase() : null, cb: cb ? cb[1] : null };
 }
 function flipToDone(raw) {
   const part = splitTask(raw);
@@ -5859,7 +5860,7 @@ function kwLine(raw) {
   }
   const m = KW_WORD_RE.exec(s);
   if (m) {
-    kw = m[1];
+    kw = m[1].toUpperCase();
     s = s.slice(m[0].length);
   }
   const blockId = blockIdOf(s);
@@ -6274,7 +6275,7 @@ function kidIdent(line) {
   const m = /^\s*[-*+]\s+⏱.*·\s*(子代理|side chat)\s*`(?:pid\s*)?([0-9a-z]+)`\s*$/.exec(line);
   return m ? { kind: m[1] === "\u5B50\u4EE3\u7406" ? "sub" : "side", id: m[2], open: false } : null;
 }
-var KID_NORM_RE = new RegExp(`^\\s*(?:\\d+[.)\u3001]\\s*)?(?:(?:${TASK_KWS})\\s+)?(?:\\d{1,2}[:\uFF1A]\\d{2}(?:\\s*[-\u2013~\uFF5E\u5230\u81F3]\\s*\\d{1,2}[:\uFF1A]\\d{2})?\\s*)?`);
+var KID_NORM_RE = new RegExp(`^\\s*(?:\\d+[.)\u3001]\\s*)?(?:(?:${TASK_KWS_RE_SRC})\\s+)?(?:\\d{1,2}[:\uFF1A]\\d{2}(?:\\s*[-\u2013~\uFF5E\u5230\u81F3]\\s*\\d{1,2}[:\uFF1A]\\d{2})?\\s*)?`);
 var kidNorm = (s) => String(s || "").replace(/🤖/g, "").replace(KID_NORM_RE, "").toLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
 function kidMatch(body, desc) {
   const a = kidNorm(body), d = kidNorm(desc);
@@ -6384,7 +6385,7 @@ function bindInto(text, at, s, { below = false, rules = null } = {}) {
       for (let i = hit.line + 1; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         if (width(lines[i]) <= base) break;
-        if (!MARKER_RE.test(lines[i]) && !/^\s*[-*+]\s+TODO\s+🤖/.test(lines[i])) own = false;
+        if (!MARKER_RE.test(lines[i]) && !/^\s*[-*+]\s+(?:TODO|todo)\s+🤖/.test(lines[i])) own = false;
         end = i;
       }
       if (own) {
@@ -23498,7 +23499,7 @@ var import_language = require("@codemirror/language");
 
 // src/ai-records.js
 var AI_RECORD_RE = RECORD_LINE_RE;
-var RECORD_MARKER_BODY_RE = /^(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|TODO\s+🤖\s)/;
+var RECORD_MARKER_BODY_RE = /^(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|(?:TODO|todo)\s+🤖\s)/;
 var RECORD_VIEWS = /* @__PURE__ */ new Set(["outline", "table", "cards", "timeline"]);
 var RECORD_VIEW_LABELS = {
   outline: "\u5927\u7EB2",
@@ -23679,10 +23680,10 @@ function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
     kindLabel = "\u4F1A\u8BDD";
     content = body.replace(/^🔗\s+/, "");
     meta = link2 ? agentNames && agentNames[link2.agent] || link2.agent || "" : "";
-  } else if (/^TODO\s+🤖\s/.test(body)) {
+  } else if (/^(?:TODO|todo)\s+🤖\s/.test(body)) {
     kind = "todo";
     kindLabel = "\u5F85\u786E\u8BA4";
-    content = body.replace(/^TODO\s+🤖\s+/, "");
+    content = body.replace(/^(?:TODO|todo)\s+🤖\s+/, "");
   }
   const nonEmptyChildren = (childLines || []).filter((l) => String(l || "").trim());
   const baseIndent = nonEmptyChildren.length ? Math.min(...nonEmptyChildren.map((l) => width(l))) : 0;
@@ -26249,7 +26250,7 @@ function findActiveWaveForBoard(waves = {}, { path: path28 = "", parentBlockId =
 
 // src/task-status.js
 var import_obsidian3 = require("obsidian");
-var STATUS_TOKEN = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)([A-Z][A-Z0-9_-]*)(?=\s|$)/;
+var STATUS_TOKEN = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)([A-Z][A-Z0-9_-]*|[a-z][a-z0-9_-]*)(?=\s|$)/;
 var LIST_STATUS_LEAD = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s*)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(.*)$/;
 var EXTRA_STATE_KWS = ["YES", "NO", "MAYBE", "ARCHIVED"];
 function knownTaskKeywords(app = null) {
@@ -26270,10 +26271,11 @@ function updateCheckboxPrefix(prefix, keyword) {
   const box = !keyword ? " " : DONE_KWS.includes(keyword) ? keyword.startsWith("CANCEL") ? "-" : "x" : keyword === "DOING" ? "/" : " ";
   return prefix.replace(/\[[ xX/\-]\]/, `[${box}]`);
 }
-function replaceTaskStatus(raw, keyword) {
+function replaceTaskStatus(raw, keyword, { knownKeywords = null } = {}) {
   if (!/^[A-Z][A-Z0-9_-]*$/.test(keyword)) return null;
   const match = STATUS_TOKEN.exec(raw);
   if (!match) return null;
+  if (/^[a-z]/.test(match[2]) && !(knownKeywords || knownTaskKeywords()).has(match[2].toUpperCase())) return null;
   const prefix = updateCheckboxPrefix(match[1], keyword);
   return prefix + keyword + raw.slice(match[0].length);
 }
@@ -26284,8 +26286,8 @@ function setTaskLineStatus(raw, keyword, { knownKeywords = null } = {}) {
   const known = knownKeywords || knownTaskKeywords();
   const prefix = updateCheckboxPrefix(lead[1], keyword);
   const rest = lead[2] || "";
-  const firstToken = /^([A-Z][A-Z0-9_-]*)(?=\s|$)(?:\s+)?/.exec(rest);
-  if (firstToken && known.has(firstToken[1])) {
+  const firstToken = /^([A-Z][A-Z0-9_-]*|[a-z][a-z0-9_-]*)(?=\s|$)(?:\s+)?/.exec(rest);
+  if (firstToken && known.has(firstToken[1].toUpperCase())) {
     const tail = rest.slice(firstToken[0].length);
     return keyword ? `${prefix}${keyword}${tail ? " " + tail : ""}` : `${prefix}${tail}`;
   }
@@ -26353,7 +26355,7 @@ async function applyStatusChoice(plugin, target, keyword) {
     id || (id = makeBlockId(link2?.sid || "", link2?.agent));
     const next = keyword || suggestedStatus(settings, plugin.usage, text, n);
     if (!next) throw new Error(t("\u6CA1\u6709\u53EF\u8DDF\u968F\u7684\u4F1A\u8BDD\u72B6\u6001"));
-    const raw = replaceTaskStatus(lines[n], next);
+    const raw = replaceTaskStatus(lines[n], next, { knownKeywords: knownTaskKeywords(plugin.app) });
     if (!raw) throw new Error(t("\u4EFB\u52A1\u5DF2\u53D8\u5316\uFF0C\u8BF7\u91CD\u65B0\u70B9\u51FB\u72B6\u6001\u5173\u952E\u8BCD"));
     previous = settings.manualTaskStates?.[id];
     const locks = settings.manualTaskStates || (settings.manualTaskStates = {});
@@ -26559,7 +26561,8 @@ function registerTaskStatusMenu(plugin) {
       const li = keyword.closest("li[data-ad-status-path]");
       if (li) target = { path: li.dataset.adStatusPath, raw: li.dataset.adStatusRaw, keyword: keyword.dataset.taskKeyword };
     }
-    return target && STATUS_TOKEN.exec(target.raw)?.[2] === target.keyword ? target : null;
+    const matched = target && STATUS_TOKEN.exec(target.raw)?.[2];
+    return matched && matched.toUpperCase() === String(target.keyword || "").toUpperCase() ? target : null;
   };
   for (const type of ["mousedown", "click", "keydown"]) plugin.registerDomEvent(document, type, (event) => {
     if (type === "keydown" && !["Enter", " "].includes(event.key)) return;
@@ -27779,7 +27782,7 @@ var import_path21 = __toESM(require("path"), 1);
 var import_child_process9 = require("child_process");
 var AI_IDLE_MIN = 5;
 var TOK_BLOCK_MAX = 30;
-var AGENT_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED)(?=\s|$))/;
+var AGENT_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:\[\/\]\s|(?:DOING|NOW|IN-PROGRESS|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|doing|now|in-progress|toreview|hitlimit|needok|queued|errored|delegated)(?=\s|$))/;
 var RESULT_LINE_RE = /^\s*[-*+]\s+(?:💬|(?:第\d+轮|Round\s+\d+)[：:])/;
 var SUB_LINE_RE = /^\s*[-*+]\s+🤖\s*(?:子代理|side chat)/;
 var PROG_END = String.raw`(?=$|[\s，,。；;)）])`;
@@ -31548,7 +31551,7 @@ function memoryEntries(text) {
 // src/dream-evidence.js
 var import_crypto12 = require("crypto");
 var hash2 = (text) => (0, import_crypto12.createHash)("sha256").update(text).digest("hex").slice(0, 24);
-var AI_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:[A-Z-]+\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s+)?🤖/;
+var AI_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:(?:[A-Z0-9-]+|[a-z0-9-]+)\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s+)?🤖/;
 var AD_COMMENT_RE = /(?:[ \t]*<!--\s*ad-[a-z0-9-]+(?::[^>]+)?\s*-->)+[ \t]*$/g;
 var SEP_ONLY_RE = /^(?:\s*(?:[-*+]|\d+[.)])?\s*[-_*]{3,}\s*)+$/;
 function evidenceBlocks(text, path28, { aiOnly = false } = {}) {
@@ -37010,7 +37013,7 @@ var AI_MARK = AUTO_MARK.trim();
 var compiled = null;
 function keywordRegex() {
   if (!compiled) {
-    const alternation = TASK_KWS.split("|").sort((a, b) => b.length - a.length).map(escape).join("|");
+    const alternation = TASK_KWS_RE_SRC.split("|").sort((a, b) => b.length - a.length).map(escape).join("|");
     compiled = new RegExp(
       `^(\\s*(?:>\\s*)*(?:(?:#{1,6}|[-*+]|\\d+[.)])\\s+)?(?:\\[[ xX/\\-]\\]\\s+)?(?:\\*\\*\\d{1,2}[:\uFF1A]\\d{2}\\*\\*\\s*)?)(${alternation})(?=\\s|$)`,
       "u"
@@ -37020,10 +37023,10 @@ function keywordRegex() {
 }
 function keywordOf(text) {
   const m = keywordRegex().exec(String(text));
-  return m ? { at: m[1].length, keyword: m[2] } : null;
+  return m ? { at: m[1].length, keyword: m[2].toUpperCase(), raw: m[2] } : null;
 }
 var isAiRecordLine = (text) => String(text).includes(AI_MARK);
-var isDoneKeyword = (keyword) => DONE_KWS.includes(keyword);
+var isDoneKeyword = (keyword) => DONE_KWS.includes(String(keyword || "").toUpperCase());
 function todoSetting(plugin, key) {
   try {
     const plugins = plugin.app?.plugins?.plugins || {};
@@ -37101,7 +37104,7 @@ function keywordMarksExtension(plugin) {
             const hit = keywordOf(line.text);
             if (hit && !inCode(view2, line.from)) {
               const start = line.from + hit.at;
-              const end = start + hit.keyword.length;
+              const end = start + hit.raw.length;
               const done = isDoneKeyword(hit.keyword);
               const aiRecord = isAiRecordLine(line.text);
               const heading = /^\s*(?:>\s*)*#{1,6}\s+/.test(line.text);
@@ -37239,7 +37242,7 @@ function wrapRemainder(doc, keywordSpan) {
   }
   if (wrap.childNodes.length) keywordSpan.after(wrap);
 }
-var LOOKS_LIKE_TASK = /^\s*(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)?(?:\[[ xX/\-]\]\s+)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?[A-Z][A-Z-]*\b/;
+var LOOKS_LIKE_TASK = /^\s*(?:>\s*)*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+)?(?:\[[ xX/\-]\]\s+)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?(?:[A-Z][A-Z0-9-]*|[a-z][a-z0-9-]*)\b/;
 var TASK_HOSTS = "li, p, h1, h2, h3, h4, h5, h6";
 var IN_CODE = "pre, code, .table-cell-wrapper";
 function applyKeywordStyle(root) {
@@ -37254,7 +37257,7 @@ function applyKeywordStyle(root) {
     const hit = keywordOf(text);
     if (!hit) continue;
     const before = text.slice(0, hit.at);
-    const rest = text.slice(hit.at + hit.keyword.length);
+    const rest = text.slice(hit.at + hit.raw.length);
     const doc = el.ownerDocument;
     const kw = doc.createElement("span");
     const done = isDoneKeyword(hit.keyword);
@@ -37262,7 +37265,7 @@ function applyKeywordStyle(root) {
     const aiRecord = isAiRecordLine(el.textContent);
     kw.className = "todoseq-keyword-formatted" + (done && !aiRecord ? " todoseq-completed-keyword" : "") + (heading ? " todoseq-heading-task-keyword" : "");
     kw.setAttribute("data-task-keyword", hit.keyword);
-    kw.textContent = hit.keyword;
+    kw.textContent = hit.raw;
     const frag = doc.createDocumentFragment();
     if (before) frag.append(before);
     frag.append(kw);
@@ -37340,7 +37343,7 @@ function matchBriefLabels(line) {
 var robotLineRe = null;
 function robotLineRegex() {
   if (!robotLineRe) {
-    const kws = TASK_KWS.split("|").sort((a, b) => b.length - a.length).map(escapeRe).join("|");
+    const kws = TASK_KWS_RE_SRC.split("|").sort((a, b) => b.length - a.length).map(escapeRe).join("|");
     robotLineRe = new RegExp(
       `^(\\s*(?:>\\s*)*(?:[-*+]|\\d+[.)])\\s+(?:\\[[ xX/\\-]\\]\\s+)?(?:\\*\\*\\d{1,2}[:\uFF1A]\\d{2}\\*\\*\\s*)?(?:(?:${kws})\\s+)?(?:\\d{1,2}[:\uFF1A]\\d{2}(?:\\s*[-\u2013~\uFF5E\u5230\u81F3]\\s*\\d{1,2}[:\uFF1A]\\d{2})?\\s+)?)(\u{1F916})`,
       "u"
@@ -45256,7 +45259,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
         const cursorLine = editor.getCursor().line;
         const cursorRaw = editor.getLine(cursorLine) || "";
         const isRecord = CONTEXT_RECORD_RE.test(cursorRaw);
-        const canPinCursor = isRecord || /^\s*(?:[-*+]|\d+[.)])\s+TODO\s+🤖\s/.test(cursorRaw) || Boolean(kwLine(cursorRaw)?.kw);
+        const canPinCursor = isRecord || /^\s*(?:[-*+]|\d+[.)])\s+(?:TODO|todo)\s+🤖\s/.test(cursorRaw) || Boolean(kwLine(cursorRaw)?.kw);
         const canDelegateCursor = Boolean(cursorRaw.trim()) && !/^\s*<!--/.test(cursorRaw);
         const selected = selectedTaskLines(cm.state.doc, cm.state.selection);
         if (!selected.length && !canPinCursor && !canDelegateCursor) return;
@@ -45462,7 +45465,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
         if (!view2?.file) return;
         const line = editor.getCursor().line;
         const raw = editor.getLine(line) || "";
-        if (!CONTEXT_RECORD_RE.test(raw) && !/^\s*(?:[-*+]|\d+[.)])\s+TODO\s+🤖\s/.test(raw) && !kwLine(raw)?.kw) {
+        if (!CONTEXT_RECORD_RE.test(raw) && !/^\s*(?:[-*+]|\d+[.)])\s+(?:TODO|todo)\s+🤖\s/.test(raw) && !kwLine(raw)?.kw) {
           return this.notice(t("\u8BF7\u628A\u5149\u6807\u653E\u5728\u8981 Pin \u7684 AI \u8BB0\u5F55\u6216\u4EFB\u52A1\u884C\u4E0A"));
         }
         this.toggleRecordPin(view2.file.path, line, { editor });

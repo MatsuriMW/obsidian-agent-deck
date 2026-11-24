@@ -1,6 +1,12 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.21**（2026-11-24）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.22**（2026-11-24）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.22：块首全小写任务状态词识别与渲染
+
+- **块首全小写任务状态词识别与渲染**：
+  - `src/journal.js`（`TASK_KWS_RE_SRC`、`KEYWORD_RE` / `KW_WORD_RE` 词边界 `(?=\s|$)`、`splitTask`/`kwLine` 归一化大写、`RECORD_LINE_RE`/`KID_NORM_RE`/`bindInto`）、`src/keyword-style.js`（`keywordOf`/`isDoneKeyword`/`LOOKS_LIKE_TASK`/编辑器与阅读视图保留原文 `hit.raw` 并输出大写 `data-task-keyword`）、`src/task-status.js`（`STATUS_TOKEN`/`replaceTaskStatus`/`setTaskLineStatus`/点击状态菜单大小写一致校验）及 `src/external-state.js`、`src/record-icons.js`、`src/ai-records.js`、`src/main.js`、`src/dream-evidence.js` 同步支持块首全小写任务状态词（`todo`/`doing`/`done` 等），严格排除首字母大写英文正文（`Now`/`Wait` 等）与前缀粘连词（`nowhere`/`todolist`），未改动 `NAUTILUS_LINE_RE`；补齐 `test/keyword-style.test.mjs`、`test/task-status.test.mjs`、`test/done-flip.test.mjs`、`test/record-icons.test.mjs`、`test/external-state.test.mjs` 用例。
+  - 验证范围与未测空白：macOS 隔离 `HOME` 全量 `npm test`、`npm run eval`、`npm run build`、`npm run check:deploy`、`git diff --check`、`install:plugin` 与 `马自立` Vault 热重载（`dev:errors` 无插件报错）；未测空白：Obsidian 编辑器/阅读视图 GUI 内小写任务行的实际渲染目视验收与 Windows 端。
 
 ## 1.13.21：Cindy 真机联调修复、Harness 重探测全量补扫与 Windows CI 断言修复
 
