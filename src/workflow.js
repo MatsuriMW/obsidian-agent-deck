@@ -1,7 +1,27 @@
 // User-facing destinations and lifecycle, independent of transport protocols.
+import { AGENTS } from "./constants.js";
+import { canDelegateDrop, getAgentCapability, hasAgentCapability } from "./agent-registry.js";
 import { t } from "./i18n.js";
 
 export const activeJob = (job) => ["starting", "running", "needs-approval"].includes(job?.state);
+
+const DESTINATION_IDS = {
+  claude: ["desktop", "background", "terminal"],
+  codex: ["desktop", "background", "terminal"],
+  dsh: ["desktop", "background"],
+  antigravity: ["background"],
+  opencode: ["desktop", "background", "terminal"],
+  qoder: ["desktop", "background", "terminal"],
+  hermes: ["background", "terminal"],
+  minimax: ["desktop", "background", "terminal"],
+  cursor: ["background", "desktop"],
+  gemini: ["background", "terminal"],
+  t3code: ["desktop", "background"],
+  workbuddy: ["desktop", "terminal"],
+  teleagent: ["desktop"],
+};
+
+const BACKGROUND_DEFAULT_AGENTS = new Set(["antigravity", "qoder", "hermes", "minimax", "cursor", "gemini", "t3code"]);
 
 export function destinations(agent) {
   const modes = {
@@ -9,17 +29,34 @@ export function destinations(agent) {
     background: { id: "background", label: t("后台执行"), hint: t("留在当前笔记，完成或需要处理时提醒。") },
     terminal: { id: "terminal", label: t("在终端中聊"), hint: t("打开交互终端，后续在终端继续。") },
   };
-  const ids = { claude: ["desktop", "background", "terminal"], codex: ["desktop", "background", "terminal"], dsh: ["desktop", "background"], antigravity: ["background"], opencode: ["desktop", "background", "terminal"], qoder: ["desktop", "background", "terminal"], hermes: ["background", "terminal"], minimax: ["desktop", "background", "terminal"], cursor: ["background", "desktop"], gemini: ["background", "terminal"], t3code: ["desktop", "background"], workbuddy: ["desktop", "terminal"], teleagent: ["desktop"] };
-  return (ids[agent] || []).map(id => modes[id]);
+  if (DESTINATION_IDS[agent]) return DESTINATION_IDS[agent].map(id => modes[id]);
+  if (hasAgentCapability(agent, "delegate")) {
+    return [modes.background, ...(hasAgentCapability(agent, "terminalHandoff") ? [modes.terminal] : [])];
+  }
+  return [];
 }
 
 export function defaultDestination(plugin, agent) {
-  if (["antigravity", "qoder", "hermes", "minimax", "cursor", "gemini", "t3code"].includes(agent)) return "background";
+  if (BACKGROUND_DEFAULT_AGENTS.has(agent)) return "background";
   if (agent === "dsh") return "desktop";
   if (agent === "opencode") return plugin.settings?.delegate?.opencode?.openDesktop ? "desktop" : "background";
   if (agent === "codex") return plugin.settings?.delegate?.codex?.transport === "terminal" ? "terminal" : "desktop";
   if (agent === "claude") return plugin.settings?.delegate?.claude?.openDesktop ? "desktop" : "background";
+  if (hasAgentCapability(agent, "delegate")) return "background";
   return "desktop";
+}
+
+export function agentDropMeta(plugin, id, metaKey = false) {
+  const a = AGENTS[id] || { short: id || "Agent" };
+  if (!canDelegateDrop(id)) return { delegable: false, cli: false, hint: t("暂不支持委派") };
+  const cap = getAgentCapability(id);
+  const handoff = id === "codex" || (!cap.delegate && Boolean(cap.desktopHandoffOnly));
+  // 设置里「默认在终端里委派」开着时反过来：不按 ⌘ 在终端里开，按住 ⌘ 走原来的后台 / 客户端
+  const cli = Boolean(cap.terminalHandoff) && (Boolean(metaKey) !== Boolean(plugin?.settings?.delegateInTerminal));
+  const hint = cli
+    ? t("在终端里开 {name}", { name: a.short })
+    : (handoff ? t("交给 {name}", { name: a.short }) : t("委派给 {name}", { name: a.short }));
+  return { delegable: true, cli, hint };
 }
 
 export function canOpenClient(session) {

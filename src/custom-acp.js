@@ -136,6 +136,7 @@ export function syncCustomAcpRegistry(entries = []) {
       name: entry.name,
       short: entry.name.slice(0, 6),
       color: entry.color,
+      soft: `color-mix(in srgb, ${entry.color} 13%, transparent)`,
       deep: "obsidian",
       customAcp: true,
       trackingOnly: false,

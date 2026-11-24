@@ -18,7 +18,7 @@ import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { aiRecordDisplayExtension } from "./record-display.js";
 import { taskBoardExtension } from "./fractal-board.js";
-import { executionStatus } from "./workflow.js";
+import { executionStatus, agentDropMeta } from "./workflow.js";
 import { AGENTS, fmtDur, fmtTok, truncate } from "./constants.js";
 import { formatTaskMetricsTooltip } from "./task-metrics.js";
 import { t as tr } from "./i18n.js";
@@ -571,8 +571,10 @@ function cursorLineOf(view, plugin) {
   return plugin._lastEditor === view && sel.empty ? view.state.doc.lineAt(sel.head).number - 1 : -1;
 }
 
-function lineHasBullet(doc, lineZero) {
-  return lineZero >= 0 && lineZero < doc.lines && SIMPLE_BULLET_RE.test(doc.line(lineZero + 1).text);
+function lineHasGripTarget(doc, lineZero) {
+  if (lineZero < 0 || lineZero >= doc.lines) return false;
+  const text = doc.line(lineZero + 1).text;
+  return Boolean(text.trim()) && !/^\s*<!--/.test(text);
 }
 
 export function createEditorExtension(plugin) {
@@ -600,11 +602,19 @@ export function createEditorExtension(plugin) {
         this._cursorLine = nextLine;
         if (nextLine === prevLine || plugin.settings.dragGrip === false) return;
         const doc = update.view.state.doc;
-        if (!lineHasBullet(doc, prevLine) && !lineHasBullet(doc, nextLine)) return;
+        if (!lineHasGripTarget(doc, prevLine) && !lineHasGripTarget(doc, nextLine)) return;
         this.decorations = buildDecorations(update.view, plugin);
       }
     }
   };
+  if (typeof plugin?.register === "function" && !plugin._listDragBridgeInstalled) {
+    plugin._listDragBridgeInstalled = true;
+    const off = installListDragBridge(plugin);
+    if (typeof off === "function") plugin.register(() => {
+      off();
+      plugin._listDragBridgeInstalled = false;
+    });
+  }
   return [ViewPlugin.fromClass(pluginClass, { decorations: (v) => v.decorations }), dropField, dndHandlers(plugin), saidHandlers(plugin), aiRecordDisplayExtension(plugin, refreshEffect), taskBoardExtension(plugin, refreshEffect)];
 }
 
@@ -614,4 +624,261 @@ export async function dispatchRefresh(plugin) {
     const cm = view && view.editor && view.editor.cm;
     if (cm) { try { cm.dispatch({ effects: refreshEffect.of(null) }); } catch { /* closed */ } }
   });
+}
+
+export function resolveListItemFromElement(lineEl, plugin, findView = EditorView.findFromDOM) {
+  if (!lineEl) return null;
+  const cmEl = lineEl.closest?.(".cm-editor");
+  const view = cmEl ? findView?.(cmEl) : null;
+  if (!view?.state?.doc || typeof view.posAtDOM !== "function") return null;
+  const info = view.state.field?.(plugin.editorInfoField, false);
+  const path = info?.file?.path;
+  if (!path) return null;
+  let pos = null;
+  try { pos = view.posAtDOM(lineEl, 0); } catch { pos = null; }
+  if (pos == null) return null;
+  const docLine = view.state.doc.lineAt(pos);
+  if (!docLine || !SIMPLE_BULLET_RE.test(docLine.text)) return null;
+  return { path, line: docLine.number - 1, lineText: docLine.text, view };
+}
+
+// 列表块直接拖到侧栏 Agents 看板：
+// 1. 装了 bullet 插件时，它用 mousedown/mousemove/mouseup 接管了列表符号拖拽并给 body 加 .bullet-plugin-dragging；
+// 2. 未装 bullet 插件时，直接从原生 .cm-formatting-list / .list-bullet 拖出编辑器进入 .ad-view。
+export function installListDragBridge(plugin, {
+  doc = globalThis.document,
+  win = globalThis.window,
+  resolveDropMeta = (id, metaKey) => agentDropMeta(plugin, id, metaKey),
+  findView = EditorView.findFromDOM,
+} = {}) {
+  if (!doc?.addEventListener) return () => {};
+  let candidate = null;
+  let active = null;
+  let hoveredCard = null;
+  let hoveredMetaKey = null;
+  let lastPoint = null;
+  let syncingBullet = false;
+
+  const restoreCard = (el) => {
+    if (!el) return;
+    el.classList?.remove?.("is-drop", "is-cli", "is-drop-blocked");
+    if (el.dataset && Object.prototype.hasOwnProperty.call(el.dataset, "adPrevHint")) {
+      el.setAttribute?.("data-drop-hint", el.dataset.adPrevHint);
+      delete el.dataset.adPrevHint;
+    }
+  };
+
+  const dropMetaFor = (card, metaKey) => {
+    const id = card.dataset?.agent || "";
+    return resolveDropMeta
+      ? resolveDropMeta(id, metaKey)
+      : { delegable: !card.classList?.contains?.("is-no-drop"), cli: false, hint: "" };
+  };
+
+  const isBindableSessionCard = (card) => Boolean(
+    card?.dataset?.sid && card.dataset.pending !== "1" && !card.classList?.contains?.("is-no-drop"),
+  );
+
+  const flushPendingViews = () => {
+    if (doc.body?.classList?.contains?.("ad-dragging-item")) return;
+    for (const v of plugin?.views || []) {
+      if (v?._pendingRender && typeof v.render === "function") v.render();
+    }
+  };
+
+  const clearVanillaSelection = (item) => {
+    try {
+      const sel = item?.view?.state?.selection?.main;
+      if (sel && !sel.empty && typeof item.view.dispatch === "function") {
+        const lineObj = item.view.state.doc.line(item.line + 1);
+        item.view.dispatch({ selection: { anchor: lineObj.from } });
+      }
+      win?.getSelection?.()?.removeAllRanges?.();
+    } catch { /* ignore selection cleanup */ }
+  };
+
+  const clearActive = () => {
+    restoreCard(hoveredCard);
+    hoveredCard = null;
+    hoveredMetaKey = null;
+    lastPoint = null;
+    if (active) {
+      active = null;
+      doc.body?.classList?.remove?.("ad-dragging-item");
+      for (const el of doc.querySelectorAll?.(".ad-agentcard, .ad-sess") || []) restoreCard(el);
+      setTimeout(flushPendingViews, 0);
+    }
+  };
+
+  const updateHover = (x, y, metaKey = false) => {
+    lastPoint = { x, y };
+    const hit = doc.elementFromPoint?.(x, y);
+    const nextCard = hit?.closest?.(".ad-agentcard, .ad-sess") || null;
+    if (nextCard === hoveredCard && hoveredMetaKey === metaKey) return;
+    if (hoveredCard && hoveredCard !== nextCard) restoreCard(hoveredCard);
+    hoveredCard = nextCard;
+    hoveredMetaKey = metaKey;
+    if (!nextCard) return;
+    if (nextCard.classList?.contains?.("ad-agentcard")) {
+      const meta = dropMetaFor(nextCard, metaKey);
+      if (!meta.delegable) {
+        nextCard.classList?.add?.("is-drop-blocked");
+      } else {
+        if (nextCard.dataset && !Object.prototype.hasOwnProperty.call(nextCard.dataset, "adPrevHint")) {
+          nextCard.dataset.adPrevHint = nextCard.getAttribute?.("data-drop-hint") || "";
+        }
+        nextCard.classList?.add?.("is-drop");
+        nextCard.classList?.toggle?.("is-cli", Boolean(meta.cli));
+        if (meta.hint) nextCard.setAttribute?.("data-drop-hint", meta.hint);
+      }
+      return;
+    }
+    if (nextCard.classList?.contains?.("ad-sess") && isBindableSessionCard(nextCard)) {
+      nextCard.classList?.add?.("is-drop");
+    }
+  };
+
+  const onMouseDown = (e) => {
+    if (e.button !== 0) return;
+    if (doc.body?.classList?.contains?.("bullet-plugin-dnd")) return;
+    const target = e.target;
+    const editorEl = target?.closest?.(".markdown-source-view.mod-cm6");
+    if (!editorEl) return;
+    if (target.closest?.(".task-list-item-checkbox, .ad-grip")) return;
+    const bulletEl = target.closest?.(".cm-formatting-list, .list-bullet");
+    if (!bulletEl) return;
+    const lineEl = bulletEl.closest?.(".cm-line");
+    const item = resolveListItemFromElement(lineEl, plugin, findView);
+    if (!item) return;
+    candidate = {
+      x: e.clientX,
+      y: e.clientY,
+      item,
+      contentEl: editorEl.querySelector?.(".cm-content") || editorEl,
+    };
+  };
+
+  const onMouseMove = (e) => {
+    if (syncingBullet) return;
+    if (e?.isTrusted && typeof e.buttons === "number" && (e.buttons & 1) === 0) {
+      if (candidate || active) { candidate = null; clearActive(); }
+      return;
+    }
+    const bulletDragging = Boolean(doc.body?.classList?.contains?.("bullet-plugin-dragging"));
+    if (bulletDragging) {
+      candidate = null;
+      if (!active || active.mode !== "bullet") {
+        const srcLine = doc.querySelector?.(".cm-line.bullet-plugin-dragging-source-line");
+        const item = resolveListItemFromElement(srcLine, plugin, findView);
+        if (item) {
+          active = { mode: "bullet", item };
+          doc.body?.classList?.add?.("ad-dragging-item");
+        }
+      }
+      if (active) updateHover(e.clientX, e.clientY, Boolean(e.metaKey));
+      return;
+    }
+    if (active?.mode === "bullet") clearActive();
+
+    if (!active && candidate) {
+      if (doc.body?.classList?.contains?.("bullet-plugin-dnd")) {
+        candidate = null;
+        return;
+      }
+      const dist = Math.hypot(e.clientX - candidate.x, e.clientY - candidate.y);
+      if (dist >= 6) {
+        const hit = doc.elementFromPoint?.(e.clientX, e.clientY);
+        const overSidebar = Boolean(hit?.closest?.(".ad-view"));
+        const leftEditor = Boolean(candidate.contentEl && hit && !candidate.contentEl.contains?.(hit));
+        if (overSidebar || leftEditor) {
+          active = { mode: "vanilla", item: candidate.item };
+          candidate = null;
+          doc.body?.classList?.add?.("ad-dragging-item");
+        }
+      }
+    }
+    if (active) updateHover(e.clientX, e.clientY, Boolean(e.metaKey));
+  };
+
+  const onMouseUp = (e) => {
+    candidate = null;
+    if (!active) return;
+    const { mode, item } = active;
+    const hit = doc.elementFromPoint?.(e.clientX, e.clientY);
+    const card = hit?.closest?.(".ad-agentcard, .ad-sess") || null;
+    clearActive();
+    // 快速把块从编辑器拖到侧栏时，bullet 插件的冒泡阶段 mouseup 会按上一次 mousemove 的 dropVariant 改笔记：
+    // 先在捕获阶段给 document 同步一次当前鼠标坐标的 mousemove，让 bullet 在冒泡执行前把 dropVariant 清空。
+    if (mode === "bullet" && hit?.closest?.(".ad-view") && typeof doc.dispatchEvent === "function") {
+      syncingBullet = true;
+      try {
+        const ev = typeof MouseEvent === "function"
+          ? new MouseEvent("mousemove", { clientX: e.clientX, clientY: e.clientY, bubbles: false })
+          : { type: "mousemove", clientX: e.clientX, clientY: e.clientY, x: e.clientX, y: e.clientY };
+        doc.dispatchEvent(ev);
+      } catch { /* ignore */ } finally {
+        syncingBullet = false;
+      }
+    }
+    if (!card || !item) {
+      if (mode === "vanilla" && hit?.closest?.(".ad-view") && item) clearVanillaSelection(item);
+      return;
+    }
+    if (card.classList?.contains?.("ad-agentcard")) {
+      const id = card.dataset?.agent || "";
+      const meta = dropMetaFor(card, Boolean(e.metaKey));
+      if (mode === "vanilla") clearVanillaSelection(item);
+      if (!meta.delegable) return;
+      const dropItem = { path: item.path, line: item.line, lineText: item.lineText };
+      setTimeout(() => {
+        plugin.delegateDrop?.(id, dropItem, card, { cli: Boolean(meta.cli), explicitAgent: true });
+      }, 0);
+      return;
+    }
+    if (card.classList?.contains?.("ad-sess")) {
+      if (mode === "vanilla") clearVanillaSelection(item);
+      if (!isBindableSessionCard(card)) return;
+      const dropItem = { path: item.path, line: item.line, lineText: item.lineText };
+      const sessionData = {
+        agent: card.dataset.agent || "",
+        sid: card.dataset.sid,
+        title: card.dataset.title || "",
+        app: card.dataset.app || "",
+        state: card.dataset.state || "",
+      };
+      setTimeout(() => {
+        plugin.bindItemToSession?.(dropItem, sessionData);
+      }, 0);
+    }
+  };
+
+  const onDragStart = () => { candidate = null; clearActive(); };
+  const onKeyDown = (e) => {
+    if (e.key === "Escape") { candidate = null; clearActive(); return; }
+    if (active && e.key === "Meta" && lastPoint) updateHover(lastPoint.x, lastPoint.y, true);
+  };
+  const onKeyUp = (e) => {
+    if (active && e.key === "Meta" && lastPoint) updateHover(lastPoint.x, lastPoint.y, false);
+  };
+  const onBlur = () => { candidate = null; clearActive(); };
+
+  doc.addEventListener("mousedown", onMouseDown);
+  doc.addEventListener("mousemove", onMouseMove);
+  doc.addEventListener("mouseup", onMouseUp, true);
+  doc.addEventListener("dragstart", onDragStart, true);
+  doc.addEventListener("keydown", onKeyDown, true);
+  doc.addEventListener("keyup", onKeyUp, true);
+  win?.addEventListener?.("blur", onBlur);
+
+  return () => {
+    candidate = null;
+    clearActive();
+    doc.removeEventListener("mousedown", onMouseDown);
+    doc.removeEventListener("mousemove", onMouseMove);
+    doc.removeEventListener("mouseup", onMouseUp, true);
+    doc.removeEventListener("dragstart", onDragStart, true);
+    doc.removeEventListener("keydown", onKeyDown, true);
+    doc.removeEventListener("keyup", onKeyUp, true);
+    win?.removeEventListener?.("blur", onBlur);
+  };
 }

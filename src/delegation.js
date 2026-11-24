@@ -101,7 +101,7 @@ export { CONFIRM_FIRST } from "./constants.js";
 export const BULLET_RE = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
 export const LINK_RE = J.LINK_RE;
 export const RESULT_RE = J.RESULT_RE;
-export const STATUS_RE = new RegExp(`^(\\s*(?:[-*+]|\\d+[.)])\\s+(?:\\*\\*\\d{1,2}[:：]\\d{2}\\*\\*\\s*)?)(${J.TASK_KWS})(?=\\s|$)`, "i");
+export const STATUS_RE = new RegExp(`^(\\s*(?:[-*+]|\\d+[.)])\\s+(?:\\[[ xX/\\-]\\]\\s+)?(?:\\*\\*\\d{1,2}[:：]\\d{2}\\*\\*\\s*)?)(${J.TASK_KWS})(?=\\s|$)`, "i");
 const TITLE_KW_RE = new RegExp(`^(${J.TASK_KWS})\\s+`, "i");
 
 export function blockAt(lines, at) {
@@ -137,7 +137,7 @@ export function delegationText(lines, block, { newSession = false } = {}) {
 export function blockTitle(block, trigger = "@") {
   if (!block) return "";
   const first = J.stripBlockId(stripTaskMention(block.text, trigger).split("\n")[0] || "");
-  return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "")
+  return first.replace(/^\s*(?:[-*+]|\d+[.)])\s+/, "").replace(/^\[[ xX/\-]\]\s+/, "").replace(/^\s*(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?/, "")
     .replace(TITLE_KW_RE, "")
     .replace(/[#*_`>[\]]/g, "").trim();
 }
@@ -164,13 +164,14 @@ export function statusOf(line) {
   return m ? m[2].toUpperCase() : "";
 }
 
+const DELEGATED_PREFIX_RE = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX/\-]\]\s+)?(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(.*)$/;
+
 export function markDelegated(line) {
-  const m = /^(\s*(?:[-*+]|\d+[.)])\s+(?:\*\*\d{1,2}[:：]\d{2}\*\*\s*)?)(.*)$/.exec(line || "");
-  if (!m) return `DELEGATED ${line || ""}`;
-  const rest = m[2];
-  const s = STATUS_RE.exec(line);
-  if (s) return line.replace(s[2], "DELEGATED");
-  return `${m[1]}DELEGATED ${rest}`;
+  const raw = line || "";
+  const s = STATUS_RE.exec(raw);
+  if (s) return `${s[1]}DELEGATED${raw.slice(s[1].length + s[2].length)}`;
+  const m = DELEGATED_PREFIX_RE.exec(raw);
+  return m ? `${m[1]}DELEGATED ${m[2]}` : `DELEGATED ${raw}`;
 }
 
 export function linkLine(indent, agent, name, sid) {
@@ -222,9 +223,10 @@ export {
 
 // Codex 会话的 originator：桌面版 / IDE 插件里起的才有会话页可跳；codex_cli_rs、codex_exec 是命令行
 export const isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
-// 命令行会话（Claude Code 终端版、Codex 命令行、Qoder CLI）：点开回终端，而不是交给桌面版
+const CLI_SESSION_AGENTS = new Set(["claude", "qoder", "workbuddy", "hermes", "minimax", "gemini"]);
+// 命令行会话（Claude Code 终端版、Codex 命令行、Qoder CLI 等）：点开回终端，而不是交给桌面版
 export function isCliSession(agent, app) {
-  if (["claude", "qoder", "workbuddy", "hermes", "minimax"].includes(agent)) return app === "cli";
+  if (CLI_SESSION_AGENTS.has(agent)) return app === "cli";
   if (agent === "codex") return !isCodexDesktop(app);
   return false;
 }
@@ -844,7 +846,7 @@ export class Delegator {
     }
     Object.assign(job, { state: "starting", startedAt: Date.now(), endedAt: 0, error: "", result: "", lastText: "", step: "", resultWritten: false });
     this.saveJobs(); this.refreshUI();
-    const runner = new AcpRunner(this, job);
+    const runner = createDelegationRunner(session.agent, this, job, getRunnerClasses());
     this.runners.set(job.id, runner);
     await runner.start({ sessionId: sid, prompt, cwd: job.cwd, ...(job.model ? { model: job.model } : {}), ...(job.effort ? { effort: job.effort } : {}) });
     return job;
@@ -986,6 +988,10 @@ export class Delegator {
       const eFlag = effort ? ` --reasoning ${shellQuote(effort)}` : "";
       const yFlag = this.C.hermes?.autoApprove ? " --yolo" : "";
       cmd = `${shellQuote(hermesCli)} chat${mFlag}${eFlag}${yFlag} -q "$(cat ${shellQuote(taskFile)})"`;
+    } else if (agent === "gemini") {
+      const mFlag = model && model !== "gemini-default" ? ` -m ${shellQuote(model)}` : "";
+      const yFlag = this.C.gemini?.autoApprove ? " -y" : "";
+      cmd = `${shellQuote(bin)}${mFlag}${yFlag} -i "$(cat ${shellQuote(taskFile)})"`;
     } else if (agent === "workbuddy") {
       const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
       cmd = `${shellQuote(bin)}${addDir} -- "$(cat ${shellQuote(taskFile)})"`;

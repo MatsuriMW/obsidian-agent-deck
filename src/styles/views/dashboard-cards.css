@@ -110,8 +110,25 @@
       animation: ad-land .9s ease-out 1;
     }
 
-    body.ad-dragging-item & {
+    body.ad-dragging-item &:not(.is-drop):not(.is-no-drop) {
       border-style: dashed;
+      cursor: copy;
+    }
+
+    body.ad-dragging-item &.is-drop {
+      cursor: copy;
+    }
+
+    body.ad-dragging-item &.is-no-drop {
+      filter: grayscale(1);
+      opacity: .42;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    body.ad-dragging-item & > * {
+      pointer-events: none;
     }
 
     & .ad-sess__mark {
@@ -308,7 +325,7 @@
     padding: 10px;
     position: relative;
     overflow: hidden;
-    transition: transform .16s ease, border-color .16s ease;
+    transition: transform .16s ease, border-color .16s ease, opacity .16s ease, filter .16s ease;
 
     &::after {
       content: "";
@@ -373,9 +390,49 @@
       }
     }
 
-    body.ad-dragging-item & {
+    body.ad-dragging-item &:not(.is-no-drop):not(.is-drop) {
       border-style: dashed;
       border-color: color-mix(in srgb, var(--ad-agent) 45%, var(--ad-line));
+      cursor: copy;
+    }
+
+    body.ad-dragging-item &.is-drop {
+      cursor: copy;
+    }
+
+    body.ad-dragging-item &.is-no-drop {
+      border-style: solid;
+      border-color: var(--ad-line);
+      background: var(--ad-surface-2, var(--background-secondary));
+      filter: grayscale(1);
+      opacity: .42;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    body.ad-dragging-item & > * {
+      pointer-events: none;
+    }
+
+    body.ad-dragging-item &.is-no-drop.is-drop-blocked {
+      opacity: .52;
+
+      &::before {
+        content: attr(data-drop-hint);
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        bottom: 6px;
+        z-index: 2;
+        padding: 3px 6px;
+        border-radius: 7px;
+        font-size: 10px;
+        text-align: center;
+        color: var(--ad-muted);
+        background: var(--background-modifier-hover);
+        border: 1px solid var(--ad-line);
+      }
     }
 
     & .ad-agentcard__top {

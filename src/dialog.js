@@ -235,7 +235,7 @@ export class DelegateOptionsModal extends Modal {
         ? t("桌面版")
         : id === "codex"
           ? (p.settings.delegate.codex.transport === "terminal" ? t("CLI / 终端") : t("首轮后打开桌面版"))
-          : id === "qoder"
+          : id === "qoder" || id === "t3code"
             ? t("桌面版 / CLI")
             : (cap.acp && cap.terminalHandoff ? "ACP / CLI" : "ACP");
       b.createSpan({ cls: "ad-target__hint", text: hintText });

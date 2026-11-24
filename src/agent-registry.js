@@ -352,6 +352,12 @@ export function listAgentsByCapability(cap) {
 }
 
 export const delegateAgents = () => listAgentsByCapability("delegate");
+export function canDelegateDrop(id) {
+  const meta = AGENTS[id];
+  if (!meta || meta.trackingOnly) return false;
+  const cap = getAgentCapability(id);
+  return Boolean(cap.delegate || cap.desktopHandoffOnly || cap.terminalHandoff);
+}
 export const acpAgents = () => listAgentsByCapability("acp");
 export const acpAutoApproveAgents = () => listAgentsByCapability("acpAutoApprove");
 export const cliHandoffAgents = () => listAgentsByCapability("terminalHandoff");

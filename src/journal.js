@@ -6,7 +6,7 @@
 // takes text in and returns text out, so it can be tested without Obsidian.
 
 import { createHash } from "crypto";
-import { pad, fmtTok, fmtClock, resolveRecordRules } from "./constants.js";
+import { AGENTS, pad, fmtTok, fmtClock, resolveRecordRules } from "./constants.js";
 import { t } from "./i18n.js";
 import { detailForRound } from "./log-detail.js";
 import { cleanUserPrompt, condenseUserPrompt } from "./prompt-text.js";
@@ -447,14 +447,29 @@ export function kwLine(raw) {
   return { kw, body: s, blockId };
 }
 
+const TRACKED_LINK_RE = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=([a-z][a-z0-9_-]{1,31})&sid=([^)]*)\)/;
+const TRACKED_LABEL_PREFIX_RE = /^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|TeleAgent|WorkBuddy|Cursor|Grok Bot|T3 Code|Cindy|Muse|Kimi Code|豆包工作|Gemini CLI)：/;
+const SESSION_LINK_RE = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/;
+const THREAD_LINK_RE = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/;
+const BACKTICK_LINK_RE = /^\s*[-*+]\s+🔗.*`((?:session-)?[0-9a-f-]{36})`/;
+const OBSIDIAN_LINK_LABELS = { opencode: "OpenCode", qoder: "Qoder", hermes: "Hermes", minimax: "MiniMax", qwenwork: "千问办公", teleagent: "TeleAgent", cursor: "Cursor", grokbot: "Grok Bot", t3code: "T3 Code", cindy: "Cindy", muse: "Muse", kimicode: "Kimi Code", doubaowork: "豆包工作", gemini: "Gemini CLI" };
+const safeDecodeUri = (raw) => { try { return decodeURIComponent(raw); } catch { return raw; } };
+
 export function parseLink(line) {
-  const tracked = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=(antigravity|opencode|qoder|hermes|minimax|qwenwork|teleagent|workbuddy|cursor|grokbot|t3code|cindy|muse|kimicode|doubaowork|gemini)&sid=([^)]*)\)/.exec(line);
-  if (tracked) return { agent: tracked[2], sid: decodeURIComponent(tracked[3]), title: tracked[1].replace(/^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|TeleAgent|WorkBuddy|Cursor|Grok Bot|T3 Code|Cindy|Muse|Kimi Code|豆包工作|Gemini CLI)：/, "") };
-  const m = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/.exec(line);
+  if (!line || !line.includes("🔗")) return null;
+  const tracked = TRACKED_LINK_RE.exec(line);
+  if (tracked) {
+    const agent = tracked[2];
+    let title = tracked[1].replace(TRACKED_LABEL_PREFIX_RE, "");
+    const customName = AGENTS[agent]?.customAcp ? AGENTS[agent]?.name : "";
+    if (customName && title.startsWith(`${customName}：`)) title = title.slice(customName.length + 1);
+    return { agent, sid: safeDecodeUri(tracked[3]), title };
+  }
+  const m = SESSION_LINK_RE.exec(line);
   if (m) return { agent: m[2], sid: m[3], title: m[1] || "" };
-  const d = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/.exec(line);
-  if (d) return d[2] ? { agent: "codex", sid: d[3], title: d[1] || "" } : { agent: "workbuddy", sid: decodeURIComponent(d[6]), title: d[4] || "" };
-  const b = /^\s*[-*+]\s+🔗.*`((?:session-)?[0-9a-f-]{36})`/.exec(line);
+  const d = THREAD_LINK_RE.exec(line);
+  if (d) return d[2] ? { agent: "codex", sid: d[3], title: d[1] || "" } : { agent: "workbuddy", sid: safeDecodeUri(d[6]), title: d[4] || "" };
+  const b = BACKTICK_LINK_RE.exec(line);
   if (!b) return null;
   const agent = /DeepSeek Harness|dsh:\/\//.test(line) ? "dsh" : /Antigravity|antigravity:\/\//i.test(line) ? "antigravity" : /Codex[：:]/.test(line) ? "codex" : /WorkBuddy[：:]/.test(line) ? "workbuddy" : "claude";
   return { agent, sid: b[1], title: "" };
@@ -464,9 +479,11 @@ export const deckSessionUrl = (agent, sid) => `obsidian://agent-deck?do=open&age
 
 export function linkLine(indent, agent, title, sid) {
   const safe = String(title || "").replace(/[\[\]()`]+/g, " ").trim();
-  const obsidianLabels = { opencode: "OpenCode", qoder: "Qoder", hermes: "Hermes", minimax: "MiniMax", qwenwork: "千问办公", teleagent: "TeleAgent", cursor: "Cursor", grokbot: "Grok Bot", t3code: "T3 Code", cindy: "Cindy", muse: "Muse", kimicode: "Kimi Code", doubaowork: "豆包工作", gemini: "Gemini CLI" };
-  if (obsidianLabels[agent]) {
-    return `${indent}- 🔗 [${obsidianLabels[agent]}：${safe}](${deckSessionUrl(agent, sid)})`;
+  if (OBSIDIAN_LINK_LABELS[agent]) {
+    return `${indent}- 🔗 [${OBSIDIAN_LINK_LABELS[agent]}：${safe}](${deckSessionUrl(agent, sid)})`;
+  }
+  if (AGENTS[agent]?.customAcp) {
+    return `${indent}- 🔗 [${AGENTS[agent].name}：${safe}](${deckSessionUrl(agent, sid)})`;
   }
   if (agent === "claude") return `${indent}- 🔗 [Claude：${safe}](claude://resume?session=${sid})`;
   if (agent === "dsh") return `${indent}- 🔗 [DeepSeek Harness：${safe}](dsh://open) \`${sid}\``;

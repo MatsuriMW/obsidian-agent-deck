@@ -63,7 +63,7 @@ import { AutoLog } from "./autolog.js";
 import { detectJournalProviders, runJournalModel, setJournalApiConsent } from "./llm.js";
 import { JournalSync } from "./sync.js";
 import * as J from "./journal.js";
-import { mentionOptions, mentionTrigger } from "./task-mentions.js";
+import { mentionOptions, mentionTrigger, taskMention } from "./task-mentions.js";
 import { Dreaming } from "./dream.js";
 import { memoryBase, orderForReview } from "./memory-store.js";
 import { buildPlanMarkdown, parsePlan, planSlug, plannerFixPrompt, plannerPrompt } from "./planner.js";
@@ -88,7 +88,7 @@ import {
 } from "./task-export.js";
 import { scanAgentWait, scanLimitQueue, resolveExternalState, buildLineProgressInfo } from "./external-state.js";
 import { ManagedTimers, CircuitBreaker, safeRun } from "./runtime-guard.js";
-import { getAgentCapability, hasAgentCapability, usesDeckSessionLink, canContinueSession } from "./agent-registry.js";
+import { getAgentCapability, hasAgentCapability, usesDeckSessionLink, canContinueSession, canDelegateDrop } from "./agent-registry.js";
 import { syncCustomAcpRegistry, parseCustomAcpEnv } from "./custom-acp.js";
 import { checkLatestRelease, shouldAutoCheckUpdate, shouldPromptUpdate } from "./update-check.js";
 import { updateNote } from "./note-updates.js";
@@ -919,6 +919,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   onunload() {
     this._unloaded = true;
+    this._dragCleanup?.();
     this._offMemoryContext?.();
     this.conversationModal?.close();
     this._cursorPromptNotice?.hide();
@@ -936,7 +937,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.closeMuseWatcher();
     this.menubar?.stop();
     for (const runner of this.delegator?.runners?.values?.() || []) {
-      try { if (runner.constructor && ["AcpRunner", "CodexDesktopRunner", "QoderRunner"].includes(runner.constructor.name)) runner.cancel(); } catch { /* already gone */ }
+      try { if (runner.constructor && ["AcpRunner", "CodexDesktopRunner", "QoderRunner", "T3CodeRunner"].includes(runner.constructor.name)) runner.cancel(); } catch { /* already gone */ }
     }
     // 面板不在这里 detach：固定在侧栏的位置要留着，重载 / 更新插件后原地回来
     try { this.ribbonEl?.remove(); } catch { /* gone */ }
@@ -2251,15 +2252,30 @@ export default class AgentDeckPlugin extends Plugin {
 
   // 编辑器里开始拖一项（把手或选中的文字）：记下来源，拖到 Agent 卡片上时用
   noteDragItem(src) {
+    this._dragCleanup?.();
     const item = this._dragItem = { ...src, at: Date.now() };
     document.body.classList.add("ad-dragging-item");
     const off = (e) => {
+      this._dragCleanup = null;
       document.body.classList.remove("ad-dragging-item");
+      for (const el of document.querySelectorAll(".ad-agentcard, .ad-sess")) {
+        el.classList.remove("is-drop", "is-cli", "is-drop-blocked");
+        if (el.dataset) delete el.dataset.adHoverMeta;
+        if (el.dataset?.dropHintDefault) el.setAttribute("data-drop-hint", el.dataset.dropHintDefault);
+      }
       document.removeEventListener("dragend", off, true);
       document.removeEventListener("drop", off, true);
-      // drop 先于卡片自己的 drop 处理（捕获阶段），来源要留给它读；拖完（dragend）再清
-      if (e && e.type === "dragend") setTimeout(() => { if (this._dragItem && this._dragItem.at === item.at) this._dragItem = null; }, 0);
+      // drop 先于卡片自己的 drop 处理（捕获阶段），来源要留给它读；drop/dragend 结束后清 _dragItem 并补画拖放期间延后的侧栏视图
+      if (e && (e.type === "dragend" || e.type === "drop")) {
+        setTimeout(() => {
+          if (this._dragItem && this._dragItem.at === item.at) this._dragItem = null;
+          if (!document.body.classList.contains("ad-dragging-item")) {
+            for (const v of this.views || []) if (v._pendingRender) v.render();
+          }
+        }, 0);
+      }
     };
+    this._dragCleanup = off;
     document.addEventListener("dragend", off, true);
     document.addEventListener("drop", off, true);
   }
@@ -2292,14 +2308,24 @@ export default class AgentDeckPlugin extends Plugin {
     return { file, lines, line, block };
   }
 
-  async delegateDrop(agent, item, fromEl, { cli = false, destination, permission, cwd = "", projectName = "", fromDialog = false, newSession = false, confirmed = false, expectedText, boardContext = "", model = "" } = {}) {
+  async delegateDrop(agent, item, fromEl, { cli = false, destination, permission, cwd = "", projectName = "", fromDialog = false, newSession = false, confirmed = false, expectedText, boardContext = "", model = "", explicitAgent = false } = {}) {
     this._dragItem = null;
-    if (AGENTS[agent]?.trackingOnly) return;
+    if (!canDelegateDrop(agent)) return;
     const target = await this.delegateTarget(item, { newSession });
     if (target.error) return this.notice(target.error);
     if (confirmed && expectedText !== undefined && delegationText(target.lines, target.block, { newSession }) !== expectedText) return this.notice(t("任务内容已变化，请重新预览后发送"));
     try {
-      const opts = mentionOptions(this, { ...target, agent, ignoreMention: newSession });
+      let ignoreMention = newSession;
+      if (explicitAgent && !ignoreMention) {
+        try {
+          const headLine = target.block?.text?.split("\n")[0] || "";
+          const m = taskMention(headLine, mentionTrigger(this));
+          if (m && m.agent !== agent) ignoreMention = true;
+        } catch {
+          ignoreMention = true;
+        }
+      }
+      const opts = mentionOptions(this, { ...target, agent, ignoreMention });
       // 右键菜单里点名的模型：只在这一项确实按那个 Agent 走时生效，别盖掉正文里的 @agent。
       if (model && opts.agent === agent) opts.model = model;
       agent = opts.agent;
@@ -2326,6 +2352,7 @@ export default class AgentDeckPlugin extends Plugin {
           expectedText: delegationText(target.lines, target.block, { newSession }),
           boardContext,
           model,
+          explicitAgent,
         })).open();
         return;
       }
@@ -2706,7 +2733,7 @@ export default class AgentDeckPlugin extends Plugin {
       else if (session.handoff && !session.sid && activeJob(session)) menu.addItem(mi => mi.setTitle(t("取消交接 · {title}", { title })).onClick(() => this.cancelJob(session.id)));
       menu.addSeparator();
     }
-    for (const agent of AGENT_ORDER.filter(a => this.agentEnabled(a) && !AGENTS[a].trackingOnly)) menu.addItem(mi => mi.setTitle(t("重新委派（新会话）· {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    for (const agent of AGENT_ORDER.filter(a => this.agentEnabled(a) && canDelegateDrop(a))) menu.addItem(mi => mi.setTitle(t("重新委派（新会话）· {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
     if ((process.platform === "win32" || process.platform === "linux") && this.agentEnabled("teleagent")) {
       // Linux 后端目前只做到“填入 + 提示手动提交”，菜单文案不能承诺自动发送。
       const dispatchLabel = process.platform === "linux"
@@ -2840,12 +2867,12 @@ export default class AgentDeckPlugin extends Plugin {
     }
     const main = this.defaultTarget();
     const menu = new Menu();
-    for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x) && !AGENTS[x].trackingOnly)) {
+    for (const id of AGENT_ORDER.filter((x) => this.agentEnabled(x) && canDelegateDrop(x))) {
       menu.addItem((mi) => {
         mi.setTitle(AGENTS[id].name + (id === main ? " · " + t("主力") : ""));
         mi.setIcon("bot");
         if (mi.iconEl) agentIcon(mi.iconEl, id);
-        mi.onClick(() => this.delegateDrop(id, item));
+        mi.onClick(() => this.delegateDrop(id, item, null, { explicitAgent: true }));
       });
     }
     const view = item && item.path ? this.sourceViewForPath(item.path) : null;
@@ -2962,7 +2989,7 @@ export default class AgentDeckPlugin extends Plugin {
   recordMenuModels() {
     const out = [];
     for (const agent of AGENT_ORDER) {
-      if (!this.agentEnabled(agent) || AGENTS[agent]?.trackingOnly) continue;
+      if (!this.agentEnabled(agent) || !canDelegateDrop(agent)) continue;
       for (const model of this.modelsFor(agent)) if (this.modelEnabled(model.id)) out.push({ agent, model });
     }
     return out;

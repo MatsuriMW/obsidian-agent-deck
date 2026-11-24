@@ -31,9 +31,10 @@ export function taskMention(line, trigger = "@") {
 
 export function mentionOptions(plugin, opts) {
   if (opts.mentionResolved) return opts;
+  if (opts.ignoreMention) return { agent: plugin.defaultTarget?.() || "claude", ...opts, mentionResolved: true };
   const line = opts.block?.text.split("\n")[0] || opts.lines?.[opts.line] || "";
   const m = taskMention(line, mentionTrigger(plugin));
-  if (!m || opts.ignoreMention) return { agent: plugin.defaultTarget?.() || "claude", ...opts, mentionResolved: true };
+  if (!m) return { agent: plugin.defaultTarget?.() || "claude", ...opts, mentionResolved: true };
   if (!plugin.agentEnabled(m.agent)) throw new Error(t("{agent} 已关闭，请先在设置中启用", { agent: AGENTS[m.agent].name }));
   if (m.model && !plugin.modelsFor(m.agent).some((x) => x.id === m.model)) throw new Error(t("{trigger}{agent} 的模型不存在，请从 Agent 菜单选择或先添加自定义模型", { trigger: m.trigger, agent: m.agent }));
   if (m.effort && !(EFFORTS[m.agent] || []).some((x) => x.id === m.effort)) throw new Error(t("{trigger}{agent} 不支持强度 {effort}", { trigger: m.trigger, agent: m.agent, effort: m.effort }));
@@ -41,8 +42,11 @@ export function mentionOptions(plugin, opts) {
 }
 
 export function stripTaskMention(text, trigger = "@") {
-  const lines = text.split("\n"), m = taskMention(lines[0], trigger);
-  if (m) lines[0] = (lines[0].slice(0, m.from) + lines[0].slice(m.to)).trimEnd();
+  const lines = text.split("\n");
+  try {
+    const m = taskMention(lines[0], trigger);
+    if (m) lines[0] = (lines[0].slice(0, m.from) + lines[0].slice(m.to)).trimEnd();
+  } catch { return text; }
   return lines.join("\n");
 }
 

@@ -1219,7 +1219,7 @@ export class T3CodeRunner extends BaseRunner {
         if (err.length > 4000) err = err.slice(-4000);
         this.job.stderr = redactSecrets(err.slice(-1000));
       });
-      child.on("error", (e) => resolve({ code: -1, out, err: String(e && e.message || e), spawnError: true }));
+      child.on("error", (e) => resolve({ code: -1, out, err: String(e && e.message || e), spawnError: true, errCode: e?.code || "" }));
       child.on("close", (code) => resolve({ code: code ?? 1, out, err, spawnError: false }));
       try {
         child.stdin.write(prompt);
@@ -1231,7 +1231,8 @@ export class T3CodeRunner extends BaseRunner {
   async start(opts) {
     const d = this.d;
     const cfg = d.settings.delegate.t3code || DEFAULTS.delegate.t3code || {};
-    const bin = findT3Binary(cfg.path || "");
+    const rawBin = findT3Binary(cfg.path || "");
+    const bin = await resolveExecutableWithFallback(rawBin, path.basename(rawBin));
     const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
     const extra = splitArgs(cfg.extraArgs || "");
     const isFollowUp = Boolean(opts.sessionId);
@@ -1277,6 +1278,8 @@ export class T3CodeRunner extends BaseRunner {
       this.done(parsed?.reply ?? res.out.trim());
     } else if (res.code === 2 || parsed?.status === "waiting") {
       this.done(parsed?.reply || t("T3 Code 正在等待你的回复，请在客户端继续"));
+    } else if (res.spawnError && res.errCode === "ENOENT") {
+      this.fail(t("找不到 {agent} 可执行文件「{bin}」，请确认已安装或已在设置中填写命令行路径", { agent: AGENTS.t3code.name, bin }));
     } else {
       const combined = parsed?.error || `${res.err}\n${res.out}`.trim();
       if (/ECONNREFUSED|not running|no running server|server.*unavailable/i.test(combined)) {

@@ -1,7 +1,6 @@
 // Agent Deck — the sidebar dashboard.
 
-import { workspaceLabel } from "./workflow.js";
-import { cliHandoffAgents } from "./agent-registry.js";
+import { agentDropMeta, workspaceLabel } from "./workflow.js";
 import { ItemView, Menu, Modal } from "obsidian";
 import { AGENTS, AGENT_ORDER, fmtMin, fmtTok, timeAgo, truncate, dayKey, dayKeyToday, dayMinute, startOfDay } from "./constants.js";
 import { agentIcon, setLucide, stateIcon } from "./icons.js";
@@ -129,8 +128,9 @@ export class AgentDeckView extends ItemView {
 
   render() {
     if (this.containerEl.isShown && !this.containerEl.isShown()) { this._pendingRender = true; return; }
-    // 正在拖「现在」里的卡片排序：重画会把拖着的卡片换掉，等松手再画
+    // 正在拖「现在」里的卡片排序或编辑器条目：重画会把面板 DOM 换掉、打断悬停与落放，等松手再画
     if (this._dragSid || this._dragAgent) { this._pendingRender = true; return; }
+    if (typeof document !== "undefined" && document?.body?.classList?.contains?.("ad-dragging-item")) { this._pendingRender = true; return; }
     // 搜索框里正在用输入法拼字：重画会把输入框换掉、打断拼字，等拼完再画
     if (this._composing) { this._pendingRender = true; return; }
     this._pendingRender = false;
@@ -798,33 +798,56 @@ export class AgentDeckView extends ItemView {
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     // 笔记里的一项拖上来 = 委派给它
-    // 按住 ⌘：Claude Code / Codex 改在终端里开交互式会话
-    const handoff = id === "codex" || id === "workbuddy" || id === "teleagent";
-    const cliCapable = cliHandoffAgents().includes(id);
-    const hint = handoff ? t("交给 {name}", { name: a.short }) : t("委派给 {name}", { name: a.short });
-    // 设置里「默认在终端里委派」开着时反过来：不按 ⌘ 在终端里开，按住 ⌘ 走原来的后台 / 客户端
-    const toTerm = (meta) => cliCapable && (!!meta !== !!p.settings.delegateInTerminal);
-    const hintFor = (meta) => (toTerm(meta) ? t("在终端里开 {name}", { name: a.short }) : hint);
-    if (!a.trackingOnly) card.setAttr("data-drop-hint", hintFor(false));
-    card.addEventListener("dragover", (e) => {
-      if (this._dragAgent || a.trackingOnly) return;
-      if (!p.acceptsItemDrag(e)) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = "copy";
-      card.addClass("is-drop");
-      card.toggleClass("is-cli", toTerm(e.metaKey));
-      card.setAttr("data-drop-hint", hintFor(e.metaKey));
-    });
-    card.addEventListener("dragleave", (e) => { if (!a.trackingOnly && !card.contains(e.relatedTarget)) { card.removeClass("is-drop"); card.removeClass("is-cli"); card.setAttr("data-drop-hint", hintFor(false)); } });
-    card.addEventListener("drop", (e) => {
-      if (this._dragAgent || a.trackingOnly) return;
-      if (!p.acceptsItemDrag(e)) return;
-      e.preventDefault();
-      card.removeClass("is-drop");
-      card.removeClass("is-cli");
-      card.setAttr("data-drop-hint", hintFor(false));
-      p.delegateDrop(id, p.readItemDrag(e), null, { cli: toTerm(e.metaKey) });
-    });
+    // 按住 ⌘：支持终端交接的 Agent 改在终端里开交互式会话
+    const initDrop = agentDropMeta(p, id, false);
+    card.setAttr("data-drop-hint", initDrop.hint);
+    card.dataset.dropHintDefault = initDrop.hint;
+    if (!initDrop.delegable) {
+      card.addClass("is-no-drop");
+      card.addEventListener("dragover", (e) => {
+        if (this._dragAgent || !p.acceptsItemDrag(e)) return;
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+        card.addClass("is-drop-blocked");
+      });
+      card.addEventListener("dragleave", (e) => {
+        if (!card.contains(e.relatedTarget)) card.removeClass("is-drop-blocked");
+      });
+      card.addEventListener("drop", () => {
+        card.removeClass("is-drop-blocked");
+      });
+    } else {
+      card.addEventListener("dragover", (e) => {
+        if (this._dragAgent || !p.acceptsItemDrag(e)) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+        const nextMeta = e.metaKey ? "1" : "0";
+        if (card.dataset.adHoverMeta !== nextMeta) {
+          card.dataset.adHoverMeta = nextMeta;
+          const m = agentDropMeta(p, id, Boolean(e.metaKey));
+          card.addClass("is-drop");
+          card.toggleClass("is-cli", m.cli);
+          card.setAttr("data-drop-hint", m.hint);
+        }
+      });
+      card.addEventListener("dragleave", (e) => {
+        if (!card.contains(e.relatedTarget)) {
+          delete card.dataset.adHoverMeta;
+          card.removeClass("is-drop");
+          card.removeClass("is-cli");
+          card.setAttr("data-drop-hint", initDrop.hint);
+        }
+      });
+      card.addEventListener("drop", (e) => {
+        if (this._dragAgent || !p.acceptsItemDrag(e)) return;
+        e.preventDefault();
+        delete card.dataset.adHoverMeta;
+        card.removeClass("is-drop");
+        card.removeClass("is-cli");
+        card.setAttr("data-drop-hint", initDrop.hint);
+        const m = agentDropMeta(p, id, e.metaKey);
+        p.delegateDrop(id, p.readItemDrag(e), card, { cli: m.cli, explicitAgent: true });
+      });
+    }
     const top = card.createDiv({ cls: "ad-agentcard__top" });
     const grip = top.createEl("button", { cls: "ad-agentcard__grip ad-linkbtn", attr: { draggable: "true", "aria-label": t("拖动排序；方向键调整位置"), title: t("拖动排序；方向键调整位置") } });
     setLucide(grip, "grip-vertical");
@@ -961,10 +984,15 @@ export class AgentDeckView extends ItemView {
     const p = this.plugin;
     const a = AGENTS[s.agent] || AGENTS.claude;
     const card = parent.createDiv({ cls: `ad-sess ${compact ? "is-now" : ""}` });
+    const title = s.title || truncate(s.text || s.step || "未命名会话", 60);
+    const isPending = Boolean(s.isPendingJob && s.job && !s.job.sessionId);
     card.dataset.sid = s.sid;
+    card.dataset.agent = s.agent || "";
+    card.dataset.title = title;
+    card.dataset.app = s.app || "";
+    card.dataset.state = s.state || "";
     card.draggable = true;
     card.addEventListener("dragstart", (e) => {
-      const title = s.title || truncate(s.text || s.step || "未命名会话", 60);
       e.dataTransfer.setData(SESSION_MIME, JSON.stringify({ agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" }));
       e.dataTransfer.setData("text/plain", title);
       e.dataTransfer.effectAllowed = "all";   // 按住 ⌘ 拖（在下面新建）时 macOS 会换拖放效果，都放行
@@ -980,14 +1008,23 @@ export class AgentDeckView extends ItemView {
       // 拖到笔记里或半路放弃：卡片回原位；在列表里放下的顺序已经存了
       if (this._pendingRender || !this._nowDropped) { this._pendingRender = false; this.render(); }
     });
-    // 笔记里的一项拖到会话卡片上：绑定，不委派
-    card.addEventListener("dragover", (e) => { if (!p.acceptsItemDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "link"; card.addClass("is-drop"); });
-    card.addEventListener("dragleave", (e) => { if (!a.trackingOnly && !card.contains(e.relatedTarget)) card.removeClass("is-drop"); });
-    card.addEventListener("drop", (e) => {
-      if (!p.acceptsItemDrag(e)) return;
-      e.preventDefault(); card.removeClass("is-drop");
-      p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title: s.title || truncate(s.text || s.step || "未命名会话", 60), app: s.app || "", state: s.state || "" });
-    });
+    // 笔记里的一项拖到会话卡片上：绑定，不委派（尚未认领到真实 sid 的待认领任务卡片不能绑定）
+    if (isPending) {
+      card.dataset.pending = "1";
+      card.addClass("is-no-drop");
+      card.addEventListener("dragover", (e) => {
+        if (!p.acceptsItemDrag(e)) return;
+        if (e.dataTransfer) e.dataTransfer.dropEffect = "none";
+      });
+    } else {
+      card.addEventListener("dragover", (e) => { if (!p.acceptsItemDrag(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = "link"; card.addClass("is-drop"); });
+      card.addEventListener("dragleave", (e) => { if (!card.contains(e.relatedTarget)) card.removeClass("is-drop"); });
+      card.addEventListener("drop", (e) => {
+        if (!p.acceptsItemDrag(e)) return;
+        e.preventDefault(); card.removeClass("is-drop");
+        p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" });
+      });
+    }
     card.style.setProperty("--ad-agent", a.color);
     card.style.setProperty("--ad-agent-soft", a.soft);
     // 只有父会话就在这份列表里（depth > 0）时才缩进；父不在列表就留在顶层，缩进不能凭空捏造层级。
@@ -1044,7 +1081,6 @@ export class AgentDeckView extends ItemView {
       kin.createSpan({ cls: "ad-sess__kintitle", text: t("从「{title}」开出", { title: truncate(s.parentTitle || t("母会话"), 24) }) });
       if (s.deskTitle && s.deskTitle !== s.title) kin.title = t("桌面版里的标题：{title}", { title: s.deskTitle });
     }
-    const isPending = Boolean(s.isPendingJob && s.job && !s.job.sessionId);
     if (!isPending && AGENT_ORDER.includes(s.agent)) {
       card.addClass("has-conversation");
       const conversation = card.createEl("button", { cls: "ad-arrow", attr: { "aria-label": t("查看对话、续聊与归档") } });
