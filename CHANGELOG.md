@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.13.24
+
+- **新增 Orca 桌面版只读追踪与底层分发会话去重（内置总数增至 20 家，`HARNESS_DETECTION_VERSION = 4`）**：
+  - 新增 [`src/orca-sessions.js`](src/orca-sessions.js) 与 128×128 图标 `assets/agents/orca.png`，只读解析 Orca Electron `userData` 下 `agent-session-domain.db`（支持 `ORCA_DATA_DIR` / `ORCA_USER_DATA_DIR` 测试隔离），在 [`src/harness-detect.js`](src/harness-detect.js) 通过 `appSub` 派生 `Orca.app/Contents/Resources/bin/orca` 与应用/数据探测，并补齐 `orca://` 唤起、日记块号前缀与短链解析、离线安全审计、macOS 菜单栏与中英繁文案。
+  - 在 [`src/desktop-sessions.js`](src/desktop-sessions.js) 实现 Orca 会话与消息解析（支持 `launchDirectory` 及从 `location.workspaceId` `<repoId>::<path>` 提取 `cwd`、过滤 `role="reasoning"`、失败轮次状态回退、以内容与轮次时间戳作为 `revision`/`updatedAt` 锚点避免 lease 心跳导致重复扫描），并通过 `orcaDelegatedSids`（读取 `adopted_native_id` 与 `providerHandleChain[]`）及 `orcaOwnerOf`（[`src/readers.js`](src/readers.js)）接入统一 `delegatedOwners` 去重体系，自动屏蔽底层拉起的 Antigravity / OpenCode / Claude Code / Codex 原生重复会话，关闭 Orca 开关时即时恢复底层会话。
+- **Kimi Code v2 会话解析升级与 `kimi acp` 后台委派（`USAGE_CACHE_VERSION = 23`）**：
+  - [`src/kimicode-sessions.js`](src/kimicode-sessions.js) 兼容 Kimi Code v2 目录结构（`agents/main/wire.jsonl` 及自定义子代理目录）、`projects.json` 工作区映射、`profile.bind` `modelAlias` 与 `step.end`/`usage.record` token 去重。
+  - [`src/agent-registry.js`](src/agent-registry.js)、[`src/delegation-runners.js`](src/delegation-runners.js)、[`src/constants.js`](src/constants.js) 解除 Kimi Code 仅追踪限制，新增 `kimi acp` 后台委派、`EFFORTS.kimicode`（`low`/`high`/`max`）推理强度、`handoffFallback: true`、`continueRequiresAcp: true` 与应用内同会话续聊。
+- **Antigravity（`agy acp`）委派卡死修复与 Windows 代理 / 可执行文件兼容加固（`src/delegation-runners.js`、`test/antigravity-acp.test.mjs`）**：
+  - 新增 `parseWindowsRegProxy` 读取 Windows 系统代理，补全 `extractAcpText` 兼容块数组文本、首行 BOM 剥离、子进程 `close` 排水与超时/异常透出脱敏 `stderr`，补充 Windows `agy.exe`/`agy.cmd` 候选路径与 `windowsHide: true`，并新增 `test/antigravity-acp.test.mjs` 与 `test/orca-sessions.test.mjs` 回归测试。
+
 ## 1.13.23
 
 - **无序 / 有序 / 复选框列表块拖动委派全链路与 `bullet` 插件桥接（`src/editor.js`、`src/delegation.js`、`src/main.js`）**：在编辑器扩展中自动注册 `installListDragBridge`，同时支持第三方 `bullet` 插件拖拽与 Obsidian 原生 `.cm-formatting-list` / `.list-bullet` 拖拽，将无序（`-`/`*`/`+`）、有序（`1.`/`2)`）及复选框（`- [ ]` / `1. [ ]`）列表块拖至侧栏 Agent 卡片委派或会话卡片绑定；捕获阶段在拖入侧栏释放前同步 `mousemove` 清零 `bullet` 落点，防止快速甩出时误改原笔记，并在切至非列表行时同步清理 `.ad-grip` 残影，明确拖放或多 `@` 冲突时以目标卡片为准。

@@ -25,13 +25,13 @@ Alongside global tools, Agent Deck ships dedicated local parsers and adapters fo
 | **QwenWork (千问办公)** | 2.x `~/.qwenworkcn/.harness/*/qwenwork/qwenwork.db`; legacy JSONL | Desktop session tracking | Tracking only; 2.x has per-turn tokens & models; older logs without tokens show 0 |
 | **Qoder** | `~/.qoder/projects` / desktop `main.sqlite` | Tracking + Background (`qodercli`) + Desktop copy handoff + Terminal | CLI and desktop DB are separate; missing desktop tokens show "Unavailable" |
 | **WorkBuddy (China)** | `~/.workbuddy/projects` / `workbuddy.db` | Tracking + Desktop copy handoff + Terminal (`codebuddy`) | China edition only; standalone `codebuddy` does not share desktop sessions |
-| **Kimi Code** | `~/.kimi-code/sessions` (`wire.jsonl` + `session-meta/state.json`) & `~/.kimi/sessions` | Tracking + Focus app | Tracking only; parses v1.5 `wire.jsonl` turns, tool calls & exact token usage |
+| **Kimi Code** | `~/.kimi-code/sessions` (`wire.jsonl` / v2 `agents/main/wire.jsonl` + `projects.json` / `state.json`) & `~/.kimi/sessions` | Tracking + Background (`kimi acp`) + Focus app | Supports v1.5 & v2 `wire.jsonl` turns, tool calls & exact token usage, plus `kimi acp` background delegation & in-app follow-up |
 | **Doubao Work (豆包工作)** | `~/Library/Application Support/DoubaoWork/Default/IndexedDB/chrome_doubaowork-chat_0.indexeddb.leveldb` | Desktop session metadata tracking + Focus app | Tracks titles & active timestamps only; message bodies are encrypted in `sdk_storage` (never decrypted); tokens show "Unavailable" |
 | **TeleAgent (星辰超级智能体)** | `~/.local/share/TeleAgent/users/*/teleagent.db` (plus `%LOCALAPPDATA%\TeleAgent` on Windows) | Tracking + copies the task and focuses the desktop app + reads the client database back to confirm a dispatch | Desktop client only, no CLI; the session store uses the legacy OpenCode `session`/`message`/`part` schema. Windows fills the task through UI Automation, Linux pastes through `xdotool` + clipboard |
 
 > Want another client supported? Open a [New Agent Support Request](https://github.com/MatsuriMW/obsidian-agent-deck/issues/new?template=agent_support.yml).
 
-## 3. Full 19 Built-in Agents + Custom ACP Matrix
+## 3. Full 20 Built-in Agents + Custom ACP Matrix
 
 | Agent | Session tracking | Background delegation | Desktop handoff | Terminal |
 | --- | --- | --- | --- | --- |
@@ -49,8 +49,9 @@ Alongside global tools, Agent Deck ships dedicated local parsers and adapters fo
 | **Grok Bot** | Yes (per-Bot selection) | No | No (tracking only) | — |
 | **T3 Code** | Yes (deduplicates delegated sessions) | Yes (`t3 thread`) | Focuses the client only | — |
 | **Cindy** | Yes (deduplicates delegated sessions) | No | Deep link / focuses app (tracking only) | — |
+| **Orca** | Yes (deduplicates delegated sessions) | No | Focuses the client only (tracking only) | — |
 | **Muse** | Yes (per-stream selection) | No | No (tracking only) | — |
-| **Kimi Code** | Yes | No | Focuses the client only (tracking only) | — |
+| **Kimi Code** | Yes (v1.5 + v2) | Yes (`kimi acp`) | Focuses client on fallback | — |
 | **Doubao Work (豆包工作)** | Yes (session metadata) | No | Focuses the client only (tracking only) | — |
 | **Gemini CLI** | Yes | Yes (`gemini --acp`) | No (no desktop UI) | Yes (`gemini --resume`) |
 | **TeleAgent (星辰超级智能体)** | Yes | No | Copies task and opens app | — |
@@ -76,8 +77,9 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
 | **Grok Bot** | Grok Bot desktop app, with desired Bots selected in settings |
 | **T3 Code** | T3 Code desktop app; `t3` CLI for background delegation |
 | **Cindy** | Cindy desktop app (tracking only; automatically deduplicates delegated underlying agent sessions) |
+| **Orca** | Orca desktop app (tracking only; automatically deduplicates delegated underlying agent sessions) |
 | **Muse** | Muse desktop app (tracking only) |
-| **Kimi Code** | Kimi Code desktop app or `kimi` CLI (tracking only) |
+| **Kimi Code** | Kimi Code desktop app or `kimi` CLI (tracking & `kimi acp` background delegation) |
 | **Doubao Work (豆包工作)** | Doubao Work desktop app (session metadata tracking only) |
 | **Gemini CLI** | `@google/gemini-cli` (`gemini` CLI — supports tracking, `gemini --acp` background delegation & `gemini --resume`) |
 | **TeleAgent (星辰超级智能体)** | TeleAgent desktop app (tracking, task copy/handoff and in-app dispatch; no CLI) |
@@ -103,10 +105,11 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
    - **MiniMax Code**: Desktop and `mcode` share SQLite storage; opening desktop still requires selecting the session once.
    - **QwenWork**: Tracking only; 2.x conversations are fully readable, older logs without tokens honestly show 0.
    - **Grok Bot**: Desktop only; cloud sandboxes without per-message tokens show "Unavailable", with no archive concept.
-   - **T3 Code / Cindy aggregator deduplication**: Underlying Claude Code, Codex, or Antigravity sessions spawned by T3 Code or Cindy are deduplicated across Daily Summary, Sidebar Now/Recent, Menu Bar, AutoLog, Sync, Dashboard, Handoff claiming, primary recommendation, and Security Audit so work is counted once under the aggregator; disabling the aggregator immediately surfaces the underlying sessions again.
+   - **T3 Code / Cindy / Orca aggregator deduplication**: Underlying Claude Code, Codex, OpenCode, or Antigravity sessions spawned by T3 Code, Cindy, or Orca are deduplicated across Daily Summary, Sidebar Now/Recent, Menu Bar, AutoLog, Sync, Dashboard, Handoff claiming, primary recommendation, and Security Audit so work is counted once under the aggregator; disabling the aggregator immediately surfaces the underlying sessions again.
    - **Cindy**: Read-only tracking from local `cindy-*.db` / `xdt-maker-*.db` (including Orca worker hierarchy, per-turn tokens, tool-use security audit, and `cindy://session/<id>` deep link); tracking only (no built-in delegation).
+   - **Orca**: Read-only tracking from local `agent-session-domain.db` (supports `ORCA_DATA_DIR` / `ORCA_USER_DATA_DIR`, workspace directory resolution from `location.workspaceId`, and `orca://` focus); tracking only (no built-in delegation), while deduplicating underlying provider sessions.
    - **Muse**: Desktop only; cloud VM has no local tokens/models (kept as 0 / unavailable).
-   - **Kimi Code**: Tracks desktop & CLI `wire.jsonl` v1.5 sessions; no built-in delegation yet.
+   - **Kimi Code**: Tracks both v1.5 & v2 `wire.jsonl` (`agents/main/wire.jsonl`) sessions with exact token usage, and supports `kimi acp` background delegation & in-app follow-up (or focuses desktop app on fallback).
    - **Doubao Work**: Read-only IndexedDB session list metadata (titles & timestamps); full message bodies remain encrypted in `sdk_storage` and are never decrypted.
    - **Gemini CLI**: Tracks `~/.gemini/tmp/*/chats/session-*.jsonl` (and legacy `.json`), strips `<session_context>` / `<hook_context>`, and supports `gemini --acp` delegation & `gemini --resume` terminal handoff (no desktop GUI).
 5. **Terminal interaction**: The table-driven terminal registry covers 11 terminals (System Terminal, iTerm2, Warp, Ghostty, cmux, tmux, WezTerm, Kitty, Alacritty, Tern, Herdr) plus Windows `wt.exe`/`cmd.exe` fallbacks, though live visual interaction is verified on macOS with **Tern** and **Herdr** only; other terminals and real Windows UI testing remain unverified.

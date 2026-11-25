@@ -25,13 +25,13 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **千问办公（QwenWork）** | 2.x `~/.qwenworkcn/.harness/*/qwenwork/qwenwork.db`；旧版 JSONL | 桌面会话追踪 | 仅追踪、不支持委派；2.x 带逐轮 token 与模型名，旧日志无 token 显示 0 |
 | **Qoder** | `~/.qoder/projects` / 桌面 `main.sqlite` | 追踪 + 后台委派（`qodercli`） + 桌面复制交接 + 终端 | CLI 与桌面库不互通；桌面未提供 token 时显示「未提供」 |
 | **WorkBuddy（中国版）** | `~/.workbuddy/projects` / `workbuddy.db` | 追踪 + 桌面复制交接 + 终端（`codebuddy`） | 仅支持中国版；独立 `codebuddy` 与桌面不互通；无后台执行 |
-| **Kimi Code** | `~/.kimi-code/sessions`（`wire.jsonl` + `session-meta/state.json`）及 `~/.kimi/sessions` | 追踪 + 唤起桌面端 | 仅追踪；支持 v1.5 `wire.jsonl` 逐轮对话、工具调用与精确 token 用量统计 |
+| **Kimi Code** | `~/.kimi-code/sessions`（`wire.jsonl` / v2 `agents/main/wire.jsonl` + `projects.json` / `state.json`）及 `~/.kimi/sessions` | 追踪 + 后台委派（`kimi acp`） + 唤起桌面端 | 兼容 v1.5 与 v2 `wire.jsonl` 逐轮对话、工具调用与精确 token 统计；支持 `kimi acp` 后台委派与应用内续聊 |
 | **豆包工作（Doubao Work）** | `~/Library/Application Support/DoubaoWork/Default/IndexedDB/chrome_doubaowork-chat_0.indexeddb.leveldb` | 桌面会话列表元数据追踪 + 唤起桌面端 | 仅追踪标题与活跃时间；完整正文存在本地加密库 `sdk_storage`，插件保持只读不解密，token 显示「用量未提供」 |
 | **TeleAgent（星辰超级智能体）** | `~/.local/share/TeleAgent/users/*/teleagent.db`（Windows 另含 `%LOCALAPPDATA%\TeleAgent`） | 追踪 + 复制任务并唤起桌面端 + 派发后回读客户端库确认 | 只有桌面客户端、没有 CLI；会话库是 OpenCode 老版 `session`/`message`/`part` 结构，Windows 用 UIA 自动填入任务、Linux 用 `xdotool` + 剪贴板 |
 
 > 更多中文 Agent 客户端正在持续规划与接入中，欢迎通过 [新 Agent 适配模板](https://github.com/MatsuriMW/obsidian-agent-deck/issues/new?template=agent_support.yml) 反馈你使用的客户端。
 
-## 三、全部 19 家内置 Agent + 自定义 ACP 能力矩阵
+## 三、全部 20 家内置 Agent + 自定义 ACP 能力矩阵
 
 | Agent | 会话追踪 | 后台委派 | 桌面端交接 | 终端交互 |
 | --- | --- | --- | --- | --- |
@@ -49,8 +49,9 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Grok Bot** | 支持（按 Bot 多选） | 不支持 | 不支持（仅追踪） | — |
 | **T3 Code** | 支持（自动去重底层会话） | 支持（`t3 thread`） | 仅唤起客户端 | — |
 | **Cindy** | 支持（自动去重底层会话） | 不支持 | 深链跳转 / 唤起客户端（仅追踪） | — |
+| **Orca** | 支持（自动去重底层会话） | 不支持 | 仅唤起客户端（仅追踪） | — |
 | **Muse** | 支持（按对话流多选） | 不支持 | 不支持（仅追踪） | — |
-| **Kimi Code** | 支持 | 不支持 | 仅唤起客户端（仅追踪） | — |
+| **Kimi Code** | 支持（v1.5 + v2） | 支持（`kimi acp`） | 未装 CLI 或回退时唤起客户端 | — |
 | **豆包工作** | 支持（会话列表元数据） | 不支持 | 仅唤起客户端（仅追踪） | — |
 | **Gemini CLI** | 支持 | 支持（`gemini --acp`） | 不支持（无桌面界面） | 支持（`gemini --resume`） |
 | **TeleAgent（星辰超级智能体）** | 支持 | 不支持 | 仅复制任务并唤起 | — |
@@ -76,8 +77,9 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Grok Bot** | Grok Bot 桌面端，并在设置里勾选要追踪的 Bot |
 | **T3 Code** | T3 Code 桌面端；后台委派另需 `t3` 命令行 |
 | **Cindy** | Cindy 桌面端（仅追踪，自动去重其拉起的底层 Agent 会话） |
+| **Orca** | Orca 桌面端（仅追踪，自动去重其拉起的底层 Agent 会话） |
 | **Muse** | Muse 桌面端（仅追踪） |
-| **Kimi Code** | Kimi Code 桌面端或 `kimi` CLI（仅追踪） |
+| **Kimi Code** | Kimi Code 桌面端或 `kimi` CLI（支持追踪与 `kimi acp` 后台委派） |
 | **豆包工作** | 豆包工作桌面端（仅追踪会话列表元数据） |
 | **Gemini CLI** | `@google/gemini-cli`（`gemini` 命令行，支持追踪、`gemini --acp` 后台委派与终端 `--resume` 续聊） |
 | **TeleAgent（星辰超级智能体）** | TeleAgent 桌面端（追踪、任务复制交接与客户端填入式派发，无 CLI） |
@@ -103,10 +105,11 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
    - **MiniMax Code**：桌面端与 `mcode` 命令行共用本地会话库；打开桌面端后仍需手动选一次会话，只装桌面端未装 `mcode` 时仅追踪不委派。
    - **千问办公（QwenWork）**：只追踪、不能委派；新版客户端的对话已能完整读取，旧日志缺 token 时如实显示为 0。
    - **Grok Bot**：只追踪桌面端，云端沙箱不给逐条 token 时显示「用量未提供」，没有归档概念。
-   - **T3 Code / Cindy 聚合去重**：通过 T3 Code 或 Cindy 转发/拉起的 Claude Code、Codex、Antigravity 等底层 Agent 会话会自动去重，仅归属 T3 Code 或 Cindy，避免在面板、最近列表、菜单栏、自动日记、Dashboard 与安全审计中重复计数；关闭对应的聚合端追踪开关后会立即恢复独立会话显示。
+   - **T3 Code / Cindy / Orca 聚合去重**：通过 T3 Code、Cindy 或 Orca 转发/拉起的 Claude Code、Codex、OpenCode、Antigravity 等底层 Agent 会话会自动去重，仅归属对应聚合端，避免在面板、最近列表、菜单栏、自动日记、Dashboard 与安全审计中重复计数；关闭对应的聚合端追踪开关后会立即恢复独立会话显示。
    - **Cindy**：只读追踪本地 `cindy-*.db` / `xdt-maker-*.db`（含 Orca Team 协作层级、精确 token 与 `cindy://session/<id>` 深链跳转），暂不支持后台委派。
+   - **Orca**：只读追踪本地 `agent-session-domain.db`（支持 `ORCA_DATA_DIR` / `ORCA_USER_DATA_DIR`、`location.workspaceId` 目录提取与 `orca://` 客户端唤起），暂不支持内置后台委派；自动屏蔽底层拉起的重复会话。
    - **Muse**：只追踪桌面端，云端 VM 无本地 token/模型，保留为 0/未提供。
-   - **Kimi Code**：仅追踪桌面端与 CLI 会话（`wire.jsonl` v1.5），暂不支持委派。
+   - **Kimi Code**：支持追踪 v1.5 / v2 会话（`wire.jsonl` 及 `agents/main/wire.jsonl`，精确统计 token）及通过 `kimi acp` 进行后台委派与应用内续聊（未装 CLI 时可唤起桌面端）。
    - **豆包工作**：只读追踪本地 IndexedDB 中的会话列表元数据（标题与活跃时间），完整正文存于本地加密数据库 `sdk_storage`，插件不解密，token 显示「用量未提供」。
    - **Gemini CLI**：只读追踪 `~/.gemini/tmp/*/chats/session-*.jsonl`（及旧版 `.json`），自动剥离 `<session_context>` / `<hook_context>` 注入块并统计 token；支持 `gemini --acp` 后台委派、应用内追问与终端 `gemini --resume` 续聊（无桌面 GUI）。
 5. **终端交互的实测范围**：表驱动终端注册表已适配 11 家终端（系统终端、iTerm2、Warp、Ghostty、cmux、tmux、WezTerm、Kitty、Alacritty、Tern、Herdr）及 Windows `wt.exe`/`cmd.exe` 回退，但真实交互目视目前仅在 macOS 的 **Tern** 和 **Herdr** 上实测通过；其余终端与 Windows 真机尚待实操验证。

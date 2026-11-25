@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.23 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.24 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -85,6 +85,7 @@ var main_default = {
   "\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25": "Nautilus Spiral's ai-usage.json could not be parsed",
   "Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 {days} \u5929\u5386\u53F2": "Agent Deck: imported {days} days of history from Nautilus Spiral",
   "\u63D2\u4EF6\u91CD\u8F7D\u540E\u6CA1\u6709\u63A5\u4E0A\u8FD9\u4E2A\u4F1A\u8BDD": "This session did not reconnect after the plugin reloaded",
+  "\u63D2\u4EF6\u91CD\u8F7D\u540E ACP \u8FDB\u7A0B\u5DF2\u7ED3\u675F": "ACP process ended after plugin reload",
   "\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389": "A primary agent cannot be turned off \u2014 switch the primary first",
   "\u5DF2\u6062\u590D\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B": "Restored Nautilus Spiral's agent summary in the bottom-right corner",
   "\u5DF2\u628A\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B\u79FB\u5230 macOS \u83DC\u5355\u680F\uFF1B\u87BA\u65CB\u65E5\u7A0B\u7684 Agent \u6C47\u603B\u4E5F\u5DF2\u5173\u95ED\u3002": "Moved the agent summary from the bottom-right corner to the macOS menu bar; Nautilus Spiral's own agent summary is now off.",
@@ -1422,8 +1423,15 @@ var settings_default = {
   "TeleAgent\uFF08\u661F\u8FB0\u8D85\u7EA7\u667A\u80FD\u4F53\uFF09\u684C\u9762\u7248\uFF08\u672C\u5730\u4F1A\u8BDD\u5E93\u8FFD\u8E2A\uFF09": "TeleAgent Desktop (local session database tracking)",
   "T3 Code \u684C\u9762\u7248\u4E0E t3 CLI": "T3 Code Desktop and t3 CLI",
   "Cindy \u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Cindy Desktop (tracking only)",
+  "Orca \u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Orca Desktop (tracking only)",
   "Muse \u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Muse Desktop (tracking only)",
   "Kimi Code \u684C\u9762\u7248 / CLI\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Kimi Code Desktop / CLI (tracking only)",
+  "Kimi Code \u684C\u9762\u7248 / CLI \u4E0E ACP \u59D4\u6D3E": "Kimi Code Desktop / CLI & ACP delegation",
+  "\u4F7F\u7528 Kimi Code CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u56DE\u9000\u684C\u9762\u7AEF\u4EA4\u63A5\u3002": "Use Kimi Code CLI's current default model; falls back to desktop handoff if the CLI is not installed.",
+  "\u88C5\u6709 Kimi Code CLI\uFF08kimi\uFF09\u65F6\u652F\u6301 kimi acp \u540E\u53F0\u59D4\u6D3E\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u684C\u9762\u7AEF\u4EA4\u63A5": "Background delegation via `kimi acp` when Kimi Code CLI (`kimi`) is installed; falls back to clipboard handoff to Kimi Code Desktop otherwise.",
+  "\u7559\u7A7A\u81EA\u52A8\u67E5\u627E kimi / kimi-code": "Leave blank to auto-detect `kimi` / `kimi-code`",
+  "\u8BFB\u53D6 Kimi Code \u53EF\u7528\u6A21\u578B": "Fetch Kimi Code models",
+  "\u68C0\u67E5 kimi": "Check kimi",
   "\u8C46\u5305\u5DE5\u4F5C\u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Doubao Work Desktop (tracking only)",
   "Gemini CLI \u4F1A\u8BDD\u4E0E ACP \u540E\u53F0\u59D4\u6D3E": "Gemini CLI sessions & ACP background delegation",
   "Antigravity \u684C\u9762\u7248\u3001CLI \u4E0E\u4F1A\u8BDD\u65E5\u5FD7": "Antigravity Desktop, CLI & session logs",
@@ -1644,6 +1652,7 @@ var dialogs_default = {
   "{agent} \u8FDE\u63A5\u5DF2\u5173\u95ED": "{agent} connection is closed",
   "{method} \u8D85\u65F6": "{method} timed out",
   "{agent} \u8FDE\u63A5\u5DF2\u7ED3\u675F": "{agent} connection ended",
+  "\u7B49\u5F85\u56DE\u590D\u2026": "Waiting for reply\u2026",
   "ACP \u670D\u52A1\u7AEF\u8FD4\u56DE\u7684\u6A21\u578B": "Model reported by the ACP server",
   "\u6CA1\u6709\u5F53\u524D\u7B14\u8BB0": "No active note",
   "\u{1F6EB} \u6B63\u5728\u59D4\u6D3E\u7ED9 {agent}\uFF1A{name}": "\u{1F6EB} Delegating to {agent}: {name}",
@@ -2251,6 +2260,8 @@ var zh_TW_default = {
   "\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u8D25": "\u87BA\u65CB\u65E5\u7A0B\u7684 ai-usage.json \u89E3\u6790\u5931\u6557",
   "Agent Deck\uFF1A\u4ECE\u87BA\u65CB\u65E5\u7A0B\u5BFC\u5165 {days} \u5929\u5386\u53F2": "Agent Deck\uFF1A\u5F9E\u87BA\u65CB\u65E5\u7A0B\u532F\u5165 {days} \u5929\u66C6\u53F2",
   "\u63D2\u4EF6\u91CD\u8F7D\u540E\u6CA1\u6709\u63A5\u4E0A\u8FD9\u4E2A\u4F1A\u8BDD": "\u5916\u639B\u904E\u8F09\u5F8C\u6C92\u6709\u63A5\u4E0A\u9019\u500B\u6703\u8A71",
+  "\u63D2\u4EF6\u91CD\u8F7D\u540E ACP \u8FDB\u7A0B\u5DF2\u7ED3\u675F": "\u5916\u639B\u91CD\u8F09\u5F8C ACP \u7A0B\u5E8F\u5DF2\u7D50\u675F",
+  "\u7B49\u5F85\u56DE\u590D\u2026": "\u7B49\u5F85\u56DE\u8986\u2026",
   "\u4E3B\u529B Agent \u4E0D\u80FD\u5173\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u6362\u6389": "\u4E3B\u529B Agent \u4E0D\u80FD\u95DC\u6389\uFF1B\u5148\u628A\u4E3B\u529B\u63DB\u6389",
   "\u5DF2\u6062\u590D\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B": "\u5DF2\u6062\u5FA9\u87BA\u65CB\u65E5\u7A0B\u53F3\u4E0B\u89D2\u7684 Agent \u5F59\u7E3D",
   "\u5DF2\u628A\u53F3\u4E0B\u89D2\u7684 Agent \u6C47\u603B\u79FB\u5230 macOS \u83DC\u5355\u680F\uFF1B\u87BA\u65CB\u65E5\u7A0B\u7684 Agent \u6C47\u603B\u4E5F\u5DF2\u5173\u95ED\u3002": "\u5DF2\u628A\u53F3\u4E0B\u89D2\u7684 Agent \u5F59\u7E3D\u79FB\u5230 macOS \u9078\u55AE\u5217\uFF1B\u87BA\u65CB\u65E5\u7A0B\u7684 Agent \u5F59\u7E3D\u4E5F\u5DF2\u95DC\u9589\u3002",
@@ -3445,7 +3456,14 @@ var zh_TW_default = {
   "\u5DE5\u5177\u53C2\u6570\u4E2D\u51FA\u73B0\u660E\u6587\u5BC6\u94A5/Token": "\u5DE5\u5177\u53C3\u6578\u4E2D\u51FA\u73FE\u660E\u6587\u91D1\u9470/Token",
   "Muse \u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Muse \u684C\u9762\u7248\uFF08\u50C5\u8FFD\u8E64\uFF09",
   "Cindy \u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Cindy \u684C\u9762\u7248\uFF08\u50C5\u8FFD\u8E64\uFF09",
+  "Orca \u684C\u9762\u7248\uFF08\u50C5\u8FFD\u8E64\uFF09": "Orca \u684C\u9762\u7248\uFF08\u50C5\u8FFD\u8E64\uFF09",
   "Kimi Code \u684C\u9762\u7248 / CLI\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "Kimi Code \u684C\u9762\u7248 / CLI\uFF08\u50C5\u8FFD\u8E64\uFF09",
+  "Kimi Code \u684C\u9762\u7248 / CLI \u4E0E ACP \u59D4\u6D3E": "Kimi Code \u684C\u9762\u7248 / CLI \u8207 ACP \u59D4\u6D3E",
+  "\u4F7F\u7528 Kimi Code CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u56DE\u9000\u684C\u9762\u7AEF\u4EA4\u63A5\u3002": "\u4F7F\u7528 Kimi Code CLI \u76EE\u524D\u8A2D\u5B9A\u7684\u9810\u8A2D\u6A21\u578B\uFF1B\u672A\u5B89\u88DD CLI \u6642\u81EA\u52D5\u9000\u56DE\u684C\u9762\u7AEF\u4EA4\u63A5\u3002",
+  "\u88C5\u6709 Kimi Code CLI\uFF08kimi\uFF09\u65F6\u652F\u6301 kimi acp \u540E\u53F0\u59D4\u6D3E\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u684C\u9762\u7AEF\u4EA4\u63A5": "\u5B89\u88DD Kimi Code CLI\uFF08kimi\uFF09\u6642\u652F\u63F4 kimi acp \u5F8C\u81FA\u59D4\u6D3E\uFF1B\u672A\u5B89\u88DD CLI \u6642\u81EA\u52D5\u8907\u88FD\u4EFB\u52D9\u4E26\u958B\u555F\u684C\u9762\u7AEF\u4EA4\u63A5",
+  "\u7559\u7A7A\u81EA\u52A8\u67E5\u627E kimi / kimi-code": "\u7559\u7A7A\u81EA\u52D5\u5C0B\u627E kimi / kimi-code",
+  "\u8BFB\u53D6 Kimi Code \u53EF\u7528\u6A21\u578B": "\u8B80\u53D6 Kimi Code \u53EF\u7528\u6A21\u578B",
+  "\u68C0\u67E5 kimi": "\u6AA2\u67E5 kimi",
   "\u8C46\u5305\u5DE5\u4F5C\u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09": "\u8C46\u5305\u5DE5\u4F5C\u684C\u9762\u7248\uFF08\u50C5\u8FFD\u8E64\uFF09",
   "Gemini CLI \u4F1A\u8BDD\u4E0E ACP \u540E\u53F0\u59D4\u6D3E": "Gemini CLI \u6703\u8A71\u8207 ACP \u80CC\u666F\u59D4\u6D3E",
   "Antigravity \u684C\u9762\u7248\u3001CLI \u4E0E\u4F1A\u8BDD\u65E5\u5FD7": "Antigravity \u684C\u9762\u7248\u3001CLI \u8207\u6703\u8A71\u65E5\u8A8C",
@@ -4096,10 +4114,10 @@ function registerCustomLocales(packs = []) {
   return listCustomLocales();
 }
 function listCustomLocales() {
-  return [...customLocales.values()].map(({ id, name, path: path28, strings }) => ({
+  return [...customLocales.values()].map(({ id, name, path: path29, strings }) => ({
     id,
     name,
-    path: path28,
+    path: path29,
     count: Object.keys(strings).length
   }));
 }
@@ -4381,10 +4399,9 @@ var AGENTS = {
     color: "#2b6cb0",
     soft: "rgba(43,108,176,.13)",
     kind: "kimicode",
-    where: ["~/.kimi-code/sessions \xB7 ~/.kimi/sessions", t("Kimi Code \u684C\u9762\u7248 / CLI\uFF08\u4EC5\u8FFD\u8E2A\uFF09")],
+    where: ["~/.kimi-code/sessions \xB7 ~/.kimi/sessions", t("Kimi Code \u684C\u9762\u7248 / CLI \u4E0E ACP \u59D4\u6D3E")],
     deep: "kimicode",
-    desktopOnly: true,
-    trackingOnly: true
+    desktopOnly: false
   },
   doubaowork: {
     id: "doubaowork",
@@ -4435,9 +4452,22 @@ var AGENTS = {
     deep: "cindy",
     desktopOnly: true,
     trackingOnly: true
+  },
+  orca: {
+    id: "orca",
+    name: "Orca",
+    short: "Orca",
+    glyph: "\u25C9",
+    color: "#0f766e",
+    soft: "rgba(15,118,110,.13)",
+    kind: "orca",
+    where: ["~/Library/Application Support/orca/agent-session-domain.db", t("Orca \u684C\u9762\u7248\uFF08\u4EC5\u8FFD\u8E2A\uFF09")],
+    deep: "orca",
+    desktopOnly: true,
+    trackingOnly: true
   }
 };
-var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "teleagent", "cursor", "grokbot", "t3code", "cindy", "muse", "kimicode", "doubaowork", "gemini"];
+var AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "teleagent", "cursor", "grokbot", "t3code", "cindy", "orca", "muse", "kimicode", "doubaowork", "gemini"];
 var MODEL_CATALOG = [
   { id: "dsh-default", agent: "dsh", name: t("\u4E0D\u6307\u5B9A\uFF08\u4F7F\u7528 DSH \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B\uFF09"), value: "", provider: "DSH", context: "\u2014", tags: [], note: t("\u4E0D\u5411 DSH \u4F20\u6A21\u578B\u53C2\u6570\uFF0C\u76F4\u63A5\u4F7F\u7528 DSH \u81EA\u8EAB\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF08\u9002\u5408\u63A5\u5165\u7B2C\u4E09\u65B9\u6A21\u578B\uFF09\u3002") },
   { id: "antigravity-default", agent: "antigravity", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Antigravity", context: "\u2014", tags: [], note: t("\u4F7F\u7528\u670D\u52A1\u7AEF\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
@@ -4446,6 +4476,7 @@ var MODEL_CATALOG = [
   { id: "minimax-default", agent: "minimax", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "MiniMax", context: "\u2014", tags: [], note: t("\u4F7F\u7528 MiniMax Code \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
   { id: "gemini-default", agent: "gemini", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Gemini CLI", context: "\u2014", tags: [], note: t("\u4F7F\u7528 Gemini CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u540E\u53EF\u6307\u5B9A\u6A21\u578B\u3002") },
   { id: "cursor-default", agent: "cursor", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Cursor", context: "\u2014", tags: [], note: t("\u4F7F\u7528 Cursor CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u56DE\u9000\u684C\u9762\u7AEF\u4EA4\u63A5\u3002") },
+  { id: "kimicode-default", agent: "kimicode", name: t("CLI \u5F53\u524D\u9ED8\u8BA4\u6A21\u578B"), value: "", provider: "Kimi Code", context: "\u2014", tags: [], note: t("\u4F7F\u7528 Kimi Code CLI \u5F53\u524D\u914D\u7F6E\u7684\u9ED8\u8BA4\u6A21\u578B\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u56DE\u9000\u684C\u9762\u7AEF\u4EA4\u63A5\u3002") },
   {
     id: "qoder-ultimate",
     agent: "qoder",
@@ -4632,6 +4663,7 @@ var EFFORTS = {
   opencode: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("\u5B9E\u9645\u53EF\u7528\u5F3A\u5EA6\u7531 ACP \u670D\u52A1\u7AEF\u6821\u9A8C") })),
   hermes: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("\u5B9E\u9645\u53EF\u7528\u5F3A\u5EA6\u7531 ACP \u670D\u52A1\u7AEF\u6821\u9A8C") })),
   minimax: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("\u5B9E\u9645\u53EF\u7528\u5F3A\u5EA6\u7531 ACP \u670D\u52A1\u7AEF\u6821\u9A8C") })),
+  kimicode: ["low", "high", "max"].map((id) => ({ id, label: id, hint: t("\u5B9E\u9645\u53EF\u7528\u5F3A\u5EA6\u7531 ACP \u670D\u52A1\u7AEF\u6821\u9A8C") })),
   qoder: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("\u4F20\u7ED9 qodercli --reasoning-effort") })),
   codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: t("\u7531\u6240\u9009 Codex \u6A21\u578B\u652F\u6301\u7684\u5F3A\u5EA6\u51B3\u5B9A") })),
   claude: [
@@ -4672,7 +4704,7 @@ var CLAUDE_PERMISSIONS = [
 var DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, teleagent: true, cursor: true, grokbot: true, t3code: true, cindy: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, teleagent: true, cursor: true, grokbot: true, t3code: true, cindy: true, orca: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   customAcpAgents: [],
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
@@ -4784,7 +4816,7 @@ var DEFAULTS = {
   // 一轮最多问模型几个会话
   // 没写不等于关：设置页用 `agOn[id] !== false` 判定，缺省值等于「开」。TeleAgent 的历史库有上千个会话，
   // 首次接入会把最近若干轮一次性补进当天日记，所以这里显式关掉，需要时在设置里手动打开。
-  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, teleagent: false, t3code: true, cindy: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, teleagent: false, t3code: true, cindy: true, orca: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   autoLogProvider: "auto",
   autoLogEffort: "low",
   autoLogModel: "",
@@ -4860,6 +4892,7 @@ var DEFAULTS = {
     minimax: { model: "minimax-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     gemini: { model: "gemini-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     cursor: { model: "cursor-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    kimicode: { model: "kimicode-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     t3code: { path: "", cwd: "", extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
@@ -4888,7 +4921,7 @@ var DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", minimax: "minimax-default", gemini: "gemini-default", cursor: "cursor-default", qoder: "qoder-ultimate" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", minimax: "minimax-default", gemini: "gemini-default", cursor: "cursor-default", kimicode: "kimicode-default", qoder: "qoder-ultimate" },
     effort: "high",
     effortByAgent: {}
   },
@@ -5275,8 +5308,8 @@ function formatSummaryLinks(raw, format = (text) => text) {
   const encode = (c) => c === "(" ? "%28" : c === ")" ? "%29" : encodeURIComponent(c);
   const target = (address2) => {
     if (/^(?:https?|file):/i.test(address2)) return address2.replace(/[()\s]/g, encode);
-    const path28 = address2.replace(/^~(?=\/)/, import_os.default.homedir()).replace(/\\/g, "/");
-    return (path28.startsWith("/") ? "file://" : "file:///") + path28.replace(/[()\s?#]/g, encode);
+    const path29 = address2.replace(/^~(?=\/)/, import_os.default.homedir()).replace(/\\/g, "/");
+    return (path29.startsWith("/") ? "file://" : "file:///") + path29.replace(/[()\s?#]/g, encode);
   };
   const address = (value) => /^(?:https?:\/\/|file:\/\/|[a-z]:[\\/]|~?\/)/i.test(value);
   const longPath = (value) => value.length >= 40 || /^(?:[a-z]:[\\/]|~\/|\/(?:Users|home|tmp|var|workspace|mnt|Volumes)\/)/i.test(value);
@@ -5567,13 +5600,13 @@ function blockIdOf(line) {
 function stripBlockId(s) {
   return String(s || "").replace(BLOCK_ID_RE, "").trimEnd();
 }
-var AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor", grokbot: "grokbot", teleagent: "ta", t3code: "t3code", cindy: "cindy", muse: "muse", kimicode: "kimi", doubaowork: "doubao", gemini: "gemini" };
+var AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor", grokbot: "grokbot", teleagent: "ta", t3code: "t3code", cindy: "cindy", orca: "orca", muse: "muse", kimicode: "kimi", doubaowork: "doubao", gemini: "gemini" };
 var BLOCK_ID_AGENT = Object.fromEntries(Object.entries(AGENT_ID_PREFIX).map(([agent, prefix]) => [prefix, agent]));
 function agentFromBlockId(id) {
   const m = /^([a-z0-9]+)-/i.exec(String(id || "").trim());
   return m ? BLOCK_ID_AGENT[m[1].toLowerCase()] || "" : "";
 }
-var isDeckBlockId = (id) => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor|grokbot|ta|t3code|cindy|muse|kimi|doubao|gemini)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
+var isDeckBlockId = (id) => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor|grokbot|ta|t3code|cindy|orca|muse|kimi|doubao|gemini)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
 function normalizeTaskSlug(value) {
   const slug = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
   return /^[a-z][a-z0-9]{0,15}(?:-[a-z][a-z0-9]{0,15})?$/.test(slug) ? slug : "";
@@ -5869,11 +5902,11 @@ function kwLine(raw) {
   return { kw, body: s, blockId };
 }
 var TRACKED_LINK_RE = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=([a-z][a-z0-9_-]{1,31})&sid=([^)]*)\)/;
-var TRACKED_LABEL_PREFIX_RE = /^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|TeleAgent|WorkBuddy|Cursor|Grok Bot|T3 Code|Cindy|Muse|Kimi Code|豆包工作|Gemini CLI)：/;
+var TRACKED_LABEL_PREFIX_RE = /^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|TeleAgent|WorkBuddy|Cursor|Grok Bot|T3 Code|Cindy|Orca|Muse|Kimi Code|豆包工作|Gemini CLI)：/;
 var SESSION_LINK_RE = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/;
 var THREAD_LINK_RE = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/;
 var BACKTICK_LINK_RE = /^\s*[-*+]\s+🔗.*`((?:session-)?[0-9a-f-]{36})`/;
-var OBSIDIAN_LINK_LABELS = { opencode: "OpenCode", qoder: "Qoder", hermes: "Hermes", minimax: "MiniMax", qwenwork: "\u5343\u95EE\u529E\u516C", teleagent: "TeleAgent", cursor: "Cursor", grokbot: "Grok Bot", t3code: "T3 Code", cindy: "Cindy", muse: "Muse", kimicode: "Kimi Code", doubaowork: "\u8C46\u5305\u5DE5\u4F5C", gemini: "Gemini CLI" };
+var OBSIDIAN_LINK_LABELS = { opencode: "OpenCode", qoder: "Qoder", hermes: "Hermes", minimax: "MiniMax", qwenwork: "\u5343\u95EE\u529E\u516C", teleagent: "TeleAgent", cursor: "Cursor", grokbot: "Grok Bot", t3code: "T3 Code", cindy: "Cindy", orca: "Orca", muse: "Muse", kimicode: "Kimi Code", doubaowork: "\u8C46\u5305\u5DE5\u4F5C", gemini: "Gemini CLI" };
 var safeDecodeUri = (raw) => {
   try {
     return decodeURIComponent(raw);
@@ -7390,9 +7423,9 @@ function squeezeBlank(text) {
 // src/journal-archive.js
 var ARCHIVE_TITLE = "# \u5DF2\u5B8C\u6210\u7684 AI \u4EFB\u52A1";
 function archivePath(value) {
-  const path28 = String(value || "").trim().replace(/\\/g, "/");
-  if (!path28 || path28.startsWith("/") || /^[a-z]:/i.test(path28) || path28.split("/").some((x) => !x || x === "." || x === "..") || !path28.endsWith(".md")) throw new Error(t("\u5F52\u6863\u4F4D\u7F6E\u5FC5\u987B\u662F\u5E93\u5185\u7684 .md \u6587\u4EF6\u8DEF\u5F84"));
-  return path28;
+  const path29 = String(value || "").trim().replace(/\\/g, "/");
+  if (!path29 || path29.startsWith("/") || /^[a-z]:/i.test(path29) || path29.split("/").some((x) => !x || x === "." || x === "..") || !path29.endsWith(".md")) throw new Error(t("\u5F52\u6863\u4F4D\u7F6E\u5FC5\u987B\u662F\u5E93\u5185\u7684 .md \u6587\u4EF6\u8DEF\u5F84"));
+  return path29;
 }
 function archiveDate(file) {
   const name = String(file?.basename || file?.path || "");
@@ -7486,8 +7519,8 @@ function mergeArchive(text, { date, blocks = [], turns = /* @__PURE__ */ new Map
   const out = renderArchive(archive);
   return crlf ? out.replace(/\n/g, "\r\n") : out;
 }
-async function ensureFolders(vault, path28) {
-  const parts = path28.split("/");
+async function ensureFolders(vault, path29) {
+  const parts = path29.split("/");
   parts.pop();
   let folder = "";
   for (const part of parts) {
@@ -7495,8 +7528,8 @@ async function ensureFolders(vault, path28) {
     if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
   }
 }
-async function archiveCompletedTo(plugin, file, base, plan, { path: path28, order = "prepend" } = {}) {
-  const targetPath = archivePath(path28);
+async function archiveCompletedTo(plugin, file, base, plan, { path: path29, order = "prepend" } = {}) {
+  const targetPath = archivePath(path29);
   if (targetPath === file.path) throw new Error(t("\u5F52\u6863\u6587\u4EF6\u4E0D\u80FD\u4E0E\u5F53\u524D\u65E5\u8BB0\u76F8\u540C"));
   const blocks = (plan.done || []).filter((entry) => entry.ai);
   if (!blocks.length) throw new Error(t("\u6CA1\u6709\u53EF\u5F52\u6863\u7684 AI \u4EFB\u52A1"));
@@ -7783,6 +7816,9 @@ function spawnCli(bin, args = [], opts = {}) {
       return /[\s"&|<>^()%]/.test(str) || str === "" ? `"${str.replace(/"/g, '\\"')}"` : str;
     };
     return (0, import_child_process.spawn)(q(b), args.map(q), { ...opts, shell: true, windowsHide: true });
+  }
+  if (process.platform === "win32") {
+    return (0, import_child_process.spawn)(b, args, { windowsHide: true, ...opts });
   }
   return (0, import_child_process.spawn)(b, args, opts);
 }
@@ -8589,6 +8625,18 @@ var CAPABILITIES = /* @__PURE__ */ new Map([
     modelCatalog: false,
     sessionLinkScheme: "obsidian"
   }],
+  ["orca", {
+    delegate: false,
+    runnerKind: "handoff",
+    acp: false,
+    desktopHandoffOnly: true,
+    terminalHandoff: false,
+    continueInApp: false,
+    permissionControl: false,
+    archiveDetection: true,
+    modelCatalog: false,
+    sessionLinkScheme: "obsidian"
+  }],
   ["muse", {
     delegate: false,
     runnerKind: "handoff",
@@ -8602,15 +8650,24 @@ var CAPABILITIES = /* @__PURE__ */ new Map([
     sessionLinkScheme: "muse"
   }],
   ["kimicode", {
-    delegate: false,
-    runnerKind: "handoff",
-    acp: false,
-    desktopHandoffOnly: true,
+    delegate: true,
+    runnerKind: "acp",
+    acp: true,
+    acpArgs: ["acp"],
+    acpAutoApprove: true,
+    acpDefaultModel: "kimicode-default",
+    acpDefaultEffort: "",
+    acpModelOptional: true,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: false,
+    desktopHandoffOnly: false,
+    handoffFallback: true,
     terminalHandoff: false,
-    continueInApp: false,
+    continueInApp: true,
+    continueRequiresAcp: true,
     permissionControl: false,
     archiveDetection: true,
-    modelCatalog: false,
+    modelCatalog: true,
     sessionLinkScheme: "kimicode"
   }],
   ["doubaowork", {
@@ -8727,15 +8784,16 @@ var DESTINATION_IDS = {
   hermes: ["background", "terminal"],
   minimax: ["desktop", "background", "terminal"],
   cursor: ["background", "desktop"],
+  kimicode: ["background", "desktop"],
   gemini: ["background", "terminal"],
   t3code: ["desktop", "background"],
   workbuddy: ["desktop", "terminal"],
   teleagent: ["desktop"]
 };
-var BACKGROUND_DEFAULT_AGENTS = /* @__PURE__ */ new Set(["antigravity", "qoder", "hermes", "minimax", "cursor", "gemini", "t3code"]);
+var BACKGROUND_DEFAULT_AGENTS = /* @__PURE__ */ new Set(["antigravity", "qoder", "hermes", "minimax", "cursor", "kimicode", "gemini", "t3code"]);
 function destinations(agent) {
   const modes = {
-    desktop: { id: "desktop", label: t("\u5728\u684C\u9762\u5BA2\u6237\u7AEF\u4E2D\u804A"), hint: ["workbuddy", "qoder", "cursor", "teleagent"].includes(agent) ? t("\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u7B49\u5F85\u4F60\u7C98\u8D34\u53D1\u9001\u3002") : agent === "dsh" ? t("\u5EFA\u7ACB\u4F1A\u8BDD\u540E\u6253\u5F00 Harness\uFF1B\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u5728\u4FA7\u680F\u9009\u62E9\u540C\u4E00\u4F1A\u8BDD\u7EE7\u7EED\u3002") : t("\u5148\u6267\u884C\u9996\u8F6E\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD\uFF1B\u9996\u8F6E\u671F\u95F4\u907F\u514D\u4E24\u8FB9\u540C\u65F6\u53D1\u9001\u3002") },
+    desktop: { id: "desktop", label: t("\u5728\u684C\u9762\u5BA2\u6237\u7AEF\u4E2D\u804A"), hint: ["workbuddy", "qoder", "cursor", "kimicode", "teleagent"].includes(agent) ? t("\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u5BA2\u6237\u7AEF\uFF0C\u7B49\u5F85\u4F60\u7C98\u8D34\u53D1\u9001\u3002") : agent === "dsh" ? t("\u5EFA\u7ACB\u4F1A\u8BDD\u540E\u6253\u5F00 Harness\uFF1B\u5F53\u524D\u8F6E\u7ED3\u675F\u540E\u5728\u4FA7\u680F\u9009\u62E9\u540C\u4E00\u4F1A\u8BDD\u7EE7\u7EED\u3002") : t("\u5148\u6267\u884C\u9996\u8F6E\uFF0C\u7ED3\u675F\u540E\u6253\u5F00\u684C\u9762\u4E2D\u7684\u540C\u4E00\u4F1A\u8BDD\uFF1B\u9996\u8F6E\u671F\u95F4\u907F\u514D\u4E24\u8FB9\u540C\u65F6\u53D1\u9001\u3002") },
     background: { id: "background", label: t("\u540E\u53F0\u6267\u884C"), hint: t("\u7559\u5728\u5F53\u524D\u7B14\u8BB0\uFF0C\u5B8C\u6210\u6216\u9700\u8981\u5904\u7406\u65F6\u63D0\u9192\u3002") },
     terminal: { id: "terminal", label: t("\u5728\u7EC8\u7AEF\u4E2D\u804A"), hint: t("\u6253\u5F00\u4EA4\u4E92\u7EC8\u7AEF\uFF0C\u540E\u7EED\u5728\u7EC8\u7AEF\u7EE7\u7EED\u3002") }
   };
@@ -8897,6 +8955,71 @@ function cleanCindyText(raw) {
   text = text.replace(CINDY_CITATION_RE, "");
   if (CINDY_STOP_TOKENS_ONLY_RE.test(text)) return "";
   return text.trim();
+}
+
+// src/orca-sessions.js
+var import_node_fs2 = __toESM(require("node:fs"), 1);
+var import_node_os2 = __toESM(require("node:os"), 1);
+var import_node_path2 = __toESM(require("node:path"), 1);
+function uniqResolved2(dirs) {
+  const seen = /* @__PURE__ */ new Set();
+  const out = [];
+  for (const dir of dirs) {
+    const trimmed = String(dir || "").trim();
+    if (!trimmed) continue;
+    const resolved = import_node_path2.default.resolve(trimmed);
+    if (seen.has(resolved)) continue;
+    seen.add(resolved);
+    out.push(resolved);
+  }
+  return out;
+}
+function orcaDataDirs(opts = {}) {
+  const env = opts.env ?? process.env;
+  const platform = opts.platform ?? process.platform;
+  const home7 = opts.homeDir ?? import_node_os2.default.homedir();
+  const explicit = [env?.ORCA_DATA_DIR, env?.ORCA_USER_DATA_DIR].filter((v) => String(v || "").trim());
+  if (explicit.length > 0) return uniqResolved2(explicit);
+  let baseDir = "";
+  if (platform === "darwin") {
+    baseDir = import_node_path2.default.join(home7, "Library", "Application Support");
+  } else if (platform === "win32") {
+    baseDir = String(env?.APPDATA || "").trim() || import_node_path2.default.join(home7, "AppData", "Roaming");
+  } else {
+    baseDir = String(env?.XDG_CONFIG_HOME || "").trim() || import_node_path2.default.join(home7, ".config");
+  }
+  return uniqResolved2([import_node_path2.default.join(baseDir, "orca")]);
+}
+function orcaDatabases(opts = {}) {
+  const out = [];
+  const seen = /* @__PURE__ */ new Set();
+  for (const dir of orcaDataDirs(opts)) {
+    const dbPath = import_node_path2.default.join(dir, "agent-session-domain.db");
+    try {
+      const st = import_node_fs2.default.statSync(dbPath);
+      if (!st.isFile()) continue;
+    } catch {
+      continue;
+    }
+    if (seen.has(dbPath)) continue;
+    seen.add(dbPath);
+    out.push(dbPath);
+  }
+  return out;
+}
+function extractOrcaMessageText(payload) {
+  if (!payload || typeof payload !== "object") return "";
+  const body = payload.body && typeof payload.body === "object" ? payload.body : payload;
+  if (typeof body.text === "string" && body.text.trim()) return body.text.trim();
+  const blocks = Array.isArray(body.blocks) ? body.blocks : [];
+  const parts = [];
+  for (const block of blocks) {
+    if (!block || typeof block !== "object") continue;
+    if (block.type === "text" && typeof block.text === "string" && block.text.trim()) {
+      parts.push(block.text.trim());
+    }
+  }
+  return parts.join("\n").trim();
 }
 
 // src/desktop-sessions.js
@@ -9087,6 +9210,88 @@ function extractDelegatedIdsFromObj(obj, depth = 0, out = []) {
       if (DELEGATED_ID_KEYS.has(key) && val.trim()) out.push(val.trim());
     } else if (val && typeof val === "object") {
       extractDelegatedIdsFromObj(val, depth + 1, out);
+    }
+  }
+  return out;
+}
+function orcaCwdFromRecord(rec) {
+  const launch = String(rec?.launchDirectory || "").trim();
+  if (launch) return launch;
+  const wsId = String(rec?.location?.workspaceId || "").trim();
+  const sep = wsId.indexOf("::");
+  if (sep >= 0) {
+    const candidate = wsId.slice(sep + 2).trim();
+    if (/^(?:\/|~|[A-Za-z]:[\\/]|\\\\)/.test(candidate)) return candidate;
+  }
+  return "";
+}
+function addOrcaDelegatedRef(out, raw, ownerSid) {
+  const v = String(ownerSid || "").trim();
+  if (!v) return;
+  const push = (val) => {
+    for (const k of extractDelegatedCandidates(val)) {
+      if (!k || k === v || k.startsWith("structured-agent-session-")) continue;
+      out.set(k, v);
+    }
+  };
+  const s = String(raw || "").trim();
+  if (!s) return;
+  const claudeM = /^claude:([^:]+):/i.exec(s);
+  if (claudeM) push(decodeTail(claudeM[1]));
+  const codexM = /^codex:([^:]+):/i.exec(s);
+  if (codexM) push(decodeTail(codexM[1]));
+  const promptM = /^(?:legacy:[^:]+:[^:]+:(?:turn-lifecycle|item):)?p:([^:]+):/i.exec(decodeTail(s));
+  if (promptM) push(decodeTail(promptM[1]));
+  if (!s.startsWith("orca:") && !s.startsWith("legacy:")) push(s);
+}
+async function orcaDelegatedSids(db) {
+  const out = /* @__PURE__ */ new Map();
+  if (!import_fs4.default.existsSync(db)) return out;
+  const targetTables = ["agent_session_records", "journal_items"];
+  const tables = await desktopQuery(
+    db,
+    `SELECT name FROM sqlite_master WHERE type='table' AND name IN (${targetTables.map(quote).join(",")})`
+  );
+  const names = new Set(tables.map((t2) => t2.name));
+  if (!names.has("agent_session_records")) return out;
+  const rCols = await tableColumns(db, "agent_session_records");
+  const recRows = await desktopQuery(
+    db,
+    `SELECT session_id AS sid, ${rCols.has("adopted_native_id") ? "adopted_native_id AS adoptedNativeId" : "'' AS adoptedNativeId"}, record_json AS recordJson FROM agent_session_records`
+  );
+  const activeSids = /* @__PURE__ */ new Set();
+  for (const r of recRows) {
+    const sid = String(r.sid || "").trim();
+    if (!sid) continue;
+    const rec = json(r.recordJson, null);
+    if (rec?.deletedAt) continue;
+    activeSids.add(sid);
+    if (r.adoptedNativeId) addOrcaDelegatedRef(out, r.adoptedNativeId, sid);
+    if (Array.isArray(rec?.providerHandleChain)) {
+      for (const link2 of rec.providerHandleChain) {
+        if (!link2?.handle) continue;
+        for (const candidate of extractDelegatedIdsFromObj(link2.handle)) {
+          addOrcaDelegatedRef(out, candidate, sid);
+        }
+      }
+    }
+  }
+  if (names.has("journal_items") && activeSids.size) {
+    const jiCols = await tableColumns(db, "journal_items");
+    const hasCodexCol = jiCols.has("codex_thread_id");
+    const hasTurnCol = jiCols.has("provider_turn_id");
+    const itemRows = await desktopQuery(
+      db,
+      `SELECT DISTINCT session_id AS sid, item_id AS itemId${hasCodexCol ? ", codex_thread_id AS codexThreadId" : ", '' AS codexThreadId"}${hasTurnCol ? ", provider_turn_id AS providerTurnId" : ", '' AS providerTurnId"}
+       FROM journal_items
+       WHERE ${hasCodexCol ? "codex_thread_id IS NOT NULL OR " : ""}${hasTurnCol ? "provider_turn_id LIKE 'p:%' OR " : ""}item_id LIKE 'claude:%' OR item_id LIKE 'codex:%' OR item_id LIKE 'legacy:%'`
+    );
+    for (const r of itemRows) {
+      const sid = String(r.sid || "").trim();
+      if (!sid || !activeSids.has(sid)) continue;
+      if (r.codexThreadId) addOrcaDelegatedRef(out, r.codexThreadId, sid);
+      if (r.providerTurnId) addOrcaDelegatedRef(out, r.providerTurnId, sid);
+      if (r.itemId) addOrcaDelegatedRef(out, r.itemId, sid);
     }
   }
   return out;
@@ -9428,6 +9633,63 @@ async function desktopSessions(db, agent, since) {
         archived,
         deletedAt,
         state: recentActive ? "run" : "",
+        out: 0,
+        fresh: 0,
+        cached: 0
+      };
+    }).filter((s) => s.deletedAt || s.updatedAt >= sinceMs);
+  }
+  if (agent === "orca") {
+    const sinceMs = Math.max(0, Math.floor(since || 0));
+    const tables = await desktopQuery(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('agent_session_records','journal_chat_state','journal_items')"
+    );
+    const names = new Set(tables.map((t2) => t2.name));
+    if (!names.has("agent_session_records")) return [];
+    const hasChatState = names.has("journal_chat_state");
+    const hasItems = names.has("journal_items");
+    const rows2 = await desktopQuery(
+      db,
+      `SELECT r.session_id AS sid, r.record_json AS recordJson
+        ${hasChatState ? ", cs.epoch AS epoch, COALESCE(cs.last_activity_at, 0) AS chatLastAt" : ", '' AS epoch, 0 AS chatLastAt"}
+        ${hasItems ? `,
+          COALESCE((SELECT COUNT(*) FROM journal_items ji WHERE ji.session_id = r.session_id ${hasChatState ? "AND (cs.epoch IS NULL OR ji.epoch = cs.epoch)" : ""} AND COALESCE(ji.hidden, 0) = 0 AND COALESCE(ji.root, 1) = 1 AND COALESCE(ji.subagent_row, 0) = 0), 0) AS msgCount,
+          COALESCE((SELECT MAX(MAX(COALESCE(ji.turn_completed_at, 0), COALESCE(CAST(json_extract(ji.payload_json, '$.observedAt') AS INTEGER), 0))) FROM journal_items ji WHERE ji.session_id = r.session_id ${hasChatState ? "AND (cs.epoch IS NULL OR ji.epoch = cs.epoch)" : ""} AND COALESCE(ji.hidden, 0) = 0), 0) AS lastItemAt,
+          COALESCE((SELECT MAX(CASE WHEN ji.live_work = 1 OR (ji.kind = 'turn' AND LOWER(COALESCE(ji.lifecycle_state, '')) IN ('running','queued','starting','preparing','waiting')) THEN 1 ELSE 0 END) FROM journal_items ji WHERE ji.session_id = r.session_id ${hasChatState ? "AND (cs.epoch IS NULL OR ji.epoch = cs.epoch)" : ""}), 0) AS hasLiveTurn,
+          COALESCE((SELECT json_extract(ji.payload_json, '$.body.outcome') FROM journal_items ji WHERE ji.session_id = r.session_id ${hasChatState ? "AND (cs.epoch IS NULL OR ji.epoch = cs.epoch)" : ""} AND ji.kind = 'turn' ORDER BY ji.ordinal DESC, ji.sequence DESC LIMIT 1), '') AS lastTurnOutcome,
+          COALESCE((SELECT json_extract(ji.payload_json, '$.body.contextUsage.used.model') FROM journal_items ji WHERE ji.session_id = r.session_id ${hasChatState ? "AND (cs.epoch IS NULL OR ji.epoch = cs.epoch)" : ""} AND COALESCE(json_extract(ji.payload_json, '$.body.contextUsage.used.model'), '') <> '' ORDER BY ji.ordinal DESC, ji.sequence DESC LIMIT 1), '') AS turnModel` : ", 0 AS msgCount, 0 AS lastItemAt, 0 AS hasLiveTurn, '' AS lastTurnOutcome, '' AS turnModel"}
+      FROM agent_session_records r
+      ${hasChatState ? "LEFT JOIN journal_chat_state cs ON cs.session_id = r.session_id" : ""}`
+    );
+    return rows2.map((s) => {
+      const rec = json(s.recordJson, {});
+      const startedAt = desktopTime(rec.createdAt);
+      const itemAt = desktopTime(s.lastItemAt);
+      const chatAt = desktopTime(s.chatLastAt);
+      const lastTurnAt = desktopTime(rec.lastTurn?.at);
+      const contentAt = Math.max(itemAt, chatAt, lastTurnAt, startedAt);
+      const updatedAt = Math.max(contentAt, desktopTime(rec.updatedAt) && !lastTurnAt && !itemAt ? desktopTime(rec.updatedAt) : 0, startedAt);
+      const archived = Boolean(rec.archivedAt || rec.archived);
+      const deletedAt = rec.deletedAt ? desktopTime(rec.deletedAt) || 1 : 0;
+      const lastTurnState = String(rec.lastTurn?.state || "").toLowerCase();
+      const outcome = String(s.lastTurnOutcome || rec.lastTurn?.outcome || "").toLowerCase();
+      const recentLive = Boolean(s.hasLiveTurn) || lastTurnState === "running";
+      const state = recentLive && Date.now() - Math.max(contentAt, desktopTime(rec.updatedAt)) <= TOOL_LOOP_IDLE_MIN * 6e4 ? "run" : outcome === "failure" || outcome === "error" ? "error" : "wait";
+      const model = String(rec.options?.model || s.turnModel || rec.provider || "").trim();
+      return {
+        sid: s.sid,
+        title: String(rec.conversationName || "").trim(),
+        cwd: orcaCwdFromRecord(rec),
+        parentSid: "",
+        model,
+        app: "desktop",
+        startedAt,
+        updatedAt,
+        revision: contentAt + (Number(s.msgCount) || 0) * 10 + (state === "run" ? 1 : 0) + (archived ? 1e6 : 0),
+        archived,
+        deletedAt,
+        state,
         out: 0,
         fresh: 0,
         cached: 0
@@ -10041,6 +10303,199 @@ async function desktopMessages(db, agent, sid) {
           fresh: a.fresh,
           cached: a.cached
         });
+      }
+    }
+    return out;
+  }
+  if (agent === "orca") {
+    const tables = await desktopQuery(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('agent_session_records','journal_chat_state','journal_items')"
+    );
+    const names = new Set(tables.map((t2) => t2.name));
+    if (!names.has("journal_items")) return [];
+    let sessModel = "";
+    let activeEpoch = "";
+    if (names.has("agent_session_records")) {
+      const rRows = await desktopQuery(db, `SELECT record_json AS recordJson FROM agent_session_records WHERE session_id = ${quote(sid)} LIMIT 1`);
+      if (rRows[0]) {
+        const rec = json(rRows[0].recordJson, {});
+        sessModel = String(rec.options?.model || rec.provider || "").trim();
+      }
+    }
+    if (names.has("journal_chat_state")) {
+      const csRows = await desktopQuery(db, `SELECT epoch FROM journal_chat_state WHERE session_id = ${quote(sid)} LIMIT 1`);
+      if (csRows[0]?.epoch) activeEpoch = String(csRows[0].epoch);
+    }
+    const conds = [
+      `session_id = ${quote(sid)}`,
+      "COALESCE(hidden, 0) = 0",
+      "COALESCE(root, 1) = 1",
+      "COALESCE(subagent_row, 0) = 0"
+    ];
+    if (activeEpoch) conds.push(`epoch = ${quote(activeEpoch)}`);
+    const rows2 = await desktopQuery(
+      db,
+      `SELECT item_id AS id, kind, message_role AS role, lifecycle_state AS lifecycleState, live_work AS liveWork, turn_completed_at AS turnCompletedAt, payload_json AS payloadJson
+       FROM journal_items WHERE ${conds.join(" AND ")} ORDER BY ordinal ASC, sequence ASC, sequence_index ASC`
+    );
+    if (!rows2.length) return [];
+    const turns = [];
+    const byTurnItemId = /* @__PURE__ */ new Map();
+    const ensureLastTurn = () => {
+      if (!turns.length) {
+        const t2 = { turnItemId: "", userMsg: null, assistants: [], lastTool: "", turnState: "", outcome: "", completedAt: 0, errorText: "", errorAt: 0, model: sessModel };
+        turns.push(t2);
+      }
+      return turns[turns.length - 1];
+    };
+    const resolveTurn = (payload) => {
+      const scopeTurnId = payload?.turnScope?.kind === "turn" ? String(payload.turnScope.turnItemId || "") : "";
+      if (scopeTurnId && byTurnItemId.has(scopeTurnId)) return byTurnItemId.get(scopeTurnId);
+      return ensureLastTurn();
+    };
+    for (const row of rows2) {
+      const payload = json(row.payloadJson, {});
+      const body = payload.body && typeof payload.body === "object" ? payload.body : payload;
+      const kind = String(row.kind || body.kind || "").toLowerCase();
+      const at = desktopTime(payload.observedAt || body.startedAt || body.requestedAt || row.turnCompletedAt);
+      if (kind === "message") {
+        const role = String(row.role || body.role || "").toLowerCase();
+        if (role === "user") {
+          if (body.origin === "automation-run") continue;
+          const text2 = extractOrcaMessageText(payload);
+          if (!text2) continue;
+          const t2 = {
+            turnItemId: "",
+            userMsg: {
+              id: row.id,
+              role: "user",
+              text: text2,
+              at,
+              end: 0,
+              updated: at,
+              state: "run",
+              step: "",
+              error: "",
+              model: sessModel,
+              out: 0,
+              fresh: 0,
+              cached: 0
+            },
+            assistants: [],
+            lastTool: "",
+            turnState: "",
+            outcome: "",
+            completedAt: 0,
+            errorText: "",
+            errorAt: 0,
+            model: sessModel
+          };
+          turns.push(t2);
+          continue;
+        }
+        if (role !== "assistant") continue;
+        const turn = resolveTurn(payload);
+        const blocks = Array.isArray(body.blocks) ? body.blocks : [];
+        for (const b of blocks) {
+          if (b?.type === "tool-call" && b.name) turn.lastTool = String(b.name).trim();
+        }
+        const text = extractOrcaMessageText(payload);
+        if (!text) continue;
+        turn.assistants.push({
+          id: row.id,
+          role: "assistant",
+          text,
+          at,
+          end: 0,
+          updated: at,
+          state: "wait",
+          step: "",
+          error: "",
+          model: turn.model || sessModel,
+          out: 0,
+          fresh: 0,
+          cached: 0
+        });
+        continue;
+      }
+      if (kind === "turn") {
+        const userItemId = String(body.userItemId || "");
+        let target = turns.find((t2) => !t2.turnItemId && t2.userMsg && (!userItemId || t2.userMsg.id === userItemId)) || ensureLastTurn();
+        target.turnItemId = row.id;
+        byTurnItemId.set(row.id, target);
+        target.turnState = String(row.lifecycleState || body.state || "").toLowerCase();
+        target.outcome = String(body.outcome || "").toLowerCase();
+        target.completedAt = desktopTime(row.turnCompletedAt || body.completedAt);
+        const ctxModel = String(body.contextUsage?.used?.model || "").trim();
+        if (ctxModel) target.model = ctxModel;
+        if (row.liveWork) target.turnState = "running";
+        continue;
+      }
+      if (kind === "tool-call") {
+        const turn = resolveTurn(payload);
+        if (body.name) turn.lastTool = String(body.name).trim();
+        continue;
+      }
+      if (kind === "status" && String(body.tone || "").toLowerCase() === "error") {
+        const turn = resolveTurn(payload);
+        const errText = String(body.text || "").trim().slice(0, 200);
+        if (errText) {
+          turn.errorText = errText;
+          turn.errorAt = at;
+        }
+      }
+    }
+    const out = [];
+    for (let ti = 0; ti < turns.length; ti++) {
+      const turn = turns[ti];
+      const isLastTurn = ti === turns.length - 1;
+      const isRunning = turn.turnState === "running";
+      const isFailed = turn.outcome === "failure" || turn.outcome === "error" || Boolean(turn.errorText);
+      if (turn.userMsg) {
+        if (!turn.assistants.length && isLastTurn && turn.lastTool) turn.userMsg.step = turn.lastTool;
+        if (!turn.assistants.length && !turn.errorText && !isRunning) {
+          turn.userMsg.state = isFailed ? "error" : "wait";
+          turn.userMsg.end = turn.completedAt || turn.userMsg.at;
+        }
+        out.push(turn.userMsg);
+      }
+      if (!turn.assistants.length) {
+        if (isLastTurn && isFailed && turn.errorText) {
+          out.push({
+            id: turn.userMsg ? `${turn.userMsg.id}-err` : `orca-err-${turn.errorAt || turn.completedAt || ti}`,
+            role: "assistant",
+            text: "",
+            at: turn.errorAt || turn.completedAt || (turn.userMsg?.at || 0),
+            end: turn.completedAt || turn.errorAt || 0,
+            updated: turn.completedAt || turn.errorAt || 0,
+            state: "error",
+            step: "",
+            error: turn.errorText,
+            model: turn.model || sessModel,
+            out: 0,
+            fresh: 0,
+            cached: 0
+          });
+        }
+        continue;
+      }
+      for (let ai = 0; ai < turn.assistants.length; ai++) {
+        const a = turn.assistants[ai];
+        const isLastAssistant = isLastTurn && ai === turn.assistants.length - 1;
+        a.model = a.model || turn.model || sessModel;
+        if (isLastAssistant) {
+          a.state = isRunning ? "run" : isFailed ? "error" : "wait";
+          a.error = isFailed ? turn.errorText : "";
+          a.step = isRunning ? turn.lastTool : "";
+          a.end = isRunning ? 0 : turn.completedAt || a.at;
+          a.updated = a.end || a.at;
+        } else {
+          a.state = "wait";
+          a.end = turn.completedAt || a.at;
+          a.updated = a.end || a.at;
+        }
+        out.push(a);
       }
     }
     return out;
@@ -11461,7 +11916,7 @@ function ingestAntigravityLine(ctx, line, fc, touched) {
     const mMod = /Model Selection` from `[^`]*` to `([^`]+)`/.exec(raw);
     if (mMod) fc.model = mMod[1];
     const text = cleanUserPrompt(raw);
-    const mPath = /@\[(\/[^\]]+)\]/.exec(text) || /(\/Users\/[^\s`"'<>)\]]+)/.exec(text);
+    const mPath = /@\[((?:[A-Za-z]:[\\/]|\/)[^\]]+)\]/.exec(text) || /((?:\/Users\/|[A-Za-z]:[\\/])[^\s`"'<>)\]]+)/.exec(text);
     if (mPath && !fc.cwd) {
       fc.cwd = ctx.inferWorkspaceRoot(mPath[1]);
     }
@@ -11498,7 +11953,7 @@ function ingestAntigravityLine(ctx, line, fc, touched) {
       for (const tc of tools) {
         const inp = unquoteArgs(tc.args);
         const p0 = inp.Path || inp.TargetFile || inp.SearchPath || inp.DirectoryPath || "";
-        if (p0 && typeof p0 === "string" && p0.startsWith("/") && (!fc.cwd || fc.cwd === "~") && !p0.includes("/.gemini/")) {
+        if (p0 && typeof p0 === "string" && (p0.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p0)) && (!fc.cwd || fc.cwd === "~") && !p0.replace(/\\/g, "/").includes("/.gemini/")) {
           fc.cwd = ctx.inferWorkspaceRoot(p0);
           s.cwd = fc.cwd;
           s.proj = ctx.projectName(fc.cwd);
@@ -12287,7 +12742,8 @@ function buildMuseConversation(rawText) {
 var import_fs9 = __toESM(require("fs"), 1);
 var import_path9 = __toESM(require("path"), 1);
 var import_os9 = __toESM(require("os"), 1);
-var expandHome2 = (p2, homeDir) => String(p2 || "").replace(/^~(?=\/)/, homeDir);
+var import_crypto3 = require("crypto");
+var expandHome2 = (p2, homeDir) => String(p2 || "").replace(/^~(?=[\\/])/, homeDir);
 function kimiCodeDataDirs(homeDir = import_os9.default.homedir(), env = process.env) {
   const dirs = [];
   const push = (p2) => {
@@ -12319,18 +12775,85 @@ function readJsonSafe(filePath) {
     return null;
   }
 }
+function statFileSafe(filePath) {
+  try {
+    const st = import_fs9.default.statSync(filePath);
+    return st.isFile() ? st : null;
+  } catch {
+    return null;
+  }
+}
+function resolveKimiWireFile(sessionDir) {
+  const candidates = [
+    import_path9.default.join(sessionDir, "agents", "main", "wire.jsonl"),
+    import_path9.default.join(sessionDir, "wire.jsonl")
+  ];
+  for (const p2 of candidates) {
+    const st = statFileSafe(p2);
+    if (st) return { wirePath: p2, wireStat: st };
+  }
+  const agentsDir = import_path9.default.join(sessionDir, "agents");
+  try {
+    const entries = import_fs9.default.readdirSync(agentsDir, { withFileTypes: true });
+    for (const ent of entries) {
+      if (!ent.isDirectory() || ent.name.startsWith(".")) continue;
+      const p2 = import_path9.default.join(agentsDir, ent.name, "wire.jsonl");
+      const st = statFileSafe(p2);
+      if (st) return { wirePath: p2, wireStat: st };
+    }
+  } catch {
+  }
+  return { wirePath: "", wireStat: null };
+}
+function resolveKimiMetaFile(sessionDir) {
+  const candidates = [
+    import_path9.default.join(sessionDir, "state.json"),
+    import_path9.default.join(sessionDir, "session-meta", "state.json"),
+    import_path9.default.join(sessionDir, "metadata.json")
+  ];
+  for (const p2 of candidates) {
+    const st = statFileSafe(p2);
+    if (st) return { metaPath: p2, metaStat: st };
+  }
+  return { metaPath: "", metaStat: null };
+}
+function resolveKimiSessionDirFromWire(filePath) {
+  const dir = import_path9.default.dirname(filePath);
+  const parent = import_path9.default.dirname(dir);
+  if (import_path9.default.basename(parent) === "agents") return import_path9.default.dirname(parent);
+  return dir;
+}
 function loadWorkspaceMap(baseDir) {
   const map = /* @__PURE__ */ new Map();
-  const data = readJsonSafe(import_path9.default.join(baseDir, "workspaces.json"));
-  const ws = data?.workspaces;
-  if (!ws || typeof ws !== "object") return map;
-  for (const [id, entry] of Object.entries(ws)) {
-    if (!entry || typeof entry !== "object") continue;
-    const dir = String(entry.path || entry.dir || entry.workdir || entry.root || "").trim();
-    if (dir) {
-      map.set(id, dir);
-      if (entry.hash) map.set(String(entry.hash), dir);
-      if (entry.id) map.set(String(entry.id), dir);
+  const projectsData = readJsonSafe(import_path9.default.join(baseDir, "projects.json"));
+  const projects = projectsData?.projects;
+  if (projects && typeof projects === "object") {
+    for (const [id, entry] of Object.entries(projects)) {
+      if (!entry || typeof entry !== "object") continue;
+      const dir = String(entry.root || entry.path || entry.dir || entry.workdir || "").trim();
+      if (dir) map.set(id, dir);
+    }
+  }
+  const wsData = readJsonSafe(import_path9.default.join(baseDir, "workspaces.json"));
+  const ws = wsData?.workspaces;
+  if (ws && typeof ws === "object") {
+    for (const [id, entry] of Object.entries(ws)) {
+      if (!entry || typeof entry !== "object") continue;
+      const dir = String(entry.path || entry.dir || entry.workdir || entry.root || "").trim();
+      if (dir) {
+        if (!map.has(id)) map.set(id, dir);
+        if (entry.hash && !map.has(String(entry.hash))) map.set(String(entry.hash), dir);
+        if (entry.id && !map.has(String(entry.id))) map.set(String(entry.id), dir);
+      }
+    }
+  }
+  const kimiJson = readJsonSafe(import_path9.default.join(baseDir, "kimi.json"));
+  if (Array.isArray(kimiJson?.work_dirs)) {
+    for (const entry of kimiJson.work_dirs) {
+      const dir = String(entry?.path || entry?.dir || "").trim();
+      if (!dir) continue;
+      const hash4 = (0, import_crypto3.createHash)("md5").update(dir).digest("hex");
+      if (!map.has(hash4)) map.set(hash4, dir);
     }
   }
   return map;
@@ -12397,25 +12920,15 @@ function discoverKimiCodeSessions(opts = {}) {
         if (!sEnt.isDirectory() || sEnt.name.startsWith(".")) continue;
         const sessionId = sEnt.name;
         const sessionDir = import_path9.default.join(wsDir, sessionId);
-        const wirePath = import_path9.default.join(sessionDir, "wire.jsonl");
-        const metaPath = import_path9.default.join(sessionDir, "session-meta", "state.json");
-        let wireStat = null;
-        try {
-          wireStat = import_fs9.default.statSync(wirePath);
-        } catch {
-        }
-        let metaStat = null;
-        try {
-          metaStat = import_fs9.default.statSync(metaPath);
-        } catch {
-        }
+        const { wirePath, wireStat } = resolveKimiWireFile(sessionDir);
+        const { metaPath, metaStat } = resolveKimiMetaFile(sessionDir);
         if (!wireStat && !metaStat) continue;
         const key = `${wsEnt.name}/${sessionId}`;
         if (seen.has(key)) continue;
         seen.add(key);
         const meta = metaStat ? readJsonSafe(metaPath) : null;
         const cwd = String(
-          meta?.workspaceDir || meta?.workdir || meta?.cwd || wsMap.get(wsEnt.name) || ""
+          meta?.workspaceDir || meta?.workdir || meta?.workDir || meta?.cwd || wsMap.get(wsEnt.name) || ""
         ).trim();
         const mtimeMs = Math.max(wireStat?.mtimeMs || 0, metaStat?.mtimeMs || 0);
         const size = (wireStat?.size || 0) + (metaStat?.size || 0);
@@ -12423,13 +12936,13 @@ function discoverKimiCodeSessions(opts = {}) {
           id: sessionId,
           wsHash: wsEnt.name,
           sessionDir,
-          wirePath: wireStat ? wirePath : "",
-          metaPath: metaStat ? metaPath : "",
+          wirePath,
+          metaPath,
           meta,
           cwd,
           mtimeMs,
           size,
-          app: baseDir.endsWith(".kimi-code") ? "desktop" : "cli"
+          app: /[\\/]\.kimi-code$/i.test(baseDir) ? "desktop" : "cli"
         });
       }
     }
@@ -12441,21 +12954,113 @@ function parseKimiCodeSession(wireText, meta = {}, fallback = {}) {
   const entries = [];
   const usages = [];
   const openSteps = /* @__PURE__ */ new Map();
+  let cliStepKey = "";
+  let cliStepSeq = 0;
   let startedAt = kimiCodeTime(meta?.createdAt || meta?.created_at);
   let lastAt = kimiCodeTime(meta?.updatedAt || meta?.updated_at);
   let model = String(meta?.model || meta?.modelAlias || "").trim();
   let title = String(meta?.title || "").trim();
   if (title === "New Session") title = "";
-  const isCustomTitle = Boolean(meta?.isCustomTitle && title);
-  let cwd = String(meta?.workspaceDir || meta?.workdir || meta?.cwd || fallback.cwd || "").trim();
+  const isCustomTitle = Boolean((meta?.isCustomTitle || meta?.titleKind === "custom") && title);
+  let cwd = String(meta?.workspaceDir || meta?.workdir || meta?.workDir || meta?.cwd || fallback.cwd || "").trim();
   let lastStep = "";
   let inTurn = false;
   let lastRole = "";
   let lineIdx = 0;
+  let lastAnonUsage = null;
   const touch = (at) => {
     if (!at) return;
     if (!startedAt || at < startedAt) startedAt = at;
     if (at > lastAt) lastAt = at;
+  };
+  const closeCliStep = () => {
+    if (!cliStepKey) return;
+    const step = openSteps.get(cliStepKey);
+    openSteps.delete(cliStepKey);
+    cliStepKey = "";
+    if (!step) return;
+    const text = step.texts.join("").trim();
+    if (text || step.tools.length) {
+      lastRole = "assistant";
+      entries.push({
+        id: `cli-${cliStepSeq}`,
+        role: "assistant",
+        at: step.at || lastAt,
+        text,
+        tools: step.tools,
+        finishReason: "stop"
+      });
+    }
+  };
+  const ensureCliStep = (at) => {
+    if (cliStepKey && openSteps.has(cliStepKey)) return openSteps.get(cliStepKey);
+    cliStepSeq += 1;
+    cliStepKey = `cli-step-${cliStepSeq}`;
+    const step = { at, texts: [], tools: [] };
+    openSteps.set(cliStepKey, step);
+    return step;
+  };
+  const handleLoopEvent = (ev, at) => {
+    if (!ev || typeof ev !== "object") return;
+    switch (ev.type) {
+      case "step.begin": {
+        if (ev.uuid) openSteps.set(ev.uuid, { at, texts: [], tools: [] });
+        inTurn = true;
+        break;
+      }
+      case "content.part": {
+        const step = ev.stepUuid ? openSteps.get(ev.stepUuid) : null;
+        const part = ev.part;
+        if (part && typeof part === "object" && part.type === "text" && typeof part.text === "string") {
+          if (step) step.texts.push(part.text);
+        }
+        break;
+      }
+      case "tool.call": {
+        const name = String(ev.name || "").trim();
+        if (name) {
+          lastStep = name;
+          const step = ev.stepUuid ? openSteps.get(ev.stepUuid) : null;
+          if (step) step.tools.push({ name, args: ev.args });
+        }
+        break;
+      }
+      case "step.end": {
+        const step = ev.uuid ? openSteps.get(ev.uuid) : null;
+        if (ev.uuid) openSteps.delete(ev.uuid);
+        const u = normalizeUsage(ev.usage);
+        if (u) {
+          const rec = {
+            id: String(ev.messageId || ev.uuid || `step-${lineIdx}`),
+            at,
+            model: String(ev.model || model || "").trim(),
+            ...u
+          };
+          if (lastAnonUsage && lastAnonUsage.idx === usages.length - 1 && lastAnonUsage.inp === u.inp && lastAnonUsage.cache === u.cache && lastAnonUsage.out === u.out && Math.abs((at || 0) - (lastAnonUsage.at || 0)) <= 2e3) {
+            usages[lastAnonUsage.idx] = rec;
+          } else {
+            usages.push(rec);
+          }
+          lastAnonUsage = null;
+        }
+        const text = step ? step.texts.join("").trim() : "";
+        const tools = step ? step.tools : [];
+        if (text || tools.length) {
+          lastRole = "assistant";
+          entries.push({
+            id: String(ev.messageId || ev.uuid || `a-${lineIdx}`),
+            role: "assistant",
+            at,
+            text,
+            tools,
+            finishReason: String(ev.finishReason || "")
+          });
+        }
+        break;
+      }
+      default:
+        break;
+    }
   };
   const lines = String(wireText || "").split(/\r?\n/);
   for (const raw of lines) {
@@ -12469,18 +13074,31 @@ function parseKimiCodeSession(wireText, meta = {}, fallback = {}) {
       continue;
     }
     if (!d || typeof d !== "object") continue;
-    const at = kimiCodeTime(d.time ?? d.timestamp ?? d.created_at ?? d.createdAt) || lastAt || startedAt;
+    let msgType = d.type;
+    let payload = d;
+    if (!msgType && d.message && typeof d.message === "object" && typeof d.message.type === "string") {
+      msgType = d.message.type;
+      payload = d.message.payload && typeof d.message.payload === "object" ? d.message.payload : d.message;
+    } else if (!msgType && typeof d.event === "string") {
+      msgType = d.event;
+      payload = d;
+    }
+    const at = kimiCodeTime(d.time ?? d.timestamp ?? d.created_at ?? d.createdAt ?? payload.time ?? payload.timestamp) || lastAt || startedAt;
     if (at) touch(at);
-    if (typeof d.model === "string" && d.model.trim()) model = d.model.trim();
-    if (typeof d.cwd === "string" && d.cwd.trim() && !cwd) cwd = d.cwd.trim();
-    switch (d.type) {
+    const evModel = typeof payload.model === "string" && payload.model.trim() ? payload.model.trim() : typeof payload.modelAlias === "string" && payload.modelAlias.trim() ? payload.modelAlias.trim() : typeof d.model === "string" && d.model.trim() ? d.model.trim() : typeof d.modelAlias === "string" && d.modelAlias.trim() ? d.modelAlias.trim() : "";
+    if (evModel) model = evModel;
+    const evCwd = typeof payload.cwd === "string" && payload.cwd.trim() ? payload.cwd.trim() : typeof d.cwd === "string" && d.cwd.trim() ? d.cwd.trim() : "";
+    if (evCwd && !cwd) cwd = evCwd;
+    switch (msgType) {
       case "metadata": {
-        const created = kimiCodeTime(d.created_at);
+        const created = kimiCodeTime(payload.created_at ?? d.created_at);
         if (created) touch(created);
         break;
       }
-      case "turn_begin": {
-        const text = typeof d.userInput === "string" ? d.userInput.trim() : extractKimiContentText(d.userInput);
+      case "turn_begin":
+      case "TurnBegin": {
+        const userInput = payload.user_input ?? payload.userInput ?? d.userInput ?? d.user_input;
+        const text = typeof userInput === "string" ? userInput.trim() : extractKimiContentText(userInput);
         inTurn = true;
         if (text) {
           lastRole = "user";
@@ -12489,8 +13107,8 @@ function parseKimiCodeSession(wireText, meta = {}, fallback = {}) {
         break;
       }
       case "turn.prompt": {
-        if (d.origin?.kind && d.origin.kind !== "user") break;
-        const text = extractKimiContentText(d.input);
+        if (payload.origin?.kind && payload.origin.kind !== "user") break;
+        const text = extractKimiContentText(payload.input);
         inTurn = true;
         if (text) {
           lastRole = "user";
@@ -12499,7 +13117,7 @@ function parseKimiCodeSession(wireText, meta = {}, fallback = {}) {
         break;
       }
       case "context.append_message": {
-        const m = d.message;
+        const m = payload.message;
         if (!m || typeof m !== "object") break;
         if (m.origin?.kind === "injection" || m.origin?.kind === "compaction_summary") break;
         const text = extractKimiContentText(m.content);
@@ -12516,70 +13134,80 @@ function parseKimiCodeSession(wireText, meta = {}, fallback = {}) {
         }
         break;
       }
-      case "step.begin": {
-        if (d.uuid) {
-          openSteps.set(d.uuid, { at, texts: [], tools: [] });
-        }
+      case "context.append_loop_event": {
+        handleLoopEvent(payload.event, at);
+        break;
+      }
+      case "context.clear": {
+        openSteps.clear();
+        cliStepKey = "";
+        inTurn = false;
+        break;
+      }
+      case "step.begin":
+      case "content.part":
+      case "tool.call":
+      case "step.end": {
+        handleLoopEvent(payload, at);
+        break;
+      }
+      case "StepBegin": {
+        closeCliStep();
         inTurn = true;
+        ensureCliStep(at);
         break;
       }
-      case "content.part": {
-        const step = d.stepUuid ? openSteps.get(d.stepUuid) : null;
-        const part = d.part;
-        if (part && typeof part === "object" && part.type === "text" && typeof part.text === "string") {
-          if (step) step.texts.push(part.text);
+      case "ContentPart": {
+        if (payload.type === "text" && typeof payload.text === "string") {
+          ensureCliStep(at).texts.push(payload.text);
         }
         break;
       }
-      case "tool.call": {
-        const name = String(d.name || "").trim();
+      case "ToolCall": {
+        const name = String(payload.function?.name || payload.name || "").trim();
         if (name) {
           lastStep = name;
-          const step = d.stepUuid ? openSteps.get(d.stepUuid) : null;
-          if (step) step.tools.push({ name, args: d.args });
+          let args = payload.args ?? payload.function?.arguments;
+          if (typeof args === "string") {
+            try {
+              args = JSON.parse(args);
+            } catch {
+            }
+          }
+          ensureCliStep(at).tools.push({ name, args });
         }
         break;
       }
-      case "step.end": {
-        const step = d.uuid ? openSteps.get(d.uuid) : null;
-        if (d.uuid) openSteps.delete(d.uuid);
-        const u = normalizeUsage(d.usage);
+      case "usage.record": {
+        const u = normalizeUsage(payload.usage);
         if (u) {
+          const hasId = Boolean(payload.messageId || payload.id);
           usages.push({
-            id: String(d.messageId || d.uuid || `step-${lineIdx}`),
+            id: String(payload.messageId || payload.id || `ur-${lineIdx}`),
             at,
-            model: String(d.model || model || "").trim(),
+            model: evModel || model || "",
             ...u
           });
-        }
-        const text = step ? step.texts.join("").trim() : "";
-        const tools = step ? step.tools : [];
-        if (text || tools.length) {
-          lastRole = "assistant";
-          entries.push({
-            id: String(d.messageId || d.uuid || `a-${lineIdx}`),
-            role: "assistant",
-            at,
-            text,
-            tools,
-            finishReason: String(d.finishReason || "")
-          });
+          lastAnonUsage = !hasId ? { idx: usages.length - 1, at, ...u } : null;
         }
         break;
       }
       case "turn.end":
-      case "turn_end": {
+      case "turn.ended":
+      case "turn_end":
+      case "TurnEnd": {
+        closeCliStep();
         inTurn = false;
         break;
       }
       case "status_update":
       case "StatusUpdate": {
-        const u = normalizeUsage(d.token_usage || d.usage);
+        const u = normalizeUsage(payload.token_usage || payload.usage);
         if (u) {
           usages.push({
-            id: `su-${lineIdx}`,
+            id: String(payload.message_id || `su-${lineIdx}`),
             at,
-            model: String(d.model || model || "").trim(),
+            model: evModel || model || "",
             ...u
           });
         }
@@ -12634,8 +13262,9 @@ function buildKimiCodeConversation(source) {
   } catch {
     return [];
   }
-  const sessionDir = import_path9.default.dirname(filePath);
-  const meta = readJsonSafe(import_path9.default.join(sessionDir, "session-meta", "state.json")) || {};
+  const sessionDir = resolveKimiSessionDirFromWire(filePath);
+  const { metaPath } = resolveKimiMetaFile(sessionDir);
+  const meta = (metaPath ? readJsonSafe(metaPath) : null) || {};
   const parsed = parseKimiCodeSession(wireText, meta);
   const out = [];
   for (const e of parsed.entries) {
@@ -13902,9 +14531,9 @@ function decompress(dat, buf) {
 // src/readers.js
 var import_zlib = __toESM(require("zlib"), 1);
 var import_util = require("util");
-var import_crypto3 = require("crypto");
+var import_crypto4 = require("crypto");
 var fsp2 = import_fs12.default.promises;
-var temporaryFile = (file) => `${file}.${(0, import_crypto3.randomUUID)()}.tmp`;
+var temporaryFile = (file) => `${file}.${(0, import_crypto4.randomUUID)()}.tmp`;
 function writeAtomicSync2(file, data) {
   const tmp = temporaryFile(file);
   try {
@@ -14050,7 +14679,7 @@ function cleanLive(v, now = Date.now()) {
   else v.quiet = false;
   return v;
 }
-var USAGE_CACHE_VERSION = 22;
+var USAGE_CACHE_VERSION = 23;
 var SUMMARY_VERSION = 3;
 function packDay(day) {
   return { ...day, sess: [...day.sess instanceof Map ? day.sess : /* @__PURE__ */ new Map()] };
@@ -14264,6 +14893,9 @@ var AgentUsage = class {
   }
   cindyOwnerOf(sid) {
     return this._specificOwnerOf(sid, "cindy");
+  }
+  orcaOwnerOf(sid) {
+    return this._specificOwnerOf(sid, "orca");
   }
   stale(agent, ms) {
     if (this.isPrimary(agent)) return false;
@@ -14496,21 +15128,22 @@ var AgentUsage = class {
     }
     for (const db of teleAgentDatabases()) dbs.push([db, "teleagent"]);
     for (const db of cindyDatabases()) dbs.push([db, "cindy"]);
+    for (const db of orcaDatabases()) dbs.push([db, "orca"]);
     return dbs;
   }
   async readDesktopDatabases({ floor, onlyAgent, strictSince, touched }) {
     const delegatedMaps = /* @__PURE__ */ new Map();
     const failedDelegators = /* @__PURE__ */ new Set();
-    for (const ownerAgent of ["t3code", "cindy"]) {
+    for (const ownerAgent of ["t3code", "cindy", "orca"]) {
       if ((!onlyAgent || onlyAgent === ownerAgent) && this.enabled(ownerAgent)) {
         delegatedMaps.set(ownerAgent, /* @__PURE__ */ new Map());
       }
     }
     for (const [db, agent] of this.desktopDatabases()) {
       if (!this.enabled(agent) || onlyAgent && agent !== onlyAgent || !import_fs12.default.existsSync(db)) continue;
-      if (agent === "t3code" || agent === "cindy") {
+      if (agent === "t3code" || agent === "cindy" || agent === "orca") {
         try {
-          const delegated = agent === "t3code" ? await t3CodeDelegatedSids(db) : await cindyDelegatedSids(db);
+          const delegated = agent === "t3code" ? await t3CodeDelegatedSids(db) : agent === "cindy" ? await cindyDelegatedSids(db) : await orcaDelegatedSids(db);
           const bucket = delegatedMaps.get(agent) || /* @__PURE__ */ new Map();
           for (const [k, v] of delegated) bucket.set(k, v);
           delegatedMaps.set(agent, bucket);
@@ -16460,6 +17093,26 @@ async function extractToolCallsFromDesktopDb(db, agent, sid) {
           calls.push({ title: name, kind: inferToolKind(name), rawInput: toRawInput(d?.input ?? d?.arguments ?? d), at: desktopTime(r.created) });
         }
       }
+    } else if (agent === "orca") {
+      const tables = await desktopQuery(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='journal_items'");
+      if (tables.length) {
+        const rows = await desktopQuery(db, `SELECT kind, message_role AS role, payload_json AS payload FROM journal_items WHERE session_id=${quote2(sid)} AND COALESCE(hidden,0)=0 AND COALESCE(root,1)=1 AND COALESCE(subagent_row,0)=0 AND (kind='tool-call' OR kind='message') ORDER BY ordinal, sequence, sequence_index`);
+        for (const r of rows) {
+          const p2 = parseJson(r.payload, {});
+          const body = p2?.body && typeof p2.body === "object" ? p2.body : p2;
+          const at = desktopTime(p2?.observedAt || body?.startedAt);
+          if (r.kind === "tool-call" || body?.kind === "tool-call") {
+            const name = body?.name || "tool";
+            calls.push({ title: name, kind: inferToolKind(name), rawInput: toRawInput(body?.input ?? body), at });
+          } else if (Array.isArray(body?.blocks)) {
+            for (const b of body.blocks) {
+              if (b?.type !== "tool-call") continue;
+              const name = b?.name || "tool";
+              calls.push({ title: name, kind: inferToolKind(name), rawInput: toRawInput(b?.input ?? b), at });
+            }
+          }
+        }
+      }
     } else if (agent === "opencode" || agent === "qwenwork" || agent === "teleagent") {
       const tables = await desktopQuery(db, "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('session_part','part')");
       const partTable = tables.some((x) => x.name === "session_part") ? "session_part" : tables.some((x) => x.name === "part") ? "part" : "";
@@ -16686,7 +17339,7 @@ async function runSecurityAudit(plugin, { days = 30, agent = "", ignoreTempNoise
     let calls = [];
     if (fc.path.includes("#")) {
       const db = fc.path.slice(0, fc.path.lastIndexOf("#"));
-      if (["cindy", "hermes", "minimax", "opencode", "qwenwork", "qoder", "t3code", "teleagent"].includes(fc.agent)) {
+      if (["cindy", "orca", "hermes", "minimax", "opencode", "qwenwork", "qoder", "t3code", "teleagent"].includes(fc.agent)) {
         calls = await extractToolCallsFromDesktopDb(db, fc.agent, fc.sid);
       }
     } else {
@@ -17256,25 +17909,25 @@ function buildDiagnosticReport({
 
 // src/note-updates.js
 var queues = /* @__PURE__ */ new WeakMap();
-function serializeNote(plugin, path28, task) {
+function serializeNote(plugin, path29, task) {
   let pending = queues.get(plugin);
   if (!pending) queues.set(plugin, pending = /* @__PURE__ */ new Map());
-  const next = (pending.get(path28) || Promise.resolve()).catch(() => {
+  const next = (pending.get(path29) || Promise.resolve()).catch(() => {
   }).then(task);
-  pending.set(path28, next);
+  pending.set(path29, next);
   return next.finally(() => {
-    if (pending.get(path28) === next) pending.delete(path28);
+    if (pending.get(path29) === next) pending.delete(path29);
   });
 }
-function updateNote(plugin, path28, transform) {
-  return serializeNote(plugin, path28, async () => {
-    while (!plugin._unloaded && plugin.viewForPath?.(path28)?.editor.cm?.composing) {
+function updateNote(plugin, path29, transform) {
+  return serializeNote(plugin, path29, async () => {
+    while (!plugin._unloaded && plugin.viewForPath?.(path29)?.editor.cm?.composing) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     if (plugin._unloaded) return;
-    const known = typeof plugin.app?.vault?.getAbstractFileByPath === "function" ? plugin.app.vault.getAbstractFileByPath(path28) : void 0;
+    const known = typeof plugin.app?.vault?.getAbstractFileByPath === "function" ? plugin.app.vault.getAbstractFileByPath(path29) : void 0;
     if (known === null) return;
-    const view2 = plugin.viewForPath?.(path28);
+    const view2 = plugin.viewForPath?.(path29);
     if (view2 && (!view2.getMode || view2.getMode() === "source")) {
       const before2 = view2.editor.getValue();
       const next2 = transform(before2);
@@ -17282,15 +17935,15 @@ function updateNote(plugin, path28, transform) {
       if (change) view2.editor.transaction({ changes: [change] });
       return;
     }
-    const file = plugin.app?.vault?.getAbstractFileByPath(path28);
+    const file = plugin.app?.vault?.getAbstractFileByPath(path29);
     if (file && plugin.app.vault.process) {
       await plugin.app.vault.process(file, transform);
       return;
     }
-    const before = plugin.readNote ? await plugin.readNote(path28) : await plugin.app.vault.read(file);
+    const before = plugin.readNote ? await plugin.readNote(path29) : await plugin.app.vault.read(file);
     const next = transform(before);
     if (next !== before) {
-      if (plugin.writeNote) await plugin.writeNote(path28, next);
+      if (plugin.writeNote) await plugin.writeNote(path29, next);
       else await plugin.app.vault.modify(file, next);
     }
   });
@@ -17298,7 +17951,7 @@ function updateNote(plugin, path28, transform) {
 
 // src/conversation.js
 var import_fs15 = __toESM(require("fs"), 1);
-var import_crypto4 = require("crypto");
+var import_crypto5 = require("crypto");
 var textOf = (content) => typeof content === "string" ? content : (Array.isArray(content) ? content : []).filter((b) => ["text", "input_text", "output_text"].includes(b?.type)).map((b) => b.text || "").join("\n");
 function conversationMessages(agent, source, transcriptText = "") {
   if (agent === "cursor") return buildCursorConversation(source, transcriptText);
@@ -17358,7 +18011,7 @@ async function readConversation(plugin, session, cache = /* @__PURE__ */ new Map
   const files = [...plugin.usage.files?.values() || []].filter((f) => f.sid === sid && f.agent === session.agent && !f.sub);
   const messages = [];
   for (const file of files) {
-    if (["opencode", "qoder", "hermes", "qwenwork", "minimax", "t3code", "cindy", "teleagent"].includes(session.agent) && file.path.includes("#")) {
+    if (["opencode", "qoder", "hermes", "qwenwork", "minimax", "t3code", "cindy", "orca", "teleagent"].includes(session.agent) && file.path.includes("#")) {
       const db = file.path.slice(0, file.path.lastIndexOf("#"));
       const rows = await desktopMessages(db, session.agent, sid);
       messages.push(...rows.filter((m) => m.text.trim()).map(({ role, text, at }) => ({ role, text, at })));
@@ -17535,7 +18188,7 @@ function conversationPath(session, messages = []) {
   const safeTitle = title.replace(/\.\.+/g, "-").replace(/[\\/:*?"<>|\[\]#^]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "\u5BF9\u8BDD";
   const sid = String(session?.sid || session?.sessionId || "unknown");
   const agent = String(session?.agent || "unknown").replace(/[^a-zA-Z0-9_-]/g, "_");
-  const hash4 = (0, import_crypto4.createHash)("sha256").update(`${agent}:${sid}`).digest("hex").slice(0, 8);
+  const hash4 = (0, import_crypto5.createHash)("sha256").update(`${agent}:${sid}`).digest("hex").slice(0, 8);
   return `Agent Deck/Conversations/${safeTitle}-${agent}-${hash4}.md`;
 }
 async function archiveConversation(plugin, session, { messages: suppliedMessages } = {}) {
@@ -17552,7 +18205,7 @@ async function archiveConversation(plugin, session, { messages: suppliedMessages
     });
   }
   const body = conversationMarkdown(session, messages);
-  const hash4 = (text) => (0, import_crypto4.createHash)("sha256").update(text).digest("hex");
+  const hash4 = (text) => (0, import_crypto5.createHash)("sha256").update(text).digest("hex");
   const content = `<!-- agent-deck-conversation sha256:${hash4(body)} -->
 ${body}
 <!-- /agent-deck-conversation -->`;
@@ -17585,13 +18238,13 @@ async function linkArchive(plugin, session, archivePath2, title = "") {
 }
 
 // src/delegation.js
-var import_crypto10 = require("crypto");
+var import_crypto11 = require("crypto");
 
 // src/skill-cards.js
 var import_fs16 = __toESM(require("fs"), 1);
 var import_os14 = __toESM(require("os"), 1);
 var import_path15 = __toESM(require("path"), 1);
-var import_crypto5 = require("crypto");
+var import_crypto6 = require("crypto");
 var SKILL_DIR = "\u6280\u80FD";
 function skillRoots(home7 = import_os14.default.homedir()) {
   return [import_path15.default.join(home7, ".config/skillshare/skills/data"), import_path15.default.join(home7, ".dsh/skills"), import_path15.default.join(home7, ".claude/skills")];
@@ -17658,7 +18311,7 @@ function scanSkills(roots = skillRoots()) {
   }
   return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
-var bodyHash = (text) => (0, import_crypto5.createHash)("sha256").update(String(text || "").replace(/^\n+/, "")).digest("hex").slice(0, 12);
+var bodyHash = (text) => (0, import_crypto6.createHash)("sha256").update(String(text || "").replace(/^\n+/, "")).digest("hex").slice(0, 12);
 function splitCard(raw) {
   const m = /^---\n([\s\S]*?)\n---\n?([\s\S]*)$/.exec(String(raw || ""));
   return m ? { fm: m[1], body: m[2], head: `---
@@ -17732,12 +18385,12 @@ function cardPathOf(text) {
 }
 
 // src/thread-replies.js
-var import_crypto6 = require("crypto");
+var import_crypto7 = require("crypto");
 var QUESTION_RE2 = /^(\s*)[-*+]\s+❓\s*(?:(?:第\s*(\d+)\s*轮|Round\s+(\d+)(?:\s*\([^)]*\))?)\s*[：:]?\s*)?(.*)$/i;
 var ANSWER_RE = /^(\s*)[-*+]\s+✍️\s*(?:(?:答|Answer)\s*[：:]?\s*)?(.*)$/i;
 var TURN_MARKER_RE = /\s*<!--\s*ad-turn:[^>]*-->\s*/g;
 var BLOCK_ID_TAIL_RE = /\s*\^[a-z0-9][a-z0-9-]*\s*$/i;
-var stableId = (prefix, seed) => `${prefix}-${(0, import_crypto6.createHash)("sha1").update(String(seed || "")).digest("hex").slice(0, 8)}`;
+var stableId = (prefix, seed) => `${prefix}-${(0, import_crypto7.createHash)("sha1").update(String(seed || "")).digest("hex").slice(0, 8)}`;
 var makeQuestionId = (seed = "") => stableId("ad-q", seed);
 var answerIdOf = (questionId = "") => stableId("ad-a", questionId || "reply");
 var clean = (text) => String(text || "").replace(TURN_MARKER_RE, " ").replace(BLOCK_ID_TAIL_RE, " ").replace(/\s+/g, " ").trim();
@@ -18011,7 +18664,7 @@ function stillPending(noteText = "", item = {}) {
 var import_fs21 = __toESM(require("fs"), 1);
 
 // src/background-output.js
-var import_crypto7 = require("crypto");
+var import_crypto8 = require("crypto");
 var BACKGROUND_INLINE_LIMIT = 500;
 function cleanBackgroundText(raw, job = {}) {
   const lines = String(raw || "").replace(/\r\n/g, "\n").split("\n");
@@ -18056,9 +18709,9 @@ async function saveBackgroundAnswer(plugin, job, round) {
   const title = cleanBackgroundText(job.name || "\u95EE\u7B54", job).split("\n")[0].replace(/^#+\s*/, "");
   const name = title.replace(/[\\/:*?"<>|\[\]#^]/g, "-").slice(0, 70) || "\u95EE\u7B54";
   const n = round.n || 1, files = job.backgroundFiles || (job.backgroundFiles = {}), prior = files[n];
-  const hash4 = (text) => (0, import_crypto7.createHash)("sha256").update(text).digest("hex");
+  const hash4 = (text) => (0, import_crypto8.createHash)("sha256").update(text).digest("hex");
   const suffix = hash4(job.sessionId || job.id).slice(0, 10);
-  const path28 = prior?.path || `Agent Deck/Answers/${name}-${suffix}-${n}.md`;
+  const path29 = prior?.path || `Agent Deck/Answers/${name}-${suffix}-${n}.md`;
   const body = `# ${title}
 
 ## \u95EE\u9898
@@ -18073,14 +18726,14 @@ ${reply}
   for (const folder of ["Agent Deck", "Agent Deck/Answers"]) await serializeNote(plugin, folder, async () => {
     if (!vault.getAbstractFileByPath(folder)) await vault.createFolder(folder);
   });
-  await serializeNote(plugin, path28, async () => vault.getAbstractFileByPath(path28) || await vault.create(path28, body));
-  await updateNote(plugin, path28, (current) => {
+  await serializeNote(plugin, path29, async () => vault.getAbstractFileByPath(path29) || await vault.create(path29, body));
+  await updateNote(plugin, path29, (current) => {
     if (current === body) return current;
     if (!prior || hash4(current) !== prior.hash) throw new Error(t("\u95EE\u7B54\u6587\u4EF6\u5DF2\u88AB\u624B\u52A8\u4FEE\u6539\uFF0C\u5DF2\u4FDD\u7559\u539F\u6587\uFF0C\u8BF7\u53E6\u5B58\u540E\u91CD\u8BD5"));
     return body;
   });
-  files[n] = { path: path28, hash: hash4(body) };
-  return `\u{1F4C4} [[${path28}|\u5B8C\u6574\u95EE\u7B54]]`;
+  files[n] = { path: path29, hash: hash4(body) };
+  return `\u{1F4C4} [[${path29}|\u5B8C\u6574\u95EE\u7B54]]`;
 }
 function clearBackgroundPending(text, job, round) {
   const markers = [sessionMarker("summary-pending", job.sessionId, round), `<!-- ad-summary-pending:${job.sessionId}:${round} -->`];
@@ -19054,7 +19707,7 @@ function agentModelUsageMap(plugin, agent) {
 function mentionSuggestions(plugin, query) {
   const parts = query.split("/"), agent = parts[0];
   const routable = routableAgents();
-  const alias = { codex: " gpt", dsh: " deepseek", hermes: " hermes-acp", minimax: " mcode mavis", t3code: " t3 t3-code" };
+  const alias = { codex: " gpt", dsh: " deepseek", hermes: " hermes-acp", minimax: " mcode mavis", t3code: " t3 t3-code", kimicode: " kimi kimi-code" };
   if (parts.length === 1) return routable.filter((id) => plugin.agentEnabled(id) && (id + " " + AGENTS[id].name + (alias[id] || "")).toLowerCase().includes(agent.toLowerCase())).map((id) => ({
     value: id,
     label: AGENTS[id].name,
@@ -19088,9 +19741,9 @@ function mentionSuggestions(plugin, query) {
 
 // src/teleagent-dispatch.js
 var import_node_child_process = require("node:child_process");
-var import_node_fs2 = __toESM(require("node:fs"), 1);
-var import_node_os2 = __toESM(require("node:os"), 1);
-var import_node_path2 = __toESM(require("node:path"), 1);
+var import_node_fs3 = __toESM(require("node:fs"), 1);
+var import_node_os3 = __toESM(require("node:os"), 1);
+var import_node_path3 = __toESM(require("node:path"), 1);
 var MAX_TEXT = 4e3;
 function normalizePayload(payload, options = {}) {
   const raw = payload || {};
@@ -19480,9 +20133,9 @@ async function dispatchTeleagentTask(payload, deps = {}) {
   }
   const normalized2 = normalizePayload(payload);
   if (!normalized2.ok) return { ok: false, stage: "input", error: normalized2.error };
-  const fsMod = deps.fs || import_node_fs2.default;
-  const pathMod3 = deps.path || import_node_path2.default;
-  const tmpBase = deps.tmpdir || import_node_os2.default.tmpdir();
+  const fsMod = deps.fs || import_node_fs3.default;
+  const pathMod3 = deps.path || import_node_path3.default;
+  const tmpBase = deps.tmpdir || import_node_os3.default.tmpdir();
   const spawnFn = deps.spawn || import_node_child_process.spawn;
   const timeoutMs = normalized2.payload.stepTimeoutMs * 3;
   let dir = "";
@@ -19551,9 +20204,9 @@ async function dispatchTeleagentTask(payload, deps = {}) {
 
 // src/teleagent-dispatch-linux.js
 var import_node_child_process2 = require("node:child_process");
-var import_node_fs3 = __toESM(require("node:fs"), 1);
-var import_node_os3 = __toESM(require("node:os"), 1);
-var import_node_path3 = __toESM(require("node:path"), 1);
+var import_node_fs4 = __toESM(require("node:fs"), 1);
+var import_node_os4 = __toESM(require("node:os"), 1);
+var import_node_path4 = __toESM(require("node:path"), 1);
 var TELEAGENT_MAIN_CLASS = "teleagent";
 var TELEAGENT_MAIN_TITLE = "TeleAgent \u661F\u8FB0\u8D85\u7EA7\u667A\u80FD\u4F53";
 var TELEAGENT_WINDOW_TITLE_RE = /TeleAgent/i;
@@ -19595,12 +20248,12 @@ function defaultRun(command, args, options = {}) {
   });
 }
 function findExecutable(name, env = process.env) {
-  const dirs = String(env && env.PATH || "").split(import_node_path3.default.delimiter).filter(Boolean);
+  const dirs = String(env && env.PATH || "").split(import_node_path4.default.delimiter).filter(Boolean);
   for (const dir of dirs) {
-    const candidate = import_node_path3.default.join(dir, name);
+    const candidate = import_node_path4.default.join(dir, name);
     try {
-      if (!import_node_fs3.default.statSync(candidate).isFile()) continue;
-      import_node_fs3.default.accessSync(candidate, import_node_fs3.default.constants.X_OK);
+      if (!import_node_fs4.default.statSync(candidate).isFile()) continue;
+      import_node_fs4.default.accessSync(candidate, import_node_fs4.default.constants.X_OK);
       return candidate;
     } catch {
     }
@@ -19719,8 +20372,8 @@ function resolveActivationHelper({ env = process.env, which = findExecutable, ex
   if (onPath) candidates.push(onPath);
   for (const candidate of candidates) {
     try {
-      if (!candidate || !import_node_fs3.default.statSync(candidate).isFile()) continue;
-      import_node_fs3.default.accessSync(candidate, import_node_fs3.default.constants.X_OK);
+      if (!candidate || !import_node_fs4.default.statSync(candidate).isFile()) continue;
+      import_node_fs4.default.accessSync(candidate, import_node_fs4.default.constants.X_OK);
       return candidate;
     } catch {
     }
@@ -19830,20 +20483,20 @@ function composerLooksFilled(before, after) {
   if (!total) return null;
   return changed / total > 2e-3;
 }
-async function captureWindowPpm(window2, { run = defaultRun, which = findExecutable, env = process.env, capture = null, tmpdir = import_node_os3.default.tmpdir() } = {}) {
+async function captureWindowPpm(window2, { run = defaultRun, which = findExecutable, env = process.env, capture = null, tmpdir = import_node_os4.default.tmpdir() } = {}) {
   if (typeof capture === "function") return capture(window2);
   const importBin = which("import", env);
   if (!importBin) return null;
-  const file = import_node_path3.default.join(tmpdir, `ad-teleagent-composer-${process.pid}-${Date.now()}.ppm`);
+  const file = import_node_path4.default.join(tmpdir, `ad-teleagent-composer-${process.pid}-${Date.now()}.ppm`);
   try {
     const shot = await run(importBin, ["-window", String(window2.id), file], { env, timeout: 1e4 });
     if (!shot.ok) return null;
-    return parsePpm(import_node_fs3.default.readFileSync(file));
+    return parsePpm(import_node_fs4.default.readFileSync(file));
   } catch {
     return null;
   } finally {
     try {
-      import_node_fs3.default.rmSync(file, { force: true });
+      import_node_fs4.default.rmSync(file, { force: true });
     } catch {
     }
   }
@@ -20563,7 +21216,7 @@ var HarnessPipeline = class {
 var import_fs20 = __toESM(require("fs"), 1);
 var import_path19 = __toESM(require("path"), 1);
 var import_os17 = __toESM(require("os"), 1);
-var import_crypto9 = require("crypto");
+var import_crypto10 = require("crypto");
 var import_child_process7 = require("child_process");
 
 // src/custom-acp.js
@@ -20714,9 +21367,9 @@ function syncCustomAcpRegistry(entries = []) {
 // src/codex-desktop.js
 var import_fs19 = __toESM(require("fs"), 1);
 var import_path18 = __toESM(require("path"), 1);
-var import_crypto8 = require("crypto");
+var import_crypto9 = require("crypto");
 var import_readline = require("readline");
-var taskHash = (text) => (0, import_crypto8.createHash)("sha1").update(String(text)).digest("hex");
+var taskHash = (text) => (0, import_crypto9.createHash)("sha1").update(String(text)).digest("hex");
 function codexDesktopBinary(configured) {
   if (configured) return configured;
   const bundled = ["/Applications/Codex.app/Contents/Resources/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"];
@@ -20934,13 +21587,19 @@ var AGENT_BINARY_SPECS = {
   },
   antigravity: {
     fallback: "agy",
-    candidates: () => [
-      "/Applications/Antigravity.app/Contents/Resources/app/bin/agy",
-      import_path19.default.join(home4(), "Applications/Antigravity.app/Contents/Resources/app/bin/agy"),
+    candidates: () => process.platform === "win32" ? [
+      import_path19.default.join(home4(), ".local", "bin", "agy.exe"),
+      import_path19.default.join(home4(), ".gemini", "antigravity-cli", "bin", "agy.exe"),
+      import_path19.default.join(process.env.LOCALAPPDATA || import_path19.default.join(home4(), "AppData", "Local"), "Programs", "antigravity-cli", "agy.exe"),
+      import_path19.default.join(home4(), ".npm-global", "bin", "agy.cmd")
+    ] : [
       import_path19.default.join(home4(), ".local/bin/agy"),
       import_path19.default.join(home4(), ".npm-global/bin/agy"),
       "/opt/homebrew/bin/agy",
-      "/usr/local/bin/agy"
+      "/usr/local/bin/agy",
+      "/Applications/Antigravity.app/Contents/Resources/bin/agy",
+      "/Applications/Antigravity.app/Contents/Resources/app/bin/agy",
+      import_path19.default.join(home4(), "Applications/Antigravity.app/Contents/Resources/app/bin/agy")
     ]
   },
   opencode: {
@@ -21028,6 +21687,24 @@ var AGENT_BINARY_SPECS = {
       import_path19.default.join(home4(), ".local/bin/t3"),
       "/opt/homebrew/bin/t3",
       "/usr/local/bin/t3"
+    ]
+  },
+  kimicode: {
+    fallback: "kimi",
+    altFallbacks: ["kimi-code"],
+    candidates: () => process.platform === "win32" ? [
+      import_path19.default.join(home4(), ".local", "bin", "kimi.exe"),
+      import_path19.default.join(home4(), ".local", "bin", "kimi.cmd"),
+      import_path19.default.join(home4(), ".local", "bin", "kimi-code.exe"),
+      import_path19.default.join(home4(), ".local", "bin", "kimi-code.cmd"),
+      import_path19.default.join(process.env.APPDATA || import_path19.default.join(home4(), "AppData", "Roaming"), "npm", "kimi.cmd")
+    ] : [
+      import_path19.default.join(home4(), ".local/bin/kimi"),
+      import_path19.default.join(home4(), ".local/bin/kimi-code"),
+      import_path19.default.join(home4(), ".npm-global/bin/kimi"),
+      import_path19.default.join(home4(), ".bun/bin/kimi"),
+      "/opt/homebrew/bin/kimi",
+      "/usr/local/bin/kimi"
     ]
   },
   claude: {
@@ -21281,10 +21958,72 @@ function readMacSystemProxyEnv() {
   cachedSystemProxyAt = now;
   return cachedSystemProxy;
 }
+function normalizeProxyUrl(addr, defaultScheme = "http") {
+  const clean2 = String(addr || "").trim();
+  if (!clean2) return "";
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(clean2)) return clean2;
+  return `${defaultScheme}://${clean2}`;
+}
+function parseWindowsRegProxy(text) {
+  const out = {};
+  if (!text || typeof text !== "string") return out;
+  const enableMatch = /^\s*ProxyEnable\s+REG_\w+\s+0x([0-9a-f]+)|\bProxyEnable\s+REG_\w+\s+(\d+)/im.exec(text);
+  const enabledHex = enableMatch?.[1];
+  const enabledDec = enableMatch?.[2];
+  const enabled = enabledHex ? parseInt(enabledHex, 16) === 1 : enabledDec ? Number(enabledDec) === 1 : false;
+  if (!enabled) return out;
+  const serverMatch = /^\s*ProxyServer\s+REG_\w+\s+(.+?)\s*$/im.exec(text);
+  const rawServer = serverMatch ? serverMatch[1].trim() : "";
+  if (!rawServer) return out;
+  if (rawServer.includes("=")) {
+    for (const part of rawServer.split(";")) {
+      const eq = part.indexOf("=");
+      if (eq < 0) continue;
+      const proto = part.slice(0, eq).trim().toLowerCase();
+      const addr = part.slice(eq + 1).trim();
+      if (!addr) continue;
+      if (proto === "http") out.HTTP_PROXY = out.http_proxy = normalizeProxyUrl(addr, "http");
+      else if (proto === "https") out.HTTPS_PROXY = out.https_proxy = normalizeProxyUrl(addr, "http");
+      else if (proto === "socks") out.ALL_PROXY = out.all_proxy = normalizeProxyUrl(addr, "socks5");
+    }
+  } else {
+    const url = normalizeProxyUrl(rawServer, "http");
+    out.HTTP_PROXY = out.http_proxy = url;
+    out.HTTPS_PROXY = out.https_proxy = url;
+  }
+  if (!Object.keys(out).length) return out;
+  const noProxy = /* @__PURE__ */ new Set();
+  const overrideMatch = /^\s*ProxyOverride\s+REG_\w+\s+(.+?)\s*$/im.exec(text);
+  if (overrideMatch) {
+    for (const item of overrideMatch[1].split(";").map((s) => s.trim()).filter(Boolean)) {
+      if (item.toLowerCase() !== "<local>") noProxy.add(item);
+    }
+  }
+  for (const base of ["127.0.0.1", "localhost", "::1"]) noProxy.add(base);
+  out.NO_PROXY = out.no_proxy = [...noProxy].join(",");
+  return out;
+}
+function readWindowsSystemProxyEnv() {
+  if (process.platform !== "win32") return {};
+  const now = Date.now();
+  if (cachedSystemProxy !== null && now - cachedSystemProxyAt < 6e4) return cachedSystemProxy;
+  try {
+    const raw = (0, import_child_process7.execFileSync)(
+      "reg",
+      ["query", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings"],
+      { encoding: "utf8", timeout: 500, windowsHide: true, stdio: ["ignore", "pipe", "ignore"] }
+    );
+    cachedSystemProxy = parseWindowsRegProxy(raw);
+  } catch {
+    cachedSystemProxy = {};
+  }
+  cachedSystemProxyAt = now;
+  return cachedSystemProxy;
+}
 function cleanEnv(extra = {}) {
   const proxyKeys = ["HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"];
   const hasExplicitProxy = proxyKeys.some((k) => Boolean(process.env[k]) || extra != null && Object.prototype.hasOwnProperty.call(extra, k));
-  const sysProxy = hasExplicitProxy ? {} : readMacSystemProxyEnv();
+  const sysProxy = hasExplicitProxy ? {} : process.platform === "win32" ? readWindowsSystemProxyEnv() : readMacSystemProxyEnv();
   const env = { ...sysProxy, ...process.env, ...extra };
   const sep = process.platform === "win32" ? ";" : ":";
   const base = cachedLoginShellPath ? `${env.PATH || ""}${sep}${cachedLoginShellPath}` : env.PATH || "";
@@ -21556,7 +22295,7 @@ var ClaudeRunner = class extends BaseRunner {
     return this.startHeadless({ cwd, common, prompt, bin });
   }
   startHeadless({ cwd, common, prompt, bin }) {
-    const sid = (0, import_crypto9.randomUUID)();
+    const sid = (0, import_crypto10.randomUUID)();
     const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
     this.job.command = redactSecrets(`${bin} ${args2.slice(0, -2).join(" ")} \u2026`);
     this.trace?.recordFrame("claude.headless_spawn", `${import_path19.default.basename(bin)} -p`);
@@ -21663,7 +22402,7 @@ var QoderRunner = class extends BaseRunner {
     const model = resolveCliModel(d.plugin, "qoder", rawModel);
     const effort = opts.effort || cfg.effort || "high";
     const perm = opts.permission || cfg.permission || "auto";
-    const sid = opts.sessionId || (0, import_crypto9.randomUUID)();
+    const sid = opts.sessionId || (0, import_crypto10.randomUUID)();
     this.sessionId = sid;
     if (opts.sessionId) this.job.sessionId = sid;
     this.job.cwd = cwd;
@@ -21749,6 +22488,16 @@ ${out}`.trim();
     this.d.refreshUI();
   }
 };
+function extractAcpText(content) {
+  if (!content) return "";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map((b) => extractAcpText(b)).join("");
+  if (typeof content === "object") {
+    if (typeof content.text === "string") return content.text;
+    if (typeof content.content === "string" || Array.isArray(content.content)) return extractAcpText(content.content);
+  }
+  return "";
+}
 var AcpRunner = class extends BaseRunner {
   constructor(delegator, job) {
     super(delegator, job);
@@ -21760,6 +22509,7 @@ var AcpRunner = class extends BaseRunner {
     this.assistantText = "";
     this.lastStep = "";
     this.sessionId = "";
+    this.stderrTail = "";
   }
   async start(opts) {
     var _a, _b, _c, _d;
@@ -21780,7 +22530,7 @@ var AcpRunner = class extends BaseRunner {
     const customEnv = cap.acpEnvRaw ? parseCustomAcpEnv(cap.acpEnvRaw) : {};
     this.job.command = redactSecrets([bin, ...spawnArgs].join(" "));
     this.trace?.recordFrame("acp.spawn", `${import_path19.default.basename(bin)} ${spawnArgs.join(" ")}`);
-    const child = spawnCli(bin, spawnArgs, { cwd, env: cleanEnv(customEnv), stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawnCli(bin, spawnArgs, { cwd, env: cleanEnv(customEnv), stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -21791,6 +22541,7 @@ var AcpRunner = class extends BaseRunner {
     child.stderr.on("data", (b) => {
       err2 += b.toString();
       if (err2.length > 4e3) err2 = err2.slice(-4e3);
+      this.stderrTail = err2;
       this.job.stderr = redactSecrets(err2.slice(-1e3));
     });
     child.on("error", (e) => {
@@ -21800,9 +22551,11 @@ var AcpRunner = class extends BaseRunner {
         this.fail(String(e && e.message || e));
       }
     });
-    child.on("exit", (code) => {
+    child.on("close", (code) => {
+      if (this.buf.trim()) this.onData("\n");
       if (this.finished) return;
-      this.fail(err2.trim() || t("{agent} ACP \u63D0\u524D\u9000\u51FA\uFF08{code}\uFF09", { agent: this.label, code }));
+      const detail = redactSecrets(err2.trim()).slice(-400);
+      this.fail(detail || t("{agent} ACP \u63D0\u524D\u9000\u51FA\uFF08{code}\uFF09", { agent: this.label, code }));
     });
     try {
       const init = await this.request("initialize", { protocolVersion: 1, clientCapabilities: {} }, 3e4);
@@ -21864,8 +22617,16 @@ var AcpRunner = class extends BaseRunner {
       if (this.finished) return false;
       (_d = this.job).conversation || (_d.conversation = []);
       this.job.conversation.push({ role: "user", text: opts.prompt, at: Date.now() });
+      this.job.step = t("\u7B49\u5F85\u56DE\u590D\u2026");
+      this.d.saveJobsSoon();
+      this.d.refreshUI();
       this.timer = setTimeout(() => this.fail(t("\u59D4\u6D3E\u8D85\u8FC7 30 \u5206\u949F\u6CA1\u6709\u7ED3\u675F")), 30 * 6e4);
-      this.request("session/prompt", { sessionId: this.sessionId, prompt: [{ type: "text", text: opts.prompt }] }, 31 * 6e4).then((r) => this.done(r)).catch((e) => this.fail(e && e.message || String(e)));
+      this.request("session/prompt", { sessionId: this.sessionId, prompt: [{ type: "text", text: opts.prompt }] }, 31 * 6e4).then((r) => this.done(r)).catch((e) => {
+        const msg = e && e.message || String(e);
+        const extra = this.stderrTail.trim();
+        const detail = extra && !msg.includes(extra.slice(-60)) ? `${msg} (${redactSecrets(extra).slice(-240)})` : msg;
+        this.fail(detail);
+      });
     } catch (e) {
       this.fail(e && e.message || String(e));
     }
@@ -21875,7 +22636,7 @@ var AcpRunner = class extends BaseRunner {
     this.buf += text;
     let at;
     while ((at = this.buf.indexOf("\n")) >= 0) {
-      const line = this.buf.slice(0, at).trim();
+      const line = this.buf.slice(0, at).replace(/^\uFEFF/, "").trim();
       this.buf = this.buf.slice(at + 1);
       if (!line) continue;
       let msg;
@@ -21907,14 +22668,17 @@ var AcpRunner = class extends BaseRunner {
       const u = params.update || {};
       const kind = u.sessionUpdate;
       if (kind === "agent_message_chunk" && !this.loadingSession) {
-        const t2 = u.content && u.content.text;
-        if (t2) {
-          this.assistantText += t2;
+        const text = extractAcpText(u.content);
+        if (text) {
+          this.assistantText += text;
           this.job.lastText = this.assistantText.slice(-2e3);
         }
       } else if (kind === "agent_thought_chunk") {
-        const t2 = u.content && u.content.text;
-        if (t2) this.job.thought = t2.slice(-500);
+        const text = extractAcpText(u.content);
+        if (text) {
+          this.job.thought = text.slice(-500);
+          if (!this.lastStep) this.job.step = t("\u601D\u8003\u4E2D\u2026");
+        }
       } else if (kind === "tool_call" || kind === "tool_call_update") {
         const name = u.title || u.kind || u.toolName || "tool";
         this.lastStep = truncate(name, 40);
@@ -22001,7 +22765,9 @@ var AcpRunner = class extends BaseRunner {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         this.trace?.recordFrame("acp.rpc_timeout", `${method} (${timeout}ms)`);
-        reject(new Error(t("{method} \u8D85\u65F6", { method })));
+        const base = t("{method} \u8D85\u65F6", { method });
+        const extra = this.stderrTail?.trim();
+        reject(new Error(extra ? `${base}: ${redactSecrets(extra).slice(-240)}` : base));
       }, timeout);
       this.pending.set(id, { resolve, reject, timer });
       this.send({ jsonrpc: "2.0", id, method, params });
@@ -22031,6 +22797,10 @@ var AcpRunner = class extends BaseRunner {
     this.permissionModals?.clear?.();
     this.clearPending();
     this.job.stopReason = result && result.stopReason || "";
+    if (!this.assistantText && result && typeof result === "object") {
+      const fallback = extractAcpText(result.content ?? result.output ?? result.text ?? result.reply);
+      if (fallback) this.assistantText = fallback;
+    }
     this._recordAssistantText(this.assistantText);
   }
   onAfterDone() {
@@ -22332,6 +23102,7 @@ var AGENT_APPS = {
   grokbot: { bundle: "com.anysphere.sand", url: "grokbot://" },
   t3code: { bundle: "com.t3tools.t3code", url: "t3code://" },
   cindy: { bundle: "com.xd.cindycn", fallbackBundles: ["com.xd.cindy"], url: "cindy://" },
+  orca: { bundle: "com.stablyai.orca", url: "orca://" },
   muse: { bundle: "com.meta.endo", url: "hatch://" },
   kimicode: { bundle: "com.kimi.code.desktop", url: "kimi-code://" },
   doubaowork: { bundle: "com.work.pc.doubao", url: "doubaowork://" },
@@ -22398,7 +23169,7 @@ function openSession(plugin, agent, sid, app = "", session = null) {
     });
     return true;
   }
-  if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "teleagent"].includes(agent)) {
+  if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "teleagent", "orca"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = session && session.cwd || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
       return focusOrResume(plugin, agent, sid, `${shellQuote2(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote2(sid)}`, cwd);
@@ -22604,7 +23375,7 @@ ${replyText}`;
       const next = raw.replace(/^status: .*$/m, "status: dispatched").replace(/^(created: .+)$/m, `$1
 dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
       if (next !== raw) await this.plugin.app.vault.modify(file, next);
-      const hash4 = (0, import_crypto10.createHash)("sha256").update(next).digest("hex").slice(0, 16);
+      const hash4 = (0, import_crypto11.createHash)("sha256").update(next).digest("hex").slice(0, 16);
       if (resolved?.file?.path) {
         await updateNote(this.plugin, resolved.file.path, (text) => {
           const lines = text.split("\n");
@@ -22685,7 +23456,7 @@ dispatched: ${(/* @__PURE__ */ new Date()).toISOString()}`);
         lines.splice(at + 1, 0, draft ? `${indent}- \u{1F4DD} [[${relPath}|${t("\u6D3E\u53D1\u8349\u7A3F")}]]` : `${indent}- \u{1F4C4} [[${relPath}|${t("\u672C\u6B21\u8F7D\u8377")}]]`);
         return lines.join("\n");
       });
-      return { path: relPath, abs: import_path20.default.join(this.vaultPath, relPath), hash: (0, import_crypto10.createHash)("sha256").update(head).digest("hex").slice(0, 16) };
+      return { path: relPath, abs: import_path20.default.join(this.vaultPath, relPath), hash: (0, import_crypto11.createHash)("sha256").update(head).digest("hex").slice(0, 16) };
     } catch (e) {
       console.error("[agent-deck] \u5199\u5165\u6D3E\u53D1\u8F7D\u8377\u5931\u8D25", e);
       return null;
@@ -23154,10 +23925,10 @@ ${source}`;
   }
   async writeLink(job, sid) {
     if (!this.C.writeLink) return;
-    const path28 = job.path;
+    const path29 = job.path;
     const existing = job.blockId || blockIdOf(job.lineText);
     const blockId = existing || (this.plugin.taskBlockId ? await this.plugin.taskBlockId(sid, job.agent, job.name) : makeBlockId(sid, job.agent, job.name));
-    await updateNote(this.plugin, path28, (text) => {
+    await updateNote(this.plugin, path29, (text) => {
       const lines = text.split("\n");
       let at = job.blockId ? lines.findIndex((l) => blockIdOf(l) === job.blockId) : -1;
       if (at < 0) at = lines.findIndex((l) => l === job.lineText);
@@ -23462,11 +24233,14 @@ var doubaowork_default = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACA
 // assets/agents/gemini.png
 var gemini_default = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAEBUlEQVR42u2cXVIaQRSF3YcPrMMtsAB9kmj+JIn5MUICzOArxRrcDUvgSQfE/1TxCgvo9B0GpChAkAFm+n5f1anK8znHAN339s4OAAAAAAAAAAAAAAAAAAAAAAAAAABAmnl38W9XhBN6C+CJcEJvAdpHVjihFBu+Obp4NjihtgDPFEB7AY4pgF6OKYDq8DPDAry3/8YRfQWoR+FbPdVxRF8BelH45kP1qYcjyhgLPxSOqCvAS/gUQF/4+fHwPw6Uxxkl2NCDifCtHgOc0VOAyfDNJyuc0RF+dlr4kbI45H4BGjPCN5+rjw0ccpw54YfCIbfDL8wLX3RSfSjglLsF6L8SvjnxH/o45Wb4+wuEHyrvP+zjmHMFeGwtGL6ohWNuhX+4RPihvvj3hzjnCDb07pLhi7o450b4tTeEH+qrf1/DwXSHv7dC+KG++fd7OJneAjRXDN/qromT6Qz/MobwQ536d5c4mq7wizGGb069UEWcTUf4uTWEb76Hus3hcLLDP1hj+KF+eLcHOK3vL38Y/lD8T6DgM39W+ObnQHwncPDb/qLhW3XML6/Dr4MtH/I0txj+QJVO86zS4bBow+HXYjjhiyN8czbSDcfG6ya61esmMHzze6DueeWGW8T4gw+HOVpvuNLdZPjm/EWtQqXNUEkMwRcWHONKUvjGhj9Uv1hpM2O4DNHcfuO16d0UhG+KQ5Xb5k+51bBi72Aa0a5eMGtjx4HwR/o7UGClcxcxepmjPrGfbxSFH6oUKghVLgc9q7qVGy+VRC9wetE7fGb4GtfxmAh/FP5IlZLo2nhj8kvXbSvPL13tpq4AR2EBCH+F8KMCXHnVNBVg/uf9c0be5JFnWQh/FH7Phl+3oet8rEoeZ5D9fEXhB1Y8SDHjmDcrW7oOht+w4mfgMsiipuzqpTj8vg2fg6BVkV09WddKUfgtK46C40bWtWRjJ8Hhd624DFo3srGTwPC5Dt4ksrEjSxsJCL9pw2cgZFvI0sYWw2ckLBEl8O6KWwifodAkIUsbGwyfsfAkIksbGwifxZCElyDHX75yZGmDz3zlyNIG3/a1l2CwtLHy73ycTCmysRPDCR+HPOkuwU2N413lRBs7S1/s4JwjyLrWG650udVzrAStZe7zccwxZFdviUkehjkcLUF/kTEunHIUWdRcYICTGT6nS/DK9C4OOU60pTtzdBuH3C9Ads7SBnP7Gpi1sYMzegoQTFvXwhk9BchPWdRkV08Tk1u6OKKwAGUKoJfoWZbRfj6O6CtAfexljjqO6CtAZuxZlgyOKGT4Jg9OKMWjABSAAigvgE8B9BI9wtjGCb0FkBc4PZxQW4CrXWde4AQAAAAAAAAAAAAAAAAAAAAAAAAAAL38BzHpkKpYP44/AAAAAElFTkSuQmCC";
 
+// assets/agents/orca.png
+var orca_default = "data:image/png;base64,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";
+
 // assets/agents/teleagent.png
 var teleagent_default = "data:image/png;base64,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";
 
 // src/agent-assets.js
-var AGENT_IMAGES = { claude: claude_default, codex: codex_default, workbuddy: workbuddy_default, dsh: dsh_default, antigravity: antigravity_default, opencode: opencode_default, qoder: qoder_default, hermes: hermes_default, minimax: minimax_default, qwenwork: qwenwork_default, cursor: cursor_default, grokbot: grokbot_default, t3code: t3code_default, cindy: cindy_default, muse: muse_default, kimicode: kimicode_default, doubaowork: doubaowork_default, gemini: gemini_default, teleagent: teleagent_default };
+var AGENT_IMAGES = { claude: claude_default, codex: codex_default, workbuddy: workbuddy_default, dsh: dsh_default, antigravity: antigravity_default, opencode: opencode_default, qoder: qoder_default, hermes: hermes_default, minimax: minimax_default, qwenwork: qwenwork_default, cursor: cursor_default, grokbot: grokbot_default, t3code: t3code_default, cindy: cindy_default, muse: muse_default, kimicode: kimicode_default, doubaowork: doubaowork_default, gemini: gemini_default, orca: orca_default, teleagent: teleagent_default };
 function agentImageBuffer(id) {
   const uri = AGENT_IMAGES[id];
   if (!uri) return null;
@@ -23489,7 +24263,8 @@ var AGENT_ICONS = {
   muse: "sparkles",
   kimicode: "code-2",
   doubaowork: "briefcase",
-  gemini: "sparkles"
+  gemini: "sparkles",
+  orca: "layers"
 };
 var STATE_ICONS = {
   run: "loader-circle",
@@ -24267,8 +25042,8 @@ var ViewToggleWidget = class extends import_view2.WidgetType {
       };
       if (this.plugin.openRecordViewMenu) {
         const info = view2.state.field?.(this.plugin.editorInfoField, false);
-        const path28 = info?.file?.path || "";
-        this.plugin.openRecordViewMenu(e, { path: path28, line: this.line, key: this.key, viewMode: this.viewMode, onSelect: select });
+        const path29 = info?.file?.path || "";
+        this.plugin.openRecordViewMenu(e, { path: path29, line: this.line, key: this.key, viewMode: this.viewMode, onSelect: select });
       } else {
         select(this.viewMode === "table" ? "outline" : "table");
       }
@@ -25993,7 +26768,7 @@ function isTerminalWorkerState(state = "") {
 }
 function createWorkbenchWave({
   id = "",
-  path: path28 = "",
+  path: path29 = "",
   parentBlockId = "",
   parentTitle = "",
   projectName: projectName2 = "",
@@ -26006,7 +26781,7 @@ function createWorkbenchWave({
   const now = Date.now();
   return {
     id: id || `wave-${now.toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
-    path: String(path28 || ""),
+    path: String(path29 || ""),
     parentBlockId: String(parentBlockId || ""),
     parentTitle: String(parentTitle || ""),
     projectName: String(projectName2 || ""),
@@ -26308,9 +27083,9 @@ function appendSubtasksToParentBlock(text = "", { parentBlockId = "", parentTitl
   lines.splice(insertAt, 0, ...inserted);
   return { text: lines.join("\n"), parentLine, addedLines };
 }
-function findActiveWaveForBoard(waves = {}, { path: path28 = "", parentBlockId = "", parentTitle = "" } = {}) {
+function findActiveWaveForBoard(waves = {}, { path: path29 = "", parentBlockId = "", parentTitle = "" } = {}) {
   const candidates = Object.values(waves || {}).filter((w) => {
-    if (!w || path28 && w.path !== path28) return false;
+    if (!w || path29 && w.path !== path29) return false;
     if (!["waiting", "running", "error"].includes(w.state)) return false;
     if (parentBlockId && w.parentBlockId && w.parentBlockId === parentBlockId) return true;
     if (parentTitle && w.parentTitle && cleanBoardCardTitle(w.parentTitle) === cleanBoardCardTitle(parentTitle)) return true;
@@ -28412,19 +29187,19 @@ function dndHandlers(plugin) {
       const sel = view2.state.selection.main;
       if (sel.empty) return false;
       const info = view2.state.field(plugin.editorInfoField, false);
-      const path28 = info && info.file && info.file.path;
-      if (!path28) return false;
+      const path29 = info && info.file && info.file.path;
+      if (!path29) return false;
       const n = view2.state.doc.lineAt(sel.from).number - 1;
-      plugin.noteDragItem({ path: path28, line: n, lineText: view2.state.doc.line(n + 1).text });
+      plugin.noteDragItem({ path: path29, line: n, lineText: view2.state.doc.line(n + 1).text });
       return false;
     }
   }));
 }
 var GripWidget = class extends import_view4.WidgetType {
-  constructor(plugin, path28, line, text) {
+  constructor(plugin, path29, line, text) {
     super();
     this.plugin = plugin;
-    this.path = path28;
+    this.path = path29;
     this.line = line;
     this.text = text;
   }
@@ -28477,10 +29252,10 @@ function sigFor(x) {
   return [x.kind, x.job && x.job.id, x.job && x.job.state, s && s.sid, s && s.state, s && s.step, s && s.turns, s && s.tokens, td && `${td.done}/${td.total}:${td.cur || ""}`, x.todo && `${x.todo.done}/${x.todo.total}`].join("|");
 }
 var PillWidget = class extends import_view4.WidgetType {
-  constructor(plugin, path28, line, info) {
+  constructor(plugin, path29, line, info) {
     super();
     this.plugin = plugin;
-    this.path = path28;
+    this.path = path29;
     this.line = line;
     this.info = info;
     this.sig = sigFor(info);
@@ -28731,10 +29506,10 @@ function paintLineProgress(el, info) {
   }
 }
 var LineProgressWidget = class extends import_view4.WidgetType {
-  constructor(plugin, path28, line, info) {
+  constructor(plugin, path29, line, info) {
     super();
     this.plugin = plugin;
-    this.path = path28;
+    this.path = path29;
     this.line = line;
     this.info = info;
     this.sig = JSON.stringify(info);
@@ -28801,10 +29576,10 @@ function saidHandlers(plugin) {
 function buildDecorations(view2, plugin) {
   const builder = new import_state3.RangeSetBuilder();
   const info = view2.state.field(plugin.editorInfoField, false);
-  const path28 = info && info.file && info.file.path;
-  if (!path28 || !plugin.settings.showEditorPills) return builder.finish();
+  const path29 = info && info.file && info.file.path;
+  if (!path29 || !plugin.settings.showEditorPills) return builder.finish();
   const doc = view2.state.doc;
-  const map = plugin.lineMap(path28, doc);
+  const map = plugin.lineMap(path29, doc);
   const seen = /* @__PURE__ */ new Set();
   const sel = view2.state.selection.main;
   const cursorLine = plugin._lastEditor === view2 && sel.empty ? doc.lineAt(sel.head).number - 1 : -1;
@@ -28816,7 +29591,7 @@ function buildDecorations(view2, plugin) {
       if (!seen.has(n)) {
         seen.add(n);
         const text = line.text;
-        const job = plugin.jobAtLine(path28, n, text);
+        const job = plugin.jobAtLine(path29, n, text);
         const session = map.sessionByParent.get(n) || null;
         if ((session || job?.sessionId) && plugin.nautilusOwnsLine(text, session || { sid: job.sessionId }, job?.destination !== "background")) {
           if (line.to >= to) break;
@@ -28843,13 +29618,13 @@ function buildDecorations(view2, plugin) {
           builder.add(line.from, line.from, import_view4.Decoration.line({ class: "ad-said" }));
         }
         if (prog) {
-          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new LineProgressWidget(plugin, path28, n, prog), side: 1, block: false }));
+          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new LineProgressWidget(plugin, path29, n, prog), side: 1, block: false }));
         } else if (state && !isDoneLine(text)) {
-          const widget = new PillWidget(plugin, path28, n, state);
+          const widget = new PillWidget(plugin, path29, n, state);
           builder.add(line.to, line.to, import_view4.Decoration.widget({ widget, side: 1, block: false }));
         }
         if (n === cursorLine && plugin.settings.dragGrip !== false && text.trim() && !/^\s*<!--/.test(text)) {
-          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new GripWidget(plugin, path28, n, text), side: 1, block: false }));
+          builder.add(line.to, line.to, import_view4.Decoration.widget({ widget: new GripWidget(plugin, path29, n, text), side: 1, block: false }));
         }
       }
       if (line.to >= to) break;
@@ -28931,8 +29706,8 @@ function resolveListItemFromElement(lineEl, plugin, findView = import_view4.Edit
   const view2 = cmEl ? findView?.(cmEl) : null;
   if (!view2?.state?.doc || typeof view2.posAtDOM !== "function") return null;
   const info = view2.state.field?.(plugin.editorInfoField, false);
-  const path28 = info?.file?.path;
-  if (!path28) return null;
+  const path29 = info?.file?.path;
+  if (!path29) return null;
   let pos = null;
   try {
     pos = view2.posAtDOM(lineEl, 0);
@@ -28942,7 +29717,7 @@ function resolveListItemFromElement(lineEl, plugin, findView = import_view4.Edit
   if (pos == null) return null;
   const docLine = view2.state.doc.lineAt(pos);
   if (!docLine || !SIMPLE_BULLET_RE.test(docLine.text)) return null;
-  return { path: path28, line: docLine.number - 1, lineText: docLine.text, view: view2 };
+  return { path: path29, line: docLine.number - 1, lineText: docLine.text, view: view2 };
 }
 function installListDragBridge(plugin, {
   doc = globalThis.document,
@@ -30516,8 +31291,8 @@ function dateKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 var isoDay = (key) => String(key).replace(/^(\d{4})\D(\d{2})\D(\d{2})$/, "$1-$2-$3");
-function dayFromNotePath(path28 = "") {
-  const m = /(\d{4})[-_/](\d{2})[-_/](\d{2})/.exec(String(path28 || ""));
+function dayFromNotePath(path29 = "") {
+  const m = /(\d{4})[-_/](\d{2})[-_/](\d{2})/.exec(String(path29 || ""));
   return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
 }
 function shiftDay(key, n) {
@@ -30527,7 +31302,7 @@ function shiftDay(key, n) {
 function heatLevel(tokens, max) {
   return tokens > 0 ? Math.max(1, Math.min(4, Math.ceil(4 * Math.sqrt(tokens / Math.max(1, max))))) : 0;
 }
-function journalSources(text, path28, { autoState = null } = {}) {
+function journalSources(text, path29, { autoState = null } = {}) {
   const lines = text.split("\n"), fenced = fencedLines(lines), owners = ownersOf(lines, fenced), out = [];
   const seen = /* @__PURE__ */ new Set();
   const collectBlock = (owner) => {
@@ -30536,7 +31311,7 @@ function journalSources(text, path28, { autoState = null } = {}) {
     const end = subtreeEnd(lines, owner);
     const own = lines.slice(owner, end).filter((_, n) => !fenced.has(owner + n) && (n === 0 || owners[owner + n] === owner));
     return {
-      path: path28,
+      path: path29,
       line: owner,
       blockId: blockIdOf(lines[owner]),
       title: lines[owner].replace(/^\s*[-*+]\s+/, "").replace(/\s+\^[a-z0-9-]+$/i, "").trim(),
@@ -31011,7 +31786,7 @@ var DashboardData = class {
     if (p2.settings.doneArchivePath) paths.add(p2.settings.doneArchivePath);
     const sources = /* @__PURE__ */ new Map();
     let unreadable = 0;
-    const files = [...paths].map((path28) => vault.getAbstractFileByPath(path28)).filter((f) => f?.extension === "md");
+    const files = [...paths].map((path29) => vault.getAbstractFileByPath(path29)).filter((f) => f?.extension === "md");
     for (let i = 0; i < files.length; i += 6) {
       await Promise.all(files.slice(i, i + 6).map(async (file) => {
         try {
@@ -31038,7 +31813,7 @@ var DashboardData = class {
       }));
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
-    for (const path28 of this.cache.keys()) if (!paths.has(path28)) this.cache.delete(path28);
+    for (const path29 of this.cache.keys()) if (!paths.has(path29)) this.cache.delete(path29);
     const pages = vault.getMarkdownFiles().filter((f) => !paths.has(f.path) && !f.path.startsWith("Agent Deck/Conversations/") && !/^\d{4}[-_/]\d{2}[-_/]\d{2}$/.test(f.basename)).map((file) => {
       const aliases = metadata.getFileCache(file)?.frontmatter?.aliases;
       return { path: file.path, name: file.basename, aliases: typeof aliases === "string" ? [aliases] : Array.isArray(aliases) ? aliases.filter((a) => typeof a === "string") : [] };
@@ -31877,14 +32652,14 @@ var obsidianNs = __toESM(require("obsidian"), 1);
 var import_obsidian7 = require("obsidian");
 
 // src/dream-entries.js
-var import_crypto11 = require("crypto");
+var import_crypto12 = require("crypto");
 var MEMORY_LABELS = {
   fact: "\u4E8B\u5B9E",
   preference: "\u504F\u597D",
   pattern: "\u5F85\u9A8C\u8BC1\u89C4\u5F8B",
   lesson: "\u9879\u76EE\u7ECF\u9A8C"
 };
-var hash = (text) => (0, import_crypto11.createHash)("sha256").update(text).digest("hex").slice(0, 24);
+var hash = (text) => (0, import_crypto12.createHash)("sha256").update(text).digest("hex").slice(0, 24);
 var memoryId = (text) => "m-" + hash(text.toLowerCase().replace(/[\s\p{P}\p{S}]/gu, ""));
 function notePath(value) {
   const p2 = String(value || "").trim().replace(/\\/g, "/");
@@ -31918,17 +32693,17 @@ function memoryEntries(text) {
 }
 
 // src/dream-evidence.js
-var import_crypto12 = require("crypto");
-var hash2 = (text) => (0, import_crypto12.createHash)("sha256").update(text).digest("hex").slice(0, 24);
+var import_crypto13 = require("crypto");
+var hash2 = (text) => (0, import_crypto13.createHash)("sha256").update(text).digest("hex").slice(0, 24);
 var AI_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:(?:[A-Z0-9-]+|[a-z0-9-]+)\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s+)?🤖/;
 var AD_COMMENT_RE = /(?:[ \t]*<!--\s*ad-[a-z0-9-]+(?::[^>]+)?\s*-->)+[ \t]*$/g;
 var SEP_ONLY_RE = /^(?:\s*(?:[-*+]|\d+[.)])?\s*[-_*]{3,}\s*)+$/;
-function evidenceBlocks(text, path28, { aiOnly = false } = {}) {
+function evidenceBlocks(text, path29, { aiOnly = false } = {}) {
   const lines = text.split("\n"), blocks = [], stack = [], directAiOwners = /* @__PURE__ */ new Set();
   const fenced = fencedLines(lines), start = frontmatterEnd(lines);
   let block = null, nextItemId = 1;
   const flush = () => {
-    if (block?.text.trim() && !SEP_ONLY_RE.test(block.text)) blocks.push({ ...block, key: hash2(path28 + "\n" + block.kind + "\n" + block.text) });
+    if (block?.text.trim() && !SEP_ONLY_RE.test(block.text)) blocks.push({ ...block, key: hash2(path29 + "\n" + block.kind + "\n" + block.text) });
     block = null;
   };
   for (let n = start; n < lines.length; n++) {
@@ -31974,7 +32749,7 @@ function evidenceBlocks(text, path28, { aiOnly = false } = {}) {
     for (let offset = 0; offset < Math.max(1, line.length); offset += 3e3) {
       const part = line.slice(offset, offset + 3e3);
       if (block && (block.kind !== kind || block.text.length + part.length + 1 > 3e3)) flush();
-      if (!block) block = { path: path28, kind, line: n + 1, endLine: n + 1, text: "", _itemId: itemId, _aiRelevant: aiRelevant, ...pinned ? { pinned: true } : {} };
+      if (!block) block = { path: path29, kind, line: n + 1, endLine: n + 1, text: "", _itemId: itemId, _aiRelevant: aiRelevant, ...pinned ? { pinned: true } : {} };
       if (pinned) block.pinned = true;
       block.text += (block.text ? "\n" : "") + part;
       block.endLine = n + 1;
@@ -31985,11 +32760,11 @@ function evidenceBlocks(text, path28, { aiOnly = false } = {}) {
 }
 async function collectDreamEvidence(paths, read, { aiOnly = false, excludedDirs = [] } = {}) {
   const sources = /* @__PURE__ */ new Map(), seen = /* @__PURE__ */ new Set();
-  for (const path28 of paths) {
-    if (isPathExcluded(path28, excludedDirs)) continue;
-    const text = await read(path28);
+  for (const path29 of paths) {
+    if (isPathExcluded(path29, excludedDirs)) continue;
+    const text = await read(path29);
     if (isPrivateFrontmatter(text)) continue;
-    for (const source of evidenceBlocks(text, path28, { aiOnly })) {
+    for (const source of evidenceBlocks(text, path29, { aiOnly })) {
       if (seen.has(source.key)) continue;
       seen.add(source.key);
       sources.set(`S${sources.size + 1}`, source);
@@ -31999,14 +32774,14 @@ async function collectDreamEvidence(paths, read, { aiOnly = false, excludedDirs 
 }
 
 // src/memory-store.js
-var import_crypto13 = require("crypto");
+var import_crypto14 = require("crypto");
 var import_zlib2 = require("zlib");
 var MEMORY_DIR_DEFAULT = "Agent Deck/\u8BB0\u5FC6";
 var OVERVIEW_START = "<!-- ad:memory:start -->";
 var OVERVIEW_END = "<!-- ad:memory:end -->";
 var MEMORY_STATES = ["\u6709\u6548", "\u5DF2\u62D2\u7EDD", "\u5DF2\u88AB\u66FF\u4EE3"];
 var MEMORY_KINDS = { fact: "\u4E8B\u5B9E", preference: "\u504F\u597D", pattern: "\u5F85\u9A8C\u8BC1\u89C4\u5F8B", lesson: "\u9879\u76EE\u7ECF\u9A8C" };
-var hash3 = (text) => (0, import_crypto13.createHash)("sha256").update(text).digest("hex").slice(0, 24);
+var hash3 = (text) => (0, import_crypto14.createHash)("sha256").update(text).digest("hex").slice(0, 24);
 var memoryIdOf = (text) => "m-" + hash3(String(text || "").toLowerCase().replace(/[\s\p{P}\p{S}]/gu, ""));
 function memorySlug(text, max = 40) {
   const clean2 = String(text || "").replace(/[\\/:*?"<>|#^[\]\s]/g, "").trim();
@@ -32235,13 +33010,13 @@ function formatSourceLine({ target, blockId, kind, from, to, quote: quote3 }) {
   return `[[${target}${blockId ? "#^" + blockId : ""}]]\uFF08${kind}\uFF0C\u7B2C ${from}\u2014${to} \u884C\uFF09\uFF1B\u539F\u6587\uFF1A${quote3}`;
 }
 function memoryAnchorId(target, text) {
-  return "mem-" + (0, import_crypto13.createHash)("sha256").update(`${target}
+  return "mem-" + (0, import_crypto14.createHash)("sha256").update(`${target}
 ${String(text || "").trim()}`).digest("hex").slice(0, 8);
 }
-function orderForReview(entries = [], { path: path28 = "", line = "", dir = "" } = {}) {
+function orderForReview(entries = [], { path: path29 = "", line = "", dir = "" } = {}) {
   const prefix = dir ? `${String(dir).replace(/\/+$/, "")}/` : "";
   let start = -1;
-  if (path28 && prefix && path28.startsWith(prefix)) start = entries.findIndex((e) => e.path === path28);
+  if (path29 && prefix && path29.startsWith(prefix)) start = entries.findIndex((e) => e.path === path29);
   if (start < 0 && line) start = entries.findIndex((e) => line.includes(`[[${e.path.replace(/\.md$/, "")}`));
   if (start <= 0) return entries.slice();
   return [...entries.slice(start), ...entries.slice(0, start)];
@@ -32451,7 +33226,7 @@ function parseMarkdownToMemories(docs = [], { defaultDate = "" } = {}) {
 var import_promises3 = __toESM(require("fs/promises"), 1);
 var import_path22 = __toESM(require("path"), 1);
 var import_os20 = __toESM(require("os"), 1);
-var import_crypto14 = require("crypto");
+var import_crypto15 = require("crypto");
 var import_child_process10 = require("child_process");
 var import_util2 = require("util");
 var exec = (0, import_util2.promisify)(import_child_process10.execFile);
@@ -32529,7 +33304,7 @@ var DreamSharing = class {
       });
       if (old !== snapshot) {
         await import_promises3.default.mkdir(import_path22.default.dirname(target), { recursive: true });
-        const temp = `${target}.${(0, import_crypto14.randomUUID)()}.tmp`;
+        const temp = `${target}.${(0, import_crypto15.randomUUID)()}.tmp`;
         try {
           await import_promises3.default.writeFile(temp, snapshot, { flag: "wx" });
           await import_promises3.default.rename(temp, target);
@@ -32796,13 +33571,13 @@ var Dreaming = class {
   }
   async loadEntries() {
     const out = [];
-    for (const path28 of await this.listEntryPaths()) {
+    for (const path29 of await this.listEntryPaths()) {
       try {
-        const file = this.plugin.app.vault.getAbstractFileByPath(path28);
+        const file = this.plugin.app.vault.getAbstractFileByPath(path29);
         const parsed = file ? parseMemoryFile(await this.plugin.app.vault.read(file)) : null;
-        if (parsed) out.push({ ...parsed, path: path28 });
+        if (parsed) out.push({ ...parsed, path: path29 });
       } catch (e) {
-        console.error("[agent-deck] \u8BFB\u53D6\u8BB0\u5FC6\u5931\u8D25", path28, e);
+        console.error("[agent-deck] \u8BFB\u53D6\u8BB0\u5FC6\u5931\u8D25", path29, e);
       }
     }
     return out;
@@ -32814,8 +33589,8 @@ var Dreaming = class {
     await this.write(`${this.dir}/${name}.md`, serializeMemoryFile({ id: memory.id, kind: memory.kind, text: memory.text, state, date, sources: evidence, evidence }));
     return `${this.dir}/${name}.md`;
   }
-  isEntryPath(path28) {
-    const p2 = String(path28 || "");
+  isEntryPath(path29) {
+    const p2 = String(path29 || "");
     const prefix = `${this.dir}/`;
     return p2.startsWith(prefix) && p2.endsWith(".md") && p2 !== `${this.dir}/\u7D22\u5F15.md` && !p2.slice(prefix.length).includes("/");
   }
@@ -32832,13 +33607,13 @@ var Dreaming = class {
     if (!clean2) throw new Error(t("\u8BB0\u5FC6\u5185\u5BB9\u4E0D\u80FD\u4E3A\u7A7A"));
     if (!this.storeMode) await this.migrateToStore();
     const id = memoryId(clean2);
-    const path28 = await this.writeEntry({ id, kind, text: clean2, date }, sources, state);
+    const path29 = await this.writeEntry({ id, kind, text: clean2, date }, sources, state);
     await this.syncOverview();
     const basePath = `${this.dir}.base`;
     if (!this.plugin.app.vault.getAbstractFileByPath(basePath)) {
       await this.write(basePath, memoryBase(this.dir));
     }
-    return { path: path28, id };
+    return { path: path29, id };
   }
   // 批量导入条目到记忆库（若尚未迁移到文件库模式，自动先完成迁移并创建 记忆.base）。
   async importEntries(entries = []) {
@@ -32946,8 +33721,8 @@ ${String(rawReply || "").slice(0, 2e3)}`;
     }
     return results;
   }
-  async setEntryState(path28, state) {
-    const file = this.plugin.app.vault.getAbstractFileByPath(path28);
+  async setEntryState(path29, state) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(path29);
     if (!file) return false;
     const raw = await this.plugin.app.vault.read(file);
     const next = raw.replace(/^state:.*$/m, `state: ${state}`).replace(/\nverified: true(?=\n|$)/, "");
@@ -33061,8 +33836,8 @@ ${String(rawReply || "").slice(0, 2e3)}`;
     }
     return { checked: entries.length, drift, edited, missing, fixedFiles };
   }
-  async rewriteSources(path28, sources) {
-    const file = this.plugin.app.vault.getAbstractFileByPath(path28);
+  async rewriteSources(path29, sources) {
+    const file = this.plugin.app.vault.getAbstractFileByPath(path29);
     if (!file) return false;
     const lines = String(await this.plugin.app.vault.read(file)).split("\n");
     const start = lines.indexOf("sources:");
@@ -33134,11 +33909,11 @@ ${String(rawReply || "").slice(0, 2e3)}`;
     const entries = await this.loadEntries();
     const report = { checked: 0, linked: 0, already: 0, skipped: 0, failed: [] };
     const files = /* @__PURE__ */ new Map(), seen = /* @__PURE__ */ new Set(), ours = /^\s*- ⤴ \[\[Agent Deck\/记忆\/[^\]]+\]\]\s*$/;
-    for (const path28 of Array.isArray(this.cfg.backlinked) ? this.cfg.backlinked : []) {
-      const file = this.plugin.app.vault.getAbstractFileByPath(path28);
+    for (const path29 of Array.isArray(this.cfg.backlinked) ? this.cfg.backlinked : []) {
+      const file = this.plugin.app.vault.getAbstractFileByPath(path29);
       if (!file) continue;
       const rawText = String(await this.plugin.app.vault.read(file));
-      files.set(path28, { file, original: rawText, lines: rawText.split("\n").filter((l) => !ours.test(l)), inserts: [] });
+      files.set(path29, { file, original: rawText, lines: rawText.split("\n").filter((l) => !ours.test(l)), inserts: [] });
     }
     for (const entry of entries) {
       const link2 = `[[${entry.path.replace(/\.md$/, "")}]]`;
@@ -33200,7 +33975,7 @@ ${String(rawReply || "").slice(0, 2e3)}`;
       if (next !== rec.original) await this.plugin.app.vault.modify(rec.file, next);
       report.linked += rec.inserts.length;
     }
-    this.cfg.backlinked = [...files.entries()].filter(([, rec]) => rec.inserts.length).map(([path28]) => path28);
+    this.cfg.backlinked = [...files.entries()].filter(([, rec]) => rec.inserts.length).map(([path29]) => path29);
     await this.plugin.saveSettings();
     return report;
   }
@@ -33247,7 +34022,7 @@ ${String(rawReply || "").slice(0, 2e3)}`;
     const plugins = p2.app.plugins, companion = plugins?.getPlugin?.("telegram-companion") || plugins?.plugins?.["telegram-companion"];
     candidates.delete(this.memoryPath);
     candidates.delete(companion?.companion?.cfg?.profilePath);
-    return collectDreamEvidence(candidates, (path28) => this.read(path28), {
+    return collectDreamEvidence(candidates, (path29) => this.read(path29), {
       aiOnly,
       excludedDirs: p2.settings.delegate?.excludedDirs
     });
@@ -33476,7 +34251,7 @@ function syncModelGroups(settings, agentEnabled) {
 var import_fs22 = __toESM(require("fs"), 1);
 var import_os21 = __toESM(require("os"), 1);
 var import_path23 = __toESM(require("path"), 1);
-var HARNESS_DETECTION_VERSION = 3;
+var HARNESS_DETECTION_VERSION = 4;
 var norm4 = (p2, homeDir) => String(p2 || "").replace(/^~(?=\/)/, homeDir);
 function defaultAppDirs(homeDir, platform, env) {
   if (platform === "darwin") return ["/Applications", import_path23.default.join(homeDir, "Applications")];
@@ -33704,6 +34479,15 @@ function buildSpecs({ homeDir, platform, env, appDirs }) {
       dataPaths: [
         ...cindyDatabases({ homeDir, platform, env }),
         ...cindyDataDirs({ homeDir, platform, env })
+      ]
+    },
+    orca: {
+      binNames: ["orca"],
+      binPaths: win ? [] : appSub(import_path23.default.join("Orca.app", "Contents", "Resources", "bin", "orca")),
+      apps: win ? ["Orca/Orca.exe"] : ["Orca.app"],
+      dataPaths: [
+        ...orcaDatabases({ homeDir, platform, env }),
+        ...orcaDataDirs({ homeDir, platform, env })
       ]
     },
     muse: {
@@ -34554,6 +35338,16 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
         checkLabel: t("\u68C0\u67E5 agent")
       },
       {
+        id: "kimicode",
+        title: "Kimi Code",
+        sub: t("\u88C5\u6709 Kimi Code CLI\uFF08kimi\uFF09\u65F6\u652F\u6301 kimi acp \u540E\u53F0\u59D4\u6D3E\uFF1B\u672A\u88C5 CLI \u65F6\u81EA\u52A8\u590D\u5236\u4EFB\u52A1\u5E76\u6253\u5F00\u684C\u9762\u7AEF\u4EA4\u63A5"),
+        moreKey: "kimicode-more",
+        defaultEffort: "high",
+        pathHint: t("\u7559\u7A7A\u81EA\u52A8\u67E5\u627E kimi / kimi-code"),
+        refreshLabel: t("\u8BFB\u53D6 Kimi Code \u53EF\u7528\u6A21\u578B"),
+        checkLabel: t("\u68C0\u67E5 kimi")
+      },
+      {
         id: "gemini",
         title: "Gemini CLI",
         sub: t("\u901A\u8FC7 gemini --acp \u540E\u53F0\u59D4\u6D3E\uFF0C\u4E5F\u53EF\u5728\u7EC8\u7AEF\u7528 gemini --resume \u7EED\u804A"),
@@ -35286,7 +36080,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     stats.createSpan({ cls: "ad-set-agent__state", text: stateText });
     if (id === "grokbot" && enabled) this.renderGrokBotPicker(card, sessCountEl, s, p2);
     if (id === "muse" && enabled) this.renderMusePicker(card, sessCountEl, s, p2);
-    if (enabled && (id === "t3code" || id === "cindy")) {
+    if (enabled && (id === "t3code" || id === "cindy" || id === "orca")) {
       let dedupCount = 0;
       for (const owners of p2.usage?.delegatedOwners?.values?.() || []) {
         if (owners?.has?.(id)) dedupCount++;
@@ -36529,18 +37323,18 @@ var CustomAcpAgentModal = class extends import_obsidian7.Modal {
 
 // src/dialog.js
 var import_obsidian8 = require("obsidian");
-function resolveTaskProjectState(plugin, path28, lines, block) {
+function resolveTaskProjectState(plugin, path29, lines, block) {
   const contextLines = ancestorLines(lines, block.start);
   const projectHint = plugin.settings?.autoProjectFolder === false ? null : resolveProjectForTask({
     settings: plugin.settings,
-    notePath: path28,
+    notePath: path29,
     contextLines,
     blockText: block.text
   });
   const projectSuggest = suggestProjectForTask({
     settings: plugin.settings,
     recent: plugin.projectFolderSuggestions?.(8) || [],
-    notePath: path28,
+    notePath: path29,
     contextLines,
     blockText: block.text
   });
@@ -36552,7 +37346,7 @@ function resolveTaskProjectState(plugin, path28, lines, block) {
     projectAlt = projectCandidatesFromTask({ blockText: block.text }).find((name) => {
       const key = projectKey(name);
       if (!key || key === hintKey || registered.has(key)) return false;
-      return !plugin.app?.metadataCache?.getFirstLinkpathDest?.(name, path28);
+      return !plugin.app?.metadataCache?.getFirstLinkpathDest?.(name, path29);
     }) || null;
   }
   const cwd = projectConflict ? projectSuggest.path : projectHint ? projectHint.path : "";
@@ -36675,10 +37469,10 @@ function renderProjectFolderPicker(parent, plugin, state, { compact = false, onR
   }
 }
 var DelegateOptionsModal = class extends import_obsidian8.Modal {
-  constructor(app, plugin, path28, line) {
+  constructor(app, plugin, path29, line) {
     super(app);
     this.plugin = plugin;
-    this.path = path28;
+    this.path = path29;
     this.line = line;
     this.agent = plugin.defaultTarget();
     this.model = plugin.defaultModel(this.agent);
@@ -36914,11 +37708,11 @@ var DelegateOptionsModal = class extends import_obsidian8.Modal {
   }
 };
 var ConfirmSendModal = class extends import_obsidian8.Modal {
-  constructor(app, { agent, text, path: path28, where, destination, permission = "", newSession = false, context = [], draft = null, plugin = null, projectState = null }, onSend) {
+  constructor(app, { agent, text, path: path29, where, destination, permission = "", newSession = false, context = [], draft = null, plugin = null, projectState = null }, onSend) {
     super(app);
     this.agent = agent;
     this.text = text;
-    this.path = path28;
+    this.path = path29;
     this.where = where;
     this.destination = destination || destinations(agent)[0]?.id;
     this.permission = permission || defaultWorkMode(agent);
@@ -37743,7 +38537,7 @@ function agentFromAutoLogState(plugin, blockId, taskLine) {
   }
   return "";
 }
-function resolveLineAgent(lines, lineIndex, { plugin = null, path: path28 = "", doc = null } = {}) {
+function resolveLineAgent(lines, lineIndex, { plugin = null, path: path29 = "", doc = null } = {}) {
   if (!Array.isArray(lines) || lineIndex < 0 || lineIndex >= lines.length) return "";
   const raw = String(lines[lineIndex] || "");
   const id = blockIdOf(raw);
@@ -37759,9 +38553,9 @@ function resolveLineAgent(lines, lineIndex, { plugin = null, path: path28 = "", 
     const byClock = agentFromClockLine(cur);
     if (byClock) return byClock;
   }
-  if (plugin && path28 && doc) {
+  if (plugin && path29 && doc) {
     try {
-      const mapped = plugin.lineMap?.(path28, doc)?.sessionByParent?.get(lineIndex);
+      const mapped = plugin.lineMap?.(path29, doc)?.sessionByParent?.get(lineIndex);
       if (mapped?.agent) return mapped.agent;
     } catch {
     }
@@ -37866,7 +38660,7 @@ function recordIconsExtension(plugin, images = AGENT_IMAGES) {
         const doc = view2.state.doc;
         const sel = view2.state.selection;
         const info = plugin?.editorInfoField ? view2.state.field(plugin.editorInfoField, false) : null;
-        const path28 = info?.file?.path || "";
+        const path29 = info?.file?.path || "";
         let linesCache = null;
         const getLines = () => linesCache || (linesCache = doc.toString().split("\n"));
         let next = 0;
@@ -37897,7 +38691,7 @@ function recordIconsExtension(plugin, images = AGENT_IMAGES) {
                     const rf = line.from + robotHit.from;
                     const rt = line.from + robotHit.to;
                     if (!selectionTouches(sel, rf, rt)) {
-                      const agent = resolveLineAgent(getLines(), line.number - 1, { plugin, path: path28, doc });
+                      const agent = resolveLineAgent(getLines(), line.number - 1, { plugin, path: path29, doc });
                       if (agent && images?.[agent]) {
                         out.add(rf, rt, import_view6.Decoration.replace({ widget: new AgentMarkWidget(agent, images) }));
                       }
@@ -38052,7 +38846,7 @@ function recordIconsPostProcessor(plugin, images = AGENT_IMAGES) {
 var import_fs23 = __toESM(require("fs"), 1);
 var import_path24 = __toESM(require("path"), 1);
 var import_os22 = __toESM(require("os"), 1);
-var import_crypto15 = __toESM(require("crypto"), 1);
+var import_crypto16 = __toESM(require("crypto"), 1);
 var import_child_process11 = require("child_process");
 
 // src/menubar.swift
@@ -38207,6 +39001,7 @@ struct MenuSession: Decodable, Identifiable {
         case "grokbot": return "Grok Bot"
         case "t3code": return "T3 Code"
         case "cindy": return "Cindy"
+        case "orca": return "Orca"
         case "muse": return "Muse"
         case "kimicode": return "Kimi Code"
         case "doubaowork": return "\u8C46\u5305\u5DE5\u4F5C"
@@ -38915,6 +39710,13 @@ enum DeckAgents {
                 color: .solid("#0EA5E9", "#38BDF8"),
                 tint: .solid("#E8F6FE", "#182D3B"),
                 glyph: "\u2756", short: "Cindy"
+            )
+        case "orca":
+            return AgentStyle(
+                id: "orca",
+                color: .solid("#0F766E", "#2DD4BF"),
+                tint: .solid("#E6F7F5", "#133532"),
+                glyph: "\u25C9", short: "Orca"
             )
         case "muse":
             return AgentStyle(
@@ -40486,7 +41288,7 @@ var MenuBarBridge = class {
     this.disabled = false;
     await fsp8.mkdir(this.dir, { recursive: true });
     this.writeAgentIcons();
-    const hash4 = import_crypto15.default.createHash("sha256").update(menubar_default2).digest("hex").slice(0, 16);
+    const hash4 = import_crypto16.default.createHash("sha256").update(menubar_default2).digest("hex").slice(0, 16);
     let oldHash = "";
     try {
       oldHash = (await fsp8.readFile(this.hashPath, "utf8")).trim();
@@ -40977,12 +41779,12 @@ var AutoLog = class {
   }
   // 今天的日记还没建：按「日记」核心插件的模板建一篇，AI 分区骨架照旧交给 placeBlock
   async createJournal(day) {
-    const path28 = this.journalPath(day);
+    const path29 = this.journalPath(day);
     if (typeof this.p.ensureNoteFile !== "function") return null;
-    const { file } = await this.p.ensureNoteFile(path28, await this.journalTemplate(path28));
+    const { file } = await this.p.ensureNoteFile(path29, await this.journalTemplate(path29));
     return file || null;
   }
-  async journalTemplate(path28) {
+  async journalTemplate(path29) {
     const app = this.p.app;
     const tplPath = String(dailyNotesOptions(app)?.template || "").trim();
     if (!tplPath) return "";
@@ -40999,7 +41801,7 @@ var AutoLog = class {
       format = app.internalPlugins?.getPluginById?.("templates")?.instance?.options || {};
     } catch {
     }
-    const title = path28.slice(path28.lastIndexOf("/") + 1).replace(/\.md$/, "");
+    const title = path29.slice(path29.lastIndexOf("/") + 1).replace(/\.md$/, "");
     return expandJournalTemplate(text, { title, dateFormat: format.dateFormat, timeFormat: format.timeFormat });
   }
   viewFor(file) {
@@ -42482,10 +43284,10 @@ function buildPlanMarkdown({ title, goal, steps, at = "", by = "" }) {
 }
 
 // src/workbench-note.js
-var link = (path28, label) => `[[${String(path28).replace(/\.md$/, "")}|${label || String(path28).split("/").pop().replace(/\.md$/, "")}]]`;
+var link = (path29, label) => `[[${String(path29).replace(/\.md$/, "")}|${label || String(path29).split("/").pop().replace(/\.md$/, "")}]]`;
 function buildWorkbenchNote({ boardFiles = [], memory = {}, tasks = [], at = "" } = {}) {
   const stamp = at || (/* @__PURE__ */ new Date()).toISOString().slice(0, 16).replace("T", " ");
-  const byKind = (path28) => /\/任务\//.test(path28) ? t("\u4EFB\u52A1") : /\/规格\//.test(path28) ? t("\u89C4\u683C") : t("\u7B14\u8BB0");
+  const byKind = (path29) => /\/任务\//.test(path29) ? t("\u4EFB\u52A1") : /\/规格\//.test(path29) ? t("\u89C4\u683C") : t("\u7B14\u8BB0");
   const lines = [
     "# \u5DE5\u4F5C\u53F0",
     "",
@@ -42602,9 +43404,9 @@ var MemoryBoardView = class extends import_obsidian12.ItemView {
         col.removeClass("is-over");
         if (e.dataTransfer?.files?.length) return;
         e.preventDefault();
-        const path28 = e.dataTransfer?.getData("text/plain");
-        if (!path28) return;
-        await this.plugin.dreaming.setEntryState(path28, column.state);
+        const path29 = e.dataTransfer?.getData("text/plain");
+        if (!path29) return;
+        await this.plugin.dreaming.setEntryState(path29, column.state);
         await this.refresh();
         this.plugin.dreaming.syncOverview().catch(() => {
         });
@@ -44087,51 +44889,51 @@ function buildTaskPlainText(extracted, sourcePath = "") {
   return `${lines.join("\n").replace(/\n+$/, "")}
 `;
 }
-async function copyTaskFormatted(plugin, path28, line, { buildText, successMsg, viewMode = "" }) {
-  const text = await plugin.readNote(path28);
-  const extracted = extractTaskBlock(text, line, path28, plugin);
+async function copyTaskFormatted(plugin, path29, line, { buildText, successMsg, viewMode = "" }) {
+  const text = await plugin.readNote(path29);
+  const extracted = extractTaskBlock(text, line, path29, plugin);
   if (!extracted) return plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
-  const output = buildText(extracted, path28, { viewMode });
+  const output = buildText(extracted, path29, { viewMode });
   if (!writeClipboard2(output)) return plugin.notice(t("\u5199\u5165\u526A\u8D34\u677F\u5931\u8D25"));
   plugin.notice(successMsg);
 }
-async function copyTaskMarkdown(plugin, path28, line) {
-  return copyTaskFormatted(plugin, path28, line, {
+async function copyTaskMarkdown(plugin, path29, line) {
+  return copyTaskFormatted(plugin, path29, line, {
     buildText: (extracted) => `${extracted.markdown}
 `,
     successMsg: t("\u5DF2\u6309 Markdown \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskMarkdownTable(plugin, path28, line) {
-  return copyTaskFormatted(plugin, path28, line, {
+async function copyTaskMarkdownTable(plugin, path29, line) {
+  return copyTaskFormatted(plugin, path29, line, {
     buildText: (extracted, src) => buildTaskMarkdownTable(extracted, src),
     successMsg: t("\u5DF2\u6309 Markdown \u8868\u683C\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskPlainText(plugin, path28, line) {
-  return copyTaskFormatted(plugin, path28, line, {
+async function copyTaskPlainText(plugin, path29, line) {
+  return copyTaskFormatted(plugin, path29, line, {
     buildText: (extracted, src) => buildTaskPlainText(extracted, src),
     successMsg: t("\u5DF2\u6309\u7EAF\u6587\u672C\u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F")
   });
 }
-async function copyTaskJson(plugin, path28, line, options = {}) {
-  return copyTaskFormatted(plugin, path28, line, {
+async function copyTaskJson(plugin, path29, line, options = {}) {
+  return copyTaskFormatted(plugin, path29, line, {
     buildText: (extracted, src, opts) => buildTaskExportJson(extracted, src, opts),
     successMsg: t("\u5DF2\u6309 JSON \u683C\u5F0F\u590D\u5236\u5230\u526A\u8D34\u677F"),
     viewMode: options.viewMode || ""
   });
 }
-async function renderMarkdownFragment(plugin, md, path28, comp) {
+async function renderMarkdownFragment(plugin, md, path29, comp) {
   if (!md) return "";
   const host = document.createElement("div");
   try {
-    await import_obsidian17.MarkdownRenderer.render(plugin.app, md, host, path28, comp);
+    await import_obsidian17.MarkdownRenderer.render(plugin.app, md, host, path29, comp);
     return host.innerHTML;
   } finally {
     host.remove();
   }
 }
-async function renderTaskHtmlForExport(plugin, extracted, path28, viewMode) {
+async function renderTaskHtmlForExport(plugin, extracted, path29, viewMode) {
   const effectiveView = resolveExportView(extracted, viewMode);
   const comp = new import_obsidian17.Component();
   comp.load();
@@ -44139,11 +44941,11 @@ async function renderTaskHtmlForExport(plugin, extracted, path28, viewMode) {
     let outlineBodyHtml = "";
     let extraNotesHtml = "";
     if (effectiveView === "outline" || !extracted.structured) {
-      outlineBodyHtml = await renderMarkdownFragment(plugin, extracted.markdown, path28, comp);
+      outlineBodyHtml = await renderMarkdownFragment(plugin, extracted.markdown, path29, comp);
     } else if (extracted.structured.extraMarkdown) {
-      extraNotesHtml = await renderMarkdownFragment(plugin, extracted.structured.extraMarkdown, path28, comp);
+      extraNotesHtml = await renderMarkdownFragment(plugin, extracted.structured.extraMarkdown, path29, comp);
     }
-    return buildTaskViewHtmlDocument(extracted, path28, {
+    return buildTaskViewHtmlDocument(extracted, path29, {
       viewMode: effectiveView,
       outlineBodyHtml,
       extraNotesHtml
@@ -44152,7 +44954,7 @@ async function renderTaskHtmlForExport(plugin, extracted, path28, viewMode) {
     comp.unload();
   }
 }
-async function prepareExportTarget(plugin, path28, line, {
+async function prepareExportTarget(plugin, path29, line, {
   ext,
   filterName,
   dialogTitle,
@@ -44165,8 +44967,8 @@ async function prepareExportTarget(plugin, path28, line, {
     plugin.notice(unavailableMsg);
     return null;
   }
-  const text = await plugin.readNote(path28);
-  const extracted = extractTaskBlock(text, line, path28, plugin);
+  const text = await plugin.readNote(path29);
+  const extracted = extractTaskBlock(text, line, path29, plugin);
   if (!extracted) {
     plugin.notice(t("\u672A\u627E\u5230\u53EF\u5BFC\u51FA\u7684\u4EFB\u52A1\u5757"));
     return null;
@@ -44175,20 +44977,20 @@ async function prepareExportTarget(plugin, path28, line, {
   const title = typeof dialogTitle === "function" ? dialogTitle(effectiveView) : dialogTitle;
   const picked = await remote.dialog.showSaveDialog(remote.getCurrentWindow?.(), {
     title,
-    defaultPath: import_path25.default.join(initialExportDir(plugin, path28), `${extracted.suggestedName}${ext}`),
+    defaultPath: import_path25.default.join(initialExportDir(plugin, path29), `${extracted.suggestedName}${ext}`),
     filters: [{ name: filterName, extensions: [ext.replace(/^\./, "")] }]
   });
   if (picked.canceled || !picked.filePath) return null;
   const targetFile = ensureExt(picked.filePath, ext);
   const vaultBase = plugin.app?.vault?.adapter?.basePath;
-  if (ext === ".md" && vaultBase && import_path25.default.resolve(import_path25.default.join(vaultBase, path28)) === import_path25.default.resolve(targetFile)) {
+  if (ext === ".md" && vaultBase && import_path25.default.resolve(import_path25.default.join(vaultBase, path29)) === import_path25.default.resolve(targetFile)) {
     plugin.notice(t("\u4E0D\u80FD\u8986\u76D6\u5F53\u524D\u6240\u5728\u7B14\u8BB0"));
     return null;
   }
   return { remote, extracted, effectiveView, targetFile };
 }
-async function exportTaskToPdf(plugin, path28, line, options = {}) {
-  const prep = await prepareExportTarget(plugin, path28, line, {
+async function exportTaskToPdf(plugin, path29, line, options = {}) {
+  const prep = await prepareExportTarget(plugin, path29, line, {
     ext: ".pdf",
     filterName: "PDF",
     requireWindow: true,
@@ -44201,7 +45003,7 @@ async function exportTaskToPdf(plugin, path28, line, options = {}) {
   let win = null;
   let tmpHtml = "";
   try {
-    const html = await renderTaskHtmlForExport(plugin, extracted, path28, effectiveView);
+    const html = await renderTaskHtmlForExport(plugin, extracted, path29, effectiveView);
     tmpHtml = import_path25.default.join(import_os23.default.tmpdir(), `agent-deck-pdf-${Date.now()}-${Math.random().toString(36).slice(2)}.html`);
     await import_promises4.default.writeFile(tmpHtml, html, "utf8");
     win = new remote.BrowserWindow({
@@ -44224,17 +45026,17 @@ async function exportTaskToPdf(plugin, path28, line, options = {}) {
     });
   }
 }
-async function exportTaskToTextFile(plugin, path28, line, { ext, filterName, dialogTitle, buildContent, onSuccess, viewMode = "" }) {
-  const prep = await prepareExportTarget(plugin, path28, line, { ext, filterName, dialogTitle, viewMode });
+async function exportTaskToTextFile(plugin, path29, line, { ext, filterName, dialogTitle, buildContent, onSuccess, viewMode = "" }) {
+  const prep = await prepareExportTarget(plugin, path29, line, { ext, filterName, dialogTitle, viewMode });
   if (!prep) return;
   const { extracted, effectiveView, targetFile } = prep;
-  const content = await buildContent(extracted, path28, { viewMode: effectiveView });
+  const content = await buildContent(extracted, path29, { viewMode: effectiveView });
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
   plugin.notice(onSuccess(written.path));
 }
-async function exportTaskToHtml(plugin, path28, line, options = {}) {
-  return exportTaskToTextFile(plugin, path28, line, {
+async function exportTaskToHtml(plugin, path29, line, options = {}) {
+  return exportTaskToTextFile(plugin, path29, line, {
     ext: ".html",
     filterName: "HTML",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A HTML"),
@@ -44243,8 +45045,8 @@ async function exportTaskToHtml(plugin, path28, line, options = {}) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA HTML\uFF1A{path}", { path: p2 })
   });
 }
-async function exportTaskToMarkdown(plugin, path28, line) {
-  return exportTaskToTextFile(plugin, path28, line, {
+async function exportTaskToMarkdown(plugin, path29, line) {
+  return exportTaskToTextFile(plugin, path29, line, {
     ext: ".md",
     filterName: "Markdown",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A Markdown"),
@@ -44252,8 +45054,8 @@ async function exportTaskToMarkdown(plugin, path28, line) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA Markdown\uFF1A{path}", { path: p2 })
   });
 }
-async function exportTaskToJson(plugin, path28, line, options = {}) {
-  return exportTaskToTextFile(plugin, path28, line, {
+async function exportTaskToJson(plugin, path29, line, options = {}) {
+  return exportTaskToTextFile(plugin, path29, line, {
     ext: ".json",
     filterName: "JSON",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A JSON"),
@@ -44262,8 +45064,8 @@ async function exportTaskToJson(plugin, path28, line, options = {}) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA JSON\uFF1A{path}", { path: p2 })
   });
 }
-async function exportTaskToCsv(plugin, path28, line) {
-  return exportTaskToTextFile(plugin, path28, line, {
+async function exportTaskToCsv(plugin, path29, line) {
+  return exportTaskToTextFile(plugin, path29, line, {
     ext: ".csv",
     filterName: "CSV",
     dialogTitle: t("\u5BFC\u51FA\u4EFB\u52A1\u4E0E\u5BF9\u8BDD\u4E3A CSV"),
@@ -44271,24 +45073,24 @@ async function exportTaskToCsv(plugin, path28, line) {
     onSuccess: (p2) => t("\u5DF2\u5BFC\u51FA CSV\uFF1A{path}", { path: p2 })
   });
 }
-async function saveTaskAsFile(plugin, path28, line) {
-  const prep = await prepareExportTarget(plugin, path28, line, {
+async function saveTaskAsFile(plugin, path29, line) {
+  const prep = await prepareExportTarget(plugin, path29, line, {
     ext: ".md",
     filterName: "Markdown",
     dialogTitle: t("\u53E6\u5B58\u4E3A\u4EFB\u52A1\u4E0E\u5BF9\u8BDD")
   });
   if (!prep) return;
   const { extracted, targetFile } = prep;
-  const content = buildTaskExportDocument(extracted, path28);
+  const content = buildTaskExportDocument(extracted, path29);
   const written = await writeExportFile(plugin, targetFile, content);
   rememberExportDir(plugin, targetFile);
-  const latest = await plugin.readNote(path28);
-  const check = extractTaskBlock(latest, line, path28, plugin);
+  const latest = await plugin.readNote(path29);
+  const check = extractTaskBlock(latest, line, path29, plugin);
   if (!check || check.rawText !== extracted.rawText) {
     return plugin.notice(t("\u539F\u7B14\u8BB0\u5185\u5BB9\u521A\u6709\u53D8\u5316\uFF0C\u5DF2\u4FDD\u5B58\u526F\u672C\u5230 {path}\uFF0C\u539F\u6587\u4FDD\u7559", { path: written.path }));
   }
   const updated = removeTaskBlockFromNote(latest, check.start, check.end);
-  await plugin.writeNote(path28, updated);
+  await plugin.writeNote(path29, updated);
   plugin.refreshUI?.();
   plugin.notice(t("\u5DF2\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u672C\uFF1A{path}", { path: written.path }));
 }
@@ -44413,7 +45215,7 @@ var ReplyModal = class extends import_obsidian18.Modal {
 // src/reply-inbox-view.js
 var import_obsidian19 = require("obsidian");
 var REPLY_INBOX_TYPE = "agent-deck-reply-inbox";
-var shortPath = (path28 = "") => String(path28).replace(/\.md$/, "");
+var shortPath = (path29 = "") => String(path29).replace(/\.md$/, "");
 var ReplyInboxView = class extends import_obsidian19.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
@@ -46054,9 +46856,9 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   // 主入口用 Obsidian 原生 Base（只读表格：筛选/排序/统计）；看板作为"要改状态时"的可选增强。
   async openMemoryBase() {
     if (!this.dreaming.storeMode) return this.notice(t("\u8BF7\u5148\u8FD0\u884C\u300C\u8BB0\u5FC6\uFF1A\u628A\u957F\u671F\u8BB0\u5FC6\u8FC1\u79FB\u5230\u8BB0\u5FC6\u5E93\u300D"));
-    const path28 = `${this.dreaming.dir}.base`;
-    if (!this.app.vault.getAbstractFileByPath(path28)) await this.app.vault.create(path28, memoryBase(this.dreaming.dir));
-    await this.app.workspace.openLinkText(path28, "", false);
+    const path29 = `${this.dreaming.dir}.base`;
+    if (!this.app.vault.getAbstractFileByPath(path29)) await this.app.vault.create(path29, memoryBase(this.dreaming.dir));
+    await this.app.workspace.openLinkText(path29, "", false);
   }
   async openMemoryBoard() {
     const existing = this.app.workspace.getLeavesOfType(MEMORY_BOARD_TYPE)[0];
@@ -46078,9 +46880,9 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       }
     }).open();
   }
-  async deleteMemoryFile(path28) {
-    if (!this.dreaming.isEntryPath(path28)) return false;
-    const file = this.app.vault.getAbstractFileByPath(path28);
+  async deleteMemoryFile(path29) {
+    if (!this.dreaming.isEntryPath(path29)) return false;
+    const file = this.app.vault.getAbstractFileByPath(path29);
     if (!file) return false;
     await this.app.vault.trash(file, true);
     await this.dreaming.syncOverview();
@@ -46088,7 +46890,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       await this.dreaming.ensureReverseLinks({ write: true });
     }
     await this.refreshMemoryBoards();
-    this.notice(t("\u5DF2\u5220\u9664\u8BB0\u5FC6\uFF1A{path}", { path: path28 }));
+    this.notice(t("\u5DF2\u5220\u9664\u8BB0\u5FC6\uFF1A{path}", { path: path29 }));
     return true;
   }
   async deleteCurrentMemory() {
@@ -46935,6 +47737,23 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       if (job.handoff) continue;
       if (this.delegator.runners.has(job.id)) continue;
       const meta = job.sessionId ? this.usage.meta.get(job.sessionId) : null;
+      if (job.transport === "acp") {
+        if (meta?.state === "wait") {
+          job.state = "done";
+          job.step = meta.step || job.step || "";
+          job.tokens = (meta.out || 0) + (meta.fresh || 0);
+          job.endedAt = job.endedAt || meta.lastAt || Date.now();
+          this.saveJobs();
+          this.delegator.writeResult(job).catch(() => {
+          });
+        } else {
+          job.state = "error";
+          job.error = meta?.state === "error" && meta.err ? meta.err : t("\u63D2\u4EF6\u91CD\u8F7D\u540E ACP \u8FDB\u7A0B\u5DF2\u7ED3\u675F");
+          job.endedAt = Date.now();
+          this.saveJobs();
+        }
+        continue;
+      }
       if (meta && meta.lastAt) {
         job.state = meta.state === "run" ? "running" : meta.state === "error" ? "error" : "done";
         job.step = meta.step || job.step || "";
@@ -47433,8 +48252,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   // ---------- note line map ----------
   // doc 缓存仅保留静态文档结构（lines / links / linkByLine / blockIds），
   // session / job / externalState 每次即时拼装，避免文档未改时读到过期状态。
-  lineMap(path28, doc) {
-    let cached2 = this._lineMaps[path28];
+  lineMap(path29, doc) {
+    let cached2 = this._lineMaps[path29];
     if (!cached2 || cached2.doc !== doc) {
       const lines = doc.toString().split("\n");
       const owners = ownersOf(lines), fenced = fencedLines(lines);
@@ -47456,7 +48275,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
         links.push(entry);
       }
       cached2 = { doc, lines, links, linkByLine, blockIds };
-      this._lineMaps[path28] = cached2;
+      this._lineMaps[path29] = cached2;
     }
     const sessionByParent = /* @__PURE__ */ new Map();
     let liveBySid;
@@ -47507,8 +48326,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     }
     return { doc, lines: cached2.lines, sessionByParent, linkByLine: cached2.linkByLine };
   }
-  jobAtLine(path28, line, text) {
-    const jobs = Object.values(this.jobs).filter((j) => j.path === path28);
+  jobAtLine(path29, line, text) {
+    const jobs = Object.values(this.jobs).filter((j) => j.path === path29);
     const bid = blockIdOf(text);
     let best = null;
     for (const j of jobs) {
@@ -47535,22 +48354,22 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     });
   }
   // 编辑器里找打开着这篇笔记的那个 MarkdownView（不一定是当前激活的：拖拽时焦点常在面板上）
-  viewForPath(path28) {
+  viewForPath(path29) {
     let found = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
       const v = leaf.view;
-      if (!found && v instanceof import_obsidian21.MarkdownView && v.file && v.file.path === path28 && v.editor) found = v;
+      if (!found && v instanceof import_obsidian21.MarkdownView && v.file && v.file.path === path29 && v.editor) found = v;
     });
     return found;
   }
   // Hidden editors in Obsidian Reading ("preview") view go stale after background
   // vault writes; only use an open editor directly when it is in editing mode.
-  sourceViewForPath(path28) {
-    const view2 = this.viewForPath(path28);
+  sourceViewForPath(path29) {
+    const view2 = this.viewForPath(path29);
     return view2 && (!view2.getMode || view2.getMode() === "source") ? view2 : null;
   }
-  async toggleRecordPin(path28, lineIndex, { editor = null } = {}) {
-    if (!path28 || !Number.isInteger(lineIndex) || lineIndex < 0) return false;
+  async toggleRecordPin(path29, lineIndex, { editor = null } = {}) {
+    if (!path29 || !Number.isInteger(lineIndex) || lineIndex < 0) return false;
     let nowPinned = false;
     if (editor?.cm?.state?.doc && lineIndex < editor.cm.state.doc.lines) {
       const lineObj = editor.cm.state.doc.line(lineIndex + 1);
@@ -47562,7 +48381,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       this.notice(nowPinned ? t("\u5DF2 Pin \u5173\u952E\u8BB0\u5F55") : t("\u5DF2\u53D6\u6D88 Pin"), 3e3);
       return nowPinned;
     }
-    await updateNote(this, path28, (text) => {
+    await updateNote(this, path29, (text) => {
       const lines = text.split("\n");
       if (lineIndex >= lines.length) return text;
       const next = togglePinMarker(lines[lineIndex]);
@@ -47879,7 +48698,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   canContinueSession(session, opts) {
     return canContinueSession(session, this.jobs, opts);
   }
-  sessionsAtTask(path28, line, lines) {
+  sessionsAtTask(path29, line, lines) {
     const block = blockAt(lines, line);
     if (!block) return [];
     const bid = blockIdOf(lines[block.start]);
@@ -47895,7 +48714,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       found.set(`${link2.agent}:${link2.sid}`, { ...this.usage.meta.get(link2.sid), ...link2, ...transport ? { transport } : {} });
     }
     for (const job of Object.values(this.jobs)) {
-      if (job.path !== path28 || !(bid && job.blockId === bid || job.lineText === lines[block.start])) continue;
+      if (job.path !== path29 || !(bid && job.blockId === bid || job.lineText === lines[block.start])) continue;
       found.set(`${job.agent}:${job.sessionId || job.id}`, { ...this.usage.meta.get(job.sessionId), ...job, sid: job.sessionId });
     }
     return [...found.values()];
@@ -47933,17 +48752,17 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     editor.setCursor({ line: slot.line, ch: (slot.indent + "- \u270D\uFE0F \u7B54\uFF1A").length });
     this.notice(t("\u5199\u5B8C\u540E\u53EF\u4EE5\u300C\u56DE\u7B54\u5E76\u7EE7\u7EED\u300D\uFF0C\u6216\u76F4\u63A5\u8BA9 Agent \u7EED\u8DD1"), 6e3);
   }
-  async replyToQuestion(path28, editor, { line } = {}) {
+  async replyToQuestion(path29, editor, { line } = {}) {
     let lines;
     let atLine = Number.isInteger(line) ? line : -1;
     if (atLine < 0) {
-      const sourceView = this.sourceViewForPath(path28);
+      const sourceView = this.sourceViewForPath(path29);
       const ed = sourceView?.editor || editor;
       if (!ed) return this.notice(t("\u8BF7\u5148\u6253\u5F00\u8FD9\u7BC7\u7B14\u8BB0"));
       lines = ed.getValue().split("\n");
       atLine = ed.getCursor().line;
     } else {
-      lines = (await this.readNote(path28)).split("\n");
+      lines = (await this.readNote(path29)).split("\n");
     }
     const info = this.threadAt(lines, atLine);
     if (!info) return this.notice(t("\u628A\u5149\u6807\u653E\u5728\u8981\u56DE\u590D\u7684\u90A3\u4E00\u6761\u4EFB\u52A1\u91CC"));
@@ -47954,19 +48773,19 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       options: suggestOptions(question.text),
       value: question.answer || "",
       hint: t("\u53EA\u5199\u8FDB\u7B14\u8BB0\u91CC\u90A3\u884C\u300C\u270D\uFE0F \u7B54\uFF1A\u300D\uFF0C\u4E0D\u65B0\u5F00\u4F1A\u8BDD"),
-      onSubmit: (answer, { continue: keepGoing } = {}) => this.applyReply(path28, block.start, { questionText: question.text, answer, continueSession: keepGoing }),
-      canContinue: this.sessionsAtTask(path28, block.start, lines).some((s) => this.canContinueSession(s))
+      onSubmit: (answer, { continue: keepGoing } = {}) => this.applyReply(path29, block.start, { questionText: question.text, answer, continueSession: keepGoing }),
+      canContinue: this.sessionsAtTask(path29, block.start, lines).some((s) => this.canContinueSession(s))
     }).open();
   }
   // 老数据兼容：把已经写好的 ❓ / ✍️ 补上块号（幂等，可对有历史问答的笔记跑一遍）。
-  async anchorThread(path28, editor) {
+  async anchorThread(path29, editor) {
     const lines = editor.getValue().split("\n");
     const block = blockAt(lines, editor.getCursor().line);
     if (!block) return this.notice(t("\u628A\u5149\u6807\u653E\u5728\u8981\u8865\u5757\u53F7\u7684\u90A3\u4E00\u6761\u4EFB\u52A1\u91CC"));
     const blockId = blockIdOf(lines[block.start]);
     let changed = false;
-    await updateNote(this, path28, (text) => {
-      const next = anchorThreadText(text, { blockId, atLine: block.start, seedPrefix: path28 });
+    await updateNote(this, path29, (text) => {
+      const next = anchorThreadText(text, { blockId, atLine: block.start, seedPrefix: path29 });
       changed = next !== text;
       return next;
     });
@@ -48034,13 +48853,13 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.refreshReplyInbox();
   }
   // 复制 `[[笔记#^ad-q-…]]`：别的笔记、会话、Linear 里都能直接指到这一问。
-  async copyQuestionRef(path28, thread) {
-    const lines = (await this.readNote(path28)).split("\n");
+  async copyQuestionRef(path29, thread) {
+    const lines = (await this.readNote(path29)).split("\n");
     const blockId = blockIdOf(lines[thread.block.start] || "");
-    const seed = `${path28}|${blockId}|${thread.question.text}`;
+    const seed = `${path29}|${blockId}|${thread.question.text}`;
     const id = thread.question.id || makeQuestionId(seed);
-    if (!thread.question.id) await updateNote(this, path28, (text) => ensureQuestionId(text, { blockId, questionText: thread.question.text, seed }));
-    const link2 = `[[${path28.replace(/\.md$/, "")}#^${id}]]`;
+    if (!thread.question.id) await updateNote(this, path29, (text) => ensureQuestionId(text, { blockId, questionText: thread.question.text, seed }));
+    const link2 = `[[${path29.replace(/\.md$/, "")}#^${id}]]`;
     try {
       await navigator.clipboard.writeText(link2);
     } catch {
@@ -48048,17 +48867,17 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.notice(t("\u5DF2\u590D\u5236\u5757\u5F15\u7528\uFF1A{link}", { link: link2 }), 6e3);
   }
   // 写回答（幂等）+ 可选续聊同一会话。抽成方法，方便真机验证直接调用。
-  async applyReply(path28, atLine, { questionText = "", answer = "", continueSession = false } = {}) {
+  async applyReply(path29, atLine, { questionText = "", answer = "", continueSession = false } = {}) {
     if (!String(answer || "").trim()) return false;
-    const before = await this.readNote(path28);
+    const before = await this.readNote(path29);
     const lines = before.split("\n");
     const block = blockAt(lines, atLine);
     const blockId = block ? blockIdOf(lines[block.start]) : "";
-    const seed = `${path28}|${blockId}|${questionText}`;
+    const seed = `${path29}|${blockId}|${questionText}`;
     const questionId = makeQuestionId(seed);
-    await updateNote(this, path28, (text) => ensureQuestionId(text, { blockId, questionText, seed }));
+    await updateNote(this, path29, (text) => ensureQuestionId(text, { blockId, questionText, seed }));
     let changed = false;
-    await updateNote(this, path28, (text) => {
+    await updateNote(this, path29, (text) => {
       const next = fillAnswer(text, { questionText, answer, blockId, questionId });
       changed = next !== text;
       return next;
@@ -48066,25 +48885,25 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     if (Array.isArray(this.settings?.replyInbox) && this.settings.replyInbox.length) {
       const beforeInbox = this.settings.replyInbox.length;
       this.settings.replyInbox = inboxRemove(this.settings.replyInbox, {
-        path: path28,
+        path: path29,
         blockId,
         questionId,
         question: questionText
-      }).filter((x) => !(x.path === path28 && blockId && x.blockId === blockId && questionText && x.question === questionText));
+      }).filter((x) => !(x.path === path29 && blockId && x.blockId === blockId && questionText && x.question === questionText));
       if (this.settings.replyInbox.length !== beforeInbox) {
         await this.saveSettings();
         this.refreshReplyInbox();
       }
     }
     this.notice(changed ? t("\u5DF2\u5199\u56DE\u56DE\u7B54\uFF1A{answer}", { answer: truncate(answer, 40) }) : t("\u56DE\u7B54\u5DF2\u7ECF\u662F\u8FD9\u6837\u4E86\uFF0C\u6CA1\u6709\u6539\u52A8"), changed ? 6e3 : 5e3);
-    if (continueSession) await this.continueAfterReply(path28, atLine, answer);
+    if (continueSession) await this.continueAfterReply(path29, atLine, answer);
     return changed;
   }
   // 续聊：回答当成下一轮的追问发给原来那个会话，不新开。
-  async continueAfterReply(path28, atLine, answer) {
-    const lines = (await this.readNote(path28)).split("\n");
+  async continueAfterReply(path29, atLine, answer) {
+    const lines = (await this.readNote(path29)).split("\n");
     const block = blockAt(lines, atLine);
-    const sessions = this.sessionsAtTask(path28, atLine, lines);
+    const sessions = this.sessionsAtTask(path29, atLine, lines);
     const session = [...sessions].reverse().find((s) => this.canContinueSession(s)) || sessions.at(-1);
     if (!session) return this.notice(t("\u8FD9\u4E00\u5757\u8FD8\u6CA1\u7ED1\u5B9A\u4F1A\u8BDD\uFF1B\u56DE\u7B54\u5DF2\u5199\u8FDB\u7B14\u8BB0"), 6e3);
     const blockId = block ? blockIdOf(lines[block.start]) : "";
@@ -48093,7 +48912,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
 ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4E00\u4EF6\u4E8B\u3002")}`;
       await this.delegator.continueSession({
         ...session,
-        path: path28,
+        path: path29,
         ...blockId ? { blockId } : {},
         ...session.destination ? {} : { destination: "background" }
       }, prompt);
@@ -48102,23 +48921,23 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     }
   }
   // 原地手写完 `✍️ 答` 之后直接发给会话继续，不用重开 ReplyModal。
-  async submitWrittenReply(path28, editor, { line } = {}) {
+  async submitWrittenReply(path29, editor, { line } = {}) {
     let lines;
     let atLine = Number.isInteger(line) ? line : -1;
     if (atLine < 0) {
-      const sourceView = this.sourceViewForPath(path28);
+      const sourceView = this.sourceViewForPath(path29);
       const ed = sourceView?.editor || editor;
       if (!ed) return this.notice(t("\u8BF7\u5148\u6253\u5F00\u8FD9\u7BC7\u7B14\u8BB0"));
       lines = ed.getValue().split("\n");
       atLine = ed.getCursor().line;
     } else {
-      lines = (await this.readNote(path28)).split("\n");
+      lines = (await this.readNote(path29)).split("\n");
     }
     const block = blockAt(lines, atLine);
     if (!block) return this.notice(t("\u628A\u5149\u6807\u653E\u5728\u8981\u7EED\u804A\u7684\u90A3\u4E00\u6761\u4EFB\u52A1\u91CC"));
     const written = latestWrittenAnswer(lines, block);
     if (!written) return this.notice(t("\u8FD9\u4E00\u5757\u91CC\u8FD8\u6CA1\u6709\u5199\u597D\u7684\u300C\u270D\uFE0F \u7B54\u300D"));
-    const sessions = this.sessionsAtTask(path28, block.start, lines);
+    const sessions = this.sessionsAtTask(path29, block.start, lines);
     if (!sessions.length) return this.notice(t("\u8FD9\u4E00\u5757\u8FD8\u6CA1\u7ED1\u5B9A\u4F1A\u8BDD"));
     if (!sessions.some((s) => this.canContinueSession(s))) {
       return this.notice(t("\u5F53\u524D\u7ED1\u5B9A\u7684\u4F1A\u8BDD\u4E0D\u652F\u6301\u5728 Obsidian \u5185\u7EED\u804A\uFF0C\u8BF7\u5728\u539F\u5BA2\u6237\u7AEF\u7EE7\u7EED"));
@@ -48129,26 +48948,26 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       const qid = written.question?.id || "";
       const qtext = written.question?.text || "";
       this.settings.replyInbox = inboxRemove(this.settings.replyInbox || [], {
-        path: path28,
+        path: path29,
         blockId,
         questionId: qid,
         question: qtext
-      }).filter((x) => !(x.path === path28 && blockId && x.blockId === blockId && qtext && x.question === qtext));
+      }).filter((x) => !(x.path === path29 && blockId && x.blockId === blockId && qtext && x.question === qtext));
       if (this.settings.replyInbox.length !== before) {
         await this.saveSettings();
         this.refreshReplyInbox();
       }
     }
-    await this.continueAfterReply(path28, block.start, written.answer);
+    await this.continueAfterReply(path29, block.start, written.answer);
   }
-  openFollowUp(session, { path: path28 = "", line = -1, blockId = "", title = "" } = {}) {
+  openFollowUp(session, { path: path29 = "", line = -1, blockId = "", title = "" } = {}) {
     new FollowUpModal(this.app, {
       session,
       title,
       onSubmit: async (prompt) => {
         const target = {
           ...session,
-          ...path28 ? { path: path28 } : {},
+          ...path29 ? { path: path29 } : {},
           ...blockId ? { blockId } : {},
           ...session.destination ? {} : { destination: "background" }
         };
@@ -48160,15 +48979,15 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
   // 人在场的一键派发：把这一行任务交给 TeleAgent 的 UI Automation 通道，自动建任务、填词并点「运行」。
   // 项目名从任务上下文里解析（wikilink / 标题前缀 / 笔记路径），解析不到就明确拒绝——
   // 猜错项目会把任务派进别的代码库，比不派发更糟。
-  async dispatchToTeleagent(path28, line, lines) {
-    const target = await this.delegateTarget({ path: path28, line, lineText: lines[line] }, { newSession: true });
+  async dispatchToTeleagent(path29, line, lines) {
+    const target = await this.delegateTarget({ path: path29, line, lineText: lines[line] }, { newSession: true });
     if (target.error) {
       this.notice(target.error, 6e3);
       return;
     }
     const blockText2 = String(target.lines[target.line] || "");
     const context = target.lines.slice(Math.max(0, target.line - 4), target.line + 1);
-    const resolved = resolveProjectForTask({ settings: this.settings, notePath: path28, contextLines: context, blockText: blockText2 });
+    const resolved = resolveProjectForTask({ settings: this.settings, notePath: path29, contextLines: context, blockText: blockText2 });
     const project = String(resolved?.name || "").trim();
     if (!project) {
       this.notice(t("\u8FD9\u4E2A\u4EFB\u52A1\u6CA1\u6709\u767B\u8BB0\u8FC7\u9879\u76EE\u76EE\u5F55\uFF0C\u5148\u5728\u8BBE\u7F6E\u91CC\u767B\u8BB0\u9879\u76EE\u6587\u4EF6\u5939"), 8e3);
@@ -48184,39 +49003,39 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       autoSend: true
     });
   }
-  async taskActions(path28, line, event) {
+  async taskActions(path29, line, event) {
     let text;
     try {
-      text = await this.readNote(path28);
+      text = await this.readNote(path29);
     } catch {
       return;
     }
     const lines = text.split("\n"), block = blockAt(lines, line);
     if (!block) return;
-    const sourceView = this.sourceViewForPath(path28);
-    const view2 = sourceView || this.viewForPath(path28);
-    const sessions = this.sessionsAtTask(path28, line, lines);
+    const sourceView = this.sourceViewForPath(path29);
+    const view2 = sourceView || this.viewForPath(path29);
+    const sessions = this.sessionsAtTask(path29, line, lines);
     const menu = new import_obsidian21.Menu();
     const thread = this.threadAt(lines, line);
     const blockId = blockIdOf(lines[block.start]);
     if (thread?.question && pendingQuestion(thread.parsed)) {
       menu.addItem((mi) => mi.setTitle(t("\u270D\uFE0F \u56DE\u590D\u8FD9\u4E00\u95EE\u2026")).onClick(() => {
         if (sourceView?.editor) sourceView.editor.setCursor({ line: thread.question.line, ch: 0 });
-        this.replyToQuestion(path28, sourceView?.editor, { line: thread.question.line });
+        this.replyToQuestion(path29, sourceView?.editor, { line: thread.question.line });
       }));
-      menu.addItem((mi) => mi.setTitle(t("\u590D\u5236\u8FD9\u4E00\u95EE\u7684\u5757\u5F15\u7528\uFF08[[\u7B14\u8BB0#^\u5757\u53F7]]\uFF09")).onClick(() => this.copyQuestionRef(path28, thread)));
+      menu.addItem((mi) => mi.setTitle(t("\u590D\u5236\u8FD9\u4E00\u95EE\u7684\u5757\u5F15\u7528\uFF08[[\u7B14\u8BB0#^\u5757\u53F7]]\uFF09")).onClick(() => this.copyQuestionRef(path29, thread)));
       menu.addSeparator();
     } else {
       const written = latestWrittenAnswer(lines, block);
       if (written && !written.hasResultAfter && sessions.some((s) => this.canContinueSession(s))) {
-        menu.addItem((mi) => mi.setTitle(t("\u628A\u5DF2\u5199\u597D\u7684 \u270D\uFE0F \u7B54 \u53D1\u7ED9\u4F1A\u8BDD\u7EE7\u7EED")).setIcon("send").onClick(() => this.submitWrittenReply(path28, sourceView?.editor, { line: block.start })));
+        menu.addItem((mi) => mi.setTitle(t("\u628A\u5DF2\u5199\u597D\u7684 \u270D\uFE0F \u7B54 \u53D1\u7ED9\u4F1A\u8BDD\u7EE7\u7EED")).setIcon("send").onClick(() => this.submitWrittenReply(path29, sourceView?.editor, { line: block.start })));
         menu.addSeparator();
       }
     }
     for (const [index, session] of sessions.entries()) {
       const title = `${AGENTS[session.agent]?.name || session.agent} \xB7 ${t("\u4F1A\u8BDD {n}", { n: index + 1 })}`;
       if (this.canContinueSession(session, { requireSid: false })) {
-        menu.addItem((mi) => mi.setTitle(t("\u7EE7\u7EED\u5BF9\u8BDD\uFF08\u8FFD\u95EE\uFF09\xB7 {title}", { title })).setIcon("message-square-plus").setDisabled(!session.sid || activeJob(session)).onClick(() => this.openFollowUp(session, { path: path28, line: block.start, blockId, title: session.title || session.name || "" })));
+        menu.addItem((mi) => mi.setTitle(t("\u7EE7\u7EED\u5BF9\u8BDD\uFF08\u8FFD\u95EE\uFF09\xB7 {title}", { title })).setIcon("message-square-plus").setDisabled(!session.sid || activeJob(session)).onClick(() => this.openFollowUp(session, { path: path29, line: block.start, blockId, title: session.title || session.name || "" })));
       }
       menu.addItem((mi) => mi.setTitle(t("\u67E5\u770B\u6B63\u6587\u4E0E\u4FDD\u5B58\u5BF9\u8BDD \xB7 {title}", { title })).setDisabled(!session.sid).onClick(() => this.openConversation(session)));
       if (canOpenClient(session)) menu.addItem((mi) => mi.setTitle(t("\u5728\u5BA2\u6237\u7AEF\u6253\u5F00 \xB7 {title}", { title })).setDisabled(!session.sid || hasAgentCapability(session.agent, "waitDesktopUntilDone") && activeJob(session)).onClick(() => this.openClientSession(session)));
@@ -48224,13 +49043,13 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       else if (session.handoff && !session.sid && activeJob(session)) menu.addItem((mi) => mi.setTitle(t("\u53D6\u6D88\u4EA4\u63A5 \xB7 {title}", { title })).onClick(() => this.cancelJob(session.id)));
       menu.addSeparator();
     }
-    for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a) && canDelegateDrop(a))) menu.addItem((mi) => mi.setTitle(t("\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path: path28, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
+    for (const agent of AGENT_ORDER.filter((a) => this.agentEnabled(a) && canDelegateDrop(a))) menu.addItem((mi) => mi.setTitle(t("\u91CD\u65B0\u59D4\u6D3E\uFF08\u65B0\u4F1A\u8BDD\uFF09\xB7 {agent}", { agent: AGENTS[agent].name })).onClick(() => this.delegateDrop(agent, { path: path29, line: block.start, lineText: lines[block.start] }, null, { newSession: true })));
     if ((process.platform === "win32" || process.platform === "linux") && this.agentEnabled("teleagent")) {
       const dispatchLabel = process.platform === "linux" ? t("\u6D3E\u53D1\u5230 TeleAgent\uFF08\u81EA\u52A8\u586B\u5199\uFF0C\u9700\u624B\u52A8\u70B9\u8FD0\u884C\uFF09") : t("\u6D3E\u53D1\u5230 TeleAgent\uFF08\u81EA\u52A8\u586B\u5199\u5E76\u53D1\u9001\uFF09");
-      menu.addItem((mi) => mi.setTitle(dispatchLabel).setIcon("send").onClick(() => this.dispatchToTeleagent(path28, block.start, lines)));
+      menu.addItem((mi) => mi.setTitle(dispatchLabel).setIcon("send").onClick(() => this.dispatchToTeleagent(path29, block.start, lines)));
     }
     menu.addSeparator();
-    menu.addItem((mi) => mi.setTitle(t("\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u62C6\u89E3\u5E76\u5206\u914D\u5C0F\u961F")).setIcon("folder-kanban").onClick(() => this.openProjectWorkbench({ path: path28, line: block.start })));
+    menu.addItem((mi) => mi.setTitle(t("\u5728\u9879\u76EE\u5DE5\u4F5C\u53F0\u62C6\u89E3\u5E76\u5206\u914D\u5C0F\u961F")).setIcon("folder-kanban").onClick(() => this.openProjectWorkbench({ path: path29, line: block.start })));
     if (sourceView?.editor) {
       menu.addItem((mi) => mi.setTitle(t("\u7ED1\u5B9A\u6216\u5408\u5E76\u5230\u5176\u4ED6\u4EFB\u52A1")).onClick(() => {
         sourceView.editor.setCursor({ line: block.start, ch: 0 });
@@ -48249,7 +49068,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     const icons = { outline: "list-tree", table: "table", cards: "layout-grid", timeline: "history" };
     setLucide(el, icons[viewMode] || "list-tree");
   }
-  populateRecordExportMenu(sub, { path: path28 = "", line = 0, viewMode = "outline" } = {}) {
+  populateRecordExportMenu(sub, { path: path29 = "", line = 0, viewMode = "outline" } = {}) {
     const viewLabels = {
       outline: t("\u5927\u7EB2"),
       table: t("\u8868\u683C"),
@@ -48257,20 +49076,20 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       timeline: t("\u65F6\u95F4\u7EBF")
     };
     const activeViewLabel = viewLabels[viewMode] || viewLabels.outline;
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A PDF\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("file-text").onClick(() => exportTaskToPdf(this, path28, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A HTML\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("globe").onClick(() => exportTaskToHtml(this, path28, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A Markdown (.md)")).setIcon("file-code").onClick(() => exportTaskToMarkdown(this, path28, line)));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A JSON (.json)")).setIcon("braces").onClick(() => exportTaskToJson(this, path28, line, { viewMode })));
-    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A CSV (.csv)")).setIcon("table").onClick(() => exportTaskToCsv(this, path28, line)));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A PDF\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("file-text").onClick(() => exportTaskToPdf(this, path29, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A HTML\uFF08{view}\uFF09", { view: activeViewLabel })).setIcon("globe").onClick(() => exportTaskToHtml(this, path29, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A Markdown (.md)")).setIcon("file-code").onClick(() => exportTaskToMarkdown(this, path29, line)));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A JSON (.json)")).setIcon("braces").onClick(() => exportTaskToJson(this, path29, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u5BFC\u51FA\u4E3A CSV (.csv)")).setIcon("table").onClick(() => exportTaskToCsv(this, path29, line)));
     sub.addSeparator();
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path28, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown \u8868\u683C")).setIcon("table").onClick(() => copyTaskMarkdownTable(this, path28, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A\u7EAF\u6587\u672C")).setIcon("align-left").onClick(() => copyTaskPlainText(this, path28, line)));
-    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A JSON")).setIcon("copy").onClick(() => copyTaskJson(this, path28, line, { viewMode })));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown")).setIcon("clipboard-copy").onClick(() => copyTaskMarkdown(this, path29, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A Markdown \u8868\u683C")).setIcon("table").onClick(() => copyTaskMarkdownTable(this, path29, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A\u7EAF\u6587\u672C")).setIcon("align-left").onClick(() => copyTaskPlainText(this, path29, line)));
+    sub.addItem((si) => si.setTitle(t("\u590D\u5236\u4E3A JSON")).setIcon("copy").onClick(() => copyTaskJson(this, path29, line, { viewMode })));
     sub.addSeparator();
-    sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path28, line)));
+    sub.addItem((si) => si.setTitle(t("\u53E6\u5B58\u4E3A\u5E76\u79FB\u51FA\u539F\u6587\u2026")).setIcon("folder-output").onClick(() => saveTaskAsFile(this, path29, line)));
   }
-  openRecordViewMenu(event, { path: path28 = "", line = 0, viewMode = "outline", onSelect } = {}) {
+  openRecordViewMenu(event, { path: path29 = "", line = 0, viewMode = "outline", onSelect } = {}) {
     const menu = new import_obsidian21.Menu();
     const views = [
       ["outline", t("\u5927\u7EB2"), "list-tree"],
@@ -48283,9 +49102,9 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         mi.setTitle(label).setIcon(icon).setChecked(viewMode === id).onClick(() => onSelect?.(id));
       });
     }
-    if (path28) {
+    if (path29) {
       menu.addSeparator();
-      const opts = { path: path28, line, viewMode };
+      const opts = { path: path29, line, viewMode };
       menu.addItem((mi) => {
         mi.setTitle(t("\u5BFC\u51FA")).setIcon("download");
         if (typeof mi.setSubmenu === "function") {
@@ -48374,21 +49193,21 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     });
   }
   // ---------- editor actions ----------
-  async delegateAtLine(path28, line, extraOpts = {}) {
-    const file = this.app.vault.getAbstractFileByPath(path28);
+  async delegateAtLine(path29, line, extraOpts = {}) {
+    const file = this.app.vault.getAbstractFileByPath(path29);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    const lines = (await this.readNote(path28)).split("\n");
-    return this.delegateDrop(this.defaultTarget(), { path: path28, line, lineText: lines[line] }, null, extraOpts);
+    const lines = (await this.readNote(path29)).split("\n");
+    return this.delegateDrop(this.defaultTarget(), { path: path29, line, lineText: lines[line] }, null, extraOpts);
   }
-  openDelegateModal(path28, line) {
-    new DelegateOptionsModal(this.app, this, path28, line).open();
+  openDelegateModal(path29, line) {
+    new DelegateOptionsModal(this.app, this, path29, line).open();
   }
   // 四视图（表格 / 卡片 / 时间线）和阅读视图的行右键菜单：Pin 与委派都收在这里。
-  async recordRowMenu(event, { path: path28, line } = {}) {
-    if (!path28 || !Number.isInteger(line) || line < 0) return null;
+  async recordRowMenu(event, { path: path29, line } = {}) {
+    if (!path29 || !Number.isInteger(line) || line < 0) return null;
     let text;
     try {
-      text = await this.readNote(path28);
+      text = await this.readNote(path29);
     } catch {
       return null;
     }
@@ -48398,10 +49217,10 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     const menu = new import_obsidian21.Menu();
     if (CONTEXT_RECORD_RE.test(raw)) {
       const pinned = hasPinMarker(raw);
-      menu.addItem((item) => item.setTitle(pinned ? t("\u53D6\u6D88 Pin\uFF08\u6062\u590D\u5E38\u89C4\u6298\u53E0\uFF09") : t("Pin \u4E3A\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09")).onClick(() => this.toggleRecordPin(path28, line)));
+      menu.addItem((item) => item.setTitle(pinned ? t("\u53D6\u6D88 Pin\uFF08\u6062\u590D\u5E38\u89C4\u6298\u53E0\uFF09") : t("Pin \u4E3A\u5173\u952E\u8BB0\u5F55\uFF08\u6298\u53E0\u4E0D\u9690\u85CF \xB7 Dreaming \u4F18\u5148\uFF09")).onClick(() => this.toggleRecordPin(path29, line)));
       menu.addSeparator();
     }
-    this.addDelegateMenuItems(menu, path28, line);
+    this.addDelegateMenuItems(menu, path29, line);
     menu.showAtMouseEvent(event);
     return menu;
   }
@@ -48414,21 +49233,21 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     if (!model) return id || t("\u5BA2\u6237\u7AEF\u6A21\u578B");
     return model.value === "" ? t("CLI \u9ED8\u8BA4") : model.name;
   }
-  addDelegateMenuItems(menu, path28, line, addItem = null) {
+  addDelegateMenuItems(menu, path29, line, addItem = null) {
     const add = addItem || ((build) => menu.addItem(build));
     const primary = this.defaultTarget();
     const modelName2 = this.delegateModelLabel(this.defaultModel(primary));
-    add((item) => item.setTitle(t("\u59D4\u6D3E\uFF08{agent} \xB7 {model}\uFF09", { agent: AGENTS[primary]?.short || primary, model: modelName2 })).setIcon("send").onClick(() => this.delegateViewRow(path28, line)));
+    add((item) => item.setTitle(t("\u59D4\u6D3E\uFF08{agent} \xB7 {model}\uFF09", { agent: AGENTS[primary]?.short || primary, model: modelName2 })).setIcon("send").onClick(() => this.delegateViewRow(path29, line)));
     const choices = this.recordMenuModels();
     add((item) => {
       item.setTitle(t("\u59D4\u6D3E\u5E76\u9009\u62E9\u6A21\u578B")).setIcon("bot");
       const sub = typeof item.setSubmenu === "function" ? item.setSubmenu() : null;
       if (!sub || !choices.length) {
-        item.onClick(() => this.delegateViewRow(path28, line));
+        item.onClick(() => this.delegateViewRow(path29, line));
         return;
       }
       for (const { agent, model } of choices) {
-        sub.addItem((entry) => entry.setTitle(`${AGENTS[agent]?.short || agent} \xB7 ${this.delegateModelLabel(model.id)}`).onClick(() => this.delegateViewRow(path28, line, agent, model.id)));
+        sub.addItem((entry) => entry.setTitle(`${AGENTS[agent]?.short || agent} \xB7 ${this.delegateModelLabel(model.id)}`).onClick(() => this.delegateViewRow(path29, line, agent, model.id)));
       }
     });
   }
@@ -48441,12 +49260,12 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     }
     return out;
   }
-  async delegateViewRow(path28, line, agent = "", model = "") {
-    const file = this.app.vault.getAbstractFileByPath(path28);
+  async delegateViewRow(path29, line, agent = "", model = "") {
+    const file = this.app.vault.getAbstractFileByPath(path29);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    const lines = (await this.readNote(path28)).split("\n");
+    const lines = (await this.readNote(path29)).split("\n");
     if (!(line >= 0 && line < lines.length)) return;
-    return this.delegateDrop(agent || this.defaultTarget(), { path: path28, line, lineText: lines[line] }, null, { model });
+    return this.delegateDrop(agent || this.defaultTarget(), { path: path29, line, lineText: lines[line] }, null, { model });
   }
   // Which journal the two commands act on: the note you are looking at when it
   // sits next to today's journal, otherwise today's journal.
@@ -48636,12 +49455,12 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
   }
   openSessionForEditor(editor, view2) {
     if (!view2 || !view2.file) return;
-    const path28 = view2.file.path, line = editor.getCursor().line;
-    const map = this.lineMap(path28, editor.cm.state.doc);
+    const path29 = view2.file.path, line = editor.getCursor().line;
+    const map = this.lineMap(path29, editor.cm.state.doc);
     let s = map.sessionByParent.get(line);
     if (!s) {
       const text = editor.getLine(line);
-      const job = this.jobAtLine(path28, line, text);
+      const job = this.jobAtLine(path29, line, text);
       if (job) return this.openJob(job.id);
     }
     if (!s) return this.notice(t("\u8FD9\u4E00\u884C\u4E0B\u9762\u6CA1\u6709 \u{1F517} \u7ED1\u5B9A"));
@@ -48766,9 +49585,9 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     file = await this.app.vault.create(pathStr, content);
     return { path: pathStr, file };
   }
-  async writeWorkbenchTasks({ path: path28 = "", line = -1, parentTitle = "", subtasks = [], enableBoard = true } = {}) {
+  async writeWorkbenchTasks({ path: path29 = "", line = -1, parentTitle = "", subtasks = [], enableBoard = true } = {}) {
     var _a;
-    const ensured = await this.ensureNoteFile(path28);
+    const ensured = await this.ensureNoteFile(path29);
     const targetPath = ensured.path;
     const activeSubtasks = (subtasks || []).filter((s) => s && s.checked !== false && String(s.title || "").trim());
     if (!activeSubtasks.length) throw new Error(t("\u6CA1\u6709\u53EF\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
@@ -48861,7 +49680,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     return { path: targetPath, lines: finalLines, parentLine, parentBlockId, subtaskLines };
   }
   async dispatchWorkbenchTasks({
-    path: path28,
+    path: path29,
     lines,
     subtaskLines = [],
     cwd = "",
@@ -48873,9 +49692,9 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     round = 1
   } = {}) {
     var _a;
-    const file = this.app.vault.getAbstractFileByPath(path28);
-    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u76EE\u6807\u7B14\u8BB0\uFF1A{path}", { path: path28 }));
-    const freshLines = lines || (await this.readNote(path28)).split("\n");
+    const file = this.app.vault.getAbstractFileByPath(path29);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u76EE\u6807\u7B14\u8BB0\uFF1A{path}", { path: path29 }));
+    const freshLines = lines || (await this.readNote(path29)).split("\n");
     const tasks = subtaskLines.map((item) => ({ item, block: blockAt(freshLines, item.line) })).filter((x) => x.block);
     if (!tasks.length) return;
     const siblingModel = tasks.length > 1 ? {
@@ -48931,7 +49750,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         };
       });
       const wave = createWorkbenchWave({
-        path: path28,
+        path: path29,
         parentBlockId,
         parentTitle: parentTitle || t("\u534F\u4F5C\u9879\u76EE"),
         projectName: projectName2,
@@ -48944,7 +49763,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       (_a = this.settings).workbenchWaves || (_a.workbenchWaves = {});
       this.settings.workbenchWaves[wave.id] = wave;
       if (parentBlockId || parentTitle) {
-        await updateNote(this, path28, (text) => updateTaskBlockStatusById(text, {
+        await updateNote(this, path29, (text) => updateTaskBlockStatusById(text, {
           blockId: parentBlockId,
           title: parentTitle,
           targetColumn: "doing",
@@ -48957,10 +49776,10 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     }
     this.refreshUI();
   }
-  async dispatchBoardGroup(path28, parentLine, { model: providedModel = null } = {}) {
-    const file = this.app.vault.getAbstractFileByPath(path28);
+  async dispatchBoardGroup(path29, parentLine, { model: providedModel = null } = {}) {
+    const file = this.app.vault.getAbstractFileByPath(path29);
     if (!file) return this.notice(t("\u627E\u4E0D\u5230\u8FD9\u7BC7\u7B14\u8BB0"));
-    let text = await this.readNote(path28);
+    let text = await this.readNote(path29);
     let lines = text.split("\n");
     const groups = extractTaskBoardGroups(text, {
       trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : /* @__PURE__ */ new Set(),
@@ -48972,7 +49791,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     let parentBlockId = blockIdOf(lines[parentLine]);
     if (!parentBlockId) {
       const generated = makeBlockId("", "ad", readableSlug(grp?.title || ""));
-      await updateNote(this, path28, (cur) => {
+      await updateNote(this, path29, (cur) => {
         const curLines = cur.split("\n");
         if (!curLines[parentLine]) return cur;
         const ensured = ensureBlockId(curLines[parentLine], generated);
@@ -48980,7 +49799,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         parentBlockId = ensured.blockId;
         return curLines.join("\n");
       });
-      text = await this.readNote(path28);
+      text = await this.readNote(path29);
       lines = text.split("\n");
     }
     const model = providedModel || buildTaskBoardModel(grp, this);
@@ -48995,7 +49814,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       boardContext: buildBoardSiblingContext(model, card.line)
     }));
     const existingWave = findActiveWaveForBoard(this.settings.workbenchWaves, {
-      path: path28,
+      path: path29,
       parentBlockId,
       parentTitle: model.title
     });
@@ -49007,7 +49826,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       defaultAgent: this.defaultTarget?.()
     });
     await this.dispatchWorkbenchTasks({
-      path: path28,
+      path: path29,
       lines,
       subtaskLines,
       parentTitle: model.title,
@@ -49884,22 +50703,22 @@ ${body}` });
     frag.appendChild(wrap);
     notice = new import_obsidian21.Notice(frag, 2e4);
   }
-  async readNote(path28) {
-    const view2 = this.sourceViewForPath(path28);
+  async readNote(path29) {
+    const view2 = this.sourceViewForPath(path29);
     if (view2) return view2.editor.getValue();
-    const file = this.app.vault.getAbstractFileByPath(path28);
-    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path28 }));
+    const file = this.app.vault.getAbstractFileByPath(path29);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path29 }));
     return await this.app.vault.read(file);
   }
-  async writeNote(path28, text) {
-    const view2 = this.sourceViewForPath(path28);
+  async writeNote(path29, text) {
+    const view2 = this.sourceViewForPath(path29);
     if (view2) {
       const change = diffLines(view2.editor.getValue(), text);
       if (change) view2.editor.transaction({ changes: [change] });
       return;
     }
-    const file = this.app.vault.getAbstractFileByPath(path28);
-    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path28 }));
+    const file = this.app.vault.getAbstractFileByPath(path29);
+    if (!file) throw new Error(t("\u627E\u4E0D\u5230\u7B14\u8BB0\uFF1A{path}", { path: path29 }));
     await this.app.vault.process(file, () => text);
   }
   syncCustomAcpAgents() {

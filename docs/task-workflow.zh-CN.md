@@ -1,6 +1,23 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.23**（2026-11-25）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.24**（2026-11-25）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.24：Orca 追踪与聚合去重、Kimi Code v2 追踪与 ACP 委派、Antigravity ACP 修复
+
+- **新增 Orca 桌面版只读追踪与底层分发会话去重（内置总数增至 20 家，`HARNESS_DETECTION_VERSION = 4`）**：
+  - 新增 `src/orca-sessions.js`（定位 Orca Electron `userData` 下 `agent-session-domain.db`，支持 `ORCA_DATA_DIR` / `ORCA_USER_DATA_DIR` 环境变量隔离）与 128×128 图标 `assets/agents/orca.png`，补齐 `constants.js`、`agent-registry.js`（`trackingOnly: true`、`delegate: false`、`runnerKind: "handoff"`）、`agent-assets.js`、`icons.js`、`conversation.js`、`delegation.js`（`com.stablyai.orca` / `orca://`）、`journal.js`（`orca` 块号与短链前缀）、`harness-detect.js`（经 `appSub` 派生 `Orca.app/Contents/Resources/bin/orca` 与应用/数据探测）、`settings.js`、`security-audit.js`、`menubar.swift`、`styles/views/{editor,settings}.css`、中英繁文案与 `test/orca-sessions.test.mjs`。
+  - `src/desktop-sessions.js` 与 `src/readers.js` 实现 Orca 会话与消息解析（兼容 `launchDirectory` 及 `location.workspaceId` `<repoId>::<path>` 提取 `cwd`、过滤 `role="reasoning"`、失败轮次状态回退、以内容与轮次时间戳作为 `revision`/`updatedAt` 锚点避免 lease 心跳导致重复扫描），并通过 `orcaDelegatedSids`（读取 `adopted_native_id` 与 `providerHandleChain[]`）及 `orcaOwnerOf` 接入统一 `delegatedOwners` 去重体系，在 `summary()`、侧栏、AutoLog、DashboardData、`JournalSync` 与安全审计中屏蔽底层拉起的 Antigravity / OpenCode / Claude / Codex 原生会话（关闭 `settings.agents.orca` 即时恢复）。
+- **Kimi Code v2 会话解析升级与 `kimi acp` 后台委派（`USAGE_CACHE_VERSION = 23`）**：
+  - `src/kimicode-sessions.js` 兼容 v2 `agents/main/wire.jsonl`（含自定义子代理目录）、`projects.json` 工作区映射、`profile.bind.modelAlias` 与 `step.end`/`usage.record` token 去重；`src/agent-registry.js`、`src/delegation-runners.js`、`src/constants.js` 接入 `kimi acp` 后台委派、`EFFORTS.kimicode`（`low`/`high`/`max`）、`handoffFallback: true`、`continueRequiresAcp: true` 与应用内续聊，并更新 `test/kimicode-sessions.test.mjs`。
+- **Antigravity（`agy acp`）委派卡死修复与 Windows 代理 / 可执行文件兼容加固**：
+  - `src/delegation-runners.js` 新增 `parseWindowsRegProxy` 读取 Windows 系统代理，`extractAcpText` 兼容文本块数组与 `\uFEFF` BOM 剥离，改用子进程 `close` 事件排水并在超时/异常时透出脱敏 `stderr`，补充 Windows `agy.exe`/`agy.cmd` 候选路径与 `windowsHide: true`，新增 `test/antigravity-acp.test.mjs`。
+- **验证范围与未测空白**：
+  - **已实机验证（macOS arm64）**：
+    - **Antigravity**（`agy` v1.5.14）：实时拉取 11 个模型、验证 Turn 1 `autoApprove: true/false` + 权限回调、Turn 2 `continueSession` 与 `AgentUsage` 追踪（`state: "wait"`）；
+    - **Kimi Code**（`@moonshot-ai/kimi-code` v2.7.3 + `DeepSeek/deepseek-flash`）：实时跑通 `kimi acp` 委派与 v2 `wire.jsonl` 会话追踪（2 轮、`calls: 2, out: 6, fresh: 49728, cached: 5248`）；
+    - **Orca**（`Orca.app` v1.4.274）：实时拉起 Antigravity / OpenCode / Claude / Codex 4 条会话，验证真实 `~/Library/Application Support/orca/agent-session-domain.db` 全链路追踪（`"pong"` / `"wait"` / `"error"`）、4 条底层原生会话 `delegatedOwnerOf` 抑制、以及关闭 `settings.agents.orca` 后原生会话即时恢复；
+    - 全量 `npm test`、`npm run eval`、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`、Obsidian Vault `马自立` 安装与热重载、`outline-journal-app` 同步与 `npm run verify`（含 128 项 Electron 核对）均通过。
+  - **未测空白**：Windows 真机下 Antigravity / Kimi Code / Orca / Obsidian GUI 实机交互（仅经 `test/antigravity-acp.test.mjs`、`test/kimicode-sessions.test.mjs`、`test/orca-sessions.test.mjs` 的跨平台路径与 `parseWindowsRegProxy` 单元测试覆盖）。
 
 ## 1.13.23：无序/有序列表块拖动委派全链路、不可委派卡片灰显与性能优化
 
