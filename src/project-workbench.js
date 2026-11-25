@@ -417,27 +417,62 @@ export function resolveTeamPresets(settings = {}) {
   });
 }
 
-export function resolveRoleAgent(preferredAgent, { availableAgents = [], limitAgents = new Set(), fallbackAgent = "" } = {}) {
+export function resolveRoleAgent(
+  preferredAgent,
+  { availableAgents = [], limitAgents = new Set(), uninstalledAgents = new Set(), usageCounts = null, fallbackAgent = "" } = {},
+) {
   const pool = availableAgents.length ? availableAgents : ["claude"];
-  if (preferredAgent && pool.includes(preferredAgent) && !limitAgents.has(preferredAgent)) {
-    return { agent: preferredAgent, fallbackFrom: "", limited: false };
+  const isHealthy = (id) => Boolean(id && pool.includes(id) && !uninstalledAgents.has(id) && !limitAgents.has(id));
+  if (isHealthy(preferredAgent)) {
+    return { agent: preferredAgent, fallbackFrom: "", limited: false, uninstalled: false };
   }
-  const healthy = pool.find((id) => !limitAgents.has(id));
-  if (healthy) {
+  const healthy = pool.filter((id) => isHealthy(id));
+  if (healthy.length) {
+    let pick = healthy[0];
+    if (usageCounts instanceof Map) {
+      let minUse = Infinity;
+      for (const id of healthy) {
+        const count = usageCounts.get(id) || 0;
+        if (count < minUse) { minUse = count; pick = id; }
+      }
+    }
     return {
-      agent: healthy,
-      fallbackFrom: preferredAgent && preferredAgent !== healthy ? preferredAgent : "",
+      agent: pick,
+      fallbackFrom: preferredAgent && preferredAgent !== pick ? preferredAgent : "",
       limited: Boolean(preferredAgent && limitAgents.has(preferredAgent)),
+      uninstalled: Boolean(preferredAgent && uninstalledAgents.has(preferredAgent)),
     };
   }
-  const kept = preferredAgent && pool.includes(preferredAgent) ? preferredAgent : (fallbackAgent && pool.includes(fallbackAgent) ? fallbackAgent : pool[0]);
-  return { agent: kept, fallbackFrom: "", limited: limitAgents.has(kept) };
+  const installed = pool.filter((id) => !uninstalledAgents.has(id));
+  const installedPick = installed.includes(preferredAgent) ? preferredAgent : (installed[0] || "");
+  if (installedPick) {
+    return {
+      agent: installedPick,
+      fallbackFrom: preferredAgent && preferredAgent !== installedPick ? preferredAgent : "",
+      limited: limitAgents.has(installedPick) || Boolean(preferredAgent && limitAgents.has(preferredAgent)),
+      uninstalled: Boolean(preferredAgent && uninstalledAgents.has(preferredAgent)),
+    };
+  }
+  const kept = preferredAgent && pool.includes(preferredAgent)
+    ? preferredAgent
+    : (fallbackAgent && pool.includes(fallbackAgent) ? fallbackAgent : pool[0]);
+  return {
+    agent: kept,
+    fallbackFrom: preferredAgent && preferredAgent !== kept ? preferredAgent : "",
+    limited: limitAgents.has(kept),
+    uninstalled: uninstalledAgents.has(kept),
+  };
 }
 
-export function assignTeamToRoles(preset, { availableAgents = [], limitAgents = new Set(), overrides = {}, defaultDestinationFn } = {}) {
+export function assignTeamToRoles(
+  preset,
+  { availableAgents = [], limitAgents = new Set(), uninstalledAgents = new Set(), overrides = {}, defaultDestinationFn } = {},
+) {
+  const usageCounts = new Map();
   return (preset?.roles || []).map((role) => {
     const chosen = overrides[role.id] || role.preferredAgent;
-    const resolved = resolveRoleAgent(chosen, { availableAgents, limitAgents });
+    const resolved = resolveRoleAgent(chosen, { availableAgents, limitAgents, uninstalledAgents, usageCounts });
+    usageCounts.set(resolved.agent, (usageCounts.get(resolved.agent) || 0) + 1);
     const dests = destinations(resolved.agent);
     const defaultDest = defaultDestinationFn ? defaultDestinationFn(resolved.agent) : (dests.find((d) => d.id === "background")?.id || dests[0]?.id || "background");
     return {
@@ -445,6 +480,7 @@ export function assignTeamToRoles(preset, { availableAgents = [], limitAgents = 
       agent: resolved.agent,
       fallbackFrom: resolved.fallbackFrom,
       limited: resolved.limited,
+      uninstalled: resolved.uninstalled,
       destination: defaultDest,
     };
   });
@@ -455,8 +491,9 @@ export function buildCopilotPlanPrompt({ goal = "", projectName = "", cwd = "", 
   const agentsDesc = availableAgents.map((id) => `${id} (${AGENTS[id]?.name || id})`).join(", ");
   const ctx = contextLines.filter((l) => l && l.trim()).slice(-6).join("\n");
   return [
-    "你是项目工作台的任务拆解副驾。请根据项目目标，拆解出 2 到 5 个可并行或分步委派给不同 Agent 的清晰子任务，只输出合法 JSON，不要输出 Markdown 解释或多余文字。",
-    'JSON 格式：{"summary":"一句话项目目标","subtasks":[{"title":"简洁可执行子任务标题（不超过28字）","role":"角色名","agent":"agent_id","detail":"验收要求或补充说明（不超过80字）"}]}',
+    "你是项目工作台的任务拆解副驾。请根据项目目标，拆解出 2 到 5 个可委派给不同 Agent 的清晰子任务，只输出一个合法 JSON 对象，第一个字符必须是 {，最后一个字符必须是 }，不要输出 Markdown 解释或多余文字。",
+    'JSON 格式：{"summary":"一句话项目目标","subtasks":[{"title":"简洁可执行子任务标题（不超过36字）","role":"角色名","agent":"agent_id","stage":1,"detail":"范围边界与验收标准（不超过100字）"}]}',
+    "分工与阶段规则：\n- stage 为执行批次（1、2 或 3）：彼此独立、不改同一文件/同一段落的子任务设为 stage: 1（并发执行）；依赖前一批产出的集成、测试、汇总或复核子任务设为 stage: 2（或 3）。\n- 每个子任务的 detail 写清职责范围边界（避免多人改同一处）与可验证的完成标准。\n- agent 必须严格从下方可用 Agent ID 中选择；不同角色尽量合理分派给小队里的不同 Agent。",
     projectName ? `项目名：${projectName}` : "",
     cwd ? `工作目录：${cwd}` : "",
     `可用 Agent ID（agent 字段必须从这里选）：${agentsDesc || "claude"}`,
@@ -464,6 +501,12 @@ export function buildCopilotPlanPrompt({ goal = "", projectName = "", cwd = "", 
     ctx ? `相关父级上下文：\n${ctx}` : "",
     `待拆解目标：\n${String(goal || "").trim()}`,
   ].filter(Boolean).join("\n\n");
+}
+
+export function buildCopilotFixPrompt(previous = "", { availableAgents = [], goal = "" } = {}) {
+  const agents = availableAgents.length ? `\n可用 Agent ID（agent 字段必须从中选择）：${availableAgents.join(", ")}` : "";
+  const goalHint = String(goal || "").trim() ? `\n任务目标参考：${truncate(String(goal).replace(/\s+/g, " ").trim(), 160)}` : "";
+  return `你上一次的输出不是合法 JSON。请严格重新输出一个合法 JSON 对象，第一个字符必须是 {，最后一个字符必须是 }，不要任何解释文字。\n格式：{"summary":"一句话项目目标","subtasks":[{"title":"子任务标题","role":"角色名","agent":"agent_id","stage":1,"detail":"范围边界与验收标准"}]}${agents}${goalHint}\n\n上一次输出：\n${String(previous || "").slice(0, 800)}`;
 }
 
 function extractJsonObject(raw) {
@@ -485,18 +528,22 @@ export function parseCopilotPlanResponse(raw, { availableAgents = ["claude"], ro
   const subtasks = parsed.subtasks
     .slice(0, 8)
     .map((item, idx) => {
-      const title = truncate(String(item?.title || "").replace(/\s+/g, " ").trim(), 48);
+      const title = truncate(String(item?.title || "").replace(/\s+/g, " ").trim(), 64);
       if (!title) return null;
       const roleName = String(item?.role || "").trim();
       const matchedRole = roles.find((r) => r.label === roleName || r.id === roleName) || roles[idx % Math.max(1, roles.length)];
       const rawAgent = String(item?.agent || "").trim().toLowerCase();
       const agent = pool.includes(rawAgent) ? rawAgent : (matchedRole && pool.includes(matchedRole.agent) ? matchedRole.agent : fallback);
+      const rawStage = Number(item?.stage);
+      const stage = Number.isFinite(rawStage) ? Math.min(3, Math.max(1, Math.round(rawStage))) : 1;
       return {
         checked: true,
         title,
         role: roleName || matchedRole?.label || t("协作任务"),
+        roleId: matchedRole?.id || "",
         agent,
-        detail: String(item?.detail || "").replace(/\s+/g, " ").trim().slice(0, 160),
+        stage,
+        detail: String(item?.detail || "").replace(/\s+/g, " ").trim().slice(0, 200),
       };
     })
     .filter(Boolean);
@@ -505,6 +552,78 @@ export function parseCopilotPlanResponse(raw, { availableAgents = ["claude"], ro
     summary: String(parsed.summary || "").trim(),
     subtasks,
   };
+}
+
+const SCOPE_FILE_RE = /(?:^|[\s"'`([{:：,;，；])((?:[A-Za-z0-9_.-]+\/)*[A-Za-z0-9_.-]+\.(?:js|mjs|cjs|ts|tsx|jsx|css|scss|md|json|swift|py|go|rs|yml|yaml|html|txt|c|h))\b/g;
+
+export function extractScopeTokens(text = "") {
+  const src = String(text || "");
+  if (!src) return [];
+  const out = [];
+  const seen = new Set();
+  for (const m of src.matchAll(SCOPE_FILE_RE)) {
+    const startIdx = (m.index || 0) + (m[0].length - m[1].length);
+    if (startIdx >= 3 && src.slice(Math.max(0, startIdx - 12), startIdx).includes("://")) continue;
+    const token = m[1].replace(/^\.\//, "").trim();
+    if (!token) continue;
+    const key = token.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(token);
+  }
+  return out;
+}
+
+export function detectStageScopeOverlaps(subtasks = []) {
+  const byStage = new Map();
+  (subtasks || []).forEach((item, idx) => {
+    if (!item || item.checked === false || !String(item.title || "").trim()) return;
+    const stage = Math.min(3, Math.max(1, Number(item.stage) || 1));
+    const tokens = Array.isArray(item.scopeTokens) && item.scopeTokens.length
+      ? item.scopeTokens
+      : extractScopeTokens(`${item.title || ""} ${item.detail || ""}`);
+    if (!tokens.length) return;
+    if (!byStage.has(stage)) byStage.set(stage, new Map());
+    const fileMap = byStage.get(stage);
+    for (const file of tokens) {
+      const key = file.toLowerCase();
+      if (!fileMap.has(key)) fileMap.set(key, { file, indices: [], titles: [] });
+      const entry = fileMap.get(key);
+      if (!entry.indices.includes(idx)) {
+        entry.indices.push(idx);
+        entry.titles.push(String(item.title || "").trim());
+      }
+    }
+  });
+  const overlaps = [];
+  for (const [stage, fileMap] of [...byStage.entries()].sort((a, b) => a[0] - b[0])) {
+    for (const entry of fileMap.values()) {
+      if (entry.indices.length >= 2) overlaps.push({ stage, ...entry });
+    }
+  }
+  return overlaps;
+}
+
+export function staggerConflictingStages(subtasks = []) {
+  const next = (subtasks || []).map((item) => (item ? { ...item } : item));
+  let movedCount = 0;
+  for (let pass = 1; pass <= 2; pass++) {
+    const claimed = new Set();
+    for (const item of next) {
+      if (!item || item.checked === false || !String(item.title || "").trim()) continue;
+      const st = Math.min(3, Math.max(1, Number(item.stage) || 1));
+      if (st !== pass) continue;
+      const tokens = extractScopeTokens(`${item.title || ""} ${item.detail || ""}`).map((t0) => t0.toLowerCase());
+      if (!tokens.length) continue;
+      if (tokens.some((tok) => claimed.has(tok))) {
+        item.stage = Math.min(3, st + 1);
+        movedCount += 1;
+      } else {
+        for (const tok of tokens) claimed.add(tok);
+      }
+    }
+  }
+  return { subtasks: next, movedCount };
 }
 
 export function fallbackCopilotPlan({ goal = "", roles = [], defaultAgent = "claude" } = {}) {
@@ -518,7 +637,7 @@ export function fallbackCopilotPlan({ goal = "", roles = [], defaultAgent = "cla
       summary: lines[0],
       subtasks: lines.slice(0, 8).map((line, i) => {
         const role = activeRoles[i % activeRoles.length];
-        return { checked: true, title: truncate(line, 48), role: role.label, agent: role.agent || defaultAgent, detail: "" };
+        return { checked: true, title: truncate(line, 64), role: role.label, agent: role.agent || defaultAgent, stage: 1, detail: "" };
       }),
     };
   }
@@ -530,6 +649,7 @@ export function fallbackCopilotPlan({ goal = "", roles = [], defaultAgent = "cla
       title: `${role.label}：${core}`,
       role: role.label,
       agent: role.agent || defaultAgent,
+      stage: 1,
       detail: role.hint || "",
     })),
   };
@@ -537,8 +657,8 @@ export function fallbackCopilotPlan({ goal = "", roles = [], defaultAgent = "cla
 
 export function formatWorkbenchTasksMarkdown({ parentTitle = "", subtasks = [], indent = "", childIndentStr = "\t", includeParent = true, assignBlockIds = false } = {}) {
   const lines = [];
-  const subIndent = includeParent ? `${indent}${childIndentStr}` : indent;
-  const detailIndent = `${subIndent}\t`;
+  const subIndent = `${indent}${childIndentStr}`;
+  const detailIndent = `${subIndent}${childIndentStr}`;
   if (includeParent) {
     const parentId = assignBlockIds ? ` ^${J.makeBlockId("", "ad", "wb")}` : "";
     lines.push(`${indent}- TODO ${String(parentTitle || t("项目协同任务")).trim()}${parentId}`);
@@ -812,7 +932,19 @@ export function extractTaskBoardGroups(text, { trackedIds = new Set(), trigger =
   return out;
 }
 
-function enrichCardWithRuntime(card, plugin, resolveMirror = null) {
+export function queuedStageMapForWave(wave) {
+  const map = new Map();
+  if (!wave || wave.state !== "waiting") return map;
+  for (const batch of wave.queuedStages || []) {
+    const st = Math.max(1, Number(batch?.stage) || 1);
+    for (const task of batch?.tasks || []) {
+      if (task?.blockId) map.set(task.blockId, st);
+    }
+  }
+  return map;
+}
+
+function enrichCardWithRuntime(card, plugin, resolveMirror = null, queuedStagesByBlockId = null) {
   let base = { ...card };
   if (base.isMirror && base.mirror && typeof resolveMirror === "function") {
     const resolved = resolveMirror(base.mirror);
@@ -832,14 +964,18 @@ function enrichCardWithRuntime(card, plugin, resolveMirror = null) {
     }
   }
   const jobs = Object.values(plugin?.jobs || {});
-  const job = jobs.find((j) =>
+  const matches = jobs.filter((j) =>
     (base.blockId && j.blockId === base.blockId) ||
     (base.sid && j.sessionId === base.sid) ||
     (j.line === base.line && j.name && base.title.includes(j.name.slice(0, 12))),
   );
+  const job = matches.find((j) => activeJob(j))
+    || matches.sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))[0]
+    || null;
   const liveMeta = base.sid ? plugin?.usage?.meta?.get?.(base.sid) : null;
   const effectiveState = job && activeJob(job) ? normalizeJobState(job) : (liveMeta?.state || "");
   const colId = effectiveState ? classifyTaskStatusColumn(base.kw, effectiveState) : base.column;
+  const queuedStage = base.blockId && queuedStagesByBlockId?.get ? (queuedStagesByBlockId.get(base.blockId) || 0) : 0;
   return {
     ...base,
     column: colId,
@@ -847,6 +983,7 @@ function enrichCardWithRuntime(card, plugin, resolveMirror = null) {
     activeJob: job && activeJob(job) ? job : null,
     liveState: effectiveState,
     step: job?.step || liveMeta?.step || "",
+    queuedStage,
   };
 }
 
@@ -911,8 +1048,12 @@ export function applyTaskBoardPins(settings, boardKey, ids = [], pinned = true) 
   return [...list];
 }
 
-export function buildTaskBoardModel(group, plugin = null, { groupBy = "status", resolveMirror = null, pinnedIds = [] } = {}) {
-  const enriched = (group?.cards || []).map((c) => enrichCardWithRuntime(c, plugin, resolveMirror));
+export function buildTaskBoardModel(
+  group,
+  plugin = null,
+  { groupBy = "status", resolveMirror = null, pinnedIds = [], queuedStagesByBlockId = null } = {},
+) {
+  const enriched = (group?.cards || []).map((c) => enrichCardWithRuntime(c, plugin, resolveMirror, queuedStagesByBlockId));
   const groupedCards = enriched.filter((c) => (c.subCards || []).length > 0);
   const canGroupByChildren = groupedCards.length > 0;
   const activeGroupBy = groupBy === "children" && canGroupByChildren ? "children" : "status";
@@ -923,7 +1064,7 @@ export function buildTaskBoardModel(group, plugin = null, { groupBy = "status", 
       id: `parent:${parent.line}`,
       label: truncate(parent.title, 26),
       targetParentLine: parent.line,
-      cards: (parent.subCards || []).map((sc) => enrichCardWithRuntime(sc, plugin, resolveMirror)),
+      cards: (parent.subCards || []).map((sc) => enrichCardWithRuntime(sc, plugin, resolveMirror, queuedStagesByBlockId)),
     }));
     const leaves = enriched.filter((c) => !(c.subCards || []).length);
     if (leaves.length) {
@@ -967,7 +1108,7 @@ export function buildTaskBoardModel(group, plugin = null, { groupBy = "status", 
       todo: todoCount,
       progressPct: allCards.length ? Math.round((doneCount / allCards.length) * 100) : 0,
     },
-    todoDispatchCount: allCards.filter((c) => c.column === "todo" && !c.hasLink && !c.activeJob && !c.isMirror).length,
+    todoDispatchCount: allCards.filter((c) => c.column === "todo" && !c.hasLink && !c.activeJob && !c.isMirror && !c.queuedStage).length,
   };
 }
 
@@ -1085,32 +1226,53 @@ export function deleteTaskBoardCards(text, cardLines = []) {
 }
 
 /**
- * Build a concise sibling division-of-labor summary for Harness delegation context (Stage B).
+ * Build a concise sibling division-of-labor summary (plus optional upstream stage handoff)
+ * for Harness delegation context (Stage B).
  */
-export function buildBoardSiblingContext(model, activeCardLine = -1) {
+export function buildBoardSiblingContext(model, activeCardLine = -1, { upstreamReports = [], stage = 1, totalStages = 1 } = {}) {
   if (!model || !Array.isArray(model.columns)) return "";
+  const sanitizeBoardTitle = (raw = "") => {
+    let title = String(raw || "");
+    const mirrorSub = /#\^([a-z0-9-]+)$/i.exec(title);
+    if (mirrorSub && (J.isDeckBlockId(mirrorSub[1]) || J.isLegacyBlockId(mirrorSub[1]))) {
+      title = title.slice(0, mirrorSub.index).trim();
+    } else {
+      const id = J.blockIdOf(title);
+      if (id && (J.isDeckBlockId(id) || J.isLegacyBlockId(id))) title = J.stripBlockId(title);
+    }
+    return title;
+  };
   const lines = [];
   for (const col of model.columns) {
     for (const card of col.cards) {
       if (card.line === activeCardLine) continue;
       const who = card.agent ? ` (${AGENTS[card.agent]?.short || card.agent})` : "";
-      let title = String(card.title || "");
-      const mirrorSub = /#\^([a-z0-9-]+)$/i.exec(title);
-      if (mirrorSub && (J.isDeckBlockId(mirrorSub[1]) || J.isLegacyBlockId(mirrorSub[1]))) {
-        title = title.slice(0, mirrorSub.index).trim();
-      } else {
-        const id = J.blockIdOf(title);
-        if (id && (J.isDeckBlockId(id) || J.isLegacyBlockId(id))) title = J.stripBlockId(title);
-      }
-      lines.push(`- [${col.id.toUpperCase()}] ${title}${who}`);
+      const title = sanitizeBoardTitle(card.title);
+      const tag = card.stage && card.stage !== stage ? `第 ${card.stage} 批` : col.id.toUpperCase();
+      const scope = (card.scopeTokens?.length ? card.scopeTokens : extractScopeTokens(`${card.title || ""} ${card.detail || ""}`)).slice(0, 3);
+      const scopeNote = scope.length ? ` [涉及：${scope.join(", ")}]` : "";
+      lines.push(`- [${tag}] ${title}${who}${scopeNote}`);
       if (lines.length >= 10) break;
     }
     if (lines.length >= 10) break;
   }
-  if (!lines.length) return "";
-  const titleId = J.blockIdOf(model.title);
-  const cleanTitle = titleId && (J.isDeckBlockId(titleId) || J.isLegacyBlockId(titleId)) ? J.stripBlockId(model.title) : model.title;
-  return `${t("同看板协同分工（母任务：{title}）：", { title: cleanTitle })}\n${lines.join("\n")}`;
+  const sections = [];
+  if (lines.length) {
+    const cleanTitle = sanitizeBoardTitle(model.title);
+    const stageTag = totalStages > 1 ? ` · 第 ${stage}/${totalStages} 批` : "";
+    sections.push(`${t("同看板协同分工（母任务：{title}）：", { title: cleanTitle + stageTag })}\n${lines.join("\n")}\n${t("你只负责当前子任务，请严格限定在自身范围与验收标准内，不要改动其他并行队员负责的内容。")}`);
+  }
+  if (Array.isArray(upstreamReports) && upstreamReports.length) {
+    const prevLines = upstreamReports.slice(0, 8).map((r) => {
+      const who = r.agent ? (AGENTS[r.agent]?.short || r.agent) : "Agent";
+      const status = r.state === "done" ? "已完成" : (r.state === "error" ? "失败" : r.state || "");
+      const summary = truncate(String(r.output || r.error || "").replace(/\s+/g, " ").trim(), 600);
+      const link = r.answerLink ? `（归档：${r.answerLink}）` : "";
+      return `- ${sanitizeBoardTitle(r.title)} (${who}, ${status})${link}${summary ? `：${summary}` : ""}`;
+    });
+    sections.push(`${t("前序阶段已完成产出摘要（可直接衔接，勿重复造轮子）：")}\n${prevLines.join("\n")}`);
+  }
+  return sections.join("\n\n");
 }
 
 /**
@@ -1152,7 +1314,7 @@ export const MAX_STEWARD_ROUNDS = 2;
 
 export function resolveStewardConfig(
   settings = {},
-  { presetId = "", projectName = "", availableAgents = [], limitAgents = new Set(), defaultAgent = "" } = {},
+  { presetId = "", projectName = "", availableAgents = [], limitAgents = new Set(), uninstalledAgents = new Set(), defaultAgent = "" } = {},
 ) {
   const stewards = settings?.projectTeams?.stewards || {};
   const byProject = stewards.byProject || {};
@@ -1165,6 +1327,7 @@ export function resolveStewardConfig(
   const resolved = resolveRoleAgent(preferred, {
     availableAgents,
     limitAgents,
+    uninstalledAgents,
     fallbackAgent: defaultAgent || "claude",
   });
   return {
@@ -1172,6 +1335,7 @@ export function resolveStewardConfig(
     agent: resolved.agent,
     fallbackFrom: resolved.fallbackFrom,
     limited: resolved.limited,
+    uninstalled: resolved.uninstalled,
     autoContinue: cfg.autoContinue === true,
   };
 }
@@ -1189,6 +1353,11 @@ export function createWorkbenchWave({
   goal = "",
   cwd = "",
   round = 1,
+  stage = 1,
+  totalStages = 1,
+  queuedStages = [],
+  completedWorkers = [],
+  skipConfirmFirst = false,
   steward = {},
   workers = [],
 } = {}) {
@@ -1202,6 +1371,24 @@ export function createWorkbenchWave({
     goal: String(goal || parentTitle || ""),
     cwd: String(cwd || ""),
     round: Math.max(1, Number(round) || 1),
+    stage: Math.max(1, Number(stage) || 1),
+    totalStages: Math.max(1, Number(totalStages) || 1),
+    skipConfirmFirst: Boolean(skipConfirmFirst),
+    queuedStages: Array.isArray(queuedStages)
+      ? queuedStages.map((s) => ({
+          stage: Math.max(1, Number(s?.stage) || 1),
+          tasks: Array.isArray(s?.tasks)
+            ? s.tasks.map((tItem) => ({
+                blockId: String(tItem?.blockId || ""),
+                line: Number.isInteger(tItem?.line) ? tItem.line : -1,
+                title: String(tItem?.title || ""),
+                agent: String(tItem?.agent || ""),
+                destination: String(tItem?.destination || ""),
+              }))
+            : [],
+        })).filter((s) => s.tasks.length > 0)
+      : [],
+    completedWorkers: Array.isArray(completedWorkers) ? [...completedWorkers] : [],
     state: "waiting",
     createdAt: now,
     updatedAt: now,
@@ -1232,8 +1419,18 @@ export function createWorkbenchWave({
 }
 
 function resolveSyncedWorkerState(worker, job, metaMap) {
-  if (!job) return { state: worker.state || "running", result: worker.result || "", error: worker.error || "", sessionId: worker.sessionId || "", endedAt: worker.endedAt || 0 };
+  if (!job) {
+    return {
+      blockId: worker.blockId || "",
+      state: worker.state || "running",
+      result: worker.result || "",
+      error: worker.error || "",
+      sessionId: worker.sessionId || "",
+      endedAt: worker.endedAt || 0,
+    };
+  }
   const sid = job.sessionId || worker.sessionId || "";
+  const blockId = job.blockId || worker.blockId || "";
   const meta = sid && metaMap ? metaMap.get(sid) : null;
   let state = job.state || worker.state || "running";
   let result = job.result || worker.result || "";
@@ -1257,7 +1454,11 @@ function resolveSyncedWorkerState(worker, job, metaMap) {
     const lastAssistant = [...job.conversation].reverse().find((m) => m?.role === "assistant" && m.text);
     if (lastAssistant) result = lastAssistant.text;
   }
-  return { state, result, error, sessionId: sid, endedAt };
+  if (state === "done" && isQuotaOrProviderErrorText(result)) {
+    state = "error";
+    error = error || truncate(String(result || "").trim(), 180);
+  }
+  return { blockId, state, result, error, sessionId: sid, endedAt };
 }
 
 export function syncWaveWithState(wave, jobs = {}, metaMap = null) {
@@ -1265,17 +1466,36 @@ export function syncWaveWithState(wave, jobs = {}, metaMap = null) {
     return { wave, changed: false, allSettled: false, counts: { total: 0, done: 0, error: 0, cancelled: 0, running: 0 } };
   }
   let changed = false;
+  const allJobs = Object.values(jobs || {});
   for (const worker of wave.workers) {
-    const job = worker.jobId ? jobs?.[worker.jobId] : null;
+    let job = worker.jobId ? jobs?.[worker.jobId] : null;
+    if (worker.blockId) {
+      const baseStarted = job?.startedAt || 0;
+      const newer = allJobs
+        .filter((j) => j && j.blockId === worker.blockId && j.id !== worker.jobId && (j.startedAt || 0) > baseStarted)
+        .sort((a, b) => (b.startedAt || 0) - (a.startedAt || 0))[0];
+      if (newer) {
+        worker.jobId = newer.id;
+        worker.agent = newer.agent || worker.agent;
+        worker.sessionId = newer.sessionId || "";
+        worker.error = "";
+        worker.result = "";
+        worker.endedAt = 0;
+        job = newer;
+        changed = true;
+      }
+    }
     const next = resolveSyncedWorkerState(worker, job, metaMap);
     if (
       next.state !== worker.state ||
       next.sessionId !== worker.sessionId ||
+      (next.blockId && next.blockId !== worker.blockId) ||
       (next.result && next.result !== worker.result) ||
       (next.error && next.error !== worker.error)
     ) {
       worker.state = next.state;
       worker.sessionId = next.sessionId;
+      if (next.blockId) worker.blockId = next.blockId;
       if (next.result) worker.result = next.result;
       if (next.error) worker.error = next.error;
       if (next.endedAt) worker.endedAt = next.endedAt;
@@ -1336,7 +1556,16 @@ export function extractBlockResultText(noteText = "", { blockId = "", title = ""
 }
 
 export function collectWaveWorkerReports(wave, { jobs = {}, metaMap = null, noteText = "" } = {}) {
-  return (wave?.workers || []).map((worker, idx) => {
+  const allWorkers = [];
+  const seenKey = new Set();
+  for (const w of [...(wave?.completedWorkers || []), ...(wave?.workers || [])]) {
+    if (!w) continue;
+    const key = w.jobId || w.blockId || `${w.line}:${w.title}`;
+    if (seenKey.has(key)) continue;
+    seenKey.add(key);
+    allWorkers.push(w);
+  }
+  return allWorkers.map((worker, idx) => {
     const job = worker.jobId ? jobs?.[worker.jobId] : null;
     const synced = resolveSyncedWorkerState(worker, job, metaMap);
     const noteInfo = noteText ? extractBlockResultText(noteText, { blockId: worker.blockId, title: worker.title }) : { summary: "", answerLink: "" };
@@ -1382,7 +1611,7 @@ export function buildStewardPrompt({ wave, reports = [], projectName = "", avail
     workerSections ? `各队员执行结果汇总：\n\n${workerSections}` : "",
     [
       "请你按以下步骤推进并汇报：",
-      "1. 对照总体目标与工作目录中的实际文件/代码变动，核查各队员产出是否一致、有无遗漏、冲突或未闭环的失败项；如工作目录中有可直接完成的集成验证、测试或收尾修补，请直接完成并确认结果。",
+      "1. 对照总体目标与工作目录中的实际文件/代码变动（若为 Git 仓库建议结合 git status / git diff --stat 核实真实改动与验证结果），核查各队员产出是否一致、有无遗漏、冲突或未闭环的失败项；如工作目录中有可直接完成的集成验证、测试或收尾修补，请直接完成并确认结果。",
       "2. 在回答正文给出简明清晰的《本轮验收与汇总结论》（已完成内容、关键产出或文件、待处理风险/卡点）。",
       "3. 在回答最后附一个 JSON 代码块标明下一步决策（nextTasks 最多 6 条，agent 必须从可用 Agent ID 中选择）：",
       `可用 Agent ID：${agentsList}`,
@@ -1404,6 +1633,26 @@ function extractLastJsonObject(raw = "") {
     } catch { /* try previous fenced block */ }
   }
   return extractJsonObject(text);
+}
+
+const STEWARD_ERROR_TEXT_RE = /(?:^|\s)(?:⚠\s*)?(?:Individual quota reached|quota exceeded|usage limit(?: reached)?|rate limit(?: exceeded)?|too many requests|authentication required|please upgrade your subscription|insufficient_quota|\bHTTP\s*429\b|\b429\b.*rate|限额已用尽|额度不足|未登录)/i;
+
+export function isQuotaOrProviderErrorText(raw = "") {
+  const text = String(raw || "").trim();
+  if (!text) return false;
+  if (text.length > 600 && text.includes("本轮验收")) return false;
+  return STEWARD_ERROR_TEXT_RE.test(text);
+}
+
+export function extractStewardFallbackSummary(raw = "") {
+  const lines = String(raw || "")
+    .replace(/```[\s\S]*?```/g, " ")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !/^《.*》$/.test(l));
+  const bodyLine = lines.find((l) => !/^#{1,6}\s+/.test(l)) || lines[0] || "";
+  const clean = bodyLine.replace(/[#*_`>]/g, "").replace(/\s+/g, " ").trim();
+  return truncate(clean, 140);
 }
 
 export function parseStewardOutcome(raw = "", { availableAgents = ["claude"], defaultAgent = "claude" } = {}) {
@@ -1529,4 +1778,18 @@ export function findActiveWaveForBoard(waves = {}, { path = "", parentBlockId = 
   });
   candidates.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
   return candidates[0] || null;
+}
+
+export function findBoardWaveBanner(waves = {}, { path = "", parentBlockId = "", parentTitle = "" } = {}) {
+  const active = findActiveWaveForBoard(waves, { path, parentBlockId, parentTitle });
+  if (active) return active;
+  const doneCandidates = Object.values(waves || {}).filter((w) => {
+    if (!w || w.dismissed || w.state !== "done") return false;
+    if (path && w.path !== path) return false;
+    if (parentBlockId && w.parentBlockId && w.parentBlockId === parentBlockId) return true;
+    if (parentTitle && w.parentTitle && cleanBoardCardTitle(w.parentTitle) === cleanBoardCardTitle(parentTitle)) return true;
+    return false;
+  });
+  doneCandidates.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+  return doneCandidates[0] || null;
 }

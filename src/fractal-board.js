@@ -16,13 +16,17 @@ import {
   setTaskBoardCardAgent,
   buildBoardSiblingContext,
   delegableAgents,
+  limitAgentsFromSessions,
   findActiveWaveForBoard,
+  findBoardWaveBanner,
   isTerminalWorkerState,
+  queuedStageMapForWave,
   boardCardPinId,
   boardCardPinKey,
   applyTaskBoardPins,
   deleteTaskBoardCards,
 } from "./project-workbench.js";
+import { uninstalledAgentsFor } from "./delegation-runners.js";
 import { updateNote } from "./note-updates.js";
 import { mentionTrigger } from "./task-mentions.js";
 import { findTaskByBlockId } from "./journal.js";
@@ -33,6 +37,22 @@ const BOARD_CARD_MIME = "application/x-agent-deck-board-card";
 const BOARD_LIST_BUDGET = 320;
 const boardSelections = new Map();
 const boardScrollPositions = new Map();
+
+function readySortedAgents(plugin) {
+  const available = plugin?.agentEnabled ? delegableAgents(plugin) : [];
+  if (!available.length) return { available: [], ordered: [], labelOf: (id) => AGENTS[id]?.short || id };
+  const limited = limitAgentsFromSessions(plugin.liveSessions?.({ hours: 6 }) || []);
+  const uninstalled = uninstalledAgentsFor(plugin, available);
+  const rank = (id) => (uninstalled.has(id) ? 2 : (limited.has(id) ? 1 : 0));
+  const ordered = [...available].sort((a, b) => rank(a) - rank(b));
+  const labelOf = (id) => {
+    const base = AGENTS[id]?.short || id;
+    if (uninstalled.has(id)) return `${base} (${t("未装 CLI")})`;
+    if (limited.has(id)) return `${base} (${t("限额")})`;
+    return base;
+  };
+  return { available, ordered, labelOf };
+}
 
 function boardPinIds(settings, group) {
   const pins = settings?.taskBoardPins;
@@ -146,13 +166,25 @@ class TaskBoardWidget extends WidgetType {
       parentBlockId: activeGroup.key,
       parentTitle: model.title,
     });
-    const waveSig = this.activeWave
+    this.bannerWave = findBoardWaveBanner(plugin?.settings?.workbenchWaves, {
+      path: sourcePath,
+      parentBlockId: activeGroup.key,
+      parentTitle: model.title,
+    }) || this.activeWave;
+    const waveSig = this.bannerWave
       ? [
-          this.activeWave.id,
-          this.activeWave.state,
-          this.activeWave.round,
-          this.activeWave.error,
-          (this.activeWave.workers || []).map((w) => w.state).join(","),
+          this.bannerWave.id,
+          this.bannerWave.state,
+          this.bannerWave.round,
+          this.bannerWave.stage || 1,
+          this.bannerWave.totalStages || 1,
+          (this.bannerWave.queuedStages || []).length,
+          this.bannerWave.dismissed ? 1 : 0,
+          this.bannerWave.steward?.enabled !== false ? 1 : 0,
+          this.bannerWave.steward?.agent || "",
+          this.bannerWave.summary || "",
+          this.bannerWave.error,
+          (this.bannerWave.workers || []).map((w) => w.state).join(","),
         ]
       : null;
     this.sig = JSON.stringify({
@@ -165,7 +197,7 @@ class TaskBoardWidget extends WidgetType {
       pins: pinnedIds,
       cols: model.columns.map((c) => [c.id, c.cards.map((k) => [
         k.line, k.kw, k.title, k.titleMarkdown, k.agent, k.liveState, k.step, k.latestConclusion,
-        k.endLine, k.hasLink, k.childCardCount, k.childDoneCount, k.isMirror,
+        k.endLine, k.hasLink, k.childCardCount, k.childDoneCount, k.isMirror, k.queuedStage || 0,
         k.mirrorTarget ? [k.mirrorTarget.path, k.mirrorTarget.line, k.mirrorTarget.blockId] : null,
       ])]),
     });
@@ -321,10 +353,52 @@ class TaskBoardWidget extends WidgetType {
       } else if (target.sid && this.plugin?.openConversation) {
         addSingle(t("正文"), () => this.plugin.openConversation({ sid: target.sid, agent: target.agent }));
       }
-      if (target.column === "todo" && !target.hasLink && !target.activeJob && !target.isMirror && this.plugin?.delegateAtLine && this.sourcePath) {
+      if (target.column === "todo" && !target.hasLink && !target.activeJob && !target.isMirror && !target.queuedStage && this.plugin?.delegateAtLine && this.sourcePath) {
         addSingle(t("派发"), () => this.plugin.delegateAtLine(this.sourcePath, target.line, {
+          ...(target.agent ? { agent: target.agent, explicitAgent: true } : {}),
           boardContext: buildBoardSiblingContext(this.model, target.line),
         }));
+      } else if (["ERRORED", "CANCELED", "CANCELLED"].includes(String(target.kw || "").toUpperCase()) && !target.activeJob && !target.isMirror && this.plugin?.delegateAtLine && this.sourcePath) {
+        const boardContext = buildBoardSiblingContext(this.model, target.line);
+        const dispatchOpts = {
+          ...(target.agent ? { agent: target.agent, explicitAgent: true } : {}),
+          newSession: true,
+          boardContext,
+        };
+        addSingle(t("重新派发（新会话）"), () => this.plugin.delegateAtLine(this.sourcePath, target.line, dispatchOpts));
+        const { ordered, labelOf } = readySortedAgents(this.plugin);
+        if (ordered.length > 1) {
+          const switchTo = async (alt) => {
+            try {
+              await this.setCardAgent(target.line, alt);
+              await this.plugin.delegateAtLine(this.sourcePath, target.line, {
+                agent: alt,
+                explicitAgent: true,
+                newSession: true,
+                boardContext,
+              });
+            } catch (error) {
+              this.plugin.notice?.(String(error?.message || error));
+            }
+          };
+          menu.addItem((item) => {
+            item.setTitle(t("换 Agent 重新派发（新会话）"));
+            if (typeof item.setSubmenu === "function") {
+              const sub = item.setSubmenu();
+              for (const alt of ordered) {
+                sub.addItem((entry) => entry.setTitle(labelOf(alt)).onClick(() => switchTo(alt)));
+              }
+            } else {
+              item.onClick(() => {
+                const sub = new Menu();
+                for (const alt of ordered) {
+                  sub.addItem((entry) => entry.setTitle(labelOf(alt)).onClick(() => switchTo(alt)));
+                }
+                sub.showAtPosition({ x: event.clientX, y: event.clientY });
+              });
+            }
+          });
+        }
       }
     }
     menu.addSeparator();
@@ -530,37 +604,92 @@ class TaskBoardWidget extends WidgetType {
       view.dispatch({ effects: setTaskBoardEffect.of({ key: this.rootGroup.key, mode: "outline" }) });
     });
 
-    if (this.activeWave) {
-      const wave = this.activeWave;
+    if (this.bannerWave) {
+      const wave = this.bannerWave;
       const stewardName = AGENTS[wave.steward?.agent]?.short || wave.steward?.agent || "Agent";
       const workers = wave.workers || [];
+      const uniqWorkers = new Set([...(wave.completedWorkers || []), ...workers].map((w) => w.jobId || w.blockId || `${w.line}:${w.title}`));
       const settled = workers.filter((w) => isTerminalWorkerState(w.state)).length;
+      const failedWorkers = workers.filter((w) => w.state === "error" || w.state === "cancelled");
       const bar = wrap.appendChild(doc.createElement("div"));
       bar.className = `ad-board__steward is-${wave.state}`;
       const info = bar.appendChild(doc.createElement("span"));
       info.className = "ad-board__steward-text";
       if (wave.state === "waiting") {
-        info.textContent = t("🧭 管家 {agent} 待命中 · 队员已完成 {done}/{total}", {
-          agent: stewardName,
-          done: settled,
-          total: workers.length,
-        });
+        const totalStages = Math.max(1, Number(wave.totalStages) || 1);
+        const stage = Math.min(totalStages, Math.max(1, Number(wave.stage) || 1));
+        if (totalStages > 1 && wave.steward?.enabled !== false) {
+          info.textContent = t("🧭 阶段 {stage}/{total} · 队员已完成 {done}/{totalWorkers} · 完成后由 {agent} 汇总", {
+            stage,
+            total: totalStages,
+            done: settled,
+            totalWorkers: workers.length,
+            agent: stewardName,
+          });
+        } else if (totalStages > 1) {
+          info.textContent = t("🧭 阶段 {stage}/{total} · 队员已完成 {done}/{totalWorkers}", {
+            stage,
+            total: totalStages,
+            done: settled,
+            totalWorkers: workers.length,
+          });
+        } else {
+          info.textContent = t("🧭 管家 {agent} 待命中 · 队员已完成 {done}/{total}", {
+            agent: stewardName,
+            done: settled,
+            total: workers.length,
+          });
+        }
       } else if (wave.state === "running") {
         info.textContent = t("🧭 管家 {agent} 正在收集 {total} 位队员结果并推进（第 {round} 轮）…", {
           agent: stewardName,
-          total: workers.length,
+          total: uniqWorkers.size || workers.length,
           round: wave.round || 1,
         });
       } else if (wave.state === "error") {
-        info.textContent = t("⚠️ 管家 {agent} 汇总失败：{err}", {
-          agent: stewardName,
-          err: truncate(wave.error || t("未知错误"), 60),
-        });
+        const errShort = truncate(wave.error || t("未知错误"), 60);
+        info.textContent = wave.steward?.enabled === false
+          ? t("⚠️ 第 {stage} 批执行异常：{err}", { stage: wave.stage || 1, err: errShort })
+          : t("⚠️ 管家 {agent} 汇总失败：{err}", { agent: stewardName, err: errShort });
+      } else if (wave.state === "done") {
+        const stages = Math.max(1, Number(wave.totalStages) || 1);
+        const total = uniqWorkers.size || workers.length;
+        const sumText = truncate(String(wave.summary || "").trim(), 90);
+        if (wave.steward?.enabled !== false && sumText) {
+          info.textContent = t("✅ 管家 {agent} 已完成汇总（{stages} 批 · {workers} 项）：{summary}", {
+            agent: stewardName,
+            stages,
+            workers: total,
+            summary: sumText,
+          });
+        } else if (wave.steward?.enabled !== false) {
+          info.textContent = t("✅ 管家 {agent} 已完成汇总（{stages} 批 · {workers} 项）", {
+            agent: stewardName,
+            stages,
+            workers: total,
+          });
+        } else {
+          info.textContent = t("✅ 全部 {stages} 批协作子任务已完成（{workers} 项）", {
+            stages,
+            workers: total,
+          });
+        }
       }
 
       const barBtns = bar.appendChild(doc.createElement("div"));
       barBtns.className = "ad-board__actions";
-      if (wave.state === "waiting" && this.plugin?.runStewardWaveNow) {
+      if ((wave.state === "waiting" || wave.state === "error") && failedWorkers.length > 0 && this.plugin?.retryFailedWaveWorkers) {
+        const rfBtn = barBtns.appendChild(doc.createElement("button"));
+        rfBtn.type = "button";
+        rfBtn.className = "ad-board__btn is-primary";
+        rfBtn.textContent = t("重派失败项 ({n})", { n: failedWorkers.length });
+        rfBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.plugin.retryFailedWaveWorkers(wave.id);
+        });
+      }
+      if (wave.state === "waiting" && wave.steward?.enabled !== false && this.plugin?.runStewardWaveNow) {
         const nowBtn = barBtns.appendChild(doc.createElement("button"));
         nowBtn.type = "button";
         nowBtn.className = "ad-board__btn is-primary";
@@ -583,15 +712,36 @@ class TaskBoardWidget extends WidgetType {
         });
       }
       if (wave.state === "error") {
+        const { ordered, labelOf } = readySortedAgents(this.plugin);
+        let retryAgent = wave.steward?.agent || "";
+        if (ordered.length > 1) {
+          const agentSel = barBtns.appendChild(doc.createElement("select"));
+          agentSel.className = "ad-board__stewardsel";
+          agentSel.title = t("切换管家 Agent");
+          agentSel.setAttribute("aria-label", t("切换管家 Agent"));
+          for (const id of ordered) {
+            const opt = agentSel.appendChild(doc.createElement("option"));
+            opt.value = id;
+            opt.textContent = labelOf(id);
+          }
+          agentSel.value = ordered.includes(retryAgent) ? retryAgent : ordered[0];
+          retryAgent = agentSel.value;
+          agentSel.addEventListener("mousedown", (e) => e.stopPropagation());
+          agentSel.addEventListener("click", (e) => e.stopPropagation());
+          agentSel.addEventListener("change", (e) => {
+            e.stopPropagation();
+            retryAgent = agentSel.value;
+          });
+        }
         if (this.plugin?.retryStewardWave) {
           const retryBtn = barBtns.appendChild(doc.createElement("button"));
           retryBtn.type = "button";
           retryBtn.className = "ad-board__btn is-primary";
-          retryBtn.textContent = t("重试汇总");
+          retryBtn.textContent = wave.steward?.enabled === false ? t("启动管家汇总") : t("重试汇总");
           retryBtn.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
-            this.plugin.retryStewardWave(wave.id);
+            this.plugin.retryStewardWave(wave.id, { agent: retryAgent });
           });
         }
         if (this.plugin?.cancelWorkbenchWave) {
@@ -603,6 +753,31 @@ class TaskBoardWidget extends WidgetType {
             e.preventDefault();
             e.stopPropagation();
             this.plugin.cancelWorkbenchWave(wave.id);
+          });
+        }
+      }
+      if (wave.state === "done") {
+        const stewardJob = wave.steward?.jobId ? this.plugin?.jobs?.[wave.steward.jobId] : null;
+        if (stewardJob?.sessionId && this.plugin?.openConversation) {
+          const viewBtn = barBtns.appendChild(doc.createElement("button"));
+          viewBtn.type = "button";
+          viewBtn.className = "ad-board__btn";
+          viewBtn.textContent = t("正文");
+          viewBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.plugin.openConversation({ sid: stewardJob.sessionId, agent: stewardJob.agent || wave.steward?.agent });
+          });
+        }
+        if (this.plugin?.dismissWorkbenchWave) {
+          const dismissBtn = barBtns.appendChild(doc.createElement("button"));
+          dismissBtn.type = "button";
+          dismissBtn.className = "ad-board__btn";
+          dismissBtn.textContent = t("收起");
+          dismissBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.plugin.dismissWorkbenchWave(wave.id);
           });
         }
       }
@@ -976,6 +1151,10 @@ class TaskBoardWidget extends WidgetType {
             const nextStack = [...(this.pref.zoomStack || []), card.subBoardKey];
             view.dispatch({ effects: setTaskBoardEffect.of({ key: this.rootGroup.key, zoomStack: nextStack }) });
           });
+        } else if (card.queuedStage > 1) {
+          const qBadge = topRow.appendChild(doc.createElement("span"));
+          qBadge.className = "ad-board__stagebadge";
+          qBadge.textContent = t("第 {n} 批待接力", { n: card.queuedStage });
         } else if (card.isMirror) {
           const mBadge = topRow.appendChild(doc.createElement("span"));
           mBadge.className = "ad-board__mirror";
@@ -1148,10 +1327,16 @@ export function taskBoardExtension(plugin, refreshEffect) {
         boardLines.add(g.line);
         const { activeGroup, breadcrumbs } = resolveActiveBoardAndBreadcrumbs(g, groups, pref);
         const pinnedIds = boardPinIds(plugin.settings, activeGroup);
+        const activeWave = findActiveWaveForBoard(plugin?.settings?.workbenchWaves, {
+          path: sourcePath,
+          parentBlockId: activeGroup.key,
+          parentTitle: activeGroup.title,
+        });
         const model = buildTaskBoardModel(activeGroup, plugin, {
           groupBy: pref.groupBy,
           resolveMirror,
           pinnedIds,
+          queuedStagesByBlockId: queuedStageMapForWave(activeWave),
         });
         ranges.push(Decoration.widget({
           widget: new TaskBoardWidget(plugin, g, activeGroup, model, pref, breadcrumbs, sourcePath, pinnedIds),
@@ -1238,7 +1423,17 @@ export function renderTaskBoards(el, plugin, ctx) {
     const pref = taskBoardPref(plugin.settings, g);
     const { activeGroup, breadcrumbs } = resolveActiveBoardAndBreadcrumbs(g, groups, pref);
     const pinnedIds = boardPinIds(plugin.settings, activeGroup);
-    const model = buildTaskBoardModel(activeGroup, plugin, { groupBy: pref.groupBy, resolveMirror, pinnedIds });
+    const activeWave = findActiveWaveForBoard(plugin?.settings?.workbenchWaves, {
+      path: sourcePath,
+      parentBlockId: activeGroup.key,
+      parentTitle: activeGroup.title,
+    });
+    const model = buildTaskBoardModel(activeGroup, plugin, {
+      groupBy: pref.groupBy,
+      resolveMirror,
+      pinnedIds,
+      queuedStagesByBlockId: queuedStageMapForWave(activeWave),
+    });
     const widget = new TaskBoardWidget(plugin, g, activeGroup, model, pref, breadcrumbs, sourcePath, pinnedIds);
     const dom = widget.toDOM({ dom: { ownerDocument: list.ownerDocument } });
     for (const cardEl of dom.querySelectorAll?.("[draggable='true']") || []) cardEl.draggable = false;

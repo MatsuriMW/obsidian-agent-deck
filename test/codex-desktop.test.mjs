@@ -3,10 +3,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { isCodexDesktop } from '../src/delegation.js';
-import { CodexDesktopRunner } from '../src/codex-desktop.js';
+import { CodexDesktopRunner, codexDesktopBinary } from '../src/codex-desktop.js';
 import { writeMockNodeBin, rmDirSafe } from './helpers/mock-cli.mjs';
 assert.equal(isCodexDesktop('agent_deck'),true);
 assert.equal(isCodexDesktop('codex_cli_rs'),false);
+assert.ok(typeof codexDesktopBinary('') === 'string' && codexDesktopBinary('').length > 0);
 {
  const job={sessionId:'multi'};
  const runner=new CodexDesktopRunner({},job,()=>{});
@@ -46,6 +47,13 @@ try{
  assert.equal(f.job.state,'done');assert.equal(f.job.result,'DESKTOP_OK');assert.equal(f.opened(),1);
  const requests=all();
  assert.deepEqual(requests.find(x=>x.method==='thread/start').params,{model:'gpt-6.1-sol',cwd:dir,ephemeral:false,sandbox:'read-only',approvalPolicy:'on-request',projectId:'proj-existing',config:{model_reasoning_effort:'high'}});
+ // Verify CodexDesktopRunner passes expanded PATH via cleanEnv even when process PATH is minimal.
+ const origPath=process.env.PATH;
+ process.env.PATH='/usr/bin:/bin';
+ try{
+  const gui=fixture();await gui.runner.start({prompt:'只回复 DESKTOP_OK'});await gui.ended;
+  assert.equal(gui.job.state,'done');
+ }finally{process.env.PATH=origPath;}
  const turn=requests.find(x=>x.method==='turn/start').params;
  assert.equal(turn.model,'gpt-6.1-sol');assert.equal(turn.effort,'high');assert.equal(turn.input[0].text,'只回复 DESKTOP_OK');
 

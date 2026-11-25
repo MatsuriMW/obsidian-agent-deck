@@ -26,8 +26,11 @@ const {
   resolveTeamPresets,
   assignTeamToRoles,
   buildCopilotPlanPrompt,
+  buildCopilotFixPrompt,
   parseCopilotPlanResponse,
   fallbackCopilotPlan,
+  isQuotaOrProviderErrorText,
+  extractStewardFallbackSummary,
   formatWorkbenchTasksMarkdown,
   insertWorkbenchBlockLines,
   extractTaskBoardGroups,
@@ -53,6 +56,7 @@ const {
   setTaskBlockKeywordById,
   updateTaskBlockStatusById,
   findActiveWaveForBoard,
+  queuedStageMapForWave,
 } = await import("../src/project-workbench.js");
 const { AGENT_ORDER } = await import("../src/constants.js");
 const { buildDelegationPayload } = await import("../src/harness.js");
@@ -984,6 +988,7 @@ test("AgentDeckPlugin end-to-end wave orchestration triggers Steward on completi
     export class Notice { constructor(m){ this.m = m; } hide(){} };
     export class PluginSettingTab {};
     export function setIcon(){};
+    export function requestUrl(){};
     export const editorInfoField = {};
   `;
   const cmStub = `
@@ -1003,6 +1008,7 @@ test("AgentDeckPlugin end-to-end wave orchestration triggers Steward on completi
   `;
   const extraStubs = {
     electron: "export const shell = { openExternal(){} };",
+    "./icons.js": "export function agentIcon(){};export function setLucide(){};export function stateIcon(){};",
     "./editor.js": "export const editorInfoField = {}; export const createEditorExtension = () => []; export function dispatchRefresh(){}; export const ITEM_MIME = 'x';",
     "./fold-integration.js": "export function integrateRecordFolding(){}",
     "./mention-suggest.js": "export function registerTaskAgentSuggest(){}",
@@ -1268,4 +1274,753 @@ test("AgentDeckPlugin end-to-end wave orchestration triggers Steward on completi
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test("Regression: existing-parent indent, readiness balancing, copilot stages, multi-stage wave, and quota error recovery", async () => {
+  // 1. formatWorkbenchTasksMarkdown with includeParent: false indents under existing parent.
+  const subTab = formatWorkbenchTasksMarkdown({
+    parentTitle: "已有母任务",
+    subtasks: [{ checked: true, title: "子任务 A", agent: "codex", detail: "验收 A" }],
+    indent: "  ",
+    childIndentStr: "  ",
+    includeParent: false,
+    assignBlockIds: true,
+  });
+  assert.match(subTab, /^    - TODO 子任务 A @codex \^[a-z0-9-]+\n      - 验收 A$/);
+
+  // 2. Readiness routing avoids uninstalled agents and balances fallback across healthy agents.
+  const presets = resolveTeamPresets({});
+  const balanced = assignTeamToRoles(presets[0], {
+    availableAgents: ["codex", "antigravity", "claude"],
+    uninstalledAgents: new Set(["claude"]),
+  });
+  assert.equal(balanced[0].agent, "codex");
+  assert.equal(balanced[1].agent, "antigravity", "missing claude falls back to balanced healthy antigravity");
+  assert.equal(balanced[1].uninstalled, true);
+
+  // 3. Copilot stage parsing & fix prompt + quota error detection.
+  const plan = parseCopilotPlanResponse(JSON.stringify({
+    summary: "分阶段推进",
+    subtasks: [
+      { title: "并行任务一", agent: "codex", stage: 1, detail: "范围 A" },
+      { title: "集成任务二", agent: "antigravity", stage: 2, detail: "依赖任务一" },
+      { title: "超范围阶段", agent: "codex", stage: 9, detail: "应截断到 3" },
+    ],
+  }), { availableAgents: ["codex", "antigravity"], defaultAgent: "codex" });
+  assert.deepEqual(plan.subtasks.map((s) => s.stage), [1, 2, 3]);
+  assert.match(buildCopilotFixPrompt("not json"), /合法 JSON/);
+  assert.equal(isQuotaOrProviderErrorText("⚠ Individual quota reached. Please upgrade your subscription."), true);
+  assert.equal(isQuotaOrProviderErrorText("已完成全部核查，代码与测试均已通过。"), false);
+  assert.equal(extractStewardFallbackSummary("## 汇总\n- 全部改动已完成并验证通过\n```json\n{}\n```"), "- 全部改动已完成并验证通过");
+
+  // 4. Bundle and exercise ProjectWorkbenchModal DOM + main plugin multi-stage/dispatchBoardGroup/retryStewardWave.
+  const obsidianStub = `
+    export class Plugin {};
+    export class Modal { constructor(app){ this.app=app; this.modalEl={addClass(){}}; this.contentEl=globalThis.__createMiniNode('div'); } open(){ return this.onOpen(); } close(){} };
+    export class ItemView {};
+    export class Menu {};
+    export class MarkdownView {};
+    export class MarkdownRenderChild {};
+    export class MarkdownRenderer {};
+    export class Component {};
+    export class Notice { constructor(m){ globalThis.__notices.push(m); this.m = m; } hide(){} };
+    export class PluginSettingTab {};
+    export function setIcon(){};
+    export function requestUrl(){};
+    export const editorInfoField = {};
+  `;
+  const cmStub = `
+    export class WidgetType {};
+    export const Decoration = { set: () => [], replace: () => ({ range: () => ({}) }), widget: () => ({ range: () => ({}) }) };
+    export const EditorView = { decorations: { from: () => ({}) }, atomicRanges: { of: () => ({}) }, scrollIntoView: () => ({}) };
+    export const EditorSelection = { cursor: (p) => ({ anchor: p, head: p }) };
+    export const ViewPlugin = { fromClass: () => ({}) };
+    export const EditorState = { create: () => ({}) };
+    export const StateEffect = { define: () => ({ of: () => ({}), is: () => false }) };
+    export const StateField = { define: () => ({}) };
+    export class RangeSetBuilder { constructor() { this.items = []; } add() {} finish() { return []; } }
+    export function syntaxTree() { return { resolveInner: () => null }; }
+    export const foldedRanges = () => ({});
+    export const foldEffect = {};
+    export const unfoldEffect = {};
+  `;
+  const extraStubs = {
+    electron: "export const shell = { openExternal(){} };",
+    "./icons.js": "export function agentIcon(){};export function setLucide(){};export function stateIcon(){};",
+    "./editor.js": "export const editorInfoField = {}; export const createEditorExtension = () => []; export function dispatchRefresh(){}; export const ITEM_MIME = 'x';",
+    "./fold-integration.js": "export function integrateRecordFolding(){}",
+    "./mention-suggest.js": "export function registerTaskAgentSuggest(){}",
+    "./view.js": "export class AgentDeckView {}; export const VIEW_TYPE = 'ad-view';",
+    "./dashboard.js": "export class DashboardView {}; export const DASHBOARD_TYPE = 'ad-dash';",
+    "./settings.js": "export class AgentDeckSettingsTab {}; export function syncDelegationSettings(s){ return s; }",
+    "./menubar.js": "export class MenuBarBridge { constructor(){} start(){ return Promise.resolve(); } stop(){} }",
+  };
+
+  class MiniNode {
+    constructor(tag = "div", opts = {}) {
+      this.tagName = tag.toUpperCase();
+      this.classes = new Set(String(opts.cls || "").split(/\s+/).filter(Boolean));
+      this.textContent = opts.text ?? "";
+      this.attrs = { ...(opts.attr || {}) };
+      this.value = opts.attr?.value ?? "";
+      this.checked = false;
+      this.disabled = false;
+      this.hidden = false;
+      this.dataset = {};
+      this.style = { setProperty() {} };
+      this.children = [];
+      this.listeners = new Map();
+      this.parentElement = null;
+    }
+    addClass(...c) { for (const x of c) for (const k of String(x).split(/\s+/).filter(Boolean)) this.classes.add(k); }
+    removeClass(...c) { for (const x of c) this.classes.delete(x); }
+    toggleClass(c, f) { if (f) this.addClass(c); else this.removeClass(c); }
+    setAttr(k, v) { this.attrs[k] = String(v); }
+    empty() { this.children = []; this.textContent = ""; }
+    createDiv(o) { return this.createEl("div", o); }
+    createSpan(o) { return this.createEl("span", o); }
+    createEl(tag, o = {}) {
+      const n = new MiniNode(tag, o);
+      n.parentElement = this;
+      this.children.push(n);
+      return n;
+    }
+    addEventListener(ev, fn) {
+      if (!this.listeners.has(ev)) this.listeners.set(ev, []);
+      this.listeners.get(ev).push(fn);
+    }
+    querySelectorAll(sel) {
+      const cls = sel.startsWith(".") ? sel.slice(1) : "";
+      const out = [];
+      const walk = (node) => {
+        for (const c of node.children) {
+          if (cls ? c.classes.has(cls) : c.tagName === sel.toUpperCase()) out.push(c);
+          walk(c);
+        }
+      };
+      walk(this);
+      return out;
+    }
+    querySelector(sel) { return this.querySelectorAll(sel)[0] || null; }
+  }
+  globalThis.__createMiniNode = (tag, opts) => new MiniNode(tag, opts);
+  globalThis.__notices = [];
+
+  const bundle = await esbuild.build({
+    stdin: {
+      contents: "export { default as AgentDeckPlugin } from './src/main.js'; export { ProjectWorkbenchModal } from './src/workbench-modal.js';",
+      resolveDir: path.resolve(import.meta.dirname, ".."),
+    },
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    loader: { ".png": "dataurl" },
+    write: false,
+    external: ["@codemirror/*"],
+    plugins: [{
+      name: "wb-reg-test",
+      setup(b) {
+        b.onResolve({ filter: /^(obsidian|electron|\..*)$/ }, (a) => {
+          if (a.path === "obsidian") return { path: "obsidian", namespace: "stub" };
+          if (extraStubs[a.path]) return { path: a.path, namespace: "stub" };
+          return undefined;
+        });
+        b.onResolve({ filter: /^@codemirror\// }, (a) => ({ path: a.path, namespace: "cm" }));
+        b.onLoad({ filter: /.*/, namespace: "stub" }, (a) => ({
+          contents: a.path === "obsidian" ? obsidianStub : extraStubs[a.path],
+        }));
+        b.onLoad({ filter: /.*/, namespace: "cm" }, () => ({ contents: cmStub }));
+      },
+    }],
+  });
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-wb-reg-"));
+  const repoDemoDir = path.join(tmpDir, "repo-demo");
+  fs.mkdirSync(repoDemoDir, { recursive: true });
+  const modFile = path.join(tmpDir, "reg.mjs");
+  fs.writeFileSync(modFile, bundle.outputFiles[0].text);
+  try {
+    const { AgentDeckPlugin, ProjectWorkbenchModal } = await import(pathToFileURL(modFile));
+    const notes = new Map([
+      ["projects/demo/note.md", "- TODO 实现协作流程\n\t- 需求：先拆解再测试\n\t- 约束：保留格式\n\n"],
+      ["board-file.md", "# 看板标题\n- TODO 卡片甲 @codex\n- TODO 卡片乙 @antigravity\n"],
+    ]);
+    const plugin = new AgentDeckPlugin();
+    plugin.vaultPath = tmpDir;
+    plugin.app = {
+      vault: {
+        getAbstractFileByPath: (p) => (notes.has(p) ? { path: p, extension: "md" } : null),
+        read: async (f) => notes.get(typeof f === "string" ? f : f.path) || "",
+        modify: async (f, text) => { notes.set(typeof f === "string" ? f : f.path, text); },
+        process: async (f, fn) => {
+          const p = typeof f === "string" ? f : f.path;
+          const next = fn(notes.get(p) || "");
+          notes.set(p, next);
+          return next;
+        },
+        create: async (p, text) => { notes.set(p, text); return { path: p, extension: "md" }; },
+        createFolder: async () => {},
+      },
+      workspace: { getLeavesOfType: () => [], getActiveFile: () => null },
+      metadataCache: { getFirstLinkpathDest: () => null },
+    };
+    plugin.settings = {
+      agents: { claude: true, codex: true, antigravity: true },
+      projectFolders: { demo: path.join(tmpDir, "repo-demo") },
+      taskBoardFiles: { "board-file.md": true },
+      taskBoardViews: {},
+      workbenchWaves: {},
+      projectTeams: { presets: {}, byProject: {}, stewards: {} },
+    };
+    plugin.jobs = {};
+    plugin.usage = { meta: new Map() };
+    plugin.liveSessions = () => [];
+    plugin.defaultTarget = () => "codex";
+    plugin.agentEnabled = (id) => ["codex", "antigravity", "claude"].includes(id);
+    plugin.saveData = async () => {};
+    plugin.saveSettings = async () => {};
+    plugin.readNote = async (p) => notes.get(p) || "";
+    plugin.refreshUI = () => {};
+    plugin.viewForPath = () => null;
+    plugin.openMirrorSource = async () => {};
+    plugin._launchingWaves = new Set();
+    plugin._finalizingWaves = new Set();
+    const notices = [];
+    plugin.notice = (m) => notices.push(m);
+
+    // 4a. Modal opens without ReferenceError: p is not defined, auto-resolves project, preserves multiline goal, updates counts without rerender.
+    const modal = new ProjectWorkbenchModal(plugin.app, plugin, {
+      path: "projects/demo/note.md",
+      line: 0,
+      uninstalledAgents: new Set(["claude"]),
+    });
+    await modal.onOpen();
+    assert.equal(modal.projectName, "demo");
+    assert.equal(modal.cwd, path.join(tmpDir, "repo-demo"));
+    assert.match(modal.goal, /需求：先拆解再测试/);
+    assert.equal(modal.subtasks.length, 0);
+    // Click Quick Split button to generate drafts, then edit title without losing DOM input focus.
+    const quickBtn = modal.contentEl.querySelector(".ad-wb-planbar").querySelectorAll("button")[1];
+    quickBtn.onclick();
+    assert.equal(modal.subtasks.length, 3);
+
+    const titleInputBefore = modal.contentEl.querySelectorAll(".ad-wb-task__title")[0];
+    const titleInputsBeforeCount = modal.contentEl.querySelectorAll(".ad-wb-task__title").length;
+    titleInputBefore.value = "改写后的子任务";
+    titleInputBefore.oninput();
+    assert.equal(modal.subtasks[0].title, "改写后的子任务");
+    assert.equal(modal.contentEl.querySelectorAll(".ad-wb-task__title").length, titleInputsBeforeCount, "typing does not destroy DOM inputs");
+
+    // 4b. writeWorkbenchTasks into existing parent block with trailing blank line inserts cleanly inside parent block.
+    const savedIntoParent = await plugin.writeWorkbenchTasks({
+      path: "projects/demo/note.md",
+      line: 0,
+      parentTitle: "实现协作流程",
+      subtasks: [
+        { checked: true, title: "阶段一任务A", agent: "codex", stage: 1, destination: "background" },
+        { checked: true, title: "阶段一任务B", agent: "antigravity", stage: 1, destination: "background" },
+        { checked: true, title: "阶段二集成C", agent: "codex", stage: 2, destination: "background" },
+      ],
+      enableBoard: true,
+    });
+    const noteAfterWrite = notes.get("projects/demo/note.md");
+    assert.match(noteAfterWrite, /^\t- TODO 阶段一任务A @codex \^[a-z0-9-]+/m);
+    assert.match(noteAfterWrite, /^\t- TODO 阶段二集成C @codex \^[a-z0-9-]+/m);
+    assert.equal(savedIntoParent.subtaskLines.map((x) => x.stage).join(","), "1,1,2");
+
+    // 4c. Multi-stage wave + quota error recovery + worker blockId sync.
+    let seq = 0;
+    const delegatedCalls = [];
+    plugin.delegator = {
+      delegate: async (opts) => {
+        seq += 1;
+        const job = {
+          id: `reg-job-${seq}`,
+          agent: opts.agent,
+          name: opts.block.text.split("\n")[0],
+          blockId: opts.block.text.match(/\^([a-z0-9-]+)/i)?.[1] || "",
+          path: opts.file.path,
+          state: "running",
+          sessionId: `reg-sid-${seq}`,
+          result: "",
+        };
+        plugin.jobs[job.id] = job;
+        delegatedCalls.push({ job, opts });
+        return job;
+      },
+      cancel: () => {},
+    };
+
+    await plugin.dispatchWorkbenchTasks({
+      path: savedIntoParent.path,
+      lines: savedIntoParent.lines,
+      subtaskLines: savedIntoParent.subtaskLines,
+      cwd: modal.cwd,
+      projectName: "demo",
+      parentTitle: "实现协作流程",
+      parentBlockId: savedIntoParent.parentBlockId,
+      goal: modal.goal,
+      skipConfirmFirst: true,
+      steward: { enabled: true, agent: "antigravity", destination: "background", autoContinue: false },
+    });
+
+    const wave = Object.values(plugin.settings.workbenchWaves).find((w) => w.parentBlockId === savedIntoParent.parentBlockId);
+    assert.ok(wave);
+    assert.equal(wave.stage, 1);
+    assert.equal(wave.totalStages, 2);
+    assert.equal(delegatedCalls.length, 2, "only Stage 1 dispatches immediately");
+    assert.equal(delegatedCalls[0].opts.ignoreMention, true);
+    assert.equal(delegatedCalls[0].opts.skipConfirmFirst, true);
+
+    delegatedCalls[0].job.state = "done";
+    delegatedCalls[0].job.result = "任务A产出：接口已就绪";
+    await plugin.onWorkbenchJobSettled(delegatedCalls[0].job);
+    assert.equal(delegatedCalls.length, 2, "Stage 2 waits until all Stage 1 workers finish");
+
+    delegatedCalls[1].job.state = "done";
+    delegatedCalls[1].job.result = "任务B产出：样式已完成";
+    await plugin.onWorkbenchJobSettled(delegatedCalls[1].job);
+    assert.equal(delegatedCalls.length, 3, "Stage 2 auto-dispatches after Stage 1 finishes");
+    assert.equal(wave.stage, 2);
+    assert.match(delegatedCalls[2].opts.boardContext, /前序阶段已完成产出摘要/);
+    assert.match(delegatedCalls[2].opts.boardContext, /任务A产出：接口已就绪/);
+
+    delegatedCalls[2].job.state = "done";
+    delegatedCalls[2].job.result = "阶段二集成测试通过";
+    await plugin.onWorkbenchJobSettled(delegatedCalls[2].job);
+    assert.equal(delegatedCalls.length, 4, "Steward launches after all stages complete");
+    assert.equal(delegatedCalls[3].opts.skipConfirmFirst, true);
+    assert.match(delegatedCalls[3].opts.boardContext, /任务A产出：接口已就绪/);
+    assert.match(delegatedCalls[3].opts.boardContext, /阶段二集成测试通过/);
+
+    // Steward hits quota and returns plain error text -> must mark wave error & ERRORED, not DONE!
+    delegatedCalls[3].job.state = "done";
+    delegatedCalls[3].job.result = "⚠ Individual quota reached. Please upgrade your subscription to increase your limits.";
+    await plugin.onWorkbenchJobSettled(delegatedCalls[3].job);
+    assert.equal(wave.state, "error");
+    assert.match(notes.get("projects/demo/note.md"), /ERRORED 🧭 管家汇总与推进/);
+
+    // Switch Steward to Codex and retry -> succeeds and promotes all stages' workers to DONE!
+    await plugin.retryStewardWave(wave.id, { agent: "codex" });
+    assert.equal(wave.steward.agent, "codex");
+    assert.equal(delegatedCalls.length, 5);
+    delegatedCalls[4].job.state = "done";
+    delegatedCalls[4].job.result = '```json\n{"status":"done","summary":"两阶段全部验收通过","nextTasks":[]}\n```';
+    await plugin.onWorkbenchJobSettled(delegatedCalls[4].job);
+    assert.equal(wave.state, "done");
+    assert.match(notes.get("projects/demo/note.md"), /DONE 阶段一任务A/);
+    assert.match(notes.get("projects/demo/note.md"), /DONE 阶段一任务B/);
+    assert.match(notes.get("projects/demo/note.md"), /DONE 阶段二集成C/);
+
+    // 4d. dispatchBoardGroup on fileBoard does not throw ReferenceError and preserves heading while assigning card blockIds.
+    await plugin.dispatchBoardGroup("board-file.md", 0);
+    const boardText = notes.get("board-file.md");
+    assert.ok(boardText.startsWith("# 看板标题\n"), "fileBoard heading anchor is not polluted with ^blockId");
+    assert.match(boardText, /- TODO 卡片甲 @codex \^[a-z0-9-]+/);
+    assert.match(boardText, /- TODO 卡片乙 @antigravity \^[a-z0-9-]+/);
+    assert.equal(delegatedCalls.length, 7);
+  } finally {
+    delete globalThis.__createMiniNode;
+    delete globalThis.__notices;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("Round 2 regression: worker quota recovery, replacement job adoption, queued stage exclusion, and modal guards", async () => {
+  const {
+    buildCopilotFixPrompt: fixPromptFn,
+    parseCopilotPlanResponse: parsePlanFn,
+    buildBoardSiblingContext: siblingCtxFn,
+  } = await import("../src/project-workbench.js");
+
+  // 1. buildCopilotFixPrompt includes allowed agents & goal; parseCopilotPlanResponse keeps roleId
+  const fixPrompt = fixPromptFn("not json", { availableAgents: ["codex", "antigravity"], goal: "检查并汇总" });
+  assert.match(fixPrompt, /codex, antigravity/);
+  assert.match(fixPrompt, /检查并汇总/);
+  const parsed = parsePlanFn(JSON.stringify({
+    summary: "test",
+    subtasks: [{ title: "做后端", role: "架构与后端", agent: "codex", stage: 1, detail: "范围清晰" }],
+  }), {
+    availableAgents: ["codex", "antigravity"],
+    roles: [{ id: "arch", label: "架构与后端", agent: "codex" }],
+  });
+  assert.equal(parsed.subtasks[0].roleId, "arch");
+
+  // 2. Sibling context labels deferred stage items accurately
+  const sibCtx = siblingCtxFn({
+    title: "双批任务",
+    columns: [{
+      id: "todo",
+      cards: [
+        { line: 1, title: "第一批卡", agent: "codex", stage: 1 },
+        { line: 2, title: "第二批卡", agent: "antigravity", stage: 2 },
+      ],
+    }],
+  }, 1, { stage: 1, totalStages: 2 });
+  assert.match(sibCtx, /\[第 2 批\] 第二批卡/);
+
+  // 3. Replacement-job adoption by blockId + queuedStageMapForWave exclusion + completeWaveWithoutSteward error check
+  const obsidianStub = `
+    export class Plugin {};
+    export class Modal {};
+    export class ItemView {};
+    export class Menu {};
+    export class MarkdownView {};
+    export class MarkdownRenderChild {};
+    export class MarkdownRenderer {};
+    export class Component {};
+    export class Notice { constructor(m){ (globalThis.__notices ||= []).push(m); } hide(){} };
+    export class PluginSettingTab {};
+    export function setIcon(){};
+    export function requestUrl(){};
+    export const editorInfoField = {};
+  `;
+  const cmStub = `
+    export class WidgetType {};
+    export const Decoration = { set: () => [], replace: () => ({ range: () => ({}) }), widget: () => ({ range: () => ({}) }) };
+    export const EditorView = { decorations: { from: () => ({}) }, atomicRanges: { of: () => ({}) }, scrollIntoView: () => ({}) };
+    export const EditorSelection = { cursor: (p) => ({ anchor: p, head: p }) };
+    export const ViewPlugin = { fromClass: () => ({}) };
+    export const EditorState = { create: () => ({}) };
+    export const StateEffect = { define: () => ({ of: () => ({}), is: () => false }) };
+    export const StateField = { define: () => ({}) };
+    export class RangeSetBuilder { constructor() { this.items = []; } add() {} finish() { return []; } }
+    export function syntaxTree() { return { resolveInner: () => null }; }
+    export const foldedRanges = () => ({});
+    export const foldEffect = {};
+    export const unfoldEffect = {};
+  `;
+  const extraStubs = {
+    electron: "export const shell = { openExternal(){} };",
+    "./icons.js": "export function agentIcon(){};export function setLucide(){};export function stateIcon(){};",
+    "./editor.js": "export const editorInfoField = {}; export const createEditorExtension = () => []; export function dispatchRefresh(){}; export const ITEM_MIME = 'x';",
+    "./fold-integration.js": "export function integrateRecordFolding(){}",
+    "./mention-suggest.js": "export function registerTaskAgentSuggest(){}",
+    "./view.js": "export class AgentDeckView {}; export const VIEW_TYPE = 'ad-view';",
+    "./dashboard.js": "export class DashboardView {}; export const DASHBOARD_TYPE = 'ad-dash';",
+    "./settings.js": "export class AgentDeckSettingsTab {}; export function syncDelegationSettings(s){ return s; }",
+    "./menubar.js": "export class MenuBarBridge { constructor(){} start(){ return Promise.resolve(); } stop(){} }",
+  };
+  const bundle = await esbuild.build({
+    stdin: { contents: "export { default as AgentDeckPlugin } from './src/main.js';", resolveDir: path.resolve(import.meta.dirname, "..") },
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    loader: { ".png": "dataurl", ".swift": "text" },
+    write: false,
+    external: ["@codemirror/*"],
+    plugins: [{
+      name: "r2-wave-test",
+      setup(b) {
+        b.onResolve({ filter: /^(obsidian|electron|\..*)$/ }, (a) => {
+          if (a.path === "obsidian") return { path: "obsidian", namespace: "stub" };
+          if (extraStubs[a.path]) return { path: a.path, namespace: "stub" };
+          return undefined;
+        });
+        b.onResolve({ filter: /^@codemirror\// }, (a) => ({ path: a.path, namespace: "cm" }));
+        b.onLoad({ filter: /.*/, namespace: "stub" }, (a) => ({
+          contents: a.path === "obsidian" ? obsidianStub : extraStubs[a.path],
+        }));
+        b.onLoad({ filter: /.*/, namespace: "cm" }, () => ({ contents: cmStub }));
+      },
+    }],
+  });
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-r2-"));
+  const modFile = path.join(tmpDir, "plugin.mjs");
+  fs.writeFileSync(modFile, bundle.outputFiles[0].text);
+  try {
+    const { AgentDeckPlugin } = await import(pathToFileURL(modFile));
+    const notes = new Map([["daily/2026-11-26.md", "## 正在做\n"]]);
+    const plugin = new AgentDeckPlugin();
+    plugin.app = {
+      vault: {
+        getAbstractFileByPath: (p) => (notes.has(p) ? { path: p, extension: "md" } : null),
+        read: async (f) => notes.get(typeof f === "string" ? f : f.path) || "",
+        modify: async (f, text) => { notes.set(typeof f === "string" ? f : f.path, text); },
+        process: async (f, fn) => {
+          const p = typeof f === "string" ? f : f.path;
+          const next = fn(notes.get(p) || "");
+          notes.set(p, next);
+          return next;
+        },
+        create: async (p, text) => { notes.set(p, text); return { path: p, extension: "md" }; },
+        createFolder: async () => {},
+      },
+      workspace: { getLeavesOfType: () => [], getActiveFile: () => null },
+      metadataCache: { getFirstLinkpathDest: () => null },
+    };
+    plugin.settings = {
+      agents: { codex: true, antigravity: true },
+      taskBoardViews: {},
+      workbenchWaves: {},
+      projectTeams: { presets: {}, byProject: {}, stewards: {}, skipConfirmFirst: true },
+    };
+    plugin.jobs = {};
+    plugin.usage = { meta: new Map() };
+    plugin.liveSessions = () => [];
+    plugin.defaultTarget = () => "codex";
+    plugin.agentEnabled = (id) => ["codex", "antigravity"].includes(id);
+    plugin.saveData = async () => {};
+    plugin.saveSettings = async () => {};
+    plugin.readNote = async (p) => notes.get(p) || "";
+    plugin.refreshUI = () => {};
+    plugin.viewForPath = () => null;
+    plugin.openMirrorSource = async () => {};
+    plugin._launchingWaves = new Set();
+    plugin._finalizingWaves = new Set();
+    plugin.notice = (m) => (globalThis.__notices ||= []).push(m);
+
+    let seq = 0;
+    const delegatedCalls = [];
+    plugin.delegator = {
+      delegate: async (opts) => {
+        seq += 1;
+        const job = {
+          id: `r2-job-${seq}`,
+          agent: opts.agent,
+          name: opts.block.text.split("\n")[0],
+          blockId: opts.block.text.match(/\^([a-z0-9-]+)/i)?.[1] || "",
+          path: opts.file.path,
+          state: "running",
+          startedAt: 1000 + seq * 100,
+          sessionId: `r2-sid-${seq}`,
+          result: "",
+        };
+        plugin.jobs[job.id] = job;
+        delegatedCalls.push({ job, opts });
+        return job;
+      },
+      cancel: () => {},
+    };
+
+    const saved = await plugin.writeWorkbenchTasks({
+      path: "daily/2026-11-26.md",
+      parentTitle: "修复与接力验证",
+      subtasks: [
+        { checked: true, stage: 1, title: "阶段一唯一子任务", agent: "antigravity" },
+        { checked: true, stage: 2, title: "阶段二收尾任务", agent: "codex" },
+      ],
+      enableBoard: true,
+    });
+
+    await plugin.dispatchWorkbenchTasks({
+      path: saved.path,
+      lines: saved.lines,
+      subtaskLines: saved.subtaskLines,
+      parentTitle: "修复与接力验证",
+      parentBlockId: saved.parentBlockId,
+      skipConfirmFirst: true,
+      steward: { enabled: true, agent: "codex", destination: "background", autoContinue: false },
+    });
+
+    const wave = Object.values(plugin.settings.workbenchWaves)[0];
+    assert.equal(wave.skipConfirmFirst, true);
+
+    // Queued Stage 2 card is excluded from board todoDispatchCount and dispatchBoardGroup
+    const grp = extractTaskBoardGroups(notes.get("daily/2026-11-26.md"))[0];
+    const qMap = queuedStageMapForWave(wave);
+    assert.equal(qMap.size, 1);
+    const boardModel = buildTaskBoardModel(grp, plugin, { queuedStagesByBlockId: qMap });
+    assert.equal(boardModel.todoDispatchCount, 0, "queued stage-2 card excluded from Dispatch TODO count");
+
+    // Stage 1 worker hits exit-0 quota text -> marked ERRORED, cancels Stage 2, and hands off to Steward!
+    delegatedCalls[0].job.state = "done";
+    delegatedCalls[0].job.result = "⚠ Individual quota reached for this account";
+    await plugin.onWorkbenchJobSettled(delegatedCalls[0].job);
+    assert.equal(wave.workers[0].state, "error");
+    assert.match(notes.get("daily/2026-11-26.md"), /ERRORED 阶段一唯一子任务/);
+    assert.equal(wave.stage, 1, "Stage 2 does not launch when Stage 1 failed");
+    assert.equal(wave.queuedStages.length, 0, "queued Stage 2 is paused/cleared on Stage 1 total failure");
+    assert.equal(delegatedCalls.length, 2, "Steward launches to report/recover failed Stage 1");
+    assert.match(delegatedCalls[1].job.name, /🧭/);
+
+    // Rebuild wave cleanly via replacement job on same blockId (e.g. from board retry)
+    const retrySaved = await plugin.writeWorkbenchTasks({
+      path: "daily/2026-11-26.md",
+      parentTitle: "无管家异常测试",
+      subtasks: [{ checked: true, stage: 1, title: "单独任务", agent: "codex" }],
+    });
+    await plugin.dispatchWorkbenchTasks({
+      path: retrySaved.path,
+      lines: retrySaved.lines,
+      subtaskLines: retrySaved.subtaskLines,
+      parentTitle: "无管家异常测试",
+      parentBlockId: retrySaved.parentBlockId,
+      steward: { enabled: false },
+    });
+    // Force completeWaveWithoutSteward after failure
+    const noStewardWave = Object.values(plugin.settings.workbenchWaves).find((w) => w.parentBlockId === retrySaved.parentBlockId);
+    assert.equal(noStewardWave, undefined, "1-stage wave without steward does not allocate wave when steward disabled");
+
+    // Multi-stage without steward stops cleanly with error when a worker fails
+    const savedNoSt = await plugin.writeWorkbenchTasks({
+      path: "daily/2026-11-26.md",
+      parentTitle: "两批无管家",
+      subtasks: [
+        { checked: true, stage: 1, title: "批一失败任务", agent: "codex" },
+        { checked: true, stage: 2, title: "批二任务", agent: "codex" },
+      ],
+    });
+    await plugin.dispatchWorkbenchTasks({
+      path: savedNoSt.path,
+      lines: savedNoSt.lines,
+      subtaskLines: savedNoSt.subtaskLines,
+      parentTitle: "两批无管家",
+      parentBlockId: savedNoSt.parentBlockId,
+      steward: { enabled: false },
+    });
+    const wNoSt = Object.values(plugin.settings.workbenchWaves).find((w) => w.parentBlockId === savedNoSt.parentBlockId);
+    const jFail = delegatedCalls.at(-1).job;
+    jFail.state = "error";
+    jFail.error = "cli crashed";
+    await plugin.onWorkbenchJobSettled(jFail);
+    assert.equal(wNoSt.state, "error", "without steward, failed wave ends in error instead of launching queued stage 2");
+
+    // Now test replacement job adoption healing a waiting 2-stage wave
+    const savedHeal = await plugin.writeWorkbenchTasks({
+      path: "daily/2026-11-26.md",
+      parentTitle: "替换修复自愈",
+      subtasks: [
+        { checked: true, stage: 1, title: "可自愈任务", agent: "antigravity" },
+        { checked: true, stage: 2, title: "后继任务", agent: "codex" },
+      ],
+    });
+    await plugin.dispatchWorkbenchTasks({
+      path: savedHeal.path,
+      lines: savedHeal.lines,
+      subtaskLines: savedHeal.subtaskLines,
+      parentTitle: "替换修复自愈",
+      parentBlockId: savedHeal.parentBlockId,
+      steward: { enabled: true, agent: "codex", destination: "background", autoContinue: false },
+    });
+    const wHeal = Object.values(plugin.settings.workbenchWaves).find((w) => w.parentBlockId === savedHeal.parentBlockId);
+    const origJob = delegatedCalls.at(-1).job;
+    const replacementJob = {
+      id: "r2-job-replacement",
+      agent: "codex",
+      name: "可自愈任务",
+      blockId: origJob.blockId,
+      path: "daily/2026-11-26.md",
+      state: "done",
+      startedAt: origJob.startedAt + 500,
+      sessionId: "r2-sid-replacement",
+      result: "Codex 接手并完成了阶段一",
+    };
+    plugin.jobs[replacementJob.id] = replacementJob;
+    await plugin.onWorkbenchJobSettled(replacementJob);
+    assert.equal(wHeal.stage, 2, "replacement job heals Stage 1 and advances wave to Stage 2");
+    assert.equal(wHeal.completedWorkers[0].agent, "codex");
+
+    // Cancel clears queuedStages so Stage 2 card is unlocked on board
+    await plugin.cancelWorkbenchWave(wHeal.id);
+    assert.equal(wHeal.queuedStages.length, 0);
+
+    // 4. Round 2B: retryFailedWaveWorkers auto-swaps quota/failed worker to healthy agent and dismissWorkbenchWave hides done banner
+    const savedFailover = await plugin.writeWorkbenchTasks({
+      path: "daily/2026-11-26.md",
+      parentTitle: "失败项自动换角重派",
+      subtasks: [
+        { checked: true, stage: 1, title: "子卡一", agent: "antigravity" },
+        { checked: true, stage: 2, title: "子卡二", agent: "codex" },
+      ],
+    });
+    await plugin.dispatchWorkbenchTasks({
+      path: savedFailover.path,
+      lines: savedFailover.lines,
+      subtaskLines: savedFailover.subtaskLines,
+      parentTitle: "失败项自动换角重派",
+      parentBlockId: savedFailover.parentBlockId,
+      skipConfirmFirst: true,
+      steward: { enabled: true, agent: "codex", destination: "background", autoContinue: false },
+    });
+    const wFail = Object.values(plugin.settings.workbenchWaves).find((w) => w.parentBlockId === savedFailover.parentBlockId);
+    const failedJob = delegatedCalls.at(-1).job;
+    failedJob.state = "done";
+    failedJob.result = "⚠ Individual quota reached";
+    await plugin.onWorkbenchJobSettled(failedJob);
+    // Cancel the auto-launched steward so retryFailedWaveWorkers can recover the failed stage-1 worker on the board
+    wFail.state = "waiting";
+    wFail.steward.jobId = "";
+    wFail.queuedStages = [{
+      stage: 2,
+      tasks: [{ blockId: savedFailover.subtaskLines[1].blockId, line: savedFailover.subtaskLines[1].line, title: "子卡二", agent: "codex" }],
+    }];
+
+    await plugin.retryFailedWaveWorkers(wFail.id);
+    const retryCall = delegatedCalls.at(-1);
+    assert.equal(retryCall.job.agent, "codex", "quota-hit antigravity automatically swaps to healthy codex");
+    assert.match(notes.get("daily/2026-11-26.md"), /子卡一 @codex/);
+    retryCall.job.state = "done";
+    retryCall.job.result = "已修复子卡一";
+    await plugin.onWorkbenchJobSettled(retryCall.job);
+    assert.equal(wFail.stage, 2, "retried worker completion advances wave to stage 2");
+    const st2Job = delegatedCalls.at(-1).job;
+    st2Job.state = "done";
+    st2Job.result = "子卡二已完成";
+    await plugin.onWorkbenchJobSettled(st2Job);
+    const stwJob = delegatedCalls.at(-1).job;
+    stwJob.state = "done";
+    stwJob.result = '```json\n{"status":"done","summary":"换角重派闭环成功","nextTasks":[]}\n```';
+    await plugin.onWorkbenchJobSettled(stwJob);
+    assert.equal(wFail.state, "done");
+
+    const { findBoardWaveBanner: findBanner } = await import("../src/project-workbench.js");
+    assert.equal(findBanner(plugin.settings.workbenchWaves, { path: "daily/2026-11-26.md", parentBlockId: savedFailover.parentBlockId })?.id, wFail.id);
+    await plugin.dismissWorkbenchWave(wFail.id);
+    assert.equal(findBanner(plugin.settings.workbenchWaves, { path: "daily/2026-11-26.md", parentBlockId: savedFailover.parentBlockId }), null);
+  } finally {
+    delete globalThis.__notices;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("Scope token overlap detection, one-click auto-stagger, and board wave banner helper", async () => {
+  const {
+    extractScopeTokens,
+    detectStageScopeOverlaps,
+    staggerConflictingStages,
+    buildBoardSiblingContext: siblingCtx,
+    findBoardWaveBanner,
+  } = await import("../src/project-workbench.js");
+
+  assert.deepEqual(
+    extractScopeTokens("修改 src/main.js 与 https://example.com/a.js 以及 docs/README.md，跳过 v1.13.26"),
+    ["src/main.js", "docs/README.md"],
+  );
+
+  const overlapping = [
+    { checked: true, stage: 1, title: "改动主入口", detail: "更新 src/main.js 和 src/harness.js", agent: "codex" },
+    { checked: true, stage: 1, title: "同时改同一文件", detail: "修改 src/main.js 中的派发方法", agent: "antigravity" },
+    { checked: true, stage: 1, title: "独立样式修改", detail: "调整 styles/views/modals.css", agent: "codex" },
+  ];
+  const overlaps = detectStageScopeOverlaps(overlapping);
+  assert.equal(overlaps.length, 1);
+  assert.equal(overlaps[0].file, "src/main.js");
+  assert.deepEqual(overlaps[0].indices, [0, 1]);
+
+  const staggered = staggerConflictingStages(overlapping);
+  assert.equal(staggered.movedCount, 1);
+  assert.equal(staggered.subtasks[0].stage, 1);
+  assert.equal(staggered.subtasks[1].stage, 2);
+  assert.equal(staggered.subtasks[2].stage, 1);
+  assert.equal(detectStageScopeOverlaps(staggered.subtasks).length, 0);
+
+  const ctx = siblingCtx({
+    title: "范围标注测试",
+    columns: [{
+      id: "todo",
+      cards: [
+        { line: 1, title: "任务1", detail: "改 src/main.js", agent: "codex", stage: 1 },
+        { line: 2, title: "任务2", detail: "改 src/harness.js", agent: "antigravity", stage: 2 },
+      ],
+    }],
+  }, 1, { stage: 1, totalStages: 2 });
+  assert.match(ctx, /\[涉及：src\/harness\.js\]/);
+
+  const waves = {
+    wDoneOld: { id: "wDoneOld", path: "a.md", parentBlockId: "ad-1", state: "done", updatedAt: 100 },
+    wDoneNew: { id: "wDoneNew", path: "a.md", parentBlockId: "ad-1", state: "done", updatedAt: 200 },
+    wDismissed: { id: "wDismissed", path: "a.md", parentBlockId: "ad-1", state: "done", dismissed: true, updatedAt: 300 },
+  };
+  assert.equal(findBoardWaveBanner(waves, { path: "a.md", parentBlockId: "ad-1" })?.id, "wDoneNew");
 });

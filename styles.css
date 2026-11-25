@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.26 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.27 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -3725,10 +3725,24 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   border-color: color-mix(in srgb, var(--text-error, #a86f6d) 45%, var(--background-modifier-border));
   background: color-mix(in srgb, var(--text-error, #a86f6d) 8%, var(--background-primary));
 }
+.ad-board-wrap .ad-board__steward.is-done {
+  border-color: color-mix(in srgb, var(--color-green, #4b9c75) 38%, var(--background-modifier-border));
+  background: color-mix(in srgb, var(--color-green, #4b9c75) 7%, var(--background-primary));
+}
 .ad-board-wrap .ad-board__steward-text {
   min-width: 0;
   flex: 1;
   overflow-wrap: anywhere;
+}
+.ad-board-wrap .ad-board__stewardsel {
+  height: 22px;
+  min-height: 0;
+  padding: 0 6px;
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 11px;
 }
 .ad-board-wrap .ad-board__btn {
   height: 22px;
@@ -3908,7 +3922,8 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   background: color-mix(in srgb, var(--interactive-accent) 12%, transparent);
 }
 .ad-board-wrap .ad-board__zoom,
-.ad-board-wrap .ad-board__mirror {
+.ad-board-wrap .ad-board__mirror,
+.ad-board-wrap .ad-board__stagebadge {
   flex: none;
   font-size: 10px;
   line-height: 1.3;
@@ -3918,6 +3933,11 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   background: var(--background-primary);
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+}
+.ad-board-wrap .ad-board__stagebadge {
+  border-color: color-mix(in srgb, var(--interactive-accent) 32%, var(--background-modifier-border));
+  background: color-mix(in srgb, var(--interactive-accent) 7%, var(--background-primary));
+  color: var(--text-normal);
 }
 .ad-board-wrap .ad-board__zoom {
   cursor: pointer;
@@ -5441,10 +5461,13 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 }
 .ad-workbench .ad-wb-select {
   width: auto;
-  min-width: 110px;
+  min-width: 96px;
   height: 28px;
   padding: 0 8px;
   font-size: 12px;
+}
+.ad-workbench .ad-wb-stage {
+  min-width: 72px;
 }
 .ad-workbench .ad-wb-planbar {
   display: flex;
@@ -5452,6 +5475,38 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   align-items: center;
   gap: 8px;
   margin-top: 8px;
+}
+.ad-workbench .ad-wb-planner {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ad-workbench .ad-wb-drafthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ad-workbench .ad-wb-badge {
+  font-size: 10.5px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--ad-line);
+  color: var(--ad-muted);
+  background: var(--ad-surface);
+}
+.ad-workbench .ad-wb-badge.is-ai {
+  color: var(--ad-accent, var(--interactive-accent));
+  border-color: color-mix(in srgb, var(--ad-accent, var(--interactive-accent)) 40%, var(--ad-line));
+}
+.ad-workbench .ad-wb-foot {
+  justify-content: space-between;
+  align-items: center;
+}
+.ad-workbench .ad-wb-footopt {
+  flex: 1;
+  min-width: 200px;
 }
 .ad-workbench .ad-wb-tasks {
   display: flex;
@@ -5479,6 +5534,39 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-workbench .ad-wb-task__detail {
   font-size: 11.5px;
   color: var(--ad-muted);
+}
+.ad-workbench .ad-wb-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  margin-top: 6px;
+  border: 1px solid var(--ad-line);
+  border-radius: var(--ad-radius-sm);
+  background: var(--ad-surface);
+  font-size: 11.5px;
+  color: var(--ad-muted);
+}
+.ad-workbench .ad-wb-banner[hidden] {
+  display: none;
+}
+.ad-workbench .ad-wb-banner.is-warn {
+  border-color: color-mix(in srgb, var(--text-warning, #c08a3e) 45%, var(--ad-line));
+  background: color-mix(in srgb, var(--text-warning, #c08a3e) 8%, var(--ad-surface));
+  color: var(--text-normal);
+}
+.ad-workbench .ad-wb-banner__text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ad-workbench .ad-wb-inlinebtn {
+  flex: none;
+  height: 24px;
+  min-height: 0;
+  padding: 0 8px;
+  font-size: 11px;
 }
 .ad-modal.ad-reply-modal .ad-reply-modal__question {
   margin: 4px 0 10px;

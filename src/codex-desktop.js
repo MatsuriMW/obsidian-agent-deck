@@ -9,13 +9,16 @@ import { isScratchCwd } from "./readers.js";
 import { projectNameForFolder, sameFolder } from "./project-folders.js";
 import { sandboxFor } from "./constants.js";
 import { redactSecrets, spawnCli, killChildProcess } from "./security.js";
+import { cleanEnv, expandedPathEntries, findInPathDirs } from "./cli-env.js";
 
 const taskHash = (text) => createHash("sha1").update(String(text)).digest("hex");
 
 export function codexDesktopBinary(configured) {
   if (configured) return configured;
   const bundled = ["/Applications/Codex.app/Contents/Resources/codex", "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"];
-  return bundled.find(p => fs.existsSync(p)) || "codex";
+  const hit = bundled.find(p => fs.existsSync(p));
+  if (hit) return hit;
+  return findInPathDirs("codex", expandedPathEntries()) || "codex";
 }
 
 export class CodexDesktopRunner {
@@ -38,7 +41,7 @@ export class CodexDesktopRunner {
     try {
       this.job.conversation = [{ role: "user", text: prompt, at: Date.now() }];
       const cfg = this.d.settings.delegate.codex;
-      this.child = spawnCli(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, stdio: ["pipe", "pipe", "pipe"] });
+      this.child = spawnCli(codexDesktopBinary(cfg.path), ["app-server"], { cwd: this.job.cwd, env: cleanEnv(), stdio: ["pipe", "pipe", "pipe"] });
       this.trace?.recordFrame("codex.spawn", "app-server");
       this.closed = new Promise(resolve => this.child.once("close", resolve));
       this.child.on("error", error => this.finish("error", error.message));

@@ -27,10 +27,10 @@ Inspect the exact same Markdown from multiple perspectives without rewriting the
 
 - **Four AI record views**: Outline, Table, Cards, and Timeline (interactive in Live Preview, clean read-only preview in Reading View), with view-aware export to PDF, HTML, Markdown, JSON, or CSV.
 - **Pin & re-delegate**: Right-click any round in Table, Cards, Timeline, or Reading View to pin it as a key record (`<!-- ad-pin -->`, preserved when folded and prioritized by Dreaming) or re-delegate that round to your default agent or a chosen model.
-- **In-place fractal boards**: Any block with multiple direct child tasks gets a **Board N** toggle — split by status or by group, drag cards across columns, zoom into nested sub-boards, and use mirror cards (`![[Note#^block-id]]`) that write status changes back to the source note.
+- **In-place fractal boards**: Any block with multiple direct child tasks gets a **Board N** toggle — split by status or by group, drag cards across columns, zoom into nested sub-boards, inspect queued-stage pills, recover failed workers or retry Steward synthesis in one click, dismiss finished summary strips, and use mirror cards (`![[Note#^block-id]]`) that write status changes back to the source note.
 
 ## 4. Squads, Planning & Workbench
 
 - **Goal → `task.md` → Board**: Run `Plan: turn this line into task.md` to break a single goal line into steps with acceptance criteria; the output automatically opens as a board.
-- **Squad presets**: Five built-in squads (full-stack, debugging/refactoring, research & docs, deep report, long-form writing) that skip disabled or rate-limited agents, with a 15-minute steward check-in if a wave stalls.
+- **Staged squads & Steward loop**: Five built-in squads (full-stack, debugging/refactoring, research & docs, deep report, long-form writing) that skip missing CLIs and disabled/rate-limited agents; switch planner models on demand, stagger file-overlapping tasks into **Batch 1 / 2 / 3** with automatic upstream summary handoffs, and let the Steward agent synthesize results once complete (with a 15-minute mid-run check-in if a wave stalls).
 - **Workbench overview**: Run `Workbench: refresh overview` to generate a single index note listing active boards, memory statistics, and recent plans.

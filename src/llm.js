@@ -13,6 +13,7 @@ import { spawn, execFile } from "child_process";
 import { t } from "./i18n.js";
 import { summarizeAutoTitle, stripTaskKeyword } from "./journal.js";
 import { resolveSecret, redactSecrets, spawnCli, killChildProcess } from "./security.js";
+import { cleanEnv, expandedPathEntries } from "./cli-env.js";
 
 const home = () => os.homedir();
 
@@ -30,9 +31,8 @@ function workDir() {
 }
 
 function buildEnv(env = process.env) {
-  const extra = [path.join(home(), ".local/bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"];
-  const cur = String(env.PATH || "").split(path.delimiter).filter(Boolean);
-  return { ...env, PATH: [...new Set([...extra, ...cur])].join(path.delimiter) };
+  if (env === process.env) return cleanEnv();
+  return { ...env, PATH: expandedPathEntries(env?.PATH || "").join(path.delimiter) };
 }
 
 function resolveBin(name, configured = "", homeDir = home(), env = process.env) {

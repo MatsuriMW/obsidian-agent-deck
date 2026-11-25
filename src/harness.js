@@ -373,6 +373,7 @@ export function createContextBundle(plugin, {
   inlinedLinks = 0,
   newSession = false,
   promptSuffix = "",
+  skipConfirmFirst = false,
 } = {}) {
   const c = plugin?.settings?.delegate || {};
   const task = newSession ? freshTaskText(block?.text || "") : (block?.text || "");
@@ -381,7 +382,7 @@ export function createContextBundle(plugin, {
   const suffix = (promptSuffix && promptSuffix.trim())
     ? promptSuffix.trim()
     : (c.promptSuffix && c.promptSuffix.trim() ? c.promptSuffix.trim() : "");
-  const confirmFirst = c.confirmFirst !== false
+  const confirmFirst = !skipConfirmFirst && c.confirmFirst !== false
     ? String(c.confirmFirstPrompt ?? CONFIRM_FIRST).trim()
     : "";
   const bundle = {
@@ -454,6 +455,7 @@ export async function buildDelegationPayload({ plugin, file, lines, block, opts 
     inlinedLinks: resolved.inlinedLinks,
     newSession: opts.newSession,
     promptSuffix: opts.promptSuffix,
+    skipConfirmFirst: Boolean(opts.skipConfirmFirst),
   });
   const prompt = renderContextBundle(bundle);
   return {

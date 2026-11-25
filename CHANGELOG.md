@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.13.27
+
+- **项目协作工作台、分批多 Agent 编排与管家闭环全链路修复与升级（[`src/workbench-modal.js`](src/workbench-modal.js)、[`src/project-workbench.js`](src/project-workbench.js)、[`src/fractal-board.js`](src/fractal-board.js)、[`src/main.js`](src/main.js)、[`src/harness.js`](src/harness.js)、[`src/cli-env.js`](src/cli-env.js)）**：
+  - **阻塞级 Bug 修复**：修复打开工作台 `ReferenceError: p is not defined`、看板「派发 TODO」`ReferenceError: view is not defined`、追加子任务到已有母块缩进丢失与结尾空行破坏嵌套、AI 拆解误走 30s `polish` 短超时及跨供应商串模（如 `gpt-6-luna` 漏给 DeepSeek/Antigravity）、小队与管家委派被旧 `@mention` 误拦截、`worker.blockId` 未回传导致管家结束后无法推进队员至 `DONE`、以及进程 exit 0 但正文为限额/供应商错误的回复被误标 `DONE` 等问题；同步加固 `liveSessions()` 空防护。
+  - **多批依赖（Wave）与自动上游接力**：工作台与 AI 副驾拆解支持 `第 1/2/3 批` 编排；前批全部完成后由 `advanceWaveToNextStage()` 自动携带前批结果摘要（`upstreamReports`）拉起下一批，全员失败时暂停并转交管家/看板恢复；卡片与管家委派默认可勾选「跳过首轮反问确认」（`skipConfirmFirst`）。
+  - **就绪感知配队、文件冲突预检与一键错峰**：接入 `uninstalledAgentsFor()` 自动绕过未安装/限额 Agent 并在健康 Agent 间均衡分工；新增拆解模型下拉切换（显示自动解析模型 + 1 次 JSON 修复重试 + `⌘/Ctrl+Enter` 快捷键）、`extractScopeTokens()` / `detectStageScopeOverlaps()` 同批文件重叠预警与「一键错峰排批」、目录/非健康 Agent 预检与「一键替换为可用 Agent」，以及无失焦局部刷新（`updateActionCounts()`）。
+  - **分形看板排批感知、失败自愈与完成总结条**：待接力后批卡展示「第 N 批待接力」且不重复计入「派发 TODO」；新增 `syncWaveWithState()` 按 `blockId` 接管同卡新会话重派、错误栏一键「重派失败项」（限额/未装 CLI 自动换角并改写 `@agent`）、右键「换 Agent 重新派发（新会话）」、切换管家 Agent 重试汇总，以及可收起的波次完成总结条（`findBoardWaveBanner()` / `dismissWorkbenchWave()`）。
+  - **底层 GUI 环境统一**：提取无环叶子模块 [`src/cli-env.js`](src/cli-env.js) 统一管理 GUI `PATH`、macOS/Windows 系统代理与 `cleanEnv()` 供 [`src/delegation-runners.js`](src/delegation-runners.js)、[`src/codex-desktop.js`](src/codex-desktop.js) 与 [`src/llm.js`](src/llm.js) 共用，并补充 ChatGPT.app 内嵌 `CodexCLI.app/Contents/MacOS/codex` 路径。
+
 ## 1.13.26
 
 - **新增 Trae（Trae CN / 国际版）全链路 Hooks 追踪与委派（内置总数增至 21 家，`USAGE_CACHE_VERSION = 25`，`HARNESS_DETECTION_VERSION = 5`）**：

@@ -12,7 +12,7 @@ import { readJournalLayout, configuredJournalLayout, repairJournalLayout, stripJ
 import { JournalOrganizer } from "./journal-organizer.js";
 import { semanticTaskId } from "./task-id.js";
 import { AttentionTracker } from "./attention.js";
-import { defaultDestination, activeJob, canOpenClient } from "./workflow.js";
+import { defaultDestination, destinations, activeJob, canOpenClient } from "./workflow.js";
 import path from "path";
 import os from "os";
 import { execFile } from "child_process";
@@ -39,7 +39,7 @@ import { runSecurityAudit, renderSecurityAuditReport, parseAuditConfig } from ".
 import { computeTaskMetrics } from "./task-metrics.js";
 import { readRecentTraces, checkExternalAssets, buildDiagnosticReport } from "./trace.js";
 import { Delegator, blockAt, paragraphBlock, freshTaskText, stripInternalIdentifiers, ancestorLines, delegationText, findDraftLink, openSession as openSessionRaw, openExternal as openExternalRaw, openTerminal, findAgentBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
-import { pickPermissionOption, cleanEnv, resolveExecutableWithFallback } from "./delegation-runners.js";
+import { pickPermissionOption, cleanEnv, resolveExecutableWithFallback, uninstalledAgentsFor } from "./delegation-runners.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
 import { DashboardView, DASHBOARD_TYPE } from "./dashboard.js";
 import { AgentDeckSettingsTab } from "./settings.js";
@@ -123,11 +123,15 @@ import {
   collectWaveWorkerReports,
   buildStewardPrompt,
   parseStewardOutcome,
+  isQuotaOrProviderErrorText,
+  extractStewardFallbackSummary,
   updateTaskBlockStatusById,
   setTaskBlockKeywordById,
   appendSubtasksToParentBlock,
+  setTaskBoardCardAgent,
   findActiveWaveForBoard,
   isTerminalWorkerState,
+  queuedStageMapForWave,
   MAX_STEWARD_ROUNDS,
   STANDALONE_PROJECT_ID,
 } from "./project-workbench.js";
@@ -1878,6 +1882,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   liveSessions({ hours = 24 } = {}) {
+    if (typeof this.usage?.liveSessions !== "function") return [];
     const since = Date.now() - hours * 3600e3;
     const now = Date.now();
     const list = this.usage.liveSessions({ since, limit: 100 })
@@ -3071,7 +3076,8 @@ export default class AgentDeckPlugin extends Plugin {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!file) return this.notice(t("找不到这篇笔记"));
     const lines = (await this.readNote(path)).split("\n");
-    return this.delegateDrop(this.defaultTarget(), { path, line, lineText: lines[line] }, null, extraOpts);
+    const agent = extraOpts.agent || this.defaultTarget();
+    return this.delegateDrop(agent, { path, line, lineText: lines[line] }, null, extraOpts);
   }
 
   openDelegateModal(path, line) {
@@ -3508,7 +3514,8 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   async ensureNoteFile(targetPath, content = "") {
-    const pathStr = String(targetPath || "").trim() || journalPath(this.app, this.settings);
+    const raw = String(targetPath || "").trim();
+    const pathStr = raw ? (/\.md$/i.test(raw) ? raw : `${raw}.md`) : journalPath(this.app, this.settings);
     let file = this.app.vault.getAbstractFileByPath(pathStr);
     if (file) return { path: pathStr, file };
     const parts = pathStr.split("/");
@@ -3551,7 +3558,8 @@ export default class AgentDeckPlugin extends Plugin {
           assignBlockIds: true,
         });
         const inserted = snippet.split("\n");
-        const insertAt = existingBlock.end + 1;
+        let insertAt = existingBlock.end + 1;
+        while (insertAt > existingBlock.start + 1 && !lines[insertAt - 1].trim()) insertAt -= 1;
         lines.splice(insertAt, 0, ...inserted);
         parentLine = existingBlock.start;
         subtaskLines = [];
@@ -3562,6 +3570,7 @@ export default class AgentDeckPlugin extends Plugin {
             blockId: J.blockIdOf(lines[cursor]),
             agent: item.agent,
             destination: item.destination,
+            stage: Math.max(1, Number(item.stage) || 1),
             title: item.title,
           });
           cursor += 1 + (item.detail && item.detail.trim() ? 1 : 0);
@@ -3588,6 +3597,7 @@ export default class AgentDeckPlugin extends Plugin {
             blockId: J.blockIdOf(lines[cursor]),
             agent: item.agent,
             destination: item.destination,
+            stage: Math.max(1, Number(item.stage) || 1),
             title: item.title,
           });
           cursor += 1 + (item.detail && item.detail.trim() ? 1 : 0);
@@ -3632,6 +3642,7 @@ export default class AgentDeckPlugin extends Plugin {
     goal = "",
     steward = null,
     round = 1,
+    skipConfirmFirst = false,
   } = {}) {
     const file = this.app.vault.getAbstractFileByPath(path);
     if (!file) throw new Error(t("找不到目标笔记：{path}", { path }));
@@ -3640,19 +3651,49 @@ export default class AgentDeckPlugin extends Plugin {
       .map((item) => ({ item, block: blockAt(freshLines, item.line) }))
       .filter((x) => x.block);
     if (!tasks.length) return;
+
+    const byStage = new Map();
+    for (const entry of tasks) {
+      const st = Math.max(1, Number(entry.item.stage) || 1);
+      if (!byStage.has(st)) byStage.set(st, []);
+      byStage.get(st).push(entry);
+    }
+    const stageKeys = [...byStage.keys()].sort((a, b) => a - b);
+    const firstStage = stageKeys[0];
+    const currentTasks = byStage.get(firstStage) || [];
+    const totalStages = stageKeys.length;
+    const queuedStages = stageKeys.slice(1).map((st) => ({
+      stage: st,
+      tasks: byStage.get(st).map(({ item, block }) => ({
+        blockId: item.blockId || J.blockIdOf(freshLines[block.start]),
+        line: item.line,
+        title: item.title,
+        agent: item.agent,
+        destination: item.destination || "",
+      })),
+    }));
+
     const siblingModel = tasks.length > 1
       ? {
           title: parentTitle || t("协作项目"),
           columns: [{
             id: "todo",
-            cards: tasks.map(({ item }) => ({ line: item.line, title: item.title, agent: item.agent })),
+            cards: tasks.map(({ item }) => ({
+              line: item.line,
+              title: item.title,
+              agent: item.agent,
+              stage: Math.max(1, Number(item.stage) || 1),
+            })),
           }],
         }
       : null;
     const results = await Promise.allSettled(
-      tasks.map(({ item, block }) => {
-        const boardContext = item.boardContext || (siblingModel ? buildBoardSiblingContext(siblingModel, item.line) : "");
+      currentTasks.map(({ item, block }) => {
+        const boardContext = item.boardContext || (siblingModel
+          ? buildBoardSiblingContext(siblingModel, item.line, { stage: firstStage, totalStages })
+          : "");
         return this.delegator.delegate({
+          ignoreMention: true,
           file,
           lines: freshLines,
           block,
@@ -3660,6 +3701,7 @@ export default class AgentDeckPlugin extends Plugin {
           destination: item.destination,
           cwd: cwd || undefined,
           projectName: projectName || undefined,
+          ...(skipConfirmFirst ? { skipConfirmFirst: true } : {}),
           ...(boardContext ? { boardContext } : {}),
         });
       }),
@@ -3667,7 +3709,18 @@ export default class AgentDeckPlugin extends Plugin {
     const failed = results.filter((r) => r.status === "rejected");
     const okCount = results.length - failed.length;
     const stewardCfg = steward && steward.enabled !== false && steward.agent ? steward : null;
-    if (okCount && stewardCfg) {
+    if (okCount && queuedStages.length && stewardCfg) {
+      this.notice(t("已派发第 1 批 {n} 个协作子任务（共 {stages} 批）；全部完成后将由管家 {agent} 汇总推进", {
+        n: okCount,
+        stages: totalStages,
+        agent: AGENTS[stewardCfg.agent]?.short || stewardCfg.agent,
+      }));
+    } else if (okCount && queuedStages.length) {
+      this.notice(t("已派发第 1 批 {n} 个协作子任务（共 {stages} 批），完成后自动推进下一批", {
+        n: okCount,
+        stages: totalStages,
+      }));
+    } else if (okCount && stewardCfg) {
       this.notice(t("已并发派发 {n} 个协作子任务；完成后将由管家 {agent} 汇总推进", {
         n: okCount,
         agent: AGENTS[stewardCfg.agent]?.short || stewardCfg.agent,
@@ -3680,8 +3733,8 @@ export default class AgentDeckPlugin extends Plugin {
       this.notice(t("{n} 个子任务派发失败：{err}", { n: failed.length, err: firstErr }), 8000);
     }
 
-    if (okCount > 0 && stewardCfg) {
-      const workers = tasks.map(({ item, block }, idx) => {
+    if (okCount > 0 && (stewardCfg || queuedStages.length > 0)) {
+      const workers = currentTasks.map(({ item, block }, idx) => {
         const r = results[idx];
         const job = r.status === "fulfilled" ? r.value : null;
         return {
@@ -3703,7 +3756,11 @@ export default class AgentDeckPlugin extends Plugin {
         goal: goal || parentTitle || t("协作项目"),
         cwd,
         round,
-        steward: stewardCfg,
+        stage: firstStage,
+        totalStages,
+        queuedStages,
+        skipConfirmFirst,
+        steward: stewardCfg || { enabled: false, agent: "", destination: "background", autoContinue: false },
         workers,
       });
       this.settings.workbenchWaves ||= {};
@@ -3727,61 +3784,102 @@ export default class AgentDeckPlugin extends Plugin {
     if (!file) return this.notice(t("找不到这篇笔记"));
     let text = await this.readNote(path);
     let lines = text.split("\n");
+    const fileBoard = Boolean(this.settings?.taskBoardFiles?.[path]);
     const groups = extractTaskBoardGroups(text, {
       trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : new Set(),
       trigger: mentionTrigger(this),
-      fileBoard: Boolean(this.settings?.taskBoardFiles?.[view.file.path]),
+      fileBoard,
     });
     const grp = groups.find((g) => g.line === parentLine);
     if (!grp) return;
-    let parentBlockId = J.blockIdOf(lines[parentLine]);
-    if (!parentBlockId) {
-      const generated = J.makeBlockId("", "ad", J.readableSlug(grp?.title || ""));
+    let parentBlockId = grp.fileBoard ? "" : J.blockIdOf(lines[parentLine]);
+    const existingWave = findActiveWaveForBoard(this.settings.workbenchWaves, {
+      path,
+      parentBlockId,
+      parentTitle: grp.title,
+    });
+    const queuedByBlockId = queuedStageMapForWave(existingWave);
+    const initialModel = providedModel || buildTaskBoardModel(grp, this, { queuedStagesByBlockId: queuedByBlockId });
+    const pendingInitial = initialModel.columns
+      .flatMap((c) => c.cards)
+      .filter((c) => c.column === "todo" && !c.hasLink && !c.activeJob && !c.isMirror && !c.queuedStage);
+    if (!pendingInitial.length) return this.notice(t("没有待派发的 TODO 子任务"));
+
+    // 并发派发前一次性给父行（非文件级看板）和所有缺失块号的待派发子卡补齐稳定 ^blockId，防并发 writeLink 互相偏移。
+    const needParentId = !grp.fileBoard && !parentBlockId;
+    const needCardIds = pendingInitial.filter((c) => !c.blockId && !J.blockIdOf(lines[c.line]));
+    const assignedCardIds = new Map();
+    if (needParentId || needCardIds.length) {
+      const parentGen = needParentId ? J.makeBlockId("", "ad", J.readableSlug(grp?.title || "")) : "";
+      for (const card of needCardIds) {
+        assignedCardIds.set(card.line, J.makeBlockId("", card.agent || "ad", J.readableSlug(card.title || "")));
+      }
       await updateNote(this, path, (cur) => {
         const curLines = cur.split("\n");
-        if (!curLines[parentLine]) return cur;
-        const ensured = J.ensureBlockId(curLines[parentLine], generated);
-        curLines[parentLine] = ensured.line;
-        parentBlockId = ensured.blockId;
+        if (needParentId && curLines[parentLine]) {
+          const ensured = J.ensureBlockId(curLines[parentLine], parentGen);
+          curLines[parentLine] = ensured.line;
+          parentBlockId = ensured.blockId;
+        }
+        for (const [cardLine, bid] of assignedCardIds.entries()) {
+          if (!curLines[cardLine]) continue;
+          const ensured = J.ensureBlockId(curLines[cardLine], bid);
+          curLines[cardLine] = ensured.line;
+          assignedCardIds.set(cardLine, ensured.blockId);
+        }
         return curLines.join("\n");
       });
       text = await this.readNote(path);
       lines = text.split("\n");
     }
-    const model = providedModel || buildTaskBoardModel(grp, this);
+
+    const freshGroups = extractTaskBoardGroups(text, {
+      trackedIds: this.recordTrackedIds ? this.recordTrackedIds() : new Set(),
+      trigger: mentionTrigger(this),
+      fileBoard,
+    });
+    const freshGrp = freshGroups.find((g) => g.line === parentLine) || grp;
+    const model = buildTaskBoardModel(freshGrp, this, { queuedStagesByBlockId: queuedByBlockId });
     const pending = model.columns
       .flatMap((c) => c.cards)
-      .filter((c) => c.column === "todo" && !c.hasLink && !c.activeJob && !c.isMirror);
+      .filter((c) => c.column === "todo" && !c.hasLink && !c.activeJob && !c.isMirror && !c.queuedStage);
     if (!pending.length) return this.notice(t("没有待派发的 TODO 子任务"));
+
     const subtaskLines = pending.map((card) => ({
       line: card.line,
-      blockId: card.blockId || J.blockIdOf(lines[card.line]),
+      blockId: card.blockId || J.blockIdOf(lines[card.line]) || assignedCardIds.get(card.line) || "",
       agent: card.agent || this.defaultTarget(),
       destination: undefined,
+      stage: 1,
       title: card.title,
       boardContext: buildBoardSiblingContext(model, card.line),
     }));
-    const existingWave = findActiveWaveForBoard(this.settings.workbenchWaves, {
-      path,
-      parentBlockId,
-      parentTitle: model.title,
-    });
+    const projectHint = this.settings?.autoProjectFolder === false
+      ? null
+      : resolveProjectForTask({ settings: this.settings, notePath: path, contextLines: [], blockText: lines[parentLine] || model.title || "" });
     const available = delegableAgents(this);
     const limitAgents = limitAgentsFromSessions(this.liveSessions?.({ hours: 6 }) || []);
+    const uninstalledAgents = uninstalledAgentsFor(this, available);
     const steward = existingWave
       ? { enabled: false }
       : resolveStewardConfig(this.settings, {
+          projectName: projectHint?.name || "",
           availableAgents: available,
           limitAgents,
+          uninstalledAgents,
           defaultAgent: this.defaultTarget?.(),
         });
+    const skipConfirmFirst = this.settings?.projectTeams?.skipConfirmFirst !== false;
     await this.dispatchWorkbenchTasks({
       path,
       lines,
       subtaskLines,
+      cwd: projectHint?.path || "",
+      projectName: projectHint?.name || "",
       parentTitle: model.title,
       parentBlockId,
       goal: model.title,
+      skipConfirmFirst,
       steward: steward.enabled ? { ...steward, destination: "background" } : { enabled: false },
     });
   }
@@ -3795,8 +3893,12 @@ export default class AgentDeckPlugin extends Plugin {
         await this.finalizeStewardWave(wave, job);
         return;
       }
-      if (wave.state === "waiting" && (wave.workers || []).some((w) => w.jobId === job.id)) {
-        const blockId = job.blockId || wave.workers.find((w) => w.jobId === job.id)?.blockId || "";
+      if (wave.state === "waiting" && (wave.workers || []).some((w) => w.jobId === job.id || (job.blockId && w.blockId === job.blockId))) {
+        if (job.state === "done" && isQuotaOrProviderErrorText(job.result || "")) {
+          job.state = "error";
+          job.error = truncate(String(job.result || "").trim(), 180);
+        }
+        const blockId = job.blockId || wave.workers.find((w) => w.jobId === job.id || (job.blockId && w.blockId === job.blockId))?.blockId || "";
         if (blockId && wave.path) {
           const targetKw = job.state === "done" ? "TOREVIEW" : job.state === "error" ? "ERRORED" : job.state === "cancelled" ? "CANCELED" : "";
           if (targetKw) {
@@ -3817,14 +3919,20 @@ export default class AgentDeckPlugin extends Plugin {
     if (this._unloaded) return;
     const waves = this.settings.workbenchWaves || {};
     let dirty = false;
+    const toAdvance = [];
     const toLaunch = [];
+    const toComplete = [];
     const toFinalize = [];
     for (const wave of Object.values(waves)) {
       if (!wave) continue;
       if (wave.state === "waiting") {
         const synced = syncWaveWithState(wave, this.jobs, this.usage?.meta);
         if (synced.changed) dirty = true;
-        if (synced.allSettled) toLaunch.push(wave.id);
+        if (synced.allSettled) {
+          if (Array.isArray(wave.queuedStages) && wave.queuedStages.length) toAdvance.push(wave.id);
+          else if (wave.steward?.enabled !== false) toLaunch.push(wave.id);
+          else toComplete.push(wave);
+        }
       } else if (wave.state === "running" && wave.steward?.jobId) {
         const sJob = this.jobs?.[wave.steward.jobId];
         if (sJob && isTerminalWorkerState(sJob.state)) {
@@ -3836,8 +3944,183 @@ export default class AgentDeckPlugin extends Plugin {
       await this.saveSettings();
       this.refreshUI();
     }
+    for (const waveId of toAdvance) await this.advanceWaveToNextStage(waveId);
     for (const waveId of toLaunch) await this.launchStewardForWave(waveId);
+    for (const wave of toComplete) await this.completeWaveWithoutSteward(wave);
     for (const { wave, job } of toFinalize) await this.finalizeStewardWave(wave, job);
+  }
+
+  async completeWaveWithoutSteward(wave) {
+    if (!wave || wave.state !== "waiting" || this._unloaded) return;
+    const allWorkers = [...(wave.completedWorkers || []), ...(wave.workers || [])];
+    const failCount = allWorkers.filter((w) => w.state === "error" || w.state === "cancelled").length;
+    if (failCount > 0) {
+      wave.state = "error";
+      wave.error = t("有 {n} 个子任务未完成，请在看板检查并重新派发", { n: failCount });
+      wave.updatedAt = Date.now();
+      await this.saveSettings();
+      this.refreshUI();
+      this.notice(`⚠️ ${wave.error}`, 8000);
+      return;
+    }
+    wave.state = "done";
+    wave.error = "";
+    wave.updatedAt = Date.now();
+    if (wave.path && (wave.parentBlockId || wave.parentTitle)) {
+      await updateNote(this, wave.path, (text) => updateTaskBlockStatusById(text, {
+        blockId: wave.parentBlockId,
+        title: wave.parentTitle,
+        targetColumn: "review",
+        onlyFromColumns: ["todo", "doing"],
+      })).catch(() => {});
+    }
+    await this.saveSettings();
+    this.refreshUI();
+    this.notice(t("✅ 全部 {stages} 批协作子任务已完成", { stages: wave.totalStages || 1 }), 6000);
+  }
+
+  async advanceWaveToNextStage(waveId) {
+    if (this._unloaded) return;
+    const wave = this.settings.workbenchWaves?.[waveId];
+    if (!wave || wave.state !== "waiting" || !Array.isArray(wave.queuedStages) || !wave.queuedStages.length) return;
+    if (this._launchingWaves.has(waveId)) return;
+    const synced = syncWaveWithState(wave, this.jobs, this.usage?.meta);
+    if (!synced.allSettled) return;
+
+    this._launchingWaves.add(waveId);
+    let shouldSyncAfter = false;
+    try {
+      const file = this.app.vault.getAbstractFileByPath(wave.path);
+      if (!file) {
+        wave.state = "error";
+        wave.error = t("找不到目标笔记：{path}", { path: wave.path });
+        wave.updatedAt = Date.now();
+        await this.saveSettings();
+        this.refreshUI();
+        return;
+      }
+
+      const noteText = await this.readNote(wave.path);
+      const batchReports = collectWaveWorkerReports({ workers: wave.workers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText });
+      wave.completedWorkers ||= [];
+      const seenCompleted = new Set(wave.completedWorkers.map((w) => w.jobId || w.blockId || `${w.line}:${w.title}`));
+      for (const w of wave.workers || []) {
+        const key = w.jobId || w.blockId || `${w.line}:${w.title}`;
+        if (!seenCompleted.has(key)) {
+          seenCompleted.add(key);
+          wave.completedWorkers.push({ ...w });
+        }
+      }
+
+      const anySucceeded = (wave.workers || []).some((w) => w.state === "done");
+      if (!anySucceeded) {
+        wave.queuedStages = [];
+        wave.updatedAt = Date.now();
+        await this.saveSettings();
+        this.notice(t("⚠️ 第 {stage} 批全部子任务未完成，已暂停自动推进后续阶段；可在看板修复后继续派发", { stage: wave.stage || 1 }), 8000);
+        if (wave.steward?.enabled !== false) {
+          this._launchingWaves.delete(waveId);
+          return this.launchStewardForWave(waveId, { force: true });
+        }
+        wave.state = "error";
+        wave.error = t("⚠️ 第 {stage} 批全部子任务未完成，已暂停自动推进后续阶段；可在看板修复后继续派发", { stage: wave.stage || 1 });
+        await this.saveSettings();
+        this.refreshUI();
+        return;
+      }
+
+      const prevStage = wave.stage || 1;
+      const nextStage = wave.queuedStages.shift();
+      const freshLines = noteText.split("\n");
+      const nextTasks = (nextStage?.tasks || [])
+        .map((item) => {
+          const idx = item.blockId ? freshLines.findIndex((l) => J.blockIdOf(l) === item.blockId) : item.line;
+          const lineIdx = idx >= 0 ? idx : item.line;
+          const block = lineIdx >= 0 ? blockAt(freshLines, lineIdx) : null;
+          if (!block) return null;
+          const curKw = J.kwLine(freshLines[block.start])?.kw || "";
+          if (classifyTaskStatusColumn(curKw) === "done" || findLink(freshLines, block)) return null;
+          return { item: { ...item, line: lineIdx }, block };
+        })
+        .filter(Boolean);
+
+      if (!nextTasks.length) {
+        wave.updatedAt = Date.now();
+        await this.saveSettings();
+        shouldSyncAfter = true;
+        return;
+      }
+
+      const upstreamReports = collectWaveWorkerReports({ workers: wave.completedWorkers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText });
+      const siblingModel = {
+        title: wave.parentTitle || t("协作项目"),
+        columns: [{
+          id: "todo",
+          cards: nextTasks.map(({ item }) => ({
+            line: item.line,
+            title: item.title,
+            agent: item.agent,
+            stage: nextStage.stage,
+          })),
+        }],
+      };
+
+      const results = await Promise.allSettled(
+        nextTasks.map(({ item, block }) => {
+          const boardContext = buildBoardSiblingContext(siblingModel, item.line, {
+            upstreamReports,
+            stage: nextStage.stage,
+            totalStages: wave.totalStages || nextStage.stage,
+          });
+          return this.delegator.delegate({
+            ignoreMention: true,
+            ...(wave.skipConfirmFirst ? { skipConfirmFirst: true } : {}),
+            file,
+            lines: freshLines,
+            block,
+            agent: item.agent,
+            destination: item.destination || undefined,
+            cwd: wave.cwd || undefined,
+            projectName: wave.projectName || undefined,
+            ...(boardContext ? { boardContext } : {}),
+          });
+        }),
+      );
+
+      wave.stage = nextStage.stage;
+      wave.workers = nextTasks.map(({ item, block }, idx) => {
+        const r = results[idx];
+        const job = r.status === "fulfilled" ? r.value : null;
+        return {
+          jobId: job?.id || "",
+          blockId: item.blockId || job?.blockId || J.blockIdOf(freshLines[block.start]),
+          line: item.line,
+          title: item.title,
+          agent: item.agent,
+          state: r.status === "fulfilled" ? (job?.state || "running") : "error",
+          error: r.status === "rejected" ? (r.reason?.message || String(r.reason || "")) : "",
+          sessionId: job?.sessionId || "",
+          result: "",
+          endedAt: 0,
+        };
+      });
+      wave.updatedAt = Date.now();
+      await this.saveSettings();
+      this.refreshUI();
+      const okCount = results.filter((r) => r.status === "fulfilled").length;
+      if (okCount) {
+        this.notice(t("🚀 第 {prev} 批已完成，自动派发第 {stage}/{total} 批（{n} 个子任务）", {
+          prev: prevStage,
+          stage: nextStage.stage,
+          total: wave.totalStages || nextStage.stage,
+          n: okCount,
+        }), 7000);
+      }
+      if (batchReports.length) shouldSyncAfter = true;
+    } finally {
+      this._launchingWaves.delete(waveId);
+    }
+    if (shouldSyncAfter) await this.syncWorkbenchWaves();
   }
 
   // 管家：开着看护时每 5 分钟看一眼波次，谁长时间没输出就提醒一次并写回子卡。
@@ -3933,7 +4216,13 @@ export default class AgentDeckPlugin extends Plugin {
       const noteText = await this.readNote(wave.path);
       const reports = collectWaveWorkerReports(wave, { jobs: this.jobs, metaMap: this.usage?.meta, noteText });
       const available = delegableAgents(this);
-      const stewardAgent = available.includes(wave.steward?.agent) ? wave.steward.agent : (available[0] || "claude");
+      const limited = limitAgentsFromSessions(this.liveSessions?.({ hours: 6 }) || []);
+      const uninstalled = uninstalledAgentsFor(this, available);
+      const healthyFallback = available.find((id) => !uninstalled.has(id) && !limited.has(id))
+        || available.find((id) => !uninstalled.has(id))
+        || available[0]
+        || "claude";
+      const stewardAgent = available.includes(wave.steward?.agent) ? wave.steward.agent : healthyFallback;
       wave.steward.agent = stewardAgent;
 
       const stewardPrompt = buildStewardPrompt({
@@ -3970,12 +4259,15 @@ export default class AgentDeckPlugin extends Plugin {
       if (!block) throw new Error(t("找不到已写入的管家任务行"));
 
       const stewardJob = await this.delegator.delegate({
+        ignoreMention: true,
+        skipConfirmFirst: true,
         file,
         lines: freshLines,
         block,
         agent: stewardAgent,
         destination: wave.steward.destination || "background",
         cwd: wave.cwd || undefined,
+        projectName: wave.projectName || undefined,
         boardContext: stewardPrompt,
       });
 
@@ -4046,6 +4338,23 @@ export default class AgentDeckPlugin extends Plugin {
         availableAgents: available,
         defaultAgent: wave.steward?.agent || this.defaultTarget?.() || "claude",
       });
+      if (!outcome && (!raw.trim() || isQuotaOrProviderErrorText(raw))) {
+        const errMsg = truncate(raw.trim() || t("管家未返回有效汇总内容"), 180);
+        if (wave.steward?.blockId && wave.path) {
+          await updateNote(this, wave.path, (text) => setTaskBlockKeywordById(text, {
+            blockId: wave.steward.blockId,
+            keyword: "ERRORED",
+            onlyIfKeywords: ["DELEGATED", "DOING", "TODO"],
+          })).catch(() => {});
+        }
+        wave.state = "error";
+        wave.error = errMsg;
+        wave.updatedAt = Date.now();
+        await this.saveSettings();
+        this.refreshUI();
+        this.notice(t("⚠️ 管家汇总失败：{err}", { err: wave.error }), 8000);
+        return;
+      }
       const nextTasks = outcome?.nextTasks || [];
       let addedNextLines = [];
 
@@ -4059,7 +4368,7 @@ export default class AgentDeckPlugin extends Plugin {
               onlyIfKeywords: ["DELEGATED", "DOING", "TODO"],
             });
           }
-          for (const w of wave.workers || []) {
+          for (const w of [...(wave.completedWorkers || []), ...(wave.workers || [])]) {
             if (w.state === "done" && w.blockId) {
               next = setTaskBlockKeywordById(next, {
                 blockId: w.blockId,
@@ -4080,7 +4389,8 @@ export default class AgentDeckPlugin extends Plugin {
             next = appended.text;
             addedNextLines = appended.addedLines || [];
           } else {
-            const hasFailed = (wave.workers || []).some((w) => w.state === "error" || w.state === "cancelled");
+            const allWorkers = [...(wave.completedWorkers || []), ...(wave.workers || [])];
+            const hasFailed = allWorkers.some((w) => w.state === "error" || w.state === "cancelled");
             const parentTargetKw = outcome?.status === "needs-review"
               ? "NEEDOK"
               : (outcome?.status === "done" || !hasFailed ? "TOREVIEW" : "");
@@ -4098,7 +4408,7 @@ export default class AgentDeckPlugin extends Plugin {
       }
 
       wave.state = "done";
-      wave.summary = outcome?.summary || "";
+      wave.summary = outcome?.summary || extractStewardFallbackSummary(raw);
       wave.nextTaskCount = addedNextLines.length;
       wave.updatedAt = Date.now();
       await this.saveSettings();
@@ -4125,6 +4435,7 @@ export default class AgentDeckPlugin extends Plugin {
               autoContinue: wave.steward.autoContinue,
             },
             round: (wave.round || 1) + 1,
+            skipConfirmFirst: true,
           });
         } else {
           this.notice(t("🧭 管家已完成汇总，并生成 {n} 条后续 TODO（可在看板继续派发）", {
@@ -4145,9 +4456,15 @@ export default class AgentDeckPlugin extends Plugin {
     return this.launchStewardForWave(waveId, { force: true });
   }
 
-  async retryStewardWave(waveId) {
+  async retryStewardWave(waveId, { agent = "" } = {}) {
     const wave = this.settings.workbenchWaves?.[waveId];
     if (!wave) return;
+    if (agent && delegableAgents(this).includes(agent)) {
+      wave.steward.enabled = true;
+      wave.steward.agent = agent;
+      const dests = destinations(agent);
+      wave.steward.destination = dests.some((d) => d.id === "background") ? "background" : defaultDestination(this, agent);
+    }
     wave.state = "waiting";
     wave.error = "";
     wave.steward.jobId = "";
@@ -4164,9 +4481,134 @@ export default class AgentDeckPlugin extends Plugin {
       this.delegator.cancel(wave.steward.jobId);
     }
     wave.state = "cancelled";
+    wave.queuedStages = [];
     wave.updatedAt = Date.now();
-    await this.saveSettings();
     this.refreshUI();
+    await this.saveSettings();
+  }
+
+  async retryFailedWaveWorkers(waveId) {
+    const wave = this.settings.workbenchWaves?.[waveId];
+    if (!wave || !wave.path || this._unloaded) return;
+    const failed = (wave.workers || []).filter((w) => w && (w.state === "error" || w.state === "cancelled"));
+    if (!failed.length) return this.notice(t("没有需要重派的失败子任务"));
+    const file = this.app.vault.getAbstractFileByPath(wave.path);
+    if (!file) return this.notice(t("找不到目标笔记：{path}", { path: wave.path }));
+
+    const available = delegableAgents(this);
+    const limited = limitAgentsFromSessions(this.liveSessions?.({ hours: 6 }) || []);
+    const uninstalled = uninstalledAgentsFor(this, available);
+    const healthy = available.filter((id) => !uninstalled.has(id) && !limited.has(id));
+    const fallbackPool = healthy.length ? healthy : available.filter((id) => !uninstalled.has(id));
+    const trigger = mentionTrigger(this);
+
+    let noteText = await this.readNote(wave.path);
+    let lines = noteText.split("\n");
+    const dispatches = [];
+    let swapCursor = 0;
+
+    for (const worker of failed) {
+      const idx = worker.blockId
+        ? lines.findIndex((l) => J.blockIdOf(l) === worker.blockId)
+        : (worker.line >= 0 && worker.line < lines.length ? worker.line : -1);
+      if (idx < 0) continue;
+      const shouldSwap = uninstalled.has(worker.agent)
+        || limited.has(worker.agent)
+        || isQuotaOrProviderErrorText(worker.result || worker.error || "");
+      let nextAgent = worker.agent;
+      if (shouldSwap && fallbackPool.length) {
+        const alts = fallbackPool.filter((id) => id !== worker.agent);
+        const pool = alts.length ? alts : fallbackPool;
+        nextAgent = pool[swapCursor % pool.length];
+        swapCursor += 1;
+      } else if (!available.includes(nextAgent)) {
+        nextAgent = fallbackPool[0] || available[0] || nextAgent;
+      }
+      if (nextAgent && nextAgent !== worker.agent) {
+        await updateNote(this, wave.path, (cur) => {
+          const curLines = cur.split("\n");
+          const curIdx = worker.blockId ? curLines.findIndex((l) => J.blockIdOf(l) === worker.blockId) : idx;
+          return curIdx >= 0 ? setTaskBoardCardAgent(cur, curIdx, nextAgent, trigger) : cur;
+        });
+      }
+      dispatches.push({ worker, nextAgent });
+    }
+    if (!dispatches.length) return this.notice(t("找不到可重派的失败子任务行"));
+
+    noteText = await this.readNote(wave.path);
+    lines = noteText.split("\n");
+    const siblingModel = {
+      title: wave.parentTitle || t("协作项目"),
+      columns: [{
+        id: "todo",
+        cards: (wave.workers || []).map((w) => ({
+          line: w.line,
+          title: w.title,
+          agent: dispatches.find((d) => d.worker === w)?.nextAgent || w.agent,
+          stage: wave.stage || 1,
+        })),
+      }],
+    };
+
+    let restarted = 0;
+    for (const { worker, nextAgent } of dispatches) {
+      const idx = worker.blockId ? lines.findIndex((l) => J.blockIdOf(l) === worker.blockId) : worker.line;
+      const block = idx >= 0 ? blockAt(lines, idx) : null;
+      if (!block) continue;
+      const boardContext = buildBoardSiblingContext(siblingModel, worker.line, {
+        stage: wave.stage || 1,
+        totalStages: wave.totalStages || 1,
+      });
+      try {
+        const job = await this.delegator.delegate({
+          ignoreMention: true,
+          newSession: true,
+          ...(wave.skipConfirmFirst ? { skipConfirmFirst: true } : {}),
+          file,
+          lines,
+          block,
+          agent: nextAgent,
+          destination: worker.destination || undefined,
+          cwd: wave.cwd || undefined,
+          projectName: wave.projectName || undefined,
+          ...(boardContext ? { boardContext } : {}),
+        });
+        worker.jobId = job?.id || "";
+        worker.agent = job?.agent || nextAgent;
+        worker.blockId = job?.blockId || worker.blockId || J.blockIdOf(lines[block.start]);
+        worker.sessionId = job?.sessionId || "";
+        worker.state = job?.state || "running";
+        worker.result = "";
+        worker.error = "";
+        worker.endedAt = 0;
+        restarted += 1;
+      } catch (e) {
+        worker.error = String(e?.message || e);
+      }
+    }
+
+    if (restarted > 0) {
+      wave.state = "waiting";
+      wave.error = "";
+      if (wave.steward) {
+        wave.steward.jobId = "";
+        wave.steward.blockId = "";
+      }
+      wave.updatedAt = Date.now();
+      await this.saveSettings();
+      this.refreshUI();
+      this.notice(t("🔄 已重新派发 {n} 个失败子任务", { n: restarted }));
+      await this.syncWorkbenchWaves();
+    }
+  }
+
+  async dismissWorkbenchWave(waveId) {
+    const wave = this.settings.workbenchWaves?.[waveId];
+    if (!wave) return;
+    wave.dismissed = true;
+    wave.updatedAt = Date.now();
+    this.refreshUI();
+    await this.saveSettings();
   }
 
   primeMirrorCache(refs = [], sourcePath = "") {

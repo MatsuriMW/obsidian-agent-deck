@@ -80,9 +80,10 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 
 ### 3. Project workbench and in-place board
 
-- **Squad presets**: five built-in squads (full-stack, debugging and refactoring, research and docs, deep report, long-form writing) that skip disabled or rate-limited agents; enter a goal and get an editable subtask draft, then run it across agents.
+- **Readiness-aware squads & Copilot planning**: five built-in squads (full-stack, debugging and refactoring, research and docs, deep report, long-form writing) that skip missing CLIs and rate-limited agents; switch planner models on demand (with automatic JSON repair retry), get pre-flight warnings for shared files in the same batch, and click once to stagger overlapping tasks across stages.
+- **Staged waves & Steward synthesis**: split subtasks across **Batch 1 / 2 / 3**—completed batches automatically hand off upstream summaries to the next stage before the Steward agent synthesizes outputs and updates card states (`DONE` / `TOREVIEW`). On quota or provider failures, re-dispatch failed cards with automatic healthy-agent failover, switch Steward and retry from the board, and collapse finished summary strips once reviewed.
 - **Steward check-in**: if a collaboration wave produces nothing new for 15 minutes, you get one reminder and the child card is updated.
-- **In-place board**: any block with several direct children gets a "Board N" toggle on its line; open it to view that block as a board in the current note, split by status or by group, with card zoom, cross-column drag, bulk status changes and pinning. Interactive in Live Preview and rendered as a clean read-only preview in Reading View.
+- **In-place board**: any block with several direct children gets a "Board N" toggle on its line; open it to view that block as a board in the current note, split by status or by group, with card zoom, cross-column drag, bulk status changes, pinning, and queued-batch badges. Interactive in Live Preview and rendered as a clean read-only preview in Reading View.
 - **Mirror cards**: reference a task from another note with `![[Note#^block-id]]`; the board shows it as a mirror and status changes write back to the source note.
 
 ### 4. Journal, tidy and archive
@@ -135,7 +136,7 @@ For the full compatibility matrix, per-client requirements, and known limits, se
 1. In Obsidian, open Settings → Community plugins → Browse, search for **Agent Deck**, then install and enable it;
 2. Or download the latest [GitHub Release](https://github.com/MatsuriMW/obsidian-agent-deck/releases), copy `main.js`, `manifest.json` and `styles.css` into `<your vault>/.obsidian/plugins/agent-deck/`, then enable it in the plugin settings.
 
-Current version: **1.13.25**, requires Obsidian **1.4.0+** on desktop (mobile is not supported). Session tracking, task binding and the Dashboard need no extra dependencies; see the [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models.en) for full client and platform details.
+Current version: **1.13.27**, requires Obsidian **1.4.0+** on desktop (mobile is not supported). Session tracking, task binding and the Dashboard need no extra dependencies; see the [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models.en) for full client and platform details.
 
 ## Community
 

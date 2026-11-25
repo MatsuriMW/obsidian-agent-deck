@@ -1,6 +1,24 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.26**（2026-11-25）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.27**（2026-11-26）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.27 项目工作台、分批多 Agent 编排与管家闭环全链路修复与升级
+
+- **阻塞级 Bug 修复（两轮深度审计 + 实机跑通触发）**：
+  - `src/workbench-modal.js`：`render()` 补齐 `const p = this.plugin;` 修复打开工作台 `ReferenceError: p is not defined`；提取目标块前 6 条非记录详情作为拆解背景；拆解调用改为 `{ polish: false }`（消除 30s 润色短超时与模型劫持）并在切换 CLI 供应商时清空不匹配的 `autoLogModel`；新增 `_closed` 守卫防止异步回包重渲已关弹窗，`detailIn.oninput` 实时重算重叠校验。
+  - `src/main.js` `dispatchBoardGroup` / `delegateAtLine` / `liveSessions`：修复看板「派发 TODO」报错 `ReferenceError: view is not defined`（改为 `path`），并发派发前按组内已有块号批量写入独立 `^blockId`（`fileBoard` 标题不强插锚点）；`delegateAtLine` 尊重 `extraOpts.agent`；`liveSessions()` 判空 `typeof this.usage?.liveSessions === "function"`。
+  - `src/project-workbench.js` `formatWorkbenchTasksMarkdown`：修复追加到已有母任务（`includeParent: false`）时 `subIndent` 漏加 `childIndentStr` 导致子任务与母任务平级，以及结尾空行破坏子块归属的问题。
+  - `src/main.js` & `src/project-workbench.js` 波次状态机：小队成员与管家委派一律传入 `ignoreMention: true`；将回填生成的 `job.blockId` 同步写回 `wave.workers[i].blockId`，并支持 `syncWaveWithState()` 按同 `blockId` 接管后续替换 `job` 自愈推进；`onWorkbenchJobSettled` 与 `finalizeStewardWave` 共用 `isQuotaOrProviderErrorText()` 识别进程退出 0 但正文为限额/故障的回复标为 `ERRORED`；无管家模式出现失败项时正确落入 `error` 态而非误报完成；`advanceWaveToNextStage()` 跳过已有 `🔗` 或已 `DONE` 卡片并继承 `wave.skipConfirmFirst`。
+  - `src/cli-env.js`（新增无环叶子模块）：收口 GUI PATH 扩展、`scutil --proxy` / `parseWindowsRegProxy` 代理继承与 `cleanEnv()` 给 `delegation-runners.js`、`codex-desktop.js`、`llm.js`，并补充 ChatGPT.app 内嵌 `CodexCLI.app/Contents/MacOS/codex` 候选路径；抽离共享 `uninstalledAgentsFor()`。
+- **降摩擦与成熟多 Agent 编排实践落地**：
+  - **就绪感知配队与预检（`project-workbench.js` / `workbench-modal.js`）**：按 `uninstalledAgentsFor()` 与 `limitAgentsFromSessions()` 主动绕过未装 CLI / 限额 Agent 并在健康 Agent 间均衡分配；新增拆解模型切换下拉（展示自动解析模型 + `autoLogFailover` + 1 次带约束 `buildCopilotFixPrompt()` JSON 修复重试）、`extractScopeTokens()` / `detectStageScopeOverlaps()` 同批文件重叠预警与「一键错峰排批」、目录/非健康 Agent 预检与「一键替换为可用 Agent」、默认勾选 `skipConfirmFirst`、`⌘/Ctrl+Enter` 拆解与 `updateActionCounts()` 零失焦更新。
+  - **分批依赖与看板故障恢复（`main.js` / `fractal-board.js`）**：支持 `第 1/2/3 批` 编排与自动上游摘要接力（`upstreamReports`）；待接力后批卡展示「第 N 批待接力」并排除「派发 TODO」重复派发；支持右键「换 Agent 重新派发（新会话）」、错误栏「重派失败项」（`retryFailedWaveWorkers` 自动将限额/未装 CLI 子任务改派健康 Agent 并改写 `@agent`）、错误栏切换管家重试汇总，以及可收起的波次完成总结条（`findBoardWaveBanner()` / `dismissWorkbenchWave()`，UI 先于磁盘保存即时刷新）。
+- **验证范围与未测空白（macOS arm64）**：
+  - **已实机验证**：
+    - 真实多 CLI 全链路场景 A & B：实机验证 `DeepSeek CLI`（`deepseek-chat`）、`Codex CLI` 与 `Antigravity`（`agy`）三家副驾切换拆解；端到端跑通 `DeepSeek` 拆解直派 → `Codex`（`app-server`）+ `Antigravity`（`agy acp`）第 1 批并行 → 自动携带摘要推进第 2 批 → `Codex` 管家验收（全员 `DONE` + 父项 `TOREVIEW`）；实机验证模拟第 1 批 `Antigravity` 限额报错（`ERRORED`）后调用 `retryFailedWaveWorkers` 自动换角 `codex` 重派、自愈接管并闭环第 2 批与管家总结。
+    - Obsidian `马自立` Vault 实机 GUI & DOM 验证：安装 `1.13.27` 并热重载，`obsidian eval` 实测 `.ad-workbench-dialog` 自动解析拆解模型标签、`src/main.js` 重叠检测与「一键错峰排批」、零失焦编辑（`sameInputDomNode: true`），以及分形看板 `waiting`（`.ad-board__stagebadge`）、`error`（管家切换 + `重派失败项`）与 `done`（总结横幅 + 点击 `收起` 瞬时消失），`dev:errors` 零插件报错且临时笔记与设置已清理。
+    - 全量 `npm test`（含 `test/project-workbench.test.mjs`、`test/codex-desktop.test.mjs`、`test/llm.test.mjs`、`test/i18n.test.mjs`、`test/architecture-refactor.test.mjs`、`test/startup.test.mjs`）、`npm run eval`、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift` 与 `git diff --check` 全部通过。
+  - **未测空白**：Windows 真机环境下工作台弹窗 DOM、分批多 Agent CLI 实机派发与分形看板交互尚无真机实测。
 
 ## 1.13.26 增量功能与修复：Trae 追踪与委派、子代理折叠、Orca 真机去重修复、Wiki 与设置提示
 

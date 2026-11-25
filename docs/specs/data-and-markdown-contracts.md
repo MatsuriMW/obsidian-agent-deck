@@ -49,7 +49,7 @@
 
 ## 4. 持久化与口径
 
-- **`data.json`**（`STORE_VERSION = 1`）：`archiveTaskTurns`、`aiRecordExpanded`、`aiRecordClosed`、`aiRecordViews`、`taskBoardViews`、`projectTeams`（含 `stewards` 管家偏好）、`workbenchWaves`、`projectFolders`（项目名 → 工作目录，派发后按项目名记住）、`noteDispatchSessions`（从非日记笔记派发的会话号 → 时间，自动记日记跳过）、`museTrackProactive`（Muse 主动推送追踪开关，默认 `false`）、`menuBarPinnedSids`（菜单栏置顶会话号）、`menuBarAutoTitles`（无原生标题会话的模型缓存总结）与 `ui.nowGroupBy` / `ui.recentGroupBy` 存插件设置，不污染 Markdown。切换大纲／表格／卡片／时间线／分形看板视图仅改变编辑器渲染，不改写 Markdown 内容、层级、顺序或块号。
+- **`data.json`**（`STORE_VERSION = 1`）：`archiveTaskTurns`、`aiRecordExpanded`、`aiRecordClosed`、`aiRecordViews`、`taskBoardViews`、`projectTeams`（含 `stewards` 管家偏好、`plannerProvider`、`skipConfirmFirst`）、`workbenchWaves`（含多批编排状态 `stage` / `totalStages` / `queuedStages` / `completedWorkers` / `skipConfirmFirst` / `dismissed`）、`projectFolders`（项目名 → 工作目录，派发后按项目名记住）、`noteDispatchSessions`（从非日记笔记派发的会话号 → 时间，自动记日记跳过）、`museTrackProactive`（Muse 主动推送追踪开关，默认 `false`）、`menuBarPinnedSids`（菜单栏置顶会话号）、`menuBarAutoTitles`（无原生标题会话的模型缓存总结）与 `ui.nowGroupBy` / `ui.recentGroupBy` 存插件设置，不污染 Markdown。切换大纲／表格／卡片／时间线／分形看板视图仅改变编辑器渲染，不改写 Markdown 内容、层级、顺序或块号。
 - **`usage.json` 缓存**（`USAGE_CACHE_VERSION = 25`、`SUMMARY_VERSION = 3` in `src/readers.js`，`usage-cache.json.gz` 另持久化 `cursorParents` 与 `delegatedOwners` 并在加载时重建 `subagentSids`）：修改会话解析或清洗规则时必须递增 `USAGE_CACHE_VERSION`；变更日汇总结构或项目标签口径时必须递增 `SUMMARY_VERSION`。macOS 菜单栏与侧栏「现在」共用 `buildProjectGroups` / `buildNowStatusGroups` / `orderNowSessions` 口径并双向同步 `ui.nowGroupBy`（`project` / `status` / `flat`），优先展示客户端原生/自动标题（`custom-title` / `ai-title` / `thread_name` / DB `title`），无原生标题时（如 Antigravity）在有可用免费/CLI 额度且无需未经授权计费 API 时后台生成简短标题，限额或失败时静默退回首句/任务名。
 - **Token 让渡**：仅当螺旋日程实际匹配同一会话且提供相应 token 时让出显示；否则由 Agent Deck 显示。
 - **项目归属与「等你」口径**：
