@@ -143,6 +143,10 @@ export default {
   "已从 Cursor 配置移除 Agent Deck Hooks": "Removed Agent Deck Hooks from Cursor config",
   "检测到已打开 Cursor：要安装 Cursor Hooks 吗？安装后即可自动追踪 Cursor 对话。": "Cursor is open: install Cursor Hooks to automatically track Cursor conversations?",
   "检测到已打开 Cursor：需要更新 Cursor Hooks 吗？更新后即可继续追踪 Cursor 对话。": "Cursor is open: update Cursor Hooks to keep tracking Cursor conversations?",
+  "Trae Hooks 已安装：{path}（请在 Trae 设置 → Hooks 开启「全局 Hooks」）": "Trae Hooks installed: {path} (turn on \"Global Hooks\" in Trae Settings → Hooks)",
+  "已从 Trae 配置移除 Agent Deck Hooks": "Removed Agent Deck Hooks from Trae config",
+  "检测到已打开 Trae：要安装 Trae Hooks 吗？安装后即可自动追踪 Trae 对话。": "Trae is open: install Trae Hooks to automatically track Trae conversations?",
+  "检测到已打开 Trae：需要更新 Trae Hooks 吗？更新后即可继续追踪 Trae 对话。": "Trae is open: update Trae Hooks to keep tracking Trae conversations?",
   "暂不": "Not now",
 
   // Record view export submenu

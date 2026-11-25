@@ -131,6 +131,25 @@ const AGENT_BINARY_SPECS = {
           "/usr/local/bin/agent",
         ],
   },
+  trae: {
+    fallback: "traecli",
+    altFallbacks: ["trae-cli"],
+    candidates: () => process.platform === "win32"
+      ? [
+          path.join(home(), ".local", "bin", "traecli.exe"),
+          path.join(home(), ".local", "bin", "traecli.cmd"),
+          path.join(home(), ".trae", "bin", "traecli.exe"),
+          path.join(home(), ".trae-cn", "bin", "traecli.exe"),
+          path.join(process.env.APPDATA || path.join(home(), "AppData", "Roaming"), "npm", "traecli.cmd"),
+        ]
+      : [
+          path.join(home(), ".local/bin/traecli"),
+          path.join(home(), ".trae/bin/traecli"),
+          path.join(home(), ".trae-cn/bin/traecli"),
+          "/opt/homebrew/bin/traecli",
+          "/usr/local/bin/traecli",
+        ],
+  },
   minimax: {
     fallback: "mcode",
     candidates: () => [

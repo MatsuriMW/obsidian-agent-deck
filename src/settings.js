@@ -470,6 +470,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     if (!targetAgents.length) {
       destinations.createDiv({ cls: "ad-hint", text: t("当前没有已启用的可委派 Harness，点击「重新检测」或前往「记录 → 来源与扫描」开启。") });
     }
+    this.renderClientWikiHint(destinations);
     const destActions = destinations.createDiv({ cls: "ad-btnrow" });
     this.bigButton(destActions, t("重新检测 Harness"), () => p.redetectHarnesses?.());
 
@@ -604,6 +605,15 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         pathHint: t("留空自动查找 agent / cursor-agent"),
         refreshLabel: t("读取 Cursor 可用模型"),
         checkLabel: t("检查 agent"),
+      },
+      {
+        id: "trae",
+        title: "Trae",
+        sub: t("装有 Trae CLI（traecli）时支持 traecli acp serve 后台委派；未装 CLI 时自动复制任务并打开桌面端交接"),
+        moreKey: "trae-more",
+        pathHint: t("留空自动查找 traecli / trae-cli"),
+        refreshLabel: t("读取 Trae 可用模型"),
+        checkLabel: t("检查 traecli"),
       },
       {
         id: "kimicode",
@@ -1273,6 +1283,18 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   renderAgents(body) { return this.renderRecord(body); }
   renderTracking(body) { return this.renderRecord(body); }
 
+  renderClientWikiHint(parent) {
+    const url = t("https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models");
+    const hint = parent.createDiv({ cls: "ad-hint ad-client-wiki-hint" });
+    hint.createSpan({ text: t("部分客户端（主要是一些国内客户端）不支持委派，部分客户端有一些前置的安装或开关配置需求，具体可查看 ") });
+    hint.createEl("a", {
+      cls: "external-link",
+      text: t("GitHub Wiki（支持列表与前置要求）"),
+      href: url,
+      attr: { href: url, target: "_blank", rel: "noopener noreferrer" },
+    });
+  }
+
   renderTrackingAgentCard(grid, id, { enabled, primary, detected }) {
     const p = this.plugin;
     const s = p.settings;
@@ -1394,6 +1416,27 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         }
       });
     }
+    if (typeof p.traeHooksStatus === "function" && p.agentEnabled("trae")) {
+      const th = p.traeHooksStatus();
+      const statusText = th.outdated
+        ? t("Trae Hooks 需要更新（{matched}/{total}）", { matched: th.matchedEvents, total: th.totalEvents })
+        : th.installed
+          ? t("已配置 Trae Hooks（{matched}/{total}）；需在 Trae 设置 → Hooks 开启「全局 Hooks」（若沙箱拦截写盘请切到「本地自动运行」）", { matched: th.matchedEvents, total: th.totalEvents })
+          : t("未安装 Trae Hooks；安装并在 Trae 设置 → Hooks 开启「全局 Hooks」后可追踪 Trae 会话");
+      this.row(sourceMore, "Trae Hooks", statusText, (traeRight) => {
+        this.bigButton(traeRight, th.installed && !th.outdated ? t("更新 Hooks") : t("安装 Hooks"), () => {
+          try { p.installTraeHooks(); } catch (e) { p.notice?.(e.message || String(e)); }
+          this.display();
+        });
+        if (th.installed || th.matchedEvents > 0 || th.scriptExists) {
+          this.bigButton(traeRight, t("卸载 Hooks"), () => {
+            try { p.uninstallTraeHooks(); } catch (e) { p.notice?.(e.message || String(e)); }
+            this.display();
+          });
+        }
+      });
+    }
+    this.renderClientWikiHint(sourceCard);
     const scanBar = sourceCard.createDiv({ cls: "ad-btnrow" });
     this.bigButton(scanBar, t("立即扫描"), () => p.scanNow(), "mod-cta");
     this.bigButton(scanBar, t("重新检测 Harness"), () => p.redetectHarnesses?.());

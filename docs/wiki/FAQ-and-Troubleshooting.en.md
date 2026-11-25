@@ -9,11 +9,21 @@ When Obsidian is launched from the macOS GUI (Dock / Spotlight), it often does n
 - **Fix**: Run `which <binary>` in your terminal (e.g. `/opt/homebrew/bin/claude`), paste the full path into Settings → Agents, and click **Check**.
 - Note: **Check** only verifies path and version; confirm login status directly inside the client or terminal.
 
-## 2. Cursor sessions are not appearing
+## 2. Cursor or Trae sessions are not appearing
 
+### Cursor
 - Requires **Cursor 3.30.14+**.
-- Enable and install **Cursor Hooks** in Agent Deck Settings (writes to `~/.cursor/hooks.json`).
-- Only tracks new sessions created after Hooks are enabled; Cursor is tracking-only.
+- Install/update **Cursor Hooks** in Agent Deck Settings → Recording → More settings (writes to `~/.cursor/hooks.json`).
+- Only tracks new sessions created after Hooks are enabled; supports `agent acp` background delegation when Cursor CLI (`agent` / `cursor-agent`) is installed, otherwise falls back to desktop copy-and-focus handoff.
+
+### Trae (Trae CN / Global)
+Because Trae's local `ModularData/ai-agent/database.db` is SQLCipher-encrypted (Agent Deck never decrypts it), tracking relies on Trae lifecycle hooks writing JSONL to `~/.agent-deck/trae-events/`. Prerequisites:
+1. Open Obsidian Settings → Agent Deck → Recording → More settings → **Trae Hooks** and click **Install Hooks** (writes `~/.agent-deck/hooks/trae-hook.mjs` and merges `~/.trae-cn/hooks.json` / `~/.trae/hooks.json` using regex `matcher: ".*"`).
+2. Open **Trae → Settings → Hooks**:
+   - Turn on **Global Hooks** (disabled by default in Trae).
+   - Switch **Hooks Command Execution Mode** to **Run Automatically Locally** (`host`) if sandbox mode blocks writes to `~/.agent-deck/trae-events/`.
+3. **Restart Trae or start a new conversation** so Trae loads the hooks; past sessions before setup are not backfilled.
+4. **Delegation**: Uses `traecli acp serve` when `traecli` is installed; with desktop-only installs, automatically falls back to copy-and-focus handoff (`Trae CN.app` / `Trae.app`) and claims the session once sent.
 
 ## 3. What is the current Windows support status?
 
@@ -32,7 +42,7 @@ Never store plaintext API keys inside a synced Obsidian vault. Use:
 
 ## 5. Why do some sessions show `0` tokens or "Unavailable"?
 
-Agent Deck enforces **honest accounting**: when a client's local logs or cloud sandbox do not expose per-message token counts (e.g., Grok Bot, Muse, Doubao Work, some Qoder desktop records, older QwenWork JSONL), the plugin displays `0` or "Unavailable" rather than guessing from character counts.
+Agent Deck enforces **honest accounting**: when a client's local logs or cloud sandbox do not expose per-message billed token counts (for example, **Trae Hooks** omit token/model fields, **Orca** only records window occupancy/estimates in `contextUsage`, plus **Grok Bot**, **Muse**, **Doubao Work**, some **Qoder** desktop records, and older **QwenWork** JSONL), the plugin displays `0` or "Unavailable" rather than guessing from character counts.
 
 ## 6. How to file a useful bug report
 

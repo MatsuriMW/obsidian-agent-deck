@@ -29,7 +29,8 @@ export function integrateRecordFolding(plugin) {
         const hit = current.some((g) => {
           if (!keys.has(g.key) || !g.records.length) return false;
           const start = cm.state.doc.line(g.line + 1).from;
-          const end = cm.state.doc.line(g.records[g.records.length - 1] + 1).to;
+          const lastLine = g.recordEndLine ?? g.records[g.records.length - 1];
+          const end = cm.state.doc.line(lastLine + 1).to;
           return from > start && from <= end;
         });
         if (hit) effects.push(unfoldEffect.of({ from, to }));

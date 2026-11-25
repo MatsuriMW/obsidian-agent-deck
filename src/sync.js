@@ -575,7 +575,7 @@ export class JournalSync {
   kidState(r, parentWait) {
     const quiet = (Date.now() - (r.at || r.start || 0)) / 60e3;
     if (r.state === "done") return { st: "done", kw: "DONE" };
-    if (r.state === "fail") return { st: "fail", kw: r.end === "failed" ? "FAILED" : "CANCELLED" };
+    if (r.state === "fail" || r.state === "error") return { st: "fail", kw: r.state === "error" || r.end === "failed" ? "FAILED" : "CANCELLED" };
     if (quiet <= 5) return { st: "run", kw: "DOING" };
     if (!r.bg && parentWait) return { st: "fail", kw: "CANCELLED" };
     return { st: "quiet", kw: "DOING" };

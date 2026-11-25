@@ -214,3 +214,74 @@ console.log('PASS AI folding groups exclude manual notes and nested tasks; lates
  assert.ok(cleanedDone.includes('<!-- ad-pin -->'), 'DONE cleanup preserves user pin marker');
  assert.ok(!cleanedDone.includes('ad-turn:'), 'DONE cleanup still strips turn provenance even before ad-pin');
 }
+
+{
+ // Completed subagent blocks (DONE/FAILED/CANCELLED/lowercase/[x]) are absorbed into parent records & hidden when collapsed.
+ const note = [
+  '- DOING 🤖 Cursor 主任务 ^cursor-main-1234567890',
+  '\t- 🔗 [Cursor：主会话](obsidian://agent-deck?do=open&agent=cursor&sid=c-main)',
+  '\t- 第1轮：**任务**：排查问题；**结论**：主会话最新结论 <!-- ad-turn:c-main:1 -->',
+  '\t- DONE 🤖 10:05-10:08 探索代码库',
+  '\t\t- ⏱ 10:05–10:08 · 共 3m · 子代理 `sub11111`',
+  '\t\t- 💬 子代理一结论',
+  '\t- DONE 🤖 只记耗时子代理',
+  '\t\t- ⏱ 10:09–10:10 · 共 1m · 子代理 `sub22222`',
+  '\t- done 🤖 小写完成子代理',
+  '\t\t- ⏱ 10:11–10:12 · 共 1m · 子代理 `sub33333`',
+  '\t- FAILED 🤖 失败子代理',
+  '\t\t- ⏱ 10:13–10:14 · 共 1m · 子代理 `sub44444`',
+  '\t- CANCELLED 🤖 取消子代理',
+  '\t- DOING 🤖 运行中子代理',
+  '\t\t- 🔗 子代理 `sub55555`',
+  '\t- DONE 🤖 含手写备注子代理',
+  '\t\t- ⏱ 10:15–10:16 · 共 1m · 子代理 `sub66666`',
+  '\t\t- 用户手写笔记',
+  '\t- DONE 🤖 独立子会话',
+  '\t\t- 🔗 [Cursor：独立子会话](obsidian://agent-deck?do=open&agent=cursor&sid=c-indep)',
+  '\t\t- 💬 独立子会话结论',
+  '- 🤖 容器分组',
+  '\t- DONE 🤖 容器下分组会话',
+  '\t\t- 💬 第1轮：常规会话总结 <!-- ad-turn:c-grouped:1 -->',
+  '\t- DONE 🤖 容器下真子代理',
+  '\t\t- ⏱ 10:20–10:21 · 共 1m · 子代理 `sub77777`',
+ ].join('\n');
+ const lines = note.split('\n');
+ const groups = aiRecordGroups(note);
+ const mainGroup = groups.find((g) => g.key === 'cursor-main-1234567890');
+ assert.ok(mainGroup);
+ assert.equal(groups.some((g) => g.line === 3 || g.line === 6 || g.line === 8 || g.line === 10 || g.line === 12), false, 'absorbed completed subagents do not form separate nested groups');
+ assert.deepEqual(mainGroup.records, [1, 2, 3, 6, 8, 10, 12]);
+ assert.deepEqual(mainGroup.recordSubtrees[3], [3, 4, 5]);
+ assert.deepEqual(mainGroup.recordSubtrees[6], [6, 7]);
+ assert.equal(mainGroup.recordSubtrees[12], undefined, 'single-line completed subagent needs no subtree map');
+ assert.equal(mainGroup.recordEndLine, 12);
+ assert.deepEqual(visibleRecords(mainGroup, lines, 'latest1'), [2], 'latest1 picks parent round conclusion rather than subagent header');
+ assert.deepEqual(visibleRecords(mainGroup, lines, 'collapsed'), [], 'collapsed hides completed subagents when unpinned');
+ assert.ok(mainGroup.tableEntries.some((e) => e.line === 3 && e.children.length === 2), 'tableEntries retain completed subagent subtree');
+ const subRow = parseAiRecordRow(lines[3], ['\t\t- ⏱ 10:05–10:08 · 共 3m · 子代理 `sub11111`', '\t\t- 💬 子代理一结论']);
+ assert.equal(subRow.kind, 'subagent');
+ assert.equal(subRow.kindLabel, '子代理');
+ assert.equal(subRow.content, '10:05-10:08 探索代码库');
+ assert.equal(groups.some((g) => g.line === 13), true, 'running DOING subagent stays unabsorbed');
+ assert.ok(!mainGroup.records.includes(15), 'subagent containing handwritten note is never absorbed');
+ assert.ok(!mainGroup.records.includes(18), 'independent session with 🔗 link is never swallowed');
+ assert.equal(groups.some((g) => g.line === 18), true);
+
+ const containerGroup = groups.find((g) => g.line === 21);
+ assert.ok(containerGroup);
+ assert.ok(!containerGroup.records.includes(22), 'grouping container does not swallow regular session without kid marker');
+ assert.ok(containerGroup.records.includes(24), 'grouping container absorbs genuine subagent carrying kid marker');
+
+ // Pinning either the completed subagent header or its child 💬 keeps it visible when collapsed.
+ const pinnedSubNote = [
+  '- DOING 🤖 主任务 ^ad-pin-sub',
+  '\t- 💬 第1轮：主结论 <!-- ad-turn:s1:1 -->',
+  '\t- DONE 🤖 10:05-10:08 被钉住的子代理',
+  '\t\t- ⏱ 10:05–10:08 · 共 3m · 子代理 `sub88888`',
+  '\t\t- 💬 重要子结论 <!-- ad-pin -->',
+ ].join('\n');
+ const pinnedLines = pinnedSubNote.split('\n');
+ const pinnedGroup = aiRecordGroups(pinnedSubNote)[0];
+ assert.deepEqual(visibleRecords(pinnedGroup, pinnedLines, 'latest1'), [1, 2], 'pinned child keeps completed subagent visible in latest1');
+ assert.deepEqual(visibleRecords(pinnedGroup, pinnedLines, 'collapsed'), [2], 'pinned child keeps completed subagent visible in collapsed');
+}

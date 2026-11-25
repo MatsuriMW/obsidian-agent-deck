@@ -28,6 +28,9 @@ import {
   cursorEventsDir, cursorHooksStatus, isCursorRunning,
   installCursorHooks as installCursorHooksHelper,
   uninstallCursorHooks as uninstallCursorHooksHelper,
+  traeEventsDir, traeHooksStatus, isTraeRunning,
+  installTraeHooks as installTraeHooksHelper,
+  uninstallTraeHooks as uninstallTraeHooksHelper,
   grokBotPersistenceDir,
   museCacheDir,
 } from "./readers.js";
@@ -526,6 +529,7 @@ export default class AgentDeckPlugin extends Plugin {
       this.scheduleScan();
       this.startStewardWatch();
       this.watchCursorEvents();
+      this.watchTraeEvents();
       this.watchGrokBotPersistence();
       this.watchMuseCache();
       this.watchMemoryFolder();
@@ -924,6 +928,8 @@ export default class AgentDeckPlugin extends Plugin {
     this.conversationModal?.close();
     this._cursorPromptNotice?.hide();
     this._cursorPromptNotice = null;
+    this._traePromptNotice?.hide();
+    this._traePromptNotice = null;
     for (const alert of this.attentionAlerts?.values() || []) { alert.notice?.hide(); alert.system?.close(); }
     this.settingTab?.hide();
     if (this.journalSync) this.journalSync._stopped = true;
@@ -933,6 +939,7 @@ export default class AgentDeckPlugin extends Plugin {
     this._scanTimer = null;
     this._refreshTimer = null;
     this.closeCursorWatcher();
+    this.closeTraeWatcher();
     this.closeGrokBotWatcher();
     this.closeMuseWatcher();
     this.menubar?.stop();
@@ -1176,6 +1183,36 @@ export default class AgentDeckPlugin extends Plugin {
     this._cursorWatcher = null;
   }
 
+  watchTraeEvents() {
+    this.closeTraeWatcher();
+    if (this._unloaded || !this.agentEnabled("trae")) return;
+    try {
+      const st = this.traeHooksStatus();
+      if (st.installed && st.outdated) installTraeHooksHelper();
+    } catch { /* ignore hook refresh errors */ }
+    const dir = traeEventsDir();
+    if (!fs.existsSync(dir)) return;
+    const scheduleTrae = () => {
+      if (this._unloaded) return;
+      clearTimeout(this._traeWatchTimer);
+      this._traeWatchTimer = setTimeout(() => {
+        if (this._unloaded) return;
+        if (this._scanning) return scheduleTrae();
+        this.scanNow(false, { agent: "trae" }).catch(() => {});
+      }, 350);
+    };
+    try {
+      this._traeWatcher = fs.watch(dir, { persistent: false }, scheduleTrae);
+    } catch { /* 操作系统不支持或目录不可监听 */ }
+  }
+
+  closeTraeWatcher() {
+    clearTimeout(this._traeWatchTimer);
+    this._traeWatchTimer = null;
+    try { this._traeWatcher?.close(); } catch { /* already closed */ }
+    this._traeWatcher = null;
+  }
+
   watchGrokBotPersistence() {
     this.closeGrokBotWatcher();
     const tracked = Array.isArray(this.settings.grokBotTrackedBotIds) ? this.settings.grokBotTrackedBotIds.filter(Boolean) : [];
@@ -1229,6 +1266,91 @@ export default class AgentDeckPlugin extends Plugin {
     this._museWatchTimer = null;
     try { this._museWatcher?.close(); } catch { /* already closed */ }
     this._museWatcher = null;
+  }
+
+  traeHooksStatus() {
+    return traeHooksStatus();
+  }
+
+  installTraeHooks() {
+    const res = installTraeHooksHelper();
+    this._traePromptNotice?.hide();
+    this._traePromptNotice = null;
+    if (!this.settings.traeHooksPrompted) {
+      this.settings.traeHooksPrompted = true;
+      this.saveSettings().catch(() => {});
+    }
+    this.watchTraeEvents();
+    this.notice(t("Trae Hooks 已安装：{path}（请在 Trae 设置 → Hooks 开启「全局 Hooks」）", { path: res.hooksPath }));
+    if (this.app.setting?.activeTab === this.settingTab && this.settingTab.containerEl?.isConnected) this.settingTab.display();
+    this.scanNow(false).catch(() => {});
+    return res;
+  }
+
+  uninstallTraeHooks() {
+    const res = uninstallTraeHooksHelper();
+    this._traePromptNotice?.hide();
+    this._traePromptNotice = null;
+    if (!this.settings.traeHooksPrompted) {
+      this.settings.traeHooksPrompted = true;
+      this.saveSettings().catch(() => {});
+    }
+    this.notice(t("已从 Trae 配置移除 Agent Deck Hooks"));
+    return res;
+  }
+
+  isTraeRunning() {
+    return isTraeRunning();
+  }
+
+  async maybePromptTraeHooks() {
+    if (this._unloaded || this._promptingTraeHooks || this._traePromptNotice) return false;
+    if (!this.agentEnabled("trae") || this.settings.traeHooksPrompted) return false;
+    const status = this.traeHooksStatus();
+    if (status.installed && !status.outdated) {
+      this.settings.traeHooksPrompted = true;
+      await this.saveSettings();
+      return false;
+    }
+    this._promptingTraeHooks = true;
+    try {
+      if (!(await this.isTraeRunning())) return false;
+      if (this._unloaded || this.settings.traeHooksPrompted || !this.agentEnabled("trae")) return false;
+      const cur = this.traeHooksStatus();
+      if (cur.installed && !cur.outdated) {
+        this.settings.traeHooksPrompted = true;
+        await this.saveSettings();
+        return false;
+      }
+      this.settings.traeHooksPrompted = true;
+      await this.saveSettings();
+      if (this._unloaded) return false;
+      const fragment = document.createDocumentFragment();
+      fragment.createEl("div", {
+        text: cur.outdated
+          ? t("检测到已打开 Trae：需要更新 Trae Hooks 吗？更新后即可继续追踪 Trae 对话。")
+          : t("检测到已打开 Trae：要安装 Trae Hooks 吗？安装后即可自动追踪 Trae 对话。"),
+      });
+      const actions = fragment.createDiv({ cls: "ad-btnrow" });
+      const installBtn = actions.createEl("button", {
+        cls: "mod-cta",
+        text: cur.outdated ? t("更新 Hooks") : t("安装 Hooks"),
+      });
+      installBtn.onclick = () => {
+        this._traePromptNotice?.hide();
+        this._traePromptNotice = null;
+        try { this.installTraeHooks(); } catch (e) { this.notice(e?.message || String(e)); }
+      };
+      const laterBtn = actions.createEl("button", { text: t("暂不") });
+      laterBtn.onclick = () => {
+        this._traePromptNotice?.hide();
+        this._traePromptNotice = null;
+      };
+      this._traePromptNotice = new Notice(fragment, 0);
+      return true;
+    } finally {
+      this._promptingTraeHooks = false;
+    }
   }
 
   cursorHooksStatus() {
@@ -1388,7 +1510,12 @@ export default class AgentDeckPlugin extends Plugin {
       this.refreshUI();
       if (manual || touched.size || externalChanged || cutoffChanged) this.notifySpiral?.();
       if (!manual) this.journalSync.run().catch((e) => console.error("[agent-deck] journal sync", e));
-      if (!scoped) this.maybePromptCursorHooks?.().catch(() => {});
+      if (!scoped) {
+        if (!this._cursorWatcher && this.agentEnabled("cursor")) this.watchCursorEvents();
+        if (!this._traeWatcher && this.agentEnabled("trae")) this.watchTraeEvents();
+        this.maybePromptCursorHooks?.().catch(() => {});
+        this.maybePromptTraeHooks?.().catch(() => {});
+      }
       const result = { files: this.usage.files.size, days: touched.size };
       if (force && !manual) new Notice(t("Agent Deck：读到 {files} 个日志，{days} 天有内容", result), 4000);
       if (agent && days) new Notice(t("{name}：最近 {days} 天的会话已扫描", { name: AGENTS[agent].name, days }), 4000);
@@ -1612,6 +1739,7 @@ export default class AgentDeckPlugin extends Plugin {
     }
     await this.saveSettings();
     this.watchCursorEvents();
+    this.watchTraeEvents();
     this.watchGrokBotPersistence();
     this.watchMuseCache();
     if (this.app.setting?.activeTab === this.settingTab && this.settingTab.containerEl?.isConnected) {
@@ -1656,6 +1784,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (agent === "grokbot") this.watchGrokBotPersistence();
     if (agent === "muse") this.watchMuseCache();
     if (agent === "cursor") this.watchCursorEvents();
+    if (agent === "trae") this.watchTraeEvents();
     if (this.app.setting?.activeTab === this.settingTab) this.settingTab.display();
     this.scanNow(true);
     this.refreshUI();
@@ -1674,6 +1803,7 @@ export default class AgentDeckPlugin extends Plugin {
     if (agent === "grokbot") this.watchGrokBotPersistence();
     if (agent === "muse") this.watchMuseCache();
     if (agent === "cursor") this.watchCursorEvents();
+    if (agent === "trae") this.watchTraeEvents();
     if (agent === "muse" && on && !wasOn) {
       new Notice(t("已开启 Muse 追踪：Muse 仅在重启或刷新历史时写入本地缓存，更新后会自动追踪。"), 6000);
     }

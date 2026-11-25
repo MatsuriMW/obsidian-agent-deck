@@ -1,6 +1,26 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.25**（2026-11-25）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.26**（2026-11-25）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.26 增量功能与修复：Trae 追踪与委派、子代理折叠、Orca 真机去重修复、Wiki 与设置提示
+
+- **Trae（Trae CN / 国际版）全链路支持（内置 Agent 增至 21 家，`USAGE_CACHE_VERSION = 25`，`HARNESS_DETECTION_VERSION = 5`，`TRAE_HOOK_VERSION = 2`）**：
+  - 新增 `src/trae-sessions.js` 与 `assets/agents/trae.png`（128×128 提取自 `Trae CN.app`）：遵循 `version: 1` `hooks.json`（`~/.trae-cn/hooks.json` / `~/.trae/hooks.json`，工具事件正则 `matcher: ".*"`）只读被动采集 `SessionStart` / `UserPromptSubmit` / `PreToolUse` / `PostToolUse` / `PreCompact` / `PostCompact` / `Stop` / `Notification` 至 `~/.agent-deck/trae-events/*.jsonl`（不解密加密的 `ModularData/ai-agent/database.db`），支持增量轮次/工具时间线对话查看与归档、安全审计 `PreToolUse` 提取（保留 `d.at` 时间戳）、`isTraeRunning`（兼容 `Trae CN.app/Contents/MacOS/Electron`）、`scanNow()` 延迟挂接 `fs.watch` 与 `maybePromptTraeHooks` 首次运行提示。
+  - 委派与交接：接入 `agent-registry.js` / `delegation-runners.js` / `delegation.js` / `workflow.js` / `settings.js` / `main.js` / `journal.js` / `task-mentions.js` / `menubar.swift` / 双语与繁体文案——装有 `traecli` 时支持 `traecli acp serve` 后台委派与同会话应用内续聊（`continueRequiresAcp: true`），未装 CLI 或选「桌面客户端」时自动回退复制任务并唤起 `cn.trae.app`（`trae-cn://`）；新增 `test/trae-sessions.test.mjs`。
+  - **Orca 真机去重修复与设置页 Wiki 引导**：`addOrcaDelegatedRef` 增加 `{ extractedOnly: true }` 守卫防止 `provider_turn_id` / `item_id` 写入裸 Turn UUID 与前缀串污染 `delegatedOwners`；设置页「委派」「记录」卡片新增 GitHub Wiki 外链引导；同步更新 `docs/wiki/*.md` 21 家矩阵与 Trae 前置配置要求。
+- **验证范围与实测修复（macOS arm64）**：
+  - **已实机验证**：运行本机 `Trae CN.app` v3.4.24 真实对话（`SessionStart`/`UserPromptSubmit`/`PreToolUse`/`PostToolUse`/`Stop`/`Notification` 全部以 `Host` Exit 0 触发并入账 Obsidian）；运行本机 `Orca.app`（`com.stablyai.orca`）真实 `agent-session-domain.db` 追踪、对话与 `delegatedOwners` 去重；全量 `npm test`、`npm run eval`、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check` 与 `马自立` Vault 热重载通过。
+  - **实测发现并已修复的问题**：① Trae `hooks.json` 的 `matcher` 底层走 Rust 正则（`"*"` 会报 `invalid matcher regex '*'`，已改为 `".*"` 并升级校验）；② 启动后才创建 `~/.agent-deck/trae-events` 时未补挂 `_traeWatcher`（已在 `scanNow()` 补挂）；③ `extractToolCallsFromJsonl` 未读取钩子事件 `d.at` 时间戳；④ 补充提示需在 Trae 设置 → Hooks 开启「全局 Hooks」（`global_hooks_enabled` 默认关闭，沙箱拦截写盘时切「本地自动运行」）；⑤ Orca `orcaDelegatedSids` 解析 `provider_turn_id`/`item_id` 污染 `delegatedOwners`（9 项降为精确 4 项原生会话 ID）。
+  - **未测空白**：真实独立 `traecli acp serve` 二进制端到端对话（本机仅装 `Trae CN.app` 未安装 `traecli`）、以及 Windows 端 Trae / Orca 实机 GUI。
+
+## 1.13.26 子块与子代理折叠修复：已完成子代理子块随父块「更多 / 收起」折叠
+
+- **已完成子代理折叠修复（`src/ai-records.js`、`src/record-display.js`、`src/fold-actions.js`、`src/fold-integration.js`、`src/sync.js`、`src/view.js`、`src/styles/views/record-views.css`）**：
+  - 修复父任务下已完成的子代理子块（`DONE` / `FAILED` / `CANCELLED` / `CANCELED` 或 `[x]` + `🤖`，含 `⏱` / `💬` 等纯记录子行，无独立 `^blockId`、无 `🔗` 会话链接、无手写笔记/轮次）未被纳入父块 `records` 而另立嵌套组、导致无法随父块「更多 / 收起」折叠的问题；同时兼容编辑视图（Live Preview）、阅读视图（防止内部嵌套列表重复生成折叠按钮）与四视图（新增 `subagent` 行徽章），并在折叠/展开动作与原生折叠清理中使用 `recordEndLine` 覆盖完整子代理子树。
+  - 修复 `JournalSync.kidState()` 与侧栏在跑徽章对 `state === "error"` 子代理（如失败的 Cursor 子代理）的归类：回写为 `FAILED` 且不计入进行中徽章。
+- **验证范围与未测空白**：
+  - **已实机验证（macOS arm64）**：`npm test`、`npm run build`、`npm run check:deploy`、`git diff --check`、Vault 安装热重载与 `dev:errors` 无报错（待本次运行后确认结果）。
+  - **未测空白**：Windows 真机 Cursor 子代理及 Obsidian GUI 点击「更多 / 收起」现场目视验证。
 
 ## 1.13.25：全 Agent 已归档会话重激活恢复追踪
 

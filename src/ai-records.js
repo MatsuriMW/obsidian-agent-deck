@@ -3,6 +3,7 @@ import * as J from "./journal.js";
 import { t } from "./i18n.js";
 export const AI_RECORD_RE = J.RECORD_LINE_RE;
 export const RECORD_MARKER_BODY_RE = /^(?:(?:💬|❓|📋|⏱|🔗)\s|(?:第\d+轮|Round\s+\d+)[：:]|(?:TODO|todo)\s+🤖\s)/;
+export const DONE_SUBAGENT_BODY_RE = /^(?:(?:DONE|FAILED|CANCELLED|CANCELED|done|failed|cancelled|canceled)\s+(?:(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?)\s+)?🤖(?:\s|$))/;
 export const RECORD_VIEWS = new Set(["outline", "table", "cards", "timeline"]);
 export const RECORD_VIEW_LABELS = {
   outline: "大纲",
@@ -28,6 +29,45 @@ export function recordViewMode(settings, group) {
   return RECORD_VIEWS.has(mode) ? mode : "outline";
 }
 
+const NON_SUBAGENT_CHILD_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:(?:💬\s+)?(?:第\d+轮|Round\s+\d+)[：:]|💬\s+累计总结[：:])/;
+
+function isDoneSubagentHeader(line) {
+  if (!J.LIST_RE.test(line) || J.blockIdOf(line)) return false;
+  const k = J.kwLine(line);
+  return Boolean(k && J.DONE_KWS.includes(k.kw) && !k.blockId && k.body.startsWith("🤖"));
+}
+
+function collectDoneSubagentSubtree(lines, start, indent, endLine, fenced, parentIsContainer) {
+  let subEnd = start;
+  let pure = true;
+  let hasKidMarker = false;
+  const children = [];
+  for (let k = start + 1; k <= endLine; k++) {
+    if (!lines[k].trim()) continue;
+    if (J.width(lines[k]) <= indent) break;
+    subEnd = k;
+    if (!pure) continue;
+    if (
+      fenced.has(k)
+      || !AI_RECORD_RE.test(lines[k])
+      || J.blockIdOf(lines[k])
+      || J.parseLink(lines[k])
+      || NON_SUBAGENT_CHILD_RE.test(lines[k])
+    ) {
+      pure = false;
+      continue;
+    }
+    if (J.kidIdent(lines[k])) hasKidMarker = true;
+    children.push(lines[k]);
+  }
+  if (!pure || (subEnd > start && parentIsContainer && !hasKidMarker)) {
+    return { subEnd, pure: false, lineNumbers: [], children: [] };
+  }
+  const lineNumbers = [];
+  for (let k = start; k <= subEnd; k++) lineNumbers.push(k);
+  return { subEnd, pure: true, lineNumbers, children };
+}
+
 function collectChildSubtree(lines, start, indent, endLine, fenced) {
   let subEnd = start;
   let hasForeignSubtree = false;
@@ -49,10 +89,11 @@ const normalizeStableTaskKey = (k) => String(k || "")
 
 export function aiRecordGroups(text, trackedIds = new Set()) {
   if (!text || (!text.includes("💬") && !text.includes("❓") && !text.includes("📋") && !text.includes("⏱") && !text.includes("🔗") && !text.includes("🤖") && !text.includes("^") && !/(?:第\d+轮|Round\s+\d+)[：:]/.test(text))) return [];
-  const lines = text.split("\n"), out = [], fenced = J.fencedLines(lines), titleCounts = new Map();
+  const lines = text.split("\n"), out = [], fenced = J.fencedLines(lines), titleCounts = new Map(), absorbedTaskLines = new Set();
   for (const task of J.taskItems(text)) {
-    if (fenced.has(task.line) || AI_RECORD_RE.test(lines[task.line])) continue;
+    if (fenced.has(task.line) || AI_RECORD_RE.test(lines[task.line]) || absorbedTaskLines.has(task.line)) continue;
     const indent = J.width(J.childIndent(lines, task.line));
+    const parentIsContainer = !task.kw && task.body.startsWith("🤖");
     let endLine = task.line;
     for (let i = task.line + 1; i < lines.length; i++) {
       if (lines[i].trim() && J.width(lines[i]) <= task.indent) break;
@@ -60,24 +101,37 @@ export function aiRecordGroups(text, trackedIds = new Set()) {
     }
     const records = [];
     const tableEntries = [];
+    const recordSubtrees = {};
+    const candidateAbsorbed = [];
     for (let i = task.line + 1; i <= endLine; i++) {
       if (fenced.has(i) || !lines[i].trim()) continue;
       const w = J.width(lines[i]);
-      if (w !== indent || !AI_RECORD_RE.test(lines[i]) || J.blockIdOf(lines[i])) continue;
-      const { subEnd, hasForeignSubtree } = collectChildSubtree(lines, i, indent, endLine, fenced);
-      if (subEnd === i) {
-        records.push(i);
-        tableEntries.push({ line: i, endLine: i, lineNumbers: [i], children: [] });
-      } else if (!hasForeignSubtree) {
-        const lineNumbers = [];
-        const children = [];
-        for (let k = i; k <= subEnd; k++) {
-          lineNumbers.push(k);
-          if (k > i && (lines[k].trim() || fenced.has(k))) children.push(lines[k]);
+      if (w !== indent || J.blockIdOf(lines[i])) continue;
+      if (AI_RECORD_RE.test(lines[i])) {
+        const { subEnd, hasForeignSubtree } = collectChildSubtree(lines, i, indent, endLine, fenced);
+        if (subEnd === i) {
+          records.push(i);
+          tableEntries.push({ line: i, endLine: i, lineNumbers: [i], children: [] });
+        } else if (!hasForeignSubtree) {
+          const lineNumbers = [];
+          const children = [];
+          for (let k = i; k <= subEnd; k++) {
+            lineNumbers.push(k);
+            if (k > i && (lines[k].trim() || fenced.has(k))) children.push(lines[k]);
+          }
+          tableEntries.push({ line: i, endLine: subEnd, lineNumbers, children });
         }
-        tableEntries.push({ line: i, endLine: subEnd, lineNumbers, children });
+        i = subEnd;
+      } else if (isDoneSubagentHeader(lines[i])) {
+        const sub = collectDoneSubagentSubtree(lines, i, indent, endLine, fenced, parentIsContainer);
+        if (sub.pure) {
+          records.push(i);
+          if (sub.subEnd > i) recordSubtrees[i] = sub.lineNumbers;
+          tableEntries.push({ line: i, endLine: sub.subEnd, lineNumbers: sub.lineNumbers, children: sub.children });
+          candidateAbsorbed.push(i);
+        }
+        i = sub.subEnd;
       }
-      i = subEnd;
     }
     if (!records.length && !tableEntries.length) continue;
     const tracked = J.isDeckBlockId(task.blockId)
@@ -86,6 +140,10 @@ export function aiRecordGroups(text, trackedIds = new Set()) {
       || records.some((i) => J.parseLink(lines[i]))
       || tableEntries.some((e) => J.parseLink(lines[e.line]));
     if (tracked) {
+      for (const n of candidateAbsorbed) absorbedTaskLines.add(n);
+      const recordEndLine = records.length
+        ? Math.max(...records.map((n) => recordSubtrees[n]?.at(-1) ?? n))
+        : -1;
       const baseTitle = normalizeStableTaskKey(task.key) || task.key;
       const occ = (titleCounts.get(baseTitle) || 0) + 1;
       titleCounts.set(baseTitle, occ);
@@ -99,6 +157,8 @@ export function aiRecordGroups(text, trackedIds = new Set()) {
         kw: task.kw,
         state: task.state,
         records,
+        recordSubtrees,
+        recordEndLine,
         summaries: records.filter((n) => /💬\s+累计总结[：:]/.test(lines[n])),
         tableEntries,
       });
@@ -126,8 +186,8 @@ export function recordIsOpen(settings, mode, group) {
   return recordStartsOpen(mode, group);
 }
 
-function selectVisibleLines(lineNums, lines, mode = "latest1", summaryLines = [], extraPinned = null) {
-  const pinned = lineNums.filter((n) => isPinnedLine(lines[n]) || extraPinned?.has(n));
+function selectVisibleLines(lineNums, lines, mode = "latest1", summaryLines = [], extraPinned = null, recordSubtrees = null) {
+  const pinned = lineNums.filter((n) => isPinnedLine(lines[n]) || extraPinned?.has(n) || Boolean(recordSubtrees?.[n]?.some((k) => isPinnedLine(lines[k]))));
   const merge = (base) => [...new Set([...base, ...pinned])].sort((a, b) => a - b);
   const count = { latest1: 1, latest3: 3, latest5: 5 }[mode];
   if (count) {
@@ -146,7 +206,7 @@ function selectVisibleLines(lineNums, lines, mode = "latest1", summaryLines = []
 // 收起时按 AI 结论计数；提问、链接、用时和步骤只在展开后显示；被 Pin 的关键记录折叠时不隐藏。
 // 累计总结是没有轮次结论时的回退，不占最近 N 条的名额。
 export function visibleRecords(group, lines, mode = "latest1", extraPinned = null) {
-  return selectVisibleLines(group.records, lines, mode, group.summaries, extraPinned);
+  return selectVisibleLines(group.records, lines, mode, group.summaries, extraPinned, group.recordSubtrees);
 }
 
 export function visibleTableEntries(group, lines, mode = "latest1", open = false, redundantLine = -1) {
@@ -154,7 +214,7 @@ export function visibleTableEntries(group, lines, mode = "latest1", open = false
   if (open) return entries;
   const lineNums = entries.map((e) => e.line);
   const summaries = lineNums.filter((n) => /💬\s+累计总结[：:]/.test(lines[n]));
-  const kept = new Set(selectVisibleLines(lineNums, lines, mode, summaries));
+  const kept = new Set(selectVisibleLines(lineNums, lines, mode, summaries, null, group.recordSubtrees));
   return entries.filter((e) => kept.has(e.line));
 }
 
@@ -203,6 +263,11 @@ export function parseAiRecordRow(rawLine, childLines = [], agentNames = null) {
   } else if (/^(?:TODO|todo)\s+🤖\s/.test(body)) {
     kind = "todo"; kindLabel = "待确认";
     content = body.replace(/^(?:TODO|todo)\s+🤖\s+/, "");
+  } else if (DONE_SUBAGENT_BODY_RE.test(body) || /^\[[xX\-]\]\s+🤖(?:\s|$)/.test(body)) {
+    kind = "subagent"; kindLabel = "子代理";
+    content = body
+      .replace(/^(?:\[[xX\-]\]\s+)?(?:(?:DONE|FAILED|CANCELLED|CANCELED|done|failed|cancelled|canceled)\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s+)?🤖\s*/, "")
+      .trim();
   }
 
   const nonEmptyChildren = (childLines || []).filter((l) => String(l || "").trim());
@@ -253,7 +318,7 @@ export function buildTableModel(parsedRows = []) {
       i++;
       continue;
     }
-    if (r.kind === "summary" || r.kind === "todo") {
+    if (r.kind === "summary" || r.kind === "todo" || r.kind === "subagent") {
       rows.push({
         type: "span",
         round: r.round,
@@ -522,6 +587,7 @@ export function recordViewLabel(viewMode) {
 export function recordBadgeLabel(kind, fallback = "") {
   if (fallback === "总结" || kind === "summary") return t("总结");
   if (fallback === "待确认" || kind === "todo") return t("待确认");
+  if (fallback === "子代理" || kind === "subagent") return t("子代理");
   if (fallback === "提问" || kind === "question") return t("提问");
   if (fallback === "步骤" || kind === "plan") return t("步骤");
   return t("结论");

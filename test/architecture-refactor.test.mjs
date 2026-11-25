@@ -129,8 +129,9 @@ test("CircuitBreaker isolates recurring failures and resets cleanly after cooldo
 test("agent-registry supports declarative capability queries and Open-Closed registration", () => {
   assert.ok(delegateAgents().includes("claude"));
   assert.ok(delegateAgents().includes("cursor"));
+  assert.ok(delegateAgents().includes("trae"));
   assert.ok(!delegateAgents().includes("grokbot"));
-  assert.deepEqual(acpAgents(), ["dsh", "antigravity", "opencode", "hermes", "minimax", "cursor", "kimicode", "gemini"]);
+  assert.deepEqual(acpAgents(), ["dsh", "antigravity", "opencode", "hermes", "minimax", "cursor", "trae", "kimicode", "gemini"]);
   assert.ok(cliHandoffAgents().includes("workbuddy"));
   assert.equal(canContinueInApp("dsh"), true);
   assert.equal(canContinueInApp("codex"), false);

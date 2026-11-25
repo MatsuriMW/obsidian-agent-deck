@@ -28,10 +28,11 @@ Alongside global tools, Agent Deck ships dedicated local parsers and adapters fo
 | **Kimi Code** | `~/.kimi-code/sessions` (`wire.jsonl` / v2 `agents/main/wire.jsonl` + `projects.json` / `state.json`) & `~/.kimi/sessions` | Tracking + Background (`kimi acp`) + Focus app | Supports v1.5 & v2 `wire.jsonl` turns, tool calls & exact token usage, plus `kimi acp` background delegation & in-app follow-up |
 | **Doubao Work (豆包工作)** | `~/Library/Application Support/DoubaoWork/Default/IndexedDB/chrome_doubaowork-chat_0.indexeddb.leveldb` | Desktop session metadata tracking + Focus app | Tracks titles & active timestamps only; message bodies are encrypted in `sdk_storage` (never decrypted); tokens show "Unavailable" |
 | **TeleAgent (星辰超级智能体)** | `~/.local/share/TeleAgent/users/*/teleagent.db` (plus `%LOCALAPPDATA%\TeleAgent` on Windows) | Tracking + copies the task and focuses the desktop app + reads the client database back to confirm a dispatch | Desktop client only, no CLI; the session store uses the legacy OpenCode `session`/`message`/`part` schema. Windows fills the task through UI Automation, Linux pastes through `xdotool` + clipboard |
+| **Trae (Trae CN / Global)** | `~/.agent-deck/trae-events/*.jsonl` (collected via `~/.trae-cn/hooks.json` / `~/.trae/hooks.json`) | Tracking + Background (`traecli acp serve`) + Desktop copy handoff when CLI absent | Local `database.db` is SQLCipher-encrypted and never decrypted; requires installing Hooks from Settings and enabling "Global Hooks" + local execution mode in Trae |
 
-> Want another client supported? Open a [New Agent Support Request](https://github.com/MatsuriMW/obsidian-agent-deck/issues/new?template=agent_support.yml).
+> **Before you start**: **Some clients (especially Chinese desktop clients such as QwenWork, Doubao Work, WorkBuddy, TeleAgent, Cindy, and Orca) do not support delegation or have no CLI, and some clients (such as Trae and Cursor) require upfront configuration toggles or CLI installs.** Check Sections 3 and 4 below before setting up a client. Want another client supported? Open a [New Agent Support Request](https://github.com/MatsuriMW/obsidian-agent-deck/issues/new?template=agent_support.yml).
 
-## 3. Full 20 Built-in Agents + Custom ACP Matrix
+## 3. Full 21 Built-in Agents + Custom ACP Matrix
 
 | Agent | Session tracking | Background delegation | Desktop handoff | Terminal |
 | --- | --- | --- | --- | --- |
@@ -46,6 +47,7 @@ Alongside global tools, Agent Deck ships dedicated local parsers and adapters fo
 | **QwenWork (千问办公)** | Yes | No | No (tracking only) | — |
 | **WorkBuddy** | Yes | No | Copies task and opens app | Yes |
 | **Cursor** | Yes (Hooks `v2` required) | Yes (`agent acp`) | Copies & focuses app when CLI absent | — |
+| **Trae** | Yes (Hooks `v2` required) | Yes (`traecli acp serve`) | Copies & focuses app when CLI absent | — |
 | **Grok Bot** | Yes (per-Bot selection) | No | No (tracking only) | — |
 | **T3 Code** | Yes (deduplicates delegated sessions) | Yes (`t3 thread`) | Focuses the client only | — |
 | **Cindy** | Yes (deduplicates delegated sessions) | No | Deep link / focuses app (tracking only) | — |
@@ -73,7 +75,8 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
 | **MiniMax Code** | MiniMax Code desktop app; `mcode` CLI for background delegation or terminal resume |
 | **QwenWork (千问办公)** | QwenWork desktop app (tracking only) |
 | **WorkBuddy** | China edition of WorkBuddy; `codebuddy` for terminal use |
-| **Cursor** | Cursor 3.30.14+ with Cursor Hooks enabled; Cursor CLI (`agent` / `cursor-agent`) for background ACP delegation |
+| **Cursor** | Cursor 3.30.14+ with Cursor Hooks installed in Settings; Cursor CLI (`agent` / `cursor-agent`) for background ACP delegation |
+| **Trae (Trae CN / Global)** | (1) Install Trae CN / Trae desktop app; (2) Click **Install Hooks** under Settings → Recording → More settings → Trae Hooks (writes `~/.trae-cn/hooks.json` / `~/.trae/hooks.json` with regex `matcher: ".*"`); (3) In **Trae → Settings → Hooks**, turn on **Global Hooks** (off by default) and set Hooks execution mode to **Run Automatically Locally** so the sandbox does not block writing `~/.agent-deck/trae-events/`; (4) Restart Trae or open a new session. Optional `traecli` CLI enables `traecli acp serve` background delegation |
 | **Grok Bot** | Grok Bot desktop app, with desired Bots selected in settings |
 | **T3 Code** | T3 Code desktop app; `t3` CLI for background delegation |
 | **Cindy** | Cindy desktop app (tracking only; automatically deduplicates delegated underlying agent sessions) |
@@ -96,6 +99,7 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
 3. **Read-only conversation viewer**: The in-Obsidian modal is for reading, stopping an active turn, and saving archives. Supported sessions allow follow-ups via the task menu or Reply inbox; others continue in their native client.
 4. **Per-client boundaries**:
    - **Cursor**: Tracks new sessions and subagent ownership via Hooks (`v2`); when Cursor CLI (`agent` / `cursor-agent`) is installed, supports `agent acp` background delegation and in-app ACP follow-ups, otherwise falls back to desktop copy-and-focus handoff (no terminal handoff).
+   - **Trae (Trae CN / Global)**: Local `ModularData/ai-agent/database.db` is SQLCipher-encrypted and never decrypted; tracking is purely Hook-driven. Users must enable "Global Hooks" (and preferably local execution mode) in Trae Settings → Hooks before new turns write to `~/.agent-deck/trae-events/`. Because Trae's hook stdin omits token and model fields, billed token usage honestly reads as `0`. Uses `traecli acp serve` when `traecli` is installed, or desktop copy-and-focus handoff otherwise.
    - **WorkBuddy**: China edition only; standalone `codebuddy` CLI does not share desktop sessions.
    - **Qoder**: CLI and desktop databases are separate; missing desktop tokens show "Unavailable".
    - **Antigravity**: Tracks both IDE (`~/.gemini/antigravity/brain`) and standalone `agy` CLI (`~/.gemini/antigravity-cli/brain`) logs and supports `agy acp` background delegation; IDE and CLI sessions are separate with no IDE window handoff, and exports omit tool results & internal reasoning.
@@ -107,7 +111,7 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
    - **Grok Bot**: Desktop only; cloud sandboxes without per-message tokens show "Unavailable", with no archive concept.
    - **T3 Code / Cindy / Orca aggregator deduplication**: Underlying Claude Code, Codex, OpenCode, or Antigravity sessions spawned by T3 Code, Cindy, or Orca are deduplicated across Daily Summary, Sidebar Now/Recent, Menu Bar, AutoLog, Sync, Dashboard, Handoff claiming, primary recommendation, and Security Audit so work is counted once under the aggregator; disabling the aggregator immediately surfaces the underlying sessions again.
    - **Cindy**: Read-only tracking from local `cindy-*.db` / `xdt-maker-*.db` (including Orca worker hierarchy, per-turn tokens, tool-use security audit, and `cindy://session/<id>` deep link); tracking only (no built-in delegation).
-   - **Orca**: Read-only tracking from local `agent-session-domain.db` (supports `ORCA_DATA_DIR` / `ORCA_USER_DATA_DIR`, workspace directory resolution from `location.workspaceId`, and `orca://` focus); tracking only (no built-in delegation), while deduplicating underlying provider sessions.
+   - **Orca**: Read-only tracking from local `agent-session-domain.db` (supports `ORCA_DATA_DIR` / `ORCA_USER_DATA_DIR`, workspace directory resolution from `location.workspaceId`, and `orca://` focus); tracking only (no built-in delegation), while deduplicating underlying provider sessions. Because Orca's `contextUsage.used` only carries context-window occupancy/estimates, billed token totals honestly remain `0`.
    - **Muse**: Desktop only; cloud VM has no local tokens/models (kept as 0 / unavailable).
    - **Kimi Code**: Tracks both v1.5 & v2 `wire.jsonl` (`agents/main/wire.jsonl`) sessions with exact token usage, and supports `kimi acp` background delegation & in-app follow-up (or focuses desktop app on fallback).
    - **Doubao Work**: Read-only IndexedDB session list metadata (titles & timestamps); full message bodies remain encrypted in `sdk_storage` and are never decrypted.

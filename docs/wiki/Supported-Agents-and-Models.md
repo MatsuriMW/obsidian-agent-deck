@@ -28,10 +28,11 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Kimi Code** | `~/.kimi-code/sessions`（`wire.jsonl` / v2 `agents/main/wire.jsonl` + `projects.json` / `state.json`）及 `~/.kimi/sessions` | 追踪 + 后台委派（`kimi acp`） + 唤起桌面端 | 兼容 v1.5 与 v2 `wire.jsonl` 逐轮对话、工具调用与精确 token 统计；支持 `kimi acp` 后台委派与应用内续聊 |
 | **豆包工作（Doubao Work）** | `~/Library/Application Support/DoubaoWork/Default/IndexedDB/chrome_doubaowork-chat_0.indexeddb.leveldb` | 桌面会话列表元数据追踪 + 唤起桌面端 | 仅追踪标题与活跃时间；完整正文存在本地加密库 `sdk_storage`，插件保持只读不解密，token 显示「用量未提供」 |
 | **TeleAgent（星辰超级智能体）** | `~/.local/share/TeleAgent/users/*/teleagent.db`（Windows 另含 `%LOCALAPPDATA%\TeleAgent`） | 追踪 + 复制任务并唤起桌面端 + 派发后回读客户端库确认 | 只有桌面客户端、没有 CLI；会话库是 OpenCode 老版 `session`/`message`/`part` 结构，Windows 用 UIA 自动填入任务、Linux 用 `xdotool` + 剪贴板 |
+| **Trae（Trae CN / 国际版）** | `~/.agent-deck/trae-events/*.jsonl`（由 `~/.trae-cn/hooks.json` / `~/.trae/hooks.json` Hooks 采集） | 追踪 + 后台委派（`traecli acp serve`） + 未装 CLI 时复制交接并唤起桌面端 | 本地 `database.db` 为加密库不解密；需先在设置安装 Trae Hooks，并在 Trae 设置里开启「全局 Hooks」且建议使用「本地自动运行」 |
 
-> 更多中文 Agent 客户端正在持续规划与接入中，欢迎通过 [新 Agent 适配模板](https://github.com/MatsuriMW/obsidian-agent-deck/issues/new?template=agent_support.yml) 反馈你使用的客户端。
+> **使用前提醒**：**部分客户端（主要是一些国内客户端，如千问办公、豆包工作、WorkBuddy、TeleAgent、Cindy、Orca 等）暂不支持委派或无 CLI；部分客户端（如 Trae、Cursor）使用追踪前需要在设置与客户端里完成前置开关或 CLI 安装步骤**，请务必对照下文「三、能力矩阵」与「四、前置要求」检查。更多中文 Agent 客户端正在持续规划与接入中，欢迎通过 [新 Agent 适配模板](https://github.com/MatsuriMW/obsidian-agent-deck/issues/new?template=agent_support.yml) 反馈你使用的客户端。
 
-## 三、全部 20 家内置 Agent + 自定义 ACP 能力矩阵
+## 三、全部 21 家内置 Agent + 自定义 ACP 能力矩阵
 
 | Agent | 会话追踪 | 后台委派 | 桌面端交接 | 终端交互 |
 | --- | --- | --- | --- | --- |
@@ -46,6 +47,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **千问办公（QwenWork）** | 支持 | 不支持 | 不支持（仅追踪） | — |
 | **WorkBuddy** | 支持 | 不支持 | 仅复制任务并唤起 | 支持 |
 | **Cursor** | 支持（需开启 Hooks `v2`） | 支持（`agent acp`） | 未装 CLI 时复制并唤起客户端 | — |
+| **Trae** | 支持（需开启 Hooks `v2`） | 支持（`traecli acp serve`） | 未装 CLI 时复制并唤起客户端 | — |
 | **Grok Bot** | 支持（按 Bot 多选） | 不支持 | 不支持（仅追踪） | — |
 | **T3 Code** | 支持（自动去重底层会话） | 支持（`t3 thread`） | 仅唤起客户端 | — |
 | **Cindy** | 支持（自动去重底层会话） | 不支持 | 深链跳转 / 唤起客户端（仅追踪） | — |
@@ -73,7 +75,8 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **MiniMax Code** | MiniMax Code 桌面端；后台委派或终端续聊另需 `mcode` 命令行 |
 | **千问办公（QwenWork）** | 千问办公桌面端（仅追踪） |
 | **WorkBuddy** | 中国版 WorkBuddy 桌面端；终端交互另需 `codebuddy` |
-| **Cursor** | Cursor 桌面端 3.30.14+（设置里开启 Cursor Hooks）；后台委派另需 Cursor CLI（`agent` / `cursor-agent`） |
+| **Cursor** | Cursor 桌面端 3.30.14+（插件设置「记录 → 更多设置」安装 Cursor Hooks 并重启/开新会话）；后台委派另需 Cursor CLI（`agent` / `cursor-agent`） |
+| **Trae（Trae CN / 国际版）** | ① 装好 Trae CN / Trae 桌面端；② 在插件「设置 → 记录 → 更多设置 → Trae Hooks」点击**安装 Hooks**（写入 `~/.trae-cn/hooks.json` / `~/.trae/hooks.json`，工具事件正则 `matcher: ".*"`）；③ 在 **Trae → 设置 → Hooks** 开启 **「全局 Hooks」**（默认关闭），并建议将运行方式切为 **「本地自动运行」**，避免沙箱拦住对 `~/.agent-deck/trae-events/` 的写入；④ 重启 Trae 或新开对话后生效。如需后台委派与同会话续聊，需另装 `traecli` CLI |
 | **Grok Bot** | Grok Bot 桌面端，并在设置里勾选要追踪的 Bot |
 | **T3 Code** | T3 Code 桌面端；后台委派另需 `t3` 命令行 |
 | **Cindy** | Cindy 桌面端（仅追踪，自动去重其拉起的底层 Agent 会话） |
@@ -96,6 +99,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 3. **对话窗口只读**：Obsidian 内的对话查看用于看正文、停止当前轮和保存归档，不设自由输入框；支持的会话可从任务菜单轻量追问或「回答并继续」，其余需回客户端继续。
 4. **各客户端的边界**：
    - **Cursor**：Hooks（`v2`）追踪新会话并自动记录子代理归属；装有 Cursor CLI（`agent` / `cursor-agent`）时支持 `agent acp` 后台委派与应用内同会话续聊，未装 CLI 或选「桌面客户端」时自动回退复制交接并唤起客户端（暂不支持终端交互）。
+   - **Trae（Trae CN / 国际版）**：本地 `ModularData/ai-agent/database.db` 为 SQLCipher 加密库，插件绝不解密；完全通过 Trae 原生 `hooks.json` 采集新会话。必须由用户在 Trae 设置里打开「全局 Hooks」（建议设为「本地自动运行」）后新会话才会写入 `~/.agent-deck/trae-events/`；因 Trae Hook stdin 不携带 token 与模型名，Token 统计如实显示为 `0`。装有 `traecli` 时支持 `traecli acp serve` 后台委派，未装 CLI 时自动复制任务并唤起 `Trae CN` / `Trae` 桌面端。
    - **WorkBuddy**：仅中国版，独立 CodeBuddy 命令行与桌面端不互通。
    - **Qoder**：命令行与桌面端不互通，桌面端没给 token 时显示「未提供」。
    - **Antigravity**：同时追踪 IDE（`~/.gemini/antigravity/brain`）与独立 `agy` CLI（`~/.gemini/antigravity-cli/brain`）的本地会话日志，支持 `agy acp` 后台委派与应用内续聊；IDE 与 CLI 会话彼此独立、不支持桌面 IDE 交接，导出正文不含工具结果与内部推理。
@@ -107,7 +111,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
    - **Grok Bot**：只追踪桌面端，云端沙箱不给逐条 token 时显示「用量未提供」，没有归档概念。
    - **T3 Code / Cindy / Orca 聚合去重**：通过 T3 Code、Cindy 或 Orca 转发/拉起的 Claude Code、Codex、OpenCode、Antigravity 等底层 Agent 会话会自动去重，仅归属对应聚合端，避免在面板、最近列表、菜单栏、自动日记、Dashboard 与安全审计中重复计数；关闭对应的聚合端追踪开关后会立即恢复独立会话显示。
    - **Cindy**：只读追踪本地 `cindy-*.db` / `xdt-maker-*.db`（含 Orca Team 协作层级、精确 token 与 `cindy://session/<id>` 深链跳转），暂不支持后台委派。
-   - **Orca**：只读追踪本地 `agent-session-domain.db`（支持 `ORCA_DATA_DIR` / `ORCA_USER_DATA_DIR`、`location.workspaceId` 目录提取与 `orca://` 客户端唤起），暂不支持内置后台委派；自动屏蔽底层拉起的重复会话。
+   - **Orca**：只读追踪本地 `agent-session-domain.db`（支持 `ORCA_DATA_DIR` / `ORCA_USER_DATA_DIR`、`location.workspaceId` 目录提取与 `orca://` 客户端唤起），暂不支持内置后台委派；自动屏蔽底层拉起的重复会话。因 Orca 库中 `contextUsage.used` 仅记录上下文窗口占用/估算，实际 Token 如实记为 `0`（不虚构计费 token）。
    - **Muse**：只追踪桌面端，云端 VM 无本地 token/模型，保留为 0/未提供。
    - **Kimi Code**：支持追踪 v1.5 / v2 会话（`wire.jsonl` 及 `agents/main/wire.jsonl`，精确统计 token）及通过 `kimi acp` 进行后台委派与应用内续聊（未装 CLI 时可唤起桌面端）。
    - **豆包工作**：只读追踪本地 IndexedDB 中的会话列表元数据（标题与活跃时间），完整正文存于本地加密数据库 `sdk_storage`，插件不解密，token 显示「用量未提供」。

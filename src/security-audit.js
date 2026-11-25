@@ -239,11 +239,12 @@ export function extractToolCallsFromJsonl(agent, source) {
     if (agent === "codex" && !line.includes("function_call") && !line.includes("tool_call") && !line.includes("shell_call")) continue;
     if (agent === "dsh" && !line.includes("tool/call")) continue;
     if (agent === "cursor" && !line.includes("beforeShellExecution") && !line.includes("beforeMCPExecution") && !line.includes("preToolUse")) continue;
+    if (agent === "trae" && !line.includes("PreToolUse")) continue;
     if (agent === "antigravity" && !line.includes("tool_calls")) continue;
 
     const d = parseJson(line);
     if (!d || typeof d !== "object") continue;
-    const at = typeof d.time === "number" ? d.time : Date.parse(d.timestamp || d.ts || d.created_at || "") || 0;
+    const at = typeof d.time === "number" ? d.time : typeof d.at === "number" ? d.at : Date.parse(d.timestamp || d.ts || d.created_at || "") || 0;
 
     if (agent === "claude" || agent === "qoder" || agent === "qwenwork") {
       if (d.type !== "assistant" || !Array.isArray(d.message?.content)) continue;
@@ -277,6 +278,12 @@ export function extractToolCallsFromJsonl(agent, source) {
       if (ev === "beforeShellExecution") {
         calls.push({ title: "shell", kind: "execute", rawInput: { command: String(d.command || ""), cwd: d.cwd || "" }, at });
       } else if (ev === "beforeMCPExecution" || ev === "preToolUse") {
+        const name = d.tool_name || d.tool || "tool";
+        calls.push({ title: name, kind: inferToolKind(name), rawInput: toRawInput(d.tool_input ?? d.input), at });
+      }
+    } else if (agent === "trae") {
+      const ev = String(d.hook_event_name || d.event || "");
+      if (ev === "PreToolUse") {
         const name = d.tool_name || d.tool || "tool";
         calls.push({ title: name, kind: inferToolKind(name), rawInput: toRawInput(d.tool_input ?? d.input), at });
       }

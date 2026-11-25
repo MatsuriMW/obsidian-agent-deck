@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.26
+
+- **新增 Trae（Trae CN / 国际版）全链路 Hooks 追踪与委派（内置总数增至 21 家，`USAGE_CACHE_VERSION = 25`，`HARNESS_DETECTION_VERSION = 5`）**：
+  - 新增 [`src/trae-sessions.js`](src/trae-sessions.js) 与 `assets/agents/trae.png`，遵循 `version: 1` `hooks.json`（`~/.trae-cn/hooks.json` / `~/.trae/hooks.json`，工具事件使用 Rust 合法正则 `matcher: ".*"`）被动只读采集 8 类生命周期事件至 `~/.agent-deck/trae-events/*.jsonl`（绝不解密加密 `database.db`），支持 `watchTraeEvents()` 实时监听、`scanNow()` 延迟补挂、对话与工具时间线还原、`security-audit.js` 提取（保留 `d.at` 时间戳）、首次运行弹窗提示与一键安装/更新/卸载，以及 `traecli acp serve` 后台委派 / 桌面端复制唤起回退。
+- **修复已完成子代理子块随父块「更多 / 收起」折叠与 Orca `delegatedOwners` 去重污染**：
+  - [`src/ai-records.js`](src/ai-records.js)、[`src/fold-actions.js`](src/fold-actions.js)、[`src/sync.js`](src/sync.js) 等修复父任务下已完成纯记录子代理子块被拆出父块记录组导致无法折叠的问题，并统一将 `state === "error"` 子代理回写为 `FAILED`。
+  - [`src/desktop-sessions.js`](src/desktop-sessions.js) 修复 `orcaDelegatedSids` 解析 `provider_turn_id` / `item_id` 时将裸 Turn UUID 与原始 item ID 写入 `delegatedOwners` 的污染问题（经真机 Orca `agent-session-domain.db` 实测验证），仅提取真实底层原生会话/线程 ID。
+- **设置页客户端边界提示与 GitHub Wiki 同步**：
+  - 在设置页「委派」与「记录」卡片补充客户端不支持委派及前置安装/配置开关提示与可点击的 [GitHub Wiki（支持列表与前置要求）](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models) 外链，并更新中英文 Wiki（含 Trae 前置开启「全局 Hooks」/「本地自动运行」指南及最新 21 家矩阵）。
+
 ## 1.13.25
 
 - **全 Agent 已归档会话重新激活恢复追踪（[`src/readers.js`](src/readers.js)、[`src/autolog.js`](src/autolog.js)、[`src/sync.js`](src/sync.js)、[`src/organize-journal.js`](src/organize-journal.js)、[`src/journal-archive.js`](src/journal-archive.js)、[`src/task-status.js`](src/task-status.js)、[`src/main.js`](src/main.js)）**：

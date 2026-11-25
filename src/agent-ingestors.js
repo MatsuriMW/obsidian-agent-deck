@@ -6,6 +6,7 @@
 
 import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 import { ingestCursorEvent } from "./cursor-sessions.js";
+import { ingestTraeEvent } from "./trae-sessions.js";
 import { t } from "./i18n.js";
 
 const DSH_TOUCH = new Set([
@@ -617,6 +618,12 @@ export function ingestCursorLine(ctx, line, fc, touched) {
   ingestCursorEvent(ctx, d, fc, touched);
 }
 
+export function ingestTraeLine(ctx, line, fc, touched) {
+  let d;
+  try { d = JSON.parse(line); } catch { return; }
+  ingestTraeEvent(ctx, d, fc, touched);
+}
+
 const CUSTOM_INGESTORS = new Map();
 
 export const BUILTIN_AGENT_INGESTORS = {
@@ -627,6 +634,7 @@ export const BUILTIN_AGENT_INGESTORS = {
   workbuddy: ingestWorkbuddyLine,
   antigravity: ingestAntigravityLine,
   cursor: ingestCursorLine,
+  trae: ingestTraeLine,
   dsh: ingestDshLine,
 };
 

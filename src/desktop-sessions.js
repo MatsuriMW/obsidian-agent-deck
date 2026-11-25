@@ -203,7 +203,7 @@ function orcaCwdFromRecord(rec) {
   return "";
 }
 
-function addOrcaDelegatedRef(out, raw, ownerSid) {
+function addOrcaDelegatedRef(out, raw, ownerSid, { extractedOnly = false } = {}) {
   const v = String(ownerSid || "").trim();
   if (!v) return;
   const push = (val) => {
@@ -215,11 +215,12 @@ function addOrcaDelegatedRef(out, raw, ownerSid) {
   const s = String(raw || "").trim();
   if (!s) return;
   const claudeM = /^claude:([^:]+):/i.exec(s);
-  if (claudeM) push(decodeTail(claudeM[1]));
+  if (claudeM) { push(decodeTail(claudeM[1])); return; }
   const codexM = /^codex:([^:]+):/i.exec(s);
-  if (codexM) push(decodeTail(codexM[1]));
+  if (codexM) { push(decodeTail(codexM[1])); return; }
   const promptM = /^(?:legacy:[^:]+:[^:]+:(?:turn-lifecycle|item):)?p:([^:]+):/i.exec(decodeTail(s));
-  if (promptM) push(decodeTail(promptM[1]));
+  if (promptM) { push(decodeTail(promptM[1])); return; }
+  if (extractedOnly) return;
   if (!s.startsWith("orca:") && !s.startsWith("legacy:")) push(s);
 }
 
@@ -273,8 +274,8 @@ export async function orcaDelegatedSids(db) {
       const sid = String(r.sid || "").trim();
       if (!sid || !activeSids.has(sid)) continue;
       if (r.codexThreadId) addOrcaDelegatedRef(out, r.codexThreadId, sid);
-      if (r.providerTurnId) addOrcaDelegatedRef(out, r.providerTurnId, sid);
-      if (r.itemId) addOrcaDelegatedRef(out, r.itemId, sid);
+      if (r.providerTurnId) addOrcaDelegatedRef(out, r.providerTurnId, sid, { extractedOnly: true });
+      if (r.itemId) addOrcaDelegatedRef(out, r.itemId, sid, { extractedOnly: true });
     }
   }
   return out;

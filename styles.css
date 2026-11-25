@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.25 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.26 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -2520,6 +2520,9 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-prog[data-agent=orca] {
   --ad-prog: #0f766e;
 }
+.ad-prog[data-agent=trae] {
+  --ad-prog: #10b981;
+}
 .ad-prog[data-agent=muse] {
   --ad-prog: #c96f8f;
 }
@@ -3220,6 +3223,10 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-record-table-wrap .ad-rt-badge--todo,
 .ad-record-table-wrap .ad-rt-tl-item--todo {
   --ad-rt-tone: var(--ad-bad, #a86f6d);
+}
+.ad-record-table-wrap .ad-rt-badge--subagent,
+.ad-record-table-wrap .ad-rt-tl-item--subagent {
+  --ad-rt-tone: var(--ad-good, #6f8f7c);
 }
 .ad-record-table-wrap .ad-rt-row,
 .ad-record-table-wrap .ad-rt-footer-item,
@@ -4417,6 +4424,7 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-settings .ad-set-agent[data-agent=t3code] .ad-set-agent__icon img,
 .ad-settings .ad-set-agent[data-agent=cindy] .ad-set-agent__icon img,
 .ad-settings .ad-set-agent[data-agent=orca] .ad-set-agent__icon img,
+.ad-settings .ad-set-agent[data-agent=trae] .ad-set-agent__icon img,
 .ad-settings .ad-set-agent[data-agent=muse] .ad-set-agent__icon img,
 .ad-settings .ad-set-agent[data-agent=teleagent] .ad-set-agent__icon img {
   border-radius: 7px;

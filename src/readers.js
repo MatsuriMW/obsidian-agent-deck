@@ -25,6 +25,7 @@ import {
   ingestAntigravityLine,
   ingestDshLine,
   ingestCursorLine,
+  ingestTraeLine,
 } from "./agent-ingestors.js";
 export { stepText, todoOf, applyTaskTool };
 import {
@@ -37,6 +38,15 @@ import {
   packCursorState,
   unpackCursorState,
 } from "./cursor-sessions.js";
+import {
+  traeEventsDir,
+  traeHooksStatus,
+  installTraeHooks,
+  uninstallTraeHooks,
+  isTraeRunning,
+  packTraeState,
+  unpackTraeState,
+} from "./trae-sessions.js";
 import {
   discoverGrokBotStorage,
   parseGrokBotTranscript,
@@ -68,6 +78,11 @@ export {
   installCursorHooks,
   uninstallCursorHooks,
   isCursorRunning,
+  traeEventsDir,
+  traeHooksStatus,
+  installTraeHooks,
+  uninstallTraeHooks,
+  isTraeRunning,
 };
 import path from "path";
 import os from "os";
@@ -256,7 +271,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 23;
+export const USAGE_CACHE_VERSION = 25;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -286,6 +301,7 @@ function packFile(f) {
   if (f.tasks) out.tasks = { seq: f.tasks.seq, seen: [...f.tasks.seen], map: [...f.tasks.map] };
   if (f.rounds) out.rounds = { seen: [...f.rounds.seen], list: f.rounds.list };
   if (f.cursor) out.cur = packCursorState(f.cursor);
+  if (f.trae) out.tr = packTraeState(f.trae);
   return out;
 }
 
@@ -300,6 +316,7 @@ function unpackFile(o) {
     tasks: o.tasks ? { seq: o.tasks.seq || 0, seen: new Set(o.tasks.seen || []), map: new Map(o.tasks.map || []) } : null,
     rounds: o.rounds ? { seen: new Set(o.rounds.seen || []), list: o.rounds.list || [] } : null,
     cursor: unpackCursorState(o.cur),
+    trae: unpackTraeState(o.tr),
   };
 }
 
@@ -597,6 +614,7 @@ export class AgentUsage {
     add(path.join(h, ".qoder/projects"), "qoder");
     add(path.join(qwenWorkHome(), "projects"), "qwenwork");
     add(cursorEventsDir(h), "cursor");
+    add(traeEventsDir(h), "trae");
     const seen = new Set();
     return out.filter(([d]) => !seen.has(d) && seen.add(d));
   }
@@ -1854,7 +1872,7 @@ export class AgentUsage {
     }
     if (st.size < fc.size) {
       // log was rotated/rewritten: start over
-      fc.size = 0; fc.offset = 0; fc.days = new Map(); fc.msgs = new Map(); fc.titles = new Map(); fc.live = null; fc.tasks = null; fc.rounds = null; fc.cursor = null;
+      fc.size = 0; fc.offset = 0; fc.days = new Map(); fc.msgs = new Map(); fc.titles = new Map(); fc.live = null; fc.tasks = null; fc.rounds = null; fc.cursor = null; fc.trae = null;
     }
     fc.mtime = st.mtimeMs;
     if (st.size === fc.offset) { fc.size = st.size; return; }

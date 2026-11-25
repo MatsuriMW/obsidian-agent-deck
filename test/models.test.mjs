@@ -81,6 +81,7 @@ plugin.allModels=()=>[
   {id:'ten',agent:'gemini',name:'Gemini one',tags:[]},
   {id:'eleven',agent:'cursor',name:'Cursor one',tags:[]},
   {id:'twelve',agent:'kimicode',name:'Kimi Code one',tags:[]},
+  {id:'thirteen',agent:'trae',name:'Trae one',tags:[]},
 ];
 plugin.modelsFor=id=>plugin.allModels().filter(m=>m.agent===id);
 plugin.modelById=id=>plugin.allModels().find(m=>m.id===id)||null;
@@ -175,11 +176,15 @@ tab.renderRecord(recBody);
 const targetPickers = [...delBody.all(), ...recBody.all()].filter(el => el.classList.contains('ad-targetpick'));
 assert.equal(targetPickers.length, 1, 'default delegation target picker appears exactly once across all pages');
 assert.equal(targetPickers[0].children.length, AGENT_ORDER.filter(id => !AGENTS[id]?.trackingOnly).length, 'default target picker shows enabled delegable/handoff Agents');
-assert.equal(delBody.all().filter(el => el.tag === 'select').length, 13, 'eleven default-model selects + primary terminal select + steward agent select');
+assert.equal(delBody.all().filter(el => el.tag === 'select').length, 14, 'twelve default-model selects + primary terminal select + steward agent select');
 assert.equal(delBody.all().filter(el => el.classList.contains('ad-codex-picker')).length, 0, 'Codex uses the standard select menu');
-assert.equal(delBody.all().filter(el => el.classList.contains('ad-effort')).length, 11, 'exactly one default effort control per configurable Agent on Delegation page');
+assert.equal(delBody.all().filter(el => el.classList.contains('ad-effort')).length, 12, 'exactly one default effort control per configurable Agent on Delegation page');
 assert.equal(recBody.all().filter(el => el.classList.contains('ad-set-agent')).length, AGENT_ORDER.length, 'Recording page lists all tracked Agents');
 assert.equal(recBody.all().filter(el => el.classList.contains('ad-set-agent__config')).length, 0, 'Recording agent cards have no duplicate model or default-target controls');
+for (const page of [delBody, recBody]) {
+  const wikiLink = page.all().find(el => el.tag === 'a' && String(el.attrs?.href || '').includes('github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models'));
+  assert.ok(wikiLink, 'settings page displays a clickable GitHub Wiki prerequisites link');
+}
 
 console.log('PASS Delegation and Recording pages enforce a single editable home for every setting across all seven Agents');
 
@@ -211,7 +216,7 @@ assert.equal(syncDelegationSettings(deepMerge(DEFAULTS, { resultMax: 240, result
 console.log('PASS More settings: collapsed detail controls, visible common actions and one-time result-length migration');
 
 const delegateGroups = delBody.all().filter(el => el.classList.contains('ad-delegate-agent'));
-assert.equal(delegateGroups.length, 11);
+assert.equal(delegateGroups.length, 12);
 for (const card of delegateGroups) assert.equal(card.open, plugin.isPrimary(card.dataset.agent), 'delegation cards default to primary-only expansion');
 const codexCard = delegateGroups.find(el => el.dataset.agent === 'codex');
 const codexSelect = codexCard.all().find(el => el.tag === 'select');

@@ -212,7 +212,7 @@ function makeDomElement(tag = "div", { cls = "", text = "", attr = {} } = {}) {
 test("canDelegateDrop and destinations cover all built-in agents and Custom ACP agents", () => {
   const expectedDelegable = new Set([
     "claude", "codex", "workbuddy", "teleagent", "dsh", "antigravity",
-    "opencode", "qoder", "hermes", "minimax", "cursor", "t3code", "kimicode", "gemini",
+    "opencode", "qoder", "hermes", "minimax", "cursor", "trae", "t3code", "kimicode", "gemini",
   ]);
   const expectedBlocked = new Set([
     "qwenwork", "grokbot", "cindy", "orca", "muse", "doubaowork",

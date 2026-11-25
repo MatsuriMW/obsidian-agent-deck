@@ -13,6 +13,7 @@ import {
   visibleTableEntries,
   parseAiRecordRow,
   buildTableModel,
+  recordBadgeLabel,
 } from '../src/ai-records.js';
 
 // 1. View preference defaults and top-level / nested detection.
@@ -165,7 +166,7 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ad-views-'));
 try {
   const file = path.join(dir, 'display.mjs');
   fs.writeFileSync(file, bundle.outputFiles[0].text);
-  const { aiRecordDisplayExtension, setRecordViewEffect } = await import(pathToFileURL(file));
+  const { aiRecordDisplayExtension, setRecordViewEffect, setRecordsOpenEffect, renderAIRecords } = await import(pathToFileURL(file));
 
   const makeDoc = (src) => {
     const arr = src.split('\n');
@@ -420,6 +421,179 @@ try {
     effects: [setRecordViewEffect.of({ key: doneGroups[0].key, view: 'outline' })],
   });
   assert.equal(plugin.settings.aiRecordViews['task:修复缓存问题'], undefined, 'reverting DONE block to outline cleans persisted view');
+
+  // Completed DONE subagent subtree is hidden in outline Live Preview when collapsed and shown when expanded,
+  // and Reading View hides the entire subagent <li> without spawning a duplicate nested toggle button.
+  const subNote = [
+    '- DOING 🤖 Cursor 主任务 ^cursor-sub-fold',
+    '  - 🔗 [Cursor：主任务](obsidian://agent-deck?do=open&agent=cursor&sid=c1)',
+    '  - 第1轮：**任务**：排查；**结论**：已完成 <!-- ad-turn:c1:1 -->',
+    '  - DONE 🤖 10:05-10:08 探索子代理',
+    '    - ⏱ 10:05–10:08 · 共 3m · 子代理 `sub12345`',
+    '    - 💬 子代理发现根因',
+  ].join('\n');
+  const subDoc = makeDoc(subNote);
+  plugin.settings.aiRecordDisplay = 'latest1';
+  plugin.settings.aiRecordExpanded = {};
+  plugin.settings.aiRecordClosed = {};
+  const subCollapsed = field.create({ doc: subDoc });
+  const subHeaderFrom = subDoc.line(4).from;
+  const subLastTo = subDoc.line(6).to;
+  assert.ok(
+    subCollapsed.decorations.some((d) => d.spec.inclusive === false && d.from <= subHeaderFrom && d.to >= subLastTo),
+    'Live Preview hides completed subagent header and its ⏱/💬 subtree when collapsed',
+  );
+  const subTable = field.update(subCollapsed, {
+    docChanged: false,
+    state: { doc: subDoc },
+    effects: [setRecordViewEffect.of({ key: 'cursor-sub-fold', view: 'table' })],
+  });
+  const subExpanded = field.update(subTable, {
+    docChanged: false,
+    state: { doc: subDoc },
+    effects: [setRecordsOpenEffect.of({ keys: ['cursor-sub-fold'], open: true })],
+  });
+  const subTableWidget = subExpanded.decorations.find((d) => d.spec.block && d.spec.widget?.rows)?.spec.widget;
+  assert.ok(subTableWidget);
+  assert.equal(subTableWidget.model.rows.some((r) => r.badgeKind === 'subagent' && r.badge === '子代理'), true);
+  assert.equal(recordBadgeLabel('subagent', '子代理'), '子代理');
+  plugin.settings.aiRecordViews = {};
+  const subOutlineExpanded = field.update(subCollapsed, {
+    docChanged: false,
+    state: { doc: subDoc },
+    effects: [setRecordsOpenEffect.of({ keys: ['cursor-sub-fold'], open: true })],
+  });
+  assert.ok(
+    !subOutlineExpanded.decorations.some((d) => d.spec.inclusive === false && d.from <= subHeaderFrom && d.to >= subLastTo),
+    'expanding parent reveals completed subagent subtree in Live Preview',
+  );
+
+  // Reading View (renderAIRecords) hides completed subagent <li> without creating an inner toggle button.
+  const mkDomEl = (tag, doc) => {
+    const el = {
+      nodeName: tag.toUpperCase(),
+      tagName: tag.toUpperCase(),
+      ownerDocument: doc,
+      parentNode: null,
+      parentElement: null,
+      childNodes: [],
+      children: [],
+      id: '',
+      dataset: {},
+      attrs: {},
+      classList: {
+        _set: new Set(),
+        add(...cs) { cs.forEach((c) => this._set.add(c)); },
+        remove(...cs) { cs.forEach((c) => this._set.delete(c)); },
+        toggle(c, f) { if (f === undefined ? !this._set.has(c) : f) this._set.add(c); else this._set.delete(c); },
+        contains(c) { return this._set.has(c); },
+      },
+      appendChild(c) {
+        c.parentNode = this;
+        c.parentElement = this;
+        this.childNodes.push(c);
+        if (c.nodeName !== '#text') this.children.push(c);
+        return c;
+      },
+      insertBefore(c, ref) {
+        c.parentNode = this;
+        c.parentElement = this;
+        const idx = this.childNodes.indexOf(ref);
+        if (idx >= 0) this.childNodes.splice(idx, 0, c);
+        else this.childNodes.push(c);
+        if (c.nodeName !== '#text') {
+          const cIdx = this.children.indexOf(ref);
+          if (cIdx >= 0) this.children.splice(cIdx, 0, c);
+          else this.children.push(c);
+        }
+        return c;
+      },
+      remove() {
+        if (!this.parentNode) return;
+        this.parentNode.childNodes = this.parentNode.childNodes.filter((x) => x !== this);
+        this.parentNode.children = this.parentNode.children.filter((x) => x !== this);
+      },
+      setAttribute(k, v) { this.attrs[k] = String(v); },
+      getAttribute(k) { return this.attrs[k] ?? null; },
+      addEventListener() {},
+      closest(sel) {
+        let cur = this;
+        while (cur) {
+          if (sel === 'li' && cur.nodeName === 'LI') return cur;
+          cur = cur.parentElement;
+        }
+        return null;
+      },
+      querySelector(sel) { return this.querySelectorAll(sel)[0] || null; },
+      querySelectorAll(sel) {
+        const parts = sel.split(',').map((s) => s.trim());
+        const out = [];
+        const matchOne = (node, p) => {
+          if (p === ':scope > p') return node.parentElement === this && node.nodeName === 'P';
+          if (p === 'li ul, li ol' || p === 'li ul') return node.nodeName === 'UL' && node.parentElement?.nodeName === 'LI';
+          if (p === 'ul, ol') return node.nodeName === 'UL' || node.nodeName === 'OL';
+          if (p === 'li') return node.nodeName === 'LI';
+          if (p === 'a[href]') return node.nodeName === 'A' && Boolean(node.attrs.href);
+          if (p === 'span:nth-child(2)') return node.nodeName === 'SPAN' && this.children.filter((c) => c.nodeName === 'SPAN')[1] === node;
+          if (p === 'li code') return node.nodeName === 'CODE' && node.parentElement?.nodeName === 'LI';
+          return false;
+        };
+        const walk = (node) => {
+          for (const c of node.children) {
+            if (parts.some((p) => matchOne(c, p)) || matchOne(c, sel)) out.push(c);
+            walk(c);
+          }
+        };
+        walk(this);
+        return out;
+      },
+      get textContent() { return this.childNodes.map((c) => c.textContent).join(''); },
+      set textContent(v) { this.childNodes = [{ nodeName: '#text', nodeType: 3, textContent: String(v ?? ''), parentNode: this }]; this.children = []; },
+    };
+    return el;
+  };
+  const rvDoc = {
+    createElement(tag) { return mkDomEl(tag, rvDoc); },
+    createTextNode(txt) { return { nodeName: '#text', nodeType: 3, textContent: String(txt ?? '') }; },
+    createTreeWalker() { return { nextNode: () => null }; },
+  };
+  const rootUl = mkDomEl('ul', rvDoc);
+  const parentLi = mkDomEl('li', rvDoc);
+  parentLi.dataset.line = '0';
+  const parentP = mkDomEl('p', rvDoc);
+  parentP.textContent = 'DOING 🤖 Cursor 主任务 ^cursor-sub-fold';
+  parentLi.appendChild(parentP);
+  const childUl = mkDomEl('ul', rvDoc);
+  const liLink = mkDomEl('li', rvDoc); liLink.dataset.line = '1'; liLink.textContent = '🔗 Cursor：主任务';
+  const liRound = mkDomEl('li', rvDoc); liRound.dataset.line = '2'; liRound.textContent = '第1轮：任务：排查；结论：已完成';
+  const liSub = mkDomEl('li', rvDoc); liSub.dataset.line = '3';
+  const subP = mkDomEl('p', rvDoc); subP.textContent = 'DONE 🤖 10:05-10:08 探索子代理';
+  liSub.appendChild(subP);
+  const subInnerUl = mkDomEl('ul', rvDoc);
+  const liSubClock = mkDomEl('li', rvDoc); liSubClock.dataset.line = '4'; liSubClock.textContent = '⏱ 10:05–10:08 · 共 3m · 子代理 sub12345';
+  const liSubSaid = mkDomEl('li', rvDoc); liSubSaid.dataset.line = '5'; liSubSaid.textContent = '💬 子代理发现根因';
+  subInnerUl.appendChild(liSubClock);
+  subInnerUl.appendChild(liSubSaid);
+  liSub.appendChild(subInnerUl);
+  childUl.appendChild(liLink);
+  childUl.appendChild(liRound);
+  childUl.appendChild(liSub);
+  parentLi.appendChild(childUl);
+  rootUl.appendChild(parentLi);
+
+  plugin.settings.aiRecordDisplay = 'latest1';
+  plugin.settings.aiRecordExpanded = {};
+  plugin.settings.aiRecordClosed = {};
+  const rvCleanup = renderAIRecords(rootUl, plugin, { getSectionInfo: () => ({ lineStart: 0, lineEnd: 5, text: subNote }), sourcePath: 'note.md' });
+  assert.equal(liSub.classList.contains('ad-record-hidden'), true, 'Reading View hides completed subagent <li> when collapsed');
+  assert.equal(liRound.classList.contains('ad-record-hidden'), false, 'Reading View keeps parent round conclusion visible');
+  assert.equal(subInnerUl.dataset.adRecords, 'true', 'nested subagent list is marked to prevent duplicate toggle buttons');
+  assert.equal(rootUl.querySelectorAll('button').length, 0, 'Reading View creates only the single parent toggle button (inside <p>, not nested inside subagent)');
+  assert.equal(parentP.children.filter((c) => c.className === 'ad-records-toggle').length, 1);
+  parentP.children.find((c) => c.className === 'ad-records-toggle').onclick();
+  assert.equal(liSub.classList.contains('ad-record-hidden'), false, 'clicking parent toggle expands completed subagent <li> in Reading View');
+  rvCleanup();
+  assert.equal(subInnerUl.dataset.adRecords, undefined, 'cleanup removes adRecords marker from nested subagent list');
 
   console.log('\nPASS record view switcher, table rendering, per-block persistence, DONE/shift persistence, live updates and generic delegate arrow');
 } finally {

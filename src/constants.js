@@ -160,6 +160,18 @@ export const AGENTS = {
     deep: "cursor",
     desktopOnly: false,
   },
+  trae: {
+    id: "trae",
+    name: "Trae",
+    short: "Trae",
+    glyph: "▸",
+    color: "#10b981",
+    soft: "rgba(16,185,129,.13)",
+    kind: "trae",
+    where: ["~/.agent-deck/trae-events · ~/.trae-cn/hooks.json", t("Trae 桌面版（Hooks）与 CLI ACP 委派")],
+    deep: "trae",
+    desktopOnly: false,
+  },
   grokbot: {
     id: "grokbot",
     name: "Grok Bot",
@@ -275,7 +287,7 @@ export const AGENTS = {
   },
 };
 
-export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "teleagent", "cursor", "grokbot", "t3code", "cindy", "orca", "muse", "kimicode", "doubaowork", "gemini"];
+export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "teleagent", "cursor", "trae", "grokbot", "t3code", "cindy", "orca", "muse", "kimicode", "doubaowork", "gemini"];
 
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
@@ -289,6 +301,7 @@ export const MODEL_CATALOG = [
   { id: "minimax-default", agent: "minimax", name: t("CLI 当前默认模型"), value: "", provider: "MiniMax", context: "—", tags: [], note: t("使用 MiniMax Code 当前配置的默认模型；读取可用模型后可指定模型。") },
   { id: "gemini-default", agent: "gemini", name: t("CLI 当前默认模型"), value: "", provider: "Gemini CLI", context: "—", tags: [], note: t("使用 Gemini CLI 当前配置的默认模型；读取可用模型后可指定模型。") },
   { id: "cursor-default", agent: "cursor", name: t("CLI 当前默认模型"), value: "", provider: "Cursor", context: "—", tags: [], note: t("使用 Cursor CLI 当前配置的默认模型；未装 CLI 时自动回退桌面端交接。") },
+  { id: "trae-default", agent: "trae", name: t("CLI 当前默认模型"), value: "", provider: "Trae", context: "—", tags: [], note: t("使用 Trae CLI（traecli）当前配置的默认模型；未装 CLI 时自动回退桌面端交接。") },
   { id: "kimicode-default", agent: "kimicode", name: t("CLI 当前默认模型"), value: "", provider: "Kimi Code", context: "—", tags: [], note: t("使用 Kimi Code CLI 当前配置的默认模型；未装 CLI 时自动回退桌面端交接。") },
   {
     id: "qoder-ultimate",
@@ -526,7 +539,7 @@ export const CLAUDE_PERMISSIONS = [
 export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, teleagent: true, cursor: true, grokbot: true, t3code: true, cindy: true, orca: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, teleagent: true, cursor: true, trae: true, grokbot: true, t3code: true, cindy: true, orca: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   customAcpAgents: [],
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
@@ -545,6 +558,7 @@ export const DEFAULTS = {
   claudeDesktop: true,
   hideArchived: true,
   cursorHooksPrompted: false,
+  traeHooksPrompted: false,
   grokBotTrackedBotIds: [],
   museTrackedIds: ["hatch-main"],
   museMaxTracked: 5,
@@ -609,7 +623,7 @@ export const DEFAULTS = {
   autoLogBatch: 8,         // 一轮最多问模型几个会话
   // 没写不等于关：设置页用 `agOn[id] !== false` 判定，缺省值等于「开」。TeleAgent 的历史库有上千个会话，
   // 首次接入会把最近若干轮一次性补进当天日记，所以这里显式关掉，需要时在设置里手动打开。
-  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, teleagent: false, t3code: true, cindy: true, orca: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, trae: true, grokbot: true, teleagent: false, t3code: true, cindy: true, orca: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   autoLogProvider: "auto",
   autoLogEffort: "low",
   autoLogModel: "",
@@ -672,6 +686,7 @@ export const DEFAULTS = {
     minimax: { model: "minimax-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     gemini: { model: "gemini-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     cursor: { model: "cursor-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    trae: { model: "trae-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     kimicode: { model: "kimicode-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     t3code: { path: "", cwd: "", extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
@@ -700,7 +715,7 @@ export const DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", minimax: "minimax-default", gemini: "gemini-default", cursor: "cursor-default", kimicode: "kimicode-default", qoder: "qoder-ultimate" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", minimax: "minimax-default", gemini: "gemini-default", cursor: "cursor-default", trae: "trae-default", kimicode: "kimicode-default", qoder: "qoder-ultimate" },
     effort: "high",
     effortByAgent: {},
   },

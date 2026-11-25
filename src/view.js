@@ -1051,7 +1051,7 @@ export class AgentDeckView extends ItemView {
       chip.createSpan({ text: st.label });
     }
     // 会话派出去的 subagent：终端里和桌面版里一样写在 <会话>/subagents/ 下，在跑的数一下
-    const subs = p.usage.subsOf ? p.usage.subsOf(s.sid).filter((r) => r.state !== "done" && r.state !== "fail" && Date.now() - (r.at || r.start || 0) < 5 * 60e3) : [];
+    const subs = p.usage.subsOf ? p.usage.subsOf(s.sid).filter((r) => r.state !== "done" && r.state !== "fail" && r.state !== "error" && Date.now() - (r.at || r.start || 0) < 5 * 60e3) : [];
     if (subs.length) {
       const sb = titleRow.createSpan({ cls: "ad-side" });
       setLucide(sb.createSpan({ cls: "ad-side__icon" }), "bot");

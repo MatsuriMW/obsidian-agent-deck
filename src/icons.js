@@ -13,6 +13,7 @@ export const AGENT_ICONS = {
   opencode: "square-terminal",
   qoder: "circle-dot",
   cursor: "mouse-pointer-click",
+  trae: "sparkles",
   grokbot: "bot",
   t3code: "code-2",
   cindy: "bot",

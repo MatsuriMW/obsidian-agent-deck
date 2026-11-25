@@ -6,7 +6,7 @@ import { EditorState, StateEffect, StateField } from "@codemirror/state";
 import { foldedRanges, foldEffect, unfoldEffect } from "@codemirror/language";
 import {
   aiRecordGroups, recordRuns, adBlockIdRanges, layoutMarkerRanges, hiddenBlockId, redirectHiddenTailTransaction,
-  recordIsOpen, recordStartsOpen, visibleRecords, visibleTableEntries, RECORD_VIEWS, RECORD_MARKER_BODY_RE,
+  recordIsOpen, recordStartsOpen, visibleRecords, visibleTableEntries, RECORD_VIEWS, RECORD_MARKER_BODY_RE, DONE_SUBAGENT_BODY_RE,
   recordViewMode, recordViewLabel, recordBadgeLabel, recordStepLabel, timelineSpanMeta, footerMetaText,
   buildTableModel, buildGroupTableRows, tokenizeInlineMarkdown, isBriefRecord, isPinnedLine,
   trackedBlockIds, blockSessionMap, formatTimelineAt, formatTimelineFull,
@@ -505,7 +505,8 @@ export function aiRecordUnfoldExtension(plugin, refreshEffect) {
     for (const g of groups) {
       if (!g.records.length) continue;
       const start = state.doc.line(g.records[0] + 1).from;
-      const end = state.doc.line(g.records[g.records.length - 1] + 1).to;
+      const lastLine = g.recordEndLine ?? g.records[g.records.length - 1];
+      const end = state.doc.line(lastLine + 1).to;
       for (const f of folds) {
         // 只收记录块内部的折叠；母项自身与更上层的折叠是用户自己的，不碰
         if (f.from >= start && f.from <= end) out.push(unfoldEffect.of(f));
@@ -580,7 +581,8 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
       if (isTopLevel) ranges.push(Decoration.widget({ widget: new ViewToggleWidget(plugin, group.key, group.line, viewMode), side: 3 }).range(doc.line(group.line + 1).to));
       const recordSet = new Set(group.records);
       for (const n of group.records) {
-        const pinned = isPinnedLine(lines[n]);
+        const sub = group.recordSubtrees?.[n];
+        const pinned = isPinnedLine(lines[n]) || Boolean(sub?.some((k) => isPinnedLine(lines[k])));
         ranges.push(Decoration.line({
           class: "ad-record-line"
             + (!open && isBriefRecord(lines[n]) ? " ad-record-brief-clamped" : "")
@@ -592,7 +594,14 @@ export function aiRecordDisplayExtension(plugin, refreshEffect) {
         if (recordSet.has(n) || !CONTEXT_RECORD_RE.test(lines[n])) continue;
         if (isPinnedLine(lines[n])) ranges.push(Decoration.line({ class: "ad-record-line--pinned" }).range(doc.line(n + 1).from));
       }
-      const hidden = group.records.filter((n) => !visible.includes(n));
+      const visibleSet = new Set(visible);
+      const hidden = [];
+      for (const n of group.records) {
+        if (visibleSet.has(n)) continue;
+        const sub = group.recordSubtrees?.[n];
+        if (sub?.length) hidden.push(...sub);
+        else hidden.push(n);
+      }
       for (const run of recordRuns(hidden)) {
         const from = Math.max(0, doc.line(run.from + 1).from - 1), to = doc.line(run.to + 1).to;
         ranges.push(Decoration.replace({ inclusive: false }).range(from, to));
@@ -725,12 +734,54 @@ export function renderAIRecords(el, plugin, ctx) {
   const srcGroups = section?.text ? aiRecordGroups(section.text, ids) : [];
   const agentNames = plugin.agentShortNames || null;
   let sidsByBlock = null;
+  const ownText = (li) => [...(li?.childNodes || [])]
+    .filter((n) => n.nodeName !== "UL" && n.nodeName !== "OL")
+    .map((n) => n.textContent)
+    .join("")
+    .trim();
+  const SESSION_HREF_RE = /^(?:obsidian:\/\/agent-deck|claude:\/\/|codex:\/\/|workbuddy:\/\/|dsh:\/\/|antigravity:\/\/)/i;
+  const ROUND_OR_SUMMARY_RE = /^\s*(?:(?:💬\s+)?(?:第\d+轮|Round\s+\d+)[：:]|💬\s+累计总结[：:])/;
+  const KID_MARKER_RE = /^(?:⏱.*·\s*(?:子代理|side chat)\s*|🔗\s*(?:子代理|side chat)\s*)/;
+  const isCompletedSubagentLi = (li, parentIsContainer) => {
+    if (!li || li.id || li.dataset?.blockId) return false;
+    const head = ownText(li);
+    const matchesHeader = DONE_SUBAGENT_BODY_RE.test(head) || (Boolean(li.classList?.contains("is-checked")) && /^🤖(?:\s|$)/.test(head));
+    if (!matchesHeader) return false;
+    const descendants = [...(li.querySelectorAll?.("li") || [])];
+    if (!descendants.length) return true;
+    let hasKidMarker = false;
+    for (const sub of descendants) {
+      if (sub.id || sub.dataset?.blockId) return false;
+      const subHead = ownText(sub);
+      if (!RECORD_MARKER_BODY_RE.test(subHead) || ROUND_OR_SUMMARY_RE.test(subHead)) return false;
+      if ([...(sub.querySelectorAll?.("a[href]") || [])].some((a) => SESSION_HREF_RE.test(a.getAttribute?.("href") || ""))) return false;
+      if (KID_MARKER_RE.test(subHead)) hasKidMarker = true;
+    }
+    if (parentIsContainer && !hasKidMarker) return false;
+    return true;
+  };
+  const markNestedLists = (lis) => {
+    const marked = [];
+    for (const li of lis) {
+      for (const nested of li.querySelectorAll?.("ul, ol") || []) {
+        if (!nested.dataset.adRecords) {
+          nested.dataset.adRecords = "true";
+          marked.push(nested);
+        }
+      }
+    }
+    return marked;
+  };
   for (const list of el.querySelectorAll("li ul, li ol")) {
     if (list.dataset.adRecords) continue;
     const parent = list.parentElement.closest("li");
     if (!parent) continue;
-    const own = [...parent.childNodes].filter((n) => n !== list && n.nodeName !== "UL" && n.nodeName !== "OL").map((n) => n.textContent).join("");
-    const records = [...list.children].filter((li) => !li.querySelector('ul, ol') && !li.id && !li.dataset.blockId && RECORD_MARKER_BODY_RE.test(li.textContent.trim()));
+    const own = ownText(parent);
+    const parentIsContainer = /^🤖(?:\s|$)/.test(own);
+    const records = [...list.children].filter((li) => (
+      (!li.querySelector("ul, ol") && !li.id && !li.dataset.blockId && RECORD_MARKER_BODY_RE.test(li.textContent.trim()))
+      || isCompletedSubagentLi(li, parentIsContainer)
+    ));
     const parentLine = section && parent.dataset?.line != null ? (section.lineStart || 0) + Number(parent.dataset.line) : -1;
     const first = srcLines[parentLine >= 0 ? parentLine : (section?.lineStart || 0) + (Number(parent.dataset.line) || 0)];
     const key = parent.id || parent.dataset.blockId || (first && /\s\^([A-Za-z0-9-]+)\s*$/.exec(first)?.[1]);
@@ -756,12 +807,15 @@ export function renderAIRecords(el, plugin, ctx) {
       const directLis = [...list.children].filter((c) => c.nodeName === "LI");
       for (const li of directLis) {
         const liLine = section && li.dataset?.line != null ? (section.lineStart || 0) + Number(li.dataset.line) : -1;
-        const isAiLi = (liLine >= 0 && hiddenEntryLines.has(liLine)) || RECORD_MARKER_BODY_RE.test(li.textContent.trim());
+        const isAiLi = (liLine >= 0 && hiddenEntryLines.has(liLine))
+          || RECORD_MARKER_BODY_RE.test(li.textContent.trim())
+          || isCompletedSubagentLi(li, parentIsContainer);
         if (isAiLi) {
           li.classList.add("ad-record-hidden");
           hiddenLis.push(li);
         }
       }
+      const markedNested = markNestedLists(hiddenLis);
       const hideWholeList = directLis.length > 0 && hiddenLis.length === directLis.length;
       if (hideWholeList) list.classList.add("ad-record-hidden");
 
@@ -805,6 +859,7 @@ export function renderAIRecords(el, plugin, ctx) {
         button.remove();
         if (hideWholeList) list.classList.remove("ad-record-hidden");
         for (const li of hiddenLis) li.classList.remove("ad-record-hidden");
+        for (const nested of markedNested) delete nested.dataset.adRecords;
         delete list.dataset.adRecords;
       });
       continue;
@@ -813,6 +868,7 @@ export function renderAIRecords(el, plugin, ctx) {
     const bound = records.some((li) => /^🔗\s|^💬\s+累计总结[：:]/.test(li.textContent.trim()));
     if (!records.length || !(bound || isDeckBlockId(key) || ids.has(key) || own.includes("🤖") || isDeckBlockId(parent.id) || ids.has(parent.id) || ids.has(parent.dataset.blockId))) continue;
     list.dataset.adRecords = "true";
+    const markedNested = markNestedLists(records);
     const summaries = records.filter((li) => /^💬\s+累计总结[：:]/.test(li.textContent.trim()));
     const done = /^(?:DONE|CANCELED|CANCELLED|FAILED)\b/i.test(parent.textContent.trim());
     // Map rendered list items back to raw Markdown lines so Reading View preserves <!-- ad-pin -->.
@@ -820,11 +876,12 @@ export function renderAIRecords(el, plugin, ctx) {
     const recordLineNums = records.map((li, i) => {
       const explicit = li.dataset?.line != null ? (section?.lineStart || 0) + Number(li.dataset.line) : -1;
       const lineNum = explicit >= 0 && explicit < srcLines.length ? explicit : (srcGroup?.records?.[i] ?? -1);
-      if (lineNum >= 0 && hasPinMarker(srcLines[lineNum])) pinnedSet.add(i);
+      const subLines = lineNum >= 0 ? srcGroup?.recordSubtrees?.[lineNum] : null;
+      if (lineNum >= 0 && (hasPinMarker(srcLines[lineNum]) || subLines?.some((k) => hasPinMarker(srcLines[k])))) pinnedSet.add(i);
       return lineNum;
     });
     // The selection helper works on line numbers, so the DOM list is indexed.
-    const texts = records.map((li) => li.textContent.trim());
+    const texts = records.map((li) => ownText(li));
     const group = { key, records: records.map((_, i) => i), summaries: summaries.map((li) => records.indexOf(li)), state: done ? "done" : "doing" };
     const startsOpen = recordStartsOpen(mode, group);
     let open = recordIsOpen(plugin.settings, mode, group);
@@ -860,7 +917,7 @@ export function renderAIRecords(el, plugin, ctx) {
     const paragraph = parent.querySelector(":scope > p");
     if (paragraph) paragraph.appendChild(button); else list.parentNode.insertBefore(button, list);
     update();
-    cleanups.push(() => { menuAbort.abort(); for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item", "ad-record-brief-clamped", "ad-record-pinned"); button.remove(); delete list.dataset.adRecords; });
+    cleanups.push(() => { menuAbort.abort(); for (const li of records) li.classList.remove("ad-record-hidden", "ad-record-item", "ad-record-brief-clamped", "ad-record-pinned"); for (const nested of markedNested) delete nested.dataset.adRecords; button.remove(); delete list.dataset.adRecords; });
   }
   return () => cleanups.forEach((cleanup) => cleanup());
 }

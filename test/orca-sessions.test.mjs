@@ -247,6 +247,9 @@ test("Orca SQLite schema, workspaceId cwd extraction, messages, tool audit, and 
   assert.equal(delegated.get("codex-in-orca-1"), "orca-sess-err");
   assert.equal(delegated.get("codex-col-thread-1"), "orca-sess-err");
   assert.equal(delegated.get("codex-prompt-thread"), "orca-sess-err");
+  assert.equal(delegated.has("t-1"), false, "bare provider_turn_id must not pollute delegatedOwners");
+  assert.equal(delegated.has("claude:claude-in-orca-1:a-1"), false, "raw message item_id must not pollute delegatedOwners");
+  assert.equal(delegated.has("p:codex-prompt-thread:prompt%3A1"), false, "raw prompt turn_id must not pollute delegatedOwners");
   assert.equal(delegated.has("claude-deleted-should-ignore"), false);
 
   const calls = await extractToolCallsFromDesktopDb(db, "orca", "orca-sess-1");

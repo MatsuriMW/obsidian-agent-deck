@@ -7,5 +7,8 @@ export const RECORD_FOLD_COMMANDS = {
 };
 export function foldTargets(groups, line, all = false) {
   if (all) return groups;
-  return groups.filter((g) => g.line <= line && g.records[g.records.length - 1] >= line).slice(-1);
+  return groups.filter((g) => {
+    const last = g.recordEndLine ?? g.records[g.records.length - 1];
+    return g.line <= line && last >= line;
+  }).slice(-1);
 }

@@ -219,6 +219,8 @@
   & .ad-rt-tl-item--question { --ad-rt-tone: var(--ad-warn, #a9845f); }
   & .ad-rt-badge--todo,
   & .ad-rt-tl-item--todo { --ad-rt-tone: var(--ad-bad, #a86f6d); }
+  & .ad-rt-badge--subagent,
+  & .ad-rt-tl-item--subagent { --ad-rt-tone: var(--ad-good, #6f8f7c); }
 
   /* 通用可点击交互行 */
   & .ad-rt-row,

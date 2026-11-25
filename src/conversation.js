@@ -3,6 +3,7 @@ import { updateNote, serializeNote } from "./note-updates.js";
 import fs from "fs";
 import { desktopMessages } from "./desktop-sessions.js";
 import { buildCursorConversation, readCursorTranscript } from "./cursor-sessions.js";
+import { buildTraeConversation } from "./trae-sessions.js";
 import { buildGrokBotConversation } from "./grok-bot-sessions.js";
 import { buildMuseConversation } from "./muse-sessions.js";
 import { buildKimiCodeConversation } from "./kimicode-sessions.js";
@@ -19,6 +20,7 @@ const textOf = (content) => typeof content === "string" ? content : (Array.isArr
 
 export function conversationMessages(agent, source, transcriptText = "") {
   if (agent === "cursor") return buildCursorConversation(source, transcriptText);
+  if (agent === "trae") return buildTraeConversation(source);
   if (agent === "grokbot") return buildGrokBotConversation(source);
   if (agent === "muse") return buildMuseConversation(source);
   if (agent === "kimicode") return buildKimiCodeConversation(source);
@@ -225,7 +227,7 @@ export function conversationTitle(session = {}, messages = []) {
 export function conversationMarkdown(session, messages) {
   const title = conversationTitle(session, messages).replace(/[\r\n]/g, " ");
   const sid = session.sid || session.sessionId;
-  const hasTools = session.agent === "cursor" || messages.some((m) => Array.isArray(m.tools) && m.tools.length);
+  const hasTools = session.agent === "cursor" || session.agent === "trae" || messages.some((m) => Array.isArray(m.tools) && m.tools.length);
   const noteLine = hasTools
     ? "> 本文归档用户消息、工具调用时间线（长结果已折叠）与 Agent 回复正文；内部推理与附件不包含在内。"
     : "> 本文归档用户消息与 Agent 回复正文；工具结果、内部推理和附件不包含在内。";

@@ -29,6 +29,7 @@ if (process.platform === "win32") {
 const CS = await import("../src/cursor-sessions.js");
 const { resolveSqliteBinary } = await import("../src/sqlite.js");
 const { AgentUsage, USAGE_CACHE_VERSION } = await import("../src/readers.js");
+const { JournalSync } = await import("../src/sync.js");
 const { conversationMessages, conversationMarkdown, readConversation, archiveConversation } = await import("../src/conversation.js");
 const J = await import("../src/journal.js");
 const { AGENTS, DEFAULTS } = await import("../src/constants.js");
@@ -541,6 +542,15 @@ test("Cursor sessionEnd/sessionStart and Codex trailing turns preserve exact las
   const cm = usage.meta.get(sidCursor);
   assert.equal(cm.lastAt, turnEnd, "Cursor sessionStart/preCompact/sessionEnd must not overwrite last conversation end time");
   assert.equal(usage.meta.get(codexSid)?.lastAt, turnEnd, "Codex task_complete without trailing token_count updates lastAt");
+});
+
+test("JournalSync.kidState maps failed/error subagents to FAILED and done subagents to DONE", () => {
+  const sync = new JournalSync({ settings: {}, usage: {} });
+  const now = Date.now();
+  assert.deepEqual(sync.kidState({ state: "done", at: now, start: now }, true), { st: "done", kw: "DONE" });
+  assert.deepEqual(sync.kidState({ state: "error", end: "boom", at: now, start: now }, true), { st: "fail", kw: "FAILED" });
+  assert.deepEqual(sync.kidState({ state: "fail", end: "failed", at: now, start: now }, true), { st: "fail", kw: "FAILED" });
+  assert.deepEqual(sync.kidState({ state: "fail", end: "cancelled", at: now, start: now }, true), { st: "fail", kw: "CANCELLED" });
 });
 
 test.after(() => {

@@ -406,6 +406,7 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   &[data-agent="t3code"]      { --ad-prog: #3d7bd9; }
   &[data-agent="cindy"]       { --ad-prog: #0ea5e9; }
   &[data-agent="orca"]        { --ad-prog: #0f766e; }
+  &[data-agent="trae"]        { --ad-prog: #10b981; }
   &[data-agent="muse"]        { --ad-prog: #c96f8f; }
   &[data-agent="teleagent"]   { --ad-prog: #2f7d6d; }
 
