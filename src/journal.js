@@ -109,7 +109,7 @@ export function readableSlug(title, now = Date.now()) {
 }
 
 export const isLegacyBlockId = id => /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(id || "");
-const shortSessionId = seed => BigInt("0x" + createHash("sha256").update(String(seed)).digest("hex").slice(0, 12)).toString(36).padStart(10, "0");
+export const shortSessionId = seed => BigInt("0x" + createHash("sha256").update(String(seed)).digest("hex").slice(0, 12)).toString(36).padStart(10, "0");
 export const sessionMarker = (kind, sid, round) => `<!-- ad-${kind}:${shortSessionId(sid)}:${round} -->`;
 export const turnMarker = (sid, round) => sessionMarker("turn", sid, round);
 export const hasRecordedTurn = (text, sid, round) => text.includes(turnMarker(sid, round)) || text.includes(`<!-- ad-turn:${sid}:${round} -->`);

@@ -1405,6 +1405,9 @@ test("Regression: existing-parent indent, readiness balancing, copilot stages, m
   }
   globalThis.__createMiniNode = (tag, opts) => new MiniNode(tag, opts);
   globalThis.__notices = [];
+  const hadRaf = Object.hasOwn(globalThis, "requestAnimationFrame");
+  const prevRaf = globalThis.requestAnimationFrame;
+  if (!hadRaf) globalThis.requestAnimationFrame = () => 0;
 
   const bundle = await esbuild.build({
     stdin: {
@@ -1496,7 +1499,7 @@ test("Regression: existing-parent indent, readiness balancing, copilot stages, m
     });
     await modal.onOpen();
     assert.equal(modal.projectName, "demo");
-    assert.equal(modal.cwd, path.join(tmpDir, "repo-demo"));
+    assert.equal(modal.cwd.replace(/\\/g, "/"), path.join(tmpDir, "repo-demo").replace(/\\/g, "/"));
     assert.match(modal.goal, /需求：先拆解再测试/);
     assert.equal(modal.subtasks.length, 0);
     // Click Quick Split button to generate drafts, then edit title without losing DOM input focus.
@@ -1622,6 +1625,8 @@ test("Regression: existing-parent indent, readiness balancing, copilot stages, m
   } finally {
     delete globalThis.__createMiniNode;
     delete globalThis.__notices;
+    if (!hadRaf) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = prevRaf;
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
@@ -1823,16 +1828,16 @@ test("Round 2 regression: worker quota recovery, replacement job adoption, queue
     const boardModel = buildTaskBoardModel(grp, plugin, { queuedStagesByBlockId: qMap });
     assert.equal(boardModel.todoDispatchCount, 0, "queued stage-2 card excluded from Dispatch TODO count");
 
-    // Stage 1 worker hits exit-0 quota text -> marked ERRORED, cancels Stage 2, and hands off to Steward!
+    // Stage 1 total failure pauses in error state, preserves Stage 2 queue, and skips wasting a Steward call on 0 outputs.
     delegatedCalls[0].job.state = "done";
     delegatedCalls[0].job.result = "⚠ Individual quota reached for this account";
     await plugin.onWorkbenchJobSettled(delegatedCalls[0].job);
     assert.equal(wave.workers[0].state, "error");
     assert.match(notes.get("daily/2026-11-26.md"), /ERRORED 阶段一唯一子任务/);
     assert.equal(wave.stage, 1, "Stage 2 does not launch when Stage 1 failed");
-    assert.equal(wave.queuedStages.length, 0, "queued Stage 2 is paused/cleared on Stage 1 total failure");
-    assert.equal(delegatedCalls.length, 2, "Steward launches to report/recover failed Stage 1");
-    assert.match(delegatedCalls[1].job.name, /🧭/);
+    assert.equal(wave.state, "error", "wave pauses in error state instead of launching Steward on 0 outputs");
+    assert.equal(wave.queuedStages.length, 1, "queued Stage 2 is preserved for 1-click retry recovery");
+    assert.equal(delegatedCalls.length, 1, "Steward does not auto-launch when 0 workers succeeded");
 
     // Rebuild wave cleanly via replacement job on same blockId (e.g. from board retry)
     const retrySaved = await plugin.writeWorkbenchTasks({
@@ -1938,13 +1943,8 @@ test("Round 2 regression: worker quota recovery, replacement job adoption, queue
     failedJob.state = "done";
     failedJob.result = "⚠ Individual quota reached";
     await plugin.onWorkbenchJobSettled(failedJob);
-    // Cancel the auto-launched steward so retryFailedWaveWorkers can recover the failed stage-1 worker on the board
-    wFail.state = "waiting";
-    wFail.steward.jobId = "";
-    wFail.queuedStages = [{
-      stage: 2,
-      tasks: [{ blockId: savedFailover.subtaskLines[1].blockId, line: savedFailover.subtaskLines[1].line, title: "子卡二", agent: "codex" }],
-    }];
+    assert.equal(wFail.state, "error");
+    assert.equal(wFail.queuedStages.length, 1, "queued Stage 2 stays intact without manual restoration");
 
     await plugin.retryFailedWaveWorkers(wFail.id);
     const retryCall = delegatedCalls.at(-1);
@@ -2023,4 +2023,540 @@ test("Scope token overlap detection, one-click auto-stagger, and board wave bann
     wDismissed: { id: "wDismissed", path: "a.md", parentBlockId: "ad-1", state: "done", dismissed: true, updatedAt: 300 },
   };
   assert.equal(findBoardWaveBanner(waves, { path: "a.md", parentBlockId: "ad-1" })?.id, "wDoneNew");
+});
+
+test("Round 3 regression: wikilink Answers resolution, session isolation, partial-stage skip, awaitingReply, JournalSync multi-link, readonly board & modal CWD", async () => {
+  const {
+    extractBlockResultText,
+    collectWaveWorkerReports,
+    buildStewardPrompt,
+    buildBoardSiblingContext: siblingCtx,
+  } = await import("../src/project-workbench.js");
+  const { JournalSync } = await import("../src/sync.js");
+  const { DEFAULTS } = await import("../src/constants.js");
+  const J = await import("../src/journal.js");
+
+  // 1. extractBlockResultText handles Obsidian wikilinks and isolates sessions via <!-- ad-turn:... -->
+  const oldSid = "old-dead-sid-0001";
+  const newSid = "new-good-sid-0002";
+  const noteWithMixedRounds = [
+    "- TOREVIEW 开发核心模块 @codex ^ad-blk-mix",
+    `\t- 🔗 [Antigravity](agent-deck://session/antigravity/${oldSid})`,
+    `\t- 第1轮：⚠️ 额度已用尽 ${J.turnMarker(oldSid, 1)}`,
+    `\t- 🔗 [Codex](codex://threads/${newSid})`,
+    `\t- 第1轮：📄 [[Agent Deck/Answers/dev-1.md|完整问答]] ${J.turnMarker(newSid, 1)}`,
+  ].join("\n");
+  const isolated = extractBlockResultText(noteWithMixedRounds, { blockId: "ad-blk-mix", sessionId: newSid });
+  assert.equal(isolated.answerLink, "Agent Deck/Answers/dev-1.md");
+  assert.doesNotMatch(isolated.summary, /额度已用尽/, "older session error turn is filtered out");
+
+  const reports = collectWaveWorkerReports(
+    {
+      workers: [{
+        jobId: "j-new",
+        blockId: "ad-blk-mix",
+        title: "开发核心模块",
+        agent: "codex",
+        state: "done",
+        sessionId: newSid,
+        result: "📄 [[Agent Deck/Answers/dev-1.md|完整问答]]",
+      }],
+    },
+    {
+      jobs: { "j-new": { id: "j-new", state: "done", sessionId: newSid, result: "已完成核心模块并通过测试" } },
+      noteText: noteWithMixedRounds,
+      vaultPath: "/Users/demo/MyVault",
+    },
+  );
+  assert.equal(reports[0].answerAbsPath, "/Users/demo/MyVault/Agent Deck/Answers/dev-1.md");
+  const stwPrompt = buildStewardPrompt({ wave: { round: 1 }, reports, availableAgents: ["codex"] });
+  assert.match(stwPrompt, /\/Users\/demo\/MyVault\/Agent Deck\/Answers\/dev-1\.md/);
+  const nextStageCtx = siblingCtx({ title: "母任务", columns: [{ id: "todo", cards: [] }] }, -1, { upstreamReports: reports, stage: 2, totalStages: 2 });
+  assert.match(nextStageCtx, /\/Users\/demo\/MyVault\/Agent Deck\/Answers\/dev-1\.md/);
+
+  // 1b. skipConfirmFirst: true injects DIRECT_EXECUTE and omits CONFIRM_FIRST; false keeps CONFIRM_FIRST
+  const { createContextBundle, renderContextBundle } = await import("../src/harness.js");
+  const { DIRECT_EXECUTE, CONFIRM_FIRST } = await import("../src/constants.js");
+  const { cleanBackgroundText } = await import("../src/background-output.js");
+  const directBundle = createContextBundle(
+    { settings: { delegate: { confirmFirst: true } } },
+    { block: { text: "- TODO 实现模块" }, skipConfirmFirst: true },
+  );
+  const directPrompt = renderContextBundle(directBundle);
+  assert.ok(directPrompt.includes(DIRECT_EXECUTE), "skipConfirmFirst: true injects DIRECT_EXECUTE");
+  assert.ok(!directPrompt.includes(CONFIRM_FIRST), "skipConfirmFirst: true omits CONFIRM_FIRST");
+  assert.equal(cleanBackgroundText(`第一行汇报\n\n${DIRECT_EXECUTE}`), "第一行汇报", "cleanBackgroundText strips DIRECT_EXECUTE");
+
+  const confirmBundle = createContextBundle(
+    { settings: { delegate: { confirmFirst: true } } },
+    { block: { text: "- TODO 实现模块" }, skipConfirmFirst: false },
+  );
+  const confirmPrompt = renderContextBundle(confirmBundle);
+  assert.ok(confirmPrompt.includes(CONFIRM_FIRST), "skipConfirmFirst: false keeps CONFIRM_FIRST");
+  assert.ok(!confirmPrompt.includes(DIRECT_EXECUTE), "skipConfirmFirst: false omits DIRECT_EXECUTE");
+
+  // 2. JournalSync.keywords prefers active/newest 🔗 link and ignores older errored/stale 🔗 under the same block
+  const now = Date.now();
+  const sErrOld = "sid-err-old-1";
+  const sRunNew = "sid-run-new-2";
+  const multiLinkNote = [
+    "- DELEGATED 重派卡片 @codex ^ad-retest",
+    `\t- 🔗 [Codex](codex://threads/${sRunNew})`,
+    `\t- 🔗 [Antigravity](agent-deck://session/antigravity/${sErrOld})`,
+  ].join("\n");
+  const js = new JournalSync({
+    settings: { ...DEFAULTS },
+    jobs: {
+      jOld: { id: "jOld", sessionId: sErrOld, state: "error", startedAt: now - 60000 },
+      jNew: { id: "jNew", sessionId: sRunNew, state: "running", startedAt: now - 1000 },
+    },
+    usage: {
+      summary: () => ({ list: [] }),
+      meta: new Map([
+        [sErrOld, { sid: sErrOld, agent: "antigravity", state: "error", lastAt: now - 50000 }],
+        [sRunNew, { sid: sRunNew, agent: "codex", state: "run", lastAt: now - 500 }],
+      ]),
+    },
+  });
+  const syncedText = js.keywords(multiLinkNote);
+  assert.match(syncedText, /^- DELEGATED 重派卡片/m, "old errored link does not clobber active replacement session");
+
+  // 3. Bundled AgentDeckPlugin + ProjectWorkbenchModal + renderTaskBoards Reading View checks
+  class MiniNode {
+    constructor(tag, opts = {}) {
+      this.tagName = String(tag || "div").toUpperCase();
+      this.attrs = {};
+      this.className = opts.cls || "";
+      this.textContent = opts.text || "";
+      this.value = "";
+      this.type = "";
+      this.checked = false;
+      this.disabled = false;
+      this.hidden = false;
+      this.draggable = false;
+      this.style = { setProperty() {} };
+      this.dataset = {};
+      this.children = [];
+      this.parentElement = null;
+      this.parentNode = null;
+      this.listeners = {};
+      for (const [k, v] of Object.entries(opts.attr || {})) {
+        this.attrs[k] = v;
+        if (k === "value") this.value = v;
+      }
+      const makeEl = (t) => new MiniNode(t);
+      this.ownerDocument = { createElement: makeEl };
+    }
+    get classList() {
+      const self = this;
+      return {
+        add: (...names) => self.addClass(...names),
+        remove: (...names) => {
+          const rm = new Set(names);
+          self._cls = self._cls.split(/\s+/).filter((c) => c && !rm.has(c)).join(" ");
+        },
+        toggle: (name, force) => {
+          const has = self._cls.split(/\s+/).includes(name);
+          const on = force !== undefined ? Boolean(force) : !has;
+          if (on) self.addClass(name);
+          else self.classList.remove(name);
+        },
+      };
+    }
+    set className(v) { this._cls = String(v || ""); }
+    get className() { return this._cls; }
+    addClass(...names) { this._cls = [...new Set([...this._cls.split(/\s+/).filter(Boolean), ...names])].join(" "); }
+    empty() { this.children = []; this.textContent = ""; }
+    createDiv(o) { return this.createEl("div", o); }
+    createSpan(o) { return this.createEl("span", o); }
+    createEl(tag, o = {}) {
+      const child = new MiniNode(tag, o);
+      child.ownerDocument = this.ownerDocument;
+      return this.appendChild(child);
+    }
+    appendChild(child) {
+      child.parentElement = this;
+      child.parentNode = this;
+      this.children.push(child);
+      return child;
+    }
+    insertBefore(newNode, refNode) {
+      newNode.parentElement = this;
+      newNode.parentNode = this;
+      const idx = this.children.indexOf(refNode);
+      if (idx >= 0) this.children.splice(idx, 0, newNode);
+      else this.children.push(newNode);
+      return newNode;
+    }
+    setAttribute(k, v) { this.attrs[k] = String(v); }
+    addEventListener(ev, fn) { (this.listeners[ev] ||= []).push(fn); }
+    closest(sel) {
+      let cur = this;
+      const tag = String(sel || "").toUpperCase();
+      while (cur) {
+        if (cur.tagName === tag) return cur;
+        cur = cur.parentElement;
+      }
+      return null;
+    }
+    querySelectorAll(sel) {
+      const parts = String(sel || "").split(",").map((s) => s.trim()).filter(Boolean);
+      const matchSingle = (node, tok) => {
+        if (tok.startsWith(".")) return (node.className || "").split(/\s+/).includes(tok.slice(1));
+        return node.tagName === tok.toUpperCase();
+      };
+      const matches = (node, part) => {
+        const chain = part.split(/\s+/).filter(Boolean);
+        if (!chain.length || !matchSingle(node, chain.at(-1))) return false;
+        let cur = node.parentElement;
+        for (let i = chain.length - 2; i >= 0; i--) {
+          while (cur && !matchSingle(cur, chain[i])) cur = cur.parentElement;
+          if (!cur) return false;
+          cur = cur.parentElement;
+        }
+        return true;
+      };
+      const hit = [];
+      const walk = (n) => {
+        for (const c of n.children || []) {
+          if (parts.some((p) => matches(c, p))) hit.push(c);
+          walk(c);
+        }
+      };
+      walk(this);
+      return hit;
+    }
+    querySelector(sel) { return this.querySelectorAll(sel)[0] || null; }
+  }
+
+  const obsidianStub = `
+    export class Plugin {};
+    export class Modal {
+      constructor(){
+        this.modalEl = globalThis.__createMiniNode('div');
+        this.contentEl = globalThis.__createMiniNode('div');
+      }
+      open(){}
+      close(){ this.onClose?.(); }
+    };
+    export class ItemView {};
+    export class Menu {};
+    export class MarkdownView {};
+    export class MarkdownRenderChild {};
+    export class MarkdownRenderer { static render(app, val, el){ el.textContent = val; return Promise.resolve(); } };
+    export class Component { load(){} unload(){} };
+    export class Notice { constructor(m){ (globalThis.__notices ||= []).push(m); } hide(){} };
+    export class PluginSettingTab {};
+    export function setIcon(){};
+    export function requestUrl(){};
+    export const editorInfoField = {};
+  `;
+  const cmStub = `
+    export class WidgetType {};
+    export const Decoration = { set: () => [], replace: () => ({ range: () => ({}) }), widget: () => ({ range: () => ({}) }) };
+    export const EditorView = { decorations: { from: () => ({}) }, atomicRanges: { of: () => ({}) }, scrollIntoView: () => ({}) };
+    export const EditorSelection = { cursor: (p) => ({ anchor: p, head: p }) };
+    export const ViewPlugin = { fromClass: () => ({}) };
+    export const EditorState = { create: () => ({}) };
+    export const StateEffect = { define: () => ({ of: () => ({}), is: () => false }) };
+    export const StateField = { define: () => ({}) };
+    export class RangeSetBuilder { constructor() { this.items = []; } add() {} finish() { return []; } }
+    export function syntaxTree() { return { resolveInner: () => null }; }
+    export const foldedRanges = () => ({});
+    export const foldEffect = {};
+    export const unfoldEffect = {};
+  `;
+  const extraStubs = {
+    electron: "export const shell = { openExternal(){} };",
+    "./icons.js": "export function agentIcon(){};export function setLucide(){};export function stateIcon(){};",
+    "./editor.js": "export const editorInfoField = {}; export const createEditorExtension = () => []; export function dispatchRefresh(){}; export const ITEM_MIME = 'x';",
+    "./fold-integration.js": "export function integrateRecordFolding(){}",
+    "./mention-suggest.js": "export function registerTaskAgentSuggest(){}",
+    "./view.js": "export class AgentDeckView {}; export const VIEW_TYPE = 'ad-view';",
+    "./dashboard.js": "export class DashboardView {}; export const DASHBOARD_TYPE = 'ad-dash';",
+    "./settings.js": "export class AgentDeckSettingsTab {}; export function syncDelegationSettings(s){ return s; }",
+    "./menubar.js": "export class MenuBarBridge { constructor(){} start(){ return Promise.resolve(); } stop(){} }",
+  };
+  globalThis.__createMiniNode = (tag, opts) => new MiniNode(tag, opts);
+  globalThis.__notices = [];
+  const hadRaf = Object.hasOwn(globalThis, "requestAnimationFrame");
+  const prevRaf = globalThis.requestAnimationFrame;
+  if (!hadRaf) globalThis.requestAnimationFrame = () => 0;
+
+  const bundle = await esbuild.build({
+    stdin: {
+      contents: "export { default as AgentDeckPlugin } from './src/main.js'; export { ProjectWorkbenchModal } from './src/workbench-modal.js'; export { renderTaskBoards } from './src/fractal-board.js';",
+      resolveDir: path.resolve(import.meta.dirname, ".."),
+    },
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    loader: { ".png": "dataurl" },
+    write: false,
+    external: ["@codemirror/*"],
+    plugins: [{
+      name: "r3-test",
+      setup(b) {
+        b.onResolve({ filter: /^(obsidian|electron|\..*)$/ }, (a) => {
+          if (a.path === "obsidian") return { path: "obsidian", namespace: "stub" };
+          if (extraStubs[a.path]) return { path: a.path, namespace: "stub" };
+          return undefined;
+        });
+        b.onResolve({ filter: /^@codemirror\// }, (a) => ({ path: a.path, namespace: "cm" }));
+        b.onLoad({ filter: /.*/, namespace: "stub" }, (a) => ({
+          contents: a.path === "obsidian" ? obsidianStub : extraStubs[a.path],
+        }));
+        b.onLoad({ filter: /.*/, namespace: "cm" }, () => ({ contents: cmStub }));
+      },
+    }],
+  });
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-r3-"));
+  const modFile = path.join(tmpDir, "bundle.mjs");
+  fs.writeFileSync(modFile, bundle.outputFiles[0].text);
+  try {
+    const { AgentDeckPlugin, ProjectWorkbenchModal, renderTaskBoards } = await import(pathToFileURL(modFile));
+    const notes = new Map([
+      ["existing.md", [
+        "- DOING 重建项目工作台 ^ad-root-existing",
+        "\t- 目标：端到端优化并防冲突",
+        "\t- DONE 旧已完成子卡 @codex ^ad-old-1",
+        "\t\t- 💬 第1轮：已合入",
+        "\t- TODO 旧待办子卡 @antigravity ^ad-old-2",
+      ].join("\n")],
+      ["board-unassigned.md", [
+        "- TODO 无指派看板 ^ad-unassigned",
+        "\t- TODO 卡片1",
+        "\t- TODO 卡片2",
+      ].join("\n")],
+      ["daily/2026-11-26.md", "## 正在做\n"],
+    ]);
+
+    const plugin = new AgentDeckPlugin();
+    plugin.vaultPath = tmpDir;
+    plugin.app = {
+      vault: {
+        getAbstractFileByPath: (p) => (notes.has(p) ? { path: p, extension: "md" } : null),
+        read: async (f) => notes.get(typeof f === "string" ? f : f.path) || "",
+        modify: async (f, text) => { notes.set(typeof f === "string" ? f : f.path, text); },
+        process: async (f, fn) => {
+          const p = typeof f === "string" ? f : f.path;
+          const next = fn(notes.get(p) || "");
+          notes.set(p, next);
+          return next;
+        },
+        create: async (p, text) => { notes.set(p, text); return { path: p, extension: "md" }; },
+        createFolder: async () => {},
+      },
+      workspace: { getLeavesOfType: () => [], getActiveFile: () => null },
+      metadataCache: { getFirstLinkpathDest: () => null },
+    };
+    plugin.settings = {
+      agents: { claude: true, codex: true, antigravity: true },
+      taskBoardViews: { "ad-root-existing": "board" },
+      workbenchWaves: {},
+      projectTeams: { presets: {}, byProject: {}, stewards: {} },
+    };
+    plugin.jobs = {};
+    plugin.usage = { meta: new Map() };
+    plugin.liveSessions = () => [];
+    plugin.defaultTarget = () => "claude";
+    plugin.agentEnabled = (id) => ["claude", "codex", "antigravity"].includes(id);
+    plugin.saveData = async () => {};
+    plugin.saveSettings = async () => {};
+    plugin.readNote = async (p) => notes.get(p) || "";
+    plugin.refreshUI = () => {};
+    plugin.viewForPath = () => null;
+    plugin.openMirrorSource = async () => {};
+    plugin._launchingWaves = new Set();
+    plugin._finalizingWaves = new Set();
+    plugin.notice = (m) => (globalThis.__notices ||= []).push(m);
+
+    // 3a. extractGoalFromBlock skips existing DONE/TODO child task lines + commitTasks blocks non-existent cwd
+    const modal = new ProjectWorkbenchModal(plugin.app, plugin, {
+      path: "existing.md",
+      line: 0,
+      uninstalledAgents: new Set(["claude"]),
+    });
+    await modal.onOpen();
+    assert.match(modal.goal, /重建项目工作台/);
+    assert.match(modal.goal, /端到端优化并防冲突/);
+    assert.doesNotMatch(modal.goal, /旧已完成子卡|@codex|\^ad-old/);
+
+    modal.subtasks = [{ checked: true, title: "检查路径", agent: "codex", stage: 1, destination: "background", detail: "" }];
+    modal.cwd = path.join(tmpDir, "definitely-missing-dir");
+    const callsBeforeBadCwd = globalThis.__notices.length;
+    await modal.commitTasks({ dispatch: true });
+    assert.ok(globalThis.__notices.slice(callsBeforeBadCwd).some((m) => m.includes("工作目录不存在")), "non-existent cwd blocks dispatch with notice");
+
+    // 3b. Reading View (readOnly) omits interactive <select> and sets draggable = false
+    const rvContainer = new MiniNode("div");
+    const parentLi = rvContainer.createEl("li");
+    parentLi.dataset = { line: "0", blockId: "ad-root-existing" };
+    parentLi.appendChild(new MiniNode("ul"));
+    renderTaskBoards(rvContainer, plugin, {
+      sourcePath: "existing.md",
+      getSectionInfo: () => ({ text: notes.get("existing.md"), lineStart: 0 }),
+    });
+    const readonlyBoard = rvContainer.querySelector(".ad-board-wrap--readonly");
+    assert.ok(readonlyBoard, "Reading View mounts .ad-board-wrap--readonly");
+    assert.equal(readonlyBoard.querySelectorAll(".ad-board__agentsel").length, 0, "Reading View renders no interactive agent <select>");
+    assert.ok(readonlyBoard.querySelectorAll(".ad-board__card").every((c) => c.draggable === false), "Reading View cards are not draggable");
+
+    // 3c. Partial Stage 1 failure pauses in error with queuedStages intact, and force-skip continues Stage 2
+    let seq = 0;
+    const delegatedCalls = [];
+    plugin.delegator = {
+      delegate: async (opts) => {
+        seq += 1;
+        const job = {
+          id: `r3-job-${seq}`,
+          agent: opts.agent,
+          name: opts.block.text.split("\n")[0],
+          blockId: opts.block.text.match(/\^([a-z0-9-]+)/i)?.[1] || "",
+          path: opts.file.path,
+          state: "running",
+          startedAt: 2000 + seq * 100,
+          sessionId: `r3-sid-${seq}`,
+          result: "",
+          awaitingReply: false,
+        };
+        plugin.jobs[job.id] = job;
+        delegatedCalls.push({ job, opts });
+        return job;
+      },
+      cancel: () => {},
+    };
+
+    const partialSaved = await plugin.writeWorkbenchTasks({
+      path: "daily/2026-11-26.md",
+      parentTitle: "部分失败跳过续跑",
+      subtasks: [
+        { checked: true, stage: 1, title: "成功分支", agent: "codex" },
+        { checked: true, stage: 1, title: "非关键分支", agent: "antigravity" },
+        { checked: true, stage: 2, title: "后续集成", agent: "codex" },
+      ],
+    });
+    await plugin.dispatchWorkbenchTasks({
+      path: partialSaved.path,
+      lines: partialSaved.lines,
+      subtaskLines: partialSaved.subtaskLines,
+      parentTitle: "部分失败跳过续跑",
+      parentBlockId: partialSaved.parentBlockId,
+      steward: { enabled: true, agent: "codex", destination: "background", autoContinue: false },
+    });
+    const wPartial = Object.values(plugin.settings.workbenchWaves).find((w) => w.parentBlockId === partialSaved.parentBlockId);
+    const [jOk, jFail] = delegatedCalls.slice(-2).map((x) => x.job);
+    jOk.state = "done";
+    jOk.result = "分支一完成";
+    await plugin.onWorkbenchJobSettled(jOk);
+    jFail.state = "error";
+    jFail.error = "network timeout";
+    await plugin.onWorkbenchJobSettled(jFail);
+    assert.equal(wPartial.state, "error", "partial Stage 1 failure pauses in error before advancing Stage 2");
+    assert.equal(wPartial.queuedStages.length, 1, "Stage 2 stays queued on partial failure");
+    await plugin.advanceWaveToNextStage(wPartial.id, { force: true });
+    assert.equal(wPartial.state, "waiting");
+    assert.equal(wPartial.stage, 2, "force=true advances cleanly to Stage 2 despite Stage 1 partial failure");
+    await plugin.cancelWorkbenchWave(wPartial.id);
+
+    // 3d. skipConfirmFirst: false holds wave on awaitingReply and marks card NEEDOK, then advances after reply clears awaitingReply
+    const askSaved = await plugin.writeWorkbenchTasks({
+      path: "daily/2026-11-26.md",
+      parentTitle: "先反问后放行",
+      subtasks: [
+        { checked: true, stage: 1, title: "反问任务", agent: "codex" },
+        { checked: true, stage: 2, title: "放行后任务", agent: "codex" },
+      ],
+    });
+    await plugin.dispatchWorkbenchTasks({
+      path: askSaved.path,
+      lines: askSaved.lines,
+      subtaskLines: askSaved.subtaskLines,
+      parentTitle: "先反问后放行",
+      parentBlockId: askSaved.parentBlockId,
+      skipConfirmFirst: false,
+      steward: { enabled: false },
+    });
+    const wAsk = Object.values(plugin.settings.workbenchWaves).find((w) => w.parentBlockId === askSaved.parentBlockId);
+    const jAsk = delegatedCalls.at(-1).job;
+    jAsk.state = "done";
+    jAsk.awaitingReply = true;
+    jAsk.result = "请确认是否继续修改配置文件？";
+    await plugin.onWorkbenchJobSettled(jAsk);
+    assert.equal(wAsk.stage, 1, "wave holds at Stage 1 while awaiting user reply under skipConfirmFirst: false");
+    assert.match(notes.get("daily/2026-11-26.md"), /NEEDOK 反问任务/);
+
+    jAsk.awaitingReply = false;
+    jAsk.result = "已按用户答复完成修改";
+    await plugin.onWorkbenchJobSettled(jAsk);
+    assert.equal(wAsk.stage, 2, "wave advances to Stage 2 once reply finishes");
+    await plugin.cancelWorkbenchWave(wAsk.id);
+
+    // 3d-ext. External reply in meta.rounds (e.g. answered in Codex Desktop/CLI) also unblocks awaitingReply without continueSession
+    const extSaved = await plugin.writeWorkbenchTasks({
+      path: "daily/2026-11-26.md",
+      parentTitle: "外部客户端回复解锁",
+      subtasks: [
+        { checked: true, stage: 1, title: "外部提问任务", agent: "codex" },
+        { checked: true, stage: 2, title: "外部回复后继续", agent: "codex" },
+      ],
+    });
+    await plugin.dispatchWorkbenchTasks({
+      path: extSaved.path,
+      lines: extSaved.lines,
+      subtaskLines: extSaved.subtaskLines,
+      parentTitle: "外部客户端回复解锁",
+      parentBlockId: extSaved.parentBlockId,
+      skipConfirmFirst: false,
+      steward: { enabled: false },
+    });
+    const wExt = Object.values(plugin.settings.workbenchWaves).find((w) => w.parentBlockId === extSaved.parentBlockId);
+    const jExt = delegatedCalls.at(-1).job;
+    jExt.state = "done";
+    jExt.awaitingReply = true;
+    jExt.awaitingReplyRounds = 1;
+    jExt.result = "请确认外部方案 A 还是 B？";
+    await plugin.onWorkbenchJobSettled(jExt);
+    assert.equal(wExt.stage, 1, "wave holds at Stage 1 before external reply arrives");
+
+    plugin.usage.meta.set(jExt.sessionId, {
+      sid: jExt.sessionId,
+      agent: "codex",
+      state: "wait",
+      lastAt: Date.now(),
+      rounds: [
+        { n: 1, ask: "t1", said: "请确认外部方案 A 还是 B？" },
+        { n: 2, ask: "用方案 A", said: "已按方案 A 完成修改" },
+      ],
+    });
+    await plugin.syncWorkbenchWaves();
+    assert.equal(wExt.stage, 2, "external reply round > awaitingReplyRounds unblocks wave and advances Stage 2");
+    await plugin.cancelWorkbenchWave(wExt.id);
+
+    // 3e. dispatchBoardGroup avoids uninstalled defaultTarget() and allows Steward when prior wave is in error state
+    plugin.settings.workbenchWaves.staleErr = {
+      id: "staleErr",
+      path: "board-unassigned.md",
+      parentBlockId: "ad-unassigned",
+      state: "error",
+      updatedAt: 1000,
+      workers: [],
+    };
+    const origExists = fs.existsSync;
+    // Note: uninstalledAgentsFor inspects filesystem paths; since claude is mock-uninstalled or installed on dev machine,
+    // verify unassigned fallback picks an enabled delegable agent (never throws) and creates a new wave with Steward enabled.
+    await plugin.dispatchBoardGroup("board-unassigned.md", 0);
+    const newUnassignedWave = Object.values(plugin.settings.workbenchWaves).find(
+      (w) => w.path === "board-unassigned.md" && w.id !== "staleErr",
+    );
+    assert.ok(newUnassignedWave, "dispatchBoardGroup allocates a new wave with Steward even if an older wave is in error state");
+    assert.equal(newUnassignedWave.steward.enabled, true);
+    void origExists;
+  } finally {
+    delete globalThis.__createMiniNode;
+    delete globalThis.__notices;
+    if (!hadRaf) delete globalThis.requestAnimationFrame;
+    else globalThis.requestAnimationFrame = prevRaf;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });

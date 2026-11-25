@@ -1180,7 +1180,10 @@
   & .ad-board__pin,
   & .ad-board__zoom,
   & .ad-board__coladd,
-  & .ad-board__quickadd {
+  & .ad-board__quickadd,
+  & .ad-board__check,
+  & .ad-board__bulk,
+  & .ad-board__stewardsel {
     display: none;
   }
 

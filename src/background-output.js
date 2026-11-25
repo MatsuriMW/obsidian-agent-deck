@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { serializeNote, updateNote } from "./note-updates.js";
-import { CONFIRM_FIRST } from "./constants.js";
+import { CONFIRM_FIRST, DIRECT_EXECUTE } from "./constants.js";
 import * as J from "./journal.js";
 import { cleanUserPrompt } from "./prompt-text.js";
 import { t } from "./i18n.js";
@@ -13,7 +13,7 @@ export function cleanBackgroundText(raw, job = {}) {
   const fenced = J.fencedLines(lines);
   return lines.flatMap((line, i) => {
     if (fenced.has(i)) return [line];
-    if (J.parseLink(line) || /^\s*（来自 Obsidian：.*）\s*$/.test(line) || line.trim() === CONFIRM_FIRST) return [];
+    if (J.parseLink(line) || /^\s*（来自 Obsidian：.*）\s*$/.test(line) || line.trim() === CONFIRM_FIRST || line.trim() === DIRECT_EXECUTE) return [];
     const metadata = /^\s*(?:[-*+]\s+)?(?:会话(?:ID|号)?|session(?:Id| ID)?|blockId|定位符|标识符)\s*[:：]\s*`?([^`]+?)`?\s*$/i.exec(line);
     if (metadata && ([job.sessionId, job.blockId, job.id].includes(metadata[1]) || J.isDeckBlockId(metadata[1]) || /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(metadata[1]))) return [];
     line = line.replace(/<!--\s*(?:ad-(?:turn|summary(?:-pending)?|clock):[^>]*|\/?agent-deck(?:-conversation|:)[^>]*)-->/g, "");

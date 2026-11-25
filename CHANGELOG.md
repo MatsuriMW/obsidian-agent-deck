@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.13.28
+
+- **多 Agent 编排第三轮打磨、跨平台测试与阅读视图加固（[`src/project-workbench.js`](src/project-workbench.js)、[`src/main.js`](src/main.js)、[`src/harness.js`](src/harness.js)、[`src/delegation.js`](src/delegation.js)、[`src/sync.js`](src/sync.js)、[`src/steward-watch.js`](src/steward-watch.js)、[`src/fractal-board.js`](src/fractal-board.js)、[`src/workbench-modal.js`](src/workbench-modal.js)）**：
+  - **跨平台 Windows CI 修复（[`test/project-workbench.test.mjs`](test/project-workbench.test.mjs)）**：修复工作台 `cwd` 断言在 `windows-latest` 下因 `normalizeProjectFolder()` 统一正斜杠与 `path.join()` 反斜杠不一致导致失败的问题。
+  - **分批失败保护、直接执行指令与无缝恢复**：
+    - 新增 `DIRECT_EXECUTE` 常量，勾选「跳过首轮反问确认」（`skipConfirmFirst: true`）时明确要求队员一次性交付并在 [`src/background-output.js`](src/background-output.js) 中纳入归档剥离规则；未勾选且队员提出 `❓` 疑问（`job.awaitingReply = true`）时将子卡置为 `NEEDOK` 并暂停波次推进，支持同会话续聊、桌面端新轮次自动解锁以及看板右键「重新派发（新会话）」携带 `✍️ 答：` 接力恢复（[`src/main.js`](src/main.js) `onWorkbenchJobSettled` `onlyIfKeywords` 补入 `"NEEDOK"`）。
+    - 分批波次任一队员失败时保持 `queuedStages` 队列不清空、暂停在 `error` 态支持一键「重派失败项」（重派时保留前序阶段 `upstreamReports` 并按最新 `blockId` 定位行号）或点击「跳过失败继续第 N 批」；全部失败时暂停而不浪费一次管家调用；`dispatchBoardGroup` 为未指定子卡自动分配健康已装 CLI 的 Agent，并在旧波次处于 `error` 态时允许重新挂载新管家；`finalizeStewardWave` 自动续派补齐后台 `destination`；`dispatchWorkbenchTasks` 按 `blockId` 解析最新行号防行漂移。
+  - **归档摘要提取、多链状态不回跳与管家自检**：
+    - `extractBlockResultText()` 同步兼容 Obsidian 双链 `[[...Answers/*.md|...]]` 与 Markdown 链接，按 `<!-- ad-turn:... -->` 隔离会话并经 `vaultPath` 解析出 `answerAbsPath` 传给后批队员与管家；`JournalSync.keywords()` 对同块多条 `🔗` 采用 4 级主链接优先级，避免重派后旧出错会话把进行中/已完成子卡回写成 `ERRORED`；`judgeWave()` 在 `wave.state === "running"` 时同步巡检管家自身是否卡住。
+  - **看板阅读态与工作台弹窗体验优化**：
+    - 分形看板只读视图（`.ad-board-wrap--readonly`）彻底隐藏交互控件与选区工具栏、禁掉拖拽/`<select>` 与右键菜单，改以静态 Agent 标签展示；工作台 `extractGoalFromBlock()` 打开已有看板时不把历史 `DONE`/`TODO` 子卡、`@agent` 与块号混入目标框，派发前校验 `cwd` 是否真实存在，并将任务条拆分为宽标题顶行与下方 `.ad-wb-task__meta` 参数行及粘底操作栏（[`.ad-wb-foot`](src/styles/views/modals.css)）。
+
 ## 1.13.27
 
 - **项目协作工作台、分批多 Agent 编排与管家闭环全链路修复与升级（[`src/workbench-modal.js`](src/workbench-modal.js)、[`src/project-workbench.js`](src/project-workbench.js)、[`src/fractal-board.js`](src/fractal-board.js)、[`src/main.js`](src/main.js)、[`src/harness.js`](src/harness.js)、[`src/cli-env.js`](src/cli-env.js)）**：

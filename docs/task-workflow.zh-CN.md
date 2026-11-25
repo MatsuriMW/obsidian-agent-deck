@@ -1,6 +1,23 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.27**（2026-11-26）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.28**（2026-11-26）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.28 多 Agent 编排第三轮实测打磨、Windows CI 修复与阅读视图净化
+
+- **跨平台 CI 修复**：`test/project-workbench.test.mjs` 对 `modal.cwd` 与 `path.join()` 的断言统一改为正斜杠比较，修复 `windows-latest` 因 `normalizeProjectFolder()` 统一使用 `/` 导致的唯一失败用例。
+- **实跑暴露并修复的关键链路问题**：
+  - **直接交付指令（`src/constants.js` / `src/harness.js` / `src/background-output.js`）**：新增 `DIRECT_EXECUTE`，当 `skipConfirmFirst: true` 时显式要求队员对非核心边界按常规直接实现并完成验证（并在归档清洗中剥离），消除实跑时 Codex 在 stage 1 因边界提问停下导致产出缺失的摩擦。
+  - **反问等待与无死锁恢复（`src/delegation.js` / `src/project-workbench.js` / `src/main.js` / `src/fractal-board.js`）**：`captureQuestion()` 写入 `❓` 时记录 `awaitingReply` 与 `awaitingReplyRounds`（`continueSession()` 重置）；`skipConfirmFirst: false` 时 `syncWaveWithState()` 暂停波次并将卡片标 `NEEDOK`；支持内部续聊、桌面端新轮次（`meta.rounds.length > awaitingReplyRounds`）自动解锁，以及看板右键 `NEEDOK`「重新派发（新会话）」携带 `✍️ 答：` 接力（`onWorkbenchJobSettled` `onlyIfKeywords` 补入 `"NEEDOK"`）。
+  - **多批失败保留队列与异常自愈（`src/main.js` / `src/fractal-board.js`）**：`advanceWaveToNextStage(waveId, { force })` 在单批失败时保留 `queuedStages` 暂停至 `error`（区分「第 N 批暂停」与「管家汇总失败」文案），支持一键「重派失败项」（携带前批 `upstreamReports` 并按最新 `blockId` 定位行号）或「跳过失败继续第 N 批」；全部失败时不再浪费一次管家调用；`dispatchBoardGroup` 为未指派卡优先分配健康已装 Agent，且在旧波次为 `error` 时允许新建管家；`finalizeStewardWave` 自动续派补齐后台 `destination`；`dispatchWorkbenchTasks` 按 `blockId` 解析最新行号防漂移。
+  - **`Answers/` 双链解析、同块多链不回跳与管家自检**：`extractBlockResultText()` 同时支持 `[[...Answers/*.md|...]]` 与 Markdown 链接、按 `<!-- ad-turn:... -->` 隔离会话并解析 `answerAbsPath`；`JournalSync.keywords()` 对同块多条 `🔗` 采用 4 级主链接选择（运行中作业 > 非归档运行态 > 非归档最近 > 最新时间戳），避免旧死链回写覆盖置换中的任务；`judgeWave()` 在 `wave.state === "running"` 时同步巡检管家卡住。
+  - **工作台与阅读视图 UI 细节（`src/workbench-modal.js` / `src/styles/views/modals.css` / `src/fractal-board.js` / `src/styles/views/record-views.css` / 四国/繁体文案）**：`extractGoalFromBlock()` 跳过既有 `DONE`/`TODO` 子卡并剥除 `@agent`/`^blockId`；派发前拦截不存在的 `cwd` 并同步输入/下拉选择；任务草稿行拆分为宽标题顶栏 + 下方 `.ad-wb-task__meta` + 粘底操作条 `.ad-wb-foot`；阅读视图 `.ad-board-wrap--readonly` 隐藏复选栏与 `<select>` 并禁用拖拽与右键菜单。
+- **验证范围与未测空白（macOS arm64）**：
+  - **已实机验证**：
+    - 真实代码编辑 E2E（`DeepSeek` 拆解 → 临时 `git` 仓库内 `Codex` 一次写入 `src/math.js` + `Antigravity` 写入 `src/format.js` 并生成 `Answers/` 归档 → 自动 Stage 2 `test/app.test.mjs` → `Codex` 管家核验与 `node --test` 3 项全绿、`noteDispatchSessions` 记录全员会话 ID）。
+    - 真实混沌/恢复/反问 E2E（部分 Stage 1 限额失败保留 Stage 2 队列 → `retryFailedWaveWorkers` 换角 + `JournalSync.keywords()` 不回跳 → `autoContinue: true` 两轮完整闭环；`skipConfirmFirst: false` 反问锁定 `NEEDOK` → `applyReply` 写入 `✍️ 答：` + 重派新会话接管并跑完 Stage 2）。
+    - `马自立` Obsidian Vault 实机 DOM 检查（Live Preview 错误横幅与跳过按钮、Reading View 只读零控件与禁用拖拽、`ProjectWorkbenchModal` 宽标题/粘底按钮/去重目标/无效 `cwd` 拦截、`dev:errors` 零插件报错且临时笔记与设置已清理）。
+    - 全量 `npm test`、`npm run eval`、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`。
+  - **未测空白**：Windows 真机 GUI 交互（仅由 GitHub Actions `windows-latest` 跨平台 CI 单测覆盖）。
 
 ## 1.13.27 项目工作台、分批多 Agent 编排与管家闭环全链路修复与升级
 

@@ -1,5 +1,5 @@
 // Extensible Harness pipeline: outline/link context resolvers, payload builder, and runner factory.
-import { CONFIRM_FIRST } from "./constants.js";
+import { CONFIRM_FIRST, DIRECT_EXECUTE } from "./constants.js";
 import * as J from "./journal.js";
 import { ancestorLines, extractWikilinkRefs, frontmatterEnd, subtreeEnd } from "./outline.js";
 import { getAgentCapability } from "./agent-registry.js";
@@ -382,9 +382,9 @@ export function createContextBundle(plugin, {
   const suffix = (promptSuffix && promptSuffix.trim())
     ? promptSuffix.trim()
     : (c.promptSuffix && c.promptSuffix.trim() ? c.promptSuffix.trim() : "");
-  const confirmFirst = !skipConfirmFirst && c.confirmFirst !== false
-    ? String(c.confirmFirstPrompt ?? CONFIRM_FIRST).trim()
-    : "";
+  const confirmFirst = skipConfirmFirst
+    ? DIRECT_EXECUTE
+    : (c.confirmFirst !== false ? String(c.confirmFirstPrompt ?? CONFIRM_FIRST).trim() : "");
   const bundle = {
     prefix: {
       promptPrefix: c.promptPrefix && c.promptPrefix.trim() ? c.promptPrefix.trim() : "",

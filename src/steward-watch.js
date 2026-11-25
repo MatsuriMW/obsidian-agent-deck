@@ -20,7 +20,16 @@ const lastActivity = (job, meta) => Number(meta?.lastAt || job?.lastAt || job?.s
 
 export function judgeWave(wave, { jobs = {}, metaMap = null, now = Date.now(), stuckMs = STEWARD_STUCK_MS } = {}) {
   const out = [];
-  for (const worker of wave?.workers || []) {
+  const targets = [...(wave?.workers || [])];
+  if (wave?.state === "running" && wave.steward?.jobId) {
+    targets.push({
+      jobId: wave.steward.jobId,
+      blockId: wave.steward.blockId || wave.parentBlockId || "",
+      title: wave.parentTitle ? `管家汇总：${wave.parentTitle}` : "管家汇总",
+      state: "running",
+    });
+  }
+  for (const worker of targets) {
     const job = worker.jobId ? jobs?.[worker.jobId] : null;
     if (!job) continue; // 还没起会话的 worker 不算卡住
     const state = job.state || worker.state || "";

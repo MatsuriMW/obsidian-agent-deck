@@ -9,7 +9,7 @@ import { blockAt, blockTitle, ancestorLines } from "./delegation.js";
 import { uninstalledAgentsFor } from "./delegation-runners.js";
 import { resolveTaskProjectState } from "./dialog.js";
 import { projectFolderEntries, projectFolderForName, resolveProjectForTask, sameFolder } from "./project-folders.js";
-import { mentionTrigger } from "./task-mentions.js";
+import { mentionTrigger, stripTaskMention } from "./task-mentions.js";
 import { destinations, defaultDestination } from "./workflow.js";
 import { JOURNAL_PROVIDERS, detectJournalProviders, resolveJournalProvider, runJournalModel } from "./llm.js";
 import * as J from "./journal.js";
@@ -38,8 +38,9 @@ function extractGoalFromBlock(block, trigger) {
     .filter((l) => l
       && !J.RECORD_LINE_RE.test(l)
       && !J.LINK_RE.test(l)
-      && !/^(?:[-*+]\s+)?(?:📄|📝|❓|✍️|⏱|🔗|💬)\s*/.test(l))
-    .map((l) => l.replace(/^(?:[-*+]|\d+[.)])\s+/, "").trim())
+      && !/^(?:[-*+]\s+)?(?:📄|📝|❓|✍️|⏱|🔗|💬)\s*/.test(l)
+      && !J.kwLine(l)?.kw)
+    .map((l) => J.stripBlockId(stripTaskMention(l, trigger)).replace(/^(?:[-*+]|\d+[.)])\s+/, "").trim())
     .filter(Boolean)
     .slice(0, 6);
   return details.length ? `${title}\n${details.map((d) => `- ${d}`).join("\n")}` : title;
@@ -421,6 +422,11 @@ export class ProjectWorkbenchModal extends Modal {
       new Notice(t("请至少保留一条要写入的子任务"));
       return;
     }
+    const cwdTrimmed = String(this.cwd || "").trim();
+    if (dispatch && cwdTrimmed && !fs.existsSync(cwdTrimmed)) {
+      new Notice(t("工作目录不存在，请先修正路径：{cwd}", { cwd: cwdTrimmed }), 6000);
+      return;
+    }
     this.dispatching = true;
     this.render();
     try {
@@ -519,6 +525,7 @@ export class ProjectWorkbenchModal extends Modal {
     });
     cwdInput.oninput = () => {
       this.cwd = cwdInput.value;
+      if (folderSel) folderSel.value = folderEntries.find((e) => sameFolder(e.path, this.cwd))?.name || "";
       this.updateActionCounts();
     };
     projInput.oninput = () => {
@@ -528,6 +535,7 @@ export class ProjectWorkbenchModal extends Modal {
         this.cwd = folder;
         cwdInput.value = folder;
         if (folderSel) folderSel.value = folderEntries.find((e) => sameFolder(e.path, folder))?.name || "";
+        this.updateActionCounts();
       }
     };
 
@@ -763,7 +771,15 @@ export class ProjectWorkbenchModal extends Modal {
         this.updateActionCounts();
       };
 
-      const agentSel = top.createEl("select", { cls: "ad-input ad-wb-select" });
+      const delBtn = top.createEl("button", { cls: "ad-linkbtn", text: "×", attr: { type: "button", title: t("移除") } });
+      delBtn.onclick = () => {
+        this._draftEdited = true;
+        this.subtasks.splice(idx, 1);
+        this.render();
+      };
+
+      const metaRow = row.createDiv({ cls: "ad-wb-task__meta" });
+      const agentSel = metaRow.createEl("select", { cls: "ad-input ad-wb-select" });
       for (const id of agentPool) {
         agentSel.createEl("option", { text: this.agentOptionLabel(id), attr: { value: id } });
       }
@@ -776,7 +792,7 @@ export class ProjectWorkbenchModal extends Modal {
         this.render();
       };
 
-      const stageSel = top.createEl("select", { cls: "ad-input ad-wb-select ad-wb-stage" });
+      const stageSel = metaRow.createEl("select", { cls: "ad-input ad-wb-select ad-wb-stage" });
       for (const n of [1, 2, 3]) {
         stageSel.createEl("option", { text: t("第 {n} 批", { n }), attr: { value: String(n) } });
       }
@@ -787,18 +803,11 @@ export class ProjectWorkbenchModal extends Modal {
         this.updateActionCounts();
       };
 
-      const destSel = top.createEl("select", { cls: "ad-input ad-wb-select" });
+      const destSel = metaRow.createEl("select", { cls: "ad-input ad-wb-select" });
       const destOpts = destinations(item.agent);
       for (const d of destOpts) destSel.createEl("option", { text: d.label, attr: { value: d.id } });
       destSel.value = destOpts.some((d) => d.id === item.destination) ? item.destination : (destOpts[0]?.id || "background");
       destSel.onchange = () => { item.destination = destSel.value; };
-
-      const delBtn = top.createEl("button", { cls: "ad-linkbtn", text: "×", attr: { type: "button", title: t("移除") } });
-      delBtn.onclick = () => {
-        this._draftEdited = true;
-        this.subtasks.splice(idx, 1);
-        this.render();
-      };
 
       const detailIn = row.createEl("input", {
         cls: "ad-input ad-wb-task__detail",

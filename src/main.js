@@ -3648,8 +3648,13 @@ export default class AgentDeckPlugin extends Plugin {
     if (!file) throw new Error(t("找不到目标笔记：{path}", { path }));
     const freshLines = lines || (await this.readNote(path)).split("\n");
     const tasks = subtaskLines
-      .map((item) => ({ item, block: blockAt(freshLines, item.line) }))
-      .filter((x) => x.block);
+      .map((item) => {
+        const idx = item.blockId ? freshLines.findIndex((l) => J.blockIdOf(l) === item.blockId) : -1;
+        const lineIdx = idx >= 0 ? idx : item.line;
+        const block = lineIdx >= 0 ? blockAt(freshLines, lineIdx) : null;
+        return block ? { item: { ...item, line: lineIdx }, block } : null;
+      })
+      .filter(Boolean);
     if (!tasks.length) return;
 
     const byStage = new Map();
@@ -3845,10 +3850,20 @@ export default class AgentDeckPlugin extends Plugin {
       .filter((c) => c.column === "todo" && !c.hasLink && !c.activeJob && !c.isMirror && !c.queuedStage);
     if (!pending.length) return this.notice(t("没有待派发的 TODO 子任务"));
 
+    const available = delegableAgents(this);
+    const limitAgents = limitAgentsFromSessions(this.liveSessions?.({ hours: 6 }) || []);
+    const uninstalledAgents = uninstalledAgentsFor(this, available);
+    const preferredDefault = this.defaultTarget?.() || "";
+    const healthyFallback = (preferredDefault && available.includes(preferredDefault) && !uninstalledAgents.has(preferredDefault) && !limitAgents.has(preferredDefault) ? preferredDefault : "")
+      || available.find((id) => !uninstalledAgents.has(id) && !limitAgents.has(id))
+      || available.find((id) => !uninstalledAgents.has(id))
+      || preferredDefault
+      || available[0]
+      || "claude";
     const subtaskLines = pending.map((card) => ({
       line: card.line,
       blockId: card.blockId || J.blockIdOf(lines[card.line]) || assignedCardIds.get(card.line) || "",
-      agent: card.agent || this.defaultTarget(),
+      agent: card.agent || healthyFallback,
       destination: undefined,
       stage: 1,
       title: card.title,
@@ -3857,10 +3872,8 @@ export default class AgentDeckPlugin extends Plugin {
     const projectHint = this.settings?.autoProjectFolder === false
       ? null
       : resolveProjectForTask({ settings: this.settings, notePath: path, contextLines: [], blockText: lines[parentLine] || model.title || "" });
-    const available = delegableAgents(this);
-    const limitAgents = limitAgentsFromSessions(this.liveSessions?.({ hours: 6 }) || []);
-    const uninstalledAgents = uninstalledAgentsFor(this, available);
-    const steward = existingWave
+    const activeRunningWave = existingWave && (existingWave.state === "waiting" || existingWave.state === "running");
+    const steward = activeRunningWave
       ? { enabled: false }
       : resolveStewardConfig(this.settings, {
           projectName: projectHint?.name || "",
@@ -3900,13 +3913,19 @@ export default class AgentDeckPlugin extends Plugin {
         }
         const blockId = job.blockId || wave.workers.find((w) => w.jobId === job.id || (job.blockId && w.blockId === job.blockId))?.blockId || "";
         if (blockId && wave.path) {
-          const targetKw = job.state === "done" ? "TOREVIEW" : job.state === "error" ? "ERRORED" : job.state === "cancelled" ? "CANCELED" : "";
+          const targetKw = job.state === "done"
+            ? (job.awaitingReply && wave.skipConfirmFirst === false ? "NEEDOK" : "TOREVIEW")
+            : job.state === "error"
+              ? "ERRORED"
+              : job.state === "cancelled"
+                ? "CANCELED"
+                : "";
           if (targetKw) {
             await updateNote(this, wave.path, (text) => setTaskBlockKeywordById(text, {
               blockId,
               title: job.name,
               keyword: targetKw,
-              onlyIfKeywords: ["DELEGATED", "DOING", "TODO"],
+              onlyIfKeywords: ["DELEGATED", "DOING", "TODO", "NEEDOK"],
             })).catch(() => {});
           }
         }
@@ -3930,8 +3949,17 @@ export default class AgentDeckPlugin extends Plugin {
         if (synced.changed) dirty = true;
         if (synced.allSettled) {
           if (Array.isArray(wave.queuedStages) && wave.queuedStages.length) toAdvance.push(wave.id);
-          else if (wave.steward?.enabled !== false) toLaunch.push(wave.id);
-          else toComplete.push(wave);
+          else if (wave.steward?.enabled !== false) {
+            const allDone = [...(wave.completedWorkers || []), ...(wave.workers || [])].some((w) => w.state === "done");
+            if (!allDone) {
+              wave.state = "error";
+              wave.error = t("本批全部子任务未完成，已暂停自动汇总；可点「重派失败项」恢复，或手动启动管家汇总");
+              wave.updatedAt = Date.now();
+              dirty = true;
+            } else {
+              toLaunch.push(wave.id);
+            }
+          } else toComplete.push(wave);
         }
       } else if (wave.state === "running" && wave.steward?.jobId) {
         const sJob = this.jobs?.[wave.steward.jobId];
@@ -3979,13 +4007,13 @@ export default class AgentDeckPlugin extends Plugin {
     this.notice(t("✅ 全部 {stages} 批协作子任务已完成", { stages: wave.totalStages || 1 }), 6000);
   }
 
-  async advanceWaveToNextStage(waveId) {
+  async advanceWaveToNextStage(waveId, { force = false } = {}) {
     if (this._unloaded) return;
     const wave = this.settings.workbenchWaves?.[waveId];
-    if (!wave || wave.state !== "waiting" || !Array.isArray(wave.queuedStages) || !wave.queuedStages.length) return;
+    if (!wave || !["waiting", "error"].includes(wave.state) || (wave.state === "error" && !force) || !Array.isArray(wave.queuedStages) || !wave.queuedStages.length) return;
     if (this._launchingWaves.has(waveId)) return;
     const synced = syncWaveWithState(wave, this.jobs, this.usage?.meta);
-    if (!synced.allSettled) return;
+    if (!force && !synced.allSettled) return;
 
     this._launchingWaves.add(waveId);
     let shouldSyncAfter = false;
@@ -4000,8 +4028,24 @@ export default class AgentDeckPlugin extends Plugin {
         return;
       }
 
+      const failedWorkers = (wave.workers || []).filter((w) => w.state === "error" || w.state === "cancelled");
+      const anySucceeded = (wave.workers || []).some((w) => w.state === "done");
+      if (!force && failedWorkers.length > 0) {
+        wave.state = "error";
+        wave.error = !anySucceeded
+          ? t("第 {stage} 批全部子任务未完成，已暂停推进后续阶段；可点「重派失败项」恢复", { stage: wave.stage || 1 })
+          : t("第 {stage} 批有 {n} 个子任务未完成，已暂停推进下一批；可点「重派失败项」或跳过失败继续", { stage: wave.stage || 1, n: failedWorkers.length });
+        wave.updatedAt = Date.now();
+        await this.saveSettings();
+        this.refreshUI();
+        this.notice(`⚠️ ${wave.error}`, 8000);
+        return;
+      }
+
+      wave.state = "waiting";
+      wave.error = "";
       const noteText = await this.readNote(wave.path);
-      const batchReports = collectWaveWorkerReports({ workers: wave.workers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText });
+      const batchReports = collectWaveWorkerReports({ workers: wave.workers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText, vaultPath: this.vaultPath });
       wave.completedWorkers ||= [];
       const seenCompleted = new Set(wave.completedWorkers.map((w) => w.jobId || w.blockId || `${w.line}:${w.title}`));
       for (const w of wave.workers || []) {
@@ -4010,23 +4054,6 @@ export default class AgentDeckPlugin extends Plugin {
           seenCompleted.add(key);
           wave.completedWorkers.push({ ...w });
         }
-      }
-
-      const anySucceeded = (wave.workers || []).some((w) => w.state === "done");
-      if (!anySucceeded) {
-        wave.queuedStages = [];
-        wave.updatedAt = Date.now();
-        await this.saveSettings();
-        this.notice(t("⚠️ 第 {stage} 批全部子任务未完成，已暂停自动推进后续阶段；可在看板修复后继续派发", { stage: wave.stage || 1 }), 8000);
-        if (wave.steward?.enabled !== false) {
-          this._launchingWaves.delete(waveId);
-          return this.launchStewardForWave(waveId, { force: true });
-        }
-        wave.state = "error";
-        wave.error = t("⚠️ 第 {stage} 批全部子任务未完成，已暂停自动推进后续阶段；可在看板修复后继续派发", { stage: wave.stage || 1 });
-        await this.saveSettings();
-        this.refreshUI();
-        return;
       }
 
       const prevStage = wave.stage || 1;
@@ -4051,7 +4078,7 @@ export default class AgentDeckPlugin extends Plugin {
         return;
       }
 
-      const upstreamReports = collectWaveWorkerReports({ workers: wave.completedWorkers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText });
+      const upstreamReports = collectWaveWorkerReports({ workers: wave.completedWorkers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText, vaultPath: this.vaultPath });
       const siblingModel = {
         title: wave.parentTitle || t("协作项目"),
         columns: [{
@@ -4214,7 +4241,7 @@ export default class AgentDeckPlugin extends Plugin {
 
     try {
       const noteText = await this.readNote(wave.path);
-      const reports = collectWaveWorkerReports(wave, { jobs: this.jobs, metaMap: this.usage?.meta, noteText });
+      const reports = collectWaveWorkerReports(wave, { jobs: this.jobs, metaMap: this.usage?.meta, noteText, vaultPath: this.vaultPath });
       const available = delegableAgents(this);
       const limited = limitAgentsFromSessions(this.liveSessions?.({ hours: 6 }) || []);
       const uninstalled = uninstalledAgentsFor(this, available);
@@ -4422,7 +4449,12 @@ export default class AgentDeckPlugin extends Plugin {
           }), 8000);
           await this.dispatchWorkbenchTasks({
             path: wave.path,
-            subtaskLines: addedNextLines,
+            subtaskLines: addedNextLines.map((item) => ({
+              ...item,
+              destination: item.destination || (destinations(item.agent).some((d) => d.id === "background")
+                ? "background"
+                : defaultDestination(this, item.agent)),
+            })),
             cwd: wave.cwd,
             parentTitle: wave.parentTitle,
             parentBlockId: wave.parentBlockId,
@@ -4537,12 +4569,19 @@ export default class AgentDeckPlugin extends Plugin {
 
     noteText = await this.readNote(wave.path);
     lines = noteText.split("\n");
+    const resolveWorkerLine = (w) => {
+      const byId = w?.blockId ? lines.findIndex((l) => J.blockIdOf(l) === w.blockId) : -1;
+      return byId >= 0 ? byId : (Number.isInteger(w?.line) ? w.line : -1);
+    };
+    const upstreamReports = (wave.completedWorkers || []).length
+      ? collectWaveWorkerReports({ workers: wave.completedWorkers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText, vaultPath: this.vaultPath })
+      : [];
     const siblingModel = {
       title: wave.parentTitle || t("协作项目"),
       columns: [{
         id: "todo",
         cards: (wave.workers || []).map((w) => ({
-          line: w.line,
+          line: resolveWorkerLine(w),
           title: w.title,
           agent: dispatches.find((d) => d.worker === w)?.nextAgent || w.agent,
           stage: wave.stage || 1,
@@ -4552,10 +4591,11 @@ export default class AgentDeckPlugin extends Plugin {
 
     let restarted = 0;
     for (const { worker, nextAgent } of dispatches) {
-      const idx = worker.blockId ? lines.findIndex((l) => J.blockIdOf(l) === worker.blockId) : worker.line;
+      const idx = resolveWorkerLine(worker);
       const block = idx >= 0 ? blockAt(lines, idx) : null;
       if (!block) continue;
-      const boardContext = buildBoardSiblingContext(siblingModel, worker.line, {
+      const boardContext = buildBoardSiblingContext(siblingModel, idx, {
+        upstreamReports,
         stage: wave.stage || 1,
         totalStages: wave.totalStages || 1,
       });

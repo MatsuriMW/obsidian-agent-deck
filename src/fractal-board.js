@@ -358,7 +358,7 @@ class TaskBoardWidget extends WidgetType {
           ...(target.agent ? { agent: target.agent, explicitAgent: true } : {}),
           boardContext: buildBoardSiblingContext(this.model, target.line),
         }));
-      } else if (["ERRORED", "CANCELED", "CANCELLED"].includes(String(target.kw || "").toUpperCase()) && !target.activeJob && !target.isMirror && this.plugin?.delegateAtLine && this.sourcePath) {
+      } else if (["ERRORED", "CANCELED", "CANCELLED", "NEEDOK"].includes(String(target.kw || "").toUpperCase()) && !target.activeJob && !target.isMirror && this.plugin?.delegateAtLine && this.sourcePath) {
         const boardContext = buildBoardSiblingContext(this.model, target.line);
         const dispatchOpts = {
           ...(target.agent ? { agent: target.agent, explicitAgent: true } : {}),
@@ -524,7 +524,7 @@ class TaskBoardWidget extends WidgetType {
         btn.type = "button";
         btn.className = `ad-board__crumb${isLast ? " is-current" : ""}`;
         btn.textContent = truncate(crumb.title, 28);
-        if (!isLast) {
+        if (!readOnly && !isLast && view?.dispatch) {
           btn.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -648,9 +648,12 @@ class TaskBoardWidget extends WidgetType {
         });
       } else if (wave.state === "error") {
         const errShort = truncate(wave.error || t("未知错误"), 60);
+        const batchPaused = (wave.queuedStages || []).length > 0 || (failedWorkers.length > 0 && !wave.steward?.jobId);
         info.textContent = wave.steward?.enabled === false
           ? t("⚠️ 第 {stage} 批执行异常：{err}", { stage: wave.stage || 1, err: errShort })
-          : t("⚠️ 管家 {agent} 汇总失败：{err}", { agent: stewardName, err: errShort });
+          : batchPaused
+            ? t("⚠️ 第 {stage} 批暂停：{err}", { stage: wave.stage || 1, err: errShort })
+            : t("⚠️ 管家 {agent} 汇总失败：{err}", { agent: stewardName, err: errShort });
       } else if (wave.state === "done") {
         const stages = Math.max(1, Number(wave.totalStages) || 1);
         const total = uniqWorkers.size || workers.length;
@@ -687,6 +690,18 @@ class TaskBoardWidget extends WidgetType {
           e.preventDefault();
           e.stopPropagation();
           this.plugin.retryFailedWaveWorkers(wave.id);
+        });
+      }
+      if (wave.state === "error" && (wave.queuedStages || []).length > 0 && workers.some((w) => w.state === "done") && this.plugin?.advanceWaveToNextStage) {
+        const nextStageNo = wave.queuedStages[0].stage;
+        const contBtn = barBtns.appendChild(doc.createElement("button"));
+        contBtn.type = "button";
+        contBtn.className = "ad-board__btn";
+        contBtn.textContent = t("跳过失败继续第 {stage} 批", { stage: nextStageNo });
+        contBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.plugin.advanceWaveToNextStage(wave.id, { force: true });
         });
       }
       if (wave.state === "waiting" && wave.steward?.enabled !== false && this.plugin?.runStewardWaveNow) {
@@ -942,13 +957,15 @@ class TaskBoardWidget extends WidgetType {
     const cols = wrap.appendChild(doc.createElement("div"));
     cols.className = "ad-board__cols";
     const renderTasks = [];
-    cols.addEventListener("contextmenu", (e) => {
-      if (e.target?.closest?.(".ad-board__card")) return;
-      if (!this.selectionSet().size) return;
-      e.preventDefault();
-      e.stopPropagation();
-      this.openContextMenu(e, null);
-    });
+    if (!readOnly) {
+      cols.addEventListener("contextmenu", (e) => {
+        if (e.target?.closest?.(".ad-board__card")) return;
+        if (!this.selectionSet().size) return;
+        e.preventDefault();
+        e.stopPropagation();
+        this.openContextMenu(e, null);
+      });
+    }
     if (this.model.columns.length > 4) {
       cols.style.gridTemplateColumns = `repeat(${Math.min(this.model.columns.length, 5)}, minmax(150px, 1fr))`;
     }
@@ -990,44 +1007,46 @@ class TaskBoardWidget extends WidgetType {
       list.className = "ad-board__collist";
       list.dataset.column = col.id;
 
-      colEl.addEventListener("dragover", (e) => {
-        if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        e.dataTransfer.dropEffect = "move";
-        colEl.classList.add("is-drop");
-      });
-      colEl.addEventListener("dragleave", (e) => {
-        if (!colEl.contains(e.relatedTarget)) colEl.classList.remove("is-drop");
-      });
-      colEl.addEventListener("drop", (e) => {
-        if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        colEl.classList.remove("is-drop");
-        try {
-          const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
-          if (!payload || !Number.isInteger(payload.line)) return;
-          const cardObj = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
-          if (!cardObj || cardObj.isMirror) return;
-          if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
-            const last = col.cards[col.cards.length - 1];
-            if (!last) this.moveCardSafe(cardObj, { targetParentLine: col.targetParentLine });
-            else this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1, targetParentLine: col.targetParentLine });
-            return;
-          }
-          if (payload.column !== col.id) {
-            const last = col.cards[col.cards.length - 1];
-            if (!last) this.moveCardSafe(cardObj, { targetColumn: col.id });
-            else this.moveCardSafe(cardObj, { targetColumn: col.id, beforeLine: last.endLine + 1 });
-            return;
-          }
-          if (col.cards.length > 1) {
-            const last = col.cards[col.cards.length - 1];
-            if (last.line !== cardObj.line) this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1 });
-          }
-        } catch { /* ignore invalid drag payload */ }
-      });
+      if (!readOnly) {
+        colEl.addEventListener("dragover", (e) => {
+          if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect = "move";
+          colEl.classList.add("is-drop");
+        });
+        colEl.addEventListener("dragleave", (e) => {
+          if (!colEl.contains(e.relatedTarget)) colEl.classList.remove("is-drop");
+        });
+        colEl.addEventListener("drop", (e) => {
+          if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          colEl.classList.remove("is-drop");
+          try {
+            const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
+            if (!payload || !Number.isInteger(payload.line)) return;
+            const cardObj = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
+            if (!cardObj || cardObj.isMirror) return;
+            if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
+              const last = col.cards[col.cards.length - 1];
+              if (!last) this.moveCardSafe(cardObj, { targetParentLine: col.targetParentLine });
+              else this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1, targetParentLine: col.targetParentLine });
+              return;
+            }
+            if (payload.column !== col.id) {
+              const last = col.cards[col.cards.length - 1];
+              if (!last) this.moveCardSafe(cardObj, { targetColumn: col.id });
+              else this.moveCardSafe(cardObj, { targetColumn: col.id, beforeLine: last.endLine + 1 });
+              return;
+            }
+            if (col.cards.length > 1) {
+              const last = col.cards[col.cards.length - 1];
+              if (last.line !== cardObj.line) this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1 });
+            }
+          } catch { /* ignore invalid drag payload */ }
+        });
+      }
 
       if (!col.cards.length) {
         const empty = list.appendChild(doc.createElement("div"));
@@ -1042,61 +1061,63 @@ class TaskBoardWidget extends WidgetType {
         const pinned = this.pinnedSet.has(pinId) || this.pinnedSet.has(boardCardPinId(card));
         const cardEl = list.appendChild(doc.createElement("div"));
         cardEl.className = `ad-board__card${card.activeJob ? " is-live" : ""}${card.isMirror ? " is-mirror" : ""}${pinned ? " is-pinned" : ""}`;
-        cardEl.draggable = !card.isMirror;
+        cardEl.draggable = !readOnly && !card.isMirror;
         if (card.agent && AGENTS[card.agent]) {
           cardEl.style.setProperty("--ad-agent", AGENTS[card.agent].color);
           cardEl.style.setProperty("--ad-agent-soft", AGENTS[card.agent].soft);
         }
 
-        cardEl.addEventListener("dragstart", (e) => {
-          if (e.target?.tagName === "INPUT") {
+        if (!readOnly) {
+          cardEl.addEventListener("dragstart", (e) => {
+            if (e.target?.tagName === "INPUT") {
+              e.preventDefault();
+              return;
+            }
+            e.stopPropagation();
+            e.dataTransfer.setData(BOARD_CARD_MIME, JSON.stringify({ line: card.line, column: col.id }));
+            e.dataTransfer.effectAllowed = "move";
+            cardEl.classList.add("is-dragging");
+          });
+          cardEl.addEventListener("dragend", () => cardEl.classList.remove("is-dragging"));
+          cardEl.addEventListener("contextmenu", (e) => {
             e.preventDefault();
-            return;
-          }
-          e.stopPropagation();
-          e.dataTransfer.setData(BOARD_CARD_MIME, JSON.stringify({ line: card.line, column: col.id }));
-          e.dataTransfer.effectAllowed = "move";
-          cardEl.classList.add("is-dragging");
-        });
-        cardEl.addEventListener("dragend", () => cardEl.classList.remove("is-dragging"));
-        cardEl.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.openContextMenu(e, card);
-        });
-        cardEl.addEventListener("dragover", (e) => {
-          if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
-          e.preventDefault();
-          e.stopPropagation();
-          const rect = cardEl.getBoundingClientRect();
-          const after = e.clientY > rect.top + rect.height / 2;
-          cardEl.classList.toggle("is-drop-after", after);
-          cardEl.classList.toggle("is-drop-before", !after);
-          colEl.classList.remove("is-drop");
-        });
-        cardEl.addEventListener("dragleave", () => {
-          cardEl.classList.remove("is-drop-before", "is-drop-after");
-        });
-        cardEl.addEventListener("drop", (e) => {
-          if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
-          e.preventDefault();
-          e.stopPropagation();
-          cardEl.classList.remove("is-drop-before", "is-drop-after");
-          try {
-            const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
-            if (!payload || !Number.isInteger(payload.line) || payload.line === card.line) return;
-            const dragged = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
-            if (!dragged || dragged.isMirror) return;
+            e.stopPropagation();
+            this.openContextMenu(e, card);
+          });
+          cardEl.addEventListener("dragover", (e) => {
+            if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+            e.preventDefault();
+            e.stopPropagation();
             const rect = cardEl.getBoundingClientRect();
             const after = e.clientY > rect.top + rect.height / 2;
-            const beforeLine = after ? (Number.isInteger(card.endLine) ? card.endLine + 1 : card.line + 1) : card.line;
-            if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
-              this.moveCardSafe(dragged, { beforeLine, targetParentLine: col.targetParentLine });
-            } else {
-              this.moveCardSafe(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine });
-            }
-          } catch { /* ignore */ }
-        });
+            cardEl.classList.toggle("is-drop-after", after);
+            cardEl.classList.toggle("is-drop-before", !after);
+            colEl.classList.remove("is-drop");
+          });
+          cardEl.addEventListener("dragleave", () => {
+            cardEl.classList.remove("is-drop-before", "is-drop-after");
+          });
+          cardEl.addEventListener("drop", (e) => {
+            if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            cardEl.classList.remove("is-drop-before", "is-drop-after");
+            try {
+              const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
+              if (!payload || !Number.isInteger(payload.line) || payload.line === card.line) return;
+              const dragged = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
+              if (!dragged || dragged.isMirror) return;
+              const rect = cardEl.getBoundingClientRect();
+              const after = e.clientY > rect.top + rect.height / 2;
+              const beforeLine = after ? (Number.isInteger(card.endLine) ? card.endLine + 1 : card.line + 1) : card.line;
+              if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
+                this.moveCardSafe(dragged, { beforeLine, targetParentLine: col.targetParentLine });
+              } else {
+                this.moveCardSafe(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine });
+              }
+            } catch { /* ignore */ }
+          });
+        }
 
         const topRow = cardEl.appendChild(doc.createElement("div"));
         topRow.className = "ad-board__cardtop";
@@ -1186,7 +1207,7 @@ class TaskBoardWidget extends WidgetType {
         const foot = cardEl.appendChild(doc.createElement("div"));
         foot.className = "ad-board__cardfoot";
 
-        if (!card.hasLink && !card.activeJob && !card.isMirror && addAgents.length) {
+        if (!readOnly && !card.hasLink && !card.activeJob && !card.isMirror && addAgents.length) {
           const sel = foot.appendChild(doc.createElement("select"));
           sel.className = "ad-board__agentsel";
           const none = sel.appendChild(doc.createElement("option"));

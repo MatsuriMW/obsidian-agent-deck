@@ -343,6 +343,48 @@ export class JournalSync {
     // line numbers above stay valid when a row is rewritten.
     let ls = text.split("\n");
     const owner = J.ownersOf(ls);
+    const activeJobStates = new Set(["starting", "running", "needs-approval", "bound"]);
+    const jobBySid = new Map();
+    for (const j of Object.values(this.p?.jobs || {})) {
+      if (!j?.sessionId) continue;
+      const prev = jobBySid.get(j.sessionId);
+      const isAct = activeJobStates.has(j.state);
+      const prevAct = prev ? activeJobStates.has(prev.state) : false;
+      if (!prev || (isAct && !prevAct) || (isAct === prevAct && (j.startedAt || 0) > (prev.startedAt || 0))) {
+        jobBySid.set(j.sessionId, j);
+      }
+    }
+    const linksByOwner = new Map();
+    for (let i = 0; i < ls.length; i++) {
+      const link = J.parseLink(ls[i]);
+      if (!link || owner[i] < 0) continue;
+      const list = linksByOwner.get(owner[i]) || [];
+      list.push({ line: i, sid: link.sid });
+      linksByOwner.set(owner[i], list);
+    }
+    const primaryLinkByOwner = new Map();
+    for (const [ownerIdx, list] of linksByOwner.entries()) {
+      if (list.length <= 1) {
+        if (list[0]) primaryLinkByOwner.set(ownerIdx, list[0].line);
+        continue;
+      }
+      let best = list[0];
+      let bestScore = [-1, -1];
+      for (const entry of list) {
+        const j = jobBySid.get(entry.sid);
+        const m = this.usage.meta.get(entry.sid);
+        const isArch = this.archived(entry.sid);
+        const tier = j && activeJobStates.has(j.state)
+          ? 3
+          : (!isArch && m?.state === "run" ? 2 : (!isArch && m ? 1 : 0));
+        const ts = Math.max(m?.lastAt || 0, j?.startedAt || 0);
+        if (tier > bestScore[0] || (tier === bestScore[0] && ts > bestScore[1])) {
+          best = entry;
+          bestScore = [tier, ts];
+        }
+      }
+      primaryLinkByOwner.set(ownerIdx, best.line);
+    }
     let segsBySid;
     const spanFor = (sid, p, lines, n, kw) => {
       segsBySid ||= new Map(this.dayList().map(row => [row.sid, row.segs]));
@@ -353,6 +395,7 @@ export class JournalSync {
       if (!k) continue;
       const n = owner[at];
       if (n < 0) continue;
+      if (primaryLinkByOwner.has(n) && primaryLinkByOwner.get(n) !== at) continue;
       const cur = J.kwLine(ls[n]);
       if (!cur || J.isManualTask(this.cfg, ls[n])) continue;
       if (this.archived(k.sid)) {

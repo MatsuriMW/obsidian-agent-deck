@@ -322,6 +322,7 @@ export default {
   "一键错峰排批": "Auto-stagger batches",
   "已将 {n} 条同文件冲突子任务自动错开至下一批": "Moved {n} file-overlapping subtask(s) to later batches",
   "⚠️ 工作目录不存在：{cwd}": "⚠️ Working directory does not exist: {cwd}",
+  "工作目录不存在，请先修正路径：{cwd}": "Working directory does not exist — fix the path first: {cwd}",
   "⚠️ {n} 条已选子任务指派给了未装 CLI 或限额 Agent": "⚠️ {n} selected subtask(s) target a missing-CLI or rate-limited agent",
   "一键替换为可用 Agent": "Swap to ready agents",
   "已为 {n} 条子任务切换为可用 Agent": "Swapped {n} subtask(s) to healthy agents",

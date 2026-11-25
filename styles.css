@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.27 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.28 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -4040,7 +4040,10 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-board-wrap.ad-board-wrap--readonly .ad-board__pin,
 .ad-board-wrap.ad-board-wrap--readonly .ad-board__zoom,
 .ad-board-wrap.ad-board-wrap--readonly .ad-board__coladd,
-.ad-board-wrap.ad-board-wrap--readonly .ad-board__quickadd {
+.ad-board-wrap.ad-board-wrap--readonly .ad-board__quickadd,
+.ad-board-wrap.ad-board-wrap--readonly .ad-board__check,
+.ad-board-wrap.ad-board-wrap--readonly .ad-board__bulk,
+.ad-board-wrap.ad-board-wrap--readonly .ad-board__stewardsel {
   display: none;
 }
 .ad-board-wrap.ad-board-wrap--readonly .ad-board__card,
@@ -5503,6 +5506,11 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-workbench .ad-wb-foot {
   justify-content: space-between;
   align-items: center;
+  position: sticky;
+  bottom: 0;
+  background: var(--background-primary);
+  padding-bottom: 4px;
+  z-index: 2;
 }
 .ad-workbench .ad-wb-footopt {
   flex: 1;
@@ -5526,6 +5534,13 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+.ad-workbench .ad-wb-task__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-left: 22px;
 }
 .ad-workbench .ad-wb-task__title {
   flex: 1;

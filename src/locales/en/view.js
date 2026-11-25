@@ -189,6 +189,8 @@ export default {
   "🧭 管家 {agent} 正在收集 {total} 位队员结果并推进（第 {round} 轮）…": "🧭 Steward {agent} collecting {total} results & advancing (round {round})…",
   "⚠️ 管家 {agent} 汇总失败：{err}": "⚠️ Steward {agent} synthesis failed: {err}",
   "⚠️ 第 {stage} 批执行异常：{err}": "⚠️ Batch {stage} error: {err}",
+  "⚠️ 第 {stage} 批暂停：{err}": "⚠️ Batch {stage} paused: {err}",
+  "跳过失败继续第 {stage} 批": "Skip failed & start batch {stage}",
   "启动管家汇总": "Launch Steward",
   "重派失败项 ({n})": "Retry failed ({n})",
   "✅ 管家 {agent} 已完成汇总（{stages} 批 · {workers} 项）：{summary}": "✅ Steward {agent} finished ({stages} stage(s) · {workers} task(s)): {summary}",

@@ -808,6 +808,11 @@
   & .ad-wb-foot {
     justify-content: space-between;
     align-items: center;
+    position: sticky;
+    bottom: 0;
+    background: var(--background-primary);
+    padding-bottom: 4px;
+    z-index: 2;
   }
 
   & .ad-wb-footopt {
@@ -835,6 +840,14 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  & .ad-wb-task__meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding-left: 22px;
   }
 
   & .ad-wb-task__title {

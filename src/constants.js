@@ -4,6 +4,7 @@ import { t } from "./i18n.js";
 
 // 追加在每条委派消息末尾：关键疑问先问，信息充分时继续执行
 export const CONFIRM_FIRST = "先阅读任务及相关上下文。只有影响需求、范围或验收的问题尚不明确时，才集中向我提问；已明确或已确认的信息不要重复询问。信息充分时，简要说明执行计划并继续完成任务，运行必要检查后汇报结果。超出已授权范围的操作，先征求确认。";
+export const DIRECT_EXECUTE = "直接执行并完成交付，不要停下来向我反问确认；除非遇到不可逆的高危歧义，其余非核心边界细节请按合理常规自行决定并直接实现，完成后在汇报中简述处理方式与验证结果。";
 
 export const STORE_VERSION = 1;
 export const MEMORY_QUERY_ASSET_VERSION = 1;

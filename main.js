@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.27 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.28 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -270,6 +270,9 @@ var main_default = {
   "\u5DF2\u6D3E\u53D1\u7B2C 1 \u6279 {n} \u4E2A\u534F\u4F5C\u5B50\u4EFB\u52A1\uFF08\u5171 {stages} \u6279\uFF09\uFF0C\u5B8C\u6210\u540E\u81EA\u52A8\u63A8\u8FDB\u4E0B\u4E00\u6279": "Dispatched batch 1 ({n} subtasks, {stages} batches total); next batch starts automatically on completion",
   "\u{1F680} \u7B2C {prev} \u6279\u5DF2\u5B8C\u6210\uFF0C\u81EA\u52A8\u6D3E\u53D1\u7B2C {stage}/{total} \u6279\uFF08{n} \u4E2A\u5B50\u4EFB\u52A1\uFF09": "\u{1F680} Batch {prev} finished; auto-dispatching batch {stage}/{total} ({n} subtasks)",
   "\u26A0\uFE0F \u7B2C {stage} \u6279\u5168\u90E8\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u81EA\u52A8\u63A8\u8FDB\u540E\u7EED\u9636\u6BB5\uFF1B\u53EF\u5728\u770B\u677F\u4FEE\u590D\u540E\u7EE7\u7EED\u6D3E\u53D1": "\u26A0\uFE0F All batch {stage} subtasks failed or stopped; paused subsequent stages until fixed on the board",
+  "\u7B2C {stage} \u6279\u5168\u90E8\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u63A8\u8FDB\u540E\u7EED\u9636\u6BB5\uFF1B\u53EF\u70B9\u300C\u91CD\u6D3E\u5931\u8D25\u9879\u300D\u6062\u590D": 'All batch {stage} subtasks failed; paused later stages \u2014 click "Retry failed" to recover',
+  "\u7B2C {stage} \u6279\u6709 {n} \u4E2A\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u63A8\u8FDB\u4E0B\u4E00\u6279\uFF1B\u53EF\u70B9\u300C\u91CD\u6D3E\u5931\u8D25\u9879\u300D\u6216\u8DF3\u8FC7\u5931\u8D25\u7EE7\u7EED": '{n} subtask(s) failed in batch {stage}; paused next batch \u2014 click "Retry failed" or skip to continue',
+  "\u672C\u6279\u5168\u90E8\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u81EA\u52A8\u6C47\u603B\uFF1B\u53EF\u70B9\u300C\u91CD\u6D3E\u5931\u8D25\u9879\u300D\u6062\u590D\uFF0C\u6216\u624B\u52A8\u542F\u52A8\u7BA1\u5BB6\u6C47\u603B": 'All subtasks in this batch failed; paused auto-synthesis \u2014 click "Retry failed" or launch Steward manually',
   "\u2705 \u5168\u90E8 {stages} \u6279\u534F\u4F5C\u5B50\u4EFB\u52A1\u5DF2\u5B8C\u6210": "\u2705 All {stages} batches of collaborative subtasks completed",
   "\u6709 {n} \u4E2A\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u8BF7\u5728\u770B\u677F\u68C0\u67E5\u5E76\u91CD\u65B0\u6D3E\u53D1": "{n} subtask(s) failed or were canceled; inspect and re-dispatch from the board",
   "\u6CA1\u6709\u9700\u8981\u91CD\u6D3E\u7684\u5931\u8D25\u5B50\u4EFB\u52A1": "No failed or canceled subtasks to re-dispatch",
@@ -763,6 +766,8 @@ var view_default = {
   "\u{1F9ED} \u7BA1\u5BB6 {agent} \u6B63\u5728\u6536\u96C6 {total} \u4F4D\u961F\u5458\u7ED3\u679C\u5E76\u63A8\u8FDB\uFF08\u7B2C {round} \u8F6E\uFF09\u2026": "\u{1F9ED} Steward {agent} collecting {total} results & advancing (round {round})\u2026",
   "\u26A0\uFE0F \u7BA1\u5BB6 {agent} \u6C47\u603B\u5931\u8D25\uFF1A{err}": "\u26A0\uFE0F Steward {agent} synthesis failed: {err}",
   "\u26A0\uFE0F \u7B2C {stage} \u6279\u6267\u884C\u5F02\u5E38\uFF1A{err}": "\u26A0\uFE0F Batch {stage} error: {err}",
+  "\u26A0\uFE0F \u7B2C {stage} \u6279\u6682\u505C\uFF1A{err}": "\u26A0\uFE0F Batch {stage} paused: {err}",
+  "\u8DF3\u8FC7\u5931\u8D25\u7EE7\u7EED\u7B2C {stage} \u6279": "Skip failed & start batch {stage}",
   "\u542F\u52A8\u7BA1\u5BB6\u6C47\u603B": "Launch Steward",
   "\u91CD\u6D3E\u5931\u8D25\u9879 ({n})": "Retry failed ({n})",
   "\u2705 \u7BA1\u5BB6 {agent} \u5DF2\u5B8C\u6210\u6C47\u603B\uFF08{stages} \u6279 \xB7 {workers} \u9879\uFF09\uFF1A{summary}": "\u2705 Steward {agent} finished ({stages} stage(s) \xB7 {workers} task(s)): {summary}",
@@ -1842,6 +1847,7 @@ var dialogs_default = {
   "\u4E00\u952E\u9519\u5CF0\u6392\u6279": "Auto-stagger batches",
   "\u5DF2\u5C06 {n} \u6761\u540C\u6587\u4EF6\u51B2\u7A81\u5B50\u4EFB\u52A1\u81EA\u52A8\u9519\u5F00\u81F3\u4E0B\u4E00\u6279": "Moved {n} file-overlapping subtask(s) to later batches",
   "\u26A0\uFE0F \u5DE5\u4F5C\u76EE\u5F55\u4E0D\u5B58\u5728\uFF1A{cwd}": "\u26A0\uFE0F Working directory does not exist: {cwd}",
+  "\u5DE5\u4F5C\u76EE\u5F55\u4E0D\u5B58\u5728\uFF0C\u8BF7\u5148\u4FEE\u6B63\u8DEF\u5F84\uFF1A{cwd}": "Working directory does not exist \u2014 fix the path first: {cwd}",
   "\u26A0\uFE0F {n} \u6761\u5DF2\u9009\u5B50\u4EFB\u52A1\u6307\u6D3E\u7ED9\u4E86\u672A\u88C5 CLI \u6216\u9650\u989D Agent": "\u26A0\uFE0F {n} selected subtask(s) target a missing-CLI or rate-limited agent",
   "\u4E00\u952E\u66FF\u6362\u4E3A\u53EF\u7528 Agent": "Swap to ready agents",
   "\u5DF2\u4E3A {n} \u6761\u5B50\u4EFB\u52A1\u5207\u6362\u4E3A\u53EF\u7528 Agent": "Swapped {n} subtask(s) to healthy agents",
@@ -4193,7 +4199,13 @@ var zh_TW_default = {
   "\u91CD\u6D3E\u5931\u8D25\u9879 ({n})": "\u91CD\u6D3E\u5931\u6557\u9805 ({n})",
   "\u2705 \u7BA1\u5BB6 {agent} \u5DF2\u5B8C\u6210\u6C47\u603B\uFF08{stages} \u6279 \xB7 {workers} \u9879\uFF09\uFF1A{summary}": "\u2705 \u7BA1\u5BB6 {agent} \u5DF2\u5B8C\u6210\u5F59\u7E3D\uFF08{stages} \u6279 \xB7 {workers} \u9805\uFF09\uFF1A{summary}",
   "\u2705 \u7BA1\u5BB6 {agent} \u5DF2\u5B8C\u6210\u6C47\u603B\uFF08{stages} \u6279 \xB7 {workers} \u9879\uFF09": "\u2705 \u7BA1\u5BB6 {agent} \u5DF2\u5B8C\u6210\u5F59\u7E3D\uFF08{stages} \u6279 \xB7 {workers} \u9805\uFF09",
-  "\u2705 \u5168\u90E8 {stages} \u6279\u534F\u4F5C\u5B50\u4EFB\u52A1\u5DF2\u5B8C\u6210\uFF08{workers} \u9879\uFF09": "\u2705 \u5168\u90E8 {stages} \u6279\u5354\u4F5C\u5B50\u4EFB\u52D9\u5DF2\u5B8C\u6210\uFF08{workers} \u9805\uFF09"
+  "\u2705 \u5168\u90E8 {stages} \u6279\u534F\u4F5C\u5B50\u4EFB\u52A1\u5DF2\u5B8C\u6210\uFF08{workers} \u9879\uFF09": "\u2705 \u5168\u90E8 {stages} \u6279\u5354\u4F5C\u5B50\u4EFB\u52D9\u5DF2\u5B8C\u6210\uFF08{workers} \u9805\uFF09",
+  "\u7B2C {stage} \u6279\u5168\u90E8\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u63A8\u8FDB\u540E\u7EED\u9636\u6BB5\uFF1B\u53EF\u70B9\u300C\u91CD\u6D3E\u5931\u8D25\u9879\u300D\u6062\u590D": "\u7B2C {stage} \u6279\u5168\u90E8\u5B50\u4EFB\u52D9\u672A\u5B8C\u6210\uFF0C\u5DF2\u66AB\u505C\u63A8\u9032\u5F8C\u7E8C\u968E\u6BB5\uFF1B\u53EF\u9EDE\u300C\u91CD\u6D3E\u5931\u6557\u9805\u300D\u6062\u5FA9",
+  "\u7B2C {stage} \u6279\u6709 {n} \u4E2A\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u63A8\u8FDB\u4E0B\u4E00\u6279\uFF1B\u53EF\u70B9\u300C\u91CD\u6D3E\u5931\u8D25\u9879\u300D\u6216\u8DF3\u8FC7\u5931\u8D25\u7EE7\u7EED": "\u7B2C {stage} \u6279\u6709 {n} \u500B\u5B50\u4EFB\u52D9\u672A\u5B8C\u6210\uFF0C\u5DF2\u66AB\u505C\u63A8\u9032\u4E0B\u4E00\u6279\uFF1B\u53EF\u9EDE\u300C\u91CD\u6D3E\u5931\u6557\u9805\u300D\u6216\u8DF3\u904E\u5931\u6557\u7E7C\u7E8C",
+  "\u672C\u6279\u5168\u90E8\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u81EA\u52A8\u6C47\u603B\uFF1B\u53EF\u70B9\u300C\u91CD\u6D3E\u5931\u8D25\u9879\u300D\u6062\u590D\uFF0C\u6216\u624B\u52A8\u542F\u52A8\u7BA1\u5BB6\u6C47\u603B": "\u672C\u6279\u5168\u90E8\u5B50\u4EFB\u52D9\u672A\u5B8C\u6210\uFF0C\u5DF2\u66AB\u505C\u81EA\u52D5\u5F59\u7E3D\uFF1B\u53EF\u9EDE\u300C\u91CD\u6D3E\u5931\u6557\u9805\u300D\u6062\u5FA9\uFF0C\u6216\u624B\u52D5\u555F\u52D5\u7BA1\u5BB6\u5F59\u7E3D",
+  "\u26A0\uFE0F \u7B2C {stage} \u6279\u6682\u505C\uFF1A{err}": "\u26A0\uFE0F \u7B2C {stage} \u6279\u66AB\u505C\uFF1A{err}",
+  "\u8DF3\u8FC7\u5931\u8D25\u7EE7\u7EED\u7B2C {stage} \u6279": "\u8DF3\u904E\u5931\u6557\u7E7C\u7E8C\u7B2C {stage} \u6279",
+  "\u5DE5\u4F5C\u76EE\u5F55\u4E0D\u5B58\u5728\uFF0C\u8BF7\u5148\u4FEE\u6B63\u8DEF\u5F84\uFF1A{cwd}": "\u5DE5\u4F5C\u76EE\u9304\u4E0D\u5B58\u5728\uFF0C\u8ACB\u5148\u4FEE\u6B63\u8DEF\u5F91\uFF1A{cwd}"
 };
 
 // src/i18n.js
@@ -4310,6 +4322,7 @@ function t(key, vars) {
 
 // src/constants.js
 var CONFIRM_FIRST = "\u5148\u9605\u8BFB\u4EFB\u52A1\u53CA\u76F8\u5173\u4E0A\u4E0B\u6587\u3002\u53EA\u6709\u5F71\u54CD\u9700\u6C42\u3001\u8303\u56F4\u6216\u9A8C\u6536\u7684\u95EE\u9898\u5C1A\u4E0D\u660E\u786E\u65F6\uFF0C\u624D\u96C6\u4E2D\u5411\u6211\u63D0\u95EE\uFF1B\u5DF2\u660E\u786E\u6216\u5DF2\u786E\u8BA4\u7684\u4FE1\u606F\u4E0D\u8981\u91CD\u590D\u8BE2\u95EE\u3002\u4FE1\u606F\u5145\u5206\u65F6\uFF0C\u7B80\u8981\u8BF4\u660E\u6267\u884C\u8BA1\u5212\u5E76\u7EE7\u7EED\u5B8C\u6210\u4EFB\u52A1\uFF0C\u8FD0\u884C\u5FC5\u8981\u68C0\u67E5\u540E\u6C47\u62A5\u7ED3\u679C\u3002\u8D85\u51FA\u5DF2\u6388\u6743\u8303\u56F4\u7684\u64CD\u4F5C\uFF0C\u5148\u5F81\u6C42\u786E\u8BA4\u3002";
+var DIRECT_EXECUTE = "\u76F4\u63A5\u6267\u884C\u5E76\u5B8C\u6210\u4EA4\u4ED8\uFF0C\u4E0D\u8981\u505C\u4E0B\u6765\u5411\u6211\u53CD\u95EE\u786E\u8BA4\uFF1B\u9664\u975E\u9047\u5230\u4E0D\u53EF\u9006\u7684\u9AD8\u5371\u6B67\u4E49\uFF0C\u5176\u4F59\u975E\u6838\u5FC3\u8FB9\u754C\u7EC6\u8282\u8BF7\u6309\u5408\u7406\u5E38\u89C4\u81EA\u884C\u51B3\u5B9A\u5E76\u76F4\u63A5\u5B9E\u73B0\uFF0C\u5B8C\u6210\u540E\u5728\u6C47\u62A5\u4E2D\u7B80\u8FF0\u5904\u7406\u65B9\u5F0F\u4E0E\u9A8C\u8BC1\u7ED3\u679C\u3002";
 var STORE_VERSION = 1;
 var MEMORY_QUERY_ASSET_VERSION = 1;
 var DEFAULT_RECORD_RULES = {
@@ -19703,7 +19716,7 @@ function cleanBackgroundText(raw, job = {}) {
   const fenced = fencedLines(lines);
   return lines.flatMap((line, i) => {
     if (fenced.has(i)) return [line];
-    if (parseLink(line) || /^\s*（来自 Obsidian：.*）\s*$/.test(line) || line.trim() === CONFIRM_FIRST) return [];
+    if (parseLink(line) || /^\s*（来自 Obsidian：.*）\s*$/.test(line) || line.trim() === CONFIRM_FIRST || line.trim() === DIRECT_EXECUTE) return [];
     const metadata = /^\s*(?:[-*+]\s+)?(?:会话(?:ID|号)?|session(?:Id| ID)?|blockId|定位符|标识符)\s*[:：]\s*`?([^`]+?)`?\s*$/i.exec(line);
     if (metadata && ([job.sessionId, job.blockId, job.id].includes(metadata[1]) || isDeckBlockId(metadata[1]) || /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(metadata[1]))) return [];
     line = line.replace(/<!--\s*(?:ad-(?:turn|summary(?:-pending)?|clock):[^>]*|\/?agent-deck(?:-conversation|:)[^>]*)-->/g, "");
@@ -22130,7 +22143,7 @@ function createContextBundle(plugin, {
   const trigger = mentionTrigger(plugin);
   const taskSection = stripTaskMention(withContext(contextLines, task), trigger).trim();
   const suffix = promptSuffix && promptSuffix.trim() ? promptSuffix.trim() : c.promptSuffix && c.promptSuffix.trim() ? c.promptSuffix.trim() : "";
-  const confirmFirst = !skipConfirmFirst && c.confirmFirst !== false ? String(c.confirmFirstPrompt ?? CONFIRM_FIRST).trim() : "";
+  const confirmFirst = skipConfirmFirst ? DIRECT_EXECUTE : c.confirmFirst !== false ? String(c.confirmFirstPrompt ?? CONFIRM_FIRST).trim() : "";
   const bundle = {
     prefix: {
       promptPrefix: c.promptPrefix && c.promptPrefix.trim() ? c.promptPrefix.trim() : "",
@@ -24585,7 +24598,7 @@ ${source}`;
       }
       if (offset) job.roundOffset = offset;
     }
-    Object.assign(job, { state: "starting", startedAt: Date.now(), endedAt: 0, error: "", result: "", lastText: "", step: "", resultWritten: false });
+    Object.assign(job, { state: "starting", startedAt: Date.now(), endedAt: 0, error: "", result: "", lastText: "", step: "", resultWritten: false, awaitingReply: false });
     this.saveJobs();
     this.refreshUI();
     const runner = createDelegationRunner(session.agent, this, job, getRunnerClasses());
@@ -24991,6 +25004,11 @@ ${source}`;
       console.error("[agent-deck] \u5199\u56DE\u63D0\u95EE\u5931\u8D25", e);
     }
     if (wrote) {
+      job.awaitingReply = true;
+      job.awaitingReplyRounds = Math.max(
+        1,
+        this.plugin.usage?.meta?.get?.(job.sessionId)?.rounds?.length || (job.conversation || []).filter((m) => m?.role === "assistant" && m.text).length || 1
+      );
       this.saveJobs();
       const blockId = job.blockId || "";
       const questionId = makeQuestionId(`${job.path}|${blockId}|${question}`);
@@ -27281,7 +27299,7 @@ function fallbackCopilotPlan({ goal = "", roles = [], defaultAgent = "claude" } 
       summary: lines[0],
       subtasks: lines.slice(0, 8).map((line, i) => {
         const role = activeRoles[i % activeRoles.length];
-        return { checked: true, title: truncate(line, 64), role: role.label, agent: role.agent || defaultAgent, stage: 1, detail: "" };
+        return { checked: true, title: truncate(line, 64), role: role.label, roleId: role.id || "", agent: role.agent || defaultAgent, stage: 1, detail: "" };
       })
     };
   }
@@ -27292,6 +27310,7 @@ function fallbackCopilotPlan({ goal = "", roles = [], defaultAgent = "claude" } 
       checked: true,
       title: `${role.label}\uFF1A${core}`,
       role: role.label,
+      roleId: role.id || "",
       agent: role.agent || defaultAgent,
       stage: 1,
       detail: role.hint || ""
@@ -27835,7 +27854,8 @@ ${t("\u4F60\u53EA\u8D1F\u8D23\u5F53\u524D\u5B50\u4EFB\u52A1\uFF0C\u8BF7\u4E25\u6
       const who = r.agent ? AGENTS[r.agent]?.short || r.agent : "Agent";
       const status = r.state === "done" ? "\u5DF2\u5B8C\u6210" : r.state === "error" ? "\u5931\u8D25" : r.state || "";
       const summary = truncate(String(r.output || r.error || "").replace(/\s+/g, " ").trim(), 600);
-      const link2 = r.answerLink ? `\uFF08\u5F52\u6863\uFF1A${r.answerLink}\uFF09` : "";
+      const archiveRef = r.answerAbsPath || r.answerLink;
+      const link2 = archiveRef ? `\uFF08\u5B8C\u6574\u5F52\u6863\uFF1A${archiveRef}\uFF09` : "";
       return `- ${sanitizeBoardTitle(r.title)} (${who}, ${status})${link2}${summary ? `\uFF1A${summary}` : ""}`;
     });
     sections.push(`${t("\u524D\u5E8F\u9636\u6BB5\u5DF2\u5B8C\u6210\u4EA7\u51FA\u6458\u8981\uFF08\u53EF\u76F4\u63A5\u8854\u63A5\uFF0C\u52FF\u91CD\u590D\u9020\u8F6E\u5B50\uFF09\uFF1A")}
@@ -27966,7 +27986,7 @@ function createWorkbenchWave({
     }))
   };
 }
-function resolveSyncedWorkerState(worker, job, metaMap) {
+function resolveSyncedWorkerState(worker, job, metaMap, { respectAwaitingReply = false } = {}) {
   if (!job) {
     return {
       blockId: worker.blockId || "",
@@ -27974,7 +27994,8 @@ function resolveSyncedWorkerState(worker, job, metaMap) {
       result: worker.result || "",
       error: worker.error || "",
       sessionId: worker.sessionId || "",
-      endedAt: worker.endedAt || 0
+      endedAt: worker.endedAt || 0,
+      awaitingReply: false
     };
   }
   const sid = job.sessionId || worker.sessionId || "";
@@ -27984,13 +28005,18 @@ function resolveSyncedWorkerState(worker, job, metaMap) {
   let result = job.result || worker.result || "";
   let error = job.error || worker.error || "";
   let endedAt = job.endedAt || worker.endedAt || 0;
+  let awaitingReply = Boolean(respectAwaitingReply && job.awaitingReply);
+  if (awaitingReply && meta && (meta.rounds?.length || 0) > (job.awaitingReplyRounds || 1) && meta.state !== "run") {
+    awaitingReply = false;
+    result = meta.rounds.at(-1)?.said || meta.lastText || result;
+  }
   if (job.handoff && state === "bound" && meta) {
     const hasReply = Boolean(meta.rounds?.some((r) => r?.said) || meta.lastText);
     if (meta.state === "done" || meta.state === "error" || meta.state === "cancelled" || meta.state === "wait" && hasReply) {
       state = meta.state === "error" ? "error" : meta.state === "cancelled" ? "cancelled" : "done";
       endedAt = endedAt || meta.lastAt || Date.now();
     }
-  } else if (state === "starting" || state === "running" || state === "needs-approval" || state === "bound") {
+  } else if (state === "starting" || state === "running" || state === "needs-approval" || state === "bound" || awaitingReply && state === "done") {
     state = "running";
   }
   if (!result && meta) {
@@ -28004,13 +28030,14 @@ function resolveSyncedWorkerState(worker, job, metaMap) {
     state = "error";
     error = error || truncate(String(result || "").trim(), 180);
   }
-  return { blockId, state, result, error, sessionId: sid, endedAt };
+  return { blockId, state, result, error, sessionId: sid, endedAt, awaitingReply };
 }
 function syncWaveWithState(wave, jobs = {}, metaMap = null) {
   if (!wave || !Array.isArray(wave.workers)) {
     return { wave, changed: false, allSettled: false, counts: { total: 0, done: 0, error: 0, cancelled: 0, running: 0 } };
   }
   let changed = false;
+  const respectAwaitingReply = wave.skipConfirmFirst === false;
   const allJobs = Object.values(jobs || {});
   for (const worker of wave.workers) {
     let job = worker.jobId ? jobs?.[worker.jobId] : null;
@@ -28028,7 +28055,7 @@ function syncWaveWithState(wave, jobs = {}, metaMap = null) {
         changed = true;
       }
     }
-    const next = resolveSyncedWorkerState(worker, job, metaMap);
+    const next = resolveSyncedWorkerState(worker, job, metaMap, { respectAwaitingReply });
     if (next.state !== worker.state || next.sessionId !== worker.sessionId || next.blockId && next.blockId !== worker.blockId || next.result && next.result !== worker.result || next.error && next.error !== worker.error) {
       worker.state = next.state;
       worker.sessionId = next.sessionId;
@@ -28066,19 +28093,26 @@ function findParentBlockLine(lines, { parentBlockId = "", parentTitle = "" } = {
   }
   return -1;
 }
-function extractBlockResultText(noteText = "", { blockId = "", title = "" } = {}) {
+function extractBlockResultText(noteText = "", { blockId = "", title = "", sessionId = "" } = {}) {
   const lines = String(noteText || "").split("\n");
   const idx = findParentBlockLine(lines, { parentBlockId: blockId, parentTitle: title });
   if (idx < 0) return { summary: "", answerLink: "" };
   const baseW = width(lines[idx]);
   const comments = [];
   let answerLink = "";
+  const shortSid = sessionId ? shortSessionId(sessionId) : "";
   for (let i = idx + 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     if (width(lines[i]) <= baseW) break;
     const trimmed = lines[i].trim();
-    const ansMatch = /\[[^\]]+\]\(([^)]*Answers\/[^)]+\.md)\)/i.exec(trimmed);
-    if (ansMatch) answerLink = ansMatch[1];
+    if (sessionId) {
+      const turn = /<!--\s*ad-turn:([A-Za-z0-9_-]+):\d+\s*-->/.exec(trimmed);
+      if (turn && turn[1] !== sessionId && turn[1] !== shortSid) continue;
+    }
+    const wikiMatch = /\[\[([^\]|]*Answers\/[^\]|]+\.md)(?:\|[^\]]*)?\]\]/i.exec(trimmed);
+    const mdMatch = /\[[^\]]+\]\(([^)]*Answers\/[^)]+\.md)\)/i.exec(trimmed);
+    const matchedLink = wikiMatch && wikiMatch[1] || mdMatch && mdMatch[1] || "";
+    if (matchedLink) answerLink = matchedLink.trim();
     if (/^[-*+]\s+(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(trimmed)) {
       const clean2 = stripPinMarker(trimmed.replace(/^[-*+]\s+(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:]\s*)?|(?:第\d+轮|Round\s+\d+)[：:]\s*)/, "").replace(RECORD_PROVENANCE_RE, "")).trim();
       if (clean2) comments.push(clean2);
@@ -28086,7 +28120,7 @@ function extractBlockResultText(noteText = "", { blockId = "", title = "" } = {}
   }
   return { summary: comments.join("\n"), answerLink };
 }
-function collectWaveWorkerReports(wave, { jobs = {}, metaMap = null, noteText = "" } = {}) {
+function collectWaveWorkerReports(wave, { jobs = {}, metaMap = null, noteText = "", vaultPath = "" } = {}) {
   const allWorkers = [];
   const seenKey = /* @__PURE__ */ new Set();
   for (const w of [...wave?.completedWorkers || [], ...wave?.workers || []]) {
@@ -28096,10 +28130,14 @@ function collectWaveWorkerReports(wave, { jobs = {}, metaMap = null, noteText = 
     seenKey.add(key);
     allWorkers.push(w);
   }
+  const cleanVault = String(vaultPath || "").replace(/[\\/]+$/, "");
   return allWorkers.map((worker, idx) => {
     const job = worker.jobId ? jobs?.[worker.jobId] : null;
     const synced = resolveSyncedWorkerState(worker, job, metaMap);
-    const noteInfo = noteText ? extractBlockResultText(noteText, { blockId: worker.blockId, title: worker.title }) : { summary: "", answerLink: "" };
+    const noteInfo = noteText ? extractBlockResultText(noteText, { blockId: worker.blockId, title: worker.title, sessionId: synced.sessionId }) : { summary: "", answerLink: "" };
+    const answerLink = noteInfo.answerLink || "";
+    const isAbs = /^(?:\/|[A-Za-z]:[\\/])/.test(answerLink);
+    const answerAbsPath = answerLink && cleanVault && !isAbs ? `${cleanVault}/${answerLink.replace(/^\/+/, "")}` : "";
     const rawOutput = String(synced.result || noteInfo.summary || "").trim();
     return {
       index: idx + 1,
@@ -28109,7 +28147,8 @@ function collectWaveWorkerReports(wave, { jobs = {}, metaMap = null, noteText = 
       sessionId: synced.sessionId,
       output: truncate(rawOutput, 2e3),
       error: String(synced.error || "").trim(),
-      answerLink: noteInfo.answerLink
+      answerLink,
+      answerAbsPath
     };
   });
 }
@@ -28125,7 +28164,8 @@ function buildStewardPrompt({ wave, reports = [], projectName: projectName2 = ""
   const workerSections = reports.map((r) => {
     const lines = [`### \u961F\u5458 ${r.index}\uFF1A${r.title} (@${r.agent}) \u2014 ${statusLabels.get(r.state) || r.state}`];
     if (r.error) lines.push(`- \u5931\u8D25/\u5F02\u5E38\u4FE1\u606F\uFF1A${r.error}`);
-    if (r.answerLink) lines.push(`- \u5B8C\u6574\u95EE\u7B54\u5F52\u6863\uFF1A${r.answerLink}`);
+    const archiveRef = r.answerAbsPath || r.answerLink;
+    if (archiveRef) lines.push(`- \u5B8C\u6574\u95EE\u7B54\u5F52\u6863\uFF08\u53EF\u76F4\u63A5\u8BFB\u53D6\u539F\u6587\uFF09\uFF1A${archiveRef}`);
     if (r.output) lines.push(`- \u6267\u884C\u7ED3\u679C\uFF1A
 ${r.output}`);
     else if (!r.error) lines.push("- \u6267\u884C\u7ED3\u679C\uFF1A\uFF08\u6682\u65E0\u6587\u672C\u8F93\u51FA\uFF0C\u8BF7\u7ED3\u5408\u5DE5\u4F5C\u76EE\u5F55\u5B9E\u9645\u53D8\u52A8\u6838\u67E5\uFF09");
@@ -28974,7 +29014,7 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
           ...target.agent ? { agent: target.agent, explicitAgent: true } : {},
           boardContext: buildBoardSiblingContext(this.model, target.line)
         }));
-      } else if (["ERRORED", "CANCELED", "CANCELLED"].includes(String(target.kw || "").toUpperCase()) && !target.activeJob && !target.isMirror && this.plugin?.delegateAtLine && this.sourcePath) {
+      } else if (["ERRORED", "CANCELED", "CANCELLED", "NEEDOK"].includes(String(target.kw || "").toUpperCase()) && !target.activeJob && !target.isMirror && this.plugin?.delegateAtLine && this.sourcePath) {
         const boardContext = buildBoardSiblingContext(this.model, target.line);
         const dispatchOpts = {
           ...target.agent ? { agent: target.agent, explicitAgent: true } : {},
@@ -29142,7 +29182,7 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         btn.type = "button";
         btn.className = `ad-board__crumb${isLast ? " is-current" : ""}`;
         btn.textContent = truncate(crumb.title, 28);
-        if (!isLast) {
+        if (!readOnly && !isLast && view?.dispatch) {
           btn.addEventListener("click", (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -29258,7 +29298,8 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         });
       } else if (wave.state === "error") {
         const errShort = truncate(wave.error || t("\u672A\u77E5\u9519\u8BEF"), 60);
-        info.textContent = wave.steward?.enabled === false ? t("\u26A0\uFE0F \u7B2C {stage} \u6279\u6267\u884C\u5F02\u5E38\uFF1A{err}", { stage: wave.stage || 1, err: errShort }) : t("\u26A0\uFE0F \u7BA1\u5BB6 {agent} \u6C47\u603B\u5931\u8D25\uFF1A{err}", { agent: stewardName, err: errShort });
+        const batchPaused = (wave.queuedStages || []).length > 0 || failedWorkers.length > 0 && !wave.steward?.jobId;
+        info.textContent = wave.steward?.enabled === false ? t("\u26A0\uFE0F \u7B2C {stage} \u6279\u6267\u884C\u5F02\u5E38\uFF1A{err}", { stage: wave.stage || 1, err: errShort }) : batchPaused ? t("\u26A0\uFE0F \u7B2C {stage} \u6279\u6682\u505C\uFF1A{err}", { stage: wave.stage || 1, err: errShort }) : t("\u26A0\uFE0F \u7BA1\u5BB6 {agent} \u6C47\u603B\u5931\u8D25\uFF1A{err}", { agent: stewardName, err: errShort });
       } else if (wave.state === "done") {
         const stages = Math.max(1, Number(wave.totalStages) || 1);
         const total = uniqWorkers.size || workers.length;
@@ -29294,6 +29335,18 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
           e.preventDefault();
           e.stopPropagation();
           this.plugin.retryFailedWaveWorkers(wave.id);
+        });
+      }
+      if (wave.state === "error" && (wave.queuedStages || []).length > 0 && workers.some((w) => w.state === "done") && this.plugin?.advanceWaveToNextStage) {
+        const nextStageNo = wave.queuedStages[0].stage;
+        const contBtn = barBtns.appendChild(doc.createElement("button"));
+        contBtn.type = "button";
+        contBtn.className = "ad-board__btn";
+        contBtn.textContent = t("\u8DF3\u8FC7\u5931\u8D25\u7EE7\u7EED\u7B2C {stage} \u6279", { stage: nextStageNo });
+        contBtn.addEventListener("click", (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          this.plugin.advanceWaveToNextStage(wave.id, { force: true });
         });
       }
       if (wave.state === "waiting" && wave.steward?.enabled !== false && this.plugin?.runStewardWaveNow) {
@@ -29546,13 +29599,15 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
     const cols = wrap.appendChild(doc.createElement("div"));
     cols.className = "ad-board__cols";
     const renderTasks = [];
-    cols.addEventListener("contextmenu", (e) => {
-      if (e.target?.closest?.(".ad-board__card")) return;
-      if (!this.selectionSet().size) return;
-      e.preventDefault();
-      e.stopPropagation();
-      this.openContextMenu(e, null);
-    });
+    if (!readOnly) {
+      cols.addEventListener("contextmenu", (e) => {
+        if (e.target?.closest?.(".ad-board__card")) return;
+        if (!this.selectionSet().size) return;
+        e.preventDefault();
+        e.stopPropagation();
+        this.openContextMenu(e, null);
+      });
+    }
     if (this.model.columns.length > 4) {
       cols.style.gridTemplateColumns = `repeat(${Math.min(this.model.columns.length, 5)}, minmax(150px, 1fr))`;
     }
@@ -29590,45 +29645,47 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
       const list = colEl.appendChild(doc.createElement("div"));
       list.className = "ad-board__collist";
       list.dataset.column = col.id;
-      colEl.addEventListener("dragover", (e) => {
-        if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        e.dataTransfer.dropEffect = "move";
-        colEl.classList.add("is-drop");
-      });
-      colEl.addEventListener("dragleave", (e) => {
-        if (!colEl.contains(e.relatedTarget)) colEl.classList.remove("is-drop");
-      });
-      colEl.addEventListener("drop", (e) => {
-        if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
-        e.preventDefault();
-        e.stopPropagation();
-        colEl.classList.remove("is-drop");
-        try {
-          const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
-          if (!payload || !Number.isInteger(payload.line)) return;
-          const cardObj = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
-          if (!cardObj || cardObj.isMirror) return;
-          if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
-            const last = col.cards[col.cards.length - 1];
-            if (!last) this.moveCardSafe(cardObj, { targetParentLine: col.targetParentLine });
-            else this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1, targetParentLine: col.targetParentLine });
-            return;
+      if (!readOnly) {
+        colEl.addEventListener("dragover", (e) => {
+          if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          e.dataTransfer.dropEffect = "move";
+          colEl.classList.add("is-drop");
+        });
+        colEl.addEventListener("dragleave", (e) => {
+          if (!colEl.contains(e.relatedTarget)) colEl.classList.remove("is-drop");
+        });
+        colEl.addEventListener("drop", (e) => {
+          if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          colEl.classList.remove("is-drop");
+          try {
+            const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
+            if (!payload || !Number.isInteger(payload.line)) return;
+            const cardObj = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
+            if (!cardObj || cardObj.isMirror) return;
+            if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
+              const last = col.cards[col.cards.length - 1];
+              if (!last) this.moveCardSafe(cardObj, { targetParentLine: col.targetParentLine });
+              else this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1, targetParentLine: col.targetParentLine });
+              return;
+            }
+            if (payload.column !== col.id) {
+              const last = col.cards[col.cards.length - 1];
+              if (!last) this.moveCardSafe(cardObj, { targetColumn: col.id });
+              else this.moveCardSafe(cardObj, { targetColumn: col.id, beforeLine: last.endLine + 1 });
+              return;
+            }
+            if (col.cards.length > 1) {
+              const last = col.cards[col.cards.length - 1];
+              if (last.line !== cardObj.line) this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1 });
+            }
+          } catch {
           }
-          if (payload.column !== col.id) {
-            const last = col.cards[col.cards.length - 1];
-            if (!last) this.moveCardSafe(cardObj, { targetColumn: col.id });
-            else this.moveCardSafe(cardObj, { targetColumn: col.id, beforeLine: last.endLine + 1 });
-            return;
-          }
-          if (col.cards.length > 1) {
-            const last = col.cards[col.cards.length - 1];
-            if (last.line !== cardObj.line) this.moveCardSafe(cardObj, { beforeLine: last.endLine + 1 });
-          }
-        } catch {
-        }
-      });
+        });
+      }
       if (!col.cards.length) {
         const empty = list.appendChild(doc.createElement("div"));
         empty.className = "ad-board__empty";
@@ -29641,61 +29698,63 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         const pinned = this.pinnedSet.has(pinId) || this.pinnedSet.has(boardCardPinId(card));
         const cardEl = list.appendChild(doc.createElement("div"));
         cardEl.className = `ad-board__card${card.activeJob ? " is-live" : ""}${card.isMirror ? " is-mirror" : ""}${pinned ? " is-pinned" : ""}`;
-        cardEl.draggable = !card.isMirror;
+        cardEl.draggable = !readOnly && !card.isMirror;
         if (card.agent && AGENTS[card.agent]) {
           cardEl.style.setProperty("--ad-agent", AGENTS[card.agent].color);
           cardEl.style.setProperty("--ad-agent-soft", AGENTS[card.agent].soft);
         }
-        cardEl.addEventListener("dragstart", (e) => {
-          if (e.target?.tagName === "INPUT") {
+        if (!readOnly) {
+          cardEl.addEventListener("dragstart", (e) => {
+            if (e.target?.tagName === "INPUT") {
+              e.preventDefault();
+              return;
+            }
+            e.stopPropagation();
+            e.dataTransfer.setData(BOARD_CARD_MIME, JSON.stringify({ line: card.line, column: col.id }));
+            e.dataTransfer.effectAllowed = "move";
+            cardEl.classList.add("is-dragging");
+          });
+          cardEl.addEventListener("dragend", () => cardEl.classList.remove("is-dragging"));
+          cardEl.addEventListener("contextmenu", (e) => {
             e.preventDefault();
-            return;
-          }
-          e.stopPropagation();
-          e.dataTransfer.setData(BOARD_CARD_MIME, JSON.stringify({ line: card.line, column: col.id }));
-          e.dataTransfer.effectAllowed = "move";
-          cardEl.classList.add("is-dragging");
-        });
-        cardEl.addEventListener("dragend", () => cardEl.classList.remove("is-dragging"));
-        cardEl.addEventListener("contextmenu", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          this.openContextMenu(e, card);
-        });
-        cardEl.addEventListener("dragover", (e) => {
-          if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
-          e.preventDefault();
-          e.stopPropagation();
-          const rect = cardEl.getBoundingClientRect();
-          const after = e.clientY > rect.top + rect.height / 2;
-          cardEl.classList.toggle("is-drop-after", after);
-          cardEl.classList.toggle("is-drop-before", !after);
-          colEl.classList.remove("is-drop");
-        });
-        cardEl.addEventListener("dragleave", () => {
-          cardEl.classList.remove("is-drop-before", "is-drop-after");
-        });
-        cardEl.addEventListener("drop", (e) => {
-          if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
-          e.preventDefault();
-          e.stopPropagation();
-          cardEl.classList.remove("is-drop-before", "is-drop-after");
-          try {
-            const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
-            if (!payload || !Number.isInteger(payload.line) || payload.line === card.line) return;
-            const dragged = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
-            if (!dragged || dragged.isMirror) return;
+            e.stopPropagation();
+            this.openContextMenu(e, card);
+          });
+          cardEl.addEventListener("dragover", (e) => {
+            if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+            e.preventDefault();
+            e.stopPropagation();
             const rect = cardEl.getBoundingClientRect();
             const after = e.clientY > rect.top + rect.height / 2;
-            const beforeLine = after ? Number.isInteger(card.endLine) ? card.endLine + 1 : card.line + 1 : card.line;
-            if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
-              this.moveCardSafe(dragged, { beforeLine, targetParentLine: col.targetParentLine });
-            } else {
-              this.moveCardSafe(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine });
+            cardEl.classList.toggle("is-drop-after", after);
+            cardEl.classList.toggle("is-drop-before", !after);
+            colEl.classList.remove("is-drop");
+          });
+          cardEl.addEventListener("dragleave", () => {
+            cardEl.classList.remove("is-drop-before", "is-drop-after");
+          });
+          cardEl.addEventListener("drop", (e) => {
+            if (!e.dataTransfer || ![...e.dataTransfer.types].includes(BOARD_CARD_MIME)) return;
+            e.preventDefault();
+            e.stopPropagation();
+            cardEl.classList.remove("is-drop-before", "is-drop-after");
+            try {
+              const payload = JSON.parse(e.dataTransfer.getData(BOARD_CARD_MIME));
+              if (!payload || !Number.isInteger(payload.line) || payload.line === card.line) return;
+              const dragged = this.model.columns.flatMap((c) => c.cards).find((c) => c.line === payload.line);
+              if (!dragged || dragged.isMirror) return;
+              const rect = cardEl.getBoundingClientRect();
+              const after = e.clientY > rect.top + rect.height / 2;
+              const beforeLine = after ? Number.isInteger(card.endLine) ? card.endLine + 1 : card.line + 1 : card.line;
+              if (this.model.groupBy === "children" && Number.isInteger(col.targetParentLine)) {
+                this.moveCardSafe(dragged, { beforeLine, targetParentLine: col.targetParentLine });
+              } else {
+                this.moveCardSafe(dragged, { targetColumn: payload.column !== col.id ? col.id : "", beforeLine });
+              }
+            } catch {
             }
-          } catch {
-          }
-        });
+          });
+        }
         const topRow = cardEl.appendChild(doc.createElement("div"));
         topRow.className = "ad-board__cardtop";
         const lead = topRow.appendChild(doc.createElement("div"));
@@ -29782,7 +29841,7 @@ var TaskBoardWidget = class extends import_view3.WidgetType {
         }
         const foot = cardEl.appendChild(doc.createElement("div"));
         foot.className = "ad-board__cardfoot";
-        if (!card.hasLink && !card.activeJob && !card.isMirror && addAgents.length) {
+        if (!readOnly && !card.hasLink && !card.activeJob && !card.isMirror && addAgents.length) {
           const sel = foot.appendChild(doc.createElement("select"));
           sel.className = "ad-board__agentsel";
           const none = sel.appendChild(doc.createElement("option"));
@@ -44414,6 +44473,46 @@ var JournalSync = class {
   keywords(text) {
     let ls = text.split("\n");
     const owner = ownersOf(ls);
+    const activeJobStates = /* @__PURE__ */ new Set(["starting", "running", "needs-approval", "bound"]);
+    const jobBySid = /* @__PURE__ */ new Map();
+    for (const j of Object.values(this.p?.jobs || {})) {
+      if (!j?.sessionId) continue;
+      const prev = jobBySid.get(j.sessionId);
+      const isAct = activeJobStates.has(j.state);
+      const prevAct = prev ? activeJobStates.has(prev.state) : false;
+      if (!prev || isAct && !prevAct || isAct === prevAct && (j.startedAt || 0) > (prev.startedAt || 0)) {
+        jobBySid.set(j.sessionId, j);
+      }
+    }
+    const linksByOwner = /* @__PURE__ */ new Map();
+    for (let i = 0; i < ls.length; i++) {
+      const link2 = parseLink(ls[i]);
+      if (!link2 || owner[i] < 0) continue;
+      const list = linksByOwner.get(owner[i]) || [];
+      list.push({ line: i, sid: link2.sid });
+      linksByOwner.set(owner[i], list);
+    }
+    const primaryLinkByOwner = /* @__PURE__ */ new Map();
+    for (const [ownerIdx, list] of linksByOwner.entries()) {
+      if (list.length <= 1) {
+        if (list[0]) primaryLinkByOwner.set(ownerIdx, list[0].line);
+        continue;
+      }
+      let best = list[0];
+      let bestScore = [-1, -1];
+      for (const entry of list) {
+        const j = jobBySid.get(entry.sid);
+        const m = this.usage.meta.get(entry.sid);
+        const isArch = this.archived(entry.sid);
+        const tier = j && activeJobStates.has(j.state) ? 3 : !isArch && m?.state === "run" ? 2 : !isArch && m ? 1 : 0;
+        const ts = Math.max(m?.lastAt || 0, j?.startedAt || 0);
+        if (tier > bestScore[0] || tier === bestScore[0] && ts > bestScore[1]) {
+          best = entry;
+          bestScore = [tier, ts];
+        }
+      }
+      primaryLinkByOwner.set(ownerIdx, best.line);
+    }
     let segsBySid;
     const spanFor = (sid, p, lines, n, kw) => {
       segsBySid || (segsBySid = new Map(this.dayList().map((row) => [row.sid, row.segs])));
@@ -44424,6 +44523,7 @@ var JournalSync = class {
       if (!k) continue;
       const n = owner[at];
       if (n < 0) continue;
+      if (primaryLinkByOwner.has(n) && primaryLinkByOwner.get(n) !== at) continue;
       const cur = kwLine(ls[n]);
       if (!cur || isManualTask(this.cfg, ls[n])) continue;
       if (this.archived(k.sid)) {
@@ -46980,7 +47080,7 @@ function extractGoalFromBlock(block, trigger) {
   if (!block) return "";
   const title = blockTitle(block, trigger);
   const rawLines = String(block.text || "").split("\n").slice(1);
-  const details = rawLines.map((l) => l.trim()).filter((l) => l && !RECORD_LINE_RE.test(l) && !LINK_RE.test(l) && !/^(?:[-*+]\s+)?(?:📄|📝|❓|✍️|⏱|🔗|💬)\s*/.test(l)).map((l) => l.replace(/^(?:[-*+]|\d+[.)])\s+/, "").trim()).filter(Boolean).slice(0, 6);
+  const details = rawLines.map((l) => l.trim()).filter((l) => l && !RECORD_LINE_RE.test(l) && !LINK_RE.test(l) && !/^(?:[-*+]\s+)?(?:📄|📝|❓|✍️|⏱|🔗|💬)\s*/.test(l) && !kwLine(l)?.kw).map((l) => stripBlockId(stripTaskMention(l, trigger)).replace(/^(?:[-*+]|\d+[.)])\s+/, "").trim()).filter(Boolean).slice(0, 6);
   return details.length ? `${title}
 ${details.map((d) => `- ${d}`).join("\n")}` : title;
 }
@@ -47331,6 +47431,11 @@ var ProjectWorkbenchModal = class extends import_obsidian20.Modal {
       new import_obsidian20.Notice(t("\u8BF7\u81F3\u5C11\u4FDD\u7559\u4E00\u6761\u8981\u5199\u5165\u7684\u5B50\u4EFB\u52A1"));
       return;
     }
+    const cwdTrimmed = String(this.cwd || "").trim();
+    if (dispatch && cwdTrimmed && !import_fs27.default.existsSync(cwdTrimmed)) {
+      new import_obsidian20.Notice(t("\u5DE5\u4F5C\u76EE\u5F55\u4E0D\u5B58\u5728\uFF0C\u8BF7\u5148\u4FEE\u6B63\u8DEF\u5F84\uFF1A{cwd}", { cwd: cwdTrimmed }), 6e3);
+      return;
+    }
     this.dispatching = true;
     this.render();
     try {
@@ -47422,6 +47527,7 @@ var ProjectWorkbenchModal = class extends import_obsidian20.Modal {
     });
     cwdInput.oninput = () => {
       this.cwd = cwdInput.value;
+      if (folderSel) folderSel.value = folderEntries.find((e) => sameFolder(e.path, this.cwd))?.name || "";
       this.updateActionCounts();
     };
     projInput.oninput = () => {
@@ -47431,6 +47537,7 @@ var ProjectWorkbenchModal = class extends import_obsidian20.Modal {
         this.cwd = folder;
         cwdInput.value = folder;
         if (folderSel) folderSel.value = folderEntries.find((e) => sameFolder(e.path, folder))?.name || "";
+        this.updateActionCounts();
       }
     };
     if (this.targetLine >= 0 && this.targetPath) {
@@ -47654,7 +47761,14 @@ var ProjectWorkbenchModal = class extends import_obsidian20.Modal {
         this._draftEdited = true;
         this.updateActionCounts();
       };
-      const agentSel = top.createEl("select", { cls: "ad-input ad-wb-select" });
+      const delBtn = top.createEl("button", { cls: "ad-linkbtn", text: "\xD7", attr: { type: "button", title: t("\u79FB\u9664") } });
+      delBtn.onclick = () => {
+        this._draftEdited = true;
+        this.subtasks.splice(idx, 1);
+        this.render();
+      };
+      const metaRow = row.createDiv({ cls: "ad-wb-task__meta" });
+      const agentSel = metaRow.createEl("select", { cls: "ad-input ad-wb-select" });
       for (const id of agentPool) {
         agentSel.createEl("option", { text: this.agentOptionLabel(id), attr: { value: id } });
       }
@@ -47666,7 +47780,7 @@ var ProjectWorkbenchModal = class extends import_obsidian20.Modal {
         item.destination = this.teamDestination(item.agent);
         this.render();
       };
-      const stageSel = top.createEl("select", { cls: "ad-input ad-wb-select ad-wb-stage" });
+      const stageSel = metaRow.createEl("select", { cls: "ad-input ad-wb-select ad-wb-stage" });
       for (const n of [1, 2, 3]) {
         stageSel.createEl("option", { text: t("\u7B2C {n} \u6279", { n }), attr: { value: String(n) } });
       }
@@ -47676,18 +47790,12 @@ var ProjectWorkbenchModal = class extends import_obsidian20.Modal {
         item.stage = Number(stageSel.value) || 1;
         this.updateActionCounts();
       };
-      const destSel = top.createEl("select", { cls: "ad-input ad-wb-select" });
+      const destSel = metaRow.createEl("select", { cls: "ad-input ad-wb-select" });
       const destOpts = destinations(item.agent);
       for (const d of destOpts) destSel.createEl("option", { text: d.label, attr: { value: d.id } });
       destSel.value = destOpts.some((d) => d.id === item.destination) ? item.destination : destOpts[0]?.id || "background";
       destSel.onchange = () => {
         item.destination = destSel.value;
-      };
-      const delBtn = top.createEl("button", { cls: "ad-linkbtn", text: "\xD7", attr: { type: "button", title: t("\u79FB\u9664") } });
-      delBtn.onclick = () => {
-        this._draftEdited = true;
-        this.subtasks.splice(idx, 1);
-        this.render();
       };
       const detailIn = row.createEl("input", {
         cls: "ad-input ad-wb-task__detail",
@@ -47784,7 +47892,16 @@ var RUNNING = /* @__PURE__ */ new Set(["starting", "running", "bound", "wait"]);
 var lastActivity = (job, meta) => Number(meta?.lastAt || job?.lastAt || job?.startedAt || 0);
 function judgeWave(wave, { jobs = {}, metaMap = null, now = Date.now(), stuckMs = STEWARD_STUCK_MS } = {}) {
   const out = [];
-  for (const worker of wave?.workers || []) {
+  const targets = [...wave?.workers || []];
+  if (wave?.state === "running" && wave.steward?.jobId) {
+    targets.push({
+      jobId: wave.steward.jobId,
+      blockId: wave.steward.blockId || wave.parentBlockId || "",
+      title: wave.parentTitle ? `\u7BA1\u5BB6\u6C47\u603B\uFF1A${wave.parentTitle}` : "\u7BA1\u5BB6\u6C47\u603B",
+      state: "running"
+    });
+  }
+  for (const worker of targets) {
     const job = worker.jobId ? jobs?.[worker.jobId] : null;
     if (!job) continue;
     const state = job.state || worker.state || "";
@@ -51819,7 +51936,12 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     const file = this.app.vault.getAbstractFileByPath(path31);
     if (!file) throw new Error(t("\u627E\u4E0D\u5230\u76EE\u6807\u7B14\u8BB0\uFF1A{path}", { path: path31 }));
     const freshLines = lines || (await this.readNote(path31)).split("\n");
-    const tasks = subtaskLines.map((item) => ({ item, block: blockAt(freshLines, item.line) })).filter((x) => x.block);
+    const tasks = subtaskLines.map((item) => {
+      const idx = item.blockId ? freshLines.findIndex((l) => blockIdOf(l) === item.blockId) : -1;
+      const lineIdx = idx >= 0 ? idx : item.line;
+      const block = lineIdx >= 0 ? blockAt(freshLines, lineIdx) : null;
+      return block ? { item: { ...item, line: lineIdx }, block } : null;
+    }).filter(Boolean);
     if (!tasks.length) return;
     const byStage = /* @__PURE__ */ new Map();
     for (const entry of tasks) {
@@ -52000,20 +52122,23 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     const model = buildTaskBoardModel(freshGrp, this, { queuedStagesByBlockId: queuedByBlockId });
     const pending = model.columns.flatMap((c) => c.cards).filter((c) => c.column === "todo" && !c.hasLink && !c.activeJob && !c.isMirror && !c.queuedStage);
     if (!pending.length) return this.notice(t("\u6CA1\u6709\u5F85\u6D3E\u53D1\u7684 TODO \u5B50\u4EFB\u52A1"));
+    const available = delegableAgents(this);
+    const limitAgents = limitAgentsFromSessions(this.liveSessions?.({ hours: 6 }) || []);
+    const uninstalledAgents = uninstalledAgentsFor(this, available);
+    const preferredDefault = this.defaultTarget?.() || "";
+    const healthyFallback = (preferredDefault && available.includes(preferredDefault) && !uninstalledAgents.has(preferredDefault) && !limitAgents.has(preferredDefault) ? preferredDefault : "") || available.find((id) => !uninstalledAgents.has(id) && !limitAgents.has(id)) || available.find((id) => !uninstalledAgents.has(id)) || preferredDefault || available[0] || "claude";
     const subtaskLines = pending.map((card) => ({
       line: card.line,
       blockId: card.blockId || blockIdOf(lines[card.line]) || assignedCardIds.get(card.line) || "",
-      agent: card.agent || this.defaultTarget(),
+      agent: card.agent || healthyFallback,
       destination: void 0,
       stage: 1,
       title: card.title,
       boardContext: buildBoardSiblingContext(model, card.line)
     }));
     const projectHint = this.settings?.autoProjectFolder === false ? null : resolveProjectForTask({ settings: this.settings, notePath: path31, contextLines: [], blockText: lines[parentLine] || model.title || "" });
-    const available = delegableAgents(this);
-    const limitAgents = limitAgentsFromSessions(this.liveSessions?.({ hours: 6 }) || []);
-    const uninstalledAgents = uninstalledAgentsFor(this, available);
-    const steward = existingWave ? { enabled: false } : resolveStewardConfig(this.settings, {
+    const activeRunningWave = existingWave && (existingWave.state === "waiting" || existingWave.state === "running");
+    const steward = activeRunningWave ? { enabled: false } : resolveStewardConfig(this.settings, {
       projectName: projectHint?.name || "",
       availableAgents: available,
       limitAgents,
@@ -52050,13 +52175,13 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         }
         const blockId = job.blockId || wave.workers.find((w) => w.jobId === job.id || job.blockId && w.blockId === job.blockId)?.blockId || "";
         if (blockId && wave.path) {
-          const targetKw = job.state === "done" ? "TOREVIEW" : job.state === "error" ? "ERRORED" : job.state === "cancelled" ? "CANCELED" : "";
+          const targetKw = job.state === "done" ? job.awaitingReply && wave.skipConfirmFirst === false ? "NEEDOK" : "TOREVIEW" : job.state === "error" ? "ERRORED" : job.state === "cancelled" ? "CANCELED" : "";
           if (targetKw) {
             await updateNote(this, wave.path, (text) => setTaskBlockKeywordById(text, {
               blockId,
               title: job.name,
               keyword: targetKw,
-              onlyIfKeywords: ["DELEGATED", "DOING", "TODO"]
+              onlyIfKeywords: ["DELEGATED", "DOING", "TODO", "NEEDOK"]
             })).catch(() => {
             });
           }
@@ -52080,8 +52205,17 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         if (synced.changed) dirty = true;
         if (synced.allSettled) {
           if (Array.isArray(wave.queuedStages) && wave.queuedStages.length) toAdvance.push(wave.id);
-          else if (wave.steward?.enabled !== false) toLaunch.push(wave.id);
-          else toComplete.push(wave);
+          else if (wave.steward?.enabled !== false) {
+            const allDone = [...wave.completedWorkers || [], ...wave.workers || []].some((w) => w.state === "done");
+            if (!allDone) {
+              wave.state = "error";
+              wave.error = t("\u672C\u6279\u5168\u90E8\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u81EA\u52A8\u6C47\u603B\uFF1B\u53EF\u70B9\u300C\u91CD\u6D3E\u5931\u8D25\u9879\u300D\u6062\u590D\uFF0C\u6216\u624B\u52A8\u542F\u52A8\u7BA1\u5BB6\u6C47\u603B");
+              wave.updatedAt = Date.now();
+              dirty = true;
+            } else {
+              toLaunch.push(wave.id);
+            }
+          } else toComplete.push(wave);
         }
       } else if (wave.state === "running" && wave.steward?.jobId) {
         const sJob = this.jobs?.[wave.steward.jobId];
@@ -52128,13 +52262,13 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     this.refreshUI();
     this.notice(t("\u2705 \u5168\u90E8 {stages} \u6279\u534F\u4F5C\u5B50\u4EFB\u52A1\u5DF2\u5B8C\u6210", { stages: wave.totalStages || 1 }), 6e3);
   }
-  async advanceWaveToNextStage(waveId) {
+  async advanceWaveToNextStage(waveId, { force = false } = {}) {
     if (this._unloaded) return;
     const wave = this.settings.workbenchWaves?.[waveId];
-    if (!wave || wave.state !== "waiting" || !Array.isArray(wave.queuedStages) || !wave.queuedStages.length) return;
+    if (!wave || !["waiting", "error"].includes(wave.state) || wave.state === "error" && !force || !Array.isArray(wave.queuedStages) || !wave.queuedStages.length) return;
     if (this._launchingWaves.has(waveId)) return;
     const synced = syncWaveWithState(wave, this.jobs, this.usage?.meta);
-    if (!synced.allSettled) return;
+    if (!force && !synced.allSettled) return;
     this._launchingWaves.add(waveId);
     let shouldSyncAfter = false;
     try {
@@ -52147,8 +52281,21 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         this.refreshUI();
         return;
       }
+      const failedWorkers = (wave.workers || []).filter((w) => w.state === "error" || w.state === "cancelled");
+      const anySucceeded = (wave.workers || []).some((w) => w.state === "done");
+      if (!force && failedWorkers.length > 0) {
+        wave.state = "error";
+        wave.error = !anySucceeded ? t("\u7B2C {stage} \u6279\u5168\u90E8\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u63A8\u8FDB\u540E\u7EED\u9636\u6BB5\uFF1B\u53EF\u70B9\u300C\u91CD\u6D3E\u5931\u8D25\u9879\u300D\u6062\u590D", { stage: wave.stage || 1 }) : t("\u7B2C {stage} \u6279\u6709 {n} \u4E2A\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u63A8\u8FDB\u4E0B\u4E00\u6279\uFF1B\u53EF\u70B9\u300C\u91CD\u6D3E\u5931\u8D25\u9879\u300D\u6216\u8DF3\u8FC7\u5931\u8D25\u7EE7\u7EED", { stage: wave.stage || 1, n: failedWorkers.length });
+        wave.updatedAt = Date.now();
+        await this.saveSettings();
+        this.refreshUI();
+        this.notice(`\u26A0\uFE0F ${wave.error}`, 8e3);
+        return;
+      }
+      wave.state = "waiting";
+      wave.error = "";
       const noteText = await this.readNote(wave.path);
-      const batchReports = collectWaveWorkerReports({ workers: wave.workers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText });
+      const batchReports = collectWaveWorkerReports({ workers: wave.workers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText, vaultPath: this.vaultPath });
       wave.completedWorkers || (wave.completedWorkers = []);
       const seenCompleted = new Set(wave.completedWorkers.map((w) => w.jobId || w.blockId || `${w.line}:${w.title}`));
       for (const w of wave.workers || []) {
@@ -52157,22 +52304,6 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
           seenCompleted.add(key);
           wave.completedWorkers.push({ ...w });
         }
-      }
-      const anySucceeded = (wave.workers || []).some((w) => w.state === "done");
-      if (!anySucceeded) {
-        wave.queuedStages = [];
-        wave.updatedAt = Date.now();
-        await this.saveSettings();
-        this.notice(t("\u26A0\uFE0F \u7B2C {stage} \u6279\u5168\u90E8\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u81EA\u52A8\u63A8\u8FDB\u540E\u7EED\u9636\u6BB5\uFF1B\u53EF\u5728\u770B\u677F\u4FEE\u590D\u540E\u7EE7\u7EED\u6D3E\u53D1", { stage: wave.stage || 1 }), 8e3);
-        if (wave.steward?.enabled !== false) {
-          this._launchingWaves.delete(waveId);
-          return this.launchStewardForWave(waveId, { force: true });
-        }
-        wave.state = "error";
-        wave.error = t("\u26A0\uFE0F \u7B2C {stage} \u6279\u5168\u90E8\u5B50\u4EFB\u52A1\u672A\u5B8C\u6210\uFF0C\u5DF2\u6682\u505C\u81EA\u52A8\u63A8\u8FDB\u540E\u7EED\u9636\u6BB5\uFF1B\u53EF\u5728\u770B\u677F\u4FEE\u590D\u540E\u7EE7\u7EED\u6D3E\u53D1", { stage: wave.stage || 1 });
-        await this.saveSettings();
-        this.refreshUI();
-        return;
       }
       const prevStage = wave.stage || 1;
       const nextStage = wave.queuedStages.shift();
@@ -52192,7 +52323,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
         shouldSyncAfter = true;
         return;
       }
-      const upstreamReports = collectWaveWorkerReports({ workers: wave.completedWorkers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText });
+      const upstreamReports = collectWaveWorkerReports({ workers: wave.completedWorkers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText, vaultPath: this.vaultPath });
       const siblingModel = {
         title: wave.parentTitle || t("\u534F\u4F5C\u9879\u76EE"),
         columns: [{
@@ -52346,7 +52477,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     this.refreshUI();
     try {
       const noteText = await this.readNote(wave.path);
-      const reports = collectWaveWorkerReports(wave, { jobs: this.jobs, metaMap: this.usage?.meta, noteText });
+      const reports = collectWaveWorkerReports(wave, { jobs: this.jobs, metaMap: this.usage?.meta, noteText, vaultPath: this.vaultPath });
       const available = delegableAgents(this);
       const limited = limitAgentsFromSessions(this.liveSessions?.({ hours: 6 }) || []);
       const uninstalled = uninstalledAgentsFor(this, available);
@@ -52537,7 +52668,10 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
           }), 8e3);
           await this.dispatchWorkbenchTasks({
             path: wave.path,
-            subtaskLines: addedNextLines,
+            subtaskLines: addedNextLines.map((item) => ({
+              ...item,
+              destination: item.destination || (destinations(item.agent).some((d) => d.id === "background") ? "background" : defaultDestination(this, item.agent))
+            })),
             cwd: wave.cwd,
             parentTitle: wave.parentTitle,
             parentBlockId: wave.parentBlockId,
@@ -52638,12 +52772,17 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     if (!dispatches.length) return this.notice(t("\u627E\u4E0D\u5230\u53EF\u91CD\u6D3E\u7684\u5931\u8D25\u5B50\u4EFB\u52A1\u884C"));
     noteText = await this.readNote(wave.path);
     lines = noteText.split("\n");
+    const resolveWorkerLine = (w) => {
+      const byId = w?.blockId ? lines.findIndex((l) => blockIdOf(l) === w.blockId) : -1;
+      return byId >= 0 ? byId : Number.isInteger(w?.line) ? w.line : -1;
+    };
+    const upstreamReports = (wave.completedWorkers || []).length ? collectWaveWorkerReports({ workers: wave.completedWorkers }, { jobs: this.jobs, metaMap: this.usage?.meta, noteText, vaultPath: this.vaultPath }) : [];
     const siblingModel = {
       title: wave.parentTitle || t("\u534F\u4F5C\u9879\u76EE"),
       columns: [{
         id: "todo",
         cards: (wave.workers || []).map((w) => ({
-          line: w.line,
+          line: resolveWorkerLine(w),
           title: w.title,
           agent: dispatches.find((d) => d.worker === w)?.nextAgent || w.agent,
           stage: wave.stage || 1
@@ -52652,10 +52791,11 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     };
     let restarted = 0;
     for (const { worker, nextAgent } of dispatches) {
-      const idx = worker.blockId ? lines.findIndex((l) => blockIdOf(l) === worker.blockId) : worker.line;
+      const idx = resolveWorkerLine(worker);
       const block = idx >= 0 ? blockAt(lines, idx) : null;
       if (!block) continue;
-      const boardContext = buildBoardSiblingContext(siblingModel, worker.line, {
+      const boardContext = buildBoardSiblingContext(siblingModel, idx, {
+        upstreamReports,
         stage: wave.stage || 1,
         totalStages: wave.totalStages || 1
       });

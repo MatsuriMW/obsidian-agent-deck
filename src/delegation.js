@@ -846,7 +846,7 @@ export class Delegator {
       }
       if (offset) job.roundOffset = offset;
     }
-    Object.assign(job, { state: "starting", startedAt: Date.now(), endedAt: 0, error: "", result: "", lastText: "", step: "", resultWritten: false });
+    Object.assign(job, { state: "starting", startedAt: Date.now(), endedAt: 0, error: "", result: "", lastText: "", step: "", resultWritten: false, awaitingReply: false });
     this.saveJobs(); this.refreshUI();
     const runner = createDelegationRunner(session.agent, this, job, getRunnerClasses());
     this.runners.set(job.id, runner);
@@ -1261,6 +1261,13 @@ export class Delegator {
       console.error("[agent-deck] 写回提问失败", e);
     }
     if (wrote) {
+      job.awaitingReply = true;
+      job.awaitingReplyRounds = Math.max(
+        1,
+        this.plugin.usage?.meta?.get?.(job.sessionId)?.rounds?.length
+          || (job.conversation || []).filter((m) => m?.role === "assistant" && m.text).length
+          || 1,
+      );
       this.saveJobs();
       // 登记进回复信箱：用户不用回原文找那一行。
       const blockId = job.blockId || "";

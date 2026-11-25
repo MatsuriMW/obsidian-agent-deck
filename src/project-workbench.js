@@ -637,7 +637,7 @@ export function fallbackCopilotPlan({ goal = "", roles = [], defaultAgent = "cla
       summary: lines[0],
       subtasks: lines.slice(0, 8).map((line, i) => {
         const role = activeRoles[i % activeRoles.length];
-        return { checked: true, title: truncate(line, 64), role: role.label, agent: role.agent || defaultAgent, stage: 1, detail: "" };
+        return { checked: true, title: truncate(line, 64), role: role.label, roleId: role.id || "", agent: role.agent || defaultAgent, stage: 1, detail: "" };
       }),
     };
   }
@@ -648,6 +648,7 @@ export function fallbackCopilotPlan({ goal = "", roles = [], defaultAgent = "cla
       checked: true,
       title: `${role.label}：${core}`,
       role: role.label,
+      roleId: role.id || "",
       agent: role.agent || defaultAgent,
       stage: 1,
       detail: role.hint || "",
@@ -1267,7 +1268,8 @@ export function buildBoardSiblingContext(model, activeCardLine = -1, { upstreamR
       const who = r.agent ? (AGENTS[r.agent]?.short || r.agent) : "Agent";
       const status = r.state === "done" ? "已完成" : (r.state === "error" ? "失败" : r.state || "");
       const summary = truncate(String(r.output || r.error || "").replace(/\s+/g, " ").trim(), 600);
-      const link = r.answerLink ? `（归档：${r.answerLink}）` : "";
+      const archiveRef = r.answerAbsPath || r.answerLink;
+      const link = archiveRef ? `（完整归档：${archiveRef}）` : "";
       return `- ${sanitizeBoardTitle(r.title)} (${who}, ${status})${link}${summary ? `：${summary}` : ""}`;
     });
     sections.push(`${t("前序阶段已完成产出摘要（可直接衔接，勿重复造轮子）：")}\n${prevLines.join("\n")}`);
@@ -1418,7 +1420,7 @@ export function createWorkbenchWave({
   };
 }
 
-function resolveSyncedWorkerState(worker, job, metaMap) {
+function resolveSyncedWorkerState(worker, job, metaMap, { respectAwaitingReply = false } = {}) {
   if (!job) {
     return {
       blockId: worker.blockId || "",
@@ -1427,6 +1429,7 @@ function resolveSyncedWorkerState(worker, job, metaMap) {
       error: worker.error || "",
       sessionId: worker.sessionId || "",
       endedAt: worker.endedAt || 0,
+      awaitingReply: false,
     };
   }
   const sid = job.sessionId || worker.sessionId || "";
@@ -1436,6 +1439,11 @@ function resolveSyncedWorkerState(worker, job, metaMap) {
   let result = job.result || worker.result || "";
   let error = job.error || worker.error || "";
   let endedAt = job.endedAt || worker.endedAt || 0;
+  let awaitingReply = Boolean(respectAwaitingReply && job.awaitingReply);
+  if (awaitingReply && meta && (meta.rounds?.length || 0) > (job.awaitingReplyRounds || 1) && meta.state !== "run") {
+    awaitingReply = false;
+    result = meta.rounds.at(-1)?.said || meta.lastText || result;
+  }
 
   if (job.handoff && state === "bound" && meta) {
     const hasReply = Boolean(meta.rounds?.some((r) => r?.said) || meta.lastText);
@@ -1443,7 +1451,7 @@ function resolveSyncedWorkerState(worker, job, metaMap) {
       state = meta.state === "error" ? "error" : (meta.state === "cancelled" ? "cancelled" : "done");
       endedAt = endedAt || meta.lastAt || Date.now();
     }
-  } else if (state === "starting" || state === "running" || state === "needs-approval" || state === "bound") {
+  } else if (state === "starting" || state === "running" || state === "needs-approval" || state === "bound" || (awaitingReply && state === "done")) {
     state = "running";
   }
 
@@ -1458,7 +1466,7 @@ function resolveSyncedWorkerState(worker, job, metaMap) {
     state = "error";
     error = error || truncate(String(result || "").trim(), 180);
   }
-  return { blockId, state, result, error, sessionId: sid, endedAt };
+  return { blockId, state, result, error, sessionId: sid, endedAt, awaitingReply };
 }
 
 export function syncWaveWithState(wave, jobs = {}, metaMap = null) {
@@ -1466,6 +1474,7 @@ export function syncWaveWithState(wave, jobs = {}, metaMap = null) {
     return { wave, changed: false, allSettled: false, counts: { total: 0, done: 0, error: 0, cancelled: 0, running: 0 } };
   }
   let changed = false;
+  const respectAwaitingReply = wave.skipConfirmFirst === false;
   const allJobs = Object.values(jobs || {});
   for (const worker of wave.workers) {
     let job = worker.jobId ? jobs?.[worker.jobId] : null;
@@ -1485,7 +1494,7 @@ export function syncWaveWithState(wave, jobs = {}, metaMap = null) {
         changed = true;
       }
     }
-    const next = resolveSyncedWorkerState(worker, job, metaMap);
+    const next = resolveSyncedWorkerState(worker, job, metaMap, { respectAwaitingReply });
     if (
       next.state !== worker.state ||
       next.sessionId !== worker.sessionId ||
@@ -1531,19 +1540,26 @@ function findParentBlockLine(lines, { parentBlockId = "", parentTitle = "" } = {
   return -1;
 }
 
-export function extractBlockResultText(noteText = "", { blockId = "", title = "" } = {}) {
+export function extractBlockResultText(noteText = "", { blockId = "", title = "", sessionId = "" } = {}) {
   const lines = String(noteText || "").split("\n");
   const idx = findParentBlockLine(lines, { parentBlockId: blockId, parentTitle: title });
   if (idx < 0) return { summary: "", answerLink: "" };
   const baseW = J.width(lines[idx]);
   const comments = [];
   let answerLink = "";
+  const shortSid = sessionId ? J.shortSessionId(sessionId) : "";
   for (let i = idx + 1; i < lines.length; i++) {
     if (!lines[i].trim()) continue;
     if (J.width(lines[i]) <= baseW) break;
     const trimmed = lines[i].trim();
-    const ansMatch = /\[[^\]]+\]\(([^)]*Answers\/[^)]+\.md)\)/i.exec(trimmed);
-    if (ansMatch) answerLink = ansMatch[1];
+    if (sessionId) {
+      const turn = /<!--\s*ad-turn:([A-Za-z0-9_-]+):\d+\s*-->/.exec(trimmed);
+      if (turn && turn[1] !== sessionId && turn[1] !== shortSid) continue;
+    }
+    const wikiMatch = /\[\[([^\]|]*Answers\/[^\]|]+\.md)(?:\|[^\]]*)?\]\]/i.exec(trimmed);
+    const mdMatch = /\[[^\]]+\]\(([^)]*Answers\/[^)]+\.md)\)/i.exec(trimmed);
+    const matchedLink = (wikiMatch && wikiMatch[1]) || (mdMatch && mdMatch[1]) || "";
+    if (matchedLink) answerLink = matchedLink.trim();
     if (/^[-*+]\s+(?:💬\s|(?:第\d+轮|Round\s+\d+)[：:])/.test(trimmed)) {
       const clean = J.stripPinMarker(trimmed
         .replace(/^[-*+]\s+(?:💬\s+(?:(?:第\d+轮|Round\s+\d+)[：:]\s*)?|(?:第\d+轮|Round\s+\d+)[：:]\s*)/, "")
@@ -1555,7 +1571,7 @@ export function extractBlockResultText(noteText = "", { blockId = "", title = ""
   return { summary: comments.join("\n"), answerLink };
 }
 
-export function collectWaveWorkerReports(wave, { jobs = {}, metaMap = null, noteText = "" } = {}) {
+export function collectWaveWorkerReports(wave, { jobs = {}, metaMap = null, noteText = "", vaultPath = "" } = {}) {
   const allWorkers = [];
   const seenKey = new Set();
   for (const w of [...(wave?.completedWorkers || []), ...(wave?.workers || [])]) {
@@ -1565,10 +1581,18 @@ export function collectWaveWorkerReports(wave, { jobs = {}, metaMap = null, note
     seenKey.add(key);
     allWorkers.push(w);
   }
+  const cleanVault = String(vaultPath || "").replace(/[\\/]+$/, "");
   return allWorkers.map((worker, idx) => {
     const job = worker.jobId ? jobs?.[worker.jobId] : null;
     const synced = resolveSyncedWorkerState(worker, job, metaMap);
-    const noteInfo = noteText ? extractBlockResultText(noteText, { blockId: worker.blockId, title: worker.title }) : { summary: "", answerLink: "" };
+    const noteInfo = noteText
+      ? extractBlockResultText(noteText, { blockId: worker.blockId, title: worker.title, sessionId: synced.sessionId })
+      : { summary: "", answerLink: "" };
+    const answerLink = noteInfo.answerLink || "";
+    const isAbs = /^(?:\/|[A-Za-z]:[\\/])/.test(answerLink);
+    const answerAbsPath = answerLink && cleanVault && !isAbs
+      ? `${cleanVault}/${answerLink.replace(/^\/+/, "")}`
+      : "";
     const rawOutput = String(synced.result || noteInfo.summary || "").trim();
     return {
       index: idx + 1,
@@ -1578,7 +1602,8 @@ export function collectWaveWorkerReports(wave, { jobs = {}, metaMap = null, note
       sessionId: synced.sessionId,
       output: truncate(rawOutput, 2000),
       error: String(synced.error || "").trim(),
-      answerLink: noteInfo.answerLink,
+      answerLink,
+      answerAbsPath,
     };
   });
 }
@@ -1597,7 +1622,8 @@ export function buildStewardPrompt({ wave, reports = [], projectName = "", avail
   const workerSections = reports.map((r) => {
     const lines = [`### 队员 ${r.index}：${r.title} (@${r.agent}) — ${statusLabels.get(r.state) || r.state}`];
     if (r.error) lines.push(`- 失败/异常信息：${r.error}`);
-    if (r.answerLink) lines.push(`- 完整问答归档：${r.answerLink}`);
+    const archiveRef = r.answerAbsPath || r.answerLink;
+    if (archiveRef) lines.push(`- 完整问答归档（可直接读取原文）：${archiveRef}`);
     if (r.output) lines.push(`- 执行结果：\n${r.output}`);
     else if (!r.error) lines.push("- 执行结果：（暂无文本输出，请结合工作目录实际变动核查）");
     return lines.join("\n");

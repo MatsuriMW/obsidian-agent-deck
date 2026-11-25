@@ -72,3 +72,25 @@ test("两个 worker 各自记各自的键，不互相吞掉", () => {
   syncSeen(w, out, NOW);
   assert.equal(newFindings(w, judgeWave(w, { jobs, metaMap, now: NOW })).length, 0);
 });
+
+test("管家自身卡住（wave.state === 'running'）也能被巡检发现", () => {
+  const w = {
+    id: "w-stw",
+    state: "running",
+    path: "a.md",
+    parentBlockId: "ad-parent",
+    parentTitle: "发布工作流",
+    steward: { enabled: true, jobId: "j-stw", blockId: "ad-stw" },
+    workers: [{ jobId: "j1", blockId: "ad-1", title: "子任务", state: "done" }],
+    watchSeen: {},
+  };
+  const jobs = {
+    j1: { id: "j1", name: "子任务", state: "done", sessionId: "sid-1" },
+    "j-stw": { id: "j-stw", name: "管家汇总", state: "running", sessionId: "sid-stw", startedAt: NOW - 25 * MIN },
+  };
+  const out = judgeWave(w, { jobs, metaMap: new Map([["sid-stw", { lastAt: NOW - 20 * MIN }]]), now: NOW });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].kind, "stuck");
+  assert.equal(out[0].worker.jobId, "j-stw");
+  assert.equal(out[0].minutes, 20);
+});
