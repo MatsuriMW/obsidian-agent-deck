@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.25
+
+- **全 Agent 已归档会话重新激活恢复追踪（[`src/readers.js`](src/readers.js)、[`src/autolog.js`](src/autolog.js)、[`src/sync.js`](src/sync.js)、[`src/organize-journal.js`](src/organize-journal.js)、[`src/journal-archive.js`](src/journal-archive.js)、[`src/task-status.js`](src/task-status.js)、[`src/main.js`](src/main.js)）**：
+  - 新增统一 `AgentUsage.isArchived(sid)`（汇总 `archived` / `archivedClaude` / `meta.archived`，补齐 Cursor 与 Kimi Code 双向归档同步），修复 WorkBuddy `workbuddy.db` 中云端非删除哨兵 `deleted_at = -1` 误判为已归档的问题（改为 `coalesce(deleted_at, 0) > 0`），并支持在强扫（`scanNow(true)`）与「整理日志版面」（`organizeJournal()`）前跳过 15 秒缓存节流即时刷新归档状态、差量维护 `_auxArchived` 避免覆盖桌面库归档集。
+  - 统一追踪 `archivedDone` / `archivedOut` 与完成锚点（`doneAtMin` / `doneEndMs` / `doneRounds`），修复同日 `DONE`、被「归档已完成的日志到…」移出日记（`rec.gone`）、`🔗` 链接会话（含多会话联合任务与 `organizeJournal()` 归档条目）以及跨日已归档/已完成会话在取消归档或续聊后不再写回日记的问题；保留人工 `DONE` 锁、真跨夜进行中会话与 Grok Bot 闲置分段规则，并新增 [`test/reactivated-archived-sessions.test.mjs`](test/reactivated-archived-sessions.test.mjs)。
+
 ## 1.13.24
 
 - **新增 Orca 桌面版只读追踪与底层分发会话去重（内置总数增至 20 家，`HARNESS_DETECTION_VERSION = 4`）**：

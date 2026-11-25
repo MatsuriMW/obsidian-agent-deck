@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.24 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.25 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -7242,7 +7242,7 @@ ${custom.sections.active.text}
       const chunk = normalizeChunkHeader(lines.slice(i, end), archivedOut && !doneKw, container);
       const block2 = blockText(chunk, 0, chunk.length);
       const count2 = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block2));
-      done.push({ text: block2, blockId: k.blockId || "", turns: count2, ai, sid: [...sids], at: i, organized: inBand(i, true) });
+      done.push({ text: block2, blockId: k.blockId || "", turns: count2, ai, sid: [...sids], at: i, organized: inBand(i, true), archivedDone: Boolean(archivedOut && !doneKw) });
       dropSubheadAbove(i);
       moved.push([i, end]);
       cursor = end;
@@ -7273,7 +7273,7 @@ ${custom.sections.active.text}
       const chunk = normalizeChunkHeader(lines.slice(i, end), archivedOut && !doneKw, container);
       const block = blockText(chunk, 0, chunk.length);
       const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
-      if (doneKw || archivedOut || allKidsDone) done.push({ text: block, blockId: k.blockId || "", turns: count, ai, sid: [...sids], at: i, organized: false });
+      if (doneKw || archivedOut || allKidsDone) done.push({ text: block, blockId: k.blockId || "", turns: count, ai, sid: [...sids], at: i, organized: false, archivedDone: Boolean(archivedOut && !doneKw) });
       else active2.push({ text: block, keyword: k.kw || "TODO", turns: count, blockId: k.blockId || "", at: i, organized: false });
       adopted.push([i, end]);
       i = end - 1;
@@ -7551,6 +7551,24 @@ async function archiveCompletedTo(plugin, file, base, plan, { path: path29, orde
   if (next !== base && !await plugin.autoLog.write(file, base, next, { cleanup: false })) throw new Error(t("\u65E5\u8BB0\u521A\u6709\u53D8\u5316\uFF0C\u5F52\u6863\u526F\u672C\u5DF2\u4FDD\u5B58\uFF0C\u539F\u65E5\u8BB0\u4FDD\u7559\uFF1B\u91CD\u8BD5\u4E0D\u4F1A\u91CD\u590D\u5F52\u6863"));
   plugin.settings.archiveTaskTurns = Object.fromEntries(turns);
   plugin.settings.doneArchivePath = targetPath;
+  const archivedBlockIds = new Set(blocks.map((b) => b.blockId).filter(Boolean));
+  const archivedSids = new Set(blocks.flatMap((b) => Array.isArray(b.sid) ? b.sid : []));
+  const archivedKeys = new Set(blocks.map((b) => {
+    const k = kwLine(String(b.text || "").split("\n")[0]);
+    return k ? workKey(k.body) : "";
+  }).filter(Boolean));
+  for (const daySt of Object.values(plugin.settings.autoLogState || {})) {
+    for (const [sid, rec] of Object.entries(daySt || {})) {
+      if (!rec) continue;
+      if (!archivedSids.has(sid) && !(rec.blockId && archivedBlockIds.has(rec.blockId)) && !(rec.key && archivedKeys.has(workKey(rec.key)))) continue;
+      const meta = plugin.usage?.meta?.get?.(sid);
+      rec.status = "done";
+      rec.archivedOut = true;
+      rec.gone = true;
+      if (rec.doneEndMs == null) rec.doneEndMs = meta?.lastAt || Date.now();
+      if (rec.doneRounds == null) rec.doneRounds = Array.isArray(meta?.rounds) ? meta.rounds.length : 0;
+    }
+  }
   await plugin.saveSettings?.();
   return { target, moved: blocks.length };
 }
@@ -14762,6 +14780,7 @@ var AgentUsage = class {
     this.customTitles = /* @__PURE__ */ new Set();
     this.codexIndexAt = 0;
     this.archived = /* @__PURE__ */ new Set();
+    this._auxArchived = /* @__PURE__ */ new Set();
     this.desk = /* @__PURE__ */ new Map();
     this.deskBySid = /* @__PURE__ */ new Map();
     this.deskByLocal = /* @__PURE__ */ new Map();
@@ -15050,11 +15069,11 @@ var AgentUsage = class {
     return Date.now() - days * 864e5;
   }
   // ----- scanning -----
-  async scan({ since = 0, agent: onlyAgent = "", strictSince = false, onProgress } = {}) {
+  async scan({ since = 0, agent: onlyAgent = "", strictSince = false, force = false, onProgress } = {}) {
     const touched = /* @__PURE__ */ new Set();
     const floor = since || this.sinceMs();
     await this.readCodexTitles();
-    await this.readCodexArchived();
+    await this.readCodexArchived({ force });
     await this.readDesktopDatabases({ floor, onlyAgent, strictSince, touched });
     for (const [root, agent] of this.roots()) {
       if (onlyAgent && agent !== onlyAgent) continue;
@@ -15282,17 +15301,17 @@ var AgentUsage = class {
   //   Codex：老版本把日志挪进 archived_sessions/，新版在 state_*.sqlite 的 threads.archived
   //   WorkBuddy：workbuddy.db 的 sessions.status = 'archived'（删掉的有 deleted_at）
   //   DeepSeek Harness：storages/workspace.json 的 global.archivedSessionIds
-  async readCodexArchived() {
-    const out = /* @__PURE__ */ new Set();
+  async readCodexArchived({ force = false } = {}) {
+    const dirArchived = /* @__PURE__ */ new Set();
     const codex = process.env.CODEX_HOME || import_path12.default.join(home2(), ".codex");
     try {
       for (const f of await fsp2.readdir(import_path12.default.join(codex, "archived_sessions"))) {
         const m = /([0-9a-f]{8}-[0-9a-f-]{27})\.jsonl$/.exec(f);
-        if (m) out.add(m[1]);
+        if (m) dirArchived.add(m[1]);
       }
     } catch {
     }
-    if (Date.now() - (this._dbAt || 0) > 15e3 || !this._dbArchived) {
+    if (force || Date.now() - (this._dbAt || 0) > 15e3 || !this._dbArchived) {
       this._dbAt = Date.now();
       const db = /* @__PURE__ */ new Set();
       const codexTask = (async () => {
@@ -15310,7 +15329,7 @@ var AgentUsage = class {
         }
       })();
       const wbDb = import_path12.default.join(home2(), ".workbuddy/workbuddy.db");
-      const wbArchTask = sqliteColumn(wbDb, "select id from sessions where status = 'archived' or deleted_at is not null");
+      const wbArchTask = sqliteColumn(wbDb, "select id from sessions where status = 'archived' or coalesce(deleted_at, 0) > 0");
       const wbRowsTask = sqliteColumn(wbDb, "select id || char(9) || replace(replace(coalesce(nullif(custom_title,''), title, ''), char(10), ' '), char(9), ' ') || char(9) || coalesce(cwd,'') || char(9) || coalesce(model,'') || char(9) || coalesce(group_title,'') || char(9) || coalesce(status,'') || char(9) || case when coalesce(custom_title,'') != '' then '1' else '0' end from sessions");
       const dshTask = fsp2.readFile(import_path12.default.join(home2(), ".dsh/storages/workspace.json"), "utf8").then((s) => JSON.parse(s)).catch(() => null);
       const [codexRes, wbArch, wbRows, ws] = await Promise.all([codexTask, wbArchTask, wbRowsTask, dshTask]);
@@ -15335,8 +15354,15 @@ var AgentUsage = class {
       for (const id of ws && ws.global && ws.global.archivedSessionIds || []) db.add(String(id));
       this._dbArchived = db;
     }
-    for (const id of this._dbArchived) out.add(id);
-    this.archived = out;
+    const nextAux = /* @__PURE__ */ new Set([...dirArchived, ...this._dbArchived || []]);
+    for (const id of this._auxArchived || []) if (!nextAux.has(id)) this.archived.delete(id);
+    for (const id of nextAux) this.archived.add(id);
+    this._auxArchived = nextAux;
+    for (const m of this.meta.values()) {
+      if (m.agent === "codex" || m.agent === "workbuddy" || m.agent === "dsh") {
+        m.archived = nextAux.has(m.sid);
+      }
+    }
   }
   // ----- Claude desktop session index -----
   // 桌面版给每个会话存一份 claude-code-sessions/<账号>/<组织>/local_*.json。
@@ -15487,6 +15513,10 @@ var AgentUsage = class {
         if (info.cwd && (!m.cwd || m.cwd === "~")) m.cwd = info.cwd;
         if (info.model && !m.model) m.model = info.model;
         if (typeof info.archived === "boolean") m.archived = info.archived;
+      }
+      if (typeof info.archived === "boolean") {
+        if (info.archived) this.archived.add(sid);
+        else this.archived.delete(sid);
       }
       for (const fc of this.files.values()) {
         if (fc.agent !== "cursor" || fc.sid !== sid) continue;
@@ -15785,6 +15815,11 @@ var AgentUsage = class {
     for (const sess of sessions) {
       const sid = sess.id;
       activeIds.add(sid);
+      const isArchived = Boolean(sess.meta?.archived || sess.meta?.archivedAt);
+      if (isArchived) this.archived.add(sid);
+      else this.archived.delete(sid);
+      const prevMeta = this.meta.get(sid);
+      if (prevMeta) prevMeta.archived = isArchived;
       const key = `${sess.wirePath || sess.metaPath}#${sid}`;
       const previous = this.files.get(key);
       if (previous && previous.size === sess.size && previous.mtime === sess.mtimeMs && previous.offset === scope) {
@@ -15866,6 +15901,8 @@ var AgentUsage = class {
         fc.live.step = parsed.lastStep || "";
         fc.live.turns = fc.rounds?.list.length || 0;
         fc.live.rounds = fc.rounds?.list || [];
+        if (parsed.archived) this.archived.add(sid);
+        else this.archived.delete(sid);
         if (parsed.hasClientTitle) this.noteClientTitle(sid, parsed.title, { fc });
         this.noteMeta(fc, sid, {
           ...fc.live,
@@ -16118,9 +16155,13 @@ var AgentUsage = class {
     prune(activeIds);
   }
   // 归档 = 做完：桌面版里归档的、Codex archived_sessions 里的都可以从会话列表里收起来
+  isArchived(sid) {
+    if (!sid) return false;
+    return this.archivedClaude.has(sid) || this.archived.has(sid) || !!this.meta.get(sid)?.archived;
+  }
   hidden(sid) {
     if (this.settings.hideArchived === false) return false;
-    return this.archivedClaude.has(sid) || this.archived.has(sid) || !!this.meta.get(sid)?.archived;
+    return this.isArchived(sid);
   }
   // ----- file caches -----
   ensureFile(p2, agent) {
@@ -27179,7 +27220,8 @@ function suggestedStatus(settings, usage, text, n) {
     for (const day of Object.values(settings.autoLogState || {})) for (const [sid, r] of Object.entries(day || {})) if (r?.blockId === bid && !r.skip && !r.gone) ids.add(sid);
   }
   if (!ids.size) return "";
-  if (settings.autoLogArchiveDone !== false && [...ids].every((sid) => usage.archived?.has(sid) || usage.archivedClaude?.has(sid))) return "DONE";
+  const isArchived = (sid) => typeof usage?.isArchived === "function" ? usage.isArchived(sid) : Boolean(usage?.archived?.has(sid) || usage?.archivedClaude?.has(sid) || usage?.meta?.get?.(sid)?.archived);
+  if (settings.autoLogArchiveDone !== false && [...ids].every(isArchived)) return "DONE";
   const states = [...ids].map((sid) => usage.meta.get(sid)?.state).filter(Boolean);
   if (states.some((state) => ["run", "running", "starting"].includes(state))) return "DOING";
   return states.map((state) => STATE_KW[state]).find(Boolean) || "";
@@ -41859,7 +41901,25 @@ var AutoLog = class {
     if (this.cfg.autoLogArchiveDone === false) return out;
     for (const sid of this.usage.archivedClaude || []) out.add(sid);
     for (const sid of this.usage.archived || []) out.add(sid);
+    for (const [sid, m] of this.usage.meta || []) if (m?.archived) out.add(sid);
     return out;
+  }
+  isReactivated(x, rec, last, arch) {
+    if (!rec || arch.has(x?.sid)) return false;
+    if (rec.archivedDone) return true;
+    const meta = x?.sid && this.usage?.meta?.get?.(x.sid) || {};
+    const metaLastAt = meta.lastAt || 0;
+    const roundsLen = Array.isArray(meta.rounds) ? meta.rounds.length : 0;
+    if (rec.doneAtMin != null && last > rec.doneAtMin) return true;
+    if (rec.doneEndMs != null && metaLastAt > rec.doneEndMs) return true;
+    if (rec.doneRounds != null && roundsLen > rec.doneRounds) return true;
+    if (rec.lastMin != null && last > rec.lastMin) return true;
+    if (rec.lastAtMs != null && metaLastAt > rec.lastAtMs) return true;
+    if (rec.lastRounds != null && roundsLen > rec.lastRounds) return true;
+    if (rec.doneAtMin == null && rec.doneEndMs == null && rec.doneRounds == null && rec.lastMin == null) {
+      return Boolean(rec.min != null && x.min > rec.min || meta.state === "run");
+    }
+    return false;
   }
   allArchived(st, sid, rec, arch) {
     return arch.has(sid) && (!rec.blockId || Object.entries(st).every(([other, item]) => item.skip || item.gone || item.blockId !== rec.blockId || arch.has(other)));
@@ -42055,17 +42115,24 @@ var AutoLog = class {
   originDayOf(x, today) {
     const sid = x?.sid;
     if (!sid || x?.agent === "grokbot") return today;
+    const todayRec = this.cfg.autoLogState?.[today]?.[sid];
+    if (todayRec && !todayRec.gone && (todayRec.key || todayRec.blockId || todayRec.skip)) return today;
+    let sawPrior = false;
     for (const d of Object.keys(this.cfg.autoLogState || {}).sort()) {
       if (d === today) continue;
       const rec = this.cfg.autoLogState[d]?.[sid];
-      if (rec && !rec.gone && (rec.key || rec.blockId || rec.skip)) return d;
+      if (!rec) continue;
+      sawPrior = true;
+      if (rec.gone || rec.status === "done" || rec.archivedDone || rec.archivedOut) continue;
+      if (rec.key || rec.blockId || rec.skip) return d;
     }
+    if (sawPrior) return today;
     const meta = this.usage?.meta?.get(sid) || {};
     const firstRoundAt = Array.isArray(meta.rounds) && meta.rounds[0]?.at ? meta.rounds[0].at : 0;
     const startMs = meta.startedAt || firstRoundAt || 0;
     if (startMs > 0) {
       const startDay = dayKey(startMs, this.cfg);
-      if (startDay && startDay < today && this.journalFile(startDay)) return startDay;
+      if (startDay && startDay < today && this.dayDiff(startDay, today) <= 1 && this.journalFile(startDay)) return startDay;
     }
     return today;
   }
@@ -42096,14 +42163,51 @@ var AutoLog = class {
       }
       const arch = this.archived();
       const todayList = [], crossByOrigin = /* @__PURE__ */ new Map();
+      const priorDoneSince = (sid) => {
+        let sinceMs = 0;
+        for (const d of Object.keys(this.cfg.autoLogState || {}).sort()) {
+          if (d === day) continue;
+          const rec = this.cfg.autoLogState[d]?.[sid];
+          if (rec && (rec.status === "done" || rec.archivedDone || rec.archivedOut || rec.gone)) {
+            sinceMs = Math.max(sinceMs, rec.doneEndMs || rec.lastAtMs || 0);
+          }
+        }
+        return sinceMs;
+      };
       for (const x of data.list) {
         if (this.isSubagent(x.sid)) continue;
         const origin = this.originDayOf(x, day);
         if (origin !== day) {
           (crossByOrigin.get(origin) || crossByOrigin.set(origin, []).get(origin)).push(x);
         } else {
-          todayList.push(x);
+          const priorSince = priorDoneSince(x.sid);
+          todayList.push(priorSince || this.cfg.autoLogState && Object.keys(this.cfg.autoLogState).some((d) => d !== day && this.cfg.autoLogState[d]?.[x.sid]) ? { ...x, _fromPriorDay: true, _sinceMs: priorSince || startOfDay(Date.now(), this.cfg) } : x);
         }
+      }
+      for (const [originDay, crossList] of [...crossByOrigin.entries()]) {
+        const originFile = this.journalFile(originDay);
+        if (!originFile) {
+          crossByOrigin.delete(originDay);
+          for (const x of crossList) todayList.push({ ...x, _fromPriorDay: true, _sinceMs: startOfDay(Date.now(), this.cfg) });
+          continue;
+        }
+        const originText = await this.read(originFile);
+        const keep = [];
+        for (const x of crossList) {
+          const originRec = this.cfg.autoLogState?.[originDay]?.[x.sid];
+          const found = originRec ? findTask(originText, originRec.key, originRec.blockId || "", x.sid) : findSessionTask(originText, x.sid);
+          if (found && found.state === "done") {
+            if (originRec) originRec.status = "done";
+            todayList.push({ ...x, _fromPriorDay: true, _sinceMs: originRec?.doneEndMs || originRec?.lastAtMs || startOfDay(Date.now(), this.cfg) });
+          } else if (!found && originRec && !originRec.fresh && (!originRec.bound || originRec.archivedDone || originRec.archivedOut)) {
+            originRec.gone = true;
+            todayList.push({ ...x, _fromPriorDay: true, _sinceMs: originRec.doneEndMs || originRec.lastAtMs || startOfDay(Date.now(), this.cfg) });
+          } else {
+            keep.push(x);
+          }
+        }
+        if (keep.length) crossByOrigin.set(originDay, keep);
+        else crossByOrigin.delete(originDay);
       }
       const res = await this.processDay(day, file, todayList, day, arch, { dry, fallback, manual, notify }, report);
       if (!res || dry) return report;
@@ -42165,12 +42269,25 @@ var AutoLog = class {
         const last = x.segs[x.segs.length - 1][1];
         const active2 = now - last <= idle;
         const rec = st[x.sid];
-        if (rec && (rec.skip || rec.gone)) continue;
+        const wasDoneRecord = Boolean(rec && (rec.status === "done" || rec.archivedDone || rec.archivedOut));
+        const reactivatedRec = Boolean(rec && wasDoneRecord && !(x.agent === "grokbot" && !rec.archivedDone) && this.isReactivated(x, rec, last, arch));
+        if (rec && rec.skip) {
+          if (!reactivatedRec) continue;
+          todo.push({ x, active: active2, fresh: true, sinceMs: rec.doneEndMs || rec.lastAtMs || 0 });
+          continue;
+        }
+        if (rec && rec.gone) {
+          if (!reactivatedRec) continue;
+          todo.push({ x, active: active2, fresh: true, sinceMs: rec.doneEndMs || rec.lastAtMs || 0 });
+          continue;
+        }
         if (!rec) {
           if (x.min < this.minMinutes && !arch.has(x.sid)) continue;
-          todo.push({ x, active: active2, fresh: true });
+          todo.push({ x, active: active2, fresh: true, ...x._fromPriorDay ? { sinceMs: x._sinceMs || startOfDay(Date.now(), this.cfg) } : {} });
         } else if (x.agent === "grokbot" && rec.status === "done" && rec.doneAtMin != null && last > rec.doneAtMin && active2) {
           todo.push({ x, active: active2, fresh: true, sinceMs: rec.doneEndMs || 0 });
+        } else if (reactivatedRec && !findTask(base, rec.key, rec.blockId || "", x.sid)) {
+          todo.push({ x, active: active2, fresh: true, sinceMs: rec.doneEndMs || rec.lastAtMs || 0 });
         } else if (rec.status === "doing" && !active2 && !rec.asked && !arch.has(x.sid)) todo.push({ x, active: active2, rec });
         else live.push({ x, active: active2, rec });
       }
@@ -42198,6 +42315,7 @@ var AutoLog = class {
           const a = ans.get(x.sid);
           const last = x.segs[x.segs.length - 1][1];
           let rec = st[x.sid];
+          let justClaimedDone = false;
           if (fresh) {
             if (!a) continue;
             if (a.skip) {
@@ -42216,6 +42334,7 @@ var AutoLog = class {
               st[x.sid] = { skip: true };
               continue;
             }
+            if (m && m.state === "done") justClaimedDone = true;
             const label = m ? m.body : AUTO_MARK + a.label;
             const seed = sinceMs ? `${x.sid}:${sinceMs}` : x.sid;
             const blockId = m && m.blockId || makeBlockId(seed, x.agent, a.slug);
@@ -42235,14 +42354,33 @@ var AutoLog = class {
             rec.key = found.key;
           }
           const cur = found ? found.state : null;
-          const manualState = found && isManualTask(this.cfg, text.split("\n")[found.line]);
+          const manualState = found && (isManualTask(this.cfg, text.split("\n")[found.line]) || rec.blockId && !!this.cfg.manualTaskStates?.[rec.blockId]);
+          const meta = this.usage.meta.get(x.sid) || {};
+          const rawRounds = Array.isArray(meta.rounds) ? meta.rounds : [];
+          const reactivated = !manualState && !justClaimedDone && cur === "done" && !(x.agent === "grokbot" && !rec.archivedDone) && this.isReactivated(x, rec, last, arch);
           if (manualState) rec.status = cur;
-          if (cur === "done" && !manualState) {
+          if (cur === "done" && !manualState && !reactivated) {
             if (rec.status !== "done") clocks.add(rec.key);
             rec.status = "done";
+            if (rec.doneAtMin == null) rec.doneAtMin = last;
+            if (rec.doneEndMs == null) rec.doneEndMs = meta.lastAt || Date.now();
+            if (rec.doneRounds == null) rec.doneRounds = rawRounds.length;
+            if (arch.has(x.sid)) rec.archivedDone = true;
+            rec.lastMin = last;
+            rec.lastAtMs = meta.lastAt || 0;
+            rec.lastRounds = rawRounds.length;
             continue;
           }
-          if (rec.status && found && (cur !== rec.status || rec.autoKw && found.kw !== rec.autoKw)) {
+          if (reactivated) {
+            delete rec.doneAtMin;
+            delete rec.doneEndMs;
+            delete rec.doneRounds;
+            delete rec.archivedDone;
+            delete rec.archivedOut;
+            delete rec.gone;
+            delete rec.parkedAt;
+            delete rec.hold;
+          } else if (rec.status && found && (cur !== rec.status || rec.autoKw && found.kw !== rec.autoKw)) {
             if (cur === "doing") rec.hold = Date.now() + 2 * 36e5;
             else rec.parkedAt = last;
             rec.status = cur;
@@ -42252,16 +42390,16 @@ var AutoLog = class {
           const name = workKey(rec.label).replace(AUTO_MARK, "");
           const grokIdleDone = x.agent === "grokbot" && grokDone > 0 && now - last >= grokDone && !(rec.hold && Date.now() < rec.hold);
           const archDone = this.allArchived(st, x.sid, rec, arch);
-          const meta = this.usage.meta.get(x.sid) || {};
           const blockedKw = this.blockedKeyword(x.sid);
           const doneReview = !active2 && !blockedKw && Boolean(a && a.done || rec.doneHint);
           if (!manualState && (archDone || grokIdleDone)) {
             text = this.autoLine(text, rec, x, "done").text;
             rec.status = "done";
-            if (x.agent === "grokbot") {
-              rec.doneAtMin = last;
-              rec.doneEndMs = this.usage.meta.get(x.sid)?.lastAt || Date.now();
-            }
+            rec.doneAtMin = last;
+            rec.doneEndMs = meta.lastAt || Date.now();
+            rec.doneRounds = rawRounds.length;
+            if (archDone) rec.archivedDone = true;
+            else delete rec.archivedDone;
             delete rec.fresh;
             delete rec.parkedAt;
             delete rec.hold;
@@ -42307,7 +42445,7 @@ var AutoLog = class {
             delete rec.autoPaused;
             delete rec.autoKw;
             delete rec.doneHint;
-          } else if (!manualState && doneReview && !(rec.hold && Date.now() < rec.hold) && (cur === "doing" || rec.fresh || rec.autoKw === "PAUSED" || rec.autoKw === "TOREVIEW")) {
+          } else if (!manualState && doneReview && !(rec.hold && Date.now() < rec.hold) && (cur === "doing" || rec.fresh || reactivated || rec.autoKw === "PAUSED" || rec.autoKw === "TOREVIEW")) {
             const changed = !found || found.kw !== "TOREVIEW";
             text = this.autoLine(text, rec, x, "TOREVIEW").text;
             rec.status = "paused";
@@ -42319,7 +42457,7 @@ var AutoLog = class {
               clocks.add(rec.key);
               report.changes.push(t("{kw}\uFF1A{name}\uFF08{min}m\uFF09", { kw: "TOREVIEW", name: rec.label, min: x.min }));
             }
-          } else if (!manualState && !active2 && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
+          } else if (!manualState && !active2 && (cur === "doing" || rec.fresh || reactivated) && !(rec.hold && Date.now() < rec.hold)) {
             text = this.autoLine(text, rec, x, "paused").text;
             rec.status = "paused";
             rec.autoPaused = true;
@@ -42337,9 +42475,8 @@ var AutoLog = class {
             digest.done.push(`${name}\uFF08${x.min}m\uFF09`);
             if (rec.autoKw !== "TOREVIEW") report.changes.push(t("\u770B\u7740\u505A\u5B8C\u4E86\uFF1A{name}", { name: rec.label }));
           }
-          const rawRounds = Array.isArray(meta.rounds) ? meta.rounds : [];
           const first = seen[x.sid] == null;
-          const rounds = trackedRounds(rawRounds, { first, since: todayStart, max: this.cfg.autoLogFirstRounds }).filter((r) => x.agent !== "grokbot" || !rec.sinceMs || !r.at || r.at > rec.sinceMs);
+          const rounds = trackedRounds(rawRounds, { first, since: todayStart, max: this.cfg.autoLogFirstRounds }).filter((r) => !rec.sinceMs || !r.at || r.at > rec.sinceMs);
           if (first) seen[x.sid] = Date.now();
           const kind = a && a.kind || conclusionKind(x.text || meta.title || "", meta.lastText || "");
           const rawSummary = a && a.summary || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active2) ? kind === "qa" ? answerConclusion(meta.lastText, 140) : conclusionSentence(meta.lastText, 90) : "");
@@ -42374,6 +42511,9 @@ var AutoLog = class {
               rec.todosAdded = true;
             }
           }
+          rec.lastMin = last;
+          rec.lastAtMs = meta.lastAt || 0;
+          rec.lastRounds = rawRounds.length;
         }
         const byKey = /* @__PURE__ */ new Map(), who = /* @__PURE__ */ new Map(), toks = /* @__PURE__ */ new Map(), sids = /* @__PURE__ */ new Map(), blockIds = /* @__PURE__ */ new Map();
         for (const x of list) {
@@ -42537,7 +42677,16 @@ var JournalSync = class {
   }
   archived(sid) {
     if (this.cfg.autoLogArchiveDone === false) return false;
-    return this.usage.archivedClaude && this.usage.archivedClaude.has(sid) || this.usage.archived && this.usage.archived.has(sid);
+    if (typeof this.usage?.isArchived === "function") return this.usage.isArchived(sid);
+    return Boolean(this.usage.archivedClaude?.has(sid) || this.usage.archived?.has(sid) || this.usage.meta?.get?.(sid)?.archived);
+  }
+  archivedDoneRec(sid) {
+    if (!sid) return null;
+    for (const d of Object.keys(this.cfg.autoLogState || {}).sort().reverse()) {
+      const rec = this.cfg.autoLogState[d]?.[sid];
+      if (rec?.archivedDone) return rec;
+    }
+    return null;
   }
   dayList() {
     const day = dayKeyToday(this.cfg);
@@ -42612,6 +42761,7 @@ var JournalSync = class {
   }
   async syncNotes() {
     let updated = false;
+    let stateDirty = false;
     try {
       for (const view2 of this.openViews()) {
         const cm = view2.editor.cm;
@@ -42620,8 +42770,11 @@ var JournalSync = class {
         const taskIds = this.cfg.resultBack !== false ? await this.prepareTaskIds(text) : /* @__PURE__ */ new Map();
         if (this.cfg.journalAutoWrite === false || this._stopped) return;
         let next = text;
+        this._reopenedInPass = false;
         if (this.cfg.resultBack !== false) next = this.results(next, taskIds);
         if (this.cfg.agentKw !== false) next = this.keywords(next);
+        if (this._reopenedInPass) stateDirty = true;
+        if (this._reopenedInPass && this.cfg.resultBack !== false) next = this.results(next, taskIds);
         if (this.cfg.kidBlocks !== false) {
           next = this.spawnAll(next);
           next = this.subsIntoAll(next);
@@ -42637,8 +42790,11 @@ var JournalSync = class {
         await updateNote(this.p, file.path, (text) => {
           if (this.cfg.journalAutoWrite === false || this._stopped) return text;
           let next = text;
+          this._reopenedInPass = false;
           if (this.cfg.resultBack !== false) next = this.results(next, taskIds);
           if (this.cfg.agentKw !== false) next = this.keywords(next);
+          if (this._reopenedInPass) stateDirty = true;
+          if (this._reopenedInPass && this.cfg.resultBack !== false) next = this.results(next, taskIds);
           next = this.spawnAll(next);
           next = this.sides(next);
           next = clocksLast(next);
@@ -42647,6 +42803,8 @@ var JournalSync = class {
           return next;
         });
       }
+      if (stateDirty) this.p.saveSettings?.().catch?.(() => {
+      });
     } catch (e) {
       console.error("[agent-deck] \u4F1A\u8BDD\u56DE\u5199\u65E5\u8BB0\u5931\u8D25", e);
       return { updated, error: String(e?.message || e) };
@@ -42847,18 +43005,30 @@ var JournalSync = class {
             latestAt = i;
           }
         }
-        if (!DONE_KWS.includes(cur.kw) && sessions.every((sid) => this.archived(sid))) ls = this.finish(ls.join("\n"), latestSid, latestAt).split("\n");
+        if (!DONE_KWS.includes(cur.kw) && sessions.every((sid) => this.archived(sid))) ls = this.finish(ls.join("\n"), latestSid, latestAt, sessions).split("\n");
         continue;
       }
-      if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || AGENT_KW_RE.test(cur.kw) || !cur.kw)) continue;
+      const archRec = cur.kw === "DONE" ? this.archivedDoneRec(k.sid) : null;
+      const canReopen = Boolean(archRec && !(archRec.blockId && this.cfg.manualTaskStates?.[archRec.blockId]));
+      if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || AGENT_KW_RE.test(cur.kw) || !cur.kw || canReopen)) continue;
       const m = this.usage.meta.get(k.sid);
-      const want = m ? m.state === "run" ? cur.kw === "DELEGATED" ? "DELEGATED" : "DOING" : STATE_KW2[m.state] : null;
+      const want = canReopen ? m ? m.state === "run" ? "DOING" : STATE_KW2[m.state] || "PAUSED" : "PAUSED" : m ? m.state === "run" ? cur.kw === "DELEGATED" ? "DELEGATED" : "DOING" : STATE_KW2[m.state] : null;
       const p2 = splitTask(ls[n]);
       if (!p2) continue;
       if (!want && !p2.auto) continue;
       const kw = want || cur.kw || "DOING";
       const span = spanFor(k.sid, p2, ls, n, kw);
-      const nextLine = formatSessionTaskLine(p2, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      let nextLine = formatSessionTaskLine(p2, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      if (canReopen) {
+        const restored = ensureBlockId(nextLine, archRec.blockId || makeBlockId(k.sid, m?.agent || k.agent));
+        nextLine = restored.line;
+        archRec.blockId = restored.blockId;
+        delete archRec.archivedDone;
+        delete archRec.doneEndMs;
+        delete archRec.doneRounds;
+        archRec.status = kw === "DOING" ? "doing" : "paused";
+        this._reopenedInPass = true;
+      }
       if (nextLine !== ls[n]) ls[n] = nextLine;
     }
     let out = ls.join("\n");
@@ -42879,19 +43049,30 @@ var JournalSync = class {
       if (this.usage?.delegatedOwnerOf?.(sid, m.agent) || m.agent && m.agent !== "t3code" && this.usage?.t3OwnerOf?.(sid)) continue;
       const found = findTask(text, rec.key, rec.blockId || "", sid);
       if (found && isManualTask(this.cfg, text.split("\n")[found.line])) continue;
-      if (!found || !(found.kw === "DOING" || AGENT_KW_RE.test(found.kw) && found.kw !== "DELEGATED")) continue;
-      const kw = m.state === "run" ? "DOING" : STATE_KW2[m.state];
+      const canReopen = Boolean(found && found.kw === "DONE" && rec.archivedDone && !(rec.blockId && this.cfg.manualTaskStates?.[rec.blockId]));
+      if (!found || !(found.kw === "DOING" || AGENT_KW_RE.test(found.kw) && found.kw !== "DELEGATED" || canReopen)) continue;
+      const kw = m.state === "run" ? "DOING" : STATE_KW2[m.state] || (canReopen ? "PAUSED" : "");
       if (!kw) continue;
-      if (kw === "DOING" || !want.has(found.line)) want.set(found.line, { kw, sid });
+      if (kw === "DOING" || !want.has(found.line)) want.set(found.line, { kw, sid, canReopen, rec, agent: m.agent });
     }
     if (!want.size) return text;
     const ls = text.split("\n");
     let changed = false;
-    for (const [n, { kw, sid }] of want) {
+    for (const [n, { kw, sid, canReopen, rec, agent }] of want) {
       const p2 = splitTask(ls[n]);
       if (!p2 || p2.cb || !p2.kw) continue;
       const span = spanFor(sid, p2, ls, n, kw);
-      const nextLine = formatSessionTaskLine(p2, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      let nextLine = formatSessionTaskLine(p2, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      if (canReopen) {
+        const restored = ensureBlockId(nextLine, rec.blockId || makeBlockId(sid, agent));
+        nextLine = restored.line;
+        rec.blockId = restored.blockId;
+        delete rec.archivedDone;
+        delete rec.doneEndMs;
+        delete rec.doneRounds;
+        rec.status = kw === "DOING" ? "doing" : "paused";
+        this._reopenedInPass = true;
+      }
       if (nextLine === ls[n]) continue;
       ls[n] = nextLine;
       changed = true;
@@ -42899,7 +43080,7 @@ var JournalSync = class {
     return changed ? ls.join("\n") : text;
   }
   // 归档 = 做完：DONE + 实际时段，收掉 🔗 行
-  finish(text, sid, linkAt) {
+  finish(text, sid, linkAt, allSids = null) {
     const lines = text.split("\n");
     const at = typeof linkAt === "number" ? linkAt : lines.findIndex((l) => {
       const k = parseLink(l);
@@ -42929,7 +43110,16 @@ var JournalSync = class {
       const who = AGENTS[info.agent]?.short || info.agent;
       lines.splice(n + 1, 0, clockLine((/^\s*/.exec(lines[n]) || [""])[0] + "	", info.segs, who, (info.out || 0) + (info.fresh || 0)));
     }
-    this.p.markBound?.(sid);
+    const targetSids = Array.isArray(allSids) && allSids.length ? allSids : [sid];
+    for (const targetSid of new Set(targetSids.filter(Boolean))) {
+      const meta = this.usage?.meta?.get?.(targetSid);
+      this.p.markBound?.(targetSid, p2.blockId || "", workKey(p2.body || ""), {
+        archivedDone: true,
+        status: "done",
+        doneEndMs: meta?.lastAt || Date.now(),
+        doneRounds: Array.isArray(meta?.rounds) ? meta.rounds.length : 0
+      });
+    }
     return cleanCompletedIdentifiers(lines.join("\n"));
   }
   // 一篇笔记里所有绑着的 Claude 会话开出来的子会话都挂上；新挂上的继续往下挂
@@ -47614,7 +47804,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       const since = days ? Date.now() - days * 864e5 : force || cutoffChanged ? 0 : Math.max(0, (this.usage.lastScan || 0) - 6e4);
       const scoped = !!(agent && days);
       const usage = scoped ? new AgentUsage({ cfg: this.settings, settings: { ...this.settings, primaryAgents: [agent] } }) : this.usage;
-      const touched = await usage.scan({ since, agent, strictSince: !!days });
+      const touched = await usage.scan({ since, agent, strictSince: !!days, force: Boolean(force || cutoffChanged) });
       for (const day of initialDays || []) touched.add(day);
       if (this._unloaded) return;
       if (fullScan) this._scannedDayCutoff = dayCutoff;
@@ -48337,7 +48527,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   }
   // ---------- drag and drop ----------
   // 一个会话绑到了日记里（拖拽、委派、归档收尾）：告诉自动记日记别再替它新写一行
-  markBound(sid, blockId = "", key = "") {
+  markBound(sid, blockId = "", key = "", extra = null) {
     var _a, _b;
     if (!sid) return;
     const day = dayKeyToday(this.settings);
@@ -48348,7 +48538,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       skip: true,
       bound: true,
       ...blockId ? { blockId } : {},
-      ...key ? { key } : {}
+      ...key ? { key } : {},
+      ...extra && typeof extra === "object" ? extra : {}
     };
     this.saveSettings().catch(() => {
     });
@@ -49309,7 +49500,9 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
   }
   // Rebuild only the bounded task sections; outside notes remain untouched.
   async organizeJournal(file = this.journalTarget()) {
+    var _a, _b;
     if (!file) return this.notice(t("\u8BF7\u5148\u6253\u5F00\u65E5\u8BB0"));
+    await this.usage?.readCodexArchived?.({ force: true });
     const base = await this.readNote(file.path);
     let plan;
     try {
@@ -49325,6 +49518,43 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     }
     const next = renderJournal(plan);
     if (next !== base && !await this.writeJournal(file, base, next)) return this.notice(t("\u65E5\u8BB0\u521A\u6709\u53D8\u5316\uFF0C\u8BF7\u518D\u6574\u7406\u4E00\u6B21"));
+    let stateChanged = false;
+    const today = dayKeyToday(this.settings);
+    for (const entry of plan.done || []) {
+      if (!entry.archivedDone) continue;
+      const sids = new Set(Array.isArray(entry.sid) ? entry.sid : []);
+      const marked = /* @__PURE__ */ new Set();
+      for (const daySt of Object.values(this.settings.autoLogState || {})) {
+        for (const [sid, rec] of Object.entries(daySt || {})) {
+          if (!rec || rec.gone) continue;
+          if (!sids.has(sid) && !(entry.blockId && rec.blockId === entry.blockId)) continue;
+          const meta = this.usage?.meta?.get?.(sid);
+          rec.status = "done";
+          rec.archivedDone = true;
+          if (rec.doneEndMs == null) rec.doneEndMs = meta?.lastAt || Date.now();
+          if (rec.doneRounds == null) rec.doneRounds = Array.isArray(meta?.rounds) ? meta.rounds.length : 0;
+          marked.add(sid);
+          stateChanged = true;
+        }
+      }
+      for (const sid of sids) {
+        if (marked.has(sid)) continue;
+        const meta = this.usage?.meta?.get?.(sid);
+        const st = (_b = (_a = this.settings).autoLogState || (_a.autoLogState = {}))[today] || (_b[today] = {});
+        st[sid] = {
+          ...st[sid] || {},
+          skip: true,
+          bound: true,
+          ...entry.blockId ? { blockId: entry.blockId } : {},
+          status: "done",
+          archivedDone: true,
+          doneEndMs: meta?.lastAt || Date.now(),
+          doneRounds: Array.isArray(meta?.rounds) ? meta.rounds.length : 0
+        };
+        stateChanged = true;
+      }
+    }
+    if (stateChanged) await this.saveSettings();
     this.refreshUI();
     this.notice(plan.count.total ? t("\u5DF2\u6574\u7406 {count} \u4E2A\u4EFB\u52A1", { count: plan.count.total }) : t("\u5DF2\u5EFA\u7ACB\u65E5\u5FD7\u5206\u533A\uFF0C\u533A\u5916\u7B14\u8BB0\u4FDD\u6301\u539F\u6837"));
   }

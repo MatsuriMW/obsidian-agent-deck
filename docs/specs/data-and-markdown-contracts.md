@@ -28,6 +28,7 @@
 - **Muse 主动推送过滤与防重复连发**：`museTrackProactive` 默认关闭（`false`），通过 `nonProactiveIds` 集合追踪用户触发的整条回复链（含助手连续多气泡回复上一条助手消息），过滤定时简报与主动推送；开启 `museTrackProactive` 后可全量入账。
 
 - **DOING 时段**从会话开始算到最近一次刷新，适用于自动新建的条目和绑定会话的已有任务。会话停止或超出活跃窗口后，结束时间取最后一条已知事件。`⏱` 和活跃时长仍按日志中实际记录的时段计算。
+- **归档重激活全 Agent 通用恢复**：`AgentUsage.isArchived(sid)` 统一汇总 `archived`、`archivedClaude` 与 `meta.archived`（`readCodexArchived` 支持 `force: true` 跳过 15 秒缓存节流并修复 WorkBuddy `deleted_at = -1` 哨兵误判，并同步清理/更新 `codex`/`workbuddy`/`dsh`/`cursor`/`kimicode` 的归档标记；`organizeJournal` 整理前强制刷新归档状态）。此前因客户端归档自动标 `DONE`（含 `organizeJournal`、`JournalSync.finish` 或「归档已完成的日志到…」移出日记）或跨日已完成的会话，在客户端取消归档或产生新轮次重新激活后，`AutoLog`（同日原位重开并恢复 `^blockId`、移出后重建今日新块、跨日重新记入今日日记且仅按今天起始时段和增量轮次记账）与 `JournalSync`（`keywords` / `autoKeywords` 重开 `archivedDone` 条目并补写新轮次）对全部追踪 Agent 均自动恢复追踪，同时严格保留人工 `DONE` 锁、真跨夜进行中会话与 Grok Bot 闲置分段规则。
 
 ## 2. 内部定位标识与清理
 

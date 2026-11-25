@@ -1,6 +1,15 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.24**（2026-11-25）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.25**（2026-11-25）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.25：全 Agent 已归档会话重激活恢复追踪
+
+- **全 Agent 归档会话重新激活（取消归档 / 续聊）恢复追踪**：
+  - `src/readers.js`、`src/main.js`、`src/task-status.js`：新增统一 `AgentUsage.isArchived(sid)`，修复 WorkBuddy `workbuddy.db` `deleted_at = -1` 非删除哨兵被误判为已归档的问题（改为 `coalesce(deleted_at, 0) > 0`），修复 `readCodexArchived` 15 秒节流在强制扫描/`organizeJournal()` 时陈旧以及覆盖桌面库归档集、未同步 `meta.archived` 的问题，并补齐 Cursor / Kimi Code 归档状态双向同步。
+  - `src/autolog.js`、`src/sync.js`、`src/organize-journal.js`、`src/journal-archive.js`：统一追踪 `archivedDone` / `archivedOut` / 完成锚点（`doneAtMin`/`doneEndMs`/`doneRounds`），解决同日 `DONE`、被「归档已完成的日志到…」移出（`rec.gone`）、`JournalSync.finish()` `markBound`（`rec.skip`、`organizeJournal()` 链接传播及多会话 `finish()`）以及跨日 `originDayOf` 把已归档/已完成会话锁死的问题；取消归档或续聊后，同日原位重开并恢复 `^blockId`，已移出或跨日会话在今日日记新建条目并只补新轮次，同时保留人工 `DONE` 锁、真跨夜未完会话与 Grok Bot 闲置分段规则；新增 `test/reactivated-archived-sessions.test.mjs`。
+- **验证范围与未测空白**：
+  - **已实机验证（macOS arm64）**：全量 `npm test`（含 `test/reactivated-archived-sessions.test.mjs` 7 项测试）、`npm run eval`、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`、本机 `~/.workbuddy/workbuddy.db` 只读核验（`2062572036538580992` `deleted_at = -1` 不再被标归档）、以及 `马自立` Obsidian Vault 安装热重载（`dev:errors` 无 `agent-deck` 报错，`plugin.usage.isArchived("2062572036538580992") === false`）。
+  - **未测空白**：Windows 真机与各客户端真实 GUI 交互点击取消归档的现场录测。
 
 ## 1.13.24：Orca 追踪与聚合去重、Kimi Code v2 追踪与 ACP 委派、Antigravity ACP 修复
 
