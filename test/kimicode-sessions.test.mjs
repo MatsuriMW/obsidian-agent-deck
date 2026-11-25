@@ -5,7 +5,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { register } from "node:module";
-import { writeMockNodeBin } from "./helpers/mock-cli.mjs";
+import { cleanupDelegatorDir, writeMockNodeBin } from "./helpers/mock-cli.mjs";
 
 register("data:text/javascript," + encodeURIComponent(
   `export async function resolve(s, c, next) {
@@ -250,6 +250,7 @@ test("Kimi Code delegates via `kimi acp`, supports follow-up, and falls back to 
         send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
       }
     });
+    rl.on("close", () => process.exit(0));
   `);
 
   const makeDelegator = (pathVal) => {
@@ -288,6 +289,8 @@ test("Kimi Code delegates via `kimi acp`, supports follow-up, and falls back to 
     return { d: new Delegator(plugin), file };
   };
 
+  let delegator;
+  let fallbackDelegator;
   try {
     assert.equal(hasAgentCapability("kimicode", "delegate"), true);
     assert.equal(hasAgentCapability("kimicode", "acp"), true);
@@ -296,6 +299,7 @@ test("Kimi Code delegates via `kimi acp`, supports follow-up, and falls back to 
     assert.equal(resolveInstalledAgentBinary("kimicode", mockKimi), mockKimi);
 
     const { d, file } = makeDelegator(mockKimi);
+    delegator = d;
     const job = await d.delegate({ agent: "kimicode", file, line: 0, lineText: "- TODO Test Kimi Code delegation" });
     for (let i = 0; i < 100 && !["done", "error"].includes(job.state); i++) {
       await new Promise((r) => setTimeout(r, 20));
@@ -326,6 +330,7 @@ test("Kimi Code delegates via `kimi acp`, supports follow-up, and falls back to 
     // Fallback to desktop handoff when CLI binary does not exist
     const missingBin = path.join(dir, "nonexistent-kimi");
     const fb = makeDelegator(missingBin);
+    fallbackDelegator = fb.d;
     let copied = "";
     let opened = "";
     fb.d.copyText = (txt) => { copied = txt; return true; };
@@ -336,6 +341,7 @@ test("Kimi Code delegates via `kimi acp`, supports follow-up, and falls back to 
     assert.equal(opened, "kimicode");
     assert.match(copied, /Test Kimi Code delegation/);
   } finally {
-    fs.rmSync(dir, { recursive: true, force: true });
+    clearTimeout(fallbackDelegator?._saveT);
+    cleanupDelegatorDir(delegator, dir);
   }
 });
