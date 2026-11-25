@@ -45,14 +45,22 @@ const AGENT_BINARY_SPECS = {
   },
   antigravity: {
     fallback: "agy",
-    candidates: () => [
-      "/Applications/Antigravity.app/Contents/Resources/app/bin/agy",
-      path.join(home(), "Applications/Antigravity.app/Contents/Resources/app/bin/agy"),
-      path.join(home(), ".local/bin/agy"),
-      path.join(home(), ".npm-global/bin/agy"),
-      "/opt/homebrew/bin/agy",
-      "/usr/local/bin/agy",
-    ],
+    candidates: () => process.platform === "win32"
+      ? [
+          path.join(home(), ".local", "bin", "agy.exe"),
+          path.join(home(), ".gemini", "antigravity-cli", "bin", "agy.exe"),
+          path.join(process.env.LOCALAPPDATA || path.join(home(), "AppData", "Local"), "Programs", "antigravity-cli", "agy.exe"),
+          path.join(home(), ".npm-global", "bin", "agy.cmd"),
+        ]
+      : [
+          path.join(home(), ".local/bin/agy"),
+          path.join(home(), ".npm-global/bin/agy"),
+          "/opt/homebrew/bin/agy",
+          "/usr/local/bin/agy",
+          "/Applications/Antigravity.app/Contents/Resources/bin/agy",
+          "/Applications/Antigravity.app/Contents/Resources/app/bin/agy",
+          path.join(home(), "Applications/Antigravity.app/Contents/Resources/app/bin/agy"),
+        ],
   },
   opencode: {
     fallback: "opencode",
@@ -142,6 +150,26 @@ const AGENT_BINARY_SPECS = {
       "/opt/homebrew/bin/t3",
       "/usr/local/bin/t3",
     ],
+  },
+  kimicode: {
+    fallback: "kimi",
+    altFallbacks: ["kimi-code"],
+    candidates: () => process.platform === "win32"
+      ? [
+          path.join(home(), ".local", "bin", "kimi.exe"),
+          path.join(home(), ".local", "bin", "kimi.cmd"),
+          path.join(home(), ".local", "bin", "kimi-code.exe"),
+          path.join(home(), ".local", "bin", "kimi-code.cmd"),
+          path.join(process.env.APPDATA || path.join(home(), "AppData", "Roaming"), "npm", "kimi.cmd"),
+        ]
+      : [
+          path.join(home(), ".local/bin/kimi"),
+          path.join(home(), ".local/bin/kimi-code"),
+          path.join(home(), ".npm-global/bin/kimi"),
+          path.join(home(), ".bun/bin/kimi"),
+          "/opt/homebrew/bin/kimi",
+          "/usr/local/bin/kimi",
+        ],
   },
   claude: {
     fallback: "claude",
@@ -406,10 +434,75 @@ function readMacSystemProxyEnv() {
   return cachedSystemProxy;
 }
 
+function normalizeProxyUrl(addr, defaultScheme = "http") {
+  const clean = String(addr || "").trim();
+  if (!clean) return "";
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(clean)) return clean;
+  return `${defaultScheme}://${clean}`;
+}
+
+export function parseWindowsRegProxy(text) {
+  const out = {};
+  if (!text || typeof text !== "string") return out;
+  const enableMatch = /^\s*ProxyEnable\s+REG_\w+\s+0x([0-9a-f]+)|\bProxyEnable\s+REG_\w+\s+(\d+)/im.exec(text);
+  const enabledHex = enableMatch?.[1];
+  const enabledDec = enableMatch?.[2];
+  const enabled = enabledHex ? parseInt(enabledHex, 16) === 1 : enabledDec ? Number(enabledDec) === 1 : false;
+  if (!enabled) return out;
+  const serverMatch = /^\s*ProxyServer\s+REG_\w+\s+(.+?)\s*$/im.exec(text);
+  const rawServer = serverMatch ? serverMatch[1].trim() : "";
+  if (!rawServer) return out;
+  if (rawServer.includes("=")) {
+    for (const part of rawServer.split(";")) {
+      const eq = part.indexOf("=");
+      if (eq < 0) continue;
+      const proto = part.slice(0, eq).trim().toLowerCase();
+      const addr = part.slice(eq + 1).trim();
+      if (!addr) continue;
+      if (proto === "http") out.HTTP_PROXY = out.http_proxy = normalizeProxyUrl(addr, "http");
+      else if (proto === "https") out.HTTPS_PROXY = out.https_proxy = normalizeProxyUrl(addr, "http");
+      else if (proto === "socks") out.ALL_PROXY = out.all_proxy = normalizeProxyUrl(addr, "socks5");
+    }
+  } else {
+    const url = normalizeProxyUrl(rawServer, "http");
+    out.HTTP_PROXY = out.http_proxy = url;
+    out.HTTPS_PROXY = out.https_proxy = url;
+  }
+  if (!Object.keys(out).length) return out;
+  const noProxy = new Set();
+  const overrideMatch = /^\s*ProxyOverride\s+REG_\w+\s+(.+?)\s*$/im.exec(text);
+  if (overrideMatch) {
+    for (const item of overrideMatch[1].split(";").map((s) => s.trim()).filter(Boolean)) {
+      if (item.toLowerCase() !== "<local>") noProxy.add(item);
+    }
+  }
+  for (const base of ["127.0.0.1", "localhost", "::1"]) noProxy.add(base);
+  out.NO_PROXY = out.no_proxy = [...noProxy].join(",");
+  return out;
+}
+
+function readWindowsSystemProxyEnv() {
+  if (process.platform !== "win32") return {};
+  const now = Date.now();
+  if (cachedSystemProxy !== null && now - cachedSystemProxyAt < 60000) return cachedSystemProxy;
+  try {
+    const raw = execFileSync(
+      "reg",
+      ["query", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings"],
+      { encoding: "utf8", timeout: 500, windowsHide: true, stdio: ["ignore", "pipe", "ignore"] },
+    );
+    cachedSystemProxy = parseWindowsRegProxy(raw);
+  } catch {
+    cachedSystemProxy = {};
+  }
+  cachedSystemProxyAt = now;
+  return cachedSystemProxy;
+}
+
 export function cleanEnv(extra = {}) {
   const proxyKeys = ["HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy", "ALL_PROXY", "all_proxy"];
   const hasExplicitProxy = proxyKeys.some((k) => Boolean(process.env[k]) || (extra != null && Object.prototype.hasOwnProperty.call(extra, k)));
-  const sysProxy = hasExplicitProxy ? {} : readMacSystemProxyEnv();
+  const sysProxy = hasExplicitProxy ? {} : (process.platform === "win32" ? readWindowsSystemProxyEnv() : readMacSystemProxyEnv());
   const env = { ...sysProxy, ...process.env, ...extra };
   const sep = process.platform === "win32" ? ";" : ":";
   const base = cachedLoginShellPath ? `${env.PATH || ""}${sep}${cachedLoginShellPath}` : (env.PATH || "");
@@ -885,6 +978,17 @@ export class QoderRunner extends BaseRunner {
   }
 }
 
+function extractAcpText(content) {
+  if (!content) return "";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map((b) => extractAcpText(b)).join("");
+  if (typeof content === "object") {
+    if (typeof content.text === "string") return content.text;
+    if (typeof content.content === "string" || Array.isArray(content.content)) return extractAcpText(content.content);
+  }
+  return "";
+}
+
 // ----- Local ACP agents: Harness, Antigravity, and OpenCode -----
 export class AcpRunner extends BaseRunner {
   constructor(delegator, job) {
@@ -897,6 +1001,7 @@ export class AcpRunner extends BaseRunner {
     this.assistantText = "";
     this.lastStep = "";
     this.sessionId = "";
+    this.stderrTail = "";
   }
 
   async start(opts) {
@@ -917,7 +1022,7 @@ export class AcpRunner extends BaseRunner {
     const customEnv = cap.acpEnvRaw ? parseCustomAcpEnv(cap.acpEnvRaw) : {};
     this.job.command = redactSecrets([bin, ...spawnArgs].join(" "));
     this.trace?.recordFrame("acp.spawn", `${path.basename(bin)} ${spawnArgs.join(" ")}`);
-    const child = spawnCli(bin, spawnArgs, { cwd, env: cleanEnv(customEnv), stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawnCli(bin, spawnArgs, { cwd, env: cleanEnv(customEnv), stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
     this.child = child;
     this.job.state = "running";
     this.job.startedAt = Date.now();
@@ -925,7 +1030,12 @@ export class AcpRunner extends BaseRunner {
     child.stdout.setEncoding("utf8");
     child.stdout.on("data", (text) => this.onData(text));
     child.stdin.on("error", (e) => this.fail(e.message));
-    child.stderr.on("data", (b) => { err += b.toString(); if (err.length > 4000) err = err.slice(-4000); this.job.stderr = redactSecrets(err.slice(-1000)); });
+    child.stderr.on("data", (b) => {
+      err += b.toString();
+      if (err.length > 4000) err = err.slice(-4000);
+      this.stderrTail = err;
+      this.job.stderr = redactSecrets(err.slice(-1000));
+    });
     child.on("error", (e) => {
       if (e?.code === "ENOENT") {
         this.fail(t("找不到 {agent} 可执行文件「{bin}」，请确认已安装或已在设置中填写命令行路径", { agent: this.label, bin }));
@@ -933,9 +1043,11 @@ export class AcpRunner extends BaseRunner {
         this.fail(String(e && e.message || e));
       }
     });
-    child.on("exit", (code) => {
+    child.on("close", (code) => {
+      if (this.buf.trim()) this.onData("\n");
       if (this.finished) return;
-      this.fail(err.trim() || t("{agent} ACP 提前退出（{code}）", { agent: this.label, code }));
+      const detail = redactSecrets(err.trim()).slice(-400);
+      this.fail(detail || t("{agent} ACP 提前退出（{code}）", { agent: this.label, code }));
     });
     try {
       const init = await this.request("initialize", { protocolVersion: 1, clientCapabilities: {} }, 30000);
@@ -994,10 +1106,18 @@ export class AcpRunner extends BaseRunner {
       if (this.finished) return false;
       this.job.conversation ||= [];
       this.job.conversation.push({ role: "user", text: opts.prompt, at: Date.now() });
+      this.job.step = t("等待回复…");
+      this.d.saveJobsSoon();
+      this.d.refreshUI();
       this.timer = setTimeout(() => this.fail(t("委派超过 30 分钟没有结束")), 30 * 60000);
       this.request("session/prompt", { sessionId: this.sessionId, prompt: [{ type: "text", text: opts.prompt }] }, 31 * 60000)
         .then((r) => this.done(r))
-        .catch((e) => this.fail(e && e.message || String(e)));
+        .catch((e) => {
+          const msg = (e && e.message) || String(e);
+          const extra = this.stderrTail.trim();
+          const detail = extra && !msg.includes(extra.slice(-60)) ? `${msg} (${redactSecrets(extra).slice(-240)})` : msg;
+          this.fail(detail);
+        });
     } catch (e) {
       this.fail(e && e.message || String(e));
     }
@@ -1008,7 +1128,7 @@ export class AcpRunner extends BaseRunner {
     this.buf += text;
     let at;
     while ((at = this.buf.indexOf("\n")) >= 0) {
-      const line = this.buf.slice(0, at).trim();
+      const line = this.buf.slice(0, at).replace(/^\uFEFF/, "").trim();
       this.buf = this.buf.slice(at + 1);
       if (!line) continue;
       let msg;
@@ -1037,11 +1157,14 @@ export class AcpRunner extends BaseRunner {
       const u = params.update || {};
       const kind = u.sessionUpdate;
       if (kind === "agent_message_chunk" && !this.loadingSession) {
-        const t = u.content && u.content.text;
-        if (t) { this.assistantText += t; this.job.lastText = this.assistantText.slice(-2000); }
+        const text = extractAcpText(u.content);
+        if (text) { this.assistantText += text; this.job.lastText = this.assistantText.slice(-2000); }
       } else if (kind === "agent_thought_chunk") {
-        const t = u.content && u.content.text;
-        if (t) this.job.thought = t.slice(-500);
+        const text = extractAcpText(u.content);
+        if (text) {
+          this.job.thought = text.slice(-500);
+          if (!this.lastStep) this.job.step = t("思考中…");
+        }
       } else if (kind === "tool_call" || kind === "tool_call_update") {
         const name = u.title || u.kind || u.toolName || "tool";
         this.lastStep = truncate(name, 40);
@@ -1127,7 +1250,9 @@ export class AcpRunner extends BaseRunner {
       const timer = setTimeout(() => {
         this.pending.delete(id);
         this.trace?.recordFrame("acp.rpc_timeout", `${method} (${timeout}ms)`);
-        reject(new Error(t("{method} 超时", { method })));
+        const base = t("{method} 超时", { method });
+        const extra = this.stderrTail?.trim();
+        reject(new Error(extra ? `${base}: ${redactSecrets(extra).slice(-240)}` : base));
       }, timeout);
       this.pending.set(id, { resolve, reject, timer });
       this.send({ jsonrpc: "2.0", id, method, params });
@@ -1155,6 +1280,10 @@ export class AcpRunner extends BaseRunner {
     this.permissionModals?.clear?.();
     this.clearPending();
     this.job.stopReason = result && result.stopReason || "";
+    if (!this.assistantText && result && typeof result === "object") {
+      const fallback = extractAcpText(result.content ?? result.output ?? result.text ?? result.reply);
+      if (fallback) this.assistantText = fallback;
+    }
     this._recordAssistantText(this.assistantText);
   }
 

@@ -1482,6 +1482,23 @@ export default class AgentDeckPlugin extends Plugin {
       if (job.handoff) continue;   // 交接中的任务不归插件进程管，扫描时照样认领
       if (this.delegator.runners.has(job.id)) continue;
       const meta = job.sessionId ? this.usage.meta.get(job.sessionId) : null;
+      if (job.transport === "acp") {
+        // ACP sub-processes do not survive plugin/Obsidian reloads.
+        if (meta?.state === "wait") {
+          job.state = "done";
+          job.step = meta.step || job.step || "";
+          job.tokens = (meta.out || 0) + (meta.fresh || 0);
+          job.endedAt = job.endedAt || meta.lastAt || Date.now();
+          this.saveJobs();
+          this.delegator.writeResult(job).catch(() => {});
+        } else {
+          job.state = "error";
+          job.error = (meta?.state === "error" && meta.err) ? meta.err : t("插件重载后 ACP 进程已结束");
+          job.endedAt = Date.now();
+          this.saveJobs();
+        }
+        continue;
+      }
       if (meta && meta.lastAt) {
         job.state = meta.state === "run" ? "running" : (meta.state === "error" ? "error" : "done");
         job.step = meta.step || job.step || "";

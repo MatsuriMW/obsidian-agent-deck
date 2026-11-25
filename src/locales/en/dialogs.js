@@ -159,6 +159,7 @@ export default {
   "{agent} 连接已关闭": "{agent} connection is closed",
   "{method} 超时": "{method} timed out",
   "{agent} 连接已结束": "{agent} connection ended",
+  "等待回复…": "Waiting for reply…",
   "ACP 服务端返回的模型": "Model reported by the ACP server",
   "没有当前笔记": "No active note",
   "🛫 正在委派给 {agent}：{name}": "🛫 Delegating to {agent}: {name}",

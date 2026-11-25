@@ -7,10 +7,11 @@
 import fs from "fs";
 import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 export { cleanUserPrompt, isPromptText } from "./prompt-text.js";
-import { desktopSessions, desktopMessages, t3CodeDelegatedSids, cindyDelegatedSids } from "./desktop-sessions.js";
+import { desktopSessions, desktopMessages, t3CodeDelegatedSids, cindyDelegatedSids, orcaDelegatedSids } from "./desktop-sessions.js";
 import { resolveSqliteBinary } from "./sqlite.js";
 import { teleAgentDatabases } from "./teleagent.js";
 import { cindyDatabases } from "./cindy-sessions.js";
+import { orcaDatabases } from "./orca-sessions.js";
 import {
   stepText,
   todoOf,
@@ -255,7 +256,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 22;
+export const USAGE_CACHE_VERSION = 23;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -449,6 +450,7 @@ export class AgentUsage {
 
   t3OwnerOf(sid) { return this._specificOwnerOf(sid, "t3code"); }
   cindyOwnerOf(sid) { return this._specificOwnerOf(sid, "cindy"); }
+  orcaOwnerOf(sid) { return this._specificOwnerOf(sid, "orca"); }
 
   stale(agent, ms) {
     if (this.isPrimary(agent)) return false;
@@ -682,22 +684,27 @@ export class AgentUsage {
     // 一个账号一个库；路径由 src/teleagent.js 按真实环境变量与平台默认值探测。
     for (const db of teleAgentDatabases()) dbs.push([db, "teleagent"]);
     for (const db of cindyDatabases()) dbs.push([db, "cindy"]);
+    for (const db of orcaDatabases()) dbs.push([db, "orca"]);
     return dbs;
   }
 
   async readDesktopDatabases({ floor, onlyAgent, strictSince, touched }) {
     const delegatedMaps = new Map();
     const failedDelegators = new Set();
-    for (const ownerAgent of ["t3code", "cindy"]) {
+    for (const ownerAgent of ["t3code", "cindy", "orca"]) {
       if ((!onlyAgent || onlyAgent === ownerAgent) && this.enabled(ownerAgent)) {
         delegatedMaps.set(ownerAgent, new Map());
       }
     }
     for (const [db, agent] of this.desktopDatabases()) {
       if (!this.enabled(agent) || onlyAgent && agent !== onlyAgent || !fs.existsSync(db)) continue;
-      if (agent === "t3code" || agent === "cindy") {
+      if (agent === "t3code" || agent === "cindy" || agent === "orca") {
         try {
-          const delegated = agent === "t3code" ? await t3CodeDelegatedSids(db) : await cindyDelegatedSids(db);
+          const delegated = agent === "t3code"
+            ? await t3CodeDelegatedSids(db)
+            : agent === "cindy"
+              ? await cindyDelegatedSids(db)
+              : await orcaDelegatedSids(db);
           const bucket = delegatedMaps.get(agent) || new Map();
           for (const [k, v] of delegated) bucket.set(k, v);
           delegatedMaps.set(agent, bucket);

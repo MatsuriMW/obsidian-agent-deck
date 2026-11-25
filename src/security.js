@@ -227,6 +227,9 @@ export function spawnCli(bin, args = [], opts = {}) {
     };
     return spawn(q(b), args.map(q), { ...opts, shell: true, windowsHide: true });
   }
+  if (process.platform === "win32") {
+    return spawn(b, args, { windowsHide: true, ...opts });
+  }
   return spawn(b, args, opts);
 }
 

@@ -370,6 +370,26 @@ export async function extractToolCallsFromDesktopDb(db, agent, sid) {
           calls.push({ title: name, kind: inferToolKind(name), rawInput: toRawInput(d?.input ?? d?.arguments ?? d), at: desktopTime(r.created) });
         }
       }
+    } else if (agent === "orca") {
+      const tables = await desktopQuery(db, "SELECT name FROM sqlite_master WHERE type='table' AND name='journal_items'");
+      if (tables.length) {
+        const rows = await desktopQuery(db, `SELECT kind, message_role AS role, payload_json AS payload FROM journal_items WHERE session_id=${quote(sid)} AND COALESCE(hidden,0)=0 AND COALESCE(root,1)=1 AND COALESCE(subagent_row,0)=0 AND (kind='tool-call' OR kind='message') ORDER BY ordinal, sequence, sequence_index`);
+        for (const r of rows) {
+          const p = parseJson(r.payload, {});
+          const body = p?.body && typeof p.body === "object" ? p.body : p;
+          const at = desktopTime(p?.observedAt || body?.startedAt);
+          if (r.kind === "tool-call" || body?.kind === "tool-call") {
+            const name = body?.name || "tool";
+            calls.push({ title: name, kind: inferToolKind(name), rawInput: toRawInput(body?.input ?? body), at });
+          } else if (Array.isArray(body?.blocks)) {
+            for (const b of body.blocks) {
+              if (b?.type !== "tool-call") continue;
+              const name = b?.name || "tool";
+              calls.push({ title: name, kind: inferToolKind(name), rawInput: toRawInput(b?.input ?? b), at });
+            }
+          }
+        }
+      }
     } else if (agent === "opencode" || agent === "qwenwork" || agent === "teleagent") {
       const tables = await desktopQuery(db, "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('session_part','part')");
       const partTable = tables.some((x) => x.name === "session_part") ? "session_part" : tables.some((x) => x.name === "part") ? "part" : "";
@@ -611,7 +631,7 @@ export async function runSecurityAudit(plugin, { days = 30, agent = "", ignoreTe
     let calls = [];
     if (fc.path.includes("#")) {
       const db = fc.path.slice(0, fc.path.lastIndexOf("#"));
-      if (["cindy", "hermes", "minimax", "opencode", "qwenwork", "qoder", "t3code", "teleagent"].includes(fc.agent)) {
+      if (["cindy", "orca", "hermes", "minimax", "opencode", "qwenwork", "qoder", "t3code", "teleagent"].includes(fc.agent)) {
         calls = await extractToolCallsFromDesktopDb(db, fc.agent, fc.sid);
       }
     } else {

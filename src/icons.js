@@ -20,6 +20,7 @@ export const AGENT_ICONS = {
   kimicode: "code-2",
   doubaowork: "briefcase",
   gemini: "sparkles",
+  orca: "layers",
 };
 
 export const STATE_ICONS = {

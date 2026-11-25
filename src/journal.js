@@ -88,13 +88,13 @@ export function stripBlockId(s) {
   return String(s || "").replace(BLOCK_ID_RE, "").trimEnd();
 }
 
-const AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor", grokbot: "grokbot", teleagent: "ta", t3code: "t3code", cindy: "cindy", muse: "muse", kimicode: "kimi", doubaowork: "doubao", gemini: "gemini" };
+const AGENT_ID_PREFIX = { antigravity: "agy", claude: "claude", codex: "codex", dsh: "dsh", workbuddy: "wb", opencode: "oc", qoder: "qoder", cursor: "cursor", grokbot: "grokbot", teleagent: "ta", t3code: "t3code", cindy: "cindy", orca: "orca", muse: "muse", kimicode: "kimi", doubaowork: "doubao", gemini: "gemini" };
 const BLOCK_ID_AGENT = Object.fromEntries(Object.entries(AGENT_ID_PREFIX).map(([agent, prefix]) => [prefix, agent]));
 export function agentFromBlockId(id) {
   const m = /^([a-z0-9]+)-/i.exec(String(id || "").trim());
   return m ? (BLOCK_ID_AGENT[m[1].toLowerCase()] || "") : "";
 }
-export const isDeckBlockId = id => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor|grokbot|ta|t3code|cindy|muse|kimi|doubao|gemini)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
+export const isDeckBlockId = id => /^(?:ad-[a-z0-9-]+|(?:agy|claude|codex|dsh|wb|oc|qoder|cursor|grokbot|ta|t3code|cindy|orca|muse|kimi|doubao|gemini)-(?:[a-z][a-z0-9]{0,15}-){0,2}[a-z0-9]{10})$/i.test(id || "");
 export function normalizeTaskSlug(value) {
   const slug = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
   return /^[a-z][a-z0-9]{0,15}(?:-[a-z][a-z0-9]{0,15})?$/.test(slug) ? slug : "";
@@ -448,11 +448,11 @@ export function kwLine(raw) {
 }
 
 const TRACKED_LINK_RE = /^\s*[-*+]\s+🔗\s*\[([^\]]*)\]\(obsidian:\/\/agent-deck\?do=open&agent=([a-z][a-z0-9_-]{1,31})&sid=([^)]*)\)/;
-const TRACKED_LABEL_PREFIX_RE = /^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|TeleAgent|WorkBuddy|Cursor|Grok Bot|T3 Code|Cindy|Muse|Kimi Code|豆包工作|Gemini CLI)：/;
+const TRACKED_LABEL_PREFIX_RE = /^(Antigravity|OpenCode|Qoder|Hermes|MiniMax Code|MiniMax|千问办公|QwenWork|TeleAgent|WorkBuddy|Cursor|Grok Bot|T3 Code|Cindy|Orca|Muse|Kimi Code|豆包工作|Gemini CLI)：/;
 const SESSION_LINK_RE = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(claude|codex|workbuddy|dsh|antigravity):\/\/[^)]*?session=([0-9a-f-]{36})/;
 const THREAD_LINK_RE = /^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(codex):\/\/threads\/([0-9a-f-]{36})|^\s*[-*+]\s+🔗\s*(?:\[([^\]]+)\])?\(?(workbuddy):\/\/chat\/([0-9A-Za-z_-]{8,})/;
 const BACKTICK_LINK_RE = /^\s*[-*+]\s+🔗.*`((?:session-)?[0-9a-f-]{36})`/;
-const OBSIDIAN_LINK_LABELS = { opencode: "OpenCode", qoder: "Qoder", hermes: "Hermes", minimax: "MiniMax", qwenwork: "千问办公", teleagent: "TeleAgent", cursor: "Cursor", grokbot: "Grok Bot", t3code: "T3 Code", cindy: "Cindy", muse: "Muse", kimicode: "Kimi Code", doubaowork: "豆包工作", gemini: "Gemini CLI" };
+const OBSIDIAN_LINK_LABELS = { opencode: "OpenCode", qoder: "Qoder", hermes: "Hermes", minimax: "MiniMax", qwenwork: "千问办公", teleagent: "TeleAgent", cursor: "Cursor", grokbot: "Grok Bot", t3code: "T3 Code", cindy: "Cindy", orca: "Orca", muse: "Muse", kimicode: "Kimi Code", doubaowork: "豆包工作", gemini: "Gemini CLI" };
 const safeDecodeUri = (raw) => { try { return decodeURIComponent(raw); } catch { return raw; } };
 
 export function parseLink(line) {

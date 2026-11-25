@@ -3,7 +3,9 @@ import { test } from 'node:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import vm from 'node:vm';
 import { Delegator } from '../src/delegation.js';
+import { AcpRunner, parseWindowsRegProxy } from '../src/delegation-runners.js';
 import { DEFAULTS } from '../src/constants.js';
 import { writeMockNodeBin, cleanupDelegatorDir, rmDirSafe } from './helpers/mock-cli.mjs';
 
@@ -184,4 +186,110 @@ test('Antigravity autoApprove skips permission modal and Turn 2 writeback update
   } finally {
     f.cleanup();
   }
+});
+
+test('parseWindowsRegProxy handles single host, multi-protocol map, ProxyOverride, and disabled ProxyEnable', () => {
+  const disabled = parseWindowsRegProxy(`
+HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings
+    ProxyEnable    REG_DWORD    0x0
+    ProxyServer    REG_SZ    127.0.0.1:7890
+`);
+  assert.deepEqual(disabled, {});
+
+  const single = parseWindowsRegProxy(`
+    ProxyEnable    REG_DWORD    0x1
+    ProxyServer    REG_SZ    127.0.0.1:7890
+    ProxyOverride    REG_SZ    *.internal;<local>;10.0.0.0/8
+`);
+  assert.equal(single.HTTP_PROXY, 'http://127.0.0.1:7890');
+  assert.equal(single.HTTPS_PROXY, 'http://127.0.0.1:7890');
+  assert.equal(single.NO_PROXY, '*.internal,10.0.0.0/8,127.0.0.1,localhost,::1');
+
+  const multi = parseWindowsRegProxy(`
+    ProxyEnable    REG_DWORD    0x1
+    ProxyServer    REG_SZ    http=127.0.0.1:8080;https=127.0.0.1:8443;socks=127.0.0.1:1080
+`);
+  assert.equal(multi.HTTP_PROXY, 'http://127.0.0.1:8080');
+  assert.equal(multi.HTTPS_PROXY, 'http://127.0.0.1:8443');
+  assert.equal(multi.ALL_PROXY, 'socks5://127.0.0.1:1080');
+});
+
+test('AcpRunner strips UTF-8 BOM, supports array/string chunks, prompt result fallback, and surfaces stderr on early exit', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ad-agy-bom-'));
+  const bin = writeMockNodeBin(dir, 'agy', `const rl=require('readline').createInterface({input:process.stdin});
+const send=m=>process.stdout.write('\\uFEFF'+JSON.stringify(m)+'\\n');
+rl.on('line',line=>{const m=JSON.parse(line);
+if(m.method==='initialize'){send({id:m.id,result:{agentCapabilities:{sessionCapabilities:{resume:{}}}}});return;}
+if(m.method==='session/new'){send({id:m.id,result:{sessionId:'bom-sess',configOptions:[]}});return;}
+if(m.method==='session/prompt'){
+  if(process.env.AGY_FAIL_EARLY==='1'){process.stderr.write('proxy auth failed');process.exit(1);}
+  if(process.env.AGY_RESULT_FALLBACK==='1'){send({id:m.id,result:{stopReason:'end_turn',text:'FALLBACK_OK'}});return;}
+  send({method:'session/update',params:{sessionId:'bom-sess',update:{sessionUpdate:'agent_thought_chunk',content:[{type:'text',text:'thinking'}]}}});
+  send({method:'session/update',params:{sessionId:'bom-sess',update:{sessionUpdate:'agent_message_chunk',content:[{type:'text',text:'A'},{type:'text',text:'B'}]}}});
+  send({method:'session/update',params:{sessionId:'bom-sess',update:{sessionUpdate:'agent_message_chunk',content:'C'}}});
+  send({id:m.id,result:{stopReason:'end_turn'}});
+  return;
+}
+});`);
+  const settings = structuredClone(DEFAULTS);
+  settings.delegate.antigravity = { path: bin, model: 'antigravity-default', effort: '', cwd: dir, autoApprove: true };
+  settings.autoWriteResult = false;
+  settings.delegate.writeLink = false;
+  settings.delegate.confirmFirst = false;
+  const plugin = { settings, jobs: {}, vaultPath: dir, notice() {}, saveSettings() {}, saveJobs() {}, refreshUI() {}, readNote: async () => '- TODO bom test', modelById: () => null };
+  const d = new Delegator(plugin);
+  try {
+    const j1 = await d.delegate({ agent: 'antigravity', file: { path: 'test.md' }, line: 0 });
+    await settle(j1);
+    assert.equal(j1.state, 'done', j1.error || '');
+    assert.equal(j1.result, 'ABC');
+
+    process.env.AGY_RESULT_FALLBACK = '1';
+    const j2 = await d.delegate({ agent: 'antigravity', file: { path: 'test.md' }, line: 0, newSession: true });
+    await settle(j2);
+    assert.equal(j2.state, 'done', j2.error || '');
+    assert.equal(j2.result, 'FALLBACK_OK');
+    delete process.env.AGY_RESULT_FALLBACK;
+
+    process.env.AGY_FAIL_EARLY = '1';
+    const j3 = await d.delegate({ agent: 'antigravity', file: { path: 'test.md' }, line: 0, newSession: true });
+    await settle(j3);
+    assert.equal(j3.state, 'error');
+    assert.match(j3.error, /proxy auth failed/);
+  } finally {
+    delete process.env.AGY_RESULT_FALLBACK;
+    delete process.env.AGY_FAIL_EARLY;
+    cleanupDelegatorDir(d, dir);
+  }
+});
+
+test('recoverJobs resolves orphaned ACP jobs instead of leaving them stuck in running', () => {
+  const mainSource = fs.readFileSync(new URL('../src/main.js', import.meta.url), 'utf8');
+  const start = mainSource.indexOf('  recoverJobs() {');
+  const end = mainSource.indexOf('\n  cleanJobs()', start);
+  const ctx = vm.runInNewContext('({' + mainSource.slice(start, end) + '})', { t: (s) => s });
+  let saved = 0;
+  let wrote = 0;
+  ctx.jobs = {
+    jRun: { id: 'jRun', agent: 'antigravity', transport: 'acp', sessionId: 's-run', state: 'running', startedAt: Date.now() },
+    jWait: { id: 'jWait', agent: 'antigravity', transport: 'acp', sessionId: 's-wait', state: 'running', startedAt: Date.now() },
+    jCli: { id: 'jCli', agent: 'claude', sessionId: 's-cli', state: 'running', startedAt: Date.now() },
+  };
+  ctx.delegator = { runners: new Map(), writeResult: async () => { wrote++; } };
+  ctx.usage = {
+    meta: new Map([
+      ['s-run', { state: 'run', lastAt: Date.now(), out: 10, fresh: 5 }],
+      ['s-wait', { state: 'wait', lastAt: Date.now(), out: 20, fresh: 10 }],
+      ['s-cli', { state: 'run', lastAt: Date.now(), out: 30, fresh: 10 }],
+    ]),
+  };
+  ctx.saveJobs = () => { saved++; };
+  ctx.refreshUI = () => {};
+  ctx.recoverJobs();
+  assert.equal(ctx.jobs.jRun.state, 'error');
+  assert.match(ctx.jobs.jRun.error, /ACP/);
+  assert.equal(ctx.jobs.jWait.state, 'done');
+  assert.equal(ctx.jobs.jCli.state, 'running');
+  assert.equal(wrote, 1);
+  assert.ok(saved >= 3);
 });

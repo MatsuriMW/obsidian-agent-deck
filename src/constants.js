@@ -206,10 +206,9 @@ export const AGENTS = {
     color: "#2b6cb0",
     soft: "rgba(43,108,176,.13)",
     kind: "kimicode",
-    where: ["~/.kimi-code/sessions · ~/.kimi/sessions", t("Kimi Code 桌面版 / CLI（仅追踪）")],
+    where: ["~/.kimi-code/sessions · ~/.kimi/sessions", t("Kimi Code 桌面版 / CLI 与 ACP 委派")],
     deep: "kimicode",
-    desktopOnly: true,
-    trackingOnly: true,
+    desktopOnly: false,
   },
   doubaowork: {
     id: "doubaowork",
@@ -261,9 +260,22 @@ export const AGENTS = {
     desktopOnly: true,
     trackingOnly: true,
   },
+  orca: {
+    id: "orca",
+    name: "Orca",
+    short: "Orca",
+    glyph: "◉",
+    color: "#0f766e",
+    soft: "rgba(15,118,110,.13)",
+    kind: "orca",
+    where: ["~/Library/Application Support/orca/agent-session-domain.db", t("Orca 桌面版（仅追踪）")],
+    deep: "orca",
+    desktopOnly: true,
+    trackingOnly: true,
+  },
 };
 
-export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "teleagent", "cursor", "grokbot", "t3code", "cindy", "muse", "kimicode", "doubaowork", "gemini"];
+export const AGENT_ORDER = ["claude", "codex", "workbuddy", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "qwenwork", "teleagent", "cursor", "grokbot", "t3code", "cindy", "orca", "muse", "kimicode", "doubaowork", "gemini"];
 
 export const AGENT_SHORT = (id) => (AGENTS[id] ? AGENTS[id].short : id || "Agent");
 
@@ -277,6 +289,7 @@ export const MODEL_CATALOG = [
   { id: "minimax-default", agent: "minimax", name: t("CLI 当前默认模型"), value: "", provider: "MiniMax", context: "—", tags: [], note: t("使用 MiniMax Code 当前配置的默认模型；读取可用模型后可指定模型。") },
   { id: "gemini-default", agent: "gemini", name: t("CLI 当前默认模型"), value: "", provider: "Gemini CLI", context: "—", tags: [], note: t("使用 Gemini CLI 当前配置的默认模型；读取可用模型后可指定模型。") },
   { id: "cursor-default", agent: "cursor", name: t("CLI 当前默认模型"), value: "", provider: "Cursor", context: "—", tags: [], note: t("使用 Cursor CLI 当前配置的默认模型；未装 CLI 时自动回退桌面端交接。") },
+  { id: "kimicode-default", agent: "kimicode", name: t("CLI 当前默认模型"), value: "", provider: "Kimi Code", context: "—", tags: [], note: t("使用 Kimi Code CLI 当前配置的默认模型；未装 CLI 时自动回退桌面端交接。") },
   {
     id: "qoder-ultimate",
     agent: "qoder",
@@ -464,6 +477,7 @@ export const EFFORTS = {
   opencode: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   hermes: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   minimax: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
+  kimicode: ["low", "high", "max"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   qoder: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("传给 qodercli --reasoning-effort") })),
   codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: t("由所选 Codex 模型支持的强度决定") })),
   claude: [
@@ -512,7 +526,7 @@ export const CLAUDE_PERMISSIONS = [
 export const DEFAULTS = {
   version: STORE_VERSION,
   // Which agents are read. Primary agents are always on.
-  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, teleagent: true, cursor: true, grokbot: true, t3code: true, cindy: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
+  agents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, hermes: true, minimax: true, qwenwork: true, teleagent: true, cursor: true, grokbot: true, t3code: true, cindy: true, orca: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   customAcpAgents: [],
   primaryAgents: ["claude", "dsh"],
   // 0 = midnight (00:00); otherwise the hour at which a new journal day begins.
@@ -595,7 +609,7 @@ export const DEFAULTS = {
   autoLogBatch: 8,         // 一轮最多问模型几个会话
   // 没写不等于关：设置页用 `agOn[id] !== false` 判定，缺省值等于「开」。TeleAgent 的历史库有上千个会话，
   // 首次接入会把最近若干轮一次性补进当天日记，所以这里显式关掉，需要时在设置里手动打开。
-  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, teleagent: false, t3code: true, cindy: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
+  autoLogAgents: { claude: true, codex: true, workbuddy: true, dsh: true, antigravity: true, opencode: true, qoder: true, cursor: true, grokbot: true, teleagent: false, t3code: true, cindy: true, orca: true, muse: true, kimicode: true, doubaowork: true, gemini: true },
   autoLogProvider: "auto",
   autoLogEffort: "low",
   autoLogModel: "",
@@ -658,6 +672,7 @@ export const DEFAULTS = {
     minimax: { model: "minimax-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     gemini: { model: "gemini-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     cursor: { model: "cursor-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
+    kimicode: { model: "kimicode-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     t3code: { path: "", cwd: "", extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
@@ -685,7 +700,7 @@ export const DEFAULTS = {
     pinned: ["claude-opus-5-5", "claude-sonnet-5", "deepseek-v4-pro"],
     order: MODEL_CATALOG.map((m) => m.id),
     custom: [],
-    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", minimax: "minimax-default", gemini: "gemini-default", cursor: "cursor-default", qoder: "qoder-ultimate" },
+    defaultByAgent: { claude: "claude-opus-5-5", codex: "gpt-6.1-sol", dsh: "dsh-default", antigravity: "antigravity-default", opencode: "opencode-default", hermes: "hermes-default", minimax: "minimax-default", gemini: "gemini-default", cursor: "cursor-default", kimicode: "kimicode-default", qoder: "qoder-ultimate" },
     effort: "high",
     effortByAgent: {},
   },

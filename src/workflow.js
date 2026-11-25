@@ -15,17 +15,18 @@ const DESTINATION_IDS = {
   hermes: ["background", "terminal"],
   minimax: ["desktop", "background", "terminal"],
   cursor: ["background", "desktop"],
+  kimicode: ["background", "desktop"],
   gemini: ["background", "terminal"],
   t3code: ["desktop", "background"],
   workbuddy: ["desktop", "terminal"],
   teleagent: ["desktop"],
 };
 
-const BACKGROUND_DEFAULT_AGENTS = new Set(["antigravity", "qoder", "hermes", "minimax", "cursor", "gemini", "t3code"]);
+const BACKGROUND_DEFAULT_AGENTS = new Set(["antigravity", "qoder", "hermes", "minimax", "cursor", "kimicode", "gemini", "t3code"]);
 
 export function destinations(agent) {
   const modes = {
-    desktop: { id: "desktop", label: t("在桌面客户端中聊"), hint: ["workbuddy", "qoder", "cursor", "teleagent"].includes(agent) ? t("复制任务并打开客户端，等待你粘贴发送。") : agent === "dsh" ? t("建立会话后打开 Harness；当前轮结束后在侧栏选择同一会话继续。") : t("先执行首轮，结束后打开桌面中的同一会话；首轮期间避免两边同时发送。") },
+    desktop: { id: "desktop", label: t("在桌面客户端中聊"), hint: ["workbuddy", "qoder", "cursor", "kimicode", "teleagent"].includes(agent) ? t("复制任务并打开客户端，等待你粘贴发送。") : agent === "dsh" ? t("建立会话后打开 Harness；当前轮结束后在侧栏选择同一会话继续。") : t("先执行首轮，结束后打开桌面中的同一会话；首轮期间避免两边同时发送。") },
     background: { id: "background", label: t("后台执行"), hint: t("留在当前笔记，完成或需要处理时提醒。") },
     terminal: { id: "terminal", label: t("在终端中聊"), hint: t("打开交互终端，后续在终端继续。") },
   };

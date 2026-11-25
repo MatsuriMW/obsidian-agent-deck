@@ -53,6 +53,7 @@ export default {
   "螺旋日程的 ai-usage.json 解析失败": "Nautilus Spiral's ai-usage.json could not be parsed",
   "Agent Deck：从螺旋日程导入 {days} 天历史": "Agent Deck: imported {days} days of history from Nautilus Spiral",
   "插件重载后没有接上这个会话": "This session did not reconnect after the plugin reloaded",
+  "插件重载后 ACP 进程已结束": "ACP process ended after plugin reload",
   "主力 Agent 不能关掉；先把主力换掉": "A primary agent cannot be turned off — switch the primary first",
   "已恢复螺旋日程右下角的 Agent 汇总": "Restored Nautilus Spiral's agent summary in the bottom-right corner",
   "已把右下角的 Agent 汇总移到 macOS 菜单栏；螺旋日程的 Agent 汇总也已关闭。": "Moved the agent summary from the bottom-right corner to the macOS menu bar; Nautilus Spiral's own agent summary is now off.",

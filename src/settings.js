@@ -606,6 +606,16 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         checkLabel: t("检查 agent"),
       },
       {
+        id: "kimicode",
+        title: "Kimi Code",
+        sub: t("装有 Kimi Code CLI（kimi）时支持 kimi acp 后台委派；未装 CLI 时自动复制任务并打开桌面端交接"),
+        moreKey: "kimicode-more",
+        defaultEffort: "high",
+        pathHint: t("留空自动查找 kimi / kimi-code"),
+        refreshLabel: t("读取 Kimi Code 可用模型"),
+        checkLabel: t("检查 kimi"),
+      },
+      {
         id: "gemini",
         title: "Gemini CLI",
         sub: t("通过 gemini --acp 后台委派，也可在终端用 gemini --resume 续聊"),
@@ -1294,7 +1304,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     stats.createSpan({ cls: "ad-set-agent__state", text: stateText });
     if (id === "grokbot" && enabled) this.renderGrokBotPicker(card, sessCountEl, s, p);
     if (id === "muse" && enabled) this.renderMusePicker(card, sessCountEl, s, p);
-    if (enabled && (id === "t3code" || id === "cindy")) {
+    if (enabled && (id === "t3code" || id === "cindy" || id === "orca")) {
       let dedupCount = 0;
       for (const owners of p.usage?.delegatedOwners?.values?.() || []) {
         if (owners?.has?.(id)) dedupCount++;

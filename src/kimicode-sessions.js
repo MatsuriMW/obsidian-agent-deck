@@ -9,8 +9,9 @@
 import fs from "fs";
 import path from "path";
 import os from "os";
+import { createHash } from "crypto";
 
-const expandHome = (p, homeDir) => String(p || "").replace(/^~(?=\/)/, homeDir);
+const expandHome = (p, homeDir) => String(p || "").replace(/^~(?=[\\/])/, homeDir);
 
 export function kimiCodeDataDirs(homeDir = os.homedir(), env = process.env) {
   const dirs = [];
@@ -46,18 +47,91 @@ function readJsonSafe(filePath) {
   }
 }
 
+function statFileSafe(filePath) {
+  try {
+    const st = fs.statSync(filePath);
+    return st.isFile() ? st : null;
+  } catch {
+    return null;
+  }
+}
+
+function resolveKimiWireFile(sessionDir) {
+  const candidates = [
+    path.join(sessionDir, "agents", "main", "wire.jsonl"),
+    path.join(sessionDir, "wire.jsonl"),
+  ];
+  for (const p of candidates) {
+    const st = statFileSafe(p);
+    if (st) return { wirePath: p, wireStat: st };
+  }
+  const agentsDir = path.join(sessionDir, "agents");
+  try {
+    const entries = fs.readdirSync(agentsDir, { withFileTypes: true });
+    for (const ent of entries) {
+      if (!ent.isDirectory() || ent.name.startsWith(".")) continue;
+      const p = path.join(agentsDir, ent.name, "wire.jsonl");
+      const st = statFileSafe(p);
+      if (st) return { wirePath: p, wireStat: st };
+    }
+  } catch { /* no agents dir */ }
+  return { wirePath: "", wireStat: null };
+}
+
+function resolveKimiMetaFile(sessionDir) {
+  const candidates = [
+    path.join(sessionDir, "state.json"),
+    path.join(sessionDir, "session-meta", "state.json"),
+    path.join(sessionDir, "metadata.json"),
+  ];
+  for (const p of candidates) {
+    const st = statFileSafe(p);
+    if (st) return { metaPath: p, metaStat: st };
+  }
+  return { metaPath: "", metaStat: null };
+}
+
+function resolveKimiSessionDirFromWire(filePath) {
+  const dir = path.dirname(filePath);
+  const parent = path.dirname(dir);
+  if (path.basename(parent) === "agents") return path.dirname(parent);
+  return dir;
+}
+
 function loadWorkspaceMap(baseDir) {
   const map = new Map();
-  const data = readJsonSafe(path.join(baseDir, "workspaces.json"));
-  const ws = data?.workspaces;
-  if (!ws || typeof ws !== "object") return map;
-  for (const [id, entry] of Object.entries(ws)) {
-    if (!entry || typeof entry !== "object") continue;
-    const dir = String(entry.path || entry.dir || entry.workdir || entry.root || "").trim();
-    if (dir) {
-      map.set(id, dir);
-      if (entry.hash) map.set(String(entry.hash), dir);
-      if (entry.id) map.set(String(entry.id), dir);
+  // 1. Kimi Code Desktop v2: projects.json
+  const projectsData = readJsonSafe(path.join(baseDir, "projects.json"));
+  const projects = projectsData?.projects;
+  if (projects && typeof projects === "object") {
+    for (const [id, entry] of Object.entries(projects)) {
+      if (!entry || typeof entry !== "object") continue;
+      const dir = String(entry.root || entry.path || entry.dir || entry.workdir || "").trim();
+      if (dir) map.set(id, dir);
+    }
+  }
+  // 2. Kimi Code Desktop v1: workspaces.json
+  const wsData = readJsonSafe(path.join(baseDir, "workspaces.json"));
+  const ws = wsData?.workspaces;
+  if (ws && typeof ws === "object") {
+    for (const [id, entry] of Object.entries(ws)) {
+      if (!entry || typeof entry !== "object") continue;
+      const dir = String(entry.path || entry.dir || entry.workdir || entry.root || "").trim();
+      if (dir) {
+        if (!map.has(id)) map.set(id, dir);
+        if (entry.hash && !map.has(String(entry.hash))) map.set(String(entry.hash), dir);
+        if (entry.id && !map.has(String(entry.id))) map.set(String(entry.id), dir);
+      }
+    }
+  }
+  // 3. Kimi CLI: kimi.json work_dirs (hashed via md5 of path)
+  const kimiJson = readJsonSafe(path.join(baseDir, "kimi.json"));
+  if (Array.isArray(kimiJson?.work_dirs)) {
+    for (const entry of kimiJson.work_dirs) {
+      const dir = String(entry?.path || entry?.dir || "").trim();
+      if (!dir) continue;
+      const hash = createHash("md5").update(dir).digest("hex");
+      if (!map.has(hash)) map.set(hash, dir);
     }
   }
   return map;
@@ -135,13 +209,8 @@ export function discoverKimiCodeSessions(opts = {}) {
         if (!sEnt.isDirectory() || sEnt.name.startsWith(".")) continue;
         const sessionId = sEnt.name;
         const sessionDir = path.join(wsDir, sessionId);
-        const wirePath = path.join(sessionDir, "wire.jsonl");
-        const metaPath = path.join(sessionDir, "session-meta", "state.json");
-
-        let wireStat = null;
-        try { wireStat = fs.statSync(wirePath); } catch { /* may not exist yet */ }
-        let metaStat = null;
-        try { metaStat = fs.statSync(metaPath); } catch { /* optional */ }
+        const { wirePath, wireStat } = resolveKimiWireFile(sessionDir);
+        const { metaPath, metaStat } = resolveKimiMetaFile(sessionDir);
         if (!wireStat && !metaStat) continue;
 
         const key = `${wsEnt.name}/${sessionId}`;
@@ -150,7 +219,7 @@ export function discoverKimiCodeSessions(opts = {}) {
 
         const meta = metaStat ? readJsonSafe(metaPath) : null;
         const cwd = String(
-          meta?.workspaceDir || meta?.workdir || meta?.cwd || wsMap.get(wsEnt.name) || "",
+          meta?.workspaceDir || meta?.workdir || meta?.workDir || meta?.cwd || wsMap.get(wsEnt.name) || "",
         ).trim();
         const mtimeMs = Math.max(wireStat?.mtimeMs || 0, metaStat?.mtimeMs || 0);
         const size = (wireStat?.size || 0) + (metaStat?.size || 0);
@@ -159,13 +228,13 @@ export function discoverKimiCodeSessions(opts = {}) {
           id: sessionId,
           wsHash: wsEnt.name,
           sessionDir,
-          wirePath: wireStat ? wirePath : "",
-          metaPath: metaStat ? metaPath : "",
+          wirePath,
+          metaPath,
           meta,
           cwd,
           mtimeMs,
           size,
-          app: baseDir.endsWith(".kimi-code") ? "desktop" : "cli",
+          app: /[\\/]\.kimi-code$/i.test(baseDir) ? "desktop" : "cli",
         });
       }
     }
@@ -179,22 +248,125 @@ export function parseKimiCodeSession(wireText, meta = {}, fallback = {}) {
   const entries = [];
   const usages = [];
   const openSteps = new Map();
+  let cliStepKey = "";
+  let cliStepSeq = 0;
   let startedAt = kimiCodeTime(meta?.createdAt || meta?.created_at);
   let lastAt = kimiCodeTime(meta?.updatedAt || meta?.updated_at);
   let model = String(meta?.model || meta?.modelAlias || "").trim();
   let title = String(meta?.title || "").trim();
   if (title === "New Session") title = "";
-  const isCustomTitle = Boolean(meta?.isCustomTitle && title);
-  let cwd = String(meta?.workspaceDir || meta?.workdir || meta?.cwd || fallback.cwd || "").trim();
+  const isCustomTitle = Boolean((meta?.isCustomTitle || meta?.titleKind === "custom") && title);
+  let cwd = String(meta?.workspaceDir || meta?.workdir || meta?.workDir || meta?.cwd || fallback.cwd || "").trim();
   let lastStep = "";
   let inTurn = false;
   let lastRole = "";
   let lineIdx = 0;
+  let lastAnonUsage = null;
 
   const touch = (at) => {
     if (!at) return;
     if (!startedAt || at < startedAt) startedAt = at;
     if (at > lastAt) lastAt = at;
+  };
+
+  const closeCliStep = () => {
+    if (!cliStepKey) return;
+    const step = openSteps.get(cliStepKey);
+    openSteps.delete(cliStepKey);
+    cliStepKey = "";
+    if (!step) return;
+    const text = step.texts.join("").trim();
+    if (text || step.tools.length) {
+      lastRole = "assistant";
+      entries.push({
+        id: `cli-${cliStepSeq}`,
+        role: "assistant",
+        at: step.at || lastAt,
+        text,
+        tools: step.tools,
+        finishReason: "stop",
+      });
+    }
+  };
+
+  const ensureCliStep = (at) => {
+    if (cliStepKey && openSteps.has(cliStepKey)) return openSteps.get(cliStepKey);
+    cliStepSeq += 1;
+    cliStepKey = `cli-step-${cliStepSeq}`;
+    const step = { at, texts: [], tools: [] };
+    openSteps.set(cliStepKey, step);
+    return step;
+  };
+
+  const handleLoopEvent = (ev, at) => {
+    if (!ev || typeof ev !== "object") return;
+    switch (ev.type) {
+      case "step.begin": {
+        if (ev.uuid) openSteps.set(ev.uuid, { at, texts: [], tools: [] });
+        inTurn = true;
+        break;
+      }
+      case "content.part": {
+        const step = ev.stepUuid ? openSteps.get(ev.stepUuid) : null;
+        const part = ev.part;
+        if (part && typeof part === "object" && part.type === "text" && typeof part.text === "string") {
+          if (step) step.texts.push(part.text);
+        }
+        break;
+      }
+      case "tool.call": {
+        const name = String(ev.name || "").trim();
+        if (name) {
+          lastStep = name;
+          const step = ev.stepUuid ? openSteps.get(ev.stepUuid) : null;
+          if (step) step.tools.push({ name, args: ev.args });
+        }
+        break;
+      }
+      case "step.end": {
+        const step = ev.uuid ? openSteps.get(ev.uuid) : null;
+        if (ev.uuid) openSteps.delete(ev.uuid);
+        const u = normalizeUsage(ev.usage);
+        if (u) {
+          const rec = {
+            id: String(ev.messageId || ev.uuid || `step-${lineIdx}`),
+            at,
+            model: String(ev.model || model || "").trim(),
+            ...u,
+          };
+          // Kimi Code v2 emits `usage.record` (without messageId) immediately before `step.end` with identical counts.
+          if (
+            lastAnonUsage &&
+            lastAnonUsage.idx === usages.length - 1 &&
+            lastAnonUsage.inp === u.inp &&
+            lastAnonUsage.cache === u.cache &&
+            lastAnonUsage.out === u.out &&
+            Math.abs((at || 0) - (lastAnonUsage.at || 0)) <= 2000
+          ) {
+            usages[lastAnonUsage.idx] = rec;
+          } else {
+            usages.push(rec);
+          }
+          lastAnonUsage = null;
+        }
+        const text = step ? step.texts.join("").trim() : "";
+        const tools = step ? step.tools : [];
+        if (text || tools.length) {
+          lastRole = "assistant";
+          entries.push({
+            id: String(ev.messageId || ev.uuid || `a-${lineIdx}`),
+            role: "assistant",
+            at,
+            text,
+            tools,
+            finishReason: String(ev.finishReason || ""),
+          });
+        }
+        break;
+      }
+      default:
+        break;
+    }
   };
 
   const lines = String(wireText || "").split(/\r?\n/);
@@ -206,19 +378,38 @@ export function parseKimiCodeSession(wireText, meta = {}, fallback = {}) {
     try { d = JSON.parse(line); } catch { continue; }
     if (!d || typeof d !== "object") continue;
 
-    const at = kimiCodeTime(d.time ?? d.timestamp ?? d.created_at ?? d.createdAt) || lastAt || startedAt;
-    if (at) touch(at);
-    if (typeof d.model === "string" && d.model.trim()) model = d.model.trim();
-    if (typeof d.cwd === "string" && d.cwd.trim() && !cwd) cwd = d.cwd.trim();
+    // Normalize Kimi CLI `{ timestamp, message: { type, payload } }` and `{ event, ... }` envelopes
+    let msgType = d.type;
+    let payload = d;
+    if (!msgType && d.message && typeof d.message === "object" && typeof d.message.type === "string") {
+      msgType = d.message.type;
+      payload = d.message.payload && typeof d.message.payload === "object" ? d.message.payload : d.message;
+    } else if (!msgType && typeof d.event === "string") {
+      msgType = d.event;
+      payload = d;
+    }
 
-    switch (d.type) {
+    const at = kimiCodeTime(d.time ?? d.timestamp ?? d.created_at ?? d.createdAt ?? payload.time ?? payload.timestamp) || lastAt || startedAt;
+    if (at) touch(at);
+    const evModel = typeof payload.model === "string" && payload.model.trim() ? payload.model.trim()
+      : (typeof payload.modelAlias === "string" && payload.modelAlias.trim() ? payload.modelAlias.trim()
+        : (typeof d.model === "string" && d.model.trim() ? d.model.trim()
+          : (typeof d.modelAlias === "string" && d.modelAlias.trim() ? d.modelAlias.trim() : "")));
+    if (evModel) model = evModel;
+    const evCwd = typeof payload.cwd === "string" && payload.cwd.trim() ? payload.cwd.trim()
+      : (typeof d.cwd === "string" && d.cwd.trim() ? d.cwd.trim() : "");
+    if (evCwd && !cwd) cwd = evCwd;
+
+    switch (msgType) {
       case "metadata": {
-        const created = kimiCodeTime(d.created_at);
+        const created = kimiCodeTime(payload.created_at ?? d.created_at);
         if (created) touch(created);
         break;
       }
-      case "turn_begin": {
-        const text = typeof d.userInput === "string" ? d.userInput.trim() : extractKimiContentText(d.userInput);
+      case "turn_begin":
+      case "TurnBegin": {
+        const userInput = payload.user_input ?? payload.userInput ?? d.userInput ?? d.user_input;
+        const text = typeof userInput === "string" ? userInput.trim() : extractKimiContentText(userInput);
         inTurn = true;
         if (text) {
           lastRole = "user";
@@ -227,8 +418,8 @@ export function parseKimiCodeSession(wireText, meta = {}, fallback = {}) {
         break;
       }
       case "turn.prompt": {
-        if (d.origin?.kind && d.origin.kind !== "user") break;
-        const text = extractKimiContentText(d.input);
+        if (payload.origin?.kind && payload.origin.kind !== "user") break;
+        const text = extractKimiContentText(payload.input);
         inTurn = true;
         if (text) {
           lastRole = "user";
@@ -237,7 +428,7 @@ export function parseKimiCodeSession(wireText, meta = {}, fallback = {}) {
         break;
       }
       case "context.append_message": {
-        const m = d.message;
+        const m = payload.message;
         if (!m || typeof m !== "object") break;
         if (m.origin?.kind === "injection" || m.origin?.kind === "compaction_summary") break;
         const text = extractKimiContentText(m.content);
@@ -254,70 +445,77 @@ export function parseKimiCodeSession(wireText, meta = {}, fallback = {}) {
         }
         break;
       }
-      case "step.begin": {
-        if (d.uuid) {
-          openSteps.set(d.uuid, { at, texts: [], tools: [] });
-        }
+      case "context.append_loop_event": {
+        handleLoopEvent(payload.event, at);
+        break;
+      }
+      case "context.clear": {
+        openSteps.clear();
+        cliStepKey = "";
+        inTurn = false;
+        break;
+      }
+      case "step.begin":
+      case "content.part":
+      case "tool.call":
+      case "step.end": {
+        handleLoopEvent(payload, at);
+        break;
+      }
+      case "StepBegin": {
+        closeCliStep();
         inTurn = true;
+        ensureCliStep(at);
         break;
       }
-      case "content.part": {
-        const step = d.stepUuid ? openSteps.get(d.stepUuid) : null;
-        const part = d.part;
-        if (part && typeof part === "object" && part.type === "text" && typeof part.text === "string") {
-          if (step) step.texts.push(part.text);
+      case "ContentPart": {
+        if (payload.type === "text" && typeof payload.text === "string") {
+          ensureCliStep(at).texts.push(payload.text);
         }
         break;
       }
-      case "tool.call": {
-        const name = String(d.name || "").trim();
+      case "ToolCall": {
+        const name = String(payload.function?.name || payload.name || "").trim();
         if (name) {
           lastStep = name;
-          const step = d.stepUuid ? openSteps.get(d.stepUuid) : null;
-          if (step) step.tools.push({ name, args: d.args });
+          let args = payload.args ?? payload.function?.arguments;
+          if (typeof args === "string") {
+            try { args = JSON.parse(args); } catch { /* keep raw */ }
+          }
+          ensureCliStep(at).tools.push({ name, args });
         }
         break;
       }
-      case "step.end": {
-        const step = d.uuid ? openSteps.get(d.uuid) : null;
-        if (d.uuid) openSteps.delete(d.uuid);
-        const u = normalizeUsage(d.usage);
+      case "usage.record": {
+        const u = normalizeUsage(payload.usage);
         if (u) {
+          const hasId = Boolean(payload.messageId || payload.id);
           usages.push({
-            id: String(d.messageId || d.uuid || `step-${lineIdx}`),
+            id: String(payload.messageId || payload.id || `ur-${lineIdx}`),
             at,
-            model: String(d.model || model || "").trim(),
+            model: evModel || model || "",
             ...u,
           });
-        }
-        const text = step ? step.texts.join("").trim() : "";
-        const tools = step ? step.tools : [];
-        if (text || tools.length) {
-          lastRole = "assistant";
-          entries.push({
-            id: String(d.messageId || d.uuid || `a-${lineIdx}`),
-            role: "assistant",
-            at,
-            text,
-            tools,
-            finishReason: String(d.finishReason || ""),
-          });
+          lastAnonUsage = !hasId ? { idx: usages.length - 1, at, ...u } : null;
         }
         break;
       }
       case "turn.end":
-      case "turn_end": {
+      case "turn.ended":
+      case "turn_end":
+      case "TurnEnd": {
+        closeCliStep();
         inTurn = false;
         break;
       }
       case "status_update":
       case "StatusUpdate": {
-        const u = normalizeUsage(d.token_usage || d.usage);
+        const u = normalizeUsage(payload.token_usage || payload.usage);
         if (u) {
           usages.push({
-            id: `su-${lineIdx}`,
+            id: String(payload.message_id || `su-${lineIdx}`),
             at,
-            model: String(d.model || model || "").trim(),
+            model: evModel || model || "",
             ...u,
           });
         }
@@ -376,8 +574,9 @@ export function buildKimiCodeConversation(source) {
   if (!filePath) return [];
   let wireText = "";
   try { wireText = fs.readFileSync(filePath, "utf8"); } catch { return []; }
-  const sessionDir = path.dirname(filePath);
-  const meta = readJsonSafe(path.join(sessionDir, "session-meta", "state.json")) || {};
+  const sessionDir = resolveKimiSessionDirFromWire(filePath);
+  const { metaPath } = resolveKimiMetaFile(sessionDir);
+  const meta = (metaPath ? readJsonSafe(metaPath) : null) || {};
   const parsed = parseKimiCodeSession(wireText, meta);
   const out = [];
   for (const e of parsed.entries) {

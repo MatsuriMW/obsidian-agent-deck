@@ -416,7 +416,7 @@ export function ingestAntigravityLine(ctx, line, fc, touched) {
     const mMod = /Model Selection` from `[^`]*` to `([^`]+)`/.exec(raw);
     if (mMod) fc.model = mMod[1];
     const text = cleanUserPrompt(raw);
-    const mPath = /@\[(\/[^\]]+)\]/.exec(text) || /(\/Users\/[^\s`"'<>)\]]+)/.exec(text);
+    const mPath = /@\[((?:[A-Za-z]:[\\/]|\/)[^\]]+)\]/.exec(text) || /((?:\/Users\/|[A-Za-z]:[\\/])[^\s`"'<>)\]]+)/.exec(text);
     if (mPath && !fc.cwd) {
       fc.cwd = ctx.inferWorkspaceRoot(mPath[1]);
     }
@@ -451,7 +451,7 @@ export function ingestAntigravityLine(ctx, line, fc, touched) {
       for (const tc of tools) {
         const inp = unquoteArgs(tc.args);
         const p0 = inp.Path || inp.TargetFile || inp.SearchPath || inp.DirectoryPath || "";
-        if (p0 && typeof p0 === "string" && p0.startsWith("/") && (!fc.cwd || fc.cwd === "~") && !p0.includes("/.gemini/")) {
+        if (p0 && typeof p0 === "string" && (p0.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p0)) && (!fc.cwd || fc.cwd === "~") && !p0.replace(/\\/g, "/").includes("/.gemini/")) {
           fc.cwd = ctx.inferWorkspaceRoot(p0);
           s.cwd = fc.cwd; s.proj = ctx.projectName(fc.cwd);
         }

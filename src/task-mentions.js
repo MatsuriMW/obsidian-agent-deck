@@ -98,7 +98,7 @@ function agentModelUsageMap(plugin, agent) {
 export function mentionSuggestions(plugin, query) {
   const parts = query.split("/"), agent = parts[0];
   const routable = routableAgents();
-  const alias = { codex: " gpt", dsh: " deepseek", hermes: " hermes-acp", minimax: " mcode mavis", t3code: " t3 t3-code" };
+  const alias = { codex: " gpt", dsh: " deepseek", hermes: " hermes-acp", minimax: " mcode mavis", t3code: " t3 t3-code", kimicode: " kimi kimi-code" };
   if (parts.length === 1) return routable.filter((id) => plugin.agentEnabled(id) && (id + " " + AGENTS[id].name + (alias[id] || "")).toLowerCase().includes(agent.toLowerCase())).map((id) => ({
     value: id,
     label: AGENTS[id].name,

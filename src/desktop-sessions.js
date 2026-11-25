@@ -5,6 +5,7 @@ import { execFile } from "child_process";
 import { resolveSqliteBinary } from "./sqlite.js";
 import { stripQwenWorkContext, stripTeleAgentContext } from "./prompt-text.js";
 import { cleanCindyText } from "./cindy-sessions.js";
+import { extractOrcaMessageText } from "./orca-sessions.js";
 
 const quote = (value) => "'" + String(value).replaceAll("'", "''") + "'";
 const json = (value, fallback = {}) => { try { return typeof value === "string" ? JSON.parse(value) : value || fallback; } catch { return fallback; } };
@@ -185,6 +186,95 @@ export function extractDelegatedIdsFromObj(obj, depth = 0, out = []) {
       if (DELEGATED_ID_KEYS.has(key) && val.trim()) out.push(val.trim());
     } else if (val && typeof val === "object") {
       extractDelegatedIdsFromObj(val, depth + 1, out);
+    }
+  }
+  return out;
+}
+
+function orcaCwdFromRecord(rec) {
+  const launch = String(rec?.launchDirectory || "").trim();
+  if (launch) return launch;
+  const wsId = String(rec?.location?.workspaceId || "").trim();
+  const sep = wsId.indexOf("::");
+  if (sep >= 0) {
+    const candidate = wsId.slice(sep + 2).trim();
+    if (/^(?:\/|~|[A-Za-z]:[\\/]|\\\\)/.test(candidate)) return candidate;
+  }
+  return "";
+}
+
+function addOrcaDelegatedRef(out, raw, ownerSid) {
+  const v = String(ownerSid || "").trim();
+  if (!v) return;
+  const push = (val) => {
+    for (const k of extractDelegatedCandidates(val)) {
+      if (!k || k === v || k.startsWith("structured-agent-session-")) continue;
+      out.set(k, v);
+    }
+  };
+  const s = String(raw || "").trim();
+  if (!s) return;
+  const claudeM = /^claude:([^:]+):/i.exec(s);
+  if (claudeM) push(decodeTail(claudeM[1]));
+  const codexM = /^codex:([^:]+):/i.exec(s);
+  if (codexM) push(decodeTail(codexM[1]));
+  const promptM = /^(?:legacy:[^:]+:[^:]+:(?:turn-lifecycle|item):)?p:([^:]+):/i.exec(decodeTail(s));
+  if (promptM) push(decodeTail(promptM[1]));
+  if (!s.startsWith("orca:") && !s.startsWith("legacy:")) push(s);
+}
+
+// Collect underlying native session/thread IDs launched by Orca so AutoLog
+// and all UI surfaces track those sessions only under Orca.
+export async function orcaDelegatedSids(db) {
+  const out = new Map();
+  if (!fs.existsSync(db)) return out;
+  const targetTables = ["agent_session_records", "journal_items"];
+  const tables = await desktopQuery(
+    db,
+    `SELECT name FROM sqlite_master WHERE type='table' AND name IN (${targetTables.map(quote).join(",")})`,
+  );
+  const names = new Set(tables.map((t) => t.name));
+  if (!names.has("agent_session_records")) return out;
+
+  const rCols = await tableColumns(db, "agent_session_records");
+  const recRows = await desktopQuery(
+    db,
+    `SELECT session_id AS sid, ${rCols.has("adopted_native_id") ? "adopted_native_id AS adoptedNativeId" : "'' AS adoptedNativeId"}, record_json AS recordJson FROM agent_session_records`,
+  );
+  const activeSids = new Set();
+  for (const r of recRows) {
+    const sid = String(r.sid || "").trim();
+    if (!sid) continue;
+    const rec = json(r.recordJson, null);
+    if (rec?.deletedAt) continue;
+    activeSids.add(sid);
+    if (r.adoptedNativeId) addOrcaDelegatedRef(out, r.adoptedNativeId, sid);
+    if (Array.isArray(rec?.providerHandleChain)) {
+      for (const link of rec.providerHandleChain) {
+        if (!link?.handle) continue;
+        for (const candidate of extractDelegatedIdsFromObj(link.handle)) {
+          addOrcaDelegatedRef(out, candidate, sid);
+        }
+      }
+    }
+  }
+
+  if (names.has("journal_items") && activeSids.size) {
+    const jiCols = await tableColumns(db, "journal_items");
+    const hasCodexCol = jiCols.has("codex_thread_id");
+    const hasTurnCol = jiCols.has("provider_turn_id");
+    const itemRows = await desktopQuery(
+      db,
+      `SELECT DISTINCT session_id AS sid, item_id AS itemId${hasCodexCol ? ", codex_thread_id AS codexThreadId" : ", '' AS codexThreadId"}${hasTurnCol ? ", provider_turn_id AS providerTurnId" : ", '' AS providerTurnId"}
+       FROM journal_items
+       WHERE ${hasCodexCol ? "codex_thread_id IS NOT NULL OR " : ""}${hasTurnCol ? "provider_turn_id LIKE 'p:%' OR " : ""}item_id LIKE 'claude:%' OR item_id LIKE 'codex:%' OR item_id LIKE 'legacy:%'`,
+    );
+    for (const r of itemRows) {
+      const sid = String(r.sid || "").trim();
+      if (!sid || !activeSids.has(sid)) continue;
+      if (r.codexThreadId) addOrcaDelegatedRef(out, r.codexThreadId, sid);
+      if (r.providerTurnId) addOrcaDelegatedRef(out, r.providerTurnId, sid);
+      if (r.itemId) addOrcaDelegatedRef(out, r.itemId, sid);
     }
   }
   return out;
@@ -564,6 +654,68 @@ export async function desktopSessions(db, agent, since) {
         archived,
         deletedAt,
         state: recentActive ? "run" : "",
+        out: 0,
+        fresh: 0,
+        cached: 0,
+      };
+    }).filter((s) => s.deletedAt || s.updatedAt >= sinceMs);
+  }
+  if (agent === "orca") {
+    const sinceMs = Math.max(0, Math.floor(since || 0));
+    const tables = await desktopQuery(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('agent_session_records','journal_chat_state','journal_items')",
+    );
+    const names = new Set(tables.map((t) => t.name));
+    if (!names.has("agent_session_records")) return [];
+    const hasChatState = names.has("journal_chat_state");
+    const hasItems = names.has("journal_items");
+    const rows = await desktopQuery(
+      db,
+      `SELECT r.session_id AS sid, r.record_json AS recordJson
+        ${hasChatState ? ", cs.epoch AS epoch, COALESCE(cs.last_activity_at, 0) AS chatLastAt" : ", '' AS epoch, 0 AS chatLastAt"}
+        ${hasItems ? `,
+          COALESCE((SELECT COUNT(*) FROM journal_items ji WHERE ji.session_id = r.session_id ${hasChatState ? "AND (cs.epoch IS NULL OR ji.epoch = cs.epoch)" : ""} AND COALESCE(ji.hidden, 0) = 0 AND COALESCE(ji.root, 1) = 1 AND COALESCE(ji.subagent_row, 0) = 0), 0) AS msgCount,
+          COALESCE((SELECT MAX(MAX(COALESCE(ji.turn_completed_at, 0), COALESCE(CAST(json_extract(ji.payload_json, '$.observedAt') AS INTEGER), 0))) FROM journal_items ji WHERE ji.session_id = r.session_id ${hasChatState ? "AND (cs.epoch IS NULL OR ji.epoch = cs.epoch)" : ""} AND COALESCE(ji.hidden, 0) = 0), 0) AS lastItemAt,
+          COALESCE((SELECT MAX(CASE WHEN ji.live_work = 1 OR (ji.kind = 'turn' AND LOWER(COALESCE(ji.lifecycle_state, '')) IN ('running','queued','starting','preparing','waiting')) THEN 1 ELSE 0 END) FROM journal_items ji WHERE ji.session_id = r.session_id ${hasChatState ? "AND (cs.epoch IS NULL OR ji.epoch = cs.epoch)" : ""}), 0) AS hasLiveTurn,
+          COALESCE((SELECT json_extract(ji.payload_json, '$.body.outcome') FROM journal_items ji WHERE ji.session_id = r.session_id ${hasChatState ? "AND (cs.epoch IS NULL OR ji.epoch = cs.epoch)" : ""} AND ji.kind = 'turn' ORDER BY ji.ordinal DESC, ji.sequence DESC LIMIT 1), '') AS lastTurnOutcome,
+          COALESCE((SELECT json_extract(ji.payload_json, '$.body.contextUsage.used.model') FROM journal_items ji WHERE ji.session_id = r.session_id ${hasChatState ? "AND (cs.epoch IS NULL OR ji.epoch = cs.epoch)" : ""} AND COALESCE(json_extract(ji.payload_json, '$.body.contextUsage.used.model'), '') <> '' ORDER BY ji.ordinal DESC, ji.sequence DESC LIMIT 1), '') AS turnModel`
+          : ", 0 AS msgCount, 0 AS lastItemAt, 0 AS hasLiveTurn, '' AS lastTurnOutcome, '' AS turnModel"}
+      FROM agent_session_records r
+      ${hasChatState ? "LEFT JOIN journal_chat_state cs ON cs.session_id = r.session_id" : ""}`,
+    );
+    return rows.map((s) => {
+      const rec = json(s.recordJson, {});
+      const startedAt = desktopTime(rec.createdAt);
+      const itemAt = desktopTime(s.lastItemAt);
+      const chatAt = desktopTime(s.chatLastAt);
+      const lastTurnAt = desktopTime(rec.lastTurn?.at);
+      const contentAt = Math.max(itemAt, chatAt, lastTurnAt, startedAt);
+      const updatedAt = Math.max(contentAt, desktopTime(rec.updatedAt) && !lastTurnAt && !itemAt ? desktopTime(rec.updatedAt) : 0, startedAt);
+      const archived = Boolean(rec.archivedAt || rec.archived);
+      const deletedAt = rec.deletedAt ? desktopTime(rec.deletedAt) || 1 : 0;
+      const lastTurnState = String(rec.lastTurn?.state || "").toLowerCase();
+      const outcome = String(s.lastTurnOutcome || rec.lastTurn?.outcome || "").toLowerCase();
+      const recentLive = Boolean(s.hasLiveTurn) || lastTurnState === "running";
+      const state = recentLive && (Date.now() - Math.max(contentAt, desktopTime(rec.updatedAt)) <= TOOL_LOOP_IDLE_MIN * 60000)
+        ? "run"
+        : outcome === "failure" || outcome === "error"
+          ? "error"
+          : "wait";
+      const model = String(rec.options?.model || s.turnModel || rec.provider || "").trim();
+      return {
+        sid: s.sid,
+        title: String(rec.conversationName || "").trim(),
+        cwd: orcaCwdFromRecord(rec),
+        parentSid: "",
+        model,
+        app: "desktop",
+        startedAt,
+        updatedAt,
+        revision: contentAt + (Number(s.msgCount) || 0) * 10 + (state === "run" ? 1 : 0) + (archived ? 1000000 : 0),
+        archived,
+        deletedAt,
+        state,
         out: 0,
         fresh: 0,
         cached: 0,
@@ -1210,6 +1362,206 @@ export async function desktopMessages(db, agent, sid) {
           fresh: a.fresh,
           cached: a.cached,
         });
+      }
+    }
+    return out;
+  }
+  if (agent === "orca") {
+    const tables = await desktopQuery(
+      db,
+      "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('agent_session_records','journal_chat_state','journal_items')",
+    );
+    const names = new Set(tables.map((t) => t.name));
+    if (!names.has("journal_items")) return [];
+    let sessModel = "";
+    let activeEpoch = "";
+    if (names.has("agent_session_records")) {
+      const rRows = await desktopQuery(db, `SELECT record_json AS recordJson FROM agent_session_records WHERE session_id = ${quote(sid)} LIMIT 1`);
+      if (rRows[0]) {
+        const rec = json(rRows[0].recordJson, {});
+        sessModel = String(rec.options?.model || rec.provider || "").trim();
+      }
+    }
+    if (names.has("journal_chat_state")) {
+      const csRows = await desktopQuery(db, `SELECT epoch FROM journal_chat_state WHERE session_id = ${quote(sid)} LIMIT 1`);
+      if (csRows[0]?.epoch) activeEpoch = String(csRows[0].epoch);
+    }
+    const conds = [
+      `session_id = ${quote(sid)}`,
+      "COALESCE(hidden, 0) = 0",
+      "COALESCE(root, 1) = 1",
+      "COALESCE(subagent_row, 0) = 0",
+    ];
+    if (activeEpoch) conds.push(`epoch = ${quote(activeEpoch)}`);
+    const rows = await desktopQuery(
+      db,
+      `SELECT item_id AS id, kind, message_role AS role, lifecycle_state AS lifecycleState, live_work AS liveWork, turn_completed_at AS turnCompletedAt, payload_json AS payloadJson
+       FROM journal_items WHERE ${conds.join(" AND ")} ORDER BY ordinal ASC, sequence ASC, sequence_index ASC`,
+    );
+    if (!rows.length) return [];
+
+    const turns = [];
+    const byTurnItemId = new Map();
+    const ensureLastTurn = () => {
+      if (!turns.length) {
+        const t = { turnItemId: "", userMsg: null, assistants: [], lastTool: "", turnState: "", outcome: "", completedAt: 0, errorText: "", errorAt: 0, model: sessModel };
+        turns.push(t);
+      }
+      return turns[turns.length - 1];
+    };
+    const resolveTurn = (payload) => {
+      const scopeTurnId = payload?.turnScope?.kind === "turn" ? String(payload.turnScope.turnItemId || "") : "";
+      if (scopeTurnId && byTurnItemId.has(scopeTurnId)) return byTurnItemId.get(scopeTurnId);
+      return ensureLastTurn();
+    };
+
+    for (const row of rows) {
+      const payload = json(row.payloadJson, {});
+      const body = payload.body && typeof payload.body === "object" ? payload.body : payload;
+      const kind = String(row.kind || body.kind || "").toLowerCase();
+      const at = desktopTime(payload.observedAt || body.startedAt || body.requestedAt || row.turnCompletedAt);
+
+      if (kind === "message") {
+        const role = String(row.role || body.role || "").toLowerCase();
+        if (role === "user") {
+          if (body.origin === "automation-run") continue;
+          const text = extractOrcaMessageText(payload);
+          if (!text) continue;
+          const t = {
+            turnItemId: "",
+            userMsg: {
+              id: row.id,
+              role: "user",
+              text,
+              at,
+              end: 0,
+              updated: at,
+              state: "run",
+              step: "",
+              error: "",
+              model: sessModel,
+              out: 0,
+              fresh: 0,
+              cached: 0,
+            },
+            assistants: [],
+            lastTool: "",
+            turnState: "",
+            outcome: "",
+            completedAt: 0,
+            errorText: "",
+            errorAt: 0,
+            model: sessModel,
+          };
+          turns.push(t);
+          continue;
+        }
+        if (role !== "assistant") continue;
+        const turn = resolveTurn(payload);
+        const blocks = Array.isArray(body.blocks) ? body.blocks : [];
+        for (const b of blocks) {
+          if (b?.type === "tool-call" && b.name) turn.lastTool = String(b.name).trim();
+        }
+        const text = extractOrcaMessageText(payload);
+        if (!text) continue;
+        turn.assistants.push({
+          id: row.id,
+          role: "assistant",
+          text,
+          at,
+          end: 0,
+          updated: at,
+          state: "wait",
+          step: "",
+          error: "",
+          model: turn.model || sessModel,
+          out: 0,
+          fresh: 0,
+          cached: 0,
+        });
+        continue;
+      }
+
+      if (kind === "turn") {
+        const userItemId = String(body.userItemId || "");
+        let target = turns.find((t) => !t.turnItemId && t.userMsg && (!userItemId || t.userMsg.id === userItemId)) || ensureLastTurn();
+        target.turnItemId = row.id;
+        byTurnItemId.set(row.id, target);
+        target.turnState = String(row.lifecycleState || body.state || "").toLowerCase();
+        target.outcome = String(body.outcome || "").toLowerCase();
+        target.completedAt = desktopTime(row.turnCompletedAt || body.completedAt);
+        const ctxModel = String(body.contextUsage?.used?.model || "").trim();
+        if (ctxModel) target.model = ctxModel;
+        if (row.liveWork) target.turnState = "running";
+        continue;
+      }
+
+      if (kind === "tool-call") {
+        const turn = resolveTurn(payload);
+        if (body.name) turn.lastTool = String(body.name).trim();
+        continue;
+      }
+
+      if (kind === "status" && String(body.tone || "").toLowerCase() === "error") {
+        const turn = resolveTurn(payload);
+        const errText = String(body.text || "").trim().slice(0, 200);
+        if (errText) {
+          turn.errorText = errText;
+          turn.errorAt = at;
+        }
+      }
+    }
+
+    const out = [];
+    for (let ti = 0; ti < turns.length; ti++) {
+      const turn = turns[ti];
+      const isLastTurn = ti === turns.length - 1;
+      const isRunning = turn.turnState === "running";
+      const isFailed = turn.outcome === "failure" || turn.outcome === "error" || Boolean(turn.errorText);
+      if (turn.userMsg) {
+        if (!turn.assistants.length && isLastTurn && turn.lastTool) turn.userMsg.step = turn.lastTool;
+        if (!turn.assistants.length && !turn.errorText && !isRunning) {
+          turn.userMsg.state = isFailed ? "error" : "wait";
+          turn.userMsg.end = turn.completedAt || turn.userMsg.at;
+        }
+        out.push(turn.userMsg);
+      }
+      if (!turn.assistants.length) {
+        if (isLastTurn && isFailed && turn.errorText) {
+          out.push({
+            id: turn.userMsg ? `${turn.userMsg.id}-err` : `orca-err-${turn.errorAt || turn.completedAt || ti}`,
+            role: "assistant",
+            text: "",
+            at: turn.errorAt || turn.completedAt || (turn.userMsg?.at || 0),
+            end: turn.completedAt || turn.errorAt || 0,
+            updated: turn.completedAt || turn.errorAt || 0,
+            state: "error",
+            step: "",
+            error: turn.errorText,
+            model: turn.model || sessModel,
+            out: 0,
+            fresh: 0,
+            cached: 0,
+          });
+        }
+        continue;
+      }
+      for (let ai = 0; ai < turn.assistants.length; ai++) {
+        const a = turn.assistants[ai];
+        const isLastAssistant = isLastTurn && ai === turn.assistants.length - 1;
+        a.model = a.model || turn.model || sessModel;
+        if (isLastAssistant) {
+          a.state = isRunning ? "run" : isFailed ? "error" : "wait";
+          a.error = isFailed ? turn.errorText : "";
+          a.step = isRunning ? turn.lastTool : "";
+          a.end = isRunning ? 0 : (turn.completedAt || a.at);
+          a.updated = a.end || a.at;
+        } else {
+          a.state = "wait";
+          a.end = turn.completedAt || a.at;
+          a.updated = a.end || a.at;
+        }
+        out.push(a);
       }
     }
     return out;
