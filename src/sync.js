@@ -43,7 +43,17 @@ export class JournalSync {
 
   archived(sid) {
     if (this.cfg.autoLogArchiveDone === false) return false;
-    return (this.usage.archivedClaude && this.usage.archivedClaude.has(sid)) || (this.usage.archived && this.usage.archived.has(sid));
+    if (typeof this.usage?.isArchived === "function") return this.usage.isArchived(sid);
+    return Boolean(this.usage.archivedClaude?.has(sid) || this.usage.archived?.has(sid) || this.usage.meta?.get?.(sid)?.archived);
+  }
+
+  archivedDoneRec(sid) {
+    if (!sid) return null;
+    for (const d of Object.keys(this.cfg.autoLogState || {}).sort().reverse()) {
+      const rec = this.cfg.autoLogState[d]?.[sid];
+      if (rec?.archivedDone) return rec;
+    }
+    return null;
   }
 
   dayList() {
@@ -113,6 +123,7 @@ export class JournalSync {
 
   async syncNotes() {
     let updated = false;
+    let stateDirty = false;
     try {
       for (const view of this.openViews()) {
         const cm = view.editor.cm;
@@ -121,8 +132,11 @@ export class JournalSync {
         const taskIds = this.cfg.resultBack !== false ? await this.prepareTaskIds(text) : new Map();
         if (this.cfg.journalAutoWrite === false || this._stopped) return;
         let next = text;
+        this._reopenedInPass = false;
         if (this.cfg.resultBack !== false) next = this.results(next, taskIds);
         if (this.cfg.agentKw !== false) next = this.keywords(next);
+        if (this._reopenedInPass) stateDirty = true;
+        if (this._reopenedInPass && this.cfg.resultBack !== false) next = this.results(next, taskIds);
         if (this.cfg.kidBlocks !== false) { next = this.spawnAll(next); next = this.subsIntoAll(next); next = this.sides(next); }
         next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
         next = safeTopRule(J.cleanCompletedIdentifiers(next));
@@ -136,8 +150,11 @@ export class JournalSync {
         await updateNote(this.p, file.path, text => {
           if (this.cfg.journalAutoWrite === false || this._stopped) return text;
           let next = text;
+          this._reopenedInPass = false;
           if (this.cfg.resultBack !== false) next = this.results(next, taskIds);
           if (this.cfg.agentKw !== false) next = this.keywords(next);
+          if (this._reopenedInPass) stateDirty = true;
+          if (this._reopenedInPass && this.cfg.resultBack !== false) next = this.results(next, taskIds);
           next = this.spawnAll(next);
           next = this.sides(next);
           next = J.clocksLast(next);   // ⏱ 永远排在 ❓ / 💬 之后
@@ -146,6 +163,7 @@ export class JournalSync {
           return next;
         });
       }
+      if (stateDirty) this.p.saveSettings?.().catch?.(() => {});
     } catch (e) {
       console.error("[agent-deck] 会话回写日记失败", e);
       return { updated, error: String(e?.message || e) };
@@ -348,18 +366,32 @@ export class JournalSync {
           const t = this.usage.meta.get(link.sid)?.lastAt || 0;
           if (t > bestTime) { bestTime = t; latestSid = link.sid; latestAt = i; }
         }
-        if (!J.DONE_KWS.includes(cur.kw) && sessions.every(sid => this.archived(sid))) ls = this.finish(ls.join("\n"), latestSid, latestAt).split("\n");
+        if (!J.DONE_KWS.includes(cur.kw) && sessions.every(sid => this.archived(sid))) ls = this.finish(ls.join("\n"), latestSid, latestAt, sessions).split("\n");
         continue;
       }
-      if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || J.AGENT_KW_RE.test(cur.kw) || !cur.kw)) continue;
+      const archRec = cur.kw === "DONE" ? this.archivedDoneRec(k.sid) : null;
+      const canReopen = Boolean(archRec && !(archRec.blockId && this.cfg.manualTaskStates?.[archRec.blockId]));
+      if (!(cur.kw === "DOING" || cur.kw === "DELEGATED" || J.AGENT_KW_RE.test(cur.kw) || !cur.kw || canReopen)) continue;
       const m = this.usage.meta.get(k.sid);
-      const want = m ? (m.state === "run" ? (cur.kw === "DELEGATED" ? "DELEGATED" : "DOING") : STATE_KW[m.state]) : null;
+      const want = canReopen
+        ? (m ? (m.state === "run" ? "DOING" : (STATE_KW[m.state] || "PAUSED")) : "PAUSED")
+        : (m ? (m.state === "run" ? (cur.kw === "DELEGATED" ? "DELEGATED" : "DOING") : STATE_KW[m.state]) : null);
       const p = J.splitTask(ls[n]);
       if (!p) continue;
       if (!want && !p.auto) continue;
       const kw = want || cur.kw || "DOING";
       const span = spanFor(k.sid, p, ls, n, kw);
-      const nextLine = J.formatSessionTaskLine(p, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      let nextLine = J.formatSessionTaskLine(p, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      if (canReopen) {
+        const restored = J.ensureBlockId(nextLine, archRec.blockId || J.makeBlockId(k.sid, m?.agent || k.agent));
+        nextLine = restored.line;
+        archRec.blockId = restored.blockId;
+        delete archRec.archivedDone;
+        delete archRec.doneEndMs;
+        delete archRec.doneRounds;
+        archRec.status = kw === "DOING" ? "doing" : "paused";
+        this._reopenedInPass = true;
+      }
       if (nextLine !== ls[n]) ls[n] = nextLine;
     }
     let out = ls.join("\n");
@@ -381,19 +413,30 @@ export class JournalSync {
       if (this.usage?.delegatedOwnerOf?.(sid, m.agent) || (m.agent && m.agent !== "t3code" && this.usage?.t3OwnerOf?.(sid))) continue;
       const found = J.findTask(text, rec.key, rec.blockId || "", sid);
       if (found && J.isManualTask(this.cfg, text.split("\n")[found.line])) continue;
-      if (!found || !(found.kw === "DOING" || (J.AGENT_KW_RE.test(found.kw) && found.kw !== "DELEGATED"))) continue;
-      const kw = m.state === "run" ? "DOING" : STATE_KW[m.state];
+      const canReopen = Boolean(found && found.kw === "DONE" && rec.archivedDone && !(rec.blockId && this.cfg.manualTaskStates?.[rec.blockId]));
+      if (!found || !(found.kw === "DOING" || (J.AGENT_KW_RE.test(found.kw) && found.kw !== "DELEGATED") || canReopen)) continue;
+      const kw = m.state === "run" ? "DOING" : (STATE_KW[m.state] || (canReopen ? "PAUSED" : ""));
       if (!kw) continue;
-      if (kw === "DOING" || !want.has(found.line)) want.set(found.line, { kw, sid });
+      if (kw === "DOING" || !want.has(found.line)) want.set(found.line, { kw, sid, canReopen, rec, agent: m.agent });
     }
     if (!want.size) return text;
     const ls = text.split("\n");
     let changed = false;
-    for (const [n, { kw, sid }] of want) {
+    for (const [n, { kw, sid, canReopen, rec, agent }] of want) {
       const p = J.splitTask(ls[n]);
       if (!p || p.cb || !p.kw) continue;
       const span = spanFor(sid, p, ls, n, kw);
-      const nextLine = J.formatSessionTaskLine(p, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      let nextLine = J.formatSessionTaskLine(p, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      if (canReopen) {
+        const restored = J.ensureBlockId(nextLine, rec.blockId || J.makeBlockId(sid, agent));
+        nextLine = restored.line;
+        rec.blockId = restored.blockId;
+        delete rec.archivedDone;
+        delete rec.doneEndMs;
+        delete rec.doneRounds;
+        rec.status = kw === "DOING" ? "doing" : "paused";
+        this._reopenedInPass = true;
+      }
       if (nextLine === ls[n]) continue;
       ls[n] = nextLine;
       changed = true;
@@ -402,7 +445,7 @@ export class JournalSync {
   }
 
   // 归档 = 做完：DONE + 实际时段，收掉 🔗 行
-  finish(text, sid, linkAt) {
+  finish(text, sid, linkAt, allSids = null) {
     const lines = text.split("\n");
     const at = typeof linkAt === "number" ? linkAt : lines.findIndex((l) => { const k = J.parseLink(l); return k && k.sid === sid; });
     if (at < 0) return text;
@@ -428,7 +471,16 @@ export class JournalSync {
       lines.splice(n + 1, 0, J.clockLine((/^\s*/.exec(lines[n]) || [""])[0] + "\t", info.segs, who, (info.out || 0) + (info.fresh || 0)));
     }
     // Keep the session link usable after removing the finished task's IDs.
-    this.p.markBound?.(sid);
+    const targetSids = Array.isArray(allSids) && allSids.length ? allSids : [sid];
+    for (const targetSid of new Set(targetSids.filter(Boolean))) {
+      const meta = this.usage?.meta?.get?.(targetSid);
+      this.p.markBound?.(targetSid, p.blockId || "", J.workKey(p.body || ""), {
+        archivedDone: true,
+        status: "done",
+        doneEndMs: meta?.lastAt || Date.now(),
+        doneRounds: Array.isArray(meta?.rounds) ? meta.rounds.length : 0,
+      });
+    }
     return J.cleanCompletedIdentifiers(lines.join("\n"));
   }
 

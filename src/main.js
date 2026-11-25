@@ -1367,7 +1367,7 @@ export default class AgentDeckPlugin extends Plugin {
       // incremental parsing. Read it separately, then replace only those files.
       const scoped = !!(agent && days);
       const usage = scoped ? new AgentUsage({ cfg: this.settings, settings: { ...this.settings, primaryAgents: [agent] } }) : this.usage;
-      const touched = await usage.scan({ since, agent, strictSince: !!days });
+      const touched = await usage.scan({ since, agent, strictSince: !!days, force: Boolean(force || cutoffChanged) });
       for (const day of initialDays || []) touched.add(day);
       if (this._unloaded) return;
       if (fullScan) this._scannedDayCutoff = dayCutoff;
@@ -2053,7 +2053,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   // ---------- drag and drop ----------
   // 一个会话绑到了日记里（拖拽、委派、归档收尾）：告诉自动记日记别再替它新写一行
-  markBound(sid, blockId = "", key = "") {
+  markBound(sid, blockId = "", key = "", extra = null) {
     if (!sid) return;
     const day = dayKeyToday(this.settings);
     const st = ((this.settings.autoLogState ||= {})[day] ||= {});
@@ -2064,6 +2064,7 @@ export default class AgentDeckPlugin extends Plugin {
       bound: true,
       ...(blockId ? { blockId } : {}),
       ...(key ? { key } : {}),
+      ...(extra && typeof extra === "object" ? extra : {}),
     };
     this.saveSettings().catch(() => {});
   }
@@ -3064,6 +3065,7 @@ export default class AgentDeckPlugin extends Plugin {
   // Rebuild only the bounded task sections; outside notes remain untouched.
   async organizeJournal(file = this.journalTarget()) {
     if (!file) return this.notice(t("请先打开日记"));
+    await this.usage?.readCodexArchived?.({ force: true });
     const base = await this.readNote(file.path);
     let plan;
     try {
@@ -3079,6 +3081,43 @@ export default class AgentDeckPlugin extends Plugin {
     }
     const next = renderJournal(plan);
     if (next !== base && !await this.writeJournal(file, base, next)) return this.notice(t("日记刚有变化，请再整理一次"));
+    let stateChanged = false;
+    const today = dayKeyToday(this.settings);
+    for (const entry of plan.done || []) {
+      if (!entry.archivedDone) continue;
+      const sids = new Set(Array.isArray(entry.sid) ? entry.sid : []);
+      const marked = new Set();
+      for (const daySt of Object.values(this.settings.autoLogState || {})) {
+        for (const [sid, rec] of Object.entries(daySt || {})) {
+          if (!rec || rec.gone) continue;
+          if (!sids.has(sid) && !(entry.blockId && rec.blockId === entry.blockId)) continue;
+          const meta = this.usage?.meta?.get?.(sid);
+          rec.status = "done";
+          rec.archivedDone = true;
+          if (rec.doneEndMs == null) rec.doneEndMs = meta?.lastAt || Date.now();
+          if (rec.doneRounds == null) rec.doneRounds = Array.isArray(meta?.rounds) ? meta.rounds.length : 0;
+          marked.add(sid);
+          stateChanged = true;
+        }
+      }
+      for (const sid of sids) {
+        if (marked.has(sid)) continue;
+        const meta = this.usage?.meta?.get?.(sid);
+        const st = ((this.settings.autoLogState ||= {})[today] ||= {});
+        st[sid] = {
+          ...(st[sid] || {}),
+          skip: true,
+          bound: true,
+          ...(entry.blockId ? { blockId: entry.blockId } : {}),
+          status: "done",
+          archivedDone: true,
+          doneEndMs: meta?.lastAt || Date.now(),
+          doneRounds: Array.isArray(meta?.rounds) ? meta.rounds.length : 0,
+        };
+        stateChanged = true;
+      }
+    }
+    if (stateChanged) await this.saveSettings();
     this.refreshUI();
     this.notice(plan.count.total ? t("已整理 {count} 个任务", { count: plan.count.total }) : t("已建立日志分区，区外笔记保持原样"));
   }

@@ -315,6 +315,7 @@ export class AgentUsage {
     this.customTitles = new Set(); // sids explicitly renamed by the user in client
     this.codexIndexAt = 0;
     this.archived = new Set();       // Codex archived_sessions
+    this._auxArchived = new Set();   // aux CLI/DB archive IDs managed by readCodexArchived
     this.desk = new Map();           // Claude desktop local_*.json path -> desktop session entry
     this.deskBySid = new Map();      // cliSessionId -> desktop session entry
     this.deskByLocal = new Map();    // desktop sessionId (local_…) -> desktop session entry
@@ -606,11 +607,11 @@ export class AgentUsage {
   }
 
   // ----- scanning -----
-  async scan({ since = 0, agent: onlyAgent = "", strictSince = false, onProgress } = {}) {
+  async scan({ since = 0, agent: onlyAgent = "", strictSince = false, force = false, onProgress } = {}) {
     const touched = new Set();
     const floor = since || this.sinceMs();
     await this.readCodexTitles();
-    await this.readCodexArchived();
+    await this.readCodexArchived({ force });
     await this.readDesktopDatabases({ floor, onlyAgent, strictSince, touched });
     for (const [root, agent] of this.roots()) {
       if (onlyAgent && agent !== onlyAgent) continue;
@@ -826,16 +827,16 @@ export class AgentUsage {
   //   Codex：老版本把日志挪进 archived_sessions/，新版在 state_*.sqlite 的 threads.archived
   //   WorkBuddy：workbuddy.db 的 sessions.status = 'archived'（删掉的有 deleted_at）
   //   DeepSeek Harness：storages/workspace.json 的 global.archivedSessionIds
-  async readCodexArchived() {
-    const out = new Set();
+  async readCodexArchived({ force = false } = {}) {
+    const dirArchived = new Set();
     const codex = process.env.CODEX_HOME || path.join(home(), ".codex");
     try {
       for (const f of await fsp.readdir(path.join(codex, "archived_sessions"))) {
         const m = /([0-9a-f]{8}-[0-9a-f-]{27})\.jsonl$/.exec(f);
-        if (m) out.add(m[1]);
+        if (m) dirArchived.add(m[1]);
       }
     } catch { /* none */ }
-    if (Date.now() - (this._dbAt || 0) > 15000 || !this._dbArchived) {
+    if (force || Date.now() - (this._dbAt || 0) > 15000 || !this._dbArchived) {
       this._dbAt = Date.now();
       const db = new Set();
       const codexTask = (async () => {
@@ -851,7 +852,7 @@ export class AgentUsage {
         } catch { return { archived: [], titles: [] }; }
       })();
       const wbDb = path.join(home(), ".workbuddy/workbuddy.db");
-      const wbArchTask = sqliteColumn(wbDb, "select id from sessions where status = 'archived' or deleted_at is not null");
+      const wbArchTask = sqliteColumn(wbDb, "select id from sessions where status = 'archived' or coalesce(deleted_at, 0) > 0");
       const wbRowsTask = sqliteColumn(wbDb, "select id || char(9) || replace(replace(coalesce(nullif(custom_title,''), title, ''), char(10), ' '), char(9), ' ') || char(9) || coalesce(cwd,'') || char(9) || coalesce(model,'') || char(9) || coalesce(group_title,'') || char(9) || coalesce(status,'') || char(9) || case when coalesce(custom_title,'') != '' then '1' else '0' end from sessions");
       const dshTask = fsp.readFile(path.join(home(), ".dsh/storages/workspace.json"), "utf8").then((s) => JSON.parse(s)).catch(() => null);
       const [codexRes, wbArch, wbRows, ws] = await Promise.all([codexTask, wbArchTask, wbRowsTask, dshTask]);
@@ -875,8 +876,15 @@ export class AgentUsage {
       for (const id of (ws && ws.global && ws.global.archivedSessionIds) || []) db.add(String(id));
       this._dbArchived = db;
     }
-    for (const id of this._dbArchived) out.add(id);
-    this.archived = out;
+    const nextAux = new Set([...dirArchived, ...(this._dbArchived || [])]);
+    for (const id of this._auxArchived || []) if (!nextAux.has(id)) this.archived.delete(id);
+    for (const id of nextAux) this.archived.add(id);
+    this._auxArchived = nextAux;
+    for (const m of this.meta.values()) {
+      if (m.agent === "codex" || m.agent === "workbuddy" || m.agent === "dsh") {
+        m.archived = nextAux.has(m.sid);
+      }
+    }
   }
 
   // ----- Claude desktop session index -----
@@ -1016,6 +1024,10 @@ export class AgentUsage {
         if (info.cwd && (!m.cwd || m.cwd === "~")) m.cwd = info.cwd;
         if (info.model && !m.model) m.model = info.model;
         if (typeof info.archived === "boolean") m.archived = info.archived;
+      }
+      if (typeof info.archived === "boolean") {
+        if (info.archived) this.archived.add(sid);
+        else this.archived.delete(sid);
       }
       for (const fc of this.files.values()) {
         if (fc.agent !== "cursor" || fc.sid !== sid) continue;
@@ -1343,6 +1355,11 @@ export class AgentUsage {
     for (const sess of sessions) {
       const sid = sess.id;
       activeIds.add(sid);
+      const isArchived = Boolean(sess.meta?.archived || sess.meta?.archivedAt);
+      if (isArchived) this.archived.add(sid);
+      else this.archived.delete(sid);
+      const prevMeta = this.meta.get(sid);
+      if (prevMeta) prevMeta.archived = isArchived;
       const key = `${sess.wirePath || sess.metaPath}#${sid}`;
       const previous = this.files.get(key);
       if (
@@ -1431,6 +1448,8 @@ export class AgentUsage {
         fc.live.step = parsed.lastStep || "";
         fc.live.turns = fc.rounds?.list.length || 0;
         fc.live.rounds = fc.rounds?.list || [];
+        if (parsed.archived) this.archived.add(sid);
+        else this.archived.delete(sid);
         if (parsed.hasClientTitle) this.noteClientTitle(sid, parsed.title, { fc });
         this.noteMeta(fc, sid, {
           ...fc.live,
@@ -1711,9 +1730,14 @@ export class AgentUsage {
   }
 
   // 归档 = 做完：桌面版里归档的、Codex archived_sessions 里的都可以从会话列表里收起来
+  isArchived(sid) {
+    if (!sid) return false;
+    return this.archivedClaude.has(sid) || this.archived.has(sid) || !!this.meta.get(sid)?.archived;
+  }
+
   hidden(sid) {
     if (this.settings.hideArchived === false) return false;
-    return this.archivedClaude.has(sid) || this.archived.has(sid) || !!this.meta.get(sid)?.archived;
+    return this.isArchived(sid);
   }
 
   // ----- file caches -----

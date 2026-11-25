@@ -317,7 +317,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
       const chunk = normalizeChunkHeader(lines.slice(i, end), archivedOut && !doneKw, container);
       const block = blockText(chunk, 0, chunk.length);
       const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
-      done.push({ text: block, blockId: k.blockId || '', turns: count, ai, sid: [...sids], at: i, organized: inBand(i, true) });
+      done.push({ text: block, blockId: k.blockId || '', turns: count, ai, sid: [...sids], at: i, organized: inBand(i, true), archivedDone: Boolean(archivedOut && !doneKw) });
       // A block that leaves the active band must not leave its heading behind.
       dropSubheadAbove(i);
       moved.push([i, end]);
@@ -356,7 +356,7 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
       const chunk = normalizeChunkHeader(lines.slice(i, end), archivedOut && !doneKw, container);
       const block = blockText(chunk, 0, chunk.length);
       const count = Math.max(turns.get(k.blockId) || 0, [...sids].reduce((n, sid) => n + (turns.get(sid) || 0), 0), roundsIn(block));
-      if (doneKw || archivedOut || allKidsDone) done.push({ text: block, blockId: k.blockId || '', turns: count, ai, sid: [...sids], at: i, organized: false });
+      if (doneKw || archivedOut || allKidsDone) done.push({ text: block, blockId: k.blockId || '', turns: count, ai, sid: [...sids], at: i, organized: false, archivedDone: Boolean(archivedOut && !doneKw) });
       else active.push({ text: block, keyword: k.kw || 'TODO', turns: count, blockId: k.blockId || '', at: i, organized: false });
       adopted.push([i, end]);
       i = end - 1;

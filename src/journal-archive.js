@@ -156,6 +156,24 @@ export async function archiveCompletedTo(plugin, file, base, plan, { path, order
 
   plugin.settings.archiveTaskTurns = Object.fromEntries(turns);
   plugin.settings.doneArchivePath = targetPath;
+  const archivedBlockIds = new Set(blocks.map((b) => b.blockId).filter(Boolean));
+  const archivedSids = new Set(blocks.flatMap((b) => Array.isArray(b.sid) ? b.sid : []));
+  const archivedKeys = new Set(blocks.map((b) => {
+    const k = J.kwLine(String(b.text || '').split('\n')[0]);
+    return k ? J.workKey(k.body) : '';
+  }).filter(Boolean));
+  for (const daySt of Object.values(plugin.settings.autoLogState || {})) {
+    for (const [sid, rec] of Object.entries(daySt || {})) {
+      if (!rec) continue;
+      if (!archivedSids.has(sid) && !(rec.blockId && archivedBlockIds.has(rec.blockId)) && !(rec.key && archivedKeys.has(J.workKey(rec.key)))) continue;
+      const meta = plugin.usage?.meta?.get?.(sid);
+      rec.status = "done";
+      rec.archivedOut = true;
+      rec.gone = true;
+      if (rec.doneEndMs == null) rec.doneEndMs = meta?.lastAt || Date.now();
+      if (rec.doneRounds == null) rec.doneRounds = Array.isArray(meta?.rounds) ? meta.rounds.length : 0;
+    }
+  }
   await plugin.saveSettings?.();
   return { target, moved: blocks.length };
 }

@@ -166,7 +166,26 @@ export class AutoLog {
     if (this.cfg.autoLogArchiveDone === false) return out;
     for (const sid of this.usage.archivedClaude || []) out.add(sid);
     for (const sid of this.usage.archived || []) out.add(sid);
+    for (const [sid, m] of this.usage.meta || []) if (m?.archived) out.add(sid);
     return out;
+  }
+
+  isReactivated(x, rec, last, arch) {
+    if (!rec || arch.has(x?.sid)) return false;
+    if (rec.archivedDone) return true;
+    const meta = (x?.sid && this.usage?.meta?.get?.(x.sid)) || {};
+    const metaLastAt = meta.lastAt || 0;
+    const roundsLen = Array.isArray(meta.rounds) ? meta.rounds.length : 0;
+    if (rec.doneAtMin != null && last > rec.doneAtMin) return true;
+    if (rec.doneEndMs != null && metaLastAt > rec.doneEndMs) return true;
+    if (rec.doneRounds != null && roundsLen > rec.doneRounds) return true;
+    if (rec.lastMin != null && last > rec.lastMin) return true;
+    if (rec.lastAtMs != null && metaLastAt > rec.lastAtMs) return true;
+    if (rec.lastRounds != null && roundsLen > rec.lastRounds) return true;
+    if (rec.doneAtMin == null && rec.doneEndMs == null && rec.doneRounds == null && rec.lastMin == null) {
+      return Boolean((rec.min != null && x.min > rec.min) || meta.state === "run");
+    }
+    return false;
   }
 
   allArchived(st, sid, rec, arch) {
@@ -361,17 +380,24 @@ export class AutoLog {
   originDayOf(x, today) {
     const sid = x?.sid;
     if (!sid || x?.agent === "grokbot") return today;
+    const todayRec = this.cfg.autoLogState?.[today]?.[sid];
+    if (todayRec && !todayRec.gone && (todayRec.key || todayRec.blockId || todayRec.skip)) return today;
+    let sawPrior = false;
     for (const d of Object.keys(this.cfg.autoLogState || {}).sort()) {
       if (d === today) continue;
       const rec = this.cfg.autoLogState[d]?.[sid];
-      if (rec && !rec.gone && (rec.key || rec.blockId || rec.skip)) return d;
+      if (!rec) continue;
+      sawPrior = true;
+      if (rec.gone || rec.status === "done" || rec.archivedDone || rec.archivedOut) continue;
+      if (rec.key || rec.blockId || rec.skip) return d;
     }
+    if (sawPrior) return today;
     const meta = this.usage?.meta?.get(sid) || {};
     const firstRoundAt = Array.isArray(meta.rounds) && meta.rounds[0]?.at ? meta.rounds[0].at : 0;
     const startMs = meta.startedAt || firstRoundAt || 0;
     if (startMs > 0) {
       const startDay = dayKey(startMs, this.cfg);
-      if (startDay && startDay < today && this.journalFile(startDay)) return startDay;
+      if (startDay && startDay < today && this.dayDiff(startDay, today) <= 1 && this.journalFile(startDay)) return startDay;
     }
     return today;
   }
@@ -398,14 +424,53 @@ export class AutoLog {
       if (!file) { report.error = t("今天的日记 {path} 还没建", { path: this.journalPath(day) }); return report; }
       const arch = this.archived();
       const todayList = [], crossByOrigin = new Map();
+      const priorDoneSince = (sid) => {
+        let sinceMs = 0;
+        for (const d of Object.keys(this.cfg.autoLogState || {}).sort()) {
+          if (d === day) continue;
+          const rec = this.cfg.autoLogState[d]?.[sid];
+          if (rec && (rec.status === "done" || rec.archivedDone || rec.archivedOut || rec.gone)) {
+            sinceMs = Math.max(sinceMs, rec.doneEndMs || rec.lastAtMs || 0);
+          }
+        }
+        return sinceMs;
+      };
       for (const x of data.list) {
         if (this.isSubagent(x.sid)) continue;
         const origin = this.originDayOf(x, day);
         if (origin !== day) {
           (crossByOrigin.get(origin) || crossByOrigin.set(origin, []).get(origin)).push(x);
         } else {
-          todayList.push(x);
+          const priorSince = priorDoneSince(x.sid);
+          todayList.push(priorSince || this.cfg.autoLogState && Object.keys(this.cfg.autoLogState).some((d) => d !== day && this.cfg.autoLogState[d]?.[x.sid])
+            ? { ...x, _fromPriorDay: true, _sinceMs: priorSince || startOfDay(Date.now(), this.cfg) }
+            : x);
         }
+      }
+      for (const [originDay, crossList] of [...crossByOrigin.entries()]) {
+        const originFile = this.journalFile(originDay);
+        if (!originFile) {
+          crossByOrigin.delete(originDay);
+          for (const x of crossList) todayList.push({ ...x, _fromPriorDay: true, _sinceMs: startOfDay(Date.now(), this.cfg) });
+          continue;
+        }
+        const originText = await this.read(originFile);
+        const keep = [];
+        for (const x of crossList) {
+          const originRec = this.cfg.autoLogState?.[originDay]?.[x.sid];
+          const found = originRec ? J.findTask(originText, originRec.key, originRec.blockId || "", x.sid) : J.findSessionTask(originText, x.sid);
+          if (found && found.state === "done") {
+            if (originRec) originRec.status = "done";
+            todayList.push({ ...x, _fromPriorDay: true, _sinceMs: originRec?.doneEndMs || originRec?.lastAtMs || startOfDay(Date.now(), this.cfg) });
+          } else if (!found && originRec && !originRec.fresh && (!originRec.bound || originRec.archivedDone || originRec.archivedOut)) {
+            originRec.gone = true;
+            todayList.push({ ...x, _fromPriorDay: true, _sinceMs: originRec.doneEndMs || originRec.lastAtMs || startOfDay(Date.now(), this.cfg) });
+          } else {
+            keep.push(x);
+          }
+        }
+        if (keep.length) crossByOrigin.set(originDay, keep);
+        else crossByOrigin.delete(originDay);
       }
       const res = await this.processDay(day, file, todayList, day, arch, { dry, fallback, manual, notify }, report);
       if (!res || dry) return report;
@@ -471,12 +536,25 @@ export class AutoLog {
         const last = x.segs[x.segs.length - 1][1];
         const active = now - last <= idle;
         const rec = st[x.sid];
-        if (rec && (rec.skip || rec.gone)) continue;
+        const wasDoneRecord = Boolean(rec && (rec.status === "done" || rec.archivedDone || rec.archivedOut));
+        const reactivatedRec = Boolean(rec && wasDoneRecord && !(x.agent === "grokbot" && !rec.archivedDone) && this.isReactivated(x, rec, last, arch));
+        if (rec && rec.skip) {
+          if (!reactivatedRec) continue;
+          todo.push({ x, active, fresh: true, sinceMs: rec.doneEndMs || rec.lastAtMs || 0 });
+          continue;
+        }
+        if (rec && rec.gone) {
+          if (!reactivatedRec) continue;
+          todo.push({ x, active, fresh: true, sinceMs: rec.doneEndMs || rec.lastAtMs || 0 });
+          continue;
+        }
         if (!rec) {
           if (x.min < this.minMinutes && !arch.has(x.sid)) continue;
-          todo.push({ x, active, fresh: true });
+          todo.push({ x, active, fresh: true, ...(x._fromPriorDay ? { sinceMs: x._sinceMs || startOfDay(Date.now(), this.cfg) } : {}) });
         } else if (x.agent === "grokbot" && rec.status === "done" && rec.doneAtMin != null && last > rec.doneAtMin && active) {
           todo.push({ x, active, fresh: true, sinceMs: rec.doneEndMs || 0 });
+        } else if (reactivatedRec && !J.findTask(base, rec.key, rec.blockId || "", x.sid)) {
+          todo.push({ x, active, fresh: true, sinceMs: rec.doneEndMs || rec.lastAtMs || 0 });
         } else if (rec.status === "doing" && !active && !rec.asked && !arch.has(x.sid)) todo.push({ x, active, rec });
         else live.push({ x, active, rec });
       }
@@ -503,6 +581,7 @@ export class AutoLog {
           const a = ans.get(x.sid);
           const last = x.segs[x.segs.length - 1][1];
           let rec = st[x.sid];
+          let justClaimedDone = false;
           if (fresh) {
             if (!a) continue;
             if (a.skip) { st[x.sid] = { skip: true }; continue; }
@@ -517,6 +596,7 @@ export class AutoLog {
             if (!m && a.matchKey) m = J.taskItems(text).find((i) => i.state === "open" && i.key === a.matchKey) || null;
             if (m && !active && m.state !== "doing" && m.state !== "paused") m = null;
             if (!m && !a.label) { st[x.sid] = { skip: true }; continue; }
+            if (m && m.state === "done") justClaimedDone = true;
             const label = m ? m.body : J.AUTO_MARK + a.label;
             const seed = sinceMs ? `${x.sid}:${sinceMs}` : x.sid;
             const blockId = (m && m.blockId) || J.makeBlockId(seed, x.agent, a.slug);
@@ -536,10 +616,26 @@ export class AutoLog {
             rec.key = found.key;
           }
           const cur = found ? found.state : null;
-          const manualState = found && J.isManualTask(this.cfg, text.split("\n")[found.line]);
+          const manualState = found && (J.isManualTask(this.cfg, text.split("\n")[found.line]) || (rec.blockId && !!this.cfg.manualTaskStates?.[rec.blockId]));
+          const meta = this.usage.meta.get(x.sid) || {};
+          const rawRounds = Array.isArray(meta.rounds) ? meta.rounds : [];
+          const reactivated = !manualState && !justClaimedDone && cur === "done" && !(x.agent === "grokbot" && !rec.archivedDone) && this.isReactivated(x, rec, last, arch);
           if (manualState) rec.status = cur;
-          if (cur === "done" && !manualState) { if (rec.status !== "done") clocks.add(rec.key); rec.status = "done"; continue; }
-          if (rec.status && found && (cur !== rec.status || (rec.autoKw && found.kw !== rec.autoKw))) {
+          if (cur === "done" && !manualState && !reactivated) {
+            if (rec.status !== "done") clocks.add(rec.key);
+            rec.status = "done";
+            if (rec.doneAtMin == null) rec.doneAtMin = last;
+            if (rec.doneEndMs == null) rec.doneEndMs = meta.lastAt || Date.now();
+            if (rec.doneRounds == null) rec.doneRounds = rawRounds.length;
+            if (arch.has(x.sid)) rec.archivedDone = true;
+            rec.lastMin = last; rec.lastAtMs = meta.lastAt || 0; rec.lastRounds = rawRounds.length;
+            continue;
+          }
+          if (reactivated) {
+            delete rec.doneAtMin; delete rec.doneEndMs; delete rec.doneRounds;
+            delete rec.archivedDone; delete rec.archivedOut; delete rec.gone;
+            delete rec.parkedAt; delete rec.hold;
+          } else if (rec.status && found && (cur !== rec.status || (rec.autoKw && found.kw !== rec.autoKw))) {
             if (cur === "doing") rec.hold = Date.now() + 2 * 3600e3; else rec.parkedAt = last;
             rec.status = cur;
             delete rec.autoPaused;
@@ -548,16 +644,16 @@ export class AutoLog {
           const name = J.workKey(rec.label).replace(J.AUTO_MARK, "");
           const grokIdleDone = x.agent === "grokbot" && grokDone > 0 && now - last >= grokDone && !(rec.hold && Date.now() < rec.hold);
           const archDone = this.allArchived(st, x.sid, rec, arch);
-          const meta = this.usage.meta.get(x.sid) || {};
           const blockedKw = this.blockedKeyword(x.sid);
           const doneReview = !active && !blockedKw && Boolean((a && a.done) || rec.doneHint);
           if (!manualState && (archDone || grokIdleDone)) {
             text = this.autoLine(text, rec, x, "done").text;
             rec.status = "done";
-            if (x.agent === "grokbot") {
-              rec.doneAtMin = last;
-              rec.doneEndMs = (this.usage.meta.get(x.sid)?.lastAt) || Date.now();
-            }
+            rec.doneAtMin = last;
+            rec.doneEndMs = meta.lastAt || Date.now();
+            rec.doneRounds = rawRounds.length;
+            if (archDone) rec.archivedDone = true;
+            else delete rec.archivedDone;
             delete rec.fresh; delete rec.parkedAt; delete rec.hold; delete rec.autoPaused; delete rec.autoKw; delete rec.doneHint;
             clocks.add(rec.key);
             if (archDone) {
@@ -588,7 +684,7 @@ export class AutoLog {
             text = this.autoLine(text, rec, x, status).text;
             rec.status = "doing";
             delete rec.parkedAt; delete rec.autoPaused; delete rec.autoKw; delete rec.doneHint;
-          } else if (!manualState && doneReview && !(rec.hold && Date.now() < rec.hold) && (cur === "doing" || rec.fresh || rec.autoKw === "PAUSED" || rec.autoKw === "TOREVIEW")) {
+          } else if (!manualState && doneReview && !(rec.hold && Date.now() < rec.hold) && (cur === "doing" || rec.fresh || reactivated || rec.autoKw === "PAUSED" || rec.autoKw === "TOREVIEW")) {
             const changed = !found || found.kw !== "TOREVIEW";
             text = this.autoLine(text, rec, x, "TOREVIEW").text;
             rec.status = "paused"; rec.autoPaused = true; rec.autoKw = "TOREVIEW"; rec.parkedAt = last; delete rec.fresh;
@@ -596,7 +692,7 @@ export class AutoLog {
               clocks.add(rec.key);
               report.changes.push(t("{kw}：{name}（{min}m）", { kw: "TOREVIEW", name: rec.label, min: x.min }));
             }
-          } else if (!manualState && !active && (cur === "doing" || rec.fresh) && !(rec.hold && Date.now() < rec.hold)) {
+          } else if (!manualState && !active && (cur === "doing" || rec.fresh || reactivated) && !(rec.hold && Date.now() < rec.hold)) {
             text = this.autoLine(text, rec, x, "paused").text;
             rec.status = "paused"; rec.autoPaused = true; rec.autoKw = "PAUSED"; rec.parkedAt = last; delete rec.fresh;
             clocks.add(rec.key);
@@ -610,10 +706,9 @@ export class AutoLog {
             digest.done.push(`${name}（${x.min}m）`);
             if (rec.autoKw !== "TOREVIEW") report.changes.push(t("看着做完了：{name}", { name: rec.label }));
           }
-          const rawRounds = Array.isArray(meta.rounds) ? meta.rounds : [];
           const first = seen[x.sid] == null;
           const rounds = trackedRounds(rawRounds, { first, since: todayStart, max: this.cfg.autoLogFirstRounds })
-            .filter((r) => x.agent !== "grokbot" || !rec.sinceMs || !r.at || r.at > rec.sinceMs);
+            .filter((r) => !rec.sinceMs || !r.at || r.at > rec.sinceMs);
           if (first) seen[x.sid] = Date.now();
           const kind = (a && a.kind) || J.conclusionKind(x.text || meta.title || "", meta.lastText || "");
           const rawSummary = (a && a.summary) || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? (kind === "qa" ? J.answerConclusion(meta.lastText, 140) : J.conclusionSentence(meta.lastText, 90)) : "");
@@ -644,6 +739,9 @@ export class AutoLog {
               rec.todosAdded = true;
             }
           }
+          rec.lastMin = last;
+          rec.lastAtMs = meta.lastAt || 0;
+          rec.lastRounds = rawRounds.length;
         }
         const byKey = new Map(), who = new Map(), toks = new Map(), sids = new Map(), blockIds = new Map();
         for (const x of list) {

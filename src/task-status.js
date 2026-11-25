@@ -97,7 +97,8 @@ export function suggestedStatus(settings, usage, text, n) {
   const bid=J.blockIdOf(lines[n]);
   if(bid)for(const day of Object.values(settings.autoLogState||{}))for(const [sid,r] of Object.entries(day||{}))if(r?.blockId===bid&&!r.skip&&!r.gone)ids.add(sid);
   if(!ids.size)return '';
-  if(settings.autoLogArchiveDone!==false && [...ids].every(sid=>usage.archived?.has(sid)||usage.archivedClaude?.has(sid)))return 'DONE';
+  const isArchived = sid => typeof usage?.isArchived === 'function' ? usage.isArchived(sid) : Boolean(usage?.archived?.has(sid) || usage?.archivedClaude?.has(sid) || usage?.meta?.get?.(sid)?.archived);
+  if(settings.autoLogArchiveDone!==false && [...ids].every(isArchived))return 'DONE';
   const states=[...ids].map(sid=>usage.meta.get(sid)?.state).filter(Boolean);
   if(states.some(state=>['run','running','starting'].includes(state)))return 'DOING';
   return states.map(state=>J.STATE_KW[state]).find(Boolean)||'';
