@@ -1581,7 +1581,8 @@ export function extractTaskProgress(raw) {
     .replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/%%[^%]*?%%/g, " ")
     .replace(/!?\[\[[^\]]*\]\]/g, " ")
-    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1");
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/https?:\/\/\S+/gi, " ");
   let m = PROG_PCT_MATCH_RE.exec(cleaned);
   if (m && Number(m[2]) >= 0 && Number(m[2]) <= 100) {
     return { pct: Math.round(Number(m[2])), raw: m[1].trim() };

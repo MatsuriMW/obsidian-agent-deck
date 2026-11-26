@@ -6,7 +6,7 @@
 .
 ├── AGENTS.md / CLAUDE.md          # 规则与接手入口（AGENTS.md 为正本）
 ├── esbuild.config.mjs             # 四入口单源同步打包：src/main.js → main.js，src/styles/index.css → styles.css，src/context-core/cli.js → scripts/memory-query.mjs，src/context-core/mcp.js → scripts/memory-mcp.mjs
-├── manifest.json / versions.json  # Obsidian 插件清单与版本映射（当前 1.13.34）
+├── manifest.json / versions.json  # Obsidian 插件清单与版本映射（当前 1.13.35）
 ├── main.js / styles.css           # 构建产物（勿直接修改）
 ├── src/
 │   ├── context-core/              # 零 Obsidian / DOM / i18n 依赖纯 Node Context 内核

@@ -694,6 +694,8 @@ test("extractTaskProgress, progress survival across journal transforms, and Agen
   assert.deepEqual(J.extractTaskProgress("- TODO 读完一半"), { pct: 50, raw: "一半" });
   assert.equal(J.extractTaskProgress("- TODO 核对 11/27 账单"), null);
   assert.equal(J.extractTaskProgress("- TODO 检查 `50%` 和 [[计划 75%]]"), null);
+  assert.equal(J.extractTaskProgress("https://example.com/doc/1/3"), null, "ignores bare URL fractions");
+  assert.equal(J.extractTaskProgress("- TODO 看 [文档](https://ex.com/50%) https://ex.com/75%"), null, "ignores link & bare URL percentages");
 
   // 2. Progress survives splitTask, flipToDone, cleanCompletedIdentifiers, bindInto, syncSessionEntry
   const sid = "33333333-4444-5555-6666-777777777777";

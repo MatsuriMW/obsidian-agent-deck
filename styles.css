@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.34 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.35 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -6769,6 +6769,7 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   container-type: inline-size;
 }
 .ad-mem-graph[data-style=observatory] {
+  color-scheme: dark;
   --ad-mg-bg: #090e1c;
   --ad-mg-panel: rgba(12, 18, 34, 0.86);
   --ad-mg-panel-solid: #10182b;
@@ -6793,6 +6794,7 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   --ad-mg-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
 }
 .theme-dark .ad-mem-graph[data-style=observatory] {
+  color-scheme: dark;
   --ad-mg-bg: #090e1c;
   --ad-mg-panel: rgba(12, 18, 34, 0.86);
   --ad-mg-panel-solid: #10182b;
@@ -6835,10 +6837,10 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   background: var(--ad-mg-chip);
   gap: 2px;
 }
-.ad-mem-graph__segbtn {
+.ad-mem-graph .ad-mem-graph__segbtn {
   appearance: none;
   border: 0;
-  background: transparent;
+  background-color: transparent;
   color: var(--ad-mg-muted);
   font-size: 11.5px;
   line-height: 1.25;
@@ -6852,37 +6854,41 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   text-align: left;
   transition: background-color 140ms ease, color 140ms ease;
 }
-.ad-mem-graph__segbtn:hover {
+.ad-mem-graph .ad-mem-graph__segbtn:hover {
   color: var(--ad-mg-ink);
 }
-.ad-mem-graph__segbtn.is-active {
-  background: var(--ad-mg-panel-solid);
+.ad-mem-graph .ad-mem-graph__segbtn.is-active {
+  background-color: var(--ad-mg-panel-solid);
   color: var(--ad-mg-ink);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
   font-weight: 550;
 }
-.ad-mem-graph__sel,
-.ad-mem-graph__search {
+.ad-mem-graph .ad-mem-graph__sel,
+.ad-mem-graph .ad-mem-graph__search {
   height: 27px;
   min-height: 0;
   padding: 0 9px;
   border-radius: 8px;
   border: 1px solid var(--ad-mg-border);
-  background: var(--ad-mg-panel-solid);
+  background-color: var(--ad-mg-panel-solid);
   color: var(--ad-mg-ink);
   font-size: 12px;
   text-align: left;
+  box-shadow: none;
 }
-.ad-mem-graph__search {
+:is(.ad-mem-graph .ad-mem-graph__sel, .ad-mem-graph .ad-mem-graph__search)::placeholder {
+  color: var(--ad-mg-muted);
+}
+.ad-mem-graph .ad-mem-graph__search {
   flex: 1 1 170px;
   min-width: 130px;
   max-width: 260px;
 }
-.ad-mem-graph__pill,
-.ad-mem-graph__btn {
+.ad-mem-graph .ad-mem-graph__pill,
+.ad-mem-graph .ad-mem-graph__btn {
   appearance: none;
   border: 1px solid var(--ad-mg-border);
-  background: var(--ad-mg-panel-solid);
+  background-color: var(--ad-mg-panel-solid);
   color: var(--ad-mg-muted);
   font-size: 11.5px;
   line-height: 1.25;
@@ -6902,17 +6908,17 @@ body.ad-dragging-session .markdown-source-view .cm-content {
     color 140ms ease,
     border-color 140ms ease;
 }
-:is(.ad-mem-graph__pill, .ad-mem-graph__btn):hover {
+:is(.ad-mem-graph .ad-mem-graph__pill, .ad-mem-graph .ad-mem-graph__btn):hover {
   color: var(--ad-mg-ink);
   border-color: var(--ad-mg-accent);
 }
-:is(.ad-mem-graph__pill, .ad-mem-graph__btn).is-active {
-  background: var(--ad-mg-chip-on);
+:is(.ad-mem-graph .ad-mem-graph__pill, .ad-mem-graph .ad-mem-graph__btn).is-active {
+  background-color: var(--ad-mg-chip-on);
   color: var(--ad-mg-ink);
   border-color: var(--ad-mg-accent);
   font-weight: 550;
 }
-.ad-mem-graph__btn {
+.ad-mem-graph .ad-mem-graph__btn {
   border-radius: 8px;
 }
 .ad-mem-graph__stage {
@@ -7049,10 +7055,10 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   line-height: 1.4;
   word-break: break-word;
 }
-.ad-mem-graph__close {
+.ad-mem-graph .ad-mem-graph__close {
   appearance: none;
   border: 1px solid var(--ad-mg-border);
-  background: transparent;
+  background-color: transparent;
   color: var(--ad-mg-muted);
   border-radius: 7px;
   padding: 2px 7px;
@@ -7060,9 +7066,12 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   cursor: pointer;
   min-height: 0;
   height: auto;
+  flex-shrink: 0;
+  box-shadow: none;
 }
-.ad-mem-graph__close:hover {
+.ad-mem-graph .ad-mem-graph__close:hover {
   color: var(--ad-mg-ink);
+  background-color: var(--ad-mg-chip);
 }
 .ad-mem-graph__badges {
   display: flex;
@@ -7088,13 +7097,16 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   background: rgba(200, 90, 83, 0.18);
   color: #c85a53;
 }
-.theme-dark .ad-mem-graph__badge.is-ok {
+.theme-dark .ad-mem-graph .ad-mem-graph__badge.is-ok,
+.ad-mem-graph[data-style=observatory] .ad-mem-graph__badge.is-ok {
   color: #8cc2a0;
 }
-.theme-dark .ad-mem-graph__badge.is-warn {
+.theme-dark .ad-mem-graph .ad-mem-graph__badge.is-warn,
+.ad-mem-graph[data-style=observatory] .ad-mem-graph__badge.is-warn {
   color: #dfb485;
 }
-.theme-dark .ad-mem-graph__badge.is-bad {
+.theme-dark .ad-mem-graph .ad-mem-graph__badge.is-bad,
+.ad-mem-graph[data-style=observatory] .ad-mem-graph__badge.is-bad {
   color: #f08982;
 }
 .ad-mem-graph__body {
@@ -7126,10 +7138,10 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   flex-wrap: wrap;
   gap: 5px;
 }
-.ad-mem-graph__chip {
+.ad-mem-graph .ad-mem-graph__chip {
   appearance: none;
   border: 1px solid var(--ad-mg-border);
-  background: var(--ad-mg-panel-solid);
+  background-color: var(--ad-mg-panel-solid);
   color: var(--ad-mg-ink);
   border-radius: 999px;
   padding: 3px 9px;
@@ -7138,38 +7150,53 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   min-height: 0;
   height: auto;
   text-align: left;
+  box-shadow: none;
 }
-.ad-mem-graph__chip:hover {
+.ad-mem-graph .ad-mem-graph__chip:hover {
   border-color: var(--ad-mg-accent);
 }
-.ad-mem-graph__chip.is-ghost {
+.ad-mem-graph .ad-mem-graph__chip.is-ghost {
   border-style: dashed;
 }
-.ad-mem-graph__chip.is-conflict {
+.ad-mem-graph .ad-mem-graph__chip.is-conflict {
   border-color: rgba(200, 90, 83, 0.55);
 }
-.ad-mem-graph__relitem {
+.ad-mem-graph .ad-mem-graph__relitem {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  min-width: 0;
   gap: 2px;
   padding: 6px 8px;
   border-radius: 8px;
   border: 1px solid var(--ad-mg-border);
-  background: var(--ad-mg-panel-solid);
+  background-color: var(--ad-mg-panel-solid);
+  color: var(--ad-mg-ink);
   cursor: pointer;
   text-align: left;
+  height: auto;
+  min-height: 0;
+  white-space: normal;
+  box-shadow: none;
 }
-.ad-mem-graph__relitem:hover {
+.ad-mem-graph .ad-mem-graph__relitem:hover {
   border-color: var(--ad-mg-accent);
 }
-.ad-mem-graph__reltitle {
+.ad-mem-graph .ad-mem-graph__reltitle {
   font-size: 12px;
   line-height: 1.4;
   color: var(--ad-mg-ink);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  width: 100%;
 }
-.ad-mem-graph__relmeta {
+.ad-mem-graph .ad-mem-graph__relmeta {
   font-size: 10.5px;
   color: var(--ad-mg-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  width: 100%;
 }
 .ad-mem-graph__zoom {
   position: absolute;
@@ -7186,15 +7213,16 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   backdrop-filter: blur(10px);
   box-shadow: var(--ad-mg-shadow);
 }
-.ad-mem-graph__zoombtn {
+.ad-mem-graph .ad-mem-graph__zoombtn {
   height: 24px;
   padding: 2px 8px;
   border: 0;
-  background: transparent;
+  background-color: transparent;
+  color: var(--ad-mg-ink);
   font-variant-numeric: tabular-nums;
 }
-.ad-mem-graph__zoombtn:hover {
-  background: var(--ad-mg-chip);
+.ad-mem-graph .ad-mem-graph__zoombtn:hover {
+  background-color: var(--ad-mg-chip);
 }
 .ad-mem-graph__empty {
   position: absolute;

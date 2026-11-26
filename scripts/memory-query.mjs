@@ -4093,7 +4093,8 @@ function listMcpClients({
       const sameCmd = validNodeName && (!path6.isAbsolute(cur.command) || isNodeBinaryFile(cur.command, platform));
       status = sameScript && sameVault && sameCfg && sameMode && sameCmd ? "connected" : "outdated";
     }
-    const displayPath = spec.configPath.startsWith(home + path6.sep) || spec.configPath === home ? `~${spec.configPath.slice(home.length)}` : spec.configPath;
+    const rawRel = spec.configPath.startsWith(home + path6.sep) || spec.configPath === home ? `~${spec.configPath.slice(home.length)}` : spec.configPath;
+    const displayPath = platform === "win32" ? rawRel : rawRel.replace(/\\/g, "/");
     return {
       id: spec.id,
       label: spec.label,

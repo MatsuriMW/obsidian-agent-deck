@@ -345,5 +345,17 @@ test("记忆图谱集群分拆与节点尺度：无项目大库自动按类型�
   view.setVisualStyle("observatory");
   view.zoomBy(1.25);
   view.draw();
+  // Filter resulting in 0 matched nodes renders empty-filter prompt & resets cleanly; Escape clears focus/selection
+  view.onlyConflicts = true;
+  view.rebuildModel({ fit: true });
+  assert.equal(view.model.nodes.length, 0);
+  assert.equal(view._emptyEl.style.display, "flex");
+  const resetBtn = view._emptyEl.all().find((el) => el.tag === "button" && el.textContent === "重置筛选");
+  assert.ok(resetBtn, "renders reset filter button on 0-match filter");
+  await resetBtn.click();
+  assert.equal(view.onlyConflicts, false);
+  assert.ok(view.model.nodes.length > 0);
+  assert.equal(view._emptyEl.style.display, "none");
+
   await view.onClose();
 });

@@ -814,9 +814,10 @@ export function listMcpClients({
       const sameCmd = validNodeName && (!path.isAbsolute(cur.command) || isNodeBinaryFile(cur.command, platform));
       status = sameScript && sameVault && sameCfg && sameMode && sameCmd ? "connected" : "outdated";
     }
-    const displayPath = spec.configPath.startsWith(home + path.sep) || spec.configPath === home
+    const rawRel = spec.configPath.startsWith(home + path.sep) || spec.configPath === home
       ? `~${spec.configPath.slice(home.length)}`
       : spec.configPath;
+    const displayPath = platform === "win32" ? rawRel : rawRel.replace(/\\/g, "/");
     return {
       id: spec.id,
       label: spec.label,

@@ -1,6 +1,10 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.34**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.35**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.35 多轮压测缺陷清零（macOS 三轮实测 + Windows CI 修复）
+
+- **压测发现并修复**：浅色 Obsidian 下星图暗色模式工具栏/缩放栏/检查抽屉按钮与 badge 泛白 + 长来源路径裁切（显式 `color-scheme: dark` 与高特异度规则）；0 命中筛选空白提示与一键重置、`Esc` 退出聚焦/抽屉；`extractTaskProgress()` 剥离裸 URL 防止 `1/3`/`50%` 误匹配；`mcp-clients.js` 非 Windows 目标 `displayPath` 统一正斜杠通过 `windows-latest` CI。Windows 桌面端 Obsidian GUI 仍属未测空白。
 
 ## 1.13.34 记忆知识图谱视觉与布局重构、跨平台 CI 修复（macOS 实测）
 

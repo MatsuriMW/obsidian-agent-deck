@@ -326,6 +326,16 @@ export class MemoryGraphView extends ItemView {
     root.empty();
     root.addClass("ad-mem-graph");
     root.setAttribute?.("data-style", this.visualStyle);
+    root.setAttribute?.("tabindex", "-1");
+    if (!this._escBound) {
+      this._escBound = true;
+      root.addEventListener?.("keydown", (e) => {
+        if (e.key === "Escape" && (this.focusRootId || this.selectedId)) {
+          this.focusRootId = "";
+          this.selectNode("");
+        }
+      });
+    }
 
     const bar = root.createDiv({ cls: "ad-mem-graph__bar" });
 
@@ -368,10 +378,11 @@ export class MemoryGraphView extends ItemView {
       cls: "ad-mem-graph__search",
       attr: { type: "search", placeholder: t("搜索记忆、概念或项目…") },
     });
+    this._searchInput = searchIn;
     searchIn.value = this.filterQuery;
     searchIn.addEventListener("input", () => {
       this.filterQuery = searchIn.value || "";
-      this.rebuildModel({ fit: false });
+      this.rebuildModel({ fit: true });
     });
 
     // 6. Toggle pills
@@ -388,7 +399,7 @@ export class MemoryGraphView extends ItemView {
       pill.addEventListener("click", () => {
         this[spec.key] = !this[spec.key];
         this.updateToolbarStates();
-        this.rebuildModel({ fit: false });
+        this.rebuildModel({ fit: true });
       });
       this._filterPills.push({ key: spec.key, el: pill });
     }
@@ -722,7 +733,7 @@ export class MemoryGraphView extends ItemView {
     const empty = this._emptyEl;
     if (!empty) return;
     const isFileStore = Boolean(this.plugin?.dreaming?.storeMode);
-    if (isFileStore && this.entries.length > 0) {
+    if (isFileStore && this.entries.length > 0 && this.model.nodes.length > 0) {
       empty.style.display = "none";
       return;
     }
@@ -740,6 +751,23 @@ export class MemoryGraphView extends ItemView {
       migrateBtn.addEventListener("click", async () => {
         await this.plugin?.migrateMemoryToFiles?.();
         await this.refresh({ fit: true });
+      });
+    } else if (this.entries.length > 0 && this.model.nodes.length === 0) {
+      card.createDiv({ cls: "ad-mem-graph__emptytitle", text: t("没有匹配的记忆节点") });
+      card.createDiv({
+        cls: "ad-mem-graph__emptydesc",
+        text: t("当前筛选条件或搜索词未命中记忆节点，可以重置筛选查看全部图谱。"),
+      });
+      const actions = card.createDiv({ cls: "ad-mem-graph__actions" });
+      actions.createEl("button", { cls: "ad-mem-graph__btn", text: t("重置筛选") }).addEventListener("click", () => {
+        this.filterQuery = "";
+        this.filterProject = "all";
+        this.onlyPending = false;
+        this.onlyConflicts = false;
+        if (this._searchInput) this._searchInput.value = "";
+        if (this._projectSelect) this._projectSelect.value = "all";
+        this.updateToolbarStates();
+        this.rebuildModel({ fit: true });
       });
     } else {
       card.createDiv({ cls: "ad-mem-graph__emptytitle", text: t("记忆库暂时为空") });

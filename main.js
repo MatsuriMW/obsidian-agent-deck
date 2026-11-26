@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.34 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.35 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -693,6 +693,9 @@ var main_default = {
   "\u6982\u5FF5": "Concept",
   "\u5019\u9009\u6982\u5FF5": "Candidate concept",
   "\u5C1A\u672A\u542F\u7528\u4E00\u6587\u4E00\u6761\u8BB0\u5FC6\u5E93": "Per-memory file store is not enabled yet",
+  "\u6CA1\u6709\u5339\u914D\u7684\u8BB0\u5FC6\u8282\u70B9": "No matching memory nodes",
+  "\u5F53\u524D\u7B5B\u9009\u6761\u4EF6\u6216\u641C\u7D22\u8BCD\u672A\u547D\u4E2D\u8BB0\u5FC6\u8282\u70B9\uFF0C\u53EF\u4EE5\u91CD\u7F6E\u7B5B\u9009\u67E5\u770B\u5168\u90E8\u56FE\u8C31\u3002": "No memory nodes match the active filter or search query. Reset filters to view the full graph.",
+  "\u91CD\u7F6E\u7B5B\u9009": "Reset filters",
   "\u8BB0\u5FC6\u77E5\u8BC6\u56FE\u8C31\u8BFB\u53D6 {dir} \u76EE\u5F55\u4E0B\u7684\u4E00\u6587\u4E00\u6761\u7B14\u8BB0\u4E0E\u56FE\u8C31\u8FDE\u7EBF\u3002\u8FC1\u79FB\u540E\u5373\u53EF\u6D4F\u89C8\u9879\u76EE\u3001\u6982\u5FF5\u3001\u6765\u6E90\u4E0E\u51B2\u7A81\u7F51\u7EDC\u3002": "The Memory Knowledge Graph reads per-memory notes and links under {dir}. Migrate to files to explore project, concept, source, and conflict links.",
   "\u8BB0\u5FC6\u5E93\u6682\u65F6\u4E3A\u7A7A": "Memory store is empty",
   "\u53EF\u4EE5\u5148\u8FD0\u884C\u4E00\u6B21 Dream \u63D0\u70BC\u8FD1\u671F\u4F1A\u8BDD\u8BB0\u5FC6\uFF0C\u6216\u53BB\u8BB0\u5FC6\u770B\u677F\u624B\u52A8\u65B0\u5EFA\u4E0E\u5BFC\u5165\u3002": "Run Dream to extract memories from recent sessions, or create and import entries on the Memory Board.",
@@ -4772,6 +4775,9 @@ var zh_TW_default = {
   "\u6982\u5FF5": "\u6982\u5FF5",
   "\u5019\u9009\u6982\u5FF5": "\u5019\u9078\u6982\u5FF5",
   "\u5C1A\u672A\u542F\u7528\u4E00\u6587\u4E00\u6761\u8BB0\u5FC6\u5E93": "\u5C1A\u672A\u555F\u7528\u4E00\u6587\u4E00\u689D\u8A18\u61B6\u5EAB",
+  "\u6CA1\u6709\u5339\u914D\u7684\u8BB0\u5FC6\u8282\u70B9": "\u6C92\u6709\u7B26\u5408\u7684\u8A18\u61B6\u7BC0\u9EDE",
+  "\u5F53\u524D\u7B5B\u9009\u6761\u4EF6\u6216\u641C\u7D22\u8BCD\u672A\u547D\u4E2D\u8BB0\u5FC6\u8282\u70B9\uFF0C\u53EF\u4EE5\u91CD\u7F6E\u7B5B\u9009\u67E5\u770B\u5168\u90E8\u56FE\u8C31\u3002": "\u76EE\u524D\u7BE9\u9078\u689D\u4EF6\u6216\u641C\u5C0B\u8A5E\u672A\u547D\u4E2D\u4EFB\u4F55\u8A18\u61B6\u7BC0\u9EDE\uFF0C\u53EF\u91CD\u8A2D\u7BE9\u9078\u6AA2\u8996\u5168\u90E8\u5716\u8B5C\u3002",
+  "\u91CD\u7F6E\u7B5B\u9009": "\u91CD\u8A2D\u7BE9\u9078",
   "\u8BB0\u5FC6\u77E5\u8BC6\u56FE\u8C31\u8BFB\u53D6 {dir} \u76EE\u5F55\u4E0B\u7684\u4E00\u6587\u4E00\u6761\u7B14\u8BB0\u4E0E\u56FE\u8C31\u8FDE\u7EBF\u3002\u8FC1\u79FB\u540E\u5373\u53EF\u6D4F\u89C8\u9879\u76EE\u3001\u6982\u5FF5\u3001\u6765\u6E90\u4E0E\u51B2\u7A81\u7F51\u7EDC\u3002": "\u8A18\u61B6\u77E5\u8B58\u5716\u8B5C\u8B80\u53D6 {dir} \u76EE\u9304\u4E0B\u7684\u4E00\u6587\u4E00\u689D\u7B46\u8A18\u8207\u5716\u8B5C\u9023\u7DDA\u3002\u9077\u79FB\u5F8C\u5373\u53EF\u700F\u89BD\u5C08\u6848\u3001\u6982\u5FF5\u3001\u4F86\u6E90\u8207\u885D\u7A81\u7DB2\u8DEF\u3002",
   "\u8BB0\u5FC6\u5E93\u6682\u65F6\u4E3A\u7A7A": "\u8A18\u61B6\u5EAB\u66AB\u6642\u70BA\u7A7A",
   "\u53EF\u4EE5\u5148\u8FD0\u884C\u4E00\u6B21 Dream \u63D0\u70BC\u8FD1\u671F\u4F1A\u8BDD\u8BB0\u5FC6\uFF0C\u6216\u53BB\u8BB0\u5FC6\u770B\u677F\u624B\u52A8\u65B0\u5EFA\u4E0E\u5BFC\u5165\u3002": "\u53EF\u4EE5\u5148\u57F7\u884C\u4E00\u6B21 Dream \u63D0\u7149\u8FD1\u671F\u5DE5\u4F5C\u968E\u6BB5\u8A18\u61B6\uFF0C\u6216\u53BB\u8A18\u61B6\u770B\u677F\u624B\u52D5\u65B0\u589E\u8207\u532F\u5165\u3002",
@@ -7865,7 +7871,7 @@ var PROG_FRAC_MATCH_RE = new RegExp(`(?:^|[\\s\uFF08(\u3010\\[,\uFF0C\xB7])((\\d
 var PROG_CN_FRAC_MATCH_RE = /(?:进度\s*[:：]?\s*)?([一二两三四五六七八九十]+)分之([一二两三四五六七八九十]+)/;
 var PROG_HALF_MATCH_RE = new RegExp(`((?:\u505A\u4E86|\u5B8C\u6210\u4E86?)?\u4E00\u534A)${PROG_END_LOOKAHEAD}`);
 function extractTaskProgress(raw) {
-  const cleaned = stripBlockId(String(raw || "")).replace(/`[^`]*`/g, " ").replace(/<!--[\s\S]*?-->/g, " ").replace(/%%[^%]*?%%/g, " ").replace(/!?\[\[[^\]]*\]\]/g, " ").replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1");
+  const cleaned = stripBlockId(String(raw || "")).replace(/`[^`]*`/g, " ").replace(/<!--[\s\S]*?-->/g, " ").replace(/%%[^%]*?%%/g, " ").replace(/!?\[\[[^\]]*\]\]/g, " ").replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/https?:\/\/\S+/gi, " ");
   let m = PROG_PCT_MATCH_RE.exec(cleaned);
   if (m && Number(m[2]) >= 0 && Number(m[2]) <= 100) {
     return { pct: Math.round(Number(m[2])), raw: m[1].trim() };
@@ -23766,7 +23772,8 @@ function listMcpClients({
       const sameCmd = validNodeName && (!import_node_path6.default.isAbsolute(cur.command) || isNodeBinaryFile(cur.command, platform));
       status = sameScript && sameVault && sameCfg && sameMode && sameCmd ? "connected" : "outdated";
     }
-    const displayPath = spec.configPath.startsWith(home7 + import_node_path6.default.sep) || spec.configPath === home7 ? `~${spec.configPath.slice(home7.length)}` : spec.configPath;
+    const rawRel = spec.configPath.startsWith(home7 + import_node_path6.default.sep) || spec.configPath === home7 ? `~${spec.configPath.slice(home7.length)}` : spec.configPath;
+    const displayPath = platform === "win32" ? rawRel : rawRel.replace(/\\/g, "/");
     return {
       id: spec.id,
       label: spec.label,
@@ -53543,6 +53550,16 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
     root.empty();
     root.addClass("ad-mem-graph");
     root.setAttribute?.("data-style", this.visualStyle);
+    root.setAttribute?.("tabindex", "-1");
+    if (!this._escBound) {
+      this._escBound = true;
+      root.addEventListener?.("keydown", (e) => {
+        if (e.key === "Escape" && (this.focusRootId || this.selectedId)) {
+          this.focusRootId = "";
+          this.selectNode("");
+        }
+      });
+    }
     const bar = root.createDiv({ cls: "ad-mem-graph__bar" });
     const styleGroup = bar.createDiv({ cls: "ad-mem-graph__seg" });
     this._styleBtns = /* @__PURE__ */ new Map();
@@ -53574,10 +53591,11 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
       cls: "ad-mem-graph__search",
       attr: { type: "search", placeholder: t("\u641C\u7D22\u8BB0\u5FC6\u3001\u6982\u5FF5\u6216\u9879\u76EE\u2026") }
     });
+    this._searchInput = searchIn;
     searchIn.value = this.filterQuery;
     searchIn.addEventListener("input", () => {
       this.filterQuery = searchIn.value || "";
-      this.rebuildModel({ fit: false });
+      this.rebuildModel({ fit: true });
     });
     const filterGroup = bar.createDiv({ cls: "ad-mem-graph__group" });
     this._filterPills = [];
@@ -53592,7 +53610,7 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
       pill.addEventListener("click", () => {
         this[spec.key] = !this[spec.key];
         this.updateToolbarStates();
-        this.rebuildModel({ fit: false });
+        this.rebuildModel({ fit: true });
       });
       this._filterPills.push({ key: spec.key, el: pill });
     }
@@ -53895,7 +53913,7 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
     const empty = this._emptyEl;
     if (!empty) return;
     const isFileStore = Boolean(this.plugin?.dreaming?.storeMode);
-    if (isFileStore && this.entries.length > 0) {
+    if (isFileStore && this.entries.length > 0 && this.model.nodes.length > 0) {
       empty.style.display = "none";
       return;
     }
@@ -53913,6 +53931,23 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
       migrateBtn.addEventListener("click", async () => {
         await this.plugin?.migrateMemoryToFiles?.();
         await this.refresh({ fit: true });
+      });
+    } else if (this.entries.length > 0 && this.model.nodes.length === 0) {
+      card.createDiv({ cls: "ad-mem-graph__emptytitle", text: t("\u6CA1\u6709\u5339\u914D\u7684\u8BB0\u5FC6\u8282\u70B9") });
+      card.createDiv({
+        cls: "ad-mem-graph__emptydesc",
+        text: t("\u5F53\u524D\u7B5B\u9009\u6761\u4EF6\u6216\u641C\u7D22\u8BCD\u672A\u547D\u4E2D\u8BB0\u5FC6\u8282\u70B9\uFF0C\u53EF\u4EE5\u91CD\u7F6E\u7B5B\u9009\u67E5\u770B\u5168\u90E8\u56FE\u8C31\u3002")
+      });
+      const actions = card.createDiv({ cls: "ad-mem-graph__actions" });
+      actions.createEl("button", { cls: "ad-mem-graph__btn", text: t("\u91CD\u7F6E\u7B5B\u9009") }).addEventListener("click", () => {
+        this.filterQuery = "";
+        this.filterProject = "all";
+        this.onlyPending = false;
+        this.onlyConflicts = false;
+        if (this._searchInput) this._searchInput.value = "";
+        if (this._projectSelect) this._projectSelect.value = "all";
+        this.updateToolbarStates();
+        this.rebuildModel({ fit: true });
       });
     } else {
       card.createDiv({ cls: "ad-mem-graph__emptytitle", text: t("\u8BB0\u5FC6\u5E93\u6682\u65F6\u4E3A\u7A7A") });

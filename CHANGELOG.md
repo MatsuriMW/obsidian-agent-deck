@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.13.35
+
+- **全链路压测修复（[`src/styles/views/memory-graph.css`](src/styles/views/memory-graph.css)、[`src/memory-graph-view.js`](src/memory-graph-view.js)、[`src/journal.js`](src/journal.js)、[`src/context-core/mcp-clients.js`](src/context-core/mcp-clients.js)）**：
+  - 修复浅色 Obsidian 下切至「星图」暗色模式时顶栏、缩放浮窗、检查抽屉按钮/来源条目泛白及长路径横向裁切的问题；筛选/搜索结果为 0 条时展示「没有匹配的记忆节点」与一键重置按钮，搜索/筛选切入自动重新适配相机，并支持 `Esc` 退出聚焦/关抽屉。
+  - 修复 `extractTaskProgress()` 误把裸 URL 路径（如 `https://.../1/3`）或链接内 `%` 认作任务进度的问题。
+  - 修复 Windows CI 上 `mcp-clients` `displayPath` 含反斜杠导致测试误报的问题，实现 Linux / macOS / Windows 全绿。
+
 ## 1.13.34
 
 - **记忆知识图谱视觉与防重叠重构（[`src/memory-graph-data.js`](src/memory-graph-data.js)、[`src/memory-graph-view.js`](src/memory-graph-view.js)、[`src/styles/views/memory-graph.css`](src/styles/views/memory-graph.css)）**：
