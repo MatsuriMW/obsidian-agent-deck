@@ -116,7 +116,9 @@ const bundle = await esbuild.build({
       export { default as AgentDeckPlugin } from "./src/main.js";
       export { Delegator, findDraftLink } from "./src/delegation.js";
       export { registerRunnerClass } from "./src/delegation-runners.js";
-      export { buildShowcaseMarkdown } from "./src/welcome-demo.js";
+      export { buildShowcaseMarkdown, SHOWCASE_RECORD_KEYS } from "./src/welcome-demo.js";
+      export { aiRecordGroups } from "./src/ai-records.js";
+      export { splitTask } from "./src/journal.js";
       export { parseThread } from "./src/thread-replies.js";
       export { buildDelegationPayload, extractWikilinkRefs } from "./src/harness.js";
       export { pickMemories } from "./src/dream.js";
@@ -245,6 +247,35 @@ test("Showcase §4 bilingual Q&A parses cleanly and backticked example links are
     const refs = M.extractWikilinkRefs([lines[idx]]);
     assert.equal(refs.length, 0, `${lang} backticked demo wikilinks are not treated as real note refs`);
   }
+});
+
+test("Showcase §1-§3 integrity: valid NEEDOK keyword, 4 record groups, real assets, and locale UI accuracy", () => {
+  const RAW_PREFIX = "https://raw.githubusercontent.com/MatsuriMW/obsidian-agent-deck/main/";
+  for (const lang of ["zh", "zh-TW", "en"]) {
+    const md = M.buildShowcaseMarkdown(lang);
+    const lines = md.split("\n");
+    const needLine = lines.find((l) => l.includes("NEEDOK"));
+    assert.ok(needLine, `${lang} NEEDOK line exists`);
+    const parsedNeed = M.splitTask(needLine);
+    assert.equal(parsedNeed?.kw, "NEEDOK", `${lang} NEEDOK card parses as NEEDOK status keyword (not literal NEEDOK?)`);
+
+    const groups = M.aiRecordGroups(md);
+    for (const key of Object.values(M.SHOWCASE_RECORD_KEYS)) {
+      const grp = groups.find((g) => g.key === key);
+      assert.ok(grp, `${lang} AI record group ${key} parses cleanly`);
+      assert.ok((grp.records || []).length >= 3, `${lang} AI record group ${key} has records`);
+    }
+
+    const imgMatches = [...md.matchAll(/!\[[^\]]*\]\((https:\/\/[^)]+)\)/g)];
+    assert.ok(imgMatches.length >= 6, `${lang} showcase contains expected visual assets`);
+    for (const m of imgMatches) {
+      assert.ok(m[1].startsWith(RAW_PREFIX), `${lang} image URL uses repo raw base: ${m[1]}`);
+      const rel = m[1].slice(RAW_PREFIX.length).split("?")[0];
+      assert.ok(fs.existsSync(path.join(root, rel)), `${lang} image asset exists in repo: ${rel}`);
+    }
+  }
+  assert.match(M.buildShowcaseMarkdown("zh-TW"), /開啟 1\.10\.0 新功能示例筆記/);
+  assert.ok(!/[\u4e00-\u9fff]/.test(M.buildShowcaseMarkdown("en")), "en showcase must not contain CJK text");
 });
 
 test("Showcase §4 draft flow: Delegator.delegate actually sends user-edited draft and preserves skill/note enrichments", async () => {

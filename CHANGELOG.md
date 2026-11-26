@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.13.31
+
+- **新功能示例文档准确性与互动看板修复（[`src/welcome-demo.js`](src/welcome-demo.js)、[`test/showcase-flows.test.mjs`](test/showcase-flows.test.mjs)）**：
+  - 逐项核对并修正三语示例文档中的 UI 设置路径与命令面板名称（记忆看板、`Dreaming → 记忆库工作区 → 图谱与库维护`、项目工作台 3 个入口、最长/最短记录时长、工作目录选区与 4 家按需 CLI/桌面回退助手边界）。
+  - 修复互动看板示例中的 `NEEDOK?` 卡片写法为合法状态关键词 `NEEDOK`，对齐看板切换按钮文案，并在 `test/showcase-flows.test.mjs` 新增三语卡片解析、4 组 AI 记录视图提取与仓库配图资源存在性校验。
+
 ## 1.13.30
 
 - **Windows CI 与临时工作目录识别边界修复（[`src/readers.js`](src/readers.js)）**：

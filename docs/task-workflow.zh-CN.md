@@ -1,6 +1,10 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.30**（2026-11-26）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.31**（2026-11-26）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.31 示例文档实核修正与完整性回归
+
+- 核对并修正 `src/welcome-demo.js`（en / zh-TW / zh）全部入口路径、能力边界描述、繁体命令名、`NEEDOK` 卡片关键词及看板按钮提示，并在 `test/showcase-flows.test.mjs` 补充三语 `NEEDOK` 解析、4 组 AI 记录视图、配图存在性与无中文/繁体字符门禁；在 `马自立` Vault 阅读视图（全 5 张配图加载、只读分形看板与镜像卡、4 组视图）及编辑视图（`dev:errors` 零报错）实机验证通过。
 
 ## 1.13.30 Windows `isScratchCwd` 边界修复
 
