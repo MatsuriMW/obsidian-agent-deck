@@ -125,8 +125,16 @@ try {
   assert.equal(handoffJob.project, 'demo');
   assert.equal(termCalls.length, 1);
   assert.equal(termCalls[0].cwd, norm(project));
-  assert.ok(termCalls[0].cmd.includes(`-C '${norm(project)}'`), 'codex handoffCli sets -C project cwd');
-  assert.ok(termCalls[0].cmd.includes(`--add-dir '${norm(vault)}'`), 'codex handoffCli includes --add-dir vaultPath');
+  if (process.platform === 'win32') {
+    const psMatch = /-File "([^"]+\.ps1)"/.exec(termCalls[0].cmd);
+    assert.ok(psMatch, 'win32 handoffCli generates a PowerShell launcher script');
+    const psNorm = fs.readFileSync(psMatch[1], 'utf8').replace(/\\/g, '/');
+    assert.ok(psNorm.includes(`'-C' '${norm(project)}'`), 'win32 codex handoffCli sets -C project cwd in ps1');
+    assert.ok(psNorm.includes(`'--add-dir' '${norm(vault)}'`), 'win32 codex handoffCli includes --add-dir vaultPath in ps1');
+  } else {
+    assert.ok(termCalls[0].cmd.includes(`-C '${norm(project)}'`), 'codex handoffCli sets -C project cwd');
+    assert.ok(termCalls[0].cmd.includes(`--add-dir '${norm(vault)}'`), 'codex handoffCli includes --add-dir vaultPath');
+  }
 
   // continueSession recovers gracefully when a job's previous cwd was removed on disk.
   const goneDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ad-gone-'));

@@ -445,13 +445,13 @@ test("stats 区分库内可补锚与外部导入免补锚，并支持 archive/ �
     const linkDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-mq-sym-"));
     try {
       const symVault = path.join(linkDir, "sym-vault");
-      fs.symlinkSync(vault, symVault);
+      fs.symlinkSync(vault, symVault, process.platform === "win32" ? "junction" : "dir");
       fs.mkdirSync(path.join(vault, ".obsidian", "plugins", "agent-deck", "scripts"), { recursive: true });
       fs.copyFileSync(
         new URL("../scripts/memory-query.mjs", import.meta.url),
         path.join(vault, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs"),
       );
-      const cliViaSym = spawnSync("node", [
+      const cliViaSym = spawnSync(process.execPath, [
         path.join(symVault, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs"),
         "search",
         "发布 构建",

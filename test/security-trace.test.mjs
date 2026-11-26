@@ -177,7 +177,7 @@ test("security: evaluatePermissionPolicy handles Windows long-path prefixes, cas
     fs.mkdirSync(outside, { recursive: true });
     fs.writeFileSync(path.join(outside, "secret.txt"), "x");
     const escapeLink = path.join(inside, "escape");
-    fs.symlinkSync(outside, escapeLink);
+    fs.symlinkSync(outside, escapeLink, process.platform === "win32" ? "junction" : "dir");
     const symOutside = evaluatePermissionPolicy(
       { title: "edit", kind: "edit", rawInput: { path: path.join(escapeLink, "secret.txt") } },
       { cwd: inside, vaultPath: path.join(tmp, "vault"), autoApprove: true },
