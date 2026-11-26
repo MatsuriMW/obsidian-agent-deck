@@ -7,13 +7,13 @@ export const CONFIRM_FIRST = "先阅读任务及相关上下文。只有影响�
 export const DIRECT_EXECUTE = "直接执行并完成交付，不要停下来向我反问确认；除非遇到不可逆的高危歧义，其余非核心边界细节请按合理常规自行决定并直接实现，完成后在汇报中简述处理方式与验证结果。";
 
 export const STORE_VERSION = 1;
-export const MEMORY_QUERY_ASSET_VERSION = 6;
-export const MEMORY_MCP_ASSET_VERSION = 5;
+export const MEMORY_QUERY_ASSET_VERSION = 9;
+export const MEMORY_MCP_ASSET_VERSION = 8;
 
 export const DEFAULT_RECORD_RULES = {
   boldTitle: true,        // 自动记录母块标题自动加粗 **...**
   projectPrefix: true,    // 自动记录标题带 项目名 / Bot名 -> 前缀
-  showTimeRange: true,    // 自动记录母块显示 HH:MM-HH:MM 时间段
+  showTimeRange: false,   // false（默认）：与螺旋日程一致，在子块 - ⏱ 记实际用时、母块保留原文/预估；true：传统方式，在任务行首写入 HH:MM-HH:MM
   titleMax: 22,           // 自动记录生成标题最大字数
 };
 
@@ -23,7 +23,7 @@ export function resolveRecordRules(cfg = {}) {
   return {
     boldTitle: raw.boldTitle !== false,
     projectPrefix: raw.projectPrefix !== false,
-    showTimeRange: raw.showTimeRange !== false,
+    showTimeRange: typeof raw.showTimeRange === "boolean" ? raw.showTimeRange : DEFAULT_RECORD_RULES.showTimeRange,
     titleMax: Number.isFinite(max) && max >= 10 ? Math.min(60, Math.round(max)) : DEFAULT_RECORD_RULES.titleMax,
   };
 }
@@ -488,7 +488,7 @@ export const MODEL_CATALOG = [
 ];
 
 export const EFFORTS = {
-  antigravity: ["low", "medium", "high", "xhigh"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
+  antigravity: ["low", "medium", "high", "xhigh"].map((id) => ({ id, label: id, hint: t("实际可用强度由 agy CLI 校验") })),
   opencode: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   hermes: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   minimax: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
@@ -665,7 +665,7 @@ export const DEFAULTS = {
   autoWriteResult: true,
   resultMax: 350,
   importNautilus: true,
-  dream: { enabled: false, inject: true, store: "text", dir: "Agent Deck/记忆", backlinked: [], scope: "all", path: "Agent Deck/长期记忆.md", provider: "", model: "", effort: "", apiUrl: "", apiKey: "", syncProfile: false, autoAnchor: true, graphPreset: "kind", autoArchive: true, archiveAfterDays: 30, lastRun: 0, lastAttempt: 0, lastConsolidate: null, states: {}, coverage: null, lastError: "", share: { enabled: false, path: "", intervalHours: 24, gitPush: false, lastAttempt: 0, lastSuccess: 0, lastError: "" } },
+  dream: { enabled: false, inject: true, store: "text", dir: "Agent Deck/记忆", backlinked: [], scope: "ai-records", path: "Agent Deck/长期记忆.md", provider: "", model: "", effort: "", apiUrl: "", apiKey: "", syncProfile: false, autoAnchor: true, graphPreset: "kind", autoArchive: true, archiveAfterDays: 30, mcp: { toolsMode: "all", allowWrite: false, excludeAiLogs: true, agentPrompt: "" }, lastRun: 0, lastAttempt: 0, lastConsolidate: null, states: {}, coverage: null, lastError: "", share: { enabled: false, path: "", intervalHours: 24, gitPush: false, lastAttempt: 0, lastSuccess: 0, lastError: "" } },
   // Delegation
   delegate: {
     target: "claude",
@@ -682,7 +682,7 @@ export const DEFAULTS = {
       extraArgs: "",
     },
     codex: { transport: "desktop", model: "gpt-6.1-sol", effort: "low", cwd: "", path: "", sandbox: "workspace-write", project: true },
-    antigravity: { model: "antigravity-default", effort: "medium", path: "", cwd: "", autoApprove: false },
+    antigravity: { model: "antigravity-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     opencode: { model: "opencode-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     hermes: { model: "hermes-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     minimax: { model: "minimax-default", effort: "medium", path: "", cwd: "", autoApprove: false, extraArgs: "" },
@@ -728,6 +728,9 @@ export const DEFAULTS = {
     nowGroupBy: "project",
     recentGroupBy: "agent",
     agentCards: { order: [...AGENT_ORDER], hidden: [], pinned: [] },
+    memoryGraphStyle: "editorial",
+    memoryGraphLayout: "force",
+    memoryGraphColorBy: "kind",
   },
   jobs: {},
   lastScan: 0,

@@ -153,6 +153,26 @@
 
   & .ad-card__head {
     margin-bottom: 12px;
+
+    &.ad-card__head--bar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px 16px;
+    }
+  }
+
+  & .ad-card__head-text {
+    min-width: 0;
+    flex: 1 1 240px;
+  }
+
+  & .ad-card__head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: none;
   }
 
   & .ad-card__title {
@@ -247,11 +267,45 @@
   & .ad-btn {
     padding: 7px 12px;
     white-space: normal;
+    border: 1px solid var(--ad-line);
+    background: var(--background-primary);
+    box-shadow: none;
+    color: var(--ad-ink);
+
+    &:hover {
+      background: var(--background-modifier-hover);
+    }
+
+    &.ad-btn--ghost {
+      background: transparent;
+    }
+
+    &.ad-btn--soft {
+      background: var(--background-modifier-hover);
+      border-color: transparent;
+
+      &:hover {
+        background: color-mix(in srgb, var(--ad-ink) 11%, transparent);
+      }
+    }
+
+    &.ad-btn--cta,
+    &.mod-cta {
+      background: var(--ad-accent);
+      color: var(--text-on-accent);
+      border-color: transparent;
+
+      &:hover {
+        filter: brightness(1.05);
+        background: var(--ad-accent);
+      }
+    }
 
     &.ad-btn--compact {
       flex: none;
       white-space: nowrap;
-      padding: 6px 10px;
+      min-height: 30px;
+      padding: 5px 10px;
     }
   }
 
@@ -261,9 +315,9 @@
   }
 
   & .ad-textarea {
-    font-size: 13px;
-    line-height: 1.65;
-    padding: 10px 12px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    padding: 9px 11px;
   }
 
   & .ad-hint {
@@ -279,6 +333,14 @@
   & .ad-field__label {
     font-size: 13px;
     margin-bottom: 8px;
+  }
+
+  & .ad-field__desc {
+    font-size: 12px;
+    line-height: 1.65;
+    color: var(--ad-muted);
+    margin: -2px 0 8px;
+    overflow-wrap: anywhere;
   }
 
   /* 分段/胶囊选项组：铺满控件列宽并预留统一 ✓ 勾选位，防止选中时文字跳动 */
@@ -345,14 +407,14 @@
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
-    margin-top: 18px;
+    margin-top: 14px;
 
     & .ad-target {
       display: grid;
       grid-template-columns: 14px 20px minmax(0, 1fr);
       justify-content: flex-start;
-      gap: 4px 9px;
-      padding: 12px;
+      gap: 3px 9px;
+      padding: 10px 12px;
       text-align: left;
       height: auto;
       border-radius: 8px;
@@ -362,8 +424,23 @@
         transform: none;
       }
 
-      &.is-on :is(.ad-glyph, .ad-target__hint) {
-        color: inherit;
+      &.is-on {
+        background: color-mix(in srgb, var(--interactive-accent) 11%, var(--background-primary));
+        color: var(--ad-ink);
+        border-color: var(--interactive-accent);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--interactive-accent) 28%, transparent);
+
+        &::before {
+          color: var(--interactive-accent);
+        }
+
+        & .ad-glyph {
+          color: var(--ad-agent);
+        }
+
+        & .ad-target__hint {
+          color: var(--ad-muted);
+        }
       }
     }
 
@@ -599,34 +676,303 @@
     }
   }
 
+  & .ad-delegate-list {
+    border: 1px solid var(--ad-line);
+    border-radius: var(--ad-radius-sm);
+    background: var(--background-primary);
+    overflow: hidden;
+  }
+
+  & .ad-delegate-empty {
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--ad-muted);
+  }
+
   & .ad-delegate-agent {
+    border-top: 1px solid var(--ad-line);
+
+    &:first-child {
+      border-top: 0;
+    }
+
     & > summary {
       display: flex;
       align-items: center;
-      gap: 10px;
+      flex-wrap: wrap;
+      gap: 8px;
       margin: 0;
+      padding: 10px 12px;
+      transition: background .15s ease;
+
+      &:hover {
+        background: var(--background-modifier-hover);
+      }
 
       &::after {
         content: "›";
-        margin-left: auto;
+        margin-left: 4px;
         color: var(--ad-muted);
-        font-size: 20px;
+        font-size: 18px;
+        line-height: 1;
         transition: transform .12s ease;
       }
 
       & .ad-glyph {
         display: inline-flex;
-        width: 20px;
-        height: 20px;
+        flex: none;
+        width: 18px;
+        height: 18px;
       }
     }
 
-    &[open] > summary::after {
-      transform: rotate(90deg);
+    &[open] > summary {
+      border-bottom: 1px solid var(--ad-line);
+      background: color-mix(in srgb, var(--background-secondary) 55%, var(--background-primary));
+
+      &::after {
+        transform: rotate(90deg);
+      }
+    }
+
+    & .ad-delegate-agent__name {
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--ad-ink);
+    }
+
+    & .ad-delegate-agent__pills {
+      margin-left: auto;
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 5px;
+      min-width: 0;
     }
 
     & .ad-delegate-agent__body {
-      padding-top: 10px;
+      padding: 4px 14px 12px;
+      background: color-mix(in srgb, var(--background-secondary) 35%, var(--background-primary));
+
+      & > .ad-card__sub {
+        margin-top: 6px;
+        margin-bottom: 4px;
+      }
+    }
+  }
+
+  & .ad-delegate-tag {
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.3;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--background-modifier-hover);
+    color: var(--ad-muted);
+
+    &.is-default {
+      background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+      color: var(--interactive-accent);
+    }
+  }
+
+  & .ad-delegate-pill {
+    font-size: 11px;
+    line-height: 1.35;
+    padding: 2px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--ad-line);
+    background: var(--background-secondary);
+    color: var(--ad-muted);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  & .ad-delegate-passive {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ad-line);
+  }
+
+  & .ad-delegate-passive__title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ad-muted);
+    margin-bottom: 4px;
+  }
+
+  & .ad-custom-acp {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--ad-line);
+  }
+
+  & .ad-custom-acp__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+  }
+
+  & .ad-custom-acp__titlewrap {
+    min-width: 0;
+    flex: 1 1 240px;
+  }
+
+  & .ad-custom-acp__title {
+    font-size: 13px;
+    font-weight: 650;
+    color: var(--ad-ink);
+  }
+
+  & .ad-custom-acp__sub {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ad-muted);
+    margin-top: 3px;
+  }
+
+  & .ad-custom-acp__list {
+    margin-top: 10px;
+    border: 1px solid var(--ad-line);
+    border-radius: var(--ad-radius-sm);
+    background: var(--background-primary);
+    overflow: hidden;
+  }
+
+  & .ad-custom-acp__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 12px;
+    border-top: 1px solid var(--ad-line);
+
+    &:first-child {
+      border-top: 0;
+    }
+  }
+
+  & .ad-custom-acp__info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  & .ad-custom-acp__top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  & .ad-custom-acp__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ad-ink);
+  }
+
+  & .ad-custom-acp__cmd {
+    margin-top: 3px;
+    font-family: var(--ad-figure);
+    font-size: 11px;
+    color: var(--ad-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  & .ad-custom-acp__actions {
+    display: flex;
+    align-items: center;
+    flex: none;
+    gap: 6px;
+  }
+
+  /* ---- 委派 → 项目文件夹紧凑列表 ---- */
+  & .ad-proj-list {
+    margin-top: 10px;
+    border: 1px solid var(--ad-line);
+    border-radius: var(--ad-radius-sm);
+    background: var(--background-primary);
+    overflow: hidden;
+  }
+
+  & .ad-proj-item {
+    display: grid;
+    grid-template-columns: minmax(90px, 140px) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 8px 10px;
+    border-top: 1px solid var(--ad-line);
+
+    &:first-child {
+      border-top: 0;
+    }
+  }
+
+  & .ad-proj-item__name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ad-ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  & .ad-proj-add {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+
+    & .ad-proj-add__name {
+      flex: 0 1 130px;
+      min-width: 100px;
+    }
+
+    & .ad-proj-add__dir {
+      flex: 1 1 200px;
+      min-width: 140px;
+    }
+
+    & .ad-proj-add__btns {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: none;
+    }
+  }
+
+  & .ad-proj-suggs {
+    margin-top: 10px;
+  }
+
+  & .ad-proj-suggs__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  & .ad-proj-chip {
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  & .ad-models-card .ad-modelgroup.is-client-only {
+    margin-top: 4px;
+    opacity: .72;
+
+    & > .ad-modelgroup__head {
+      padding: 7px 2px;
+      border-bottom: 0;
     }
   }
 
@@ -642,6 +988,10 @@
       flex: 1;
       min-width: 0;
     }
+
+    &:hover .ad-settings-grip {
+      opacity: 1;
+    }
   }
 
   & .ad-settings-grip {
@@ -656,6 +1006,8 @@
     box-shadow: none;
     background: transparent;
     color: var(--ad-faint);
+    opacity: .38;
+    transition: opacity .15s ease, color .15s ease;
     cursor: grab;
 
     & svg {
@@ -669,6 +1021,7 @@
 
     &:hover,
     &:focus-visible {
+      opacity: 1;
       color: var(--ad-ink);
     }
   }
@@ -876,12 +1229,182 @@
       border-color: transparent;
     }
   }
+
+  /* ---- Dream MCP 接入与设置控件 ---- */
+  & .ad-mcp-assets {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--ad-muted);
+    font-family: var(--ad-figure);
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--ad-line);
+  }
+
+  & .ad-mcp-prompt {
+    margin-top: 12px;
+
+    & .ad-btnrow {
+      margin-top: 8px;
+    }
+  }
+
+  & .ad-mcp-clients {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--ad-line);
+  }
+
+  & .ad-mcp-clients__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  & .ad-mcp-clients__title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ad-ink);
+  }
+
+  & .ad-mcp-clients__tools {
+    margin-top: 0;
+  }
+
+  & .ad-mcp-clients__list {
+    margin-top: 10px;
+    border: 1px solid var(--ad-line);
+    border-radius: var(--ad-radius-sm);
+    background: var(--background-primary);
+    overflow: hidden;
+  }
+
+  & .ad-mcp-client {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 12px;
+    border-top: 1px solid var(--ad-line);
+    transition: background .15s ease;
+
+    &:first-child {
+      border-top: 0;
+    }
+
+    &:hover {
+      background: var(--background-modifier-hover);
+    }
+  }
+
+  & .ad-mcp-client__info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  & .ad-mcp-client__top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  & .ad-mcp-client__name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ad-ink);
+  }
+
+  & .ad-mcp-badge {
+    font-size: 11px;
+    line-height: 1.3;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: var(--background-modifier-hover);
+    color: var(--ad-muted);
+
+    &.is-ok {
+      color: var(--ad-good);
+      background: color-mix(in srgb, var(--ad-good) 12%, transparent);
+      border-color: color-mix(in srgb, var(--ad-good) 32%, transparent);
+    }
+
+    &.is-warn {
+      color: var(--ad-warn);
+      background: color-mix(in srgb, var(--ad-warn) 12%, transparent);
+      border-color: color-mix(in srgb, var(--ad-warn) 32%, transparent);
+    }
+
+    &.is-err {
+      color: var(--ad-bad);
+      background: color-mix(in srgb, var(--ad-bad) 12%, transparent);
+      border-color: color-mix(in srgb, var(--ad-bad) 32%, transparent);
+    }
+  }
+
+  & .ad-mcp-client__path {
+    font-family: var(--ad-figure);
+    font-size: 11px;
+    color: var(--ad-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-top: 2px;
+  }
+
+  & .ad-mcp-client__actions {
+    display: flex;
+    flex: none;
+    gap: 6px;
+  }
 }
 
 /* ---------- 2. 容器查询与窄屏断点 ---------- */
 
+@container ad-settings (min-width: 780px) {
+  .ad-settings {
+    & .ad-targetpick {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+}
+
 @container ad-settings (max-width: 520px) {
   .ad-settings {
+    & .ad-mcp-client,
+    & .ad-custom-acp__item {
+      flex-wrap: wrap;
+    }
+
+    & .ad-delegate-agent > summary {
+      & .ad-delegate-agent__pills {
+        order: 3;
+        width: 100%;
+        margin-left: 26px;
+        justify-content: flex-start;
+      }
+
+      &::after {
+        margin-left: auto;
+      }
+    }
+
+    & .ad-proj-item {
+      grid-template-columns: minmax(0, 1fr) auto;
+
+      & .ad-proj-item__name {
+        grid-column: 1 / -1;
+      }
+    }
+
+    & .ad-proj-add {
+      & .ad-proj-add__name,
+      & .ad-proj-add__dir {
+        flex: 1 1 100%;
+      }
+    }
     & .ad-row {
       grid-template-columns: minmax(0, 1fr);
       gap: 12px;

@@ -28,8 +28,8 @@ export default {
   "qoder 退出码 {code}": "qoder exited with code {code}",
   "📋 Qoder CLI 尚未登录，已复制任务并打开 Qoder 桌面版（也可在设置里登录 CLI）":
     "📋 Qoder CLI is not signed in; copied the task and opened Qoder Desktop (or sign in to the CLI in Settings)",
-  "通过 agy acp 后台委派；工具请求逐次确认，完成后可查看或归档正文。": "Delegates in the background through agy acp. Confirm tool requests individually, then view or export the transcript.",
-  "通过 agy acp 后台委派；完成后可查看或归档正文。": "Delegates in the background through agy acp; view or export the transcript once done.",
+  "通过 agy CLI 后台委派；工具请求按设置控制，完成后可查看或归档正文。": "Delegates in the background through the official agy CLI; view or export the transcript once done.",
+  "通过 agy CLI 后台委派；完成后可查看或归档正文。": "Delegates in the background through the official agy CLI; view or export the transcript once done.",
   "留空 = 插件设置里的目录（默认是库根目录）。":
     "Leave empty to use the folder from plugin settings (the vault root by default).",
   "加在这次委派最后的话": "Text to add at the end of this delegation",
@@ -42,6 +42,8 @@ export default {
   "带上 {n} 层母项作为上下文": "Parent lines included as context ({n})",
   "这条任务在笔记里挂的位置，只做最里面这一项：":
     "Where this task sits in the note. Only do the innermost item:",
+  "（当前任务已推进至 {pct}%，请基于已有进度继续，不要从零重做）":
+    "(This task is already at {pct}% progress; continue from existing progress rather than starting from scratch)",
   "发送": "Send",
   "接下来在哪里工作": "Where to work next",
 

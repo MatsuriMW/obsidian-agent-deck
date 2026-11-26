@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict';
 import { Dreaming } from '../src/dream.js';
 import { DEFAULTS, journalPath, dayKeyToday } from '../src/constants.js';
-function fixture() {
+function fixture(scope = 'all') {
   const files = new Map(), settings = structuredClone(DEFAULTS);
+  settings.dream.scope = scope;
   const vault = {getAbstractFileByPath:p=>{if(files.has(p))return{path:p};const prefix=p.endsWith('/')?p:`${p}/`;const children=[...files.keys()].filter(k=>k.startsWith(prefix)&&!k.slice(prefix.length).includes('/')).map(k=>({path:k}));return children.length?{path:p,children}:null;},read:async f=>files.get(f.path),modify:async(f,t)=>files.set(f.path,t),process:async(f,fn)=>{files.set(f.path,fn(files.get(f.path)));},create:async(p,t)=>files.set(p,t),createFolder:async()=>{}};
   const p = {settings,jobs:{},app:{vault,plugins:{}},saveSettings:async()=>{},notice:()=>{}};
   return {p,files,path:journalPath(p.app,settings,dayKeyToday(settings))};
 }
+assert.equal(DEFAULTS.dream.scope, 'ai-records', '默认 Dream 范围应仅提炼 AI 自动记录条目');
 const {p,files,path}=fixture();
 files.set(path,'- TODO 手写任务\n  - 💬 AI 结论\n    - 我喜欢英文回复（AI 嵌套解释）\n  - ❓ 第2轮：以后请用中文回复');
 let dream = new Dreaming(p,async()=>JSON.stringify({memories:[]}));
@@ -220,8 +222,7 @@ console.log('PASS bounded extraction context retrieves relevant early memories')
   assert.equal(aiOnlyBlocks.find((b) => b.text.includes('AI 嵌套解释内容')).kind, 'ai');
   assert.equal(aiOnlyBlocks.find((b) => b.text.includes('修超时 bug')).kind, 'user');
 
-  const { p, files, path } = fixture();
-  p.settings.dream.scope = 'ai-records';
+  const { p, files, path } = fixture(DEFAULTS.dream.scope);
   files.set(path, md);
   const d = new Dreaming(p, async () => JSON.stringify({
     memories: [{ text: '写规格时只保留关键设计', kind: 'preference', sources: ['S2'], quotes: [{ source: 'S2', text: '只保留关键设计' }], replaces: [] }],

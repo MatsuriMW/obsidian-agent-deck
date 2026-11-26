@@ -220,7 +220,7 @@ function parseTagsValue(raw) {
 
 // Tolerant of user-added frontmatter, OKF v0.2 nested/inline attributes & Base-created rows.
 export function parseMemoryFile(content) {
-  const lines = String(content || "").split("\n");
+  const lines = String(content || "").replace(/\r\n/g, "\n").split("\n");
   if (lines[0]?.trim() !== "---") return null;
   const end = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
   if (end < 0) return null;

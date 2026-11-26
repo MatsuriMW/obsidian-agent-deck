@@ -31,10 +31,11 @@ import {
 import { RunTrace } from "./trace.js";
 import * as J from "./journal.js";
 import { mentionOptions, stripTaskMention, mentionTrigger } from "./task-mentions.js";
-import { hasAgentCapability, getAgentCapability, canContinueInApp } from "./agent-registry.js";
+import { hasAgentCapability, getAgentCapability, canContinueInApp, canAgentReadLocalFiles } from "./agent-registry.js";
 import { runHandoffDispatch } from "./teleagent-dispatch.js";
 import { dispatchTeleagentLinux } from "./teleagent-dispatch-linux.js";
 import { isPrivateFrontmatter, isPathExcluded } from "./memory-query-core.js";
+import { resolvePluginScriptsDir } from "./context-core/config.js";
 import {
   ancestorLines, withContext, freshTaskText, stripInternalIdentifiers,
   buildDelegationPayload, buildPromptFromContext, createDelegationRunner, HarnessPipeline,
@@ -61,6 +62,7 @@ import {
   dshModels,
   qoderPermissionArgs,
   AcpRunner,
+  fetchAgyCliModels,
   getRunnerClasses,
   registerRunnerClass,
 } from "./delegation-runners.js";
@@ -223,7 +225,7 @@ export {
 
 // Codex 会话的 originator：桌面版 / IDE 插件里起的才有会话页可跳；codex_cli_rs、codex_exec 是命令行
 export const isCodexDesktop = (app) => /desktop|vscode|app|ide|agent_deck/i.test(String(app || "")) && !/exec|cli/i.test(String(app || ""));
-const CLI_SESSION_AGENTS = new Set(["claude", "qoder", "workbuddy", "hermes", "minimax", "gemini"]);
+const CLI_SESSION_AGENTS = new Set(["claude", "qoder", "workbuddy", "hermes", "minimax", "gemini", "antigravity"]);
 // 命令行会话（Claude Code 终端版、Codex 命令行、Qoder CLI 等）：点开回终端，而不是交给桌面版
 export function isCliSession(agent, app) {
   if (CLI_SESSION_AGENTS.has(agent)) return app === "cli";
@@ -367,6 +369,10 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     return true;
   }
   if (agent === "antigravity") {
+    const meta = session || (plugin.usage && plugin.usage.meta.get(sid)) || {};
+    if ((app === "cli" || session?.transport === "cli") && plugin.settings.cliOpen !== "desktop") {
+      return focusOrResume(plugin, agent, sid, `agy --resume ${sid}`, meta.cwd || "");
+    }
     openAgentApp("antigravity");
     copyText(sid);
     plugin.notice(t("已打开 Antigravity；会话号已复制"));
@@ -439,6 +445,32 @@ function validateExplicitCwd(rawCwd) {
   return dir;
 }
 
+export function detectRepoRuleFiles(cwd, vaultPath = "") {
+  if (!cwd || (vaultPath && sameFolder(cwd, vaultPath))) return [];
+  const found = [];
+  for (const name of ["AGENTS.md", "CLAUDE.md"]) {
+    try {
+      if (fs.existsSync(path.join(cwd, name))) found.push(name);
+    } catch { /* ignore */ }
+  }
+  return found;
+}
+
+function findProjectQuickstartEntry(vaultPath, projectName) {
+  if (!vaultPath || !projectName) return "";
+  const candidates = [
+    `${projectName}.md`,
+    path.posix.join("Projects", `${projectName}.md`),
+    path.posix.join("Concepts", `${projectName}.md`),
+  ];
+  for (const rel of candidates) {
+    try {
+      if (fs.existsSync(path.join(vaultPath, ...rel.split("/")))) return rel;
+    } catch { /* ignore */ }
+  }
+  return "";
+}
+
 export class Delegator {
   constructor(plugin) {
     this.plugin = plugin;
@@ -458,7 +490,16 @@ export class Delegator {
     if (!opts.newSession && hasLink(lines, block) >= 0) throw new Error(t("这一块下面已经有 🔗 了；要重发先删掉那一行"));
     const title = blockTitle(block, mentionTrigger(this.plugin)) || "Agent Deck task";
     const name = truncate(title, this.C.nameMax || 56);
-    const payload = await buildDelegationPayload({ plugin: this.plugin, file, lines, block, opts });
+    const effectiveEntryMap = typeof opts?.entryMapMode === "boolean"
+      ? opts.entryMapMode
+      : (opts?.agent ? canAgentReadLocalFiles(opts.agent, opts.destination || "") : false);
+    const payload = await buildDelegationPayload({
+      plugin: this.plugin,
+      file,
+      lines,
+      block,
+      opts: { ...opts, entryMapMode: effectiveEntryMap },
+    });
     return { file, lines, block, title, name, ...payload };
   }
 
@@ -497,20 +538,21 @@ export class Delegator {
       }
       const notesHead = t("任务里引用的笔记（可直接读全文）：");
       const notePathsBlock = notePaths.length ? `${notesHead}\n${notePaths.map((p) => `- ${p}`).join("\n")}` : "";
-      const hintProject = resolved.projectName
-        || resolved.opts?.projectName
-        || resolveDispatchFolder({
-          settings: this.settings,
-          explicitCwd: resolved.opts?.cwd || "",
-          explicitVault: Boolean(resolved.opts?.explicitVault),
-          agentCwd: this.C[resolved.opts?.agent]?.cwd || "",
-          vaultPath: this.vaultPath,
-          notePath: resolved.file?.path || "",
-          contextLines: resolved.contextLines || [],
-          blockText: resolved.block?.text || "",
-        }).projectName
-        || "";
-      const memoryHint = await this.memoryToolHint({ projectName: hintProject });
+      const dispatchTarget = resolveDispatchFolder({
+        settings: this.settings,
+        explicitCwd: resolved.opts?.cwd || "",
+        explicitVault: Boolean(resolved.opts?.explicitVault),
+        explicitName: resolved.opts?.projectName || "",
+        agentCwd: this.C[resolved.opts?.agent]?.cwd || "",
+        vaultPath: this.vaultPath,
+        notePath: resolved.file?.path || "",
+        contextLines: resolved.contextLines || [],
+        blockText: resolved.block?.text || "",
+      });
+      const hintProject = resolved.projectName || dispatchTarget.projectName || "";
+      const repoRuleFiles = detectRepoRuleFiles(dispatchTarget.folder, this.vaultPath);
+      const hasEntryMap = Boolean(resolved.bundle?.stats?.entryMapMode && resolved.bundle?.stats?.inlinedLinks > 0);
+      const memoryHint = await this.memoryToolHint({ projectName: hintProject, repoRuleFiles, hasEntryMap });
       const replyText = replyPromptText(parseThread(resolved.lines, resolved.block));
       const plainSkill = [...scan.matchAll(/\[\[([^\]|#]+)/g)]
         .map((m) => m[1].trim().replace(/\.md$/i, ""))
@@ -530,6 +572,7 @@ export class Delegator {
           b.stats.notePathCount = notePaths.length;
           b.stats.hasSkill = Boolean(b.prefix.skillLine);
           b.stats.hasReply = Boolean(b.tail.replyText);
+          if (repoRuleFiles.length) b.stats.repoRuleFiles = repoRuleFiles;
         }
         resolved.prompt = renderContextBundle(b);
         return resolved;
@@ -544,6 +587,7 @@ export class Delegator {
         resolved.bundle.stats.notePathCount = notePaths.length;
         resolved.bundle.stats.hasSkill = Boolean(skillLine || resolved.bundle.prefix.skillLine);
         resolved.bundle.stats.hasReply = Boolean(replyText || resolved.bundle.tail.replyText);
+        if (repoRuleFiles.length) resolved.bundle.stats.repoRuleFiles = repoRuleFiles;
         resolved.bundle.stats.injectedChars = resolved.prompt.length;
       }
     } catch (e) { console.error("[agent-deck] 富化上下文失败（不影响派发）", e); }
@@ -551,18 +595,25 @@ export class Delegator {
   }
 
   // 运行时记忆查询：脚本随插件装在库内；脚本和记忆目录都在，才值得告诉 Agent 这一行用法。
-  async memoryToolHint({ projectName = "" } = {}) {
+  // 当派发启用了入口地图模式（hasEntryMap）且脚本存在时，即使记忆数为空也保留全库 vault-* 入口用法。
+  async memoryToolHint({ projectName = "", repoRuleFiles = [], hasEntryMap = false } = {}) {
     try {
-      const script = path.join(this.vaultPath, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
+      let script = this.plugin?.resolveMcpPaths?.()?.mqScript || "";
+      if (!script) {
+        const configDir = this.plugin?.app?.vault?.configDir || "";
+        const fallbackDir = this.plugin?.manifest?._sourceDir ? path.join(this.plugin.manifest._sourceDir, "scripts") : "";
+        script = path.join(resolvePluginScriptsDir(this.vaultPath, { configDir, fallbackDir }), "memory-query.mjs");
+      }
       const relDir = String(this.settings?.dream?.dir || "Agent Deck/记忆").replace(/[\\/]+$/, "");
       const dir = path.join(this.vaultPath, ...relDir.split("/").filter(Boolean));
       // 用 fs 而不是 vault.adapter：adapter.exists 对 .obsidian 下的文件一律返回 false（2026-11-18 实测）。
-      if (!fs.existsSync(script) || !fs.existsSync(dir)) return "";
+      const hasMemoryDir = fs.existsSync(dir);
+      if (!fs.existsSync(script) || (!hasMemoryDir && !hasEntryMap)) return "";
       const head = `${t("需要更多背景时：")}node "${script}" search "关键词"`;
       let count = 0;
       let topics = [];
       const indexPath = path.join(dir, "索引.md");
-      if (fs.existsSync(indexPath)) {
+      if (hasMemoryDir && fs.existsSync(indexPath)) {
         try {
           const idxText = fs.readFileSync(indexPath, "utf8");
           const cm = /^共\s+(\d+)\s+条有效非私密记忆/m.exec(idxText);
@@ -576,19 +627,30 @@ export class Delegator {
           }
         } catch { /* fallback below */ }
       }
-      if (!count && !fs.existsSync(indexPath)) {
+      if (!count && hasMemoryDir && !fs.existsSync(indexPath)) {
         try {
           count = fs.readdirSync(dir).filter((n) => n.endsWith(".md") && n !== "索引.md" && n !== "log.md").length;
         } catch { count = 0; }
       }
-      if (count <= 0) return head;
-      const parts = [t("库内共 {n} 条有效记忆", { n: count })];
-      if (projectName) {
-        parts.push(t("按项目筛选：search \"关键词\" --project {project}", { project: JSON.stringify(projectName) }));
+      if (count <= 0 && !repoRuleFiles.length && !hasEntryMap) return head;
+      const parts = [];
+      if (count > 0) {
+        parts.push(t("库内共 {n} 条有效记忆", { n: count }));
+        if (projectName) {
+          parts.push(t("按项目筛选：search \"关键词\" --project {project}", { project: JSON.stringify(projectName) }));
+          const entry = findProjectQuickstartEntry(this.vaultPath, projectName);
+          if (entry) parts.push(t("项目入口：vault-outline {entry}", { entry: JSON.stringify(entry) }));
+        }
+        parts.push(t("图谱：graph \"概念\"｜目录：index｜单条：read <id/文件名>｜近期：recent 10"));
+        parts.push(t("全库：vault-find \"关键词\"｜vault-outline <笔记>｜vault-read <笔记#章节>｜vault-related <笔记>"));
+        if (topics.length) parts.push(t("常见主题：{topics}", { topics: topics.join(" / ") }));
+      } else if (hasEntryMap) {
+        parts.push(t("全库：vault-find \"关键词\"｜vault-outline <笔记>｜vault-read <笔记#章节>｜vault-related <笔记>"));
       }
-      parts.push(t("图谱：graph \"概念\"｜目录：index｜单条：read <id/文件名>｜近期：recent 10"));
-      if (topics.length) parts.push(t("常见主题：{topics}", { topics: topics.join(" / ") }));
-      return `${head}\n（${parts.join("；")}）`;
+      if (repoRuleFiles.length) {
+        parts.push(t("仓内规范以 {files} 为准；跨仓经验与笔记上下文按需调用上述工具或 MCP 检索", { files: repoRuleFiles.join(" / ") }));
+      }
+      return parts.length ? `${head}\n（${parts.join("；")}）` : head;
     } catch { return ""; }
   }
 
@@ -915,6 +977,13 @@ export class Delegator {
 
   async refreshAcpModels(agent) {
     this.refreshSettings();
+    if (agent === "antigravity") {
+      const cfg = (this.settings.delegate ||= {}).antigravity ||= {};
+      const models = await fetchAgyCliModels({ binPath: cfg.path || "", cwd: this.vaultPath });
+      cfg.availableModels = models;
+      this.saveJobs();
+      return models;
+    }
     return new Promise((resolve, reject) => {
       const d = { settings: this.settings, vaultPath: this.vaultPath,
         saveJobs() {}, saveJobsSoon() {}, refreshUI() {}, onDone: (job) => { this.saveJobs(); resolve(job.availableModels || []); },
@@ -933,7 +1002,12 @@ export class Delegator {
     if (!sid) throw new Error(t("这个会话还没有会话号"));
     const existing = Object.values(this.jobs).find((j) => j.agent === session.agent && j.sessionId === sid);
     if (["starting", "running", "needs-approval"].includes(existing?.state)) throw new Error(t("请等当前这一轮结束后再发送"));
-    if (getAgentCapability(session.agent).continueRequiresAcp && (session.transport || existing?.transport) !== "acp") {
+    const cap = getAgentCapability(session.agent);
+    const transport = session.transport || existing?.transport || "";
+    const canResumeTransport = Array.isArray(cap.continueTransports)
+      ? cap.continueTransports.includes(transport)
+      : (!cap.continueRequiresAcp || transport === "acp");
+    if (!canResumeTransport) {
       throw new Error(t("这是 {agent} 桌面会话，请在客户端继续", { agent: AGENTS[session.agent]?.name || session.agent }));
     }
     let job = existing;
@@ -1038,7 +1112,10 @@ export class Delegator {
   async _performHandoff(opts) {
     const agent = opts.agent;
     const validExplicitCwd = validateExplicitCwd(opts.cwd);
-    const resolved = await this.resolveBlockContext(opts, t("要拖一个列表项"));
+    const resolved = await this.resolveBlockContext(
+      { ...opts, entryMapMode: typeof opts?.entryMapMode === "boolean" ? opts.entryMapMode : false },
+      t("要拖一个列表项"),
+    );
     const target = resolveDispatchFolder({
       settings: this.settings,
       explicitCwd: validExplicitCwd,
@@ -1195,6 +1272,11 @@ export class Delegator {
     } else if (agent === "gemini") {
       const m = model && model !== "gemini-default" ? model : "";
       preArgs = [...(m ? ["-m", m] : []), ...(this.C.gemini?.autoApprove ? ["-y"] : []), "-i"];
+    } else if (agent === "antigravity") {
+      const addDir = this.vaultPath && !sameFolder(cwd, this.vaultPath) ? ["--add-dir", this.vaultPath] : [];
+      const m = model && model !== "antigravity-default" ? model : "";
+      const eff = this.C.antigravity?.effort || "";
+      preArgs = [...addDir, ...(m ? ["--model", m] : []), ...(eff ? ["--effort", eff] : []), ...(this.C.antigravity?.autoApprove ? ["--dangerously-skip-permissions"] : []), ...extraArgs, "-i"];
     } else if (agent === "workbuddy") {
       const addDir = this.vaultPath && !sameFolder(cwd, this.vaultPath) ? ["--add-dir", this.vaultPath] : [];
       preArgs = [...addDir, "--"];
@@ -1300,7 +1382,7 @@ export class Delegator {
       if (lines.slice(block.start + 1, block.end + 1).some(l => J.parseLink(l)?.sid === sid)) return text;
       const indent = (lines[block.start].match(/^[ \t]*/) || [""])[0] + "\t";
       let link = linkLine(indent, job.agent, job.name, sid);
-      if (job.agent === "antigravity" && job.transport === "acp") link = link.replace("antigravity://open", J.deckSessionUrl("antigravity", sid));
+      if (job.agent === "antigravity" && (job.transport === "cli" || job.transport === "acp")) link = link.replace("antigravity://open", J.deckSessionUrl("antigravity", sid));
       if (job.agent === "workbuddy" && job.app === "cli") link = link.replace(/workbuddy:\/\/chat\/[^)]+/, J.deckSessionUrl("workbuddy", sid));
       lines.splice(block.start + 1, 0, link);
       if (this.C.markStatus) lines[block.start] = markDelegated(lines[block.start]);

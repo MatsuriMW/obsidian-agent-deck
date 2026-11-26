@@ -547,17 +547,22 @@ function buildDecorations(view, plugin) {
         if (!prog && typeof Decoration.line === "function" && (RESULT_LINE_RE.test(text) || SUB_LINE_RE.test(text))) {
           builder.add(line.from, line.from, Decoration.line({ class: "ad-said" }));
         }
-        if (prog) {
-          builder.add(line.to, line.to, Decoration.widget({ widget: new LineProgressWidget(plugin, path, n, prog), side: 1, block: false }));
-        } else if (state && !J.isDoneLine(text)) {
+        const isBgJob = state?.job?.destination === "background";
+        if (!prog && state && !J.isDoneLine(text) && !isBgJob) {
           const widget = new PillWidget(plugin, path, n, state);
           builder.add(line.to, line.to, Decoration.widget({ widget, side: 1, block: false }));
         }
         // 光标所在的段落都出委派箭头：任务行、AI 记录行（💬 / ⏱ / 🔗 回传日志）、普通段落一视同仁，
-        // 顶层的 AI 记录父行也照给。RangeSetBuilder 要求按 from 递增加入，所以这一段必须放在本行其他
-        // 装饰（行首的 ad-said、行尾的 pill）之后，否则光标停在 💬 行上会抛 "Ranges must be added sorted"。
+        // 顶层的 AI 记录父行也照给。RangeSetBuilder 要求按 from/side 递增加入：行尾小图标与折叠/视图切换按钮（side 1..4）
+        // 紧跟标题文字同行显示，全宽进度条或后台进度块置于最后（side: 6）单独换落下一行，避免把标题小箭头挤到下一行。
         if (n === cursorLine && plugin.settings.dragGrip !== false && text.trim() && !/^\s*<!--/.test(text)) {
           builder.add(line.to, line.to, Decoration.widget({ widget: new GripWidget(plugin, path, n, text), side: 1, block: false }));
+        }
+        if (prog) {
+          builder.add(line.to, line.to, Decoration.widget({ widget: new LineProgressWidget(plugin, path, n, prog), side: 6, block: false }));
+        } else if (state && !J.isDoneLine(text) && isBgJob) {
+          const widget = new PillWidget(plugin, path, n, state);
+          builder.add(line.to, line.to, Decoration.widget({ widget, side: 6, block: false }));
         }
       }
       if (line.to >= to) break;

@@ -340,7 +340,15 @@ test("Settings Recording page renders multi-select Grok Bot filter and updates g
   assert.ok(rulesSection, "record-rules subsection renders inside Recording settings");
   const ruleToggles = rulesSection.all().filter((el) => el.classList.contains("ad-switch"));
   const ruleInputs = rulesSection.all().filter((el) => el.tag === "input");
-  assert.equal(ruleToggles.length, 3, "boldTitle, projectPrefix, showTimeRange toggles exist");
+  assert.equal(ruleToggles.length, 2, "boldTitle and projectPrefix toggles exist in record-rules");
+  assert.equal(settings.recordRules.showTimeRange, false, "default timing scheme is Spiral child mode");
+  const legacyTimingBtn = body.all().find((el) => el.tag === "button" && el.textContent === "行首 HH:MM-HH:MM（传统）");
+  const childTimingBtn = body.all().find((el) => el.tag === "button" && el.textContent === "子块 ⏱（默认 · 与螺旋日程一致）");
+  assert.ok(legacyTimingBtn && childTimingBtn, "two selectable session timing buttons render in Recording settings");
+  legacyTimingBtn.onclick();
+  assert.equal(settings.recordRules.showTimeRange, true);
+  childTimingBtn.onclick();
+  assert.equal(settings.recordRules.showTimeRange, false);
   assert.equal(ruleInputs.length, 2, "titleMax and autoLogGrokBotDoneMinutes number inputs exist");
   ruleToggles[0].onclick();
   assert.equal(settings.recordRules.boldTitle, false);
@@ -404,7 +412,7 @@ test("AutoLog prefixes Grok Bot titles with 'bot -> title' and auto-marks DONE a
   };
 
   await al.run({ manual: true });
-  assert.ok(noteText.includes("DONE 🤖 07:00-07:15 **boss -> 跟进简历投递**"), `expected DONE line with bot prefix, got:\n${noteText}`);
+  assert.ok(noteText.includes("DONE 🤖 **boss -> 跟进简历投递**") && noteText.includes("\t- ⏱ 07:00–07:15"), `expected DONE line with bot prefix and clock child, got:\n${noteText}`);
   assert.equal(settings.autoLogState[today]["bot-boss"].status, "done");
 
   // Later same day (10:15): user chats again with boss -> creates new active DOING block without touching earlier DONE block
@@ -421,6 +429,6 @@ test("AutoLog prefixes Grok Bot titles with 'bot -> title' and auto-marks DONE a
     return out;
   };
   await al.run({ manual: true });
-  assert.ok(noteText.includes("DONE 🤖 07:00-07:15 **boss -> 跟进简历投递**"));
-  assert.ok(noteText.includes("DOING 🤖 07:00-10:14 **boss -> 查新心文化回复**"), `expected new DOING line, got:\n${noteText}`);
+  assert.ok(noteText.includes("DONE 🤖 **boss -> 跟进简历投递**"));
+  assert.ok(noteText.includes("DOING 🤖 **boss -> 查新心文化回复**") && noteText.includes("\t- ⏱ "), `expected new DOING line, got:\n${noteText}`);
 });

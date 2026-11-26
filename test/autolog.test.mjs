@@ -85,7 +85,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   al.ask = async (items) => { asked = items.map((i) => i.x.sid); return new Map(items.map(({ x }) => [x.sid, { label: "整理会话", summary: "", matchKey: null, done: false, todos: [], skip: false }])); };
   await al.run();
   check("minMinutes=1 lets 2-minute session in; disabled agent skipped", asked.join() === "a-short", asked);
-  check("auto item written for antigravity session", /DOING 🤖 \d\d:\d\d-\d\d:\d\d \*\*整理会话\*\* \^agy-/.test(p.journal), p.journal);
+  check("auto item written for antigravity session", /DOING 🤖 \*\*整理会话\*\* \^agy-/.test(p.journal) && p.journal.includes("\t- ⏱ "), p.journal);
 }
 { // 默认 1 分钟门槛
   const p = fakePlugin("", [
@@ -138,11 +138,11 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   } };
   const js = new JournalSync(p);
   let out = js.keywords(text);
-  check("auto item DOING → TOREVIEW when session waits", out.startsWith("- TOREVIEW 🤖 10:00-10:00 写测试 ^ad-aaaaaa\n"), out);
+  check("auto item DOING → TOREVIEW when session waits", out.startsWith("- TOREVIEW 🤖 写测试 ^ad-aaaaaa\n"), out);
   check("PAUSED auto item untouched", out.includes("- PAUSED 🤖 另一件 ^ad-bbbbbb"), out);
   p.usage.meta.get(sid).state = "run";
   out = js.keywords(out);
-  check("auto item TOREVIEW → DOING when session runs again", out.startsWith("- DOING 🤖 10:00-10:00 写测试 ^ad-aaaaaa\n"), out);
+  check("auto item TOREVIEW → DOING when session runs again", out.startsWith("- DOING 🤖 写测试 ^ad-aaaaaa\n"), out);
   p.settings.autoLogKw = false;
   p.usage.meta.get(sid).state = "wait";
   check("autoLogKw=false leaves it alone", js.keywords(out) === out, js.keywords(out));
@@ -159,11 +159,12 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
 {
   const sid = "11111111-2222-4333-8444-555555555555";
   const cfg = { dayCutoff: 0 };
-  const now = Date.now();
+  const now = Math.floor(Date.now() / 60000) * 60000 + 20000;
   const startAt = now - 20 * 60000, lastAt = now - 2 * 60000;
-  const start = fmtClock(startAt), observed = fmtClock(lastAt);
+  const startMin = dayMinute(startAt, cfg), lastMin = dayMinute(lastAt, cfg);
+  const start = J.clock(startMin), observed = J.clock(lastMin);
   const current = fmtClock(now);
-  const x = { sid, agent: "codex", segs: [[dayMinute(startAt, cfg), dayMinute(lastAt, cfg)]] };
+  const x = { sid, agent: "codex", segs: [[startMin, lastMin]] };
   const p = fakePlugin("", [x], { [sid]: { agent: "codex", state: "run", startedAt: startAt, lastAt } }, cfg);
   const al = new AutoLog(p);
   const sync = new JournalSync(p);
@@ -171,15 +172,22 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const raw = `- DOING ${start} 沿用原有任务 ^ad-adopted`;
   const linked = raw + "\n" + J.linkLine("  ", "codex", "沿用原有任务", sid);
   const auto = `- DOING 🤖 ${start}-${observed} 自动记录 ^ad-auto`;
+  // Default child scheme (showTimeRange=false): preserves parent clock & writes child - ⏱
   const adopted = al.autoLine(raw, rec, x, "doing").text;
-  check("running adopted task gets both timestamps", adopted.startsWith(`- DOING ${start}-${current} 沿用原有任务`), adopted);
+  check("running manual task keeps original timestamp", adopted.startsWith(`- DOING ${start} 沿用原有任务`), adopted);
   const fromLink = sync.keywords(linked);
-  check("running linked task uses the same range", fromLink.startsWith(adopted + "\n"), fromLink);
+  check("running linked manual task preserves parent clock and writes clock child",
+    fromLink.startsWith(adopted + "\n") && fromLink.includes(`⏱ ${start}–${observed}`), fromLink);
+  // Legacy inline scheme (showTimeRange=true): restores inline HH:MM-HH:MM on both auto and manual linked lines
+  p.settings.recordRules = { ...p.settings.recordRules, showTimeRange: true };
+  const adoptedInline = al.autoLine(raw, rec, x, "doing").text;
+  check("legacy inline mode writes start-current on running manual task", adoptedInline.startsWith(`- DOING ${start}-${current} 沿用原有任务`), adoptedInline);
   const running = al.autoLine(auto, { key: "自动记录", blockId: "ad-auto" }, x, "doing").text;
-  check("running automatic task advances to the refresh time", running.includes(`🤖 ${start}-${current}`), running);
+  check("running automatic task advances to the refresh time when showTimeRange=true", running.includes(`🤖 ${start}-${current}`), running);
   p.usage.meta.get(sid).state = "wait";
   const stopped = sync.keywords(fromLink);
-  check("when the session stops the range ends at the last actual event", stopped.startsWith(`- TOREVIEW ${start}-${observed} 沿用原有任务`), stopped);
+  check("legacy inline mode writes last actual event range when stopped",
+    stopped.startsWith(`- TOREVIEW ${start}-${observed} 沿用原有任务`), stopped);
   p.settings.autoLogState = { [p.day]: { [sid]: { key: "🤖 自动记录", blockId: "ad-auto", label: "🤖 自动记录", status: "doing" } } };
   p.journal = sync.keywords(running);
   await al.run();
@@ -208,7 +216,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const p = fakePlugin("", [x], {}, {autoLogProvider:"codex",autoLogPath:"/nonexistent/agent-deck-test-cli"});
   const al = new AutoLog(p);
   const r = await al.run({fallback:true});
-  check("CLI failure falls back to title and reports error", /DOING 🤖 \d\d:\d\d-\d\d:\d\d \*\*修复配置\*\*/.test(p.journal) && !!r.error, {journal:p.journal,error:r.error});
+  check("CLI failure falls back to title and reports error", /- DOING 🤖 \*\*修复配置\*\*/.test(p.journal) && p.journal.includes("\t- ⏱ ") && !!r.error, {journal:p.journal,error:r.error});
 }
 { // 归档时长不足也建项，并且最终直接 DONE
   const x = {sid:"archive-short",agent:"antigravity",min:1,segs:nowSegs(1)};
@@ -216,7 +224,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const al = new AutoLog(p);
   al.ask = async () => new Map([[x.sid,{label:"归档测试",todos:[]}]]);
   await al.run();
-  check("archived short session bypasses threshold and records DONE", /- DONE 🤖 \d\d:\d\d-\d\d:\d\d \*\*归档测试\*\*/.test(p.journal) && p.journal.includes("⏱"), p.journal);
+  check("archived short session bypasses threshold and records DONE", /- DONE 🤖 \*\*归档测试\*\*/.test(p.journal) && p.journal.includes("⏱"), p.journal);
 }
 { // 今天的日记还没有：按「日记」核心插件的模板建一篇，再照常写入；新默认值也跟着走
   check("automatic session recording is on by default", DEFAULTS.autoLog === true, DEFAULTS.autoLog);
@@ -231,7 +239,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   check("missing journal is created as a note", !!created, [...p.files.keys()]);
   check("created journal carries the daily-note template with variables filled in",
     p.journal.startsWith(`# ${p.day}\n\n日期：`) && /^日期：\d{4}\/\d\d\/\d\d \d\d:\d\d$/m.test(p.journal) && !p.journal.includes("{{"), p.journal);
-  check("created journal then receives the session block", /DOING 🤖 \d\d:\d\d-\d\d:\d\d \*\*新建日记\*\*/.test(p.journal) && !r.error, { journal: p.journal, error: r.error });
+  check("created journal then receives the session block", /DOING 🤖 \*\*新建日记\*\*/.test(p.journal) && p.journal.includes("\t- ⏱ ") && !r.error, { journal: p.journal, error: r.error });
 }
 { // 没配日记模板时建空笔记，分区骨架由 placeBlock 生成
   const x = { sid: "create-empty", agent: "codex", min: 6, segs: nowSegs(6), title: "空模板" };
@@ -308,7 +316,7 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const al = new AutoLog(p);
   al.nowMin = () => 700;
   await al.run({ fallback: true });
-  check("PAUSED auto record includes 🤖 + start-end time + summarized title", /- PAUSED 🤖 10:00-10:25 \*\*克隆 chuanhugpt\*\* \^codex-/.test(p.journal), p.journal);
+  check("PAUSED auto record includes 🤖 + ⏱ child clock + summarized title", /- PAUSED 🤖 \*\*克隆 chuanhugpt\*\* \^codex-/.test(p.journal) && p.journal.includes("\t- ⏱ 10:00–10:25"), p.journal);
 }
 
 
@@ -513,12 +521,47 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   const js = new JournalSync(p);
   const multiNote = `- DOING 🤖 10:00-10:12 联合任务 ^ad-multi\n\t- 🔗 [Codex](codex://threads/${sid2})\n\t- 🔗 [Claude](claude://resume?session=${sid1})\n`;
   const multiOut = js.keywords(multiNote);
-  check("multi-session archive uses latest conversation end time instead of bottom link or archive time", multiOut.includes("- DONE 🤖 10:00-10:28 联合任务"), multiOut);
+  check("multi-session archive uses latest conversation end time instead of bottom link or archive time", multiOut.includes("- DONE 🤖 联合任务") && multiOut.includes("\t- ⏱ 10:00–10:28"), multiOut);
 
+  p.settings.recordRules = { ...p.settings.recordRules, showTimeRange: true };
   const al = new AutoLog(p);
   const pastNote = "- PAUSED 🤖 10:00-10:05 跨天归档 ^ad-past\n";
   const res = al.autoLine(pastNote, { key: "跨天归档", blockId: "ad-past", slug: "past" }, { sid: sid1, agent: "claude", segs: [] }, "done");
   check("autolog archive falls back to meta lastAt instead of stale p.until", res.text.startsWith("- DONE 🤖 10:00-10:12 跨天归档 ^ad-past"), res.text);
+}
+
+{ // 与螺旋日程同一套会话计时：真实会话分段与多会话并集决定 ⏱，绝不因用户标 DONE 或延后归档拉长时长
+  const sidA = "aaaa1111-1111-1111-1111-111111111111";
+  const sidB = "bbbb2222-2222-2222-2222-222222222222";
+  const p = fakePlugin("", [
+    { sid: sidA, agent: "claude", min: 20, segs: [[600, 620]], out: 1000, fresh: 200 }, // 10:00-10:20
+    { sid: sidB, agent: "codex", min: 20, segs: [[610, 630]], out: 500, fresh: 0 },    // 10:10-10:30 (10m overlap -> 30m union)
+  ], {
+    // 模拟 5 小时后才归档/点 DONE（lastAt 被外部刷新到 15:40），仍应只记 10:00–10:30 · 共 30m
+    [sidA]: { agent: "claude", state: "wait", lastAt: Date.now() },
+    [sidB]: { agent: "codex", state: "wait", lastAt: Date.now() },
+  }, { dayCutoff: 0 });
+  p.usage.archivedClaude.add(sidA);
+  p.usage.archived.add(sidB);
+  const js = new JournalSync(p);
+  const note = `- DOING 🤖 统一计时 ^ad-u1\n\t- 🔗 [Claude](claude://resume?session=${sidA})\n\t- 🔗 [Codex](codex://threads/${sidB})\n`;
+  const finished = js.keywords(note);
+  check("finish unions multi-session segs and ignores late archive time",
+    finished.includes("- DONE 🤖 统一计时\n") && finished.includes("⏱ 10:00–10:30 · 共 30m · 2k tok · Claude / Codex"),
+    finished
+  );
+
+  // 用户手动标 DONE 的 AutoLog 条目同样写出按 AI_IDLE=5 汇总的 ⏱
+  const sidM = "manual-done-seg";
+  const pm = fakePlugin("- DONE **手动点完成** ^codex-mandone\n", [{ sid: sidM, agent: "codex", min: 15, segs: [[660, 675]], out: 400, fresh: 0 }], {
+    [sidM]: { agent: "codex", state: "wait", lastAt: Date.now() },
+  }, { dayCutoff: 0 });
+  pm.settings.autoLogState = { [pm.day]: { [sidM]: { key: "**手动点完成**", label: "**手动点完成**", blockId: "codex-mandone", agent: "codex", status: "doing" } } };
+  await new AutoLog(pm).run();
+  check("manual DONE AutoLog entry keeps DONE keyword and writes exact session segs to ⏱",
+    pm.journal.includes("- DONE **手动点完成**") && pm.journal.includes("\t- ⏱ 11:00–11:15 · 共 15m · 400 tok · Codex"),
+    pm.journal
+  );
 }
 
 { // 口语过滤 & 跨零点会话保留在前一天位置，过了零点的新会话去新一天
@@ -567,7 +610,8 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   check("cross-day conversation stays in yesterday's journal and is not duplicated in today's journal",
     !files[`日记/${today}.md`].includes("跨夜任务")
     && files[`日记/${today}.md`].includes("新的一天任务")
-    && files[`日记/${yesterday}.md`].includes("23:40-00:10 跨夜任务")
+    && files[`日记/${yesterday}.md`].includes("跨夜任务")
+    && files[`日记/${yesterday}.md`].includes("⏱ 23:40–00:10")
     && files[`日记/${yesterday}.md`].includes("继续排查构建"),
     files);
 }
@@ -601,20 +645,20 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   }]));
   await al.run();
   check("blocked sessions record NEEDOK/ERRORED/HITLIMIT/QUEUED instead of PAUSED",
-    p.journal.includes("- NEEDOK 🤖 10:00-10:05 **需授权操作**")
-    && p.journal.includes("- ERRORED 🤖 10:10-10:15 **编译报错**")
-    && p.journal.includes("- HITLIMIT 🤖 10:20-10:25 **额度用尽**")
-    && p.journal.includes("- QUEUED 🤖 10:30-10:35 **排队等待**"),
+    p.journal.includes("- NEEDOK 🤖 **需授权操作**")
+    && p.journal.includes("- ERRORED 🤖 **编译报错**")
+    && p.journal.includes("- HITLIMIT 🤖 **额度用尽**")
+    && p.journal.includes("- QUEUED 🤖 **排队等待**"),
     p.journal);
   check("model done=true inactive session moves to TOREVIEW while normal wait stays PAUSED",
-    p.journal.includes("- TOREVIEW 🤖 10:40-10:46 **整件事已完成**")
-    && p.journal.includes("- PAUSED 🤖 10:50-10:56 **中途暂歇**"),
+    p.journal.includes("- TOREVIEW 🤖 **整件事已完成**")
+    && p.journal.includes("- PAUSED 🤖 **中途暂歇**"),
     p.journal);
   // Second pass with no changes keeps TOREVIEW and NEEDOK intact without flipping to DOING.
   await al.run();
   check("second pass preserves TOREVIEW and NEEDOK without false user-edit hold",
-    p.journal.includes("- TOREVIEW 🤖 10:40-10:46 **整件事已完成**")
-    && p.journal.includes("- NEEDOK 🤖 10:00-10:05 **需授权操作**"),
+    p.journal.includes("- TOREVIEW 🤖 **整件事已完成**")
+    && p.journal.includes("- NEEDOK 🤖 **需授权操作**"),
     p.journal);
   // Resuming blk-perm and done-rev switches them back to DOING.
   p.usage.meta.get("blk-perm").state = "run";
@@ -623,8 +667,10 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   list[4].segs = [[640, 700]];
   await al.run();
   check("resumed blocked and TOREVIEW items switch back to DOING",
-    p.journal.includes("- DOING 🤖 10:00-11:40 **需授权操作**")
-    && p.journal.includes("- DOING 🤖 10:40-11:40 **整件事已完成**"),
+    p.journal.includes("- DOING 🤖 **需授权操作**")
+    && p.journal.includes("- DOING 🤖 **整件事已完成**")
+    && p.journal.includes("\t- ⏱ 10:00–11:40")
+    && p.journal.includes("\t- ⏱ 10:40–11:40"),
     p.journal);
 }
 { // 同一个会话被模型换了标题：按会话认领已有条目，不能再建第二个

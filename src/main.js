@@ -38,6 +38,7 @@ import { evaluatePermissionPolicy, spawnCli, killChildProcess } from "./security
 import { runSecurityAudit, renderSecurityAuditReport, parseAuditConfig } from "./security-audit.js";
 import { computeTaskMetrics } from "./task-metrics.js";
 import { readRecentTraces, checkExternalAssets, buildDiagnosticReport } from "./trace.js";
+import { contextCore, resolvePluginScriptsDir, resolveNodeBinary, buildMcpArgs } from "./context-core/index.js";
 import { Delegator, blockAt, paragraphBlock, freshTaskText, stripInternalIdentifiers, ancestorLines, delegationText, findDraftLink, openSession as openSessionRaw, openExternal as openExternalRaw, openTerminal, findAgentBinary, findLink, sessionDeepLink, openAgentApp, isCliSession, isCodexDesktop } from "./delegation.js";
 import { pickPermissionOption, cleanEnv, resolveExecutableWithFallback, uninstalledAgentsFor } from "./delegation-runners.js";
 import { AgentDeckView, VIEW_TYPE } from "./view.js";
@@ -74,6 +75,7 @@ import { buildPlanMarkdown, parsePlan, planSlug, plannerFixPrompt, plannerPrompt
 import { buildWorkbenchNote } from "./workbench-note.js";
 import { SKILL_DIR, cardPathOf, nextCardContent, scanSkills, skillIndexMarkdown } from "./skill-cards.js";
 import { MEMORY_BOARD_TYPE, MemoryBoardView } from "./memory-board.js";
+import { MEMORY_GRAPH_TYPE, MemoryGraphView } from "./memory-graph-view.js";
 import { MemoryReviewModal } from "./memory-review.js";
 import { MemoryCreateModal, MemoryImportModal } from "./memory-import.js";
 import { registerContextResolver } from "./harness.js";
@@ -198,6 +200,7 @@ export default class AgentDeckPlugin extends Plugin {
     this.manifestDir = this.manifest.dir || `.obsidian/plugins/${this.manifest.id}`;
     this.pluginDir = path.join(this.vaultPath, this.manifestDir);
     this.usageFile = path.join(this.pluginDir, "usage.json");
+    this.contextCore = contextCore;
     this.reloadLocales();
 
     this.store = new UsageStore(this, this.settings);
@@ -255,6 +258,7 @@ export default class AgentDeckPlugin extends Plugin {
 
     this.registerView(VIEW_TYPE, (leaf) => new AgentDeckView(leaf, this));
     this.registerView(MEMORY_BOARD_TYPE, (leaf) => new MemoryBoardView(leaf, this));
+    this.registerView(MEMORY_GRAPH_TYPE, (leaf) => new MemoryGraphView(leaf, this));
     this.registerView(REPLY_INBOX_TYPE, (leaf) => new ReplyInboxView(leaf, this));
     this.addRibbonIcon("message-square-dot", t("回复信箱"), () => this.openReplyInbox({ focus: true }));
     this.registerView(DASHBOARD_TYPE, (leaf) => new DashboardView(leaf, this));
@@ -510,11 +514,12 @@ export default class AgentDeckPlugin extends Plugin {
     this.addCommand({ id: "memory-archive-deprecated", name: t("记忆：归档超期失效记忆到 archive/"), callback: () => this.archiveDeprecatedMemories() });
     this.addCommand({ id: "memory-restore-archived", name: t("记忆：恢复当前这条已归档记忆"), callback: () => this.restoreCurrentArchivedMemory() });
     this.addCommand({ id: "memory-polish-titles", name: t("记忆：用模型润色图谱短命题文件名"), callback: () => this.polishMemoryShortTitles() });
-    this.addCommand({ id: "memory-copy-mcp", name: t("记忆：复制外部 Agent MCP 接入配置"), callback: () => this.copyMcpConfig("json") });
+    this.addCommand({ id: "memory-copy-mcp", name: t("记忆：复制外部 Agent MCP 接入配置"), callback: () => this.copyMcpConfig("json", { allowWrite: Boolean(this.settings?.dream?.mcp?.allowWrite) }) });
     this.addCommand({ id: "plan-task", name: t("规划：把当前这一条拆成 task.md（自带看板结构）"), callback: () => this.planTask() });
     this.addCommand({ id: "board-file-toggle", name: t("看板：把当前笔记设为 / 取消看板文件"), callback: () => this.toggleBoardFile() });
     this.addCommand({ id: "workbench-note", name: t("工作台：刷新总览（看板 / 记忆 / 规划）"), callback: () => this.refreshWorkbenchNote() });
     this.addCommand({ id: "memory-board-open", name: t("记忆：打开记忆看板（按状态分列，可拖拽）"), callback: () => this.openMemoryBoard() });
+    this.addCommand({ id: "memory-graph-open", name: t("打开记忆图谱"), callback: () => this.openMemoryGraph() });
     this.addCommand({ id: "payload-archive", name: t("派发载荷：归档 30 天前的旧文件"), callback: () => this.archivePayloads() });
     this.addCommand({ id: "payload-edited", name: t("派发载荷：列出被改过的载荷"), callback: () => this.listEditedPayloads() });
     this.addCommand({ id: "draft-delegation", name: t("委派：先生成草稿（不发送，看完再点委派）"), callback: () => this.makeDispatchDraft() });
@@ -708,20 +713,34 @@ export default class AgentDeckPlugin extends Plugin {
     }
   }
 
+  resolveMcpPaths() {
+    const scriptsDir = resolvePluginScriptsDir(this.vaultPath, {
+      configDir: this.app?.vault?.configDir || "",
+      fallbackDir: this.manifest?._sourceDir ? path.join(this.manifest._sourceDir, "scripts") : "",
+    });
+    return {
+      scriptsDir,
+      mcpScript: path.join(scriptsDir, "memory-mcp.mjs"),
+      mqScript: path.join(scriptsDir, "memory-query.mjs"),
+    };
+  }
+
   async copyMcpConfig(format = "json", { allowWrite = false } = {}) {
-    const mcpScript = path.join(this.vaultPath, ".obsidian", "plugins", "agent-deck", "scripts", "memory-mcp.mjs");
-    const mqScript = path.join(this.vaultPath, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
-    const args = allowWrite ? [mcpScript, "--vault", this.vaultPath, "--allow-write"] : [mcpScript, "--vault", this.vaultPath];
+    const { mcpScript, mqScript } = this.resolveMcpPaths();
+    const nodeCmd = resolveNodeBinary() || "node";
+    const cfgDir = this.app?.vault?.configDir || "";
+    const args = buildMcpArgs(mcpScript, this.vaultPath, Boolean(allowWrite), cfgDir);
+    const extraCfg = args.includes("--config-dir") ? ` --config-dir "${args[args.indexOf("--config-dir") + 1]}"` : "";
     let text = "";
     if (format === "claude") {
-      text = `claude mcp add agent-deck-memory -- node "${mcpScript}" --vault "${this.vaultPath}"${allowWrite ? " --allow-write" : ""}`;
+      text = `claude mcp add agent-deck-memory -- node "${mcpScript}" --vault "${this.vaultPath}"${extraCfg}${allowWrite ? " --allow-write" : ""}`;
     } else if (format === "cli") {
-      text = `node "${mqScript}" search "关键词" --vault "${this.vaultPath}"`;
+      text = `node "${mqScript}" search "关键词" --vault "${this.vaultPath}"${extraCfg}`;
     } else {
       text = JSON.stringify({
         mcpServers: {
           "agent-deck-memory": {
-            command: "node",
+            command: nodeCmd,
             args,
           },
         },
@@ -824,9 +843,19 @@ export default class AgentDeckPlugin extends Plugin {
     return leaf.view?.refresh?.();
   }
 
+  async openMemoryGraph() {
+    const existing = this.app.workspace.getLeavesOfType(MEMORY_GRAPH_TYPE)[0];
+    const leaf = existing || this.app.workspace.getLeaf(false);
+    if (!existing) await leaf.setViewState({ type: MEMORY_GRAPH_TYPE, active: true });
+    this.app.workspace.revealLeaf(leaf);
+    return leaf.view?.refresh?.({ fit: true });
+  }
+
   async refreshMemoryBoards() {
-    for (const leaf of this.app.workspace.getLeavesOfType(MEMORY_BOARD_TYPE)) {
-      await leaf.view?.refresh?.();
+    for (const type of [MEMORY_BOARD_TYPE, MEMORY_GRAPH_TYPE]) {
+      for (const leaf of this.app.workspace.getLeavesOfType(type)) {
+        await leaf.view?.refresh?.();
+      }
     }
   }
 
@@ -1964,6 +1993,36 @@ export default class AgentDeckPlugin extends Plugin {
   primaryAgents() { return (this.settings.primaryAgents || []).filter((x) => AGENTS[x]).slice(0, 3); }
   isPrimary(agent) { return this.primaryAgents().includes(agent); }
   agentEnabled(agent) { return this.isPrimary(agent) || (this.settings.agents || {})[agent] !== false; }
+  agentCatalog() {
+    const out = {};
+    for (const id of AGENT_ORDER) {
+      const a = AGENTS[id];
+      if (!a) continue;
+      out[id] = { id, name: a.name, short: a.short || a.name, color: a.color || "#6f86a8" };
+    }
+    return out;
+  }
+  spiralUsageSnapshot(format = "YYYY_MM_DD") {
+    const fmt = String(format || "YYYY_MM_DD");
+    const mapKey = (k) => {
+      const m = /^(\d{4})_(\d{2})_(\d{2})$/.exec(String(k || ""));
+      return m ? fmt.replace("YYYY", m[1]).replace("MM", m[2]).replace("DD", m[3]) : String(k || "");
+    };
+    const days = {};
+    for (const [k, raw] of Object.entries(this.store?.days || {})) {
+      if (raw) days[mapKey(k)] = raw;
+    }
+    const today = dayKey(Date.now(), this.settings);
+    const liveToday = this.usage?.summary?.(today);
+    if (liveToday) days[mapKey(today)] = liveToday;
+    return {
+      source: "agent-deck",
+      agents: this.agentCatalog(),
+      enabledAgents: AGENT_ORDER.filter((id) => this.agentEnabled(id)),
+      days,
+      ver: this.store?.summary || SUMMARY_VERSION,
+    };
+  }
   defaultTarget() { return pickDefaultDelegateTarget(this.settings, this.settings.delegate?.target); }
   detectedHarnesses({ refresh = false } = {}) {
     if (refresh || !this._detectedHarnesses) {
@@ -2260,7 +2319,7 @@ export default class AgentDeckPlugin extends Plugin {
 
   openSession(agent, sid, app, session) {
     const job = Object.values(this.jobs).find((j) => j.agent === agent && j.sessionId === sid);
-    if (agent === "antigravity" && job?.transport === "acp") return this.openConversation({ ...job, sid });
+    if (agent === "antigravity" && (job?.transport === "cli" || job?.transport === "acp")) return this.openConversation({ ...job, sid });
     if (job && ["claude", "codex", "qoder", "workbuddy"].includes(agent)) return this.openClientSession({ ...job, ...session, sid, agent });
     return openSessionRaw(this, agent, sid, app, session);
   }
@@ -2596,7 +2655,7 @@ export default class AgentDeckPlugin extends Plugin {
       const idx = lines.indexOf(srcLineText);
       if (idx >= 0) sLine = idx;
     }
-    const res = J.mergeTasks(text, sLine, dstLine);
+    const res = J.mergeTasks(text, sLine, dstLine, { showTimeRange: resolveRecordRules(this.settings).showTimeRange });
     if (res.error) return this.notice(res.error, 6000);
     const change = J.diffLines(text, res.text);
     if (change) view.editor.transaction({ changes: [change] });
@@ -2854,7 +2913,7 @@ export default class AgentDeckPlugin extends Plugin {
       let owner = n - 1;
       while (owner > block.start && (!lines[owner].trim() || width(lines[owner]) >= width(lines[n]))) owner--;
       if (owner !== block.start) continue;
-      const transport = link.agent === "antigravity" && /obsidian:\/\/agent-deck\?do=open&agent=antigravity&sid=/.test(lines[n]) ? "acp" : "";
+      const transport = link.agent === "antigravity" && /obsidian:\/\/agent-deck\?do=open&agent=antigravity&sid=/.test(lines[n]) ? "cli" : "";
       found.set(`${link.agent}:${link.sid}`, { ...this.usage.meta.get(link.sid), ...link, ...(transport ? { transport } : {}) });
     }
     for (const job of Object.values(this.jobs)) {
@@ -3660,7 +3719,9 @@ export default class AgentDeckPlugin extends Plugin {
 
     const head = J.flipToDone(lines[at]);
     if (!head) return this.notice(t("这一条已经是 DONE 了"));
-    const edited = [...lines.slice(0, at), head, ...lines.slice(at + 1)].join("\n");
+    const editedLines = [...lines.slice(0, at), head, ...lines.slice(at + 1)];
+    this.journalSync?.finalizeTaskClock?.(editedLines, at);
+    const edited = editedLines.join("\n");
 
     const plan = await this.journalPlan(file, edited);
     // When the layout has nothing to move, the flip itself is still the edit, so
@@ -5038,6 +5099,72 @@ export default class AgentDeckPlugin extends Plugin {
     await leaf.openFile(file, { eState: { line: Math.max(0, line) } });
   }
 
+  /** Resolve an Obsidian mirror embed line (`- ![[note#^blockId]]`) against its source note. */
+  async resolveMirrorLine(rawLine, sourcePath = "") {
+    const ref = J.parseMirrorRef(rawLine);
+    if (!ref) return null;
+    const dest = this.app?.metadataCache?.getFirstLinkpathDest?.(ref.target, sourcePath || "");
+    if (!dest?.path) return null;
+    let text = "";
+    try {
+      text = typeof this.readNote === "function"
+        ? await this.readNote(dest.path)
+        : await this.app?.vault?.cachedRead?.(dest);
+    } catch {
+      return null;
+    }
+    if (typeof text !== "string" || !text) return null;
+    const lines = text.replace(/\r\n/g, "\n").split("\n");
+    const task = J.findTaskByBlockId(text, ref.blockId);
+    let idx = task ? task.line : -1;
+    if (idx < 0) {
+      const fenced = J.fencedLines(lines);
+      idx = lines.findIndex((line, i) => !fenced.has(i) && J.blockIdOf(line) === ref.blockId);
+    }
+    if (idx < 0 || idx >= lines.length) return null;
+    const parsedKw = J.kwLine(lines[idx]);
+    return {
+      path: dest.path,
+      line: idx,
+      blockId: ref.blockId,
+      rawLine: lines[idx],
+      kw: parsedKw?.kw || task?.kw || "",
+      body: parsedKw?.body || task?.body || "",
+      target: ref.target,
+      alias: ref.alias || "",
+    };
+  }
+
+  /** Mutate the source block line referenced by `mirrorRef` (`{ path, blockId }`), idempotently. */
+  async updateMirrorBlock(mirrorRef, mutateLine) {
+    if (!mirrorRef?.path || !mirrorRef?.blockId || typeof mutateLine !== "function") {
+      return { ok: false, changed: false };
+    }
+    const result = { ok: false, changed: false, path: mirrorRef.path, line: -1, before: "", after: "" };
+    await updateNote(this, mirrorRef.path, (text) => {
+      const crlf = /\r\n/.test(text);
+      const lines = text.replace(/\r\n/g, "\n").split("\n");
+      const task = J.findTaskByBlockId(text, mirrorRef.blockId);
+      let idx = task ? task.line : -1;
+      if (idx < 0) {
+        const fenced = J.fencedLines(lines);
+        idx = lines.findIndex((line, i) => !fenced.has(i) && J.blockIdOf(line) === mirrorRef.blockId);
+      }
+      if (idx < 0 || idx >= lines.length) return text;
+      const before = lines[idx];
+      const next = mutateLine(before, idx, lines);
+      result.ok = true;
+      result.line = idx;
+      result.before = before;
+      result.after = typeof next === "string" ? next : before;
+      if (typeof next !== "string" || next === before) return text;
+      lines[idx] = next;
+      result.changed = true;
+      return lines.join(crlf ? "\r\n" : "\n");
+    });
+    return result;
+  }
+
   projectFolderSuggestions(limit = 8) {
     return recentProjectFolders(this.usage?.meta, { limit: limit * 2 })
       .filter((item) => !sameFolder(item.path, this.vaultPath) && !isTempPath(item.path))
@@ -5095,7 +5222,7 @@ export default class AgentDeckPlugin extends Plugin {
       const a = AGENTS[agent];
       const state = s.state || "idle";
       const kw = menuKeyword(state);
-      const acp = agent === "antigravity" && s.job?.transport === "acp";
+      const acp = agent === "antigravity" && (s.job?.transport === "cli" || s.job?.transport === "acp");
       const whereByAgent = {
         claude: s.app === "cli" ? t("终端") : t("桌面版"),
         qoder: s.app === "cli" ? t("终端") : t("桌面版"),
@@ -5103,7 +5230,7 @@ export default class AgentDeckPlugin extends Plugin {
         codex: isCodexDesktop(s.app) ? t("桌面版") : "CLI",
         hermes: s.app === "acp" ? t("后台执行") : "CLI",
         minimax: s.app === "acp" ? t("后台执行") : s.app === "cli" ? t("终端") : t("桌面版"),
-        antigravity: acp ? t("后台执行") : "IDE",
+        antigravity: acp ? t("后台执行") : s.app === "cli" ? "CLI" : "IDE",
         dsh: "Harness",
       };
       const where = s.isPendingJob ? t("待认领") : (whereByAgent[agent] || t("桌面版"));
@@ -5559,6 +5686,8 @@ export default class AgentDeckPlugin extends Plugin {
     const assetCheck = checkExternalAssets(this.vaultPath, {
       expectedMemoryQueryVersion: MEMORY_QUERY_ASSET_VERSION,
       expectedMemoryMcpVersion: MEMORY_MCP_ASSET_VERSION,
+      scriptsDir: this.resolveMcpPaths().scriptsDir,
+      configDir: this.app?.vault?.configDir || "",
     });
     const circuitBreakers = Object.fromEntries(
       Object.entries(this._faultBreakers || {}).map(([k, b]) => [k, b.snapshot()]),

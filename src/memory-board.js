@@ -86,6 +86,7 @@ export class MemoryBoardView extends ItemView {
     head.createSpan({ text: t("共 {n} 条（有效 {active} · 待确认 {pending}）", { n: this.entries.length, active: activeCount, pending: pendingCount }) });
 
     head.createEl("button", { text: t("刷新") }).addEventListener("click", () => this.refresh());
+    head.createEl("button", { text: t("知识图谱") }).addEventListener("click", () => this.plugin.openMemoryGraph?.());
     head.createEl("button", { text: t("+ 新建") }).addEventListener("click", () => this.plugin.openMemoryCreate?.(() => this.refresh()));
     head.createEl("button", { text: t("导入…") }).addEventListener("click", () => this.plugin.openMemoryImport?.([], { onImported: () => this.refresh() }));
     if (this.plugin?.dreaming?.storeMode) {

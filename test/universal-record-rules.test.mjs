@@ -26,28 +26,32 @@ for(const agent of agents)test(`${agent}: shared journal rules preserve semantic
 });
 
 test('recordRules layer: defaults, clamping, boldAutoTitle idempotency, mergeTasks, bindInto & AutoLog toggles', async () => {
- assert.deepEqual(DEFAULT_RECORD_RULES, { boldTitle: true, projectPrefix: true, showTimeRange: true, titleMax: 22 });
+ assert.deepEqual(DEFAULT_RECORD_RULES, { boldTitle: true, projectPrefix: true, showTimeRange: false, titleMax: 22 });
  assert.deepEqual(resolveRecordRules({}), DEFAULT_RECORD_RULES);
- assert.deepEqual(resolveRecordRules({ recordRules: { boldTitle: false, projectPrefix: false, showTimeRange: false, titleMax: 99 } }), { boldTitle: false, projectPrefix: false, showTimeRange: false, titleMax: 60 });
+ assert.deepEqual(resolveRecordRules({ recordRules: { boldTitle: false, projectPrefix: false, showTimeRange: true, titleMax: 99 } }), { boldTitle: false, projectPrefix: false, showTimeRange: true, titleMax: 60 });
  assert.equal(resolveRecordRules({ recordRules: { titleMax: 3 } }).titleMax, 22);
  assert.equal(J.boldAutoTitle('修复缓存'), '**修复缓存**');
  assert.equal(J.boldAutoTitle('**修复缓存**'), '**修复缓存**', 'boldAutoTitle must not double-wrap ****');
  assert.equal(J.formatProjectAutoTitle('**agent-deck -> 修复缓存问题**', 'agent-deck', 22), 'agent-deck -> 修复缓存问题');
 
- // bindInto honors recordRules (boldTitle off, showTimeRange off, custom titleMax)
+ // bindInto honors recordRules (default showTimeRange=false, explicit showTimeRange=true, boldTitle off, custom titleMax)
  const longTitle = '实现一套可配置且极其详细的自动记录格式规则系统以便测试长度限制';
  const bindDefault = J.bindInto('', 0, { agent: 'codex', sid: '00000000-0000-0000-0000-000000000001', title: '修复缓存', since: '09:00', until: '09:15', state: 'run' });
- assert.ok(bindDefault.text.startsWith('- DOING 🤖 09:00-09:15 **修复缓存**'));
+ assert.ok(bindDefault.text.startsWith('- DOING 🤖 **修复缓存**'));
+ const bindWithRange = J.bindInto('', 0, { agent: 'codex', sid: '00000000-0000-0000-0000-000000000003', title: '修复缓存', since: '09:00', until: '09:15', state: 'run' }, { rules: { showTimeRange: true } });
+ assert.ok(bindWithRange.text.startsWith('- DOING 🤖 09:00-09:15 **修复缓存**'));
  const bindCustom = J.bindInto('', 0, { agent: 'codex', sid: '00000000-0000-0000-0000-000000000002', title: longTitle, since: '09:00', until: '09:15', state: 'run' }, { rules: { boldTitle: false, showTimeRange: false, titleMax: 10 } });
  const firstLine = bindCustom.text.split('\n')[0];
  assert.equal(firstLine, '- DOING 🤖 实现一套可配置且极其', `got: ${firstLine}`);
  assert.ok(!firstLine.includes('**') && !firstLine.includes('09:00-09:15'));
 
- // mergeTasks between two AI lines does not duplicate 🤖 / HH:MM-HH:MM
+ // mergeTasks between two AI lines honors showTimeRange and does not duplicate 🤖 / HH:MM-HH:MM
  const merged = J.mergeTasks('- DOING 🤖 09:05-09:20 **任务B** ^ad-b\n', 0, 1, {});
  assert.equal(merged.error !== undefined, true);
  const twoTasks = '- DOING 🤖 09:00-09:10 **任务A** ^ad-a\n- DOING 🤖 09:05-09:20 **任务B** ^ad-b\n';
- const mOk = J.mergeTasks(twoTasks, 1, 0);
+ const mDefault = J.mergeTasks(twoTasks, 1, 0);
+ assert.equal(mDefault.text.split('\n')[0], '- DOING 🤖 **任务A** ^ad-a');
+ const mOk = J.mergeTasks(twoTasks, 1, 0, { showTimeRange: true });
  assert.equal(mOk.text.split('\n')[0], '- DOING 🤖 09:00-09:20 **任务A** ^ad-a');
 
  // AutoLog honors recordRules: boldTitle=false, projectPrefix=false, showTimeRange=false across multiple ticks
@@ -65,11 +69,13 @@ test('recordRules layer: defaults, clamping, boldAutoTitle idempotency, mergeTas
  res = alOff.autoLine(note, rec, { ...x, segs: [[540, 560]] }, 'paused');
  assert.ok(res.text.startsWith('- PAUSED 🤖 测试规则开关持久化验 ^codex-'), `tick 2: ${res.text}`);
 
- // showTimeRange=false strips old parent time range and syncs live - ⏱ child in JournalSync / planJournal
+ // showTimeRange=false strips old parent time range and syncs live - ⏱ child; showTimeRange=true restores legacy inline HH:MM-HH:MM on both auto and direct lines
  const stripped = J.formatSessionTaskLine(J.splitTask('- DOING 🤖 09:00-09:15 **老任务** ^ad-old'), { kw: 'DOING', start: '09:00', end: '09:20', showTimeRange: false });
  assert.equal(stripped, '- DOING 🤖 **老任务** ^ad-old');
  const strippedManual = J.formatSessionTaskLine(J.splitTask('- TODO 手动任务'), { kw: 'DOING', start: '09:00', end: '09:20', showTimeRange: false });
  assert.equal(strippedManual, '- DOING 手动任务');
+ const legacyInlineManual = J.formatSessionTaskLine(J.splitTask('- TODO 手动任务'), { kw: 'DOING', start: '09:00', end: '09:20', showTimeRange: true });
+ assert.equal(legacyInlineManual, '- DOING 09:00-09:20 手动任务');
 
  const liveSid = '00000000-0000-0000-0000-000000000099';
  const syncPlugin = {

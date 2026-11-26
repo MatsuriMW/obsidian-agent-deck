@@ -12,7 +12,7 @@
 | **Claude Code** | 无头 `claude` / 终端 | 首轮后 `claude://resume` 导入桌面；未信任库切已信任目录 + `--add-dir` | `claude` CLI + 登录（桌面续聊需桌面端） |
 | **Codex** | `codex app-server` / 终端 `codex` | App Server 首轮释放后打开 `codex://threads/<id>`；优先复用桌面自带 CLI | `codex` CLI + 登录 + 桌面端 |
 | **DeepSeek Harness** | `dsh acp`（ACP） | `dsh://open` 仅唤起客户端并复制会话号，需手动选会话；桌面端稳定性有限 | ACP 版 `dsh` + 提供商登录 |
-| **Antigravity** | `agy acp`（原生 ACP） | ACP 会话可在 Obsidian 内查看、归档和继续追问；`extractAcpText` 兼容块数组文本、首行 BOM 剥离与 `close` 排水（透出脱敏 `stderr`），并适配 Windows `agy.exe`/`agy.cmd` 与 `parseWindowsRegProxy` 系统代理。桌面会话的进度条打开客户端并复制会话 ID | 独立 `agy` CLI 已登录 |
+| **Antigravity** | 官方 `agy` CLI（`-p --output-format stream-json` / `--resume` / `agy -i`） | `AntigravityRunner` 走官方 `agy` 无头与流式 JSON 输出、复用 `--resume` 应用内续聊、`agy models` 拉取模型列表及 `agy -i` 终端交接，并适配 Windows `agy.exe`/`agy.cmd` 与 `parseWindowsRegProxy` 系统代理；**严禁调用 `agy acp`**，避免被风控视作反代；IDE 桌面会话打开客户端并复制会话 ID | 独立 `agy` CLI 已登录 |
 | **OpenCode** | `opencode-cli acp` / 终端 `opencode` | 共用 `opencode.db`；优先调用 `OpenCode.app` 内置 CLI；打开桌面后需手动选会话 | OpenCode 桌面端或独立 CLI |
 | **Hermes Agent** | `hermes-acp` / 终端 `hermes chat` | 声明式 capability 驱动 ACP（支持 `configOptions` 与标准 `models` / `session/set_model`），权限弹窗按 runner 排队、`option.kind \| optionId \| name` 兼容 `allow*`/`reject*`/`deny*`；只读读取 `$HERMES_HOME/state.db` | `hermes-acp` / `hermes` CLI（支持 Homebrew / `uv` / 用户登录 shell PATH 兜底发现） |
 | **MiniMax Code** | `mcode acp` / 终端 `mcode --session` | 桌面与 `mcode` CLI 共用 `$MINIMAX_DATA_DIR/v2/sqlite/runtime-state.sqlite`；支持后台 ACP 委派、终端续聊与桌面端 `com.minimax.agent.cn`（回退 `minimax-cn://open`）唤起 | MiniMax Code 桌面端 / `mcode` CLI |

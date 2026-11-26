@@ -39,7 +39,7 @@ Alongside global tools, Agent Deck ships dedicated local parsers and adapters fo
 | **Claude Code** | Yes | Yes | Yes (opens after first round) | Yes |
 | **Codex** | Yes | Yes | Yes (opens after first round) | Yes |
 | **DeepSeek Harness** | Yes | Yes | Focuses the client only | — |
-| **Antigravity** | Yes (IDE + CLI) | Yes (`agy acp`) | No | — |
+| **Antigravity** | Yes (IDE + CLI) | Yes (official `agy` CLI) | No | Yes |
 | **OpenCode** | Yes | Yes | Opens after first round | Yes |
 | **Qoder** | Yes | Yes | Copies task and opens app | Yes |
 | **Hermes Agent** | Yes | Yes | No (no desktop UI) | Yes |
@@ -68,7 +68,7 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
 | **Claude Code** | Claude Code CLI or desktop app, signed in |
 | **Codex** | Codex CLI and desktop app, signed in |
 | **DeepSeek Harness** | DeepSeek Harness client with a model and account configured |
-| **Antigravity** | Standalone `agy` CLI (tracks both `~/.gemini/antigravity/brain` and `~/.gemini/antigravity-cli/brain`; background delegation uses `agy acp`) |
+| **Antigravity** | Standalone `agy` CLI, signed in (tracks both `~/.gemini/antigravity/brain` and `~/.gemini/antigravity-cli/brain`; background delegation and terminal handoff use the official `agy` CLI) |
 | **OpenCode** | OpenCode desktop app or CLI |
 | **Qoder** | Qoder CLI; desktop app for handoff only |
 | **Hermes Agent** | Hermes CLI; nothing extra if you only track |
@@ -102,10 +102,10 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
    - **Trae (Trae CN / Global)**: Local `ModularData/ai-agent/database.db` is SQLCipher-encrypted and never decrypted; tracking is purely Hook-driven. Users must enable "Global Hooks" (and preferably local execution mode) in Trae Settings → Hooks before new turns write to `~/.agent-deck/trae-events/`. Because Trae's hook stdin omits token and model fields, billed token usage honestly reads as `0`. Uses `traecli acp serve` when `traecli` is installed, or desktop copy-and-focus handoff otherwise.
    - **WorkBuddy**: China edition only; standalone `codebuddy` CLI does not share desktop sessions.
    - **Qoder**: CLI and desktop databases are separate; missing desktop tokens show "Unavailable".
-   - **Antigravity**: Tracks both IDE (`~/.gemini/antigravity/brain`) and standalone `agy` CLI (`~/.gemini/antigravity-cli/brain`) logs and supports `agy acp` background delegation; IDE and CLI sessions are separate with no IDE window handoff, and exports omit tool results & internal reasoning.
+   - **Antigravity**: Tracks both IDE (`~/.gemini/antigravity/brain`) and standalone `agy` CLI (`~/.gemini/antigravity-cli/brain`) logs, and supports official `agy` CLI background delegation (not `acp`), `--resume` follow-ups, and `agy -i` terminal handoff; IDE and CLI sessions are separate with no IDE window handoff, and exports omit tool results & internal reasoning.
    - **DeepSeek Harness**: Fast-moving client; delegated sessions may appear under "Ungrouped" until refreshed.
    - **OpenCode**: Background and desktop share sessions, though you still pick the session once in the app.
-   - **Hermes Agent**: No desktop UI; inspect in Obsidian or resume in terminal.
+   - **Hermes Agent**: No desktop UI; inspect in Obsidian or resume in terminal. Background delegation spawns a single `hermes-acp` instance directly and **does not** route through a Default Agent or Hermes `kanban` orchestrator. Note that standalone `hermes-acp` only reads `HERMES_HOME` (defaulting to `~/.hermes`, i.e., the `default` profile) and neither parses `-p/--profile` nor follows `hermes profile use`, whereas terminal delegation (`hermes chat`) honors `hermes profile use`. Session tracking reads both `$HERMES_HOME/state.db` and `$HERMES_HOME/profiles/*/state.db`.
    - **MiniMax Code**: Desktop and `mcode` share SQLite storage; opening desktop still requires selecting the session once.
    - **QwenWork**: Tracking only; 2.x conversations are fully readable, older logs without tokens honestly show 0.
    - **Grok Bot**: Desktop only; cloud sandboxes without per-message tokens show "Unavailable", with no archive concept.
@@ -123,7 +123,18 @@ Tracking, task binding, and the Dashboard require **no extra dependencies** and 
 
 For any local ACP-compatible CLI (such as Kiro, Mistral Vibe, etc.):
 
-1. Open Settings → Delegation → **Custom ACP Agents**.
+1. Open Settings → Delegation → Agent configuration → **Custom ACP Agents**.
 2. Enter the ID, display name, binary path, and startup args.
 3. Reference sensitive environment variables with `env:VAR_NAME` or `secret:KEY_NAME` so plaintext secrets never enter your vault.
 4. Save to immediately use it via `@` mentions, permission guardrails, and in-app follow-ups.
+
+### Example: Targeting a Specific Hermes Profile Agent
+
+Because standalone `hermes-acp` ignores `hermes profile use` and does not accept `-p`, use one of the following three approaches to target a specific Hermes Profile:
+
+1. **Dedicated `@id` per Profile (Recommended)**: Add an entry under Settings → Delegation → Agent configuration → **Custom ACP Agents** for each profile (for example, ID `hermes-work`):
+   - **Option A**: Command `hermes-acp`, **Args empty**, Environment `HERMES_HOME=/Users/<username>/.hermes/profiles/<profile>` (use an absolute path rather than `~`).
+   - **Option B**: Command `hermes`, Args `-p <profile> acp`.
+   - Save, then mention `@hermes-work` on any task line to delegate directly to that profile.
+2. **Switch the built-in Hermes card to one Profile**: Under the built-in `Hermes Agent → More settings`, set **Command path** to `hermes` and **Extra ACP args** to `-p <profile>` (runs `hermes acp -p <profile>`).
+3. **Terminal-only default switch**: Run `hermes profile use <profile>` in your shell (applies to terminal `hermes chat` and `hermes acp`, not standalone `hermes-acp`).

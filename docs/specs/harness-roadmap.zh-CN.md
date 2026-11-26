@@ -106,7 +106,7 @@
    - ✅ **已落（2026-11-19）**：`resolveWikilinkSnippets` 超过 3 篇时对第 4 篇起输出路径指针（不再静默 `break`）；整篇笔记截断时自动附加 **`[后续章节（可按行号分段读）：## 标题(L行号)…]`**；找不到 `#^blockId` / `#标题` / 空正文 / 读取失败记入 `bundle.warnings` 并在上下文里显式提示；`withContext` 祖先链按 12 行上限裁剪并声明省略行数；`plugin.readNote` 已优先读取打开的 source 编辑器未保存缓冲（`src/main.js:3745`）。
 3. **隐私闸门与 Agent 能力退路（G2 + G1）**：
    - ✅ **已落（2026-11-19 收口）**：新增 `settings.delegate.excludedDirs`（「委派 → 发送规则 → 更多设置 → 不注入目录」）并识别 frontmatter `private: true`，在 `resolveWikilinkSnippets`、`enrichPrompt` 引用路径清单、`pickMemories` 与 `scripts/memory-query.mjs` 中禁止外发（记入 `bundle.stats.omittedPrivate` 并仅输出数量提示，不暴露路径与正文）；
-   - ⏳ **待做**：接入 `src/agent-registry.js` 能力声明：对能自主读本地文件的 Agent（Claude Code / Codex / DSH / OpenCode / Qoder）走「精简内联 + 路径指针 + 工具提示」；对只吃文本交接的桌面/剪贴板端自动退回较高上限的完整摘要内联。
+   - ✅ **已落（2026-11-27 收口）**：通过 `src/agent-registry.js` `canAgentReadLocalFiles(id, destination)` 驱动 `Delegator.resolveBlockContext`：`claude` / `codex` / `dsh` / `antigravity`（官方 `agy` CLI）/ `opencode` / `qoder`（cli/bg）/ `hermes` / `minimax` / `cursor` / `trae` / `t3code` / `kimicode` / `gemini` 及终端交接等可自主读文件的 Agent 自动启用 `entryMapMode`（仅出入口地图 + OKF 元信息 + 标题 TOC / 无标题正文行数提示 + `vault-*` 工具用法），纯桌面复制交接（`workbuddy` / `teleagent` / `qwenwork` / `grokbot` / `cindy` / `orca` / `muse` / `doubaowork` 及桌面回退）与 `_performHandoff` 自动保持摘要内联。
 4. **修复两项直接伤上下文的源码问题（检索盲区 + `MAT-479`）、索引泄露过滤与归属/丢弃补盲**：
    - ✅ **已落（2026-11-19 收口）**：`src/memory-query-core.js` 保持中文二元词 `MIN_MEMORY_OVERLAP = 2` 防噪音，同时补充**单英文技术词元（≥4 字符非停用词）与元数据通道（`tags` / `domain` / `type` / 同源 `sources`）**，解决 `esbuild` / `Windows` 等单词在 `pickMemories` 零召回的问题；
    - **清掉上游双链/块号污染（源自 `MAT-479`）**：统一 `💬` 写入器的转义规则（关闭同步时不留裸 `#词` / `[[…]]` 生成假标签和假双链），并统一 `🔗` 行与任务块的缩进解析，确保抽取到的上下文块不串行；
@@ -164,21 +164,17 @@
 
 **目标**：让 Agent Deck 从“Obsidian 插件内自产自销的提示词拼接器”，升级为**任何客户端（Claude Code / Codex / DSH / OpenCode / 未来独立 App）都能按需调用的标准只读上下文提供者**。
 
-1. **剥离 Obsidian API 的纯 Node 内核（D9 副产品）**：
-   - 将 `ContextBundle`、锚点解析与校验、结构图遍历、frontmatter 提取、目录排除过滤收敛到不依赖 Obsidian `App`/`Vault` 的纯 Node 接口（`resolveTarget` / `readConcept` / `vaultRoot`），保留 `ref.vault?` 扩展位（G10）；
-   - Obsidian 插件侧只提供一层薄适配器（如读取未保存缓冲与 `metadataCache` 加速），其余全部复用纯 Node 内核。
-2. **完整库级只读工具集 + stdio MCP Server（D3 + 契约 §8）**：
-   - 保留已有的记忆视角动词：`memory_search` / `memory_read` / `memory_recent`（兼容原 `scripts/memory-query.mjs` 命令行外壳与输出格式）；
-   - 新增全库视角 4 个只读动词（CLI 与 stdio MCP 共用同一内核与签名，**不输出分数、严格只读、遵循 G2 隐私过滤**）：
-     - `vault_outline(path)`：返回标题树、列表缩进、有序/无序类型与 `^blockId` 清单，**不带正文**——让 Agent 先看目录再挑段读；
-     - `vault_read(ref)`：支持 `[[笔记#^块号]]` / `[[笔记#章节]]` / 相对路径，返回正文、行范围、`changedSinceDispatch` 漂移标记与可继续展开的子锚点；超长时退回大纲并提示分段读；
-     - `vault_related(ref, k=8)`：返回结构邻居 + 同源记忆，每条必带 `why` 与信任/新鲜度标记；
-     - `vault_find(query, k=8)`：按标题、`aliases`、`def`、`domain`、`tags` 做轻量精确/词法查找（**不上向量 RAG**），解决“任务没写 `[[双链]]` 时如何从 5486 篇里找入口”的问题。
-   - **跨平台路径与一键接入体验**：全链路使用 `path.join` 与跨平台路径引用（避免硬编码 `/` 坑到 Windows）；设置页提供“复制 MCP 配置 / 检测安装路径”，不再靠用户手抄脚本命令。
-3. **入口地图预算裁剪、中英预算校准、仓库规则分工与真机呼出率验证（D2 + 索引导航）**：
-   - 派发 prompt 固定为 6 段（块原文 → 祖先链 → 本文属性摘要 → 邻居指针 → 工具/用法提示；M2 再接入证据段），单次初始注入体积控制目标 `≤ 800–1200 字`（不含任务块自身手写长代码），超限从外围字段开始裁并必写省略声明；逐步把纯 UTF-16 `.length` 裁剪过渡为轻量中英加权 token 估算，消除中英文 4–6 倍体积偏差；
-   - **仓库 `AGENTS.md`/`CLAUDE.md` 与 Agent Deck 记忆分工**：在代码项目内明确仓库规则文件负责仓内代码硬约束，Agent Deck 记忆负责跨仓经验与动态个人事实，不在派发正文里重复叠塞；
-   - **入口导航增强**：`memoryToolHint()` 与 MCP 入口提示不止输出一句 `search "关键词"` 命令，而是结合过滤分组后的 `索引.md` 摘要线索或项目级 Quickstart 入口指针，让 Agent 在进门时先知道库内有什么可查，支撑「指针/工具生效率 ≥ 40%」验收。
+1. **剥离 Obsidian API 的纯 Node 内核（D9 副产品）——✅ 已落地（2026-11-26–27）**：
+   - 已在 `src/context-core/`（`config.js` / `note-hygiene.js` / `vault-index.js` / `fts-index.js` / `memory-ops.js` / `vault-ops.js` / `mcp-clients.js` / `cli.js` / `mcp.js` / `index.js`）实现零 Obsidian `App`/`Vault`/DOM 依赖的纯 Node 内核，统一支持 `.outline-journal`、`.obsidian`、`--config-dir` 与纯 Markdown 目录，维护 `~/.agent-deck/index/` 可丢弃增量 JSON + Built-in `node:sqlite` FTS5 `trigram` 全文索引（`INDEX_VERSION = 2` / `FTS_SCHEMA_VERSION = 2`，支持 `--index-dir` 与 O(1) `peekVaultIndexStatus`，老 Node 自动降级 `json-fallback`）；`note-hygiene.js`（取代早期 `ai-filter.js`）作为统一净化叶子模块严格隔离 `private: true`、日记内 AI 自动记录子树（`🤖`/`💬`/`第N轮`/`⏱`/`📋`/`🔗`/`❓`/`<!-- ad-* -->`，保留手写内容与 `✍️ 答`）及 `Agent Deck/` 下插件生成文件与记忆库文件（已沉淀记忆统一走 `memory_*`），并修复 `src/memory-store.js` CRLF 解析；
+   - `src/main.js` 挂载轻量 `this.contextCore` 门面（`index.js` 导出 `mcpSettingsOf`/`peekVaultIndexStatus` 等并刻意省略 `vault-ops.js` 以将 `main.js` 控制在 `3.5 MB` 部署预算内；CLI/MCP 脚本直接消费 `vault-ops.js`，`vaultRead` 预留 `readOverride` 兼容未落盘编辑缓冲）。
+2. **完整库级只读工具集 + stdio MCP Server + 一键接入本机客户端（D3 + 契约 §8）——✅ 已落地（2026-11-26–27）**：
+   - `esbuild.config.mjs` 四入口单源打包 `main.js`、`styles.css`、`scripts/memory-query.mjs`（`ASSET_VERSION = 9`）与 `scripts/memory-mcp.mjs`（`ASSET_VERSION = 8`），MCP 默认严格只读暴露 5 个 `memory_*` 工具 + 4 个 `vault_*` 工具 + `memory://index`（`--allow-write` 可选开放 `memory_propose`）；Dream 页新增 5 项显性 `dream.mcp` 控制（`toolsMode` 动态切换 `all` 9 工具 / `memory-only` 仅 `memory_*` 5 工具以搭配 Obsidian 官方 Connectors、持久化 `allowWrite`、`excludeAiLogs` 默认 `true` 配合 `DEFAULTS.dream.scope = "ai-records"` 实现全库检索与 Dream 提炼双向隔离、O(1) 索引状态与一键重建、可编辑外部 Agent 自动触发提示词 `agentPrompt`）；
+   - 新增全库 4 动词（CLI 与 MCP 共用同一内核）：`vault_outline`、`vault_read`、`vault_related`、`vault_find`（已接入 SQLite FTS5 `trigram` 正文短语与两字回退检出，返回高亮 `片段：` 且保持严格无私密泄漏）；
+   - **跨平台路径与 9 家客户端一键接入**：`mcp-clients.js` + 设置页 Dream「外部 Agent 接入」卡片支持自动探测并备份无损写入 **9 家客户端**——Claude Code（`~/.claude.json`）、Codex（TOML）、Cursor、Antigravity、Claude Desktop、Gemini CLI、OpenCode（`~/.config/opencode/opencode.json` `mcp.servers`）及 DeepSeek Harness（Desktop & ACP `cordis.patch.yml` 无损块编辑）+ 一键「检测握手」与 CLI `mcp-clients`/`mcp-install`/`mcp-uninstall`。
+3. **入口地图预算裁剪、中英预算校准、仓库规则分工与真机呼出率验证（D2 + 索引导航）——🟢 代码、离线评测与隔离 3 客户端 6 任务实测已落地，日常 20 次生产派发抽检待持续积累**：
+   - `src/harness.js` 已落地中英加权 `estimateTokens`、外围预算自动压缩（永不截断用户任务块并明示可用 `vault_outline` / `vault_read` 按需拉取）与按 Agent 能力自动分流的 `entryMapMode`（单篇长笔记引用实测从 `326 → 208` tokens、`eval-context.mjs` `SpecDoc` 从 `339 → 148` tokens，零静默丢失）；
+   - `src/delegation.js` 已落地 `detectRepoRuleFiles` 识别外部工作目录 `AGENTS.md` / `CLAUDE.md` 并向 `memoryToolHint()` 注入「仓内规范以规则文件为准，跨仓经验/全库上下文按需调 `vault-*` / MCP」与项目入口指针；
+   - **隔离真机呼出率实测（2026-11-27，macOS arm64）**：在 `/tmp` 隔离 Vault 构造 4 篇深章节测试笔记（确保入口地图不包含深层答案），用真实生成的 `entryMapMode` prompt 实测 3 家外部 Agent 各 2 任务（共 6 次）：**Antigravity 官方 `agy` CLI（2/2 读路径 + 命中）**、**DeepSeek Harness `dsh acp`（2/2 调 `read` 读路径 + 命中）**、**Codex `codex exec -m gpt-6.1-sol --sandbox read-only`（2/2 主动读取 + 命中，其中 1 次显式调用 `memory-query.mjs vault-read`）**——总计 **6/6（100%）路径/工具主动呼出且 6/6 零脑补精确作答**。后续日常真实 Vault 派发满 20 次再做自然工况抽检。
 
 **M1.3 验收标准**：
 - 纯 Node 环境（零 Obsidian 模拟对象）跑通 `src/context-core` 与 MCP 工具单测；
@@ -340,7 +336,7 @@
 | # | 问题 | 阻塞阶段 | 建议默认 | 必须拍板节点 |
 | --- | --- | --- | --- | --- |
 | 1 | `ContextBundle` 里技能卡多技能引用（当前只认首个 `skill`）是否进 M1.1 | M1.1 | 允许列出多个显式 `[[技能/…]]` 路径，默认上限 3 个 | M1.1 开工前 |
-| 2 | `vault_find` 扫描 5486 篇全库的索引方式（实时遍历 vs 轻量 mtime 缓存索引） | M1.3 | 纯 Node 按目录 mtime 增量缓存到 `~/.agent-deck/` | M1.3 开工前 |
+| 2 | `vault_find` 扫描 5486 篇全库的索引方式（实时遍历 vs 轻量 mtime 缓存索引） | M1.3 | ✅ **已落地**：纯 Node `vault-index.js` + `fts-index.js` 维护 `~/.agent-deck/index/*.json` + `node:sqlite` FTS5 增量索引（老 Node 自动回退 `json-fallback`） | 已完成 |
 | 3 | `feat/win-compat` 是直接 rebase 到 `main` 还是按 `src/platform.js` 分批重接 | 轨道 W | 先基于 `main` 评估冲突，按 `platform.js` + `delegation` + `readers` 拆 2–3 个小 PR 合入 | Windows 实机测试前 |
 | 4 | `def` → `description` 单向映射还是双向同步（1336 篇已用 `def`） | M1.2 | 单向只读映射，不要求改库里既有 `def` | M1.2 开工前 |
 | 5 | `dream-shared-memory.md` 的 `audience` 是发布筛选还是运行时过滤、`共享记忆/` 是否进 git | M3.2 | 发布筛选（简明可证），共享目录默认不自动推公开仓库 | M3.2 开工前 |

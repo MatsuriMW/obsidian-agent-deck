@@ -9,7 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const MAX_MAIN_BYTES = 3.5 * 1024 * 1024;
+const MAX_MAIN_BYTES = 3.8 * 1024 * 1024;
 const MAX_CSS_BYTES = 512 * 1024;
 
 function readJson(rel) {

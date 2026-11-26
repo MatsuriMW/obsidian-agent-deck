@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { destinations, defaultDestination, activeJob, canOpenClient, executionStatus, workspaceLabel } from '../src/workflow.js';
-assert.deepEqual(destinations('antigravity').map(x=>x.id),['background']);
+assert.deepEqual(destinations('antigravity').map(x=>x.id),['background','terminal']);
 assert.deepEqual(destinations('opencode').map(x=>x.id),['desktop','background','terminal']);
 assert.deepEqual(destinations('qoder').map(x=>x.id),['desktop','background','terminal']);
 assert.equal(destinations('qoder').find(x=>x.id==='desktop').hint,'复制任务并打开客户端，等待你粘贴发送。');

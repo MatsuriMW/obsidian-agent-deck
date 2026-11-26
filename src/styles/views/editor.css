@@ -326,6 +326,8 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   vertical-align: -3px;
   border-radius: 5px;
   color: var(--text-faint);
+  white-space: nowrap;
+  flex-shrink: 0;
   cursor: grab;
   opacity: .55;
   transition: opacity .15s ease, background .15s ease, color .15s ease;

@@ -1298,10 +1298,204 @@ export class T3CodeRunner extends BaseRunner {
   }
 }
 
+const ANSI_ESCAPE_RE = /\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07/g;
+
+export function parseAgyModelsOutput(raw) {
+  const clean = String(raw || "").replace(ANSI_ESCAPE_RE, "").replace(/\r/g, "\n");
+  const seen = new Set();
+  const list = [];
+  for (const rawLine of clean.split("\n")) {
+    const line = rawLine.trim();
+    if (!line || /Fetching available models/i.test(line)) continue;
+    const m = /^(\S+)(?:\t+|\s{2,})(.+)$/.exec(line);
+    const value = (m ? m[1] : line.split(/\s+/)[0]).trim();
+    if (!value || seen.has(value) || !/^[a-z0-9][a-z0-9._:-]*$/i.test(value)) continue;
+    seen.add(value);
+    const label = m ? m[2].trim() : value;
+    list.push({
+      id: `antigravity-cli-${Buffer.from(value).toString("base64url")}`,
+      agent: "antigravity",
+      name: label || value,
+      value,
+      provider: "Antigravity",
+      context: "—",
+      tags: [],
+      note: t("agy CLI 返回的模型"),
+    });
+  }
+  return list;
+}
+
+export async function fetchAgyCliModels({ binPath = "", cwd = "" } = {}) {
+  const bin = findAgyBinary(binPath);
+  const res = await execCapture(bin, ["models"], { cwd: cwd || process.cwd(), env: cleanEnv(), timeout: 15000 });
+  const models = parseAgyModelsOutput(res.out);
+  if (models.length) return models;
+  if (!res.ok) throw new Error(redactSecrets((res.err || res.out || t("agy 退出码 {code}", { code: res.code ?? 1 })).trim().slice(0, 300)));
+  throw new Error(t("没有读到可用 agy 模型"));
+}
+
+function extractAgyStreamText(val) {
+  if (typeof val === "string") return val;
+  if (Array.isArray(val)) return val.map((x) => (typeof x === "string" ? x : (x?.text || ""))).join("");
+  if (val && typeof val === "object" && typeof val.text === "string") return val.text;
+  return "";
+}
+
+export class AntigravityRunner extends BaseRunner {
+  constructor(delegator, job) {
+    super(delegator, job);
+    this.assistantText = "";
+    this.finalResult = null;
+    this.buf = "";
+  }
+
+  _consumeLine(rawLine) {
+    const line = String(rawLine || "").replace(/^\uFEFF/, "").trim();
+    if (!line || !line.startsWith("{")) return;
+    let msg;
+    try { msg = JSON.parse(line); } catch { return; }
+    if (!msg || typeof msg !== "object") return;
+
+    const sid = msg.conversation_id || msg.step_update?.conversation_id || msg.result?.conversation_id || "";
+    if (sid && !this.sessionId) {
+      this.sessionId = sid;
+      this.d.onSession(this.job, sid);
+    }
+
+    if (msg.event === "step_update" && msg.step_update) {
+      const su = msg.step_update;
+      if (su.step_type === "tool") {
+        const name = su.tool_name || su.tool_info?.name || "tool";
+        this.job.step = truncate(name, 40);
+        if (su.state === "ACTIVE") this.trace?.recordFrame("agy.tool_call", name);
+      } else if (su.step_type === "agent_response") {
+        const delta = extractAgyStreamText(su.text_delta ?? su.text ?? su.content);
+        if (delta) {
+          this.assistantText += delta;
+          this.job.lastText = this.assistantText.slice(-2000);
+        }
+        if (su.state === "DONE" && !this.job.step) this.job.step = t("等待回复…");
+      }
+      this.d.saveJobsSoon();
+      this.d.refreshUI();
+      return;
+    }
+
+    if (msg.event === "result" && msg.result) {
+      this.finalResult = msg.result;
+    }
+  }
+
+  _drainBuffer(flushAll = false) {
+    let at;
+    while ((at = this.buf.indexOf("\n")) >= 0) {
+      const line = this.buf.slice(0, at);
+      this.buf = this.buf.slice(at + 1);
+      this._consumeLine(line);
+    }
+    if (flushAll && this.buf.trim()) {
+      const tail = this.buf;
+      this.buf = "";
+      this._consumeLine(tail);
+    }
+  }
+
+  async start(opts) {
+    const d = this.d;
+    const cfg = d.settings.delegate.antigravity || DEFAULTS.delegate.antigravity;
+    const bin = findAgyBinary(cfg.path || "");
+    const cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
+    const rawModel = opts.model !== undefined ? opts.model : (cfg.model !== undefined ? cfg.model : "antigravity-default");
+    const model = resolveCliModel(d.plugin, "antigravity", rawModel);
+    const effort = opts.effort !== undefined ? opts.effort : (cfg.effort || "");
+    const extra = splitArgs(cfg.extraArgs || "");
+    const rawPrompt = String(opts.prompt ?? "");
+    const cliPrompt = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""))
+      ? rawPrompt.replace(/\r?\n/g, " ")
+      : rawPrompt;
+
+    const args = ["--output-format", "stream-json"];
+    if (opts.sessionId) args.push("--resume", opts.sessionId);
+    if (model) args.push("--model", model);
+    if (effort) args.push("--effort", effort);
+    if (d.vaultPath && !sameFolder(cwd, d.vaultPath)) args.push("--add-dir", d.vaultPath);
+    if (cfg.autoApprove === true || opts.permission === "bypassPermissions") args.push("--dangerously-skip-permissions");
+    if (opts.permission === "plan") args.push("--mode", "plan");
+    else if (opts.permission === "acceptEdits") args.push("--mode", "accept-edits");
+    for (const a of extra) args.push(a);
+    args.push(`--print=${cliPrompt}`);
+
+    this.job.cwd = cwd;
+    this.job.app = "cli";
+    this.job.transport = "cli";
+    if (opts.sessionId) this.job.sessionId = opts.sessionId;
+    this.job.command = redactSecrets([bin, ...args.slice(0, -1), "--print=<prompt>"].join(" "));
+    this.trace?.recordFrame("agy.spawn", path.basename(bin));
+    const child = spawnCli(bin, args, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    this.child = child;
+    this.job.state = "running";
+    this.job.startedAt = Date.now();
+    this.job.step = opts.sessionId ? t("续聊发送中…") : t("等待回复…");
+    this.job.conversation ||= [];
+    this.job.conversation.push({ role: "user", text: rawPrompt, at: Date.now() });
+    this.d.saveJobs();
+    this.d.refreshUI();
+
+    let err = "";
+    child.stdout?.setEncoding("utf8");
+    child.stdout?.on("data", (text) => {
+      this.buf += text;
+      this._drainBuffer(false);
+    });
+    child.stderr?.on("data", (b) => {
+      err += b.toString();
+      if (err.length > 4000) err = err.slice(-4000);
+      this.job.stderr = redactSecrets(err.slice(-1000));
+    });
+    child.on("error", (e) => this.fail(String(e && e.message || e)));
+    child.on("close", (code) => {
+      if (this.finished) return;
+      this._drainBuffer(true);
+      const fr = this.finalResult;
+      const errTail = redactSecrets(err.trim().slice(-1000));
+      if (fr && fr.status && fr.status !== "SUCCESS") {
+        this.fail(String(fr.error || errTail || t("agy 退出码 {code}", { code })));
+        return;
+      }
+      if (fr && fr.status === "SUCCESS") {
+        const reply = String(fr.response ?? this.assistantText).trim();
+        this.done(reply);
+        return;
+      }
+      if (code === 0 && this.assistantText.trim()) {
+        this.done(this.assistantText.trim());
+        return;
+      }
+      this.fail(errTail || t("agy 退出码 {code}", { code }));
+    });
+    this.timer = setTimeout(() => this.fail(t("委派超过 30 分钟没有结束")), 30 * 60000);
+    return true;
+  }
+
+  onCleanup() {
+    this._killChild();
+  }
+
+  onDoneCleanup(result) {
+    this._recordAssistantText(result, { updateLastText: true });
+  }
+
+  onAfterCancel() {
+    this.d.refreshUI();
+  }
+}
+
 export const BUILTIN_RUNNER_CLASSES = {
   claude: ClaudeRunner,
   codex: CodexDesktopRunner,
   acp: AcpRunner,
+  antigravity: AntigravityRunner,
   qoder: QoderRunner,
   t3code: T3CodeRunner,
 };

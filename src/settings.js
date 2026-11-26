@@ -109,15 +109,15 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const card = this.agentCard(body, spec.id, spec.title, spec.sub);
     this.modelSelect(card, spec.id, p.defaultModel(spec.id), (v) => { this.setDefaultModel(spec.id, v); this.display(); });
     this.effortControl(card, spec.id, cfg.effort || spec.defaultEffort || "medium", (v) => { this.setDefaultEffort(spec.id, v); this.display(); });
-    this.rowToggle(card, t("自动允许工具调用"), t("关闭后逐次确认工具权限"), cfg.autoApprove === true, (v) => { cfg.autoApprove = v; p.saveSettings(); });
+    this.rowToggle(card, t("自动允许工具调用"), t("关闭后逐次确认工具权限"), cfg.autoApprove === true, (v) => { cfg.autoApprove = v; p.saveSettings(); card._refreshPills?.(); });
     const more = this.subDetails(card, spec.moreKey, t("更多设置"));
     if (spec.openDesktopToggle) {
       this.rowToggle(more, t("完成后自动在桌面版打开"), "", cfg.openDesktop === true, (v) => { cfg.openDesktop = v; p.saveSettings(); });
     }
     this.rowText(more, spec.pathLabel || t("命令行路径"), spec.pathHint, cfg.path || "", spec.pathPlaceholder || spec.pathHint, (v) => { cfg.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
-    this.rowText(card, t("工作目录"), spec.cwdHint || t("留空 = 库根目录"), cfg.cwd || "", t("留空 = 库根目录"), (v) => { cfg.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
+    this.rowText(more, t("工作目录"), spec.cwdHint || t("留空 = 库根目录"), cfg.cwd || "", t("留空 = 库根目录"), (v) => { cfg.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
     if (spec.hasExtraArgs !== false) {
-      this.rowText(more, t("额外 ACP 参数"), t("可留空"), cfg.extraArgs || "", t("可留空"), (v) => { cfg.extraArgs = spec.trimExtraArgs === false ? v : v.trim(); p.saveSettings(); }, "ad-input--wide");
+      this.rowText(more, spec.extraArgsLabel || t("额外 ACP 参数"), t("可留空"), cfg.extraArgs || "", t("可留空"), (v) => { cfg.extraArgs = spec.trimExtraArgs === false ? v : v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
     const btns = more.createDiv({ cls: "ad-btnrow" });
     this.bigButton(btns, spec.refreshLabel, async () => {
@@ -185,30 +185,74 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   }
 
   // ---------- shared bits ----------
-  card(parent, title, sub) {
+  card(parent, title, sub, renderRight = null) {
     const c = parent.createDiv({ cls: "ad-card" });
     if (title) {
-      const h = c.createDiv({ cls: "ad-card__head" });
-      h.createDiv({ cls: "ad-card__title", text: title });
-      if (sub) h.createDiv({ cls: "ad-card__sub", text: sub });
+      const h = c.createDiv({ cls: "ad-card__head" + (renderRight ? " ad-card__head--bar" : "") });
+      const textWrap = renderRight ? h.createDiv({ cls: "ad-card__head-text" }) : h;
+      textWrap.createDiv({ cls: "ad-card__title", text: title });
+      if (sub) textWrap.createDiv({ cls: "ad-card__sub", text: sub });
+      if (renderRight) renderRight(h.createDiv({ cls: "ad-card__head-actions" }), h);
     }
     return c;
   }
 
+  delegateSummaryPills(agent) {
+    const p = this.plugin;
+    const d = p.settings?.delegate || {};
+    const cfg = d[agent] || {};
+    const pills = [];
+    const modelId = typeof p.defaultModel === "function" ? p.defaultModel(agent) : (cfg.model ?? "");
+    if (!modelId || modelId === `${agent}-default`) {
+      pills.push(t("CLI 默认"));
+    } else {
+      const m = typeof p.modelById === "function" ? p.modelById(modelId) : null;
+      pills.push(m?.name || modelId);
+    }
+    if (cfg.effort) pills.push(cfg.effort);
+    if (agent === "claude" || agent === "qoder") {
+      pills.push(cfg.permission || "auto");
+    } else if (agent === "codex") {
+      const transport = (cfg.transport || "desktop") === "terminal" ? t("终端") : t("桌面版");
+      pills.push(`${transport} · ${cfg.sandbox || "workspace-write"}`);
+    } else {
+      pills.push(cfg.autoApprove === true ? t("自动允许") : t("逐次确认"));
+    }
+    return pills;
+  }
+
   agentCard(parent, agent, title, sub = "") {
-    const state = this.plugin.settings.ui.delegateGroups[agent];
-    const card = parent.createEl("details", { cls: "ad-card ad-delegate-agent" });
+    const p = this.plugin;
+    const state = p.settings.ui.delegateGroups[agent];
+    const card = parent.createEl("details", { cls: "ad-delegate-agent" });
     card.dataset.agent = agent;
     card.open = state.open;
     card.ontoggle = () => {
-      if (!card.isConnected || this.plugin.settings.ui.delegateGroups[agent] !== state || state.open === card.open) return;
+      if (!card.isConnected || p.settings.ui.delegateGroups[agent] !== state || state.open === card.open) return;
       state.open = card.open;
-      this.plugin.saveSettings();
+      p.saveSettings();
     };
-    const head = card.createEl("summary", { cls: "ad-card__head" });
+    const head = card.createEl("summary", { cls: "ad-delegate-agent__head" });
     agentIcon(head.createSpan({ cls: "ad-glyph" }), agent);
-    head.createSpan({ cls: "ad-card__title", text: title });
+    head.createSpan({ cls: "ad-delegate-agent__name", text: title });
+    if (p.defaultTarget?.() === agent) {
+      head.createSpan({ cls: "ad-delegate-tag is-default", text: t("默认") });
+    } else if (p.isPrimary?.(agent)) {
+      head.createSpan({ cls: "ad-delegate-tag", text: t("主力") });
+    }
+    const pillsEl = head.createSpan({ cls: "ad-delegate-agent__pills" });
     const body = card.createDiv({ cls: "ad-delegate-agent__body" });
+    body._refreshPills = () => {
+      if (typeof pillsEl.empty === "function") pillsEl.empty();
+      else {
+        pillsEl.textContent = "";
+        if (Array.isArray(pillsEl.children)) pillsEl.children = [];
+      }
+      for (const text of this.delegateSummaryPills(agent)) {
+        pillsEl.createSpan({ cls: "ad-delegate-pill", text });
+      }
+    };
+    body._refreshPills();
     if (sub) body.createDiv({ cls: "ad-card__sub", text: sub });
     return body;
   }
@@ -448,12 +492,18 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     if (syncModelGroups(s, id => p.agentEnabled(id))) p.saveSettings();
 
     // 1. 委派 → 默认目标
-    const destinations = this.card(body, t("默认委派到"), t("仅显示已启用的 Harness；追踪主力与默认委派分别设置"));
+    const destinations = this.card(
+      body,
+      t("默认委派到"),
+      t("仅显示已启用的 Harness；追踪主力与默认委派分别设置"),
+      (actions) => {
+        this.bigButton(actions, t("重新检测 Harness"), () => p.redetectHarnesses?.(), "ad-btn--compact ad-btn--ghost");
+      },
+    );
     const targetRow = destinations.createDiv({ cls: "ad-targetpick" });
     const targetHints = { workbuddy: t("客户端交接"), teleagent: t("客户端交接"), claude: t("桌面版 / 后台"), codex: t("桌面版 / 终端"), qoder: t("桌面版 / CLI") };
     const targetAgents = settingsAgentOrder(s, "delegation", id => p.agentEnabled(id)).filter((id) => p.agentEnabled(id) && !AGENTS[id].trackingOnly);
     for (const id of targetAgents) {
-
       const a = AGENTS[id];
       const available = id !== "workbuddy" && id !== "teleagent" && !a.trackingOnly;
       const item = targetRow.createDiv({ cls: "ad-settings-target" });
@@ -472,78 +522,17 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       destinations.createDiv({ cls: "ad-hint", text: t("当前没有已启用的可委派 Harness，点击「重新检测」或前往「记录 → 来源与扫描」开启。") });
     }
     this.renderClientWikiHint(destinations);
-    const destActions = destinations.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(destActions, t("重新检测 Harness"), () => p.redetectHarnesses?.());
-
     this.agentReorder(targetRow, "delegation", ".ad-settings-target");
 
-    // 管家汇总：看板一次派发多条时会额外起一个汇总会话；这里决定用谁，或直接关掉。
-    const stewardNow = s.projectTeams?.stewards?.default || {};
-    const stewardAgentVal = stewardNow.enabled === false || !stewardNow.agent || !p.agentEnabled(stewardNow.agent) ? "off" : stewardNow.agent;
-    const stewardCard = this.card(body, t("管家汇总"), t("看板一次派发多条任务时，额外起一个会话汇总进度。默认用「默认委派到」那个 Agent；这里可以单独指定或关掉，避免占错配额。"));
-    this.rowSelect(
-      stewardCard,
-      t("管家 Agent"),
-      t("选「关闭」就不自动起管家会话"),
-      [{ id: "off", label: t("关闭") }, ...settingsAgentOrder(s, "delegation", (id) => p.agentEnabled(id) && !AGENTS[id].trackingOnly).filter((id) => p.agentEnabled(id) && !AGENTS[id].trackingOnly).map((id) => ({ id, label: AGENTS[id].name }))],
-      stewardAgentVal,
-      (v) => {
-        s.projectTeams ||= {};
-        s.projectTeams.stewards ||= {};
-        s.projectTeams.stewards.default = v === "off" ? { enabled: false } : { enabled: true, agent: v };
-        p.saveSettings();
-      },
+    // 2. 委派 → Agent 配置（按上方拖动顺序聚合为一个折叠列表 + 底部自定义 ACP）
+    const agentConfigCard = this.card(
+      body,
+      t("Agent 配置"),
+      t("展开调整单个 Agent 的模型、强度与权限；顺序与上方保持一致"),
     );
-    this.rowToggle(stewardCard, t("管家中途看护"), t("每 5 分钟看一眼波次：有会话 15 分钟没有输出，就提醒一次并写回子卡。默认关"), s.stewardWatch === true, (v) => {
-      s.stewardWatch = v;
-      p.saveSettings();
-      p.startStewardWatch?.();
-    });
-
-    const projectCard = this.card(body, t("项目文件夹"), t("派活时按项目选目录；笔记里的双链、路径或「项目 -> 标题」也能认出项目，笔记项目优先于各 Agent 的默认目录。Codex 会把会话归到同名项目。"));
-    this.rowToggle(projectCard, t("按项目文件夹派活"), t("从笔记认出项目后，派到这个项目的目录；认不出再用各 Agent 的默认目录或库根"), s.autoProjectFolder !== false, (v) => { s.autoProjectFolder = v; p.saveSettings(); });
-    this.rowToggle(projectCard, t("非日记笔记的派发也记进当天日记"), t("默认不记，结论仍写回原笔记；打开后和普通会话一样进当天日记"), s.noteDispatchJournal === true, (v) => { s.noteDispatchJournal = v; p.saveSettings(); });
-    this.renderProjectFolders(projectCard);
-
-    // 2. 委派 → 各 Agent（仅展示已启用的 Harness，保持页面干净）
-    if (p.agentEnabled("claude")) {
-      const claude = this.agentCard(body, "claude", "Claude Code", "");
-      this.modelSelect(claude, "claude", p.defaultModel("claude"), (v) => { this.setDefaultModel("claude", v); this.display(); });
-      this.effortControl(claude, "claude", d.claude.effort, (v) => { this.setDefaultEffort("claude", v); this.display(); });
-      this.rowSegmented(claude, t("权限模式（默认）"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件；manual：每步都问。派发时可以在确认框里临时改"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => { d.claude.permission = v; p.saveSettings(); this.display(); });
-      const claudeMore = this.subDetails(claude, "claude-more", t("更多设置"));
-      this.rowText(claudeMore, t("命令行路径"), t("留空自动查找"), d.claude.path || "", t("自动查找"), (v) => { d.claude.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
-      this.rowText(claude, t("工作目录"), t("留空使用库根目录"), d.claude.cwd, t("留空 = 库根目录"), (v) => { d.claude.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
-      this.rowToggle(claudeMore, t("完成后自动在桌面版打开"), "", d.claude.openDesktop === true, (v) => { d.claude.openDesktop = v; p.saveSettings(); });
-      this.rowToggle(claudeMore, t("把当前库也加进可读目录"), "", d.claude.addVault !== false, (v) => { d.claude.addVault = v; p.saveSettings(); });
-      this.rowToggle(claudeMore, t("库没被信任时自动换个目录"), t("使用已信任目录，并添加当前库的访问路径"), d.claude.autoTrustedCwd !== false, (v) => { d.claude.autoTrustedCwd = v; p.saveSettings(); });
-      this.rowToggle(claudeMore, t("使用 claude --bg 后台服务"), t("由 Claude 后台服务管理会话"), d.claude.useBackground === true, (v) => { d.claude.useBackground = v; p.saveSettings(); });
-      this.rowText(claudeMore, t("额外参数"), t("传给 Claude CLI 的参数"), d.claude.extraArgs, t("可留空"), (v) => { d.claude.extraArgs = v; p.saveSettings(); }, "ad-input--wide");
-      const test = claudeMore.createDiv({ cls: "ad-btnrow" });
-      this.bigButton(test, t("检查 claude"), async () => { const r = await p.checkBinary("claude"); new Notice(r, 6000); });
-      this.bigButton(test, t("在终端里续这个目录"), () => p.openTerminalAt(d.claude.cwd || p.vaultPath, "claude"));
-
-      claude.appendChild(claudeMore.parentElement);
-    }
-
-    if (p.agentEnabled("codex")) {
-      const codex = this.agentCard(body, "codex", "Codex", "");
-      this.rowSegmented(codex, t("派发到"), "", [{ id: "desktop", label: t("Codex 桌面版") }, { id: "terminal", label: t("终端") }], d.codex.transport || "desktop", (v) => { d.codex.transport = v; p.saveSettings(); this.display(); });
-      this.modelSelect(codex, "codex", p.defaultModel("codex"), (v) => { this.setDefaultModel("codex", v); this.display(); });
-      this.effortControl(codex, "codex", d.codex.effort, (v) => { this.setDefaultEffort("codex", v); this.display(); });
-      this.rowSegmented(codex, t("沙箱模式（默认）"), t("read-only：只读；workspace-write：只改工作目录；danger-full-access：完全权限。派发时可以在确认框里临时改"), CODEX_SANDBOXES, d.codex.sandbox || "workspace-write", (v) => { d.codex.sandbox = v; p.saveSettings(); this.display(); });
-      const codexMore = this.subDetails(codex, "codex-more", t("更多设置"));
-      for (const [key, label, hint] of [["path", t("codex 程序路径"), t("桌面模式留空优先使用 Desktop 自带程序；终端模式从 PATH 查找")], ["cwd", t("工作目录"), t("留空 = 库根目录")]]) {
-        this.rowText(key === "cwd" ? codex : codexMore, label, hint, d.codex[key], hint, (v) => { d.codex[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
-      }
-      this.bigButton(codexMore.createDiv({ cls: "ad-btnrow" }), t("检查 codex"), async () => new Notice(await p.checkBinary("codex"), 6000));
-      this.rowToggle(codexMore, t("把会话归到 Codex 项目"), t("同目录已有项目就复用，没有就用项目名建一个；项目接口是实验性的，失败时按原样派发"), d.codex.project !== false, (v) => { d.codex.project = v; p.saveSettings(); });
-
-      codex.appendChild(codexMore.parentElement);
-    }
-
-    for (const spec of [
-      {
+    const agentList = agentConfigCard.createDiv({ cls: "ad-delegate-list" });
+    const acpSpecs = {
+      dsh: {
         id: "dsh",
         title: "DeepSeek Harness",
         sub: "",
@@ -557,18 +546,18 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         refreshNotice: (n) => t("已读取 {n} 个模型，包含 Harness 中配置的自定义模型", { n }),
         checkLabel: t("检查 dsh"),
       },
-      {
+      antigravity: {
         id: "antigravity",
-        title: "Antigravity ACP",
-        sub: t("安装 agy CLI 后运行 agy acp --login 登录"),
+        title: "Antigravity CLI",
+        sub: t("通过官方 agy CLI 后台委派，也可在终端交互运行"),
         moreKey: "agy-more",
         pathLabel: t("agy 程序路径"),
         pathHint: t("留空自动查找，例如 ~/.local/bin/agy"),
-        hasExtraArgs: false,
+        extraArgsLabel: t("额外 CLI 参数"),
         refreshLabel: t("读取 Antigravity 可用模型"),
         checkLabel: t("检查 agy"),
       },
-      {
+      opencode: {
         id: "opencode",
         title: "OpenCode",
         sub: t("通过 OpenCode.app 内置的 opencode-cli acp 后台委派，也可打开桌面端或终端"),
@@ -578,7 +567,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         refreshLabel: t("读取 OpenCode 可用模型"),
         checkLabel: t("检查 opencode"),
       },
-      {
+      hermes: {
         id: "hermes",
         title: "Hermes Agent",
         sub: t("通过 hermes-acp 后台委派，也可在终端用 hermes chat / --resume 续聊"),
@@ -588,7 +577,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         refreshLabel: t("读取 Hermes 可用模型"),
         checkLabel: t("检查 hermes-acp"),
       },
-      {
+      minimax: {
         id: "minimax",
         title: "MiniMax Code",
         sub: t("追踪桌面版与 CLI 会话；装有 mcode CLI 时支持 mcode acp 后台委派与终端续聊"),
@@ -598,7 +587,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         refreshLabel: t("读取 MiniMax 可用模型"),
         checkLabel: t("检查 mcode"),
       },
-      {
+      cursor: {
         id: "cursor",
         title: "Cursor",
         sub: t("装有 Cursor CLI（agent）时支持 agent acp 后台委派；未装 CLI 时自动复制任务并打开桌面端交接"),
@@ -607,7 +596,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         refreshLabel: t("读取 Cursor 可用模型"),
         checkLabel: t("检查 agent"),
       },
-      {
+      trae: {
         id: "trae",
         title: "Trae",
         sub: t("装有 Trae CLI（traecli）时支持 traecli acp serve 后台委派；未装 CLI 时自动复制任务并打开桌面端交接"),
@@ -616,7 +605,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         refreshLabel: t("读取 Trae 可用模型"),
         checkLabel: t("检查 traecli"),
       },
-      {
+      kimicode: {
         id: "kimicode",
         title: "Kimi Code",
         sub: t("装有 Kimi Code CLI（kimi）时支持 kimi acp 后台委派；未装 CLI 时自动复制任务并打开桌面端交接"),
@@ -626,7 +615,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         refreshLabel: t("读取 Kimi Code 可用模型"),
         checkLabel: t("检查 kimi"),
       },
-      {
+      gemini: {
         id: "gemini",
         title: "Gemini CLI",
         sub: t("通过 gemini --acp 后台委派，也可在终端用 gemini --resume 续聊"),
@@ -635,51 +624,106 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         refreshLabel: t("读取 Gemini 可用模型"),
         checkLabel: t("检查 gemini"),
       },
-    ]) {
-      if (p.agentEnabled(spec.id)) {
-        this.renderAcpCard(body, (d[spec.id] ||= { ...DEFAULTS.delegate[spec.id] }), spec);
+    };
+    const renderConfigurableAgent = (id) => {
+      if (id === "claude") {
+        const claude = this.agentCard(agentList, "claude", "Claude Code", "");
+        this.modelSelect(claude, "claude", p.defaultModel("claude"), (v) => { this.setDefaultModel("claude", v); this.display(); });
+        this.effortControl(claude, "claude", d.claude.effort, (v) => { this.setDefaultEffort("claude", v); this.display(); });
+        this.rowSegmented(claude, t("权限模式（默认）"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件；manual：每步都问。派发时可以在确认框里临时改"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => { d.claude.permission = v; p.saveSettings(); this.display(); });
+        const claudeMore = this.subDetails(claude, "claude-more", t("更多设置"));
+        this.rowText(claudeMore, t("命令行路径"), t("留空自动查找"), d.claude.path || "", t("自动查找"), (v) => { d.claude.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
+        this.rowText(claudeMore, t("工作目录"), t("留空使用库根目录"), d.claude.cwd, t("留空 = 库根目录"), (v) => { d.claude.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
+        this.rowToggle(claudeMore, t("完成后自动在桌面版打开"), "", d.claude.openDesktop === true, (v) => { d.claude.openDesktop = v; p.saveSettings(); });
+        this.rowToggle(claudeMore, t("把当前库也加进可读目录"), "", d.claude.addVault !== false, (v) => { d.claude.addVault = v; p.saveSettings(); });
+        this.rowToggle(claudeMore, t("库没被信任时自动换个目录"), t("使用已信任目录，并添加当前库的访问路径"), d.claude.autoTrustedCwd !== false, (v) => { d.claude.autoTrustedCwd = v; p.saveSettings(); });
+        this.rowToggle(claudeMore, t("使用 claude --bg 后台服务"), t("由 Claude 后台服务管理会话"), d.claude.useBackground === true, (v) => { d.claude.useBackground = v; p.saveSettings(); });
+        this.rowText(claudeMore, t("额外参数"), t("传给 Claude CLI 的参数"), d.claude.extraArgs, t("可留空"), (v) => { d.claude.extraArgs = v; p.saveSettings(); }, "ad-input--wide");
+        const test = claudeMore.createDiv({ cls: "ad-btnrow" });
+        this.bigButton(test, t("检查 claude"), async () => { const r = await p.checkBinary("claude"); new Notice(r, 6000); });
+        this.bigButton(test, t("在终端里续这个目录"), () => p.openTerminalAt(d.claude.cwd || p.vaultPath, "claude"));
+        claude.appendChild(claudeMore.parentElement);
+        return true;
       }
+      if (id === "codex") {
+        const codex = this.agentCard(agentList, "codex", "Codex", "");
+        this.rowSegmented(codex, t("派发到"), "", [{ id: "desktop", label: t("Codex 桌面版") }, { id: "terminal", label: t("终端") }], d.codex.transport || "desktop", (v) => { d.codex.transport = v; p.saveSettings(); this.display(); });
+        this.modelSelect(codex, "codex", p.defaultModel("codex"), (v) => { this.setDefaultModel("codex", v); this.display(); });
+        this.effortControl(codex, "codex", d.codex.effort, (v) => { this.setDefaultEffort("codex", v); this.display(); });
+        this.rowSegmented(codex, t("沙箱模式（默认）"), t("read-only：只读；workspace-write：只改工作目录；danger-full-access：完全权限。派发时可以在确认框里临时改"), CODEX_SANDBOXES, d.codex.sandbox || "workspace-write", (v) => { d.codex.sandbox = v; p.saveSettings(); this.display(); });
+        const codexMore = this.subDetails(codex, "codex-more", t("更多设置"));
+        for (const [key, label, hint] of [["path", t("codex 程序路径"), t("桌面模式留空优先使用 Desktop 自带程序；终端模式从 PATH 查找")], ["cwd", t("工作目录"), t("留空 = 库根目录")]]) {
+          this.rowText(codexMore, label, hint, d.codex[key], hint, (v) => { d.codex[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
+        }
+        this.bigButton(codexMore.createDiv({ cls: "ad-btnrow" }), t("检查 codex"), async () => new Notice(await p.checkBinary("codex"), 6000));
+        this.rowToggle(codexMore, t("把会话归到 Codex 项目"), t("同目录已有项目就复用，没有就用项目名建一个；项目接口是实验性的，失败时按原样派发"), d.codex.project !== false, (v) => { d.codex.project = v; p.saveSettings(); });
+        codex.appendChild(codexMore.parentElement);
+        return true;
+      }
+      if (id === "qoder") {
+        const qoder = this.agentCard(agentList, "qoder", "Qoder", t("已登录 qodercli 时后台直接执行；未登录时自动复制任务并打开 Qoder 桌面版交接"));
+        this.modelSelect(qoder, "qoder", p.defaultModel("qoder"), (v) => { this.setDefaultModel("qoder", v); this.display(); });
+        this.effortControl(qoder, "qoder", d.qoder.effort, (v) => { this.setDefaultEffort("qoder", v); this.display(); });
+        this.rowSegmented(qoder, t("权限模式（默认）"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件；manual：每步都问。派发时可以在确认框里临时改"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => { d.qoder.permission = v; p.saveSettings(); this.display(); });
+        const qoderMore = this.subDetails(qoder, "qoder-more", t("更多设置"));
+        for (const [key, label, hint] of [["path", t("命令行路径"), t("留空自动查找（~/.qoder/bin/qodercli/qodercli）")], ["cwd", t("工作目录"), t("留空 = 库根目录")], ["extraArgs", t("额外参数"), t("可留空")]]) {
+          this.rowText(qoderMore, label, hint, d.qoder[key] || "", hint, (v) => { d.qoder[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
+        }
+        const qtest = qoderMore.createDiv({ cls: "ad-btnrow" });
+        this.bigButton(qtest, t("检查 qoder"), async () => new Notice(await p.checkBinary("qoder"), 6000));
+        this.bigButton(qtest, t("登录 qoder CLI"), () => p.openTerminalAt(d.qoder.cwd || p.vaultPath, "qoder login"));
+        qoder.appendChild(qoderMore.parentElement);
+        return true;
+      }
+      const spec = acpSpecs[id];
+      if (spec) {
+        this.renderAcpCard(agentList, (d[spec.id] ||= { ...DEFAULTS.delegate[spec.id] }), spec);
+        return true;
+      }
+      return false;
+    };
+
+    let hasConfiguredAgents = false;
+    for (const id of settingsAgentOrder(s, "delegation", id => p.agentEnabled(id))) {
+      if (!p.agentEnabled(id)) continue;
+      if (renderConfigurableAgent(id)) hasConfiguredAgents = true;
+    }
+    if (!hasConfiguredAgents) {
+      agentList.createDiv({ cls: "ad-delegate-empty", text: t("当前没有已启用的可委派 Agent。") });
     }
 
-    if (p.agentEnabled("qoder")) {
-      const qoder = this.agentCard(body, "qoder", "Qoder", t("已登录 qodercli 时后台直接执行；未登录时自动复制任务并打开 Qoder 桌面版交接"));
-      this.modelSelect(qoder, "qoder", p.defaultModel("qoder"), (v) => { this.setDefaultModel("qoder", v); this.display(); });
-      this.effortControl(qoder, "qoder", d.qoder.effort, (v) => { this.setDefaultEffort("qoder", v); this.display(); });
-      this.rowSegmented(qoder, t("权限模式（默认）"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件；manual：每步都问。派发时可以在确认框里临时改"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => { d.qoder.permission = v; p.saveSettings(); this.display(); });
-      const qoderMore = this.subDetails(qoder, "qoder-more", t("更多设置"));
-      for (const [key, label, hint] of [["path", t("命令行路径"), t("留空自动查找（~/.qoder/bin/qodercli/qodercli）")], ["cwd", t("工作目录"), t("留空 = 库根目录")], ["extraArgs", t("额外参数"), t("可留空")]]) {
-        this.rowText(key === "cwd" ? qoder : qoderMore, label, hint, d.qoder[key] || "", hint, (v) => { d.qoder[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
-      }
-      const qtest = qoderMore.createDiv({ cls: "ad-btnrow" });
-      this.bigButton(qtest, t("检查 qoder"), async () => new Notice(await p.checkBinary("qoder"), 6000));
-      this.bigButton(qtest, t("登录 qoder CLI"), () => p.openTerminalAt(d.qoder.cwd || p.vaultPath, "qoder login"));
-
-      qoder.appendChild(qoderMore.parentElement);
-    }
-
-    this.renderCustomAcpCard(body);
-
-    const showTerminal = cliHandoffAgents().some((id) => p.agentEnabled(id));
     const otherShared = ["workbuddy", "qwenwork", "teleagent"].filter((id) => p.agentEnabled(id));
-    if (showTerminal || otherShared.length) {
-      const sharedAgents = this.card(body, t("公共终端与其余 Agent"), "");
-      if (showTerminal) {
-        this.rowSelect(sharedAgents, t("主力终端"), t("用于终端委派和恢复会话"), getTerminalOptions(), s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
-        this.rowToggle(sharedAgents, t("默认在终端委派"), t("适用于 Claude Code、Codex、OpenCode、Qoder 和 Hermes"), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
-      }
+    if (otherShared.length) {
+      const passive = agentConfigCard.createDiv({ cls: "ad-delegate-passive" });
+      passive.createDiv({ cls: "ad-delegate-passive__title", text: t("仅客户端交接 / 追踪") });
       for (const id of otherShared) {
-        const r = this.row(sharedAgents, AGENTS[id].name, "", AGENTS[id].trackingOnly ? t("会话追踪与记录（暂不支持后台委派）") : t("客户端交接 · 在客户端选择模型"));
+        const r = this.row(passive, AGENTS[id].name, "", AGENTS[id].trackingOnly ? t("会话追踪与记录（暂不支持后台委派）") : t("客户端交接 · 在客户端选择模型"));
         r.dataset.agent = id;
       }
     }
+    this.renderCustomAcpSection(agentConfigCard);
 
-    // 3. 委派 → 管理模型
-    this.renderModels(body);
+    // 3. 委派 → 路由与发送规则（项目目录路由 + 补全 / 前后缀 / 附加要求）
+    const routingCard = this.card(
+      body,
+      t("路由与发送规则"),
+      t("项目目录自动路由、@ 候选菜单、附加要求与提示词前后缀"),
+    );
+    this.rowToggle(routingCard, t("按项目文件夹派活"), t("从笔记认出项目后，派到这个项目的目录；认不出再用各 Agent 的默认目录或库根"), s.autoProjectFolder !== false, (v) => { s.autoProjectFolder = v; p.saveSettings(); });
+    this.rowToggle(routingCard, t("输入时显示候选菜单"), t("输入触发符选择 Agent、模型和强度"), d.mentionSuggest !== false, (v) => { d.mentionSuggest = v; p.saveSettings(); });
+    this.rowToggle(routingCard, t("委派附加要求"), t("追加到每次委派消息末尾"), d.confirmFirst !== false, (v) => { d.confirmFirst = v; p.saveSettings(); });
 
-    // 4. 委派 → 发送规则
-    const rules = this.card(body, t("发送规则"), t("任务行 Agent 补全、提示词前后缀和委派附加要求"));
-    this.rowToggle(rules, t("输入时显示候选菜单"), t("输入触发符选择 Agent、模型和强度"), d.mentionSuggest !== false, (v) => { d.mentionSuggest = v; p.saveSettings(); });
-    const rulesMore = this.subDetails(rules, "rules-more", t("更多设置"));
+    const projCount = projectFolderEntries(s).length;
+    const projectBox = this.subDetails(routingCard, "project-folders", t("项目文件夹（{n}）", { n: projCount }));
+    projectBox.createDiv({
+      cls: "ad-hint",
+      text: t("派活时按项目选目录；笔记里的双链、路径或「项目 -> 标题」也能认出项目，笔记项目优先于各 Agent 的默认目录。Codex 会把会话归到同名项目。"),
+    });
+    this.renderProjectFolders(projectBox);
+    routingCard.appendChild(projectBox.parentElement);
+
+    const rulesMore = this.subDetails(routingCard, "rules-more", t("更多设置"));
+    this.rowToggle(rulesMore, t("非日记笔记的派发也记进当天日记"), t("默认不记，结论仍写回原笔记；打开后和普通会话一样进当天日记"), s.noteDispatchJournal === true, (v) => { s.noteDispatchJournal = v; p.saveSettings(); });
     this.rowText(rulesMore, t("触发符号"), t("默认 @，前面需空格"), d.mentionTrigger || "@", "@", (v) => {
       const trigger = v.trim();
       if (!trigger || /[\s`\p{L}\p{N}]/u.test(trigger)) { new Notice(t("请填写不含空格、字母、数字或反引号的符号")); return; }
@@ -695,7 +739,6 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const sufTa = suf.createEl("textarea", { cls: "ad-textarea", attr: { placeholder: t("例如：做完把改动文件列出来。"), rows: "2" } });
     sufTa.value = d.promptSuffix || "";
     sufTa.onchange = () => { d.promptSuffix = sufTa.value; p.saveSettings(); };
-    this.rowToggle(rules, t("委派附加要求"), t("追加到每次委派消息末尾"), d.confirmFirst !== false, (v) => { d.confirmFirst = v; p.saveSettings(); });
     const confirm = rulesMore.createDiv({ cls: "ad-field" });
     confirm.createDiv({ cls: "ad-field__label", text: t("附加要求正文（可自定义）") });
     const confirmTa = confirm.createEl("textarea", { cls: "ad-textarea", attr: { rows: "5" } });
@@ -709,32 +752,68 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       d.excludedDirs = excludedTa.value.split(/[\n,;]+/).map((s) => s.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "")).filter(Boolean);
       p.saveSettings();
     };
-    rules.appendChild(rulesMore.parentElement);
+    routingCard.appendChild(rulesMore.parentElement);
+
+    // 4. 委派 → 多任务与终端
+    const stewardNow = s.projectTeams?.stewards?.default || {};
+    const stewardAgentVal = stewardNow.enabled === false || !stewardNow.agent || !p.agentEnabled(stewardNow.agent) ? "off" : stewardNow.agent;
+    const showTerminal = cliHandoffAgents().some((id) => p.agentEnabled(id));
+    const opsCard = this.card(body, t("多任务与终端"), t("看板多任务波次汇总与交互式终端委派"));
+    this.rowSelect(
+      opsCard,
+      t("管家 Agent"),
+      t("看板一次派发多条任务时自动汇总进度；选「关闭」就不起管家会话，避免占错配额"),
+      [{ id: "off", label: t("关闭") }, ...settingsAgentOrder(s, "delegation", (id) => p.agentEnabled(id) && !AGENTS[id].trackingOnly).filter((id) => p.agentEnabled(id) && !AGENTS[id].trackingOnly).map((id) => ({ id, label: AGENTS[id].name }))],
+      stewardAgentVal,
+      (v) => {
+        s.projectTeams ||= {};
+        s.projectTeams.stewards ||= {};
+        s.projectTeams.stewards.default = v === "off" ? { enabled: false } : { enabled: true, agent: v };
+        p.saveSettings();
+      },
+    );
+    this.rowToggle(opsCard, t("管家中途看护"), t("每 5 分钟看一眼波次：有会话 15 分钟没有输出，就提醒一次并写回子卡。默认关"), s.stewardWatch === true, (v) => {
+      s.stewardWatch = v;
+      p.saveSettings();
+      p.startStewardWatch?.();
+    });
+    if (showTerminal) {
+      this.rowSelect(opsCard, t("主力终端"), t("用于终端委派和恢复会话"), getTerminalOptions(), s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
+      this.rowToggle(opsCard, t("默认在终端委派"), t("适用于 Claude Code、Codex、OpenCode、Qoder 和 Hermes"), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
+    }
+
+    // 5. 委派 → 管理模型
+    this.renderModels(body);
   }
 
   renderProjectFolders(card) {
     const p = this.plugin;
     const folders = (p.settings.projectFolders ||= {});
     const entries = projectFolderEntries(p.settings);
-    if (!entries.length) card.createDiv({ cls: "ad-hint", text: t("还没有登记。在委派对话框里填一次目录，就会按项目名记住；也可以在这里直接加。") });
-    for (const e of entries) {
-      this.row(card, e.name, "", (rr) => {
-        const input = rr.createEl("input", { cls: "ad-input ad-input--wide", attr: { type: "text", value: e.path } });
+    if (!entries.length) {
+      card.createDiv({ cls: "ad-hint", text: t("还没有登记。在委派对话框里填一次目录，就会按项目名记住；也可以在这里直接加。") });
+    } else {
+      const listEl = card.createDiv({ cls: "ad-proj-list" });
+      for (const e of entries) {
+        const item = listEl.createDiv({ cls: "ad-proj-item" });
+        item.createSpan({ cls: "ad-proj-item__name", text: e.name });
+        const input = item.createEl("input", { cls: "ad-input", attr: { type: "text", value: e.path } });
         input.onchange = () => {
           if (!folderExists(input.value)) { new Notice(t("目录不存在：{path}", { path: input.value })); return; }
           folders[e.name] = normalizeProjectFolder(input.value);
           p.saveSettings();
           this.display();
         };
-        const remove = rr.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("移除"), attr: { type: "button" } });
+        const remove = item.createEl("button", { cls: "ad-btn ad-btn--ghost ad-btn--compact", text: t("移除"), attr: { type: "button" } });
         remove.onclick = () => { delete folders[e.name]; p.saveSettings(); this.display(); };
-      });
+      }
     }
-    const add = card.createDiv({ cls: "ad-btnrow" });
-    const name = add.createEl("input", { cls: "ad-input", attr: { type: "text", placeholder: t("项目名") } });
-    const dir = add.createEl("input", { cls: "ad-input ad-input--wide", attr: { type: "text", placeholder: t("例如：~/claude/agent-deck") } });
+    const add = card.createDiv({ cls: "ad-proj-add" });
+    const name = add.createEl("input", { cls: "ad-input ad-proj-add__name", attr: { type: "text", placeholder: t("项目名") } });
+    const dir = add.createEl("input", { cls: "ad-input ad-proj-add__dir", attr: { type: "text", placeholder: t("例如：~/claude/agent-deck") } });
+    const addBtns = add.createDiv({ cls: "ad-proj-add__btns" });
     if (canPickNativeFolder()) {
-      const browse = add.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("浏览…"), attr: { type: "button" } });
+      const browse = addBtns.createEl("button", { cls: "ad-btn ad-btn--ghost ad-btn--compact", text: t("浏览…"), attr: { type: "button" } });
       browse.onclick = async () => {
         const picked = await pickNativeFolder(dir.value || p.vaultPath || "");
         if (!picked) return;
@@ -742,7 +821,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         if (!name.value.trim()) name.value = picked.split("/").pop() || "";
       };
     }
-    const addBtn = add.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("登记"), attr: { type: "button" } });
+    const addBtn = addBtns.createEl("button", { cls: "ad-btn ad-btn--soft ad-btn--compact", text: t("登记"), attr: { type: "button" } });
     addBtn.onclick = () => {
       const label = name.value.trim();
       const folder = normalizeProjectFolder(dir.value);
@@ -755,11 +834,15 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const suggestions = (p.projectFolderSuggestions?.(6) || [])
       .filter((s) => s?.path && !entries.some((e) => sameFolder(e.path, s.path)));
     if (suggestions.length) {
-      const suggBox = card.createDiv({ cls: "ad-field" });
+      const suggBox = card.createDiv({ cls: "ad-proj-suggs" });
       suggBox.createDiv({ cls: "ad-hint", text: t("最近在会话里用过的目录（点一下直接登记）：") });
-      const chipRow = suggBox.createDiv({ cls: "ad-btnrow" });
+      const chipRow = suggBox.createDiv({ cls: "ad-proj-suggs__chips" });
       for (const s of suggestions) {
-        const btn = chipRow.createEl("button", { cls: "ad-btn ad-btn--ghost", text: `+ ${s.name} · ${s.path}`, attr: { type: "button" } });
+        const btn = chipRow.createEl("button", {
+          cls: "ad-btn ad-btn--ghost ad-btn--compact ad-proj-chip",
+          text: `+ ${s.name} · ${s.path}`,
+          attr: { type: "button", title: s.path },
+        });
         btn.onclick = () => {
           folders[s.name] = s.path;
           p.saveSettings();
@@ -884,15 +967,18 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.display();
   }
 
-  renderCustomAcpCard(body) {
+  renderCustomAcpSection(parent) {
     const p = this.plugin;
     const s = p.settings;
     const list = (s.customAcpAgents ||= []);
-    const card = this.card(
-      body,
-      t("自定义 ACP Agent"),
-      t("填写任意兼容 ACP 协议的 CLI 命令、参数与环境变量即可接入后台委派与应用内续聊，环境变量值支持 secret:KEY / env:VAR")
-    );
+    const box = parent.createDiv({ cls: "ad-custom-acp" });
+    const head = box.createDiv({ cls: "ad-custom-acp__head" });
+    const titleWrap = head.createDiv({ cls: "ad-custom-acp__titlewrap" });
+    titleWrap.createDiv({ cls: "ad-custom-acp__title", text: t("自定义 ACP Agent") });
+    titleWrap.createDiv({
+      cls: "ad-custom-acp__sub",
+      text: t("填写任意兼容 ACP 协议的 CLI 命令、参数与环境变量即可接入后台委派与应用内续聊，环境变量值支持 secret:KEY / env:VAR"),
+    });
     const persist = () => {
       p.syncCustomAcpAgents?.();
       syncDelegationSettings(s, s);
@@ -900,35 +986,38 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       p.refreshUI?.();
       this.display();
     };
-    if (!list.length) {
-      card.createDiv({ cls: "ad-muted", text: t("尚未添加自定义 ACP Agent（可接入 Gemini CLI、Kiro、Mistral Vibe、Pi 等任意 ACP 命令）") });
-    } else {
-      for (const entry of list) {
-        const sub = `@${entry.id} · ${entry.command}${entry.args ? " " + entry.args : ""}${entry.autoApprove ? ` · ${t("自动允许")}` : ""}`;
-        const r = this.row(card, entry.name || entry.id, sub);
-        const ctrl = r.createDiv({ cls: "ad-btnrow" });
-        const toggle = ctrl.createEl("input", { type: "checkbox", attr: { "aria-label": t("启用") } });
-        toggle.checked = entry.enabled !== false;
-        toggle.onchange = () => { entry.enabled = toggle.checked; persist(); };
-        this.bigButton(ctrl, t("检查"), async () => new Notice(await p.checkBinary(entry.id), 6000));
-        this.bigButton(ctrl, t("编辑"), () => new CustomAcpAgentModal(this.app, entry, list, (next) => {
-          Object.assign(entry, next);
-          persist();
-        }).open());
-        this.bigButton(ctrl, t("删除"), () => {
-          const idx = list.indexOf(entry);
-          if (idx >= 0) list.splice(idx, 1);
-          if (s.agents) delete s.agents[entry.id];
-          if (s.delegate) delete s.delegate[entry.id];
-          persist();
-        });
-      }
-    }
-    const bar = card.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(bar, t("+ 添加自定义 ACP Agent"), () => new CustomAcpAgentModal(this.app, null, list, (entry) => {
+    this.bigButton(head, t("+ 添加自定义 ACP Agent"), () => new CustomAcpAgentModal(this.app, null, list, (entry) => {
       list.push(entry);
       persist();
-    }).open());
+    }).open(), "ad-btn--soft ad-btn--compact");
+    if (!list.length) {
+      box.createDiv({ cls: "ad-hint", text: t("尚未添加自定义 ACP Agent（可接入 Gemini CLI、Kiro、Mistral Vibe、Pi 等任意 ACP 命令）") });
+      return;
+    }
+    const listEl = box.createDiv({ cls: "ad-custom-acp__list" });
+    for (const entry of list) {
+      const item = listEl.createDiv({ cls: "ad-custom-acp__item" });
+      const info = item.createDiv({ cls: "ad-custom-acp__info" });
+      const top = info.createDiv({ cls: "ad-custom-acp__top" });
+      top.createSpan({ cls: "ad-custom-acp__name", text: entry.name || entry.id });
+      top.createSpan({ cls: "ad-delegate-pill", text: `@${entry.id}` });
+      if (entry.autoApprove) top.createSpan({ cls: "ad-delegate-pill", text: t("自动允许") });
+      info.createDiv({ cls: "ad-custom-acp__cmd", text: `${entry.command}${entry.args ? " " + entry.args : ""}` });
+      const actions = item.createDiv({ cls: "ad-custom-acp__actions" });
+      this.toggle(actions, entry.enabled !== false, (v) => { entry.enabled = v; persist(); });
+      this.bigButton(actions, t("检查"), async () => new Notice(await p.checkBinary(entry.id), 6000), "ad-btn--compact ad-btn--ghost");
+      this.bigButton(actions, t("编辑"), () => new CustomAcpAgentModal(this.app, entry, list, (next) => {
+        Object.assign(entry, next);
+        persist();
+      }).open(), "ad-btn--compact ad-btn--ghost");
+      this.bigButton(actions, t("删除"), () => {
+        const idx = list.indexOf(entry);
+        if (idx >= 0) list.splice(idx, 1);
+        if (s.agents) delete s.agents[entry.id];
+        if (s.delegate) delete s.delegate[entry.id];
+        persist();
+      }, "ad-btn--compact ad-btn--ghost");
+    }
   }
 
   renderModels(body) {
@@ -939,16 +1028,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const enabled = new Set(d.enabled);
 
     const picker = body.createDiv({ cls: "ad-card ad-models-card" });
-    const phead = picker.createDiv({ cls: "ad-card__head" });
-    phead.createDiv({ cls: "ad-card__title", text: t("管理模型") });
-    phead.createDiv({ cls: "ad-card__sub", text: t("添加、编辑、启用、置顶和排序可用模型；改动自动保存") });
-
-    const tools = picker.createDiv({ cls: "ad-picker-tools" });
-    const searchWrap = tools.createDiv({ cls: "ad-search" });
-    searchWrap.createSpan({ cls: "ad-search__icon", text: "⌕" });
-    const search = searchWrap.createEl("input", { cls: "ad-search__input", attr: { placeholder: t("搜索模型"), value: this.search } });
-    search.oninput = () => { this.search = search.value; this.display(); };
-    const add = tools.createEl("button", { cls: "ad-btn ad-btn--soft", text: "＋ " + t("添加模型") });
+    const phead = picker.createDiv({ cls: "ad-card__head ad-card__head--bar" });
+    const ptext = phead.createDiv({ cls: "ad-card__head-text" });
+    ptext.createDiv({ cls: "ad-card__title", text: t("管理模型") });
+    ptext.createDiv({ cls: "ad-card__sub", text: t("添加、编辑、启用、置顶和排序可用模型；改动自动保存") });
+    const pacts = phead.createDiv({ cls: "ad-card__head-actions" });
+    const add = pacts.createEl("button", { cls: "ad-btn ad-btn--soft ad-btn--compact", text: "＋ " + t("添加模型") });
     add.onclick = () => new AddModelModal(this.app, p, (m) => {
       this.persistModelsChange((store) => {
         store.custom.push(m);
@@ -956,6 +1041,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         if (!store.order.includes(m.id)) store.order.push(m.id);
       });
     }).open();
+
+    const tools = picker.createDiv({ cls: "ad-picker-tools" });
+    const searchWrap = tools.createDiv({ cls: "ad-search" });
+    searchWrap.createSpan({ cls: "ad-search__icon", text: "⌕" });
+    const search = searchWrap.createEl("input", { cls: "ad-search__input", attr: { placeholder: t("搜索模型"), value: this.search } });
+    search.oninput = () => { this.search = search.value; this.display(); };
     const filters = picker.createDiv({ cls: "ad-filters ad-filters--models" });
     for (const [id, label] of [["all", t("全部")], ["enabled", t("已启用")], ["reasoning", t("推理")], ["fast", t("快速")], ["vision", t("视觉")]]) {
       const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label, attr: { "aria-pressed": String(this.filter === id) } });
@@ -979,7 +1070,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const clientModels = agent === "workbuddy" || agent === "teleagent" || agent === "t3code" || AGENTS[agent].trackingOnly;
       if (!rows.length && (!clientModels || q || this.filter !== "all")) continue;
       const state = p.settings.ui.modelGroups[agent];
-      const g = list.createEl(clientModels ? "div" : "details", { cls: "ad-modelgroup" });
+      const g = list.createEl(clientModels ? "div" : "details", { cls: "ad-modelgroup" + (clientModels ? " is-client-only" : "") });
       g.dataset.agent = agent;
       if (!clientModels) {
         g.open = state.open;
@@ -1509,6 +1600,21 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("简略：任务和结论合成一段") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("标准：提问、回答各一句") });
     detailDesc.createDiv({ cls: "ad-row__desc", text: t("详细：保留提问、回复摘录和步骤") });
+    const rules = (s.recordRules = resolveRecordRules(s));
+    const timingRow = this.row(jr, t("会话计时方式"), "", (rr) => {
+      this.segmented(
+        rr,
+        [
+          { id: "child", label: t("子块 ⏱（默认 · 与螺旋日程一致）") },
+          { id: "inline", label: t("行首 HH:MM-HH:MM（传统）") },
+        ],
+        rules.showTimeRange ? "inline" : "child",
+        (v) => { rules.showTimeRange = v === "inline"; p.saveSettings(); },
+      );
+    });
+    const timingDesc = timingRow.querySelector(":scope > .ad-row__left");
+    timingDesc.createDiv({ cls: "ad-row__desc", text: t("子块 ⏱：母块保留原样（预估时长、预约时段或间歇时间戳），子块 ⏱ 记实际用时，便于在螺旋日程中对照「预计 vs 实际」") });
+    timingDesc.createDiv({ cls: "ad-row__desc", text: t("行首时段：按旧版在任务行首写入 HH:MM-HH:MM 起止时间段") });
     this.rowSegmented(jr, t("AI 记录显示方式"), t("控制笔记中默认展开的记录"), [
       { id: "collapsed", label: t("默认折叠") },
       { id: "expanded", label: t("默认展开") },
@@ -1543,10 +1649,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.rowToggle(wb, t("整理完弹通知"), "", s.autoLogNotify !== false, (v) => { s.autoLogNotify = v; p.saveSettings(); });
 
     const rulesBox = this.subDetails(jrMore, "record-rules", t("记录规则细则"));
-    const rules = (s.recordRules = resolveRecordRules(s));
     this.rowToggle(rulesBox, t("母块标题自动加粗"), t("生成 AI 自动记录时用 **标题** 突出显示"), rules.boldTitle !== false, (v) => { rules.boldTitle = v; p.saveSettings(); });
     this.rowToggle(rulesBox, t("标题自动带项目 / Bot 前缀"), t("工作区项目或 Grok Bot 自动加上「名称 -> 」"), rules.projectPrefix !== false, (v) => { rules.projectPrefix = v; p.saveSettings(); });
-    this.rowToggle(rulesBox, t("母块显示起止时间段"), t("在 🤖 后写入 HH:MM-HH:MM；关闭后改为在子块 ⏱ 实时记录时段"), rules.showTimeRange !== false, (v) => { rules.showTimeRange = v; p.saveSettings(); });
     this.rowNumber(rulesBox, t("生成标题最大字数"), t("10–60 字，默认 22"), rules.titleMax || DEFAULT_RECORD_RULES.titleMax, 10, 60, (v) => { rules.titleMax = Math.max(10, Math.min(60, Math.round(v))); p.saveSettings(); });
     this.rowNumber(rulesBox, t("Grok Bot 无新对话自动 DONE（分钟）"), t("0 表示不自动标为 DONE；默认 120 分钟"), s.autoLogGrokBotDoneMinutes ?? DEFAULTS.autoLogGrokBotDoneMinutes, 0, 1440, (v) => { s.autoLogGrokBotDoneMinutes = Math.max(0, Math.round(v)); p.saveSettings(); });
 
@@ -1820,6 +1924,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         hubAlert.textContent = alertParts.join(t("；"));
       }).catch(() => {});
       this.bigButton(hubBtns, t("打开记忆看板"), () => p.openMemoryBoard?.());
+      this.bigButton(hubBtns, t("打开记忆图谱"), () => p.openMemoryGraph?.());
       this.bigButton(hubBtns, t("打开记忆.base"), () => p.openMemoryBase?.());
       this.bigButton(hubBtns, t("逐条审阅"), () => p.reviewMemories?.());
       this.bigButton(hubBtns, t("巩固去重"), () => p.consolidateMemories?.());
@@ -2006,24 +2111,271 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     card.appendChild(recallDetails.parentElement);
 
     // 3. 外部 Agent 接入（MCP Server / CLI）
-    const mcpCard = this.card(body, t("外部 Agent 接入（MCP / CLI）"), t("让 Claude Code、Codex、Antigravity、Cursor、OpenCode 等在库外直接检索与溯源 Dream 记忆"));
+    const mcpCfg = (s.mcp ||= { toolsMode: "all", allowWrite: false, excludeAiLogs: true, agentPrompt: "" });
+    if (mcpCfg.toolsMode !== "memory-only" && mcpCfg.toolsMode !== "all") mcpCfg.toolsMode = "all";
+    mcpCfg.allowWrite = Boolean(mcpCfg.allowWrite);
+    mcpCfg.excludeAiLogs = mcpCfg.excludeAiLogs !== false;
+    if (typeof mcpCfg.agentPrompt !== "string") mcpCfg.agentPrompt = "";
+
+    const mcpCard = this.card(body, t("外部 Agent 接入（MCP / CLI）"), t("让 Claude Code、Codex、Antigravity、OpenCode、DeepSeek Harness、Cursor 等在库外直接检索全库笔记（FTS5）与 Dream 记忆"));
+    const mcpPaths = p.resolveMcpPaths?.() || {};
+    const cfgDir = p.app?.vault?.configDir || "";
+    const core = p.contextCore;
     const assetCheck = checkExternalAssets(p.vaultPath, {
       expectedMemoryQueryVersion: MEMORY_QUERY_ASSET_VERSION,
       expectedMemoryMcpVersion: MEMORY_MCP_ASSET_VERSION,
+      scriptsDir: mcpPaths.scriptsDir || "",
+      configDir: cfgDir,
     });
     const statusText = assetCheck.checked
       ? assetCheck.items.map((it) => `${it.name}: ${it.status === "ok" ? t("已就绪 v{v}", { v: it.expectedVersion }) : it.status === "missing" ? t("未安装（需重新运行 install:plugin）") : t("版本过期（当前 v{a} / 期望 v{e}）", { a: it.actualVersion, e: it.expectedVersion })}`).join(" ｜ ")
       : t("未检测到 Vault 路径");
-    mcpCard.createDiv({ cls: "ad-muted", text: statusText });
-    let mcpAllowWrite = false;
-    const mcpWriteLabel = mcpCard.createEl("label", { cls: "ad-mem-create__verify" });
-    const mcpWriteCb = mcpWriteLabel.createEl("input", { type: "checkbox" });
-    mcpWriteCb.addEventListener("change", () => { mcpAllowWrite = mcpWriteCb.checked; });
-    mcpWriteLabel.createSpan({ text: t("允许外部 Agent 提交候选记忆（--allow-write，写入均为 AI 待审）") });
-    const mcpBtns = mcpCard.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(mcpBtns, t("复制 MCP 配置 JSON"), () => p.copyMcpConfig?.("json", { allowWrite: mcpAllowWrite }));
-    this.bigButton(mcpBtns, t("复制 Claude Code 命令"), () => p.copyMcpConfig?.("claude", { allowWrite: mcpAllowWrite }));
-    this.bigButton(mcpBtns, t("复制 CLI 查询示例"), () => p.copyMcpConfig?.("cli"));
+    mcpCard.createDiv({ cls: "ad-mcp-assets", text: statusText });
+
+    const defaultMcpPrompt = (mode) => (mode === "memory-only"
+      ? t("当涉及我的个人偏好、历史决定、项目踩坑经验或过往记忆时，先调用 agent-deck-memory MCP（memory_search / memory_graph / memory_recent / memory_read）查证再回答。")
+      : t("当涉及我的个人偏好、过往记忆或笔记库内容时，先调用 agent-deck-memory MCP 的 memory_search 与 vault_find / vault_outline / vault_read 查证（跳过 AI 自动流水，以用户手写笔记与已沉淀记忆为准），再回答。"));
+
+    let mcpAllowWrite = mcpCfg.allowWrite;
+    let renderClients = () => {};
+    let renderIndexStats = () => {};
+    let handshakeStatus = null;
+    let promptTa = null;
+    const clearHandshake = () => {
+      if (!handshakeStatus) return;
+      handshakeStatus.setText("");
+      handshakeStatus.hidden = true;
+    };
+
+    // 显性控制 1：工具暴露范围
+    this.rowSegmented(
+      mcpCard,
+      t("MCP 工具暴露范围"),
+      t("若同时使用 Obsidian 官方 Connector 管全库，可切为仅开放长期记忆"),
+      [
+        { id: "all", label: t("记忆 + 全库用户笔记") },
+        { id: "memory-only", label: t("仅长期记忆 (memory_*)") },
+      ],
+      mcpCfg.toolsMode,
+      (v) => {
+        const prevDefault = defaultMcpPrompt(mcpCfg.toolsMode);
+        mcpCfg.toolsMode = v;
+        p.saveSettings();
+        if (promptTa && (!mcpCfg.agentPrompt || promptTa.value.trim() === prevDefault)) {
+          promptTa.value = defaultMcpPrompt(v);
+          mcpCfg.agentPrompt = "";
+          p.saveSettings();
+        }
+        clearHandshake();
+        renderClients();
+        new Notice(t("已更新 MCP 工具范围（重开客户端会话后生效）"));
+      },
+    );
+
+    // 显性控制 2：允许提交候选记忆（持久化 --allow-write）
+    this.rowToggle(
+      mcpCard,
+      t("允许外部 Agent 提交候选记忆（--allow-write）"),
+      t("开启后增加 memory_propose 工具；外部写入仅进 AI 待审列表，绝不改动原笔记"),
+      mcpCfg.allowWrite,
+      (v) => {
+        mcpAllowWrite = Boolean(v);
+        mcpCfg.allowWrite = mcpAllowWrite;
+        p.saveSettings();
+        clearHandshake();
+        renderClients();
+      },
+    );
+
+    // 显性控制 3：搜索隔离策略（AI 日志排除开关 + 统一样式的隐私目录摘要跳转）
+    this.rowToggle(
+      mcpCard,
+      t("全库检索排除 AI 自动记录"),
+      t("默认开启：vault_* 只搜用户手写内容，AI 会话流水经 Dream 沉淀后走 memory_*"),
+      mcpCfg.excludeAiLogs,
+      (v) => {
+        mcpCfg.excludeAiLogs = Boolean(v);
+        p.saveSettings();
+        if (p.vaultPath) core?.clearVaultIndexCache?.(p.vaultPath);
+        renderIndexStats();
+      },
+    );
+
+    const excludedList = Array.isArray(p.settings?.delegate?.excludedDirs) ? p.settings.delegate.excludedDirs : [];
+    const excludedPreview = excludedList.length
+      ? (excludedList.length > 3
+        ? t("{items} 等 {n} 项", { items: excludedList.slice(0, 3).join("、"), n: excludedList.length })
+        : excludedList.join("、"))
+      : t("未设额外排除目录");
+    this.row(
+      mcpCard,
+      t("隐私与目录隔离"),
+      t("始终跳过 private: true 笔记 ｜ 排除目录：{dirs}", { dirs: excludedPreview }),
+      (rr) => {
+        this.bigButton(rr, t("前往设置"), () => {
+          this.tab = "delegate";
+          this.display();
+        }, "ad-btn--compact");
+      },
+    );
+
+    // 显性控制 4：本地全文索引状态与一键重建
+    let rebuildBtn = null;
+    const idxRow = this.row(mcpCard, t("本地全文索引"), " ", (rr) => {
+      rebuildBtn = this.bigButton(rr, t("重建本地索引"), () => {
+        if (!p.vaultPath || !core?.loadVaultIndex || !rebuildBtn) return;
+        rebuildBtn.disabled = true;
+        rebuildBtn.textContent = t("重建中…");
+        setTimeout(() => {
+          try {
+            const t0 = Date.now();
+            core.clearVaultIndexCache?.(p.vaultPath);
+            const idx = core.loadVaultIndex(p.vaultPath, { forceRebuild: true, persist: true, configDir: cfgDir });
+            const ms = Date.now() - t0;
+            renderIndexStats();
+            new Notice(t("索引重建完成：{n} 篇用户笔记（{ms}ms）", { n: idx.stats?.indexedFiles || 0, ms }));
+          } catch (e) {
+            new Notice(t("索引重建失败：{error}", { error: e?.message || e }));
+          } finally {
+            rebuildBtn.disabled = false;
+            rebuildBtn.textContent = t("重建本地索引");
+          }
+        }, 0);
+      }, "ad-btn--compact");
+    });
+    const idxTextEl = idxRow.querySelector(".ad-row__desc");
+    renderIndexStats = () => {
+      if (!idxTextEl) return;
+      if (!p.vaultPath || !core?.peekVaultIndexStatus) {
+        idxTextEl.setText(t("当前环境不支持离线状态检测"));
+        return;
+      }
+      const st = core.peekVaultIndexStatus(p.vaultPath, { configDir: cfgDir });
+      const engineLabel = st.ftsEngine === "sqlite-fts5" ? "SQLite FTS5" : t("JSON 回退");
+      if (!st.exists) {
+        idxTextEl.setText(t("{engine} · 尚未建立（首次查询自动生成或点右侧重建）", { engine: engineLabel }));
+        return;
+      }
+      idxTextEl.setText(t("{engine} · {indexed} 篇用户笔记 · 跳过 {gen} 个生成文件 · {priv} 篇私密", {
+        engine: engineLabel,
+        indexed: st.indexedFiles,
+        gen: st.generatedCount,
+        priv: st.privateCount,
+      }));
+    };
+    renderIndexStats();
+
+    // 显性控制 5：可手动编辑的 Agent 自动触发提示词 + 复制 / 恢复默认
+    const promptField = mcpCard.createDiv({ cls: "ad-field ad-mcp-prompt" });
+    promptField.createDiv({ cls: "ad-field__label", text: t("外部 Agent 自动触发提示词（可编辑后复制）") });
+    promptField.createDiv({ cls: "ad-field__desc", text: t("粘贴到 ~/.claude/CLAUDE.md、~/.codex/AGENTS.md 或 Cursor / Antigravity 全局规则，让 Agent 主动查记忆") });
+    promptTa = promptField.createEl("textarea", { cls: "ad-textarea", attr: { rows: "3" } });
+    promptTa.value = mcpCfg.agentPrompt || defaultMcpPrompt(mcpCfg.toolsMode);
+    promptTa.onchange = () => {
+      const val = promptTa.value;
+      mcpCfg.agentPrompt = val.trim() === defaultMcpPrompt(mcpCfg.toolsMode) ? "" : val;
+      p.saveSettings();
+    };
+    const promptBtns = promptField.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(promptBtns, t("复制提示词"), async () => {
+      const text = promptTa.value.trim() || defaultMcpPrompt(mcpCfg.toolsMode);
+      let copied = false;
+      try { await navigator?.clipboard?.writeText?.(text); copied = true; } catch { /* fallback below */ }
+      if (!copied) { try { require("electron").clipboard.writeText(text); } catch { /* ignore */ } }
+      new Notice(t("已复制外部 Agent 触发提示词"));
+    }, "ad-btn--soft ad-btn--compact");
+    this.bigButton(promptBtns, t("恢复默认"), () => {
+      mcpCfg.agentPrompt = "";
+      promptTa.value = defaultMcpPrompt(mcpCfg.toolsMode);
+      p.saveSettings();
+      new Notice(t("已恢复默认提示词"));
+    }, "ad-btn--ghost ad-btn--compact");
+
+    if (p.vaultPath && core?.listMcpClients && core?.installMcpClient && core?.uninstallMcpClient) {
+      const mcpScript = mcpPaths.mcpScript || "";
+      const clientsWrap = mcpCard.createDiv({ cls: "ad-mcp-clients" });
+      const headRow = clientsWrap.createDiv({ cls: "ad-mcp-clients__head" });
+      headRow.createSpan({ cls: "ad-mcp-clients__title", text: t("本机客户端一键接入") });
+      const headBtns = headRow.createDiv({ cls: "ad-btnrow ad-mcp-clients__tools" });
+      handshakeStatus = clientsWrap.createDiv({ cls: "ad-hint" });
+      handshakeStatus.hidden = true;
+      const rowsEl = clientsWrap.createDiv({ cls: "ad-mcp-clients__list" });
+
+      const statusTextFor = (c) => {
+        if (c.status === "error") return t("配置异常");
+        if (c.status === "connected") return c.currentAllowWrite ? t("已接入 · 可提候选") : t("已接入 · 只读");
+        if (c.status === "outdated") return t("配置需更新");
+        return c.detected ? t("未接入") : t("未检测到");
+      };
+
+      renderClients = () => {
+        rowsEl.empty();
+        const items = core.listMcpClients({ vaultPath: p.vaultPath, mcpScript, allowWrite: mcpAllowWrite, configDir: cfgDir });
+        for (const c of items) {
+          const row = rowsEl.createDiv({ cls: "ad-mcp-client" });
+          const left = row.createDiv({ cls: "ad-mcp-client__info" });
+          const top = left.createDiv({ cls: "ad-mcp-client__top" });
+          top.createSpan({ cls: "ad-mcp-client__name", text: c.label });
+          const badgeCls = c.status === "connected" ? "is-ok" : c.status === "outdated" ? "is-warn" : c.status === "error" ? "is-err" : "";
+          top.createSpan({ cls: `ad-mcp-badge ${badgeCls}`.trim(), text: statusTextFor(c) });
+          const shortPath = c.displayPath || c.configPath;
+          left.createDiv({ cls: "ad-mcp-client__path", text: c.error ? `${shortPath} — ${c.error}` : shortPath, attr: { title: c.configPath } });
+          const actions = row.createDiv({ cls: "ad-mcp-client__actions" });
+          if (c.status !== "connected" && c.status !== "error") {
+            const actionLabel = c.installed ? t("更新配置") : t("一键接入");
+            this.bigButton(actions, actionLabel, () => {
+              try {
+                const res = core.installMcpClient(c.id, { vaultPath: p.vaultPath, mcpScript, allowWrite: mcpAllowWrite, configDir: cfgDir });
+                new Notice(t("{name} 已写入 MCP 配置（{hint}）", { name: res.label, hint: t(res.restartHint) }));
+                renderClients();
+              } catch (e) {
+                new Notice(t("写入 MCP 配置失败：{error}", { error: e?.message || e }));
+              }
+            }, "ad-btn--soft ad-btn--compact");
+          }
+          if (c.installed) {
+            this.bigButton(actions, t("断开"), () => {
+              try {
+                core.uninstallMcpClient(c.id);
+                new Notice(t("已从 {name} 移除 MCP 配置", { name: c.label }));
+                renderClients();
+              } catch (e) {
+                new Notice(t("移除 MCP 配置失败：{error}", { error: e?.message || e }));
+              }
+            }, "ad-btn--ghost ad-btn--compact");
+          }
+        }
+      };
+
+      this.bigButton(headBtns, t("检测握手"), () => {
+        if (!core.verifyMcpHandshake) return;
+        const res = core.verifyMcpHandshake({ mcpScript, vaultPath: p.vaultPath, allowWrite: mcpAllowWrite, toolsMode: mcpCfg.toolsMode, configDir: cfgDir });
+        handshakeStatus.hidden = false;
+        handshakeStatus.setText(res.ok
+          ? t("握手通过：{n} 个工具（{ms}ms）", { n: res.toolsCount, ms: res.latencyMs })
+          : t("握手失败：{error}", { error: res.error || "unknown" }));
+      }, "ad-btn--compact");
+      this.bigButton(headBtns, t("同步已接入客户端"), () => {
+        const outdated = core.listMcpClients({ vaultPath: p.vaultPath, mcpScript, allowWrite: mcpAllowWrite, configDir: cfgDir })
+          .filter((c) => c.installed && c.status === "outdated");
+        if (!outdated.length) return new Notice(t("已接入客户端均为最新配置"));
+        let count = 0;
+        for (const c of outdated) {
+          try { core.installMcpClient(c.id, { vaultPath: p.vaultPath, mcpScript, allowWrite: mcpAllowWrite, configDir: cfgDir }); count++; } catch { /* reported on row */ }
+        }
+        new Notice(t("已同步更新 {n} 个客户端 MCP 配置", { n: count }));
+        renderClients();
+      }, "ad-btn--compact");
+
+      renderClients();
+    }
+
+    const mcpMore = this.subDetails(mcpCard, "mcp-manual", t("手动复制配置与 CLI 命令"));
+    const mcpBtns = mcpMore.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(mcpBtns, t("复制 MCP 配置 JSON"), () => p.copyMcpConfig?.("json", { allowWrite: mcpAllowWrite }), "ad-btn--compact");
+    this.bigButton(mcpBtns, t("复制 Claude Code 命令"), () => p.copyMcpConfig?.("claude", { allowWrite: mcpAllowWrite }), "ad-btn--compact");
+    this.bigButton(mcpBtns, t("复制 CLI 查询示例"), () => p.copyMcpConfig?.("cli"), "ad-btn--compact");
+    mcpCard.appendChild(mcpMore.parentElement);
 
     const c = s.share, sharing = p.dreaming.sharing;
     const shared = this.card(body, t("与其他 Agent 共享记忆"), t("将记忆导出到固定文件，供其他 Agent 读取"));

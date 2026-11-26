@@ -12,7 +12,8 @@
 .ad-view,
 .ad-settings,
 .ad-modal,
-.ad-review {
+.ad-review,
+.ad-mem-graph {
   /* 圆角与分割线 */
   --ad-radius: 14px;
   --ad-radius-sm: 10px;
@@ -57,7 +58,8 @@
 /* 规范约定：除统计数字列、空状态占位与微图标外，容器与表单控件默认左对齐 */
 .ad-view,
 .ad-settings,
-.ad-modal {
+.ad-modal,
+.ad-mem-graph {
   text-align: left;
 }
 

@@ -282,9 +282,10 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
     if (forceDone) {
       const stamp = cs?.end || p.until || p.since || '';
       if (showTimeRange === false) {
-        return [`${p.prefix}DONE ${p.rest}`.trimEnd(), ...chunkLines.slice(1)];
+        const kept = p.since ? (p.until ? `${p.since}-${p.until} ` : `${p.since} `) : '';
+        return [`${p.prefix}DONE ${kept}${p.rest}`.trimEnd(), ...chunkLines.slice(1)];
       }
-      if (p.until) return [J.formatSessionTaskLine(p, { kw: 'DONE', start: p.since, end: stamp }), ...chunkLines.slice(1)];
+      if (p.until) return [J.formatSessionTaskLine(p, { kw: 'DONE', start: p.since, end: stamp, showTimeRange: true }), ...chunkLines.slice(1)];
       return [`${p.prefix}DONE ${stamp ? stamp + ' ' : ''}${p.rest}`.trimEnd(), ...chunkLines.slice(1)];
     }
     return chunkLines;

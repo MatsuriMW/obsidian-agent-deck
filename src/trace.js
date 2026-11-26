@@ -5,6 +5,7 @@ import fsp from "fs/promises";
 import os from "os";
 import path from "path";
 import { redactSecrets } from "./security.js";
+import { resolvePluginScriptsDir } from "./context-core/config.js";
 
 export const TRACE_SCHEMA_VERSION = 1;
 export const DEFAULT_TRACE_DIR = () => path.join(os.homedir(), ".agent-deck", "traces");
@@ -214,15 +215,15 @@ export async function readRecentTraces({ traceDir = DEFAULT_TRACE_DIR(), limit =
 }
 
 /** Check whether Vault-installed runtime scripts match expected plugin asset versions. */
-export function checkExternalAssets(vaultPath, { expectedMemoryQueryVersion = 1, expectedMemoryMcpVersion = null } = {}) {
+export function checkExternalAssets(vaultPath, { expectedMemoryQueryVersion = 1, expectedMemoryMcpVersion = null, scriptsDir = "", configDir = "", fallbackDir = "" } = {}) {
   const cleanVault = String(vaultPath || "").trim();
   if (!cleanVault) return { checked: false, ok: true, items: [] };
-  const scriptsDir = path.join(cleanVault, ".obsidian", "plugins", "agent-deck", "scripts");
+  const resolvedScriptsDir = scriptsDir || resolvePluginScriptsDir(cleanVault, { configDir, fallbackDir });
   const specs = [{ name: "memory-query.mjs", expectedVersion: expectedMemoryQueryVersion }];
   if (expectedMemoryMcpVersion != null) specs.push({ name: "memory-mcp.mjs", expectedVersion: expectedMemoryMcpVersion });
   const items = [];
   for (const spec of specs) {
-    const scriptPath = path.join(scriptsDir, spec.name);
+    const scriptPath = path.join(resolvedScriptsDir, spec.name);
     if (!fs.existsSync(scriptPath)) {
       items.push({ name: spec.name, status: "missing", path: scriptPath, expectedVersion: spec.expectedVersion, actualVersion: null });
     } else {

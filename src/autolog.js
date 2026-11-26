@@ -267,8 +267,10 @@ export class AutoLog {
     for (let i = at + 1; i < lines.length; i++) {
       if (lines[i].trim() && J.width(lines[i]) <= base) break;
       if (lines[i].trim()) end = i;
-      if (J.CLOCK_RE.test(lines[i]) && J.markOwner(lines, i) === at && lines[i] === line.replace(/ <!-- ad-clock:[a-f0-9]+ -->$/, "")) return J.cleanCompletedIdentifiers(lines.join("\n"));
-      if (J.CLOCK_RE.test(lines[i]) && J.markOwner(lines, i) === at && J.mutableClock(lines, i)) {
+      if (J.CLOCK_RE.test(lines[i]) && J.markOwner(lines, i) === at) {
+        if (!J.isAgentClockLine(lines[i], who)) continue;
+        if (lines[i] === line.replace(/ <!-- ad-clock:[a-f0-9]+ -->$/, "")) return J.cleanCompletedIdentifiers(lines.join("\n"));
+        if (!J.mutableClock(lines, i)) return J.cleanCompletedIdentifiers(lines.join("\n"));
         if (lines[i] === line) return J.cleanCompletedIdentifiers(lines.join("\n"));
         lines[i] = line;
         return J.cleanCompletedIdentifiers(lines.join("\n"));
@@ -620,7 +622,10 @@ export class AutoLog {
           const meta = this.usage.meta.get(x.sid) || {};
           const rawRounds = Array.isArray(meta.rounds) ? meta.rounds : [];
           const reactivated = !manualState && !justClaimedDone && cur === "done" && !(x.agent === "grokbot" && !rec.archivedDone) && this.isReactivated(x, rec, last, arch);
-          if (manualState) rec.status = cur;
+          if (manualState) {
+            rec.status = cur;
+            if (cur === "done") clocks.add(rec.key);
+          }
           if (cur === "done" && !manualState && !reactivated) {
             if (rec.status !== "done") clocks.add(rec.key);
             rec.status = "done";

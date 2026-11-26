@@ -6,6 +6,8 @@ import path from "node:path";
 import esbuild from "esbuild";
 import { pathToFileURL } from "node:url";
 import { normalizeProjectFolder } from "../src/project-folders.js";
+import { AGENT_ORDER } from "../src/constants.js";
+import * as J from "../src/journal.js";
 
 const root = path.resolve(import.meta.dirname, "..");
 
@@ -641,6 +643,113 @@ test("Workspace picker sel.onchange conflict guard & MemoryReviewModal conflict 
   } finally {
     fs.rmSync(dir1, { recursive: true, force: true });
     fs.rmSync(dir2, { recursive: true, force: true });
+    env.cleanup();
+  }
+});
+
+test("AgentDeckPlugin exposes agentCatalog (21+ agents) and spiralUsageSnapshot with live today overlay", async () => {
+  const env = makeVaultEnv({});
+  try {
+    const p = makePlugin(env);
+    const catalog = p.agentCatalog();
+    for (const id of AGENT_ORDER) {
+      assert.ok(catalog[id]?.color, `catalog includes ${id}`);
+    }
+    assert.ok(Object.keys(catalog).length >= 21, "catalog covers all 21 built-in agents");
+
+    const now = new Date();
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const todayUnderscore = `${now.getFullYear()}_${pad2(now.getMonth() + 1)}_${pad2(now.getDate())}`;
+    const todayDash = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+    p.settings.dayCutoff = 0;
+    p.store = {
+      days: {
+        "2026_11_20": { wall: 42, agent: 55, out: 1200, segs: [[600, 642]], by: { hermes: { wall: 42, agent: 55, out: 1200, segs: [[600, 642]] } }, list: [] },
+        [todayUnderscore]: { wall: 5, agent: 5, out: 100, segs: [[500, 505]], by: { claude: { wall: 5, agent: 5, out: 100, segs: [[500, 505]] } }, list: [] },
+      },
+    };
+    p.usage = {
+      summary: (k) => (k === todayUnderscore ? {
+        wall: 30, agent: 40, out: 900, segs: [[600, 630]],
+        by: { claude: { wall: 15, segs: [[600, 615]], out: 400 }, cursor: { wall: 20, segs: [[610, 630]], out: 500 } },
+        list: [{ sid: "s-cur", agent: "cursor", min: 20, out: 500, segs: [[610, 630]] }],
+      } : null),
+    };
+
+    const snap = p.spiralUsageSnapshot("YYYY-MM-DD");
+    assert.equal(snap.source, "agent-deck");
+    assert.equal(snap.days["2026-11-20"].by.hermes.wall, 42);
+    assert.equal(snap.days[todayDash].wall, 30, "today snapshot overlays live summary");
+    assert.equal(snap.days[todayDash].by.cursor.wall, 20);
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("extractTaskProgress, progress survival across journal transforms, and AgentDeckPlugin mirror bridge", async () => {
+  // 1. Progress extraction ignores dates, inline code, and wikilinks
+  assert.deepEqual(J.extractTaskProgress("- DOING 写文档 25%"), { pct: 25, raw: "25%" });
+  assert.deepEqual(J.extractTaskProgress("- TODO 修接口 进度 40% ^ad-x"), { pct: 40, raw: "进度 40%" });
+  assert.deepEqual(J.extractTaskProgress("- TODO 看论文 1/3 2h"), { pct: 33, raw: "1/3" });
+  assert.deepEqual(J.extractTaskProgress("- TODO 读完一半"), { pct: 50, raw: "一半" });
+  assert.equal(J.extractTaskProgress("- TODO 核对 11/27 账单"), null);
+  assert.equal(J.extractTaskProgress("- TODO 检查 `50%` 和 [[计划 75%]]"), null);
+
+  // 2. Progress survives splitTask, flipToDone, cleanCompletedIdentifiers, bindInto, syncSessionEntry
+  const sid = "33333333-4444-5555-6666-777777777777";
+  const line = "- TODO [#A] 重构鉴权 50% 2h ^ad-prog-1";
+  assert.ok(J.splitTask(line).rest.includes("50%"));
+  const doneLine = J.flipToDone(line);
+  assert.ok(doneLine.includes("DONE") && doneLine.includes("50%"), "flipToDone preserves 50%");
+  const cleaned = J.cleanCompletedIdentifiers(`${doneLine}\n\t- ⏱ 10:00–11:00 · 共 1h · Codex`, new Set(["ad-prog-1"]));
+  assert.ok(cleaned.includes("50%"), "cleanCompletedIdentifiers preserves 50%");
+  const bound = J.bindInto("- TODO 补测试 进度 40% 1h\n", 0, { sid, agent: "codex", title: "补测试", state: "run", since: "10:00" }, { direct: true });
+  assert.ok(bound.text.includes("进度 40%"), "direct bindInto preserves progress token");
+  const synced = J.syncSessionEntry("- DOING 整理数据 1/3 ^ad-sync-p", { sid, blockId: "ad-sync-p", rounds: [{ n: 1, said: "阶段完成" }] }).text;
+  assert.ok(synced.split("\n")[0].includes("1/3"), "syncSessionEntry preserves parent progress token");
+
+  // 3. Mirror bridge resolveMirrorLine + updateMirrorBlock (preserving CRLF and strict idempotency)
+  const srcNote = "# 项目计划\r\n- TODO 联调镜像同步 25% 1h ^ad-mir-1\r\n- 普通条目 备注 ^note-2\r\n```md\r\n- TODO 围栏内假任务 ^ad-mir-1\r\n```\r\n";
+  const env = makeVaultEnv({
+    "项目/计划.md": srcNote,
+    "日记/2026_11_27.md": "- ![[项目/计划#^ad-mir-1]]\n- ![[项目/计划#^note-2]]\n",
+  });
+  try {
+    const p = makePlugin(env);
+    p.readNote = async (pth) => env.vault.read(env.vault.getAbstractFileByPath(pth));
+    p.writeNote = async (pth, text) => env.vault.modify(env.vault.getAbstractFileByPath(pth), text);
+    p.app.metadataCache.getFirstLinkpathDest = (target) => {
+      if (target === "项目/计划") return env.vault.getAbstractFileByPath("项目/计划.md");
+      return null;
+    };
+
+    const resTask = await p.resolveMirrorLine("- ![[项目/计划#^ad-mir-1]]", "日记/2026_11_27.md");
+    assert.equal(resTask.path, "项目/计划.md");
+    assert.equal(resTask.line, 1);
+    assert.equal(resTask.blockId, "ad-mir-1");
+    assert.equal(resTask.kw, "TODO");
+    assert.ok(resTask.rawLine.includes("25%"));
+
+    const resPlain = await p.resolveMirrorLine("  - ![[项目/计划#^note-2]]", "日记/2026_11_27.md");
+    assert.equal(resPlain.line, 2);
+    assert.ok(resPlain.rawLine.includes("普通条目"));
+
+    const upd = await p.updateMirrorBlock(resTask, (cur) => cur.replace("TODO", "DOING").replace("25%", "50%"));
+    assert.equal(upd.ok, true);
+    assert.equal(upd.changed, true);
+    const updatedSrc = env.vault.getAbstractFileByPath("项目/计划.md").text;
+    assert.ok(updatedSrc.includes("\r\n"), "preserves CRLF line endings");
+    assert.ok(updatedSrc.includes("- DOING 联调镜像同步 50% 1h ^ad-mir-1"));
+    assert.ok(updatedSrc.includes("围栏内假任务 ^ad-mir-1"), "fenced block untouched");
+
+    const noop = await p.updateMirrorBlock(resTask, (cur) => cur);
+    assert.equal(noop.ok, true);
+    assert.equal(noop.changed, false);
+
+    const missing = await p.updateMirrorBlock({ path: "项目/计划.md", blockId: "nope" }, (cur) => cur + " x");
+    assert.equal(missing.ok, false);
+    assert.equal(missing.changed, false);
+  } finally {
     env.cleanup();
   }
 });

@@ -6,25 +6,28 @@ const check = (name, ok, out) => { console.log((ok ? "PASS " : "FAIL ") + name);
 const sid = "11111111-2222-3333-4444-555555555555";
 const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "run", since: "20:10", ...o });
 
-{ // 有序列表里的条目（按住 ⌥ 直接绑定）：原文保留，加 DOING 和 🔗 子块
+{ // 有序列表里的条目（按住 ⌥ 直接绑定）：原文保留，加 DOING 和 🔗 子块（默认不在母块写对话时间段）
   const t = "- 今天\n\t1. 做完卡片搬迁的功能\n\t2. 别的\n";
   const r = J.bindInto(t, 1, S(), { direct: true });
-  check("bind ordered item (direct)", r.text === "- 今天\n\t1. DOING 20:10 做完卡片搬迁的功能\n\t\t- 🔗 [Claude：卡片搬迁](claude://resume?session=" + sid + ")\n\t2. 别的\n", r.text);
+  check("bind ordered item (direct)", r.text === "- 今天\n\t1. DOING 做完卡片搬迁的功能\n\t\t- 🔗 [Claude：卡片搬迁](claude://resume?session=" + sid + ")\n\t2. 别的\n", r.text);
 }
 { // TODO 换成会话状态（direct）；已有子项跟着它的缩进
   const t = "- TODO 写周报\n    - 已有子项\n";
   const r = J.bindInto(t, 0, S({ state: "wait" }), { direct: true });
-  check("TODO → TOREVIEW, child indent (direct)", r.text.startsWith("- TOREVIEW 20:10 写周报\n    - 🔗 "), r.text);
+  check("TODO → TOREVIEW, child indent (direct)", r.text.startsWith("- TOREVIEW 写周报\n    - 🔗 "), r.text);
 }
-{
-  const r = J.bindInto("- TODO 写  周报\n", 0, S({ until: "20:25" }), { direct: true });
-  check("binding supplies the complete time range and preserves the task title", r.text.startsWith("- DOING 20:10-20:25 写  周报\n"), r.text);
+{ // direct bind on manual line preserves its title and keeps session time out of parent line in default child mode
+  const r = J.bindInto("- TODO 写  周报\n", 0, S({ until: "20:25", segs: [[1210, 1225]] }), { direct: true });
+  check("binding preserves the task title and writes clock child", r.text.startsWith("- DOING 写  周报\n") && r.text.includes("\t- ⏱ 20:10–20:25"), r.text);
+  // legacy inline mode (showTimeRange: true) restores HH:MM-HH:MM on direct-bound task line
+  const rLegacy = J.bindInto("- TODO 写  周报\n", 0, S({ until: "20:25", segs: [[1210, 1225]] }), { direct: true, rules: { showTimeRange: true } });
+  check("legacy inline mode writes HH:MM-HH:MM on direct-bound task line", rLegacy.text.startsWith("- DOING 20:10-20:25 写  周报\n") && !rLegacy.text.includes("\t- ⏱"), rLegacy.text);
 }
 { // 用户定的 PAUSED 不动
   const r = J.bindInto("- PAUSED 08:00 另一件\n", 0, S(), { direct: true });
   check("PAUSED untouched (direct)", r.text.startsWith("- PAUSED 08:00 另一件\n\t- 🔗"), r.text);
 }
-{ // 默认拖拽到日注：挂为非侵入子块，母块原文零改动，支持多会话与重复校验
+{ // 默认拖拽到日注：挂为非侵入子块，母块原文零改动，支持多会话与重复校验（showTimeRange 默认关）
   const sid2 = "22222222-3333-4444-5555-666666666666";
   const t = "- TODO [#A] 重构鉴权模块 1h\n\t- 已有笔记\n";
   const r1 = J.bindInto(t, 0, S({ until: "20:25", ensureBlockId: true }));
@@ -34,7 +37,7 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
     r1.parentLine === 0 &&
     L1[0] === "- TODO [#A] 重构鉴权模块 1h" &&
     L1[1] === "\t- 已有笔记" &&
-    /^\t- DOING 🤖 20:10-20:25 卡片搬迁 \^claude-/.test(L1[2]) &&
+    /^\t- DOING 🤖 卡片搬迁 \^claude-/.test(L1[2]) &&
     L1[3] === `\t\t- 🔗 [Claude：卡片搬迁](claude://resume?session=${sid})`,
     r1.text
   );
@@ -76,7 +79,7 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
   check("migrates existing auto block intact under target parent",
     r.kind === "child" &&
     r.blockId === bid &&
-    r.text.startsWith("- TODO [#A] 重构鉴权模块 1h\n\t- TOREVIEW 🤖 19:00-19:30 排查 JWT 刷新竞态 ^" + bid) &&
+    r.text.startsWith("- TODO [#A] 重构鉴权模块 1h\n\t- TOREVIEW 🤖 排查 JWT 刷新竞态 ^" + bid) &&
     r.text.includes("\t\t- 第1轮：**任务**：排查刷新；**结论**：定位到竞态。") &&
     r.text.includes("\t\t- 用户手写补充\n\t\t\t- 二级手写缩进") &&
     r.text.includes("\t\t- ⏱ 19:00–19:30 · 共 30m · Codex") &&
@@ -99,16 +102,16 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
 { // 空行：新建一项，接着上面的有序编号
   const t = "1. 第一件\n2. 第二件\n\n";
   const r = J.bindInto(t, 2, S());
-  check("blank → new numbered item", r.text.split("\n")[2] === "3. DOING 🤖 20:10-20:10 **卡片搬迁**" && /^\t- 🔗/.test(r.text.split("\n")[3]), r.text);
+  check("blank → new numbered item", r.text.split("\n")[2] === "3. DOING 🤖 **卡片搬迁**" && /^\t- 🔗/.test(r.text.split("\n")[3]), r.text);
 }
 { // 空的列表项：就地写上
   const r = J.bindInto("- \n", 0, S({ state: "wait" }));
-  check("empty item filled", r.text.startsWith("- TOREVIEW 🤖 20:10-20:10 **卡片搬迁**\n\t- 🔗"), r.text);
+  check("empty item filled", r.text.startsWith("- TOREVIEW 🤖 **卡片搬迁**\n\t- 🔗"), r.text);
 }
 { // 一对一（⌥ 直接绑定）：别处的 🔗 摘掉，自动记日记替它写的 🤖 项收掉
   const t = `- DOING 19:00 🤖 卡片搬迁\n\t- ⏱ 19:00–19:30 · 共 30m\n\t- 🔗 [Claude：卡片搬迁](claude://resume?session=${sid})\n- 做完卡片搬迁的功能\n`;
   const r = J.bindInto(t, 3, S({ dropKey: "🤖 卡片搬迁" }), { direct: true });
-  check("moves binding, drops auto line (direct)", r.text === `- DOING 20:10 做完卡片搬迁的功能\n\t- 🔗 [Claude：卡片搬迁](claude://resume?session=${sid})\n`, r.text);
+  check("moves binding, drops auto line (direct)", r.text === `- DOING 做完卡片搬迁的功能\n\t- 🔗 [Claude：卡片搬迁](claude://resume?session=${sid})\n`, r.text);
 }
 { // 已经绑着别的会话（direct）：不动；默认拖到记号行归属到母块 child
   const t = "- 一件事\n\t- 🔗 [Claude：x](claude://resume?session=99999999-2222-3333-4444-555555555555)\n";
@@ -126,7 +129,7 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
 }
 { // 段落下面新建；标题上不放
   const r = J.bindInto("一段话\n", 0, S());
-  check("paragraph → item below", r.text.startsWith("一段话\n- DOING 🤖 20:10-20:10 **卡片搬迁**\n"), r.text);
+  check("paragraph → item below", r.text.startsWith("一段话\n- DOING 🤖 **卡片搬迁**\n"), r.text);
   check("heading refused", !!J.bindInto("## 标题\n", 0, S()).error);
 }
 { // 时段分钟数从日记分界（8 点）起算：写成钟点要加回来
@@ -137,15 +140,15 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
 { // 空行下面是一段文字：新项插在空行前，空行留着
   const r = J.bindInto("1. 第一件\n\n一段话\n", 1, S());
   const L = r.text.split("\n");
-  check("blank before paragraph kept", L[1] === "2. DOING 🤖 20:10-20:10 **卡片搬迁**" && L[3] === "" && L[4] === "一段话", r.text);
+  check("blank before paragraph kept", L[1] === "2. DOING 🤖 **卡片搬迁**" && L[3] === "" && L[4] === "一段话", r.text);
 }
 { // ⌘ 拖：不绑这一项，在它（连同子项）下面新建一项
   const t = "- 做完卡片搬迁的功能\n\t- 子项\n- 别的\n";
   const r = J.bindInto(t, 0, S(), { below: true });
   const L = r.text.split("\n");
-  check("cmd-drop inserts after the block", L[0] === "- 做完卡片搬迁的功能" && L[1] === "\t- 子项" && L[2] === "- DOING 🤖 20:10-20:10 **卡片搬迁**" && /^\t- 🔗/.test(L[3]) && L[4] === "- 别的", r.text);
+  check("cmd-drop inserts after the block", L[0] === "- 做完卡片搬迁的功能" && L[1] === "\t- 子项" && L[2] === "- DOING 🤖 **卡片搬迁**" && /^\t- 🔗/.test(L[3]) && L[4] === "- 别的", r.text);
   const o = J.bindInto("1. 第一件\n2. 第二件\n", 0, S({ state: "wait" }), { below: true });
-  check("cmd-drop numbers on", o.text.split("\n")[1] === "2. TOREVIEW 🤖 20:10-20:10 **卡片搬迁**", o.text);
+  check("cmd-drop numbers on", o.text.split("\n")[1] === "2. TOREVIEW 🤖 **卡片搬迁**", o.text);
 }
 { // Antigravity 链接认得出来
   const a = J.linkLine("\t", "antigravity", "更新插件", "6b1017c0-f422-4366-bad2-1e29f1bbc7be");
@@ -201,7 +204,7 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
   check("mergeTasks merges auto task into human task",
     !m.error &&
     m.blockId === "ad-111111" &&
-    m.text.startsWith("- DOING 15:20 整理马自立库插件 ^ad-111111\n") &&
+    m.text.startsWith("- DOING 整理马自立库插件 ^ad-111111\n") &&
     m.text.includes("\t- 🔗 [Claude：更新插件]") &&
     m.text.includes("\t- 💬 第1轮：已完成多轮追踪。") &&
     m.text.includes("\t- ❓ 第2轮：加上合并功能") &&
@@ -232,6 +235,32 @@ const S = (o = {}) => ({ sid, agent: "claude", title: "卡片搬迁", state: "ru
     check(`${detail} leaves saved rounds byte-for-byte`,JSON.stringify(J.syncSessionEntry(input,{blockId:"ad-detail",rounds,detail,granularity:"round"}).text.split("\n").sort())===JSON.stringify(input.split("\n").sort()));
   }
   check("missing source rounds do not erase historical prompts",JSON.stringify(J.syncSessionEntry(input,{blockId:"ad-detail"}).text.split("\n").sort())===JSON.stringify(input.split("\n").sort()));
+}
+
+{ // 间歇式日记（母块自带时间戳）绑定后不被覆盖时间段；螺旋日程番茄钟 ⏱ 与 Agent Deck ⏱ 和平共存
+  const spiralNote = [
+    "- TODO **10:30** 调研方案",
+    "\t- ⏱ 10:00–10:25 · 共 25m",
+  ].join("\n") + "\n";
+  const b = J.bindInto(spiralNote, 0, S({ state: "wait", segs: [[640, 655]], until: "10:55" }), { direct: true });
+  check("intermittent journal timestamp preserved on direct bind while agent clock appends",
+    b.text.includes("- TOREVIEW **10:30** 调研方案\n") &&
+    b.text.includes("\t- ⏱ 10:00–10:25 · 共 25m\n") &&
+    b.text.includes("\t- ⏱ 10:40–10:55 · 共 15m · Claude <!-- ad-clock:"),
+    b.text
+  );
+  const lines = b.text.split("\n");
+  check("upsertClockLine updates Agent Deck clock while keeping Spiral pomodoro clock",
+    J.upsertClockLine(lines, 0, [[640, 660]], "Claude", 0) &&
+    lines.includes("\t- ⏱ 10:00–10:25 · 共 25m") &&
+    lines.some((l) => l.includes("\t- ⏱ 10:40–11:00 · 共 20m · Claude <!-- ad-clock:")),
+    lines.join("\n")
+  );
+  // 与螺旋日程统一：clockLine 对重叠时段先走 unionSegs 去重，不重复计总用时；tsToActiveSegs 按 AI_IDLE=5 切段
+  const overlapLine = J.clockLine("\t", [[600, 620], [610, 630]], "Claude", 0, true);
+  check("clockLine unions overlapping segments for true net duration", overlapLine.includes("10:00–10:30 · 共 30m"), overlapLine);
+  const segs5 = J.tsToActiveSegs([600, 603, 608, 620], 5);
+  check("tsToActiveSegs matches AI_IDLE=5 segmentation", JSON.stringify(segs5) === JSON.stringify([[600, 608], [620, 621]]), segs5);
 }
 
 process.exit(fail ? 1 : 0);

@@ -71,7 +71,7 @@ test('Git 只提交共享文件，推送本地模拟远端，不夹带其他暂�
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 test('Dream 显示真实阶段、防止重复运行，完成后自动同步，失败时可再次运行', async () => {
-  const settings = deepMerge(DEFAULTS, {}), files = new Map();
+  const settings = deepMerge(DEFAULTS, { dream: { scope: 'all' } }), files = new Map();
   let release, calls = 0, synced = 0;
   const vault = { getAbstractFileByPath: p => files.has(p) ? { path: p } : null, read: async f => files.get(f.path), create: async (p,t) => files.set(p,t), createFolder: async () => {}, process: async (f,fn) => files.set(f.path,fn(files.get(f.path))) };
   const p = { settings, jobs: {}, app: { vault }, saveSettings: async () => {}, notice: () => {} };

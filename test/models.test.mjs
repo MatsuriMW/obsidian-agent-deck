@@ -344,3 +344,29 @@ console.log('PASS primary-only delegation folds and standard select menus for Co
   assert.equal(t2._scrollToModels, 'dsh');
   console.log('PASS closing models auto-saves immediately, never snaps back, seeds dsh-default once on upgrade, and jumpToAgentModels expands target group');
 }
+
+// Redesigned Delegation tab invariants: order sync, summary pills, cwd tucked under More settings, custom ACP switches.
+{
+  const savedCwd = plugin.settings.ui.agentOrders;
+  plugin.settings.ui.agentOrders = { ...(savedCwd || {}), delegation: ['hermes', 'codex', 'claude'] };
+  plugin.settings.customAcpAgents = [{ id: 'kiro', name: 'Kiro', command: 'kiro-cli', args: 'acp', enabled: true, autoApprove: true }];
+  const reorderedBody = new Element();
+  tab.renderDelegate(reorderedBody);
+  const orderedAgents = reorderedBody.all().filter(el => el.classList.contains('ad-delegate-agent')).map(el => el.dataset.agent);
+  assert.deepEqual(orderedAgents.slice(0, 3), ['hermes', 'codex', 'claude'], 'Agent 配置 accordion follows delegation order');
+
+  for (const card of reorderedBody.all().filter(el => el.classList.contains('ad-delegate-agent'))) {
+    const pills = card.all().filter(el => el.classList.contains('ad-delegate-pill'));
+    assert.ok(pills.length >= 2, `${card.dataset.agent} summary displays live model/mode pills`);
+    const cwdLabel = card.all().find(el => el.options.text === '工作目录');
+    assert.ok(cwdLabel && moreAncestor(cwdLabel), `${card.dataset.agent} 工作目录 is tucked inside 更多设置`);
+  }
+
+  const customItem = reorderedBody.all().find(el => el.classList.contains('ad-custom-acp__item'));
+  assert.ok(customItem, 'custom ACP entry renders inside Agent 配置 card');
+  assert.ok(customItem.all().some(el => el.classList.contains('ad-switch')), 'custom ACP uses unified ad-switch toggle');
+  assert.equal(customItem.all().filter(el => el.tag === 'input' && el.attrs?.type === 'checkbox').length, 0, 'custom ACP does not render raw checkbox');
+  plugin.settings.customAcpAgents = [];
+  plugin.settings.ui.agentOrders = savedCwd;
+  console.log('PASS redesigned Delegation layout: synced order, summary pills, cwd inside More settings, unified custom ACP toggle');
+}

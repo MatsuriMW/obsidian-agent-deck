@@ -6,7 +6,7 @@
 ## `docs/specs/` 规范索引
 | 文档 | 覆盖范围 |
 | --- | --- |
-| [`specs/architecture-and-boundaries.md`](specs/architecture-and-boundaries.md) | 仓库结构、`src/` 模块锚点、20 家 Agent 边界、Mac/Windows 热点与 Backlog 源码坐标 |
+| [`specs/architecture-and-boundaries.md`](specs/architecture-and-boundaries.md) | 仓库完整项目结构、`src/` 全模块锚点（含纯 Node Context Core）、21 家 Agent + 自定义 ACP 边界、Mac/Windows 热点与交接坐标 |
 | [`specs/data-and-markdown-contracts.md`](specs/data-and-markdown-contracts.md) | 任务行/AI 块格式、状态关键词、语义块号清理、短链与 AI 总结、并发队列与 Dashboard 口径 |
 | [`specs/vision-markdown-harness.zh-CN.md`](specs/vision-markdown-harness.zh-CN.md) | **核心构想**：为什么"Markdown 即 Harness"、三条原则、四层结构、与 RAG 的分野、已落地映射与缺口 |
 | [`specs/context-protocol.zh-CN.md`](specs/context-protocol.zh-CN.md) | **契约草案**：Obsidian 原生语法基线、锚点引用、证据链（脚注归因）、注入预算、运行时工具签名、回写、记忆四维字段与画像字段契约（§10.1–10.3） |

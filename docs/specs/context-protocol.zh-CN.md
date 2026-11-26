@@ -1,7 +1,6 @@
 # 双链上下文协议（草案 v0.1）
 
-> 状态：**草案，未实现**。本文件只定义契约与边界，不含代码。审阅通过后再决定实现顺序。
-> 目标读者：Agent Deck 维护者本人；未来独立客户端的实现者。全链路流转与装配图见 [`information-flow.zh-CN.md`](information-flow.zh-CN.md)。
+> 状态：**M1.1–M1.3 已在 `src/context-core/`、`src/harness.js`、`src/delegation.js` 落地（2026-11-26）；M2（四维正交字段 / 断言级 `sources` 核验）与 M3 仍为规划草案**。本文件定义契约与边界，全链路流转与装配图见 [`information-flow.zh-CN.md`](information-flow.zh-CN.md)。
 
 ## 1. 定位
 
@@ -146,7 +145,7 @@ status: stable
 
 ## 7. 派发注入层（一次性，预算受限，前稳后动）
 
-派发时注入的不是"上下文内容"，而是**入口地图**。装配顺序按**跨轮次稳定度「前稳后动」**排列以保护模型 Prefix Cache（KV Cache）；超预算时优先裁剪外围可变/可选段并**显式声明省略**（详图见 [`information-flow.zh-CN.md`](information-flow.zh-CN.md) 图 2）。
+派发时注入的不是"上下文内容"，而是**入口地图**。装配顺序按**跨轮次稳定度「前稳后动」**排列以保护模型 Prefix Cache（KV Cache）；`src/harness.js` 已实现轻量中英加权 `estimateTokens()`（中文 1.25 / ASCII 0.28）、默认外围预算 `DEFAULT_PERIPHERAL_TOKEN_BUDGET = 950`、超限时仅压缩外围引用并**显式声明可用 `vault_outline` / `vault_read` 按需展开**（永不截断用户任务块与对话问答），以及 `entryMapMode`（仅注入 `[[双链]]` 路径、OKF 摘要、标题行号 TOC 或无标题正文行数提示，由 `agent-registry.js` `canAgentReadLocalFiles(agent, destination)` 对能自主读文件的 CLI/ACP 后台与终端 Agent 自动启用，纯桌面/剪贴板交接保留摘要内联）；`src/delegation.js` 通过 `detectRepoRuleFiles()` 自动识别代码仓库根 `AGENTS.md`/`CLAUDE.md` 与 `memoryToolHint()` 分工（详图见 [`information-flow.zh-CN.md`](information-flow.zh-CN.md) 图 2）。
 
 | 顺序 | 内容 | 上限 / 规则 |
 | --- | --- | --- |
@@ -155,7 +154,7 @@ status: stable
 | 3 | **引用外置**：`[[双链]]` 摘录（截断时附 `## 标题(L行号)` 目录；正文为空时按 `def` → 正文 → 强/弱反链块退路）+ 邻居清单 + 证据清单 | 反链 ≤ 3 块 × 200 字（>30 条领域词只计数）；邻居 ≤ 8 条 × 60 字；证据 ≤ 5 条 |
 | 4 | **动态末端（带资料隔离）**：资料边界声明 + Dream 记忆（按任务域分流） + 当前块原文（去内部标识）+ 最新 `❓/✍️` 问答回灌与变更提醒 | 当前块沿用 6000 字上限；明确标注背景资料非新指令 |
 
-裁剪规则：优先裁减第 3 段的证据/邻居描述/反链展开（只留指针），再裁第 2 段属性摘要。**任何一段被裁剪都必须写一行"已省略 N 条，可用 read()/related() 查"**，长笔记截断必附后续章节行号目录——静默丢弃比不注入更糟。预算后续从纯 UTF-16 `.length` 过渡到中英加权 token 估算（消除中英文 4–6 倍偏差）；代码仓库内自带的 `AGENTS.md`/`CLAUDE.md` 负责仓内约束，Agent Deck 记忆负责跨仓经验与个人动态事实，两者分工不叠塞。
+裁剪规则：优先裁减第 3 段的证据/邻居描述/反链展开（只留指针），再裁第 2 段属性摘要。**任何一段被裁剪都必须写一行"已省略 N 条，可用 read()/related() 查"**，长笔记截断必附后续章节行号目录——静默丢弃比不注入更糟。预算已完成向中英加权 `estimateTokens()` 估算收口（消除中英文 4–6 倍偏差）；代码仓库内自带的 `AGENTS.md`/`CLAUDE.md` 负责仓内约束，Agent Deck 记忆负责跨仓经验与个人动态事实，两者分工不叠塞。
 
 ### 7.1 Dream 记忆按任务域分流规则（M2，零额外模型成本）
 
@@ -169,18 +168,17 @@ status: stable
 
 极少数跨界判偏由 `ConfirmSendModal` 折叠预览清单（带类型角标）单条取消勾选兜底。
 
-## 8. 运行时工具（三个动词 + 一个写回）
+## 8. 运行时工具（纯 Node 内核 + CLI v9 + stdio MCP v8）
 
 | 动词 | 输入 | 输出 | 约束 |
 | --- | --- | --- | --- |
-| `read(ref)` | §3 的 ref | 正文、行范围、`changedSinceDispatch`、可继续展开的子锚点列表 | 单次 ≤ 现有正文上限；超限时返回大纲 + 提示按子锚点展开 |
-| `related(ref, k=8)` | ref + 数量 | `[{ path, kind, why, trust, stale }]`，`kind ∈ father / domain / category / source / co-citation` | 每条必须带 `why`（人话理由）；**不返回分数** |
-| `outline(path)` | 路径 | 标题树 + 列表树的缩进层级、序号、块号清单 | 只给结构不带正文，用于"先看目录再决定读哪段" |
-| `record(...)` | 见 §9 | 写入结果 | 需用户已授权的派发上下文；不改手写内容 |
+| `vault_find` (`vault-find`) | `query`, `k=8`, `domain`, `type`, `tag`, `fulltext=true` | 命中的非私密用户笔记路径、OKF 摘要、高亮正文 `片段：` 与命中 `why` | 基于 `node:sqlite` FTS5 `trigram` + 2 字词回退 + 元信息（严格排除 AI 自动记录子树与 `Agent Deck/` 插件生成目录及记忆库文件；不返回分数；混合独特词缺失时不误召回） |
+| `vault_outline` (`vault-outline`) | §3 的 `ref` | 标题树、顶层列表类型、OKF 4–6 键摘要与 `^mem-*`/6 位块锚点清单 | 只给结构不带正文，自动跳过 AI 自动记录行，用于"先看目录再决定读哪段" |
+| `vault_read` (`vault-read`) | §3 的 `ref` / `start_line` / `max_lines` / `expected_hash` / `include_ai_logs=false` | 正文、行范围、`changedSinceDispatch` 漂移标记、可展开子锚点；空正文页附高信号反链摘要 | 剥离 `^ad-*` 内部块号，保留 `^mem-*` 与 6 位块号；默认过滤 AI 自动记录子树并硬拒绝插件生成文件/记忆库（记忆走 `memory_*`）；超过 30 条反链宽泛词只计数提示缩窄；私密笔记硬拒绝 |
+| `vault_related` (`vault-related`) | `ref`, `k=8` | 一跳结构邻居（`father`/推导 `sons`/`domain`/强信号用户反链/出链）+ 关联 Dream 记忆 | 每条必带人话理由（`why`）；不返回分数 |
+| `memory_{index,search,read,recent,graph}` + 可选 `--allow-write` `memory_propose` | 见 [`architecture-and-boundaries.md`](architecture-and-boundaries.md) | 长期记忆 目录 / 检索 / 原文溯源 / 近期 / 图谱 1–2 跳（写提案仅落待审） | CLI（[memory-query.mjs](../../scripts/memory-query.mjs) `v9`）与 stdio MCP（[memory-mcp.mjs](../../scripts/memory-mcp.mjs) `v8`）共用零 Obsidian [src/context-core/](../../src/context-core/index.js) 内核 |
 
-工具形态在 Obsidian 内为插件命令；独立客户端为 CLI/本地 HTTP（同一套签名）。**签名稳定是迁移的关键**。
-
-> 2026-11-18 落地：只读查询先出了 CLI 壳（`scripts/memory-query.mjs`），动词是记忆库视角的 `search` / `read` / `recent`——`search` 对应本表的 `related`（每条带「命中」当 why、不打印分数），`recent` 是本表没有的、`outline` 与 `record` 暂不做。将来换 MCP 壳时保持这三个名字与输出形状即可。
+> 2026-11-26–27 落地：`src/context-core/`（`note-hygiene.js` 统一净化叶子层，`INDEX_VERSION = 2` / `FTS_SCHEMA_VERSION = 2`）同时兼容 `.obsidian/`、`.outline-journal/`、`--config-dir` 与纯 Markdown 目录，维护 `~/.agent-deck/index/*.json` + `*.fts.sqlite` 可丢弃增量索引（长驻 MCP 带 2.5s 内存 TTL 复用）；**严格落实「AI 自动生成物不视作用户数据」契约**——日记中的 `🤖` 自动记录子树、`💬`/`第N轮`/`Round N`/`⏱`/`📋`/`🔗`/`❓`、`<!-- ad-* -->` 与 `Agent Deck/` 下自动生成目录（含 `派发/`、`Answers/`、`Conversations/`、`Exports/`、`任务/`、`done/`、`记忆/` 及 `长期记忆.md`/`安全审计.md`/`工作台.md`/`记忆-体检.md`）均不进 `docs_fts`、反链图、`vault_find`、`vault_outline` 与默认 `vault_read`，同时保留手写条目与 `✍️ 答：`；已沉淀记忆统一走 `memory_*` 门控服务。`mcp-clients.js` + 设置页 Dream「外部 Agent 接入」支持自动解析真机 `node`（解决 macOS GUI `Obsidian Helper` + 精简 `PATH` 问题）并一键无损写入 **9 家外部客户端**（Claude Code / Codex TOML / Cursor / Antigravity / Claude Desktop / Gemini CLI / OpenCode / DeepSeek Harness Desktop & ACP）及实机握手校验。
 
 ## 9. 回写层
 
@@ -260,11 +258,12 @@ Bases 是只读视图，**不能承载写操作**，所以三个动作都必须�
 
 ## 11. 与现有实现的接缝
 
-| 现有模块 | 复用方式 | 需要改的点 |
+| 现有模块 | 复用方式 | 已落地 / 演进点 |
 | --- | --- | --- |
-| `src/harness.js` `resolveDelegationContext` | 注入层由它产出 | 从"内联摘要"改为"入口地图 + 指针"，收口 `enrichPrompt` 按前稳后动拼装 |
-| `src/harness.js` `resolveWikilinkSnippets` | 保留为兜底 | 超限改指针清单；截断附章节行号目录；正文为空按反链位置强弱退路 |
-| `src/outline.js` `ancestorLines` / `extractWikilinkRefs` / `frontmatterEnd` | 零改动复用 | 新增兄弟项、有序序号、裸标题的主题归属 |
+| `src/context-core/*` | 零 Obsidian / DOM 纯 Node 内核 | 统一 `.obsidian` / `.outline-journal` / 纯目录、`~/.agent-deck/index/` 增量 JSON + `node:sqlite` FTS5（含 `peekVaultIndexStatus` O(1) 状态探测与手动重建）、`vault_{find,outline,read,related}` + `memory_*`（支持 `dream.mcp.toolsMode` 动态切换 `all` 9 工具 / `memory-only` 5 工具、`dream.mcp.excludeAiLogs` 控制全库检索 AI 记录隔离，以及 `dream.mcp.{allowWrite,agentPrompt}` 持久化）、`mcp-clients.js` 9 家一键接入、CLI `v9` + stdio MCP `v8`（`index.js` 省略 `vault-ops.js` 保持 `main.js` 精简并挂 `this.contextCore`） |
+| `src/harness.js` `resolveDelegationContext` | 注入层由它产出 | 已切「前稳后动」`ContextBundle`、中英加权 `estimateTokens`、外围预算压缩、可选 `entryMapMode` 与 `AGENTS.md`/`CLAUDE.md` 分工 |
+| `src/harness.js` `resolveWikilinkSnippets` | 保留为兜底 | 超限改指针清单；截断附章节行号目录；OKF 4–6 键摘要；正文为空由 `vaultRead` 退到高信号反链 |
+| `src/outline.js` `ancestorLines` / `extractWikilinkRefs` / `frontmatterEnd` | 零改动复用 | 由 `harness.js`、`vault-index.js`、`vault-ops.js` 与 `fts-index.js` 共用 |
 | `src/dream.js` `matchVerbatimQuote` / `activeMemory` / `relatedMemories` | 逐字核验与相关度打分直接借到派发侧 | 记忆注入改按 `verified` 分层与任务域分流；`main.js` `dream-memory` resolver 传入 `{ projectName, isCodeProject }`；显式透出 `dropped`、保留 `state.processed` 历史 key 并界定 `reconcile` 改写不误拒 |
 | `src/memory-store.js` `renderMemoryIndex` & YAML 解析 | 保留全库标题平铺目录能力与 Bases 兼容 | `renderMemoryIndex` 过滤 `private: true` 与非 `有效` 状态并按 `kind`/域轻量分组；M2.1 前与 `scripts/memory-query.mjs` 统一单层/嵌套 YAML 解析契约 |
 | `src/delegation.js` `continueSession` / `handoff` | 复用现有续聊与交接主干 | `continueSession` 与 `handoff` 补齐 `RunTrace`（含非 ACP runner 关键帧）；`handoff` 补走 `resolveDispatchFolder` 获取项目归属 |
@@ -283,10 +282,9 @@ Bases 是只读视图，**不能承载写操作**，所以三个动作都必须�
 7. 缺数据不估算（沿用现有口径）。
 8. 全库合规不做：日记保持 L0，只让被 agent 消费的子集达到 L1/L2。
 
-## 13. 未决问题
+## 13. 已决与待决问题
 
-- `father` 单向化后，`sons` 派生视图放内存还是落生成文件？
-- `def` → `description` 是单向映射还是双向同步（`def` 已覆盖 1336 篇）？
-- TTL 是否提供推荐值（按 `type` 分档），还是始终留空等用户声明？
-- 运行时工具走 MCP、CLI 还是两者都出？签名先定、形态后定。
-- 独立客户端的存储抽象：文件系统 + 索引，还是直接读 Obsidian 库？`resolveTarget` / `readConcept` 两个接口是否够用。
+- `father` 单向化后，`sons` 派生视图（**已定**）：由 `vault-index.js` 扫描后放内存 `sonsByFather` 派生视图，不写回原笔记。
+- 运行时工具形态（**已定**）：stdio MCP（`scripts/memory-mcp.mjs` `v7`）与 CLI（`scripts/memory-query.mjs` `v8`）双出，签名完全一致，同源打包自 `src/context-core/`。
+- 独立客户端存储抽象（**已定**）：文件系统 Markdown 正本 + `~/.agent-deck/index/` 可丢弃增量 JSON + SQLite FTS5，已同步至 `Outline Journal` 桌面端共用。
+- 待定：`def` → `description` 是否双向同步（当前保持只读兼容映射）；TTL 是否按 `type` 提供推荐默认值（当前仅显式 `stale_after` 参与判定）。

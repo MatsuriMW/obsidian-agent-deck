@@ -9,7 +9,7 @@ const DESTINATION_IDS = {
   claude: ["desktop", "background", "terminal"],
   codex: ["desktop", "background", "terminal"],
   dsh: ["desktop", "background"],
-  antigravity: ["background"],
+  antigravity: ["background", "terminal"],
   opencode: ["desktop", "background", "terminal"],
   qoder: ["desktop", "background", "terminal"],
   hermes: ["background", "terminal"],

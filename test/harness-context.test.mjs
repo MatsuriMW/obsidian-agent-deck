@@ -9,9 +9,14 @@ register(
     ),
 );
 
-const { resolveDelegationContext, buildDelegationPayload, registerContextResolver, clearCustomContextResolvers } = await import(
-  "../src/harness.js"
-);
+const {
+  resolveDelegationContext,
+  buildDelegationPayload,
+  registerContextResolver,
+  clearCustomContextResolvers,
+  estimateTokens,
+} = await import("../src/harness.js");
+const { setLanguage } = await import("../src/i18n.js");
 
 function makePlugin(notes = {}, { fail = new Set() } = {}) {
   return {
@@ -361,4 +366,127 @@ test("extractOkfHeader 在整篇双链内联时提取极简 OKF 元信息，纯�
   const { prompt } = await promptFor(plugin, "- TODO 对照 [[协议]] 和 [[无头]]");
   assert.match(prompt, /\[元信息：type: 规范 \| def: 派发边界契约 \| status: active\]/);
   assert.ok(!prompt.includes("- [[无头]] (docs/无头.md):\n[元信息"));
+});
+
+test("estimateTokens 消除中英 4-6 倍偏差，外围预算超限时只压缩引用摘录并保留任务正文", async () => {
+  assert.ok(estimateTokens("你好世界") > estimateTokens("abcd"));
+  const longText = Array.from({ length: 12 }, (_, i) => `- 第 ${i + 1} 条较长的中文架构规则与边界约束描述用于触发预算裁剪`).join("\n");
+  const plugin = makePlugin({
+    大规范A: { path: "docs/大规范A.md", content: `---\ntype: 规范\ndef: A 摘要\n---\n# 节A\n${longText}` },
+    大规范B: { path: "docs/大规范B.md", content: `# 节B\n${longText}` },
+  });
+
+  const full = await buildDelegationPayload({
+    plugin,
+    file: { path: "日记/2026_11_26.md" },
+    lines: ["- TODO 核心任务绝对不能被截断 [[大规范A]] [[大规范B]]"],
+    block: single("- TODO 核心任务绝对不能被截断 [[大规范A]] [[大规范B]]"),
+    opts: { contextBudgetTokens: 120 },
+  });
+  assert.equal(full.bundle.stats.trimmedPeripheral, true);
+  assert.match(full.prompt, /外围上下文已按预算压缩/);
+  assert.match(full.prompt, /核心任务绝对不能被截断/);
+
+  const mapOnly = await buildDelegationPayload({
+    plugin,
+    file: { path: "日记/2026_11_26.md" },
+    lines: ["- TODO 阅读 [[大规范A]]"],
+    block: single("- TODO 阅读 [[大规范A]]"),
+    opts: { entryMapMode: true },
+  });
+  assert.match(mapOnly.prompt, /\(docs\/大规范A\.md\)/);
+  assert.match(mapOnly.prompt, /后续章节/);
+  assert.ok(!mapOnly.prompt.includes("第 5 条较长的中文架构规则"), "entryMapMode 不内联大段正文");
+  assert.ok(mapOnly.bundle.stats.injectedTokens < full.bundle.stats.injectedTokens);
+});
+
+test("harness 引用日记时自动剥离 PAUSED 🤖 / 💬 AI 自动日志，仅保留用户手写记录", async () => {
+  const plugin = makePlugin({
+    "2026_11_26": {
+      path: "日记/2026_11_26.md",
+      content: [
+        "---",
+        "journal-date: 2026-11-26",
+        "---",
+        "- PAUSED 🤖 10:00-11:00 **AI 自动日志标题**",
+        "\t- 第1轮：SHOULD_NOT_INJECT_AI_LOG",
+        "\t- ⏱ 10:00–11:00 · 共 1h",
+        "- USER_HANDWRITTEN_NOTE 真正的手写判断",
+      ].join("\n"),
+    },
+  });
+  const { prompt } = await promptFor(plugin, "- TODO 回顾 [[2026_11_26]] 里的人手写思考");
+  assert.match(prompt, /USER_HANDWRITTEN_NOTE/);
+  assert.ok(!prompt.includes("SHOULD_NOT_INJECT_AI_LOG"));
+  assert.ok(!prompt.includes("AI 自动日志标题"));
+});
+
+test("compressLinkedSectionForBudget preserves localized Metadata header and More sections TOC in English", async () => {
+  const prevLang = process.env.AGENT_DECK_LANG;
+  delete process.env.AGENT_DECK_LANG;
+  setLanguage("en");
+  try {
+    const longBody = [
+      "---",
+      "type: spec",
+      "def: Bilingual context protocol",
+      "---",
+      "# Section One",
+      ...Array.from({ length: 18 }, (_, i) => `- Constraint rule item number ${i + 1} describing token budget behavior in detail.`),
+      "## Section Two Target",
+      "- Keep me in TOC",
+    ].join("\n");
+    const plugin = makePlugin({
+      ProtoA: { path: "docs/ProtoA.md", content: longBody },
+      ProtoB: { path: "docs/ProtoB.md", content: `# Another\n${longBody}` },
+    });
+    const payload = await buildDelegationPayload({
+      plugin,
+      file: { path: "日记/2026_11_26.md" },
+      lines: ["- TODO Check [[ProtoA]] and [[ProtoB]]"],
+      block: single("- TODO Check [[ProtoA]] and [[ProtoB]]"),
+      opts: { contextBudgetTokens: 80 },
+    });
+    assert.equal(payload.bundle.stats.trimmedPeripheral, true);
+    assert.match(payload.prompt, /\[Metadata: type: spec \| def: Bilingual context protocol\]|\[Metadata：type: spec \| def: Bilingual context protocol\]/);
+    assert.match(payload.prompt, /More sections \(read by line\): ## Section Two Target\(L/);
+    assert.match(payload.prompt, /Peripheral context trimmed to token budget/);
+  } finally {
+    if (prevLang !== undefined) process.env.AGENT_DECK_LANG = prevLang;
+    setLanguage("auto");
+  }
+});
+
+test("entryMapMode reports empty body warnings and line count hints when no headings exist", async () => {
+  const plugin = makePlugin({
+    空白页: { path: "Concepts/空白页.md", content: "---\n---\n\n   \n" },
+    无标题正文: { path: "Concepts/无标题正文.md", content: "- 第一行详情 BODY_LINE_SECRET\n- 第二行详情\n- 第三行详情\n" },
+  });
+  const res = await buildDelegationPayload({
+    plugin,
+    file: { path: "日记/2026_11_27.md" },
+    lines: ["- TODO 读取 [[空白页]] 与 [[无标题正文]]"],
+    block: single("- TODO 读取 [[空白页]] 与 [[无标题正文]]"),
+    opts: { entryMapMode: true },
+  });
+  assert.equal(res.bundle.stats.entryMapMode, true);
+  assert.ok(res.bundle.warnings.includes("empty-body:Concepts/空白页.md"), "entryMapMode 空正文必须记告警");
+  assert.match(res.prompt, /背景参考资料入口地图，正文未内联/);
+  assert.match(res.prompt, /正文共 3 行，请按需用 vault_outline \/ vault_read 或直接读路径展开/);
+  assert.ok(!res.prompt.includes("BODY_LINE_SECRET"), "entryMapMode 不直接内联无标题正文");
+});
+
+test("harness surfaces explicit partial progress in delegation context and omits it when absent or 100%", async () => {
+  const plugin = makePlugin({});
+  const partial = await promptFor(plugin, "- DOING 完成模块联调 50% 1h ^ad-p1");
+  assert.equal(partial.bundle.stats.taskProgress, 50);
+  assert.match(partial.prompt, /当前任务已推进至 50%/);
+
+  const full = await promptFor(plugin, "- TODO 已满百 100% 1h");
+  assert.equal(full.bundle.stats.taskProgress, 100);
+  assert.equal(full.bundle.tail.progressNote, "");
+
+  const plain = await promptFor(plugin, "- TODO 无进度 1h");
+  assert.equal(plain.bundle.stats.taskProgress, null);
+  assert.equal(plain.bundle.tail.progressNote, "");
 });

@@ -3,13 +3,14 @@ import { RECORD_ICON_RE, hasPinMarker } from "./journal.js";
 import { AI_RECORD_RE } from "./ai-records.js";
 import { LIST_RE, width, fencedLines, frontmatterEnd, parseMirrorRef } from "./outline.js";
 import { isPathExcluded, isPrivateFrontmatter } from "./memory-query-core.js";
+import { TASK_KWS } from "./context-core/note-hygiene.js";
 
 const hash = (text) => createHash("sha256").update(text).digest("hex").slice(0, 24);
 
 const AI_LINE_RE = /^\s*(?:[-*+]|\d+[.)])\s+(?:\[[^\]]\]\s+)?(?:(?:[A-Z0-9-]+|[a-z0-9-]+)\s+)?(?:\d{1,2}[:：]\d{2}(?:\s*[-–~～到至]\s*\d{1,2}[:：]\d{2})?\s+)?🤖/;
 const AD_COMMENT_RE = /(?:[ \t]*<!--\s*ad-[a-z0-9-]+(?::[^>]+)?\s*-->)+[ \t]*$/g;
 const SEP_ONLY_RE = /^(?:\s*(?:[-*+]|\d+[.)])?\s*[-_*]{3,}\s*)+$/;
-const TASK_KW_RE = /^(?:TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED)\b\s*/i;
+const TASK_KW_RE = new RegExp(`^(?:${TASK_KWS})\\b\\s*`, "i");
 
 export function inferEvidenceDate(path) {
   const m = /(\d{4})[-_](\d{2})[-_](\d{2})/.exec(String(path || ""));

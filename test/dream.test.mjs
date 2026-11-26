@@ -19,7 +19,7 @@ assert.ok(replaced.startsWith(profile.trimEnd())); assert.ok(!replaced.includes(
 assert.throws(()=>profileWithDream(profile+DREAM_START,'new'));
 assert.throws(()=>profileWithDream(DREAM_END+DREAM_START,'new'));
 const files = new Map(), notices = [];
-const settings = deepMerge(DEFAULTS,{});
+const settings = deepMerge(DEFAULTS,{ dream: { scope: 'all' } });
 const vault = {getAbstractFileByPath:(path)=>files.has(path)?{path}:null,read:async(f)=>files.get(f.path),modify:async(f,t)=>files.set(f.path,t),process:async(f,fn)=>files.set(f.path,fn(files.get(f.path))),create:async(p,t)=>{files.set(p,t);return {path:p}},createFolder:async(p)=>files.set(p,'')};
 const p = { settings,jobs:{},app:{vault,plugins:{getPlugin:()=>({companion:{cfg:{profilePath:'陪伴.md'}}})},workspace:{openLinkText:async()=>{}}},saveSettings:async()=>{},notice:(t)=>notices.push(t)};
 files.set('陪伴.md',profile);

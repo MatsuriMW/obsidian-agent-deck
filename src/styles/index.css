@@ -22,6 +22,7 @@
 @import "./views/settings.css";
 @import "./views/modals.css";
 @import "./views/review.css";
+@import "./views/memory-graph.css";
 
 /* 3. 动效与无障碍降级层 */
 @import "./base/motion.css";

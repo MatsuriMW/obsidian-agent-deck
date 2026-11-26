@@ -65,10 +65,17 @@ export function isPrivateFrontmatter(raw) {
   const end = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
   if (end < 0) return false;
   for (const line of lines.slice(1, end)) {
-    const m = /^private:\s*(.+?)\s*$/i.exec(line);
+    const m = /^(?:private|"private"|'private')\s*:\s*(.+?)\s*$/i.exec(line);
     if (!m) continue;
-    const val = m[1].replace(/^['"]|['"]$/g, "").trim().toLowerCase();
-    return val === "true";
+    let val = m[1].trim();
+    if (/^["']/.test(val)) {
+      const q = val[0];
+      const closeIdx = val.indexOf(q, 1);
+      val = closeIdx > 0 ? val.slice(1, closeIdx) : val.slice(1);
+    } else {
+      val = val.replace(/\s+#.*$/, "");
+    }
+    return val.trim().toLowerCase() === "true";
   }
   return false;
 }
@@ -80,14 +87,18 @@ export function normalizeExcludedDirs(dirs = []) {
     .filter(Boolean);
 }
 
-export function isPathExcluded(notePath, excludedDirs = []) {
-  const norm = String(notePath || "").trim().replace(/\\/g, "/").replace(/^\/+/, "");
-  if (!norm) return false;
+export function isPathExcluded(notePath, excludedDirs = [], { caseInsensitive = false } = {}) {
+  const rawNorm = String(notePath || "").trim().replace(/\\/g, "/").replace(/^\/+/, "");
+  if (!rawNorm) return false;
+  const norm = caseInsensitive ? rawNorm.toLowerCase() : rawNorm;
   const dirs = normalizeExcludedDirs(excludedDirs);
-  return dirs.some((dir) => norm === dir || norm.startsWith(`${dir}/`));
+  return dirs.some((dir) => {
+    const cmp = caseInsensitive ? dir.toLowerCase() : dir;
+    return norm === cmp || norm.startsWith(`${cmp}/`);
+  });
 }
 
-function normalizeProjectKey(name) {
+export function normalizeProjectKey(name) {
   return String(name || "").toLowerCase().replace(/[\s_\-·.]+/g, "");
 }
 
@@ -95,7 +106,7 @@ function stripLinkWrap(raw) {
   return String(raw || "").replace(/^\[\[|\]\]$/g, "").split("|")[0].split("#")[0].trim();
 }
 
-function entryMetaTerms(entry) {
+export function entryMetaTerms(entry) {
   const parts = [];
   if (entry?.project) parts.push(entry.project);
   if (entry?.projectLink) parts.push(stripLinkWrap(entry.projectLink));
@@ -118,7 +129,7 @@ function entryMetaTerms(entry) {
 const TECH_DOMAINS = new Set(["engineering", "code", "dev", "build", "cross-platform", "readers", "ops", "infra", "software", "tech"]);
 const LIFE_DOMAINS = new Set(["life", "health", "personal", "lifestyle", "family", "travel", "finance", "diet", "sleep"]);
 const PERSONAL_LIFE_RE = /(睡眠|作息|座驾|汽车|轮毂|健身|体重|饮食|咖啡|买房|红利股|老登股|消费板块|旅游|家人|父母|恋爱|婚姻|星座|\br90\b)/i;
-const PROPOSAL_ONLY_RE = /(?:尚未实施|未实施|仍待.{0,12}验证|尚未验证|不能视为已验证|未说明是否实测|未经验证的推断|(?:只|仅)完成改造.{0,16}待.{0,8}验证)/;
+export const PROPOSAL_ONLY_RE = /(?:尚未实施|未实施|仍待.{0,12}验证|尚未验证|不能视为已验证|未说明是否实测|未经验证的推断|(?:只|仅)完成改造.{0,16}待.{0,8}验证)/;
 
 export function isMemoryStale(entry, nowMs = Date.now()) {
   const raw = String(entry?.staleAfter || entry?.validUntil || "").trim();
@@ -157,7 +168,7 @@ function isLifeDomain(entry) {
 }
 
 // 统计独立语义命中数并标记连续重叠中文二元词，避免单一长词拆分霸占多词计数。
-function analyzeTextHits(text, wanted) {
+export function analyzeTextHits(text, wanted) {
   const s = String(text || "").toLowerCase();
   const cjkOverlapped = new Set();
   const cjkNonOverlapped = new Set();

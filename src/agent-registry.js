@@ -77,19 +77,20 @@ const CAPABILITIES = new Map([
   }],
   ["antigravity", {
     delegate: true,
-    runnerKind: "acp",
-    acp: true,
-    acpArgs: ["acp"],
+    runnerKind: "antigravity",
+    acp: false,
+    acpArgs: [],
     acpAutoApprove: true,
     acpDefaultModel: "antigravity-default",
     acpDefaultEffort: "",
     acpModelOptional: true,
-    acpEffortOptional: false,
-    acpAllowUnknownEffort: false,
+    acpEffortOptional: true,
+    acpAllowUnknownEffort: true,
     desktopHandoffOnly: false,
-    terminalHandoff: false,
+    terminalHandoff: true,
     continueInApp: true,
-    continueRequiresAcp: true,
+    continueRequiresAcp: false,
+    continueTransports: ["cli", "acp"],
     permissionControl: false,
     archiveDetection: false,
     modelCatalog: true,
@@ -394,6 +395,13 @@ export function listAgentsByCapability(cap) {
 }
 
 export const delegateAgents = () => listAgentsByCapability("delegate");
+export function canAgentReadLocalFiles(id, destination = "") {
+  if (!id || destination === "clipboard") return false;
+  const cap = getAgentCapability(id);
+  if (destination === "terminal") return Boolean(cap.terminalHandoff);
+  if (destination === "desktop" && (id === "qoder" || cap.desktopHandoffOnly || cap.handoffFallback)) return false;
+  return Boolean(cap.delegate && !cap.desktopHandoffOnly);
+}
 export function canDelegateDrop(id) {
   const meta = AGENTS[id];
   if (!meta || meta.trackingOnly) return false;
@@ -408,9 +416,14 @@ export function canContinueSession(session, jobs = null, { requireSid = true } =
   if (!session?.agent || !canContinueInApp(session.agent)) return false;
   const sid = session.sid || session.sessionId || "";
   if (requireSid && !sid) return false;
-  if (getAgentCapability(session.agent).continueRequiresAcp) {
-    const owned = sid && jobs ? Object.values(jobs).find((j) => j.agent === session.agent && j.sessionId === sid) : null;
-    return (session.transport || owned?.transport) === "acp";
+  const cap = getAgentCapability(session.agent);
+  const owned = sid && jobs ? Object.values(jobs).find((j) => j.agent === session.agent && j.sessionId === sid) : null;
+  const transport = session.transport || owned?.transport || "";
+  if (Array.isArray(cap.continueTransports)) {
+    return cap.continueTransports.includes(transport);
+  }
+  if (cap.continueRequiresAcp) {
+    return transport === "acp";
   }
   return true;
 }

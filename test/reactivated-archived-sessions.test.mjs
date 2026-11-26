@@ -396,9 +396,9 @@ test("cross-day archived/finished sessions reactivate in today's journal while g
   assert.ok(todayOut.includes("今日-绑定激活"), `sidBoundFinish should land in today:\n${todayOut}`);
   assert.ok(todayOut.includes("今日-三天前激活"), `sidOldUntracked should land in today:\n${todayOut}`);
   assert.ok(!todayOut.includes("跨夜未完"), "genuine overnight session must not duplicate into today");
-  assert.ok(yOut.includes("23:40-00:10 **跨夜未完任务**"), `overnight session stays in yesterday:\n${yOut}`);
+  assert.ok(yOut.includes("**跨夜未完任务**") && yOut.includes("⏱ 23:40–00:10"), `overnight session stays in yesterday:\n${yOut}`);
   // Today's reactivated entry should use today's segment clock (10:00-10:05), not yesterday's 14:00
-  assert.ok(todayOut.includes("10:00-10:05 **今日-状态已完**"), `today's clock expected:\n${todayOut}`);
+  assert.ok(todayOut.includes("**今日-状态已完**") && todayOut.includes("⏱ 10:00–10:05"), `today's clock expected:\n${todayOut}`);
 });
 
 test("JournalSync reopens client-archived DONE tasks on unarchive while respecting manual DONE locks", async () => {

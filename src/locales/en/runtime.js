@@ -15,6 +15,9 @@ export default {
   "使用服务端的默认模型；读取可用模型后可指定模型。": "Uses the server's default model; pick a model once the available models are read.",
   "可用性由当前 Codex 登录账号决定。": "Availability depends on the signed-in Codex account.",
   "实际可用强度由 ACP 服务端校验": "The ACP server validates which effort levels actually work",
+  "实际可用强度由 agy CLI 校验": "The agy CLI validates which effort levels actually work",
+  "agy CLI 返回的模型": "Model returned by agy CLI",
+  "续聊发送中…": "Sending follow-up…",
   "由所选 Codex 模型支持的强度决定": "Depends on the effort levels the selected Codex model supports",
 
   // constants.js — journal folder/format detection sources

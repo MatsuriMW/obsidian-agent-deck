@@ -39,7 +39,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Claude Code** | 支持 | 支持 | 支持（首轮后自动打开） | 支持 |
 | **Codex** | 支持 | 支持 | 支持（首轮后自动打开） | 支持 |
 | **DeepSeek Harness** | 支持 | 支持 | 仅唤起客户端 | — |
-| **Antigravity** | 支持（IDE + 独立 CLI） | 支持（`agy acp`） | 不支持 | — |
+| **Antigravity** | 支持（IDE + 独立 CLI） | 支持（官方 `agy` CLI） | 不支持 | 支持 |
 | **OpenCode** | 支持 | 支持 | 首轮后自动打开 | 支持 |
 | **Qoder** | 支持 | 支持 | 仅复制任务并唤起 | 支持 |
 | **Hermes Agent** | 支持 | 支持 | 不支持（无桌面界面） | 支持 |
@@ -68,7 +68,7 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 | **Claude Code** | Claude Code 命令行或桌面端，并登录 |
 | **Codex** | Codex 命令行与桌面端，并登录 |
 | **DeepSeek Harness** | DeepSeek Harness 客户端，并配置好模型与账号 |
-| **Antigravity** | 独立的 Antigravity 命令行 `agy`（追踪同时读取 `~/.gemini/antigravity/brain` 与 `~/.gemini/antigravity-cli/brain`；后台委派走 `agy acp`） |
+| **Antigravity** | 独立的 Antigravity 命令行 `agy` 并完成登录（追踪同时读取 `~/.gemini/antigravity/brain` 与 `~/.gemini/antigravity-cli/brain`；后台委派与终端交接统一走官方 `agy` CLI） |
 | **OpenCode** | OpenCode 桌面端或命令行 |
 | **Qoder** | Qoder 命令行；只用桌面交接则装 Qoder 桌面端 |
 | **Hermes Agent** | Hermes 命令行；不用委派时无需额外安装 |
@@ -102,10 +102,10 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
    - **Trae（Trae CN / 国际版）**：本地 `ModularData/ai-agent/database.db` 为 SQLCipher 加密库，插件绝不解密；完全通过 Trae 原生 `hooks.json` 采集新会话。必须由用户在 Trae 设置里打开「全局 Hooks」（建议设为「本地自动运行」）后新会话才会写入 `~/.agent-deck/trae-events/`；因 Trae Hook stdin 不携带 token 与模型名，Token 统计如实显示为 `0`。装有 `traecli` 时支持 `traecli acp serve` 后台委派，未装 CLI 时自动复制任务并唤起 `Trae CN` / `Trae` 桌面端。
    - **WorkBuddy**：仅中国版，独立 CodeBuddy 命令行与桌面端不互通。
    - **Qoder**：命令行与桌面端不互通，桌面端没给 token 时显示「未提供」。
-   - **Antigravity**：同时追踪 IDE（`~/.gemini/antigravity/brain`）与独立 `agy` CLI（`~/.gemini/antigravity-cli/brain`）的本地会话日志，支持 `agy acp` 后台委派与应用内续聊；IDE 与 CLI 会话彼此独立、不支持桌面 IDE 交接，导出正文不含工具结果与内部推理。
+   - **Antigravity**：同时追踪 IDE（`~/.gemini/antigravity/brain`）与独立 `agy` CLI（`~/.gemini/antigravity-cli/brain`）的本地会话日志，通过官方 `agy` CLI（非 `acp`）实现后台委派、应用内 `--resume` 续聊与终端 `agy -i` 交接；IDE 与 CLI 会话彼此独立、不支持桌面 IDE 交接，导出正文不含工具结果与内部推理。
    - **DeepSeek Harness**：客户端仍在迭代，委派会话在客户端里可能落到「未分组」，通常需刷新客户端才出现。
    - **OpenCode**：后台与桌面共用会话，但打开桌面端后仍需手动选一次。
-   - **Hermes Agent**：没有桌面界面，只能在插件里看，或在终端恢复。
+   - **Hermes Agent**：没有桌面界面，只能在插件里看，或在终端恢复。后台委派直接拉起单个 `hermes-acp` 实例执行，**不会**转交 Default Agent 或 Hermes `kanban` 编排器二次分配；且独立 `hermes-acp` 只读环境变量 `HERMES_HOME`（默认 `~/.hermes` 即 `default` profile），不解析 `-p/--profile`，也不跟随 `hermes profile use`。终端委派（`hermes chat`）则会跟随 `hermes profile use`。追踪侧同时只读扫描 `$HERMES_HOME/state.db` 与 `$HERMES_HOME/profiles/*/state.db`。
    - **MiniMax Code**：桌面端与 `mcode` 命令行共用本地会话库；打开桌面端后仍需手动选一次会话，只装桌面端未装 `mcode` 时仅追踪不委派。
    - **千问办公（QwenWork）**：只追踪、不能委派；新版客户端的对话已能完整读取，旧日志缺 token 时如实显示为 0。
    - **Grok Bot**：只追踪桌面端，云端沙箱不给逐条 token 时显示「用量未提供」，没有归档概念。
@@ -123,7 +123,18 @@ Agent Deck 的目标是成为跨模型、跨客户端的统一本地总控台：
 
 如果你使用 **Gemini CLI、Kiro、Mistral Vibe** 或其他支持 ACP（Agent Client Protocol）协议的本地命令行工具：
 
-1. 打开「设置 → 委派 → 自定义 ACP Agent」。
+1. 打开「设置 → 委派 → Agent 配置 → 自定义 ACP Agent」。
 2. 填写名称、可执行文件完整路径与启动参数。
 3. 如需传递 API Key 或敏感环境变量，使用 `env:VAR_NAME` 或 `secret:KEY_NAME` 语法，避免明文密钥写入笔记库。
 4. 保存后即可像内置 Agent 一样在任务行 `@` 呼出并后台委派。
+
+### 示例：指定特定的 Hermes Profile Agent
+
+由于独立的 `hermes-acp` 不读取 `hermes profile use` 且不接受 `-p` 参数，如需指定特定 Profile 执行委派，有三种方式：
+
+1. **多 Profile 独立 `@id` 路由（推荐）**：在「设置 → 委派 → Agent 配置 → 自定义 ACP Agent」为每个 Profile 建一条（例如 ID 填 `hermes-work`）：
+   - **方式 A**：命令填 `hermes-acp`，**启动参数留空**，环境变量填 `HERMES_HOME=/Users/<你的用户名>/.hermes/profiles/<profile名>`（必须写绝对路径，不要用 `~`）。
+   - **方式 B**：命令填 `hermes`，启动参数填 `-p <profile名> acp`。
+   - 保存后即可在任务行里直接 `@hermes-work` 精准委派到该 Profile。
+2. **复用内置 Hermes 卡片切换为单个 Profile**：在内置 `Hermes Agent → 更多设置` 里，把「命令行路径」改成 `hermes`、「额外 ACP 参数」填 `-p <profile名>`（插件会拼成 `hermes acp -p <profile名>`）。
+3. **仅终端默认切换**：在终端运行 `hermes profile use <profile名>`（仅对终端 `hermes chat` 与 `hermes acp` 生效，对独立 `hermes-acp` 不生效）。

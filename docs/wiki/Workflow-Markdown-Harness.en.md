@@ -37,6 +37,20 @@ Every AI auto-logged journal entry is plain Markdown, so you can organize, highl
 - **In-place record views & fractal board**: switch any AI record in place between **Outline / Table / Cards / Timeline** (and export the active view) without touching the underlying Markdown. Any parent or sub-topic holding multiple task children gets a **Board N** toggle to open an in-place fractal Kanban board where dragging cards updates statuses.
 - **Tidy journal layout (`⌃⌥L` / `Ctrl+Alt+L`) & lossless safeguards**: press `⌃⌥L` or click **Tidy journal layout** to group scattered top-level AI blocks under **Done / Doing / To do**, ordered by status priority and round count, while keeping your grouped parent trees and nested sub-blocks intact. Click any status keyword to manually lock it, press `⌘⇧D` to mark `DONE` and move to Done, and edit any AI title or prose knowing Agent Deck will never overwrite hand-edited text.
 
+### Pre-Estimating Tasks + Binding AI Sessions: Estimate vs. Actual Review with Nautilus Spiral
+
+1. **How to write it (parent holds the estimate/plan, child `- ⏱` holds actual active time)**:
+   - Write your estimated task or time-blocked entry in today's daily note, for example:
+     - `- TODO [#A] Refactor auth module 1h` (explicit duration estimate `1h`)
+     - `- TODO **10:30** Research caching 45m` (intermittent timestamp + estimate `45m`)
+     - `- 14:00-15:00 Design review` (reserved time block)
+   - Drag a sidebar session card or an existing AI auto-logged block onto that parent line (**nests as a child block by default**, or hold `⌥` to bind directly to the line).
+2. **Default child `- ⏱` scheme & unified active-session timing**:
+   - In **Settings → Recording → Journal & archive → Session timing scheme**, the default is **`Child ⏱ block (Default · Nautilus Spiral)`**: the parent headline, duration estimate, and timestamps stay untouched while live session spans are written to `- ⏱ HH:MM–HH:MM · total Xm · Xk tok · Agent`. If you prefer the legacy headline range (`HH:MM-HH:MM`), you can switch back to **`Leading HH:MM-HH:MM (Legacy)`** in the same control.
+   - Agent Deck uses the exact same activity segmentation logic as **Nautilus Spiral**: **events within `≤ 5 minutes` belong to the same active span, overlapping multi-session segments are union-deduplicated, and manual `DONE` clicks or desktop archive timestamps are never treated as session end time**. With `<!-- ad-clock:... -->` signatures, Agent Deck and Nautilus Spiral Pomodoro `- ⏱` child lines coexist without overwriting one another.
+3. **Reviewing Estimate vs. Actual in Nautilus Spiral**:
+   - Nautilus Spiral merges multiple `- ⏱` lines under the same task and rolls up `- ⏱` time from nested `🤖` child blocks to the human parent task (or reserved event), so **Day review** and 30-day **Estimate vs. actual** accurately compare your upfront estimate against real net active duration.
+
 ## 4. Four Record Views & In-Place Fractal Boards
 
 Inspect the exact same Markdown from multiple perspectives without rewriting the underlying file:

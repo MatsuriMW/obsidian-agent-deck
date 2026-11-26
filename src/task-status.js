@@ -129,6 +129,7 @@ export async function applyStatusChoice(plugin, target, keyword) {
     if(keyword)locks[id]=next;else delete locks[id];
     changed=true;
     lines[n]=J.ensureBlockId(raw,id).line;
+    if (J.DONE_KWS.includes(next)) plugin.journalSync?.finalizeTaskClock?.(lines, n);
     return J.cleanCompletedIdentifiers(lines.join('\n'));
   };
   try {

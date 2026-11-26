@@ -144,7 +144,10 @@ test("memory-mcp: newline JSON stdio 跑通 initialize / tools/list / index / se
     assert.equal(err, "");
     assert.equal(responses.length, 6);
     assert.equal(responses[0].result.serverInfo.name, "agent-deck-memory");
-    assert.deepEqual(responses[1].result.tools.map((t) => t.name), ["memory_index", "memory_search", "memory_read", "memory_recent", "memory_graph"]);
+    assert.deepEqual(responses[1].result.tools.map((t) => t.name), [
+      "memory_index", "memory_search", "memory_read", "memory_recent", "memory_graph",
+      "vault_find", "vault_outline", "vault_read", "vault_related",
+    ]);
     assert.match(responses[2].result.content[0].text, /共 2 条有效记忆（已确认 1 条）/);
     assert.match(responses[3].result.content[0].text, /A 股投资/);
     assert.equal(responses[4].result.isError, true, "private:true 记忆禁止被 memory_read 读出");
@@ -293,5 +296,137 @@ test("memory-mcp: --allow-write 支持 memory_propose 写入未确认候选并�
     assert.match(readArch.result.content[0].text, /已归档的旧 MCP 打包方案/);
   } finally {
     fs.rmSync(vault, { recursive: true, force: true });
+  }
+});
+
+test("memory-mcp: vault_find / vault_outline / vault_read / vault_related 在纯 .outline-journal 库与隐私/锚点边界下正常工作", async () => {
+  const vault = fs.mkdtempSync(path.join(os.tmpdir(), "ad-oj-mcp-"));
+  const indexDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-oj-idx-"));
+  try {
+    fs.mkdirSync(path.join(vault, ".outline-journal", "plugins", "agent-deck"), { recursive: true });
+    fs.writeFileSync(
+      path.join(vault, ".outline-journal", "plugins", "agent-deck", "data.json"),
+      JSON.stringify({ dream: { dir: "Agent Deck/记忆" }, delegate: { excludedDirs: ["机密目录"] } }),
+    );
+    fs.mkdirSync(path.join(vault, "Concepts"), { recursive: true });
+    fs.mkdirSync(path.join(vault, "日记"), { recursive: true });
+    fs.mkdirSync(path.join(vault, "机密目录"), { recursive: true });
+
+    fs.writeFileSync(
+      path.join(vault, "Concepts", "ContextLayer.md"),
+      "---\ntype: 概念\ndef: 面向多 Agent 的本地上下文层\ndomain: \"[[架构领域]]\"\nfather: \"[[架构领域]]\"\naliases: [上下文层]\n---\n\n",
+    );
+    fs.writeFileSync(
+      path.join(vault, "Concepts", "架构领域.md"),
+      "---\ntype: 领域\ndef: 系统架构主干\n---\n\n# 总览\n架构总览正文。\n\n## 分层规则\n- 第一条规则 ^rule-1\n  - 补充细节\n",
+    );
+    fs.writeFileSync(
+      path.join(vault, "日记", "2026_11_26.md"),
+      "- [[ContextLayer]] 的核心是结构优先与增量索引 ^mem-ctx1\n  - 下级细节补充\n- 第1轮：**任务**：测试；**结论**：[[ContextLayer]] 内部回声不应被当成反链\n",
+    );
+    fs.writeFileSync(
+      path.join(vault, "机密目录", "secret.md"),
+      "---\naliases: [ContextLayerSecret]\n---\n绝密正文 SK_DO_NOT_LEAK\n",
+    );
+    fs.writeFileSync(
+      path.join(vault, "Concepts", "私密概念.md"),
+      "---\nprivate: true\n---\n私密正文 DO_NOT_EXPOSE\n",
+    );
+
+    const { responses, err } = await sendJsonlStdio(["--vault", vault, "--index-dir", indexDir], [
+      { jsonrpc: "2.0", id: 1, method: "initialize", params: {} },
+      { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "vault_find", arguments: { query: "上下文层" } } },
+      { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "vault_outline", arguments: { ref: "架构领域" } } },
+      { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "vault_read", arguments: { ref: "ContextLayer" } } },
+      { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "vault_read", arguments: { ref: "架构领域#^rule-1" } } },
+      { jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "vault_read", arguments: { ref: "架构领域#^missing" } } },
+      { jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "vault_read", arguments: { ref: "私密概念" } } },
+      { jsonrpc: "2.0", id: 8, method: "tools/call", params: { name: "vault_related", arguments: { ref: "架构领域" } } },
+    ]);
+    assert.equal(err, "");
+    assert.equal(responses.length, 8);
+    assert.match(responses[1].result.content[0].text, /ContextLayer/);
+    assert.ok(!responses[1].result.content[0].text.includes("SK_DO_NOT_LEAK"));
+    assert.match(responses[2].result.content[0].text, /## 分层规则/);
+    assert.match(responses[2].result.content[0].text, /\^rule-1/);
+    assert.match(responses[3].result.content[0].text, /面向多 Agent 的本地上下文层/);
+    assert.match(responses[3].result.content[0].text, /强信号/);
+    assert.ok(!responses[3].result.content[0].text.includes("内部回声不应被当成反链"));
+    assert.match(responses[4].result.content[0].text, /第一条规则/);
+    assert.match(responses[4].result.content[0].text, /补充细节/);
+    assert.equal(responses[5].result.isError, true, "缺失块号必须报错，不得静默退回开头");
+    assert.equal(responses[6].result.isError, true, "private:true 笔记必须禁止读取");
+    assert.match(responses[7].result.content[0].text, /ContextLayer/);
+    assert.match(responses[7].result.content[0].text, /子概念/);
+  } finally {
+    fs.rmSync(vault, { recursive: true, force: true });
+    fs.rmSync(indexDir, { recursive: true, force: true });
+  }
+});
+
+test("memory-mcp: toolsMode='memory-only' 动态切换暴露工具并按 excludeAiLogs 控制 AI 记录默认可见性", async () => {
+  const { createMcpServer: createCoreMcpServer } = await import("../src/context-core/mcp.js");
+  const vault = makeTestVault();
+  const indexDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-mcp-dyn-idx-"));
+  const cfgPath = path.join(vault, ".obsidian", "plugins", "agent-deck", "data.json");
+  try {
+    fs.mkdirSync(path.join(vault, "日记"), { recursive: true });
+    fs.writeFileSync(
+      path.join(vault, "日记", "2026_11_27.md"),
+      "- TODO 手写条 ^u1\n  - 💬 AI 自动日志：MCP_DYNAMIC_AI_LINE\n",
+    );
+
+    // 1. memory-only hides vault_* tools dynamically and blocks direct calls
+    fs.writeFileSync(cfgPath, JSON.stringify({
+      dream: { dir: "Agent Deck/记忆", mcp: { toolsMode: "memory-only", excludeAiLogs: true } },
+    }));
+    const srv = createCoreMcpServer({ vault, allowWrite: false, configDir: ".obsidian", indexDir });
+    const list1 = srv.handleRequest({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} });
+    assert.equal(list1.result.tools.length, 5);
+    assert.ok(list1.result.tools.every((t) => t.name.startsWith("memory_")));
+
+    const blockedCall = srv.handleRequest({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "vault_find", arguments: { query: "手写" } },
+    });
+    assert.equal(blockedCall.result.isError, true);
+    assert.match(blockedCall.result.content[0].text, /仅长期记忆/);
+
+    // 2. Switching toolsMode -> all & excludeAiLogs -> false takes effect without server restart
+    fs.writeFileSync(cfgPath, JSON.stringify({
+      dream: { dir: "Agent Deck/记忆", mcp: { toolsMode: "all", excludeAiLogs: false } },
+    }));
+    const list2 = srv.handleRequest({ jsonrpc: "2.0", id: 3, method: "tools/list", params: {} });
+    assert.equal(list2.result.tools.length, 9);
+    assert.ok(list2.result.tools.some((t) => t.name === "vault_find"));
+
+    const findAi = srv.handleRequest({
+      jsonrpc: "2.0",
+      id: 4,
+      method: "tools/call",
+      params: { name: "vault_find", arguments: { query: "MCP_DYNAMIC_AI_LINE" } },
+    });
+    assert.match(findAi.result.content[0].text, /2026_11_27/);
+
+    const readDefaultAi = srv.handleRequest({
+      jsonrpc: "2.0",
+      id: 5,
+      method: "tools/call",
+      params: { name: "vault_read", arguments: { ref: "日记/2026_11_27" } },
+    });
+    assert.match(readDefaultAi.result.content[0].text, /MCP_DYNAMIC_AI_LINE/);
+
+    const readOverrideFalse = srv.handleRequest({
+      jsonrpc: "2.0",
+      id: 6,
+      method: "tools/call",
+      params: { name: "vault_read", arguments: { ref: "日记/2026_11_27", include_ai_logs: false } },
+    });
+    assert.ok(!readOverrideFalse.result.content[0].text.includes("MCP_DYNAMIC_AI_LINE"));
+  } finally {
+    fs.rmSync(vault, { recursive: true, force: true });
+    fs.rmSync(indexDir, { recursive: true, force: true });
   }
 });

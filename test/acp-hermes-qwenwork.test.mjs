@@ -36,7 +36,8 @@ import * as J from "../src/journal.js";
 
 test("Task 1: cross-agent ACP registry generalization & permission matching", () => {
   assert.ok(acpAgents().includes("hermes"));
-  assert.deepEqual(acpAutoApproveAgents(), acpAgents());
+  assert.deepEqual(acpAutoApproveAgents().filter((a) => a !== "antigravity"), acpAgents());
+  assert.ok(acpAutoApproveAgents().includes("antigravity"));
   assert.ok(delegateAgents().includes("hermes"));
   assert.ok(!delegateAgents().includes("qwenwork"));
   assert.ok(cliHandoffAgents().includes("hermes"));

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.33
+
+- **记忆图谱视图、Dream MCP 聚焦设置与会话计时双模式收口（[`src/memory-graph-view.js`](src/memory-graph-view.js)、[`src/memory-graph-data.js`](src/memory-graph-data.js)、[`src/settings.js`](src/settings.js)、[`src/autolog.js`](src/autolog.js)、[`src/sync.js`](src/sync.js)、[`src/journal.js`](src/journal.js)）**：
+  - 新增全库「记忆图谱」独立标签页视图（命令面板 `Agent Deck: 打开记忆图谱`）与双套可切换视觉主题（有机墨迹星图 / 精密星图网格），支持按类型/核验状态过滤与跳回原笔记。
+  - Dream MCP 补齐 `toolsMode`（9 工具 / 仅 `memory_*` 5 工具）、`allowWrite`、全库检索排除 AI 自动记录（`excludeAiLogs`）、O(1) 本地索引状态探测与外挂自动触发提示词编辑；设置页重构统一为 `this.row(...)` 双列对齐布局。
+  - 统一螺旋日程与 Agent Deck 的 AI 追踪数据源（暴露 `agentCatalog()` 21+ Agent 与 `spiralUsageSnapshot()`），`showTimeRange` 默认采用与螺旋日程一致的「子块 `- ⏱` 实际用时」保留母块预计/预约对照，同时保留传统行首 `HH:MM-HH:MM` 可选开关，并以会话真实起止事件作为自动计时口径。
+- **公共镜像块解析回写桥与任务进度承接（[`src/main.js`](src/main.js)、[`src/journal.js`](src/journal.js)、[`src/harness.js`](src/harness.js)）**：
+  - 暴露 `resolveMirrorLine()` / `updateMirrorBlock()` 供螺旋日程统一解析与幂等回写 `- ![[笔记#^块号]]` 镜像条目。
+  - 新增 `extractTaskProgress()` 并确保任务进度（`25%`、`进度 40%`、`1/3`、`一半` 等）在所有行改写中无损保留；委派上下文对 `1%–99%` 进度任务自动附加「基于已有进度继续」提示。
+
 ## 1.13.32
 
 - **非侵入子块拖拽绑定与纯子块计时模式补齐（[`src/journal.js`](src/journal.js)、[`src/editor.js`](src/editor.js)、[`src/view.js`](src/view.js)、[`src/main.js`](src/main.js)、[`src/autolog.js`](src/autolog.js)、[`src/sync.js`](src/sync.js)、[`src/organize-journal.js`](src/organize-journal.js)、[`src/settings.js`](src/settings.js)）**：

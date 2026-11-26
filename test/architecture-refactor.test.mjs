@@ -33,13 +33,22 @@ import { registerRunnerClass, getRunnerClasses } from "../src/delegation-runners
 
 test("src module graph has zero circular dependencies", () => {
   const srcDir = path.resolve(import.meta.dirname, "../src");
-  const files = fs.readdirSync(srcDir).filter((f) => f.endsWith(".js"));
+  const files = [];
+  const walk = (dir, prefix = "") => {
+    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${ent.name}` : ent.name;
+      if (ent.isDirectory()) walk(path.join(dir, ent.name), rel);
+      else if (ent.isFile() && ent.name.endsWith(".js")) files.push(rel);
+    }
+  };
+  walk(srcDir);
   const edges = new Map();
   for (const file of files) {
     const text = fs.readFileSync(path.join(srcDir, file), "utf8");
-    const deps = [...text.matchAll(/(?:from|import)\s+["']\.\/([^"']+)["']/g)]
-      .map((m) => m[1])
-      .filter((d) => d.endsWith(".js"));
+    const fileDir = path.posix.dirname(file);
+    const deps = [...text.matchAll(/(?:from|import)\s+["'](\.[^"']+)["']/g)]
+      .map((m) => path.posix.normalize(fileDir === "." ? m[1] : `${fileDir}/${m[1]}`))
+      .filter((d) => d.endsWith(".js") && files.includes(d));
     edges.set(file, [...new Set(deps)]);
   }
   const visiting = new Set();
@@ -59,6 +68,18 @@ test("src module graph has zero circular dependencies", () => {
   };
   for (const file of files) if (!visited.has(file)) dfs(file);
   assert.deepEqual(cycles, [], `circular imports found: ${JSON.stringify(cycles)}`);
+});
+
+test("src/context-core stays zero-Obsidian, zero-Electron, and zero-i18n", () => {
+  const coreDir = path.resolve(import.meta.dirname, "../src/context-core");
+  const files = fs.readdirSync(coreDir).filter((f) => f.endsWith(".js"));
+  assert.ok(files.length >= 6);
+  for (const file of files) {
+    const text = fs.readFileSync(path.join(coreDir, file), "utf8");
+    assert.doesNotMatch(text, /from\s+["'](?:obsidian|electron|@codemirror\/[^"']+|(?:\.\.\/)*i18n\.js)["']/, `${file} must not import Obsidian/Electron/CodeMirror/i18n`);
+    assert.doesNotMatch(text, /\brequire\(\s*["'](?:obsidian|electron)["']\s*\)/, `${file} must not require Obsidian/Electron`);
+    assert.doesNotMatch(text, /\bapp\./, `${file} must not reference app.* to avoid host scanner false positives`);
+  }
 });
 
 test("ManagedTimers tracks and disposes all timers and ignores new ones after dispose", () => {
@@ -131,7 +152,7 @@ test("agent-registry supports declarative capability queries and Open-Closed reg
   assert.ok(delegateAgents().includes("cursor"));
   assert.ok(delegateAgents().includes("trae"));
   assert.ok(!delegateAgents().includes("grokbot"));
-  assert.deepEqual(acpAgents(), ["dsh", "antigravity", "opencode", "hermes", "minimax", "cursor", "trae", "kimicode", "gemini"]);
+  assert.deepEqual(acpAgents(), ["dsh", "opencode", "hermes", "minimax", "cursor", "trae", "kimicode", "gemini"]);
   assert.ok(cliHandoffAgents().includes("workbuddy"));
   assert.equal(canContinueInApp("dsh"), true);
   assert.equal(canContinueInApp("codex"), false);

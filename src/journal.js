@@ -6,18 +6,18 @@
 // takes text in and returns text out, so it can be tested without Obsidian.
 
 import { createHash } from "crypto";
-import { AGENTS, pad, fmtTok, fmtClock, resolveRecordRules } from "./constants.js";
+import { AGENTS, pad, fmtTok, fmtClock, unionSegs, DEFAULT_RECORD_RULES, resolveRecordRules } from "./constants.js";
 import { t } from "./i18n.js";
 import { detailForRound } from "./log-detail.js";
 import { cleanUserPrompt, condenseUserPrompt } from "./prompt-text.js";
 import { formatSummaryLinks } from "./summary-links.js";
-import { LIST_RE, width, fencedLines, ownersOf, markOwner, subtreeEnd } from "./outline.js";
+import { LIST_RE, width, fencedLines, ownersOf, markOwner, subtreeEnd, parseMirrorRef } from "./outline.js";
+import { TASK_KWS } from "./context-core/note-hygiene.js";
 
-export { LIST_RE, width, fencedLines, ownersOf, markOwner, subtreeEnd };
+export { LIST_RE, width, fencedLines, ownersOf, markOwner, subtreeEnd, parseMirrorRef, TASK_KWS };
 export const STAMP_RE = /^\*\*(\d{1,2})[:：](\d{2})\*\*\s*/;
 export const CHECKBOX_RE = /^\[([ xX\/\-])\]\s*/;
 // 任务关键词，长的在前（TODOFORAI 在 TODO 前、WAITING 在 WAIT 前），并要求词边界且只匹配全大写或全小写
-export const TASK_KWS = "TODOFORAI|TODO4AI|TODO2AI|TODOTOAI|TODO|DOING|LATER|NOW|PAUSED|TOREVIEW|HITLIMIT|NEEDOK|QUEUED|ERRORED|DELEGATED|WAITING|WAIT|SUSPENDED|IN-PROGRESS|DONE|CANCELED|CANCELLED|FAILED";
 export const TASK_KWS_RE_SRC = `${TASK_KWS}|${TASK_KWS.toLowerCase()}`;
 export const KEYWORD_RE = new RegExp(`^(${TASK_KWS_RE_SRC})(?=\\s|$)\\s*`);
 const KW_WORD_RE = KEYWORD_RE;
@@ -166,15 +166,32 @@ let DAY_OFFSET = 0;
 export const setDayOffset = (min) => { DAY_OFFSET = Number(min) || 0; };
 export const dayOffset = () => DAY_OFFSET;
 export const clock = (t) => { const m = Math.round(t + DAY_OFFSET); return `${pad(Math.floor(((m % 1440) + 1440) % 1440 / 60))}:${pad(((m % 60) + 60) % 60)}`; };
-// ⏱ 行：间隔不超过 10 分钟的时段并成一段，只写最后 8 段（ellipsis 时前面标「… 」），后面是总时长、token、哪个 Agent
+// 与螺旋日程（AI_IDLE = 5 分钟）同一套会话活动切段规则：把分钟时间戳切分为活跃时段并求并集。
+export function tsToActiveSegs(tsList = [], idleMin = 5) {
+  const sorted = (tsList || []).filter((n) => typeof n === "number" && Number.isFinite(n)).sort((a, b) => a - b);
+  if (!sorted.length) return [];
+  const out = [];
+  let a = sorted[0], b = a + 1;
+  for (let i = 1; i < sorted.length; i++) {
+    const t = sorted[i];
+    if (t - b <= idleMin) b = Math.max(b, t);
+    else { out.push([a, b]); a = t; b = t + 1; }
+  }
+  out.push([a, b]);
+  return unionSegs(out);
+}
+
+// ⏱ 行：交叠时段先按 unionSegs 去重，间隔不超过 10 分钟并成一段写最后 8 段，后面是真实净用时、token、哪个 Agent
 export function clockLine(indent, segs, who, tok = 0, ellipsis = false) {
+  const valid = (segs || []).filter((s) => Array.isArray(s) && Number.isFinite(s[0]) && Number.isFinite(s[1]) && s[1] >= s[0]);
+  const merged = unionSegs(valid);
   const shown = [];
-  for (const [a, b] of segs) {
+  for (const [a, b] of merged) {
     const prev = shown[shown.length - 1];
     if (prev && a - prev[1] <= 10) prev[1] = Math.max(prev[1], b);
     else shown.push([a, b]);
   }
-  const total = Math.round(segs.reduce((n, [a, b]) => n + b - a, 0));
+  const total = Math.round(merged.reduce((n, [a, b]) => n + Math.max(0, b - a), 0));
   const line = `${indent}- ⏱ ${ellipsis && shown.length > 8 ? "… " : ""}${shown.slice(-8).map(([a, b]) => `${clock(a)}–${clock(b)}`).join("、")} · 共 ${durTag(total)}${tok ? ` · ${fmtTok(tok)} tok` : ""}${who ? " · " + who : ""}`;
   return `${line} <!-- ad-clock:${clockHash(line)} -->`;
 }
@@ -191,7 +208,16 @@ export function mutableClock(lines, n) {
   return !!marker && clockHash(marker[1]) === marker[2] && !blockIdOf(lines[n]) && !hasDescendants(lines, n);
 }
 
-// 在任务子树下新增或原地更新未手改的 ⏱ 行；已一致或被用户改过时保持不动。
+// 区分 Agent Deck 写入/维护的 ⏱ 行与螺旋日程番茄钟等外部手写 ⏱ 行，避免互相覆盖或阻塞。
+export function isAgentClockLine(raw, who = "") {
+  const s = String(raw || "");
+  if (!CLOCK_RE.test(s)) return false;
+  if (/ <!-- ad-clock:[a-f0-9]+ -->\s*$/.test(s)) return true;
+  if (who && stripBlockId(s).trimEnd().endsWith(` · ${who}`)) return true;
+  return false;
+}
+
+// 在任务子树下新增或原地更新未手改的 Agent Deck ⏱ 行；外部 ⏱（如螺旋日程番茄钟）原样跳过不干涉。
 export function upsertClockLine(lines, ownerLine, segs, who, tok = 0, ellipsis = true) {
   if (!Array.isArray(lines) || ownerLine < 0 || ownerLine >= lines.length || !segs?.length) return false;
   const line = clockLine(childIndent(lines, ownerLine), segs, who, tok, ellipsis);
@@ -202,6 +228,7 @@ export function upsertClockLine(lines, ownerLine, segs, who, tok = 0, ellipsis =
     if (lines[i].trim() && width(lines[i]) <= base) break;
     if (lines[i].trim()) end = i;
     if (CLOCK_RE.test(lines[i]) && markOwner(lines, i) === ownerLine) {
+      if (!isAgentClockLine(lines[i], who)) continue;
       if (lines[i] === line || lines[i] === bare) return false;
       if (!mutableClock(lines, i)) return false;
       lines[i] = line;
@@ -216,6 +243,7 @@ export const durTag = (m) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? (m % 6
 export const workKey = (label) => stripBlockId(String(label || "")).replace(/\s*←\s*\S+\s*$/, "").trim();
 
 const TIME_SPAN_PREFIX_RE = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?\s*/;
+const TIME_RANGE_PREFIX_RE = /^(\d{1,2})[:：](\d{2})\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2})\s*/;
 
 // 把原始会话标题或首句提示词浓缩成简洁的任务标题（去掉路径、链接、口水前缀和过长从句）
 export function summarizeAutoTitle(raw, max = 22) {
@@ -347,15 +375,20 @@ export function clockSpanFromLines(lines, ownerLine) {
   return null;
 }
 
-// The live endpoint belongs to the title only. Measured activity segments are never extended.
+// The live endpoint belongs to the title only. Measured activity segments are never extended,
+// and user DONE / archive timestamps are never treated as session end time.
 export function sessionRecordSpan({ segs = [], meta = {}, saved = null, clockSpan = null, kw, now = Date.now(), idleMinutes = 10, startAt }) {
-  const first = segs[0]?.[0], last = segs.at(-1)?.[1];
-  const firstAt = startAt ?? (meta.startedAt || meta.firstAt || meta.rounds?.[0]?.at);
-  const lastAt = meta.lastAt || meta.rounds?.reduce((latest, round) => Math.max(latest, round?.doneAt || 0), 0);
-  const observedEnd = lastAt ? fmtClock(lastAt) : last == null ? "" : clock(last);
-  const start = firstAt ? fmtClock(firstAt) : first != null ? clock(first) : saved?.since || clockSpan?.start || observedEnd;
+  const validSegs = Array.isArray(segs) && segs.length ? unionSegs(segs.filter((s) => Array.isArray(s) && s[1] >= s[0])) : [];
+  const first = validSegs[0]?.[0], last = validSegs.at(-1)?.[1];
+  const roundFirstAt = meta.rounds?.[0]?.at;
+  const roundLastAt = meta.rounds?.reduce((latest, round) => Math.max(latest, round?.doneAt || round?.at || 0), 0);
+  const firstAt = startAt ?? (first == null ? (roundFirstAt || meta.startedAt || meta.firstAt) : 0);
+  const lastAt = last == null ? (roundLastAt || meta.lastAt) : 0;
+  const lastEventMs = meta.lastAt || roundLastAt || 0;
+  const observedEnd = last != null ? clock(last) : (lastAt ? fmtClock(lastAt) : "");
+  const start = first != null ? clock(first) : (firstAt ? fmtClock(firstAt) : saved?.since || clockSpan?.start || observedEnd);
   const running = (kw === "DOING" || kw === "DELEGATED") && ["run", "running"].includes(meta.state)
-    && lastAt > 0 && now >= lastAt && now - lastAt <= idleMinutes * 60000;
+    && lastEventMs > 0 && now >= lastEventMs && now - lastEventMs <= idleMinutes * 60000;
   const end = running ? fmtClock(now) : observedEnd || clockSpan?.end || saved?.until || start;
   return { start, end };
 }
@@ -367,11 +400,15 @@ export function formatSessionTaskLine(task, { kw, start, end, showTimeRange }) {
       showTimeRange: showTimeRange === false ? false : (showTimeRange || Boolean(task.since || task.until)), blockId: task.blockId,
     });
   }
-  const time = showTimeRange === false
-    ? (task.since || "")
-    : (start && end && (showTimeRange || task.until) && (start !== end || task.until)
-      ? `${start}-${end}` : task.since || "");
-  return `${task.prefix}${kw} ${time ? time + " " : ""}${task.rest}`.trimEnd();
+  if (showTimeRange) {
+    const s = start || task.since || "";
+    const e = end || task.until || "";
+    const time = s ? (e && e !== s ? `${s}-${e} ` : `${s} `) : "";
+    return `${task.prefix}${kw} ${time}${task.rest}`.trimEnd();
+  }
+  // 子块 ⏱ 模式：保留人工日注原本的预估/预约或间歇式时间戳，绝不覆盖母块。
+  const kept = task.since ? (task.until ? `${task.since}-${task.until} ` : `${task.since} `) : "";
+  return `${task.prefix}${kw} ${kept}${task.rest}`.trimEnd();
 }
 
 // 这一行是什么任务：{ prefix, rest, since, until, span, auto, title, kw, cb, blockId, body }；不是列表项返回 null
@@ -403,10 +440,10 @@ export function splitTask(raw) {
   let title = "";
   if (auto) {
     let afterRobot = rest.slice(autoMatch[0].length);
-    const tm = TIME_SPAN_PREFIX_RE.exec(afterRobot);
+    const tm = TIME_RANGE_PREFIX_RE.exec(afterRobot);
     if (tm) {
       since = `${pad(+tm[1])}:${tm[2]}`;
-      until = tm[3] ? `${pad(+tm[3])}:${tm[4]}` : since;
+      until = `${pad(+tm[3])}:${tm[4]}`;
       afterRobot = afterRobot.slice(tm[0].length);
     } else if (since && !until) {
       until = since;
@@ -1286,9 +1323,7 @@ export function bindInto(text, at, s, { below = false, direct = false, ensureBlo
   if (target.kind === "bind") {
     const p = splitTask(lines[n]);
     if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
-      const start = p.since || since;
-      const task = p.auto ? p : { ...p, since: start };
-      lines[n] = formatSessionTaskLine(task, { kw: want, start, end: p.until || until || start, showTimeRange: r.showTimeRange });
+      lines[n] = formatSessionTaskLine(p, { kw: want, start: p.since || since, end: p.until || until || p.since || since, showTimeRange: r.showTimeRange });
     }
     const eb = maybeAddBlockId(lines[n]);
     lines[n] = eb.line;
@@ -1297,6 +1332,11 @@ export function bindInto(text, at, s, { below = false, direct = false, ensureBlo
     const existingChildText = lines.slice(n + 1, n + 15).join("\n");
     for (const rc of rescuedChildren) {
       if (!existingChildText.includes(rc)) toInsert.push(`${ind}${rc}`);
+    }
+    if (!r.showTimeRange && s.segs?.length) {
+      const [, spanEnd] = blockSpan(lines, n);
+      const hasOwnClock = lines.slice(n + 1, spanEnd + 1).some((l) => isAgentClockLine(l, who));
+      if (!hasOwnClock) toInsert.push(clockLine(ind, s.segs, who, s.tok || 0, true));
     }
     lines.splice(n + 1, 0, ...toInsert);
     return { text: lines.join("\n"), line: n, kind: "bind", blockId: eb.blockId };
@@ -1402,7 +1442,7 @@ export function nestTask(text, srcLine, dstLine) {
 //   · 保留人写的标题（如果两条都是人写的或都是 🤖，保留目标行 dstLine 的标题）
 //   · 继承活跃状态词（DOING / TOREVIEW 等）与最早的开始时间
 //   · 合并两条下面的所有子项（🔗、⏱、💬、❓、📋、子待办），去重并保留/补齐 ^xxxxx 块 ID
-export function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
+export function mergeTasks(text, srcLine, dstLine, { preferId = "", showTimeRange = DEFAULT_RECORD_RULES.showTimeRange } = {}) {
   const lines = text.split("\n");
   if (srcLine === dstLine || srcLine < 0 || dstLine < 0 || srcLine >= lines.length || dstLine >= lines.length) {
     return { text, error: t("请选择两条不同的任务行") };
@@ -1449,8 +1489,8 @@ export function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
   const blockId = pd.blockId || ps.blockId || preferId || makeBlockId(keptBody);
   const keptIsAuto = keptBody.startsWith(AUTO_MARK.trim());
   const headerRaw = keptIsAuto
-    ? formatAutoTaskLine({ prefix: pd.prefix, kw: mergedKw, start: mergedSince, end: mergedUntil, title: pd.title, preserveTitle: true })
-    : formatSessionTaskLine({ prefix: pd.prefix, rest: keptBody, since: mergedSince, until: mergedSince !== mergedUntil ? mergedUntil : "" }, { kw: mergedKw, start: mergedSince, end: mergedUntil });
+    ? formatAutoTaskLine({ prefix: pd.prefix, kw: mergedKw, start: mergedSince, end: mergedUntil, title: pd.title, preserveTitle: true, showTimeRange })
+    : formatSessionTaskLine({ prefix: pd.prefix, rest: keptBody, since: pd.since || "", until: pd.until || "" }, { kw: mergedKw, start: mergedSince, end: mergedUntil, showTimeRange });
   const { line: mergedHeader } = ensureBlockId(headerRaw, blockId);
 
   // 收集并合并两边子项（按目标行的子缩进重排，去重）
@@ -1477,8 +1517,8 @@ export function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
       mergedKids.unshift(k);
       continue;
     }
-    if (CLOCK_RE.test(k)) {
-      const idx = mergedKids.findIndex((x) => CLOCK_RE.test(x));
+    if (CLOCK_RE.test(k) && isAgentClockLine(k)) {
+      const idx = mergedKids.findIndex((x) => CLOCK_RE.test(x) && isAgentClockLine(x));
       if (idx >= 0) {
         if (k.length > mergedKids[idx].length) mergedKids[idx] = k;
         continue;
@@ -1524,4 +1564,52 @@ export function runningTaskLines(text, sessionByParent, jobs = []) {
     return jobs.some((job) => ["starting", "running"].includes(job.state) &&
       ((task.blockId && job.blockId === task.blockId) || job.lineText === lines[task.line]));
   });
+}
+
+const PROG_CN_NUM = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+const PROG_END_LOOKAHEAD = "(?=$|[\\s）)】\\]，,。.;；·])";
+const PROG_PCT_MATCH_RE = new RegExp(`(?:^|[\\s（(【\\[,，·\\-–—])((?:进度\\s*[:：]?\\s*)?(\\d{1,3})\\s*[%％])${PROG_END_LOOKAHEAD}`);
+const PROG_PREFIX_FRAC_MATCH_RE = new RegExp(`(?:进度\\s*[:：]?\\s*)((\\d{1,2})\\s*\\/\\s*(\\d{1,2}))${PROG_END_LOOKAHEAD}`);
+const PROG_FRAC_MATCH_RE = new RegExp(`(?:^|[\\s（(【\\[,，·])((\\d{1,2})\\s*\\/\\s*(\\d{1,2}))${PROG_END_LOOKAHEAD}`);
+const PROG_CN_FRAC_MATCH_RE = /(?:进度\s*[:：]?\s*)?([一二两三四五六七八九十]+)分之([一二两三四五六七八九十]+)/;
+const PROG_HALF_MATCH_RE = new RegExp(`((?:做了|完成了?)?一半)${PROG_END_LOOKAHEAD}`);
+
+/** Extract explicit task progress (`40%`, `1/3`, `三分之一`, `一半`) ignoring code, comments, and wikilinks. */
+export function extractTaskProgress(raw) {
+  const cleaned = stripBlockId(String(raw || ""))
+    .replace(/`[^`]*`/g, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/%%[^%]*?%%/g, " ")
+    .replace(/!?\[\[[^\]]*\]\]/g, " ")
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1");
+  let m = PROG_PCT_MATCH_RE.exec(cleaned);
+  if (m && Number(m[2]) >= 0 && Number(m[2]) <= 100) {
+    return { pct: Math.round(Number(m[2])), raw: m[1].trim() };
+  }
+  m = PROG_PREFIX_FRAC_MATCH_RE.exec(cleaned);
+  if (m) {
+    const a = Number(m[2]), b = Number(m[3]);
+    if (b >= 1 && b <= 99 && a >= 0 && a <= b) {
+      return { pct: Math.round((a / b) * 100), raw: m[0].trim() };
+    }
+  }
+  m = PROG_FRAC_MATCH_RE.exec(cleaned);
+  if (m) {
+    const a = Number(m[2]), b = Number(m[3]);
+    if (b >= 2 && b <= 10 && a >= 0 && a <= b) {
+      return { pct: Math.round((a / b) * 100), raw: m[1].trim() };
+    }
+  }
+  m = PROG_CN_FRAC_MATCH_RE.exec(cleaned);
+  if (m) {
+    const b = PROG_CN_NUM[m[1]], a = PROG_CN_NUM[m[2]];
+    if (b > 0 && a >= 0 && a <= b) {
+      return { pct: Math.round((a / b) * 100), raw: m[0].trim() };
+    }
+  }
+  m = PROG_HALF_MATCH_RE.exec(cleaned);
+  if (m) {
+    return { pct: 50, raw: m[1].trim() };
+  }
+  return null;
 }

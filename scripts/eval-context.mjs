@@ -4,15 +4,21 @@
 // 2) Harness zero-silent-loss & privacy boundary integrity
 // 3) ContextBundle KV-cache prefix stability across follow-up turns
 
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { pickMemoriesFromEntries } from "../src/memory-query-core.js";
 import {
   agentText,
   buildDelegationPayload,
   createContextBundle,
+  estimateTokens,
   renderContextBundle,
 } from "../src/harness.js";
 import { parseThread, replyPromptText } from "../src/thread-replies.js";
+import { clearVaultIndexCache } from "../src/context-core/index.js";
+import { vaultFind } from "../src/context-core/vault-ops.js";
 
 const MEMORY_CORPUS = [
   { id: "m1", kind: "项目经验", type: "经验", state: "有效", text: "使用 esbuild 打包插件时必须保留 obsidian 为 external，否则运行期报错", tags: ["build", "esbuild"], domain: "engineering", sources: ["[[构建规范]]"] },
@@ -255,11 +261,79 @@ function evalPromptHygiene() {
   return { ok: strippedOk && replyOk, strippedOk, replyOk };
 }
 
+async function evalWeightedBudgetAndEntryMap() {
+  const longNote = [
+    "---",
+    "type: 规范",
+    "def: FTS5 与双宿主上下文规范",
+    "---",
+    "# 第一章：架构目标",
+    ...Array.from({ length: 16 }, (_, i) => `- 约束 ${i + 1}：详细正文条款仅需在调用 vault_read 后加载，不应初始全量塞入。`),
+    "## 第二章：验收门槛",
+    "- 必须保证无静默丢失",
+  ].join("\n");
+  const plugin = makeFakePlugin({
+    SpecDoc: { path: "Concepts/SpecDoc.md", content: longNote },
+  });
+  const block = { start: 0, end: 0, text: "- TODO 检查 [[SpecDoc]] 并执行改动" };
+  const fullRes = await buildDelegationPayload({ plugin, file: { path: "日记/2026_11_26.md" }, lines: [block.text], block });
+  const mapRes = await buildDelegationPayload({ plugin, file: { path: "日记/2026_11_26.md" }, lines: [block.text], block, opts: { entryMapMode: true } });
+  const ratioOk = estimateTokens("中文预算估算") > estimateTokens("abcd") && mapRes.bundle.stats.injectedTokens < fullRes.bundle.stats.injectedTokens;
+  const tocDisclosed = mapRes.prompt.includes("Concepts/SpecDoc.md") && mapRes.prompt.includes("第二章：验收门槛");
+  return {
+    ok: ratioOk && tocDisclosed,
+    fullTokens: fullRes.bundle.stats.injectedTokens,
+    entryMapTokens: mapRes.bundle.stats.injectedTokens,
+    tocDisclosed,
+  };
+}
+
+function evalVaultFts() {
+  const vault = fs.mkdtempSync(path.join(os.tmpdir(), "ad-eval-fts-v-"));
+  const indexDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-eval-fts-i-"));
+  try {
+    fs.mkdirSync(path.join(vault, ".outline-journal"), { recursive: true });
+    fs.mkdirSync(path.join(vault, "Agent Deck", "派发"), { recursive: true });
+    fs.writeFileSync(
+      path.join(vault, "Guide.md"),
+      [
+        "# 指南",
+        "- 关键短语：纯本地增量倒排检出与零泄漏",
+        "- PAUSED 🤖 10:00-10:30 **AI_LOG_EVAL_SHOULD_EXCLUDE**",
+        "\t- 第1轮：纯本地增量倒排检出_AI_SUBTREE_LEAK",
+      ].join("\n"),
+    );
+    fs.writeFileSync(path.join(vault, "Secret.md"), "---\nprivate: true\n---\n- 关键短语：纯本地增量倒排检出与零泄漏_PRIVATE\n");
+    fs.writeFileSync(path.join(vault, "Agent Deck", "派发", "snap.md"), "---\ntype: 派发载荷\n---\nGEN_DISPATCH_EVAL_LEAK\n");
+    const hit = vaultFind(vault, "纯本地增量倒排检出", { indexOpts: { indexDir, persist: true } });
+    const priv = vaultFind(vault, "零泄漏_PRIVATE", { indexOpts: { indexDir, persist: true } });
+    const aiLogLeak = vaultFind(vault, "AI_LOG_EVAL_SHOULD_EXCLUDE", { indexOpts: { indexDir, persist: true } });
+    const aiSubLeak = vaultFind(vault, "AI_SUBTREE_LEAK", { indexOpts: { indexDir, persist: true } });
+    const genLeak = vaultFind(vault, "GEN_DISPATCH_EVAL_LEAK", { indexOpts: { indexDir, persist: true } });
+    const aiLogLeaks = aiLogLeak.items.length + aiSubLeak.items.length;
+    const generatedFileLeaks = genLeak.items.length;
+    return {
+      ok: hit.engine === "sqlite-fts5" && hit.items.length === 1 && hit.items[0].path === "Guide.md" && priv.items.length === 0 && aiLogLeaks === 0 && generatedFileLeaks === 0,
+      engine: hit.engine,
+      hits: hit.items.length,
+      privacyLeaks: priv.items.length,
+      aiLogLeaks,
+      generatedFileLeaks,
+    };
+  } finally {
+    clearVaultIndexCache(vault, { indexDir });
+    fs.rmSync(vault, { recursive: true, force: true });
+    fs.rmSync(indexDir, { recursive: true, force: true });
+  }
+}
+
 export async function runContextEval() {
   const memory = evalMemoryRetrieval();
   const harness = await evalHarnessIntegrity();
   const cache = evalPrefixCacheStability();
   const hygiene = evalPromptHygiene();
+  const budget = await evalWeightedBudgetAndEntryMap();
+  const fts = evalVaultFts();
 
   const ok =
     memory.recall >= 0.9 &&
@@ -271,9 +345,11 @@ export async function runContextEval() {
     harness.privacyLeaks === 0 &&
     harness.silentLosses === 0 &&
     cache.driftCount === 0 &&
-    hygiene.ok;
+    hygiene.ok &&
+    budget.ok &&
+    fts.ok;
 
-  return { ok, memory, harness, cache, hygiene };
+  return { ok, memory, harness, cache, hygiene, budget, fts };
 }
 
 const isCli = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;

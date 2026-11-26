@@ -442,7 +442,7 @@ export class DelegateOptionsModal extends Modal {
       af.createDiv({ cls: "ad-hint", text: t("ACP 模式没有 plan/auto 这个切换；关掉自动允许时，权限请求会在 Obsidian 中逐次确认。") });
     }
 
-    if (this.agent === "antigravity") contentEl.createDiv({ cls: "ad-hint", text: t("通过 agy acp 后台委派；完成后可查看或归档正文。") });
+    if (this.agent === "antigravity") contentEl.createDiv({ cls: "ad-hint", text: t("通过 agy CLI 后台委派；完成后可查看或归档正文。") });
 
     // Project folder: registered projects first, then a free path for one-offs.
     this.projectState.cwd = this.cwd;

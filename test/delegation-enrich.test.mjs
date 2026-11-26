@@ -241,3 +241,86 @@ test("memoryToolHint 读取 索引.md 的有效条数、高频概念并附带 --
   const emptyHint = await d.memoryToolHint();
   assert.equal(emptyHint, `需要更多背景时：node "${scriptPath}" search "关键词"`);
 });
+
+test("memoryToolHint 包含全库 vault-* 入口与仓库 AGENTS.md / CLAUDE.md 分工提示", async () => {
+  const { detectRepoRuleFiles } = await import("../src/delegation.js");
+  const vault = makeVault();
+  const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-repo-rules-"));
+  try {
+    fs.writeFileSync(path.join(repoDir, "AGENTS.md"), "# rules\n");
+    fs.writeFileSync(path.join(repoDir, "CLAUDE.md"), "# claude\n");
+    fs.writeFileSync(path.join(vault, "Agent Deck", "记忆", "索引.md"), "# 记忆索引\n\n共 5 条有效非私密记忆 · 由插件生成。\n");
+
+    assert.deepEqual(detectRepoRuleFiles(repoDir, vault), ["AGENTS.md", "CLAUDE.md"]);
+    assert.deepEqual(detectRepoRuleFiles(vault, vault), [], "Vault 自身目录不算外部仓库规则");
+
+    const d = makeDelegator(vault);
+    const hint = await d.memoryToolHint({ projectName: "agent-deck", repoRuleFiles: ["AGENTS.md"] });
+    assert.match(hint, /vault-find "关键词"｜vault-outline <笔记>｜vault-read <笔记#章节>｜vault-related <笔记>/);
+    assert.match(hint, /仓内规范以 AGENTS\.md 为准/);
+
+    const noMemVault = makeVault({ script: true, memory: false });
+    try {
+      const hintEntry = await makeDelegator(noMemVault).memoryToolHint({ hasEntryMap: true });
+      assert.match(hintEntry, /vault-outline <笔记>｜vault-read <笔记#章节>/);
+    } finally {
+      fs.rmSync(noMemVault, { recursive: true, force: true });
+    }
+  } finally {
+    fs.rmSync(vault, { recursive: true, force: true });
+    fs.rmSync(repoDir, { recursive: true, force: true });
+  }
+});
+
+test("canAgentReadLocalFiles 与 resolveBlockContext 按 Agent 能力自动启用或关闭 entryMapMode", async () => {
+  const { canAgentReadLocalFiles } = await import("../src/agent-registry.js");
+  for (const id of ["claude", "codex", "dsh", "antigravity", "opencode", "qoder", "hermes", "minimax", "cursor", "trae", "t3code", "kimicode", "gemini"]) {
+    assert.equal(canAgentReadLocalFiles(id, "background"), true, `${id} 后台应支持本地工具/读文件`);
+  }
+  assert.equal(canAgentReadLocalFiles("workbuddy", "terminal"), true);
+  assert.equal(canAgentReadLocalFiles("workbuddy", "desktop"), false);
+  for (const id of ["teleagent", "qwenwork", "grokbot", "cindy", "orca", "muse", "doubaowork"]) {
+    assert.equal(canAgentReadLocalFiles(id), false, `${id} 桌面交接应保留摘要内联`);
+  }
+  for (const id of ["qoder", "cursor", "trae", "kimicode"]) {
+    assert.equal(canAgentReadLocalFiles(id, "desktop"), false, `${id} 回退桌面粘贴时关闭 entryMapMode`);
+  }
+  assert.equal(canAgentReadLocalFiles("codex", "clipboard"), false);
+  assert.equal(canAgentReadLocalFiles(""), false);
+
+  const vault = makeVault();
+  try {
+    const noteBody = "---\ntype: 规范\ndef: 自动入口地图测试\n---\n# 第一章\n- SECRET_FULL_INLINE_LINE\n## 第二章\n- 明细\n";
+    const plugin = {
+      settings: deepMerge(DEFAULTS, {}),
+      jobs: {},
+      vaultPath: vault,
+      app: {
+        vault: { getAbstractFileByPath: () => null },
+        metadataCache: { getFirstLinkpathDest: (n) => (String(n).trim() === "真素材" ? { path: "参考/真素材.md", extension: "md" } : null) },
+      },
+      readNote: async () => noteBody,
+    };
+    const d = new Delegator(plugin);
+    const lines = ["- TODO 处理 [[真素材]] @codex"];
+    const block = { start: 0, end: 0, indent: 0, text: lines[0] };
+
+    for (const cliAgent of ["codex", "antigravity", "dsh"]) {
+      const resolved = await d.resolveBlockContext({ file: { path: "日记/2026_11_27.md" }, lines, block, line: 0, agent: cliAgent, destination: "background" }, "err");
+      assert.equal(resolved.bundle.stats.entryMapMode, true, `${cliAgent} 应自动启用 entryMapMode`);
+      assert.match(resolved.prompt, /背景参考资料入口地图，正文未内联/);
+      assert.match(resolved.prompt, /## 第二章\(L7\)/);
+      assert.ok(!resolved.prompt.includes("SECRET_FULL_INLINE_LINE"), `${cliAgent} 入口地图不直接塞入整篇正文`);
+    }
+
+    const desktopResolved = await d.resolveBlockContext({ file: { path: "日记/2026_11_27.md" }, lines, block, line: 0, agent: "workbuddy", destination: "desktop" }, "err");
+    assert.equal(desktopResolved.bundle.stats.entryMapMode, false, "桌面粘贴端保持正文摘要内联");
+    assert.match(desktopResolved.prompt, /SECRET_FULL_INLINE_LINE/);
+
+    const fallbackResolved = await d.resolveBlockContext({ file: { path: "日记/2026_11_27.md" }, lines, block, line: 0, agent: "cursor", destination: "desktop" }, "err");
+    assert.equal(fallbackResolved.bundle.stats.entryMapMode, false, "cursor 桌面回退不启用 entryMapMode");
+    assert.match(fallbackResolved.prompt, /SECRET_FULL_INLINE_LINE/);
+  } finally {
+    fs.rmSync(vault, { recursive: true, force: true });
+  }
+});

@@ -1790,7 +1790,7 @@ export class AgentUsage {
       const sid = sm ? sm[1] : agm ? agm[1] : base.startsWith("session-") ? base : (/([0-9a-f]{8}-[0-9a-f-]{27})/.exec(base) || [])[1] || base;
       fc = {
         path: p, agent, size: 0, offset: 0, mtime: 0,
-        sid, id: sid, cwd: "", app: base.startsWith("session-") ? "dsh" : agent === "antigravity" ? "antigravity" : "",
+        sid, id: sid, cwd: "", app: base.startsWith("session-") ? "dsh" : agent === "antigravity" ? (flat.includes("/.gemini/antigravity-cli/") ? "cli" : "antigravity") : "",
         model: "", days: new Map(), msgs: new Map(), titles: new Map(),
         live: null, zstd: p.endsWith(".zstd") || p.endsWith(".zst"),
         sub: sm ? sm[2] : "", parentSid: sm ? sm[1] : "", metaRead: false,
