@@ -27,7 +27,7 @@ Agent Deck 的底层设计理念是 **「Markdown / 大纲 / 日记即 Harness�
   <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.13.32/ai-record-operations-demo.mp4"><img src="https://raw.githubusercontent.com/MatsuriMW/obsidian-agent-deck/main/assets/ai-record-operations-demo.gif" width="880" alt="Agent Deck 实机演示：对 AI 自动记录进行拖拽挂为子块、快捷键一键成组、递进子块、展开折叠与 Pin、表格/分形看板切换及整理日志版面"></a>
 </p>
 
-<p align="center">60 秒实机演示（每项操作演示一次）· 点图观看 <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.13.32/ai-record-operations-demo.mp4">高清原画 MP4</a></p>
+<p align="center">60 秒实机演示（每项操作演示一次）· 点图观看 <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.13.32/ai-record-operations-demo.mp4">高清原画有声 MP4</a></p>
 
 AI 自动写回日记的记录都是普通 Markdown 块，你可以像整理自己的大纲一样顺手归类、高亮与切换视角，底层同步与追踪不会被打断：
 

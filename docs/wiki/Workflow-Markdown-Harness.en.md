@@ -27,7 +27,7 @@ When you delegate from any task or subtask (always reading unsaved editor buffer
   <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.13.32/ai-record-operations-demo.mp4"><img src="https://raw.githubusercontent.com/MatsuriMW/obsidian-agent-deck/main/assets/ai-record-operations-demo.gif" width="880" alt="Agent Deck live demo: drag-binding AI records as child blocks, grouping rows with shortcut, progressive nested sub-blocks, folding & pinning key rounds, table and in-place fractal board views, and tidying journal layout"></a>
 </p>
 
-<p align="center">60-second live demo (each workflow shown once) · click for the <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.13.32/ai-record-operations-demo.mp4">HD MP4 version</a></p>
+<p align="center">60-second live demo (each workflow shown once) · click for the <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.13.32/ai-record-operations-demo.mp4">HD MP4 with music</a></p>
 
 Every AI auto-logged journal entry is plain Markdown, so you can organize, highlight, and re-view it like any outline while background tracking keeps syncing cleanly:
 
