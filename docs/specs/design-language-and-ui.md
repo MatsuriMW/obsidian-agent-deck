@@ -6,7 +6,7 @@
 | 层级 | 模块（按导入顺序） | 边界与职责 |
 | --- | --- | --- |
 | **基础层** | `base/tokens.css` → `base/atoms.css` → `base/controls.css` | 作用域 `--ad-*` 变量与左对齐/焦点环；原子控件（重置 `appearance`/`border`/`box-shadow`）与 3×3 点阵；复合选择器（`.ad-targetpick` / `.ad-effort` / `.ad-modelpick` / `.ad-models-card`，跨上下文尺寸通过 `--ad-effort-*` 等局部 CSS 变量调节） |
-| **视图层** | `views/dashboard.css` → `views/dashboard-cards.css` → `views/editor.css` → `views/keyword.css` → `views/record-views.css` → `views/settings.css` → `views/modals.css` → `views/review.css` → `views/memory-graph.css` | 侧栏骨架与 7 日图（`.ad-dash` 预留 `--ad-slack` 防叠放收起跳动）；会话卡/扑克牌叠放/Agent 卡片（`:where(.theme-light)` 降权微阴影）；编辑器行内 pill/进度/拖放/飞行残影；记录折叠与四视图投影（收敛在 `.ad-record-table-wrap`）；设置页；弹窗与时间线；回顾面板；独立记忆知识图谱视图（`.ad-mem-graph` 双视觉风格：编辑室莫兰迪纸墨 / 星图观测站） |
+| **视图层** | `views/dashboard.css` → `views/dashboard-cards.css` → `views/editor.css` → `views/keyword.css` → `views/record-views.css` → `views/settings.css` → `views/modals.css` → `views/review.css` → `views/memory-graph.css` | 侧栏骨架与 7 日图（`.ad-dash` 预留 `--ad-slack` 防叠放收起跳动）；会话卡/扑克牌叠放/Agent 卡片（`:where(.theme-light)` 降权微阴影）；编辑器行内 pill/进度/拖放/飞行残影；记录折叠与四视图投影（收敛在 `.ad-record-table-wrap`）；设置页；弹窗与时间线；回顾面板；独立记忆知识图谱视图（`.ad-mem-graph` 双视觉风格：编辑室纸墨风 vs 深邃午夜星图风、类型语义分岛、度数分层宝石概念节点、屏幕空间 AABB 防重叠胶囊标签 LOD 与右下角缩放浮窗） |
 | **动效层** | `base/motion.css`（置于末尾） | `@keyframes` 定义、失焦暂停呼吸（`body:not(.is-focused)`）与 `prefers-reduced-motion: reduce` 降级 |
 
 - **作用域收敛**：各视图以原生 CSS 嵌套收敛在自身宿主根类下，避免顶层平铺泄漏；`.ad-view`、`.ad-settings`、`.ad-review` 通过 `container-type: inline-size` / `container` 做窄屏断点。

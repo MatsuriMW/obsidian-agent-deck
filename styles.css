@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.33 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.34 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -6754,54 +6754,54 @@ body.ad-dragging-session .markdown-source-view .cm-content {
   min-height: 340px;
   overflow: hidden;
   text-align: left;
-  --ad-mg-bg: #f6f3ec;
-  --ad-mg-panel: rgba(251, 249, 244, 0.9);
+  --ad-mg-bg: #f8f6f1;
+  --ad-mg-panel: rgba(251, 249, 244, 0.92);
   --ad-mg-panel-solid: #fbf9f4;
-  --ad-mg-border: rgba(59, 53, 47, 0.14);
-  --ad-mg-ink: #2c2723;
-  --ad-mg-muted: #6f665d;
+  --ad-mg-border: rgba(59, 53, 47, 0.13);
+  --ad-mg-ink: #26221e;
+  --ad-mg-muted: #6d645b;
   --ad-mg-chip: rgba(59, 53, 47, 0.06);
-  --ad-mg-chip-on: rgba(116, 109, 148, 0.16);
-  --ad-mg-accent: #746d94;
-  --ad-mg-shadow: 0 10px 28px rgba(45, 38, 30, 0.1);
+  --ad-mg-chip-on: rgba(61, 110, 158, 0.15);
+  --ad-mg-accent: #3d6e9e;
+  --ad-mg-shadow: 0 10px 28px rgba(45, 38, 30, 0.09);
   background: var(--ad-mg-bg);
   color: var(--ad-mg-ink);
   container-type: inline-size;
 }
 .ad-mem-graph[data-style=observatory] {
-  --ad-mg-bg: #eef2f8;
-  --ad-mg-panel: rgba(247, 250, 255, 0.88);
-  --ad-mg-panel-solid: #f7faff;
-  --ad-mg-border: rgba(45, 65, 110, 0.16);
-  --ad-mg-ink: #1b2436;
-  --ad-mg-muted: #586782;
-  --ad-mg-chip: rgba(45, 65, 110, 0.08);
-  --ad-mg-chip-on: rgba(56, 132, 204, 0.18);
-  --ad-mg-accent: #3b7dd8;
-  --ad-mg-shadow: 0 12px 32px rgba(22, 34, 62, 0.12);
+  --ad-mg-bg: #090e1c;
+  --ad-mg-panel: rgba(12, 18, 34, 0.86);
+  --ad-mg-panel-solid: #10182b;
+  --ad-mg-border: rgba(145, 174, 228, 0.2);
+  --ad-mg-ink: #ecf2fc;
+  --ad-mg-muted: #9eb2d4;
+  --ad-mg-chip: rgba(145, 174, 228, 0.1);
+  --ad-mg-chip-on: rgba(94, 184, 255, 0.22);
+  --ad-mg-accent: #5eb8ff;
+  --ad-mg-shadow: 0 16px 38px rgba(0, 0, 0, 0.45);
 }
 .theme-dark .ad-mem-graph {
-  --ad-mg-bg: #1b1a18;
-  --ad-mg-panel: rgba(31, 29, 26, 0.88);
+  --ad-mg-bg: #181715;
+  --ad-mg-panel: rgba(31, 29, 26, 0.9);
   --ad-mg-panel-solid: #1f1d1a;
   --ad-mg-border: rgba(235, 228, 216, 0.14);
-  --ad-mg-ink: #e8e2d8;
-  --ad-mg-muted: #a69c8e;
+  --ad-mg-ink: #ece6dc;
+  --ad-mg-muted: #aba091;
   --ad-mg-chip: rgba(235, 228, 216, 0.08);
-  --ad-mg-chip-on: rgba(155, 146, 189, 0.22);
-  --ad-mg-accent: #9b92bd;
+  --ad-mg-chip-on: rgba(120, 169, 214, 0.22);
+  --ad-mg-accent: #78a9d6;
   --ad-mg-shadow: 0 14px 34px rgba(0, 0, 0, 0.36);
 }
 .theme-dark .ad-mem-graph[data-style=observatory] {
-  --ad-mg-bg: #0d111a;
-  --ad-mg-panel: rgba(16, 22, 34, 0.84);
-  --ad-mg-panel-solid: #101622;
-  --ad-mg-border: rgba(145, 174, 228, 0.18);
-  --ad-mg-ink: #e9effa;
-  --ad-mg-muted: #93a3c0;
+  --ad-mg-bg: #090e1c;
+  --ad-mg-panel: rgba(12, 18, 34, 0.86);
+  --ad-mg-panel-solid: #10182b;
+  --ad-mg-border: rgba(145, 174, 228, 0.2);
+  --ad-mg-ink: #ecf2fc;
+  --ad-mg-muted: #9eb2d4;
   --ad-mg-chip: rgba(145, 174, 228, 0.1);
-  --ad-mg-chip-on: rgba(88, 180, 232, 0.24);
-  --ad-mg-accent: #58b4e8;
+  --ad-mg-chip-on: rgba(94, 184, 255, 0.24);
+  --ad-mg-accent: #5eb8ff;
   --ad-mg-shadow: 0 16px 38px rgba(0, 0, 0, 0.5);
 }
 .ad-mem-graph :is(button, input, select):focus-visible {
@@ -7170,6 +7170,31 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .ad-mem-graph__relmeta {
   font-size: 10.5px;
   color: var(--ad-mg-muted);
+}
+.ad-mem-graph__zoom {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 1px solid var(--ad-mg-border);
+  background: var(--ad-mg-panel);
+  backdrop-filter: blur(10px);
+  box-shadow: var(--ad-mg-shadow);
+}
+.ad-mem-graph__zoombtn {
+  height: 24px;
+  padding: 2px 8px;
+  border: 0;
+  background: transparent;
+  font-variant-numeric: tabular-nums;
+}
+.ad-mem-graph__zoombtn:hover {
+  background: var(--ad-mg-chip);
 }
 .ad-mem-graph__empty {
   position: absolute;

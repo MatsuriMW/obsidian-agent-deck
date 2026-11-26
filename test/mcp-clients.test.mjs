@@ -175,10 +175,12 @@ test("mcp-clients: resolveNodeBinary 在 Electron/Obsidian 精简 PATH 下优先
     fs.writeFileSync(path.join(nvm24, "node"), "");
     fs.chmodSync(path.join(nvm20, "node"), 0o755);
     fs.chmodSync(path.join(nvm24, "node"), 0o755);
-    const nvm25 = path.join(home, ".nvm", "versions", "node", "v25.0.0", "bin");
-    fs.mkdirSync(nvm25, { recursive: true });
-    fs.writeFileSync(path.join(nvm25, "node"), "");
-    fs.chmodSync(path.join(nvm25, "node"), 0o644);
+    if (process.platform !== "win32") {
+      const nvm25 = path.join(home, ".nvm", "versions", "node", "v25.0.0", "bin");
+      fs.mkdirSync(nvm25, { recursive: true });
+      fs.writeFileSync(path.join(nvm25, "node"), "");
+      fs.chmodSync(path.join(nvm25, "node"), 0o644);
+    }
 
     const picked = resolveNodeBinary({
       homeDir: home,

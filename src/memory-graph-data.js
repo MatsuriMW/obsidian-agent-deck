@@ -3,11 +3,11 @@ import { deriveProvenance, deriveTrustLevel, parseSourceLine } from "./memory-st
 import { extractSourceNotes, normalizeLinkName, suggestConceptPromotions } from "./memory-graph.js";
 
 const IDEAL_EDGE_LEN = {
-  project: 68,
-  concept: 94,
-  conflict: 78,
-  supersedes: 72,
-  source: 112,
+  project: 92,
+  concept: 112,
+  conflict: 94,
+  supersedes: 86,
+  source: 128,
 };
 
 function normKey(raw) {
@@ -150,7 +150,7 @@ export function buildMemoryGraphModel(entries = [], options = {}) {
       id,
       nodeType: "memory",
       label,
-      shortLabel: shortText(label, 24),
+      shortLabel: shortText(label, 14),
       kind: e.kind || "fact",
       state: e.state || "有效",
       verified: Boolean(e.verified),
@@ -332,13 +332,13 @@ export function buildMemoryGraphModel(entries = [], options = {}) {
 
   for (const n of nodes) {
     if (n.nodeType === "project") {
-      n.radius = 11 + Math.min(9, Math.sqrt(n.memoryCount || 1) * 2.8);
+      n.radius = 10 + Math.min(7, Math.sqrt(n.memoryCount || 1) * 2.2);
     } else if (n.nodeType === "concept") {
-      n.radius = 7.5 + Math.min(7, Math.sqrt(n.memoryCount || 1) * 2.1);
+      n.radius = 3.8 + Math.min(5.2, Math.sqrt(n.memoryCount || 1) * 1.45);
     } else if (n.nodeType === "source") {
-      n.radius = 5.5 + Math.min(4, Math.sqrt(n.memoryCount || 1) * 1.4);
+      n.radius = 4.2 + Math.min(3.5, Math.sqrt(n.memoryCount || 1) * 1.1);
     } else {
-      n.radius = 5.5 + Math.min(7.5, Math.log2(1 + (n.hits || 0)) * 1.9 + Math.min(4, n.degree) * 0.55);
+      n.radius = 5.2 + Math.min(6.5, Math.log2(1 + (n.hits || 0)) * 1.6 + Math.min(4, n.degree) * 0.45) + (n.verified ? 0.7 : 0);
     }
   }
 
@@ -415,6 +415,7 @@ export function neighborhoodOf(model, nodeId, maxHops = 2) {
 export function seedGraphLayout(model, { layout = "force", width = 960, height = 640 } = {}) {
   const positions = new Map();
   const clusterCenters = new Map();
+  const nodeClusterMap = new Map();
   const cx = width * 0.5;
   const cy = height * 0.5;
   const minDim = Math.max(240, Math.min(width, height));
@@ -424,7 +425,8 @@ export function seedGraphLayout(model, { layout = "force", width = 960, height =
   const conceptNodes = (model?.nodes || []).filter((n) => n.nodeType === "concept");
   const sourceNodes = (model?.nodes || []).filter((n) => n.nodeType === "source");
 
-  const unassignedCount = memoryNodes.filter((n) => !n.project).length;
+  const unassignedMemories = memoryNodes.filter((n) => !n.project);
+  const unassignedCount = unassignedMemories.length;
 
   if (layout === "cluster") {
     const clusters = projectNodes.map((p) => ({
@@ -433,7 +435,23 @@ export function seedGraphLayout(model, { layout = "force", width = 960, height =
       count: p.memoryCount || 1,
       node: p,
     }));
-    if (unassignedCount > 0) {
+    if (unassignedCount >= 12) {
+      const kindCounts = new Map();
+      for (const m of unassignedMemories) {
+        const k = m.kind || "fact";
+        kindCounts.set(k, (kindCounts.get(k) || 0) + 1);
+      }
+      for (const [k, cnt] of kindCounts) {
+        clusters.push({
+          key: `__kind__:${k}`,
+          kind: k,
+          label: "",
+          isKindCluster: true,
+          count: cnt,
+          node: null,
+        });
+      }
+    } else if (unassignedCount > 0) {
       clusters.push({
         key: "__unassigned__",
         label: "",
@@ -442,28 +460,43 @@ export function seedGraphLayout(model, { layout = "force", width = 960, height =
       });
     }
     const total = clusters.length || 1;
-    const ringR = total === 1 ? 0 : Math.min(width * 0.31, height * 0.31, 120 + total * 24);
+    const ringR = total === 1 ? 0 : Math.max(190, Math.min(width, height) * 0.36 + total * 20);
 
     clusters.sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
     clusters.forEach((c, idx) => {
       const theta = -Math.PI / 2 + (idx / total) * Math.PI * 2;
       const x = total === 1 ? cx : cx + Math.cos(theta) * ringR;
       const y = total === 1 ? cy : cy + Math.sin(theta) * ringR;
-      const radius = 58 + Math.min(90, Math.sqrt(c.count) * 26);
-      clusterCenters.set(c.key, { key: c.key, label: c.label, x, y, count: c.count, radius });
+      const radius = 70 + Math.min(92, Math.sqrt(c.count) * 21);
+      clusterCenters.set(c.key, {
+        key: c.key,
+        kind: c.kind || "",
+        label: c.label,
+        isKindCluster: Boolean(c.isKindCluster),
+        x,
+        y,
+        count: c.count,
+        radius,
+      });
       if (c.node) {
         positions.set(c.node.id, { x, y, vx: 0, vy: 0, pinned: false, fx: null, fy: null });
+        nodeClusterMap.set(c.node.id, c.key);
       }
     });
 
     const clusterSlot = new Map();
     for (const m of memoryNodes) {
-      const key = m.project || "__unassigned__";
+      const key = m.project
+        ? m.project
+        : unassignedCount >= 12
+          ? `__kind__:${m.kind || "fact"}`
+          : "__unassigned__";
+      nodeClusterMap.set(m.id, key);
       const center = clusterCenters.get(key) || { x: cx, y: cy, count: 1 };
       const idx = clusterSlot.get(key) || 0;
       clusterSlot.set(key, idx + 1);
       const theta = ((idx * 2.399963) + angleFromId(m.id, 1) * 0.15) % (Math.PI * 2);
-      const dist = 34 + Math.sqrt(idx + 1) * 20;
+      const dist = 24 + Math.sqrt(idx + 1) * 22;
       positions.set(m.id, {
         x: center.x + Math.cos(theta) * dist,
         y: center.y + Math.sin(theta) * dist,
@@ -476,7 +509,7 @@ export function seedGraphLayout(model, { layout = "force", width = 960, height =
     }
   } else {
     const pCount = projectNodes.length;
-    const hubRadius = pCount <= 1 ? 0 : Math.min(minDim * 0.24, 90 + pCount * 16);
+    const hubRadius = pCount <= 1 ? 0 : Math.min(minDim * 0.28, 120 + pCount * 22);
     const projectPos = new Map();
     projectNodes.forEach((p, idx) => {
       const theta = -Math.PI / 2 + (idx / Math.max(1, pCount)) * Math.PI * 2;
@@ -486,6 +519,7 @@ export function seedGraphLayout(model, { layout = "force", width = 960, height =
       positions.set(p.id, { x, y, vx: 0, vy: 0, pinned: false, fx: null, fy: null });
     });
 
+    const kindSector = { fact: -Math.PI * 0.75, preference: -Math.PI * 0.25, lesson: Math.PI * 0.25, pattern: Math.PI * 0.75 };
     const memIndex = new Map();
     for (const m of memoryNodes) {
       const anchor = m.project && projectPos.get(m.project);
@@ -493,7 +527,7 @@ export function seedGraphLayout(model, { layout = "force", width = 960, height =
         const idx = memIndex.get(m.project) || 0;
         memIndex.set(m.project, idx + 1);
         const theta = (idx * 2.399963) + angleFromId(m.id, 3) * 0.2;
-        const r = 48 + Math.sqrt(idx + 1) * 18;
+        const r = 56 + Math.sqrt(idx + 1) * 24;
         positions.set(m.id, {
           x: anchor.x + Math.cos(theta) * r,
           y: anchor.y + Math.sin(theta) * r,
@@ -504,10 +538,12 @@ export function seedGraphLayout(model, { layout = "force", width = 960, height =
           fy: null,
         });
       } else {
-        const idx = memIndex.get("__none__") || 0;
-        memIndex.set("__none__", idx + 1);
-        const theta = idx * 2.399963 + angleFromId(m.id, 5) * 0.25;
-        const r = (pCount ? hubRadius + 75 : 40) + Math.sqrt(idx + 1) * 22;
+        const kKey = `__none__:${m.kind || "fact"}`;
+        const idx = memIndex.get(kKey) || 0;
+        memIndex.set(kKey, idx + 1);
+        const baseA = kindSector[m.kind || "fact"] ?? 0;
+        const theta = baseA + (((idx * 2.399963) % (Math.PI * 0.85)) - Math.PI * 0.425) + angleFromId(m.id, 5) * 0.12;
+        const r = (pCount ? hubRadius + 115 : 55) + Math.sqrt(idx + 1) * 28;
         positions.set(m.id, {
           x: cx + Math.cos(theta) * r,
           y: cy + Math.sin(theta) * r,
@@ -537,17 +573,17 @@ export function seedGraphLayout(model, { layout = "force", width = 960, height =
         }
       }
       const angle = angleFromId(n.id, 7);
-      const jitter = 22 + (hashSeed(n.id) % 24);
+      const jitter = 28 + (hashSeed(n.id) % 28);
       const x = (cnt ? sx / cnt : cx + Math.cos(angle) * baseRadius) + Math.cos(angle) * jitter;
       const y = (cnt ? sy / cnt : cy + Math.sin(angle) * baseRadius) + Math.sin(angle) * jitter;
       positions.set(n.id, { x, y, vx: 0, vy: 0, pinned: false, fx: null, fy: null });
     }
   };
 
-  placeFromNeighbors(conceptNodes, minDim * 0.28);
-  placeFromNeighbors(sourceNodes, minDim * 0.4);
+  placeFromNeighbors(conceptNodes, minDim * 0.34);
+  placeFromNeighbors(sourceNodes, minDim * 0.44);
 
-  return { positions, clusterCenters };
+  return { positions, clusterCenters, nodeClusterMap };
 }
 
 class QuadNode {
@@ -661,7 +697,7 @@ export function stepGraphLayout(model, state, { layout = "force", alpha = 1, cen
     if (p.y > maxY) maxY = p.y;
   }
 
-  const repulsion = layout === "cluster" ? 1350 : 1950;
+  const repulsion = layout === "cluster" ? 2100 : 2850;
   const count = items.length;
 
   // 1. Repulsion (Barnes-Hut quadtree when N > 40, direct pairwise when N <= 40)
@@ -711,7 +747,7 @@ export function stepGraphLayout(model, state, { layout = "force", alpha = 1, cen
       let dx = a.x - b.x;
       let dy = a.y - b.y;
       let dist = Math.hypot(dx, dy);
-      const minDist = (a.node.radius || 6) + (b.node.radius || 6) + 8;
+      const minDist = (a.node.radius || 6) + (b.node.radius || 6) + 15;
       if (dist < minDist) {
         if (dist < 1e-3) {
           const ang = angleFromId(`${a.id}:${b.id}`, 23);
@@ -757,27 +793,29 @@ export function stepGraphLayout(model, state, { layout = "force", alpha = 1, cen
 
   // 4. Center gravity or cluster anchor attraction
   const clusterCenters = state?.clusterCenters;
+  const nodeClusterMap = state?.nodeClusterMap;
   for (const item of items) {
     const f = forces.get(item.id);
     if (layout === "cluster" && clusterCenters?.size) {
       if (item.node.nodeType === "project") {
         const cc = clusterCenters.get(item.node.label);
         if (cc) {
-          f.fx += (cc.x - item.x) * 0.14;
-          f.fy += (cc.y - item.y) * 0.14;
+          f.fx += (cc.x - item.x) * 0.12;
+          f.fy += (cc.y - item.y) * 0.12;
         }
       } else if (item.node.nodeType === "memory") {
-        const cc = clusterCenters.get(item.node.project || "__unassigned__");
+        const cKey = nodeClusterMap?.get(item.id) || item.node.project || "__unassigned__";
+        const cc = clusterCenters.get(cKey);
         if (cc) {
-          f.fx += (cc.x - item.x) * 0.055;
-          f.fy += (cc.y - item.y) * 0.055;
+          f.fx += (cc.x - item.x) * 0.036;
+          f.fy += (cc.y - item.y) * 0.036;
         }
       } else {
-        f.fx += (centerX - item.x) * 0.008;
-        f.fy += (centerY - item.y) * 0.008;
+        f.fx += (centerX - item.x) * 0.005;
+        f.fy += (centerY - item.y) * 0.005;
       }
     } else {
-      const gravity = item.node.nodeType === "project" ? 0.028 : item.node.nodeType === "concept" ? 0.014 : 0.016;
+      const gravity = item.node.nodeType === "project" ? 0.018 : item.node.nodeType === "concept" ? 0.009 : 0.010;
       f.fx += (centerX - item.x) * gravity;
       f.fy += (centerY - item.y) * gravity;
     }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.13.34
+
+- **记忆知识图谱视觉与防重叠重构（[`src/memory-graph-data.js`](src/memory-graph-data.js)、[`src/memory-graph-view.js`](src/memory-graph-view.js)、[`src/styles/views/memory-graph.css`](src/styles/views/memory-graph.css)）**：
+  - 修复高密度库节点与文字堆叠：引入屏幕空间层级显隐（LOD）与 AABB 碰撞剔除 + 磨砂胶囊标签（`shortLabel` 缩短至 14 字），大幅拉宽理想边长与斥力/防碰撞间距，缩小低度数概念菱形并移除待确认节点黑虚线边框。
+  - 优化无项目归属记忆分布：聚类模式下无项目条目较多（`>= 12` 条）时按 `事实 / 偏好 / 经验 / 规律` 自动拆为语义群岛，力导向模式按类型扇区排布。
+  - 拉开「编辑室」暖纸墨与「星图」深海星空观测站两种视觉风格的辨识度，并在画布右下角新增浮动缩放栏（`−` / `适配视野` / `+`）。
+- **跨平台 CI 修复（[`test/mcp-clients.test.mjs`](test/mcp-clients.test.mjs)）**：
+  - 修复 Windows Runners 上因 NTFS 忽略 POSIX `0o644` 权限位导致的 `resolveNodeBinary` 单元测试误报失败。
+
 ## 1.13.33
 
 - **记忆图谱视图、Dream MCP 聚焦设置与会话计时双模式收口（[`src/memory-graph-view.js`](src/memory-graph-view.js)、[`src/memory-graph-data.js`](src/memory-graph-data.js)、[`src/settings.js`](src/settings.js)、[`src/autolog.js`](src/autolog.js)、[`src/sync.js`](src/sync.js)、[`src/journal.js`](src/journal.js)）**：

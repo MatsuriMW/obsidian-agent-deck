@@ -309,3 +309,41 @@ test("MemoryGraphView：双风格切换、交互筛选、检查抽屉动作与�
   await view.onClose();
   assert.equal(view._rafId, 0);
 });
+
+test("记忆图谱集群分拆与节点尺度：无项目大库自动按类型拆岛、冷门概念保持轻量且无文本测量方法时可正常绘制", async () => {
+  const mixed = Array.from({ length: 18 }, (_, i) => ({
+    id: `u-${i}`,
+    path: `Agent Deck/记忆/u-${i}.md`,
+    title: `无项目记忆条目非常长的测试标题编号_${i}`,
+    text: `正文 ${i}`,
+    kind: ["fact", "preference", "lesson", "pattern"][i % 4],
+    state: "有效",
+    verified: i % 2 === 0,
+    project: i < 2 ? "main-proj" : "",
+    concepts: i === 0 ? ["[[核心概念]]", "[[边缘概念]]"] : i < 4 ? ["[[核心概念]]"] : [],
+    sources: [],
+  }));
+  const model = buildMemoryGraphModel(mixed);
+  const edgeC = model.nodeById.get("concept:边缘概念");
+  const coreC = model.nodeById.get("concept:核心概念");
+  assert.ok(edgeC.radius < 6.5 && edgeC.radius < coreC.radius, "degree-1 concept stays small vs hub concept");
+
+  const st = seedGraphLayout(model, { layout: "cluster", width: 960, height: 640 });
+  assert.ok(st.clusterCenters.has("__kind__:fact") && st.clusterCenters.has("__kind__:lesson"), "splits >=12 unassigned items into semantic kind islands");
+  assert.ok(st.nodeClusterMap.get("mem:u-2")?.startsWith("__kind__:"));
+
+  const plugin = {
+    settings: { ui: { memoryGraphStyle: "editorial", memoryGraphLayout: "cluster", memoryGraphColorBy: "kind" } },
+    saveSettings: async () => {},
+    app: { vault: { getFiles: () => [] }, metadataCache: { getFirstLinkpathDest: () => null }, workspace: { openLinkText() {} } },
+    dreaming: { storeMode: true, cfg: {}, loadEntries: async () => mixed },
+  };
+  const view = new MemoryGraphView({}, plugin);
+  view.contentEl = makeDomEl("div");
+  await view.onOpen();
+  view.draw();
+  view.setVisualStyle("observatory");
+  view.zoomBy(1.25);
+  view.draw();
+  await view.onClose();
+});

@@ -1,6 +1,12 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.33**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.34**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.34 记忆知识图谱视觉与布局重构、跨平台 CI 修复（macOS 实测）
+
+- **记忆图谱排版与双主题重构（`src/memory-graph-data.js`、`src/memory-graph-view.js`、`src/styles/views/memory-graph.css`、`test/memory-graph-view.test.mjs`）**：
+  - 屏幕空间 LOD + 贪心 AABB 碰撞剔除与磨砂胶囊标签（`shortLabel` 默认 14 字、缩放 `< 1.35` 自动隐去边缘单条标签防重叠）；度数缩放概念宝石与去虚线实心/半透明记忆球体；无项目大库（`unassignedCount >= 12`）在聚类视图按 `fact / preference / lesson / pattern` 自动拆出语义岛；新增「编辑室（暖纸墨）」与「星图（深海星空与星座环，独立于 Obsidian 明暗主题）」清晰对比及右下角缩放浮动栏（`−` / `适配视野` / `+`）。
+  - 修复 `test/mcp-clients.test.mjs` 第 178 行 `windows-latest` 下 POSIX `chmod 0o644` 测试断言，并已在 macOS `马自立` 主库实机四视图截图验收；Windows 真机 GUI 交互尚未实测。
 
 ## 1.13.33 镜像桥接与任务进度承接（macOS 验证）
 

@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.33 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.34 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -52446,11 +52446,11 @@ var import_obsidian13 = require("obsidian");
 
 // src/memory-graph-data.js
 var IDEAL_EDGE_LEN = {
-  project: 68,
-  concept: 94,
-  conflict: 78,
-  supersedes: 72,
-  source: 112
+  project: 92,
+  concept: 112,
+  conflict: 94,
+  supersedes: 86,
+  source: 128
 };
 function normKey2(raw) {
   return String(raw || "").replace(/\.md$/i, "").trim().toLowerCase();
@@ -52569,7 +52569,7 @@ function buildMemoryGraphModel(entries = [], options = {}) {
       id,
       nodeType: "memory",
       label,
-      shortLabel: shortText(label, 24),
+      shortLabel: shortText(label, 14),
       kind: e.kind || "fact",
       state: e.state || "\u6709\u6548",
       verified: Boolean(e.verified),
@@ -52740,13 +52740,13 @@ function buildMemoryGraphModel(entries = [], options = {}) {
   }
   for (const n of nodes) {
     if (n.nodeType === "project") {
-      n.radius = 11 + Math.min(9, Math.sqrt(n.memoryCount || 1) * 2.8);
+      n.radius = 10 + Math.min(7, Math.sqrt(n.memoryCount || 1) * 2.2);
     } else if (n.nodeType === "concept") {
-      n.radius = 7.5 + Math.min(7, Math.sqrt(n.memoryCount || 1) * 2.1);
+      n.radius = 3.8 + Math.min(5.2, Math.sqrt(n.memoryCount || 1) * 1.45);
     } else if (n.nodeType === "source") {
-      n.radius = 5.5 + Math.min(4, Math.sqrt(n.memoryCount || 1) * 1.4);
+      n.radius = 4.2 + Math.min(3.5, Math.sqrt(n.memoryCount || 1) * 1.1);
     } else {
-      n.radius = 5.5 + Math.min(7.5, Math.log2(1 + (n.hits || 0)) * 1.9 + Math.min(4, n.degree) * 0.55);
+      n.radius = 5.2 + Math.min(6.5, Math.log2(1 + (n.hits || 0)) * 1.6 + Math.min(4, n.degree) * 0.45) + (n.verified ? 0.7 : 0);
     }
   }
   let ghostConcepts = 0;
@@ -52814,6 +52814,7 @@ function neighborhoodOf(model, nodeId, maxHops = 2) {
 function seedGraphLayout(model, { layout = "force", width: width2 = 960, height = 640 } = {}) {
   const positions = /* @__PURE__ */ new Map();
   const clusterCenters = /* @__PURE__ */ new Map();
+  const nodeClusterMap = /* @__PURE__ */ new Map();
   const cx = width2 * 0.5;
   const cy = height * 0.5;
   const minDim = Math.max(240, Math.min(width2, height));
@@ -52821,7 +52822,8 @@ function seedGraphLayout(model, { layout = "force", width: width2 = 960, height 
   const memoryNodes = (model?.nodes || []).filter((n) => n.nodeType === "memory");
   const conceptNodes = (model?.nodes || []).filter((n) => n.nodeType === "concept");
   const sourceNodes = (model?.nodes || []).filter((n) => n.nodeType === "source");
-  const unassignedCount = memoryNodes.filter((n) => !n.project).length;
+  const unassignedMemories = memoryNodes.filter((n) => !n.project);
+  const unassignedCount = unassignedMemories.length;
   if (layout === "cluster") {
     const clusters = projectNodes.map((p) => ({
       key: p.label,
@@ -52829,7 +52831,23 @@ function seedGraphLayout(model, { layout = "force", width: width2 = 960, height 
       count: p.memoryCount || 1,
       node: p
     }));
-    if (unassignedCount > 0) {
+    if (unassignedCount >= 12) {
+      const kindCounts = /* @__PURE__ */ new Map();
+      for (const m of unassignedMemories) {
+        const k = m.kind || "fact";
+        kindCounts.set(k, (kindCounts.get(k) || 0) + 1);
+      }
+      for (const [k, cnt] of kindCounts) {
+        clusters.push({
+          key: `__kind__:${k}`,
+          kind: k,
+          label: "",
+          isKindCluster: true,
+          count: cnt,
+          node: null
+        });
+      }
+    } else if (unassignedCount > 0) {
       clusters.push({
         key: "__unassigned__",
         label: "",
@@ -52838,26 +52856,37 @@ function seedGraphLayout(model, { layout = "force", width: width2 = 960, height 
       });
     }
     const total = clusters.length || 1;
-    const ringR = total === 1 ? 0 : Math.min(width2 * 0.31, height * 0.31, 120 + total * 24);
+    const ringR = total === 1 ? 0 : Math.max(190, Math.min(width2, height) * 0.36 + total * 20);
     clusters.sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
     clusters.forEach((c, idx) => {
       const theta = -Math.PI / 2 + idx / total * Math.PI * 2;
       const x = total === 1 ? cx : cx + Math.cos(theta) * ringR;
       const y = total === 1 ? cy : cy + Math.sin(theta) * ringR;
-      const radius = 58 + Math.min(90, Math.sqrt(c.count) * 26);
-      clusterCenters.set(c.key, { key: c.key, label: c.label, x, y, count: c.count, radius });
+      const radius = 70 + Math.min(92, Math.sqrt(c.count) * 21);
+      clusterCenters.set(c.key, {
+        key: c.key,
+        kind: c.kind || "",
+        label: c.label,
+        isKindCluster: Boolean(c.isKindCluster),
+        x,
+        y,
+        count: c.count,
+        radius
+      });
       if (c.node) {
         positions.set(c.node.id, { x, y, vx: 0, vy: 0, pinned: false, fx: null, fy: null });
+        nodeClusterMap.set(c.node.id, c.key);
       }
     });
     const clusterSlot = /* @__PURE__ */ new Map();
     for (const m of memoryNodes) {
-      const key = m.project || "__unassigned__";
+      const key = m.project ? m.project : unassignedCount >= 12 ? `__kind__:${m.kind || "fact"}` : "__unassigned__";
+      nodeClusterMap.set(m.id, key);
       const center = clusterCenters.get(key) || { x: cx, y: cy, count: 1 };
       const idx = clusterSlot.get(key) || 0;
       clusterSlot.set(key, idx + 1);
       const theta = (idx * 2.399963 + angleFromId(m.id, 1) * 0.15) % (Math.PI * 2);
-      const dist = 34 + Math.sqrt(idx + 1) * 20;
+      const dist = 24 + Math.sqrt(idx + 1) * 22;
       positions.set(m.id, {
         x: center.x + Math.cos(theta) * dist,
         y: center.y + Math.sin(theta) * dist,
@@ -52870,7 +52899,7 @@ function seedGraphLayout(model, { layout = "force", width: width2 = 960, height 
     }
   } else {
     const pCount = projectNodes.length;
-    const hubRadius = pCount <= 1 ? 0 : Math.min(minDim * 0.24, 90 + pCount * 16);
+    const hubRadius = pCount <= 1 ? 0 : Math.min(minDim * 0.28, 120 + pCount * 22);
     const projectPos = /* @__PURE__ */ new Map();
     projectNodes.forEach((p, idx) => {
       const theta = -Math.PI / 2 + idx / Math.max(1, pCount) * Math.PI * 2;
@@ -52879,6 +52908,7 @@ function seedGraphLayout(model, { layout = "force", width: width2 = 960, height 
       projectPos.set(p.label, { x, y });
       positions.set(p.id, { x, y, vx: 0, vy: 0, pinned: false, fx: null, fy: null });
     });
+    const kindSector = { fact: -Math.PI * 0.75, preference: -Math.PI * 0.25, lesson: Math.PI * 0.25, pattern: Math.PI * 0.75 };
     const memIndex = /* @__PURE__ */ new Map();
     for (const m of memoryNodes) {
       const anchor = m.project && projectPos.get(m.project);
@@ -52886,7 +52916,7 @@ function seedGraphLayout(model, { layout = "force", width: width2 = 960, height 
         const idx = memIndex.get(m.project) || 0;
         memIndex.set(m.project, idx + 1);
         const theta = idx * 2.399963 + angleFromId(m.id, 3) * 0.2;
-        const r = 48 + Math.sqrt(idx + 1) * 18;
+        const r = 56 + Math.sqrt(idx + 1) * 24;
         positions.set(m.id, {
           x: anchor.x + Math.cos(theta) * r,
           y: anchor.y + Math.sin(theta) * r,
@@ -52897,10 +52927,12 @@ function seedGraphLayout(model, { layout = "force", width: width2 = 960, height 
           fy: null
         });
       } else {
-        const idx = memIndex.get("__none__") || 0;
-        memIndex.set("__none__", idx + 1);
-        const theta = idx * 2.399963 + angleFromId(m.id, 5) * 0.25;
-        const r = (pCount ? hubRadius + 75 : 40) + Math.sqrt(idx + 1) * 22;
+        const kKey = `__none__:${m.kind || "fact"}`;
+        const idx = memIndex.get(kKey) || 0;
+        memIndex.set(kKey, idx + 1);
+        const baseA = kindSector[m.kind || "fact"] ?? 0;
+        const theta = baseA + (idx * 2.399963 % (Math.PI * 0.85) - Math.PI * 0.425) + angleFromId(m.id, 5) * 0.12;
+        const r = (pCount ? hubRadius + 115 : 55) + Math.sqrt(idx + 1) * 28;
         positions.set(m.id, {
           x: cx + Math.cos(theta) * r,
           y: cy + Math.sin(theta) * r,
@@ -52928,15 +52960,15 @@ function seedGraphLayout(model, { layout = "force", width: width2 = 960, height 
         }
       }
       const angle = angleFromId(n.id, 7);
-      const jitter = 22 + hashSeed(n.id) % 24;
+      const jitter = 28 + hashSeed(n.id) % 28;
       const x = (cnt ? sx / cnt : cx + Math.cos(angle) * baseRadius) + Math.cos(angle) * jitter;
       const y = (cnt ? sy / cnt : cy + Math.sin(angle) * baseRadius) + Math.sin(angle) * jitter;
       positions.set(n.id, { x, y, vx: 0, vy: 0, pinned: false, fx: null, fy: null });
     }
   };
-  placeFromNeighbors(conceptNodes, minDim * 0.28);
-  placeFromNeighbors(sourceNodes, minDim * 0.4);
-  return { positions, clusterCenters };
+  placeFromNeighbors(conceptNodes, minDim * 0.34);
+  placeFromNeighbors(sourceNodes, minDim * 0.44);
+  return { positions, clusterCenters, nodeClusterMap };
 }
 var QuadNode = class _QuadNode {
   constructor(x, y, size) {
@@ -53036,7 +53068,7 @@ function stepGraphLayout(model, state, { layout = "force", alpha = 1, centerX = 
     if (p.x > maxX) maxX = p.x;
     if (p.y > maxY) maxY = p.y;
   }
-  const repulsion = layout === "cluster" ? 1350 : 1950;
+  const repulsion = layout === "cluster" ? 2100 : 2850;
   const count = items.length;
   if (count > 40) {
     const span = Math.max(64, maxX - minX, maxY - minY) + 32;
@@ -53082,7 +53114,7 @@ function stepGraphLayout(model, state, { layout = "force", alpha = 1, centerX = 
       let dx = a.x - b.x;
       let dy = a.y - b.y;
       let dist = Math.hypot(dx, dy);
-      const minDist = (a.node.radius || 6) + (b.node.radius || 6) + 8;
+      const minDist = (a.node.radius || 6) + (b.node.radius || 6) + 15;
       if (dist < minDist) {
         if (dist < 1e-3) {
           const ang = angleFromId(`${a.id}:${b.id}`, 23);
@@ -53124,27 +53156,29 @@ function stepGraphLayout(model, state, { layout = "force", alpha = 1, centerX = 
     ft.fy -= fy;
   }
   const clusterCenters = state?.clusterCenters;
+  const nodeClusterMap = state?.nodeClusterMap;
   for (const item of items) {
     const f = forces.get(item.id);
     if (layout === "cluster" && clusterCenters?.size) {
       if (item.node.nodeType === "project") {
         const cc = clusterCenters.get(item.node.label);
         if (cc) {
-          f.fx += (cc.x - item.x) * 0.14;
-          f.fy += (cc.y - item.y) * 0.14;
+          f.fx += (cc.x - item.x) * 0.12;
+          f.fy += (cc.y - item.y) * 0.12;
         }
       } else if (item.node.nodeType === "memory") {
-        const cc = clusterCenters.get(item.node.project || "__unassigned__");
+        const cKey = nodeClusterMap?.get(item.id) || item.node.project || "__unassigned__";
+        const cc = clusterCenters.get(cKey);
         if (cc) {
-          f.fx += (cc.x - item.x) * 0.055;
-          f.fy += (cc.y - item.y) * 0.055;
+          f.fx += (cc.x - item.x) * 0.036;
+          f.fy += (cc.y - item.y) * 0.036;
         }
       } else {
-        f.fx += (centerX - item.x) * 8e-3;
-        f.fy += (centerY - item.y) * 8e-3;
+        f.fx += (centerX - item.x) * 5e-3;
+        f.fy += (centerY - item.y) * 5e-3;
       }
     } else {
-      const gravity = item.node.nodeType === "project" ? 0.028 : item.node.nodeType === "concept" ? 0.014 : 0.016;
+      const gravity = item.node.nodeType === "project" ? 0.018 : item.node.nodeType === "concept" ? 9e-3 : 0.01;
       f.fx += (centerX - item.x) * gravity;
       f.fy += (centerY - item.y) * gravity;
     }
@@ -53222,104 +53256,93 @@ function reducedMotionPreferred() {
 }
 function themePalette(style, dark) {
   if (style === "observatory") {
-    return dark ? {
-      bg: "#0d111a",
-      vignette: "rgba(44, 74, 132, 0.24)",
-      ringStroke: "rgba(145, 174, 228, 0.11)",
-      tickStroke: "rgba(145, 174, 228, 0.2)",
-      clusterFill: "rgba(88, 180, 232, 0.06)",
-      clusterStroke: "rgba(88, 180, 232, 0.22)",
-      clusterText: "rgba(176, 204, 244, 0.72)",
-      nodeStroke: "#0d111a",
-      label: "#e9effa",
-      muted: "#93a3c0",
-      edge: "rgba(130, 165, 220, 0.24)",
-      edgeHot: "rgba(175, 216, 255, 0.88)",
-      sourceEdge: "rgba(110, 136, 182, 0.16)",
-      conflict: "#ff6b6b",
-      supersedes: "#7b88a8",
-      project: "#eef3ff",
-      concept: "#9bb0d3",
-      ghostConcept: "#88a5d8",
-      source: "#6d7f9f",
-      kinds: { fact: "#58b4e8", preference: "#a98bf2", lesson: "#ebb45b", pattern: "#57c7a0" },
-      trust: { high: "#57c7a0", medium: "#ebb45b", low: "#6d7f9f", disputed: "#ff6b6b" },
-      heatStops: ["#4c5b78", "#6f86d6", "#d99b4e", "#ff6b6b"],
+    return {
+      bg: "#090e1c",
+      bgEdge: "#060913",
+      vignette: "rgba(38, 72, 138, 0.28)",
+      ringStroke: "rgba(145, 174, 228, 0.08)",
+      tickStroke: "rgba(145, 174, 228, 0.16)",
+      starDot: "rgba(210, 226, 255, 0.26)",
+      clusterFill: "rgba(94, 184, 255, 0.045)",
+      clusterStroke: "rgba(145, 185, 245, 0.18)",
+      clusterText: "rgba(196, 218, 252, 0.86)",
+      nodeStroke: "#0b1120",
+      label: "#ecf2fc",
+      muted: "#9eb2d4",
+      pillBg: "rgba(11, 17, 32, 0.86)",
+      pillBorder: "rgba(145, 174, 228, 0.22)",
+      edge: "rgba(130, 165, 225, 0.18)",
+      edgeHot: "rgba(165, 216, 255, 0.90)",
+      sourceEdge: "rgba(110, 136, 182, 0.12)",
+      conflict: "#ff6b78",
+      supersedes: "#7f91b5",
+      project: "#f1f5ff",
+      concept: "#8fa8d4",
+      conceptFill: "rgba(143, 168, 212, 0.16)",
+      ghostConcept: "#9cc0f8",
+      source: "#6e82a6",
+      kinds: { fact: "#5eb8ff", preference: "#e879b9", lesson: "#f5b84c", pattern: "#3dd6a3" },
+      trust: { high: "#3dd6a3", medium: "#f5b84c", low: "#6e82a6", disputed: "#ff6b78" },
+      heatStops: ["#4b5b7a", "#6e8de0", "#e39e48", "#ff6b78"],
       glow: true,
-      rings: true
-    } : {
-      bg: "#eef2f8",
-      vignette: "rgba(110, 148, 214, 0.16)",
-      ringStroke: "rgba(56, 92, 160, 0.12)",
-      tickStroke: "rgba(56, 92, 160, 0.2)",
-      clusterFill: "rgba(59, 125, 216, 0.06)",
-      clusterStroke: "rgba(59, 125, 216, 0.22)",
-      clusterText: "rgba(45, 76, 136, 0.74)",
-      nodeStroke: "#eef2f8",
-      label: "#1b2436",
-      muted: "#586782",
-      edge: "rgba(56, 92, 160, 0.2)",
-      edgeHot: "rgba(35, 84, 168, 0.85)",
-      sourceEdge: "rgba(90, 110, 150, 0.16)",
-      conflict: "#d94f57",
-      supersedes: "#6b7d9e",
-      project: "#1e2e4f",
-      concept: "#4e6d9e",
-      ghostConcept: "#4e6d9e",
-      source: "#6b7d9e",
-      kinds: { fact: "#2b7ec2", preference: "#6f59c4", lesson: "#c2842b", pattern: "#2d9674" },
-      trust: { high: "#2d9674", medium: "#c2842b", low: "#7585a3", disputed: "#d94f57" },
-      heatStops: ["#93a1ba", "#5d7cc4", "#cf8836", "#d94f57"],
-      glow: true,
-      rings: true
+      rings: true,
+      starfield: true
     };
   }
   return dark ? {
-    bg: "#1b1a18",
-    gridDot: "rgba(235, 228, 216, 0.11)",
-    clusterFill: "rgba(215, 202, 184, 0.06)",
-    clusterStroke: "rgba(215, 202, 184, 0.18)",
-    clusterText: "rgba(215, 202, 184, 0.65)",
-    nodeStroke: "#1b1a18",
-    label: "#e8e2d8",
-    muted: "#a69c8e",
-    edge: "rgba(215, 202, 184, 0.2)",
-    edgeHot: "rgba(232, 226, 216, 0.8)",
-    sourceEdge: "rgba(190, 180, 165, 0.14)",
+    bg: "#181715",
+    gridDot: "rgba(235, 228, 216, 0.075)",
+    clusterFill: "rgba(215, 202, 184, 0.045)",
+    clusterStroke: "rgba(215, 202, 184, 0.15)",
+    clusterText: "rgba(225, 214, 198, 0.78)",
+    nodeStroke: "#181715",
+    label: "#ece6dc",
+    muted: "#aba091",
+    pillBg: "rgba(24, 23, 21, 0.88)",
+    pillBorder: "rgba(235, 228, 216, 0.14)",
+    edge: "rgba(215, 202, 184, 0.16)",
+    edgeHot: "rgba(236, 230, 220, 0.82)",
+    sourceEdge: "rgba(190, 180, 165, 0.11)",
     conflict: "#e0766e",
     supersedes: "#a69c8e",
-    project: "#e2dbd0",
-    concept: "#b5a490",
-    ghostConcept: "#b5a490",
+    project: "#ece5d8",
+    concept: "#a89d8f",
+    conceptFill: "rgba(168, 157, 143, 0.16)",
+    ghostConcept: "#b9ad9e",
     source: "#999186",
-    kinds: { fact: "#7ba0bd", preference: "#9b92bd", lesson: "#cfa572", pattern: "#87b099" },
-    trust: { high: "#7db392", medium: "#cfa572", low: "#999186", disputed: "#e0766e" },
+    kinds: { fact: "#78a9d6", preference: "#cf86a8", lesson: "#dfb06a", pattern: "#6ec4a4" },
+    trust: { high: "#6ec4a4", medium: "#dfb06a", low: "#999186", disputed: "#e0766e" },
     heatStops: ["#6e675e", "#8f85ad", "#cf8863", "#e06e67"],
     glow: false,
-    rings: false
+    rings: false,
+    starfield: false
   } : {
-    bg: "#f6f3ec",
-    gridDot: "rgba(59, 53, 47, 0.13)",
-    clusterFill: "rgba(180, 168, 150, 0.09)",
-    clusterStroke: "rgba(120, 108, 92, 0.22)",
-    clusterText: "rgba(92, 82, 70, 0.72)",
-    nodeStroke: "#fbf9f4",
-    label: "#2c2723",
-    muted: "#6f665d",
-    edge: "rgba(110, 98, 86, 0.24)",
-    edgeHot: "rgba(59, 53, 47, 0.78)",
-    sourceEdge: "rgba(130, 120, 108, 0.16)",
-    conflict: "#c85a53",
+    bg: "#f8f6f1",
+    gridDot: "rgba(60, 52, 44, 0.075)",
+    clusterFill: "rgba(156, 144, 128, 0.055)",
+    clusterStroke: "rgba(120, 108, 92, 0.16)",
+    clusterText: "rgba(74, 65, 55, 0.78)",
+    nodeStroke: "#f8f6f1",
+    label: "#26221e",
+    muted: "#6d645b",
+    pillBg: "rgba(248, 246, 241, 0.90)",
+    pillBorder: "rgba(60, 52, 44, 0.12)",
+    edge: "rgba(102, 92, 80, 0.16)",
+    edgeHot: "rgba(44, 39, 35, 0.78)",
+    sourceEdge: "rgba(130, 120, 108, 0.12)",
+    conflict: "#c9524c",
     supersedes: "#8a8177",
-    project: "#3b352f",
-    concept: "#8d7b68",
-    ghostConcept: "#8d7b68",
+    project: "#262320",
+    concept: "#7c7267",
+    conceptFill: "rgba(124, 114, 103, 0.14)",
+    ghostConcept: "#7c7267",
     source: "#9a9186",
-    kinds: { fact: "#5b7890", preference: "#746d94", lesson: "#b38956", pattern: "#6c8d7a" },
-    trust: { high: "#5b826b", medium: "#b38956", low: "#9a9186", disputed: "#c85a53" },
-    heatStops: ["#b7b0a6", "#8c829e", "#c97d5d", "#b54944"],
+    kinds: { fact: "#3d6e9e", preference: "#a45c7d", lesson: "#c28435", pattern: "#3e8b70" },
+    trust: { high: "#3e8b70", medium: "#c28435", low: "#9a9186", disputed: "#c9524c" },
+    heatStops: ["#b7b0a6", "#7a86a8", "#cc7d56", "#c9524c"],
     glow: false,
-    rings: false
+    rings: false,
+    starfield: false
   };
 }
 function drawPolygon(ctx, cx, cy, sides, radius, rot = 0) {
@@ -53331,6 +53354,20 @@ function drawPolygon(ctx, cx, cy, sides, radius, rot = 0) {
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }
+  ctx.closePath();
+}
+function drawRoundedRect(ctx, x, y, w, h, r) {
+  const rr = Math.min(r, w * 0.5, h * 0.5);
+  ctx.beginPath();
+  ctx.moveTo(x + rr, y);
+  ctx.lineTo(x + w - rr, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + rr);
+  ctx.lineTo(x + w, y + h - rr);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h);
+  ctx.lineTo(x + rr, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - rr);
+  ctx.lineTo(x, y + rr);
+  ctx.quadraticCurveTo(x, y, x + rr, y);
   ctx.closePath();
 }
 var MemoryGraphView = class extends import_obsidian13.ItemView {
@@ -53465,11 +53502,11 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
     this.layoutState = seedGraphLayout(this.model, { layout: this.layoutMode, width: w, height: h });
     this._simAlpha = 1;
     this._settled = false;
-    const preWarmSteps = reducedMotionPreferred() ? 80 : 36;
+    const preWarmSteps = reducedMotionPreferred() ? 100 : 72;
     for (let i = 0; i < preWarmSteps && this.model.nodes.length; i++) {
       stepGraphLayout(this.model, this.layoutState, {
         layout: this.layoutMode,
-        alpha: 1 - i / (preWarmSteps + 24),
+        alpha: 1 - i / (preWarmSteps + 28),
         centerX: w * 0.5,
         centerY: h * 0.5
       });
@@ -53487,14 +53524,18 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
       this.requestDraw();
       return;
     }
-    const pad3 = 76;
+    const pad3 = 68;
     const scaleX = (w - pad3 * 2) / Math.max(80, b.width);
     const scaleY = (h - pad3 * 2) / Math.max(80, b.height);
     this.camera = {
       x: b.cx,
       y: b.cy,
-      scale: Math.max(0.28, Math.min(1.6, Math.min(scaleX, scaleY)))
+      scale: Math.max(0.28, Math.min(1.15, Math.min(scaleX, scaleY)))
     };
+    this.requestDraw();
+  }
+  zoomBy(factor) {
+    this.camera.scale = Math.max(0.22, Math.min(3.6, (this.camera.scale || 1) * factor));
     this.requestDraw();
   }
   buildShell() {
@@ -53568,6 +53609,10 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
     this._drawerEl.style.display = "none";
     this._emptyEl = this._stageEl.createDiv({ cls: "ad-mem-graph__empty" });
     this._emptyEl.style.display = "none";
+    const zoomBox = this._stageEl.createDiv({ cls: "ad-mem-graph__zoom" });
+    zoomBox.createEl("button", { cls: "ad-mem-graph__btn ad-mem-graph__zoombtn", text: "\u2212" }).addEventListener("click", () => this.zoomBy(0.8));
+    zoomBox.createEl("button", { cls: "ad-mem-graph__btn ad-mem-graph__zoombtn", text: t("\u9002\u914D\u89C6\u91CE") }).addEventListener("click", () => this.fitCamera());
+    zoomBox.createEl("button", { cls: "ad-mem-graph__btn ad-mem-graph__zoombtn", text: "+" }).addEventListener("click", () => this.zoomBy(1.25));
     this.bindCanvasEvents();
     this.observeResize();
     this.updateToolbarStates();
@@ -54117,15 +54162,26 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
     if (this.visualStyle === "observatory") {
       const cx = w * 0.5;
       const cy = h * 0.5;
-      const maxR = Math.hypot(w, h) * 0.55;
-      const grad = ctx.createRadialGradient(cx, cy, 20, cx, cy, maxR);
+      const maxR = Math.hypot(w, h) * 0.58;
+      const grad = ctx.createRadialGradient(cx, cy, 24, cx, cy, maxR);
       grad.addColorStop(0, pal.vignette);
-      grad.addColorStop(1, "rgba(0,0,0,0)");
+      grad.addColorStop(1, pal.bgEdge || "rgba(0,0,0,0)");
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, w, h);
+      if (pal.starfield) {
+        ctx.fillStyle = pal.starDot;
+        for (let i = 0; i < 64; i++) {
+          const sx = i * 2654435761 % 997 / 997 * w;
+          const sy = (i + 17) * 1597334677 % 991 / 991 * h;
+          const sr = i % 5 === 0 ? 1.3 : 0.8;
+          ctx.beginPath();
+          ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
       ctx.strokeStyle = pal.ringStroke;
       ctx.lineWidth = 1;
-      for (const r of [120, 220, 330, 460]) {
+      for (const r of [110, 210, 320, 440]) {
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.stroke();
@@ -54134,8 +54190,8 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
       for (let i = 0; i < 12; i++) {
         const a = i / 12 * Math.PI * 2;
         ctx.beginPath();
-        ctx.moveTo(cx + Math.cos(a) * 322, cy + Math.sin(a) * 322);
-        ctx.lineTo(cx + Math.cos(a) * 338, cy + Math.sin(a) * 338);
+        ctx.moveTo(cx + Math.cos(a) * 314, cy + Math.sin(a) * 314);
+        ctx.lineTo(cx + Math.cos(a) * 326, cy + Math.sin(a) * 326);
         ctx.stroke();
       }
     } else {
@@ -54143,7 +54199,7 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
       ctx.fillStyle = pal.gridDot;
       for (let gx = w % step * 0.5; gx < w; gx += step) {
         for (let gy = h % step * 0.5; gy < h; gy += step) {
-          ctx.fillRect(gx, gy, 1.3, 1.3);
+          ctx.fillRect(gx, gy, 1.2, 1.2);
         }
       }
     }
@@ -54153,22 +54209,23 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
     ctx.translate(-this.camera.x, -this.camera.y);
     if (this.layoutMode === "cluster" && this.layoutState.clusterCenters?.size) {
       for (const cc of this.layoutState.clusterCenters.values()) {
-        if (!cc.label && cc.count === 0) continue;
+        if (!cc.label && !cc.isKindCluster && cc.count === 0) continue;
+        const clTitle = cc.label ? `${cc.label} \xB7 ${cc.count}` : cc.isKindCluster ? `${t(MEMORY_KINDS[cc.kind] || cc.kind)} \xB7 ${cc.count}` : "";
         ctx.save();
         ctx.fillStyle = pal.clusterFill;
         ctx.strokeStyle = pal.clusterStroke;
-        ctx.lineWidth = 1.2 / scale;
+        ctx.lineWidth = 1 / scale;
         ctx.setLineDash([4 / scale, 4 / scale]);
         ctx.beginPath();
         ctx.arc(cc.x, cc.y, cc.radius, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
-        if (cc.label) {
+        if (clTitle) {
           ctx.setLineDash([]);
           ctx.fillStyle = pal.clusterText;
-          ctx.font = `600 ${Math.max(10, 12 / Math.sqrt(scale))}px sans-serif`;
+          ctx.font = `600 ${Math.max(10.5, 12 / Math.sqrt(scale))}px sans-serif`;
           ctx.textAlign = "center";
-          ctx.fillText(cc.label, cc.x, cc.y - cc.radius - 7);
+          ctx.fillText(clTitle, cc.x, cc.y - cc.radius - 8);
         }
         ctx.restore();
       }
@@ -54181,31 +54238,31 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
       if (!ps || !pt) continue;
       const inSpot = !spot || spot.edgeSet.has(edge);
       const isDirect = spot && (edge.source === activeId || edge.target === activeId);
-      const alpha = !spot ? 1 : isDirect ? 1 : inSpot ? 0.55 : 0.1;
+      const alpha = !spot ? 1 : isDirect ? 1 : inSpot ? 0.45 : 0.045;
       ctx.save();
       ctx.globalAlpha = alpha;
       const mx = (ps.x + pt.x) * 0.5;
       const my = (ps.y + pt.y) * 0.5;
       const dx = pt.x - ps.x;
       const dy = pt.y - ps.y;
-      const bend = edge.edgeType === "conflict" ? 0.14 : 0.06;
+      const bend = edge.edgeType === "conflict" ? 0.16 : 0.09;
       const cpx = mx - dy * bend;
       const cpy = my + dx * bend;
       if (edge.edgeType === "conflict") {
         ctx.strokeStyle = pal.conflict;
-        ctx.lineWidth = (isDirect ? 2.2 : 1.5) / scale;
+        ctx.lineWidth = (isDirect ? 2.1 : 1.35) / scale;
         ctx.setLineDash([5 / scale, 3 / scale]);
       } else if (edge.edgeType === "supersedes") {
         ctx.strokeStyle = pal.supersedes;
-        ctx.lineWidth = 1.4 / scale;
+        ctx.lineWidth = 1.2 / scale;
         ctx.setLineDash([3 / scale, 3 / scale]);
       } else if (edge.edgeType === "source") {
         ctx.strokeStyle = isDirect ? pal.edgeHot : pal.sourceEdge;
-        ctx.lineWidth = 1 / scale;
+        ctx.lineWidth = 0.9 / scale;
         ctx.setLineDash([2 / scale, 3 / scale]);
       } else {
         ctx.strokeStyle = isDirect ? pal.edgeHot : pal.edge;
-        ctx.lineWidth = (isDirect ? 1.7 : 1.05) / scale;
+        ctx.lineWidth = (isDirect ? 1.6 : 0.95) / scale;
       }
       ctx.beginPath();
       ctx.moveTo(ps.x, ps.y);
@@ -54214,25 +54271,26 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
       if (edge.edgeType === "conflict" && inSpot) {
         ctx.setLineDash([]);
         ctx.fillStyle = pal.conflict;
-        drawPolygon(ctx, (mx + cpx) * 0.5, (my + cpy) * 0.5, 4, 3.2 / Math.sqrt(scale));
+        drawPolygon(ctx, (mx + cpx) * 0.5, (my + cpy) * 0.5, 4, 3 / Math.sqrt(scale));
         ctx.fill();
       }
       ctx.restore();
     }
+    const labelCandidates = [];
     for (const node of this.model.nodes) {
       const p = this.layoutState.positions.get(node.id);
       if (!p) continue;
       const isSelf = node.id === activeId;
       const isHop1 = spot?.hop1?.has(node.id);
       const isHop2 = spot?.hop2?.has(node.id);
-      const alpha = !spot ? 1 : isSelf || isHop1 ? 1 : isHop2 ? 0.62 : 0.15;
+      const alpha = !spot ? 1 : isSelf || isHop1 ? 1 : isHop2 ? 0.58 : 0.12;
       const fill2 = this.nodeFillColor(node, pal);
       const r = node.radius || 7;
       ctx.save();
       ctx.globalAlpha = alpha;
-      if (pal.glow && (isSelf || isHop1 || node.nodeType === "project" || node.hits > 0)) {
+      if (pal.glow && (isSelf || isHop1 || node.nodeType === "project" || node.nodeType === "memory" && node.verified)) {
         ctx.shadowColor = fill2;
-        ctx.shadowBlur = isSelf ? 16 : node.nodeType === "project" ? 12 : 8;
+        ctx.shadowBlur = isSelf ? 18 : node.nodeType === "project" ? 14 : 7;
       }
       if (node.nodeType === "project") {
         drawPolygon(ctx, p.x, p.y, 6, r, Math.PI / 6);
@@ -54242,88 +54300,130 @@ var MemoryGraphView = class extends import_obsidian13.ItemView {
         ctx.lineWidth = 1.6 / scale;
         ctx.strokeStyle = pal.nodeStroke;
         ctx.stroke();
-        if (pal.rings) {
-          ctx.strokeStyle = fill2;
-          ctx.globalAlpha = alpha * 0.45;
-          ctx.lineWidth = 1 / scale;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, r + 4, 0, Math.PI * 2);
-          ctx.stroke();
-        }
+        ctx.strokeStyle = fill2;
+        ctx.globalAlpha = alpha * 0.42;
+        ctx.lineWidth = 1.1 / scale;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r + 4, 0, Math.PI * 2);
+        ctx.stroke();
       } else if (node.nodeType === "concept") {
-        drawPolygon(ctx, p.x, p.y, 4, r * 1.15);
+        const isHub = (node.memoryCount || 0) >= 3;
+        drawPolygon(ctx, p.x, p.y, 4, r);
+        ctx.fillStyle = isHub ? fill2 : pal.conceptFill || pal.bg;
+        ctx.fill();
+        ctx.shadowBlur = 0;
         if (node.promotionReady) {
-          ctx.fillStyle = pal.bg;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-          ctx.setLineDash([3 / scale, 2.5 / scale]);
+          ctx.setLineDash([2.5 / scale, 2.2 / scale]);
           ctx.strokeStyle = fill2;
-          ctx.lineWidth = 1.6 / scale;
+          ctx.lineWidth = 1.35 / scale;
           ctx.stroke();
         } else {
-          ctx.fillStyle = fill2;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-          ctx.strokeStyle = pal.nodeStroke;
-          ctx.lineWidth = 1.2 / scale;
+          ctx.strokeStyle = isHub ? pal.nodeStroke : fill2;
+          ctx.lineWidth = 1.15 / scale;
           ctx.stroke();
         }
       } else if (node.nodeType === "source") {
-        const side = r * 1.6;
+        const side = r * 1.5;
         ctx.fillStyle = fill2;
         ctx.fillRect(p.x - side * 0.5, p.y - side * 0.5, side, side);
         ctx.shadowBlur = 0;
         ctx.strokeStyle = pal.nodeStroke;
-        ctx.lineWidth = 1.1 / scale;
+        ctx.lineWidth = 1 / scale;
         ctx.strokeRect(p.x - side * 0.5, p.y - side * 0.5, side, side);
       } else {
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-        ctx.fillStyle = fill2;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        if (!node.verified) {
-          ctx.setLineDash([2.5 / scale, 2.5 / scale]);
-          ctx.strokeStyle = pal.label;
-          ctx.lineWidth = 1.2 / scale;
-          ctx.stroke();
-          ctx.setLineDash([]);
-        } else {
+        if (node.verified) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+          ctx.fillStyle = fill2;
+          ctx.fill();
+          ctx.shadowBlur = 0;
           ctx.strokeStyle = pal.nodeStroke;
-          ctx.lineWidth = 1.3 / scale;
+          ctx.lineWidth = 1.25 / scale;
+          ctx.stroke();
+          ctx.fillStyle = fill2;
+          ctx.globalAlpha = alpha * 0.16;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r + 3.4, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+          ctx.fillStyle = fill2;
+          ctx.globalAlpha = alpha * 0.68;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = alpha;
+          ctx.strokeStyle = fill2;
+          ctx.lineWidth = 1.2 / scale;
           ctx.stroke();
         }
         if (node.hasConflict) {
+          ctx.globalAlpha = alpha;
           ctx.strokeStyle = pal.conflict;
-          ctx.lineWidth = 1.8 / scale;
+          ctx.lineWidth = 1.6 / scale;
           ctx.beginPath();
-          ctx.arc(p.x, p.y, r + 3.2, 0, Math.PI * 2);
+          ctx.arc(p.x, p.y, r + 3.4, 0, Math.PI * 2);
           ctx.stroke();
         }
       }
       if (isSelf) {
         ctx.shadowBlur = 0;
         ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
         ctx.strokeStyle = pal.label;
-        ctx.lineWidth = 2 / scale;
+        ctx.lineWidth = 1.8 / scale;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, r + 5.5, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, r + 5.2, 0, Math.PI * 2);
         ctx.stroke();
       }
-      const showLabel = isSelf || isHop1 || node.nodeType === "project" || node.nodeType === "concept" && (node.memoryCount >= 2 || scale > 0.85) || scale > 1.05;
-      if (showLabel && node.shortLabel) {
-        ctx.shadowBlur = 0;
-        ctx.setLineDash([]);
-        ctx.fillStyle = isSelf || isHop1 ? pal.label : pal.muted;
-        const fontSize = (node.nodeType === "project" ? 12 : 10.5) / Math.pow(scale, 0.25);
-        ctx.font = `${node.nodeType === "project" ? "600" : "500"} ${fontSize}px sans-serif`;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.fillText(node.shortLabel, p.x, p.y + r + 5);
+      ctx.restore();
+      const eligible = isSelf || isHop1 || node.nodeType === "project" || node.nodeType === "concept" && ((node.memoryCount || 0) >= 3 || (node.memoryCount || 0) >= 2 && scale >= 0.78 || scale >= 1.25) || this.model.nodes.length <= 24 || scale >= 1.35;
+      if (eligible && node.shortLabel) {
+        const prio = isSelf ? 1e3 : isHop1 ? 820 : node.nodeType === "project" ? 680 : node.nodeType === "concept" ? 360 + (node.memoryCount || 1) * 28 : 160 + (node.hits || 0) * 12 + (node.degree || 0) * 6 + (node.verified ? 15 : 0);
+        labelCandidates.push({ node, p, r, isSelf, isHop1, alpha, prio });
+      }
+    }
+    ctx.restore();
+    if (labelCandidates.length) {
+      labelCandidates.sort((a, b) => b.prio - a.prio);
+      const placed = [];
+      ctx.save();
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (const item of labelCandidates) {
+        const { node, p, r, isSelf, isHop1, alpha } = item;
+        const sx = (p.x - this.camera.x) * scale + w * 0.5;
+        const sy = (p.y - this.camera.y) * scale + h * 0.5 + r * scale + 11;
+        if (sx < -80 || sx > w + 80 || sy < -30 || sy > h + 30) continue;
+        const isHub = node.nodeType === "project" || node.nodeType === "concept" && (node.memoryCount || 0) >= 3;
+        const fontSize = node.nodeType === "project" ? 11.5 : 10.5;
+        ctx.font = `${isSelf || isHub ? "600" : "500"} ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+        const measured = ctx.measureText?.(node.shortLabel)?.width;
+        const tw = typeof measured === "number" && measured > 0 ? measured : node.shortLabel.length * fontSize * 0.72;
+        const pillW = tw + 12;
+        const pillH = fontSize + 7;
+        const bx = sx - pillW * 0.5;
+        const by = sy - pillH * 0.5;
+        const hits = !isSelf && placed.some((q) => bx < q.x + q.w + 5 && bx + pillW + 5 > q.x && by < q.y + q.h + 3 && by + pillH + 3 > q.y);
+        if (hits) continue;
+        placed.push({ x: bx, y: by, w: pillW, h: pillH });
+        ctx.save();
+        ctx.globalAlpha = isSelf || isHop1 ? 1 : Math.min(0.95, alpha + 0.1);
+        drawRoundedRect(ctx, bx, by, pillW, pillH, 5);
+        ctx.fillStyle = pal.pillBg;
+        ctx.fill();
+        if (isSelf || isHop1 || node.nodeType === "project") {
+          ctx.strokeStyle = isSelf ? pal.label : pal.pillBorder;
+          ctx.lineWidth = isSelf ? 1.2 : 0.8;
+          ctx.stroke();
+        }
+        ctx.fillStyle = isSelf || isHop1 || node.nodeType === "project" ? pal.label : pal.muted;
+        ctx.fillText(node.shortLabel, sx, sy + 0.5);
+        ctx.restore();
       }
       ctx.restore();
     }
-    ctx.restore();
   }
 };
 
