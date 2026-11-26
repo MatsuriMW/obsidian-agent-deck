@@ -190,6 +190,27 @@ export function mutableClock(lines, n) {
   const marker = /^(.*?) <!-- ad-clock:([a-f0-9]+) -->\s*$/.exec(lines[n]);
   return !!marker && clockHash(marker[1]) === marker[2] && !blockIdOf(lines[n]) && !hasDescendants(lines, n);
 }
+
+// 在任务子树下新增或原地更新未手改的 ⏱ 行；已一致或被用户改过时保持不动。
+export function upsertClockLine(lines, ownerLine, segs, who, tok = 0, ellipsis = true) {
+  if (!Array.isArray(lines) || ownerLine < 0 || ownerLine >= lines.length || !segs?.length) return false;
+  const line = clockLine(childIndent(lines, ownerLine), segs, who, tok, ellipsis);
+  const bare = line.replace(/ <!-- ad-clock:[a-f0-9]+ -->$/, "");
+  const base = width(lines[ownerLine]);
+  let end = ownerLine;
+  for (let i = ownerLine + 1; i < lines.length; i++) {
+    if (lines[i].trim() && width(lines[i]) <= base) break;
+    if (lines[i].trim()) end = i;
+    if (CLOCK_RE.test(lines[i]) && markOwner(lines, i) === ownerLine) {
+      if (lines[i] === line || lines[i] === bare) return false;
+      if (!mutableClock(lines, i)) return false;
+      lines[i] = line;
+      return true;
+    }
+  }
+  lines.splice(end + 1, 0, line);
+  return true;
+}
 export const durTag = (m) => (m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? (m % 60) + "m" : ""}` : `${Math.max(1, Math.round(m))}m`);
 
 export const workKey = (label) => stripBlockId(String(label || "")).replace(/\s*←\s*\S+\s*$/, "").trim();
@@ -343,11 +364,13 @@ export function formatSessionTaskLine(task, { kw, start, end, showTimeRange }) {
   if (task.auto && !task.cb) {
     return formatAutoTaskLine({
       prefix: task.prefix, kw, start, end, title: task.title, preserveTitle: true,
-      showTimeRange: showTimeRange || Boolean(task.since || task.until), blockId: task.blockId,
+      showTimeRange: showTimeRange === false ? false : (showTimeRange || Boolean(task.since || task.until)), blockId: task.blockId,
     });
   }
-  const time = start && end && (showTimeRange || task.until) && (start !== end || task.until)
-    ? `${start}-${end}` : task.since || "";
+  const time = showTimeRange === false
+    ? (task.since || "")
+    : (start && end && (showTimeRange || task.until) && (start !== end || task.until)
+      ? `${start}-${end}` : task.since || "");
   return `${task.prefix}${kw} ${time ? time + " " : ""}${task.rest}`.trimEnd();
 }
 
@@ -1022,13 +1045,15 @@ export function kwForState(state) {
 }
 
 // 拖到第 at 行会发生什么：
-//   bind  这一行是有字的列表项 → 会话绑到它下面（拖到 🔗 / ⏱ / 💬 记号行上，算它的母项）
+//   child 这一行是有字的列表项 → 默认挂成它的子块（不改动母块原文）
+//   bind  按住 ⌥ 拖到列表项上 → 直接把会话绑到这一项自身
 //   fill  空的列表项（「- 」「1. 」）→ 就在这一项写上会话
 //   new   空行 → 在这儿新建一项
 //   below 不是列表的一段文字 → 在它下面新建一项
-export function dropKind(lines, at, below = false) {
+export function dropKind(lines, at, below = false, direct = false) {
   if (at < 0 || at >= lines.length) return null;
   const raw = lines[at];
+  const itemKind = direct ? "bind" : "child";
   // 按住 ⌘ 拖：不绑到这一项，在它（连同子项）下面新建一项
   if (below) {
     if (/^\s*(?:#|```|~~~|\|)/.test(raw)) return null;
@@ -1039,11 +1064,11 @@ export function dropKind(lines, at, below = false) {
   }
   if (MARKER_RE.test(raw)) {
     const n = markOwner(lines, at);
-    return n >= 0 ? { kind: "bind", line: n } : null;
+    return n >= 0 ? { kind: itemKind, line: n } : null;
   }
   if (EMPTY_ITEM_RE.test(raw)) return { kind: "fill", line: at };
   if (!raw.trim()) return { kind: "new", line: at };
-  if (LIST_RE.test(raw)) return kwLine(raw) ? { kind: "bind", line: at } : null;
+  if (LIST_RE.test(raw)) return kwLine(raw) ? { kind: itemKind, line: at } : null;
   if (/^\s*(?:#|```|~~~|\||>|---)/.test(raw)) return null;   // 标题、代码块、表格、引用、分隔线上不放
   return { kind: "below", line: at };
 }
@@ -1096,16 +1121,35 @@ export function clocksLast(text) {
   return lines.join("\n");
 }
 
-// 把会话 s 绑到第 at 行（或在那儿新建一项）。s = { sid, agent, title, state, since, dropKey, blockId, ensureBlockId }
-//   · 一个会话只绑一处：别处已有的 🔗 先摘掉；自动记日记替它新写过的「🤖 …」那一项（按 blockId 或 dropKey）一起合并收掉
-//   · 原文不动，只在前面换上状态关键词（TODO / 没写关键词的 → DOING / TOREVIEW …；DONE、PAUSED 这些你定的不碰）
-// 返回 { text, line, kind, blockId } 或 { text, error }
-export function bindInto(text, at, s, { below = false, rules = null } = {}) {
+function blockSpan(lines, start) {
+  const base = width(lines[start]);
+  let end = start;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) <= base) break;
+    end = i;
+  }
+  return [start, end];
+}
+
+// 把会话 s 绑到第 at 行（默认挂为它的子块，不改动母块原文；按住 ⌥ 则直接绑到这一项自身）。
+// s = { sid, agent, title, state, since, until, dropKey, blockId, ensureBlockId, segs, tok }
+// 返回 { text, line, kind, blockId, parentLine? } 或 { text, error }
+export function bindInto(text, at, s, { below = false, direct = false, ensureBlockId: ensureIdOpt = false, rules = null } = {}) {
   let lines = text.split("\n");
-  const target = dropKind(lines, at, below);
+  const target = dropKind(lines, at, below, direct);
   if (!target) return { text, error: t("这一行放不了会话：拖到列表项、空的列表项或空行上") };
   let n = target.line;
-  if (target.kind === "bind") {
+  if (target.kind === "child") {
+    const [n0, n1] = blockSpan(lines, n);
+    const short = shortSessionId(s.sid);
+    for (let i = n0; i <= n1; i++) {
+      const lk = parseLink(lines[i]);
+      if (lk && lk.sid === s.sid) return { text, error: t("这一项已经绑着这个会话了") };
+      const mk = /<!-- ad-(?:turn|summary(?:-pending)?):([A-Za-z0-9_-]+):\d+ -->/.exec(lines[i]);
+      if (mk && (mk[1] === s.sid || mk[1] === short)) return { text, error: t("这一项已经绑着这个会话了") };
+    }
+  } else if (target.kind === "bind") {
     const had = linkUnder(lines, n);
     if (had && had.sid === s.sid) return { text, error: t("这一项已经绑着这个会话了") };
     if (had) return { text, error: t("这一项已经绑着另一个会话；先删掉它下面的 🔗 行") };
@@ -1116,19 +1160,37 @@ export function bindInto(text, at, s, { below = false, rules = null } = {}) {
   const until = s.until || since;
   const title = resultText(s.title || "没起名的会话", 60);
   const autoTitle = summarizeAutoTitle(s.title || "没起名的会话", r.titleMax);
+  const who = AGENTS[s.agent]?.short || s.agent;
   const rescuedChildren = [];
   let rescuedBlockId = s.blockId || "";
+  let migratedHeader = "";
+  let migratedBody = null;
 
-  // 先把这个会话在别处的痕迹收掉，再按内容重新找回目标行
+  // 先查找同一会话已有的 🤖 自动记录块（必须在删除 🔗 之前，否则 ownedBySession 找不到仅靠 🔗 关联的项）
   const anchor = lines[n];
   const drop = (i) => { lines.splice(i, 1); if (i < n) n--; };
+  const itemsBefore = taskItems(lines.join("\n"));
+  const ownedLine = ownedBySession(lines, s.sid);
+  const autoHit = (ownedLine >= 0 && itemsBefore.find((it) => it.line === ownedLine && it.body.startsWith(AUTO_MARK.trim())))
+    || itemsBefore.find((it) => it.line !== n && it.body.startsWith(AUTO_MARK.trim())
+      && ((s.blockId && it.blockId === s.blockId) || (s.dropKey && it.key === workKey(s.dropKey))));
+
+  if (target.kind === "child" && autoHit && autoHit.line !== n && !(autoHit.line < n && n < subtreeEnd(lines, autoHit.line))) {
+    const [h0, h1] = blockSpan(lines, autoHit.line);
+    migratedHeader = lines[h0];
+    migratedBody = lines.slice(h0 + 1, h1 + 1).filter((l) => l.trim());
+    if (autoHit.blockId && !rescuedBlockId) rescuedBlockId = autoHit.blockId;
+    for (let i = h1; i >= h0; i--) drop(i);
+  }
+
+  // 把这个会话在别处残留的 🔗 摘掉，并按原逻辑收掉单纯的自动记录项
   for (let i = lines.length - 1; i >= 0; i--) {
     const k = parseLink(lines[i]);
     if (k && k.sid === s.sid) drop(i);
   }
-  if (s.dropKey || s.blockId) {
+  if (!migratedBody && (s.dropKey || s.blockId)) {
     const items = taskItems(lines.join("\n"));
-    const hit = items.find((t) => t.line !== n && t.body.startsWith(AUTO_MARK.trim()) && ((s.blockId && t.blockId === s.blockId) || (s.dropKey && t.key === workKey(s.dropKey))));
+    const hit = items.find((item) => item.line !== n && item.body.startsWith(AUTO_MARK.trim()) && ((s.blockId && item.blockId === s.blockId) || (s.dropKey && item.key === workKey(s.dropKey))));
     if (hit) {
       const base = width(lines[hit.line]);
       let end = hit.line, own = true;
@@ -1157,11 +1219,69 @@ export function bindInto(text, at, s, { below = false, rules = null } = {}) {
   const maybeAddBlockId = (lineStr) => {
     const existing = blockIdOf(lineStr);
     if (existing) return { line: lineStr, blockId: existing };
-    if (s.ensureBlockId || rescuedBlockId) {
+    if (s.ensureBlockId || ensureIdOpt || rescuedBlockId) {
       return ensureBlockId(lineStr, rescuedBlockId || makeBlockId(s.sid, s.agent));
     }
     return { line: lineStr, blockId: "" };
   };
+
+  if (target.kind === "child") {
+    const ind = childIndent(lines, n);
+    const unit = ind.includes("\t") ? "\t" : " ".repeat(Math.max(2, width(ind) - width(lines[n])));
+    const grandInd = ind + unit;
+    const [, nEnd] = blockSpan(lines, n);
+    const insertAt = nEnd + 1;
+    if (migratedBody !== null) {
+      const hp = splitTask(migratedHeader);
+      const keptBlockId = (hp && hp.blockId) || rescuedBlockId;
+      const lockedKw = hp?.kw && (DONE_KWS.includes(hp.kw) || hp.kw === "PAUSED" || hp.kw === "SUSPENDED" || hp.kw === "WAITING" || hp.kw === "WAIT");
+      const keptKw = lockedKw ? hp.kw : want;
+      const rawTitle = hp?.title || "";
+      const unbold = rawTitle ? rawTitle.replace(/^\*\*([^*]+)\*\*$/, "$1") : autoTitle;
+      const eb = maybeAddBlockId(formatAutoTaskLine({
+        prefix: `${ind}- `,
+        kw: keptKw,
+        start: hp?.since || since,
+        end: hp?.until || until || hp?.since || since,
+        title: unbold,
+        preserveTitle: Boolean(rawTitle),
+        boldTitle: false,
+        showTimeRange: r.showTimeRange,
+        blockId: keptBlockId,
+      }));
+      const srcBase = width(migratedHeader);
+      const firstChild = migratedBody[0];
+      const srcStep = firstChild && width(firstChild) > srcBase ? Math.max(1, width(firstChild) - srcBase) : 4;
+      const rebasedBody = migratedBody.map((line) => {
+        const w = width(line);
+        const extra = firstChild && w > width(firstChild) ? Math.max(1, Math.round((w - width(firstChild)) / srcStep)) : 0;
+        return `${grandInd}${unit.repeat(extra)}${line.trim()}`;
+      });
+      if (!rebasedBody.some((l) => parseLink(l)?.sid === s.sid)) {
+        rebasedBody.unshift(linkLine(grandInd, s.agent, title, s.sid));
+      }
+      if (!r.showTimeRange && s.segs?.length && !rebasedBody.some((l) => CLOCK_RE.test(l))) {
+        rebasedBody.push(clockLine(grandInd, s.segs, who, s.tok || 0, true));
+      }
+      lines.splice(insertAt, 0, eb.line, ...rebasedBody);
+      return { text: lines.join("\n"), line: insertAt, parentLine: n, kind: "child", blockId: eb.blockId };
+    }
+    const eb = maybeAddBlockId(formatAutoTaskLine({
+      prefix: `${ind}- `,
+      kw: want,
+      start: since,
+      end: until,
+      title: autoTitle,
+      boldTitle: false,
+      showTimeRange: r.showTimeRange,
+    }));
+    const children = [linkLine(grandInd, s.agent, title, s.sid)];
+    if (!r.showTimeRange && s.segs?.length) {
+      children.push(clockLine(grandInd, s.segs, who, s.tok || 0, true));
+    }
+    lines.splice(insertAt, 0, eb.line, ...children);
+    return { text: lines.join("\n"), line: insertAt, parentLine: n, kind: "child", blockId: eb.blockId };
+  }
 
   if (target.kind === "bind") {
     const p = splitTask(lines[n]);
@@ -1198,7 +1318,8 @@ export function bindInto(text, at, s, { below = false, rules = null } = {}) {
     const item = eb.line;
     const lead = (/^\s*/.exec(item) || [""])[0];
     const ind = lead + (lead && !lead.includes("\t") ? "    " : "\t");
-    lines.splice(end + 1, 0, item, linkLine(ind, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind}${rc}`));
+    const extraClock = !r.showTimeRange && s.segs?.length ? [clockLine(ind, s.segs, who, s.tok || 0, true)] : [];
+    lines.splice(end + 1, 0, item, linkLine(ind, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind}${rc}`), ...extraClock);
     return { text: lines.join("\n"), line: end + 1, kind: "after", blockId: eb.blockId };
   }
   if (target.kind === "fill") prefix = EMPTY_ITEM_RE.exec(lines[n])[1] + " ";
@@ -1217,8 +1338,64 @@ export function bindInto(text, at, s, { below = false, rules = null } = {}) {
   else lines[n] = item;
   const lead = (/^\s*/.exec(item) || [""])[0];
   const ind = lead + (lead && !lead.includes("\t") ? "    " : "\t");
-  lines.splice(n + 1, 0, linkLine(ind, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind}${rc}`));
+  const extraClock = !r.showTimeRange && s.segs?.length ? [clockLine(ind, s.segs, who, s.tok || 0, true)] : [];
+  lines.splice(n + 1, 0, linkLine(ind, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind}${rc}`), ...extraClock);
   return { text: lines.join("\n"), line: n, kind: target.kind, blockId: eb.blockId };
+}
+
+// 把笔记里的第 srcLine 条任务整块挂为第 dstLine 条任务的子块：双方原文与块号均不改写。
+export function nestTask(text, srcLine, dstLine) {
+  const lines = text.split("\n");
+  if (srcLine === dstLine || srcLine < 0 || dstLine < 0 || srcLine >= lines.length || dstLine >= lines.length) {
+    return { text, error: t("请选择两条不同的任务行") };
+  }
+  if (MARKER_RE.test(lines[srcLine])) srcLine = markOwner(lines, srcLine);
+  if (MARKER_RE.test(lines[dstLine])) dstLine = markOwner(lines, dstLine);
+  if (srcLine < 0 || dstLine < 0 || srcLine === dstLine) return { text, error: t("这两行本身已经在同一个任务条目下了") };
+  if (!LIST_RE.test(lines[srcLine]) || !LIST_RE.test(lines[dstLine]) || !kwLine(lines[srcLine]) || !kwLine(lines[dstLine])) {
+    return { text, error: t("只能把任务列表项挂到另一条任务列表项下") };
+  }
+  const [s0, s1] = blockSpan(lines, srcLine);
+  const [d0, d1] = blockSpan(lines, dstLine);
+  if (d0 >= s0 && d0 <= s1) return { text, error: t("父子任务不能互相挂载") };
+  if (s0 > d0 && s0 <= d1 && markOwner(lines, s0) === d0) {
+    return { text, error: t("这一项已经是它的子块了") };
+  }
+  const dstInd = childIndent(lines, d0);
+  const unit = dstInd.includes("\t") ? "\t" : " ".repeat(Math.max(2, width(dstInd) - width(lines[d0])));
+  const chunk = lines.slice(s0, s1 + 1).filter((l) => l.trim());
+  const srcBase = width(chunk[0]);
+  const firstKid = chunk.slice(1).find((l) => width(l) > srcBase);
+  const srcStep = firstKid ? Math.max(1, width(firstKid) - srcBase) : 4;
+  const rebased = chunk.map((line, idx) => {
+    if (idx === 0) return `${dstInd}${line.trim()}`;
+    const w = width(line);
+    const level = w > srcBase ? Math.max(1, Math.round((w - srcBase) / srcStep)) : 0;
+    return `${dstInd}${unit.repeat(level)}${line.trim()}`;
+  });
+  let newDstLine = d0;
+  let insertAt = d1 + 1;
+  if (s0 < d0) {
+    lines.splice(insertAt, 0, ...rebased);
+    lines.splice(s0, s1 - s0 + 1);
+    const removed = s1 - s0 + 1;
+    newDstLine = d0 - removed;
+    insertAt -= removed;
+  } else {
+    lines.splice(s0, s1 - s0 + 1);
+    lines.splice(insertAt, 0, ...rebased);
+  }
+  const ks = kwLine(rebased[0]);
+  const kd = kwLine(lines[newDstLine]);
+  return {
+    text: lines.join("\n"),
+    line: insertAt,
+    parentLine: newDstLine,
+    blockId: blockIdOf(rebased[0]),
+    body: ks ? ks.body : rebased[0].trim(),
+    key: ks ? workKey(ks.body) : "",
+    dstBody: kd ? kd.body : lines[newDstLine].trim(),
+  };
 }
 
 // 把日记里的两个任务条目（比如一条 🤖 Agent 自动记的、一条人自己写的，或者任意两条）绑定/混合成一条：

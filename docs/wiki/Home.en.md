@@ -18,7 +18,7 @@ Welcome to the **Agent Deck** user documentation. Whether you are bringing your 
 | --- | --- |
 | [[Quick Start\|Quick-Start.en]] | Installing Agent Deck and running your first tracking → journaling → delegation loop in 3 minutes |
 | [[Supported Agents & Models\|Supported-Agents-and-Models.en]] | Full 21-agent matrix (including Chinese clients & upfront setup prerequisites), mainstream models, limits & Custom ACP |
-| [[Core Workflow: Markdown as Harness\|Workflow-Markdown-Harness.en]] | Notes as context, `@` / `/` inline delegation, Q&A loop, 4 record views, in-place fractal boards & skill cards |
+| [[Core Workflow: Markdown as Harness\|Workflow-Markdown-Harness.en]] | Managing AI auto-logged records (drag-nest / group rows / Pin / tidy layout), notes as context, `@` / `/` inline delegation, Q&A loop, 4 record views, in-place fractal boards & skill cards |
 | [[Long-Term Memory (Dreaming)\|Long-Term-Memory-Dreaming.en]] | One-note-per-memory library, Base table & memory board, backlinks, health check & privacy boundaries |
 | [[FAQ & Troubleshooting\|FAQ-and-Troubleshooting.en]] | macOS PATH, Trae & Cursor Hooks prerequisites, Windows status, `env:`/`secret:` keys & redacted diagnostics |
 

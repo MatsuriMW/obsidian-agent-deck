@@ -21,7 +21,7 @@ import {
   Plugin, Notice, MarkdownView, MarkdownRenderChild, Menu, editorInfoField,
 } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, syncDelegationSettings, dayKey, dayKeyToday, fmtMin, fmtTok, timeAgo, truncate, clamp, visibleMenuAgents, journalPath, STORE_VERSION, MEMORY_QUERY_ASSET_VERSION, MEMORY_MCP_ASSET_VERSION,
+  AGENTS, AGENT_ORDER, MODEL_CATALOG, DEFAULTS, deepMerge, syncDelegationSettings, dayKey, dayKeyToday, fmtMin, fmtTok, timeAgo, truncate, clamp, visibleMenuAgents, journalPath, resolveRecordRules, STORE_VERSION, MEMORY_QUERY_ASSET_VERSION, MEMORY_MCP_ASSET_VERSION,
 } from "./constants.js";
 import {
   AgentUsage, UsageStore, projectName, normalizeProjectRoot, SUMMARY_VERSION, USAGE_CACHE_VERSION,
@@ -2527,8 +2527,8 @@ export default class AgentDeckPlugin extends Plugin {
     return semanticTaskId(this, seed, agent, title);
   }
 
-  // 面板里的会话卡片拖到了笔记第 line 行上
-  async bindSessionAt(cm, line, data, { below = false } = {}) {
+  // 面板里的会话卡片拖到了笔记第 line 行上（默认挂为子块；按住 ⌥ 直接绑定这一项）
+  async bindSessionAt(cm, line, data, { below = false, direct = false } = {}) {
     let view = null;
     this.app.workspace.iterateAllLeaves((leaf) => { const v = leaf.view; if (!view && v instanceof MarkdownView && v.editor && v.editor.cm === cm) view = v; });
     if (!view || !data || !data.sid) return;
@@ -2545,7 +2545,7 @@ export default class AgentDeckPlugin extends Plugin {
     const before = cm.state.doc.toString(), anchor = before.split("\n")[line], notePath = view.file.path;
     const agent = data.agent || meta.agent || "claude";
     const title = data.title || meta.title || (meta.text || "").split(" / ")[0] || sid.slice(0, 8);
-    let blockId = (rec && rec.blockId) || (!below && J.blockIdOf(anchor));
+    let blockId = (rec && rec.blockId) || (direct && !below && J.blockIdOf(anchor));
     if (!blockId && this.taskBlockId) {
       blockId = await this.taskBlockId(sid, agent, title);
       if (this._unloaded || view.file?.path !== notePath || view.editor.cm !== cm) return;
@@ -2560,17 +2560,24 @@ export default class AgentDeckPlugin extends Plugin {
     const res = J.bindInto(text, line, {
       sid, agent, title,
       state: (live && live.state) || meta.state || "idle", since, until,
+      segs: daySess?.segs, tok: (daySess?.out || 0) + (daySess?.fresh || 0),
       dropKey: rec && rec.created && rec.key ? rec.key : null,
       blockId: blockId || "",
-    }, { below, ensureBlockId: true, rules: this.settings.recordRules });
+    }, { below, direct, ensureBlockId: true, rules: this.settings.recordRules });
     if (res.error) return this.notice(res.error, 6000);
     const change = J.diffLines(text, res.text);
     if (change) view.editor.transaction({ changes: [change] });
-    const key = res.line != null ? J.workKey(res.text.split("\n")[res.line] || "") : "";
+    const boundRaw = res.line != null ? (res.text.split("\n")[res.line] || "") : "";
+    const key = boundRaw ? J.workKey(J.kwLine(boundRaw)?.body || boundRaw) : "";
     (this.settings.taskBindings ||= {})[sid] = { sid, agent: data.agent || meta.agent || "claude", path: view.file.path, blockId: res.blockId || "", key };
     this.markBound(sid, res.blockId || "", key);
     const a = AGENTS[data.agent] || AGENTS.claude;
-    this.notice(res.kind === "bind" ? t("🔗 已绑定：{agent} 会话的每轮 💬、❓、⏱ 和状态都会跟着这一项走", { agent: a.short }) : t("🔗 新建了一项并绑上 {agent} 会话", { agent: a.short }), 5000);
+    const msg = res.kind === "child"
+      ? t("🔗 已挂为子块：{agent} 会话会作为这条日注的子项持续更新，不改动原文", { agent: a.short })
+      : res.kind === "bind"
+      ? t("🔗 已绑定：{agent} 会话的每轮 💬、❓、⏱ 和状态都会跟着这一项走", { agent: a.short })
+      : t("🔗 新建了一项并绑上 {agent} 会话", { agent: a.short });
+    this.notice(msg, 5000);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {}), 300);
     this.refreshUI();
   }
@@ -2615,6 +2622,37 @@ export default class AgentDeckPlugin extends Plugin {
     }
     this.saveSettings().catch(() => {});
     this.notice(t("🔗 已合并条目：会话记录与结论已归入「{title}」", { title: truncate(res.body, 28) }), 5000);
+    setTimeout(() => this.journalSync.run({ force: true }).catch(() => {}), 300);
+    this.refreshUI();
+  }
+
+  // 把笔记里的第 srcLine 条任务整块挂为第 dstLine 条任务的子块（不动母块原文）
+  nestTaskLines(cmOrView, srcLine, dstLine, srcLineText = "") {
+    let view = cmOrView instanceof MarkdownView ? cmOrView : null;
+    if (!view) {
+      this.app.workspace.iterateAllLeaves((leaf) => { const v = leaf.view; if (!view && v instanceof MarkdownView && v.editor && v.editor.cm === cmOrView) view = v; });
+    }
+    if (!view || !view.editor) return;
+    const text = view.editor.getValue();
+    const lines = text.split("\n");
+    let sLine = srcLine;
+    if (srcLineText && lines[sLine] !== srcLineText) {
+      const idx = lines.indexOf(srcLineText);
+      if (idx >= 0) sLine = idx;
+    }
+    const res = J.nestTask(text, sLine, dstLine);
+    if (res.error) return this.notice(res.error, 6000);
+    const change = J.diffLines(text, res.text);
+    if (change) view.editor.transaction({ changes: [change] });
+    const afterLines = res.text.split("\n");
+    for (const job of Object.values(this.jobs)) {
+      if (view.file && job.path === view.file.path && (job.line === sLine || (res.blockId && job.blockId === res.blockId))) {
+        job.line = res.line;
+        job.lineText = afterLines[res.line] || job.lineText;
+      }
+    }
+    this.saveSettings().catch(() => {});
+    this.notice(t("🔗 已挂为「{title}」的子块", { title: truncate(res.dstBody || "", 28) }), 5000);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {}), 300);
     this.refreshUI();
   }
@@ -3330,7 +3368,7 @@ export default class AgentDeckPlugin extends Plugin {
   }
 
   // 笔记里的一项拖到面板的会话卡片上：把这个会话绑给它（和卡片拖到条目上一样，不委派）
-  async bindItemToSession(item, data) {
+  async bindItemToSession(item, data, opts = {}) {
     this._dragItem = null;
     if (!item || !item.path || !data || !data.sid) return;
     const view = this.sourceViewForPath(item.path);
@@ -3338,7 +3376,7 @@ export default class AgentDeckPlugin extends Plugin {
       const lines = view.editor.getValue().split("\n");
       const line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
       if (line < 0) return this.notice(t("这一行刚改过，重新拖一次"));
-      return this.bindSessionAt(view.editor.cm, line, data);
+      return this.bindSessionAt(view.editor.cm, line, data, opts);
     }
     this.notice(t("先把这篇笔记打开再拖"));
   }
@@ -3457,7 +3495,7 @@ export default class AgentDeckPlugin extends Plugin {
     const turns = new Map(Object.entries(this.settings.archiveTaskTurns || {}));
     for (const [sid, meta] of this.usage.meta) turns.set(sid, Math.max(meta.turns || 0, meta.rounds?.length || 0));
     for (const job of Object.values(this.jobs)) if (job.sessionId) turns.set(job.sessionId, Math.max(turns.get(job.sessionId) || 0, job.conversation?.filter(m => m.role === "user").length || 0));
-    return planJournal(base, { tracked, archived: this.autoLog.archived(), turns, layout: configuredJournalLayout(this.settings) });
+    return planJournal(base, { tracked, archived: this.autoLog.archived(), turns, layout: configuredJournalLayout(this.settings), showTimeRange: resolveRecordRules(this.settings).showTimeRange });
   }
 
   async writeJournal(file, base, next) {

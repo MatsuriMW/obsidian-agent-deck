@@ -1546,7 +1546,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const rules = (s.recordRules = resolveRecordRules(s));
     this.rowToggle(rulesBox, t("母块标题自动加粗"), t("生成 AI 自动记录时用 **标题** 突出显示"), rules.boldTitle !== false, (v) => { rules.boldTitle = v; p.saveSettings(); });
     this.rowToggle(rulesBox, t("标题自动带项目 / Bot 前缀"), t("工作区项目或 Grok Bot 自动加上「名称 -> 」"), rules.projectPrefix !== false, (v) => { rules.projectPrefix = v; p.saveSettings(); });
-    this.rowToggle(rulesBox, t("母块显示起止时间段"), t("在 🤖 后写入 HH:MM-HH:MM"), rules.showTimeRange !== false, (v) => { rules.showTimeRange = v; p.saveSettings(); });
+    this.rowToggle(rulesBox, t("母块显示起止时间段"), t("在 🤖 后写入 HH:MM-HH:MM；关闭后改为在子块 ⏱ 实时记录时段"), rules.showTimeRange !== false, (v) => { rules.showTimeRange = v; p.saveSettings(); });
     this.rowNumber(rulesBox, t("生成标题最大字数"), t("10–60 字，默认 22"), rules.titleMax || DEFAULT_RECORD_RULES.titleMax, 10, 60, (v) => { rules.titleMax = Math.max(10, Math.min(60, Math.round(v))); p.saveSettings(); });
     this.rowNumber(rulesBox, t("Grok Bot 无新对话自动 DONE（分钟）"), t("0 表示不自动标为 DONE；默认 120 分钟"), s.autoLogGrokBotDoneMinutes ?? DEFAULTS.autoLogGrokBotDoneMinutes, 0, 1440, (v) => { s.autoLogGrokBotDoneMinutes = Math.max(0, Math.round(v)); p.saveSettings(); });
 

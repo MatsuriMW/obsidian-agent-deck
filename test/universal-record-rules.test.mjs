@@ -3,6 +3,8 @@ import {test} from 'node:test';
 import {register} from 'node:module';
 register('data:text/javascript,'+encodeURIComponent(`export async function resolve(s,c,n){if(s==='obsidian')return {url:'data:text/javascript,export class MarkdownView{};export class Notice{};',shortCircuit:true};return n(s,c)}`));
 const J=await import('../src/journal.js');const {AutoLog}=await import('../src/autolog.js');
+const {JournalSync}=await import('../src/sync.js');
+const {planJournal,renderJournal}=await import('../src/organize-journal.js');
 const {DEFAULT_RECORD_RULES,resolveRecordRules}=await import('../src/constants.js');
 const agents=['claude','codex','dsh','workbuddy','antigravity','opencode','qoder','cursor','grokbot'];
 const url='https://example.com/project/very-long-reference-document?source=all-agent-clients';
@@ -62,4 +64,29 @@ test('recordRules layer: defaults, clamping, boldAutoTitle idempotency, mergeTas
  delete rec.fresh;
  res = alOff.autoLine(note, rec, { ...x, segs: [[540, 560]] }, 'paused');
  assert.ok(res.text.startsWith('- PAUSED 🤖 测试规则开关持久化验 ^codex-'), `tick 2: ${res.text}`);
+
+ // showTimeRange=false strips old parent time range and syncs live - ⏱ child in JournalSync / planJournal
+ const stripped = J.formatSessionTaskLine(J.splitTask('- DOING 🤖 09:00-09:15 **老任务** ^ad-old'), { kw: 'DOING', start: '09:00', end: '09:20', showTimeRange: false });
+ assert.equal(stripped, '- DOING 🤖 **老任务** ^ad-old');
+ const strippedManual = J.formatSessionTaskLine(J.splitTask('- TODO 手动任务'), { kw: 'DOING', start: '09:00', end: '09:20', showTimeRange: false });
+ assert.equal(strippedManual, '- DOING 手动任务');
+
+ const liveSid = '00000000-0000-0000-0000-000000000099';
+ const syncPlugin = {
+   settings: { dayCutoff: 0, recordRules: { showTimeRange: false } },
+   usage: {
+     archived: new Set(),
+     meta: new Map([[liveSid, { agent: 'codex', state: 'run', startedAt: Date.now() - 10 * 60000, lastAt: Date.now() }]]),
+     summary: () => ({ list: [{ sid: liveSid, agent: 'codex', segs: [[540, 555]], out: 1200, fresh: 300 }] }),
+   },
+ };
+ const js = new JournalSync(syncPlugin);
+ const syncIn = `- DOING 🤖 09:00-09:10 **实时会话** ^ad-live\n\t- 🔗 [Codex：实时会话](codex://threads/${liveSid})\n`;
+ const syncOut = js.keywords(syncIn);
+ assert.ok(syncOut.startsWith('- DOING 🤖 **实时会话** ^ad-live\n'), syncOut);
+ assert.ok(syncOut.includes('\t- ⏱ 09:00–09:15 · 共 15m · 2k tok · Codex'), syncOut);
+
+ const organized = renderJournal(planJournal(syncOut, { showTimeRange: false }));
+ assert.ok(organized.includes('- DOING 🤖 **实时会话** ^ad-live'), organized);
+ assert.ok(!organized.includes('DOING 🤖 09:00-09:15'), organized);
 });

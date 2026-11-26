@@ -424,7 +424,8 @@ export class JournalSync {
       if (!want && !p.auto) continue;
       const kw = want || cur.kw || "DOING";
       const span = spanFor(k.sid, p, ls, n, kw);
-      let nextLine = J.formatSessionTaskLine(p, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      const showTimeRange = resolveRecordRules(this.cfg).showTimeRange;
+      let nextLine = J.formatSessionTaskLine(p, { ...span, kw, showTimeRange });
       if (canReopen) {
         const restored = J.ensureBlockId(nextLine, archRec.blockId || J.makeBlockId(k.sid, m?.agent || k.agent));
         nextLine = restored.line;
@@ -436,6 +437,13 @@ export class JournalSync {
         this._reopenedInPass = true;
       }
       if (nextLine !== ls[n]) ls[n] = nextLine;
+      if (!showTimeRange && !J.DONE_KWS.includes(kw)) {
+        const info = this.segmentsFor(k.sid);
+        if (info?.segs?.length) {
+          const who = AGENTS[info.agent]?.short || info.agent;
+          J.upsertClockLine(ls, n, info.segs, who, (info.out || 0) + (info.fresh || 0));
+        }
+      }
     }
     let out = ls.join("\n");
     if (this.cfg.autoLogKw !== false) out = this.autoKeywords(out, spanFor);
@@ -464,12 +472,13 @@ export class JournalSync {
     }
     if (!want.size) return text;
     const ls = text.split("\n");
+    const showTimeRange = resolveRecordRules(this.cfg).showTimeRange;
     let changed = false;
-    for (const [n, { kw, sid, canReopen, rec, agent }] of want) {
+    for (const [n, { kw, sid, canReopen, rec, agent }] of [...want.entries()].sort((a, b) => b[0] - a[0])) {
       const p = J.splitTask(ls[n]);
       if (!p || p.cb || !p.kw) continue;
       const span = spanFor(sid, p, ls, n, kw);
-      let nextLine = J.formatSessionTaskLine(p, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      let nextLine = J.formatSessionTaskLine(p, { ...span, kw, showTimeRange });
       if (canReopen) {
         const restored = J.ensureBlockId(nextLine, rec.blockId || J.makeBlockId(sid, agent));
         nextLine = restored.line;
@@ -480,9 +489,17 @@ export class JournalSync {
         rec.status = kw === "DOING" ? "doing" : "paused";
         this._reopenedInPass = true;
       }
-      if (nextLine === ls[n]) continue;
-      ls[n] = nextLine;
-      changed = true;
+      if (nextLine !== ls[n]) {
+        ls[n] = nextLine;
+        changed = true;
+      }
+      if (!showTimeRange && !J.DONE_KWS.includes(kw)) {
+        const info = this.segmentsFor(sid);
+        if (info?.segs?.length) {
+          const who = AGENTS[info.agent]?.short || info.agent;
+          if (J.upsertClockLine(ls, n, info.segs, who, (info.out || 0) + (info.fresh || 0))) changed = true;
+        }
+      }
     }
     return changed ? ls.join("\n") : text;
   }
@@ -498,10 +515,13 @@ export class JournalSync {
     if (!p || J.isManualTask(this.cfg, lines[n])) return text;
     const info = this.segmentsFor(sid);
     const span = this.sessionTimeSpan(sid, p, lines, n, "DONE", info?.segs);
+    const showTimeRange = resolveRecordRules(this.cfg).showTimeRange;
     if ((p.auto && !p.cb) || p.until) {
-      lines[n] = J.formatSessionTaskLine(p, { ...span, kw: "DONE", showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      lines[n] = J.formatSessionTaskLine(p, { ...span, kw: "DONE", showTimeRange });
     } else {
-      lines[n] = `${p.prefix}DONE ${span.end ? span.end + " " : ""}${p.rest}`.trimEnd();
+      lines[n] = showTimeRange === false
+        ? `${p.prefix}DONE ${p.rest}`.trimEnd()
+        : `${p.prefix}DONE ${span.end ? span.end + " " : ""}${p.rest}`.trimEnd();
     }
     if (info && info.segs.length) {
       // 先收掉旧的 ⏱

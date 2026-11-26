@@ -1,6 +1,19 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.31**（2026-11-26）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.32**（2026-11-26）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.32 非侵入子块拖拽绑定、Pin 视觉突出与 AI 自动记录操作指南
+
+- **拖拽绑定默认挂为非侵入子块 & 纯子块 `⏱` 模式补齐 + 螺旋日程 `🤖` 子块联动适配（2026-11-26）**：
+  - `src/journal.js` / `src/editor.js` / `src/view.js` / `src/main.js`：`dropKind` / `bindInto` 对已有列表项默认返回 `kind: "child"`，在目标日注下挂出缩进 `🤖` 子块并零侵入保留母块原文；挂在日注下的 `🤖` 子块不套用母块加粗（迁入顶格自动块时剥除最外层 `**...**`），保持母块视觉优先级高于子块；支持同日注挂多会话及把既有顶格 `🤖` 自动记录整块无损迁入，且 `bindSessionAt` 的 `taskBindings` / `markBound` 使用 `kwLine().body` 纯键名；新增 `nestTask` / `nestTaskLines` 使编辑器任务块互拖默认挂为子块；按住 `⌥` 保留原 1 对 1 直接绑定/合并。
+  - `src/journal.js` / `src/autolog.js` / `src/sync.js` / `src/organize-journal.js`：补齐 `showTimeRange: false`（`formatSessionTaskLine` 不再反写母行时段、新增 `upsertClockLine` 供 `AutoLog` 与 `JournalSync` 在进行中实时维护子块 `- ⏱`、`planJournal(..., { showTimeRange })` 不将时段写回母行）。
+  - 螺旋日程主库正本与公开版（`nautilus-spiral`）：`parseJournal` / `mainOf` 对 `🤖` 子块豁免非 `DONE` 母块状态覆盖且不触发 `container`，仅在母块标 `DONE` 时把未完成 `🤖` 子块收口为 `done`；`markMain` 不让缩进 `🤖` 子块自动继承 `[#A]` 主线、`schedule` 让顶格/母块在同状态中排在缩进 `🤖` 子块之前、`paintSegs` 按 `shallowTop` 保证母块永远压在子块上层绘制；`applyWork` / `useClockTotal` 支持无母块时段 `DOING 🤖` 读取子块 `- ⏱`。
+- **大纲视图 Pin 视觉突出 & 双语操作指南与实机演示视频**：
+  - `src/styles/views/record-views.css`：为大纲模式 `.ad-record-line--pinned` 与阅读视图 `.ad-record-pinned` 增加主题色柔和底纹与 `.ad-round-badge` 高亮，折叠后常驻展示更醒目。
+  - `README.zh-CN.md`、`README.md`、`docs/wiki/Workflow-Markdown-Harness.md`、`docs/wiki/Workflow-Markdown-Harness.en.md`、`docs/wiki/Home.md`、`docs/wiki/Home.en.md` 及 `assets/ai-record-operations-demo.gif` / Release `1.13.32` `ai-record-operations-demo.mp4`：新增「在agent deck里你可以如何去对于 AI 自动记录的内容进行操作」（含英文版），一次性演示拖拽挂子块、`⌘⌥↓` 一键成组、3 层递进子块、展开/折叠与右键 Pin、表格/分形看板切换及 `⌃⌥L` 整理日志版面。
+- **实测范围与未测空白**：
+  - **macOS arm64 已实测**：全量 `npm test`、`npm run eval`、`npm run build`、`npm run check:deploy`、`swiftc -typecheck src/menubar.swift`、`git diff --check`；螺旋日程主库/公开版 6 套回归及双模式（`showTimeRange: true` / `false`）两遍真实跨插件端到端实跑；并在 `马自立` Vault 实机 Obsidian 界面中完成了 6 幕端到端交互录屏与验收（`.ad-grip` 真实鼠标拖拽挂为子块、`⌘⌥↓` 一键成组、3 层递进子块、展开/折叠 + 原生右键菜单 Pin 与大纲柔和突出样式、表格视图、子主题原地分形看板、`⌃⌥L` 整理日志版面、`dev:errors` 零 `agent-deck` 报错）。
+  - **未测空白**：Windows 真机桌面 GUI 交互未实测（仅 GitHub Actions `windows-latest` CI 跑单测）。
 
 ## 1.13.31 示例文档实核修正与完整性回归
 

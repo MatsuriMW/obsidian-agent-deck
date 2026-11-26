@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.32
+
+- **非侵入子块拖拽绑定与纯子块计时模式补齐（[`src/journal.js`](src/journal.js)、[`src/editor.js`](src/editor.js)、[`src/view.js`](src/view.js)、[`src/main.js`](src/main.js)、[`src/autolog.js`](src/autolog.js)、[`src/sync.js`](src/sync.js)、[`src/organize-journal.js`](src/organize-journal.js)、[`src/settings.js`](src/settings.js)）**：
+  - 拖拽侧栏会话卡到已有日注/任务行，或在编辑器中拖放已有任务块（`nestTask` / `nestTaskLines`）时，默认**挂为缩进子块**，完整保留母块原文、双链与时段（支持同母块挂多会话及顶格 `🤖` 块无损整块迁入并自动剥离母块级加粗，保持母块视觉优先级）；按住 `⌥` 保留原 1:1 直接绑定或合并，`⌘` 在下方新建任务。
+  - 补齐 `showTimeRange: false`（纯子块 `- ⏱` 模式）：`formatSessionTaskLine` 与 `planJournal` 不再把时段反写回母行，`AutoLog` 与 `JournalSync` 通过 `upsertClockLine` 在会话进行中实时维护子块计时。
+- **大纲视图 Pin 视觉突出优化（[`src/styles/views/record-views.css`](src/styles/views/record-views.css)）**：
+  - 为大纲模式与阅读视图中被 Pin 的关键轮次（`.ad-record-line--pinned` / `.ad-record-pinned`）补充柔和主题色底纹与序号徽章高亮，折叠后一眼可区分常驻的关键记录。
+- **双语 README 与 Wiki 新增 AI 自动记录操作指南及实机演示视频（[`README.zh-CN.md`](README.zh-CN.md)、[`README.md`](README.md)、[`docs/wiki/Workflow-Markdown-Harness.md`](docs/wiki/Workflow-Markdown-Harness.md)、[`docs/wiki/Workflow-Markdown-Harness.en.md`](docs/wiki/Workflow-Markdown-Harness.en.md)、[`assets/ai-record-operations-demo.gif`](assets/ai-record-operations-demo.gif)）**：
+  - 覆盖拖拽挂子块、`⌘⌥↓` 一键成组与多层递进子块、折叠展开与右键 Pin、表格/分形看板原地切换及 `⌃⌥L` 整理日志版面的完整操作说明与 60 秒演示。
+
 ## 1.13.31
 
 - **新功能示例文档准确性与互动看板修复（[`src/welcome-demo.js`](src/welcome-demo.js)、[`test/showcase-flows.test.mjs`](test/showcase-flows.test.mjs)）**：

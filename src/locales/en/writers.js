@@ -41,6 +41,10 @@ export default {
   "只能把任务列表项合并到另一条任务列表项上":
     "Only a task list item can be merged into another task list item",
   "父子任务不能直接互相合并": "A parent task and its child cannot be merged into each other",
+  "只能把任务列表项挂到另一条任务列表项下":
+    "Only a task list item can be nested under another task list item",
+  "父子任务不能互相挂载": "A parent task and its child cannot be nested under each other",
+  "这一项已经是它的子块了": "This item is already a child of that task",
 
   // dream.js — progress, notices and refusals.
   "长期记忆（Dreaming 整理，按本次任务挑出相关条目；标「待验证推断」的是推断而不是事实，与用户本次明确表达冲突时以本次为准）：":

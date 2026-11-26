@@ -29,7 +29,7 @@ export const refreshEffect = StateEffect.define();
 export const SESSION_MIME = "application/x-agent-deck-session";
 export const ITEM_MIME = "application/x-agent-deck-item";
 
-const DROP_LABEL = { bind: "绑定", fill: "新建一项", new: "新建一项", below: "在下面新建", after: "在下面新建", merge: "合并到这一项" };
+const DROP_LABEL = { child: "挂为子块", bind: "绑定", fill: "新建一项", new: "新建一项", below: "在下面新建", after: "在下面新建", merge: "合并到这一项" };
 export const setDrop = StateEffect.define();
 export const dropField = StateField.define({
   create: () => Decoration.none,
@@ -52,7 +52,7 @@ function dropTarget(view, e) {
   const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }, false);
   if (pos == null) return null;
   const n = view.state.doc.lineAt(pos).number - 1;
-  return J.dropKind(view.state.doc.toString().split("\n"), n, !!e.metaKey);   // 按住 ⌘：在下面新建一项，不绑这一项
+  return J.dropKind(view.state.doc.toString().split("\n"), n, !!e.metaKey, !!e.altKey);   // ⌘：在下面新建一项；⌥：直接绑到这一项
 }
 
 function mergeTarget(view, e, plugin) {
@@ -67,7 +67,7 @@ function mergeTarget(view, e, plugin) {
   }
   const src = plugin._dragItem;
   if (src && src.line === n) return null;
-  return { line: n, kind: "merge" };
+  return { line: n, kind: e.altKey ? "merge" : "child" };
 }
 
 function dndHandlers(plugin) {
@@ -110,7 +110,7 @@ function dndHandlers(plugin) {
         show(view, null);
         let data = null;
         try { data = JSON.parse(e.dataTransfer.getData(SESSION_MIME)); } catch { /* bad payload */ }
-        if (data && target) plugin.bindSessionAt(view, target.line, data, { below: !!e.metaKey });
+        if (data && target) plugin.bindSessionAt(view, target.line, data, { below: !!e.metaKey, direct: !!e.altKey });
         else if (data) plugin.notice(tr("这一行放不了会话：拖到列表项、空的列表项或空行上"));
         return true;
       }
@@ -121,7 +121,10 @@ function dndHandlers(plugin) {
         e.preventDefault();
         e.stopPropagation();
         const item = plugin.readItemDrag(e);
-        if (item && item.line !== target.line) plugin.mergeTaskLines(view, item.line, target.line, item.lineText);
+        if (item && item.line !== target.line) {
+          if (target.kind === "merge") plugin.mergeTaskLines(view, item.line, target.line, item.lineText);
+          else plugin.nestTaskLines(view, item.line, target.line, item.lineText);
+        }
         return true;
       }
       return false;
@@ -157,7 +160,7 @@ class GripWidget extends WidgetType {
     el.draggable = true;
     setLucide(el, "send");
     const main = AGENTS[this.plugin.defaultTarget()] || AGENTS.claude;
-    el.setAttribute("aria-label", tr("单击发给 {agent} · 双击或 ⌘ 单击选 Agent / 合并条目 · 拖到另一条任务上绑定混合", { agent: main.short }));
+    el.setAttribute("aria-label", tr("单击发给 {agent} · 双击或 ⌘ 单击选 Agent / 合并条目 · 拖到另一条任务上挂为子块（按住 ⌥ 合并）", { agent: main.short }));
     const item = { path: this.path, line: this.line, lineText: this.text };
     // 单击要等一下看是不是双击，免得双击时先把任务发给了主力
     let clickTimer = null;
@@ -847,7 +850,7 @@ export function installListDragBridge(plugin, {
         state: card.dataset.state || "",
       };
       setTimeout(() => {
-        plugin.bindItemToSession?.(dropItem, sessionData);
+        plugin.bindItemToSession?.(dropItem, sessionData, { direct: Boolean(e.altKey) });
       }, 0);
     }
   };

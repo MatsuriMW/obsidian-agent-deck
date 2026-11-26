@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.31 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.32 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 /* Generated from src/styles/ by `npm run build` — do not edit styles.css directly. */
 /* src/styles/base/tokens.css */
 .ad-view,
@@ -3133,6 +3133,14 @@ body.ad-dragging-session .markdown-source-view .cm-content {
 .markdown-source-view.mod-cm6 .cm-line.ad-record-line--pinned,
 .markdown-rendered .ad-record-pinned {
   color: var(--text-normal);
+  background: color-mix(in srgb, var(--interactive-accent) 6%, transparent);
+  border-radius: 4px;
+}
+.markdown-source-view.mod-cm6 .cm-line.ad-record-line--pinned .ad-round-badge,
+.markdown-rendered .ad-record-pinned .ad-round-badge {
+  border-color: color-mix(in srgb, var(--interactive-accent) 62%, transparent);
+  background: color-mix(in srgb, var(--interactive-accent) 14%, transparent);
+  color: var(--interactive-accent);
 }
 .ad-record-table-wrap .is-pinned {
   background: color-mix(in srgb, var(--interactive-accent) 5%, transparent);

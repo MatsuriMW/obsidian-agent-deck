@@ -142,12 +142,12 @@ function planBoundedJournal(text, options, custom) {
 }
 
 // Classify the whole note into the three bands without touching the text.
-export function planJournal(text, { tracked = new Map(), archived = new Set(), turns = new Map(), layout, boundedBody = false } = {}) {
+export function planJournal(text, { tracked = new Map(), archived = new Set(), turns = new Map(), layout, boundedBody = false, showTimeRange = true } = {}) {
   const custom = readJournalLayout(text);
-  if (layout?.order.includes('todo') || custom?.sections.todo) return planBoundedJournal(text, { tracked, archived, turns, layout }, custom);
+  if (layout?.order.includes('todo') || custom?.sections.todo) return planBoundedJournal(text, { tracked, archived, turns, layout, showTimeRange }, custom);
   if (custom) {
     const canonical = [custom.head, `---\n${DONE_HEADING}\n${custom.sections.done.text}\n\n---\n${ACTIVE_HEADING}\n${custom.sections.active.text}\n\n---\n`].filter(Boolean).join('\n\n');
-    const plan = planJournal(canonical, { tracked, archived, turns });
+    const plan = planJournal(canonical, { tracked, archived, turns, showTimeRange });
     return { ...plan, rest: [plan.rest, custom.sections.notes.text].filter(Boolean).join('\n\n'), crlf: /\r\n/.test(text), layout: layout === undefined ? custom.layout : layout, tail: custom.tail, insertAt: custom.sections.active.end };
   }
   // Work in LF; renderJournal puts the note's own line endings back.
@@ -245,6 +245,23 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
     if (!p) return chunkLines;
     const cs = J.clockSpanFromLines(chunkLines, 0);
     if (p.auto && !p.cb) {
+      if (showTimeRange === false) {
+        if (forceDone || p.since || p.until) {
+          return [
+            J.formatAutoTaskLine({
+              prefix: p.prefix,
+              kw: forceDone ? 'DONE' : (p.kw || 'TODO'),
+              start: '',
+              end: '',
+              title: p.title, preserveTitle: true,
+              showTimeRange: false,
+              blockId: p.blockId,
+            }),
+            ...chunkLines.slice(1),
+          ];
+        }
+        return chunkLines;
+      }
       const s = p.since || cs?.start || '';
       const e = (p.until && p.until !== p.since ? p.until : cs?.end) || p.until || p.since || s;
       if (s || e || forceDone) {
@@ -264,6 +281,9 @@ export function planJournal(text, { tracked = new Map(), archived = new Set(), t
     }
     if (forceDone) {
       const stamp = cs?.end || p.until || p.since || '';
+      if (showTimeRange === false) {
+        return [`${p.prefix}DONE ${p.rest}`.trimEnd(), ...chunkLines.slice(1)];
+      }
       if (p.until) return [J.formatSessionTaskLine(p, { kw: 'DONE', start: p.since, end: stamp }), ...chunkLines.slice(1)];
       return [`${p.prefix}DONE ${stamp ? stamp + ' ' : ''}${p.rest}`.trimEnd(), ...chunkLines.slice(1)];
     }

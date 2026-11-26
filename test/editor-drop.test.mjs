@@ -102,6 +102,15 @@ assert.equal(bindResult.specs[0].from, 0);
 assert.equal(bindResult.specs[0].class, "ad-drop-line ad-drop-line--bind");
 assert.ok(bindResult.specs[0].attributes["data-ad-drop"], "expected non-empty data-ad-drop attribute for bind");
 
+const childResult = dropField.update(initial, {
+  changes: {},
+  effects: [setDrop.of({ line: 0, kind: "child" })],
+  state: { doc: mockDoc },
+});
+assert.equal(childResult.specs.length, 1);
+assert.equal(childResult.specs[0].class, "ad-drop-line ad-drop-line--child");
+assert.ok(childResult.specs[0].attributes["data-ad-drop"], "expected non-empty data-ad-drop attribute for child");
+
 const afterResult = dropField.update(bindResult, {
   changes: {},
   effects: [setDrop.of({ line: 1, kind: "after" })],

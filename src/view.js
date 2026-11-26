@@ -1022,7 +1022,7 @@ export class AgentDeckView extends ItemView {
       card.addEventListener("drop", (e) => {
         if (!p.acceptsItemDrag(e)) return;
         e.preventDefault(); card.removeClass("is-drop");
-        p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" });
+        p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" }, { direct: Boolean(e.altKey) });
       });
     }
     card.style.setProperty("--ad-agent", a.color);

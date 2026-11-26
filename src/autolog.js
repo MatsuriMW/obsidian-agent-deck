@@ -145,7 +145,7 @@ export class AutoLog {
     const block = blockLines.join("\n");
     let custom = readJournalLayout(text);
     if (!custom) {
-      text = renderJournal(planJournal(text, { layout: configuredJournalLayout(this.cfg) }));
+      text = renderJournal(planJournal(text, { layout: configuredJournalLayout(this.cfg), showTimeRange: this.rules().showTimeRange }));
       custom = readJournalLayout(text);
       if (!custom) throw new Error(t("请先关闭笔记中的代码块，再建立日志分区"));
     }
@@ -676,6 +676,7 @@ export class AutoLog {
             text = this.autoLine(text, rec, x, "doing").text;
             rec.status = "doing";
             delete rec.parkedAt; delete rec.fresh; delete rec.autoPaused; delete rec.autoKw; delete rec.doneHint;
+            if (!this.rules().showTimeRange) clocks.add(rec.key);
             digest.doing.push(name);
             report.changes.push(t("DOING：{name}", { name: rec.label }));
           } else if (!manualState && active && cur === "doing") {
@@ -684,6 +685,7 @@ export class AutoLog {
             text = this.autoLine(text, rec, x, status).text;
             rec.status = "doing";
             delete rec.parkedAt; delete rec.autoPaused; delete rec.autoKw; delete rec.doneHint;
+            if (!this.rules().showTimeRange) clocks.add(rec.key);
           } else if (!manualState && doneReview && !(rec.hold && Date.now() < rec.hold) && (cur === "doing" || rec.fresh || reactivated || rec.autoKw === "PAUSED" || rec.autoKw === "TOREVIEW")) {
             const changed = !found || found.kw !== "TOREVIEW";
             text = this.autoLine(text, rec, x, "TOREVIEW").text;

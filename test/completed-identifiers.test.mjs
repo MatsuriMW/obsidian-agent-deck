@@ -33,12 +33,18 @@ test('new task IDs and provenance are compact, legacy rounds are recognized and 
 test('each agent prefix works in binding, source hiding, organization and completion cleanup',()=>{
  for(const [agent,prefix] of Object.entries({antigravity:'agy',claude:'claude',codex:'codex',dsh:'dsh',workbuddy:'wb',opencode:'oc',qoder:'qoder'})){
   const id=J.makeBlockId(sid,agent);assert.match(id,new RegExp(`^${prefix}-[a-z0-9]{10}$`));
-  const bound=J.bindInto('- TODO 测试',0,{sid,agent,title:'测试',ensureBlockId:true});
+  const bound=J.bindInto('- TODO 测试',0,{sid,agent,title:'测试',ensureBlockId:true},{direct:true});
   assert.equal(bound.blockId,id);
   assert.equal(adBlockIdRanges(bound.text).filter(r=>bound.text.slice(r.from,r.to).includes('^'+id)).length,1);
   assert.equal(planJournal(bound.text).active.length,1);
   const done=J.cleanCompletedIdentifiers(bound.text.replace('DOING','DONE'));
   assert.ok(!done.includes('^'+id));assert.ok(J.parseLink(done.split('\n')[1]));
+  const childBound=J.bindInto('- TODO 测试',0,{sid,agent,title:'测试',ensureBlockId:true});
+  assert.equal(childBound.kind,'child');
+  assert.equal(childBound.blockId,id);
+  assert.ok(childBound.text.startsWith('- TODO 测试\n\t- DOING 🤖 '));
+  const childDone=J.cleanCompletedIdentifiers(childBound.text.replace('DOING','DONE'));
+  assert.ok(!childDone.includes('^'+id));assert.ok(J.parseLink(childDone.split('\n')[2]));
  }
  assert.equal(J.isDeckBlockId('codex-personal'),false,'custom IDs do not become generated IDs');
 });

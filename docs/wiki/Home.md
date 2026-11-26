@@ -18,7 +18,7 @@
 | --- | --- |
 | [[快速上手\|Quick-Start]] | 首次安装、3 分钟跑通会话追踪、日记自动记录与任务派发 |
 | [[支持的 Agent 与主流模型\|Supported-Agents-and-Models]] | 21 家内置客户端（含中文 Agent 生态与前置安装要求）、自定义 ACP 与模型矩阵、各客户端边界 |
-| [[核心工作流：Markdown 即 Harness\|Workflow-Markdown-Harness]] | 从笔记派活、`@` / `/` 补全、问答闭环、四种记录视图、原地分形看板与技能卡 |
+| [[核心工作流：Markdown 即 Harness\|Workflow-Markdown-Harness]] | AI 自动记录整理操作（拖拽挂子块 / 快捷键成组 / Pin / 整理版面）、从笔记派活、`@` / `/` 补全、问答闭环、四种记录视图、原地分形看板与技能卡 |
 | [[长期记忆闭环（Dreaming）\|Long-Term-Memory-Dreaming]] | 一文一条记忆库、Base 表格与记忆看板、溯源回链、体检与隐私边界 |
 | [[常见问题与排错\|FAQ-and-Troubleshooting]] | macOS PATH、Trae / Cursor Hooks 前置开启步骤、Windows 适配现状、密钥安全与脱敏诊断导出 |
 

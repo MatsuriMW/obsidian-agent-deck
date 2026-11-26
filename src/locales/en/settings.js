@@ -612,7 +612,7 @@ export default {
   "标题自动带项目 / Bot 前缀": "Prefix title with project or Bot name",
   "工作区项目或 Grok Bot 自动加上「名称 -> 」": "Automatically prepend 'Name -> ' for workspace projects and Grok Bots",
   "母块显示起止时间段": "Show start–end time range on parent block",
-  "在 🤖 后写入 HH:MM-HH:MM": "Include HH:MM-HH:MM after 🤖",
+  "在 🤖 后写入 HH:MM-HH:MM；关闭后改为在子块 ⏱ 实时记录时段": "Include HH:MM-HH:MM after 🤖; when off, live time spans are written only to the child ⏱ line",
   "生成标题最大字数": "Max generated title length",
   "10–60 字，默认 22": "10–60 characters; default is 22",
   "Cursor Hooks 需要更新（{matched}/{total}）": "Cursor Hooks need an update ({matched}/{total})",

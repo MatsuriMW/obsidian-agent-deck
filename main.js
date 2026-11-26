@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.31 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.32 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -97,9 +97,11 @@ var main_default = {
   "\u672A\u547D\u540D\u4EFB\u52A1": "Untitled task",
   "{agent}\uFF1A{task}": "{agent}: {task}",
   "\u8FD9\u4E00\u884C\u4E0B\u9762\u6CA1\u6709 \u{1F517} \u7ED1\u5B9A": "No \u{1F517} binding under this line",
+  "\u{1F517} \u5DF2\u6302\u4E3A\u5B50\u5757\uFF1A{agent} \u4F1A\u8BDD\u4F1A\u4F5C\u4E3A\u8FD9\u6761\u65E5\u6CE8\u7684\u5B50\u9879\u6301\u7EED\u66F4\u65B0\uFF0C\u4E0D\u6539\u52A8\u539F\u6587": "\u{1F517} Attached as child: the {agent} session updates as a sub-item without altering the parent note",
   "\u{1F517} \u5DF2\u7ED1\u5B9A\uFF1A{agent} \u4F1A\u8BDD\u7684\u6BCF\u8F6E \u{1F4AC}\u3001\u2753\u3001\u23F1 \u548C\u72B6\u6001\u90FD\u4F1A\u8DDF\u7740\u8FD9\u4E00\u9879\u8D70": "\u{1F517} Bound: every \u{1F4AC}, \u2753, \u23F1 and status of the {agent} session now follows this item",
   "\u{1F517} \u65B0\u5EFA\u4E86\u4E00\u9879\u5E76\u7ED1\u4E0A {agent} \u4F1A\u8BDD": "\u{1F517} Created a new item bound to the {agent} session",
   "\u{1F517} \u5DF2\u5408\u5E76\u6761\u76EE\uFF1A\u4F1A\u8BDD\u8BB0\u5F55\u4E0E\u7ED3\u8BBA\u5DF2\u5F52\u5165\u300C{title}\u300D": "\u{1F517} Items merged: the session record and conclusion now sit under \u201C{title}\u201D",
+  "\u{1F517} \u5DF2\u6302\u4E3A\u300C{title}\u300D\u7684\u5B50\u5757": "\u{1F517} Attached as a child under \u201C{title}\u201D",
   "\u5148\u628A\u5149\u6807\u653E\u5728\u4E00\u6761\u4EFB\u52A1\u884C\u4E0A": "Put the cursor on a task line first",
   "\u5F53\u524D\u7B14\u8BB0\u91CC\u6CA1\u6709\u522B\u7684\u4EFB\u52A1\u6761\u76EE\u53EF\u5408\u5E76": "This note has no other task item to merge into",
   "\u5408\u5E76\u5230\uFF1A{title}": "Merge into: {title}",
@@ -1445,7 +1447,7 @@ var settings_default = {
   "\u6807\u9898\u81EA\u52A8\u5E26\u9879\u76EE / Bot \u524D\u7F00": "Prefix title with project or Bot name",
   "\u5DE5\u4F5C\u533A\u9879\u76EE\u6216 Grok Bot \u81EA\u52A8\u52A0\u4E0A\u300C\u540D\u79F0 -> \u300D": "Automatically prepend 'Name -> ' for workspace projects and Grok Bots",
   "\u6BCD\u5757\u663E\u793A\u8D77\u6B62\u65F6\u95F4\u6BB5": "Show start\u2013end time range on parent block",
-  "\u5728 \u{1F916} \u540E\u5199\u5165 HH:MM-HH:MM": "Include HH:MM-HH:MM after \u{1F916}",
+  "\u5728 \u{1F916} \u540E\u5199\u5165 HH:MM-HH:MM\uFF1B\u5173\u95ED\u540E\u6539\u4E3A\u5728\u5B50\u5757 \u23F1 \u5B9E\u65F6\u8BB0\u5F55\u65F6\u6BB5": "Include HH:MM-HH:MM after \u{1F916}; when off, live time spans are written only to the child \u23F1 line",
   "\u751F\u6210\u6807\u9898\u6700\u5927\u5B57\u6570": "Max generated title length",
   "10\u201360 \u5B57\uFF0C\u9ED8\u8BA4 22": "10\u201360 characters; default is 22",
   "Cursor Hooks \u9700\u8981\u66F4\u65B0\uFF08{matched}/{total}\uFF09": "Cursor Hooks need an update ({matched}/{total})",
@@ -2057,6 +2059,9 @@ var writers_default = {
   "\u8FD9\u4E24\u884C\u672C\u8EAB\u5DF2\u7ECF\u5728\u540C\u4E00\u4E2A\u4EFB\u52A1\u6761\u76EE\u4E0B\u4E86": "These two lines already belong to the same task item",
   "\u53EA\u80FD\u628A\u4EFB\u52A1\u5217\u8868\u9879\u5408\u5E76\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u5217\u8868\u9879\u4E0A": "Only a task list item can be merged into another task list item",
   "\u7236\u5B50\u4EFB\u52A1\u4E0D\u80FD\u76F4\u63A5\u4E92\u76F8\u5408\u5E76": "A parent task and its child cannot be merged into each other",
+  "\u53EA\u80FD\u628A\u4EFB\u52A1\u5217\u8868\u9879\u6302\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u5217\u8868\u9879\u4E0B": "Only a task list item can be nested under another task list item",
+  "\u7236\u5B50\u4EFB\u52A1\u4E0D\u80FD\u4E92\u76F8\u6302\u8F7D": "A parent task and its child cannot be nested under each other",
+  "\u8FD9\u4E00\u9879\u5DF2\u7ECF\u662F\u5B83\u7684\u5B50\u5757\u4E86": "This item is already a child of that task",
   // dream.js — progress, notices and refusals.
   "\u957F\u671F\u8BB0\u5FC6\uFF08Dreaming \u6574\u7406\uFF0C\u6309\u672C\u6B21\u4EFB\u52A1\u6311\u51FA\u76F8\u5173\u6761\u76EE\uFF1B\u6807\u300C\u5F85\u9A8C\u8BC1\u63A8\u65AD\u300D\u7684\u662F\u63A8\u65AD\u800C\u4E0D\u662F\u4E8B\u5B9E\uFF0C\u4E0E\u7528\u6237\u672C\u6B21\u660E\u786E\u8868\u8FBE\u51B2\u7A81\u65F6\u4EE5\u672C\u6B21\u4E3A\u51C6\uFF09\uFF1A": "Long-term memory (tended by Dreaming, matched to this task; anything marked as an unverified inference is a guess rather than a fact, and the user's explicit wording here wins):",
   "\uFF08\u5F85\u9A8C\u8BC1\u63A8\u65AD\uFF09": " (unverified inference)",
@@ -2234,12 +2239,13 @@ var menubar_default = {
 
 // src/locales/en/editor.js
 var editor_default = {
+  "\u6302\u4E3A\u5B50\u5757": "Attach as child",
   "\u7ED1\u5B9A": "Bind",
   "\u65B0\u5EFA\u4E00\u9879": "New item",
   "\u5728\u4E0B\u9762\u65B0\u5EFA": "New item below",
   "\u5408\u5E76\u5230\u8FD9\u4E00\u9879": "Merge into this item",
   "\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A": "A session cannot land here. Drop it on a list item, an empty list item, or a blank line.",
-  "\u5355\u51FB\u53D1\u7ED9 {agent} \xB7 \u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009 Agent / \u5408\u5E76\u6761\u76EE \xB7 \u62D6\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u4E0A\u7ED1\u5B9A\u6DF7\u5408": "Click to send to {agent} \xB7 double-click or \u2318-click to pick an agent or merge items \xB7 drag onto another task to bind",
+  "\u5355\u51FB\u53D1\u7ED9 {agent} \xB7 \u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009 Agent / \u5408\u5E76\u6761\u76EE \xB7 \u62D6\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u4E0A\u6302\u4E3A\u5B50\u5757\uFF08\u6309\u4F4F \u2325 \u5408\u5E76\uFF09": "Click to send to {agent} \xB7 double-click or \u2318-click to pick an agent or merge items \xB7 drag onto another task to attach as a child (hold \u2325 to merge)",
   "\u59D4\u6D3E": "Delegate",
   "\u6B63\u5728\u5EFA\u7ACB\u4F1A\u8BDD": "Starting session",
   "\u6B63\u5728\u6267\u884C": "Running",
@@ -2482,9 +2488,11 @@ var zh_TW_default = {
   "\u672A\u547D\u540D\u4F1A\u8BDD": "\u672A\u547D\u540D\u6703\u8A71",
   "\u672A\u547D\u540D\u4EFB\u52A1": "\u672A\u547D\u540D\u4EFB\u52D9",
   "\u8FD9\u4E00\u884C\u4E0B\u9762\u6CA1\u6709 \u{1F517} \u7ED1\u5B9A": "\u9019\u4E00\u884C\u4E0B\u9762\u6C92\u6709 \u{1F517} \u7D81\u5B9A",
+  "\u{1F517} \u5DF2\u6302\u4E3A\u5B50\u5757\uFF1A{agent} \u4F1A\u8BDD\u4F1A\u4F5C\u4E3A\u8FD9\u6761\u65E5\u6CE8\u7684\u5B50\u9879\u6301\u7EED\u66F4\u65B0\uFF0C\u4E0D\u6539\u52A8\u539F\u6587": "\u{1F517} \u5DF2\u639B\u70BA\u5B50\u584A\uFF1A{agent} \u6703\u8A71\u6703\u4F5C\u70BA\u9019\u689D\u65E5\u8A8C\u7684\u5B50\u9805\u6301\u7E8C\u66F4\u65B0\uFF0C\u4E0D\u6539\u52D5\u539F\u6587",
   "\u{1F517} \u5DF2\u7ED1\u5B9A\uFF1A{agent} \u4F1A\u8BDD\u7684\u6BCF\u8F6E \u{1F4AC}\u3001\u2753\u3001\u23F1 \u548C\u72B6\u6001\u90FD\u4F1A\u8DDF\u7740\u8FD9\u4E00\u9879\u8D70": "\u{1F517} \u5DF2\u7D81\u5B9A\uFF1A{agent} \u6703\u8A71\u7684\u6BCF\u8F2A \u{1F4AC}\u3001\u2753\u3001\u23F1 \u548C\u72C0\u614B\u90FD\u6703\u8DDF\u8457\u9019\u4E00\u9805\u8D70",
   "\u{1F517} \u65B0\u5EFA\u4E86\u4E00\u9879\u5E76\u7ED1\u4E0A {agent} \u4F1A\u8BDD": "\u{1F517} \u65B0\u5EFA\u4E86\u4E00\u9805\u4E26\u7D81\u4E0A {agent} \u6703\u8A71",
   "\u{1F517} \u5DF2\u5408\u5E76\u6761\u76EE\uFF1A\u4F1A\u8BDD\u8BB0\u5F55\u4E0E\u7ED3\u8BBA\u5DF2\u5F52\u5165\u300C{title}\u300D": "\u{1F517} \u5DF2\u5408\u4F75\u689D\u76EE\uFF1A\u6703\u8A71\u8A18\u9304\u8207\u7D50\u8AD6\u5DF2\u6B78\u5165\u300C{title}\u300D",
+  "\u{1F517} \u5DF2\u6302\u4E3A\u300C{title}\u300D\u7684\u5B50\u5757": "\u{1F517} \u5DF2\u639B\u70BA\u300C{title}\u300D\u7684\u5B50\u584A",
   "\u5148\u628A\u5149\u6807\u653E\u5728\u4E00\u6761\u4EFB\u52A1\u884C\u4E0A": "\u5148\u628A\u6E38\u6A19\u653E\u5728\u4E00\u689D\u4EFB\u52D9\u884C\u4E0A",
   "\u5F53\u524D\u7B14\u8BB0\u91CC\u6CA1\u6709\u522B\u7684\u4EFB\u52A1\u6761\u76EE\u53EF\u5408\u5E76": "\u7576\u524D\u7B46\u8A18\u88E1\u6C92\u6709\u5225\u7684\u4EFB\u52D9\u689D\u76EE\u53EF\u5408\u4F75",
   "\u5408\u5E76\u5230\uFF1A{title}": "\u5408\u4F75\u5230\uFF1A{title}",
@@ -3559,7 +3567,7 @@ var zh_TW_default = {
   "\u6807\u9898\u81EA\u52A8\u5E26\u9879\u76EE / Bot \u524D\u7F00": "\u6A19\u984C\u81EA\u52D5\u5E36\u5C08\u6848 / Bot \u5B57\u9996",
   "\u5DE5\u4F5C\u533A\u9879\u76EE\u6216 Grok Bot \u81EA\u52A8\u52A0\u4E0A\u300C\u540D\u79F0 -> \u300D": "\u5DE5\u4F5C\u5340\u5C08\u6848\u6216 Grok Bot \u81EA\u52D5\u52A0\u4E0A\u300C\u540D\u7A31 -> \u300D",
   "\u6BCD\u5757\u663E\u793A\u8D77\u6B62\u65F6\u95F4\u6BB5": "\u6BCD\u584A\u986F\u793A\u8D77\u6B62\u6642\u9593\u6BB5",
-  "\u5728 \u{1F916} \u540E\u5199\u5165 HH:MM-HH:MM": "\u5728 \u{1F916} \u5F8C\u5BEB\u5165 HH:MM-HH:MM",
+  "\u5728 \u{1F916} \u540E\u5199\u5165 HH:MM-HH:MM\uFF1B\u5173\u95ED\u540E\u6539\u4E3A\u5728\u5B50\u5757 \u23F1 \u5B9E\u65F6\u8BB0\u5F55\u65F6\u6BB5": "\u5728 \u{1F916} \u5F8C\u5BEB\u5165 HH:MM-HH:MM\uFF1B\u95DC\u9589\u5F8C\u6539\u70BA\u5728\u5B50\u584A \u23F1 \u5373\u6642\u8A18\u9304\u6642\u6BB5",
   "\u751F\u6210\u6807\u9898\u6700\u5927\u5B57\u6570": "\u751F\u6210\u6A19\u984C\u6700\u5927\u5B57\u6578",
   "10\u201360 \u5B57\uFF0C\u9ED8\u8BA4 22": "10\u201360 \u5B57\uFF0C\u9810\u8A2D 22",
   "\u672A\u5B89\u88C5 Cursor Hooks\uFF1B\u4EC5\u8FFD\u8E2A\u5B89\u88C5\u540E\u7684 Cursor 3.30.14+ \u65B0\u4F1A\u8BDD\u6216\u65B0\u5BF9\u8BDD\u8F6E\u6B21": "\u672A\u5B89\u88DD Cursor Hooks\uFF1B\u50C5\u8FFD\u8E64\u5B89\u88DD\u5F8C\u7684 Cursor 3.30.14+ \u65B0\u6703\u8A71\u6216\u65B0\u5C0D\u8A71\u8F2A\u6B21",
@@ -4006,6 +4014,9 @@ var zh_TW_default = {
   "\u8FD9\u4E24\u884C\u672C\u8EAB\u5DF2\u7ECF\u5728\u540C\u4E00\u4E2A\u4EFB\u52A1\u6761\u76EE\u4E0B\u4E86": "\u9019\u5169\u884C\u672C\u8EAB\u5DF2\u7D93\u5728\u540C\u4E00\u500B\u4EFB\u52D9\u689D\u76EE\u4E0B\u4E86",
   "\u53EA\u80FD\u628A\u4EFB\u52A1\u5217\u8868\u9879\u5408\u5E76\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u5217\u8868\u9879\u4E0A": "\u53EA\u80FD\u628A\u4EFB\u52D9\u5217\u8868\u9805\u5408\u4F75\u5230\u53E6\u4E00\u689D\u4EFB\u52D9\u5217\u8868\u9805\u4E0A",
   "\u7236\u5B50\u4EFB\u52A1\u4E0D\u80FD\u76F4\u63A5\u4E92\u76F8\u5408\u5E76": "\u7236\u5B50\u4EFB\u52D9\u4E0D\u80FD\u76F4\u63A5\u4E92\u76F8\u5408\u4E26",
+  "\u53EA\u80FD\u628A\u4EFB\u52A1\u5217\u8868\u9879\u6302\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u5217\u8868\u9879\u4E0B": "\u53EA\u80FD\u628A\u4EFB\u52D9\u5217\u8868\u9805\u639B\u5230\u53E6\u4E00\u689D\u4EFB\u52D9\u5217\u8868\u9805\u4E0B",
+  "\u7236\u5B50\u4EFB\u52A1\u4E0D\u80FD\u4E92\u76F8\u6302\u8F7D": "\u7236\u5B50\u4EFB\u52D9\u4E0D\u80FD\u4E92\u76F8\u639B\u8F09",
+  "\u8FD9\u4E00\u9879\u5DF2\u7ECF\u662F\u5B83\u7684\u5B50\u5757\u4E86": "\u9019\u4E00\u9805\u5DF2\u7D93\u662F\u5B83\u7684\u5B50\u584A\u4E86",
   "\u957F\u671F\u8BB0\u5FC6\uFF08Dreaming \u6574\u7406\uFF0C\u6309\u672C\u6B21\u4EFB\u52A1\u6311\u51FA\u76F8\u5173\u6761\u76EE\uFF1B\u6807\u300C\u5F85\u9A8C\u8BC1\u63A8\u65AD\u300D\u7684\u662F\u63A8\u65AD\u800C\u4E0D\u662F\u4E8B\u5B9E\uFF0C\u4E0E\u7528\u6237\u672C\u6B21\u660E\u786E\u8868\u8FBE\u51B2\u7A81\u65F6\u4EE5\u672C\u6B21\u4E3A\u51C6\uFF09\uFF1A": "\u9577\u671F\u8A18\u61B6\uFF08Dreaming \u6574\u7406\uFF0C\u6309\u672C\u6B21\u4EFB\u52D9\u6311\u51FA\u76F8\u95DC\u689D\u76EE\uFF1B\u6A19\u300C\u5F85\u9A57\u8B49\u63A8\u65B7\u300D\u7684\u662F\u63A8\u65B7\u800C\u4E0D\u662F\u4E8B\u5BE6\uFF0C\u8207\u4F7F\u7528\u8005\u672C\u6B21\u660E\u78BA\u8868\u9054\u885D\u7A81\u6642\u4EE5\u672C\u6B21\u70BA\u6E96\uFF09\uFF1A",
   "\uFF08\u5F85\u9A8C\u8BC1\u63A8\u65AD\uFF09": "\uFF08\u5F85\u9A57\u8B49\u63A8\u65B7\uFF09",
   "\u957F\u671F\u8BB0\u5FC6\u7B14\u8BB0\u7684\u751F\u6210\u533A\u5757\u6807\u8BB0\u4E0D\u5B8C\u6574\uFF0C\u8BF7\u5148\u4FEE\u590D\u6807\u8BB0": "\u9577\u671F\u8A18\u61B6\u7B46\u8A18\u7684\u751F\u6210\u5340\u584A\u6A19\u8A18\u4E0D\u5B8C\u6574\uFF0C\u8ACB\u5148\u4FEE\u5FA9\u6A19\u8A18",
@@ -4125,11 +4136,12 @@ var zh_TW_default = {
   "\u521A\u521A": "\u525B\u525B",
   "{n} \u5206\u949F\u524D": "{n} \u5206\u9418\u524D",
   "{n} \u5C0F\u65F6\u524D": "{n} \u5C0F\u6642\u524D",
+  "\u6302\u4E3A\u5B50\u5757": "\u639B\u70BA\u5B50\u584A",
   "\u7ED1\u5B9A": "\u7D81\u5B9A",
   "\u65B0\u5EFA\u4E00\u9879": "\u65B0\u5EFA\u4E00\u9805",
   "\u5408\u5E76\u5230\u8FD9\u4E00\u9879": "\u5408\u4F75\u5230\u9019\u4E00\u9805",
   "\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A": "\u9019\u4E00\u884C\u653E\u4E0D\u4E86\u6703\u8A71\uFF1A\u62D6\u5230\u5217\u8868\u9805\u3001\u7A7A\u7684\u5217\u8868\u9805\u6216\u7A7A\u884C\u4E0A",
-  "\u5355\u51FB\u53D1\u7ED9 {agent} \xB7 \u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009 Agent / \u5408\u5E76\u6761\u76EE \xB7 \u62D6\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u4E0A\u7ED1\u5B9A\u6DF7\u5408": "\u55AE\u64CA\u767C\u7D66 {agent} \xB7 \u96D9\u64CA\u6216 \u2318 \u55AE\u64CA\u9078 Agent / \u5408\u4F75\u689D\u76EE \xB7 \u62D6\u5230\u53E6\u4E00\u689D\u4EFB\u52D9\u4E0A\u7D81\u5B9A\u6DF7\u5408",
+  "\u5355\u51FB\u53D1\u7ED9 {agent} \xB7 \u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009 Agent / \u5408\u5E76\u6761\u76EE \xB7 \u62D6\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u4E0A\u6302\u4E3A\u5B50\u5757\uFF08\u6309\u4F4F \u2325 \u5408\u5E76\uFF09": "\u55AE\u64CA\u767C\u7D66 {agent} \xB7 \u96D9\u64CA\u6216 \u2318 \u55AE\u64CA\u9078 Agent / \u5408\u4F75\u689D\u76EE \xB7 \u62D6\u5230\u53E6\u4E00\u689D\u4EFB\u52D9\u4E0A\u639B\u70BA\u5B50\u584A\uFF08\u6309\u4F4F \u2325 \u5408\u4F75\uFF09",
   "\u6B63\u5728\u5EFA\u7ACB\u4F1A\u8BDD": "\u6B63\u5728\u5EFA\u7ACB\u6703\u8A71",
   "\u6B63\u5728\u6267\u884C": "\u6B63\u5728\u57F7\u884C",
   "\u7B49\u4F60\u5141\u8BB8": "\u7B49\u4F60\u5141\u8A31",
@@ -6125,6 +6137,25 @@ function mutableClock(lines, n) {
   const marker = /^(.*?) <!-- ad-clock:([a-f0-9]+) -->\s*$/.exec(lines[n]);
   return !!marker && clockHash(marker[1]) === marker[2] && !blockIdOf(lines[n]) && !hasDescendants(lines, n);
 }
+function upsertClockLine(lines, ownerLine, segs, who, tok = 0, ellipsis = true) {
+  if (!Array.isArray(lines) || ownerLine < 0 || ownerLine >= lines.length || !segs?.length) return false;
+  const line = clockLine(childIndent(lines, ownerLine), segs, who, tok, ellipsis);
+  const bare = line.replace(/ <!-- ad-clock:[a-f0-9]+ -->$/, "");
+  const base = width(lines[ownerLine]);
+  let end = ownerLine;
+  for (let i = ownerLine + 1; i < lines.length; i++) {
+    if (lines[i].trim() && width(lines[i]) <= base) break;
+    if (lines[i].trim()) end = i;
+    if (CLOCK_RE.test(lines[i]) && markOwner(lines, i) === ownerLine) {
+      if (lines[i] === line || lines[i] === bare) return false;
+      if (!mutableClock(lines, i)) return false;
+      lines[i] = line;
+      return true;
+    }
+  }
+  lines.splice(end + 1, 0, line);
+  return true;
+}
 var durTag = (m) => m >= 60 ? `${Math.floor(m / 60)}h${m % 60 ? m % 60 + "m" : ""}` : `${Math.max(1, Math.round(m))}m`;
 var workKey = (label) => stripBlockId(String(label || "")).replace(/\s*←\s*\S+\s*$/, "").trim();
 var TIME_SPAN_PREFIX_RE = /^(\d{1,2})[:：](\d{2})(?:\s*[-–~～到至]\s*(\d{1,2})[:：](\d{2}))?\s*/;
@@ -6234,11 +6265,11 @@ function formatSessionTaskLine(task, { kw, start, end, showTimeRange }) {
       end,
       title: task.title,
       preserveTitle: true,
-      showTimeRange: showTimeRange || Boolean(task.since || task.until),
+      showTimeRange: showTimeRange === false ? false : showTimeRange || Boolean(task.since || task.until),
       blockId: task.blockId
     });
   }
-  const time = start && end && (showTimeRange || task.until) && (start !== end || task.until) ? `${start}-${end}` : task.since || "";
+  const time = showTimeRange === false ? task.since || "" : start && end && (showTimeRange || task.until) && (start !== end || task.until) ? `${start}-${end}` : task.since || "";
   return `${task.prefix}${kw} ${time ? time + " " : ""}${task.rest}`.trimEnd();
 }
 function splitTask(raw) {
@@ -6776,9 +6807,10 @@ var STATE_KW = { wait: "TOREVIEW", quiet: "TOREVIEW", "needs-approval": "NEEDOK"
 function kwForState(state) {
   return { run: "DOING", running: "DOING", starting: "DOING", idle: "TOREVIEW", ...STATE_KW }[state] || "DOING";
 }
-function dropKind(lines, at, below = false) {
+function dropKind(lines, at, below = false, direct = false) {
   if (at < 0 || at >= lines.length) return null;
   const raw = lines[at];
+  const itemKind = direct ? "bind" : "child";
   if (below) {
     if (/^\s*(?:#|```|~~~|\|)/.test(raw)) return null;
     const n = MARKER_RE.test(raw) ? markOwner(lines, at) : at;
@@ -6788,11 +6820,11 @@ function dropKind(lines, at, below = false) {
   }
   if (MARKER_RE.test(raw)) {
     const n = markOwner(lines, at);
-    return n >= 0 ? { kind: "bind", line: n } : null;
+    return n >= 0 ? { kind: itemKind, line: n } : null;
   }
   if (EMPTY_ITEM_RE.test(raw)) return { kind: "fill", line: at };
   if (!raw.trim()) return { kind: "new", line: at };
-  if (LIST_RE.test(raw)) return kwLine(raw) ? { kind: "bind", line: at } : null;
+  if (LIST_RE.test(raw)) return kwLine(raw) ? { kind: itemKind, line: at } : null;
   if (/^\s*(?:#|```|~~~|\||>|---)/.test(raw)) return null;
   return { kind: "below", line: at };
 }
@@ -6837,12 +6869,31 @@ function clocksLast(text) {
   }
   return lines.join("\n");
 }
-function bindInto(text, at, s, { below = false, rules = null } = {}) {
+function blockSpan(lines, start) {
+  const base = width(lines[start]);
+  let end = start;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (!lines[i].trim()) continue;
+    if (width(lines[i]) <= base) break;
+    end = i;
+  }
+  return [start, end];
+}
+function bindInto(text, at, s, { below = false, direct = false, ensureBlockId: ensureIdOpt = false, rules = null } = {}) {
   let lines = text.split("\n");
-  const target = dropKind(lines, at, below);
+  const target = dropKind(lines, at, below, direct);
   if (!target) return { text, error: t("\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A") };
   let n = target.line;
-  if (target.kind === "bind") {
+  if (target.kind === "child") {
+    const [n0, n1] = blockSpan(lines, n);
+    const short = shortSessionId(s.sid);
+    for (let i = n0; i <= n1; i++) {
+      const lk = parseLink(lines[i]);
+      if (lk && lk.sid === s.sid) return { text, error: t("\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u8FD9\u4E2A\u4F1A\u8BDD\u4E86") };
+      const mk = /<!-- ad-(?:turn|summary(?:-pending)?):([A-Za-z0-9_-]+):\d+ -->/.exec(lines[i]);
+      if (mk && (mk[1] === s.sid || mk[1] === short)) return { text, error: t("\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u8FD9\u4E2A\u4F1A\u8BDD\u4E86") };
+    }
+  } else if (target.kind === "bind") {
     const had = linkUnder(lines, n);
     if (had && had.sid === s.sid) return { text, error: t("\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u8FD9\u4E2A\u4F1A\u8BDD\u4E86") };
     if (had) return { text, error: t("\u8FD9\u4E00\u9879\u5DF2\u7ECF\u7ED1\u7740\u53E6\u4E00\u4E2A\u4F1A\u8BDD\uFF1B\u5148\u5220\u6389\u5B83\u4E0B\u9762\u7684 \u{1F517} \u884C") };
@@ -6853,20 +6904,33 @@ function bindInto(text, at, s, { below = false, rules = null } = {}) {
   const until = s.until || since;
   const title = resultText(s.title || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD", 60);
   const autoTitle = summarizeAutoTitle(s.title || "\u6CA1\u8D77\u540D\u7684\u4F1A\u8BDD", r.titleMax);
+  const who = AGENTS[s.agent]?.short || s.agent;
   const rescuedChildren = [];
   let rescuedBlockId = s.blockId || "";
+  let migratedHeader = "";
+  let migratedBody = null;
   const anchor = lines[n];
   const drop = (i) => {
     lines.splice(i, 1);
     if (i < n) n--;
   };
+  const itemsBefore = taskItems(lines.join("\n"));
+  const ownedLine = ownedBySession(lines, s.sid);
+  const autoHit = ownedLine >= 0 && itemsBefore.find((it) => it.line === ownedLine && it.body.startsWith(AUTO_MARK.trim())) || itemsBefore.find((it) => it.line !== n && it.body.startsWith(AUTO_MARK.trim()) && (s.blockId && it.blockId === s.blockId || s.dropKey && it.key === workKey(s.dropKey)));
+  if (target.kind === "child" && autoHit && autoHit.line !== n && !(autoHit.line < n && n < subtreeEnd(lines, autoHit.line))) {
+    const [h0, h1] = blockSpan(lines, autoHit.line);
+    migratedHeader = lines[h0];
+    migratedBody = lines.slice(h0 + 1, h1 + 1).filter((l) => l.trim());
+    if (autoHit.blockId && !rescuedBlockId) rescuedBlockId = autoHit.blockId;
+    for (let i = h1; i >= h0; i--) drop(i);
+  }
   for (let i = lines.length - 1; i >= 0; i--) {
     const k = parseLink(lines[i]);
     if (k && k.sid === s.sid) drop(i);
   }
-  if (s.dropKey || s.blockId) {
+  if (!migratedBody && (s.dropKey || s.blockId)) {
     const items = taskItems(lines.join("\n"));
-    const hit = items.find((t2) => t2.line !== n && t2.body.startsWith(AUTO_MARK.trim()) && (s.blockId && t2.blockId === s.blockId || s.dropKey && t2.key === workKey(s.dropKey)));
+    const hit = items.find((item2) => item2.line !== n && item2.body.startsWith(AUTO_MARK.trim()) && (s.blockId && item2.blockId === s.blockId || s.dropKey && item2.key === workKey(s.dropKey)));
     if (hit) {
       const base = width(lines[hit.line]);
       let end = hit.line, own = true;
@@ -6894,11 +6958,68 @@ function bindInto(text, at, s, { below = false, rules = null } = {}) {
   const maybeAddBlockId = (lineStr) => {
     const existing = blockIdOf(lineStr);
     if (existing) return { line: lineStr, blockId: existing };
-    if (s.ensureBlockId || rescuedBlockId) {
+    if (s.ensureBlockId || ensureIdOpt || rescuedBlockId) {
       return ensureBlockId(lineStr, rescuedBlockId || makeBlockId(s.sid, s.agent));
     }
     return { line: lineStr, blockId: "" };
   };
+  if (target.kind === "child") {
+    const ind2 = childIndent(lines, n);
+    const unit = ind2.includes("	") ? "	" : " ".repeat(Math.max(2, width(ind2) - width(lines[n])));
+    const grandInd = ind2 + unit;
+    const [, nEnd] = blockSpan(lines, n);
+    const insertAt = nEnd + 1;
+    if (migratedBody !== null) {
+      const hp = splitTask(migratedHeader);
+      const keptBlockId = hp && hp.blockId || rescuedBlockId;
+      const lockedKw = hp?.kw && (DONE_KWS.includes(hp.kw) || hp.kw === "PAUSED" || hp.kw === "SUSPENDED" || hp.kw === "WAITING" || hp.kw === "WAIT");
+      const keptKw = lockedKw ? hp.kw : want;
+      const rawTitle = hp?.title || "";
+      const unbold = rawTitle ? rawTitle.replace(/^\*\*([^*]+)\*\*$/, "$1") : autoTitle;
+      const eb3 = maybeAddBlockId(formatAutoTaskLine({
+        prefix: `${ind2}- `,
+        kw: keptKw,
+        start: hp?.since || since,
+        end: hp?.until || until || hp?.since || since,
+        title: unbold,
+        preserveTitle: Boolean(rawTitle),
+        boldTitle: false,
+        showTimeRange: r.showTimeRange,
+        blockId: keptBlockId
+      }));
+      const srcBase = width(migratedHeader);
+      const firstChild = migratedBody[0];
+      const srcStep = firstChild && width(firstChild) > srcBase ? Math.max(1, width(firstChild) - srcBase) : 4;
+      const rebasedBody = migratedBody.map((line) => {
+        const w = width(line);
+        const extra = firstChild && w > width(firstChild) ? Math.max(1, Math.round((w - width(firstChild)) / srcStep)) : 0;
+        return `${grandInd}${unit.repeat(extra)}${line.trim()}`;
+      });
+      if (!rebasedBody.some((l) => parseLink(l)?.sid === s.sid)) {
+        rebasedBody.unshift(linkLine(grandInd, s.agent, title, s.sid));
+      }
+      if (!r.showTimeRange && s.segs?.length && !rebasedBody.some((l) => CLOCK_RE.test(l))) {
+        rebasedBody.push(clockLine(grandInd, s.segs, who, s.tok || 0, true));
+      }
+      lines.splice(insertAt, 0, eb3.line, ...rebasedBody);
+      return { text: lines.join("\n"), line: insertAt, parentLine: n, kind: "child", blockId: eb3.blockId };
+    }
+    const eb2 = maybeAddBlockId(formatAutoTaskLine({
+      prefix: `${ind2}- `,
+      kw: want,
+      start: since,
+      end: until,
+      title: autoTitle,
+      boldTitle: false,
+      showTimeRange: r.showTimeRange
+    }));
+    const children = [linkLine(grandInd, s.agent, title, s.sid)];
+    if (!r.showTimeRange && s.segs?.length) {
+      children.push(clockLine(grandInd, s.segs, who, s.tok || 0, true));
+    }
+    lines.splice(insertAt, 0, eb2.line, ...children);
+    return { text: lines.join("\n"), line: insertAt, parentLine: n, kind: "child", blockId: eb2.blockId };
+  }
   if (target.kind === "bind") {
     const p = splitTask(lines[n]);
     if (p && !p.cb && (!p.kw || OPEN_KWS.includes(p.kw) || p.kw === "DOING" || AGENT_KW_RE.test(p.kw))) {
@@ -6936,7 +7057,8 @@ function bindInto(text, at, s, { below = false, rules = null } = {}) {
     const item2 = eb2.line;
     const lead2 = (/^\s*/.exec(item2) || [""])[0];
     const ind2 = lead2 + (lead2 && !lead2.includes("	") ? "    " : "	");
-    lines.splice(end + 1, 0, item2, linkLine(ind2, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind2}${rc}`));
+    const extraClock2 = !r.showTimeRange && s.segs?.length ? [clockLine(ind2, s.segs, who, s.tok || 0, true)] : [];
+    lines.splice(end + 1, 0, item2, linkLine(ind2, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind2}${rc}`), ...extraClock2);
     return { text: lines.join("\n"), line: end + 1, kind: "after", blockId: eb2.blockId };
   }
   if (target.kind === "fill") prefix = EMPTY_ITEM_RE.exec(lines[n])[1] + " ";
@@ -6960,8 +7082,62 @@ function bindInto(text, at, s, { below = false, rules = null } = {}) {
   else lines[n] = item;
   const lead = (/^\s*/.exec(item) || [""])[0];
   const ind = lead + (lead && !lead.includes("	") ? "    " : "	");
-  lines.splice(n + 1, 0, linkLine(ind, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind}${rc}`));
+  const extraClock = !r.showTimeRange && s.segs?.length ? [clockLine(ind, s.segs, who, s.tok || 0, true)] : [];
+  lines.splice(n + 1, 0, linkLine(ind, s.agent, title, s.sid), ...rescuedChildren.map((rc) => `${ind}${rc}`), ...extraClock);
   return { text: lines.join("\n"), line: n, kind: target.kind, blockId: eb.blockId };
+}
+function nestTask(text, srcLine, dstLine) {
+  const lines = text.split("\n");
+  if (srcLine === dstLine || srcLine < 0 || dstLine < 0 || srcLine >= lines.length || dstLine >= lines.length) {
+    return { text, error: t("\u8BF7\u9009\u62E9\u4E24\u6761\u4E0D\u540C\u7684\u4EFB\u52A1\u884C") };
+  }
+  if (MARKER_RE.test(lines[srcLine])) srcLine = markOwner(lines, srcLine);
+  if (MARKER_RE.test(lines[dstLine])) dstLine = markOwner(lines, dstLine);
+  if (srcLine < 0 || dstLine < 0 || srcLine === dstLine) return { text, error: t("\u8FD9\u4E24\u884C\u672C\u8EAB\u5DF2\u7ECF\u5728\u540C\u4E00\u4E2A\u4EFB\u52A1\u6761\u76EE\u4E0B\u4E86") };
+  if (!LIST_RE.test(lines[srcLine]) || !LIST_RE.test(lines[dstLine]) || !kwLine(lines[srcLine]) || !kwLine(lines[dstLine])) {
+    return { text, error: t("\u53EA\u80FD\u628A\u4EFB\u52A1\u5217\u8868\u9879\u6302\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u5217\u8868\u9879\u4E0B") };
+  }
+  const [s0, s1] = blockSpan(lines, srcLine);
+  const [d0, d1] = blockSpan(lines, dstLine);
+  if (d0 >= s0 && d0 <= s1) return { text, error: t("\u7236\u5B50\u4EFB\u52A1\u4E0D\u80FD\u4E92\u76F8\u6302\u8F7D") };
+  if (s0 > d0 && s0 <= d1 && markOwner(lines, s0) === d0) {
+    return { text, error: t("\u8FD9\u4E00\u9879\u5DF2\u7ECF\u662F\u5B83\u7684\u5B50\u5757\u4E86") };
+  }
+  const dstInd = childIndent(lines, d0);
+  const unit = dstInd.includes("	") ? "	" : " ".repeat(Math.max(2, width(dstInd) - width(lines[d0])));
+  const chunk = lines.slice(s0, s1 + 1).filter((l) => l.trim());
+  const srcBase = width(chunk[0]);
+  const firstKid = chunk.slice(1).find((l) => width(l) > srcBase);
+  const srcStep = firstKid ? Math.max(1, width(firstKid) - srcBase) : 4;
+  const rebased = chunk.map((line, idx) => {
+    if (idx === 0) return `${dstInd}${line.trim()}`;
+    const w = width(line);
+    const level = w > srcBase ? Math.max(1, Math.round((w - srcBase) / srcStep)) : 0;
+    return `${dstInd}${unit.repeat(level)}${line.trim()}`;
+  });
+  let newDstLine = d0;
+  let insertAt = d1 + 1;
+  if (s0 < d0) {
+    lines.splice(insertAt, 0, ...rebased);
+    lines.splice(s0, s1 - s0 + 1);
+    const removed = s1 - s0 + 1;
+    newDstLine = d0 - removed;
+    insertAt -= removed;
+  } else {
+    lines.splice(s0, s1 - s0 + 1);
+    lines.splice(insertAt, 0, ...rebased);
+  }
+  const ks = kwLine(rebased[0]);
+  const kd = kwLine(lines[newDstLine]);
+  return {
+    text: lines.join("\n"),
+    line: insertAt,
+    parentLine: newDstLine,
+    blockId: blockIdOf(rebased[0]),
+    body: ks ? ks.body : rebased[0].trim(),
+    key: ks ? workKey(ks.body) : "",
+    dstBody: kd ? kd.body : lines[newDstLine].trim()
+  };
 }
 function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
   const lines = text.split("\n");
@@ -6976,7 +7152,7 @@ function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
   const ks = kwLine(lines[srcLine]);
   const kd = kwLine(lines[dstLine]);
   if (!ps || !pd || !ks || !kd) return { text, error: t("\u53EA\u80FD\u628A\u4EFB\u52A1\u5217\u8868\u9879\u5408\u5E76\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u5217\u8868\u9879\u4E0A") };
-  const blockSpan = (start) => {
+  const blockSpan2 = (start) => {
     const base = width(lines[start]);
     let end = start;
     for (let i = start + 1; i < lines.length; i++) {
@@ -6986,8 +7162,8 @@ function mergeTasks(text, srcLine, dstLine, { preferId = "" } = {}) {
     }
     return [start, end];
   };
-  const [s0, s1] = blockSpan(srcLine);
-  const [d0, d1] = blockSpan(dstLine);
+  const [s0, s1] = blockSpan2(srcLine);
+  const [d0, d1] = blockSpan2(dstLine);
   if (s0 >= d0 && s0 <= d1 || d0 >= s0 && d0 <= s1) {
     return { text, error: t("\u7236\u5B50\u4EFB\u52A1\u4E0D\u80FD\u76F4\u63A5\u4E92\u76F8\u5408\u5E76") };
   }
@@ -7517,9 +7693,9 @@ function planBoundedJournal(text, options, custom) {
     count: { done: done.length, active: active2.length + todo.length, total: done.length + active2.length + todo.length }
   };
 }
-function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* @__PURE__ */ new Set(), turns = /* @__PURE__ */ new Map(), layout, boundedBody = false } = {}) {
+function planJournal(text, { tracked = /* @__PURE__ */ new Map(), archived = /* @__PURE__ */ new Set(), turns = /* @__PURE__ */ new Map(), layout, boundedBody = false, showTimeRange = true } = {}) {
   const custom = readJournalLayout(text);
-  if (layout?.order.includes("todo") || custom?.sections.todo) return planBoundedJournal(text, { tracked, archived, turns, layout }, custom);
+  if (layout?.order.includes("todo") || custom?.sections.todo) return planBoundedJournal(text, { tracked, archived, turns, layout, showTimeRange }, custom);
   if (custom) {
     const canonical = [custom.head, `---
 ${DONE_HEADING}
@@ -7531,7 +7707,7 @@ ${custom.sections.active.text}
 
 ---
 `].filter(Boolean).join("\n\n");
-    const plan = planJournal(canonical, { tracked, archived, turns });
+    const plan = planJournal(canonical, { tracked, archived, turns, showTimeRange });
     return { ...plan, rest: [plan.rest, custom.sections.notes.text].filter(Boolean).join("\n\n"), crlf: /\r\n/.test(text), layout: layout === void 0 ? custom.layout : layout, tail: custom.tail, insertAt: custom.sections.active.end };
   }
   const crlf = /\r\n/.test(String(text));
@@ -7608,6 +7784,24 @@ ${custom.sections.active.text}
     if (!p) return chunkLines;
     const cs = clockSpanFromLines(chunkLines, 0);
     if (p.auto && !p.cb) {
+      if (showTimeRange === false) {
+        if (forceDone || p.since || p.until) {
+          return [
+            formatAutoTaskLine({
+              prefix: p.prefix,
+              kw: forceDone ? "DONE" : p.kw || "TODO",
+              start: "",
+              end: "",
+              title: p.title,
+              preserveTitle: true,
+              showTimeRange: false,
+              blockId: p.blockId
+            }),
+            ...chunkLines.slice(1)
+          ];
+        }
+        return chunkLines;
+      }
       const s = p.since || cs?.start || "";
       const e = (p.until && p.until !== p.since ? p.until : cs?.end) || p.until || p.since || s;
       if (s || e || forceDone) {
@@ -7628,6 +7822,9 @@ ${custom.sections.active.text}
     }
     if (forceDone) {
       const stamp = cs?.end || p.until || p.since || "";
+      if (showTimeRange === false) {
+        return [`${p.prefix}DONE ${p.rest}`.trimEnd(), ...chunkLines.slice(1)];
+      }
       if (p.until) return [formatSessionTaskLine(p, { kw: "DONE", start: p.since, end: stamp }), ...chunkLines.slice(1)];
       return [`${p.prefix}DONE ${stamp ? stamp + " " : ""}${p.rest}`.trimEnd(), ...chunkLines.slice(1)];
     }
@@ -31510,7 +31707,7 @@ function bindConnectedInterval(el, prop, tick, ms, host = globalThis) {
 var refreshEffect = import_state3.StateEffect.define();
 var SESSION_MIME = "application/x-agent-deck-session";
 var ITEM_MIME = "application/x-agent-deck-item";
-var DROP_LABEL = { bind: "\u7ED1\u5B9A", fill: "\u65B0\u5EFA\u4E00\u9879", new: "\u65B0\u5EFA\u4E00\u9879", below: "\u5728\u4E0B\u9762\u65B0\u5EFA", after: "\u5728\u4E0B\u9762\u65B0\u5EFA", merge: "\u5408\u5E76\u5230\u8FD9\u4E00\u9879" };
+var DROP_LABEL = { child: "\u6302\u4E3A\u5B50\u5757", bind: "\u7ED1\u5B9A", fill: "\u65B0\u5EFA\u4E00\u9879", new: "\u65B0\u5EFA\u4E00\u9879", below: "\u5728\u4E0B\u9762\u65B0\u5EFA", after: "\u5728\u4E0B\u9762\u65B0\u5EFA", merge: "\u5408\u5E76\u5230\u8FD9\u4E00\u9879" };
 var setDrop = import_state3.StateEffect.define();
 var dropField = import_state3.StateField.define({
   create: () => import_view4.Decoration.none,
@@ -31534,7 +31731,7 @@ function dropTarget(view, e) {
   const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }, false);
   if (pos == null) return null;
   const n = view.state.doc.lineAt(pos).number - 1;
-  return dropKind(view.state.doc.toString().split("\n"), n, !!e.metaKey);
+  return dropKind(view.state.doc.toString().split("\n"), n, !!e.metaKey, !!e.altKey);
 }
 function mergeTarget(view, e, plugin) {
   const pos = view.posAtCoords({ x: e.clientX, y: e.clientY }, false);
@@ -31548,7 +31745,7 @@ function mergeTarget(view, e, plugin) {
   }
   const src = plugin._dragItem;
   if (src && src.line === n) return null;
-  return { line: n, kind: "merge" };
+  return { line: n, kind: e.altKey ? "merge" : "child" };
 }
 function dndHandlers(plugin) {
   let last = "";
@@ -31596,7 +31793,7 @@ function dndHandlers(plugin) {
           data = JSON.parse(e.dataTransfer.getData(SESSION_MIME));
         } catch {
         }
-        if (data && target) plugin.bindSessionAt(view, target.line, data, { below: !!e.metaKey });
+        if (data && target) plugin.bindSessionAt(view, target.line, data, { below: !!e.metaKey, direct: !!e.altKey });
         else if (data) plugin.notice(t("\u8FD9\u4E00\u884C\u653E\u4E0D\u4E86\u4F1A\u8BDD\uFF1A\u62D6\u5230\u5217\u8868\u9879\u3001\u7A7A\u7684\u5217\u8868\u9879\u6216\u7A7A\u884C\u4E0A"));
         return true;
       }
@@ -31607,7 +31804,10 @@ function dndHandlers(plugin) {
         e.preventDefault();
         e.stopPropagation();
         const item = plugin.readItemDrag(e);
-        if (item && item.line !== target.line) plugin.mergeTaskLines(view, item.line, target.line, item.lineText);
+        if (item && item.line !== target.line) {
+          if (target.kind === "merge") plugin.mergeTaskLines(view, item.line, target.line, item.lineText);
+          else plugin.nestTaskLines(view, item.line, target.line, item.lineText);
+        }
         return true;
       }
       return false;
@@ -31643,7 +31843,7 @@ var GripWidget = class extends import_view4.WidgetType {
     el.draggable = true;
     setLucide(el, "send");
     const main = AGENTS[this.plugin.defaultTarget()] || AGENTS.claude;
-    el.setAttribute("aria-label", t("\u5355\u51FB\u53D1\u7ED9 {agent} \xB7 \u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009 Agent / \u5408\u5E76\u6761\u76EE \xB7 \u62D6\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u4E0A\u7ED1\u5B9A\u6DF7\u5408", { agent: main.short }));
+    el.setAttribute("aria-label", t("\u5355\u51FB\u53D1\u7ED9 {agent} \xB7 \u53CC\u51FB\u6216 \u2318 \u5355\u51FB\u9009 Agent / \u5408\u5E76\u6761\u76EE \xB7 \u62D6\u5230\u53E6\u4E00\u6761\u4EFB\u52A1\u4E0A\u6302\u4E3A\u5B50\u5757\uFF08\u6309\u4F4F \u2325 \u5408\u5E76\uFF09", { agent: main.short }));
     const item = { path: this.path, line: this.line, lineText: this.text };
     let clickTimer = null;
     el.addEventListener("mousedown", (e) => e.stopPropagation());
@@ -32340,7 +32540,7 @@ function installListDragBridge(plugin, {
         state: card.dataset.state || ""
       };
       setTimeout(() => {
-        plugin.bindItemToSession?.(dropItem, sessionData);
+        plugin.bindItemToSession?.(dropItem, sessionData, { direct: Boolean(e.altKey) });
       }, 0);
     }
   };
@@ -33456,7 +33656,7 @@ var AgentDeckView = class extends import_obsidian5.ItemView {
         if (!p.acceptsItemDrag(e)) return;
         e.preventDefault();
         card.removeClass("is-drop");
-        p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" });
+        p.bindItemToSession(p.readItemDrag(e), { agent: s.agent, sid: s.sid, title, app: s.app || "", state: s.state || "" }, { direct: Boolean(e.altKey) });
       });
     }
     card.style.setProperty("--ad-agent", a.color);
@@ -40917,7 +41117,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       rules.projectPrefix = v;
       p.saveSettings();
     });
-    this.rowToggle(rulesBox, t("\u6BCD\u5757\u663E\u793A\u8D77\u6B62\u65F6\u95F4\u6BB5"), t("\u5728 \u{1F916} \u540E\u5199\u5165 HH:MM-HH:MM"), rules.showTimeRange !== false, (v) => {
+    this.rowToggle(rulesBox, t("\u6BCD\u5757\u663E\u793A\u8D77\u6B62\u65F6\u95F4\u6BB5"), t("\u5728 \u{1F916} \u540E\u5199\u5165 HH:MM-HH:MM\uFF1B\u5173\u95ED\u540E\u6539\u4E3A\u5728\u5B50\u5757 \u23F1 \u5B9E\u65F6\u8BB0\u5F55\u65F6\u6BB5"), rules.showTimeRange !== false, (v) => {
       rules.showTimeRange = v;
       p.saveSettings();
     });
@@ -46773,7 +46973,7 @@ var AutoLog = class {
     const block = blockLines.join("\n");
     let custom = readJournalLayout(text);
     if (!custom) {
-      text = renderJournal(planJournal(text, { layout: configuredJournalLayout(this.cfg) }));
+      text = renderJournal(planJournal(text, { layout: configuredJournalLayout(this.cfg), showTimeRange: this.rules().showTimeRange }));
       custom = readJournalLayout(text);
       if (!custom) throw new Error(t("\u8BF7\u5148\u5173\u95ED\u7B14\u8BB0\u4E2D\u7684\u4EE3\u7801\u5757\uFF0C\u518D\u5EFA\u7ACB\u65E5\u5FD7\u5206\u533A"));
     }
@@ -47327,6 +47527,7 @@ var AutoLog = class {
             delete rec.autoPaused;
             delete rec.autoKw;
             delete rec.doneHint;
+            if (!this.rules().showTimeRange) clocks.add(rec.key);
             digest.doing.push(name);
             report.changes.push(t("DOING\uFF1A{name}", { name: rec.label }));
           } else if (!manualState && active2 && cur === "doing") {
@@ -47337,6 +47538,7 @@ var AutoLog = class {
             delete rec.autoPaused;
             delete rec.autoKw;
             delete rec.doneHint;
+            if (!this.rules().showTimeRange) clocks.add(rec.key);
           } else if (!manualState && doneReview && !(rec.hold && Date.now() < rec.hold) && (cur === "doing" || rec.fresh || reactivated || rec.autoKw === "PAUSED" || rec.autoKw === "TOREVIEW")) {
             const changed = !found || found.kw !== "TOREVIEW";
             text = this.autoLine(text, rec, x, "TOREVIEW").text;
@@ -47951,7 +48153,8 @@ var JournalSync = class {
       if (!want && !p.auto) continue;
       const kw = want || cur.kw || "DOING";
       const span = spanFor(k.sid, p, ls, n, kw);
-      let nextLine = formatSessionTaskLine(p, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      const showTimeRange = resolveRecordRules(this.cfg).showTimeRange;
+      let nextLine = formatSessionTaskLine(p, { ...span, kw, showTimeRange });
       if (canReopen) {
         const restored = ensureBlockId(nextLine, archRec.blockId || makeBlockId(k.sid, m?.agent || k.agent));
         nextLine = restored.line;
@@ -47963,6 +48166,13 @@ var JournalSync = class {
         this._reopenedInPass = true;
       }
       if (nextLine !== ls[n]) ls[n] = nextLine;
+      if (!showTimeRange && !DONE_KWS.includes(kw)) {
+        const info = this.segmentsFor(k.sid);
+        if (info?.segs?.length) {
+          const who = AGENTS[info.agent]?.short || info.agent;
+          upsertClockLine(ls, n, info.segs, who, (info.out || 0) + (info.fresh || 0));
+        }
+      }
     }
     let out = ls.join("\n");
     if (this.cfg.autoLogKw !== false) out = this.autoKeywords(out, spanFor);
@@ -47990,12 +48200,13 @@ var JournalSync = class {
     }
     if (!want.size) return text;
     const ls = text.split("\n");
+    const showTimeRange = resolveRecordRules(this.cfg).showTimeRange;
     let changed = false;
-    for (const [n, { kw, sid, canReopen, rec, agent }] of want) {
+    for (const [n, { kw, sid, canReopen, rec, agent }] of [...want.entries()].sort((a, b) => b[0] - a[0])) {
       const p = splitTask(ls[n]);
       if (!p || p.cb || !p.kw) continue;
       const span = spanFor(sid, p, ls, n, kw);
-      let nextLine = formatSessionTaskLine(p, { ...span, kw, showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      let nextLine = formatSessionTaskLine(p, { ...span, kw, showTimeRange });
       if (canReopen) {
         const restored = ensureBlockId(nextLine, rec.blockId || makeBlockId(sid, agent));
         nextLine = restored.line;
@@ -48006,9 +48217,17 @@ var JournalSync = class {
         rec.status = kw === "DOING" ? "doing" : "paused";
         this._reopenedInPass = true;
       }
-      if (nextLine === ls[n]) continue;
-      ls[n] = nextLine;
-      changed = true;
+      if (nextLine !== ls[n]) {
+        ls[n] = nextLine;
+        changed = true;
+      }
+      if (!showTimeRange && !DONE_KWS.includes(kw)) {
+        const info = this.segmentsFor(sid);
+        if (info?.segs?.length) {
+          const who = AGENTS[info.agent]?.short || info.agent;
+          if (upsertClockLine(ls, n, info.segs, who, (info.out || 0) + (info.fresh || 0))) changed = true;
+        }
+      }
     }
     return changed ? ls.join("\n") : text;
   }
@@ -48026,10 +48245,11 @@ var JournalSync = class {
     if (!p || isManualTask(this.cfg, lines[n])) return text;
     const info = this.segmentsFor(sid);
     const span = this.sessionTimeSpan(sid, p, lines, n, "DONE", info?.segs);
+    const showTimeRange = resolveRecordRules(this.cfg).showTimeRange;
     if (p.auto && !p.cb || p.until) {
-      lines[n] = formatSessionTaskLine(p, { ...span, kw: "DONE", showTimeRange: resolveRecordRules(this.cfg).showTimeRange });
+      lines[n] = formatSessionTaskLine(p, { ...span, kw: "DONE", showTimeRange });
     } else {
-      lines[n] = `${p.prefix}DONE ${span.end ? span.end + " " : ""}${p.rest}`.trimEnd();
+      lines[n] = showTimeRange === false ? `${p.prefix}DONE ${p.rest}`.trimEnd() : `${p.prefix}DONE ${span.end ? span.end + " " : ""}${p.rest}`.trimEnd();
     }
     if (info && info.segs.length) {
       const base = width(lines[n]);
@@ -54601,8 +54821,8 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
   taskBlockId(seed, agent, title) {
     return semanticTaskId(this, seed, agent, title);
   }
-  // 面板里的会话卡片拖到了笔记第 line 行上
-  async bindSessionAt(cm, line, data, { below = false } = {}) {
+  // 面板里的会话卡片拖到了笔记第 line 行上（默认挂为子块；按住 ⌥ 直接绑定这一项）
+  async bindSessionAt(cm, line, data, { below = false, direct = false } = {}) {
     var _a;
     let view = null;
     this.app.workspace.iterateAllLeaves((leaf) => {
@@ -54625,7 +54845,7 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     const before = cm.state.doc.toString(), anchor = before.split("\n")[line], notePath2 = view.file.path;
     const agent = data.agent || meta.agent || "claude";
     const title = data.title || meta.title || (meta.text || "").split(" / ")[0] || sid.slice(0, 8);
-    let blockId = rec && rec.blockId || !below && blockIdOf(anchor);
+    let blockId = rec && rec.blockId || direct && !below && blockIdOf(anchor);
     if (!blockId && this.taskBlockId) {
       blockId = await this.taskBlockId(sid, agent, title);
       if (this._unloaded || view.file?.path !== notePath2 || view.editor.cm !== cm) return;
@@ -54644,17 +54864,21 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
       state: live && live.state || meta.state || "idle",
       since,
       until,
+      segs: daySess?.segs,
+      tok: (daySess?.out || 0) + (daySess?.fresh || 0),
       dropKey: rec && rec.created && rec.key ? rec.key : null,
       blockId: blockId || ""
-    }, { below, ensureBlockId: true, rules: this.settings.recordRules });
+    }, { below, direct, ensureBlockId: true, rules: this.settings.recordRules });
     if (res.error) return this.notice(res.error, 6e3);
     const change = diffLines(text, res.text);
     if (change) view.editor.transaction({ changes: [change] });
-    const key = res.line != null ? workKey(res.text.split("\n")[res.line] || "") : "";
+    const boundRaw = res.line != null ? res.text.split("\n")[res.line] || "" : "";
+    const key = boundRaw ? workKey(kwLine(boundRaw)?.body || boundRaw) : "";
     ((_a = this.settings).taskBindings || (_a.taskBindings = {}))[sid] = { sid, agent: data.agent || meta.agent || "claude", path: view.file.path, blockId: res.blockId || "", key };
     this.markBound(sid, res.blockId || "", key);
     const a = AGENTS[data.agent] || AGENTS.claude;
-    this.notice(res.kind === "bind" ? t("\u{1F517} \u5DF2\u7ED1\u5B9A\uFF1A{agent} \u4F1A\u8BDD\u7684\u6BCF\u8F6E \u{1F4AC}\u3001\u2753\u3001\u23F1 \u548C\u72B6\u6001\u90FD\u4F1A\u8DDF\u7740\u8FD9\u4E00\u9879\u8D70", { agent: a.short }) : t("\u{1F517} \u65B0\u5EFA\u4E86\u4E00\u9879\u5E76\u7ED1\u4E0A {agent} \u4F1A\u8BDD", { agent: a.short }), 5e3);
+    const msg = res.kind === "child" ? t("\u{1F517} \u5DF2\u6302\u4E3A\u5B50\u5757\uFF1A{agent} \u4F1A\u8BDD\u4F1A\u4F5C\u4E3A\u8FD9\u6761\u65E5\u6CE8\u7684\u5B50\u9879\u6301\u7EED\u66F4\u65B0\uFF0C\u4E0D\u6539\u52A8\u539F\u6587", { agent: a.short }) : res.kind === "bind" ? t("\u{1F517} \u5DF2\u7ED1\u5B9A\uFF1A{agent} \u4F1A\u8BDD\u7684\u6BCF\u8F6E \u{1F4AC}\u3001\u2753\u3001\u23F1 \u548C\u72B6\u6001\u90FD\u4F1A\u8DDF\u7740\u8FD9\u4E00\u9879\u8D70", { agent: a.short }) : t("\u{1F517} \u65B0\u5EFA\u4E86\u4E00\u9879\u5E76\u7ED1\u4E0A {agent} \u4F1A\u8BDD", { agent: a.short });
+    this.notice(msg, 5e3);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {
     }), 300);
     this.refreshUI();
@@ -54703,6 +54927,41 @@ var AgentDeckPlugin = class extends import_obsidian21.Plugin {
     this.saveSettings().catch(() => {
     });
     this.notice(t("\u{1F517} \u5DF2\u5408\u5E76\u6761\u76EE\uFF1A\u4F1A\u8BDD\u8BB0\u5F55\u4E0E\u7ED3\u8BBA\u5DF2\u5F52\u5165\u300C{title}\u300D", { title: truncate(res.body, 28) }), 5e3);
+    setTimeout(() => this.journalSync.run({ force: true }).catch(() => {
+    }), 300);
+    this.refreshUI();
+  }
+  // 把笔记里的第 srcLine 条任务整块挂为第 dstLine 条任务的子块（不动母块原文）
+  nestTaskLines(cmOrView, srcLine, dstLine, srcLineText = "") {
+    let view = cmOrView instanceof import_obsidian21.MarkdownView ? cmOrView : null;
+    if (!view) {
+      this.app.workspace.iterateAllLeaves((leaf) => {
+        const v = leaf.view;
+        if (!view && v instanceof import_obsidian21.MarkdownView && v.editor && v.editor.cm === cmOrView) view = v;
+      });
+    }
+    if (!view || !view.editor) return;
+    const text = view.editor.getValue();
+    const lines = text.split("\n");
+    let sLine = srcLine;
+    if (srcLineText && lines[sLine] !== srcLineText) {
+      const idx = lines.indexOf(srcLineText);
+      if (idx >= 0) sLine = idx;
+    }
+    const res = nestTask(text, sLine, dstLine);
+    if (res.error) return this.notice(res.error, 6e3);
+    const change = diffLines(text, res.text);
+    if (change) view.editor.transaction({ changes: [change] });
+    const afterLines = res.text.split("\n");
+    for (const job of Object.values(this.jobs)) {
+      if (view.file && job.path === view.file.path && (job.line === sLine || res.blockId && job.blockId === res.blockId)) {
+        job.line = res.line;
+        job.lineText = afterLines[res.line] || job.lineText;
+      }
+    }
+    this.saveSettings().catch(() => {
+    });
+    this.notice(t("\u{1F517} \u5DF2\u6302\u4E3A\u300C{title}\u300D\u7684\u5B50\u5757", { title: truncate(res.dstBody || "", 28) }), 5e3);
     setTimeout(() => this.journalSync.run({ force: true }).catch(() => {
     }), 300);
     this.refreshUI();
@@ -55378,7 +55637,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     menu.showAtMouseEvent(e);
   }
   // 笔记里的一项拖到面板的会话卡片上：把这个会话绑给它（和卡片拖到条目上一样，不委派）
-  async bindItemToSession(item, data) {
+  async bindItemToSession(item, data, opts = {}) {
     this._dragItem = null;
     if (!item || !item.path || !data || !data.sid) return;
     const view = this.sourceViewForPath(item.path);
@@ -55386,7 +55645,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
       const lines = view.editor.getValue().split("\n");
       const line = lines[item.line] === item.lineText ? item.line : lines.indexOf(item.lineText);
       if (line < 0) return this.notice(t("\u8FD9\u4E00\u884C\u521A\u6539\u8FC7\uFF0C\u91CD\u65B0\u62D6\u4E00\u6B21"));
-      return this.bindSessionAt(view.editor.cm, line, data);
+      return this.bindSessionAt(view.editor.cm, line, data, opts);
     }
     this.notice(t("\u5148\u628A\u8FD9\u7BC7\u7B14\u8BB0\u6253\u5F00\u518D\u62D6"));
   }
@@ -55496,7 +55755,7 @@ ${t("\u8BF7\u6309\u8FD9\u4E2A\u7EE7\u7EED\uFF0C\u4E0D\u7528\u518D\u95EE\u540C\u4
     const turns = new Map(Object.entries(this.settings.archiveTaskTurns || {}));
     for (const [sid, meta] of this.usage.meta) turns.set(sid, Math.max(meta.turns || 0, meta.rounds?.length || 0));
     for (const job of Object.values(this.jobs)) if (job.sessionId) turns.set(job.sessionId, Math.max(turns.get(job.sessionId) || 0, job.conversation?.filter((m) => m.role === "user").length || 0));
-    return planJournal(base, { tracked, archived: this.autoLog.archived(), turns, layout: configuredJournalLayout(this.settings) });
+    return planJournal(base, { tracked, archived: this.autoLog.archived(), turns, layout: configuredJournalLayout(this.settings), showTimeRange: resolveRecordRules(this.settings).showTimeRange });
   }
   async writeJournal(file, base, next) {
     const view = this.viewForPath(file.path);

@@ -35,6 +35,7 @@ Agent Deck brings AI sessions scattered across local clients into Obsidian, keep
 - [2. Delegate from your notes](#2-delegate-from-your-notes)
 - [3. Project workbench and in-place board](#3-project-workbench-and-in-place-board)
 - [4. Journal, tidy and archive](#4-journal-tidy-and-archive)
+- [How to Work with AI Auto-Logged Records in Agent Deck](#how-to-work-with-ai-auto-logged-records-in-agent-deck)
 - [5. Collaboration Dashboard & security replay](#5-collaboration-dashboard--security-replay)
 - [6. Notes as context](#6-notes-as-context)
 - [7. Menu bar, Dreaming & languages](#7-menu-bar-dreaming--languages)
@@ -76,7 +77,7 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 - **Three ways to delegate**: click the paper-plane at the end of the paragraph under the cursor (task line, `💬` write-back log or plain paragraph), drag a note item onto an agent card in the sidebar, or type `@` in the task line to pick an agent and `/` to pick a model and reasoning effort.
 - **Preview before sending**: preview the body and child blocks, switch the project folder, and choose the work mode and permissions for this run; delegating from a subtask carries the parent chain and related note excerpts automatically.
 - **Follow up in the note**: when an agent asks a question, a `❓` line appears under the task and lands in the sidebar Reply inbox; writing `✍️ Answer: …` by hand sends it back without leaving the note.
-- **Bind by dragging**: drop a session card on a task line to bind it, or on an empty line to create a task; background jobs show one progress line under the parent block with cancel and retry.
+- **Bind by dragging**: drop a session card (or an existing AI record's row-end drag handle in the editor) onto a task line to **nest it as an indented child block** without altering the parent's text or time range; hold `⌥` (`Alt`) for 1:1 direct binding/merging, or drop on an empty line to create a new task. Background jobs show one progress line under the parent block with cancel and retry.
 
 ### 3. Project workbench and in-place board
 
@@ -94,6 +95,22 @@ Watch every agent in the sidebar, delegate from your notes, and flip one AI reco
 - **Four views & combined task metrics**: switch one record between outline, table, cards and timeline (interactive in Live Preview, visible as a read-only preview in Reading View), then export the current view to PDF, HTML, Markdown, JSON or CSV. When multiple agents work on the same task, the line-end badge combines deduplicated duration, tokens and session count (hover for per-agent breakdown). Right-click any round in table, cards, timeline or reading view to pin it as a key record, or to hand that round out again to the default agent or a chosen model; right-clicking the paragraph under the cursor in the editor offers the same two delegation entries.
 - **Tidy and archive**: reorganise the day into "doing / to do / done" in one command, or archive finished AI tasks by date into a note you choose.
 - **Works with Nautilus Spiral**: pair it with [Nautilus Spiral](https://github.com/MatsuriMW/nautilus-spiral) so Agent Deck owns the AI writes while Spiral keeps its schedule and progress display.
+
+### How to Work with AI Auto-Logged Records in Agent Deck
+
+<p align="center">
+  <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.13.32/ai-record-operations-demo.mp4"><img src="assets/ai-record-operations-demo.gif" width="880" alt="Agent Deck live demo: drag-binding AI records as child blocks, grouping rows with shortcut, progressive nested sub-blocks, folding & pinning key rounds, table and in-place fractal board views, and tidying journal layout"></a>
+</p>
+
+<p align="center">60-second live demo (each workflow shown once) · click for the <a href="https://github.com/MatsuriMW/obsidian-agent-deck/releases/download/1.13.32/ai-record-operations-demo.mp4">HD MP4 version</a></p>
+
+Every AI auto-logged journal entry is plain Markdown, so you can organize, highlight, and re-view it like any outline while background tracking keeps syncing cleanly:
+
+- **Drag-bind (nests as a child block by default)**: create a parent outline item (e.g. `- [[Agent Deck]] 开发`), then drag a sidebar session card or an existing AI record's drag handle onto it. It nests underneath as a child block while leaving the parent's prose and time range untouched; hold `⌥` (`Alt`) to directly 1:1 bind or merge into the target line.
+- **Group rows shortcut (`⌘⌥↓` / `Ctrl+Alt+↓`) & progressive nesting**: select multiple AI auto-logged blocks and press `⌘⌥↓` (or right-click **Group rows**) to indent the selection under a fresh parent bullet ready for your project name or wikilink. Repeat inside a group to build multi-level **Project → Sub-topic → AI record** outlines. With multiple blocks selected, right-click or click any status badge to bulk-update statuses in one step.
+- **Fold/expand & right-click Pin**: older rounds stay folded by default so only the latest conclusion is shown; click `⋯ More N` / `› Collapse N` to toggle. Right-click any round (in Outline, Table, Cards, Timeline, or Reading View) and pick the top item **Pin as key record (stays visible when folded · Dreaming priority)**—pinned rounds stay visible with a subtle accent highlight even when folded and carry higher priority during Dreaming memory distillation. The same menu also copies conclusions, opens the original session, jumps to the parent task, re-delegates that round to another agent/model, or deletes the round.
+- **In-place record views & fractal board**: switch any AI record in place between **Outline / Table / Cards / Timeline** (and export the active view) without touching the underlying Markdown. Any parent or sub-topic holding multiple task children gets a **Board N** toggle to open an in-place fractal Kanban board where dragging cards updates statuses.
+- **Tidy journal layout (`⌃⌥L` / `Ctrl+Alt+L`) & lossless safeguards**: press `⌃⌥L` or click **Tidy journal layout** to group scattered top-level AI blocks under **Done / Doing / To do**, ordered by status priority and round count, while keeping your grouped parent trees and nested sub-blocks intact. Click any status keyword to manually lock it, press `⌘⇧D` to mark `DONE` and move to Done, and edit any AI title or prose knowing Agent Deck will never overwrite hand-edited text.
 
 ### 5. Collaboration Dashboard & security replay
 
@@ -136,7 +153,7 @@ For the full compatibility matrix, per-client requirements, and known limits, se
 1. In Obsidian, open Settings → Community plugins → Browse, search for **Agent Deck**, then install and enable it;
 2. Or download the latest [GitHub Release](https://github.com/MatsuriMW/obsidian-agent-deck/releases), copy `main.js`, `manifest.json` and `styles.css` into `<your vault>/.obsidian/plugins/agent-deck/`, then enable it in the plugin settings.
 
-Current version: **1.13.31**, requires Obsidian **1.4.0+** on desktop (mobile is not supported). Session tracking, task binding and the Dashboard need no extra dependencies; see the [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models.en) for full client and platform details.
+Current version: **1.13.32**, requires Obsidian **1.4.0+** on desktop (mobile is not supported). Session tracking, task binding and the Dashboard need no extra dependencies; see the [Wiki](https://github.com/MatsuriMW/obsidian-agent-deck/wiki/Supported-Agents-and-Models.en) for full client and platform details.
 
 ## Community
 
