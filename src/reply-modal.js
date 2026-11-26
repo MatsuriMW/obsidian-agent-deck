@@ -4,12 +4,13 @@ import { Modal } from "obsidian";
 import { t } from "./i18n.js";
 
 export class ReplyModal extends Modal {
-  constructor(app, { question = "", options = [], value = "", hint = "", canContinue = false, onSubmit } = {}) {
+  constructor(app, { question = "", options = [], value = "", hint = "", workspace = "", canContinue = false, onSubmit } = {}) {
     super(app);
     this.question = question;
     this.options = options;
     this.value = value;
     this.hint = hint;
+    this.workspace = workspace;
     this.canContinue = canContinue;
     this.onSubmit = onSubmit;
   }
@@ -19,6 +20,7 @@ export class ReplyModal extends Modal {
     contentEl.empty();
     contentEl.addClass("ad-modal", "ad-reply-modal");
     contentEl.createDiv({ cls: "ad-send__title", text: t("回答这一问") });
+    if (this.workspace) contentEl.createDiv({ cls: "ad-muted", text: t("工作目录：{workspace}", { workspace: this.workspace }) });
     if (this.question) contentEl.createEl("p", { cls: "ad-reply-modal__question", text: this.question });
     if (this.hint) contentEl.createDiv({ cls: "ad-muted", text: this.hint });
 

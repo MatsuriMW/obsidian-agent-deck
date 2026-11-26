@@ -128,7 +128,7 @@ test("文件库模式：新记忆写成文件，派发时能读到", async () =>
   const dream = new Dreaming(p, async () => JSON.stringify({ memories: [{ text: "偏好中文回复", kind: "preference", sources: ["S1"], quotes: [{ source: "S1", text: "以后请用中文回复" }], replaces: [] }] }));
   await dream.run();
   assert.equal(p.settings.dream.lastError, "");
-  const mem = [...files.keys()].filter((k) => k.startsWith("Agent Deck/记忆/") && !k.endsWith("/索引.md"));
+  const mem = [...files.keys()].filter((k) => k.startsWith("Agent Deck/记忆/") && !k.endsWith("/索引.md") && !k.endsWith("/log.md"));
   assert.equal(mem.length, 1);
   const parsed = parseMemoryFile(files.get(mem[0]));
   assert.equal(parsed.text, "偏好中文回复");
@@ -447,4 +447,323 @@ test("模式 B 按文档分批提炼：多文档分别送入模型、避免后�
   assert.equal(out.length, 2);
   assert.equal(out[0].date, "2026-11-18");
   assert.equal(out[1].date, "2026-11-19");
+});
+
+test("隐私与修复回归：rewriteSources 加引号、writeEntry 写全元数据、renderMemoryList/Index 过滤 private、自定义 dir 回链、空 state 容错", async () => {
+  const { p, files } = makePlugin({ dream: { store: "files", dir: "自定义/记忆" } });
+  const dream = new Dreaming(p, async () => "{}");
+
+  // 1. writeEntry 完整保留 project/tags/supersedes/verified
+  const writtenPath = await dream.writeEntry({
+    id: "m-meta",
+    kind: "lesson",
+    text: "Agent Deck 需先打包再装库",
+    date: "2026-11-20",
+    project: "agent-deck",
+    tags: ["esbuild", "deploy"],
+    supersedes: ["m-old"],
+    verified: true,
+  }, ["[[日记/2026_11_20]]（用户日志，第 5—5 行）；原文：先打包再装库"]);
+  const writtenRaw = files.get(writtenPath);
+  assert.match(writtenRaw, /^project: agent-deck$/m);
+  assert.match(writtenRaw, /^verified: true$/m);
+  assert.match(writtenRaw, /^supersedes:\n  - "m-old"$/m);
+
+  // 2. rewriteSources 必须加 YAML 引号（防止 [[...]] 被解析为嵌套数组）
+  await dream.rewriteSources(writtenPath, ["[[日记/2026_11_20#^mem-1234]]（用户日志，第 8—8 行）；原文：先打包再装库"]);
+  const afterRewrite = files.get(writtenPath);
+  assert.match(afterRewrite, /  - "\[\[日记\/2026_11_20#\^mem-1234\]\]/);
+  assert.ok(!/  - \[\[/.test(afterRewrite));
+
+  // 3. renderMemoryList 与 renderMemoryIndex 过滤 private: true 和非有效状态
+  const privPath = await dream.writeEntry({ id: "m-priv", kind: "fact", text: "绝密记忆内容", date: "2026-11-21", private: true }, []);
+  assert.ok(files.get(privPath).includes("private: true"));
+  await dream.syncOverview();
+  assert.ok(!files.get("Agent Deck/长期记忆.md").includes("绝密记忆内容"), "private 记忆绝不进概览");
+  assert.ok(!files.get("自定义/记忆/索引.md").includes("绝密记忆内容"), "private 记忆绝不进索引");
+
+  // 4. 空 state: 容错并修复 setEntryState
+  const malformedPath = "自定义/记忆/2026-11-17-malformed.md";
+  files.set(malformedPath, "---\nid: m-mal\ntitle:\nkind: lesson\ntype:\nstate:\ndate: 2026-11-17\n---\n\n空状态测试条目\n");
+  assert.equal(await dream.setEntryState(malformedPath, "有效"), true);
+  assert.match(files.get(malformedPath), /^state: 有效$/m);
+  assert.match(files.get(malformedPath), /^verified: true$/m);
+
+  // 5. 自定义 dream.dir 下 ensureReverseLinks 清理与防重正常工作
+  files.set("日记/2026_11_20.md", ["- 先打包再装库 ^mem-1234", ""].join("\n"));
+  const rev = await dream.ensureReverseLinks({ write: true });
+  assert.equal(rev.linked, 1);
+  assert.match(files.get("日记/2026_11_20.md"), /- ⤴ \[\[自定义\/记忆\//);
+  const revAgain = await dream.ensureReverseLinks({ write: true });
+  assert.equal(revAgain.linked, 1);
+  assert.equal(files.get("日记/2026_11_20.md").split("⤴").length - 1, 1);
+});
+
+test("OKF v0.2 元数据往返、衍生可信度/过期判定、log.md 与 0-Token 回填", async () => {
+  const { appendMemoryLogContent, deriveProvenance, deriveTrustLevel, isMemoryStale } = await import("../src/memory-store.js");
+  const okfMd = serializeMemoryFile({
+    id: "m-okf",
+    kind: "pattern",
+    text: "测试按 OKF v0.2 写入可追溯元数据",
+    state: "有效",
+    date: "2026-11-26",
+    description: "验证 OKF 字段完整性",
+    project: "agent-deck",
+    appliesTo: "dream-module",
+    domain: "engineering",
+    tags: ["okf", "memory"],
+    generatedBy: "dream",
+    verified: true,
+    verifiedBy: "human:chenchen",
+    verifiedAt: "2026-11-26",
+    verdict: "confirmed",
+    validFrom: "2026-11-01",
+    staleAfter: "2026-12-31",
+    supersededBy: "",
+    sources: ["[[日记/2026_11_26#^mem-abcd]]（用户日志，第 1—1 行）；原文：测试"],
+  });
+  const parsed = parseMemoryFile(okfMd);
+  assert.equal(parsed.status, "active");
+  assert.equal(parsed.description, "验证 OKF 字段完整性");
+  assert.equal(parsed.appliesTo, "dream-module");
+  assert.equal(parsed.provenance, "user-log");
+  assert.equal(parsed.trust, "human-reviewed");
+  assert.equal(parsed.verifiedBy, "human:chenchen");
+  assert.equal(parsed.verdict, "confirmed");
+  assert.equal(parsed.staleAfter, "2026-12-31");
+
+  // 嵌套 OKF v0.2 格式解析 + deriveTrustLevel / isMemoryStale
+  const nestedOkf = "---\ntype: 经验\ndescription: \"嵌套格式\"\nstatus: deprecated\ngenerated: { by: \"ai:codex\", at: \"2026-11-25\" }\nverified: { by: \"human:chenchen\", at: \"2026-11-26\" }\nstale_after: 2025-01-01\nsources:\n  - \"[[日记/2026_11_25]]（AI 记录，第 2—2 行）；原文：记录\"\n---\n\n嵌套 OKF 元数据条目\n";
+  const parsedNested = parseMemoryFile(nestedOkf);
+  assert.equal(parsedNested.state, "已被替代");
+  assert.equal(parsedNested.generatedBy, "ai:codex");
+  assert.equal(parsedNested.verifiedBy, "human:chenchen");
+  assert.equal(parsedNested.provenance, "ai-log");
+  assert.equal(parsedNested.trust, "human-reviewed");
+  assert.equal(isMemoryStale(parsedNested, Date.parse("2026-11-26")), true);
+  assert.equal(deriveProvenance(["[[日记/x]]（AI 记录，第 1—1 行）；原文：x"]), "ai-log");
+  assert.equal(deriveTrustLevel({ verified: false, provenance: "ai-log" }), "ai-derived");
+
+  const log1 = appendMemoryLogContent("", { date: "2026-11-26", action: "Creation", summary: "新增 2 条", items: ["m-1", "m-2"] });
+  assert.match(log1, /## 2026-11-26/);
+  assert.match(log1, /\*\*Creation\*\*：新增 2 条/);
+
+  // 0-Token 回填：修复空 state:、补齐 status/provenance/verdict、从 sources 推断项目且不误读 log.md
+  const { p, files } = makePlugin({
+    dream: { store: "files" },
+  });
+  p.settings.projectFolders = { "agent-deck": "/tmp/agent-deck" };
+  files.set("Agent Deck/记忆/2026-11-17-bad.md", "---\nid: m-bad\ntitle: \"在 agent-deck 中保持回填安全\"\nkind: pattern\ntype: 待验证规律\nstate:\ndate: 2026-11-17\nsources:\n  - \"[[日记/2026_11_17]]（用户日志，第 1—1 行）；原文：回填\"\n---\n\n在 agent-deck 中保持回填安全\n");
+  files.set("Agent Deck/记忆/log.md", log1);
+  const dream = new Dreaming(p, async () => "{}");
+  const bf = await dream.backfillOkfMetadata();
+  assert.equal(bf.checked, 1, "log.md 不得被当成记忆条目读取");
+  assert.equal(bf.updated, 1);
+  assert.equal(bf.repairedState, 1);
+  assert.equal(bf.inferredProject, 1);
+  const patched = parseMemoryFile(files.get("Agent Deck/记忆/2026-11-17-bad.md"));
+  assert.equal(patched.state, "有效");
+  assert.equal(patched.status, "active");
+  assert.equal(patched.provenance, "user-log");
+  assert.equal(patched.verdict, "pending");
+  assert.equal(patched.project, "agent-deck");
+  assert.match(files.get("Agent Deck/记忆/log.md"), /\*\*OKF-Backfill\*\*/);
+});
+
+test("图谱融合：纯双链 concepts/project_link/source_notes 往返、短命题命名与 renameShort 升级", async () => {
+  const raw = serializeMemoryFile({
+    id: "m-graph1",
+    kind: "lesson",
+    text: "使用 Obsidian 关系图谱与单元测试验证记忆演化链路",
+    state: "有效",
+    date: "2026-11-26",
+    projectLink: "[[Agent Deck]]",
+    concepts: ["[[Obsidian]]", "[[单元测试]]"],
+    conflictsWith: ["[[旧规范]]"],
+    sources: ["[[日记/2026_11_26#^mem-1122]]（用户日志，第 2—2 行）；原文：验证记忆演化"],
+  });
+  const parsed = parseMemoryFile(raw);
+  assert.equal(parsed.projectLink, "[[Agent Deck]]");
+  assert.deepEqual(parsed.concepts, ["[[Obsidian]]", "[[单元测试]]"]);
+  assert.deepEqual(parsed.sourceNotes, ["[[日记/2026_11_26#^mem-1122]]"]);
+  assert.deepEqual(parsed.conflictsWith, ["[[旧规范]]"]);
+
+  const shortName = memoryFileName({ date: "2026-11-26", text: "用户在 A 股投资中不买红利股与消费股", preferShort: true });
+  assert.ok(!shortName.startsWith("2026-11-26-"));
+  assert.match(shortName, /^A/);
+
+  const { p, files } = makePlugin({
+    dream: { store: "files" },
+    files: {
+      "Concepts/有损压缩.md": "# 有损压缩\n",
+      "软件与数字工具/Obsidian.md": "# Obsidian\n",
+      "Agent Deck.md": "# Agent Deck\n",
+      "日记/2026_11_18.md": "- 有损压缩试验\n",
+      "Agent Deck/记忆/2026-11-18-用户在Obsidian中做有损压缩试验测试.md": [
+        "---",
+        "id: m-old1",
+        'title: "用户在 Obsidian 中做有损压缩试验测试"',
+        "kind: fact",
+        "type: 事实",
+        "state: 有效",
+        "date: 2026-11-18",
+        "sources:",
+        '  - "[[日记/2026_11_18#^mem-8899]]（用户日志，第 5—5 行）；原文：有损压缩试验"',
+        '  - "[[areas/nonexistent-import]]（导入来源）"',
+        "---",
+        "",
+        "用户在 Obsidian 中做有损压缩试验测试",
+        "",
+      ].join("\n"),
+    },
+  });
+  p.app.vault.getMarkdownFiles = () => [...files.keys()].filter((k) => k.endsWith(".md")).map((path) => ({ path, extension: "md" }));
+  p.app.metadataCache = {
+    ...(p.app.metadataCache || {}),
+    getFirstLinkpathDest: (link) => {
+      const clean = String(link || "").replace(/\.md$/, "");
+      for (const k of files.keys()) if (k === `${clean}.md` || k.endsWith(`/${clean}.md`)) return { path: k };
+      return null;
+    },
+  };
+  p.app.vault.rename = async (f, nextPath) => {
+    const content = files.get(f.path);
+    files.delete(f.path);
+    files.set(nextPath, content);
+  };
+  const dream = new Dreaming(p, async () => "{}");
+  const up = await dream.backfillOkfMetadata({ dryRun: false, renameShort: true, relinkGraph: true });
+  assert.equal(up.updated, 1);
+  assert.equal(up.renamed, 1);
+  assert.ok(up.linkedConcepts >= 2);
+  assert.equal(up.linkedSources, 1);
+  const renamedKey = [...files.keys()].find((k) => k.startsWith("Agent Deck/记忆/") && !k.endsWith("/索引.md") && !k.endsWith("/log.md"));
+  assert.ok(renamedKey && !renamedKey.includes("2026-11-18-"), "旧长文件名已升为短命题文件名");
+  const after = parseMemoryFile(files.get(renamedKey));
+  assert.ok(after.concepts.includes("[[Obsidian]]"));
+  assert.ok(after.concepts.includes("[[有损压缩]]"));
+  assert.deepEqual(after.sourceNotes, ["[[日记/2026_11_18#^mem-8899]]"], "ghost source_notes 应过滤，只保留库内真实存在的笔记");
+  assert.match(files.get("Agent Deck/记忆.base"), /concepts/);
+  assert.match(files.get("Agent Deck/记忆.base"), /!file\.inFolder\("Agent Deck\/记忆\/archive"\)/);
+  assert.equal(await dream.reconcileFile({ path: "Agent Deck/记忆/2026-11-18-用户在Obsidian中做有损压缩试验测试.md" }), false, "重命名后旧路径触发 reconcile 不报错");
+});
+
+test("冲突边幂等写入、锚点分类口径、updateEntry 保字段、以及 archive/restore 生命周期", async () => {
+  const { appendFrontmatterLinks, classifyAnchorStatus } = await import("../src/memory-store.js");
+  const baseMd = "---\nid: m-1\nkind: fact\nstate: 有效\nconcepts:\n  - \"[[Obsidian]]\"\n---\n\n测试正文\n";
+  const withConf1 = appendFrontmatterLinks(baseMd, "conflicts_with", ["[[Agent Deck/记忆/冲突A]]", "[[Agent Deck/记忆/冲突B]]"]);
+  assert.match(withConf1, /^conflicts_with:\n  - "\[\[Agent Deck\/记忆\/冲突A\]\]"\n  - "\[\[Agent Deck\/记忆\/冲突B\]\]"/m);
+  assert.equal(appendFrontmatterLinks(withConf1, "conflicts_with", ["[[Agent Deck/记忆/冲突A]]"]), null, "重复追加冲突链接应幂等");
+
+  // 锚点分类：区分库内日记可补锚 vs 外部导入/MCP 免补锚
+  assert.equal(classifyAnchorStatus({ provenance: "import", sources: ["[[areas/ext]]（导入）"] }, { existsInVault: () => false }).externalImportOnly, true);
+  assert.equal(classifyAnchorStatus({ provenance: "manual", sources: ["agent-mcp"] }).externalImportOnly, true);
+  assert.equal(classifyAnchorStatus({ provenance: "user-log", sources: ["[[日记/2026_11_20]]（用户日志，第 3—3 行）；原文：x"] }, { existsInVault: () => true }).unanchoredVault, true);
+  assert.equal(classifyAnchorStatus({ provenance: "user-log", sources: ["[[日记/2026_11_20#^mem-1234]]（用户日志）"] }).anchored, true);
+
+  const { p, files } = makePlugin({
+    dream: { store: "files", archiveAfterDays: 30 },
+    files: {
+      "日记/2026_11_20.md": "- 原文",
+    },
+  });
+  p.app.vault.rename = async (f, nextPath) => {
+    const content = files.get(f.path);
+    files.delete(f.path);
+    files.set(nextPath, content);
+  };
+  p.app.metadataCache = {
+    getFirstLinkpathDest: (link) => {
+      const clean = String(link || "").replace(/\.md$/, "");
+      return files.has(`${clean}.md`) ? { path: `${clean}.md` } : null;
+    },
+  };
+  const dream = new Dreaming(p, async () => "{}");
+
+  // 1. updateEntry 保留已有 OKF 与图谱边字段
+  const richPath = "Agent Deck/记忆/富字段.md";
+  files.set(richPath, serializeMemoryFile({
+    id: "m-rich",
+    kind: "lesson",
+    text: "编辑后应保留图谱边与 OKF 元数据",
+    state: "有效",
+    date: "2026-11-20",
+    description: "保留字段测试",
+    concepts: ["[[Obsidian]]"],
+    projectLink: "[[Agent Deck]]",
+    conflictsWith: ["[[旧条目]]"],
+    staleAfter: "2026-12-31",
+    sources: ["[[日记/2026_11_20]]（用户日志，第 1—1 行）；原文：原文"],
+  }));
+  await dream.updateEntry(richPath, { text: "编辑后依然保留图谱边与 OKF 元数据", verified: true });
+  const afterUpdate = parseMemoryFile(files.get(richPath));
+  assert.deepEqual(afterUpdate.concepts, ["[[Obsidian]]"]);
+  assert.equal(afterUpdate.projectLink, "[[Agent Deck]]");
+  assert.deepEqual(afterUpdate.conflictsWith, ["[[旧条目]]"]);
+  assert.equal(afterUpdate.description, "保留字段测试");
+  assert.equal(afterUpdate.staleAfter, "2026-12-31");
+
+  // 2. 外部导入条不计入缺硬锚点警告；超期失效条自动归档并可恢复
+  files.set("Agent Deck/记忆/导入条.md", serializeMemoryFile({
+    id: "m-imp",
+    kind: "fact",
+    text: "从外部导入的经验条目",
+    state: "有效",
+    date: "2026-11-20",
+    provenance: "import",
+    sources: ["Claude 记忆导出（/topics/a.md）；原文：导入经验"],
+  }));
+  files.set("Agent Deck/记忆/超期已替代.md", serializeMemoryFile({
+    id: "m-arch",
+    kind: "fact",
+    text: "2025 年初已被替代的旧记录",
+    state: "已被替代",
+    date: "2025-01-01",
+    sources: [],
+  }));
+  const auditBefore = await dream.audit();
+  assert.equal(auditBefore.unanchoredVaultSources, 1, "只有库内日记未锚定条目计入库内可补锚");
+  assert.equal(auditBefore.externalImportSources, 1, "外部导入条目单独计数，不制造假告警");
+  assert.equal(auditBefore.conflicting.length, 1);
+  assert.equal(auditBefore.archivableCount, 1);
+  const report = await dream.healthReport();
+  assert.match(report, /缺硬锚点（库内可补） \| 1/);
+  assert.match(report, /外部导入\/非库来源 1 条免补锚/);
+  assert.match(report, /冲突待裁决 \| 1/);
+
+  const archRes = await dream.archiveDeprecated({ nowMs: Date.parse("2026-11-26") });
+  assert.equal(archRes.archived, 1);
+  assert.ok(files.has("Agent Deck/记忆/archive/超期已替代.md"));
+  assert.ok(!files.has("Agent Deck/记忆/超期已替代.md"));
+  assert.match(files.get("Agent Deck/记忆/log.md"), /\*\*Archive\*\*/);
+
+  const restored = await dream.restoreArchivedEntry("Agent Deck/记忆/archive/超期已替代.md", { reactivate: true });
+  assert.equal(restored.restored, true);
+  assert.ok(files.has("Agent Deck/记忆/超期已替代.md"));
+  assert.equal(parseMemoryFile(files.get("Agent Deck/记忆/超期已替代.md")).state, "有效");
+  assert.match(files.get("Agent Deck/记忆/log.md"), /\*\*Restore\*\*/);
+
+  // 3. Round 2 边界：清理后的 source_notes 不复活死链、reconcile 同步 verified、拒绝/归档双向清理冲突边
+  const { reconcileMemoryFile, renderMemoryIndex, removeFrontmatterLinks } = await import("../src/memory-store.js");
+  const stripped = serializeMemoryFile({
+    id: "m-dead",
+    kind: "fact",
+    text: "来源已从库外删除但保留历史摘录",
+    sources: ["[[日记/已删笔记]]（用户日志，第 1—1 行）；原文：旧摘录"],
+    sourceNotes: [],
+  });
+  assert.deepEqual(parseMemoryFile(stripped).sourceNotes, [], "显式清空的 sourceNotes 不得在序列化/解析时复活");
+  const baseVerifiedRec = reconcileMemoryFile("---\nid: m-pv\ntitle: \"测试规律\"\nkind: pattern\ntype: 待验证规律\nstate: 有效\nstatus: active\ndate: 2026-11-26\nverified: true\n---\n\n测试规律\n", { today: "2026-11-26" });
+  assert.match(baseVerifiedRec, /^verdict: confirmed$/m);
+  assert.match(baseVerifiedRec, /^verified_by: "?human:user"?$/m);
+  const idxText = renderMemoryIndex([afterUpdate]);
+  assert.ok(idxText.includes("高频概念："));
+  assert.ok(idxText.includes("[[Agent Deck]](1)"));
+  assert.ok(idxText.includes("[[Obsidian]](1)"));
+
+  files.set("Agent Deck/记忆/冲突A.md", serializeMemoryFile({ id: "m-ca", kind: "fact", text: "规则 A", date: "2026-11-26", conflictsWith: ["[[Agent Deck/记忆/冲突B]]"] }));
+  files.set("Agent Deck/记忆/冲突B.md", serializeMemoryFile({ id: "m-cb", kind: "fact", text: "规则 B", date: "2026-11-26", conflictsWith: ["[[Agent Deck/记忆/冲突A]]"] }));
+  await dream.setEntryState("Agent Deck/记忆/冲突B.md", "已拒绝");
+  assert.deepEqual(parseMemoryFile(files.get("Agent Deck/记忆/冲突A.md")).conflictsWith, [], "淘汰冲突一侧应自动清理另一侧残余冲突边");
+  assert.equal(removeFrontmatterLinks("---\nconflicts_with:\n  - \"[[foo]]\"\n---\n", "conflicts_with", ["foo"])?.includes("conflicts_with"), false);
 });

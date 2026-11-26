@@ -212,3 +212,32 @@ test("ContextBundle 联合 enrichPrompt：同时扫描祖先链双链，且稳�
     "ContextBundle 按前稳后动顺序装配",
   );
 });
+
+test("memoryToolHint 读取 索引.md 的有效条数、高频概念并附带 --project 过滤提示", async () => {
+  const vault = makeVault();
+  const memDir = path.join(vault, "Agent Deck", "记忆");
+  fs.writeFileSync(
+    path.join(memDir, "索引.md"),
+    [
+      "# 记忆索引",
+      "",
+      "共 3 条有效非私密记忆 · 由插件生成。",
+      "分布：项目经验 2 · 偏好 1 · 事实 0 · 待验证规律 0 · 已确认 2",
+      "高频概念：[[Agent Deck]](3) · [[Obsidian]](2) · [[CodeRabbit]](1)",
+    ].join("\n"),
+  );
+  const d = makeDelegator(vault);
+  const hint = await d.memoryToolHint({ projectName: "Agent Deck" });
+  const hintLines = hint.split("\n");
+  const scriptPath = path.join(vault, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
+  assert.equal(hintLines[0], `需要更多背景时：node "${scriptPath}" search "关键词"`, "首行契约保持不变");
+  assert.match(hintLines[1], /共 3 条有效记忆/);
+  assert.match(hintLines[1], /--project "Agent Deck"/);
+  assert.match(hintLines[1], /常见主题：Agent Deck \/ Obsidian \/ CodeRabbit/);
+
+  // 索引里写明 0 条有效非私密记忆时，即使目录内有已拒绝文件也不误报条数。
+  fs.writeFileSync(path.join(memDir, "已拒绝条目.md"), "---\nstate: 已拒绝\n---\n拒绝\n");
+  fs.writeFileSync(path.join(memDir, "索引.md"), "# 记忆索引\n\n共 0 条有效非私密记忆 · 由插件生成。\n");
+  const emptyHint = await d.memoryToolHint();
+  assert.equal(emptyHint, `需要更多背景时：node "${scriptPath}" search "关键词"`);
+});

@@ -20,17 +20,51 @@ const MEMORY_CORPUS = [
   { id: "m3", kind: "偏好", type: "风格", state: "有效", text: "日志排版偏好简洁时间段加粗与关键记录 Pin 标记", tags: ["journal", "layout"], domain: "workflow", sources: ["[[日记规范]]"] },
   { id: "m4", kind: "事实", type: "密钥", state: "有效", private: true, text: "私有日记里记录的 esbuild 内部调试密钥 sk-secret-12345", tags: ["esbuild"], domain: "private", sources: ["[[私密笔记]]"] },
   { id: "m5", kind: "待验证规律", type: "假设", state: "已拒绝", text: "已经拒绝的旧 esbuild 配置方案不应再注入", tags: ["esbuild"], domain: "engineering", sources: ["[[旧方案]]"] },
-  { id: "m6", kind: "项目经验", type: "经验", state: "有效", text: "修改日志解析或清洗规则后必须递增 USAGE_CACHE_VERSION 避免旧缓存污染", tags: ["sqlite", "cache"], domain: "readers", sources: ["[[缓存迁移]]"] },
-  { id: "m7", kind: "偏好", type: "约束", state: "有效", text: "缺失 token 或活跃时段时绝不估算数值，保留真实空值", tags: ["metrics", "analytics"], domain: "readers", sources: ["[[口径规范]]"] },
+  { id: "m6", kind: "lesson", type: "项目经验", state: "有效", text: "修改日志解析或清洗规则后必须递增 USAGE_CACHE_VERSION 避免旧缓存污染", tags: ["sqlite", "cache"], domain: "readers", sources: ["[[缓存迁移]]"] },
+  { id: "m7", kind: "preference", type: "约束", state: "有效", text: "缺失 token 或活跃时段时绝不估算数值，保留真实空值", tags: ["metrics", "analytics"], domain: "readers", sources: ["[[口径规范]]"] },
+  { id: "m8", kind: "preference", type: "偏好", state: "有效", text: "用户在 A 股投资中偏向科技板块并回避红利股", tags: ["投资"], domain: "finance", sources: ["[[投资笔记]]"] },
+  { id: "m9", kind: "fact", type: "事实", state: "有效", text: "用户日常需要 7.5 小时睡眠并按 R90 周期计算作息", tags: ["health"], domain: "life", sources: ["[[作息]]"] },
+  { id: "m10", kind: "fact", type: "事实", state: "有效", text: "在设计信息流块的排序与交互时，采用 Pin 置顶、双击 Zoom In 与访问频次加权排序", tags: ["ui", "feed"], sources: ["[[日记/2026_11_20]]（用户日志，第 9—9 行）；原文：排序"] },
+  { id: "m11", kind: "fact", type: "事实", state: "有效", staleAfter: "2020-01-01", text: "2020 年早期的旧 esbuild 临时调试参数，已过复核截止期", tags: ["esbuild"], sources: ["[[旧日记]]"] },
+  { id: "m12", kind: "lesson", type: "项目经验", state: "有效", verified: false, provenance: "ai-log", text: "AI 记录建议增加自动签名发布流程，该方案尚未实施不能视为已验证", tags: ["release"], sources: ["[[日记/x]]（AI 记录，第 1—1 行）；原文：建议"] },
+  { id: "m13", kind: "lesson", type: "项目经验", state: "有效", verified: true, provenance: "user-log", text: "发布安装包前统一校验发布签名与清单版本对齐", tags: ["release"], sources: ["[[日记/y]]（用户日志，第 2—2 行）；原文：签名"] },
+  { id: "m14", kind: "preference", type: "偏好", state: "有效", concepts: ["[[视频口播]]"], text: "脚本开头用悬念问题引入可显著提升留存", sources: ["[[日记/z]]（用户日志，第 3—3 行）；原文：悬念"] },
 ];
 
+const M15_WIN_PREF = { id: "m15", kind: "preference", type: "偏好", state: "有效", project: "agent-deck", text: "用户在多端协作项目（如 Agent Deck）中由合作方主导 Windows 优化，自己负责 macOS 主线", sources: ["[[日记/w1]]（用户日志，第 1—1 行）；原文：Windows"] };
+const M16_WIN_LESSON = { id: "m16", kind: "lesson", type: "项目经验", state: "有效", project: "agent-deck", text: "跨平台测试在 Windows 环境下不能手写 POSIX 路径期望值，必须用 path.resolve 与正斜杠归一化", sources: ["[[日记/w2]]（用户日志，第 2—2 行）；原文：POSIX"] };
+const M17_ESBUILD_DUP = { id: "m17", kind: "lesson", type: "项目经验", state: "有效", verified: false, trust: "ai-derived", project: "agent-deck", text: "使用 esbuild 打包插件时必须保留 obsidian 为 external，否则构建运行期必然报错", sources: ["[[构建规范2]]"] };
+
 const MEMORY_CASES = [
-  { name: "single-latin-term-esbuild", query: "排查 esbuild 打包报错", expected: ["m1"], forbidden: ["m4", "m5"] },
-  { name: "single-latin-term-windows", query: "适配 windows 终端启动", expected: ["m2"], forbidden: ["m4", "m5"] },
+  { name: "single-latin-term-esbuild", query: "排查 esbuild 打包报错", expected: ["m1"], forbidden: ["m4", "m5", "m11"] },
+  { name: "single-latin-term-windows", query: "适配 windows 终端启动", expected: ["m2"], forbidden: ["m4", "m5", "m11"] },
   { name: "chinese-bigram-journal", query: "优化日志排版和Pin标记", expected: ["m3"], forbidden: ["m4", "m5"] },
   { name: "metadata-channel-sqlite", query: "检查 sqlite 缓存逻辑", expected: ["m6"], forbidden: ["m4", "m5"] },
   { name: "chinese-metrics-constraint", query: "处理缺失token的统计口径", expected: ["m7"], forbidden: ["m4", "m5"] },
-  { name: "unrelated-noise-zero-recall", query: "今天中午吃什么拉面", expected: [], forbidden: ["m1", "m2", "m3", "m4", "m5", "m6", "m7"] },
+  { name: "hybrid-term-ashare", query: "梳理 A股 投资偏好", expected: ["m8"], forbidden: ["m4", "m5"] },
+  { name: "domain-routing-code-filters-personal-fact", query: "排查 esbuild 睡眠周期 R90 打包", expected: ["m1"], forbidden: ["m4", "m5", "m9", "m11"], opts: { projectName: "agent-deck", isCodeProject: true } },
+  { name: "domain-routing-keeps-design-fact-in-code-task", query: "设计信息流 Pin 块排序与双击 Zoom In 交互", expected: ["m10"], forbidden: ["m4", "m5", "m9"], opts: { projectName: "info-feed", isCodeProject: true } },
+  { name: "trust-outranks-unverified-proposal", query: "校验安装包发布签名流程", expected: ["m13", "m12"], first: "m13", forbidden: ["m4", "m5", "m11"] },
+  { name: "graph-seed-zero-lexical-recall", query: "整理下期视频的开头结构", expected: ["m14"], forbidden: ["m4", "m5", "m11"], opts: { graphHits: new Map([["m14", { hop: 1, via: "视频口播", bonus: 3.2 }]]) } },
+  { name: "unrelated-noise-zero-recall", query: "今天中午吃什么拉面", expected: [], forbidden: ["m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "m9", "m10", "m11", "m12", "m13", "m14"] },
+  {
+    name: "multiterm-coverage-ranks-lesson-first",
+    corpus: [MEMORY_CORPUS[0], MEMORY_CORPUS[3], MEMORY_CORPUS[4], MEMORY_CORPUS[10], M15_WIN_PREF, M16_WIN_LESSON],
+    query: "处理 Windows 路径兼容",
+    expected: ["m16", "m15"],
+    first: "m16",
+    forbidden: ["m4", "m5", "m11"],
+    opts: { projectName: "agent-deck", isCodeProject: true, limit: 2 },
+  },
+  {
+    name: "near-duplicate-diversity-filter",
+    corpus: [{ ...MEMORY_CORPUS[0], verified: true, trust: "human-reviewed", project: "agent-deck" }, M17_ESBUILD_DUP, MEMORY_CORPUS[5], MEMORY_CORPUS[3], MEMORY_CORPUS[4], MEMORY_CORPUS[10]],
+    query: "排查 esbuild external 打包运行报错与缓存迁移 sqlite",
+    expected: ["m1", "m6"],
+    first: "m1",
+    forbidden: ["m17", "m4", "m5", "m11"],
+    opts: { projectName: "agent-deck", isCodeProject: true, limit: 2 },
+  },
 ];
 
 function evalMemoryRetrieval() {
@@ -40,11 +74,13 @@ function evalMemoryRetrieval() {
   let relevantReturned = 0;
   let privacyLeaks = 0;
   let budgetViolations = 0;
+  let orderMismatches = 0;
   const maxChars = 220;
 
   for (const c of MEMORY_CASES) {
-    const picked = pickMemoriesFromEntries(MEMORY_CORPUS, c.query, { limit: 3, maxChars });
+    const picked = pickMemoriesFromEntries(c.corpus || MEMORY_CORPUS, c.query, { limit: 3, maxChars, ...(c.opts || {}) });
     const ids = picked.map((e) => e.id);
+    if (c.first && ids[0] !== c.first) orderMismatches++;
     const totalChars = picked.reduce((sum, e) => sum + `- ${e.type || e.kind || ""}：${e.text}`.length + 1, 0);
     if (totalChars > maxChars) budgetViolations++;
 
@@ -65,6 +101,7 @@ function evalMemoryRetrieval() {
     precision: returnedTotal ? relevantReturned / returnedTotal : 1,
     privacyLeaks,
     budgetViolations,
+    orderMismatches,
   };
 }
 
@@ -229,6 +266,7 @@ export async function runContextEval() {
     memory.precision >= 0.8 &&
     memory.privacyLeaks === 0 &&
     memory.budgetViolations === 0 &&
+    memory.orderMismatches === 0 &&
     harness.passed === harness.total &&
     harness.privacyLeaks === 0 &&
     harness.silentLosses === 0 &&

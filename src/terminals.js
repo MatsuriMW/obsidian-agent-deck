@@ -484,9 +484,20 @@ export function createTerminalController(overrides = {}) {
 
     // Windows fallback: Windows Terminal (wt.exe) -> cmd.exe
     if (platform === "win32") {
+      const winDir = String(dir || "").replace(/\//g, "\\");
+      const psMatch = /^powershell\.exe\s+([\s\S]+)$/i.exec(String(command || "").trim());
+      const psFileMatch = psMatch && /-File\s+"([^"]+)"/i.exec(psMatch[1]);
       const wt = findBin("wt.exe");
-      if (wt && execDetached(wt, ["-d", dir, "cmd.exe", "/k", command], { cwd: dir })) return "terminal";
-      if (execDetached("cmd.exe", ["/c", "start", "", "/D", dir, "cmd.exe", "/k", command], { cwd: dir })) return "terminal";
+      if (wt) {
+        const wtArgs = psFileMatch
+          ? ["-d", winDir, "powershell.exe", "-NoExit", "-ExecutionPolicy", "Bypass", "-File", psFileMatch[1]]
+          : ["-d", winDir, "cmd.exe", "/k", command];
+        if (execDetached(wt, wtArgs, { cwd: winDir })) return "terminal";
+      }
+      const cmdArgs = psFileMatch
+        ? ["/c", "start", "", "/D", winDir, "powershell.exe", "-NoExit", "-ExecutionPolicy", "Bypass", "-File", psFileMatch[1]]
+        : ["/c", "start", "", "/D", winDir, "cmd.exe", "/k", command];
+      if (execDetached("cmd.exe", cmdArgs, { cwd: winDir })) return "terminal";
       return "";
     }
 

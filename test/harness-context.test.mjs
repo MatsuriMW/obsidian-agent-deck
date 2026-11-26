@@ -347,3 +347,18 @@ test("agentText 保留代码块、不误伤下划线标识符", async () => {
   assert.match(out, /user_id/);
   assert.match(out, /__name__/, "__name__ 这类标识符不动");
 });
+
+test("extractOkfHeader 在整篇双链内联时提取极简 OKF 元信息，纯正文笔记不加前缀", async () => {
+  const { extractOkfHeader } = await import("../src/harness.js");
+  assert.equal(extractOkfHeader("# 普通标题\n正文内容"), "");
+  const header = extractOkfHeader("---\ntype: 概念\ndef: \"双链知识契约\"\ndomain: architecture\nstatus: stable\nverified: true\n---\n\n正文内容");
+  assert.match(header, /\[元信息：type: 概念 \| def: 双链知识契约 \| domain: architecture \| status: stable \| verified: true\]/);
+
+  const plugin = makePlugin({
+    协议: { path: "docs/协议.md", content: "---\ntype: 规范\ndef: \"派发边界契约\"\nstatus: active\n---\n\n正文细则" },
+    无头: { path: "docs/无头.md", content: "# 无头\n纯正文" },
+  });
+  const { prompt } = await promptFor(plugin, "- TODO 对照 [[协议]] 和 [[无头]]");
+  assert.match(prompt, /\[元信息：type: 规范 \| def: 派发边界契约 \| status: active\]/);
+  assert.ok(!prompt.includes("- [[无头]] (docs/无头.md):\n[元信息"));
+});

@@ -43,10 +43,16 @@ for (const [file, maxBytes] of [["main.js", MAX_MAIN_BYTES], ["styles.css", MAX_
 
 const constantsText = fs.readFileSync(path.join(root, "src/constants.js"), "utf8");
 const mqText = fs.readFileSync(path.join(root, "scripts/memory-query.mjs"), "utf8");
+const mcpText = fs.readFileSync(path.join(root, "scripts/memory-mcp.mjs"), "utf8");
 const cVer = /MEMORY_QUERY_ASSET_VERSION\s*=\s*(\d+)/.exec(constantsText)?.[1];
 const mVer = /export\s+const\s+ASSET_VERSION\s*=\s*(\d+)/.exec(mqText)?.[1];
+const cMcpVer = /MEMORY_MCP_ASSET_VERSION\s*=\s*(\d+)/.exec(constantsText)?.[1];
+const mMcpVer = /export\s+const\s+ASSET_VERSION\s*=\s*(\d+)/.exec(mcpText)?.[1];
 if (!cVer || !mVer || cVer !== mVer) {
   errors.push(`memory-query asset version drift: constants=${cVer || "missing"} vs script=${mVer || "missing"}`);
+}
+if (!cMcpVer || !mMcpVer || cMcpVer !== mMcpVer) {
+  errors.push(`memory-mcp asset version drift: constants=${cMcpVer || "missing"} vs script=${mMcpVer || "missing"}`);
 }
 
 if (errors.length) {
@@ -56,4 +62,4 @@ if (errors.length) {
 
 const mainKB = (fs.statSync(path.join(root, "main.js")).size / 1024).toFixed(1);
 const cssKB = (fs.statSync(path.join(root, "styles.css")).size / 1024).toFixed(1);
-console.log(`PASS deploy check: v${manifest.version}, main.js=${mainKB}KB, styles.css=${cssKB}KB, memory-query ASSET_VERSION=${mVer}`);
+console.log(`PASS deploy check: v${manifest.version}, main.js=${mainKB}KB, styles.css=${cssKB}KB, memory-query ASSET_VERSION=${mVer}, memory-mcp ASSET_VERSION=${mMcpVer}`);

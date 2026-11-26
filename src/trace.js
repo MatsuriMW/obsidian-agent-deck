@@ -214,24 +214,29 @@ export async function readRecentTraces({ traceDir = DEFAULT_TRACE_DIR(), limit =
 }
 
 /** Check whether Vault-installed runtime scripts match expected plugin asset versions. */
-export function checkExternalAssets(vaultPath, { expectedMemoryQueryVersion = 1 } = {}) {
+export function checkExternalAssets(vaultPath, { expectedMemoryQueryVersion = 1, expectedMemoryMcpVersion = null } = {}) {
   const cleanVault = String(vaultPath || "").trim();
   if (!cleanVault) return { checked: false, ok: true, items: [] };
-  const scriptPath = path.join(cleanVault, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
+  const scriptsDir = path.join(cleanVault, ".obsidian", "plugins", "agent-deck", "scripts");
+  const specs = [{ name: "memory-query.mjs", expectedVersion: expectedMemoryQueryVersion }];
+  if (expectedMemoryMcpVersion != null) specs.push({ name: "memory-mcp.mjs", expectedVersion: expectedMemoryMcpVersion });
   const items = [];
-  if (!fs.existsSync(scriptPath)) {
-    items.push({ name: "memory-query.mjs", status: "missing", path: scriptPath, expectedVersion: expectedMemoryQueryVersion, actualVersion: null });
-  } else {
-    let actualVersion = null;
-    try {
-      const content = fs.readFileSync(scriptPath, "utf8");
-      const m = /\bexport\s+const\s+ASSET_VERSION\s*=\s*(\d+)/.exec(content);
-      actualVersion = m ? Number(m[1]) : 0;
-    } catch {
-      actualVersion = -1;
+  for (const spec of specs) {
+    const scriptPath = path.join(scriptsDir, spec.name);
+    if (!fs.existsSync(scriptPath)) {
+      items.push({ name: spec.name, status: "missing", path: scriptPath, expectedVersion: spec.expectedVersion, actualVersion: null });
+    } else {
+      let actualVersion = null;
+      try {
+        const content = fs.readFileSync(scriptPath, "utf8");
+        const m = /\bexport\s+const\s+ASSET_VERSION\s*=\s*(\d+)/.exec(content);
+        actualVersion = m ? Number(m[1]) : 0;
+      } catch {
+        actualVersion = -1;
+      }
+      const status = actualVersion === spec.expectedVersion ? "ok" : "drifted";
+      items.push({ name: spec.name, status, path: scriptPath, expectedVersion: spec.expectedVersion, actualVersion });
     }
-    const status = actualVersion === expectedMemoryQueryVersion ? "ok" : "drifted";
-    items.push({ name: "memory-query.mjs", status, path: scriptPath, expectedVersion: expectedMemoryQueryVersion, actualVersion });
   }
   return {
     checked: true,

@@ -3,7 +3,7 @@ import { Dreaming } from '../src/dream.js';
 import { DEFAULTS, journalPath, dayKeyToday } from '../src/constants.js';
 function fixture() {
   const files = new Map(), settings = structuredClone(DEFAULTS);
-  const vault = {getAbstractFileByPath:path=>files.has(path)?{path}:null,read:async f=>files.get(f.path),modify:async(f,t)=>files.set(f.path,t),process:async(f,fn)=>{files.set(f.path,fn(files.get(f.path)));},create:async(p,t)=>files.set(p,t),createFolder:async()=>{}};
+  const vault = {getAbstractFileByPath:p=>{if(files.has(p))return{path:p};const prefix=p.endsWith('/')?p:`${p}/`;const children=[...files.keys()].filter(k=>k.startsWith(prefix)&&!k.slice(prefix.length).includes('/')).map(k=>({path:k}));return children.length?{path:p,children}:null;},read:async f=>files.get(f.path),modify:async(f,t)=>files.set(f.path,t),process:async(f,fn)=>{files.set(f.path,fn(files.get(f.path)));},create:async(p,t)=>files.set(p,t),createFolder:async()=>{}};
   const p = {settings,jobs:{},app:{vault,plugins:{}},saveSettings:async()=>{},notice:()=>{}};
   return {p,files,path:journalPath(p.app,settings,dayKeyToday(settings))};
 }
@@ -231,5 +231,176 @@ console.log('PASS bounded extraction context retrieves relevant early memories')
   await d.run();
   const saved = files.get(p.settings.dream.path) || '';
   assert.ok(saved.includes('写规格时只保留关键设计'));
+}
+// Sleep-Time Consolidation + dropped reporting + files-mode wording edit does not pollute rejected.
+{
+  const { parseConsolidationPlan } = await import('../src/dream.js');
+  const { serializeMemoryFile, parseMemoryFile } = await import('../src/memory-store.js');
+  const { p, files, path } = fixture();
+  p.settings.dream.store = 'files';
+  p.settings.dream.autoAnchor = false;
+  files.set(path, '- TODO 以后测试\n  - 💬 AI 记录：仅 AI 的经验');
+  const d = new Dreaming(p, async () => JSON.stringify({
+    memories: [
+      { text: 'AI 记录不能生成事实', kind: 'fact', sources: ['S2'], quotes: [{ source: 'S2', text: '仅 AI 的经验' }], replaces: [] },
+      { text: 'AI 记录可以沉淀项目经验', kind: 'lesson', project: 'agent-deck', sources: ['S2'], quotes: [{ source: 'S2', text: '仅 AI 的经验' }], replaces: [] },
+    ],
+  }));
+  await d.run();
+  assert.equal(p.settings.dream.coverage.dropped, 1, '被核验丢弃的候选数应显式记入 coverage');
+  assert.ok(p.settings.dream.coverage.droppedReasons.length >= 1);
+
+  // Sleep-time consolidation merges near-duplicates, preserves verified items, and inherits sources + supersedes.
+  const activeMock = [
+    { id: 'm-1', kind: 'lesson', text: '旧条一', verified: false, date: '2026-11-18', sources: ['[[日记/2026_11_18]]'] },
+    { id: 'm-2', kind: 'lesson', text: '旧条二', verified: false, date: '2026-11-19', sources: ['[[日记/2026_11_19]]'] },
+    { id: 'm-v', kind: 'fact', text: '已确认事实', verified: true, date: '2026-11-19', sources: ['[[日记/2026_11_19]]'] },
+  ];
+  const parsedPlan = parseConsolidationPlan(JSON.stringify({
+    merges: [{ keepText: '合并后的经验', kind: 'lesson', project: 'agent-deck', tags: ['build'], fromIds: ['m-1', 'm-2'] }],
+    deprecate: [{ id: 'm-v', reason: 'verified 不得被自动淘汰' }],
+    conflicts: [{ ids: ['m-1', 'm-v'], reason: '示例冲突' }],
+  }), activeMock.map(e => ({ ...e, state: '有效' })));
+  assert.equal(parsedPlan.merges.length, 1);
+  assert.equal(parsedPlan.deprecate.length, 0, 'verified:true 条目受护栏保护绝不自动淘汰');
+
+  files.set('Agent Deck/记忆/2026-11-18-a.md', serializeMemoryFile({ id: 'm-a1', kind: 'lesson', text: 'esbuild 打包不能包含 obsidian', date: '2026-11-18', project: 'agent-deck', sources: ['[[日记/2026_11_18]]'] }));
+  files.set('Agent Deck/记忆/2026-11-19-b.md', serializeMemoryFile({ id: 'm-b1', kind: 'lesson', text: '用 esbuild 构建插件需把 obsidian 设为 external', date: '2026-11-19', project: 'agent-deck', sources: ['[[日记/2026_11_19]]'] }));
+  d.model = async () => JSON.stringify({
+    merges: [{ keepText: '使用 esbuild 打包插件时必须将 obsidian 设为 external', kind: 'lesson', project: 'agent-deck', tags: ['esbuild'], fromIds: ['m-a1', 'm-b1'] }],
+    deprecate: [],
+    conflicts: [],
+  });
+  const cons = await d.consolidate({ manual: false });
+  assert.equal(cons.merged, 1);
+  const allEntries = await d.loadEntries();
+  const mergedEntry = allEntries.find(e => e.text.includes('external') && e.state === '有效');
+  assert.ok(mergedEntry, '合并后生成有效新记忆');
+  assert.equal(mergedEntry.supersedes.length, 2);
+  assert.equal(mergedEntry.sources.length, 2, '合并继承双份来源');
+  assert.equal(parseMemoryFile(files.get('Agent Deck/记忆/2026-11-18-a.md')).state, '已被替代');
+
+  // Sleep-time consolidation writes bidirectional conflicts_with idempotently and respects autoArchive for pre-existing old deprecated items.
+  p.app.vault.rename = async (f, nextPath) => {
+    const content = files.get(f.path);
+    files.delete(f.path);
+    files.set(nextPath, content);
+  };
+  files.set('Agent Deck/记忆/冲突甲.md', serializeMemoryFile({ id: 'm-c1', kind: 'preference', text: '发布前必须运行完整构建校验', date: '2026-11-25', sources: ['[[日记/2026_11_25]]'] }));
+  files.set('Agent Deck/记忆/冲突乙.md', serializeMemoryFile({ id: 'm-c2', kind: 'preference', text: '小改动可以跳过构建直接装库', date: '2026-11-26', sources: ['[[日记/2026_11_26]]'] }));
+  files.set('Agent Deck/记忆/2025-01-01-旧废弃.md', serializeMemoryFile({ id: 'm-old-dep', kind: 'fact', text: '2025 年初已拒绝的历史记录', state: '已拒绝', date: '2025-01-01', sources: [] }));
+  d.model = async () => JSON.stringify({
+    merges: [],
+    deprecate: [],
+    conflicts: [{ ids: ['m-c1', 'm-c2'], reason: '是否跳过构建互相冲突' }],
+  });
+  const cons2 = await d.consolidate({ manual: false });
+  assert.equal(cons2.conflictsMarked, 1);
+  assert.equal(cons2.archived, 1, '已过保留期的旧失效条目应在巩固时自动归档');
+  assert.ok(files.has('Agent Deck/记忆/archive/2025-01-01-旧废弃.md'));
+  assert.deepEqual(parseMemoryFile(files.get('Agent Deck/记忆/冲突甲.md')).conflictsWith, ['[[Agent Deck/记忆/冲突乙]]']);
+  assert.deepEqual(parseMemoryFile(files.get('Agent Deck/记忆/冲突乙.md')).conflictsWith, ['[[Agent Deck/记忆/冲突甲]]']);
+  const cons3 = await d.consolidate({ manual: false });
+  assert.equal(cons3.conflictsMarked, 0, '再次巩固相同冲突边应幂等不重复写入');
+
+  // Round 2: merge preserves verified/concepts/short_title and redirects conflicts referencing merged fromIds, then rejecting one side clears residual conflict edge.
+  files.set('Agent Deck/记忆/合并源一.md', serializeMemoryFile({ id: 'm-mc1', kind: 'lesson', text: '打包插件必须执行检查流程', verified: true, verifiedBy: 'human:user', concepts: ['[[Obsidian]]'], date: '2026-11-25', sources: ['[[日记/2026_11_25]]'] }));
+  files.set('Agent Deck/记忆/合并源二.md', serializeMemoryFile({ id: 'm-mc2', kind: 'lesson', text: '发布插件之前需完成打包检查', verified: false, concepts: ['[[Agent Deck]]'], date: '2026-11-26', sources: ['[[日记/2026_11_26]]'] }));
+  files.set('Agent Deck/记忆/冲突丙.md', serializeMemoryFile({ id: 'm-c3', kind: 'lesson', text: '热修补丁可跳过全部检查直接部署', verified: false, date: '2026-11-26', sources: ['[[日记/2026_11_26]]'] }));
+  d.model = async () => JSON.stringify({
+    merges: [{ keepText: '打包发布插件前必须完成全部构建检查', short_title: '测试合并与冲突迁移', kind: 'lesson', project: 'agent-deck', tags: ['deploy'], fromIds: ['m-mc1', 'm-mc2'] }],
+    deprecate: [],
+    conflicts: [{ ids: ['m-mc1', 'm-c3'], reason: '检查策略冲突' }],
+  });
+  const consRemap = await d.consolidate({ manual: false });
+  assert.equal(consRemap.merged, 1);
+  assert.equal(consRemap.conflictsMarked, 1, '合并同批次涉及的冲突应重映射到合并后的新条目');
+  const mergedRemap = parseMemoryFile(files.get('Agent Deck/记忆/测试合并与冲突迁移.md'));
+  assert.equal(mergedRemap.verified, true, '任一源条已确认，合并结果应保留已确认状态');
+  assert.deepEqual(mergedRemap.concepts, ['[[Obsidian]]', '[[Agent Deck]]']);
+  assert.deepEqual(mergedRemap.conflictsWith, ['[[Agent Deck/记忆/冲突丙]]']);
+  assert.deepEqual(parseMemoryFile(files.get('Agent Deck/记忆/冲突丙.md')).conflictsWith, ['[[Agent Deck/记忆/测试合并与冲突迁移]]']);
+  await d.setEntryState('Agent Deck/记忆/冲突丙.md', '已拒绝');
+  assert.deepEqual(parseMemoryFile(files.get('Agent Deck/记忆/测试合并与冲突迁移.md')).conflictsWith, [], '拒绝冲突对手方后应清理残留 conflicts_with');
+
+  // polishShortTitles renames dated/stiff filenames cleanly under _suppressWatch.
+  files.set('Agent Deck/记忆/2026-11-20-用户在Obsidian中做有损压缩试验测试.md', serializeMemoryFile({
+    id: 'm-polish1',
+    kind: 'fact',
+    text: '用户在 Obsidian 中做有损压缩试验以减少上下文占用',
+    date: '2026-11-20',
+    sources: ['[[日记/2026_11_20]]'],
+  }));
+  d.model = async () => JSON.stringify({ titles: [{ id: 'm-polish1', short_title: 'Obsidian 有损压缩减占用' }] });
+  const polished = await d.polishShortTitles({ manual: false });
+  assert.equal(polished.renamed, 1);
+  assert.ok(files.has('Agent Deck/记忆/Obsidian 有损压缩减占用.md'));
+  assert.match(files.get('Agent Deck/记忆/log.md'), /\*\*Short-Title-Polish\*\*/);
+  const polishedAgain = await d.polishShortTitles({ manual: false });
+  assert.equal(polishedAgain.renamed, 0, '已精炼的短命题不应再次触发润色循环');
+
+  // writeEntry auto-infers project + project_link when LLM omits project field, and updateEntry updates description + concepts.
+  p.settings.projectFolders = { 'agent-deck': '/tmp/mock-agent-deck' };
+  const inferredPath = await d.writeEntry({
+    id: 'm-autoproj',
+    kind: 'lesson',
+    text: 'Agent Deck 发布前必须检查 build 与 install',
+    shortTitle: 'Agent Deck 发布前检查',
+    concepts: ['[[Obsidian]]'],
+    date: '2026-11-26',
+  }, []);
+  const inferredParsed = parseMemoryFile(files.get(inferredPath));
+  assert.equal(inferredParsed.project, 'agent-deck', 'writeEntry 应从 projectFolders 自动推断 project');
+
+  await d.updateEntry(inferredPath, {
+    description: '适用于 Agent Deck 构建与发布',
+    concepts: ['Obsidian', 'CI'],
+    verified: true,
+    state: '有效',
+  });
+  const editedParsed = parseMemoryFile(files.get(inferredPath));
+  assert.equal(editedParsed.description, '适用于 Agent Deck 构建与发布');
+  assert.deepEqual(editedParsed.concepts, ['[[Obsidian]]', '[[CI]]']);
+
+  // 非严格提炼模式下，仅由 AI 归纳且未验证的"尚未实施/后续计划"过渡状态应被拦截，不进入长期记忆
+  const transitionalReport = [];
+  const transitionalParsed = parseMemories(
+    JSON.stringify({
+      memories: [{
+        text: 'Agent Deck 尚未实施记忆自动合并方案，后续计划补齐测试',
+        kind: 'lesson',
+        sources: ['S_AI'],
+        quotes: [{ source: 'S_AI', text: 'Agent Deck 尚未实施记忆自动合并方案，后续计划补齐测试' }],
+        replaces: [],
+      }],
+    }),
+    new Map([['S_AI', { kind: 'ai', text: 'Agent Deck 尚未实施记忆自动合并方案，后续计划补齐测试' }]]),
+    [],
+    { strict: false, report: transitionalReport },
+  );
+  assert.equal(transitionalParsed.length, 0);
+  assert.ok(transitionalReport.some((r) => /未验证过渡状态/.test(r)));
+
+  // 去重（MMR-lite）：两条高度重叠的近似规则只保留分高的一条，不挤占不同维度条目的配额
+  const { pickMemoriesFromEntries } = await import('../src/memory-query-core.js');
+  const dupPicked = pickMemoriesFromEntries([
+    { id: 'd1', kind: 'lesson', state: '有效', verified: true, trust: 'human-reviewed', date: '2026-11-26', text: 'Agent Deck 发布前必须执行构建检查与插件部署校验' },
+    { id: 'd2', kind: 'lesson', state: '有效', verified: false, trust: 'ai-derived', date: '2026-11-25', text: 'Agent Deck 发布前必须执行构建检查与插件部署校验并核对脚本' },
+    { id: 'd3', kind: 'lesson', state: '有效', verified: true, date: '2026-11-26', text: 'Agent Deck 打包构建输出到插件根目录后需重新加载生效' },
+  ], 'Agent Deck 发布 构建 检查', { limit: 2 });
+  assert.equal(dupPicked.length, 2);
+  assert.equal(dupPicked[0].id, 'd1');
+  assert.equal(dupPicked[1].id, 'd3');
+
+  // 命中统计 recordHits + audit().proposalOnlyCount + healthReport()
+  d.recordHits([editedParsed.id]);
+  d.recordHits([editedParsed.id]);
+  assert.equal(p.settings.dream.hitStats[editedParsed.id].count, 2);
+  const au = await d.audit();
+  assert.equal(typeof au.proposalOnlyCount, 'number');
+  assert.equal(au.hitActiveCount, 1);
+  const hr = await d.healthReport();
+  assert.match(hr, /派发命中 \/ 零命中/);
+  assert.match(hr, /未验证提案\/过渡态/);
 }
 console.log('PASS edited-entry rejection, dream model inheritance/override, tolerant recovery and serialized evidence budget');

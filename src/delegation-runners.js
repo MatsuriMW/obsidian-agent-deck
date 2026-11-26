@@ -23,11 +23,12 @@ import {
   parseWindowsRegProxy,
   cleanEnv,
 } from "./cli-env.js";
+import { isTempPath, sameFolder, stripWinLongPrefix } from "./project-folders.js";
 import { t } from "./i18n.js";
 
 const fsp = fs.promises;
 const home = () => os.homedir();
-const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
+const norm = (p) => stripWinLongPrefix(p).replace(/^~(?=[\\/])/, home());
 
 const AGENT_BINARY_SPECS = {
   codex: {
@@ -323,10 +324,20 @@ export const findClaudeBinary = (configured = "") => findAgentBinary("claude", c
 export const findT3Binary = (configured = "") => findAgentBinary("t3code", configured);
 
 function pickTrusted(list, vaultPath) {
-  if (list.includes(vaultPath)) return vaultPath;
+  const vaultHit = (list || []).find((p) => sameFolder(p, vaultPath));
+  if (vaultHit) return vaultHit;
   const isDir = (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } };
-  const trusted = list.filter((p) => isDir(p) && !/^\/(private\/)?(tmp|var)\//.test(p));
-  const notAncestor = trusted.filter((p) => p !== vaultPath && !String(vaultPath).startsWith(p.replace(/\/+$/, "") + "/"));
+  const normCmp = (p) => stripWinLongPrefix(p).replace(/\\/g, "/").replace(/\/+$/, "");
+  const isAncestor = (parent, child) => {
+    const a = normCmp(parent);
+    const b = normCmp(child);
+    if (!a || !b) return false;
+    return (process.platform === "win32" || /^[a-z]:\//i.test(a))
+      ? b.toLowerCase().startsWith(a.toLowerCase() + "/")
+      : b.startsWith(a + "/");
+  };
+  const trusted = (list || []).filter((p) => isDir(p) && !isTempPath(p));
+  const notAncestor = trusted.filter((p) => !sameFolder(p, vaultPath) && !isAncestor(p, vaultPath));
   notAncestor.sort((a, b) => a.length - b.length);
   if (notAncestor.length) return notAncestor[0];
   trusted.sort((a, b) => a.length - b.length);
@@ -340,11 +351,21 @@ export async function findTrustedDir(vaultPath) {
   } catch { return vaultPath; }
 }
 
+export function parseCodexTrustedDirs(tomlText = "") {
+  const out = [];
+  for (const m of String(tomlText || "").matchAll(/^\[projects\."((?:\\.|[^"\\])+)"\]\s*\r?\n\s*trust_level\s*=\s*"trusted"/gm)) {
+    out.push(m[1].replace(/\\\\/g, "\\").replace(/\\"/g, '"'));
+  }
+  for (const m of String(tomlText || "").matchAll(/^\[projects\.'([^']+)'\]\s*\r?\n\s*trust_level\s*=\s*['"]trusted['"]/gm)) {
+    out.push(m[1]);
+  }
+  return out;
+}
+
 export async function findCodexTrustedDir(vaultPath) {
   try {
     const toml = await fsp.readFile(path.join(process.env.CODEX_HOME || path.join(home(), ".codex"), "config.toml"), "utf8");
-    const list = [...toml.matchAll(/^\[projects\."([^"]+)"\]\s*\n\s*trust_level\s*=\s*"trusted"/gm)].map((m) => m[1]);
-    return pickTrusted(list, vaultPath);
+    return pickTrusted(parseCodexTrustedDirs(toml), vaultPath);
   } catch { return vaultPath; }
 }
 
@@ -579,7 +600,7 @@ export class ClaudeRunner extends BaseRunner {
     let cwd = norm(opts.cwd || cfg.cwd || d.vaultPath);
     if (cfg.autoTrustedCwd !== false && !opts.cwd && !cfg.cwd) {
       const trusted = await findTrustedDir(d.vaultPath);
-      if (trusted && trusted !== cwd) {
+      if (trusted && !sameFolder(trusted, cwd)) {
         cwd = trusted;
         this.job.cwd = cwd;
         if (!d._trustNoticeAt || Date.now() - d._trustNoticeAt > 10 * 60000) {
@@ -592,7 +613,7 @@ export class ClaudeRunner extends BaseRunner {
     const modelCli = resolveCliModel(d.plugin, "claude", rawModel);
     const effort = opts.effort || cfg.effort || "high";
     const permission = opts.permission || cfg.permission || "auto";
-    const addVault = cfg.addVault !== false && d.vaultPath && d.vaultPath !== cwd;
+    const addVault = cfg.addVault !== false && d.vaultPath && !sameFolder(d.vaultPath, cwd);
     const common = [...(modelCli ? ["--model", modelCli] : []), "--effort", effort, "--permission-mode", permission, "-n", name];
     if (addVault) common.push("--add-dir", d.vaultPath);
     if (cfg.extraArgs && cfg.extraArgs.trim()) common.push(...splitArgs(cfg.extraArgs));
@@ -622,10 +643,16 @@ export class ClaudeRunner extends BaseRunner {
 
   startHeadless({ cwd, common, prompt, bin }) {
     const sid = randomUUID();
-    const args2 = ["-p", "--session-id", sid, ...common, "--", prompt];
-    this.job.command = redactSecrets(`${bin} ${args2.slice(0, -2).join(" ")} …`);
+    const useStdin = process.platform === "win32" && /\.(?:cmd|bat)$/i.test(String(bin || ""));
+    const args2 = useStdin
+      ? ["-p", "--session-id", sid, ...common]
+      : ["-p", "--session-id", sid, ...common, "--", prompt];
+    this.job.command = redactSecrets(`${bin} ${(useStdin ? args2 : args2.slice(0, -2)).join(" ")} …`);
     this.trace?.recordFrame("claude.headless_spawn", `${path.basename(bin)} -p`);
-    const child = spawnCli(bin, args2, { cwd, env: cleanEnv(), stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawnCli(bin, args2, { cwd, env: cleanEnv(), stdio: [useStdin ? "pipe" : "ignore", "pipe", "pipe"] });
+    if (useStdin && child.stdin) {
+      try { child.stdin.write(String(prompt ?? "")); child.stdin.end(); } catch { /* closed */ }
+    }
     this.child = child;
     this.fallbackStarted = true;
     this.job.sessionId = sid;
@@ -688,7 +715,7 @@ export class ClaudeRunner extends BaseRunner {
     const cfg = this.d.settings.delegate.claude;
     const rawModel = this.job.model !== undefined ? this.job.model : (cfg.model !== undefined ? cfg.model : "claude-opus-5-5");
     const modelCli = resolveCliModel(this.d.plugin, "claude", rawModel);
-    const addVault = cfg.addVault !== false && this.d.vaultPath && this.d.vaultPath !== (this.job.cwd || cfg.cwd);
+    const addVault = cfg.addVault !== false && this.d.vaultPath && !sameFolder(this.d.vaultPath, this.job.cwd || cfg.cwd);
     const out = [...(modelCli ? ["--model", modelCli] : []), "--effort", this.job.effort || cfg.effort || "high", "--permission-mode", this.job.permission || cfg.permission || "auto", "-n", this.job.name];
     if (addVault) out.push("--add-dir", this.d.vaultPath);
     return out;
@@ -734,7 +761,7 @@ export class QoderRunner extends BaseRunner {
     const sessionArgs = opts.sessionId ? ["-r", sid] : ["--session-id", sid];
     const args = ["-p", ...sessionArgs, "-w", cwd, ...(model ? ["-m", model] : []), "--reasoning-effort", effort, ...qoderPermissionArgs(perm)];
     if (!opts.sessionId && opts.name) args.push("-n", opts.name);
-    if (d.vaultPath && cwd !== d.vaultPath) args.push("--add-dir", d.vaultPath);
+    if (d.vaultPath && !sameFolder(cwd, d.vaultPath)) args.push("--add-dir", d.vaultPath);
     for (const a of splitArgs(cfg.extraArgs || "")) args.push(a);
     args.push("--", opts.prompt);
     this.job.command = redactSecrets([bin, ...args.slice(0, -1), "<prompt>"].join(" "));

@@ -14,7 +14,7 @@ import { inboxAdd } from "./reply-inbox.js";
 import fs from "fs";
 import { saveBackgroundAnswer, clearBackgroundPending, backgroundRounds } from "./background-output.js";
 import { destinations } from "./workflow.js";
-import { folderExists, normalizeProjectFolder, rememberProjectFolder, resolveDispatchFolder, sameFolder, suggestProjectForTask } from "./project-folders.js";
+import { folderExists, normalizeProjectFolder, projectFolderForName, rememberProjectFolder, resolveDispatchFolder, sameFolder, stripWinLongPrefix, suggestProjectForTask } from "./project-folders.js";
 import path from "path";
 import os from "os";
 import { execFile } from "child_process";
@@ -94,7 +94,7 @@ export {
 
 const fsp = fs.promises;
 const home = () => os.homedir();
-const norm = (p) => String(p || "").replace(/^~(?=\/)/, home());
+const norm = (p) => stripWinLongPrefix(p).replace(/^~(?=[\\/])/, home());
 
 export { CONFIRM_FIRST } from "./constants.js";
 
@@ -303,12 +303,12 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
   if (!sid) { plugin.notice(t("这个会话还没有会话号，稍等一秒再点")); return false; }
   if (agent === "hermes") {
     const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
-    return focusOrResume(plugin, agent, sid, `${shellQuote(findHermesCliBinary(plugin.settings?.delegate?.hermes?.path || ""))} --resume ${shellQuote(sid)}`, cwd);
+    return focusOrResume(plugin, agent, sid, `${cliQuote(findHermesCliBinary(plugin.settings?.delegate?.hermes?.path || ""))} --resume ${cliQuote(sid)}`, cwd);
   }
   if (agent === "gemini") {
     const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
     const bin = findAgentBinary("gemini", plugin.settings?.delegate?.gemini?.path || "");
-    return focusOrResume(plugin, agent, sid, `${shellQuote(bin)} --resume ${shellQuote(sid)}`, cwd);
+    return focusOrResume(plugin, agent, sid, `${cliQuote(bin)} --resume ${cliQuote(sid)}`, cwd);
   }
   if (agent === "cindy") {
     copyText(sid);
@@ -321,11 +321,11 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
   if (["opencode", "qoder", "minimax", "qwenwork", "cursor", "trae", "grokbot", "t3code", "muse", "kimicode", "doubaowork", "teleagent", "orca"].includes(agent)) {
     if (agent === "qoder" && app === "cli") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
-      return focusOrResume(plugin, agent, sid, `${shellQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${shellQuote(sid)}`, cwd);
+      return focusOrResume(plugin, agent, sid, `${cliQuote(findQoderBinary(plugin.settings.delegate?.qoder?.path || ""))} -r ${cliQuote(sid)}`, cwd);
     }
     if (agent === "minimax" && app === "cli") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
-      return focusOrResume(plugin, agent, sid, `${shellQuote(findAgentBinary("minimax", plugin.settings?.delegate?.minimax?.path || ""))} --session ${shellQuote(sid)}`, cwd);
+      return focusOrResume(plugin, agent, sid, `${cliQuote(findAgentBinary("minimax", plugin.settings?.delegate?.minimax?.path || ""))} --session ${cliQuote(sid)}`, cwd);
     }
     copyText(sid);
     openAgentApp(agent).then((ok) => plugin.notice(ok ? t("已打开 {agent}；会话号已复制，请在客户端选择会话", { agent: AGENTS[agent].name }) : t("没打开 {agent}：本机好像没装", { agent: AGENTS[agent].name })));
@@ -335,7 +335,7 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
     // 终端里起的会话：还开着就切到那个终端标签；关了才在新标签里 cd 到会话原来的目录 claude --resume。设置里可以改成走桌面版
     if (app === "cli" && plugin.settings.cliOpen !== "desktop") {
       const cwd = (session && session.cwd) || (plugin.usage && plugin.usage.meta.get(sid) || {}).cwd || "";
-      return focusOrResume(plugin, agent, sid, `claude --resume ${sid}`, cwd);
+      return focusOrResume(plugin, agent, sid, `claude --resume ${cliQuote(sid)}`, cwd);
     }
     openExternal(`claude://resume?session=${sid}`);
     return true;
@@ -343,7 +343,7 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
   if (agent === "workbuddy") {
     const meta = session || (plugin.usage && plugin.usage.meta.get(sid)) || {};
     if ((app === "cli" || meta.app === "cli")) {
-      return focusOrResume(plugin, agent, sid, `${shellQuote(findWorkbuddyBinary(plugin.settings?.delegate?.workbuddy?.path || ""))} -r ${shellQuote(sid)}`, meta.cwd || "");
+      return focusOrResume(plugin, agent, sid, `${cliQuote(findWorkbuddyBinary(plugin.settings?.delegate?.workbuddy?.path || ""))} -r ${cliQuote(sid)}`, meta.cwd || "");
     }
     openExternal(`workbuddy://chat/${encodeURIComponent(sid)}`);
     return true;
@@ -376,6 +376,27 @@ export function openSession(plugin, agent, sid, app = "", session = null) {
 }
 
 const shellQuote = (s) => "'" + String(s).replace(/'/g, "'\"'\"'") + "'";
+const cliQuote = (s) => (process.platform === "win32" ? `"${String(s ?? "").replace(/"/g, '\\"')}"` : shellQuote(s));
+export const psSingleQuote = (s) => "'" + String(s ?? "").replace(/'/g, "''") + "'";
+
+export function buildWindowsPowerShellLauncher({ bin, preArgs = [], taskFile = "", postArgs = [] } = {}) {
+  const cleanBin = stripWinLongPrefix(bin);
+  const cleanFile = stripWinLongPrefix(taskFile);
+  const invokeArgs = [
+    ...preArgs.map((a) => psSingleQuote(stripWinLongPrefix(a))),
+    ...(cleanFile ? ["$taskText"] : []),
+    ...postArgs.map((a) => psSingleQuote(stripWinLongPrefix(a))),
+  ].join(" ");
+  return [
+    "$ErrorActionPreference = 'Stop'",
+    "[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)",
+    "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)",
+    cleanFile
+      ? `$taskText = [System.IO.File]::ReadAllText(${psSingleQuote(cleanFile)}, [System.Text.UTF8Encoding]::new($false))`
+      : "$taskText = ''",
+    `& ${psSingleQuote(cleanBin)}${invokeArgs ? " " + invokeArgs : ""}`,
+  ].join("\r\n") + "\r\n";
+}
 
 // 任务块下面挂着的派发草稿链接（后出现的优先，方便"再生成一版"覆盖旧的；已消费的 📄 快照忽略）。
 export function findDraftLink(lines = [], block = null) {
@@ -391,11 +412,31 @@ export function findDraftLink(lines = [], block = null) {
   return found;
 }
 
-function draftStatusOf(raw = "") {
+function draftFieldsOf(raw = "") {
   const fm = /^---\n([\s\S]*?)\n---/.exec(String(raw || ""));
-  if (!fm) return "";
-  const m = /^status:\s*(.+)$/m.exec(fm[1]);
-  return m ? m[1].trim().replace(/^['"]|['"]$/g, "") : "";
+  if (!fm) return { status: "", cwd: "", project: "" };
+  const readVal = (key) => {
+    const m = new RegExp(`^${key}:\\s*(.+)$`, "m").exec(fm[1]);
+    if (!m) return "";
+    const v = m[1].trim();
+    if (v.startsWith('"') && v.endsWith('"')) {
+      try { return JSON.parse(v); } catch { /* fall through */ }
+    }
+    return v.replace(/^['"]|['"]$/g, "");
+  };
+  return {
+    status: readVal("status"),
+    cwd: normalizeProjectFolder(readVal("cwd")),
+    project: readVal("project"),
+  };
+}
+
+function validateExplicitCwd(rawCwd) {
+  const raw = String(rawCwd || "").trim();
+  if (!raw) return "";
+  const dir = normalizeProjectFolder(raw);
+  if (!dir || !folderExists(dir)) throw new Error(t("工作目录不存在：{cwd}", { cwd: raw }));
+  return dir;
 }
 
 export class Delegator {
@@ -456,7 +497,20 @@ export class Delegator {
       }
       const notesHead = t("任务里引用的笔记（可直接读全文）：");
       const notePathsBlock = notePaths.length ? `${notesHead}\n${notePaths.map((p) => `- ${p}`).join("\n")}` : "";
-      const memoryHint = await this.memoryToolHint();
+      const hintProject = resolved.projectName
+        || resolved.opts?.projectName
+        || resolveDispatchFolder({
+          settings: this.settings,
+          explicitCwd: resolved.opts?.cwd || "",
+          explicitVault: Boolean(resolved.opts?.explicitVault),
+          agentCwd: this.C[resolved.opts?.agent]?.cwd || "",
+          vaultPath: this.vaultPath,
+          notePath: resolved.file?.path || "",
+          contextLines: resolved.contextLines || [],
+          blockText: resolved.block?.text || "",
+        }).projectName
+        || "";
+      const memoryHint = await this.memoryToolHint({ projectName: hintProject });
       const replyText = replyPromptText(parseThread(resolved.lines, resolved.block));
       const plainSkill = [...scan.matchAll(/\[\[([^\]|#]+)/g)]
         .map((m) => m[1].trim().replace(/\.md$/i, ""))
@@ -497,21 +551,51 @@ export class Delegator {
   }
 
   // 运行时记忆查询：脚本随插件装在库内；脚本和记忆目录都在，才值得告诉 Agent 这一行用法。
-  async memoryToolHint() {
+  async memoryToolHint({ projectName = "" } = {}) {
     try {
       const script = path.join(this.vaultPath, ".obsidian", "plugins", "agent-deck", "scripts", "memory-query.mjs");
       const relDir = String(this.settings?.dream?.dir || "Agent Deck/记忆").replace(/[\\/]+$/, "");
       const dir = path.join(this.vaultPath, ...relDir.split("/").filter(Boolean));
       // 用 fs 而不是 vault.adapter：adapter.exists 对 .obsidian 下的文件一律返回 false（2026-11-18 实测）。
       if (!fs.existsSync(script) || !fs.existsSync(dir)) return "";
-      return `${t("需要更多背景时：")}node "${script}" search "关键词"`;
+      const head = `${t("需要更多背景时：")}node "${script}" search "关键词"`;
+      let count = 0;
+      let topics = [];
+      const indexPath = path.join(dir, "索引.md");
+      if (fs.existsSync(indexPath)) {
+        try {
+          const idxText = fs.readFileSync(indexPath, "utf8");
+          const cm = /^共\s+(\d+)\s+条有效非私密记忆/m.exec(idxText);
+          if (cm) count = Number(cm[1]) || 0;
+          const tm = /^高频概念：(.+)$/m.exec(idxText);
+          if (tm) {
+            topics = [...tm[1].matchAll(/\[\[([^\]]+)\]\]/g)]
+              .map((m) => String(m[1] || "").trim())
+              .filter(Boolean)
+              .slice(0, 6);
+          }
+        } catch { /* fallback below */ }
+      }
+      if (!count && !fs.existsSync(indexPath)) {
+        try {
+          count = fs.readdirSync(dir).filter((n) => n.endsWith(".md") && n !== "索引.md" && n !== "log.md").length;
+        } catch { count = 0; }
+      }
+      if (count <= 0) return head;
+      const parts = [t("库内共 {n} 条有效记忆", { n: count })];
+      if (projectName) {
+        parts.push(t("按项目筛选：search \"关键词\" --project {project}", { project: JSON.stringify(projectName) }));
+      }
+      parts.push(t("图谱：graph \"概念\"｜目录：index｜单条：read <id/文件名>｜近期：recent 10"));
+      if (topics.length) parts.push(t("常见主题：{topics}", { topics: topics.join(" / ") }));
+      return `${head}\n（${parts.join("；")}）`;
     } catch { return ""; }
   }
 
   // 载荷快照：没有草稿时先把富化写进 payload 再落盘，让"文件为准"这句话站得住。
-  async payloadSnapshot(resolved, draft, agent) {
+  async payloadSnapshot(resolved, draft, agent, meta = {}) {
     if (!draft) await this.enrichPrompt(resolved);
-    return draft || await this.writeTaskPayload(resolved, agent);
+    return draft || await this.writeTaskPayload(resolved, agent, meta);
   }
 
   // 读草稿：只有 frontmatter 仍为 status: draft 才算待发草稿；消费后标成 dispatched 并更新笔记链接文案。
@@ -522,11 +606,21 @@ export class Delegator {
       const file = this.plugin.app.vault.getAbstractFileByPath(relPath);
       if (!file) return null;
       const raw = await this.plugin.app.vault.read(file);
-      if (draftStatusOf(raw) !== "draft") return null;
+      const fields = draftFieldsOf(raw);
+      if (fields.status !== "draft") return null;
       const body = raw.replace(/^---\n[\s\S]*?\n---\n?/, "").trim();
       if (!body) return null;
       if (!consume) {
-        return { path: relPath, abs: path.join(this.vaultPath, relPath), draft: true, body, raw, hash: "" };
+        return {
+          path: relPath,
+          abs: this.vaultPath ? path.join(this.vaultPath, relPath) : relPath,
+          draft: true,
+          body,
+          raw,
+          hash: "",
+          ...(fields.cwd ? { cwd: fields.cwd } : {}),
+          ...(fields.project ? { project: fields.project } : {}),
+        };
       }
       const next = raw
         .replace(/^status: .*$/m, "status: dispatched")
@@ -547,7 +641,16 @@ export class Delegator {
           return changed ? lines.join("\n") : text;
         });
       }
-      return { path: relPath, abs: path.join(this.vaultPath, relPath), draft: true, body, raw, hash };
+      return {
+        path: relPath,
+        abs: this.vaultPath ? path.join(this.vaultPath, relPath) : relPath,
+        draft: true,
+        body,
+        raw,
+        hash,
+        ...(fields.cwd ? { cwd: fields.cwd } : {}),
+        ...(fields.project ? { project: fields.project } : {}),
+      };
     } catch (e) { console.error("[agent-deck] 读取派发草稿失败", e); return null; }
   }
 
@@ -558,7 +661,7 @@ export class Delegator {
     return anchor ? `${date}-${anchor}-${slug}.md` : `${date}-${time}-${slug}.md`;
   }
 
-  async writeTaskPayload(resolved, agent, { draft = false, model = "", effort = "" } = {}) {
+  async writeTaskPayload(resolved, agent, { draft = false, model = "", effort = "", cwd = "", project = "" } = {}) {
     if (!this.plugin?.app?.vault) return null;
     try {
       const now = new Date();
@@ -576,6 +679,8 @@ export class Delegator {
         `agent: ${agent}`,
         model ? `model: ${JSON.stringify(String(model))}` : "",
         effort ? `effort: ${JSON.stringify(String(effort))}` : "",
+        project ? `project: ${JSON.stringify(String(project))}` : "",
+        cwd && !sameFolder(cwd, this.vaultPath) ? `cwd: ${JSON.stringify(String(cwd))}` : "",
         `task: ${JSON.stringify(String(resolved.name || ""))}`,
         anchor ? `anchor: ${JSON.stringify(`[[${String(resolved.file?.path || "").replace(/\.md$/, "")}#^${anchor}]]`)}` : "",
         `created: ${now.toISOString()}`,
@@ -609,7 +714,7 @@ export class Delegator {
         lines.splice(at + 1, 0, draft ? `${indent}- 📝 [[${relPath}|${t("派发草稿")}]]` : `${indent}- 📄 [[${relPath}|${t("本次载荷")}]]`);
         return lines.join("\n");
       });
-      return { path: relPath, abs: path.join(this.vaultPath, relPath), hash: createHash("sha256").update(head).digest("hex").slice(0, 16) };
+      return { path: relPath, abs: this.vaultPath ? path.join(this.vaultPath, relPath) : relPath, hash: createHash("sha256").update(head).digest("hex").slice(0, 16) };
     } catch (e) { console.error("[agent-deck] 写入派发载荷失败", e); return null; }
   }
 
@@ -646,6 +751,7 @@ export class Delegator {
   notify({ title, body }) { this.plugin.notice(`${title}\n${body}`, 12000); }
   copyText(text) { return copyText(text); }
   openAgentApp(agent) { return openAgentApp(agent); }
+  openTerminal(...args) { return openTerminal(...args); }
 
   get C() { return this.settings.delegate || DEFAULTS.delegate; }
 
@@ -668,13 +774,15 @@ export class Delegator {
       return this._performHandoff(opts);
     }
     const agent = opts.agent;
+    const validExplicitCwd = validateExplicitCwd(opts.cwd);
     const trace = new RunTrace({ agent, traceDir: opts.traceDir });
     const ctxSpan = trace.startSpan("context.resolve");
     const resolved = await this.resolveBlockContext(opts, t("光标要放在一个列表项里"));
     trace.endSpan(ctxSpan, "ok", { linkCount: resolved.bundle?.stats?.linkCount || 0 });
     const target = resolveDispatchFolder({
       settings: this.settings,
-      explicitCwd: opts.cwd || "",
+      explicitCwd: validExplicitCwd,
+      explicitVault: Boolean(opts.explicitVault),
       explicitName: opts.projectName || "",
       agentCwd: this.C[agent]?.cwd || "",
       vaultPath: this.vaultPath,
@@ -684,14 +792,14 @@ export class Delegator {
     });
     let { folder: cwd, projectName, auto: autoProject } = target;
     if (target.explicit && projectName && folderExists(target.explicit)
-      && normalizeProjectFolder(target.explicit) !== normalizeProjectFolder(this.vaultPath)
+      && !sameFolder(target.explicit, this.vaultPath)
       && rememberProjectFolder(this.settings, projectName, target.explicit)) this.plugin.saveSettings?.();
     // A dispatch outside today's journal is recorded in the note itself; autoLog
     // skips it unless the user opts back in (settings.noteDispatchJournal).
     const journalToday = (() => { try { return journalPath(this.plugin.app, this.settings); } catch { return ""; } })();
     const noteDispatch = !!resolved.file?.path && resolved.file.path !== journalToday;
     let suggest = null;
-    if (!opts.fromDialog) {
+    if (!opts.fromDialog && !opts.explicitVault) {
       const seen = (this._projectHinted ||= new Set());
       suggest = suggestProjectForTask({
         settings: this.settings,
@@ -705,7 +813,7 @@ export class Delegator {
     }
     // The note path points at project X but the task itself names an
     // unregistered recent project Y: do not silently run in X.
-    const conflict = !opts.fromDialog && autoProject && suggest && !sameFolder(suggest.path, cwd);
+    const conflict = !opts.fromDialog && !opts.explicitVault && autoProject && suggest && !sameFolder(suggest.path, cwd);
     if (conflict) {
       cwd = this.vaultPath;
       projectName = "";
@@ -714,6 +822,12 @@ export class Delegator {
     // 优先用挂在任务块下面的草稿：用户改过的内容就是这一趟真正要发的内容。
     const draftPath = findDraftLink(resolved.lines, resolved.block);
     const draft = draftPath ? await this.readDraft(draftPath, resolved) : null;
+    if (draft?.cwd && !validExplicitCwd && !opts.explicitVault && folderExists(draft.cwd)) {
+      cwd = draft.cwd;
+      projectName = draft.project || projectName || path.basename(draft.cwd);
+    }
+    resolved.projectName = projectName;
+    resolved.cwd = cwd;
     if (draft) {
       // 草稿正文可能被手改（比如加了 [[技能/x]]），基于草稿正文幂等富化且不让 bundle 覆盖草稿。
       resolved.prompt = draft.body;
@@ -722,7 +836,7 @@ export class Delegator {
     // 载荷快照：先富化再落盘。payload 里缺了引用笔记 / 技能路径 / 记忆查询用法，
     // 而 prompt 写着"两者冲突时以文件为准"，那句话就名不副实。
     const snapSpan = trace.startSpan("payload.snapshot");
-    const payload = await this.payloadSnapshot(resolved, draft, agent);
+    const payload = await this.payloadSnapshot(resolved, draft, agent, { cwd, project: projectName });
     trace.endSpan(snapSpan, "ok", { hasPayload: Boolean(payload) });
     if (payload) {
       const source = resolved.prompt;
@@ -786,7 +900,9 @@ export class Delegator {
     // hand them the resolved folder when it is a project one. Leaving the vault
     // case untouched keeps Claude's trusted-directory fallback working.
     const startOpts = { ...opts, prompt: hookPayload.prompt, name: hookPayload.name };
-    if (cwd && normalizeProjectFolder(cwd) !== normalizeProjectFolder(this.vaultPath)) startOpts.cwd = cwd;
+    if ((cwd && !sameFolder(cwd, this.vaultPath)) || (opts.explicitVault && this.C[agent]?.cwd && this.vaultPath)) {
+      startOpts.cwd = cwd;
+    }
     try {
       await runner.start(startOpts);
     } catch (e) {
@@ -823,7 +939,7 @@ export class Delegator {
     let job = existing;
     if (!job) {
       job = { id: `job-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, agent: session.agent,
-        name: session.title || session.name || t("{agent} 会话", { agent: AGENTS[session.agent].name }), sessionId: sid, cwd: session.cwd || this.vaultPath,
+        name: session.title || session.name || t("{agent} 会话", { agent: AGENTS[session.agent].name }), sessionId: sid, cwd: session.cwd || "",
         ...(session.path ? { path: session.path } : {}),
         ...(session.blockId ? { blockId: session.blockId } : {}),
         ...(session.destination ? { destination: session.destination } : {}),
@@ -835,6 +951,45 @@ export class Delegator {
       if (!job.blockId && session.blockId) job.blockId = session.blockId;
       if (!job.destination && session.destination) job.destination = session.destination;
       if (!job.transport && session.transport) job.transport = session.transport;
+    }
+    const prevRawCwd = String(job.cwd || "").trim();
+    const normJobCwd = normalizeProjectFolder(prevRawCwd);
+    if (!normJobCwd || !folderExists(normJobCwd)) {
+      const knownProj = job.project || session.project || session.proj || "";
+      const byKnownProj = knownProj ? projectFolderForName(this.settings, knownProj) : "";
+      let ctxLines = [];
+      let blockText = job.blockText || "";
+      if (!byKnownProj && job.path && this.plugin?.readNote) {
+        try {
+          const noteText = await this.plugin.readNote(job.path);
+          const noteLines = noteText.split("\n");
+          const at = job.blockId ? noteLines.findIndex((l) => J.blockIdOf(l) === job.blockId) : -1;
+          if (at >= 0) {
+            ctxLines = ancestorLines(noteLines, at);
+            blockText = blockText || (blockAt(noteLines, at)?.text || noteLines[at]);
+          } else if (noteLines.length) {
+            ctxLines = noteLines.slice(0, 40);
+          }
+        } catch { /* note unreadable */ }
+      }
+      const fallback = (byKnownProj && folderExists(byKnownProj))
+        ? { folder: byKnownProj, projectName: knownProj }
+        : resolveDispatchFolder({
+            settings: this.settings,
+            vaultPath: this.vaultPath,
+            notePath: job.path || "",
+            contextLines: ctxLines,
+            blockText,
+            agentCwd: this.C[session.agent]?.cwd || "",
+          });
+      const resolvedCwd = (fallback.folder && folderExists(fallback.folder)) ? fallback.folder : this.vaultPath;
+      if (prevRawCwd && this.vaultPath && !sameFolder(prevRawCwd, this.vaultPath)) {
+        this.plugin.notice?.(t("原工作目录不存在（{old}），已改用：{next}", { old: prevRawCwd, next: resolvedCwd }), 7000);
+      }
+      job.cwd = resolvedCwd;
+      if (!job.project && fallback.projectName) job.project = fallback.projectName;
+    } else {
+      job.cwd = normJobCwd;
     }
     if (!job.conversation?.length && !job.roundOffset) {
       let offset = this.plugin?.usage?.meta?.get(sid)?.rounds?.length || 0;
@@ -882,7 +1037,27 @@ export class Delegator {
 
   async _performHandoff(opts) {
     const agent = opts.agent;
+    const validExplicitCwd = validateExplicitCwd(opts.cwd);
     const resolved = await this.resolveBlockContext(opts, t("要拖一个列表项"));
+    const target = resolveDispatchFolder({
+      settings: this.settings,
+      explicitCwd: validExplicitCwd,
+      explicitVault: Boolean(opts.explicitVault),
+      explicitName: opts.projectName || "",
+      agentCwd: this.C[agent]?.cwd || "",
+      vaultPath: this.vaultPath,
+      notePath: resolved.file?.path || "",
+      contextLines: ancestorLines(resolved.lines, resolved.block.start),
+      blockText: resolved.block.text,
+    });
+    const projectName = opts.projectName || target.projectName || "";
+    const cwd = target.folder || this.vaultPath;
+    if (target.explicit && projectName && folderExists(target.explicit)
+      && !sameFolder(target.explicit, this.vaultPath)
+      && rememberProjectFolder(this.settings, projectName, target.explicit)) this.plugin.saveSettings?.();
+    resolved.projectName = projectName;
+    resolved.cwd = cwd;
+    await this.enrichPrompt(resolved);
     const job = this.buildJobBase({
       agent,
       name: resolved.name,
@@ -893,7 +1068,8 @@ export class Delegator {
       prompt: resolved.prompt,
       handoff: true,
       step: t("等你在 {agent} 里发出去", { agent: AGENTS[agent]?.name || agent }),
-      cwd: this.vaultPath,
+      cwd,
+      project: projectName,
     });
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
@@ -905,7 +1081,7 @@ export class Delegator {
     const dispatched = await runHandoffDispatch({
       agent,
       autoSend: opts.autoSend,
-      projectName: opts.projectName,
+      projectName,
       text: resolved.prompt,
       dispatchLinux: (payload) => dispatchTeleagentLinux(payload, { activationHelper: this.nativeActivationHelper() }),
     });
@@ -930,32 +1106,57 @@ export class Delegator {
     opts = mentionOptions(this.plugin, opts);
     if (!hasAgentCapability(opts.agent, "terminalHandoff")) return this.delegate(opts);
     const agent = opts.agent;
+    const validExplicitCwd = validateExplicitCwd(opts.cwd);
     const resolved = await this.resolveBlockContext(opts, t("要拖一个列表项"));
+    const target = resolveDispatchFolder({
+      settings: this.settings,
+      explicitCwd: validExplicitCwd,
+      explicitVault: Boolean(opts.explicitVault),
+      explicitName: opts.projectName || "",
+      agentCwd: this.C[agent]?.cwd || "",
+      vaultPath: this.vaultPath,
+      notePath: resolved.file?.path || "",
+      contextLines: ancestorLines(resolved.lines, resolved.block.start),
+      blockText: resolved.block.text,
+    });
+    let cwd = target.folder || this.vaultPath;
+    const projectName = opts.projectName || target.projectName || "";
+    if (target.explicit && projectName && folderExists(target.explicit)
+      && !sameFolder(target.explicit, this.vaultPath)
+      && rememberProjectFolder(this.settings, projectName, target.explicit)) this.plugin.saveSettings?.();
+    resolved.projectName = projectName;
+    resolved.cwd = cwd;
+    await this.enrichPrompt(resolved);
     const { lines, block, name, question, prompt } = resolved;
-    let cwd = norm(opts.cwd || this.C[agent]?.cwd || this.vaultPath);
     // 交互式 claude 在没信任过的目录里会先停在信任提示上，任务就不会自己跑：和后台委派一样换到信任过的目录，库用 --add-dir 加进去
-    let extra = "";
+    const extraArgs = [];
     if (agent === "claude") {
       const cfg = this.C.claude || {};
-      if (cfg.autoTrustedCwd !== false && !opts.cwd && !cfg.cwd) {
+      if (cfg.autoTrustedCwd !== false && !validExplicitCwd && !target.auto && !opts.explicitVault && !cfg.cwd) {
         const trusted = await findTrustedDir(this.vaultPath);
         if (trusted) cwd = trusted;
       }
-      if (this.vaultPath && cwd !== this.vaultPath) extra += ` --add-dir ${shellQuote(this.vaultPath)}`;
-      if (cfg.permission) extra += ` --permission-mode ${cfg.permission}`;
-    } else if (agent === "codex" && !opts.cwd && !this.C.codex?.cwd) {
-      // 交互式 codex 在没信任过的目录里也会停在信任提示上：同样换到信任过的目录，库用 --add-dir 加进去
-      cwd = await findCodexTrustedDir(this.vaultPath);
-      if (this.vaultPath && cwd !== this.vaultPath) extra += ` -C ${shellQuote(cwd)} --add-dir ${shellQuote(this.vaultPath)}`;
+      if (this.vaultPath && !sameFolder(cwd, this.vaultPath)) extraArgs.push("--add-dir", this.vaultPath);
+      if (cfg.permission) extraArgs.push("--permission-mode", cfg.permission);
+    } else if (agent === "codex") {
+      if (!validExplicitCwd && !target.auto && !opts.explicitVault && !this.C.codex?.cwd) {
+        // 交互式 codex 在没信任过的目录里也会停在信任提示上：同样换到信任过的目录，库用 --add-dir 加进去
+        cwd = await findCodexTrustedDir(this.vaultPath);
+      }
+      if (this.vaultPath && !sameFolder(cwd, this.vaultPath)) extraArgs.push("-C", cwd, "--add-dir", this.vaultPath);
     }
     const model = resolveCliModel(this.plugin, agent, opts.model !== undefined ? opts.model : this.defaultModel(agent));
     const effort = opts.effort || this.C[agent]?.effort || "high";
-    if (agent === "codex") extra += " " + codexCliArgs(this.plugin, opts).map(shellQuote).join(" ");
-    else if (agent === "claude") extra += `${model ? ` --model ${shellQuote(model)}` : ""} --effort ${shellQuote(effort)}`;
-    // 任务文字放进临时文件，命令里用 "$(cat …)" 取：多行、引号都不用转义
+    if (agent === "codex") extraArgs.push(...codexCliArgs(this.plugin, opts));
+    else if (agent === "claude") {
+      if (model) extraArgs.push("--model", model);
+      if (effort) extraArgs.push("--effort", effort);
+    }
+    // 任务文字放进临时文件，POSIX 用 "$(cat …)" 取、Windows 用 PowerShell 读 UTF-8 文件：多行、引号都不用转义
     const dir = path.join(os.tmpdir(), "agent-deck");
     await fsp.mkdir(dir, { recursive: true });
-    const taskFile = path.join(dir, `task-${Date.now().toString(36)}.txt`);
+    const stamp = Date.now().toString(36);
+    const taskFile = path.join(dir, `task-${stamp}.txt`);
     await fsp.writeFile(taskFile, prompt, "utf8");
     const bin = findAgentBinary(agent, this.C[agent]?.path || "");
     const job = this.buildJobBase({
@@ -973,35 +1174,45 @@ export class Delegator {
       app: agent === "codex" ? "codex_cli_rs" : "cli",
       step: t("在终端里开 {agent}", { agent: AGENTS[agent]?.name || agent }),
       cwd,
+      project: projectName,
     });
     this.jobs[job.id] = job;
     this.plugin.saveJobs();
-    let cmd;
+    let launchBin = bin;
+    let preArgs = [];
+    let postArgs = [];
     if (agent === "opencode") {
-      const auto = this.C.opencode?.autoApprove ? " --auto" : "";
-      cmd = `${shellQuote(bin)}${auto} --prompt "$(cat ${shellQuote(taskFile)})" ${shellQuote(cwd)}`;
+      preArgs = [...(this.C.opencode?.autoApprove ? ["--auto"] : []), "--prompt"];
+      postArgs = [cwd];
     } else if (agent === "qoder") {
-      const perm = qoderPermissionArgs(opts.permission || this.C.qoder?.permission || "auto").map(shellQuote).join(" ");
-      const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
-      cmd = `${shellQuote(bin)} -w ${shellQuote(cwd)}${addDir} ${perm} -m ${shellQuote(model)} --reasoning-effort ${shellQuote(effort)} -n ${shellQuote(name)} -- "$(cat ${shellQuote(taskFile)})"`;
+      const perm = qoderPermissionArgs(opts.permission || this.C.qoder?.permission || "auto");
+      const addDir = this.vaultPath && !sameFolder(cwd, this.vaultPath) ? ["--add-dir", this.vaultPath] : [];
+      preArgs = ["-w", cwd, ...addDir, ...perm, "-m", model, "--reasoning-effort", effort, "-n", name, "--"];
     } else if (agent === "hermes") {
-      const hermesCli = findHermesCliBinary(this.C.hermes?.path || "");
-      const mFlag = model && model !== "hermes-default" ? ` -m ${shellQuote(resolveCliModel(this.plugin, "hermes", model))}` : "";
-      const eFlag = effort ? ` --reasoning ${shellQuote(effort)}` : "";
-      const yFlag = this.C.hermes?.autoApprove ? " --yolo" : "";
-      cmd = `${shellQuote(hermesCli)} chat${mFlag}${eFlag}${yFlag} -q "$(cat ${shellQuote(taskFile)})"`;
+      launchBin = findHermesCliBinary(this.C.hermes?.path || "");
+      const m = model && model !== "hermes-default" ? resolveCliModel(this.plugin, "hermes", model) : "";
+      preArgs = ["chat", ...(m ? ["-m", m] : []), ...(effort ? ["--reasoning", effort] : []), ...(this.C.hermes?.autoApprove ? ["--yolo"] : []), "-q"];
     } else if (agent === "gemini") {
-      const mFlag = model && model !== "gemini-default" ? ` -m ${shellQuote(model)}` : "";
-      const yFlag = this.C.gemini?.autoApprove ? " -y" : "";
-      cmd = `${shellQuote(bin)}${mFlag}${yFlag} -i "$(cat ${shellQuote(taskFile)})"`;
+      const m = model && model !== "gemini-default" ? model : "";
+      preArgs = [...(m ? ["-m", m] : []), ...(this.C.gemini?.autoApprove ? ["-y"] : []), "-i"];
     } else if (agent === "workbuddy") {
-      const addDir = this.vaultPath && cwd !== this.vaultPath ? ` --add-dir ${shellQuote(this.vaultPath)}` : "";
-      cmd = `${shellQuote(bin)}${addDir} -- "$(cat ${shellQuote(taskFile)})"`;
+      const addDir = this.vaultPath && !sameFolder(cwd, this.vaultPath) ? ["--add-dir", this.vaultPath] : [];
+      preArgs = [...addDir, "--"];
     } else {
       // 任务前面加 --：任务常以「- TODO」开头，不加会被当成命令行参数（unknown option）
-      cmd = `${shellQuote(bin)}${extra} -- "$(cat ${shellQuote(taskFile)})"`;
+      preArgs = [...extraArgs, "--"];
     }
-    const term = await openTerminal(cmd, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
+    let cmd;
+    if (process.platform === "win32") {
+      const ps1File = path.join(dir, `run-${stamp}.ps1`);
+      await fsp.writeFile(ps1File, buildWindowsPowerShellLauncher({ bin: launchBin, preArgs, taskFile, postArgs }), "utf8");
+      cmd = `powershell.exe -NoExit -ExecutionPolicy Bypass -File "${ps1File}"`;
+    } else {
+      const quoteArg = (a) => (/^--?[A-Za-z0-9_-]*$/.test(a) ? a : shellQuote(a));
+      const parts = [shellQuote(launchBin), ...preArgs.map(quoteArg), `"$(cat ${shellQuote(taskFile)})"`, ...postArgs.map(quoteArg)];
+      cmd = parts.join(" ");
+    }
+    const term = await this.openTerminal(cmd, cwd, this.plugin.settings.cliTerminal || "auto", truncate(name, 24), { background: true });
     this.plugin.notice(t("已在 {terminal} 里开 {agent}", { terminal: term === "terminal" ? t("系统终端") : (TERMINAL_NAME[term] || t("终端")), agent: AGENTS[agent]?.name || agent }), 6000);
     this.plugin.refreshUI();
     return job;

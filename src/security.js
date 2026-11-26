@@ -82,18 +82,39 @@ const HIGH_RISK_SHELL_RE = [
 
 const SENSITIVE_PATH_RE = /(?:^|[\\/])(?:\.ssh|\.aws|\.gnupg|\.kube|secrets\.json|\.env(?:\.[^\\/\s]+)?)(?:$|[\\/])|^\/etc\/(?:passwd|shadow|sudoers)$/i;
 
+function stripWinLongPrefix(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (/^(?:\\\\\?\\UNC\\|\/\/\?\/UNC\/)/i.test(s)) return "//" + s.replace(/^(?:\\\\\?\\UNC\\|\/\/\?\/UNC\/)/i, "");
+  return s.replace(/^(?:\\\\\?\\|\/\/\?\/)/, "");
+}
+
+function realResolved(p) {
+  const cleaned = stripWinLongPrefix(p);
+  const winDrive = /^[a-z]:[\\/]/i.test(cleaned) || cleaned.startsWith("//");
+  const abs = (process.platform === "win32" || !winDrive) ? path.resolve(cleaned) : cleaned;
+  let real = abs;
+  try {
+    const fn = fs.realpathSync?.native || fs.realpathSync;
+    real = stripWinLongPrefix(fn(abs));
+  } catch { /* non-existent target uses cleaned/resolved path */ }
+  const slash = real.replace(/\\/g, "/");
+  return /^[a-z]:\//i.test(slash) ? slash[0].toUpperCase() + slash.slice(1) : slash;
+}
+
 function normalizeRoot(dir) {
   const s = String(dir || "").trim();
-  if (!s) return "";
-  const resolved = path.resolve(s);
-  try { return fs.realpathSync(resolved); } catch { return resolved; }
+  return s ? realResolved(s) : "";
 }
 
 function isInsideRoot(targetPath, root) {
   if (!targetPath || !root) return false;
-  const resolved = path.resolve(targetPath);
-  let real = resolved;
-  try { real = fs.realpathSync(resolved); } catch { /* non-existent target uses resolved path */ }
+  const real = realResolved(targetPath);
+  const isWinPair = process.platform === "win32" || (/^(?:[a-z]:\/|\/\/)/i.test(real) && /^(?:[a-z]:\/|\/\/)/i.test(root));
+  if (isWinPair) {
+    const rel = path.posix.relative(root.toLowerCase(), real.toLowerCase());
+    return rel === "" || (!rel.startsWith("..") && !path.posix.isAbsolute(rel));
+  }
   const rel = path.relative(root, real);
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
@@ -101,9 +122,12 @@ function isInsideRoot(targetPath, root) {
 function extractToolPaths(toolCall) {
   const out = [];
   const push = (v) => {
-    const s = String(v || "").trim();
-    if (s && (path.isAbsolute(s) || s.startsWith("~/"))) {
-      out.push(s.startsWith("~/") ? path.join(os.homedir(), s.slice(2)) : s);
+    const s = stripWinLongPrefix(v);
+    if (!s) return;
+    if (/^~[\\/]/.test(s)) {
+      out.push(path.join(os.homedir(), s.slice(2)));
+    } else if (/^[a-z]:[\\/]/i.test(s) || /^\\\\[^\\]+\\[^\\]+/.test(s) || path.isAbsolute(s)) {
+      out.push(s);
     }
   };
   const input = toolCall?.rawInput && typeof toolCall.rawInput === "object" ? toolCall.rawInput : {};
@@ -139,10 +163,14 @@ export function matchesAllowlistRule(rule, { text = "", paths = [], risk = "" } 
   if (/^path:/i.test(raw)) {
     let prefix = raw.slice(5).trim();
     if (!prefix) return false;
-    if (prefix.startsWith("~/")) prefix = path.join(os.homedir(), prefix.slice(2));
-    const normPrefix = prefix.replace(/\\/g, "/");
-    return normPaths.some((p) => p === normPrefix || p.startsWith(normPrefix.endsWith("/") ? normPrefix : `${normPrefix}/`) || p.startsWith(normPrefix))
-      || lowerText.includes(normPrefix.toLowerCase());
+    if (/^~[\\/]/.test(prefix)) prefix = path.join(os.homedir(), prefix.slice(2));
+    const normPrefix = stripWinLongPrefix(prefix).replace(/\\/g, "/");
+    return normPaths.some((p) => {
+      const np = stripWinLongPrefix(p);
+      return process.platform === "win32" || /^[a-z]:\//i.test(normPrefix)
+        ? np.toLowerCase() === normPrefix.toLowerCase() || np.toLowerCase().startsWith((normPrefix.endsWith("/") ? normPrefix : `${normPrefix}/`).toLowerCase())
+        : np === normPrefix || np.startsWith(normPrefix.endsWith("/") ? normPrefix : `${normPrefix}/`) || np.startsWith(normPrefix);
+    }) || lowerText.includes(normPrefix.toLowerCase());
   }
   if (/^cmd:/i.test(raw)) {
     const needle = raw.slice(4).trim().toLowerCase();

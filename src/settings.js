@@ -7,8 +7,9 @@ import { archivePath } from "./journal-archive.js";
 import * as obsidianNs from "obsidian";
 import { App, PluginSettingTab, Notice, Modal, Menu } from "obsidian";
 import {
-  AGENTS, AGENT_ORDER, MODEL_CATALOG, EFFORTS, CLAUDE_PERMISSIONS, CODEX_SANDBOXES, DEFAULTS, DEFAULT_RECORD_RULES, resolveRecordRules, fmtTok, syncDelegationSettings, journalPath, detectJournalFormat,
+  AGENTS, AGENT_ORDER, MODEL_CATALOG, EFFORTS, CLAUDE_PERMISSIONS, CODEX_SANDBOXES, DEFAULTS, DEFAULT_RECORD_RULES, resolveRecordRules, fmtTok, syncDelegationSettings, journalPath, detectJournalFormat, MEMORY_QUERY_ASSET_VERSION, MEMORY_MCP_ASSET_VERSION,
 } from "./constants.js";
+import { checkExternalAssets } from "./trace.js";
 import { notePath } from "./dream-entries.js";
 import { companionInstalled, dreamModelConfig } from "./dream.js";
 import { externalMemoryPath } from "./dream-sharing.js";
@@ -24,7 +25,7 @@ import {
 } from "./llm.js";
 import { discoverGrokBotStorage } from "./grok-bot-sessions.js";
 import { discoverMuseConversations } from "./muse-sessions.js";
-import { folderExists, normalizeProjectFolder, projectFolderEntries } from "./project-folders.js";
+import { canPickNativeFolder, folderExists, normalizeProjectFolder, pickNativeFolder, projectFolderEntries, sameFolder } from "./project-folders.js";
 import { getTerminalOptions } from "./terminals.js";
 
 const HOTKEY_MOD_SYMBOL = { control: "⌃", option: "⌥", shift: "⇧", command: "⌘", ctrl: "⌃", alt: "⌥", cmd: "⌘" };
@@ -732,6 +733,15 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const add = card.createDiv({ cls: "ad-btnrow" });
     const name = add.createEl("input", { cls: "ad-input", attr: { type: "text", placeholder: t("项目名") } });
     const dir = add.createEl("input", { cls: "ad-input ad-input--wide", attr: { type: "text", placeholder: t("例如：~/claude/agent-deck") } });
+    if (canPickNativeFolder()) {
+      const browse = add.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("浏览…"), attr: { type: "button" } });
+      browse.onclick = async () => {
+        const picked = await pickNativeFolder(dir.value || p.vaultPath || "");
+        if (!picked) return;
+        dir.value = picked;
+        if (!name.value.trim()) name.value = picked.split("/").pop() || "";
+      };
+    }
     const addBtn = add.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("登记"), attr: { type: "button" } });
     addBtn.onclick = () => {
       const label = name.value.trim();
@@ -742,6 +752,21 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       p.saveSettings();
       this.display();
     };
+    const suggestions = (p.projectFolderSuggestions?.(6) || [])
+      .filter((s) => s?.path && !entries.some((e) => sameFolder(e.path, s.path)));
+    if (suggestions.length) {
+      const suggBox = card.createDiv({ cls: "ad-field" });
+      suggBox.createDiv({ cls: "ad-hint", text: t("最近在会话里用过的目录（点一下直接登记）：") });
+      const chipRow = suggBox.createDiv({ cls: "ad-btnrow" });
+      for (const s of suggestions) {
+        const btn = chipRow.createEl("button", { cls: "ad-btn ad-btn--ghost", text: `+ ${s.name} · ${s.path}`, attr: { type: "button" } });
+        btn.onclick = () => {
+          folders[s.name] = s.path;
+          p.saveSettings();
+          this.display();
+        };
+      }
+    }
   }
 
   setDefaultModel(agent, value) {
@@ -1763,6 +1788,71 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   // ---------- Dreaming ----------
   renderDream(body) {
     const p = this.plugin, s = p.settings.dream;
+
+    // 1. 记忆库工作区快捷入口（不必去命令面板翻找）
+    const hub = this.card(body, t("记忆库工作区"), t("管理已沉淀的长期记忆、审阅待确认条目与巩固去重"));
+    hub.addClass("ad-dream-hub");
+    const hubSummary = hub.createDiv({ cls: "ad-muted" });
+    const hubAlert = hub.createDiv({ cls: "ad-muted" });
+    hubAlert.hidden = true;
+    const hubBtns = hub.createDiv({ cls: "ad-btnrow" });
+    if (p.dreaming.storeMode) {
+      hubSummary.textContent = t("当前模式：一文一条记忆库（{dir}）· 正在读取统计…", { dir: p.dreaming.dir });
+      Promise.all([p.dreaming.loadEntries(), p.dreaming.listArchivedPaths()]).then(([entries, archivedPaths]) => {
+        if (!hubSummary.isConnected) return;
+        const active = entries.filter((e) => e.state === "有效" && !e.private);
+        const verified = active.filter((e) => e.verified).length;
+        const pendingCount = active.length - verified;
+        const conflicts = active.filter((e) => (e.conflictsWith || []).length > 0).length;
+        const archived = archivedPaths.length;
+        hubSummary.textContent = t("一文一条记忆库（{dir}）：共 {total} 条（有效 {active} · 已确认 {verified} · 待确认 {pending}）", {
+          dir: p.dreaming.dir,
+          total: entries.length,
+          active: active.length,
+          verified,
+          pending: pendingCount,
+        });
+        const alertParts = [
+          conflicts > 0 ? t("待裁决冲突 {n} 条", { n: conflicts }) : "",
+          archived > 0 ? t("已归档 {n} 条", { n: archived }) : "",
+        ].filter(Boolean);
+        hubAlert.hidden = !alertParts.length;
+        hubAlert.textContent = alertParts.join(t("；"));
+      }).catch(() => {});
+      this.bigButton(hubBtns, t("打开记忆看板"), () => p.openMemoryBoard?.());
+      this.bigButton(hubBtns, t("打开记忆.base"), () => p.openMemoryBase?.());
+      this.bigButton(hubBtns, t("逐条审阅"), () => p.reviewMemories?.());
+      this.bigButton(hubBtns, t("巩固去重"), () => p.consolidateMemories?.());
+      this.bigButton(hubBtns, t("导入记忆…"), () => p.openMemoryImport?.());
+      const maint = this.subDetails(hub, "dream-maint", t("图谱与库维护"));
+      this.rowSegmented(
+        maint,
+        t("关系图谱预设视角"),
+        t("控制应用到 Obsidian 关系图谱的配色分组规则"),
+        [
+          { id: "kind", label: t("类型与核验") },
+          { id: "trust", label: t("OKF 信任热力") },
+        ],
+        s.graphPreset === "trust" ? "trust" : "kind",
+        (v) => { s.graphPreset = v; p.saveSettings(); this.display(); },
+      );
+      const maintBtns = maint.createDiv({ cls: "ad-btnrow" });
+      this.bigButton(maintBtns, t("应用图谱预设"), () => p.applyMemoryGraphPreset?.(s.graphPreset));
+      this.bigButton(maintBtns, t("记忆体检"), () => p.auditMemory?.());
+      this.bigButton(maintBtns, t("补齐 OKF 元信息"), async () => { await p.backfillMemoryOkf?.(); this.display(); });
+      this.bigButton(maintBtns, t("升级图谱边与短命名"), async () => { await p.backfillMemoryOkf?.({ renameShort: true }); this.display(); });
+      this.bigButton(maintBtns, t("润色短命名（模型）"), async () => { await p.polishMemoryShortTitles?.(); this.display(); });
+      this.bigButton(maintBtns, t("归档超期失效记忆"), async () => { await p.archiveDeprecatedMemories?.(); this.display(); });
+      hub.appendChild(maint.parentElement);
+    } else {
+      hubSummary.textContent = t("当前模式：单文件长期记忆（{path}）。迁移到一文一条后可使用记忆看板、Base 表格、按条审阅与巩固去重。", { path: s.path || "Agent Deck/长期记忆.md" });
+      this.bigButton(hubBtns, t("迁移到一文一条记忆库（推荐）"), async () => {
+        await p.migrateMemoryToFiles?.();
+        this.display();
+      });
+      this.bigButton(hubBtns, t("导入记忆…"), () => p.openMemoryImport?.());
+    }
+
     const card = this.card(body, t("Dreaming · 长期记忆"), t("从近 14 天日志提炼记忆，保存到笔记"));
     this.rowToggle(card, t("每天自动整理"), "", s.enabled, (v) => { s.enabled = v; p.saveSettings(); });
     this.rowToggle(card, t("派发时注入相关记忆"), t("按当前任务从长期记忆里挑出最多 5 条相关条目一起发给 Agent；词面不相关时不注入"), s.inject !== false, (v) => { s.inject = v; p.saveSettings(); });
@@ -1843,6 +1933,15 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       effortValue: s.effort || p.settings.autoLogEffort || "low",
       onEffortChange: (v) => { s.effort = v; p.saveSettings(); this.display(); },
     });
+    this.rowToggle(dreamMore, t("Dream 后自动给来源行补块号（^mem-*）"), t("为新提炼记忆的来源笔记自动追加 ^mem-* 硬锚点，防止日后行号漂移"), s.autoAnchor !== false, (v) => { s.autoAnchor = v; p.saveSettings(); });
+    this.rowText(dreamMore, t("记忆库目录"), t("库内相对路径；修改后对新写入与读取生效，不会自动搬移旧文件"), s.dir || DEFAULTS.dream.dir, DEFAULTS.dream.dir, (v) => {
+      const clean = v.trim().replace(/\\/g, "/").replace(/^\/+|\/+$/g, "");
+      if (!clean || clean.split("/").includes("..")) { new Notice(t("记忆库目录必须是库内相对路径")); return; }
+      s.dir = clean;
+      p.saveSettings();
+    }, "ad-input--wide");
+    this.rowToggle(dreamMore, t("巩固时自动归档超期失效记忆"), t("睡眠巩固后将超出保留天数且已拒绝或已被替代的记忆移入 archive/"), s.autoArchive !== false, (v) => { s.autoArchive = v; p.saveSettings(); });
+    this.rowNumber(dreamMore, t("失效记忆归档天数"), t("已拒绝或已被替代的记忆超过多少天后移入 archive/（0 = 立即归档）"), s.archiveAfterDays ?? 30, 0, 365, (v) => { s.archiveAfterDays = v; p.saveSettings(); });
     this.rowText(dreamMore, t("长期记忆笔记"), t("库内 Markdown 路径"), s.path, "Agent Deck/长期记忆.md", (v) => { try { s.path = notePath(v); p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
     if (companionInstalled(p.app)) {
       this.rowToggle(dreamMore, t("同步到 Telegram Companion 陪伴档案"), t("同步有效记忆，最多 6000 字"), s.syncProfile, (v) => { s.syncProfile = v; p.saveSettings(); });
@@ -1861,6 +1960,70 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const summary = card.createDiv({ cls: "ad-muted" });
 
     card.appendChild(dreamMore.parentElement);
+
+    // 2. 召回效果测试（0 Token 本地调试派发注入命中率）
+    const recallDetails = this.subDetails(card, "dream-recall", t("召回效果测试（本地 0 Token 调试）"));
+    const recallWrap = recallDetails.createDiv({ cls: "ad-dream-recall" });
+    const recallInput = recallWrap.createEl("input", {
+      cls: "ad-input ad-input--wide",
+      attr: { type: "text", placeholder: t("输入模拟任务句，例如：排查 Windows 路径断言失败 / 优化 RAG 拒答门槛") },
+    });
+    const recallRow = recallWrap.createDiv({ cls: "ad-dream-recall__row" });
+    const codeLabel = recallRow.createEl("label", { cls: "ad-mem-create__verify" });
+    const codeCb = codeLabel.createEl("input", { type: "checkbox" });
+    codeLabel.createSpan({ text: t("模拟代码项目（过滤个人生活事实）") });
+    const projInput = recallRow.createEl("input", { cls: "ad-input", attr: { type: "text", placeholder: t("可选项目名，如 agent-deck") } });
+    const recallBtn = recallRow.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("测试召回") });
+    const recallOut = recallWrap.createDiv({ cls: "ad-dream-recall__list" });
+    const runRecall = async () => {
+      const q = recallInput.value.trim();
+      recallOut.empty();
+      if (!q) {
+        recallOut.createDiv({ cls: "ad-muted", text: t("请先输入一句任务描述") });
+        return;
+      }
+      const refs = [...q.matchAll(/\[\[([^\]]+)\]\]/g)]
+        .map((m) => String(m[1] || "").split("|")[0].split("#")[0].trim())
+        .filter(Boolean);
+      const hits = await p.dreaming.previewContext(q, {
+        projectName: projInput.value.trim(),
+        isCodeProject: codeCb.checked,
+        refs,
+      });
+      if (!hits.length) {
+        recallOut.createDiv({ cls: "ad-muted", text: t("未命中相关记忆（0 注入）") });
+        return;
+      }
+      for (const h of hits) {
+        const e = h.entry || h;
+        const item = recallOut.createDiv({ cls: "ad-dream-recall__item" });
+        item.createDiv({ text: `[${e.type || e.kind}${e.verified ? " ✓" : ""}]${e.project ? ` [${e.project}]` : ""} ${e.text}` });
+        item.createDiv({ cls: "ad-muted", text: t("命中：{why}", { why: (h.why || []).join("、") }) });
+      }
+    };
+    recallBtn.addEventListener("click", runRecall);
+    recallInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); runRecall(); } });
+    card.appendChild(recallDetails.parentElement);
+
+    // 3. 外部 Agent 接入（MCP Server / CLI）
+    const mcpCard = this.card(body, t("外部 Agent 接入（MCP / CLI）"), t("让 Claude Code、Codex、Antigravity、Cursor、OpenCode 等在库外直接检索与溯源 Dream 记忆"));
+    const assetCheck = checkExternalAssets(p.vaultPath, {
+      expectedMemoryQueryVersion: MEMORY_QUERY_ASSET_VERSION,
+      expectedMemoryMcpVersion: MEMORY_MCP_ASSET_VERSION,
+    });
+    const statusText = assetCheck.checked
+      ? assetCheck.items.map((it) => `${it.name}: ${it.status === "ok" ? t("已就绪 v{v}", { v: it.expectedVersion }) : it.status === "missing" ? t("未安装（需重新运行 install:plugin）") : t("版本过期（当前 v{a} / 期望 v{e}）", { a: it.actualVersion, e: it.expectedVersion })}`).join(" ｜ ")
+      : t("未检测到 Vault 路径");
+    mcpCard.createDiv({ cls: "ad-muted", text: statusText });
+    let mcpAllowWrite = false;
+    const mcpWriteLabel = mcpCard.createEl("label", { cls: "ad-mem-create__verify" });
+    const mcpWriteCb = mcpWriteLabel.createEl("input", { type: "checkbox" });
+    mcpWriteCb.addEventListener("change", () => { mcpAllowWrite = mcpWriteCb.checked; });
+    mcpWriteLabel.createSpan({ text: t("允许外部 Agent 提交候选记忆（--allow-write，写入均为 AI 待审）") });
+    const mcpBtns = mcpCard.createDiv({ cls: "ad-btnrow" });
+    this.bigButton(mcpBtns, t("复制 MCP 配置 JSON"), () => p.copyMcpConfig?.("json", { allowWrite: mcpAllowWrite }));
+    this.bigButton(mcpBtns, t("复制 Claude Code 命令"), () => p.copyMcpConfig?.("claude", { allowWrite: mcpAllowWrite }));
+    this.bigButton(mcpBtns, t("复制 CLI 查询示例"), () => p.copyMcpConfig?.("cli"));
 
     const c = s.share, sharing = p.dreaming.sharing;
     const shared = this.card(body, t("与其他 Agent 共享记忆"), t("将记忆导出到固定文件，供其他 Agent 读取"));
@@ -1884,7 +2047,21 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       const steps = { collect: 1, model: 2, write: 3, sync: 4 };
       phase.textContent = `${steps[state.phase] ? t("第 {step}/4 步 · ", { step: steps[state.phase] }) : ""}${state.message}`;
       elapsed.textContent = state.startedAt ? t("耗时 {n} 秒", { n: Math.max(0, Math.floor(((state.endedAt || Date.now()) - state.startedAt) / 1000)) }) : "";
-      summary.textContent = [s.coverage ? t("上次采集 {files} 篇；已处理 {done}/{total} 块，待处理 {pending} 块。", { files: s.coverage.files, done: s.coverage.processed, total: s.coverage.total, pending: s.coverage.pending }) : "", s.lastRun ? t("上次完成：{time}", { time: new Date(s.lastRun).toLocaleString() }) : "", s.lastError ? t("上次未完成：{error}", { error: s.lastError }) : ""].filter(Boolean).join(t("；"));
+      const dropStr = s.coverage?.dropped ? t("（忽略未过核验 {n} 条）", { n: s.coverage.dropped }) : "";
+      const consParts = s.lastConsolidate?.at
+        ? [
+          t("上次巩固：合并 {m} 组 / 淘汰 {d} 条", { m: s.lastConsolidate.merged || 0, d: s.lastConsolidate.deprecated || 0 }),
+          s.lastConsolidate.conflicts?.length ? t("冲突 {n} 组", { n: s.lastConsolidate.conflicts.length }) : "",
+          s.lastConsolidate.archived ? t("归档 {n} 条", { n: s.lastConsolidate.archived }) : "",
+        ].filter(Boolean)
+        : [];
+      const consStr = consParts.join(t("；"));
+      summary.textContent = [
+        s.coverage ? t("上次采集 {files} 篇；已处理 {done}/{total} 块，待处理 {pending} 块", { files: s.coverage.files, done: s.coverage.processed, total: s.coverage.total, pending: s.coverage.pending }) + dropStr : "",
+        s.lastRun ? t("上次完成：{time}", { time: new Date(s.lastRun).toLocaleString() }) : "",
+        consStr,
+        s.lastError ? t("上次未完成：{error}", { error: s.lastError }) : "",
+      ].filter(Boolean).join(t("；"));
       meter.hidden = !d.busy;
       syncNow.disabled = sharing.busy || d.busy;
       syncNow.textContent = sharing.busy ? t("共享同步中…") : t("立即同步共享记忆");

@@ -6,14 +6,14 @@ import { getAgentCapability, delegateAgents, hasAgentCapability } from "./agent-
 import { agentIcon, setLucide } from "./icons.js";
 import { lattice } from "./lattice.js";
 import { blockAt, blockTitle, BULLET_RE, delegationText, ancestorLines } from "./delegation.js";
-import { projectCandidatesFromTask, projectFolderEntries, projectKey, rememberProjectFolder, resolveProjectForTask, sameFolder, suggestProjectForTask } from "./project-folders.js";
+import { canPickNativeFolder, folderExists, normalizeProjectFolder, pickNativeFolder, projectCandidatesFromTask, projectFolderEntries, projectKey, rememberProjectFolder, resolveProjectForTask, sameFolder, suggestProjectForTask } from "./project-folders.js";
 import { mentionOptions, mentionTrigger } from "./task-mentions.js";
 import { destinations, defaultDestination } from "./workflow.js";
 import { kwLine, fencedLines } from "./journal.js";
 import { t } from "./i18n.js";
 import { archivePath } from "./journal-archive.js";
 
-export function resolveTaskProjectState(plugin, path, lines, block) {
+export function resolveTaskProjectState(plugin, path, lines, block, { preferredCwd = "" } = {}) {
   const contextLines = ancestorLines(lines, block.start);
   const projectHint = plugin.settings?.autoProjectFolder === false ? null : resolveProjectForTask({
     settings: plugin.settings,
@@ -44,55 +44,180 @@ export function resolveTaskProjectState(plugin, path, lines, block) {
         return !plugin.app?.metadataCache?.getFirstLinkpathDest?.(name, path);
       }) || null;
   }
-  const cwd = projectConflict ? projectSuggest.path : (projectHint ? projectHint.path : "");
-  return { projectHint, projectSuggest, projectConflict, projectAlt, cwd, customCwd: false };
+  let cwd = projectConflict ? projectSuggest.path : (projectHint ? projectHint.path : "");
+  let customCwd = false;
+  let selectedName = "";
+  if (!cwd && preferredCwd) {
+    const normPref = normalizeProjectFolder(preferredCwd);
+    if (normPref && folderExists(normPref) && !sameFolder(normPref, plugin.vaultPath)) {
+      cwd = normPref;
+      const entries = projectFolderEntries(plugin.settings);
+      const regHit = entries.find((e) => sameFolder(e.path, normPref));
+      if (regHit) {
+        selectedName = regHit.name;
+      } else {
+        customCwd = true;
+        const recentHit = (plugin.projectFolderSuggestions?.(8) || []).find((r) => sameFolder(r.path, normPref));
+        selectedName = recentHit?.name || normPref.split("/").pop() || "";
+      }
+    }
+  }
+  return { projectHint, projectSuggest, projectConflict, projectAlt, cwd, customCwd, cwdError: "", selectedName };
 }
 
 export function projectNameForSelection(plugin, state, cwd = "") {
   return (projectFolderEntries(plugin?.settings).find((e) => sameFolder(e.path, cwd))?.name)
     || (state?.projectSuggest && sameFolder(state.projectSuggest.path, cwd) ? state.projectSuggest.name : "")
-    || (state?.projectHint && sameFolder(state.projectHint.path, cwd) ? state.projectHint.name : "");
+    || (state?.projectHint && sameFolder(state.projectHint.path, cwd) ? state.projectHint.name : "")
+    || (state?.selectedName && state?.cwd && sameFolder(state.cwd, cwd) ? state.selectedName : "");
 }
 
-function renderProjectFolderPicker(parent, plugin, state, { compact = false, onRender } = {}) {
+function validateSelectedProjectState(plugin, state) {
+  const raw = String(state?.cwd || "").trim();
+  if (!raw) {
+    if (state) state.cwdError = "";
+    return { ok: true, cwd: "", explicitVault: true, projectName: "" };
+  }
+  const norm = normalizeProjectFolder(raw);
+  if (!norm || !folderExists(norm)) {
+    const err = t("工作目录不存在：{cwd}", { cwd: raw });
+    if (state) state.cwdError = err;
+    return { ok: false, error: err };
+  }
+  if (state) {
+    state.cwd = norm;
+    state.cwdError = "";
+  }
+  const explicitVault = sameFolder(norm, plugin?.vaultPath || "");
+  return {
+    ok: true,
+    cwd: norm,
+    explicitVault,
+    projectName: explicitVault ? "" : projectNameForSelection(plugin, state, norm),
+  };
+}
+
+export function renderProjectFolderPicker(parent, plugin, state, { compact = false, onRender } = {}) {
   const entries = projectFolderEntries(plugin.settings);
+  const recent = (plugin.projectFolderSuggestions?.(8) || [])
+    .filter((r) => r?.path && !entries.some((e) => sameFolder(e.path, r.path)));
   const pf = parent.createDiv({ cls: "ad-field" });
   pf.createDiv({ cls: "ad-field__label", text: t("项目文件夹") });
   const sel = pf.createEl("select", { cls: "ad-input" });
   sel.createEl("option", { value: "", text: t("库根目录（不指定项目）") });
   for (const e of entries) sel.createEl("option", { value: e.name, text: `${e.name} · ${e.path}` });
-  const hasSuggestedOption = compact && state.projectSuggest && !entries.some((e) => sameFolder(e.path, state.projectSuggest.path));
+  const hasSuggestedOption = compact
+    && state.projectSuggest
+    && !entries.some((e) => sameFolder(e.path, state.projectSuggest.path))
+    && !recent.some((r) => sameFolder(r.path, state.projectSuggest.path));
   if (hasSuggestedOption) {
     sel.createEl("option", { value: "__suggested", text: `${state.projectSuggest.name} · ${state.projectSuggest.path}` });
   }
+  if (recent.length) {
+    const group = typeof sel.createEl === "function"
+      ? sel.createEl("optgroup", { attr: { label: t("最近使用过的工作目录") } })
+      : null;
+    const host = typeof group?.createEl === "function" ? group : sel;
+    recent.forEach((r, idx) => {
+      host.createEl("option", { value: `__recent:${idx}`, text: `${r.name} · ${r.path}` });
+    });
+  }
   sel.createEl("option", { value: "__custom", text: t("自定义路径…") });
   const matchedEntry = entries.find((e) => sameFolder(e.path, state.cwd));
+  const matchedRecentIdx = !matchedEntry && state.cwd
+    ? recent.findIndex((r) => sameFolder(r.path, state.cwd))
+    : -1;
   if (state.customCwd) sel.value = "__custom";
   else if (!state.cwd) sel.value = "";
   else if (matchedEntry) sel.value = matchedEntry.name;
   else if (hasSuggestedOption && sameFolder(state.projectSuggest.path, state.cwd)) sel.value = "__suggested";
+  else if (matchedRecentIdx >= 0) sel.value = `__recent:${matchedRecentIdx}`;
   else sel.value = "__custom";
 
   sel.onchange = () => {
+    const prevSuggest = state.projectSuggest;
     state.projectHint = null;
+    state.projectConflict = false;
+    state.projectSuggest = null;
+    state.projectAlt = null;
+    state.cwdError = "";
+    state.selectedName = "";
     if (sel.value === "__custom") {
       state.customCwd = true;
       onRender?.();
       return;
     }
     state.customCwd = false;
-    if (sel.value === "__suggested" && state.projectSuggest) {
-      state.cwd = state.projectSuggest.path;
+    if (sel.value === "__suggested" && prevSuggest) {
+      state.cwd = prevSuggest.path;
+      state.selectedName = prevSuggest.name;
       onRender?.();
       return;
     }
-    state.cwd = (entries.find((e) => e.name === sel.value)?.path) || "";
+    if (sel.value.startsWith("__recent:")) {
+      const hit = recent[Number(sel.value.slice(9))];
+      state.cwd = hit?.path || "";
+      state.selectedName = hit?.name || "";
+      onRender?.();
+      return;
+    }
+    const entryHit = entries.find((e) => e.name === sel.value);
+    state.cwd = entryHit?.path || "";
+    state.selectedName = entryHit?.name || "";
     onRender?.();
   };
 
+  if (canPickNativeFolder()) {
+    const browseRow = pf.createDiv({ cls: "ad-btnrow" });
+    const browseBtn = browseRow.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("浏览目录…"), attr: { type: "button" } });
+    browseBtn.onclick = async () => {
+      const picked = await pickNativeFolder(state.cwd || plugin.vaultPath || "");
+      if (!picked) return;
+      const reg = entries.find((e) => sameFolder(e.path, picked));
+      const rec = recent.find((r) => sameFolder(r.path, picked));
+      state.cwd = picked;
+      state.cwdError = "";
+      state.projectHint = null;
+      state.projectConflict = false;
+      state.projectSuggest = null;
+      state.projectAlt = null;
+      state.selectedName = reg?.name || rec?.name || picked.split("/").pop() || "";
+      state.customCwd = !reg && !rec;
+      onRender?.();
+    };
+  }
+
+  let inlineErr = null;
   if (compact && (state.customCwd || sel.value === "__custom")) {
     const input = pf.createEl("input", { cls: "ad-input", attr: { placeholder: plugin.vaultPath || "", value: state.cwd || "" } });
-    input.oninput = () => { state.cwd = input.value; };
+    inlineErr = pf.createDiv({ cls: "ad-hint", text: state.cwdError || "" });
+    if (!state.cwdError) inlineErr.hidden = true;
+    input.oninput = () => {
+      state.cwd = input.value;
+      state.selectedName = "";
+      const trimmed = input.value.trim();
+      if (!trimmed) {
+        state.cwdError = "";
+        inlineErr.textContent = "";
+        inlineErr.hidden = true;
+        return;
+      }
+      const norm = normalizeProjectFolder(trimmed);
+      if (!norm || !folderExists(norm)) {
+        state.cwdError = t("工作目录不存在：{cwd}", { cwd: trimmed });
+        inlineErr.textContent = state.cwdError;
+        inlineErr.hidden = false;
+      } else {
+        state.cwdError = "";
+        inlineErr.textContent = "";
+        inlineErr.hidden = true;
+      }
+    };
+    input.onchange = () => {
+      if (!state.cwdError) onRender?.();
+    };
+  } else if (state.cwdError) {
+    pf.createDiv({ cls: "ad-hint", text: state.cwdError });
   }
 
   if (state.projectConflict) {
@@ -115,6 +240,7 @@ function renderProjectFolderPicker(parent, plugin, state, { compact = false, onR
       state.projectHint = null;
       state.projectSuggest = null;
       state.projectConflict = false;
+      state.cwdError = "";
       onRender?.();
     };
     const keep = row.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("继续用笔记的项目"), attr: { type: "button" } });
@@ -123,6 +249,7 @@ function renderProjectFolderPicker(parent, plugin, state, { compact = false, onR
       state.customCwd = false;
       state.projectSuggest = null;
       state.projectConflict = false;
+      state.cwdError = "";
       onRender?.();
     };
   } else if (state.projectSuggest) {
@@ -139,10 +266,11 @@ function renderProjectFolderPicker(parent, plugin, state, { compact = false, onR
       state.customCwd = false;
       state.projectHint = null;
       state.projectSuggest = null;
+      state.cwdError = "";
       onRender?.();
     };
     const other = row.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("选择其他目录…"), attr: { type: "button" } });
-    other.onclick = () => { state.cwd = ""; state.customCwd = compact; state.projectSuggest = null; onRender?.(); };
+    other.onclick = () => { state.cwd = ""; state.customCwd = compact; state.projectSuggest = null; state.cwdError = ""; onRender?.(); };
   } else {
     if (!compact || state.projectHint) {
       pf.createDiv({
@@ -156,7 +284,7 @@ function renderProjectFolderPicker(parent, plugin, state, { compact = false, onR
       pf.createDiv({ cls: "ad-hint", text: t("任务里还提到「{name}」，但它不是已登记的项目；如果这是另一个项目，可以在这里换目录。", { name: state.projectAlt }) });
       const row = pf.createDiv({ cls: "ad-btnrow" });
       const pick = row.createEl("button", { cls: "ad-btn ad-btn--soft", text: t("选择目录…"), attr: { type: "button" } });
-      pick.onclick = () => { state.cwd = ""; state.customCwd = compact; state.projectAlt = null; onRender?.(); };
+      pick.onclick = () => { state.cwd = ""; state.customCwd = compact; state.projectAlt = null; state.cwdError = ""; onRender?.(); };
     }
   }
 }
@@ -327,7 +455,12 @@ export class DelegateOptionsModal extends Modal {
     const cf = contentEl.createDiv({ cls: "ad-field" });
     cf.createDiv({ cls: "ad-field__label", text: "Working directory" });
     const cwd = cf.createEl("input", { cls: "ad-input", attr: { placeholder: p.vaultPath, value: this.cwd } });
-    cwd.oninput = () => { this.cwd = cwd.value; this.projectState.cwd = cwd.value; };
+    cwd.oninput = () => {
+      this.cwd = cwd.value;
+      this.projectState.cwd = cwd.value;
+      this.projectState.cwdError = "";
+      this.projectState.selectedName = "";
+    };
     cf.createDiv({ cls: "ad-hint", text: t("留空 = 插件设置里的目录（默认是库根目录）。") });
 
     // Suffix
@@ -346,6 +479,14 @@ export class DelegateOptionsModal extends Modal {
     setLucide(goIcon, "send");
     go.createSpan({ cls: "ad-btn__label", text: "Delegate" });
     go.onclick = async () => {
+      this.projectState.cwd = this.cwd;
+      const check = validateSelectedProjectState(p, this.projectState);
+      if (!check.ok) {
+        this.render();
+        new Notice(check.error, 6000);
+        return;
+      }
+      this.cwd = check.cwd;
       go.classList.add("is-busy");
       go.setAttr("disabled", "true");
       const label = go.querySelector(".ad-btn__label");
@@ -363,8 +504,9 @@ export class DelegateOptionsModal extends Modal {
           model: this.model,
           effort: this.effort,
           permission: workModeOptions(this.agent).length ? this.permission : "",
-          cwd: this.cwd.trim(),
-          projectName: projectNameForSelection(p, this.projectState, this.cwd),
+          cwd: check.cwd,
+          explicitVault: check.explicitVault,
+          projectName: check.projectName,
           fromDialog: true,
           promptSuffix: this.suffix,
           name: blockTitle(this.block, mentionTrigger(p)),
@@ -385,7 +527,7 @@ export class DelegateOptionsModal extends Modal {
 
 // 把手单击后的确认：看一眼要发出去的整块，再发给主力
 export class ConfirmSendModal extends Modal {
-  constructor(app, { agent, text, path, where, destination, permission = "", newSession = false, context = [], draft = null, plugin = null, projectState = null }, onSend) {
+  constructor(app, { agent, text, path, where, destination, permission = "", newSession = false, context = [], draft = null, plugin = null, projectState = null, memories = [], previewMemoryLoader = null }, onSend) {
     super(app);
     this.agent = agent;
     this.text = text;
@@ -398,6 +540,10 @@ export class ConfirmSendModal extends Modal {
     this.draft = draft || null;
     this.plugin = plugin;
     this.projectState = projectState;
+    this.memories = Array.isArray(memories) ? memories : [];
+    this.previewMemoryLoader = previewMemoryLoader;
+    this._memSeq = 0;
+    this.excludedMemoryIds = new Set();
     this.onSend = onSend;
   }
 
@@ -428,11 +574,48 @@ export class ConfirmSendModal extends Modal {
     if (this.plugin && this.projectState) {
       renderProjectFolderPicker(contentEl, this.plugin, this.projectState, {
         compact: true,
-        onRender: () => this.render(),
+        onRender: () => {
+          if (typeof this.previewMemoryLoader === "function") {
+            const seq = ++this._memSeq;
+            Promise.resolve(this.previewMemoryLoader(this.projectState)).then((nextMems) => {
+              if (seq !== this._memSeq || !Array.isArray(nextMems)) return;
+              this.memories = nextMems;
+              this.excludedMemoryIds.clear();
+              this.render();
+            }).catch(() => {});
+          }
+          this.render();
+        },
       });
     }
     if (this.newSession) contentEl.createDiv({ cls: "ad-hint", text: t("这次将新建会话，原会话及记录保留。") });
     if (this.draft) contentEl.createDiv({ cls: "ad-hint", text: t("将发送已编辑草稿：{path}", { path: this.draft.path }) });
+
+    if (this.memories.length) {
+      const details = contentEl.createEl("details", { cls: "ad-send__memories" });
+      details.createEl("summary", {
+        cls: "ad-send__memsum",
+        text: t("本次携带 {n} 条长期记忆（点击展开或取消勾选）", { n: this.memories.length }),
+      });
+      const list = details.createDiv({ cls: "ad-send__memlist" });
+      for (const item of this.memories) {
+        const entry = item.entry || item;
+        const row = list.createEl("label", { cls: "ad-send__memrow" });
+        const cb = row.createEl("input", { type: "checkbox" });
+        cb.checked = !this.excludedMemoryIds.has(entry.id);
+        cb.onchange = () => {
+          if (cb.checked) this.excludedMemoryIds.delete(entry.id);
+          else this.excludedMemoryIds.add(entry.id);
+        };
+        const badge = `[${entry.type || entry.kind || ""}${entry.verified ? " ✓" : ""}]`;
+        row.createSpan({ cls: "ad-send__memkind", text: badge });
+        const body = row.createDiv({ cls: "ad-send__membody" });
+        body.createDiv({ cls: "ad-send__memtext", text: entry.text });
+        if (item.why?.length) {
+          body.createDiv({ cls: "ad-muted", text: t("命中：{why}", { why: item.why.join("、") }) });
+        }
+      }
+    }
 
     // 要发出去的整块：有已编辑草稿时直接预览草稿正文；否则按缩进画成小卡片。
     const card = contentEl.createDiv({ cls: "ad-send__card" });
@@ -472,13 +655,24 @@ export class ConfirmSendModal extends Modal {
     setLucide(go.createSpan({ cls: "ad-btn__icon" }), "send");
     go.createSpan({ text: t("发送") });
     go.onclick = () => {
-      const project = this.plugin && this.projectState ? {
-        cwd: String(this.projectState.cwd || "").trim(),
-        projectName: projectNameForSelection(this.plugin, this.projectState, this.projectState.cwd),
-        fromDialog: true,
-      } : null;
+      let project = null;
+      if (this.plugin && this.projectState) {
+        const check = validateSelectedProjectState(this.plugin, this.projectState);
+        if (!check.ok) {
+          this.render();
+          new Notice(check.error, 6000);
+          return;
+        }
+        project = {
+          cwd: check.cwd,
+          projectName: check.projectName,
+          explicitVault: check.explicitVault,
+          fromDialog: true,
+        };
+      }
+      const extra = this.excludedMemoryIds.size ? { excludeMemoryIds: [...this.excludedMemoryIds] } : null;
       this.close();
-      this.onSend(this.destination, this.permission, project);
+      this.onSend(this.destination, this.permission, project, extra);
     };
     setTimeout(() => go.focus(), 0);   // 回车直接发
   }
@@ -684,10 +878,11 @@ export class JournalMarkerModal extends Modal {
 
 // 轻量单框追问：从任务操作菜单直接给原会话发下一轮，不改动只读的 ConversationModal。
 export class FollowUpModal extends Modal {
-  constructor(app, { session = {}, title = "", onSubmit } = {}) {
+  constructor(app, { session = {}, title = "", workspace = "", onSubmit } = {}) {
     super(app);
     this.session = session;
     this.title = title;
+    this.workspace = workspace;
     this.onSubmit = onSubmit;
   }
 
@@ -706,6 +901,7 @@ export class FollowUpModal extends Modal {
     const sid = String(this.session.sid || this.session.sessionId || "").slice(0, 8);
     const sub = [a.name, this.title || this.session.title || this.session.name, sid].filter(Boolean).join(" · ");
     if (sub) tt.createDiv({ cls: "ad-send__sub", text: sub });
+    if (this.workspace) tt.createDiv({ cls: "ad-muted", text: t("工作目录：{workspace}", { workspace: this.workspace }) });
 
     const field = contentEl.createDiv({ cls: "ad-field" });
     const ta = field.createEl("textarea", { cls: "ad-textarea", attr: { rows: "4", placeholder: t("在原会话中继续追问…") } });

@@ -156,6 +156,46 @@ function clampExcerpt(text, maxLines = LINK_EXCERPT_MAX_LINES, maxChars = LINK_E
   return { text: out, truncated, shownCount: picked.length };
 }
 
+const OKF_HEADER_KEYS = ["type", "description", "def", "domain", "category", "father", "status", "verified", "stale_after"];
+
+export function extractOkfHeader(raw = "") {
+  const lines = String(raw || "").replace(/\r\n/g, "\n").split("\n");
+  if (lines[0]?.trim() !== "---") return "";
+  const end = lines.findIndex((l, i) => i > 0 && l.trim() === "---");
+  if (end <= 1) return "";
+  const map = new Map();
+  let listKey = "";
+  for (const line of lines.slice(1, end)) {
+    const m = /^([A-Za-z_][\w-]*):(?:\s*(.*))?$/.exec(line);
+    if (m) {
+      const k = m[1];
+      const v = String(m[2] || "").trim().replace(/^["']|["']$/g, "");
+      if (v) { map.set(k, v); listKey = ""; }
+      else { listKey = k; }
+      continue;
+    }
+    const item = /^\s+-\s*(.+)$/.exec(line);
+    if (item && listKey && !map.has(listKey)) {
+      map.set(listKey, item[1].trim().replace(/^["']|["']$/g, ""));
+    }
+  }
+  const parts = [];
+  const used = new Set();
+  for (const key of OKF_HEADER_KEYS) {
+    if (parts.length >= 5) break;
+    if (key === "def" && used.has("description")) continue;
+    if (key === "category" && used.has("domain")) continue;
+    const val = map.get(key);
+    if (!val || val === "[]" || val === "{}") continue;
+    used.add(key);
+    const shortVal = val.length > 72 ? `${val.slice(0, 71)}…` : val;
+    parts.push(`${key}: ${shortVal}`);
+  }
+  if (!parts.length) return "";
+  const joined = `[${t("元信息")}：${parts.join(" | ")}]`;
+  return joined.length > 220 ? `${joined.slice(0, 219)}]` : joined;
+}
+
 // 整篇笔记被截断时，从剩余行抽出最多 6 个非代码块标题和行号，让 Agent 知道下文怎么分段读。
 function remainingHeadingToc(allLines, startIdx, shownCount, maxItems = 6) {
   const from = startIdx + shownCount;
@@ -245,13 +285,15 @@ async function resolveWikilinkSnippets(plugin, file, refs = []) {
         excerpt = allLines.slice(bodyStart).join("\n");
       }
       const { text: compact, truncated, shownCount } = clampExcerpt(agentText(excerpt));
-      if (!compact) {
+      const okfHeader = !ref.subpath ? extractOkfHeader(raw) : "";
+      if (!compact && !okfHeader) {
         warnings.push(`empty-body:${dest.path}`);
         warningLabels.push(`${label}（${t("正文为空")}）`);
         continue;
       }
       const toc = (!ref.subpath && truncated) ? remainingHeadingToc(allLines, bodyStart, shownCount) : "";
-      snippets.push(toc ? `- ${label} (${dest.path}):\n${compact}\n${toc}` : `- ${label} (${dest.path}):\n${compact}`);
+      const bodyWithHeader = [okfHeader, compact].filter(Boolean).join("\n");
+      snippets.push(toc ? `- ${label} (${dest.path}):\n${bodyWithHeader}\n${toc}` : `- ${label} (${dest.path}):\n${bodyWithHeader}`);
     } catch {
       if (snippets.length >= MAX_LINKED_NOTES) {
         omitted.push(`${label} (${dest.path})`);
@@ -294,6 +336,7 @@ export async function resolveDelegationContext({ plugin = null, file = null, lin
     boardContext,
     linkedSection: "",
     resolverSections: [],
+    memoryIds: [],
     warnings: [],
     omittedLinks: [],
     omittedPrivate: 0,
@@ -312,6 +355,9 @@ export async function resolveDelegationContext({ plugin = null, file = null, lin
       }
       if (Array.isArray(out?.refs) && out.refs.length) {
         context.refs.push(...out.refs);
+      }
+      if (Array.isArray(out?.memoryIds) && out.memoryIds.length) {
+        for (const id of out.memoryIds) if (id && !context.memoryIds.includes(id)) context.memoryIds.push(id);
       }
     } catch (e) {
       console.error(`[agent-deck] context resolver ${resolver.name || "anon"}`, e);
@@ -371,6 +417,7 @@ export function createContextBundle(plugin, {
   omittedPrivate = 0,
   privatePaths = null,
   inlinedLinks = 0,
+  memoryIds = [],
   newSession = false,
   promptSuffix = "",
   skipConfirmFirst = false,
@@ -415,6 +462,8 @@ export function createContextBundle(plugin, {
       omittedLinks: omittedLinks?.length || 0,
       omittedPrivate,
       notePathCount: 0,
+      memoryCount: Array.isArray(memoryIds) ? memoryIds.length : 0,
+      memoryIds: Array.isArray(memoryIds) ? [...memoryIds] : [],
       warningCount: warnings?.length || 0,
       hasSkill: false,
       hasReply: false,
@@ -453,6 +502,7 @@ export async function buildDelegationPayload({ plugin, file, lines, block, opts 
     omittedPrivate: resolved.omittedPrivate,
     privatePaths: resolved.privatePaths,
     inlinedLinks: resolved.inlinedLinks,
+    memoryIds: resolved.memoryIds,
     newSession: opts.newSession,
     promptSuffix: opts.promptSuffix,
     skipConfirmFirst: Boolean(opts.skipConfirmFirst),

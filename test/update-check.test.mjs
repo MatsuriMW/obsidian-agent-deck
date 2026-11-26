@@ -52,17 +52,17 @@ test("checkLatestRelease parses GitHub release payload cleanly", async () => {
   assert.equal(res.url, "https://github.com/MatsuriMW/obsidian-agent-deck/releases/tag/v1.13.14");
 });
 
-test("showcase auto-opens once on major/minor upgrade, pre-1.13.13 -> 1.13.x upgrade, and stays quiet on subsequent patch bumps", () => {
-  assert.equal(majorMinorOf("1.13.13"), "1.13");
+test("showcase auto-opens once on major/minor upgrade, pre-1.13.29 -> 1.13.29 upgrade, and stays quiet on subsequent patch bumps", () => {
+  assert.equal(majorMinorOf("1.13.29"), "1.13");
   assert.equal(majorMinorOf("v2.0.0-beta.1"), "2.0");
-  assert.equal(shouldOpenShowcaseForVersion("1.13.13", ""), true);
-  assert.equal(shouldOpenShowcaseForVersion("1.13.13", "1.10.0"), true);
-  assert.equal(shouldOpenShowcaseForVersion("1.13.13", "1.13.12"), true);
-  assert.equal(shouldOpenShowcaseForVersion("1.13.20", "1.12.9"), true);
-  assert.equal(shouldOpenShowcaseForVersion("1.13.20", "1.13.5"), true);
-  assert.equal(shouldOpenShowcaseForVersion("1.13.20", "1.13.13"), false);
-  assert.equal(shouldOpenShowcaseForVersion("1.14.0", "1.13.20"), true);
-  assert.equal(shouldOpenShowcaseForVersion("2.0.0", "1.13.20"), true);
-  assert.equal(shouldOpenShowcaseForVersion("1.13.14", "1.13.13"), false);
-  assert.equal(shouldOpenShowcaseForVersion("1.13.13", "1.13.13"), false);
+  assert.equal(shouldOpenShowcaseForVersion("1.13.29", ""), true);
+  assert.equal(shouldOpenShowcaseForVersion("1.13.29", "1.10.0"), true);
+  assert.equal(shouldOpenShowcaseForVersion("1.13.29", "1.13.13"), true);
+  assert.equal(shouldOpenShowcaseForVersion("1.13.29", "1.13.28"), true);
+  assert.equal(shouldOpenShowcaseForVersion("1.13.30", "1.12.9"), true);
+  assert.equal(shouldOpenShowcaseForVersion("1.13.30", "1.13.28"), true);
+  assert.equal(shouldOpenShowcaseForVersion("1.13.30", "1.13.29"), false);
+  assert.equal(shouldOpenShowcaseForVersion("1.14.0", "1.13.29"), true);
+  assert.equal(shouldOpenShowcaseForVersion("2.0.0", "1.13.29"), true);
+  assert.equal(shouldOpenShowcaseForVersion("1.13.29", "1.13.29"), false);
 });

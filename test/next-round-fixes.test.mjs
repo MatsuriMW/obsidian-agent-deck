@@ -145,7 +145,8 @@ const bundle = await esbuild.build({
     contents: `
       export { default as AgentDeckPlugin } from "./src/main.js";
       export { AgentDeckSettingsTab } from "./src/settings.js";
-      export { DelegateOptionsModal, ConfirmSendModal, FollowUpModal } from "./src/dialog.js";
+      export { DelegateOptionsModal, ConfirmSendModal, FollowUpModal, renderProjectFolderPicker } from "./src/dialog.js";
+      export { MemoryReviewModal } from "./src/memory-review.js";
       export { ConversationModal, AcpPermissionModal } from "./src/conversation-modal.js";
       export { ReplyInboxView } from "./src/reply-inbox-view.js";
       export { ReplyModal } from "./src/reply-modal.js";
@@ -587,6 +588,59 @@ test("P2 #8: lineMap caches static doc index separately from live session/job st
     p.lineMap("note.md", doc);
     assert.equal(docCalls, 2, "refreshEditorsNow clears _lineMaps cache");
   } finally {
+    env.cleanup();
+  }
+});
+
+test("Workspace picker sel.onchange conflict guard & MemoryReviewModal conflict peer skip", async () => {
+  const dir1 = fs.mkdtempSync(path.join(os.tmpdir(), "ad-ui-p1-"));
+  const dir2 = fs.mkdtempSync(path.join(os.tmpdir(), "ad-ui-p2-"));
+  const env = makeVaultEnv({});
+  try {
+    const p = makePlugin(env);
+    p.settings.projectFolders = { demo: dir1 };
+    const state = {
+      projectHint: { name: "demo", path: dir1 },
+      projectSuggest: { name: "other", path: dir2 },
+      projectConflict: true,
+      projectAlt: "other",
+      cwd: dir2,
+      customCwd: false,
+    };
+    let renders = 0;
+    const host = new Element();
+    M.renderProjectFolderPicker(host, p, state, { compact: true, onRender: () => { renders++; } });
+    const sel = host.all().find((el) => el.tag === "select");
+    sel.value = "__suggested";
+    sel.onchange();
+    assert.equal(state.projectConflict, false);
+    assert.equal(state.projectHint, null);
+    assert.equal(state.cwd, dir2, "__suggested preserves prevSuggest.path across clearing");
+    sel.value = "";
+    sel.onchange();
+    assert.equal(state.cwd, "", "switching to vault root clears cwd cleanly without TypeError");
+    assert.equal(renders, 2);
+
+    const peerEntry = { path: "Agent Deck/记忆/冲突二.md", kind: "fact", state: "有效", text: "旧结论", conflictsWith: ["[[Agent Deck/记忆/冲突一]]"] };
+    const keepEntry = { path: "Agent Deck/记忆/冲突一.md", kind: "fact", state: "有效", text: "新结论", conflictsWith: ["[[Agent Deck/记忆/冲突二]]"] };
+    const thirdEntry = { path: "Agent Deck/记忆/第三条.md", kind: "fact", state: "有效", text: "第三条" };
+    const revModal = new M.MemoryReviewModal(
+      { workspace: {} },
+      [keepEntry, peerEntry, thirdEntry],
+      async () => {},
+      () => {},
+      { onResolveConflict: async () => {}, allEntries: [keepEntry, peerEntry, thirdEntry] },
+    );
+    revModal.onOpen();
+    const keepBtn = revModal.contentEl.all().find((el) => el.text === "保留本条·淘汰对方");
+    assert.ok(keepBtn, "Conflict resolution button is rendered");
+    await keepBtn.listeners.click[0]();
+    assert.equal(peerEntry._skipInReview, true);
+    await revModal.commitState("有效");
+    assert.equal(revModal.index, 2, "stepping forward skips deprecated conflict peer");
+  } finally {
+    fs.rmSync(dir1, { recursive: true, force: true });
+    fs.rmSync(dir2, { recursive: true, force: true });
     env.cleanup();
   }
 });

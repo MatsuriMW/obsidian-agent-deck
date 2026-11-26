@@ -7,7 +7,8 @@ export const CONFIRM_FIRST = "先阅读任务及相关上下文。只有影响�
 export const DIRECT_EXECUTE = "直接执行并完成交付，不要停下来向我反问确认；除非遇到不可逆的高危歧义，其余非核心边界细节请按合理常规自行决定并直接实现，完成后在汇报中简述处理方式与验证结果。";
 
 export const STORE_VERSION = 1;
-export const MEMORY_QUERY_ASSET_VERSION = 1;
+export const MEMORY_QUERY_ASSET_VERSION = 6;
+export const MEMORY_MCP_ASSET_VERSION = 5;
 
 export const DEFAULT_RECORD_RULES = {
   boldTitle: true,        // 自动记录母块标题自动加粗 **...**
@@ -664,7 +665,7 @@ export const DEFAULTS = {
   autoWriteResult: true,
   resultMax: 350,
   importNautilus: true,
-  dream: { enabled: false, inject: true, store: "text", dir: "Agent Deck/记忆", backlinked: [], scope: "all", path: "Agent Deck/长期记忆.md", provider: "", model: "", effort: "", apiUrl: "", apiKey: "", syncProfile: false, lastRun: 0, lastAttempt: 0, states: {}, coverage: null, lastError: "", share: { enabled: false, path: "", intervalHours: 24, gitPush: false, lastAttempt: 0, lastSuccess: 0, lastError: "" } },
+  dream: { enabled: false, inject: true, store: "text", dir: "Agent Deck/记忆", backlinked: [], scope: "all", path: "Agent Deck/长期记忆.md", provider: "", model: "", effort: "", apiUrl: "", apiKey: "", syncProfile: false, autoAnchor: true, graphPreset: "kind", autoArchive: true, archiveAfterDays: 30, lastRun: 0, lastAttempt: 0, lastConsolidate: null, states: {}, coverage: null, lastError: "", share: { enabled: false, path: "", intervalHours: 24, gitPush: false, lastAttempt: 0, lastSuccess: 0, lastError: "" } },
   // Delegation
   delegate: {
     target: "claude",

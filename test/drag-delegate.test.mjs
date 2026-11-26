@@ -296,9 +296,9 @@ test("Gemini CLI handoffCli & isCliSession and T3 Code continueSession & ENOENT 
     defaultModel: (id) => DEFAULTS.delegate[id]?.model || "",
   };
 
-  // Verify gemini CLI handoff command construction without opening a real terminal.
+  // Verify gemini CLI handoff command construction cleanly without opening a real terminal.
   const src = fs.readFileSync(new URL("../src/delegation.js", import.meta.url), "utf8");
-  assert.match(src, /else if \(agent === "gemini"\) \{[\s\S]*?-i "\$\(cat /);
+  assert.match(src, /else if \(agent === "gemini"\) \{[\s\S]*?"-i"\]/);
 
   // Verify T3CodeRunner gives a friendly ENOENT message instead of exit code -1.
   const errors = [];

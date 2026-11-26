@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
+  stripWinLongPrefix, isTempPath,
   normalizeProjectFolder, sameFolder, projectFolderEntries, projectKey,
   projectNameForFolder, rememberProjectFolder, resolveProjectForTask, resolveDispatchFolder,
   projectCandidatesFromTask, recentProjectFolders, suggestProjectForTask,
@@ -144,10 +145,26 @@ try {
     ['s2', { cwd: dirB, lastAt: 1 }],
     ['s3', { cwd: '/tmp/a', lastAt: 9 }],
     ['s4', { cwd: os.homedir(), lastAt: 9 }],
+    ['s5', { cwd: 's://x.com/Arcadia_Bao/status/123', lastAt: 10 }],
+    ['s6', { cwd: path.join(dirA, 'nonexistent-sub'), lastAt: 10 }],
+    ['s7', { cwd: (() => { const f = path.join(dirA, 'SKILL.md'); fs.writeFileSync(f, '# x'); return f; })(), lastAt: 10 }],
   ]);
   const recent = recentProjectFolders(meta);
-  assert.equal(recent.length, 2, 'scratch and home folders are not project suggestions');
+  assert.equal(recent.length, 2, 'scratch, home, URLs, missing paths, and files are filtered out');
   assert.deepEqual(recent.map((r) => r.path), [dirA, dirB], 'newest first');
+
+  // explicitVault: true overrides note project link and per-agent default cwd.
+  const forcedVault = resolveDispatchFolder({
+    settings: { projectFolders: { 'ad-ui-test': dirA, other: dirB } },
+    agentCwd: dirB,
+    explicitVault: true,
+    vaultPath: vault,
+    ...task,
+  });
+  assert.equal(forcedVault.folder, vault);
+  assert.equal(forcedVault.projectName, '');
+  assert.equal(forcedVault.auto, null);
+  assert.equal(forcedVault.explicitVault, true);
 
   assert.deepEqual(projectCandidatesFromTask({ notePath: '日记/x.md', contextLines: ['- [[agent-deck]]'], blockText: '- TODO x' }), ['agent-deck', 'x', '日记']);
   assert.ok(projectCandidatesFromTask({ notePath: 'Projects/agent-deck/task.md', blockText: '- agent-deck -> x' }).includes('agent-deck'));
@@ -174,6 +191,17 @@ try {
     contextLines: [],
     blockText: '- TODO 一个和项目无关的任务',
   }), null, 'no project signal, no suggestion');
+
+  assert.equal(stripWinLongPrefix('\\\\?\\C:\\repo'), 'C:\\repo');
+  assert.equal(stripWinLongPrefix('\\\\?\\UNC\\srv\\share\\sub'), '\\\\srv\\share\\sub');
+  assert.equal(normalizeProjectFolder('\\\\?\\c:\\work\\repo\\'), 'C:/work/repo');
+  assert.equal(normalizeProjectFolder('\\\\?\\UNC\\filesrv\\proj\\'), '//filesrv/proj');
+  assert.equal(normalizeProjectFolder('C:\\'), '', 'bare drive root should not become project root');
+  assert.ok(sameFolder('c:\\work\\Repo', 'C:/work/repo/'));
+  assert.ok(sameFolder('\\\\?\\C:\\work\\Repo', 'C:/work/repo'));
+  assert.ok(isTempPath('C:\\Users\\alice\\AppData\\Local\\Temp\\ad-tmp'));
+  assert.ok(isTempPath('C:\\Windows\\Temp\\ad-tmp'));
+  assert.equal(isTempPath('C:\\work\\repo'), false);
 
   console.log('PASS project folders: normalize, register, rename, link/path/title resolution, dispatch folder precedence');
 } finally {

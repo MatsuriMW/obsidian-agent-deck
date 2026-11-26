@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.13.29
+
+- **Dream 记忆全链路升级、图谱融合与检索提纯（[`src/dream.js`](src/dream.js)、[`src/memory-graph.js`](src/memory-graph.js)、[`src/memory-store.js`](src/memory-store.js)、[`src/memory-query-core.js`](src/memory-query-core.js)、[`src/memory-review.js`](src/memory-review.js)、[`src/memory-board.js`](src/memory-board.js)、[`scripts/memory-query.mjs`](scripts/memory-query.mjs)、[`scripts/memory-mcp.mjs`](scripts/memory-mcp.mjs)）**：
+  - 接入 Bases 兼容 OKF v0.2 元数据与纯双链语义边（`concepts`、`project_link`、`source_notes`、`conflicts_with`、`supersedes`、`superseded_by`），支持 1–2 跳概念扩散检索、`<dir>/log.md` 变更日志、`记忆.base` 双向同步，以及基于关系图谱的短命题文件名生成与模型批量润色（`polishShortTitles()`）。
+  - 优化记忆整理、审阅与生命周期：支持导入、批量确认、就地冲突裁决与残余边双向清理、超期/失效自动归档至 `<dir>/archive/` 及恢复、`.obsidian/graph.json` 双视角配色预设（按类型/可信度）、以及体检对库内可补锚 vs 外部导入免补锚和概念升格建议的分口统计。
+  - 提升召回实用性与准确率：`scoreMemoryEntry` 增加多词覆盖加分并将未验证提案惩罚收紧至 `0.42`；`pickMemoriesFromEntries` 增加实质长句 MMR-lite 去重；非严格提炼路径拦截纯 AI 归纳的「尚未实施/待验证」过渡状态；新增 `recordHits()` 统计 `hitStats` 并在体检中呈现命中/零命中与过渡态统计；外围只读 CLI（`memory-query.mjs` v6）与 stdio MCP Server（`memory-mcp.mjs` v5）支持短双字中文词召回、`--project` 通用经验保留、符号链接调用兼容及 `archive/` 读取。
+- **委派 / 派回工作区间统一与 Windows 路径 / 终端兼容加固（[`src/project-folders.js`](src/project-folders.js)、[`src/readers.js`](src/readers.js)、[`src/security.js`](src/security.js)、[`src/delegation.js`](src/delegation.js)、[`src/delegation-runners.js`](src/delegation-runners.js)、[`src/terminals.js`](src/terminals.js)、[`src/dialog.js`](src/dialog.js)、[`src/reply-modal.js`](src/reply-modal.js)、[`src/workbench-modal.js`](src/workbench-modal.js)）**：
+  - 统一 `delegate`、`handoffCli`、`_performHandoff`、`continueSession`、工作台、草稿与 `ConfirmSendModal` / `ReplyModal` 的工作区间选择、最近目录过滤与「库根目录（`explicitVault`）」覆盖；断盘旧 `cwd` 支持按项目自动恢复。
+  - 加固 Windows 长路径（`\\?\` / `\\?\UNC\`）、盘符大小写无关比较、`realpathSync.native` 联结/符号链接越界拦截、Codex TOML 转义可信目录解析、`.cmd`/`.bat` 的 `stdin` 传参、PowerShell UTF-8 终端启动脚本及 Vault 相对/反斜杠 `findMemory` 路径归一化。
+- **升级后新功能示例文档刷新（[`src/welcome-demo.js`](src/welcome-demo.js)）**：
+  - 将 `SHOWCASE_RELEASE_FLOOR` 升至 `1.13.29`，以通俗面向用户的语言更新中/英/繁三语「本期新功能（What's New）」卡片与试用入口（覆盖 1.13.14 → 1.13.29 的记忆图谱与审阅、多 AI 分批协作工作台、工作目录与拖拽派活、21 家助手与 11 家终端扩展），更新后首次打开自动呈现一次。
+
 ## 1.13.28
 
 - **多 Agent 编排第三轮打磨、跨平台测试与阅读视图加固（[`src/project-workbench.js`](src/project-workbench.js)、[`src/main.js`](src/main.js)、[`src/harness.js`](src/harness.js)、[`src/delegation.js`](src/delegation.js)、[`src/sync.js`](src/sync.js)、[`src/steward-watch.js`](src/steward-watch.js)、[`src/fractal-board.js`](src/fractal-board.js)、[`src/workbench-modal.js`](src/workbench-modal.js)）**：

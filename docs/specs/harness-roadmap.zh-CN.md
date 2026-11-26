@@ -110,10 +110,10 @@
 4. **修复两项直接伤上下文的源码问题（检索盲区 + `MAT-479`）、索引泄露过滤与归属/丢弃补盲**：
    - ✅ **已落（2026-11-19 收口）**：`src/memory-query-core.js` 保持中文二元词 `MIN_MEMORY_OVERLAP = 2` 防噪音，同时补充**单英文技术词元（≥4 字符非停用词）与元数据通道（`tags` / `domain` / `type` / 同源 `sources`）**，解决 `esbuild` / `Windows` 等单词在 `pickMemories` 零召回的问题；
    - **清掉上游双链/块号污染（源自 `MAT-479`）**：统一 `💬` 写入器的转义规则（关闭同步时不留裸 `#词` / `[[…]]` 生成假标签和假双链），并统一 `🔗` 行与任务块的缩进解析，确保抽取到的上下文块不串行；
-   - ⏳ **待补 `renderMemoryIndex` 过滤与分组（`src/memory-store.js`）**：目前 `索引.md` 将全部条目按日期平铺且未过滤 `private: true`、`已拒绝` 与 `已被替代`；改为只列 `state === "有效"` 且非私密条目，并按 `kind` / 域轻量分组，为 M1.3 入口导航做准备；
-   - ⏳ **待补 `handoff` 项目归属与 `Dreaming` `dropped` 透出**：`Delegator.handoff`（`src/delegation.js`）当前写死 `cwd: this.vaultPath`，需补走 `resolveDispatchFolder` 以获取桌面交接任务的项目归属；`Dreaming.run()`（`src/dream.js`）需显式记录/透出 `dropped` 丢弃计数与原因，不再静默丢弃核验失败的候选条目。
+   - ✅ **已补 `renderMemoryIndex` 与 `renderMemoryList` 过滤分组（2026-11-26）**：`renderMemoryIndex` 只收录 `state === "有效"` 且非 `private: true` 的条目并按 `kind`/项目分组汇总；`renderMemoryList` 同步排除 `private: true`；
+   - ✅ **已补 `handoff` 统一注入与 `Dreaming` `dropped` 透出（2026-11-26）**：`Delegator.handoff` / `handoffCli` 统一走 `resolveDispatchFolder` 与 `enrichPrompt`；`Dreaming.run()` 透出 `dropped` 数量与原因并在总结、看板与诊断报告中可见。
 5. **无 UI 上下文账本（G5 + `MAT-631` 轻量部分）**：
-   - ✅ **半落（2026-11-19）**：`Delegator.delegate` 已自动将 `bundle.stats`（`linkCount` / `inlinedLinks` / `omittedLinks` / `notePathCount` / `warningCount` / `hasSkill` / `hasReply` / `injectedChars`）写入 `job.contextStats`；⏳ 待补 `memoryIds` 写入载荷头与 ACPRunner `job.contextUsed / job.contextSize` 侧栏卡片渲染。
+   - ✅ **半落（2026-11-26）**：`Delegator.delegate` 已自动将 `bundle.stats`（含 `memoryIds` / `memoryCount`）写入 `job.contextStats`，`ConfirmSendModal` 新增可折叠「将注入记忆」预览与剔除；⏳ 待补 ACPRunner `job.contextUsed / job.contextSize` 侧栏卡片渲染。
 
 **M1.1 验收标准**：
 - `npm test` 新增单测断言：第 4 篇双链显式列路径、坏 `#^id`/`#标题`/读失败显式报错、`private: true` 与排除目录 0 泄露、祖先链双链进入路径清单、单英文词通过元数据/精确词命中、`ContextBundle` 脱离 Obsidian 定时器/UI 运行；
@@ -194,16 +194,16 @@
 1. **M2.1 记忆四维正交字段升级、任务域分流与容量归档（D4 深化 + 契约 §10.1 + G7）**：
    - 把当前单字段 `状态`（`有效`/`已拒绝`/`已被替代`）拆为四个正交维度：`status`（`active`/`deprecated`）、`verified[]`（无 / 非 `human:` / 含 `human:`，对应 unverified / machine-confirmed / human-reviewed）、`supersedes`/`superseded_by`、`verdict`（`pending`/`confirmed`/`refuted`）；
    - 四类记忆按各自生命周期流转：事实可被确认或证伪；偏好用 `valid_from` / `valid_until` 封口而非伪装成“错误被替代”；待验证规律走 `verdict`；项目经验带 `applies_to`；
-   - **零成本任务域分流（LOAD 侧差异化注入）**：直接复用 `resolveDispatchFolder`（`cwd !== vaultPath` 或命中 `projectFolders`）与 `[[双链]]`/`domain` 结构信号（不调额外 LLM 猜意图、不要求人手动分类），在 `src/main.js` `dream-memory` resolver → `Dreaming.contextSection` → `pickMemoriesFromEntries` 传入 `{ projectName, isCodeProject }`：
-     - **工程/代码域任务**（含工程问答）：优先注入并加权当前项目 `lesson`（症状→修法 / 失败红线 / 项目 Quickstart），保留跨任务交互风格类 `preference`，默认过滤个人经历 `fact` 与私人 `pattern`；
-     - **个人/写作/复盘/规划域任务**（`cwd === vaultPath` 且含个人/概念双链或词元）：优先召回个人 `fact / preference / pattern` 与概念双链，不带无关工程 `lesson`；
+   - ✅ **零成本任务域分流已落（2026-11-26）**：`resolveDispatchFolder` 识别项目上下文传入 `Dreaming.contextSection` → `pickMemoriesFromEntries({ projectName, isCodeProject })`：
+     - **工程/代码域任务**：加权当前项目 `lesson` 与通用偏好，降低个人生活/通用非工程条目的干扰；
+     - **个人/写作/复盘/规划域任务**（`cwd === vaultPath`）：优先召回个人 `fact / preference / pattern`；
      - **纯通用外部知识问答**（无项目且无词元命中）：保持 **0 注入**，不硬塞记忆；
-   - **YAML 契约与 `reconcile` 改写边界**：动工前先拍板 `sources`/`verified`/`generated` 嵌套格式与 Obsidian Bases 扁平属性的兼容方案，同步约束 `src/memory-store.js` 与 `scripts/memory-query.mjs` 使用同一解析契约；同时修复 `Dreaming` `state.processed` 不随 14 天扫描窗口丢弃历史 key，并界定用户手改措辞（基于稳定 `id`）不误入 `state.rejected`；
-   - 增加超期或 `deprecated` 记忆归档机制（G7），防止记忆池无限膨胀逼近 `activeMemory` 6000 字上限；**迁移前必须强制备份 `data.json` 与 `Agent Deck/记忆/`**（见 §8 回滚规范）。
+   - ✅ **YAML 契约与 `reconcile` 改写边界已落（2026-11-26）**：`rewriteSources` 统一用 `yamlStr` 加引号，`writeEntry` 保留 `supersedes / project / tags / verified / private`；`reconcile` 基于已加载路径对齐，避免编辑措辞误标 `已被拒绝`/`已拒绝`；`state.processed` 按有序去重窗口保留至多 5000 条历史 key 不随 14 天扫描丢弃。
+   - ✅ **OKF v0.2 + Graph-Native 融合架构、1–2 跳图谱检索、归档与 `log.md` 已落（2026-11-26）**：`memory-graph.js` / `memory-store.js` / `dream.js` / `memory-query-core.js` / `scripts/memory-query.mjs` (`ASSET_VERSION = 5`) / `scripts/memory-mcp.mjs` (`ASSET_VERSION = 4`) 统一支持扁平 Bases 兼容 OKF 字段与纯 `"[[...]]"` YAML 图谱边（`concepts` / `project_link` / `source_notes` / `conflicts_with` / `supersedes` / `superseded_by`）、短命题节点命名（`preferShort` + 引号保护 + `polishShortTitles`）、零向量 `1–2` 跳概念图谱扩展召回、`graph` CLI 动词与 `memory_graph` MCP 工具；`Dreaming.consolidate` 自动双向写入 `conflicts_with` 并支持超期失效记忆自动归档至 `<dir>/archive/`（可恢复且 CLI/MCP `--all`/`include_inactive` 可查）；`Dreaming.backfillOkfMetadata` 支持 0-Token 补齐已有记忆/图谱边与短命名重命名；`applyMemoryGraphPreset` 支持按动态 `dream.dir` 应用 `kind` / `trust` 双视角图谱配色与 `-path:"<dir>/archive"` 过滤；`run`/`consolidate`/`backfill`/`archive` 自动追加 `<dir>/log.md`；`harness.js` `extractOkfHeader` 在整篇引用笔记内联时附极简 1 行 `[元信息：…]`。
 2. **M2.2 全库结构体检、缺口扫描与冲突检测（D8 缺口 + B2/B3/B5/B7/B8/B11）**：
+   - ✅ **近重/同源冲突、概念升格建议、锚点分口与睡眠整理已落（2026-11-26）**：`Dreaming.audit()` 补充 `nearDuplicates`、`sameSourcePairs`、`verifiedCount`、`unanchoredVaultSources` vs `externalImportSources`、`conflicting`、`archivedCount`/`archivableCount`、`conceptPromotions`（B11 聚团 `≥ 5` 建议）与按 `kind` 分布；`Dreaming.consolidate()` 支持一键周期性合并去重、更新 `supersedes` 链、写入双向 `conflicts_with` 与项目归属。
    - **断链与待写概念扫描（零依赖快赢）**：扫全库 `father` 与 `domain` 指向不存在的笔记（2026-11-18 实测合计 34 条待写概念），出清单但不阻塞派发；
-   - **同源矛盾检测（B7，质量核心）**：识别共享同一 `sources`（或同一实体/主题）却得出相反结论的记忆，标红进审阅队列；
-   - 补全 Base / 体检衍生统计：类型分布（B2）、待验证规律清单（B3）、超过 N 个月未复核的老化队列（B5）、近 N 天日记提炼覆盖率（B8）、支持将成熟单条记忆升级为概念笔记（B11）。
+   - ⏳ **待补衍生统计**：超过 N 个月未复核的老化队列（B5）、近 N 天日记提炼覆盖率（B8）。
 3. **M2.3 零负担证据链与多端轮次原因（D5 + `MAT-633`）**：
    - **L0/L1 先行，不强改写作习惯**：日记保持 L0 免脚注；先做从现有 `[[X]]` 反推 `sources` 的推导器，且**强制标 `derived: backlink` 并降置信**（绝不把“提到 X”伪装成“源自 X”）；
    - **L2 可选脚注**：对重要概念/AI 结论支持 `[^s1]` + `sources[].id` 稳定键 + `matchVerbatimQuote` 逐字核验，核不上必须报“无法核实”；若 4 周内新写 L2 笔记 `< 5` 篇，立即触发止损退回纯推导模式；

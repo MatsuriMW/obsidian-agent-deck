@@ -8,7 +8,7 @@ import { agentIcon, setLucide } from "./icons.js";
 import { blockAt, blockTitle, ancestorLines } from "./delegation.js";
 import { uninstalledAgentsFor } from "./delegation-runners.js";
 import { resolveTaskProjectState } from "./dialog.js";
-import { projectFolderEntries, projectFolderForName, resolveProjectForTask, sameFolder } from "./project-folders.js";
+import { canPickNativeFolder, folderExists, normalizeProjectFolder, pickNativeFolder, projectFolderEntries, projectFolderForName, resolveProjectForTask, sameFolder } from "./project-folders.js";
 import { mentionTrigger, stripTaskMention } from "./task-mentions.js";
 import { destinations, defaultDestination } from "./workflow.js";
 import { JOURNAL_PROVIDERS, detectJournalProviders, resolveJournalProvider, runJournalModel } from "./llm.js";
@@ -392,12 +392,8 @@ export class ProjectWorkbenchModal extends Modal {
         ? active.filter((s) => this.uninstalledAgents.has(s.agent) || this.limitAgents.has(s.agent))
         : [];
       const cwdTrimmed = String(this.cwd || "").trim();
-      let cwdMissing = false;
-      try {
-        if (cwdTrimmed) cwdMissing = !fs.existsSync(cwdTrimmed);
-      } catch {
-        cwdMissing = false;
-      }
+      const normCwd = cwdTrimmed ? normalizeProjectFolder(cwdTrimmed) : "";
+      const cwdMissing = Boolean(cwdTrimmed && (!normCwd || !folderExists(normCwd)));
       if (cwdMissing) {
         if (this._preflightTextEl) this._preflightTextEl.textContent = t("⚠️ 工作目录不存在：{cwd}", { cwd: cwdTrimmed });
         if (this._swapAgentBtn) this._swapAgentBtn.hidden = true;
@@ -497,14 +493,24 @@ export class ProjectWorkbenchModal extends Modal {
     const cwdField = metaGrid.createDiv({ cls: "ad-field" });
     cwdField.createDiv({ cls: "ad-field__label", text: t("工作目录 (cwd)") });
     const folderEntries = projectFolderEntries(p.settings);
+    const recentEntries = (p.projectFolderSuggestions?.(8) || [])
+      .filter((r) => r?.path && !folderEntries.some((e) => sameFolder(e.path, r.path)));
     let folderSel = null;
-    if (folderEntries.length) {
+    if (folderEntries.length || recentEntries.length) {
       folderSel = cwdField.createEl("select", { cls: "ad-input" });
       folderSel.createEl("option", { value: "", text: t("库根目录（不指定项目）") });
       for (const e of folderEntries) folderSel.createEl("option", { value: e.name, text: `${e.name} · ${e.path}` });
-      folderSel.value = folderEntries.find((e) => sameFolder(e.path, this.cwd))?.name || "";
+      if (recentEntries.length) {
+        const grp = folderSel.createEl("optgroup", { attr: { label: t("最近使用过的工作目录") } });
+        recentEntries.forEach((r, idx) => grp.createEl("option", { value: `__recent:${idx}`, text: `${r.name} · ${r.path}` }));
+      }
+      const regMatch = folderEntries.find((e) => sameFolder(e.path, this.cwd));
+      const recIdx = !regMatch ? recentEntries.findIndex((r) => sameFolder(r.path, this.cwd)) : -1;
+      folderSel.value = regMatch ? regMatch.name : (recIdx >= 0 ? `__recent:${recIdx}` : "");
       folderSel.onchange = () => {
-        const hit = folderEntries.find((e) => e.name === folderSel.value);
+        let hit = null;
+        if (folderSel.value.startsWith("__recent:")) hit = recentEntries[Number(folderSel.value.slice(9))] || null;
+        else hit = folderEntries.find((e) => e.name === folderSel.value) || null;
         this.cwd = hit ? hit.path : (p.vaultPath || "");
         if (hit && (!this.projectName || this.projectName === this._lastAutoProject)) {
           this.projectName = hit.name;
@@ -519,13 +525,35 @@ export class ProjectWorkbenchModal extends Modal {
         this.render();
       };
     }
-    const cwdInput = cwdField.createEl("input", {
-      cls: "ad-input",
+    const cwdRow = cwdField.createDiv({ cls: "ad-wb-task__top" });
+    const cwdInput = cwdRow.createEl("input", {
+      cls: "ad-input ad-input--wide",
       attr: { type: "text", placeholder: p.vaultPath || "", value: this.cwd },
     });
+    cwdInput.style.flex = "1";
+    if (canPickNativeFolder()) {
+      const browseBtn = cwdRow.createEl("button", { cls: "ad-btn ad-btn--ghost", text: t("浏览目录…"), attr: { type: "button" } });
+      browseBtn.onclick = async () => {
+        const picked = await pickNativeFolder(this.cwd || p.vaultPath || "");
+        if (!picked) return;
+        this.cwd = picked;
+        const reg = folderEntries.find((e) => sameFolder(e.path, picked));
+        const rec = recentEntries.find((r) => sameFolder(r.path, picked));
+        const name = reg?.name || rec?.name || picked.split("/").pop() || "";
+        if (name && (!this.projectName || this.projectName === this._lastAutoProject)) {
+          this.projectName = name;
+          this._lastAutoProject = name;
+        }
+        this.render();
+      };
+    }
     cwdInput.oninput = () => {
       this.cwd = cwdInput.value;
-      if (folderSel) folderSel.value = folderEntries.find((e) => sameFolder(e.path, this.cwd))?.name || "";
+      if (folderSel) {
+        const regMatch = folderEntries.find((e) => sameFolder(e.path, this.cwd));
+        const recIdx = !regMatch ? recentEntries.findIndex((r) => sameFolder(r.path, this.cwd)) : -1;
+        folderSel.value = regMatch ? regMatch.name : (recIdx >= 0 ? `__recent:${recIdx}` : "");
+      }
       this.updateActionCounts();
     };
     projInput.oninput = () => {

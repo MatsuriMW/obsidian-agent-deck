@@ -16,6 +16,7 @@
 | [`specs/ui-language.md`](specs/ui-language.md) | `t()` 写法、不翻译边界与菜单栏 `labels` 同步 |
 | [`specs/acp-integration.zh-CN.md`](specs/acp-integration.zh-CN.md) | 新 Agent 接入原则、协议接法与会话隔离边界 |
 | [`specs/shared-memory.md`](specs/shared-memory.md) | Dreaming 单向共享文件、Git 提交范围与 Companion 联动契约 |
+| [`specs/dream-memory-handoff-2026-11-26.zh-CN.md`](specs/dream-memory-handoff-2026-11-26.zh-CN.md) | **Dream 升级专项交接（2026-11-26）**：不拆插件架构决策、方向 1–5 融合对照、三阶段改动台账、OKF v0.2 + 图谱契约、CLI/MCP 速查、实机备份回滚与待办 |
 | [`specs/pitfalls-and-lessons.md`](specs/pitfalls-and-lessons.md) | Obsidian API、长日志性能、ACP/子进程与标题保护硬坑 |
 | [`specs/spec-change-template.md`](specs/spec-change-template.md) | 契约/边界变更核对清单 |
 | [`specs/fractal-boards-roadmap.md`](specs/fractal-boards-roadmap.md) | 后续方向：WorkFlowy 分形看板（意义、大纲/Harness/双链实现路线与红线） |

@@ -12,21 +12,50 @@ import { isScratchCwd, normalizeProjectRoot, sessionProjectName } from "./reader
 
 const home = () => os.homedir();
 
+export function stripWinLongPrefix(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (/^\\\\\?\\UNC\\/i.test(s)) return "\\\\" + s.slice(8);
+  if (/^\/\/\?\/UNC\//i.test(s)) return "//" + s.slice(8);
+  return s.replace(/^(?:\\\\\?\\|\/\/\?\/)/, "");
+}
+
+export function isTempPath(raw) {
+  const p = stripWinLongPrefix(raw).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+  if (!p) return false;
+  if (/^\/(?:private\/)?(?:tmp|var)(?:\/|$)/.test(p)) return true;
+  if (/(?:\/appdata\/local\/temp|^[a-z]:\/windows\/temp)(?:\/|$)/i.test(p)) return true;
+  const sysTmp = stripWinLongPrefix(os.tmpdir()).replace(/\\/g, "/").replace(/\/+$/, "").toLowerCase();
+  return Boolean(sysTmp && (p === sysTmp || p.startsWith(`${sysTmp}/`)));
+}
+
 export function normalizeProjectFolder(raw) {
-  let p = String(raw || "").trim().replace(/^~(?=\/)/, home()).replace(/\\/g, "/");
+  let p = stripWinLongPrefix(raw).replace(/^~(?=[\\/])/, home()).replace(/\\/g, "/");
   if (!p) return "";
-  p = p.replace(/\/+$/, "");
+  const isUnc = p.startsWith("//");
+  p = isUnc ? ("//" + p.slice(2).replace(/\/+$/, "")) : p.replace(/\/+$/, "");
+  if (/^[a-z]:(?:\/|$)/i.test(p)) p = p[0].toUpperCase() + p.slice(1);
   // Windows 的 os.homedir() 是反斜杠（C:\Users\x），这里 p 已统一成 /，必须同样归一化再比，
   // 否则家目录会被当成合法项目目录登记进去。
-  const homePath = home().replace(/\\/g, "/").replace(/\/+$/, "");
-  const isHome = process.platform === "win32" ? p.toLowerCase() === homePath.toLowerCase() : p === homePath;
-  if (!p || p === "~" || p === "/" || isHome) return "";
-  if (!path.isAbsolute(p)) return "";
-  return p;
+  const homeRaw = stripWinLongPrefix(home()).replace(/\\/g, "/").replace(/\/+$/, "");
+  const homePath = /^[a-z]:(?:\/|$)/i.test(homeRaw) ? homeRaw[0].toUpperCase() + homeRaw.slice(1) : homeRaw;
+  const winLike = process.platform === "win32" || /^[A-Z]:(?:\/|$)/.test(p) || isUnc;
+  const isHome = Boolean(homePath && (winLike ? p.toLowerCase() === homePath.toLowerCase() : p === homePath));
+  if (!p || p === "~" || p === "/" || p === "//" || /^[A-Za-z]:$/.test(p) || isHome) return "";
+  if (/^[A-Z]:\/.+/.test(p) || /^\/\/[^/]+\/[^/]+/.test(p)) return p;
+  if (process.platform !== "win32" && path.isAbsolute(p)) return p;
+  return "";
 }
 
 function realFolder(p) {
-  try { return fs.realpathSync(p); } catch { return p; }
+  try {
+    const fn = fs.realpathSync?.native || fs.realpathSync;
+    const resolved = stripWinLongPrefix(fn(p)).replace(/\\/g, "/");
+    const trimmed = resolved.startsWith("//") ? ("//" + resolved.slice(2).replace(/\/+$/, "")) : resolved.replace(/\/+$/, "");
+    return /^[a-z]:(?:\/|$)/i.test(trimmed) ? trimmed[0].toUpperCase() + trimmed.slice(1) : trimmed;
+  } catch {
+    return p;
+  }
 }
 
 export function sameFolder(a, b) {
@@ -35,7 +64,8 @@ export function sameFolder(a, b) {
   if (!x || !y) return false;
   const rx = realFolder(x);
   const ry = realFolder(y);
-  return process.platform === "win32" ? rx.toLowerCase() === ry.toLowerCase() : rx === ry;
+  const winPair = process.platform === "win32" || (/^(?:[A-Za-z]:\/|\/\/)/.test(rx) && /^(?:[A-Za-z]:\/|\/\/)/.test(ry));
+  return winPair ? rx.toLowerCase() === ry.toLowerCase() : rx === ry;
 }
 
 export function folderExists(folder) {
@@ -154,6 +184,7 @@ export function resolveProjectForTask({ settings, notePath = "", contextLines = 
 export function resolveDispatchFolder({
   settings,
   explicitCwd = "",
+  explicitVault = false,
   agentCwd = "",
   vaultPath = "",
   notePath = "",
@@ -162,6 +193,9 @@ export function resolveDispatchFolder({
   explicitName = "",
 } = {}) {
   const explicit = normalizeProjectFolder(explicitCwd);
+  if (explicitVault && !explicit) {
+    return { folder: vaultPath, projectName: "", auto: null, explicit: "", explicitVault: true };
+  }
   let auto = null;
   let folder = explicit;
   if (!folder && settings?.autoProjectFolder !== false) {
@@ -173,7 +207,7 @@ export function resolveDispatchFolder({
   const projectName = explicit
     ? (explicitName || projectNameForFolder(settings, explicit) || path.basename(explicit))
     : (auto?.name || projectNameForFolder(settings, folder) || "");
-  return { folder, projectName, auto, explicit };
+  return { folder, projectName, auto, explicit, explicitVault: false };
 }
 
 /** Candidate project names mentioned by a task, in signal order. */
@@ -200,8 +234,12 @@ export function projectCandidatesFromTask({ notePath = "", contextLines = [], bl
 export function recentProjectFolders(meta, { limit = 12 } = {}) {
   const byRoot = new Map();
   for (const item of meta?.values?.() || []) {
-    const root = normalizeProjectRoot(item?.cwd || "");
-    if (!root || isScratchCwd(root)) continue;
+    const raw = String(item?.cwd || "").trim();
+    if (!raw || /^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) continue;
+    const normRaw = normalizeProjectFolder(raw);
+    if (!normRaw || isScratchCwd(normRaw) || !folderExists(normRaw)) continue;
+    const root = normalizeProjectRoot(normRaw);
+    if (!root || isScratchCwd(root) || !folderExists(root)) continue;
     const name = sessionProjectName(root);
     if (!name) continue;
     const lastAt = Number(item?.lastAt) || 0;
@@ -209,6 +247,37 @@ export function recentProjectFolders(meta, { limit = 12 } = {}) {
     if (!prev || lastAt > prev.lastAt) byRoot.set(root, { name, path: root, lastAt });
   }
   return [...byRoot.values()].sort((a, b) => b.lastAt - a.lastAt).slice(0, Math.max(1, limit));
+}
+
+function electronDialog() {
+  try {
+    const req = typeof window !== "undefined" && typeof window.require === "function"
+      ? window.require
+      : (typeof require === "function" ? require : null);
+    return req?.("electron")?.remote?.dialog || null;
+  } catch {
+    return null;
+  }
+}
+
+export function canPickNativeFolder() {
+  return typeof electronDialog()?.showOpenDialog === "function";
+}
+
+export async function pickNativeFolder(defaultPath = "") {
+  const dlg = electronDialog();
+  if (typeof dlg?.showOpenDialog !== "function") return "";
+  try {
+    const normDefault = normalizeProjectFolder(defaultPath);
+    const res = await dlg.showOpenDialog({
+      properties: ["openDirectory", "createDirectory"],
+      ...(normDefault && folderExists(normDefault) ? { defaultPath: normDefault } : {}),
+    });
+    if (!res || res.canceled) return "";
+    return normalizeProjectFolder(res.filePaths?.[0] || "");
+  } catch {
+    return "";
+  }
 }
 
 /**

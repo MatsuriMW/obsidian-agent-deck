@@ -153,3 +153,38 @@ test("security: spawnCli runs node script cleanly and killChildProcess handles n
   assert.equal(code, 0);
   assert.equal(out, "CLI_OK");
 });
+
+test("security: evaluatePermissionPolicy handles Windows long-path prefixes, case-insensitivity, and outside symlinks", () => {
+  assert.equal(
+    evaluatePermissionPolicy(
+      { title: "edit", kind: "edit", rawInput: { path: "\\\\?\\c:\\users\\dev\\Repo\\src\\a.js" } },
+      { cwd: "C:\\Users\\dev\\Repo", vaultPath: "D:\\Vault", autoApprove: true },
+    ).allowAuto,
+    true,
+  );
+  const winOutside = evaluatePermissionPolicy(
+    { title: "edit", kind: "edit", rawInput: { path: "C:/Users/dev/Other/a.js" } },
+    { cwd: "\\\\?\\C:\\Users\\dev\\Repo", vaultPath: "D:\\Vault", autoApprove: true },
+  );
+  assert.equal(winOutside.allowAuto, false);
+  assert.equal(winOutside.risk, "outside_workspace");
+
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "ad-sec-sym-"));
+  const inside = path.join(tmp, "inside");
+  const outside = path.join(tmp, "outside");
+  try {
+    fs.mkdirSync(inside, { recursive: true });
+    fs.mkdirSync(outside, { recursive: true });
+    fs.writeFileSync(path.join(outside, "secret.txt"), "x");
+    const escapeLink = path.join(inside, "escape");
+    fs.symlinkSync(outside, escapeLink);
+    const symOutside = evaluatePermissionPolicy(
+      { title: "edit", kind: "edit", rawInput: { path: path.join(escapeLink, "secret.txt") } },
+      { cwd: inside, vaultPath: path.join(tmp, "vault"), autoApprove: true },
+    );
+    assert.equal(symOutside.allowAuto, false);
+    assert.equal(symOutside.risk, "outside_workspace");
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+});

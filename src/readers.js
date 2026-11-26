@@ -141,8 +141,15 @@ const CINDY_DIALOGUE_RE = /\/(?:Cindy|CindyGlobal|xdt-maker)\/owners\/[^/]+\/dia
 // name is a machine slug: "a", "dui", "w-s", a session id. Those are useless as
 // "project" labels, so the day summary labels them with the session title
 // instead. A real project folder keeps its name.
+function cleanCwdPrefix(cwd) {
+  const s = String(cwd || "").trim();
+  if (!s) return "";
+  if (/^(?:\\\\\?\\UNC\\|\/\/\?\/UNC\/)/i.test(s)) return "//" + s.replace(/^(?:\\\\\?\\UNC\\|\/\/\?\/UNC\/)/i, "");
+  return s.replace(/^(?:\\\\\?\\|\/\/\?\/)/, "");
+}
+
 export function isScratchCwd(cwd) {
-  const p = String(cwd || "").replace(/\\/g, "/").replace(/\/+$/, "");
+  const p = cleanCwdPrefix(cwd).replace(/\\/g, "/").replace(/\/+$/, "");
   if (!p) return false;
   const leaf = p.split("/").pop() || "";
   if (/^\d+-[0-9a-f-]{16,}$/i.test(leaf) || /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(leaf)) return true;
@@ -151,7 +158,12 @@ export function isScratchCwd(cwd) {
   if (/^[a-z]$/i.test(leaf)) return true;
   if (/^[a-z]{1,3}-[a-z]{1,3}$/i.test(leaf)) return true;
   if (leaf === "default-workspace") return true;
-  if (p === home().replace(/\\/g, "/")) return true;   // work started from the home folder has no project
+  const homeNorm = cleanCwdPrefix(home()).replace(/\\/g, "/").replace(/\/+$/, "");
+  const isHome = process.platform === "win32" || /^[a-z]:\//i.test(p)
+    ? p.toLowerCase() === homeNorm.toLowerCase()
+    : p === homeNorm;
+  if (isHome) return true;   // work started from the home folder has no project
+  if (/\/appdata\/local\/temp(?:\/|$)/i.test(p) || /^[a-z]:\/windows\/temp(?:\/|$)/i.test(p)) return true;
   if (/\/Codex\/\d{4}-\d{2}-\d{2}(?:\/|$)/i.test(p)) return true;
   if (CINDY_DIALOGUE_RE.test(p)) return true;
   return false;
@@ -159,14 +171,18 @@ export function isScratchCwd(cwd) {
 
 export function projectName(cwd) {
   if (!cwd) return "?";
-  const normCwd = String(cwd).replace(/\\/g, "/");
+  const normCwd = cleanCwdPrefix(cwd).replace(/\\/g, "/");
   if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(normCwd)) return "WorkBuddy";
   if (/\/\.dsh\/sessions\//.test(normCwd)) return "DSH";
   if (/\/\.gemini\/antigravity\//.test(normCwd)) return "Antigravity";
   if (/\/\.qwenworkcn\/workspace\//.test(normCwd)) return "QwenWork";
   if (CINDY_DIALOGUE_RE.test(normCwd)) return "Cindy";
   const p = normCwd.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
-  return p === home().replace(/\\/g, "/") ? "~" : (p.split("/").pop() || p);
+  const homeNorm = cleanCwdPrefix(home()).replace(/\\/g, "/").replace(/\/+$/, "");
+  const isHome = process.platform === "win32" || /^[a-z]:\//i.test(p)
+    ? p.toLowerCase() === homeNorm.toLowerCase()
+    : p === homeNorm;
+  return isHome ? "~" : (p.split("/").pop() || p);
 }
 
 // Standalone / scratch directories have no concrete project folder and must
@@ -196,12 +212,18 @@ export function inferWorkspaceRoot(target) {
 }
 
 export function normalizeProjectRoot(cwd) {
-  const raw = String(cwd || "").trim().replace(/\\/g, "/");
-  if (!raw || raw === "~" || raw === "/") return "";
+  const raw = cleanCwdPrefix(cwd).replace(/\\/g, "/");
+  if (!raw || raw === "~" || raw === "/" || raw === "//" || /^[A-Za-z]:\/?$/.test(raw)) return "";
   if (isScratchCwd(raw)) return "";
   if (/\/WorkBuddy\/\d{4}-\d\d-\d\d/.test(raw) || /\/\.dsh\/sessions\//.test(raw) || /\/\.gemini\/antigravity\//.test(raw) || /\/\.qwenworkcn\/workspace\//.test(raw)) return "";
-  const stripped = raw.split("/.claude/worktrees/")[0].replace(/\/+$/, "");
-  if (!stripped || stripped === home().replace(/\\/g, "/").replace(/\/+$/, "")) return "";
+  let stripped = raw.split("/.claude/worktrees/")[0];
+  stripped = stripped.startsWith("//") ? ("//" + stripped.slice(2).replace(/\/+$/, "")) : stripped.replace(/\/+$/, "");
+  if (/^[a-z]:\//i.test(stripped)) stripped = stripped[0].toUpperCase() + stripped.slice(1);
+  const homeNorm = cleanCwdPrefix(home()).replace(/\\/g, "/").replace(/\/+$/, "");
+  const isHome = process.platform === "win32" || /^[A-Z]:\//.test(stripped)
+    ? stripped.toLowerCase() === homeNorm.toLowerCase()
+    : stripped === homeNorm;
+  if (!stripped || isHome) return "";
   const name = projectName(stripped);
   return !name || name === "?" || name === "~" ? "" : stripped;
 }

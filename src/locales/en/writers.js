@@ -95,6 +95,14 @@ export default {
   "共享同步失败：{error}": "Shared memory sync failed: {error}",
 
   // dream.js — replies that failed the evidence checks, shown as a Notice
+  "只能恢复归档目录中的记忆文件": "Only memory files inside the archive folder can be restored",
+  "找不到要恢复的归档记忆": "Archived memory file not found",
+  "正在筛选待润色短命题文件名…": "Finding memory filenames to polish…",
+  "短命题命名已足够精炼，无需润色": "Memory filenames are already concise",
+  "正在为 {count} 条记忆生成自然短命题文件名…": "Generating concise graph titles for {count} memories…",
+  "短命题润色完成：重命名 {renamed} 条": "Short title polish complete: renamed {renamed}",
+  "短命题润色失败：{error}": "Short title polish failed: {error}",
+  "短命题润色未完成：{error}": "Short title polish incomplete: {error}",
   "Dreaming 返回的记忆格式不正确": "Dreaming returned memories in the wrong format",
   "Dreaming 记忆缺少有效原文来源": "A Dreaming memory has no valid source excerpt",
   "用户画像不能仅以 AI 记录为依据": "The user profile cannot rest on AI records alone",
