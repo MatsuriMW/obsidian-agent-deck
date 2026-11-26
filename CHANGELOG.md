@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.30
+
+- **Windows CI 与临时工作目录识别边界修复（[`src/readers.js`](src/readers.js)）**：
+  - 将系统临时目录过滤收敛到目录建议（`isTempPath`）与受信任目录筛选层，移除 `isScratchCwd` 对 `AppData/Local/Temp` 的硬编码拦截，修复 Windows（`windows-latest`）下基于系统临时目录运行 `ConfirmSendModal` 冲突选择与任务项目建议时的跨平台行为差异。
+
 ## 1.13.29
 
 - **Dream 记忆全链路升级、图谱融合与检索提纯（[`src/dream.js`](src/dream.js)、[`src/memory-graph.js`](src/memory-graph.js)、[`src/memory-store.js`](src/memory-store.js)、[`src/memory-query-core.js`](src/memory-query-core.js)、[`src/memory-review.js`](src/memory-review.js)、[`src/memory-board.js`](src/memory-board.js)、[`scripts/memory-query.mjs`](scripts/memory-query.mjs)、[`scripts/memory-mcp.mjs`](scripts/memory-mcp.mjs)）**：

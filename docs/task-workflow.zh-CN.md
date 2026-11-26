@@ -1,6 +1,10 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.29**（2026-11-26）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.30**（2026-11-26）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.30 Windows `isScratchCwd` 边界修复
+
+- 移除 `src/readers.js` `isScratchCwd` 对 `AppData/Local/Temp` 的拦截（保留在 `src/project-folders.js` `isTempPath` 用于 `projectFolderSuggestions` 与 `pickTrusted` 过滤），修复 `1.13.29` 在 `windows-latest` CI 的 `test/next-round-fixes.test.mjs:529`（`ConfirmSendModal` 冲突选择）失败问题。
 
 ## 1.13.29 Dream 记忆全链路升级、工作区间统一、Windows 路径加固与示例文档刷新
 

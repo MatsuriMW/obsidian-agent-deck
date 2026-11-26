@@ -163,7 +163,6 @@ export function isScratchCwd(cwd) {
     ? p.toLowerCase() === homeNorm.toLowerCase()
     : p === homeNorm;
   if (isHome) return true;   // work started from the home folder has no project
-  if (/\/appdata\/local\/temp(?:\/|$)/i.test(p) || /^[a-z]:\/windows\/temp(?:\/|$)/i.test(p)) return true;
   if (/\/Codex\/\d{4}-\d{2}-\d{2}(?:\/|$)/i.test(p)) return true;
   if (CINDY_DIALOGUE_RE.test(p)) return true;
   return false;

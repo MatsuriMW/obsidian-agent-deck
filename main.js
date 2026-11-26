@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.29 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.30 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -15907,7 +15907,6 @@ function isScratchCwd(cwd) {
   const homeNorm = cleanCwdPrefix(home3()).replace(/\\/g, "/").replace(/\/+$/, "");
   const isHome = process.platform === "win32" || /^[a-z]:\//i.test(p) ? p.toLowerCase() === homeNorm.toLowerCase() : p === homeNorm;
   if (isHome) return true;
-  if (/\/appdata\/local\/temp(?:\/|$)/i.test(p) || /^[a-z]:\/windows\/temp(?:\/|$)/i.test(p)) return true;
   if (/\/Codex\/\d{4}-\d{2}-\d{2}(?:\/|$)/i.test(p)) return true;
   if (CINDY_DIALOGUE_RE.test(p)) return true;
   return false;
