@@ -44,6 +44,8 @@ Agent Deck 把散落在各个客户端的 AI 会话收拢到 Obsidian，让 **Ma
 - [用户群](#用户群)
 - [隐私与开源协议](#隐私与开源协议)
 
+**目前此项目还比较早期，正在快速迭代中，可能 bug 较多或体验上略粗糙。欢迎提 [Issue](https://github.com/MatsuriMW/obsidian-agent-deck/issues)、[PR](https://github.com/MatsuriMW/obsidian-agent-deck/pulls)，去[用户群](#用户群)反馈，或者给我发邮件（[matsuriismywaifu@gmail.com](mailto:matsuriismywaifu@gmail.com)）。**
+
 ## 核心功能
 
 ### 0. 一眼看懂

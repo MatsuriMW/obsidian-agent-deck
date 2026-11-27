@@ -44,6 +44,8 @@ Agent Deck brings AI sessions scattered across local clients into Obsidian, keep
 - [Community](#community)
 - [Privacy and license](#privacy-and-license)
 
+**This project is still in an early stage and iterating rapidly, so there may be bugs or rough edges in the experience. Feedback and contributions are very welcome — feel free to open an [Issue](https://github.com/MatsuriMW/obsidian-agent-deck/issues) or [PR](https://github.com/MatsuriMW/obsidian-agent-deck/pulls), share feedback in the [Community](#community), or email me at [matsuriismywaifu@gmail.com](mailto:matsuriismywaifu@gmail.com).**
+
 ## Features
 
 ### 0. At a glance
