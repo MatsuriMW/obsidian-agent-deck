@@ -2,7 +2,8 @@ import { register } from 'node:module';
 import assert from 'node:assert/strict';
 register('data:text/javascript,' + encodeURIComponent(`export async function resolve(s,c,n){if(s.endsWith('.png'))return {url:'data:text/javascript,export default "";',shortCircuit:true};if(s==='obsidian')return {url:'data:text/javascript,export class App{};export class PluginSettingTab{constructor(app,plugin){this.app=app;this.plugin=plugin}};export class Notice{};export class Modal{};export class Menu{};export function setIcon(){};',shortCircuit:true};return n(s,c)}`));
 const {AgentDeckSettingsTab, TABS} = await import('../src/settings.js');
-const {AGENTS, AGENT_ORDER, DEFAULTS, deepMerge, syncDelegationSettings} = await import('../src/constants.js');
+const {AGENTS, AGENT_ORDER, DEFAULTS, EFFORTS, deepMerge, syncDelegationSettings} = await import('../src/constants.js');
+const {modelCatalogAgents} = await import('../src/agent-registry.js');
 
 assert.deepEqual(TABS.map(([id]) => id), ['delegate', 'record', 'dream', 'experimental', 'about'], 'settings include an experimental features page');
 
@@ -53,10 +54,13 @@ assert.ok(!tab.draft.pinned.includes('unsaved-pin'), 'discardDraft reverts unsav
 assert.equal(plugin.settings.delegate.claude.model, 'claude-sonnet-5', 'discardDraft preserves delegation defaults');
 console.log('PASS defaults stay in sync; catalog draft save/discard never overwrites delegation defaults');
 
-// Render the actual picker with a small DOM surface, without launching Obsidian.
+// Render the unified Delegation + Models view with a small DOM surface, without launching Obsidian.
 class Element {
-  constructor(tag='div',options={}) { this.tag=tag;this.options=options;this.children=[];this.dataset={...(options.attr?.['data-agent']?{agent:options.attr['data-agent']}:{})};this.style={setProperty(){}};this.classes=new Set((options.cls||'').split(/\s+/).filter(Boolean));this.attrs={...options.attr};this.classList={add:(...v)=>v.forEach(x=>this.classes.add(x)),contains:value=>this.classes.has(value),toggle:(value,on)=>on?this.classes.add(value):this.classes.delete(value)};this.open=false;this.isConnected=true; }
+  constructor(tag='div',options={}) { this.tag=tag;this.options=options;this.children=[];this.dataset={...(options.attr?.['data-agent']?{agent:options.attr['data-agent']}:{})};this.style={setProperty(){}};this.classes=new Set((options.cls||'').split(/\s+/).filter(Boolean));this.attrs={...options.attr};this.value=options.attr?.value??'';this.classList={add:(...v)=>v.forEach(x=>this.classes.add(x)),remove:(...v)=>v.forEach(x=>this.classes.delete(x)),contains:value=>this.classes.has(value),toggle:(value,on)=>on?this.classes.add(value):this.classes.delete(value)};this.open=false;this.isConnected=true; }
   setAttribute(key,value){this.attrs[key]=value;}
+  addClass(...v){this.classList.add(...v);}
+  empty(){this.children=[];}
+  setText(t){this.options={...this.options,text:t};}
   appendChild(el){if(el.parentElement)el.parentElement.children=el.parentElement.children.filter(child=>child!==el);el.parentElement=this;this.children.push(el);return el;}
   addEventListener(){}
   querySelector(sel){if(sel===':scope > .ad-row__right')return this.children.find(c=>c.classList.contains('ad-row__right'));if(sel===':scope > .ad-row__left')return this.children.find(c=>c.classList.contains('ad-row__left'));return null;}
@@ -70,9 +74,9 @@ plugin.isPrimary=id=>plugin.settings.primaryAgents.includes(id);
 plugin.defaultTarget=()=> plugin.settings.delegate.target || 'claude';
 plugin.allModels=()=>[
   {id:'one',agent:'claude',name:'Claude one',tags:[]},
-  {id:'two',agent:'claude',name:'Claude two',tags:[]},
+  {id:'two',agent:'claude',name:'Claude two',tags:['Reasoning']},
   {id:'three',agent:'codex',name:'Codex one',tags:[]},
-  {id:'four',agent:'dsh',name:'DSH one',tags:[]},
+  {id:'four',agent:'dsh',name:'DSH one',tags:['Fast']},
   {id:'five',agent:'antigravity',name:'AGY one',tags:[]},
   {id:'six',agent:'opencode',name:'OpenCode one',tags:[]},
   {id:'seven',agent:'qoder',name:'Qoder one',tags:[]},
@@ -92,37 +96,40 @@ plugin.store={days:{}};
 tab.draft={...structuredClone(plugin.settings.models),pinned:['two','four'],enabled:['one','two','three','four','five','six','seven']};
 const origModelRow = tab.modelRow.bind(tab);
 tab.modelRow=(parent,model,_d,_target,_defaultId,pinned)=>{const row=parent.createDiv({cls:'test-row'});row.dataset.id=model.id;row.pinned=pinned;};
-const render=()=>{const body=new Element();tab.renderModels(body);return body;};
-const group=(body,id)=>body.all().find(el=>el.tag==='details'&&el.dataset.agent===id);
+const render=()=>{const body=new Element();tab.renderDelegate(body);return body;};
+const delegateCard=(body,id)=>body.all().find(el=>el.classList.contains('ad-delegate-agent')&&el.dataset.agent===id);
+const group=(body,id)=>body.all().find(el=>el.classList.contains('ad-modelgroup')&&el.dataset.agent===id);
 let body=render();
-assert.equal(group(body,'claude')?.open,true,'visible Agents start expanded');
-assert.deepEqual(group(body,'claude').children.filter(el=>el.dataset.id).map(el=>el.dataset.id),['two','one'],'pinned models stay first inside their Agent');
-plugin.settings.ui.agentCards.hidden=['dsh'];
+assert.equal(delegateCard(body,'claude')?.open,true,'primary Agent card starts expanded');
+assert.equal(group(body,'claude')?.open,false,'embedded Available models sub-accordion starts collapsed');
+assert.deepEqual(group(body,'claude').all().filter(el=>el.dataset.id).map(el=>el.dataset.id),['two','one'],'pinned models stay first inside their Agent');
 plugin.settings.agents.codex=false;
 body=render();
-assert.equal(group(body,'codex'),undefined,'disabled Agent is hidden from Manage models');
-assert.equal(plugin.settings.ui.modelGroups.codex.open,false,'disabled Agent group state remains folded');
-assert.equal(group(body,'dsh').open,false,'removed Agent folds including pinned models');
-assert.equal(group(body,'dsh').children.filter(el=>el.dataset.id).length,1,'folding retains its models');
+assert.equal(delegateCard(body,'codex'),undefined,'disabled Agent is hidden from Agent configuration');
+assert.equal(group(body,'codex'),undefined,'disabled Agent model group is hidden');
+assert.equal(plugin.settings.ui.delegateGroups.codex.open,false,'disabled Agent group state remains folded');
+assert.equal(group(body,'dsh').open,false,'embedded model group starts folded including pinned models');
+assert.equal(group(body,'dsh').all().filter(el=>el.dataset.id).length,1,'folding retains its models');
 const draftBefore=JSON.stringify(tab.draft);
-const hidden=group(body,'dsh');hidden.open=true;hidden.ontoggle();
-assert.equal(group(render(),'dsh').open,true,'manual expansion survives a rerender while hidden');
+const dshModels=group(body,'dsh');dshModels.open=true;dshModels.ontoggle();
+assert.equal(group(render(),'dsh').open,true,'manual expansion of embedded model group survives a rerender');
 assert.equal(JSON.stringify(tab.draft),draftBefore,'folding never changes model configuration or its draft');
-const visible=group(render(),'claude');visible.open=false;visible.ontoggle();
-assert.equal(group(render(),'claude').open,false,'manual collapse is remembered');
-visible.isConnected=false;visible.open=true;visible.ontoggle();
-assert.equal(group(render(),'claude').open,false,'delayed events from a replaced settings page cannot undo the user choice');
-plugin.settings.ui.agentCards.hidden=['claude'];
+const visibleCard=delegateCard(render(),'claude');visibleCard.open=false;visibleCard.ontoggle();
+assert.equal(delegateCard(render(),'claude').open,false,'manual collapse of Agent card is remembered');
+visibleCard.isConnected=false;visibleCard.open=true;visibleCard.ontoggle();
+assert.equal(delegateCard(render(),'claude').open,false,'delayed events from a replaced settings page cannot undo the user choice');
+plugin.settings.agents.claude=false;
 render();
-plugin.settings.ui.agentCards.hidden=[];
+plugin.settings.agents.claude=true;
 plugin.settings.agents.codex=true;
 body=render();
-assert.equal(group(body,'claude').open,true,'showing an Agent again automatically expands it');
-assert.equal(group(body,'codex').open,false,'reenabling a non-primary Agent keeps the default folded');
+assert.equal(delegateCard(body,'claude').open,true,'reenabling a primary Agent automatically expands its card');
+assert.equal(delegateCard(body,'codex').open,false,'reenabling a non-primary Agent keeps the default folded');
 const restarted=new AgentDeckSettingsTab({},plugin);restarted.display=()=>{};restarted.modelRow=tab.modelRow;restarted.draft=tab.draft;
-const restored=new Element();restarted.renderModels(restored);
-assert.equal(group(restored,'claude').open,true,'fold state survives settings recreation');
-console.log('PASS collapsible model groups: card visibility, tracking, manual toggles, pinned models, and unchanged drafts');
+const restored=new Element();restarted.renderDelegate(restored);
+assert.equal(delegateCard(restored,'claude').open,true,'Agent card fold state survives settings recreation');
+assert.equal(group(restored,'dsh').open,false,'embedded model sub-accordion starts collapsed on fresh settings tab');
+console.log('PASS unified embedded model groups: card visibility, tracking, manual toggles, pinned models, and unchanged drafts');
 
 let selected;
 const choices=tab.segmented(new Element(),[{id:'a',label:'A'},{id:'b',label:'B'}],'a',value=>{selected=value;});
@@ -150,15 +157,7 @@ plugin.settings.ui.agentCards.hidden=[];await save.saveSettings();
 assert.equal(persisted.ui.modelGroups.claude.open,true,'card off/on is persisted even while Models is closed');
 console.log('PASS real settings save keeps model groups in sync outside the Models page');
 
-const modelsBody = render();
-assert.equal(modelsBody.all().filter(el=>el.classList.contains('ad-modelgroup')).length, AGENT_ORDER.length, 'Manage models includes all Agents');
-assert.equal(modelsBody.all().filter(el=>el.tag==='select').length, 0, 'Manage models removes duplicate default model/effort selectors');
-for (const id of ['workbuddy', 'qwenwork', 'grokbot']) {
-  const status=modelsBody.all().find(el=>el.classList.contains('ad-modelgroup')&&el.dataset.agent===id);
-  assert.equal(status.tag,'div','client-managed model groups do not have an empty expand control');
-}
-
-// Verify full Delegation and Recording pages: single edit locations and independent primary vs default target.
+// Verify unified Delegation and Recording pages: 4 cards on Delegation, embedded model groups, and single edit locations.
 tab.modelRow = origModelRow;
 const origAllModels = plugin.allModels;
 plugin.allModels = () => [
@@ -172,6 +171,41 @@ const delBody = new Element();
 tab.renderDelegate(delBody);
 const recBody = new Element();
 tab.renderRecord(recBody);
+
+assert.equal(delBody.children.filter(el => el.classList.contains('ad-card')).length, 4, 'Delegation tab consolidates into 4 cards');
+assert.equal(delBody.all().filter(el => el.classList.contains('ad-models-card')).length, 1, 'Agent configuration serves as the single models card');
+assert.equal(delBody.all().filter(el => el.classList.contains('ad-modelgroup')).length, 12, '12 model-catalog Agents embed their own Available models sub-accordion');
+assert.equal(delBody.all().filter(el => el.tag === 'button' && el.options.text === '管理模型').length, 0, 'modelSelect no longer renders redundant Manage models jump buttons');
+const passiveSection = delBody.all().find(el => el.classList.contains('ad-delegate-passive'));
+assert.deepEqual(passiveSection.all().filter(el => el.dataset.agent).map(el => el.dataset.agent), ['workbuddy', 'qwenwork', 'teleagent', 'grokbot', 'cindy', 'orca', 'muse', 'doubaowork'], 'all enabled non-configurable Agents appear dynamically in passive row');
+const dshCardEl = delBody.all().find(el => el.classList.contains('ad-delegate-agent') && el.dataset.agent === 'dsh');
+const dshModelsHead = dshCardEl.all().find(el => el.classList.contains('ad-modelgroup__head'));
+const dshMoreDetails = dshCardEl.all().find(el => el.tag === 'details' && el.dataset.section === 'dsh-more');
+assert.ok(dshModelsHead.all().some(el => el.options.text === '读取模型'), 'ACP Fetch models button lives in Available models summary');
+assert.ok(!dshMoreDetails.all().some(el => el.options.text === '读取 Harness 可用模型'), 'More settings no longer duplicates Fetch models');
+
+// Verify factual accuracy of targetHints, T3 Code config card, EFFORTS, steward options, terminal hint, and honest modelRow meta.
+const agyTargetText = delBody.all().find(el => el.classList.contains('ad-settings-target') && el.dataset.agent === 'antigravity')?.all().map(e => e.options.text).filter(Boolean).join(' ');
+const t3TargetText = delBody.all().find(el => el.classList.contains('ad-settings-target') && el.dataset.agent === 't3code')?.all().map(e => e.options.text).filter(Boolean).join(' ');
+assert.ok(agyTargetText?.includes('agy CLI / 终端') && !agyTargetText?.includes('ACP'), 'Antigravity target hint accurately reflects agy CLI');
+assert.ok(t3TargetText?.includes('t3 CLI / 桌面版') && !t3TargetText?.includes('ACP'), 'T3 Code target hint accurately reflects t3 CLI');
+assert.ok(EFFORTS.antigravity.some(x => x.id === 'max'), 'Antigravity effort includes max');
+for (const a of ['cursor', 'trae', 'gemini']) {
+  assert.deepEqual(EFFORTS[a].map(x => x.id), ['low', 'medium', 'high'], `${a} uses 3-stop ACP effort instead of Claude 5-stop fallback`);
+}
+assert.equal(modelCatalogAgents().includes('t3code'), false, 't3code is excluded from modelCatalogAgents');
+const t3CardEl = delBody.all().find(el => el.classList.contains('ad-delegate-agent') && el.dataset.agent === 't3code');
+assert.ok(t3CardEl, 'T3 Code renders a dedicated Agent configuration accordion');
+assert.ok(t3CardEl.all().some(el => el.options.text === '完成后自动在桌面版打开'), 'T3 Code exposes openDesktop toggle');
+assert.ok(t3CardEl.all().some(el => el.options.text === 't3 程序路径'), 'T3 Code exposes binary path inside More settings');
+assert.ok(t3CardEl.all().some(el => el.options.text === '检查 t3'), 'T3 Code exposes Check t3 button');
+const stewardSelect = delBody.all().find(el => el.tag === 'select' && el.children.some(o => o.attrs.value === 'off'));
+assert.ok(!stewardSelect.children.some(o => o.attrs.value === 'workbuddy'), 'Steward Agent selector excludes handoff-only WorkBuddy');
+const termToggleDesc = delBody.all().find(el => el.classList.contains('ad-row__desc') && String(el.options.text || '').startsWith('适用于 '));
+assert.ok(termToggleDesc?.options.text.includes('Antigravity') && termToggleDesc?.options.text.includes('Gemini CLI'), 'terminal delegation description dynamically includes all enabled terminal-capable Agents');
+const minimalRowWrap = new Element();
+origModelRow(minimalRowWrap, { id: 'm-min', name: 'Minimal Model', context: '—', tags: [] }, tab.modelsDraft(), 'antigravity', '', false);
+assert.equal(minimalRowWrap.all().find(el => el.classList.contains('ad-modelrow__meta')), undefined, 'modelRow hides empty/placeholder metadata instead of rendering ○○○○○');
 
 const targetPickers = [...delBody.all(), ...recBody.all()].filter(el => el.classList.contains('ad-targetpick'));
 assert.equal(targetPickers.length, 1, 'default delegation target picker appears exactly once across all pages');
@@ -216,7 +250,7 @@ assert.equal(syncDelegationSettings(deepMerge(DEFAULTS, { resultMax: 240, result
 console.log('PASS More settings: collapsed detail controls, visible common actions and one-time result-length migration');
 
 const delegateGroups = delBody.all().filter(el => el.classList.contains('ad-delegate-agent'));
-assert.equal(delegateGroups.length, 12);
+assert.equal(delegateGroups.length, 13);
 for (const card of delegateGroups) assert.equal(card.open, plugin.isPrimary(card.dataset.agent), 'delegation cards default to primary-only expansion');
 const codexCard = delegateGroups.find(el => el.dataset.agent === 'codex');
 const codexSelect = codexCard.all().find(el => el.tag === 'select');
@@ -275,7 +309,7 @@ console.log('PASS primary-only delegation folds and standard select menus for Co
   t2.display = () => {};
 
   const mBody = new Element();
-  t2.renderModels(mBody);
+  t2.renderDelegate(mBody);
   const savesBeforeToggle = saves;
   const proRow = mBody.all().find((el) => el.classList.contains('ad-modelrow') && el.dataset.id === 'deepseek-v4-pro');
   const proToggle = proRow.all().find((el) => el.classList.contains('ad-switch'));
@@ -291,12 +325,12 @@ console.log('PASS primary-only delegation folds and standard select menus for Co
 
   // Clicking "全部开启" enables all, then "全部关闭" disables all DSH models cleanly and falls back to "".
   const mBody2 = new Element();
-  t2.renderModels(mBody2);
+  t2.renderDelegate(mBody2);
   const openAllBtn = mBody2.all().find((el) => el.classList.contains('ad-linkbtn') && el.options.text === '全部开启');
   await openAllBtn.onclick();
   assert.equal(s.models.enabled.length, 3);
   const mBody3 = new Element();
-  t2.renderModels(mBody3);
+  t2.renderDelegate(mBody3);
   const savesBeforeCloseAll = saves;
   const closeAllBtn = mBody3.all().find((el) => el.classList.contains('ad-linkbtn') && el.options.text === '全部关闭');
   await closeAllBtn.onclick();
@@ -315,16 +349,18 @@ console.log('PASS primary-only delegation folds and standard select menus for Co
     models: { enabled: ['deepseek-v41-flash', 'deepseek-v4-pro'] },
   });
   assert.ok(upgraded.models.enabled.includes('dsh-default'), 'upgraded vault receives dsh-default option once');
+  assert.ok(upgraded.models.enabled.includes('minimax-default') && upgraded.models.enabled.includes('gemini-default'), 'upgraded vault seeds new built-in *-default models once');
   assert.equal(upgraded.delegate.dsh.model, 'dsh-default', 'legacy built-in DSH preset migrates to dsh-default');
   assert.equal(upgraded.models.defaultByAgent.dsh, 'dsh-default');
   assert.equal(upgraded.dshDefaultSeeded, true);
 
   // Explicit user override afterwards survives re-sync, as do custom third-party DSH models on upgrade.
   upgraded.delegate.dsh.model = 'deepseek-v4-pro';
-  upgraded.models.enabled = upgraded.models.enabled.filter((id) => id !== 'dsh-default');
+  upgraded.models.enabled = upgraded.models.enabled.filter((id) => id !== 'dsh-default' && id !== 'minimax-default');
   syncDelegationSettings(upgraded, upgraded);
   assert.equal(upgraded.delegate.dsh.model, 'deepseek-v4-pro', 'explicit selection after migration is preserved');
   assert.ok(!upgraded.models.enabled.includes('dsh-default'), 'subsequent sync respects user turning off dsh-default');
+  assert.ok(!upgraded.models.enabled.includes('minimax-default'), 'subsequent sync respects user turning off seeded *-default models');
 
   const customDsh = {
     delegate: { dsh: { model: 'custom-third-party-model' } },
@@ -337,12 +373,49 @@ console.log('PASS primary-only delegation folds and standard select menus for Co
   assert.equal(customDsh.delegate.dsh.model, 'custom-third-party-model', 'explicit custom third-party DSH model survives upgrade');
   assert.ok(customDsh.models.enabled.includes('dsh-default'), 'dsh-default is still seeded alongside custom model');
 
-  // Agent card "管理模型" button opens that agent's group and scrolls to it.
+  // jumpToAgentModels expands both the Agent card and its embedded Available models sub-accordion.
+  s.ui.delegateGroups.dsh.open = false;
   s.ui.modelGroups.dsh.open = false;
+  t2.subOpen['models-dsh'] = false;
   t2.jumpToAgentModels('dsh');
+  assert.equal(s.ui.delegateGroups.dsh.open, true);
   assert.equal(s.ui.modelGroups.dsh.open, true);
+  assert.equal(t2.subOpen['models-dsh'], true);
   assert.equal(t2._scrollToModels, 'dsh');
   console.log('PASS closing models auto-saves immediately, never snaps back, seeds dsh-default once on upgrade, and jumpToAgentModels expands target group');
+}
+
+// Search and capability filters: isolate matching Agents, expand temporarily without mutating saved folds, and restore.
+{
+  const prevCodexOpen = plugin.settings.ui.delegateGroups.codex.open;
+  const prevCodexModelsOpen = tab.subOpen['models-codex'];
+  plugin.settings.ui.delegateGroups.codex.open = false;
+  tab.subOpen['models-codex'] = false;
+  tab.search = 'GPT-6.1 Sol';
+  const filteredBody = new Element();
+  tab.renderDelegate(filteredBody);
+  const shownAgents = filteredBody.all().filter(el => el.classList.contains('ad-delegate-agent'));
+  assert.deepEqual(shownAgents.map(el => el.dataset.agent), ['codex'], 'search filters Agent list to matching models');
+  assert.equal(shownAgents[0].open, true, 'matching Agent card opens temporarily while searching');
+  assert.equal(shownAgents[0].all().find(el => el.classList.contains('ad-modelgroup'))?.open, true, 'matching Available models opens temporarily while searching');
+  assert.equal(filteredBody.all().find(el => el.classList.contains('ad-delegate-passive')), undefined, 'passive section hides while filtering models');
+  assert.equal(plugin.settings.ui.delegateGroups.codex.open, false, 'search auto-expand never mutates persisted delegateGroups state');
+  assert.equal(tab.subOpen['models-codex'], false, 'search auto-expand never mutates subOpen state');
+
+  tab.search = 'no-such-model-xyz';
+  const emptyBody = new Element();
+  tab.renderDelegate(emptyBody);
+  assert.ok(emptyBody.all().find(el => el.classList.contains('ad-empty') && el.options.text === '没有符合条件的模型'), 'shows empty notice when no models match');
+
+  tab.search = '';
+  const restoredBody = new Element();
+  tab.renderDelegate(restoredBody);
+  const restoredCodex = restoredBody.all().find(el => el.classList.contains('ad-delegate-agent') && el.dataset.agent === 'codex');
+  assert.equal(restoredCodex.open, false, 'clearing search restores collapsed Agent state');
+  assert.equal(restoredCodex.all().find(el => el.classList.contains('ad-modelgroup'))?.open, false, 'clearing search restores collapsed Available models state');
+  plugin.settings.ui.delegateGroups.codex.open = prevCodexOpen;
+  tab.subOpen['models-codex'] = prevCodexModelsOpen;
+  console.log('PASS model search/filtering expands matches non-destructively and restores fold state');
 }
 
 // Redesigned Delegation tab invariants: order sync, summary pills, cwd tucked under More settings, custom ACP switches.
@@ -369,4 +442,34 @@ console.log('PASS primary-only delegation folds and standard select menus for Co
   plugin.settings.customAcpAgents = [];
   plugin.settings.ui.agentOrders = savedCwd;
   console.log('PASS redesigned Delegation layout: synced order, summary pills, cwd inside More settings, unified custom ACP toggle');
+}
+
+// Verify tab placement: AI 协作回顾 lives under Recording; 外部 Agent 接入（MCP / CLI）lives under Experiments (not Dreaming).
+{
+  const recPage = new Element();
+  tab.renderRecord(recPage);
+  assert.ok(recPage.all().some(el => el.options.text === 'AI 协作回顾'), 'Recording tab includes AI 协作回顾 toggle');
+
+  const expPage = new Element();
+  tab.renderExperimental(expPage);
+  assert.ok(expPage.all().some(el => el.options.text === '外部 Agent 接入（MCP / CLI）'), 'Experiments tab hosts Memory MCP card');
+  assert.ok(!expPage.all().some(el => el.options.text === 'AI 协作回顾'), 'Experiments tab no longer contains AI 协作回顾');
+
+  const pDream = {
+    ...plugin,
+    app: {},
+    dreaming: {
+      storeMode: false,
+      dir: 'Agent Deck/记忆',
+      busy: false,
+      progress: { phase: 'idle', message: '' },
+      sharing: { busy: false, status: '' },
+    },
+  };
+  const dreamTab = new AgentDeckSettingsTab({}, pDream);
+  const dreamPage = new Element();
+  dreamTab.renderDream(dreamPage);
+  dreamTab.hide();
+  assert.ok(!dreamPage.all().some(el => el.options.text === '外部 Agent 接入（MCP / CLI）'), 'Dreaming tab no longer contains Memory MCP card');
+  console.log('PASS tab placement: AI 协作回顾 under Recording, Memory MCP under Experiments');
 }

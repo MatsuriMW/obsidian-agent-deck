@@ -395,6 +395,7 @@ export function listAgentsByCapability(cap) {
 }
 
 export const delegateAgents = () => listAgentsByCapability("delegate");
+export const modelCatalogAgents = () => listAgentsByCapability("modelCatalog");
 export function canAgentReadLocalFiles(id, destination = "") {
   if (!id || destination === "clipboard") return false;
   const cap = getAgentCapability(id);

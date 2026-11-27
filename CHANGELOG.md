@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.37
+
+- **跨 Agent 会话标题统一层与零依赖 `node:sqlite` 读取（[`src/sqlite.js`](src/sqlite.js)、[`src/readers.js`](src/readers.js)、[`src/agent-ingestors.js`](src/agent-ingestors.js)、[`src/desktop-sessions.js`](src/desktop-sessions.js)、[`src/cursor-sessions.js`](src/cursor-sessions.js)、[`src/teleagent-dispatch.js`](src/teleagent-dispatch.js)、[`src/main.js`](src/main.js)，`USAGE_CACHE_VERSION = 27`）**：
+  - 修复 Codex 在 Windows 与 macOS 上会话名称与本地名称不一致的问题：按列探测新版 `state_*.sqlite` 优先读取 `threads.name`、过滤与 `first_user_message` 镜像一致的伪标题，按数字序挑选最新 `state_<N>.sqlite`（移除 30 天截断），并与 `session_index.jsonl`（兼容 UTF-8 BOM / CRLF / 同 ID 重命名覆盖）及 `.codex-global-state.{json,sqlite}` 按更新时间戳择新合并。
+  - 将标题保护收敛至公共层（[`isPlaceholderClientTitle`](src/readers.js)、[`noteClientTitle`](src/readers.js)、[`resetTitles`](src/readers.js)、[`summary`](src/readers.js)）：过滤 `"Side chat"` / `"New thread"` / `"New Maker"` / `"新对话"` 等泛化占位标题；支持 Claude Desktop `titleSource: "user"` 用户手动重命名覆盖并扩展回溯天数范围；桌面 SQLite 适配器在底层库 `revision` 未变时也即时同步重命名标题；修复 WorkBuddy / Antigravity / DSH / Kimi Code / Gemini CLI 首句兜底泄漏或覆写已命名客户端标题的问题，并在全量重扫、局部重扫与 `rebuildUsage()` 时完整清理/合并 `clientTitles` 与 `customTitles`。
+  - [`src/sqlite.js`](src/sqlite.js) 统一封装基于宿主内置 `node:sqlite`（`DatabaseSync` + `?immutable=1` / `PRAGMA query_only = ON`）并回退 `sqlite3` CLI 的只读查询 [`querySqliteRowsStrict`](src/sqlite.js) / [`querySqliteRows`](src/sqlite.js) / [`querySqliteRowsSync`](src/sqlite.js)，接入 Codex / WorkBuddy / Cursor、全部 9 家桌面 SQLite Agent 与 TeleAgent 落库校验，未安装 `sqlite3.exe` 的 Windows 环境亦可正常读取。
+- **设置页交互与模块整理（[`src/settings.js`](src/settings.js)、[`src/agent-registry.js`](src/agent-registry.js)、[`src/constants.js`](src/constants.js)、[`src/styles/`](src/styles/)）**：
+  - 将「Agent 配置」与「管理模型」合一为按 Agent 聚合的视图，内嵌默认折叠的 `可用模型` 子抽屉与顶部跨 Agent 模型筛选；补齐 T3 Code 配置卡片及 11 项默认模型与状态配置修正。
+  - 将「记忆 MCP（外部 Agent 接入）」迁入「实验功能」，将「AI 协作回顾」迁回「记录 → 展示与维护」，并将「记录 → 日记与归档 → 记哪几个 Agent」改为默认折叠抽屉（带 `已启用 N / total` 实时计数与一键 `全部关闭 / 全部开启`）。
+
 ## 1.13.36
 
 - **Windows 进程树清理与 Antigravity CLI 长提示词传输修复（[`src/security.js`](src/security.js)、[`src/delegation-runners.js`](src/delegation-runners.js)、[`src/main.js`](src/main.js)、[`.github/workflows/ci.yml`](.github/workflows/ci.yml)）**：

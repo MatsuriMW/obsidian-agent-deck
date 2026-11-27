@@ -1758,7 +1758,8 @@ export default class AgentDeckPlugin extends Plugin {
         this._rescanMeta = new Map(this.usage.meta);
         this.usage.files.clear();
         this.usage.meta.clear();
-        this.usage.titles.clear();
+        if (this.usage.resetTitles) this.usage.resetTitles();
+        else this.usage.titles.clear();
         this.usage.delegatedOwners?.clear?.();
         this.usage.lastScan = 0;
       }
@@ -1773,6 +1774,8 @@ export default class AgentDeckPlugin extends Plugin {
       if (fullScan) this._scannedDayCutoff = dayCutoff;
       if (scoped) {
         for (const key of ["files", "meta", "titles", "subs"]) for (const [id, value] of usage[key]) this.usage[key].set(id, value);
+        for (const sid of usage.clientTitles || []) this.usage.clientTitles.add(sid);
+        for (const sid of usage.customTitles || []) this.usage.customTitles.add(sid);
         if (usage.delegatedOwners?.size) this.usage.mergeDelegatedOwners?.(usage.delegatedOwners, touched);
         this.usage.errors = [...this.usage.errors, ...usage.errors].slice(-20);
         this.usage.dirty = true;
@@ -1812,7 +1815,8 @@ export default class AgentDeckPlugin extends Plugin {
     this.store.imported = {};
     this.usage.files.clear();
     this.usage.meta.clear();
-    this.usage.titles.clear();
+    if (this.usage.resetTitles) this.usage.resetTitles();
+    else this.usage.titles.clear();
     this.usage.delegatedOwners?.clear?.();
     await this.store.save();
     await this.scanNow(true);
@@ -3582,6 +3586,7 @@ export default class AgentDeckPlugin extends Plugin {
   // Rebuild only the bounded task sections; outside notes remain untouched.
   async organizeJournal(file = this.journalTarget()) {
     if (!file) return this.notice(t("请先打开日记"));
+    await this.usage?.readCodexTitles?.({ force: true });
     await this.usage?.readCodexArchived?.({ force: true });
     const base = await this.readNote(file.path);
     let plan;

@@ -8,7 +8,7 @@ import fs from "fs";
 import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 export { cleanUserPrompt, isPromptText } from "./prompt-text.js";
 import { desktopSessions, desktopMessages, t3CodeDelegatedSids, cindyDelegatedSids, orcaDelegatedSids } from "./desktop-sessions.js";
-import { resolveSqliteBinary } from "./sqlite.js";
+import { querySqliteRows } from "./sqlite.js";
 import { teleAgentDatabases } from "./teleagent.js";
 import { cindyDatabases } from "./cindy-sessions.js";
 import { orcaDatabases } from "./orca-sessions.js";
@@ -292,7 +292,7 @@ function cleanLive(v, now = Date.now()) {
 // parsing below changes: an old cache is then ignored instead of showing stale
 // numbers. Keep the complete per-message map: summary() needs historical token
 // records as well as the recent tail after an incremental append.
-export const USAGE_CACHE_VERSION = 25;
+export const USAGE_CACHE_VERSION = 27;
 // Bump when the shape of summary() changes (labels, buckets, fields). The stored
 // day summaries are then recomputed from the parse cache instead of staying on
 // the old shape until each day happens to be touched again.
@@ -351,7 +351,12 @@ export class AgentUsage {
     this.titles = new Map();     // client-provided session title index
     this.clientTitles = new Set(); // sids with native client/summary title (vs prompt fallback)
     this.customTitles = new Set(); // sids explicitly renamed by the user in client
-    this.codexIndexAt = 0;
+    this.codexIndexStamp = "";
+    this.codexGlobalStamp = "";
+    this._codexGlobalTitles = new Map();
+    this._codexGlobalSqliteTitles = new Map();
+    this._codexIndexTitles = new Map();
+    this._codexDbTitles = new Map();
     this.archived = new Set();       // Codex archived_sessions
     this._auxArchived = new Set();   // aux CLI/DB archive IDs managed by readCodexArchived
     this.desk = new Map();           // Claude desktop local_*.json path -> desktop session entry
@@ -367,6 +372,19 @@ export class AgentUsage {
     this.sideAt = 0;
     this.errors = [];
     this.lastScan = 0;
+  }
+
+  resetTitles() {
+    this.titles.clear();
+    this.clientTitles.clear();
+    this.customTitles.clear();
+    this.codexIndexStamp = "";
+    this.codexGlobalStamp = "";
+    this._codexGlobalTitles.clear();
+    this._codexGlobalSqliteTitles.clear();
+    this._codexIndexTitles.clear();
+    this._codexDbTitles.clear();
+    this._dbAt = 0;
   }
 
   get primaries() {
@@ -649,7 +667,7 @@ export class AgentUsage {
   async scan({ since = 0, agent: onlyAgent = "", strictSince = false, force = false, onProgress } = {}) {
     const touched = new Set();
     const floor = since || this.sinceMs();
-    await this.readCodexTitles();
+    await this.readCodexTitles({ force });
     await this.readCodexArchived({ force });
     await this.readDesktopDatabases({ floor, onlyAgent, strictSince, touched });
     for (const [root, agent] of this.roots()) {
@@ -769,6 +787,8 @@ export class AgentUsage {
           if (meta) meta.archived = !!(row.archived || row.deletedAt);
           if (row.deletedAt) continue;
           const previous = this.files.get(key);
+          const hasRealRowTitle = Boolean(row.title && !isPlaceholderClientTitle(row.title));
+          if (hasRealRowTitle) this.noteClientTitle(row.sid, row.title, { fc: previous || null });
           // Query row revisions directly: WAL writes need not change the database mtime.
           if (previous?.size === row.revision && previous.offset === scope) continue;
           const messages = await desktopMessages(db, agent, row.sid);
@@ -812,8 +832,9 @@ export class AgentUsage {
           if (fc.live) {
             if (row.state) fc.live.state = row.state;
             fc.live.turns = fc.rounds?.list.length || 0; fc.live.rounds = fc.rounds?.list || [];
-            this.noteClientTitle(row.sid, row.title, { fc });
-            this.noteMeta(fc, row.sid, { ...fc.live, title: row.title || firstText, text: firstText, clientTitle: Boolean(row.title), cwd: fc.cwd, app: fc.app, model: fc.live.model || row.model || "", lastAt: fc.live.at, startedAt: row.startedAt, parentSid: row.parentSid || "", out, fresh, cached, calls, archived: !!row.archived });
+            const finalTitle = (hasRealRowTitle ? row.title : "") || firstText;
+            if (hasRealRowTitle) this.noteClientTitle(row.sid, row.title, { fc });
+            this.noteMeta(fc, row.sid, { ...fc.live, title: finalTitle, text: firstText, clientTitle: hasRealRowTitle, cwd: fc.cwd, app: fc.app, model: fc.live.model || row.model || "", lastAt: fc.live.at, startedAt: row.startedAt, parentSid: row.parentSid || "", out, fresh, cached, calls, archived: !!row.archived });
           }
           this.files.set(key, fc); this.dirty = true;
         }
@@ -848,18 +869,86 @@ export class AgentUsage {
     return out;
   }
 
-  async readCodexTitles() {
-    const p = path.join(process.env.CODEX_HOME || path.join(home(), ".codex"), "session_index.jsonl");
+  async readCodexTitles({ force = false } = {}) {
+    const codex = process.env.CODEX_HOME || path.join(home(), ".codex");
+    const globalPath = path.join(codex, ".codex-global-state.json");
     try {
-      const st = await fsp.stat(p);
-      if (st.mtimeMs === this.codexIndexAt) return;
-      this.codexIndexAt = st.mtimeMs;
-      const text = await fsp.readFile(p, "utf8");
-      for (const line of text.split("\n")) {
-        if (!line) continue;
-        try { const d = JSON.parse(line); if (d.id && d.thread_name) this.noteClientTitle(d.id, String(d.thread_name)); } catch { /* partial line */ }
+      const st = await fsp.stat(globalPath);
+      const stamp = `${st.mtimeMs}:${st.size}`;
+      if (force || stamp !== this.codexGlobalStamp) {
+        this.codexGlobalStamp = stamp;
+        const raw = (await fsp.readFile(globalPath, "utf8")).replace(/^\uFEFF/, "");
+        const d = JSON.parse(raw);
+        const rawTitles = d?.["thread-titles"]?.titles;
+        const next = new Map();
+        if (rawTitles && typeof rawTitles === "object" && !Array.isArray(rawTitles)) {
+          for (const [sid, title] of Object.entries(rawTitles)) {
+            if (typeof title !== "string") continue;
+            const clean = normCodexTitle(title);
+            if (sid && clean) next.set(sid, clean);
+          }
+        }
+        this._codexGlobalTitles = next;
       }
-    } catch { /* no index */ }
+    } catch {
+      if (this.codexGlobalStamp) {
+        this.codexGlobalStamp = "";
+        this._codexGlobalTitles.clear();
+      }
+    }
+
+    const indexPath = path.join(codex, "session_index.jsonl");
+    try {
+      const st = await fsp.stat(indexPath);
+      const stamp = `${st.mtimeMs}:${st.size}`;
+      if (force || stamp !== this.codexIndexStamp) {
+        this.codexIndexStamp = stamp;
+        const text = (await fsp.readFile(indexPath, "utf8")).replace(/^\uFEFF/, "");
+        const next = new Map();
+        for (const line of text.split(/\r?\n/)) {
+          if (!line.trim()) continue;
+          try {
+            const d = JSON.parse(line);
+            const title = normCodexTitle(d?.thread_name);
+            if (d?.id && title) next.set(String(d.id), { title, at: parseCodexTimestampMs(d.updated_at) });
+          } catch { /* partial line */ }
+        }
+        this._codexIndexTitles = next;
+      }
+    } catch {
+      if (this.codexIndexStamp) {
+        this.codexIndexStamp = "";
+        this._codexIndexTitles.clear();
+      }
+    }
+    this.applyCodexTitles();
+  }
+
+  applyCodexTitles() {
+    const sids = new Set([
+      ...this._codexGlobalTitles.keys(),
+      ...this._codexGlobalSqliteTitles.keys(),
+      ...this._codexIndexTitles.keys(),
+      ...this._codexDbTitles.keys(),
+    ]);
+    for (const sid of sids) {
+      const idx = this._codexIndexTitles.get(sid);
+      const db = this._codexDbTitles.get(sid);
+      let resolved = "";
+      if (idx && db) {
+        if (db.source === "legacy-title") resolved = idx.title;
+        else if (db.at > idx.at) resolved = db.title;
+        else if (idx.at > db.at) resolved = idx.title;
+        else resolved = db.source === "name" ? db.title : idx.title;
+      } else if (idx) {
+        resolved = idx.title;
+      } else if (db) {
+        resolved = db.title;
+      } else {
+        resolved = this._codexGlobalSqliteTitles.get(sid) || this._codexGlobalTitles.get(sid) || "";
+      }
+      if (resolved) this.noteClientTitle(sid, resolved);
+    }
   }
 
   // 桌面版以外几家的「归档」各记在各的地方，每轮重读一遍（取消归档也能跟上）：
@@ -880,32 +969,97 @@ export class AgentUsage {
       const db = new Set();
       const codexTask = (async () => {
         try {
-          const states = (await fsp.readdir(codex)).filter((f) => /^state_\d+\.sqlite$/.test(f)).sort();
-          if (!states.length) return { archived: [], titles: [] };
-          const st = path.join(codex, states[states.length - 1]);
-          const [archived, titles] = await Promise.all([
-            sqliteColumn(st, "select id from threads where archived = 1"),
-            sqliteColumn(st, "select id || char(9) || replace(replace(title, char(10), ' '), char(9), ' ') from threads where title != '' and updated_at > strftime('%s','now') - 30*86400"),
-          ]);
-          return { archived, titles };
-        } catch { return { archived: [], titles: [] }; }
+          const states = codexStateFiles(await fsp.readdir(codex).catch(() => []));
+          let archived = [];
+          const titles = [];
+          if (states.length) {
+            const st = path.join(codex, states[states.length - 1]);
+            const info = await querySqliteRows(st, "PRAGMA table_info(threads)");
+            const cols = new Set(info.map((r) => String(r?.name || "")));
+            const hasArchived = cols.has("archived");
+            const hasName = cols.has("name");
+            const hasTitle = cols.has("title");
+            const hasFirstUserMsg = cols.has("first_user_message");
+            const archPromise = hasArchived
+              ? querySqliteRows(st, "SELECT id FROM threads WHERE archived = 1")
+              : Promise.resolve([]);
+            let titlePromise = Promise.resolve([]);
+            if (cols.has("id") && (hasName || hasTitle)) {
+              const selectCols = ["id"];
+              if (hasName) selectCols.push("name");
+              if (hasTitle) selectCols.push("title");
+              if (hasFirstUserMsg) selectCols.push("first_user_message");
+              if (cols.has("updated_at_ms")) selectCols.push("updated_at_ms");
+              if (cols.has("updated_at")) selectCols.push("updated_at");
+              const whereParts = [];
+              if (hasName) whereParts.push("coalesce(name, '') != ''");
+              if (hasTitle) whereParts.push("coalesce(title, '') != ''");
+              titlePromise = querySqliteRows(
+                st,
+                `SELECT ${selectCols.join(", ")} FROM threads WHERE ${whereParts.join(" OR ")}`,
+              );
+            }
+            const [archRows, titleRows] = await Promise.all([archPromise, titlePromise]);
+            archived = archRows.map((r) => String(r?.id || "").trim()).filter(Boolean);
+            for (const row of titleRows) {
+              const id = String(row?.id || "").trim();
+              if (!id) continue;
+              const picked = pickCodexThreadTitle(row, { hasName, hasTitle, hasFirstUserMsg });
+              if (picked) {
+                titles.push({
+                  id,
+                  ...picked,
+                  at: parseCodexTimestampMs(row.updated_at_ms || row.updated_at),
+                });
+              }
+            }
+          }
+          const globalTitles = new Map();
+          const globalDb = path.join(codex, ".codex-global-state.sqlite");
+          if (fs.existsSync(globalDb)) {
+            const gRows = await querySqliteRows(globalDb, "SELECT value FROM settings WHERE key = 'thread-titles' LIMIT 1");
+            const rawVal = gRows[0]?.value;
+            if (typeof rawVal === "string" && rawVal.trim()) {
+              try {
+                const parsed = JSON.parse(rawVal);
+                const rawTitles = parsed?.titles;
+                if (rawTitles && typeof rawTitles === "object" && !Array.isArray(rawTitles)) {
+                  for (const [sid, title] of Object.entries(rawTitles)) {
+                    if (typeof title !== "string") continue;
+                    const clean = normCodexTitle(title);
+                    if (sid && clean) globalTitles.set(sid, clean);
+                  }
+                }
+              } catch { /* ignore invalid JSON */ }
+            }
+          }
+          return { archived, titles, globalTitles };
+        } catch { return { archived: [], titles: [], globalTitles: new Map() }; }
       })();
       const wbDb = path.join(home(), ".workbuddy/workbuddy.db");
-      const wbArchTask = sqliteColumn(wbDb, "select id from sessions where status = 'archived' or coalesce(deleted_at, 0) > 0");
-      const wbRowsTask = sqliteColumn(wbDb, "select id || char(9) || replace(replace(coalesce(nullif(custom_title,''), title, ''), char(10), ' '), char(9), ' ') || char(9) || coalesce(cwd,'') || char(9) || coalesce(model,'') || char(9) || coalesce(group_title,'') || char(9) || coalesce(status,'') || char(9) || case when coalesce(custom_title,'') != '' then '1' else '0' end from sessions");
+      const wbArchTask = querySqliteRows(wbDb, "SELECT id FROM sessions WHERE status = 'archived' OR coalesce(deleted_at, 0) > 0");
+      const wbRowsTask = querySqliteRows(wbDb, "SELECT id, coalesce(nullif(custom_title,''), title, '') AS title, coalesce(cwd,'') AS cwd, coalesce(model,'') AS model, coalesce(group_title,'') AS groupTitle, coalesce(status,'') AS status, case when coalesce(custom_title,'') != '' then 1 else 0 end AS isCustom FROM sessions");
       const dshTask = fsp.readFile(path.join(home(), ".dsh/storages/workspace.json"), "utf8").then((s) => JSON.parse(s)).catch(() => null);
       const [codexRes, wbArch, wbRows, ws] = await Promise.all([codexTask, wbArchTask, wbRowsTask, dshTask]);
       for (const id of codexRes.archived) db.add(id);
-      for (const row of codexRes.titles) {
-        const i = row.indexOf("\t"); if (i > 0) this.noteClientTitle(row.slice(0, i), row.slice(i + 1));
+      this._codexDbTitles = new Map();
+      for (const entry of codexRes.titles) {
+        if (entry?.id && entry?.title) this._codexDbTitles.set(entry.id, entry);
       }
-      for (const id of wbArch) db.add(id);
+      this._codexGlobalSqliteTitles = codexRes.globalTitles instanceof Map ? codexRes.globalTitles : new Map();
+      this.applyCodexTitles();
+      for (const row of wbArch) if (row?.id) db.add(String(row.id));
       for (const row of wbRows) {
-        const [id, title, cwd, model, groupTitle, status, isCustom] = row.split("\t");
+        const id = String(row?.id || "");
         if (!id) continue;
-        const cleanTitle = (title || "").trim().slice(0, 120);
-        if (cleanTitle) this.noteClientTitle(id, cleanTitle, { custom: isCustom === "1" });
-        this.wbMeta.set(id, { title: cleanTitle, cwd: cwd || "", model: model || "", groupTitle: groupTitle || "", status: status || "" });
+        const cleanTitle = normCodexTitle(row.title).slice(0, 120);
+        const isCustom = Number(row.isCustom) === 1 || row.isCustom === "1";
+        if (cleanTitle) this.noteClientTitle(id, cleanTitle, { custom: isCustom });
+        const cwd = String(row.cwd || "");
+        const model = String(row.model || "");
+        const groupTitle = String(row.groupTitle || "");
+        const status = String(row.status || "");
+        this.wbMeta.set(id, { title: cleanTitle, cwd, model, groupTitle, status });
         const m = this.meta.get(id);
         if (m) {
           if (!m.model && model && model !== "auto") m.model = model;
@@ -944,7 +1098,7 @@ export class AgentUsage {
     this.deskByLocal.clear();
     this.archivedClaude.clear();
     if (this.settings.claudeDesktop === false || !this.enabled("claude")) return;
-    const cutoff = Date.now() - 7 * 864e5;   // 一周没动过的会话不看；归档状态只影响最近这些
+    const cutoff = Math.min(Date.now() - 7 * 864e5, this.sinceMs());   // 至少覆盖回溯天数内的会话；归档与标题随桌面版同步
     const walk = async (dir, depth) => {
       let ents;
       try { ents = await fsp.readdir(dir, { withFileTypes: true }); } catch { return; }
@@ -964,6 +1118,7 @@ export class AgentUsage {
             sid: String(raw.cliSessionId || ""),
             local: String(raw.sessionId || e.name.replace(/\.json$/, "")),
             title: String(raw.title || ""),
+            titleSource: String(raw.titleSource || ""),
             parentLocal: String((raw.spawnedFrom && raw.spawnedFrom.sessionId) || ""),
             created: +raw.createdAt || 0,
             active: +raw.lastActivityAt || +raw.createdAt || 0,
@@ -1031,7 +1186,7 @@ export class AgentUsage {
       const m = this.meta.get(d.sid);
       if (!m) continue;
       m.deskTitle = d.title;
-      if (d.title) this.noteClientTitle(d.sid, d.title);
+      if (d.title) this.noteClientTitle(d.sid, d.title, { custom: d.titleSource === "user" });
       m.parentSid = d.parentSid || "";
       m.parentTitle = d.parentTitle || "";
       if (d.parentSid && d.parentSid !== d.sid) this.markSubagent(d.sid, d.parentSid);
@@ -1154,7 +1309,7 @@ export class AgentUsage {
         metaRead: awaiting,
         days: new Map(),
         msgs: new Map(),
-        titles: new Map([[bot.id, bot.name]]),
+        titles: (bot.name && !isPlaceholderClientTitle(bot.name)) ? new Map([[bot.id, bot.name]]) : new Map(),
         live: null,
       };
       for (const day of previous?.days?.keys() || []) touched.add(day);
@@ -1296,7 +1451,7 @@ export class AgentUsage {
         mtime: st.mtimeMs,
         days: new Map(),
         msgs: new Map(),
-        titles: new Map([[sid, parsed.title]]),
+        titles: (parsed.title && !isPlaceholderClientTitle(parsed.title)) ? new Map([[sid, parsed.title]]) : new Map(),
         live: null,
       };
       for (const day of previous?.days?.keys() || []) touched.add(day);
@@ -1430,7 +1585,7 @@ export class AgentUsage {
         mtime: sess.mtimeMs,
         days: new Map(),
         msgs: new Map(),
-        titles: new Map([[sid, parsed.title]]),
+        titles: parsed.hasClientTitle ? new Map([[sid, parsed.title]]) : new Map(),
         live: null,
       };
       for (const day of previous?.days?.keys() || []) touched.add(day);
@@ -1577,7 +1732,7 @@ export class AgentUsage {
         mtime: storage.mtimeMs,
         days: new Map(),
         msgs: new Map(),
-        titles: new Map([[sid, conv.title]]),
+        titles: conv.hasClientTitle ? new Map([[sid, conv.title]]) : new Map(),
         live: null,
       };
       for (const day of previous?.days?.keys() || []) touched.add(day);
@@ -1681,7 +1836,7 @@ export class AgentUsage {
         mtime: sess.mtimeMs,
         days: new Map(),
         msgs: new Map(),
-        titles: new Map([[sid, parsed.title]]),
+        titles: parsed.hasClientTitle ? new Map([[sid, parsed.title]]) : new Map(),
         live: null,
       };
       for (const day of previous?.days?.keys() || []) touched.add(day);
@@ -1826,8 +1981,10 @@ export class AgentUsage {
   noteClientTitle(sid, title, { fc = null, custom = false } = {}) {
     const clean = String(title || "").replace(/\s+/g, " ").trim().slice(0, 120);
     if (!sid || !clean) return;
+    if (!custom && isPlaceholderClientTitle(clean)) return;
     if (custom) this.customTitles.add(sid);
     else if (this.customTitles.has(sid)) return;
+    const prev = this.titles.get(sid);
     this.titles.set(sid, clean);
     this.clientTitles.add(sid);
     if (fc) {
@@ -1839,8 +1996,10 @@ export class AgentUsage {
       m.title = clean;
       m.clientTitle = true;
       if (custom) m.customTitle = true;
+      if (prev !== clean) this.dirty = true;
     }
     for (const f of this.files.values()) {
+      if (f?.sid === sid) f.titles?.set(sid, clean);
       if (f?.live && f.live.sid === sid) f.live.title = clean;
     }
   }
@@ -1865,7 +2024,7 @@ export class AgentUsage {
     if (!fc?.sub && fc?.parentSid && fc.parentSid !== sid && !m.parentSid) m.parentSid = fc.parentSid;
     if ((!fc?.sub && fc?.isSubagent) || patch?.isSubagent) m.isSubagent = true;
     this.markSubagent(sid, m.parentSid, Boolean(m.isSubagent));
-    if (this.titles.has(sid) && (!m.title || !m.customTitle)) {
+    if (this.titles.has(sid) && (this.customTitles.has(sid) || !m.customTitle)) {
       m.title = this.titles.get(sid);
       m.clientTitle = this.clientTitles.has(sid) || Boolean(m.clientTitle);
       if (this.customTitles.has(sid)) m.customTitle = true;
@@ -2073,7 +2232,11 @@ export class AgentUsage {
     let prompts = 0;
     for (const fc of this.files.values()) {
       if (fc.sid && this.delegatedOwnerOf(fc.sid, fc.agent)) continue;
-      for (const [sid, t] of fc.titles) this.titles.set(sid, t);
+      for (const [sid, t] of fc.titles) {
+        if (this.clientTitles.has(sid) && !this.titles.has(sid) && !this.customTitles.has(sid) && t && !isPlaceholderClientTitle(t)) {
+          this.titles.set(sid, t);
+        }
+      }
       const day = fc.days.get(key);
       if (!day) continue;
       let fileHasVisible = false;
@@ -2335,13 +2498,61 @@ export class UsageStore {
 }
 
 
-// 查一列（只跑 select）：macOS 自带 /usr/bin/sqlite3。不加 -readonly：WAL 模式的库（Codex）只读打不开。查不到返回空数组。
-function sqliteColumn(db, sql) {
-  return new Promise((resolve) => {
-    if (!fs.existsSync(db)) return resolve([]);
-    execFile(resolveSqliteBinary(), ["-noheader", db, sql], { timeout: 5000, maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
-      if (err) return resolve([]);
-      resolve(String(out || "").split("\n").map((s) => s.trim()).filter(Boolean));
-    });
-  });
+export function codexStateFiles(names) {
+  return (Array.isArray(names) ? names : [])
+    .filter((f) => /^state_(\d+)\.sqlite$/.test(f))
+    .sort((a, b) => Number(/^state_(\d+)\.sqlite$/.exec(a)[1]) - Number(/^state_(\d+)\.sqlite$/.exec(b)[1]));
+}
+
+export function normCodexTitle(s) {
+  return String(s || "").replace(/\s+/g, " ").trim();
+}
+
+const PLACEHOLDER_CLIENT_TITLES = new Set([
+  "new session",
+  "new chat",
+  "new thread",
+  "new maker",
+  "side chat",
+  "untitled",
+  "新对话",
+  "未命名会话",
+  "豆包",
+]);
+
+export function isPlaceholderClientTitle(title) {
+  const s = normCodexTitle(title).toLowerCase();
+  return !s || PLACEHOLDER_CLIENT_TITLES.has(s);
+}
+
+export function isPromptMirrorTitle(title, firstUserMessage) {
+  const t = normCodexTitle(title);
+  const f = normCodexTitle(firstUserMessage);
+  return Boolean(t && f && (t === f || f.startsWith(t) || t.startsWith(f)));
+}
+
+export const isCodexPromptMirror = isPromptMirrorTitle;
+
+export function pickCodexThreadTitle(row, { hasName = false, hasTitle = false, hasFirstUserMsg = false } = {}) {
+  if (!row || typeof row !== "object") return null;
+  if (hasName) {
+    const name = normCodexTitle(row.name);
+    if (name) return { title: name, source: "name" };
+  }
+  if (hasTitle) {
+    const t = normCodexTitle(row.title);
+    if (!t) return null;
+    if (hasFirstUserMsg && isCodexPromptMirror(t, row.first_user_message)) return null;
+    return { title: t, source: hasFirstUserMsg ? "title" : "legacy-title" };
+  }
+  return null;
+}
+
+export function parseCodexTimestampMs(val) {
+  if (val == null || val === "") return 0;
+  if (typeof val === "number" && Number.isFinite(val)) {
+    return val < 1e12 ? val * 1000 : val;
+  }
+  const parsed = Date.parse(String(val));
+  return Number.isFinite(parsed) ? parsed : 0;
 }

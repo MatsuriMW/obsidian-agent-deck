@@ -17,7 +17,7 @@ import { agentIcon, setLucide } from "./icons.js";
 import { t, currentLanguage, listCustomLocales } from "./i18n.js";
 import { syncModelGroups } from "./model-groups.js";
 import { ManagedTimers } from "./runtime-guard.js";
-import { delegateAgents, cliHandoffAgents } from "./agent-registry.js";
+import { delegateAgents, cliHandoffAgents, modelCatalogAgents } from "./agent-registry.js";
 import { normalizeCustomAcpId, normalizeCustomAcpEntry } from "./custom-acp.js";
 import { detectInstalledHarnesses } from "./harness-detect.js";
 import {
@@ -104,12 +104,22 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this._aboutComp = null;
   }
 
-  renderAcpCard(body, cfg, spec) {
+  renderAcpCard(body, cfg, spec, modelCtx) {
     const p = this.plugin;
-    const card = this.agentCard(body, spec.id, spec.title, spec.sub);
+    const card = this.agentCard(body, spec.id, spec.title, spec.sub, { forceOpen: modelCtx?.filterActive });
     this.modelSelect(card, spec.id, p.defaultModel(spec.id), (v) => { this.setDefaultModel(spec.id, v); this.display(); });
     this.effortControl(card, spec.id, cfg.effort || spec.defaultEffort || "medium", (v) => { this.setDefaultEffort(spec.id, v); this.display(); });
     this.rowToggle(card, t("自动允许工具调用"), t("关闭后逐次确认工具权限"), cfg.autoApprove === true, (v) => { cfg.autoApprove = v; p.saveSettings(); card._refreshPills?.(); });
+    const refreshModels = async () => {
+      try {
+        const models = await p.refreshAcpModels(spec.id);
+        if (this.draft) this.draft = catalogSnapshot(p.settings.models);
+        this.subOpen[`models-${spec.id}`] = true;
+        new Notice(spec.refreshNotice ? spec.refreshNotice(models.length) : t("已读取 {n} 个模型", { n: models.length }));
+        this.display();
+      } catch (e) { new Notice(t("读取失败：{msg}", { msg: e.message }), 8000); }
+    };
+    this.renderAgentModels(card, spec.id, modelCtx, { onRefresh: refreshModels, refreshTitle: spec.refreshLabel });
     const more = this.subDetails(card, spec.moreKey, t("更多设置"));
     if (spec.openDesktopToggle) {
       this.rowToggle(more, t("完成后自动在桌面版打开"), "", cfg.openDesktop === true, (v) => { cfg.openDesktop = v; p.saveSettings(); });
@@ -120,14 +130,6 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       this.rowText(more, spec.extraArgsLabel || t("额外 ACP 参数"), t("可留空"), cfg.extraArgs || "", t("可留空"), (v) => { cfg.extraArgs = spec.trimExtraArgs === false ? v : v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
     const btns = more.createDiv({ cls: "ad-btnrow" });
-    this.bigButton(btns, spec.refreshLabel, async () => {
-      try {
-        const models = await p.refreshAcpModels(spec.id);
-        if (this.draft) this.draft = catalogSnapshot(p.settings.models);
-        new Notice(spec.refreshNotice ? spec.refreshNotice(models.length) : t("已读取 {n} 个模型", { n: models.length }));
-        this.display();
-      } catch (e) { new Notice(t("读取失败：{msg}", { msg: e.message }), 8000); }
-    });
     this.bigButton(btns, spec.checkLabel, async () => new Notice(await p.checkBinary(spec.id), 6000));
     card.appendChild(more.parentElement);
     return card;
@@ -176,6 +178,9 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         : ".ad-models-card";
       const mc = containerEl.querySelector?.(targetSel) || containerEl.querySelector?.(".ad-models-card");
       if (mc?.scrollIntoView) mc.scrollIntoView({ block: "start", behavior: "smooth" });
+      if (this._scrollToModels === true && !focusSearch) {
+        containerEl.querySelector?.(".ad-models-card .ad-search__input")?.focus?.();
+      }
       this._scrollToModels = false;
     }
     if (focusSearch) {
@@ -201,6 +206,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const p = this.plugin;
     const d = p.settings?.delegate || {};
     const cfg = d[agent] || {};
+    if (agent === "t3code") {
+      const pills = [t("t3 CLI"), t("在客户端选择模型")];
+      if (cfg.openDesktop === true) pills.push(t("完成后自动在桌面版打开"));
+      return pills;
+    }
     const pills = [];
     const modelId = typeof p.defaultModel === "function" ? p.defaultModel(agent) : (cfg.model ?? "");
     if (!modelId || modelId === `${agent}-default`) {
@@ -221,14 +231,14 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     return pills;
   }
 
-  agentCard(parent, agent, title, sub = "") {
+  agentCard(parent, agent, title, sub = "", { forceOpen = false } = {}) {
     const p = this.plugin;
     const state = p.settings.ui.delegateGroups[agent];
     const card = parent.createEl("details", { cls: "ad-delegate-agent" });
     card.dataset.agent = agent;
-    card.open = state.open;
+    card.open = forceOpen ? true : state.open;
     card.ontoggle = () => {
-      if (!card.isConnected || p.settings.ui.delegateGroups[agent] !== state || state.open === card.open) return;
+      if (forceOpen || !card.isConnected || p.settings.ui.delegateGroups[agent] !== state || state.open === card.open) return;
       state.open = card.open;
       p.saveSettings();
     };
@@ -501,7 +511,23 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       },
     );
     const targetRow = destinations.createDiv({ cls: "ad-targetpick" });
-    const targetHints = { workbuddy: t("客户端交接"), teleagent: t("客户端交接"), claude: t("桌面版 / 后台"), codex: t("桌面版 / 终端"), qoder: t("桌面版 / CLI") };
+    const targetHints = {
+      claude: t("桌面版 / 后台"),
+      codex: t("桌面版 / 终端"),
+      qoder: t("桌面版 / CLI"),
+      workbuddy: t("客户端交接"),
+      teleagent: t("客户端交接"),
+      antigravity: t("agy CLI / 终端"),
+      t3code: t("t3 CLI / 桌面版"),
+      dsh: t("ACP / 自带账号"),
+      opencode: t("ACP / 终端"),
+      hermes: t("ACP / 终端"),
+      minimax: t("ACP / 终端"),
+      gemini: t("ACP / 终端"),
+      cursor: t("ACP / 桌面交接"),
+      trae: t("ACP / 桌面交接"),
+      kimicode: t("ACP / 桌面交接"),
+    };
     const targetAgents = settingsAgentOrder(s, "delegation", id => p.agentEnabled(id)).filter((id) => p.agentEnabled(id) && !AGENTS[id].trackingOnly);
     for (const id of targetAgents) {
       const a = AGENTS[id];
@@ -524,12 +550,68 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.renderClientWikiHint(destinations);
     this.agentReorder(targetRow, "delegation", ".ad-settings-target");
 
-    // 2. 委派 → Agent 配置（按上方拖动顺序聚合为一个折叠列表 + 底部自定义 ACP）
+    // 2. 委派 → Agent 配置（按上方拖动顺序聚合为一个折叠列表，内嵌可用模型 + 底部自定义 ACP）
+    const dModels = this.modelsDraft();
+    const allModels = typeof p.allModels === "function" ? p.allModels(dModels.custom) : [];
+    const enabledSet = new Set(dModels.enabled);
+    const q = this.search.trim().toLowerCase();
+    const filterActive = Boolean(q || this.filter !== "all");
+    const visibleModels = allModels.filter((m) => {
+      if (this.filter === "enabled" && !enabledSet.has(m.id)) return false;
+      if (this.filter === "reasoning" && !(m.tags || []).includes("Reasoning")) return false;
+      if (this.filter === "fast" && !(m.tags || []).includes("Fast")) return false;
+      if (this.filter === "vision" && !(m.tags || []).includes("Vision")) return false;
+      if (q && !`${m.name} ${m.provider} ${(m.tags || []).join(" ")}`.toLowerCase().includes(q)) return false;
+      return true;
+    });
+    const pinnedModels = dModels.pinned.map((id) => visibleModels.find((m) => m.id === id)).filter(Boolean);
+    const restModels = visibleModels.filter((m) => !dModels.pinned.includes(m.id));
+    const rowsByAgent = new Map();
+    for (const m of [...pinnedModels, ...restModels]) {
+      if (!rowsByAgent.has(m.agent)) rowsByAgent.set(m.agent, []);
+      rowsByAgent.get(m.agent).push(m);
+    }
+    const modelCtx = { draft: dModels, enabledSet, rowsByAgent, filterActive };
+
     const agentConfigCard = this.card(
       body,
       t("Agent 配置"),
-      t("展开调整单个 Agent 的模型、强度与权限；顺序与上方保持一致"),
+      t("展开调整单个 Agent 的参数与可用模型；顺序与上方保持一致"),
+      (actions) => {
+        this.bigButton(actions, "＋ " + t("添加模型"), () => new AddModelModal(this.app, p, (m) => {
+          this.subOpen[`models-${m.agent}`] = true;
+          if (s.ui?.delegateGroups?.[m.agent]) s.ui.delegateGroups[m.agent].open = true;
+          this.persistModelsChange((store) => {
+            store.custom.push(m);
+            if (!store.enabled.includes(m.id)) store.enabled.push(m.id);
+            if (!store.order.includes(m.id)) store.order.push(m.id);
+          });
+        }).open(), "ad-btn--soft ad-btn--compact");
+      },
     );
+    agentConfigCard.classList.add("ad-models-card");
+
+    const tools = agentConfigCard.createDiv({ cls: "ad-picker-tools" });
+    const searchWrap = tools.createDiv({ cls: "ad-search" });
+    searchWrap.createSpan({ cls: "ad-search__icon", text: "⌕" });
+    const search = searchWrap.createEl("input", { cls: "ad-search__input", attr: { placeholder: t("搜索模型"), value: this.search } });
+    let composing = false;
+    search.addEventListener?.("compositionstart", () => { composing = true; });
+    search.addEventListener?.("compositionend", () => {
+      composing = false;
+      if (this.search !== search.value) { this.search = search.value; this.display(); }
+    });
+    search.oninput = (e) => {
+      if (composing || e?.isComposing) return;
+      this.search = search.value;
+      this.display();
+    };
+    const filters = agentConfigCard.createDiv({ cls: "ad-filters ad-filters--models" });
+    for (const [id, label] of [["all", t("全部")], ["enabled", t("已启用")], ["reasoning", t("推理")], ["fast", t("快速")], ["vision", t("视觉")]]) {
+      const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label, attr: { "aria-pressed": String(this.filter === id) } });
+      b.onclick = () => { this.filter = id; this.display(); };
+    }
+
     const agentList = agentConfigCard.createDiv({ cls: "ad-delegate-list" });
     const acpSpecs = {
       dsh: {
@@ -548,7 +630,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       },
       antigravity: {
         id: "antigravity",
-        title: "Antigravity CLI",
+        title: "Antigravity",
         sub: t("通过官方 agy CLI 后台委派，也可在终端交互运行"),
         moreKey: "agy-more",
         pathLabel: t("agy 程序路径"),
@@ -582,6 +664,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         title: "MiniMax Code",
         sub: t("追踪桌面版与 CLI 会话；装有 mcode CLI 时支持 mcode acp 后台委派与终端续聊"),
         moreKey: "minimax-more",
+        openDesktopToggle: true,
         defaultEffort: "medium",
         pathHint: t("留空自动查找 mcode（~/.minimax-code/bin/mcode 或 PATH）"),
         refreshLabel: t("读取 MiniMax 可用模型"),
@@ -626,11 +709,13 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       },
     };
     const renderConfigurableAgent = (id) => {
+      if (filterActive && !(rowsByAgent.get(id)?.length)) return false;
       if (id === "claude") {
-        const claude = this.agentCard(agentList, "claude", "Claude Code", "");
+        const claude = this.agentCard(agentList, "claude", "Claude Code", "", { forceOpen: filterActive });
         this.modelSelect(claude, "claude", p.defaultModel("claude"), (v) => { this.setDefaultModel("claude", v); this.display(); });
         this.effortControl(claude, "claude", d.claude.effort, (v) => { this.setDefaultEffort("claude", v); this.display(); });
         this.rowSegmented(claude, t("权限模式（默认）"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件；manual：每步都问。派发时可以在确认框里临时改"), CLAUDE_PERMISSIONS, d.claude.permission, (v) => { d.claude.permission = v; p.saveSettings(); this.display(); });
+        this.renderAgentModels(claude, "claude", modelCtx);
         const claudeMore = this.subDetails(claude, "claude-more", t("更多设置"));
         this.rowText(claudeMore, t("命令行路径"), t("留空自动查找"), d.claude.path || "", t("自动查找"), (v) => { d.claude.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
         this.rowText(claudeMore, t("工作目录"), t("留空使用库根目录"), d.claude.cwd, t("留空 = 库根目录"), (v) => { d.claude.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
@@ -646,11 +731,12 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         return true;
       }
       if (id === "codex") {
-        const codex = this.agentCard(agentList, "codex", "Codex", "");
+        const codex = this.agentCard(agentList, "codex", "Codex", "", { forceOpen: filterActive });
         this.rowSegmented(codex, t("派发到"), "", [{ id: "desktop", label: t("Codex 桌面版") }, { id: "terminal", label: t("终端") }], d.codex.transport || "desktop", (v) => { d.codex.transport = v; p.saveSettings(); this.display(); });
         this.modelSelect(codex, "codex", p.defaultModel("codex"), (v) => { this.setDefaultModel("codex", v); this.display(); });
         this.effortControl(codex, "codex", d.codex.effort, (v) => { this.setDefaultEffort("codex", v); this.display(); });
         this.rowSegmented(codex, t("沙箱模式（默认）"), t("read-only：只读；workspace-write：只改工作目录；danger-full-access：完全权限。派发时可以在确认框里临时改"), CODEX_SANDBOXES, d.codex.sandbox || "workspace-write", (v) => { d.codex.sandbox = v; p.saveSettings(); this.display(); });
+        this.renderAgentModels(codex, "codex", modelCtx);
         const codexMore = this.subDetails(codex, "codex-more", t("更多设置"));
         for (const [key, label, hint] of [["path", t("codex 程序路径"), t("桌面模式留空优先使用 Desktop 自带程序；终端模式从 PATH 查找")], ["cwd", t("工作目录"), t("留空 = 库根目录")]]) {
           this.rowText(codexMore, label, hint, d.codex[key], hint, (v) => { d.codex[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
@@ -661,10 +747,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         return true;
       }
       if (id === "qoder") {
-        const qoder = this.agentCard(agentList, "qoder", "Qoder", t("已登录 qodercli 时后台直接执行；未登录时自动复制任务并打开 Qoder 桌面版交接"));
+        const qoder = this.agentCard(agentList, "qoder", "Qoder", t("已登录 qodercli 时后台直接执行；未登录时自动复制任务并打开 Qoder 桌面版交接"), { forceOpen: filterActive });
         this.modelSelect(qoder, "qoder", p.defaultModel("qoder"), (v) => { this.setDefaultModel("qoder", v); this.display(); });
         this.effortControl(qoder, "qoder", d.qoder.effort, (v) => { this.setDefaultEffort("qoder", v); this.display(); });
         this.rowSegmented(qoder, t("权限模式（默认）"), t("plan：规划；auto：自动判断；acceptEdits：允许修改文件；manual：每步都问。派发时可以在确认框里临时改"), CLAUDE_PERMISSIONS, d.qoder.permission, (v) => { d.qoder.permission = v; p.saveSettings(); this.display(); });
+        this.renderAgentModels(qoder, "qoder", modelCtx);
         const qoderMore = this.subDetails(qoder, "qoder-more", t("更多设置"));
         for (const [key, label, hint] of [["path", t("命令行路径"), t("留空自动查找（~/.qoder/bin/qodercli/qodercli）")], ["cwd", t("工作目录"), t("留空 = 库根目录")], ["extraArgs", t("额外参数"), t("可留空")]]) {
           this.rowText(qoderMore, label, hint, d.qoder[key] || "", hint, (v) => { d.qoder[key] = v.trim(); p.saveSettings(); }, "ad-input--wide");
@@ -675,9 +762,22 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         qoder.appendChild(qoderMore.parentElement);
         return true;
       }
+      if (id === "t3code") {
+        if (filterActive) return false;
+        const t3Cfg = (d.t3code ||= { ...DEFAULTS.delegate.t3code });
+        const t3Card = this.agentCard(agentList, "t3code", "T3 Code", t("通过 t3 CLI 后台委派与应用内续聊；模型在 T3 Code 客户端选择"));
+        this.rowToggle(t3Card, t("完成后自动在桌面版打开"), "", t3Cfg.openDesktop === true, (v) => { t3Cfg.openDesktop = v; p.saveSettings(); t3Card._refreshPills?.(); });
+        const t3More = this.subDetails(t3Card, "t3code-more", t("更多设置"));
+        this.rowText(t3More, t("t3 程序路径"), t("留空自动查找"), t3Cfg.path || "", t("自动查找"), (v) => { t3Cfg.path = v.trim(); p.saveSettings(); }, "ad-input--wide");
+        this.rowText(t3More, t("工作目录"), t("留空使用库根目录"), t3Cfg.cwd || "", t("留空 = 库根目录"), (v) => { t3Cfg.cwd = v.trim(); p.saveSettings(); }, "ad-input--wide");
+        this.rowText(t3More, t("额外参数"), t("传给 t3 CLI 的参数"), t3Cfg.extraArgs || "", t("可留空"), (v) => { t3Cfg.extraArgs = v; p.saveSettings(); }, "ad-input--wide");
+        this.bigButton(t3More.createDiv({ cls: "ad-btnrow" }), t("检查 t3"), async () => new Notice(await p.checkBinary("t3code"), 6000));
+        t3Card.appendChild(t3More.parentElement);
+        return true;
+      }
       const spec = acpSpecs[id];
       if (spec) {
-        this.renderAcpCard(agentList, (d[spec.id] ||= { ...DEFAULTS.delegate[spec.id] }), spec);
+        this.renderAcpCard(agentList, (d[spec.id] ||= { ...DEFAULTS.delegate[spec.id] }), spec, modelCtx);
         return true;
       }
       return false;
@@ -689,19 +789,32 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       if (renderConfigurableAgent(id)) hasConfiguredAgents = true;
     }
     if (!hasConfiguredAgents) {
-      agentList.createDiv({ cls: "ad-delegate-empty", text: t("当前没有已启用的可委派 Agent。") });
-    }
-
-    const otherShared = ["workbuddy", "qwenwork", "teleagent"].filter((id) => p.agentEnabled(id));
-    if (otherShared.length) {
-      const passive = agentConfigCard.createDiv({ cls: "ad-delegate-passive" });
-      passive.createDiv({ cls: "ad-delegate-passive__title", text: t("仅客户端交接 / 追踪") });
-      for (const id of otherShared) {
-        const r = this.row(passive, AGENTS[id].name, "", AGENTS[id].trackingOnly ? t("会话追踪与记录（暂不支持后台委派）") : t("客户端交接 · 在客户端选择模型"));
-        r.dataset.agent = id;
+      if (filterActive) {
+        agentList.createDiv({ cls: "ad-empty ad-empty--small", text: t("没有符合条件的模型") });
+      } else {
+        agentList.createDiv({ cls: "ad-delegate-empty", text: t("当前没有已启用的可委派 Agent。") });
       }
     }
-    this.renderCustomAcpSection(agentConfigCard);
+
+    if (!filterActive) {
+      const configuredIds = new Set(["claude", "codex", "qoder", "t3code", ...Object.keys(acpSpecs)]);
+      const passiveAgents = settingsAgentOrder(s, "delegation", (id) => p.agentEnabled(id))
+        .filter((id) => p.agentEnabled(id) && !AGENTS[id]?.customAcp && !configuredIds.has(id));
+      if (passiveAgents.length) {
+        const passive = agentConfigCard.createDiv({ cls: "ad-delegate-passive" });
+        passive.createDiv({ cls: "ad-delegate-passive__title", text: t("仅客户端交接 / 追踪") });
+        for (const id of passiveAgents) {
+          const desc = id === "workbuddy"
+            ? t("客户端交接 · 在客户端选择模型")
+            : (id === "teleagent"
+              ? t("客户端复制 / 填入交接 · 暂不支持后台委派")
+              : t("会话追踪与记录（暂不支持后台委派）"));
+          const r = this.row(passive, AGENTS[id].name, "", desc);
+          r.dataset.agent = id;
+        }
+      }
+      this.renderCustomAcpSection(agentConfigCard);
+    }
 
     // 3. 委派 → 路由与发送规则（项目目录路由 + 补全 / 前后缀 / 附加要求）
     const routingCard = this.card(
@@ -763,7 +876,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       opsCard,
       t("管家 Agent"),
       t("看板一次派发多条任务时自动汇总进度；选「关闭」就不起管家会话，避免占错配额"),
-      [{ id: "off", label: t("关闭") }, ...settingsAgentOrder(s, "delegation", (id) => p.agentEnabled(id) && !AGENTS[id].trackingOnly).filter((id) => p.agentEnabled(id) && !AGENTS[id].trackingOnly).map((id) => ({ id, label: AGENTS[id].name }))],
+      [{ id: "off", label: t("关闭") }, ...settingsAgentOrder(s, "delegation", (id) => p.agentEnabled(id) && delegateAgents().includes(id) && !AGENTS[id]?.trackingOnly).filter((id) => p.agentEnabled(id) && delegateAgents().includes(id) && !AGENTS[id]?.trackingOnly).map((id) => ({ id, label: AGENTS[id].name }))],
       stewardAgentVal,
       (v) => {
         s.projectTeams ||= {};
@@ -778,12 +891,13 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       p.startStewardWatch?.();
     });
     if (showTerminal) {
+      const termSupportedIds = cliHandoffAgents().filter((id) => p.agentEnabled(id));
+      const termList = (termSupportedIds.length ? termSupportedIds : cliHandoffAgents())
+        .map((id) => AGENTS[id]?.name || id)
+        .join("、");
       this.rowSelect(opsCard, t("主力终端"), t("用于终端委派和恢复会话"), getTerminalOptions(), s.cliTerminal || "auto", (v) => { s.cliTerminal = v; p.saveSettings(); this.display(); });
-      this.rowToggle(opsCard, t("默认在终端委派"), t("适用于 Claude Code、Codex、OpenCode、Qoder 和 Hermes"), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
+      this.rowToggle(opsCard, t("默认在终端委派"), t("适用于 {agents}", { agents: termList }), !!s.delegateInTerminal, (v) => { s.delegateInTerminal = v; p.saveSettings(); p.refreshUI(); });
     }
-
-    // 5. 委派 → 管理模型
-    this.renderModels(body);
   }
 
   renderProjectFolders(card) {
@@ -869,8 +983,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
   }
 
   jumpToAgentModels(agent) {
-    const groups = (this.plugin.settings.ui ||= {}).modelGroups ||= {};
-    if (groups[agent]) groups[agent].open = true;
+    const ui = (this.plugin.settings.ui ||= {});
+    if (ui.delegateGroups?.[agent]) ui.delegateGroups[agent].open = true;
+    if (ui.modelGroups?.[agent]) ui.modelGroups[agent].open = true;
+    this.subOpen[`models-${agent}`] = true;
     this.filter = "all";
     this.search = "";
     this._scrollToModels = agent;
@@ -890,14 +1006,6 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const selected = options.some((o) => o.id === value) ? value : (options[0]?.id ?? "");
     return this.row(parent, t("默认模型"), "", (rr) => {
       this.selectInput(rr, options, selected, onChange);
-      if (typeof this.plugin.allModels === "function") {
-        const manage = rr.createEl("button", {
-          cls: "ad-btn ad-btn--ghost ad-btn--compact",
-          text: t("管理模型"),
-          attr: { type: "button", title: t("展开并跳转到该 Agent 的模型列表") },
-        });
-        manage.onclick = () => this.jumpToAgentModels(agent);
-      }
     });
   }
 
@@ -991,7 +1099,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       persist();
     }).open(), "ad-btn--soft ad-btn--compact");
     if (!list.length) {
-      box.createDiv({ cls: "ad-hint", text: t("尚未添加自定义 ACP Agent（可接入 Gemini CLI、Kiro、Mistral Vibe、Pi 等任意 ACP 命令）") });
+      box.createDiv({ cls: "ad-hint", text: t("尚未添加自定义 ACP Agent（可接入 Kiro、Mistral Vibe、Pi 等任意 ACP 命令）") });
       return;
     }
     const listEl = box.createDiv({ cls: "ad-custom-acp__list" });
@@ -1020,92 +1128,61 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     }
   }
 
-  renderModels(body) {
+  renderAgentModels(parent, agent, modelCtx, { onRefresh = null, refreshTitle = "" } = {}) {
     const p = this.plugin;
-    if (syncModelGroups(p.settings, (agent) => p.agentEnabled(agent))) p.saveSettings();
-    const d = this.modelsDraft();
-    const models = p.allModels(d.custom);
-    const enabled = new Set(d.enabled);
-
-    const picker = body.createDiv({ cls: "ad-card ad-models-card" });
-    const phead = picker.createDiv({ cls: "ad-card__head ad-card__head--bar" });
-    const ptext = phead.createDiv({ cls: "ad-card__head-text" });
-    ptext.createDiv({ cls: "ad-card__title", text: t("管理模型") });
-    ptext.createDiv({ cls: "ad-card__sub", text: t("添加、编辑、启用、置顶和排序可用模型；改动自动保存") });
-    const pacts = phead.createDiv({ cls: "ad-card__head-actions" });
-    const add = pacts.createEl("button", { cls: "ad-btn ad-btn--soft ad-btn--compact", text: "＋ " + t("添加模型") });
-    add.onclick = () => new AddModelModal(this.app, p, (m) => {
-      this.persistModelsChange((store) => {
-        store.custom.push(m);
-        if (!store.enabled.includes(m.id)) store.enabled.push(m.id);
-        if (!store.order.includes(m.id)) store.order.push(m.id);
-      });
-    }).open();
-
-    const tools = picker.createDiv({ cls: "ad-picker-tools" });
-    const searchWrap = tools.createDiv({ cls: "ad-search" });
-    searchWrap.createSpan({ cls: "ad-search__icon", text: "⌕" });
-    const search = searchWrap.createEl("input", { cls: "ad-search__input", attr: { placeholder: t("搜索模型"), value: this.search } });
-    search.oninput = () => { this.search = search.value; this.display(); };
-    const filters = picker.createDiv({ cls: "ad-filters ad-filters--models" });
-    for (const [id, label] of [["all", t("全部")], ["enabled", t("已启用")], ["reasoning", t("推理")], ["fast", t("快速")], ["vision", t("视觉")]]) {
-      const b = filters.createEl("button", { cls: "ad-chip" + (this.filter === id ? " is-on" : ""), text: label, attr: { "aria-pressed": String(this.filter === id) } });
-      b.onclick = () => { this.filter = id; this.display(); };
-    }
-    const list = picker.createDiv({ cls: "ad-modellist" });
-    const q = this.search.trim().toLowerCase();
-    const visible = models.filter((m) => {
-      if (this.filter === "enabled" && !enabled.has(m.id)) return false;
-      if (this.filter === "reasoning" && !(m.tags || []).includes("Reasoning")) return false;
-      if (this.filter === "fast" && !(m.tags || []).includes("Fast")) return false;
-      if (this.filter === "vision" && !(m.tags || []).includes("Vision")) return false;
-      if (q && !`${m.name} ${m.provider} ${(m.tags || []).join(" ")}`.toLowerCase().includes(q)) return false;
-      return true;
+    const d = modelCtx.draft;
+    const rows = modelCtx.rowsByAgent.get(agent) || [];
+    const key = `models-${agent}`;
+    const g = parent.createEl("details", { cls: "ad-modelgroup ad-agent-models" });
+    g.dataset.agent = agent;
+    g.open = modelCtx.filterActive ? true : (this.subOpen[key] ?? false);
+    g.ontoggle = () => {
+      if (!g.isConnected || modelCtx.filterActive) return;
+      this.subOpen[key] = g.open;
+    };
+    const gh = g.createEl("summary", { cls: "ad-modelgroup__head" });
+    gh.createSpan({ text: t("可用模型") });
+    gh.createSpan({
+      cls: "ad-muted",
+      text: t("已启用 {n} / {total}", { n: rows.filter((m) => modelCtx.enabledSet.has(m.id)).length, total: rows.length }),
     });
-    const pinned = d.pinned.map((id) => visible.find((m) => m.id === id)).filter(Boolean);
-    const rest = visible.filter((m) => !d.pinned.includes(m.id));
-    for (const agent of AGENT_ORDER) {
-      if (!p.agentEnabled(agent)) continue;
-      const rows = [...pinned, ...rest].filter((m) => m.agent === agent);
-      const clientModels = agent === "workbuddy" || agent === "teleagent" || agent === "t3code" || AGENTS[agent].trackingOnly;
-      if (!rows.length && (!clientModels || q || this.filter !== "all")) continue;
-      const state = p.settings.ui.modelGroups[agent];
-      const g = list.createEl(clientModels ? "div" : "details", { cls: "ad-modelgroup" + (clientModels ? " is-client-only" : "") });
-      g.dataset.agent = agent;
-      if (!clientModels) {
-        g.open = state.open;
-        g.ontoggle = () => {
-          if (!g.isConnected || p.settings.ui.modelGroups[agent] !== state || state.open === g.open) return;
-          state.open = g.open;
-          p.saveSettings();
-        };
-      }
-      const gh = g.createEl(clientModels ? "div" : "summary", { cls: "ad-modelgroup__head" });
-      const a = AGENTS[agent];
-      agentIcon(gh.createSpan({ cls: "ad-glyph", attr: { style: `color:${a.color}` } }), agent);
-      gh.createSpan({ text: a.name });
-      gh.createSpan({ cls: "ad-muted", text: clientModels ? t("在客户端选择模型") : t("已启用 {n} / {total}", { n: rows.filter((m) => enabled.has(m.id)).length, total: rows.length }) });
-      if (!clientModels && delegateAgents().includes(agent)) {
-        const addGroup = gh.createEl("button", { cls: "ad-linkbtn", text: "＋ " + t("添加"), attr: { type: "button" } });
-        addGroup.onclick = (e) => {
-          e?.preventDefault?.();
-          e?.stopPropagation?.();
-          new AddModelModal(this.app, p, (m) => {
-            this.persistModelsChange((store) => {
-              store.custom.push(m);
-              if (!store.enabled.includes(m.id)) store.enabled.push(m.id);
-              if (!store.order.includes(m.id)) store.order.push(m.id);
-            });
-          }, null, { defaultAgent: agent }).open();
-        };
-      }
-      if (rows.length) this.groupAction(gh, rows, d);
+    const actions = gh.createDiv({ cls: "ad-modelgroup__actions" });
+    if (onRefresh) {
+      const refreshBtn = actions.createEl("button", {
+        cls: "ad-linkbtn",
+        text: t("读取模型"),
+        attr: { type: "button", title: refreshTitle || t("读取模型") },
+      });
+      refreshBtn.onclick = (e) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        onRefresh();
+      };
+    }
+    if (modelCatalogAgents().includes(agent)) {
+      const addGroup = actions.createEl("button", { cls: "ad-linkbtn", text: "＋ " + t("添加"), attr: { type: "button" } });
+      addGroup.onclick = (e) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        new AddModelModal(this.app, p, (m) => {
+          this.subOpen[key] = true;
+          this.persistModelsChange((store) => {
+            store.custom.push(m);
+            if (!store.enabled.includes(m.id)) store.enabled.push(m.id);
+            if (!store.order.includes(m.id)) store.order.push(m.id);
+          });
+        }, null, { defaultAgent: agent }).open();
+      };
+    }
+    if (rows.length) this.groupAction(actions, rows, d);
+    const bodyEl = g.createDiv({ cls: "ad-modelgroup__body" });
+    if (!rows.length) {
+      bodyEl.createDiv({ cls: "ad-hint", text: t("没有符合条件的模型") });
+    } else {
       const defaultId = p.defaultModel(agent);
-      for (const m of rows) this.modelRow(g, m, d, agent, defaultId, d.pinned.includes(m.id));
+      for (const m of rows) this.modelRow(bodyEl, m, d, agent, defaultId, d.pinned.includes(m.id));
     }
-    if (!pinned.length && !rest.length) {
-      list.createDiv({ cls: "ad-empty ad-empty--small", text: t("没有符合条件的模型") });
-    }
+    return g;
   }
 
   groupAction(head, rows, d) {
@@ -1137,13 +1214,25 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     name.createSpan({ text: m.name });
     if (pinned) name.createSpan({ cls: "ad-badge ad-badge--soft", text: t("置顶") });
     if (m.id === defaultId) name.createSpan({ cls: "ad-badge", text: t("默认") });
-    const meta = left.createDiv({ cls: "ad-modelrow__meta" });
-    meta.createSpan({ text: m.context });
-    meta.createSpan({ cls: "ad-dot", text: "·" });
-    meta.createSpan({ text: strength(m.strength, true) });
-    meta.createSpan({ cls: "ad-dot", text: "·" });
-    for (const tag of m.tags || []) meta.createSpan({ cls: "ad-cap", text: tag });
-    if (m.cost) meta.createSpan({ cls: "ad-cost", text: m.cost });
+    const metaParts = [];
+    if (m.context && m.context !== "—") metaParts.push({ cls: "", text: m.context });
+    if (Number(m.strength) > 0) metaParts.push({ cls: "", text: strength(m.strength, true) });
+    const tags = Array.isArray(m.tags) ? m.tags.filter(Boolean) : [];
+    if (tags.length) metaParts.push({ cls: "tags", tags });
+    if (m.cost) metaParts.push({ cls: "ad-cost", text: m.cost });
+    if (metaParts.length) {
+      const meta = left.createDiv({ cls: "ad-modelrow__meta" });
+      metaParts.forEach((part, idx) => {
+        if (idx > 0) meta.createSpan({ cls: "ad-dot", text: "·" });
+        if (part.cls === "tags") {
+          for (const tag of part.tags) meta.createSpan({ cls: "ad-cap", text: tag });
+        } else if (part.cls) {
+          meta.createSpan({ cls: part.cls, text: part.text });
+        } else {
+          meta.createSpan({ text: part.text });
+        }
+      });
+    }
     const right = row.createDiv({ cls: "ad-modelrow__right" });
     this.toggle(right, on, (v) => {
       this.persistModelsChange((store) => {
@@ -1580,16 +1669,61 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.rowText(jr, t("日记目录"), t("当前：{folder}；今天：{path}", { folder: det.folder || t("库根目录"), source: det.folderSource, path: journalPath(this.app, s) }), s.journalFolder || "", t("自动：{folder}", { folder: det.folder || t("库根目录") }), (v) => { s.journalFolder = v.trim(); p.saveSettings(); this.display(); });
     this.rowText(jr, t("日记文件名格式"), t("例如 YYYY-MM-DD；当前：{format}", { format: det.format, source: det.source }), s.journalFormat || "", t("自动：{format}", { format: det.format }), (v) => { s.journalFormat = v.trim(); p.saveSettings(); this.display(); });
     this.rowToggle(jr, t("自动会话记录"), t("自动将活跃会话建项并记入今日日记"), s.autoLog === true, (v) => { s.autoLog = v; p.saveSettings(); });
-    this.row(jr, t("记哪几个 Agent"), t("选择自动建项的 Agent"), (rr) => {
-      const agBox = rr.createDiv({ cls: "ad-seg ad-seg--many" });
-      const agOn = (s.autoLogAgents ||= {});
-      const logAgents = AGENT_ORDER.filter((id) => p.agentEnabled(id));
-      for (const id of logAgents) {
-        const b = agBox.createEl("button", { cls: "ad-seg__btn" + (agOn[id] !== false ? " is-on" : ""), text: AGENTS[id]?.short || id, attr: { "aria-pressed": String(agOn[id] !== false) } });
-        b.onclick = () => { agOn[id] = agOn[id] === false; b.classList.toggle("is-on", agOn[id] !== false); b.setAttribute("aria-pressed", String(agOn[id] !== false)); p.saveSettings(); };
-      }
-      if (!logAgents.length) agBox.createSpan({ cls: "ad-muted", text: t("暂无已启用的 Harness") });
-    });
+    const autoLogDetails = jr.createEl("details", { cls: "ad-subdetails ad-autolog-picker" });
+    autoLogDetails.dataset.section = "auto-log-agents";
+    autoLogDetails.open = this.subOpen["auto-log-agents"] ?? false;
+    autoLogDetails.ontoggle = () => { if (autoLogDetails.isConnected) this.subOpen["auto-log-agents"] = autoLogDetails.open; };
+    const agOn = (s.autoLogAgents ||= {});
+    const logAgents = AGENT_ORDER.filter((id) => p.agentEnabled(id));
+    const enabledCount = () => logAgents.filter((id) => agOn[id] !== false).length;
+    const countText = () => (logAgents.length ? t("已启用 {n} / {total}", { n: enabledCount(), total: logAgents.length }) : t("暂无已启用的 Harness"));
+    const autoLogSum = autoLogDetails.createEl("summary", { cls: "ad-subdetails__head" });
+    autoLogSum.createSpan({ cls: "ad-autolog-picker__title", text: t("记哪几个 Agent") });
+    const countEl = autoLogSum.createSpan({ cls: "ad-autolog-picker__count", text: countText() });
+    const toggleAllBtn = logAgents.length
+      ? autoLogSum.createEl("button", {
+          cls: "ad-linkbtn ad-autolog-picker__toggle",
+          text: enabledCount() === logAgents.length ? t("全部关闭") : t("全部开启"),
+          attr: { type: "button" },
+        })
+      : null;
+    const autoLogBody = autoLogDetails.createDiv({ cls: "ad-subdetails__body" });
+    autoLogBody.createDiv({ cls: "ad-row__desc ad-autolog-picker__desc", text: t("选择自动建项的 Agent") });
+    const agBox = autoLogBody.createDiv({ cls: "ad-seg ad-seg--many" });
+    const btns = [];
+    const syncHeader = () => {
+      const n = enabledCount();
+      countEl.textContent = countText();
+      if (toggleAllBtn) toggleAllBtn.textContent = n === logAgents.length ? t("全部关闭") : t("全部开启");
+    };
+    for (const id of logAgents) {
+      const on = agOn[id] !== false;
+      const b = agBox.createEl("button", { cls: "ad-seg__btn" + (on ? " is-on" : ""), text: AGENTS[id]?.short || id, attr: { "aria-pressed": String(on) } });
+      b.onclick = () => {
+        const nextOn = agOn[id] === false;
+        agOn[id] = nextOn;
+        b.classList.toggle("is-on", nextOn);
+        b.setAttribute("aria-pressed", String(nextOn));
+        syncHeader();
+        p.saveSettings();
+      };
+      btns.push({ id, b });
+    }
+    if (toggleAllBtn) {
+      toggleAllBtn.onclick = (e) => {
+        e?.preventDefault?.();
+        e?.stopPropagation?.();
+        const turnOn = enabledCount() < logAgents.length;
+        for (const { id, b } of btns) {
+          agOn[id] = turnOn;
+          b.classList.toggle("is-on", turnOn);
+          b.setAttribute("aria-pressed", String(turnOn));
+        }
+        syncHeader();
+        p.saveSettings();
+      };
+    }
+    if (!logAgents.length) agBox.createSpan({ cls: "ad-muted", text: t("暂无已启用的 Harness") });
     const grain = this.row(jr, t("自动记录颗粒度"), t("选择记录的时机"), (rr) => {
       this.segmented(rr, [{ id: "latest", label: t("最新进展") }, { id: "round", label: t("每轮记录") }, { id: "paused", label: t("停歇或归档") }], s.autoLogGranularity || DEFAULTS.autoLogGranularity, (v) => { s.autoLogGranularity = v; p.saveSettings(); this.display(); });
     });
@@ -1815,6 +1949,11 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     ]) {
       this.rowToggle(ui, label, desc, s[key] === undefined ? fallback : s[key] !== false, (v) => { s[key] = v; p.saveSettings(); p.applyUiSettings(); });
     }
+    this.rowToggle(ui, t("AI 协作回顾"), t("默认开启。查看 token 热力图、项目投入和历史记录；关闭后隐藏入口并关闭回顾页，保留统计数据。"), s.experimentalDashboard !== false, async (enabled) => {
+      try { await p.setExperimentalDashboard(enabled); }
+      catch (error) { new Notice(t("设置保存失败：{error}", { error: error.message })); }
+      this.display();
+    });
     const uiMore = this.subDetails(ui, "display-more", t("更多设置"));
     this.rowToggle(uiMore, t("最近 14 天的条形图"), "", s.ui.showUsageBars !== false, (v) => { s.ui.showUsageBars = v; p.saveSettings(); p.refreshUI(); });
     this.rowToggle(uiMore, t("每个 Agent 的小火花线"), "", s.ui.showSparkline !== false, (v) => { s.ui.showSparkline = v; p.saveSettings(); p.refreshUI(); });
@@ -2110,7 +2249,57 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     recallInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); runRecall(); } });
     card.appendChild(recallDetails.parentElement);
 
-    // 3. 外部 Agent 接入（MCP Server / CLI）
+    const c = s.share, sharing = p.dreaming.sharing;
+    const shared = this.card(body, t("与其他 Agent 共享记忆"), t("将记忆导出到固定文件，供其他 Agent 读取"));
+    this.rowToggle(shared, t("自动同步共享记忆"), t("Dream 完成后同步，并按下方间隔定期同步"), c.enabled, (v) => { c.enabled = v; p.saveSettings(); });
+    this.rowText(shared, t("共享文件路径"), t("绝对路径，支持 ~/"), c.path, "/Users/me/shared-agent-memory/memory.md", (v) => { try { c.path = v.trim() ? externalMemoryPath(v) : ""; p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
+    const shareMore = this.subDetails(shared, "share-more", t("更多设置"));
+    this.rowNumber(shareMore, t("定期同步间隔（小时）"), t("1–168 小时"), c.intervalHours, 1, 168, (v) => { c.intervalHours = v; p.saveSettings(); });
+    this.rowToggle(shareMore, t("同步后提交并推送 Git"), t("共享文件需位于 Git 仓库中；推送到 origin 当前分支"), c.gitPush, (v) => { c.gitPush = v; p.saveSettings(); });
+    const syncNow = this.bigButton(shared.createDiv({ cls: "ad-btnrow" }), t("立即同步共享记忆"), async () => {
+      const task = sharing.sync(); update();
+      try { await task; } finally { update(); }
+    });
+    const sharedStatus = shared.createDiv({ cls: "ad-muted", attr: { role: "status", "aria-live": "polite" } });
+    shared.appendChild(shareMore.parentElement);
+    const update = () => {
+      const d = p.dreaming, state = d.progress;
+      run.disabled = d.busy;
+      run.textContent = d.busy ? t("Dream 整理中…") : t("现在 Dream 一次");
+      progress.hidden = state.phase === "idle";
+      progress.setAttribute("aria-busy", String(d.busy));
+      const steps = { collect: 1, model: 2, write: 3, sync: 4 };
+      phase.textContent = `${steps[state.phase] ? t("第 {step}/4 步 · ", { step: steps[state.phase] }) : ""}${state.message}`;
+      elapsed.textContent = state.startedAt ? t("耗时 {n} 秒", { n: Math.max(0, Math.floor(((state.endedAt || Date.now()) - state.startedAt) / 1000)) }) : "";
+      const dropStr = s.coverage?.dropped ? t("（忽略未过核验 {n} 条）", { n: s.coverage.dropped }) : "";
+      const consParts = s.lastConsolidate?.at
+        ? [
+          t("上次巩固：合并 {m} 组 / 淘汰 {d} 条", { m: s.lastConsolidate.merged || 0, d: s.lastConsolidate.deprecated || 0 }),
+          s.lastConsolidate.conflicts?.length ? t("冲突 {n} 组", { n: s.lastConsolidate.conflicts.length }) : "",
+          s.lastConsolidate.archived ? t("归档 {n} 条", { n: s.lastConsolidate.archived }) : "",
+        ].filter(Boolean)
+        : [];
+      const consStr = consParts.join(t("；"));
+      summary.textContent = [
+        s.coverage ? t("上次采集 {files} 篇；已处理 {done}/{total} 块，待处理 {pending} 块", { files: s.coverage.files, done: s.coverage.processed, total: s.coverage.total, pending: s.coverage.pending }) + dropStr : "",
+        s.lastRun ? t("上次完成：{time}", { time: new Date(s.lastRun).toLocaleString() }) : "",
+        consStr,
+        s.lastError ? t("上次未完成：{error}", { error: s.lastError }) : "",
+      ].filter(Boolean).join(t("；"));
+      meter.hidden = !d.busy;
+      syncNow.disabled = sharing.busy || d.busy;
+      syncNow.textContent = sharing.busy ? t("共享同步中…") : t("立即同步共享记忆");
+      sharedStatus.textContent = [sharing.status || (c.lastError ? t("上次共享失败：{error}", { error: c.lastError }) : ""), c.lastSuccess ? t("上次同步成功：{time}", { time: new Date(c.lastSuccess).toLocaleString() }) : t("尚未同步")].filter(Boolean).join(t("；"));
+    };
+    update();
+    this._dreamTimer = this._timers.setInterval(update, 1000);
+  }
+
+  // ---------- About ----------
+  // ---------- Experiments ----------
+  renderMemoryMcpCard(body) {
+    const p = this.plugin;
+    const s = (p.settings.dream ||= {});
     const mcpCfg = (s.mcp ||= { toolsMode: "all", allowWrite: false, excludeAiLogs: true, agentPrompt: "" });
     if (mcpCfg.toolsMode !== "memory-only" && mcpCfg.toolsMode !== "all") mcpCfg.toolsMode = "all";
     mcpCfg.allowWrite = Boolean(mcpCfg.allowWrite);
@@ -2376,62 +2565,10 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.bigButton(mcpBtns, t("复制 Claude Code 命令"), () => p.copyMcpConfig?.("claude", { allowWrite: mcpAllowWrite }), "ad-btn--compact");
     this.bigButton(mcpBtns, t("复制 CLI 查询示例"), () => p.copyMcpConfig?.("cli"), "ad-btn--compact");
     mcpCard.appendChild(mcpMore.parentElement);
-
-    const c = s.share, sharing = p.dreaming.sharing;
-    const shared = this.card(body, t("与其他 Agent 共享记忆"), t("将记忆导出到固定文件，供其他 Agent 读取"));
-    this.rowToggle(shared, t("自动同步共享记忆"), t("Dream 完成后同步，并按下方间隔定期同步"), c.enabled, (v) => { c.enabled = v; p.saveSettings(); });
-    this.rowText(shared, t("共享文件路径"), t("绝对路径，支持 ~/"), c.path, "/Users/me/shared-agent-memory/memory.md", (v) => { try { c.path = v.trim() ? externalMemoryPath(v) : ""; p.saveSettings(); } catch (e) { new Notice(e.message); } }, "ad-input--wide");
-    const shareMore = this.subDetails(shared, "share-more", t("更多设置"));
-    this.rowNumber(shareMore, t("定期同步间隔（小时）"), t("1–168 小时"), c.intervalHours, 1, 168, (v) => { c.intervalHours = v; p.saveSettings(); });
-    this.rowToggle(shareMore, t("同步后提交并推送 Git"), t("共享文件需位于 Git 仓库中；推送到 origin 当前分支"), c.gitPush, (v) => { c.gitPush = v; p.saveSettings(); });
-    const syncNow = this.bigButton(shared.createDiv({ cls: "ad-btnrow" }), t("立即同步共享记忆"), async () => {
-      const task = sharing.sync(); update();
-      try { await task; } finally { update(); }
-    });
-    const sharedStatus = shared.createDiv({ cls: "ad-muted", attr: { role: "status", "aria-live": "polite" } });
-    shared.appendChild(shareMore.parentElement);
-    const update = () => {
-      const d = p.dreaming, state = d.progress;
-      run.disabled = d.busy;
-      run.textContent = d.busy ? t("Dream 整理中…") : t("现在 Dream 一次");
-      progress.hidden = state.phase === "idle";
-      progress.setAttribute("aria-busy", String(d.busy));
-      const steps = { collect: 1, model: 2, write: 3, sync: 4 };
-      phase.textContent = `${steps[state.phase] ? t("第 {step}/4 步 · ", { step: steps[state.phase] }) : ""}${state.message}`;
-      elapsed.textContent = state.startedAt ? t("耗时 {n} 秒", { n: Math.max(0, Math.floor(((state.endedAt || Date.now()) - state.startedAt) / 1000)) }) : "";
-      const dropStr = s.coverage?.dropped ? t("（忽略未过核验 {n} 条）", { n: s.coverage.dropped }) : "";
-      const consParts = s.lastConsolidate?.at
-        ? [
-          t("上次巩固：合并 {m} 组 / 淘汰 {d} 条", { m: s.lastConsolidate.merged || 0, d: s.lastConsolidate.deprecated || 0 }),
-          s.lastConsolidate.conflicts?.length ? t("冲突 {n} 组", { n: s.lastConsolidate.conflicts.length }) : "",
-          s.lastConsolidate.archived ? t("归档 {n} 条", { n: s.lastConsolidate.archived }) : "",
-        ].filter(Boolean)
-        : [];
-      const consStr = consParts.join(t("；"));
-      summary.textContent = [
-        s.coverage ? t("上次采集 {files} 篇；已处理 {done}/{total} 块，待处理 {pending} 块", { files: s.coverage.files, done: s.coverage.processed, total: s.coverage.total, pending: s.coverage.pending }) + dropStr : "",
-        s.lastRun ? t("上次完成：{time}", { time: new Date(s.lastRun).toLocaleString() }) : "",
-        consStr,
-        s.lastError ? t("上次未完成：{error}", { error: s.lastError }) : "",
-      ].filter(Boolean).join(t("；"));
-      meter.hidden = !d.busy;
-      syncNow.disabled = sharing.busy || d.busy;
-      syncNow.textContent = sharing.busy ? t("共享同步中…") : t("立即同步共享记忆");
-      sharedStatus.textContent = [sharing.status || (c.lastError ? t("上次共享失败：{error}", { error: c.lastError }) : ""), c.lastSuccess ? t("上次同步成功：{time}", { time: new Date(c.lastSuccess).toLocaleString() }) : t("尚未同步")].filter(Boolean).join(t("；"));
-    };
-    update();
-    this._dreamTimer = this._timers.setInterval(update, 1000);
   }
 
-  // ---------- About ----------
   renderExperimental(body) {
-    const p = this.plugin;
-    const card = this.card(body, t("实验功能"));
-    this.rowToggle(card, t("AI 协作回顾"), t("默认开启。查看 token 热力图、项目投入和历史记录；关闭后隐藏入口并关闭回顾页，保留统计数据。"), p.settings.experimentalDashboard !== false, async (enabled) => {
-      try { await p.setExperimentalDashboard(enabled); }
-      catch (error) { new Notice(t("设置保存失败：{error}", { error: error.message })); }
-      this.display();
-    });
+    this.renderMemoryMcpCard(body);
   }
 
   renderAbout(body) {
@@ -2637,7 +2774,7 @@ class AddModelModal extends Modal {
     super(app);
     this.plugin = plugin;
     this.onAdd = onAdd;
-    const enabledAgents = delegateAgents().filter((id) => plugin?.agentEnabled?.(id) ?? true);
+    const enabledAgents = modelCatalogAgents().filter((id) => plugin?.agentEnabled?.(id) ?? true);
     this.agent = defaultAgent || (enabledAgents.includes("dsh") ? "dsh" : (enabledAgents[0] || "dsh"));
     this.name = "";
     this.route = "";
@@ -2662,8 +2799,8 @@ class AddModelModal extends Modal {
     field(t("显示名"), (f) => { const i = f.createEl("input", { cls: "ad-input", attr: { value: this.name, placeholder: t("例如 GPT-6-Luna") } }); i.oninput = () => this.name = i.value; });
     field("Agent", (f) => {
       const s = f.createEl("select", { cls: "ad-select" });
-      const enabledDel = delegateAgents().filter((id) => this.plugin?.agentEnabled?.(id) ?? true);
-      const choices = enabledDel.length ? enabledDel : delegateAgents();
+      const enabledDel = modelCatalogAgents().filter((id) => this.plugin?.agentEnabled?.(id) ?? true);
+      const choices = enabledDel.length ? enabledDel : modelCatalogAgents();
       if (this.existing && !choices.includes(this.existing.agent)) choices.unshift(this.existing.agent);
       for (const id of choices) s.createEl("option", { text: AGENTS[id]?.name || id, attr: { value: id } });
       s.value = this.agent;
@@ -2679,11 +2816,11 @@ class AddModelModal extends Modal {
     cancel.onclick = () => this.close();
     const add = bar.createEl("button", { cls: "ad-btn ad-btn--cta", text: this.existing ? t("保存") : t("添加") });
     add.onclick = () => {
-      const name = this.name.trim() || this.model.trim();
-      if (!name || !this.model.trim()) return new Notice(t("显示名和 model 至少填一个"));
+      const rawModel = this.model.trim();
+      if (!rawModel) return new Notice(t("请填写模型名或别名"));
+      const name = this.name.trim() || rawModel;
       const id = this.existing?.id || `custom-${this.agent}-${Date.now().toString(36)}`;
       const route = this.route.trim();
-      const rawModel = this.model.trim();
       const m = {
         id, agent: this.agent, name,
         cli: this.agent !== "dsh" ? rawModel : undefined,
@@ -2734,7 +2871,7 @@ class CustomAcpAgentModal extends Modal {
       i.oninput = () => { this.name = i.value; };
     });
     field(t("命令或绝对路径"), (f) => {
-      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.command, placeholder: t("例如 kiro-cli 或 /opt/homebrew/bin/gemini") } });
+      const i = f.createEl("input", { cls: "ad-input", attr: { value: this.command, placeholder: t("例如 kiro-cli 或 /usr/local/bin/pi") } });
       i.oninput = () => { this.command = i.value; };
     });
     field(t("启动参数（空格分隔，留空不传子命令）"), (f) => {

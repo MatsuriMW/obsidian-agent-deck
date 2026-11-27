@@ -1,8 +1,8 @@
 // Desktop databases are read in a transaction; no daemon, model call or database write.
 import fs from "fs";
 import path from "path";
-import { execFile } from "child_process";
-import { resolveSqliteBinary } from "./sqlite.js";
+import { querySqliteRowsStrict, toSqliteUriPath } from "./sqlite.js";
+export { toSqliteUriPath };
 import { stripQwenWorkContext, stripTeleAgentContext } from "./prompt-text.js";
 import { cleanCindyText } from "./cindy-sessions.js";
 import { extractOrcaMessageText } from "./orca-sessions.js";
@@ -47,59 +47,8 @@ function extractMinimaxTool(d) {
   return "";
 }
 
-export function toSqliteUriPath(dbPath) {
-  let real = dbPath;
-  try { real = fs.realpathSync(dbPath); } catch { real = path.resolve(dbPath); }
-  const normalized = real.replace(/\\/g, "/");
-  const prefixed = normalized.startsWith("/") ? normalized : `/${normalized}`;
-  const encoded = prefixed
-    .replace(/%/g, "%25")
-    .replace(/\?/g, "%3F")
-    .replace(/#/g, "%23")
-    .replace(/ /g, "%20");
-  return `file://${encoded}?immutable=1`;
-}
-
-function hasNonEmptyWal(db) {
-  const candidates = [db];
-  try {
-    const real = fs.realpathSync(db);
-    if (real && real !== db) candidates.push(real);
-  } catch { /* keep original path */ }
-  for (const base of candidates) {
-    try {
-      if (fs.statSync(`${base}-wal`).size > 0) return true;
-    } catch { /* no wal sidecar */ }
-  }
-  return false;
-}
-
-function runSqliteArgs(args) {
-  return new Promise((resolve, reject) => {
-    execFile(resolveSqliteBinary(), args, { timeout: 10000, maxBuffer: 64 << 20 }, (err, out) => {
-      if (err) return reject(err);
-      try { resolve(JSON.parse(out || "[]")); } catch (e) { reject(e); }
-    });
-  });
-}
-
 export async function desktopQuery(db, sql) {
-  if (!fs.existsSync(db)) return [];
-  const stmt = `BEGIN; ${sql}; COMMIT;`;
-  const walActive = hasNonEmptyWal(db);
-  if (!walActive) {
-    // Checkpointed WAL databases without -wal/-shm sidecars fail under plain `-readonly` (SQLITE_CANTOPEN 14);
-    // `?immutable=1` reads the main DB safely when no non-empty `-wal` exists.
-    try {
-      return await runSqliteArgs(["-readonly", "-json", "-cmd", ".timeout 2000", toSqliteUriPath(db), stmt]);
-    } catch { /* fall through to standard read-only open */ }
-  }
-  try {
-    return await runSqliteArgs(["-readonly", "-json", "-cmd", ".timeout 2000", db, stmt]);
-  } catch (err) {
-    if (!walActive) throw err;
-    return runSqliteArgs(["-json", "-cmd", ".timeout 2000", "-cmd", "PRAGMA query_only = ON;", db, stmt]);
-  }
+  return querySqliteRowsStrict(db, sql, { timeout: 10000, maxBuffer: 64 << 20, transaction: true });
 }
 
 async function openCodeTables(db) {

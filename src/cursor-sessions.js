@@ -9,7 +9,7 @@ import os from "os";
 import { execFile } from "child_process";
 import { randomUUID } from "crypto";
 import { cleanUserPrompt, isPromptText } from "./prompt-text.js";
-import { resolveSqliteBinary } from "./sqlite.js";
+import { querySqliteRows } from "./sqlite.js";
 
 const fsp = fs.promises;
 
@@ -328,17 +328,6 @@ export function isCursorRunning({ platform = process.platform, exec = execFile }
 
 // ----- DB metadata enrichment for Hook-discovered sessions ONLY -----
 
-function sqliteRows(db, sql) {
-  return new Promise((resolve) => {
-    if (!fs.existsSync(db)) return resolve([]);
-    // Omit -readonly so WAL-mode Cursor databases reflect uncommitted WAL writes.
-    execFile(resolveSqliteBinary(), ["-noheader", "-separator", "\t", db, sql], { timeout: 5000, maxBuffer: 4 << 20 }, (err, out) => {
-      if (err) return resolve([]);
-      resolve(String(out || "").split("\n").map((s) => s.trimEnd()).filter(Boolean));
-    });
-  });
-}
-
 const sqlQuote = (s) => `'${String(s || "").replaceAll("'", "''")}'`;
 
 export async function readCursorDbMeta(sids, { homeDir = os.homedir() } = {}) {
@@ -348,23 +337,26 @@ export async function readCursorDbMeta(sids, { homeDir = os.homedir() } = {}) {
 
   const trackDb = cursorTrackingDbPath(homeDir);
   const inClause = list.map(sqlQuote).join(",");
-  for (const row of await sqliteRows(trackDb, `SELECT conversationId, replace(replace(coalesce(title,''), char(10), ' '), char(9), ' '), coalesce(model,'') FROM conversation_summaries WHERE conversationId IN (${inClause})`)) {
-    const [sid, title, model] = row.split("\t");
+  for (const row of await querySqliteRows(trackDb, `SELECT conversationId, coalesce(title,'') AS title, coalesce(model,'') AS model FROM conversation_summaries WHERE conversationId IN (${inClause})`)) {
+    const sid = String(row?.conversationId || "");
     if (!sid) continue;
     const entry = out.get(sid) || {};
-    if (title?.trim()) entry.title = title.trim().slice(0, 120);
-    if (model?.trim()) entry.model = model.trim();
+    const title = String(row.title || "").replace(/\s+/g, " ").trim();
+    const model = String(row.model || "").trim();
+    if (title) entry.title = title.slice(0, 120);
+    if (model) entry.model = model;
     out.set(sid, entry);
   }
 
   const stateDb = cursorStateDbPath(homeDir);
   const kvKeys = list.map((id) => sqlQuote(`composerData:${id}`)).join(",");
-  for (const row of await sqliteRows(stateDb, `SELECT key, value FROM cursorDiskKV WHERE key IN (${kvKeys})`)) {
-    const tab = row.indexOf("\t");
-    if (tab <= 0) continue;
-    const sid = row.slice(0, tab).replace(/^composerData:/, "");
+  for (const row of await querySqliteRows(stateDb, `SELECT key, value FROM cursorDiskKV WHERE key IN (${kvKeys})`)) {
+    const rawKey = String(row?.key || "");
+    if (!rawKey) continue;
+    const sid = rawKey.replace(/^composerData:/, "");
     let d;
-    try { d = JSON.parse(row.slice(tab + 1)); } catch { continue; }
+    try { d = typeof row.value === "string" ? JSON.parse(row.value) : row.value; } catch { continue; }
+    if (!d || typeof d !== "object") continue;
     const entry = out.get(sid) || {};
     const title = String(d.name || "").replace(/\s+/g, " ").trim();
     if (title) entry.title = title.slice(0, 120);

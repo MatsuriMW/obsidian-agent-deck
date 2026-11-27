@@ -8,13 +8,13 @@
 // 3. 派发会抢占前台焦点并占用键盘，因此只做“人在场的一次一条”，不做后台批量。
 //
 // 本模块只负责“把一次派发跑完并回报结构化结果”，不碰入库、不改设置、不抬版本号。
-import { spawn, execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { t } from "./i18n.js";
 import { teleAgentDatabases } from "./teleagent.js";
-import { resolveSqliteBinary } from "./sqlite.js";
+import { querySqliteRowsSync } from "./sqlite.js";
 
 // 失败时回报的阶段名，前端/日志按它定位卡点，不要只说“失败了”。
 export const DISPATCH_STAGES = [
@@ -344,7 +344,11 @@ exit 0
 const sqlQuote = (value) => "'" + String(value).replaceAll("'", "''") + "'";
 
 function defaultRunSql(db, sql) {
-  return execFileSync(resolveSqliteBinary(), ["-cmd", ".timeout 2000", db, `PRAGMA query_only = ON; ${sql}`], { encoding: "utf8", timeout: 5000 });
+  const rows = querySqliteRowsSync(db, sql, { throwOnError: true });
+  return rows.map((row) => {
+    const vals = Object.values(row || {});
+    return vals.length === 1 ? String(vals[0] ?? "") : JSON.stringify(row);
+  }).join("\n");
 }
 
 function parseJsonLines(output) {

@@ -488,10 +488,13 @@ export const MODEL_CATALOG = [
 ];
 
 export const EFFORTS = {
-  antigravity: ["low", "medium", "high", "xhigh"].map((id) => ({ id, label: id, hint: t("实际可用强度由 agy CLI 校验") })),
+  antigravity: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: t("实际可用强度由 agy CLI 校验") })),
   opencode: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   hermes: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   minimax: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
+  cursor: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
+  trae: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
+  gemini: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   kimicode: ["low", "high", "max"].map((id) => ({ id, label: id, hint: t("实际可用强度由 ACP 服务端校验") })),
   qoder: ["low", "medium", "high"].map((id) => ({ id, label: id, hint: t("传给 qodercli --reasoning-effort") })),
   codex: ["low", "medium", "high", "xhigh", "max"].map((id) => ({ id, label: id, hint: t("由所选 Codex 模型支持的强度决定") })),
@@ -690,7 +693,7 @@ export const DEFAULTS = {
     cursor: { model: "cursor-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     trae: { model: "trae-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
     kimicode: { model: "kimicode-default", effort: "", path: "", cwd: "", autoApprove: false, extraArgs: "" },
-    t3code: { path: "", cwd: "", extraArgs: "" },
+    t3code: { path: "", cwd: "", openDesktop: false, extraArgs: "" },
     qoder: { model: "qoder-ultimate", effort: "high", permission: "auto", path: "", cwd: "", addVault: true, openDesktop: false, extraArgs: "" },
     dsh: {
       model: "dsh-default",
@@ -809,6 +812,20 @@ export function syncDelegationSettings(settings, raw = null) {
       m.defaultByAgent.dsh = "dsh-default";
     }
     settings.dshDefaultSeeded = true;
+  }
+  if (Array.isArray(raw?.models?.enabled)) {
+    const nonDshDefaults = MODEL_CATALOG
+      .map((x) => x.id)
+      .filter((id) => id.endsWith("-default") && id !== "dsh-default");
+    const seeded = new Set(Array.isArray(settings.seededDefaultModels) ? settings.seededDefaultModels : []);
+    let seededChanged = !Array.isArray(settings.seededDefaultModels);
+    for (const defId of nonDshDefaults) {
+      if (seeded.has(defId)) continue;
+      if (!m.enabled.includes(defId)) m.enabled.push(defId);
+      seeded.add(defId);
+      seededChanged = true;
+    }
+    if (seededChanged) settings.seededDefaultModels = [...seeded];
   }
   return settings;
 }

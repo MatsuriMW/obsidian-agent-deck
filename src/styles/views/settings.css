@@ -488,6 +488,39 @@
     & .ad-subdetails__body {
       padding-top: 2px;
     }
+
+    &.ad-autolog-picker {
+      margin-top: 0;
+      border-top: 0;
+      border-bottom: 1px solid var(--ad-line);
+
+      & > .ad-subdetails__head {
+        padding: 11px 0;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--ad-ink);
+        gap: 8px;
+      }
+
+      & .ad-autolog-picker__count {
+        font-size: 12px;
+        font-weight: 400;
+        color: var(--ad-muted);
+        font-variant-numeric: tabular-nums;
+      }
+
+      & .ad-autolog-picker__toggle {
+        margin-left: auto;
+      }
+
+      & > .ad-subdetails__body {
+        padding: 0 0 12px;
+      }
+
+      & .ad-autolog-picker__desc {
+        margin: 0 0 10px;
+      }
+    }
   }
 
   /* ---- Agent 配置卡片与独立排序 ---- */
@@ -966,13 +999,60 @@
     white-space: nowrap;
   }
 
-  & .ad-models-card .ad-modelgroup.is-client-only {
-    margin-top: 4px;
-    opacity: .72;
+  & .ad-models-card > .ad-picker-tools {
+    margin-top: 0;
+  }
+
+  & .ad-models-card > .ad-filters--models {
+    margin-top: 8px;
+    margin-bottom: 12px;
+  }
+
+  & .ad-agent-models {
+    margin-top: 8px;
+    border-top: 1px solid var(--ad-line);
 
     & > .ad-modelgroup__head {
-      padding: 7px 2px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px 8px;
+      font-size: 13px;
+      font-weight: 650;
+      color: var(--ad-ink);
+      padding: 10px 0 4px;
       border-bottom: 0;
+
+      & .ad-muted {
+        font-size: 11.5px;
+        font-weight: 500;
+      }
+    }
+
+    &[open] > .ad-modelgroup__head {
+      padding-bottom: 8px;
+    }
+
+    & > .ad-modelgroup__body {
+      margin: 4px 0 6px;
+      border: 1px solid var(--ad-line);
+      border-radius: var(--ad-radius-sm);
+      background: var(--background-primary);
+      overflow: hidden;
+
+      & > .ad-hint {
+        margin: 0;
+        padding: 10px 12px;
+      }
+
+      & .ad-modelrow {
+        padding: 9px 11px;
+        border-radius: 0;
+
+        &:last-child {
+          border-bottom: 0;
+        }
+      }
     }
   }
 
@@ -1389,6 +1469,11 @@
       &::after {
         margin-left: auto;
       }
+    }
+
+    & .ad-agent-models > .ad-modelgroup__head > .ad-modelgroup__actions {
+      width: 100%;
+      margin-left: 16px;
     }
 
     & .ad-proj-item {

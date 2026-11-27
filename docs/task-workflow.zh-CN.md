@@ -1,6 +1,18 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.36**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.37**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.37 跨 Agent 会话标题统一层、零依赖 `node:sqlite` 与设置页整合优化
+
+- **跨 Agent 会话标题统一层与零依赖 `node:sqlite`（`src/sqlite.js`、`src/readers.js`、`src/agent-ingestors.js`、`src/desktop-sessions.js`、`src/cursor-sessions.js`、`src/teleagent-dispatch.js`、`src/main.js`、`test/codex-titles.test.mjs`，`USAGE_CACHE_VERSION = 27`）**：
+  - 修复 Codex 标题被覆盖问题：动态探测 `state_*.sqlite` 列结构优先读取 `threads.name`、过滤与 `first_user_message` 镜像一致的伪标题、按数字序挑选 `state_<N>.sqlite` 并移除 30 天截断，按更新时间戳与 `session_index.jsonl`（UTF-8 BOM / CRLF / 同 ID 重命名覆盖）及 `.codex-global-state.{json,sqlite}` 择新合并。
+  - 统一全 21 家 Agent 标题层：[`isPlaceholderClientTitle`](src/readers.js) 过滤 `"Side chat"` / `"New thread"` / `"New Maker"` / `"新对话"` 等泛化占位标题；`readClaudeDesktop()` 扩展至至少覆盖 `sinceMs()` 并支持 `titleSource: "user"` 覆盖旧命名；`readDesktopDatabases()` 在 `revision` 未变时亦即时同步重命名；`summary()` 仅采纳 `this.clientTitles.has(sid)` 条目、停止 WorkBuddy/Antigravity/DSH/Kimi Code/Gemini CLI 首句兜底污染 `fc.titles`/`usage.titles`；`resetTitles()` 完整复位标题状态并在局部扫描时同步合并 `clientTitles`/`customTitles`。
+  - `src/sqlite.js` 提供 `querySqliteRowsStrict` / `querySqliteRows` / `querySqliteRowsSync`（优先使用内置 `node:sqlite` + `?immutable=1` / `PRAGMA query_only = ON` 并回退 `sqlite3` CLI），统一接管 Codex / WorkBuddy / Cursor、全部 9 家桌面 SQLite Agent 与 TeleAgent 落库校验，彻底消除 Windows 缺少 `sqlite3.exe` 的静默丢数据问题。
+- **设置页「Agent 配置 + 模型」合一、标签归位与「记哪几个 Agent」折叠抽屉（`src/settings.js`、`src/agent-registry.js`、`src/constants.js`、`src/styles/`、`src/locales/{en/settings,zh-TW}.js`）**：
+  - 将「Agent 配置」与「管理模型」整合为按 Agent 聚合卡片（内嵌默认折叠 `可用模型` 抽屉与跨 Agent 筛选），补齐 T3 Code 配置卡片与 11 项默认/枚举/文案一致性修正；「记忆 MCP」迁至「实验功能」、「AI 协作回顾」迁回「记录 → 展示与维护」；「记哪几个 Agent」改为默认折叠抽屉（实时计数 + `全部关闭 / 全部开启` 不触发折叠）。
+- **验证范围与未测空白（macOS arm64）**：
+  - **已实机验证**：`npm run build && npm test && npm run eval && npm run check:deploy && swiftc -typecheck src/menubar.swift && git diff --check` 全绿；`马自立` Vault 热重载实测全部 7 条历史错题 Codex 会话恢复真实本地名、Antigravity `agLeak = 0`、`"Side chat"` `sideChatLeak = 0`、设置页三大变更（委派整合、记录页回顾与折叠抽屉、实验功能外部接入卡片）及 `dev:errors` 零新增插件报错。
+  - **未测空白**：Windows 端已通过跨平台 `node:test` 模拟 WAL / BOM / CRLF / 缺失 `sqlite3.exe` 验证，Windows 真机客户端与 Obsidian GUI 仍未现场实测。
 
 ## 1.13.36 Windows CLI 进程树终止与 `agy` 长提示词流式输入修复
 

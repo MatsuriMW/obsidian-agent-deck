@@ -358,7 +358,7 @@ export function ingestWorkbuddyLine(ctx, line, fc, touched) {
         startRound(fc, ms, text, d.id || String(ms), v);
         if (!v.title) {
           const t0 = text.replace(/\s+/g, " ").trim().slice(0, 80);
-          if (t0) { fc.titles.set(fc.sid, t0); v.title = t0; }
+          if (t0) v.title = t0;
         }
         if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
       }
@@ -429,13 +429,13 @@ export function ingestAntigravityLine(ctx, line, fc, touched) {
       startRound(fc, ms, text, String(d.step_index ?? ms), v);
       v.turns = fc.rounds ? fc.rounds.list.length : 0;
       v.rounds = fc.rounds ? fc.rounds.list : [];
-      if (!fc.titles.has(sid)) {
+      if (!v.title) {
         const t0 = text.replace(/^@\[[^\]]+\]\s*/, "").replace(/\s+/g, " ").trim().slice(0, 80);
-        if (t0) fc.titles.set(sid, t0);
+        if (t0) v.title = t0;
       }
       if (s.text.length < 300) s.text += (s.text ? " / " : "") + text.replace(/\s+/g, " ").slice(0, 300 - s.text.length);
     }
-    v.title = usage.titles.get(sid) || fc.titles.get(sid) || v.title;
+    v.title = usage.titles.get(sid) || v.title;
     v.state = "run"; v.step = "";
     usage.noteMeta(fc, sid, { title: v.title, text: s.text, cwd: v.cwd, app: "antigravity", model: fc.model || v.model || "antigravity", lastAt: Math.max(ms, usage.meta.get(sid)?.lastAt || 0), state: v.state, step: v.step, todo: v.todo, turns: v.turns, rounds: v.rounds });
     return;
@@ -443,7 +443,7 @@ export function ingestAntigravityLine(ctx, line, fc, touched) {
   if (d.type !== "PLANNER_RESPONSE" && d.status !== "ERROR") return;
   const { key, s } = usage.touchSess(fc, touched, ms, sid, fc.cwd || "~", "antigravity");
   const v = usage.liveOf(fc, sid, ms);
-  v.title = usage.titles.get(sid) || fc.titles.get(sid) || v.title;
+  v.title = usage.titles.get(sid) || v.title;
   if (fc.model) v.model = fc.model;
   if (d.type === "PLANNER_RESPONSE") {
     const tools = Array.isArray(d.tool_calls) ? d.tool_calls : [];
@@ -533,7 +533,7 @@ export function ingestDshLine(ctx, line, fc, touched) {
   const { key, day, s } = usage.touchSess(fc, touched, ms, sid, fc.cwd, "dsh");
   const v = usage.liveOf(fc, sid, ms);
   v.cwd = fc.cwd;
-  v.title = fc.titles.get(sid) || v.title;
+  v.title = usage.titles.get(sid) || fc.titles.get(sid) || v.title;
   const data = d.data || {};
   if (typ === "user/message") {
     const content = data.message ? data.message.content : data.content;

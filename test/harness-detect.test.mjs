@@ -280,7 +280,7 @@ test("Settings, Sidebar View, and DelegateOptionsModal stay clean when only DSH 
     const tab = new AgentDeckSettingsTab(plugin.app, plugin);
     tab.display = () => {};
 
-    // 1. Delegation page: only DSH + WorkBuddy in target picker, only DSH delegation card, only DSH + WorkBuddy in Manage Models
+    // 1. Delegation page: only DSH + WorkBuddy in target picker, only DSH delegation card + embedded model group, WorkBuddy in passive row
     const delBody = new Element();
     tab.renderDelegate(delBody);
     const targetBtns = delBody.all().filter((el) => el.classList.contains("ad-settings-target"));
@@ -288,7 +288,9 @@ test("Settings, Sidebar View, and DelegateOptionsModal stay clean when only DSH 
     const delCards = delBody.all().filter((el) => el.classList.contains("ad-delegate-agent"));
     assert.deepEqual(delCards.map((el) => el.dataset.agent), ["dsh"]);
     const modelGroups = delBody.all().filter((el) => el.classList.contains("ad-modelgroup"));
-    assert.deepEqual(modelGroups.map((el) => el.dataset.agent), ["workbuddy", "dsh"]);
+    assert.deepEqual(modelGroups.map((el) => el.dataset.agent), ["dsh"]);
+    const passiveRow = delBody.all().find((el) => el.classList.contains("ad-delegate-passive"));
+    assert.ok(passiveRow?.all().some((el) => el.dataset.agent === "workbuddy"), "WorkBuddy appears in client handoff row without duplicate model group");
     const redetectDel = delBody.all().find((el) => el.tag === "button" && el.text === "重新检测 Harness");
     assert.ok(redetectDel, "Delegation page exposes Re-detect Harnesses button");
     redetectDel.onclick();
@@ -304,6 +306,9 @@ test("Settings, Sidebar View, and DelegateOptionsModal stay clean when only DSH 
     const disabledCards = disabledDetails.all().filter((el) => el.classList.contains("ad-set-agent"));
     assert.equal(disabledCards.length, AGENT_ORDER.length - 2);
     assert.ok(disabledCards.some((c) => c.all().some((x) => x.text === "已关闭 · 未检测到")));
+    const autoLogDetails = recBody.all().find((el) => el.tag === "details" && el.dataset.section === "auto-log-agents");
+    assert.ok(autoLogDetails, "Auto-log agent chip picker is wrapped in a collapsible disclosure");
+    assert.equal(autoLogDetails.open, false);
     const autoLogBtns = recBody.all().filter((el) => el.parentElement?.classList.contains("ad-seg--many") && ["WorkBuddy", "DSH", "Claude", "Codex"].includes(el.text));
     assert.deepEqual(autoLogBtns.map((b) => b.text), ["WorkBuddy", "DSH"]);
     const redetectRec = recBody.all().find((el) => el.tag === "button" && el.text === "重新检测 Harness");
