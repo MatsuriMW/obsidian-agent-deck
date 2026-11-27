@@ -23,6 +23,7 @@ import { detectInstalledHarnesses } from "./harness-detect.js";
 import {
   detectJournalProviders, resolveJournalProvider, JOURNAL_PROVIDERS, API_PRESETS, fetchAgyModels, testJournalModel,
 } from "./llm.js";
+import { DEFAULT_CUSTOM_CONCLUSION_PROMPT, previewConclusion } from "./conclusion.js";
 import { discoverGrokBotStorage } from "./grok-bot-sessions.js";
 import { discoverMuseConversations } from "./muse-sessions.js";
 import { canPickNativeFolder, folderExists, normalizeProjectFolder, pickNativeFolder, projectFolderEntries, sameFolder } from "./project-folders.js";
@@ -1668,6 +1669,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const det = detectJournalFormat(this.app, s);
     this.rowText(jr, t("日记目录"), t("当前：{folder}；今天：{path}", { folder: det.folder || t("库根目录"), source: det.folderSource, path: journalPath(this.app, s) }), s.journalFolder || "", t("自动：{folder}", { folder: det.folder || t("库根目录") }), (v) => { s.journalFolder = v.trim(); p.saveSettings(); this.display(); });
     this.rowText(jr, t("日记文件名格式"), t("例如 YYYY-MM-DD；当前：{format}", { format: det.format, source: det.source }), s.journalFormat || "", t("自动：{format}", { format: det.format }), (v) => { s.journalFormat = v.trim(); p.saveSettings(); this.display(); });
+    this.rowToggle(jr, t("自动创建今日日记"), t("今日日记不存在时按模板自动新建；关闭后只写入已存在的日记，避免抢在自定义模板或 Templater 之前建空文件"), s.journalAutoCreate !== false, (v) => { s.journalAutoCreate = v; p.saveSettings(); });
     this.rowToggle(jr, t("自动会话记录"), t("自动将活跃会话建项并记入今日日记"), s.autoLog === true, (v) => { s.autoLog = v; p.saveSettings(); });
     const autoLogDetails = jr.createEl("details", { cls: "ad-subdetails ad-autolog-picker" });
     autoLogDetails.dataset.section = "auto-log-agents";
@@ -1727,13 +1729,6 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     const grain = this.row(jr, t("自动记录颗粒度"), t("选择记录的时机"), (rr) => {
       this.segmented(rr, [{ id: "latest", label: t("最新进展") }, { id: "round", label: t("每轮记录") }, { id: "paused", label: t("停歇或归档") }], s.autoLogGranularity || DEFAULTS.autoLogGranularity, (v) => { s.autoLogGranularity = v; p.saveSettings(); this.display(); });
     });
-    const jdetail = this.row(jr, t("自动日志详细程度"), "", (rr) => {
-      this.segmented(rr, [{ id: "brief", label: t("简略（默认）") }, { id: "standard", label: t("标准") }, { id: "detailed", label: t("详细") }], s.autoLogDetail || "brief", (v) => { changeLogDetail(s, v); p.saveSettings(); this.display(); });
-    });
-    const detailDesc = jdetail.querySelector(":scope > .ad-row__left");
-    detailDesc.createDiv({ cls: "ad-row__desc", text: t("简略：任务和结论合成一段") });
-    detailDesc.createDiv({ cls: "ad-row__desc", text: t("标准：提问、回答各一句") });
-    detailDesc.createDiv({ cls: "ad-row__desc", text: t("详细：保留提问、回复摘录和步骤") });
     const rules = (s.recordRules = resolveRecordRules(s));
     const timingRow = this.row(jr, t("会话计时方式"), "", (rr) => {
       this.segmented(
@@ -1759,8 +1754,6 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     this.rowToggle(jr, t("关键词配色与图标"), t("Logseq 风格的关键词颜色与图标；同时开着 Logseq Style Tasks 时，请关掉它的「格式化任务关键词」"), s.keywordStyle !== false, (v) => { s.keywordStyle = v; p.saveSettings(); p.refreshUI(); this.display(); });
     const jrMore = this.subDetails(jr, "recording-more", t("更多设置"));
     jrMore.appendChild(grain);
-    this.rowToggle(jrMore, t("累积后自动合并总结"), "", !!s.autoLogMerge, (v) => { s.autoLogMerge = v; p.saveSettings(); this.display(); });
-    this.rowNumber(jrMore, t("累积多少条结论后合并"), t("至少 2 条"), s.autoLogMergeThreshold || 10, 2, 100, (v) => { s.autoLogMergeThreshold = Math.round(v); p.saveSettings(); });
     this.rowNumber(jrMore, t("首次记录最近多少轮"), t("第一次接入某个会话 / Bot 时只补最近几轮；之后只记当天产生的新轮次"), s.autoLogFirstRounds || DEFAULTS.autoLogFirstRounds, 1, 100, (v) => { s.autoLogFirstRounds = Math.max(1, Math.round(v)); p.saveSettings(); });
 
     const wb = jrMore;
@@ -1776,9 +1769,6 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     ]) {
       this.rowToggle(wb, label, desc, s[key] !== false, (v) => { s[key] = v; p.saveSettings(); });
     }
-    this.rowNumber(jr, t("💬 最多多少个字"), t("普通会话的结论长度；后台回答超过 500 字时返回完整问答文件"), s.resultMax || DEFAULTS.resultMax, 40, 2000, (v) => { s.resultMax = v; p.saveSettings(); });
-    this.rowNumber(jr, t("💬 编码类结论字数"), t("写做了什么、现在什么状态；默认 65"), s.conclusionMaxCode || DEFAULTS.conclusionMaxCode, 20, 400, (v) => { s.conclusionMaxCode = Math.max(20, Math.round(v)); p.saveSettings(); });
-    this.rowNumber(jr, t("💬 知识问答结论字数"), t("解释概念、回答问题时可以长一点；默认 160"), s.conclusionMaxQA || DEFAULTS.conclusionMaxQA, 40, 800, (v) => { s.conclusionMaxQA = Math.max(40, Math.round(v)); p.saveSettings(); });
     this.rowToggle(wb, t("归档的会话记成 DONE"), "", s.autoLogArchiveDone !== false, (v) => { s.autoLogArchiveDone = v; p.saveSettings(); });
     this.rowToggle(wb, t("整理完弹通知"), "", s.autoLogNotify !== false, (v) => { s.autoLogNotify = v; p.saveSettings(); });
 
@@ -1828,13 +1818,13 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
 
     jr.appendChild(jrMore.parentElement);
 
-    // 3. 记录 → 整理模型
+    // 3. 记录 → 任务结论与总结模型（可单独指定总结 Agent，全部结论格式/字数/提示词收口于此）
     const detected = detectJournalProviders({ cfg: s });
     const detectedNames = detected.available.map((x) => x.label).join("、");
     const modelSub = detected.available.length
-      ? t("已扫描本机已登录 CLI：{list}", { list: detectedNames })
-      : t("未检测到已登录的本地 CLI，可选用自定义 API");
-    const modelCard = this.card(body, t("AI 整理模型"), modelSub);
+      ? t("可单独指定用于总结的 Agent 或 API（不影响委派主力）· 已检测到：{list}", { list: detectedNames })
+      : t("可单独指定用于总结的 Agent 或 API（不影响委派主力）· 未检测到已登录 CLI");
+    const modelCard = this.card(body, t("任务结论与总结模型"), modelSub);
     const curProvider = s.autoLogProvider || "auto";
     const resolved = resolveJournalProvider(s);
     const autoTarget = detected.providers.find((x) => x.id === detected.recommended);
@@ -1844,7 +1834,7 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
         ? t("自动挑选本机 CLI（当前：{name}）", { name: autoTarget.label })
         : t("自动挑选本机 CLI"),
     });
-    this.rowSelect(modelCard, t("整理使用的模型来源"), t("自动检测本机已登录 CLI，或自填兼容 OpenAI 格式的 API"), providerOptions, curProvider, (v) => {
+    this.rowSelect(modelCard, t("总结使用的 Agent / 来源"), t("单独为日志整理与结论总结指定本机已登录 CLI，或自填兼容 OpenAI 格式的 API"), providerOptions, curProvider, (v) => {
       s.autoLogProvider = v;
       s.autoLogModel = v === "auto" ? "" : (JOURNAL_PROVIDERS[v]?.defaultModel || "");
       s.roundPolishModel = "";
@@ -1908,6 +1898,88 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
       pendingText: t("正在测试整理模型连接…"),
       testFn: () => testJournalModel(s),
     });
+    this.rowToggle(modelCard, t("每轮结论让模型润色"), t("适用于简略和标准记录；关闭后直接按本地规则截取"), s.roundPolish !== false, (v) => { s.roundPolish = v; p.saveSettings(); });
+
+    this.rowSegmented(
+      modelCard,
+      t("自动日志详细程度"),
+      t("简略：任务+结论合一段｜标准：问答各一句｜详细：保留摘录与步骤"),
+      [{ id: "brief", label: t("简略（默认）") }, { id: "standard", label: t("标准") }, { id: "detailed", label: t("详细") }],
+      s.autoLogDetail || "brief",
+      (v) => { changeLogDetail(s, v); p.saveSettings(); this.display(); },
+    );
+
+    const curStyle = s.conclusionStyle || DEFAULTS.conclusionStyle;
+    this.rowSegmented(
+      modelCard,
+      t("结论总结风格"),
+      t("决定 AI 提炼任务结论时的表达方式；选「自定义」可完全接管提示词模板"),
+      [
+        { id: "balanced", label: t("精准完整") },
+        { id: "concise", label: t("极简要点") },
+        { id: "structured", label: t("结构化") },
+        { id: "custom", label: t("自定义") },
+      ],
+      curStyle,
+      (v) => { s.conclusionStyle = v; p.saveSettings(); this.display(); },
+    );
+
+    this.row(modelCard, t("结论字数上限"), t("分别控制编码、问答、多轮合并与兜底上限（字）"), (rr) => {
+      const grid = rr.createDiv({ cls: "ad-num-grid" });
+      const addCell = (lbl, val, min, max, onSet) => {
+        const cell = grid.createDiv({ cls: "ad-num-cell" });
+        cell.createSpan({ cls: "ad-num-cell__label", text: lbl });
+        this.numberInput(cell, val, min, max, onSet);
+      };
+      addCell(t("编码"), s.conclusionMaxCode || DEFAULTS.conclusionMaxCode, 20, 400, (v) => { s.conclusionMaxCode = Math.max(20, Math.round(v)); p.saveSettings(); });
+      addCell(t("问答"), s.conclusionMaxQA || DEFAULTS.conclusionMaxQA, 40, 800, (v) => { s.conclusionMaxQA = Math.max(40, Math.round(v)); p.saveSettings(); });
+      addCell(t("合并"), s.conclusionMaxMerge || DEFAULTS.conclusionMaxMerge, 60, 600, (v) => { s.conclusionMaxMerge = Math.max(60, Math.round(v)); p.saveSettings(); });
+      addCell(t("兜底"), s.resultMax || DEFAULTS.resultMax, 40, 2000, (v) => { s.resultMax = Math.max(40, Math.round(v)); p.saveSettings(); });
+    });
+
+    let tplTa = null;
+    if (curStyle === "custom") {
+      const tplField = modelCard.createDiv({ cls: "ad-field" });
+      tplField.createDiv({ cls: "ad-field__label", text: t("自定义总结提示词模板") });
+      tplField.createDiv({ cls: "ad-field__desc", text: t("支持占位符 {{task}}、{{reply}}、{{codeMax}}、{{qaMax}}；不写占位符也会自动在末尾附上任务和回复。") });
+      tplTa = tplField.createEl("textarea", { cls: "ad-textarea", attr: { rows: "6" } });
+      tplTa.value = s.conclusionPromptTemplate || DEFAULT_CUSTOM_CONCLUSION_PROMPT;
+      tplTa.onchange = () => {
+        const val = tplTa.value.trim();
+        s.conclusionPromptTemplate = val === DEFAULT_CUSTOM_CONCLUSION_PROMPT.trim() ? "" : val;
+        p.saveSettings();
+      };
+    } else {
+      this.rowText(modelCard, t("结论总结补充要求"), t("可选，附加到整理与每轮润色提示词末尾（例如「先写改动文件再写验证结果」）；留空使用默认规则"), s.summaryPrompt || "", t("例如：先写核心结论，再写未验证项"), (v) => { s.summaryPrompt = v.trim(); p.saveSettings(); }, "ad-input--wide");
+    }
+    const previewRow = modelCard.createDiv({ cls: "ad-btnrow" });
+    const previewOut = modelCard.createDiv({ cls: "ad-hint" });
+    this.bigButton(previewRow, t("用样例试跑总结"), async () => {
+      previewOut.textContent = t("生成中…");
+      try {
+        const res = await previewConclusion(s);
+        previewOut.textContent = res.result
+          ? t("样例总结（{ms}ms · {kind}）：{result}", { ms: res.ms, kind: res.kind || "-", result: res.result })
+          : t("样例总结（{ms}ms · {kind}）：未提取到有效结论（已回退本地规则）", { ms: res.ms, kind: res.kind || "-" });
+      } catch (e) {
+        previewOut.textContent = t("试跑失败：{error}", { error: e?.message || String(e) });
+      }
+    }, "ad-btn--soft");
+    if (curStyle === "custom" && tplTa) {
+      this.bigButton(previewRow, t("恢复默认提示词"), () => {
+        s.conclusionPromptTemplate = "";
+        tplTa.value = DEFAULT_CUSTOM_CONCLUSION_PROMPT;
+        p.saveSettings();
+        new Notice(t("已恢复默认总结提示词"));
+      }, "ad-btn--ghost");
+    }
+    const lastErr = p.autoLog?._err || p.journalSync?._lastPolishErr || "";
+    if (lastErr) modelCard.createDiv({ cls: "ad-error-line", text: t("最近一次整理 / 润色失败（已回退本地规则）：{error}", { error: lastErr }) });
+
+    this.rowToggle(modelCard, t("累积后自动合并总结"), t("长任务达到阈值后自动合并多轮记录为一段总结"), !!s.autoLogMerge, (v) => { s.autoLogMerge = v; p.saveSettings(); this.display(); });
+    if (s.autoLogMerge) {
+      this.rowNumber(modelCard, t("累积多少条结论后合并"), t("至少 2 条"), s.autoLogMergeThreshold || 10, 2, 100, (v) => { s.autoLogMergeThreshold = Math.round(v); p.saveSettings(); });
+    }
 
     const modelMore = this.subDetails(modelCard, "model-more", t("更多设置"));
     this.rowNumber(modelMore, t("整理超时（秒）"), "", s.autoLogTimeout || 120, 10, 600, (v) => { s.autoLogTimeout = v; p.saveSettings(); });
@@ -1926,9 +1998,8 @@ export class AgentDeckSettingsTab extends PluginSettingTab {
     if (resolved !== "api") {
       this.rowText(modelMore, t("整理 CLI 路径"), t("留空自动查找或沿用委派路径"), s.autoLogPath || "", t("自动找"), (v) => { s.autoLogPath = v.trim(); p.saveSettings(); }, "ad-input--wide");
     }
-    this.rowToggle(modelMore, t("每轮结论让模型润色"), t("适用于简略和标准记录"), s.roundPolish !== false, (v) => { s.roundPolish = v; p.saveSettings(); });
     this.rowText(modelMore, t("润色用的模型"), t("留空沿用整理模型"), s.roundPolishModel || "", t("同整理用的模型"), (v) => { s.roundPolishModel = v.trim(); p.saveSettings(); });
-    this.rowNumber(modelMore, t("润色超时（秒）"), "", s.roundPolishTimeout || 30, 5, 300, (v) => { s.roundPolishTimeout = v; p.saveSettings(); });
+    this.rowNumber(modelMore, t("润色超时（秒）"), "", s.roundPolishTimeout || DEFAULTS.roundPolishTimeout, 5, 300, (v) => { s.roundPolishTimeout = v; p.saveSettings(); });
     const sched = modelMore;
     this.rowNumber(sched, t("整理间隔（分钟）"), t("至少 5 分钟"), s.autoLogEvery || 20, 5, 240, (v) => { s.autoLogEvery = v; p.saveSettings(); });
     this.rowNumber(sched, t("首次整理延迟（分钟）"), "", s.autoLogStartDelay ?? 1, 1, 240, (v) => { s.autoLogStartDelay = v; p.saveSettings(); });

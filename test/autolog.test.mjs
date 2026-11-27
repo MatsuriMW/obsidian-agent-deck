@@ -692,5 +692,76 @@ const nowSegs = (min) => { const m = dayMinute(Date.now(), DEFAULTS); return [[m
   check('renamed session reuses its recorded entry instead of duplicating it',
     !p.journal.includes('完全不同的新标题') && (p.journal.match(/agent-deck ->/g) || []).length === 1, p.journal);
 }
+{ // journalAutoCreate: false 不抢先新建空白日记；手动存在后照常写入；Periodic Notes 模板回退
+  const list = [{ sid: "no-create-1", agent: "claude", min: 5, segs: nowSegs(5), title: "不要抢建" }];
+  const p = fakePlugin("", list, {}, { journalAutoCreate: false }, { missingJournal: true });
+  const al = new AutoLog(p);
+  al.ask = async (items) => new Map(items.map(({ x }) => [x.sid, { label: "不要抢建", summary: "完成", kind: "code", matchKey: null, done: false, todos: [], skip: false }]));
+  const bgReport = await al.runOnce({ fallback: true, manual: false });
+  check("journalAutoCreate=false does not create missing journal on background run and omits error",
+    !p.files.has(`日记/${p.day}.md`) && !bgReport.error, { has: p.files.has(`日记/${p.day}.md`), bgReport });
+  const manReport = await al.runOnce({ fallback: true, manual: true });
+  check("journalAutoCreate=false reports missing journal on manual run without creating file",
+    !p.files.has(`日记/${p.day}.md`) && manReport.error.includes("还没建"), manReport);
+
+  await p.ensureNoteFile(`日记/${p.day}.md`, "---\ntags: [daily]\n---\n- TODO 手动建的\n");
+  await al.runOnce({ fallback: true, manual: false });
+  check("once user creates the journal manually, AutoLog writes into it without overwriting frontmatter",
+    p.journal.includes("tags: [daily]") && p.journal.includes("不要抢建"), p.journal);
+
+  const pPn = fakePlugin("", [], {});
+  const pnTpl = { path: "Templates/PN-Daily.md", extension: "md" };
+  pPn.files.set(pnTpl.path, pnTpl);
+  pPn.app.vault.read = async (f) => (f === pnTpl ? "---\nsource: periodic\ndate: {{date:YYYY-MM-DD}}\ntitle: {{title}}\n---\n" : pPn.journal);
+  pPn.app.plugins.plugins["periodic-notes"] = { settings: { daily: { enabled: true, folder: "日记", format: "YYYY_MM_DD", template: pnTpl.path } } };
+  const alPn = new AutoLog(pPn);
+  const renderedTpl = await alPn.journalTemplate(`日记/${pPn.day}.md`);
+  check("journalTemplate falls back to Periodic Notes template when core Daily notes is disabled",
+    renderedTpl.includes("source: periodic") && renderedTpl.includes(`title: ${pPn.day}`), renderedTpl);
+}
+{ // AutoLog.ask 透传自定义字数上限、summaryPrompt 与头尾双段采样，且不误触发 safeLabel 22 字标题截断
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { writeMockNodeBin } = await import("./helpers/mock-cli.mjs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ad-autolog-ask-"));
+  try {
+    const promptDump = path.join(dir, "ask-prompt.txt");
+    const longCodeSummary = "修改设置页和提示词参数配置，保留头尾双段采样并验证单测通过待发布";
+    const bin = writeMockNodeBin(dir, "ask-cli", `
+      let input = '';
+      process.stdin.on('data', d => input += d);
+      process.stdin.on('end', () => {
+        require('fs').writeFileSync(${JSON.stringify(promptDump)}, input);
+        console.log(JSON.stringify({ result: JSON.stringify([{
+          id: 's1',
+          label: '优化总结提示词',
+          slug: 'summary-prompt',
+          kind: 'code',
+          summary: ${JSON.stringify(longCodeSummary)},
+          match: null,
+          done: false,
+          todos: [],
+          skip: false
+        }]) }));
+      });
+    `);
+    const sid = "ask-prompt-sid";
+    const longLast = "开头结论：根因在字数截断。" + "中间步骤。".repeat(120) + "结尾落点：全部验证通过。";
+    const p = fakePlugin("", [{ sid, agent: "claude", min: 5, segs: nowSegs(5), title: "测试", text: "修一下总结" }],
+      { [sid]: { lastText: longLast, title: "测试", rounds: [] } },
+      { autoLogPath: bin, conclusionMaxCode: 30, conclusionMaxQA: 210, summaryPrompt: "保留具体改动点" });
+    const al = new AutoLog(p);
+    const res = await al.ask([{ x: { sid, agent: "claude", min: 5, segs: nowSegs(5), title: "测试", text: "修一下总结" }, active: true }], []);
+    const dump = fs.readFileSync(promptDump, "utf8");
+    const entry = res.get(sid);
+    check("AutoLog.ask forwards custom limits, summaryPrompt, and head+tail reply",
+      dump.includes("不超过 30 个字") && dump.includes("不超过 210 个字") && dump.includes("保留具体改动点")
+      && dump.includes("开头结论：根因在字数截断") && dump.includes("结尾落点：全部验证通过"),
+      dump);
+    check("AutoLog.ask caps summary at configured 30 chars without safeLabel 22-char title collapse",
+      entry && [...entry.summary].length > 25 && [...entry.summary].length <= 32, entry);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
 if (fail) { console.log(`${fail} failed`); process.exit(1); }
 console.log("all passed");

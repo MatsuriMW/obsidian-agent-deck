@@ -1,6 +1,26 @@
 # Agent Deck 交接状态与速查
 
-基线：**1.13.37**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+基线：**1.13.38**（2026-11-27）｜ Linear：[P-MAT-42](https://linear.app/matsurimywaifu/project/agent-deck-obsidian-插件-01b0285aef2b)
+
+## 1.13.38 独立结论总结层、设置页整合与日记防抢跑发版（2026-11-27）
+
+- **设置页高信息密度收口（`src/settings.js`、`src/styles/views/settings.css`、`src/locales/{en/settings,zh-TW}.js`）**：将原散落在「日记与归档」及折叠区内的详细程度、4 项字数上限（合并为 4 格紧凑 `.ad-num-grid`）、多轮合并开关与阈值全部迁入「任务结论与总结模型」同一张卡片，突出「总结使用的 Agent / 来源」可独立于委派主力单独配置，并保留 `每轮结论让模型润色`、4 段 `结论总结风格`、自定义提示词模板、`用样例试跑总结` 与错误提示。
+- **两轮真实场景加测 & `recordSentence` 修复（`src/journal.js`、`test/conclusion-record.test.mjs`）**：
+  - 第 1 轮（6 条全新 `~/.claude/projects/` 与 `~/.codex/sessions/` 会话 × `agy` + `deepseek` × `balanced`/`structured`/`custom` 中英模板）与第 2 轮（`AutoLog.runOnce` → `JournalSync.queueRefineTurn` `brief`/`standard` → `queueMerge` 端到端日记落盘闭环）实测发现 `journal.js` `standard` 模式对已润色 `summary` 仍调用 `recordSentence()` 在首个分号处截断导致多段结构化结论后半丢失；已改为 `summaryText(givenSummary, stdCap)` 并补充单测回归复跑通过。
+- **验证与发版边界（macOS arm64）**：`npm run build && npm test && npm run eval && npm run check:deploy && git diff --check`、主库安装热重载及 `dev:errors` 零新增报错均在 macOS arm64 实测；`claude` CLI 本机账号受限未测，Windows 真机 GUI 未实测。
+
+## 1.13.37 用户反馈修复与独立结论总结层（2026-11-27）
+
+- **独立任务结论总结层 `src/conclusion.js`（`src/conclusion.js`、`src/constants.js`、`src/journal.js`、`src/autolog.js`、`src/sync.js`、`src/settings.js`、`src/locales/{en/settings,zh-TW}.js`、`test/conclusion-layer.test.mjs`）**：
+  - 将分散在 `AutoLog.ask()` 与 `JournalSync.queueRefineTurn()`/`queueMerge()` 中的总结逻辑收口进零循环依赖独立模块 `src/conclusion.js`（仅单向依赖 `journal.js`/`prompt-text.js`/`llm.js`）。
+  - 提供 4 种 `conclusionStyle`（`balanced` 精准完整 / `concise` 极简要点 / `structured` 结构化「改动·结果·遗留」 / `custom` 自定义完整提示词模板 `conclusionPromptTemplate`，支持 `{{task}}`/`{{reply}}`/`{{codeMax}}`/`{{qaMax}}` 并在省略占位符时自动附加任务与回复，支持纯文本与 JSON 双解析并拦截退化短语）；默认上限调整为 `conclusionMaxCode = 90`、`conclusionMaxQA = 200`、`conclusionMaxMerge = 180`、`roundPolishTimeout = 60`（移除旧版 `sync.js` 标准模式 `safeLabel(..., 65)` 与 `journal.js` `stdCap` 120/90 硬截断）。
+  - 新增 `prepareReplyForSummary()` 折叠超长代码块（>180 字符）与大表格（>6 行）后再经 `sampleReplyForSummary()` 取头尾双段；在设置页「记录 → AI 整理模型」新增「结论总结风格」「自定义提示词模板 / 补充要求」「用样例试跑总结（`previewConclusion`）」及最近错误提示 `.ad-error-line`，「更多设置」新增「多轮合并总结字数」。
+- **日记防抢跑与 Periodic Notes 模板支持（`src/constants.js`、`src/autolog.js`、`src/settings.js` + 配套 `nautilus-spiral` `autoCreateJournal` / `journalInitialContent`）**：
+  - Agent Deck 新增 `journalAutoCreate`（「自动创建今日日记」，默认 `true`），关闭后 `AutoLog.runOnce()` 仅写入已存在的日记、不抢在用户自定义模板或 Templater 之前新建空文件；`journalTemplate()` 补充 Periodic Notes 每日模板回退。
+  - 螺旋日程同步新增 `autoCreateJournal`（「自动新建今天的日记」）与 `journalInitialContent()`（优先读取核心「日记」/ Periodic Notes 模板）。
+- **验证范围与未测空白（macOS arm64）**：
+  - `npm test`（含 `test/conclusion-layer.test.mjs`）、`npm run build`、`npm run check:deploy`、`git diff --check`、主库热重载与 `nautilus-spiral` 主库/公开版回归均在 macOS arm64 通过；
+  - 真实 CLI 端到端实测：`agy`（`gemini-3.8-flash-low`）与 `deepseek`（`deepseek-chat`）在 5 类场景（复杂编码长回复、问答大表格、半成品报错阻塞、多轮累积合并、本机 `~/.claude/projects/` 2 条真实长会话 × 4 种风格 + `AutoLog.ask()` + `previewConclusion()`）实跑验证（注：本机 `claude` CLI 账号当前受限未测）；Windows 真机 GUI 未实测。
 
 ## 1.13.37 跨 Agent 会话标题统一层、零依赖 `node:sqlite` 与设置页整合优化
 

@@ -572,6 +572,7 @@ export const DEFAULTS = {
   journalFolder: "",       // 日记目录；留空自动检测（找不到就用「日记」）
   journalFormat: "",       // 日记文件名格式（moment 写法）；留空自动检测
   journalAutoWrite: true,  // 自动建项、结论和状态回写总开关；手动整理仍可用
+  journalAutoCreate: true, // 今天日记不存在时自动新建；关闭后只写入已存在的日记
   journalSync: true,
   journalLayout: null,
   uiLanguage: "auto",
@@ -640,8 +641,12 @@ export const DEFAULTS = {
   autoLogBackupProvider: "", // 备用来源：留空=自动挑下一个已登录 CLI；也可指定 CLI 或 api
   autoLogCooldownMin: 30,  // 撞限额的来源冷却多少分钟（冷却期内直接用备用来源）
   autoLogApiConfirm: true, // 自动调用 API 前先问人（API 会算钱）；同意后 30 分钟内不再问
-  conclusionMaxCode: 65,   // 💬 编码类结论字数（做了什么、情况怎么样）
-  conclusionMaxQA: 160,    // 💬 知识问答类结论字数（可以长一点，讲清判断）
+  conclusionMaxCode: 90,   // 💬 编码类结论字数（做了什么、情况怎么样）
+  conclusionMaxQA: 200,    // 💬 知识问答类结论字数（可以长一点，讲清判断）
+  conclusionMaxMerge: 180, // 多轮累积合并总结最大字数
+  conclusionStyle: "balanced", // balanced 精准完整 / concise 极简要点 / structured 结构化 / custom 自定义提示词
+  conclusionPromptTemplate: "", // custom 模式下的完整自定义提示词模板
+  summaryPrompt: "",       // 可选：追加到整理与每轮润色提示词末尾的自定义总结要求
   journalMarkerIntroShown: false, // 第一次遇到分区标记不全时解释过标记规则没有
   autoLogKw: true,         // 自动建的条目也跟着会话在 DOING / TOREVIEW / NEEDOK / ERRORED 之间切
   autoLogPath: "",
@@ -649,7 +654,7 @@ export const DEFAULTS = {
   autoLogNotify: true,
   roundPolish: true,       // 每轮的 💬 先用本地规则写，再让模型润色成一句话
   roundPolishModel: "",    // 留空 = 跟整理用的模型一样
-  roundPolishTimeout: 30,  // 润色时等模型几秒
+  roundPolishTimeout: 60,  // 润色时等模型几秒
   autoLogState: {},
   workLog: {},
   showMenuBar: true,

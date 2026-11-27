@@ -18,6 +18,10 @@ import { t } from "./i18n.js";
 import { planJournal, renderJournal, ensureTopRule } from "./organize-journal.js";
 import { readJournalLayout, configuredJournalLayout } from "./journal-layout.js";
 import { condenseUserPrompt } from "./prompt-text.js";
+import {
+  resolveConclusionConfig, prepareReplyForSummary, prepareTaskForSummary,
+  conclusionGuidanceForAutoLog, fallbackConclusion,
+} from "./conclusion.js";
 
 const agentName = (id) => AGENTS[id]?.short || id;
 const num = (v, d) => (Number.isFinite(Number(v)) && v !== "" && v != null ? Number(v) : d);
@@ -98,7 +102,12 @@ export class AutoLog {
 
   async journalTemplate(path) {
     const app = this.p.app;
-    const tplPath = String(dailyNotesOptions(app)?.template || "").trim();
+    const periodic = app?.plugins?.plugins?.["periodic-notes"]?.settings?.daily;
+    const tplPath = String(
+      dailyNotesOptions(app)?.template
+      || (periodic?.enabled ? periodic.template : "")
+      || "",
+    ).trim();
     if (!tplPath) return "";
     const file = app.vault.getAbstractFileByPath(tplPath) || app.vault.getAbstractFileByPath(`${tplPath}.md`) || app.metadataCache?.getFirstLinkpathDest?.(tplPath, "");
     if (!file || typeof file.extension !== "string") return "";
@@ -282,13 +291,14 @@ export class AutoLog {
 
   // 让本机的小模型看一眼这几个会话：起名字、对上日记里哪一行、提炼一句话结论
   async ask(items, open, fallback = false, automatic = true) {
+    const { codeMax, qaMax } = resolveConclusionConfig(this.cfg);
     const blocks = items.map(({ x, active }, i) => {
       const meta = this.usage.meta.get(x.sid) || {};
-      const last = String(meta.lastText || "").replace(/\d{12,}/g, "…").replace(/\s+/g, " ").trim().slice(-700);
-      const opening = condenseUserPrompt(x.text || "").replace(/\d{12,}/g, "…").slice(0, 200);
+      const last = prepareReplyForSummary(meta.lastText || "", { head: 600, tail: 900 });
+      const opening = prepareTaskForSummary(x.text || "", { head: 300, tail: 200 });
       return [`#s${i + 1} [${agentName(x.agent)}] 标题：${x.title || "（没有）"}；累计 ${x.min} 分钟；现在：${active ? "还在进行" : "已经停了"}`,
         opening ? `开头说的：${opening}` : "",
-        last ? `最后一条回复的结尾：${last}` : ""].filter(Boolean).join("\n");
+        last ? `最后一条回复：${last}` : ""].filter(Boolean).join("\n");
     });
     const prompt = [
       "下面是用户今天和 AI 助手的几个工作会话，以及他今天日记里还没做完的任务行。请把每个会话整理成高信息密度的任务记录（自动过滤用户话语中的口语废话、语气词与寒暄，只记录事实、动作与结论，且不要在正文中重复写日期）。",
@@ -305,7 +315,7 @@ export class AutoLog {
       "- label：这件事是什么，不超过 18 个字的中文总结标题（动词开头，高信息密度概括核心任务，过滤口语废话，不要照抄原话、路径、链接或日期，不要带时间、时长、状态词和标点结尾）。",
       "- slug：label 对应的一两个简短英文关键词，用小写英文字母、数字和短横线，每词不超过 16 个字符，例如 journal-cleanup；用于首次创建定位标识。",
       "- kind：这一轮在改代码、跑命令、动文件填 code；在解释概念、回答知识问题填 qa。拿不准填 code。",
-      "- summary：这一轮最后落在哪。kind=code 时不超过 35 个字，写做了什么、现在什么状态（通过 / 待验证 / 失败）；kind=qa 时不超过 100 个字，先给判断再给依据，可以两句。去掉口语铺垫，不要摘回复开头那几句过渡铺垫；没有回复则填空字符串。",
+      conclusionGuidanceForAutoLog(this.cfg),
       "- match：只有当上面某一行写的就是「这个会话里 AI 在替用户做的那件工作本身」时，才填那一行的编号。那一行如果是留给用户本人的动作（看一眼、看效果、确认、拍板、自己跑命令、发出去、阅读之类），哪怕话题一样也不能匹配，填 null。拿不准一律填 null。",
       "- done：只对已经停了的会话有意义。最后的回复明确表明这件事整个做完了，填 true；做到一半、还在等用户、报错没解决、说了以后再继续，都填 false。",
       "- todos：只在会话已经停了时填。回复里明确说了要用户本人去做或拍板的事，每条不超过 30 个字，最多 1 条，只列不做就卡住的那一件；没有就是空数组。上面任务行里已经有意思相同的就不要再列。",
@@ -318,8 +328,7 @@ export class AutoLog {
         const promptText = condenseUserPrompt((x.text || "").split(" / ")[0]);
         const rawLabel = (x.agent === "grokbot" && x.title === proj) ? (promptText || x.title) : (x.title || promptText);
         const label = String(rawLabel || "").trim() ? J.formatProjectAutoTitle(rawLabel, proj, this.rules().titleMax) : "";
-        const kind = J.conclusionKind(x.text || promptText || "", meta.lastText || "");
-        const summary = kind === "qa" ? J.answerConclusion(meta.lastText || "", 140) : J.conclusionSentence(meta.lastText || "", 80);
+        const { kind, result: summary } = fallbackConclusion({ ask: x.text || promptText || "", said: meta.lastText || "", cfg: this.cfg });
         if (label) out.set(x.sid, { label, proj, summary, kind, matchKey: null, done: false, todos: [], skip: false });
       }
       return out;
@@ -341,9 +350,10 @@ export class AutoLog {
         const proj = this.projectOf(item.x);
         const label = String(a.label || "").trim() ? J.formatProjectAutoTitle(a.label, proj, this.rules().titleMax) : "";
         const kind = a.kind === "qa" ? "qa" : "code";
+        const limit = kind === "qa" ? qaMax : codeMax;
         const given = String(a.summary || "").trim();
         const usable = [...given].length >= 4 && !/^(?:code|qa|json)$/i.test(given);
-        const summary = (usable ? safeLabel(given, kind === "qa" ? 140 : 60) : "") || (kind === "qa" ? J.answerConclusion(meta.lastText || "", 140) : J.conclusionSentence(meta.lastText || "", 80));
+        const summary = (usable ? J.summaryText(given, limit) : "") || fallbackConclusion({ ask: item.x.text || meta.title || "", said: meta.lastText || "", kind, cfg: this.cfg }).result;
         const m = Number.isInteger(a.match) && open[a.match - 1] ? open[a.match - 1] : null;
         out.set(sid, {
           label,
@@ -422,8 +432,12 @@ export class AutoLog {
       const day = this.dayKey();
       const data = this.usage.summary(day);
       if (!data || !data.list || !data.list.length) return report;
-      const file = this.journalFile(day) || await this.createJournal(day);
-      if (!file) { report.error = t("今天的日记 {path} 还没建", { path: this.journalPath(day) }); return report; }
+      const autoCreate = this.cfg.journalAutoCreate !== false;
+      const file = this.journalFile(day) || (autoCreate ? await this.createJournal(day) : null);
+      if (!file) {
+        if (manual || autoCreate) report.error = t("今天的日记 {path} 还没建", { path: this.journalPath(day) });
+        return report;
+      }
       const arch = this.archived();
       const todayList = [], crossByOrigin = new Map();
       const priorDoneSince = (sid) => {
@@ -718,7 +732,7 @@ export class AutoLog {
             .filter((r) => !rec.sinceMs || !r.at || r.at > rec.sinceMs);
           if (first) seen[x.sid] = Date.now();
           const kind = (a && a.kind) || J.conclusionKind(x.text || meta.title || "", meta.lastText || "");
-          const rawSummary = (a && a.summary) || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? (kind === "qa" ? J.answerConclusion(meta.lastText, 140) : J.conclusionSentence(meta.lastText, 90)) : "");
+          const rawSummary = (a && a.summary) || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active) ? fallbackConclusion({ ask: x.text || meta.title || "", said: meta.lastText, kind, cfg: this.cfg }).result : "");
           if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
           const pendingTodos = (a && !active && Array.isArray(a.todos) && !rec.todosAdded) ? a.todos : [];
           const taskTodo = x.agent === "claude" && (!active || meta.state === "wait" || meta.state === "quiet") ? (meta.todo || null) : null;
@@ -735,8 +749,8 @@ export class AutoLog {
               rounds: (!active || meta.state === "wait" || meta.state === "quiet") ? rounds : rounds.slice(0, -1),
               todos: pendingTodos,
               taskTodo,
-              codeMax: Number(this.cfg.conclusionMaxCode) || 65,
-              qaMax: Number(this.cfg.conclusionMaxQA) || 160,
+              codeMax: Number(this.cfg.conclusionMaxCode) || 90,
+              qaMax: Number(this.cfg.conclusionMaxQA) || 200,
               ensureId: true,
             });
             text = synced.text;

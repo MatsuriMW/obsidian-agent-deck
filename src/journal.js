@@ -584,7 +584,7 @@ export function resultText(raw, max = 200) {
     .replace(/^\s*\|?[\s:|-]{3,}\|?\s*$/gm, " ")
     .replace(/\d{12,}/g, "…")
     .replace(/\s+/g, " ").trim();
-  const cap = Math.max(40, +max || 200);
+  const cap = Math.max(20, +max || 200);
   if ([...t].length > cap) {
     const cut = [...t].slice(0, cap).join("");
     const stop = Math.max(...["。", "！", "？", "；", ". ", "! ", "? "].map((c) => cut.lastIndexOf(c)));
@@ -596,6 +596,20 @@ export function resultText(raw, max = 200) {
 // 摘要截短时保留完整链接目标。
 export function summaryText(raw, max = 200) {
   return formatSummaryLinks(raw, text => resultText(text, max));
+}
+
+// 喂给总结模型的回复采样：过长时保留开头结论段与末尾验证落点，避免只切尾巴漏掉开头判断。
+export function sampleReplyForSummary(raw, { head = 700, tail = 1000 } = {}) {
+  const text = String(raw || "")
+    .replace(/\d{12,}/g, "…")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (!text) return "";
+  const chars = [...text];
+  if (chars.length <= head + tail) return text;
+  const front = chars.slice(0, head).join("").trim();
+  const back = chars.slice(-tail).join("").trim();
+  return `${front}\n……（中略）……\n${back}`;
 }
 
 // 去掉回复里的代码块、表格、标题与列表符号，只留下能当摘要的正文。
@@ -902,7 +916,7 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
     // 整轮被中断 / 额度断掉：没有正文也要在日记里留一句为什么。
     const missing = !String(r.said || "").trim() && !String(r.summary || "").trim();
     const fallbackLine = missing ? (r.quota ? "额度不足，本轮未完成。" : r.aborted ? "本轮被中断，没有结论。" : "") : "";
-    const stdCap = kind === "qa" ? 120 : 90;
+    const stdCap = kind === "qa" ? Math.max(40, Number(qaMax) || 160) : Math.max(20, Number(codeMax) || 65);
     // 模型偶尔把 kind 当结论写回来（"qa" 这种），当它没给，用本地规则。
     const givenSummary = String(r.summary || "").trim();
     const polished = [...givenSummary].length >= 4 && !/^(?:code|qa|json)$/i.test(givenSummary);
@@ -910,7 +924,7 @@ export function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key
       ? (level === "brief" ? `**任务**：${summaryText(task, 45)}；**结论**：${fallbackLine}` : fallbackLine)
       : r.replyText !== undefined ? r.replyText : r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3000) : level === "brief"
       ? `**任务**：${summaryText(task, 45)}；**结论**：${polished ? summaryText(givenSummary, kind === "qa" ? qaMax : codeMax) : conclusion}`
-      : polished ? recordSentence(givenSummary, stdCap) : tailSentence(kind === "qa" ? answerConclusion(r.said, stdCap) : conclusionSentence(r.said, stdCap), stdCap);
+      : polished ? summaryText(givenSummary, stdCap) : tailSentence(kind === "qa" ? answerConclusion(r.said, stdCap) : conclusionSentence(r.said, stdCap), stdCap);
     // Always include the round prefix (including round 1) so the circle-number badge renders cleanly without 💬.
     const prefix = `第${rn}轮：`;
     if (r.replyText !== undefined) {

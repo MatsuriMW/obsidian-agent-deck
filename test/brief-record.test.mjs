@@ -37,4 +37,47 @@ try {
   assert.equal(round.summary,'修复；测试通过；待发布');
   assert.ok(syncSessionEntry(base,{...args,rounds:[round]}).text.includes('第1轮：**任务**：缓存、兼容；**结论**：修复；测试通过；待发布'));
   console.log('PASS brief polishing extracts task and result keywords through the real CLI flow');
+
+  let capturedPrompt = '';
+  const longQaResult = '核心判断：当前总结质量偏低主要是因为标准模式下被固定截断到了六十五字以内，同时长回复只截取末尾而丢失了开头给出的核心结论与因果依据，导致关键判断被直接丢弃。';
+  const qaBin = writeMockNodeBin(dir, 'polish-qa', `
+    let input = '';
+    process.stdin.on('data', d => input += d);
+    process.stdin.on('end', () => {
+      if (input.includes('TRIGGER_ERR')) { console.error('simulated cli error'); process.exit(1); }
+      const fs = require('fs');
+      fs.writeFileSync(${JSON.stringify(path.join(dir, 'captured-prompt.txt'))}, input);
+      console.log(JSON.stringify({ result: JSON.stringify({ kind: 'qa', result: ${JSON.stringify(longQaResult)} }) }));
+    });
+  `);
+  const pluginStd = {
+    settings: deepMerge(DEFAULTS, {
+      autoLogPath: qaBin,
+      autoLogDetail: 'standard',
+      conclusionMaxCode: 110,
+      conclusionMaxQA: 220,
+      summaryPrompt: '先写核心判断再写依据',
+    }),
+    usage: { meta: new Map() },
+  };
+  const syncStd = new JournalSync(pluginStd);
+  const stdDone = new Promise((resolve) => { syncStd.run = async () => resolve(); });
+  const longReply = '开头结论：之所以出现这个问题，是因为旧逻辑把结论截断在了 65 字以内。' + '补充分析段落。'.repeat(120) + '结尾备注：需要核对长回复头尾采样。';
+  const stdRound = { n: 1, ask: '为什么结论这么差？', said: longReply };
+  syncStd.queueRefineTurn('std-qa-session', stdRound, stdRound.said);
+  await Promise.race([stdDone, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('std polishing timeout')), 3000); })]);
+  clearTimeout(timer);
+  capturedPrompt = fs.readFileSync(path.join(dir, 'captured-prompt.txt'), 'utf8');
+  assert.ok(capturedPrompt.includes('不超过 110 字'), 'prompt uses conclusionMaxCode');
+  assert.ok(capturedPrompt.includes('不超过 220 字'), 'prompt uses conclusionMaxQA');
+  assert.ok(capturedPrompt.includes('补充要求：先写核心判断再写依据'), 'prompt appends summaryPrompt');
+  assert.ok(capturedPrompt.includes('开头结论：之所以出现这个问题') && capturedPrompt.includes('结尾备注：需要核对长回复头尾采样'), 'prompt samples both head and tail');
+  assert.equal(stdRound.summary, longQaResult, 'standard mode QA conclusion is not truncated at 65 chars');
+
+  const failDone = new Promise((resolve) => { syncStd.run = async () => resolve(); });
+  const failRound = { n: 2, ask: '触发错误', said: 'TRIGGER_ERR ' + 'x'.repeat(60) };
+  syncStd.queueRefineTurn('std-qa-session', failRound, failRound.said);
+  await Promise.race([failDone, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('fail polishing timeout')), 3000); })]);
+  assert.ok(syncStd._lastPolishErr.includes('simulated cli error'), `expected recorded polish error, got: ${syncStd._lastPolishErr}`);
+  console.log('PASS standard polishing keeps custom QA cap, samples head+tail, and records errors');
 } finally { clearTimeout(timer); fs.rmSync(dir,{recursive:true,force:true}); }

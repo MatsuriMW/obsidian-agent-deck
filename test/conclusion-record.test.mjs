@@ -1,7 +1,7 @@
 // 💬 结论取「这一轮最后的落点」，而不是回复开头那段铺垫。
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { conclusionSentence, answerConclusion, conclusionKind, oneSentenceConclusion, syncSessionEntry } from '../src/journal.js';
+import { conclusionSentence, answerConclusion, conclusionKind, oneSentenceConclusion, syncSessionEntry, sampleReplyForSummary } from '../src/journal.js';
 
 const BRIEF = '- DOING 修复缓存 ^ad-tail';
 
@@ -106,4 +106,52 @@ test('a model answer that only repeats the kind falls back to the local conclusi
   const line = note.split('\n').find((l) => l.includes('第1轮：'));
   assert.ok(!/(?:\*\*结论\*\*|结论)：qa\b/.test(line), line);
   assert.ok(line.includes('不等于记忆'), line);
+});
+
+test('sampleReplyForSummary keeps short text intact and keeps head + tail for long replies', () => {
+  const short = '先说结论：缓存命中率已恢复。';
+  assert.equal(sampleReplyForSummary(short, { head: 20, tail: 20 }), short);
+  const long = '开头核心判断：因为索引键漏了工作区前缀导致串库。' + '中间细节。'.repeat(80) + '结尾验证状态：单测与构建全部通过。';
+  const sampled = sampleReplyForSummary(long, { head: 30, tail: 25 });
+  assert.ok(sampled.includes('开头核心判断：因为索引键漏了工作区前缀'), sampled);
+  assert.ok(sampled.includes('……（中略）……'), sampled);
+  assert.ok(sampled.includes('结尾验证状态：单测与构建全部通过。'), sampled);
+});
+
+test('standard mode respects custom qaMax and codeMax instead of hardcoded caps', () => {
+  const longQa = '判断依据：' + '详细解释'.repeat(50) + '完。';
+  const noteQa = syncSessionEntry(BRIEF, {
+    sid: 'std-qa',
+    blockId: 'ad-tail',
+    detail: 'standard',
+    granularity: 'round',
+    qaMax: 240,
+    rounds: [{ n: 1, ask: '为什么会这样？', said: longQa, summary: longQa, kind: 'qa' }],
+  }).text;
+  const qaLine = noteQa.split('\n').find((l) => l.includes('第1轮：') && !l.includes('❓'));
+  assert.ok(qaLine && [...qaLine].length > 170, noteQa);
+
+  const longCode = '修复点：' + '模块调整'.repeat(38) + '已验证。';
+  const noteCode = syncSessionEntry(BRIEF, {
+    sid: 'std-code',
+    blockId: 'ad-tail',
+    detail: 'standard',
+    granularity: 'round',
+    codeMax: 180,
+    rounds: [{ n: 1, ask: '改一下代码', said: longCode, summary: longCode, kind: 'code' }],
+  }).text;
+  const codeLine = noteCode.split('\n').find((l) => l.includes('第1轮：') && !l.includes('❓'));
+  assert.ok(codeLine && [...codeLine].length > 130, noteCode);
+
+  const multiClause = '改动：更新 conclusion.js；结果：macOS 测试通过；遗留：Windows 未测。';
+  const noteStructured = syncSessionEntry(BRIEF, {
+    sid: 'std-struct',
+    blockId: 'ad-tail',
+    detail: 'standard',
+    granularity: 'round',
+    codeMax: 90,
+    rounds: [{ n: 1, ask: '结构化总结测试', said: '原文', summary: multiClause, kind: 'code' }],
+  }).text;
+  const structLine = noteStructured.split('\n').find((l) => l.includes('第1轮：') && !l.includes('❓'));
+  assert.ok(structLine && structLine.includes(multiClause), noteStructured);
 });

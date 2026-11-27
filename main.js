@@ -1,4 +1,4 @@
-/* Agent Deck 1.13.37 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
+/* Agent Deck 1.13.38 — Apache-2.0 — https://github.com/MatsuriMW/obsidian-agent-deck */
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -1031,9 +1031,9 @@ var settings_default = {
   "\u6574\u7406\u5931\u8D25\u65F6\u4F7F\u7528\u4F1A\u8BDD\u6807\u9898": "Use session titles if summarizing fails",
   "\u7528 API \u524D\u5148\u95EE\u6211": "Ask me before calling the API",
   "\u{1F4AC} \u7F16\u7801\u7C7B\u7ED3\u8BBA\u5B57\u6570": "Words per coding conclusion (\u{1F4AC})",
-  "\u5199\u505A\u4E86\u4EC0\u4E48\u3001\u73B0\u5728\u4EC0\u4E48\u72B6\u6001\uFF1B\u9ED8\u8BA4 65": "What was done and its current state; default 65",
+  "\u5199\u505A\u4E86\u4EC0\u4E48\u3001\u73B0\u5728\u4EC0\u4E48\u72B6\u6001\uFF1B\u9ED8\u8BA4 90": "What was done and its current state; default 90",
   "\u{1F4AC} \u77E5\u8BC6\u95EE\u7B54\u7ED3\u8BBA\u5B57\u6570": "Words per Q&A conclusion (\u{1F4AC})",
-  "\u89E3\u91CA\u6982\u5FF5\u3001\u56DE\u7B54\u95EE\u9898\u65F6\u53EF\u4EE5\u957F\u4E00\u70B9\uFF1B\u9ED8\u8BA4 160": "Explanations can be longer; default 160",
+  "\u89E3\u91CA\u6982\u5FF5\u3001\u56DE\u7B54\u95EE\u9898\u65F6\u53EF\u4EE5\u957F\u4E00\u70B9\uFF1B\u9ED8\u8BA4 200": "Explanations can be longer; default 200",
   "API \u8C03\u7528\u4F1A\u4EA7\u751F\u8D39\u7528\uFF1B\u540C\u610F\u540E 30 \u5206\u949F\u5185\u4E0D\u518D\u95EE": "API calls cost money; once allowed, I will not ask again for 30 minutes",
   "\u4E3B\u6765\u6E90\u4E0D\u53EF\u7528\u65F6\u6362\u5907\u7528": "Switch sources when the main one is unavailable",
   "\u649E\u9650\u989D\u3001\u8D85\u65F6\u6216\u8D77\u4E0D\u6765\u65F6\u6362\u4E0B\u4E00\u4E2A\u6765\u6E90\uFF0C\u6362\u4E0D\u4E0A\u518D\u7528\u4F1A\u8BDD\u6807\u9898\u8BB0": "On rate limits, timeouts or launch failures, try the next source; if that fails too, fall back to session titles",
@@ -1828,7 +1828,48 @@ var settings_default = {
   "\u5C1A\u672A\u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent\uFF08\u53EF\u63A5\u5165 Kiro\u3001Mistral Vibe\u3001Pi \u7B49\u4EFB\u610F ACP \u547D\u4EE4\uFF09": "No custom ACP Agents yet (supports Kiro, Mistral Vibe, Pi, or any ACP-compatible CLI)",
   "\u4F8B\u5982 kiro-cli \u6216 /usr/local/bin/pi": "e.g. kiro-cli or /usr/local/bin/pi",
   "\u9002\u7528\u4E8E {agents}": "Applies to {agents}",
-  "\u8BF7\u586B\u5199\u6A21\u578B\u540D\u6216\u522B\u540D": "Please enter a model ID or alias"
+  "\u8BF7\u586B\u5199\u6A21\u578B\u540D\u6216\u522B\u540D": "Please enter a model ID or alias",
+  "\u81EA\u52A8\u521B\u5EFA\u4ECA\u65E5\u65E5\u8BB0": "Auto-create today's daily note",
+  "\u4ECA\u65E5\u65E5\u8BB0\u4E0D\u5B58\u5728\u65F6\u6309\u6A21\u677F\u81EA\u52A8\u65B0\u5EFA\uFF1B\u5173\u95ED\u540E\u53EA\u5199\u5165\u5DF2\u5B58\u5728\u7684\u65E5\u8BB0\uFF0C\u907F\u514D\u62A2\u5728\u81EA\u5B9A\u4E49\u6A21\u677F\u6216 Templater \u4E4B\u524D\u5EFA\u7A7A\u6587\u4EF6": "Create today's daily note from template when missing; turn off to write only to existing notes without racing ahead of your manual template or Templater.",
+  "\u7ED3\u8BBA\u603B\u7ED3\u8865\u5145\u8981\u6C42": "Additional summary instructions",
+  "\u53EF\u9009\uFF0C\u9644\u52A0\u5230\u6574\u7406\u4E0E\u6BCF\u8F6E\u6DA6\u8272\u63D0\u793A\u8BCD\u672B\u5C3E\uFF08\u4F8B\u5982\u300C\u5148\u5199\u6539\u52A8\u6587\u4EF6\u518D\u5199\u9A8C\u8BC1\u7ED3\u679C\u300D\uFF09\uFF1B\u7559\u7A7A\u4F7F\u7528\u9ED8\u8BA4\u89C4\u5219": "Optional instructions appended to auto-log and round-polish prompts (e.g. 'list changed files before test results'); leave blank for defaults.",
+  "\u4F8B\u5982\uFF1A\u5148\u5199\u6838\u5FC3\u7ED3\u8BBA\uFF0C\u518D\u5199\u672A\u9A8C\u8BC1\u9879": "e.g. State key conclusion first, then unverified items",
+  "\u6700\u8FD1\u4E00\u6B21\u6574\u7406 / \u6DA6\u8272\u5931\u8D25\uFF08\u5DF2\u56DE\u9000\u672C\u5730\u89C4\u5219\uFF09\uFF1A{error}": "Last auto-log / polish error (fell back to local rules): {error}",
+  "\u591A\u8F6E\u5408\u5E76\u603B\u7ED3\u5B57\u6570": "Merged multi-round summary length",
+  "\u7D2F\u79EF\u591A\u8F6E\u540E\u5408\u5E76\u6210\u4E00\u6BB5\u65F6\u7684\u6700\u5927\u5B57\u6570\uFF1B\u9ED8\u8BA4 180": "Max characters when merging multiple rounds into one summary (default 180).",
+  "\u7ED3\u8BBA\u603B\u7ED3\u98CE\u683C": "Conclusion summary style",
+  "\u51B3\u5B9A AI \u63D0\u70BC\u4EFB\u52A1\u7ED3\u8BBA\u65F6\u7684\u8868\u8FBE\u65B9\u5F0F\uFF1B\u9009\u300C\u81EA\u5B9A\u4E49\u63D0\u793A\u8BCD\u300D\u53EF\u5B8C\u5168\u63A5\u7BA1\u63D0\u793A\u8BCD\u6A21\u677F": "Controls how AI distills task conclusions; pick Custom prompt to take full control of the prompt template.",
+  "\u7CBE\u51C6\u5B8C\u6574\uFF08\u9ED8\u8BA4\uFF09": "Balanced & accurate (default)",
+  "\u6781\u7B80\u8981\u70B9": "Concise bullets",
+  "\u7ED3\u6784\u5316\uFF08\u6539\u52A8\xB7\u7ED3\u679C\xB7\u9057\u7559\uFF09": "Structured (changes \xB7 result \xB7 open)",
+  "\u81EA\u5B9A\u4E49\u63D0\u793A\u8BCD": "Custom prompt",
+  "\u81EA\u5B9A\u4E49\u603B\u7ED3\u63D0\u793A\u8BCD\u6A21\u677F": "Custom summary prompt template",
+  "\u652F\u6301\u5360\u4F4D\u7B26 {{task}}\u3001{{reply}}\u3001{{codeMax}}\u3001{{qaMax}}\uFF1B\u4E0D\u5199\u5360\u4F4D\u7B26\u4E5F\u4F1A\u81EA\u52A8\u5728\u672B\u5C3E\u9644\u4E0A\u4EFB\u52A1\u548C\u56DE\u590D\u3002": "Supports {{task}}, {{reply}}, {{codeMax}}, and {{qaMax}}; if omitted, the task and reply are appended automatically.",
+  "\u6062\u590D\u9ED8\u8BA4\u63D0\u793A\u8BCD": "Reset prompt template",
+  "\u5DF2\u6062\u590D\u9ED8\u8BA4\u603B\u7ED3\u63D0\u793A\u8BCD": "Reset summary prompt template to default",
+  "\u7528\u6837\u4F8B\u8BD5\u8DD1\u603B\u7ED3": "Test summary on sample",
+  "\u751F\u6210\u4E2D\u2026": "Generating\u2026",
+  "\u6837\u4F8B\u603B\u7ED3\uFF08{ms}ms \xB7 {kind}\uFF09\uFF1A{result}": "Sample summary ({ms}ms \xB7 {kind}): {result}",
+  "\u6837\u4F8B\u603B\u7ED3\uFF08{ms}ms \xB7 {kind}\uFF09\uFF1A\u672A\u63D0\u53D6\u5230\u6709\u6548\u7ED3\u8BBA\uFF08\u5DF2\u56DE\u9000\u672C\u5730\u89C4\u5219\uFF09": "Sample summary ({ms}ms \xB7 {kind}): no valid conclusion returned (fell back to local rules)",
+  "\u8BD5\u8DD1\u5931\u8D25\uFF1A{error}": "Sample test failed: {error}",
+  "\u4EFB\u52A1\u7ED3\u8BBA\u4E0E\u603B\u7ED3\u6A21\u578B": "Task conclusions & summary model",
+  "\u53EF\u5355\u72EC\u6307\u5B9A\u7528\u4E8E\u603B\u7ED3\u7684 Agent \u6216 API\uFF08\u4E0D\u5F71\u54CD\u59D4\u6D3E\u4E3B\u529B\uFF09\xB7 \u5DF2\u68C0\u6D4B\u5230\uFF1A{list}": "Pick a dedicated Agent or API just for summaries (independent of your primary delegation target) \xB7 Detected: {list}",
+  "\u53EF\u5355\u72EC\u6307\u5B9A\u7528\u4E8E\u603B\u7ED3\u7684 Agent \u6216 API\uFF08\u4E0D\u5F71\u54CD\u59D4\u6D3E\u4E3B\u529B\uFF09\xB7 \u672A\u68C0\u6D4B\u5230\u5DF2\u767B\u5F55 CLI": "Pick a dedicated Agent or API just for summaries (independent of your primary delegation target) \xB7 No signed-in CLI detected",
+  "\u603B\u7ED3\u4F7F\u7528\u7684 Agent / \u6765\u6E90": "Agent / provider for summaries",
+  "\u5355\u72EC\u4E3A\u65E5\u5FD7\u6574\u7406\u4E0E\u7ED3\u8BBA\u603B\u7ED3\u6307\u5B9A\u672C\u673A\u5DF2\u767B\u5F55 CLI\uFF0C\u6216\u81EA\u586B\u517C\u5BB9 OpenAI \u683C\u5F0F\u7684 API": "Assign a signed-in local CLI or an OpenAI-compatible API specifically for journaling and conclusion summaries.",
+  "\u9002\u7528\u4E8E\u7B80\u7565\u548C\u6807\u51C6\u8BB0\u5F55\uFF1B\u5173\u95ED\u540E\u76F4\u63A5\u6309\u672C\u5730\u89C4\u5219\u622A\u53D6": "Applies to Brief and Standard detail levels; when off, uses local extraction rules directly.",
+  "\u7B80\u7565\uFF1A\u4EFB\u52A1+\u7ED3\u8BBA\u5408\u4E00\u6BB5\uFF5C\u6807\u51C6\uFF1A\u95EE\u7B54\u5404\u4E00\u53E5\uFF5C\u8BE6\u7EC6\uFF1A\u4FDD\u7559\u6458\u5F55\u4E0E\u6B65\u9AA4": "Brief: task + result in one line | Standard: Q & A one line each | Detailed: keeps prompt, excerpt & steps",
+  "\u51B3\u5B9A AI \u63D0\u70BC\u4EFB\u52A1\u7ED3\u8BBA\u65F6\u7684\u8868\u8FBE\u65B9\u5F0F\uFF1B\u9009\u300C\u81EA\u5B9A\u4E49\u300D\u53EF\u5B8C\u5168\u63A5\u7BA1\u63D0\u793A\u8BCD\u6A21\u677F": "Controls how AI distills task conclusions; pick Custom to take full control of the prompt template.",
+  "\u7CBE\u51C6\u5B8C\u6574": "Balanced",
+  "\u7ED3\u6784\u5316": "Structured",
+  "\u81EA\u5B9A\u4E49": "Custom",
+  "\u7ED3\u8BBA\u5B57\u6570\u4E0A\u9650": "Conclusion length limits",
+  "\u5206\u522B\u63A7\u5236\u7F16\u7801\u3001\u95EE\u7B54\u3001\u591A\u8F6E\u5408\u5E76\u4E0E\u515C\u5E95\u4E0A\u9650\uFF08\u5B57\uFF09": "Caps for coding, Q&A, merged multi-round, and fallback conclusions (chars)",
+  "\u7F16\u7801": "Code",
+  "\u95EE\u7B54": "Q&A",
+  "\u5408\u5E76": "Merge",
+  "\u515C\u5E95": "Fallback",
+  "\u957F\u4EFB\u52A1\u8FBE\u5230\u9608\u503C\u540E\u81EA\u52A8\u5408\u5E76\u591A\u8F6E\u8BB0\u5F55\u4E3A\u4E00\u6BB5\u603B\u7ED3": "Automatically merge multiple turns into one summary once the threshold is reached."
 };
 
 // src/locales/en/dialogs.js
@@ -3291,9 +3332,9 @@ var zh_TW_default = {
   "\u6574\u7406\u5931\u8D25\u65F6\u4F7F\u7528\u4F1A\u8BDD\u6807\u9898": "\u6574\u7406\u5931\u6557\u6642\u4F7F\u7528\u6703\u8A71\u6A19\u984C",
   "\u7528 API \u524D\u5148\u95EE\u6211": "\u7528 API \u524D\u5148\u554F\u6211",
   "\u{1F4AC} \u7F16\u7801\u7C7B\u7ED3\u8BBA\u5B57\u6570": "\u{1F4AC} \u7DE8\u78BC\u985E\u7D50\u8AD6\u5B57\u6578",
-  "\u5199\u505A\u4E86\u4EC0\u4E48\u3001\u73B0\u5728\u4EC0\u4E48\u72B6\u6001\uFF1B\u9ED8\u8BA4 65": "\u5BEB\u505A\u4E86\u4EC0\u9EBC\u3001\u73FE\u5728\u4EC0\u9EBC\u72C0\u614B\uFF1B\u9810\u8A2D 65",
+  "\u5199\u505A\u4E86\u4EC0\u4E48\u3001\u73B0\u5728\u4EC0\u4E48\u72B6\u6001\uFF1B\u9ED8\u8BA4 90": "\u5BEB\u505A\u4E86\u4EC0\u9EBC\u3001\u73FE\u5728\u4EC0\u9EBC\u72C0\u614B\uFF1B\u9810\u8A2D 90",
   "\u{1F4AC} \u77E5\u8BC6\u95EE\u7B54\u7ED3\u8BBA\u5B57\u6570": "\u{1F4AC} \u77E5\u8B58\u554F\u7B54\u7D50\u8AD6\u5B57\u6578",
-  "\u89E3\u91CA\u6982\u5FF5\u3001\u56DE\u7B54\u95EE\u9898\u65F6\u53EF\u4EE5\u957F\u4E00\u70B9\uFF1B\u9ED8\u8BA4 160": "\u89E3\u91CB\u6982\u5FF5\u3001\u56DE\u7B54\u554F\u984C\u6642\u53EF\u4EE5\u9577\u4E00\u9EDE\uFF1B\u9810\u8A2D 160",
+  "\u89E3\u91CA\u6982\u5FF5\u3001\u56DE\u7B54\u95EE\u9898\u65F6\u53EF\u4EE5\u957F\u4E00\u70B9\uFF1B\u9ED8\u8BA4 200": "\u89E3\u91CB\u6982\u5FF5\u3001\u56DE\u7B54\u554F\u984C\u6642\u53EF\u4EE5\u9577\u4E00\u9EDE\uFF1B\u9810\u8A2D 200",
   "API \u8C03\u7528\u4F1A\u4EA7\u751F\u8D39\u7528\uFF1B\u540C\u610F\u540E 30 \u5206\u949F\u5185\u4E0D\u518D\u95EE": "API \u547C\u53EB\u6703\u7522\u751F\u8CBB\u7528\uFF1B\u540C\u610F\u5F8C 30 \u5206\u9418\u5167\u4E0D\u518D\u554F",
   "\u4E3B\u6765\u6E90\u4E0D\u53EF\u7528\u65F6\u6362\u5907\u7528": "\u4E3B\u4F86\u6E90\u4E0D\u53EF\u7528\u6642\u63DB\u5099\u7528",
   "\u649E\u9650\u989D\u3001\u8D85\u65F6\u6216\u8D77\u4E0D\u6765\u65F6\u6362\u4E0B\u4E00\u4E2A\u6765\u6E90\uFF0C\u6362\u4E0D\u4E0A\u518D\u7528\u4F1A\u8BDD\u6807\u9898\u8BB0": "\u649E\u9650\u984D\u3001\u8D85\u6642\u6216\u8D77\u4E0D\u4F86\u6642\u63DB\u4E0B\u4E00\u500B\u4F86\u6E90\uFF0C\u63DB\u4E0D\u4E0A\u518D\u7528\u6703\u8A71\u6A19\u984C\u8A18",
@@ -4829,7 +4870,48 @@ var zh_TW_default = {
   "\u5C1A\u672A\u6DFB\u52A0\u81EA\u5B9A\u4E49 ACP Agent\uFF08\u53EF\u63A5\u5165 Kiro\u3001Mistral Vibe\u3001Pi \u7B49\u4EFB\u610F ACP \u547D\u4EE4\uFF09": "\u5C1A\u672A\u65B0\u589E\u81EA\u8A02 ACP Agent\uFF08\u53EF\u63A5\u5165 Kiro\u3001Mistral Vibe\u3001Pi \u7B49\u4EFB\u610F ACP \u6307\u4EE4\uFF09",
   "\u4F8B\u5982 kiro-cli \u6216 /usr/local/bin/pi": "\u4F8B\u5982 kiro-cli \u6216 /usr/local/bin/pi",
   "\u9002\u7528\u4E8E {agents}": "\u9069\u7528\u65BC {agents}",
-  "\u8BF7\u586B\u5199\u6A21\u578B\u540D\u6216\u522B\u540D": "\u8ACB\u586B\u5BEB\u6A21\u578B\u540D\u7A31\u6216\u5225\u540D"
+  "\u8BF7\u586B\u5199\u6A21\u578B\u540D\u6216\u522B\u540D": "\u8ACB\u586B\u5BEB\u6A21\u578B\u540D\u7A31\u6216\u5225\u540D",
+  "\u81EA\u52A8\u521B\u5EFA\u4ECA\u65E5\u65E5\u8BB0": "\u81EA\u52D5\u5EFA\u7ACB\u4ECA\u65E5\u65E5\u8A18",
+  "\u4ECA\u65E5\u65E5\u8BB0\u4E0D\u5B58\u5728\u65F6\u6309\u6A21\u677F\u81EA\u52A8\u65B0\u5EFA\uFF1B\u5173\u95ED\u540E\u53EA\u5199\u5165\u5DF2\u5B58\u5728\u7684\u65E5\u8BB0\uFF0C\u907F\u514D\u62A2\u5728\u81EA\u5B9A\u4E49\u6A21\u677F\u6216 Templater \u4E4B\u524D\u5EFA\u7A7A\u6587\u4EF6": "\u4ECA\u65E5\u65E5\u8A18\u4E0D\u5B58\u5728\u6642\u6309\u7BC4\u672C\u81EA\u52D5\u65B0\u5EFA\uFF1B\u95DC\u9589\u5F8C\u53EA\u5BEB\u5165\u5DF2\u5B58\u5728\u7684\u65E5\u8A18\uFF0C\u907F\u514D\u6436\u5728\u81EA\u8A02\u7BC4\u672C\u6216 Templater \u4E4B\u524D\u5EFA\u7A7A\u6A94\u6848",
+  "\u7ED3\u8BBA\u603B\u7ED3\u8865\u5145\u8981\u6C42": "\u7D50\u8AD6\u7E3D\u7D50\u88DC\u5145\u8981\u6C42",
+  "\u53EF\u9009\uFF0C\u9644\u52A0\u5230\u6574\u7406\u4E0E\u6BCF\u8F6E\u6DA6\u8272\u63D0\u793A\u8BCD\u672B\u5C3E\uFF08\u4F8B\u5982\u300C\u5148\u5199\u6539\u52A8\u6587\u4EF6\u518D\u5199\u9A8C\u8BC1\u7ED3\u679C\u300D\uFF09\uFF1B\u7559\u7A7A\u4F7F\u7528\u9ED8\u8BA4\u89C4\u5219": "\u53EF\u9078\uFF0C\u9644\u52A0\u5230\u6574\u7406\u8207\u6BCF\u8F2A\u6F64\u98FE\u63D0\u793A\u8A5E\u672B\u5C3E\uFF08\u4F8B\u5982\u300C\u5148\u5BEB\u7570\u52D5\u6A94\u6848\u518D\u5BEB\u9A57\u8B49\u7D50\u679C\u300D\uFF09\uFF1B\u7559\u7A7A\u4F7F\u7528\u9810\u8A2D\u898F\u5247",
+  "\u4F8B\u5982\uFF1A\u5148\u5199\u6838\u5FC3\u7ED3\u8BBA\uFF0C\u518D\u5199\u672A\u9A8C\u8BC1\u9879": "\u4F8B\u5982\uFF1A\u5148\u5BEB\u6838\u5FC3\u7D50\u8AD6\uFF0C\u518D\u5BEB\u672A\u9A57\u8B49\u9805",
+  "\u6700\u8FD1\u4E00\u6B21\u6574\u7406 / \u6DA6\u8272\u5931\u8D25\uFF08\u5DF2\u56DE\u9000\u672C\u5730\u89C4\u5219\uFF09\uFF1A{error}": "\u6700\u8FD1\u4E00\u6B21\u6574\u7406 / \u6F64\u98FE\u5931\u6557\uFF08\u5DF2\u9000\u56DE\u672C\u6A5F\u898F\u5247\uFF09\uFF1A{error}",
+  "\u591A\u8F6E\u5408\u5E76\u603B\u7ED3\u5B57\u6570": "\u591A\u8F2A\u5408\u4F75\u7E3D\u7D50\u5B57\u6578",
+  "\u7D2F\u79EF\u591A\u8F6E\u540E\u5408\u5E76\u6210\u4E00\u6BB5\u65F6\u7684\u6700\u5927\u5B57\u6570\uFF1B\u9ED8\u8BA4 180": "\u7D2F\u7A4D\u591A\u8F2A\u5F8C\u5408\u4F75\u6210\u4E00\u6BB5\u6642\u7684\u6700\u5927\u5B57\u6578\uFF1B\u9810\u8A2D 180",
+  "\u7ED3\u8BBA\u603B\u7ED3\u98CE\u683C": "\u7D50\u8AD6\u7E3D\u7D50\u98A8\u683C",
+  "\u51B3\u5B9A AI \u63D0\u70BC\u4EFB\u52A1\u7ED3\u8BBA\u65F6\u7684\u8868\u8FBE\u65B9\u5F0F\uFF1B\u9009\u300C\u81EA\u5B9A\u4E49\u63D0\u793A\u8BCD\u300D\u53EF\u5B8C\u5168\u63A5\u7BA1\u63D0\u793A\u8BCD\u6A21\u677F": "\u6C7A\u5B9A AI \u63D0\u7149\u4EFB\u52D9\u7D50\u8AD6\u6642\u7684\u8868\u9054\u65B9\u5F0F\uFF1B\u9078\u300C\u81EA\u8A02\u63D0\u793A\u8A5E\u300D\u53EF\u5B8C\u5168\u63A5\u7BA1\u63D0\u793A\u8A5E\u7BC4\u672C",
+  "\u7CBE\u51C6\u5B8C\u6574\uFF08\u9ED8\u8BA4\uFF09": "\u7CBE\u6E96\u5B8C\u6574\uFF08\u9810\u8A2D\uFF09",
+  "\u6781\u7B80\u8981\u70B9": "\u6975\u7C21\u8981\u9EDE",
+  "\u7ED3\u6784\u5316\uFF08\u6539\u52A8\xB7\u7ED3\u679C\xB7\u9057\u7559\uFF09": "\u7D50\u69CB\u5316\uFF08\u7570\u52D5\xB7\u7D50\u679C\xB7\u907A\u7559\uFF09",
+  "\u81EA\u5B9A\u4E49\u63D0\u793A\u8BCD": "\u81EA\u8A02\u63D0\u793A\u8A5E",
+  "\u81EA\u5B9A\u4E49\u603B\u7ED3\u63D0\u793A\u8BCD\u6A21\u677F": "\u81EA\u8A02\u7E3D\u7D50\u63D0\u793A\u8A5E\u7BC4\u672C",
+  "\u652F\u6301\u5360\u4F4D\u7B26 {{task}}\u3001{{reply}}\u3001{{codeMax}}\u3001{{qaMax}}\uFF1B\u4E0D\u5199\u5360\u4F4D\u7B26\u4E5F\u4F1A\u81EA\u52A8\u5728\u672B\u5C3E\u9644\u4E0A\u4EFB\u52A1\u548C\u56DE\u590D\u3002": "\u652F\u63F4\u4F54\u4F4D\u7B26 {{task}}\u3001{{reply}}\u3001{{codeMax}}\u3001{{qaMax}}\uFF1B\u4E0D\u5BEB\u4F54\u4F4D\u7B26\u4E5F\u6703\u81EA\u52D5\u5728\u672B\u5C3E\u9644\u4E0A\u4EFB\u52D9\u8207\u56DE\u8986\u3002",
+  "\u6062\u590D\u9ED8\u8BA4\u63D0\u793A\u8BCD": "\u6062\u5FA9\u9810\u8A2D\u63D0\u793A\u8A5E",
+  "\u5DF2\u6062\u590D\u9ED8\u8BA4\u603B\u7ED3\u63D0\u793A\u8BCD": "\u5DF2\u6062\u5FA9\u9810\u8A2D\u7E3D\u7D50\u63D0\u793A\u8A5E",
+  "\u7528\u6837\u4F8B\u8BD5\u8DD1\u603B\u7ED3": "\u7528\u7BC4\u4F8B\u8A66\u8DD1\u7E3D\u7D50",
+  "\u751F\u6210\u4E2D\u2026": "\u7522\u751F\u4E2D\u2026",
+  "\u6837\u4F8B\u603B\u7ED3\uFF08{ms}ms \xB7 {kind}\uFF09\uFF1A{result}": "\u7BC4\u4F8B\u7E3D\u7D50\uFF08{ms}ms \xB7 {kind}\uFF09\uFF1A{result}",
+  "\u6837\u4F8B\u603B\u7ED3\uFF08{ms}ms \xB7 {kind}\uFF09\uFF1A\u672A\u63D0\u53D6\u5230\u6709\u6548\u7ED3\u8BBA\uFF08\u5DF2\u56DE\u9000\u672C\u5730\u89C4\u5219\uFF09": "\u7BC4\u4F8B\u7E3D\u7D50\uFF08{ms}ms \xB7 {kind}\uFF09\uFF1A\u672A\u64F7\u53D6\u5230\u6709\u6548\u7D50\u8AD6\uFF08\u5DF2\u9000\u56DE\u672C\u6A5F\u898F\u5247\uFF09",
+  "\u8BD5\u8DD1\u5931\u8D25\uFF1A{error}": "\u8A66\u8DD1\u5931\u6557\uFF1A{error}",
+  "\u4EFB\u52A1\u7ED3\u8BBA\u4E0E\u603B\u7ED3\u6A21\u578B": "\u4EFB\u52D9\u7D50\u8AD6\u8207\u7E3D\u7D50\u6A21\u578B",
+  "\u53EF\u5355\u72EC\u6307\u5B9A\u7528\u4E8E\u603B\u7ED3\u7684 Agent \u6216 API\uFF08\u4E0D\u5F71\u54CD\u59D4\u6D3E\u4E3B\u529B\uFF09\xB7 \u5DF2\u68C0\u6D4B\u5230\uFF1A{list}": "\u53EF\u55AE\u7368\u6307\u5B9A\u7528\u65BC\u7E3D\u7D50\u7684 Agent \u6216 API\uFF08\u4E0D\u5F71\u97FF\u59D4\u6D3E\u4E3B\u529B\uFF09\xB7 \u5DF2\u5075\u6E2C\u5230\uFF1A{list}",
+  "\u53EF\u5355\u72EC\u6307\u5B9A\u7528\u4E8E\u603B\u7ED3\u7684 Agent \u6216 API\uFF08\u4E0D\u5F71\u54CD\u59D4\u6D3E\u4E3B\u529B\uFF09\xB7 \u672A\u68C0\u6D4B\u5230\u5DF2\u767B\u5F55 CLI": "\u53EF\u55AE\u7368\u6307\u5B9A\u7528\u65BC\u7E3D\u7D50\u7684 Agent \u6216 API\uFF08\u4E0D\u5F71\u97FF\u59D4\u6D3E\u4E3B\u529B\uFF09\xB7 \u672A\u5075\u6E2C\u5230\u5DF2\u767B\u5165 CLI",
+  "\u603B\u7ED3\u4F7F\u7528\u7684 Agent / \u6765\u6E90": "\u7E3D\u7D50\u4F7F\u7528\u7684 Agent / \u4F86\u6E90",
+  "\u5355\u72EC\u4E3A\u65E5\u5FD7\u6574\u7406\u4E0E\u7ED3\u8BBA\u603B\u7ED3\u6307\u5B9A\u672C\u673A\u5DF2\u767B\u5F55 CLI\uFF0C\u6216\u81EA\u586B\u517C\u5BB9 OpenAI \u683C\u5F0F\u7684 API": "\u55AE\u7368\u70BA\u65E5\u8A8C\u6574\u7406\u8207\u7D50\u8AD6\u7E3D\u7D50\u6307\u5B9A\u672C\u6A5F\u5DF2\u767B\u5165 CLI\uFF0C\u6216\u81EA\u586B\u76F8\u5BB9 OpenAI \u683C\u5F0F\u7684 API",
+  "\u9002\u7528\u4E8E\u7B80\u7565\u548C\u6807\u51C6\u8BB0\u5F55\uFF1B\u5173\u95ED\u540E\u76F4\u63A5\u6309\u672C\u5730\u89C4\u5219\u622A\u53D6": "\u9069\u7528\u65BC\u7C21\u7565\u548C\u6A19\u6E96\u8A18\u9304\uFF1B\u95DC\u9589\u5F8C\u76F4\u63A5\u4F9D\u672C\u6A5F\u898F\u5247\u64F7\u53D6",
+  "\u7B80\u7565\uFF1A\u4EFB\u52A1+\u7ED3\u8BBA\u5408\u4E00\u6BB5\uFF5C\u6807\u51C6\uFF1A\u95EE\u7B54\u5404\u4E00\u53E5\uFF5C\u8BE6\u7EC6\uFF1A\u4FDD\u7559\u6458\u5F55\u4E0E\u6B65\u9AA4": "\u7C21\u7565\uFF1A\u4EFB\u52D9+\u7D50\u8AD6\u5408\u4E00\u6BB5\uFF5C\u6A19\u6E96\uFF1A\u554F\u7B54\u5404\u4E00\u53E5\uFF5C\u8A73\u7D30\uFF1A\u4FDD\u7559\u6458\u9304\u8207\u6B65\u9A5F",
+  "\u51B3\u5B9A AI \u63D0\u70BC\u4EFB\u52A1\u7ED3\u8BBA\u65F6\u7684\u8868\u8FBE\u65B9\u5F0F\uFF1B\u9009\u300C\u81EA\u5B9A\u4E49\u300D\u53EF\u5B8C\u5168\u63A5\u7BA1\u63D0\u793A\u8BCD\u6A21\u677F": "\u6C7A\u5B9A AI \u63D0\u7149\u4EFB\u52D9\u7D50\u8AD6\u6642\u7684\u8868\u9054\u65B9\u5F0F\uFF1B\u9078\u300C\u81EA\u8A02\u300D\u53EF\u5B8C\u5168\u63A5\u7BA1\u63D0\u793A\u8A5E\u7BC4\u672C",
+  "\u7CBE\u51C6\u5B8C\u6574": "\u7CBE\u6E96\u5B8C\u6574",
+  "\u7ED3\u6784\u5316": "\u7D50\u69CB\u5316",
+  "\u81EA\u5B9A\u4E49": "\u81EA\u8A02",
+  "\u7ED3\u8BBA\u5B57\u6570\u4E0A\u9650": "\u7D50\u8AD6\u5B57\u6578\u4E0A\u9650",
+  "\u5206\u522B\u63A7\u5236\u7F16\u7801\u3001\u95EE\u7B54\u3001\u591A\u8F6E\u5408\u5E76\u4E0E\u515C\u5E95\u4E0A\u9650\uFF08\u5B57\uFF09": "\u5206\u5225\u63A7\u5236\u7DE8\u78BC\u3001\u554F\u7B54\u3001\u591A\u8F2A\u5408\u4F75\u8207\u515C\u5E95\u4E0A\u9650\uFF08\u5B57\uFF09",
+  "\u7F16\u7801": "\u7DE8\u78BC",
+  "\u95EE\u7B54": "\u554F\u7B54",
+  "\u5408\u5E76": "\u5408\u4F75",
+  "\u515C\u5E95": "\u515C\u5E95",
+  "\u957F\u4EFB\u52A1\u8FBE\u5230\u9608\u503C\u540E\u81EA\u52A8\u5408\u5E76\u591A\u8F6E\u8BB0\u5F55\u4E3A\u4E00\u6BB5\u603B\u7ED3": "\u9577\u4EFB\u52D9\u9054\u5230\u95BE\u503C\u5F8C\u81EA\u52D5\u5408\u4F75\u591A\u8F2A\u8A18\u9304\u70BA\u4E00\u6BB5\u7E3D\u7D50"
 };
 
 // src/i18n.js
@@ -5505,6 +5587,8 @@ var DEFAULTS = {
   // 日记文件名格式（moment 写法）；留空自动检测
   journalAutoWrite: true,
   // 自动建项、结论和状态回写总开关；手动整理仍可用
+  journalAutoCreate: true,
+  // 今天日记不存在时自动新建；关闭后只写入已存在的日记
   journalSync: true,
   journalLayout: null,
   uiLanguage: "auto",
@@ -5602,10 +5686,18 @@ var DEFAULTS = {
   // 撞限额的来源冷却多少分钟（冷却期内直接用备用来源）
   autoLogApiConfirm: true,
   // 自动调用 API 前先问人（API 会算钱）；同意后 30 分钟内不再问
-  conclusionMaxCode: 65,
+  conclusionMaxCode: 90,
   // 💬 编码类结论字数（做了什么、情况怎么样）
-  conclusionMaxQA: 160,
+  conclusionMaxQA: 200,
   // 💬 知识问答类结论字数（可以长一点，讲清判断）
+  conclusionMaxMerge: 180,
+  // 多轮累积合并总结最大字数
+  conclusionStyle: "balanced",
+  // balanced 精准完整 / concise 极简要点 / structured 结构化 / custom 自定义提示词
+  conclusionPromptTemplate: "",
+  // custom 模式下的完整自定义提示词模板
+  summaryPrompt: "",
+  // 可选：追加到整理与每轮润色提示词末尾的自定义总结要求
   journalMarkerIntroShown: false,
   // 第一次遇到分区标记不全时解释过标记规则没有
   autoLogKw: true,
@@ -5617,7 +5709,7 @@ var DEFAULTS = {
   // 每轮的 💬 先用本地规则写，再让模型润色成一句话
   roundPolishModel: "",
   // 留空 = 跟整理用的模型一样
-  roundPolishTimeout: 30,
+  roundPolishTimeout: 60,
   // 润色时等模型几秒
   autoLogState: {},
   workLog: {},
@@ -7098,7 +7190,7 @@ var linkUnder = (lines, n) => childMark(lines, n, parseLink);
 var resultUnder = (lines, n) => childMark(lines, n, (l) => RESULT_RE.test(l) ? {} : null);
 function resultText(raw, max = 200) {
   let t2 = String(raw || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/^\s*\|?[\s:|-]{3,}\|?\s*$/gm, " ").replace(/\d{12,}/g, "\u2026").replace(/\s+/g, " ").trim();
-  const cap = Math.max(40, +max || 200);
+  const cap = Math.max(20, +max || 200);
   if ([...t2].length > cap) {
     const cut = [...t2].slice(0, cap).join("");
     const stop = Math.max(...["\u3002", "\uFF01", "\uFF1F", "\uFF1B", ". ", "! ", "? "].map((c) => cut.lastIndexOf(c)));
@@ -7108,6 +7200,17 @@ function resultText(raw, max = 200) {
 }
 function summaryText(raw, max = 200) {
   return formatSummaryLinks(raw, (text) => resultText(text, max));
+}
+function sampleReplyForSummary(raw, { head = 700, tail = 1e3 } = {}) {
+  const text = String(raw || "").replace(/\d{12,}/g, "\u2026").replace(/\n{3,}/g, "\n\n").trim();
+  if (!text) return "";
+  const chars = [...text];
+  if (chars.length <= head + tail) return text;
+  const front = chars.slice(0, head).join("").trim();
+  const back = chars.slice(-tail).join("").trim();
+  return `${front}
+\u2026\u2026\uFF08\u4E2D\u7565\uFF09\u2026\u2026
+${back}`;
 }
 var cleanReply = (source) => String(source || "").replace(/```[\s\S]*?(?:```|$)/g, " ").replace(/^\s*\|.*\|\s*$/gm, " ").replace(/^\s{0,3}#{1,6}\s+/gm, "").replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, "").replace(/^\s*>\s?/gm, "").replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\d{12,}/g, "\u2026").trim();
 var firstSentence = (pick, max) => {
@@ -7328,10 +7431,10 @@ function syncSessionEntry(text, { sid = "", agent = "", blockId = "", key = "", 
     const conclusion = kind === "qa" ? answerConclusion(r.said, qaMax) : conclusionSentence(r.said, codeMax);
     const missing = !String(r.said || "").trim() && !String(r.summary || "").trim();
     const fallbackLine = missing ? r.quota ? "\u989D\u5EA6\u4E0D\u8DB3\uFF0C\u672C\u8F6E\u672A\u5B8C\u6210\u3002" : r.aborted ? "\u672C\u8F6E\u88AB\u4E2D\u65AD\uFF0C\u6CA1\u6709\u7ED3\u8BBA\u3002" : "" : "";
-    const stdCap = kind === "qa" ? 120 : 90;
+    const stdCap = kind === "qa" ? Math.max(40, Number(qaMax) || 160) : Math.max(20, Number(codeMax) || 65);
     const givenSummary = String(r.summary || "").trim();
     const polished = [...givenSummary].length >= 4 && !/^(?:code|qa|json)$/i.test(givenSummary);
-    const message = fallbackLine ? level === "brief" ? `**\u4EFB\u52A1**\uFF1A${summaryText(task, 45)}\uFF1B**\u7ED3\u8BBA**\uFF1A${fallbackLine}` : fallbackLine : r.replyText !== void 0 ? r.replyText : r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3e3) : level === "brief" ? `**\u4EFB\u52A1**\uFF1A${summaryText(task, 45)}\uFF1B**\u7ED3\u8BBA**\uFF1A${polished ? summaryText(givenSummary, kind === "qa" ? qaMax : codeMax) : conclusion}` : polished ? recordSentence(givenSummary, stdCap) : tailSentence(kind === "qa" ? answerConclusion(r.said, stdCap) : conclusionSentence(r.said, stdCap), stdCap);
+    const message = fallbackLine ? level === "brief" ? `**\u4EFB\u52A1**\uFF1A${summaryText(task, 45)}\uFF1B**\u7ED3\u8BBA**\uFF1A${fallbackLine}` : fallbackLine : r.replyText !== void 0 ? r.replyText : r.journalSummary ? summaryText(r.journalSummary, [...r.journalSummary].length) : level === "detailed" ? detailExcerpt(raw, 3e3) : level === "brief" ? `**\u4EFB\u52A1**\uFF1A${summaryText(task, 45)}\uFF1B**\u7ED3\u8BBA**\uFF1A${polished ? summaryText(givenSummary, kind === "qa" ? qaMax : codeMax) : conclusion}` : polished ? summaryText(givenSummary, stdCap) : tailSentence(kind === "qa" ? answerConclusion(r.said, stdCap) : conclusionSentence(r.said, stdCap), stdCap);
     const prefix = `\u7B2C${rn}\u8F6E\uFF1A`;
     if (r.replyText !== void 0) {
       const [first, ...rest] = message.split("\n");
@@ -42899,6 +43002,283 @@ function applyHarnessDetection(settings, { mode = "initial", detection = null, n
   };
 }
 
+// src/conclusion.js
+var CONCLUSION_STYLES = {
+  balanced: {
+    id: "balanced",
+    codeRule: "\u5199\u6E05\u5177\u4F53\u6539\u4E86/\u505A\u4E86\u4EC0\u4E48\uFF08\u5E26\u5173\u952E\u5BF9\u8C61\u3001\u6A21\u5757\u6216\u6587\u4EF6\u540D\uFF09\u4EE5\u53CA\u5F53\u524D\u9A8C\u8BC1/\u843D\u5730\u72B6\u6001\uFF08\u5DF2\u901A\u8FC7 / \u5F85\u9A8C\u8BC1 / \u5931\u8D25\u6216\u963B\u585E\uFF09\uFF0C\u7981\u6B62\u7A7A\u6D1E\u5957\u8BDD",
+    qaRule: "\u76F4\u63A5\u7ED9\u51FA\u6838\u5FC3\u5224\u65AD\u6216\u7B54\u6848\u672C\u8EAB\uFF0C\u518D\u8865\u5145 1 \u5230 2 \u53E5\u5173\u952E\u4F9D\u636E\u6216\u5EFA\u8BAE\uFF1B\u7981\u6B62\u300C\u5206\u6790\u4E86\u67D0\u95EE\u9898\u300D\u300C\u89E3\u7B54\u4E86\u7591\u95EE\u300D\u8FD9\u7C7B\u5143\u63CF\u8FF0",
+    mergeRule: "\u5148\u5199\u5DF2\u505A\u6210\u7684\u6838\u5FC3\u6210\u679C\u4E0E\u5BF9\u8C61\uFF0C\u518D\u5199\u5F53\u524D\u9A8C\u8BC1\u72B6\u6001\u6216\u9057\u7559\u5361\u70B9"
+  },
+  concise: {
+    id: "concise",
+    codeRule: "\u7528\u9AD8\u5BC6\u5EA6\u77ED\u8BED\u5199\u6E05\u300C\u52A8\u4F5C\u4E0E\u5BF9\u8C61\uFF1B\u5F53\u524D\u72B6\u6001\u300D\uFF0C\u53BB\u6389\u8FDE\u63A5\u8BCD\u4E0E\u4E3B\u8BED",
+    qaRule: "\u7528\u4E00\u53E5\u8BDD\u9AD8\u5BC6\u5EA6\u76F4\u8FF0\u6838\u5FC3\u7ED3\u8BBA\u4E0E\u4F9D\u636E\uFF0C\u53BB\u6389\u94FA\u57AB\u4E0E\u4E3E\u4F8B",
+    mergeRule: "\u6781\u7B80\u5408\u5E76\uFF0C\u53EA\u7559\u6838\u5FC3\u6210\u679C\u3001\u6700\u7EC8\u72B6\u6001\u4E0E\u963B\u585E\u9879"
+  },
+  structured: {
+    id: "structured",
+    codeRule: "\u4E25\u683C\u6309\u300C\u6539\u52A8\uFF1A\u2026\uFF1B\u7ED3\u679C\uFF1A\u2026\uFF1B\u9057\u7559\uFF1A\u2026\uFF08\u65E0\u9057\u7559\u5219\u7701\u7565\u7B2C\u4E09\u6BB5\uFF09\u300D\u5206\u53F7\u5206\u9694\u8F93\u51FA\uFF0C\u4E0D\u9057\u6F0F\u672A\u9A8C\u8BC1\u6216\u5931\u8D25\u9879",
+    qaRule: "\u4E25\u683C\u6309\u300C\u7ED3\u8BBA\uFF1A\u2026\uFF1B\u4F9D\u636E\uFF1A\u2026\u300D\u5206\u53F7\u5206\u9694\u5199\u6E05\u5224\u65AD\u4E0E\u6838\u5FC3\u7406\u7531",
+    mergeRule: "\u6309\u300C\u6210\u679C\uFF1A\u2026\uFF1B\u72B6\u6001\uFF1A\u2026\uFF1B\u5F85\u529E\uFF1A\u2026\uFF08\u65E0\u5219\u7701\u7565\uFF09\u300D\u5206\u53F7\u5206\u9694\u603B\u7ED3"
+  },
+  custom: {
+    id: "custom",
+    codeRule: "\u6309\u7528\u6237\u81EA\u5B9A\u4E49\u6A21\u677F\u63D0\u70BC\u7F16\u7801\u4EFB\u52A1\u6539\u52A8\u4E0E\u9A8C\u8BC1\u72B6\u6001",
+    qaRule: "\u6309\u7528\u6237\u81EA\u5B9A\u4E49\u6A21\u677F\u63D0\u70BC\u6838\u5FC3\u5224\u65AD\u4E0E\u4F9D\u636E",
+    mergeRule: "\u6309\u7528\u6237\u81EA\u5B9A\u4E49\u8981\u6C42\u51DD\u7EC3\u591A\u8F6E\u603B\u7ED3"
+  }
+};
+var DEFAULT_CUSTOM_CONCLUSION_PROMPT = [
+  "\u8BF7\u628A\u4E0B\u9762\u8FD9\u4E00\u8F6E\u4EBA\u673A\u534F\u4F5C\u63D0\u70BC\u6210\u9AD8\u4FE1\u606F\u5BC6\u5EA6\u7684\u4EFB\u52A1\u7ED3\u8BBA\uFF0C\u76F4\u63A5\u53EF\u7528\u4E8E\u5DE5\u4F5C\u65E5\u8BB0\uFF1A",
+  '- \u7F16\u7801/\u64CD\u4F5C\u7C7B\uFF08kind="code"\uFF0C\u4E0D\u8D85\u8FC7 {{codeMax}} \u5B57\uFF09\uFF1A\u5199\u6E05\u6539\u4E86\u4EC0\u4E48\u5BF9\u8C61\u6216\u6A21\u5757\u3001\u73B0\u5728\u4EC0\u4E48\u72B6\u6001\uFF08\u5DF2\u901A\u8FC7 / \u5F85\u9A8C\u8BC1 / \u5931\u8D25\u5361\u70B9\uFF09\uFF0C\u4E0D\u5199\u300C\u5B8C\u6210\u4E86\u4FEE\u6539\u300D\u8FD9\u7C7B\u7A7A\u8BDD\u3002',
+  '- \u95EE\u7B54/\u5206\u6790\u7C7B\uFF08kind="qa"\uFF0C\u4E0D\u8D85\u8FC7 {{qaMax}} \u5B57\uFF09\uFF1A\u76F4\u63A5\u7ED9\u6838\u5FC3\u5224\u65AD\u4E0E\u5173\u952E\u4F9D\u636E\uFF0C\u4E0D\u5199\u300C\u56DE\u7B54\u4E86\u5173\u4E8E\u2026\u7684\u95EE\u9898\u300D\u8FD9\u7C7B\u5143\u63CF\u8FF0\u3002',
+  "- \u4E25\u7981\u7F16\u9020\u672A\u9A8C\u8BC1\u901A\u8FC7\u7684\u7ED3\u679C\uFF0C\u53BB\u6389\u5F00\u573A\u5BD2\u6684\u548C\u7ED3\u5C3E\u5BA2\u5957\u3002",
+  '- \u53EA\u8F93\u51FA JSON\uFF1A{"task":"\u4EFB\u52A1\u8981\u70B9\uFF08\u4E0D\u8D85\u8FC7 25 \u5B57\uFF09","result":"\u7ED3\u8BBA","kind":"code|qa"}',
+  "",
+  "\u3010\u4EFB\u52A1\u3011",
+  "{{task}}",
+  "",
+  "\u3010AI \u56DE\u590D\u3011",
+  "{{reply}}"
+].join("\n");
+var DEGENERATE_RESULT_RE = /^(?:code|qa|json|ok|done|已完成|已修复|已更新|搞定了?|没有|无|null|undefined)[。！!.]*$/i;
+var LEADING_LABEL_RE = /^(?:结论|总结|核心结论|一句话总结|结果)[：:]\s*/;
+function resolveConclusionConfig(cfg = {}) {
+  const rawStyle = String(cfg.conclusionStyle || "balanced").trim();
+  const style = Object.hasOwn(CONCLUSION_STYLES, rawStyle) ? rawStyle : "balanced";
+  return {
+    style,
+    codeMax: Math.max(20, Math.min(400, Math.round(Number(cfg.conclusionMaxCode) || 90))),
+    qaMax: Math.max(40, Math.min(800, Math.round(Number(cfg.conclusionMaxQA) || 200))),
+    mergeMax: Math.max(60, Math.min(600, Math.round(Number(cfg.conclusionMaxMerge) || 180))),
+    extraPrompt: String(cfg.summaryPrompt || "").trim(),
+    customTemplate: String(cfg.conclusionPromptTemplate || "").trim()
+  };
+}
+function foldLongTables(text) {
+  const lines = text.split("\n");
+  const out = [];
+  let i = 0;
+  while (i < lines.length) {
+    if (/^\s*\|.*\|\s*$/.test(lines[i])) {
+      let j = i + 1;
+      while (j < lines.length && /^\s*\|.*\|\s*$/.test(lines[j])) j++;
+      if (j - i > 6) {
+        out.push(lines[i], lines[i + 1], lines[i + 2], `\uFF08\u7565 ${j - i - 4} \u884C\u8868\u683C\uFF09`, lines[j - 1]);
+      } else {
+        for (let k = i; k < j; k++) out.push(lines[k]);
+      }
+      i = j;
+      continue;
+    }
+    out.push(lines[i]);
+    i++;
+  }
+  return out.join("\n");
+}
+function prepareReplyForSummary(raw, { head = 900, tail = 1300 } = {}) {
+  const source = String(raw || "");
+  if (!source.trim()) return "";
+  const codeFolded = source.replace(/```[^\n]*\n[\s\S]*?(?:```|$)/g, (block) => {
+    const chars = [...block];
+    return chars.length > 180 ? "\n[\u4EE3\u7801\u5757]\n" : block;
+  });
+  const tableFolded = foldLongTables(codeFolded).replace(/\d{12,}/g, "\u2026").replace(/\n{3,}/g, "\n\n").trim();
+  return sampleReplyForSummary(tableFolded, { head, tail });
+}
+function prepareTaskForSummary(raw, { head = 500, tail = 300 } = {}) {
+  const cleaned = condenseUserPrompt(raw || "").replace(/\d{12,}/g, "\u2026").trim();
+  if (!cleaned) return "";
+  return sampleReplyForSummary(cleaned, { head, tail });
+}
+function stripCustomPlaceholders(tpl) {
+  return String(tpl || "").replace(/【(?:任务|AI\s*回复|回复)】\s*\{\{\s*(?:task|reply)\s*\}\}/g, "").replace(/\{\{\s*(?:task|reply|codeMax|qaMax|mode)\s*\}\}/g, "").replace(/\n{2,}/g, "\n").trim();
+}
+function conclusionGuidanceForAutoLog(cfg = {}) {
+  const { style, codeMax, qaMax, extraPrompt, customTemplate } = resolveConclusionConfig(cfg);
+  const spec = CONCLUSION_STYLES[style];
+  const lines = [
+    `- summary\uFF1A\u8FD9\u4E00\u8F6E\u6700\u540E\u843D\u5728\u54EA\u3002kind=code \u65F6\u4E0D\u8D85\u8FC7 ${codeMax} \u4E2A\u5B57\uFF0C${spec.codeRule}\uFF1Bkind=qa \u65F6\u4E0D\u8D85\u8FC7 ${qaMax} \u4E2A\u5B57\uFF0C${spec.qaRule}\u3002\u53BB\u6389\u53E3\u8BED\u94FA\u57AB\uFF0C\u4E0D\u7F16\u9020\u672A\u9A8C\u8BC1\u901A\u8FC7\u7684\u7ED3\u679C\uFF1B\u6CA1\u6709\u56DE\u590D\u5219\u586B\u7A7A\u5B57\u7B26\u4E32\u3002`
+  ];
+  if (style === "custom" && customTemplate) {
+    const customInstr = stripCustomPlaceholders(customTemplate);
+    if (customInstr) lines.push(`- \u8865\u5145\u8981\u6C42\uFF08\u7528\u6237\u81EA\u5B9A\u4E49\uFF09\uFF1A${customInstr.slice(0, 600)}`);
+  }
+  if (extraPrompt) lines.push(`- \u8865\u5145\u8981\u6C42\uFF08\u7528\u6237\u81EA\u5B9A\u4E49\uFF09\uFF1A${extraPrompt}`);
+  return lines.join("\n");
+}
+function buildTurnConclusionPrompt({ ask = "", reply = "", mode = "brief", cfg = {} } = {}) {
+  const conf = resolveConclusionConfig(cfg);
+  const { style, codeMax, qaMax, extraPrompt, customTemplate } = conf;
+  const taskSample = prepareTaskForSummary(ask, { head: 500, tail: 300 });
+  const replySample = prepareReplyForSummary(reply, { head: 900, tail: 1300 });
+  if (style === "custom") {
+    const template = customTemplate || DEFAULT_CUSTOM_CONCLUSION_PROMPT;
+    const hasReplySlot = /\{\{\s*reply\s*\}\}/.test(template);
+    const hasTaskSlot = /\{\{\s*task\s*\}\}/.test(template);
+    let rendered = template.replace(/\{\{\s*task\s*\}\}/g, taskSample || "\uFF08\u65E0\uFF09").replace(/\{\{\s*reply\s*\}\}/g, replySample || "\uFF08\u65E0\uFF09").replace(/\{\{\s*codeMax\s*\}\}/g, String(codeMax)).replace(/\{\{\s*qaMax\s*\}\}/g, String(qaMax)).replace(/\{\{\s*mode\s*\}\}/g, mode === "standard" ? "standard" : "brief");
+    if (extraPrompt) rendered += `
+
+\u8865\u5145\u8981\u6C42\uFF1A${extraPrompt}`;
+    if (!hasReplySlot) {
+      const blocks = [];
+      if (!hasTaskSlot && taskSample) blocks.push(`\u3010\u4EFB\u52A1\u3011
+${taskSample}`);
+      blocks.push(`\u3010AI \u56DE\u590D\u3011
+${replySample}`);
+      rendered += `
+
+${blocks.join("\n\n")}`;
+    }
+    return rendered.trim();
+  }
+  const spec = CONCLUSION_STYLES[style];
+  const brief = mode !== "standard";
+  const codeTarget = style === "concise" ? Math.min(codeMax, Math.max(20, Math.round(codeMax * 0.72))) : Math.max(20, Math.round(codeMax * 0.82));
+  const qaTarget = style === "concise" ? Math.min(qaMax, Math.max(40, Math.round(qaMax * 0.55))) : Math.max(40, Math.round(qaMax * 0.8));
+  const commonBan = "\u4EC5\u6839\u636E\u4E0B\u9762\u63D0\u4F9B\u7684\u6587\u672C\u539F\u6587\u63D0\u70BC\uFF0C\u4E0D\u8981\u8C03\u7528\u5DE5\u5177\u3001\u4E0D\u8981\u5C1D\u8BD5\u8BFB\u53D6\u6587\u4EF6\u6216\u63D0\u53CA\u5DE5\u4F5C\u533A\u76EE\u5F55\u3002\u4E25\u7981\u8F93\u51FA\u300C\u5206\u6790\u4E86\u2026\u300D\u300C\u89E3\u7B54\u4E86\u2026\u300D\u300C\u5B8C\u6210\u4E86\u4FEE\u6539\u300D\u300C\u5DF2\u5904\u7406\u300D\u7B49\u7A7A\u6D1E\u5143\u63CF\u8FF0\uFF0C\u5FC5\u987B\u5199\u51FA\u5177\u4F53\u5BF9\u8C61\u3001\u7ED3\u8BBA\u4E0E\u771F\u5B9E\u72B6\u6001\uFF1B\u4E0D\u7F16\u9020\u672A\u9A8C\u8BC1\u7684\u7ED3\u8BBA\uFF0C\u53BB\u6389\u5F00\u573A\u5BD2\u6684\u548C\u7ED3\u5C3E\u5BA2\u5957\uFF0C\u4E0D\u8981\u4EE3\u7801\u5757\u3002\u52A1\u5FC5\u5728\u76EE\u6807\u5B57\u6570\u5185\u5B8C\u6574\u6536\u5C3E\uFF0C\u7EDD\u4E0D\u8D85\u5B57\u6570\u88AB\u622A\u65AD\u3002";
+  const header = brief ? `\u628A\u672C\u8F6E\u4EFB\u52A1\u548C\u56DE\u590D\u5206\u522B\u6D53\u7F29\u6210\u9AD8\u4FE1\u606F\u5BC6\u5EA6\u7684\u7ED3\u679C\uFF0C\u53EA\u8F93\u51FA JSON\uFF1A{"task":"\u4EFB\u52A1\u8981\u70B9\uFF0C\u6700\u591A 30 \u5B57","result":"\u7ED3\u8BBA\u8981\u70B9","kind":"code|qa"}\u3002kind\uFF1A\u8FD9\u4E00\u8F6E\u5728\u6539\u4EE3\u7801\u3001\u8DD1\u547D\u4EE4\u3001\u52A8\u6587\u4EF6\u5C31\u586B code\uFF0Cresult \u4E25\u683C\u4E0D\u8D85\u8FC7 ${codeMax} \u5B57\uFF08\u5EFA\u8BAE ${codeTarget} \u5B57\u5185\u5199\u5B8C\uFF09\uFF0C${spec.codeRule}\uFF1B\u8FD9\u4E00\u8F6E\u5728\u89E3\u91CA\u6982\u5FF5\u3001\u56DE\u7B54\u77E5\u8BC6\u95EE\u9898\u6216\u5BF9\u6BD4\u65B9\u6848\u5C31\u586B qa\uFF0Cresult \u4E25\u683C\u4E0D\u8D85\u8FC7 ${qaMax} \u5B57\uFF08\u5EFA\u8BAE ${qaTarget} \u5B57\u5185\u5199\u5B8C\uFF09\uFF0C${spec.qaRule}\u3002${commonBan}` : `\u628A\u4E0B\u9762 AI \u52A9\u624B\u8FD9\u4E00\u8F6E\u7684\u56DE\u590D\u63D0\u70BC\u6210\u4E00\u6761\u51DD\u7EC3\u7ED3\u8BBA\uFF0C\u53EA\u8F93\u51FA JSON\uFF1A{"result":"\u7ED3\u8BBA","kind":"code|qa"}\u3002kind\uFF1A\u6539\u4EE3\u7801 / \u8DD1\u547D\u4EE4 / \u52A8\u6587\u4EF6\u586B code\uFF0Cresult \u4E25\u683C\u4E0D\u8D85\u8FC7 ${codeMax} \u5B57\uFF08\u5EFA\u8BAE ${codeTarget} \u5B57\u5185\u5199\u5B8C\uFF09\uFF0C${spec.codeRule}\uFF1B\u89E3\u91CA\u6982\u5FF5\u3001\u56DE\u7B54\u77E5\u8BC6\u95EE\u9898\u6216\u5BF9\u6BD4\u65B9\u6848\u586B qa\uFF0Cresult \u4E25\u683C\u4E0D\u8D85\u8FC7 ${qaMax} \u5B57\uFF08\u5EFA\u8BAE ${qaTarget} \u5B57\u5185\u5199\u5B8C\uFF09\uFF0C${spec.qaRule}\u3002${commonBan}\u4E0D\u8981\u524D\u7F00\u3001\u4E0D\u8981\u5F15\u53F7\u3001\u4E0D\u8981\u4EE3\u7801\u5757\u3002`;
+  return [
+    header,
+    extraPrompt ? `\u8865\u5145\u8981\u6C42\uFF1A${extraPrompt}` : "",
+    brief && taskSample ? `\u4EFB\u52A1\uFF1A${taskSample}` : "",
+    "",
+    replySample
+  ].join("\n");
+}
+function buildMergeConclusionPrompt({ previous = "", rounds = [], cfg = {} } = {}) {
+  const { style, mergeMax, extraPrompt } = resolveConclusionConfig(cfg);
+  const spec = CONCLUSION_STYLES[style];
+  const items = (Array.isArray(rounds) ? rounds : []).map((r) => {
+    const content = prepareReplyForSummary(r.summary || r.said || "", { head: 300, tail: 500 });
+    return content ? `\u7B2C ${r.n} \u8F6E\uFF1A${content}` : "";
+  }).filter(Boolean);
+  return [
+    "\u628A\u540C\u4E00\u4EFB\u52A1\u4EE5\u4E0B\u5DE5\u4F5C\u8BB0\u5F55\u5408\u5E76\u6210 1 \u5230 2 \u53E5\u5B8C\u6574\u7684\u4E2D\u6587\u53E5\u5B50\uFF0C\u5199\u8FDB\u65E5\u8BB0\u76F4\u63A5\u5F53\u7ED3\u8BBA\u7528\u3002",
+    "\u6BCF\u53E5\u90FD\u8981\u6709\u4E3B\u8BED\u548C\u8C13\u8BED\uFF0C\u8BFB\u8D77\u6765\u662F\u4E00\u53E5\u5B8C\u6574\u7684\u8BDD\uFF1B\u4E0D\u8981\u300C\u5DF2\u5B8C\u6210\u300D\u300C\u641E\u5B9A\u4E86\u300D\u8FD9\u79CD\u6CA1\u6709\u4E3B\u8BED\u7684\u788E\u7247\u3002",
+    `${spec.mergeRule}\uFF1B\u4E0D\u8981\u9010\u8F6E\u590D\u8FF0\u7528\u6237\u8981\u6C42\uFF0C\u4E5F\u4E0D\u8981\u628A\u6CA1\u505A\u5B8C\u6216\u5931\u8D25\u7684\u8BF4\u6210\u505A\u5B8C\u4E86\u3002`,
+    `\u4E0D\u8981\u524D\u7F00\u3001\u4E0D\u8981\u5F15\u53F7\u3001\u4E0D\u8981\u4EE3\u7801\u5757\uFF0C\u603B\u957F\u4E0D\u8D85\u8FC7 ${mergeMax} \u5B57\u3002\u53EA\u8F93\u51FA\u603B\u7ED3\u672C\u8EAB\u3002`,
+    extraPrompt ? `\u8865\u5145\u8981\u6C42\uFF1A${extraPrompt}` : "",
+    previous ? `\u6B64\u524D\u603B\u7ED3\uFF1A${previous}` : "",
+    ...items
+  ].filter(Boolean).join("\n");
+}
+function extractFirstJsonObject(raw) {
+  const stripped = String(raw || "").replace(/^```(?:json)?\s*|\s*```$/gm, "").trim();
+  if (!stripped) return null;
+  try {
+    const direct = JSON.parse(stripped);
+    if (direct && typeof direct === "object" && !Array.isArray(direct)) return direct;
+  } catch {
+  }
+  const start = stripped.indexOf("{");
+  if (start < 0) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < stripped.length; i++) {
+    const ch = stripped[i];
+    if (esc) {
+      esc = false;
+      continue;
+    }
+    if (ch === "\\" && inStr) {
+      esc = true;
+      continue;
+    }
+    if (ch === '"') {
+      inStr = !inStr;
+      continue;
+    }
+    if (inStr) continue;
+    if (ch === "{") depth++;
+    else if (ch === "}" && --depth === 0) {
+      try {
+        const obj = JSON.parse(stripped.slice(start, i + 1));
+        if (obj && typeof obj === "object" && !Array.isArray(obj)) return obj;
+      } catch {
+        return null;
+      }
+      break;
+    }
+  }
+  return null;
+}
+function isUsableResult(text) {
+  const s = String(text || "").trim();
+  return [...s].length >= 4 && !DEGENERATE_RESULT_RE.test(s);
+}
+function parseConclusionResponse(raw, { mode = "brief", cfg = {}, allowPlainText = false } = {}) {
+  const { style, codeMax, qaMax } = resolveConclusionConfig(cfg);
+  const data = extractFirstJsonObject(raw);
+  if (data) {
+    const kind = data.kind === "qa" || data.kind === "code" ? data.kind : "";
+    const limit = kind === "qa" ? qaMax : codeMax;
+    const rawTask = typeof data.task === "string" ? data.task.trim() : "";
+    const rawRes = typeof data.result === "string" ? data.result.trim() : typeof data.summary === "string" ? data.summary.trim() : "";
+    const task = rawTask ? summaryText(rawTask, 45) : "";
+    const capped = isUsableResult(rawRes) ? summaryText(rawRes, limit).replace(/[；;，,]\s*…$/, "\u2026") : "";
+    return {
+      kind,
+      task: mode === "standard" ? "" : task,
+      result: isUsableResult(capped) ? capped : ""
+    };
+  }
+  if (allowPlainText || style === "custom") {
+    const plain = String(raw || "").replace(/^```[\w-]*\s*|\s*```$/gm, "").replace(/^["'「『]|["'」』]$/g, "").replace(LEADING_LABEL_RE, "").trim();
+    const limit = Math.max(codeMax, qaMax);
+    const cleaned = isUsableResult(plain) ? summaryText(plain, limit) : "";
+    return { kind: "", task: "", result: isUsableResult(cleaned) ? cleaned : "" };
+  }
+  return { kind: "", task: "", result: "" };
+}
+function fallbackConclusion({ ask = "", said = "", kind = "", cfg = {} } = {}) {
+  const { codeMax, qaMax } = resolveConclusionConfig(cfg);
+  const resolvedKind = kind === "qa" || kind === "code" ? kind : conclusionKind(ask, said);
+  const text = String(said || "").trim();
+  const result = text ? resolvedKind === "qa" ? answerConclusion(text, qaMax) : conclusionSentence(text, codeMax) : "";
+  return { kind: resolvedKind, result };
+}
+async function summarizeTurn({ ask = "", reply = "", mode = "brief", cfg = {}, automatic = true, runModel = runJournalModel } = {}) {
+  const { style } = resolveConclusionConfig(cfg);
+  const prompt = buildTurnConclusionPrompt({ ask, reply, mode, cfg });
+  const raw = await runModel(prompt, cfg, { polish: true, automatic });
+  const parsed = parseConclusionResponse(raw, { mode, cfg, allowPlainText: style === "custom" });
+  return { ...parsed, prompt, raw };
+}
+async function summarizeMerge({ previous = "", rounds = [], cfg = {}, automatic = true, runModel = runJournalModel } = {}) {
+  const { mergeMax } = resolveConclusionConfig(cfg);
+  const prompt = buildMergeConclusionPrompt({ previous, rounds, cfg });
+  const raw = await runModel(prompt, cfg, { automatic });
+  return { text: summaryText(raw, mergeMax), prompt, raw };
+}
+var PREVIEW_SAMPLE = {
+  ask: "\u5E2E\u6211\u4FEE\u4E00\u4E0B\u81EA\u52A8\u8BB0\u5F55\u5728\u6807\u51C6\u6A21\u5F0F\u4E0B\u7ED3\u8BBA\u603B\u88AB\u780D\u6210 65 \u5B57\u3001\u957F\u56DE\u590D\u53EA\u622A\u672B\u5C3E\u7684\u95EE\u9898\uFF0C\u987A\u4FBF\u68C0\u67E5\u70ED\u91CD\u8F7D\u3002",
+  reply: [
+    "\u5148\u8BF4\u95EE\u9898\u6839\u56E0\uFF1A`src/sync.js` \u5728\u6807\u51C6\u6A21\u5F0F\u4E0B\u8BEF\u7528\u4E86 `safeLabel(..., 65)` \u628A QA \u7ED3\u8BBA\u622A\u6210\u4E86 65 \u5B57\uFF0C\u800C\u4E14\u53EA\u53D6\u4E86\u56DE\u590D\u6700\u540E 900 \u5B57\uFF0C\u5BFC\u81F4\u957F\u56DE\u590D\u5F00\u5934\u7684\u7ED3\u8BBA\u6BB5\u4E22\u5931\u3002",
+    "",
+    "\u5DF2\u4FEE\u6539\u4EE5\u4E0B\u6587\u4EF6\uFF1A",
+    "- `src/conclusion.js`\uFF1A\u62BD\u51FA\u72EC\u7ACB\u603B\u7ED3\u5C42\uFF0C\u52A0\u5165\u4EE3\u7801\u5757/\u8868\u683C\u6298\u53E0\u4E0E\u5934\u5C3E\u53CC\u6BB5\u91C7\u6837\u3002",
+    "- `src/sync.js` / `src/autolog.js`\uFF1A\u7EDF\u4E00\u63A5\u5165\u72EC\u7ACB\u603B\u7ED3\u5C42\u5E76\u900F\u4F20 `conclusionMaxCode` / `conclusionMaxQA`\u3002",
+    "",
+    "\u9A8C\u8BC1\u7ED3\u679C\uFF1AmacOS \u4E0A `npm test` \u4E0E `npm run build` \u5168\u90E8\u901A\u8FC7\uFF0CObsidian \u4E3B\u5E93\u70ED\u91CD\u8F7D\u65E0\u62A5\u9519\uFF1BWindows \u771F\u673A GUI \u5C1A\u672A\u5B9E\u6D4B\u3002",
+    "",
+    "\u5982\u679C\u4F60\u9700\u8981\u6211\u628A\u8FD9\u4E00\u7248\u76F4\u63A5\u63A8\u5230 GitHub \u53D1\u7248\uFF0C\u544A\u8BC9\u6211\u4E00\u58F0\u5C31\u884C\u3002"
+  ].join("\n")
+};
+async function previewConclusion(cfg = {}, { runModel = runJournalModel } = {}) {
+  const mode = cfg.autoLogDetail === "standard" ? "standard" : "brief";
+  const started = Date.now();
+  const res = await summarizeTurn({
+    ask: PREVIEW_SAMPLE.ask,
+    reply: PREVIEW_SAMPLE.reply,
+    mode,
+    cfg,
+    automatic: false,
+    runModel
+  });
+  return { ...res, mode, ms: Date.now() - started };
+}
+
 // src/settings.js
 var HOTKEY_MOD_SYMBOL = { control: "\u2303", option: "\u2325", shift: "\u21E7", command: "\u2318", ctrl: "\u2303", alt: "\u2325", cmd: "\u2318" };
 function hotkeyDisplay(spec) {
@@ -44708,6 +45088,10 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       p.saveSettings();
       this.display();
     });
+    this.rowToggle(jr, t("\u81EA\u52A8\u521B\u5EFA\u4ECA\u65E5\u65E5\u8BB0"), t("\u4ECA\u65E5\u65E5\u8BB0\u4E0D\u5B58\u5728\u65F6\u6309\u6A21\u677F\u81EA\u52A8\u65B0\u5EFA\uFF1B\u5173\u95ED\u540E\u53EA\u5199\u5165\u5DF2\u5B58\u5728\u7684\u65E5\u8BB0\uFF0C\u907F\u514D\u62A2\u5728\u81EA\u5B9A\u4E49\u6A21\u677F\u6216 Templater \u4E4B\u524D\u5EFA\u7A7A\u6587\u4EF6"), s.journalAutoCreate !== false, (v) => {
+      s.journalAutoCreate = v;
+      p.saveSettings();
+    });
     this.rowToggle(jr, t("\u81EA\u52A8\u4F1A\u8BDD\u8BB0\u5F55"), t("\u81EA\u52A8\u5C06\u6D3B\u8DC3\u4F1A\u8BDD\u5EFA\u9879\u5E76\u8BB0\u5165\u4ECA\u65E5\u65E5\u8BB0"), s.autoLog === true, (v) => {
       s.autoLog = v;
       p.saveSettings();
@@ -44774,17 +45158,6 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
         this.display();
       });
     });
-    const jdetail = this.row(jr, t("\u81EA\u52A8\u65E5\u5FD7\u8BE6\u7EC6\u7A0B\u5EA6"), "", (rr) => {
-      this.segmented(rr, [{ id: "brief", label: t("\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09") }, { id: "standard", label: t("\u6807\u51C6") }, { id: "detailed", label: t("\u8BE6\u7EC6") }], s.autoLogDetail || "brief", (v) => {
-        changeLogDetail(s, v);
-        p.saveSettings();
-        this.display();
-      });
-    });
-    const detailDesc = jdetail.querySelector(":scope > .ad-row__left");
-    detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u7B80\u7565\uFF1A\u4EFB\u52A1\u548C\u7ED3\u8BBA\u5408\u6210\u4E00\u6BB5") });
-    detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u6807\u51C6\uFF1A\u63D0\u95EE\u3001\u56DE\u7B54\u5404\u4E00\u53E5") });
-    detailDesc.createDiv({ cls: "ad-row__desc", text: t("\u8BE6\u7EC6\uFF1A\u4FDD\u7559\u63D0\u95EE\u3001\u56DE\u590D\u6458\u5F55\u548C\u6B65\u9AA4") });
     const rules = s.recordRules = resolveRecordRules(s);
     const timingRow = this.row(jr, t("\u4F1A\u8BDD\u8BA1\u65F6\u65B9\u5F0F"), "", (rr) => {
       this.segmented(
@@ -44823,15 +45196,6 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     });
     const jrMore = this.subDetails(jr, "recording-more", t("\u66F4\u591A\u8BBE\u7F6E"));
     jrMore.appendChild(grain);
-    this.rowToggle(jrMore, t("\u7D2F\u79EF\u540E\u81EA\u52A8\u5408\u5E76\u603B\u7ED3"), "", !!s.autoLogMerge, (v) => {
-      s.autoLogMerge = v;
-      p.saveSettings();
-      this.display();
-    });
-    this.rowNumber(jrMore, t("\u7D2F\u79EF\u591A\u5C11\u6761\u7ED3\u8BBA\u540E\u5408\u5E76"), t("\u81F3\u5C11 2 \u6761"), s.autoLogMergeThreshold || 10, 2, 100, (v) => {
-      s.autoLogMergeThreshold = Math.round(v);
-      p.saveSettings();
-    });
     this.rowNumber(jrMore, t("\u9996\u6B21\u8BB0\u5F55\u6700\u8FD1\u591A\u5C11\u8F6E"), t("\u7B2C\u4E00\u6B21\u63A5\u5165\u67D0\u4E2A\u4F1A\u8BDD / Bot \u65F6\u53EA\u8865\u6700\u8FD1\u51E0\u8F6E\uFF1B\u4E4B\u540E\u53EA\u8BB0\u5F53\u5929\u4EA7\u751F\u7684\u65B0\u8F6E\u6B21"), s.autoLogFirstRounds || DEFAULTS.autoLogFirstRounds, 1, 100, (v) => {
       s.autoLogFirstRounds = Math.max(1, Math.round(v));
       p.saveSettings();
@@ -44864,18 +45228,6 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
         p.saveSettings();
       });
     }
-    this.rowNumber(jr, t("\u{1F4AC} \u6700\u591A\u591A\u5C11\u4E2A\u5B57"), t("\u666E\u901A\u4F1A\u8BDD\u7684\u7ED3\u8BBA\u957F\u5EA6\uFF1B\u540E\u53F0\u56DE\u7B54\u8D85\u8FC7 500 \u5B57\u65F6\u8FD4\u56DE\u5B8C\u6574\u95EE\u7B54\u6587\u4EF6"), s.resultMax || DEFAULTS.resultMax, 40, 2e3, (v) => {
-      s.resultMax = v;
-      p.saveSettings();
-    });
-    this.rowNumber(jr, t("\u{1F4AC} \u7F16\u7801\u7C7B\u7ED3\u8BBA\u5B57\u6570"), t("\u5199\u505A\u4E86\u4EC0\u4E48\u3001\u73B0\u5728\u4EC0\u4E48\u72B6\u6001\uFF1B\u9ED8\u8BA4 65"), s.conclusionMaxCode || DEFAULTS.conclusionMaxCode, 20, 400, (v) => {
-      s.conclusionMaxCode = Math.max(20, Math.round(v));
-      p.saveSettings();
-    });
-    this.rowNumber(jr, t("\u{1F4AC} \u77E5\u8BC6\u95EE\u7B54\u7ED3\u8BBA\u5B57\u6570"), t("\u89E3\u91CA\u6982\u5FF5\u3001\u56DE\u7B54\u95EE\u9898\u65F6\u53EF\u4EE5\u957F\u4E00\u70B9\uFF1B\u9ED8\u8BA4 160"), s.conclusionMaxQA || DEFAULTS.conclusionMaxQA, 40, 800, (v) => {
-      s.conclusionMaxQA = Math.max(40, Math.round(v));
-      p.saveSettings();
-    });
     this.rowToggle(wb, t("\u5F52\u6863\u7684\u4F1A\u8BDD\u8BB0\u6210 DONE"), "", s.autoLogArchiveDone !== false, (v) => {
       s.autoLogArchiveDone = v;
       p.saveSettings();
@@ -44971,8 +45323,8 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
     jr.appendChild(jrMore.parentElement);
     const detected = detectJournalProviders({ cfg: s });
     const detectedNames = detected.available.map((x) => x.label).join("\u3001");
-    const modelSub = detected.available.length ? t("\u5DF2\u626B\u63CF\u672C\u673A\u5DF2\u767B\u5F55 CLI\uFF1A{list}", { list: detectedNames }) : t("\u672A\u68C0\u6D4B\u5230\u5DF2\u767B\u5F55\u7684\u672C\u5730 CLI\uFF0C\u53EF\u9009\u7528\u81EA\u5B9A\u4E49 API");
-    const modelCard = this.card(body, t("AI \u6574\u7406\u6A21\u578B"), modelSub);
+    const modelSub = detected.available.length ? t("\u53EF\u5355\u72EC\u6307\u5B9A\u7528\u4E8E\u603B\u7ED3\u7684 Agent \u6216 API\uFF08\u4E0D\u5F71\u54CD\u59D4\u6D3E\u4E3B\u529B\uFF09\xB7 \u5DF2\u68C0\u6D4B\u5230\uFF1A{list}", { list: detectedNames }) : t("\u53EF\u5355\u72EC\u6307\u5B9A\u7528\u4E8E\u603B\u7ED3\u7684 Agent \u6216 API\uFF08\u4E0D\u5F71\u54CD\u59D4\u6D3E\u4E3B\u529B\uFF09\xB7 \u672A\u68C0\u6D4B\u5230\u5DF2\u767B\u5F55 CLI");
+    const modelCard = this.card(body, t("\u4EFB\u52A1\u7ED3\u8BBA\u4E0E\u603B\u7ED3\u6A21\u578B"), modelSub);
     const curProvider = s.autoLogProvider || "auto";
     const resolved = resolveJournalProvider(s);
     const autoTarget = detected.providers.find((x) => x.id === detected.recommended);
@@ -44980,7 +45332,7 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       id: "auto",
       label: autoTarget?.available ? t("\u81EA\u52A8\u6311\u9009\u672C\u673A CLI\uFF08\u5F53\u524D\uFF1A{name}\uFF09", { name: autoTarget.label }) : t("\u81EA\u52A8\u6311\u9009\u672C\u673A CLI")
     });
-    this.rowSelect(modelCard, t("\u6574\u7406\u4F7F\u7528\u7684\u6A21\u578B\u6765\u6E90"), t("\u81EA\u52A8\u68C0\u6D4B\u672C\u673A\u5DF2\u767B\u5F55 CLI\uFF0C\u6216\u81EA\u586B\u517C\u5BB9 OpenAI \u683C\u5F0F\u7684 API"), providerOptions, curProvider, (v) => {
+    this.rowSelect(modelCard, t("\u603B\u7ED3\u4F7F\u7528\u7684 Agent / \u6765\u6E90"), t("\u5355\u72EC\u4E3A\u65E5\u5FD7\u6574\u7406\u4E0E\u7ED3\u8BBA\u603B\u7ED3\u6307\u5B9A\u672C\u673A\u5DF2\u767B\u5F55 CLI\uFF0C\u6216\u81EA\u586B\u517C\u5BB9 OpenAI \u683C\u5F0F\u7684 API"), providerOptions, curProvider, (v) => {
       s.autoLogProvider = v;
       s.autoLogModel = v === "auto" ? "" : JOURNAL_PROVIDERS[v]?.defaultModel || "";
       s.roundPolishModel = "";
@@ -45060,6 +45412,114 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
       pendingText: t("\u6B63\u5728\u6D4B\u8BD5\u6574\u7406\u6A21\u578B\u8FDE\u63A5\u2026"),
       testFn: () => testJournalModel(s)
     });
+    this.rowToggle(modelCard, t("\u6BCF\u8F6E\u7ED3\u8BBA\u8BA9\u6A21\u578B\u6DA6\u8272"), t("\u9002\u7528\u4E8E\u7B80\u7565\u548C\u6807\u51C6\u8BB0\u5F55\uFF1B\u5173\u95ED\u540E\u76F4\u63A5\u6309\u672C\u5730\u89C4\u5219\u622A\u53D6"), s.roundPolish !== false, (v) => {
+      s.roundPolish = v;
+      p.saveSettings();
+    });
+    this.rowSegmented(
+      modelCard,
+      t("\u81EA\u52A8\u65E5\u5FD7\u8BE6\u7EC6\u7A0B\u5EA6"),
+      t("\u7B80\u7565\uFF1A\u4EFB\u52A1+\u7ED3\u8BBA\u5408\u4E00\u6BB5\uFF5C\u6807\u51C6\uFF1A\u95EE\u7B54\u5404\u4E00\u53E5\uFF5C\u8BE6\u7EC6\uFF1A\u4FDD\u7559\u6458\u5F55\u4E0E\u6B65\u9AA4"),
+      [{ id: "brief", label: t("\u7B80\u7565\uFF08\u9ED8\u8BA4\uFF09") }, { id: "standard", label: t("\u6807\u51C6") }, { id: "detailed", label: t("\u8BE6\u7EC6") }],
+      s.autoLogDetail || "brief",
+      (v) => {
+        changeLogDetail(s, v);
+        p.saveSettings();
+        this.display();
+      }
+    );
+    const curStyle = s.conclusionStyle || DEFAULTS.conclusionStyle;
+    this.rowSegmented(
+      modelCard,
+      t("\u7ED3\u8BBA\u603B\u7ED3\u98CE\u683C"),
+      t("\u51B3\u5B9A AI \u63D0\u70BC\u4EFB\u52A1\u7ED3\u8BBA\u65F6\u7684\u8868\u8FBE\u65B9\u5F0F\uFF1B\u9009\u300C\u81EA\u5B9A\u4E49\u300D\u53EF\u5B8C\u5168\u63A5\u7BA1\u63D0\u793A\u8BCD\u6A21\u677F"),
+      [
+        { id: "balanced", label: t("\u7CBE\u51C6\u5B8C\u6574") },
+        { id: "concise", label: t("\u6781\u7B80\u8981\u70B9") },
+        { id: "structured", label: t("\u7ED3\u6784\u5316") },
+        { id: "custom", label: t("\u81EA\u5B9A\u4E49") }
+      ],
+      curStyle,
+      (v) => {
+        s.conclusionStyle = v;
+        p.saveSettings();
+        this.display();
+      }
+    );
+    this.row(modelCard, t("\u7ED3\u8BBA\u5B57\u6570\u4E0A\u9650"), t("\u5206\u522B\u63A7\u5236\u7F16\u7801\u3001\u95EE\u7B54\u3001\u591A\u8F6E\u5408\u5E76\u4E0E\u515C\u5E95\u4E0A\u9650\uFF08\u5B57\uFF09"), (rr) => {
+      const grid2 = rr.createDiv({ cls: "ad-num-grid" });
+      const addCell = (lbl, val, min, max, onSet) => {
+        const cell = grid2.createDiv({ cls: "ad-num-cell" });
+        cell.createSpan({ cls: "ad-num-cell__label", text: lbl });
+        this.numberInput(cell, val, min, max, onSet);
+      };
+      addCell(t("\u7F16\u7801"), s.conclusionMaxCode || DEFAULTS.conclusionMaxCode, 20, 400, (v) => {
+        s.conclusionMaxCode = Math.max(20, Math.round(v));
+        p.saveSettings();
+      });
+      addCell(t("\u95EE\u7B54"), s.conclusionMaxQA || DEFAULTS.conclusionMaxQA, 40, 800, (v) => {
+        s.conclusionMaxQA = Math.max(40, Math.round(v));
+        p.saveSettings();
+      });
+      addCell(t("\u5408\u5E76"), s.conclusionMaxMerge || DEFAULTS.conclusionMaxMerge, 60, 600, (v) => {
+        s.conclusionMaxMerge = Math.max(60, Math.round(v));
+        p.saveSettings();
+      });
+      addCell(t("\u515C\u5E95"), s.resultMax || DEFAULTS.resultMax, 40, 2e3, (v) => {
+        s.resultMax = Math.max(40, Math.round(v));
+        p.saveSettings();
+      });
+    });
+    let tplTa = null;
+    if (curStyle === "custom") {
+      const tplField = modelCard.createDiv({ cls: "ad-field" });
+      tplField.createDiv({ cls: "ad-field__label", text: t("\u81EA\u5B9A\u4E49\u603B\u7ED3\u63D0\u793A\u8BCD\u6A21\u677F") });
+      tplField.createDiv({ cls: "ad-field__desc", text: t("\u652F\u6301\u5360\u4F4D\u7B26 {{task}}\u3001{{reply}}\u3001{{codeMax}}\u3001{{qaMax}}\uFF1B\u4E0D\u5199\u5360\u4F4D\u7B26\u4E5F\u4F1A\u81EA\u52A8\u5728\u672B\u5C3E\u9644\u4E0A\u4EFB\u52A1\u548C\u56DE\u590D\u3002") });
+      tplTa = tplField.createEl("textarea", { cls: "ad-textarea", attr: { rows: "6" } });
+      tplTa.value = s.conclusionPromptTemplate || DEFAULT_CUSTOM_CONCLUSION_PROMPT;
+      tplTa.onchange = () => {
+        const val = tplTa.value.trim();
+        s.conclusionPromptTemplate = val === DEFAULT_CUSTOM_CONCLUSION_PROMPT.trim() ? "" : val;
+        p.saveSettings();
+      };
+    } else {
+      this.rowText(modelCard, t("\u7ED3\u8BBA\u603B\u7ED3\u8865\u5145\u8981\u6C42"), t("\u53EF\u9009\uFF0C\u9644\u52A0\u5230\u6574\u7406\u4E0E\u6BCF\u8F6E\u6DA6\u8272\u63D0\u793A\u8BCD\u672B\u5C3E\uFF08\u4F8B\u5982\u300C\u5148\u5199\u6539\u52A8\u6587\u4EF6\u518D\u5199\u9A8C\u8BC1\u7ED3\u679C\u300D\uFF09\uFF1B\u7559\u7A7A\u4F7F\u7528\u9ED8\u8BA4\u89C4\u5219"), s.summaryPrompt || "", t("\u4F8B\u5982\uFF1A\u5148\u5199\u6838\u5FC3\u7ED3\u8BBA\uFF0C\u518D\u5199\u672A\u9A8C\u8BC1\u9879"), (v) => {
+        s.summaryPrompt = v.trim();
+        p.saveSettings();
+      }, "ad-input--wide");
+    }
+    const previewRow = modelCard.createDiv({ cls: "ad-btnrow" });
+    const previewOut = modelCard.createDiv({ cls: "ad-hint" });
+    this.bigButton(previewRow, t("\u7528\u6837\u4F8B\u8BD5\u8DD1\u603B\u7ED3"), async () => {
+      previewOut.textContent = t("\u751F\u6210\u4E2D\u2026");
+      try {
+        const res = await previewConclusion(s);
+        previewOut.textContent = res.result ? t("\u6837\u4F8B\u603B\u7ED3\uFF08{ms}ms \xB7 {kind}\uFF09\uFF1A{result}", { ms: res.ms, kind: res.kind || "-", result: res.result }) : t("\u6837\u4F8B\u603B\u7ED3\uFF08{ms}ms \xB7 {kind}\uFF09\uFF1A\u672A\u63D0\u53D6\u5230\u6709\u6548\u7ED3\u8BBA\uFF08\u5DF2\u56DE\u9000\u672C\u5730\u89C4\u5219\uFF09", { ms: res.ms, kind: res.kind || "-" });
+      } catch (e) {
+        previewOut.textContent = t("\u8BD5\u8DD1\u5931\u8D25\uFF1A{error}", { error: e?.message || String(e) });
+      }
+    }, "ad-btn--soft");
+    if (curStyle === "custom" && tplTa) {
+      this.bigButton(previewRow, t("\u6062\u590D\u9ED8\u8BA4\u63D0\u793A\u8BCD"), () => {
+        s.conclusionPromptTemplate = "";
+        tplTa.value = DEFAULT_CUSTOM_CONCLUSION_PROMPT;
+        p.saveSettings();
+        new import_obsidian7.Notice(t("\u5DF2\u6062\u590D\u9ED8\u8BA4\u603B\u7ED3\u63D0\u793A\u8BCD"));
+      }, "ad-btn--ghost");
+    }
+    const lastErr = p.autoLog?._err || p.journalSync?._lastPolishErr || "";
+    if (lastErr) modelCard.createDiv({ cls: "ad-error-line", text: t("\u6700\u8FD1\u4E00\u6B21\u6574\u7406 / \u6DA6\u8272\u5931\u8D25\uFF08\u5DF2\u56DE\u9000\u672C\u5730\u89C4\u5219\uFF09\uFF1A{error}", { error: lastErr }) });
+    this.rowToggle(modelCard, t("\u7D2F\u79EF\u540E\u81EA\u52A8\u5408\u5E76\u603B\u7ED3"), t("\u957F\u4EFB\u52A1\u8FBE\u5230\u9608\u503C\u540E\u81EA\u52A8\u5408\u5E76\u591A\u8F6E\u8BB0\u5F55\u4E3A\u4E00\u6BB5\u603B\u7ED3"), !!s.autoLogMerge, (v) => {
+      s.autoLogMerge = v;
+      p.saveSettings();
+      this.display();
+    });
+    if (s.autoLogMerge) {
+      this.rowNumber(modelCard, t("\u7D2F\u79EF\u591A\u5C11\u6761\u7ED3\u8BBA\u540E\u5408\u5E76"), t("\u81F3\u5C11 2 \u6761"), s.autoLogMergeThreshold || 10, 2, 100, (v) => {
+        s.autoLogMergeThreshold = Math.round(v);
+        p.saveSettings();
+      });
+    }
     const modelMore = this.subDetails(modelCard, "model-more", t("\u66F4\u591A\u8BBE\u7F6E"));
     this.rowNumber(modelMore, t("\u6574\u7406\u8D85\u65F6\uFF08\u79D2\uFF09"), "", s.autoLogTimeout || 120, 10, 600, (v) => {
       s.autoLogTimeout = v;
@@ -45099,15 +45559,11 @@ var AgentDeckSettingsTab = class extends import_obsidian7.PluginSettingTab {
         p.saveSettings();
       }, "ad-input--wide");
     }
-    this.rowToggle(modelMore, t("\u6BCF\u8F6E\u7ED3\u8BBA\u8BA9\u6A21\u578B\u6DA6\u8272"), t("\u9002\u7528\u4E8E\u7B80\u7565\u548C\u6807\u51C6\u8BB0\u5F55"), s.roundPolish !== false, (v) => {
-      s.roundPolish = v;
-      p.saveSettings();
-    });
     this.rowText(modelMore, t("\u6DA6\u8272\u7528\u7684\u6A21\u578B"), t("\u7559\u7A7A\u6CBF\u7528\u6574\u7406\u6A21\u578B"), s.roundPolishModel || "", t("\u540C\u6574\u7406\u7528\u7684\u6A21\u578B"), (v) => {
       s.roundPolishModel = v.trim();
       p.saveSettings();
     });
-    this.rowNumber(modelMore, t("\u6DA6\u8272\u8D85\u65F6\uFF08\u79D2\uFF09"), "", s.roundPolishTimeout || 30, 5, 300, (v) => {
+    this.rowNumber(modelMore, t("\u6DA6\u8272\u8D85\u65F6\uFF08\u79D2\uFF09"), "", s.roundPolishTimeout || DEFAULTS.roundPolishTimeout, 5, 300, (v) => {
       s.roundPolishTimeout = v;
       p.saveSettings();
     });
@@ -50929,7 +51385,10 @@ var AutoLog = class {
   }
   async journalTemplate(path34) {
     const app = this.p.app;
-    const tplPath = String(dailyNotesOptions(app)?.template || "").trim();
+    const periodic = app?.plugins?.plugins?.["periodic-notes"]?.settings?.daily;
+    const tplPath = String(
+      dailyNotesOptions(app)?.template || (periodic?.enabled ? periodic.template : "") || ""
+    ).trim();
     if (!tplPath) return "";
     const file = app.vault.getAbstractFileByPath(tplPath) || app.vault.getAbstractFileByPath(`${tplPath}.md`) || app.metadataCache?.getFirstLinkpathDest?.(tplPath, "");
     if (!file || typeof file.extension !== "string") return "";
@@ -51118,14 +51577,15 @@ var AutoLog = class {
   }
   // 让本机的小模型看一眼这几个会话：起名字、对上日记里哪一行、提炼一句话结论
   async ask(items, open, fallback = false, automatic = true) {
+    const { codeMax, qaMax } = resolveConclusionConfig(this.cfg);
     const blocks = items.map(({ x, active: active2 }, i) => {
       const meta = this.usage.meta.get(x.sid) || {};
-      const last = String(meta.lastText || "").replace(/\d{12,}/g, "\u2026").replace(/\s+/g, " ").trim().slice(-700);
-      const opening = condenseUserPrompt(x.text || "").replace(/\d{12,}/g, "\u2026").slice(0, 200);
+      const last = prepareReplyForSummary(meta.lastText || "", { head: 600, tail: 900 });
+      const opening = prepareTaskForSummary(x.text || "", { head: 300, tail: 200 });
       return [
         `#s${i + 1} [${agentName(x.agent)}] \u6807\u9898\uFF1A${x.title || "\uFF08\u6CA1\u6709\uFF09"}\uFF1B\u7D2F\u8BA1 ${x.min} \u5206\u949F\uFF1B\u73B0\u5728\uFF1A${active2 ? "\u8FD8\u5728\u8FDB\u884C" : "\u5DF2\u7ECF\u505C\u4E86"}`,
         opening ? `\u5F00\u5934\u8BF4\u7684\uFF1A${opening}` : "",
-        last ? `\u6700\u540E\u4E00\u6761\u56DE\u590D\u7684\u7ED3\u5C3E\uFF1A${last}` : ""
+        last ? `\u6700\u540E\u4E00\u6761\u56DE\u590D\uFF1A${last}` : ""
       ].filter(Boolean).join("\n");
     });
     const prompt = [
@@ -51143,7 +51603,7 @@ var AutoLog = class {
       "- label\uFF1A\u8FD9\u4EF6\u4E8B\u662F\u4EC0\u4E48\uFF0C\u4E0D\u8D85\u8FC7 18 \u4E2A\u5B57\u7684\u4E2D\u6587\u603B\u7ED3\u6807\u9898\uFF08\u52A8\u8BCD\u5F00\u5934\uFF0C\u9AD8\u4FE1\u606F\u5BC6\u5EA6\u6982\u62EC\u6838\u5FC3\u4EFB\u52A1\uFF0C\u8FC7\u6EE4\u53E3\u8BED\u5E9F\u8BDD\uFF0C\u4E0D\u8981\u7167\u6284\u539F\u8BDD\u3001\u8DEF\u5F84\u3001\u94FE\u63A5\u6216\u65E5\u671F\uFF0C\u4E0D\u8981\u5E26\u65F6\u95F4\u3001\u65F6\u957F\u3001\u72B6\u6001\u8BCD\u548C\u6807\u70B9\u7ED3\u5C3E\uFF09\u3002",
       "- slug\uFF1Alabel \u5BF9\u5E94\u7684\u4E00\u4E24\u4E2A\u7B80\u77ED\u82F1\u6587\u5173\u952E\u8BCD\uFF0C\u7528\u5C0F\u5199\u82F1\u6587\u5B57\u6BCD\u3001\u6570\u5B57\u548C\u77ED\u6A2A\u7EBF\uFF0C\u6BCF\u8BCD\u4E0D\u8D85\u8FC7 16 \u4E2A\u5B57\u7B26\uFF0C\u4F8B\u5982 journal-cleanup\uFF1B\u7528\u4E8E\u9996\u6B21\u521B\u5EFA\u5B9A\u4F4D\u6807\u8BC6\u3002",
       "- kind\uFF1A\u8FD9\u4E00\u8F6E\u5728\u6539\u4EE3\u7801\u3001\u8DD1\u547D\u4EE4\u3001\u52A8\u6587\u4EF6\u586B code\uFF1B\u5728\u89E3\u91CA\u6982\u5FF5\u3001\u56DE\u7B54\u77E5\u8BC6\u95EE\u9898\u586B qa\u3002\u62FF\u4E0D\u51C6\u586B code\u3002",
-      "- summary\uFF1A\u8FD9\u4E00\u8F6E\u6700\u540E\u843D\u5728\u54EA\u3002kind=code \u65F6\u4E0D\u8D85\u8FC7 35 \u4E2A\u5B57\uFF0C\u5199\u505A\u4E86\u4EC0\u4E48\u3001\u73B0\u5728\u4EC0\u4E48\u72B6\u6001\uFF08\u901A\u8FC7 / \u5F85\u9A8C\u8BC1 / \u5931\u8D25\uFF09\uFF1Bkind=qa \u65F6\u4E0D\u8D85\u8FC7 100 \u4E2A\u5B57\uFF0C\u5148\u7ED9\u5224\u65AD\u518D\u7ED9\u4F9D\u636E\uFF0C\u53EF\u4EE5\u4E24\u53E5\u3002\u53BB\u6389\u53E3\u8BED\u94FA\u57AB\uFF0C\u4E0D\u8981\u6458\u56DE\u590D\u5F00\u5934\u90A3\u51E0\u53E5\u8FC7\u6E21\u94FA\u57AB\uFF1B\u6CA1\u6709\u56DE\u590D\u5219\u586B\u7A7A\u5B57\u7B26\u4E32\u3002",
+      conclusionGuidanceForAutoLog(this.cfg),
       "- match\uFF1A\u53EA\u6709\u5F53\u4E0A\u9762\u67D0\u4E00\u884C\u5199\u7684\u5C31\u662F\u300C\u8FD9\u4E2A\u4F1A\u8BDD\u91CC AI \u5728\u66FF\u7528\u6237\u505A\u7684\u90A3\u4EF6\u5DE5\u4F5C\u672C\u8EAB\u300D\u65F6\uFF0C\u624D\u586B\u90A3\u4E00\u884C\u7684\u7F16\u53F7\u3002\u90A3\u4E00\u884C\u5982\u679C\u662F\u7559\u7ED9\u7528\u6237\u672C\u4EBA\u7684\u52A8\u4F5C\uFF08\u770B\u4E00\u773C\u3001\u770B\u6548\u679C\u3001\u786E\u8BA4\u3001\u62CD\u677F\u3001\u81EA\u5DF1\u8DD1\u547D\u4EE4\u3001\u53D1\u51FA\u53BB\u3001\u9605\u8BFB\u4E4B\u7C7B\uFF09\uFF0C\u54EA\u6015\u8BDD\u9898\u4E00\u6837\u4E5F\u4E0D\u80FD\u5339\u914D\uFF0C\u586B null\u3002\u62FF\u4E0D\u51C6\u4E00\u5F8B\u586B null\u3002",
       "- done\uFF1A\u53EA\u5BF9\u5DF2\u7ECF\u505C\u4E86\u7684\u4F1A\u8BDD\u6709\u610F\u4E49\u3002\u6700\u540E\u7684\u56DE\u590D\u660E\u786E\u8868\u660E\u8FD9\u4EF6\u4E8B\u6574\u4E2A\u505A\u5B8C\u4E86\uFF0C\u586B true\uFF1B\u505A\u5230\u4E00\u534A\u3001\u8FD8\u5728\u7B49\u7528\u6237\u3001\u62A5\u9519\u6CA1\u89E3\u51B3\u3001\u8BF4\u4E86\u4EE5\u540E\u518D\u7EE7\u7EED\uFF0C\u90FD\u586B false\u3002",
       "- todos\uFF1A\u53EA\u5728\u4F1A\u8BDD\u5DF2\u7ECF\u505C\u4E86\u65F6\u586B\u3002\u56DE\u590D\u91CC\u660E\u786E\u8BF4\u4E86\u8981\u7528\u6237\u672C\u4EBA\u53BB\u505A\u6216\u62CD\u677F\u7684\u4E8B\uFF0C\u6BCF\u6761\u4E0D\u8D85\u8FC7 30 \u4E2A\u5B57\uFF0C\u6700\u591A 1 \u6761\uFF0C\u53EA\u5217\u4E0D\u505A\u5C31\u5361\u4F4F\u7684\u90A3\u4E00\u4EF6\uFF1B\u6CA1\u6709\u5C31\u662F\u7A7A\u6570\u7EC4\u3002\u4E0A\u9762\u4EFB\u52A1\u884C\u91CC\u5DF2\u7ECF\u6709\u610F\u601D\u76F8\u540C\u7684\u5C31\u4E0D\u8981\u518D\u5217\u3002",
@@ -51156,8 +51616,7 @@ var AutoLog = class {
         const promptText = condenseUserPrompt((x.text || "").split(" / ")[0]);
         const rawLabel = x.agent === "grokbot" && x.title === proj ? promptText || x.title : x.title || promptText;
         const label = String(rawLabel || "").trim() ? formatProjectAutoTitle(rawLabel, proj, this.rules().titleMax) : "";
-        const kind = conclusionKind(x.text || promptText || "", meta.lastText || "");
-        const summary = kind === "qa" ? answerConclusion(meta.lastText || "", 140) : conclusionSentence(meta.lastText || "", 80);
+        const { kind, result: summary } = fallbackConclusion({ ask: x.text || promptText || "", said: meta.lastText || "", cfg: this.cfg });
         if (label) out.set(x.sid, { label, proj, summary, kind, matchKey: null, done: false, todos: [], skip: false });
       }
       return out;
@@ -51180,9 +51639,10 @@ var AutoLog = class {
         const proj = this.projectOf(item.x);
         const label = String(a.label || "").trim() ? formatProjectAutoTitle(a.label, proj, this.rules().titleMax) : "";
         const kind = a.kind === "qa" ? "qa" : "code";
+        const limit = kind === "qa" ? qaMax : codeMax;
         const given = String(a.summary || "").trim();
         const usable = [...given].length >= 4 && !/^(?:code|qa|json)$/i.test(given);
-        const summary = (usable ? safeLabel(given, kind === "qa" ? 140 : 60) : "") || (kind === "qa" ? answerConclusion(meta.lastText || "", 140) : conclusionSentence(meta.lastText || "", 80));
+        const summary = (usable ? summaryText(given, limit) : "") || fallbackConclusion({ ask: item.x.text || meta.title || "", said: meta.lastText || "", kind, cfg: this.cfg }).result;
         const m = Number.isInteger(a.match) && open[a.match - 1] ? open[a.match - 1] : null;
         out.set(sid, {
           label,
@@ -51259,9 +51719,10 @@ var AutoLog = class {
       const day = this.dayKey();
       const data = this.usage.summary(day);
       if (!data || !data.list || !data.list.length) return report;
-      const file = this.journalFile(day) || await this.createJournal(day);
+      const autoCreate = this.cfg.journalAutoCreate !== false;
+      const file = this.journalFile(day) || (autoCreate ? await this.createJournal(day) : null);
       if (!file) {
-        report.error = t("\u4ECA\u5929\u7684\u65E5\u8BB0 {path} \u8FD8\u6CA1\u5EFA", { path: this.journalPath(day) });
+        if (manual || autoCreate) report.error = t("\u4ECA\u5929\u7684\u65E5\u8BB0 {path} \u8FD8\u6CA1\u5EFA", { path: this.journalPath(day) });
         return report;
       }
       const arch = this.archived();
@@ -51587,7 +52048,7 @@ var AutoLog = class {
           const rounds = trackedRounds(rawRounds, { first, since: todayStart, max: this.cfg.autoLogFirstRounds }).filter((r) => !rec.sinceMs || !r.at || r.at > rec.sinceMs);
           if (first) seen[x.sid] = Date.now();
           const kind = a && a.kind || conclusionKind(x.text || meta.title || "", meta.lastText || "");
-          const rawSummary = a && a.summary || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active2) ? kind === "qa" ? answerConclusion(meta.lastText, 140) : conclusionSentence(meta.lastText, 90) : "");
+          const rawSummary = a && a.summary || (meta.lastText && (meta.state === "wait" || meta.state === "quiet" || !active2) ? fallbackConclusion({ ask: x.text || meta.title || "", said: meta.lastText, kind, cfg: this.cfg }).result : "");
           if (a && a.summary && rounds.length) rounds[rounds.length - 1].summary = a.summary;
           const pendingTodos = a && !active2 && Array.isArray(a.todos) && !rec.todosAdded ? a.todos : [];
           const taskTodo = x.agent === "claude" && (!active2 || meta.state === "wait" || meta.state === "quiet") ? meta.todo || null : null;
@@ -51605,8 +52066,8 @@ var AutoLog = class {
               rounds: !active2 || meta.state === "wait" || meta.state === "quiet" ? rounds : rounds.slice(0, -1),
               todos: pendingTodos,
               taskTodo,
-              codeMax: Number(this.cfg.conclusionMaxCode) || 65,
-              qaMax: Number(this.cfg.conclusionMaxQA) || 160,
+              codeMax: Number(this.cfg.conclusionMaxCode) || 90,
+              qaMax: Number(this.cfg.conclusionMaxQA) || 200,
               ensureId: true
             });
             text = synced.text;
@@ -51776,6 +52237,8 @@ var JournalSync = class {
     this._polishing = /* @__PURE__ */ new WeakSet();
     this._merging = /* @__PURE__ */ new Set();
     this._mergeAt = /* @__PURE__ */ new Map();
+    this._lastPolishErr = "";
+    this._lastPolishErrAt = 0;
   }
   get usage() {
     return this.p.usage;
@@ -51999,32 +52462,18 @@ var JournalSync = class {
     roundObj._asked = true;
     this._polishing.add(roundObj);
     this._refining.add(key);
-    const brief = detailForRound(this.cfg.autoLogDetail, this.cfg.autoLogDetailHistory, roundObj) === "brief";
-    const cleanAsk = condenseUserPrompt(roundObj.ask || this.usage.meta.get(sid)?.title || "");
-    const prompt = [
-      brief ? '\u628A\u672C\u8F6E\u4EFB\u52A1\u548C\u56DE\u590D\u5206\u522B\u6D53\u7F29\u6210\u9AD8\u4FE1\u606F\u5BC6\u5EA6\u7684\u5173\u952E\u8BCD\u6216\u77ED\u8BED\uFF0C\u53EA\u8F93\u51FA JSON\uFF1A{"task":"\u4EFB\u52A1\u8981\u70B9\uFF0C\u6700\u591A 30 \u5B57","result":"\u7ED3\u8BBA\u8981\u70B9","kind":"code|qa"}\u3002kind\uFF1A\u8FD9\u4E00\u8F6E\u5728\u6539\u4EE3\u7801\u3001\u8DD1\u547D\u4EE4\u3001\u52A8\u6587\u4EF6\u5C31\u586B code\uFF0Cresult \u6700\u591A 40 \u5B57\uFF0C\u5199\u505A\u4E86\u4EC0\u4E48\u3001\u73B0\u5728\u4EC0\u4E48\u72B6\u6001\uFF08\u901A\u8FC7 / \u5F85\u9A8C\u8BC1 / \u5931\u8D25\uFF09\uFF1B\u8FD9\u4E00\u8F6E\u5728\u89E3\u91CA\u6982\u5FF5\u3001\u56DE\u7B54\u77E5\u8BC6\u95EE\u9898\u5C31\u586B qa\uFF0Cresult \u6700\u591A 140 \u5B57\uFF0C\u5148\u7ED9\u5224\u65AD\u518D\u7ED9\u4F9D\u636E\uFF0C\u53EF\u4EE5\u4E24\u53E5\u3002result \u5199\u8FD9\u4E00\u8F6E\u6700\u540E\u7684\u843D\u70B9\uFF0C\u4E0D\u8981\u6458\u56DE\u590D\u5F00\u5934\u7684\u8FC7\u6E21\u94FA\u57AB\u6216\u590D\u8FF0\u8BA1\u5212\u3002\u81EA\u52A8\u8FC7\u6EE4\u7528\u6237\u8BDD\u8BED\u4E2D\u7684\u53E3\u8BED\u5E9F\u8BDD\u3001\u8BED\u6C14\u8BCD\u4E0E\u5BD2\u6684\uFF0C\u4FDD\u7559\u5177\u4F53\u52A8\u4F5C\u3001\u5BF9\u8C61\u548C\u5931\u8D25/\u5F85\u9A8C\u8BC1\u7B49\u72B6\u6001\uFF0C\u4E0D\u7F16\u9020\u4E8B\u5B9E\uFF0C\u4E0D\u8981\u4EE3\u7801\u5757\u3002' : '\u628A\u4E0B\u9762 AI \u52A9\u624B\u8FD9\u4E00\u8F6E\u7684\u56DE\u590D\u63D0\u70BC\u6210\u7ED3\u8BBA\uFF0C\u53EA\u8F93\u51FA JSON\uFF1A{"result":"\u7ED3\u8BBA","kind":"code|qa"}\u3002kind\uFF1A\u6539\u4EE3\u7801 / \u8DD1\u547D\u4EE4 / \u52A8\u6587\u4EF6\u586B code\uFF0Cresult \u4E00\u53E5\u8BDD\u4E0D\u8D85\u8FC7 40 \u5B57\uFF0C\u5199\u505A\u4E86\u4EC0\u4E48\u548C\u73B0\u5728\u7684\u72B6\u6001\uFF1B\u89E3\u91CA\u6982\u5FF5\u3001\u56DE\u7B54\u77E5\u8BC6\u95EE\u9898\u586B qa\uFF0C\u4E0D\u8D85\u8FC7 140 \u5B57\uFF0C\u53D6\u8FD9\u4E00\u8F6E\u6700\u540E\u7684\u843D\u70B9\uFF0C\u4E0D\u8981\u6458\u5F00\u5934\u90A3\u53E5\u8FC7\u6E21\u8BDD\uFF0C\u4E0D\u8981\u53E3\u8BED\u5E9F\u8BDD\u3001\u4E0D\u8981\u524D\u7F00\u3001\u4E0D\u8981\u5F15\u53F7\u3001\u4E0D\u8981\u4EE3\u7801\u5757\u3002',
-      brief ? `\u4EFB\u52A1\uFF1A${String(cleanAsk).slice(-600)}` : "",
-      "",
-      String(rawSaid).slice(-900)
-    ].join("\n");
-    runJournalModel(prompt, this.cfg, { polish: true, automatic: true }).then((res) => {
-      let data = null;
-      try {
-        data = JSON.parse(String(res || "").replace(/^```(?:json)?\s*|\s*```$/g, "").trim());
-      } catch {
-      }
-      if (data && (data.kind === "qa" || data.kind === "code")) roundObj.kind = data.kind;
-      if (brief) {
-        const taskText = String(data?.task || "").trim();
-        const resultText2 = String(data?.result || "").trim();
-        if (taskText) roundObj.taskSummary = taskText;
-        if ([...resultText2].length >= 4 && !/^(?:code|qa|json)$/i.test(resultText2)) roundObj.summary = resultText2;
-        return;
-      }
-      const text = data && typeof data.result === "string" ? data.result : "";
-      const clean2 = text.trim() ? oneSentenceConclusion(safeLabel(text.trim(), 65) || text, data?.kind === "qa" ? 120 : 80) : "";
-      if (clean2 && clean2.length >= 4) roundObj.summary = clean2;
-    }).catch(() => {
+    const mode = detailForRound(this.cfg.autoLogDetail, this.cfg.autoLogDetailHistory, roundObj) === "brief" ? "brief" : "standard";
+    const ask = roundObj.ask || this.usage.meta.get(sid)?.title || "";
+    summarizeTurn({ ask, reply: rawSaid, mode, cfg: this.cfg, automatic: true }).then((res) => {
+      this._lastPolishErr = "";
+      this._lastPolishErrAt = 0;
+      if (res.kind) roundObj.kind = res.kind;
+      if (mode === "brief" && res.task) roundObj.taskSummary = res.task;
+      if (res.result) roundObj.summary = res.result;
+    }).catch((e) => {
+      this._lastPolishErr = String(e?.message || e || "").trim();
+      this._lastPolishErrAt = Date.now();
+      console.info("[agent-deck] \u8F6E\u6B21\u7ED3\u8BBA\u6DA6\u8272\u5931\u8D25\uFF0C\u56DE\u9000\u672C\u5730\u89C4\u5219\uFF1A", this._lastPolishErr);
     }).finally(() => {
       this._polishing.delete(roundObj);
       this._refining.delete(key);
@@ -52043,13 +52492,7 @@ var JournalSync = class {
     this._merging.add(key);
     this._mergeAt.set(key, Date.now());
     try {
-      const prompt = [
-        "\u628A\u540C\u4E00\u4EFB\u52A1\u4EE5\u4E0B\u5DE5\u4F5C\u8BB0\u5F55\u5408\u5E76\u6210 1 \u5230 2 \u53E5\u5B8C\u6574\u7684\u4E2D\u6587\u53E5\u5B50\uFF0C\u5199\u8FDB\u65E5\u8BB0\u76F4\u63A5\u5F53\u7ED3\u8BBA\u7528\u3002\u6BCF\u53E5\u90FD\u8981\u6709\u4E3B\u8BED\u548C\u8C13\u8BED\uFF0C\u8BFB\u8D77\u6765\u662F\u4E00\u53E5\u5B8C\u6574\u7684\u8BDD\uFF1B\u4E0D\u8981\u300C\u5DF2\u5B8C\u6210\u300D\u300C\u641E\u5B9A\u4E86\u300D\u8FD9\u79CD\u6CA1\u6709\u4E3B\u8BED\u7684\u788E\u7247\u3002\u5148\u8BF4\u505A\u6210\u4E86\u4EC0\u4E48\u3001\u7ED3\u679C\u5982\u4F55\uFF0C\u518D\u8BF4\u8FD8\u5DEE\u4EC0\u4E48\u6CA1\u89E3\u51B3\uFF1B\u4E0D\u8981\u9010\u8F6E\u590D\u8FF0\u7528\u6237\u7684\u8981\u6C42\uFF0C\u4E5F\u4E0D\u8981\u628A\u6CA1\u505A\u5B8C\u7684\u8BF4\u6210\u505A\u5B8C\u4E86\u3002\u4E0D\u8981\u524D\u7F00\u3001\u4E0D\u8981\u5F15\u53F7\u3001\u4E0D\u8981\u4EE3\u7801\u5757\uFF0C\u603B\u957F\u4E0D\u8D85\u8FC7 120 \u5B57\u3002\u53EA\u8F93\u51FA\u603B\u7ED3\u672C\u8EAB\u3002",
-        previous?.text ? `\u6B64\u524D\u603B\u7ED3\uFF1A${previous.text}` : "",
-        ...pending.map((r) => `\u7B2C ${r.n} \u8F6E\uFF1A${String(r.summary || r.said).slice(-600)}`)
-      ].filter(Boolean).join("\n");
-      const raw = await runJournalModel(prompt, this.cfg, { automatic: true });
-      const text = summaryText(raw, 200);
+      const { text } = await summarizeMerge({ previous: previous?.text || "", rounds: pending, cfg: this.cfg, automatic: true });
       if (!text || !this.cfg.autoLogMerge || this.cfg.journalAutoWrite === false || this._stopped) return;
       const through = Math.max(...pending.map((r) => r.n));
       const bucket = (_b = (_a = this.cfg).autoLogSummaries || (_a.autoLogSummaries = {}))[day] || (_b[day] = {});
@@ -52144,8 +52587,8 @@ var JournalSync = class {
         said: summary,
         rounds: completed,
         taskTodo,
-        codeMax: Number(this.cfg.conclusionMaxCode) || 65,
-        qaMax: Number(this.cfg.conclusionMaxQA) || 160,
+        codeMax: Number(this.cfg.conclusionMaxCode) || 90,
+        qaMax: Number(this.cfg.conclusionMaxQA) || 200,
         ensureId: true
       });
       out = synced.text;

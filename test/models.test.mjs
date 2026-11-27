@@ -232,10 +232,11 @@ for (const label of ['扫描间隔（秒）', '整理超时（秒）', '每个 A
   const el = recBody.all().find(el => el.options.text === label);
   assert.ok(el && moreAncestor(el), label + ' stays reachable under More settings');
 }
-for (const label of ['启用日记写入', '自动会话记录', '💬 最多多少个字', ...(process.platform === 'darwin' ? ['macOS 菜单栏'] : [])]) {
+for (const label of ['启用日记写入', '自动会话记录', '结论总结风格', '结论字数上限', ...(process.platform === 'darwin' ? ['macOS 菜单栏'] : [])]) {
   const el = recBody.all().find(el => el.options.text === label);
   assert.ok(el && !moreAncestor(el), label + ' remains visible');
 }
+assert.equal(recBody.all().filter(el => el.classList.contains('ad-num-cell')).length, 4, 'compact conclusion limits grid exposes all 4 numeric caps');
 if (process.platform !== 'darwin') {
   for (const label of ['macOS 菜单栏', '菜单栏：其它 Agent 最多几个', '菜单栏快捷键', '重启菜单栏']) {
     assert.equal(recBody.all().find(el => el.options.text === label), undefined, label + ' is hidden off macOS');

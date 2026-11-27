@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.13.38
+
+- **独立任务结论总结层与设置页高信息密度整合（[`src/conclusion.js`](src/conclusion.js)、[`src/journal.js`](src/journal.js)、[`src/autolog.js`](src/autolog.js)、[`src/sync.js`](src/sync.js)、[`src/settings.js`](src/settings.js)、[`src/styles/views/settings.css`](src/styles/views/settings.css)）**：
+  - 将任务结论提炼逻辑抽离至零循环依赖模块 [`src/conclusion.js`](src/conclusion.js)：支持折叠 >180 字符围栏代码块与 >6 行表格后的「开头 + 结尾」双段采样，提供 4 种总结风格（精准完整 / 极简要点 / 结构化 / 自定义完整提示词模板，支持 `{{task}}`/`{{reply}}`/`{{codeMax}}`/`{{qaMax}}` 并在省略占位符时自动附加正文），拦截退化短句并回退本地规则。
+  - 修复标准模式下误用 `safeLabel(..., 65)` 与 `recordSentence()` 在首个分号处硬截断润色结论的问题；放宽默认字数上限至编码 `90` 字 / 问答 `200` 字 / 多轮合并 `180` 字、润色超时至 `60` 秒，并在卡片直接展示最近整理/润色错误。
+  - 将分散在「日记与归档」与「AI 整理模型」的全部结论设置收拢至「记录 → 任务结论与总结模型」同一张卡片（含独立指定总结 Agent/API、4 格紧凑字数网格、自定义提示词与「用样例试跑总结」）。
+- **日记防抢跑与 Periodic Notes 模板支持（[`src/constants.js`](src/constants.js)、[`src/autolog.js`](src/autolog.js)、[`src/settings.js`](src/settings.js)）**：
+  - 新增「自动创建今日日记」（`journalAutoCreate`，默认开启），关闭后仅写入已存在的日记，避免抢在用户手动创建或 Templater 模板之前生成空文件；自动建项时补齐 Periodic Notes 每日模板回退。
+
 ## 1.13.37
 
 - **跨 Agent 会话标题统一层与零依赖 `node:sqlite` 读取（[`src/sqlite.js`](src/sqlite.js)、[`src/readers.js`](src/readers.js)、[`src/agent-ingestors.js`](src/agent-ingestors.js)、[`src/desktop-sessions.js`](src/desktop-sessions.js)、[`src/cursor-sessions.js`](src/cursor-sessions.js)、[`src/teleagent-dispatch.js`](src/teleagent-dispatch.js)、[`src/main.js`](src/main.js)，`USAGE_CACHE_VERSION = 27`）**：

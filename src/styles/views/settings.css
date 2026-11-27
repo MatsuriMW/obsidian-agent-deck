@@ -343,6 +343,31 @@
     overflow-wrap: anywhere;
   }
 
+  & .ad-num-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    width: 100%;
+  }
+
+  & .ad-num-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+
+    & .ad-num-cell__label {
+      font-size: 11px;
+      line-height: 1.2;
+      color: var(--ad-muted);
+    }
+
+    & .ad-input--num {
+      width: 100%;
+      min-width: 0;
+    }
+  }
+
   /* 分段/胶囊选项组：铺满控件列宽并预留统一 ✓ 勾选位，防止选中时文字跳动 */
   & .ad-seg {
     display: flex;
@@ -1555,6 +1580,10 @@
 
     & .ad-set-nav {
       gap: 12px;
+    }
+
+    & .ad-num-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
   }
 }

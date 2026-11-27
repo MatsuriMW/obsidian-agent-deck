@@ -14,7 +14,7 @@ import { updateNote } from "./note-updates.js";
 import { MarkdownView } from "obsidian";
 import { AGENTS, dayKey, dayKeyToday, dayMinute, fmtTok, fmtClock, journalPath, resolveRecordRules, trackedRounds, seenSessions, startOfDay, unionSegs } from "./constants.js";
 import * as J from "./journal.js";
-import { runJournalModel, safeLabel } from "./llm.js";
+import { summarizeTurn, summarizeMerge } from "./conclusion.js";
 import { ensureTopRule } from "./organize-journal.js";
 
 // Non-journal notes have no layout markers; ensureTopRule is journal-specific
@@ -23,7 +23,6 @@ function safeTopRule(text) {
   try { return ensureTopRule(text); } catch { return text; }
 }
 import { detailForRound } from "./log-detail.js";
-import { condenseUserPrompt } from "./prompt-text.js";
 
 const STATE_KW = J.STATE_KW;
 
@@ -36,6 +35,8 @@ export class JournalSync {
     this._polishing = new WeakSet();
     this._merging = new Set();
     this._mergeAt = new Map();
+    this._lastPolishErr = "";
+    this._lastPolishErrAt = 0;
   }
 
   get usage() { return this.p.usage; }
@@ -258,35 +259,21 @@ export class JournalSync {
     roundObj._asked = true;
     this._polishing.add(roundObj);
     this._refining.add(key);
-    const brief = detailForRound(this.cfg.autoLogDetail, this.cfg.autoLogDetailHistory, roundObj) === "brief";
-    const cleanAsk = condenseUserPrompt(roundObj.ask || this.usage.meta.get(sid)?.title || "");
-    const prompt = [
-      brief ? '把本轮任务和回复分别浓缩成高信息密度的关键词或短语，只输出 JSON：{"task":"任务要点，最多 30 字","result":"结论要点","kind":"code|qa"}。'
-        + 'kind：这一轮在改代码、跑命令、动文件就填 code，result 最多 40 字，写做了什么、现在什么状态（通过 / 待验证 / 失败）；这一轮在解释概念、回答知识问题就填 qa，result 最多 140 字，先给判断再给依据，可以两句。'
-        + 'result 写这一轮最后的落点，不要摘回复开头的过渡铺垫或复述计划。自动过滤用户话语中的口语废话、语气词与寒暄，保留具体动作、对象和失败/待验证等状态，不编造事实，不要代码块。'
-        : '把下面 AI 助手这一轮的回复提炼成结论，只输出 JSON：{"result":"结论","kind":"code|qa"}。kind：改代码 / 跑命令 / 动文件填 code，result 一句话不超过 40 字，写做了什么和现在的状态；解释概念、回答知识问题填 qa，不超过 140 字，取这一轮最后的落点，不要摘开头那句过渡话，不要口语废话、不要前缀、不要引号、不要代码块。',
-      brief ? `任务：${String(cleanAsk).slice(-600)}` : "",
-      "",
-      String(rawSaid).slice(-900),
-    ].join("\n");
-    runJournalModel(prompt, this.cfg, { polish: true, automatic: true })
+    const mode = detailForRound(this.cfg.autoLogDetail, this.cfg.autoLogDetailHistory, roundObj) === "brief" ? "brief" : "standard";
+    const ask = roundObj.ask || this.usage.meta.get(sid)?.title || "";
+    summarizeTurn({ ask, reply: rawSaid, mode, cfg: this.cfg, automatic: true })
       .then((res) => {
-        let data = null;
-        try { data = JSON.parse(String(res || "").replace(/^```(?:json)?\s*|\s*```$/g, "").trim()); } catch { /* older plain-text answer */ }
-        if (data && (data.kind === "qa" || data.kind === "code")) roundObj.kind = data.kind;
-        if (brief) {
-          // 模型偶尔会把 kind 写进 result（例如 "result":"qa"），太短的当没给，回落到本地规则。
-          const taskText = String(data?.task || "").trim();
-          const resultText = String(data?.result || "").trim();
-          if (taskText) roundObj.taskSummary = taskText;
-          if ([...resultText].length >= 4 && !/^(?:code|qa|json)$/i.test(resultText)) roundObj.summary = resultText;
-          return;
-        }
-        const text = data && typeof data.result === "string" ? data.result : "";
-        const clean = text.trim() ? J.oneSentenceConclusion(safeLabel(text.trim(), 65) || text, data?.kind === "qa" ? 120 : 80) : "";
-        if (clean && clean.length >= 4) roundObj.summary = clean;
+        this._lastPolishErr = "";
+        this._lastPolishErrAt = 0;
+        if (res.kind) roundObj.kind = res.kind;
+        if (mode === "brief" && res.task) roundObj.taskSummary = res.task;
+        if (res.result) roundObj.summary = res.result;
       })
-      .catch(() => {})
+      .catch((e) => {
+        this._lastPolishErr = String(e?.message || e || "").trim();
+        this._lastPolishErrAt = Date.now();
+        console.info("[agent-deck] 轮次结论润色失败，回退本地规则：", this._lastPolishErr);
+      })
       .finally(() => { this._polishing.delete(roundObj); this._refining.delete(key); this.run({ force: true }).catch(() => {}); });
   }
 
@@ -299,15 +286,7 @@ export class JournalSync {
     if (pending.length < Math.max(2, Number(this.cfg.autoLogMergeThreshold) || 10)) return;
     this._merging.add(key); this._mergeAt.set(key, Date.now());
     try {
-      const prompt = ["把同一任务以下工作记录合并成 1 到 2 句完整的中文句子，写进日记直接当结论用。"
-        + "每句都要有主语和谓语，读起来是一句完整的话；不要「已完成」「搞定了」这种没有主语的碎片。"
-        + "先说做成了什么、结果如何，再说还差什么没解决；不要逐轮复述用户的要求，也不要把没做完的说成做完了。"
-        + "不要前缀、不要引号、不要代码块，总长不超过 120 字。只输出总结本身。",
-        previous?.text ? `此前总结：${previous.text}` : "",
-        ...pending.map((r) => `第 ${r.n} 轮：${String(r.summary || r.said).slice(-600)}`)].filter(Boolean).join("\n");
-      const raw = await runJournalModel(prompt, this.cfg, { automatic: true });
-      // resultText cuts on a sentence boundary instead of mid-word.
-      const text = J.summaryText(raw, 200);
+      const { text } = await summarizeMerge({ previous: previous?.text || "", rounds: pending, cfg: this.cfg, automatic: true });
       if (!text || !this.cfg.autoLogMerge || this.cfg.journalAutoWrite === false || this._stopped) return;
       const through = Math.max(...pending.map((r) => r.n));
       const bucket = ((this.cfg.autoLogSummaries ||= {})[day] ||= {});
@@ -404,8 +383,8 @@ export class JournalSync {
         said: summary,
         rounds: completed,
         taskTodo,
-        codeMax: Number(this.cfg.conclusionMaxCode) || 65,
-        qaMax: Number(this.cfg.conclusionMaxQA) || 160,
+        codeMax: Number(this.cfg.conclusionMaxCode) || 90,
+        qaMax: Number(this.cfg.conclusionMaxQA) || 200,
         ensureId: true,
       });
       out = synced.text;
