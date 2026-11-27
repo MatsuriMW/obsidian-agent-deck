@@ -115,7 +115,7 @@ test("querySqliteRows reads checkpointed WAL, active WAL, missing DBs, and CLI f
 
     // Missing sqlite3 CLI with useNodeSqlite disabled returns [] silently instead of throwing ENOENT.
     resetSqliteBinaryCache();
-    assert.equal(resolveSqliteBinary({ platform: "win32", env: { PATH: dir }, homeDir: dir }), "sqlite3.exe");
+    assert.equal(resolveSqliteBinary({ platform: "win32", env: { PATH: dir, ProgramData: dir, LOCALAPPDATA: dir }, homeDir: dir }), "sqlite3.exe");
     resetSqliteBinaryCache();
     const emptyRows = await querySqliteRows(dbPath, "SELECT id FROM threads", {
       useNodeSqlite: false,
